@@ -65,7 +65,7 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd string, dir string) {
 	pipeToChan := func(pr io.Reader) {
 		wg.Add(1)
 		defer wg.Done()
-		b := make([]byte, 1024)
+		b := make([]byte, 5*1024)
 		for {
 			// when the pipe gets closed, this goroutine gets released
 			n, err := pr.Read(b)
