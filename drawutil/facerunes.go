@@ -15,7 +15,7 @@ func NewFaceRunes(face *FaceCache) *FaceRunes {
 }
 
 func (fr *FaceRunes) Glyph(ru rune) (dr image.Rectangle, mask image.Image, maskp image.Point, advance fixed.Int26_6, ok bool) {
-	if ru == '\t' || ru == '\n' || ru == eofRune {
+	if ru == '\t' || ru == '\n' || ru == '\r' || ru == eofRune {
 		zero := image.Rect(0, 0, 0, 0)
 		dr := zero
 		mask := image.NewRGBA(zero)
