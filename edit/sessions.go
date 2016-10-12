@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"jmigpin/editor/edit/toolbar"
-	"jmigpin/editor/ui"
 	"os"
 	"path"
 )
@@ -119,7 +118,7 @@ func deleteSession(ed *Editor, part *toolbar.Part) {
 	}
 }
 func listSessions(ed *Editor) {
-	row := ed.getSpecialTagRow("Sessions")
+	row := ed.findRowOrCreate("+Sessions")
 	t := ""
 	ss, err := readSessionsFromDisk()
 	if err != nil {
@@ -204,20 +203,39 @@ func restoreSession(ed *Editor, s *Session) {
 	for i, c := range s.Columns {
 		col := cols.Cols[i]
 		for _, r := range c.Rows {
-			tsd := toolbar.NewStringData(r.ToolbarText)
-			var row *ui.Row
-			filename, ok := tsd.FilenameTag()
-			if !ok {
-				row = col.NewRow()
-			} else {
-				row0, err := openPathAtCol(ed, filename, col)
-				if err != nil {
-					ed.Error(fmt.Errorf("%s: %s", err, filename))
-					continue
-				}
-				row = row0
-			}
+			//tsd := ed.rowToolbarStringData(row)
+			//var row *ui.Row
+
+			//filename, ok := tsd.FirstPartFilename()
+			//if !ok {
+			//row = col.NewRow()
+			//} else {
+			//row0, err := openPathAtCol(ed, filename, col)
+			//if err != nil {
+			//ed.Error(fmt.Errorf("%s: %s", err, filename))
+			//continue
+			//}
+			//row = row0
+			//}
+
+			//v := tsd.FirstPart()
+			//row, err := openPathAtCol(ed, v, col)
+			//if err != nil {
+			//row = col.NewRow()
+
+			//row2 := ed.findRowOrCreate(v + ":+Errors")
+			//row2.TextArea.SetText(err.Error())
+			//}
+
+			row := col.NewRow()
 			row.Toolbar.SetText(r.ToolbarText)
+			//// load only files
+			//tsd := ed.rowToolbarStringData(row)
+			//_, ok := tsd.FirstPartFilename()
+			//if ok {
+			//loadRowContent(ed, row)
+			//}
+			loadRowContent(ed, row)
 			row.TextArea.SetCursorIndex(r.TaCursorIndex)
 			row.TextArea.SetOffsetIndex(r.TaOffsetIndex)
 		}

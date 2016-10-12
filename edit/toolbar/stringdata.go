@@ -1,5 +1,7 @@
 package toolbar
 
+import "os"
+
 type StringData struct {
 	Parts []*Part
 }
@@ -8,47 +10,40 @@ func NewStringData(str string) *StringData {
 	parts := parseParts(str)
 	return &StringData{Parts: parts}
 }
-
-// TODO: should be unique
-func (tb *StringData) FilenameTag() (string, bool) {
-	part, ok := tb.TagPart("f")
-	if !ok {
-		return "", false
+func (sd *StringData) FirstPart() string {
+	if len(sd.Parts) == 0 {
+		return ""
 	}
-	s := part.JoinArgs().Trim()
-	s = insertHomeVar(s)
-	return s, true
+	v := sd.Parts[0].Trim()
+	v = InsertHomeVar(v)
+	return v
 }
 
-// TODO: should be unique
-func (tb *StringData) DirectoryTag() (string, bool) {
-	part, ok := tb.TagPart("d")
-	if !ok {
+func (sd *StringData) FirstPartFilename() (string, bool) {
+	v := sd.FirstPart()
+	fi, err := os.Stat(v)
+	if err != nil {
 		return "", false
 	}
-	s := part.JoinArgs().Trim()
-	s = insertHomeVar(s)
-	return s, true
+	if fi.IsDir() {
+		return "", false
+	}
+	return v, true
+}
+func (sd *StringData) FirstPartDirectory() (string, bool) {
+	v := sd.FirstPart()
+	fi, err := os.Stat(v)
+	if err != nil {
+		return "", false
+	}
+	if !fi.IsDir() {
+		return "", false
+	}
+	return v, true
 }
 
-// TODO: should be unique
-func (tb *StringData) SpecialTag() (string, bool) {
-	part, ok := tb.TagPart("s")
-	if !ok {
-		return "", false
-	}
-	return part.JoinArgs().Trim(), true
-}
-func (tb *StringData) TagPart(tag string) (*Part, bool) {
-	for _, p := range tb.Parts {
-		if p.Tag == tag {
-			return p, true
-		}
-	}
-	return nil, false
-}
-func (tb *StringData) GetPartAtIndex(index int) (*Part, bool) {
-	for _, p := range tb.Parts {
+func (sd *StringData) GetPartAtIndex(index int) (*Part, bool) {
+	for _, p := range sd.Parts {
 		if index >= p.Start && index < p.End {
 			return p, true
 		}

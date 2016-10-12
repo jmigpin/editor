@@ -1,8 +1,6 @@
 package edit
 
 import (
-	"fmt"
-	"jmigpin/editor/edit/toolbar"
 	"jmigpin/editor/ui"
 	"os"
 )
@@ -18,16 +16,9 @@ func saveRowFile(ed *Editor, row *ui.Row) {
 	saveRowFile2(ed, row, false)
 }
 
-// Can be tolerant above rows not having filenames
 func saveRowFile2(ed *Editor, row *ui.Row, tolerant bool) {
-	tsd := toolbar.NewStringData(row.Toolbar.Text())
-	filename, ok := tsd.FilenameTag()
-	if !ok {
-		if !tolerant {
-			ed.Error(fmt.Errorf("row has no filename"))
-		}
-		return
-	}
+	tsd := ed.rowToolbarStringData(row)
+	filename := tsd.FirstPart()
 
 	// best effort to disable/enable filesstates watcher, ignore errors
 	_ = ed.fs.Remove(filename)

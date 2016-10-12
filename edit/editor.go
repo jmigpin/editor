@@ -8,18 +8,12 @@ import (
 	"jmigpin/editor/ui"
 	"jmigpin/editor/xutil/dragndrop"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/fsnotify/fsnotify"
 )
-
-func Main() {
-	_, err := NewEditor()
-	if err != nil {
-		fmt.Println(err)
-	}
-}
 
 type Editor struct {
 	ui *ui.UI
@@ -52,9 +46,9 @@ func NewEditor() (*Editor, error) {
 	flag.Parse()
 	args := flag.Args()
 	if len(args) > 0 {
-		col := ed.ActiveColumn()
+		col := ed.activeColumn()
 		for _, s := range args {
-			_, err := openPathAtCol(ed, s, col)
+			_, err := ed.openFilepath(s, col)
 			if err != nil {
 				ed.Error(err)
 				continue
@@ -68,19 +62,86 @@ func NewEditor() (*Editor, error) {
 
 	return ed, nil
 }
+
 func (ed *Editor) Close() {
 	ed.fs.Close()
 	ed.ui.Close()
 }
 
+func (ed *Editor) activeRow() (*ui.Row, bool) {
+	for _, c := range ed.ui.Layout.Cols.Cols {
+		for _, r := range c.Rows {
+			if r.Square.Active() {
+				return r, true
+			}
+		}
+	}
+	return nil, false
+}
+func (ed *Editor) activeColumn() *ui.Column {
+	row, ok := ed.activeRow()
+	if ok {
+		return row.Col
+	}
+	return ed.ui.Layout.Cols.LastColumnOrNew()
+}
+
+func (ed *Editor) findRow(s string) (*ui.Row, bool) {
+	cols := ed.ui.Layout.Cols
+	for _, c := range cols.Cols {
+		for _, r := range c.Rows {
+			tsd := ed.rowToolbarStringData(r)
+			v := tsd.FirstPart()
+			if v == s {
+				return r, true
+			}
+		}
+	}
+	return nil, false
+}
+func (ed *Editor) findRowOrCreate(name string) *ui.Row {
+	row, ok := ed.findRow(name)
+	if ok {
+		return row
+	}
+	// new row
+	col := ed.activeColumn()
+	row = col.NewRow()
+	row.Toolbar.SetText(name)
+	return row
+}
+
+func (ed *Editor) rowToolbarStringData(row *ui.Row) *toolbar.StringData {
+	return toolbar.NewStringData(row.Toolbar.Text())
+}
+
+func (ed *Editor) openFilepath(filepath string, preferredCol *ui.Column) (*ui.Row, error) {
+	_, err := os.Stat(filepath)
+	if err != nil {
+		return nil, err
+	}
+	row, ok := ed.findRow(filepath)
+	if ok {
+		return row, nil
+	}
+	// new row
+	row = preferredCol.NewRow()
+	p2 := toolbar.ReplaceHomeVar(filepath)
+	row.Toolbar.SetText(p2 + " | Reload")
+	err = loadRowContent(ed, row)
+	return row, err
+}
+
 //func (ed *Editor) onSignal(sig os.Signal) {
 //fmt.Printf("signal: %v\n", sig)
 //}
+
 func (ed *Editor) Error(err error) {
-	row := ed.getSpecialTagRow("Errors")
+	row := ed.findRowOrCreate("+Errors")
 	ta := row.TextArea
 	ta.SetText(ta.Text() + err.Error() + "\n") // append
 }
+
 func (ed *Editor) onUIEvent(ev ui.Event) {
 	switch ev0 := ev.(type) {
 	case error:
@@ -110,7 +171,7 @@ func (ed *Editor) onTextAreaCmd(ev *ui.TextAreaCmdEvent) {
 	case *ui.Row:
 		switch ta {
 		case t0.TextArea:
-			textCmd(ed, t0)
+			stringCmd(ed, t0)
 		case t0.Toolbar:
 			ToolbarCmdFromRow(ed, t0)
 		}
@@ -123,14 +184,14 @@ func (ed *Editor) onTextAreaSetText(ev *ui.TextAreaSetTextEvent) {
 		switch ta {
 		case t0.TextArea:
 			// set as dirty only if it has a filename
-			tsd := toolbar.NewStringData(t0.Toolbar.Text())
-			_, ok := tsd.FilenameTag()
+			tsd := ed.rowToolbarStringData(t0)
+			_, ok := tsd.FirstPartFilename()
 			if ok {
 				t0.Square.SetDirty(true)
 			}
 		case t0.Toolbar:
-			tsd := toolbar.NewStringData(t0.Toolbar.Text())
-			_, ok := tsd.FilenameTag()
+			tsd := ed.rowToolbarStringData(t0)
+			_, ok := tsd.FirstPartFilename()
 			if ok {
 				ed.updateFileStates()
 			}
@@ -145,11 +206,11 @@ func (ed *Editor) onRowKeyPress(ev *ui.RowKeyPressEvent) {
 		return
 	}
 	if m.Control() && m.Shift() && fks == 'f' {
-		filemanagerShortcut(ev.Row)
+		filemanagerShortcut(ed, ev.Row)
 		return
 	}
 	if m.Control() && fks == 'f' {
-		quickFindShortcut(ev.Row)
+		quickFindShortcut(ed, ev.Row)
 		return
 	}
 }
@@ -206,7 +267,7 @@ func parseAsTextURLList(data []byte) ([]*url.URL, error) {
 func (ed *Editor) handleColumnDroppedURLs(col *ui.Column, p *image.Point, urls []*url.URL) {
 	for _, u := range urls {
 		if u.Scheme == "file" {
-			row, err := openPathAtCol(ed, u.Path, col)
+			row, err := ed.openFilepath(u.Path, col)
 			if err != nil {
 				ed.Error(err)
 				continue
@@ -220,8 +281,8 @@ func (ed *Editor) updateFileStates() {
 	var u []string
 	for _, c := range ed.ui.Layout.Cols.Cols {
 		for _, r := range c.Rows {
-			tsd := toolbar.NewStringData(r.Toolbar.Text())
-			filename, ok := tsd.FilenameTag()
+			tsd := ed.rowToolbarStringData(r)
+			filename, ok := tsd.FirstPartFilename()
 			if ok {
 				u = append(u, filename)
 			}
@@ -232,7 +293,7 @@ func (ed *Editor) updateFileStates() {
 func (ed *Editor) onFSEvent(ev fsnotify.Event) {
 	evs := fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename
 	if ev.Op&evs > 0 {
-		row, ok := ed.findFilenameRow(ev.Name)
+		row, ok := ed.findRow(ev.Name)
 		if ok {
 			row.Square.SetCold(true)
 		}
@@ -244,61 +305,4 @@ func (ed *Editor) onFSEvent(ev fsnotify.Event) {
 	// The window might not have focus, and no expose event will happen
 	// Since the fsevents are async, a request is done to ensure a draw
 	ed.ui.RequestTreePaint()
-}
-
-func (ed *Editor) ActiveRow() (*ui.Row, bool) {
-	for _, c := range ed.ui.Layout.Cols.Cols {
-		for _, r := range c.Rows {
-			if r.Square.Active() {
-				return r, true
-			}
-		}
-	}
-	return nil, false
-}
-func (ed *Editor) ActiveColumn() *ui.Column {
-	row, ok := ed.ActiveRow()
-	if ok {
-		return row.Col
-	}
-	return ed.ui.Layout.Cols.LastColumnOrNew()
-}
-
-func (ed *Editor) findFilenameRow(name string) (*ui.Row, bool) {
-	cols := ed.ui.Layout.Cols
-	for _, c := range cols.Cols {
-		for _, r := range c.Rows {
-			tsd := toolbar.NewStringData(r.Toolbar.Text())
-			s, ok := tsd.FilenameTag()
-			if ok && s == name {
-				return r, true
-			}
-		}
-	}
-	return nil, false
-}
-func (ed *Editor) findSpecialTagRow(name string) (*ui.Row, bool) {
-	cols := ed.ui.Layout.Cols
-	for _, c := range cols.Cols {
-		for _, r := range c.Rows {
-			tsd := toolbar.NewStringData(r.Toolbar.Text())
-			s, ok := tsd.SpecialTag()
-			if ok && s == name {
-				return r, true
-			}
-		}
-	}
-	return nil, false
-}
-
-func (ed *Editor) getSpecialTagRow(name string) *ui.Row {
-	row, ok := ed.findSpecialTagRow(name)
-	if ok {
-		return row
-	}
-	// new row
-	col := ed.ActiveColumn()
-	row = col.NewRow()
-	row.Toolbar.SetText("s:" + name)
-	return row
 }

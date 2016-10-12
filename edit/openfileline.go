@@ -7,7 +7,7 @@ import (
 )
 
 func openFileLineAtCol(ed *Editor, filename string, line int, col *ui.Column) {
-	row, err := openPathAtCol(ed, filename, col)
+	row, err := ed.openFilepath(filename, col)
 	if err != nil {
 		ed.Error(err)
 		return

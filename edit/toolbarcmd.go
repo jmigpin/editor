@@ -18,7 +18,7 @@ func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 		return
 	}
 	// try running row command
-	row, ok := ed.ActiveRow()
+	row, ok := ed.activeRow()
 	if ok {
 		ok := rowToolbarCmd(ed, row, part)
 		if ok {
@@ -30,8 +30,8 @@ func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 }
 
 func ToolbarCmdFromRow(ed *Editor, row *ui.Row) {
+	tsd := ed.rowToolbarStringData(row)
 	ta := row.Toolbar
-	tsd := toolbar.NewStringData(ta.Text())
 	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
 		return
@@ -41,13 +41,8 @@ func ToolbarCmdFromRow(ed *Editor, row *ui.Row) {
 		return
 	}
 	// external command
-	ok = part.IsCommandTag()
-	if ok {
-		cmd := part.JoinArgs().Trim()
-		ToolbarCmdExternalForRow(ed, row, cmd)
-		return
-	}
-	ed.Error(fmt.Errorf("unknown row command: %v", part.Str))
+	cmd := part.JoinArgs().Trim()
+	ToolbarCmdExternalForRow(ed, row, cmd)
 }
 
 func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbar.Part) bool {
@@ -68,10 +63,10 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbar.Part) bool {
 	case "SaveAll":
 		saveRowsFiles(ed)
 	case "ReloadAll":
-		reloadRowsFiles(ed)
+		reloadRows(ed)
 	case "NewRow":
 		var col *ui.Column
-		arow, ok := ed.ActiveRow()
+		arow, ok := ed.activeRow()
 		if ok {
 			col = arow.Col
 		} else {
@@ -90,7 +85,7 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbar.Part) bool {
 	case "Save":
 		saveRowFile(ed, row)
 	case "Reload":
-		reloadRowFile(ed, row)
+		reloadRow(ed, row)
 	case "Close":
 		row.Close()
 	case "CloseColumn":
@@ -115,7 +110,7 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbar.Part) bool {
 			old, new := a[0].Trim(), a[1].Trim()
 			tautil.Replace(row.TextArea, old, new)
 		}
-	case "StopCommand":
+	case "Stop":
 		rowCtx.Cancel(row)
 	default:
 		return false

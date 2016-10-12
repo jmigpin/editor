@@ -1,7 +1,6 @@
 package edit
 
 import (
-	"jmigpin/editor/edit/toolbar"
 	"jmigpin/editor/ui"
 	"net/url"
 	"os"
@@ -12,21 +11,8 @@ import (
 	"unicode"
 )
 
-func textCmd(ed *Editor, row *ui.Row) {
+func stringCmd(ed *Editor, row *ui.Row) {
 	ta := row.TextArea
-
-	// TODO: act on selections - click and drag with middle button
-	//s := ""
-	//if ta.SelectionOn() {
-	//a := ta.SelectionIndex()
-	//b := ta.CursorIndex()
-	//if a > b {
-	//a, b = b, a
-	//}
-	//s = ta.Text()[a:b]
-	//} else {
-	//s = parseTextCmd(ta.Text(), ta.CursorIndex())
-	//}
 
 	s := expandLeftRightUntilSpace(ta.Text(), ta.CursorIndex())
 
@@ -37,10 +23,13 @@ func textCmd(ed *Editor, row *ui.Row) {
 		return
 	}
 
-	if ok := textCmdFilenameAndNumber(ed, row, s); ok {
+	if ok := stringCmdDirectory(ed, row, s); ok {
 		return
 	}
-	if ok := textCmdHttp(ed, row, s); ok {
+	if ok := stringCmdFilenameAndNumber(ed, row, s); ok {
+		return
+	}
+	if ok := stringCmdHttp(ed, row, s); ok {
 		return
 	}
 }
@@ -61,7 +50,6 @@ func expandLeftRightUntilSpace(str string, index int) string {
 	}
 	s2 := str[i0:i1]
 	s3 := strings.TrimSpace(s2)
-	//println("textcmd: expand1:", s3)
 	return s3
 }
 func afterSpaceExpandRightUntilSpace(str string, index int) string {
@@ -90,60 +78,76 @@ func afterSpaceExpandRightUntilSpace(str string, index int) string {
 	}
 	s2 := str[i2:i3]
 	s3 := strings.TrimSpace(s2)
-	//println("textcmd: expand2:", s3)
 	return s3
 }
 
-// filename:number (mostly compiler errors)
-func textCmdFilenameAndNumber(ed *Editor, row *ui.Row, s string) bool {
-	filename, ok := textCmdFilename(row, s)
-	if !ok {
+func stringCmdDirectory(ed *Editor, row *ui.Row, cmd string) bool {
+	p := cmd
+	if !path.IsAbs(cmd) {
+		tsd := ed.rowToolbarStringData(row)
+		d, ok := tsd.FirstPartDirectory()
+		if ok {
+			p = path.Join(d, p)
+		} else {
+			f, ok := tsd.FirstPartFilename()
+			if ok {
+				p = path.Join(path.Dir(f), p)
+			}
+		}
+	}
+	fi, err := os.Stat(p)
+	if err != nil {
 		return false
 	}
-	n, ok := textCmdFilenameNumber(row, s)
-	if !ok {
-		n = 0 // continue with line zero
+	if !fi.IsDir() {
+		return false
 	}
-	openFileLineAtCol(ed, filename, n, row.Col)
+	col := ed.activeColumn()
+	row, err = ed.openFilepath(p, col)
+	if err == nil {
+		row.Square.WarpPointer()
+	}
 	return true
 }
 
-func textCmdFilename(row *ui.Row, tcmd string) (string, bool) {
-	a := strings.Split(tcmd, ":")
+// filename:number (mostly compiler errors)
+func stringCmdFilenameAndNumber(ed *Editor, row *ui.Row, scmd string) bool {
+	// filename
+	a := strings.Split(scmd, ":")
 	filename := a[0]
 	if !path.IsAbs(filename) {
-		tsd := toolbar.NewStringData(row.Toolbar.Text())
-		d, ok := tsd.DirectoryTag()
+		tsd := ed.rowToolbarStringData(row)
+		d, ok := tsd.FirstPartDirectory()
 		if ok {
 			filename = path.Join(d, filename)
 		} else {
-			f, ok := tsd.FilenameTag()
+			f, ok := tsd.FirstPartFilename()
 			if ok {
 				filename = path.Join(path.Dir(f), filename)
 			}
 		}
 	}
 	fi, err := os.Stat(filename)
-	if err != nil { // os.IsNotExist(err)
-		return "", false
+	if err != nil {
+		return false
 	}
 	if fi.IsDir() {
-		return "", false
+		return false
 	}
-	return filename, true
+	// line number
+	num := 0
+	if len(a) >= 2 {
+		v, err := strconv.ParseUint(a[1], 10, 64)
+		if err == nil {
+			num = int(v)
+		}
+	}
+	// open
+	openFileLineAtCol(ed, filename, num, row.Col)
+	return true
 }
-func textCmdFilenameNumber(row *ui.Row, tcmd string) (int, bool) {
-	a := strings.Split(tcmd, ":")
-	if len(a) < 2 {
-		return 0, false
-	}
-	num, err := strconv.ParseUint(a[1], 10, 64)
-	if err != nil {
-		return 0, false
-	}
-	return int(num), true
-}
-func textCmdHttp(ed *Editor, row *ui.Row, s string) bool {
+
+func stringCmdHttp(ed *Editor, row *ui.Row, s string) bool {
 	u, err := url.Parse(s)
 	if err != nil {
 		return false

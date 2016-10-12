@@ -3,7 +3,6 @@ package edit
 import (
 	"context"
 	"io"
-	"jmigpin/editor/edit/toolbar"
 	"jmigpin/editor/ui"
 	"os/exec"
 	"sync"
@@ -11,8 +10,9 @@ import (
 
 func ToolbarCmdExternalForRow(ed *Editor, row *ui.Row, cmd string) {
 	workDir := ""
-	tsd := toolbar.NewStringData(row.Toolbar.Text())
-	if dir, ok := tsd.DirectoryTag(); ok {
+	tsd := ed.rowToolbarStringData(row)
+	dir, ok := tsd.FirstPartDirectory()
+	if ok {
 		workDir = dir
 	}
 	execRowCmd(row, cmd, workDir)

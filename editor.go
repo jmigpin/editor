@@ -1,11 +1,8 @@
 package main
 
 import (
-	//"flag"
+	"fmt"
 	"jmigpin/editor/edit"
-	//"log"
-	//"os"
-	//"runtime/pprof"
 )
 
 //var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
@@ -20,5 +17,8 @@ func main() {
 	//defer pprof.StopCPUProfile()
 	//}
 
-	edit.Main()
+	_, err := edit.NewEditor()
+	if err != nil {
+		fmt.Println(err)
+	}
 }

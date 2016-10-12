@@ -1,22 +1,21 @@
 package edit
 
 import (
-	"jmigpin/editor/edit/toolbar"
 	"jmigpin/editor/ui"
 	"os/exec"
 	"path"
 )
 
-func filemanagerShortcut(row *ui.Row) {
+func filemanagerShortcut(ed *Editor, row *ui.Row) {
 	dir := ""
-	tsd := toolbar.NewStringData(row.Toolbar.Text())
-	dt, ok := tsd.DirectoryTag()
+	tsd := ed.rowToolbarStringData(row)
+	d, ok := tsd.FirstPartDirectory()
 	if ok {
-		dir = dt
+		dir = d
 	} else {
-		ft, ok := tsd.FilenameTag()
+		f, ok := tsd.FirstPartFilename()
 		if ok {
-			dir = path.Dir(ft)
+			dir = path.Dir(f)
 		}
 	}
 	c := exec.Command("filemanager.sh", dir)
