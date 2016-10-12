@@ -27,7 +27,7 @@ var TextAreaColors = drawutil.Colors{
 	SelectionBg: color.RGBA{238, 238, 122, 255},
 	HighlightFg: nil,
 	HighlightBg: color.RGBA{209, 238, 162, 255},
-	Comment:     color.RGBA{0, 120, 0, 255},
+	Comment:     color.RGBA{0, 100, 0, 255},
 }
 
 var ToolbarColors = drawutil.Colors{
