@@ -19,7 +19,8 @@ func saveRowFile(ed *Editor, row *ui.Row) {
 
 func saveRowFile2(ed *Editor, row *ui.Row, tolerant bool) {
 	tsd := ed.rowToolbarStringData(row)
-	filename := tsd.FirstPart()
+	// file might not exist yet, so getting from filepath
+	filename := tsd.FirstPartFilepath()
 
 	// best effort to disable/enable filesstates watcher, ignore errors
 	_ = ed.fs.Remove(filename)

@@ -10,28 +10,31 @@ func NewStringData(str string) *StringData {
 	parts := parseParts(str)
 	return &StringData{Parts: parts}
 }
-func (sd *StringData) FirstPart() string {
+func (sd *StringData) FirstPartFilepath() string {
 	if len(sd.Parts) == 0 {
 		return ""
 	}
+	if len(sd.Parts[0].Args) != 1 {
+		return ""
+	}
 	v := sd.Parts[0].Trim()
-	v = InsertHomeVar(v)
+	v = RemoveHomeTilde(v)
 	return v
 }
 
 func (sd *StringData) FirstPartFilename() (string, bool) {
-	v := sd.FirstPart()
+	v := sd.FirstPartFilepath()
 	fi, err := os.Stat(v)
 	if err != nil {
 		return "", false
 	}
-	if fi.IsDir() {
+	if !fi.Mode().IsRegular() {
 		return "", false
 	}
 	return v, true
 }
 func (sd *StringData) FirstPartDirectory() (string, bool) {
-	v := sd.FirstPart()
+	v := sd.FirstPartFilepath()
 	fi, err := os.Stat(v)
 	if err != nil {
 		return "", false

@@ -33,6 +33,11 @@ func stringCmd(ed *Editor, row *ui.Row) {
 	if ok := stringCmdHttp(ed, row, s); ok {
 		return
 	}
+
+	s2 := expandLeftRightUntilSpaceOrQuote(ta.Text(), ta.CursorIndex())
+	if ok := stringCmdGoPathDir(ed, row, s2); ok {
+		return
+	}
 }
 
 func expandLeftRightUntilSpace(str string, index int) string {
@@ -81,6 +86,30 @@ func afterSpaceExpandRightUntilSpace(str string, index int) string {
 	s3 := strings.TrimSpace(s2)
 	return s3
 }
+func expandLeftRightUntilSpaceOrQuote(str string, index int) string {
+	if index > len(str) {
+		index = len(str)
+	}
+
+	isStop := func(ru rune) bool {
+		return unicode.IsSpace(ru) || ru == '"'
+	}
+
+	i0 := strings.LastIndexFunc(str[:index], isStop)
+	if i0 < 0 {
+		i0 = 0
+	} else {
+		i0 += 1 // size of stop rune (quote or space)
+	}
+	i1 := strings.IndexFunc(str[index:], isStop)
+	if i1 < 0 {
+		i1 = len(str)
+	} else {
+		i1 += index
+	}
+	s2 := str[i0:i1]
+	return s2
+}
 
 func stringCmdDirectory(ed *Editor, row *ui.Row, cmd string) bool {
 	p := cmd
@@ -111,7 +140,7 @@ func stringCmdDirectory(ed *Editor, row *ui.Row, cmd string) bool {
 	return true
 }
 
-// filename:number (mostly compiler errors)
+// Opens filename at line, like in compiler errors <string:int> format.
 func stringCmdFilenameAndNumber(ed *Editor, row *ui.Row, scmd string) bool {
 	// filename
 	a := strings.Split(scmd, ":")
@@ -148,6 +177,7 @@ func stringCmdFilenameAndNumber(ed *Editor, row *ui.Row, scmd string) bool {
 	return true
 }
 
+// Opens http/https lines in x-www-browser.
 func stringCmdHttp(ed *Editor, row *ui.Row, s string) bool {
 	u, err := url.Parse(s)
 	if err != nil {
@@ -164,4 +194,24 @@ func stringCmdHttp(ed *Editor, row *ui.Row, s string) bool {
 		}
 	}()
 	return true
+}
+
+// Get strings enclosed in quotes, like an import line in a go file, and open the file if found in GOROOT/GOPATH directories.
+func stringCmdGoPathDir(ed *Editor, row *ui.Row, s string) bool {
+	gopath := os.Getenv("GOPATH")
+	a := strings.Split(gopath, ":")
+	a = append(a, os.Getenv("GOROOT"))
+	for _, p := range a {
+		p2 := path.Join(p, "src", s)
+		_, err := os.Stat(p2)
+		if err == nil {
+			col := ed.activeColumn()
+			row, err = ed.openFilepath(p2, col)
+			if err == nil {
+				row.Square.WarpPointer()
+			}
+			return true
+		}
+	}
+	return false
 }

@@ -13,8 +13,17 @@ func reloadRow(ed *Editor, row *ui.Row) {
 	reloadRow2(ed, row, false)
 }
 func reloadRow2(ed *Editor, row *ui.Row, tolerant bool) {
-	err := loadRowContent(ed, row)
-	if err != nil && !tolerant {
-		ed.Error(err)
+	tsd := ed.rowToolbarStringData(row)
+	p := tsd.FirstPartFilepath()
+	content, err := filepathContent(p)
+	if err != nil {
+		if !tolerant {
+			ed.Error(err)
+			return
+		}
 	}
+	row.TextArea.SetText(content)
+	row.TextArea.SetSelectionOn(false)
+	row.Square.SetDirty(false)
+	row.Square.SetCold(false)
 }

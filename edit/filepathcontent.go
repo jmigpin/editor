@@ -5,26 +5,22 @@ import (
 	"os"
 	"sort"
 	"strings"
-
-	"github.com/jmigpin/editor/ui"
 )
 
-func loadRowContent(ed *Editor, row *ui.Row) error {
-	tsd := ed.rowToolbarStringData(row)
-	v := tsd.FirstPart()
-	fi, err := os.Stat(v)
+func filepathContent(filepath string) (string, error) {
+	fi, err := os.Stat(filepath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if fi.IsDir() {
 		// list directory
-		f, err := os.Open(v)
+		f, err := os.Open(filepath)
 		if err != nil {
-			return err
+			return "", err
 		}
 		fis, err := f.Readdir(-1)
 		if err != nil {
-			return err
+			return "", err
 		}
 		sort.Sort(ByListOrder(fis))
 		s := ""
@@ -35,22 +31,14 @@ func loadRowContent(ed *Editor, row *ui.Row) error {
 			}
 			s += name + "\n"
 		}
-		row.TextArea.SetText(s)
-		row.TextArea.SetSelectionOn(false)
-		row.Square.SetDirty(false)
-		row.Square.SetCold(false)
-		return nil
+		return s, nil
 	}
 	// file content
-	b, err := ioutil.ReadFile(v)
+	b, err := ioutil.ReadFile(filepath)
 	if err != nil {
-		return err
+		return "", err
 	}
-	row.TextArea.SetText(string(b))
-	row.TextArea.SetSelectionOn(false)
-	row.Square.SetDirty(false)
-	row.Square.SetCold(false)
-	return nil
+	return string(b), nil
 }
 
 type ByListOrder []os.FileInfo

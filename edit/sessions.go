@@ -204,39 +204,18 @@ func restoreSession(ed *Editor, s *Session) {
 	for i, c := range s.Columns {
 		col := cols.Cols[i]
 		for _, r := range c.Rows {
-			//tsd := ed.rowToolbarStringData(row)
-			//var row *ui.Row
-
-			//filename, ok := tsd.FirstPartFilename()
-			//if !ok {
-			//row = col.NewRow()
-			//} else {
-			//row0, err := openPathAtCol(ed, filename, col)
-			//if err != nil {
-			//ed.Error(fmt.Errorf("%s: %s", err, filename))
-			//continue
-			//}
-			//row = row0
-			//}
-
-			//v := tsd.FirstPart()
-			//row, err := openPathAtCol(ed, v, col)
-			//if err != nil {
-			//row = col.NewRow()
-
-			//row2 := ed.findRowOrCreate(v + ":+Errors")
-			//row2.TextArea.SetText(err.Error())
-			//}
-
 			row := col.NewRow()
 			row.Toolbar.SetText(r.ToolbarText)
-			//// load only files
-			//tsd := ed.rowToolbarStringData(row)
-			//_, ok := tsd.FirstPartFilename()
-			//if ok {
-			//loadRowContent(ed, row)
-			//}
-			loadRowContent(ed, row)
+			// content
+			tsd := ed.rowToolbarStringData(row)
+			p := tsd.FirstPartFilepath()
+			content, err := filepathContent(p)
+			if err != nil {
+				ed.Error(err)
+			} else {
+				row.TextArea.SetText(content)
+				row.Square.SetDirty(false)
+			}
 			row.TextArea.SetCursorIndex(r.TaCursorIndex)
 			row.TextArea.SetOffsetIndex(r.TaOffsetIndex)
 		}

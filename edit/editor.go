@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/jmigpin/editor/edit/toolbar"
@@ -92,7 +91,7 @@ func (ed *Editor) findRow(s string) (*ui.Row, bool) {
 	for _, c := range cols.Cols {
 		for _, r := range c.Rows {
 			tsd := ed.rowToolbarStringData(r)
-			v := tsd.FirstPart()
+			v := tsd.FirstPartFilepath()
 			if v == s {
 				return r, true
 			}
@@ -117,20 +116,23 @@ func (ed *Editor) rowToolbarStringData(row *ui.Row) *toolbar.StringData {
 }
 
 func (ed *Editor) openFilepath(filepath string, preferredCol *ui.Column) (*ui.Row, error) {
-	_, err := os.Stat(filepath)
-	if err != nil {
-		return nil, err
-	}
 	row, ok := ed.findRow(filepath)
 	if ok {
 		return row, nil
 	}
 	// new row
+	content, err := filepathContent(filepath)
+	if err != nil {
+		return nil, err
+	}
 	row = preferredCol.NewRow()
-	p2 := toolbar.ReplaceHomeVar(filepath)
+	p2 := toolbar.InsertHomeTilde(filepath)
 	row.Toolbar.SetText(p2 + " | Reload")
-	err = loadRowContent(ed, row)
-	return row, err
+	row.TextArea.SetText(content)
+	row.TextArea.SetSelectionOn(false)
+	row.Square.SetDirty(false)
+	row.Square.SetCold(false)
+	return row, nil
 }
 
 //func (ed *Editor) onSignal(sig os.Signal) {
