@@ -15,6 +15,10 @@ func MoveLineUp(ta Texta) {
 	s := text[a:b]                   // line
 	text = text[:a] + text[b:]       // remove line
 	a2 := lineStartIndex(text, a-1)  // previous line, -1 is size of '\n'
+	// add newline if moving the last line
+	if b==len(text){
+		s+="\n"
+	}
 	text = text[:a2] + s + text[a2:] // insert
 
 	ta.SetText(text)
