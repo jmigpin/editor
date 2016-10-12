@@ -1,7 +1,6 @@
 package edit
 
 import (
-	"jmigpin/editor/ui"
 	"net/url"
 	"os"
 	"os/exec"
@@ -9,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/jmigpin/editor/ui"
 )
 
 func stringCmd(ed *Editor, row *ui.Row) {

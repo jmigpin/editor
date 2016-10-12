@@ -4,12 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"jmigpin/editor/edit/toolbar"
-	"jmigpin/editor/ui"
-	"jmigpin/editor/xutil/dragndrop"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/jmigpin/editor/edit/toolbar"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/xutil/dragndrop"
 
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/fsnotify/fsnotify"

@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"jmigpin/editor/xutil/xuutil"
+
+	"github.com/jmigpin/editor/xutil/xuutil"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"

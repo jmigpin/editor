@@ -1,6 +1,6 @@
 package edit
 
-import "jmigpin/editor/ui"
+import "github.com/jmigpin/editor/ui"
 
 func reloadRows(ed *Editor) {
 	for _, c := range ed.ui.Layout.Cols.Cols {

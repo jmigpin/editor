@@ -2,10 +2,11 @@ package edit
 
 import (
 	"io/ioutil"
-	"jmigpin/editor/ui"
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/jmigpin/editor/ui"
 )
 
 func loadRowContent(ed *Editor, row *ui.Row) error {

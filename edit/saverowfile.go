@@ -1,8 +1,9 @@
 package edit
 
 import (
-	"jmigpin/editor/ui"
 	"os"
+
+	"github.com/jmigpin/editor/ui"
 )
 
 func saveRowsFiles(ed *Editor) {

@@ -3,9 +3,10 @@ package edit
 import (
 	"encoding/json"
 	"fmt"
-	"jmigpin/editor/edit/toolbar"
 	"os"
 	"path"
+
+	"github.com/jmigpin/editor/edit/toolbar"
 )
 
 type Sessions struct {

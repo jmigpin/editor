@@ -1,9 +1,10 @@
 package edit
 
 import (
-	"jmigpin/editor/ui"
 	"os/exec"
 	"path"
+
+	"github.com/jmigpin/editor/ui"
 )
 
 func filemanagerShortcut(ed *Editor, row *ui.Row) {

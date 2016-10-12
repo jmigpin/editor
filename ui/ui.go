@@ -5,10 +5,10 @@ import (
 	"image"
 	"image/draw"
 
-	"jmigpin/editor/drawutil"
-	"jmigpin/editor/xutil"
-	"jmigpin/editor/xutil/dragndrop"
-	"jmigpin/editor/xutil/keybmap"
+	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/xutil"
+	"github.com/jmigpin/editor/xutil/dragndrop"
+	"github.com/jmigpin/editor/xutil/keybmap"
 
 	"golang.org/x/image/font"
 

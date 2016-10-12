@@ -3,9 +3,10 @@ package edit
 import (
 	"context"
 	"io"
-	"jmigpin/editor/ui"
 	"os/exec"
 	"sync"
+
+	"github.com/jmigpin/editor/ui"
 )
 
 func ToolbarCmdExternalForRow(ed *Editor, row *ui.Row, cmd string) {

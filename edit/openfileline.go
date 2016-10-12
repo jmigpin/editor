@@ -1,9 +1,10 @@
 package edit
 
 import (
-	"jmigpin/editor/ui"
 	"strings"
 	"unicode"
+
+	"github.com/jmigpin/editor/ui"
 )
 
 func openFileLineAtCol(ed *Editor, filename string, line int, col *ui.Column) {

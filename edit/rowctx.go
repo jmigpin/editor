@@ -2,8 +2,9 @@ package edit
 
 import (
 	"context"
-	"jmigpin/editor/ui"
 	"sync"
+
+	"github.com/jmigpin/editor/ui"
 )
 
 var rowCtx = &RowCtx{m: make(map[*ui.Row]*RowCtxData)}

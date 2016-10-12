@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"image"
 	"io/ioutil"
-	"jmigpin/editor/xutil/copypaste"
-	"jmigpin/editor/xutil/dragndrop"
-	"jmigpin/editor/xutil/keybmap"
-	"jmigpin/editor/xutil/xuutil"
 	"log"
+
+	"github.com/jmigpin/editor/xutil/copypaste"
+	"github.com/jmigpin/editor/xutil/dragndrop"
+	"github.com/jmigpin/editor/xutil/keybmap"
+	"github.com/jmigpin/editor/xutil/xuutil"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"

@@ -3,7 +3,8 @@ package ui
 import (
 	"image"
 	"image/color"
-	"jmigpin/editor/drawutil"
+
+	"github.com/jmigpin/editor/drawutil"
 )
 
 type Container struct {

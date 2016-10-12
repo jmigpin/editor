@@ -2,9 +2,10 @@ package edit
 
 import (
 	"fmt"
-	"jmigpin/editor/edit/toolbar"
-	"jmigpin/editor/ui"
-	"jmigpin/editor/ui/tautil"
+
+	"github.com/jmigpin/editor/edit/toolbar"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/ui/tautil"
 )
 
 func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {

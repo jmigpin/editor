@@ -3,8 +3,9 @@ package ui
 import (
 	"image"
 	"image/color"
-	"jmigpin/editor/xutil/dragndrop"
 	"sync"
+
+	"github.com/jmigpin/editor/xutil/dragndrop"
 )
 
 type Column struct {

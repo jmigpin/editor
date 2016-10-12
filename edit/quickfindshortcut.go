@@ -1,9 +1,9 @@
 package edit
 
 import (
-	"jmigpin/editor/drawutil"
-	"jmigpin/editor/edit/toolbar"
-	"jmigpin/editor/ui"
+	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/edit/toolbar"
+	"github.com/jmigpin/editor/ui"
 )
 
 // Search for the find command in the toolbar and warps the pointer to it. Adds the command to the toolbar if not present.

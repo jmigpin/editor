@@ -2,7 +2,8 @@ package ui
 
 import (
 	"image/color"
-	"jmigpin/editor/drawutil"
+
+	"github.com/jmigpin/editor/drawutil"
 )
 
 var (

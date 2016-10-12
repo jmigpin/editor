@@ -2,9 +2,10 @@ package ui
 
 import (
 	"image"
-	"jmigpin/editor/drawutil"
-	"jmigpin/editor/ui/tautil"
-	"jmigpin/editor/xutil/keybmap"
+
+	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/ui/tautil"
+	"github.com/jmigpin/editor/xutil/keybmap"
 
 	"github.com/BurntSushi/xgb/xproto"
 

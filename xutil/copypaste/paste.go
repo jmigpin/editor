@@ -3,10 +3,11 @@ package copypaste
 import (
 	"context"
 	"fmt"
-	"jmigpin/editor/xutil/xuutil"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/jmigpin/editor/xutil/xuutil"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"

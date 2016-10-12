@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"jmigpin/editor/edit"
+
+	"github.com/jmigpin/editor/edit"
 )
 
 //var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
