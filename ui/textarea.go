@@ -186,7 +186,9 @@ func (ta *TextArea) MakeIndexVisible(index int) {
 	offsetY := p.Y - half
 	ta.SetOffsetY(offsetY)
 }
-func (ta *TextArea) WarpPointerToCursor() {
+func (ta *TextArea) MakeCursorVisibleAndWarpPointerToCursor() {
+	ta.MakeIndexVisible(ta.CursorIndex())
+
 	p := ta.stringCache.GetPoint(ta.CursorIndex())
 	p.Y -= ta.offsetY
 	p2 := drawutil.Point266ToPoint(p)
@@ -194,10 +196,12 @@ func (ta *TextArea) WarpPointerToCursor() {
 	// add pad
 	p3.Y += ta.LineHeight().Round()
 	p3.X += 5
-	// ensure the cursor is reachable (ex: area small and cursor is drawn outside of it)
+
+	// ensure the cursor is reachable in X (ex: textarea is small and cursor is drawn outside of it)
 	if !p3.In(ta.Area) {
 		p3.X = 0
 	}
+
 	ta.UI.WarpPointer(&p3)
 }
 

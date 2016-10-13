@@ -23,7 +23,7 @@ func filepathContent(filepath string) (string, error) {
 			return "", err
 		}
 		sort.Sort(ByListOrder(fis))
-		s := ""
+		s := "../\n"
 		for _, fi := range fis {
 			name := fi.Name()
 			if fi.IsDir() {

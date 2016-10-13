@@ -42,6 +42,5 @@ func openFileLineAtCol(ed *Editor, filename string, line int, col *ui.Column) {
 
 	ta.SetSelectionOn(false)
 	ta.SetCursorIndex(index)
-	ta.MakeIndexVisible(index)
-	ta.WarpPointerToCursor()
+	ta.MakeCursorVisibleAndWarpPointerToCursor()
 }
