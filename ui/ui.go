@@ -283,16 +283,16 @@ func (ui *UI) onUIPushedEvent(ev Event) {
 }
 func (ui *UI) onTextAreaSetText(ev0 *TextAreaSetTextEvent) {
 	ta := ev0.TextArea
-	// toolbar dynamic Y needs parent container to adjust
-	if ta.DynamicY {
-		// calc parent container
-		switch t0 := ev0.TextArea.Data.(type) {
-		case *Row:
-			t0.CalcOwnArea()
-			t0.NeedPaint()
+	switch t0 := ev0.TextArea.Data.(type) {
+	case *Toolbar:
+		// update toolbar parent container
+		switch t1 := t0.Data.(type) {
 		case *Layout:
-			t0.CalcOwnArea()
-			t0.NeedPaint()
+			t1.CalcOwnArea()
+			t1.NeedPaint()
+		case *Row:
+			t1.CalcOwnArea()
+			t1.NeedPaint()
 		}
 		// keep pointer inside the area if it was in before
 		p, ok := ta.UI.XUtil.QueryPointer()
@@ -300,11 +300,9 @@ func (ui *UI) onTextAreaSetText(ev0 *TextAreaSetTextEvent) {
 		if wasIn {
 			ta.UI.WarpPointerToRectangle(&ta.Area)
 		}
-	}
-	// scrollbar
-	switch t0 := ev0.TextArea.Data.(type) {
 	case *Row:
-		if ev0.TextArea == t0.TextArea {
+		// update scrollbar
+		if ta == t0.TextArea {
 			t0.scrollbar.CalcOwnArea()
 			t0.scrollbar.NeedPaint()
 		}

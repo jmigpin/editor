@@ -14,8 +14,9 @@ import (
 
 type TextArea struct {
 	Container
-	Colors   *drawutil.Colors
-	DynamicY bool // adjust area.y to used area (ex:toolbars)
+	Colors                     *drawutil.Colors
+	DisableHighlightCursorWord bool
+	DisableButtonScroll        bool
 
 	stringCache drawutil.StringCache
 
@@ -34,10 +35,9 @@ type TextArea struct {
 			firstCalcDone bool
 			areaDx        int
 		}
-
 		undo struct {
-			pos  int
-			text []string
+			start, end, cur int // positions
+			strings         []string
 		}
 	}
 }
@@ -48,6 +48,9 @@ func NewTextArea() *TextArea {
 	ta.Colors = &c
 	ta.Container.Painter = ta
 	ta.Container.OnPointEvent = ta.onPointEvent
+
+	ta.cache.undo.strings = make([]string, 10)
+
 	return ta
 }
 func (ta *TextArea) CalcArea(area *image.Rectangle) {
@@ -73,20 +76,20 @@ func (ta *TextArea) CalcArea(area *image.Rectangle) {
 	if fixOffsetY {
 		ta.SetOffsetIndex(offsetIndex)
 	}
-
-	if ta.DynamicY {
-		th := ta.TextHeight().Round()
-		// minimum height in dynamic mode (ex: empty text)
-		lh := ta.LineHeight().Round()
-		if th < lh {
-			th = lh
-		}
-		// adjust to the used y
-		y := ta.Area.Min.Y + th
-		if y < ta.Area.Max.Y {
-			ta.Area.Max.Y = y
-		}
+}
+func (ta *TextArea) UsedY() int {
+	th := ta.TextHeight().Round()
+	// minimum height (ex: empty text)
+	lh := ta.LineHeight().Round()
+	if th < lh {
+		th = lh
 	}
+	// limit with allowed area
+	y := ta.Area.Min.Y + th
+	if y > ta.Area.Max.Y {
+		y = ta.Area.Max.Y
+	}
+	return y
 }
 func (ta *TextArea) Paint() {
 	// fill background
@@ -103,7 +106,7 @@ func (ta *TextArea) Paint() {
 	// img needs to be clipped for drawing
 	img := ta.UI.RootImageSubImage(&ta.Area)
 
-	highlight := ta.DynamicY == false && selection == nil
+	highlight := !ta.DisableHighlightCursorWord && selection == nil
 
 	ta.stringCache.Draw(
 		img,
@@ -125,7 +128,7 @@ func (ta *TextArea) Text() string {
 func (ta *TextArea) SetText(v string) {
 	if v != ta.text {
 		ta.text = v
-		oldArea := ta.Area
+		oldArea := ta.Area // usefull for dynamic y change detection (toolbars)
 		ta.CalcOwnArea()
 		ta.NeedPaint()
 		ta.UI.PushEvent(&TextAreaSetTextEvent{ta, oldArea})
@@ -245,29 +248,36 @@ func (ta *TextArea) PointIndexFromOffset(p *image.Point) int {
 	return ta.stringCache.GetIndex(p0)
 }
 
-func (ta *TextArea) PushTextCopy() {
-	a := ta.cache.undo.text
-	if len(a) > 0 {
-		s := a[len(a)-1]
-		if ta.text == s { // last cache entry is equal
-			return
-		}
+func (ta *TextArea) pushUndoString() {
+	v := &ta.cache.undo
+	v.strings[v.cur%len(v.strings)] = ta.text
+	v.cur++
+	v.end = v.cur
+	if v.end-v.start > len(v.strings) {
+		v.start = v.end - len(v.strings)
 	}
-	a = append(a, ta.text)
-	if len(a) > 10 {
-		copy(a, a[1:])
-	}
-	ta.cache.undo.text = a
 }
-func (ta *TextArea) PopTextCopy() (string, bool) {
-	a := ta.cache.undo.text
-	if len(a) == 0 {
+
+//func (ta*TextArea) replaceUndoString(){
+
+//}
+func (ta *TextArea) PopUndoString() (string, bool) {
+	v := &ta.cache.undo
+	if v.cur-1 < v.start {
 		return "", false
 	}
-	s := a[len(a)-1] // last
-	a = a[:len(a)-1] // pop
-	ta.cache.undo.text = a
-	return s, true // return last
+	v.cur--
+	s := v.strings[v.cur%len(v.strings)]
+	return s, true
+}
+func (ta *TextArea) UnpopUndoString() (string, bool) {
+	v := &ta.cache.undo
+	if v.cur == v.end {
+		return "", false
+	}
+	s := v.strings[v.cur%len(v.strings)]
+	v.cur++
+	return s, true
 }
 
 func (ta *TextArea) TextHeight() fixed.Int26_6 {
@@ -311,12 +321,12 @@ func (ta *TextArea) onButtonPress(p *image.Point, b *keybmap.Button) {
 		sel := b.Mods.Shift()
 		tautil.MoveCursorToPoint(ta, p, sel)
 	case xproto.ButtonIndex4:
-		if !ta.DynamicY {
+		if !ta.DisableButtonScroll {
 			tautil.ScrollUp(ta)
 			ta.UI.PushEvent(&TextAreaScrollEvent{ta, true})
 		}
 	case xproto.ButtonIndex5:
-		if !ta.DynamicY {
+		if !ta.DisableButtonScroll {
 			tautil.ScrollDown(ta)
 			ta.UI.PushEvent(&TextAreaScrollEvent{ta, false})
 		}
@@ -413,14 +423,12 @@ func (ta *TextArea) onKeyPress(k *keybmap.Key) {
 			case 'a':
 				tautil.SelectAll(ta)
 				return
-
-				//case 'a':
-				//sel := k.Modifiers.Shift()
-				//tautil.StartOfLine(ta, sel)
-				//case 'e':
-				//sel := k.Modifiers.Shift()
-				//tautil.EndOfLine(ta, sel)
-
+			case 'z':
+				if k.Modifiers.Shift() {
+					tautil.Redo(ta)
+				} else {
+					tautil.Undo(ta)
+				}
 			}
 		}
 		switch firstKeysym {

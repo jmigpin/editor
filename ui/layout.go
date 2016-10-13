@@ -4,7 +4,7 @@ import "image"
 
 type Layout struct {
 	Container
-	Toolbar *TextArea
+	Toolbar *Toolbar
 	Cols    *Columns
 }
 
@@ -13,9 +13,8 @@ func NewLayout(ui *UI) *Layout {
 	layout.Container.Painter = layout
 	layout.UI = ui
 
-	layout.Toolbar = NewTextArea()
+	layout.Toolbar = NewToolbar()
 	layout.Toolbar.Data = layout
-	layout.Toolbar.DynamicY = true
 	layout.Toolbar.Colors = &ToolbarColors
 
 	layout.Cols = NewColumns(layout)
@@ -27,8 +26,8 @@ func (layout *Layout) CalcArea(area *image.Rectangle) {
 	a := *area
 	layout.Area = a
 	layout.Toolbar.CalcArea(&a)
-	a.Min.Y = layout.Toolbar.Area.Max.Y
 	// separator
+	a.Min.Y = layout.Toolbar.Area.Max.Y
 	a.Min.Y += SeparatorWidth
 	// cols
 	layout.Cols.CalcArea(&a)

@@ -169,20 +169,32 @@ func (ed *Editor) onUIEvent(ev ui.Event) {
 func (ed *Editor) onTextAreaCmd(ev *ui.TextAreaCmdEvent) {
 	ta := ev.TextArea
 	switch t0 := ta.Data.(type) {
-	case *ui.Layout:
-		ToolbarCmdFromLayout(ed, ta)
+	case *ui.Toolbar:
+		switch t1 := t0.Data.(type) {
+		case *ui.Layout:
+			ToolbarCmdFromLayout(ed, ta)
+		case *ui.Row:
+			ToolbarCmdFromRow(ed, t1)
+		}
 	case *ui.Row:
 		switch ta {
 		case t0.TextArea:
 			stringCmd(ed, t0)
-		case t0.Toolbar:
-			ToolbarCmdFromRow(ed, t0)
 		}
 	}
 }
 func (ed *Editor) onTextAreaSetText(ev *ui.TextAreaSetTextEvent) {
 	ta := ev.TextArea
 	switch t0 := ta.Data.(type) {
+	case *ui.Toolbar:
+		switch t1 := t0.Data.(type) {
+		case *ui.Row:
+			tsd := ed.rowToolbarStringData(t1)
+			_, ok := tsd.FirstPartFilename()
+			if ok {
+				ed.updateFileStates()
+			}
+		}
 	case *ui.Row:
 		switch ta {
 		case t0.TextArea:
@@ -191,12 +203,6 @@ func (ed *Editor) onTextAreaSetText(ev *ui.TextAreaSetTextEvent) {
 			_, ok := tsd.FirstPartFilename()
 			if ok {
 				t0.Square.SetDirty(true)
-			}
-		case t0.Toolbar:
-			tsd := ed.rowToolbarStringData(t0)
-			_, ok := tsd.FirstPartFilename()
-			if ok {
-				ed.updateFileStates()
 			}
 		}
 	}

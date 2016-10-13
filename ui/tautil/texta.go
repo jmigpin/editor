@@ -35,6 +35,6 @@ type Texta interface {
 	Point266Index(*fixed.Point26_6) int
 	PointIndexFromOffset(*image.Point) int
 
-	PushTextCopy()
-	PopTextCopy() (string, bool)
+	PopUndoString() (string, bool)
+	UnpopUndoString() (string, bool)
 }

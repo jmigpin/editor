@@ -6,7 +6,7 @@ type Row struct {
 	Container
 	Col *Column
 
-	Toolbar   *TextArea
+	Toolbar   *Toolbar
 	TextArea  *TextArea
 	Square    *Square
 	scrollbar *Scrollbar
@@ -16,10 +16,10 @@ func NewRow(col *Column) *Row {
 	row := &Row{Col: col}
 	row.Container.Painter = row
 
-	row.Toolbar = NewTextArea()
+	row.Toolbar = NewToolbar()
 	row.Toolbar.Data = row
-	row.Toolbar.DynamicY = true
 	row.Toolbar.Colors = &ToolbarColors
+	row.Toolbar.DisableButtonScroll = true
 
 	row.TextArea = NewTextArea()
 	row.TextArea.Data = row
@@ -59,7 +59,9 @@ func (row *Row) CalcArea(area *image.Rectangle) {
 	r2 = r2.Intersect(a)
 	row.Square.CalcArea(&r2)
 	// horizontal separator
-	a.Min.Y = row.Toolbar.Area.Max.Y + 1
+	r5 := a
+	r5.Min.Y = r2.Max.Y + 1
+	a = r5.Intersect(a)
 	// textarea
 	r3 := a
 	r3.Max.X -= ScrollbarWidth
