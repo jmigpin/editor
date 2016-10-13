@@ -58,7 +58,6 @@ func (c *Container) RemoveChild(c2 *Container) {
 func (c *Container) TreePaint() {
 	if c.needPaint {
 		c.ClearNeedPaint()
-		//c.Painter.CalcArea(&c.Area)
 		c.Painter.Paint()
 		c.UI.SendRootImage(&c.Area)
 	} else {

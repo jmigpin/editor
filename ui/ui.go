@@ -396,7 +396,7 @@ func (ui *UI) RequestMotionNotify() {
 }
 
 func (ui *UI) WarpPointer(p *image.Point) {
-	ui.XUtil.WarpPointer_(p)
+	ui.XUtil.WarpPointer(p)
 }
 func (ui *UI) WarpPointerToRectangle(r *image.Rectangle) {
 	p, ok := ui.XUtil.QueryPointer()

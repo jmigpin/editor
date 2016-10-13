@@ -171,7 +171,7 @@ func (xu *XUtil) GetWindowGeometry() (*xproto.GetGeometryReply, error) {
 func (xu *XUtil) NewGContext() *GContext {
 	return &GContext{xu: xu}
 }
-func (xu *XUtil) WarpPointer_(p *image.Point) {
+func (xu *XUtil) WarpPointer(p *image.Point) {
 	// warp pointer only if the window has input focus
 	cookie := xproto.GetInputFocus(xu.Conn)
 	reply, err := cookie.Reply()

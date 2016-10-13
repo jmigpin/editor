@@ -26,11 +26,6 @@ type TextArea struct {
 		on    bool
 		index int // starting index
 	}
-	//partialPaint struct{
-	//need bool
-	//rect *image.Rectangle
-	//offsetY fixed.Int26_6
-	//}
 
 	Data interface{} // for external use (ex parent container)
 
@@ -94,10 +89,6 @@ func (ta *TextArea) CalcArea(area *image.Rectangle) {
 	}
 }
 func (ta *TextArea) Paint() {
-	//if !ta.partialPaint.need{
-	//// fill background
-	//drawutil.FillRectangle(ta.UI.RootImage(), &ta.Area, ta.Colors.Bg)
-	//}
 	// fill background
 	drawutil.FillRectangle(ta.UI.RootImage(), &ta.Area, ta.Colors.Bg)
 
@@ -108,19 +99,6 @@ func (ta *TextArea) Paint() {
 			EndIndex:   ta.cursorIndex,
 		}
 	}
-
-	//// partial painting
-	//rect:=&ta.Area
-	//offsetY := ta.offsetY
-	//if ta.partialPaint.need{
-	//u:=ta.Area
-	//u.Min.Y = ta.partialPaint.rect.Min.Y
-	//u.Max.Y = ta.partialPaint.rect.Max.Y
-	////rect:=ta.partialPaint.rect
-	//rect=&u
-	//offsetY = ta.partialPaint.offsetY
-	//ta.clearPartialPaint()
-	//}
 
 	// img needs to be clipped for drawing
 	img := ta.UI.RootImageSubImage(&ta.Area)
@@ -135,20 +113,6 @@ func (ta *TextArea) Paint() {
 		selection,
 		highlight)
 }
-
-//func (ta*TextArea)NeedPaint(){
-//ta.Container.NeedPaint()
-//ta.clearPartialPaint()
-//}
-//func (ta*TextArea) NeedPartialPaint(r*image.Rectangle){
-//ta.NeedPaint()
-//ta.partialPaint.need = true
-//ta.partialPaint.rect=r
-//}
-//func (ta*TextArea)clearPartialPaint(){
-//ta.partialPaint.need=false
-//ta.partialPaint.rect = nil
-//}
 
 // Implements tautil.texta
 func (ta *TextArea) Error(err error) {
@@ -514,23 +478,10 @@ func (ta *TextArea) insertRuneInText(k *keybmap.Key) {
 				return
 			}
 
-			//p:=ta.stringCache.GetPoint(ta.CursorIndex())
-			//p.Y -= ta.offsetY
-			//p2:=drawutil.Point266ToPoint(p)
-			//p3:=p2.Add(ta.Area.Min).Sub(image.Point{10,10})
-			//p4:=p3.Add(image.Point{40,40})
-			//var r image.Rectangle
-			//r.Min = p3
-			//r.Max = p4
-
-			//ta.partialPaint.offsetY = ta.offsetY + p.Y
-
 			tautil.InsertRune(ta, rune(ks))
 
 			// prevent stringcache calcrunedata
 			//ta.stringCache.str = ta.Text()
-
-			//ta.NeedPartialPaint(&r)
 		}
 	}
 }
