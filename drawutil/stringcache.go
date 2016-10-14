@@ -28,7 +28,11 @@ type SCRuneData struct {
 			startingSpaces bool
 			penX           fixed.Int26_6
 		}
-		commentSt bool
+		states struct {
+			comment bool
+			str     bool
+			strEnd  bool
+		}
 	}
 }
 
@@ -53,7 +57,7 @@ func (sc *StringCache) CalcRuneData(str string, width int) {
 		rd.liner.iter.ri = liner.iter.ri
 		rd.liner.iter.pen = liner.iter.pen
 		rd.liner.wrapIndent = liner.wrapIndent
-		rd.liner.commentSt = liner.commentSt
+		rd.liner.states = liner.states
 		sc.rdata = append(sc.rdata, &rd)
 	}
 
@@ -79,7 +83,7 @@ func (sc *StringCache) restoreRuneData(rd *SCRuneData, liner *StringLiner) {
 	liner.iter.ri = rd.liner.iter.ri
 	liner.iter.pen = rd.liner.iter.pen
 	liner.wrapIndent = rd.liner.wrapIndent
-	liner.commentSt = rd.liner.commentSt
+	liner.states = rd.liner.states
 }
 
 func (sc *StringCache) TextHeight() fixed.Int26_6 {

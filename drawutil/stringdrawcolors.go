@@ -62,7 +62,7 @@ func (sdc *StringDrawColors) Loop() {
 		fg = sdc.colors.Fg
 
 		// comments
-		if liner.commentSt {
+		if liner.states.comment {
 			assignColorIfNotNil(&fg, sdc.colors.Comment)
 		}
 
