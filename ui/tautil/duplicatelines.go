@@ -7,7 +7,7 @@ func DuplicateLines(ta Texta) {
 	}
 	t := ta.Str()[a:b]
 	ta.EditInsert(b, t)
-	ta.EditCommit()
+	ta.EditDone()
 	ta.SetSelectionOn(true)
 	ta.SetSelectionIndex(b)
 

@@ -129,7 +129,7 @@ func listSessions(ed *Editor) {
 	for _, session := range ss.Sessions {
 		s += fmt.Sprintf("OpenSession %v\n", session.Name)
 	}
-	row.TextArea.ClearStr(s)
+	row.TextArea.ClearStr(s, false)
 }
 
 func saveSessionsToDisk(ss *Sessions) error {
@@ -190,7 +190,7 @@ func restoreSession(ed *Editor, s *Session) {
 		cols.RemoveColumn(cols.Cols[0])
 	}
 	// restore session
-	ed.ui.Layout.Toolbar.ClearStr(s.LayoutToolbarText)
+	ed.ui.Layout.Toolbar.ClearStr(s.LayoutToolbarText, false)
 	// create columns first
 	for i, _ := range s.Columns {
 		_ = cols.NewColumn()
@@ -205,7 +205,7 @@ func restoreSession(ed *Editor, s *Session) {
 		col := cols.Cols[i]
 		for _, r := range c.Rows {
 			row := col.NewRow()
-			row.Toolbar.ClearStr(r.ToolbarText)
+			row.Toolbar.ClearStr(r.ToolbarText, false)
 			// content
 			tsd := ed.rowToolbarStringData(row)
 			p := tsd.FirstPartFilepath()
@@ -213,7 +213,7 @@ func restoreSession(ed *Editor, s *Session) {
 			if err != nil {
 				ed.Error(err)
 			} else {
-				row.TextArea.ClearStr(content)
+				row.TextArea.ClearStr(content, false)
 				row.Square.SetDirty(false)
 			}
 			row.TextArea.SetCursorIndex(r.TaCursorIndex)

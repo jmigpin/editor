@@ -27,7 +27,7 @@ func quickFindShortcut(ed *Editor, row *ui.Row) {
 			if a == b {
 				// insert a space
 				ta.EditInsert(a, " ")
-				ta.EditCommit()
+				ta.EditDone()
 			}
 			ta.SetSelectionOn(false)
 			ta.SetCursorIndex(a + 1)
@@ -42,7 +42,7 @@ func quickFindShortcut(ed *Editor, row *ui.Row) {
 	} else {
 		// insert find cmd
 		ta.EditInsert(len(ta.Str()), " | Find ")
-		ta.EditCommit()
+		ta.EditDone()
 		ta.SetSelectionOn(false)
 		ta.SetCursorIndex(len(ta.Str()))
 	}

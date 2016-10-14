@@ -18,7 +18,7 @@ func MoveLineUp(ta Texta) {
 	ta.EditRemove(a, b)
 	a2 := lineStartIndex(ta.Str(), a-1) // previous line, -1 is size of '\n'
 	ta.EditInsert(a2, s)
-	ta.EditCommit()
+	ta.EditDone()
 
 	if ta.SelectionOn() {
 		_, b2, ok := PreviousRuneIndex(ta.Str(), a2+len(s))
@@ -46,7 +46,7 @@ func MoveLineDown(ta Texta) {
 	ta.EditRemove(a, b)
 	a2 := lineEndIndexNextIndex(ta.Str(), a)
 	ta.EditInsert(a2, s)
-	ta.EditCommit()
+	ta.EditDone()
 
 	if ta.SelectionOn() {
 		_, b2, ok := PreviousRuneIndex(ta.Str(), a2+len(s))

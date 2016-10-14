@@ -17,6 +17,6 @@ func Delete(ta Texta) {
 		}
 	}
 	ta.EditRemove(a, b)
-	ta.EditCommit()
+	ta.EditDone()
 	ta.SetCursorIndex(a)
 }

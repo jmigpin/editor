@@ -22,7 +22,7 @@ func Paste(ta Texta) {
 		}
 
 		ta.EditInsert(ta.CursorIndex(), str)
-		ta.EditCommit()
+		ta.EditDone()
 
 		ta.SetSelectionOn(false)
 		ta.SetCursorIndex(ta.CursorIndex() + len(str))

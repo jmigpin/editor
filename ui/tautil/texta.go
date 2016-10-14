@@ -12,7 +12,7 @@ type Texta interface {
 	Str() string
 	EditInsert(index int, str string)
 	EditRemove(index int, n int)
-	EditCommit()
+	EditDone()
 
 	CursorIndex() int
 	SetCursorIndex(int)

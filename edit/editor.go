@@ -40,7 +40,8 @@ func NewEditor() (*Editor, error) {
 
 	// set up layout toolbar
 	ta := ed.ui.Layout.Toolbar
-	ta.ClearStr("Exit | ListSessions | NewColumn | NewRow")
+	s := "Exit | ListSessions | NewColumn | NewRow"
+	ta.ClearStr(s, false)
 
 	// flags
 	flag.Parse()
@@ -107,7 +108,7 @@ func (ed *Editor) findRowOrCreate(name string) *ui.Row {
 	// new row
 	col := ed.activeColumn()
 	row = col.NewRow()
-	row.Toolbar.ClearStr(name)
+	row.Toolbar.ClearStr(name, false)
 	return row
 }
 
@@ -127,8 +128,8 @@ func (ed *Editor) openFilepath(filepath string, preferredCol *ui.Column) (*ui.Ro
 	}
 	row = preferredCol.NewRow()
 	p2 := toolbar.InsertHomeTilde(filepath)
-	row.Toolbar.ClearStr(p2 + " | Reload")
-	row.TextArea.ClearStr(content)
+	row.Toolbar.ClearStr(p2+" | Reload", false)
+	row.TextArea.ClearStr(content, false)
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
 	return row, nil
@@ -142,7 +143,7 @@ func (ed *Editor) Error(err error) {
 	row := ed.findRowOrCreate("+Errors")
 	ta := row.TextArea
 	// append
-	ta.ClearStr(ta.Str() + err.Error() + "\n")
+	ta.ClearStr(ta.Str()+err.Error()+"\n", true)
 }
 
 func (ed *Editor) onUIEvent(ev ui.Event) {

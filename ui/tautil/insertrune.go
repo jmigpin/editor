@@ -14,6 +14,6 @@ func InsertRune(ta Texta, ru rune) {
 	// insert
 	s := string(ru)
 	ta.EditInsert(ta.CursorIndex(), s)
-	ta.EditCommit()
+	ta.EditDone()
 	ta.SetCursorIndex(ta.CursorIndex() + len(s))
 }

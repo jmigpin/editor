@@ -37,7 +37,7 @@ func execRowCmd(row *ui.Row, cmd string, dir string) {
 	ctx2 := rowCtx.Add(row, ctx)
 
 	row.Square.SetExecuting(true)
-	row.TextArea.ClearStr("")
+	row.TextArea.ClearStr("", false)
 
 	go func() {
 		execRowCmd2(ctx2, row, cmd, dir)
@@ -119,7 +119,7 @@ func appendToRowTextArea(row *ui.Row, s string) {
 		d := len(s) - maxSize
 		s = s[d:]
 	}
-	ta.ClearStr(s)
+	ta.ClearStr(s, true)
 
 	row.UI.RequestTreePaint()
 }

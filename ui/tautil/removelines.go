@@ -6,7 +6,7 @@ func RemoveLines(ta Texta) {
 		return
 	}
 	ta.EditRemove(a, b)
-	ta.EditCommit()
+	ta.EditDone()
 	ta.SetSelectionOn(false)
 	ta.SetCursorIndex(a)
 }

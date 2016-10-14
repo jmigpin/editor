@@ -10,7 +10,7 @@ func Cut(ta Texta) {
 	}
 	ta.SetClipboardString(ta.Str()[a:b])
 	ta.EditRemove(a, b)
-	ta.EditCommit()
+	ta.EditDone()
 	ta.SetSelectionOn(false)
 	ta.SetCursorIndex(a)
 }

@@ -124,7 +124,7 @@ func alterSelectedText(ta Texta, fn func(string) (string, bool)) bool {
 	// replace text
 	ta.EditRemove(a, b)
 	ta.EditInsert(a, s)
-	ta.EditCommit()
+	ta.EditDone()
 
 	ta.SetCursorIndex(a + c)
 	ta.SetSelectionOn(true)

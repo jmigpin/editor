@@ -27,10 +27,11 @@ type TextArea struct {
 		on    bool
 		index int // starting index
 	}
-	edit *TextAreaEdit // current edit, set to nil on edit commit
 	undo struct {
-		start, end, cur int // positions
-		q               []*TextAreaEdit
+		edit            *TextAreaEdit   // current edit
+		str             string          // str used while editing
+		start, end, cur int             // positions
+		q               []*TextAreaEdit // edits queue
 	}
 
 	Data interface{} // for external use (ex parent container)
@@ -124,6 +125,10 @@ func (ta *TextArea) Error(err error) {
 }
 
 func (ta *TextArea) Str() string {
+	if ta.undo.edit != nil {
+		// return undo str while editing
+		return ta.undo.str
+	}
 	return ta.str
 }
 func (ta *TextArea) setStr(v string) {
@@ -135,7 +140,7 @@ func (ta *TextArea) setStr(v string) {
 		ta.UI.PushEvent(&TextAreaSetTextEvent{ta, oldArea})
 	}
 }
-func (ta *TextArea) ClearStr(str string) {
+func (ta *TextArea) ClearStr(str string, keepPosition bool) {
 	// clear undo
 	v := &ta.undo
 	v.start, v.cur, v.end = 0, 0, 0
@@ -143,32 +148,36 @@ func (ta *TextArea) ClearStr(str string) {
 		v.q[i] = nil
 	}
 
-	ta.SetCursorIndex(0)
 	ta.SetSelectionOn(false)
 	ta.setStr(str)
-	ta.SetOffsetY(0)
-}
-
-func (ta *TextArea) EditInsert(index int, str string) {
-	if ta.edit == nil {
-		ta.edit = &TextAreaEdit{}
+	if !keepPosition {
+		ta.SetCursorIndex(0)
+		ta.SetOffsetY(0)
 	}
-	ta.edit.insert(ta.str, index, str)
+}
+func (ta *TextArea) ensureEdit() {
+	if ta.undo.edit == nil {
+		ta.undo.edit = &TextAreaEdit{}
+		// using a separate str instance to edit allows to detect if the edit actually changed the final string or not when calling for setStr()
+		ta.undo.str = ta.str
+	}
+}
+func (ta *TextArea) EditInsert(index int, str string) {
+	ta.ensureEdit()
+	ta.undo.str = ta.undo.edit.insert(ta.undo.str, index, str)
 }
 func (ta *TextArea) EditRemove(index, index2 int) {
-	if ta.edit == nil {
-		ta.edit = &TextAreaEdit{}
-	}
-	ta.edit.remove(ta.str, index, index2)
+	ta.ensureEdit()
+	ta.undo.str = ta.undo.edit.remove(ta.undo.str, index, index2)
 }
-func (ta *TextArea) EditCommit() {
-	if ta.edit == nil {
+func (ta *TextArea) EditDone() {
+	if ta.undo.edit == nil {
 		panic("missing edit instance")
 	}
-	ta.pushEdit(ta.edit)
-	s, _ := ta.edit.edits.apply(ta.str)
-	ta.setStr(s)
-	ta.edit = nil
+	ta.pushEdit(ta.undo.edit)
+	ta.setStr(ta.undo.str)
+	ta.undo.edit = nil
+	ta.undo.str = ""
 }
 
 func (ta *TextArea) pushEdit(edit *TextAreaEdit) {
@@ -257,6 +266,7 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 		ta.offsetY = v
 		ta.CalcOwnArea()
 		ta.NeedPaint()
+		// event mostly used to update a scrollbar
 		ta.UI.PushEvent(&TextAreaSetOffsetYEvent{ta})
 	}
 }
