@@ -8,6 +8,6 @@ func Copy(ta Texta) {
 	if !ok {
 		return
 	}
-	s := ta.Text()[a:b]
+	s := ta.Str()[a:b]
 	ta.SetClipboardString(s)
 }

@@ -1,12 +1,13 @@
 package tautil
 
-func DupLines(ta Texta) {
+func DuplicateLines(ta Texta) {
 	a, b, ok := linesStringIndexes(ta)
 	if !ok {
 		return
 	}
-	t := ta.Text()[a:b]
-	ta.SetText(ta.Text()[:b] + t + ta.Text()[b:]) // insert text
+	t := ta.Str()[a:b]
+	ta.EditInsert(b, t)
+	ta.EditCommit()
 	ta.SetSelectionOn(true)
 	ta.SetSelectionIndex(b)
 

@@ -8,8 +8,9 @@ func Cut(ta Texta) {
 	if !ok {
 		return
 	}
-	ta.SetClipboardString(ta.Text()[a:b])
-	ta.SetText(ta.Text()[:a] + ta.Text()[b:]) // remove text
+	ta.SetClipboardString(ta.Str()[a:b])
+	ta.EditRemove(a, b)
+	ta.EditCommit()
 	ta.SetSelectionOn(false)
 	ta.SetCursorIndex(a)
 }

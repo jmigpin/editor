@@ -8,7 +8,7 @@ func Find(ta Texta, str string) {
 	if str == "" {
 		return
 	}
-	index, ok := findNextString(ta.Text(), str, ta.CursorIndex())
+	index, ok := findNextString(ta.Str(), str, ta.CursorIndex())
 	if ok {
 		ta.SetSelectionOn(true)
 		ta.SetSelectionIndex(index)

@@ -20,12 +20,17 @@ type TextArea struct {
 
 	stringCache drawutil.StringCache
 
-	text        string
+	str         string
 	cursorIndex int
 	offsetY     fixed.Int26_6
 	selection   struct { // text selection
 		on    bool
 		index int // starting index
+	}
+	edit *TextAreaEdit // current edit
+	undo struct {
+		start, end, cur int // positions
+		q               []*TextAreaEdit
 	}
 
 	Data interface{} // for external use (ex parent container)
@@ -34,10 +39,6 @@ type TextArea struct {
 		offsetIndex struct {
 			firstCalcDone bool
 			areaDx        int
-		}
-		undo struct {
-			start, end, cur int // positions
-			strings         []string
 		}
 	}
 }
@@ -49,7 +50,7 @@ func NewTextArea() *TextArea {
 	ta.Container.Painter = ta
 	ta.Container.OnPointEvent = ta.onPointEvent
 
-	ta.cache.undo.strings = make([]string, 10)
+	ta.undo.q = make([]*TextAreaEdit, 30)
 
 	return ta
 }
@@ -71,7 +72,7 @@ func (ta *TextArea) CalcArea(area *image.Rectangle) {
 	// TODO: improve setting face var, textarea doesn't have the ui.face at newtextarea()
 	// Calc string cache
 	ta.stringCache.Face = ta.UI.FontFace()
-	ta.stringCache.CalcRuneData(ta.Text(), ta.Area.Dx())
+	ta.stringCache.CalcRuneData(ta.Str(), ta.Area.Dx())
 
 	if fixOffsetY {
 		ta.SetOffsetIndex(offsetIndex)
@@ -117,29 +118,93 @@ func (ta *TextArea) Paint() {
 		highlight)
 }
 
-// Implements tautil.texta
+// Implements Texta
 func (ta *TextArea) Error(err error) {
 	ta.UI.PushEvent(err)
 }
 
-func (ta *TextArea) Text() string {
-	return ta.text
+func (ta *TextArea) Str() string {
+	return ta.str
 }
-func (ta *TextArea) SetText(v string) {
-	if v != ta.text {
-		ta.text = v
-		oldArea := ta.Area // usefull for dynamic y change detection (toolbars)
+func (ta *TextArea) setStr(v string) {
+	if v != ta.str {
+		ta.str = v
+		oldArea := ta.Area // needed for dynamic y (toolbars)
 		ta.CalcOwnArea()
 		ta.NeedPaint()
 		ta.UI.PushEvent(&TextAreaSetTextEvent{ta, oldArea})
 	}
 }
-func (ta *TextArea) ClearText() {
-	ta.cursorIndex = 0
-	ta.offsetY = 0
-	ta.selection.on = false
-	ta.SetText("")
+func (ta *TextArea) ClearStr(str string) {
+	// clear undo
+	v := &ta.undo
+	v.start, v.cur, v.end = 0, 0, 0
+	for i := range v.q {
+		v.q[i] = nil
+	}
+
+	ta.SetCursorIndex(0)
+	ta.SetSelectionOn(false)
+	ta.setStr(str)
+	ta.SetOffsetY(0)
 }
+
+func (ta *TextArea) EditInsert(index int, str string) {
+	if ta.edit == nil {
+		ta.edit = &TextAreaEdit{}
+	}
+	ta.edit.insert(ta.str, index, str)
+}
+func (ta *TextArea) EditRemove(index, index2 int) {
+	if ta.edit == nil {
+		ta.edit = &TextAreaEdit{}
+	}
+	ta.edit.remove(ta.str, index, index2)
+}
+func (ta *TextArea) EditCommit() {
+	if ta.edit == nil {
+		panic("missing edit instance")
+	}
+	ta.pushEdit(ta.edit)
+	s, _ := ta.edit.edits.apply(ta.str)
+	ta.setStr(s)
+	ta.edit = nil
+}
+
+func (ta *TextArea) pushEdit(edit *TextAreaEdit) {
+	v := &ta.undo
+	v.q[v.cur%len(v.q)] = edit
+	v.cur++
+	v.end = v.cur
+	if v.end-v.start > len(v.q) {
+		v.start = v.end - len(v.q)
+	}
+}
+func (ta *TextArea) popUndo() {
+	v := &ta.undo
+	if v.cur-1 < v.start {
+		return // no undos
+	}
+	v.cur--
+	edit := v.q[v.cur%len(v.q)]
+	s, i := edit.undos.apply(ta.str)
+	ta.setStr(s)
+	ta.SetCursorIndex(i)
+	ta.SetSelectionOn(false)
+}
+func (ta *TextArea) unpopRedo() {
+	v := &ta.undo
+	if v.cur == v.end {
+		return // no redos
+	}
+	edit := v.q[v.cur%len(v.q)]
+	v.cur++
+	s, i := edit.edits.apply(ta.str)
+	ta.setStr(s)
+	ta.SetCursorIndex(i)
+	ta.SetSelectionOn(false)
+}
+
 func (ta *TextArea) CursorIndex() int {
 	return ta.cursorIndex
 }
@@ -147,14 +212,37 @@ func (ta *TextArea) SetCursorIndex(v int) {
 	if v < 0 {
 		v = 0
 	}
-	if v > len(ta.text) {
-		v = len(ta.text)
+	if v > len(ta.str) {
+		v = len(ta.str)
 	}
 	if v != ta.cursorIndex {
 		ta.cursorIndex = v
 		ta.NeedPaint()
 	}
 }
+
+func (ta *TextArea) SelectionOn() bool {
+	return ta.selection.on
+}
+func (ta *TextArea) SetSelectionOn(v bool) {
+	if v != ta.selection.on {
+		ta.selection.on = v
+		ta.NeedPaint()
+	}
+}
+
+func (ta *TextArea) SelectionIndex() int {
+	return ta.selection.index
+}
+func (ta *TextArea) SetSelectionIndex(v int) {
+	if v != ta.selection.index {
+		ta.selection.index = v
+		if ta.SelectionOn() {
+			ta.NeedPaint()
+		}
+	}
+}
+
 func (ta *TextArea) OffsetY() fixed.Int26_6 {
 	return ta.offsetY
 }
@@ -172,6 +260,7 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 		ta.UI.PushEvent(&TextAreaSetOffsetYEvent{ta})
 	}
 }
+
 func (ta *TextArea) OffsetIndex() int {
 	p := fixed.Point26_6{0, ta.offsetY}
 	return ta.stringCache.GetIndex(&p)
@@ -180,6 +269,7 @@ func (ta *TextArea) SetOffsetIndex(i int) {
 	p := ta.stringCache.GetPoint(i)
 	ta.SetOffsetY(p.Y)
 }
+
 func (ta *TextArea) MakeIndexVisible(index int) {
 	p := ta.stringCache.GetPoint(index)
 	half := fixed.I(ta.Area.Dy() / 2)
@@ -205,28 +295,9 @@ func (ta *TextArea) MakeCursorVisibleAndWarpPointerToCursor() {
 	ta.UI.WarpPointer(&p3)
 }
 
-func (ta *TextArea) SelectionOn() bool {
-	return ta.selection.on
-}
-func (ta *TextArea) SetSelectionOn(v bool) {
-	if v != ta.selection.on {
-		ta.selection.on = v
-		ta.NeedPaint()
-	}
-}
-func (ta *TextArea) SelectionIndex() int {
-	return ta.selection.index
-}
-func (ta *TextArea) SetSelectionIndex(v int) {
-	if v != ta.selection.index {
-		ta.selection.index = v
-		ta.NeedPaint()
-	}
-}
 func (ta *TextArea) RequestTreePaint() {
 	ta.UI.RequestTreePaint()
 }
-
 func (ta *TextArea) RequestClipboardString() (string, error) {
 	return ta.UI.XUtil.Paste.Request()
 }
@@ -250,38 +321,6 @@ func (ta *TextArea) PointIndexFromOffset(p *image.Point) int {
 	p0 := drawutil.PointToPoint266(&p0i)
 	p0.Y += ta.offsetY
 	return ta.stringCache.GetIndex(p0)
-}
-
-func (ta *TextArea) pushUndoString() {
-	v := &ta.cache.undo
-	v.strings[v.cur%len(v.strings)] = ta.text
-	v.cur++
-	v.end = v.cur
-	if v.end-v.start > len(v.strings) {
-		v.start = v.end - len(v.strings)
-	}
-}
-
-//func (ta*TextArea) replaceUndoString(){
-
-//}
-func (ta *TextArea) PopUndoString() (string, bool) {
-	v := &ta.cache.undo
-	if v.cur-1 < v.start {
-		return "", false
-	}
-	v.cur--
-	s := v.strings[v.cur%len(v.strings)]
-	return s, true
-}
-func (ta *TextArea) UnpopUndoString() (string, bool) {
-	v := &ta.cache.undo
-	if v.cur == v.end {
-		return "", false
-	}
-	s := v.strings[v.cur%len(v.strings)]
-	v.cur++
-	return s, true
 }
 
 func (ta *TextArea) TextHeight() fixed.Int26_6 {
@@ -375,7 +414,7 @@ func (ta *TextArea) onKeyPress(k *keybmap.Key) {
 	case keybmap.XKDown:
 		if k.Modifiers.Control() && k.Modifiers.Mod1() {
 			if k.Modifiers.Shift() {
-				tautil.DupLines(ta)
+				tautil.DuplicateLines(ta)
 			} else {
 				tautil.MoveLineDown(ta)
 			}
@@ -429,9 +468,9 @@ func (ta *TextArea) onKeyPress(k *keybmap.Key) {
 				return
 			case 'z':
 				if k.Modifiers.Shift() {
-					tautil.Redo(ta)
+					ta.unpopRedo()
 				} else {
-					tautil.Undo(ta)
+					ta.popUndo()
 				}
 			}
 		}

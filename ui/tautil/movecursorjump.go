@@ -12,7 +12,7 @@ func moveCursorJumpRightIndex(ta Texta) int {
 	i0 := ta.CursorIndex()
 	found := false
 	foundStop := false
-	for ri, ru := range ta.Text()[i0:] {
+	for ri, ru := range ta.Str()[i0:] {
 		if isWordRune(ru) {
 			found = true
 			if foundStop {
@@ -25,7 +25,7 @@ func moveCursorJumpRightIndex(ta Texta) int {
 			}
 		}
 	}
-	return len(ta.Text())
+	return len(ta.Str())
 }
 func MoveCursorJumpLeft(ta Texta, sel bool) {
 	activateSelection(ta, sel)
@@ -39,7 +39,7 @@ func moveCursorJumpLeftIndex(ta Texta) int {
 	ri := ta.CursorIndex()
 	var prevRi int // previous rune index - on the right
 	for {
-		ru, ri2, ok := PreviousRuneIndex(ta.Text(), ri)
+		ru, ri2, ok := PreviousRuneIndex(ta.Str(), ri)
 		if !ok {
 			break
 		}

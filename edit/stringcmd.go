@@ -15,11 +15,11 @@ import (
 func stringCmd(ed *Editor, row *ui.Row) {
 	ta := row.TextArea
 
-	s := expandLeftRightUntilSpace(ta.Text(), ta.CursorIndex())
+	s := expandLeftRightUntilSpace(ta.Str(), ta.CursorIndex())
 
 	switch s {
 	case "OpenSession":
-		s2 := afterSpaceExpandRightUntilSpace(ta.Text(), ta.CursorIndex())
+		s2 := afterSpaceExpandRightUntilSpace(ta.Str(), ta.CursorIndex())
 		openSessionFromString(ed, s2)
 		return
 	}
@@ -34,7 +34,7 @@ func stringCmd(ed *Editor, row *ui.Row) {
 		return
 	}
 
-	s2 := expandLeftRightUntilSpaceOrQuote(ta.Text(), ta.CursorIndex())
+	s2 := expandLeftRightUntilSpaceOrQuote(ta.Str(), ta.CursorIndex())
 	if ok := stringCmdGoPathDir(ed, row, s2); ok {
 		return
 	}

@@ -11,21 +11,18 @@ func Paste(ta Texta) {
 			return
 		}
 
-		text := ta.Text()
-
 		if ta.SelectionOn() {
 			a, b, ok := selectionStringIndexes(ta)
 			if !ok {
 				return
 			}
-			text = text[:a] + text[b:] // remove selection
+
+			ta.EditRemove(a, b)
 			ta.SetCursorIndex(a)
 		}
 
-		i := ta.CursorIndex()
-		text = text[:i] + str + text[i:] // insert
-
-		ta.SetText(text)
+		ta.EditInsert(ta.CursorIndex(), str)
+		ta.EditCommit()
 
 		ta.SetSelectionOn(false)
 		ta.SetCursorIndex(ta.CursorIndex() + len(str))

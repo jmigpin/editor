@@ -28,7 +28,7 @@ func execRowCmd(row *ui.Row, cmd string, dir string) {
 	ctx2 := rowCtx.Add(row, ctx)
 
 	row.Square.SetExecuting(true)
-	row.TextArea.ClearText()
+	row.TextArea.ClearStr("")
 
 	go func() {
 		execRowCmd2(ctx2, row, cmd, dir)
@@ -103,17 +103,15 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd string, dir string) {
 func appendToRowTextArea(row *ui.Row, s string) {
 	ta := row.TextArea
 	// append
-	s = ta.Text() + s
+	s = ta.Str() + s
 	// cap max size
 	maxSize := 1024 * 1024 * 10
 	if len(s) > maxSize {
 		d := len(s) - maxSize
 		s = s[d:]
 	}
-	// set text
-	ta.SetText(s)
-
-	// TODO: auto scroll down?
+	// append
+	ta.ClearStr(ta.Str() + s)
 
 	row.UI.RequestTreePaint()
 }

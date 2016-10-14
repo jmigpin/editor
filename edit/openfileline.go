@@ -22,7 +22,7 @@ func openFileLineAtCol(ed *Editor, filename string, line int, col *ui.Column) {
 	ta := row.TextArea
 	index := 0
 	line--
-	for i, ru := range ta.Text() {
+	for i, ru := range ta.Str() {
 		if ru == '\n' {
 			line--
 			if line == 0 {
@@ -34,7 +34,7 @@ func openFileLineAtCol(ed *Editor, filename string, line int, col *ui.Column) {
 	// extra: go to first non empty char
 	if index > 0 {
 		isNotSpace := func(ru rune) bool { return !unicode.IsSpace(ru) }
-		j := strings.IndexFunc(ta.Text()[index:], isNotSpace)
+		j := strings.IndexFunc(ta.Str()[index:], isNotSpace)
 		if j > 0 {
 			index += j
 		}

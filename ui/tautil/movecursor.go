@@ -4,7 +4,7 @@ import "image"
 
 func MoveCursorRight(ta Texta, sel bool) {
 	activateSelection(ta, sel)
-	_, i, ok := NextRuneIndex(ta.Text(), ta.CursorIndex())
+	_, i, ok := NextRuneIndex(ta.Str(), ta.CursorIndex())
 	if !ok {
 		return
 	}
@@ -13,7 +13,7 @@ func MoveCursorRight(ta Texta, sel bool) {
 }
 func MoveCursorLeft(ta Texta, sel bool) {
 	activateSelection(ta, sel)
-	_, i, ok := PreviousRuneIndex(ta.Text(), ta.CursorIndex())
+	_, i, ok := PreviousRuneIndex(ta.Str(), ta.CursorIndex())
 	if !ok {
 		return
 	}

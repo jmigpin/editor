@@ -4,9 +4,9 @@ import "strings"
 
 func EndOfLine(ta Texta, sel bool) {
 	activateSelection(ta, sel)
-	i := strings.Index(ta.Text()[ta.CursorIndex():], "\n")
+	i := strings.Index(ta.Str()[ta.CursorIndex():], "\n")
 	if i < 0 {
-		i = len(ta.Text())
+		i = len(ta.Str())
 	} else {
 		i += ta.CursorIndex()
 	}

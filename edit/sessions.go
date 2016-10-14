@@ -120,16 +120,16 @@ func deleteSession(ed *Editor, part *toolbar.Part) {
 }
 func listSessions(ed *Editor) {
 	row := ed.findRowOrCreate("+Sessions")
-	t := ""
+	s := ""
 	ss, err := readSessionsFromDisk()
 	if err != nil {
 		ed.Error(err)
 		return
 	}
-	for _, s := range ss.Sessions {
-		t += fmt.Sprintf("OpenSession %v\n", s.Name)
+	for _, session := range ss.Sessions {
+		s += fmt.Sprintf("OpenSession %v\n", session.Name)
 	}
-	row.TextArea.SetText(t)
+	row.TextArea.ClearStr(s)
 }
 
 func saveSessionsToDisk(ss *Sessions) error {
@@ -163,7 +163,7 @@ func readSessionsFromDisk() (*Sessions, error) {
 }
 
 func buildSession(ed *Editor) *Session {
-	s := Session{LayoutToolbarText: ed.ui.Layout.Toolbar.Text()}
+	s := Session{LayoutToolbarText: ed.ui.Layout.Toolbar.Str()}
 	for _, c := range ed.ui.Layout.Cols.Cols {
 		// truncate for a shorter string
 		cend := float64(int(c.End*1000)) / 1000
@@ -173,7 +173,7 @@ func buildSession(ed *Editor) *Session {
 		}
 		for _, r := range c.Rows {
 			row := &Row{
-				ToolbarText:   r.Toolbar.Text(),
+				ToolbarText:   r.Toolbar.Str(),
 				TaCursorIndex: r.TextArea.CursorIndex(),
 				TaOffsetIndex: r.TextArea.OffsetIndex(),
 			}
@@ -190,7 +190,7 @@ func restoreSession(ed *Editor, s *Session) {
 		cols.RemoveColumn(cols.Cols[0])
 	}
 	// restore session
-	ed.ui.Layout.Toolbar.SetText(s.LayoutToolbarText)
+	ed.ui.Layout.Toolbar.ClearStr(s.LayoutToolbarText)
 	// create columns first
 	for i, _ := range s.Columns {
 		_ = cols.NewColumn()
@@ -205,7 +205,7 @@ func restoreSession(ed *Editor, s *Session) {
 		col := cols.Cols[i]
 		for _, r := range c.Rows {
 			row := col.NewRow()
-			row.Toolbar.SetText(r.ToolbarText)
+			row.Toolbar.ClearStr(r.ToolbarText)
 			// content
 			tsd := ed.rowToolbarStringData(row)
 			p := tsd.FirstPartFilepath()
@@ -213,7 +213,7 @@ func restoreSession(ed *Editor, s *Session) {
 			if err != nil {
 				ed.Error(err)
 			} else {
-				row.TextArea.SetText(content)
+				row.TextArea.ClearStr(content)
 				row.Square.SetDirty(false)
 			}
 			row.TextArea.SetCursorIndex(r.TaCursorIndex)

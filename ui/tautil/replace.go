@@ -3,18 +3,20 @@ package tautil
 import "strings"
 
 func Replace(ta Texta, old, new string) {
-	var t string
 	if ta.SelectionOn() {
 		a, b, ok := selectionStringIndexes(ta)
 		if !ok {
 			return
 		}
-		s := ta.Text()[a:b]
-		s2 := strings.Replace(s, old, new, -1)
-		t = ta.Text()[:a] + s2 + ta.Text()[b:]
-		ta.SetCursorIndex(a + len(s2))
+		s := strings.Replace(ta.Str()[a:b], old, new, -1)
+		ta.EditRemove(a, b)
+		ta.EditInsert(a, s)
+		ta.EditCommit()
+		ta.SetCursorIndex(a + len(s))
 	} else {
-		t = strings.Replace(ta.Text(), old, new, -1)
+		s := strings.Replace(ta.Str(), old, new, -1)
+		ta.EditRemove(0, len(ta.Str()))
+		ta.EditInsert(0, s)
+		ta.EditCommit()
 	}
-	ta.SetText(t)
 }

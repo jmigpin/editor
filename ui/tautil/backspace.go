@@ -11,11 +11,12 @@ func Backspace(ta Texta) {
 		ta.SetSelectionOn(false)
 	} else {
 		b = ta.CursorIndex()
-		_, a, ok = PreviousRuneIndex(ta.Text(), b)
+		_, a, ok = PreviousRuneIndex(ta.Str(), b)
 		if !ok {
 			return
 		}
 	}
-	ta.SetText(ta.Text()[:a] + ta.Text()[b:]) // remove text
+	ta.EditRemove(a, b)
+	ta.EditCommit()
 	ta.SetCursorIndex(a)
 }

@@ -10,21 +10,18 @@ func MoveLineUp(ta Texta) {
 		return
 	}
 
-	text := ta.Text()
-
-	s := text[a:b]                  // line
-	text = text[:a] + text[b:]      // remove line
-	a2 := lineStartIndex(text, a-1) // previous line, -1 is size of '\n'
+	s := ta.Str()[a:b] // line
 	// add newline if moving the last line
-	if b == len(text) {
+	if b == len(ta.Str()) {
 		s += "\n"
 	}
-	text = text[:a2] + s + text[a2:] // insert
-
-	ta.SetText(text)
+	ta.EditRemove(a, b)
+	a2 := lineStartIndex(ta.Str(), a-1) // previous line, -1 is size of '\n'
+	ta.EditInsert(a2, s)
+	ta.EditCommit()
 
 	if ta.SelectionOn() {
-		_, b2, ok := PreviousRuneIndex(ta.Text(), a2+len(s))
+		_, b2, ok := PreviousRuneIndex(ta.Str(), a2+len(s))
 		if !ok {
 			return
 		}
@@ -40,22 +37,19 @@ func MoveLineDown(ta Texta) {
 	if !ok {
 		return
 	}
-	if b == len(ta.Text()) {
+	if b == len(ta.Str()) {
 		// already at the last line
 		return
 	}
 
-	text := ta.Text()
-
-	s := text[a:b]
-	text = text[:a] + text[b:] // remove line
-	a2 := lineEndIndexNextIndex(text, a)
-	text = text[:a2] + s + text[a2:] // insert
-
-	ta.SetText(text)
+	s := ta.Str()[a:b]
+	ta.EditRemove(a, b)
+	a2 := lineEndIndexNextIndex(ta.Str(), a)
+	ta.EditInsert(a2, s)
+	ta.EditCommit()
 
 	if ta.SelectionOn() {
-		_, b2, ok := PreviousRuneIndex(ta.Text(), a2+len(s))
+		_, b2, ok := PreviousRuneIndex(ta.Str(), a2+len(s))
 		if !ok {
 			return
 		}

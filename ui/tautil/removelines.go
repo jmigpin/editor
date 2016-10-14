@@ -5,7 +5,8 @@ func RemoveLines(ta Texta) {
 	if !ok {
 		return
 	}
-	ta.SetText(ta.Text()[:a] + ta.Text()[b:]) // remove text
+	ta.EditRemove(a, b)
+	ta.EditCommit()
 	ta.SetSelectionOn(false)
 	ta.SetCursorIndex(a)
 }

@@ -13,7 +13,7 @@ func GotoLine(ta Texta, str string) {
 		gotoIndex(ta, 0)
 		return
 	}
-	for ri, ru := range ta.Text() {
+	for ri, ru := range ta.Str() {
 		if ru == '\n' {
 			line--
 			if line <= 1 {

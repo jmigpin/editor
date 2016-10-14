@@ -9,8 +9,10 @@ import (
 type Texta interface {
 	Error(error)
 
-	Text() string
-	SetText(string)
+	Str() string
+	EditInsert(index int, str string)
+	EditRemove(index int, n int)
+	EditCommit()
 
 	CursorIndex() int
 	SetCursorIndex(int)
@@ -34,7 +36,4 @@ type Texta interface {
 	IndexPoint266(int) *fixed.Point26_6
 	Point266Index(*fixed.Point26_6) int
 	PointIndexFromOffset(*image.Point) int
-
-	PopUndoString() (string, bool)
-	UnpopUndoString() (string, bool)
 }

@@ -75,8 +75,8 @@ func linesStringIndexes(ta Texta) (int, int, bool) {
 		a = ta.CursorIndex()
 		b = a
 	}
-	a = lineStartIndex(ta.Text(), a)
-	b = lineEndIndexNextIndex(ta.Text(), b)
+	a = lineStartIndex(ta.Str(), a)
+	b = lineEndIndexNextIndex(ta.Str(), b)
 	return a, b, a != b
 }
 
@@ -104,15 +104,15 @@ func alterSelectedText(ta Texta, fn func(string) (string, bool)) bool {
 		return false
 	}
 
-	t, ok := fn(ta.Text()[a:b])
+	s, ok := fn(ta.Str()[a:b])
 	if !ok {
 		return false
 	}
 
-	c := len(t)
+	c := len(s)
 	// previous rune so it doesn't include last \n
-	if t[len(t)-1] == '\n' {
-		_, c2, ok := PreviousRuneIndex(t, len(t))
+	if s[len(s)-1] == '\n' {
+		_, c2, ok := PreviousRuneIndex(s, len(s))
 		if !ok {
 			return false
 		}
@@ -122,14 +122,12 @@ func alterSelectedText(ta Texta, fn func(string) (string, bool)) bool {
 		}
 	}
 	// replace text
-	ta.SetText(ta.Text()[:a] + t + ta.Text()[b:])
+	ta.EditRemove(a, b)
+	ta.EditInsert(a, s)
+	ta.EditCommit()
 
-	// set cursor after the replacement
 	ta.SetCursorIndex(a + c)
-
-	// select the replacement
 	ta.SetSelectionOn(true)
 	ta.SetSelectionIndex(a)
-
 	return true
 }

@@ -26,7 +26,8 @@ func quickFindShortcut(ed *Editor, row *ui.Row) {
 			b := part.End
 			if a == b {
 				// insert a space
-				ta.SetText(ta.Text()[:a] + " " + ta.Text()[a:])
+				ta.EditInsert(a, " ")
+				ta.EditCommit()
 			}
 			ta.SetSelectionOn(false)
 			ta.SetCursorIndex(a + 1)
@@ -40,9 +41,10 @@ func quickFindShortcut(ed *Editor, row *ui.Row) {
 		}
 	} else {
 		// insert find cmd
-		ta.SetText(ta.Text() + " | Find ")
+		ta.EditInsert(len(ta.Str()), " | Find ")
+		ta.EditCommit()
 		ta.SetSelectionOn(false)
-		ta.SetCursorIndex(len(ta.Text()))
+		ta.SetCursorIndex(len(ta.Str()))
 	}
 
 	// warp pointer to toolbar close to "Find " text cmd to be able to click for run

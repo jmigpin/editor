@@ -35,7 +35,7 @@ func saveRowFile2(ed *Editor, row *ui.Row, tolerant bool) {
 		return
 	}
 	defer f.Close()
-	data := []byte(row.TextArea.Text())
+	data := []byte(row.TextArea.Str())
 	_, err = f.Write(data)
 	if err != nil {
 		ed.Error(err)

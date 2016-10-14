@@ -11,11 +11,12 @@ func Delete(ta Texta) {
 		ta.SetSelectionOn(false)
 	} else {
 		a = ta.CursorIndex()
-		_, b, ok = NextRuneIndex(ta.Text(), a)
+		_, b, ok = NextRuneIndex(ta.Str(), a)
 		if !ok {
 			return
 		}
 	}
-	ta.SetText(ta.Text()[:a] + ta.Text()[b:]) // remove text
+	ta.EditRemove(a, b)
+	ta.EditCommit()
 	ta.SetCursorIndex(a)
 }

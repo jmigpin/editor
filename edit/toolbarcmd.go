@@ -9,7 +9,7 @@ import (
 )
 
 func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
-	tsd := toolbar.NewStringData(ta.Text())
+	tsd := toolbar.NewStringData(ta.Str())
 	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
 		return
