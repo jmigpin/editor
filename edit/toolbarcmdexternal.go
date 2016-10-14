@@ -111,16 +111,15 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd string, dir string) {
 }
 func appendToRowTextArea(row *ui.Row, s string) {
 	ta := row.TextArea
-	// append
+
+	// append and cap max size
 	s = ta.Str() + s
-	// cap max size
 	maxSize := 1024 * 1024 * 10
 	if len(s) > maxSize {
 		d := len(s) - maxSize
 		s = s[d:]
 	}
-	// append
-	ta.ClearStr(ta.Str() + s)
+	ta.ClearStr(s)
 
 	row.UI.RequestTreePaint()
 }
