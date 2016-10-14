@@ -22,7 +22,18 @@ func reloadRow2(ed *Editor, row *ui.Row, tolerant bool) {
 			return
 		}
 	}
-	row.TextArea.ClearStr(content)
+
+	// Keep position to keep seeing the content in the same place.
+	// Works well when a reload happens and its identical to the previous content.
+	ta := row.TextArea
+	ci := ta.CursorIndex()
+	oy := ta.OffsetY()
+	// clear str
+	ta.ClearStr(content)
+	// restore position
+	ta.SetCursorIndex(ci)
+	ta.SetOffsetY(oy)
+
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
 }
