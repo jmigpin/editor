@@ -2,6 +2,7 @@ package edit
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os/exec"
 	"sync"
@@ -12,6 +13,14 @@ import (
 func ToolbarCmdExternalForRow(ed *Editor, row *ui.Row, cmd string) {
 	workDir := ""
 	tsd := ed.rowToolbarStringData(row)
+
+	// don't run external commands on confirmed files
+	_, ok := tsd.FirstPartFilename()
+	if ok {
+		ed.Error(fmt.Errorf("not running external command on existing filename"))
+		return
+	}
+
 	dir, ok := tsd.FirstPartDirectory()
 	if ok {
 		workDir = dir

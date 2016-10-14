@@ -27,7 +27,7 @@ type TextArea struct {
 		on    bool
 		index int // starting index
 	}
-	edit *TextAreaEdit // current edit
+	edit *TextAreaEdit // current edit, set to nil on edit commit
 	undo struct {
 		start, end, cur int // positions
 		q               []*TextAreaEdit
