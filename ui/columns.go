@@ -108,7 +108,19 @@ func (cols *Columns) calcColumnEndBasedOnNeighbours(col *Column) {
 		col.End = prev.End + (next.End-prev.End)/2
 	}
 }
-func (cols *Columns) RemoveColumn(col *Column) {
+func (cols *Columns) RemoveColumnEnsureOne(col *Column) {
+	cols.RemoveColumnUntilNone(col)
+	// ensure at least one column
+	if len(cols.Cols) == 0 {
+		_ = cols.NewColumn()
+	}
+}
+func (cols *Columns) RemoveColumnUntilNone(col *Column) {
+	// close all rows
+	for _, row := range col.Rows {
+		row.Close()
+	}
+
 	i, ok := cols.columnIndex(col)
 	if !ok {
 		return
@@ -118,12 +130,10 @@ func (cols *Columns) RemoveColumn(col *Column) {
 	u = append(u, cols.Cols[:i]...)
 	u = append(u, cols.Cols[i+1:]...)
 	cols.Cols = u
-
 	// removing a column doesn't touch the end percents, just ensure the last one
 	if len(cols.Cols) > 0 {
 		cols.Cols[len(cols.Cols)-1].End = 1.0
 	}
-
 	cols.RemoveChild(&col.Container)
 	cols.CalcOwnArea()
 	cols.NeedPaint()

@@ -338,7 +338,7 @@ func (ui *UI) onRowSquareRootButtonRelease(row *Row, ev *SquareRootButtonRelease
 }
 func (ui *UI) onColumnSquareButtonRelease(col *Column, ev *SquareButtonReleaseEvent) {
 	if ev.Button.Button2() {
-		col.Cols.RemoveColumn(col)
+		col.Cols.RemoveColumnEnsureOne(col)
 	}
 }
 func (ui *UI) onColumnSquareRootButtonRelease(col *Column, ev *SquareRootButtonReleaseEvent) {

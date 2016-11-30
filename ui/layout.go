@@ -20,6 +20,10 @@ func NewLayout(ui *UI) *Layout {
 	layout.Cols = NewColumns(layout)
 
 	layout.AddChilds(&layout.Toolbar.Container, &layout.Cols.Container)
+
+	// start with a column
+	layout.Cols.NewColumn()
+
 	return layout
 }
 func (layout *Layout) CalcArea(area *image.Rectangle) {

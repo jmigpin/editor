@@ -187,9 +187,10 @@ func restoreSession(ed *Editor, s *Session) {
 	// close current session
 	cols := ed.ui.Layout.Cols
 	for len(cols.Cols) > 0 {
-		cols.RemoveColumn(cols.Cols[0])
+		cols.RemoveColumnUntilNone(cols.Cols[0])
 	}
 	// restore session
+	// clear toolbar toolbar string
 	ed.ui.Layout.Toolbar.ClearStr(s.LayoutToolbarText, false)
 	// create columns first
 	for i, _ := range s.Columns {
