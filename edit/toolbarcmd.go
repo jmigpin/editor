@@ -65,6 +65,8 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbar.Part) bool {
 		saveRowsFiles(ed)
 	case "ReloadAll":
 		reloadRows(ed)
+	case "ReloadAllFiles":
+		reloadRowsFiles(ed)
 	case "NewRow":
 		var col *ui.Column
 		arow, ok := ed.activeRow()

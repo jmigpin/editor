@@ -1,6 +1,10 @@
 package edit
 
-import "github.com/jmigpin/editor/ui"
+import (
+	"os"
+
+	"github.com/jmigpin/editor/ui"
+)
 
 func reloadRows(ed *Editor) {
 	for _, c := range ed.ui.Layout.Cols.Cols {
@@ -25,4 +29,26 @@ func reloadRow2(ed *Editor, row *ui.Row, tolerant bool) {
 	row.TextArea.ClearStr(content, true)
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
+}
+
+func reloadRowsFiles(ed *Editor) {
+	for _, c := range ed.ui.Layout.Cols.Cols {
+		for _, r := range c.Rows {
+			reloadRowFile(ed, r)
+		}
+	}
+}
+func reloadRowFile(ed *Editor, row *ui.Row) {
+	tsd := ed.rowToolbarStringData(row)
+	p := tsd.FirstPartFilepath()
+	// check if its a file
+	fi, err := os.Stat(p)
+	if err != nil {
+		return
+	}
+	if fi.IsDir() {
+		return
+	}
+	// reload content
+	reloadRow2(ed, row, true)
 }
