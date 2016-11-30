@@ -11,6 +11,7 @@ import (
 	"github.com/jmigpin/editor/xutil/keybmap"
 
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/golang/freetype/truetype"
@@ -103,14 +104,26 @@ func NewUI() (*UI, error) {
 	ui.XUtil = xutil
 
 	// font
-	font0, err := drawutil.ParseFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-	//font0, err := drawutil.ParseFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf")
+	fp := "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+	font0, err := drawutil.ParseFont(fp)
 	if err != nil {
-		return nil, err
+		//return nil, err
+
+		fmt.Println(err)
+		// try go font
+		font0, err = truetype.Parse(goregular.TTF)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// font face
-	opt := &truetype.Options{Size: 12, DPI: 72, Hinting: font.HintingFull}
+	opt := &truetype.Options{
+		Size:    12,
+		DPI:     72, // 0 also means 72
+		Hinting: font.HintingFull,
+		//GlyphCacheEntries: 4096,
+	}
 	face := truetype.NewFace(font0, opt)
 	face2 := drawutil.NewFaceCache(face)
 	face3 := drawutil.NewFaceRunes(face2)

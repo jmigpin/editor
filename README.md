@@ -92,3 +92,4 @@ OpenSession <name>: opens previously saved session<br>
 
 ## Other features
 Drag and drop files/directories to the editor.
+Auto indentation of wrapped lines.

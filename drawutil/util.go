@@ -4,7 +4,6 @@ import (
 	"image"
 	"io/ioutil"
 
-	//"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/math/fixed"
 )
@@ -14,7 +13,6 @@ func ParseFont(filename string) (*truetype.Font, error) {
 	if err != nil {
 		return nil, err
 	}
-	//return freetype.ParseFont(b)
 	return truetype.Parse(b)
 }
 

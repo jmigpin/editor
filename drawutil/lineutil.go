@@ -6,7 +6,8 @@ import (
 )
 
 // space between lines
-var margin fixed.Int26_6 = fixed.I(1)
+//var margin fixed.Int26_6 = fixed.I(1)
+var margin fixed.Int26_6 = fixed.I(0)
 
 func LineBaseline(fm *font.Metrics) fixed.Int26_6 {
 	//return fm.Ascent
