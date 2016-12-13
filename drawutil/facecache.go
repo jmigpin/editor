@@ -72,11 +72,10 @@ func (fc *FaceCache) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
 	fc.faceMu.RUnlock()
 	if !ok {
 		fc.faceMu.Lock()
-		defer fc.faceMu.Unlock()
-
 		adv, ok := fc.Face.GlyphAdvance(ru)
-		gac = &GlyphAdvanceCache{adv, ok}
+		gac = &GlyphAdvanceCache{adv, ok} // only one can run at a time
 		fc.gac[ru] = gac
+		fc.faceMu.Unlock()
 	}
 	return gac.advance, gac.ok
 }
@@ -87,10 +86,9 @@ func (fc *FaceCache) Kern(r0, r1 rune) fixed.Int26_6 {
 	fc.faceMu.RUnlock()
 	if !ok {
 		fc.faceMu.Lock()
-		defer fc.faceMu.Unlock()
-
-		k = fc.Face.Kern(r0, r1)
+		k = fc.Face.Kern(r0, r1) // only one can run at a time
 		fc.kc[i] = k
+		fc.faceMu.Unlock()
 	}
 	return k
 }

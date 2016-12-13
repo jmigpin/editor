@@ -4,7 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"log"
 	"net/url"
+	"os"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/jmigpin/editor/edit/toolbar"
@@ -44,7 +47,22 @@ func NewEditor() (*Editor, error) {
 	ta.ClearStr(s, false)
 
 	// flags
+	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
+
+	// TEST cpuprofile: ~/projects/golangcode/src/github.com/jmigpin/editor/editor --cpuprofile ./p1.prof /home/jorge/documents/finances/ledger/personal.ledger
+
+	// flags: cpuprofile
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
+	// flags: filenames
 	args := flag.Args()
 	if len(args) > 0 {
 		col := ed.activeColumn()

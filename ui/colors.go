@@ -7,10 +7,14 @@ import (
 )
 
 var (
+	// these white/black take advantage of being RGBA
+	White = color.RGBA{255, 255, 255, 255}
+	Black = color.RGBA{0, 0, 0, 255}
+
 	SeparatorColor = color.RGBA{0, 0, 0, 255}
 
 	SquareColor          = color.RGBA{136, 136, 204, 255}
-	SquareActiveColor    = color.Black
+	SquareActiveColor    = Black
 	SquareExecutingColor = color.RGBA{95, 204, 88, 255}
 	SquareDirtyColor     = color.RGBA{204, 88, 92, 255}
 	SquareColdColor      = color.RGBA{255, 255, 0, 255}
@@ -22,8 +26,8 @@ var (
 )
 
 var TextAreaColors = drawutil.Colors{
-	Fg:          color.Black,
-	Bg:          color.White,
+	Fg:          Black,
+	Bg:          White,
 	SelectionFg: nil,
 	SelectionBg: color.RGBA{238, 238, 122, 255},
 	HighlightFg: nil,
@@ -32,7 +36,7 @@ var TextAreaColors = drawutil.Colors{
 }
 
 var ToolbarColors = drawutil.Colors{
-	Fg:          color.Black,
+	Fg:          Black,
 	Bg:          color.RGBA{242, 242, 242, 255},
 	SelectionBg: TextAreaColors.SelectionBg,
 	HighlightBg: TextAreaColors.HighlightBg,
