@@ -115,8 +115,40 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbar.Part) bool {
 		}
 	case "Stop":
 		rowCtx.Cancel(row)
+	case "ListDirTree":
+		tree, hidden, err := parseTwoOptionalTrueFalseArgs(part)
+		if err != nil {
+			ed.Error(err)
+		} else {
+			ListDirTreeEd(ed, row, tree, hidden)
+		}
 	default:
 		return false
 	}
 	return true
+}
+
+func parseTwoOptionalTrueFalseArgs(part *toolbar.Part) (bool, bool, error) {
+	parseTrueFalse := func(s string) (bool, error) {
+		if s == "true" {
+			return true, nil
+		} else if s == "false" {
+			return false, nil
+		}
+		return false, fmt.Errorf("expecting true/false argument")
+	}
+	// parse args
+	n := 2
+	if len(part.Args)-1 > n { // minus first arg
+		return false, false, fmt.Errorf("expecting at most 2 arguments")
+	}
+	b := make([]bool, n)
+	for i := 1; i < len(part.Args); i++ {
+		v, err := parseTrueFalse(part.Args[i].Trim())
+		if err != nil {
+			return false, false, err
+		}
+		b[i-1] = v
+	}
+	return b[0], b[1], nil
 }
