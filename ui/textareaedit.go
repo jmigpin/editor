@@ -8,13 +8,13 @@ type TextAreaEdit struct {
 func (tae *TextAreaEdit) insert(str string, index int, s string) string {
 	insert := &TextAreaEditInsert{index, s}
 	tae.edits = append(tae.edits, insert)
-	tae.undos = append(tae.undos, insert.undo())
+	tae.undos = append(TextAreaEdits{insert.undo()}, tae.undos...)
 	return insert.apply(str)
 }
 func (tae *TextAreaEdit) remove(str string, index, index2 int) string {
 	remove := &TextAreaEditRemove{index, index2}
 	tae.edits = append(tae.edits, remove)
-	tae.undos = append(tae.undos, remove.undo(str))
+	tae.undos = append(TextAreaEdits{remove.undo(str)}, tae.undos...)
 	return remove.apply(str)
 }
 
