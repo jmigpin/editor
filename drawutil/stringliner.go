@@ -18,8 +18,8 @@ type StringLiner struct {
 	isWrapLineRune bool // used to detect if the cursor is on one
 	states         struct {
 		comment bool
-		str     bool
-		strEnd  bool
+		//str     bool
+		//strEnd  bool
 	}
 }
 
@@ -35,7 +35,7 @@ func (liner *StringLiner) Loop(fn func() bool) {
 		// (comment,string) states are done here to be saved in the stringcache state, otherwise they shouldn't be here
 
 		// comment state
-		if !liner.states.comment && !liner.states.str {
+		if !liner.states.comment {
 			if liner.iter.ru == '/' {
 				next, ok := liner.iter.LookaheadRune(1)
 				if ok && next == '/' {
@@ -51,20 +51,20 @@ func (liner *StringLiner) Loop(fn func() bool) {
 			}
 		}
 
-		// string state
-		if !liner.states.str && !liner.states.comment {
-			if liner.iter.ru == '"' {
-				liner.states.str = true
-				liner.states.strEnd = false
-			}
-		} else {
-			if liner.iter.ru == '"' {
-				// end state on next rune
-				liner.states.strEnd = true
-			} else if liner.states.strEnd {
-				liner.states.str = false
-			}
-		}
+		//// string state
+		//if !liner.states.str && !liner.states.comment {
+		//if liner.iter.ru == '"' {
+		//liner.states.str = true
+		//liner.states.strEnd = false
+		//}
+		//} else {
+		//if liner.iter.ru == '"' {
+		//// end state on next rune
+		//liner.states.strEnd = true
+		//} else if liner.states.strEnd {
+		//liner.states.str = false
+		//}
+		//}
 
 		// keep track of indentation for wrapped lines
 		if liner.wrapIndent.startingSpaces {

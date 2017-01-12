@@ -30,8 +30,8 @@ type SCRuneData struct {
 		}
 		states struct {
 			comment bool
-			str     bool
-			strEnd  bool
+			//str     bool
+			//strEnd  bool
 		}
 	}
 }
