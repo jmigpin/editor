@@ -11,7 +11,7 @@ const eofRune = rune(0)
 const wrapLineLeftRune = rune(0x21b3) // symbol that points to the right
 
 type StringIterator struct {
-	face *FaceRunes
+	face *Face
 
 	fm *font.Metrics
 
@@ -21,7 +21,7 @@ type StringIterator struct {
 	pen, penEnd fixed.Point26_6
 }
 
-func NewStringIterator(face *FaceRunes, str string) *StringIterator {
+func NewStringIterator(face *Face, str string) *StringIterator {
 	fm := face.Face.Metrics()
 	iter := &StringIterator{
 		face: face,

@@ -40,7 +40,7 @@ type Selection struct {
 	StartIndex, EndIndex int
 }
 
-func NewStringDrawColors(img draw.Image, face *FaceRunes, str string, colors *Colors) *StringDrawColors {
+func NewStringDrawColors(img draw.Image, face *Face, str string, colors *Colors) *StringDrawColors {
 	sd := NewStringDraw(img, face, str)
 	return &StringDrawColors{sd: sd, colors: colors}
 }

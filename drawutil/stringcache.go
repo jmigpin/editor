@@ -8,7 +8,7 @@ import (
 )
 
 type StringCache struct {
-	Face *FaceRunes
+	Face *Face
 
 	str           string
 	width         int

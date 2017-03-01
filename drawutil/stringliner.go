@@ -23,7 +23,7 @@ type StringLiner struct {
 	}
 }
 
-func NewStringLiner(face *FaceRunes, str string, max *fixed.Point26_6) *StringLiner {
+func NewStringLiner(face *Face, str string, max *fixed.Point26_6) *StringLiner {
 	iter := NewStringIterator(face, str)
 	liner := &StringLiner{iter: iter, max: *max}
 	liner.wrapIndent.startingSpaces = true

@@ -16,7 +16,7 @@ type StringDraw struct {
 	cursorIndex int // set externally, use <0 to not draw the cursor
 }
 
-func NewStringDraw(img draw.Image, face *FaceRunes, str string) *StringDraw {
+func NewStringDraw(img draw.Image, face *Face, str string) *StringDraw {
 	bounds := img.Bounds()
 	max0 := bounds.Max.Sub(bounds.Min)
 	max := PointToPoint266(&max0)

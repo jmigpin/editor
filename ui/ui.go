@@ -26,7 +26,7 @@ type UI struct {
 	XUtil  *xutil.XUtil
 	gctx   *xutil.GContext
 	Layout *Layout
-	fface1 *drawutil.FaceRunes
+	fface1 *drawutil.Face
 
 	events chan Event
 
@@ -104,30 +104,41 @@ func NewUI() (*UI, error) {
 	ui.XUtil = xutil
 
 	// font
+	useGoFont := false
 	fp := "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 	font0, err := drawutil.ParseFont(fp)
 	if err != nil {
 		//return nil, err
 
-		fmt.Println(err)
 		// try go font
+		fmt.Println(err)
+		useGoFont = true
+	}
+	// font options
+	opt := &truetype.Options{
+		Size:    12,
+		Hinting: font.HintingFull,
+	}
+
+	// go font
+	if useGoFont {
 		font0, err = truetype.Parse(goregular.TTF)
 		if err != nil {
 			return nil, err
 		}
+		// font face
+		opt = &truetype.Options{
+			SubPixelsX: 64, // default is 4
+			SubPixelsY: 64, // default is 1
+			//Size:    12,
+			Size: 13,
+			//DPI:     72, // 0 also means 72
+			Hinting: font.HintingFull,
+			//GlyphCacheEntries: 4096, // still problems with concurrent drawing?
+		}
 	}
 
-	// font face
-	opt := &truetype.Options{
-		Size:    12,
-		DPI:     72, // 0 also means 72
-		Hinting: font.HintingFull,
-		//GlyphCacheEntries: 4096,
-	}
-	face := truetype.NewFace(font0, opt)
-	face2 := drawutil.NewFaceCache(face)
-	face3 := drawutil.NewFaceRunes(face2)
-	ui.fface1 = face3
+	ui.fface1 = drawutil.NewFace(font0, opt)
 
 	// x graphical context
 	gctx := ui.XUtil.NewGContext()
@@ -397,7 +408,7 @@ func (ui *UI) SendRootImage(rect *image.Rectangle) {
 }
 
 // Default fontface (used by textarea)
-func (ui *UI) FontFace() *drawutil.FaceRunes {
+func (ui *UI) FontFace() *drawutil.Face {
 	return ui.fface1
 }
 
