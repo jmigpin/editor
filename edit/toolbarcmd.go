@@ -122,6 +122,9 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbar.Part) bool {
 		} else {
 			ListDirTreeEd(ed, row, tree, hidden)
 		}
+	case "ListDirSubTree":
+		tree, hidden := true, false
+		ListDirTreeEd(ed, row, tree, hidden)
 	default:
 		return false
 	}
