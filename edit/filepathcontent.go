@@ -11,7 +11,7 @@ func filepathContent(filepath string) (string, error) {
 		return "", err
 	}
 	if fi.IsDir() {
-		return ListDirTree(filepath, false, true)
+		return ListDir(filepath, false, true)
 	}
 	// file content
 	b, err := ioutil.ReadFile(filepath)

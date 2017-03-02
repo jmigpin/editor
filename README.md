@@ -83,6 +83,9 @@ Find: find string (ignores case)<br>
 GotoLine <num>: goes to line number<br>
 Replace<old><new>: replaces old string with new<br>
 Stop: stops current processing running in the row.<br>
+ListDir: Lists directory.<br>
+ListDirSub: Lists directory and sub directories.<br>
+ListDirHidden: Lists directory including hidden.<br>
 
 ### Textarea commands
 OpenSession <name>: opens previously saved session<br>

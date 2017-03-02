@@ -10,10 +10,10 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func ListDirTreeEd(ed *Editor, row *ui.Row, tree, hidden bool) {
+func ListDirEd(ed *Editor, row *ui.Row, tree, hidden bool) {
 	tsd := ed.RowToolbarStringData(row)
 	fp := tsd.FirstPartFilepath()
-	s, err := ListDirTree(fp, tree, hidden)
+	s, err := ListDir(fp, tree, hidden)
 	if err != nil {
 		ed.Error(err)
 		return
@@ -23,14 +23,14 @@ func ListDirTreeEd(ed *Editor, row *ui.Row, tree, hidden bool) {
 	row.Square.SetCold(false)
 }
 
-func ListDirTree(filepath string, tree, hidden bool) (string, error) {
-	s, err := listDirTree2(filepath, "", tree, hidden)
+func ListDir(filepath string, tree, hidden bool) (string, error) {
+	s, err := listDir2(filepath, "", tree, hidden)
 	if err != nil {
 		return "", err
 	}
 	return "../\n" + s, nil
 }
-func listDirTree2(filepath, addedFilepath string, tree, hidden bool) (string, error) {
+func listDir2(filepath, addedFilepath string, tree, hidden bool) (string, error) {
 	fp2 := path.Join(filepath, addedFilepath)
 	f, err := os.Open(fp2)
 	if err != nil {
@@ -58,7 +58,7 @@ func listDirTree2(filepath, addedFilepath string, tree, hidden bool) (string, er
 
 		if fi.IsDir() && tree {
 			afp := path.Join(addedFilepath, name)
-			s2, err := listDirTree2(filepath, afp, tree, hidden)
+			s2, err := listDir2(filepath, afp, tree, hidden)
 			if err != nil {
 				return "", err
 			}
