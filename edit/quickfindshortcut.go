@@ -8,7 +8,7 @@ import (
 
 // Search for the find command in the toolbar and warps the pointer to it. Adds the command to the toolbar if not present.
 func quickFindShortcut(ed *Editor, row *ui.Row) {
-	tsd := ed.rowToolbarStringData(row)
+	tsd := ed.RowToolbarStringData(row)
 	ta := row.Toolbar
 	found := false
 	var part *toolbar.Part

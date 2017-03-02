@@ -18,7 +18,7 @@ func saveRowFile(ed *Editor, row *ui.Row) {
 }
 
 func saveRowFile2(ed *Editor, row *ui.Row, tolerant bool) {
-	tsd := ed.rowToolbarStringData(row)
+	tsd := ed.RowToolbarStringData(row)
 	// file might not exist yet, so getting from filepath
 	filename := tsd.FirstPartFilepath()
 

@@ -82,6 +82,10 @@ func NewEditor() (*Editor, error) {
 	return ed, nil
 }
 
+func (ed *Editor) UI() *ui.UI {
+	return ed.ui
+}
+
 func (ed *Editor) Close() {
 	ed.fs.Close()
 	ed.ui.Close()
@@ -109,7 +113,7 @@ func (ed *Editor) findRow(s string) (*ui.Row, bool) {
 	cols := ed.ui.Layout.Cols
 	for _, c := range cols.Cols {
 		for _, r := range c.Rows {
-			tsd := ed.rowToolbarStringData(r)
+			tsd := ed.RowToolbarStringData(r)
 			v := tsd.FirstPartFilepath()
 			if v == s {
 				return r, true
@@ -118,7 +122,7 @@ func (ed *Editor) findRow(s string) (*ui.Row, bool) {
 	}
 	return nil, false
 }
-func (ed *Editor) findRowOrCreate(name string) *ui.Row {
+func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
 	row, ok := ed.findRow(name)
 	if ok {
 		return row
@@ -130,8 +134,11 @@ func (ed *Editor) findRowOrCreate(name string) *ui.Row {
 	return row
 }
 
-func (ed *Editor) rowToolbarStringData(row *ui.Row) *toolbar.StringData {
+func (ed *Editor) RowToolbarStringData(row *ui.Row) *toolbar.StringData {
 	return toolbar.NewStringData(row.Toolbar.Str())
+}
+func (ed *Editor) FilepathContent(filepath string) (string, error) {
+	return filepathContent(filepath)
 }
 
 func (ed *Editor) openFilepath(filepath string, preferredCol *ui.Column) (*ui.Row, error) {
@@ -158,7 +165,7 @@ func (ed *Editor) openFilepath(filepath string, preferredCol *ui.Column) (*ui.Ro
 //}
 
 func (ed *Editor) Error(err error) {
-	row := ed.findRowOrCreate("+Errors")
+	row := ed.FindRowOrCreate("+Errors")
 	ta := row.TextArea
 	// append
 	ta.ClearStr(ta.Str()+err.Error()+"\n", true)
@@ -208,7 +215,7 @@ func (ed *Editor) onTextAreaSetText(ev *ui.TextAreaSetTextEvent) {
 	case *ui.Toolbar:
 		switch t1 := t0.Data.(type) {
 		case *ui.Row:
-			tsd := ed.rowToolbarStringData(t1)
+			tsd := ed.RowToolbarStringData(t1)
 			_, ok := tsd.FirstPartFilename()
 			if ok {
 				ed.updateFileStates()
@@ -218,7 +225,7 @@ func (ed *Editor) onTextAreaSetText(ev *ui.TextAreaSetTextEvent) {
 		switch ta {
 		case t0.TextArea:
 			// set as dirty only if it has a filename
-			tsd := ed.rowToolbarStringData(t0)
+			tsd := ed.RowToolbarStringData(t0)
 			_, ok := tsd.FirstPartFilename()
 			if ok {
 				t0.Square.SetDirty(true)
@@ -309,7 +316,7 @@ func (ed *Editor) updateFileStates() {
 	var u []string
 	for _, c := range ed.ui.Layout.Cols.Cols {
 		for _, r := range c.Rows {
-			tsd := ed.rowToolbarStringData(r)
+			tsd := ed.RowToolbarStringData(r)
 			filename, ok := tsd.FirstPartFilename()
 			if ok {
 				u = append(u, filename)

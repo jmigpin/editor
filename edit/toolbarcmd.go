@@ -3,6 +3,7 @@ package edit
 import (
 	"fmt"
 
+	"github.com/jmigpin/editor/edit/cmdutil"
 	"github.com/jmigpin/editor/edit/toolbar"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/ui/tautil"
@@ -31,7 +32,7 @@ func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 }
 
 func ToolbarCmdFromRow(ed *Editor, row *ui.Row) {
-	tsd := ed.rowToolbarStringData(row)
+	tsd := ed.RowToolbarStringData(row)
 	ta := row.Toolbar
 	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
@@ -52,13 +53,13 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbar.Part) bool {
 	case "Exit":
 		ed.Close()
 	case "SaveSession":
-		saveSession(ed, part)
+		cmdutil.SaveSession(ed, part)
 	case "OpenSession":
-		openSession(ed, part)
+		cmdutil.OpenSession(ed, part)
 	case "DeleteSession":
-		deleteSession(ed, part)
+		cmdutil.DeleteSession(ed, part)
 	case "ListSessions":
-		listSessions(ed)
+		cmdutil.ListSessions(ed)
 	case "NewColumn":
 		_ = ed.ui.Layout.Cols.NewColumn()
 	case "SaveAll":

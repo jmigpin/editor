@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/jmigpin/editor/edit/cmdutil"
 	"github.com/jmigpin/editor/ui"
 )
 
@@ -20,7 +21,7 @@ func stringCmd(ed *Editor, row *ui.Row) {
 	switch s {
 	case "OpenSession":
 		s2 := afterSpaceExpandRightUntilSpace(ta.Str(), ta.CursorIndex())
-		openSessionFromString(ed, s2)
+		cmdutil.OpenSessionFromString(ed, s2)
 		return
 	}
 
@@ -114,7 +115,7 @@ func expandLeftRightUntilSpaceOrQuote(str string, index int) string {
 func stringCmdDirectory(ed *Editor, row *ui.Row, cmd string) bool {
 	p := cmd
 	if !path.IsAbs(cmd) {
-		tsd := ed.rowToolbarStringData(row)
+		tsd := ed.RowToolbarStringData(row)
 		d, ok := tsd.FirstPartDirectory()
 		if ok {
 			p = path.Join(d, p)
@@ -146,7 +147,7 @@ func stringCmdFilenameAndNumber(ed *Editor, row *ui.Row, scmd string) bool {
 	a := strings.Split(scmd, ":")
 	filename := a[0]
 	if !path.IsAbs(filename) {
-		tsd := ed.rowToolbarStringData(row)
+		tsd := ed.RowToolbarStringData(row)
 		d, ok := tsd.FirstPartDirectory()
 		if ok {
 			filename = path.Join(d, filename)

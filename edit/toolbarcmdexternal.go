@@ -13,7 +13,7 @@ import (
 
 func ToolbarCmdExternalForRow(ed *Editor, row *ui.Row, cmd string) {
 	workDir := ""
-	tsd := ed.rowToolbarStringData(row)
+	tsd := ed.RowToolbarStringData(row)
 
 	// don't run external commands on confirmed files
 	_, ok := tsd.FirstPartFilename()

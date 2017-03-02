@@ -1,4 +1,4 @@
-package edit
+package cmdutil
 
 import (
 	"encoding/json"
@@ -32,7 +32,7 @@ func sessionFilename() string {
 	return path.Join(home, ".editor_sessions.json")
 }
 
-func saveSession(ed *Editor, part *toolbar.Part) {
+func SaveSession(ed Editori, part *toolbar.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("savesession: missing session name"))
 		return
@@ -67,15 +67,15 @@ func saveSession(ed *Editor, part *toolbar.Part) {
 		return
 	}
 }
-func openSession(ed *Editor, part *toolbar.Part) {
+func OpenSession(ed Editori, part *toolbar.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("opensession: missing session name"))
 		return
 	}
 	sessionName := part.Args[1].Trim()
-	openSessionFromString(ed, sessionName)
+	OpenSessionFromString(ed, sessionName)
 }
-func openSessionFromString(ed *Editor, sessionName string) {
+func OpenSessionFromString(ed Editori, sessionName string) {
 	ss, err := readSessionsFromDisk()
 	if err != nil {
 		ed.Error(err)
@@ -89,7 +89,7 @@ func openSessionFromString(ed *Editor, sessionName string) {
 	}
 	ed.Error(fmt.Errorf("opensession: session not found: %v", sessionName))
 }
-func deleteSession(ed *Editor, part *toolbar.Part) {
+func DeleteSession(ed Editori, part *toolbar.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("deletesession: missing session name"))
 		return
@@ -118,8 +118,8 @@ func deleteSession(ed *Editor, part *toolbar.Part) {
 		return
 	}
 }
-func listSessions(ed *Editor) {
-	row := ed.findRowOrCreate("+Sessions")
+func ListSessions(ed Editori) {
+	row := ed.FindRowOrCreate("+Sessions")
 	s := ""
 	ss, err := readSessionsFromDisk()
 	if err != nil {
@@ -162,9 +162,9 @@ func readSessionsFromDisk() (*Sessions, error) {
 	return &ss, err
 }
 
-func buildSession(ed *Editor) *Session {
-	s := Session{LayoutToolbarText: ed.ui.Layout.Toolbar.Str()}
-	for _, c := range ed.ui.Layout.Cols.Cols {
+func buildSession(ed Editori) *Session {
+	s := Session{LayoutToolbarText: ed.UI().Layout.Toolbar.Str()}
+	for _, c := range ed.UI().Layout.Cols.Cols {
 		// truncate for a shorter string
 		cend := float64(int(c.End*1000)) / 1000
 
@@ -183,15 +183,15 @@ func buildSession(ed *Editor) *Session {
 	}
 	return &s
 }
-func restoreSession(ed *Editor, s *Session) {
+func restoreSession(ed Editori, s *Session) {
 	// close current session
-	cols := ed.ui.Layout.Cols
+	cols := ed.UI().Layout.Cols
 	for len(cols.Cols) > 0 {
 		cols.RemoveColumnUntilNone(cols.Cols[0])
 	}
 	// restore session
 	// clear toolbar toolbar string
-	ed.ui.Layout.Toolbar.ClearStr(s.LayoutToolbarText, false)
+	ed.UI().Layout.Toolbar.ClearStr(s.LayoutToolbarText, false)
 	// create columns first
 	for i, _ := range s.Columns {
 		_ = cols.NewColumn()
@@ -208,9 +208,9 @@ func restoreSession(ed *Editor, s *Session) {
 			row := col.NewRow()
 			row.Toolbar.ClearStr(r.ToolbarText, false)
 			// content
-			tsd := ed.rowToolbarStringData(row)
+			tsd := ed.RowToolbarStringData(row)
 			p := tsd.FirstPartFilepath()
-			content, err := filepathContent(p)
+			content, err := ed.FilepathContent(p)
 			if err != nil {
 				ed.Error(err)
 			} else {

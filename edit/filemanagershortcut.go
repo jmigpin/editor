@@ -9,7 +9,7 @@ import (
 
 func filemanagerShortcut(ed *Editor, row *ui.Row) {
 	dir := ""
-	tsd := ed.rowToolbarStringData(row)
+	tsd := ed.RowToolbarStringData(row)
 	d, ok := tsd.FirstPartDirectory()
 	if ok {
 		dir = d

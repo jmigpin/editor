@@ -7,6 +7,7 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+// Keeps info data every x runes for faster jump to the state of the text.
 type StringCache struct {
 	Face *Face
 

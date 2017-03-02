@@ -11,7 +11,7 @@ import (
 )
 
 func ListDirTreeEd(ed *Editor, row *ui.Row, tree, hidden bool) {
-	tsd := ed.rowToolbarStringData(row)
+	tsd := ed.RowToolbarStringData(row)
 	fp := tsd.FirstPartFilepath()
 	s, err := ListDirTree(fp, tree, hidden)
 	if err != nil {
