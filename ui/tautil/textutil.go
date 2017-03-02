@@ -51,7 +51,7 @@ func PreviousRuneIndex(str string, index int) (rune, int, bool) {
 	return ru, index - size, true
 }
 
-func selectionStringIndexes(ta Texta) (int, int, bool) {
+func SelectionStringIndexes(ta Texta) (int, int) {
 	if !ta.SelectionOn() {
 		panic("selection should be on")
 	}
@@ -63,24 +63,20 @@ func selectionStringIndexes(ta Texta) (int, int, bool) {
 	if a == b {
 		panic("expecting a!=b, but got a=b")
 	}
-	return a, b, a != b
+	return a, b
 }
 
 func linesStringIndexes(ta Texta) (int, int, bool) {
 	var a, b int
 	if ta.SelectionOn() {
-		var ok bool
-		a, b, ok = selectionStringIndexes(ta)
-		if !ok {
-			return 0, 0, false
-		}
+		a, b = SelectionStringIndexes(ta)
 	} else {
 		a = ta.CursorIndex()
 		b = a
 	}
 	a = lineStartIndex(ta.Str(), a)
-	b = lineEndIndexNextIndex(ta.Str(), b)
-	return a, b, a != b
+	b, hasNewline := lineEndIndexNextIndex(ta.Str(), b)
+	return a, b, hasNewline
 }
 
 func lineStartIndex(str string, index int) int {
@@ -92,20 +88,17 @@ func lineStartIndex(str string, index int) int {
 	}
 	return i
 }
-func lineEndIndexNextIndex(str string, index int) int {
+func lineEndIndexNextIndex(str string, index int) (_ int, hasNewline bool) {
 	i := strings.Index(str[index:], "\n")
 	if i < 0 {
-		return len(str)
+		return len(str), false
 	}
-	return index + i + 1 // 1 is "\n" size
+	return index + i + 1, true // 1 is "\n" size
 }
 
 // used in: comment/uncomment, tabright/tableft
 func alterSelectedText(ta Texta, fn func(string) (string, bool)) bool {
-	a, b, ok := linesStringIndexes(ta)
-	if !ok {
-		return false
-	}
+	a, b, _ := linesStringIndexes(ta)
 
 	s, ok := fn(ta.Str()[a:b])
 	if !ok {

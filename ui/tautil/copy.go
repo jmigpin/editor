@@ -4,10 +4,7 @@ func Copy(ta Texta) {
 	if !ta.SelectionOn() {
 		return
 	}
-	a, b, ok := selectionStringIndexes(ta)
-	if !ok {
-		return
-	}
+	a, b := SelectionStringIndexes(ta)
 	s := ta.Str()[a:b]
 	ta.SetClipboardString(s)
 }

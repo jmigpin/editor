@@ -17,7 +17,7 @@ func commentLines(str string) (string, bool) {
 		}
 		altered = true
 		str = str[:i] + "//" + str[i:] // insert
-		i = lineEndIndexNextIndex(str, i)
+		i, _ = lineEndIndexNextIndex(str, i)
 	}
 	if !altered {
 		return "", false
@@ -42,7 +42,7 @@ func uncommentLines(str string) (string, bool) {
 			altered = true
 			str = str[:i] + str[i+len("//"):]
 		}
-		i = lineEndIndexNextIndex(str, i)
+		i, _ = lineEndIndexNextIndex(str, i)
 	}
 	if !altered {
 		return "", false

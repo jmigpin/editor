@@ -3,10 +3,7 @@ package tautil
 func InsertRune(ta Texta, ru rune) {
 	if ta.SelectionOn() {
 		// remove selection
-		a, b, ok := selectionStringIndexes(ta)
-		if !ok {
-			return
-		}
+		a, b := SelectionStringIndexes(ta)
 		ta.EditRemove(a, b)
 		ta.SetSelectionOn(false)
 		ta.SetCursorIndex(a)

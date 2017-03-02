@@ -4,10 +4,7 @@ func Backspace(ta Texta) {
 	var a, b int
 	var ok bool
 	if ta.SelectionOn() {
-		a, b, ok = selectionStringIndexes(ta)
-		if !ok {
-			return
-		}
+		a, b = SelectionStringIndexes(ta)
 		ta.SetSelectionOn(false)
 	} else {
 		b = ta.CursorIndex()

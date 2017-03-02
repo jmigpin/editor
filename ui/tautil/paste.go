@@ -13,11 +13,7 @@ func Paste(ta Texta) {
 		}
 
 		if ta.SelectionOn() {
-			a, b, ok := selectionStringIndexes(ta)
-			if !ok {
-				return
-			}
-
+			a, b := SelectionStringIndexes(ta)
 			ta.EditRemove(a, b)
 			ta.SetCursorIndex(a)
 		}

@@ -1,10 +1,7 @@
 package tautil
 
 func RemoveLines(ta Texta) {
-	a, b, ok := linesStringIndexes(ta)
-	if !ok {
-		return
-	}
+	a, b, _ := linesStringIndexes(ta)
 	ta.EditRemove(a, b)
 	ta.EditDone()
 	ta.SetSelectionOn(false)

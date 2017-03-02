@@ -1,22 +1,19 @@
 package tautil
 
 func MoveLineUp(ta Texta) {
-	a, b, ok := linesStringIndexes(ta)
-	if !ok {
-		return
-	}
+	a, b, hasNewline := linesStringIndexes(ta)
 	if a == 0 {
 		// already at the first line
 		return
 	}
 
-	s := ta.Str()[a:b] // line
-	// add newline if moving the last line
-	if b == len(ta.Str()) {
-		s += "\n"
-	}
+	s := ta.Str()[a:b]
 	ta.EditRemove(a, b)
 	a2 := lineStartIndex(ta.Str(), a-1) // previous line, -1 is size of '\n'
+	if !hasNewline {
+		ta.EditRemove(a-1, a) // remove newline to honor the moving line
+		s = s + "\n"
+	}
 	ta.EditInsert(a2, s)
 	ta.EditDone()
 
@@ -33,10 +30,7 @@ func MoveLineUp(ta Texta) {
 	}
 }
 func MoveLineDown(ta Texta) {
-	a, b, ok := linesStringIndexes(ta)
-	if !ok {
-		return
-	}
+	a, b, _ := linesStringIndexes(ta)
 	if b == len(ta.Str()) {
 		// already at the last line
 		return
@@ -44,14 +38,25 @@ func MoveLineDown(ta Texta) {
 
 	s := ta.Str()[a:b]
 	ta.EditRemove(a, b)
-	a2 := lineEndIndexNextIndex(ta.Str(), a)
+	a2, hasNewline := lineEndIndexNextIndex(ta.Str(), a)
+	if !hasNewline {
+		// remove newline from previous
+		s = s[:len(s)-1]
+		// insert newline on next
+		ta.EditInsert(a2, "\n")
+		a2++
+	}
 	ta.EditInsert(a2, s)
 	ta.EditDone()
 
 	if ta.SelectionOn() {
-		_, b2, ok := PreviousRuneIndex(ta.Str(), a2+len(s))
-		if !ok {
-			return
+		b2 := a2 + len(s)
+		if hasNewline {
+			var ok bool
+			_, b2, ok = PreviousRuneIndex(ta.Str(), b2)
+			if !ok {
+				return
+			}
 		}
 		ta.SetSelectionIndex(a2)
 		ta.SetCursorIndex(b2)
