@@ -131,30 +131,35 @@ func (ta *TextArea) Str() string {
 	}
 	return ta.str
 }
-func (ta *TextArea) setStr(v string) {
-	if v != ta.str {
-		ta.str = v
-		oldArea := ta.Area // needed for dynamic y (toolbars)
+func (ta *TextArea) setStr(s string) {
+	if s != ta.str {
+		ta.str = s
+		// ensure valid cursor index within limits
+		ta.SetCursorIndex(ta.CursorIndex())
+		// needed for dynamic y (toolbars)
+		oldArea := ta.Area
+
 		ta.CalcOwnArea()
 		ta.NeedPaint()
 		ta.UI.PushEvent(&TextAreaSetTextEvent{ta, oldArea})
 	}
 }
-func (ta *TextArea) ClearStr(str string, keepPosition bool) {
-	// clear undo
-	v := &ta.undo
-	v.start, v.cur, v.end = 0, 0, 0
-	for i := range v.q {
-		v.q[i] = nil
-	}
-
+func (ta *TextArea) SetStrClear2(str string, clearPosition, clearUndoQ bool) {
 	ta.SetSelectionOn(false)
-	ta.setStr(str)
-	if !keepPosition {
+	if clearPosition {
 		ta.SetCursorIndex(0)
 		ta.SetOffsetY(0)
 	}
+	if clearUndoQ {
+		ta.clearUndoQ()
+		ta.setStr(str)
+	} else {
+		ta.EditRemove(0, len(ta.str))
+		ta.EditInsert(0, str)
+		ta.EditDone()
+	}
 }
+
 func (ta *TextArea) ensureEdit() {
 	if ta.undo.edit == nil {
 		ta.undo.edit = &TextAreaEdit{}
@@ -181,37 +186,44 @@ func (ta *TextArea) EditDone() {
 }
 
 func (ta *TextArea) pushEdit(edit *TextAreaEdit) {
-	v := &ta.undo
-	v.q[v.cur%len(v.q)] = edit
-	v.cur++
-	v.end = v.cur
-	if v.end-v.start > len(v.q) {
-		v.start = v.end - len(v.q)
+	u := &ta.undo
+	u.q[u.cur%len(u.q)] = edit
+	u.cur++
+	u.end = u.cur
+	if u.end-u.start > len(u.q) {
+		u.start = u.end - len(u.q)
 	}
 }
 func (ta *TextArea) popUndo() {
-	v := &ta.undo
-	if v.cur-1 < v.start {
+	u := &ta.undo
+	if u.cur-1 < u.start {
 		return // no undos
 	}
-	v.cur--
-	edit := v.q[v.cur%len(v.q)]
+	u.cur--
+	edit := u.q[u.cur%len(u.q)]
 	s, i := edit.undos.apply(ta.str)
 	ta.setStr(s)
 	ta.SetCursorIndex(i)
 	ta.SetSelectionOn(false)
 }
 func (ta *TextArea) unpopRedo() {
-	v := &ta.undo
-	if v.cur == v.end {
+	u := &ta.undo
+	if u.cur == u.end {
 		return // no redos
 	}
-	edit := v.q[v.cur%len(v.q)]
-	v.cur++
+	edit := u.q[u.cur%len(u.q)]
+	u.cur++
 	s, i := edit.edits.apply(ta.str)
 	ta.setStr(s)
 	ta.SetCursorIndex(i)
 	ta.SetSelectionOn(false)
+}
+func (ta *TextArea) clearUndoQ() {
+	u := &ta.undo
+	u.start, u.cur, u.end = 0, 0, 0
+	for i := range u.q {
+		u.q[i] = nil
+	}
 }
 
 func (ta *TextArea) CursorIndex() int {

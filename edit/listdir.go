@@ -18,7 +18,7 @@ func ListDirEd(ed *Editor, row *ui.Row, tree, hidden bool) {
 		ed.Error(err)
 		return
 	}
-	row.TextArea.ClearStr(s, true)
+	row.TextArea.SetStrClear2(s, false, false)
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
 }

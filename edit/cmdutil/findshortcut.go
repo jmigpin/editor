@@ -7,7 +7,8 @@ import (
 )
 
 // Search for the find command in the toolbar and warps the pointer to it. Adds the command to the toolbar if not present.
-func QuickFindShortcut(ed Editori, row *ui.Row) {
+func FindShortcut(ed Editori, row *ui.Row) {
+	// find cmd in toolbar string
 	tsd := ed.RowToolbarStringData(row)
 	ta := row.Toolbar
 	found := false

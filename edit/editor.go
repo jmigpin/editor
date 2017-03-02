@@ -46,7 +46,7 @@ func NewEditor() (*Editor, error) {
 	// set up layout toolbar
 	ta := ed.ui.Layout.Toolbar
 	s := "Exit | ListSessions | NewColumn | NewRow"
-	ta.ClearStr(s, false)
+	ta.SetStrClear2(s, true, true)
 
 	// flags
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -138,7 +138,7 @@ func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
 	// new row
 	col := ed.ActiveColumn()
 	row = col.NewRow()
-	row.Toolbar.ClearStr(name, false)
+	row.Toolbar.SetStrClear2(name, true, true)
 	return row
 }
 func (ed *Editor) FindRowOrCreateInColFromFilepath(filepath string, col *ui.Column) (*ui.Row, error) {
@@ -153,8 +153,8 @@ func (ed *Editor) FindRowOrCreateInColFromFilepath(filepath string, col *ui.Colu
 	}
 	row = col.NewRow()
 	p2 := toolbardata.InsertHomeTilde(filepath)
-	row.Toolbar.ClearStr(p2+" | Reload", false)
-	row.TextArea.ClearStr(content, false)
+	row.Toolbar.SetStrClear2(p2+" | Reload", true, true)
+	row.TextArea.SetStrClear2(content, true, true)
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
 	return row, nil
@@ -175,7 +175,8 @@ func (ed *Editor) Error(err error) {
 	row := ed.FindRowOrCreate("+Errors")
 	ta := row.TextArea
 	// append
-	ta.ClearStr(ta.Str()+err.Error()+"\n", true)
+	a := ta.Str() + err.Error() + "\n"
+	ta.SetStrClear2(a, false, true)
 }
 
 func (ed *Editor) onUIEvent(ev ui.Event) {
@@ -252,7 +253,7 @@ func (ed *Editor) onRowKeyPress(ev *ui.RowKeyPressEvent) {
 		return
 	}
 	if m.Control() && fks == 'f' {
-		cmdutil.QuickFindShortcut(ed, ev.Row)
+		cmdutil.FindShortcut(ed, ev.Row)
 		return
 	}
 }

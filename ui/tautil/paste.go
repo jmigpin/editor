@@ -1,6 +1,7 @@
 package tautil
 
 func Paste(ta Texta) {
+	// The requestclipboard string blocks when it needs to communicate with the x server - hence using a go routine. An alternative would be to have it require a callback.
 	go func() {
 		str, err := ta.RequestClipboardString()
 		if err != nil {

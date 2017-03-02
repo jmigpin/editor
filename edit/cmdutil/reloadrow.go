@@ -26,7 +26,7 @@ func reloadRow2(ed Editori, row *ui.Row, tolerant bool) {
 			return
 		}
 	}
-	row.TextArea.ClearStr(content, true)
+	row.TextArea.SetStrClear2(content, false, false)
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
 }

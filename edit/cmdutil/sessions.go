@@ -24,7 +24,7 @@ type Column struct {
 type Row struct {
 	ToolbarText   string
 	TaCursorIndex int
-	TaOffsetIndex int
+	TaOffsetIndex int // kept instead of the offsetY to preserve the top string index if the area has a different size
 }
 
 func sessionFilename() string {
@@ -129,7 +129,7 @@ func ListSessions(ed Editori) {
 	for _, session := range ss.Sessions {
 		s += fmt.Sprintf("OpenSession %v\n", session.Name)
 	}
-	row.TextArea.ClearStr(s, false)
+	row.TextArea.SetStrClear2(s, false, false)
 }
 
 func saveSessionsToDisk(ss *Sessions) error {
@@ -191,7 +191,7 @@ func restoreSession(ed Editori, s *Session) {
 	}
 	// restore session
 	// clear toolbar toolbar string
-	ed.UI().Layout.Toolbar.ClearStr(s.LayoutToolbarText, false)
+	ed.UI().Layout.Toolbar.SetStrClear2(s.LayoutToolbarText, true, true)
 	// create columns first
 	for i, _ := range s.Columns {
 		_ = cols.NewColumn()
@@ -201,16 +201,16 @@ func restoreSession(ed Editori, s *Session) {
 	}
 	// calc areas since the columns ends had to be set
 	cols.CalcOwnArea()
-	// introduce the rows
+	// create the rows
 	for i, c := range s.Columns {
 		col := cols.Cols[i]
 		for _, r := range c.Rows {
 			row := col.NewRow()
-			row.Toolbar.ClearStr(r.ToolbarText, false)
+			row.Toolbar.SetStrClear2(r.ToolbarText, true, true)
 			row.TextArea.SetCursorIndex(r.TaCursorIndex)
 			row.TextArea.SetOffsetIndex(r.TaOffsetIndex)
 		}
 	}
-	// reload all rows (get content)
+	// reload rows (get content)
 	ReloadRows(ed)
 }
