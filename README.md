@@ -59,19 +59,19 @@ crl+button1/drag: move column (where the row belongs) to point<br>
 button2: close column<br>
 
 ### Row
-Any button press: make row active to layout toolbar commands.<br>
+Any button press: make row active to layout toolbar commands<br>
 
 ## Commands
 ### Layout toolbar commands (top toolbar)
 ListSessions: lists saved sessions<br>
 SaveSession <name>: save session to ~/.editor_sessions.json<br>
-DeleteSession: deletes the session from the sessions file.<br>
+DeleteSession: deletes the session from the sessions file<br>
 NewColumn: opens new column<br>
 NewRow: opens new row<br>
 SaveAllFiles: saves all files<br>
 ReloadAll: reloads all filepaths<br>
 ReloadAllFiles: reloads all filepaths that are files<br>
-Exit: exists the program<br>
+Exit: exits the program<br>
 
 Note: Some row commands work on the layout toolbar because they act on the current active row (ex: Find, Replace).
 
@@ -82,18 +82,18 @@ Reload: reload content<br>
 Find: find string (ignores case)<br>
 GotoLine <num>: goes to line number<br>
 Replace<old><new>: replaces old string with new<br>
-Stop: stops current processing running in the row.<br>
-ListDir: Lists directory.<br>
-ListDirSub: Lists directory and sub directories.<br>
-ListDirHidden: Lists directory including hidden.<br>
+Stop: stops current processing running in the row<br>
+ListDir: lists directory<br>
+ListDirSub: lists directory and sub directories<br>
+ListDirHidden: lists directory including hidden<br>
 
 ### Textarea commands
-OpenSession <name>: opens previously saved session<br>
+OpenSession \<name\>: opens previously saved session<br>
 \<url\>: opens url in x-www-browser<br>
 \<filepath\>: opens filepath<br>
 \<filename:number\>: opens filename at line (usual format from compilers)<br>
 \<quoted string\>: opens filepath if existent on goroot/gopath<br>
 
 ## Other features
-Drag and drop files/directories to the editor.
-Auto indentation of wrapped lines.
+Drag and drop files/directories to the editor<br>
+Auto indentation of wrapped lines
