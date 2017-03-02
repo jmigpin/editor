@@ -24,15 +24,8 @@ type SCRuneData struct {
 			ri  int // rune index
 			pen fixed.Point26_6
 		}
-		wrapIndent struct {
-			startingSpaces bool
-			penX           fixed.Int26_6
-		}
-		states struct {
-			comment bool
-			//str     bool
-			//strEnd  bool
-		}
+		wrapIndent StringLinerWrapIndent
+		states     StringLinerStates
 	}
 }
 

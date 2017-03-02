@@ -8,19 +8,28 @@ import (
 
 // Adds newlines and indented wraplines to StringIterator.
 type StringLiner struct {
-	iter       *StringIterator
-	max        fixed.Point26_6
-	line       int
-	wrapIndent struct {
-		startingSpaces bool
-		penX           fixed.Int26_6
+	iter           *StringIterator
+	max            fixed.Point26_6
+	line           int
+	wrapIndent     StringLinerWrapIndent
+	isWrapLineRune bool // used to detect if the cursor is in one
+	states         StringLinerStates
+}
+
+type StringLinerWrapIndent struct {
+	startingSpaces bool
+	penX           fixed.Int26_6
+}
+
+type StringLinerStates struct {
+	comment bool
+	cData   struct { // comment data
+		typ   int
+		close bool
+		count int
 	}
-	isWrapLineRune bool // used to detect if the cursor is on one
-	states         struct {
-		comment bool
-		//str     bool
-		//strEnd  bool
-	}
+	//str     bool
+	//strEnd  bool
 }
 
 func NewStringLiner(face *Face, str string, max *fixed.Point26_6) *StringLiner {
@@ -40,14 +49,38 @@ func (liner *StringLiner) Loop(fn func() bool) {
 				next, ok := liner.iter.LookaheadRune(1)
 				if ok && next == '/' {
 					liner.states.comment = true
+					liner.states.cData.typ = 0
 				}
 			}
-			if liner.iter.ru == '#' {
-				liner.states.comment = true
+			if liner.iter.ru == '/' {
+				next, ok := liner.iter.LookaheadRune(1)
+				if ok && next == '*' {
+					liner.states.comment = true
+					liner.states.cData.typ = 1
+					liner.states.cData.close = false
+					liner.states.cData.count = 0
+				}
 			}
 		} else {
-			if liner.iter.ru == '\n' {
-				liner.states.comment = false
+			switch liner.states.cData.typ {
+			case 0:
+				if liner.iter.ru == '\n' {
+					liner.states.comment = false
+				}
+			case 1:
+				if liner.iter.ru == '*' {
+					next, ok := liner.iter.LookaheadRune(1)
+					if ok && next == '/' {
+						liner.states.cData.close = true
+						liner.states.cData.count = 2
+					}
+				}
+				if liner.states.cData.close {
+					if liner.states.cData.count == 0 {
+						liner.states.comment = false
+					}
+					liner.states.cData.count--
+				}
 			}
 		}
 
