@@ -207,20 +207,10 @@ func restoreSession(ed Editori, s *Session) {
 		for _, r := range c.Rows {
 			row := col.NewRow()
 			row.Toolbar.ClearStr(r.ToolbarText, false)
-			// content
-			tsd := ed.RowToolbarStringData(row)
-			p := tsd.FirstPartFilepath()
-			content, err := ed.FilepathContent(p)
-			if err != nil {
-				ed.Error(err)
-			} else {
-				row.TextArea.ClearStr(content, false)
-				row.Square.SetDirty(false)
-			}
 			row.TextArea.SetCursorIndex(r.TaCursorIndex)
 			row.TextArea.SetOffsetIndex(r.TaOffsetIndex)
 		}
 	}
 	// reload all rows (get content)
-	//ReloadRows(ed)
+	ReloadRows(ed)
 }
