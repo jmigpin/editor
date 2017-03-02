@@ -4,10 +4,18 @@ import (
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/ui/tautil"
 )
 
 // Search for the find command in the toolbar and warps the pointer to it. Adds the command to the toolbar if not present.
 func FindShortcut(ed Editori, row *ui.Row) {
+	// check if there is a selection in the textarea
+	searchStr := ""
+	if row.TextArea.SelectionOn() {
+		a, b := tautil.SelectionStringIndexes(row.TextArea)
+		searchStr = row.TextArea.Str()[a:b]
+	}
+
 	// find cmd in toolbar string
 	tsd := ed.RowToolbarStringData(row)
 	ta := row.Toolbar
@@ -20,7 +28,13 @@ func FindShortcut(ed Editori, row *ui.Row) {
 			break
 		}
 	}
-	if found {
+	if !found || searchStr != "" {
+		// insert find cmd
+		ta.EditInsert(len(ta.Str()), " | Find "+searchStr)
+		ta.EditDone()
+		ta.SetSelectionOn(false)
+		ta.SetCursorIndex(len(ta.Str()))
+	} else if found {
 		if len(part.Args) == 1 {
 			// no other args
 			a := part.Start + part.Args[0].End
@@ -40,12 +54,6 @@ func FindShortcut(ed Editori, row *ui.Row) {
 			ta.SetSelectionIndex(a)
 			ta.SetCursorIndex(b)
 		}
-	} else {
-		// insert find cmd
-		ta.EditInsert(len(ta.Str()), " | Find ")
-		ta.EditDone()
-		ta.SetSelectionOn(false)
-		ta.SetCursorIndex(len(ta.Str()))
 	}
 
 	// warp pointer to toolbar close to "Find " text cmd to be able to click for run
