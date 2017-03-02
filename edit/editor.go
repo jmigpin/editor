@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
+	"github.com/jmigpin/editor/edit/cmdutil/contentcmd"
 	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xutil/dragndrop"
@@ -66,7 +67,7 @@ func NewEditor() (*Editor, error) {
 	// flags: filenames
 	args := flag.Args()
 	if len(args) > 0 {
-		col := ed.activeColumn()
+		col := ed.ActiveColumn()
 		for _, s := range args {
 			_, err := ed.FindRowOrCreateInColFromFilepath(s, col)
 			if err != nil {
@@ -108,7 +109,7 @@ func (ed *Editor) activeRow() (*ui.Row, bool) {
 	}
 	return nil, false
 }
-func (ed *Editor) activeColumn() *ui.Column {
+func (ed *Editor) ActiveColumn() *ui.Column {
 	row, ok := ed.activeRow()
 	if ok {
 		return row.Col
@@ -135,7 +136,7 @@ func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
 		return row
 	}
 	// new row
-	col := ed.activeColumn()
+	col := ed.ActiveColumn()
 	row = col.NewRow()
 	row.Toolbar.ClearStr(name, false)
 	return row
@@ -211,7 +212,7 @@ func (ed *Editor) onTextAreaCmd(ev *ui.TextAreaCmdEvent) {
 	case *ui.Row:
 		switch ta {
 		case t0.TextArea:
-			stringCmd(ed, t0)
+			contentcmd.Cmd(ed, t0)
 		}
 	}
 }

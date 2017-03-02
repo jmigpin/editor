@@ -14,4 +14,5 @@ type Editori interface {
 	FilepathContent(filepath string) (string, error)
 	FilesWatcherAdd(filename string) error
 	FilesWatcherRemove(filename string) error
+	ActiveColumn() *ui.Column
 }
