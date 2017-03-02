@@ -221,4 +221,6 @@ func restoreSession(ed Editori, s *Session) {
 			row.TextArea.SetOffsetIndex(r.TaOffsetIndex)
 		}
 	}
+	// reload all rows (get content)
+	//ReloadRows(ed)
 }

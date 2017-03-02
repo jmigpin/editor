@@ -1,4 +1,4 @@
-package edit
+package cmdutil
 
 import (
 	"github.com/jmigpin/editor/drawutil"
@@ -7,7 +7,7 @@ import (
 )
 
 // Search for the find command in the toolbar and warps the pointer to it. Adds the command to the toolbar if not present.
-func quickFindShortcut(ed *Editor, row *ui.Row) {
+func QuickFindShortcut(ed Editori, row *ui.Row) {
 	tsd := ed.RowToolbarStringData(row)
 	ta := row.Toolbar
 	found := false

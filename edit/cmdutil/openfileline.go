@@ -1,4 +1,4 @@
-package edit
+package cmdutil
 
 import (
 	"strings"
@@ -7,8 +7,8 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func openFileLineAtCol(ed *Editor, filename string, line int, col *ui.Column) {
-	row, err := ed.openFilepath(filename, col)
+func OpenFileLineAtCol(ed Editori, filename string, line int, col *ui.Column) {
+	row, err := ed.FindRowOrCreateInColFromFilepath(filename, col)
 	if err != nil {
 		ed.Error(err)
 		return

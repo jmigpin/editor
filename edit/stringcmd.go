@@ -134,7 +134,7 @@ func stringCmdDirectory(ed *Editor, row *ui.Row, cmd string) bool {
 		return false
 	}
 	col := ed.activeColumn()
-	row, err = ed.openFilepath(p, col)
+	row, err = ed.FindRowOrCreateInColFromFilepath(p, col)
 	if err == nil {
 		row.Square.WarpPointer()
 	}
@@ -174,7 +174,7 @@ func stringCmdFilenameAndNumber(ed *Editor, row *ui.Row, scmd string) bool {
 		}
 	}
 	// open
-	openFileLineAtCol(ed, filename, num, row.Col)
+	cmdutil.OpenFileLineAtCol(ed, filename, num, row.Col)
 	return true
 }
 
@@ -207,7 +207,7 @@ func stringCmdGoPathDir(ed *Editor, row *ui.Row, s string) bool {
 		_, err := os.Stat(p2)
 		if err == nil {
 			col := ed.activeColumn()
-			row, err = ed.openFilepath(p2, col)
+			row, err = ed.FindRowOrCreateInColFromFilepath(p2, col)
 			if err == nil {
 				row.Square.WarpPointer()
 			}

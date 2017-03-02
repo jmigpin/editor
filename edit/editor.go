@@ -10,6 +10,7 @@ import (
 	"runtime/pprof"
 	"strings"
 
+	"github.com/jmigpin/editor/edit/cmdutil"
 	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xutil/dragndrop"
@@ -20,7 +21,7 @@ import (
 
 type Editor struct {
 	ui *ui.UI
-	fs *FilesState
+	fs *FilesState // TODO: rename fileswatcher
 }
 
 func NewEditor() (*Editor, error) {
@@ -67,7 +68,7 @@ func NewEditor() (*Editor, error) {
 	if len(args) > 0 {
 		col := ed.activeColumn()
 		for _, s := range args {
-			_, err := ed.openFilepath(s, col)
+			_, err := ed.FindRowOrCreateInColFromFilepath(s, col)
 			if err != nil {
 				ed.Error(err)
 				continue
@@ -84,6 +85,12 @@ func NewEditor() (*Editor, error) {
 
 func (ed *Editor) UI() *ui.UI {
 	return ed.ui
+}
+func (ed *Editor) FilesWatcherAdd(filename string) error {
+	return ed.fs.Add(filename)
+}
+func (ed *Editor) FilesWatcherRemove(filename string) error {
+	return ed.fs.Remove(filename)
 }
 
 func (ed *Editor) Close() {
@@ -133,15 +140,7 @@ func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
 	row.Toolbar.ClearStr(name, false)
 	return row
 }
-
-func (ed *Editor) RowToolbarStringData(row *ui.Row) *toolbardata.StringData {
-	return toolbardata.NewStringData(row.Toolbar.Str())
-}
-func (ed *Editor) FilepathContent(filepath string) (string, error) {
-	return filepathContent(filepath)
-}
-
-func (ed *Editor) openFilepath(filepath string, preferredCol *ui.Column) (*ui.Row, error) {
+func (ed *Editor) FindRowOrCreateInColFromFilepath(filepath string, col *ui.Column) (*ui.Row, error) {
 	row, ok := ed.findRow(filepath)
 	if ok {
 		return row, nil
@@ -151,13 +150,20 @@ func (ed *Editor) openFilepath(filepath string, preferredCol *ui.Column) (*ui.Ro
 	if err != nil {
 		return nil, err
 	}
-	row = preferredCol.NewRow()
+	row = col.NewRow()
 	p2 := toolbardata.InsertHomeTilde(filepath)
 	row.Toolbar.ClearStr(p2+" | Reload", false)
 	row.TextArea.ClearStr(content, false)
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
 	return row, nil
+}
+
+func (ed *Editor) RowToolbarStringData(row *ui.Row) *toolbardata.StringData {
+	return toolbardata.NewStringData(row.Toolbar.Str())
+}
+func (ed *Editor) FilepathContent(filepath string) (string, error) {
+	return filepathContent(filepath)
 }
 
 //func (ed *Editor) onSignal(sig os.Signal) {
@@ -237,15 +243,15 @@ func (ed *Editor) onRowKeyPress(ev *ui.RowKeyPressEvent) {
 	fks := ev.Key.FirstKeysym()
 	m := ev.Key.Modifiers
 	if m.Control() && fks == 's' {
-		saveRowFile(ed, ev.Row)
+		cmdutil.SaveRowFile(ed, ev.Row)
 		return
 	}
 	if m.Control() && m.Shift() && fks == 'f' {
-		filemanagerShortcut(ed, ev.Row)
+		cmdutil.FilemanagerShortcut(ed, ev.Row)
 		return
 	}
 	if m.Control() && fks == 'f' {
-		quickFindShortcut(ed, ev.Row)
+		cmdutil.QuickFindShortcut(ed, ev.Row)
 		return
 	}
 }
@@ -302,7 +308,7 @@ func parseAsTextURLList(data []byte) ([]*url.URL, error) {
 func (ed *Editor) handleColumnDroppedURLs(col *ui.Column, p *image.Point, urls []*url.URL) {
 	for _, u := range urls {
 		if u.Scheme == "file" {
-			row, err := ed.openFilepath(u.Path, col)
+			row, err := ed.FindRowOrCreateInColFromFilepath(u.Path, col)
 			if err != nil {
 				ed.Error(err)
 				continue

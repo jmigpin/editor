@@ -1,4 +1,4 @@
-package edit
+package cmdutil
 
 import (
 	"os"
@@ -6,20 +6,20 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func reloadRows(ed *Editor) {
-	for _, c := range ed.ui.Layout.Cols.Cols {
+func ReloadRows(ed Editori) {
+	for _, c := range ed.UI().Layout.Cols.Cols {
 		for _, r := range c.Rows {
 			reloadRow2(ed, r, true)
 		}
 	}
 }
-func reloadRow(ed *Editor, row *ui.Row) {
+func ReloadRow(ed Editori, row *ui.Row) {
 	reloadRow2(ed, row, false)
 }
-func reloadRow2(ed *Editor, row *ui.Row, tolerant bool) {
+func reloadRow2(ed Editori, row *ui.Row, tolerant bool) {
 	tsd := ed.RowToolbarStringData(row)
 	p := tsd.FirstPartFilepath()
-	content, err := filepathContent(p)
+	content, err := ed.FilepathContent(p)
 	if err != nil {
 		if !tolerant {
 			ed.Error(err)
@@ -31,14 +31,14 @@ func reloadRow2(ed *Editor, row *ui.Row, tolerant bool) {
 	row.Square.SetCold(false)
 }
 
-func reloadRowsFiles(ed *Editor) {
-	for _, c := range ed.ui.Layout.Cols.Cols {
+func ReloadRowsFiles(ed Editori) {
+	for _, c := range ed.UI().Layout.Cols.Cols {
 		for _, r := range c.Rows {
 			reloadRowFile(ed, r)
 		}
 	}
 }
-func reloadRowFile(ed *Editor, row *ui.Row) {
+func reloadRowFile(ed Editori, row *ui.Row) {
 	tsd := ed.RowToolbarStringData(row)
 	p := tsd.FirstPartFilepath()
 	// check if its a file

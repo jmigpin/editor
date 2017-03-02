@@ -1,4 +1,4 @@
-package edit
+package cmdutil
 
 import (
 	"os/exec"
@@ -7,7 +7,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func filemanagerShortcut(ed *Editor, row *ui.Row) {
+func FilemanagerShortcut(ed Editori, row *ui.Row) {
 	dir := ""
 	tsd := ed.RowToolbarStringData(row)
 	d, ok := tsd.FirstPartDirectory()

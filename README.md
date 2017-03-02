@@ -68,11 +68,12 @@ SaveSession <name>: save session to ~/.editor_sessions.json<br>
 DeleteSession: deletes the session from the sessions file.<br>
 NewColumn: opens new column<br>
 NewRow: opens new row<br>
-SaveAll: saves all files<br>
+SaveAllFiles: saves all files<br>
 ReloadAll: reloads all filepaths<br>
+ReloadAllFiles: reloads all filepaths that are files<br>
 Exit: exists the program<br>
 
-Note: Some row commands work on the layout toolbar because the act on the current active row (ex: Find, Replace).
+Note: Some row commands work on the layout toolbar because they act on the current active row (ex: Find, Replace).
 
 ### Row toolbar commands
 Save: save file<br>

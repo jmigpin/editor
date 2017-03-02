@@ -62,12 +62,12 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool 
 		cmdutil.ListSessions(ed)
 	case "NewColumn":
 		_ = ed.ui.Layout.Cols.NewColumn()
-	case "SaveAll":
-		saveRowsFiles(ed)
+	case "SaveAllFiles":
+		cmdutil.SaveRowsFiles(ed)
 	case "ReloadAll":
-		reloadRows(ed)
+		cmdutil.ReloadRows(ed)
 	case "ReloadAllFiles":
-		reloadRowsFiles(ed)
+		cmdutil.ReloadRowsFiles(ed)
 	case "NewRow":
 		var col *ui.Column
 		arow, ok := ed.activeRow()
@@ -89,9 +89,9 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbardata.Part) bool {
 	p0 := part.Args[0].Trim()
 	switch p0 {
 	case "Save":
-		saveRowFile(ed, row)
+		cmdutil.SaveRowFile(ed, row)
 	case "Reload":
-		reloadRow(ed, row)
+		cmdutil.ReloadRow(ed, row)
 	case "Close":
 		row.Close()
 	case "CloseColumn":
