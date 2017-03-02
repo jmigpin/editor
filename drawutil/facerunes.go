@@ -33,7 +33,9 @@ func (fr *FaceRunes) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
 	}
 	if ru == '\n' || ru == '\r' || ru == eofRune {
 		//return fr.FaceCache.GlyphAdvance(' ')
-		return fixed.Int26_6(0), true
+		//return fixed.Int26_6(0), true
+		a, ok := fr.FaceCache.GlyphAdvance(' ')
+		return a / 2, ok
 	}
 	return fr.FaceCache.GlyphAdvance(ru)
 }
