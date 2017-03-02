@@ -392,7 +392,7 @@ func (ta *TextArea) onRootMotionNotify(p *image.Point, m keybmap.Modifiers) {
 }
 func (ta *TextArea) onButtonRelease(p *image.Point, b *keybmap.Button) {
 	switch b.Button {
-	case xproto.ButtonIndex2:
+	case xproto.ButtonIndex3: // 2=middle, 3=right
 		tautil.MoveCursorToPoint(ta, p, false)
 		ta.UI.PushEvent(&TextAreaCmdEvent{ta})
 	}

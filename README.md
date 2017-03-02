@@ -44,7 +44,7 @@ ctrl+f: quick shortcut to "Find"<br>
 ## Button shortcuts
 ### Textarea
 button1: move cursor to point<br>
-button2: move cursor to point + text area cmd<br>
+button3: move cursor to point + text area cmd<br>
 button4: scroll up<br>
 button5: scroll down<br>
 shift+button1: move cursor to point adding to selection<br>
