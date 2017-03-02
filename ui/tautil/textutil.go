@@ -53,12 +53,15 @@ func PreviousRuneIndex(str string, index int) (rune, int, bool) {
 
 func selectionStringIndexes(ta Texta) (int, int, bool) {
 	if !ta.SelectionOn() {
-		panic("!")
+		panic("selection should be on")
 	}
 	a := ta.SelectionIndex()
 	b := ta.CursorIndex()
 	if a > b {
 		a, b = b, a
+	}
+	if a == b {
+		panic("expecting a!=b, but got a=b")
 	}
 	return a, b, a != b
 }

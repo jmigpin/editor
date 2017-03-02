@@ -4,6 +4,8 @@ import "unicode"
 
 func StartOfLine(ta Texta, sel bool) {
 	activateSelection(ta, sel)
+	defer deactivateSelectionCheck(ta)
+
 	i := lineStartIndex(ta.Str(), ta.CursorIndex())
 
 	// stop at first non blank rune from the left
@@ -16,5 +18,4 @@ func StartOfLine(ta Texta, sel bool) {
 	}
 
 	ta.SetCursorIndex(i)
-	deactivateSelectionCheck(ta)
 }

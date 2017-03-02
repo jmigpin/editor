@@ -4,9 +4,9 @@ import "unicode"
 
 func MoveCursorJumpRight(ta Texta, sel bool) {
 	activateSelection(ta, sel)
+	defer deactivateSelectionCheck(ta)
 	i := moveCursorJumpRightIndex(ta)
 	ta.SetCursorIndex(i)
-	deactivateSelectionCheck(ta)
 }
 func moveCursorJumpRightIndex(ta Texta) int {
 	i0 := ta.CursorIndex()
@@ -29,9 +29,9 @@ func moveCursorJumpRightIndex(ta Texta) int {
 }
 func MoveCursorJumpLeft(ta Texta, sel bool) {
 	activateSelection(ta, sel)
+	defer deactivateSelectionCheck(ta)
 	i := moveCursorJumpLeftIndex(ta)
 	ta.SetCursorIndex(i)
-	deactivateSelectionCheck(ta)
 }
 func moveCursorJumpLeftIndex(ta Texta) int {
 	found := false
