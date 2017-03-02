@@ -82,6 +82,8 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbar.Part) bool {
 	}
 	return true
 }
+
+// returns if cmd was found
 func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbar.Part) bool {
 	p0 := part.Args[0].Trim()
 	switch p0 {

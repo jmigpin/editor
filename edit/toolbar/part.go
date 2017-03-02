@@ -35,10 +35,14 @@ func parseParts(str string) []*Part {
 }
 func (p *Part) JoinArgsIndexes(s, e int) *Token {
 	args := p.Args[s:e]
-	s0 := args[0].Start
-	e0 := args[len(args)-1].End
-	str := p.Str[s0:e0]
-	return &Token{str, s0, e0}
+	tok := &Token{}
+	if len(args) > 0 {
+		s0 := args[0].Start
+		e0 := args[len(args)-1].End
+		str := p.Str[s0:e0]
+		tok = &Token{Str: str, Start: s0, End: e0}
+	}
+	return tok
 }
 func (p *Part) JoinArgs() *Token {
 	return p.JoinArgsIndexes(0, len(p.Args))
