@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/jmigpin/editor/edit/toolbar"
+	"github.com/jmigpin/editor/edit/toolbardata"
 )
 
 type Sessions struct {
@@ -32,7 +32,7 @@ func sessionFilename() string {
 	return path.Join(home, ".editor_sessions.json")
 }
 
-func SaveSession(ed Editori, part *toolbar.Part) {
+func SaveSession(ed Editori, part *toolbardata.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("savesession: missing session name"))
 		return
@@ -67,7 +67,7 @@ func SaveSession(ed Editori, part *toolbar.Part) {
 		return
 	}
 }
-func OpenSession(ed Editori, part *toolbar.Part) {
+func OpenSession(ed Editori, part *toolbardata.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("opensession: missing session name"))
 		return
@@ -89,7 +89,7 @@ func OpenSessionFromString(ed Editori, sessionName string) {
 	}
 	ed.Error(fmt.Errorf("opensession: session not found: %v", sessionName))
 }
-func DeleteSession(ed Editori, part *toolbar.Part) {
+func DeleteSession(ed Editori, part *toolbardata.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("deletesession: missing session name"))
 		return

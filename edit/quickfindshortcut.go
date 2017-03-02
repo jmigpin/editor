@@ -2,7 +2,7 @@ package edit
 
 import (
 	"github.com/jmigpin/editor/drawutil"
-	"github.com/jmigpin/editor/edit/toolbar"
+	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 )
 
@@ -11,7 +11,7 @@ func quickFindShortcut(ed *Editor, row *ui.Row) {
 	tsd := ed.RowToolbarStringData(row)
 	ta := row.Toolbar
 	found := false
-	var part *toolbar.Part
+	var part *toolbardata.Part
 	for _, p := range tsd.Parts {
 		if len(p.Args) > 0 && p.Args[0].Str == "Find" {
 			found = true

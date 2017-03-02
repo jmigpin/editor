@@ -10,7 +10,7 @@ import (
 	"runtime/pprof"
 	"strings"
 
-	"github.com/jmigpin/editor/edit/toolbar"
+	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xutil/dragndrop"
 
@@ -134,8 +134,8 @@ func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
 	return row
 }
 
-func (ed *Editor) RowToolbarStringData(row *ui.Row) *toolbar.StringData {
-	return toolbar.NewStringData(row.Toolbar.Str())
+func (ed *Editor) RowToolbarStringData(row *ui.Row) *toolbardata.StringData {
+	return toolbardata.NewStringData(row.Toolbar.Str())
 }
 func (ed *Editor) FilepathContent(filepath string) (string, error) {
 	return filepathContent(filepath)
@@ -152,7 +152,7 @@ func (ed *Editor) openFilepath(filepath string, preferredCol *ui.Column) (*ui.Ro
 		return nil, err
 	}
 	row = preferredCol.NewRow()
-	p2 := toolbar.InsertHomeTilde(filepath)
+	p2 := toolbardata.InsertHomeTilde(filepath)
 	row.Toolbar.ClearStr(p2+" | Reload", false)
 	row.TextArea.ClearStr(content, false)
 	row.Square.SetDirty(false)

@@ -1,4 +1,4 @@
-package toolbar
+package toolbardata
 
 import (
 	"fmt"

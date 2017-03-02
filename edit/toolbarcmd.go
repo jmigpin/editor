@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/edit/toolbar"
+	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/ui/tautil"
 )
 
 func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
-	tsd := toolbar.NewStringData(ta.Str())
+	tsd := toolbardata.NewStringData(ta.Str())
 	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
 		return
@@ -47,7 +47,7 @@ func ToolbarCmdFromRow(ed *Editor, row *ui.Row) {
 	ToolbarCmdExternalForRow(ed, row, cmd)
 }
 
-func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbar.Part) bool {
+func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool {
 	p0 := part.Args[0].Trim()
 	switch p0 {
 	case "Exit":
@@ -85,7 +85,7 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbar.Part) bool {
 }
 
 // returns if cmd was found
-func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbar.Part) bool {
+func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbardata.Part) bool {
 	p0 := part.Args[0].Trim()
 	switch p0 {
 	case "Save":
@@ -134,7 +134,7 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbar.Part) bool {
 	return true
 }
 
-func parseTwoOptionalTrueFalseArgs(part *toolbar.Part) (bool, bool, error) {
+func parseTwoOptionalTrueFalseArgs(part *toolbardata.Part) (bool, bool, error) {
 	parseTrueFalse := func(s string) (bool, error) {
 		if s == "true" {
 			return true, nil

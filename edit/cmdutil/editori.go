@@ -1,7 +1,7 @@
 package cmdutil
 
 import (
-	"github.com/jmigpin/editor/edit/toolbar"
+	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 )
 
@@ -10,6 +10,6 @@ type Editori interface {
 
 	UI() *ui.UI
 	FindRowOrCreate(name string) *ui.Row
-	RowToolbarStringData(*ui.Row) *toolbar.StringData
+	RowToolbarStringData(*ui.Row) *toolbardata.StringData
 	FilepathContent(filepath string) (string, error)
 }
