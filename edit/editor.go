@@ -17,12 +17,13 @@ import (
 	"github.com/jmigpin/editor/xutil/dragndrop"
 
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/fsnotify/fsnotify"
+	//"github.com/fsnotify/fsnotify"
+	"github.com/howeyc/fsnotify"
 )
 
 type Editor struct {
 	ui *ui.UI
-	fs *FilesState // TODO: rename fileswatcher
+	fw *FilesWatcher
 }
 
 func NewEditor() (*Editor, error) {
@@ -35,13 +36,14 @@ func NewEditor() (*Editor, error) {
 	ed.ui = ui0
 	ed.ui.OnEvent = ed.onUIEvent
 
-	fs, err := NewFilesState()
+	fw, err := NewFilesWatcher()
 	if err != nil {
 		return nil, err
 	}
-	ed.fs = fs
-	ed.fs.OnError = ed.Error
-	ed.fs.OnEvent = ed.onFSEvent
+	ed.fw = fw
+	ed.fw.OnError = ed.Error
+	ed.fw.OnDebug = ed.Debug
+	ed.fw.OnEvent = ed.onFWEvent
 
 	// set up layout toolbar
 	ta := ed.ui.Layout.Toolbar
@@ -78,7 +80,7 @@ func NewEditor() (*Editor, error) {
 	}
 
 	//initCatchSignals(ed.onSignal)
-	go ed.fs.EventLoop()
+	go ed.fw.EventLoop()
 	ed.ui.EventLoop()
 
 	return ed, nil
@@ -88,14 +90,14 @@ func (ed *Editor) UI() *ui.UI {
 	return ed.ui
 }
 func (ed *Editor) FilesWatcherAdd(filename string) error {
-	return ed.fs.Add(filename)
+	return ed.fw.Add(filename)
 }
 func (ed *Editor) FilesWatcherRemove(filename string) error {
-	return ed.fs.Remove(filename)
+	return ed.fw.Remove(filename)
 }
 
 func (ed *Editor) Close() {
-	ed.fs.Close()
+	ed.fw.Close()
 	ed.ui.Close()
 }
 
@@ -178,6 +180,13 @@ func (ed *Editor) Error(err error) {
 	a := ta.Str() + err.Error() + "\n"
 	ta.SetStrClear2(a, false, true)
 }
+func (ed *Editor) Debug(s string) {
+	row := ed.FindRowOrCreate("+Debug")
+	ta := row.TextArea
+	// append
+	a := ta.Str() + s + "\n"
+	ta.SetStrClear2(a, false, true)
+}
 
 func (ed *Editor) onUIEvent(ev ui.Event) {
 	switch ev0 := ev.(type) {
@@ -191,7 +200,7 @@ func (ed *Editor) onUIEvent(ev ui.Event) {
 		ed.onRowKeyPress(ev0)
 	case *ui.RowCloseEvent:
 		rowCtx.Cancel(ev0.Row)
-		ed.updateFileStates()
+		ed.updateFilesWatcher()
 	case *ui.ColumnDndPositionEvent:
 		ed.onColumnDndPosition(ev0)
 	case *ui.ColumnDndDropEvent:
@@ -223,11 +232,9 @@ func (ed *Editor) onTextAreaSetText(ev *ui.TextAreaSetTextEvent) {
 	case *ui.Toolbar:
 		switch t1 := t0.Data.(type) {
 		case *ui.Row:
-			tsd := ed.RowToolbarStringData(t1)
-			_, ok := tsd.FirstPartFilename()
-			if ok {
-				ed.updateFileStates()
-			}
+			_ = t1
+			// in case the filename was changed
+			ed.updateFilesWatcher()
 		}
 	case *ui.Row:
 		switch ta {
@@ -320,7 +327,7 @@ func (ed *Editor) handleColumnDroppedURLs(col *ui.Column, p *image.Point, urls [
 	}
 }
 
-func (ed *Editor) updateFileStates() {
+func (ed *Editor) updateFilesWatcher() {
 	var u []string
 	for _, c := range ed.ui.Layout.Cols.Cols {
 		for _, r := range c.Rows {
@@ -331,21 +338,17 @@ func (ed *Editor) updateFileStates() {
 			}
 		}
 	}
-	ed.fs.SetFiles(u)
+	ed.fw.SetFiles(u)
 }
-func (ed *Editor) onFSEvent(ev fsnotify.Event) {
-	evs := fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename
-	if ev.Op&evs > 0 {
-		row, ok := ed.findRow(ev.Name)
-		if ok {
-			row.Square.SetCold(true)
-		}
-		return
-	} else if ev.Op&fsnotify.Chmod > 0 {
-		return
+
+func (ed *Editor) onFWEvent(ev *fsnotify.FileEvent) {
+	// on any event
+	row, ok := ed.findRow(ev.Name)
+	if ok {
+		row.Square.SetCold(true)
+		// this func was called async, need to request tree paint
+		ed.ui.RequestTreePaint()
 	}
-	ed.Error(fmt.Errorf("unhandled fs event: %v", ev))
-	// The window might not have focus, and no expose event will happen
-	// Since the fsevents are async, a request is done to ensure a draw
-	ed.ui.RequestTreePaint()
+	// always update
+	ed.updateFilesWatcher()
 }
