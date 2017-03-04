@@ -40,11 +40,12 @@ func (rctx *RowCtx) Cancel(row *ui.Row) {
 	e.cancel()
 	delete(rctx.m, row)
 }
-func (rctx *RowCtx) ClearIfCtx(row *ui.Row, ctx context.Context, fn func()) {
+func (rctx *RowCtx) ClearIfNotNewCtx(row *ui.Row, ctx context.Context, fn func()) {
 	rctx.Lock()
 	defer rctx.Unlock()
 	e, ok := rctx.m[row]
 	if !ok {
+		fn()
 		return
 	}
 	if e.ctx == ctx {

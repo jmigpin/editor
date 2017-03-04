@@ -113,7 +113,7 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 	close(ch)
 
 	// another context could be added already to the row
-	rowCtx.ClearIfCtx(row, ctx, func() {
+	rowCtx.ClearIfNotNewCtx(row, ctx, func() {
 		// indicate the cmd is not running anymore
 		row.Square.SetExecuting(false)
 		row.UI.RequestTreePaint()
