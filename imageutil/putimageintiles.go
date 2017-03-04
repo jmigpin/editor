@@ -1,12 +1,31 @@
-package xutil
+package imageutil
 
-import "image/color"
+//import (
+//"image"
+//"sync"
+//)
 
-// used by cursors
-func ColorUint16s(c color.Color) (uint16, uint16, uint16, uint16) {
-	r, g, b, a := c.RGBA()
-	return uint16(r << 8), uint16(g << 8), uint16(b << 8), uint16(a)
-}
+//func PutImageInTiles(gctx *GContext, x, y int, img image.Image, r *image.Rectangle) {
+//var wg sync.WaitGroup
+//chunk := 64
+//for yi := r.Min.Y; yi < r.Max.Y; yi += chunk {
+//my := yi + chunk
+//for xi := r.Min.X; xi < r.Max.X; xi += chunk {
+//mx := xi + chunk
+//r2 := image.Rect(xi, yi, mx, my).Intersect(*r)
+//wg.Add(1)
+//go func(r2 image.Rectangle, xi, yi int) {
+//defer wg.Done()
+//data := RGBADataForX(img, &r2)
+//w, h := r2.Dx(), r2.Dy()
+//x0 := x + xi - r.Min.X
+//y0 := y + yi - r.Min.Y
+//gctx.PutImageData(x0, y0, w, h, data)
+//}(r2, xi, yi)
+//}
+//}
+//wg.Wait()
+//}
 
 //func RGBADataForX(img image.Image, r *image.Rectangle) []uint8 {
 //// fast lane: RGBA
@@ -48,26 +67,4 @@ func ColorUint16s(c color.Color) (uint16, uint16, uint16, uint16) {
 //}
 //}
 //return d
-//}
-
-//func SendImageInTiles(gctx *GContext, x, y int, img image.Image, r *image.Rectangle) {
-//var wg sync.WaitGroup
-//chunk := 64
-//for yi := r.Min.Y; yi < r.Max.Y; yi += chunk {
-//my := yi + chunk
-//for xi := r.Min.X; xi < r.Max.X; xi += chunk {
-//mx := xi + chunk
-//r2 := image.Rect(xi, yi, mx, my).Intersect(*r)
-//wg.Add(1)
-//go func(r2 image.Rectangle, xi, yi int) {
-//defer wg.Done()
-//data := RGBADataForX(img, &r2)
-//w, h := r2.Dx(), r2.Dy()
-//x0 := x + xi - r.Min.X
-//y0 := y + yi - r.Min.Y
-//gctx.PutImageData(x0, y0, w, h, data)
-//}(r2, xi, yi)
-//}
-//}
-//wg.Wait()
 //}

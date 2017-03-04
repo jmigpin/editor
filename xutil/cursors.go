@@ -5,6 +5,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/imageutil"
 )
 
 // https://godoc.org/github.com/BurntSushi/xgbutil/xcursor
@@ -71,8 +72,8 @@ func (cs *Cursors) createCursor(cursorEntry uint16) (xproto.Cursor, error) {
 	}
 
 	// colors
-	fr, fg, fb, _ := ColorUint16s(color.Black)
-	br, bg, bb, _ := ColorUint16s(color.White)
+	fr, fg, fb, _ := imageutil.ColorUint16s(color.Black)
+	br, bg, bb, _ := imageutil.ColorUint16s(color.White)
 
 	err = xproto.CreateGlyphCursorChecked(cs.conn, cursor, fontId, fontId,
 		cursorEntry, cursorEntry+1, fr, fg, fb, br, bg, bb).Check()
