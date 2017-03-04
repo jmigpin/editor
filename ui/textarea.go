@@ -180,8 +180,10 @@ func (ta *TextArea) EditDone() {
 	if ta.undo.edit == nil {
 		panic("missing edit instance")
 	}
-	ta.pushEdit(ta.undo.edit)
-	ta.setStr(ta.undo.str)
+	if !ta.undo.edit.IsEmpty() {
+		ta.pushEdit(ta.undo.edit)
+		ta.setStr(ta.undo.str)
+	}
 	ta.undo.edit = nil
 	ta.undo.str = ""
 }

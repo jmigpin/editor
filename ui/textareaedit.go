@@ -6,16 +6,25 @@ type TextAreaEdit struct {
 }
 
 func (tae *TextAreaEdit) insert(str string, index int, s string) string {
+	if len(s) == 0 {
+		return str
+	}
 	insert := &TextAreaEditInsert{index, s}
 	tae.edits = append(tae.edits, insert)
 	tae.undos = append(TextAreaEdits{insert.undo()}, tae.undos...)
 	return insert.apply(str)
 }
 func (tae *TextAreaEdit) remove(str string, index, index2 int) string {
+	if index == index2 {
+		return str
+	}
 	remove := &TextAreaEditRemove{index, index2}
 	tae.edits = append(tae.edits, remove)
 	tae.undos = append(TextAreaEdits{remove.undo(str)}, tae.undos...)
 	return remove.apply(str)
+}
+func (tae *TextAreaEdit) IsEmpty() bool {
+	return len(tae.edits) == 0
 }
 
 type TextAreaEdits []interface{} // inserts/removes
