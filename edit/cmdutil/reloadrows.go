@@ -16,9 +16,6 @@ func ReloadRows(ed Editori) {
 func ReloadRow(ed Editori, row *ui.Row) {
 	tsd := ed.RowToolbarStringData(row)
 	p := tsd.FirstPartFilepath()
-	if ed.IsSpecialRowName(p) {
-		return
-	}
 	content, err := ed.FilepathContent(p)
 	if err != nil {
 		ed.Error(err)

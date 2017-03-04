@@ -211,9 +211,6 @@ func restoreSession(ed Editori, s *Session) {
 			// content
 			tsd := ed.RowToolbarStringData(row)
 			p := tsd.FirstPartFilepath()
-			if ed.IsSpecialRowName(p) {
-				continue
-			}
 			content, err := ed.FilepathContent(p)
 			if err != nil {
 				ed.Error(err)
