@@ -1,8 +1,7 @@
 package tautil
 
 func EndOfString(ta Texta, sel bool) {
-	activateSelection(ta, sel)
-	defer deactivateSelectionCheck(ta)
+	updateSelectionState(ta, sel)
 	i := len(ta.Str())
 	ta.SetCursorIndex(i)
 	ta.MakeIndexVisible(i)

@@ -3,8 +3,7 @@ package tautil
 import "unicode"
 
 func StartOfLine(ta Texta, sel bool) {
-	activateSelection(ta, sel)
-	defer deactivateSelectionCheck(ta)
+	updateSelectionState(ta, sel)
 
 	i := lineStartIndex(ta.Str(), ta.CursorIndex())
 

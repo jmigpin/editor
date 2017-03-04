@@ -98,7 +98,8 @@ func (ta *TextArea) Paint() {
 	drawutil.FillRectangle(ta.UI.RootImage(), &ta.Area, ta.Colors.Bg)
 
 	var selection *drawutil.Selection
-	if ta.selection.on {
+	selectionVisible := ta.selection.index != ta.cursorIndex
+	if ta.selection.on && selectionVisible {
 		selection = &drawutil.Selection{
 			StartIndex: ta.selection.index,
 			EndIndex:   ta.cursorIndex,

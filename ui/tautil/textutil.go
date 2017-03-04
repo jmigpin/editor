@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 )
 
-func activateSelection(ta Texta, active bool) {
+func updateSelectionState(ta Texta, active bool) {
 	if active {
 		if !ta.SelectionOn() {
 			ta.SetSelectionOn(true)
@@ -14,13 +14,6 @@ func activateSelection(ta Texta, active bool) {
 		}
 	} else {
 		ta.SetSelectionOn(false)
-	}
-}
-func deactivateSelectionCheck(ta Texta) {
-	if ta.SelectionOn() {
-		if ta.CursorIndex() == ta.SelectionIndex() {
-			ta.SetSelectionOn(false)
-		}
 	}
 }
 
@@ -59,9 +52,6 @@ func SelectionStringIndexes(ta Texta) (int, int) {
 	b := ta.CursorIndex()
 	if a > b {
 		a, b = b, a
-	}
-	if a == b {
-		panic("expecting a!=b, but got a=b")
 	}
 	return a, b
 }
@@ -105,25 +95,25 @@ func alterSelectedText(ta Texta, fn func(string) (string, bool)) bool {
 		return false
 	}
 
-	c := len(s)
-	// previous rune so it doesn't include last \n
-	if s[len(s)-1] == '\n' {
-		_, c2, ok := PreviousRuneIndex(s, len(s))
-		if !ok {
-			return false
-		}
-		c = c2
-		if c == 0 {
-			return false // a==b
-		}
-	}
 	// replace text
 	ta.EditRemove(a, b)
 	ta.EditInsert(a, s)
 	ta.EditDone()
 
+	// previous rune so it doesn't include last \n
+	c := len(s)
+	_, u, ok := PreviousRuneIndex(s, c)
+	if ok && s[u] == '\n' {
+		c = u
+	}
+
 	ta.SetCursorIndex(a + c)
-	ta.SetSelectionOn(true)
-	ta.SetSelectionIndex(a)
+	if c == 0 {
+		ta.SetSelectionOn(false)
+	} else if c > 0 {
+		ta.SetSelectionOn(true)
+		ta.SetSelectionIndex(a)
+	}
+
 	return true
 }

@@ -3,8 +3,7 @@ package tautil
 import "unicode"
 
 func MoveCursorJumpRight(ta Texta, sel bool) {
-	activateSelection(ta, sel)
-	defer deactivateSelectionCheck(ta)
+	updateSelectionState(ta, sel)
 	i := moveCursorJumpRightIndex(ta)
 	ta.SetCursorIndex(i)
 }
@@ -28,8 +27,7 @@ func moveCursorJumpRightIndex(ta Texta) int {
 	return len(ta.Str())
 }
 func MoveCursorJumpLeft(ta Texta, sel bool) {
-	activateSelection(ta, sel)
-	defer deactivateSelectionCheck(ta)
+	updateSelectionState(ta, sel)
 	i := moveCursorJumpLeftIndex(ta)
 	ta.SetCursorIndex(i)
 }

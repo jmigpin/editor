@@ -12,10 +12,13 @@ func DuplicateLines(ta Texta) {
 	ta.SetSelectionOn(true)
 	ta.SetSelectionIndex(b)
 
-	_, b2, ok := PreviousRuneIndex(t, len(t))
-	if !ok {
-		panic("!")
+	// cursor index without the newline
+	c := len(t)
+	if hasNewline {
+		_, u, ok := PreviousRuneIndex(t, c)
+		if ok {
+			c = u
+		}
 	}
-	b += b2
-	ta.SetCursorIndex(b)
+	ta.SetCursorIndex(b + c)
 }
