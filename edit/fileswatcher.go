@@ -1,6 +1,10 @@
 package edit
 
-import "github.com/howeyc/fsnotify"
+import (
+	"fmt"
+
+	"github.com/howeyc/fsnotify"
+)
 
 type FilesWatcher struct {
 	filenames map[string]struct{}
@@ -21,22 +25,15 @@ func NewFilesWatcher() (*FilesWatcher, error) {
 func (fw *FilesWatcher) Close() {
 	fw.w.Close() // will close watcher chans (Events/Errors)
 }
-func (fw *FilesWatcher) Filenames() []string {
-	var a []string
-	for k := range fw.filenames {
-		a = append(a, k)
-	}
-	return a
-}
 func (fw *FilesWatcher) SetFiles(filenames []string) {
 	// start watching if not watched yet
 	seen := make(map[string]struct{})
 	for _, f := range filenames {
 		seen[f] = struct{}{}
+		// best effor to add, ignore errors
 		err := fw.Add(f)
 		if err != nil {
-			fw.OnError(err)
-			//fw.OnDebug(err.Error())
+			//fw.OnError(err)
 		}
 	}
 	// stop watching filenames not seen
@@ -46,13 +43,19 @@ func (fw *FilesWatcher) SetFiles(filenames []string) {
 			// best effort to remove, ignore errors
 			err := fw.Remove(f)
 			if err != nil {
-				fw.OnError(err)
-				//fw.OnDebug(err.Error())
+				//fw.OnError(err)
 			}
 		}
 	}
 	//// debug
-	//fw.OnDebug(fmt.Sprintf("%v", fw.Filenames()))
+	//fw.OnError(fmt.Errorf(fw.filenamesString()))
+}
+func (fw *FilesWatcher) filenamesString() string {
+	var a []string
+	for k := range fw.filenames {
+		a = append(a, k)
+	}
+	return fmt.Sprintf("%v", a)
 }
 func (fw *FilesWatcher) Add(f string) error {
 	_, ok := fw.filenames[f]
