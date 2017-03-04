@@ -182,33 +182,40 @@ func (cols *Columns) columnIndex(col *Column) (int, bool) {
 	}
 	return 0, false
 }
-func (cols *Columns) MoveRowToPoint(row *Row, p *image.Point) {
+
+// Row arg can be nil.
+func (cols *Columns) PointRowPosition(row *Row, p *image.Point) (*Column, int, bool) {
 	for _, c := range cols.Cols {
 		if !p.In(c.Area) {
 			continue
 		}
 		if len(c.Rows) == 0 {
-			cols.moveRowToColumn(row, c, 0)
-			return
+			return c, 0, true
 		}
 		for i, r := range c.Rows {
 			if !p.In(r.Area) {
 				continue
 			}
-			if r == row {
-				return // don't move to itself
+			// don't move to itself
+			if row != nil && r == row {
+				return nil, 0, false
 			}
+
+			sameCol := row != nil && row.Col == r.Col
+			inFirstHalf := p.Y >= r.Area.Min.Y && p.Y < r.Area.Min.Y+r.Area.Dy()/2
+
 			index := i
-			sameCol := r.Col == row.Col
 			if !sameCol {
-				// position below the selection if on another column
-				index++
+				if !inFirstHalf {
+					index++
+				}
 			}
-			cols.moveRowToColumn(row, c, index)
+			return c, index, true
 		}
 	}
+	return nil, 0, false
 }
-func (cols *Columns) moveRowToColumn(row *Row, col *Column, index int) {
+func (cols *Columns) MoveRowToColumn(row *Row, col *Column, index int) {
 	row.Col.removeRow(row)
 	col.insertRow(row, index)
 	cols.UI.WarpPointerToRectangle(&row.Area)

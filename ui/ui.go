@@ -343,7 +343,10 @@ func (ui *UI) onRowSquareRootButtonRelease(row *Row, ev *SquareRootButtonRelease
 		if ev.Button.Mods.Control() {
 			col.Cols.MoveColumnToPoint(col, ev.Point)
 		} else {
-			col.Cols.MoveRowToPoint(row, ev.Point)
+			c, i, ok := col.Cols.PointRowPosition(row, ev.Point)
+			if ok {
+				col.Cols.MoveRowToColumn(row, c, i)
+			}
 		}
 	}
 }

@@ -178,9 +178,6 @@ func (ed *Editor) Error(err error) {
 	a := ta.Str() + err.Error() + "\n"
 	ta.SetStrClear(a, false, true)
 }
-func (ed *Editor) IsSpecialRowName(name string) bool {
-	return name[0] == '+'
-}
 
 func (ed *Editor) onUIEvent(ev ui.Event) {
 	switch ev0 := ev.(type) {
@@ -311,12 +308,33 @@ func parseAsTextURLList(data []byte) ([]*url.URL, error) {
 func (ed *Editor) handleColumnDroppedURLs(col *ui.Column, p *image.Point, urls []*url.URL) {
 	for _, u := range urls {
 		if u.Scheme == "file" {
+			// calculate position before the row is inserted if the row doesn't exist
+			var c *ui.Column
+			var i int
+			posCalc := false
+			_, ok := ed.findRow(u.Path)
+			if !ok {
+				c, i, ok = col.Cols.PointRowPosition(nil, p)
+				if !ok {
+					continue
+				}
+				posCalc = true
+			}
+			// find/create
 			row, err := ed.FindRowOrCreateInColFromFilepath(u.Path, col)
 			if err != nil {
 				ed.Error(err)
 				continue
 			}
-			col.Cols.MoveRowToPoint(row, p)
+			// calculate if not calculated yet
+			if !posCalc {
+				c, i, ok = col.Cols.PointRowPosition(row, p)
+				if !ok {
+					continue
+				}
+			}
+			// move row
+			col.Cols.MoveRowToColumn(row, c, i)
 		}
 	}
 }
