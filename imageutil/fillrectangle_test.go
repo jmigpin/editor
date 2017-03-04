@@ -1,4 +1,4 @@
-package drawutil
+package imageutil
 
 import (
 	"image"
@@ -9,26 +9,25 @@ import (
 
 func getImage() draw.Image {
 	r := image.Rect(0, 0, 3000, 1500)
-	//r := image.Rect(0, 0, 1200, 800)
 	return image.NewRGBA(r)
 }
 
-func BenchmarkFR0(b *testing.B) {
+func BenchmarkFR0Lanes(b *testing.B) {
 	img := getImage()
 	r := img.Bounds()
 	FillRectangleLanes(img, &r, color.White)
 }
-func BenchmarkFR1(b *testing.B) {
+func BenchmarkFRCommon(b *testing.B) {
 	img := getImage()
 	r := img.Bounds()
 	FillRectangleCommon(img, &r, color.White)
 }
-func BenchmarkFR2(b *testing.B) {
+func BenchmarkFRLanesConc(b *testing.B) {
 	img := getImage()
 	r := img.Bounds()
 	FillRectangleLanesConc(img, &r, color.White)
 }
-func BenchmarkFR3(b *testing.B) {
+func BenchmarkFRCommonConc(b *testing.B) {
 	img := getImage()
 	r := img.Bounds()
 	FillRectangleCommonConc(img, &r, color.White)

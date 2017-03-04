@@ -4,6 +4,7 @@ import (
 	"image"
 
 	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/xutil/keybmap"
 
@@ -95,7 +96,7 @@ func (ta *TextArea) UsedY() int {
 }
 func (ta *TextArea) Paint() {
 	// fill background
-	drawutil.FillRectangle(ta.UI.RootImage(), &ta.Area, ta.Colors.Bg)
+	imageutil.FillRectangle(ta.UI.RootImage(), &ta.Area, ta.Colors.Bg)
 
 	var selection *drawutil.Selection
 	selectionVisible := ta.selection.index != ta.cursorIndex

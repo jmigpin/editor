@@ -6,6 +6,8 @@ import (
 	"image/draw"
 	"sync"
 
+	"github.com/jmigpin/editor/imageutil"
+
 	"golang.org/x/image/math/fixed"
 )
 
@@ -37,7 +39,7 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 		if bg != nil {
 			pb := Rect266ToRect(sd.liner.iter.PenBounds())
 			dr := pb.Add(bounds.Min)
-			FillRectangle(sd.img, &dr, bg)
+			imageutil.FillRectangle(sd.img, &dr, bg)
 		}
 
 		// cursor
@@ -75,15 +77,15 @@ func drawCursor(img draw.Image, liner *StringLiner) {
 	r1.Min.X -= 1
 	r1.Max.X = r1.Min.X + 3
 	r1.Max.Y = r1.Min.Y + 3
-	FillRectangle(img, &r1, &color.Black)
+	imageutil.FillRectangle(img, &r1, &color.Black)
 
 	r2 := dr
 	r2.Min.X -= 1
 	r2.Max.X = r2.Min.X + 3
 	r2.Min.Y = r2.Max.Y - 3
-	FillRectangle(img, &r2, &color.Black)
+	imageutil.FillRectangle(img, &r2, &color.Black)
 
 	r3 := dr
 	r3.Max.X = r3.Min.X + 1
-	FillRectangle(img, &r3, &color.Black)
+	imageutil.FillRectangle(img, &r3, &color.Black)
 }

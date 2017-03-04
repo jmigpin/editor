@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/imageutil"
 )
 
 type Container struct {
@@ -24,7 +24,7 @@ type Painter interface {
 }
 
 func (c *Container) FillRectangle(rect *image.Rectangle, col color.Color) {
-	drawutil.FillRectangle(c.UI.RootImage(), rect, col)
+	imageutil.FillRectangle(c.UI.RootImage(), rect, col)
 }
 
 func (c *Container) AddChilds(cs ...*Container) {

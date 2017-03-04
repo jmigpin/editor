@@ -3,12 +3,14 @@ package xutil
 import (
 	"fmt"
 	"sync"
+	"unsafe"
 
 	"image"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/imageutil"
 )
 
 type Shm struct {
@@ -21,6 +23,27 @@ type Shm struct {
 		sync.RWMutex
 		img *ShmImage
 	}
+}
+
+// TODO: rename to shminstance and return BGRA for img
+type ShmImage struct {
+	imageutil.BGRA
+	shmId uintptr
+	addr  unsafe.Pointer
+}
+
+func NewShmImage(r *image.Rectangle) (*ShmImage, error) {
+	size := imageutil.BGRASize(r)
+	shmId, addr, err := shmOpen(size)
+	if err != nil {
+		return nil, err
+	}
+	bgra := imageutil.NewBGRAFromAddr(addr, r)
+	img := &ShmImage{BGRA: *bgra, shmId: shmId, addr: addr}
+	return img, nil
+}
+func (img *ShmImage) Close() error {
+	return shmClose(img.addr)
 }
 
 func NewShm(conn *xgb.Conn, drawable xproto.Drawable, depth byte) (*Shm, error) {
@@ -82,7 +105,7 @@ func (sm *Shm) newImage(r *image.Rectangle) error {
 
 	// attach to segId
 	readOnly := false
-	_ = shm.Attach(sm.conn, sm.segId, uint32(sm.img.img.id), readOnly)
+	_ = shm.Attach(sm.conn, sm.segId, uint32(sm.img.img.shmId), readOnly)
 
 	return nil
 }
