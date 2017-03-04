@@ -5,10 +5,9 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/jmigpin/editor/xutil/xuutil"
-
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/xutil/xgbutil"
 )
 
 // NOTES on other applications
@@ -31,7 +30,7 @@ var CopyAtoms struct {
 
 func NewCopy(conn *xgb.Conn, win xproto.Window) (*Copy, error) {
 	c := &Copy{conn: conn, win: win}
-	if err := xuutil.LoadAtoms(conn, &CopyAtoms); err != nil {
+	if err := xgbutil.LoadAtoms(conn, &CopyAtoms); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -66,7 +65,7 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) bool {
 		return true
 	default:
 		// debug
-		s, err := xuutil.GetAtomName(c.conn, ev.Target)
+		s, err := xgbutil.GetAtomName(c.conn, ev.Target)
 		if err != nil {
 			s = err.Error()
 		}

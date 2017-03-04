@@ -3,10 +3,9 @@ package dragndrop
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/xutil/xuutil"
-
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/xutil/xgbutil"
 )
 
 // protocol: https://www.acc.umu.se/~vatten/XDND.html
@@ -51,10 +50,10 @@ var DropTypeAtoms struct {
 }
 
 func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
-	if err := xuutil.LoadAtoms(conn, &DndAtoms); err != nil {
+	if err := xgbutil.LoadAtoms(conn, &DndAtoms); err != nil {
 		return nil, err
 	}
-	if err := xuutil.LoadAtoms(conn, &DropTypeAtoms); err != nil {
+	if err := xgbutil.LoadAtoms(conn, &DropTypeAtoms); err != nil {
 		return nil, err
 	}
 	dnd := &Dnd{conn: conn, win: win}
@@ -116,7 +115,7 @@ func (dnd *Dnd) onEnter(data []uint32) {
 	if ev.MoreThan3DataTypes {
 		// TODO
 		fmt.Println("dnd enter event: more then 3 data types")
-		xuutil.PrintAtomsNames(dnd.conn, ev.Types)
+		xgbutil.PrintAtomsNames(dnd.conn, ev.Types)
 	}
 }
 func (dnd *Dnd) onPosition(data []uint32) (*PositionEvent, error) {

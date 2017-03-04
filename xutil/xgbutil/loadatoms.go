@@ -1,4 +1,4 @@
-package xuutil
+package xgbutil
 
 import (
 	"fmt"

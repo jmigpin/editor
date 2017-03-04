@@ -10,7 +10,7 @@ import (
 	"github.com/jmigpin/editor/xutil/copypaste"
 	"github.com/jmigpin/editor/xutil/dragndrop"
 	"github.com/jmigpin/editor/xutil/keybmap"
-	"github.com/jmigpin/editor/xutil/xuutil"
+	"github.com/jmigpin/editor/xutil/xgbutil"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -64,7 +64,7 @@ func (xu *XUtil) init() error {
 	xu.SetupInfo = xproto.Setup(xu.Conn)
 	xu.Screen = xu.SetupInfo.DefaultScreen(xu.Conn)
 
-	if err := xuutil.LoadAtoms(xu.Conn, &Atoms); err != nil {
+	if err := xgbutil.LoadAtoms(xu.Conn, &Atoms); err != nil {
 		return err
 	}
 
@@ -231,7 +231,7 @@ func (xu *XUtil) handleInternalEvents(ev xgb.Event) Event {
 			return ev2
 		}
 		// debug unhandled client message event
-		name, err := xuutil.GetAtomName(xu.Conn, ev0.Type)
+		name, err := xgbutil.GetAtomName(xu.Conn, ev0.Type)
 		if err == nil {
 			return fmt.Errorf("unhandled xutil client message event: %+v, ev.type=%v", ev0, name)
 		}
@@ -247,7 +247,7 @@ func (xu *XUtil) handleInternalEvents(ev xgb.Event) Event {
 			return nil
 		}
 		// debug unhandled selection notify
-		name, err := xuutil.GetAtomName(xu.Conn, ev0.Property)
+		name, err := xgbutil.GetAtomName(xu.Conn, ev0.Property)
 		if err == nil {
 			return fmt.Errorf("unhandled xutil client message event: %+v, ev.peroperty=%v", ev0, name)
 		}
