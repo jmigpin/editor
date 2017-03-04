@@ -12,7 +12,6 @@ import (
 )
 
 func ToolbarCmdExternalForRow(ed *Editor, row *ui.Row, cmd string) {
-	workDir := ""
 	tsd := ed.RowToolbarStringData(row)
 
 	// don't run external commands on confirmed files
@@ -22,6 +21,7 @@ func ToolbarCmdExternalForRow(ed *Editor, row *ui.Row, cmd string) {
 		return
 	}
 
+	workDir := ""
 	dir, ok := tsd.FirstPartDirectory()
 	if ok {
 		workDir = dir
@@ -54,12 +54,9 @@ func execRowCmd(row *ui.Row, cmdStr string, dir string) {
 	// exec
 	go func() {
 		execRowCmd2(ctx2, row, cmd)
-		// another context could be added already to the row
-		rowCtx.ClearIfCtx(row, ctx2)
 	}()
 }
 func execRowCmd2(ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
-
 	// pipes to read the cmd output
 	opr, opw := io.Pipe()
 	epr, epw := io.Pipe()
@@ -102,11 +99,10 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 	err := cmd.Start()
 	if err != nil {
 		appendToRowTextArea(row, err.Error())
+	} else {
+		s := fmt.Sprintf("# pid %d\n", cmd.Process.Pid)
+		appendToRowTextArea(row, s)
 	}
-	//} else {
-	//s := fmt.Sprintf("#pid %d\n", cmd.Process.Pid)
-	//appendToRowTextArea(row, s)
-	//}
 	_ = cmd.Wait() // this error is going already to the stderr pipe
 
 	opw.Close()
@@ -116,9 +112,12 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 	// safely close the pipetochan receiving chan
 	close(ch)
 
-	// indicate the cmd is not running anymore
-	row.Square.SetExecuting(false)
-	row.UI.RequestTreePaint()
+	// another context could be added already to the row
+	rowCtx.ClearIfCtx(row, ctx, func() {
+		// indicate the cmd is not running anymore
+		row.Square.SetExecuting(false)
+		row.UI.RequestTreePaint()
+	})
 }
 func appendToRowTextArea(row *ui.Row, s string) {
 	ta := row.TextArea
