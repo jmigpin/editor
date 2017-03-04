@@ -1,6 +1,7 @@
-package xutil
+package xgbutil
 
-// taken from https://raw.githubusercontent.com/golang/exp/master/shiny/driver/x11driver/shm_linux_amd64.go
+// taken from
+// https://raw.githubusercontent.com/golang/exp/master/shiny/driver/x11driver/shm_linux_amd64.go
 
 import (
 	"fmt"
@@ -15,8 +16,9 @@ const (
 	ipcRmID    = 0
 )
 
-func shmOpen(size int) (shmid uintptr, addr unsafe.Pointer, err error) {
-	shmid, _, errno0 := syscall.RawSyscall(syscall.SYS_SHMGET, ipcPrivate, uintptr(size), ipcCreat|0600) //ipcCreat|0777)
+func ShmOpen(size int) (shmid uintptr, addr unsafe.Pointer, err error) {
+	// ipcCreat|0777 ?
+	shmid, _, errno0 := syscall.RawSyscall(syscall.SYS_SHMGET, ipcPrivate, uintptr(size), ipcCreat|0600)
 	if errno0 != 0 {
 		return 0, unsafe.Pointer(uintptr(0)), fmt.Errorf("shmget: %v", errno0)
 	}
@@ -31,7 +33,7 @@ func shmOpen(size int) (shmid uintptr, addr unsafe.Pointer, err error) {
 	return shmid, unsafe.Pointer(p), nil
 }
 
-func shmClose(p unsafe.Pointer) error {
+func ShmClose(p unsafe.Pointer) error {
 	_, _, errno := syscall.RawSyscall(syscall.SYS_SHMDT, uintptr(p), 0, 0)
 	if errno != 0 {
 		return fmt.Errorf("shmdt: %v", errno)

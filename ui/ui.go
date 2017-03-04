@@ -186,7 +186,7 @@ func (ui *UI) EventLoop() {
 	}
 }
 
-// Usefull for NeedPaint() calls made inside a goroutine that have no way  of requesting a paint later since the event loop only paints after all events have been handled (hence using an empty event).
+// Usefull for NeedPaint() calls made inside a goroutine that have no way  of requesting a paint later since the event loop only paints after all events have been handled, so it doesn't paint if there are no events (hence using an empty event).
 func (ui *UI) RequestTreePaint() {
 	ui.events <- &EmptyEvent{}
 }
@@ -386,7 +386,7 @@ func (ui *UI) adjustRootImageSize() {
 	// make new image
 	r := image.Rect(0, 0, w, h)
 	if !r.Eq(ui.Layout.Area) {
-		if err := ui.XUtil.Shm.Resize(&r); err != nil {
+		if err := ui.XUtil.ShmWrap.NewImage(&r); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -397,17 +397,17 @@ func (ui *UI) adjustRootImageSize() {
 
 // Provides image to draw for drawutil (ex: fillrectangle).
 func (ui *UI) RootImage() draw.Image {
-	return ui.XUtil.Shm.Image()
+	return ui.XUtil.ShmWrap.Image()
 }
 
 // Provides image to draw for drawutil (ex: textarea).
 func (ui *UI) RootImageSubImage(r *image.Rectangle) draw.Image {
-	return ui.XUtil.Shm.Image().SubImage(*r)
+	return ui.XUtil.ShmWrap.Image().SubImage(*r)
 }
 
 // Send root image rectangle to the server.
 func (ui *UI) SendRootImage(rect *image.Rectangle) {
-	ui.XUtil.Shm.PutImage(ui.gctx.Ctx, rect)
+	ui.XUtil.ShmWrap.PutImage(ui.gctx.Ctx, rect)
 }
 
 // Default fontface (used by textarea)

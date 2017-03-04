@@ -29,7 +29,7 @@ type XUtil struct {
 	Copy    *copypaste.Copy
 	Cursors *Cursors
 	KeybMap *keybmap.KeybMap
-	Shm     *Shm
+	ShmWrap *xgbutil.ShmWrap
 }
 
 type Event interface{}
@@ -108,11 +108,11 @@ func (xu *XUtil) init() error {
 	xu.Cursors = c
 	//xu.Cursors.SetCursor(ArrowCursor)
 
-	shm, err := NewShm(xu.Conn, xu.Drawable, xu.Screen.RootDepth)
+	shmWrap, err := xgbutil.NewShmWrap(xu.Conn, xu.Drawable, xu.Screen.RootDepth)
 	if err != nil {
 		return err
 	}
-	xu.Shm = shm
+	xu.ShmWrap = shmWrap
 
 	return nil
 }
