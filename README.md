@@ -7,6 +7,16 @@ Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M <br>
 
 ![screenshot](./screenshot.png)
 
+## Features
+Auto indentation of wrapped lines.<br>
+Drag and drop files/directories to the editor.<br>
+No code coloring other then comments.<br>
+Watches files change on disk to show the file has changed while editing. <br>
+Allows to start external processes from the toolbar with a click, capturing the output. Starting another process in the same row cancels the previous process.<br>
+
+## Notes
+Uses X shared memory extension (MIT-SHM).<br>
+
 ## Keyboard shortcuts
 ### Textarea
 up: move cursor up<br>
@@ -29,8 +39,8 @@ ctrl+k: remove lines<br>
 ctrl+v: paste from clipboard<br>
 ctrl+x: cut<br>
 ctrl+mod1+down: move line down<br>
-ctrl+mod1+down+shift: duplicate lines<br>
-tab: (if selection is on): insert tab at beginning of line<br>
+ctrl+mod1+shift+down: duplicate lines<br>
+tab (if selection is on): insert tab at beginning of lines<br>
 shift+tab: remove tab from beginning of line<br>
 ctrl+z: undo<br>
 ctrl+shift+z: undo<br>
@@ -39,7 +49,8 @@ ctrl+shift+d: uncomment<br>
 
 ### Row
 ctrl+s: save file<br>
-ctrl+f: quick shortcut to "Find"<br>
+ctrl+f: shortcut to "Find"<br>
+ctrl+shift+f: shortcut to open a filemanager in the directory of the current row<br>
 
 ## Button shortcuts
 ### Textarea
@@ -64,7 +75,7 @@ Any button press: make row active to layout toolbar commands<br>
 ## Commands
 ### Layout toolbar commands (top toolbar)
 ListSessions: lists saved sessions<br>
-SaveSession <name>: save session to ~/.editor_sessions.json<br>
+SaveSession \<name\>: save session to ~/.editor_sessions.json<br>
 DeleteSession: deletes the session from the sessions file<br>
 NewColumn: opens new column<br>
 NewRow: opens new row<br>
@@ -80,8 +91,8 @@ Save: save file<br>
 Close: close row<br>
 Reload: reload content<br>
 Find: find string (ignores case)<br>
-GotoLine <num>: goes to line number<br>
-Replace<old><new>: replaces old string with new<br>
+GotoLine \<num\>: goes to line number<br>
+Replace \<old\> \<new\>: replaces old string with new<br>
 Stop: stops current processing running in the row<br>
 ListDir: lists directory<br>
 ListDirSub: lists directory and sub directories<br>
@@ -94,6 +105,3 @@ OpenSession \<name\>: opens previously saved session<br>
 \<filename:number\>: opens filename at line (usual format from compilers)<br>
 \<quoted string\>: opens filepath if existent on goroot/gopath<br>
 
-## Other features
-Drag and drop files/directories to the editor<br>
-Auto indentation of wrapped lines
