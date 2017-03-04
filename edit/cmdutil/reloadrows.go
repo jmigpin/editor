@@ -24,7 +24,7 @@ func ReloadRow(ed Editori, row *ui.Row) {
 		ed.Error(err)
 		return
 	}
-	row.TextArea.SetStrClear2(content, false, false)
+	row.TextArea.SetStrClear(content, false, false)
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
 }

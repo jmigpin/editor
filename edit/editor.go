@@ -46,7 +46,7 @@ func NewEditor() (*Editor, error) {
 	// set up layout toolbar
 	ta := ed.ui.Layout.Toolbar
 	s := "Exit | ListSessions | NewColumn | NewRow"
-	ta.SetStrClear2(s, true, true)
+	ta.SetStrClear(s, true, true)
 
 	// flags
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -138,7 +138,7 @@ func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
 	// new row
 	col := ed.ActiveColumn()
 	row = col.NewRow()
-	row.Toolbar.SetStrClear2(name, true, true)
+	row.Toolbar.SetStrClear(name, true, true)
 	return row
 }
 func (ed *Editor) FindRowOrCreateInColFromFilepath(filepath string, col *ui.Column) (*ui.Row, error) {
@@ -153,8 +153,8 @@ func (ed *Editor) FindRowOrCreateInColFromFilepath(filepath string, col *ui.Colu
 	}
 	row = col.NewRow()
 	p2 := toolbardata.InsertHomeTilde(filepath)
-	row.Toolbar.SetStrClear2(p2+" | Reload", true, true)
-	row.TextArea.SetStrClear2(content, true, true)
+	row.Toolbar.SetStrClear(p2+" | Reload", true, true)
+	row.TextArea.SetStrClear(content, true, true)
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
 	return row, nil
@@ -176,7 +176,7 @@ func (ed *Editor) Error(err error) {
 	ta := row.TextArea
 	// append
 	a := ta.Str() + err.Error() + "\n"
-	ta.SetStrClear2(a, false, true)
+	ta.SetStrClear(a, false, true)
 }
 func (ed *Editor) IsSpecialRowName(name string) bool {
 	return name[0] == '+'

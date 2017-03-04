@@ -129,7 +129,7 @@ func ListSessions(ed Editori) {
 	for _, session := range ss.Sessions {
 		s += fmt.Sprintf("OpenSession %v\n", session.Name)
 	}
-	row.TextArea.SetStrClear2(s, false, false)
+	row.TextArea.SetStrClear(s, false, false)
 }
 
 func saveSessionsToDisk(ss *Sessions) error {
@@ -191,7 +191,7 @@ func restoreSession(ed Editori, s *Session) {
 	}
 	// restore session
 	// clear toolbar toolbar string
-	ed.UI().Layout.Toolbar.SetStrClear2(s.LayoutToolbarText, true, true)
+	ed.UI().Layout.Toolbar.SetStrClear(s.LayoutToolbarText, true, true)
 	// create columns first
 	for i, _ := range s.Columns {
 		_ = cols.NewColumn()
@@ -206,7 +206,7 @@ func restoreSession(ed Editori, s *Session) {
 		col := cols.Cols[i]
 		for _, r := range c.Rows {
 			row := col.NewRow()
-			row.Toolbar.SetStrClear2(r.ToolbarText, true, true)
+			row.Toolbar.SetStrClear(r.ToolbarText, true, true)
 
 			// content
 			tsd := ed.RowToolbarStringData(row)
@@ -220,7 +220,7 @@ func restoreSession(ed Editori, s *Session) {
 				continue
 			}
 
-			row.TextArea.SetStrClear2(content, false, true)
+			row.TextArea.SetStrClear(content, false, true)
 			row.Square.SetDirty(false)
 			row.TextArea.SetCursorIndex(r.TaCursorIndex)
 			row.TextArea.SetOffsetIndex(r.TaOffsetIndex)

@@ -146,7 +146,7 @@ func (ta *TextArea) setStr(s string) {
 		ta.UI.PushEvent(&TextAreaSetTextEvent{ta, oldArea})
 	}
 }
-func (ta *TextArea) SetStrClear2(str string, clearPosition, clearUndoQ bool) {
+func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 	ta.SetSelectionOn(false)
 	if clearPosition {
 		ta.SetCursorIndex(0)
