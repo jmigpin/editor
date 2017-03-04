@@ -15,4 +15,5 @@ type Editori interface {
 	FilesWatcherAdd(filename string) error
 	FilesWatcherRemove(filename string) error
 	ActiveColumn() *ui.Column
+	IsSpecialRowName(string) bool
 }

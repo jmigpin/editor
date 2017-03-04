@@ -9,22 +9,20 @@ import (
 func ReloadRows(ed Editori) {
 	for _, c := range ed.UI().Layout.Cols.Cols {
 		for _, r := range c.Rows {
-			reloadRow2(ed, r, true)
+			ReloadRow(ed, r)
 		}
 	}
 }
 func ReloadRow(ed Editori, row *ui.Row) {
-	reloadRow2(ed, row, false)
-}
-func reloadRow2(ed Editori, row *ui.Row, tolerant bool) {
 	tsd := ed.RowToolbarStringData(row)
 	p := tsd.FirstPartFilepath()
+	if ed.IsSpecialRowName(p) {
+		return
+	}
 	content, err := ed.FilepathContent(p)
 	if err != nil {
-		if !tolerant {
-			ed.Error(err)
-			return
-		}
+		ed.Error(err)
+		return
 	}
 	row.TextArea.SetStrClear2(content, false, false)
 	row.Square.SetDirty(false)
@@ -49,6 +47,6 @@ func reloadRowFile(ed Editori, row *ui.Row) {
 	if fi.IsDir() {
 		return
 	}
-	// reload content
-	reloadRow2(ed, row, true)
+
+	ReloadRow(ed, row)
 }

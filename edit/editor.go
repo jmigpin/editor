@@ -17,7 +17,6 @@ import (
 	"github.com/jmigpin/editor/xutil/dragndrop"
 
 	"github.com/BurntSushi/xgb/xproto"
-	//"github.com/fsnotify/fsnotify"
 	"github.com/howeyc/fsnotify"
 )
 
@@ -42,7 +41,6 @@ func NewEditor() (*Editor, error) {
 	}
 	ed.fw = fw
 	ed.fw.OnError = ed.Error
-	ed.fw.OnDebug = ed.Debug
 	ed.fw.OnEvent = ed.onFWEvent
 
 	// set up layout toolbar
@@ -180,12 +178,8 @@ func (ed *Editor) Error(err error) {
 	a := ta.Str() + err.Error() + "\n"
 	ta.SetStrClear2(a, false, true)
 }
-func (ed *Editor) Debug(s string) {
-	row := ed.FindRowOrCreate("+Debug")
-	ta := row.TextArea
-	// append
-	a := ta.Str() + s + "\n"
-	ta.SetStrClear2(a, false, true)
+func (ed *Editor) IsSpecialRowName(name string) bool {
+	return name[0] == '+'
 }
 
 func (ed *Editor) onUIEvent(ev ui.Event) {
