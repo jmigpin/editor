@@ -106,12 +106,13 @@ func (ta *TextArea) Paint() {
 		}
 	}
 
+	highlight := !ta.DisableHighlightCursorWord && selection == nil
+
 	// img needs to be clipped for drawing
 	img := ta.UI.RootImageSubImage(&ta.Area)
 
-	highlight := !ta.DisableHighlightCursorWord && selection == nil
-
-	ta.stringCache.Draw(
+	// Ignore error of unable to draw due to width mismatch between calculated data and img bounds.
+	_ = ta.stringCache.Draw(
 		img,
 		ta.cursorIndex,
 		ta.offsetY,

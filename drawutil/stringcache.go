@@ -1,6 +1,7 @@
 package drawutil
 
 import (
+	"fmt"
 	"image/draw"
 	"sort"
 
@@ -97,11 +98,12 @@ func (sc *StringCache) Draw(
 	offsetY fixed.Int26_6,
 	colors *Colors,
 	selection *Selection,
-	highlight bool) {
+	highlight bool) error {
 
+	// can't draw if there is a mismatch between the calculated width and the image being passed
 	if img.Bounds().Dx() != sc.width {
-		println("panic", img.Bounds().Dx(), sc.width)
-		panic("img.bounds.dx doesn't match stringcache.width")
+		err := fmt.Errorf("img.bounds.dx doesn't match stringcache.width: %d, %d", img.Bounds().Dx(), sc.width)
+		return err
 	}
 
 	sdc := NewStringDrawColors(img, sc.Face, sc.str, colors)
@@ -116,6 +118,8 @@ func (sc *StringCache) Draw(
 	sdc.sd.cursorIndex = cursorIndex
 
 	sdc.Loop()
+
+	return nil
 }
 
 func (sc *StringCache) getRuneDataCloseToPoint(p *fixed.Point26_6) *SCRuneData {
