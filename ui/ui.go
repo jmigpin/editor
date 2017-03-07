@@ -10,11 +10,7 @@ import (
 	"github.com/jmigpin/editor/xutil/dragndrop"
 	"github.com/jmigpin/editor/xutil/keybmap"
 
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
-
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/golang/freetype/truetype"
 )
 
 const (
@@ -93,8 +89,8 @@ type ColumnDndDropEvent struct {
 	Column *Column
 }
 
-func NewUI() (*UI, error) {
-	ui := &UI{}
+func NewUI(fface *drawutil.Face) (*UI, error) {
+	ui := &UI{fface1: fface}
 
 	win, err := xutil.NewWindow()
 	if err != nil {
@@ -102,45 +98,7 @@ func NewUI() (*UI, error) {
 	}
 	ui.Win = win
 
-	// font
-	useGoFont := false
-	fp := "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-	font0, err := drawutil.ParseFont(fp)
-	if err != nil {
-		//return nil, err
-
-		// try go font
-		fmt.Println(err)
-		useGoFont = true
-	}
-	// font options
-	opt := &truetype.Options{
-		Size:    12,
-		Hinting: font.HintingFull,
-	}
-
-	// go font
-	if useGoFont {
-		font0, err = truetype.Parse(goregular.TTF)
-		if err != nil {
-			return nil, err
-		}
-		// font face
-		opt = &truetype.Options{
-			SubPixelsX: 64, // default is 4
-			SubPixelsY: 64, // default is 1
-			//Size:    12,
-			Size: 13,
-			//DPI:     72, // 0 also means 72
-			Hinting: font.HintingFull,
-			//GlyphCacheEntries: 4096, // still problems with concurrent drawing?
-		}
-	}
-
-	ui.fface1 = drawutil.NewFace(font0, opt)
-
 	ui.Layout = NewLayout(ui)
-
 	return ui, nil
 }
 func (ui *UI) Close() {

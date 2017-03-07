@@ -10,6 +10,11 @@ import (
 	"runtime/pprof"
 	"strings"
 
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
+
+	"github.com/golang/freetype/truetype"
+	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/edit/cmdutil"
 	"github.com/jmigpin/editor/edit/cmdutil/contentcmd"
 	"github.com/jmigpin/editor/edit/toolbardata"
@@ -28,11 +33,16 @@ type Editor struct {
 func NewEditor() (*Editor, error) {
 	ed := &Editor{}
 
-	ui0, err := ui.NewUI()
+	fface, err := ed.getFontFace()
 	if err != nil {
 		return nil, err
 	}
-	ed.ui = ui0
+
+	ui, err := ui.NewUI(fface)
+	if err != nil {
+		return nil, err
+	}
+	ed.ui = ui
 	ed.ui.OnEvent = ed.onUIEvent
 
 	fw, err := NewFilesWatcher()
@@ -82,6 +92,39 @@ func NewEditor() (*Editor, error) {
 	ed.ui.EventLoop()
 
 	return ed, nil
+}
+func (ed *Editor) getFontFace() (*drawutil.Face, error) {
+	useGoFont := false
+	fp := "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+	font0, err := drawutil.ParseFont(fp)
+	if err != nil {
+		fmt.Println(err)
+		useGoFont = true
+	}
+	// font options
+	opt := &truetype.Options{
+		Size:    12,
+		Hinting: font.HintingFull,
+	}
+	// go font
+	if useGoFont {
+		font0, err = truetype.Parse(goregular.TTF)
+		if err != nil {
+			return nil, err
+		}
+		opt = &truetype.Options{
+			SubPixelsX: 64, // default is 4
+			SubPixelsY: 64, // default is 1
+			//Size:    12,
+			Size: 13,
+			//DPI:     72, // 0 also means 72
+			Hinting: font.HintingFull,
+			//GlyphCacheEntries: 4096, // still problems with concurrent drawing?
+		}
+	}
+
+	fface := drawutil.NewFace(font0, opt)
+	return fface, nil
 }
 
 func (ed *Editor) UI() *ui.UI {
