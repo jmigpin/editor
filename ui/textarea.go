@@ -326,10 +326,10 @@ func (ta *TextArea) RequestTreePaint() {
 	ta.UI.RequestTreePaint()
 }
 func (ta *TextArea) RequestClipboardString() (string, error) {
-	return ta.UI.XUtil.Paste.Request()
+	return ta.UI.Win.Paste.Request()
 }
 func (ta *TextArea) SetClipboardString(v string) {
-	ta.UI.XUtil.Copy.Set(v)
+	ta.UI.Win.Copy.Set(v)
 }
 func (ta *TextArea) LineHeight() fixed.Int26_6 {
 	fm := ta.UI.FontFace().Face.Metrics()

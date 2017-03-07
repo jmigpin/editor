@@ -59,7 +59,7 @@ func (c *Container) TreePaint() {
 	if c.needPaint {
 		c.ClearNeedPaint()
 		c.Painter.Paint()
-		c.UI.SendRootImage(&c.Area)
+		c.UI.PutRootImage(&c.Area)
 	} else {
 		for _, c2 := range c.childs {
 			c2.TreePaint()

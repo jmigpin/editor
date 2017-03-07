@@ -112,8 +112,7 @@ func (smw *ShmWrap) PutImage(gctx xproto.Gcontext, r *image.Rectangle) {
 
 	// Checked waits for the function to complete
 	// Prevents flickering because it doesn't map the image to the screen while a function might be changing it due to having returned without waiting.
-	// The flickring is visible when dragging a column. The toolbar text starts flickering because the background is being drawn already for the next frame before starting to draw the text.
-	// TODO: double buffering without waits?
+	// The flickering is visible when resizing a column. The toolbar text starts flickering because the background is being drawn already for the next frame before starting to draw the text.
 	if err := cookie.Check(); err != nil {
 		fmt.Println(err)
 	}

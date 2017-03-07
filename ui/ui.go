@@ -23,8 +23,7 @@ const (
 )
 
 type UI struct {
-	XUtil  *xutil.XUtil
-	gctx   *xutil.GContext
+	Win    *xutil.Window
 	Layout *Layout
 	fface1 *drawutil.Face
 
@@ -97,11 +96,11 @@ type ColumnDndDropEvent struct {
 func NewUI() (*UI, error) {
 	ui := &UI{}
 
-	xutil, err := xutil.NewXUtil()
+	win, err := xutil.NewWindow()
 	if err != nil {
 		return nil, err
 	}
-	ui.XUtil = xutil
+	ui.Win = win
 
 	// font
 	useGoFont := false
@@ -140,13 +139,6 @@ func NewUI() (*UI, error) {
 
 	ui.fface1 = drawutil.NewFace(font0, opt)
 
-	// x graphical context
-	gctx := ui.XUtil.NewGContext()
-	if err := gctx.Create(); err != nil {
-		return nil, err
-	}
-	ui.gctx = gctx
-
 	ui.Layout = NewLayout(ui)
 
 	return ui, nil
@@ -155,13 +147,13 @@ func (ui *UI) Close() {
 	if ui.events != nil {
 		close(ui.events)
 	}
-	ui.XUtil.Close()
+	ui.Win.Close()
 }
 func (ui *UI) EventLoop() {
 	ui.events = make(chan Event)
 	go func() {
 		for {
-			ev, ok := ui.XUtil.WaitForEvent()
+			ev, ok := ui.Win.WaitForEvent()
 			if !ok { // conn closed
 				break
 			}
@@ -199,8 +191,8 @@ func (ui *UI) onXUtilEvent(ev xutil.Event) {
 		ui.OnEvent(ev0) // pass error to handler
 	case *EmptyEvent:
 		// do nothing, it will trigger the event loop to loop
-	case *xutil.ConnClosedEvent:
-		fmt.Println("x connection closed")
+	//case *xutil.ConnClosedEvent:
+	//fmt.Println("x connection closed")
 	case xproto.ExposeEvent:
 		if ev0.Count > 0 {
 			return // wait for expose with count 0
@@ -209,19 +201,19 @@ func (ui *UI) onXUtilEvent(ev xutil.Event) {
 		ui.Layout.NeedPaint()
 	case xproto.KeyPressEvent:
 		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		k := keybmap.NewKey(ui.XUtil.KeybMap, ev0.Detail, ev0.State)
+		k := keybmap.NewKey(ui.Win.KeybMap, ev0.Detail, ev0.State)
 		ev2 := &KeyPressEvent{k}
 		ui.Layout.pointEvent(p, ev2)
 	case xproto.KeyReleaseEvent:
 		// didn't registered to receive, but still showing up
 	case xproto.ButtonPressEvent:
 		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		b := keybmap.NewButton(ui.XUtil.KeybMap, ev0.Detail, ev0.State)
+		b := keybmap.NewButton(ui.Win.KeybMap, ev0.Detail, ev0.State)
 		ev2 := &ButtonPressEvent{b}
 		ui.Layout.pointEvent(p, ev2)
 	case xproto.ButtonReleaseEvent:
 		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		b := keybmap.NewButton(ui.XUtil.KeybMap, ev0.Detail, ev0.State)
+		b := keybmap.NewButton(ui.Win.KeybMap, ev0.Detail, ev0.State)
 		ev2 := &ButtonReleaseEvent{b}
 		ui.Layout.pointEvent(p, ev2)
 	case xproto.MotionNotifyEvent:
@@ -319,7 +311,7 @@ func (ui *UI) onTextAreaSetText(ev0 *TextAreaSetTextEvent) {
 			t1.NeedPaint()
 		}
 		// keep pointer inside the area if it was in before
-		p, ok := ta.UI.XUtil.QueryPointer()
+		p, ok := ta.UI.Win.QueryPointer()
 		wasIn := ok && p.In(ev0.OldArea)
 		if wasIn {
 			ta.UI.WarpPointerToRectangle(&ta.Area)
@@ -375,7 +367,7 @@ func (ui *UI) onColumnSquareRootMotionNotify(col *Column, ev *SquareRootMotionNo
 }
 
 func (ui *UI) adjustRootImageSize() {
-	wgeom, err := ui.XUtil.GetWindowGeometry()
+	wgeom, err := ui.Win.GetGeometry()
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -386,7 +378,7 @@ func (ui *UI) adjustRootImageSize() {
 	// make new image
 	r := image.Rect(0, 0, w, h)
 	if !r.Eq(ui.Layout.Area) {
-		if err := ui.XUtil.ShmWrap.NewImage(&r); err != nil {
+		if err := ui.Win.ShmWrap.NewImage(&r); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -397,17 +389,16 @@ func (ui *UI) adjustRootImageSize() {
 
 // Provides image to draw for drawutil (ex: fillrectangle).
 func (ui *UI) RootImage() draw.Image {
-	return ui.XUtil.ShmWrap.Image()
+	return ui.Win.ShmWrap.Image()
 }
 
 // Provides image to draw for drawutil (ex: textarea).
 func (ui *UI) RootImageSubImage(r *image.Rectangle) draw.Image {
-	return ui.XUtil.ShmWrap.Image().SubImage(*r)
+	return ui.Win.ShmWrap.Image().SubImage(*r)
 }
 
-// Send root image rectangle to the server.
-func (ui *UI) SendRootImage(rect *image.Rectangle) {
-	ui.XUtil.ShmWrap.PutImage(ui.gctx.Ctx, rect)
+func (ui *UI) PutRootImage(rect *image.Rectangle) {
+	ui.Win.ShmWrap.PutImage(ui.Win.GCtx, rect)
 }
 
 // Default fontface (used by textarea)
@@ -417,14 +408,14 @@ func (ui *UI) FontFace() *drawutil.Face {
 
 // Should be called when a button is pressed and need the motion-notify-events to keep coming since the program expects only pointer-motion-hints.
 func (ui *UI) RequestMotionNotify() {
-	ui.XUtil.RequestMotionNotify()
+	ui.Win.RequestMotionNotify()
 }
 
 func (ui *UI) WarpPointer(p *image.Point) {
-	ui.XUtil.WarpPointer(p)
+	ui.Win.WarpPointer(p)
 }
 func (ui *UI) WarpPointerToRectangle(r *image.Rectangle) {
-	p, ok := ui.XUtil.QueryPointer()
+	p, ok := ui.Win.QueryPointer()
 	if !ok {
 		return
 	}
