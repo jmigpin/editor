@@ -8,7 +8,7 @@ type Button struct {
 	Mods   Modifiers
 }
 
-func NewButton(km *KeybMap, button xproto.Button, state uint16) *Button {
+func newButton(km *KeybMap, button xproto.Button, state uint16) *Button {
 	return &Button{km, button, Modifiers(state)}
 }
 func (b *Button) Button1() bool { return b.Button == xproto.ButtonIndex1 }

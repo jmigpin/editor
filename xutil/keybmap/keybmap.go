@@ -19,15 +19,23 @@ type KeybMap struct {
 	modMap    *xproto.GetModifierMappingReply
 }
 
-func NewKeybMap(conn *xgb.Conn, si *xproto.SetupInfo) (*KeybMap, error) {
+func NewKeybMap(conn *xgb.Conn) (*KeybMap, error) {
+	si := xproto.Setup(conn)
 	km := &KeybMap{conn: conn, setupInfo: si}
 
-	// get keyboard mapping
+	if err := km.getMappings(); err != nil {
+		return nil, err
+	}
+
+	return km, nil
+}
+func (km *KeybMap) getMappings() error {
+	// keyboard mapping
 	count := byte(km.setupInfo.MaxKeycode - km.setupInfo.MinKeycode + 1)
 	cookie := xproto.GetKeyboardMapping(km.conn, km.setupInfo.MinKeycode, count)
 	reply, err := cookie.Reply()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	km.keybMap = reply
 	//fmt.Printf("%+#v\n",reply)
@@ -47,26 +55,17 @@ func NewKeybMap(conn *xgb.Conn, si *xproto.SetupInfo) (*KeybMap, error) {
 
 	//fmt.Printf("min %v, width %v\n",km.setupInfo.MinKeycode, km.keybMap.KeysymsPerKeycode)
 
-	// get modifier mapping
-	// TODO: if buttons/keys modifiers get remapped
+	// modifier mapping
 	cookie2 := xproto.GetModifierMapping(km.conn)
 	reply2, err := cookie2.Reply()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	km.modMap = reply2
+	km.modMap = reply2 // TODO: not being used
 	//fmt.Printf("%+#v\n",reply2)
 
-	return km, nil
+	return nil
 }
-
-func (km *KeybMap) KeysymColumn(keycode xproto.Keycode, column int) xproto.Keysym {
-	kc := int(keycode - km.setupInfo.MinKeycode)
-	w := int(km.keybMap.KeysymsPerKeycode)
-	i := kc*w + column
-	return km.keybMap.Keysyms[i]
-}
-
 func (km *KeybMap) debug(keycode xproto.Keycode, mods Modifiers) {
 	fmt.Printf("*kb: m=%x, kc=%x, syms:", mods, keycode)
 	w := int(km.keybMap.KeysymsPerKeycode) // ~7
@@ -77,11 +76,29 @@ func (km *KeybMap) debug(keycode xproto.Keycode, mods Modifiers) {
 	fmt.Printf("\n")
 }
 
+func (km *KeybMap) KeysymColumn(keycode xproto.Keycode, column int) xproto.Keysym {
+	kc := int(keycode - km.setupInfo.MinKeycode)
+	w := int(km.keybMap.KeysymsPerKeycode)
+	i := kc*w + column
+	return km.keybMap.Keysyms[i]
+}
 func (km *KeybMap) ModKeysym(keycode xproto.Keycode, mods Modifiers) xproto.Keysym {
 	col := km.modifiersColumn(mods)
 	return km.KeysymColumn(keycode, col)
 }
 func (km *KeybMap) modifiersColumn(mods Modifiers) int {
+	fmt.Printf("%v: %v %v %v %v %v %v %v %v",
+		mods,
+		mods.Mod1(),
+		mods.Mod2(),
+		mods.Mod3(),
+		mods.Mod4(),
+		mods.Mod5(),
+		mods.Shift(),
+		mods.CapsLock(),
+		mods.Control(),
+	)
+
 	//alt := mods.Mod1()
 	altGr := mods.Mod5()
 
@@ -90,6 +107,9 @@ func (km *KeybMap) modifiersColumn(mods Modifiers) int {
 	shift = (shift && !caps) || (!shift && caps)
 
 	ctrl := mods.Control()
+
+	// TODO: rules
+	// https://tronche.com/gui/x/xlib/input/keyboard-encoding.html
 
 	// missing: 3,6
 	i := 0
@@ -109,4 +129,14 @@ func (km *KeybMap) modifiersColumn(mods Modifiers) int {
 	}
 
 	return i
+}
+func (km *KeybMap) NewKey(keycode xproto.Keycode, state uint16) *Key {
+	return newKey(km, keycode, state)
+}
+func (km *KeybMap) NewButton(button xproto.Button, state uint16) *Button {
+	return newButton(km, button, state)
+}
+func (km *KeybMap) NewModifiers(state uint16) Modifiers {
+	// TODO: use modmap just like the keymap is being used
+	return Modifiers(state)
 }

@@ -159,24 +159,24 @@ func (ui *UI) onXUtilEvent(ev xutil.Event) {
 		ui.Layout.NeedPaint()
 	case xproto.KeyPressEvent:
 		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		k := keybmap.NewKey(ui.Win.KeybMap, ev0.Detail, ev0.State)
+		k := ui.Win.KeybMap.NewKey(ev0.Detail, ev0.State)
 		ev2 := &KeyPressEvent{k}
 		ui.Layout.pointEvent(p, ev2)
 	case xproto.KeyReleaseEvent:
 		// didn't registered to receive, but still showing up
 	case xproto.ButtonPressEvent:
 		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		b := keybmap.NewButton(ui.Win.KeybMap, ev0.Detail, ev0.State)
+		b := ui.Win.KeybMap.NewButton(ev0.Detail, ev0.State)
 		ev2 := &ButtonPressEvent{b}
 		ui.Layout.pointEvent(p, ev2)
 	case xproto.ButtonReleaseEvent:
 		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		b := keybmap.NewButton(ui.Win.KeybMap, ev0.Detail, ev0.State)
+		b := ui.Win.KeybMap.NewButton(ev0.Detail, ev0.State)
 		ev2 := &ButtonReleaseEvent{b}
 		ui.Layout.pointEvent(p, ev2)
 	case xproto.MotionNotifyEvent:
 		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		m := keybmap.Modifiers(ev0.State)
+		m := ui.Win.KeybMap.NewModifiers(ev0.State)
 		ev2 := &MotionNotifyEvent{m}
 		ui.Layout.pointEvent(p, ev2)
 	case *dragndrop.PositionEvent:

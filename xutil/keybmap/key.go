@@ -8,7 +8,7 @@ type Key struct {
 	Modifiers Modifiers
 }
 
-func NewKey(km *KeybMap, keycode xproto.Keycode, state uint16) *Key {
+func newKey(km *KeybMap, keycode xproto.Keycode, state uint16) *Key {
 	return &Key{km, keycode, Modifiers(state)}
 }
 func (k *Key) FirstKeysym() xproto.Keysym {

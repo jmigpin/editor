@@ -17,11 +17,10 @@ import (
 )
 
 type Window struct {
-	Conn      *xgb.Conn
-	Window    xproto.Window
-	SetupInfo *xproto.SetupInfo
-	Screen    *xproto.ScreenInfo
-	GCtx      xproto.Gcontext
+	Conn   *xgb.Conn
+	Window xproto.Window
+	Screen *xproto.ScreenInfo
+	GCtx   xproto.Gcontext
 
 	Dnd     *dragndrop.Dnd
 	Paste   *copypaste.Paste
@@ -55,8 +54,8 @@ func NewWindow() (*Window, error) {
 	return win, nil
 }
 func (win *Window) init() error {
-	win.SetupInfo = xproto.Setup(win.Conn)
-	win.Screen = win.SetupInfo.DefaultScreen(win.Conn)
+	si := xproto.Setup(win.Conn)
+	win.Screen = si.DefaultScreen(win.Conn)
 
 	window, err := xproto.NewWindowId(win.Conn)
 	if err != nil {
@@ -110,7 +109,7 @@ func (win *Window) init() error {
 
 	// extensions
 
-	k, err := keybmap.NewKeybMap(win.Conn, win.SetupInfo)
+	k, err := keybmap.NewKeybMap(win.Conn)
 	if err != nil {
 		return err
 	}
