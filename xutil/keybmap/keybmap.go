@@ -87,18 +87,6 @@ func (km *KeybMap) ModKeysym(keycode xproto.Keycode, mods Modifiers) xproto.Keys
 	return km.KeysymColumn(keycode, col)
 }
 func (km *KeybMap) modifiersColumn(mods Modifiers) int {
-	fmt.Printf("%v: %v %v %v %v %v %v %v %v",
-		mods,
-		mods.Mod1(),
-		mods.Mod2(),
-		mods.Mod3(),
-		mods.Mod4(),
-		mods.Mod5(),
-		mods.Shift(),
-		mods.CapsLock(),
-		mods.Control(),
-	)
-
 	//alt := mods.Mod1()
 	altGr := mods.Mod5()
 

@@ -7,9 +7,6 @@ import (
 
 const eofRune = rune(0)
 
-//const wrapLineRightRune = rune(0x21b2) // symbol that points to the left
-const wrapLineLeftRune = rune(0x21b3) // symbol that points to the right
-
 type StringIterator struct {
 	face *Face
 

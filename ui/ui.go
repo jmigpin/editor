@@ -149,8 +149,6 @@ func (ui *UI) onXUtilEvent(ev xutil.Event) {
 		ui.OnEvent(ev0) // pass error to handler
 	case *EmptyEvent:
 		// do nothing, it will trigger the event loop to loop
-	//case *xutil.ConnClosedEvent:
-	//fmt.Println("x connection closed")
 	case xproto.ExposeEvent:
 		if ev0.Count > 0 {
 			return // wait for expose with count 0

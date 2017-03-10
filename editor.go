@@ -1,3 +1,4 @@
+// Source code editor in pure Go.
 package main
 
 import (

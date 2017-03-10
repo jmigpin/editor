@@ -6,6 +6,9 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+//const wrapLineRightRune = rune(0x21b2) // points to the left
+const wrapLineLeftRune = rune(0x21b3) // points to the right
+
 // Adds newlines and indented wraplines to StringIterator.
 type StringLiner struct {
 	iter           *StringIterator
