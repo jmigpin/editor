@@ -1,7 +1,6 @@
 package xutil
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"io/ioutil"
@@ -17,11 +16,11 @@ import (
 )
 
 type Window struct {
-	Conn   *xgb.Conn
-	Window xproto.Window
-	Screen *xproto.ScreenInfo
-	GCtx   xproto.Gcontext
-
+	Conn    *xgb.Conn
+	Window  xproto.Window
+	Screen  *xproto.ScreenInfo
+	GCtx    xproto.Gcontext
+	EvReg   *xgbutil.EventRegister
 	Dnd     *dragndrop.Dnd
 	Paste   *copypaste.Paste
 	Copy    *copypaste.Copy
@@ -42,18 +41,16 @@ func NewWindow() (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// disable xgb logger that prints to stderr
-	xgb.Logger = log.New(ioutil.Discard, "", 0)
-
 	win := &Window{Conn: conn}
-
 	if err := win.init(); err != nil {
 		return nil, err
 	}
 	return win, nil
 }
 func (win *Window) init() error {
+	// disable xgb logger that prints to stderr
+	xgb.Logger = log.New(ioutil.Discard, "", 0)
+
 	si := xproto.Setup(win.Conn)
 	win.Screen = si.DefaultScreen(win.Conn)
 
@@ -148,6 +145,11 @@ func (win *Window) init() error {
 
 	win.SetWindowName("Editor")
 
+	// event handlers
+	win.EvReg = xgbutil.NewEventRegister()
+	win.Dnd.SetupEventRegister(win.EvReg)
+	win.KeybMap.SetupEventRegister(win.EvReg)
+
 	return nil
 }
 func (win *Window) Close() {
@@ -205,50 +207,91 @@ func (win *Window) QueryPointer() (*image.Point, bool) {
 	y := int(r.WinY)
 	return &image.Point{x, y}, true
 }
-
-func (win *Window) WaitForEvent() (Event, bool) {
-	for {
-		ev, xerr := win.Conn.WaitForEvent()
-		if ev == nil && xerr == nil { // connection closed
-			return nil, false
-		}
-		if xerr != nil {
-			return errors.New(xerr.Error()), true
-		}
-		ev2 := win.handleInternalEvents(ev)
-		if ev2 == nil {
-			continue // event handled internally, get next
-		}
-		return ev2, true
-	}
+func (win *Window) EventLoop() {
+	xgbutil.EventLoop(win.Conn, win.EvReg)
 }
+
+//func (win *Window) onClientMessage(ev xgbutil.EREvent) {
+//ev0 := ev.(xproto.ClientMessageEvent)
+//// drag and drop
+//ev2, ok, err := win.Dnd.OnClientMessage(&ev0)
+//if err != nil {
+//win.EvReg.Emit(xgbutil.XErrorEventId, err)
+//return
+//}
+//if ok {
+//win.EvReg.Emit(xgbutil.EventId(ev2), ev2)
+//return
+//}
+
+//debugEvent(ev0.Type, ev0)
+//}
+//func (win *Window) onSelectionNotify(ev xgbutil.EREvent) {
+//ev0 := ev.(xproto.SelectionNotifyEvent)
+//// paste
+//ok := win.Paste.OnSelectionNotify(&ev0)
+//if ok {
+//return nil
+//}
+//// drag and drop
+//ok = win.Dnd.OnSelectionNotify(&ev0)
+//if ok {
+//return nil
+//}
+
+//debugEvent(ev0.Type, ev0)
+//}
+//func (win *Window) debugEvent(typ xgb.Atom, ev interface{}) {
+//name, err := xgbutil.GetAtomName(win.Conn, typ)
+//if err != nil {
+//return
+//}
+//fmt.Errorf("window: unhandled  event: %v, type=%v, %+v", name, typ, ev)
+//}
+
+//func (win *Window) WaitForEvent() (Event, bool) {
+//for {
+//ev, xerr := win.Conn.WaitForEvent()
+//if ev == nil && xerr == nil { // connection closed
+//return nil, false
+//}
+//if xerr != nil {
+//return errors.New(xerr.Error()), true
+//}
+//ev2 := win.handleInternalEvents(ev)
+//if ev2 == nil {
+//continue // event handled internally, get next
+//}
+//return ev2, true
+//}
+//}
 func (win *Window) handleInternalEvents(ev xgb.Event) Event {
 	switch ev0 := ev.(type) {
-	case xproto.ClientMessageEvent:
-		// drag and drop
-		ev2, ok, err := win.Dnd.OnClientMessage(&ev0)
-		if err != nil {
-			return Event(err)
-		}
-		if ok {
-			return ev2
-		}
-		// debug unhandled client message event
-		name, err := xgbutil.GetAtomName(win.Conn, ev0.Type)
-		if err == nil {
-			return fmt.Errorf("unhandled xutil client message event: %+v, ev.type=%v", ev0, name)
-		}
+	//case xproto.ClientMessageEvent:
+	//// drag and drop
+	//ev2, ok, err := win.Dnd.OnClientMessage(&ev0)
+	//if err != nil {
+	//return Event(err)
+	//}
+	//if ok {
+	//return ev2
+	//}
+	//// debug unhandled client message event
+	//name, err := xgbutil.GetAtomName(win.Conn, ev0.Type)
+	//if err == nil {
+	//return fmt.Errorf("unhandled xutil client message event: %+v, ev.type=%v", ev0, name)
+	//}
 	case xproto.SelectionNotifyEvent:
 		// paste
 		ok := win.Paste.OnSelectionNotify(&ev0)
 		if ok {
 			return nil
 		}
-		// drag and drop
-		ok = win.Dnd.OnSelectionNotify(&ev0)
-		if ok {
-			return nil
-		}
+		//// drag and drop
+		//ok = win.Dnd.OnSelectionNotify(&ev0)
+		//if ok {
+		//return nil
+		//}
 		// debug unhandled selection notify
 		name, err := xgbutil.GetAtomName(win.Conn, ev0.Property)
 		if err == nil {

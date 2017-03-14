@@ -59,7 +59,7 @@ func FindShortcut(ed Editori, row *ui.Row) {
 	// warp pointer to toolbar close to "Find " text cmd to be able to click for run
 	p := ta.IndexPoint266(ta.CursorIndex())
 	p2 := drawutil.Point266ToPoint(p)
-	p3 := p2.Add(ta.Area.Min)
+	p3 := p2.Add(ta.C.Bounds.Min)
 	p3.Y += ta.LineHeight().Round() / 2 // center of rune
-	ta.UI.WarpPointer(&p3)
+	ed.UI().WarpPointer(&p3)
 }

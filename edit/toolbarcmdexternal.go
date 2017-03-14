@@ -116,7 +116,7 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 	rowCtx.ClearIfNotNewCtx(row, ctx, func() {
 		// indicate the cmd is not running anymore
 		row.Square.SetExecuting(false)
-		row.UI.RequestTreePaint()
+		row.Col.Cols.Layout.UI.RequestTreePaint()
 	})
 }
 func appendToRowTextArea(row *ui.Row, s string) {
@@ -131,5 +131,5 @@ func appendToRowTextArea(row *ui.Row, s string) {
 	}
 	ta.SetStrClear(s, false, false)
 
-	row.UI.RequestTreePaint()
+	row.Col.Cols.Layout.UI.RequestTreePaint()
 }

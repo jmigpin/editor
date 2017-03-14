@@ -2,6 +2,7 @@ package dragndrop
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -12,10 +13,10 @@ import (
 // explanation with example: http://www.edwardrosten.com/code/dist/x_clipboard-1.1/paste.cc
 
 type Dnd struct { // drag and drop
-	conn *xgb.Conn
-	win  xproto.Window
-
-	tmp struct {
+	conn  *xgb.Conn
+	win   xproto.Window
+	evReg *xgbutil.EventRegister // event register support
+	tmp   struct {
 		enterEvent    *EnterEvent    // contains supported types
 		positionEvent *PositionEvent // contains position
 		dropEvent     *DropEvent     // waits for onselectionreply
@@ -200,4 +201,51 @@ func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) bool {
 		return dnd.tmp.dropEvent.OnSelectionNotify(ev)
 	}
 	return false
+}
+
+// event register support
+
+func (dnd *Dnd) SetupEventRegister(evReg *xgbutil.EventRegister) {
+	dnd.evReg = evReg
+	fn := &xgbutil.ERCallback{dnd.onEvRegClientMessage}
+	dnd.evReg.Add(xproto.ClientMessage, fn)
+	fn = &xgbutil.ERCallback{dnd.onEvRegSelectionNotify}
+	dnd.evReg.Add(xproto.SelectionNotify, fn)
+}
+func (dnd *Dnd) onEvRegClientMessage(ev xgbutil.EREvent) {
+	ev0 := ev.(xproto.ClientMessageEvent)
+	ev2, ok, err := dnd.OnClientMessage(&ev0)
+	if err != nil {
+		dnd.evReg.Emit(dnd.evRegEventId(err), err)
+		return
+	}
+	if ok && ev2 != nil {
+		dnd.evReg.Emit(dnd.evRegEventId(ev2), ev2)
+		return
+	}
+}
+func (dnd *Dnd) onEvRegSelectionNotify(ev xgbutil.EREvent) {
+	ev0 := ev.(xproto.SelectionNotifyEvent)
+	ok := dnd.OnSelectionNotify(&ev0)
+	_ = ok
+}
+
+const (
+	ErrorEventId = iota + 1200
+	PositionEventId
+	DropEventId
+)
+
+func (dnd *Dnd) evRegEventId(ev interface{}) int {
+	switch ev.(type) {
+	case error:
+		return ErrorEventId
+	case *PositionEvent:
+		return PositionEventId
+	case *DropEvent:
+		return DropEventId
+	default:
+		log.Printf("unhandled event: %#v", ev)
+		return xgbutil.UnknownEventId
+	}
 }

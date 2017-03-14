@@ -3,18 +3,21 @@ package ui
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 
 	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/imageutil"
+	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xutil"
-	"github.com/jmigpin/editor/xutil/dragndrop"
-	"github.com/jmigpin/editor/xutil/keybmap"
+	"github.com/jmigpin/editor/xutil/xgbutil"
 
 	"github.com/BurntSushi/xgb/xproto"
 )
 
 const (
 	ScrollbarWidth = 12
+	SquareWidth    = ScrollbarWidth
 	SeparatorWidth = 1
 )
 
@@ -23,71 +26,76 @@ type UI struct {
 	Layout *Layout
 	fface1 *drawutil.Face
 
-	events chan Event
+	//events chan Event
 
-	OnEvent func(Event)
+	//OnEvent func(Event)
 }
 
-type Event interface{}
-type EmptyEvent struct{}
-type KeyPressEvent struct {
-	Key *keybmap.Key
-}
-type ButtonPressEvent struct {
-	Button *keybmap.Button
-}
-type ButtonReleaseEvent struct {
-	Button *keybmap.Button
-}
-type MotionNotifyEvent struct {
-	Modifiers keybmap.Modifiers
-}
-type TextAreaCmdEvent struct {
-	TextArea *TextArea
-}
-type TextAreaSetTextEvent struct {
-	TextArea *TextArea
-	OldArea  image.Rectangle
-}
-type TextAreaSetOffsetYEvent struct {
-	TextArea *TextArea
-}
-type TextAreaScrollEvent struct {
-	TextArea *TextArea
-	Up       bool
-}
-type SquareButtonReleaseEvent struct {
-	Square *Square
-	Button *keybmap.Button
-	Point  *image.Point
-}
-type SquareRootButtonReleaseEvent struct {
-	Square *Square
-	Button *keybmap.Button
-	Point  *image.Point
-}
-type SquareRootMotionNotifyEvent struct {
-	Square    *Square
-	Modifiers keybmap.Modifiers
-	Point     *image.Point
-}
-type RowKeyPressEvent struct {
-	Row *Row
-	Key *keybmap.Key
-}
-type RowCloseEvent struct {
-	Row *Row
-}
-type ColumnDndPositionEvent struct {
-	Event  *dragndrop.PositionEvent
-	Point  *image.Point
-	Column *Column
-}
-type ColumnDndDropEvent struct {
-	Event  *dragndrop.DropEvent
-	Point  *image.Point
-	Column *Column
-}
+//type Event interface{}
+//type EmptyEvent struct{}
+
+//type KeyPressEvent struct {
+//Key *keybmap.Key
+//}
+//type ButtonPressEvent struct {
+//Button *keybmap.Button
+//}
+//type ButtonReleaseEvent struct {
+//Button *keybmap.Button
+//}
+
+//type MotionNotifyEvent struct {
+//Modifiers keybmap.Modifiers
+//}
+
+//type TextAreaCmdEvent struct {
+//TextArea *TextArea
+//}
+//type TextAreaSetTextEvent struct {
+//TextArea *TextArea
+//OldArea  image.Rectangle
+//}
+//type TextAreaSetOffsetYEvent struct {
+//TextArea *TextArea
+//}
+
+//type TextAreaScrollEvent struct {
+//TextArea *TextArea
+//Up       bool
+//}
+//type SquareButtonReleaseEvent struct {
+//Square *Square
+//Button *keybmap.Button
+//Point  *image.Point
+//}
+//type SquareRootButtonReleaseEvent struct {
+//Square *Square
+//Button *keybmap.Button
+//Point  *image.Point
+//}
+//type SquareRootMotionNotifyEvent struct {
+//Square    *Square
+//Modifiers keybmap.Modifiers
+//Point     *image.Point
+//}
+//type RowKeyPressEvent struct {
+//Row *Row
+//Key *keybmap.Key
+//}
+//type RowCloseEvent struct {
+//Row *Row
+//}
+
+//type ColumnDndPositionEvent struct {
+//Event  *dragndrop.PositionEvent
+//Point  *image.Point
+//Column *Column
+//}
+//type ColumnDndDropEvent struct {
+//Event  *dragndrop.DropEvent
+//Point  *image.Point
+//Column *Column
+//}
 
 func NewUI(fface *drawutil.Face) (*UI, error) {
 	ui := &UI{fface1: fface}
@@ -99,228 +107,261 @@ func NewUI(fface *drawutil.Face) (*UI, error) {
 	ui.Win = win
 
 	ui.Layout = NewLayout(ui)
+
+	// event handlers
+	fn := &xgbutil.ERCallback{ui.onExposeEvent}
+	ui.Win.EvReg.Add(xproto.Expose, fn)
+	fn = &xgbutil.ERCallback{ui.onQueueEmptyEvent}
+	ui.Win.EvReg.Add(xgbutil.QueueEmptyEventId, fn)
+
 	return ui, nil
 }
 func (ui *UI) Close() {
-	if ui.events != nil {
-		close(ui.events)
-	}
+	//if ui.events != nil {
+	//close(ui.events)
+	//}
 	ui.Win.Close()
 }
 func (ui *UI) EventLoop() {
-	ui.events = make(chan Event)
-	go func() {
-		for {
-			ev, ok := ui.Win.WaitForEvent()
-			if !ok { // conn closed
-				break
-			}
-			ui.events <- ev
-		}
-	}()
-	for {
-		var ev xutil.Event
-		var ok bool
-		select {
-		case ev, ok = <-ui.events: // non-block
-		default:
-			// paint after all events have been handled
-			ui.Layout.TreePaint()
-
-			ev, ok = <-ui.events // block
-		}
-		if !ok {
-			break
-		}
-		ui.onXUtilEvent(ev)
-	}
+	ui.Win.EventLoop()
 }
+func (ui *UI) onExposeEvent(ev xgbutil.EREvent) {
+	ev0 := ev.(xproto.ExposeEvent)
+	if ev0.Count > 0 {
+		return // wait for expose with count 0
+	}
+	ui.adjustRootImageSize()
+	ui.Layout.C.NeedPaint()
+}
+func (ui *UI) onQueueEmptyEvent(ev xgbutil.EREvent) {
+	// paint after all events have been handled
+	ui.Layout.C.PaintTreeIfNeeded(func(c *uiutil.Container) {
+		// paint only the top container of the needed area
+		ui.PutRootImage(&c.Bounds)
+	})
+}
+
+//func (ui *UI) EventLoop() {
+//ui.events = make(chan Event)
+//go func() {
+//for {
+//ev, ok := ui.Win.WaitForEvent()
+//if !ok { // conn closed
+//break
+//}
+//ui.events <- ev
+//}
+//}()
+//for {
+//var ev xutil.Event
+//var ok bool
+//select {
+//case ev, ok = <-ui.events: // non-block
+//default:
+//// paint after all events have been handled
+//ui.Layout.C.PaintTreeIfNeeded(func(c *uiutil.Container) {
+//ui.PutRootImage(&c.Bounds)
+//})
+
+//ev, ok = <-ui.events // block
+//}
+//if !ok {
+//break
+//}
+//ui.onXUtilEvent(ev)
+//}
+//}
 
 // Usefull for NeedPaint() calls made inside a goroutine that have no way  of requesting a paint later since the event loop only paints after all events have been handled, so it doesn't paint if there are no events (hence using an empty event).
 func (ui *UI) RequestTreePaint() {
-	ui.events <- &EmptyEvent{}
+	//ui.events <- &EmptyEvent{}
+	ui.Win.EvReg.Emit(xgbutil.QueueEmptyEventId, nil)
 }
 
-func (ui *UI) onXUtilEvent(ev xutil.Event) {
-	// TODO: receive shm.CompletionEvent, and count the waits before drawing next (performance)
+//func (ui *UI) onXUtilEvent(ev xutil.Event) {
+//// TODO: receive shm.CompletionEvent, and count the waits before drawing next (performance)
 
-	switch ev0 := ev.(type) {
-	case error:
-		ui.OnEvent(ev0) // pass error to handler
-	case *EmptyEvent:
-		// do nothing, it will trigger the event loop to loop
-	case xproto.ExposeEvent:
-		if ev0.Count > 0 {
-			return // wait for expose with count 0
-		}
-		ui.adjustRootImageSize()
-		ui.Layout.NeedPaint()
-	case xproto.KeyPressEvent:
-		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		k := ui.Win.KeybMap.NewKey(ev0.Detail, ev0.State)
-		ev2 := &KeyPressEvent{k}
-		ui.Layout.pointEvent(p, ev2)
-	case xproto.KeyReleaseEvent:
-		// didn't registered to receive, but still showing up
-	case xproto.ButtonPressEvent:
-		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		b := ui.Win.KeybMap.NewButton(ev0.Detail, ev0.State)
-		ev2 := &ButtonPressEvent{b}
-		ui.Layout.pointEvent(p, ev2)
-	case xproto.ButtonReleaseEvent:
-		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		b := ui.Win.KeybMap.NewButton(ev0.Detail, ev0.State)
-		ev2 := &ButtonReleaseEvent{b}
-		ui.Layout.pointEvent(p, ev2)
-	case xproto.MotionNotifyEvent:
-		p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
-		m := ui.Win.KeybMap.NewModifiers(ev0.State)
-		ev2 := &MotionNotifyEvent{m}
-		ui.Layout.pointEvent(p, ev2)
-	case *dragndrop.PositionEvent:
-		p, err := ev0.WindowPoint()
-		if err != nil {
-			ui.OnEvent(err)
-			return
-		}
-		ui.Layout.pointEvent(p, ev0)
-		// dnd position must receive a reply, make one if no one handled it
-		if !ev0.Replied {
-			ev0.ReplyDeny()
-		}
-	case *dragndrop.DropEvent:
-		p, err := ev0.WindowPoint()
-		if err != nil {
-			ui.OnEvent(err)
-			return
-		}
-		ui.Layout.pointEvent(p, ev0)
-		// dnd position must receive a reply, make one if no one handled it
-		if !ev0.Replied {
-			ev0.ReplyDeny()
-		}
-	default:
-		ev2 := fmt.Errorf("ui unhandled event: %v", ev)
-		ui.OnEvent(ev2)
-	}
-}
-func (ui *UI) PushEvent(ev Event) {
-	ui.onUIPushedEvent(ev) // no queue, run directly
-}
-func (ui *UI) onUIPushedEvent(ev Event) {
-	switch ev0 := ev.(type) {
-	case *SquareButtonReleaseEvent:
-		switch t0 := ev0.Square.Data.(type) {
-		case *Row:
-			ui.onRowSquareButtonRelease(t0, ev0)
-		case *Column:
-			ui.onColumnSquareButtonRelease(t0, ev0)
-		}
-	case *SquareRootButtonReleaseEvent:
-		switch t0 := ev0.Square.Data.(type) {
-		case *Row:
-			ui.onRowSquareRootButtonRelease(t0, ev0)
-		case *Column:
-			ui.onColumnSquareRootButtonRelease(t0, ev0)
-		}
-	case *SquareRootMotionNotifyEvent:
-		switch t0 := ev0.Square.Data.(type) {
-		case *Row:
-			ui.onRowSquareRootMotionNotify(t0, ev0)
-		case *Column:
-			ui.onColumnSquareRootMotionNotify(t0, ev0)
-		}
-	case *TextAreaScrollEvent:
-		switch t0 := ev0.TextArea.Data.(type) {
-		case *Row:
-			if ev0.TextArea == t0.TextArea {
-				t0.scrollbar.NeedPaint()
-			}
-		}
-	case *TextAreaSetTextEvent:
-		ui.onTextAreaSetText(ev0)
-		// also pass to next handler
-		ui.OnEvent(ev0)
-	case *TextAreaSetOffsetYEvent:
-		switch t0 := ev0.TextArea.Data.(type) {
-		case *Row:
-			if ev0.TextArea == t0.TextArea {
-				t0.scrollbar.CalcOwnArea()
-				t0.scrollbar.NeedPaint()
-			}
-		}
-	default:
-		ui.OnEvent(ev)
-	}
-}
+//switch ev0 := ev.(type) {
+//case error:
+//ui.OnEvent(ev0) // pass error to handler
+////case *EmptyEvent:
+//// do nothing, it will trigger the event loop to loop
+////case xproto.ExposeEvent:
+////if ev0.Count > 0 {
+////return // wait for expose with count 0
+////}
+////ui.adjustRootImageSize()
+////ui.Layout.C.NeedPaint()
+////case xproto.KeyPressEvent:
+////p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
+////k := ui.Win.KeybMap.NewKey(ev0.Detail, ev0.State)
+////ev2 := &KeyPressEvent{k}
+////ui.Layout.pointEvent(p, ev2)
+////case xproto.KeyReleaseEvent:
+////// didn't registered to receive, but still showing up
+////case xproto.ButtonPressEvent:
+////p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
+////b := ui.Win.KeybMap.NewButton(ev0.Detail, ev0.State)
+////ev2 := &ButtonPressEvent{b}
+////ui.Layout.pointEvent(p, ev2)
+////case xproto.ButtonReleaseEvent:
+////p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
+////b := ui.Win.KeybMap.NewButton(ev0.Detail, ev0.State)
+////ev2 := &ButtonReleaseEvent{b}
+////ui.Layout.pointEvent(p, ev2)
+////case xproto.MotionNotifyEvent:
+////p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
+////m := ui.Win.KeybMap.NewModifiers(ev0.State)
+////ev2 := &MotionNotifyEvent{m}
+////ui.Layout.pointEvent(p, ev2)
+////case *dragndrop.PositionEvent:
+////p, err := ev0.WindowPoint()
+////if err != nil {
+////ui.OnEvent(err)
+////return
+////}
+////ui.Layout.pointEvent(p, ev0)
+////// dnd position must receive a reply, make one if no one handled it
+////if !ev0.Replied {
+////ev0.ReplyDeny()
+////}
+////case *dragndrop.DropEvent:
+////p, err := ev0.WindowPoint()
+////if err != nil {
+////ui.OnEvent(err)
+////return
+////}
+////ui.Layout.pointEvent(p, ev0)
+////// dnd position must receive a reply, make one if no one handled it
+////if !ev0.Replied {
+////ev0.ReplyDeny()
+////}
+//default:
+//ev2 := fmt.Errorf("ui unhandled event: %v", ev)
+//ui.OnEvent(ev2)
+//}
+//}
+//func (ui *UI) PushEvent(ev Event) {
+////ui.onUIPushedEvent(ev) // no queue, run directly
+//}
+
+//func (ui *UI) onUIPushedEvent_(ev Event) {
+//switch ev0 := ev.(type) {
+//case *SquareButtonReleaseEvent:
+//switch t0 := ev0.Square.Data.(type) {
+//case *Row:
+////ui.onRowSquareButtonRelease(t0, ev0)
+//case *Column:
+////ui.onColumnSquareButtonRelease(t0, ev0)
+//}
+//case *SquareRootButtonReleaseEvent:
+//switch t0 := ev0.Square.Data.(type) {
+//case *Row:
+////ui.onRowSquareRootButtonRelease(t0, ev0)
+//case *Column:
+////ui.onColumnSquareRootButtonRelease(t0, ev0)
+//}
+//case *SquareRootMotionNotifyEvent:
+//switch t0 := ev0.Square.Data.(type) {
+//case *Row:
+////ui.onRowSquareRootMotionNotify(t0, ev0)
+//case *Column:
+////ui.onColumnSquareRootMotionNotify(t0, ev0)
+//}
+//case *TextAreaScrollEvent:
+//switch t0 := ev0.TextArea.Data.(type) {
+//case *Row:
+//if ev0.TextArea == t0.TextArea {
+//t0.scrollbar.C.NeedPaint()
+//}
+//}
+//case *TextAreaSetTextEvent:
+//ui.onTextAreaSetText(ev0)
+//// also pass to next handler
+//ui.OnEvent(ev0)
+//case *TextAreaSetOffsetYEvent:
+//switch t0 := ev0.TextArea.Data.(type) {
+//case *Row:
+//if ev0.TextArea == t0.TextArea {
+//t0.scrollbar.C.CalcChildsBounds()
+//t0.scrollbar.C.NeedPaint()
+//}
+//}
+//default:
+//ui.OnEvent(ev)
+//}
+//}
 func (ui *UI) onTextAreaSetText(ev0 *TextAreaSetTextEvent) {
 	ta := ev0.TextArea
 	switch t0 := ev0.TextArea.Data.(type) {
-	case *Toolbar:
-		// update toolbar parent container
-		switch t1 := t0.Data.(type) {
-		case *Layout:
-			t1.CalcOwnArea()
-			t1.NeedPaint()
-		case *Row:
-			t1.CalcOwnArea()
-			t1.NeedPaint()
-		}
-		// keep pointer inside the area if it was in before
-		p, ok := ta.UI.Win.QueryPointer()
-		wasIn := ok && p.In(ev0.OldArea)
-		if wasIn {
-			ta.UI.WarpPointerToRectangle(&ta.Area)
-		}
+	//case *Toolbar:
+	//// update toolbar parent container
+	//switch t1 := t0.Data.(type) {
+	//case *Layout:
+	////t1.C.CalcChildsBounds()
+	////t1.C.NeedPaint()
+	//t1.C.CalcChildsBounds()
+	//t1.C.NeedPaint()
+	//case *Row:
+	//t1.C.CalcChildsBounds()
+	//t1.C.NeedPaint()
+	//}
+	//// keep pointer inside the area if it was in before
+	//p, ok := ui.Win.QueryPointer()
+	//wasIn := ok && p.In(ev0.OldArea)
+	//if wasIn {
+	//ui.WarpPointerToRectangle(&ta.C.Bounds)
+	//}
 	case *Row:
 		// update scrollbar
 		if ta == t0.TextArea {
-			t0.scrollbar.CalcOwnArea()
-			t0.scrollbar.NeedPaint()
+			t0.scrollbar.C.CalcChildsBounds()
+			t0.scrollbar.C.NeedPaint()
 		}
 	}
 }
-func (ui *UI) onRowSquareButtonRelease(row *Row, ev *SquareButtonReleaseEvent) {
-	if ev.Button.Button2() {
-		row.Close()
-	}
-}
-func (ui *UI) onRowSquareRootButtonRelease(row *Row, ev *SquareRootButtonReleaseEvent) {
-	if ev.Button.Button1() {
-		col := row.Col
-		if ev.Button.Mods.Control() {
-			col.Cols.MoveColumnToPoint(col, ev.Point)
-		} else {
-			c, i, ok := col.Cols.PointRowPosition(row, ev.Point)
-			if ok {
-				col.Cols.MoveRowToColumn(row, c, i)
-			}
-		}
-	}
-}
-func (ui *UI) onColumnSquareButtonRelease(col *Column, ev *SquareButtonReleaseEvent) {
-	if ev.Button.Button2() {
-		col.Cols.RemoveColumnEnsureOne(col)
-	}
-}
-func (ui *UI) onColumnSquareRootButtonRelease(col *Column, ev *SquareRootButtonReleaseEvent) {
-	if ev.Button.Button1() {
-		col.Cols.MoveColumnToPoint(col, ev.Point)
-	}
-}
-func (ui *UI) onRowSquareRootMotionNotify(row *Row, ev *SquareRootMotionNotifyEvent) {
-	if ev.Modifiers.Button3() {
-		p2 := ev.Point.Add(row.Square.PressPointPad)
-		col := row.Col
-		col.Cols.resizeColumn(col, p2.X)
-	}
-}
-func (ui *UI) onColumnSquareRootMotionNotify(col *Column, ev *SquareRootMotionNotifyEvent) {
-	if ev.Modifiers.Button3() {
-		p2 := ev.Point.Add(col.Square.PressPointPad)
-		col.Cols.resizeColumn(col, p2.X)
-	}
-}
+
+//func (ui *UI) onRowSquareButtonRelease(row *Row, ev *SquareButtonReleaseEvent) {
+//if ev.Button.Button2() {
+//row.Close()
+//}
+//}
+//func (ui *UI) onRowSquareRootButtonRelease(row *Row, ev *SquareRootButtonReleaseEvent) {
+//if ev.Button.Button1() {
+//col := row.Col
+//if ev.Button.Mods.Control() {
+//col.Cols.MoveColumnToPoint(col, ev.Point)
+//} else {
+//c, i, ok := col.Cols.PointRowPosition(row, ev.Point)
+//if ok {
+//col.Cols.MoveRowToColumn(row, c, i)
+//}
+//}
+//}
+//}
+//func (ui *UI) onColumnSquareButtonRelease(col *Column, ev *SquareButtonReleaseEvent) {
+//if ev.Button.Button2() {
+//col.Cols.RemoveColumnEnsureOne(col)
+//}
+//}
+//func (ui *UI) onColumnSquareRootButtonRelease(col *Column, ev *SquareRootButtonReleaseEvent) {
+//if ev.Button.Button1() {
+//col.Cols.MoveColumnToPoint(col, ev.Point)
+//}
+//}
+//func (ui *UI) onRowSquareRootMotionNotify(row *Row, ev *SquareRootMotionNotifyEvent) {
+//if ev.Modifiers.Button3() {
+//p2 := ev.Point.Add(row.Square.PressPointPad)
+//col := row.Col
+//col.Cols.resizeColumn(col, p2.X)
+//}
+//}
+//func (ui *UI) onColumnSquareRootMotionNotify(col *Column, ev *SquareRootMotionNotifyEvent) {
+//if ev.Modifiers.Button3() {
+//p2 := ev.Point.Add(col.Square.PressPointPad)
+//col.Cols.resizeColumn(col, p2.X)
+//}
+//}
 
 func (ui *UI) adjustRootImageSize() {
 	wgeom, err := ui.Win.GetGeometry()
@@ -333,17 +374,19 @@ func (ui *UI) adjustRootImageSize() {
 
 	// make new image
 	r := image.Rect(0, 0, w, h)
-	if !r.Eq(ui.Layout.Area) {
+	if !r.Eq(ui.Layout.C.Bounds) {
 		if err := ui.Win.ShmWrap.NewImage(&r); err != nil {
 			fmt.Println(err)
 			return
 		}
-		ui.Layout.Area = r
-		ui.Layout.CalcOwnArea()
+		ui.Layout.C.Bounds = r
+		ui.Layout.C.CalcChildsBounds()
+		ui.Layout.C.NeedPaint()
 	}
 }
 
 // Provides image to draw for drawutil (ex: fillrectangle).
+// TODO: rename image
 func (ui *UI) RootImage() draw.Image {
 	return ui.Win.ShmWrap.Image()
 }
@@ -390,4 +433,7 @@ func (ui *UI) WarpPointerToRectangle(r *image.Rectangle) {
 		p.X = r.Max.X - pad
 	}
 	ui.WarpPointer(p)
+}
+func (ui *UI) FillRectangle(r *image.Rectangle, c color.Color) {
+	imageutil.FillRectangle(ui.RootImage(), r, c)
 }

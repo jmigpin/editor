@@ -166,7 +166,11 @@ func buildSession(ed Editori) *Session {
 	s := Session{LayoutToolbarText: ed.UI().Layout.Toolbar.Str()}
 	for _, c := range ed.UI().Layout.Cols.Cols {
 		// truncate for a shorter string
-		cend := float64(int(c.End*1000)) / 1000
+		endp := 1.0
+		if c.C.Style.EndPercent != nil {
+			endp = *c.C.Style.EndPercent
+		}
+		cend := float64(int(endp*10000)) / 10000
 
 		col := &Column{
 			End: cend,
@@ -187,7 +191,7 @@ func restoreSession(ed Editori, s *Session) {
 	// close current session
 	cols := ed.UI().Layout.Cols
 	for len(cols.Cols) > 0 {
-		cols.RemoveColumnUntilNone(cols.Cols[0])
+		cols.RemoveColumn(cols.Cols[0])
 	}
 	// restore session
 	// clear toolbar toolbar string
@@ -196,16 +200,17 @@ func restoreSession(ed Editori, s *Session) {
 	for i, _ := range s.Columns {
 		_ = cols.NewColumn()
 		if i > 0 {
-			cols.Cols[i-1].End = s.Columns[i-1].End
+			endp := s.Columns[i-1].End
+			cols.Cols[i-1].C.Style.EndPercent = &endp
 		}
 	}
 	// calc areas since the columns ends had to be set
-	cols.CalcOwnArea()
+	cols.C.CalcChildsBounds()
 	// create the rows
 	for i, c := range s.Columns {
 		col := cols.Cols[i]
 		for _, r := range c.Rows {
-			row := col.NewRow()
+			row := ed.NewRow(col)
 			row.Toolbar.SetStrClear(r.ToolbarText, true, true)
 
 			// content

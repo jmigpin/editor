@@ -1,104 +1,45 @@
 package ui
 
 import (
-	"image"
 	"image/color"
-	"sync"
 
-	"github.com/jmigpin/editor/xutil/dragndrop"
+	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/xutil/xgbutil"
 )
 
 type Column struct {
-	Container
-	Cols   *Columns
-	Rows   []*Row
-	Square *Square
-	// end percent, percentage of the columns area, determines column area size
-	End float64
+	C, ChildsC uiutil.Container
+	Cols       *Columns
+	Rows       []*Row
+	Square     *Square
+	colSep     *Separator
 }
 
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols}
-	col.Container.Painter = col
 
-	col.Square = NewSquare()
-	col.Square.Data = col
+	col.Square = NewSquare(cols.Layout.UI)
+	fn := &xgbutil.ERCallback{col.onSquareButtonRelease}
+	col.Square.EvReg.Add(SquareButtonReleaseEventId, fn)
+	fn = &xgbutil.ERCallback{col.onSquareMotionNotify}
+	col.Square.EvReg.Add(SquareMotionNotifyEventId, fn)
 
-	col.AddChilds(&col.Square.Container)
+	ui := col.Cols.Layout.UI
+	col.colSep = NewSeparator(ui, SeparatorWidth, SeparatorColor)
 
-	col.Container.OnPointEvent = col.onPointEvent
+	col.C.PaintFunc = col.paint
+	col.ChildsC.Style.Direction = uiutil.ColumnDirection
+	col.ChildsC.Style.Distribution = uiutil.EqualDistribution
+
+	col.C.AppendChilds(&col.colSep.C, &col.ChildsC, &col.Square.C)
+
 	return col
 }
-func (col *Column) CalcArea(area *image.Rectangle) {
-	a := *area
-	col.Area = a
-
-	if col.hasSeparator() {
-		a.Min.X += SeparatorWidth
-	}
-	// prevent square from getting events if not drawn (empty area)
-	col.Square.CalcArea(&image.Rectangle{})
+func (col *Column) paint() {
 	if len(col.Rows) == 0 {
-		// square
-		r2 := a
-		r2.Min.X = r2.Max.X - ScrollbarWidth
-		r2.Max.Y = r2.Min.Y + ScrollbarWidth
-		col.Square.CalcArea(&r2)
+		col.Cols.Layout.UI.FillRectangle(&col.C.Bounds, color.White)
+		return
 	}
-	// each row
-	var wg sync.WaitGroup
-	wg.Add(len(col.Rows))
-	minY := a.Min.Y
-	for i, row := range col.Rows {
-		// calc avoiding rounding errors
-		maxY := a.Min.Y + (i+1)*a.Dy()/len(col.Rows)
-		isLast := i == len(col.Rows)-1
-		if isLast {
-			maxY = a.Max.Y
-		}
-		r := image.Rect(a.Min.X, minY, a.Max.X, maxY)
-		go func(row *Row, r image.Rectangle) {
-			defer wg.Done()
-			row.CalcArea(&r)
-		}(row, r)
-		minY = maxY
-	}
-	wg.Wait()
-}
-func (col *Column) Paint() {
-	a := col.Area
-	// separator
-	if col.hasSeparator() {
-		r := a
-		r.Max.X = r.Min.X + SeparatorWidth
-		col.FillRectangle(&r, &SeparatorColor)
-		a.Min.X = r.Max.X
-	}
-	// square
-	if len(col.Rows) == 0 {
-		// background when empty
-		col.FillRectangle(&a, color.White)
-
-		col.Square.Paint()
-	}
-	// each row
-	var wg sync.WaitGroup
-	wg.Add(len(col.Rows))
-	for _, row := range col.Rows {
-		go func(row *Row) {
-			defer wg.Done()
-			row.Paint()
-		}(row)
-	}
-	wg.Wait()
-}
-func (col *Column) hasSeparator() bool {
-	index, ok := col.Cols.columnIndex(col)
-	if !ok {
-		panic("column not found")
-	}
-	// separator is on the left side
-	return index > 0
 }
 func (col *Column) NewRow() *Row {
 	row := NewRow(col)
@@ -108,6 +49,11 @@ func (col *Column) NewRow() *Row {
 func (col *Column) insertRow(row *Row, index int) {
 	row.Col = col
 
+	// show first row separator
+	if len(col.Rows) > 0 {
+		col.Rows[0].rowSep.C.Style.Hidden = false
+	}
+
 	// insert: ensure gargage collection
 	var u []*Row
 	u = append(u, col.Rows[:index]...)
@@ -115,9 +61,14 @@ func (col *Column) insertRow(row *Row, index int) {
 	u = append(u, col.Rows[index:]...)
 	col.Rows = u
 
-	col.AddChilds(&row.Container)
-	col.CalcOwnArea()
-	col.NeedPaint()
+	// hide first row separator
+	col.Rows[0].rowSep.C.Style.Hidden = true
+
+	col.Square.C.Style.Hidden = true
+
+	col.ChildsC.AppendChilds(&row.C)
+	col.C.CalcChildsBounds()
+	col.C.NeedPaint()
 }
 func (col *Column) removeRow(row *Row) {
 	index, ok := col.rowIndex(row)
@@ -131,9 +82,16 @@ func (col *Column) removeRow(row *Row) {
 	u = append(u, col.Rows[index+1:]...)
 	col.Rows = u
 
-	col.RemoveChild(&row.Container)
-	col.CalcOwnArea()
-	col.NeedPaint()
+	// hide first row separator
+	if len(col.Rows) > 0 {
+		col.Rows[0].rowSep.C.Style.Hidden = true
+	}
+
+	col.Square.C.Style.Hidden = len(col.Rows) > 0
+
+	col.ChildsC.RemoveChild(&row.C)
+	col.C.CalcChildsBounds()
+	col.C.NeedPaint()
 }
 func (col *Column) rowIndex(row *Row) (int, bool) {
 	for i, r := range col.Rows {
@@ -143,12 +101,22 @@ func (col *Column) rowIndex(row *Row) (int, bool) {
 	}
 	return 0, false
 }
-func (col *Column) onPointEvent(p *image.Point, ev Event) bool {
-	switch ev0 := ev.(type) {
-	case *dragndrop.PositionEvent:
-		col.UI.PushEvent(&ColumnDndPositionEvent{ev0, p, col})
-	case *dragndrop.DropEvent:
-		col.UI.PushEvent(&ColumnDndDropEvent{ev0, p, col})
+func (col *Column) onSquareButtonRelease(ev0 xgbutil.EREvent) {
+	ev := ev0.(*SquareButtonReleaseEvent)
+	switch {
+	case ev.Button.Button1():
+		col.Cols.MoveColumnToPoint(col, ev.Point)
+	case ev.Button.Button2():
+		if ev.Point.In(col.Square.C.Bounds) {
+			col.Cols.RemoveColumnEnsureOne(col)
+		}
 	}
-	return true
+}
+func (col *Column) onSquareMotionNotify(ev0 xgbutil.EREvent) {
+	ev := ev0.(*SquareMotionNotifyEvent)
+	switch {
+	case ev.Modifiers.Button3():
+		p2 := ev.Point.Add(col.Square.PressPointPad)
+		col.Cols.resizeColumn(col, p2.X)
+	}
 }

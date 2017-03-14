@@ -1,7 +1,6 @@
 package cmdutil
 
 func NewRow(ed Editori) {
-	col := ed.ActiveColumn()
-	row := col.NewRow()
+	row := ed.NewRow(ed.ActiveColumn())
 	row.Square.WarpPointer()
 }

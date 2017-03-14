@@ -10,12 +10,9 @@ import (
 
 // Keeps info data every x runes for faster jump to the state of the text.
 type StringCache struct {
-	Face *Face
-
-	str           string
-	width         int
-	firstCalcDone bool
-
+	Face       *Face
+	str        string
+	width      int
 	rdata      []*SCRuneData
 	textHeight fixed.Int26_6
 }
@@ -31,14 +28,20 @@ type SCRuneData struct {
 	}
 }
 
-func (sc *StringCache) CalcRuneData(str string, width int) {
-	if sc.firstCalcDone && sc.str == str && sc.width == width {
+func NewStringCache(face *Face) *StringCache {
+	sc := &StringCache{Face: face}
+	sc.calcRuneData("", 0)
+	return sc
+}
+func (sc *StringCache) Update(str string, width int) {
+	if sc.str == str && sc.width == width {
 		return
 	}
-	sc.firstCalcDone = true
+	sc.calcRuneData(str, width)
 	sc.str = str
 	sc.width = width
-
+}
+func (sc *StringCache) calcRuneData(str string, width int) {
 	jump := 250 // keep data every x runes
 
 	// can't allocate since it's unknown the number of runes in a string - using append instead
@@ -56,7 +59,8 @@ func (sc *StringCache) CalcRuneData(str string, width int) {
 		sc.rdata = append(sc.rdata, &rd)
 	}
 
-	// always keep starting point, even for empty text
+	// always keep starting point, even for empty text, to
+	// keep initialized data from newstringliner
 	keep()
 
 	liner.Loop(func() bool {
@@ -69,6 +73,9 @@ func (sc *StringCache) CalcRuneData(str string, width int) {
 
 	// cache text height
 	sc.textHeight = LineY1(liner.iter.pen.Y, liner.iter.fm)
+	if sc.str == "" {
+		sc.textHeight = 0
+	}
 }
 func (sc *StringCache) max() *fixed.Point26_6 {
 	p := fixed.P(sc.width, 1000000)
@@ -80,7 +87,6 @@ func (sc *StringCache) restoreRuneData(rd *SCRuneData, liner *StringLiner) {
 	liner.wrapIndent = rd.liner.wrapIndent
 	liner.states = rd.liner.states
 }
-
 func (sc *StringCache) TextHeight() fixed.Int26_6 {
 	return sc.textHeight
 }
@@ -100,9 +106,12 @@ func (sc *StringCache) Draw(
 	selection *Selection,
 	highlight bool) error {
 
-	// can't draw if there is a mismatch between the calculated width and the image being passed
 	if img.Bounds().Dx() != sc.width {
 		err := fmt.Errorf("img.bounds.dx doesn't match stringcache.width: %d, %d", img.Bounds().Dx(), sc.width)
+		return err
+	}
+	if len(sc.rdata) == 0 {
+		err := fmt.Errorf("rune data not calculated yet")
 		return err
 	}
 
