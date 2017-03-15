@@ -14,12 +14,12 @@ import (
 func SetupDragNDrop(ed Editori) {
 	h := &dndHandler{ed}
 	ui := ed.UI()
-	fn := &xgbutil.ERCallback{h.onError}
-	ui.Win.EvReg.Add(dragndrop.ErrorEventId, fn)
-	fn = &xgbutil.ERCallback{h.onPosition}
-	ui.Win.EvReg.Add(dragndrop.PositionEventId, fn)
-	fn = &xgbutil.ERCallback{h.onDrop}
-	ui.Win.EvReg.Add(dragndrop.DropEventId, fn)
+	ui.Win.EvReg.Add(dragndrop.ErrorEventId,
+		&xgbutil.ERCallback{h.onError})
+	ui.Win.EvReg.Add(dragndrop.PositionEventId,
+		&xgbutil.ERCallback{h.onPosition})
+	ui.Win.EvReg.Add(dragndrop.DropEventId,
+		&xgbutil.ERCallback{h.onDrop})
 }
 
 type dndHandler struct {
@@ -32,19 +32,26 @@ func (h *dndHandler) onError(ev0 xgbutil.EREvent) {
 }
 func (h *dndHandler) onPosition(ev0 xgbutil.EREvent) {
 	ev := ev0.(*dragndrop.PositionEvent)
+	// dnd position must receive a reply
+	action, ok := h.onPosition2(ev)
+	//log.Printf("position %v %v\n", action, ok)
+	if !ok {
+		ev.ReplyDeny()
+	} else {
+		ev.ReplyAccept(action)
+	}
+}
+func (h *dndHandler) onPosition2(ev *dragndrop.PositionEvent) (xproto.Atom, bool) {
 	// get event point
 	p, err := ev.WindowPoint()
 	if err != nil {
-		h.ed.Error(err)
-		return
+		return 0, false
 	}
 	// only supporting dnd on columns
 	// find column that matches
 	_, ok := h.columnAtPoint(p)
 	if !ok {
-		// dnd position must receive a reply
-		ev.ReplyDeny()
-		return
+		return 0, false
 	}
 	// supported types
 	ok = false
@@ -55,12 +62,12 @@ func (h *dndHandler) onPosition(ev0 xgbutil.EREvent) {
 			break
 		}
 	}
-	if ok {
-		// TODO: if ctrl is pressed, set to XdndActionLink
-		// reply accept with action
-		action := dragndrop.DndAtoms.XdndActionCopy
-		ev.ReplyAccept(action)
+	if !ok {
+		return 0, false
 	}
+	// reply accept with action
+	action := dragndrop.DndAtoms.XdndActionCopy
+	return action, true
 }
 func (h *dndHandler) columnAtPoint(p *image.Point) (*ui.Column, bool) {
 	for _, col := range h.ed.UI().Layout.Cols.Cols {
@@ -71,37 +78,47 @@ func (h *dndHandler) columnAtPoint(p *image.Point) (*ui.Column, bool) {
 	return nil, false
 }
 func (h *dndHandler) onDrop(ev0 xgbutil.EREvent) {
-	ev := ev0.(*dragndrop.DropEvent)
+	// the drop event needs to send and then receive an event - to receive that event, the main eventloop can't be blocking with this procedure
+	go func() {
+		ev := ev0.(*dragndrop.DropEvent)
+		// dnd drop must receive a reply
+		ok := h.onDrop2(ev)
+		if !ok {
+			ev.ReplyDeny()
+		} else {
+			ev.ReplyAccepted()
+			// running on goroutine, must request paint
+			h.ed.UI().RequestTreePaint()
+		}
+	}()
+}
+func (h *dndHandler) onDrop2(ev *dragndrop.DropEvent) bool {
 	// get event point
 	p, err := ev.WindowPoint()
 	if err != nil {
 		h.ed.Error(err)
-		return
+		return false
 	}
 	// find column that matches
 	col, ok := h.columnAtPoint(p)
 	if !ok {
-		// dnd position must receive a reply
-		ev.ReplyDeny()
-		return
+		return false
 	}
 	// get data in required format
 	data, err := ev.RequestData(dragndrop.DropTypeAtoms.TextURLList)
 	if err != nil {
-		ev.ReplyDeny()
 		h.ed.Error(err)
-		return
+		return false
 	}
 	// parse data
 	urls, err := parseAsTextURLList(data)
 	if err != nil {
-		ev.ReplyDeny()
 		h.ed.Error(err)
-		return
+		return false
 	}
 
 	h.handleDroppedURLs(col, p, urls)
-	ev.ReplyAccepted()
+	return true
 }
 func (h *dndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*url.URL) {
 	for _, u := range urls {

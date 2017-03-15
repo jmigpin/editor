@@ -207,16 +207,16 @@ func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) bool {
 
 func (dnd *Dnd) SetupEventRegister(evReg *xgbutil.EventRegister) {
 	dnd.evReg = evReg
-	fn := &xgbutil.ERCallback{dnd.onEvRegClientMessage}
-	dnd.evReg.Add(xproto.ClientMessage, fn)
-	fn = &xgbutil.ERCallback{dnd.onEvRegSelectionNotify}
-	dnd.evReg.Add(xproto.SelectionNotify, fn)
+	dnd.evReg.Add(xproto.ClientMessage,
+		&xgbutil.ERCallback{dnd.onEvRegClientMessage})
+	dnd.evReg.Add(xproto.SelectionNotify,
+		&xgbutil.ERCallback{dnd.onEvRegSelectionNotify})
 }
 func (dnd *Dnd) onEvRegClientMessage(ev xgbutil.EREvent) {
 	ev0 := ev.(xproto.ClientMessageEvent)
 	ev2, ok, err := dnd.OnClientMessage(&ev0)
 	if err != nil {
-		dnd.evReg.Emit(dnd.evRegEventId(err), err)
+		dnd.evReg.Emit(ErrorEventId, err)
 		return
 	}
 	if ok && ev2 != nil {
@@ -238,8 +238,6 @@ const (
 
 func (dnd *Dnd) evRegEventId(ev interface{}) int {
 	switch ev.(type) {
-	case error:
-		return ErrorEventId
 	case *PositionEvent:
 		return PositionEventId
 	case *DropEvent:
