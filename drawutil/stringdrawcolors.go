@@ -1,6 +1,7 @@
 package drawutil
 
 import (
+	"image"
 	"image/color"
 	"image/draw"
 	"unicode"
@@ -40,8 +41,8 @@ type Selection struct {
 	StartIndex, EndIndex int
 }
 
-func NewStringDrawColors(img draw.Image, face *Face, str string, colors *Colors) *StringDrawColors {
-	sd := NewStringDraw(img, face, str)
+func NewStringDrawColors(img draw.Image, rect *image.Rectangle, face *Face, str string, colors *Colors) *StringDrawColors {
+	sd := NewStringDraw(img, rect, face, str)
 	return &StringDrawColors{sd: sd, colors: colors}
 }
 func (sdc *StringDrawColors) Loop() {

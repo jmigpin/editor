@@ -12,22 +12,19 @@ import (
 )
 
 type StringDraw struct {
-	liner *StringLiner
-	img   draw.Image // must have the bounds well defined (use subimage)
-
+	liner       *StringLiner
+	img         draw.Image
+	bounds      *image.Rectangle
 	cursorIndex int // set externally, use <0 to not draw the cursor
 }
 
-func NewStringDraw(img draw.Image, face *Face, str string) *StringDraw {
-	bounds := img.Bounds()
+func NewStringDraw(img draw.Image, bounds *image.Rectangle, face *Face, str string) *StringDraw {
 	max0 := bounds.Max.Sub(bounds.Min)
 	max := PointToPoint266(&max0)
 	liner := NewStringLiner(face, str, max)
-	return &StringDraw{liner: liner, img: img}
+	return &StringDraw{liner: liner, img: img, bounds: bounds}
 }
-
 func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
-	bounds := sd.img.Bounds()
 	var wg sync.WaitGroup
 	sd.liner.Loop(func() bool {
 		fg, bg, ok := fn()
@@ -38,14 +35,14 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 		// rune background
 		if bg != nil {
 			pb := Rect266ToRect(sd.liner.iter.PenBounds())
-			dr := pb.Add(bounds.Min)
+			dr := pb.Add(sd.bounds.Min).Intersect(*sd.bounds)
 			imageutil.FillRectangle(sd.img, &dr, bg)
 		}
 
 		// cursor
 		if !sd.liner.isWrapLineRune {
 			if sd.liner.iter.ri == sd.cursorIndex {
-				drawCursor(sd.img, sd.liner)
+				drawCursor(sd.img, sd.bounds, sd.liner)
 			}
 		}
 
@@ -56,7 +53,7 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 			penPoint := Point266ToPoint(&pen)
 			dr, mask, maskp, _, ok := sd.liner.iter.face.Glyph(ru)
 			if ok {
-				dr = dr.Add(bounds.Min).Add(*penPoint)
+				dr = dr.Add(sd.bounds.Min).Add(*penPoint).Intersect(*sd.bounds)
 				fgi := image.NewUniform(fg)
 				draw.DrawMask(sd.img, dr, fgi, image.Point{}, mask, maskp, draw.Over)
 			}
@@ -66,10 +63,7 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 	})
 	wg.Wait()
 }
-
-func drawCursor(img draw.Image, liner *StringLiner) {
-	bounds := img.Bounds()
-
+func drawCursor(img draw.Image, bounds *image.Rectangle, liner *StringLiner) {
 	pb := Rect266ToRect(liner.iter.PenBounds())
 	dr := pb.Add(bounds.Min)
 
@@ -77,15 +71,18 @@ func drawCursor(img draw.Image, liner *StringLiner) {
 	r1.Min.X -= 1
 	r1.Max.X = r1.Min.X + 3
 	r1.Max.Y = r1.Min.Y + 3
+	r1 = r1.Intersect(*bounds)
 	imageutil.FillRectangle(img, &r1, &color.Black)
 
 	r2 := dr
 	r2.Min.X -= 1
 	r2.Max.X = r2.Min.X + 3
 	r2.Min.Y = r2.Max.Y - 3
+	r2 = r2.Intersect(*bounds)
 	imageutil.FillRectangle(img, &r2, &color.Black)
 
 	r3 := dr
 	r3.Max.X = r3.Min.X + 1
+	r3 = r3.Intersect(*bounds)
 	imageutil.FillRectangle(img, &r3, &color.Black)
 }

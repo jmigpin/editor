@@ -39,11 +39,10 @@ func NewEditor() (*Editor, error) {
 		return nil, err
 	}
 	ed.ui = ui0
-	// register toolbar cmd event for layout toolbar
-	fn := &xgbutil.ERCallback{func(ev xgbutil.EREvent) {
-		ToolbarCmdFromLayout(ed, ed.ui.Layout.Toolbar.TextArea)
-	}}
-	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, fn)
+	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
+		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
+			ToolbarCmdFromLayout(ed, ed.ui.Layout.Toolbar.TextArea)
+		}})
 
 	cmdutil.SetupDragNDrop(ed)
 
@@ -177,31 +176,63 @@ func (ed *Editor) FindRow(s string) (*ui.Row, bool) {
 func (ed *Editor) NewRow(col *ui.Column) *ui.Row {
 	row := col.NewRow()
 	// toolbar cmds
-	fn := &xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-		ToolbarCmdFromRow(ed, row)
-	}}
-	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, fn)
+	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			ToolbarCmdFromRow(ed, row)
+		}})
+	// toolbar possible filename change
+	row.Toolbar.EvReg.Add(ui.TextAreaSetTextEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			ed.updateFilesWatcher()
+		}})
 	// textarea content cmds
-	fn = &xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-		contentcmd.Cmd(ed, row)
-	}}
-	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, fn)
+	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			contentcmd.Cmd(ed, row)
+		}})
 	// textarea error
-	fn = &xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-		err := ev0.(error)
-		ed.Error(err)
-	}}
-	row.TextArea.EvReg.Add(ui.TextAreaErrorEventId, fn)
-	// row key shortcuts
-	fn = &xgbutil.ERCallback{ed.onRowKeyPress}
-	row.EvReg.Add(ui.RowKeyPressEventId, fn)
-	// row close
-	fn = &xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-		rowCtx.Cancel(row)
-		ed.updateFilesWatcher()
-	}}
-	row.EvReg.Add(ui.RowCloseEventId, fn)
+	row.TextArea.EvReg.Add(ui.TextAreaErrorEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			err := ev0.(error)
+			ed.Error(err)
+		}})
+	// textarea dirty
+	row.TextArea.EvReg.Add(ui.TextAreaSetTextEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			// set as dirty only if it has a filename
+			tsd := ed.RowToolbarStringData(row)
+			_, ok := tsd.FirstPartFilename()
+			if ok {
+				row.Square.SetDirty(true)
+			}
+		}})
+	// key shortcuts
+	row.EvReg.Add(ui.RowKeyPressEventId,
+		&xgbutil.ERCallback{ed.onRowKeyPress})
+	// close
+	row.EvReg.Add(ui.RowCloseEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			rowCtx.Cancel(row)
+			ed.updateFilesWatcher()
+		}})
 	return row
+}
+func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
+	ev := ev0.(*ui.RowKeyPressEvent)
+	fks := ev.Key.FirstKeysym()
+	m := ev.Key.Modifiers
+	if m.Control() && fks == 's' {
+		cmdutil.SaveRowFile(ed, ev.Row)
+		return
+	}
+	if m.Control() && m.Shift() && fks == 'f' {
+		cmdutil.FilemanagerShortcut(ed, ev.Row)
+		return
+	}
+	if m.Control() && fks == 'f' {
+		cmdutil.FindShortcut(ed, ev.Row)
+		return
+	}
 }
 func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
 	row, ok := ed.FindRow(name)
@@ -239,10 +270,6 @@ func (ed *Editor) FilepathContent(filepath string) (string, error) {
 	return filepathContent(filepath)
 }
 
-//func (ed *Editor) onSignal(sig os.Signal) {
-//fmt.Printf("signal: %v\n", sig)
-//}
-
 func (ed *Editor) Error(err error) {
 	row := ed.FindRowOrCreate("+Errors")
 	ta := row.TextArea
@@ -250,196 +277,6 @@ func (ed *Editor) Error(err error) {
 	a := ta.Str() + err.Error() + "\n"
 	ta.SetStrClear(a, false, true)
 }
-
-//func (ed *Editor) onUIEvent(ev ui.Event) {
-//switch ev0 := ev.(type) {
-//case error:
-//ed.Error(ev0)
-//case *ui.TextAreaCmdEvent:
-//ed.onTextAreaCmd(ev0)
-//case *ui.TextAreaSetTextEvent:
-//ed.onTextAreaSetText(ev0)
-//case *ui.RowKeyPressEvent:
-//ed.onRowKeyPress(ev0)
-//case *ui.RowCloseEvent:
-//rowCtx.Cancel(ev0.Row)
-//ed.updateFilesWatcher()
-//case *ui.ColumnDndPositionEvent:
-//ed.onColumnDndPosition(ev0)
-//case *ui.ColumnDndDropEvent:
-//ed.onColumnDndDrop(ev0)
-//default:
-//fmt.Printf("editor unhandled event: %v\n", ev)
-//}
-//}
-
-//func (ed *Editor) onTextAreaCmd(ev *ui.TextAreaCmdEvent) {
-//ta := ev.TextArea
-//switch t0 := ta.Data.(type) {
-//case *ui.Toolbar:
-//switch t1 := t0.Data.(type) {
-//case *ui.Layout:
-//ToolbarCmdFromLayout(ed, ta)
-//case *ui.Row:
-//ToolbarCmdFromRow(ed, t1)
-//}
-//case *ui.Row:
-//switch ta {
-//case t0.TextArea:
-//contentcmd.Cmd(ed, t0)
-//}
-//}
-//}
-func (ed *Editor) onTextAreaSetText(ev *ui.TextAreaSetTextEvent) {
-	ta := ev.TextArea
-	switch t0 := ta.Data.(type) {
-	case *ui.Toolbar:
-		switch t1 := t0.Data.(type) {
-		case *ui.Row:
-			_ = t1
-			// in case the filename was changed
-			ed.updateFilesWatcher()
-		}
-	case *ui.Row:
-		switch ta {
-		case t0.TextArea:
-			// set as dirty only if it has a filename
-			tsd := ed.RowToolbarStringData(t0)
-			_, ok := tsd.FirstPartFilename()
-			if ok {
-				t0.Square.SetDirty(true)
-			}
-		}
-	}
-}
-func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
-	ev := ev0.(*ui.RowKeyPressEvent)
-	fks := ev.Key.FirstKeysym()
-	m := ev.Key.Modifiers
-	if m.Control() && fks == 's' {
-		cmdutil.SaveRowFile(ed, ev.Row)
-		return
-	}
-	if m.Control() && m.Shift() && fks == 'f' {
-		cmdutil.FilemanagerShortcut(ed, ev.Row)
-		return
-	}
-	if m.Control() && fks == 'f' {
-		cmdutil.FindShortcut(ed, ev.Row)
-		return
-	}
-}
-
-//func (ed*Editor) onDndError(ev0 xgbutil.EREvent){
-//ev:=ev0.(error)
-//ed.Error(err)
-//}
-//func (ed*Editor) onDndPosition(ev0 xgbutil.EREvent){
-//ev:=ev0.(*dragndrop.PositionEvent)
-//p,err:=ev.WindowPoint()
-//if err!=nil{
-//ed.Error(err)
-//return
-//}
-//// find column that matches
-//var col *ui.Column
-//for _,col2:=range ed.ui.Layout.Cols{
-//if p.In(col2.C.Bounds){
-//col=col2
-//break
-//}
-//}
-//if col==nil{
-//// dnd position must receive a reply
-//ev.ReplyDeny()
-//}else{
-//ed.onColumnDndPosition(ev,col)
-//}
-//}
-//func (ed *Editor) onColumnDndPosition(ev *dragndrop.PositionEvent, col  *ui.Column) {
-//// supported types
-//ok := false
-//types := []xproto.Atom{dragndrop.DropTypeAtoms.TextURLList}
-//for _, t := range types {
-//if ev.SupportsType(t) {
-//ok = true
-//break
-//}
-//}
-//if ok {
-//// TODO: if ctrl is pressed, set to XdndActionLink
-//// reply accept with action
-//action := dragndrop.DndAtoms.XdndActionCopy
-//ev.ReplyAccept(action)
-//}
-//}
-//func (ed *Editor) onColumnDndDrop(ev *ui.ColumnDndDropEvent) {
-//data, err := ev.Event.RequestData(dragndrop.DropTypeAtoms.TextURLList)
-//if err != nil {
-//ev.Event.ReplyDeny()
-//ed.Error(err)
-//return
-//}
-//urls, err := parseAsTextURLList(data)
-//if err != nil {
-//ev.Event.ReplyDeny()
-//ed.Error(err)
-//return
-//}
-//ed.handleColumnDroppedURLs(ev.Column, ev.Point, urls)
-//ev.Event.ReplyAccepted()
-//}
-//func parseAsTextURLList(data []byte) ([]*url.URL, error) {
-//s := string(data)
-//entries := strings.Split(s, "\n")
-//var urls []*url.URL
-//for _, e := range entries {
-//e = strings.TrimSpace(e)
-//if e == "" {
-//continue
-//}
-//u, err := url.Parse(e)
-//if err != nil {
-//return nil, err
-//}
-//urls = append(urls, u)
-//}
-//return urls, nil
-//}
-//func (ed *Editor) handleColumnDroppedURLs(col *ui.Column, p *image.Point, urls []*url.URL) {
-//for _, u := range urls {
-//if u.Scheme == "file" {
-//// calculate position before the row is inserted if the row doesn't exist
-//var c *ui.Column
-//var i int
-//posCalc := false
-//_, ok := ed.FindRow(u.Path)
-//if !ok {
-//c, i, ok = col.Cols.PointRowPosition(nil, p)
-//if !ok {
-//continue
-//}
-//posCalc = true
-//}
-//// find/create
-//row, err := ed.FindRowOrCreateInColFromFilepath(u.Path, col)
-//if err != nil {
-//ed.Error(err)
-//continue
-//}
-//// calculate if not calculated yet
-//if !posCalc {
-//c, i, ok = col.Cols.PointRowPosition(row, p)
-//if !ok {
-//continue
-//}
-//}
-//// move row
-//col.Cols.MoveRowToColumn(row, c, i)
-//}
-//}
-//}
-
 func (ed *Editor) updateFilesWatcher() {
 	var u []string
 	for _, c := range ed.ui.Layout.Cols.Cols {
@@ -465,3 +302,7 @@ func (ed *Editor) onFWEvent(ev *fsnotify.FileEvent) {
 	// always update
 	ed.updateFilesWatcher()
 }
+
+//func (ed *Editor) onSignal(sig os.Signal) {
+//fmt.Printf("signal: %v\n", sig)
+//}

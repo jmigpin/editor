@@ -2,6 +2,7 @@ package drawutil
 
 import (
 	"fmt"
+	"image"
 	"image/draw"
 	"sort"
 
@@ -10,11 +11,11 @@ import (
 
 // Keeps info data every x runes for faster jump to the state of the text.
 type StringCache struct {
-	Face       *Face
-	str        string
-	width      int
-	rdata      []*SCRuneData
-	textHeight fixed.Int26_6
+	Face   *Face
+	str    string
+	width  int
+	height fixed.Int26_6
+	rdata  []*SCRuneData
 }
 
 type SCRuneData struct {
@@ -30,25 +31,25 @@ type SCRuneData struct {
 
 func NewStringCache(face *Face) *StringCache {
 	sc := &StringCache{Face: face}
-	sc.calcRuneData("", 0)
+	sc.calcRuneData()
 	return sc
 }
 func (sc *StringCache) Update(str string, width int) {
 	if sc.str == str && sc.width == width {
 		return
 	}
-	sc.calcRuneData(str, width)
 	sc.str = str
 	sc.width = width
+	sc.calcRuneData()
 }
-func (sc *StringCache) calcRuneData(str string, width int) {
+func (sc *StringCache) calcRuneData() {
 	jump := 250 // keep data every x runes
 
 	// can't allocate since it's unknown the number of runes in a string - using append instead
 	sc.rdata = []*SCRuneData{}
 
 	count := 0
-	liner := NewStringLiner(sc.Face, sc.str, sc.max())
+	liner := NewStringLiner(sc.Face, sc.str, sc.maxPoint())
 
 	keep := func() {
 		var rd SCRuneData
@@ -72,12 +73,12 @@ func (sc *StringCache) calcRuneData(str string, width int) {
 	})
 
 	// cache text height
-	sc.textHeight = LineY1(liner.iter.pen.Y, liner.iter.fm)
+	sc.height = LineY1(liner.iter.pen.Y, liner.iter.fm)
 	if sc.str == "" {
-		sc.textHeight = 0
+		sc.height = 0
 	}
 }
-func (sc *StringCache) max() *fixed.Point26_6 {
+func (sc *StringCache) maxPoint() *fixed.Point26_6 {
 	p := fixed.P(sc.width, 1000000)
 	return &p
 }
@@ -87,8 +88,8 @@ func (sc *StringCache) restoreRuneData(rd *SCRuneData, liner *StringLiner) {
 	liner.wrapIndent = rd.liner.wrapIndent
 	liner.states = rd.liner.states
 }
-func (sc *StringCache) TextHeight() fixed.Int26_6 {
-	return sc.textHeight
+func (sc *StringCache) Height() fixed.Int26_6 {
+	return sc.height
 }
 func (sc *StringCache) GetIndex(p *fixed.Point26_6) int {
 	rd := sc.getRuneDataCloseToPoint(p)
@@ -100,22 +101,19 @@ func (sc *StringCache) GetPoint(index int) *fixed.Point26_6 {
 }
 func (sc *StringCache) Draw(
 	img draw.Image,
+	bounds *image.Rectangle,
 	cursorIndex int,
 	offsetY fixed.Int26_6,
 	colors *Colors,
 	selection *Selection,
 	highlight bool) error {
 
-	if img.Bounds().Dx() != sc.width {
-		err := fmt.Errorf("img.bounds.dx doesn't match stringcache.width: %d, %d", img.Bounds().Dx(), sc.width)
-		return err
-	}
-	if len(sc.rdata) == 0 {
-		err := fmt.Errorf("rune data not calculated yet")
+	if bounds.Dx() != sc.width {
+		err := fmt.Errorf("bounds.dx doesn't match stringcache.width: %d, %d", bounds.Dx(), sc.width)
 		return err
 	}
 
-	sdc := NewStringDrawColors(img, sc.Face, sc.str, colors)
+	sdc := NewStringDrawColors(img, bounds, sc.Face, sc.str, colors)
 
 	p := &fixed.Point26_6{0, offsetY}
 	rd := sc.getRuneDataCloseToPoint(p)
@@ -161,7 +159,7 @@ func (sc *StringCache) getRuneDataCloseToIndex(index int) *SCRuneData {
 }
 
 func (sc *StringCache) getIndexFromRuneData(rd *SCRuneData, p *fixed.Point26_6) int {
-	liner := NewStringLiner(sc.Face, sc.str, sc.max())
+	liner := NewStringLiner(sc.Face, sc.str, sc.maxPoint())
 	sc.restoreRuneData(rd, liner)
 
 	found := false
@@ -207,7 +205,7 @@ func (sc *StringCache) getIndexFromRuneData(rd *SCRuneData, p *fixed.Point26_6) 
 	return len(sc.str)
 }
 func (sc *StringCache) getPointFromRuneData(rd *SCRuneData, index int) *fixed.Point26_6 {
-	liner := NewStringLiner(sc.Face, sc.str, sc.max())
+	liner := NewStringLiner(sc.Face, sc.str, sc.maxPoint())
 	sc.restoreRuneData(rd, liner)
 	liner.Loop(func() bool {
 		if liner.iter.ri >= index {

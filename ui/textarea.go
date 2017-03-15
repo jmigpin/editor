@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"log"
 
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/imageutil"
@@ -20,6 +21,7 @@ type TextArea struct {
 	ui            *UI
 	buttonPressed bool
 	EvReg         *xgbutil.EventRegister
+	dereg         xgbutil.EventDeregister
 	stringCache   *drawutil.StringCache
 
 	Colors                     *drawutil.Colors
@@ -29,10 +31,13 @@ type TextArea struct {
 	str         string
 	cursorIndex int
 	offsetY     fixed.Int26_6
-	selection   struct { // text selection
+	selection   struct {
 		on    bool
-		index int // starting index
+		index int // from index to cursorIndex
 	}
+
+	offsetIndexWidthChange int
+
 	undo struct {
 		edit            *TextAreaEdit   // current edit
 		str             string          // str used while editing
@@ -40,14 +45,12 @@ type TextArea struct {
 		q               []*TextAreaEdit // edits queue
 	}
 
-	Data interface{} // for external use (ex parent container)
-
-	cache struct {
-		offsetIndex struct {
-			firstCalcDone bool
-			areaDx        int
-		}
-	}
+	//cache struct {
+	//offsetIndex struct {
+	//firstCalcDone bool
+	//areaDx        int
+	//}
+	//}
 }
 
 func NewTextArea(ui *UI) *TextArea {
@@ -56,115 +59,92 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.Colors = &c
 	ta.C.PaintFunc = ta.paint
 	ta.undo.q = make([]*TextAreaEdit, 30)
-
 	ta.stringCache = drawutil.NewStringCache(ui.FontFace())
-	//ta.C.OnSetXBounds = func(){
-	//// FIXME: slow, needs to run only before a paint?
-	//ta.updateStringCache()
-	//}
-
 	ta.EvReg = xgbutil.NewEventRegister()
 
-	fn := &xgbutil.ERCallback{ta.onKeyPress}
-	ta.ui.Win.EvReg.Add(keybmap.KeyPressEventId, fn)
-	fn = &xgbutil.ERCallback{ta.onButtonPress}
-	ta.ui.Win.EvReg.Add(keybmap.ButtonPressEventId, fn)
-	fn = &xgbutil.ERCallback{ta.onButtonRelease}
-	ta.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId, fn)
-	fn = &xgbutil.ERCallback{ta.onMotionNotify}
-	ta.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId, fn)
+	r1 := ta.ui.Win.EvReg.Add(keybmap.KeyPressEventId,
+		&xgbutil.ERCallback{ta.onKeyPress})
+	r2 := ta.ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
+		&xgbutil.ERCallback{ta.onButtonPress})
+	r3 := ta.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId,
+		&xgbutil.ERCallback{ta.onButtonRelease})
+	r4 := ta.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId,
+		&xgbutil.ERCallback{ta.onMotionNotify})
+	ta.dereg.Add(r1, r2, r3, r4)
 
 	return ta
 }
+func (ta *TextArea) Close() {
+	ta.dereg.UnregisterAll()
+}
+
+// Used externally for dynamic textarea height.
+func (ta *TextArea) CalcStringHeight(width int) int {
+	ta.stringCache.Update(ta.str, width)
+	th := ta.stringCache.Height().Round()
+	// minimum height (ex: empty text)
+	min := ta.LineHeight().Round()
+	if th < min {
+		th = min
+	}
+	return th
+}
+
 func (ta *TextArea) updateStringCache() {
 	ta.stringCache.Update(ta.str, ta.C.Bounds.Dx())
 }
 
-func (ta *TextArea) CalcUsedY() int {
-	ta.updateStringCache()
-
-	th := ta.TextHeight().Round()
-	// minimum height (ex: empty text)
-	lh := ta.LineHeight().Round()
-	if th < lh {
-		th = lh
-	}
-	// limit with allowed area
-	r := ta.C.Bounds
-	r.Max.Y = r.Min.Y + th
-	r = r.Intersect(ta.C.Bounds)
-
-	return r.Dy()
-}
-
-//func (ta *TextArea) CalcArea(area *image.Rectangle) {
-//ta.C.Bounds = *area
-
-//// keep offset index when area was resized
-//fixOffsetY := false
-//offsetIndex := 0
-//u := &ta.cache.offsetIndex
-//if u.firstCalcDone && ta.C.Bounds.Dx() != u.areaDx {
-//fixOffsetY = true
-//u.areaDx = ta.C.Bounds.Dx()
-//offsetIndex = ta.OffsetIndex()
-//}
-//// flag the run of calcrunedata (needed)
-//u.firstCalcDone = true
-
-//ta.stringCache.Update(ta.Str(), ta.C.Bounds.Dx())
-
-//if fixOffsetY {
-//ta.SetOffsetIndex(offsetIndex)
-//}
-//}
-func (ta *TextArea) UsedY() int {
-	th := ta.TextHeight().Round()
-	// minimum height (ex: empty text)
-	lh := ta.LineHeight().Round()
-	if th < lh {
-		th = lh
-	}
-	// limit with allowed area
-	y := ta.C.Bounds.Min.Y + th
-	if y > ta.C.Bounds.Max.Y {
-		y = ta.C.Bounds.Max.Y
-	}
-	return y
-}
 func (ta *TextArea) paint() {
 	// fill background
-	imageutil.FillRectangle(ta.ui.RootImage(), &ta.C.Bounds, ta.Colors.Bg)
+	imageutil.FillRectangle(ta.ui.Image(), &ta.C.Bounds, ta.Colors.Bg)
 
-	var selection *drawutil.Selection
-	selectionVisible := ta.selection.index != ta.cursorIndex
-	if ta.selection.on && selectionVisible {
-		selection = &drawutil.Selection{
-			StartIndex: ta.selection.index,
-			EndIndex:   ta.cursorIndex,
-		}
-	}
+	ta.updateStringCacheWithOffsetFix()
 
+	selection := ta.getSelection()
 	highlight := !ta.DisableHighlightCursorWord && selection == nil
-
-	// img needs to be clipped for drawing
-	ta.updateStringCache()
-	img := ta.ui.RootImageSubImage(&ta.C.Bounds)
-
-	// Ignore error of unable to draw due to width mismatch between calculated data and img bounds.
 	err := ta.stringCache.Draw(
-		img,
+		ta.ui.Image(),
+		&ta.C.Bounds,
 		ta.cursorIndex,
 		ta.offsetY,
 		ta.Colors,
 		selection,
 		highlight)
 	if err != nil {
-		println(err.Error())
+		ta.Error(err)
+	}
+}
+func (ta *TextArea) getSelection() *drawutil.Selection {
+	selectionVisible := ta.selection.index != ta.cursorIndex
+	if ta.selection.on && selectionVisible {
+		return &drawutil.Selection{
+			StartIndex: ta.selection.index,
+			EndIndex:   ta.cursorIndex,
+		}
+	}
+	return nil
+}
+func (ta *TextArea) updateStringCacheWithOffsetFix() {
+	fixOffset := false
+	offsetIndex := 0
+	if ta.C.Bounds.Dx() != ta.offsetIndexWidthChange {
+		ta.offsetIndexWidthChange = ta.C.Bounds.Dx()
+		fixOffset = true
+		offsetIndex = ta.OffsetIndex()
+		log.Printf("**ta offsetindex %v\n", offsetIndex)
+	}
+
+	ta.updateStringCache()
+
+	if fixOffset {
+		ta.SetOffsetIndex(offsetIndex)
 	}
 }
 
-// Implements Texta
+func (ta *TextArea) TextHeight() fixed.Int26_6 {
+	return ta.stringCache.Height()
+}
+
 func (ta *TextArea) Error(err error) {
 	ta.EvReg.Emit(TextAreaErrorEventId, err)
 }
@@ -315,15 +295,14 @@ func (ta *TextArea) OffsetY() fixed.Int26_6 {
 	return ta.offsetY
 }
 func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
+	if v < 0 {
+		v = 0
+	}
+	if v > ta.TextHeight() {
+		v = ta.TextHeight()
+	}
 	if v != ta.offsetY {
-		if v < 0 {
-			v = 0
-		}
-		if v > ta.TextHeight() {
-			v = ta.TextHeight()
-		}
 		ta.offsetY = v
-		ta.C.CalcChildsBounds()
 		ta.C.NeedPaint()
 
 		ev := &TextAreaSetOffsetYEvent{ta}
@@ -393,41 +372,6 @@ func (ta *TextArea) PointIndexFromOffset(p *image.Point) int {
 	return ta.stringCache.GetIndex(p0)
 }
 
-func (ta *TextArea) TextHeight() fixed.Int26_6 {
-	return ta.stringCache.TextHeight()
-}
-
-//func (ta *TextArea) onPointEvent(p *image.Point, ev Event) bool {
-//switch ev0 := ev.(type) {
-//case *KeyPressEvent:
-//ta.onKeyPress(ev0.Key)
-//// returning false prevents the event from going to another space it the areas get to be calculated (case of dynamicY)
-//return false
-//case *ButtonPressEvent:
-//// register for layout callbacks
-////ta.ui.Layout.OnPointEvent = ta.onRootPointEvent
-
-//ta.onButtonPress(p, ev0.Button)
-//}
-//return true
-//}
-//func (ta *TextArea) onRootPointEvent(p *image.Point, ev Event) bool {
-//switch ev0 := ev.(type) {
-//case *MotionNotifyEvent:
-//ta.onRootMotionNotify(p, ev0.Modifiers)
-//ta.ui.RequestMotionNotify()
-//case *ButtonReleaseEvent:
-//// release callbacks
-////ta.ui.Layout.OnPointEvent = nil
-
-//// release that started and ended in the area
-//if p.In(ta.C.Bounds) {
-//ta.onButtonRelease(p, ev0.Button)
-//}
-//}
-//return true
-//}
-
 func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 	ev := ev0.(*keybmap.ButtonPressEvent)
 	if !ev.Point.In(ta.C.Bounds) {
@@ -480,6 +424,9 @@ func (ta *TextArea) onMotionNotify(ev0 xgbutil.EREvent) {
 }
 func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 	ev := ev0.(*keybmap.KeyPressEvent)
+	if !ev.Point.In(ta.C.Bounds) {
+		return
+	}
 	k := ev.Key
 	firstKeysym := k.FirstKeysym()
 	switch firstKeysym {

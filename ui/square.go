@@ -13,13 +13,14 @@ type Square struct {
 	C             uiutil.Container
 	ui            *UI
 	EvReg         *xgbutil.EventRegister
+	dereg         xgbutil.EventDeregister
 	buttonPressed bool
 	PressPointPad image.Point
-	Data          interface{} // external use
-	executing     bool
-	active        bool
-	dirty         bool // buffer changed
-	cold          bool // disk changed
+
+	executing bool
+	active    bool
+	dirty     bool // buffer changed
+	cold      bool // disk changed
 }
 
 func NewSquare(ui *UI) *Square {
@@ -30,14 +31,18 @@ func NewSquare(ui *UI) *Square {
 
 	sq.EvReg = xgbutil.NewEventRegister()
 
-	fn := &xgbutil.ERCallback{sq.onButtonPress}
-	sq.ui.Win.EvReg.Add(keybmap.ButtonPressEventId, fn)
-	fn = &xgbutil.ERCallback{sq.onButtonRelease}
-	sq.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId, fn)
-	fn = &xgbutil.ERCallback{sq.onMotionNotify}
-	sq.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId, fn)
+	r1 := sq.ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
+		&xgbutil.ERCallback{sq.onButtonPress})
+	r2 := sq.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId,
+		&xgbutil.ERCallback{sq.onButtonRelease})
+	r3 := sq.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId,
+		&xgbutil.ERCallback{sq.onMotionNotify})
+	sq.dereg.Add(r1, r2, r3)
 
 	return sq
+}
+func (sq *Square) Close() {
+	sq.dereg.UnregisterAll()
 }
 func (sq *Square) paint() {
 	c := &SquareColor
@@ -93,28 +98,6 @@ func (sq *Square) onMotionNotify(ev0 xgbutil.EREvent) {
 
 	sq.ui.RequestMotionNotify()
 }
-
-//func (sq *Square) onRootPointEvent(p *image.Point, ev Event) bool {
-//switch ev0 := ev.(type) {
-//case *MotionNotifyEvent:
-//ev2 := &SquareRootMotionNotifyEvent{sq, ev0.Modifiers, p}
-//sq.ui.PushEvent(ev2)
-//sq.ui.RequestMotionNotify()
-//case *ButtonReleaseEvent:
-//// release callbacks
-////sq.ui.Layout.OnPointEvent = nil
-
-//// release event that started and ended in the area
-//if p.In(sq.C.Bounds) {
-//ev2 := &SquareButtonReleaseEvent{sq, ev0.Button, p}
-//sq.ui.PushEvent(ev2)
-//}
-
-//ev2 := &SquareRootButtonReleaseEvent{sq, ev0.Button, p}
-//sq.ui.PushEvent(ev2)
-//}
-//return true
-//}
 func (sq *Square) WarpPointer() {
 	sa := sq.C.Bounds
 	p := sa.Min.Add(image.Pt(sa.Dx()/2, sa.Dy()/2))

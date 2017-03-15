@@ -18,13 +18,16 @@ type Column struct {
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols}
 
-	col.Square = NewSquare(cols.Layout.UI)
-	fn := &xgbutil.ERCallback{col.onSquareButtonRelease}
-	col.Square.EvReg.Add(SquareButtonReleaseEventId, fn)
-	fn = &xgbutil.ERCallback{col.onSquareMotionNotify}
-	col.Square.EvReg.Add(SquareMotionNotifyEventId, fn)
-
 	ui := col.Cols.Layout.UI
+
+	col.Square = NewSquare(ui)
+	height := SquareWidth
+	col.Square.C.Style.CrossSize = &height
+	col.Square.EvReg.Add(SquareButtonReleaseEventId,
+		&xgbutil.ERCallback{col.onSquareButtonRelease})
+	col.Square.EvReg.Add(SquareMotionNotifyEventId,
+		&xgbutil.ERCallback{col.onSquareMotionNotify})
+
 	col.colSep = NewSeparator(ui, SeparatorWidth, SeparatorColor)
 
 	col.C.PaintFunc = col.paint
@@ -49,13 +52,14 @@ func (col *Column) NewRow() *Row {
 func (col *Column) insertRow(row *Row, index int) {
 	row.Col = col
 
-	// show first row separator
+	// reset separators
+	row.rowSep.C.Style.Hidden = false
 	if len(col.Rows) > 0 {
 		col.Rows[0].rowSep.C.Style.Hidden = false
 	}
 
-	// insert: ensure gargage collection
-	var u []*Row
+	// insert
+	u := make([]*Row, 0, len(col.Rows)+1)
 	u = append(u, col.Rows[:index]...)
 	u = append(u, row)
 	u = append(u, col.Rows[index:]...)
@@ -66,7 +70,7 @@ func (col *Column) insertRow(row *Row, index int) {
 
 	col.Square.C.Style.Hidden = true
 
-	col.ChildsC.AppendChilds(&row.C)
+	col.ChildsC.InsertChild(&row.C, index)
 	col.C.CalcChildsBounds()
 	col.C.NeedPaint()
 }
@@ -77,7 +81,7 @@ func (col *Column) removeRow(row *Row) {
 	}
 
 	// remove: ensure gargage collection
-	var u []*Row
+	u := make([]*Row, 0, len(col.Rows)-1)
 	u = append(u, col.Rows[:index]...)
 	u = append(u, col.Rows[index+1:]...)
 	col.Rows = u

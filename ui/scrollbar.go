@@ -12,17 +12,16 @@ import (
 
 // Scrollbar for the Textarea.
 type Scrollbar struct {
-	C               uiutil.Container
-	ta              *TextArea
-	buttonPressed   bool
-	SizePercent     float64 // bar size
-	PositionPercent float64 // bar position
-
-	//paddedArea image.Rectangle
-	bar struct { // inner rectangle
-		area    image.Rectangle
-		origPad image.Point
+	C             uiutil.Container
+	ta            *TextArea
+	buttonPressed bool
+	bar           struct { // inner rectangle
+		sizePercent     float64
+		positionPercent float64
+		bounds          image.Rectangle
+		origPad         image.Point
 	}
+	dereg xgbutil.EventDeregister
 }
 
 func NewScrollbar(ta *TextArea) *Scrollbar {
@@ -31,18 +30,36 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 	sb.C.Style.MainSize = &width
 	sb.C.PaintFunc = sb.paint
 
-	fn := &xgbutil.ERCallback{sb.onButtonPress}
-	sb.ta.ui.Win.EvReg.Add(keybmap.ButtonPressEventId, fn)
-	fn = &xgbutil.ERCallback{sb.onButtonRelease}
-	sb.ta.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId, fn)
-	fn = &xgbutil.ERCallback{sb.onMotionNotify}
-	sb.ta.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId, fn)
+	r1 := sb.ta.ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
+		&xgbutil.ERCallback{sb.onButtonPress})
+	r2 := sb.ta.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId,
+		&xgbutil.ERCallback{sb.onButtonRelease})
+	r3 := sb.ta.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId,
+		&xgbutil.ERCallback{sb.onMotionNotify})
+	sb.dereg.Add(r1, r2, r3)
+
+	// textarea set text
+	sb.ta.EvReg.Add(TextAreaSetTextEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			sb.calcPositionAndSize()
+			sb.C.NeedPaint()
+		}})
+	// textarea scroll (key based scroll)
+	sb.ta.EvReg.Add(TextAreaScrollEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			sb.calcPositionAndSize()
+			sb.C.NeedPaint()
+		}})
+	// textarea y jump
+	sb.ta.EvReg.Add(TextAreaSetOffsetYEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			sb.calcPositionAndSize()
+			sb.C.NeedPaint()
+		}})
 
 	return sb
 }
-func (sb *Scrollbar) CalcArea(area *image.Rectangle) {
-	sb.C.Bounds = *area
-
+func (sb *Scrollbar) calcPositionAndSize() {
 	// size and position percent (from textArea)
 	ta := sb.ta
 	sp := 1.0
@@ -56,11 +73,11 @@ func (sb *Scrollbar) CalcArea(area *image.Rectangle) {
 		y := sb.ta.OffsetY().Round()
 		pp = float64(y) / float64(textHeight)
 	}
-	sb.SizePercent = sp
-	sb.PositionPercent = pp
+	sb.bar.sizePercent = sp
+	sb.bar.positionPercent = pp
 }
 
-// Called when dragging the scrollbar.
+// Dragging the scrollbar
 func (sb *Scrollbar) calcPositionFromPoint(p *image.Point) {
 	r := sb.C.Bounds
 	height := r.Dy()
@@ -70,8 +87,10 @@ func (sb *Scrollbar) calcPositionFromPoint(p *image.Point) {
 	} else if py > height {
 		py = height
 	}
-	sb.PositionPercent = float64(py) / float64(height)
+	sb.bar.positionPercent = float64(py) / float64(height)
 }
+
+// Scrolling with scroll buttons
 func (sb *Scrollbar) calcPositionFromScroll(up bool) {
 	mult := 1.0
 	if up {
@@ -81,37 +100,37 @@ func (sb *Scrollbar) calcPositionFromScroll(up bool) {
 	lh := sb.ta.LineHeight().Round()
 	th := sb.ta.TextHeight().Round()
 	linep := float64(lh) / float64(th)
-	pp := sb.PositionPercent + mult*(sb.SizePercent-linep)
+	pp := sb.bar.positionPercent + mult*(sb.bar.sizePercent-linep)
 	if pp < 0 {
 		pp = 0
 	} else if pp > 1 {
 		pp = 1
 	}
-	sb.PositionPercent = pp
+	sb.bar.positionPercent = pp
 }
 
-// Called when the position has changed
-func (sb *Scrollbar) calcTextareaOffset() {
-	pp := sb.PositionPercent
+func (sb *Scrollbar) setTextareaOffset() {
+	pp := sb.bar.positionPercent
 	textHeight := sb.ta.TextHeight()
 	py := fixed.I(int(pp * float64(textHeight.Round())))
 	sb.ta.SetOffsetY(py)
 }
+
 func (sb *Scrollbar) paint() {
 	// background
 	sb.ta.ui.FillRectangle(&sb.C.Bounds, &ScrollbarBgColor)
 	// bar
 	r := sb.C.Bounds
-	r2 := r
-	size := int(float64(r.Dy()) * sb.SizePercent)
-	if size < 3 {
+	size := int(float64(r.Dy()) * sb.bar.sizePercent)
+	if size < 3 { // minimum size
 		size = 3
 	}
-	r2.Min.Y += int(float64(r.Dy()) * sb.PositionPercent)
+	r2 := r
+	r2.Min.Y += int(float64(r.Dy()) * sb.bar.positionPercent)
 	r2.Max.Y = r2.Min.Y + size
 	r2 = r2.Intersect(sb.C.Bounds)
 	sb.ta.ui.FillRectangle(&r2, &ScrollbarFgColor)
-	sb.bar.area = r2
+	sb.bar.bounds = r2
 }
 func (sb *Scrollbar) onButtonPress(ev0 xgbutil.EREvent) {
 	ev := ev0.(*keybmap.ButtonPressEvent)
@@ -121,18 +140,18 @@ func (sb *Scrollbar) onButtonPress(ev0 xgbutil.EREvent) {
 	sb.buttonPressed = true
 	switch {
 	case ev.Button.Button1():
-		sb.updateOrigPad(ev.Point) // keep pad for drag calc
+		sb.setOrigPad(ev.Point) // keep pad for drag calc
 		sb.calcPositionFromPoint(ev.Point)
 		sb.C.NeedPaint()
-		sb.calcTextareaOffset()
+		sb.setTextareaOffset()
 	case ev.Button.Button4():
 		sb.calcPositionFromScroll(true) // scroll up
 		sb.C.NeedPaint()
-		sb.calcTextareaOffset()
+		sb.setTextareaOffset()
 	case ev.Button.Button5():
 		sb.calcPositionFromScroll(false) // scroll down
 		sb.C.NeedPaint()
-		sb.calcTextareaOffset()
+		sb.setTextareaOffset()
 	}
 }
 func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {
@@ -144,7 +163,7 @@ func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {
 	case ev.Modifiers.Button1():
 		sb.calcPositionFromPoint(ev.Point)
 		sb.C.NeedPaint()
-		sb.calcTextareaOffset()
+		sb.setTextareaOffset()
 	}
 	sb.ta.ui.RequestMotionNotify()
 }
@@ -158,50 +177,22 @@ func (sb *Scrollbar) onButtonRelease(ev0 xgbutil.EREvent) {
 	case ev.Button.Button1():
 		sb.calcPositionFromPoint(ev.Point)
 		sb.C.NeedPaint()
-		sb.calcTextareaOffset()
+		sb.setTextareaOffset()
 	}
 }
-
-//func (sb *Scrollbar) onPointEvent(p *image.Point, ev Event) bool {
-//switch ev0 := ev.(type) {
-//case *ButtonPressEvent:
-//// register for layout callbacks
-////sb.UI.Layout.OnPointEvent = sb.onRootPointEvent
-
-//}
-//return true
-//}
-//func (sb *Scrollbar) onRootPointEvent(p *image.Point, ev Event) bool {
-//switch ev0 := ev.(type) {
-////case *ButtonReleaseEvent:
-////// release callback
-//////sb.UI.Layout.OnPointEvent = nil
-
-////if ev0.Button.Button1() {
-////sb.calcPositionFromPoint(p)
-////sb.C.NeedPaint()
-////sb.calcTextareaOffset()
-////}
-//case *MotionNotifyEvent:
-//if ev0.Modifiers.Button1() {
-//sb.calcPositionFromPoint(p)
-//sb.C.NeedPaint()
-//sb.calcTextareaOffset()
-//}
-//sb.ta.ui.RequestMotionNotify()
-//}
-//return true
-//}
-func (sb *Scrollbar) updateOrigPad(p *image.Point) {
-	if p.In(sb.bar.area) {
+func (sb *Scrollbar) setOrigPad(p *image.Point) {
+	if p.In(sb.bar.bounds) {
 		// set position relative to the bar top
-		a := sb.bar.area
-		sb.bar.origPad.X = a.Max.X - p.X
-		sb.bar.origPad.Y = a.Min.Y - p.Y
+		r := &sb.bar.bounds
+		sb.bar.origPad.X = r.Max.X - p.X
+		sb.bar.origPad.Y = r.Min.Y - p.Y
 	} else {
 		// set position in the middle of the bar
-		a := sb.bar.area
-		sb.bar.origPad.X = a.Dx() / 2
-		sb.bar.origPad.Y = -a.Dy() / 2
+		r := &sb.bar.bounds
+		sb.bar.origPad.X = r.Dx() / 2
+		sb.bar.origPad.Y = -r.Dy() / 2
 	}
+}
+func (sb *Scrollbar) Close() {
+	sb.dereg.UnregisterAll()
 }

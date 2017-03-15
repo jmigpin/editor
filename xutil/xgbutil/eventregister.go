@@ -6,22 +6,18 @@ type EventRegister struct {
 	OnUnhandledEvent func(evId int, ev EREvent)
 }
 
-type EREvent interface{}
-type ERCallback struct {
-	F func(EREvent)
-}
-
 func NewEventRegister() *EventRegister {
 	er := &EventRegister{m: make(map[int]*[]*ERCallback)}
 	return er
 }
-func (er *EventRegister) Add(evId int, cb *ERCallback) {
+func (er *EventRegister) Add(evId int, cb *ERCallback) *ERRegist {
 	u, ok := er.m[evId]
 	if !ok {
 		u = &[]*ERCallback{}
 		er.m[evId] = u
 	}
 	*u = append(*u, cb)
+	return &ERRegist{er, evId, cb}
 }
 func (er *EventRegister) Remove(evId int, cb *ERCallback) {
 	u, ok := er.m[evId]
@@ -55,4 +51,33 @@ func (er *EventRegister) Emit(evId int, ev EREvent) {
 	for _, cb := range *u {
 		cb.F(ev)
 	}
+}
+
+type EREvent interface{}
+type ERCallback struct {
+	F func(EREvent)
+}
+
+type ERRegist struct {
+	evReg *EventRegister
+	id    int
+	cb    *ERCallback
+}
+
+func (reg *ERRegist) Unregister() {
+	reg.evReg.Remove(reg.id, reg.cb)
+}
+
+type EventDeregister struct {
+	v []*ERRegist
+}
+
+func (d *EventDeregister) Add(u ...*ERRegist) {
+	d.v = append(d.v, u...)
+}
+func (d *EventDeregister) UnregisterAll() {
+	for _, e := range d.v {
+		e.Unregister()
+	}
+	d.v = []*ERRegist{}
 }

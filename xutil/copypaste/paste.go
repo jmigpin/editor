@@ -121,3 +121,14 @@ func (p *Paste) extractData(ev *xproto.SelectionNotifyEvent) (string, error) {
 	}
 	return string(reply.Value), nil
 }
+
+// event register support
+
+func (p *Paste) SetupEventRegister(evReg *xgbutil.EventRegister) {
+	evReg.Add(xproto.SelectionNotify,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			ev := ev0.(xproto.SelectionNotifyEvent)
+			ok := p.OnSelectionNotify(&ev)
+			_ = ok
+		}})
+}

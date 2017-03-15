@@ -150,3 +150,20 @@ func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) bool {
 	c.str = ""
 	return true
 }
+
+// event register support
+
+func (c *Copy) SetupEventRegister(evReg *xgbutil.EventRegister) {
+	evReg.Add(xproto.SelectionRequest,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			ev := ev0.(xproto.SelectionRequestEvent)
+			ok := c.OnSelectionRequest(&ev)
+			_ = ok
+		}})
+	evReg.Add(xproto.SelectionClear,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			ev := ev0.(xproto.SelectionClearEvent)
+			ok := c.OnSelectionClear(&ev)
+			_ = ok
+		}})
+}

@@ -32,6 +32,7 @@ func EventLoop(conn *xgb.Conn, er *EventRegister) {
 		if xerr != nil {
 			er.Emit(XErrorEventId, xerr)
 		} else {
+			log.Printf("event: %#v", ev)
 			er.Emit(XgbEventId(ev), ev)
 		}
 	}
@@ -54,6 +55,10 @@ func XgbEventId(ev xgb.Event) int {
 		return xproto.ClientMessage
 	case xproto.SelectionNotifyEvent:
 		return xproto.SelectionNotify
+	case xproto.SelectionRequestEvent:
+		return xproto.SelectionRequest
+	case xproto.SelectionClearEvent:
+		return xproto.SelectionClear
 	default:
 		log.Printf("unhandled event: %#v", ev)
 		return UnknownEventId

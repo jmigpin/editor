@@ -136,16 +136,16 @@ func (km *KeybMap) NewModifiers(state uint16) Modifiers {
 
 func (km *KeybMap) SetupEventRegister(evReg *xgbutil.EventRegister) {
 	km.evReg = evReg
-	fn := &xgbutil.ERCallback{km.onEvRegKeyPress}
-	km.evReg.Add(xproto.KeyPress, fn)
-	fn = &xgbutil.ERCallback{km.onEvRegKeyRelease}
-	km.evReg.Add(xproto.KeyRelease, fn)
-	fn = &xgbutil.ERCallback{km.onEvRegButtonPress}
-	km.evReg.Add(xproto.ButtonPress, fn)
-	fn = &xgbutil.ERCallback{km.onEvRegButtonRelease}
-	km.evReg.Add(xproto.ButtonRelease, fn)
-	fn = &xgbutil.ERCallback{km.onEvRegMotionNotify}
-	km.evReg.Add(xproto.MotionNotify, fn)
+	km.evReg.Add(xproto.KeyPress,
+		&xgbutil.ERCallback{km.onEvRegKeyPress})
+	km.evReg.Add(xproto.KeyRelease,
+		&xgbutil.ERCallback{km.onEvRegKeyRelease})
+	km.evReg.Add(xproto.ButtonPress,
+		&xgbutil.ERCallback{km.onEvRegButtonPress})
+	km.evReg.Add(xproto.ButtonRelease,
+		&xgbutil.ERCallback{km.onEvRegButtonRelease})
+	km.evReg.Add(xproto.MotionNotify,
+		&xgbutil.ERCallback{km.onEvRegMotionNotify})
 }
 func (km *KeybMap) onEvRegKeyPress(ev xgbutil.EREvent) {
 	ev0 := ev.(xproto.KeyPressEvent)
