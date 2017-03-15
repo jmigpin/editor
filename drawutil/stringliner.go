@@ -20,8 +20,8 @@ type StringLiner struct {
 }
 
 type StringLinerWrapIndent struct {
-	startingSpaces bool
-	penX           fixed.Int26_6
+	notStartingSpaces bool // after first non space char
+	penX              fixed.Int26_6
 }
 
 type StringLinerStates struct {
@@ -38,10 +38,16 @@ type StringLinerStates struct {
 func NewStringLiner(face *Face, str string, max *fixed.Point26_6) *StringLiner {
 	iter := NewStringIterator(face, str)
 	liner := &StringLiner{iter: iter, max: *max}
-	liner.wrapIndent.startingSpaces = true
 	return liner
 }
 func (liner *StringLiner) Loop(fn func() bool) {
+	// wrap line margin constant
+	wlMargin := fixed.I(30)
+	adv, ok := liner.iter.face.GlyphAdvance(' ')
+	if ok {
+		wlMargin = adv * 7
+	}
+
 	liner.iter.Loop(func() bool {
 
 		// (comment,string) states are done here to be saved in the stringcache state, otherwise they shouldn't be here
@@ -103,25 +109,27 @@ func (liner *StringLiner) Loop(fn func() bool) {
 		//}
 
 		// keep track of indentation for wrapped lines
-		if liner.wrapIndent.startingSpaces {
+		if !liner.wrapIndent.notStartingSpaces {
 			if unicode.IsSpace(liner.iter.ru) {
 				liner.wrapIndent.penX = liner.iter.penEnd.X
-
-				// make the runes always visible instead of letting them go undrawn due to being to the right of max x
-				d := liner.iter.penEnd.X - liner.iter.pen.X
-				if liner.wrapIndent.penX >= liner.max.X-d {
-					liner.wrapIndent.penX = liner.max.X - d
-				}
-
 			} else {
-				liner.wrapIndent.startingSpaces = false
+				liner.wrapIndent.notStartingSpaces = true
 			}
 		}
 
 		// wrap line
-		if liner.iter.penEnd.X >= liner.max.X {
+		if liner.iter.ri > 0 && liner.iter.penEnd.X >= liner.max.X {
 			liner.newLine()
-			liner.iter.pen.X = liner.wrapIndent.penX // indented wrap
+			liner.iter.pen.X = liner.wrapIndent.penX
+
+			// make runes visible if wrap is beyond max
+			if liner.iter.pen.X >= liner.max.X-wlMargin {
+				liner.iter.pen.X = liner.max.X - wlMargin
+				if liner.iter.pen.X < 0 {
+					liner.iter.pen.X = 0
+				}
+			}
+
 			liner.iter.calcPenEnd()
 
 			// insert wrap line symbol at beginning of the line
@@ -153,7 +161,7 @@ func (liner *StringLiner) Loop(fn func() bool) {
 		// new line
 		if liner.iter.ru == '\n' {
 			liner.newLine()
-			liner.wrapIndent.startingSpaces = true
+			liner.wrapIndent.notStartingSpaces = false
 			liner.wrapIndent.penX = 0
 		}
 
