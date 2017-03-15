@@ -7,15 +7,16 @@ import (
 )
 
 type Row struct {
-	C         uiutil.Container
-	Col       *Column
-	Toolbar   *Toolbar
-	TextArea  *TextArea
-	Square    *Square
-	scrollbar *Scrollbar
-	rowSep    *Separator
-	EvReg     *xgbutil.EventRegister
-	dereg     xgbutil.EventDeregister
+	C             uiutil.Container
+	Col           *Column
+	Toolbar       *Toolbar
+	TextArea      *TextArea
+	Square        *Square
+	scrollbar     *Scrollbar
+	rowSep        *Separator
+	EvReg         *xgbutil.EventRegister
+	dereg         xgbutil.EventDeregister
+	buttonPressed bool
 }
 
 func NewRow(col *Column) *Row {
@@ -27,7 +28,11 @@ func NewRow(col *Column) *Row {
 	// capture keypress to emit rowkeypress for key shortcuts
 	r1 := ui.Win.EvReg.Add(keybmap.KeyPressEventId,
 		&xgbutil.ERCallback{row.onKeyPress})
-	row.dereg.Add(r1)
+	r2 := ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
+		&xgbutil.ERCallback{row.onButtonPress})
+	r3 := ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId,
+		&xgbutil.ERCallback{row.onButtonRelease})
+	row.dereg.Add(r1, r2, r3)
 
 	row.Toolbar = NewToolbar(ui)
 	tb := row.Toolbar
@@ -97,17 +102,21 @@ func (row *Row) onSquareButtonRelease(ev0 xgbutil.EREvent) {
 	switch {
 	case ev.Button.Button1():
 		col := row.Col
-		if ev.Button.Mods.Control() {
+		switch {
+		case ev.Button.Mods.IsControl():
 			col.Cols.MoveColumnToPoint(col, ev.Point)
-		} else {
+		case ev.Button.Mods.IsNone():
 			c, i, ok := col.Cols.PointRowPosition(row, ev.Point)
 			if ok {
 				col.Cols.MoveRowToColumn(row, c, i)
 			}
 		}
 	case ev.Button.Button2():
-		if ev.Point.In(row.Square.C.Bounds) {
-			row.Close()
+		switch {
+		case ev.Button.Mods.IsNone():
+			if ev.Point.In(row.Square.C.Bounds) {
+				row.Close()
+			}
 		}
 	}
 }
@@ -125,8 +134,27 @@ func (row *Row) onKeyPress(ev0 xgbutil.EREvent) {
 	if !ev.Point.In(row.C.Bounds) {
 		return
 	}
+	row.activate()
 	ev2 := &RowKeyPressEvent{row, ev.Key}
 	row.EvReg.Emit(RowKeyPressEventId, ev2)
+}
+func (row *Row) onButtonPress(ev0 xgbutil.EREvent) {
+	ev := ev0.(*keybmap.ButtonPressEvent)
+	if !ev.Point.In(row.C.Bounds) {
+		return
+	}
+	row.buttonPressed = true
+}
+func (row *Row) onButtonRelease(ev0 xgbutil.EREvent) {
+	if !row.buttonPressed {
+		return
+	}
+	row.buttonPressed = false
+	ev := ev0.(*keybmap.ButtonReleaseEvent)
+	if !ev.Point.In(row.C.Bounds) {
+		return
+	}
+	row.activate()
 }
 
 const (

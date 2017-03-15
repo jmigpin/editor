@@ -17,10 +17,11 @@ type Square struct {
 	buttonPressed bool
 	PressPointPad image.Point
 
+	// row visual feedback (not used in column square)
 	executing bool
-	active    bool
-	dirty     bool // buffer changed
-	cold      bool // disk changed
+	active    bool // received key or button inside
+	dirty     bool // content changed
+	cold      bool // file on disk changed
 }
 
 func NewSquare(ui *UI) *Square {
@@ -28,7 +29,6 @@ func NewSquare(ui *UI) *Square {
 	width := SquareWidth
 	sq.C.Style.MainSize = &width
 	sq.C.PaintFunc = sq.paint
-
 	sq.EvReg = xgbutil.NewEventRegister()
 
 	r1 := sq.ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
@@ -54,13 +54,13 @@ func (sq *Square) paint() {
 	}
 	sq.ui.FillRectangle(&sq.C.Bounds, c)
 
-	//if sq.active { // top right
-	//r := sq.C.Bounds
-	//w := (r.Max.X - r.Min.X) / 2
-	//r.Min.X = r.Max.X - w
-	//r.Max.Y = r.Min.Y + w
-	//sq.FillRectangle(&r, &SquareActiveColor)
-	//}
+	if sq.active { // top right
+		r := sq.C.Bounds
+		w := (r.Max.X - r.Min.X) / 2
+		r.Min.X = r.Max.X - w
+		r.Max.Y = r.Min.Y + w
+		sq.ui.FillRectangle(&r, &SquareActiveColor)
+	}
 	if sq.cold { // 2nd top right
 		r := sq.C.Bounds
 		w := (r.Max.X - r.Min.X) / 2
