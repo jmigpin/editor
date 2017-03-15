@@ -6,8 +6,9 @@ func Cut(ta Texta) {
 	}
 	a, b := SelectionStringIndexes(ta)
 	ta.SetClipboardString(ta.Str()[a:b])
-	ta.EditRemove(a, b)
-	ta.EditDone()
+	ta.EditOpen()
+	ta.EditDelete(a, b)
+	ta.EditClose()
 	ta.SetSelectionOn(false)
 	ta.SetCursorIndex(a)
 }

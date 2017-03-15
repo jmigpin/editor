@@ -6,16 +6,16 @@ func MoveLineUp(ta Texta) {
 		// already at the first line
 		return
 	}
-
 	s := ta.Str()[a:b]
-	ta.EditRemove(a, b)
+	ta.EditOpen()
+	ta.EditDelete(a, b)
 	a2 := lineStartIndex(ta.Str(), a-1) // previous line, -1 is size of '\n'
 	if !hasNewline {
-		ta.EditRemove(a-1, a) // remove newline to honor the moving line
+		ta.EditDelete(a-1, a) // remove newline to honor the moving line
 		s = s + "\n"
 	}
 	ta.EditInsert(a2, s)
-	ta.EditDone()
+	ta.EditClose()
 
 	if ta.SelectionOn() {
 		_, b2, ok := PreviousRuneIndex(ta.Str(), a2+len(s))
@@ -35,9 +35,9 @@ func MoveLineDown(ta Texta) {
 		// already at the last line
 		return
 	}
-
 	s := ta.Str()[a:b]
-	ta.EditRemove(a, b)
+	ta.EditOpen()
+	ta.EditDelete(a, b)
 	a2, hasNewline := lineEndIndexNextIndex(ta.Str(), a)
 	if !hasNewline {
 		// remove newline from previous
@@ -47,7 +47,7 @@ func MoveLineDown(ta Texta) {
 		a2++
 	}
 	ta.EditInsert(a2, s)
-	ta.EditDone()
+	ta.EditClose()
 
 	if ta.SelectionOn() {
 		b2 := a2 + len(s)

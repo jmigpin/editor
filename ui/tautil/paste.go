@@ -1,7 +1,7 @@
 package tautil
 
 func Paste(ta Texta) {
-	// The requestclipboard string blocks when it needs to communicate with the x server - hence using a go routine. An alternative would be to have it require a callback.
+	// The requestclipboardstring blocks while it communicates with the x server. The x server answer can only be handled if this procedure is not blocking the eventloop.
 	go func() {
 		str, err := ta.RequestClipboardString()
 		if err != nil {
@@ -12,17 +12,18 @@ func Paste(ta Texta) {
 			return
 		}
 
+		ta.EditOpen()
 		if ta.SelectionOn() {
 			a, b := SelectionStringIndexes(ta)
-			ta.EditRemove(a, b)
+			ta.EditDelete(a, b)
 			ta.SetCursorIndex(a)
 		}
-
 		ta.EditInsert(ta.CursorIndex(), str)
-		ta.EditDone()
+		ta.EditClose()
 
 		ta.SetSelectionOn(false)
 		ta.SetCursorIndex(ta.CursorIndex() + len(str))
+		// inside a goroutine, need to request paint
 		ta.RequestTreePaint()
 	}()
 }

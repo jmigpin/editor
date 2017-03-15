@@ -96,9 +96,10 @@ func alterSelectedText(ta Texta, fn func(string) (string, bool)) bool {
 	}
 
 	// replace text
-	ta.EditRemove(a, b)
+	ta.EditOpen()
+	ta.EditDelete(a, b)
 	ta.EditInsert(a, s)
-	ta.EditDone()
+	ta.EditClose()
 
 	// previous rune so it doesn't include last \n
 	c := len(s)

@@ -10,9 +10,11 @@ type Texta interface {
 	Error(error)
 
 	Str() string
+
+	EditOpen()
 	EditInsert(index int, str string)
-	EditRemove(index int, n int)
-	EditDone()
+	EditDelete(index int, n int)
+	EditClose()
 
 	CursorIndex() int
 	SetCursorIndex(int)

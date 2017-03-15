@@ -90,35 +90,26 @@ func (km *KeybMap) ModKeysym(keycode xproto.Keycode, mods Modifiers) xproto.Keys
 	return km.KeysymColumn(keycode, col)
 }
 func (km *KeybMap) modifiersColumn(mods Modifiers) int {
-	//alt := mods.Mod1()
-	altGr := mods.Mod5()
-
-	caps := mods.CapsLock()
-	shift := mods.Shift()
-	shift = (shift && !caps) || (!shift && caps)
-
-	ctrl := mods.Control()
-
 	// TODO: rules
 	// https://tronche.com/gui/x/xlib/input/keyboard-encoding.html
 
+	altGr := xproto.KeyButMaskMod5
+	shift := xproto.KeyButMaskShift
+	caps := xproto.KeyButMaskLock
+	ctrl := xproto.KeyButMaskControl
+
 	// missing: 3,6
 	i := 0
-	if altGr {
+	switch {
+	case mods.Is(altGr):
 		i = 4
-		if shift {
-			i = 5
-		}
-	} else if shift {
-		i = 1
-	} else if ctrl {
+	case mods.Is(altGr|shift) || mods.Is(altGr|caps):
+		i = 5
+	case mods.Is(ctrl):
 		i = 2
+	case mods.Is(shift) || mods.Is(caps):
+		i = 1
 	}
-
-	if i >= int(km.keybMap.KeysymsPerKeycode) {
-		panic("i>=keysymsperkeycode")
-	}
-
 	return i
 }
 func (km *KeybMap) NewKey(keycode xproto.Keycode, state uint16) *Key {

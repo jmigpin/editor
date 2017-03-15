@@ -3,12 +3,13 @@ package tautil
 func DuplicateLines(ta Texta) {
 	a, b, hasNewline := linesStringIndexes(ta)
 	t := ta.Str()[a:b]
+	ta.EditOpen()
 	if !hasNewline {
 		ta.EditInsert(b, "\n")
 		b++
 	}
 	ta.EditInsert(b, t)
-	ta.EditDone()
+	ta.EditClose()
 	ta.SetSelectionOn(true)
 	ta.SetSelectionIndex(b)
 

@@ -13,7 +13,8 @@ func Delete(ta Texta) {
 			return
 		}
 	}
-	ta.EditRemove(a, b)
-	ta.EditDone()
+	ta.EditOpen()
+	ta.EditDelete(a, b)
+	ta.EditClose()
 	ta.SetCursorIndex(a)
 }

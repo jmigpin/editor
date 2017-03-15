@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image"
-	"log"
 
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/imageutil"
@@ -19,14 +18,12 @@ import (
 type TextArea struct {
 	C             uiutil.Container
 	ui            *UI
-	buttonPressed bool
 	EvReg         *xgbutil.EventRegister
 	dereg         xgbutil.EventDeregister
 	stringCache   *drawutil.StringCache
-
-	Colors                     *drawutil.Colors
-	DisableHighlightCursorWord bool
-	DisableButtonScroll        bool
+	editHistory   *tautil.EditHistory
+	edit          *tautil.EditHistoryEdit
+	buttonPressed bool
 
 	str         string
 	cursorIndex int
@@ -35,22 +32,11 @@ type TextArea struct {
 		on    bool
 		index int // from index to cursorIndex
 	}
-
 	offsetIndexWidthChange int
 
-	undo struct {
-		edit            *TextAreaEdit   // current edit
-		str             string          // str used while editing
-		start, end, cur int             // positions
-		q               []*TextAreaEdit // edits queue
-	}
-
-	//cache struct {
-	//offsetIndex struct {
-	//firstCalcDone bool
-	//areaDx        int
-	//}
-	//}
+	Colors                     *drawutil.Colors
+	DisableHighlightCursorWord bool
+	DisableButtonScroll        bool
 }
 
 func NewTextArea(ui *UI) *TextArea {
@@ -58,9 +44,9 @@ func NewTextArea(ui *UI) *TextArea {
 	c := drawutil.DefaultColors()
 	ta.Colors = &c
 	ta.C.PaintFunc = ta.paint
-	ta.undo.q = make([]*TextAreaEdit, 30)
 	ta.stringCache = drawutil.NewStringCache(ui.FontFace())
 	ta.EvReg = xgbutil.NewEventRegister()
+	ta.editHistory = tautil.NewEditHistory(30)
 
 	r1 := ta.ui.Win.EvReg.Add(keybmap.KeyPressEventId,
 		&xgbutil.ERCallback{ta.onKeyPress})
@@ -131,7 +117,6 @@ func (ta *TextArea) updateStringCacheWithOffsetFix() {
 		ta.offsetIndexWidthChange = ta.C.Bounds.Dx()
 		fixOffset = true
 		offsetIndex = ta.OffsetIndex()
-		log.Printf("**ta offsetindex %v\n", offsetIndex)
 	}
 
 	ta.updateStringCache()
@@ -150,9 +135,9 @@ func (ta *TextArea) Error(err error) {
 }
 
 func (ta *TextArea) Str() string {
-	if ta.undo.edit != nil {
-		// return undo str while editing
-		return ta.undo.str
+	if ta.edit != nil {
+		// return edit str while editing
+		return ta.edit.Str()
 	}
 	return ta.str
 }
@@ -165,7 +150,6 @@ func (ta *TextArea) setStr(s string) {
 	oldBounds := ta.C.Bounds
 	ta.updateStringCache()
 	ta.C.NeedPaint()
-
 	ev := &TextAreaSetTextEvent{ta, oldBounds}
 	ta.EvReg.Emit(TextAreaSetTextEventId, ev)
 }
@@ -176,81 +160,55 @@ func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 		ta.SetOffsetY(0)
 	}
 	if clearUndoQ {
-		ta.clearUndoQ()
+		ta.editHistory.ClearQ()
 		ta.setStr(str)
 	} else {
-		ta.EditRemove(0, len(ta.str))
+		ta.EditOpen()
+		ta.EditDelete(0, len(ta.Str()))
 		ta.EditInsert(0, str)
-		ta.EditDone()
+		ta.EditClose()
 	}
 }
 
-func (ta *TextArea) ensureEdit() {
-	if ta.undo.edit == nil {
-		ta.undo.edit = &TextAreaEdit{}
-		// using a separate str instance to edit allows to detect if the edit actually changed the final string or not when calling for setStr()
-		ta.undo.str = ta.str
+func (ta *TextArea) EditOpen() {
+	if ta.edit != nil {
+		panic("edit already exists")
 	}
+	ta.edit = tautil.NewEditHistoryEdit(ta.Str())
 }
 func (ta *TextArea) EditInsert(index int, str string) {
-	ta.ensureEdit()
-	ta.undo.str = ta.undo.edit.insert(ta.undo.str, index, str)
+	ta.edit.Insert(index, str)
 }
-func (ta *TextArea) EditRemove(index, index2 int) {
-	ta.ensureEdit()
-	ta.undo.str = ta.undo.edit.remove(ta.undo.str, index, index2)
+func (ta *TextArea) EditDelete(index, index2 int) {
+	ta.edit.Delete(index, index2)
 }
-func (ta *TextArea) EditDone() {
-	if ta.undo.edit == nil {
-		panic("missing edit instance")
+func (ta *TextArea) EditClose() {
+	str, strEdit, ok := ta.edit.Close()
+	ta.edit = nil
+	if !ok {
+		return
 	}
-	if !ta.undo.edit.IsEmpty() {
-		ta.pushEdit(ta.undo.edit)
-		ta.setStr(ta.undo.str)
-	}
-	ta.undo.edit = nil
-	ta.undo.str = ""
+	ta.editHistory.PushEdit(strEdit)
+	ta.setStr(str)
 }
 
-func (ta *TextArea) pushEdit(edit *TextAreaEdit) {
-	u := &ta.undo
-	u.q[u.cur%len(u.q)] = edit
-	u.cur++
-	u.end = u.cur
-	if u.end-u.start > len(u.q) {
-		u.start = u.end - len(u.q)
-	}
-}
 func (ta *TextArea) popUndo() {
-	u := &ta.undo
-	if u.cur-1 < u.start {
-		return // no undos
+	s, i, ok := ta.editHistory.PopUndo(ta.Str())
+	if !ok {
+		return
 	}
-	u.cur--
-	edit := u.q[u.cur%len(u.q)]
-	s, i := edit.undos.apply(ta.str)
 	ta.setStr(s)
 	ta.SetCursorIndex(i)
 	ta.SetSelectionOn(false)
 }
 func (ta *TextArea) unpopRedo() {
-	u := &ta.undo
-	if u.cur == u.end {
-		return // no redos
+	s, i, ok := ta.editHistory.UnpopRedo(ta.Str())
+	if !ok {
+		return
 	}
-	edit := u.q[u.cur%len(u.q)]
-	u.cur++
-	s, i := edit.edits.apply(ta.str)
 	ta.setStr(s)
 	ta.SetCursorIndex(i)
 	ta.SetSelectionOn(false)
-}
-func (ta *TextArea) clearUndoQ() {
-	u := &ta.undo
-	u.start, u.cur, u.end = 0, 0, 0
-	for i := range u.q {
-		u.q[i] = nil
-	}
 }
 
 func (ta *TextArea) CursorIndex() int {
@@ -260,8 +218,8 @@ func (ta *TextArea) SetCursorIndex(v int) {
 	if v < 0 {
 		v = 0
 	}
-	if v > len(ta.str) {
-		v = len(ta.str)
+	if v > len(ta.Str()) {
+		v = len(ta.Str())
 	}
 	if v != ta.cursorIndex {
 		ta.cursorIndex = v
@@ -304,7 +262,6 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 	if v != ta.offsetY {
 		ta.offsetY = v
 		ta.C.NeedPaint()
-
 		ev := &TextAreaSetOffsetYEvent{ta}
 		ta.EvReg.Emit(TextAreaSetOffsetYEventId, ev)
 	}
@@ -380,8 +337,12 @@ func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 	ta.buttonPressed = true
 	switch ev.Button.Button {
 	case xproto.ButtonIndex1:
-		sel := ev.Button.Mods.Shift()
-		tautil.MoveCursorToPoint(ta, ev.Point, sel)
+		switch {
+		case ev.Button.Mods.IsShift():
+			tautil.MoveCursorToPoint(ta, ev.Point, true)
+		case ev.Button.Mods.IsNone():
+			tautil.MoveCursorToPoint(ta, ev.Point, false)
+		}
 	case xproto.ButtonIndex4:
 		if !ta.DisableButtonScroll {
 			tautil.ScrollUp(ta)
@@ -431,105 +392,126 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 	firstKeysym := k.FirstKeysym()
 	switch firstKeysym {
 	case keybmap.XKRight:
-		sel := k.Modifiers.Shift()
-		if k.Modifiers.Control() {
-			tautil.MoveCursorJumpRight(ta, sel)
-		} else {
-			tautil.MoveCursorRight(ta, sel)
+		switch {
+		case k.Mods.IsControlShift():
+			tautil.MoveCursorJumpRight(ta, true)
+		case k.Mods.IsControl():
+			tautil.MoveCursorJumpRight(ta, false)
+		case k.Mods.IsShift():
+			tautil.MoveCursorRight(ta, true)
+		case k.Mods.IsNone():
+			tautil.MoveCursorRight(ta, false)
 		}
 	case keybmap.XKLeft:
-		sel := k.Modifiers.Shift()
-		if k.Modifiers.Control() {
-			tautil.MoveCursorJumpLeft(ta, sel)
-		} else {
-			tautil.MoveCursorLeft(ta, sel)
+		switch {
+		case k.Mods.IsControlShift():
+			tautil.MoveCursorJumpLeft(ta, true)
+		case k.Mods.IsControl():
+			tautil.MoveCursorJumpLeft(ta, false)
+		case k.Mods.IsShift():
+			tautil.MoveCursorLeft(ta, true)
+		case k.Mods.IsNone():
+			tautil.MoveCursorLeft(ta, false)
 		}
 	case keybmap.XKUp:
-		if k.Modifiers.Control() && k.Modifiers.Mod1() {
+		switch {
+		case k.Mods.IsControlMod1():
 			tautil.MoveLineUp(ta)
-		} else {
-			sel := k.Modifiers.Shift()
-			tautil.MoveCursorUp(ta, sel)
+		case k.Mods.IsShift():
+			tautil.MoveCursorUp(ta, true)
+		case k.Mods.IsNone():
+			tautil.MoveCursorUp(ta, false)
 		}
 	case keybmap.XKDown:
-		if k.Modifiers.Control() && k.Modifiers.Mod1() {
-			if k.Modifiers.Shift() {
-				tautil.DuplicateLines(ta)
-			} else {
-				tautil.MoveLineDown(ta)
-			}
-		} else {
-			sel := k.Modifiers.Shift()
-			tautil.MoveCursorDown(ta, sel)
+		switch {
+		case k.Mods.IsControlShiftMod1():
+			tautil.DuplicateLines(ta)
+		case k.Mods.IsControlMod1():
+			tautil.MoveLineDown(ta)
+		case k.Mods.IsShift():
+			tautil.MoveCursorDown(ta, true)
+		case k.Mods.IsNone():
+			tautil.MoveCursorDown(ta, false)
 		}
-	case keybmap.XKBackspace:
-		tautil.Backspace(ta)
-	case keybmap.XKDelete:
-		tautil.Delete(ta)
 	case keybmap.XKHome:
-		sel := k.Modifiers.Shift()
-		if k.Modifiers.Control() {
-			tautil.StartOfString(ta, sel)
-		} else {
-			tautil.StartOfLine(ta, sel)
+		switch {
+		case k.Mods.IsControlShift():
+			tautil.StartOfString(ta, true)
+		case k.Mods.IsControl():
+			tautil.StartOfString(ta, false)
+		case k.Mods.IsShift():
+			tautil.StartOfLine(ta, true)
+		case k.Mods.IsNone():
+			tautil.StartOfLine(ta, false)
 		}
 	case keybmap.XKEnd:
-		sel := k.Modifiers.Shift()
-		if k.Modifiers.Control() {
-			tautil.EndOfString(ta, sel)
-		} else {
-			tautil.EndOfLine(ta, sel)
+		switch {
+		case k.Mods.IsControlShift():
+			tautil.EndOfString(ta, true)
+		case k.Mods.IsControl():
+			tautil.EndOfString(ta, false)
+		case k.Mods.IsShift():
+			tautil.EndOfLine(ta, true)
+		case k.Mods.IsNone():
+			tautil.EndOfLine(ta, false)
+		}
+	case keybmap.XKBackspace:
+		switch {
+		case k.Mods.IsNone():
+			tautil.Backspace(ta)
+		}
+	case keybmap.XKDelete:
+		switch {
+		case k.Mods.IsNone():
+			tautil.Delete(ta)
 		}
 	default:
 		// shortcuts with printable runes
-		if k.Modifiers.Control() {
+		switch {
+		case k.Mods.IsControlShift():
 			switch firstKeysym {
 			case 'd':
-				if k.Modifiers.Shift() {
-					tautil.Uncomment(ta)
-				} else {
-					tautil.Comment(ta)
-				}
-				return
+				tautil.Uncomment(ta)
+			case 'z':
+				ta.unpopRedo()
+			}
+		case k.Mods.IsControl():
+			switch firstKeysym {
+			case 'd':
+				tautil.Comment(ta)
 			case 'c':
 				tautil.Copy(ta)
-				return
 			case 'x':
 				tautil.Cut(ta)
-				return
 			case 'v':
 				tautil.Paste(ta)
-				return
 			case 'k':
 				tautil.RemoveLines(ta)
-				return
 			case 'a':
 				tautil.SelectAll(ta)
-				return
 			case 'z':
-				if k.Modifiers.Shift() {
-					ta.unpopRedo()
-				} else {
-					ta.popUndo()
-				}
+				ta.popUndo()
 			}
-		}
-		switch firstKeysym {
-		case keybmap.XKTab:
-			if k.Modifiers.Shift() {
+		case k.Mods.IsShift():
+			switch firstKeysym {
+			case keybmap.XKTab:
 				tautil.TabLeft(ta)
-				return
 			}
-			if ta.SelectionOn() {
-				tautil.TabRight(ta)
-				return
+		case k.Mods.IsNone():
+			switch firstKeysym {
+			case keybmap.XKTab:
+				if ta.SelectionOn() {
+					tautil.TabRight(ta)
+				} else {
+					ta.insertKeyRune(k)
+				}
+			default:
+				ta.insertKeyRune(k)
 			}
 		}
-
-		ta.insertRuneInText(k)
 	}
 }
-func (ta *TextArea) insertRuneInText(k *keybmap.Key) {
+func (ta *TextArea) insertKeyRune(k *keybmap.Key) {
 	// special runes checked from first keysym from keysym table
 	switch k.FirstKeysym() {
 	case keybmap.XKAltL,
@@ -544,7 +526,6 @@ func (ta *TextArea) insertRuneInText(k *keybmap.Key) {
 		keybmap.XKNumLock,
 		keybmap.XKSuperL:
 		// ignore these
-		return
 	case keybmap.XKReturn:
 		tautil.InsertRune(ta, '\n')
 	case keybmap.XKTab:
@@ -564,15 +545,9 @@ func (ta *TextArea) insertRuneInText(k *keybmap.Key) {
 		case keybmap.XKGrave:
 			tautil.InsertRune(ta, '`')
 		default:
-			// don't print if control is pressed
-			if k.Modifiers.Control() {
-				return
-			}
-
 			tautil.InsertRune(ta, rune(ks))
 
-			// prevent stringcache calcrunedata
-			//ta.stringCache.str = ta.Text()
+			// TODO: prevent stringcache calc for just a rune
 		}
 	}
 }
