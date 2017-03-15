@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"sync"
 	"time"
 
 	"github.com/BurntSushi/xgb"
@@ -13,12 +12,10 @@ import (
 )
 
 type Paste struct {
-	conn  *xgb.Conn
-	win   xproto.Window
-	reply struct {
-		sync.Mutex
-		ch chan *xproto.SelectionNotifyEvent
-	}
+	conn            *xgb.Conn
+	win             xproto.Window
+	waitingForReply bool
+	replyCh         chan *xproto.SelectionNotifyEvent
 }
 
 var PasteAtoms struct {
@@ -29,50 +26,38 @@ var PasteAtoms struct {
 }
 
 func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
-	p := &Paste{conn: conn, win: win}
 	if err := xgbutil.LoadAtoms(conn, &PasteAtoms); err != nil {
 		return nil, err
+	}
+	p := &Paste{
+		conn:    conn,
+		win:     win,
+		replyCh: make(chan *xproto.SelectionNotifyEvent, 3),
 	}
 	return p, nil
 }
 
 func (p *Paste) Request() (string, error) {
-	// initialize reply chan (using defer to lock)
-	err := func() error {
-		p.reply.Lock()
-		defer p.reply.Unlock()
-		if p.reply.ch != nil {
-			// expecting a reply already - abort
-			return fmt.Errorf("already expecting a request reply")
-		}
-		p.reply.ch = make(chan *xproto.SelectionNotifyEvent)
-		return nil
-	}()
-	if err != nil {
-		return "", err
+	p.waitingForReply = true
+	defer func() { p.waitingForReply = false }()
+	// empty possible old erroneous entries (concurrency rare cases)
+	for len(p.replyCh) > 0 {
+		<-p.replyCh
 	}
-
-	// not expecting a reply after leaving
-	defer func() {
-		p.reply.Lock()
-		defer p.reply.Unlock()
-		p.reply.ch = nil
-	}()
-
 	// a reply must arrive on timeout
 	ctx := context.Background()
-	ctx2, _ := context.WithTimeout(ctx, 50*time.Millisecond)
+	ctx2, _ := context.WithTimeout(ctx, 250*time.Millisecond)
 
-	p.requestData()
+	p.requestDataToServer()
 
 	select {
 	case <-ctx2.Done():
 		return "", ctx2.Err()
-	case ev := <-p.reply.ch: // waits for OnSelectionNotify
+	case ev := <-p.replyCh: // waits for OnSelectionNotify
 		return p.extractData(ev)
 	}
 }
-func (p *Paste) requestData() {
+func (p *Paste) requestDataToServer() {
 	_ = xproto.ConvertSelection(
 		p.conn,
 		p.win,
@@ -85,16 +70,11 @@ func (p *Paste) requestData() {
 
 // After requesting the data (Request()) this event comes in
 func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) bool {
-	propertyOk := ev.Property == PasteAtoms.XSEL_DATA
-	if !propertyOk {
+	if ev.Property != PasteAtoms.XSEL_DATA {
 		return false
 	}
-
-	p.reply.Lock()
-	defer p.reply.Unlock()
-	if p.reply.ch != nil { // expecting reply
-		p.reply.ch <- ev
-		return true
+	if p.waitingForReply {
+		p.replyCh <- ev
 	}
 	return false
 }

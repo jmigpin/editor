@@ -3,7 +3,7 @@ package copypaste
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	"log"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -54,8 +54,6 @@ func (c *Copy) Set(str string) {
 
 // Another application is asking for the data
 func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) bool {
-	//fmt.Printf("copy: selection request: %v\n", *ev)
-
 	switch ev.Target {
 	case CopyAtoms.UTF8_STRING:
 		c.transferUTF8String(ev)
@@ -69,17 +67,11 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) bool {
 		if err != nil {
 			s = err.Error()
 		}
-		fmt.Printf("copy: ignored selection request: asking for type %v (%v)\n", ev.Target, s)
+		log.Printf("copy: ignored selection request: asking for type %v (%v)\n", ev.Target, s)
 		return false
 	}
 }
 func (c *Copy) transferUTF8String(ev *xproto.SelectionRequestEvent) {
-	//fmt.Println("copy: transfering utf8 string")
-
-	if ev.Target != CopyAtoms.UTF8_STRING {
-		panic("unexpected target")
-	}
-
 	b := []byte(c.str)
 	// change property on the requestor
 	xproto.ChangeProperty(
@@ -106,12 +98,6 @@ func (c *Copy) transferUTF8String(ev *xproto.SelectionRequestEvent) {
 		string(buf))
 }
 func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) {
-	//fmt.Println("copy: transfering targets")
-
-	if ev.Target != CopyAtoms.TARGETS {
-		panic("unexpected target")
-	}
-
 	targets := []xproto.Atom{CopyAtoms.UTF8_STRING}
 
 	tbuf := new(bytes.Buffer)
@@ -145,10 +131,9 @@ func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) {
 		string(buf))
 }
 
-// Another applicatin now owns the selection.
-func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) bool {
+// Another application now owns the selection.
+func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
 	c.str = ""
-	return true
 }
 
 // event register support
@@ -163,7 +148,6 @@ func (c *Copy) SetupEventRegister(evReg *xgbutil.EventRegister) {
 	evReg.Add(xproto.SelectionClear,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			ev := ev0.(xproto.SelectionClearEvent)
-			ok := c.OnSelectionClear(&ev)
-			_ = ok
+			c.OnSelectionClear(&ev)
 		}})
 }
