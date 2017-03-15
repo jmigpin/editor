@@ -53,9 +53,16 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 			penPoint := Point266ToPoint(&pen)
 			dr, mask, maskp, _, ok := sd.liner.iter.face.Glyph(ru)
 			if ok {
-				dr = dr.Add(sd.bounds.Min).Add(*penPoint).Intersect(*sd.bounds)
+				dr := dr.Add(sd.bounds.Min).Add(*penPoint)
+				dr2 := dr.Intersect(*sd.bounds)
+
+				// fix partial mask being drawn from the top
+				if dr.Min.Y < sd.bounds.Min.Y {
+					maskp.Y += dr.Dy() - dr2.Dy()
+				}
+
 				fgi := image.NewUniform(fg)
-				draw.DrawMask(sd.img, dr, fgi, image.Point{}, mask, maskp, draw.Over)
+				draw.DrawMask(sd.img, dr2, fgi, image.Point{}, mask, maskp, draw.Over)
 			}
 		}(sd.liner.iter.ru, sd.liner.iter.pen, fg)
 
