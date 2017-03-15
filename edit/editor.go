@@ -127,6 +127,10 @@ func (ed *Editor) getFontFace() (*drawutil.Face, error) {
 	fface := drawutil.NewFace(font0, opt)
 	return fface, nil
 }
+func (ed *Editor) Close() {
+	ed.fw.Close()
+	ed.ui.Close()
+}
 
 func (ed *Editor) UI() *ui.UI {
 	return ed.ui
@@ -136,11 +140,6 @@ func (ed *Editor) FilesWatcherAdd(filename string) error {
 }
 func (ed *Editor) FilesWatcherRemove(filename string) error {
 	return ed.fw.Remove(filename)
-}
-
-func (ed *Editor) Close() {
-	ed.fw.Close()
-	ed.ui.Close()
 }
 
 func (ed *Editor) activeRow() (*ui.Row, bool) {
@@ -220,18 +219,14 @@ func (ed *Editor) NewRow(col *ui.Column) *ui.Row {
 func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
 	ev := ev0.(*ui.RowKeyPressEvent)
 	fks := ev.Key.FirstKeysym()
-	m := ev.Key.Modifiers
-	if m.Control() && fks == 's' {
+	m := ev.Key.Mods
+	switch {
+	case m.IsControl() && fks == 's':
 		cmdutil.SaveRowFile(ed, ev.Row)
-		return
-	}
-	if m.Control() && m.Shift() && fks == 'f' {
-		cmdutil.FilemanagerShortcut(ed, ev.Row)
-		return
-	}
-	if m.Control() && fks == 'f' {
+	case m.IsControl() && fks == 'f':
 		cmdutil.FindShortcut(ed, ev.Row)
-		return
+	case m.IsControlShift() && fks == 'f':
+		cmdutil.FilemanagerShortcut(ed, ev.Row)
 	}
 }
 func (ed *Editor) FindRowOrCreate(name string) *ui.Row {

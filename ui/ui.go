@@ -54,37 +54,37 @@ func (ui *UI) EventLoop() {
 func (ui *UI) onExposeEvent(ev0 xgbutil.EREvent) {
 	ev := ev0.(xproto.ExposeEvent)
 
-	//if ev.Count > 0 { // number of expose event to come
-	//return // wait for expose with count 0
-	//}
+	// number of expose events to come
+	if ev.Count > 0 {
+		//// repaint just the exposed area
+		//x0, y0 := int(ev.X), int(ev.Y)
+		//x1, y1 := x0+int(ev.Width), y0+int(ev.Height)
+		//r := image.Rect(x0, y0, x1, y1)
+		//ui.PutImage(&r)
 
-	r := ui.winGeometry()
-	if !r.Eq(ui.Layout.C.Bounds) {
-		// new image
-		if err := ui.Win.ShmWrap.NewImage(&r); err != nil {
+		return // wait for expose with count 0
+	}
+
+	r, err := ui.winGeometry()
+	if err == nil && !r.Eq(ui.Layout.C.Bounds) {
+		if err := ui.Win.ShmWrap.NewImage(r); err != nil {
 			fmt.Println(err)
 			return
 		}
-		ui.Layout.C.Bounds = r
+		ui.Layout.C.Bounds = *r
 		ui.Layout.C.CalcChildsBounds()
-		ui.Layout.C.NeedPaint()
-	} else {
-		// repaint just the exposed area
-		x0, y0 := int(ev.X), int(ev.Y)
-		x1, y1 := x0+int(ev.Width), y0+int(ev.Height)
-		r := image.Rect(x0, y0, x1, y1)
-		ui.PutImage(&r)
 	}
+	ui.Layout.C.NeedPaint()
 }
-func (ui *UI) winGeometry() *image.Rectangle {
+func (ui *UI) winGeometry() (*image.Rectangle, error) {
 	wgeom, err := ui.Win.GetGeometry()
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil, err
 	}
 	w := int(wgeom.Width)
 	h := int(wgeom.Height)
-	return &image.Rect(0, 0, w, h)
+	r := image.Rect(0, 0, w, h)
+	return &r, nil
 }
 func (ui *UI) onQueueEmptyEvent(ev xgbutil.EREvent) {
 	// paint after all events have been handled
@@ -122,26 +122,38 @@ func (ui *UI) RequestMotionNotify() {
 func (ui *UI) WarpPointer(p *image.Point) {
 	ui.Win.WarpPointer(p)
 }
-func (ui *UI) WarpPointerToRectangle(r *image.Rectangle) {
+func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
 	p, ok := ui.Win.QueryPointer()
 	if !ok {
 		return
 	}
-	if p.In(*r) {
-		return
+	// pad rectangle
+	pad := 25
+	r := *r0
+	if r.Dx() < pad*2 {
+		r.Min.X = r.Min.X + r.Dx()/2
+		r.Max.X = r.Min.X
+	} else {
+		r.Min.X += pad
+		r.Max.X -= pad
+	}
+	if r.Dy() < pad*2 {
+		r.Min.Y = r.Min.Y + r.Dy()/2
+		r.Max.Y = r.Min.Y
+	} else {
+		r.Min.Y += pad
+		r.Max.Y -= pad
 	}
 	// put p inside
-	pad := 3
 	if p.Y < r.Min.Y {
-		p.Y = r.Min.Y + pad
+		p.Y = r.Min.Y
 	} else if p.Y >= r.Max.Y {
-		p.Y = r.Max.Y - pad
+		p.Y = r.Max.Y
 	}
 	if p.X < r.Min.X {
-		p.X = r.Min.X + pad
+		p.X = r.Min.X
 	} else if p.X >= r.Max.X {
-		p.X = r.Max.X - pad
+		p.X = r.Max.X
 	}
-
 	ui.WarpPointer(p)
 }

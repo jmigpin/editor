@@ -157,17 +157,16 @@ func (cols *Columns) PointRowPosition(row *Row, p *image.Point) (*Column, int, b
 				return nil, 0, false
 			}
 
+			//return c, i, true
+
 			sameCol := row != nil && row.Col == r.Col
 			inFirstHalf := p.Y >= r.C.Bounds.Min.Y && p.Y < r.C.Bounds.Min.Y+r.C.Bounds.Dy()/2
-
-			index := i
 			if !sameCol {
 				if !inFirstHalf {
-					index++
+					i++
 				}
 			}
-			//fmt.Println("point row position: %v\n", index)
-			return c, index, true
+			return c, i, true
 		}
 	}
 	return nil, 0, false
@@ -175,7 +174,7 @@ func (cols *Columns) PointRowPosition(row *Row, p *image.Point) (*Column, int, b
 func (cols *Columns) MoveRowToColumn(row *Row, col *Column, index int) {
 	row.Col.removeRow(row)
 	col.insertRow(row, index)
-	cols.Layout.UI.WarpPointerToRectangle(&row.C.Bounds)
+	cols.Layout.UI.WarpPointerToRectanglePad(&row.C.Bounds)
 }
 func (cols *Columns) MoveColumnToPoint(col *Column, p *image.Point) {
 	for _, c := range cols.Cols {
@@ -232,5 +231,5 @@ func (cols *Columns) moveColumnToColumn(col, dest *Column, p *image.Point) {
 
 	cols.C.CalcChildsBounds()
 	cols.C.NeedPaint()
-	cols.Layout.UI.WarpPointerToRectangle(&col.C.Bounds)
+	cols.Layout.UI.WarpPointerToRectanglePad(&col.C.Bounds)
 }

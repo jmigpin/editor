@@ -3,9 +3,9 @@ package keybmap
 import "github.com/BurntSushi/xgb/xproto"
 
 type Key struct {
-	km        *KeybMap
-	Keycode   xproto.Keycode // byte
-	Modifiers Modifiers
+	km      *KeybMap
+	Keycode xproto.Keycode // byte
+	Mods    Modifiers
 }
 
 func newKey(km *KeybMap, keycode xproto.Keycode, state uint16) *Key {
@@ -15,5 +15,5 @@ func (k *Key) FirstKeysym() xproto.Keysym {
 	return k.km.KeysymColumn(k.Keycode, 0)
 }
 func (k *Key) Keysym() xproto.Keysym {
-	return k.km.ModKeysym(k.Keycode, k.Modifiers)
+	return k.km.ModKeysym(k.Keycode, k.Mods)
 }

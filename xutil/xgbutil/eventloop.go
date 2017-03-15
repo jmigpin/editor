@@ -32,7 +32,7 @@ func EventLoop(conn *xgb.Conn, er *EventRegister) {
 		if xerr != nil {
 			er.Emit(XErrorEventId, xerr)
 		} else {
-			log.Printf("event: %#v", ev)
+			//log.Printf("event: %#v", ev)
 			er.Emit(XgbEventId(ev), ev)
 		}
 	}
