@@ -62,10 +62,10 @@ func (sdc *StringDrawColors) Loop() {
 		// rune color
 		fg = sdc.colors.Fg
 
-		// comments
-		if liner.states.comment {
-			assignColorIfNotNil(&fg, sdc.colors.Comment)
-		}
+		//// comments
+		//if liner.states.comment {
+		//assignColorIfNotNil(&fg, sdc.colors.Comment)
+		//}
 
 		// highlight matching words
 		if highlightOn {

@@ -25,12 +25,12 @@ type StringLinerWrapIndent struct {
 }
 
 type StringLinerStates struct {
-	comment bool
-	cData   struct { // comment data
-		typ   int
-		close bool
-		count int
-	}
+	//comment bool
+	//cData   struct { // comment data
+	//typ   int
+	//close bool
+	//count int
+	//}
 	//str     bool
 	//strEnd  bool
 }
@@ -50,48 +50,48 @@ func (liner *StringLiner) Loop(fn func() bool) {
 
 	liner.iter.Loop(func() bool {
 
-		// (comment,string) states are done here to be saved in the stringcache state, otherwise they shouldn't be here
+		// (comment,string, etc) states are done here to be saved in the stringcache calcrunedata state that uses only a string liner - otherwise they shouldn't be here
 
-		// comment state
-		if !liner.states.comment {
-			if liner.iter.ru == '/' {
-				next, ok := liner.iter.LookaheadRune(1)
-				if ok && next == '/' {
-					liner.states.comment = true
-					liner.states.cData.typ = 0
-				}
-			}
-			if liner.iter.ru == '/' {
-				next, ok := liner.iter.LookaheadRune(1)
-				if ok && next == '*' {
-					liner.states.comment = true
-					liner.states.cData.typ = 1
-					liner.states.cData.close = false
-					liner.states.cData.count = 0
-				}
-			}
-		} else {
-			switch liner.states.cData.typ {
-			case 0:
-				if liner.iter.ru == '\n' {
-					liner.states.comment = false
-				}
-			case 1:
-				if liner.iter.ru == '*' {
-					next, ok := liner.iter.LookaheadRune(1)
-					if ok && next == '/' {
-						liner.states.cData.close = true
-						liner.states.cData.count = 2
-					}
-				}
-				if liner.states.cData.close {
-					if liner.states.cData.count == 0 {
-						liner.states.comment = false
-					}
-					liner.states.cData.count--
-				}
-			}
-		}
+		//// comment state
+		//if !liner.states.comment {
+		//if liner.iter.ru == '/' {
+		//next, ok := liner.iter.LookaheadRune(1)
+		//if ok && next == '/' {
+		//liner.states.comment = true
+		//liner.states.cData.typ = 0
+		//}
+		//}
+		//if liner.iter.ru == '/' {
+		//next, ok := liner.iter.LookaheadRune(1)
+		//if ok && next == '*' {
+		//liner.states.comment = true
+		//liner.states.cData.typ = 1
+		//liner.states.cData.close = false
+		//liner.states.cData.count = 0
+		//}
+		//}
+		//} else {
+		//switch liner.states.cData.typ {
+		//case 0:
+		//if liner.iter.ru == '\n' {
+		//liner.states.comment = false
+		//}
+		//case 1:
+		//if liner.iter.ru == '*' {
+		//next, ok := liner.iter.LookaheadRune(1)
+		//if ok && next == '/' {
+		//liner.states.cData.close = true
+		//liner.states.cData.count = 2
+		//}
+		//}
+		//if liner.states.cData.close {
+		//if liner.states.cData.count == 0 {
+		//liner.states.comment = false
+		//}
+		//liner.states.cData.count--
+		//}
+		//}
+		//}
 
 		//// string state
 		//if !liner.states.str && !liner.states.comment {
