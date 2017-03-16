@@ -14,11 +14,13 @@ func LineBaseline(fm *font.Metrics) fixed.Int26_6 {
 	return fm.Height
 }
 func LineHeight(fm *font.Metrics) fixed.Int26_6 {
-	return LineBaseline(fm) + fm.Descent + margin
+	// make it fixed to an int to avoid round errors between lines
+	lh := LineBaseline(fm) + fm.Descent + margin
+	return fixed.I(lh.Round())
 }
 func LineY0(penY fixed.Int26_6, fm *font.Metrics) fixed.Int26_6 {
 	return penY - LineBaseline(fm)
 }
 func LineY1(penY fixed.Int26_6, fm *font.Metrics) fixed.Int26_6 {
-	return penY + fm.Descent + margin
+	return LineY0(penY, fm) + LineHeight(fm)
 }
