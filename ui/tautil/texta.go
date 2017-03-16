@@ -18,10 +18,12 @@ type Texta interface {
 
 	CursorIndex() int
 	SetCursorIndex(int)
+	MakeIndexVisible(int)
 
 	OffsetY() fixed.Int26_6
 	SetOffsetY(v fixed.Int26_6)
-	MakeIndexVisible(int)
+	StrHeight() fixed.Int26_6
+	Bounds() *image.Rectangle
 
 	SelectionOn() bool
 	SetSelectionOn(bool)

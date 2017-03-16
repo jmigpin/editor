@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/image/math/fixed"
 
+	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xutil/keybmap"
 	"github.com/jmigpin/editor/xutil/xgbutil"
@@ -90,24 +91,24 @@ func (sb *Scrollbar) calcPositionFromPoint(p *image.Point) {
 	sb.bar.positionPercent = float64(py) / float64(height)
 }
 
-// Scrolling with scroll buttons
-func (sb *Scrollbar) calcPositionFromScroll(up bool) {
-	mult := 1.0
-	if up {
-		mult = -1
-	}
-	// include last line from previous page
-	lh := sb.ta.LineHeight().Round()
-	th := sb.ta.TextHeight().Round()
-	linep := float64(lh) / float64(th)
-	pp := sb.bar.positionPercent + mult*(sb.bar.sizePercent-linep)
-	if pp < 0 {
-		pp = 0
-	} else if pp > 1 {
-		pp = 1
-	}
-	sb.bar.positionPercent = pp
-}
+//// Scrolling with scroll buttons
+//func (sb *Scrollbar) calcPositionFromScroll(up bool) {
+//mult := 1.0
+//if up {
+//mult = -1
+//}
+//// include last line from previous page
+//lh := sb.ta.LineHeight().Round()
+//th := sb.ta.TextHeight().Round()
+//linep := float64(lh) / float64(th)
+//pp := sb.bar.positionPercent + mult*(sb.bar.sizePercent-linep)
+//if pp < 0 {
+//pp = 0
+//} else if pp > 1 {
+//pp = 1
+//}
+//sb.bar.positionPercent = pp
+//}
 
 func (sb *Scrollbar) setTextareaOffset() {
 	pp := sb.bar.positionPercent
@@ -144,14 +145,16 @@ func (sb *Scrollbar) onButtonPress(ev0 xgbutil.EREvent) {
 		sb.calcPositionFromPoint(ev.Point)
 		sb.C.NeedPaint()
 		sb.setTextareaOffset()
-	case ev.Button.Button4():
-		sb.calcPositionFromScroll(true) // scroll up
-		sb.C.NeedPaint()
-		sb.setTextareaOffset()
-	case ev.Button.Button5():
-		sb.calcPositionFromScroll(false) // scroll down
-		sb.C.NeedPaint()
-		sb.setTextareaOffset()
+	case ev.Button.Button4(): // scroll up
+		tautil.PageUp(sb.ta)
+		//sb.calcPositionFromScroll(true)
+		//sb.C.NeedPaint()
+		//sb.setTextareaOffset()
+	case ev.Button.Button5(): // scroll down
+		tautil.PageDown(sb.ta)
+		//sb.calcPositionFromScroll(false)
+		//sb.C.NeedPaint()
+		//sb.setTextareaOffset()
 	}
 }
 func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {

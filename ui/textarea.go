@@ -75,9 +75,19 @@ func (ta *TextArea) CalcStringHeight(width int) int {
 	}
 	return th
 }
-
 func (ta *TextArea) updateStringCache() {
 	ta.stringCache.Update(ta.str, ta.C.Bounds.Dx())
+}
+func (ta *TextArea) StrHeight() fixed.Int26_6 {
+	return ta.stringCache.Height()
+}
+func (ta *TextArea) Bounds() *image.Rectangle {
+	return &ta.C.Bounds
+}
+
+// TODO: deprecated - using strheight
+func (ta *TextArea) TextHeight() fixed.Int26_6 {
+	return ta.stringCache.Height()
 }
 
 func (ta *TextArea) paint() {
@@ -124,10 +134,6 @@ func (ta *TextArea) updateStringCacheWithOffsetFix() {
 	if fixOffset {
 		ta.SetOffsetIndex(offsetIndex)
 	}
-}
-
-func (ta *TextArea) TextHeight() fixed.Int26_6 {
-	return ta.stringCache.Height()
 }
 
 func (ta *TextArea) Error(err error) {
@@ -464,6 +470,16 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 		switch {
 		case k.Mods.IsNone():
 			tautil.Delete(ta)
+		}
+	case keybmap.XKPageUp:
+		switch {
+		case k.Mods.IsNone():
+			tautil.PageUp(ta)
+		}
+	case keybmap.XKPageDown:
+		switch {
+		case k.Mods.IsNone():
+			tautil.PageDown(ta)
 		}
 	default:
 		// shortcuts with printable runes

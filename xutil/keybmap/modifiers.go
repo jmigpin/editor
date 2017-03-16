@@ -34,28 +34,28 @@ func (m Modifiers) IsControlShiftMod1() bool {
 }
 
 //func (m Modifiers) Shift() bool {
-	//return m.On(xproto.KeyButMaskShift)
+//return m.On(xproto.KeyButMaskShift)
 //}
 //func (m Modifiers) CapsLock() bool {
-	//return m.On(xproto.KeyButMaskLock)
+//return m.On(xproto.KeyButMaskLock)
 //}
 //func (m Modifiers) Control() bool {
-	//return m.On(xproto.KeyButMaskControl)
+//return m.On(xproto.KeyButMaskControl)
 //}
 //func (m Modifiers) Mod1() bool { // Alt
-	//return m.On(xproto.KeyButMaskMod1)
+//return m.On(xproto.KeyButMaskMod1)
 //}
 //func (m Modifiers) Mod2() bool {
-	//return m.On(xproto.KeyButMaskMod2)
+//return m.On(xproto.KeyButMaskMod2)
 //}
 //func (m Modifiers) Mod3() bool { // Num lock
-	//return m.On(xproto.KeyButMaskMod3)
+//return m.On(xproto.KeyButMaskMod3)
 //}
 //func (m Modifiers) Mod4() bool { // Windows key
-	//return m.On(xproto.KeyButMaskMod4)
+//return m.On(xproto.KeyButMaskMod4)
 //}
 //func (m Modifiers) Mod5() bool { // AltGr
-	//return m.On(xproto.KeyButMaskMod5)
+//return m.On(xproto.KeyButMaskMod5)
 //}
 
 func (m Modifiers) Button1() bool { // left
