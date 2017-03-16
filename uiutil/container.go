@@ -7,10 +7,11 @@ import "image"
 
 // Simple style box model. Not fool proof.
 type Container struct {
-	Bounds    image.Rectangle
-	Childs    []*Container
-	needPaint bool
-	PaintFunc func()
+	Bounds     image.Rectangle
+	Childs     []*Container
+	needPaint  bool
+	PaintFunc  func()
+	OnCalcFunc func()
 
 	Style struct {
 		Direction    Direction    // childs containers
@@ -24,6 +25,8 @@ type Container struct {
 
 		// end percent distribution
 		EndPercent *float64 // between 0 and 1
+
+		// equal size distribution (no options)
 	}
 }
 
@@ -76,6 +79,12 @@ func (c *Container) CalcChildsBounds() {
 		c.equalDistribution()
 	case EndPercentDistribution:
 		c.endPercentDistribution()
+	}
+	// run childs calc callbacks
+	for _, c := range c.Childs {
+		if c.OnCalcFunc != nil {
+			c.OnCalcFunc()
+		}
 	}
 }
 func (c *Container) individualDistribution() {
@@ -154,11 +163,10 @@ func (c *Container) individualDistribution() {
 		}
 		child.setCrossStartEnd(dir, ccs, cce)
 
-		// limit inside parent
+		// limit to parent bounds
 		child.Bounds = child.Bounds.Intersect(c.Bounds)
 
 		child.CalcChildsBounds()
-
 		cms += mainSizes[child]
 	}
 }
@@ -243,6 +251,10 @@ func (c *Container) endPercentDistribution() {
 		cme := ms + mainEnds[child]
 		child.setMainStartEnd(dir, cms, cme)
 		child.setCrossStartEnd(dir, cs, ce)
+
+		// limit to parent bounds
+		child.Bounds = child.Bounds.Intersect(c.Bounds)
+
 		child.CalcChildsBounds()
 		cms = cme
 	}

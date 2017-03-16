@@ -93,7 +93,7 @@ func (sq *Square) onMotionNotify(ev0 xgbutil.EREvent) {
 		return
 	}
 	ev := ev0.(*keybmap.MotionNotifyEvent)
-	ev2 := &SquareMotionNotifyEvent{sq, ev.Modifiers, ev.Point}
+	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point}
 	sq.EvReg.Emit(SquareMotionNotifyEventId, ev2)
 
 	sq.ui.RequestMotionNotify()
@@ -152,7 +152,7 @@ type SquareButtonReleaseEvent struct {
 	Point  *image.Point
 }
 type SquareMotionNotifyEvent struct {
-	Square    *Square
-	Modifiers keybmap.Modifiers
-	Point     *image.Point
+	Square *Square
+	Mods   keybmap.Modifiers
+	Point  *image.Point
 }

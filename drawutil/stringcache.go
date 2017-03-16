@@ -45,8 +45,8 @@ func (sc *StringCache) Update(str string, width int) {
 func (sc *StringCache) calcRuneData() {
 	jump := 250 // keep data every x runes
 
-	// can't allocate since it's unknown the number of runes in a string - using append instead
-	sc.rdata = []*SCRuneData{}
+	size := len(sc.str)/jump + 1
+	sc.rdata = make([]*SCRuneData, 0, size)
 
 	count := 0
 	liner := NewStringLiner(sc.Face, sc.str, sc.maxPoint())
@@ -61,7 +61,7 @@ func (sc *StringCache) calcRuneData() {
 	}
 
 	// always keep starting point, even for empty text, to
-	// keep initialized data from newstringliner
+	// keep stringliner/stringiter initialized data
 	keep()
 
 	liner.Loop(func() bool {

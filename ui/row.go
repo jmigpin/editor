@@ -25,7 +25,6 @@ func NewRow(col *Column) *Row {
 
 	ui := row.Col.Cols.Layout.UI
 
-	// capture keypress to emit rowkeypress for key shortcuts
 	r1 := ui.Win.EvReg.Add(keybmap.KeyPressEventId,
 		&xgbutil.ERCallback{row.onKeyPress})
 	r2 := ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
@@ -37,7 +36,6 @@ func NewRow(col *Column) *Row {
 	row.Toolbar = NewToolbar(ui)
 	tb := row.Toolbar
 	tb.Colors = &ToolbarColors
-	tb.DisableButtonScroll = true
 
 	row.Square = NewSquare(ui)
 	row.Square.EvReg.Add(SquareButtonReleaseEventId,
@@ -100,30 +98,23 @@ func (row *Row) Close() {
 func (row *Row) onSquareButtonRelease(ev0 xgbutil.EREvent) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
-	case ev.Button.Button1():
-		col := row.Col
-		switch {
-		case ev.Button.Mods.IsControl():
-			col.Cols.MoveColumnToPoint(col, ev.Point)
-		case ev.Button.Mods.IsNone():
-			c, i, ok := col.Cols.PointRowPosition(row, ev.Point)
-			if ok {
-				col.Cols.MoveRowToColumn(row, c, i)
-			}
+	case ev.Button.Mods.IsButton(1):
+		c, i, ok := row.Col.Cols.PointRowPosition(row, ev.Point)
+		if ok {
+			row.Col.Cols.MoveRowToColumn(row, c, i)
 		}
-	case ev.Button.Button2():
-		switch {
-		case ev.Button.Mods.IsNone():
-			if ev.Point.In(row.Square.C.Bounds) {
-				row.Close()
-			}
+	case ev.Button.Mods.IsButtonAndControl(1):
+		row.Col.Cols.MoveColumnToPoint(row.Col, ev.Point)
+	case ev.Button.Mods.IsButton(2):
+		if ev.Point.In(row.Square.C.Bounds) {
+			row.Close()
 		}
 	}
 }
 func (row *Row) onSquareMotionNotify(ev0 xgbutil.EREvent) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
-	case ev.Modifiers.Button3():
+	case ev.Mods.IsButton(3):
 		p2 := ev.Point.Add(row.Square.PressPointPad)
 		col := row.Col
 		col.Cols.resizeColumn(col, p2.X)

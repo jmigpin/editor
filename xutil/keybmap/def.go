@@ -12,6 +12,7 @@ const (
 	XKTab       = 0xff09
 	XKReturn    = 0xff0d
 	XKDelete    = 0xffff
+	XKInsert = 0xff63
 	//XKLinefeed = 0xff0a
 
 	XKLeft     = 0xff51

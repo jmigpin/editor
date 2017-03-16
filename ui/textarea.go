@@ -10,8 +10,6 @@ import (
 	"github.com/jmigpin/editor/xutil/keybmap"
 	"github.com/jmigpin/editor/xutil/xgbutil"
 
-	"github.com/BurntSushi/xgb/xproto"
-
 	"golang.org/x/image/math/fixed"
 )
 
@@ -24,6 +22,8 @@ type TextArea struct {
 	editHistory   *tautil.EditHistory
 	edit          *tautil.EditHistoryEdit
 	buttonPressed bool
+	//widthChange   int
+	boundsChange image.Rectangle
 
 	str         string
 	cursorIndex int
@@ -32,11 +32,10 @@ type TextArea struct {
 		on    bool
 		index int // from index to cursorIndex
 	}
-	offsetIndexWidthChange int
 
 	Colors                     *drawutil.Colors
 	DisableHighlightCursorWord bool
-	DisableButtonScroll        bool
+	DisablePageUpDown          bool
 }
 
 func NewTextArea(ui *UI) *TextArea {
@@ -44,6 +43,7 @@ func NewTextArea(ui *UI) *TextArea {
 	c := drawutil.DefaultColors()
 	ta.Colors = &c
 	ta.C.PaintFunc = ta.paint
+	ta.C.OnCalcFunc = ta.onContainerCalc
 	ta.stringCache = drawutil.NewStringCache(ui.FontFace())
 	ta.EvReg = xgbutil.NewEventRegister()
 	ta.editHistory = tautil.NewEditHistory(30)
@@ -63,38 +63,57 @@ func NewTextArea(ui *UI) *TextArea {
 func (ta *TextArea) Close() {
 	ta.dereg.UnregisterAll()
 }
+func (ta *TextArea) Bounds() *image.Rectangle {
+	return &ta.C.Bounds
+}
+func (ta *TextArea) Error(err error) {
+	ta.EvReg.Emit(TextAreaErrorEventId, err)
+}
 
-// Used externally for dynamic textarea height.
-func (ta *TextArea) CalcStringHeight(width int) int {
-	ta.stringCache.Update(ta.str, width)
-	th := ta.stringCache.Height().Round()
-	// minimum height (ex: empty text)
-	min := ta.LineHeight().Round()
-	if th < min {
-		th = min
+func (ta *TextArea) onContainerCalc() {
+	ta.updateStringCacheWithBoundsChangedCheck()
+}
+func (ta *TextArea) updateStringCacheWithBoundsChangedCheck() {
+	// check if bounds have changed to emit event
+	changed := false
+	offsetIndex := 0
+	if !ta.C.Bounds.Eq(ta.boundsChange) {
+		changed = true
+		ta.boundsChange = ta.C.Bounds
+		offsetIndex = ta.OffsetIndex()
 	}
-	return th
+
+	ta.updateStringCache()
+
+	if changed {
+		// set offset to keep the same first line while resizing
+		ta.SetOffsetIndex(offsetIndex)
+
+		ev := &TextAreaBoundsChangeEvent{ta}
+		ta.EvReg.Emit(TextAreaBoundsChangeEventId, ev)
+	}
 }
 func (ta *TextArea) updateStringCache() {
 	ta.stringCache.Update(ta.str, ta.C.Bounds.Dx())
 }
 func (ta *TextArea) StrHeight() fixed.Int26_6 {
-	return ta.stringCache.Height()
-}
-func (ta *TextArea) Bounds() *image.Rectangle {
-	return &ta.C.Bounds
+	h := ta.stringCache.Height()
+	min := ta.LineHeight()
+	if h < min {
+		h = min
+	}
+	return h
 }
 
-// TODO: deprecated - using strheight
-func (ta *TextArea) TextHeight() fixed.Int26_6 {
-	return ta.stringCache.Height()
+// Used externally for dynamic textarea height.
+func (ta *TextArea) CalcStringHeight(width int) int {
+	ta.stringCache.Update(ta.str, width)
+	return ta.StrHeight().Round()
 }
 
 func (ta *TextArea) paint() {
 	// fill background
 	imageutil.FillRectangle(ta.ui.Image(), &ta.C.Bounds, ta.Colors.Bg)
-
-	ta.updateStringCacheWithOffsetFix()
 
 	selection := ta.getSelection()
 	highlight := !ta.DisableHighlightCursorWord && selection == nil
@@ -120,25 +139,6 @@ func (ta *TextArea) getSelection() *drawutil.Selection {
 	}
 	return nil
 }
-func (ta *TextArea) updateStringCacheWithOffsetFix() {
-	fixOffset := false
-	offsetIndex := 0
-	if ta.C.Bounds.Dx() != ta.offsetIndexWidthChange {
-		ta.offsetIndexWidthChange = ta.C.Bounds.Dx()
-		fixOffset = true
-		offsetIndex = ta.OffsetIndex()
-	}
-
-	ta.updateStringCache()
-
-	if fixOffset {
-		ta.SetOffsetIndex(offsetIndex)
-	}
-}
-
-func (ta *TextArea) Error(err error) {
-	ta.EvReg.Emit(TextAreaErrorEventId, err)
-}
 
 func (ta *TextArea) Str() string {
 	if ta.edit != nil {
@@ -156,6 +156,7 @@ func (ta *TextArea) setStr(s string) {
 	oldBounds := ta.C.Bounds
 	ta.updateStringCache()
 	ta.C.NeedPaint()
+
 	ev := &TextAreaSetTextEvent{ta, oldBounds}
 	ta.EvReg.Emit(TextAreaSetTextEventId, ev)
 }
@@ -169,6 +170,7 @@ func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 		ta.editHistory.ClearQ()
 		ta.setStr(str)
 	} else {
+		// replace string, keeping the undo available
 		ta.EditOpen()
 		ta.EditDelete(0, len(ta.Str()))
 		ta.EditInsert(0, str)
@@ -262,8 +264,8 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 	if v < 0 {
 		v = 0
 	}
-	if v > ta.TextHeight() {
-		v = ta.TextHeight()
+	if v > ta.StrHeight() {
+		v = ta.StrHeight()
 	}
 	if v != ta.offsetY {
 		ta.offsetY = v
@@ -335,31 +337,42 @@ func (ta *TextArea) PointIndexFromOffset(p *image.Point) int {
 	return ta.stringCache.GetIndex(p0)
 }
 
+func (ta *TextArea) PageUp() {
+	if ta.DisablePageUpDown {
+		return
+	}
+	tautil.PageUp(ta)
+}
+func (ta *TextArea) PageDown() {
+	if ta.DisablePageUpDown {
+		return
+	}
+	tautil.PageDown(ta)
+}
+
 func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 	ev := ev0.(*keybmap.ButtonPressEvent)
 	if !ev.Point.In(ta.C.Bounds) {
 		return
 	}
 	ta.buttonPressed = true
-	switch ev.Button.Button {
-	case xproto.ButtonIndex1:
+	switch {
+	case ev.Button.Button1():
 		switch {
 		case ev.Button.Mods.IsShift():
 			tautil.MoveCursorToPoint(ta, ev.Point, true)
 		case ev.Button.Mods.IsNone():
 			tautil.MoveCursorToPoint(ta, ev.Point, false)
 		}
-	case xproto.ButtonIndex4:
-		if !ta.DisableButtonScroll {
+	case ev.Button.Button4():
+		canScroll := !ta.DisablePageUpDown
+		if canScroll {
 			tautil.ScrollUp(ta)
-			ev2 := &TextAreaScrollEvent{ta, true}
-			ta.EvReg.Emit(TextAreaScrollEventId, ev2)
 		}
-	case xproto.ButtonIndex5:
-		if !ta.DisableButtonScroll {
+	case ev.Button.Button5():
+		canScroll := !ta.DisablePageUpDown
+		if canScroll {
 			tautil.ScrollDown(ta)
-			ev2 := &TextAreaScrollEvent{ta, false}
-			ta.EvReg.Emit(TextAreaScrollEventId, ev2)
 		}
 	}
 }
@@ -369,8 +382,7 @@ func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
 	}
 	ta.buttonPressed = false
 	ev := ev0.(*keybmap.ButtonReleaseEvent)
-	switch ev.Button.Button {
-	case xproto.ButtonIndex3: // 2=middle, 3=right
+	if ev.Button.Mods.IsButton(3) {
 		// release must be in the area to run the cmd
 		if ev.Point.In(ta.C.Bounds) {
 			tautil.MoveCursorToPoint(ta, ev.Point, false)
@@ -385,7 +397,7 @@ func (ta *TextArea) onMotionNotify(ev0 xgbutil.EREvent) {
 	}
 	ta.ui.RequestMotionNotify()
 	ev := ev0.(*keybmap.MotionNotifyEvent)
-	if ev.Modifiers.Button1() {
+	if ev.Mods.IsButton(1) {
 		tautil.MoveCursorToPoint(ta, ev.Point, true)
 	}
 }
@@ -397,6 +409,17 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 	k := ev.Key
 	firstKeysym := k.FirstKeysym()
 	switch firstKeysym {
+	case keybmap.XKAltL,
+		keybmap.XKIsoLevel3Shift,
+		keybmap.XKShiftL,
+		keybmap.XKShiftR,
+		keybmap.XKControlL,
+		keybmap.XKControlR,
+		keybmap.XKCapsLock,
+		keybmap.XKNumLock,
+		keybmap.XKSuperL,
+		keybmap.XKInsert:
+		// ignore these
 	case keybmap.XKRight:
 		switch {
 		case k.Mods.IsControlShift():
@@ -462,10 +485,7 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 			tautil.EndOfLine(ta, false)
 		}
 	case keybmap.XKBackspace:
-		switch {
-		case k.Mods.IsNone():
-			tautil.Backspace(ta)
-		}
+		tautil.Backspace(ta)
 	case keybmap.XKDelete:
 		switch {
 		case k.Mods.IsNone():
@@ -474,13 +494,31 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 	case keybmap.XKPageUp:
 		switch {
 		case k.Mods.IsNone():
-			tautil.PageUp(ta)
+			ta.PageUp()
 		}
 	case keybmap.XKPageDown:
 		switch {
 		case k.Mods.IsNone():
-			tautil.PageDown(ta)
+			ta.PageDown()
 		}
+	case keybmap.XKTab:
+		switch {
+		case k.Mods.IsNone():
+			if ta.SelectionOn() {
+				tautil.TabRight(ta)
+			} else {
+				tautil.InsertRune(ta, '\t')
+			}
+		case k.Mods.IsShift():
+			tautil.TabLeft(ta)
+		}
+	case keybmap.XKReturn:
+		switch {
+		case k.Mods.IsNone():
+			tautil.InsertRune(ta, '\n')
+		}
+	case keybmap.XKSpace:
+		tautil.InsertRune(ta, ' ')
 	default:
 		// shortcuts with printable runes
 		switch {
@@ -508,85 +546,47 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 			case 'z':
 				ta.popUndo()
 			}
-		case k.Mods.IsShift():
-			switch firstKeysym {
-			case keybmap.XKTab:
-				tautil.TabLeft(ta)
-			}
-		case k.Mods.IsNone():
-			switch firstKeysym {
-			case keybmap.XKTab:
-				if ta.SelectionOn() {
-					tautil.TabRight(ta)
-				} else {
-					ta.insertKeyRune(k)
-				}
-			default:
-				ta.insertKeyRune(k)
-			}
+		default: // all other modifier combos
+			ta.insertKeyRune(k)
 		}
 	}
 }
 func (ta *TextArea) insertKeyRune(k *keybmap.Key) {
-	// special runes checked from first keysym from keysym table
-	switch k.FirstKeysym() {
-	case keybmap.XKAltL,
-		keybmap.XKIsoLevel3Shift,
-		keybmap.XKShiftL,
-		keybmap.XKShiftR,
-		keybmap.XKControlL,
-		keybmap.XKControlR,
-		keybmap.XKPageUp,
-		keybmap.XKPageDown,
-		keybmap.XKCapsLock,
-		keybmap.XKNumLock,
-		keybmap.XKSuperL:
-		// ignore these
-	case keybmap.XKReturn:
-		tautil.InsertRune(ta, '\n')
-	case keybmap.XKTab:
-		tautil.InsertRune(ta, '\t')
-	case keybmap.XKSpace:
-		tautil.InsertRune(ta, ' ')
+	// print rune from keysym table (takes into consideration the modifiers)
+	ks := k.Keysym()
+	switch ks {
+	case keybmap.XKAsciiTilde:
+		tautil.InsertRune(ta, '~')
+	case keybmap.XKAsciiCircum:
+		tautil.InsertRune(ta, '^')
+	case keybmap.XKAcute:
+		tautil.InsertRune(ta, '´')
+	case keybmap.XKGrave:
+		tautil.InsertRune(ta, '`')
 	default:
-		// print rune from keysym table
-		ks := k.Keysym()
-		switch ks {
-		case keybmap.XKAsciiTilde:
-			tautil.InsertRune(ta, '~')
-		case keybmap.XKAsciiCircum:
-			tautil.InsertRune(ta, '^')
-		case keybmap.XKAcute:
-			tautil.InsertRune(ta, '´')
-		case keybmap.XKGrave:
-			tautil.InsertRune(ta, '`')
-		default:
-			tautil.InsertRune(ta, rune(ks))
-
-			// TODO: prevent stringcache calc for just a rune
-		}
+		tautil.InsertRune(ta, rune(ks))
+		// TODO: prevent stringcache calc for just a rune
 	}
 }
 
 const (
-	TextAreaCmdEventId = iota
-	TextAreaScrollEventId
+	TextAreaErrorEventId = iota
+	TextAreaCmdEventId
 	TextAreaSetTextEventId
 	TextAreaSetOffsetYEventId
-	TextAreaErrorEventId
+	TextAreaBoundsChangeEventId
 )
 
 type TextAreaCmdEvent struct {
 	TextArea *TextArea
-}
-type TextAreaScrollEvent struct {
-	TextArea *TextArea
-	Up       bool
 }
 type TextAreaSetTextEvent struct {
 	TextArea  *TextArea
 	OldBounds image.Rectangle
 }
 type TextAreaSetOffsetYEvent struct {
+	TextArea *TextArea
+}
+type TextAreaBoundsChangeEvent struct {
 	TextArea *TextArea
 }

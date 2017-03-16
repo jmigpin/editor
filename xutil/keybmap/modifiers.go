@@ -4,14 +4,30 @@ import "github.com/BurntSushi/xgb/xproto"
 
 type Modifiers uint16 // key and button mask
 
+// Mod1: Alt
+// Mod2:
+// Mod3: Num lock
+// Mod4: Windows key
+// Mod5: AltGr
+// button1: left
+// button2: middle
+// button3: right
+// button4: wheel up
+// button5: wheel down
+
 // Returns if it contains the modifiers flags.
-func (m Modifiers) On(v uint) bool {
-	return uint(m)&v > 0
+func (m Modifiers) Has(v int) bool {
+	return uint(m)&uint(v) > 0
 }
 
-// Returns if it is equal to the modifiers flags (no other flags are set).
+// Returns true if it is equal to the modifiers flags (no other flags are set).
 func (m Modifiers) Is(v int) bool {
-	return uint(m) == uint(v)
+	m2 := m.clearLock() // ignore lock state
+	return uint(m2) == uint(v)
+}
+
+func (m Modifiers) clearLock() Modifiers {
+	return m &^ xproto.KeyButMaskLock // caps lock
 }
 
 func (m Modifiers) IsNone() bool {
@@ -23,6 +39,9 @@ func (m Modifiers) IsShift() bool {
 func (m Modifiers) IsControl() bool {
 	return m.Is(xproto.KeyButMaskControl)
 }
+func (m Modifiers) IsMod1() bool {
+	return m.Is(xproto.KeyButMaskMod1)
+}
 func (m Modifiers) IsControlShift() bool {
 	return m.Is(xproto.KeyButMaskControl | xproto.KeyButMaskShift)
 }
@@ -33,43 +52,47 @@ func (m Modifiers) IsControlShiftMod1() bool {
 	return m.Is(xproto.KeyButMaskControl | xproto.KeyButMaskShift | xproto.KeyButMaskMod1)
 }
 
-//func (m Modifiers) Shift() bool {
-//return m.On(xproto.KeyButMaskShift)
-//}
-//func (m Modifiers) CapsLock() bool {
-//return m.On(xproto.KeyButMaskLock)
-//}
-//func (m Modifiers) Control() bool {
-//return m.On(xproto.KeyButMaskControl)
-//}
-//func (m Modifiers) Mod1() bool { // Alt
-//return m.On(xproto.KeyButMaskMod1)
-//}
-//func (m Modifiers) Mod2() bool {
-//return m.On(xproto.KeyButMaskMod2)
-//}
-//func (m Modifiers) Mod3() bool { // Num lock
-//return m.On(xproto.KeyButMaskMod3)
-//}
-//func (m Modifiers) Mod4() bool { // Windows key
-//return m.On(xproto.KeyButMaskMod4)
-//}
-//func (m Modifiers) Mod5() bool { // AltGr
-//return m.On(xproto.KeyButMaskMod5)
-//}
+func (m Modifiers) HasShift() bool {
+	return m.Has(xproto.KeyButMaskShift)
+}
+func (m Modifiers) HasControl() bool {
+	return m.Has(xproto.KeyButMaskControl)
+}
+func (m Modifiers) HasMod1() bool {
+	return m.Has(xproto.KeyButMaskMod1)
+}
+func (m Modifiers) HasCapsLock() bool {
+	return m.Has(xproto.KeyButMaskLock)
+}
 
-func (m Modifiers) Button1() bool { // left
-	return m.On(xproto.KeyButMaskButton1)
+func (m Modifiers) IsButtonAnd(b int, flags int) bool {
+	return m.Is(buttonMask(b) | flags)
 }
-func (m Modifiers) Button2() bool { // middle
-	return m.On(xproto.KeyButMaskButton2)
+func (m Modifiers) IsButton(b int) bool {
+	return m.IsButtonAnd(b, 0)
 }
-func (m Modifiers) Button3() bool { // right
-	return m.On(xproto.KeyButMaskButton3)
+func (m Modifiers) IsButtonAndShift(b int) bool {
+	return m.IsButtonAnd(b, xproto.KeyButMaskShift)
 }
-func (m Modifiers) Button4() bool { // wheel up
-	return m.On(xproto.KeyButMaskButton4)
+func (m Modifiers) IsButtonAndControl(b int) bool {
+	return m.IsButtonAnd(b, xproto.KeyButMaskControl)
 }
-func (m Modifiers) Button5() bool { // wheel down
-	return m.On(xproto.KeyButMaskButton5)
+func (m Modifiers) HasButton(b int) bool {
+	return m.Has(buttonMask(b))
+}
+func buttonMask(b int) int {
+	switch b {
+	case 1:
+		return xproto.KeyButMaskButton1
+	case 2:
+		return xproto.KeyButMaskButton2
+	case 3:
+		return xproto.KeyButMaskButton3
+	case 4:
+		return xproto.KeyButMaskButton4
+	case 5:
+		return xproto.KeyButMaskButton5
+	default:
+		panic("button index out of range")
+	}
 }

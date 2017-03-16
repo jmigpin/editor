@@ -85,10 +85,6 @@ func (km *KeybMap) KeysymColumn(keycode xproto.Keycode, column int) xproto.Keysy
 	i := kc*w + column
 	return km.keybMap.Keysyms[i]
 }
-func (km *KeybMap) ModKeysym(keycode xproto.Keycode, mods Modifiers) xproto.Keysym {
-	col := km.modifiersColumn(mods)
-	return km.KeysymColumn(keycode, col)
-}
 func (km *KeybMap) modifiersColumn(mods Modifiers) int {
 	// TODO: rules
 	// https://tronche.com/gui/x/xlib/input/keyboard-encoding.html
@@ -199,6 +195,6 @@ type ButtonReleaseEvent struct {
 	Button *Button
 }
 type MotionNotifyEvent struct {
-	Point     *image.Point
-	Modifiers Modifiers
+	Point *image.Point
+	Mods  Modifiers
 }

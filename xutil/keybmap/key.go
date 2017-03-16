@@ -15,5 +15,6 @@ func (k *Key) FirstKeysym() xproto.Keysym {
 	return k.km.KeysymColumn(k.Keycode, 0)
 }
 func (k *Key) Keysym() xproto.Keysym {
-	return k.km.ModKeysym(k.Keycode, k.Mods)
+	col := k.km.modifiersColumn(k.Mods)
+	return k.km.KeysymColumn(k.Keycode, col)
 }

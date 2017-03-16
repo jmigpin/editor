@@ -10,7 +10,7 @@ type Toolbar struct {
 func NewToolbar(ui *UI) *Toolbar {
 	tb := &Toolbar{TextArea: NewTextArea(ui)}
 	tb.DisableHighlightCursorWord = true
-	tb.DisableButtonScroll = true
+	tb.DisablePageUpDown = true
 
 	fn := &xgbutil.ERCallback{tb.onTextAreaSetText}
 	tb.TextArea.EvReg.Add(TextAreaSetTextEventId, fn)

@@ -87,7 +87,7 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbardata.Part) bool {
 	case "Close":
 		row.Close()
 	case "CloseColumn":
-		row.Col.Cols.RemoveColumnEnsureOne(row.Col)
+		row.Col.Cols.CloseColumnEnsureOne(row.Col)
 	case "Find":
 		s := part.JoinArgsFromIndex(1).Trim()
 		tautil.Find(row.TextArea, s)

@@ -5,7 +5,6 @@ import (
 
 	"golang.org/x/image/math/fixed"
 
-	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xutil/keybmap"
 	"github.com/jmigpin/editor/xutil/xgbutil"
@@ -45,14 +44,14 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
-	// textarea scroll (key based scroll)
-	sb.ta.EvReg.Add(TextAreaScrollEventId,
+	// textarea y jump
+	sb.ta.EvReg.Add(TextAreaSetOffsetYEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
-	// textarea y jump
-	sb.ta.EvReg.Add(TextAreaSetOffsetYEventId,
+	// textarea bounds change
+	sb.ta.EvReg.Add(TextAreaBoundsChangeEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
@@ -60,19 +59,23 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 
 	return sb
 }
+func (sb *Scrollbar) Close() {
+	sb.dereg.UnregisterAll()
+}
 func (sb *Scrollbar) calcPositionAndSize() {
 	// size and position percent (from textArea)
 	ta := sb.ta
 	sp := 1.0
 	pp := 0.0
-	textHeight := ta.TextHeight().Round()
-	if textHeight > 0 {
-		sp = float64(ta.C.Bounds.Dy()) / float64(textHeight)
+	h := ta.StrHeight()
+	if h > 0 {
+		dy := fixed.I(ta.C.Bounds.Dy())
+		sp = float64(dy) / float64(h)
 		if sp > 1 {
 			sp = 1
 		}
-		y := sb.ta.OffsetY().Round()
-		pp = float64(y) / float64(textHeight)
+		y := sb.ta.OffsetY()
+		pp = float64(y) / float64(h)
 	}
 	sb.bar.sizePercent = sp
 	sb.bar.positionPercent = pp
@@ -91,29 +94,10 @@ func (sb *Scrollbar) calcPositionFromPoint(p *image.Point) {
 	sb.bar.positionPercent = float64(py) / float64(height)
 }
 
-//// Scrolling with scroll buttons
-//func (sb *Scrollbar) calcPositionFromScroll(up bool) {
-//mult := 1.0
-//if up {
-//mult = -1
-//}
-//// include last line from previous page
-//lh := sb.ta.LineHeight().Round()
-//th := sb.ta.TextHeight().Round()
-//linep := float64(lh) / float64(th)
-//pp := sb.bar.positionPercent + mult*(sb.bar.sizePercent-linep)
-//if pp < 0 {
-//pp = 0
-//} else if pp > 1 {
-//pp = 1
-//}
-//sb.bar.positionPercent = pp
-//}
-
 func (sb *Scrollbar) setTextareaOffset() {
 	pp := sb.bar.positionPercent
-	textHeight := sb.ta.TextHeight()
-	py := fixed.I(int(pp * float64(textHeight.Round())))
+	h := sb.ta.StrHeight()
+	py := fixed.Int26_6(pp * float64(h))
 	sb.ta.SetOffsetY(py)
 }
 
@@ -143,18 +127,12 @@ func (sb *Scrollbar) onButtonPress(ev0 xgbutil.EREvent) {
 	case ev.Button.Button1():
 		sb.setOrigPad(ev.Point) // keep pad for drag calc
 		sb.calcPositionFromPoint(ev.Point)
-		sb.C.NeedPaint()
 		sb.setTextareaOffset()
-	case ev.Button.Button4(): // scroll up
-		tautil.PageUp(sb.ta)
-		//sb.calcPositionFromScroll(true)
-		//sb.C.NeedPaint()
-		//sb.setTextareaOffset()
-	case ev.Button.Button5(): // scroll down
-		tautil.PageDown(sb.ta)
-		//sb.calcPositionFromScroll(false)
-		//sb.C.NeedPaint()
-		//sb.setTextareaOffset()
+		sb.C.NeedPaint()
+	case ev.Button.Button4(): // wheel up
+		sb.ta.PageUp()
+	case ev.Button.Button5(): // wheel down
+		sb.ta.PageDown()
 	}
 }
 func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {
@@ -163,10 +141,10 @@ func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {
 	}
 	ev := ev0.(*keybmap.MotionNotifyEvent)
 	switch {
-	case ev.Modifiers.Button1():
+	case ev.Mods.HasButton(1):
 		sb.calcPositionFromPoint(ev.Point)
-		sb.C.NeedPaint()
 		sb.setTextareaOffset()
+		sb.C.NeedPaint()
 	}
 	sb.ta.ui.RequestMotionNotify()
 }
@@ -176,11 +154,10 @@ func (sb *Scrollbar) onButtonRelease(ev0 xgbutil.EREvent) {
 	}
 	sb.buttonPressed = false
 	ev := ev0.(*keybmap.ButtonReleaseEvent)
-	switch {
-	case ev.Button.Button1():
+	if ev.Button.Button1() {
 		sb.calcPositionFromPoint(ev.Point)
-		sb.C.NeedPaint()
 		sb.setTextareaOffset()
+		sb.C.NeedPaint()
 	}
 }
 func (sb *Scrollbar) setOrigPad(p *image.Point) {
@@ -195,7 +172,4 @@ func (sb *Scrollbar) setOrigPad(p *image.Point) {
 		sb.bar.origPad.X = r.Dx() / 2
 		sb.bar.origPad.Y = -r.Dy() / 2
 	}
-}
-func (sb *Scrollbar) Close() {
-	sb.dereg.UnregisterAll()
 }

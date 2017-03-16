@@ -62,17 +62,33 @@ func (cols *Columns) insertColumn(col *Column, index int) {
 	cols.C.CalcChildsBounds()
 	cols.C.NeedPaint()
 }
-func (cols *Columns) RemoveColumnEnsureOne(col *Column) {
-	cols.RemoveColumn(col)
-	// ensure at least one column
+
+// Used by restore session.
+func (cols *Columns) CloseAllAndOpenN(n int) {
+	// close all columns
+	for len(cols.Cols) > 0 {
+		cols.Cols[0].Close()
+	}
+	// ensure one column
+	if n <= 1 {
+		n = 1
+	}
+	// n new columns
+	for ; n > 0; n-- {
+		_ = cols.NewColumn()
+	}
+}
+func (cols *Columns) CloseColumnEnsureOne(col *Column) {
+	col.Close()
+	// ensure one column
 	if len(cols.Cols) == 0 {
 		_ = cols.NewColumn()
 	}
 }
-func (cols *Columns) RemoveColumn(col *Column) {
+func (cols *Columns) removeColumn(col *Column) {
 	// close all rows
-	for _, row := range col.Rows {
-		row.Close()
+	for len(col.Rows) > 0 {
+		col.Rows[0].Close()
 	}
 
 	i, ok := cols.columnIndex(col)
@@ -101,22 +117,26 @@ func (cols *Columns) resizeColumn(col *Column, px int) {
 	}
 	colsB := col.Cols.C.Bounds
 	ep := float64(px-cols.C.Bounds.Min.X) / float64(colsB.Dx())
+
+	// minimum size
+	min := float64(10) / float64(colsB.Dx())
+
 	// limit to siblings column end percent
 	if ci == 0 {
-		if ep < 0 {
-			ep = 0
+		if ep < min {
+			ep = min
 		}
 	}
 	if ci > 0 {
 		u := &cols.Cols[ci-1].C.Style.EndPercent
-		if *u != nil && ep < **u {
-			ep = **u
+		if *u != nil && ep < **u+min {
+			ep = **u + min
 		}
 	}
 	if ci < len(cols.Cols)-1 {
 		u := &cols.Cols[ci+1].C.Style.EndPercent
-		if *u != nil && ep > **u {
-			ep = **u
+		if *u != nil && ep > **u-min {
+			ep = **u - min
 		}
 	}
 

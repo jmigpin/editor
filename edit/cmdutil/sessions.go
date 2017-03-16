@@ -188,24 +188,21 @@ func buildSession(ed Editori) *Session {
 	return &s
 }
 func restoreSession(ed Editori, s *Session) {
-	// close current session
 	cols := ed.UI().Layout.Cols
-	for len(cols.Cols) > 0 {
-		cols.RemoveColumn(cols.Cols[0])
-	}
-	// restore session
-	// clear toolbar toolbar string
+
+	// layout toolbar
 	ed.UI().Layout.Toolbar.SetStrClear(s.LayoutToolbarText, true, true)
-	// create columns first
-	for i, _ := range s.Columns {
-		_ = cols.NewColumn()
-		if i > 0 {
-			endp := s.Columns[i-1].End
-			cols.Cols[i-1].C.Style.EndPercent = &endp
-		}
+
+	// close all current columns and open n new
+	cols.CloseAllAndOpenN(len(s.Columns))
+	// setup columns sizes (end percents)
+	for i, c := range s.Columns {
+		endp := c.End
+		cols.Cols[i].C.Style.EndPercent = &endp
 	}
-	// calc areas since the columns ends had to be set
+	// calc areas since the columns ends have been set
 	cols.C.CalcChildsBounds()
+
 	// create the rows
 	for i, c := range s.Columns {
 		col := cols.Cols[i]
@@ -222,7 +219,7 @@ func restoreSession(ed Editori, s *Session) {
 				continue
 			}
 
-			row.TextArea.SetStrClear(content, false, true)
+			row.TextArea.SetStrClear(content, true, true)
 			row.Square.SetDirty(false)
 			row.TextArea.SetCursorIndex(r.TaCursorIndex)
 			row.TextArea.SetOffsetIndex(r.TaOffsetIndex)

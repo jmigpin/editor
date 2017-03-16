@@ -38,6 +38,10 @@ func NewColumn(cols *Columns) *Column {
 
 	return col
 }
+func (col *Column) Close() {
+	col.Cols.removeColumn(col)
+	col.Square.Close()
+}
 func (col *Column) paint() {
 	if len(col.Rows) == 0 {
 		col.Cols.Layout.UI.FillRectangle(&col.C.Bounds, color.White)
@@ -108,18 +112,18 @@ func (col *Column) rowIndex(row *Row) (int, bool) {
 func (col *Column) onSquareButtonRelease(ev0 xgbutil.EREvent) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
-	case ev.Button.Button1():
+	case ev.Button.Mods.IsButton(1):
 		col.Cols.MoveColumnToPoint(col, ev.Point)
-	case ev.Button.Button2():
+	case ev.Button.Mods.IsButton(2):
 		if ev.Point.In(col.Square.C.Bounds) {
-			col.Cols.RemoveColumnEnsureOne(col)
+			col.Cols.CloseColumnEnsureOne(col)
 		}
 	}
 }
 func (col *Column) onSquareMotionNotify(ev0 xgbutil.EREvent) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
-	case ev.Modifiers.Button3():
+	case ev.Mods.IsButton(3):
 		p2 := ev.Point.Add(col.Square.PressPointPad)
 		col.Cols.resizeColumn(col, p2.X)
 	}
