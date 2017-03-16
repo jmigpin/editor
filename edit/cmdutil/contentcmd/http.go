@@ -9,7 +9,7 @@ import (
 )
 
 // Opens http/https lines in x-www-browser.
-func http(ed cmdutil.Editori, row *ui.Row, s string) bool {
+func http(ed cmdutil.Editorer, row *ui.Row, s string) bool {
 	u, err := url.Parse(s)
 	if err != nil {
 		return false

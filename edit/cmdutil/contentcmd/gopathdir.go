@@ -10,7 +10,7 @@ import (
 )
 
 // Get strings enclosed in quotes, like an import line in a go file, and open the file if found in GOROOT/GOPATH directories.
-func goPathDir(ed cmdutil.Editori, row *ui.Row, s string) bool {
+func goPathDir(ed cmdutil.Editorer, row *ui.Row, s string) bool {
 	gopath := os.Getenv("GOPATH")
 	a := strings.Split(gopath, ":")
 	a = append(a, os.Getenv("GOROOT"))

@@ -32,7 +32,7 @@ func sessionFilename() string {
 	return path.Join(home, ".editor_sessions.json")
 }
 
-func SaveSession(ed Editori, part *toolbardata.Part) {
+func SaveSession(ed Editorer, part *toolbardata.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("savesession: missing session name"))
 		return
@@ -67,7 +67,7 @@ func SaveSession(ed Editori, part *toolbardata.Part) {
 		return
 	}
 }
-func OpenSession(ed Editori, part *toolbardata.Part) {
+func OpenSession(ed Editorer, part *toolbardata.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("opensession: missing session name"))
 		return
@@ -75,7 +75,7 @@ func OpenSession(ed Editori, part *toolbardata.Part) {
 	sessionName := part.Args[1].Trim()
 	OpenSessionFromString(ed, sessionName)
 }
-func OpenSessionFromString(ed Editori, sessionName string) {
+func OpenSessionFromString(ed Editorer, sessionName string) {
 	ss, err := readSessionsFromDisk()
 	if err != nil {
 		ed.Error(err)
@@ -89,7 +89,7 @@ func OpenSessionFromString(ed Editori, sessionName string) {
 	}
 	ed.Error(fmt.Errorf("opensession: session not found: %v", sessionName))
 }
-func DeleteSession(ed Editori, part *toolbardata.Part) {
+func DeleteSession(ed Editorer, part *toolbardata.Part) {
 	if len(part.Args) != 2 {
 		ed.Error(fmt.Errorf("deletesession: missing session name"))
 		return
@@ -118,7 +118,7 @@ func DeleteSession(ed Editori, part *toolbardata.Part) {
 		return
 	}
 }
-func ListSessions(ed Editori) {
+func ListSessions(ed Editorer) {
 	row := ed.FindRowOrCreate("+Sessions")
 	s := ""
 	ss, err := readSessionsFromDisk()
@@ -162,7 +162,7 @@ func readSessionsFromDisk() (*Sessions, error) {
 	return &ss, err
 }
 
-func buildSession(ed Editori) *Session {
+func buildSession(ed Editorer) *Session {
 	s := Session{LayoutToolbarText: ed.UI().Layout.Toolbar.Str()}
 	for _, c := range ed.UI().Layout.Cols.Cols {
 		// truncate for a shorter string
@@ -187,7 +187,7 @@ func buildSession(ed Editori) *Session {
 	}
 	return &s
 }
-func restoreSession(ed Editori, s *Session) {
+func restoreSession(ed Editorer, s *Session) {
 	cols := ed.UI().Layout.Cols
 
 	// layout toolbar

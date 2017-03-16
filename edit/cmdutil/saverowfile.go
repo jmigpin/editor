@@ -6,18 +6,18 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func SaveRowsFiles(ed Editori) {
+func SaveRowsFiles(ed Editorer) {
 	for _, c := range ed.UI().Layout.Cols.Cols {
 		for _, r := range c.Rows {
 			saveRowFile2(ed, r, true)
 		}
 	}
 }
-func SaveRowFile(ed Editori, row *ui.Row) {
+func SaveRowFile(ed Editorer, row *ui.Row) {
 	saveRowFile2(ed, row, false)
 }
 
-func saveRowFile2(ed Editori, row *ui.Row, tolerant bool) {
+func saveRowFile2(ed Editorer, row *ui.Row, tolerant bool) {
 	tsd := ed.RowToolbarStringData(row)
 	// file might not exist yet, so getting from filepath
 	filename := tsd.FirstPartFilepath()

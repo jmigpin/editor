@@ -8,7 +8,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func Cmd(ed cmdutil.Editori, row *ui.Row) {
+func Cmd(ed cmdutil.Editorer, row *ui.Row) {
 	ta := row.TextArea
 	// space limited
 	s := expandLeftRightUntilSpace(ta.Str(), ta.CursorIndex())

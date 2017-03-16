@@ -7,7 +7,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func FilemanagerShortcut(ed Editori, row *ui.Row) {
+func FilemanagerShortcut(ed Editorer, row *ui.Row) {
 	dir := ""
 	tsd := ed.RowToolbarStringData(row)
 	d, ok := tsd.FirstPartDirectory()

@@ -8,7 +8,7 @@ import (
 	"github.com/jmigpin/editor/ui/tautil"
 )
 
-func Replace(ed Editori, row *ui.Row, part *toolbardata.Part) {
+func Replace(ed Editorer, row *ui.Row, part *toolbardata.Part) {
 	a := part.Args[1:]
 	if len(a) != 2 {
 		ed.Error(fmt.Errorf("replace: expecting 2 arguments"))

@@ -11,7 +11,7 @@ import (
 	"github.com/jmigpin/editor/xutil/xgbutil"
 )
 
-func SetupDragNDrop(ed Editori) {
+func SetupDragNDrop(ed Editorer) {
 	h := &dndHandler{ed}
 	ui := ed.UI()
 	ui.Win.EvReg.Add(dragndrop.ErrorEventId,
@@ -23,7 +23,7 @@ func SetupDragNDrop(ed Editori) {
 }
 
 type dndHandler struct {
-	ed Editori
+	ed Editorer
 }
 
 func (h *dndHandler) onError(ev0 xgbutil.EREvent) {

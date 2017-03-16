@@ -5,8 +5,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-// TODO: rename Editorer?
-type Editori interface {
+type Editorer interface {
 	Error(error)
 	UI() *ui.UI
 	FindRow(name string) (*ui.Row, bool)

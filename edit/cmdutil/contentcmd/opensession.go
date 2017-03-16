@@ -5,7 +5,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func openSession(ed cmdutil.Editori, row *ui.Row, s string) bool {
+func openSession(ed cmdutil.Editorer, row *ui.Row, s string) bool {
 	if s != "OpenSession" {
 		return false
 	}

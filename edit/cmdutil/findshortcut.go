@@ -10,7 +10,7 @@ import (
 )
 
 // Search/add the toolbar find command and warps the pointer to it.
-func FindShortcut(ed Editori, row *ui.Row) {
+func FindShortcut(ed Editorer, row *ui.Row) {
 	// check if there is a selection in the textarea
 	searchStr := ""
 	if row.TextArea.SelectionOn() {

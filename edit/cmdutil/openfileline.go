@@ -7,7 +7,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func OpenFileLineAtCol(ed Editori, filename string, line int, col *ui.Column) {
+func OpenFileLineAtCol(ed Editorer, filename string, line int, col *ui.Column) {
 	row, err := ed.FindRowOrCreateInColFromFilepath(filename, col)
 	if err != nil {
 		ed.Error(err)

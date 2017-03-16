@@ -11,7 +11,7 @@ import (
 )
 
 // Opens filename at line, like in compiler errors <string:int> format.
-func fileLine(ed cmdutil.Editori, row *ui.Row, scmd string) bool {
+func fileLine(ed cmdutil.Editorer, row *ui.Row, scmd string) bool {
 	// filename
 	a := strings.Split(scmd, ":")
 	filename := a[0]
