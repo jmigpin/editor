@@ -49,7 +49,7 @@ ctrl+shift+d: uncomment<br>
 
 ### Row
 ctrl+s: save file<br>
-ctrl+f: shortcut to "Find"<br>
+ctrl+f: warp pointer to "Find" cmd in row toolbar<br>
 ctrl+shift+f: shortcut to open a filemanager in the directory of the current row<br>
 
 ## Button shortcuts
@@ -64,7 +64,7 @@ shift+button1: move cursor to point adding to selection<br>
 button1/drag: move row to point<br>
 button2: close row<br>
 button3/drag: resize column<br>
-crl+button1/drag: move column (where the row belongs) to point<br>
+ctrl+button1/drag: move row column to point<br>
 
 ### Column top right square
 button2: close column<br>
@@ -84,12 +84,13 @@ ReloadAll: reloads all filepaths<br>
 ReloadAllFiles: reloads all filepaths that are files<br>
 Exit: exits the program<br>
 
-Note: Some row commands work on the layout toolbar because they act on the current active row (ex: Find, Replace).
+Note: Some row commands work from the layout toolbar because they act on the current active row (ex: Find, Replace).
 
 ### Row toolbar commands
 Save: save file<br>
-Close: close row<br>
 Reload: reload content<br>
+Close: close row<br>
+CloseColumn: closes row column<br>
 Find: find string (ignores case)<br>
 GotoLine \<num\>: goes to line number<br>
 Replace \<old\> \<new\>: replaces old string with new<br>
