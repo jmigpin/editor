@@ -1,14 +1,13 @@
 package xutil
 
 import (
-	"fmt"
 	"image"
-	"io/ioutil"
 	"log"
 
 	"github.com/jmigpin/editor/xutil/copypaste"
 	"github.com/jmigpin/editor/xutil/dragndrop"
 	"github.com/jmigpin/editor/xutil/keybmap"
+	"github.com/jmigpin/editor/xutil/wmprotocols"
 	"github.com/jmigpin/editor/xutil/xgbutil"
 
 	"github.com/BurntSushi/xgb"
@@ -16,17 +15,19 @@ import (
 )
 
 type Window struct {
-	Conn    *xgb.Conn
-	Window  xproto.Window
-	Screen  *xproto.ScreenInfo
-	GCtx    xproto.Gcontext
-	EvReg   *xgbutil.EventRegister
-	Dnd     *dragndrop.Dnd
-	Paste   *copypaste.Paste
-	Copy    *copypaste.Copy
-	Cursors *Cursors
-	KeybMap *keybmap.KeybMap
-	ShmWrap *xgbutil.ShmWrap
+	Conn          *xgb.Conn
+	Window        xproto.Window
+	Screen        *xproto.ScreenInfo
+	GCtx          xproto.Gcontext
+	EvReg         *xgbutil.EventRegister
+	Dnd           *dragndrop.Dnd
+	Paste         *copypaste.Paste
+	Copy          *copypaste.Copy
+	Cursors       *Cursors
+	KeybMap       *keybmap.KeybMap
+	ShmWrap       *xgbutil.ShmWrap
+	stopEventLoop bool
+	connClosed    bool
 }
 
 type Event interface{}
@@ -49,7 +50,7 @@ func NewWindow() (*Window, error) {
 }
 func (win *Window) init() error {
 	// disable xgb logger that prints to stderr
-	xgb.Logger = log.New(ioutil.Discard, "", 0)
+	//xgb.Logger = log.New(ioutil.Discard, "", 0)
 
 	si := xproto.Setup(win.Conn)
 	win.Screen = si.DefaultScreen(win.Conn)
@@ -104,8 +105,6 @@ func (win *Window) init() error {
 	var gvalues []uint32
 	_ = xproto.CreateGC(win.Conn, win.GCtx, drawable, gmask, gvalues)
 
-	// extensions
-
 	k, err := keybmap.NewKeybMap(win.Conn)
 	if err != nil {
 		return err
@@ -145,21 +144,44 @@ func (win *Window) init() error {
 
 	win.SetWindowName("Editor")
 
-	// event handlers
 	win.EvReg = xgbutil.NewEventRegister()
+
+	// setup extensions to use event register
 	win.Dnd.SetupEventRegister(win.EvReg)
 	win.KeybMap.SetupEventRegister(win.EvReg)
 	win.Paste.SetupEventRegister(win.EvReg)
 	win.Copy.SetupEventRegister(win.EvReg)
 
+	_, err = wmprotocols.NewWMP(win.Conn, win.Window, win.EvReg)
+	if err != nil {
+		return err
+	}
+
+	// handle error events
+	win.EvReg.Add(xgbutil.ConnectionClosedEventId,
+		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
+			log.Printf("win ev: conn closed %+v", ev)
+			win.connClosed = true
+			win.stopEventLoop = true
+		}})
+	win.EvReg.Add(xgbutil.XErrorEventId,
+		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
+			log.Printf("win ev: err %v", ev)
+			win.connClosed = true
+			win.stopEventLoop = true
+		}})
+
 	return nil
 }
 func (win *Window) Close() {
+	win.stopEventLoop = true
 	err := win.ShmWrap.Close()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
-	win.Conn.Close()
+	if !win.connClosed {
+		win.Conn.Close()
+	}
 }
 func (win *Window) SetWindowName(str string) {
 	b := []byte(str)
@@ -188,7 +210,6 @@ func (win *Window) WarpPointer(p *image.Point) {
 	if reply.Focus != win.Window {
 		return
 	}
-	// warp pointer
 	_ = xproto.WarpPointer(
 		win.Conn,
 		xproto.WindowNone,
@@ -210,5 +231,5 @@ func (win *Window) QueryPointer() (*image.Point, bool) {
 	return &image.Point{x, y}, true
 }
 func (win *Window) EventLoop() {
-	xgbutil.EventLoop(win.Conn, win.EvReg)
+	xgbutil.EventLoop(win.Conn, win.EvReg, &win.stopEventLoop)
 }

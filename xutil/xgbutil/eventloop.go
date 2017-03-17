@@ -17,8 +17,11 @@ const (
 	// 1200+: dragndrop events
 )
 
-func EventLoop(conn *xgb.Conn, er *EventRegister) {
+func EventLoop(conn *xgb.Conn, er *EventRegister, stop *bool) {
 	for {
+		if *stop {
+			break
+		}
 		ev, xerr := conn.PollForEvent()
 		if ev == nil && xerr == nil {
 			er.Emit(QueueEmptyEventId, nil)
@@ -26,11 +29,12 @@ func EventLoop(conn *xgb.Conn, er *EventRegister) {
 			ev, xerr = conn.WaitForEvent()
 			if ev == nil && xerr == nil {
 				er.Emit(ConnectionClosedEventId, nil)
-				break
+				//break
 			}
 		}
 		if xerr != nil {
 			er.Emit(XErrorEventId, xerr)
+			//break
 		} else {
 			//log.Printf("event: %#v", ev)
 			er.Emit(XgbEventId(ev), ev)

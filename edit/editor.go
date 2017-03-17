@@ -16,6 +16,7 @@ import (
 	"github.com/jmigpin/editor/edit/cmdutil/contentcmd"
 	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/xutil/wmprotocols"
 	"github.com/jmigpin/editor/xutil/xgbutil"
 
 	"github.com/howeyc/fsnotify"
@@ -39,11 +40,20 @@ func NewEditor() (*Editor, error) {
 		return nil, err
 	}
 	ed.ui = ui0
+
+	// close editor when the window is deleted
+	ed.ui.Win.EvReg.Add(wmprotocols.DeleteWindowEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			ed.Close()
+		}})
+
+	// setup layout toolbar to execute commands
 	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
 		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
 			ToolbarCmdFromLayout(ed, ed.ui.Layout.Toolbar.TextArea)
 		}})
 
+	// setup drop support (files, dirs, ...) from other applications
 	cmdutil.SetupDragNDrop(ed)
 
 	fw, err := NewFilesWatcher()
@@ -131,7 +141,6 @@ func (ed *Editor) Close() {
 	ed.fw.Close()
 	ed.ui.Close()
 }
-
 func (ed *Editor) UI() *ui.UI {
 	return ed.ui
 }
