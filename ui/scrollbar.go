@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image"
-	"image/color"
 
 	"golang.org/x/image/math/fixed"
 
@@ -57,11 +56,11 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
-	// textarea set cursor index
-	sb.ta.EvReg.Add(TextAreaSetCursorIndexEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			sb.C.NeedPaint()
-		}})
+	//// textarea set cursor index
+	//sb.ta.EvReg.Add(TextAreaSetCursorIndexEventId,
+	//&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+	//sb.C.NeedPaint()
+	//}})
 
 	return sb
 }
@@ -123,17 +122,17 @@ func (sb *Scrollbar) paint() {
 	sb.ta.ui.FillRectangle(&r2, &ScrollbarFgColor)
 	sb.bar.bounds = r2
 
-	// cursor index
-	cip := sb.ta.stringCache.GetPoint(sb.ta.CursorIndex())
-	h := sb.ta.StrHeight()
-	percent := float64(cip.Y) / float64(h)
-	sy := int(percent * float64(sb.C.Bounds.Dy()))
-	r3 := sb.C.Bounds
-	r3.Min.Y += sy
-	r3.Max.Y = r3.Min.Y + 1
-	r3.Min.X += r3.Dx() / 2
-	r3 = r3.Intersect(sb.C.Bounds)
-	sb.ta.ui.FillRectangle(&r3, color.Black)
+	//// cursor index
+	//cip := sb.ta.stringCache.GetPoint(sb.ta.CursorIndex())
+	//h := sb.ta.StrHeight()
+	//percent := float64(cip.Y) / float64(h)
+	//sy := int(percent * float64(sb.C.Bounds.Dy()))
+	//r3 := sb.C.Bounds
+	//r3.Min.Y += sy
+	//r3.Max.Y = r3.Min.Y + 1
+	//r3.Min.X += r3.Dx() / 2
+	//r3 = r3.Intersect(sb.C.Bounds)
+	//sb.ta.ui.FillRectangle(&r3, color.Black)
 }
 func (sb *Scrollbar) onButtonPress(ev0 xgbutil.EREvent) {
 	ev := ev0.(*keybmap.ButtonPressEvent)
