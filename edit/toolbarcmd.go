@@ -69,7 +69,8 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool 
 	case "ReloadAllFiles":
 		cmdutil.ReloadRowsFiles(ed)
 	case "NewRow":
-		cmdutil.NewRow(ed)
+		row := ed.NewRow(ed.ActiveColumn())
+		row.Square.WarpPointer()
 	default:
 		return false
 	}
@@ -94,12 +95,6 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbardata.Part) bool {
 	case "GotoLine":
 		s := part.JoinArgsFromIndex(1).Trim()
 		tautil.GotoLine(row.TextArea, s)
-	case "Cut":
-		tautil.Cut(row.TextArea)
-	case "Copy":
-		tautil.Copy(row.TextArea)
-	case "Paste":
-		tautil.Paste(row.TextArea)
 	case "Replace":
 		cmdutil.Replace(ed, row, part)
 	case "Stop":
