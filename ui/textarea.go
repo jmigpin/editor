@@ -22,8 +22,7 @@ type TextArea struct {
 	editHistory   *tautil.EditHistory
 	edit          *tautil.EditHistoryEdit
 	buttonPressed bool
-	//widthChange   int
-	boundsChange image.Rectangle
+	boundsChange  image.Rectangle
 
 	str         string
 	cursorIndex int
@@ -232,6 +231,9 @@ func (ta *TextArea) SetCursorIndex(v int) {
 	if v != ta.cursorIndex {
 		ta.cursorIndex = v
 		ta.C.NeedPaint()
+
+		ev := &TextAreaSetCursorIndexEvent{ta}
+		ta.EvReg.Emit(TextAreaSetCursorIndexEventId, ev)
 	}
 }
 
@@ -270,6 +272,7 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 	if v != ta.offsetY {
 		ta.offsetY = v
 		ta.C.NeedPaint()
+
 		ev := &TextAreaSetOffsetYEvent{ta}
 		ta.EvReg.Emit(TextAreaSetOffsetYEventId, ev)
 	}
@@ -575,6 +578,7 @@ const (
 	TextAreaSetTextEventId
 	TextAreaSetOffsetYEventId
 	TextAreaBoundsChangeEventId
+	TextAreaSetCursorIndexEventId
 )
 
 type TextAreaCmdEvent struct {
@@ -588,5 +592,8 @@ type TextAreaSetOffsetYEvent struct {
 	TextArea *TextArea
 }
 type TextAreaBoundsChangeEvent struct {
+	TextArea *TextArea
+}
+type TextAreaSetCursorIndexEvent struct {
 	TextArea *TextArea
 }
