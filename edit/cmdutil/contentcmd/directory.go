@@ -8,9 +8,11 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func directory(ed cmdutil.Editorer, row *ui.Row, cmd string) bool {
-	p := cmd
-	if !path.IsAbs(cmd) {
+func directory(ed cmdutil.Editorer, row *ui.Row, p string) bool {
+	if p == "" {
+		return false
+	}
+	if !path.IsAbs(p) {
 		tsd := ed.RowToolbarStringData(row)
 		d, ok := tsd.FirstPartDirectory()
 		if ok {

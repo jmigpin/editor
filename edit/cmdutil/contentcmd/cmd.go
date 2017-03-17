@@ -24,9 +24,6 @@ func Cmd(ed cmdutil.Editorer, row *ui.Row) {
 	if ok := http(ed, row, s); ok {
 		return
 	}
-	if ok := goPathDir(ed, row, s); ok {
-		return
-	}
 	// space or quote limited
 	s2 := expandLeftRightUntilSpaceOrQuote(ta.Str(), ta.CursorIndex())
 	if ok := goPathDir(ed, row, s2); ok {
