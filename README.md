@@ -50,7 +50,8 @@ ctrl+shift+d: uncomment<br>
 ### Row
 ctrl+s: save file<br>
 ctrl+f: warp pointer to "Find" cmd in row toolbar<br>
-ctrl+shift+f: shortcut to open a filemanager in the directory of the current row<br>
+ctrl+shift+f: open a filemanager in the directory of the current row<br>
+ctrl+shift+d: if the row has a file, open a row with file directory list<br>
 
 ## Button shortcuts
 ### Textarea

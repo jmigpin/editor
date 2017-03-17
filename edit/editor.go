@@ -236,6 +236,8 @@ func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
 		cmdutil.FindShortcut(ed, ev.Row)
 	case m.IsControlShift() && fks == 'f':
 		cmdutil.FilemanagerShortcut(ed, ev.Row)
+	case m.IsControlShift() && fks == 'd':
+		cmdutil.OpenRowDirectory(ed, ev.Row)
 	}
 }
 func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
