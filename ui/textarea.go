@@ -169,7 +169,7 @@ func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 		ta.editHistory.ClearQ()
 		ta.setStr(str)
 	} else {
-		// replace string, keeping the undo available
+		// replace string with edit to allow undo
 		ta.EditOpen()
 		ta.EditDelete(0, len(ta.Str()))
 		ta.EditInsert(0, str)
@@ -293,7 +293,7 @@ func (ta *TextArea) MakeIndexVisible(index int) {
 	y1 := y0 + fixed.I(ta.C.Bounds.Dy())
 	p0 := ta.stringCache.GetPoint(index).Y
 	p1 := p0 + ta.LineHeight()
-	if p0 >= y0 && p1 < y1 {
+	if p0 >= y0 && p1 <= y1 {
 		return
 	}
 	// set at half bounds
@@ -569,7 +569,6 @@ func (ta *TextArea) insertKeyRune(k *keybmap.Key) {
 		tautil.InsertRune(ta, '`')
 	default:
 		tautil.InsertRune(ta, rune(ks))
-		// TODO: prevent stringcache calc for just a rune
 	}
 }
 

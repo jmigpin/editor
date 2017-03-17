@@ -56,7 +56,10 @@ func MoveCursorDown(ta Texta, sel bool) {
 	ta.SetCursorIndex(i)
 
 	// ajust offset if it becomes not visible
-	y1 := (p.Y + ta.LineHeight() - ta.OffsetY()).Round()
+	// need to get point again to have the cursor with limits checked
+	p = ta.IndexPoint(ta.CursorIndex())
+	p.Y += ta.LineHeight()
+	y1 := (p.Y - ta.OffsetY()).Round()
 	if y1 > ta.Bounds().Dy() {
 		// push offset one line down
 		ta.SetOffsetY(ta.OffsetY() + ta.LineHeight())
