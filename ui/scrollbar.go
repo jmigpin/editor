@@ -113,8 +113,8 @@ func (sb *Scrollbar) paint() {
 	// bar
 	r := sb.C.Bounds
 	size := int(float64(r.Dy()) * sb.bar.sizePercent)
-	if size < 3 { // minimum size
-		size = 3
+	if size < 7 { // minimum size
+		size = 7
 	}
 	r2 := r
 	r2.Min.Y += int(float64(r.Dy()) * sb.bar.positionPercent)

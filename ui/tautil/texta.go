@@ -24,6 +24,9 @@ type Texta interface {
 	SetOffsetY(v fixed.Int26_6)
 	StrHeight() fixed.Int26_6
 	Bounds() *image.Rectangle
+	LineHeight() fixed.Int26_6
+	IndexPoint(int) *fixed.Point26_6
+	PointIndex(*fixed.Point26_6) int
 
 	SelectionOn() bool
 	SetSelectionOn(bool)
@@ -34,10 +37,4 @@ type Texta interface {
 
 	RequestClipboardString() (string, error)
 	SetClipboardString(string)
-
-	// used in: movecursor up/down, text area scroll
-	LineHeight() fixed.Int26_6
-	IndexPoint266(int) *fixed.Point26_6
-	Point266Index(*fixed.Point26_6) int
-	PointIndexFromOffset(*image.Point) int
 }

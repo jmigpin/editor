@@ -1,6 +1,10 @@
 package tautil
 
-import "image"
+import (
+	"image"
+
+	"github.com/jmigpin/editor/drawutil"
+)
 
 func MoveCursorRight(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
@@ -9,6 +13,7 @@ func MoveCursorRight(ta Texta, sel bool) {
 		return
 	}
 	ta.SetCursorIndex(i)
+	ta.MakeIndexVisible(ta.CursorIndex())
 }
 func MoveCursorLeft(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
@@ -17,25 +22,43 @@ func MoveCursorLeft(ta Texta, sel bool) {
 		return
 	}
 	ta.SetCursorIndex(i)
+	ta.MakeIndexVisible(ta.CursorIndex())
 }
 
 func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
 	updateSelectionState(ta, sel)
-	index := ta.PointIndexFromOffset(p)
+	p2 := p.Sub(ta.Bounds().Min)
+	p3 := drawutil.PointToPoint266(&p2)
+	p3.Y += ta.OffsetY()
+	index := ta.PointIndex(p3)
 	ta.SetCursorIndex(index)
 }
 
 func MoveCursorUp(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
-	p := ta.IndexPoint266(ta.CursorIndex())
+	p := ta.IndexPoint(ta.CursorIndex())
 	p.Y -= ta.LineHeight()
-	i := ta.Point266Index(p)
+	i := ta.PointIndex(p)
 	ta.SetCursorIndex(i)
+
+	// ajust offset if it becomes not visible
+	y1 := (p.Y - ta.OffsetY()).Round()
+	if y1 < 0 {
+		// push offset one line up
+		ta.SetOffsetY(ta.OffsetY() - ta.LineHeight())
+	}
 }
 func MoveCursorDown(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
-	p := ta.IndexPoint266(ta.CursorIndex())
+	p := ta.IndexPoint(ta.CursorIndex())
 	p.Y += ta.LineHeight()
-	i := ta.Point266Index(p)
+	i := ta.PointIndex(p)
 	ta.SetCursorIndex(i)
+
+	// ajust offset if it becomes not visible
+	y1 := (p.Y + ta.LineHeight() - ta.OffsetY()).Round()
+	if y1 > ta.Bounds().Dy() {
+		// push offset one line down
+		ta.SetOffsetY(ta.OffsetY() + ta.LineHeight())
+	}
 }

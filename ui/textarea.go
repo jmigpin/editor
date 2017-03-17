@@ -288,9 +288,18 @@ func (ta *TextArea) SetOffsetIndex(i int) {
 }
 
 func (ta *TextArea) MakeIndexVisible(index int) {
-	p := ta.stringCache.GetPoint(index)
+	// is visible
+	y0 := ta.OffsetY()
+	y1 := y0 + fixed.I(ta.C.Bounds.Dy())
+	p0 := ta.stringCache.GetPoint(index).Y
+	p1 := p0 + ta.LineHeight()
+	if p0 >= y0 && p1 < y1 {
+		return
+	}
+	// set at half bounds
+	//p0 := ta.stringCache.GetPoint(index)
 	half := fixed.I(ta.C.Bounds.Dy() / 2)
-	offsetY := p.Y - half
+	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
 }
 func (ta *TextArea) MakeCursorVisibleAndWarpPointerToCursor() {
@@ -325,19 +334,11 @@ func (ta *TextArea) LineHeight() fixed.Int26_6 {
 	fm := ta.ui.FontFace().Face.Metrics()
 	return drawutil.LineHeight(&fm)
 }
-func (ta *TextArea) IndexPoint266(i int) *fixed.Point26_6 {
+func (ta *TextArea) IndexPoint(i int) *fixed.Point26_6 {
 	return ta.stringCache.GetPoint(i)
 }
-func (ta *TextArea) Point266Index(p *fixed.Point26_6) int {
+func (ta *TextArea) PointIndex(p *fixed.Point26_6) int {
 	return ta.stringCache.GetIndex(p)
-}
-
-// Drawn area point index.
-func (ta *TextArea) PointIndexFromOffset(p *image.Point) int {
-	p0i := p.Sub(ta.C.Bounds.Min)
-	p0 := drawutil.PointToPoint266(&p0i)
-	p0.Y += ta.offsetY
-	return ta.stringCache.GetIndex(p0)
 }
 
 func (ta *TextArea) PageUp() {
