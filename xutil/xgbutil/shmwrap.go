@@ -20,26 +20,6 @@ type ShmWrap struct {
 	simg     *ShmWrapImage
 }
 
-type ShmWrapImage struct {
-	img   *imageutil.BGRA
-	shmId uintptr
-	addr  unsafe.Pointer
-}
-
-func NewShmWrapImage(r *image.Rectangle) (*ShmWrapImage, error) {
-	size := imageutil.BGRASize(r)
-	shmId, addr, err := ShmOpen(size)
-	if err != nil {
-		return nil, err
-	}
-	img := imageutil.NewBGRAFromAddr(addr, r)
-	simg := &ShmWrapImage{img: img, shmId: shmId, addr: addr}
-	return simg, nil
-}
-func (img *ShmWrapImage) Close() error {
-	return ShmClose(img.addr)
-}
-
 func NewShmWrap(conn *xgb.Conn, drawable xproto.Drawable, depth byte) (*ShmWrap, error) {
 	if err := shm.Init(conn); err != nil {
 		return nil, err
@@ -58,14 +38,9 @@ func NewShmWrap(conn *xgb.Conn, drawable xproto.Drawable, depth byte) (*ShmWrap,
 	}
 	return smw, nil
 }
-
 func (smw *ShmWrap) Close() error {
-	if smw.simg.img != nil {
-		return smw.simg.Close()
-	}
-	return nil
+	return smw.simg.Close()
 }
-
 func (smw *ShmWrap) NewImage(r *image.Rectangle) error {
 	simg, err := NewShmWrapImage(r)
 	if err != nil {
@@ -116,4 +91,24 @@ func (smw *ShmWrap) PutImage(gctx xproto.Gcontext, r *image.Rectangle) {
 	if err := cookie.Check(); err != nil {
 		fmt.Println(err)
 	}
+}
+
+type ShmWrapImage struct {
+	img   *imageutil.BGRA
+	shmId uintptr
+	addr  unsafe.Pointer
+}
+
+func NewShmWrapImage(r *image.Rectangle) (*ShmWrapImage, error) {
+	size := imageutil.BGRASize(r)
+	shmId, addr, err := ShmOpen(size)
+	if err != nil {
+		return nil, err
+	}
+	img := imageutil.NewBGRAFromAddr(addr, r)
+	simg := &ShmWrapImage{img: img, shmId: shmId, addr: addr}
+	return simg, nil
+}
+func (img *ShmWrapImage) Close() error {
+	return ShmClose(img.addr)
 }
