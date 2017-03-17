@@ -2,7 +2,6 @@ package edit
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -23,8 +22,9 @@ import (
 )
 
 type Editor struct {
-	ui *ui.UI
-	fw *FilesWatcher
+	ui        *ui.UI
+	fw        *FilesWatcher
+	reopenRow *cmdutil.ReopenRow
 }
 
 func NewEditor() (*Editor, error) {
@@ -41,21 +41,18 @@ func NewEditor() (*Editor, error) {
 	}
 	ed.ui = ui0
 
+	ed.reopenRow = cmdutil.NewReopenRow(ed)
+
 	// close editor when the window is deleted
 	ed.ui.Win.EvReg.Add(wmprotocols.DeleteWindowEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			ed.Close()
 		}})
 
-	// setup layout toolbar to execute commands
-	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
-		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
-			ToolbarCmdFromLayout(ed, ed.ui.Layout.Toolbar.TextArea)
-		}})
-
 	// setup drop support (files, dirs, ...) from other applications
 	cmdutil.SetupDragNDrop(ed)
 
+	// files watcher for visual feedback when files change
 	fw, err := NewFilesWatcher()
 	if err != nil {
 		return nil, err
@@ -65,9 +62,13 @@ func NewEditor() (*Editor, error) {
 	ed.fw.OnEvent = ed.onFWEvent
 
 	// set up layout toolbar
-	ta := ed.ui.Layout.Toolbar
 	s := "Exit | ListSessions | NewColumn | NewRow"
-	ta.SetStrClear(s, true, true)
+	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
+	// execute commands on layout toolbar
+	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
+		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
+			ToolbarCmdFromLayout(ed, ed.ui.Layout.Toolbar.TextArea)
+		}})
 
 	// flags
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -109,10 +110,9 @@ func (ed *Editor) getFontFace() (*drawutil.Face, error) {
 	fp := "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 	font0, err := drawutil.ParseFont(fp)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		useGoFont = true
 	}
-	// font options
 	opt := &truetype.Options{
 		Size:    12,
 		Hinting: font.HintingFull,
@@ -222,6 +222,8 @@ func (ed *Editor) NewRow(col *ui.Column) *ui.Row {
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			rowCtx.Cancel(row)
 			ed.updateFilesWatcher()
+			// keep it on reopen
+			ed.reopenRow.Add(row)
 		}})
 	return row
 }

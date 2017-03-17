@@ -80,6 +80,7 @@ SaveSession \<name\>: save session to ~/.editor_sessions.json<br>
 DeleteSession: deletes the session from the sessions file<br>
 NewColumn: opens new column<br>
 NewRow: opens new row<br>
+ReopenRow: reopen a previously closed row<br>
 SaveAllFiles: saves all files<br>
 ReloadAll: reloads all filepaths<br>
 ReloadAllFiles: reloads all filepaths that are files<br>

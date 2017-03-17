@@ -71,6 +71,11 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool 
 	case "NewRow":
 		row := ed.NewRow(ed.ActiveColumn())
 		row.Square.WarpPointer()
+	case "ReopenRow":
+		row, ok := ed.reopenRow.Reopen()
+		if ok {
+			row.Square.WarpPointer()
+		}
 	default:
 		return false
 	}
