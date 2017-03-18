@@ -44,7 +44,7 @@ func ToolbarCmdFromRow(ed *Editor, row *ui.Row) {
 	}
 	// external command
 	cmd := part.JoinArgs().Trim()
-	ToolbarCmdExternalForRow(ed, row, cmd)
+	cmdutil.ExternalCmd(ed, row, cmd)
 }
 
 func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool {
@@ -76,6 +76,16 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool 
 		if ok {
 			row.Square.WarpPointer()
 		}
+	case "FileManager":
+		row, ok := ed.activeRow()
+		if ok {
+			cmdutil.FilemanagerShortcut(ed, row)
+		}
+	case "RowDirectory":
+		row, ok := ed.activeRow()
+		if ok {
+			cmdutil.OpenRowDirectory(ed, row)
+		}
 	default:
 		return false
 	}
@@ -103,7 +113,7 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbardata.Part) bool {
 	case "Replace":
 		cmdutil.Replace(ed, row, part)
 	case "Stop":
-		rowCtx.Cancel(row)
+		ed.rowCtx.Cancel(row)
 	case "ListDir":
 		tree, hidden := false, false
 		ListDirEd(ed, row, tree, hidden)

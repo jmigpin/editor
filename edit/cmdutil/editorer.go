@@ -17,4 +17,5 @@ type Editorer interface {
 	FilesWatcherRemove(filename string) error
 	ActiveColumn() *ui.Column
 	NewRow(*ui.Column) *ui.Row
+	RowCtx() *RowCtx
 }

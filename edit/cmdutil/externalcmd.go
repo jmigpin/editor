@@ -1,4 +1,4 @@
-package edit
+package cmdutil
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func ToolbarCmdExternalForRow(ed *Editor, row *ui.Row, cmd string) {
+func ExternalCmd(ed Editorer, row *ui.Row, cmdStr string) {
 	tsd := ed.RowToolbarStringData(row)
 
 	// don't run external commands on confirmed files
@@ -21,59 +21,46 @@ func ToolbarCmdExternalForRow(ed *Editor, row *ui.Row, cmd string) {
 		return
 	}
 
-	workDir := ""
-	dir, ok := tsd.FirstPartDirectory()
+	dir := ""
+	d, ok := tsd.FirstPartDirectory()
 	if ok {
-		workDir = dir
+		dir = d
 	}
-	execRowCmd(row, cmd, workDir)
-}
 
-func execRowCmd(row *ui.Row, cmdStr string, dir string) {
 	// cancel previous context if any
-	rowCtx.Cancel(row)
+	ed.RowCtx().Cancel(row)
+
 	// setup context
 	ctx0 := context.Background()
-	ctx2 := rowCtx.Add(row, ctx0)
+	ctx := ed.RowCtx().Add(row, ctx0)
 	// prepare row
 	row.Square.SetExecuting(true)
-	row.TextArea.SetStrClear("", true, false)
+	row.TextArea.SetStrClear("", true, true)
+
 	// cmd
-	cmd := exec.CommandContext(ctx2, "sh", "-c", cmdStr)
+	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	cmd.Dir = dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
-	// ensure kill to child processes
+	// ensure kill to child processes on context cancel
 	go func() {
 		select {
-		case <-ctx2.Done():
+		case <-ctx.Done():
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
 	}()
 
 	// exec
 	go func() {
-		execRowCmd2(ctx2, row, cmd)
+		execRowCmd2(ed, ctx, row, cmd)
 	}()
 }
-func execRowCmd2(ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
+func execRowCmd2(ed Editorer, ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 	// pipes to read the cmd output
 	opr, opw := io.Pipe()
 	epr, epw := io.Pipe()
 	cmd.Stdout = opw
 	cmd.Stderr = epw
-
-	// channel that the pipes will write to, that will output to the row
-	ch := make(chan string)
-	go func() {
-		for {
-			s, ok := <-ch
-			if !ok {
-				break
-			}
-			appendToRowTextArea(row, s)
-		}
-	}()
 
 	var wg sync.WaitGroup
 	pipeToChan := func(pr io.Reader) {
@@ -84,7 +71,7 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 			// when the pipe gets closed, this goroutine gets released
 			n, err := pr.Read(b)
 			if n > 0 {
-				ch <- string(b[:n])
+				appendToRowTextArea(row, string(b[:n]))
 			}
 			if err != nil {
 				break
@@ -107,13 +94,12 @@ func execRowCmd2(ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 
 	opw.Close()
 	epw.Close()
+
 	// wait for the pipetochan goroutines to finish
 	wg.Wait()
-	// safely close the pipetochan receiving chan
-	close(ch)
 
 	// another context could be added already to the row
-	rowCtx.ClearIfNotNewCtx(row, ctx, func() {
+	ed.RowCtx().ClearIfNotNewCtx(row, ctx, func() {
 		// indicate the cmd is not running anymore
 		row.Square.SetExecuting(false)
 		row.Col.Cols.Layout.UI.RequestTreePaint()
@@ -129,7 +115,8 @@ func appendToRowTextArea(row *ui.Row, s string) {
 		d := len(s) - maxSize
 		s = s[d:]
 	}
-	ta.SetStrClear(s, false, false)
+	ta.SetStrClear(s, false, true) // clear undo for massive savings
 
+	// running async, need to request paint
 	row.Col.Cols.Layout.UI.RequestTreePaint()
 }

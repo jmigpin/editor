@@ -1,4 +1,4 @@
-package edit
+package cmdutil
 
 import (
 	"context"
@@ -7,18 +7,15 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-var rowCtx = &RowCtx{m: make(map[*ui.Row]*RowCtxData)}
-
-// processes running in rows, the context allows canceling
+// Cancels processes running in rows.
 type RowCtx struct {
 	sync.Mutex
 	m map[*ui.Row]*RowCtxData
 }
-type RowCtxData struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-}
 
+func NewRowCtx() *RowCtx {
+	return &RowCtx{m: make(map[*ui.Row]*RowCtxData)}
+}
 func (rctx *RowCtx) Add(row *ui.Row, ctx context.Context) context.Context {
 	rctx.Lock()
 	defer rctx.Unlock()
@@ -52,4 +49,9 @@ func (rctx *RowCtx) ClearIfNotNewCtx(row *ui.Row, ctx context.Context, fn func()
 		delete(rctx.m, row)
 		fn()
 	}
+}
+
+type RowCtxData struct {
+	ctx    context.Context
+	cancel context.CancelFunc
 }

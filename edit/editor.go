@@ -12,7 +12,7 @@ import (
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/edit/cmdutil/contentcmd"
+	"github.com/jmigpin/editor/edit/contentcmd"
 	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xutil/wmprotocols"
@@ -24,6 +24,7 @@ import (
 type Editor struct {
 	ui        *ui.UI
 	fw        *FilesWatcher
+	rowCtx    *cmdutil.RowCtx
 	reopenRow *cmdutil.ReopenRow
 }
 
@@ -41,6 +42,7 @@ func NewEditor() (*Editor, error) {
 	}
 	ed.ui = ui0
 
+	ed.rowCtx = cmdutil.NewRowCtx()
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
 	// close editor when the window is deleted
@@ -62,7 +64,7 @@ func NewEditor() (*Editor, error) {
 	ed.fw.OnEvent = ed.onFWEvent
 
 	// set up layout toolbar
-	s := "Exit | ListSessions | NewColumn | NewRow"
+	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | FileManager | "
 	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
 	// execute commands on layout toolbar
 	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
@@ -144,6 +146,9 @@ func (ed *Editor) Close() {
 func (ed *Editor) UI() *ui.UI {
 	return ed.ui
 }
+func (ed *Editor) RowCtx() *cmdutil.RowCtx {
+	return ed.rowCtx
+}
 func (ed *Editor) FilesWatcherAdd(filename string) error {
 	return ed.fw.Add(filename)
 }
@@ -220,7 +225,7 @@ func (ed *Editor) NewRow(col *ui.Column) *ui.Row {
 	// close
 	row.EvReg.Add(ui.RowCloseEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			rowCtx.Cancel(row)
+			ed.rowCtx.Cancel(row)
 			ed.updateFilesWatcher()
 			// keep it on reopen
 			ed.reopenRow.Add(row)
@@ -236,10 +241,6 @@ func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
 		cmdutil.SaveRowFile(ed, ev.Row)
 	case m.IsControl() && fks == 'f':
 		cmdutil.FindShortcut(ed, ev.Row)
-	case m.IsControlShift() && fks == 'f':
-		cmdutil.FilemanagerShortcut(ed, ev.Row)
-	case m.IsControlShift() && fks == 'd':
-		cmdutil.OpenRowDirectory(ed, ev.Row)
 	}
 }
 func (ed *Editor) FindRowOrCreate(name string) *ui.Row {
