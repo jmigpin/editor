@@ -31,18 +31,22 @@ type SCRuneData struct {
 
 func NewStringCache(face *Face) *StringCache {
 	sc := &StringCache{Face: face}
-	sc.calcRuneData()
+
+	// compute with minimal data
+	// allows getpoint to work without a calcrunedata be called
+	sc.calcRuneData2("", 0)
+
 	return sc
 }
-func (sc *StringCache) Update(str string, width int) {
+func (sc *StringCache) CalcRuneData(str string, width int) {
 	if sc.str == str && sc.width == width {
 		return
 	}
+	sc.calcRuneData2(str, width)
+}
+func (sc *StringCache) calcRuneData2(str string, width int) {
 	sc.str = str
 	sc.width = width
-	sc.calcRuneData()
-}
-func (sc *StringCache) calcRuneData() {
 	jump := 250 // keep data every x runes
 
 	size := len(sc.str)/jump + 1

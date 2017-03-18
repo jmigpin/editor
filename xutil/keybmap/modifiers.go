@@ -42,6 +42,9 @@ func (m Modifiers) IsControl() bool {
 func (m Modifiers) IsMod1() bool {
 	return m.Is(xproto.KeyButMaskMod1)
 }
+func (m Modifiers) IsShiftMod1() bool {
+	return m.Is(xproto.KeyButMaskShift | xproto.KeyButMaskMod1)
+}
 func (m Modifiers) IsControlShift() bool {
 	return m.Is(xproto.KeyButMaskControl | xproto.KeyButMaskShift)
 }

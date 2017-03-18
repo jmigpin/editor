@@ -93,7 +93,7 @@ func (ta *TextArea) updateStringCacheWithBoundsChangedCheck() {
 	}
 }
 func (ta *TextArea) updateStringCache() {
-	ta.stringCache.Update(ta.str, ta.C.Bounds.Dx())
+	ta.stringCache.CalcRuneData(ta.str, ta.C.Bounds.Dx())
 }
 func (ta *TextArea) StrHeight() fixed.Int26_6 {
 	h := ta.stringCache.Height()
@@ -106,7 +106,7 @@ func (ta *TextArea) StrHeight() fixed.Int26_6 {
 
 // Used externally for dynamic textarea height.
 func (ta *TextArea) CalcStringHeight(width int) int {
-	ta.stringCache.Update(ta.str, width)
+	ta.stringCache.CalcRuneData(ta.str, width)
 	return ta.StrHeight().Round()
 }
 

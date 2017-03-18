@@ -50,8 +50,6 @@ ctrl+shift+d: uncomment<br>
 ### Row
 ctrl+s: save file<br>
 ctrl+f: warp pointer to "Find" cmd in row toolbar<br>
-ctrl+shift+f: open a filemanager in the directory of the current row<br>
-ctrl+shift+d: if the row has a file, open a row with file directory list<br>
 
 ## Button shortcuts
 ### Textarea
@@ -84,6 +82,8 @@ ReopenRow: reopen a previously closed row<br>
 SaveAllFiles: saves all files<br>
 ReloadAll: reloads all filepaths<br>
 ReloadAllFiles: reloads all filepaths that are files<br>
+FileManager: open a filemanager (external) at the active row directory<br>
+RowDirectory: open row with the active row directory: useful when editing a file and want to access the file directory contents<br>
 Exit: exits the program<br>
 
 Note: Some row commands work from the layout toolbar because they act on the current active row (ex: Find, Replace).
