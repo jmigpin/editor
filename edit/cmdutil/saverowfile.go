@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 
 	"github.com/jmigpin/editor/ui"
 )
@@ -32,45 +33,55 @@ func saveRowFile2(ed Editorer, row *ui.Row, tolerant bool) {
 		_ = ed.FilesWatcherAdd(filename)
 	}()
 
+	content := row.TextArea.Str()
+
+	// run go imports for go files, updates content string
+	if path.Ext(filename) == ".go" {
+		u, err := runGoImports(content)
+		if err != nil {
+			// ignore errors, can catch them when compiling
+		} else {
+			content = u
+			row.TextArea.SetStrClear(content, false, false)
+		}
+	}
+
 	// save
-	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	flags := os.O_WRONLY | os.O_TRUNC | os.O_CREATE
+	f, err := os.OpenFile(filename, flags, 0644)
 	if err != nil {
 		ed.Error(err)
 		return
 	}
 	defer f.Close()
-	data := []byte(row.TextArea.Str())
+	data := []byte(content)
 	_, err = f.Write(data)
 	if err != nil {
 		ed.Error(err)
 		return
 	}
+
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
-
-	// run go imports for go files
-	if path.Ext(filename) == ".go" {
-		err := runGoImports(filename)
-		if err != nil {
-			// ignore errors, can catch them when compiling
-		} else {
-			ReloadRow(ed, row)
-		}
-	}
 }
-func runGoImports(filename string) error {
+func runGoImports(str string) (string, error) {
 	ctx := context.Background()
-	c := exec.CommandContext(ctx, "goimports", "-w", filename)
+	c := exec.CommandContext(ctx, "goimports")
 
-	// combined output
-	var b bytes.Buffer
-	c.Stdout = &b
-	c.Stderr = &b
+	// pipe string to command stdin
+	c.Stdin = strings.NewReader(str)
+
+	// output
+	var ob, eb bytes.Buffer
+	c.Stdout = &ob
+	c.Stderr = &eb
 
 	err := c.Run()
 	if err != nil {
-		err2 := fmt.Errorf("%v\n%v", err, b.String())
-		return err2
+		// ignore err, get error string from stdout
+		err2 := fmt.Errorf("%v", eb.String())
+		return "", err2
 	}
-	return nil
+
+	return ob.String(), nil
 }
