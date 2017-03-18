@@ -196,6 +196,7 @@ func (ta *TextArea) EditClose() {
 		return
 	}
 	ta.editHistory.PushEdit(strEdit)
+	ta.editHistory.TryToMergeLastTwoEdits()
 	ta.setStr(str)
 }
 
