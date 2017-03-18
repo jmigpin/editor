@@ -9,10 +9,11 @@ Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M <br>
 
 ## Features
 Auto indentation of wrapped lines.<br>
-Drag and drop files/directories to the editor.<br>
 No code coloring.<br>
-Watches files change on disk to show the file has changed while editing. <br>
-Allows to start external processes from the toolbar with a click, capturing the output. <br>
+Many TextArea utilities: undo/redo, comment, replace, ...<br>
+Start external processes from the toolbar with a click, capturing the output to a row. <br>
+Drag and drop files/directories to the editor.<br>
+Watches files changes on disk.<br>
 
 ## Notes
 Uses X shared memory extension (MIT-SHM). Currently linux amd64.<br>
