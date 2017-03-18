@@ -1,7 +1,12 @@
 package cmdutil
 
 import (
+	"bytes"
+	"context"
+	"fmt"
 	"os"
+	"os/exec"
+	"path"
 
 	"github.com/jmigpin/editor/ui"
 )
@@ -16,7 +21,6 @@ func SaveRowsFiles(ed Editorer) {
 func SaveRowFile(ed Editorer, row *ui.Row) {
 	saveRowFile2(ed, row, false)
 }
-
 func saveRowFile2(ed Editorer, row *ui.Row, tolerant bool) {
 	tsd := ed.RowToolbarStringData(row)
 	// file might not exist yet, so getting from filepath
@@ -41,7 +45,32 @@ func saveRowFile2(ed Editorer, row *ui.Row, tolerant bool) {
 		ed.Error(err)
 		return
 	}
-
 	row.Square.SetDirty(false)
 	row.Square.SetCold(false)
+
+	// run go imports for go files
+	if path.Ext(filename) == ".go" {
+		err := runGoImports(filename)
+		if err != nil {
+			// ignore errors, can catch them when compiling
+		} else {
+			ReloadRow(ed, row)
+		}
+	}
+}
+func runGoImports(filename string) error {
+	ctx := context.Background()
+	c := exec.CommandContext(ctx, "goimports", "-w", filename)
+
+	// combined output
+	var b bytes.Buffer
+	c.Stdout = &b
+	c.Stderr = &b
+
+	err := c.Run()
+	if err != nil {
+		err2 := fmt.Errorf("%v\n%v", err, b.String())
+		return err2
+	}
+	return nil
 }
