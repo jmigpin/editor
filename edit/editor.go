@@ -26,10 +26,17 @@ type Editor struct {
 	fw        *FilesWatcher
 	rowCtx    *cmdutil.RowCtx
 	reopenRow *cmdutil.ReopenRow
+	rowStatus *cmdutil.RowStatus
+
+	erows map[*ui.Row]*ERow
 }
 
 func NewEditor() (*Editor, error) {
-	ed := &Editor{}
+	ed := &Editor{
+		erows:  make(map[*ui.Row]*ERow),
+		rowCtx: cmdutil.NewRowCtx(),
+	}
+	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
 	fface, err := ed.getFontFace()
 	if err != nil {
@@ -42,8 +49,10 @@ func NewEditor() (*Editor, error) {
 	}
 	ed.ui = ui0
 
-	ed.rowCtx = cmdutil.NewRowCtx()
-	ed.reopenRow = cmdutil.NewReopenRow(ed)
+	ed.rowStatus, err = cmdutil.NewRowStatus(ed)
+	if err != nil {
+		return nil, err
+	}
 
 	// close editor when the window is deleted
 	ed.ui.Win.EvReg.Add(wmprotocols.DeleteWindowEventId,
@@ -69,7 +78,7 @@ func NewEditor() (*Editor, error) {
 	// execute commands on layout toolbar
 	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
 		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
-			ToolbarCmdFromLayout(ed, ed.ui.Layout.Toolbar.TextArea)
+			ToolbarCmdFromLayout(ed, ed.ui.Layout)
 		}})
 
 	// flags
@@ -149,6 +158,9 @@ func (ed *Editor) UI() *ui.UI {
 func (ed *Editor) RowCtx() *cmdutil.RowCtx {
 	return ed.rowCtx
 }
+func (ed *Editor) RowStatus() *cmdutil.RowStatus {
+	return ed.rowStatus
+}
 func (ed *Editor) FilesWatcherAdd(filename string) error {
 	return ed.fw.Add(filename)
 }
@@ -167,11 +179,13 @@ func (ed *Editor) activeRow() (*ui.Row, bool) {
 	return nil, false
 }
 func (ed *Editor) ActiveColumn() *ui.Column {
-	row, ok := ed.activeRow()
-	if ok {
-		return row.Col
-	}
-	return ed.ui.Layout.Cols.LastColumnOrNew()
+	//row, ok := ed.activeRow()
+	//if ok {
+	//return row.Col
+	//}
+	//return ed.ui.Layout.Cols.LastColumnOrNew()
+
+	return ed.ui.Layout.Cols.ColumnWithBestSpaceForNewRow()
 }
 func (ed *Editor) FindRow(s string) (*ui.Row, bool) {
 	cols := ed.ui.Layout.Cols
@@ -188,16 +202,43 @@ func (ed *Editor) FindRow(s string) (*ui.Row, bool) {
 }
 func (ed *Editor) NewRow(col *ui.Column) *ui.Row {
 	row := col.NewRow()
+	//erow := NewERow(row)
+	//ed.erows[row] = erow
+
+	//row.EvReg.Add(ui.RowCloseEventId,
+	//&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+	//delete(ed.erows, row)
+	//}})
+
+	//return erow
+
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			ToolbarCmdFromRow(ed, row)
 		}})
-	// toolbar possible filename change
-	row.Toolbar.EvReg.Add(ui.TextAreaSetTextEventId,
+	// toolbar str change (possible filename change)
+	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			ed.updateFilesWatcher()
+			//ed.onRowToolbarSetStr(row)
+			ed.rowStatus.OnRowToolbarSetStr(row)
 		}})
+
+	//// toolbar pre set str - prevent editing first part
+	//row.Toolbar.EvReg.Add(ui.TextAreaPreSetStrEventId,
+	//&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+	//ev := ev0.(*ui.TextAreaPreSetStrEvent)
+
+	//i0 := strings.Index(ev.OldStr, "|")
+	//i1 := strings.Index(ev.NewStr, "|")
+	//if i0 < 0 || i1 < 0 || ev.OldStr[0:i0] == ev.NewStr[0:i1] {
+	//return
+	//}
+
+	//// don't allow string to be edited
+	//ev.NewStr = ev.OldStr
+	//}})
+
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
@@ -209,15 +250,17 @@ func (ed *Editor) NewRow(col *ui.Column) *ui.Row {
 			err := ev0.(error)
 			ed.Error(err)
 		}})
-	// textarea dirty
-	row.TextArea.EvReg.Add(ui.TextAreaSetTextEventId,
+	// textarea set str
+	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			// set as dirty only if it has a filename
-			tsd := ed.RowToolbarStringData(row)
-			_, ok := tsd.FirstPartFilename()
-			if ok {
-				row.Square.SetDirty(true)
-			}
+			ed.rowStatus.OnRowTextAreaSetStr(row)
+
+			//// set as dirty only if it has a filename
+			//tsd := ed.RowToolbarStringData(row)
+			//_, ok := tsd.FirstPartFilename()
+			//if ok {
+			//row.Square.SetDirty(true)
+			//}
 		}})
 	// key shortcuts
 	row.EvReg.Add(ui.RowKeyPressEventId,
@@ -226,11 +269,27 @@ func (ed *Editor) NewRow(col *ui.Column) *ui.Row {
 	row.EvReg.Add(ui.RowCloseEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			ed.rowCtx.Cancel(row)
-			ed.updateFilesWatcher()
-			// keep it on reopen
+			//ed.updateFilesWatcher()
 			ed.reopenRow.Add(row)
+			ed.rowStatus.Remove(row)
 		}})
+	ed.rowStatus.Add(row)
 	return row
+}
+func (ed *Editor) onRowToolbarSetStr(row *ui.Row) {
+	ed.updateFilesWatcher()
+
+	//// row "notexist" visual feedback
+	//tsd := ed.RowToolbarStringData(row)
+	//v := tsd.FirstPartFilepath()
+	//exist := true
+	//_, err := os.Stat(v)
+	//if err != nil {
+	//if os.IsNotExist(err) {
+	//exist = false
+	//}
+	//}
+	//row.Square.SetNotExist(!exist)
 }
 func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
 	ev := ev0.(*ui.RowKeyPressEvent)
@@ -259,16 +318,15 @@ func (ed *Editor) FindRowOrCreateInColFromFilepath(filepath string, col *ui.Colu
 		return row, nil
 	}
 	// new row
-	content, err := filepathContent(filepath)
+	content, err := ed.FilepathContent(filepath)
 	if err != nil {
 		return nil, err
 	}
 	row = ed.NewRow(col)
 	p2 := toolbardata.InsertHomeTilde(filepath)
-	row.Toolbar.SetStrClear(p2+" | Reload", true, true)
+	row.Toolbar.SetStrClear(p2, true, true)
 	row.TextArea.SetStrClear(content, true, true)
-	row.Square.SetDirty(false)
-	row.Square.SetCold(false)
+	ed.rowStatus.NotDirtyOrCold(row)
 	return row, nil
 }
 
@@ -304,7 +362,7 @@ func (ed *Editor) onFWEvent(ev *fsnotify.FileEvent) {
 	// on any event
 	row, ok := ed.FindRow(ev.Name)
 	if ok {
-		row.Square.SetCold(true)
+		ed.rowStatus.NotCold(row)
 		// this func was called async, need to request tree paint
 		ed.ui.RequestTreePaint()
 	}

@@ -22,7 +22,7 @@ func NewBGRAFromAddr(addr unsafe.Pointer, r *image.Rectangle) *BGRA {
 	// mask the addr into a slice
 	buf := (*[1 << 31]uint8)(addr)[:size:size]
 	// new bgra from slice
-	return &BGRA{image.RGBA{buf, 4 * r.Dx(), *r}}
+	return &BGRA{image.RGBA{Pix: buf, Stride: 4 * r.Dx(), Rect: *r}}
 }
 func BGRASize(r *image.Rectangle) int {
 	return r.Dx() * r.Dy() * 4

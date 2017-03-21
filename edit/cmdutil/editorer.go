@@ -18,4 +18,6 @@ type Editorer interface {
 	ActiveColumn() *ui.Column
 	NewRow(*ui.Column) *ui.Row
 	RowCtx() *RowCtx
+	RowStatus() *RowStatus
+	//ToolbarCmdFromRow(*ui.Row)
 }

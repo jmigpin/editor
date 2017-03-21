@@ -17,11 +17,15 @@ type Square struct {
 	buttonPressed bool
 	PressPointPad image.Point
 
-	// row visual feedback (not used in column square)
-	executing bool
+	values [5]bool
+
+	// not used by columns
+	// TODO: remove this, and make it generic, have editor handle what it means active/dirty/etc. This should not be here.
+	executing bool // executing process
 	active    bool // received key or button inside
-	dirty     bool // content changed
-	cold      bool // file on disk changed
+	dirty     bool // content edited and not saved
+	cold      bool // disk changes since last save
+	notExist  bool // file not found
 }
 
 func NewSquare(ui *UI) *Square {
@@ -46,28 +50,40 @@ func (sq *Square) Close() {
 }
 func (sq *Square) paint() {
 	c := &SquareColor
-	if sq.dirty {
+	//if sq.values[0] || sq.dirty {
+	if sq.values[0] {
 		c = &SquareDirtyColor
 	}
-	if sq.executing {
+	//if sq.values[1] || sq.executing {
+	if sq.values[1] {
 		c = &SquareExecutingColor
 	}
 	sq.ui.FillRectangle(&sq.C.Bounds, c)
 
-	if sq.active { // top right
-		r := sq.C.Bounds
-		w := (r.Max.X - r.Min.X) / 2
-		r.Min.X = r.Max.X - w
-		r.Max.Y = r.Min.Y + w
-		sq.ui.FillRectangle(&r, &SquareActiveColor)
-	}
-	if sq.cold { // 2nd top right
-		r := sq.C.Bounds
-		w := (r.Max.X - r.Min.X) / 2
-		r.Min.X = r.Max.X - w
-		r.Min.Y += w
-		r.Max.Y = r.Min.Y + w
+	// mini-squares
+	r := sq.C.Bounds
+	w := (r.Max.X - r.Min.X) / 2
+	r.Max.X = r.Min.X + w
+	r.Max.Y = r.Min.Y + w
+
+	//if sq.values[2] || sq.cold {
+	if sq.values[2] {
+		// rowcol(0,0)
 		sq.ui.FillRectangle(&r, &SquareColdColor)
+	}
+	//if sq.values[3] || sq.active {
+	if sq.values[3] {
+		// rowcol(0,1)
+		r2 := r
+		r2.Min.X += w
+		r2.Max.X += w
+		sq.ui.FillRectangle(&r2, &SquareActiveColor)
+	}
+	//if sq.values[4] || sq.notExist {
+	if sq.values[4] {
+		// rowcol(1,1)
+		r2 := r.Add(image.Point{w, w})
+		sq.ui.FillRectangle(&r2, &SquareNotExistColor)
 	}
 }
 func (sq *Square) onButtonPress(ev0 xgbutil.EREvent) {
@@ -104,6 +120,16 @@ func (sq *Square) WarpPointer() {
 	sq.ui.WarpPointer(&p)
 }
 
+func (sq *Square) Value(i int) bool {
+	return sq.values[i]
+}
+func (sq *Square) SetValue(i int, v bool) {
+	if sq.values[i] != v {
+		sq.values[i] = v
+		sq.C.NeedPaint()
+	}
+}
+
 func (sq *Square) Executing() bool {
 	return sq.executing
 }
@@ -122,24 +148,34 @@ func (sq *Square) SetActive(v bool) {
 		sq.C.NeedPaint()
 	}
 }
-func (sq *Square) Dirty() bool {
-	return sq.dirty
-}
-func (sq *Square) SetDirty(v bool) {
-	if sq.dirty != v {
-		sq.dirty = v
-		sq.C.NeedPaint()
-	}
-}
-func (sq *Square) Cold() bool {
-	return sq.cold
-}
-func (sq *Square) SetCold(v bool) {
-	if sq.cold != v {
-		sq.cold = v
-		sq.C.NeedPaint()
-	}
-}
+
+//func (sq *Square) Dirty() bool {
+//return sq.dirty
+//}
+//func (sq *Square) SetDirty(v bool) {
+//if sq.dirty != v {
+//sq.dirty = v
+//sq.C.NeedPaint()
+//}
+//}
+//func (sq *Square) Cold() bool {
+//return sq.cold
+//}
+//func (sq *Square) SetCold(v bool) {
+//if sq.cold != v {
+//sq.cold = v
+//sq.C.NeedPaint()
+//}
+//}
+//func (sq *Square) IsNotExist() bool {
+//return sq.notExist
+//}
+//func (sq *Square) SetNotExist(v bool) {
+//if sq.notExist != v {
+//sq.notExist = v
+//sq.C.NeedPaint()
+//}
+//}
 
 const (
 	SquareButtonReleaseEventId = iota

@@ -18,6 +18,7 @@ var (
 	SquareExecutingColor = color.RGBA{95, 204, 88, 255}
 	SquareDirtyColor     = color.RGBA{204, 88, 92, 255}
 	SquareColdColor      = color.RGBA{255, 255, 0, 255}
+	SquareNotExistColor  = color.RGBA{204, 156, 88, 255}
 
 	RowInnerSeparatorColor = SquareColor
 

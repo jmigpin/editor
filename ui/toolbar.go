@@ -12,13 +12,13 @@ func NewToolbar(ui *UI) *Toolbar {
 	tb.DisableHighlightCursorWord = true
 	tb.DisablePageUpDown = true
 
-	fn := &xgbutil.ERCallback{tb.onTextAreaSetText}
-	tb.TextArea.EvReg.Add(TextAreaSetTextEventId, fn)
+	tb.TextArea.EvReg.Add(TextAreaSetStrEventId,
+		&xgbutil.ERCallback{tb.onTextAreaSetStr})
 
 	return tb
 }
-func (tb *Toolbar) onTextAreaSetText(ev0 xgbutil.EREvent) {
-	ev := ev0.(*TextAreaSetTextEvent)
+func (tb *Toolbar) onTextAreaSetStr(ev0 xgbutil.EREvent) {
+	ev := ev0.(*TextAreaSetStrEvent)
 	if tb.OnSetText != nil {
 		tb.OnSetText()
 	}

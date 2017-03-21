@@ -39,7 +39,7 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 	sb.dereg.Add(r1, r2, r3)
 
 	// textarea set text
-	sb.ta.EvReg.Add(TextAreaSetTextEventId,
+	sb.ta.EvReg.Add(TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()

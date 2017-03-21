@@ -147,6 +147,11 @@ func (ta *TextArea) Str() string {
 	return ta.str
 }
 func (ta *TextArea) setStr(s string) {
+	pev := &TextAreaPreSetStrEvent{ta, ta.str, s}
+	ta.EvReg.Emit(TextAreaPreSetStrEventId, pev)
+	// allow event handler to set the str
+	s = pev.NewStr
+
 	if s == ta.str {
 		return
 	}
@@ -156,8 +161,8 @@ func (ta *TextArea) setStr(s string) {
 	ta.updateStringCache()
 	ta.C.NeedPaint()
 
-	ev := &TextAreaSetTextEvent{ta, oldBounds}
-	ta.EvReg.Emit(TextAreaSetTextEventId, ev)
+	ev := &TextAreaSetStrEvent{ta, oldBounds}
+	ta.EvReg.Emit(TextAreaSetStrEventId, ev)
 }
 func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 	ta.SetSelectionOn(false)
@@ -279,7 +284,7 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 }
 
 func (ta *TextArea) OffsetIndex() int {
-	p := fixed.Point26_6{0, ta.offsetY}
+	p := fixed.Point26_6{X: 0, Y: ta.offsetY}
 	return ta.stringCache.GetIndex(&p)
 }
 func (ta *TextArea) SetOffsetIndex(i int) {
@@ -306,7 +311,7 @@ func (ta *TextArea) MakeCursorVisibleAndWarpPointerToCursor() {
 	ta.MakeIndexVisible(ta.CursorIndex())
 
 	p := ta.stringCache.GetPoint(ta.CursorIndex())
-	p.Y -= ta.offsetY
+	p.Y -= ta.OffsetY()
 	p2 := drawutil.Point266ToPoint(p)
 	p3 := p2.Add(ta.C.Bounds.Min)
 	// add pad
@@ -575,16 +580,17 @@ func (ta *TextArea) insertKeyRune(k *keybmap.Key) {
 const (
 	TextAreaErrorEventId = iota
 	TextAreaCmdEventId
-	TextAreaSetTextEventId
+	TextAreaSetStrEventId
 	TextAreaSetOffsetYEventId
 	TextAreaBoundsChangeEventId
 	TextAreaSetCursorIndexEventId
+	TextAreaPreSetStrEventId
 )
 
 type TextAreaCmdEvent struct {
 	TextArea *TextArea
 }
-type TextAreaSetTextEvent struct {
+type TextAreaSetStrEvent struct {
 	TextArea  *TextArea
 	OldBounds image.Rectangle
 }
@@ -596,4 +602,9 @@ type TextAreaBoundsChangeEvent struct {
 }
 type TextAreaSetCursorIndexEvent struct {
 	TextArea *TextArea
+}
+type TextAreaPreSetStrEvent struct {
+	TextArea *TextArea
+	OldStr   string
+	NewStr   string
 }

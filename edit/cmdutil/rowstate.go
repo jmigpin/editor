@@ -34,7 +34,7 @@ func NewRowFromRowState(ed Editorer, state *RowState, col *ui.Column) *ui.Row {
 	}
 
 	row.TextArea.SetStrClear(content, true, true)
-	row.Square.SetDirty(false)
+	ed.RowStatus().NotDirty(row)
 	row.TextArea.SetCursorIndex(state.TaCursorIndex)
 	row.TextArea.SetOffsetIndex(state.TaOffsetIndex)
 	return row

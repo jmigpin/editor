@@ -11,7 +11,7 @@ var str = ""
 
 func init() {
 	for i := 0; i < 100000; i++ {
-		str += "abcde"
+		str += "0123456789\n"
 	}
 }
 

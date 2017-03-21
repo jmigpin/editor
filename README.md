@@ -5,6 +5,8 @@ This is a know-what-you're-doing source code editor that was inspired by the pro
 Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU <br>
 Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M <br>
 
+As the editor is being developed, the rules of how the UI interacts will become more well defined.<br>
+
 ![screenshot](./screenshot.png)
 
 ## Features
@@ -76,7 +78,7 @@ Any button press: make row active to layout toolbar commands<br>
 ### Layout toolbar commands (top toolbar)
 ListSessions: lists saved sessions<br>
 SaveSession \<name\>: save session to ~/.editor_sessions.json<br>
-DeleteSession: deletes the session from the sessions file<br>
+DeleteSession \<name\>: deletes the session from the sessions file<br>
 NewColumn: opens new column<br>
 NewRow: opens new row<br>
 ReopenRow: reopen a previously closed row<br>

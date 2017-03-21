@@ -9,7 +9,8 @@ import (
 	"github.com/jmigpin/editor/ui/tautil"
 )
 
-func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
+func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
+	ta := layout.Toolbar.TextArea
 	tsd := toolbardata.NewStringData(ta.Str())
 	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
@@ -92,7 +93,7 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool 
 	return true
 }
 
-// returns if cmd was found
+// Returns true if cmd was handled.
 func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbardata.Part) bool {
 	p0 := part.Args[0].Trim()
 	switch p0 {

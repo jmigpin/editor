@@ -119,7 +119,7 @@ func (sc *StringCache) Draw(
 
 	sdc := NewStringDrawColors(img, bounds, sc.Face, sc.str, colors)
 
-	p := &fixed.Point26_6{0, offsetY}
+	p := &fixed.Point26_6{X: 0, Y: offsetY}
 	rd := sc.getRuneDataCloseToPoint(p)
 	sc.restoreRuneData(rd, sdc.sd.liner)
 	sdc.sd.liner.iter.pen.Y -= offsetY
@@ -218,5 +218,15 @@ func (sc *StringCache) getPointFromRuneData(rd *SCRuneData, index int) *fixed.Po
 		return true
 	})
 	ly0 := LineY0(liner.iter.pen.Y, liner.iter.fm)
-	return &fixed.Point26_6{liner.iter.pen.X, ly0}
+	return &fixed.Point26_6{X: liner.iter.pen.X, Y: ly0}
 }
+
+//func (sc *StringCache) calcRuneData3(str string, width, s, e int) {
+//sc.str = str
+//sc.width = width
+//jump := 250 // keep data every x runes
+
+//// replace calc between s and e
+
+//rd := sc.getRuneDataCloseToIndex(s)
+//}

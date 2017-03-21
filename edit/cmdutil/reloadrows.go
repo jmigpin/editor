@@ -22,8 +22,7 @@ func ReloadRow(ed Editorer, row *ui.Row) {
 		return
 	}
 	row.TextArea.SetStrClear(content, false, false)
-	row.Square.SetDirty(false)
-	row.Square.SetCold(false)
+	ed.RowStatus().NotDirtyOrCold(row)
 }
 
 func ReloadRowsFiles(ed Editorer) {

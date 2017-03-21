@@ -19,8 +19,7 @@ func ListDirEd(ed *Editor, row *ui.Row, tree, hidden bool) {
 		return
 	}
 	row.TextArea.SetStrClear(s, false, false)
-	row.Square.SetDirty(false)
-	row.Square.SetCold(false)
+	ed.RowStatus().NotDirtyOrCold(row)
 }
 
 func ListDir(filepath string, tree, hidden bool) (string, error) {

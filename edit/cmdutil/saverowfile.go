@@ -61,8 +61,7 @@ func saveRowFile2(ed Editorer, row *ui.Row, tolerant bool) {
 		return
 	}
 
-	row.Square.SetDirty(false)
-	row.Square.SetCold(false)
+	ed.RowStatus().NotDirtyOrCold(row)
 }
 func runGoImports(str string) (string, error) {
 	ctx := context.Background()
