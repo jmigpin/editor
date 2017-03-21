@@ -3,12 +3,13 @@ package toolbardata
 import "os"
 
 type StringData struct {
+	Str   string
 	Parts []*Part
 }
 
 func NewStringData(str string) *StringData {
 	parts := parseParts(str)
-	return &StringData{Parts: parts}
+	return &StringData{Str: str, Parts: parts}
 }
 func (sd *StringData) FirstPartFilepath() string {
 	if len(sd.Parts) == 0 {

@@ -1,6 +1,8 @@
 package cmdutil
 
 import (
+	"os"
+
 	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 )
@@ -8,16 +10,26 @@ import (
 type Editorer interface {
 	Error(error)
 	UI() *ui.UI
-	FindRow(name string) (*ui.Row, bool)
-	FindRowOrCreate(name string) *ui.Row
-	FindRowOrCreateInColFromFilepath(filepath string, col *ui.Column) (*ui.Row, error)
-	RowToolbarStringData(*ui.Row) *toolbardata.StringData
-	FilepathContent(filepath string) (string, error)
-	FilesWatcherAdd(filename string) error
-	FilesWatcherRemove(filename string) error
+
+	NewERow(*ui.Column) ERower
+	FindERow(string) (ERower, bool)
+	FindERowOrCreate(string, *ui.Column) ERower
+	ERows() []ERower
+
 	ActiveColumn() *ui.Column
-	NewRow(*ui.Column) *ui.Row
-	RowCtx() *RowCtx
-	RowStatus() *RowStatus
-	//ToolbarCmdFromRow(*ui.Row)
+}
+
+type ERower interface {
+	Editorer() Editorer
+	Row() *ui.Row
+
+	LoadContentClear() error
+	ReloadContent() error
+	SaveContent(string) error
+
+	ToolbarSD() *toolbardata.StringData
+
+	FileInfo() (string, os.FileInfo, bool)
+
+	TextAreaAppend(string)
 }

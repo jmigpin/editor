@@ -80,11 +80,11 @@ func (row *Row) activate() {
 	// deactivate previous active row
 	for _, c := range row.Col.Cols.Cols {
 		for _, r := range c.Rows {
-			r.Square.SetActive(false)
+			r.Square.SetValue(SquareActive, false)
 		}
 	}
 	// activate this row
-	row.Square.SetActive(true)
+	row.Square.SetValue(SquareActive, true)
 }
 func (row *Row) Close() {
 	row.Col.removeRow(row)

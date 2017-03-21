@@ -1,48 +1,29 @@
 package cmdutil
 
-import (
-	"os"
-
-	"github.com/jmigpin/editor/ui"
-)
-
 func ReloadRows(ed Editorer) {
-	for _, c := range ed.UI().Layout.Cols.Cols {
-		for _, r := range c.Rows {
-			ReloadRow(ed, r)
-		}
+	for _, erow := range ed.ERows() {
+		ReloadRow(erow)
 	}
 }
-func ReloadRow(ed Editorer, row *ui.Row) {
-	tsd := ed.RowToolbarStringData(row)
-	p := tsd.FirstPartFilepath()
-	content, err := ed.FilepathContent(p)
+func ReloadRow(erow ERower) {
+	err := erow.ReloadContent()
 	if err != nil {
-		ed.Error(err)
-		return
+		erow.Editorer().Error(err)
 	}
-	row.TextArea.SetStrClear(content, false, false)
-	ed.RowStatus().NotDirtyOrCold(row)
 }
 
 func ReloadRowsFiles(ed Editorer) {
-	for _, c := range ed.UI().Layout.Cols.Cols {
-		for _, r := range c.Rows {
-			reloadRowFile(ed, r)
-		}
+	for _, erow := range ed.ERows() {
+		reloadRowFile(erow)
 	}
 }
-func reloadRowFile(ed Editorer, row *ui.Row) {
-	tsd := ed.RowToolbarStringData(row)
-	p := tsd.FirstPartFilepath()
-	// check if its a file
-	fi, err := os.Stat(p)
-	if err != nil {
+func reloadRowFile(erow ERower) {
+	_, fi, ok := erow.FileInfo()
+	if !ok {
 		return
 	}
 	if fi.IsDir() {
 		return
 	}
-
-	ReloadRow(ed, row)
+	ReloadRow(erow)
 }

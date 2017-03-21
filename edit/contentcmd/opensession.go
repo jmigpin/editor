@@ -1,16 +1,13 @@
 package contentcmd
 
-import (
-	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/ui"
-)
+import "github.com/jmigpin/editor/edit/cmdutil"
 
-func openSession(ed cmdutil.Editorer, row *ui.Row, s string) bool {
+func openSession(erow cmdutil.ERower, s string) bool {
 	if s != "OpenSession" {
 		return false
 	}
-	ta := row.TextArea
+	ta := erow.Row().TextArea
 	s2 := afterSpaceExpandRightUntilSpace(ta.Str(), ta.CursorIndex())
-	cmdutil.OpenSessionFromString(ed, s2)
+	cmdutil.OpenSessionFromString(erow.Editorer(), s2)
 	return true
 }

@@ -1,101 +1,66 @@
 package edit
 
-import (
-	"fmt"
-
-	"github.com/howeyc/fsnotify"
-)
+import "github.com/howeyc/fsnotify"
 
 type FilesWatcher struct {
-	filenames map[string]struct{}
-	w         *fsnotify.Watcher
-	OnError   func(error)
-	OnEvent   func(ev *fsnotify.FileEvent)
-	OnDebug   func(string)
+	w  *fsnotify.Watcher
+	m  map[*ERow]string
+	ed *Editor
 }
 
-func NewFilesWatcher() (*FilesWatcher, error) {
+func NewFilesWatcher(ed *Editor) (*FilesWatcher, error) {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-	fw := &FilesWatcher{w: w, filenames: make(map[string]struct{})}
+	fw := &FilesWatcher{
+		w:  w,
+		m:  make(map[*ERow]string),
+		ed: ed,
+	}
 	return fw, nil
 }
 func (fw *FilesWatcher) Close() {
 	fw.w.Close() // will close watcher chans (Events/Errors)
 }
-func (fw *FilesWatcher) SetFiles(filenames []string) {
-	// start watching if not watched yet
-	seen := make(map[string]struct{})
-	for _, f := range filenames {
-		seen[f] = struct{}{}
-		// best effor to add, ignore errors
-		err := fw.Add(f)
-		if err != nil {
-			//fw.OnError(err)
-		}
-	}
-	// stop watching filenames not seen
-	for f, _ := range fw.filenames {
-		_, ok := seen[f]
-		if !ok {
-			// best effort to remove, ignore errors
-			err := fw.Remove(f)
-			if err != nil {
-				//fw.OnError(err)
-			}
-		}
-	}
-	//// debug
-	//fw.OnError(fmt.Errorf(fw.filenamesString()))
-}
-func (fw *FilesWatcher) filenamesString() string {
-	var a []string
-	for k := range fw.filenames {
-		a = append(a, k)
-	}
-	return fmt.Sprintf("%v", a)
-}
-func (fw *FilesWatcher) Add(f string) error {
-	_, ok := fw.filenames[f]
+func (fw *FilesWatcher) Add(erow *ERow, f string) {
+	_, ok := fw.m[erow]
 	if ok {
-		return nil
+		fw.Remove(erow)
 	}
+	fw.m[erow] = f
 	err := fw.w.Watch(f)
 	if err != nil {
-		return err
+		fw.ed.Error(err)
 	}
-	fw.filenames[f] = struct{}{}
-	return nil
 }
-
-func (fw *FilesWatcher) Remove(f string) error {
-	_, ok := fw.filenames[f]
-	if !ok {
-		return nil
+func (fw *FilesWatcher) Remove(erow *ERow) {
+	s, ok := fw.m[erow]
+	if ok {
+		delete(fw.m, erow)
+		err := fw.w.RemoveWatch(s)
+		if err != nil {
+			fw.ed.Error(err)
+		}
 	}
-	// Previously used library (github.com/fsnotify/fsnotify) was locking on this call
-	err := fw.w.RemoveWatch(f)
-	if err != nil {
-		return err
-	}
-	delete(fw.filenames, f)
-	return nil
 }
 func (fw *FilesWatcher) EventLoop() {
 	for {
 		select {
-		case ev, ok := <-fw.w.Event:
-			if !ok {
-				return
-			}
-			fw.OnEvent(ev)
 		case err, ok := <-fw.w.Error:
 			if !ok {
 				return
 			}
-			fw.OnError(err)
+			fw.ed.Error(err)
+		case ev, ok := <-fw.w.Event:
+			if !ok {
+				return
+			}
+			for erow, s := range fw.m {
+				if ev.Name == s {
+					erow.OnFilesWatcherEvent(ev)
+				}
+			}
 		}
 	}
 }

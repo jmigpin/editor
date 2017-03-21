@@ -21,7 +21,7 @@ func (reop *ReopenRow) Add(row *ui.Row) {
 		reop.q = append([]*RowState{}, reop.q[l-max:]...)
 	}
 }
-func (reop *ReopenRow) Reopen() (*ui.Row, bool) {
+func (reop *ReopenRow) Reopen() (ERower, bool) {
 	if len(reop.q) == 0 {
 		return nil, false
 	}
@@ -29,6 +29,6 @@ func (reop *ReopenRow) Reopen() (*ui.Row, bool) {
 	state := reop.q[l-1]
 	reop.q = reop.q[:l-1] // remove from q
 
-	row := NewRowFromRowState(reop.ed, state, reop.ed.ActiveColumn())
-	return row, true
+	erow := NewERowFromRowState(reop.ed, state, reop.ed.ActiveColumn())
+	return erow, true
 }

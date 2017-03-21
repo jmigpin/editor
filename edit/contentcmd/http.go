@@ -5,11 +5,10 @@ import (
 	"os/exec"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/ui"
 )
 
 // Opens http/https lines in x-www-browser.
-func http(ed cmdutil.Editorer, row *ui.Row, s string) bool {
+func http(erow cmdutil.ERower, s string) bool {
 	u, err := url.Parse(s)
 	if err != nil {
 		return false
@@ -21,7 +20,9 @@ func http(ed cmdutil.Editorer, row *ui.Row, s string) bool {
 		cmd := exec.Command("x-www-browser", u.String())
 		err := cmd.Run()
 		if err != nil {
+			ed := erow.Editorer()
 			ed.Error(err)
+			ed.UI().RequestTreePaint()
 		}
 	}()
 	return true

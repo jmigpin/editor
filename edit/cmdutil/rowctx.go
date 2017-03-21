@@ -55,3 +55,9 @@ type RowCtxData struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 }
+
+var gRowCtx = NewRowCtx()
+
+func RowCtxCancel(row *ui.Row) {
+	gRowCtx.Cancel(row)
+}

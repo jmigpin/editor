@@ -16,16 +16,7 @@ type Square struct {
 	dereg         xgbutil.EventDeregister
 	buttonPressed bool
 	PressPointPad image.Point
-
-	values [5]bool
-
-	// not used by columns
-	// TODO: remove this, and make it generic, have editor handle what it means active/dirty/etc. This should not be here.
-	executing bool // executing process
-	active    bool // received key or button inside
-	dirty     bool // content edited and not saved
-	cold      bool // disk changes since last save
-	notExist  bool // file not found
+	values        [6]bool // mini-squares
 }
 
 func NewSquare(ui *UI) *Square {
@@ -50,12 +41,10 @@ func (sq *Square) Close() {
 }
 func (sq *Square) paint() {
 	c := &SquareColor
-	//if sq.values[0] || sq.dirty {
-	if sq.values[0] {
+	if sq.values[SquareDirty] {
 		c = &SquareDirtyColor
 	}
-	//if sq.values[1] || sq.executing {
-	if sq.values[1] {
+	if sq.values[SquareExecuting] {
 		c = &SquareExecutingColor
 	}
 	sq.ui.FillRectangle(&sq.C.Bounds, c)
@@ -66,21 +55,18 @@ func (sq *Square) paint() {
 	r.Max.X = r.Min.X + w
 	r.Max.Y = r.Min.Y + w
 
-	//if sq.values[2] || sq.cold {
-	if sq.values[2] {
+	if sq.values[SquareCold] {
 		// rowcol(0,0)
 		sq.ui.FillRectangle(&r, &SquareColdColor)
 	}
-	//if sq.values[3] || sq.active {
-	if sq.values[3] {
+	if sq.values[SquareActive] {
 		// rowcol(0,1)
 		r2 := r
 		r2.Min.X += w
 		r2.Max.X += w
 		sq.ui.FillRectangle(&r2, &SquareActiveColor)
 	}
-	//if sq.values[4] || sq.notExist {
-	if sq.values[4] {
+	if sq.values[SquareNotExist] {
 		// rowcol(1,1)
 		r2 := r.Add(image.Point{w, w})
 		sq.ui.FillRectangle(&r2, &SquareNotExistColor)
@@ -120,62 +106,26 @@ func (sq *Square) WarpPointer() {
 	sq.ui.WarpPointer(&p)
 }
 
-func (sq *Square) Value(i int) bool {
-	return sq.values[i]
+func (sq *Square) Value(t SquareType) bool {
+	return sq.values[t]
 }
-func (sq *Square) SetValue(i int, v bool) {
-	if sq.values[i] != v {
-		sq.values[i] = v
+func (sq *Square) SetValue(t SquareType, v bool) {
+	if sq.values[t] != v {
+		sq.values[t] = v
 		sq.C.NeedPaint()
 	}
 }
 
-func (sq *Square) Executing() bool {
-	return sq.executing
-}
-func (sq *Square) SetExecuting(v bool) {
-	if sq.executing != v {
-		sq.executing = v
-		sq.C.NeedPaint()
-	}
-}
-func (sq *Square) Active() bool {
-	return sq.active
-}
-func (sq *Square) SetActive(v bool) {
-	if sq.active != v {
-		sq.active = v
-		sq.C.NeedPaint()
-	}
-}
+type SquareType int
 
-//func (sq *Square) Dirty() bool {
-//return sq.dirty
-//}
-//func (sq *Square) SetDirty(v bool) {
-//if sq.dirty != v {
-//sq.dirty = v
-//sq.C.NeedPaint()
-//}
-//}
-//func (sq *Square) Cold() bool {
-//return sq.cold
-//}
-//func (sq *Square) SetCold(v bool) {
-//if sq.cold != v {
-//sq.cold = v
-//sq.C.NeedPaint()
-//}
-//}
-//func (sq *Square) IsNotExist() bool {
-//return sq.notExist
-//}
-//func (sq *Square) SetNotExist(v bool) {
-//if sq.notExist != v {
-//sq.notExist = v
-//sq.C.NeedPaint()
-//}
-//}
+const (
+	SquareNone SquareType = iota
+	SquareActive
+	SquareExecuting
+	SquareDirty
+	SquareCold
+	SquareNotExist
+)
 
 const (
 	SquareButtonReleaseEventId = iota

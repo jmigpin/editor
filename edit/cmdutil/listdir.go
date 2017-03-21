@@ -1,4 +1,4 @@
-package edit
+package cmdutil
 
 import (
 	"fmt"
@@ -6,20 +6,19 @@ import (
 	"path"
 	"sort"
 	"strings"
-
-	"github.com/jmigpin/editor/ui"
 )
 
-func ListDirEd(ed *Editor, row *ui.Row, tree, hidden bool) {
-	tsd := ed.RowToolbarStringData(row)
-	fp := tsd.FirstPartFilepath()
-	s, err := ListDir(fp, tree, hidden)
-	if err != nil {
-		ed.Error(err)
+func ListDirEd(erow ERower, tree, hidden bool) {
+	fp, fi, ok := erow.FileInfo()
+	if !ok || !fi.IsDir() {
 		return
 	}
-	row.TextArea.SetStrClear(s, false, false)
-	ed.RowStatus().NotDirtyOrCold(row)
+	s, err := ListDir(fp, tree, hidden)
+	if err != nil {
+		erow.Editorer().Error(err)
+		return
+	}
+	erow.Row().TextArea.SetStrClear(s, false, false)
 }
 
 func ListDir(filepath string, tree, hidden bool) (string, error) {

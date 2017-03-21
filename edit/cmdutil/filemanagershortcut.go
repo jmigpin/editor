@@ -3,13 +3,11 @@ package cmdutil
 import (
 	"os/exec"
 	"path"
-
-	"github.com/jmigpin/editor/ui"
 )
 
-func FilemanagerShortcut(ed Editorer, row *ui.Row) {
+func FilemanagerShortcut(erow ERower) {
 	dir := ""
-	tsd := ed.RowToolbarStringData(row)
+	tsd := erow.ToolbarSD()
 	d, ok := tsd.FirstPartDirectory()
 	if ok {
 		dir = d

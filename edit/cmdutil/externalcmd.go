@@ -11,8 +11,10 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func ExternalCmd(ed Editorer, row *ui.Row, cmdStr string) {
-	tsd := ed.RowToolbarStringData(row)
+func ExternalCmd(erow ERower, cmdStr string) {
+	tsd := erow.ToolbarSD()
+	row := erow.Row()
+	ed := erow.Editorer()
 
 	// don't run external commands on confirmed files
 	_, ok := tsd.FirstPartFilename()
@@ -28,13 +30,13 @@ func ExternalCmd(ed Editorer, row *ui.Row, cmdStr string) {
 	}
 
 	// cancel previous context if any
-	ed.RowCtx().Cancel(row)
+	gRowCtx.Cancel(row)
 
 	// setup context
 	ctx0 := context.Background()
-	ctx := ed.RowCtx().Add(row, ctx0)
+	ctx := gRowCtx.Add(row, ctx0)
 	// prepare row
-	row.Square.SetExecuting(true)
+	row.Square.SetValue(ui.SquareExecuting, true)
 	row.TextArea.SetStrClear("", true, true)
 
 	// cmd
@@ -52,15 +54,21 @@ func ExternalCmd(ed Editorer, row *ui.Row, cmdStr string) {
 
 	// exec
 	go func() {
-		execRowCmd2(ed, ctx, row, cmd)
+		execRowCmd2(erow, ctx, cmd)
 	}()
 }
-func execRowCmd2(ed Editorer, ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
+func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 	// pipes to read the cmd output
 	opr, opw := io.Pipe()
 	epr, epw := io.Pipe()
 	cmd.Stdout = opw
 	cmd.Stderr = epw
+
+	taAppend := func(s string) {
+		erow.TextAreaAppend(s)
+		// running async, need to request paint
+		erow.Editorer().UI().RequestTreePaint()
+	}
 
 	var wg sync.WaitGroup
 	pipeToChan := func(pr io.Reader) {
@@ -71,7 +79,7 @@ func execRowCmd2(ed Editorer, ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 			// when the pipe gets closed, this goroutine gets released
 			n, err := pr.Read(b)
 			if n > 0 {
-				appendToRowTextArea(row, string(b[:n]))
+				taAppend(string(b[:n]))
 			}
 			if err != nil {
 				break
@@ -85,10 +93,9 @@ func execRowCmd2(ed Editorer, ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 	// run command
 	err := cmd.Start()
 	if err != nil {
-		appendToRowTextArea(row, err.Error())
+		taAppend(err.Error())
 	} else {
-		s := fmt.Sprintf("# pid %d\n", cmd.Process.Pid)
-		appendToRowTextArea(row, s)
+		taAppend(fmt.Sprintf("# pid %d\n", cmd.Process.Pid))
 	}
 	_ = cmd.Wait() // this error is going already to the stderr pipe
 
@@ -99,24 +106,11 @@ func execRowCmd2(ed Editorer, ctx context.Context, row *ui.Row, cmd *exec.Cmd) {
 	wg.Wait()
 
 	// another context could be added already to the row
-	ed.RowCtx().ClearIfNotNewCtx(row, ctx, func() {
+	row := erow.Row()
+	gRowCtx.ClearIfNotNewCtx(row, ctx, func() {
 		// indicate the cmd is not running anymore
-		row.Square.SetExecuting(false)
+		row.Square.SetValue(ui.SquareExecuting, false)
+		row.Square.SetValue(ui.SquareDirty, false)
 		row.Col.Cols.Layout.UI.RequestTreePaint()
 	})
-}
-func appendToRowTextArea(row *ui.Row, s string) {
-	ta := row.TextArea
-
-	// append and cap max size
-	s = ta.Str() + s
-	maxSize := 1024 * 1024 * 10
-	if len(s) > maxSize {
-		d := len(s) - maxSize
-		s = s[d:]
-	}
-	ta.SetStrClear(s, false, true) // clear undo for massive savings
-
-	// running async, need to request paint
-	row.Col.Cols.Layout.UI.RequestTreePaint()
 }

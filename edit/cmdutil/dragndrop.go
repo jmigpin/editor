@@ -127,7 +127,7 @@ func (h *dndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*u
 			var c *ui.Column
 			var i int
 			posCalc := false
-			_, ok := h.ed.FindRow(u.Path)
+			_, ok := h.ed.FindERow(u.Path)
 			if !ok {
 				c, i, ok = col.Cols.PointRowPosition(nil, p)
 				if !ok {
@@ -136,20 +136,21 @@ func (h *dndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*u
 				posCalc = true
 			}
 			// find/create
-			row, err := h.ed.FindRowOrCreateInColFromFilepath(u.Path, col)
+			erow := h.ed.FindERowOrCreate(u.Path, col)
+			err := erow.LoadContentClear()
 			if err != nil {
 				h.ed.Error(err)
 				continue
 			}
 			// calculate if not calculated yet
 			if !posCalc {
-				c, i, ok = col.Cols.PointRowPosition(row, p)
+				c, i, ok = col.Cols.PointRowPosition(erow.Row(), p)
 				if !ok {
 					continue
 				}
 			}
 			// move row
-			col.Cols.MoveRowToColumn(row, c, i)
+			col.Cols.MoveRowToColumn(erow.Row(), c, i)
 		}
 	}
 }

@@ -18,24 +18,17 @@ func NewRowState(row *ui.Row) *RowState {
 		TaOffsetIndex: row.TextArea.OffsetIndex(),
 	}
 }
-func NewRowFromRowState(ed Editorer, state *RowState, col *ui.Column) *ui.Row {
-	// create row
-	row := ed.NewRow(col)
+func NewERowFromRowState(ed Editorer, state *RowState, col *ui.Column) ERower {
+	erow := ed.NewERow(col)
+	row := erow.Row()
 	row.Toolbar.SetStrClear(state.TbStr, true, true)
 	row.Toolbar.SetCursorIndex(state.TbCursorIndex)
-
-	// content
-	tsd := ed.RowToolbarStringData(row)
-	p := tsd.FirstPartFilepath()
-	content, err := ed.FilepathContent(p)
+	err := erow.LoadContentClear()
 	if err != nil {
 		ed.Error(err)
-		return row
+		return erow
 	}
-
-	row.TextArea.SetStrClear(content, true, true)
-	ed.RowStatus().NotDirty(row)
 	row.TextArea.SetCursorIndex(state.TaCursorIndex)
 	row.TextArea.SetOffsetIndex(state.TaOffsetIndex)
-	return row
+	return erow
 }

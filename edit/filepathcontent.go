@@ -4,6 +4,8 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/jmigpin/editor/edit/cmdutil"
 )
 
 func filepathContent(filepath string) (string, error) {
@@ -23,7 +25,7 @@ func filepathContent(filepath string) (string, error) {
 		return "", err
 	}
 	if fi.IsDir() {
-		return ListDir(filepath, false, true)
+		return cmdutil.ListDir(filepath, false, true)
 	}
 	// file content
 	b, err := ioutil.ReadFile(filepath)

@@ -5,12 +5,13 @@ import (
 
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/edit/toolbardata"
-	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/ui/tautil"
 )
 
 // Search/add the toolbar find command and warps the pointer to it.
-func FindShortcut(ed Editorer, row *ui.Row) {
+func FindShortcut(erow ERower) {
+	row := erow.Row()
+
 	// check if there is a selection in the textarea
 	searchStr := ""
 	if row.TextArea.SelectionOn() {
@@ -28,7 +29,7 @@ func FindShortcut(ed Editorer, row *ui.Row) {
 	}
 
 	// find cmd in toolbar string
-	tsd := ed.RowToolbarStringData(row)
+	tsd := erow.ToolbarSD()
 	ta := row.Toolbar
 	found := false
 	var part *toolbardata.Part
@@ -86,5 +87,5 @@ func FindShortcut(ed Editorer, row *ui.Row) {
 	p2 := drawutil.Point266ToPoint(p)
 	p3 := p2.Add(ta.C.Bounds.Min)
 	p3.Y += ta.LineHeight().Round() / 2 // center of rune
-	ed.UI().WarpPointer(&p3)
+	erow.Editorer().UI().WarpPointer(&p3)
 }

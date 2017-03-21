@@ -8,18 +8,19 @@ import (
 )
 
 func OpenFileLineAtCol(ed Editorer, filename string, line int, col *ui.Column) {
-	row, err := ed.FindRowOrCreateInColFromFilepath(filename, col)
+	erow := ed.FindERowOrCreate(filename, col)
+	err := erow.LoadContentClear()
 	if err != nil {
 		ed.Error(err)
 		return
 	}
 	// don't search/touch the indexes if the line is not set (zero)
 	if line == 0 {
-		row.Square.WarpPointer()
+		erow.Row().Square.WarpPointer()
 		return
 	}
 	// find line
-	ta := row.TextArea
+	ta := erow.Row().TextArea
 	index := 0
 	line--
 	for i, ru := range ta.Str() {

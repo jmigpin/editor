@@ -6,11 +6,10 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/ui"
 )
 
 // Get strings enclosed in quotes, like an import line in a go file, and open the file if found in GOROOT/GOPATH directories.
-func goPathDir(ed cmdutil.Editorer, row *ui.Row, s string) bool {
+func goPathDir(erow cmdutil.ERower, s string) bool {
 	if s == "" {
 		return false
 	}
@@ -21,10 +20,12 @@ func goPathDir(ed cmdutil.Editorer, row *ui.Row, s string) bool {
 		p2 := path.Join(p, "src", s)
 		_, err := os.Stat(p2)
 		if err == nil {
+			ed := erow.Editorer()
 			col := ed.ActiveColumn()
-			row, err = ed.FindRowOrCreateInColFromFilepath(p2, col)
+			erow := ed.FindERowOrCreate(p2, col)
+			err = erow.LoadContentClear()
 			if err == nil {
-				row.Square.WarpPointer()
+				erow.Row().Square.WarpPointer()
 			}
 			return true
 		}

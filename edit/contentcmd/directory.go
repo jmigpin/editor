@@ -5,22 +5,19 @@ import (
 	"path"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/ui"
 )
 
-func directory(ed cmdutil.Editorer, row *ui.Row, p string) bool {
+func directory(erow cmdutil.ERower, p string) bool {
 	if p == "" {
 		return false
 	}
 	if !path.IsAbs(p) {
-		tsd := ed.RowToolbarStringData(row)
-		d, ok := tsd.FirstPartDirectory()
+		filepath, fi, ok := erow.FileInfo()
 		if ok {
-			p = path.Join(d, p)
-		} else {
-			f, ok := tsd.FirstPartFilename()
-			if ok {
-				p = path.Join(path.Dir(f), p)
+			if fi.IsDir() {
+				p = path.Join(filepath, p)
+			} else {
+				p = path.Join(path.Dir(filepath), p)
 			}
 		}
 	}
@@ -31,10 +28,12 @@ func directory(ed cmdutil.Editorer, row *ui.Row, p string) bool {
 	if !fi.IsDir() {
 		return false
 	}
+	ed := erow.Editorer()
 	col := ed.ActiveColumn()
-	row, err = ed.FindRowOrCreateInColFromFilepath(p, col)
+	erow2 := ed.FindERowOrCreate(p, col)
+	err = erow2.LoadContentClear()
 	if err == nil {
-		row.Square.WarpPointer()
+		erow2.Row().Square.WarpPointer()
 	}
 	return true
 }

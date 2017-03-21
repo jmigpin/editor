@@ -5,28 +5,27 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/ui"
 )
 
-func Cmd(ed cmdutil.Editorer, row *ui.Row) {
-	ta := row.TextArea
+func Cmd(erow cmdutil.ERower) {
+	ta := erow.Row().TextArea
 	// space limited
 	s := expandLeftRightUntilSpace(ta.Str(), ta.CursorIndex())
-	if ok := openSession(ed, row, s); ok {
+	if ok := openSession(erow, s); ok {
 		return
 	}
-	if ok := directory(ed, row, s); ok {
+	if ok := directory(erow, s); ok {
 		return
 	}
-	if ok := fileLine(ed, row, s); ok {
+	if ok := fileLine(erow, s); ok {
 		return
 	}
-	if ok := http(ed, row, s); ok {
+	if ok := http(erow, s); ok {
 		return
 	}
 	// space or quote limited
 	s2 := expandLeftRightUntilSpaceOrQuote(ta.Str(), ta.CursorIndex())
-	if ok := goPathDir(ed, row, s2); ok {
+	if ok := goPathDir(erow, s2); ok {
 		return
 	}
 }

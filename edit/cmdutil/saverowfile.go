@@ -4,38 +4,25 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"path"
 	"strings"
-
-	"github.com/jmigpin/editor/ui"
 )
 
 func SaveRowsFiles(ed Editorer) {
-	for _, c := range ed.UI().Layout.Cols.Cols {
-		for _, r := range c.Rows {
-			saveRowFile2(ed, r, true)
-		}
+	for _, erow := range ed.ERows() {
+		SaveRowFile(erow)
 	}
 }
-func SaveRowFile(ed Editorer, row *ui.Row) {
-	saveRowFile2(ed, row, false)
-}
-func saveRowFile2(ed Editorer, row *ui.Row, tolerant bool) {
-	tsd := ed.RowToolbarStringData(row)
-	// file might not exist yet, so getting from filepath
-	filename := tsd.FirstPartFilepath()
-
-	// best effort to disable/enable file watcher, ignore errors
-	_ = ed.FilesWatcherRemove(filename)
-	defer func() {
-		_ = ed.FilesWatcherAdd(filename)
-	}()
+func SaveRowFile(erow ERower) {
+	tsd := erow.ToolbarSD()
+	ed := erow.Editorer()
+	row := erow.Row()
 
 	content := row.TextArea.Str()
 
 	// run go imports for go files, updates content string
+	filename := tsd.FirstPartFilepath()
 	if path.Ext(filename) == ".go" {
 		u, err := runGoImports(content)
 		if err != nil {
@@ -46,22 +33,10 @@ func saveRowFile2(ed Editorer, row *ui.Row, tolerant bool) {
 		}
 	}
 
-	// save
-	flags := os.O_WRONLY | os.O_TRUNC | os.O_CREATE
-	f, err := os.OpenFile(filename, flags, 0644)
+	err := erow.SaveContent(content)
 	if err != nil {
 		ed.Error(err)
-		return
 	}
-	defer f.Close()
-	data := []byte(content)
-	_, err = f.Write(data)
-	if err != nil {
-		ed.Error(err)
-		return
-	}
-
-	ed.RowStatus().NotDirtyOrCold(row)
 }
 func runGoImports(str string) (string, error) {
 	ctx := context.Background()

@@ -87,7 +87,7 @@ func (s *Session) restore(ed Editorer) {
 	for i, c := range s.Columns {
 		col := cols.Cols[i]
 		for _, r := range c.Rows {
-			_ = NewRowFromRowState(ed, r, col)
+			_ = NewERowFromRowState(ed, r, col)
 		}
 	}
 }
@@ -166,8 +166,9 @@ func ListSessions(ed Editorer) {
 	for _, session := range ss.Sessions {
 		str += fmt.Sprintf("OpenSession %v\n", session.Name)
 	}
-	row := ed.FindRowOrCreate("+Sessions")
-	row.TextArea.SetStrClear(str, false, false)
+	col := ed.ActiveColumn()
+	erow := ed.FindERowOrCreate("+Sessions", col)
+	erow.Row().TextArea.SetStrClear(str, false, false)
 }
 
 func OpenSession(ed Editorer, part *toolbardata.Part) {

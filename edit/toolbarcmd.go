@@ -16,39 +16,6 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 	if !ok {
 		return
 	}
-	ok = layoutToolbarCmd(ed, ta, part)
-	if ok {
-		return
-	}
-	// try running row command
-	row, ok := ed.activeRow()
-	if ok {
-		ok := rowToolbarCmd(ed, row, part)
-		if ok {
-			return
-		}
-	}
-	// TODO: consider running external command in new row
-	ed.Error(fmt.Errorf("unknown layout command: %v", part.Str))
-}
-
-func ToolbarCmdFromRow(ed *Editor, row *ui.Row) {
-	tsd := ed.RowToolbarStringData(row)
-	ta := row.Toolbar
-	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
-	if !ok {
-		return
-	}
-	ok = rowToolbarCmd(ed, row, part)
-	if ok {
-		return
-	}
-	// external command
-	cmd := part.JoinArgs().Trim()
-	cmdutil.ExternalCmd(ed, row, cmd)
-}
-
-func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool {
 	p0 := part.Args[0].Trim()
 	switch p0 {
 	case "Exit":
@@ -70,37 +37,63 @@ func layoutToolbarCmd(ed *Editor, ta *ui.TextArea, part *toolbardata.Part) bool 
 	case "ReloadAllFiles":
 		cmdutil.ReloadRowsFiles(ed)
 	case "NewRow":
-		row := ed.NewRow(ed.ActiveColumn())
-		row.Square.WarpPointer()
+		erow := ed.NewERow(ed.ActiveColumn())
+		erow.Row().Square.WarpPointer()
 	case "ReopenRow":
-		row, ok := ed.reopenRow.Reopen()
+		erow, ok := ed.reopenRow.Reopen()
 		if ok {
-			row.Square.WarpPointer()
+			erow.Row().Square.WarpPointer()
 		}
 	case "FileManager":
-		row, ok := ed.activeRow()
+		erow, ok := ed.activeERow()
 		if ok {
-			cmdutil.FilemanagerShortcut(ed, row)
+			cmdutil.FilemanagerShortcut(erow)
 		}
 	case "RowDirectory":
-		row, ok := ed.activeRow()
+		erow, ok := ed.activeERow()
 		if ok {
-			cmdutil.OpenRowDirectory(ed, row)
+			cmdutil.OpenRowDirectory(erow)
 		}
 	default:
-		return false
+		// try running row command
+		erow, ok := ed.activeERow()
+		if ok {
+			ok := rowToolbarCmd(erow, part)
+			if ok {
+				return
+			}
+		}
+		// TODO: consider running external command in new row
+		err := fmt.Errorf("unknown layout command: %v", part.Str)
+		ed.Error(err)
 	}
-	return true
+}
+
+func ToolbarCmdFromRow(erow *ERow) {
+	tsd := erow.ToolbarSD()
+	ta := erow.Row().Toolbar
+	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
+	if !ok {
+		return
+	}
+	ok = rowToolbarCmd(erow, part)
+	if ok {
+		return
+	}
+	// external command
+	cmd := part.JoinArgs().Trim()
+	cmdutil.ExternalCmd(erow, cmd)
 }
 
 // Returns true if cmd was handled.
-func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbardata.Part) bool {
+func rowToolbarCmd(erow *ERow, part *toolbardata.Part) bool {
+	row := erow.Row()
 	p0 := part.Args[0].Trim()
 	switch p0 {
 	case "Save":
-		cmdutil.SaveRowFile(ed, row)
+		cmdutil.SaveRowFile(erow)
 	case "Reload":
-		cmdutil.ReloadRow(ed, row)
+		cmdutil.ReloadRow(erow)
 	case "Close":
 		row.Close()
 	case "CloseColumn":
@@ -112,18 +105,18 @@ func rowToolbarCmd(ed *Editor, row *ui.Row, part *toolbardata.Part) bool {
 		s := part.JoinArgsFromIndex(1).Trim()
 		tautil.GotoLine(row.TextArea, s)
 	case "Replace":
-		cmdutil.Replace(ed, row, part)
+		cmdutil.Replace(erow, part)
 	case "Stop":
-		ed.rowCtx.Cancel(row)
+		cmdutil.RowCtxCancel(row)
 	case "ListDir":
 		tree, hidden := false, false
-		ListDirEd(ed, row, tree, hidden)
+		cmdutil.ListDirEd(erow, tree, hidden)
 	case "ListDirSub":
 		tree, hidden := true, false
-		ListDirEd(ed, row, tree, hidden)
+		cmdutil.ListDirEd(erow, tree, hidden)
 	case "ListDirHidden":
 		tree, hidden := false, true
-		ListDirEd(ed, row, tree, hidden)
+		cmdutil.ListDirEd(erow, tree, hidden)
 	default:
 		return false
 	}

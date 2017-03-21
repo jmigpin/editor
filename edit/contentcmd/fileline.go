@@ -7,23 +7,20 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/ui"
 )
 
 // Opens filename at line, like in compiler errors <string:int> format.
-func fileLine(ed cmdutil.Editorer, row *ui.Row, scmd string) bool {
+func fileLine(erow cmdutil.ERower, scmd string) bool {
 	// filename
 	a := strings.Split(scmd, ":")
 	filename := a[0]
 	if !path.IsAbs(filename) {
-		tsd := ed.RowToolbarStringData(row)
-		d, ok := tsd.FirstPartDirectory()
+		filepath, fi, ok := erow.FileInfo()
 		if ok {
-			filename = path.Join(d, filename)
-		} else {
-			f, ok := tsd.FirstPartFilename()
-			if ok {
-				filename = path.Join(path.Dir(f), filename)
+			if fi.IsDir() {
+				filename = path.Join(filepath, filename)
+			} else {
+				filename = path.Join(path.Dir(filepath), filename)
 			}
 		}
 	}
@@ -43,6 +40,6 @@ func fileLine(ed cmdutil.Editorer, row *ui.Row, scmd string) bool {
 		}
 	}
 	// open
-	cmdutil.OpenFileLineAtCol(ed, filename, num, row.Col)
+	cmdutil.OpenFileLineAtCol(erow.Editorer(), filename, num, erow.Row().Col)
 	return true
 }
