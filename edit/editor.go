@@ -98,7 +98,6 @@ func NewEditor() (*Editor, error) {
 		}
 	}
 
-	//initCatchSignals(ed.onSignal)
 	go ed.fw.EventLoop()
 	ed.ui.EventLoop() // blocks
 
@@ -231,7 +230,3 @@ func (ed *Editor) Error(err error) {
 	erow := ed.FindERowOrCreate("+Errors", col)
 	erow.TextAreaAppend(err.Error() + "\n")
 }
-
-//func (ed *Editor) onSignal(sig os.Signal) {
-//fmt.Printf("signal: %v\n", sig)
-//}
