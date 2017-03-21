@@ -253,3 +253,31 @@ func (cols *Columns) moveColumnToColumn(col, dest *Column, p *image.Point) {
 	cols.C.NeedPaint()
 	cols.Layout.UI.WarpPointerToRectanglePad(&col.C.Bounds)
 }
+func (cols *Columns) ColumnWithBestSpaceForNewRow() *Column {
+	var best struct {
+		r    *image.Rectangle
+		area int
+		col  *Column
+	}
+	rectArea := func(r *image.Rectangle) int {
+		p := r.Size()
+		return p.X * p.Y
+	}
+	for _, col := range cols.Cols {
+		dy := col.C.Bounds.Dy()
+		if len(col.Rows) > 0 {
+			dy /= len(col.Rows)
+		}
+		r := image.Rect(0, 0, col.C.Bounds.Dx(), dy)
+		area := rectArea(&r)
+		if area > best.area {
+			best.area = area
+			best.r = &r
+			best.col = col
+		}
+	}
+	if best.col == nil {
+		panic("col is nil")
+	}
+	return best.col
+}
