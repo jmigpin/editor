@@ -41,14 +41,15 @@ func (drop *DropEvent) ReplyAccepted() {
 }
 func (drop *DropEvent) RequestData(typ xproto.Atom) ([]byte, error) {
 	// a reply must arrive on timeout
-	ctx := context.Background()
-	ctx2, _ := context.WithTimeout(ctx, 250*time.Millisecond)
+	ctx0 := context.Background()
+	ctx, cancel := context.WithTimeout(ctx0, 250*time.Millisecond)
+	defer cancel()
 
 	drop.requestDataToServer(typ)
 
 	select {
-	case <-ctx2.Done():
-		return nil, ctx2.Err()
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case ev := <-drop.replyCh: // waits for OnSelectionNotify
 		return drop.extractData(ev)
 	}

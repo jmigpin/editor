@@ -45,14 +45,15 @@ func (p *Paste) Request() (string, error) {
 		<-p.replyCh
 	}
 	// a reply must arrive on timeout
-	ctx := context.Background()
-	ctx2, _ := context.WithTimeout(ctx, 250*time.Millisecond)
+	ctx0 := context.Background()
+	ctx, cancel := context.WithTimeout(ctx0, 250*time.Millisecond)
+	defer cancel()
 
 	p.requestDataToServer()
 
 	select {
-	case <-ctx2.Done():
-		return "", ctx2.Err()
+	case <-ctx.Done():
+		return "", ctx.Err()
 	case ev := <-p.replyCh: // waits for OnSelectionNotify
 		return p.extractData(ev)
 	}
