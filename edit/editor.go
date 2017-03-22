@@ -2,6 +2,7 @@ package edit
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -45,6 +46,11 @@ func NewEditor() (*Editor, error) {
 	ed.ui.Win.EvReg.Add(wmprotocols.DeleteWindowEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			ed.Close()
+		}})
+	// possible x errors
+	ed.ui.Win.EvReg.Add(xgbutil.XErrorEventId,
+		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
+			ed.Errorf("xerror: %v", ev)
 		}})
 
 	// setup drop support (files, dirs, ...) from other applications
@@ -205,6 +211,9 @@ func (ed *Editor) FindERow(s string) (cmdutil.ERower, bool) {
 	return nil, false
 }
 
+func (ed *Editor) Errorf(f string, a ...interface{}) {
+	ed.Error(fmt.Errorf(f, a...))
+}
 func (ed *Editor) Error(err error) {
 	s := "+Errors"
 	erow, ok := ed.FindERow(s)

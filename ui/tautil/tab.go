@@ -1,17 +1,31 @@
 package tautil
 
 func TabRight(ta Texta) {
-	_ = alterSelectedText(ta, tabRightLines)
-}
-func tabRightLines(str string) (string, bool) {
-	// assume it's at a line start
+	if !ta.SelectionOn() {
+		InsertRune(ta, '\t')
+		return
+	}
+
+	a, b, _ := linesStringIndexes(ta)
+
+	str := ta.Str()[a:b]
+
+	// insert at line start
 	for i := 0; i < len(str); {
-		str = str[:i] + string('\t') + str[i:] // insert at start of line
+		str = str[:i] + string('\t') + str[i:]
 		i, _ = lineEndIndexNextIndex(str, i)
 	}
-	return str, true
-}
 
+	// replace
+	ta.EditOpen()
+	ta.EditDelete(a, b)
+	ta.EditInsert(a, str)
+	ta.EditClose()
+
+	ta.SetSelectionOn(true)
+	ta.SetSelectionIndex(a)
+	ta.SetCursorIndex(a + len(str))
+}
 func TabLeft(ta Texta) {
 	a, b, _ := linesStringIndexes(ta)
 

@@ -30,6 +30,7 @@ func GotoLineNum(ta Texta, n int) bool {
 	return false
 }
 func gotoIndex(ta Texta, index int) {
+	ta.SetSelectionOn(false)
 	ta.SetCursorIndex(index)
 	ta.MakeIndexVisible(index)
 	ta.WarpPointerToIndexIfVisible(index)

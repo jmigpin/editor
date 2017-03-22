@@ -531,11 +531,7 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 	case keybmap.XKTab:
 		switch {
 		case k.Mods.IsNone():
-			if ta.SelectionOn() {
-				tautil.TabRight(ta)
-			} else {
-				tautil.InsertRune(ta, '\t')
-			}
+			tautil.TabRight(ta)
 		case k.Mods.IsShift():
 			tautil.TabLeft(ta)
 		}

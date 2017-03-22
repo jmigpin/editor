@@ -12,28 +12,21 @@ import (
 )
 
 func ExternalCmd(erow ERower, cmdStr string) {
-	tsd := erow.ToolbarSD()
 	row := erow.Row()
 	ed := erow.Ed()
 
-	// don't run external commands on confirmed files
-
-	// TODO:
-	//_,fi,ok:=erow.FileInfo()
-	//if !ok || !fi.IsDir(){
-
-	//}
-
-	_, ok := tsd.FirstPartFilename()
-	if ok {
-		ed.Error(fmt.Errorf("not running external command on existing filename"))
+	fp, fi, ok := erow.FileInfo()
+	if !ok {
+		ed.Errorf("missing fileinfo")
 		return
+	}
+	if fi.Mode().IsRegular() {
+		ed.Errorf("running external command on filename")
 	}
 
 	dir := ""
-	d, ok := tsd.FirstPartDirectory()
-	if ok {
-		dir = d
+	if fi.IsDir() {
+		dir = fp
 	}
 
 	// cancel previous context if any

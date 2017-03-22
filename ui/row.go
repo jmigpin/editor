@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"image"
+
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xutil/keybmap"
 	"github.com/jmigpin/editor/xutil/xgbutil"
@@ -146,6 +148,11 @@ func (row *Row) onButtonRelease(ev0 xgbutil.EREvent) {
 		return
 	}
 	row.activate()
+}
+func (row *Row) WarpPointer() {
+	b := row.C.Bounds
+	p := b.Min.Add(image.Pt(b.Dx()/2, b.Dy()/3))
+	row.Col.Cols.Layout.UI.WarpPointer(&p)
 }
 
 const (

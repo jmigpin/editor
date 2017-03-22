@@ -22,7 +22,7 @@ type Colors struct {
 	SelectionBg color.Color
 	HighlightFg color.Color
 	HighlightBg color.Color
-	Comment     color.Color
+	//Comment     color.Color
 }
 
 func DefaultColors() Colors {
@@ -33,7 +33,7 @@ func DefaultColors() Colors {
 		SelectionBg: color.Gray16{0x00ff},
 		HighlightFg: color.Black,
 		HighlightBg: color.Gray16{0x0fff},
-		Comment:     color.Gray16{0x000f},
+		//Comment:     color.Gray16{0x000f},
 	}
 }
 

@@ -40,6 +40,6 @@ func directory(erow cmdutil.ERower, p string) bool {
 			ed.Error(err)
 		}
 	}
-	erow2.Row().Square.WarpPointer()
+	erow2.Row().WarpPointer()
 	return true
 }

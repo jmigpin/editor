@@ -86,7 +86,8 @@ func lineEndIndexNextIndex(str string, index int) (_ int, hasNewline bool) {
 	return index + i + 1, true // 1 is "\n" size
 }
 
-// used in: comment/uncomment, tabright/tableft
+// used in: comment/uncomment
+// TODO: remove, implement where needed
 func alterSelectedText(ta Texta, fn func(string) (string, bool)) bool {
 	a, b, _ := linesStringIndexes(ta)
 

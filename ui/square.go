@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"image/color"
 
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xutil/keybmap"
@@ -16,7 +17,7 @@ type Square struct {
 	dereg         xgbutil.EventDeregister
 	buttonPressed bool
 	PressPointPad image.Point
-	values        [6]bool // mini-squares
+	values        [6]bool // bg and mini-squares
 }
 
 func NewSquare(ui *UI) *Square {
@@ -40,12 +41,15 @@ func (sq *Square) Close() {
 	sq.dereg.UnregisterAll()
 }
 func (sq *Square) paint() {
-	c := &SquareColor
+	var c color.Color = SquareColor
 	if sq.values[SquareDirty] {
-		c = &SquareDirtyColor
+		c = SquareDirtyColor
 	}
+	//if sq.values[SquareNotExist] {
+	//c = SquareNotExistColor
+	//}
 	if sq.values[SquareExecuting] {
-		c = &SquareExecutingColor
+		c = SquareExecutingColor
 	}
 	sq.ui.FillRectangle(&sq.C.Bounds, c)
 
@@ -100,6 +104,7 @@ func (sq *Square) onMotionNotify(ev0 xgbutil.EREvent) {
 
 	sq.ui.RequestMotionNotify()
 }
+
 func (sq *Square) WarpPointer() {
 	sa := sq.C.Bounds
 	p := sa.Min.Add(image.Pt(sa.Dx()/2, sa.Dy()/2))

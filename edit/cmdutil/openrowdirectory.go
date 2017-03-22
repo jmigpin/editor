@@ -6,22 +6,22 @@ import (
 )
 
 func OpenRowDirectory(erow ERower) {
+	ed := erow.Ed()
+
 	tsd := erow.ToolbarSD()
-	f, ok := tsd.FirstPartFilename()
-	if !ok {
-		return
-	}
-	p := path.Dir(f)
+	fp := tsd.FirstPartFilepath()
+	p := path.Dir(fp)
 
 	fi, err := os.Stat(p)
 	if err != nil {
+		ed.Error(err)
 		return
 	}
 	if !fi.IsDir() {
+		ed.Errorf("not a directory: %v", p)
 		return
 	}
 
-	ed := erow.Ed()
 	erow2, ok := ed.FindERow(p)
 	if !ok {
 		col := erow.Row().Col
@@ -33,5 +33,5 @@ func OpenRowDirectory(erow ERower) {
 			return
 		}
 	}
-	erow2.Row().Square.WarpPointer()
+	erow2.Row().WarpPointer()
 }

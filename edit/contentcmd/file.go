@@ -58,17 +58,16 @@ func file(erow cmdutil.ERower, str string) bool {
 			num = int(v)
 		}
 	}
-
-	// don't search/touch the indexes if the line is not set
-	if !haveNum {
-		erow2.Row().Square.WarpPointer()
-		return true
+	warped := false
+	if haveNum {
+		ok = tautil.GotoLineNum(erow2.Row().TextArea, num)
+		if ok {
+			warped = true
+		}
 	}
 
-	ok = tautil.GotoLineNum(erow2.Row().TextArea, num)
-	if !ok {
-		erow2.Row().Square.WarpPointer()
+	if !warped {
+		erow2.Row().WarpPointer()
 	}
-
 	return true
 }

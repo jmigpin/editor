@@ -86,6 +86,7 @@ func (ui *UI) winGeometry() (*image.Rectangle, error) {
 	r := image.Rect(0, 0, w, h)
 	return &r, nil
 }
+
 func (ui *UI) onQueueEmptyEvent(ev xgbutil.EREvent) {
 	// paint after all events have been handled
 	ui.Layout.C.PaintTreeIfNeeded(func(c *uiutil.Container) {
@@ -94,9 +95,11 @@ func (ui *UI) onQueueEmptyEvent(ev xgbutil.EREvent) {
 	})
 }
 
-// Usefull for NeedPaint() calls made inside a goroutine that have no way  of requesting a paint later since the event loop only paints after all events have been handled, so it doesn't paint if there are no events (hence using an empty event).
+// Send paint request to the main event loop.
+// Usefull for async methods that need to be painted.
 func (ui *UI) RequestTreePaint() {
-	ui.Win.EvReg.Emit(xgbutil.QueueEmptyEventId, nil)
+	ev := &xgbutil.ELQEvent{EventId: xgbutil.QueueEmptyEventId}
+	ui.Win.EventLoopQ <- ev
 }
 
 func (ui *UI) Image() draw.Image {

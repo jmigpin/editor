@@ -177,7 +177,7 @@ func ListSessions(ed Editorer) {
 
 func OpenSession(ed Editorer, part *toolbardata.Part) {
 	if len(part.Args) != 2 {
-		ed.Error(fmt.Errorf("opensession: missing session name"))
+		ed.Errorf("missing session name")
 		return
 	}
 	sessionName := part.Args[1].Trim()
@@ -195,7 +195,7 @@ func OpenSessionFromString(ed Editorer, sessionName string) {
 			return
 		}
 	}
-	ed.Error(fmt.Errorf("opensession: session not found: %v", sessionName))
+	ed.Errorf("session not found: %v", sessionName)
 }
 
 func DeleteSession(ed Editorer, part *toolbardata.Part) {
