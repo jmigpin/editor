@@ -7,6 +7,59 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
+func EventLoop(conn *xgb.Conn, er *EventRegister, qChan chan *ELQEvent) {
+
+	connCh := make(chan interface{})
+	go func() {
+		for {
+			ev, xerr := conn.PollForEvent()
+			if ev == nil && xerr == nil {
+				connCh <- int(QueueEmptyEventId)
+
+				ev, xerr = conn.WaitForEvent()
+				if ev == nil && xerr == nil {
+					connCh <- int(ConnectionClosedEventId)
+					goto forEnd1
+				}
+			}
+			if ev != nil {
+				connCh <- ev
+			} else if xerr != nil {
+				connCh <- xerr
+			}
+		}
+	forEnd1:
+	}()
+
+	for {
+		select {
+		case ev, ok := <-qChan:
+			if !ok {
+				goto forEnd2
+			}
+			er.Emit(ev.EventId, ev.Event)
+		case ev, ok := <-connCh:
+			if !ok {
+				goto forEnd2
+			}
+			switch ev2 := ev.(type) {
+			case xgb.Event:
+				er.Emit(XgbEventId(ev2), ev2)
+			case xgb.Error:
+				er.Emit(XErrorEventId, ev2)
+			case int:
+				er.Emit(ev2, nil)
+			}
+		}
+	}
+forEnd2:
+}
+
+type ELQEvent struct { // event loop q event
+	EventId int
+	Event   EREvent
+}
+
 const (
 	UnknownEventId = iota + 1000 // avoid clash with xproto
 	XErrorEventId
@@ -17,30 +70,6 @@ const (
 	// 1200+: dragndrop events
 )
 
-func EventLoop(conn *xgb.Conn, er *EventRegister, stop *bool) {
-	for {
-		if *stop {
-			break
-		}
-		ev, xerr := conn.PollForEvent()
-		if ev == nil && xerr == nil {
-			er.Emit(QueueEmptyEventId, nil)
-
-			ev, xerr = conn.WaitForEvent()
-			if ev == nil && xerr == nil {
-				er.Emit(ConnectionClosedEventId, nil)
-				//break
-			}
-		}
-		if xerr != nil {
-			er.Emit(XErrorEventId, xerr)
-			//break
-		} else {
-			//log.Printf("event: %#v", ev)
-			er.Emit(XgbEventId(ev), ev)
-		}
-	}
-}
 func XgbEventId(ev xgb.Event) int {
 	switch ev.(type) {
 	case xproto.ExposeEvent:

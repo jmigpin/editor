@@ -15,26 +15,18 @@ import (
 )
 
 type Window struct {
-	Conn          *xgb.Conn
-	Window        xproto.Window
-	Screen        *xproto.ScreenInfo
-	GCtx          xproto.Gcontext
-	EvReg         *xgbutil.EventRegister
-	Dnd           *dragndrop.Dnd
-	Paste         *copypaste.Paste
-	Copy          *copypaste.Copy
-	Cursors       *Cursors
-	KeybMap       *keybmap.KeybMap
-	ShmWrap       *xgbutil.ShmWrap
-	stopEventLoop bool
-	connClosed    bool
-}
-
-type Event interface{}
-
-var Atoms struct {
-	NET_WM_NAME xproto.Atom `loadAtoms:"_NET_WM_NAME"`
-	UTF8_STRING xproto.Atom
+	Conn       *xgb.Conn
+	Window     xproto.Window
+	Screen     *xproto.ScreenInfo
+	GCtx       xproto.Gcontext
+	EvReg      *xgbutil.EventRegister
+	Dnd        *dragndrop.Dnd
+	Paste      *copypaste.Paste
+	Copy       *copypaste.Copy
+	Cursors    *Cursors
+	KeybMap    *keybmap.KeybMap
+	ShmWrap    *xgbutil.ShmWrap
+	EventLoopQ chan *xgbutil.ELQEvent
 }
 
 func NewWindow() (*Window, error) {
@@ -157,31 +149,7 @@ func (win *Window) init() error {
 		return err
 	}
 
-	// handle error events
-	win.EvReg.Add(xgbutil.ConnectionClosedEventId,
-		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
-			log.Printf("win ev: conn closed %+v", ev)
-			win.connClosed = true
-			win.stopEventLoop = true
-		}})
-	win.EvReg.Add(xgbutil.XErrorEventId,
-		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
-			log.Printf("win ev: err %v", ev)
-			win.connClosed = true
-			win.stopEventLoop = true
-		}})
-
 	return nil
-}
-func (win *Window) Close() {
-	win.stopEventLoop = true
-	err := win.ShmWrap.Close()
-	if err != nil {
-		log.Println(err)
-	}
-	if !win.connClosed {
-		win.Conn.Close()
-	}
 }
 func (win *Window) SetWindowName(str string) {
 	b := []byte(str)
@@ -231,5 +199,21 @@ func (win *Window) QueryPointer() (*image.Point, bool) {
 	return &image.Point{x, y}, true
 }
 func (win *Window) EventLoop() {
-	xgbutil.EventLoop(win.Conn, win.EvReg, &win.stopEventLoop)
+	win.EventLoopQ = make(chan *xgbutil.ELQEvent)
+	xgbutil.EventLoop(win.Conn, win.EvReg, win.EventLoopQ)
+
+	// cleanup after event loop exit
+	err := win.ShmWrap.Close()
+	if err != nil {
+		log.Println(err)
+	}
+	win.Conn.Close()
+}
+func (win *Window) Close() {
+	close(win.EventLoopQ)
+}
+
+var Atoms struct {
+	NET_WM_NAME xproto.Atom `loadAtoms:"_NET_WM_NAME"`
+	UTF8_STRING xproto.Atom
 }
