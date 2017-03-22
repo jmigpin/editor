@@ -87,13 +87,18 @@ func NewEditor() (*Editor, error) {
 	// flags: filenames
 	args := flag.Args()
 	if len(args) > 0 {
-		col := ed.ActiveColumn()
+		col := ed.ui.Layout.Cols.Cols[0]
 		for _, s := range args {
-			erow := ed.FindERowOrCreate(s, col)
-			err := erow.LoadContentClear()
-			if err != nil {
-				ed.Error(err)
-				continue
+			_, ok := ed.FindERow(s)
+			if !ok {
+				rowIndex := len(col.Rows)
+				erow := ed.NewERow(s, col, rowIndex)
+				err := erow.LoadContentClear()
+				if err != nil {
+					// TODO: can't show errors yet?
+					//ed.Error(err)
+					continue
+				}
 			}
 		}
 	}
@@ -143,26 +148,6 @@ func (ed *Editor) UI() *ui.UI {
 	return ed.ui
 }
 
-func (ed *Editor) activeERow() (*ERow, bool) {
-	for _, erow := range ed.erows {
-		if erow.row.Square.Value(ui.SquareActive) {
-			return erow, true
-		}
-	}
-	return nil, false
-}
-func (ed *Editor) ActiveColumn() *ui.Column {
-	// TODO: who calls this, needs to check if opening a dir, then it should be on same col, else, on best space
-
-	//row, ok := ed.activeRow()
-	//if ok {
-	//return row.Col
-	//}
-	//return ed.ui.Layout.Cols.LastColumnOrNew()
-
-	return ed.ui.Layout.Cols.ColumnWithBestSpaceForNewRow()
-}
-
 func (ed *Editor) ERows() []cmdutil.ERower {
 	u := make([]cmdutil.ERower, len(ed.erows))
 	i := 0
@@ -172,15 +157,18 @@ func (ed *Editor) ERows() []cmdutil.ERower {
 	}
 	return u
 }
-func (ed *Editor) NewERow(col *ui.Column) cmdutil.ERower {
-	row := col.NewRow()
-	erow := NewERow(ed, row)
+
+func (ed *Editor) NewERow(tbStr string, col *ui.Column, rowIndex int) cmdutil.ERower {
+	row := col.NewRow(rowIndex)
+	erow := NewERow(ed, row, tbStr)
+
+	// add/remove to erows
 	ed.erows[row] = erow
-	// on row close - clear from erows
 	row.EvReg.Add(ui.RowCloseEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			delete(ed.erows, row)
 		}})
+
 	// key shortcuts
 	row.EvReg.Add(ui.RowKeyPressEventId,
 		&xgbutil.ERCallback{ed.onRowKeyPress})
@@ -205,6 +193,7 @@ func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
 		cmdutil.FindShortcut(erow)
 	}
 }
+
 func (ed *Editor) FindERow(s string) (cmdutil.ERower, bool) {
 	for _, erow := range ed.erows {
 		tsd := erow.ToolbarSD()
@@ -215,18 +204,29 @@ func (ed *Editor) FindERow(s string) (cmdutil.ERower, bool) {
 	}
 	return nil, false
 }
-func (ed *Editor) FindERowOrCreate(str string, col *ui.Column) cmdutil.ERower {
-	erow, ok := ed.FindERow(str)
-	if ok {
-		return erow
-	}
-	erow = ed.NewERow(col)
-	erow.Row().Toolbar.SetStrClear(str, true, true)
-	return erow
-}
 
 func (ed *Editor) Error(err error) {
-	col := ed.ActiveColumn()
-	erow := ed.FindERowOrCreate("+Errors", col)
+	s := "+Errors"
+	erow, ok := ed.FindERow(s)
+	if !ok {
+		col, rowIndex := ed.GoodColRowPlace()
+		erow = ed.NewERow(s, col, rowIndex)
+	}
 	erow.TextAreaAppend(err.Error() + "\n")
+	erow.Row().Square.WarpPointer()
+}
+
+// Used to run layout toolbar commands.
+func (ed *Editor) activeERow() (*ERow, bool) {
+	for _, erow := range ed.erows {
+		if erow.row.Square.Value(ui.SquareActive) {
+			return erow, true
+		}
+	}
+	return nil, false
+}
+
+func (ed *Editor) GoodColRowPlace() (*ui.Column, int) {
+	col := ed.ui.Layout.Cols.ColumnWithGoodPlaceForNewRow()
+	return col, len(col.Rows)
 }

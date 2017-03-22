@@ -21,11 +21,17 @@ func OpenRowDirectory(erow ERower) {
 		return
 	}
 
-	ed := erow.Editorer()
-	col := ed.ActiveColumn()
-	erow2 := ed.FindERowOrCreate(p, col)
-	err = erow2.LoadContentClear()
-	if err == nil {
-		erow2.Row().Square.WarpPointer()
+	ed := erow.Ed()
+	erow2, ok := ed.FindERow(p)
+	if !ok {
+		col := erow.Row().Col
+		i := col.RowIndex(erow.Row()) + 1
+		erow2 = ed.NewERow(p, col, i)
+		err = erow2.LoadContentClear()
+		if err != nil {
+			erow.Ed().Error(err)
+			return
+		}
 	}
+	erow2.Row().Square.WarpPointer()
 }

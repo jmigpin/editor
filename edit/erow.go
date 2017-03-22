@@ -20,14 +20,20 @@ type ERow struct {
 	fileInfoPath string
 }
 
-func NewERow(ed *Editor, row *ui.Row) *ERow {
+func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
 	erow := &ERow{ed: ed, row: row}
+
+	// set toolbar before setting event handlers
+	row.Toolbar.SetStrClear(tbStr, true, true)
+
 	erow.init()
+
+	// run after event handlers are set
+	erow.parseToolbar(erow.row.Toolbar.Str())
+
 	return erow
 }
 func (erow *ERow) init() {
-	erow.parseToolbar(erow.row.Toolbar.Str())
-
 	row := erow.row
 	ed := erow.ed
 	// toolbar set str
@@ -43,8 +49,9 @@ func (erow *ERow) init() {
 	// textarea set str
 	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			// dirty feedback
-			if erow.fileInfo != nil && !erow.fileInfo.IsDir() {
+			// dirty
+			_, fi, ok := erow.FileInfo()
+			if ok && !fi.IsDir() {
 				erow.row.Square.SetValue(ui.SquareDirty, true)
 			}
 		}})
@@ -70,7 +77,7 @@ func (erow *ERow) init() {
 func (erow *ERow) Row() *ui.Row {
 	return erow.row
 }
-func (erow *ERow) Editorer() cmdutil.Editorer {
+func (erow *ERow) Ed() cmdutil.Editorer {
 	return erow.ed
 }
 func (erow *ERow) parseToolbar(str string) {
@@ -106,7 +113,9 @@ func (erow *ERow) parseToolbar(str string) {
 	} else {
 		erow.fileInfo = fi
 		erow.fileInfoPath = fp
-		erow.ed.fw.Add(erow, fp)
+		if !fi.IsDir() {
+			erow.ed.fw.Add(erow, fp)
+		}
 	}
 	erow.row.Square.SetValue(ui.SquareNotExist, notExist)
 }
@@ -127,7 +136,10 @@ func (erow *ERow) ReloadContent() error {
 	return erow.loadContent(false)
 }
 func (erow *ERow) loadContent(clear bool) error {
-	fp := erow.tbsd.FirstPartFilepath()
+	fp, _, ok := erow.FileInfo()
+	if !ok {
+		return errors.New("missing fileinfo")
+	}
 	content, err := filepathContent(fp)
 	if err != nil {
 		return err
@@ -138,18 +150,28 @@ func (erow *ERow) loadContent(clear bool) error {
 	return nil
 }
 func (erow *ERow) SaveContent(str string) error {
-	if erow.fileInfo == nil {
-		return errors.New("fileinfo missing: not a file?")
+	_, fi, ok := erow.FileInfo()
+	if !ok {
+		return errors.New("fileinfo missing")
 	}
-	if erow.fileInfo.IsDir() {
+	if fi.IsDir() {
 		return errors.New("can't save a directory")
 	}
-
-	// disable/enable file watcher to avoid wrong async row.square value
+	err := erow.saveContent2(str)
+	erow.row.Square.SetValue(ui.SquareDirty, false)
+	erow.row.Square.SetValue(ui.SquareCold, false)
+	return err
+}
+func (erow *ERow) saveContent2(str string) error {
+	// disable/enable file watcher to avoid events while writing
 	erow.ed.fw.Remove(erow)
-	defer func() {
-		erow.ed.fw.Add(erow, erow.fileInfoPath)
-	}()
+	defer erow.ed.fw.Add(erow, erow.fileInfoPath)
+
+	//log.SetFlags(0)
+
+	//u := path.Base(erow.fileInfoPath)
+	//log.Printf("save content: %v", u)
+	//defer log.Printf("save content done: %v", u)
 
 	// save
 	filename := erow.fileInfoPath
@@ -159,19 +181,30 @@ func (erow *ERow) SaveContent(str string) error {
 		return err
 	}
 	defer f.Close()
+	defer f.Sync()
 	_, err = f.Write([]byte(str))
-	if err != nil {
-		return err
-	}
 
-	erow.row.Square.SetValue(ui.SquareDirty, false)
-	erow.row.Square.SetValue(ui.SquareCold, false)
-	return nil
+	//ed := erow.ed
+	//ed.fw.m.Lock()
+	//for _, v := range ed.fw.m.m {
+	//log.Printf("** %v\n", path.Base(v))
+	//}
+	//ed.fw.m.Unlock()
+
+	return err
 }
 
 // Directly Called by the editor fileswatcher - async.
 func (erow *ERow) OnFilesWatcherEvent(ev *fsnotify.FileEvent) {
-	//ev.Name
+
+	//u := path.Base(ev.Name)
+	//log.Printf("fw event: %v", u)
+	//defer log.Printf("fw event done: %v", u)
+
+	//if ev.IsModify() {
+	//log.Printf("fw is modify: %v", ev.Name)
+	//}
+
 	sq := erow.row.Square
 	if sq.Value(ui.SquareCold) == false {
 		erow.row.Square.SetValue(ui.SquareCold, true)

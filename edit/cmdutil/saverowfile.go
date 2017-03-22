@@ -16,7 +16,7 @@ func SaveRowsFiles(ed Editorer) {
 }
 func SaveRowFile(erow ERower) {
 	tsd := erow.ToolbarSD()
-	ed := erow.Editorer()
+	ed := erow.Ed()
 	row := erow.Row()
 
 	content := row.TextArea.Str()

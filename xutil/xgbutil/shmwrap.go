@@ -96,7 +96,7 @@ func (smw *ShmWrap) PutImage(gctx xproto.Gcontext, r *image.Rectangle) {
 type ShmWrapImage struct {
 	img   *imageutil.BGRA
 	shmId uintptr
-	addr  unsafe.Pointer
+	addr  uintptr
 }
 
 func NewShmWrapImage(r *image.Rectangle) (*ShmWrapImage, error) {
@@ -105,7 +105,11 @@ func NewShmWrapImage(r *image.Rectangle) (*ShmWrapImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	img := imageutil.NewBGRAFromAddr(addr, r)
+
+	// mask shared mem into a slice - gives go vet warning
+	buf := (*[1 << 31]byte)(unsafe.Pointer(addr))[:size:size]
+
+	img := imageutil.NewBGRAFromBuffer(buf, r)
 	simg := &ShmWrapImage{img: img, shmId: shmId, addr: addr}
 	return simg, nil
 }

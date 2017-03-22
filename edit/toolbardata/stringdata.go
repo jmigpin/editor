@@ -29,7 +29,7 @@ func (sd *StringData) FirstPartFilename() (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	if !fi.Mode().IsRegular() {
+	if fi.IsDir() {
 		return "", false
 	}
 	return v, true

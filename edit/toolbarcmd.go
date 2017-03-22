@@ -37,7 +37,8 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 	case "ReloadAllFiles":
 		cmdutil.ReloadRowsFiles(ed)
 	case "NewRow":
-		erow := ed.NewERow(ed.ActiveColumn())
+		col, rowIndex := ed.GoodColRowPlace()
+		erow := ed.NewERow("", col, rowIndex)
 		erow.Row().Square.WarpPointer()
 	case "ReopenRow":
 		erow, ok := ed.reopenRow.Reopen()

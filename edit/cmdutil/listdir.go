@@ -15,7 +15,7 @@ func ListDirEd(erow ERower, tree, hidden bool) {
 	}
 	s, err := ListDir(fp, tree, hidden)
 	if err != nil {
-		erow.Editorer().Error(err)
+		erow.Ed().Error(err)
 		return
 	}
 	erow.Row().TextArea.SetStrClear(s, false, false)

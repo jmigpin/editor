@@ -20,7 +20,7 @@ func http(erow cmdutil.ERower, s string) bool {
 		cmd := exec.Command("x-www-browser", u.String())
 		err := cmd.Run()
 		if err != nil {
-			ed := erow.Editorer()
+			ed := erow.Ed()
 			ed.Error(err)
 			ed.UI().RequestTreePaint()
 		}

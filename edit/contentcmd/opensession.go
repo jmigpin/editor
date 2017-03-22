@@ -8,6 +8,6 @@ func openSession(erow cmdutil.ERower, s string) bool {
 	}
 	ta := erow.Row().TextArea
 	s2 := afterSpaceExpandRightUntilSpace(ta.Str(), ta.CursorIndex())
-	cmdutil.OpenSessionFromString(erow.Editorer(), s2)
+	cmdutil.OpenSessionFromString(erow.Ed(), s2)
 	return true
 }

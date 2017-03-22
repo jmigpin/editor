@@ -1,11 +1,19 @@
 package edit
 
-import "github.com/howeyc/fsnotify"
+import (
+	"log"
+	"sync"
+
+	"github.com/howeyc/fsnotify"
+)
 
 type FilesWatcher struct {
 	w  *fsnotify.Watcher
-	m  map[*ERow]string
 	ed *Editor
+	m  struct {
+		sync.Mutex
+		m map[*ERow]string
+	}
 }
 
 func NewFilesWatcher(ed *Editor) (*FilesWatcher, error) {
@@ -15,35 +23,54 @@ func NewFilesWatcher(ed *Editor) (*FilesWatcher, error) {
 	}
 	fw := &FilesWatcher{
 		w:  w,
-		m:  make(map[*ERow]string),
 		ed: ed,
 	}
+	fw.m.m = make(map[*ERow]string)
 	return fw, nil
 }
 func (fw *FilesWatcher) Close() {
 	fw.w.Close() // will close watcher chans (Events/Errors)
 }
+
 func (fw *FilesWatcher) Add(erow *ERow, f string) {
-	_, ok := fw.m[erow]
-	if ok {
-		fw.Remove(erow)
-	}
-	fw.m[erow] = f
-	err := fw.w.Watch(f)
+	err := fw.add2(erow, f)
 	if err != nil {
 		fw.ed.Error(err)
 	}
 }
+func (fw *FilesWatcher) add2(erow *ERow, f string) error {
+	fw.m.Lock()
+	defer fw.m.Unlock()
+
+	err := fw.remove3(erow)
+	if err != nil {
+		log.Println(err)
+	}
+
+	fw.m.m[erow] = f
+	return fw.w.Watch(f)
+}
+
 func (fw *FilesWatcher) Remove(erow *ERow) {
-	s, ok := fw.m[erow]
-	if ok {
-		delete(fw.m, erow)
-		err := fw.w.RemoveWatch(s)
-		if err != nil {
-			fw.ed.Error(err)
-		}
+	err := fw.remove2(erow)
+	if err != nil {
+		fw.ed.Error(err)
 	}
 }
+func (fw *FilesWatcher) remove2(erow *ERow) error {
+	fw.m.Lock()
+	defer fw.m.Unlock()
+	return fw.remove3(erow)
+}
+func (fw *FilesWatcher) remove3(erow *ERow) error {
+	f, ok := fw.m.m[erow]
+	if !ok {
+		return nil
+	}
+	delete(fw.m.m, erow)
+	return fw.w.RemoveWatch(f)
+}
+
 func (fw *FilesWatcher) EventLoop() {
 	for {
 		select {
@@ -56,10 +83,17 @@ func (fw *FilesWatcher) EventLoop() {
 			if !ok {
 				return
 			}
-			for erow, s := range fw.m {
+
+			fw.m.Lock()
+			var u []*ERow
+			for erow, s := range fw.m.m {
 				if ev.Name == s {
-					erow.OnFilesWatcherEvent(ev)
+					u = append(u, erow)
 				}
+			}
+			fw.m.Unlock()
+			for _, erow := range u {
+				erow.OnFilesWatcherEvent(ev)
 			}
 		}
 	}

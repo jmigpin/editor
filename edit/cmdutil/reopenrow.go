@@ -29,6 +29,7 @@ func (reop *ReopenRow) Reopen() (ERower, bool) {
 	state := reop.q[l-1]
 	reop.q = reop.q[:l-1] // remove from q
 
-	erow := NewERowFromRowState(reop.ed, state, reop.ed.ActiveColumn())
+	col, rowIndex := reop.ed.GoodColRowPlace()
+	erow := NewERowFromRowState(reop.ed, state, col, rowIndex)
 	return erow, true
 }

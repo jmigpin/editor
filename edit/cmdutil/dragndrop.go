@@ -123,35 +123,29 @@ func (h *dndHandler) onDrop2(ev *dragndrop.DropEvent) bool {
 func (h *dndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*url.URL) {
 	for _, u := range urls {
 		if u.Scheme == "file" {
-			// calculate position before the row is inserted if the row doesn't exist
-			var c *ui.Column
-			var i int
-			posCalc := false
-			_, ok := h.ed.FindERow(u.Path)
-			if !ok {
-				c, i, ok = col.Cols.PointRowPosition(nil, p)
-				if !ok {
-					continue
-				}
-				posCalc = true
-			}
-			// find/create
-			erow := h.ed.FindERowOrCreate(u.Path, col)
-			err := erow.LoadContentClear()
-			if err != nil {
-				h.ed.Error(err)
-				continue
-			}
-			// calculate if not calculated yet
-			if !posCalc {
-				c, i, ok = col.Cols.PointRowPosition(erow.Row(), p)
-				if !ok {
-					continue
-				}
-			}
-			// move row
-			col.Cols.MoveRowToColumn(erow.Row(), c, i)
+			h.handleDroppedURL(col, p, u)
 		}
+	}
+}
+func (h *dndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL) {
+	erow, ok := h.ed.FindERow(u.Path)
+	if !ok {
+		c, i, ok := col.Cols.PointRowPosition(nil, p)
+		if !ok {
+			return
+		}
+		erow = h.ed.NewERow(u.Path, c, i)
+		err := erow.LoadContentClear()
+		if err != nil {
+			h.ed.Error(err)
+			return
+		}
+	} else {
+		c, i, ok := col.Cols.PointRowPosition(erow.Row(), p)
+		if !ok {
+			return
+		}
+		col.Cols.MoveRowToColumn(erow.Row(), c, i)
 	}
 }
 

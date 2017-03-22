@@ -11,7 +11,7 @@ func Replace(erow ERower, part *toolbardata.Part) {
 	a := part.Args[1:]
 	if len(a) != 2 {
 		err := fmt.Errorf("replace: expecting 2 arguments")
-		erow.Editorer().Error(err)
+		erow.Ed().Error(err)
 		return
 	}
 	old, new := a[0].Trim(), a[1].Trim()

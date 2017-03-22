@@ -19,6 +19,7 @@ type Texta interface {
 	CursorIndex() int
 	SetCursorIndex(int)
 	MakeIndexVisible(int)
+	WarpPointerToIndexIfVisible(int)
 
 	OffsetY() fixed.Int26_6
 	SetOffsetY(v fixed.Int26_6)

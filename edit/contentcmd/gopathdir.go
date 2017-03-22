@@ -13,6 +13,9 @@ func goPathDir(erow cmdutil.ERower, s string) bool {
 	if s == "" {
 		return false
 	}
+
+	ed := erow.Ed()
+
 	gopath := os.Getenv("GOPATH")
 	a := strings.Split(gopath, ":")
 	a = append(a, os.Getenv("GOROOT"))
@@ -20,13 +23,17 @@ func goPathDir(erow cmdutil.ERower, s string) bool {
 		p2 := path.Join(p, "src", s)
 		_, err := os.Stat(p2)
 		if err == nil {
-			ed := erow.Editorer()
-			col := ed.ActiveColumn()
-			erow := ed.FindERowOrCreate(p2, col)
-			err = erow.LoadContentClear()
-			if err == nil {
-				erow.Row().Square.WarpPointer()
+			erow2, ok := ed.FindERow(p2)
+			if !ok {
+				col, rowIndex := ed.GoodColRowPlace()
+				erow2 = ed.NewERow(p2, col, rowIndex)
+				err = erow2.LoadContentClear()
+				if err != nil {
+					ed.Error(err)
+					return true
+				}
 			}
+			erow2.Row().Square.WarpPointer()
 			return true
 		}
 	}

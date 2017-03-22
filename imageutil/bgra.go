@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"unsafe"
 )
 
 type BGRA struct {
@@ -16,13 +15,9 @@ func NewBGRA(r *image.Rectangle) *BGRA {
 	return &BGRA{*u}
 }
 
-// Ex. usage: get bgra from shared memory used with X.
-func NewBGRAFromAddr(addr unsafe.Pointer, r *image.Rectangle) *BGRA {
-	size := BGRASize(r)
-	// mask the addr into a slice
-	buf := (*[1 << 31]uint8)(addr)[:size:size]
-	// new bgra from slice
-	return &BGRA{image.RGBA{Pix: buf, Stride: 4 * r.Dx(), Rect: *r}}
+func NewBGRAFromBuffer(buf []byte, r *image.Rectangle) *BGRA {
+	rgba := image.RGBA{Pix: buf, Stride: 4 * r.Dx(), Rect: *r}
+	return &BGRA{RGBA: rgba}
 }
 func BGRASize(r *image.Rectangle) int {
 	return r.Dx() * r.Dy() * 4

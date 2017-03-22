@@ -14,9 +14,16 @@ import (
 func ExternalCmd(erow ERower, cmdStr string) {
 	tsd := erow.ToolbarSD()
 	row := erow.Row()
-	ed := erow.Editorer()
+	ed := erow.Ed()
 
 	// don't run external commands on confirmed files
+
+	// TODO:
+	//_,fi,ok:=erow.FileInfo()
+	//if !ok || !fi.IsDir(){
+
+	//}
+
 	_, ok := tsd.FirstPartFilename()
 	if ok {
 		ed.Error(fmt.Errorf("not running external command on existing filename"))
@@ -67,7 +74,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 	taAppend := func(s string) {
 		erow.TextAreaAppend(s)
 		// running async, need to request paint
-		erow.Editorer().UI().RequestTreePaint()
+		erow.Ed().UI().RequestTreePaint()
 	}
 
 	var wg sync.WaitGroup

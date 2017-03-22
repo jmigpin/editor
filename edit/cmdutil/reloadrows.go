@@ -8,7 +8,7 @@ func ReloadRows(ed Editorer) {
 func ReloadRow(erow ERower) {
 	err := erow.ReloadContent()
 	if err != nil {
-		erow.Editorer().Error(err)
+		erow.Ed().Error(err)
 	}
 }
 

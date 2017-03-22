@@ -18,10 +18,9 @@ func NewRowState(row *ui.Row) *RowState {
 		TaOffsetIndex: row.TextArea.OffsetIndex(),
 	}
 }
-func NewERowFromRowState(ed Editorer, state *RowState, col *ui.Column) ERower {
-	erow := ed.NewERow(col)
+func NewERowFromRowState(ed Editorer, state *RowState, col *ui.Column, rowIndex int) ERower {
+	erow := ed.NewERow(state.TbStr, col, rowIndex)
 	row := erow.Row()
-	row.Toolbar.SetStrClear(state.TbStr, true, true)
 	row.Toolbar.SetCursorIndex(state.TbCursorIndex)
 	err := erow.LoadContentClear()
 	if err != nil {

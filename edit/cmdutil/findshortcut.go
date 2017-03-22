@@ -87,5 +87,5 @@ func FindShortcut(erow ERower) {
 	p2 := drawutil.Point266ToPoint(p)
 	p3 := p2.Add(ta.C.Bounds.Min)
 	p3.Y += ta.LineHeight().Round() / 2 // center of rune
-	erow.Editorer().UI().WarpPointer(&p3)
+	erow.Ed().UI().WarpPointer(&p3)
 }

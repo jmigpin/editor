@@ -17,7 +17,7 @@ func Cmd(erow cmdutil.ERower) {
 	if ok := directory(erow, s); ok {
 		return
 	}
-	if ok := fileLine(erow, s); ok {
+	if ok := file(erow, s); ok {
 		return
 	}
 	if ok := http(erow, s); ok {

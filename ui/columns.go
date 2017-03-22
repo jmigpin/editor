@@ -253,21 +253,40 @@ func (cols *Columns) moveColumnToColumn(col, dest *Column, p *image.Point) {
 	cols.C.NeedPaint()
 	cols.Layout.UI.WarpPointerToRectanglePad(&col.C.Bounds)
 }
-func (cols *Columns) ColumnWithBestSpaceForNewRow() *Column {
+func (cols *Columns) ColumnWithGoodPlaceForNewRow() *Column {
 	var best struct {
 		r    *image.Rectangle
 		area int
 		col  *Column
 	}
+	best.col = cols.Cols[0]
 	rectArea := func(r *image.Rectangle) int {
 		p := r.Size()
 		return p.X * p.Y
 	}
 	for _, col := range cols.Cols {
-		dy := col.C.Bounds.Dy()
-		if len(col.Rows) > 0 {
-			dy /= len(col.Rows)
+		dy0 := col.C.Bounds.Dy()
+		dy := dy0 / (len(col.Rows) + 1)
+
+		// take into consideration the textarea content size
+		usedY := 0
+		for _, r := range col.Rows {
+			ry := r.C.Bounds.Dy()
+
+			// small text - count only needed height
+			ry1 := ry - r.TextArea.C.Bounds.Dy()
+			ry2 := ry1 + r.TextArea.StrHeight().Round()
+			if ry2 < ry {
+				ry = ry2
+			}
+
+			usedY += ry
 		}
+		dy2 := dy0 - usedY
+		if dy < dy2 {
+			dy = dy2
+		}
+
 		r := image.Rect(0, 0, col.C.Bounds.Dx(), dy)
 		area := rectArea(&r)
 		if area > best.area {

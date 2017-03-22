@@ -86,8 +86,8 @@ func (s *Session) restore(ed Editorer) {
 	// create the rows
 	for i, c := range s.Columns {
 		col := cols.Cols[i]
-		for _, r := range c.Rows {
-			_ = NewERowFromRowState(ed, r, col)
+		for j, r := range c.Rows {
+			_ = NewERowFromRowState(ed, r, col, j)
 		}
 	}
 }
@@ -166,8 +166,12 @@ func ListSessions(ed Editorer) {
 	for _, session := range ss.Sessions {
 		str += fmt.Sprintf("OpenSession %v\n", session.Name)
 	}
-	col := ed.ActiveColumn()
-	erow := ed.FindERowOrCreate("+Sessions", col)
+	s := "+Sessions"
+	erow, ok := ed.FindERow(s)
+	if !ok {
+		col, rowIndex := ed.GoodColRowPlace()
+		erow = ed.NewERow(s, col, rowIndex)
+	}
 	erow.Row().TextArea.SetStrClear(str, false, false)
 }
 

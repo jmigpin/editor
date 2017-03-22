@@ -309,24 +309,40 @@ func (ta *TextArea) MakeIndexVisible(index int) {
 	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
 }
-func (ta *TextArea) MakeCursorVisibleAndWarpPointerToCursor() {
-	ta.MakeIndexVisible(ta.CursorIndex())
-
-	p := ta.stringCache.GetPoint(ta.CursorIndex())
+func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
+	p := ta.stringCache.GetPoint(index)
 	p.Y -= ta.OffsetY()
 	p2 := drawutil.Point266ToPoint(p)
 	p3 := p2.Add(ta.C.Bounds.Min)
-	// add pad
+
+	// padding
 	p3.Y += ta.LineHeight().Round()
 	p3.X += 5
 
-	// ensure the cursor is reachable in X (ex: textarea is small and cursor is drawn outside of it)
 	if !p3.In(ta.C.Bounds) {
-		p3.X = 0
+		return
 	}
-
 	ta.ui.WarpPointer(&p3)
 }
+
+//func (ta *TextArea) MakeCursorVisibleAndWarpPointerToCursor() {
+//ta.MakeIndexVisible(ta.CursorIndex())
+
+//p := ta.stringCache.GetPoint(ta.CursorIndex())
+//p.Y -= ta.OffsetY()
+//p2 := drawutil.Point266ToPoint(p)
+//p3 := p2.Add(ta.C.Bounds.Min)
+//// add pad
+//p3.Y += ta.LineHeight().Round()
+//p3.X += 5
+
+//// ensure the cursor is reachable in X (ex: textarea is small and cursor is drawn outside of it)
+//if !p3.In(ta.C.Bounds) {
+//p3.X = 0
+//}
+
+//ta.ui.WarpPointer(&p3)
+//}
 
 func (ta *TextArea) RequestTreePaint() {
 	ta.ui.RequestTreePaint()
@@ -526,7 +542,8 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 	case keybmap.XKReturn:
 		switch {
 		case k.Mods.IsNone():
-			tautil.InsertRune(ta, '\n')
+			//tautil.InsertRune(ta, '\n')
+			tautil.AutoIndent(ta)
 		}
 	case keybmap.XKSpace:
 		tautil.InsertRune(ta, ' ')

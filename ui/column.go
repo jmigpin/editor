@@ -48,9 +48,10 @@ func (col *Column) paint() {
 		return
 	}
 }
-func (col *Column) NewRow() *Row {
+
+func (col *Column) NewRow(index int) *Row {
 	row := NewRow(col)
-	col.insertRow(row, len(col.Rows))
+	col.insertRow(row, index)
 	return row
 }
 func (col *Column) insertRow(row *Row, index int) {
@@ -79,10 +80,7 @@ func (col *Column) insertRow(row *Row, index int) {
 	col.C.NeedPaint()
 }
 func (col *Column) removeRow(row *Row) {
-	index, ok := col.rowIndex(row)
-	if !ok {
-		panic("row doesn't belong to col")
-	}
+	index := col.RowIndex(row)
 
 	// remove: ensure gargage collection
 	u := make([]*Row, 0, len(col.Rows)-1)
@@ -101,13 +99,13 @@ func (col *Column) removeRow(row *Row) {
 	col.C.CalcChildsBounds()
 	col.C.NeedPaint()
 }
-func (col *Column) rowIndex(row *Row) (int, bool) {
+func (col *Column) RowIndex(row *Row) int {
 	for i, r := range col.Rows {
 		if r == row {
-			return i, true
+			return i
 		}
 	}
-	return 0, false
+	panic("row not found in this column")
 }
 func (col *Column) onSquareButtonRelease(ev0 xgbutil.EREvent) {
 	ev := ev0.(*SquareButtonReleaseEvent)
