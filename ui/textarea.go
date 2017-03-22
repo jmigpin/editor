@@ -212,6 +212,7 @@ func (ta *TextArea) popUndo() {
 	ta.setStr(s)
 	ta.SetCursorIndex(i)
 	ta.SetSelectionOn(false)
+	ta.MakeIndexVisible(ta.CursorIndex())
 }
 func (ta *TextArea) unpopRedo() {
 	s, i, ok := ta.editHistory.UnpopRedo(ta.Str())
@@ -221,6 +222,7 @@ func (ta *TextArea) unpopRedo() {
 	ta.setStr(s)
 	ta.SetCursorIndex(i)
 	ta.SetSelectionOn(false)
+	ta.MakeIndexVisible(ta.CursorIndex())
 }
 
 func (ta *TextArea) CursorIndex() int {
