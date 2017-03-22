@@ -85,6 +85,10 @@ func (erow *ERow) parseToolbar(str string) {
 			// reparse
 			str = s3
 			erow.tbsd = toolbardata.NewStringData(str)
+
+			// set str, it will come back to this func again through event callback
+			erow.Row().Toolbar.SetStrClear(str, false, false)
+			return
 		}
 	}
 
