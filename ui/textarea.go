@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"time"
 
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/imageutil"
@@ -35,6 +36,12 @@ type TextArea struct {
 	Colors                     *drawutil.Colors
 	DisableHighlightCursorWord bool
 	DisablePageUpDown          bool
+
+	// detect double/triple clicks for button 1
+	buttonPressedTime [1]struct {
+		t      time.Time
+		action int
+	}
 }
 
 func NewTextArea(ui *UI) *TextArea {
@@ -385,6 +392,28 @@ func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 	ta.buttonPressed = true
 	switch {
 	case ev.Button.Button1():
+
+		bpt := &ta.buttonPressedTime[0]
+
+		pt0 := bpt.t
+		bpt.t = time.Now()
+		d := bpt.t.Sub(pt0)
+		if d < 500*time.Millisecond {
+			bpt.action++
+			bpt.action %= 3
+		} else {
+			bpt.action = 0
+		}
+
+		switch bpt.action {
+		case 1: // double click
+			tautil.SelectWord(ta)
+			return
+		case 2: // triple click
+			tautil.SelectLine(ta)
+			return
+		}
+
 		switch {
 		case ev.Button.Mods.IsShift():
 			tautil.MoveCursorToPoint(ta, ev.Point, true)
