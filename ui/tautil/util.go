@@ -6,6 +6,13 @@ import (
 	"unicode/utf8"
 )
 
+func isNotSpace(ru rune) bool {
+	return !unicode.IsSpace(ru)
+}
+func isWordRune(ru rune) bool {
+	return unicode.IsLetter(ru) || ru == '_' || unicode.IsDigit(ru)
+}
+
 func updateSelectionState(ta Texta, active bool) {
 	if active {
 		if !ta.SelectionOn() {
@@ -15,10 +22,6 @@ func updateSelectionState(ta Texta, active bool) {
 	} else {
 		ta.SetSelectionOn(false)
 	}
-}
-
-func isNotSpace(ru rune) bool {
-	return !unicode.IsSpace(ru)
 }
 
 func NextRuneIndex(str string, index int) (rune, int, bool) {

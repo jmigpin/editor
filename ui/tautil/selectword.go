@@ -12,23 +12,17 @@ func SelectWord(ta Texta) {
 	}
 	ta.SetCursorIndex(b)
 }
+
 func wordLeftIndex(str string, index int) int {
 	typ := 0
 
-	getType := func(ru rune) int {
-		if isWordRune(ru) {
-			return 1
-		}
-		return 2
-	}
-
 	ru, _, ok := NextRuneIndex(str, index)
 	if ok {
-		typ = getType(ru)
+		typ = wordType(ru)
 	}
 
 	fn := func(ru rune) bool {
-		typ2 := getType(ru)
+		typ2 := wordType(ru)
 		if typ == 0 {
 			typ = typ2
 			return false
@@ -45,16 +39,8 @@ func wordLeftIndex(str string, index int) int {
 }
 func wordRightIndex(str string, index int) int {
 	typ := 0
-
-	getType := func(ru rune) int {
-		if isWordRune(ru) {
-			return 1
-		}
-		return 2
-	}
-
 	fn := func(ru rune) bool {
-		typ2 := getType(ru)
+		typ2 := wordType(ru)
 		if typ == 0 {
 			typ = typ2
 			return false
@@ -63,7 +49,13 @@ func wordRightIndex(str string, index int) int {
 	}
 	i := strings.IndexFunc(str[index:], fn)
 	if i < 0 {
-		i = index
+		i = len(str[index:])
 	}
 	return index + i
+}
+func wordType(ru rune) int {
+	if isWordRune(ru) {
+		return 1
+	}
+	return 2 + int(ru)
 }

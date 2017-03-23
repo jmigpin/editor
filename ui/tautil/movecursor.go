@@ -2,9 +2,21 @@ package tautil
 
 import (
 	"image"
+	"strings"
 
 	"github.com/jmigpin/editor/drawutil"
 )
+
+func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
+	updateSelectionState(ta, sel)
+
+	p2 := p.Sub(ta.Bounds().Min)
+	p3 := drawutil.PointToPoint266(&p2)
+	p3.Y += ta.OffsetY()
+	index := ta.PointIndex(p3)
+
+	ta.SetCursorIndex(index)
+}
 
 func MoveCursorRight(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
@@ -25,15 +37,6 @@ func MoveCursorLeft(ta Texta, sel bool) {
 	ta.MakeIndexVisible(ta.CursorIndex())
 }
 
-func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
-	updateSelectionState(ta, sel)
-	p2 := p.Sub(ta.Bounds().Min)
-	p3 := drawutil.PointToPoint266(&p2)
-	p3.Y += ta.OffsetY()
-	index := ta.PointIndex(p3)
-	ta.SetCursorIndex(index)
-}
-
 func MoveCursorUp(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
 	p := ta.IndexPoint(ta.CursorIndex())
@@ -41,13 +44,6 @@ func MoveCursorUp(ta Texta, sel bool) {
 	i := ta.PointIndex(p)
 	ta.SetCursorIndex(i)
 	ta.MakeIndexVisible(ta.CursorIndex())
-
-	//// adjust offset if it stops being visible
-	//y1 := (p.Y - ta.OffsetY()).Round()
-	//if y1 < 0 {
-	//// push offset one line up
-	//ta.SetOffsetY(ta.OffsetY() - ta.LineHeight())
-	//}
 }
 func MoveCursorDown(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
@@ -56,28 +52,56 @@ func MoveCursorDown(ta Texta, sel bool) {
 	i := ta.PointIndex(p)
 	ta.SetCursorIndex(i)
 	ta.MakeIndexVisible(ta.CursorIndex())
-
-	//// adjust offset if it stops being visible
-	//// need to get point again to have the cursor with limits checked
-	//p = ta.IndexPoint(ta.CursorIndex())
-	//p.Y += ta.LineHeight()
-	//y1 := (p.Y - ta.OffsetY()).Round()
-	//if y1 > ta.Bounds().Dy() {
-	//// push offset one line down
-	//ta.SetOffsetY(ta.OffsetY() + ta.LineHeight())
-	//}
 }
 
-//func visibleCursorPos() {
-//p := ta.IndexPoint(ta.CursorIndex())
-//p.Y -= ta.OffsetY()
+func MoveCursorJumpLeft(ta Texta, sel bool) {
+	updateSelectionState(ta, sel)
+	i := jumpLeftIndex(ta.Str(), ta.CursorIndex())
+	ta.SetCursorIndex(i)
+}
+func MoveCursorJumpRight(ta Texta, sel bool) {
+	updateSelectionState(ta, sel)
+	i := jumpRightIndex(ta.Str(), ta.CursorIndex())
+	ta.SetCursorIndex(i)
+}
 
-//b := ta.Bounds()
-//p2 := drawutil.Point266ToPoint(p).Add(b.Min)
-//y2 := p2.Y + LineHeight().Round()
-
-//if p2.Y < b.Min.Y {
-//ta.OffsetY(fixed.I(b.Min.Y))
-//}else if p2.Y > b.Max.Y{
-
-//}
+func jumpLeftIndex(str string, index int) int {
+	typ := 0
+	fn := func(ru rune) bool {
+		typ2 := jumpType(ru)
+		if typ == 0 {
+			typ = typ2
+			return false
+		}
+		return typ2 != typ
+	}
+	i := strings.LastIndexFunc(str[:index], fn)
+	if i < 0 {
+		i = 0
+	} else {
+		i++
+	}
+	return i
+}
+func jumpRightIndex(str string, index int) int {
+	typ := 0
+	fn := func(ru rune) bool {
+		typ2 := jumpType(ru)
+		if typ == 0 {
+			typ = typ2
+			return false
+		}
+		return typ2 != typ
+	}
+	i := strings.IndexFunc(str[index:], fn)
+	if i < 0 {
+		i = len(str[index:])
+	}
+	return index + i
+}
+func jumpType(ru rune) int {
+	if isWordRune(ru) {
+		return 1
+	}
+	return 2
+}
