@@ -11,40 +11,44 @@ var (
 	White = color.RGBA{255, 255, 255, 255}
 	Black = color.RGBA{0, 0, 0, 255}
 
-	SeparatorColor = color.RGBA{0, 0, 0, 255}
+	// tetradic color scheme
+	Red    = color.RGBA{255, 0, 0, 255}
+	Yellow = color.RGBA{255, 153, 0, 255}
+	Green  = color.RGBA{15, 173, 0, 255}
+	Blue   = color.RGBA{0, 100, 181, 255}
 
-	//SquareColor = color.RGBA{136, 136, 204, 255}
-	//SquareColor = color.RGBA{208, 208, 208, 255}
-	SquareColor = ToolbarColors.Bg
-	//SquareExecutingColor = color.RGBA{95, 204, 88, 255}
-	SquareExecutingColor = color.RGBA{136, 204, 136, 255}
-	//SquareDirtyColor = color.RGBA{204, 88, 92, 255}
-	SquareDirtyColor    = color.RGBA{204, 136, 138, 255}
-	SquareActiveColor   = Black
-	SquareColdColor     = color.RGBA{255, 255, 0, 255}
-	SquareNotExistColor = color.RGBA{204, 156, 88, 255}
-	//SquareNotExistColor = color.RGBA{204, 190, 136, 255}
+	SeparatorColor = Black
 
-	//RowInnerSeparatorColor = SquareColor
-	RowInnerSeparatorColor = color.RGBA{136, 136, 204, 255}
+	RowInnerSeparatorColor = tint(&Blue, 0.50)
 
-	ScrollbarFgColor = color.RGBA{180, 180, 180, 255}
-	ScrollbarBgColor = color.RGBA{241, 241, 241, 255}
+	SquareColor          = ToolbarColors.Bg
+	SquareExecutingColor = Green
+	SquareDirtyColor     = Blue
+	SquareActiveColor    = Black
+	SquareColdColor      = Red
+	SquareNotExistColor  = Yellow
+
+	ScrollbarFgColor = tint(&Black, 0.70)
+	ScrollbarBgColor = tint(&Black, 0.95)
 )
 
 var TextAreaColors = drawutil.Colors{
 	Fg:          Black,
 	Bg:          White,
-	SelectionFg: nil,
-	SelectionBg: color.RGBA{238, 238, 122, 255},
-	HighlightFg: nil,
-	HighlightBg: color.RGBA{209, 238, 162, 255},
-	//Comment:     color.RGBA{0, 100, 0, 255},
+	SelectionBg: tint(&Yellow, 0.50),
+	HighlightBg: tint(&Blue, 0.70),
 }
 
 var ToolbarColors = drawutil.Colors{
 	Fg:          Black,
-	Bg:          color.RGBA{242, 242, 242, 255},
+	Bg:          tint(&Black, 0.95),
 	SelectionBg: TextAreaColors.SelectionBg,
-	HighlightBg: TextAreaColors.HighlightBg,
+}
+
+func tint(c0 *color.RGBA, v float64) color.RGBA {
+	c := *c0
+	c.R += uint8(v * float64((255 - c.R)))
+	c.G += uint8(v * float64((255 - c.G)))
+	c.B += uint8(v * float64((255 - c.B)))
+	return c
 }
