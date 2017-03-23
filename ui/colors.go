@@ -12,6 +12,7 @@ var (
 	Black = color.RGBA{0, 0, 0, 255}
 
 	// tetradic color scheme
+	// http://www.tigercolor.com/color-lab/color-theory/color-theory-intro.htm
 	Red    = color.RGBA{255, 0, 0, 255}
 	Yellow = color.RGBA{255, 153, 0, 255}
 	Green  = color.RGBA{15, 173, 0, 255}
