@@ -88,37 +88,3 @@ func lineEndIndexNextIndex(str string, index int) (_ int, hasNewline bool) {
 	}
 	return index + i + 1, true // 1 is "\n" size
 }
-
-// used in: comment/uncomment
-// TODO: remove, implement where needed
-func alterSelectedText(ta Texta, fn func(string) (string, bool)) bool {
-	a, b, _ := linesStringIndexes(ta)
-
-	s, ok := fn(ta.Str()[a:b])
-	if !ok {
-		return false
-	}
-
-	// replace text
-	ta.EditOpen()
-	ta.EditDelete(a, b)
-	ta.EditInsert(a, s)
-	ta.EditClose()
-
-	// previous rune so it doesn't include last \n
-	c := len(s)
-	_, u, ok := PreviousRuneIndex(s, c)
-	if ok && s[u] == '\n' {
-		c = u
-	}
-
-	ta.SetCursorIndex(a + c)
-	if c == 0 {
-		ta.SetSelectionOn(false)
-	} else if c > 0 {
-		ta.SetSelectionOn(true)
-		ta.SetSelectionIndex(a)
-	}
-
-	return true
-}

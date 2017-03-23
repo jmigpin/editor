@@ -11,9 +11,8 @@ func TabRight(ta Texta) {
 	str := ta.Str()[a:b]
 
 	// insert at line start
-	for i := 0; i < len(str); {
+	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
 		str = str[:i] + string('\t') + str[i:]
-		i, _ = lineEndIndexNextIndex(str, i)
 	}
 
 	// replace
@@ -34,13 +33,12 @@ func TabLeft(ta Texta) {
 	// remove from line start
 	nlines := 0
 	altered := false
-	for i := 0; i < len(str); {
-		nlines++
+	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
 		if str[i] == '\t' || str[i] == ' ' {
 			altered = true
 			str = str[:i] + str[i+1:] // +1 is length of '\t' or ' '
 		}
-		i, _ = lineEndIndexNextIndex(str, i)
+		nlines++
 	}
 
 	if !altered {
@@ -57,9 +55,9 @@ func TabLeft(ta Texta) {
 		ta.SetSelectionOn(false)
 		ci := ta.CursorIndex()
 		if ci > a {
-			ci--
+			// move cursor to the left due to removed rune
+			ta.SetCursorIndex(ci - 1)
 		}
-		ta.SetCursorIndex(ci)
 	} else {
 		ta.SetSelectionOn(true)
 		ta.SetSelectionIndex(a)
