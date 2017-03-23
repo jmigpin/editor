@@ -1,33 +1,29 @@
 package tautil
 
-import (
-	"strings"
-	"unicode"
-)
+import "strings"
 
 func AutoIndent(ta Texta) {
+	// string to insert
 	ci := ta.CursorIndex()
 	k := lineStartIndex(ta.Str(), ci)
-	if k == ci {
-		InsertRune(ta, '\n')
-		return
-	}
-
-	nonSpace := func(ru rune) bool {
-		return !unicode.IsSpace(ru)
-	}
-
-	j := strings.IndexFunc(ta.Str()[k:ci], nonSpace)
-	if j == 0 {
-		InsertRune(ta, '\n')
-		return
-	} else if j < 0 {
+	j := strings.IndexFunc(ta.Str()[k:ci], isNotSpace)
+	if j < 0 {
+		// full line of spaces, indent to cursor position
 		j = ci - k
 	}
-	s := "\n" + ta.Str()[k:k+j]
+	str := "\n" + ta.Str()[k:k+j]
+
 	ta.EditOpen()
-	ta.EditInsert(ci, s)
+	if ta.SelectionOn() {
+		// remove selection
+		a, b := SelectionStringIndexes(ta)
+		ta.EditDelete(a, b)
+		ta.SetSelectionOn(false)
+		ta.SetCursorIndex(a)
+	}
+	// insert
+	ta.EditInsert(ta.CursorIndex(), str)
 	ta.EditClose()
-	ta.SetCursorIndex(ci + len(s))
+	ta.SetCursorIndex(ta.CursorIndex() + len(str))
 	ta.MakeIndexVisible(ta.CursorIndex())
 }

@@ -45,6 +45,8 @@ func TabLeft(ta Texta) {
 		return
 	}
 
+	ci0 := ta.CursorIndex()
+
 	// replace
 	ta.EditOpen()
 	ta.EditDelete(a, b)
@@ -54,7 +56,7 @@ func TabLeft(ta Texta) {
 	if nlines <= 1 {
 		ta.SetSelectionOn(false)
 		ci := ta.CursorIndex()
-		if ci > a {
+		if ci == ci0 && ci > a {
 			// move cursor to the left due to removed rune
 			ta.SetCursorIndex(ci - 1)
 		}
