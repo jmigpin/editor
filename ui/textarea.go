@@ -39,6 +39,7 @@ type TextArea struct {
 
 	// detect double/triple clicks for button 1
 	buttonPressedTime [1]struct {
+		p      image.Point
 		t      time.Time
 		action int
 	}
@@ -395,12 +396,22 @@ func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 
 		bpt := &ta.buttonPressedTime[0]
 
-		pt0 := bpt.t
+		ptt0 := bpt.t
+		ptp0 := bpt.p
 		bpt.t = time.Now()
-		d := bpt.t.Sub(pt0)
+		bpt.p = *ev.Point
+		d := bpt.t.Sub(ptt0)
 		if d < 500*time.Millisecond {
-			bpt.action++
-			bpt.action %= 3
+
+			var r image.Rectangle
+			pad := image.Point{2, 2}
+			r.Min = ptp0.Sub(pad)
+			r.Max = ptp0.Add(pad)
+
+			if ev.Point.In(r) {
+				bpt.action++
+				bpt.action %= 3
+			}
 		} else {
 			bpt.action = 0
 		}
