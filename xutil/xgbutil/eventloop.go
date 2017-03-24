@@ -9,7 +9,7 @@ import (
 
 func EventLoop(conn *xgb.Conn, er *EventRegister, qChan chan *ELQEvent) {
 
-	connCh := make(chan interface{})
+	connCh := make(chan interface{}, 50)
 	go func() {
 		for {
 			ev, xerr := conn.PollForEvent()
@@ -22,10 +22,10 @@ func EventLoop(conn *xgb.Conn, er *EventRegister, qChan chan *ELQEvent) {
 					goto forEnd1
 				}
 			}
-			if ev != nil {
-				connCh <- ev
-			} else if xerr != nil {
+			if xerr != nil {
 				connCh <- xerr
+			} else if ev != nil {
+				connCh <- ev
 			}
 		}
 	forEnd1:
@@ -44,6 +44,17 @@ func EventLoop(conn *xgb.Conn, er *EventRegister, qChan chan *ELQEvent) {
 			}
 			switch ev2 := ev.(type) {
 			case xgb.Event:
+
+				// bypass quick motionnotify events
+				for len(connCh) > 1 {
+					_, ok := ev2.(xproto.MotionNotifyEvent)
+					if ok {
+						<-connCh
+						continue
+					}
+					break
+				}
+
 				er.Emit(XgbEventId(ev2), ev2)
 			case xgb.Error:
 				er.Emit(XErrorEventId, ev2)
