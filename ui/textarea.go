@@ -4,6 +4,7 @@ import (
 	"image"
 	"time"
 
+	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
@@ -431,6 +432,8 @@ func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 		case ev.Button.Mods.IsNone():
 			tautil.MoveCursorToPoint(ta, ev.Point, false)
 		}
+	case ev.Button.Button3():
+		ta.ui.CursorMan.SetCursor(xcursor.Hand2)
 	case ev.Button.Button4():
 		canScroll := !ta.DisablePageUpDown
 		if canScroll {
@@ -443,11 +446,23 @@ func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 		}
 	}
 }
+func (ta *TextArea) onMotionNotify(ev0 xgbutil.EREvent) {
+	if !ta.buttonPressed {
+		return
+	}
+	ev := ev0.(*keybmap.MotionNotifyEvent)
+	if ev.Mods.IsButton(1) {
+		tautil.MoveCursorToPoint(ta, ev.Point, true)
+	}
+}
 func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
 	if !ta.buttonPressed {
 		return
 	}
 	ta.buttonPressed = false
+
+	ta.ui.CursorMan.UnsetCursor()
+
 	ev := ev0.(*keybmap.ButtonReleaseEvent)
 	if ev.Button.Mods.IsButton(3) {
 		// release must be in the area to run the cmd
@@ -456,15 +471,6 @@ func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
 			ev2 := &TextAreaCmdEvent{ta}
 			ta.EvReg.Emit(TextAreaCmdEventId, ev2)
 		}
-	}
-}
-func (ta *TextArea) onMotionNotify(ev0 xgbutil.EREvent) {
-	if !ta.buttonPressed {
-		return
-	}
-	ev := ev0.(*keybmap.MotionNotifyEvent)
-	if ev.Mods.IsButton(1) {
-		tautil.MoveCursorToPoint(ta, ev.Point, true)
 	}
 }
 func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
