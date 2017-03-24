@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 
+	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xutil/keybmap"
 	"github.com/jmigpin/editor/xutil/xgbutil"
@@ -42,6 +43,8 @@ func NewRow(col *Column) *Row {
 	row.Square = NewSquare(ui)
 	row.Square.EvReg.Add(SquareButtonReleaseEventId,
 		&xgbutil.ERCallback{row.onSquareButtonRelease})
+	row.Square.EvReg.Add(SquareButtonPressEventId,
+		&xgbutil.ERCallback{row.onSquareButtonPress})
 	row.Square.EvReg.Add(SquareMotionNotifyEventId,
 		&xgbutil.ERCallback{row.onSquareMotionNotify})
 
@@ -97,7 +100,26 @@ func (row *Row) Close() {
 	row.Square.Close()
 	row.EvReg.Emit(RowCloseEventId, &RowCloseEvent{row})
 }
+func (row *Row) onSquareButtonPress(ev0 xgbutil.EREvent) {
+	ev := ev0.(*SquareButtonPressEvent)
+	ui := row.Col.Cols.Layout.UI
+	switch {
+	case ev.Button.Button1():
+		if ev.Button.Mods.IsControl() {
+			ui.CursorMan.SetCursor(xcursor.Crosshair)
+		} else {
+			ui.CursorMan.SetCursor(xcursor.Fleur)
+		}
+	case ev.Button.Button2():
+		ui.CursorMan.SetCursor(xcursor.XCursor)
+	case ev.Button.Button3():
+		ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+	}
+}
 func (row *Row) onSquareButtonRelease(ev0 xgbutil.EREvent) {
+	ui := row.Col.Cols.Layout.UI
+	ui.CursorMan.UnsetCursor()
+
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
 	case ev.Button.Mods.IsButton(1):

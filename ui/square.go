@@ -4,7 +4,9 @@ import (
 	"image"
 	"image/color"
 
+	"github.com/BurntSushi/xgbutil/xcursor" // only for cursordef
 	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/xutil"
 	"github.com/jmigpin/editor/xutil/keybmap"
 	"github.com/jmigpin/editor/xutil/xgbutil"
 )
@@ -35,10 +37,18 @@ func NewSquare(ui *UI) *Square {
 		&xgbutil.ERCallback{sq.onMotionNotify})
 	sq.dereg.Add(r1, r2, r3)
 
+	sq.ui.CursorMan.SetBoundsCursor(
+		&sq.C.Bounds,
+		&CMCallback{
+			func(ev *keybmap.MotionNotifyEvent) (xutil.Cursor, bool) {
+				return xcursor.Icon, true
+			}})
+
 	return sq
 }
 func (sq *Square) Close() {
 	sq.dereg.UnregisterAll()
+	sq.ui.CursorMan.RemoveBoundsCursor(&sq.C.Bounds)
 }
 func (sq *Square) paint() {
 	var c color.Color = SquareColor
@@ -84,6 +94,9 @@ func (sq *Square) onButtonPress(ev0 xgbutil.EREvent) {
 	sq.buttonPressed = true
 	u := image.Point{sq.C.Bounds.Max.X, sq.C.Bounds.Min.Y}
 	sq.PressPointPad = u.Sub(*ev.Point)
+
+	ev2 := &SquareButtonPressEvent{sq, ev.Button, ev.Point}
+	sq.EvReg.Emit(SquareButtonPressEventId, ev2)
 }
 func (sq *Square) onButtonRelease(ev0 xgbutil.EREvent) {
 	if !sq.buttonPressed {
@@ -133,10 +146,16 @@ const (
 )
 
 const (
-	SquareButtonReleaseEventId = iota
+	SquareButtonPressEventId = iota
+	SquareButtonReleaseEventId
 	SquareMotionNotifyEventId
 )
 
+type SquareButtonPressEvent struct {
+	Square *Square
+	Button *keybmap.Button
+	Point  *image.Point
+}
 type SquareButtonReleaseEvent struct {
 	Square *Square
 	Button *keybmap.Button

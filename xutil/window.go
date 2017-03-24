@@ -66,7 +66,8 @@ func (win *Window) init() error {
 			xproto.EventMaskButtonPress |
 			xproto.EventMaskButtonRelease |
 			xproto.EventMaskButtonMotion |
-			xproto.EventMaskPointerMotionHint,
+			//xproto.EventMaskPointerMotionHint,
+			xproto.EventMaskPointerMotion,
 	}
 
 	_ = xproto.CreateWindow(
@@ -126,7 +127,7 @@ func (win *Window) init() error {
 		return err
 	}
 	win.Cursors = c
-	//win.Cursors.SetCursor(ArrowCursor)
+	//_ = win.Cursors.SetCursor(XCXTerm)
 
 	shmWrap, err := xgbutil.NewShmWrap(win.Conn, drawable, win.Screen.RootDepth)
 	if err != nil {
@@ -148,6 +149,28 @@ func (win *Window) init() error {
 	if err != nil {
 		return err
 	}
+
+	//win.EvReg.Add(xproto.MotionNotify,
+	//&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+	//_ = xproto.QueryPointerUnchecked(win.Conn, win.Window)
+	//}})
+
+	// Test/debug
+	n := 0
+	win.EvReg.Add(keybmap.KeyPressEventId,
+		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			ev := ev0.(*keybmap.KeyPressEvent)
+			if ev.Key.Mods.IsControl() {
+				fks := ev.Key.FirstKeysym()
+				if fks == 'u' {
+					n += 2
+					win.Cursors.SetCursor(Cursor(n))
+				}
+				if fks == 'y' {
+					win.Cursors.SetCursor(XCNone)
+				}
+			}
+		}})
 
 	return nil
 }
@@ -186,7 +209,7 @@ func (win *Window) WarpPointer(p *image.Point) {
 		int16(p.X), int16(p.Y))
 }
 func (win *Window) RequestMotionNotify() {
-	_ = xproto.QueryPointerUnchecked(win.Conn, win.Window)
+	//_ = xproto.QueryPointerUnchecked(win.Conn, win.Window)
 }
 func (win *Window) QueryPointer() (*image.Point, bool) {
 	cookie := xproto.QueryPointer(win.Conn, win.Window)
@@ -194,9 +217,8 @@ func (win *Window) QueryPointer() (*image.Point, bool) {
 	if err != nil {
 		return nil, false
 	}
-	x := int(r.WinX)
-	y := int(r.WinY)
-	return &image.Point{x, y}, true
+	p := &image.Point{int(r.WinX), int(r.WinY)}
+	return p, true
 }
 func (win *Window) EventLoop() {
 	win.EventLoopQ = make(chan *xgbutil.ELQEvent)

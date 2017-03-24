@@ -22,13 +22,16 @@ const (
 )
 
 type UI struct {
-	Win    *xutil.Window
-	Layout *Layout
-	fface1 *drawutil.Face
+	Win       *xutil.Window
+	Layout    *Layout
+	fface1    *drawutil.Face
+	CursorMan *CursorMan
 }
 
 func NewUI(fface *drawutil.Face) (*UI, error) {
-	ui := &UI{fface1: fface}
+	ui := &UI{
+		fface1: fface,
+	}
 
 	win, err := xutil.NewWindow()
 	if err != nil {
@@ -36,12 +39,15 @@ func NewUI(fface *drawutil.Face) (*UI, error) {
 	}
 	ui.Win = win
 
+	// cursorman needs win in ui
+	ui.CursorMan = NewCursorMan(ui)
+
 	ui.Layout = NewLayout(ui)
 
 	ui.Win.EvReg.Add(xproto.Expose,
-		&xgbutil.ERCallback{ui.onExposeEvent})
+		&xgbutil.ERCallback{ui.onExpose})
 	ui.Win.EvReg.Add(xgbutil.QueueEmptyEventId,
-		&xgbutil.ERCallback{ui.onQueueEmptyEvent})
+		&xgbutil.ERCallback{ui.onQueueEmpty})
 
 	return ui, nil
 }
@@ -51,7 +57,7 @@ func (ui *UI) Close() {
 func (ui *UI) EventLoop() {
 	ui.Win.EventLoop()
 }
-func (ui *UI) onExposeEvent(ev0 xgbutil.EREvent) {
+func (ui *UI) onExpose(ev0 xgbutil.EREvent) {
 	ev := ev0.(xproto.ExposeEvent)
 
 	// number of expose events to come
@@ -87,7 +93,10 @@ func (ui *UI) winGeometry() (*image.Rectangle, error) {
 	return &r, nil
 }
 
-func (ui *UI) onQueueEmptyEvent(ev xgbutil.EREvent) {
+func (ui *UI) onQueueEmpty(ev xgbutil.EREvent) {
+	ui._paint()
+}
+func (ui *UI) _paint() {
 	// paint after all events have been handled
 	ui.Layout.C.PaintTreeIfNeeded(func(c *uiutil.Container) {
 		// paint only the top container of the needed area
