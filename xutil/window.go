@@ -66,7 +66,6 @@ func (win *Window) init() error {
 			xproto.EventMaskButtonPress |
 			xproto.EventMaskButtonRelease |
 			xproto.EventMaskButtonMotion |
-			//xproto.EventMaskPointerMotionHint,
 			xproto.EventMaskPointerMotion,
 	}
 
@@ -207,9 +206,6 @@ func (win *Window) WarpPointer(p *image.Point) {
 		win.Window,
 		0, 0, 0, 0,
 		int16(p.X), int16(p.Y))
-}
-func (win *Window) RequestMotionNotify() {
-	//_ = xproto.QueryPointerUnchecked(win.Conn, win.Window)
 }
 func (win *Window) QueryPointer() (*image.Point, bool) {
 	cookie := xproto.QueryPointer(win.Conn, win.Window)

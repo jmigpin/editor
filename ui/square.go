@@ -114,8 +114,6 @@ func (sq *Square) onMotionNotify(ev0 xgbutil.EREvent) {
 	ev := ev0.(*keybmap.MotionNotifyEvent)
 	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point}
 	sq.EvReg.Emit(SquareMotionNotifyEventId, ev2)
-
-	sq.ui.RequestMotionNotify()
 }
 
 func (sq *Square) WarpPointer() {

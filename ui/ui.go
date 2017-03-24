@@ -126,11 +126,6 @@ func (ui *UI) FontFace() *drawutil.Face {
 	return ui.fface1
 }
 
-// Should be called when a button is pressed and need the motion-notify-events to keep coming since the program expects only pointer-motion-hints.
-func (ui *UI) RequestMotionNotify() {
-	ui.Win.RequestMotionNotify()
-}
-
 func (ui *UI) WarpPointer(p *image.Point) {
 	ui.Win.WarpPointer(p)
 }

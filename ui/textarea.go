@@ -462,7 +462,6 @@ func (ta *TextArea) onMotionNotify(ev0 xgbutil.EREvent) {
 	if !ta.buttonPressed {
 		return
 	}
-	ta.ui.RequestMotionNotify()
 	ev := ev0.(*keybmap.MotionNotifyEvent)
 	if ev.Mods.IsButton(1) {
 		tautil.MoveCursorToPoint(ta, ev.Point, true)

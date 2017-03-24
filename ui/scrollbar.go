@@ -163,7 +163,6 @@ func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {
 		sb.setTextareaOffset()
 		sb.C.NeedPaint()
 	}
-	sb.ta.ui.RequestMotionNotify()
 }
 func (sb *Scrollbar) onButtonRelease(ev0 xgbutil.EREvent) {
 	if !sb.buttonPressed {
