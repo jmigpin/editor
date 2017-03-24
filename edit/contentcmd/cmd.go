@@ -9,8 +9,9 @@ import (
 
 func Cmd(erow cmdutil.ERower) {
 	ta := erow.Row().TextArea
-	// space limited
-	s := expandLeftRightUntilSpace(ta.Str(), ta.CursorIndex())
+
+	s := expandLeftRight(ta.Str(), ta.CursorIndex())
+
 	if ok := openSession(erow, s); ok {
 		return
 	}
@@ -23,31 +24,40 @@ func Cmd(erow cmdutil.ERower) {
 	if ok := http(erow, s); ok {
 		return
 	}
-	// space or quote limited
-	s2 := expandLeftRightUntilSpaceOrQuote(ta.Str(), ta.CursorIndex())
-	if ok := goPathDir(erow, s2); ok {
+	if ok := goPathDir(erow, s); ok {
 		return
 	}
 }
 
-func expandLeftRightUntilSpace(str string, index int) string {
-	if index > len(str) {
-		index = len(str)
+func expandLeftRight(str string, index int) string {
+	isStop := func(ru rune) bool {
+		if unicode.IsSpace(ru) {
+			return true
+		}
+		switch ru {
+		case '"', '<', '>':
+			return true
+		}
+		return false
 	}
-	i0 := strings.LastIndexFunc(str[:index], unicode.IsSpace)
+
+	i0 := strings.LastIndexFunc(str[:index], isStop)
 	if i0 < 0 {
 		i0 = 0
+	} else {
+		i0 += 1 // size of stop rune (quote or space)
 	}
-	i1 := strings.IndexFunc(str[index:], unicode.IsSpace)
+	i1 := strings.IndexFunc(str[index:], isStop)
 	if i1 < 0 {
 		i1 = len(str)
 	} else {
 		i1 += index
 	}
 	s2 := str[i0:i1]
-	s3 := strings.TrimSpace(s2)
-	return s3
+	return s2
 }
+
+// Used on opensession command to get argument.
 func afterSpaceExpandRightUntilSpace(str string, index int) string {
 	if index > len(str) {
 		index = len(str)
@@ -75,28 +85,4 @@ func afterSpaceExpandRightUntilSpace(str string, index int) string {
 	s2 := str[i2:i3]
 	s3 := strings.TrimSpace(s2)
 	return s3
-}
-func expandLeftRightUntilSpaceOrQuote(str string, index int) string {
-	if index > len(str) {
-		index = len(str)
-	}
-
-	isStop := func(ru rune) bool {
-		return unicode.IsSpace(ru) || ru == '"'
-	}
-
-	i0 := strings.LastIndexFunc(str[:index], isStop)
-	if i0 < 0 {
-		i0 = 0
-	} else {
-		i0 += 1 // size of stop rune (quote or space)
-	}
-	i1 := strings.IndexFunc(str[index:], isStop)
-	if i1 < 0 {
-		i1 = len(str)
-	} else {
-		i1 += index
-	}
-	s2 := str[i0:i1]
-	return s2
 }
