@@ -26,14 +26,14 @@ func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
 	// set toolbar before setting event handlers
 	row.Toolbar.SetStrClear(tbStr, true, true)
 
-	erow.init()
+	erow.initHandlers()
 
 	// run after event handlers are set
 	erow.parseToolbar(erow.row.Toolbar.Str())
 
 	return erow
 }
-func (erow *ERow) init() {
+func (erow *ERow) initHandlers() {
 	row := erow.row
 	ed := erow.ed
 	// toolbar set str
@@ -82,26 +82,17 @@ func (erow *ERow) Ed() cmdutil.Editorer {
 }
 func (erow *ERow) parseToolbar(str string) {
 	erow.tbsd = toolbardata.NewStringData(str)
-
-	// insert home tilde on first part
-	if len(erow.tbsd.Parts) > 0 {
-		s1 := erow.tbsd.Parts[0].Str
-		s2 := toolbardata.InsertHomeTilde(s1)
-		if s1 != s2 {
-			s3 := s2 + str[len(s1):]
-			// reparse
-			str = s3
-			erow.tbsd = toolbardata.NewStringData(str)
-
-			// set str, it will come back to this func again through event callback
-			erow.Row().Toolbar.SetStrClear(str, false, false)
-			return
-		}
+	str, ok := erow.tbsd.EncodeFirstPart()
+	if ok {
+		// set str, will trigger event that parses again
+		erow.Row().Toolbar.SetStrClear(str, false, false)
+		// TODO: adjust cursor
+		return
 	}
 
 	// keep file info
 	notExist := false
-	fp := erow.tbsd.FirstPartFilepath()
+	fp := erow.tbsd.DecodeFirstPart()
 	fi, err := os.Stat(fp)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -167,12 +158,6 @@ func (erow *ERow) saveContent2(str string) error {
 	erow.ed.fw.Remove(erow)
 	defer erow.ed.fw.Add(erow, erow.fileInfoPath)
 
-	//log.SetFlags(0)
-
-	//u := path.Base(erow.fileInfoPath)
-	//log.Printf("save content: %v", u)
-	//defer log.Printf("save content done: %v", u)
-
 	// save
 	filename := erow.fileInfoPath
 	flags := os.O_WRONLY | os.O_TRUNC | os.O_CREATE
@@ -181,30 +166,13 @@ func (erow *ERow) saveContent2(str string) error {
 		return err
 	}
 	defer f.Close()
-	defer f.Sync()
+	//defer f.Sync()
 	_, err = f.Write([]byte(str))
-
-	//ed := erow.ed
-	//ed.fw.m.Lock()
-	//for _, v := range ed.fw.m.m {
-	//log.Printf("** %v\n", path.Base(v))
-	//}
-	//ed.fw.m.Unlock()
-
 	return err
 }
 
 // Directly Called by the editor fileswatcher - async.
 func (erow *ERow) OnFilesWatcherEvent(ev *fsnotify.FileEvent) {
-
-	//u := path.Base(ev.Name)
-	//log.Printf("fw event: %v", u)
-	//defer log.Printf("fw event done: %v", u)
-
-	//if ev.IsModify() {
-	//log.Printf("fw is modify: %v", ev.Name)
-	//}
-
 	sq := erow.row.Square
 	if sq.Value(ui.SquareCold) == false {
 		erow.row.Square.SetValue(ui.SquareCold, true)

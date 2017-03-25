@@ -9,7 +9,7 @@ func OpenRowDirectory(erow ERower) {
 	ed := erow.Ed()
 
 	tsd := erow.ToolbarSD()
-	fp := tsd.FirstPartFilepath()
+	fp := tsd.DecodeFirstPart()
 	p := path.Dir(fp)
 
 	fi, err := os.Stat(p)

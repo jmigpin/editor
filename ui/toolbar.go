@@ -1,14 +1,17 @@
 package ui
 
-import "github.com/jmigpin/editor/xutil/xgbutil"
+import (
+	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/xutil/xgbutil"
+)
 
 type Toolbar struct {
 	*TextArea
-	OnSetText func()
+	parentC *uiutil.Container
 }
 
-func NewToolbar(ui *UI) *Toolbar {
-	tb := &Toolbar{TextArea: NewTextArea(ui)}
+func NewToolbar(ui *UI, parentC *uiutil.Container) *Toolbar {
+	tb := &Toolbar{TextArea: NewTextArea(ui), parentC: parentC}
 	tb.DisableHighlightCursorWord = true
 	tb.DisablePageUpDown = true
 
@@ -19,9 +22,15 @@ func NewToolbar(ui *UI) *Toolbar {
 }
 func (tb *Toolbar) onTextAreaSetStr(ev0 xgbutil.EREvent) {
 	ev := ev0.(*TextAreaSetStrEvent)
-	if tb.OnSetText != nil {
-		tb.OnSetText()
+
+	// dynamic toolbar bounds
+	// if toolbar bounds changed due to text change (dynamic height) then the parent container needs paint
+	b := tb.C.Bounds
+	tb.parentC.CalcChildsBounds()
+	if !tb.C.Bounds.Eq(b) {
+		tb.parentC.NeedPaint()
 	}
+
 	// keep pointer inside if it was in before
 	// useful in dynamic bounds becoming shorter and leaving the pointer outside, losing keyboard focus
 	p, ok := tb.ui.Win.QueryPointer()

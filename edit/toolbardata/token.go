@@ -1,10 +1,10 @@
 package toolbardata
 
-import "strings"
+import "strconv"
 
 type Token struct {
-	Str        string
-	Start, End int // indexes in parent string
+	Start, End int    // indexes in parent string
+	Str        string // result of parent string [Start:End]
 }
 
 func parseTokens(str string, stopRune func(rune) bool) []*Token {
@@ -13,6 +13,9 @@ func parseTokens(str string, stopRune func(rune) bool) []*Token {
 	// states
 	type State int
 	var stk []State
+
+	// TODO: parse single quote
+
 	var normal, escape, quote State = 0, 1, 2
 	pushState := func(v State) {
 		stk = append(stk, v)
@@ -70,16 +73,10 @@ func parseTokens(str string, stopRune func(rune) bool) []*Token {
 	return res
 }
 
-func (tok *Token) Trim() string {
-	s := tok.Str
-
-	// remove escape char
-	//s = strings.Replace(s, "\\", "", -1)
-	// TODO: fix this by doing lookahead
-	s = strings.Replace(s, "\\\\", "@-@=@", -1)
-	s = strings.Replace(s, "\\", "", -1)
-	s = strings.Replace(s, "@-@=@", "\\", -1)
-
-	s = strings.TrimSpace(s)
+func (tok *Token) Unquote() string {
+	s, err := strconv.Unquote(tok.Str)
+	if err != nil {
+		return tok.Str
+	}
 	return s
 }

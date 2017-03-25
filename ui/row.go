@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"image"
-
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xutil/keybmap"
@@ -36,7 +34,7 @@ func NewRow(col *Column) *Row {
 		&xgbutil.ERCallback{row.onButtonRelease})
 	row.dereg.Add(r1, r2, r3)
 
-	row.Toolbar = NewToolbar(ui)
+	row.Toolbar = NewToolbar(ui, &row.C)
 	tb := row.Toolbar
 	tb.Colors = &ToolbarColors
 
@@ -67,13 +65,6 @@ func NewRow(col *Column) *Row {
 	row.C.AppendChilds(&row.rowSep.C, w1, &tbSep.C, w2)
 
 	// dynamic toolbar bounds
-	tb.OnSetText = func() {
-		b := tb.C.Bounds
-		row.C.CalcChildsBounds()
-		if !tb.C.Bounds.Eq(b) {
-			row.C.NeedPaint()
-		}
-	}
 	w1.Style.DynamicMainSize = func() int {
 		dx := row.C.Bounds.Dx() - *row.Square.C.Style.MainSize
 		return row.Toolbar.CalcStringHeight(dx)
@@ -172,9 +163,11 @@ func (row *Row) onButtonRelease(ev0 xgbutil.EREvent) {
 	row.activate()
 }
 func (row *Row) WarpPointer() {
-	b := row.C.Bounds
-	p := b.Min.Add(image.Pt(b.Dx()/2, b.Dy()/3))
-	row.Col.Cols.Layout.UI.WarpPointer(&p)
+	//b := row.C.Bounds
+	//p := b.Min.Add(image.Pt(b.Dx()/2, b.Dy()/3))
+	//row.Col.Cols.Layout.UI.WarpPointer(&p)
+
+	row.Square.WarpPointer()
 }
 
 const (

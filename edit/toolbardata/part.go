@@ -24,10 +24,7 @@ func parseParts(str string) []*Part {
 		args := parseTokens(s, func(ru rune) bool {
 			return unicode.IsSpace(ru)
 		})
-		// a part will have at least an argument
-		if len(args) == 0 {
-			continue
-		}
+
 		part := &Part{tok, args}
 		res = append(res, part)
 	}

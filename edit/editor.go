@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
+	"strings"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
@@ -13,6 +14,7 @@ import (
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/edit/cmdutil"
+	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xutil/wmprotocols"
 	"github.com/jmigpin/editor/xutil/xgbutil"
@@ -73,6 +75,9 @@ func NewEditor() (*Editor, error) {
 		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
 			ToolbarCmdFromLayout(ed, ed.ui.Layout)
 		}})
+	// home vars
+	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
+		&xgbutil.ERCallback{ed.onLayoutToolbarSetStr})
 
 	// flags
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -200,11 +205,12 @@ func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
 	}
 }
 
-func (ed *Editor) FindERow(s string) (cmdutil.ERower, bool) {
+func (ed *Editor) FindERow(str string) (cmdutil.ERower, bool) {
+	//str = cleanTrailingSlash(str)
 	for _, erow := range ed.erows {
 		tsd := erow.ToolbarSD()
-		s1 := tsd.FirstPartFilepath()
-		if s1 == s {
+		s1 := tsd.DecodeFirstPart()
+		if s1 == str {
 			return erow, true
 		}
 	}
@@ -238,4 +244,66 @@ func (ed *Editor) activeERow() (*ERow, bool) {
 func (ed *Editor) GoodColRowPlace() (*ui.Column, int) {
 	col := ed.ui.Layout.Cols.ColumnWithGoodPlaceForNewRow()
 	return col, len(col.Rows)
+}
+
+func (ed *Editor) onLayoutToolbarSetStr(ev0 xgbutil.EREvent) {
+	ev := ev0.(*ui.TextAreaSetStrEvent)
+	ed.updateHomeVars(ev)
+}
+func (ed *Editor) updateHomeVars(ev *ui.TextAreaSetStrEvent) {
+	return
+
+	panic("TODO")
+
+	tb := ed.ui.Layout.Toolbar
+
+	// get layout old home vars
+	oldVars := getLayoutHomeVars(ev.OldStr)
+	log.Print(oldVars)
+
+	// remove all old home vars in all rows
+	m := make(map[*ERow]string)
+	for _, erow := range ed.erows {
+		m[erow] = decodeToolbar(erow)
+	}
+
+	// get layout home vars
+	vars := getLayoutHomeVars(tb.Str())
+
+	// add vars to home vars
+	for i := 0; i < len(vars); i += 2 {
+		toolbardata.AppendHomeVar(vars[i], vars[i+1])
+	}
+
+	// insert home vars in all rows
+	for erow, s := range m {
+		erow.row.Toolbar.SetStrClear(s, false, false)
+	}
+}
+func getLayoutHomeVars(str string) []string {
+	var vars []string
+	tbsd := toolbardata.NewStringData(str)
+	for _, part := range tbsd.Parts {
+		if len(part.Args) != 1 {
+			continue
+		}
+		str := part.Args[0].Str
+		a := strings.Split(str, "=")
+		if len(a) != 2 {
+			continue
+		}
+		key, val := a[0], a[1]
+		vars = append(vars, key, val)
+	}
+	return vars
+}
+func decodeToolbar(erow *ERow) string {
+	str := erow.row.Toolbar.Str()
+	tbsd := toolbardata.NewStringData(str)
+	tbsd.DecodeFirstPart()
+	//return toolbardata.
+
+	panic("TODO")
+
+	return ""
 }

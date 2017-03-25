@@ -156,21 +156,17 @@ func (ta *TextArea) Str() string {
 	return ta.str
 }
 func (ta *TextArea) setStr(s string) {
-	pev := &TextAreaPreSetStrEvent{ta, ta.str, s}
-	ta.EvReg.Emit(TextAreaPreSetStrEventId, pev)
-	// allow event handler to set the str
-	s = pev.NewStr
-
 	if s == ta.str {
 		return
 	}
+	oldStr := ta.str
 	ta.str = s
 	ta.SetCursorIndex(ta.CursorIndex()) // ensure valid cursor
 	oldBounds := ta.C.Bounds
 	ta.updateStringCache()
 	ta.C.NeedPaint()
 
-	ev := &TextAreaSetStrEvent{ta, oldBounds}
+	ev := &TextAreaSetStrEvent{ta, oldStr, oldBounds}
 	ta.EvReg.Emit(TextAreaSetStrEventId, ev)
 }
 func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
@@ -432,7 +428,7 @@ func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 		case ev.Button.Mods.IsNone():
 			tautil.MoveCursorToPoint(ta, ev.Point, false)
 		}
-	case ev.Button.Button3():
+	case ev.Button.Button3() && ev.Button.Mods.IsNone():
 		ta.ui.CursorMan.SetCursor(xcursor.Hand2)
 	case ev.Button.Button4():
 		canScroll := !ta.DisablePageUpDown
@@ -644,7 +640,6 @@ const (
 	TextAreaSetOffsetYEventId
 	TextAreaBoundsChangeEventId
 	TextAreaSetCursorIndexEventId
-	TextAreaPreSetStrEventId
 )
 
 type TextAreaCmdEvent struct {
@@ -652,6 +647,7 @@ type TextAreaCmdEvent struct {
 }
 type TextAreaSetStrEvent struct {
 	TextArea  *TextArea
+	OldStr    string
 	OldBounds image.Rectangle
 }
 type TextAreaSetOffsetYEvent struct {
@@ -662,9 +658,4 @@ type TextAreaBoundsChangeEvent struct {
 }
 type TextAreaSetCursorIndexEvent struct {
 	TextArea *TextArea
-}
-type TextAreaPreSetStrEvent struct {
-	TextArea *TextArea
-	OldStr   string
-	NewStr   string
 }

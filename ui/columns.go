@@ -194,7 +194,7 @@ func (cols *Columns) PointRowPosition(row *Row, p *image.Point) (*Column, int, b
 func (cols *Columns) MoveRowToColumn(row *Row, col *Column, index int) {
 	row.Col.removeRow(row)
 	col.insertRow(row, index)
-	cols.Layout.UI.WarpPointerToRectanglePad(&row.C.Bounds)
+	row.WarpPointer()
 }
 func (cols *Columns) MoveColumnToPoint(col *Column, p *image.Point) {
 	for _, c := range cols.Cols {

@@ -9,7 +9,9 @@ type Button struct {
 }
 
 func newButton(km *KeybMap, button xproto.Button, state uint16) *Button {
-	//log.Printf("button mod %v", state)
+
+	// TODO: keypress mods differ from keyrelease
+
 	return &Button{km, button, Modifiers(state)}
 }
 func (b *Button) Button1() bool {

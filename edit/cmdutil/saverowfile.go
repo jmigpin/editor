@@ -22,7 +22,7 @@ func SaveRowFile(erow ERower) {
 	content := row.TextArea.Str()
 
 	// run go imports for go files, updates content string
-	filename := tsd.FirstPartFilepath()
+	filename := tsd.DecodeFirstPart()
 	if path.Ext(filename) == ".go" {
 		u, err := runGoImports(content)
 		if err != nil {

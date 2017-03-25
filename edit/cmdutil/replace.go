@@ -14,6 +14,6 @@ func Replace(erow ERower, part *toolbardata.Part) {
 		erow.Ed().Error(err)
 		return
 	}
-	old, new := a[0].Trim(), a[1].Trim()
+	old, new := a[0].Unquote(), a[1].Unquote()
 	tautil.Replace(erow.Row().TextArea, old, new)
 }

@@ -16,7 +16,7 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 	if !ok {
 		return
 	}
-	p0 := part.Args[0].Trim()
+	p0 := part.Args[0].Unquote()
 	switch p0 {
 	case "Exit":
 		ed.Close()
@@ -79,14 +79,14 @@ func ToolbarCmdFromRow(erow *ERow) {
 		return
 	}
 	// external command
-	cmd := part.JoinArgs().Trim()
+	cmd := part.JoinArgs().Str
 	cmdutil.ExternalCmd(erow, cmd)
 }
 
 // Returns true if cmd was handled.
 func rowToolbarCmd(erow *ERow, part *toolbardata.Part) bool {
 	row := erow.Row()
-	p0 := part.Args[0].Trim()
+	p0 := part.Args[0].Str
 	switch p0 {
 	case "Save":
 		cmdutil.SaveRowFile(erow)
@@ -97,10 +97,10 @@ func rowToolbarCmd(erow *ERow, part *toolbardata.Part) bool {
 	case "CloseColumn":
 		row.Col.Cols.CloseColumnEnsureOne(row.Col)
 	case "Find":
-		s := part.JoinArgsFromIndex(1).Trim()
+		s := part.JoinArgsFromIndex(1).Unquote()
 		tautil.Find(row.TextArea, s)
 	case "GotoLine":
-		s := part.JoinArgsFromIndex(1).Trim()
+		s := part.JoinArgsFromIndex(1).Str
 		tautil.GotoLine(row.TextArea, s)
 	case "Replace":
 		cmdutil.Replace(erow, part)

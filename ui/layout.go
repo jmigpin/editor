@@ -14,7 +14,7 @@ func NewLayout(ui *UI) *Layout {
 	layout := &Layout{}
 	layout.UI = ui
 
-	layout.Toolbar = NewToolbar(ui)
+	layout.Toolbar = NewToolbar(ui, &layout.C)
 	tb := layout.Toolbar
 	tb.Colors = &ToolbarColors
 
@@ -28,13 +28,6 @@ func NewLayout(ui *UI) *Layout {
 	// dynamic toolbar bounds
 	tb.C.Style.DynamicMainSize = func() int {
 		return tb.CalcStringHeight(layout.C.Bounds.Dx())
-	}
-	tb.OnSetText = func() {
-		b := tb.C.Bounds
-		layout.C.CalcChildsBounds()
-		if !tb.C.Bounds.Eq(b) {
-			layout.C.NeedPaint()
-		}
 	}
 
 	return layout

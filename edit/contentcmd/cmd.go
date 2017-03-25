@@ -57,6 +57,7 @@ func expandLeftRight(str string, index int) string {
 	return s2
 }
 
+// TODO: use toolbar.stringdata?
 // Used on opensession command to get argument.
 func afterSpaceExpandRightUntilSpace(str string, index int) string {
 	if index > len(str) {

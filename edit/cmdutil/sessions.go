@@ -126,7 +126,7 @@ func saveSession(ed Editorer, part *toolbardata.Part, filename string) error {
 	if len(part.Args) != 2 {
 		return fmt.Errorf("savesession: missing session name")
 	}
-	sessionName := part.Args[1].Trim()
+	sessionName := part.Args[1].Unquote()
 
 	s1 := NewSessionFromEditor(ed)
 	s1.Name = sessionName
@@ -180,7 +180,7 @@ func OpenSession(ed Editorer, part *toolbardata.Part) {
 		ed.Errorf("missing session name")
 		return
 	}
-	sessionName := part.Args[1].Trim()
+	sessionName := part.Args[1].Unquote()
 	OpenSessionFromString(ed, sessionName)
 }
 
@@ -208,7 +208,7 @@ func deleteSession(ed Editorer, part *toolbardata.Part) error {
 	if len(part.Args) != 2 {
 		return fmt.Errorf("deletesession: missing session name")
 	}
-	sessionName := part.Args[1].Trim()
+	sessionName := part.Args[1].Unquote()
 	ss, err := NewSessions(sessionsFilename())
 	if err != nil {
 		return err
