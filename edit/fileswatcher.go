@@ -42,13 +42,22 @@ func (fw *FilesWatcher) add2(erow *ERow, f string) error {
 	fw.m.Lock()
 	defer fw.m.Unlock()
 
+	// do nothing if same argument
+	f2, ok := fw.m.m[erow]
+	if ok && f2 == f {
+		return nil
+	}
+
 	err := fw.remove3(erow)
 	if err != nil {
 		log.Println(err)
 	}
 
-	fw.m.m[erow] = f
-	return fw.w.Watch(f)
+	err = fw.w.Watch(f)
+	if err == nil {
+		fw.m.m[erow] = f
+	}
+	return err
 }
 
 func (fw *FilesWatcher) Remove(erow *ERow) {

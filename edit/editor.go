@@ -206,11 +206,10 @@ func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
 }
 
 func (ed *Editor) FindERow(str string) (cmdutil.ERower, bool) {
-	//str = cleanTrailingSlash(str)
 	for _, erow := range ed.erows {
 		tsd := erow.ToolbarSD()
-		s1 := tsd.DecodeFirstPart()
-		if s1 == str {
+		s1, ok := tsd.DecodePart0Arg0()
+		if ok && s1 == str {
 			return erow, true
 		}
 	}
@@ -251,31 +250,32 @@ func (ed *Editor) onLayoutToolbarSetStr(ev0 xgbutil.EREvent) {
 	ed.updateHomeVars(ev)
 }
 func (ed *Editor) updateHomeVars(ev *ui.TextAreaSetStrEvent) {
-	return
-
-	panic("TODO")
-
 	tb := ed.ui.Layout.Toolbar
 
-	// get layout old home vars
-	oldVars := getLayoutHomeVars(ev.OldStr)
-	log.Print(oldVars)
-
-	// remove all old home vars in all rows
+	// get all decoded toolbars in all rows
 	m := make(map[*ERow]string)
 	for _, erow := range ed.erows {
-		m[erow] = decodeToolbar(erow)
+		// decode toolbar
+		str := erow.row.Toolbar.Str()
+		tbsd := toolbardata.NewStringData(str)
+		decoded := tbsd.StrWithPart0Arg0Decoded()
+
+		m[erow] = decoded
 	}
 
-	// get layout home vars
-	vars := getLayoutHomeVars(tb.Str())
+	// delete layout old home vars
+	oldVars := getLayoutHomeVars(ev.OldStr)
+	for i := 0; i < len(oldVars); i += 2 {
+		toolbardata.DeleteHomeVar(oldVars[i])
+	}
 
-	// add vars to home vars
+	// append layout new home vars (the modified str)
+	vars := getLayoutHomeVars(tb.Str())
 	for i := 0; i < len(vars); i += 2 {
 		toolbardata.AppendHomeVar(vars[i], vars[i+1])
 	}
 
-	// insert home vars in all rows
+	// insert decoded toolbars and let triggers handle changes
 	for erow, s := range m {
 		erow.row.Toolbar.SetStrClear(s, false, false)
 	}
@@ -296,14 +296,4 @@ func getLayoutHomeVars(str string) []string {
 		vars = append(vars, key, val)
 	}
 	return vars
-}
-func decodeToolbar(erow *ERow) string {
-	str := erow.row.Toolbar.Str()
-	tbsd := toolbardata.NewStringData(str)
-	tbsd.DecodeFirstPart()
-	//return toolbardata.
-
-	panic("TODO")
-
-	return ""
 }

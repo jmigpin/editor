@@ -15,15 +15,12 @@ func SaveRowsFiles(ed Editorer) {
 	}
 }
 func SaveRowFile(erow ERower) {
-	tsd := erow.ToolbarSD()
-	ed := erow.Ed()
 	row := erow.Row()
-
 	content := row.TextArea.Str()
 
 	// run go imports for go files, updates content string
-	filename := tsd.DecodeFirstPart()
-	if path.Ext(filename) == ".go" {
+	fp, fi, ok := erow.FileInfo()
+	if ok && !fi.IsDir() && path.Ext(fp) == ".go" {
 		u, err := runGoImports(content)
 		if err != nil {
 			// ignore errors, can catch them when compiling
@@ -35,7 +32,7 @@ func SaveRowFile(erow ERower) {
 
 	err := erow.SaveContent(content)
 	if err != nil {
-		ed.Error(err)
+		erow.Ed().Error(err)
 	}
 }
 func runGoImports(str string) (string, error) {

@@ -1,33 +1,23 @@
 package toolbardata
 
 import (
-	"log"
 	"os"
 	"strings"
 )
 
-var hvars = []string{
-//"~", os.Getenv("HOME"),
-//"~0", "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor",
-}
+var hvars = []string{}
 
 func init() {
 	AppendHomeVar("~", os.Getenv("HOME"))
-	AppendHomeVar("~0", "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor")
-
-	//// insert home vars in themselves
-	//for i := 0; i < len(hvars); i += 2 {
-	//u := InsertHomeVars(hvars[i+1])
-	//if u != hvars[i] { // don't replace itself
-	//hvars[i+1] = u
-	//}
-	//}
-	log.Println("hvars", hvars)
+	//AppendHomeVar("~0", "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor")
 }
 
 func AppendHomeVar(k, v string) {
 	v = removeTrailingSlash(v)
 	v = InsertHomeVars(v)
+	if v == "" || v == "~" {
+		return
+	}
 	hvars = append(hvars, k, v)
 }
 func DeleteHomeVar(k string) {
@@ -59,7 +49,7 @@ func RemoveHomeVars(s string) string {
 }
 
 func removeTrailingSlash(s string) string {
-	if len(s) >= 2 && s[len(s)-1] == '/' {
+	if len(s) > 0 && s[len(s)-1] == '/' {
 		s = s[:len(s)-1]
 	}
 	return s

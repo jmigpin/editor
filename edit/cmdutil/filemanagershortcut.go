@@ -17,8 +17,10 @@ func FilemanagerShortcut(erow ERower) {
 	} else {
 		// try base dir of firstpart
 		tsd := erow.ToolbarSD()
-		fp := tsd.DecodeFirstPart()
-		dir = path.Dir(fp)
+		fp, ok := tsd.DecodePart0Arg0()
+		if ok {
+			dir = path.Dir(fp)
+		}
 	}
 	c := exec.Command("filemanager.sh", dir)
 	go c.Run()

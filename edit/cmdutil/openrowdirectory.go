@@ -8,9 +8,13 @@ import (
 func OpenRowDirectory(erow ERower) {
 	ed := erow.Ed()
 
+	p := ""
+
 	tsd := erow.ToolbarSD()
-	fp := tsd.DecodeFirstPart()
-	p := path.Dir(fp)
+	fp, ok := tsd.DecodePart0Arg0()
+	if ok {
+		p = path.Dir(fp)
+	}
 
 	fi, err := os.Stat(p)
 	if err != nil {

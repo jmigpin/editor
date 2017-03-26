@@ -10,13 +10,12 @@ type Token struct {
 func parseTokens(str string, stopRune func(rune) bool) []*Token {
 	var res []*Token
 	var tok *Token
+
 	// states
 	type State int
 	var stk []State
 
-	// TODO: parse single quote
-
-	var normal, escape, quote State = 0, 1, 2
+	var normal, escape, dquote, bquote State = 0, 1, 2, 3
 	pushState := func(v State) {
 		stk = append(stk, v)
 	}
@@ -29,6 +28,7 @@ func parseTokens(str string, stopRune func(rune) bool) []*Token {
 	peekState := func() State {
 		return stk[len(stk)-1]
 	}
+
 	// parse
 	pushState(normal)
 	for ri, ru := range str {
@@ -49,14 +49,23 @@ func parseTokens(str string, stopRune func(rune) bool) []*Token {
 			case '\\':
 				pushState(escape)
 			case '"':
-				pushState(quote)
+				pushState(dquote)
+			case '`':
+				pushState(bquote)
 			}
 		case escape:
 			// let this rune pass
 			popState()
-		case quote:
+		case dquote:
 			switch ru {
 			case '"':
+				popState()
+			case '\\':
+				pushState(escape)
+			}
+		case bquote:
+			switch ru {
+			case '`':
 				popState()
 			case '\\':
 				pushState(escape)
@@ -72,7 +81,10 @@ func parseTokens(str string, stopRune func(rune) bool) []*Token {
 	}
 	return res
 }
-
+func (tok *Token) Replace(parentS, newS string) string {
+	s, e := tok.Start, tok.End
+	return parentS[:s] + newS + parentS[e:]
+}
 func (tok *Token) Unquote() string {
 	s, err := strconv.Unquote(tok.Str)
 	if err != nil {

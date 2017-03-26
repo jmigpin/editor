@@ -2,6 +2,7 @@ package edit
 
 import (
 	"errors"
+	//	"log"
 	"os"
 
 	"github.com/howeyc/fsnotify"
@@ -82,31 +83,39 @@ func (erow *ERow) Ed() cmdutil.Editorer {
 }
 func (erow *ERow) parseToolbar(str string) {
 	erow.tbsd = toolbardata.NewStringData(str)
-	str, ok := erow.tbsd.EncodeFirstPart()
-	if ok {
-		// set str, will trigger event that parses again
-		erow.Row().Toolbar.SetStrClear(str, false, false)
+
+	// update toolbar with encoded value
+	s := erow.tbsd.StrWithPart0Arg0Encoded()
+	if s != erow.tbsd.Str {
+		// set str will trigger event that parses again
+		erow.Row().Toolbar.SetStrClear(s, false, false)
 		// TODO: adjust cursor
 		return
 	}
 
-	// keep file info
+	// update file info
 	notExist := false
-	fp := erow.tbsd.DecodeFirstPart()
-	fi, err := os.Stat(fp)
-	if err != nil {
-		if os.IsNotExist(err) {
-			notExist = true
+	erow.fileInfo = nil
+	erow.fileInfoPath = ""
+	addedFw := false
+	fp, ok := erow.tbsd.DecodePart0Arg0()
+	if ok {
+		fi, err := os.Stat(fp)
+		if err != nil {
+			if os.IsNotExist(err) {
+				notExist = true
+			}
+		} else {
+			erow.fileInfo = fi
+			erow.fileInfoPath = fp
+			if !fi.IsDir() {
+				addedFw = true
+				erow.ed.fw.Add(erow, fp)
+			}
 		}
-		erow.fileInfo = nil
-		erow.fileInfoPath = ""
+	}
+	if !addedFw {
 		erow.ed.fw.Remove(erow)
-	} else {
-		erow.fileInfo = fi
-		erow.fileInfoPath = fp
-		if !fi.IsDir() {
-			erow.ed.fw.Add(erow, fp)
-		}
 	}
 	erow.row.Square.SetValue(ui.SquareNotExist, notExist)
 }
@@ -175,6 +184,8 @@ func (erow *ERow) saveContent2(str string) error {
 func (erow *ERow) OnFilesWatcherEvent(ev *fsnotify.FileEvent) {
 	sq := erow.row.Square
 	if sq.Value(ui.SquareCold) == false {
+		// TODO: recheck state, reparse toolbar?
+
 		erow.row.Square.SetValue(ui.SquareCold, true)
 		erow.ed.UI().RequestTreePaint()
 	}

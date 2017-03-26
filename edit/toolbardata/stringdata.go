@@ -11,6 +11,9 @@ func NewStringData(str string) *StringData {
 	parts := parseParts(str)
 	return &StringData{Str: str, Parts: parts}
 }
+func (sd *StringData) ReplacePart(i int, str string) string {
+	return sd.Parts[i].Replace(sd.Str, str)
+}
 func (sd *StringData) GetPartAtIndex(index int) (*Part, bool) {
 	for _, p := range sd.Parts {
 		if index >= p.Start && index < p.End {
@@ -19,83 +22,48 @@ func (sd *StringData) GetPartAtIndex(index int) (*Part, bool) {
 	}
 	return nil, false
 }
-func (sd *StringData) StrWithFirstPartEncoded() (string, bool) {
+func (sd *StringData) EncodePart0Arg0() (string, bool) {
 	if len(sd.Parts) == 0 {
 		return "", false
 	}
-	if len(sd.Parts[0].Args) != 1 {
+	if len(sd.Parts[0].Args) < 1 {
 		return "", false
 	}
-
-	arg := sd.Parts[0].Args[0]
-
-	s1 := arg.Str
-
+	s1 := sd.Parts[0].Args[0].Str
 	s2 := decodeHomeVars(s1)
 	s3 := encodeHomeVars(s2)
-
-	if s3 == s1 {
-		return "", false
-	}
-
-	// replace
-	s := sd.Parts[0].Args[0].Start
-	e := sd.Parts[0].Args[0].End
-	s4 := sd.Str[:s] + s3 + sd.Str[e:]
-
-	return s4, true
+	return s3, true
 }
-
-func (sd *StringData) EncodeFirstPart() (string, bool) {
+func (sd *StringData) DecodePart0Arg0() (string, bool) {
 	if len(sd.Parts) == 0 {
 		return "", false
 	}
-	if len(sd.Parts[0].Args) != 1 {
+	if len(sd.Parts[0].Args) == 0 {
 		return "", false
 	}
-
 	s1 := sd.Parts[0].Args[0].Str
-
-	// ensure trailing slash if dir
-	s2 := RemoveHomeVars(s1)
-	fi, err := os.Stat(s2)
-	if err == nil && fi.IsDir() {
-		if len(s2) > 0 && s2[len(s2)-1] != '/' {
-			s2 += "/"
-		}
-	}
-
-	s3 := InsertHomeVars(s2)
-	if s3 == s1 {
-		return "", false
-	}
-
-	// replace
-	s := sd.Parts[0].Args[0].Start
-	e := sd.Parts[0].Args[0].End
-	s4 := sd.Str[:s] + s3 + sd.Str[e:]
-
-	return s4, true
+	s2 := decodeHomeVars(s1)
+	return s2, true
 }
-
-func (sd *StringData) DecodeFirstPart() string {
-	if len(sd.Parts) == 0 {
-		return ""
+func (sd *StringData) StrWithPart0Arg0Encoded() string {
+	s1, ok := sd.EncodePart0Arg0()
+	if !ok {
+		return sd.Str
 	}
-	if len(sd.Parts[0].Args) != 1 {
-		return ""
+	// replace
+	s2 := sd.Parts[0].ReplaceArg(0, s1)
+	s3 := sd.ReplacePart(0, s2)
+	return s3
+}
+func (sd *StringData) StrWithPart0Arg0Decoded() string {
+	s1, ok := sd.DecodePart0Arg0()
+	if !ok {
+		return sd.Str
 	}
-	s1 := sd.Parts[0].Args[0].Str
-	s1 = RemoveHomeVars(s1)
-
-	// remove trailing slash if dir
-	if len(s1) > 0 && s1[len(s1)-1] == '/' {
-		fi, err := os.Stat(s1)
-		if err == nil && fi.IsDir() {
-			s1 = s1[:len(s1)-1]
-		}
-	}
-	return s1
+	// replace
+	s2 := sd.Parts[0].ReplaceArg(0, s1)
+	s3 := sd.ReplacePart(0, s2)
+	return s3
 }
 
 func encodeHomeVars(str string) string {

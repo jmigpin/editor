@@ -55,3 +55,6 @@ func (p *Part) String() string {
 	s := fmt.Sprintf("{%v [%v]}", *p.Token, strings.Join(u, " "))
 	return s
 }
+func (p *Part) ReplaceArg(i int, str string) string {
+	return p.Args[i].Replace(p.Str, str)
+}
