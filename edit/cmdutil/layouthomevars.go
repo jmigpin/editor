@@ -59,6 +59,10 @@ func getLayoutHomeVars(str string) []string {
 		if len(a) != 2 {
 			continue
 		}
+		// var name: only 2 chars and must start with '~'
+		if !(len(a[0]) == 2 && a[0][0] == '~') {
+			continue
+		}
 		key, val := a[0], a[1]
 		vars = append(vars, key, val)
 	}
