@@ -25,14 +25,7 @@ type StringLinerWrapIndent struct {
 }
 
 type StringLinerStates struct {
-	//comment bool
-	//cData   struct { // comment data
-	//typ   int
-	//close bool
-	//count int
-	//}
-	//str     bool
-	//strEnd  bool
+	// if ever used, needed for comments/strings states
 }
 
 func NewStringLiner(face *Face, str string, max *fixed.Point26_6) *StringLiner {
@@ -49,65 +42,6 @@ func (liner *StringLiner) Loop(fn func() bool) {
 	}
 
 	liner.iter.Loop(func() bool {
-
-		// (comment,string, etc) states are done here to be saved in the stringcache calcrunedata state that uses only a string liner - otherwise they shouldn't be here
-
-		//// comment state
-		//if !liner.states.comment {
-		//if liner.iter.ru == '/' {
-		//next, ok := liner.iter.LookaheadRune(1)
-		//if ok && next == '/' {
-		//liner.states.comment = true
-		//liner.states.cData.typ = 0
-		//}
-		//}
-		//if liner.iter.ru == '/' {
-		//next, ok := liner.iter.LookaheadRune(1)
-		//if ok && next == '*' {
-		//liner.states.comment = true
-		//liner.states.cData.typ = 1
-		//liner.states.cData.close = false
-		//liner.states.cData.count = 0
-		//}
-		//}
-		//} else {
-		//switch liner.states.cData.typ {
-		//case 0:
-		//if liner.iter.ru == '\n' {
-		//liner.states.comment = false
-		//}
-		//case 1:
-		//if liner.iter.ru == '*' {
-		//next, ok := liner.iter.LookaheadRune(1)
-		//if ok && next == '/' {
-		//liner.states.cData.close = true
-		//liner.states.cData.count = 2
-		//}
-		//}
-		//if liner.states.cData.close {
-		//if liner.states.cData.count == 0 {
-		//liner.states.comment = false
-		//}
-		//liner.states.cData.count--
-		//}
-		//}
-		//}
-
-		//// string state
-		//if !liner.states.str && !liner.states.comment {
-		//if liner.iter.ru == '"' {
-		//liner.states.str = true
-		//liner.states.strEnd = false
-		//}
-		//} else {
-		//if liner.iter.ru == '"' {
-		//// end state on next rune
-		//liner.states.strEnd = true
-		//} else if liner.states.strEnd {
-		//liner.states.str = false
-		//}
-		//}
-
 		// keep track of indentation for wrapped lines
 		if !liner.wrapIndent.notStartingSpaces {
 			if unicode.IsSpace(liner.iter.ru) {
