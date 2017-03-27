@@ -1,7 +1,6 @@
 package drawutil
 
 import (
-	//"fmt"
 	"image"
 	"sync"
 
@@ -44,18 +43,19 @@ func (fc *FaceCache) Glyph(ru rune) (dr image.Rectangle, mask image.Image, maskp
 	fc.faceMu.RUnlock()
 	if !ok {
 		fc.faceMu.Lock()
-		defer fc.faceMu.Unlock()
 
 		var dot0 fixed.Point26_6 // always use dot zero
 		dr, mask, maskp, adv, ok := fc.Face.Glyph(dot0, ru)
 
-		// avoid the truetype package cache (it's not giving the same mask everytime)
+		// avoid the truetype package cache (it's not giving the same mask everytime, probably needs cache parameter)
 		if ok {
 			mask = copyMask2(mask)
 		}
 
 		gc = &GlyphCache{dr, mask, maskp, adv, ok}
 		fc.gc[ru] = gc
+
+		fc.faceMu.Unlock()
 	}
 	return gc.dr, gc.mask, gc.maskp, gc.advance, gc.ok
 }
@@ -72,8 +72,8 @@ func (fc *FaceCache) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
 	fc.faceMu.RUnlock()
 	if !ok {
 		fc.faceMu.Lock()
-		adv, ok := fc.Face.GlyphAdvance(ru)
-		gac = &GlyphAdvanceCache{adv, ok} // only one can run at a time
+		adv, ok := fc.Face.GlyphAdvance(ru) // only one can run at a time
+		gac = &GlyphAdvanceCache{adv, ok}
 		fc.gac[ru] = gac
 		fc.faceMu.Unlock()
 	}

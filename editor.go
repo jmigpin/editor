@@ -8,6 +8,8 @@ import (
 )
 
 func main() {
+	//runtime.GOMAXPROCS(1)
+
 	log.SetFlags(log.Llongfile)
 
 	//// redirect stderr to log panics

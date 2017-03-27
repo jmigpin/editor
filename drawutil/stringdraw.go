@@ -46,6 +46,12 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 			}
 		}
 
+		//// wrap line
+		//if sd.liner.isWrapLineRune {
+		//drawWrapLine(sd.img, sd.bounds, sd.liner)
+		//return true
+		//}
+
 		// rune foreground (glyph)
 		wg.Add(1)
 		go func(ru rune, pen fixed.Point26_6, fg color.Color) {
@@ -92,4 +98,32 @@ func drawCursor(img draw.Image, bounds *image.Rectangle, liner *StringLiner) {
 	r3.Max.X = r3.Min.X + 1
 	r3 = r3.Intersect(*bounds)
 	imageutil.FillRectangle(img, &r3, &color.Black)
+}
+func drawWrapLine(img draw.Image, bounds *image.Rectangle, liner *StringLiner) {
+	pb := Rect266ToRect(liner.iter.PenBounds())
+	dr := pb.Add(bounds.Min)
+
+	dr = dr.Intersect(*bounds)
+
+	col := color.Black
+
+	r1 := dr
+	r1.Min.X = dr.Min.X + dr.Dx()*1/4
+	r1.Min.Y = dr.Min.Y + dr.Dy()*2/8
+	r1.Max.X = r1.Min.X + 1
+	r1.Max.Y = dr.Min.Y + dr.Dy()*5/8
+	imageutil.FillRectangle(img, &r1, &col)
+
+	r2 := r1
+	r2.Max.X = dr.Min.X + dr.Dx()*5/8
+	r2.Min.Y = r1.Max.Y
+	r2.Max.Y = r2.Min.Y + 1
+	imageutil.FillRectangle(img, &r2, &col)
+
+	var r3 image.Rectangle
+	r3.Min.X = r2.Max.X - 2
+	r3.Min.Y = r2.Min.Y - 1
+	r3.Max.X = r2.Max.X
+	r3.Max.Y = r2.Min.Y + 2
+	imageutil.FillRectangle(img, &r3, &col)
 }

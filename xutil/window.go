@@ -149,11 +149,6 @@ func (win *Window) init() error {
 		return err
 	}
 
-	//win.EvReg.Add(xproto.MotionNotify,
-	//&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-	//_ = xproto.QueryPointerUnchecked(win.Conn, win.Window)
-	//}})
-
 	// Test/debug
 	n := 0
 	win.EvReg.Add(keybmap.KeyPressEventId,
@@ -172,6 +167,19 @@ func (win *Window) init() error {
 		}})
 
 	return nil
+}
+func (win *Window) EventLoop() {
+	win.EventLoopQ = make(chan *xgbutil.ELQEvent)
+	xgbutil.EventLoop(win.Conn, win.EvReg, win.EventLoopQ)
+	// Close after event loop exit
+	err := win.ShmWrap.Close()
+	if err != nil {
+		log.Println(err)
+	}
+	win.Conn.Close()
+}
+func (win *Window) Close() {
+	close(win.EventLoopQ)
 }
 func (win *Window) SetWindowName(str string) {
 	b := []byte(str)
@@ -215,20 +223,6 @@ func (win *Window) QueryPointer() (*image.Point, bool) {
 	}
 	p := &image.Point{int(r.WinX), int(r.WinY)}
 	return p, true
-}
-func (win *Window) EventLoop() {
-	win.EventLoopQ = make(chan *xgbutil.ELQEvent)
-	xgbutil.EventLoop(win.Conn, win.EvReg, win.EventLoopQ)
-
-	// cleanup after event loop exit
-	err := win.ShmWrap.Close()
-	if err != nil {
-		log.Println(err)
-	}
-	win.Conn.Close()
-}
-func (win *Window) Close() {
-	close(win.EventLoopQ)
 }
 
 var Atoms struct {
