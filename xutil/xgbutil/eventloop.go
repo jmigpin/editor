@@ -46,13 +46,12 @@ func EventLoop(conn *xgb.Conn, er *EventRegister, qChan chan *ELQEvent) {
 			case xgb.Event:
 
 				// bypass quick motionnotify events
-				for len(connCh) > 1 {
+				if len(connCh) > 1 {
 					_, ok := ev2.(xproto.MotionNotifyEvent)
 					if ok {
-						<-connCh
-						continue
+						// break select, go to next loop iteration
+						break
 					}
-					break
 				}
 
 				er.Emit(XgbEventId(ev2), ev2)
