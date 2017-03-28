@@ -54,7 +54,7 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.C.OnCalcFunc = ta.onContainerCalc
 	ta.stringCache = drawutil.NewStringCache(ui.FontFace())
 	ta.EvReg = xgbutil.NewEventRegister()
-	ta.editHistory = tautil.NewEditHistory(30)
+	ta.editHistory = tautil.NewEditHistory(40)
 
 	r1 := ta.ui.Win.EvReg.Add(keybmap.KeyPressEventId,
 		&xgbutil.ERCallback{ta.onKeyPress})

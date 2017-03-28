@@ -1,7 +1,9 @@
 package edit
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
 	"github.com/jmigpin/editor/edit/toolbardata"
@@ -68,19 +70,27 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 }
 
 func ToolbarCmdFromRow(erow *ERow) {
+	err := toolbarCmdFromRow2(erow)
+	if err != nil {
+		erow.Ed().Error(err)
+	}
+}
+func toolbarCmdFromRow2(erow *ERow) error {
 	tsd := erow.ToolbarSD()
 	ta := erow.Row().Toolbar
 	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
-		return
+		return errors.New("missing part no part at index")
 	}
 	ok = rowToolbarCmd(erow, part)
 	if ok {
-		return
+		return nil
 	}
+
 	// external command
-	cmd := part.JoinArgs().Str
+	cmd := strings.TrimSpace(part.Str)
 	cmdutil.ExternalCmd(erow, cmd)
+	return nil
 }
 
 // Returns true if cmd was handled.

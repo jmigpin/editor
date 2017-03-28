@@ -15,18 +15,17 @@ func ExternalCmd(erow ERower, cmdStr string) {
 	row := erow.Row()
 	ed := erow.Ed()
 
-	fp, fi, ok := erow.FileInfo()
-	if !ok {
-		ed.Errorf("missing fileinfo")
-		return
-	}
-	if fi.Mode().IsRegular() {
-		ed.Errorf("running external command on filename")
-	}
-
 	dir := ""
-	if fi.IsDir() {
-		dir = fp
+
+	fp, fi, ok := erow.FileInfo()
+	if ok {
+		if fi.Mode().IsRegular() {
+			ed.Errorf("running external cmd on existing filename: %v", fp)
+			return
+		}
+		if fi.IsDir() {
+			dir = fp
+		}
 	}
 
 	// cancel previous context if any
@@ -71,7 +70,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 	}
 
 	var wg sync.WaitGroup
-	pipeToChan := func(pr io.Reader) {
+	readPipe := func(pr io.Reader) {
 		wg.Add(1)
 		defer wg.Done()
 		b := make([]byte, 5*1024)
@@ -87,8 +86,8 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 		}
 	}
 	// setup piping to the chan
-	go pipeToChan(opr)
-	go pipeToChan(epr)
+	go readPipe(opr)
+	go readPipe(epr)
 
 	// run command
 	err := cmd.Start()

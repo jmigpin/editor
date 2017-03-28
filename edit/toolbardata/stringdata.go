@@ -20,6 +20,10 @@ func (sd *StringData) GetPartAtIndex(index int) (*Part, bool) {
 			return p, true
 		}
 	}
+	// return last part for index at eos
+	if len(sd.Parts) > 0 && index >= sd.Parts[len(sd.Parts)-1].End {
+		return sd.Parts[len(sd.Parts)-1], true
+	}
 	return nil, false
 }
 func (sd *StringData) EncodePart0Arg0() (string, bool) {
