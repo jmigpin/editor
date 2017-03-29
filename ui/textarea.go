@@ -298,7 +298,6 @@ func (ta *TextArea) SetOffsetIndex(i int) {
 	p := ta.stringCache.GetPoint(i)
 	ta.SetOffsetY(p.Y)
 }
-
 func (ta *TextArea) MakeIndexVisible(index int) {
 	// is visible
 	y0 := ta.OffsetY()
@@ -309,7 +308,13 @@ func (ta *TextArea) MakeIndexVisible(index int) {
 		return
 	}
 	// set at half bounds
-	//p0 := ta.stringCache.GetPoint(index)
+	half := fixed.I(ta.C.Bounds.Dy() / 2)
+	offsetY := p0 - half
+	ta.SetOffsetY(offsetY)
+}
+func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
+	// set at half bounds
+	p0 := ta.stringCache.GetPoint(index).Y
 	half := fixed.I(ta.C.Bounds.Dy() / 2)
 	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
@@ -321,7 +326,7 @@ func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
 	p3 := p2.Add(ta.C.Bounds.Min)
 
 	// padding
-	p3.Y += ta.LineHeight().Round()
+	p3.Y += ta.LineHeight().Round() - 1
 	p3.X += 5
 
 	if !p3.In(ta.C.Bounds) {
@@ -330,32 +335,16 @@ func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
 	ta.ui.WarpPointer(&p3)
 }
 
-//func (ta *TextArea) MakeCursorVisibleAndWarpPointerToCursor() {
-//ta.MakeIndexVisible(ta.CursorIndex())
-
-//p := ta.stringCache.GetPoint(ta.CursorIndex())
-//p.Y -= ta.OffsetY()
-//p2 := drawutil.Point266ToPoint(p)
-//p3 := p2.Add(ta.C.Bounds.Min)
-//// add pad
-//p3.Y += ta.LineHeight().Round()
-//p3.X += 5
-
-//// ensure the cursor is reachable in X (ex: textarea is small and cursor is drawn outside of it)
-//if !p3.In(ta.C.Bounds) {
-//p3.X = 0
-//}
-
-//ta.ui.WarpPointer(&p3)
-//}
-
 func (ta *TextArea) RequestTreePaint() {
 	ta.ui.RequestTreePaint()
 }
-func (ta *TextArea) RequestClipboardString() (string, error) {
-	return ta.ui.Win.Paste.Request()
+func (ta *TextArea) RequestPastePrimary() (string, error) {
+	return ta.ui.Win.Paste.RequestPrimary()
 }
-func (ta *TextArea) SetClipboardString(v string) {
+func (ta *TextArea) RequestPasteClipboard() (string, error) {
+	return ta.ui.Win.Paste.RequestClipboard()
+}
+func (ta *TextArea) SetCopyClipboard(v string) {
 	ta.ui.Win.Copy.Set(v)
 }
 func (ta *TextArea) LineHeight() fixed.Int26_6 {
@@ -460,12 +449,16 @@ func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
 	ta.ui.CursorMan.UnsetCursor()
 
 	ev := ev0.(*keybmap.ButtonReleaseEvent)
-	if ev.Button.Mods.IsButton(3) {
-		// release must be in the area to run the cmd
-		if ev.Point.In(ta.C.Bounds) {
+	// release must be in the area
+	if ev.Point.In(ta.C.Bounds) {
+		switch {
+		case ev.Button.Mods.IsButton(3):
 			tautil.MoveCursorToPoint(ta, ev.Point, false)
 			ev2 := &TextAreaCmdEvent{ta}
 			ta.EvReg.Emit(TextAreaCmdEventId, ev2)
+		case ev.Button.Mods.IsButton(2):
+			tautil.MoveCursorToPoint(ta, ev.Point, false)
+			tautil.PastePrimary(ta)
 		}
 	}
 }
@@ -603,7 +596,7 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 			case 'x':
 				tautil.Cut(ta)
 			case 'v':
-				tautil.Paste(ta)
+				tautil.PasteClipboard(ta)
 			case 'k':
 				tautil.RemoveLines(ta)
 			case 'a':

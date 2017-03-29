@@ -58,11 +58,13 @@ func MoveCursorJumpLeft(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
 	i := jumpLeftIndex(ta.Str(), ta.CursorIndex())
 	ta.SetCursorIndex(i)
+	ta.MakeIndexVisible(ta.CursorIndex())
 }
 func MoveCursorJumpRight(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
 	i := jumpRightIndex(ta.Str(), ta.CursorIndex())
 	ta.SetCursorIndex(i)
+	ta.MakeIndexVisible(ta.CursorIndex())
 }
 
 func jumpLeftIndex(str string, index int) int {

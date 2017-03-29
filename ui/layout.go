@@ -15,8 +15,6 @@ func NewLayout(ui *UI) *Layout {
 	layout.UI = ui
 
 	layout.Toolbar = NewToolbar(ui, &layout.C)
-	tb := layout.Toolbar
-	tb.Colors = &ToolbarColors
 
 	sep := NewSeparator(ui, SeparatorWidth, SeparatorColor)
 
@@ -26,8 +24,8 @@ func NewLayout(ui *UI) *Layout {
 	layout.C.AppendChilds(&layout.Toolbar.C, &sep.C, &layout.Cols.C)
 
 	// dynamic toolbar bounds
-	tb.C.Style.DynamicMainSize = func() int {
-		return tb.CalcStringHeight(layout.C.Bounds.Dx())
+	layout.Toolbar.C.Style.DynamicMainSize = func() int {
+		return layout.Toolbar.CalcStringHeight(layout.C.Bounds.Dx())
 	}
 
 	return layout

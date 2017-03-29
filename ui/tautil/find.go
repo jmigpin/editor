@@ -14,7 +14,7 @@ func Find(ta Texta, str string) {
 		ta.SetSelectionIndex(index)
 		i := index + len(str)
 		ta.SetCursorIndex(i)
-		ta.MakeIndexVisible(i)
+		ta.MakeIndexVisibleAtCenter(i)
 	}
 }
 func findNextString(text, str string, index int) (int, bool) {

@@ -34,7 +34,10 @@ func NewWindow() (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
-	win := &Window{Conn: conn}
+	win := &Window{
+		Conn:  conn,
+		EvReg: xgbutil.NewEventRegister(),
+	}
 	if err := win.init(); err != nil {
 		return nil, err
 	}
@@ -113,12 +116,14 @@ func (win *Window) init() error {
 	if err != nil {
 		return err
 	}
+	paste.SetupEventRegister(win.EvReg)
 	win.Paste = paste
 
 	copy, err := copypaste.NewCopy(win.Conn, win.Window)
 	if err != nil {
 		return err
 	}
+	copy.SetupEventRegister(win.EvReg)
 	win.Copy = copy
 
 	c, err := NewCursors(win.Conn, win.Window)
@@ -136,13 +141,9 @@ func (win *Window) init() error {
 
 	win.SetWindowName("Editor")
 
-	win.EvReg = xgbutil.NewEventRegister()
-
 	// setup extensions to use event register
 	win.Dnd.SetupEventRegister(win.EvReg)
 	win.KeybMap.SetupEventRegister(win.EvReg)
-	win.Paste.SetupEventRegister(win.EvReg)
-	win.Copy.SetupEventRegister(win.EvReg)
 
 	_, err = wmprotocols.NewWMP(win.Conn, win.Window, win.EvReg)
 	if err != nil {

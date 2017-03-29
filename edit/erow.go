@@ -158,8 +158,10 @@ func (erow *ERow) SaveContent(str string) error {
 		return errors.New("can't save a directory")
 	}
 	err := erow.saveContent2(str)
-	erow.row.Square.SetValue(ui.SquareDirty, false)
-	erow.row.Square.SetValue(ui.SquareCold, false)
+	if err == nil {
+		erow.row.Square.SetValue(ui.SquareDirty, false)
+		erow.row.Square.SetValue(ui.SquareCold, false)
+	}
 	return err
 }
 func (erow *ERow) saveContent2(str string) error {
@@ -175,7 +177,6 @@ func (erow *ERow) saveContent2(str string) error {
 		return err
 	}
 	defer f.Close()
-	//defer f.Sync()
 	_, err = f.Write([]byte(str))
 	return err
 }

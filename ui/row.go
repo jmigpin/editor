@@ -35,8 +35,6 @@ func NewRow(col *Column) *Row {
 	row.dereg.Add(r1, r2, r3)
 
 	row.Toolbar = NewToolbar(ui, &row.C)
-	tb := row.Toolbar
-	tb.Colors = &ToolbarColors
 
 	row.Square = NewSquare(ui)
 	row.Square.EvReg.Add(SquareButtonReleaseEventId,
@@ -163,10 +161,6 @@ func (row *Row) onButtonRelease(ev0 xgbutil.EREvent) {
 	row.activate()
 }
 func (row *Row) WarpPointer() {
-	//b := row.C.Bounds
-	//p := b.Min.Add(image.Pt(b.Dx()/2, b.Dy()/3))
-	//row.Col.Cols.Layout.UI.WarpPointer(&p)
-
 	row.Square.WarpPointer()
 }
 

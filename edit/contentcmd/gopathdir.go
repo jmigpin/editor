@@ -33,7 +33,7 @@ func goPathDir(erow cmdutil.ERower, s string) bool {
 					return true
 				}
 			}
-			erow2.Row().Square.WarpPointer()
+			erow2.Row().WarpPointer()
 			return true
 		}
 	}

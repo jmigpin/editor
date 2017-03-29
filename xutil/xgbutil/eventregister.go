@@ -1,6 +1,5 @@
 package xgbutil
 
-// Register events.
 type EventRegister struct {
 	m                map[int]*[]*ERCallback
 	OnUnhandledEvent func(evId int, ev EREvent)

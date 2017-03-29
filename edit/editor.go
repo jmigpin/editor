@@ -68,7 +68,7 @@ func NewEditor() (*Editor, error) {
 	//ed.fw.OnEvent = ed.onFWEvent
 
 	// set up layout toolbar
-	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | FileManager | "
+	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | "
 	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
 	// execute commands on layout toolbar
 	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
@@ -224,7 +224,7 @@ func (ed *Editor) Error(err error) {
 		erow = ed.NewERow(s, col, rowIndex)
 	}
 	erow.TextAreaAppend(err.Error() + "\n")
-	erow.Row().Square.WarpPointer()
+	erow.Row().WarpPointer()
 }
 
 // Used to run layout toolbar commands.

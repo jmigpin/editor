@@ -19,6 +19,7 @@ type Texta interface {
 	CursorIndex() int
 	SetCursorIndex(int)
 	MakeIndexVisible(int)
+	MakeIndexVisibleAtCenter(int)
 	WarpPointerToIndexIfVisible(int)
 
 	OffsetY() fixed.Int26_6
@@ -36,6 +37,7 @@ type Texta interface {
 
 	RequestTreePaint()
 
-	RequestClipboardString() (string, error)
-	SetClipboardString(string)
+	RequestPastePrimary() (string, error)
+	RequestPasteClipboard() (string, error)
+	SetCopyClipboard(string)
 }

@@ -15,6 +15,8 @@ func NewToolbar(ui *UI, parentC *uiutil.Container) *Toolbar {
 	tb.DisableHighlightCursorWord = true
 	tb.DisablePageUpDown = true
 
+	tb.Colors = &ToolbarColors
+
 	tb.TextArea.EvReg.Add(TextAreaSetStrEventId,
 		&xgbutil.ERCallback{tb.onTextAreaSetStr})
 

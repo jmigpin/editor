@@ -37,7 +37,13 @@ func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
 	return p, nil
 }
 
-func (p *Paste) Request() (string, error) {
+func (p *Paste) RequestPrimary() (string, error) {
+	return p.request(xproto.AtomPrimary)
+}
+func (p *Paste) RequestClipboard() (string, error) {
+	return p.request(PasteAtoms.CLIPBOARD)
+}
+func (p *Paste) request(selection xproto.Atom) (string, error) {
 	p.waitingForReply = true
 	defer func() { p.waitingForReply = false }()
 	// empty possible old erroneous entries (concurrency rare cases)
@@ -49,7 +55,7 @@ func (p *Paste) Request() (string, error) {
 	ctx, cancel := context.WithTimeout(ctx0, 250*time.Millisecond)
 	defer cancel()
 
-	p.requestDataToServer()
+	p.requestDataToServer(selection)
 
 	select {
 	case <-ctx.Done():
@@ -58,12 +64,11 @@ func (p *Paste) Request() (string, error) {
 		return p.extractData(ev)
 	}
 }
-func (p *Paste) requestDataToServer() {
+func (p *Paste) requestDataToServer(selection xproto.Atom) {
 	_ = xproto.ConvertSelection(
 		p.conn,
 		p.win,
-		//xproto.AtomPrimary, // selection // used for unix mouse selection
-		PasteAtoms.CLIPBOARD,   // selection
+		selection,
 		PasteAtoms.UTF8_STRING, // target/type
 		PasteAtoms.XSEL_DATA,   // property
 		0)

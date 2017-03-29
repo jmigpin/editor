@@ -6,5 +6,5 @@ func Copy(ta Texta) {
 	}
 	a, b := SelectionStringIndexes(ta)
 	s := ta.Str()[a:b]
-	ta.SetClipboardString(s)
+	ta.SetCopyClipboard(s)
 }
