@@ -18,8 +18,6 @@ type Texta interface {
 
 	CursorIndex() int
 	SetCursorIndex(int)
-	MakeIndexVisible(int)
-	//MakeIndexVisibleAtCenterIfNotVisible(int)
 	MakeIndexVisibleAtCenter(int)
 	WarpPointerToIndexIfVisible(int)
 

@@ -25,5 +25,4 @@ func AutoIndent(ta Texta) {
 	ta.EditInsert(ta.CursorIndex(), str)
 	ta.EditClose()
 	ta.SetCursorIndex(ta.CursorIndex() + len(str))
-	ta.MakeIndexVisible(ta.CursorIndex())
 }

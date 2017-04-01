@@ -25,7 +25,6 @@ func MoveCursorRight(ta Texta, sel bool) {
 		return
 	}
 	ta.SetCursorIndex(i)
-	ta.MakeIndexVisible(ta.CursorIndex())
 }
 func MoveCursorLeft(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
@@ -34,7 +33,6 @@ func MoveCursorLeft(ta Texta, sel bool) {
 		return
 	}
 	ta.SetCursorIndex(i)
-	ta.MakeIndexVisible(ta.CursorIndex())
 }
 
 func MoveCursorUp(ta Texta, sel bool) {
@@ -43,7 +41,6 @@ func MoveCursorUp(ta Texta, sel bool) {
 	p.Y -= ta.LineHeight()
 	i := ta.PointIndex(p)
 	ta.SetCursorIndex(i)
-	ta.MakeIndexVisible(ta.CursorIndex())
 }
 func MoveCursorDown(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
@@ -51,20 +48,17 @@ func MoveCursorDown(ta Texta, sel bool) {
 	p.Y += ta.LineHeight()
 	i := ta.PointIndex(p)
 	ta.SetCursorIndex(i)
-	ta.MakeIndexVisible(ta.CursorIndex())
 }
 
 func MoveCursorJumpLeft(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
 	i := jumpLeftIndex(ta.Str(), ta.CursorIndex())
 	ta.SetCursorIndex(i)
-	ta.MakeIndexVisible(ta.CursorIndex())
 }
 func MoveCursorJumpRight(ta Texta, sel bool) {
 	updateSelectionState(ta, sel)
 	i := jumpRightIndex(ta.Str(), ta.CursorIndex())
 	ta.SetCursorIndex(i)
-	ta.MakeIndexVisible(ta.CursorIndex())
 }
 
 func jumpLeftIndex(str string, index int) int {
