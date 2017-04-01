@@ -17,8 +17,9 @@ func ExternalCmd(erow ERower, cmdStr string) {
 
 	dir := ""
 
-	fp, fi, ok := erow.FileInfo()
-	if ok {
+	// get directory from row
+	fp, fi, err := erow.FileInfo()
+	if err == nil {
 		if fi.Mode().IsRegular() {
 			ed.Errorf("running external cmd on existing filename: %v", fp)
 			return
@@ -109,7 +110,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 	gRowCtx.ClearIfNotNewCtx(row, ctx, func() {
 		// indicate the cmd is not running anymore
 		row.Square.SetValue(ui.SquareExecuting, false)
-		row.Square.SetValue(ui.SquareDirty, false)
+		row.Square.SetValue(ui.SquareEdited, false)
 		row.Col.Cols.Layout.UI.RequestTreePaint()
 	})
 }

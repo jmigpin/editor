@@ -22,12 +22,12 @@ var (
 
 	RowInnerSeparatorColor = tint(&Blue, 0.50)
 
-	SquareColor          = ToolbarColors.Bg
-	SquareExecutingColor = Green
-	SquareDirtyColor     = Blue
-	SquareActiveColor    = Black
-	SquareColdColor      = Red
-	SquareNotExistColor  = Yellow
+	SquareColor            = ToolbarColors.Bg
+	SquareActiveColor      = Black
+	SquareExecutingColor   = Green
+	SquareEditedColor      = Blue
+	SquareDiskChangesColor = Red
+	SquareNotExistColor    = Yellow
 
 	ScrollbarFgColor = tint(&Black, 0.70)
 	ScrollbarBgColor = tint(&Black, 0.95)

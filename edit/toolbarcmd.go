@@ -13,8 +13,8 @@ import (
 
 func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 	ta := layout.Toolbar.TextArea
-	tsd := toolbardata.NewStringData(ta.Str())
-	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
+	tbsd := toolbardata.NewStringData(ta.Str())
+	part, ok := tbsd.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
 		return
 	}
@@ -40,7 +40,7 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 		cmdutil.ReloadRowsFiles(ed)
 	case "NewRow":
 		col, rowIndex := ed.GoodColRowPlace()
-		erow := ed.NewERow("", col, rowIndex)
+		erow := ed.NewERow(" | ", col, rowIndex)
 		erow.Row().WarpPointer()
 	case "ReopenRow":
 		ed.reopenRow.Reopen()
@@ -76,12 +76,22 @@ func ToolbarCmdFromRow(erow *ERow) {
 	}
 }
 func toolbarCmdFromRow2(erow *ERow) error {
-	tsd := erow.ToolbarSD()
+	tbsd := erow.ToolbarSD()
 	ta := erow.Row().Toolbar
-	part, ok := tsd.GetPartAtIndex(ta.CursorIndex())
+	part, ok := tbsd.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
-		return errors.New("missing part no part at index")
+		return errors.New("missing part at index")
 	}
+
+	// don't allow commands on row first part
+	if part == tbsd.Parts[0] {
+		return errors.New("running a command on first part")
+	}
+
+	if len(part.Args) == 0 {
+		return errors.New("empty part")
+	}
+
 	ok = rowToolbarCmd(erow, part)
 	if ok {
 		return nil

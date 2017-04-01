@@ -18,9 +18,9 @@ func SaveRowFile(erow ERower) {
 	row := erow.Row()
 	content := row.TextArea.Str()
 
-	// run go imports for go files, updates content string
-	fp, fi, ok := erow.FileInfo()
-	if ok && !fi.IsDir() && path.Ext(fp) == ".go" {
+	// run go imports for go content, updates content string
+	fp := erow.DecodedPart0Arg0()
+	if path.Ext(fp) == ".go" {
 		u, err := runGoImports(content)
 		if err != nil {
 			// ignore errors, can catch them when compiling

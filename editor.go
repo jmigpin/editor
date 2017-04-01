@@ -3,12 +3,13 @@ package main
 
 import (
 	"log"
+	"runtime"
 
 	"github.com/jmigpin/editor/edit"
 )
 
 func main() {
-	//runtime.GOMAXPROCS(1)
+	runtime.GOMAXPROCS(1)
 
 	log.SetFlags(log.Llongfile)
 

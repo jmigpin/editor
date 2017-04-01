@@ -29,11 +29,11 @@ func FindShortcut(erow ERower) {
 	}
 
 	// find cmd in toolbar string
-	tsd := erow.ToolbarSD()
+	tbsd := erow.ToolbarSD()
 	ta := row.Toolbar
 	found := false
 	var part *toolbardata.Part
-	for _, p := range tsd.Parts {
+	for _, p := range tbsd.Parts {
 		if len(p.Args) > 0 && p.Args[0].Str == "Find" {
 			found = true
 			part = p

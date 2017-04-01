@@ -242,6 +242,8 @@ func (ta *TextArea) SetCursorIndex(v int) {
 	}
 	if v != ta.cursorIndex {
 		ta.cursorIndex = v
+		ta.MakeIndexVisibleAtCenterIfNotVisible(v)
+
 		ta.C.NeedPaint()
 
 		ev := &TextAreaSetCursorIndexEvent{ta}
@@ -299,6 +301,9 @@ func (ta *TextArea) SetOffsetIndex(i int) {
 	ta.SetOffsetY(p.Y)
 }
 func (ta *TextArea) MakeIndexVisible(index int) {
+
+}
+func (ta *TextArea) MakeIndexVisibleAtCenterIfNotVisible(index int) {
 	// is visible
 	y0 := ta.OffsetY()
 	y1 := y0 + fixed.I(ta.C.Bounds.Dy())

@@ -52,12 +52,12 @@ func (sq *Square) Close() {
 }
 func (sq *Square) paint() {
 	var c color.Color = SquareColor
-	if sq.values[SquareDirty] {
-		c = SquareDirtyColor
+	if sq.values[SquareEdited] {
+		c = SquareEditedColor
 	}
-	//if sq.values[SquareNotExist] {
-	//c = SquareNotExistColor
-	//}
+	if sq.values[SquareNotExist] {
+		c = SquareNotExistColor
+	}
 	if sq.values[SquareExecuting] {
 		c = SquareExecutingColor
 	}
@@ -69,9 +69,9 @@ func (sq *Square) paint() {
 	r.Max.X = r.Min.X + w
 	r.Max.Y = r.Min.Y + w
 
-	if sq.values[SquareCold] {
+	if sq.values[SquareDiskChanges] {
 		// rowcol(0,0)
-		sq.ui.FillRectangle(&r, &SquareColdColor)
+		sq.ui.FillRectangle(&r, &SquareDiskChangesColor)
 	}
 	if sq.values[SquareActive] {
 		// rowcol(0,1)
@@ -80,11 +80,11 @@ func (sq *Square) paint() {
 		r2.Max.X += w
 		sq.ui.FillRectangle(&r2, &SquareActiveColor)
 	}
-	if sq.values[SquareNotExist] {
-		// rowcol(1,1)
-		r2 := r.Add(image.Point{w, w})
-		sq.ui.FillRectangle(&r2, &SquareNotExistColor)
-	}
+	//if sq.values[SquareNotExist] {
+	//// rowcol(1,1)
+	//r2 := r.Add(image.Point{w, w})
+	//sq.ui.FillRectangle(&r2, &SquareNotExistColor)
+	//}
 }
 func (sq *Square) onButtonPress(ev0 xgbutil.EREvent) {
 	ev := ev0.(*keybmap.ButtonPressEvent)
@@ -138,8 +138,8 @@ const (
 	SquareNone SquareType = iota
 	SquareActive
 	SquareExecuting
-	SquareDirty
-	SquareCold
+	SquareEdited
+	SquareDiskChanges
 	SquareNotExist
 )
 

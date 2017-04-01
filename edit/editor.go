@@ -204,9 +204,8 @@ func (ed *Editor) onRowKeyPress(ev0 xgbutil.EREvent) {
 
 func (ed *Editor) FindERow(str string) (cmdutil.ERower, bool) {
 	for _, erow := range ed.erows {
-		tsd := erow.ToolbarSD()
-		s1, ok := tsd.DecodePart0Arg0()
-		if ok && s1 == str {
+		s1 := erow.DecodedPart0Arg0()
+		if s1 == str {
 			return erow, true
 		}
 	}
@@ -224,7 +223,7 @@ func (ed *Editor) Error(err error) {
 		erow = ed.NewERow(s, col, rowIndex)
 	}
 	erow.TextAreaAppend(err.Error() + "\n")
-	erow.Row().WarpPointer()
+	//erow.Row().WarpPointer()
 }
 
 // Used to run layout toolbar commands.
@@ -240,4 +239,8 @@ func (ed *Editor) activeERow() (*ERow, bool) {
 func (ed *Editor) GoodColRowPlace() (*ui.Column, int) {
 	col := ed.ui.Layout.Cols.ColumnWithGoodPlaceForNewRow()
 	return col, len(col.Rows)
+}
+
+func (ed *Editor) IsSpecialName(s string) bool {
+	return len(s) > 0 && s[0] == '+'
 }

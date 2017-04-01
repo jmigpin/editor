@@ -28,7 +28,13 @@ func findNextString(text, str string, index int) (int, bool) {
 	}
 	// search from the start
 	if index > 0 { // otherwise it would repeat the search above
-		i = strings.Index(text[:index], str)
+
+		lim := index + len(str)
+		if lim > len(text) {
+			lim = len(text)
+		}
+
+		i = strings.Index(text[:lim], str)
 		if i >= 0 {
 			return i, true
 		}

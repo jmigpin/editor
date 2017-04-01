@@ -107,8 +107,12 @@ func (ui *UI) _paint() {
 // Send paint request to the main event loop.
 // Usefull for async methods that need to be painted.
 func (ui *UI) RequestTreePaint() {
-	ev := &xgbutil.ELQEvent{EventId: xgbutil.QueueEmptyEventId}
-	ui.Win.EventLoopQ <- ev
+	go func() {
+		ev := &xgbutil.ELQEvent{
+			EventId: xgbutil.QueueEmptyEventId,
+		}
+		ui.Win.EventLoopQ <- ev
+	}()
 }
 
 func (ui *UI) Image() draw.Image {

@@ -7,21 +7,21 @@ import (
 
 func FilemanagerShortcut(erow ERower) {
 	dir := ""
-	fp, fi, ok := erow.FileInfo()
-	if ok {
+
+	// get directory from row
+	fp, fi, err := erow.FileInfo()
+	if err == nil {
 		if fi.IsDir() {
 			dir = fp
 		} else {
 			dir = path.Dir(fp)
 		}
 	} else {
-		// try base dir of firstpart
-		tsd := erow.ToolbarSD()
-		fp, ok := tsd.DecodePart0Arg0()
-		if ok {
-			dir = path.Dir(fp)
-		}
+		// try base dir of part0
+		fp := erow.DecodedPart0Arg0()
+		dir = path.Dir(fp) // fp=="" gives "."
 	}
-	c := exec.Command("filemanager.sh", dir)
+
+	c := exec.Command("xdg-open", dir)
 	go c.Run()
 }

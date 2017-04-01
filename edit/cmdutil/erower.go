@@ -15,8 +15,9 @@ type ERower interface {
 	ReloadContent() error
 	SaveContent(string) error
 
+	DecodedPart0Arg0() string
 	ToolbarSD() *toolbardata.StringData
-	FileInfo() (string, os.FileInfo, bool)
+	FileInfo() (string, os.FileInfo, error)
 
 	TextAreaAppend(string)
 }
