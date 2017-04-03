@@ -11,6 +11,10 @@ type Part struct {
 	Args []*Token
 }
 
+// "" gives nil parts.
+// " " gives 1 part with zero args.
+// "|" gives 1 part with zero args.
+// "| " gives 2 parts with zero args each.
 func parseParts(str string) []*Part {
 	// split '|'
 	toks := parseTokens(str, func(ru rune) bool {
@@ -20,10 +24,21 @@ func parseParts(str string) []*Part {
 	var res []*Part
 	for _, tok := range toks {
 		s := tok.Str
+
 		// parse args
 		args := parseTokens(s, func(ru rune) bool {
 			return unicode.IsSpace(ru)
 		})
+
+		// clear args that contain only spaces
+		var a []*Token
+		for _, t := range args {
+			if strings.TrimSpace(t.Str) == "" {
+				continue
+			}
+			a = append(a, t)
+		}
+		args = a
 
 		part := &Part{tok, args}
 		res = append(res, part)

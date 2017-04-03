@@ -34,17 +34,15 @@ func parseTokens(str string, stopRune func(rune) bool) []*Token {
 	for ri, ru := range str {
 		switch peekState() {
 		case normal:
-			if !stopRune(ru) {
-				if tok == nil {
-					tok = &Token{Start: ri}
-					res = append(res, tok)
-				}
-			} else {
-				if tok != nil {
-					tok.End = ri
-					tok = nil
-				}
+			if tok == nil {
+				tok = &Token{Start: ri}
+				res = append(res, tok)
 			}
+			if stopRune(ru) {
+				tok.End = ri
+				tok = nil
+			}
+
 			switch ru {
 			case '\\':
 				pushState(escape)
