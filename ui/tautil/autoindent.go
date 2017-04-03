@@ -18,7 +18,7 @@ func AutoIndent(ta Texta) {
 		// remove selection
 		a, b := SelectionStringIndexes(ta)
 		ta.EditDelete(a, b)
-		ta.SetSelectionOn(false)
+		ta.SetSelectionOff()
 		ta.SetCursorIndex(a)
 	}
 	// insert

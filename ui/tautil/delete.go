@@ -4,7 +4,7 @@ func Delete(ta Texta) {
 	var a, b int
 	if ta.SelectionOn() {
 		a, b = SelectionStringIndexes(ta)
-		ta.SetSelectionOn(false)
+		ta.SetSelectionOff()
 	} else {
 		var ok bool
 		a = ta.CursorIndex()

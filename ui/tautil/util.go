@@ -13,14 +13,16 @@ func isWordRune(ru rune) bool {
 	return unicode.IsLetter(ru) || ru == '_' || unicode.IsDigit(ru)
 }
 
-func updateSelectionState(ta Texta, active bool) {
-	if active {
-		if !ta.SelectionOn() {
-			ta.SetSelectionOn(true)
-			ta.SetSelectionIndex(ta.CursorIndex())
+func updateSelection(ta Texta, on bool, ci int) {
+	if on {
+		si := ta.CursorIndex()
+		if ta.SelectionOn() {
+			si = ta.SelectionIndex()
 		}
+		ta.SetSelection(si, ci)
 	} else {
-		ta.SetSelectionOn(false)
+		ta.SetSelectionOff()
+		ta.SetCursorIndex(ci)
 	}
 }
 
@@ -45,6 +47,13 @@ func PreviousRuneIndex(str string, index int) (rune, int, bool) {
 		ru = rune(str[index-size])
 	}
 	return ru, index - size, true
+}
+func previousRuneIndexIfLastIsNewline(s string) int {
+	ru, i, ok := PreviousRuneIndex(s, len(s))
+	if ok && ru == '\n' {
+		return i
+	}
+	return len(s)
 }
 
 func SelectionStringIndexes(ta Texta) (int, int) {
@@ -81,6 +90,7 @@ func lineStartIndex(str string, index int) int {
 	}
 	return i
 }
+
 func lineEndIndexNextIndex(str string, index int) (_ int, hasNewline bool) {
 	i := strings.Index(str[index:], "\n")
 	if i < 0 {

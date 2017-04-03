@@ -22,8 +22,7 @@ func MoveLineUp(ta Texta) {
 		if !ok {
 			return
 		}
-		ta.SetSelectionIndex(a2)
-		ta.SetCursorIndex(b2)
+		ta.SetSelection(a2, b2)
 	} else {
 		// position cursor at same position
 		ta.SetCursorIndex(ta.CursorIndex() - (a - a2))
@@ -58,8 +57,7 @@ func MoveLineDown(ta Texta) {
 				return
 			}
 		}
-		ta.SetSelectionIndex(a2)
-		ta.SetCursorIndex(b2)
+		ta.SetSelection(a2, b2)
 	} else {
 		// position cursor at same position
 		ta.SetCursorIndex(ta.CursorIndex() + (a2 - a))

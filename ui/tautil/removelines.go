@@ -5,6 +5,6 @@ func RemoveLines(ta Texta) {
 	ta.EditOpen()
 	ta.EditDelete(a, b)
 	ta.EditClose()
-	ta.SetSelectionOn(false)
+	ta.SetSelectionOff()
 	ta.SetCursorIndex(a)
 }

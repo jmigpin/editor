@@ -2,7 +2,7 @@ package tautil
 
 func TabRight(ta Texta) {
 	if !ta.SelectionOn() {
-		InsertRune(ta, '\t')
+		InsertString(ta, "\t")
 		return
 	}
 
@@ -21,9 +21,10 @@ func TabRight(ta Texta) {
 	ta.EditInsert(a, str)
 	ta.EditClose()
 
-	ta.SetSelectionOn(true)
-	ta.SetSelectionIndex(a)
-	ta.SetCursorIndex(a + len(str))
+	// don't select newline as last char
+	c := previousRuneIndexIfLastIsNewline(str)
+
+	ta.SetSelection(a, a+c)
 }
 func TabLeft(ta Texta) {
 	a, b, _ := linesStringIndexes(ta)
@@ -31,21 +32,19 @@ func TabLeft(ta Texta) {
 	str := ta.Str()[a:b]
 
 	// remove from line start
-	nlines := 0
 	altered := false
+	deletions := 0
 	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
 		if str[i] == '\t' || str[i] == ' ' {
 			altered = true
+			deletions++
 			str = str[:i] + str[i+1:] // +1 is length of '\t' or ' '
 		}
-		nlines++
 	}
 
 	if !altered {
 		return
 	}
-
-	ci0 := ta.CursorIndex()
 
 	// replace
 	ta.EditOpen()
@@ -53,16 +52,8 @@ func TabLeft(ta Texta) {
 	ta.EditInsert(a, str)
 	ta.EditClose()
 
-	if nlines <= 1 {
-		ta.SetSelectionOn(false)
-		ci := ta.CursorIndex()
-		if ci == ci0 && ci > a {
-			// move cursor to the left due to removed rune
-			ta.SetCursorIndex(ci - 1)
-		}
-	} else {
-		ta.SetSelectionOn(true)
-		ta.SetSelectionIndex(a)
-		ta.SetCursorIndex(a + len(str))
-	}
+	// don't select newline as last char
+	c := previousRuneIndexIfLastIsNewline(str)
+
+	ta.SetSelection(a, a+c)
 }

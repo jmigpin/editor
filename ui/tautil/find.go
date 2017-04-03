@@ -10,10 +10,8 @@ func Find(ta Texta, str string) {
 	}
 	index, ok := findNextString(ta.Str(), str, ta.CursorIndex())
 	if ok {
-		ta.SetSelectionOn(true)
-		ta.SetSelectionIndex(index)
 		i := index + len(str)
-		ta.SetCursorIndex(i)
+		ta.SetSelection(index, i)
 		ta.MakeIndexVisibleAtCenter(i)
 	}
 }

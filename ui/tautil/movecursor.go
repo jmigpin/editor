@@ -8,57 +8,48 @@ import (
 )
 
 func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
-	updateSelectionState(ta, sel)
-
 	p2 := p.Sub(ta.Bounds().Min)
 	p3 := drawutil.PointToPoint266(&p2)
 	p3.Y += ta.OffsetY()
-	index := ta.PointIndex(p3)
-
-	ta.SetCursorIndex(index)
+	i := ta.PointIndex(p3)
+	updateSelection(ta, sel, i)
 }
 
 func MoveCursorRight(ta Texta, sel bool) {
-	updateSelectionState(ta, sel)
 	_, i, ok := NextRuneIndex(ta.Str(), ta.CursorIndex())
 	if !ok {
 		return
 	}
-	ta.SetCursorIndex(i)
+	updateSelection(ta, sel, i)
 }
 func MoveCursorLeft(ta Texta, sel bool) {
-	updateSelectionState(ta, sel)
 	_, i, ok := PreviousRuneIndex(ta.Str(), ta.CursorIndex())
 	if !ok {
 		return
 	}
-	ta.SetCursorIndex(i)
+	updateSelection(ta, sel, i)
 }
 
 func MoveCursorUp(ta Texta, sel bool) {
-	updateSelectionState(ta, sel)
 	p := ta.IndexPoint(ta.CursorIndex())
 	p.Y -= ta.LineHeight()
 	i := ta.PointIndex(p)
-	ta.SetCursorIndex(i)
+	updateSelection(ta, sel, i)
 }
 func MoveCursorDown(ta Texta, sel bool) {
-	updateSelectionState(ta, sel)
 	p := ta.IndexPoint(ta.CursorIndex())
 	p.Y += ta.LineHeight()
 	i := ta.PointIndex(p)
-	ta.SetCursorIndex(i)
+	updateSelection(ta, sel, i)
 }
 
 func MoveCursorJumpLeft(ta Texta, sel bool) {
-	updateSelectionState(ta, sel)
 	i := jumpLeftIndex(ta.Str(), ta.CursorIndex())
-	ta.SetCursorIndex(i)
+	updateSelection(ta, sel, i)
 }
 func MoveCursorJumpRight(ta Texta, sel bool) {
-	updateSelectionState(ta, sel)
 	i := jumpRightIndex(ta.Str(), ta.CursorIndex())
-	ta.SetCursorIndex(i)
+	updateSelection(ta, sel, i)
 }
 
 func jumpLeftIndex(str string, index int) int {

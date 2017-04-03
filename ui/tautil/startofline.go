@@ -3,8 +3,6 @@ package tautil
 import "unicode"
 
 func StartOfLine(ta Texta, sel bool) {
-	updateSelectionState(ta, sel)
-
 	i := lineStartIndex(ta.Str(), ta.CursorIndex())
 
 	// stop at first non blank rune from the left
@@ -16,5 +14,5 @@ func StartOfLine(ta Texta, sel bool) {
 		}
 	}
 
-	ta.SetCursorIndex(i)
+	updateSelection(ta, sel, i)
 }

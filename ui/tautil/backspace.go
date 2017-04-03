@@ -5,7 +5,7 @@ func Backspace(ta Texta) {
 	var ok bool
 	if ta.SelectionOn() {
 		a, b = SelectionStringIndexes(ta)
-		ta.SetSelectionOn(false)
+		ta.SetSelectionOff()
 	} else {
 		b = ta.CursorIndex()
 		_, a, ok = PreviousRuneIndex(ta.Str(), b)

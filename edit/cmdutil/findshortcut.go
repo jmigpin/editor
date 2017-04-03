@@ -45,15 +45,14 @@ func FindShortcut(erow ERower) {
 		// insert find cmd
 		ta.EditOpen()
 		ta.EditInsert(len(ta.Str()), " | Find ")
-		ta.SetSelectionOn(false)
 		a := len(ta.Str())
 		if searchStr != "" {
-			ta.SetSelectionOn(true)
-			ta.SetSelectionIndex(a)
 			ta.EditInsert(a, searchStr)
-			a = len(ta.Str())
+			ta.SetSelection(a, a+len(searchStr))
+		} else {
+			ta.SetSelectionOff()
+			ta.SetCursorIndex(a + len(searchStr))
 		}
-		ta.SetCursorIndex(a + len(searchStr))
 		ta.EditClose()
 	} else {
 		ta.EditOpen()
@@ -64,20 +63,17 @@ func FindShortcut(erow ERower) {
 			ta.EditInsert(a, " ")
 			a++
 			b++
+			ta.SetCursorIndex(b)
 		} else {
 			a++
-			ta.SetSelectionOn(true)
-			ta.SetSelectionIndex(a)
+			ta.SetSelection(a, b)
 		}
-		ta.SetCursorIndex(b)
 
 		// replace current find cmd string with search str
 		if searchStr != "" {
 			ta.EditDelete(a, b)
 			ta.EditInsert(a, searchStr)
-			ta.SetSelectionOn(true)
-			ta.SetSelectionIndex(a)
-			ta.SetCursorIndex(a + len(searchStr))
+			ta.SetSelection(a, a+len(searchStr))
 		}
 		ta.EditClose()
 	}

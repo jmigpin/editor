@@ -3,12 +3,12 @@ package tautil
 import "strings"
 
 func EndOfLine(ta Texta, sel bool) {
-	updateSelectionState(ta, sel)
-	i := strings.Index(ta.Str()[ta.CursorIndex():], "\n")
+	ci := ta.CursorIndex()
+	i := strings.Index(ta.Str()[ci:], "\n")
 	if i < 0 {
 		i = len(ta.Str())
 	} else {
-		i += ta.CursorIndex()
+		i += ci
 	}
-	ta.SetCursorIndex(i)
+	updateSelection(ta, sel, i)
 }

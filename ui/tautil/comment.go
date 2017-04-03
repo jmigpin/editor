@@ -34,7 +34,7 @@ func Comment(ta Texta) {
 	ta.EditClose()
 
 	if nlines <= 1 {
-		ta.SetSelectionOn(false)
+		ta.SetSelectionOff()
 		// move cursor to the right due to inserted runes
 		i := strings.Index(ta.Str()[a:a+len(str)], "//")
 		if i >= 0 {
@@ -44,9 +44,7 @@ func Comment(ta Texta) {
 			}
 		}
 	} else {
-		ta.SetSelectionOn(true)
-		ta.SetSelectionIndex(a)
-		ta.SetCursorIndex(a + len(str))
+		ta.SetSelection(a, a+len(str))
 	}
 }
 func Uncomment(ta Texta) {
@@ -83,7 +81,7 @@ func Uncomment(ta Texta) {
 	ta.EditClose()
 
 	if nlines <= 1 {
-		ta.SetSelectionOn(false)
+		ta.SetSelectionOff()
 		// move cursor to the left due to deleted runes
 		i := strings.IndexFunc(ta.Str()[a:a+len(str)], isNotSpace)
 		if i >= 0 {
@@ -93,8 +91,6 @@ func Uncomment(ta Texta) {
 			}
 		}
 	} else {
-		ta.SetSelectionOn(true)
-		ta.SetSelectionIndex(a)
-		ta.SetCursorIndex(a + len(str))
+		ta.SetSelection(a, a+len(str))
 	}
 }

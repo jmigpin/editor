@@ -6,11 +6,7 @@ func SelectWord(ta Texta) {
 	index := ta.CursorIndex()
 	a := wordLeftIndex(ta.Str(), index)
 	b := wordRightIndex(ta.Str(), index)
-	if a != b {
-		ta.SetSelectionOn(true)
-		ta.SetSelectionIndex(a)
-	}
-	ta.SetCursorIndex(b)
+	ta.SetSelection(a, b)
 }
 
 func wordLeftIndex(str string, index int) int {

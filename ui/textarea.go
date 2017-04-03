@@ -123,7 +123,7 @@ func (ta *TextArea) paint() {
 	// fill background
 	imageutil.FillRectangle(ta.ui.Image(), &ta.C.Bounds, ta.Colors.Bg)
 
-	selection := ta.getSelection()
+	selection := ta.getDrawSelection()
 	highlight := !ta.DisableHighlightCursorWord && selection == nil
 	err := ta.stringCache.Draw(
 		ta.ui.Image(),
@@ -137,12 +137,11 @@ func (ta *TextArea) paint() {
 		ta.Error(err)
 	}
 }
-func (ta *TextArea) getSelection() *drawutil.Selection {
-	selectionVisible := ta.selection.index != ta.cursorIndex
-	if ta.selection.on && selectionVisible {
+func (ta *TextArea) getDrawSelection() *drawutil.Selection {
+	if ta.SelectionOn() {
 		return &drawutil.Selection{
-			StartIndex: ta.selection.index,
-			EndIndex:   ta.cursorIndex,
+			StartIndex: ta.SelectionIndex(),
+			EndIndex:   ta.CursorIndex(),
 		}
 	}
 	return nil
@@ -161,7 +160,11 @@ func (ta *TextArea) setStr(s string) {
 	}
 	oldStr := ta.str
 	ta.str = s
-	ta.SetCursorIndex(ta.CursorIndex()) // ensure valid cursor
+
+	// ensure valid indexes
+	ta.SetCursorIndex(ta.CursorIndex())
+	ta.SetSelectionIndex(ta.SelectionIndex())
+
 	oldBounds := ta.C.Bounds
 	ta.updateStringCache()
 	ta.C.NeedPaint()
@@ -170,7 +173,7 @@ func (ta *TextArea) setStr(s string) {
 	ta.EvReg.Emit(TextAreaSetStrEventId, ev)
 }
 func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
-	ta.SetSelectionOn(false)
+	ta.SetSelectionOff()
 	if clearPosition {
 		ta.SetCursorIndex(0)
 		ta.SetOffsetY(0)
@@ -216,7 +219,7 @@ func (ta *TextArea) popUndo() {
 	}
 	ta.setStr(s)
 	ta.SetCursorIndex(i)
-	ta.SetSelectionOn(false)
+	ta.SetSelectionOff()
 }
 func (ta *TextArea) unpopRedo() {
 	s, i, ok := ta.editHistory.UnpopRedo(ta.Str())
@@ -225,50 +228,69 @@ func (ta *TextArea) unpopRedo() {
 	}
 	ta.setStr(s)
 	ta.SetCursorIndex(i)
-	ta.SetSelectionOn(false)
+	ta.SetSelectionOff()
 }
 
 func (ta *TextArea) CursorIndex() int {
 	return ta.cursorIndex
 }
 func (ta *TextArea) SetCursorIndex(v int) {
-	if v < 0 {
-		v = 0
-	}
-	if v > len(ta.Str()) {
-		v = len(ta.Str())
-	}
+	v = ta.validIndex(v)
 	if v != ta.cursorIndex {
+		old := ta.cursorIndex
 		ta.cursorIndex = v
-		ta.MakeIndexVisibleAtCenterIfNotVisible(v)
-
+		ta.validateSelection()
+		ta.makeIndexVisible(old, v)
 		ta.C.NeedPaint()
-
-		ev := &TextAreaSetCursorIndexEvent{ta}
-		ta.EvReg.Emit(TextAreaSetCursorIndexEventId, ev)
 	}
+}
+func (ta *TextArea) SelectionIndex() int {
+	return ta.selection.index
+}
+func (ta *TextArea) SetSelectionIndex(v int) {
+	v = ta.validIndex(v)
+	if v != ta.selection.index {
+		ta.selection.index = v
+		ta.validateSelection()
+		ta.C.NeedPaint()
+	}
+}
+func (ta *TextArea) SetSelection(si, ci int) {
+	ta.SetSelectionIndex(si)
+	ta.SetCursorIndex(ci)
+	ta.setSelectionOn(ta.somethingSelected())
 }
 
 func (ta *TextArea) SelectionOn() bool {
-	return ta.selection.on
+	return ta.selection.on && ta.somethingSelected()
 }
-func (ta *TextArea) SetSelectionOn(v bool) {
+func (ta *TextArea) SetSelectionOff() {
+	ta.setSelectionOn(false)
+}
+func (ta *TextArea) setSelectionOn(v bool) {
 	if v != ta.selection.on {
 		ta.selection.on = v
 		ta.C.NeedPaint()
 	}
 }
 
-func (ta *TextArea) SelectionIndex() int {
-	return ta.selection.index
-}
-func (ta *TextArea) SetSelectionIndex(v int) {
-	if v != ta.selection.index {
-		ta.selection.index = v
-		if ta.SelectionOn() {
-			ta.C.NeedPaint()
-		}
+func (ta *TextArea) validIndex(v int) int {
+	if v < 0 {
+		v = 0
+	} else if v > len(ta.Str()) {
+		v = len(ta.Str())
 	}
+	return v
+}
+func (ta *TextArea) validateSelection() {
+	if !ta.somethingSelected() {
+		ta.SetSelectionOff()
+	}
+}
+func (ta *TextArea) somethingSelected() bool {
+	si := ta.SelectionIndex()
+	ci := ta.CursorIndex()
+	return si != ci
 }
 
 func (ta *TextArea) OffsetY() fixed.Int26_6 {
@@ -298,7 +320,15 @@ func (ta *TextArea) SetOffsetIndex(i int) {
 	p := ta.stringCache.GetPoint(i)
 	ta.SetOffsetY(p.Y)
 }
-func (ta *TextArea) MakeIndexVisibleAtCenterIfNotVisible(index int) {
+func (ta *TextArea) makeIndexVisible(old, new int) {
+
+	// TODO
+
+	// if on first line and moving up, adjust only one line
+	//oldLine :=
+
+	index := new
+
 	// is visible
 	y0 := ta.OffsetY()
 	y1 := y0 + fixed.I(ta.C.Bounds.Dy())
@@ -449,6 +479,12 @@ func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
 	ta.ui.CursorMan.UnsetCursor()
 
 	ev := ev0.(*keybmap.ButtonReleaseEvent)
+
+	// can't have release moving the point, won't allow double click that works on press to work correctly
+	//if ev.Button.Mods.IsButton(1) {
+	//tautil.MoveCursorToPoint(ta, ev.Point, true)
+	//}
+
 	// release must be in the area
 	if ev.Point.In(ta.C.Bounds) {
 		switch {
@@ -572,11 +608,10 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 	case keybmap.XKReturn:
 		switch {
 		case k.Mods.IsNone():
-			//tautil.InsertRune(ta, '\n')
 			tautil.AutoIndent(ta)
 		}
 	case keybmap.XKSpace:
-		tautil.InsertRune(ta, ' ')
+		tautil.InsertString(ta, " ")
 	default:
 		// shortcuts with printable runes
 		switch {
@@ -614,15 +649,15 @@ func (ta *TextArea) insertKeyRune(k *keybmap.Key) {
 	ks := k.Keysym()
 	switch ks {
 	case keybmap.XKAsciiTilde:
-		tautil.InsertRune(ta, '~')
+		tautil.InsertString(ta, "~")
 	case keybmap.XKAsciiCircum:
-		tautil.InsertRune(ta, '^')
+		tautil.InsertString(ta, "^")
 	case keybmap.XKAcute:
-		tautil.InsertRune(ta, '´')
+		tautil.InsertString(ta, "´")
 	case keybmap.XKGrave:
-		tautil.InsertRune(ta, '`')
+		tautil.InsertString(ta, "`")
 	default:
-		tautil.InsertRune(ta, rune(ks))
+		tautil.InsertString(ta, string(rune(ks)))
 	}
 }
 
@@ -647,8 +682,5 @@ type TextAreaSetOffsetYEvent struct {
 	TextArea *TextArea
 }
 type TextAreaBoundsChangeEvent struct {
-	TextArea *TextArea
-}
-type TextAreaSetCursorIndexEvent struct {
 	TextArea *TextArea
 }

@@ -13,11 +13,17 @@ type Texta interface {
 
 	EditOpen()
 	EditInsert(index int, str string)
-	EditDelete(index int, n int)
+	EditDelete(index, index2 int)
 	EditClose()
 
 	CursorIndex() int
 	SetCursorIndex(int)
+
+	SelectionOn() bool
+	SetSelectionOff()
+	SelectionIndex() int
+	SetSelection(int, int) // selection/cursor indexes
+
 	MakeIndexVisibleAtCenter(int)
 	WarpPointerToIndexIfVisible(int)
 
@@ -28,11 +34,6 @@ type Texta interface {
 	LineHeight() fixed.Int26_6
 	IndexPoint(int) *fixed.Point26_6
 	PointIndex(*fixed.Point26_6) int
-
-	SelectionOn() bool
-	SetSelectionOn(bool)
-	SelectionIndex() int
-	SetSelectionIndex(int)
 
 	RequestTreePaint()
 

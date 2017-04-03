@@ -14,21 +14,7 @@ func pasteFn(ta Texta, fn func() (string, error)) {
 			ta.Error(err)
 			return
 		}
-		if str == "" {
-			return
-		}
-
-		ta.EditOpen()
-		if ta.SelectionOn() {
-			a, b := SelectionStringIndexes(ta)
-			ta.EditDelete(a, b)
-			ta.SetCursorIndex(a)
-		}
-		ta.EditInsert(ta.CursorIndex(), str)
-		ta.EditClose()
-
-		ta.SetSelectionOn(false)
-		ta.SetCursorIndex(ta.CursorIndex() + len(str))
+		InsertString(ta, str)
 		// inside a goroutine, need to request paint
 		ta.RequestTreePaint()
 	}()
