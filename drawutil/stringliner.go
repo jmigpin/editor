@@ -52,7 +52,7 @@ func (liner *StringLiner) Loop(fn func() bool) {
 		}
 
 		// wrap line
-		if liner.iter.ri > 0 && liner.iter.penEnd.X >= liner.max.X {
+		if liner.iter.ri > 0 && liner.iter.penEnd.X > liner.max.X {
 			liner.newLine()
 			liner.iter.pen.X = liner.wrapIndent.penX
 
