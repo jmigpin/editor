@@ -128,6 +128,9 @@ func (h *dndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*u
 	}
 }
 func (h *dndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL) {
+
+	// window.warppointer is checking if the window has focus before it warps - not working here has the dropper has the focus
+
 	erow, ok := h.ed.FindERow(u.Path)
 	if !ok {
 		c, i, ok := col.Cols.PointRowPosition(nil, p)
@@ -147,6 +150,7 @@ func (h *dndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL
 		}
 		col.Cols.MoveRowToColumn(erow.Row(), c, i)
 	}
+
 }
 
 func parseAsTextURLList(data []byte) ([]*url.URL, error) {

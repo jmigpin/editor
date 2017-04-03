@@ -28,11 +28,25 @@ var CopyAtoms struct {
 	TARGETS     xproto.Atom
 }
 
-func NewCopy(conn *xgb.Conn, win xproto.Window) (*Copy, error) {
+func NewCopy(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*Copy, error) {
 	c := &Copy{conn: conn, win: win}
 	if err := xgbutil.LoadAtoms(conn, &CopyAtoms); err != nil {
 		return nil, err
 	}
+
+	if evReg != nil {
+		evReg.Add(xproto.SelectionRequest,
+			&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+				ev := ev0.(xproto.SelectionRequestEvent)
+				c.OnSelectionRequest(&ev)
+			}})
+		evReg.Add(xproto.SelectionClear,
+			&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+				ev := ev0.(xproto.SelectionClearEvent)
+				c.OnSelectionClear(&ev)
+			}})
+	}
+
 	return c, nil
 }
 
@@ -53,22 +67,20 @@ func (c *Copy) Set(str string) {
 }
 
 // Another application is asking for the data
-func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) bool {
+func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) {
 	switch ev.Target {
 	case CopyAtoms.UTF8_STRING:
 		c.transferUTF8String(ev)
-		return true
 	case CopyAtoms.TARGETS:
 		c.transferTargets(ev)
-		return true
 	default:
 		// debug
 		s, err := xgbutil.GetAtomName(c.conn, ev.Target)
 		if err != nil {
 			s = err.Error()
 		}
+		// TODO: have msg go up as error with evreg
 		log.Printf("copy: ignored selection request: asking for type %v (%v)\n", ev.Target, s)
-		return false
 	}
 }
 func (c *Copy) transferUTF8String(ev *xproto.SelectionRequestEvent) {
@@ -134,20 +146,4 @@ func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) {
 // Another application now owns the selection.
 func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
 	c.str = ""
-}
-
-// event register support
-
-func (c *Copy) SetupEventRegister(evReg *xgbutil.EventRegister) {
-	evReg.Add(xproto.SelectionRequest,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			ev := ev0.(xproto.SelectionRequestEvent)
-			ok := c.OnSelectionRequest(&ev)
-			_ = ok
-		}})
-	evReg.Add(xproto.SelectionClear,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			ev := ev0.(xproto.SelectionClearEvent)
-			c.OnSelectionClear(&ev)
-		}})
 }

@@ -25,7 +25,7 @@ var PasteAtoms struct {
 	//TARGETS     xproto.Atom
 }
 
-func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
+func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*Paste, error) {
 	if err := xgbutil.LoadAtoms(conn, &PasteAtoms); err != nil {
 		return nil, err
 	}
@@ -34,6 +34,15 @@ func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
 		win:     win,
 		replyCh: make(chan *xproto.SelectionNotifyEvent, 3),
 	}
+
+	if evReg != nil {
+		evReg.Add(xproto.SelectionNotify,
+			&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+				ev := ev0.(xproto.SelectionNotifyEvent)
+				p.OnSelectionNotify(&ev)
+			}})
+	}
+
 	return p, nil
 }
 
@@ -75,14 +84,13 @@ func (p *Paste) requestDataToServer(selection xproto.Atom) {
 }
 
 // After requesting the data (Request()) this event comes in
-func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) bool {
+func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 	if ev.Property != PasteAtoms.XSEL_DATA {
-		return false
+		return
 	}
 	if p.waitingForReply {
 		p.replyCh <- ev
 	}
-	return false
 }
 
 func (p *Paste) extractData(ev *xproto.SelectionNotifyEvent) (string, error) {
@@ -106,15 +114,4 @@ func (p *Paste) extractData(ev *xproto.SelectionNotifyEvent) (string, error) {
 		return "", err
 	}
 	return string(reply.Value), nil
-}
-
-// event register support
-
-func (p *Paste) SetupEventRegister(evReg *xgbutil.EventRegister) {
-	evReg.Add(xproto.SelectionNotify,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			ev := ev0.(xproto.SelectionNotifyEvent)
-			ok := p.OnSelectionNotify(&ev)
-			_ = ok
-		}})
 }

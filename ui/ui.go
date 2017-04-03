@@ -55,7 +55,7 @@ func (ui *UI) Close() {
 	ui.Win.Close()
 }
 func (ui *UI) EventLoop() {
-	ui.Win.EventLoop()
+	ui.Win.RunEventLoop()
 }
 func (ui *UI) onExpose(ev0 xgbutil.EREvent) {
 	ev := ev0.(xproto.ExposeEvent)
@@ -107,12 +107,7 @@ func (ui *UI) _paint() {
 // Send paint request to the main event loop.
 // Usefull for async methods that need to be painted.
 func (ui *UI) RequestTreePaint() {
-	go func() {
-		ev := &xgbutil.ELQEvent{
-			EventId: xgbutil.QueueEmptyEventId,
-		}
-		ui.Win.EventLoopQ <- ev
-	}()
+	ui.Win.EventLoop.Enqueue(xgbutil.QueueEmptyEventId, nil)
 }
 
 func (ui *UI) Image() draw.Image {

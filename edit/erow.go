@@ -2,7 +2,6 @@ package edit
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/jmigpin/editor/edit/cmdutil"
@@ -25,8 +24,6 @@ type ERow struct {
 }
 
 func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
-	log.SetFlags(0)
-
 	erow := &ERow{ed: ed, row: row}
 
 	// set toolbar before setting event handlers

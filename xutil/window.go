@@ -15,18 +15,18 @@ import (
 )
 
 type Window struct {
-	Conn       *xgb.Conn
-	Window     xproto.Window
-	Screen     *xproto.ScreenInfo
-	GCtx       xproto.Gcontext
-	EvReg      *xgbutil.EventRegister
-	Dnd        *dragndrop.Dnd
-	Paste      *copypaste.Paste
-	Copy       *copypaste.Copy
-	Cursors    *Cursors
-	KeybMap    *keybmap.KeybMap
-	ShmWrap    *xgbutil.ShmWrap
-	EventLoopQ chan *xgbutil.ELQEvent
+	Conn      *xgb.Conn
+	Window    xproto.Window
+	Screen    *xproto.ScreenInfo
+	GCtx      xproto.Gcontext
+	EvReg     *xgbutil.EventRegister
+	Dnd       *dragndrop.Dnd
+	Paste     *copypaste.Paste
+	Copy      *copypaste.Copy
+	Cursors   *Cursors
+	KeybMap   *keybmap.KeybMap
+	ShmWrap   *xgbutil.ShmWrap
+	EventLoop *xgbutil.EventLoop
 }
 
 func NewWindow() (*Window, error) {
@@ -112,18 +112,16 @@ func (win *Window) init() error {
 	}
 	win.Dnd = dnd
 
-	paste, err := copypaste.NewPaste(win.Conn, win.Window)
+	paste, err := copypaste.NewPaste(win.Conn, win.Window, win.EvReg)
 	if err != nil {
 		return err
 	}
-	paste.SetupEventRegister(win.EvReg)
 	win.Paste = paste
 
-	copy, err := copypaste.NewCopy(win.Conn, win.Window)
+	copy, err := copypaste.NewCopy(win.Conn, win.Window, win.EvReg)
 	if err != nil {
 		return err
 	}
-	copy.SetupEventRegister(win.EvReg)
 	win.Copy = copy
 
 	c, err := NewCursors(win.Conn, win.Window)
@@ -150,28 +148,12 @@ func (win *Window) init() error {
 		return err
 	}
 
-	// Test/debug
-	n := 0
-	win.EvReg.Add(keybmap.KeyPressEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
-			ev := ev0.(*keybmap.KeyPressEvent)
-			if ev.Key.Mods.IsControl() {
-				fks := ev.Key.FirstKeysym()
-				if fks == 'u' {
-					n += 2
-					win.Cursors.SetCursor(Cursor(n))
-				}
-				if fks == 'y' {
-					win.Cursors.SetCursor(XCNone)
-				}
-			}
-		}})
-
 	return nil
 }
-func (win *Window) EventLoop() {
-	win.EventLoopQ = make(chan *xgbutil.ELQEvent)
-	xgbutil.EventLoop(win.Conn, win.EvReg, win.EventLoopQ)
+func (win *Window) RunEventLoop() {
+	win.EventLoop = xgbutil.NewEventLoop()
+	win.EventLoop.Run(win.Conn, win.EvReg)
+
 	// Close after event loop exit
 	err := win.ShmWrap.Close()
 	if err != nil {
@@ -180,7 +162,7 @@ func (win *Window) EventLoop() {
 	win.Conn.Close()
 }
 func (win *Window) Close() {
-	close(win.EventLoopQ)
+	win.EventLoop.Close()
 }
 func (win *Window) SetWindowName(str string) {
 	b := []byte(str)

@@ -7,8 +7,14 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
-func EventLoop(conn *xgb.Conn, er *EventRegister, qChan chan *ELQEvent) {
+type EventLoop struct {
+	q chan *ELQEvent
+}
 
+func NewEventLoop() *EventLoop {
+	return &EventLoop{q: make(chan *ELQEvent, 5)}
+}
+func (el *EventLoop) Run(conn *xgb.Conn, er *EventRegister) {
 	connCh := make(chan interface{}, 50)
 	go func() {
 		for {
@@ -33,7 +39,7 @@ func EventLoop(conn *xgb.Conn, er *EventRegister, qChan chan *ELQEvent) {
 
 	for {
 		select {
-		case ev, ok := <-qChan:
+		case ev, ok := <-el.q:
 			if !ok {
 				goto forEnd2
 			}
@@ -63,6 +69,12 @@ func EventLoop(conn *xgb.Conn, er *EventRegister, qChan chan *ELQEvent) {
 		}
 	}
 forEnd2:
+}
+func (el *EventLoop) Enqueue(eid int, ev EREvent) {
+	el.q <- &ELQEvent{eid, ev}
+}
+func (el *EventLoop) Close() {
+	close(el.q)
 }
 
 type ELQEvent struct { // event loop q event
