@@ -1,6 +1,9 @@
 package uiutil
 
-import "image"
+import (
+	"image"
+	"sync"
+)
 
 // flex reference for ideas
 // https://www.w3.org/TR/css-flexbox-1/
@@ -305,9 +308,15 @@ func (c *Container) setCrossStartEnd(dir Direction, s, e int) {
 }
 func (c *Container) PaintTree() {
 	c.paint()
+	var wg sync.WaitGroup
 	for _, child := range c.Childs {
-		child.PaintTree()
+		wg.Add(1)
+		go func(child *Container) {
+			defer wg.Done()
+			child.PaintTree()
+		}(child)
 	}
+	wg.Wait()
 }
 func (c *Container) PaintTreeIfNeeded(fn func(*Container)) {
 	if c.needPaint {
