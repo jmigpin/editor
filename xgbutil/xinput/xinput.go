@@ -14,7 +14,7 @@ type XInput struct {
 	evReg *xgbutil.EventRegister
 
 	// detect buttons double/triple clicks
-	buttonPressedTime [5]struct {
+	buttonPressedTime [3]struct {
 		p      image.Point
 		t      time.Time
 		action int
@@ -63,8 +63,10 @@ func (xi *XInput) onEvRegButtonPress(ev0 xgbutil.EREvent) {
 	b := NewButton(xi.km, ev.Detail, ev.State)
 
 	// double and triple clicks
+	// buttons 4 and 5 are wheel up/down, double/tripple click should not affect them
+	// TODO: mods mapping could affect this
 	index := int(b.Button)
-	if index >= 1 && index <= 5 {
+	if index >= 1 && index <= 3 {
 		bpt := &xi.buttonPressedTime[index-1]
 
 		t0 := bpt.t
