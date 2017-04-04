@@ -1,14 +1,14 @@
-package keybmap
+package xinput
 
 import "github.com/BurntSushi/xgb/xproto"
 
 type Key struct {
-	km      *KeybMap
+	km      *KMap
 	Keycode xproto.Keycode // byte
 	Mods    Modifiers
 }
 
-func newKey(km *KeybMap, keycode xproto.Keycode, state uint16) *Key {
+func NewKey(km *KMap, keycode xproto.Keycode, state uint16) *Key {
 	return &Key{km, keycode, Modifiers(state)}
 }
 func (k *Key) FirstKeysym() xproto.Keysym {

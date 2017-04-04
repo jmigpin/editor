@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmigpin/editor/edit/toolbardata"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
 )
 
 func SetupLayoutHomeVars(ed Editorer) {

@@ -1,4 +1,4 @@
-package keybmap
+package xinput
 
 // http://wiki.linuxquestions.org/wiki/List_of_Keysyms_Recognised_by_Xmodmap
 // https://www.x.org/releases/X11R7.7/doc/libX11/i18n/compose/iso8859-2.html

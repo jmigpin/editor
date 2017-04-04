@@ -1,4 +1,4 @@
-package keybmap
+package xinput
 
 import "github.com/BurntSushi/xgb/xproto"
 
@@ -15,7 +15,7 @@ type Modifiers uint16 // key and button mask
 // button4: wheel up
 // button5: wheel down
 
-// Returns if it contains the modifiers flags.
+// Returns true if it contains the modifiers flags.
 func (m Modifiers) Has(v int) bool {
 	return uint(m)&uint(v) > 0
 }

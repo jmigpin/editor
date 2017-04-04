@@ -7,8 +7,8 @@ import (
 
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/xutil/dragndrop"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/dragndrop"
 )
 
 func SetupDragNDrop(ed Editorer) {

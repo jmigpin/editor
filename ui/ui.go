@@ -9,8 +9,8 @@ import (
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xutil"
-	"github.com/jmigpin/editor/xutil/xgbutil"
 
 	"github.com/BurntSushi/xgb/xproto"
 )

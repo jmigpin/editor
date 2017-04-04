@@ -4,7 +4,7 @@ import (
 	"image/color"
 
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
 )
 
 type Column struct {

@@ -6,8 +6,8 @@ import (
 	"golang.org/x/image/math/fixed"
 
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xutil/keybmap"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 // Scrollbar for the Textarea.
@@ -30,11 +30,11 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 	sb.C.Style.MainSize = &width
 	sb.C.PaintFunc = sb.paint
 
-	r1 := sb.ta.ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
+	r1 := sb.ta.ui.Win.EvReg.Add(xinput.ButtonPressEventId,
 		&xgbutil.ERCallback{sb.onButtonPress})
-	r2 := sb.ta.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId,
+	r2 := sb.ta.ui.Win.EvReg.Add(xinput.ButtonReleaseEventId,
 		&xgbutil.ERCallback{sb.onButtonRelease})
-	r3 := sb.ta.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId,
+	r3 := sb.ta.ui.Win.EvReg.Add(xinput.MotionNotifyEventId,
 		&xgbutil.ERCallback{sb.onMotionNotify})
 	sb.dereg.Add(r1, r2, r3)
 
@@ -135,7 +135,7 @@ func (sb *Scrollbar) paint() {
 	//sb.ta.ui.FillRectangle(&r3, color.Black)
 }
 func (sb *Scrollbar) onButtonPress(ev0 xgbutil.EREvent) {
-	ev := ev0.(*keybmap.ButtonPressEvent)
+	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(sb.C.Bounds) {
 		return
 	}
@@ -156,7 +156,7 @@ func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {
 	if !sb.buttonPressed {
 		return
 	}
-	ev := ev0.(*keybmap.MotionNotifyEvent)
+	ev := ev0.(*xinput.MotionNotifyEvent)
 	switch {
 	case ev.Mods.HasButton(1):
 		sb.calcPositionFromPoint(ev.Point)
@@ -169,7 +169,7 @@ func (sb *Scrollbar) onButtonRelease(ev0 xgbutil.EREvent) {
 		return
 	}
 	sb.buttonPressed = false
-	ev := ev0.(*keybmap.ButtonReleaseEvent)
+	ev := ev0.(*xinput.ButtonReleaseEvent)
 	if ev.Button.Button1() {
 		sb.calcPositionFromPoint(ev.Point)
 		sb.setTextareaOffset()

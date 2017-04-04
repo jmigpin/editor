@@ -14,8 +14,8 @@ import (
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/edit/cmdutil"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/xutil/wmprotocols"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/wmprotocols"
 )
 
 type Editor struct {

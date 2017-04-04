@@ -4,14 +4,14 @@ import (
 	"image"
 	"log"
 
-	"github.com/jmigpin/editor/xutil/copypaste"
-	"github.com/jmigpin/editor/xutil/dragndrop"
-	"github.com/jmigpin/editor/xutil/keybmap"
-	"github.com/jmigpin/editor/xutil/wmprotocols"
-	"github.com/jmigpin/editor/xutil/xgbutil"
-
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/copypaste"
+	"github.com/jmigpin/editor/xgbutil/dragndrop"
+	"github.com/jmigpin/editor/xgbutil/wmprotocols"
+	"github.com/jmigpin/editor/xgbutil/xcursors"
+	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type Window struct {
@@ -23,8 +23,8 @@ type Window struct {
 	Dnd       *dragndrop.Dnd
 	Paste     *copypaste.Paste
 	Copy      *copypaste.Copy
-	Cursors   *Cursors
-	KeybMap   *keybmap.KeybMap
+	Cursors   *xcursors.Cursors
+	XInput    *xinput.XInput
 	ShmWrap   *xgbutil.ShmWrap
 	EventLoop *xgbutil.EventLoop
 }
@@ -100,11 +100,11 @@ func (win *Window) init() error {
 	var gvalues []uint32
 	_ = xproto.CreateGC(win.Conn, win.GCtx, drawable, gmask, gvalues)
 
-	k, err := keybmap.NewKeybMap(win.Conn)
+	xi, err := xinput.NewXInput(win.Conn, win.EvReg)
 	if err != nil {
 		return err
 	}
-	win.KeybMap = k
+	win.XInput = xi
 
 	dnd, err := dragndrop.NewDnd(win.Conn, win.Window)
 	if err != nil {
@@ -124,7 +124,7 @@ func (win *Window) init() error {
 	}
 	win.Copy = copy
 
-	c, err := NewCursors(win.Conn, win.Window)
+	c, err := xcursors.NewCursors(win.Conn, win.Window)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,6 @@ func (win *Window) init() error {
 
 	// setup extensions to use event register
 	win.Dnd.SetupEventRegister(win.EvReg)
-	win.KeybMap.SetupEventRegister(win.EvReg)
 
 	_, err = wmprotocols.NewWMP(win.Conn, win.Window, win.EvReg)
 	if err != nil {

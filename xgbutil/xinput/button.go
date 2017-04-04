@@ -1,14 +1,14 @@
-package keybmap
+package xinput
 
 import "github.com/BurntSushi/xgb/xproto"
 
 type Button struct {
-	km     *KeybMap
+	km     *KMap
 	Button xproto.Button // xproto.ButtonIndex1...
 	Mods   Modifiers     // xproto.KeyButMaskButton1...
 }
 
-func newButton(km *KeybMap, button xproto.Button, state uint16) *Button {
+func NewButton(km *KMap, button xproto.Button, state uint16) *Button {
 
 	// TODO: keypress mods differ from keyrelease
 

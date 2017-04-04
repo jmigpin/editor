@@ -1,4 +1,4 @@
-package xutil
+package xcursors
 
 import (
 	"image/color"

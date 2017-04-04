@@ -9,8 +9,8 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xutil/keybmap"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/xinput"
 
 	"golang.org/x/image/math/fixed"
 )
@@ -56,15 +56,19 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.EvReg = xgbutil.NewEventRegister()
 	ta.editHistory = tautil.NewEditHistory(40)
 
-	r1 := ta.ui.Win.EvReg.Add(keybmap.KeyPressEventId,
+	r1 := ta.ui.Win.EvReg.Add(xinput.KeyPressEventId,
 		&xgbutil.ERCallback{ta.onKeyPress})
-	r2 := ta.ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
+	r2 := ta.ui.Win.EvReg.Add(xinput.ButtonPressEventId,
 		&xgbutil.ERCallback{ta.onButtonPress})
-	r3 := ta.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId,
+	r3 := ta.ui.Win.EvReg.Add(xinput.ButtonReleaseEventId,
 		&xgbutil.ERCallback{ta.onButtonRelease})
-	r4 := ta.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId,
+	r4 := ta.ui.Win.EvReg.Add(xinput.MotionNotifyEventId,
 		&xgbutil.ERCallback{ta.onMotionNotify})
-	ta.dereg.Add(r1, r2, r3, r4)
+	r5 := ta.ui.Win.EvReg.Add(xinput.DoubleClickEventId,
+		&xgbutil.ERCallback{ta.onDoubleClick})
+	r6 := ta.ui.Win.EvReg.Add(xinput.TripleClickEventId,
+		&xgbutil.ERCallback{ta.onTripleClick})
+	ta.dereg.Add(r1, r2, r3, r4, r5, r6)
 
 	return ta
 }
@@ -401,46 +405,35 @@ func (ta *TextArea) PageDown() {
 	tautil.PageDown(ta)
 }
 
+func (ta *TextArea) onDoubleClick(ev0 xgbutil.EREvent) {
+	ev := ev0.(*xinput.DoubleClickEvent)
+	if !ev.Point.In(ta.C.Bounds) {
+		return
+	}
+	switch {
+	case ev.Button.Button1():
+		tautil.SelectWord(ta)
+	}
+}
+func (ta *TextArea) onTripleClick(ev0 xgbutil.EREvent) {
+	ev := ev0.(*xinput.TripleClickEvent)
+	if !ev.Point.In(ta.C.Bounds) {
+		return
+	}
+	switch {
+	case ev.Button.Button1():
+		tautil.SelectLine(ta)
+	}
+}
+
 func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
-	ev := ev0.(*keybmap.ButtonPressEvent)
+	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(ta.C.Bounds) {
 		return
 	}
 	ta.buttonPressed = true
 	switch {
 	case ev.Button.Button1():
-
-		bpt := &ta.buttonPressedTime[0]
-
-		ptt0 := bpt.t
-		ptp0 := bpt.p
-		bpt.t = time.Now()
-		bpt.p = *ev.Point
-		d := bpt.t.Sub(ptt0)
-		if d < 500*time.Millisecond {
-
-			var r image.Rectangle
-			pad := image.Point{2, 2}
-			r.Min = ptp0.Sub(pad)
-			r.Max = ptp0.Add(pad)
-
-			if ev.Point.In(r) {
-				bpt.action++
-				bpt.action %= 3
-			}
-		} else {
-			bpt.action = 0
-		}
-
-		switch bpt.action {
-		case 1: // double click
-			tautil.SelectWord(ta)
-			return
-		case 2: // triple click
-			tautil.SelectLine(ta)
-			return
-		}
-
 		switch {
 		case ev.Button.Mods.IsShift():
 			tautil.MoveCursorToPoint(ta, ev.Point, true)
@@ -465,7 +458,7 @@ func (ta *TextArea) onMotionNotify(ev0 xgbutil.EREvent) {
 	if !ta.buttonPressed {
 		return
 	}
-	ev := ev0.(*keybmap.MotionNotifyEvent)
+	ev := ev0.(*xinput.MotionNotifyEvent)
 	if ev.Mods.IsButton(1) {
 		tautil.MoveCursorToPoint(ta, ev.Point, true)
 	}
@@ -478,7 +471,7 @@ func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
 
 	ta.ui.CursorMan.UnsetCursor()
 
-	ev := ev0.(*keybmap.ButtonReleaseEvent)
+	ev := ev0.(*xinput.ButtonReleaseEvent)
 
 	// can't have release moving the point, won't allow double click that works on press to work correctly
 	//if ev.Button.Mods.IsButton(1) {
@@ -499,25 +492,25 @@ func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
 	}
 }
 func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
-	ev := ev0.(*keybmap.KeyPressEvent)
+	ev := ev0.(*xinput.KeyPressEvent)
 	if !ev.Point.In(ta.C.Bounds) {
 		return
 	}
 	k := ev.Key
 	firstKeysym := k.FirstKeysym()
 	switch firstKeysym {
-	case keybmap.XKAltL,
-		keybmap.XKIsoLevel3Shift,
-		keybmap.XKShiftL,
-		keybmap.XKShiftR,
-		keybmap.XKControlL,
-		keybmap.XKControlR,
-		keybmap.XKCapsLock,
-		keybmap.XKNumLock,
-		keybmap.XKSuperL,
-		keybmap.XKInsert:
+	case xinput.XKAltL,
+		xinput.XKIsoLevel3Shift,
+		xinput.XKShiftL,
+		xinput.XKShiftR,
+		xinput.XKControlL,
+		xinput.XKControlR,
+		xinput.XKCapsLock,
+		xinput.XKNumLock,
+		xinput.XKSuperL,
+		xinput.XKInsert:
 		// ignore these
-	case keybmap.XKRight:
+	case xinput.XKRight:
 		switch {
 		case k.Mods.IsControlShift():
 			tautil.MoveCursorJumpRight(ta, true)
@@ -528,7 +521,7 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 		case k.Mods.IsNone():
 			tautil.MoveCursorRight(ta, false)
 		}
-	case keybmap.XKLeft:
+	case xinput.XKLeft:
 		switch {
 		case k.Mods.IsControlShift():
 			tautil.MoveCursorJumpLeft(ta, true)
@@ -539,7 +532,7 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 		case k.Mods.IsNone():
 			tautil.MoveCursorLeft(ta, false)
 		}
-	case keybmap.XKUp:
+	case xinput.XKUp:
 		switch {
 		case k.Mods.IsControlMod1():
 			tautil.MoveLineUp(ta)
@@ -548,7 +541,7 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 		case k.Mods.IsNone():
 			tautil.MoveCursorUp(ta, false)
 		}
-	case keybmap.XKDown:
+	case xinput.XKDown:
 		switch {
 		case k.Mods.IsControlShiftMod1():
 			tautil.DuplicateLines(ta)
@@ -559,7 +552,7 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 		case k.Mods.IsNone():
 			tautil.MoveCursorDown(ta, false)
 		}
-	case keybmap.XKHome:
+	case xinput.XKHome:
 		switch {
 		case k.Mods.IsControlShift():
 			tautil.StartOfString(ta, true)
@@ -570,7 +563,7 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 		case k.Mods.IsNone():
 			tautil.StartOfLine(ta, false)
 		}
-	case keybmap.XKEnd:
+	case xinput.XKEnd:
 		switch {
 		case k.Mods.IsControlShift():
 			tautil.EndOfString(ta, true)
@@ -581,36 +574,36 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 		case k.Mods.IsNone():
 			tautil.EndOfLine(ta, false)
 		}
-	case keybmap.XKBackspace:
+	case xinput.XKBackspace:
 		tautil.Backspace(ta)
-	case keybmap.XKDelete:
+	case xinput.XKDelete:
 		switch {
 		case k.Mods.IsNone():
 			tautil.Delete(ta)
 		}
-	case keybmap.XKPageUp:
+	case xinput.XKPageUp:
 		switch {
 		case k.Mods.IsNone():
 			ta.PageUp()
 		}
-	case keybmap.XKPageDown:
+	case xinput.XKPageDown:
 		switch {
 		case k.Mods.IsNone():
 			ta.PageDown()
 		}
-	case keybmap.XKTab:
+	case xinput.XKTab:
 		switch {
 		case k.Mods.IsNone():
 			tautil.TabRight(ta)
 		case k.Mods.IsShift():
 			tautil.TabLeft(ta)
 		}
-	case keybmap.XKReturn:
+	case xinput.XKReturn:
 		switch {
 		case k.Mods.IsNone():
 			tautil.AutoIndent(ta)
 		}
-	case keybmap.XKSpace:
+	case xinput.XKSpace:
 		tautil.InsertString(ta, " ")
 	default:
 		// shortcuts with printable runes
@@ -644,17 +637,17 @@ func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
 		}
 	}
 }
-func (ta *TextArea) insertKeyRune(k *keybmap.Key) {
+func (ta *TextArea) insertKeyRune(k *xinput.Key) {
 	// print rune from keysym table (takes into consideration the modifiers)
 	ks := k.Keysym()
 	switch ks {
-	case keybmap.XKAsciiTilde:
+	case xinput.XKAsciiTilde:
 		tautil.InsertString(ta, "~")
-	case keybmap.XKAsciiCircum:
+	case xinput.XKAsciiCircum:
 		tautil.InsertString(ta, "^")
-	case keybmap.XKAcute:
+	case xinput.XKAcute:
 		tautil.InsertString(ta, "´")
-	case keybmap.XKGrave:
+	case xinput.XKGrave:
 		tautil.InsertString(ta, "`")
 	default:
 		tautil.InsertString(ta, string(rune(ks)))

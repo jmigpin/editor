@@ -3,8 +3,8 @@ package ui
 import (
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xutil/keybmap"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type Row struct {
@@ -26,11 +26,11 @@ func NewRow(col *Column) *Row {
 
 	ui := row.Col.Cols.Layout.UI
 
-	r1 := ui.Win.EvReg.Add(keybmap.KeyPressEventId,
+	r1 := ui.Win.EvReg.Add(xinput.KeyPressEventId,
 		&xgbutil.ERCallback{row.onKeyPress})
-	r2 := ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
+	r2 := ui.Win.EvReg.Add(xinput.ButtonPressEventId,
 		&xgbutil.ERCallback{row.onButtonPress})
-	r3 := ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId,
+	r3 := ui.Win.EvReg.Add(xinput.ButtonReleaseEventId,
 		&xgbutil.ERCallback{row.onButtonRelease})
 	row.dereg.Add(r1, r2, r3)
 
@@ -134,7 +134,7 @@ func (row *Row) onSquareMotionNotify(ev0 xgbutil.EREvent) {
 	}
 }
 func (row *Row) onKeyPress(ev0 xgbutil.EREvent) {
-	ev := ev0.(*keybmap.KeyPressEvent)
+	ev := ev0.(*xinput.KeyPressEvent)
 	if !ev.Point.In(row.C.Bounds) {
 		return
 	}
@@ -143,7 +143,7 @@ func (row *Row) onKeyPress(ev0 xgbutil.EREvent) {
 	row.EvReg.Emit(RowKeyPressEventId, ev2)
 }
 func (row *Row) onButtonPress(ev0 xgbutil.EREvent) {
-	ev := ev0.(*keybmap.ButtonPressEvent)
+	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(row.C.Bounds) {
 		return
 	}
@@ -154,7 +154,7 @@ func (row *Row) onButtonRelease(ev0 xgbutil.EREvent) {
 		return
 	}
 	row.buttonPressed = false
-	ev := ev0.(*keybmap.ButtonReleaseEvent)
+	ev := ev0.(*xinput.ButtonReleaseEvent)
 	if !ev.Point.In(row.C.Bounds) {
 		return
 	}
@@ -171,7 +171,7 @@ const (
 
 type RowKeyPressEvent struct {
 	Row *Row
-	Key *keybmap.Key
+	Key *xinput.Key
 }
 type RowCloseEvent struct {
 	Row *Row

@@ -6,9 +6,9 @@ import (
 
 	"github.com/BurntSushi/xgbutil/xcursor" // only for cursordef
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xutil"
-	"github.com/jmigpin/editor/xutil/keybmap"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/xcursors"
+	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 // Used in row and column to move and close.
@@ -29,18 +29,18 @@ func NewSquare(ui *UI) *Square {
 	sq.C.PaintFunc = sq.paint
 	sq.EvReg = xgbutil.NewEventRegister()
 
-	r1 := sq.ui.Win.EvReg.Add(keybmap.ButtonPressEventId,
+	r1 := sq.ui.Win.EvReg.Add(xinput.ButtonPressEventId,
 		&xgbutil.ERCallback{sq.onButtonPress})
-	r2 := sq.ui.Win.EvReg.Add(keybmap.ButtonReleaseEventId,
+	r2 := sq.ui.Win.EvReg.Add(xinput.ButtonReleaseEventId,
 		&xgbutil.ERCallback{sq.onButtonRelease})
-	r3 := sq.ui.Win.EvReg.Add(keybmap.MotionNotifyEventId,
+	r3 := sq.ui.Win.EvReg.Add(xinput.MotionNotifyEventId,
 		&xgbutil.ERCallback{sq.onMotionNotify})
 	sq.dereg.Add(r1, r2, r3)
 
 	sq.ui.CursorMan.SetBoundsCursor(
 		&sq.C.Bounds,
 		&CMCallback{
-			func(ev *keybmap.MotionNotifyEvent) (xutil.Cursor, bool) {
+			func(ev *xinput.MotionNotifyEvent) (xcursors.Cursor, bool) {
 				return xcursor.Icon, true
 			}})
 
@@ -87,7 +87,7 @@ func (sq *Square) paint() {
 	//}
 }
 func (sq *Square) onButtonPress(ev0 xgbutil.EREvent) {
-	ev := ev0.(*keybmap.ButtonPressEvent)
+	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(sq.C.Bounds) {
 		return
 	}
@@ -103,7 +103,7 @@ func (sq *Square) onButtonRelease(ev0 xgbutil.EREvent) {
 		return
 	}
 	sq.buttonPressed = false
-	ev := ev0.(*keybmap.ButtonReleaseEvent)
+	ev := ev0.(*xinput.ButtonReleaseEvent)
 	ev2 := &SquareButtonReleaseEvent{sq, ev.Button, ev.Point}
 	sq.EvReg.Emit(SquareButtonReleaseEventId, ev2)
 }
@@ -111,7 +111,7 @@ func (sq *Square) onMotionNotify(ev0 xgbutil.EREvent) {
 	if !sq.buttonPressed {
 		return
 	}
-	ev := ev0.(*keybmap.MotionNotifyEvent)
+	ev := ev0.(*xinput.MotionNotifyEvent)
 	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point}
 	sq.EvReg.Emit(SquareMotionNotifyEventId, ev2)
 }
@@ -151,16 +151,16 @@ const (
 
 type SquareButtonPressEvent struct {
 	Square *Square
-	Button *keybmap.Button
+	Button *xinput.Button
 	Point  *image.Point
 }
 type SquareButtonReleaseEvent struct {
 	Square *Square
-	Button *keybmap.Button
+	Button *xinput.Button
 	Point  *image.Point
 }
 type SquareMotionNotifyEvent struct {
 	Square *Square
-	Mods   keybmap.Modifiers
+	Mods   xinput.Modifiers
 	Point  *image.Point
 }

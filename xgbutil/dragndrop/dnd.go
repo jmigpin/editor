@@ -6,7 +6,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
 )
 
 // protocol: https://www.acc.umu.se/~vatten/XDND.html

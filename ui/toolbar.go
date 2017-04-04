@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xutil/xgbutil"
+	"github.com/jmigpin/editor/xgbutil"
 )
 
 type Toolbar struct {
