@@ -67,35 +67,38 @@ func (xi *XInput) onEvRegButtonPress(ev0 xgbutil.EREvent) {
 	if index >= 1 && index <= 5 {
 		bpt := &xi.buttonPressedTime[index-1]
 
-		ptt0 := bpt.t
-		ptp0 := bpt.p
+		t0 := bpt.t
+		p0 := bpt.p
+
+		// update time and point
 		bpt.t = time.Now()
 		bpt.p = *p
-		d := bpt.t.Sub(ptt0)
-		if d < 400*time.Millisecond {
 
-			var r image.Rectangle
+		d := bpt.t.Sub(t0)
+		if d > 400*time.Millisecond {
+			bpt.action = 0
+		} else {
 			pad := image.Point{1, 1}
-			r.Min = ptp0.Sub(pad)
-			r.Max = ptp0.Add(pad)
+			var r image.Rectangle
+			r.Min = p0.Sub(pad)
+			r.Max = p0.Add(pad)
 
 			if p.In(r) {
-				bpt.action++
-				bpt.action %= 3
+				bpt.action = (bpt.action + 1) % 3
+			} else {
+				bpt.action = 0
 			}
-		} else {
-			bpt.action = 0
-		}
 
-		switch bpt.action {
-		case 1:
-			ev2 := &DoubleClickEvent{p, b}
-			xi.evReg.Emit(DoubleClickEventId, ev2)
-			return
-		case 2:
-			ev2 := &TripleClickEvent{p, b}
-			xi.evReg.Emit(TripleClickEventId, ev2)
-			return
+			switch bpt.action {
+			case 1:
+				ev2 := &DoubleClickEvent{p, b}
+				xi.evReg.Emit(DoubleClickEventId, ev2)
+				return
+			case 2:
+				ev2 := &TripleClickEvent{p, b}
+				xi.evReg.Emit(TripleClickEventId, ev2)
+				return
+			}
 		}
 	}
 
