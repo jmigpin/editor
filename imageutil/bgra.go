@@ -28,10 +28,10 @@ func (img *BGRA) ColorModel() color.Model {
 }
 func (img *BGRA) Set(x, y int, c color.Color) {
 	//u := color.RGBAModel.Convert(c).(color.RGBA) // slow
-	u := convertToRGBA(c)
+	u := convertToRGBAColor(c)
 	img.SetRGBA(x, y, u)
 }
-func convertToRGBA(c color.Color) color.RGBA {
+func convertToRGBAColor(c color.Color) color.RGBA {
 	r, g, b, a := c.RGBA()
 	return color.RGBA{
 		uint8(r >> 8),
