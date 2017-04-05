@@ -18,8 +18,9 @@ type ERow struct {
 	tbsd             *toolbardata.StringData
 	decodedPart0Arg0 string
 	fi               struct {
-		fileInfo os.FileInfo
-		err      error // error while getting fileinfo, if any
+		doneFirst bool
+		fileInfo  os.FileInfo
+		err       error // error while getting fileinfo, if any
 	}
 }
 
@@ -103,10 +104,11 @@ func (erow *ERow) parseToolbar() {
 		fp = ""
 	}
 
-	if erow.decodedPart0Arg0 == fp {
+	if erow.decodedPart0Arg0 == fp && erow.fi.doneFirst {
 		return
 	}
 	erow.decodedPart0Arg0 = fp
+	erow.fi.doneFirst = true
 
 	if fp == "" || erow.ed.IsSpecialName(fp) {
 		erow.ed.fw.Remove(erow)
@@ -127,7 +129,7 @@ func (erow *ERow) updateFileInfo() {
 		erow.row.Square.SetValue(ui.SquareNotExist, notExist)
 	}()
 
-	fp := erow.DecodedPart0Arg0()
+	fp := erow.decodedPart0Arg0
 	if fp == "" {
 		erow.fi.err = fmt.Errorf("missing part0")
 		return
@@ -187,7 +189,7 @@ func (erow *ERow) SaveContent(str string) error {
 		}
 	} else {
 		// save non existing file
-		fp2 := erow.DecodedPart0Arg0()
+		fp2 := erow.decodedPart0Arg0
 		if fp2 == "" {
 			return fmt.Errorf("missing filename")
 		}
