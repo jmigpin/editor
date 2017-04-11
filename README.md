@@ -1,27 +1,47 @@
 # Editor
+
 Source code editor in pure Go.
-
-This is a know-what-you're-doing source code editor that was inspired by the projects presented at these videos: <br>
-Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU <br>
-Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M <br>
-
-As the editor is being developed, the rules of how the UI interacts will become more well defined.<br>
 
 ![screenshot](./screenshot.png)
 
-## Features
+This is a know-what-you're-doing source code editor<br>
+As the editor is being developed, the rules of how the UI interacts will become more well defined.<br>
+
+### Features
 Auto indentation of wrapped lines.<br>
 No code coloring.<br>
-Many TextArea utilities: undo/redo, comment, replace, ...<br>
+Many TextArea utilities: undo/redo, replace, comment, ...<br>
 Start external processes from the toolbar with a click, capturing the output to a row. <br>
 Drag and drop files/directories to the editor.<br>
 Watches files changes on disk.<br>
 
-## Notes
-Uses X shared memory extension (MIT-SHM). Currently linux amd64.<br>
+### Installation and usage
 
-## Keyboard shortcuts
-### Textarea
+```
+go get -u github.com/jmigpin/editor
+cd $GOPATH/src/github.com/jmigpin/editor
+go build 
+./editor
+```
+
+### key/button shortcuts
+
+#### Column key/button shortcuts
+(top right square):<br>
+button2: close column<br>
+
+#### Row key/button shortcuts
+ctrl+s: save file<br>
+ctrl+f: warp pointer to "Find" cmd in row toolbar<br>
+Any button press: make row active to layout toolbar commands<br>
+<br>
+(top right square):<br>
+button1/drag: move row to point<br>
+button2: close row<br>
+button3/drag: resize column<br>
+ctrl+button1/drag: move row column to point<br>
+
+#### Textarea key/button shortcuts
 up: move cursor up<br>
 down: move cursor down<br>
 left: move cursor left<br>
@@ -49,33 +69,16 @@ ctrl+z: undo<br>
 ctrl+shift+z: undo<br>
 ctrl+d: comment<br>
 ctrl+shift+d: uncomment<br>
-
-### Row
-ctrl+s: save file<br>
-ctrl+f: warp pointer to "Find" cmd in row toolbar<br>
-
-## Button shortcuts
-### Textarea
+<br>
 button1: move cursor to point<br>
 button3: move cursor to point + text area cmd<br>
 button4: scroll up<br>
 button5: scroll down<br>
 shift+button1: move cursor to point adding to selection<br>
 
-### Row top right square
-button1/drag: move row to point<br>
-button2: close row<br>
-button3/drag: resize column<br>
-ctrl+button1/drag: move row column to point<br>
+### Commands
 
-### Column top right square
-button2: close column<br>
-
-### Row
-Any button press: make row active to layout toolbar commands<br>
-
-## Commands
-### Layout toolbar commands (top toolbar)
+#### Layout toolbar commands (top toolbar)
 ListSessions: lists saved sessions<br>
 SaveSession \<name\>: save session to ~/.editor_sessions.json<br>
 DeleteSession \<name\>: deletes the session from the sessions file<br>
@@ -91,7 +94,7 @@ Exit: exits the program<br>
 
 Note: Some row commands work from the layout toolbar because they act on the current active row (ex: Find, Replace).
 
-### Row toolbar commands
+#### Row toolbar commands
 Save: save file<br>
 Reload: reload content<br>
 Close: close row<br>
@@ -104,10 +107,16 @@ ListDir: lists directory<br>
 ListDirSub: lists directory and sub directories<br>
 ListDirHidden: lists directory including hidden<br>
 
-### Textarea commands
+#### Textarea commands
 OpenSession \<name\>: opens previously saved session<br>
 \<url\>: opens url in x-www-browser<br>
 \<filepath\>: opens filepath<br>
 \<filename:number\>: opens filename at line (usual format from compilers)<br>
 \<quoted string\>: opens filepath if existent on goroot/gopath<br>
+
+### Notes
+Uses X shared memory extension (MIT-SHM). Currently linux amd64.<br>
+Notable projects that inspired many features:<br>
+Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU <br>
+Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M <br>
 
