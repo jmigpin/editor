@@ -56,6 +56,14 @@ func NewEditor() (*Editor, error) {
 	// setup drop support (files, dirs, ...) from other applications
 	cmdutil.SetupDragNDrop(ed)
 
+	// set up layout toolbar
+	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | "
+	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
+	// execute commands on layout toolbar
+	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
+		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
+			ToolbarCmdFromLayout(ed, ed.ui.Layout)
+		}})
 	cmdutil.SetupLayoutHomeVars(ed)
 
 	// files watcher for visual feedback when files change
@@ -66,15 +74,6 @@ func NewEditor() (*Editor, error) {
 	ed.fw = fw
 	//ed.fw.OnError = ed.Error
 	//ed.fw.OnEvent = ed.onFWEvent
-
-	// set up layout toolbar
-	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | "
-	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
-	// execute commands on layout toolbar
-	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
-		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
-			ToolbarCmdFromLayout(ed, ed.ui.Layout)
-		}})
 
 	// flags
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -103,8 +102,7 @@ func NewEditor() (*Editor, error) {
 				erow := ed.NewERow(s, col, rowIndex)
 				err := erow.LoadContentClear()
 				if err != nil {
-					// TODO: can't show errors yet?
-					//ed.Error(err)
+					ed.Error(err)
 					continue
 				}
 			}
@@ -137,10 +135,8 @@ func (ed *Editor) getFontFace() (*drawutil.Face, error) {
 		opt = &truetype.Options{
 			SubPixelsX: 64, // default is 4
 			SubPixelsY: 64, // default is 1
-			//Size:    12,
-			Size: 13,
-			//DPI:     72, // 0 also means 72
-			Hinting: font.HintingFull,
+			Size:       13,
+			Hinting:    font.HintingFull,
 			//GlyphCacheEntries: 4096, // still problems with concurrent drawing?
 		}
 	}
