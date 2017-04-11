@@ -1,12 +1,14 @@
 package xinput
 
-import "github.com/BurntSushi/xgb/xproto"
+import (
+	"strconv"
 
-type Modifiers uint16 // key and button mask
+	"github.com/BurntSushi/xgb/xproto"
+)
 
 // Mod1: Alt
-// Mod2:
-// Mod3: Num lock
+// Mod2: Num lock
+// Mod3:
 // Mod4: Windows key
 // Mod5: AltGr
 // button1: left
@@ -15,6 +17,12 @@ type Modifiers uint16 // key and button mask
 // button4: wheel up
 // button5: wheel down
 
+type Modifiers uint16 // key and button mask
+
+func (m Modifiers) String() string {
+	return strconv.FormatInt(int64(m), 2)
+}
+
 // Returns true if it contains the modifiers flags.
 func (m Modifiers) Has(v int) bool {
 	return uint(m)&uint(v) > 0
@@ -22,12 +30,18 @@ func (m Modifiers) Has(v int) bool {
 
 // Returns true if it is equal to the modifiers flags (no other flags are set).
 func (m Modifiers) Is(v int) bool {
-	m2 := m.clearLock() // ignore lock state
-	return uint(m2) == uint(v)
+	// ignore locks state
+	m = m.clearLock()
+	m = m.clearMod2()
+
+	return uint(m) == uint(v)
 }
 
 func (m Modifiers) clearLock() Modifiers {
 	return m &^ xproto.KeyButMaskLock // caps lock
+}
+func (m Modifiers) clearMod2() Modifiers {
+	return m &^ xproto.KeyButMaskMod2 // num lock
 }
 
 func (m Modifiers) IsNone() bool {
