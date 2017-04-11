@@ -71,12 +71,13 @@ func (sd *StringData) StrWithPart0Arg0Decoded() string {
 }
 
 func encodeHomeVars(str string) string {
-	s1 := ensureTrailingSlashIfDir(str)
-	return InsertHomeVars(s1)
+	//str = ensureTrailingSlashIfDir(str)
+	return InsertHomeVars(str)
 }
 func decodeHomeVars(str string) string {
-	s1 := RemoveHomeVars(str)
-	return removeTrailingSlash(s1)
+	str = RemoveHomeVars(str)
+	//return removeTrailingSlash(str)
+	return str
 }
 
 func ensureTrailingSlashIfDir(s string) string {

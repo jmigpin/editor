@@ -13,7 +13,7 @@ func init() {
 }
 
 func AppendHomeVar(k, v string) {
-	v = removeTrailingSlash(v)
+	//v = removeTrailingSlash(v)
 	v = InsertHomeVars(v)
 	if v == "" || v == "~" {
 		return
