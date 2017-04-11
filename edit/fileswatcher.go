@@ -317,3 +317,24 @@ func (w *FSNWatcher) remove2(path string) {
 		delete(w.m.m, path)
 	}
 }
+
+func FWStatus(erow *ERow) {
+	s := fwStatus2(erow)
+	erow.row.TextArea.SetStrClear(s, false, false)
+}
+func fwStatus2(erow *ERow) string {
+	fw := erow.ed.fw
+	fw.m.Lock()
+	defer fw.m.Unlock()
+	s := ""
+	for _, e := range fw.m.m {
+		s += fmt.Sprintf("%+v\n", *e)
+	}
+	s += "---\n"
+	fw.w.m.Lock()
+	defer fw.w.m.Unlock()
+	for str, c := range fw.w.m.m {
+		s += fmt.Sprintf("%v:%v\n", str, c)
+	}
+	return s
+}
