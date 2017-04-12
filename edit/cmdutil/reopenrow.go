@@ -21,9 +21,9 @@ func (reop *ReopenRow) Add(row *ui.Row) {
 		reop.q = append([]*RowState{}, reop.q[l-max:]...)
 	}
 }
-func (reop *ReopenRow) Reopen() (ERower, bool) {
+func (reop *ReopenRow) Reopen() bool {
 	if len(reop.q) == 0 {
-		return nil, false
+		return false
 	}
 	l := len(reop.q)
 	state := reop.q[l-1]
@@ -31,5 +31,6 @@ func (reop *ReopenRow) Reopen() (ERower, bool) {
 
 	col, rowIndex := reop.ed.GoodColRowPlace()
 	erow := NewERowFromRowState(reop.ed, state, col, rowIndex)
-	return erow, true
+	erow.Row().WarpPointer()
+	return true
 }
