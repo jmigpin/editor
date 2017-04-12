@@ -8,30 +8,33 @@ import (
 )
 
 type EventLoop struct {
-	q chan *ELQEvent
+	connQ chan interface{}
+	extQ  chan *ELQEvent
 }
 
 func NewEventLoop() *EventLoop {
-	return &EventLoop{q: make(chan *ELQEvent, 5)}
+	return &EventLoop{
+		connQ: make(chan interface{}, 50),
+		extQ:  make(chan *ELQEvent, 5),
+	}
 }
 func (el *EventLoop) Run(conn *xgb.Conn, er *EventRegister) {
-	connCh := make(chan interface{}, 50)
 	go func() {
 		for {
 			ev, xerr := conn.PollForEvent()
 			if ev == nil && xerr == nil {
-				connCh <- int(QueueEmptyEventId)
+				el.connQ <- int(QueueEmptyEventId)
 
 				ev, xerr = conn.WaitForEvent()
 				if ev == nil && xerr == nil {
-					connCh <- int(ConnectionClosedEventId)
+					el.connQ <- int(ConnectionClosedEventId)
 					goto forEnd1
 				}
 			}
 			if xerr != nil {
-				connCh <- xerr
+				el.connQ <- xerr
 			} else if ev != nil {
-				connCh <- ev
+				el.connQ <- ev
 			}
 		}
 	forEnd1:
@@ -39,12 +42,12 @@ func (el *EventLoop) Run(conn *xgb.Conn, er *EventRegister) {
 
 	for {
 		select {
-		case ev, ok := <-el.q:
+		case ev, ok := <-el.extQ:
 			if !ok {
 				goto forEnd2
 			}
 			er.Emit(ev.EventId, ev.Event)
-		case ev, ok := <-connCh:
+		case ev, ok := <-el.connQ:
 			if !ok {
 				goto forEnd2
 			}
@@ -52,7 +55,7 @@ func (el *EventLoop) Run(conn *xgb.Conn, er *EventRegister) {
 			case xgb.Event:
 
 				// bypass quick motionnotify events
-				if len(connCh) > 1 {
+				if len(el.connQ) > 1 {
 					_, ok := ev2.(xproto.MotionNotifyEvent)
 					if ok {
 						// break select, go to next loop iteration
@@ -70,11 +73,18 @@ func (el *EventLoop) Run(conn *xgb.Conn, er *EventRegister) {
 	}
 forEnd2:
 }
-func (el *EventLoop) Enqueue(eid int, ev EREvent) {
-	el.q <- &ELQEvent{eid, ev}
+func (el *EventLoop) EnqueueQEmptyEventIfConnQEmpty() {
+	if len(el.connQ) == 0 {
+		el.connQ <- int(QueueEmptyEventId)
+	}
 }
+
+//func (el *EventLoop) Enqueue(eid int, ev EREvent) {
+//el.extQ <- &ELQEvent{eid, ev}
+//}
+
 func (el *EventLoop) Close() {
-	close(el.q)
+	close(el.extQ)
 }
 
 type ELQEvent struct { // event loop q event
