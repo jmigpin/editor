@@ -46,7 +46,7 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 			}
 		}
 
-		//// wrap line
+		//// custom wrap line symbol
 		//if sd.liner.isWrapLineRune {
 		//drawWrapLine(sd.img, sd.bounds, sd.liner)
 		//return true
@@ -65,6 +65,10 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 				// fix partial mask being drawn from the top
 				if dr.Min.Y < sd.bounds.Min.Y {
 					maskp.Y += dr.Dy() - dr2.Dy()
+				}
+				// fix partial mask being drawn from the left
+				if dr.Min.X < sd.bounds.Min.X {
+					maskp.X += dr.Dx() - dr2.Dx()
 				}
 
 				fgi := image.NewUniform(fg)
