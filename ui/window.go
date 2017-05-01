@@ -1,4 +1,4 @@
-package xutil
+package ui
 
 import (
 	"image"

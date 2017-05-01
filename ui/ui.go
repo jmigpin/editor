@@ -10,7 +10,6 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil"
-	"github.com/jmigpin/editor/xutil"
 
 	"github.com/BurntSushi/xgb/xproto"
 )
@@ -22,7 +21,7 @@ const (
 )
 
 type UI struct {
-	Win       *xutil.Window
+	Win       *Window
 	Layout    *Layout
 	fface1    *drawutil.Face
 	CursorMan *CursorMan
@@ -33,7 +32,7 @@ func NewUI(fface *drawutil.Face) (*UI, error) {
 		fface1: fface,
 	}
 
-	win, err := xutil.NewWindow()
+	win, err := NewWindow()
 	if err != nil {
 		return nil, err
 	}
