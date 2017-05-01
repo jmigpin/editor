@@ -2,7 +2,7 @@
 
 Source code editor in pure Go.
 
-![screenshot](./screenshot.png)
+![screenshot](./screenshot2.png)
 
 This is a know-what-you're-doing source code editor<br>
 As the editor is being developed, the rules of how the UI interacts will become more well defined.<br>
