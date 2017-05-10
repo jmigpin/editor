@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"image/draw"
 	"log"
 
 	"github.com/BurntSushi/xgb"
@@ -176,6 +177,31 @@ func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
 	cookie := xproto.GetGeometry(win.Conn, drawable)
 	return cookie.Reply()
 }
+
+func (win *Window) Image() draw.Image {
+	return win.ShmWrap.Image()
+}
+func (win *Window) PutImage(rect *image.Rectangle) {
+	win.ShmWrap.PutImage(win.GCtx, rect)
+}
+func (win *Window) UpdateImageSize() error {
+	geom, err := win.GetGeometry()
+	if err != nil {
+		return err
+	}
+	w, h := int(geom.Width), int(geom.Height)
+
+	r := image.Rect(0, 0, w, h)
+	ib := win.Image().Bounds()
+	if !r.Eq(ib) {
+		err := win.ShmWrap.NewImage(&r)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (win *Window) WarpPointer(p *image.Point) {
 	// warp pointer only if the window has input focus
 	cookie := xproto.GetInputFocus(win.Conn)

@@ -1,10 +1,10 @@
 package ui
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"log"
 
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/imageutil"
@@ -70,36 +70,25 @@ func (ui *UI) onExpose(ev0 xgbutil.EREvent) {
 		return // wait for expose with count 0
 	}
 
-	r, err := ui.winGeometry()
-	if err == nil && !r.Eq(ui.Layout.C.Bounds) {
-		if err := ui.Win.ShmWrap.NewImage(r); err != nil {
-			fmt.Println(err)
-			return
-		}
-		ui.Layout.C.Bounds = *r
-		ui.Layout.C.CalcChildsBounds()
-	}
-	ui.Layout.C.NeedPaint()
-}
-func (ui *UI) winGeometry() (*image.Rectangle, error) {
-	wgeom, err := ui.Win.GetGeometry()
+	err := ui.Win.UpdateImageSize()
 	if err != nil {
-		return nil, err
+		log.Println(err)
+	} else {
+		ib := ui.Win.Image().Bounds()
+		if !ui.Layout.C.Bounds.Eq(ib) {
+			ui.Layout.C.Bounds = ib
+			ui.Layout.C.CalcChildsBounds()
+		}
 	}
-	w := int(wgeom.Width)
-	h := int(wgeom.Height)
-	r := image.Rect(0, 0, w, h)
-	return &r, nil
+
+	ui.Layout.C.NeedPaint()
 }
 
 func (ui *UI) onQueueEmpty(ev xgbutil.EREvent) {
-	ui._paint()
-}
-func (ui *UI) _paint() {
 	// paint after all events have been handled
 	ui.Layout.C.PaintTreeIfNeeded(func(c *uiutil.Container) {
 		// paint only the top container of the needed area
-		ui.PutImage(&c.Bounds)
+		ui.Win.PutImage(&c.Bounds)
 	})
 }
 
@@ -110,13 +99,10 @@ func (ui *UI) RequestTreePaint() {
 }
 
 func (ui *UI) Image() draw.Image {
-	return ui.Win.ShmWrap.Image()
+	return ui.Win.Image()
 }
 func (ui *UI) FillRectangle(r *image.Rectangle, c color.Color) {
 	imageutil.FillRectangle(ui.Image(), r, c)
-}
-func (ui *UI) PutImage(rect *image.Rectangle) {
-	ui.Win.ShmWrap.PutImage(ui.Win.GCtx, rect)
 }
 
 // Default fontface (used by textarea)
