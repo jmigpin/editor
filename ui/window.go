@@ -106,7 +106,7 @@ func (win *Window) init() error {
 	}
 	win.XInput = xi
 
-	dnd, err := dragndrop.NewDnd(win.Conn, win.Window)
+	dnd, err := dragndrop.NewDnd(win.Conn, win.Window, win.EvReg)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,6 @@ func (win *Window) init() error {
 		return err
 	}
 	win.Cursors = c
-	//_ = win.Cursors.SetCursor(XCXTerm)
 
 	shmWrap, err := xgbutil.NewShmWrap(win.Conn, drawable, win.Screen.RootDepth)
 	if err != nil {
@@ -137,15 +136,12 @@ func (win *Window) init() error {
 	}
 	win.ShmWrap = shmWrap
 
-	win.SetWindowName("Editor")
-
-	// setup extensions to use event register
-	win.Dnd.SetupEventRegister(win.EvReg)
-
 	_, err = wmprotocols.NewWMP(win.Conn, win.Window, win.EvReg)
 	if err != nil {
 		return err
 	}
+
+	win.SetWindowName("Editor")
 
 	return nil
 }

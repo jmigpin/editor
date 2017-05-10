@@ -2,7 +2,6 @@ package dragndrop
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -11,6 +10,8 @@ import (
 
 // protocol: https://www.acc.umu.se/~vatten/XDND.html
 // explanation with example: http://www.edwardrosten.com/code/dist/x_clipboard-1.1/paste.cc
+
+// TODO: contexts with timeouts
 
 type Dnd struct { // drag and drop
 	conn  *xgb.Conn
@@ -23,34 +24,7 @@ type Dnd struct { // drag and drop
 	}
 }
 
-type DndEvent interface{}
-
-var DndAtoms struct {
-	XdndAware    xproto.Atom
-	XdndEnter    xproto.Atom
-	XdndLeave    xproto.Atom
-	XdndPosition xproto.Atom
-	XdndStatus   xproto.Atom
-	XdndDrop     xproto.Atom
-	XdndFinished xproto.Atom
-
-	XdndActionCopy    xproto.Atom
-	XdndActionMove    xproto.Atom
-	XdndActionLink    xproto.Atom
-	XdndActionAsk     xproto.Atom
-	XdndActionPrivate xproto.Atom
-
-	XdndProxy    xproto.Atom
-	XdndTypeList xproto.Atom
-
-	XdndSelection xproto.Atom
-}
-
-var DropTypeAtoms struct {
-	TextURLList xproto.Atom `loadAtoms:"text/uri-list"` // technically, a URL
-}
-
-func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
+func NewDnd(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*Dnd, error) {
 	if err := xgbutil.LoadAtoms(conn, &DndAtoms); err != nil {
 		return nil, err
 	}
@@ -61,6 +35,13 @@ func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
 	if err := dnd.setupWindowProperty(); err != nil {
 		return nil, err
 	}
+
+	dnd.evReg = evReg
+	dnd.evReg.Add(xproto.ClientMessage,
+		&xgbutil.ERCallback{dnd.onClientMessage})
+	dnd.evReg.Add(xproto.SelectionNotify,
+		&xgbutil.ERCallback{dnd.onSelectionNotify})
+
 	return dnd, nil
 }
 
@@ -84,31 +65,44 @@ func (dnd *Dnd) ClearTmp() {
 	dnd.tmp.positionEvent = nil
 	dnd.tmp.dropEvent = nil
 }
-func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent) (DndEvent, bool, error) {
+
+func (dnd *Dnd) onClientMessage(ev0 xgbutil.EREvent) {
+	ev := ev0.(xproto.ClientMessageEvent)
+	err := dnd.onClientMessage2(&ev)
+	if err != nil {
+		dnd.evReg.Emit(ErrorEventId, err)
+		return
+	}
+}
+func (dnd *Dnd) onClientMessage2(ev *xproto.ClientMessageEvent) error {
 	if ev.Format != 32 {
-		err := fmt.Errorf("dnd event: data format is not 32: %d", ev.Format)
-		return nil, false, err
+		return fmt.Errorf("dnd event: data format is not 32: %d", ev.Format)
 	}
 	data := ev.Data.Data32
 	switch ev.Type {
 	case DndAtoms.XdndEnter:
 		// first event to happen on a drag and drop
 		dnd.onEnter(data)
-		return nil, true, nil
 	case DndAtoms.XdndPosition:
 		// after the enter event, it follows many position events
 		ev2, err := dnd.onPosition(data)
-		return ev2, true, err
+		if err != nil {
+			return err
+		}
+		dnd.evReg.Emit(PositionEventId, ev2)
 	case DndAtoms.XdndDrop:
 		// drag released
 		ev2, err := dnd.onDrop(data)
-		return ev2, true, err
+		if err != nil {
+			return err
+		}
+		dnd.evReg.Emit(DropEventId, ev2)
 	case DndAtoms.XdndLeave:
 		dnd.ClearTmp()
-		return nil, true, nil
 	}
-	return nil, false, nil
+	return nil
 }
+
 func (dnd *Dnd) onEnter(data []uint32) {
 	ev := ParseEnterEvent(data)
 	dnd.tmp.enterEvent = ev // keep event for folllowing events
@@ -194,40 +188,13 @@ func (dnd *Dnd) sendEvent(cme *xproto.ClientMessageEvent) {
 }
 
 // Called after a request for data.
-func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) bool {
+func (dnd *Dnd) onSelectionNotify(ev0 xgbutil.EREvent) {
+	ev := ev0.(xproto.SelectionNotifyEvent)
 	if dnd.tmp.dropEvent != nil {
 		// safe to defer clear tmp variable after onselectionnotify since the dropEvent has the data
 		defer dnd.ClearTmp()
-		return dnd.tmp.dropEvent.OnSelectionNotify(ev)
+		_ = dnd.tmp.dropEvent.OnSelectionNotify(&ev)
 	}
-	return false
-}
-
-// event register support
-
-func (dnd *Dnd) SetupEventRegister(evReg *xgbutil.EventRegister) {
-	dnd.evReg = evReg
-	dnd.evReg.Add(xproto.ClientMessage,
-		&xgbutil.ERCallback{dnd.onEvRegClientMessage})
-	dnd.evReg.Add(xproto.SelectionNotify,
-		&xgbutil.ERCallback{dnd.onEvRegSelectionNotify})
-}
-func (dnd *Dnd) onEvRegClientMessage(ev xgbutil.EREvent) {
-	ev0 := ev.(xproto.ClientMessageEvent)
-	ev2, ok, err := dnd.OnClientMessage(&ev0)
-	if err != nil {
-		dnd.evReg.Emit(ErrorEventId, err)
-		return
-	}
-	if ok && ev2 != nil {
-		dnd.evReg.Emit(dnd.evRegEventId(ev2), ev2)
-		return
-	}
-}
-func (dnd *Dnd) onEvRegSelectionNotify(ev xgbutil.EREvent) {
-	ev0 := ev.(xproto.SelectionNotifyEvent)
-	ok := dnd.OnSelectionNotify(&ev0)
-	_ = ok
 }
 
 const (
@@ -236,14 +203,27 @@ const (
 	DropEventId
 )
 
-func (dnd *Dnd) evRegEventId(ev interface{}) int {
-	switch ev.(type) {
-	case *PositionEvent:
-		return PositionEventId
-	case *DropEvent:
-		return DropEventId
-	default:
-		log.Printf("unhandled event: %#v", ev)
-		return xgbutil.UnknownEventId
-	}
+var DndAtoms struct {
+	XdndAware    xproto.Atom
+	XdndEnter    xproto.Atom
+	XdndLeave    xproto.Atom
+	XdndPosition xproto.Atom
+	XdndStatus   xproto.Atom
+	XdndDrop     xproto.Atom
+	XdndFinished xproto.Atom
+
+	XdndActionCopy    xproto.Atom
+	XdndActionMove    xproto.Atom
+	XdndActionLink    xproto.Atom
+	XdndActionAsk     xproto.Atom
+	XdndActionPrivate xproto.Atom
+
+	XdndProxy    xproto.Atom
+	XdndTypeList xproto.Atom
+
+	XdndSelection xproto.Atom
+}
+
+var DropTypeAtoms struct {
+	TextURLList xproto.Atom `loadAtoms:"text/uri-list"` // technically, a URL
 }
