@@ -57,7 +57,7 @@ func NewEditor() (*Editor, error) {
 	cmdutil.SetupDragNDrop(ed)
 
 	// set up layout toolbar
-	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | "
+	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | Reload | "
 	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
 	// execute commands on layout toolbar
 	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
@@ -116,27 +116,29 @@ func NewEditor() (*Editor, error) {
 }
 func (ed *Editor) getFontFace() (*drawutil.Face, error) {
 	useGoFont := false
+
 	fp := "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 	font0, err := drawutil.ParseFont(fp)
 	if err != nil {
-		log.Println(err)
+		//log.Println(err)
 		useGoFont = true
 	}
 	opt := &truetype.Options{
 		Size:    12,
 		Hinting: font.HintingFull,
 	}
-	// go font
+
 	if useGoFont {
 		font0, err = truetype.Parse(goregular.TTF)
 		if err != nil {
 			return nil, err
 		}
 		opt = &truetype.Options{
-			SubPixelsX: 64, // default is 4
-			SubPixelsY: 64, // default is 1
-			Size:       13,
-			Hinting:    font.HintingFull,
+			//SubPixelsX: 64, // default is 4
+			//SubPixelsY: 64, // default is 1
+			Size:    13,
+			Hinting: font.HintingFull,
+			//Hinting: font.HintingNone,
 			//GlyphCacheEntries: 4096, // still problems with concurrent drawing?
 		}
 	}

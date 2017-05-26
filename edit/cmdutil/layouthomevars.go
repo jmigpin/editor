@@ -19,6 +19,8 @@ func SetupLayoutHomeVars(ed Editorer) {
 func updateHomeVars(ed Editorer, ev *ui.TextAreaSetStrEvent) {
 	tb := ed.UI().Layout.Toolbar
 
+	// TODO: improve when the updatehomevars run - its running on every single toolbar update
+
 	// get all decoded toolbars in all rows
 	m := make(map[ERower]string)
 	for _, erow := range ed.ERows() {

@@ -1,8 +1,7 @@
 package xgbutil
 
 type EventRegister struct {
-	m                map[int]*[]*ERCallback
-	OnUnhandledEvent func(evId int, ev EREvent)
+	m map[int]*[]*ERCallback
 }
 
 func NewEventRegister() *EventRegister {
@@ -42,9 +41,7 @@ func (er *EventRegister) Remove(evId int, cb *ERCallback) {
 func (er *EventRegister) Emit(evId int, ev EREvent) {
 	u, ok := er.m[evId]
 	if !ok {
-		if er.OnUnhandledEvent != nil {
-			er.OnUnhandledEvent(evId, ev)
-		}
+		//log.Printf("unhandled event id: %v, %#v", evId, ev)
 		return
 	}
 	for _, cb := range *u {

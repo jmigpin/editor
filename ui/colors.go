@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/imageutil"
 )
 
 var (
@@ -20,7 +21,7 @@ var (
 
 	SeparatorColor = Black
 
-	RowInnerSeparatorColor = tint(&Blue, 0.50)
+	RowInnerSeparatorColor = imageutil.Tint(&Blue, 0.50)
 
 	SquareColor            = ToolbarColors.Bg
 	SquareActiveColor      = Black
@@ -29,27 +30,19 @@ var (
 	SquareDiskChangesColor = Red
 	SquareNotExistColor    = Yellow
 
-	ScrollbarFgColor = tint(&Black, 0.70)
-	ScrollbarBgColor = tint(&Black, 0.95)
+	ScrollbarFgColor = imageutil.Tint(&Black, 0.70)
+	ScrollbarBgColor = imageutil.Tint(&Black, 0.95)
 )
 
 var TextAreaColors = drawutil.Colors{
 	Fg:          Black,
 	Bg:          White,
-	SelectionBg: tint(&Yellow, 0.50),
-	HighlightBg: tint(&Blue, 0.70),
+	SelectionBg: imageutil.Tint(&Yellow, 0.50),
+	HighlightBg: imageutil.Tint(&Blue, 0.70),
 }
 
 var ToolbarColors = drawutil.Colors{
 	Fg:          Black,
-	Bg:          tint(&Black, 0.95),
+	Bg:          imageutil.Tint(&Black, 0.95),
 	SelectionBg: TextAreaColors.SelectionBg,
-}
-
-func tint(c0 *color.RGBA, v float64) color.RGBA {
-	c := *c0
-	c.R += uint8(v * float64((255 - c.R)))
-	c.G += uint8(v * float64((255 - c.G)))
-	c.B += uint8(v * float64((255 - c.B)))
-	return c
 }

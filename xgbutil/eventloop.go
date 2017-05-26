@@ -41,6 +41,7 @@ func (el *EventLoop) Run(conn *xgb.Conn, er *EventRegister) {
 	}()
 
 	for {
+	selectStart1:
 		select {
 		case ev, ok := <-el.extQ:
 			if !ok {
@@ -58,8 +59,7 @@ func (el *EventLoop) Run(conn *xgb.Conn, er *EventRegister) {
 				if len(el.connQ) > 1 {
 					_, ok := ev2.(xproto.MotionNotifyEvent)
 					if ok {
-						// break select, go to next loop iteration
-						break
+						goto selectStart1
 					}
 				}
 
@@ -124,6 +124,8 @@ func XgbEventId(ev xgb.Event) int {
 		return xproto.SelectionRequest
 	case xproto.SelectionClearEvent:
 		return xproto.SelectionClear
+	case xproto.MappingNotifyEvent:
+		return xproto.MappingNotify
 	default:
 		log.Printf("unhandled event: %#v", ev)
 		return UnknownEventId

@@ -6,17 +6,16 @@ import (
 )
 
 // space between lines
-//var margin fixed.Int26_6 = fixed.I(1)
-var margin fixed.Int26_6 = fixed.I(0)
+var marginTop = fixed.I(0)
+var marginBottom = fixed.I(0)
 
 func LineBaseline(fm *font.Metrics) fixed.Int26_6 {
-	//return fm.Ascent
-	return fm.Height
+	return fm.Ascent + marginTop
 }
 func LineHeight(fm *font.Metrics) fixed.Int26_6 {
 	// make it fixed to an int to avoid round errors between lines
-	lh := LineBaseline(fm) + fm.Descent + margin
-	return fixed.I(lh.Round())
+	u := LineBaseline(fm) + fm.Descent + marginBottom
+	return fixed.I(u.Ceil())
 }
 func LineY0(penY fixed.Int26_6, fm *font.Metrics) fixed.Int26_6 {
 	return penY - LineBaseline(fm)

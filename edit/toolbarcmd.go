@@ -64,7 +64,7 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 			}
 		}
 		// TODO: consider running external command in new row
-		err := fmt.Errorf("unknown layout command: %v", part.Str)
+		err := fmt.Errorf("unknown layout command (no row is selected or it's also not a row command): %v", part.Str)
 		ed.Error(err)
 	}
 }
