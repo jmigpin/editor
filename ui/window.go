@@ -10,37 +10,39 @@ import (
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/copypaste"
 	"github.com/jmigpin/editor/xgbutil/dragndrop"
+	"github.com/jmigpin/editor/xgbutil/shmimage"
 	"github.com/jmigpin/editor/xgbutil/wmprotocols"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
 	"github.com/jmigpin/editor/xgbutil/xinput"
+	"github.com/pkg/errors"
 )
 
 type Window struct {
-	Conn      *xgb.Conn
-	Window    xproto.Window
-	Screen    *xproto.ScreenInfo
-	GCtx      xproto.Gcontext
-	EvReg     *xgbutil.EventRegister
-	Dnd       *dragndrop.Dnd
-	Paste     *copypaste.Paste
-	Copy      *copypaste.Copy
-	Cursors   *xcursors.Cursors
-	XInput    *xinput.XInput
-	ShmWrap   *xgbutil.ShmWrap
-	EventLoop *xgbutil.EventLoop
+	Conn         *xgb.Conn
+	Window       xproto.Window
+	Screen       *xproto.ScreenInfo
+	GCtx         xproto.Gcontext
+	EvReg        *xgbutil.EventRegister
+	Dnd          *dragndrop.Dnd
+	Paste        *copypaste.Paste
+	Copy         *copypaste.Copy
+	Cursors      *xcursors.Cursors
+	XInput       *xinput.XInput
+	ShmImageWrap *shmimage.ShmImageWrap
+	EventLoop    *xgbutil.EventLoop
 }
 
 func NewWindow() (*Window, error) {
 	conn, err := xgb.NewConn()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "new conn")
 	}
 	win := &Window{
 		Conn:  conn,
 		EvReg: xgbutil.NewEventRegister(),
 	}
 	if err := win.init(); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "win init")
 	}
 	return win, nil
 }
@@ -66,11 +68,12 @@ func (win *Window) init() error {
 		//0xffffffff, // white pixel
 		//xproto.EventMaskStructureNotify |
 		xproto.EventMaskExposure |
-			xproto.EventMaskKeyPress |
+			//xproto.EventMaskPointerMotionHint |
+			//xproto.EventMaskButtonMotion |
+			xproto.EventMaskPointerMotion |
 			xproto.EventMaskButtonPress |
 			xproto.EventMaskButtonRelease |
-			xproto.EventMaskButtonMotion |
-			xproto.EventMaskPointerMotion,
+			xproto.EventMaskKeyPress,
 	}
 
 	_ = xproto.CreateWindow(
@@ -131,16 +134,23 @@ func (win *Window) init() error {
 	}
 	win.Cursors = c
 
-	shmWrap, err := xgbutil.NewShmWrap(win.Conn, drawable, win.Screen.RootDepth)
+	shmImageWrap, err := shmimage.NewShmImageWrap(win.Conn, drawable, win.Screen.RootDepth)
 	if err != nil {
 		return err
 	}
-	win.ShmWrap = shmWrap
+	win.ShmImageWrap = shmImageWrap
 
 	_, err = wmprotocols.NewWMP(win.Conn, win.Window, win.EvReg)
 	if err != nil {
 		return err
 	}
+
+	// crash test
+	//win.EvReg.Add(xproto.MotionNotify,
+	//&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+	//log.Println("motion")
+	////xproto.QueryPointer(win.Conn, win.Window)
+	//}})
 
 	win.SetWindowName("Editor")
 
@@ -151,7 +161,7 @@ func (win *Window) RunEventLoop() {
 	win.EventLoop.Run(win.Conn, win.EvReg)
 
 	// Close after event loop exit
-	err := win.ShmWrap.Close()
+	err := win.ShmImageWrap.Close()
 	if err != nil {
 		log.Println(err)
 	}
@@ -179,10 +189,10 @@ func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
 }
 
 func (win *Window) Image() draw.Image {
-	return win.ShmWrap.Image()
+	return win.ShmImageWrap.Image()
 }
 func (win *Window) PutImage(rect *image.Rectangle) {
-	win.ShmWrap.PutImage(win.GCtx, rect)
+	win.ShmImageWrap.PutImage(win.GCtx, rect)
 }
 func (win *Window) UpdateImageSize() error {
 	geom, err := win.GetGeometry()
@@ -194,7 +204,7 @@ func (win *Window) UpdateImageSize() error {
 	r := image.Rect(0, 0, w, h)
 	ib := win.Image().Bounds()
 	if !r.Eq(ib) {
-		err := win.ShmWrap.NewImage(&r)
+		err := win.ShmImageWrap.NewImage(&r)
 		if err != nil {
 			return err
 		}
