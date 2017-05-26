@@ -10,7 +10,7 @@ import (
 
 type CursorMan struct {
 	ui          *UI
-	m           map[*image.Rectangle]*CMCallback
+	m           map[*image.Rectangle]xcursors.Cursor
 	cursor      xcursors.Cursor
 	freeCursor  xcursors.Cursor
 	fixedCursor xcursors.Cursor
@@ -19,8 +19,9 @@ type CursorMan struct {
 
 func NewCursorMan(ui *UI) *CursorMan {
 	cm := &CursorMan{
-		ui: ui,
-		m:  make(map[*image.Rectangle]*CMCallback),
+		ui:         ui,
+		m:          make(map[*image.Rectangle]xcursors.Cursor),
+		freeCursor: xcursors.XCNone,
 	}
 
 	cm.ui.Win.EvReg.Add(xinput.MotionNotifyEventId,
@@ -33,12 +34,9 @@ func (cm *CursorMan) onMotionNotify(ev0 xgbutil.EREvent) {
 
 	// always calc free cursor to have it ready when the fixed cursor gets unsed
 	c := xcursors.Cursor(xcursors.XCNone)
-	for r, f := range cm.m {
+	for r, c2 := range cm.m {
 		if ev.Point.In(*r) {
-			u, ok := f.F(ev)
-			if ok {
-				c = u
-			}
+			c = c2
 			break
 		}
 	}
@@ -67,8 +65,8 @@ func (cm *CursorMan) UnsetCursor() {
 	cm.setCursorCached(cm.freeCursor)
 }
 
-func (cm *CursorMan) SetBoundsCursor(r *image.Rectangle, cb *CMCallback) {
-	cm.m[r] = cb
+func (cm *CursorMan) SetBoundsCursor(r *image.Rectangle, c xcursors.Cursor) {
+	cm.m[r] = c
 }
 func (cm *CursorMan) RemoveBoundsCursor(r *image.Rectangle) {
 	delete(cm.m, r)

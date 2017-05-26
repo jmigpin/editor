@@ -7,7 +7,6 @@ import (
 	"github.com/BurntSushi/xgbutil/xcursor" // only for cursordef
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil"
-	"github.com/jmigpin/editor/xgbutil/xcursors"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
@@ -37,12 +36,7 @@ func NewSquare(ui *UI) *Square {
 		&xgbutil.ERCallback{sq.onMotionNotify})
 	sq.dereg.Add(r1, r2, r3)
 
-	sq.ui.CursorMan.SetBoundsCursor(
-		&sq.C.Bounds,
-		&CMCallback{
-			func(ev *xinput.MotionNotifyEvent) (xcursors.Cursor, bool) {
-				return xcursor.Icon, true
-			}})
+	sq.ui.CursorMan.SetBoundsCursor(&sq.C.Bounds, xcursor.Icon)
 
 	return sq
 }
