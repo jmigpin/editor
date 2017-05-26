@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 	"log"
+	"runtime"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -35,7 +36,12 @@ type Window struct {
 func NewWindow() (*Window, error) {
 	conn, err := xgb.NewConn()
 	if err != nil {
-		return nil, errors.Wrap(err, "new conn")
+		if runtime.GOOS == "darwin" {
+			msg := err.Error() + ": macOS might need XQuartz installed"
+			err = errors.WithMessage(err, msg)
+		}
+		err2 := errors.Wrap(err, "x conn")
+		return nil, err2
 	}
 	win := &Window{
 		Conn:  conn,
