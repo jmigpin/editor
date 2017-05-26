@@ -65,14 +65,20 @@ func (cs *Cursors) loadCursor2(c Cursor, fg, bg color.Color) (xproto.Cursor, err
 	ur, ug, ub, _ := imageutil.ColorUint16s(fg)
 	vr, vg, vb, _ := imageutil.ColorUint16s(bg)
 
-	_ = xproto.CreateGlyphCursor(
+	err = xproto.CreateGlyphCursorChecked(
 		cs.conn, cursor,
 		fontId, fontId,
 		uint16(c), uint16(c)+1,
 		ur, ug, ub,
-		vr, vg, vb)
+		vr, vg, vb).Check()
+	if err != nil {
+		return 0, err
+	}
 
-	_ = xproto.CloseFont(cs.conn, fontId)
+	err = xproto.CloseFontChecked(cs.conn, fontId).Check()
+	if err != nil {
+		return 0, err
+	}
 
 	return cursor, nil
 }
