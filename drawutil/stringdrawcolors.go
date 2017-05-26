@@ -122,9 +122,10 @@ func wordAtIndex(str string, index int) (string, int, bool) {
 		max = len(str)
 	}
 	str2 := str[index:max]
-	i := strings.IndexFunc(str2, isNotWordRune)
+	str3 := str2 + " " // allow to find on eos
+	i := strings.IndexFunc(str3, isNotWordRune)
 	if i <= 0 {
-		// either not found until eos, or first rune failed
+		// either not found until eos (cap), or first rune failed
 		return "", 0, false
 	}
 	ri := index + i
@@ -154,7 +155,7 @@ func matchWordAtIndex(word string, str string, index int) (int, bool) {
 		return 0, false
 	}
 	e := index + len(word)
-	if e < len(str) {
+	if e <= len(str) {
 		// next rune can't be a word rune
 		ru, size = utf8.DecodeRuneInString(str[e:])
 		if size != 0 && isWordRune(ru) {
