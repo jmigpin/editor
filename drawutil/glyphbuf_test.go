@@ -26,8 +26,9 @@ func initFont() *truetype.Font {
 }
 
 func BenchmarkF0(b *testing.B) {
+	b.ResetTimer()
 	var glyphBuf truetype.GlyphBuf
-	for i := 0; i < 300; i++ {
+	for i := 0; i < b.N; i++ {
 		for _, ru := range loremText {
 			if err := glyphBuf.Load(font0, scale, font0.Index(ru), font.HintingFull); err != nil {
 				b.Fatal(err)
@@ -37,7 +38,8 @@ func BenchmarkF0(b *testing.B) {
 }
 func BenchmarkF1(b *testing.B) {
 	m := make(map[rune]*truetype.GlyphBuf)
-	for i := 0; i < 300; i++ {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		for _, ru := range loremText {
 			g, ok := m[ru]
 			if !ok {
