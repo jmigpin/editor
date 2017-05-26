@@ -3,6 +3,7 @@
 Source code editor in pure Go.
 
 ![screenshot](./screenshot2.png)
+Screenshot taken using DejaVuSans.ttf font.
 
 This is a know-what-you're-doing source code editor<br>
 As the editor is being developed, the rules of how the UI interacts will become more well defined.<br>
@@ -14,6 +15,7 @@ Many TextArea utilities: undo/redo, replace, comment, ...<br>
 Start external processes from the toolbar with a click, capturing the output to a row. <br>
 Drag and drop files/directories to the editor.<br>
 Watches files changes on disk.<br>
+Calls goimports if available when saving a .go file.<br>
 
 ### Installation and usage
 
@@ -115,7 +117,8 @@ OpenSession \<name\>: opens previously saved session<br>
 \<quoted string\>: opens filepath if existent on goroot/gopath<br>
 
 ### Notes
-Uses X shared memory extension (MIT-SHM). Currently linux amd64.<br>
+Uses X shared memory extension (MIT-SHM). <br>
+MacOS might need to have XQuartz installed.<br>
 Notable projects that inspired many features:<br>
 Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU <br>
 Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M <br>
