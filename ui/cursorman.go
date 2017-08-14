@@ -24,7 +24,7 @@ func NewCursorMan(ui *UI) *CursorMan {
 		freeCursor: xcursors.XCNone,
 	}
 
-	cm.ui.Win.EvReg.Add(xinput.MotionNotifyEventId,
+	cm.ui.EvReg.Add(xinput.MotionNotifyEventId,
 		&xgbutil.ERCallback{cm.onMotionNotify})
 
 	return cm
@@ -53,7 +53,7 @@ func (cm *CursorMan) setCursorCached(c xcursors.Cursor) {
 		return
 	}
 	cm.cursor = c
-	cm.ui.Win.Cursors.SetCursor(c)
+	cm.ui.SetCursor(c)
 }
 func (cm *CursorMan) SetCursor(c xcursors.Cursor) {
 	cm.fixedState = true

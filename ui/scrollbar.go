@@ -30,11 +30,11 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 	sb.C.Style.MainSize = &width
 	sb.C.PaintFunc = sb.paint
 
-	r1 := sb.ta.ui.Win.EvReg.Add(xinput.ButtonPressEventId,
+	r1 := sb.ta.ui.EvReg.Add(xinput.ButtonPressEventId,
 		&xgbutil.ERCallback{sb.onButtonPress})
-	r2 := sb.ta.ui.Win.EvReg.Add(xinput.ButtonReleaseEventId,
+	r2 := sb.ta.ui.EvReg.Add(xinput.ButtonReleaseEventId,
 		&xgbutil.ERCallback{sb.onButtonRelease})
-	r3 := sb.ta.ui.Win.EvReg.Add(xinput.MotionNotifyEventId,
+	r3 := sb.ta.ui.EvReg.Add(xinput.MotionNotifyEventId,
 		&xgbutil.ERCallback{sb.onMotionNotify})
 	sb.dereg.Add(r1, r2, r3)
 

@@ -10,6 +10,7 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/xcursors"
 
 	"github.com/BurntSushi/xgb/xproto"
 )
@@ -21,10 +22,11 @@ const (
 )
 
 type UI struct {
-	Win       *Window
+	win       *Window
 	Layout    *Layout
 	fface1    *drawutil.Face
 	CursorMan *CursorMan
+	EvReg     *xgbutil.EventRegister
 }
 
 func NewUI(fface *drawutil.Face) (*UI, error) {
@@ -36,25 +38,25 @@ func NewUI(fface *drawutil.Face) (*UI, error) {
 	if err != nil {
 		return nil, err
 	}
-	ui.Win = win
+	ui.win = win
+	ui.EvReg = ui.win.EvReg
 
-	// cursorman needs win in ui
 	ui.CursorMan = NewCursorMan(ui)
 
 	ui.Layout = NewLayout(ui)
 
-	ui.Win.EvReg.Add(xproto.Expose,
+	ui.win.EvReg.Add(xproto.Expose,
 		&xgbutil.ERCallback{ui.onExpose})
-	ui.Win.EvReg.Add(xgbutil.QueueEmptyEventId,
+	ui.win.EvReg.Add(xgbutil.QueueEmptyEventId,
 		&xgbutil.ERCallback{ui.onQueueEmpty})
 
 	return ui, nil
 }
 func (ui *UI) Close() {
-	ui.Win.Close()
+	ui.win.Close()
 }
 func (ui *UI) EventLoop() {
-	ui.Win.RunEventLoop()
+	ui.win.RunEventLoop()
 }
 func (ui *UI) onExpose(ev0 xgbutil.EREvent) {
 	ev := ev0.(xproto.ExposeEvent)
@@ -70,11 +72,11 @@ func (ui *UI) onExpose(ev0 xgbutil.EREvent) {
 		return // wait for expose with count 0
 	}
 
-	err := ui.Win.UpdateImageSize()
+	err := ui.win.UpdateImageSize()
 	if err != nil {
 		log.Println(err)
 	} else {
-		ib := ui.Win.Image().Bounds()
+		ib := ui.win.Image().Bounds()
 		if !ui.Layout.C.Bounds.Eq(ib) {
 			ui.Layout.C.Bounds = ib
 			ui.Layout.C.CalcChildsBounds()
@@ -88,18 +90,18 @@ func (ui *UI) onQueueEmpty(ev xgbutil.EREvent) {
 	// paint after all events have been handled
 	ui.Layout.C.PaintTreeIfNeeded(func(c *uiutil.Container) {
 		// paint only the top container of the needed area
-		ui.Win.PutImage(&c.Bounds)
+		ui.win.PutImage(&c.Bounds)
 	})
 }
 
 // Send paint request to the main event loop.
 // Usefull for async methods that need to be painted.
 func (ui *UI) RequestTreePaint() {
-	ui.Win.EventLoop.EnqueueQEmptyEventIfConnQEmpty()
+	ui.win.EventLoop.EnqueueQEmptyEventIfConnQEmpty()
 }
 
 func (ui *UI) Image() draw.Image {
-	return ui.Win.Image()
+	return ui.win.Image()
 }
 func (ui *UI) FillRectangle(r *image.Rectangle, c color.Color) {
 	imageutil.FillRectangle(ui.Image(), r, c)
@@ -110,11 +112,14 @@ func (ui *UI) FontFace() *drawutil.Face {
 	return ui.fface1
 }
 
+func (ui *UI) QueryPointer() (*image.Point, bool) {
+	return ui.win.QueryPointer()
+}
 func (ui *UI) WarpPointer(p *image.Point) {
-	ui.Win.WarpPointer(p)
+	ui.win.WarpPointer(p)
 }
 func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
-	p, ok := ui.Win.QueryPointer()
+	p, ok := ui.QueryPointer()
 	if !ok {
 		return
 	}
@@ -147,4 +152,18 @@ func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
 		p.X = r.Max.X
 	}
 	ui.WarpPointer(p)
+}
+
+func (ui *UI) SetCursor(c xcursors.Cursor) {
+	ui.win.Cursors.SetCursor(c)
+}
+
+func (ui *UI) RequestPrimaryPaste() (string, error) {
+	return ui.win.Paste.RequestPrimary()
+}
+func (ui *UI) RequestClipboardPaste() (string, error) {
+	return ui.win.Paste.RequestClipboard()
+}
+func (ui *UI) SetClipboardCopy(v string) {
+	ui.win.Copy.Set(v)
 }

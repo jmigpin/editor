@@ -43,12 +43,12 @@ func NewEditor() (*Editor, error) {
 	ed.ui = ui0
 
 	// close editor when the window is deleted
-	ed.ui.Win.EvReg.Add(wmprotocols.DeleteWindowEventId,
+	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId,
 		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
 			ed.Close()
 		}})
 	// possible x errors
-	ed.ui.Win.EvReg.Add(xgbutil.XErrorEventId,
+	ed.ui.EvReg.Add(xgbutil.XErrorEventId,
 		&xgbutil.ERCallback{func(ev xgbutil.EREvent) {
 			ed.Errorf("xerror: %v", ev)
 		}})
@@ -78,8 +78,6 @@ func NewEditor() (*Editor, error) {
 	// flags
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
-
-	// TEST cpuprofile: ~/projects/golangcode/src/github.com/jmigpin/editor/editor --cpuprofile ./p1.prof /home/jorge/documents/finances/ledger/personal.ledger
 
 	// flags: cpuprofile
 	if *cpuprofile != "" {
@@ -123,9 +121,15 @@ func (ed *Editor) getFontFace() (*drawutil.Face, error) {
 		//log.Println(err)
 		useGoFont = true
 	}
+	//opt := &truetype.Options{
+	//Size:    12,
+	//Hinting: font.HintingFull,
+	//}
 	opt := &truetype.Options{
-		Size:    12,
 		Hinting: font.HintingFull,
+		//Size:    12,
+		Size: 8,
+		DPI:  142,
 	}
 
 	if useGoFont {

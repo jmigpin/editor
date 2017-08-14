@@ -14,11 +14,11 @@ import (
 func SetupDragNDrop(ed Editorer) {
 	h := &dndHandler{ed}
 	ui := ed.UI()
-	ui.Win.EvReg.Add(dragndrop.ErrorEventId,
+	ui.EvReg.Add(dragndrop.ErrorEventId,
 		&xgbutil.ERCallback{h.onError})
-	ui.Win.EvReg.Add(dragndrop.PositionEventId,
+	ui.EvReg.Add(dragndrop.PositionEventId,
 		&xgbutil.ERCallback{h.onPosition})
-	ui.Win.EvReg.Add(dragndrop.DropEventId,
+	ui.EvReg.Add(dragndrop.DropEventId,
 		&xgbutil.ERCallback{h.onDrop})
 }
 

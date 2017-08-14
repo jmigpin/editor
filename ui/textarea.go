@@ -56,17 +56,17 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.EvReg = xgbutil.NewEventRegister()
 	ta.editHistory = tautil.NewEditHistory(40)
 
-	r1 := ta.ui.Win.EvReg.Add(xinput.KeyPressEventId,
+	r1 := ta.ui.EvReg.Add(xinput.KeyPressEventId,
 		&xgbutil.ERCallback{ta.onKeyPress})
-	r2 := ta.ui.Win.EvReg.Add(xinput.ButtonPressEventId,
+	r2 := ta.ui.EvReg.Add(xinput.ButtonPressEventId,
 		&xgbutil.ERCallback{ta.onButtonPress})
-	r3 := ta.ui.Win.EvReg.Add(xinput.ButtonReleaseEventId,
+	r3 := ta.ui.EvReg.Add(xinput.ButtonReleaseEventId,
 		&xgbutil.ERCallback{ta.onButtonRelease})
-	r4 := ta.ui.Win.EvReg.Add(xinput.MotionNotifyEventId,
+	r4 := ta.ui.EvReg.Add(xinput.MotionNotifyEventId,
 		&xgbutil.ERCallback{ta.onMotionNotify})
-	r5 := ta.ui.Win.EvReg.Add(xinput.DoubleClickEventId,
+	r5 := ta.ui.EvReg.Add(xinput.DoubleClickEventId,
 		&xgbutil.ERCallback{ta.onDoubleClick})
-	r6 := ta.ui.Win.EvReg.Add(xinput.TripleClickEventId,
+	r6 := ta.ui.EvReg.Add(xinput.TripleClickEventId,
 		&xgbutil.ERCallback{ta.onTripleClick})
 	ta.dereg.Add(r1, r2, r3, r4, r5, r6)
 
@@ -372,14 +372,14 @@ func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
 func (ta *TextArea) RequestTreePaint() {
 	ta.ui.RequestTreePaint()
 }
-func (ta *TextArea) RequestPastePrimary() (string, error) {
-	return ta.ui.Win.Paste.RequestPrimary()
+func (ta *TextArea) RequestPrimaryPaste() (string, error) {
+	return ta.ui.RequestPrimaryPaste()
 }
-func (ta *TextArea) RequestPasteClipboard() (string, error) {
-	return ta.ui.Win.Paste.RequestClipboard()
+func (ta *TextArea) RequestClipboardPaste() (string, error) {
+	return ta.ui.RequestClipboardPaste()
 }
-func (ta *TextArea) SetCopyClipboard(v string) {
-	ta.ui.Win.Copy.Set(v)
+func (ta *TextArea) SetClipboardCopy(v string) {
+	ta.ui.SetClipboardCopy(v)
 }
 func (ta *TextArea) LineHeight() fixed.Int26_6 {
 	fm := ta.ui.FontFace().Face.Metrics()

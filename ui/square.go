@@ -28,11 +28,11 @@ func NewSquare(ui *UI) *Square {
 	sq.C.PaintFunc = sq.paint
 	sq.EvReg = xgbutil.NewEventRegister()
 
-	r1 := sq.ui.Win.EvReg.Add(xinput.ButtonPressEventId,
+	r1 := sq.ui.EvReg.Add(xinput.ButtonPressEventId,
 		&xgbutil.ERCallback{sq.onButtonPress})
-	r2 := sq.ui.Win.EvReg.Add(xinput.ButtonReleaseEventId,
+	r2 := sq.ui.EvReg.Add(xinput.ButtonReleaseEventId,
 		&xgbutil.ERCallback{sq.onButtonRelease})
-	r3 := sq.ui.Win.EvReg.Add(xinput.MotionNotifyEventId,
+	r3 := sq.ui.EvReg.Add(xinput.MotionNotifyEventId,
 		&xgbutil.ERCallback{sq.onMotionNotify})
 	sq.dereg.Add(r1, r2, r3)
 

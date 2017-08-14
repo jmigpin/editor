@@ -35,7 +35,7 @@ func (tb *Toolbar) onTextAreaSetStr(ev0 xgbutil.EREvent) {
 
 	// keep pointer inside if it was in before
 	// useful in dynamic bounds becoming shorter and leaving the pointer outside, losing keyboard focus
-	p, ok := tb.ui.Win.QueryPointer()
+	p, ok := tb.ui.QueryPointer()
 	if ok && p.In(ev.OldBounds) && !p.In(tb.C.Bounds) {
 		tb.ui.WarpPointerToRectanglePad(&tb.C.Bounds)
 	}

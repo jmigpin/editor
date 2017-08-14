@@ -26,11 +26,11 @@ func NewRow(col *Column) *Row {
 
 	ui := row.Col.Cols.Layout.UI
 
-	r1 := ui.Win.EvReg.Add(xinput.KeyPressEventId,
+	r1 := ui.EvReg.Add(xinput.KeyPressEventId,
 		&xgbutil.ERCallback{row.onKeyPress})
-	r2 := ui.Win.EvReg.Add(xinput.ButtonPressEventId,
+	r2 := ui.EvReg.Add(xinput.ButtonPressEventId,
 		&xgbutil.ERCallback{row.onButtonPress})
-	r3 := ui.Win.EvReg.Add(xinput.ButtonReleaseEventId,
+	r3 := ui.EvReg.Add(xinput.ButtonReleaseEventId,
 		&xgbutil.ERCallback{row.onButtonRelease})
 	row.dereg.Add(r1, r2, r3)
 
