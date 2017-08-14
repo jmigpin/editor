@@ -1,10 +1,10 @@
 package tautil
 
 func PastePrimary(ta Texta) {
-	pasteFn(ta, ta.RequestPastePrimary)
+	pasteFn(ta, ta.RequestPrimaryPaste)
 }
 func PasteClipboard(ta Texta) {
-	pasteFn(ta, ta.RequestPasteClipboard)
+	pasteFn(ta, ta.RequestClipboardPaste)
 }
 func pasteFn(ta Texta, fn func() (string, error)) {
 	// The requestclipboardstring blocks while it communicates with the x server. The x server answer can only be handled if this procedure is not blocking the eventloop.

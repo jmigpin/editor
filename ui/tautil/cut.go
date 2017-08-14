@@ -5,7 +5,7 @@ func Cut(ta Texta) {
 		return
 	}
 	a, b := SelectionStringIndexes(ta)
-	ta.SetCopyClipboard(ta.Str()[a:b])
+	ta.SetClipboardCopy(ta.Str()[a:b])
 	ta.EditOpen()
 	ta.EditDelete(a, b)
 	ta.EditClose()

@@ -37,7 +37,7 @@ type Texta interface {
 
 	RequestTreePaint()
 
-	RequestPastePrimary() (string, error)
-	RequestPasteClipboard() (string, error)
-	SetCopyClipboard(string)
+	RequestPrimaryPaste() (string, error)
+	RequestClipboardPaste() (string, error)
+	SetClipboardCopy(string)
 }
