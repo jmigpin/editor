@@ -2,36 +2,40 @@
 package main
 
 import (
+	"flag"
 	"log"
+	"os"
+	"runtime/pprof"
 
 	"github.com/jmigpin/editor/edit"
 )
 
 func main() {
-	//runtime.GOMAXPROCS(1)
-
 	log.SetFlags(log.Llongfile)
 
-	//// redirect stderr to log panics
-	//f, err := os.Create("/home/jorge/editor_stderr.txt")
-	//if err != nil {
-	//log.Fatal(err)
-	//return
-	//}
-	//defer f.Close()
+	// flags
+	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
+	fontFilenameFlag := flag.String("font", "", "font filename")
+	fontSizeFlag := flag.Float64("fontsize", 12, "")
+	dpiFlag := flag.Float64("dpi", 72, "monitor dots per inch")
 
-	//// panic to file
-	//err = syscall.Dup2(int(f.Fd()), int(os.Stderr.Fd()))
-	//if err != nil {
-	//log.Fatalf("Failed to redirect stderr to file: %v", err)
-	//return
-	//}
+	flag.Parse()
 
-	//mw := io.MultiWriter(f, os.Stdout)
-	//log.SetOutput(mw)
-	//log.SetOutput(os.Stdout)
+	if *cpuProfileFlag != "" {
+		f, err := os.Create(*cpuProfileFlag)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
-	_, err := edit.NewEditor()
+	eopt := &edit.Options{
+		FontFilename: *fontFilenameFlag,
+		FontSize:     *fontSizeFlag,
+		DPI:          *dpiFlag,
+	}
+	_, err := edit.NewEditor(eopt)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -3,9 +3,8 @@ package edit
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
-	"os"
-	"runtime/pprof"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
@@ -25,13 +24,13 @@ type Editor struct {
 	erows     map[*ui.Row]*ERow
 }
 
-func NewEditor() (*Editor, error) {
+func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
 		erows: make(map[*ui.Row]*ERow),
 	}
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
-	fface, err := ed.getFontFace()
+	fface, err := ed.getFontFace(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -72,22 +71,6 @@ func NewEditor() (*Editor, error) {
 		return nil, err
 	}
 	ed.fw = fw
-	//ed.fw.OnError = ed.Error
-	//ed.fw.OnEvent = ed.onFWEvent
-
-	// flags
-	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
-	flag.Parse()
-
-	// flags: cpuprofile
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
 
 	// flags: filenames
 	args := flag.Args()
@@ -112,44 +95,37 @@ func NewEditor() (*Editor, error) {
 
 	return ed, nil
 }
-func (ed *Editor) getFontFace() (*drawutil.Face, error) {
-	useGoFont := false
 
-	fp := "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-	font0, err := drawutil.ParseFont(fp)
-	if err != nil {
-		//log.Println(err)
-		useGoFont = true
-	}
-	//opt := &truetype.Options{
-	//Size:    12,
-	//Hinting: font.HintingFull,
-	//}
-	opt := &truetype.Options{
-		Hinting: font.HintingFull,
-		//Size:    12,
-		Size: 8,
-		DPI:  142,
-	}
+func (ed *Editor) getFontFace(opt *Options) (*drawutil.Face, error) {
+	// test font
+	// "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
-	if useGoFont {
-		font0, err = truetype.Parse(goregular.TTF)
+	ttf := goregular.TTF // default font
+
+	if opt.FontFilename != "" {
+		ttf2, err := ioutil.ReadFile(opt.FontFilename)
 		if err != nil {
-			return nil, err
-		}
-		opt = &truetype.Options{
-			//SubPixelsX: 64, // default is 4
-			//SubPixelsY: 64, // default is 1
-			Size:    13,
-			Hinting: font.HintingFull,
-			//Hinting: font.HintingNone,
-			//GlyphCacheEntries: 4096, // still problems with concurrent drawing?
+			// show error and continue with default
+			log.Println(err)
+		} else {
+			ttf = ttf2
 		}
 	}
 
-	fface := drawutil.NewFace(font0, opt)
+	f, err := truetype.Parse(ttf)
+	if err != nil {
+		return nil, err
+	}
+
+	ttOpt := &truetype.Options{
+		Hinting: font.HintingFull,
+		Size:    opt.FontSize,
+		DPI:     opt.DPI,
+	}
+	fface := drawutil.NewFace(f, ttOpt)
 	return fface, nil
 }
+
 func (ed *Editor) Close() {
 	ed.fw.Close()
 	ed.ui.Close()
@@ -245,4 +221,10 @@ func (ed *Editor) GoodColRowPlace() (*ui.Column, int) {
 
 func (ed *Editor) IsSpecialName(s string) bool {
 	return len(s) > 0 && s[0] == '+'
+}
+
+type Options struct {
+	FontFilename string
+	FontSize     float64
+	DPI          float64
 }

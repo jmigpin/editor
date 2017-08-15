@@ -2,19 +2,9 @@ package drawutil
 
 import (
 	"image"
-	"io/ioutil"
 
-	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/math/fixed"
 )
-
-func ParseFont(filename string) (*truetype.Font, error) {
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return truetype.Parse(b)
-}
 
 func Point266ToPoint(p *fixed.Point26_6) *image.Point {
 	return &image.Point{p.X.Round(), p.Y.Round()}
