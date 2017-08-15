@@ -56,6 +56,8 @@ func (el *EventLoop) Run(conn *xgb.Conn, er *EventRegister) {
 			case xgb.Event:
 
 				// bypass quick motionnotify events
+				// FIXME: can bypass a motion segment if last event is not motion
+				// TODO: implement proper filter
 				if len(el.connQ) > 1 {
 					_, ok := ev2.(xproto.MotionNotifyEvent)
 					if ok {
@@ -79,9 +81,9 @@ func (el *EventLoop) EnqueueQEmptyEventIfConnQEmpty() {
 	}
 }
 
-//func (el *EventLoop) Enqueue(eid int, ev EREvent) {
-//el.extQ <- &ELQEvent{eid, ev}
-//}
+func (el *EventLoop) Enqueue(eid int, ev EREvent) {
+	el.extQ <- &ELQEvent{eid, ev}
+}
 
 func (el *EventLoop) Close() {
 	close(el.extQ)
@@ -93,13 +95,14 @@ type ELQEvent struct { // event loop q event
 }
 
 const (
-	UnknownEventId = iota + 1000 // avoid clash with xproto
+	UnknownEventId = 1000 + iota // avoid clash with xproto
 	XErrorEventId
 	ConnectionClosedEventId
 	QueueEmptyEventId
 	// others (just a note)
 	// 1100+: keybmap events
 	// 1200+: dragndrop events
+	// 1300+: ui events
 )
 
 func XgbEventId(ev xgb.Event) int {

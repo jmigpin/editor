@@ -224,17 +224,6 @@ func (erow *ERow) saveContent2(str string, filename string) error {
 	return err
 }
 
-func (erow *ERow) TextAreaAppend(str string) {
-	ta := erow.row.TextArea
-
-	// cap max size
-	maxSize := 1024 * 1024 * 10
-	str = ta.Str() + str
-	if len(str) > maxSize {
-		d := len(str) - maxSize
-		str = str[d:]
-	}
-
-	// false,true = keep pos, but clear undo for massive savings
-	ta.SetStrClear(str, false, true)
+func (erow *ERow) TextAreaAppendAsync(str string) {
+	erow.ed.ui.TextAreaAppendAsync(erow.row.TextArea, str)
 }

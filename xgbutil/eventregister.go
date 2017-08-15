@@ -49,7 +49,7 @@ func (er *EventRegister) Emit(evId int, ev EREvent) {
 	}
 }
 
-type EREvent interface{}
+type EREvent interface{} // TODO: remove, and use interface{}
 type ERCallback struct {
 	F func(EREvent)
 }

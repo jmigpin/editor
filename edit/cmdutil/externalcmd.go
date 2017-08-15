@@ -65,9 +65,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 	cmd.Stderr = epw
 
 	taAppend := func(s string) {
-		erow.TextAreaAppend(s)
-		// running async, need to request paint
-		erow.Ed().UI().RequestTreePaint()
+		erow.TextAreaAppendAsync(s)
 	}
 
 	var wg sync.WaitGroup

@@ -19,5 +19,5 @@ type ERower interface {
 	ToolbarSD() *toolbardata.StringData
 	FileInfo() (string, os.FileInfo, error)
 
-	TextAreaAppend(string)
+	TextAreaAppendAsync(string)
 }

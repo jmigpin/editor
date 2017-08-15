@@ -50,6 +50,9 @@ func NewUI(fface *drawutil.Face) (*UI, error) {
 	ui.win.EvReg.Add(xgbutil.QueueEmptyEventId,
 		&xgbutil.ERCallback{ui.onQueueEmpty})
 
+	ui.EvReg.Add(UITextAreaAppendEventId,
+		&xgbutil.ERCallback{ui.onTextAreaAppend})
+
 	return ui, nil
 }
 func (ui *UI) Close() {
@@ -166,4 +169,35 @@ func (ui *UI) RequestClipboardPaste() (string, error) {
 }
 func (ui *UI) SetClipboardCopy(v string) {
 	ui.win.Copy.Set(v)
+}
+
+func (ui *UI) TextAreaAppendAsync(ta *TextArea, str string) {
+	ev := &UITextAreaAppendEvent{ta, str}
+	ui.win.EventLoop.Enqueue(UITextAreaAppendEventId, ev)
+	// TODO: enforcing a nil event at end to have a draw - should not be needed with a node that triggers need paint at root
+	ui.win.EventLoop.Enqueue(xgbutil.QueueEmptyEventId, nil)
+}
+func (ui *UI) onTextAreaAppend(ev0 xgbutil.EREvent) {
+	ev := ev0.(*UITextAreaAppendEvent)
+	ui.textAreaAppend(ev.TextArea, ev.Str)
+}
+func (ui *UI) textAreaAppend(ta *TextArea, str string) {
+	// cap max size
+	maxSize := 1024 * 1024 * 5
+	str = ta.Str() + str
+	if len(str) > maxSize {
+		d := len(str) - maxSize
+		str = str[d:]
+	}
+	// false,true = keep pos, but clear undo for massive savings
+	ta.SetStrClear(str, false, true)
+}
+
+const (
+	UITextAreaAppendEventId = 1300 + iota
+)
+
+type UITextAreaAppendEvent struct {
+	TextArea *TextArea
+	Str      string
 }

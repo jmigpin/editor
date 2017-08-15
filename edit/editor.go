@@ -224,7 +224,7 @@ func (ed *Editor) Error(err error) {
 		col, rowIndex := ed.GoodColRowPlace()
 		erow = ed.NewERow(s, col, rowIndex)
 	}
-	erow.TextAreaAppend(err.Error() + "\n")
+	erow.TextAreaAppendAsync(err.Error() + "\n")
 	//erow.Row().WarpPointer()
 }
 
