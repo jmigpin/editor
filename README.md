@@ -26,6 +26,19 @@ go build
 ./editor
 ```
 
+```
+./editor --help
+Usage of ./editor:
+  -cpuprofile string
+    	profile cpu filename
+  -dpi float
+    	monitor dots per inch (default 72)
+  -font string
+    	font filename
+  -fontsize float
+    	 (default 12)
+```
+
 ### key/button shortcuts
 
 #### Column key/button shortcuts
