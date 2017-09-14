@@ -3,26 +3,30 @@ package ui
 import (
 	"image/color"
 
+	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil"
 )
 
 type Column struct {
-	C, ChildsC uiutil.Container
-	Cols       *Columns
-	Rows       []*Row
-	Square     *Square
-	colSep     *Separator
+	C      uiutil.Container
+	Cols   *Columns
+	Square *Square
+	colSep *Separator
+	RowsC  uiutil.Container
 }
 
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols}
+	col.C.Owner = col
 
 	ui := col.Cols.Layout.UI
 
 	col.Square = NewSquare(ui)
 	height := SquareWidth
 	col.Square.C.Style.CrossSize = &height
+	col.Square.EvReg.Add(SquareButtonPressEventId,
+		&xgbutil.ERCallback{col.onSquareButtonPress})
 	col.Square.EvReg.Add(SquareButtonReleaseEventId,
 		&xgbutil.ERCallback{col.onSquareButtonRelease})
 	col.Square.EvReg.Add(SquareMotionNotifyEventId,
@@ -31,84 +35,81 @@ func NewColumn(cols *Columns) *Column {
 	col.colSep = NewSeparator(ui, SeparatorWidth, SeparatorColor)
 
 	col.C.PaintFunc = col.paint
-	col.ChildsC.Style.Direction = uiutil.ColumnDirection
-	col.ChildsC.Style.Distribution = uiutil.EqualDistribution
+	col.RowsC.Style.Direction = uiutil.ColumnDirection
+	col.RowsC.Style.Distribution = uiutil.EqualDistribution
 
-	col.C.AppendChilds(&col.colSep.C, &col.ChildsC, &col.Square.C)
+	col.C.AppendChilds(&col.colSep.C, &col.RowsC, &col.Square.C)
 
 	return col
 }
 func (col *Column) Close() {
 	col.Cols.removeColumn(col)
 	col.Square.Close()
+	for _, r := range col.Rows() {
+		r.Close()
+	}
 }
 func (col *Column) paint() {
-	if len(col.Rows) == 0 {
+	if col.RowsC.NChilds == 0 {
 		col.Cols.Layout.UI.FillRectangle(&col.C.Bounds, color.White)
 		return
 	}
 }
 
-func (col *Column) NewRow(index int) *Row {
+func (col *Column) NewRowBefore(next *Row) *Row {
 	row := NewRow(col)
-	col.insertRow(row, index)
+	col.insertRowBefore(row, next)
 	return row
 }
-func (col *Column) insertRow(row *Row, index int) {
+func (col *Column) insertRowBefore(row, next *Row) {
 	row.Col = col
 
-	// reset separators
-	row.rowSep.C.Style.Hidden = false
-	if len(col.Rows) > 0 {
-		col.Rows[0].rowSep.C.Style.Hidden = false
+	var nextC *uiutil.Container
+	if next != nil {
+		nextC = &next.C
 	}
+	col.RowsC.InsertChildBefore(&row.C, nextC)
 
-	// insert
-	u := make([]*Row, 0, len(col.Rows)+1)
-	u = append(u, col.Rows[:index]...)
-	u = append(u, row)
-	u = append(u, col.Rows[index:]...)
-	col.Rows = u
-
-	// hide first row separator
-	col.Rows[0].rowSep.C.Style.Hidden = true
-
-	col.Square.C.Style.Hidden = true
-
-	col.ChildsC.InsertChild(&row.C, index)
+	col.fixFirstRowSeparatorAndSquare()
 	col.C.CalcChildsBounds()
 	col.C.NeedPaint()
 }
 func (col *Column) removeRow(row *Row) {
-	index := col.RowIndex(row)
+	col.RowsC.RemoveChild(&row.C)
 
-	// remove: ensure gargage collection
-	u := make([]*Row, 0, len(col.Rows)-1)
-	u = append(u, col.Rows[:index]...)
-	u = append(u, col.Rows[index+1:]...)
-	col.Rows = u
-
-	// hide first row separator
-	if len(col.Rows) > 0 {
-		col.Rows[0].rowSep.C.Style.Hidden = true
-	}
-
-	col.Square.C.Style.Hidden = len(col.Rows) > 0
-
-	col.ChildsC.RemoveChild(&row.C)
+	col.fixFirstRowSeparatorAndSquare()
 	col.C.CalcChildsBounds()
 	col.C.NeedPaint()
 }
-func (col *Column) RowIndex(row *Row) int {
-	for i, r := range col.Rows {
-		if r == row {
-			return i
-		}
+
+func (col *Column) fixFirstRowSeparatorAndSquare() {
+	for i, r := range col.Rows() {
+		r.HideSeparator(i == 0)
 	}
-	panic("row not found in this column")
+
+	// hide/show column square if we have a first row
+	_, ok := col.FirstChildRow()
+	h := &col.Square.C.Style.Hidden
+	haveFirstRow := ok
+	if *h != haveFirstRow {
+		*h = haveFirstRow
+		col.C.NeedPaint()
+	}
+}
+
+func (col *Column) onSquareButtonPress(ev0 xgbutil.EREvent) {
+	ev := ev0.(*SquareButtonPressEvent)
+	ui := col.Cols.Layout.UI
+	switch {
+	case ev.Button.Button1():
+		ui.CursorMan.SetCursor(xcursor.Fleur)
+	}
 }
 func (col *Column) onSquareButtonRelease(ev0 xgbutil.EREvent) {
 	ev := ev0.(*SquareButtonReleaseEvent)
+	ui := col.Cols.Layout.UI
+	ui.CursorMan.UnsetCursor()
+
 	switch {
 	case ev.Button.Mods.IsButton(1):
 		col.Cols.MoveColumnToPoint(col, ev.Point)
@@ -124,5 +125,42 @@ func (col *Column) onSquareMotionNotify(ev0 xgbutil.EREvent) {
 	case ev.Mods.IsButton(3):
 		p2 := ev.Point.Add(col.Square.PressPointPad)
 		col.Cols.resizeColumn(col, p2.X)
+	}
+}
+
+func (col *Column) FirstChildRow() (*Row, bool) {
+	u := col.RowsC.FirstChild
+	if u == nil {
+		return nil, false
+	}
+	return u.Owner.(*Row), true
+}
+func (col *Column) NextSiblingColumn() (*Column, bool) {
+	u := col.C.NextSibling
+	if u == nil {
+		return nil, false
+	}
+	return u.Owner.(*Column), true
+}
+func (col *Column) PrevSiblingColumn() (*Column, bool) {
+	u := col.C.PrevSibling
+	if u == nil {
+		return nil, false
+	}
+	return u.Owner.(*Column), true
+}
+func (col *Column) Rows() []*Row {
+	var u []*Row
+	for _, h := range col.RowsC.Childs() {
+		u = append(u, h.Owner.(*Row))
+	}
+	return u
+}
+
+func (col *Column) HideSeparator(v bool) {
+	h := &col.colSep.C.Style.Hidden
+	if *h != v {
+		*h = v
+		col.C.NeedPaint()
 	}
 }

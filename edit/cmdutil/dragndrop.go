@@ -70,7 +70,7 @@ func (h *dndHandler) onPosition2(ev *dragndrop.PositionEvent) (xproto.Atom, bool
 	return action, true
 }
 func (h *dndHandler) columnAtPoint(p *image.Point) (*ui.Column, bool) {
-	for _, col := range h.ed.UI().Layout.Cols.Cols {
+	for _, col := range h.ed.UI().Layout.Cols.Columns() {
 		if p.In(col.C.Bounds) {
 			return col, true
 		}
@@ -133,22 +133,22 @@ func (h *dndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL
 
 	erow, ok := h.ed.FindERow(u.Path)
 	if !ok {
-		c, i, ok := col.Cols.PointRowPosition(nil, p)
+		c, r, ok := col.Cols.PointNextRow(nil, p)
 		if !ok {
 			return
 		}
-		erow = h.ed.NewERow(u.Path, c, i)
+		erow = h.ed.NewERowBeforeRow(u.Path, c, r)
 		err := erow.LoadContentClear()
 		if err != nil {
 			h.ed.Error(err)
 			return
 		}
 	} else {
-		c, i, ok := col.Cols.PointRowPosition(erow.Row(), p)
+		c, r, ok := col.Cols.PointNextRow(erow.Row(), p)
 		if !ok {
 			return
 		}
-		col.Cols.MoveRowToColumn(erow.Row(), c, i)
+		col.Cols.MoveRowToColumnBeforeRow(erow.Row(), c, r)
 	}
 
 }

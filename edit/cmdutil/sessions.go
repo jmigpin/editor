@@ -60,7 +60,7 @@ func NewSessionFromEditor(ed Editorer) *Session {
 	s := &Session{
 		LayoutTbStr: ed.UI().Layout.Toolbar.Str(),
 	}
-	for _, c := range ed.UI().Layout.Cols.Cols {
+	for _, c := range ed.UI().Layout.Cols.Columns() {
 		cstate := NewColumnState(c)
 		s.Columns = append(s.Columns, cstate)
 	}
@@ -76,18 +76,19 @@ func (s *Session) restore(ed Editorer) {
 	cols.CloseAllAndOpenN(len(s.Columns))
 
 	// setup columns sizes (end percents)
+	columns := cols.Columns()
 	for i, c := range s.Columns {
 		endp := c.EndPercent
-		cols.Cols[i].C.Style.EndPercent = &endp
+		columns[i].C.Style.EndPercent = &endp
 	}
 	// calc areas since the columns ends have been set
 	cols.C.CalcChildsBounds()
 
 	// create the rows
 	for i, c := range s.Columns {
-		col := cols.Cols[i]
-		for j, r := range c.Rows {
-			_ = NewERowFromRowState(ed, r, col, j)
+		col := columns[i]
+		for _, r := range c.Rows {
+			_ = NewERowFromRowState(ed, r, col, nil)
 		}
 	}
 }
@@ -109,7 +110,7 @@ func NewColumnState(col *ui.Column) *ColumnState {
 	cstate := &ColumnState{
 		EndPercent: endp,
 	}
-	for _, row := range col.Rows {
+	for _, row := range col.Rows() {
 		rstate := NewRowState(row)
 		cstate.Rows = append(cstate.Rows, rstate)
 	}
@@ -169,8 +170,8 @@ func ListSessions(ed Editorer) {
 	s := "+Sessions"
 	erow, ok := ed.FindERow(s)
 	if !ok {
-		col, rowIndex := ed.GoodColRowPlace()
-		erow = ed.NewERow(s, col, rowIndex)
+		col, nextRow := ed.GoodColumnRowPlace()
+		erow = ed.NewERowBeforeRow(s, col, nextRow)
 	}
 	erow.Row().TextArea.SetStrClear(str, false, false)
 }

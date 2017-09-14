@@ -39,8 +39,8 @@ func file(erow cmdutil.ERower, str string) bool {
 	ed := erow.Ed()
 	erow2, ok := ed.FindERow(p)
 	if !ok {
-		col, rowIndex := ed.GoodColRowPlace()
-		erow2 = ed.NewERow(p, col, rowIndex)
+		col, nextRow := ed.GoodColumnRowPlace()
+		erow2 = ed.NewERowBeforeRow(p, col, nextRow)
 		err := erow2.LoadContentClear()
 		if err != nil {
 			ed.Error(err)

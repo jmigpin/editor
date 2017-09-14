@@ -24,8 +24,7 @@ func OpenRowDirectory(erow ERower) {
 	erow2, ok := ed.FindERow(p)
 	if !ok {
 		col := erow.Row().Col
-		i := col.RowIndex(erow.Row()) + 1
-		erow2 = ed.NewERow(p, col, i)
+		erow2 = ed.NewERowBeforeRow(p, col, erow.Row())
 		err = erow2.LoadContentClear()
 		if err != nil {
 			erow.Ed().Error(err)

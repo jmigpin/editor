@@ -22,6 +22,7 @@ type Row struct {
 
 func NewRow(col *Column) *Row {
 	row := &Row{Col: col}
+	row.C.Owner = row
 	row.EvReg = xgbutil.NewEventRegister()
 
 	ui := row.Col.Cols.Layout.UI
@@ -37,10 +38,10 @@ func NewRow(col *Column) *Row {
 	row.Toolbar = NewToolbar(ui, &row.C)
 
 	row.Square = NewSquare(ui)
-	row.Square.EvReg.Add(SquareButtonReleaseEventId,
-		&xgbutil.ERCallback{row.onSquareButtonRelease})
 	row.Square.EvReg.Add(SquareButtonPressEventId,
 		&xgbutil.ERCallback{row.onSquareButtonPress})
+	row.Square.EvReg.Add(SquareButtonReleaseEventId,
+		&xgbutil.ERCallback{row.onSquareButtonRelease})
 	row.Square.EvReg.Add(SquareMotionNotifyEventId,
 		&xgbutil.ERCallback{row.onSquareMotionNotify})
 
@@ -72,8 +73,8 @@ func NewRow(col *Column) *Row {
 }
 func (row *Row) activate() {
 	// deactivate previous active row
-	for _, c := range row.Col.Cols.Cols {
-		for _, r := range c.Rows {
+	for _, c := range row.Col.Cols.Columns() {
+		for _, r := range c.Rows() {
 			r.Square.SetValue(SquareActive, false)
 		}
 	}
@@ -94,11 +95,7 @@ func (row *Row) onSquareButtonPress(ev0 xgbutil.EREvent) {
 	ui := row.Col.Cols.Layout.UI
 	switch {
 	case ev.Button.Button1():
-		if ev.Button.Mods.IsControl() {
-			ui.CursorMan.SetCursor(xcursor.Crosshair)
-		} else {
-			ui.CursorMan.SetCursor(xcursor.Fleur)
-		}
+		ui.CursorMan.SetCursor(xcursor.Fleur)
 	case ev.Button.Button2():
 		ui.CursorMan.SetCursor(xcursor.XCursor)
 	case ev.Button.Button3():
@@ -112,9 +109,9 @@ func (row *Row) onSquareButtonRelease(ev0 xgbutil.EREvent) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
 	case ev.Button.Mods.IsButton(1):
-		c, i, ok := row.Col.Cols.PointRowPosition(row, ev.Point)
+		c, r, ok := row.Col.Cols.PointNextRow(row, ev.Point)
 		if ok {
-			row.Col.Cols.MoveRowToColumn(row, c, i)
+			row.Col.Cols.MoveRowToColumnBeforeRow(row, c, r)
 		}
 	case ev.Button.Mods.IsButtonAndControl(1):
 		row.Col.Cols.MoveColumnToPoint(row.Col, ev.Point)
@@ -162,6 +159,21 @@ func (row *Row) onButtonRelease(ev0 xgbutil.EREvent) {
 }
 func (row *Row) WarpPointer() {
 	row.Square.WarpPointer()
+}
+func (row *Row) NextSiblingRow() (*Row, bool) {
+	u := row.C.NextSibling
+	if u == nil {
+		return nil, false
+	}
+	return u.Owner.(*Row), true
+}
+
+func (row *Row) HideSeparator(v bool) {
+	h := &row.rowSep.C.Style.Hidden
+	if *h != v {
+		*h = v
+		row.C.NeedPaint()
+	}
 }
 
 const (

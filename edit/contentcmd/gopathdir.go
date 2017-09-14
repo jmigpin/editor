@@ -25,8 +25,8 @@ func goPathDir(erow cmdutil.ERower, s string) bool {
 		if err == nil {
 			erow2, ok := ed.FindERow(p2)
 			if !ok {
-				col, rowIndex := ed.GoodColRowPlace()
-				erow2 = ed.NewERow(p2, col, rowIndex)
+				col, nextRow := ed.GoodColumnRowPlace()
+				erow2 = ed.NewERowBeforeRow(p2, col, nextRow)
 				err = erow2.LoadContentClear()
 				if err != nil {
 					ed.Error(err)

@@ -7,9 +7,9 @@ type Editorer interface {
 	Errorf(string, ...interface{})
 	UI() *ui.UI
 
-	NewERow(string, *ui.Column, int) ERower
+	NewERowBeforeRow(string, *ui.Column, *ui.Row) ERower
 	FindERow(string) (ERower, bool)
 	ERows() []ERower
 
-	GoodColRowPlace() (col *ui.Column, rowIndex int)
+	GoodColumnRowPlace() (col *ui.Column, next *ui.Row)
 }

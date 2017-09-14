@@ -29,8 +29,8 @@ func (reop *ReopenRow) Reopen() bool {
 	state := reop.q[l-1]
 	reop.q = reop.q[:l-1] // remove from q
 
-	col, rowIndex := reop.ed.GoodColRowPlace()
-	erow := NewERowFromRowState(reop.ed, state, col, rowIndex)
+	col, nextRow := reop.ed.GoodColumnRowPlace()
+	erow := NewERowFromRowState(reop.ed, state, col, nextRow)
 	erow.Row().WarpPointer()
 	return true
 }

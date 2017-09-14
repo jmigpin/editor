@@ -75,12 +75,11 @@ func NewEditor(opt *Options) (*Editor, error) {
 	// flags: filenames
 	args := flag.Args()
 	if len(args) > 0 {
-		col := ed.ui.Layout.Cols.Cols[0]
+		col, _ := ed.ui.Layout.Cols.FirstChildColumn()
 		for _, s := range args {
 			_, ok := ed.FindERow(s)
 			if !ok {
-				rowIndex := len(col.Rows)
-				erow := ed.NewERow(s, col, rowIndex)
+				erow := ed.NewERowBeforeRow(s, col, nil) // position at end
 				err := erow.LoadContentClear()
 				if err != nil {
 					ed.Error(err)
@@ -144,8 +143,8 @@ func (ed *Editor) ERows() []cmdutil.ERower {
 	return u
 }
 
-func (ed *Editor) NewERow(tbStr string, col *ui.Column, rowIndex int) cmdutil.ERower {
-	row := col.NewRow(rowIndex)
+func (ed *Editor) NewERowBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row) cmdutil.ERower {
+	row := col.NewRowBefore(nextRow)
 	erow := NewERow(ed, row, tbStr)
 
 	// add/remove to erows
@@ -197,8 +196,8 @@ func (ed *Editor) Error(err error) {
 	s := "+Errors"
 	erow, ok := ed.FindERow(s)
 	if !ok {
-		col, rowIndex := ed.GoodColRowPlace()
-		erow = ed.NewERow(s, col, rowIndex)
+		col, nextRow := ed.GoodColumnRowPlace()
+		erow = ed.NewERowBeforeRow(s, col, nextRow)
 	}
 	erow.TextAreaAppendAsync(err.Error() + "\n")
 	//erow.Row().WarpPointer()
@@ -214,9 +213,9 @@ func (ed *Editor) activeERow() (*ERow, bool) {
 	return nil, false
 }
 
-func (ed *Editor) GoodColRowPlace() (*ui.Column, int) {
+func (ed *Editor) GoodColumnRowPlace() (*ui.Column, *ui.Row) {
 	col := ed.ui.Layout.Cols.ColumnWithGoodPlaceForNewRow()
-	return col, len(col.Rows)
+	return col, nil // last position
 }
 
 func (ed *Editor) IsSpecialName(s string) bool {
