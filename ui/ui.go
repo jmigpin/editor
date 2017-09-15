@@ -194,7 +194,7 @@ func (ui *UI) textAreaAppend(ta *TextArea, str string) {
 }
 
 const (
-	UITextAreaAppendEventId = 1300 + iota
+	UITextAreaAppendEventId = xgbutil.UIEventIdStart + iota
 )
 
 type UITextAreaAppendEvent struct {

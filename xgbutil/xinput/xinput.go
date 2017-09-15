@@ -123,7 +123,7 @@ func (xi *XInput) onEvRegMotionNotify(ev interface{}) {
 }
 
 const (
-	KeyPressEventId = iota + 1100
+	KeyPressEventId = xgbutil.XInputEventIdStart + iota
 	KeyReleaseEventId
 	ButtonPressEventId
 	ButtonReleaseEventId

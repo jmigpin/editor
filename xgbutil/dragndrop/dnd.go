@@ -198,7 +198,7 @@ func (dnd *Dnd) onSelectionNotify(ev0 interface{}) {
 }
 
 const (
-	ErrorEventId = iota + 1200
+	ErrorEventId = xgbutil.DndEventIdStart + iota
 	PositionEventId
 	DropEventId
 )

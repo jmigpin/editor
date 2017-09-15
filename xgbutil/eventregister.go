@@ -1,5 +1,12 @@
 package xgbutil
 
+import (
+	"log"
+
+	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/xproto"
+)
+
 type EventRegister struct {
 	m map[int]*[]*ERCallback
 }
@@ -81,4 +88,46 @@ func (d *EventDeregister) UnregisterAll() {
 type EREventData struct {
 	EventId int
 	Event   interface{}
+}
+
+const (
+	UnknownEventId = 1000 + iota // avoid clash with xproto
+	XErrorEventId
+	NoOpEventId
+	ConnectionClosedEventId
+	QueueEmptyEventId
+
+	XInputEventIdStart = 1100 + iota
+	DndEventIdStart    = 1200 + iota
+	UIEventIdStart     = 1300 + iota
+)
+
+func XgbEventId(ev xgb.Event) int {
+	switch ev.(type) {
+	case xproto.ExposeEvent:
+		return xproto.Expose
+	case xproto.KeyPressEvent:
+		return xproto.KeyPress
+	case xproto.KeyReleaseEvent:
+		return xproto.KeyRelease
+	case xproto.ButtonPressEvent:
+		return xproto.ButtonPress
+	case xproto.ButtonReleaseEvent:
+		return xproto.ButtonRelease
+	case xproto.MotionNotifyEvent:
+		return xproto.MotionNotify
+	case xproto.ClientMessageEvent:
+		return xproto.ClientMessage
+	case xproto.SelectionNotifyEvent:
+		return xproto.SelectionNotify
+	case xproto.SelectionRequestEvent:
+		return xproto.SelectionRequest
+	case xproto.SelectionClearEvent:
+		return xproto.SelectionClear
+	case xproto.MappingNotifyEvent:
+		return xproto.MappingNotify
+	default:
+		log.Printf("unhandled event: %#v", ev)
+		return UnknownEventId
+	}
 }
