@@ -1,20 +1,46 @@
 package tautil
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 func Comment(ta Texta) {
 	a, b, _ := linesStringIndexes(ta)
 
 	str := ta.Str()[a:b]
-	altered := false
-	nlines := 0
+
+	IsNotASpaceExceptNewLine := func(ru rune) bool {
+		return !unicode.IsSpace(ru) || ru == '\n'
+	}
+
+	// find comment insertion index
+	start := 1000
 	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
-		// first non space rune: possible multiline jump
-		j := strings.IndexFunc(str[i:], isNotSpace)
+		j := strings.IndexFunc(str[i:], IsNotASpaceExceptNewLine)
 		if j < 0 {
 			break
 		}
-		i += j
+		// ignore empty lines
+		w, _ := lineEndIndexNextIndex(str, i)
+		if strings.TrimSpace(str[i:w]) == "" {
+			continue
+		}
+		if j < start {
+			start = j
+		}
+	}
+
+	altered := false
+	nlines := 0
+	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
+		// ignore empty lines
+		w, _ := lineEndIndexNextIndex(str, i)
+		if strings.TrimSpace(str[i:w]) == "" {
+			continue
+		}
+
+		i += start
 
 		// insert comment
 		str = str[:i] + "//" + str[i:]
