@@ -175,10 +175,13 @@ func (ui *UI) SetClipboardCopy(v string) {
 }
 
 func (ui *UI) TextAreaAppendAsync(ta *TextArea, str string) {
-	ev := &UITextAreaAppendEvent{ta, str}
-	ui.win.EventLoop.Enqueue(UITextAreaAppendEventId, ev)
-	// TODO: enforcing a nil event at end to have a draw - should not be needed with a node that triggers need paint at root
-	ui.win.EventLoop.Enqueue(xgbutil.QueueEmptyEventId, nil)
+	// run in go routine so it can be called from the ui thread as well, otherwise it will block
+	go func() {
+		ev := &UITextAreaAppendEvent{ta, str}
+		ui.win.EventLoop.Enqueue(UITextAreaAppendEventId, ev)
+		// TODO: enforcing a nil event at end to have a draw - should not be needed with a node that triggers need paint at root
+		ui.win.EventLoop.Enqueue(xgbutil.QueueEmptyEventId, nil)
+	}()
 }
 func (ui *UI) onTextAreaAppend(ev0 xgbutil.EREvent) {
 	ev := ev0.(*UITextAreaAppendEvent)
