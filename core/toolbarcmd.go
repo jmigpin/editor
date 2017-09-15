@@ -1,12 +1,12 @@
-package edit
+package core
 
 import (
 	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/edit/toolbardata"
+	"github.com/jmigpin/editor/core/cmdutil"
+	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/ui/tautil"
 )

@@ -1,12 +1,12 @@
-package edit
+package core
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/jmigpin/editor/edit/cmdutil"
-	"github.com/jmigpin/editor/edit/contentcmd"
-	"github.com/jmigpin/editor/edit/toolbardata"
+	"github.com/jmigpin/editor/core/cmdutil"
+	"github.com/jmigpin/editor/core/contentcmd"
+	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/pkg/errors"

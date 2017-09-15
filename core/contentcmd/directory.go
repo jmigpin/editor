@@ -4,7 +4,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/jmigpin/editor/edit/cmdutil"
+	"github.com/jmigpin/editor/core/cmdutil"
 )
 
 func directory(erow cmdutil.ERower, p string) bool {

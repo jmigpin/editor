@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jmigpin/editor/edit/cmdutil"
+	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/ui/tautil"
 )
 

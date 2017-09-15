@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/jmigpin/editor/edit/toolbardata"
+	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 )
 

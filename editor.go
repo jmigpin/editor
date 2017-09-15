@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime/pprof"
 
-	"github.com/jmigpin/editor/edit"
+	"github.com/jmigpin/editor/core"
 )
 
 func main() {
@@ -32,14 +32,14 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	eopt := &edit.Options{
+	eopt := &core.Options{
 		FontFilename:   *fontFilenameFlag,
 		FontSize:       *fontSizeFlag,
 		DPI:            *dpiFlag,
 		ScrollbarWidth: *scrollbarWidth,
 		AcmeColors:     *acmeColors,
 	}
-	_, err := edit.NewEditor(eopt)
+	_, err := core.NewEditor(eopt)
 	if err != nil {
 		log.Fatal(err)
 	}

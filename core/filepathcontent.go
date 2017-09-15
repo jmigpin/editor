@@ -1,11 +1,11 @@
-package edit
+package core
 
 import (
 	"io/ioutil"
 	"os"
 	"strings"
 
-	"github.com/jmigpin/editor/edit/cmdutil"
+	"github.com/jmigpin/editor/core/cmdutil"
 )
 
 func filepathContent(filepath string) (string, error) {

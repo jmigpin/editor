@@ -3,7 +3,7 @@ package cmdutil
 import (
 	"strings"
 
-	"github.com/jmigpin/editor/edit/toolbardata"
+	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xgbutil"
 )

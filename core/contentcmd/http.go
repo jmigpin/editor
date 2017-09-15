@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"os/exec"
 
-	"github.com/jmigpin/editor/edit/cmdutil"
+	"github.com/jmigpin/editor/core/cmdutil"
 )
 
 // Opens http/https lines in x-www-browser.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/jmigpin/editor/edit/cmdutil"
+	"github.com/jmigpin/editor/core/cmdutil"
 )
 
 func Cmd(erow cmdutil.ERower) {

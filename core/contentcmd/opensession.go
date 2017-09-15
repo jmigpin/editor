@@ -1,6 +1,6 @@
 package contentcmd
 
-import "github.com/jmigpin/editor/edit/cmdutil"
+import "github.com/jmigpin/editor/core/cmdutil"
 
 func openSession(erow cmdutil.ERower, s string) bool {
 	if s != "OpenSession" {
