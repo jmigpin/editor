@@ -29,67 +29,71 @@ go build
 ```
 ./editor --help
 Usage of ./editor:
+  -acmecolors
+    	acme editor color theme
   -cpuprofile string
     	profile cpu filename
   -dpi float
     	monitor dots per inch (default 72)
   -font string
-    	font filename
+    	ttf font filename
   -fontsize float
     	 (default 12)
+  -scrollbarwidth int
+    	textarea scrollbar width (default 12)
 ```
 
 ### key/button shortcuts
 
 #### Column key/button shortcuts
 (top right square):<br>
-button2: close column<br>
+<kbd>button2</kbd>: close column<br>
 
 #### Row key/button shortcuts
-ctrl+s: save file<br>
-ctrl+f: warp pointer to "Find" cmd in row toolbar<br>
+<kbd>ctrl</kbd>+<kbd>s</kbd>: save file<br>
+<kbd>ctrl</kbd>+<kbd>f</kbd>: warp pointer to "Find" cmd in row toolbar<br>
 Any button press: make row active to layout toolbar commands<br>
 <br>
 (top right square):<br>
-button1/drag: move row to point<br>
-button2: close row<br>
-button3/drag: resize column<br>
-ctrl+button1/drag: move row column to point<br>
+<kbd>button1</kbd> drag: move row to point<br>
+<kbd>button2</kbd>: close row<br>
+<kbd>button3</kbd> drag: resize column<br>
+<kbd>ctrl</kbd>+<kbd>button1</kbd> drag: move row column to point<br>
 
 #### Textarea key/button shortcuts
-up: move cursor up<br>
-down: move cursor down<br>
-left: move cursor left<br>
-right: move cursor right<br>
-shift+up: move cursor up adding to selection<br>
-shift+down: move cursor down adding to selection<br>
-shift+left: move cursor left adding to selection<br>
-shift+right: move cursor right adding to selection<br>
-delete: delete current rune<br>
-backspace: delete previous rune<br>
-end: end of line<br>
-home: start of line<br>
-shift+end: end of string<br>
-shift+home: start of string<br>
-ctrl+a: select all<br>
-ctrl+c: copy to clipboard<br>
-ctrl+k: remove lines<br>
-ctrl+v: paste from clipboard<br>
-ctrl+x: cut<br>
-ctrl+mod1+down: move line down<br>
-ctrl+mod1+shift+down: duplicate lines<br>
-tab (if selection is on): insert tab at beginning of lines<br>
-shift+tab: remove tab from beginning of line<br>
-ctrl+z: undo<br>
-ctrl+shift+z: undo<br>
-ctrl+d: comment<br>
-ctrl+shift+d: uncomment<br>
+<kbd>up</kbd>: move cursor up<br>
+<kbd>down</kbd>: move cursor down<br>
+<kbd>left</kbd>: move cursor left<br>
+<kbd>right</kbd>: move cursor right<br>
+<kbd>shift</kbd>+<kbd>up</kbd>: move cursor up adding to selection<br>
+<kbd>shift</kbd>+<kbd>down</kbd>: move cursor down adding to selection<br>
+<kbd>shift</kbd>+<kbd>left</kbd>: move cursor left adding to selection<br>
+<kbd>shift</kbd>+<kbd>right</kbd>: move cursor right adding to selection<br>
+<kbd>delete</kbd>: delete current rune<br>
+<kbd>backspace</kbd>: delete previous rune<br>
+<kbd>end</kbd>: end of line<br>
+<kbd>home</kbd>: start of line<br>
+<kbd>shift</kbd>+<kbd>end</kbd>: end of string<br>
+<kbd>shift</kbd>+<kbd>home</kbd>: start of string<br>
+<kbd>ctrl</kbd>+<kbd>a</kbd>: select all<br>
+<kbd>ctrl</kbd>+<kbd>c</kbd>: copy to clipboard<br>
+<kbd>ctrl</kbd>+<kbd>k</kbd>: remove lines<br>
+<kbd>ctrl</kbd>+<kbd>v</kbd>: paste from clipboard<br>
+<kbd>ctrl</kbd>+<kbd>x</kbd>: cut<br>
+<kbd>ctrl</kbd>+<kbd>mod1</kbd>+<kbd>down</kbd>: move line down<br>
+<kbd>ctrl</kbd>+<kbd>mod1</kbd>+<kbd>shift</kbd>+<kbd>down</kbd>: duplicate lines<br>
+<kbd>tab</kbd> (if selection is on): insert tab at beginning of lines<br>
+<kbd>shift</kbd>+<kbd>tab</kbd>: remove tab from beginning of line<br>
+<kbd>ctrl</kbd>+<kbd>z</kbd>: undo<br>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>z</kbd>: undo<br>
+<kbd>ctrl</kbd>+<kbd>d</kbd>: comment<br>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>d</kbd>: uncomment<br>
 <br>
-button1: move cursor to point<br>
-button3: move cursor to point + text area cmd<br>
-button4: scroll up<br>
-button5: scroll down<br>
-shift+button1: move cursor to point adding to selection<br>
+<kbd>button1</kbd>: move cursor to point<br>
+<kbd>button3</kbd>: move cursor to point + text area cmd<br>
+<kbd>button4</kbd>: scroll up<br>
+<kbd>button5</kbd>: scroll down<br>
+<kbd>shift</kbd>+<kbd>button1</kbd>: move cursor to point adding to selection<br>
 
 ### Commands
 
