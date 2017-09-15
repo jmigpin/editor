@@ -14,8 +14,9 @@ type Container struct {
 
 	NChilds int
 
-	needMeasure bool
-	needPaint   bool
+	needMeasure     bool
+	needPaint       bool
+	childNeedsPaint bool
 
 	PaintFunc  func()
 	OnCalcFunc func()
@@ -156,34 +157,38 @@ func (c *Container) CalcChildsBounds() {
 	SimpleBoxModelCalcChildsBounds(c)
 }
 
-func (c *Container) PaintTree() {
-	c.paint()
+func (c *Container) paint() {
+	c.needPaint = false
+	c.childNeedsPaint = false
+	if c.PaintFunc != nil {
+		c.PaintFunc()
+	}
 	var wg sync.WaitGroup
 	for child := c.FirstChild; child != nil; child = child.NextSibling {
 		wg.Add(1)
 		go func(child *Container) {
 			defer wg.Done()
-			child.PaintTree()
+			child.paint()
 		}(child)
 	}
 	wg.Wait()
 }
-func (c *Container) PaintTreeIfNeeded(fn func(*Container)) {
+func (c *Container) PaintIfNeeded(cb func(*image.Rectangle)) {
 	if c.needPaint {
-		c.PaintTree()
-		fn(c) // call on top of the tree container being drawn
-		return
-	}
-	for child := c.FirstChild; child != nil; child = child.NextSibling {
-		child.PaintTreeIfNeeded(fn)
-	}
-}
-func (c *Container) paint() {
-	c.needPaint = false
-	if c.PaintFunc != nil {
-		c.PaintFunc()
+		c.paint()
+		cb(&c.Bounds) // section that needs update
+	} else if c.childNeedsPaint {
+		c.childNeedsPaint = false
+		for child := c.FirstChild; child != nil; child = child.NextSibling {
+			child.PaintIfNeeded(cb)
+		}
 	}
 }
+
 func (c *Container) NeedPaint() {
 	c.needPaint = true
+	// set flag in parents
+	for c2 := c.Parent; c2 != nil; c2 = c2.Parent {
+		c2.childNeedsPaint = true
+	}
 }

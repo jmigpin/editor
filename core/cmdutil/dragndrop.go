@@ -26,11 +26,11 @@ type dndHandler struct {
 	ed Editorer
 }
 
-func (h *dndHandler) onError(ev0 xgbutil.EREvent) {
+func (h *dndHandler) onError(ev0 interface{}) {
 	err := ev0.(error)
 	h.ed.Error(err)
 }
-func (h *dndHandler) onPosition(ev0 xgbutil.EREvent) {
+func (h *dndHandler) onPosition(ev0 interface{}) {
 	ev := ev0.(*dragndrop.PositionEvent)
 	// dnd position must receive a reply
 	action, ok := h.onPosition2(ev)
@@ -77,7 +77,7 @@ func (h *dndHandler) columnAtPoint(p *image.Point) (*ui.Column, bool) {
 	}
 	return nil, false
 }
-func (h *dndHandler) onDrop(ev0 xgbutil.EREvent) {
+func (h *dndHandler) onDrop(ev0 interface{}) {
 	// the drop event needs to send and then receive an event - to receive that event, the main eventloop can't be blocking with this procedure
 	go func() {
 		ev := ev0.(*dragndrop.DropEvent)
@@ -88,7 +88,7 @@ func (h *dndHandler) onDrop(ev0 xgbutil.EREvent) {
 		} else {
 			ev.ReplyAccepted()
 			// running on goroutine, must request paint
-			h.ed.UI().RequestTreePaint()
+			h.ed.UI().RequestPaint()
 		}
 	}()
 }

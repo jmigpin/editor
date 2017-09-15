@@ -22,7 +22,7 @@ func http(erow cmdutil.ERower, s string) bool {
 		if err != nil {
 			ed := erow.Ed()
 			ed.Error(err)
-			ed.UI().RequestTreePaint()
+			ed.UI().RequestPaint()
 		}
 	}()
 	return true

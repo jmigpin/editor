@@ -43,7 +43,7 @@ func (wmp *WMP) setupWindowProperty() error {
 		data)
 	return cookie.Check()
 }
-func (wmp *WMP) onClientMessage(ev0 xgbutil.EREvent) {
+func (wmp *WMP) onClientMessage(ev0 interface{}) {
 	ev := ev0.(xproto.ClientMessageEvent)
 	if ev.Type != atoms.WM_PROTOCOLS {
 		return

@@ -29,7 +29,7 @@ func NewCursorMan(ui *UI) *CursorMan {
 
 	return cm
 }
-func (cm *CursorMan) onMotionNotify(ev0 xgbutil.EREvent) {
+func (cm *CursorMan) onMotionNotify(ev0 interface{}) {
 	ev := ev0.(*xinput.MotionNotifyEvent)
 
 	// always calc free cursor to have it ready when the fixed cursor gets unsed

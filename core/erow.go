@@ -42,17 +42,17 @@ func (erow *ERow) initHandlers() {
 	ed := erow.ed
 	// toolbar set str
 	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			erow.parseToolbar()
 		}})
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			ToolbarCmdFromRow(erow)
 		}})
 	// textarea set str
 	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			// edited
 			_, fi, err := erow.FileInfo()
 			if err == nil && !fi.IsDir() {
@@ -61,18 +61,18 @@ func (erow *ERow) initHandlers() {
 		}})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			contentcmd.Cmd(erow)
 		}})
 	// textarea error
 	row.TextArea.EvReg.Add(ui.TextAreaErrorEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			err := ev0.(error)
 			ed.Error(err)
 		}})
 	// close
 	row.EvReg.Add(ui.RowCloseEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			cmdutil.RowCtxCancel(row)
 			ed.reopenRow.Add(row)
 			erow.ed.fw.Remove(erow)

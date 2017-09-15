@@ -37,7 +37,7 @@ func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (
 
 	if evReg != nil {
 		evReg.Add(xproto.SelectionNotify,
-			&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			&xgbutil.ERCallback{func(ev0 interface{}) {
 				ev := ev0.(xproto.SelectionNotifyEvent)
 				p.OnSelectionNotify(&ev)
 			}})

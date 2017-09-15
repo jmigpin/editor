@@ -97,7 +97,7 @@ func (col *Column) fixFirstRowSeparatorAndSquare() {
 	}
 }
 
-func (col *Column) onSquareButtonPress(ev0 xgbutil.EREvent) {
+func (col *Column) onSquareButtonPress(ev0 interface{}) {
 	ev := ev0.(*SquareButtonPressEvent)
 	ui := col.Cols.Layout.UI
 	switch {
@@ -105,7 +105,7 @@ func (col *Column) onSquareButtonPress(ev0 xgbutil.EREvent) {
 		ui.CursorMan.SetCursor(xcursor.Fleur)
 	}
 }
-func (col *Column) onSquareButtonRelease(ev0 xgbutil.EREvent) {
+func (col *Column) onSquareButtonRelease(ev0 interface{}) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	ui := col.Cols.Layout.UI
 	ui.CursorMan.UnsetCursor()
@@ -119,7 +119,7 @@ func (col *Column) onSquareButtonRelease(ev0 xgbutil.EREvent) {
 		}
 	}
 }
-func (col *Column) onSquareMotionNotify(ev0 xgbutil.EREvent) {
+func (col *Column) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
 	case ev.Mods.IsButton(3):

@@ -66,7 +66,7 @@ func (dnd *Dnd) ClearTmp() {
 	dnd.tmp.dropEvent = nil
 }
 
-func (dnd *Dnd) onClientMessage(ev0 xgbutil.EREvent) {
+func (dnd *Dnd) onClientMessage(ev0 interface{}) {
 	ev := ev0.(xproto.ClientMessageEvent)
 	err := dnd.onClientMessage2(&ev)
 	if err != nil {
@@ -188,7 +188,7 @@ func (dnd *Dnd) sendEvent(cme *xproto.ClientMessageEvent) {
 }
 
 // Called after a request for data.
-func (dnd *Dnd) onSelectionNotify(ev0 xgbutil.EREvent) {
+func (dnd *Dnd) onSelectionNotify(ev0 interface{}) {
 	ev := ev0.(xproto.SelectionNotifyEvent)
 	if dnd.tmp.dropEvent != nil {
 		// safe to defer clear tmp variable after onselectionnotify since the dropEvent has the data

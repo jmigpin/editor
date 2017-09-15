@@ -8,7 +8,6 @@ import (
 
 	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/imageutil"
-	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
 
@@ -29,29 +28,30 @@ type UI struct {
 	Layout    *Layout
 	fface1    *drawutil.Face
 	CursorMan *CursorMan
-	EvReg     *xgbutil.EventRegister
+
+	EvReg  *xgbutil.EventRegister
+	Events chan interface{}
 }
 
 func NewUI(fface *drawutil.Face) (*UI, error) {
 	ui := &UI{
 		fface1: fface,
+		Events: make(chan interface{}, 50),
+		EvReg:  xgbutil.NewEventRegister(),
 	}
 
-	win, err := NewWindow()
+	win, err := NewWindow(ui.EvReg, ui.Events)
 	if err != nil {
 		return nil, err
 	}
 	ui.win = win
-	ui.EvReg = ui.win.EvReg
 
 	ui.CursorMan = NewCursorMan(ui)
 
 	ui.Layout = NewLayout(ui)
 
-	ui.win.EvReg.Add(xproto.Expose,
+	ui.EvReg.Add(xproto.Expose,
 		&xgbutil.ERCallback{ui.onExpose})
-	ui.win.EvReg.Add(xgbutil.QueueEmptyEventId,
-		&xgbutil.ERCallback{ui.onQueueEmpty})
 
 	ui.EvReg.Add(UITextAreaAppendEventId,
 		&xgbutil.ERCallback{ui.onTextAreaAppend})
@@ -60,24 +60,15 @@ func NewUI(fface *drawutil.Face) (*UI, error) {
 }
 func (ui *UI) Close() {
 	ui.win.Close()
+	close(ui.Events)
 }
-func (ui *UI) EventLoop() {
-	ui.win.RunEventLoop()
+
+func (ui *UI) onExpose(ev0 interface{}) {
+	ui.UpdateImageSize()
+	ui.Layout.C.NeedPaint()
 }
-func (ui *UI) onExpose(ev0 xgbutil.EREvent) {
-	ev := ev0.(xproto.ExposeEvent)
 
-	// number of expose events to come
-	if ev.Count > 0 {
-		//// repaint just the exposed area
-		//x0, y0 := int(ev.X), int(ev.Y)
-		//x1, y1 := x0+int(ev.Width), y0+int(ev.Height)
-		//r := image.Rect(x0, y0, x1, y1)
-		//ui.PutImage(&r)
-
-		return // wait for expose with count 0
-	}
-
+func (ui *UI) UpdateImageSize() {
 	err := ui.win.UpdateImageSize()
 	if err != nil {
 		log.Println(err)
@@ -86,24 +77,25 @@ func (ui *UI) onExpose(ev0 xgbutil.EREvent) {
 		if !ui.Layout.C.Bounds.Eq(ib) {
 			ui.Layout.C.Bounds = ib
 			ui.Layout.C.CalcChildsBounds()
+			ui.Layout.C.NeedPaint()
 		}
 	}
-
-	ui.Layout.C.NeedPaint()
 }
 
-func (ui *UI) onQueueEmpty(ev xgbutil.EREvent) {
-	// paint after all events have been handled
-	ui.Layout.C.PaintTreeIfNeeded(func(c *uiutil.Container) {
-		// paint only the top container of the needed area
-		ui.win.PutImage(&c.Bounds)
+func (ui *UI) PaintIfNeeded() {
+	ui.Layout.C.PaintIfNeeded(func(r *image.Rectangle) {
+		ui.win.PutImage(r)
 	})
 }
 
-// Send paint request to the main event loop.
-// Usefull for async methods that need to be painted.
-func (ui *UI) RequestTreePaint() {
-	ui.win.EventLoop.EnqueueQEmptyEventIfConnQEmpty()
+//func (ui *UI) Paint() {
+//ui.win.PutImage(&ui.Layout.C.Bounds)
+//}
+
+func (ui *UI) RequestPaint() {
+	go func() {
+		ui.Events <- xgbutil.NoOpEventId
+	}()
 }
 
 func (ui *UI) Image() draw.Image {
@@ -175,15 +167,17 @@ func (ui *UI) SetClipboardCopy(v string) {
 }
 
 func (ui *UI) TextAreaAppendAsync(ta *TextArea, str string) {
-	// run in go routine so it can be called from the ui thread as well, otherwise it will block
+	// run concurrently so it can be called from the ui thread as well, otherwise it can block
 	go func() {
-		ev := &UITextAreaAppendEvent{ta, str}
-		ui.win.EventLoop.Enqueue(UITextAreaAppendEventId, ev)
-		// TODO: enforcing a nil event at end to have a draw - should not be needed with a node that triggers need paint at root
-		ui.win.EventLoop.Enqueue(xgbutil.QueueEmptyEventId, nil)
+		ev := &xgbutil.EREventData{
+			UITextAreaAppendEventId,
+			&UITextAreaAppendEvent{ta, str},
+		}
+		ui.Events <- ev
 	}()
 }
-func (ui *UI) onTextAreaAppend(ev0 xgbutil.EREvent) {
+
+func (ui *UI) onTextAreaAppend(ev0 interface{}) {
 	ev := ev0.(*UITextAreaAppendEvent)
 	ui.textAreaAppend(ev.TextArea, ev.Str)
 }

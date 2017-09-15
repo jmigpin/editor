@@ -85,7 +85,7 @@ func (sq *Square) paint() {
 	//sq.ui.FillRectangle(&r2, &SquareNotExistColor)
 	//}
 }
-func (sq *Square) onButtonPress(ev0 xgbutil.EREvent) {
+func (sq *Square) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(sq.C.Bounds) {
 		return
@@ -97,7 +97,7 @@ func (sq *Square) onButtonPress(ev0 xgbutil.EREvent) {
 	ev2 := &SquareButtonPressEvent{sq, ev.Button, ev.Point}
 	sq.EvReg.Emit(SquareButtonPressEventId, ev2)
 }
-func (sq *Square) onButtonRelease(ev0 xgbutil.EREvent) {
+func (sq *Square) onButtonRelease(ev0 interface{}) {
 	if !sq.buttonPressed {
 		return
 	}
@@ -106,7 +106,7 @@ func (sq *Square) onButtonRelease(ev0 xgbutil.EREvent) {
 	ev2 := &SquareButtonReleaseEvent{sq, ev.Button, ev.Point}
 	sq.EvReg.Emit(SquareButtonReleaseEventId, ev2)
 }
-func (sq *Square) onMotionNotify(ev0 xgbutil.EREvent) {
+func (sq *Square) onMotionNotify(ev0 interface{}) {
 	if !sq.buttonPressed {
 		return
 	}

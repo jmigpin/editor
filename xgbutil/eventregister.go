@@ -38,7 +38,7 @@ func (er *EventRegister) Remove(evId int, cb *ERCallback) {
 		}
 	}
 }
-func (er *EventRegister) Emit(evId int, ev EREvent) {
+func (er *EventRegister) Emit(evId int, ev interface{}) {
 	u, ok := er.m[evId]
 	if !ok {
 		//log.Printf("unhandled event id: %v, %#v", evId, ev)
@@ -49,9 +49,8 @@ func (er *EventRegister) Emit(evId int, ev EREvent) {
 	}
 }
 
-type EREvent interface{} // TODO: remove, and use interface{}
 type ERCallback struct {
-	F func(EREvent)
+	F func(interface{})
 }
 
 type ERRegist struct {
@@ -76,4 +75,10 @@ func (d *EventDeregister) UnregisterAll() {
 		e.Unregister()
 	}
 	d.v = []*ERRegist{}
+}
+
+// util to use in event channels
+type EREventData struct {
+	EventId int
+	Event   interface{}
 }

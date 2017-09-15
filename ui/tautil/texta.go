@@ -35,7 +35,7 @@ type Texta interface {
 	IndexPoint(int) *fixed.Point26_6
 	PointIndex(*fixed.Point26_6) int
 
-	RequestTreePaint()
+	RequestPaint()
 
 	RequestPrimaryPaste() (string, error)
 	RequestClipboardPaste() (string, error)

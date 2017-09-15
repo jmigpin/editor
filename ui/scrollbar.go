@@ -40,25 +40,25 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 
 	// textarea set text
 	sb.ta.EvReg.Add(TextAreaSetStrEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
 	// textarea y jump
 	sb.ta.EvReg.Add(TextAreaSetOffsetYEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
 	// textarea bounds change
 	sb.ta.EvReg.Add(TextAreaBoundsChangeEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
 	//// textarea set cursor index
 	//sb.ta.EvReg.Add(TextAreaSetCursorIndexEventId,
-	//&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+	//&xgbutil.ERCallback{func(ev0 interface{}) {
 	//sb.C.NeedPaint()
 	//}})
 
@@ -134,7 +134,7 @@ func (sb *Scrollbar) paint() {
 	//r3 = r3.Intersect(sb.C.Bounds)
 	//sb.ta.ui.FillRectangle(&r3, color.Black)
 }
-func (sb *Scrollbar) onButtonPress(ev0 xgbutil.EREvent) {
+func (sb *Scrollbar) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(sb.C.Bounds) {
 		return
@@ -152,7 +152,7 @@ func (sb *Scrollbar) onButtonPress(ev0 xgbutil.EREvent) {
 		sb.ta.PageDown()
 	}
 }
-func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {
+func (sb *Scrollbar) onMotionNotify(ev0 interface{}) {
 	if !sb.buttonPressed {
 		return
 	}
@@ -164,7 +164,7 @@ func (sb *Scrollbar) onMotionNotify(ev0 xgbutil.EREvent) {
 		sb.C.NeedPaint()
 	}
 }
-func (sb *Scrollbar) onButtonRelease(ev0 xgbutil.EREvent) {
+func (sb *Scrollbar) onButtonRelease(ev0 interface{}) {
 	if !sb.buttonPressed {
 		return
 	}

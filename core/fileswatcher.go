@@ -93,7 +93,6 @@ func (fw *FilesWatcher) handleEvent(ev *fsnotify.FileEvent) {
 	err := fw.handleEvent2(ev)
 	if err != nil {
 		fw.ed.Error(err)
-		fw.ed.UI().RequestTreePaint()
 	}
 }
 func (fw *FilesWatcher) handleEvent2(ev *fsnotify.FileEvent) error {
@@ -116,7 +115,7 @@ func (fw *FilesWatcher) handleEvent2(ev *fsnotify.FileEvent) error {
 		for erow, e := range fw.m.m {
 			if ev.Name == e.fp.name {
 				erow.row.Square.SetValue(ui.SquareDiskChanges, true)
-				erow.ed.UI().RequestTreePaint()
+				erow.ed.UI().RequestPaint()
 			}
 		}
 	}
@@ -137,7 +136,7 @@ func (fw *FilesWatcher) handleEvent2(ev *fsnotify.FileEvent) error {
 		}
 		if ev.Name == e.fp.name {
 			erow.updateFileInfo()
-			erow.ed.UI().RequestTreePaint()
+			erow.ed.UI().RequestPaint()
 		}
 	}
 	return nil

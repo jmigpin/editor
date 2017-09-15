@@ -369,8 +369,8 @@ func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
 	ta.ui.WarpPointer(&p3)
 }
 
-func (ta *TextArea) RequestTreePaint() {
-	ta.ui.RequestTreePaint()
+func (ta *TextArea) RequestPaint() {
+	ta.ui.RequestPaint()
 }
 func (ta *TextArea) RequestPrimaryPaste() (string, error) {
 	return ta.ui.RequestPrimaryPaste()
@@ -405,7 +405,7 @@ func (ta *TextArea) PageDown() {
 	tautil.PageDown(ta)
 }
 
-func (ta *TextArea) onDoubleClick(ev0 xgbutil.EREvent) {
+func (ta *TextArea) onDoubleClick(ev0 interface{}) {
 	ev := ev0.(*xinput.DoubleClickEvent)
 	if !ev.Point.In(ta.C.Bounds) {
 		return
@@ -415,7 +415,7 @@ func (ta *TextArea) onDoubleClick(ev0 xgbutil.EREvent) {
 		tautil.SelectWord(ta)
 	}
 }
-func (ta *TextArea) onTripleClick(ev0 xgbutil.EREvent) {
+func (ta *TextArea) onTripleClick(ev0 interface{}) {
 	ev := ev0.(*xinput.TripleClickEvent)
 	if !ev.Point.In(ta.C.Bounds) {
 		return
@@ -426,7 +426,7 @@ func (ta *TextArea) onTripleClick(ev0 xgbutil.EREvent) {
 	}
 }
 
-func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
+func (ta *TextArea) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(ta.C.Bounds) {
 		return
@@ -454,7 +454,7 @@ func (ta *TextArea) onButtonPress(ev0 xgbutil.EREvent) {
 		}
 	}
 }
-func (ta *TextArea) onMotionNotify(ev0 xgbutil.EREvent) {
+func (ta *TextArea) onMotionNotify(ev0 interface{}) {
 	if !ta.buttonPressed {
 		return
 	}
@@ -463,7 +463,7 @@ func (ta *TextArea) onMotionNotify(ev0 xgbutil.EREvent) {
 		tautil.MoveCursorToPoint(ta, ev.Point, true)
 	}
 }
-func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
+func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 	if !ta.buttonPressed {
 		return
 	}
@@ -491,7 +491,7 @@ func (ta *TextArea) onButtonRelease(ev0 xgbutil.EREvent) {
 		}
 	}
 }
-func (ta *TextArea) onKeyPress(ev0 xgbutil.EREvent) {
+func (ta *TextArea) onKeyPress(ev0 interface{}) {
 	ev := ev0.(*xinput.KeyPressEvent)
 	if !ev.Point.In(ta.C.Bounds) {
 		return

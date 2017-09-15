@@ -43,21 +43,21 @@ func NewXInput(conn *xgb.Conn, evReg *xgbutil.EventRegister) (*XInput, error) {
 
 	return xi, nil
 }
-func (xi *XInput) onEvRegKeyPress(ev0 xgbutil.EREvent) {
+func (xi *XInput) onEvRegKeyPress(ev0 interface{}) {
 	ev := ev0.(xproto.KeyPressEvent)
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	k := NewKey(xi.km, ev.Detail, ev.State)
 	ev2 := &KeyPressEvent{p, k}
 	xi.evReg.Emit(KeyPressEventId, ev2)
 }
-func (xi *XInput) onEvRegKeyRelease(ev0 xgbutil.EREvent) {
+func (xi *XInput) onEvRegKeyRelease(ev0 interface{}) {
 	ev := ev0.(xproto.KeyReleaseEvent)
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	k := NewKey(xi.km, ev.Detail, ev.State)
 	ev2 := &KeyReleaseEvent{p, k}
 	xi.evReg.Emit(KeyReleaseEventId, ev2)
 }
-func (xi *XInput) onEvRegButtonPress(ev0 xgbutil.EREvent) {
+func (xi *XInput) onEvRegButtonPress(ev0 interface{}) {
 	ev := ev0.(xproto.ButtonPressEvent)
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	b := NewButton(xi.km, ev.Detail, ev.State)
@@ -107,14 +107,14 @@ func (xi *XInput) onEvRegButtonPress(ev0 xgbutil.EREvent) {
 	ev2 := &ButtonPressEvent{p, b}
 	xi.evReg.Emit(ButtonPressEventId, ev2)
 }
-func (xi *XInput) onEvRegButtonRelease(ev xgbutil.EREvent) {
+func (xi *XInput) onEvRegButtonRelease(ev interface{}) {
 	ev0 := ev.(xproto.ButtonReleaseEvent)
 	p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
 	b := NewButton(xi.km, ev0.Detail, ev0.State)
 	ev2 := &ButtonReleaseEvent{p, b}
 	xi.evReg.Emit(ButtonReleaseEventId, ev2)
 }
-func (xi *XInput) onEvRegMotionNotify(ev xgbutil.EREvent) {
+func (xi *XInput) onEvRegMotionNotify(ev interface{}) {
 	ev0 := ev.(xproto.MotionNotifyEvent)
 	p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
 	m := Modifiers(ev0.State)

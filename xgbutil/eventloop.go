@@ -81,7 +81,7 @@ func (el *EventLoop) EnqueueQEmptyEventIfConnQEmpty() {
 	}
 }
 
-func (el *EventLoop) Enqueue(eid int, ev EREvent) {
+func (el *EventLoop) Enqueue(eid int, ev interface{}) {
 	el.extQ <- &ELQEvent{eid, ev}
 }
 
@@ -91,12 +91,13 @@ func (el *EventLoop) Close() {
 
 type ELQEvent struct { // event loop q event
 	EventId int
-	Event   EREvent
+	Event   interface{}
 }
 
 const (
 	UnknownEventId = 1000 + iota // avoid clash with xproto
 	XErrorEventId
+	NoOpEventId
 	ConnectionClosedEventId
 	QueueEmptyEventId
 	// others (just a note)

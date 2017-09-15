@@ -19,21 +19,23 @@ import (
 )
 
 type Window struct {
-	Conn         *xgb.Conn
-	Window       xproto.Window
-	Screen       *xproto.ScreenInfo
-	GCtx         xproto.Gcontext
-	EvReg        *xgbutil.EventRegister
+	Conn   *xgb.Conn
+	Window xproto.Window
+	Screen *xproto.ScreenInfo
+	GCtx   xproto.Gcontext
+
+	evReg  *xgbutil.EventRegister
+	events chan interface{}
+
 	Dnd          *dragndrop.Dnd
 	Paste        *copypaste.Paste
 	Copy         *copypaste.Copy
 	Cursors      *xcursors.Cursors
 	XInput       *xinput.XInput
 	ShmImageWrap *shmimage.ShmImageWrap
-	EventLoop    *xgbutil.EventLoop
 }
 
-func NewWindow() (*Window, error) {
+func NewWindow(evReg *xgbutil.EventRegister, events chan interface{}) (*Window, error) {
 	conn, err := xgb.NewConn()
 	if err != nil {
 		if runtime.GOOS == "darwin" {
@@ -44,12 +46,16 @@ func NewWindow() (*Window, error) {
 		return nil, err2
 	}
 	win := &Window{
-		Conn:  conn,
-		EvReg: xgbutil.NewEventRegister(),
+		Conn:   conn,
+		evReg:  evReg,
+		events: events,
 	}
 	if err := win.init(); err != nil {
 		return nil, errors.Wrap(err, "win init")
 	}
+
+	go win.eventLoop()
+
 	return win, nil
 }
 func (win *Window) init() error {
@@ -67,7 +73,7 @@ func (win *Window) init() error {
 
 	// mask/values order is defined by the protocol
 	mask := uint32(
-		//xproto.CwBackPixel|
+		//xproto.CwBackPixel |
 		xproto.CwEventMask,
 	)
 	values := []uint32{
@@ -110,25 +116,25 @@ func (win *Window) init() error {
 	var gvalues []uint32
 	_ = xproto.CreateGC(win.Conn, win.GCtx, drawable, gmask, gvalues)
 
-	xi, err := xinput.NewXInput(win.Conn, win.EvReg)
+	xi, err := xinput.NewXInput(win.Conn, win.evReg)
 	if err != nil {
 		return err
 	}
 	win.XInput = xi
 
-	dnd, err := dragndrop.NewDnd(win.Conn, win.Window, win.EvReg)
+	dnd, err := dragndrop.NewDnd(win.Conn, win.Window, win.evReg)
 	if err != nil {
 		return err
 	}
 	win.Dnd = dnd
 
-	paste, err := copypaste.NewPaste(win.Conn, win.Window, win.EvReg)
+	paste, err := copypaste.NewPaste(win.Conn, win.Window, win.evReg)
 	if err != nil {
 		return err
 	}
 	win.Paste = paste
 
-	copy, err := copypaste.NewCopy(win.Conn, win.Window, win.EvReg)
+	copy, err := copypaste.NewCopy(win.Conn, win.Window, win.evReg)
 	if err != nil {
 		return err
 	}
@@ -146,14 +152,14 @@ func (win *Window) init() error {
 	}
 	win.ShmImageWrap = shmImageWrap
 
-	_, err = wmprotocols.NewWMP(win.Conn, win.Window, win.EvReg)
+	_, err = wmprotocols.NewWMP(win.Conn, win.Window, win.evReg)
 	if err != nil {
 		return err
 	}
 
 	// crash test
-	//win.EvReg.Add(xproto.MotionNotify,
-	//&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+	//win.evReg.Add(xproto.MotionNotify,
+	//&xgbutil.ERCallback{func(ev0 interface{}) {
 	//log.Println("motion")
 	////xproto.QueryPointer(win.Conn, win.Window)
 	//}})
@@ -162,20 +168,40 @@ func (win *Window) init() error {
 
 	return nil
 }
-func (win *Window) RunEventLoop() {
-	win.EventLoop = xgbutil.NewEventLoop()
-	win.EventLoop.Run(win.Conn, win.EvReg)
 
-	// Close after event loop exit
+func (win *Window) eventLoop() {
+	// can't force getting out of this loop (on win.close)
+	// since the conn (xgb) doesn't expose a channel
+
+	for {
+
+		ev, xerr := win.Conn.PollForEvent()
+		if ev == nil && xerr == nil {
+			win.events <- xgbutil.QueueEmptyEventId
+
+			ev, xerr = win.Conn.WaitForEvent()
+			if ev == nil && xerr == nil {
+				win.events <- xgbutil.ConnectionClosedEventId
+				goto forEnd
+			}
+		}
+		if xerr != nil {
+			win.events <- xerr
+		} else if ev != nil {
+			win.events <- ev
+		}
+	}
+forEnd:
+}
+
+func (win *Window) Close() {
 	err := win.ShmImageWrap.Close()
 	if err != nil {
 		log.Println(err)
 	}
 	win.Conn.Close()
 }
-func (win *Window) Close() {
-	win.EventLoop.Close()
-}
+
 func (win *Window) SetWindowName(str string) {
 	b := []byte(str)
 	_ = xproto.ChangeProperty(

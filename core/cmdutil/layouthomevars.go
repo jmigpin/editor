@@ -10,7 +10,7 @@ import (
 
 func SetupLayoutHomeVars(ed Editorer) {
 	ed.UI().Layout.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
-		&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+		&xgbutil.ERCallback{func(ev0 interface{}) {
 			ev := ev0.(*ui.TextAreaSetStrEvent)
 			updateHomeVars(ed, ev)
 		}})

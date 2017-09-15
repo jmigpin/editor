@@ -16,6 +16,6 @@ func pasteFn(ta Texta, fn func() (string, error)) {
 		}
 		InsertString(ta, str)
 		// inside a goroutine, need to request paint
-		ta.RequestTreePaint()
+		ta.RequestPaint()
 	}()
 }

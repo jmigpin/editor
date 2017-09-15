@@ -109,6 +109,6 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 		// indicate the cmd is not running anymore
 		row.Square.SetValue(ui.SquareExecuting, false)
 		row.Square.SetValue(ui.SquareEdited, false)
-		row.Col.Cols.Layout.UI.RequestTreePaint()
+		row.Col.Cols.Layout.UI.RequestPaint()
 	})
 }

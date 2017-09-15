@@ -36,12 +36,12 @@ func NewCopy(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*
 
 	if evReg != nil {
 		evReg.Add(xproto.SelectionRequest,
-			&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			&xgbutil.ERCallback{func(ev0 interface{}) {
 				ev := ev0.(xproto.SelectionRequestEvent)
 				c.OnSelectionRequest(&ev)
 			}})
 		evReg.Add(xproto.SelectionClear,
-			&xgbutil.ERCallback{func(ev0 xgbutil.EREvent) {
+			&xgbutil.ERCallback{func(ev0 interface{}) {
 				ev := ev0.(xproto.SelectionClearEvent)
 				c.OnSelectionClear(&ev)
 			}})

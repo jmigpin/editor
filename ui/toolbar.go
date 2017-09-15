@@ -22,7 +22,7 @@ func NewToolbar(ui *UI, parentC *uiutil.Container) *Toolbar {
 
 	return tb
 }
-func (tb *Toolbar) onTextAreaSetStr(ev0 xgbutil.EREvent) {
+func (tb *Toolbar) onTextAreaSetStr(ev0 interface{}) {
 	ev := ev0.(*TextAreaSetStrEvent)
 
 	// dynamic toolbar bounds

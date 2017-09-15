@@ -90,7 +90,7 @@ func (row *Row) Close() {
 	row.Square.Close()
 	row.EvReg.Emit(RowCloseEventId, &RowCloseEvent{row})
 }
-func (row *Row) onSquareButtonPress(ev0 xgbutil.EREvent) {
+func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	ev := ev0.(*SquareButtonPressEvent)
 	ui := row.Col.Cols.Layout.UI
 	switch {
@@ -102,7 +102,7 @@ func (row *Row) onSquareButtonPress(ev0 xgbutil.EREvent) {
 		ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
 	}
 }
-func (row *Row) onSquareButtonRelease(ev0 xgbutil.EREvent) {
+func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 	ui := row.Col.Cols.Layout.UI
 	ui.CursorMan.UnsetCursor()
 
@@ -121,7 +121,7 @@ func (row *Row) onSquareButtonRelease(ev0 xgbutil.EREvent) {
 		}
 	}
 }
-func (row *Row) onSquareMotionNotify(ev0 xgbutil.EREvent) {
+func (row *Row) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
 	case ev.Mods.IsButton(3):
@@ -130,7 +130,7 @@ func (row *Row) onSquareMotionNotify(ev0 xgbutil.EREvent) {
 		col.Cols.resizeColumn(col, p2.X)
 	}
 }
-func (row *Row) onKeyPress(ev0 xgbutil.EREvent) {
+func (row *Row) onKeyPress(ev0 interface{}) {
 	ev := ev0.(*xinput.KeyPressEvent)
 	if !ev.Point.In(row.C.Bounds) {
 		return
@@ -139,14 +139,14 @@ func (row *Row) onKeyPress(ev0 xgbutil.EREvent) {
 	ev2 := &RowKeyPressEvent{row, ev.Key}
 	row.EvReg.Emit(RowKeyPressEventId, ev2)
 }
-func (row *Row) onButtonPress(ev0 xgbutil.EREvent) {
+func (row *Row) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(row.C.Bounds) {
 		return
 	}
 	row.buttonPressed = true
 }
-func (row *Row) onButtonRelease(ev0 xgbutil.EREvent) {
+func (row *Row) onButtonRelease(ev0 interface{}) {
 	if !row.buttonPressed {
 		return
 	}
