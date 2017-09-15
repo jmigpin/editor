@@ -145,6 +145,11 @@ func (bm *SimpleBoxModel) endPercentDistribution(c *Container) {
 	mainSize := me - ms
 	mainEnds := make(map[*Container]int, c.NChilds)
 
+	min := 20 // mim for calculations, all values trimmed to parent bounds at end
+	if mainSize < min {
+		mainSize = min
+	}
+
 	setEndPercentFromMainEnd := func(c2 *Container) {
 		me := mainEnds[c2]
 		ep := float64(me) / float64(mainSize)
@@ -233,52 +238,7 @@ func SwapEndPercents(a, b *Container) {
 
 	bep2 := start + (**bep - **aep)
 	*aep, *bep = *bep, &bep2
-
-	//fmt.Printf("new ep: %f %f\n", **aep, **bep)
 }
-
-//func (bm *SimpleBoxModel) SwapEndPercents__(c1, c2 *Container) {
-//if c1 == c2 {
-//return
-//}
-//if c1.Parent != c2.Parent {
-//panic("containers are not siblings")
-//}
-
-//swapEndPercents := func(a, b *Container) {
-//aep := &a.Style.EndPercent
-//bep := &b.Style.EndPercent
-//*aep, *bep = *bep, *aep
-
-////start := 0.0
-////c := a.PrevSibling
-////if c != nil {
-////start = *c.Style.EndPercent
-////}
-
-////bep2 := start + (**bep - **aep)
-////*aep, *bep = *bep, &bep2
-//}
-
-//toRight := c1.IsAPrevSiblingOf(c2)
-//toLeft := c1.IsANextSiblingOf(c2)
-//if toLeft == toRight {
-//panic("left=right")
-//}
-
-//if toRight {
-//println("looping")
-//for c := c1; c.NextSibling != nil && c.PrevSibling != c2; {
-//swapEndPercents(c, c.NextSibling)
-//c.SwapWithSibling(c.NextSibling)
-//fmt.Printf("current siblings of c: %p %p %p\n", c.PrevSibling, c, c.NextSibling)
-//}
-//} else {
-////for c := c1; c.PrevSibling != nil && c.NextSibling != c2; {
-////swapWithPrev(c)
-////}
-//}
-//}
 
 // Allows setup of start/end depending on a row/column direction
 type StartEnd struct {

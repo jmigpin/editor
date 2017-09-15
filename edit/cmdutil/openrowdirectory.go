@@ -3,6 +3,8 @@ package cmdutil
 import (
 	"os"
 	"path"
+
+	"github.com/jmigpin/editor/ui"
 )
 
 func OpenRowDirectory(erow ERower) {
@@ -21,15 +23,18 @@ func OpenRowDirectory(erow ERower) {
 		return
 	}
 
-	erow2, ok := ed.FindERow(p)
+	next, _ := erow.Row().NextSiblingRow()
+	OpenDirectoryRow(ed, p, erow.Row().Col, next)
+}
+func OpenDirectoryRow(ed Editorer, path string, col *ui.Column, next *ui.Row) {
+	erow, ok := ed.FindERow(path)
 	if !ok {
-		col := erow.Row().Col
-		erow2 = ed.NewERowBeforeRow(p, col, erow.Row())
-		err = erow2.LoadContentClear()
+		erow = ed.NewERowBeforeRow(path, col, next)
+		err := erow.LoadContentClear()
 		if err != nil {
 			erow.Ed().Error(err)
 			return
 		}
 	}
-	erow2.Row().WarpPointer()
+	erow.Row().WarpPointer()
 }

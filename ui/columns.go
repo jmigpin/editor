@@ -17,7 +17,8 @@ func NewColumns(layout *Layout) *Columns {
 	cols.C.PaintFunc = cols.paint
 	cols.C.Style.Distribution = uiutil.EndPercentDistribution
 
-	cols.NewColumn() // ensure column
+	cols.NewColumn() // start with 1 column
+
 	return cols
 }
 func (cols *Columns) paint() {
@@ -63,6 +64,14 @@ func (cols *Columns) fixFirstColSeparator() {
 	}
 }
 
+func (cols *Columns) CloseColumnEnsureOne(col *Column) {
+	col.Close()
+	// ensure one column
+	if cols.C.NChilds == 0 {
+		_ = cols.NewColumn()
+	}
+}
+
 // Used by restore session.
 func (cols *Columns) CloseAllAndOpenN(n int) {
 	// close all columns
@@ -75,17 +84,11 @@ func (cols *Columns) CloseAllAndOpenN(n int) {
 		n = 1
 	}
 	// n new columns
-	for ; n > 0; n-- {
+	for i := 0; i < n; i++ {
 		_ = cols.NewColumn()
 	}
 }
-func (cols *Columns) CloseColumnEnsureOne(col *Column) {
-	col.Close()
-	// ensure one column
-	if cols.C.NChilds == 0 {
-		_ = cols.NewColumn()
-	}
-}
+
 func (cols *Columns) resizeColumn(col *Column, px int) {
 	colsB := col.Cols.C.Bounds
 	ep := float64(px-cols.C.Bounds.Min.X) / float64(colsB.Dx())

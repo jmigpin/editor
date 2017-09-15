@@ -78,7 +78,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	}
 	ed.fw = fw
 
-	// flags: filenames
+	// cmd line filenames to open
 	args := flag.Args()
 	if len(args) > 0 {
 		col, _ := ed.ui.Layout.Cols.FirstChildColumn()
@@ -92,6 +92,14 @@ func NewEditor(opt *Options) (*Editor, error) {
 					continue
 				}
 			}
+		}
+	} else {
+		// start with 2 colums and a current directory row on 2nd column
+		cols := ed.ui.Layout.Cols
+		_ = cols.NewColumn()
+		col, ok := cols.LastChildColumn()
+		if ok {
+			cmdutil.OpenDirectoryRow(ed, ".", col, nil)
 		}
 	}
 
