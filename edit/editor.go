@@ -28,6 +28,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
 		erows: make(map[*ui.Row]*ERow),
 	}
+
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
 	fface, err := ed.getFontFace(opt)
@@ -40,6 +41,11 @@ func NewEditor(opt *Options) (*Editor, error) {
 		return nil, err
 	}
 	ed.ui = ui0
+
+	if opt.AcmeColors {
+		ui.AcmeColors()
+	}
+	ui.SetScrollbarWidth(opt.ScrollbarWidth)
 
 	// close editor when the window is deleted
 	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId,
@@ -223,7 +229,9 @@ func (ed *Editor) IsSpecialName(s string) bool {
 }
 
 type Options struct {
-	FontFilename string
-	FontSize     float64
-	DPI          float64
+	FontFilename   string
+	FontSize       float64
+	DPI            float64
+	ScrollbarWidth int
+	AcmeColors     bool
 }

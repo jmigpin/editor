@@ -30,8 +30,8 @@ var (
 	SquareDiskChangesColor = Red
 	SquareNotExistColor    = Yellow
 
-	ScrollbarFgColor = imageutil.Tint(&Black, 0.70)
-	ScrollbarBgColor = imageutil.Tint(&Black, 0.95)
+	ScrollbarFgColor = color.Color(imageutil.Tint(&Black, 0.70))
+	ScrollbarBgColor = color.Color(imageutil.Tint(&Black, 0.95))
 )
 
 var TextAreaColors = drawutil.Colors{
@@ -45,4 +45,21 @@ var ToolbarColors = drawutil.Colors{
 	Fg:          Black,
 	Bg:          imageutil.Tint(&Black, 0.95),
 	SelectionBg: TextAreaColors.SelectionBg,
+}
+
+func AcmeColors() {
+	TextAreaColors = drawutil.Colors{
+		Fg:          Black,
+		Bg:          color.RGBA{255, 255, 234, 255},
+		SelectionBg: imageutil.Tint(&Yellow, 0.50),
+		HighlightBg: imageutil.Tint(&Blue, 0.70),
+	}
+	ToolbarColors = drawutil.Colors{
+		Fg:          Black,
+		Bg:          color.RGBA{234, 255, 255, 255},
+		SelectionBg: TextAreaColors.SelectionBg,
+	}
+	SquareColor = ToolbarColors.Bg
+	ScrollbarFgColor = color.RGBA{153, 153, 76, 255}
+	ScrollbarBgColor = TextAreaColors.Bg
 }

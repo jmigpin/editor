@@ -108,7 +108,7 @@ func (sb *Scrollbar) setTextareaOffset() {
 
 func (sb *Scrollbar) paint() {
 	// background
-	sb.ta.ui.FillRectangle(&sb.C.Bounds, &ScrollbarBgColor)
+	sb.ta.ui.FillRectangle(&sb.C.Bounds, ScrollbarBgColor)
 	// bar
 	r := sb.C.Bounds
 	size := int(float64(r.Dy()) * sb.bar.sizePercent)
@@ -119,7 +119,7 @@ func (sb *Scrollbar) paint() {
 	r2.Min.Y += int(float64(r.Dy()) * sb.bar.positionPercent)
 	r2.Max.Y = r2.Min.Y + size
 	r2 = r2.Intersect(sb.C.Bounds)
-	sb.ta.ui.FillRectangle(&r2, &ScrollbarFgColor)
+	sb.ta.ui.FillRectangle(&r2, ScrollbarFgColor)
 	sb.bar.bounds = r2
 
 	//// cursor index

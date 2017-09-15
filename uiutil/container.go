@@ -21,7 +21,6 @@ type Container struct {
 	OnCalcFunc func()
 
 	Style Style
-	//BoxModel SimpleBoxModel // TODO: lowercase
 }
 
 func (c *Container) InsertChildBefore(cc, next *Container) {

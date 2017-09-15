@@ -57,6 +57,11 @@ func (sq *Square) paint() {
 	}
 	sq.ui.FillRectangle(&sq.C.Bounds, c)
 
+	// separator
+	r3 := sq.C.Bounds
+	r3.Max.X = r3.Min.X + 1
+	sq.ui.FillRectangle(&r3, RowInnerSeparatorColor)
+
 	// mini-squares
 	r := sq.C.Bounds
 	w := (r.Max.X - r.Min.X) / 2

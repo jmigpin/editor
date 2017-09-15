@@ -16,9 +16,12 @@ import (
 )
 
 const (
-	ScrollbarWidth = 12
-	SquareWidth    = ScrollbarWidth
 	SeparatorWidth = 1
+)
+
+var (
+	ScrollbarWidth = 10
+	SquareWidth    = 10
 )
 
 type UI struct {
@@ -200,4 +203,9 @@ const (
 type UITextAreaAppendEvent struct {
 	TextArea *TextArea
 	Str      string
+}
+
+func SetScrollbarWidth(v int) {
+	ScrollbarWidth = v
+	SquareWidth = v
 }
