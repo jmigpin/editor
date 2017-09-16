@@ -41,6 +41,10 @@ Usage of ./editor:
     	 (default 12)
   -scrollbarwidth int
     	textarea scrollbar width (default 12)
+  -tabwidth int
+    	 (default 8)
+  -wraplinerune int
+    	code for wrap line rune (default 8594)
 ```
 
 ### key/button shortcuts
