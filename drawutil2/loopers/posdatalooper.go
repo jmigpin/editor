@@ -154,6 +154,11 @@ func PosDataGetIndex(p *fixed.Point26_6, strl *StringLooper, looper Looper) int 
 		return strl.Ri
 	}
 	if foundLine {
+		// position at end of string if last line
+		if strl.Ri == len(strl.Str) {
+			return len(strl.Str)
+		}
+
 		return lineRuneIndex
 	}
 	return len(strl.Str)
