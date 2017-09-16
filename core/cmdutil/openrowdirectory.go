@@ -28,6 +28,7 @@ func OpenRowDirectory(ed Editorer) {
 
 	next, _ := erow.Row().NextSiblingRow()
 	OpenDirectoryRow(ed, p, erow.Row().Col, next)
+	erow.Row().WarpPointer()
 }
 func OpenDirectoryRow(ed Editorer, path string, col *ui.Column, next *ui.Row) {
 	erow, ok := ed.FindERow(path)
@@ -39,5 +40,4 @@ func OpenDirectoryRow(ed Editorer, path string, col *ui.Column, next *ui.Row) {
 			return
 		}
 	}
-	erow.Row().WarpPointer()
 }
