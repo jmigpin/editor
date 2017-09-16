@@ -2,7 +2,9 @@ package core
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/contentcmd"
@@ -172,7 +174,7 @@ func (erow *ERow) loadContent(clear bool) error {
 	if err != nil {
 		return err
 	}
-	content, err := filepathContent(fp)
+	content, err := erow.filepathContent(fp)
 	if err != nil {
 		return errors.Wrapf(err, "loadcontent")
 	}
@@ -226,4 +228,31 @@ func (erow *ERow) saveContent2(str string, filename string) error {
 
 func (erow *ERow) TextAreaAppendAsync(str string) {
 	erow.ed.ui.TextAreaAppendAsync(erow.row.TextArea, str)
+}
+
+func (erow *ERow) filepathContent(filepath string) (string, error) {
+	// row special name
+	specialName := len(filepath) >= 1 && filepath[0] == '+'
+	if specialName {
+		return "", nil
+	}
+	// empty
+	empty := strings.TrimSpace(filepath) == ""
+	if empty {
+		return "", nil
+	}
+	// filepath
+	fi, err := os.Stat(filepath)
+	if err != nil {
+		return "", err
+	}
+	if fi.IsDir() {
+		return cmdutil.ListDir(filepath, false, true)
+	}
+	// file content
+	b, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }

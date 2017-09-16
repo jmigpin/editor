@@ -15,6 +15,7 @@ import (
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/drawutil2"
+	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/wmprotocols"
@@ -110,7 +111,6 @@ func NewEditor(opt *Options) (*Editor, error) {
 	}
 
 	go ed.fw.EventLoop()
-	//ed.ui.EventLoop() // blocks
 	ed.eventLoop() // blocks
 
 	return ed, nil
@@ -130,6 +130,8 @@ func (ed *Editor) getFontFace(opt *Options) (font.Face, error) {
 		} else {
 			ttf = ttf2
 		}
+	} else {
+		loopers.WrapLineRune = loopers.GoFontWrapLineRune
 	}
 
 	f, err := truetype.Parse(ttf)
@@ -249,7 +251,6 @@ func (ed *Editor) eventLoop() {
 	var lastPaint time.Time
 	paintIfNeeded := func() {
 		lastPaint = time.Now()
-		//ed.ui.CalcBoundsIfNeeded()
 		ed.ui.PaintIfNeeded()
 	}
 
