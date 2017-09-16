@@ -14,7 +14,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
-	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/drawutil2"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/wmprotocols"
@@ -40,6 +40,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer fface.Close()
 
 	ui0, err := ui.NewUI(fface)
 	if err != nil {
@@ -115,7 +116,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	return ed, nil
 }
 
-func (ed *Editor) getFontFace(opt *Options) (*drawutil.Face, error) {
+func (ed *Editor) getFontFace(opt *Options) (font.Face, error) {
 	// test font
 	// "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
@@ -141,7 +142,7 @@ func (ed *Editor) getFontFace(opt *Options) (*drawutil.Face, error) {
 		Size:    opt.FontSize,
 		DPI:     opt.DPI,
 	}
-	fface := drawutil.NewFace(f, ttOpt)
+	fface := drawutil2.NewFace(f, ttOpt)
 	return fface, nil
 }
 

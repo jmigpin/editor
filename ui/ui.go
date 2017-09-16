@@ -6,7 +6,8 @@ import (
 	"image/draw"
 	"log"
 
-	"github.com/jmigpin/editor/drawutil"
+	"golang.org/x/image/font"
+
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
@@ -26,14 +27,14 @@ var (
 type UI struct {
 	win       *Window
 	Layout    *Layout
-	fface1    *drawutil.Face
+	fface1    font.Face
 	CursorMan *CursorMan
 
 	EvReg  *xgbutil.EventRegister
 	Events chan interface{}
 }
 
-func NewUI(fface *drawutil.Face) (*UI, error) {
+func NewUI(fface font.Face) (*UI, error) {
 	ui := &UI{
 		fface1: fface,
 		Events: make(chan interface{}, 50),
@@ -106,7 +107,7 @@ func (ui *UI) FillRectangle(r *image.Rectangle, c color.Color) {
 }
 
 // Default fontface (used by textarea)
-func (ui *UI) FontFace() *drawutil.Face {
+func (ui *UI) FontFace() font.Face {
 	return ui.fface1
 }
 

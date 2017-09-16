@@ -7,6 +7,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/image/font"
 )
 
 type StringDrawColors struct {
@@ -17,7 +19,7 @@ type StringDrawColors struct {
 	selection *Selection // set externally
 }
 
-func NewStringDrawColors(img draw.Image, rect *image.Rectangle, face *Face, str string, colors *Colors) *StringDrawColors {
+func NewStringDrawColors(img draw.Image, rect *image.Rectangle, face font.Face, str string, colors *Colors) *StringDrawColors {
 	sd := NewStringDraw(img, rect, face, str)
 	return &StringDrawColors{sd: sd, colors: colors}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/drawutil2/hsdrawer"
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
@@ -16,11 +17,14 @@ import (
 )
 
 type TextArea struct {
-	C             uiutil.Container
-	ui            *UI
-	EvReg         *xgbutil.EventRegister
-	dereg         xgbutil.EventDeregister
-	stringCache   *drawutil.StringCache
+	C     uiutil.Container
+	ui    *UI
+	EvReg *xgbutil.EventRegister
+	dereg xgbutil.EventDeregister
+
+	stringCache *drawutil.StringCache
+	hsDrawer    *hsdrawer.HSDrawer
+
 	editHistory   *tautil.EditHistory
 	edit          *tautil.EditHistoryEdit
 	buttonPressed bool
@@ -382,7 +386,7 @@ func (ta *TextArea) SetClipboardCopy(v string) {
 	ta.ui.SetClipboardCopy(v)
 }
 func (ta *TextArea) LineHeight() fixed.Int26_6 {
-	fm := ta.ui.FontFace().Face.Metrics()
+	fm := ta.ui.FontFace().Metrics()
 	return drawutil.LineHeight(&fm)
 }
 func (ta *TextArea) IndexPoint(i int) *fixed.Point26_6 {

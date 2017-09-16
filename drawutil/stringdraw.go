@@ -8,6 +8,7 @@ import (
 
 	"github.com/jmigpin/editor/imageutil"
 
+	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -18,7 +19,7 @@ type StringDraw struct {
 	cursorIndex int // set externally, use <0 to not draw the cursor
 }
 
-func NewStringDraw(img draw.Image, bounds *image.Rectangle, face *Face, str string) *StringDraw {
+func NewStringDraw(img draw.Image, bounds *image.Rectangle, face font.Face, str string) *StringDraw {
 	max0 := bounds.Max.Sub(bounds.Min)
 	max := PointToPoint266(&max0)
 	liner := NewStringLiner(face, str, max)
@@ -57,7 +58,8 @@ func (sd *StringDraw) Loop(fn func() (fg, bg color.Color, ok bool)) {
 		go func(ru rune, pen fixed.Point26_6, fg color.Color) {
 			defer wg.Done()
 			penPoint := Point266ToPoint(&pen)
-			dr, mask, maskp, _, ok := sd.liner.iter.face.Glyph(ru)
+			zero := fixed.Point26_6{}
+			dr, mask, maskp, _, ok := sd.liner.iter.face.Glyph(zero, ru)
 			if ok {
 				dr := dr.Add(sd.bounds.Min).Add(*penPoint)
 				dr2 := dr.Intersect(*sd.bounds)

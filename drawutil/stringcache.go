@@ -6,12 +6,13 @@ import (
 	"image/draw"
 	"sort"
 
+	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
 // Keeps info data every x runes for faster jump to the state of the text.
 type StringCache struct {
-	Face   *Face
+	Face   font.Face
 	str    string
 	width  int
 	height fixed.Int26_6
@@ -29,7 +30,7 @@ type SCRuneData struct {
 	}
 }
 
-func NewStringCache(face *Face) *StringCache {
+func NewStringCache(face font.Face) *StringCache {
 	sc := &StringCache{Face: face}
 
 	// compute with minimal data
@@ -135,7 +136,7 @@ func (sc *StringCache) Draw(
 
 func (sc *StringCache) getRuneDataCloseToPoint(p *fixed.Point26_6) *SCRuneData {
 	// binary search first entry after p
-	fm := sc.Face.Face.Metrics()
+	fm := sc.Face.Metrics()
 	j := sort.Search(len(sc.rdata), func(i int) bool {
 		pen0 := sc.rdata[i].liner.iter.pen
 		ly1 := LineY1(pen0.Y, &fm)

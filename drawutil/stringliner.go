@@ -3,6 +3,7 @@ package drawutil
 import (
 	"unicode"
 
+	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -28,7 +29,7 @@ type StringLinerStates struct {
 	// if ever used, needed for comments/strings states
 }
 
-func NewStringLiner(face *Face, str string, max *fixed.Point26_6) *StringLiner {
+func NewStringLiner(face font.Face, str string, max *fixed.Point26_6) *StringLiner {
 	iter := NewStringIterator(face, str)
 	liner := &StringLiner{iter: iter, max: *max}
 	return liner

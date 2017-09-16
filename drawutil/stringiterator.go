@@ -8,7 +8,7 @@ import (
 const eofRune = rune(0)
 
 type StringIterator struct {
-	face *Face
+	face font.Face
 
 	fm *font.Metrics
 
@@ -18,8 +18,8 @@ type StringIterator struct {
 	pen, penEnd fixed.Point26_6
 }
 
-func NewStringIterator(face *Face, str string) *StringIterator {
-	fm := face.Face.Metrics()
+func NewStringIterator(face font.Face, str string) *StringIterator {
+	fm := face.Metrics()
 	iter := &StringIterator{
 		face: face,
 		fm:   &fm,
