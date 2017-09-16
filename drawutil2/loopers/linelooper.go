@@ -3,17 +3,17 @@ package loopers
 import "golang.org/x/image/math/fixed"
 
 type LineLooper struct {
-	Looper Looper
-	strl   *StringLooper
-	MaxY   fixed.Int26_6
-	Line   int
+	EmbedLooper
+	strl *StringLooper
+	MaxY fixed.Int26_6
+	Line int
 }
 
 func NewLineLooper(strl *StringLooper, maxY fixed.Int26_6) *LineLooper {
 	return &LineLooper{strl: strl, MaxY: maxY}
 }
 func (lpr *LineLooper) Loop(fn func() bool) {
-	lpr.Looper.Loop(func() bool {
+	lpr.OuterLooper().Loop(func() bool {
 		pb := lpr.strl.PenBounds()
 		if pb.Min.Y >= lpr.MaxY {
 			return false

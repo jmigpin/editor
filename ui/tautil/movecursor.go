@@ -4,14 +4,14 @@ import (
 	"image"
 	"strings"
 
-	"github.com/jmigpin/editor/drawutil"
+	"golang.org/x/image/math/fixed"
 )
 
 func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
 	p2 := p.Sub(ta.Bounds().Min)
-	p3 := drawutil.PointToPoint266(&p2)
+	p3 := fixed.P(p2.X, p2.Y)
 	p3.Y += ta.OffsetY()
-	i := ta.PointIndex(p3)
+	i := ta.PointIndex(&p3)
 	updateSelection(ta, sel, i)
 }
 

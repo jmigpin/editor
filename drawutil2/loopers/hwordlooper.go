@@ -8,11 +8,11 @@ import (
 )
 
 type HWordLooper struct {
-	Looper Looper
-	strl   *StringLooper
-	bgl    *BgLooper
-	dl     *DrawLooper
-	sl     *SelectionLooper
+	EmbedLooper
+	strl *StringLooper
+	bgl  *BgLooper
+	dl   *DrawLooper
+	sl   *SelectionLooper
 
 	WordIndex int
 	Fg, Bg    color.Color
@@ -43,9 +43,11 @@ func (lpr *HWordLooper) Loop(fn func() bool) {
 		lpr.hword.on = ok
 		lpr.hword.word = word
 	}
-	lpr.Looper.Loop(func() bool {
+	lpr.OuterLooper().Loop(func() bool {
 		if lpr.colorize() {
-			lpr.dl.Fg = lpr.Fg
+			if lpr.Fg != nil {
+				lpr.dl.Fg = lpr.Fg
+			}
 			lpr.bgl.Bg = lpr.Bg
 		}
 		return fn()

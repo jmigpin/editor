@@ -3,7 +3,7 @@ package ui
 import (
 	"image/color"
 
-	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/drawutil2/hsdrawer"
 	"github.com/jmigpin/editor/imageutil"
 )
 
@@ -23,7 +23,7 @@ var (
 
 	RowInnerSeparatorColor = imageutil.Tint(&Blue, 0.50)
 
-	SquareColor            = ToolbarColors.Bg
+	SquareColor            = ToolbarColors.Normal.Bg
 	SquareActiveColor      = Black
 	SquareExecutingColor   = Green
 	SquareEditedColor      = Blue
@@ -34,32 +34,28 @@ var (
 	ScrollbarBgColor = color.Color(imageutil.Tint(&Black, 0.95))
 )
 
-var TextAreaColors = drawutil.Colors{
-	Fg:          Black,
-	Bg:          White,
-	SelectionBg: imageutil.Tint(&Yellow, 0.50),
-	HighlightBg: imageutil.Tint(&Blue, 0.70),
+var TextAreaColors = hsdrawer.Colors{
+	Normal:    hsdrawer.FgBg{Black, White},
+	Selection: hsdrawer.FgBg{nil, imageutil.Tint(&Yellow, 0.50)},
+	Highlight: hsdrawer.FgBg{nil, imageutil.Tint(&Blue, 0.70)},
 }
 
-var ToolbarColors = drawutil.Colors{
-	Fg:          Black,
-	Bg:          imageutil.Tint(&Black, 0.95),
-	SelectionBg: TextAreaColors.SelectionBg,
+var ToolbarColors = hsdrawer.Colors{
+	Normal:    hsdrawer.FgBg{Black, imageutil.Tint(&Black, 0.95)},
+	Selection: hsdrawer.FgBg{nil, TextAreaColors.Selection.Bg},
 }
 
 func AcmeColors() {
-	TextAreaColors = drawutil.Colors{
-		Fg:          Black,
-		Bg:          color.RGBA{255, 255, 234, 255},
-		SelectionBg: imageutil.Tint(&Yellow, 0.50),
-		HighlightBg: imageutil.Tint(&Blue, 0.70),
+	TextAreaColors = hsdrawer.Colors{
+		Normal:    hsdrawer.FgBg{Black, color.RGBA{255, 255, 234, 255}},
+		Selection: hsdrawer.FgBg{nil, imageutil.Tint(&Yellow, 0.50)},
+		Highlight: hsdrawer.FgBg{nil, imageutil.Tint(&Blue, 0.70)},
 	}
-	ToolbarColors = drawutil.Colors{
-		Fg:          Black,
-		Bg:          color.RGBA{234, 255, 255, 255},
-		SelectionBg: TextAreaColors.SelectionBg,
+	ToolbarColors = hsdrawer.Colors{
+		Normal:    hsdrawer.FgBg{Black, color.RGBA{234, 255, 255, 255}},
+		Selection: hsdrawer.FgBg{nil, TextAreaColors.Selection.Bg},
 	}
-	SquareColor = ToolbarColors.Bg
+	SquareColor = ToolbarColors.Normal.Bg
 	ScrollbarFgColor = color.RGBA{153, 153, 76, 255}
-	ScrollbarBgColor = TextAreaColors.Bg
+	ScrollbarBgColor = TextAreaColors.Normal.Bg
 }

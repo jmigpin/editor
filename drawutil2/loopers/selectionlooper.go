@@ -3,7 +3,7 @@ package loopers
 import "image/color"
 
 type SelectionLooper struct {
-	Looper    Looper
+	EmbedLooper
 	strl      *StringLooper
 	bgl       *BgLooper
 	dl        *DrawLooper
@@ -15,9 +15,11 @@ func NewSelectionLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) *Sele
 	return &SelectionLooper{strl: strl, bgl: bgl, dl: dl}
 }
 func (lpr *SelectionLooper) Loop(fn func() bool) {
-	lpr.Looper.Loop(func() bool {
+	lpr.OuterLooper().Loop(func() bool {
 		if lpr.colorize() {
-			lpr.dl.Fg = lpr.Fg
+			if lpr.Fg != nil {
+				lpr.dl.Fg = lpr.Fg
+			}
 			lpr.bgl.Bg = lpr.Bg
 		}
 		return fn()

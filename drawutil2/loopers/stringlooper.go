@@ -11,6 +11,8 @@ import (
 // https://developer.apple.com/library/content/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png
 
 type StringLooper struct {
+	EmbedLooper // not used, this is the outmost looper
+
 	Face    font.Face
 	Str     string
 	Ri      int

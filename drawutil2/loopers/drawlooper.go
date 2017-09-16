@@ -7,7 +7,7 @@ import (
 )
 
 type DrawLooper struct {
-	Looper Looper
+	EmbedLooper
 	strl   *StringLooper
 	Fg     color.Color
 	Image  draw.Image
@@ -22,7 +22,7 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 	strl := lpr.strl
 	img := lpr.Image
 
-	lpr.Looper.Loop(func() bool {
+	lpr.OuterLooper().Loop(func() bool {
 		dr, mask, maskp, _, ok := strl.Face.Glyph(strl.Pen, strl.Ru)
 		if !ok {
 			return true
@@ -38,6 +38,10 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 		if dr.Min.Y < bounds.Min.Y {
 			maskp.Y += bounds.Min.Y - dr.Min.Y
 			//maskp.Y += dr.Dy() - dr2.Dy()
+		}
+
+		if lpr.Fg == nil {
+			panic("fg is nil")
 		}
 
 		ufg := image.NewUniform(lpr.Fg)

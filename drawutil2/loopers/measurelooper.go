@@ -3,10 +3,10 @@ package loopers
 import "golang.org/x/image/math/fixed"
 
 type MeasureLooper struct {
-	Looper Looper
-	strl   *StringLooper
-	max    *fixed.Point26_6
-	M      *fixed.Point26_6
+	EmbedLooper
+	strl *StringLooper
+	max  *fixed.Point26_6
+	M    *fixed.Point26_6
 }
 
 func NewMeasureLooper(strl *StringLooper, max *fixed.Point26_6) *MeasureLooper {
@@ -14,7 +14,7 @@ func NewMeasureLooper(strl *StringLooper, max *fixed.Point26_6) *MeasureLooper {
 }
 func (lpr *MeasureLooper) Loop(fn func() bool) {
 	var m fixed.Point26_6
-	lpr.Looper.Loop(func() bool {
+	lpr.OuterLooper().Loop(func() bool {
 		penXAdv := lpr.strl.PenXAdvance()
 		if penXAdv > m.X {
 			m.X = penXAdv

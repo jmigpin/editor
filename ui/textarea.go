@@ -2,11 +2,10 @@ package ui
 
 import (
 	"image"
-	"time"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
-	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/drawutil2/hsdrawer"
+	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
@@ -17,13 +16,13 @@ import (
 )
 
 type TextArea struct {
-	C     uiutil.Container
-	ui    *UI
+	C  uiutil.Container
+	ui *UI
+
+	drawer *hsdrawer.HSDrawer
+
 	EvReg *xgbutil.EventRegister
 	dereg xgbutil.EventDeregister
-
-	stringCache *drawutil.StringCache
-	hsDrawer    *hsdrawer.HSDrawer
 
 	editHistory   *tautil.EditHistory
 	edit          *tautil.EditHistoryEdit
@@ -38,25 +37,20 @@ type TextArea struct {
 		index int // from index to cursorIndex
 	}
 
-	Colors                     *drawutil.Colors
+	Colors                     *hsdrawer.Colors
 	DisableHighlightCursorWord bool
 	DisablePageUpDown          bool
 
-	// detect double/triple clicks for button 1
-	buttonPressedTime [1]struct {
-		p      image.Point
-		t      time.Time
-		action int
-	}
+	drawerWidth int
 }
 
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui}
-	c := drawutil.DefaultColors()
+	ta.drawer = hsdrawer.NewHSDrawer(ui.FontFace())
+	c := hsdrawer.DefaultColors
 	ta.Colors = &c
 	ta.C.PaintFunc = ta.paint
 	ta.C.OnCalcFunc = ta.onContainerCalc
-	ta.stringCache = drawutil.NewStringCache(ui.FontFace())
 	ta.EvReg = xgbutil.NewEventRegister()
 	ta.editHistory = tautil.NewEditHistory(40)
 
@@ -86,6 +80,16 @@ func (ta *TextArea) Error(err error) {
 	ta.EvReg.Emit(TextAreaErrorEventId, err)
 }
 
+func (ta *TextArea) drawerMeasure(width int) {
+	if ta.str != ta.drawer.Str || ta.drawerWidth != width {
+		ta.drawer.Str = ta.str
+		ta.drawerWidth = width
+
+		max := image.Point{width, 1000000}
+		ta.drawer.Measure(&max)
+	}
+}
+
 func (ta *TextArea) onContainerCalc() {
 	ta.updateStringCacheWithBoundsChangedCheck()
 }
@@ -110,10 +114,10 @@ func (ta *TextArea) updateStringCacheWithBoundsChangedCheck() {
 	}
 }
 func (ta *TextArea) updateStringCache() {
-	ta.stringCache.CalcRuneData(ta.str, ta.C.Bounds.Dx())
+	ta.drawerMeasure(ta.C.Bounds.Dx())
 }
 func (ta *TextArea) StrHeight() fixed.Int26_6 {
-	h := ta.stringCache.Height()
+	h := ta.drawer.Height()
 	min := ta.LineHeight()
 	if h < min {
 		h = min
@@ -123,33 +127,27 @@ func (ta *TextArea) StrHeight() fixed.Int26_6 {
 
 // Used externally for dynamic textarea height.
 func (ta *TextArea) CalcStringHeight(width int) int {
-	ta.stringCache.CalcRuneData(ta.str, width)
+	ta.drawerMeasure(width)
 	return ta.StrHeight().Round()
 }
 
 func (ta *TextArea) paint() {
 	// fill background
-	imageutil.FillRectangle(ta.ui.Image(), &ta.C.Bounds, ta.Colors.Bg)
+	imageutil.FillRectangle(ta.ui.Image(), &ta.C.Bounds, ta.Colors.Normal.Bg)
 
-	selection := ta.getDrawSelection()
-	highlight := !ta.DisableHighlightCursorWord && selection == nil
-	err := ta.stringCache.Draw(
-		ta.ui.Image(),
-		&ta.C.Bounds,
-		ta.cursorIndex,
-		ta.offsetY,
-		ta.Colors,
-		selection,
-		highlight)
-	if err != nil {
-		ta.Error(err)
-	}
+	d := ta.drawer
+	d.CursorIndex = ta.cursorIndex
+	d.HWordIndex = ta.cursorIndex
+	d.OffsetY = ta.offsetY
+	d.Colors = ta.Colors
+	d.Selection = ta.getDrawSelection()
+	d.Draw(ta.ui.Image(), &ta.C.Bounds)
 }
-func (ta *TextArea) getDrawSelection() *drawutil.Selection {
+func (ta *TextArea) getDrawSelection() *loopers.SelectionIndexes {
 	if ta.SelectionOn() {
-		return &drawutil.Selection{
-			StartIndex: ta.SelectionIndex(),
-			EndIndex:   ta.CursorIndex(),
+		return &loopers.SelectionIndexes{
+			Start: ta.SelectionIndex(),
+			End:   ta.CursorIndex(),
 		}
 	}
 	return nil
@@ -322,10 +320,10 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 
 func (ta *TextArea) OffsetIndex() int {
 	p := fixed.Point26_6{X: 0, Y: ta.offsetY}
-	return ta.stringCache.GetIndex(&p)
+	return ta.drawer.GetIndex(&p)
 }
 func (ta *TextArea) SetOffsetIndex(i int) {
-	p := ta.stringCache.GetPoint(i)
+	p := ta.drawer.GetPoint(i)
 	ta.SetOffsetY(p.Y)
 }
 func (ta *TextArea) makeIndexVisible(old, new int) {
@@ -340,7 +338,7 @@ func (ta *TextArea) makeIndexVisible(old, new int) {
 	// is visible
 	y0 := ta.OffsetY()
 	y1 := y0 + fixed.I(ta.C.Bounds.Dy())
-	p0 := ta.stringCache.GetPoint(index).Y
+	p0 := ta.drawer.GetPoint(index).Y
 	p1 := p0 + ta.LineHeight()
 	if p0 >= y0 && p1 <= y1 {
 		return
@@ -352,15 +350,15 @@ func (ta *TextArea) makeIndexVisible(old, new int) {
 }
 func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	// set at half bounds
-	p0 := ta.stringCache.GetPoint(index).Y
+	p0 := ta.drawer.GetPoint(index).Y
 	half := fixed.I(ta.C.Bounds.Dy() / 2)
 	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
 }
 func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
-	p := ta.stringCache.GetPoint(index)
+	p := ta.drawer.GetPoint(index)
 	p.Y -= ta.OffsetY()
-	p2 := drawutil.Point266ToPoint(p)
+	p2 := &image.Point{p.X.Round(), p.Y.Round()}
 	p3 := p2.Add(ta.C.Bounds.Min)
 
 	// padding
@@ -386,14 +384,13 @@ func (ta *TextArea) SetClipboardCopy(v string) {
 	ta.ui.SetClipboardCopy(v)
 }
 func (ta *TextArea) LineHeight() fixed.Int26_6 {
-	fm := ta.ui.FontFace().Metrics()
-	return drawutil.LineHeight(&fm)
+	return ta.drawer.LineHeight()
 }
 func (ta *TextArea) IndexPoint(i int) *fixed.Point26_6 {
-	return ta.stringCache.GetPoint(i)
+	return ta.drawer.GetPoint(i)
 }
 func (ta *TextArea) PointIndex(p *fixed.Point26_6) int {
-	return ta.stringCache.GetIndex(p)
+	return ta.drawer.GetIndex(p)
 }
 
 func (ta *TextArea) PageUp() {

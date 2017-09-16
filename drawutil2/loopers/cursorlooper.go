@@ -7,7 +7,7 @@ import (
 )
 
 type CursorLooper struct {
-	Looper      Looper
+	EmbedLooper
 	strl        *StringLooper
 	dl          *DrawLooper
 	CursorIndex int
@@ -18,7 +18,7 @@ func NewCursorLooper(strl *StringLooper, dl *DrawLooper) *CursorLooper {
 }
 func (lpr *CursorLooper) Loop(fn func() bool) {
 	ci := lpr.CursorIndex
-	lpr.Looper.Loop(func() bool {
+	lpr.OuterLooper().Loop(func() bool {
 		if !lpr.strl.RiClone && lpr.strl.Ri == ci {
 			lpr.drawCursor()
 		}

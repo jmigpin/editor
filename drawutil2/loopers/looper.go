@@ -2,17 +2,17 @@ package loopers
 
 type Looper interface {
 	Loop(func() bool)
-	InnerLooper() Looper
-	SetInnerLooper(Looper)
+	OuterLooper() Looper
+	SetOuterLooper(Looper)
 }
 
 type EmbedLooper struct {
-	inner Looper
+	outer Looper
 }
 
-func (el *EmbedLooper) InnerLooper() {
-	return el.inner
+func (el *EmbedLooper) OuterLooper() Looper {
+	return el.outer
 }
-func (el *EmbedLooper) SetInnerLooper(l Looper) {
-	el.inner = l
+func (el *EmbedLooper) SetOuterLooper(l Looper) {
+	el.outer = l
 }

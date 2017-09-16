@@ -5,7 +5,6 @@ import (
 	"image/draw"
 
 	"github.com/jmigpin/editor/drawutil2/loopers"
-	"github.com/jmigpin/editor/drawutil2/posindex"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
@@ -13,16 +12,29 @@ import (
 
 // Highlight and Selection drawer.
 type HSDrawer struct {
-	Face        font.Face
-	Str         string
+	Face font.Face
+	Str  string
+
 	Colors      *Colors
 	CursorIndex int // <0 to disable
 	HWordIndex  int // <0 to disable
 	Selection   *loopers.SelectionIndexes
 	OffsetY     fixed.Int26_6
 
-	pl  HSPosLooper
-	pdi *posindex.PosDataIndex
+	height fixed.Int26_6
+
+	pdl *loopers.PosDataLooper
+	pdk *HSPosDataKeeper
+}
+
+func NewHSDrawer(face font.Face) *HSDrawer {
+	d := &HSDrawer{Face: face}
+
+	// compute with minimal data
+	// allows getpoint to work without a calcrunedata be called
+	//d.Measure(&image.Point{})
+
+	return d
 }
 
 func (d *HSDrawer) Measure(max *image.Point) *fixed.Point26_6 {
@@ -31,36 +43,37 @@ func (d *HSDrawer) Measure(max *image.Point) *fixed.Point26_6 {
 	strl := loopers.NewStringLooper(d.Face, d.Str)
 	linel := loopers.NewLineLooper(strl, max2.Y)
 	wlinel := loopers.NewWrapLineLooper(strl, linel, max2.X)
+	d.pdk = NewHSPosDataKeeper(strl, wlinel)
+	d.pdl = loopers.NewPosDataLooper(d.pdk, strl)
 	ml := loopers.NewMeasureLooper(strl, &max2)
-	pl := NewHSPosLooper(strl, wlinel)
-
-	pl := &HSPosLooper{strl: strl, wlinel: wlinel}
-	d.pl = pl
-	d.pdi = posindex.NewPosDataIndex(pl)
-
-	// options
-	strl.Pen.Y += d.OffsetY
 
 	// iterator order
-	linel.Looper = strl
-	wlinel.Looper = linel
-	ml.Looper = wlinel
-	pl.Looper = ml
+	linel.SetOuterLooper(strl)
+	wlinel.SetOuterLooper(linel)
+	d.pdl.SetOuterLooper(wlinel)
+	ml.SetOuterLooper(d.pdl)
 
-	pl.Loop(func() bool { return true })
+	ml.Loop(func() bool { return true })
+
+	d.height = ml.M.Y
+	if d.Str == "" {
+		d.height = 0
+	}
 
 	return ml.M
 }
 func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
-	min := fixed.P(bounds.Min.X, bounds.Min.Y)
-	max := fixed.P(bounds.Max.X, bounds.Max.Y)
-	max2 := max.Sub(min)
+	//min := fixed.P(bounds.Min.X, bounds.Min.Y)
+	//max := fixed.P(bounds.Max.X, bounds.Max.Y)
+	//max2 := max.Sub(min)
 
 	//strl := loopers.NewStringLooper(d.Face, d.Str)
 	//linel := loopers.NewLineLooper(strl, max2.Y)
 	//wlinel := loopers.NewWrapLineLooper(strl, linel, max2.X)
-	strl := d.pl.strl
-	wlinel := d.pl.wlinel
+
+	// TODO: check linel and wlinel2 max2.X/Y
+	strl := d.pdk.strl
+	wlinel := d.pdk.wlinel
 
 	dl := loopers.NewDrawLooper(strl, img, bounds)
 	bgl := loopers.NewBgLooper(strl, dl)
@@ -70,9 +83,8 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	scl := loopers.NewSetColorsLooper(dl, bgl)
 
 	// options
-	strl.Pen.Y += d.OffsetY
 	scl.Fg = d.Colors.Normal.Fg
-	scl.Bg = d.Colors.Normal.Bg
+	scl.Bg = nil // d.Colors.Normal.Bg // default bg filled externallly
 	sl.Selection = d.Selection
 	sl.Fg = d.Colors.Selection.Fg
 	sl.Bg = d.Colors.Selection.Bg
@@ -82,68 +94,69 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	cursorl.CursorIndex = d.CursorIndex
 
 	// iterator order
-	//linel.Looper = strl
-	//wlinel.Looper = linel
-	scl.Looper = wlinel
-	sl.Looper = scl
-	hwl.Looper = sl
-	bgl.Looper = hwl
-	cursorl.Looper = bgl
-	dl.Looper = cursorl
+	scl.SetOuterLooper(wlinel)
+	sl.SetOuterLooper(scl)
+	hwl.SetOuterLooper(sl)
+	bgl.SetOuterLooper(hwl)
+	cursorl.SetOuterLooper(bgl)
+	dl.SetOuterLooper(cursorl)
+
+	p := &fixed.Point26_6{0, d.OffsetY}
+	d.pdl.RestorePosDataCloseToPoint(p)
+	d.pdk.strl.Pen.Y -= d.OffsetY
 
 	dl.Loop(func() bool { return true })
 }
 
 func (d *HSDrawer) Height() fixed.Int26_6 {
+	return d.height
+}
+func (d *HSDrawer) LineHeight() fixed.Int26_6 {
+	// TODO: remove this check
+	if d.pdl == nil {
+		return 0
+	}
+
+	return d.pdk.strl.LineHeight()
+}
+
+func (d *HSDrawer) GetPoint(index int) *fixed.Point26_6 {
+	// TODO: remove this check
+	if d.pdl == nil {
+		return &fixed.Point26_6{}
+	}
+
+	d.pdl.RestorePosDataCloseToIndex(index)
+	return loopers.PosDataGetPoint(index, d.pdk.strl, d.pdk.wlinel)
 }
 func (d *HSDrawer) GetIndex(p *fixed.Point26_6) int {
-	d.pdi.RestorePosDataCloseToPoint(p)
-	posindex.NewPointIndexPos(d.pl)
+	// TODO: remove this check
+	if d.pdl == nil {
+		return 0
+	}
 
-	pointindexpos
-}
-func (d *HSDrawer) GetPoint(index int) *fixed.Point26_6 {
-	d.pdi.RestorePosDataCloseToIndex(index)
+	d.pdl.RestorePosDataCloseToPoint(p)
+	return loopers.PosDataGetIndex(p, d.pdk.strl, d.pdk.wlinel)
 }
 
-type HSPosLooper struct {
-	Looper loopers.Looper
+type HSPosDataKeeper struct {
 	strl   *loopers.StringLooper
 	wlinel *loopers.WrapLineLooper
-	d.pdi = posindex.NewPosDataIndex(pl)
 }
 
-func NewHSPosLooper(strl *loopers.StringLooper, wlinel *loopers.WrapLineLooper) *HSPosLooper {
-	pl:=&HSPosLooper{strl: strl, wlinel: wlinel}
-	pl.pdi = posindex.NewPosDataIndex(pl)
-	return pl
+func NewHSPosDataKeeper(strl *loopers.StringLooper, wlinel *loopers.WrapLineLooper) *HSPosDataKeeper {
+	return &HSPosDataKeeper{strl: strl, wlinel: wlinel}
 }
-
-func (pl *HSPosLooper) Loop(fn func() bool) {
-	pl.Looper.Loop(fn)
-}
-
-func (pl *HSPosLooper) KeepPosData() *posindex.PosData {
-	data := &HSPosData{
-		ri:         pl.strl.Ri,
-		pen:        pl.strl.Pen,
-		wrapIndent: pl.wlinel.WrapIndent,
-	}
-	return &posindex.PosData{
-		Index:        pl.strl.Ri,
-		PenBoundsMin: pl.strl.PenBounds().Min,
-		Data:         data,
+func (pdk *HSPosDataKeeper) KeepPosData() interface{} {
+	return &HSPosData{
+		wrapIndent: pdk.wlinel.WrapIndent,
 	}
 }
-func (pl *HSPosLooper) RestorePosData(pd *posindex.PosData) {
-	data := pd.Data.(*HSPosData)
-	pl.strl.Ri = data.ri
-	pl.strl.Pen = data.pen
-	pl.wlinel.WrapIndent = data.wrapIndent
+func (pdk *HSPosDataKeeper) RestorePosData(data interface{}) {
+	u := data.(*HSPosData)
+	pdk.wlinel.WrapIndent = u.wrapIndent
 }
 
 type HSPosData struct {
-	ri         int
-	pen        fixed.Point26_6
 	wrapIndent loopers.WrapIndent
 }

@@ -9,7 +9,7 @@ import (
 const WrapLineLeftRune = rune(0x21b3) // points to the right
 
 type WrapLineLooper struct {
-	Looper         Looper
+	EmbedLooper
 	strl           *StringLooper
 	linei          *LineLooper
 	MaxX           fixed.Int26_6
@@ -28,7 +28,7 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 		margin = adv
 	}
 
-	lpr.Looper.Loop(func() bool {
+	lpr.OuterLooper().Loop(func() bool {
 		penXAdv := lpr.strl.PenXAdvance()
 
 		// keep track of indentation for wrapped lines
