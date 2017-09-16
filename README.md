@@ -111,7 +111,7 @@ ReopenRow: reopen a previously closed row<br>
 SaveAllFiles: saves all files<br>
 ReloadAll: reloads all filepaths<br>
 ReloadAllFiles: reloads all filepaths that are files<br>
-FileManager: open a filemanager (external) at the active row directory<br>
+XdgOpen: calls xdg-open to open the active row directory with the preferred external application (ex: a filemanager)<br>
 RowDirectory: open row with the active row directory: useful when editing a file and want to access the file directory contents<br>
 Exit: exits the program<br>
 

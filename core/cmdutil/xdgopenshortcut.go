@@ -5,7 +5,12 @@ import (
 	"path"
 )
 
-func FilemanagerShortcut(erow ERower) {
+func XdgOpenShortcut(ed Editorer) {
+	erow, ok := ed.ActiveERow()
+	if !ok {
+		return
+	}
+
 	dir := ""
 
 	// get directory from row
