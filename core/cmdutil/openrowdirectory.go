@@ -7,8 +7,11 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func OpenRowDirectory(erow ERower) {
-	ed := erow.Ed()
+func OpenRowDirectory(ed Editorer) {
+	erow, ok := ed.ActiveERow()
+	if !ok {
+		return
+	}
 
 	fp := erow.DecodedPart0Arg0()
 	p := path.Dir(fp) // if fp=="", dir returns "."

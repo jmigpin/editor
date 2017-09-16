@@ -228,7 +228,7 @@ func (ed *Editor) Error(err error) {
 }
 
 // Used to run layout toolbar commands.
-func (ed *Editor) activeERow() (*ERow, bool) {
+func (ed *Editor) ActiveERow() (cmdutil.ERower, bool) {
 	for _, erow := range ed.erows {
 		if erow.row.Square.Value(ui.SquareActive) {
 			return erow, true

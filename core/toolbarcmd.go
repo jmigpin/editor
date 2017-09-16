@@ -39,21 +39,13 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 	case "ReloadAllFiles":
 		cmdutil.ReloadRowsFiles(ed)
 	case "NewRow":
-		col, nextRow := ed.GoodColumnRowPlace()
-		erow := ed.NewERowBeforeRow(" | ", col, nextRow)
-		erow.Row().WarpPointer()
+		cmdutil.NewRow(ed)
 	case "ReopenRow":
 		ed.reopenRow.Reopen()
-	case "FileManager":
-		erow, ok := ed.activeERow()
-		if ok {
-			cmdutil.FilemanagerShortcut(erow)
-		}
+	case "XdgOpen":
+		cmdutil.XdgOpenShortcut(ed)
 	case "RowDirectory":
-		erow, ok := ed.activeERow()
-		if ok {
-			cmdutil.OpenRowDirectory(erow)
-		}
+		cmdutil.OpenRowDirectory(ed)
 	case "FontRunes":
 		var u string
 		for i := 0; i < 10000; {
@@ -68,9 +60,9 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 		ed.Errorf("%s", u)
 	default:
 		// try running row command
-		erow, ok := ed.activeERow()
+		erow, ok := ed.ActiveERow()
 		if ok {
-			ok := rowToolbarCmd(erow, part)
+			ok := rowToolbarCmd(erow.(*ERow), part)
 			if ok {
 				return
 			}

@@ -7,6 +7,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
+// Editor Row interface
 type ERower interface {
 	Ed() Editorer
 	Row() *ui.Row

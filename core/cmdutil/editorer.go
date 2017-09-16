@@ -10,6 +10,7 @@ type Editorer interface {
 	NewERowBeforeRow(string, *ui.Column, *ui.Row) ERower
 	FindERow(string) (ERower, bool)
 	ERows() []ERower
+	ActiveERow() (ERower, bool)
 
 	GoodColumnRowPlace() (col *ui.Column, next *ui.Row)
 }
