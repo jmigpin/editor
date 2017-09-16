@@ -70,7 +70,7 @@ func Comment(ta Texta) {
 			}
 		}
 	} else {
-		ta.SetSelection(a, a+len(str))
+		ta.SetSelection(a, a+len(str)-1)
 	}
 }
 func Uncomment(ta Texta) {
@@ -117,6 +117,6 @@ func Uncomment(ta Texta) {
 			}
 		}
 	} else {
-		ta.SetSelection(a, a+len(str))
+		ta.SetSelection(a, a+len(str)-1)
 	}
 }
