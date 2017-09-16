@@ -6,8 +6,7 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-var WrapLineRune = rune(0x21b3) // positioned at the left, points to the right
-const GoFontWrapLineRune = rune(8594)
+var WrapLineRune = rune(8594) // positioned at the start of wrapped line (left)
 
 type WrapLineLooper struct {
 	EmbedLooper

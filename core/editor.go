@@ -54,6 +54,9 @@ func NewEditor(opt *Options) (*Editor, error) {
 	}
 	ui.SetScrollbarWidth(opt.ScrollbarWidth)
 
+	loopers.WrapLineRune = rune(opt.WrapLineRune)
+	drawutil2.TabWidth = opt.TabWidth
+
 	// close editor when the window is deleted
 	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId,
 		&xgbutil.ERCallback{func(ev0 interface{}) {
@@ -130,8 +133,6 @@ func (ed *Editor) getFontFace(opt *Options) (font.Face, error) {
 		} else {
 			ttf = ttf2
 		}
-	} else {
-		loopers.WrapLineRune = loopers.GoFontWrapLineRune
 	}
 
 	f, err := truetype.Parse(ttf)
@@ -308,4 +309,6 @@ type Options struct {
 	DPI            float64
 	ScrollbarWidth int
 	AcmeColors     bool
+	WrapLineRune   int
+	TabWidth       int
 }

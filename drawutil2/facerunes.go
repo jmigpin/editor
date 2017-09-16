@@ -7,6 +7,8 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+var TabWidth = 8
+
 // Special runes face
 type FaceRunes struct {
 	font.Face
@@ -36,7 +38,7 @@ func (fr *FaceRunes) Glyph(dot fixed.Point26_6, ru rune) (
 func (fr *FaceRunes) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
 	if ru == '\t' {
 		adv, ok := fr.Face.GlyphAdvance(' ')
-		return adv * 8, ok
+		return adv * fixed.Int26_6(TabWidth), ok
 	}
 
 	if ru == '\n' || ru == '\r' {
