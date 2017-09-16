@@ -9,13 +9,13 @@ import (
 // Cached Position Data looper with getpoint/getindex.
 type PosDataLooper struct {
 	EmbedLooper
-	data []*PosData
+	Strl *StringLooper
 	pdk  PosDataKeeper
-	strl *StringLooper
+	data []*PosData
 }
 
-func NewPosDataLooper(pdk PosDataKeeper, strl *StringLooper) *PosDataLooper {
-	return &PosDataLooper{pdk: pdk, strl: strl}
+func NewPosDataLooper(strl *StringLooper, pdk PosDataKeeper) *PosDataLooper {
+	return &PosDataLooper{Strl: strl, pdk: pdk}
 }
 func (pdl *PosDataLooper) Loop(fn func() bool) {
 	jump := 250 // experimental value
@@ -35,16 +35,16 @@ func (pdl *PosDataLooper) Loop(fn func() bool) {
 func (pdl *PosDataLooper) keep() {
 	data := pdl.pdk.KeepPosData()
 	pd := &PosData{
-		ri:            pdl.strl.Ri,
-		pen:           pdl.strl.Pen,
-		penBoundsMaxY: pdl.strl.PenBounds().Max.Y,
+		ri:            pdl.Strl.Ri,
+		pen:           pdl.Strl.Pen,
+		penBoundsMaxY: pdl.Strl.PenBounds().Max.Y,
 		data:          data,
 	}
 	pdl.data = append(pdl.data, pd)
 }
 func (pdl *PosDataLooper) restore(pd *PosData) {
-	pdl.strl.Ri = pd.ri
-	pdl.strl.Pen = pd.pen
+	pdl.Strl.Ri = pd.ri
+	pdl.Strl.Pen = pd.pen
 	pdl.pdk.RestorePosData(pd.data)
 }
 
@@ -58,7 +58,6 @@ func (pdl *PosDataLooper) RestorePosDataCloseToPoint(p *fixed.Point26_6) {
 	pd, ok := pdl.PosDataCloseToPoint(p)
 	if ok {
 		pdl.restore(pd)
-		//pdl.restore(pdl.data[0])
 	}
 }
 func (pdl *PosDataLooper) PosDataCloseToIndex(index int) (*PosData, bool) {
@@ -93,19 +92,8 @@ func (pdl *PosDataLooper) PosDataCloseToPoint(p *fixed.Point26_6) (*PosData, boo
 	return pdl.data[j], true
 }
 
-type PosDataKeeper interface {
-	KeepPosData() interface{}
-	RestorePosData(interface{})
-}
-
-type PosData struct {
-	ri            int
-	pen           fixed.Point26_6
-	penBoundsMaxY fixed.Int26_6 // upper left corner of pen
-	data          interface{}
-}
-
-func PosDataGetPoint(index int, strl *StringLooper, looper Looper) *fixed.Point26_6 {
+func (pdl *PosDataLooper) GetPoint(index int, looper Looper) *fixed.Point26_6 {
+	strl := pdl.Strl
 	looper.Loop(func() bool {
 		if strl.Ri >= index {
 			return false
@@ -115,8 +103,9 @@ func PosDataGetPoint(index int, strl *StringLooper, looper Looper) *fixed.Point2
 	pb := strl.PenBounds()
 	return &pb.Min
 }
+func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6, looper Looper) int {
+	strl := pdl.Strl
 
-func PosDataGetIndex(p *fixed.Point26_6, strl *StringLooper, looper Looper) int {
 	found := false
 	foundLine := false
 	lineRuneIndex := 0
@@ -162,4 +151,16 @@ func PosDataGetIndex(p *fixed.Point26_6, strl *StringLooper, looper Looper) int 
 		return lineRuneIndex
 	}
 	return len(strl.Str)
+}
+
+type PosDataKeeper interface {
+	KeepPosData() interface{}
+	RestorePosData(interface{})
+}
+
+type PosData struct {
+	ri            int
+	pen           fixed.Point26_6
+	penBoundsMaxY fixed.Int26_6 // upper left corner of pen
+	data          interface{}
 }

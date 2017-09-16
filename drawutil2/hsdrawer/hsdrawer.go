@@ -23,8 +23,9 @@ type HSDrawer struct {
 
 	height fixed.Int26_6
 
-	pdl *loopers.PosDataLooper
-	pdk *HSPosDataKeeper
+	pdl    *loopers.PosDataLooper
+	pdk    *HSPosDataKeeper
+	wlinel *loopers.WrapLineLooper
 }
 
 func NewHSDrawer(face font.Face) *HSDrawer {
@@ -43,9 +44,11 @@ func (d *HSDrawer) Measure(max *image.Point) *fixed.Point26_6 {
 	strl := loopers.NewStringLooper(d.Face, d.Str)
 	linel := loopers.NewLineLooper(strl, max2.Y)
 	wlinel := loopers.NewWrapLineLooper(strl, linel, max2.X)
-	d.pdk = NewHSPosDataKeeper(strl, wlinel)
-	d.pdl = loopers.NewPosDataLooper(d.pdk, strl)
+	d.pdk = NewHSPosDataKeeper(wlinel)
+	d.pdl = loopers.NewPosDataLooper(strl, d.pdk)
 	ml := loopers.NewMeasureLooper(strl, &max2)
+
+	d.wlinel = wlinel
 
 	// iterator order
 	linel.SetOuterLooper(strl)
@@ -63,18 +66,8 @@ func (d *HSDrawer) Measure(max *image.Point) *fixed.Point26_6 {
 	return ml.M
 }
 func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
-	//min := fixed.P(bounds.Min.X, bounds.Min.Y)
-	//max := fixed.P(bounds.Max.X, bounds.Max.Y)
-	//max2 := max.Sub(min)
-
-	//strl := loopers.NewStringLooper(d.Face, d.Str)
-	//linel := loopers.NewLineLooper(strl, max2.Y)
-	//wlinel := loopers.NewWrapLineLooper(strl, linel, max2.X)
-
-	// TODO: check linel and wlinel2 max2.X/Y
-	strl := d.pdk.strl
-	wlinel := d.pdk.wlinel
-
+	strl := d.pdl.Strl
+	wlinel := d.wlinel
 	dl := loopers.NewDrawLooper(strl, img, bounds)
 	bgl := loopers.NewBgLooper(strl, dl)
 	sl := loopers.NewSelectionLooper(strl, bgl, dl)
@@ -101,10 +94,12 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	cursorl.SetOuterLooper(bgl)
 	dl.SetOuterLooper(cursorl)
 
+	// restore position to a close data point (performance)
 	p := &fixed.Point26_6{0, d.OffsetY}
 	d.pdl.RestorePosDataCloseToPoint(p)
-	d.pdk.strl.Pen.Y -= d.OffsetY
+	d.pdl.Strl.Pen.Y -= d.OffsetY
 
+	// draw
 	dl.Loop(func() bool { return true })
 }
 
@@ -117,7 +112,7 @@ func (d *HSDrawer) LineHeight() fixed.Int26_6 {
 		return 0
 	}
 
-	return d.pdk.strl.LineHeight()
+	return d.pdl.Strl.LineHeight()
 }
 
 func (d *HSDrawer) GetPoint(index int) *fixed.Point26_6 {
@@ -127,7 +122,7 @@ func (d *HSDrawer) GetPoint(index int) *fixed.Point26_6 {
 	}
 
 	d.pdl.RestorePosDataCloseToIndex(index)
-	return loopers.PosDataGetPoint(index, d.pdk.strl, d.pdk.wlinel)
+	return d.pdl.GetPoint(index, d.wlinel)
 }
 func (d *HSDrawer) GetIndex(p *fixed.Point26_6) int {
 	// TODO: remove this check
@@ -136,16 +131,15 @@ func (d *HSDrawer) GetIndex(p *fixed.Point26_6) int {
 	}
 
 	d.pdl.RestorePosDataCloseToPoint(p)
-	return loopers.PosDataGetIndex(p, d.pdk.strl, d.pdk.wlinel)
+	return d.pdl.GetIndex(p, d.wlinel)
 }
 
 type HSPosDataKeeper struct {
-	strl   *loopers.StringLooper
 	wlinel *loopers.WrapLineLooper
 }
 
-func NewHSPosDataKeeper(strl *loopers.StringLooper, wlinel *loopers.WrapLineLooper) *HSPosDataKeeper {
-	return &HSPosDataKeeper{strl: strl, wlinel: wlinel}
+func NewHSPosDataKeeper(wlinel *loopers.WrapLineLooper) *HSPosDataKeeper {
+	return &HSPosDataKeeper{wlinel: wlinel}
 }
 func (pdk *HSPosDataKeeper) KeepPosData() interface{} {
 	return &HSPosData{
