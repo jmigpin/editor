@@ -164,7 +164,10 @@ func (ui *UI) RequestClipboardPaste() (string, error) {
 	return ui.win.Paste.RequestClipboard()
 }
 func (ui *UI) SetClipboardCopy(v string) {
-	ui.win.Copy.Set(v)
+	ui.win.Copy.SetClipboard(v)
+}
+func (ui *UI) SetPrimaryCopy(v string) {
+	ui.win.Copy.SetPrimary(v)
 }
 
 func (ui *UI) TextAreaAppendAsync(ta *TextArea, str string) {

@@ -383,6 +383,9 @@ func (ta *TextArea) RequestClipboardPaste() (string, error) {
 func (ta *TextArea) SetClipboardCopy(v string) {
 	ta.ui.SetClipboardCopy(v)
 }
+func (ta *TextArea) SetPrimaryCopy(v string) {
+	ta.ui.SetPrimaryCopy(v)
+}
 func (ta *TextArea) LineHeight() fixed.Int26_6 {
 	return ta.drawer.LineHeight()
 }

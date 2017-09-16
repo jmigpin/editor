@@ -13,6 +13,13 @@ func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
 	p3.Y += ta.OffsetY()
 	i := ta.PointIndex(&p3)
 	updateSelection(ta, sel, i)
+
+	// set primary copy
+	if ta.SelectionOn() {
+		a, b := SelectionStringIndexes(ta)
+		s := ta.Str()[a:b]
+		ta.SetPrimaryCopy(s)
+	}
 }
 
 func MoveCursorRight(ta Texta, sel bool) {

@@ -40,4 +40,5 @@ type Texta interface {
 	RequestPrimaryPaste() (string, error)
 	RequestClipboardPaste() (string, error)
 	SetClipboardCopy(string)
+	SetPrimaryCopy(string)
 }

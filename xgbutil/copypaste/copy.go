@@ -18,7 +18,9 @@ type Copy struct {
 	conn  *xgb.Conn
 	win   xproto.Window
 	reply chan *xproto.SelectionNotifyEvent
-	str   string
+
+	clipboardStr string
+	primaryStr   string
 }
 
 var CopyAtoms struct {
@@ -50,20 +52,16 @@ func NewCopy(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*
 	return c, nil
 }
 
-func (c *Copy) Set(str string) {
-	c.str = str
-	// set at clipboard
-	xproto.SetSelectionOwner(
-		c.conn,
-		c.win,
-		CopyAtoms.CLIPBOARD, // selection
-		0)
-	// set at primary
-	xproto.SetSelectionOwner(
-		c.conn,
-		c.win,
-		xproto.AtomPrimary, // selection
-		0)
+func (c *Copy) SetClipboard(str string) {
+	c.clipboardStr = str
+	c.set(CopyAtoms.CLIPBOARD)
+}
+func (c *Copy) SetPrimary(str string) {
+	c.primaryStr = str
+	c.set(xproto.AtomPrimary)
+}
+func (c *Copy) set(selection xproto.Atom) {
+	xproto.SetSelectionOwner(c.conn, c.win, selection, 0)
 }
 
 // Another application is asking for the data
@@ -84,7 +82,16 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) {
 	}
 }
 func (c *Copy) transferUTF8String(ev *xproto.SelectionRequestEvent) {
-	b := []byte(c.str)
+	var b []byte
+	switch ev.Selection {
+	case xproto.AtomPrimary:
+		b = []byte(c.primaryStr)
+	case CopyAtoms.CLIPBOARD:
+		b = []byte(c.clipboardStr)
+	default:
+		return
+	}
+
 	// change property on the requestor
 	xproto.ChangeProperty(
 		c.conn,
@@ -145,5 +152,10 @@ func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) {
 
 // Another application now owns the selection.
 func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
-	c.str = ""
+	switch ev.Selection {
+	case xproto.AtomPrimary:
+		c.primaryStr = ""
+	case CopyAtoms.CLIPBOARD:
+		c.clipboardStr = ""
+	}
 }
