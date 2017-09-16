@@ -54,6 +54,18 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 		if ok {
 			cmdutil.OpenRowDirectory(erow)
 		}
+	case "FontRunes":
+		var u string
+		for i := 0; i < 10000; {
+			start := i
+			var w string
+			for j := 0; j < 25; j++ {
+				w += string(rune(i))
+				i++
+			}
+			u += fmt.Sprintf("%d: %s\n", start, w)
+		}
+		ed.Errorf("%s", u)
 	default:
 		// try running row command
 		erow, ok := ed.activeERow()

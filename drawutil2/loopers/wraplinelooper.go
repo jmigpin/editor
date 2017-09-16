@@ -6,7 +6,8 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-const WrapLineLeftRune = rune(0x21b3) // points to the right
+var WrapLineRune = rune(0x21b3) // positioned at the left, points to the right
+const GoFontWrapLineRune = rune(8594)
 
 type WrapLineLooper struct {
 	EmbedLooper
@@ -23,7 +24,7 @@ func NewWrapLineLooper(strl *StringLooper, linei *LineLooper, maxX fixed.Int26_6
 func (lpr *WrapLineLooper) Loop(fn func() bool) {
 	// wrap line margin constant
 	margin := fixed.I(30)
-	adv, ok := lpr.strl.Face.GlyphAdvance(WrapLineLeftRune)
+	adv, ok := lpr.strl.Face.GlyphAdvance(WrapLineRune)
 	if ok {
 		margin = adv
 	}
@@ -58,7 +59,7 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 
 			// insert wrap line symbol at beginning of the line
 			lpr.strl.RiClone = true
-			lpr.strl.Ru = WrapLineLeftRune
+			lpr.strl.Ru = WrapLineRune
 			lpr.IsWrapLineRune = true
 			lpr.strl.PrevRu = rune(0)
 			if ok := lpr.strl.Iterate(fn); !ok {
