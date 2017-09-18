@@ -2,7 +2,6 @@ package shmimage
 
 import (
 	"image"
-	"log"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
@@ -74,8 +73,7 @@ func (siw *ShmImageWrap) Image() *imageutil.BGRA {
 func (siw *ShmImageWrap) PutImage(gctx xproto.Gcontext, r *image.Rectangle) {
 	img := siw.simg.img
 	b := img.Bounds()
-	//_ = shm.PutImage(
-	cookie := shm.PutImageChecked(
+	_ = shm.PutImage(
 		siw.conn,
 		siw.drawable,
 		gctx,
@@ -84,14 +82,7 @@ func (siw *ShmImageWrap) PutImage(gctx xproto.Gcontext, r *image.Rectangle) {
 		int16(r.Min.X), int16(r.Min.Y), // dst x,y
 		siw.depth,
 		xproto.ImageFormatZPixmap,
-		0, // send shm.CompletionEvent when done
+		1, // send shm.CompletionEvent when done
 		siw.segId,
 		0) // offset
-
-	// Cookie check waits for the function to complete.
-	// This prevents flickering because it doesn't map the image to the screen while a function might be changing it due to having returned without waiting.
-	// The flickering is visible when resizing a column. The toolbar text starts flickering because the background is being drawn already for the next frame before starting to draw the text.
-	if err := cookie.Check(); err != nil {
-		log.Println(errors.Wrap(err, "shmimagewrap.putimage"))
-	}
 }

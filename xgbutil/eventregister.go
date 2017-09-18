@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
 )
 
@@ -92,11 +93,13 @@ type EREventData struct {
 
 const (
 	UnknownEventId = 1000 + iota // avoid clash with xproto
-	XErrorEventId
 	NoOpEventId
+	XErrorEventId
 	ConnectionClosedEventId
 	QueueEmptyEventId
+	ShmCompletionEventId
 
+	// event ids for other tasks
 	XInputEventIdStart = 1100 + iota
 	DndEventIdStart    = 1200 + iota
 	UIEventIdStart     = 1300 + iota
@@ -126,6 +129,8 @@ func XgbEventId(ev xgb.Event) int {
 		return xproto.SelectionClear
 	case xproto.MappingNotifyEvent:
 		return xproto.MappingNotify
+	case shm.CompletionEvent:
+		return ShmCompletionEventId
 	default:
 		log.Printf("unhandled event: %#v", ev)
 		return UnknownEventId

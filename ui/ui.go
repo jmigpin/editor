@@ -32,6 +32,8 @@ type UI struct {
 
 	EvReg  *xgbutil.EventRegister
 	Events chan interface{}
+
+	incompleteDraws int
 }
 
 func NewUI(fface font.Face) (*UI, error) {
@@ -53,7 +55,8 @@ func NewUI(fface font.Face) (*UI, error) {
 
 	ui.EvReg.Add(xproto.Expose,
 		&xgbutil.ERCallback{ui.onExpose})
-
+	ui.EvReg.Add(xgbutil.ShmCompletionEventId,
+		&xgbutil.ERCallback{ui.onShmCompletion})
 	ui.EvReg.Add(UITextAreaAppendEventId,
 		&xgbutil.ERCallback{ui.onTextAreaAppend})
 
@@ -83,15 +86,19 @@ func (ui *UI) UpdateImageSize() {
 	}
 }
 
-func (ui *UI) PaintIfNeeded() {
-	ui.Layout.C.PaintIfNeeded(func(r *image.Rectangle) {
-		ui.win.PutImage(r)
-	})
+func (ui *UI) PaintIfNeeded() (painted bool) {
+	if ui.incompleteDraws == 0 {
+		ui.Layout.C.PaintIfNeeded(func(r *image.Rectangle) {
+			painted = true
+			ui.incompleteDraws++
+			ui.win.PutImage(r)
+		})
+	}
+	return painted
 }
-
-//func (ui *UI) Paint() {
-//ui.win.PutImage(&ui.Layout.C.Bounds)
-//}
+func (ui *UI) onShmCompletion(_ interface{}) {
+	ui.incompleteDraws--
+}
 
 func (ui *UI) RequestPaint() {
 	go func() {

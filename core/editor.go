@@ -11,6 +11,7 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
@@ -251,8 +252,10 @@ func (ed *Editor) eventLoop() {
 
 	var lastPaint time.Time
 	paintIfNeeded := func() {
-		lastPaint = time.Now()
-		ed.ui.PaintIfNeeded()
+		painted := ed.ui.PaintIfNeeded()
+		if painted {
+			lastPaint = time.Now()
+		}
 	}
 
 	for {
@@ -285,6 +288,7 @@ func (ed *Editor) eventLoop() {
 				ed.ui.EvReg.Emit(ev2, nil)
 			case *xgbutil.EREventData:
 				ed.ui.EvReg.Emit(ev2.EventId, ev2.Event)
+			case shm.CompletionEvent:
 			default:
 				log.Printf("unhandled event type: %v", ev)
 			}
