@@ -42,8 +42,8 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 		cmdutil.NewRow(ed)
 	case "ReopenRow":
 		ed.reopenRow.Reopen()
-	case "XdgOpen":
-		cmdutil.XdgOpenShortcut(ed)
+	case "XdgOpenDir":
+		cmdutil.XdgOpenDirShortcut(ed)
 	case "RowDirectory":
 		cmdutil.OpenRowDirectory(ed)
 	case "FontRunes":

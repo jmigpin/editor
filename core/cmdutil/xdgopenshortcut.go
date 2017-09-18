@@ -5,7 +5,7 @@ import (
 	"path"
 )
 
-func XdgOpenShortcut(ed Editorer) {
+func XdgOpenDirShortcut(ed Editorer) {
 	erow, ok := ed.ActiveERow()
 	if !ok {
 		return
