@@ -60,16 +60,7 @@ func MoveCursorJumpRight(ta Texta, sel bool) {
 }
 
 func jumpLeftIndex(str string, index int) int {
-	typ := 0
-	fn := func(ru rune) bool {
-		typ2 := jumpType(ru)
-		if typ == 0 {
-			typ = typ2
-			return false
-		}
-		return typ2 != typ
-	}
-	i := strings.LastIndexFunc(str[:index], fn)
+	i := strings.LastIndexFunc(str[:index], endOfNextWord())
 	if i < 0 {
 		i = 0
 	} else {
@@ -78,24 +69,30 @@ func jumpLeftIndex(str string, index int) int {
 	return i
 }
 func jumpRightIndex(str string, index int) int {
-	typ := 0
-	fn := func(ru rune) bool {
-		typ2 := jumpType(ru)
-		if typ == 0 {
-			typ = typ2
-			return false
-		}
-		return typ2 != typ
-	}
-	i := strings.IndexFunc(str[index:], fn)
+	i := strings.IndexFunc(str[index:], endOfNextWord())
 	if i < 0 {
 		i = len(str[index:])
 	}
 	return index + i
 }
-func jumpType(ru rune) int {
-	if isWordRune(ru) {
-		return 1
+
+func endOfNextWord() func(rune) bool {
+	first := true
+	var inWord bool
+	return func(ru rune) bool {
+		w := isWordRune(ru)
+		if first {
+			first = false
+			inWord = w
+		} else {
+			if !inWord {
+				inWord = w
+			} else {
+				if !w {
+					return true
+				}
+			}
+		}
+		return false
 	}
-	return 2
 }
