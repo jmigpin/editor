@@ -89,9 +89,9 @@ Any button press: make row active to layout toolbar commands<br>
 <kbd>tab</kbd> (if selection is on): insert tab at beginning of lines<br>
 <kbd>shift</kbd>+<kbd>tab</kbd>: remove tab from beginning of line<br>
 <kbd>ctrl</kbd>+<kbd>z</kbd>: undo<br>
-<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>z</kbd>: undo<br>
-<kbd>ctrl</kbd>+<kbd>d</kbd>: comment<br>
-<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>d</kbd>: uncomment<br>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>z</kbd>: redo<br>
+<kbd>ctrl</kbd>+<kbd>d</kbd>: comment lines<br>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>d</kbd>: uncomment lines<br>
 <br>
 <kbd>button1</kbd>: move cursor to point<br>
 <kbd>button3</kbd>: move cursor to point + text area cmd<br>
@@ -111,7 +111,7 @@ ReopenRow: reopen a previously closed row<br>
 SaveAllFiles: saves all files<br>
 ReloadAll: reloads all filepaths<br>
 ReloadAllFiles: reloads all filepaths that are files<br>
-XdgOpen: calls xdg-open to open the active row directory with the preferred external application (ex: a filemanager)<br>
+XdgOpenDir: calls xdg-open to open the active row directory with the preferred external application (ex: a filemanager)<br>
 RowDirectory: open row with the active row directory: useful when editing a file and want to access the file directory contents<br>
 Exit: exits the program<br>
 
