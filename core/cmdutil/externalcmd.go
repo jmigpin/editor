@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 
+	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 )
 
-func ExternalCmd(erow ERower, cmdStr string) {
+func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	row := erow.Row()
 	ed := erow.Ed()
 
@@ -39,7 +41,13 @@ func ExternalCmd(erow ERower, cmdStr string) {
 	row.Square.SetValue(ui.SquareExecuting, true)
 	row.TextArea.SetStrClear("", true, true)
 
-	// cmd
+	// cmd str
+	var u []string
+	for _, a := range part.Args {
+		u = append(u, a.Str)
+	}
+	cmdStr := strings.Join(u, " ")
+
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	cmd.Dir = dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

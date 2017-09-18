@@ -9,7 +9,6 @@ var hvars = []string{}
 
 func init() {
 	AppendHomeVar("~", os.Getenv("HOME"))
-	//AppendHomeVar("~0", "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor")
 }
 
 func AppendHomeVar(k, v string) {

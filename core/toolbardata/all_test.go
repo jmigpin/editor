@@ -1,123 +1,64 @@
 package toolbardata
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
-func TestParseParts(t *testing.T) {
-	s := "a b c d  eaa | a b c"
-	a := parseParts(s)
-	if !(len(a) == 2 &&
-		a[0].Str == "a b c d  eaa " &&
-		a[1].Str == " a b c") {
-		for _, t := range a {
-			fmt.Printf("%v\n", t)
-		}
-		t.Fatal()
+func TestParseTokens1(t *testing.T) {
+	s := "a|b|c"
+	u := parseTokens(s, 0, len(s), '|')
+	if !(len(u) == 3 &&
+		u[0].Str == "a" &&
+		u[1].Str == "b" &&
+		u[2].Str == "c") {
+		t.Fatal(spew.Sdump(u))
+	}
+}
+func TestParseTokens2(t *testing.T) {
+	s := "\"b|c\""
+	u := parseTokens(s, 0, len(s), '|')
+	if !(len(u) == 1 &&
+		u[0].Str == "b|c") {
+		t.Fatal(spew.Sdump(u))
+	}
+}
+
+func TestParseParts1(t *testing.T) {
+	s := "a| \"b | c\" | d"
+	u := parseParts(s)
+	if !(len(u) == 3 &&
+		len(u[1].Args) == 1 &&
+		u[1].Args[0].Str == "b | c") {
+		t.Fatal(spew.Sdump(u))
 	}
 }
 func TestParseParts2(t *testing.T) {
-	s := "cmd1|cmd2\\|cmd3"
-	a := parseParts(s)
-	if !(len(a) == 2 &&
-		a[0].Str == "cmd1" &&
-		a[1].Str == "cmd2\\|cmd3") {
-
-		for _, t := range a {
-			fmt.Printf("%v\n", t)
-		}
-		t.Fatal()
+	s := "a| \\\"b | c\" | d" // first quote is escaped
+	u := parseParts(s)
+	if !(len(u) == 3 &&
+		len(u[1].Args) == 1 &&
+		u[1].Args[0].Str == "\\\"b" &&
+		len(u[2].Args) == 1 &&
+		u[2].Args[0].Str == "c\" | d") {
+		t.Fatal(spew.Sdump(u))
 	}
 }
 func TestParseParts3(t *testing.T) {
-	s := "\"cmd1|cmd2\"a"
-	a := parseParts(s)
-	if !(len(a) == 1 && a[0].Str == "\"cmd1|cmd2\"a") {
-		for _, t := range a {
-			fmt.Printf("%v\n", t)
-		}
-		t.Fatal()
+	s := "|"
+	u := parseParts(s)
+	if !(len(u) == 1 &&
+		len(u[0].Args) == 0) {
+		t.Fatal(spew.Sdump(u))
 	}
 }
 func TestParseParts4(t *testing.T) {
-	s := "\"cmd1|\\\"cmd2\"a"
-	a := parseParts(s)
-	if !(len(a) == 1 && a[0].Str == "\"cmd1|\\\"cmd2\"a") {
-		for _, t := range a {
-			fmt.Printf("%v\n", t)
-		}
-		t.Fatal()
-	}
-}
-func TestParseParts5(t *testing.T) {
-	s := "cmd1|\"cmd2\\|cmd3"
-	a := parseParts(s)
-	if !(len(a) == 2 &&
-		a[0].Str == "cmd1" &&
-		a[1].Str == "\"cmd2\\|cmd3") {
-
-		for _, t := range a {
-			fmt.Printf("%v\n", t)
-		}
-		t.Fatal()
-	}
-}
-func TestParseParts6(t *testing.T) {
-	s := "|cmd1|cmd2"
-	a := parseParts(s)
-	if !(len(a) == 3 && len(a[0].Args) == 0) {
-		for _, t := range a {
-			fmt.Printf("%v\n", t)
-		}
-		t.Fatal()
-	}
-}
-func TestParseParts7(t *testing.T) {
-	s := ""
-	a := parseParts(s)
-	if !(len(a) == 0) {
-		for _, t := range a {
-			fmt.Printf("%v\n", t)
-		}
-		t.Fatal()
-	}
-}
-func TestParseParts8(t *testing.T) {
-	s := " "
-	a := parseParts(s)
-	if !(len(a) == 1) {
-		t.Fatal()
-	}
-}
-func TestParseParts9(t *testing.T) {
-	s := "|"
-	a := parseParts(s)
-	if !(len(a) == 1) {
-		t.Fatal()
-	}
-}
-func TestParseParts10(t *testing.T) {
-	s := "| "
-	a := parseParts(s)
-	if !(len(a) == 2) {
-		t.Fatal()
-	}
-}
-func TestParsePartsArgs0(t *testing.T) {
-	s := "   a\\    eaa  \" h  h h \"  "
-	a := parseParts(s)
-	if !(len(a) == 1 &&
-		len(a[0].Args) == 3 &&
-		a[0].Args[0].Str == "a\\ " &&
-		a[0].Args[1].Str == "eaa" &&
-		a[0].Args[2].Str == "\" h  h h \"") {
-
-		for _, t := range a {
-			for _, t2 := range t.Args {
-				fmt.Printf("%v\n", t2)
-			}
-		}
-		t.Fatal()
+	s := "a|b\\|c"
+	u := parseParts(s)
+	if !(len(u) == 2 &&
+		len(u[1].Args) == 1 &&
+		u[1].Args[0].Str == "b\\|c") {
+		t.Fatal(spew.Sdump(u))
 	}
 }

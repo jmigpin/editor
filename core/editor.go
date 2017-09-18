@@ -272,7 +272,7 @@ func (ed *Editor) eventLoop() {
 			case xgb.Event:
 
 				// bypass quick motionnotify events
-				// FIXME: can bypass a motion segment if last event is not motion
+				// TODO: can bypass a motion segment if last event is not motion
 				if len(ed.ui.Events) > 1 {
 					_, ok := ev2.(xproto.MotionNotifyEvent)
 					if ok {

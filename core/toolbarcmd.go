@@ -3,7 +3,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/toolbardata"
@@ -13,12 +12,12 @@ import (
 
 func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 	ta := layout.Toolbar.TextArea
-	tbsd := toolbardata.NewStringData(ta.Str())
-	part, ok := tbsd.GetPartAtIndex(ta.CursorIndex())
+	td := toolbardata.NewToolbarData(ta.Str())
+	part, ok := td.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
 		return
 	}
-	p0 := part.Args[0].Unquote()
+	p0 := part.Args[0].Str
 	switch p0 {
 	case "Exit":
 		ed.Close()
@@ -80,15 +79,15 @@ func ToolbarCmdFromRow(erow *ERow) {
 	}
 }
 func toolbarCmdFromRow2(erow *ERow) error {
-	tbsd := erow.ToolbarSD()
+	td := erow.ToolbarData()
 	ta := erow.Row().Toolbar
-	part, ok := tbsd.GetPartAtIndex(ta.CursorIndex())
+	part, ok := td.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
 		return errors.New("missing part at index")
 	}
 
 	// don't allow commands on row first part
-	if part == tbsd.Parts[0] {
+	if part == td.Parts[0] {
 		return errors.New("running a command on first part")
 	}
 
@@ -102,8 +101,7 @@ func toolbarCmdFromRow2(erow *ERow) error {
 	}
 
 	// external command
-	cmd := strings.TrimSpace(part.Str)
-	cmdutil.ExternalCmd(erow, cmd)
+	cmdutil.ExternalCmd(erow, part)
 	return nil
 }
 
@@ -121,11 +119,19 @@ func rowToolbarCmd(erow *ERow, part *toolbardata.Part) bool {
 	case "CloseColumn":
 		row.Col.Cols.CloseColumnEnsureOne(row.Col)
 	case "Find":
-		s := part.JoinArgsFromIndex(1).Unquote()
-		tautil.Find(row.TextArea, s)
+		a := part.Args[1:]
+		if len(a) != 1 {
+			erow.Ed().Error(fmt.Errorf("find: expecting 1 argument"))
+			break
+		}
+		tautil.Find(row.TextArea, a[0].Str)
 	case "GotoLine":
-		s := part.JoinArgsFromIndex(1).Str
-		tautil.GotoLine(row.TextArea, s)
+		a := part.Args[1:]
+		if len(a) != 1 {
+			erow.Ed().Error(fmt.Errorf("gotoline: expecting 1 argument"))
+			break
+		}
+		tautil.GotoLine(row.TextArea, a[0].Str)
 	case "Replace":
 		cmdutil.Replace(erow, part)
 	case "Stop":

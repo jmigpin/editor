@@ -17,7 +17,7 @@ import (
 type ERow struct {
 	ed               *Editor
 	row              *ui.Row
-	tbsd             *toolbardata.StringData
+	td               *toolbardata.ToolbarData
 	decodedPart0Arg0 string
 	fi               struct {
 		doneFirst bool
@@ -90,21 +90,18 @@ func (erow *ERow) DecodedPart0Arg0() string {
 	return erow.decodedPart0Arg0
 }
 func (erow *ERow) parseToolbar() {
-	erow.tbsd = toolbardata.NewStringData(erow.row.Toolbar.Str())
+	erow.td = toolbardata.NewToolbarData(erow.row.Toolbar.Str())
 
 	// update toolbar with encoded value
-	s := erow.tbsd.StrWithPart0Arg0Encoded()
-	if s != erow.tbsd.Str {
+	s := erow.td.StrWithPart0Arg0Encoded()
+	if s != erow.td.Str {
 		// set str will trigger event that parses again
 		erow.Row().Toolbar.SetStrClear(s, false, false)
 		// TODO: adjust cursor
 		return
 	}
 
-	fp, ok := erow.tbsd.DecodePart0Arg0()
-	if !ok {
-		fp = ""
-	}
+	fp := erow.td.DecodePart0Arg0()
 
 	if erow.decodedPart0Arg0 == fp && erow.fi.doneFirst {
 		return
@@ -159,8 +156,8 @@ func (erow *ERow) FileInfo() (string, os.FileInfo, error) {
 	}
 	return erow.decodedPart0Arg0, erow.fi.fileInfo, nil
 }
-func (erow *ERow) ToolbarSD() *toolbardata.StringData {
-	return erow.tbsd
+func (erow *ERow) ToolbarData() *toolbardata.ToolbarData {
+	return erow.td
 }
 
 func (erow *ERow) LoadContentClear() error {

@@ -29,11 +29,11 @@ func FindShortcut(erow ERower) {
 	}
 
 	// find cmd in toolbar string
-	tbsd := erow.ToolbarSD()
+	td := erow.ToolbarData()
 	ta := row.Toolbar
 	found := false
 	var part *toolbardata.Part
-	for _, p := range tbsd.Parts {
+	for _, p := range td.Parts {
 		if len(p.Args) > 0 && p.Args[0].Str == "Find" {
 			found = true
 			part = p
@@ -41,24 +41,11 @@ func FindShortcut(erow ERower) {
 		}
 	}
 
-	if !found {
-		// insert find cmd
-		ta.EditOpen()
-		ta.EditInsert(len(ta.Str()), " | Find ")
-		a := len(ta.Str())
-		if searchStr != "" {
-			ta.EditInsert(a, searchStr)
-			ta.SetSelection(a, a+len(searchStr))
-		} else {
-			ta.SetSelectionOff()
-			ta.SetCursorIndex(a + len(searchStr))
-		}
-		ta.EditClose()
-	} else {
-		ta.EditOpen()
+	if found {
 		// select current find cmd string
-		a := part.Start + part.Args[0].End
-		b := part.End
+		ta.EditOpen()
+		a := part.Args[0].E
+		b := part.E
 		if a == b {
 			ta.EditInsert(a, " ")
 			a++
@@ -74,6 +61,19 @@ func FindShortcut(erow ERower) {
 			ta.EditDelete(a, b)
 			ta.EditInsert(a, searchStr)
 			ta.SetSelection(a, a+len(searchStr))
+		}
+		ta.EditClose()
+	} else {
+		// insert find cmd
+		ta.EditOpen()
+		ta.EditInsert(len(ta.Str()), " | Find ")
+		a := len(ta.Str())
+		if searchStr != "" {
+			ta.EditInsert(a, searchStr)
+			ta.SetSelection(a, a+len(searchStr))
+		} else {
+			ta.SetSelectionOff()
+			ta.SetCursorIndex(a + len(searchStr))
 		}
 		ta.EditClose()
 	}

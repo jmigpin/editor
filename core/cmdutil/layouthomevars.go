@@ -26,8 +26,8 @@ func updateHomeVars(ed Editorer, ev *ui.TextAreaSetStrEvent) {
 	for _, erow := range ed.ERows() {
 		// decode toolbar
 		str := erow.Row().Toolbar.Str()
-		tbsd := toolbardata.NewStringData(str)
-		decoded := tbsd.StrWithPart0Arg0Decoded()
+		td := toolbardata.NewToolbarData(str)
+		decoded := td.StrWithPart0Arg0Decoded()
 
 		m[erow] = decoded
 	}
@@ -51,8 +51,8 @@ func updateHomeVars(ed Editorer, ev *ui.TextAreaSetStrEvent) {
 }
 func getLayoutHomeVars(str string) []string {
 	var vars []string
-	tbsd := toolbardata.NewStringData(str)
-	for _, part := range tbsd.Parts {
+	td := toolbardata.NewToolbarData(str)
+	for _, part := range td.Parts {
 		if len(part.Args) != 1 {
 			continue
 		}
