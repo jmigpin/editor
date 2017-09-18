@@ -31,4 +31,6 @@ func (lpr *LineLooper) NewLine() {
 	lpr.Line++
 	lpr.strl.Pen.X = 0
 	lpr.strl.Pen.Y += lpr.strl.LineHeight()
+	lpr.strl.PrevRu = 0
+	lpr.strl.Advance = 0
 }
