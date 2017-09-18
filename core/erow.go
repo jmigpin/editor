@@ -35,7 +35,7 @@ func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
 	erow.initHandlers()
 
 	// run after event handlers are set
-	erow.parseToolbar()
+	erow.parseToolbar(nil)
 
 	return erow
 }
@@ -45,7 +45,7 @@ func (erow *ERow) initHandlers() {
 	// toolbar set str
 	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 interface{}) {
-			erow.parseToolbar()
+			erow.parseToolbar(ev0.(*ui.TextAreaSetStrEvent))
 		}})
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
@@ -89,8 +89,23 @@ func (erow *ERow) Ed() cmdutil.Editorer {
 func (erow *ERow) DecodedPart0Arg0() string {
 	return erow.decodedPart0Arg0
 }
-func (erow *ERow) parseToolbar() {
-	erow.td = toolbardata.NewToolbarData(erow.row.Toolbar.Str())
+
+func (erow *ERow) parseToolbar(ev *ui.TextAreaSetStrEvent) {
+
+	u := erow.Row().Toolbar.Str()
+	erow.td = toolbardata.NewToolbarData(u)
+
+	// don't allow changing the first part
+	if ev != nil {
+		str1 := ev.OldStr
+		tb1 := toolbardata.NewToolbarData(str1)
+		tb2 := erow.td
+		if tb1.DecodePart0Arg0() != tb2.DecodePart0Arg0() {
+			ev.TextArea.SetRawStr(str1)
+			erow.Ed().Errorf("can't change toolbar first part")
+			return
+		}
+	}
 
 	// update toolbar with encoded value
 	s := erow.td.StrWithPart0Arg0Encoded()

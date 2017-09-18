@@ -160,24 +160,38 @@ func (ta *TextArea) Str() string {
 	}
 	return ta.str
 }
-func (ta *TextArea) setStr(s string) {
+
+// No events, clears, or undos.
+func (ta *TextArea) SetRawStr(s string) {
 	if s == ta.str {
 		return
 	}
-	oldStr := ta.str
+
 	ta.str = s
 
 	// ensure valid indexes
 	ta.SetCursorIndex(ta.CursorIndex())
 	ta.SetSelectionIndex(ta.SelectionIndex())
 
-	oldBounds := ta.C.Bounds
 	ta.updateStringCache()
 	ta.C.NeedPaint()
+}
+
+func (ta *TextArea) setStr(s string) {
+	if s == ta.str {
+		return
+	}
+
+	oldStr := ta.str
+	oldBounds := ta.C.Bounds
+
+	ta.SetRawStr(s)
 
 	ev := &TextAreaSetStrEvent{ta, oldStr, oldBounds}
 	ta.EvReg.Emit(TextAreaSetStrEventId, ev)
 }
+
+// TODO: have a set str, and a clear func
 func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 	ta.SetSelectionOff()
 	if clearPosition {
