@@ -36,6 +36,13 @@ func NewEditor(opt *Options) (*Editor, error) {
 		close: make(chan struct{}),
 	}
 
+	loopers.WrapLineRune = rune(opt.WrapLineRune)
+	drawutil2.TabWidth = opt.TabWidth
+	ui.SetScrollbarWidth(opt.ScrollbarWidth)
+	if opt.AcmeColors {
+		ui.AcmeColors()
+	}
+
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
 	fface, err := ed.getFontFace(opt)
@@ -49,14 +56,6 @@ func NewEditor(opt *Options) (*Editor, error) {
 		return nil, err
 	}
 	ed.ui = ui0
-
-	if opt.AcmeColors {
-		ui.AcmeColors()
-	}
-	ui.SetScrollbarWidth(opt.ScrollbarWidth)
-
-	loopers.WrapLineRune = rune(opt.WrapLineRune)
-	drawutil2.TabWidth = opt.TabWidth
 
 	// close editor when the window is deleted
 	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId,
