@@ -144,7 +144,7 @@ func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6, looper Looper) int {
 	}
 	if foundLine {
 		// position at end of string if last line and not a newline
-		if strl.Ri == len(strl.Str) && strl.Ru != '\n' {
+		if strl.Ri == len(strl.Str) && strl.PrevRu != '\n' {
 			return len(strl.Str)
 		}
 
