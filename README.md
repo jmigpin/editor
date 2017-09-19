@@ -124,8 +124,8 @@ Close: close row<br>
 CloseColumn: closes row column<br>
 Find: find string (ignores case)<br>
 GotoLine \<num\>: goes to line number<br>
-Replace \<old\> \<new\>: replaces old string with new<br>
-Stop: stops current processing running in the row<br>
+Replace \<old\> \<new\>: replaces old string with new, respects selections<br>
+Stop: stops current processing (external cmd) running in the row<br>
 ListDir: lists directory<br>
 ListDirSub: lists directory and sub directories<br>
 ListDirHidden: lists directory including hidden<br>
