@@ -19,21 +19,11 @@ func NewToolbarData(str string) *ToolbarData {
 
 func (td *ToolbarData) GetPartAtIndex(i int) (*Part, bool) {
 	for _, p := range td.Parts {
-		if i >= p.S && i < p.E {
+		if i >= p.S && i <= p.E { // <= E includes separator and eos
 			return p, true
 		}
 	}
-	// return last part for index at eos
-	if i == len(td.Str) && len(td.Parts) > 0 {
-		return td.Parts[len(td.Parts)-1], true
-	}
 	return nil, false
-}
-
-func (td *ToolbarData) ReplacePart(i int, str string) string {
-
-	p := td.Parts[i]
-	return td.Str[:p.S] + str + td.Str[p.E:]
 }
 
 func (td *ToolbarData) part0Arg0Token() (*Token, bool) {
