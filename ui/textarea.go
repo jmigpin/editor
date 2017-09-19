@@ -423,27 +423,6 @@ func (ta *TextArea) PageDown() {
 	tautil.PageDown(ta)
 }
 
-func (ta *TextArea) onDoubleClick(ev0 interface{}) {
-	ev := ev0.(*xinput.DoubleClickEvent)
-	if !ev.Point.In(ta.C.Bounds) {
-		return
-	}
-	switch {
-	case ev.Button.Button1():
-		tautil.SelectWord(ta)
-	}
-}
-func (ta *TextArea) onTripleClick(ev0 interface{}) {
-	ev := ev0.(*xinput.TripleClickEvent)
-	if !ev.Point.In(ta.C.Bounds) {
-		return
-	}
-	switch {
-	case ev.Button.Button1():
-		tautil.SelectLine(ta)
-	}
-}
-
 func (ta *TextArea) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(ta.C.Bounds) {
@@ -509,6 +488,36 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 		}
 	}
 }
+
+func (ta *TextArea) onDoubleClick(ev0 interface{}) {
+	ev := ev0.(*xinput.DoubleClickEvent)
+	if !ev.Point.In(ta.C.Bounds) {
+		return
+	}
+	switch {
+	case ev.Button.Button1():
+		tautil.SelectWord(ta)
+	case ev.Button.Button3():
+		tautil.MoveCursorToPoint(ta, ev.Point, false)
+		ev2 := &TextAreaCmdEvent{ta}
+		ta.EvReg.Emit(TextAreaCmdEventId, ev2)
+	}
+}
+func (ta *TextArea) onTripleClick(ev0 interface{}) {
+	ev := ev0.(*xinput.TripleClickEvent)
+	if !ev.Point.In(ta.C.Bounds) {
+		return
+	}
+	switch {
+	case ev.Button.Button1():
+		tautil.SelectLine(ta)
+	case ev.Button.Button3():
+		tautil.MoveCursorToPoint(ta, ev.Point, false)
+		ev2 := &TextAreaCmdEvent{ta}
+		ta.EvReg.Emit(TextAreaCmdEventId, ev2)
+	}
+}
+
 func (ta *TextArea) onKeyPress(ev0 interface{}) {
 	ev := ev0.(*xinput.KeyPressEvent)
 	if !ev.Point.In(ta.C.Bounds) {
