@@ -20,5 +20,5 @@ func GetTestFace() font.Face {
 		panic(err)
 	}
 	ttOpt := &truetype.Options{Size: 12, Hinting: font.HintingFull}
-	return NewFace(f, ttOpt)
+	return truetype.NewFace(f, ttOpt)
 }
