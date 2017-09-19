@@ -1,6 +1,9 @@
 package cmdutil
 
-import "path"
+import (
+	"os"
+	"path"
+)
 
 func NewRow(ed Editorer) {
 	p := "."
@@ -8,7 +11,14 @@ func NewRow(ed Editorer) {
 	erow2, ok := ed.ActiveERow()
 	if ok {
 		fp := erow2.DecodedPart0Arg0()
-		p = path.Dir(fp) // if fp=="", dir returns "."
+
+		// stick with directory if exists, otherwise get base dir
+		fi, err := os.Stat(fp)
+		if err == nil && fi.IsDir() {
+			p = fp
+		} else {
+			p = path.Dir(fp) // if fp=="", dir returns "."
+		}
 	}
 
 	col, nextRow := ed.GoodColumnRowPlace()
