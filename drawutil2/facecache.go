@@ -8,9 +8,8 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-// Implements font.Face
 type FaceCache struct {
-	Face   font.Face
+	font.Face
 	faceMu sync.RWMutex
 	gc     map[rune]*GlyphCache
 	gac    map[rune]*GlyphAdvanceCache
@@ -97,12 +96,6 @@ func (fc *FaceCache) Kern(r0, r1 rune) fixed.Int26_6 {
 		fc.faceMu.Unlock()
 	}
 	return k
-}
-func (fc *FaceCache) Metrics() font.Metrics {
-	return fc.Face.Metrics()
-}
-func (fc *FaceCache) Close() error {
-	return nil
 }
 
 type GlyphCache struct {
