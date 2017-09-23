@@ -288,6 +288,7 @@ func (ed *Editor) eventLoop() {
 			case *xgbutil.EREventData:
 				ed.ui.EvReg.Emit(ev2.EventId, ev2.Event)
 			case shm.CompletionEvent:
+				// no nothing, it will trigger checking if paint is needed
 			default:
 				log.Printf("unhandled event type: %v", ev)
 			}

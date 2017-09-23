@@ -39,7 +39,7 @@ type UI struct {
 func NewUI(fface font.Face) (*UI, error) {
 	ui := &UI{
 		fface1: fface,
-		Events: make(chan interface{}, 50),
+		Events: make(chan interface{}, 32),
 		EvReg:  xgbutil.NewEventRegister(),
 	}
 
@@ -194,14 +194,14 @@ func (ui *UI) onTextAreaAppend(ev0 interface{}) {
 }
 func (ui *UI) textAreaAppend(ta *TextArea, str string) {
 	// cap max size
-	maxSize := 1024 * 1024 * 5
-	str = ta.Str() + str
-	if len(str) > maxSize {
-		d := len(str) - maxSize
-		str = str[d:]
+	maxSize := 5 * 1024 * 1024
+	str2 := ta.Str() + str
+	if len(str2) > maxSize {
+		d := len(str2) - maxSize
+		str2 = str2[d:]
 	}
 	// false,true = keep pos, but clear undo for massive savings
-	ta.SetStrClear(str, false, true)
+	ta.SetStrClear(str2, false, true)
 }
 
 const (
