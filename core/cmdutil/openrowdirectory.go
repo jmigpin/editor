@@ -27,17 +27,17 @@ func OpenRowDirectory(ed Editorer) {
 	}
 
 	next, _ := erow.Row().NextSiblingRow()
-	OpenDirectoryRow(ed, p, erow.Row().Col, next)
-	erow.Row().WarpPointer()
+	erow2 := OpenDirectoryRow(ed, p, erow.Row().Col, next)
+	erow2.Row().WarpPointer()
 }
-func OpenDirectoryRow(ed Editorer, path string, col *ui.Column, next *ui.Row) {
+func OpenDirectoryRow(ed Editorer, path string, col *ui.Column, next *ui.Row) ERower {
 	erow, ok := ed.FindERow(path)
 	if !ok {
 		erow = ed.NewERowBeforeRow(path, col, next)
 		err := erow.LoadContentClear()
 		if err != nil {
 			erow.Ed().Error(err)
-			return
 		}
 	}
+	return erow
 }
