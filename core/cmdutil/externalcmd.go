@@ -77,15 +77,14 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 	}
 
 	var wg sync.WaitGroup
+
 	readPipe := func(pr io.Reader) {
-		wg.Add(1)
 		defer wg.Done()
-		b := make([]byte, 5*1024)
+		var buf [64 * 1024]byte
 		for {
-			// when the pipe gets closed, this goroutine gets released
-			n, err := pr.Read(b)
+			n, err := pr.Read(buf[:])
 			if n > 0 {
-				taAppend(string(b[:n]))
+				taAppend(string(buf[:n]))
 			}
 			if err != nil {
 				break
@@ -93,6 +92,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 		}
 	}
 	// setup piping to the chan
+	wg.Add(2)
 	go readPipe(opr)
 	go readPipe(epr)
 
@@ -105,6 +105,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 	}
 	_ = cmd.Wait() // this error is going already to the stderr pipe
 
+	// release goroutines reading the pipes
 	opw.Close()
 	epw.Close()
 
