@@ -12,6 +12,7 @@ import (
 
 func main() {
 	log.SetFlags(log.Llongfile)
+	//log.SetFlags(0)
 
 	// flags
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")

@@ -39,7 +39,6 @@ func NewTargetWatcher(logf Logf) (*TargetWatcher, error) {
 	w.entries.m = make(map[string]*Entry)
 	w.paths.m = make(map[string]int)
 
-	//w.Logf = log.Printf
 	if logf != nil {
 		w.Logf = logf
 	}
@@ -126,6 +125,15 @@ func (w *TargetWatcher) handleEvent(ev *Event) (evs []interface{}) {
 		return
 	}
 
+	// directory changes
+	if ev.Filename != "" && (ev.Op.HasCreate() || ev.Op.HasDelete()) {
+		_, ok := w.entries.m[ev.Name]
+		if ok {
+			evs = append(evs, ev)
+		}
+	}
+
+	// keep states for later check
 	states := make(map[string]bool)
 	for _, e := range w.entries.m {
 		states[e.name] = e.exist
@@ -133,16 +141,13 @@ func (w *TargetWatcher) handleEvent(ev *Event) (evs []interface{}) {
 
 	// create, delete, ignored
 	for name, e := range w.entries.m {
-		//w.Logf("checking with %v", name)
-
-		// TODO: check filename?
-
 		if strings.HasPrefix(name, ev.Name) {
 			w.Logf("rechecking path %+v", e)
 			w.addWatch(e)
 		}
 	}
 
+	// check states that have changed and emit events
 	for name, exist := range states {
 		e := w.entries.m[name]
 		if exist != e.exist {
@@ -155,6 +160,7 @@ func (w *TargetWatcher) handleEvent(ev *Event) (evs []interface{}) {
 			}
 		}
 	}
+
 	return
 }
 

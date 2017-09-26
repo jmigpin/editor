@@ -145,8 +145,6 @@ func rowToolbarCmd(erow *ERow, part *toolbardata.Part) bool {
 	case "ListDirHidden":
 		tree, hidden := false, true
 		cmdutil.ListDirEd(erow, tree, hidden)
-	case "FWStatus":
-		FWStatus(erow)
 	default:
 		return false
 	}

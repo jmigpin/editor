@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jmigpin/editor/core/cmdutil"
@@ -15,11 +16,13 @@ import (
 )
 
 type ERow struct {
-	ed               *Editor
-	row              *ui.Row
-	td               *toolbardata.ToolbarData
+	ed  *Editor
+	row *ui.Row
+	td  *toolbardata.ToolbarData
+
 	decodedPart0Arg0 string
-	fi               struct {
+
+	fi struct {
 		doneFirst bool
 		fileInfo  os.FileInfo
 		err       error // error while getting fileinfo, if any
@@ -58,6 +61,8 @@ func (erow *ERow) initHandlers() {
 			// edited
 			_, fi, err := erow.FileInfo()
 			if err == nil && !fi.IsDir() {
+
+				// TODO: should be a row func row.SetEdited
 				erow.row.Square.SetValue(ui.SquareEdited, true)
 			}
 		}})
@@ -77,17 +82,30 @@ func (erow *ERow) initHandlers() {
 		&xgbutil.ERCallback{func(ev0 interface{}) {
 			cmdutil.RowCtxCancel(row)
 			ed.reopenRow.Add(row)
-			erow.ed.fw.Remove(erow)
+			erow.ed.RemoveWatch(erow)
 		}})
 }
+
 func (erow *ERow) Row() *ui.Row {
 	return erow.row
 }
 func (erow *ERow) Ed() cmdutil.Editorer {
 	return erow.ed
 }
+
+// TODO: clear this
+
 func (erow *ERow) DecodedPart0Arg0() string {
 	return erow.decodedPart0Arg0
+}
+
+func (erow *ERow) Filename() string {
+	u := erow.DecodedPart0Arg0()
+	s, err := filepath.Abs(u)
+	if err != nil {
+		return u
+	}
+	return s
 }
 
 func (erow *ERow) parseToolbar(ev *ui.TextAreaSetStrEvent) {
@@ -98,9 +116,9 @@ func (erow *ERow) parseToolbar(ev *ui.TextAreaSetStrEvent) {
 	// don't allow changing the first part
 	if ev != nil {
 		str1 := ev.OldStr
-		tb1 := toolbardata.NewToolbarData(str1)
-		tb2 := erow.td
-		if tb1.DecodePart0Arg0() != tb2.DecodePart0Arg0() {
+		td1 := toolbardata.NewToolbarData(str1)
+		td2 := erow.td
+		if td1.DecodePart0Arg0() != td2.DecodePart0Arg0() {
 			ev.TextArea.SetRawStr(str1)
 			erow.Ed().Errorf("can't change toolbar first part")
 			return
@@ -124,16 +142,18 @@ func (erow *ERow) parseToolbar(ev *ui.TextAreaSetStrEvent) {
 	erow.decodedPart0Arg0 = fp
 	erow.fi.doneFirst = true
 
+	//************************
+	// TODO: need to remove old row filename from watch?
+
 	if fp == "" || erow.ed.IsSpecialName(fp) {
-		erow.ed.fw.Remove(erow)
+		erow.ed.RemoveWatch(erow)
 	} else {
-		erow.ed.fw.AddUpdate(erow, fp)
+		erow.ed.AddWatch(erow)
 	}
 
 	erow.updateFileInfo()
 }
 
-// Also called from FSNWatcher.
 func (erow *ERow) updateFileInfo() {
 	erow.fi.fileInfo = nil
 	erow.fi.err = nil
@@ -171,6 +191,7 @@ func (erow *ERow) FileInfo() (string, os.FileInfo, error) {
 	}
 	return erow.decodedPart0Arg0, erow.fi.fileInfo, nil
 }
+
 func (erow *ERow) ToolbarData() *toolbardata.ToolbarData {
 	return erow.td
 }
@@ -222,7 +243,7 @@ func (erow *ERow) SaveContent(str string) error {
 }
 func (erow *ERow) saveContent2(str string, filename string) error {
 	// remove from file watcher to avoid events while writing
-	erow.ed.fw.Remove(erow)
+	erow.ed.RemoveWatch(erow)
 	// re-add through update file info (needed if file didn't exist)
 	defer erow.updateFileInfo()
 

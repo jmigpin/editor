@@ -353,6 +353,11 @@ func TestTargetWatcher8(t *testing.T) {
 
 	waitForTEvent(t, w, func(ev interface{}) bool {
 		ev2 := ev.(*Event)
+		return ev2.Name == dir4 && ev2.Filename == file2 && ev2.Op.HasCreate()
+	})
+
+	waitForTEvent(t, w, func(ev interface{}) bool {
+		ev2 := ev.(*Event)
 		return ev2.Name == dir4 && ev2.Op.HasDelete()
 	})
 

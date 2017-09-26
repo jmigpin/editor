@@ -38,18 +38,12 @@ func NewBasicWatcher(logf Logf) (*BasicWatcher, error) {
 		Events: make(chan interface{}),
 		Logf:   func(string, ...interface{}) {},
 	}
+	w.watches.m = make(map[string]int)
+	w.watches.names = make(map[int]string)
 
-	//w.log = log.New(ioutil.Discard, "", 0)
-	//w.log = log.New(os.Stdout, fmt.Sprintf("%p: ", w), 0)
-	//w.log = log.New(os.Stdout, fmt.Sprintf("%p: ", w), log.Lmicroseconds)
-
-	//w.Logf = log.Printf
 	if logf != nil {
 		w.Logf = logf
 	}
-
-	w.watches.m = make(map[string]int)
-	w.watches.names = make(map[int]string)
 
 	go w.eventLoop()
 

@@ -15,6 +15,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
+	"github.com/jmigpin/editor/core/fileswatcher"
 	"github.com/jmigpin/editor/drawutil2"
 	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/ui"
@@ -24,7 +25,7 @@ import (
 
 type Editor struct {
 	ui        *ui.UI
-	fw        *FilesWatcher
+	fwatcher  *fileswatcher.TargetWatcher
 	reopenRow *cmdutil.ReopenRow
 	erows     map[*ui.Row]*ERow
 	close     chan struct{}
@@ -82,11 +83,12 @@ func NewEditor(opt *Options) (*Editor, error) {
 	cmdutil.SetupLayoutHomeVars(ed)
 
 	// files watcher for visual feedback when files change
-	fw, err := NewFilesWatcher(ed)
+	w, err := fileswatcher.NewTargetWatcher(nil)
+	//w, err := fileswatcher.NewTargetWatcher(log.Printf)
 	if err != nil {
 		return nil, err
 	}
-	ed.fw = fw
+	ed.fwatcher = w
 
 	// cmd line filenames to open
 	args := flag.Args()
@@ -113,7 +115,6 @@ func NewEditor(opt *Options) (*Editor, error) {
 		}
 	}
 
-	go ed.fw.EventLoop()
 	ed.eventLoop() // blocks
 
 	return ed, nil
@@ -150,7 +151,7 @@ func (ed *Editor) getFontFace(opt *Options) (font.Face, error) {
 }
 
 func (ed *Editor) Close() {
-	ed.fw.Close()
+	ed.fwatcher.Close()
 	close(ed.close)
 }
 func (ed *Editor) UI() *ui.UI {
@@ -292,6 +293,17 @@ func (ed *Editor) eventLoop() {
 			default:
 				log.Printf("unhandled event type: %v", ev)
 			}
+
+		case ev, ok := <-ed.fwatcher.Events:
+			if !ok {
+				break
+			}
+			switch ev2 := ev.(type) {
+			case error:
+				ed.Error(ev2)
+			case *fileswatcher.Event:
+				ed.handleWatcherEvent(ev2)
+			}
 		}
 
 		if len(ed.ui.Events) == 0 {
@@ -305,6 +317,41 @@ func (ed *Editor) eventLoop() {
 		}
 	}
 forEnd:
+}
+
+func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
+	//log.Printf("watcher event: %+v", ev)
+
+	isDirEvent := ev.Filename != ""
+
+	switch {
+	case ev.Op.HasModify() && !isDirEvent:
+		for _, erow := range ed.erows {
+			name := erow.Filename()
+			if name == ev.Name {
+				erow.row.Square.SetValue(ui.SquareDiskChanges, true)
+			}
+		}
+	case ev.Op.HasDelete(), ev.Op.HasCreate():
+		for _, erow := range ed.erows {
+			name := erow.Filename()
+			if name == ev.Name {
+				if isDirEvent {
+					erow.row.Square.SetValue(ui.SquareDiskChanges, true)
+				} else {
+					erow.updateFileInfo()
+				}
+			}
+		}
+	}
+}
+func (ed *Editor) AddWatch(erow *ERow) {
+	name := erow.Filename()
+	ed.fwatcher.Add(name)
+}
+func (ed *Editor) RemoveWatch(erow *ERow) {
+	name := erow.Filename()
+	ed.fwatcher.Remove(name)
 }
 
 type Options struct {
