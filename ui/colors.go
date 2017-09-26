@@ -14,14 +14,14 @@ var (
 
 	// tetradic color scheme
 	// http://www.tigercolor.com/color-lab/color-theory/color-theory-intro.htm
-	Red    = color.RGBA{255, 0, 0, 255}
-	Yellow = color.RGBA{255, 153, 0, 255}
-	Green  = color.RGBA{15, 173, 0, 255}
-	Blue   = color.RGBA{0, 100, 181, 255}
+	Red    color.Color = &color.RGBA{255, 0, 0, 255}
+	Yellow color.Color = &color.RGBA{255, 153, 0, 255}
+	Green  color.Color = &color.RGBA{15, 173, 0, 255}
+	Blue   color.Color = &color.RGBA{0, 100, 181, 255}
 
 	SeparatorColor = Black
 
-	RowInnerSeparatorColor = imageutil.Tint(&Blue, 0.50)
+	RowInnerSeparatorColor = imageutil.Tint(Blue, 0.50)
 
 	SquareColor            = ToolbarColors.Normal.Bg
 	SquareActiveColor      = Black
@@ -36,8 +36,8 @@ var (
 
 var TextAreaColors = hsdrawer.Colors{
 	Normal:    hsdrawer.FgBg{Black, White},
-	Selection: hsdrawer.FgBg{nil, imageutil.Tint(&Yellow, 0.50)},
-	Highlight: hsdrawer.FgBg{nil, imageutil.Tint(&Blue, 0.70)},
+	Selection: hsdrawer.FgBg{nil, imageutil.Tint(Yellow, 0.50)},
+	Highlight: hsdrawer.FgBg{nil, imageutil.Tint(Blue, 0.70)},
 }
 
 var ToolbarColors = hsdrawer.Colors{
@@ -48,8 +48,8 @@ var ToolbarColors = hsdrawer.Colors{
 func AcmeColors() {
 	TextAreaColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, color.RGBA{255, 255, 234, 255}},
-		Selection: hsdrawer.FgBg{nil, imageutil.Tint(&Yellow, 0.50)},
-		Highlight: hsdrawer.FgBg{nil, imageutil.Tint(&Blue, 0.70)},
+		Selection: hsdrawer.FgBg{nil, imageutil.Tint(Yellow, 0.50)},
+		Highlight: hsdrawer.FgBg{nil, imageutil.Tint(Blue, 0.70)},
 	}
 	ToolbarColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, color.RGBA{234, 255, 255, 255}},

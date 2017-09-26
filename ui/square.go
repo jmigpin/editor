@@ -70,7 +70,7 @@ func (sq *Square) paint() {
 
 	if sq.values[SquareDiskChanges] {
 		// rowcol(0,0)
-		sq.ui.FillRectangle(&r, &SquareDiskChangesColor)
+		sq.ui.FillRectangle(&r, SquareDiskChangesColor)
 	}
 	if sq.values[SquareActive] {
 		// rowcol(0,1)
