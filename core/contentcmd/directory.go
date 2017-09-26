@@ -12,14 +12,7 @@ func directory(erow cmdutil.ERower, p string) bool {
 		return false
 	}
 	if !path.IsAbs(p) {
-		filepath, fi, err := erow.FileInfo()
-		if err == nil {
-			if fi.IsDir() {
-				p = path.Join(filepath, p)
-			} else {
-				p = path.Join(path.Dir(filepath), p)
-			}
-		}
+		p = path.Join(erow.Dir(), p)
 	}
 	fi, err := os.Stat(p)
 	if err != nil {

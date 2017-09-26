@@ -14,12 +14,7 @@ func ReloadRow(erow ERower) {
 
 func ReloadRowsFiles(ed Editorer) {
 	for _, erow := range ed.ERows() {
-		_, fi, err := erow.FileInfo()
-		if err != nil {
-			// ed.Error(err) // TODO: would show error on special names
-			continue
-		}
-		if fi.IsDir() {
+		if erow.IsSpecialName() || erow.IsDir() {
 			continue
 		}
 		ReloadRow(erow)

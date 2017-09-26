@@ -27,6 +27,8 @@ func Cmd(erow cmdutil.ERower) {
 	if ok := goPathDir(erow, s); ok {
 		return
 	}
+
+	erow.Ed().Errorf("no content cmd was run")
 }
 
 func expandLeftRight(str string, index int) string {

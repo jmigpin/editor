@@ -17,19 +17,14 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	row := erow.Row()
 	ed := erow.Ed()
 
-	dir := ""
-
-	// get directory from row
-	fp, fi, err := erow.FileInfo()
-	if err == nil {
-		if fi.Mode().IsRegular() {
-			ed.Errorf("running external cmd on existing filename: %v", fp)
-			return
-		}
-		if fi.IsDir() {
-			dir = fp
-		}
+	// only run commands on directories
+	fp := erow.Filename()
+	if !erow.IsDir() {
+		ed.Errorf("running external cmd on a row that is not a directory: %v", fp)
+		return
 	}
+
+	dir := fp
 
 	// cancel previous context if any
 	gRowCtx.Cancel(row)

@@ -10,7 +10,7 @@ func NewRow(ed Editorer) {
 
 	erow2, ok := ed.ActiveERow()
 	if ok {
-		fp := erow2.DecodedPart0Arg0()
+		fp := erow2.Filename()
 
 		// stick with directory if exists, otherwise get base dir
 		fi, err := os.Stat(fp)

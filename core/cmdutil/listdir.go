@@ -9,16 +9,11 @@ import (
 )
 
 func ListDirEd(erow ERower, tree, hidden bool) {
-	fp, fi, err := erow.FileInfo()
-	if err != nil {
-		erow.Ed().Error(err)
-		return
-	}
-	if !fi.IsDir() {
-		// TODO: create/find window of base directory?
+	if !erow.IsDir() {
 		erow.Ed().Errorf("not a directory")
 		return
 	}
+	fp := erow.Filename()
 	s, err := ListDir(fp, tree, hidden)
 	if err != nil {
 		erow.Ed().Error(err)

@@ -206,8 +206,8 @@ func (ed *Editor) onRowKeyPress(ev0 interface{}) {
 
 func (ed *Editor) FindERow(str string) (cmdutil.ERower, bool) {
 	for _, erow := range ed.erows {
-		s1 := erow.DecodedPart0Arg0()
-		if s1 == str {
+		// name covers special rows, filename covers abs path
+		if str == erow.Name() || str == erow.Filename() {
 			return erow, true
 		}
 	}
@@ -218,14 +218,23 @@ func (ed *Editor) Errorf(f string, a ...interface{}) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
-	s := "+Errors"
+	erow := ed.messagesERow()
+	erow.TextAreaAppendAsync("error: " + err.Error() + "\n")
+	//erow.Row().WarpPointer()
+}
+
+func (ed *Editor) messagesERow() cmdutil.ERower {
+	s := "+Messages" // special name format
 	erow, ok := ed.FindERow(s)
 	if !ok {
 		col, nextRow := ed.GoodColumnRowPlace()
 		erow = ed.NewERowBeforeRow(s, col, nextRow)
 	}
-	erow.TextAreaAppendAsync("error: " + err.Error() + "\n")
-	//erow.Row().WarpPointer()
+	return erow
+}
+
+func (ed *Editor) IsSpecialName(s string) bool {
+	return len(s) > 0 && s[0] == '+'
 }
 
 // Used to run layout toolbar commands.
@@ -241,10 +250,6 @@ func (ed *Editor) ActiveERow() (cmdutil.ERower, bool) {
 func (ed *Editor) GoodColumnRowPlace() (*ui.Column, *ui.Row) {
 	col := ed.ui.Layout.Cols.ColumnWithGoodPlaceForNewRow()
 	return col, nil // last position
-}
-
-func (ed *Editor) IsSpecialName(s string) bool {
-	return len(s) > 0 && s[0] == '+'
 }
 
 func (ed *Editor) eventLoop() {
@@ -329,7 +334,7 @@ func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
 		for _, erow := range ed.erows {
 			name := erow.Filename()
 			if name == ev.Name {
-				erow.row.Square.SetValue(ui.SquareDiskChanges, true)
+				erow.SetDiskChanges(true)
 			}
 		}
 	case ev.Op.HasDelete(), ev.Op.HasCreate():
@@ -337,21 +342,13 @@ func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
 			name := erow.Filename()
 			if name == ev.Name {
 				if isDirEvent {
-					erow.row.Square.SetValue(ui.SquareDiskChanges, true)
+					erow.SetDiskChanges(true)
 				} else {
-					erow.updateFileInfo()
+					erow.UpdateState()
 				}
 			}
 		}
 	}
-}
-func (ed *Editor) AddWatch(erow *ERow) {
-	name := erow.Filename()
-	ed.fwatcher.Add(name)
-}
-func (ed *Editor) RemoveWatch(erow *ERow) {
-	name := erow.Filename()
-	ed.fwatcher.Remove(name)
 }
 
 type Options struct {

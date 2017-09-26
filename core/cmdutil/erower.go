@@ -1,8 +1,6 @@
 package cmdutil
 
 import (
-	"os"
-
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 )
@@ -16,9 +14,12 @@ type ERower interface {
 	ReloadContent() error
 	SaveContent(string) error
 
-	DecodedPart0Arg0() string
 	ToolbarData() *toolbardata.ToolbarData
-	FileInfo() (string, os.FileInfo, error)
+
+	IsSpecialName() bool
+	Filename() string
+	Dir() string
+	IsDir() bool
 
 	TextAreaAppendAsync(string)
 }

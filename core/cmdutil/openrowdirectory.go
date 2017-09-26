@@ -13,7 +13,7 @@ func OpenRowDirectory(ed Editorer) {
 		return
 	}
 
-	fp := erow.DecodedPart0Arg0()
+	fp := erow.Filename()
 	p := path.Dir(fp) // if fp=="", dir returns "."
 
 	fi, err := os.Stat(p)

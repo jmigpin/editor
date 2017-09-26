@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/contentcmd"
@@ -20,12 +20,13 @@ type ERow struct {
 	row *ui.Row
 	td  *toolbardata.ToolbarData
 
-	decodedPart0Arg0 string
+	state struct {
+		name  string // decoded part0arg0
+		tbStr string
 
-	fi struct {
-		doneFirst bool
-		fileInfo  os.FileInfo
-		err       error // error while getting fileinfo, if any
+		filename string // abs filename from name
+		isDir    bool
+		watch    bool
 	}
 }
 
@@ -58,12 +59,8 @@ func (erow *ERow) initHandlers() {
 	// textarea set str
 	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 interface{}) {
-			// edited
-			_, fi, err := erow.FileInfo()
-			if err == nil && !fi.IsDir() {
-
-				// TODO: should be a row func row.SetEdited
-				erow.row.Square.SetValue(ui.SquareEdited, true)
+			if !erow.IsDir() && !erow.IsSpecialName() {
+				erow.SetEdited(true)
 			}
 		}})
 	// textarea content cmds
@@ -82,7 +79,10 @@ func (erow *ERow) initHandlers() {
 		&xgbutil.ERCallback{func(ev0 interface{}) {
 			cmdutil.RowCtxCancel(row)
 			ed.reopenRow.Add(row)
-			erow.ed.RemoveWatch(erow)
+
+			if erow.state.watch {
+				erow.ed.fwatcher.Remove(erow.state.filename)
+			}
 		}})
 }
 
@@ -92,108 +92,111 @@ func (erow *ERow) Row() *ui.Row {
 func (erow *ERow) Ed() cmdutil.Editorer {
 	return erow.ed
 }
-
-// TODO: clear this
-
-func (erow *ERow) DecodedPart0Arg0() string {
-	return erow.decodedPart0Arg0
+func (erow *ERow) ToolbarData() *toolbardata.ToolbarData {
+	return erow.td
 }
 
+func (erow *ERow) SetEdited(v bool) {
+	erow.row.Square.SetValue(ui.SquareEdited, v)
+}
+func (erow *ERow) SetDiskChanges(v bool) {
+	erow.row.Square.SetValue(ui.SquareDiskChanges, v)
+}
+
+func (erow *ERow) Name() string {
+	return erow.state.name
+}
 func (erow *ERow) Filename() string {
-	u := erow.DecodedPart0Arg0()
-	s, err := filepath.Abs(u)
-	if err != nil {
-		return u
+	return erow.state.filename
+}
+func (erow *ERow) IsDir() bool {
+	return erow.state.isDir
+}
+func (erow *ERow) Dir() string {
+	fp := erow.Filename()
+	if erow.IsDir() {
+		return fp
 	}
-	return s
+	return path.Dir(fp)
+}
+
+func (erow *ERow) IsSpecialName() bool {
+	return erow.ed.IsSpecialName(erow.state.name)
 }
 
 func (erow *ERow) parseToolbar(ev *ui.TextAreaSetStrEvent) {
+	tbStr := erow.Row().Toolbar.Str()
+	td := toolbardata.NewToolbarData(tbStr)
+	name := td.DecodePart0Arg0()
 
-	u := erow.Row().Toolbar.Str()
-	erow.td = toolbardata.NewToolbarData(u)
-
+	// ev is nil on first call at erow creation.
 	// don't allow changing the first part
 	if ev != nil {
-		str1 := ev.OldStr
-		td1 := toolbardata.NewToolbarData(str1)
-		td2 := erow.td
-		if td1.DecodePart0Arg0() != td2.DecodePart0Arg0() {
-			ev.TextArea.SetRawStr(str1)
+		if name != erow.state.name {
+			ev.TextArea.SetRawStr(erow.state.tbStr)
 			erow.Ed().Errorf("can't change toolbar first part")
 			return
 		}
 	}
 
+	erow.td = td
+	erow.state.tbStr = tbStr
+	erow.state.name = name
+
 	// update toolbar with encoded value
-	s := erow.td.StrWithPart0Arg0Encoded()
-	if s != erow.td.Str {
-		// set str will trigger event that parses again
+	s := td.StrWithPart0Arg0Encoded()
+	if s != td.Str {
+		// set str will trigger event that parses the toolbar again
 		erow.Row().Toolbar.SetStrClear(s, false, false)
-		// TODO: adjust cursor
 		return
 	}
 
-	fp := erow.td.DecodePart0Arg0()
-
-	if erow.decodedPart0Arg0 == fp && erow.fi.doneFirst {
-		return
-	}
-	erow.decodedPart0Arg0 = fp
-	erow.fi.doneFirst = true
-
-	//************************
-	// TODO: need to remove old row filename from watch?
-
-	if fp == "" || erow.ed.IsSpecialName(fp) {
-		erow.ed.RemoveWatch(erow)
-	} else {
-		erow.ed.AddWatch(erow)
-	}
-
-	erow.updateFileInfo()
+	erow.UpdateState()
 }
 
-func (erow *ERow) updateFileInfo() {
-	erow.fi.fileInfo = nil
-	erow.fi.err = nil
+func (erow *ERow) UpdateState() {
+	prev := erow.state
 
-	notExist := false
-	defer func() {
-		erow.row.Square.SetValue(ui.SquareNotExist, notExist)
-	}()
+	erow.updateFileinfo()
 
-	fp := erow.decodedPart0Arg0
-	if fp == "" {
-		erow.fi.err = fmt.Errorf("missing part0")
+	cur := &erow.state
+	if prev == *cur {
 		return
 	}
 
-	if erow.ed.IsSpecialName(fp) {
-		erow.fi.err = fmt.Errorf("special part0: %v", fp)
+	// stop watching previous
+	if prev.watch && prev.filename != cur.filename {
+		erow.ed.fwatcher.Remove(prev.filename)
+	}
+
+	// start watching current
+	cur.watch = false
+	if cur.filename != "" && !erow.ed.IsSpecialName(cur.filename) {
+		cur.watch = true
+		erow.ed.fwatcher.Add(cur.filename)
+	}
+}
+
+func (erow *ERow) updateFileinfo() {
+	c := &erow.state
+	c.filename = ""
+	c.isDir = false
+
+	if erow.ed.IsSpecialName(c.name) {
 		return
 	}
 
-	fi, err := os.Stat(fp)
-	if err != nil {
-		erow.fi.err = errors.Wrapf(err, "updateinfo")
-		if os.IsNotExist(err) {
-			notExist = true
+	abs, err := filepath.Abs(c.name)
+	if err == nil {
+		c.filename = abs
+
+		fi, err := os.Stat(c.filename)
+		if err == nil {
+			if fi.IsDir() {
+				c.isDir = true
+			}
 		}
-		return
 	}
-	erow.fi.fileInfo = fi
-}
-
-func (erow *ERow) FileInfo() (string, os.FileInfo, error) {
-	if erow.fi.err != nil {
-		return "", nil, errors.Wrapf(erow.fi.err, "fileinfo")
-	}
-	return erow.decodedPart0Arg0, erow.fi.fileInfo, nil
-}
-
-func (erow *ERow) ToolbarData() *toolbardata.ToolbarData {
-	return erow.td
 }
 
 func (erow *ERow) LoadContentClear() error {
@@ -203,49 +206,42 @@ func (erow *ERow) ReloadContent() error {
 	return erow.loadContent(false)
 }
 func (erow *ERow) loadContent(clear bool) error {
-	fp, _, err := erow.FileInfo()
-	if err != nil {
-		return err
+	if erow.IsSpecialName() {
+		return fmt.Errorf("can't load special name: %s", erow.state.name)
 	}
+	fp := erow.Filename()
 	content, err := erow.filepathContent(fp)
 	if err != nil {
 		return errors.Wrapf(err, "loadcontent")
 	}
 	erow.row.TextArea.SetStrClear(content, clear, clear)
-	erow.row.Square.SetValue(ui.SquareEdited, false)
-	erow.row.Square.SetValue(ui.SquareDiskChanges, false)
+	erow.SetEdited(false)
+	erow.SetDiskChanges(false)
 	return nil
 }
 func (erow *ERow) SaveContent(str string) error {
-	fp, fi, err := erow.FileInfo()
-	if err == nil {
-		if fi.IsDir() {
-			return fmt.Errorf("saving a directory: %v", fp)
-		}
-	} else {
-		// save non existing file
-		fp2 := erow.decodedPart0Arg0
-		if fp2 == "" {
-			return fmt.Errorf("missing filename")
-		}
-		if erow.ed.IsSpecialName(fp2) {
-			return fmt.Errorf("can't save special name: %s", fp2)
-		}
-		fp = fp2
+	if erow.IsSpecialName() {
+		return fmt.Errorf("can't save special name: %s", erow.state.name)
 	}
-	err = erow.saveContent2(str, fp)
+	fp := erow.Filename()
+	if erow.IsDir() {
+		return fmt.Errorf("can't save a directory: %v", fp)
+	}
+	err := erow.saveContent2(str, fp)
 	if err != nil {
 		return err
 	}
-	erow.row.Square.SetValue(ui.SquareEdited, false)
-	erow.row.Square.SetValue(ui.SquareDiskChanges, false)
+	erow.SetEdited(false)
+	erow.SetDiskChanges(false)
 	return nil
 }
 func (erow *ERow) saveContent2(str string, filename string) error {
 	// remove from file watcher to avoid events while writing
-	erow.ed.RemoveWatch(erow)
-	// re-add through update file info (needed if file didn't exist)
-	defer erow.updateFileInfo()
+	erow.state.watch = false
+	erow.ed.fwatcher.Remove(erow.state.filename)
+
+	// re-add through update state (needed if file didn't exist)
+	defer erow.UpdateState()
 
 	// save
 	flags := os.O_WRONLY | os.O_TRUNC | os.O_CREATE
@@ -264,17 +260,6 @@ func (erow *ERow) TextAreaAppendAsync(str string) {
 }
 
 func (erow *ERow) filepathContent(filepath string) (string, error) {
-	// row special name
-	specialName := len(filepath) >= 1 && filepath[0] == '+'
-	if specialName {
-		return "", nil
-	}
-	// empty
-	empty := strings.TrimSpace(filepath) == ""
-	if empty {
-		return "", nil
-	}
-	// filepath
 	fi, err := os.Stat(filepath)
 	if err != nil {
 		return "", err
