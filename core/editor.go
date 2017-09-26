@@ -353,7 +353,7 @@ func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
 			name := erow.Filename()
 			if name == ev.Name {
 				if isDirEvent {
-					erow.SetUIDiskChanges(true)
+					//erow.SetUIDiskChanges(true)
 				} else {
 					erow.UpdateState()
 				}
