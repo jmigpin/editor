@@ -182,12 +182,11 @@ func (ta *TextArea) setStr(s string) {
 		return
 	}
 
-	oldStr := ta.str
 	oldBounds := ta.C.Bounds
 
 	ta.SetRawStr(s)
 
-	ev := &TextAreaSetStrEvent{ta, oldStr, oldBounds}
+	ev := &TextAreaSetStrEvent{ta, oldBounds}
 	ta.EvReg.Emit(TextAreaSetStrEventId, ev)
 }
 
@@ -695,8 +694,7 @@ type TextAreaCmdEvent struct {
 }
 type TextAreaSetStrEvent struct {
 	TextArea  *TextArea
-	OldStr    string
-	OldBounds image.Rectangle
+	OldBounds image.Rectangle // TODO: should not be here
 }
 type TextAreaSetOffsetYEvent struct {
 	TextArea *TextArea
