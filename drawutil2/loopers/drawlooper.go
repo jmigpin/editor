@@ -23,9 +23,15 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 	img := lpr.Image
 
 	lpr.OuterLooper().Loop(func() bool {
+		// early exit if beyond max Y
+		pb := strl.PenBounds()
+		if pb.Max.Y.Floor() > bounds.Max.Y {
+			return false
+		}
+
 		dr, mask, maskp, _, ok := strl.Face.Glyph(strl.Pen, strl.Ru)
 		if !ok {
-			return true
+			return fn()
 		}
 
 		// clip
@@ -33,11 +39,9 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 		dr2 := dr.Intersect(*bounds)
 		if dr.Min.X < bounds.Min.X {
 			maskp.X += bounds.Min.X - dr.Min.X
-			//maskp.X += dr.Dx() - dr2.Dx()
 		}
 		if dr.Min.Y < bounds.Min.Y {
 			maskp.Y += bounds.Min.Y - dr.Min.Y
-			//maskp.Y += dr.Dy() - dr2.Dy()
 		}
 
 		if lpr.Fg == nil {
