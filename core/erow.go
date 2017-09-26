@@ -27,6 +27,7 @@ type ERow struct {
 		filename string // abs filename from name
 		isDir    bool
 		watch    bool
+		notExist bool
 	}
 }
 
@@ -60,7 +61,7 @@ func (erow *ERow) initHandlers() {
 	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 interface{}) {
 			if !erow.IsDir() && !erow.IsSpecialName() {
-				erow.SetEdited(true)
+				erow.SetUIEdited(true)
 			}
 		}})
 	// textarea content cmds
@@ -96,11 +97,14 @@ func (erow *ERow) ToolbarData() *toolbardata.ToolbarData {
 	return erow.td
 }
 
-func (erow *ERow) SetEdited(v bool) {
+func (erow *ERow) SetUIEdited(v bool) {
 	erow.row.Square.SetValue(ui.SquareEdited, v)
 }
-func (erow *ERow) SetDiskChanges(v bool) {
+func (erow *ERow) SetUIDiskChanges(v bool) {
 	erow.row.Square.SetValue(ui.SquareDiskChanges, v)
+}
+func (erow *ERow) SetUINotExist(v bool) {
+	erow.row.Square.SetValue(ui.SquareNotExist, v)
 }
 
 func (erow *ERow) Name() string {
@@ -175,12 +179,15 @@ func (erow *ERow) UpdateState() {
 		cur.watch = true
 		erow.ed.fwatcher.Add(cur.filename)
 	}
+
+	erow.SetUINotExist(cur.notExist)
 }
 
 func (erow *ERow) updateFileinfo() {
 	c := &erow.state
 	c.filename = ""
 	c.isDir = false
+	c.notExist = false
 
 	if erow.ed.IsSpecialName(c.name) {
 		return
@@ -196,6 +203,8 @@ func (erow *ERow) updateFileinfo() {
 				c.isDir = true
 			}
 		}
+
+		c.notExist = os.IsNotExist(err)
 	}
 }
 
@@ -215,8 +224,8 @@ func (erow *ERow) loadContent(clear bool) error {
 		return errors.Wrapf(err, "loadcontent")
 	}
 	erow.row.TextArea.SetStrClear(content, clear, clear)
-	erow.SetEdited(false)
-	erow.SetDiskChanges(false)
+	erow.SetUIEdited(false)
+	erow.SetUIDiskChanges(false)
 	return nil
 }
 func (erow *ERow) SaveContent(str string) error {
@@ -231,8 +240,8 @@ func (erow *ERow) SaveContent(str string) error {
 	if err != nil {
 		return err
 	}
-	erow.SetEdited(false)
-	erow.SetDiskChanges(false)
+	erow.SetUIEdited(false)
+	erow.SetUIDiskChanges(false)
 	return nil
 }
 func (erow *ERow) saveContent2(str string, filename string) error {

@@ -387,3 +387,29 @@ func TestTargetWatcher9(t *testing.T) {
 
 	testWatchLeaks(t, w)
 }
+
+func TestTargetWatcher10(t *testing.T) {
+	tmpDir := tempDir()
+	defer os.RemoveAll(tmpDir)
+	w := newTargetWatcherForTest(t)
+	defer w.Close()
+
+	dir := tmpDir
+	file1 := path.Join(dir, "file1.txt")
+	file2 := path.Join(dir, "file2.txt")
+
+	createFile(t, file1)
+	w.Add(file1)
+
+	err := os.Rename(file1, file2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitForTEvent(t, w, func(ev interface{}) bool {
+		ev2 := ev.(*Event)
+		return ev2.Name == file1 && ev2.Op.HasDelete()
+	})
+
+	testWatchLeaks(t, w)
+}

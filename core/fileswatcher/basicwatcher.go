@@ -226,7 +226,7 @@ type Event struct {
 type Op uint32
 
 func (op Op) HasDelete() bool {
-	return op&unix.IN_DELETE_SELF+op&unix.IN_DELETE+op&unix.IN_MOVED_FROM > 0
+	return op&unix.IN_DELETE_SELF+op&unix.IN_DELETE+op&unix.IN_MOVED_FROM+op&unix.IN_MOVE_SELF > 0
 }
 func (op Op) HasCreate() bool {
 	return op&unix.IN_CREATE+op&unix.IN_MOVED_TO > 0

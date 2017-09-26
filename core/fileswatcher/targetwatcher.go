@@ -271,11 +271,3 @@ type Entry struct {
 	exist bool
 	path  string // current path used to receive events about this entry
 }
-
-//func isDirPrefix(a, b string) bool {
-//	return a != b && strings.HasPrefix(b, a)
-//}
-//func fileExist(name string) bool {
-//	_, err := os.Stat(name)
-//	return err == nil || !os.IsNotExist(err)
-//}

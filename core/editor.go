@@ -345,7 +345,7 @@ func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
 		for _, erow := range ed.erows {
 			name := erow.Filename()
 			if name == ev.Name {
-				erow.SetDiskChanges(true)
+				erow.SetUIDiskChanges(true)
 			}
 		}
 	case ev.Op.HasDelete(), ev.Op.HasCreate():
@@ -353,7 +353,7 @@ func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
 			name := erow.Filename()
 			if name == ev.Name {
 				if isDirEvent {
-					erow.SetDiskChanges(true)
+					erow.SetUIDiskChanges(true)
 				} else {
 					erow.UpdateState()
 				}
