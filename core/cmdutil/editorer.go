@@ -1,6 +1,9 @@
 package cmdutil
 
-import "github.com/jmigpin/editor/ui"
+import (
+	"github.com/jmigpin/editor/core/toolbardata"
+	"github.com/jmigpin/editor/ui"
+)
 
 type Editorer interface {
 	Error(error)
@@ -13,4 +16,6 @@ type Editorer interface {
 	ActiveERow() (ERower, bool)
 
 	GoodColumnRowPlace() (col *ui.Column, next *ui.Row)
+
+	HomeVars() *toolbardata.HomeVars
 }

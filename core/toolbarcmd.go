@@ -12,7 +12,7 @@ import (
 
 func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 	ta := layout.Toolbar.TextArea
-	td := toolbardata.NewToolbarData(ta.Str())
+	td := toolbardata.NewToolbarData(ta.Str(), ed.HomeVars())
 	part, ok := td.GetPartAtIndex(ta.CursorIndex())
 	if !ok {
 		return

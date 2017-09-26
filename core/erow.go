@@ -126,7 +126,7 @@ func (erow *ERow) IsSpecialName() bool {
 
 func (erow *ERow) parseToolbar(ev *ui.TextAreaSetStrEvent) {
 	tbStr := erow.Row().Toolbar.Str()
-	td := toolbardata.NewToolbarData(tbStr)
+	td := toolbardata.NewToolbarData(tbStr, erow.ed.HomeVars())
 	name := td.DecodePart0Arg0()
 
 	// ev is nil on first call at erow creation.

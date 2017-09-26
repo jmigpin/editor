@@ -9,49 +9,79 @@ import (
 )
 
 func SetupLayoutHomeVars(ed Editorer) {
+	_ = NewLayoutHomeVars(ed)
+}
+
+type LayoutHomeVars struct {
+	ed Editorer
+
+	entries []string
+}
+
+func NewLayoutHomeVars(ed Editorer) *LayoutHomeVars {
+	lhv := &LayoutHomeVars{ed: ed}
+
 	ed.UI().Layout.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 interface{}) {
 			ev := ev0.(*ui.TextAreaSetStrEvent)
-			updateHomeVars(ed, ev)
+			lhv.update(ev)
 		}})
 
+	return lhv
 }
-func updateHomeVars(ed Editorer, ev *ui.TextAreaSetStrEvent) {
-	tb := ed.UI().Layout.Toolbar
 
-	// TODO: improve when the updatehomevars run - its running on every single toolbar update
+func (lhv *LayoutHomeVars) update(ev *ui.TextAreaSetStrEvent) {
+	tb := lhv.ed.UI().Layout.Toolbar
+
+	entries := lhv.getEntries(tb.Str())
+
+	// check if there are any changes
+	changes := false
+	if len(entries) != len(lhv.entries) {
+		changes = true
+	} else {
+		for i, _ := range entries {
+			if entries[i] != lhv.entries[i] {
+				changes = true
+				break
+			}
+		}
+	}
+
+	if !changes {
+		return
+	}
 
 	// get all decoded toolbars in all rows
 	m := make(map[ERower]string)
-	for _, erow := range ed.ERows() {
-		// decode toolbar
-		str := erow.Row().Toolbar.Str()
-		td := toolbardata.NewToolbarData(str)
+	for _, erow := range lhv.ed.ERows() {
+		td := erow.ToolbarData()
 		decoded := td.StrWithPart0Arg0Decoded()
-
 		m[erow] = decoded
 	}
 
+	hv := lhv.ed.HomeVars()
+
 	// delete layout old home vars
-	oldVars := getLayoutHomeVars(ev.OldStr)
-	for i := 0; i < len(oldVars); i += 2 {
-		toolbardata.DeleteHomeVar(oldVars[i])
+	for i := 0; i < len(lhv.entries); i += 2 {
+		hv.Delete(lhv.entries[i])
 	}
 
 	// append layout new home vars (the modified str)
-	vars := getLayoutHomeVars(tb.Str())
-	for i := 0; i < len(vars); i += 2 {
-		toolbardata.AppendHomeVar(vars[i], vars[i+1])
+	for i := 0; i < len(entries); i += 2 {
+		hv.Append(entries[i], entries[i+1])
 	}
+
+	lhv.entries = entries
 
 	// insert decoded toolbars and let triggers handle changes
 	for erow, s := range m {
 		erow.Row().Toolbar.SetStrClear(s, false, false)
 	}
 }
-func getLayoutHomeVars(str string) []string {
+func (lhv *LayoutHomeVars) getEntries(str string) []string {
 	var vars []string
-	td := toolbardata.NewToolbarData(str)
+	td := toolbardata.NewToolbarData(str, nil)
 	for _, part := range td.Parts {
 		if len(part.Args) != 1 {
 			continue

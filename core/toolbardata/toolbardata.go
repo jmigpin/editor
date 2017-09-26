@@ -9,10 +9,11 @@ import (
 type ToolbarData struct {
 	Str   string
 	Parts []*Part
+	hv    *HomeVars
 }
 
-func NewToolbarData(str string) *ToolbarData {
-	td := &ToolbarData{Str: str}
+func NewToolbarData(str string, hv *HomeVars) *ToolbarData {
+	td := &ToolbarData{Str: str, hv: hv}
 	td.Parts = parseParts(str)
 	return td
 }
@@ -41,7 +42,7 @@ func (td *ToolbarData) DecodePart0Arg0() string {
 	if !ok {
 		return ""
 	}
-	return RemoveHomeVars(tok.Str)
+	return td.hv.Decode(tok.Str)
 }
 
 func (td *ToolbarData) StrWithPart0Arg0Encoded() string {
@@ -49,17 +50,16 @@ func (td *ToolbarData) StrWithPart0Arg0Encoded() string {
 	if !ok {
 		return td.Str
 	}
-	s2 := RemoveHomeVars(tok.Str)
-	s3 := InsertHomeVars(s2)
+	s2 := td.hv.Decode(tok.Str)
+	s3 := td.hv.Encode(s2)
 	return td.Str[:tok.S] + s3 + td.Str[tok.E:]
 }
-
 func (td *ToolbarData) StrWithPart0Arg0Decoded() string {
 	tok, ok := td.part0Arg0Token()
 	if !ok {
 		return td.Str
 	}
-	s2 := RemoveHomeVars(tok.Str)
+	s2 := td.hv.Decode(tok.Str)
 	return td.Str[:tok.S] + s2 + td.Str[tok.E:]
 }
 

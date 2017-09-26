@@ -1,55 +1,48 @@
 package toolbardata
 
-import (
-	"os"
-	"strings"
-)
+import "strings"
 
-var hvars = []string{}
-
-func init() {
-	AppendHomeVar("~", os.Getenv("HOME"))
+// Replaces prefixes by defined vars.
+type HomeVars struct {
+	vars []*HVEntry
 }
 
-func AppendHomeVar(k, v string) {
-	//v = removeTrailingSlash(v)
-	v = InsertHomeVars(v)
-	if v == "" || v == "~" {
+type HVEntry struct {
+	k, v string
+}
+
+func (h *HomeVars) Append(k, v string) {
+	// don't use empty entries
+	if k == "" || v == "" {
 		return
 	}
-	hvars = append(hvars, k, v)
+
+	h.vars = append(h.vars, &HVEntry{k, v})
 }
-func DeleteHomeVar(k string) {
-	for i := 0; i < len(hvars); i += 2 {
-		k2, _ := hvars[i], hvars[i+1]
-		if k2 == k {
-			hvars = append(hvars[:i], hvars[i+2:]...)
+func (h *HomeVars) Delete(k string) {
+	var u []*HVEntry
+	for _, e := range h.vars {
+		if e.k != k {
+			u = append(u, e)
 		}
 	}
+	h.vars = u
 }
 
-func InsertHomeVars(s string) string {
-	for i := 0; i < len(hvars); i += 2 {
-		k, v := hvars[i], hvars[i+1]
-		if strings.HasPrefix(s, v) {
-			s = k + s[len(v):]
+func (h *HomeVars) Encode(s string) string {
+	for _, e := range h.vars {
+		if strings.HasPrefix(s, e.v) {
+			s = e.k + s[len(e.v):]
 		}
 	}
 	return s
 }
-func RemoveHomeVars(s string) string {
-	for i := len(hvars) - 2; i >= 0; i -= 2 {
-		v, k := hvars[i], hvars[i+1]
-		if strings.HasPrefix(s, v) {
-			s = k + s[len(v):]
+func (h *HomeVars) Decode(s string) string {
+	for i := len(h.vars) - 1; i >= 0; i-- {
+		e := h.vars[i]
+		if strings.HasPrefix(s, e.k) {
+			s = e.v + s[len(e.k):]
 		}
-	}
-	return s
-}
-
-func removeTrailingSlash(s string) string {
-	if len(s) > 0 && s[len(s)-1] == '/' {
-		s = s[:len(s)-1]
 	}
 	return s
 }

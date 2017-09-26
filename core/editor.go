@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"time"
 
 	"golang.org/x/image/font"
@@ -16,6 +17,7 @@ import (
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
+	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/drawutil2"
 	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/ui"
@@ -24,11 +26,13 @@ import (
 )
 
 type Editor struct {
-	ui        *ui.UI
+	ui    *ui.UI
+	erows map[*ui.Row]*ERow
+	close chan struct{}
+
+	homeVars  toolbardata.HomeVars
 	fwatcher  *fileswatcher.TargetWatcher
 	reopenRow *cmdutil.ReopenRow
-	erows     map[*ui.Row]*ERow
-	close     chan struct{}
 }
 
 func NewEditor(opt *Options) (*Editor, error) {
@@ -45,6 +49,8 @@ func NewEditor(opt *Options) (*Editor, error) {
 	}
 
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
+
+	ed.homeVars.Append("~", os.Getenv("HOME"))
 
 	fface, err := ed.getFontFace(opt)
 	if err != nil {
@@ -80,6 +86,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 		&xgbutil.ERCallback{func(ev interface{}) {
 			ToolbarCmdFromLayout(ed, ed.ui.Layout)
 		}})
+
 	cmdutil.SetupLayoutHomeVars(ed)
 
 	// files watcher for visual feedback when files change
@@ -91,6 +98,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.fwatcher = w
 
 	// cmd line filenames to open
+	// TODO: get from file options
 	args := flag.Args()
 	if len(args) > 0 {
 		col, _ := ed.ui.Layout.Cols.FirstChildColumn()
@@ -156,6 +164,9 @@ func (ed *Editor) Close() {
 }
 func (ed *Editor) UI() *ui.UI {
 	return ed.ui
+}
+func (ed *Editor) HomeVars() *toolbardata.HomeVars {
+	return &ed.homeVars
 }
 
 func (ed *Editor) ERows() []cmdutil.ERower {
