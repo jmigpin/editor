@@ -35,7 +35,7 @@ func file(erow cmdutil.ERower, str string) bool {
 	if len(a) >= 2 {
 		v, err := strconv.ParseUint(a[1], 10, 64)
 		if err == nil {
-			line = int(v) - 1
+			line = int(v)
 		}
 	}
 
@@ -44,7 +44,7 @@ func file(erow cmdutil.ERower, str string) bool {
 	if len(a) >= 3 {
 		v, err := strconv.ParseUint(a[2], 10, 64)
 		if err == nil {
-			column = int(v) - 1
+			column = int(v)
 		}
 	}
 
@@ -61,7 +61,11 @@ func file(erow cmdutil.ERower, str string) bool {
 		}
 	}
 
-	cmdutil.GotoLineColumnInTextArea(erow2.Row().TextArea, line, column)
+	if line == 0 && column == 0 {
+		erow2.Row().WarpPointer()
+	} else {
+		cmdutil.GotoLineColumnInTextArea(erow2.Row().TextArea, line, column)
+	}
 
 	return true
 }

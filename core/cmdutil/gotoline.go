@@ -26,6 +26,9 @@ func GotoLine(erow ERower, part *toolbardata.Part) {
 }
 
 func GotoLineColumnInTextArea(ta *ui.TextArea, line, column int) {
+	line--
+	column--
+
 	// rune index of line/column
 	index := 0
 	l, c := 0, 0
