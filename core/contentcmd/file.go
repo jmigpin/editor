@@ -1,15 +1,14 @@
 package contentcmd
 
 import (
-	"os"
-	"path"
 	"strconv"
 	"strings"
 
 	"github.com/jmigpin/editor/core/cmdutil"
 )
 
-// Opens filename. Detects compiler errors format <string(:int)?(:int?)>, and goes to line/column.
+// Opens filename.
+// Detects compiler errors format <string(:int)?(:int?)>, and goes to line/column.
 func file(erow cmdutil.ERower, str string) bool {
 	a := strings.Split(str, ":")
 
@@ -18,17 +17,10 @@ func file(erow cmdutil.ERower, str string) bool {
 	if p == "" {
 		return false
 	}
-	if !path.IsAbs(p) {
-		p = path.Join(erow.Dir(), p)
-	}
-	fi, err := os.Stat(p)
-	if err != nil {
+	filename, fi, ok := findFileinfo(erow, p)
+	if !ok || fi.IsDir() {
 		return false
 	}
-	if fi.IsDir() {
-		return false
-	}
-	filename := p
 
 	// line number
 	line := 0

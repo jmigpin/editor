@@ -1,6 +1,8 @@
 package contentcmd
 
 import (
+	"os"
+	"path"
 	"strings"
 	"unicode"
 
@@ -12,19 +14,16 @@ func Cmd(erow cmdutil.ERower) {
 
 	s := expandLeftRight(ta.Str(), ta.CursorIndex())
 
-	if ok := openSession(erow, s); ok {
+	if ok := file(erow, s); ok {
 		return
 	}
 	if ok := directory(erow, s); ok {
 		return
 	}
-	if ok := file(erow, s); ok {
+	if ok := openSession(erow, s); ok {
 		return
 	}
 	if ok := http(erow, s); ok {
-		return
-	}
-	if ok := goPathDir(erow, s); ok {
 		return
 	}
 
@@ -59,7 +58,6 @@ func expandLeftRight(str string, index int) string {
 	return s2
 }
 
-// TODO: use toolbar.stringdata?
 // Used on opensession command to get argument.
 func afterSpaceExpandRightUntilSpace(str string, index int) string {
 	if index > len(str) {
@@ -88,4 +86,38 @@ func afterSpaceExpandRightUntilSpace(str string, index int) string {
 	s2 := str[i2:i3]
 	s3 := strings.TrimSpace(s2)
 	return s3
+}
+
+// Used by "file" and "directory".
+// Also checks in GOPATH and GOROOT.
+func findFileinfo(erow cmdutil.ERower, p string) (string, os.FileInfo, bool) {
+	// absolute path
+	if path.IsAbs(p) {
+		fi, err := os.Stat(p)
+		if err == nil {
+			return p, fi, true
+		}
+		return "", nil, false
+	}
+
+	// erow path
+	u := path.Join(erow.Dir(), p)
+	fi, err := os.Stat(u)
+	if err == nil {
+		return u, fi, true
+	}
+
+	// go paths
+	gopath := os.Getenv("GOPATH")
+	a := strings.Split(gopath, ":")
+	a = append(a, os.Getenv("GOROOT"))
+	for _, d := range a {
+		u := path.Join(d, "src", p)
+		fi, err := os.Stat(u)
+		if err == nil {
+			return u, fi, true
+		}
+	}
+
+	return "", nil, false
 }
