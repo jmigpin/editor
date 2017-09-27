@@ -256,10 +256,9 @@ func (ta *TextArea) CursorIndex() int {
 func (ta *TextArea) SetCursorIndex(v int) {
 	v = ta.validIndex(v)
 	if v != ta.cursorIndex {
-		old := ta.cursorIndex
 		ta.cursorIndex = v
 		ta.validateSelection()
-		ta.makeIndexVisible(old, v)
+		ta.makeIndexVisible(v)
 		ta.C.NeedPaint()
 	}
 }
@@ -339,28 +338,35 @@ func (ta *TextArea) SetOffsetIndex(i int) {
 	p := ta.drawer.GetPoint(i)
 	ta.SetOffsetY(p.Y)
 }
-func (ta *TextArea) makeIndexVisible(old, new int) {
-
-	// TODO
-
-	// if on first line and moving up, adjust only one line
-	//oldLine :=
-
-	index := new
-
-	// is visible
+func (ta *TextArea) makeIndexVisible(index int) {
 	y0 := ta.OffsetY()
 	y1 := y0 + fixed.I(ta.C.Bounds.Dy())
-	p0 := ta.drawer.GetPoint(index).Y
-	p1 := p0 + ta.LineHeight()
-	if p0 >= y0 && p1 <= y1 {
+
+	// is all visible
+	a0 := ta.drawer.GetPoint(index).Y
+	a1 := a0 + ta.LineHeight()
+	if a0 >= y0 && a1 <= y1 {
 		return
 	}
+
+	// is partially visible
+	if y0 >= a0 && y0 <= a1 {
+		// partially visible at top
+		ta.SetOffsetY(a0)
+		return
+	}
+	if y1 >= a0 && y1 <= a1 {
+		// partially visible at bottom
+		sy := fixed.I(ta.C.Bounds.Dy())
+		ta.SetOffsetY(a0 - sy + ta.LineHeight())
+		return
+	}
+
 	// set at half bounds
 	half := fixed.I(ta.C.Bounds.Dy() / 2)
-	offsetY := p0 - half
-	ta.SetOffsetY(offsetY)
+	ta.SetOffsetY(a0 - half)
 }
+
 func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	// set at half bounds
 	p0 := ta.drawer.GetPoint(index).Y
@@ -477,7 +483,12 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 
 	switch {
 	case ev.Button.Mods.IsButton(1):
-		tautil.MoveCursorToPoint(ta, ev.Point, true)
+		// Commented: on press the cursor is moved and the
+		// text position might be ajusted to have the cursor be visible
+		// if on release the cursor is moved as well then it can cause an
+		// undesired selected area from the visible cursor to the pointer
+		//tautil.MoveCursorToPoint(ta, ev.Point, true)
+
 	case ev.Button.Mods.IsButton(2):
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		tautil.PastePrimary(ta)
