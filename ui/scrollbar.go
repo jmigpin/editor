@@ -141,14 +141,14 @@ func (sb *Scrollbar) onButtonPress(ev0 interface{}) {
 	}
 	sb.buttonPressed = true
 	switch {
-	case ev.Button.Button1():
+	case ev.Button.Button(1):
 		sb.setOrigPad(ev.Point) // keep pad for drag calc
 		sb.calcPositionFromPoint(ev.Point)
 		sb.setTextareaOffset()
 		sb.C.NeedPaint()
-	case ev.Button.Button4(): // wheel up
+	case ev.Button.Button(4): // wheel up
 		sb.ta.PageUp()
-	case ev.Button.Button5(): // wheel down
+	case ev.Button.Button(5): // wheel down
 		sb.ta.PageDown()
 	}
 }
@@ -170,7 +170,7 @@ func (sb *Scrollbar) onButtonRelease(ev0 interface{}) {
 	}
 	sb.buttonPressed = false
 	ev := ev0.(*xinput.ButtonReleaseEvent)
-	if ev.Button.Button1() {
+	if ev.Button.Button(1) {
 		sb.calcPositionFromPoint(ev.Point)
 		sb.setTextareaOffset()
 		sb.C.NeedPaint()

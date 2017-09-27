@@ -427,23 +427,24 @@ func (ta *TextArea) onButtonPress(ev0 interface{}) {
 	if !ev.Point.In(ta.C.Bounds) {
 		return
 	}
+
 	ta.buttonPressed = true
 	switch {
-	case ev.Button.Button1():
+	case ev.Button.Button(1):
 		switch {
 		case ev.Button.Mods.IsShift():
 			tautil.MoveCursorToPoint(ta, ev.Point, true)
-		case ev.Button.Mods.IsNone():
+		default:
 			tautil.MoveCursorToPoint(ta, ev.Point, false)
 		}
-	case ev.Button.Button3() && ev.Button.Mods.IsNone():
+	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		ta.ui.CursorMan.SetCursor(xcursor.Hand2)
-	case ev.Button.Button4():
+	case ev.Button.Button(4):
 		canScroll := !ta.DisablePageUpDown
 		if canScroll {
 			tautil.ScrollUp(ta)
 		}
-	case ev.Button.Button5():
+	case ev.Button.Button(5):
 		canScroll := !ta.DisablePageUpDown
 		if canScroll {
 			tautil.ScrollDown(ta)
@@ -469,22 +470,21 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 
 	ev := ev0.(*xinput.ButtonReleaseEvent)
 
-	// can't have release moving the point, won't allow double click that works on press to work correctly
-	//if ev.Button.Mods.IsButton(1) {
-	//tautil.MoveCursorToPoint(ta, ev.Point, true)
-	//}
-
 	// release must be in the area
-	if ev.Point.In(ta.C.Bounds) {
-		switch {
-		case ev.Button.Mods.IsButton(3):
-			tautil.MoveCursorToPoint(ta, ev.Point, false)
-			ev2 := &TextAreaCmdEvent{ta}
-			ta.EvReg.Emit(TextAreaCmdEventId, ev2)
-		case ev.Button.Mods.IsButton(2):
-			tautil.MoveCursorToPoint(ta, ev.Point, false)
-			tautil.PastePrimary(ta)
-		}
+	if !ev.Point.In(ta.C.Bounds) {
+		return
+	}
+
+	switch {
+	case ev.Button.Mods.IsButton(1):
+		tautil.MoveCursorToPoint(ta, ev.Point, true)
+	case ev.Button.Mods.IsButton(2):
+		tautil.MoveCursorToPoint(ta, ev.Point, false)
+		tautil.PastePrimary(ta)
+	case ev.Button.Mods.IsButton(3):
+		tautil.MoveCursorToPoint(ta, ev.Point, false)
+		ev2 := &TextAreaCmdEvent{ta}
+		ta.EvReg.Emit(TextAreaCmdEventId, ev2)
 	}
 }
 
@@ -494,9 +494,10 @@ func (ta *TextArea) onDoubleClick(ev0 interface{}) {
 		return
 	}
 	switch {
-	case ev.Button.Button1():
+	case ev.Button.Button(1):
+		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		tautil.SelectWord(ta)
-	case ev.Button.Button3():
+	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		ev2 := &TextAreaCmdEvent{ta}
 		ta.EvReg.Emit(TextAreaCmdEventId, ev2)
@@ -508,9 +509,10 @@ func (ta *TextArea) onTripleClick(ev0 interface{}) {
 		return
 	}
 	switch {
-	case ev.Button.Button1():
+	case ev.Button.Button(1):
+		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		tautil.SelectLine(ta)
-	case ev.Button.Button3():
+	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		ev2 := &TextAreaCmdEvent{ta}
 		ta.EvReg.Emit(TextAreaCmdEventId, ev2)

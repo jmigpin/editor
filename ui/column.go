@@ -101,7 +101,7 @@ func (col *Column) onSquareButtonPress(ev0 interface{}) {
 	ev := ev0.(*SquareButtonPressEvent)
 	ui := col.Cols.Layout.UI
 	switch {
-	case ev.Button.Button1():
+	case ev.Button.Button(1):
 		ui.CursorMan.SetCursor(xcursor.Fleur)
 	}
 }

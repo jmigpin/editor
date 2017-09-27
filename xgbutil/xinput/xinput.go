@@ -13,7 +13,7 @@ type XInput struct {
 	km    *KMap
 	evReg *xgbutil.EventRegister
 
-	// detect buttons double/triple clicks
+	// detect buttons double/triple clicks, only for buttons 1,2,3, not wheel buttons
 	buttonPressedTime [3]struct {
 		p      image.Point
 		t      time.Time
@@ -65,7 +65,7 @@ func (xi *XInput) onEvRegButtonPress(ev0 interface{}) {
 	// double and triple clicks
 	// buttons 4 and 5 are wheel up/down, double/tripple click should not affect them
 	// TODO: mods mapping could affect this
-	index := int(b.Button)
+	index := int(b.button)
 	if index >= 1 && index <= 3 {
 		bpt := &xi.buttonPressedTime[index-1]
 

@@ -94,11 +94,11 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	ev := ev0.(*SquareButtonPressEvent)
 	ui := row.Col.Cols.Layout.UI
 	switch {
-	case ev.Button.Button1():
+	case ev.Button.Button(1):
 		ui.CursorMan.SetCursor(xcursor.Fleur)
-	case ev.Button.Button2():
+	case ev.Button.Button(2):
 		ui.CursorMan.SetCursor(xcursor.XCursor)
-	case ev.Button.Button3():
+	case ev.Button.Button(3):
 		ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
 	}
 }
