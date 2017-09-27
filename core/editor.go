@@ -229,11 +229,14 @@ func (ed *Editor) Errorf(f string, a ...interface{}) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
-	erow := ed.messagesERow()
-	erow.TextAreaAppendAsync("error: " + err.Error() + "\n")
-	//erow.Row().WarpPointer()
+	ed.Messagef("error: " + err.Error())
 }
 
+func (ed *Editor) Messagef(f string, a ...interface{}) {
+	erow := ed.messagesERow()
+	erow.TextAreaAppendAsync(fmt.Sprintf(f, a...) + "\n")
+	//erow.Row().WarpPointer()
+}
 func (ed *Editor) messagesERow() cmdutil.ERower {
 	s := "+Messages" // special name format
 	erow, ok := ed.FindERow(s)

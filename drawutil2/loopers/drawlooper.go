@@ -36,7 +36,6 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 
 		// clip
 		dr = dr.Add(bounds.Min)
-		dr2 := dr.Intersect(*bounds)
 		if dr.Min.X < bounds.Min.X {
 			maskp.X += bounds.Min.X - dr.Min.X
 		}
@@ -47,8 +46,9 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 		if lpr.Fg == nil {
 			panic("fg is nil")
 		}
-
 		ufg := image.NewUniform(lpr.Fg)
+
+		dr2 := dr.Intersect(*bounds)
 		draw.DrawMask(
 			img, dr2,
 			ufg, image.Point{},

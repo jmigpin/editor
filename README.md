@@ -14,7 +14,7 @@ No code coloring.<br>
 Many TextArea utilities: undo/redo, replace, comment, ...<br>
 Start external processes from the toolbar with a click, capturing the output to a row. <br>
 Drag and drop files/directories to the editor.<br>
-Watches files changes on disk.<br>
+Detects if files opened are changed outside of the editor.<br>
 Calls goimports if available when saving a .go file.<br>
 
 ### Installation and usage
