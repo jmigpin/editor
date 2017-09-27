@@ -7,6 +7,13 @@ func SelectWord(ta Texta) {
 	a := wordLeftIndex(ta.Str(), index)
 	b := wordRightIndex(ta.Str(), index)
 	ta.SetSelection(a, b)
+
+	// set primary copy
+	if ta.SelectionOn() {
+		a, b := SelectionStringIndexes(ta)
+		s := ta.Str()[a:b]
+		ta.SetPrimaryCopy(s)
+	}
 }
 
 func wordLeftIndex(str string, index int) int {
