@@ -15,7 +15,8 @@ func (lpr *EarlyExitLooper) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		// early exit if beyond max Y
 		pb := lpr.strl.PenBounds()
-		if pb.Max.Y.Floor() > lpr.bounds.Max.Y {
+		y0 := lpr.bounds.Min.Y + pb.Min.Y.Floor()
+		if y0 > lpr.bounds.Max.Y {
 			return false
 		}
 		return fn()
