@@ -86,20 +86,31 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	hwl.Bg = d.Colors.Highlight.Bg
 	cursorl.CursorIndex = d.CursorIndex
 
-	// iterator order
+	// draw background first to correctly paint letters above the background
+
+	// bg iteration order
 	scl.SetOuterLooper(wlinel)
 	sl.SetOuterLooper(scl)
 	hwl.SetOuterLooper(sl)
 	bgl.SetOuterLooper(hwl)
-	cursorl.SetOuterLooper(bgl)
-	dl.SetOuterLooper(cursorl)
 
 	// restore position to a close data point (performance)
 	p := &fixed.Point26_6{0, d.OffsetY}
 	d.pdl.RestorePosDataCloseToPoint(p)
 	d.pdl.Strl.Pen.Y -= d.OffsetY
 
-	// draw
+	// draw bg
+	bgl.Loop(func() bool { return true })
+
+	// iterator order
+	cursorl.SetOuterLooper(wlinel)
+	dl.SetOuterLooper(cursorl)
+
+	// restore position to a close data point (performance)
+	d.pdl.RestorePosDataCloseToPoint(p)
+	d.pdl.Strl.Pen.Y -= d.OffsetY
+
+	// draw runes
 	dl.Loop(func() bool { return true })
 }
 
