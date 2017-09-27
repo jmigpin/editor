@@ -23,12 +23,6 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 	img := lpr.Image
 
 	lpr.OuterLooper().Loop(func() bool {
-		// early exit if beyond max Y
-		pb := strl.PenBounds()
-		if pb.Max.Y.Floor() > bounds.Max.Y {
-			return false
-		}
-
 		dr, mask, maskp, _, ok := strl.Face.Glyph(strl.Pen, strl.Ru)
 		if !ok {
 			return fn()

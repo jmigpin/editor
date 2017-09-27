@@ -74,6 +74,7 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	cursorl := loopers.NewCursorLooper(strl, dl)
 	hwl := loopers.NewHWordLooper(strl, bgl, dl, sl)
 	scl := loopers.NewSetColorsLooper(dl, bgl)
+	eel := loopers.NewEarlyExitLooper(strl, bounds)
 
 	// options
 	scl.Fg = d.Colors.Normal.Fg
@@ -93,6 +94,7 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	sl.SetOuterLooper(scl)
 	hwl.SetOuterLooper(sl)
 	bgl.SetOuterLooper(hwl)
+	eel.SetOuterLooper(bgl)
 
 	// restore position to a close data point (performance)
 	p := &fixed.Point26_6{0, d.OffsetY}
@@ -100,18 +102,19 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	d.pdl.Strl.Pen.Y -= d.OffsetY
 
 	// draw bg
-	bgl.Loop(func() bool { return true })
+	eel.Loop(func() bool { return true })
 
 	// iterator order
 	cursorl.SetOuterLooper(wlinel)
 	dl.SetOuterLooper(cursorl)
+	eel.SetOuterLooper(dl)
 
 	// restore position to a close data point (performance)
 	d.pdl.RestorePosDataCloseToPoint(p)
 	d.pdl.Strl.Pen.Y -= d.OffsetY
 
 	// draw runes
-	dl.Loop(func() bool { return true })
+	eel.Loop(func() bool { return true })
 }
 
 func (d *HSDrawer) Height() fixed.Int26_6 {
