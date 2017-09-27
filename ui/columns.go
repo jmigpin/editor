@@ -90,6 +90,14 @@ func (cols *Columns) CloseAllAndOpenN(n int) {
 }
 
 func (cols *Columns) resizeColumn(col *Column, px int) {
+	if ScrollbarLeft {
+		u, ok := col.PrevSiblingColumn()
+		if !ok {
+			return
+		}
+		col = u
+	}
+
 	colsB := col.Cols.C.Bounds
 	ep := float64(px-cols.C.Bounds.Min.X) / float64(colsB.Dx())
 

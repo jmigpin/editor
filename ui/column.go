@@ -23,6 +23,7 @@ func NewColumn(cols *Columns) *Column {
 	ui := col.Cols.Layout.UI
 
 	col.Square = NewSquare(ui)
+	col.Square.ColumnStyle = true
 	height := SquareWidth
 	col.Square.C.Style.CrossSize = &height
 	col.Square.EvReg.Add(SquareButtonPressEventId,
@@ -38,7 +39,11 @@ func NewColumn(cols *Columns) *Column {
 	col.RowsC.Style.Direction = uiutil.ColumnDirection
 	col.RowsC.Style.Distribution = uiutil.EqualDistribution
 
-	col.C.AppendChilds(&col.colSep.C, &col.RowsC, &col.Square.C)
+	if ScrollbarLeft {
+		col.C.AppendChilds(&col.colSep.C, &col.Square.C, &col.RowsC)
+	} else {
+		col.C.AppendChilds(&col.colSep.C, &col.RowsC, &col.Square.C)
+	}
 
 	return col
 }
@@ -123,7 +128,7 @@ func (col *Column) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
 	case ev.Mods.IsButton(3):
-		p2 := ev.Point.Add(col.Square.PressPointPad)
+		p2 := ev.Point.Add(*ev.PressPointPad)
 		col.Cols.resizeColumn(col, p2.X)
 	}
 }

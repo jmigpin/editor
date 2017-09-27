@@ -16,9 +16,11 @@ type Square struct {
 	ui            *UI
 	EvReg         *xgbutil.EventRegister
 	dereg         xgbutil.EventDeregister
+	pressPointPad image.Point
 	buttonPressed bool
-	PressPointPad image.Point
 	values        [6]bool // bg and mini-squares
+
+	ColumnStyle bool
 }
 
 func NewSquare(ui *UI) *Square {
@@ -59,8 +61,18 @@ func (sq *Square) paint() {
 
 	// separator
 	r3 := sq.C.Bounds
-	r3.Max.X = r3.Min.X + 1
+	if ScrollbarLeft {
+		r3.Min.X = r3.Max.X - 1
+	} else {
+		r3.Max.X = r3.Min.X + 1
+	}
 	sq.ui.FillRectangle(&r3, RowInnerSeparatorColor)
+
+	if sq.ColumnStyle {
+		r4 := sq.C.Bounds
+		r4.Min.Y = r4.Max.Y - 1
+		sq.ui.FillRectangle(&r4, RowInnerSeparatorColor)
+	}
 
 	// mini-squares
 	r := sq.C.Bounds
@@ -77,7 +89,7 @@ func (sq *Square) paint() {
 		r2 := r
 		r2.Min.X += w
 		r2.Max.X += w
-		sq.ui.FillRectangle(&r2, &SquareActiveColor)
+		sq.ui.FillRectangle(&r2, SquareActiveColor)
 	}
 	//if sq.values[SquareNotExist] {
 	//// rowcol(1,1)
@@ -91,8 +103,14 @@ func (sq *Square) onButtonPress(ev0 interface{}) {
 		return
 	}
 	sq.buttonPressed = true
-	u := image.Point{sq.C.Bounds.Max.X, sq.C.Bounds.Min.Y}
-	sq.PressPointPad = u.Sub(*ev.Point)
+
+	var u image.Point
+	if ScrollbarLeft {
+		u = image.Point{sq.C.Bounds.Min.X, sq.C.Bounds.Min.Y}
+	} else {
+		u = image.Point{sq.C.Bounds.Max.X, sq.C.Bounds.Min.Y}
+	}
+	sq.pressPointPad = u.Sub(*ev.Point)
 
 	ev2 := &SquareButtonPressEvent{sq, ev.Button, ev.Point}
 	sq.EvReg.Emit(SquareButtonPressEventId, ev2)
@@ -111,7 +129,7 @@ func (sq *Square) onMotionNotify(ev0 interface{}) {
 		return
 	}
 	ev := ev0.(*xinput.MotionNotifyEvent)
-	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point}
+	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point, &sq.pressPointPad}
 	sq.EvReg.Emit(SquareMotionNotifyEventId, ev2)
 }
 
@@ -162,4 +180,6 @@ type SquareMotionNotifyEvent struct {
 	Square *Square
 	Mods   xinput.Modifiers
 	Point  *image.Point
+
+	PressPointPad *image.Point
 }

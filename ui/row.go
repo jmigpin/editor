@@ -57,9 +57,17 @@ func NewRow(col *Column) *Row {
 
 	// wrap containers
 	w1 := &uiutil.Container{}
-	w1.AppendChilds(&row.Toolbar.C, &row.Square.C)
+	if ScrollbarLeft {
+		w1.AppendChilds(&row.Square.C, &row.Toolbar.C)
+	} else {
+		w1.AppendChilds(&row.Toolbar.C, &row.Square.C)
+	}
 	w2 := &uiutil.Container{}
-	w2.AppendChilds(&row.TextArea.C, &row.scrollbar.C)
+	if ScrollbarLeft {
+		w2.AppendChilds(&row.scrollbar.C, &row.TextArea.C)
+	} else {
+		w2.AppendChilds(&row.TextArea.C, &row.scrollbar.C)
+	}
 	row.C.Style.Direction = uiutil.ColumnDirection
 	row.C.AppendChilds(&row.rowSep.C, w1, &tbSep.C, w2)
 
@@ -125,7 +133,7 @@ func (row *Row) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
 	case ev.Mods.IsButton(3):
-		p2 := ev.Point.Add(row.Square.PressPointPad)
+		p2 := ev.Point.Add(*ev.PressPointPad)
 		col := row.Col
 		col.Cols.resizeColumn(col, p2.X)
 	}

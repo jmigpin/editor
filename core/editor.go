@@ -43,7 +43,10 @@ func NewEditor(opt *Options) (*Editor, error) {
 
 	loopers.WrapLineRune = rune(opt.WrapLineRune)
 	drawutil2.TabWidth = opt.TabWidth
+	ui.ScrollbarLeft = opt.ScrollbarLeft
+
 	ui.SetScrollbarWidth(opt.ScrollbarWidth)
+
 	if opt.AcmeColors {
 		ui.AcmeColors()
 	}
@@ -373,4 +376,5 @@ type Options struct {
 	AcmeColors     bool
 	WrapLineRune   int
 	TabWidth       int
+	ScrollbarLeft  bool
 }

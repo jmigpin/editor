@@ -22,6 +22,7 @@ const (
 var (
 	ScrollbarWidth = 10
 	SquareWidth    = 10
+	ScrollbarLeft  = false
 )
 
 type UI struct {
@@ -123,7 +124,61 @@ func (ui *UI) QueryPointer() (*image.Point, bool) {
 }
 func (ui *UI) WarpPointer(p *image.Point) {
 	ui.win.WarpPointer(p)
+	//ui.animatedWarpPointer(p)
 }
+
+//func (ui *UI) animatedWarpPointer(p *image.Point) {
+//	p0, ok := ui.QueryPointer()
+//	if !ok {
+//		ui.win.WarpPointer(p)
+//		return
+//	}
+
+//	//jump := 50
+//	//jumpTime := time.Duration(20 * time.Millisecond)
+
+//	//dx := p.X - p0.X
+//	//dy := p.Y - p0.Y
+//	//dist := math.Sqrt(float64(dx*dx + dy*dy))
+//	//jx := int(float64(jump) * float64(dx) / dist)
+//	//jy := int(float64(jump) * float64(dy) / dist)
+//	//x, y := p0.X, p0.Y
+//	//for u := 0.0; u < dist; u += float64(jump) {
+//	//	x, y = x+jx, y+jy
+//	//	p2 := image.Point{x, y}
+//	//	ui.win.WarpPointer(&p2)
+//	//	time.Sleep(jumpTime)
+//	//}
+//	//ui.win.WarpPointer(p)
+
+//	//return
+
+//	fps := 30
+//	frameDur := time.Second / time.Duration(fps)
+//	dur := time.Duration(400 * time.Millisecond)
+//	now := time.Now()
+//	end := now.Add(dur)
+//	for ; !now.After(end); now = time.Now() {
+//		step := dur - end.Sub(now)
+//		step2 := float64(step) / float64(dur)
+
+//		dx := p.X - p0.X
+//		x := p0.X + int(float64(dx)*step2)
+
+//		dy := p.Y - p0.Y
+//		y := p0.Y + int(float64(dy)*step2)
+
+//		p2 := &image.Point{x, y}
+
+//		ui.win.WarpPointer(p2)
+
+//		time.Sleep(frameDur)
+//	}
+
+//	// ensure final position at p
+//	ui.win.WarpPointer(p)
+//}
+
 func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
 	p, ok := ui.QueryPointer()
 	if !ok {
@@ -193,13 +248,18 @@ func (ui *UI) onTextAreaAppend(ev0 interface{}) {
 	ui.textAreaAppend(ev.TextArea, ev.Str)
 }
 func (ui *UI) textAreaAppend(ta *TextArea, str string) {
-	// cap max size
-	maxSize := 5 * 1024 * 1024
+	// TODO
+
+	//// cap max size
+	//maxSize := 5 * 1024 * 1024
+	//str2 := ta.Str() + str
+	//if len(str2) > maxSize {
+	//	d := len(str2) - maxSize
+	//	str2 = str2[d:]
+	//}
+
 	str2 := ta.Str() + str
-	if len(str2) > maxSize {
-		d := len(str2) - maxSize
-		str2 = str2[d:]
-	}
+
 	// false,true = keep pos, but clear undo for massive savings
 	ta.SetStrClear(str2, false, true)
 }

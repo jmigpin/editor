@@ -11,8 +11,8 @@ import (
 )
 
 func main() {
-	//log.SetFlags(0)
-	log.SetFlags(log.Llongfile)
+	log.SetFlags(0)
+	//log.SetFlags(log.Llongfile)
 
 	// flags
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
@@ -23,6 +23,7 @@ func main() {
 	acmeColors := flag.Bool("acmecolors", false, "acme editor color theme")
 	wrapLineRune := flag.Int("wraplinerune", 8594, "code for wrap line rune")
 	tabWidth := flag.Int("tabwidth", 8, "")
+	scrollbarLeft := flag.Bool("scrollbarleft", false, "set scrollbars on the left side")
 
 	flag.Parse()
 
@@ -43,6 +44,7 @@ func main() {
 		AcmeColors:     *acmeColors,
 		WrapLineRune:   *wrapLineRune,
 		TabWidth:       *tabWidth,
+		ScrollbarLeft:  *scrollbarLeft,
 	}
 	_, err := core.NewEditor(eopt)
 	if err != nil {
