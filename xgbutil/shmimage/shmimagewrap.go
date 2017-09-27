@@ -61,7 +61,6 @@ func (siw *ShmImageWrap) NewImage(r *image.Rectangle) error {
 	shmId := uint32(siw.simg.shmId)
 	cookie := shm.AttachChecked(siw.conn, siw.segId, shmId, readOnly)
 	if err := cookie.Check(); err != nil {
-		// TODO: macos gives bad access
 		return errors.Wrap(err, "shmimagewrap.newimage.attach")
 	}
 
