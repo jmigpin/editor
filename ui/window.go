@@ -249,6 +249,7 @@ func (win *Window) WarpPointer(p *image.Point) {
 	cookie := xproto.GetInputFocus(win.Conn)
 	reply, err := cookie.Reply()
 	if err != nil {
+		log.Print(err)
 		return
 	}
 	if reply.Focus != win.Window {
