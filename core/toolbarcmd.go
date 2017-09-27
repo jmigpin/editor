@@ -45,9 +45,10 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 		cmdutil.XdgOpenDirShortcut(ed)
 	case "RowDirectory":
 		cmdutil.OpenRowDirectory(ed)
+
 	case "FontRunes":
 		var u string
-		for i := 0; i < 10000; {
+		for i := 0; i < 15000; {
 			start := i
 			var w string
 			for j := 0; j < 25; j++ {
@@ -56,7 +57,11 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 			}
 			u += fmt.Sprintf("%d: %s\n", start, w)
 		}
-		ed.Errorf("%s", u)
+		ed.Messagef("%s", u)
+
+	case "FWStatus":
+		ed.Messagef("%s", ed.fwatcher.Status())
+
 	default:
 		// try running row command
 		erow, ok := ed.ActiveERow()

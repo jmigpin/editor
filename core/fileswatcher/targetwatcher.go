@@ -266,6 +266,20 @@ func (w *TargetWatcher) removePath(name string) {
 	}
 }
 
+func (w *TargetWatcher) Status() string {
+	s := ""
+	s += "entries (using path.base):\n"
+	for k, v := range w.entries.m {
+		k2 := path.Base(k)
+		s += fmt.Sprintf("%v: %v\n", k2, *v)
+	}
+	s += "paths:\n"
+	for k, v := range w.paths.m {
+		s += fmt.Sprintf("%v: %v\n", k, v)
+	}
+	return s
+}
+
 type Entry struct {
 	name  string
 	exist bool
