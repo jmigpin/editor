@@ -131,12 +131,7 @@ func rowToolbarCmd(erow *ERow, part *toolbardata.Part) bool {
 		}
 		tautil.Find(row.TextArea, a[0].Str)
 	case "GotoLine":
-		a := part.Args[1:]
-		if len(a) != 1 {
-			erow.Ed().Error(fmt.Errorf("gotoline: expecting 1 argument"))
-			break
-		}
-		tautil.GotoLine(row.TextArea, a[0].Str)
+		cmdutil.GotoLine(erow, part)
 	case "Replace":
 		cmdutil.Replace(erow, part)
 	case "Stop":
