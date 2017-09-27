@@ -39,6 +39,8 @@ Usage of ./editor:
     	ttf font filename
   -fontsize float
     	 (default 12)
+  -scrollbarleft
+    	set scrollbars on the left side
   -scrollbarwidth int
     	textarea scrollbar width (default 12)
   -tabwidth int
