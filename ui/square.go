@@ -75,27 +75,45 @@ func (sq *Square) paint() {
 	}
 
 	// mini-squares
-	r := sq.C.Bounds
-	w := (r.Max.X - r.Min.X) / 2
-	r.Max.X = r.Min.X + w
-	r.Max.Y = r.Min.Y + w
+
+	miniSq := func(i int) *image.Rectangle {
+		r := sq.C.Bounds
+		w := (r.Max.X - r.Min.X) / 2
+		r.Max.X = r.Min.X + w
+		r.Max.Y = r.Min.Y + w
+		switch i {
+		case 0:
+		case 1:
+			r.Min.X += w
+			r.Max.X += w
+		case 2:
+			r.Min.Y += w
+			r.Max.Y += w
+		case 3:
+			r.Min.X += w
+			r.Max.X += w
+			r.Min.Y += w
+			r.Max.Y += w
+		}
+		return &r
+	}
 
 	if sq.values[SquareDiskChanges] {
-		// rowcol(0,0)
-		sq.ui.FillRectangle(&r, SquareDiskChangesColor)
+		u := 0
+		if ScrollbarLeft {
+			u = 1
+		}
+		r := miniSq(u)
+		sq.ui.FillRectangle(r, SquareDiskChangesColor)
 	}
 	if sq.values[SquareActive] {
-		// rowcol(0,1)
-		r2 := r
-		r2.Min.X += w
-		r2.Max.X += w
-		sq.ui.FillRectangle(&r2, SquareActiveColor)
+		u := 1
+		if ScrollbarLeft {
+			u = 0
+		}
+		r := miniSq(u)
+		sq.ui.FillRectangle(r, SquareActiveColor)
 	}
-	//if sq.values[SquareNotExist] {
-	//// rowcol(1,1)
-	//r2 := r.Add(image.Point{w, w})
-	//sq.ui.FillRectangle(&r2, &SquareNotExistColor)
-	//}
 }
 func (sq *Square) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
