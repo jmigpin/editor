@@ -9,15 +9,15 @@ import (
 
 var (
 	// these white/black take advantage of being RGBA
-	White = color.RGBA{255, 255, 255, 255}
-	Black = color.RGBA{0, 0, 0, 255}
+	White color.Color = color.RGBA{255, 255, 255, 255}
+	Black color.Color = color.RGBA{0, 0, 0, 255}
 
 	// tetradic color scheme
 	// http://www.tigercolor.com/color-lab/color-theory/color-theory-intro.htm
-	Red    color.Color = &color.RGBA{255, 0, 0, 255}
-	Yellow color.Color = &color.RGBA{255, 153, 0, 255}
-	Green  color.Color = &color.RGBA{15, 173, 0, 255}
-	Blue   color.Color = &color.RGBA{0, 100, 181, 255}
+	Red    color.Color = color.RGBA{255, 0, 0, 255}
+	Yellow color.Color = color.RGBA{255, 153, 0, 255}
+	Green  color.Color = color.RGBA{15, 173, 0, 255}
+	Blue   color.Color = color.RGBA{0, 100, 181, 255}
 
 	SeparatorColor = Black
 
@@ -30,8 +30,8 @@ var (
 	SquareDiskChangesColor = Red
 	SquareNotExistColor    = Yellow
 
-	ScrollbarFgColor = color.Color(imageutil.Tint(&Black, 0.70))
-	ScrollbarBgColor = color.Color(imageutil.Tint(&Black, 0.95))
+	ScrollbarFgColor = color.Color(imageutil.Tint(Black, 0.70))
+	ScrollbarBgColor = color.Color(imageutil.Tint(Black, 0.95))
 )
 
 var TextAreaColors = hsdrawer.Colors{
@@ -41,7 +41,7 @@ var TextAreaColors = hsdrawer.Colors{
 }
 
 var ToolbarColors = hsdrawer.Colors{
-	Normal:    hsdrawer.FgBg{Black, imageutil.Tint(&Black, 0.95)},
+	Normal:    hsdrawer.FgBg{Black, imageutil.Tint(Black, 0.95)},
 	Selection: hsdrawer.FgBg{nil, TextAreaColors.Selection.Bg},
 }
 
@@ -57,5 +57,5 @@ func AcmeColors() {
 	}
 	SquareColor = ToolbarColors.Normal.Bg
 	ScrollbarFgColor = color.RGBA{153, 153, 76, 255}
-	ScrollbarBgColor = TextAreaColors.Normal.Bg
+	ScrollbarBgColor = imageutil.Shade(TextAreaColors.Normal.Bg, 0.90)
 }
