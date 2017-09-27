@@ -35,15 +35,22 @@ func (pdl *PosDataLooper) Loop(fn func() bool) {
 func (pdl *PosDataLooper) keep() {
 	data := pdl.pdk.KeepPosData()
 	pd := &PosData{
-		ri:            pdl.Strl.Ri,
-		pen:           pdl.Strl.Pen,
+		ri:      pdl.Strl.Ri,
+		riClone: pdl.Strl.RiClone,
+		prevRu:  pdl.Strl.PrevRu,
+		pen:     pdl.Strl.Pen,
+
+		// not to be restored, just used for detection
 		penBoundsMaxY: pdl.Strl.PenBounds().Max.Y,
-		data:          data,
+
+		data: data,
 	}
 	pdl.data = append(pdl.data, pd)
 }
 func (pdl *PosDataLooper) restore(pd *PosData) {
 	pdl.Strl.Ri = pd.ri
+	pdl.Strl.RiClone = pd.riClone
+	pdl.Strl.PrevRu = pd.prevRu
 	pdl.Strl.Pen = pd.pen
 	pdl.pdk.RestorePosData(pd.data)
 }
@@ -159,8 +166,14 @@ type PosDataKeeper interface {
 }
 
 type PosData struct {
-	ri            int
-	pen           fixed.Point26_6
-	penBoundsMaxY fixed.Int26_6 // upper left corner of pen
-	data          interface{}
+	ri      int
+	riClone bool
+	prevRu  rune
+	pen     fixed.Point26_6
+
+	// upper left corner of pen
+	// not to be restored, just used for detection
+	penBoundsMaxY fixed.Int26_6
+
+	data interface{}
 }
