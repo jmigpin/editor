@@ -247,17 +247,13 @@ func (ui *UI) onTextAreaAppend(ev0 interface{}) {
 	ui.textAreaAppend(ev.TextArea, ev.Str)
 }
 func (ui *UI) textAreaAppend(ta *TextArea, str string) {
-	// TODO
-
-	//// cap max size
-	//maxSize := 5 * 1024 * 1024
-	//str2 := ta.Str() + str
-	//if len(str2) > maxSize {
-	//	d := len(str2) - maxSize
-	//	str2 = str2[d:]
-	//}
-
+	// max size
+	maxSize := 5 * 1024 * 1024
 	str2 := ta.Str() + str
+	if len(str2) > maxSize {
+		d := len(str2) - maxSize
+		str2 = str2[d:]
+	}
 
 	// false,true = keep pos, but clear undo for massive savings
 	ta.SetStrClear(str2, false, true)

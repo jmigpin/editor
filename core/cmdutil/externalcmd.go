@@ -75,7 +75,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 
 	readPipe := func(pr io.Reader) {
 		defer wg.Done()
-		var buf [64 * 1024]byte
+		var buf [1 * 1024 * 1024]byte
 		for {
 			n, err := pr.Read(buf[:])
 			if n > 0 {
