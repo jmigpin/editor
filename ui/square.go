@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/BurntSushi/xgbutil/xcursor" // only for cursordef
+	// only for cursordef
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/xinput"
@@ -38,13 +38,13 @@ func NewSquare(ui *UI) *Square {
 		&xgbutil.ERCallback{sq.onMotionNotify})
 	sq.dereg.Add(r1, r2, r3)
 
-	sq.ui.CursorMan.SetBoundsCursor(&sq.C.Bounds, xcursor.Icon)
+	//sq.ui.CursorMan.SetBoundsCursor(&sq.C.Bounds, xcursor.Icon)
 
 	return sq
 }
 func (sq *Square) Close() {
 	sq.dereg.UnregisterAll()
-	sq.ui.CursorMan.RemoveBoundsCursor(&sq.C.Bounds)
+	//sq.ui.CursorMan.RemoveBoundsCursor(&sq.C.Bounds)
 }
 func (sq *Square) paint() {
 	var c color.Color = SquareColor
