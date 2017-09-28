@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+
+	"github.com/jmigpin/editor/imageutil"
 )
 
 type DrawLooper struct {
@@ -40,12 +42,12 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 		if lpr.Fg == nil {
 			panic("fg is nil")
 		}
-		ufg := image.NewUniform(lpr.Fg)
 
 		dr2 := dr.Intersect(*bounds)
-		draw.DrawMask(
-			img, dr2,
-			ufg, image.Point{},
+		imageutil.DrawUniformMask(
+			img,
+			&dr2,
+			lpr.Fg,
 			mask, maskp,
 			draw.Over)
 

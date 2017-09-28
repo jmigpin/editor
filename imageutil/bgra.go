@@ -26,19 +26,11 @@ func BGRASize(r *image.Rectangle) int {
 func (img *BGRA) ColorModel() color.Model {
 	panic("!")
 }
+
 func (img *BGRA) Set(x, y int, c color.Color) {
 	//u := color.RGBAModel.Convert(c).(color.RGBA) // slow
 	u := convertToRGBAColor(c)
 	img.SetRGBA(x, y, u)
-}
-func convertToRGBAColor(c color.Color) color.RGBA {
-	r, g, b, a := c.RGBA()
-	return color.RGBA{
-		uint8(r >> 8),
-		uint8(g >> 8),
-		uint8(b >> 8),
-		uint8(a >> 8),
-	}
 }
 
 // Allows fast lane if detected.
@@ -51,7 +43,29 @@ func (img *BGRA) At(x, y int) color.Color {
 	c.R, c.B = c.B, c.R
 	return c
 }
+
 func (img *BGRA) SubImage(r image.Rectangle) draw.Image {
 	u := img.RGBA.SubImage(r).(*image.RGBA)
 	return &BGRA{*u}
+}
+
+// Allows using rgba image for other functions that rely on detection to use
+// faster draw lanes (ex: draw.Draw)
+func (img *BGRA) RGBAImageWithCorrectedColor(c color.Color) (*image.RGBA, color.Color) {
+	c2, ok := c.(color.RGBA)
+	if !ok {
+		c2 = convertToRGBAColor(c)
+	}
+	c2.R, c2.B = c2.B, c2.R // convert to BGR
+	return &img.RGBA, c2
+}
+
+func convertToRGBAColor(c color.Color) color.RGBA {
+	r, g, b, a := c.RGBA()
+	return color.RGBA{
+		uint8(r >> 8),
+		uint8(g >> 8),
+		uint8(b >> 8),
+		uint8(a >> 8),
+	}
 }
