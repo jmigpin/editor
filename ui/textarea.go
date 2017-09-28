@@ -10,6 +10,7 @@ import (
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/copypaste"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 
 	"golang.org/x/image/math/fixed"
@@ -66,7 +67,9 @@ func NewTextArea(ui *UI) *TextArea {
 		&xgbutil.ERCallback{ta.onDoubleClick})
 	r6 := ta.ui.EvReg.Add(xinput.TripleClickEventId,
 		&xgbutil.ERCallback{ta.onTripleClick})
-	ta.dereg.Add(r1, r2, r3, r4, r5, r6)
+	r7 := ta.ui.EvReg.Add(copypaste.PasteDataEventId,
+		&xgbutil.ERCallback{ta.onPasteData})
+	ta.dereg.Add(r1, r2, r3, r4, r5, r6, r7)
 
 	return ta
 }
@@ -393,12 +396,21 @@ func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
 func (ta *TextArea) RequestPaint() {
 	ta.ui.RequestPaint()
 }
-func (ta *TextArea) RequestPrimaryPaste() (string, error) {
-	return ta.ui.RequestPrimaryPaste()
+
+func (ta *TextArea) requestPrimaryPaste() {
+	ta.ui.RequestPrimaryPaste(ta)
 }
-func (ta *TextArea) RequestClipboardPaste() (string, error) {
-	return ta.ui.RequestClipboardPaste()
+func (ta *TextArea) requestClipboardPaste() {
+	ta.ui.RequestClipboardPaste(ta)
 }
+func (ta *TextArea) onPasteData(ev interface{}) {
+	ev2 := ev.(*copypaste.PasteDataEvent)
+	if ev2.Data != ta {
+		return
+	}
+	tautil.InsertString(ta, ev2.Str)
+}
+
 func (ta *TextArea) SetClipboardCopy(v string) {
 	ta.ui.SetClipboardCopy(v)
 }
@@ -491,7 +503,7 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 
 	case ev.Button.Mods.IsButton(2):
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
-		tautil.PastePrimary(ta)
+		ta.requestPrimaryPaste()
 	case ev.Button.Mods.IsButton(3):
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		ev2 := &TextAreaCmdEvent{ta}
@@ -663,7 +675,7 @@ func (ta *TextArea) onKeyPress(ev0 interface{}) {
 			case 'x':
 				tautil.Cut(ta)
 			case 'v':
-				tautil.PasteClipboard(ta)
+				ta.requestClipboardPaste()
 			case 'k':
 				tautil.RemoveLines(ta)
 			case 'a':

@@ -60,7 +60,6 @@ func NewUI(fface font.Face) (*UI, error) {
 		&xgbutil.ERCallback{ui.onShmCompletion})
 	ui.EvReg.Add(UITextAreaAppendEventId,
 		&xgbutil.ERCallback{ui.onTextAreaAppend})
-
 	return ui, nil
 }
 func (ui *UI) Close() {
@@ -219,11 +218,11 @@ func (ui *UI) SetCursor(c xcursors.Cursor) {
 	ui.win.Cursors.SetCursor(c)
 }
 
-func (ui *UI) RequestPrimaryPaste() (string, error) {
-	return ui.win.Paste.RequestPrimary()
+func (ui *UI) RequestPrimaryPaste(requestor interface{}) {
+	ui.win.Paste.RequestPrimary(requestor)
 }
-func (ui *UI) RequestClipboardPaste() (string, error) {
-	return ui.win.Paste.RequestClipboard()
+func (ui *UI) RequestClipboardPaste(requestor interface{}) {
+	ui.win.Paste.RequestClipboard(requestor)
 }
 func (ui *UI) SetClipboardCopy(v string) {
 	ui.win.Copy.SetClipboard(v)

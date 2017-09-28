@@ -14,6 +14,7 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
@@ -66,6 +67,11 @@ func NewEditor(opt *Options) (*Editor, error) {
 		return nil, err
 	}
 	ed.ui = ui0
+	ed.ui.EvReg.UnhandledEventFunc = func(ev interface{}) {
+		c := spew.NewDefaultConfig()
+		c.MaxDepth = 2
+		ed.Messagef("unhandled event func: %v", c.Sdump(ev))
+	}
 
 	// close editor when the window is deleted
 	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId,
@@ -307,11 +313,17 @@ func (ed *Editor) eventLoop() {
 			case xgb.Error:
 				ed.ui.EvReg.Emit(xgbutil.XErrorEventId, ev2)
 			case int:
-				ed.ui.EvReg.Emit(ev2, nil)
+				switch ev2 {
+				case xgbutil.NoOpEventId:
+				default:
+					ed.ui.EvReg.Emit(ev2, nil)
+				}
 			case *xgbutil.EREventData:
 				ed.ui.EvReg.Emit(ev2.EventId, ev2.Event)
 			case shm.CompletionEvent:
-				// no nothing, it will trigger checking if paint is needed
+				// do nothing, it will trigger paint if needed
+			case error:
+				ed.Error(ev2)
 			default:
 				log.Printf("unhandled event type: %v", ev)
 			}

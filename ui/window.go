@@ -25,7 +25,7 @@ type Window struct {
 	GCtx   xproto.Gcontext
 
 	evReg  *xgbutil.EventRegister
-	events chan interface{}
+	events chan<- interface{}
 
 	Dnd          *dragndrop.Dnd
 	Paste        *copypaste.Paste
@@ -35,7 +35,7 @@ type Window struct {
 	ShmImageWrap *shmimage.ShmImageWrap
 }
 
-func NewWindow(evReg *xgbutil.EventRegister, events chan interface{}) (*Window, error) {
+func NewWindow(evReg *xgbutil.EventRegister, events chan<- interface{}) (*Window, error) {
 	conn, err := xgb.NewConn()
 	if err != nil {
 		if runtime.GOOS == "darwin" {
@@ -128,7 +128,7 @@ func (win *Window) init() error {
 	}
 	win.Dnd = dnd
 
-	paste, err := copypaste.NewPaste(win.Conn, win.Window, win.evReg)
+	paste, err := copypaste.NewPaste(win.Conn, win.Window, win.evReg, win.events)
 	if err != nil {
 		return err
 	}
@@ -157,33 +157,17 @@ func (win *Window) init() error {
 		return err
 	}
 
-	// crash test
-	//win.evReg.Add(xproto.MotionNotify,
-	//&xgbutil.ERCallback{func(ev0 interface{}) {
-	//log.Println("motion")
-	////xproto.QueryPointer(win.Conn, win.Window)
-	//}})
-
 	win.SetWindowName("Editor")
 
 	return nil
 }
 
 func (win *Window) eventLoop() {
-	// can't force getting out of this loop (on win.close)
-	// since the conn (xgb) doesn't expose a channel
-
 	for {
-
-		ev, xerr := win.Conn.PollForEvent()
+		ev, xerr := win.Conn.WaitForEvent()
 		if ev == nil && xerr == nil {
-			win.events <- xgbutil.QueueEmptyEventId
-
-			ev, xerr = win.Conn.WaitForEvent()
-			if ev == nil && xerr == nil {
-				win.events <- xgbutil.ConnectionClosedEventId
-				goto forEnd
-			}
+			win.events <- xgbutil.ConnectionClosedEventId
+			goto forEnd
 		}
 		if xerr != nil {
 			win.events <- xerr

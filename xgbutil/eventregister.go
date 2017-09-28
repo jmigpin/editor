@@ -10,6 +10,8 @@ import (
 
 type EventRegister struct {
 	m map[int]*[]*ERCallback
+
+	UnhandledEventFunc func(ev interface{})
 }
 
 func NewEventRegister() *EventRegister {
@@ -46,10 +48,16 @@ func (er *EventRegister) Remove(evId int, cb *ERCallback) {
 		}
 	}
 }
+
+// Should be called in an event loop, to avoid running in another goroutine.
 func (er *EventRegister) Emit(evId int, ev interface{}) {
 	u, ok := er.m[evId]
 	if !ok {
-		//log.Printf("unhandled event id: %v, %#v", evId, ev)
+		fn := er.UnhandledEventFunc
+		if fn != nil {
+			ev2 := &EREventData{evId, ev}
+			fn(ev2)
+		}
 		return
 	}
 	for _, cb := range *u {
@@ -96,13 +104,15 @@ const (
 	NoOpEventId
 	XErrorEventId
 	ConnectionClosedEventId
-	QueueEmptyEventId
 	ShmCompletionEventId
+)
 
-	// event ids for other tasks
-	XInputEventIdStart = 1100 + iota
-	DndEventIdStart    = 1200 + iota
-	UIEventIdStart     = 1300 + iota
+// event ids for other tasks
+const (
+	XInputEventIdStart    = 1100
+	DndEventIdStart       = 1200
+	CopyPasteEventIdStart = 1250
+	UIEventIdStart        = 1300
 )
 
 func XgbEventId(ev xgb.Event) int {
