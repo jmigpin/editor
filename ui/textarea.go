@@ -547,8 +547,11 @@ func (ta *TextArea) onKeyPress(ev0 interface{}) {
 	if !ev.Point.In(ta.C.Bounds) {
 		return
 	}
+
 	k := ev.Key
 	firstKeysym := k.FirstKeysym()
+	mods := k.Mods.ClearButtons()
+
 	switch firstKeysym {
 	case xinput.XKAltL,
 		xinput.XKIsoLevel3Shift,
@@ -563,95 +566,95 @@ func (ta *TextArea) onKeyPress(ev0 interface{}) {
 		// ignore these
 	case xinput.XKRight:
 		switch {
-		case k.Mods.IsControlShift():
+		case mods.IsControlShift():
 			tautil.MoveCursorJumpRight(ta, true)
-		case k.Mods.IsControl():
+		case mods.IsControl():
 			tautil.MoveCursorJumpRight(ta, false)
-		case k.Mods.IsShift():
+		case mods.IsShift():
 			tautil.MoveCursorRight(ta, true)
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.MoveCursorRight(ta, false)
 		}
 	case xinput.XKLeft:
 		switch {
-		case k.Mods.IsControlShift():
+		case mods.IsControlShift():
 			tautil.MoveCursorJumpLeft(ta, true)
-		case k.Mods.IsControl():
+		case mods.IsControl():
 			tautil.MoveCursorJumpLeft(ta, false)
-		case k.Mods.IsShift():
+		case mods.IsShift():
 			tautil.MoveCursorLeft(ta, true)
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.MoveCursorLeft(ta, false)
 		}
 	case xinput.XKUp:
 		switch {
-		case k.Mods.IsControlMod1():
+		case mods.IsControlMod1():
 			tautil.MoveLineUp(ta)
-		case k.Mods.IsShift():
+		case mods.IsShift():
 			tautil.MoveCursorUp(ta, true)
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.MoveCursorUp(ta, false)
 		}
 	case xinput.XKDown:
 		switch {
-		case k.Mods.IsControlShiftMod1():
+		case mods.IsControlShiftMod1():
 			tautil.DuplicateLines(ta)
-		case k.Mods.IsControlMod1():
+		case mods.IsControlMod1():
 			tautil.MoveLineDown(ta)
-		case k.Mods.IsShift():
+		case mods.IsShift():
 			tautil.MoveCursorDown(ta, true)
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.MoveCursorDown(ta, false)
 		}
 	case xinput.XKHome:
 		switch {
-		case k.Mods.IsControlShift():
+		case mods.IsControlShift():
 			tautil.StartOfString(ta, true)
-		case k.Mods.IsControl():
+		case mods.IsControl():
 			tautil.StartOfString(ta, false)
-		case k.Mods.IsShift():
+		case mods.IsShift():
 			tautil.StartOfLine(ta, true)
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.StartOfLine(ta, false)
 		}
 	case xinput.XKEnd:
 		switch {
-		case k.Mods.IsControlShift():
+		case mods.IsControlShift():
 			tautil.EndOfString(ta, true)
-		case k.Mods.IsControl():
+		case mods.IsControl():
 			tautil.EndOfString(ta, false)
-		case k.Mods.IsShift():
+		case mods.IsShift():
 			tautil.EndOfLine(ta, true)
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.EndOfLine(ta, false)
 		}
 	case xinput.XKBackspace:
 		tautil.Backspace(ta)
 	case xinput.XKDelete:
 		switch {
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.Delete(ta)
 		}
 	case xinput.XKPageUp:
 		switch {
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			ta.PageUp()
 		}
 	case xinput.XKPageDown:
 		switch {
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			ta.PageDown()
 		}
 	case xinput.XKTab:
 		switch {
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.TabRight(ta)
-		case k.Mods.IsShift():
+		case mods.IsShift():
 			tautil.TabLeft(ta)
 		}
 	case xinput.XKReturn:
 		switch {
-		case k.Mods.IsNone():
+		case mods.IsNone():
 			tautil.AutoIndent(ta)
 		}
 	case xinput.XKSpace:
@@ -659,14 +662,14 @@ func (ta *TextArea) onKeyPress(ev0 interface{}) {
 	default:
 		// shortcuts with printable runes
 		switch {
-		case k.Mods.IsControlShift():
+		case mods.IsControlShift():
 			switch firstKeysym {
 			case 'd':
 				tautil.Uncomment(ta)
 			case 'z':
 				ta.unpopRedo()
 			}
-		case k.Mods.IsControl():
+		case mods.IsControl():
 			switch firstKeysym {
 			case 'd':
 				tautil.Comment(ta)

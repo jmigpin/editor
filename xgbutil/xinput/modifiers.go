@@ -1,7 +1,7 @@
 package xinput
 
 import (
-	"strconv"
+	"strings"
 
 	"github.com/BurntSushi/xgb/xproto"
 )
@@ -20,7 +20,50 @@ import (
 type Modifiers uint16 // key and button mask
 
 func (m Modifiers) String() string {
-	return strconv.FormatInt(int64(m), 2)
+	//return strconv.FormatInt(int64(m), 2)
+
+	var u []string
+	if m.Has(xproto.KeyButMaskShift) {
+		u = append(u, "shift")
+	}
+	if m.Has(xproto.KeyButMaskLock) {
+		u = append(u, "lock")
+	}
+	if m.Has(xproto.KeyButMaskControl) {
+		u = append(u, "ctrl")
+	}
+	if m.Has(xproto.KeyButMaskMod1) {
+		u = append(u, "mod1")
+	}
+	if m.Has(xproto.KeyButMaskMod2) {
+		u = append(u, "mod2")
+	}
+	if m.Has(xproto.KeyButMaskMod3) {
+		u = append(u, "mod3")
+	}
+	if m.Has(xproto.KeyButMaskMod4) {
+		u = append(u, "mod4")
+	}
+	if m.Has(xproto.KeyButMaskMod5) {
+		u = append(u, "mod5")
+	}
+	if m.Has(xproto.KeyButMaskButton1) {
+		u = append(u, "button1")
+	}
+	if m.Has(xproto.KeyButMaskButton2) {
+		u = append(u, "button2")
+	}
+	if m.Has(xproto.KeyButMaskButton3) {
+		u = append(u, "button3")
+	}
+	if m.Has(xproto.KeyButMaskButton4) {
+		u = append(u, "button4")
+	}
+	if m.Has(xproto.KeyButMaskButton5) {
+		u = append(u, "button5")
+	}
+
+	return strings.Join(u, "|")
 }
 
 // Returns true if it contains the modifiers flags.
@@ -42,6 +85,15 @@ func (m Modifiers) clearLock() Modifiers {
 }
 func (m Modifiers) clearMod2() Modifiers {
 	return m &^ xproto.KeyButMaskMod2 // num lock
+}
+
+func (m Modifiers) ClearButtons() Modifiers {
+	m = m &^ xproto.KeyButMaskButton1
+	m = m &^ xproto.KeyButMaskButton2
+	m = m &^ xproto.KeyButMaskButton3
+	m = m &^ xproto.KeyButMaskButton4
+	m = m &^ xproto.KeyButMaskButton5
+	return m
 }
 
 func (m Modifiers) IsNone() bool {
@@ -97,6 +149,7 @@ func (m Modifiers) IsButtonAndControl(b int) bool {
 func (m Modifiers) HasButton(b int) bool {
 	return m.Has(buttonMask(b))
 }
+
 func buttonMask(b int) int {
 	switch b {
 	case 1:
