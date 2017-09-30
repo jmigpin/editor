@@ -25,8 +25,7 @@ type Window struct {
 	Screen *xproto.ScreenInfo
 	GCtx   xproto.Gcontext
 
-	evReg  *evreg.Register
-	events chan<- interface{}
+	evReg *evreg.Register
 
 	Dnd          *dragndrop.Dnd
 	Paste        *copypaste.Paste
@@ -36,7 +35,7 @@ type Window struct {
 	ShmImageWrap *shmimage.ShmImageWrap
 }
 
-func NewWindow(evReg *evreg.Register, events chan<- interface{}) (*Window, error) {
+func NewWindow(evReg *evreg.Register) (*Window, error) {
 	conn, err := xgb.NewConn()
 	if err != nil {
 		if runtime.GOOS == "darwin" {
@@ -47,9 +46,8 @@ func NewWindow(evReg *evreg.Register, events chan<- interface{}) (*Window, error
 		return nil, err2
 	}
 	win := &Window{
-		Conn:   conn,
-		evReg:  evReg,
-		events: events,
+		Conn:  conn,
+		evReg: evReg,
 	}
 	if err := win.init(); err != nil {
 		return nil, errors.Wrap(err, "win init")
@@ -167,13 +165,14 @@ func (win *Window) eventLoop() {
 	for {
 		ev, xerr := win.Conn.WaitForEvent()
 		if ev == nil && xerr == nil {
-			win.events <- evreg.ConnectionClosedEventId
+			win.evReg.Enqueue(evreg.ConnectionClosedEventId, nil)
 			goto forEnd
 		}
 		if xerr != nil {
-			win.events <- xerr
+			win.evReg.EnqueueError(xerr)
 		} else if ev != nil {
-			win.events <- ev
+			eid := evreg.XgbEventId(ev)
+			win.evReg.Enqueue(eid, ev)
 		}
 	}
 forEnd:

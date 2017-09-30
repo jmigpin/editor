@@ -132,7 +132,7 @@ func (sq *Square) onButtonPress(ev0 interface{}) {
 	sq.pressPointPad = u.Sub(*ev.Point)
 
 	ev2 := &SquareButtonPressEvent{sq, ev.Button, ev.Point}
-	sq.EvReg.Emit(SquareButtonPressEventId, ev2)
+	sq.EvReg.RunCallbacks(SquareButtonPressEventId, ev2)
 }
 func (sq *Square) onButtonRelease(ev0 interface{}) {
 	if !sq.buttonPressed {
@@ -141,7 +141,7 @@ func (sq *Square) onButtonRelease(ev0 interface{}) {
 	sq.buttonPressed = false
 	ev := ev0.(*xinput.ButtonReleaseEvent)
 	ev2 := &SquareButtonReleaseEvent{sq, ev.Button, ev.Point}
-	sq.EvReg.Emit(SquareButtonReleaseEventId, ev2)
+	sq.EvReg.RunCallbacks(SquareButtonReleaseEventId, ev2)
 }
 func (sq *Square) onMotionNotify(ev0 interface{}) {
 	if !sq.buttonPressed {
@@ -149,7 +149,7 @@ func (sq *Square) onMotionNotify(ev0 interface{}) {
 	}
 	ev := ev0.(*xinput.MotionNotifyEvent)
 	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point, &sq.pressPointPad}
-	sq.EvReg.Emit(SquareMotionNotifyEventId, ev2)
+	sq.EvReg.RunCallbacks(SquareMotionNotifyEventId, ev2)
 }
 
 func (sq *Square) WarpPointer() {

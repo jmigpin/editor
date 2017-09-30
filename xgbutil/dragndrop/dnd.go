@@ -71,7 +71,7 @@ func (dnd *Dnd) onClientMessage(ev0 interface{}) {
 	ev := ev0.(xproto.ClientMessageEvent)
 	err := dnd.onClientMessage2(&ev)
 	if err != nil {
-		dnd.evReg.Emit(ErrorEventId, err)
+		dnd.evReg.EnqueueError(err)
 		return
 	}
 }
@@ -90,14 +90,14 @@ func (dnd *Dnd) onClientMessage2(ev *xproto.ClientMessageEvent) error {
 		if err != nil {
 			return err
 		}
-		dnd.evReg.Emit(PositionEventId, ev2)
+		dnd.evReg.RunCallbacks(PositionEventId, ev2)
 	case DndAtoms.XdndDrop:
 		// drag released
 		ev2, err := dnd.onDrop(data)
 		if err != nil {
 			return err
 		}
-		dnd.evReg.Emit(DropEventId, ev2)
+		dnd.evReg.RunCallbacks(DropEventId, ev2)
 	case DndAtoms.XdndLeave:
 		dnd.ClearTmp()
 	}

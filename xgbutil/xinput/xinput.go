@@ -48,14 +48,14 @@ func (xi *XInput) onEvRegKeyPress(ev0 interface{}) {
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	k := NewKey(xi.km, ev.Detail, ev.State)
 	ev2 := &KeyPressEvent{p, k}
-	xi.evReg.Emit(KeyPressEventId, ev2)
+	xi.evReg.RunCallbacks(KeyPressEventId, ev2)
 }
 func (xi *XInput) onEvRegKeyRelease(ev0 interface{}) {
 	ev := ev0.(xproto.KeyReleaseEvent)
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	k := NewKey(xi.km, ev.Detail, ev.State)
 	ev2 := &KeyReleaseEvent{p, k}
-	xi.evReg.Emit(KeyReleaseEventId, ev2)
+	xi.evReg.RunCallbacks(KeyReleaseEventId, ev2)
 }
 func (xi *XInput) onEvRegButtonPress(ev0 interface{}) {
 	ev := ev0.(xproto.ButtonPressEvent)
@@ -94,32 +94,32 @@ func (xi *XInput) onEvRegButtonPress(ev0 interface{}) {
 			switch bpt.action {
 			case 1:
 				ev2 := &DoubleClickEvent{p, b}
-				xi.evReg.Emit(DoubleClickEventId, ev2)
+				xi.evReg.RunCallbacks(DoubleClickEventId, ev2)
 				return
 			case 2:
 				ev2 := &TripleClickEvent{p, b}
-				xi.evReg.Emit(TripleClickEventId, ev2)
+				xi.evReg.RunCallbacks(TripleClickEventId, ev2)
 				return
 			}
 		}
 	}
 
 	ev2 := &ButtonPressEvent{p, b}
-	xi.evReg.Emit(ButtonPressEventId, ev2)
+	xi.evReg.RunCallbacks(ButtonPressEventId, ev2)
 }
 func (xi *XInput) onEvRegButtonRelease(ev interface{}) {
 	ev0 := ev.(xproto.ButtonReleaseEvent)
 	p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
 	b := NewButton(xi.km, ev0.Detail, ev0.State)
 	ev2 := &ButtonReleaseEvent{p, b}
-	xi.evReg.Emit(ButtonReleaseEventId, ev2)
+	xi.evReg.RunCallbacks(ButtonReleaseEventId, ev2)
 }
 func (xi *XInput) onEvRegMotionNotify(ev interface{}) {
 	ev0 := ev.(xproto.MotionNotifyEvent)
 	p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
 	m := Modifiers(ev0.State)
 	ev2 := &MotionNotifyEvent{p, m}
-	xi.evReg.Emit(MotionNotifyEventId, ev2)
+	xi.evReg.RunCallbacks(MotionNotifyEventId, ev2)
 }
 
 const (

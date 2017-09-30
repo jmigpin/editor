@@ -97,7 +97,7 @@ func (row *Row) Close() {
 	row.Toolbar.Close()
 	row.TextArea.Close()
 	row.Square.Close()
-	row.EvReg.Emit(RowCloseEventId, &RowCloseEvent{row})
+	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
 }
 func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	ev := ev0.(*SquareButtonPressEvent)
@@ -146,7 +146,7 @@ func (row *Row) onKeyPress(ev0 interface{}) {
 	}
 	row.activate()
 	ev2 := &RowKeyPressEvent{row, ev.Key}
-	row.EvReg.Emit(RowKeyPressEventId, ev2)
+	row.EvReg.RunCallbacks(RowKeyPressEventId, ev2)
 }
 func (row *Row) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)

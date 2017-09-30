@@ -76,9 +76,6 @@ func (ta *TextArea) Close() {
 func (ta *TextArea) Bounds() *image.Rectangle {
 	return &ta.C.Bounds
 }
-func (ta *TextArea) Error(err error) {
-	ta.EvReg.Emit(TextAreaErrorEventId, err)
-}
 
 func (ta *TextArea) drawerMeasure(width int) {
 	if ta.str != ta.drawer.Str || ta.drawerWidth != width {
@@ -110,7 +107,7 @@ func (ta *TextArea) updateStringCacheWithBoundsChangedCheck() {
 		ta.SetOffsetIndex(offsetIndex)
 
 		ev := &TextAreaBoundsChangeEvent{ta}
-		ta.EvReg.Emit(TextAreaBoundsChangeEventId, ev)
+		ta.EvReg.RunCallbacks(TextAreaBoundsChangeEventId, ev)
 	}
 }
 func (ta *TextArea) updateStringCache() {
@@ -187,7 +184,7 @@ func (ta *TextArea) setStr(s string) {
 	ta.SetRawStr(s)
 
 	ev := &TextAreaSetStrEvent{ta, oldBounds}
-	ta.EvReg.Emit(TextAreaSetStrEventId, ev)
+	ta.EvReg.RunCallbacks(TextAreaSetStrEventId, ev)
 }
 
 // TODO: have a set str, and a clear func
@@ -326,7 +323,7 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 		ta.C.NeedPaint()
 
 		ev := &TextAreaSetOffsetYEvent{ta}
-		ta.EvReg.Emit(TextAreaSetOffsetYEventId, ev)
+		ta.EvReg.RunCallbacks(TextAreaSetOffsetYEventId, ev)
 	}
 }
 
@@ -388,10 +385,6 @@ func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
 		return
 	}
 	ta.ui.WarpPointer(&p3)
-}
-
-func (ta *TextArea) RequestPaint() {
-	ta.ui.RequestPaint()
 }
 
 func (ta *TextArea) RequestPrimaryPaste() (string, error) {
@@ -498,7 +491,7 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 	case ev.Button.Mods.IsButton(3):
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		ev2 := &TextAreaCmdEvent{ta}
-		ta.EvReg.Emit(TextAreaCmdEventId, ev2)
+		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 	}
 }
 
@@ -514,7 +507,7 @@ func (ta *TextArea) onDoubleClick(ev0 interface{}) {
 	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		ev2 := &TextAreaCmdEvent{ta}
-		ta.EvReg.Emit(TextAreaCmdEventId, ev2)
+		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 	}
 }
 func (ta *TextArea) onTripleClick(ev0 interface{}) {
@@ -529,7 +522,7 @@ func (ta *TextArea) onTripleClick(ev0 interface{}) {
 	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		ev2 := &TextAreaCmdEvent{ta}
-		ta.EvReg.Emit(TextAreaCmdEventId, ev2)
+		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 	}
 }
 
@@ -703,8 +696,7 @@ func (ta *TextArea) InsertStringAsync(str string) {
 }
 
 const (
-	TextAreaErrorEventId = iota
-	TextAreaCmdEventId
+	TextAreaCmdEventId = iota
 	TextAreaSetStrEventId
 	TextAreaSetOffsetYEventId
 	TextAreaBoundsChangeEventId

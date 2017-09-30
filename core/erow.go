@@ -70,12 +70,6 @@ func (erow *ERow) initHandlers() {
 		&evreg.Callback{func(ev0 interface{}) {
 			contentcmd.Cmd(erow)
 		}})
-	// textarea error
-	row.TextArea.EvReg.Add(ui.TextAreaErrorEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			err := ev0.(error)
-			ed.Error(err)
-		}})
 	// close
 	row.EvReg.Add(ui.RowCloseEventId,
 		&evreg.Callback{func(ev0 interface{}) {

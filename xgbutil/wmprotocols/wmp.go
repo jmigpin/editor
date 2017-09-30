@@ -57,7 +57,7 @@ func (wmp *WMP) onClientMessage(ev0 interface{}) {
 	for _, e := range data {
 		atom := xproto.Atom(e)
 		if atom == atoms.WM_DELETE_WINDOW {
-			wmp.evReg.Emit(DeleteWindowEventId, nil)
+			wmp.evReg.RunCallbacks(DeleteWindowEventId, nil)
 		}
 	}
 }

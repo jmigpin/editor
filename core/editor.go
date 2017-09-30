@@ -12,9 +12,7 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
@@ -67,21 +65,11 @@ func NewEditor(opt *Options) (*Editor, error) {
 		return nil, err
 	}
 	ed.ui = ui0
-	ed.ui.EvReg.UnhandledEventFunc = func(ev *evreg.EventWrap) {
-		c := spew.NewDefaultConfig()
-		c.MaxDepth = 2
-		ed.Messagef("unhandled event func: %v", c.Sdump(ev.Event))
-	}
 
 	// close editor when the window is deleted
 	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId,
 		&evreg.Callback{func(ev0 interface{}) {
 			ed.Close()
-		}})
-	// possible x errors
-	ed.ui.EvReg.Add(evreg.XErrorEventId,
-		&evreg.Callback{func(ev interface{}) {
-			ed.Errorf("xerror: %v", ev)
 		}})
 
 	// setup drop support (files, dirs, ...) from other applications
@@ -292,40 +280,39 @@ func (ed *Editor) eventLoop() {
 		case <-ed.close:
 			goto forEnd
 
-		case ev, ok := <-ed.ui.Events:
+		case ev, ok := <-ed.ui.Events2:
 			if !ok {
 				goto forEnd
 			}
+
 			switch ev2 := ev.(type) {
-			case xgb.Event:
+			case *evreg.EventWrap:
 
 				// bypass quick motionnotify events
 				// TODO: can bypass a motion segment if last event is not motion
-				if len(ed.ui.Events) > 1 {
-					_, ok := ev2.(xproto.MotionNotifyEvent)
-					if ok {
+				if len(ed.ui.Events2) > 0 {
+					if ev2.EventId == xproto.MotionNotify {
 						goto selectStart
 					}
 				}
 
-				eid := evreg.XgbEventId(ev2)
-				ed.ui.EvReg.Emit(eid, ev2)
-			case xgb.Error:
-				ed.ui.EvReg.Emit(evreg.XErrorEventId, ev2)
-			case int:
-				switch ev2 {
-				case evreg.NoOpEventId:
+				switch ev2.EventId {
+				case evreg.ErrorEventId:
+					err := ev2.Event.(error)
+					if err, ok := err.(xgb.Error); ok {
+						log.Print(err)
+					} else {
+						ed.Error(err)
+					}
 				default:
-					ed.ui.EvReg.Emit(ev2, nil)
+					n := ed.ui.EvReg.RunCallbacks(ev2.EventId, ev2.Event)
+					if n == 0 {
+						// unhandled enqueued events (mostly coming from xgb)
+						ed.Errorf("%v", ev2)
+					}
 				}
-			case *evreg.EventWrap:
-				ed.ui.EvReg.Emit(ev2.EventId, ev2.Event)
-			case shm.CompletionEvent:
-				// do nothing, it will trigger paint if needed
-			case error:
-				ed.Error(ev2)
 			default:
-				log.Printf("unhandled event type: %v", ev)
+				panic(fmt.Sprintf("unhandled event type: %v", ev))
 			}
 
 		case ev, ok := <-ed.fwatcher.Events:
@@ -340,7 +327,7 @@ func (ed *Editor) eventLoop() {
 			}
 		}
 
-		if len(ed.ui.Events) == 0 {
+		if len(ed.ui.Events2) == 0 {
 			paintIfNeeded()
 		} else {
 			// ensure a paint at x frames per second

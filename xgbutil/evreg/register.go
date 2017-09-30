@@ -5,9 +5,9 @@ import "container/list"
 type Register struct {
 	m map[int]*list.List
 
-	events chan<- interface{}
+	Events chan<- interface{}
 
-	UnhandledEventFunc func(ev *EventWrap)
+	//UnhandledEventFunc func(ev *EventWrap)
 }
 
 func NewRegister() *Register {
@@ -40,29 +40,30 @@ func (er *Register) Remove(evId int, cb *Callback) {
 	}
 }
 
-// TODO: rename runcallbacks
-func (er *Register) Emit(evId int, ev interface{}) {
+func (er *Register) RunCallbacks(evId int, ev interface{}) int {
 	l, ok := er.m[evId]
 	if !ok {
-		fn := er.UnhandledEventFunc
-		if fn != nil {
-			ev2 := &EventWrap{evId, ev}
-			fn(ev2)
-		}
-		return
+		return 0
 	}
+	c := 0
 	for e := l.Front(); e != nil; e = e.Next() {
 		cb := e.Value.(*Callback)
 		cb.F(ev)
+		c++
 	}
+	return c
 }
 
-// TODO: EnqueueError
+func (er *Register) Enqueue(evId int, ev interface{}) {
+	// run inside goroutine to not allow deadlocks
+	//go func() { er.Events <- &EventWrap{evId, ev} }()
 
-//func (er *Register) Enqueue(evId int, ev interface{}) {
-//	// run inside goroutine to not allow deadlocks
-//	go func() { er.events <- &EventWrap{evId, ev} }()
-//}
+	// ensures call event order if not inside a goroutine
+	er.Events <- &EventWrap{evId, ev}
+}
+func (er *Register) EnqueueError(err error) {
+	er.Enqueue(ErrorEventId, err)
+}
 
 type Callback struct {
 	F func(interface{})
@@ -71,10 +72,11 @@ type Callback struct {
 type EventWrap struct {
 	EventId int
 	Event   interface{}
+	//reg     *Register
 }
 
-//func (ew*EventWrap)RunCallbacks(){
-// 	ew.evReg.RunCallbacks(ew)
+//func (ew *EventWrap) RunCallbacks() {
+//	ew.reg.RunCallbacks(ew.EventId, ew.Event)
 //}
 
 type Regist struct {

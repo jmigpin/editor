@@ -37,20 +37,22 @@ type UI struct {
 	fface1    font.Face
 	CursorMan *CursorMan
 
-	EvReg  *evreg.Register
-	Events chan interface{}
+	EvReg   *evreg.Register
+	Events2 chan interface{}
 
 	incompleteDraws int
 }
 
 func NewUI(fface font.Face) (*UI, error) {
 	ui := &UI{
-		fface1: fface,
-		Events: make(chan interface{}, 32),
-		EvReg:  evreg.NewRegister(),
+		fface1:  fface,
+		Events2: make(chan interface{}, 256),
 	}
 
-	win, err := NewWindow(ui.EvReg, ui.Events)
+	ui.EvReg = evreg.NewRegister()
+	ui.EvReg.Events = ui.Events2
+
+	win, err := NewWindow(ui.EvReg)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +75,7 @@ func NewUI(fface font.Face) (*UI, error) {
 }
 func (ui *UI) Close() {
 	ui.win.Close()
-	close(ui.Events)
+	close(ui.Events2)
 }
 
 func (ui *UI) onExpose(ev0 interface{}) {
@@ -110,9 +112,7 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 }
 
 func (ui *UI) RequestPaint() {
-	go func() {
-		ui.Events <- evreg.NoOpEventId
-	}()
+	ui.EvReg.Enqueue(evreg.NoOpEventId, nil)
 }
 
 func (ui *UI) Image() draw.Image {
@@ -241,14 +241,8 @@ func (ui *UI) SetPrimaryCopy(v string) {
 }
 
 func (ui *UI) TextAreaAppendAsync(ta *TextArea, str string) {
-	// run concurrently so it can be called from the ui thread as well, otherwise it can block
-	go func() {
-		ev := &evreg.EventWrap{
-			UITextAreaAppendAsyncEventId,
-			&UITextAreaAppendAsyncEvent{ta, str},
-		}
-		ui.Events <- ev
-	}()
+	ev := &UITextAreaAppendAsyncEvent{ta, str}
+	ui.EvReg.Enqueue(UITextAreaAppendAsyncEventId, ev)
 }
 func (ui *UI) onTextAreaAppendAsync(ev0 interface{}) {
 	ev := ev0.(*UITextAreaAppendAsyncEvent)
@@ -268,13 +262,8 @@ func (ui *UI) onTextAreaAppendAsync(ev0 interface{}) {
 }
 
 func (ui *UI) TextAreaInsertStringAsync(ta *TextArea, str string) {
-	go func() {
-		ev := &evreg.EventWrap{
-			UITextAreaInsertStringAsyncEventId,
-			&UITextAreaInsertStringAsyncEvent{ta, str},
-		}
-		ui.Events <- ev
-	}()
+	ev := &UITextAreaInsertStringAsyncEvent{ta, str}
+	ui.EvReg.Enqueue(UITextAreaInsertStringAsyncEventId, ev)
 }
 func (ui *UI) onTextAreaInsertStringAsync(ev0 interface{}) {
 	ev := ev0.(*UITextAreaInsertStringAsyncEvent)
