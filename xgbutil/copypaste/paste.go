@@ -9,13 +9,14 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type Paste struct {
 	conn *xgb.Conn
 	win  xproto.Window
 
-	evReg  *xgbutil.EventRegister
+	evReg  *evreg.Register
 	events chan<- interface{}
 
 	requests struct {
@@ -24,7 +25,7 @@ type Paste struct {
 	}
 }
 
-func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister, events chan<- interface{}) (*Paste, error) {
+func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register, events chan<- interface{}) (*Paste, error) {
 	if err := xgbutil.LoadAtoms(conn, &PasteAtoms); err != nil {
 		return nil, err
 	}
@@ -37,7 +38,7 @@ func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister, e
 
 	if evReg != nil {
 		evReg.Add(xproto.SelectionNotify,
-			&xgbutil.ERCallback{func(ev0 interface{}) {
+			&evreg.Callback{func(ev0 interface{}) {
 				ev := ev0.(xproto.SelectionNotifyEvent)
 				p.OnSelectionNotify(&ev)
 			}})
@@ -96,7 +97,7 @@ func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 			return
 		}
 		ev := &PasteDataEvent{Str: str, Data: pr.data}
-		p.events <- &xgbutil.EREventData{PasteDataEventId, ev}
+		p.events <- &evreg.EventWrap{PasteDataEventId, ev}
 	}
 }
 
@@ -171,7 +172,7 @@ type PasteReq struct {
 }
 
 const (
-	PasteDataEventId = xgbutil.CopyPasteEventIdStart + iota
+	PasteDataEventId = evreg.CopyPasteEventIdStart + iota
 )
 
 type PasteDataEvent struct {

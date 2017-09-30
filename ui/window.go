@@ -11,6 +11,7 @@ import (
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/copypaste"
 	"github.com/jmigpin/editor/xgbutil/dragndrop"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/shmimage"
 	"github.com/jmigpin/editor/xgbutil/wmprotocols"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
@@ -24,7 +25,7 @@ type Window struct {
 	Screen *xproto.ScreenInfo
 	GCtx   xproto.Gcontext
 
-	evReg  *xgbutil.EventRegister
+	evReg  *evreg.Register
 	events chan<- interface{}
 
 	Dnd          *dragndrop.Dnd
@@ -35,7 +36,7 @@ type Window struct {
 	ShmImageWrap *shmimage.ShmImageWrap
 }
 
-func NewWindow(evReg *xgbutil.EventRegister, events chan<- interface{}) (*Window, error) {
+func NewWindow(evReg *evreg.Register, events chan<- interface{}) (*Window, error) {
 	conn, err := xgb.NewConn()
 	if err != nil {
 		if runtime.GOOS == "darwin" {
@@ -166,7 +167,7 @@ func (win *Window) eventLoop() {
 	for {
 		ev, xerr := win.Conn.WaitForEvent()
 		if ev == nil && xerr == nil {
-			win.events <- xgbutil.ConnectionClosedEventId
+			win.events <- evreg.ConnectionClosedEventId
 			goto forEnd
 		}
 		if xerr != nil {

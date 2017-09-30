@@ -8,6 +8,7 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 // NOTES on other applications
@@ -30,7 +31,7 @@ var CopyAtoms struct {
 	TARGETS     xproto.Atom
 }
 
-func NewCopy(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*Copy, error) {
+func NewCopy(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Copy, error) {
 	c := &Copy{conn: conn, win: win}
 	if err := xgbutil.LoadAtoms(conn, &CopyAtoms); err != nil {
 		return nil, err
@@ -38,12 +39,12 @@ func NewCopy(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*
 
 	if evReg != nil {
 		evReg.Add(xproto.SelectionRequest,
-			&xgbutil.ERCallback{func(ev0 interface{}) {
+			&evreg.Callback{func(ev0 interface{}) {
 				ev := ev0.(xproto.SelectionRequestEvent)
 				c.OnSelectionRequest(&ev)
 			}})
 		evReg.Add(xproto.SelectionClear,
-			&xgbutil.ERCallback{func(ev0 interface{}) {
+			&evreg.Callback{func(ev0 interface{}) {
 				ev := ev0.(xproto.SelectionClearEvent)
 				c.OnSelectionClear(&ev)
 			}})

@@ -22,7 +22,7 @@ import (
 	"github.com/jmigpin/editor/drawutil2"
 	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/wmprotocols"
 )
 
@@ -67,20 +67,20 @@ func NewEditor(opt *Options) (*Editor, error) {
 		return nil, err
 	}
 	ed.ui = ui0
-	ed.ui.EvReg.UnhandledEventFunc = func(ev interface{}) {
+	ed.ui.EvReg.UnhandledEventFunc = func(ev *evreg.EventWrap) {
 		c := spew.NewDefaultConfig()
 		c.MaxDepth = 2
-		ed.Messagef("unhandled event func: %v", c.Sdump(ev))
+		ed.Messagef("unhandled event func: %v", c.Sdump(ev.Event))
 	}
 
 	// close editor when the window is deleted
 	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			ed.Close()
 		}})
 	// possible x errors
-	ed.ui.EvReg.Add(xgbutil.XErrorEventId,
-		&xgbutil.ERCallback{func(ev interface{}) {
+	ed.ui.EvReg.Add(evreg.XErrorEventId,
+		&evreg.Callback{func(ev interface{}) {
 			ed.Errorf("xerror: %v", ev)
 		}})
 
@@ -92,7 +92,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
 	// execute commands on layout toolbar
 	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
-		&xgbutil.ERCallback{func(ev interface{}) {
+		&evreg.Callback{func(ev interface{}) {
 			ToolbarCmdFromLayout(ed, ed.ui.Layout)
 		}})
 
@@ -195,13 +195,13 @@ func (ed *Editor) NewERowBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row
 	// add/remove to erows
 	ed.erows[row] = erow
 	row.EvReg.Add(ui.RowCloseEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			delete(ed.erows, row)
 		}})
 
 	// key shortcuts
 	row.EvReg.Add(ui.RowKeyPressEventId,
-		&xgbutil.ERCallback{ed.onRowKeyPress})
+		&evreg.Callback{ed.onRowKeyPress})
 	return erow
 }
 func (ed *Editor) onRowKeyPress(ev0 interface{}) {
@@ -308,17 +308,17 @@ func (ed *Editor) eventLoop() {
 					}
 				}
 
-				eid := xgbutil.XgbEventId(ev2)
+				eid := evreg.XgbEventId(ev2)
 				ed.ui.EvReg.Emit(eid, ev2)
 			case xgb.Error:
-				ed.ui.EvReg.Emit(xgbutil.XErrorEventId, ev2)
+				ed.ui.EvReg.Emit(evreg.XErrorEventId, ev2)
 			case int:
 				switch ev2 {
-				case xgbutil.NoOpEventId:
+				case evreg.NoOpEventId:
 				default:
 					ed.ui.EvReg.Emit(ev2, nil)
 				}
-			case *xgbutil.EREventData:
+			case *evreg.EventWrap:
 				ed.ui.EvReg.Emit(ev2.EventId, ev2.Event)
 			case shm.CompletionEvent:
 				// do nothing, it will trigger paint if needed

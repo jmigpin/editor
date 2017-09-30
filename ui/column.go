@@ -5,7 +5,7 @@ import (
 
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type Column struct {
@@ -27,11 +27,11 @@ func NewColumn(cols *Columns) *Column {
 	height := SquareWidth
 	col.Square.C.Style.CrossSize = &height
 	col.Square.EvReg.Add(SquareButtonPressEventId,
-		&xgbutil.ERCallback{col.onSquareButtonPress})
+		&evreg.Callback{col.onSquareButtonPress})
 	col.Square.EvReg.Add(SquareButtonReleaseEventId,
-		&xgbutil.ERCallback{col.onSquareButtonRelease})
+		&evreg.Callback{col.onSquareButtonRelease})
 	col.Square.EvReg.Add(SquareMotionNotifyEventId,
-		&xgbutil.ERCallback{col.onSquareMotionNotify})
+		&evreg.Callback{col.onSquareMotionNotify})
 
 	col.colSep = NewSeparator(ui, SeparatorWidth, SeparatorColor)
 

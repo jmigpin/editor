@@ -6,7 +6,7 @@ import (
 	"golang.org/x/image/math/fixed"
 
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
@@ -21,7 +21,7 @@ type Scrollbar struct {
 		bounds          image.Rectangle
 		origPad         image.Point
 	}
-	dereg xgbutil.EventDeregister
+	evUnreg evreg.Unregister
 }
 
 func NewScrollbar(ta *TextArea) *Scrollbar {
@@ -31,41 +31,41 @@ func NewScrollbar(ta *TextArea) *Scrollbar {
 	sb.C.PaintFunc = sb.paint
 
 	r1 := sb.ta.ui.EvReg.Add(xinput.ButtonPressEventId,
-		&xgbutil.ERCallback{sb.onButtonPress})
+		&evreg.Callback{sb.onButtonPress})
 	r2 := sb.ta.ui.EvReg.Add(xinput.ButtonReleaseEventId,
-		&xgbutil.ERCallback{sb.onButtonRelease})
+		&evreg.Callback{sb.onButtonRelease})
 	r3 := sb.ta.ui.EvReg.Add(xinput.MotionNotifyEventId,
-		&xgbutil.ERCallback{sb.onMotionNotify})
-	sb.dereg.Add(r1, r2, r3)
+		&evreg.Callback{sb.onMotionNotify})
+	sb.evUnreg.Add(r1, r2, r3)
 
 	// textarea set text
 	sb.ta.EvReg.Add(TextAreaSetStrEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
 	// textarea y jump
 	sb.ta.EvReg.Add(TextAreaSetOffsetYEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
 	// textarea bounds change
 	sb.ta.EvReg.Add(TextAreaBoundsChangeEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			sb.calcPositionAndSize()
 			sb.C.NeedPaint()
 		}})
 	//// textarea set cursor index
 	//sb.ta.EvReg.Add(TextAreaSetCursorIndexEventId,
-	//&xgbutil.ERCallback{func(ev0 interface{}) {
+	//&evreg.Callback{func(ev0 interface{}) {
 	//sb.C.NeedPaint()
 	//}})
 
 	return sb
 }
 func (sb *Scrollbar) Close() {
-	sb.dereg.UnregisterAll()
+	sb.evUnreg.UnregisterAll()
 }
 func (sb *Scrollbar) calcPositionAndSize() {
 	// size and position percent (from textArea)

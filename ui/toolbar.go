@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type Toolbar struct {
@@ -18,7 +18,7 @@ func NewToolbar(ui *UI, parentC *uiutil.Container) *Toolbar {
 	tb.Colors = &ToolbarColors
 
 	tb.TextArea.EvReg.Add(TextAreaSetStrEventId,
-		&xgbutil.ERCallback{tb.onTextAreaSetStr})
+		&evreg.Callback{tb.onTextAreaSetStr})
 
 	return tb
 }

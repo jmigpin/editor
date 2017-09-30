@@ -9,7 +9,7 @@ import (
 	"golang.org/x/image/font"
 
 	"github.com/jmigpin/editor/imageutil"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
 
 	"github.com/BurntSushi/xgb/xproto"
@@ -31,7 +31,7 @@ type UI struct {
 	fface1    font.Face
 	CursorMan *CursorMan
 
-	EvReg  *xgbutil.EventRegister
+	EvReg  *evreg.Register
 	Events chan interface{}
 
 	incompleteDraws int
@@ -41,7 +41,7 @@ func NewUI(fface font.Face) (*UI, error) {
 	ui := &UI{
 		fface1: fface,
 		Events: make(chan interface{}, 32),
-		EvReg:  xgbutil.NewEventRegister(),
+		EvReg:  evreg.NewRegister(),
 	}
 
 	win, err := NewWindow(ui.EvReg, ui.Events)
@@ -55,11 +55,11 @@ func NewUI(fface font.Face) (*UI, error) {
 	ui.Layout = NewLayout(ui)
 
 	ui.EvReg.Add(xproto.Expose,
-		&xgbutil.ERCallback{ui.onExpose})
-	ui.EvReg.Add(xgbutil.ShmCompletionEventId,
-		&xgbutil.ERCallback{ui.onShmCompletion})
+		&evreg.Callback{ui.onExpose})
+	ui.EvReg.Add(evreg.ShmCompletionEventId,
+		&evreg.Callback{ui.onShmCompletion})
 	ui.EvReg.Add(UITextAreaAppendEventId,
-		&xgbutil.ERCallback{ui.onTextAreaAppend})
+		&evreg.Callback{ui.onTextAreaAppend})
 	return ui, nil
 }
 func (ui *UI) Close() {
@@ -102,7 +102,7 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 
 func (ui *UI) RequestPaint() {
 	go func() {
-		ui.Events <- xgbutil.NoOpEventId
+		ui.Events <- evreg.NoOpEventId
 	}()
 }
 
@@ -234,7 +234,7 @@ func (ui *UI) SetPrimaryCopy(v string) {
 func (ui *UI) TextAreaAppendAsync(ta *TextArea, str string) {
 	// run concurrently so it can be called from the ui thread as well, otherwise it can block
 	go func() {
-		ev := &xgbutil.EREventData{
+		ev := &evreg.EventWrap{
 			UITextAreaAppendEventId,
 			&UITextAreaAppendEvent{ta, str},
 		}
@@ -260,7 +260,7 @@ func (ui *UI) textAreaAppend(ta *TextArea, str string) {
 }
 
 const (
-	UITextAreaAppendEventId = xgbutil.UIEventIdStart + iota
+	UITextAreaAppendEventId = evreg.UIEventIdStart + iota
 )
 
 type UITextAreaAppendEvent struct {

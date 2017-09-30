@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 func SetupLayoutHomeVars(ed Editorer) {
@@ -22,7 +22,7 @@ func NewLayoutHomeVars(ed Editorer) *LayoutHomeVars {
 	lhv := &LayoutHomeVars{ed: ed}
 
 	ed.UI().Layout.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			ev := ev0.(*ui.TextAreaSetStrEvent)
 			lhv.update(ev)
 		}})

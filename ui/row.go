@@ -3,47 +3,48 @@ package ui
 import (
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type Row struct {
-	C             uiutil.Container
-	Col           *Column
-	Toolbar       *Toolbar
-	TextArea      *TextArea
-	Square        *Square
-	scrollbar     *Scrollbar
-	rowSep        *Separator
-	EvReg         *xgbutil.EventRegister
-	dereg         xgbutil.EventDeregister
+	C         uiutil.Container
+	Col       *Column
+	Toolbar   *Toolbar
+	TextArea  *TextArea
+	Square    *Square
+	scrollbar *Scrollbar
+	rowSep    *Separator
+	EvReg     *evreg.Register
+	evUnreg   evreg.Unregister
+
 	buttonPressed bool
 }
 
 func NewRow(col *Column) *Row {
 	row := &Row{Col: col}
 	row.C.Owner = row
-	row.EvReg = xgbutil.NewEventRegister()
+	row.EvReg = evreg.NewRegister()
 
 	ui := row.Col.Cols.Layout.UI
 
 	r1 := ui.EvReg.Add(xinput.KeyPressEventId,
-		&xgbutil.ERCallback{row.onKeyPress})
+		&evreg.Callback{row.onKeyPress})
 	r2 := ui.EvReg.Add(xinput.ButtonPressEventId,
-		&xgbutil.ERCallback{row.onButtonPress})
+		&evreg.Callback{row.onButtonPress})
 	r3 := ui.EvReg.Add(xinput.ButtonReleaseEventId,
-		&xgbutil.ERCallback{row.onButtonRelease})
-	row.dereg.Add(r1, r2, r3)
+		&evreg.Callback{row.onButtonRelease})
+	row.evUnreg.Add(r1, r2, r3)
 
 	row.Toolbar = NewToolbar(ui, &row.C)
 
 	row.Square = NewSquare(ui)
 	row.Square.EvReg.Add(SquareButtonPressEventId,
-		&xgbutil.ERCallback{row.onSquareButtonPress})
+		&evreg.Callback{row.onSquareButtonPress})
 	row.Square.EvReg.Add(SquareButtonReleaseEventId,
-		&xgbutil.ERCallback{row.onSquareButtonRelease})
+		&evreg.Callback{row.onSquareButtonRelease})
 	row.Square.EvReg.Add(SquareMotionNotifyEventId,
-		&xgbutil.ERCallback{row.onSquareMotionNotify})
+		&evreg.Callback{row.onSquareMotionNotify})
 
 	row.TextArea = NewTextArea(ui)
 	row.TextArea.Colors = &TextAreaColors
@@ -91,7 +92,7 @@ func (row *Row) activate() {
 }
 func (row *Row) Close() {
 	row.Col.removeRow(row)
-	row.dereg.UnregisterAll()
+	row.evUnreg.UnregisterAll()
 	row.scrollbar.Close()
 	row.Toolbar.Close()
 	row.TextArea.Close()

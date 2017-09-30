@@ -6,6 +6,7 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 // protocol: https://www.acc.umu.se/~vatten/XDND.html
@@ -16,7 +17,7 @@ import (
 type Dnd struct { // drag and drop
 	conn  *xgb.Conn
 	win   xproto.Window
-	evReg *xgbutil.EventRegister // event register support
+	evReg *evreg.Register // event register support
 	tmp   struct {
 		enterEvent    *EnterEvent    // contains supported types
 		positionEvent *PositionEvent // contains position
@@ -24,7 +25,7 @@ type Dnd struct { // drag and drop
 	}
 }
 
-func NewDnd(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*Dnd, error) {
+func NewDnd(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Dnd, error) {
 	if err := xgbutil.LoadAtoms(conn, &DndAtoms); err != nil {
 		return nil, err
 	}
@@ -38,9 +39,9 @@ func NewDnd(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*D
 
 	dnd.evReg = evReg
 	dnd.evReg.Add(xproto.ClientMessage,
-		&xgbutil.ERCallback{dnd.onClientMessage})
+		&evreg.Callback{dnd.onClientMessage})
 	dnd.evReg.Add(xproto.SelectionNotify,
-		&xgbutil.ERCallback{dnd.onSelectionNotify})
+		&evreg.Callback{dnd.onSelectionNotify})
 
 	return dnd, nil
 }
@@ -198,7 +199,7 @@ func (dnd *Dnd) onSelectionNotify(ev0 interface{}) {
 }
 
 const (
-	ErrorEventId = xgbutil.DndEventIdStart + iota
+	ErrorEventId = evreg.DndEventIdStart + iota
 	PositionEventId
 	DropEventId
 )

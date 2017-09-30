@@ -7,6 +7,7 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 // https://tronche.com/gui/x/icccm/sec-4.html#s-4.2.8.1
@@ -14,10 +15,10 @@ import (
 type WMP struct {
 	conn  *xgb.Conn
 	win   xproto.Window
-	evReg *xgbutil.EventRegister
+	evReg *evreg.Register
 }
 
-func NewWMP(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*WMP, error) {
+func NewWMP(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*WMP, error) {
 	if err := xgbutil.LoadAtoms(conn, &atoms); err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func NewWMP(conn *xgb.Conn, win xproto.Window, evReg *xgbutil.EventRegister) (*W
 		return nil, err
 	}
 	evReg.Add(xproto.ClientMessage,
-		&xgbutil.ERCallback{wmp.onClientMessage})
+		&evreg.Callback{wmp.onClientMessage})
 	return wmp, nil
 }
 func (wmp *WMP) setupWindowProperty() error {

@@ -6,16 +6,17 @@ import (
 
 	// only for cursordef
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 // Used in row and column to move and close.
 type Square struct {
-	C             uiutil.Container
-	ui            *UI
-	EvReg         *xgbutil.EventRegister
-	dereg         xgbutil.EventDeregister
+	C       uiutil.Container
+	ui      *UI
+	EvReg   *evreg.Register
+	evUnreg evreg.Unregister
+
 	pressPointPad image.Point
 	buttonPressed bool
 	values        [6]bool // bg and mini-squares
@@ -28,22 +29,22 @@ func NewSquare(ui *UI) *Square {
 	width := SquareWidth
 	sq.C.Style.MainSize = &width
 	sq.C.PaintFunc = sq.paint
-	sq.EvReg = xgbutil.NewEventRegister()
+	sq.EvReg = evreg.NewRegister()
 
 	r1 := sq.ui.EvReg.Add(xinput.ButtonPressEventId,
-		&xgbutil.ERCallback{sq.onButtonPress})
+		&evreg.Callback{sq.onButtonPress})
 	r2 := sq.ui.EvReg.Add(xinput.ButtonReleaseEventId,
-		&xgbutil.ERCallback{sq.onButtonRelease})
+		&evreg.Callback{sq.onButtonRelease})
 	r3 := sq.ui.EvReg.Add(xinput.MotionNotifyEventId,
-		&xgbutil.ERCallback{sq.onMotionNotify})
-	sq.dereg.Add(r1, r2, r3)
+		&evreg.Callback{sq.onMotionNotify})
+	sq.evUnreg.Add(r1, r2, r3)
 
 	//sq.ui.CursorMan.SetBoundsCursor(&sq.C.Bounds, xcursor.Icon)
 
 	return sq
 }
 func (sq *Square) Close() {
-	sq.dereg.UnregisterAll()
+	sq.evUnreg.UnregisterAll()
 	//sq.ui.CursorMan.RemoveBoundsCursor(&sq.C.Bounds)
 }
 func (sq *Square) paint() {

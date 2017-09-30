@@ -11,7 +11,7 @@ import (
 	"github.com/jmigpin/editor/core/contentcmd"
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/pkg/errors"
 )
 
@@ -50,35 +50,35 @@ func (erow *ERow) initHandlers() {
 	ed := erow.ed
 	// toolbar set str
 	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			erow.parseToolbar()
 		}})
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			ToolbarCmdFromRow(erow)
 		}})
 	// textarea set str
 	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			if !erow.IsDir() && !erow.IsSpecialName() {
 				erow.SetUIEdited(true)
 			}
 		}})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			contentcmd.Cmd(erow)
 		}})
 	// textarea error
 	row.TextArea.EvReg.Add(ui.TextAreaErrorEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			err := ev0.(error)
 			ed.Error(err)
 		}})
 	// close
 	row.EvReg.Add(ui.RowCloseEventId,
-		&xgbutil.ERCallback{func(ev0 interface{}) {
+		&evreg.Callback{func(ev0 interface{}) {
 			cmdutil.RowCtxCancel(row)
 			ed.reopenRow.Add(row)
 

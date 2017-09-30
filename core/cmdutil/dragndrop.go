@@ -7,19 +7,19 @@ import (
 
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/dragndrop"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 func SetupDragNDrop(ed Editorer) {
 	h := &dndHandler{ed}
 	ui := ed.UI()
 	ui.EvReg.Add(dragndrop.ErrorEventId,
-		&xgbutil.ERCallback{h.onError})
+		&evreg.Callback{h.onError})
 	ui.EvReg.Add(dragndrop.PositionEventId,
-		&xgbutil.ERCallback{h.onPosition})
+		&evreg.Callback{h.onPosition})
 	ui.EvReg.Add(dragndrop.DropEventId,
-		&xgbutil.ERCallback{h.onDrop})
+		&evreg.Callback{h.onDrop})
 }
 
 type dndHandler struct {

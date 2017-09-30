@@ -9,8 +9,8 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/copypaste"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 
 	"golang.org/x/image/math/fixed"
@@ -22,8 +22,8 @@ type TextArea struct {
 
 	drawer *hsdrawer.HSDrawer
 
-	EvReg *xgbutil.EventRegister
-	dereg xgbutil.EventDeregister
+	EvReg   *evreg.Register
+	evUnreg evreg.Unregister
 
 	editHistory   *tautil.EditHistory
 	edit          *tautil.EditHistoryEdit
@@ -52,29 +52,29 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.Colors = &c
 	ta.C.PaintFunc = ta.paint
 	ta.C.OnCalcFunc = ta.onContainerCalc
-	ta.EvReg = xgbutil.NewEventRegister()
+	ta.EvReg = evreg.NewRegister()
 	ta.editHistory = tautil.NewEditHistory(40)
 
 	r1 := ta.ui.EvReg.Add(xinput.KeyPressEventId,
-		&xgbutil.ERCallback{ta.onKeyPress})
+		&evreg.Callback{ta.onKeyPress})
 	r2 := ta.ui.EvReg.Add(xinput.ButtonPressEventId,
-		&xgbutil.ERCallback{ta.onButtonPress})
+		&evreg.Callback{ta.onButtonPress})
 	r3 := ta.ui.EvReg.Add(xinput.ButtonReleaseEventId,
-		&xgbutil.ERCallback{ta.onButtonRelease})
+		&evreg.Callback{ta.onButtonRelease})
 	r4 := ta.ui.EvReg.Add(xinput.MotionNotifyEventId,
-		&xgbutil.ERCallback{ta.onMotionNotify})
+		&evreg.Callback{ta.onMotionNotify})
 	r5 := ta.ui.EvReg.Add(xinput.DoubleClickEventId,
-		&xgbutil.ERCallback{ta.onDoubleClick})
+		&evreg.Callback{ta.onDoubleClick})
 	r6 := ta.ui.EvReg.Add(xinput.TripleClickEventId,
-		&xgbutil.ERCallback{ta.onTripleClick})
+		&evreg.Callback{ta.onTripleClick})
 	r7 := ta.ui.EvReg.Add(copypaste.PasteDataEventId,
-		&xgbutil.ERCallback{ta.onPasteData})
-	ta.dereg.Add(r1, r2, r3, r4, r5, r6, r7)
+		&evreg.Callback{ta.onPasteData})
+	ta.evUnreg.Add(r1, r2, r3, r4, r5, r6, r7)
 
 	return ta
 }
 func (ta *TextArea) Close() {
-	ta.dereg.UnregisterAll()
+	ta.evUnreg.UnregisterAll()
 }
 func (ta *TextArea) Bounds() *image.Rectangle {
 	return &ta.C.Bounds

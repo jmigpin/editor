@@ -6,12 +6,12 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/xgbutil"
+	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type XInput struct {
 	km    *KMap
-	evReg *xgbutil.EventRegister
+	evReg *evreg.Register
 
 	// detect buttons double/triple clicks, only for buttons 1,2,3, not wheel buttons
 	buttonPressedTime [3]struct {
@@ -21,7 +21,7 @@ type XInput struct {
 	}
 }
 
-func NewXInput(conn *xgb.Conn, evReg *xgbutil.EventRegister) (*XInput, error) {
+func NewXInput(conn *xgb.Conn, evReg *evreg.Register) (*XInput, error) {
 	km, err := NewKMap(conn)
 	if err != nil {
 		return nil, err
@@ -31,15 +31,15 @@ func NewXInput(conn *xgb.Conn, evReg *xgbutil.EventRegister) (*XInput, error) {
 
 	xi.evReg = evReg
 	xi.evReg.Add(xproto.KeyPress,
-		&xgbutil.ERCallback{xi.onEvRegKeyPress})
+		&evreg.Callback{xi.onEvRegKeyPress})
 	xi.evReg.Add(xproto.KeyRelease,
-		&xgbutil.ERCallback{xi.onEvRegKeyRelease})
+		&evreg.Callback{xi.onEvRegKeyRelease})
 	xi.evReg.Add(xproto.ButtonPress,
-		&xgbutil.ERCallback{xi.onEvRegButtonPress})
+		&evreg.Callback{xi.onEvRegButtonPress})
 	xi.evReg.Add(xproto.ButtonRelease,
-		&xgbutil.ERCallback{xi.onEvRegButtonRelease})
+		&evreg.Callback{xi.onEvRegButtonRelease})
 	xi.evReg.Add(xproto.MotionNotify,
-		&xgbutil.ERCallback{xi.onEvRegMotionNotify})
+		&evreg.Callback{xi.onEvRegMotionNotify})
 
 	return xi, nil
 }
@@ -123,7 +123,7 @@ func (xi *XInput) onEvRegMotionNotify(ev interface{}) {
 }
 
 const (
-	KeyPressEventId = xgbutil.XInputEventIdStart + iota
+	KeyPressEventId = evreg.XInputEventIdStart + iota
 	KeyReleaseEventId
 	ButtonPressEventId
 	ButtonReleaseEventId
