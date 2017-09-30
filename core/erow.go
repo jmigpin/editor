@@ -21,8 +21,9 @@ type ERow struct {
 	td  *toolbardata.ToolbarData
 
 	state struct {
-		name  string // decoded part0arg0
-		tbStr string
+		nameIsSet bool
+		name      string // decoded part0arg0
+		tbStr     string
 
 		filename string // abs filename from name
 		isDir    bool
@@ -40,7 +41,7 @@ func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
 	erow.initHandlers()
 
 	// run after event handlers are set
-	erow.parseToolbar(nil)
+	erow.parseToolbar()
 
 	return erow
 }
@@ -50,7 +51,7 @@ func (erow *ERow) initHandlers() {
 	// toolbar set str
 	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
 		&xgbutil.ERCallback{func(ev0 interface{}) {
-			erow.parseToolbar(ev0.(*ui.TextAreaSetStrEvent))
+			erow.parseToolbar()
 		}})
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
@@ -128,32 +129,31 @@ func (erow *ERow) IsSpecialName() bool {
 	return erow.ed.IsSpecialName(erow.state.name)
 }
 
-func (erow *ERow) parseToolbar(ev *ui.TextAreaSetStrEvent) {
+func (erow *ERow) parseToolbar() {
 	tbStr := erow.Row().Toolbar.Str()
 	td := toolbardata.NewToolbarData(tbStr, erow.ed.HomeVars())
+
+	// update toolbar with encoded value
+	s := td.StrWithPart0Arg0Encoded()
+	if s != tbStr {
+		erow.Row().Toolbar.SetStrClear(s, false, false)
+		return
+	}
+
 	name := td.DecodePart0Arg0()
 
-	// ev is nil on first call at erow creation.
 	// don't allow changing the first part
-	if ev != nil {
-		if name != erow.state.name {
-			ev.TextArea.SetRawStr(erow.state.tbStr)
-			erow.Ed().Errorf("can't change toolbar first part")
-			return
-		}
+	if erow.state.nameIsSet && name != erow.state.name {
+		erow.Row().Toolbar.SetRawStr(erow.state.tbStr)
+		erow.Ed().Errorf("can't change toolbar first part")
+		return
+
 	}
 
 	erow.td = td
 	erow.state.tbStr = tbStr
+	erow.state.nameIsSet = true
 	erow.state.name = name
-
-	// update toolbar with encoded value
-	s := td.StrWithPart0Arg0Encoded()
-	if s != td.Str {
-		// set str will trigger event that parses the toolbar again
-		erow.Row().Toolbar.SetStrClear(s, false, false)
-		return
-	}
 
 	erow.UpdateState()
 }
