@@ -297,6 +297,8 @@ func (ed *Editor) eventLoop() {
 				}
 
 				switch ev2.EventId {
+				case evreg.NoOpEventId:
+					// do nothing, allows to check if paint is needed
 				case evreg.ErrorEventId:
 					err := ev2.Event.(error)
 					if err, ok := err.(xgb.Error); ok {
@@ -308,7 +310,7 @@ func (ed *Editor) eventLoop() {
 					n := ed.ui.EvReg.RunCallbacks(ev2.EventId, ev2.Event)
 					if n == 0 {
 						// unhandled enqueued events (mostly coming from xgb)
-						ed.Errorf("%v", ev2)
+						ed.Errorf("%#v", ev2)
 					}
 				}
 			default:
