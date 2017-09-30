@@ -9,7 +9,6 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
-	"github.com/jmigpin/editor/xgbutil/copypaste"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 
@@ -67,9 +66,7 @@ func NewTextArea(ui *UI) *TextArea {
 		&evreg.Callback{ta.onDoubleClick})
 	r6 := ta.ui.EvReg.Add(xinput.TripleClickEventId,
 		&evreg.Callback{ta.onTripleClick})
-	r7 := ta.ui.EvReg.Add(copypaste.PasteDataEventId,
-		&evreg.Callback{ta.onPasteData})
-	ta.evUnreg.Add(r1, r2, r3, r4, r5, r6, r7)
+	ta.evUnreg.Add(r1, r2, r3, r4, r5, r6)
 
 	return ta
 }
@@ -397,18 +394,11 @@ func (ta *TextArea) RequestPaint() {
 	ta.ui.RequestPaint()
 }
 
-func (ta *TextArea) requestPrimaryPaste() {
-	ta.ui.RequestPrimaryPaste(ta)
+func (ta *TextArea) RequestPrimaryPaste() (string, error) {
+	return ta.ui.RequestPrimaryPaste()
 }
-func (ta *TextArea) requestClipboardPaste() {
-	ta.ui.RequestClipboardPaste(ta)
-}
-func (ta *TextArea) onPasteData(ev interface{}) {
-	ev2 := ev.(*copypaste.PasteDataEvent)
-	if ev2.Data != ta {
-		return
-	}
-	tautil.InsertString(ta, ev2.Str)
+func (ta *TextArea) RequestClipboardPaste() (string, error) {
+	return ta.ui.RequestClipboardPaste()
 }
 
 func (ta *TextArea) SetClipboardCopy(v string) {
@@ -417,6 +407,7 @@ func (ta *TextArea) SetClipboardCopy(v string) {
 func (ta *TextArea) SetPrimaryCopy(v string) {
 	ta.ui.SetPrimaryCopy(v)
 }
+
 func (ta *TextArea) LineHeight() fixed.Int26_6 {
 	return ta.drawer.LineHeight()
 }
@@ -503,7 +494,7 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 
 	case ev.Button.Mods.IsButton(2):
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
-		ta.requestPrimaryPaste()
+		tautil.PastePrimary(ta)
 	case ev.Button.Mods.IsButton(3):
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		ev2 := &TextAreaCmdEvent{ta}
@@ -678,7 +669,7 @@ func (ta *TextArea) onKeyPress(ev0 interface{}) {
 			case 'x':
 				tautil.Cut(ta)
 			case 'v':
-				ta.requestClipboardPaste()
+				tautil.PasteClipboard(ta)
 			case 'k':
 				tautil.RemoveLines(ta)
 			case 'a':
@@ -706,6 +697,9 @@ func (ta *TextArea) insertKeyRune(k *xinput.Key) {
 	default:
 		tautil.InsertString(ta, string(rune(ks)))
 	}
+}
+func (ta *TextArea) InsertStringAsync(str string) {
+	ta.ui.TextAreaInsertStringAsync(ta, str)
 }
 
 const (

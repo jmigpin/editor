@@ -57,6 +57,8 @@ func (er *Register) Emit(evId int, ev interface{}) {
 	}
 }
 
+// TODO: EnqueueError
+
 //func (er *Register) Enqueue(evId int, ev interface{}) {
 //	// run inside goroutine to not allow deadlocks
 //	go func() { er.events <- &EventWrap{evId, ev} }()
@@ -70,6 +72,10 @@ type EventWrap struct {
 	EventId int
 	Event   interface{}
 }
+
+//func (ew*EventWrap)RunCallbacks(){
+// 	ew.evReg.RunCallbacks(ew)
+//}
 
 type Regist struct {
 	evReg *Register

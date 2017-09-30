@@ -46,7 +46,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	drawutil2.TabWidth = opt.TabWidth
 	ui.ScrollbarLeft = opt.ScrollbarLeft
 
-	ui.SetScrollbarWidth(opt.ScrollbarWidth)
+	ui.SetScrollbarAndSquareWidth(opt.ScrollbarWidth)
 
 	if opt.AcmeColors {
 		ui.AcmeColors()

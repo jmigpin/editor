@@ -7,8 +7,6 @@ import (
 )
 
 type Texta interface {
-	Error(error)
-
 	Str() string
 
 	EditOpen()
@@ -35,8 +33,10 @@ type Texta interface {
 	IndexPoint(int) *fixed.Point26_6
 	PointIndex(*fixed.Point26_6) int
 
-	RequestPaint()
-
+	RequestPrimaryPaste() (string, error)
+	RequestClipboardPaste() (string, error)
 	SetClipboardCopy(string)
 	SetPrimaryCopy(string)
+
+	InsertStringAsync(string)
 }

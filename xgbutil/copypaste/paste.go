@@ -16,25 +16,27 @@ type Paste struct {
 	conn *xgb.Conn
 	win  xproto.Window
 
-	evReg  *evreg.Register
-	events chan<- interface{}
+	evReg *evreg.Register
 
-	requests struct {
+	reply chan *xproto.SelectionNotifyEvent
+	reqs  struct {
 		sync.Mutex
-		s []*PasteReq
+		waiting int
 	}
 }
 
-func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register, events chan<- interface{}) (*Paste, error) {
+func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Paste, error) {
 	if err := xgbutil.LoadAtoms(conn, &PasteAtoms); err != nil {
 		return nil, err
 	}
 	p := &Paste{
-		conn:   conn,
-		win:    win,
-		evReg:  evReg,
-		events: events,
+		conn:  conn,
+		win:   win,
+		evReg: evReg,
 	}
+
+	// need buffer size 1 or it can deadlock on onselectionnotify
+	p.reply = make(chan *xproto.SelectionNotifyEvent, 1)
 
 	if evReg != nil {
 		evReg.Add(xproto.SelectionNotify,
@@ -47,83 +49,73 @@ func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register, events c
 	return p, nil
 }
 
-func (p *Paste) RequestPrimary(data interface{}) {
-	p.request(xproto.AtomPrimary, data)
+func (p *Paste) RequestPrimary() (string, error) {
+	return p.request(xproto.AtomPrimary)
 }
-func (p *Paste) RequestClipboard(data interface{}) {
-	p.request(PasteAtoms.CLIPBOARD, data)
+func (p *Paste) RequestClipboard() (string, error) {
+	return p.request(PasteAtoms.CLIPBOARD)
 }
-func (p *Paste) request(selection xproto.Atom, data interface{}) {
-	p.requests.Lock()
-	defer p.requests.Unlock()
-
-	pr := &PasteReq{data: data}
-	p.requests.s = append(p.requests.s, pr)
+func (p *Paste) request(selection xproto.Atom) (string, error) {
+	p.reqs.Lock()
+	p.reqs.waiting++
+	p.reqs.Unlock()
 
 	p.requestDataToServer(selection)
 
-	// cleanup if no event arrives
 	tick := time.Tick(500 * time.Millisecond)
-	go func() {
-		<-tick
-		err := func() error {
-			p.requests.Lock()
-			defer p.requests.Unlock()
-			if !pr.done {
-				p.deletePasteReq(pr)
-				return fmt.Errorf("paste: request timeout")
-			}
-			return nil
-		}()
-		if err != nil {
-			p.events <- err
+	select {
+
+	case <-tick:
+		// the receiver could lock here and do a "waiting--"
+
+		p.reqs.Lock()
+		defer p.reqs.Unlock()
+		if p.reqs.waiting > 0 {
+			p.reqs.waiting--
+		} else {
+			// consume the event that just got in
+			ev := <-p.reply
+			return p.getData(ev)
 		}
-	}()
+
+		return "", fmt.Errorf("paste: request timeout")
+
+	case ev := <-p.reply:
+		return p.getData(ev)
+	}
+}
+
+func (p *Paste) getData(ev *xproto.SelectionNotifyEvent) (string, error) {
+	switch ev.Property {
+	case xproto.AtomNone:
+		err := fmt.Errorf("nothing to paste (no owner exist)")
+		return "", err
+	case PasteAtoms.XSEL_DATA:
+		return p.extractData(ev)
+	default:
+		panic("!")
+	}
 }
 
 // After requesting the data this event comes in
 func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
-	pr, ok := p.getRequest(ev)
-	if !ok {
-		return
-	}
+	// check if it is a paste event
 	switch ev.Property {
 	case xproto.AtomNone:
-		// property is none if no owner exists
 	case PasteAtoms.XSEL_DATA:
-		str, err := p.extractData(ev)
-		if err != nil {
-			p.events <- err
-			return
-		}
-		ev := &PasteDataEvent{Str: str, Data: pr.data}
-		p.events <- &evreg.EventWrap{PasteDataEventId, ev}
-	}
-}
-
-func (p *Paste) getRequest(ev *xproto.SelectionNotifyEvent) (*PasteReq, bool) {
-	p.requests.Lock()
-	defer p.requests.Unlock()
-
-	// not waiting for any requests
-	if len(p.requests.s) == 0 {
-		return nil, false
+	default:
+		return
 	}
 
-	pr := p.requests.s[0]
-	pr.done = true
-	p.deletePasteReq(pr)
+	//log.Printf("%+v", spew.Sdump(ev))
 
-	return pr, true
-}
-
-func (p *Paste) deletePasteReq(pr *PasteReq) {
-	for i, u := range p.requests.s {
-		if u == pr {
-			p.requests.s = append(p.requests.s[:i], p.requests.s[i+1:]...)
-			break
-		}
+	p.reqs.Lock()
+	defer p.reqs.Unlock()
+	if p.reqs.waiting == 0 {
+		return
 	}
+	p.reqs.waiting--
+	p.reply <- ev
 }
 
 func (p *Paste) requestDataToServer(selection xproto.Atom) {
@@ -133,7 +125,7 @@ func (p *Paste) requestDataToServer(selection xproto.Atom) {
 		selection,
 		PasteAtoms.UTF8_STRING, // target/type
 		PasteAtoms.XSEL_DATA,   // property
-		0)                      // xproto.Timestamp, unable to use as an id
+		xproto.TimeCurrentTime)
 }
 
 func (p *Paste) extractData(ev *xproto.SelectionNotifyEvent) (string, error) {
@@ -164,18 +156,4 @@ var PasteAtoms struct {
 	XSEL_DATA   xproto.Atom
 	CLIPBOARD   xproto.Atom
 	//TARGETS     xproto.Atom
-}
-
-type PasteReq struct {
-	done bool
-	data interface{} // requestor data
-}
-
-const (
-	PasteDataEventId = evreg.CopyPasteEventIdStart + iota
-)
-
-type PasteDataEvent struct {
-	Str  string
-	Data interface{}
 }

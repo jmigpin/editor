@@ -9,6 +9,7 @@ import (
 	"golang.org/x/image/font"
 
 	"github.com/jmigpin/editor/imageutil"
+	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
 
@@ -24,6 +25,11 @@ var (
 	SquareWidth    = 10
 	ScrollbarLeft  = false
 )
+
+func SetScrollbarAndSquareWidth(v int) {
+	ScrollbarWidth = v
+	SquareWidth = v
+}
 
 type UI struct {
 	win       *Window
@@ -58,8 +64,11 @@ func NewUI(fface font.Face) (*UI, error) {
 		&evreg.Callback{ui.onExpose})
 	ui.EvReg.Add(evreg.ShmCompletionEventId,
 		&evreg.Callback{ui.onShmCompletion})
-	ui.EvReg.Add(UITextAreaAppendEventId,
-		&evreg.Callback{ui.onTextAreaAppend})
+	ui.EvReg.Add(UITextAreaAppendAsyncEventId,
+		&evreg.Callback{ui.onTextAreaAppendAsync})
+	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId,
+		&evreg.Callback{ui.onTextAreaInsertStringAsync})
+
 	return ui, nil
 }
 func (ui *UI) Close() {
@@ -218,11 +227,11 @@ func (ui *UI) SetCursor(c xcursors.Cursor) {
 	ui.win.Cursors.SetCursor(c)
 }
 
-func (ui *UI) RequestPrimaryPaste(requestor interface{}) {
-	ui.win.Paste.RequestPrimary(requestor)
+func (ui *UI) RequestPrimaryPaste() (string, error) {
+	return ui.win.Paste.RequestPrimary()
 }
-func (ui *UI) RequestClipboardPaste(requestor interface{}) {
-	ui.win.Paste.RequestClipboard(requestor)
+func (ui *UI) RequestClipboardPaste() (string, error) {
+	return ui.win.Paste.RequestClipboard()
 }
 func (ui *UI) SetClipboardCopy(v string) {
 	ui.win.Copy.SetClipboard(v)
@@ -235,19 +244,18 @@ func (ui *UI) TextAreaAppendAsync(ta *TextArea, str string) {
 	// run concurrently so it can be called from the ui thread as well, otherwise it can block
 	go func() {
 		ev := &evreg.EventWrap{
-			UITextAreaAppendEventId,
-			&UITextAreaAppendEvent{ta, str},
+			UITextAreaAppendAsyncEventId,
+			&UITextAreaAppendAsyncEvent{ta, str},
 		}
 		ui.Events <- ev
 	}()
 }
+func (ui *UI) onTextAreaAppendAsync(ev0 interface{}) {
+	ev := ev0.(*UITextAreaAppendAsyncEvent)
+	ta := ev.TextArea
+	str := ev.Str
 
-func (ui *UI) onTextAreaAppend(ev0 interface{}) {
-	ev := ev0.(*UITextAreaAppendEvent)
-	ui.textAreaAppend(ev.TextArea, ev.Str)
-}
-func (ui *UI) textAreaAppend(ta *TextArea, str string) {
-	// max size
+	// max size for appends
 	maxSize := 5 * 1024 * 1024
 	str2 := ta.Str() + str
 	if len(str2) > maxSize {
@@ -259,16 +267,30 @@ func (ui *UI) textAreaAppend(ta *TextArea, str string) {
 	ta.SetStrClear(str2, false, true)
 }
 
+func (ui *UI) TextAreaInsertStringAsync(ta *TextArea, str string) {
+	go func() {
+		ev := &evreg.EventWrap{
+			UITextAreaInsertStringAsyncEventId,
+			&UITextAreaInsertStringAsyncEvent{ta, str},
+		}
+		ui.Events <- ev
+	}()
+}
+func (ui *UI) onTextAreaInsertStringAsync(ev0 interface{}) {
+	ev := ev0.(*UITextAreaInsertStringAsyncEvent)
+	tautil.InsertString(ev.TextArea, ev.Str)
+}
+
 const (
-	UITextAreaAppendEventId = evreg.UIEventIdStart + iota
+	UITextAreaAppendAsyncEventId = evreg.UIEventIdStart + iota
+	UITextAreaInsertStringAsyncEventId
 )
 
-type UITextAreaAppendEvent struct {
+type UITextAreaAppendAsyncEvent struct {
 	TextArea *TextArea
 	Str      string
 }
-
-func SetScrollbarWidth(v int) {
-	ScrollbarWidth = v
-	SquareWidth = v
+type UITextAreaInsertStringAsyncEvent struct {
+	TextArea *TextArea
+	Str      string
 }

@@ -129,7 +129,7 @@ func (win *Window) init() error {
 	}
 	win.Dnd = dnd
 
-	paste, err := copypaste.NewPaste(win.Conn, win.Window, win.evReg, win.events)
+	paste, err := copypaste.NewPaste(win.Conn, win.Window, win.evReg)
 	if err != nil {
 		return err
 	}
