@@ -1,6 +1,7 @@
 package xgbutil
 
 import (
+	"container/list"
 	"log"
 
 	"github.com/BurntSushi/xgb"
@@ -9,39 +10,34 @@ import (
 )
 
 type EventRegister struct {
-	m map[int]*[]*ERCallback
+	m map[int]*list.List
 
 	UnhandledEventFunc func(ev interface{})
 }
 
 func NewEventRegister() *EventRegister {
-	er := &EventRegister{m: make(map[int]*[]*ERCallback)}
+	er := &EventRegister{m: make(map[int]*list.List)}
 	return er
 }
 func (er *EventRegister) Add(evId int, cb *ERCallback) *ERRegist {
-	u, ok := er.m[evId]
+	l, ok := er.m[evId]
 	if !ok {
-		u = &[]*ERCallback{}
-		er.m[evId] = u
+		l = list.New()
+		er.m[evId] = l
 	}
-	*u = append(*u, cb)
+	l.PushBack(cb)
 	return &ERRegist{er, evId, cb}
 }
 func (er *EventRegister) Remove(evId int, cb *ERCallback) {
-	u, ok := er.m[evId]
+	l, ok := er.m[evId]
 	if !ok {
 		return
 	}
-	for i, cb0 := range *u {
-		if cb0 == cb {
-			// remove
-			*u = append((*u)[:i], (*u)[i+1:]...)
-			// copy to ensure a short slice
-			u2 := make([]*ERCallback, len(*u))
-			copy(u2, *u)
-			*u = u2
-
-			if len(*u) == 0 {
+	for e := l.Front(); e != nil; e = e.Next() {
+		cb2 := e.Value.(*ERCallback)
+		if cb2 == cb {
+			l.Remove(e)
+			if l.Len() == 0 {
 				delete(er.m, evId)
 			}
 			break
@@ -49,9 +45,8 @@ func (er *EventRegister) Remove(evId int, cb *ERCallback) {
 	}
 }
 
-// Should be called in an event loop, to avoid running in another goroutine.
 func (er *EventRegister) Emit(evId int, ev interface{}) {
-	u, ok := er.m[evId]
+	l, ok := er.m[evId]
 	if !ok {
 		fn := er.UnhandledEventFunc
 		if fn != nil {
@@ -60,7 +55,8 @@ func (er *EventRegister) Emit(evId int, ev interface{}) {
 		}
 		return
 	}
-	for _, cb := range *u {
+	for e := l.Front(); e != nil; e = e.Next() {
+		cb := e.Value.(*ERCallback)
 		cb.F(ev)
 	}
 }
