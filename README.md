@@ -96,10 +96,13 @@ Any button press: make row active to layout toolbar commands<br>
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>d</kbd>: uncomment lines<br>
 <br>
 <kbd>button1</kbd>: move cursor to point<br>
+<kbd>button2</kbd>: paste from primary<br>
 <kbd>button3</kbd>: move cursor to point + text area cmd<br>
 <kbd>button4</kbd>: scroll up<br>
 <kbd>button5</kbd>: scroll down<br>
 <kbd>shift</kbd>+<kbd>button1</kbd>: move cursor to point adding to selection<br>
+
+Note: selecting text with <kbd>button1</kbd> works as copy and makes it available for paste (primary selection).
 
 ### Commands
 
@@ -115,6 +118,7 @@ ReloadAll: reloads all filepaths<br>
 ReloadAllFiles: reloads all filepaths that are files<br>
 XdgOpenDir: calls xdg-open to open the active row directory with the preferred external application (ex: a filemanager)<br>
 RowDirectory: open row with the active row directory: useful when editing a file and want to access the file directory contents<br>
+DuplicateRow: make active row share the edit history with a new row that updates when changes are made.<br>
 Exit: exits the program<br>
 
 Note: Some row commands work from the layout toolbar because they act on the current active row (ex: Find, Replace).
