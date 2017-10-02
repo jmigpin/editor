@@ -52,8 +52,6 @@ func NewEditor(opt *Options) (*Editor, error) {
 
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
-	ed.homeVars.Append("~", os.Getenv("HOME"))
-
 	fface, err := ed.getFontFace(opt)
 	if err != nil {
 		return nil, err
@@ -84,6 +82,8 @@ func NewEditor(opt *Options) (*Editor, error) {
 			ToolbarCmdFromLayout(ed, ed.ui.Layout)
 		}})
 
+	// layout home vars
+	ed.homeVars.Append("~", os.Getenv("HOME"))
 	cmdutil.SetupLayoutHomeVars(ed)
 
 	// files watcher for visual feedback when files change
@@ -187,29 +187,7 @@ func (ed *Editor) NewERowBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row
 			delete(ed.erows, row)
 		}})
 
-	// key shortcuts
-	row.EvReg.Add(ui.RowKeyPressEventId,
-		&evreg.Callback{ed.onRowKeyPress})
 	return erow
-}
-func (ed *Editor) onRowKeyPress(ev0 interface{}) {
-	ev := ev0.(*ui.RowKeyPressEvent)
-	fks := ev.Key.FirstKeysym()
-	m := ev.Key.Mods
-	switch {
-	case m.IsControl() && fks == 's':
-		erow, ok := ed.erows[ev.Row]
-		if !ok {
-			panic("!")
-		}
-		cmdutil.SaveRowFile(erow)
-	case m.IsControl() && fks == 'f':
-		erow, ok := ed.erows[ev.Row]
-		if !ok {
-			panic("!")
-		}
-		cmdutil.FindShortcut(erow)
-	}
 }
 
 func (ed *Editor) FindERow(str string) (cmdutil.ERower, bool) {

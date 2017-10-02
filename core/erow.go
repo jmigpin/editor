@@ -70,6 +70,9 @@ func (erow *ERow) initHandlers() {
 		&evreg.Callback{func(ev0 interface{}) {
 			contentcmd.Cmd(erow)
 		}})
+	// key shortcuts
+	row.EvReg.Add(ui.RowKeyPressEventId,
+		&evreg.Callback{erow.onRowKeyPress})
 	// close
 	row.EvReg.Add(ui.RowCloseEventId,
 		&evreg.Callback{func(ev0 interface{}) {
@@ -276,4 +279,25 @@ func (erow *ERow) filepathContent(filepath string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func (erow *ERow) onRowKeyPress(ev0 interface{}) {
+	ev := ev0.(*ui.RowKeyPressEvent)
+	fks := ev.Key.FirstKeysym()
+	m := ev.Key.Mods
+	ed := erow.ed
+	switch {
+	case m.IsControl() && fks == 's':
+		erow, ok := ed.erows[ev.Row]
+		if !ok {
+			panic("!")
+		}
+		cmdutil.SaveRowFile(erow)
+	case m.IsControl() && fks == 'f':
+		erow, ok := ed.erows[ev.Row]
+		if !ok {
+			panic("!")
+		}
+		cmdutil.FindShortcut(erow)
+	}
 }
