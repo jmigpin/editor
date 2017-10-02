@@ -3,6 +3,9 @@ package contentcmd
 import "github.com/jmigpin/editor/core/cmdutil"
 
 func directory(erow cmdutil.ERower, p string) bool {
+	if p == "" {
+		return false
+	}
 	dir, fi, ok := findFileinfo(erow, p)
 	if !ok || !fi.IsDir() {
 		return false
