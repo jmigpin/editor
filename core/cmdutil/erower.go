@@ -17,9 +17,12 @@ type ERower interface {
 	ToolbarData() *toolbardata.ToolbarData
 
 	IsSpecialName() bool
+	Name() string
 	Filename() string
 	Dir() string
 	IsDir() bool
 
 	TextAreaAppendAsync(string)
+
+	UpdateDuplicates()
 }

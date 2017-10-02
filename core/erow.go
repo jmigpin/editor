@@ -11,6 +11,7 @@ import (
 	"github.com/jmigpin/editor/core/contentcmd"
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/pkg/errors"
 )
@@ -30,6 +31,8 @@ type ERow struct {
 		watch    bool
 		notExist bool
 	}
+
+	disableTextAreaSetStrEventHandler bool
 }
 
 func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
@@ -61,9 +64,13 @@ func (erow *ERow) initHandlers() {
 	// textarea set str
 	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId,
 		&evreg.Callback{func(ev0 interface{}) {
+			if erow.disableTextAreaSetStrEventHandler {
+				return
+			}
 			if !erow.IsDir() && !erow.IsSpecialName() {
 				erow.SetUIEdited(true)
 			}
+			erow.UpdateDuplicates()
 		}})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId,
@@ -133,6 +140,7 @@ func (erow *ERow) parseToolbar() {
 	// update toolbar with encoded value
 	s := td.StrWithPart0Arg0Encoded()
 	if s != tbStr {
+		// will trigger event that will parse toolbar again
 		erow.Row().Toolbar.SetStrClear(s, false, false)
 		return
 	}
@@ -141,10 +149,10 @@ func (erow *ERow) parseToolbar() {
 
 	// don't allow changing the first part
 	if erow.state.nameIsSet && name != erow.state.name {
-		erow.Row().Toolbar.SetRawStr(erow.state.tbStr)
 		erow.Ed().Errorf("can't change toolbar first part")
+		// will trigger event that will parse toolbar again
+		erow.Row().Toolbar.SetStrClear(erow.state.tbStr, false, false)
 		return
-
 	}
 
 	erow.td = td
@@ -213,16 +221,21 @@ func (erow *ERow) ReloadContent() error {
 }
 func (erow *ERow) loadContent(clear bool) error {
 	if erow.IsSpecialName() {
-		return fmt.Errorf("can't load special name: %s", erow.state.name)
+		return fmt.Errorf("can't load special name: %s", erow.Name())
 	}
 	fp := erow.Filename()
 	content, err := erow.filepathContent(fp)
 	if err != nil {
 		return errors.Wrapf(err, "loadcontent")
 	}
+
+	erow.disableTextAreaSetStrEventHandler = true // avoid running UpdateDuplicates twice
 	erow.row.TextArea.SetStrClear(content, clear, clear)
+	erow.disableTextAreaSetStrEventHandler = false
+
 	erow.SetUIEdited(false)
 	erow.SetUIDiskChanges(false)
+	erow.UpdateDuplicates()
 	return nil
 }
 func (erow *ERow) SaveContent(str string) error {
@@ -239,6 +252,7 @@ func (erow *ERow) SaveContent(str string) error {
 	}
 	erow.SetUIEdited(false)
 	erow.SetUIDiskChanges(false)
+	erow.UpdateDuplicates()
 	return nil
 }
 func (erow *ERow) saveContent2(str string, filename string) error {
@@ -299,5 +313,37 @@ func (erow *ERow) onRowKeyPress(ev0 interface{}) {
 			panic("!")
 		}
 		cmdutil.FindShortcut(erow)
+	}
+}
+
+func (erow *ERow) UpdateDuplicates() {
+	if erow.IsDir() || erow.IsSpecialName() {
+		return
+	}
+
+	for _, erow2 := range erow.ed.erows {
+		if erow2 == erow {
+			continue
+		}
+		if erow2.Filename() == erow.Filename() {
+			ta := erow.Row().TextArea
+			ta2 := erow2.Row().TextArea
+
+			// set temporary history to set the string
+			// then share the history to allow undo/redo in duplicates
+
+			tmp := tautil.NewEditHistory(1)
+			ta2.SetEditHistory(tmp)
+
+			erow2.disableTextAreaSetStrEventHandler = true // avoid recursive events
+			ta2.SetStrClear(ta.Str(), false, false)
+			erow2.disableTextAreaSetStrEventHandler = false
+
+			ta2.SetEditHistory(ta.EditHistory())
+
+			// update square
+			se := erow.Row().Square.Value(ui.SquareEdited)
+			erow2.SetUIEdited(se)
+		}
 	}
 }

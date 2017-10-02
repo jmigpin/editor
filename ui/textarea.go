@@ -158,11 +158,12 @@ func (ta *TextArea) Str() string {
 	return ta.str
 }
 
-// No events, clears, or undos.
-func (ta *TextArea) SetRawStr(s string) {
+func (ta *TextArea) setStr(s string) {
 	if s == ta.str {
 		return
 	}
+
+	oldBounds := ta.C.Bounds
 
 	ta.str = s
 
@@ -172,16 +173,6 @@ func (ta *TextArea) SetRawStr(s string) {
 
 	ta.updateStringCache()
 	ta.C.NeedPaint()
-}
-
-func (ta *TextArea) setStr(s string) {
-	if s == ta.str {
-		return
-	}
-
-	oldBounds := ta.C.Bounds
-
-	ta.SetRawStr(s)
 
 	ev := &TextAreaSetStrEvent{ta, oldBounds}
 	ta.EvReg.RunCallbacks(TextAreaSetStrEventId, ev)
@@ -707,6 +698,13 @@ func (ta *TextArea) insertKeyRune(k *xinput.Key) {
 }
 func (ta *TextArea) InsertStringAsync(str string) {
 	ta.ui.TextAreaInsertStringAsync(ta, str)
+}
+
+func (ta *TextArea) EditHistory() *tautil.EditHistory {
+	return ta.editHistory
+}
+func (ta *TextArea) SetEditHistory(eh *tautil.EditHistory) {
+	ta.editHistory = eh
 }
 
 const (

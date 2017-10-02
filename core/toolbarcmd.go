@@ -45,6 +45,8 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 		cmdutil.XdgOpenDirShortcut(ed)
 	case "RowDirectory":
 		cmdutil.OpenRowDirectory(ed)
+	case "DuplicateRow":
+		cmdutil.DuplicateRow(ed)
 
 	case "FontRunes":
 		var u string
