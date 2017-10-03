@@ -7,12 +7,19 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/core/cmdutil"
+	"github.com/jmigpin/editor/ui/tautil"
 )
 
 func Cmd(erow cmdutil.ERower) {
+	var s string
 	ta := erow.Row().TextArea
 
-	s := expandLeftRight(ta.Str(), ta.CursorIndex())
+	if ta.SelectionOn() {
+		a, b := tautil.SelectionStringIndexes(ta)
+		s = ta.Str()[a:b]
+	} else {
+		s = expandLeftRight(ta.Str(), ta.CursorIndex())
+	}
 
 	if ok := file(erow, s); ok {
 		return

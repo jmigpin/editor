@@ -489,7 +489,9 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 		tautil.MoveCursorToPoint(ta, ev.Point, false)
 		tautil.PastePrimary(ta)
 	case ev.Button.Mods.IsButton(3):
-		tautil.MoveCursorToPoint(ta, ev.Point, false)
+		if !ta.PointIndexInsideSelection(ev.Point) {
+			tautil.MoveCursorToPoint(ta, ev.Point, false)
+		}
 		ev2 := &TextAreaCmdEvent{ta}
 		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 	}
