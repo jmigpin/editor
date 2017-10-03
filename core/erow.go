@@ -169,12 +169,13 @@ func (erow *ERow) UpdateState() {
 	erow.updateFileinfo()
 
 	cur := &erow.state
-	if prev == *cur {
+	if prev == *cur && cur.watch { // TODO: FIXME, use ed.Watch(erow), ed.Unwatch)
 		return
 	}
 
 	// stop watching previous
 	if prev.watch && prev.filename != cur.filename {
+		// TODO: can't remove if other rows are present
 		erow.ed.fwatcher.Remove(prev.filename)
 	}
 
