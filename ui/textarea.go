@@ -498,15 +498,15 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 }
 
 func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
-	p2 := p.Sub(ta.Bounds().Min)
-	p3 := fixed.P(p2.X, p2.Y)
-	p3.Y += ta.OffsetY()
-	i := ta.PointIndex(&p3)
-	s, e := ta.SelectionIndex(), ta.CursorIndex()
-	if s > e {
-		s, e = e, s
+	if ta.SelectionOn() {
+		p2 := p.Sub(ta.Bounds().Min)
+		p3 := fixed.P(p2.X, p2.Y)
+		p3.Y += ta.OffsetY()
+		i := ta.PointIndex(&p3)
+		s, e := tautil.SelectionStringIndexes(ta)
+		return i >= s && i < e
 	}
-	return i >= s && i < e
+	return false
 }
 
 func (ta *TextArea) onDoubleClick(ev0 interface{}) {
