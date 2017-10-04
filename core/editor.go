@@ -119,7 +119,10 @@ func NewEditor(opt *Options) (*Editor, error) {
 		_ = cols.NewColumn()
 		col, ok := cols.LastChildColumn()
 		if ok {
-			cmdutil.OpenDirectoryRow(ed, ".", col, nil)
+			dir, err := os.Getwd()
+			if err == nil {
+				cmdutil.OpenDirectoryRow(ed, dir, col, nil)
+			}
 		}
 	}
 
