@@ -222,24 +222,6 @@ func (bm *SimpleBoxModel) endPercentDistribution(c *Container) {
 	}
 }
 
-func SwapEndPercents(a, b *Container) {
-	if a.NextSibling() != b {
-		panic("can only swap end percent with next sibling")
-	}
-
-	aep := &a.Style.EndPercent
-	bep := &b.Style.EndPercent
-
-	start := 0.0
-	c := a.PrevSibling()
-	if c != nil {
-		start = *c.Style.EndPercent
-	}
-
-	bep2 := start + (**bep - **aep)
-	*aep, *bep = *bep, &bep2
-}
-
 // Allows setup of start/end depending on a row/column direction
 type StartEnd struct {
 	c     *Container

@@ -194,6 +194,7 @@ func (cols *Columns) MoveRowToColumnBeforeRow(row *Row, col *Column, next *Row) 
 	col.insertRowBefore(row, next)
 	row.WarpPointer()
 }
+
 func (cols *Columns) MoveColumnToPoint(col *Column, p *image.Point) {
 	for _, c := range cols.Columns() {
 		if p.In(c.C.Bounds) {
@@ -202,54 +203,19 @@ func (cols *Columns) MoveColumnToPoint(col *Column, p *image.Point) {
 		}
 	}
 }
-
 func (cols *Columns) moveColumnToColumn(col, dest *Column, p *image.Point) {
 	if col == dest {
 		return
 	}
 
-	swap := func(a, b *uiutil.Container) {
-		uiutil.SwapEndPercents(a, b)
-		a.SwapWithSibling(b)
-	}
-
-	bubbleRight := col.C.IsAPrevSiblingOf(&dest.C)
-	if bubbleRight {
-		foundFirst := false
-		for _, c := range col.Cols.Columns() {
-			if !foundFirst {
-				if c == col {
-					foundFirst = true
-				}
-			} else {
-				swap(&col.C, &c.C)
-				if c == dest {
-					break
-				}
-			}
-		}
-	} else {
-		foundFirst := false
-		u := col.Cols.Columns()
-		for i, _ := range u {
-			c := u[len(u)-1-i]
-			if !foundFirst {
-				if c == col {
-					foundFirst = true
-				}
-			} else {
-				swap(&c.C, &col.C)
-				if c == dest {
-					break
-				}
-			}
-		}
-	}
+	col.C.SwapWithSibling(&dest.C)
+	a1 := &col.C.Style.EndPercent
+	a2 := &dest.C.Style.EndPercent
+	*a1, *a2 = *a2, *a1
 
 	cols.fixFirstColSeparator()
 	cols.C.CalcChildsBounds()
 	cols.C.NeedPaint()
-	cols.Layout.UI.WarpPointerToRectanglePad(&col.C.Bounds)
 }
 
 func (cols *Columns) ColumnWithGoodPlaceForNewRow() *Column {
