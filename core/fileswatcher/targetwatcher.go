@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -152,10 +150,10 @@ func (w *TargetWatcher) handleEvent(ev *Event) (evs []interface{}) {
 		e := w.entries.m[name]
 		if exist != e.exist {
 			if e.exist {
-				u := &Event{Name: name, Op: Op(unix.IN_CREATE)}
+				u := &Event{Name: name, Op: GetCreateOp()}
 				evs = append(evs, u)
 			} else {
-				u := &Event{Name: name, Op: Op(unix.IN_DELETE)}
+				u := &Event{Name: name, Op: GetDeleteOp()}
 				evs = append(evs, u)
 			}
 		}
