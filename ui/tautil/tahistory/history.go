@@ -36,8 +36,6 @@ func (h *History) PushStrEdit(edit *StrEdit) {
 			h.l.Remove(h.l.Front())
 		}
 	}
-
-	h.tryToMergeLastTwoEdits()
 }
 func (h *History) Undo(str string) (string, int, bool) {
 	if h.cur == nil {
@@ -68,7 +66,7 @@ func (h *History) Clear() {
 	h.cur = nil
 }
 
-func (h *History) tryToMergeLastTwoEdits() {
+func (h *History) TryToMergeLastTwoEdits() {
 	if h.cur == nil {
 		return
 	}
@@ -181,4 +179,36 @@ func (h *History) tryToMergeLastTwoEdits() {
 	// remove se2 (h.cur)
 	h.l.Remove(h.cur)
 	h.cur = prev
+}
+
+func (h *History) LenToCur() int {
+	if h.cur == nil {
+		return 0
+	}
+	c := 1
+	for e := h.l.Front(); e != h.cur; e = e.Next() {
+		c++
+	}
+	return c
+}
+
+func (h *History) MergeLastTwoEditsAndAddPosition(index int) {
+	if h.LenToCur() < 2 {
+		return
+	}
+
+	prev := h.cur.Prev()
+
+	se1 := prev.Value.(*StrEdit)  // oldest
+	se2 := h.cur.Value.(*StrEdit) // recent
+
+	se1.edits.PushBackList(&se2.edits.List)
+	se1.undos.PushFrontList(&se2.undos.List)
+
+	// remove se2 (h.cur)
+	h.l.Remove(h.cur)
+	h.cur = prev
+
+	// add position step
+	se1.WrapLastEditWithPosition(index)
 }

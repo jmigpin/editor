@@ -25,6 +25,16 @@ func (se *StrEdit) Delete(str string, index, index2 int) string {
 	se.undos.PushFront(del.getUndo(str))
 	return del.apply(str)
 }
+func (se *StrEdit) WrapLastEditWithPosition(index int) {
+	ind := &StrEditPosition{index: index}
+	se.edits.PushBack(ind)
+	if se.undos.Front() == nil {
+		se.edits.PushFront(ind)
+	} else {
+		// wrap last edit, usually a full string that throws the position to the end
+		se.undos.InsertAfter(ind, se.undos.Front())
+	}
+}
 
 func (se *StrEdit) IsEmpty() bool {
 	return se.edits.Len() == 0
@@ -43,6 +53,8 @@ func (l *StrEditActions) Apply(str string) (string, int) {
 			i = t0.index + len(t0.str)
 		case *StrEditDelete:
 			str = t0.apply(str)
+			i = t0.index
+		case *StrEditPosition:
 			i = t0.index
 		default:
 			panic("!")
@@ -73,4 +85,8 @@ func (u *StrEditDelete) apply(str string) string {
 }
 func (u *StrEditDelete) getUndo(str string) *StrEditInsert {
 	return &StrEditInsert{u.index, str[u.index:u.index2]}
+}
+
+type StrEditPosition struct {
+	index int
 }

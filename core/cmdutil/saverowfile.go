@@ -16,21 +16,31 @@ func SaveRowsFiles(ed Editorer) {
 }
 func SaveRowFile(erow ERower) {
 	row := erow.Row()
-	content := row.TextArea.Str()
+	str := row.TextArea.Str()
 
 	// run go imports for go content, updates content string
 	fp := erow.Filename()
 	if path.Ext(fp) == ".go" {
-		u, err := runGoImports(content)
+		u, err := runGoImports(str)
 		if err != nil {
 			// ignore errors, can catch them when compiling
 		} else {
-			content = u
-			row.TextArea.SetStrClear(content, false, false)
+			// Setting str to a full new string from goimports will
+			// have the cursor be set at the end of the string.
+			// This becomes annoying when doing undo/redo.
+			// The altered history is to keep the previous cursor
+			// position and make it pleasant.
+
+			ci := row.TextArea.CursorIndex()
+
+			str = u
+			row.TextArea.SetStrClear(str, false, false)
+
+			row.TextArea.History().MergeLastTwoEditsAndAddPosition(ci)
 		}
 	}
 
-	err := erow.SaveContent(content)
+	err := erow.SaveContent(str)
 	if err != nil {
 		erow.Ed().Error(err)
 	}

@@ -17,6 +17,9 @@ func (he *Edit) Insert(index int, istr string) {
 func (he *Edit) Delete(index, index2 int) {
 	he.str = he.strEdit.Delete(he.str, index, index2)
 }
+func (he *Edit) WrapLastEditWithPosition(index int) {
+	he.strEdit.WrapLastEditWithPosition(index)
+}
 func (he *Edit) Close() (string, *StrEdit, bool) {
 	changed := he.str != he.ostr
 	if !changed {
