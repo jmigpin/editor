@@ -105,18 +105,18 @@ func (cols *Columns) resizeColumn(col *Column, px int) {
 	min := float64(10) / float64(colsB.Dx())
 
 	// limit to siblings column end percent
-	if col.C.PrevSibling == nil {
+	if col.C.PrevSibling() == nil {
 		if ep < min {
 			ep = min
 		}
 	}
-	if col.C.PrevSibling != nil {
+	if col.C.PrevSibling() != nil {
 		u := &col.C.PrevSibling().Style.EndPercent
 		if *u != nil && ep < **u+min {
 			ep = **u + min
 		}
 	}
-	if col.C.NextSibling != nil {
+	if col.C.NextSibling() != nil {
 		u := &col.C.NextSibling().Style.EndPercent
 		if *u != nil && ep > **u-min {
 			ep = **u - min
@@ -128,7 +128,7 @@ func (cols *Columns) resizeColumn(col *Column, px int) {
 
 	//cols.C.NeedPaint() // commented: only 2 columns need paint
 	col.C.NeedPaint()
-	if col.C.NextSibling != nil {
+	if col.C.NextSibling() != nil {
 		col.C.NextSibling().NeedPaint()
 	}
 }
@@ -202,6 +202,7 @@ func (cols *Columns) MoveColumnToPoint(col *Column, p *image.Point) {
 		}
 	}
 }
+
 func (cols *Columns) moveColumnToColumn(col, dest *Column, p *image.Point) {
 	if col == dest {
 		return
