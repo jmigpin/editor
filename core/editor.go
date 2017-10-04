@@ -197,10 +197,17 @@ func (ed *Editor) NewERowBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row
 }
 
 func (ed *Editor) FindERow(str string) (cmdutil.ERower, bool) {
-	for _, erow := range ed.erows {
-		// name covers special rows, filename covers abs path
-		if str == erow.Name() || str == erow.Filename() {
-			return erow, true
+	// If iterate over ed.erows, then finderow will not be deterministic
+	// Important when clicking a file name with duplicate rows present,
+	// and not going to the same row consistently.
+
+	for _, col := range ed.ui.Layout.Cols.Columns() {
+		for _, row := range col.Rows() {
+			erow := ed.erows[row]
+			// name covers special rows, filename covers abs path
+			if str == erow.Name() || str == erow.Filename() {
+				return erow, true
+			}
 		}
 	}
 	return nil, false
