@@ -8,6 +8,7 @@ import (
 	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
+	"github.com/jmigpin/editor/ui/tautil/tahistory"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
@@ -24,8 +25,9 @@ type TextArea struct {
 	EvReg   *evreg.Register
 	evUnreg evreg.Unregister
 
-	editHistory   *tautil.EditHistory
-	edit          *tautil.EditHistoryEdit
+	history *tahistory.History
+	edit    *tahistory.Edit
+
 	buttonPressed bool
 	boundsChange  image.Rectangle
 
@@ -52,7 +54,7 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.C.PaintFunc = ta.paint
 	ta.C.OnCalcFunc = ta.onContainerCalc
 	ta.EvReg = evreg.NewRegister()
-	ta.editHistory = tautil.NewEditHistory(40)
+	ta.history = tahistory.NewHistory(64)
 
 	r1 := ta.ui.EvReg.Add(xinput.KeyPressEventId,
 		&evreg.Callback{ta.onKeyPress})
@@ -186,7 +188,7 @@ func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 		ta.SetOffsetY(0)
 	}
 	if clearUndoQ {
-		ta.editHistory.ClearQ()
+		ta.history.Clear()
 		ta.setStr(str)
 	} else {
 		// replace string with edit to allow undo
@@ -201,7 +203,7 @@ func (ta *TextArea) EditOpen() {
 	if ta.edit != nil {
 		panic("edit already exists")
 	}
-	ta.edit = tautil.NewEditHistoryEdit(ta.Str())
+	ta.edit = tahistory.NewEdit(ta.Str())
 }
 func (ta *TextArea) EditInsert(index int, str string) {
 	ta.edit.Insert(index, str)
@@ -215,12 +217,12 @@ func (ta *TextArea) EditClose() {
 	if !ok {
 		return
 	}
-	ta.editHistory.PushEdit(strEdit)
+	ta.history.PushStrEdit(strEdit)
 	ta.setStr(str)
 }
 
 func (ta *TextArea) popUndo() {
-	s, i, ok := ta.editHistory.PopUndo(ta.Str())
+	s, i, ok := ta.history.Undo(ta.Str())
 	if !ok {
 		return
 	}
@@ -229,7 +231,7 @@ func (ta *TextArea) popUndo() {
 	ta.SetSelectionOff()
 }
 func (ta *TextArea) unpopRedo() {
-	s, i, ok := ta.editHistory.UnpopRedo(ta.Str())
+	s, i, ok := ta.history.Redo(ta.Str())
 	if !ok {
 		return
 	}
@@ -700,11 +702,11 @@ func (ta *TextArea) InsertStringAsync(str string) {
 	ta.ui.TextAreaInsertStringAsync(ta, str)
 }
 
-func (ta *TextArea) EditHistory() *tautil.EditHistory {
-	return ta.editHistory
+func (ta *TextArea) History() *tahistory.History {
+	return ta.history
 }
-func (ta *TextArea) SetEditHistory(eh *tautil.EditHistory) {
-	ta.editHistory = eh
+func (ta *TextArea) SetHistory(h *tahistory.History) {
+	ta.history = h
 }
 
 const (

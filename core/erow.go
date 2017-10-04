@@ -14,7 +14,7 @@ import (
 	"github.com/jmigpin/editor/core/contentcmd"
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/ui/tautil"
+	"github.com/jmigpin/editor/ui/tautil/tahistory"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/pkg/errors"
 )
@@ -30,6 +30,11 @@ type ERow struct {
 
 	state ERowState
 
+	saved struct {
+		size int64
+		hash []byte
+	}
+
 	disableTextAreaSetStrEventHandler bool
 }
 
@@ -42,10 +47,10 @@ type ERowState struct {
 	watch bool
 
 	disk struct {
-		size      int64
-		modTime   time.Time
-		hash      []byte
-		savedHash []byte
+		//size      int64
+		modTime time.Time
+		hash    []byte
+		//savedHash []byte
 	}
 }
 
@@ -195,17 +200,17 @@ func (erow *ERow) UpdateState() {
 	// edited
 	if erow.IsRegular() {
 		str := erow.Row().TextArea.Str()
-		edited := int64(len(str)) != erow.state.disk.size
+		edited := int64(len(str)) != erow.saved.size
 		if !edited {
 			hash := erow.contentHash([]byte(str))
-			edited = !bytes.Equal(hash, erow.state.disk.savedHash)
+			edited = !bytes.Equal(hash, erow.saved.hash)
 		}
 		erow.SetUIEdited(edited)
 	}
 
 	// disk changes
 	if erow.IsRegular() {
-		changes := !bytes.Equal(erow.state.disk.hash, erow.state.disk.savedHash)
+		changes := !bytes.Equal(erow.state.disk.hash, erow.saved.hash)
 		erow.SetUIDiskChanges(changes)
 	}
 
@@ -217,7 +222,6 @@ func (erow *ERow) updateState2() {
 
 	// reset state
 	erow.state = ERowState{}
-	erow.state.disk.savedHash = prev.disk.savedHash
 
 	if erow.ed.IsSpecialName(erow.name) {
 		return
@@ -243,7 +247,6 @@ func (erow *ERow) updateState2() {
 	st.isRegular = fi.Mode().IsRegular()
 	st.isDir = fi.IsDir()
 
-	st.disk.size = fi.Size()
 	st.disk.modTime = fi.ModTime()
 
 	// update disk hash only if the modified time has changed
@@ -280,7 +283,8 @@ func (erow *ERow) loadContent(clear bool) error {
 	}
 
 	if erow.IsRegular() {
-		erow.state.disk.savedHash = erow.contentHash([]byte(str))
+		erow.saved.size = int64(len(str))
+		erow.saved.hash = erow.contentHash([]byte(str))
 	}
 
 	erow.disableTextAreaSetStrEventHandler = true // avoid running UpdateDuplicates twice
@@ -305,7 +309,8 @@ func (erow *ERow) SaveContent(str string) error {
 		return err
 	}
 
-	erow.state.disk.savedHash = erow.contentHash([]byte(str))
+	erow.saved.size = int64(len(str))
+	erow.saved.hash = erow.contentHash([]byte(str))
 
 	// There is no need to update state or duplicates, the file watcher would emit event.
 	// Here for redundancy to avoid having erow state be depended on the file watcher
@@ -381,8 +386,8 @@ func (erow *ERow) UpdateDuplicates() {
 			// use temporary history to set the string in the duplicate
 			// then share the history to allow undo/redo
 
-			tmp := tautil.NewEditHistory(1)
-			ta2.SetEditHistory(tmp)
+			tmp := tahistory.NewHistory(1)
+			ta2.SetHistory(tmp)
 
 			//ci := ta2.CursorIndex()
 
@@ -390,7 +395,7 @@ func (erow *ERow) UpdateDuplicates() {
 			ta2.SetStrClear(ta.Str(), false, false)
 			erow2.disableTextAreaSetStrEventHandler = false
 
-			ta2.SetEditHistory(ta.EditHistory())
+			ta2.SetHistory(ta.History())
 
 			// TODO: fix cursor position with last edit to avoid annoying cursor moves
 			////ta2.SetCursorIndex(0)
@@ -399,8 +404,9 @@ func (erow *ERow) UpdateDuplicates() {
 			//i2 := ta2.EditHistory().IndexAfterLastEditIfAt(ci)
 			//ta2.SetCursorIndex(i2)
 
+			erow2.saved.size = erow.saved.size
+			erow2.saved.hash = erow.saved.hash
 			erow2.UpdateState()
-			erow2.state.disk.savedHash = erow.state.disk.savedHash
 		}
 	}
 }

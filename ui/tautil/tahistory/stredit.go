@@ -1,4 +1,6 @@
-package tautil
+package tahistory
+
+import "container/list"
 
 type StrEdit struct {
 	edits StrEditActions
@@ -10,8 +12,8 @@ func (se *StrEdit) Insert(str string, index int, istr string) string {
 		return str
 	}
 	ins := &StrEditInsert{index, istr}
-	se.edits = append(se.edits, ins)
-	se.undos = append(StrEditActions{ins.getUndo()}, se.undos...)
+	se.edits.PushBack(ins)
+	se.undos.PushFront(ins.getUndo())
 	return ins.apply(str)
 }
 func (se *StrEdit) Delete(str string, index, index2 int) string {
@@ -19,20 +21,23 @@ func (se *StrEdit) Delete(str string, index, index2 int) string {
 		return str
 	}
 	del := &StrEditDelete{index, index2}
-	se.edits = append(se.edits, del)
-	se.undos = append(StrEditActions{del.getUndo(str)}, se.undos...)
+	se.edits.PushBack(del)
+	se.undos.PushFront(del.getUndo(str))
 	return del.apply(str)
 }
+
 func (se *StrEdit) IsEmpty() bool {
-	return len(se.edits) == 0
+	return se.edits.Len() == 0
 }
 
-type StrEditActions []interface{} // inserts/deletes
+type StrEditActions struct {
+	list.List
+}
 
-func (u StrEditActions) Apply(str string) (string, int) {
+func (l *StrEditActions) Apply(str string) (string, int) {
 	i := 0
-	for _, e := range u {
-		switch t0 := e.(type) {
+	for e := l.Front(); e != nil; e = e.Next() {
+		switch t0 := e.Value.(type) {
 		case *StrEditInsert:
 			str = t0.apply(str)
 			i = t0.index + len(t0.str)
