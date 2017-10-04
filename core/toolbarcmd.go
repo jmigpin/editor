@@ -17,6 +17,9 @@ func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
 	if !ok {
 		return
 	}
+	if len(part.Args) < 1 {
+		return
+	}
 	p0 := part.Args[0].Str
 	switch p0 {
 	case "Exit":
