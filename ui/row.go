@@ -170,7 +170,7 @@ func (row *Row) WarpPointer() {
 	row.Square.WarpPointer()
 }
 func (row *Row) NextSiblingRow() (*Row, bool) {
-	u := row.C.NextSibling
+	u := row.C.NextSibling()
 	if u == nil {
 		return nil, false
 	}

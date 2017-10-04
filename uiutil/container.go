@@ -1,18 +1,20 @@
 package uiutil
 
 import (
+	"container/list"
 	"image"
 	"sync"
 )
 
 type Container struct {
-	Owner interface{}
+	Owner interface{} // owner data - external use
 
 	Bounds image.Rectangle
 
-	Parent, PrevSibling, NextSibling, FirstChild, LastChild *Container
+	childs list.List
+	elem   *list.Element
 
-	NChilds int
+	Parent *Container
 
 	needMeasure     bool
 	needPaint       bool
@@ -24,63 +26,55 @@ type Container struct {
 	Style Style
 }
 
-func (c *Container) InsertChildBefore(cc, next *Container) {
-	if cc.Parent != nil && cc.NextSibling != nil || cc.PrevSibling != nil {
-		panic("container is already attached")
+func (c *Container) NChilds() int {
+	return c.childs.Len()
+}
+func (c *Container) FirstChild() *Container {
+	e := c.childs.Front()
+	if e == nil {
+		return nil
 	}
-	if next != nil && next.Parent != c {
-		panic("not a child of this container")
+	return e.Value.(*Container)
+}
+func (c *Container) LastChild() *Container {
+	e := c.childs.Back()
+	if e == nil {
+		return nil
 	}
+	return e.Value.(*Container)
+}
+func (c *Container) PrevSibling() *Container {
+	e := c.elem.Prev()
+	if e == nil {
+		return nil
+	}
+	return e.Value.(*Container)
+}
+func (c *Container) NextSibling() *Container {
+	e := c.elem.Next()
+	if e == nil {
+		return nil
+	}
+	return e.Value.(*Container)
+}
 
-	c.NChilds++
-	cc.Parent = c
-
-	var prev *Container
+// if next is nil it appends to the end.
+func (c *Container) InsertChildBefore(c2, next *Container) {
+	c2.Parent = c
 	if next == nil {
-		if c.LastChild != nil {
-			prev = c.LastChild
-		}
+		c2.elem = c.childs.PushBack(c2)
 	} else {
-		prev = next.PrevSibling
-	}
-
-	connectContainers(prev, cc)
-	connectContainers(cc, next)
-
-	if c.FirstChild == nil || c.FirstChild == next {
-		c.FirstChild = cc
-	}
-	if c.LastChild == nil || next == nil {
-		c.LastChild = cc
+		if next.Parent != c {
+			panic("element is not a child of this container")
+		}
+		if next.elem == nil {
+			panic("next elem nil")
+		}
+		c2.elem = c.childs.InsertBefore(c2, next.elem)
 	}
 }
-func (c *Container) RemoveChild(cc *Container) {
-	if cc.Parent != c {
-		panic("not a child of this container")
-	}
-
-	connectContainers(cc.PrevSibling, cc.NextSibling)
-
-	if c.FirstChild == cc {
-		c.FirstChild = cc.NextSibling
-	}
-	if c.LastChild == cc {
-		c.LastChild = cc.PrevSibling
-	}
-
-	c.NChilds--
-	cc.Parent = nil
-	cc.PrevSibling = nil
-	cc.NextSibling = nil
-}
-
-func connectContainers(a, b *Container) {
-	if a != nil {
-		a.NextSibling = b
-	}
-	if b != nil {
-		b.PrevSibling = a
-	}
+func (c *Container) RemoveChild(c2 *Container) {
+	c.childs.Remove(c2.elem)
 }
 
 func (c *Container) AppendChilds(cs ...*Container) {
@@ -88,26 +82,26 @@ func (c *Container) AppendChilds(cs ...*Container) {
 		c.InsertChildBefore(c2, nil)
 	}
 }
-
 func (c *Container) Childs() []*Container {
-	var u []*Container
-	for h := c.FirstChild; h != nil; h = h.NextSibling {
-		u = append(u, h)
+	u := make([]*Container, 0, c.childs.Len())
+	for e := c.childs.Front(); e != nil; e = e.Next() {
+		w := e.Value.(*Container)
+		u = append(u, w)
 	}
 	return u
 }
 
 func (c *Container) IsAPrevSiblingOf(c2 *Container) bool {
-	for u := c2.PrevSibling; u != nil; u = u.PrevSibling {
-		if u == c {
+	for u := c2.elem.Prev(); u != nil; u = u.Prev() {
+		if u == c.elem {
 			return true
 		}
 	}
 	return false
 }
 func (c *Container) IsANextSiblingOf(c2 *Container) bool {
-	for u := c2.NextSibling; u != nil; u = u.NextSibling {
-		if u == c {
+	for u := c2.elem.Next(); u != nil; u = u.Next() {
+		if u == c.elem {
 			return true
 		}
 	}
@@ -119,37 +113,22 @@ func (c *Container) SwapWithSibling(c2 *Container) {
 		panic("containers don't have the same parent")
 	}
 
-	a1, b1 := c.PrevSibling, c.NextSibling
-	a2, b2 := c2.PrevSibling, c2.NextSibling
+	l := &c.Parent.childs // need to get pointer, a list copy won't work!
 
-	if a1 == c2 {
-		a1 = c
-	}
-	if b1 == c2 {
-		b1 = c
-	}
-	if a2 == c {
-		a2 = c2
-	}
-	if b2 == c {
-		b2 = c2
-	}
-
-	connectContainers(a1, c2)
-	connectContainers(c2, b1)
-	connectContainers(a2, c)
-	connectContainers(c, b2)
-
-	p := c.Parent
-	if p.FirstChild == c {
-		p.FirstChild = c2
-	} else if p.FirstChild == c2 {
-		p.FirstChild = c
-	}
-	if p.LastChild == c {
-		p.LastChild = c2
-	} else if p.LastChild == c2 {
-		p.LastChild = c
+	e1 := c.elem
+	e2 := c2.elem
+	if e1.Next() == e2 {
+		l.MoveAfter(e1, e2)
+	} else if e2.Next() == e1 {
+		l.MoveAfter(e2, e1)
+	} else {
+		prev := e1.Prev()
+		l.MoveAfter(e1, e2)
+		if prev == nil {
+			l.MoveToFront(e2)
+		} else {
+			l.MoveAfter(e2, prev)
+		}
 	}
 }
 
@@ -164,7 +143,7 @@ func (c *Container) paint() {
 		c.PaintFunc()
 	}
 	var wg sync.WaitGroup
-	for child := c.FirstChild; child != nil; child = child.NextSibling {
+	for _, child := range c.Childs() {
 		wg.Add(1)
 		go func(child *Container) {
 			defer wg.Done()
@@ -179,7 +158,7 @@ func (c *Container) PaintIfNeeded(cb func(*image.Rectangle)) {
 		cb(&c.Bounds) // section that needs update
 	} else if c.childNeedsPaint {
 		c.childNeedsPaint = false
-		for child := c.FirstChild; child != nil; child = child.NextSibling {
+		for _, child := range c.Childs() {
 			child.PaintIfNeeded(cb)
 		}
 	}
@@ -187,7 +166,8 @@ func (c *Container) PaintIfNeeded(cb func(*image.Rectangle)) {
 
 func (c *Container) NeedPaint() {
 	c.needPaint = true
-	// set flag in parents
+
+	// bubble flag up in parents
 	for c2 := c.Parent; c2 != nil; c2 = c2.Parent {
 		c2.childNeedsPaint = true
 	}

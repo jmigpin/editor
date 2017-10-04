@@ -55,7 +55,7 @@ func (col *Column) Close() {
 	}
 }
 func (col *Column) paint() {
-	if col.RowsC.NChilds == 0 {
+	if col.RowsC.NChilds() == 0 {
 		col.Cols.Layout.UI.FillRectangle(&col.C.Bounds, color.White)
 		return
 	}
@@ -134,29 +134,30 @@ func (col *Column) onSquareMotionNotify(ev0 interface{}) {
 }
 
 func (col *Column) FirstChildRow() (*Row, bool) {
-	u := col.RowsC.FirstChild
+	u := col.RowsC.FirstChild()
 	if u == nil {
 		return nil, false
 	}
 	return u.Owner.(*Row), true
 }
 func (col *Column) NextSiblingColumn() (*Column, bool) {
-	u := col.C.NextSibling
+	u := col.C.NextSibling()
 	if u == nil {
 		return nil, false
 	}
 	return u.Owner.(*Column), true
 }
 func (col *Column) PrevSiblingColumn() (*Column, bool) {
-	u := col.C.PrevSibling
+	u := col.C.PrevSibling()
 	if u == nil {
 		return nil, false
 	}
 	return u.Owner.(*Column), true
 }
 func (col *Column) Rows() []*Row {
-	var u []*Row
-	for _, h := range col.RowsC.Childs() {
+	childs := col.RowsC.Childs()
+	u := make([]*Row, 0, len(childs))
+	for _, h := range childs {
 		u = append(u, h.Owner.(*Row))
 	}
 	return u

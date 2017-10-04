@@ -22,7 +22,7 @@ func NewColumns(layout *Layout) *Columns {
 	return cols
 }
 func (cols *Columns) paint() {
-	if cols.C.NChilds == 0 {
+	if cols.C.NChilds() == 0 {
 		cols.Layout.UI.FillRectangle(&cols.C.Bounds, color.White)
 		return
 	}
@@ -67,7 +67,7 @@ func (cols *Columns) fixFirstColSeparator() {
 func (cols *Columns) CloseColumnEnsureOne(col *Column) {
 	col.Close()
 	// ensure one column
-	if cols.C.NChilds == 0 {
+	if cols.C.NChilds() == 0 {
 		_ = cols.NewColumn()
 	}
 }
@@ -75,7 +75,7 @@ func (cols *Columns) CloseColumnEnsureOne(col *Column) {
 // Used by restore session.
 func (cols *Columns) CloseAllAndOpenN(n int) {
 	// close all columns
-	for cols.C.NChilds > 0 {
+	for cols.C.NChilds() > 0 {
 		u, _ := cols.FirstChildColumn()
 		u.Close()
 	}
@@ -111,13 +111,13 @@ func (cols *Columns) resizeColumn(col *Column, px int) {
 		}
 	}
 	if col.C.PrevSibling != nil {
-		u := &col.C.PrevSibling.Style.EndPercent
+		u := &col.C.PrevSibling().Style.EndPercent
 		if *u != nil && ep < **u+min {
 			ep = **u + min
 		}
 	}
 	if col.C.NextSibling != nil {
-		u := &col.C.NextSibling.Style.EndPercent
+		u := &col.C.NextSibling().Style.EndPercent
 		if *u != nil && ep > **u-min {
 			ep = **u - min
 		}
@@ -129,7 +129,7 @@ func (cols *Columns) resizeColumn(col *Column, px int) {
 	//cols.C.NeedPaint() // commented: only 2 columns need paint
 	col.C.NeedPaint()
 	if col.C.NextSibling != nil {
-		col.C.NextSibling.NeedPaint()
+		col.C.NextSibling().NeedPaint()
 	}
 }
 
@@ -306,22 +306,23 @@ func (cols *Columns) ColumnWithGoodPlaceForNewRow() *Column {
 }
 
 func (cols *Columns) FirstChildColumn() (*Column, bool) {
-	u := cols.C.FirstChild
+	u := cols.C.FirstChild()
 	if u == nil {
 		return nil, false
 	}
 	return u.Owner.(*Column), true
 }
 func (cols *Columns) LastChildColumn() (*Column, bool) {
-	u := cols.C.LastChild
+	u := cols.C.LastChild()
 	if u == nil {
 		return nil, false
 	}
 	return u.Owner.(*Column), true
 }
 func (cols *Columns) Columns() []*Column {
-	var u []*Column
-	for _, h := range cols.C.Childs() {
+	childs := cols.C.Childs()
+	u := make([]*Column, 0, len(childs))
+	for _, h := range childs {
 		u = append(u, h.Owner.(*Column))
 	}
 	return u
