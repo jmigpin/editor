@@ -30,14 +30,17 @@ type Editor struct {
 	close chan struct{}
 
 	homeVars  toolbardata.HomeVars
-	fwatcher  *fileswatcher.TargetWatcher
 	reopenRow *cmdutil.ReopenRow
+
+	fwatcher *fileswatcher.TargetWatcher
+	watch    map[string]int
 }
 
 func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
 		erows: make(map[*ui.Row]*ERow),
 		close: make(chan struct{}),
+		watch: make(map[string]int),
 	}
 
 	loopers.WrapLineRune = rune(opt.WrapLineRune)
@@ -323,27 +326,56 @@ forEnd:
 func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
 	//log.Printf("watcher event: %+v", ev)
 
-	isDirEvent := ev.Filename != ""
+	for _, erow := range ed.erows {
+		if erow.Filename() == ev.Name {
+			erow.UpdateState()
+		}
+	}
 
-	switch {
-	case ev.Op.HasModify() && !isDirEvent:
-		for _, erow := range ed.erows {
-			name := erow.Filename()
-			if name == ev.Name {
-				erow.SetUIDiskChanges(true)
-			}
-		}
-	case ev.Op.HasDelete(), ev.Op.HasCreate():
-		for _, erow := range ed.erows {
-			name := erow.Filename()
-			if name == ev.Name {
-				if isDirEvent {
-					//erow.SetUIDiskChanges(true)
-				} else {
-					erow.UpdateState()
-				}
-			}
-		}
+	//isDirEvent := ev.Filename != ""
+
+	//switch {
+	//case ev.Op.HasModify() && !isDirEvent:
+	//	for _, erow := range ed.erows {
+	//		name := erow.Filename()
+	//		if name == ev.Name {
+	//			//erow.SetUIDiskChanges(true)
+	//			erow.UpdateState()
+	//		}
+	//	}
+	//case ev.Op.HasDelete(), ev.Op.HasCreate():
+	//	for _, erow := range ed.erows {
+	//		name := erow.Filename()
+	//		if name == ev.Name {
+	//			if isDirEvent {
+	//				//erow.SetUIDiskChanges(true)
+	//			} else {
+	//				//
+	//				erow.UpdateState()
+	//			}
+	//		}
+	//	}
+	//}
+}
+
+func (ed *Editor) IncreaseWatch(filename string) {
+	_, ok := ed.watch[filename]
+	if !ok {
+		ed.fwatcher.Add(filename)
+	}
+	ed.watch[filename]++
+}
+func (ed *Editor) DecreaseWatch(filename string) {
+	c, ok := ed.watch[filename]
+	if !ok {
+		return
+	}
+	c--
+	if c == 0 {
+		delete(ed.watch, filename)
+		ed.fwatcher.Remove(filename)
+	} else {
+		ed.watch[filename] = c
 	}
 }
 

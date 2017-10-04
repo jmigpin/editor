@@ -1,11 +1,14 @@
 package core
 
 import (
+	"bytes"
+	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/contentcmd"
@@ -21,18 +24,29 @@ type ERow struct {
 	row *ui.Row
 	td  *toolbardata.ToolbarData
 
-	state struct {
-		nameIsSet bool
-		name      string // decoded part0arg0
-		tbStr     string
+	nameIsSet bool
+	name      string // decoded part0arg0
+	tbStr     string
 
-		filename string // abs filename from name
-		isDir    bool
-		watch    bool
-		notExist bool
-	}
+	state ERowState
 
 	disableTextAreaSetStrEventHandler bool
+}
+
+type ERowState struct {
+	filename  string // abs filename from name
+	isRegular bool
+	isDir     bool
+	notExist  bool
+
+	watch bool
+
+	disk struct {
+		size      int64
+		modTime   time.Time
+		hash      []byte
+		savedHash []byte
+	}
 }
 
 func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
@@ -67,9 +81,7 @@ func (erow *ERow) initHandlers() {
 			if erow.disableTextAreaSetStrEventHandler {
 				return
 			}
-			if !erow.IsDir() && !erow.IsSpecialName() {
-				erow.SetUIEdited(true)
-			}
+			erow.UpdateState()
 			erow.UpdateDuplicates()
 		}})
 	// textarea content cmds
@@ -87,7 +99,7 @@ func (erow *ERow) initHandlers() {
 			ed.reopenRow.Add(row)
 
 			if erow.state.watch {
-				erow.ed.fwatcher.Remove(erow.state.filename)
+				erow.ed.DecreaseWatch(erow.state.filename)
 			}
 		}})
 }
@@ -113,14 +125,18 @@ func (erow *ERow) SetUINotExist(v bool) {
 }
 
 func (erow *ERow) Name() string {
-	return erow.state.name
+	return erow.name
 }
 func (erow *ERow) Filename() string {
 	return erow.state.filename
 }
+func (erow *ERow) IsRegular() bool {
+	return erow.state.isRegular
+}
 func (erow *ERow) IsDir() bool {
 	return erow.state.isDir
 }
+
 func (erow *ERow) Dir() string {
 	fp := erow.Filename()
 	if erow.IsDir() {
@@ -130,7 +146,7 @@ func (erow *ERow) Dir() string {
 }
 
 func (erow *ERow) IsSpecialName() bool {
-	return erow.ed.IsSpecialName(erow.state.name)
+	return erow.ed.IsSpecialName(erow.name)
 }
 
 func (erow *ERow) parseToolbar() {
@@ -148,70 +164,103 @@ func (erow *ERow) parseToolbar() {
 	name := td.DecodePart0Arg0()
 
 	// don't allow changing the first part
-	if erow.state.nameIsSet && name != erow.state.name {
+	if erow.nameIsSet && name != erow.name {
 		erow.Ed().Errorf("can't change toolbar first part")
 		// will trigger event that will parse toolbar again
-		erow.Row().Toolbar.SetStrClear(erow.state.tbStr, false, false)
+		erow.Row().Toolbar.SetStrClear(erow.tbStr, false, false)
 		return
 	}
 
 	erow.td = td
-	erow.state.tbStr = tbStr
-	erow.state.nameIsSet = true
-	erow.state.name = name
+	erow.tbStr = tbStr
+	erow.nameIsSet = true
+	erow.name = name
 
 	erow.UpdateState()
 }
 
 func (erow *ERow) UpdateState() {
-	prev := erow.state
+	prev := erow.state // copy
 
-	erow.updateFileinfo()
+	erow.updateState2()
 
-	cur := &erow.state
-	if prev == *cur && cur.watch { // TODO: FIXME, use ed.Watch(erow), ed.Unwatch)
+	// increase watch before decreasing, will not remove the watch if it was added before
+	if erow.state.watch {
+		erow.ed.IncreaseWatch(erow.state.filename)
+	}
+	if prev.watch {
+		erow.ed.DecreaseWatch(prev.filename)
+	}
+
+	// edited
+	if erow.IsRegular() {
+		str := erow.Row().TextArea.Str()
+		edited := int64(len(str)) != erow.state.disk.size
+		if !edited {
+			hash := erow.contentHash([]byte(str))
+			edited = !bytes.Equal(hash, erow.state.disk.savedHash)
+		}
+		erow.SetUIEdited(edited)
+	}
+
+	// disk changes
+	if erow.IsRegular() {
+		changes := !bytes.Equal(erow.state.disk.hash, erow.state.disk.savedHash)
+		erow.SetUIDiskChanges(changes)
+	}
+
+	// not exist
+	erow.SetUINotExist(erow.state.notExist)
+}
+func (erow *ERow) updateState2() {
+	prev := erow.state // copy
+
+	// reset state
+	erow.state = ERowState{}
+	erow.state.disk.savedHash = prev.disk.savedHash
+
+	if erow.ed.IsSpecialName(erow.name) {
 		return
 	}
 
-	// stop watching previous
-	if prev.watch && prev.filename != cur.filename {
-		// TODO: can't remove if other rows are present
-		erow.ed.fwatcher.Remove(prev.filename)
+	st := &erow.state
+
+	abs, err := filepath.Abs(erow.name)
+	if err != nil {
+		return
+	}
+	st.filename = abs
+
+	// need to watch even if it doesn't exist (can be created later)
+	st.watch = true
+
+	fi, err := os.Stat(st.filename)
+	st.notExist = os.IsNotExist(err)
+	if err != nil {
+		return
 	}
 
-	// start watching current
-	cur.watch = false
-	if cur.filename != "" && !erow.ed.IsSpecialName(cur.filename) {
-		cur.watch = true
-		erow.ed.fwatcher.Add(cur.filename)
-	}
+	st.isRegular = fi.Mode().IsRegular()
+	st.isDir = fi.IsDir()
 
-	erow.SetUINotExist(cur.notExist)
+	st.disk.size = fi.Size()
+	st.disk.modTime = fi.ModTime()
+
+	// update disk hash only if the modified time has changed
+	if st.disk.modTime.Equal(prev.disk.modTime) {
+		erow.state.disk.hash = prev.disk.hash
+	} else {
+		b, err := ioutil.ReadFile(st.filename)
+		if err == nil {
+			erow.state.disk.hash = erow.contentHash(b)
+		}
+	}
 }
 
-func (erow *ERow) updateFileinfo() {
-	c := &erow.state
-	c.filename = ""
-	c.isDir = false
-	c.notExist = false
-
-	if erow.ed.IsSpecialName(c.name) {
-		return
-	}
-
-	abs, err := filepath.Abs(c.name)
-	if err == nil {
-		c.filename = abs
-
-		fi, err := os.Stat(c.filename)
-		if err == nil {
-			if fi.IsDir() {
-				c.isDir = true
-			}
-		}
-
-		c.notExist = os.IsNotExist(err)
-	}
+func (erow *ERow) contentHash(b []byte) []byte {
+	h := sha1.New()
+	h.Write(b)
+	return h.Sum(nil)
 }
 
 func (erow *ERow) LoadContentClear() error {
@@ -225,23 +274,27 @@ func (erow *ERow) loadContent(clear bool) error {
 		return fmt.Errorf("can't load special name: %s", erow.Name())
 	}
 	fp := erow.Filename()
-	content, err := erow.filepathContent(fp)
+	str, err := erow.filepathContent(fp)
 	if err != nil {
 		return errors.Wrapf(err, "loadcontent")
 	}
 
+	if erow.IsRegular() {
+		erow.state.disk.savedHash = erow.contentHash([]byte(str))
+	}
+
 	erow.disableTextAreaSetStrEventHandler = true // avoid running UpdateDuplicates twice
-	erow.row.TextArea.SetStrClear(content, clear, clear)
+	erow.row.TextArea.SetStrClear(str, clear, clear)
 	erow.disableTextAreaSetStrEventHandler = false
 
-	erow.SetUIEdited(false)
-	erow.SetUIDiskChanges(false)
+	erow.UpdateState()
 	erow.UpdateDuplicates()
+
 	return nil
 }
 func (erow *ERow) SaveContent(str string) error {
 	if erow.IsSpecialName() {
-		return fmt.Errorf("can't save special name: %s", erow.state.name)
+		return fmt.Errorf("can't save special name: %s", erow.Name())
 	}
 	fp := erow.Filename()
 	if erow.IsDir() {
@@ -251,19 +304,19 @@ func (erow *ERow) SaveContent(str string) error {
 	if err != nil {
 		return err
 	}
-	erow.SetUIEdited(false)
-	erow.SetUIDiskChanges(false)
+
+	erow.state.disk.savedHash = erow.contentHash([]byte(str))
+
+	// There is no need to update state or duplicates, the file watcher would emit event.
+	// Here for redundancy to avoid having erow state be depended on the file watcher
+	// in edge cases like waking up from hibernation and things not working properly.
+
+	erow.UpdateState()
 	erow.UpdateDuplicates()
+
 	return nil
 }
 func (erow *ERow) saveContent2(str string, filename string) error {
-	// remove from file watcher to avoid events while writing
-	erow.state.watch = false
-	erow.ed.fwatcher.Remove(erow.state.filename)
-
-	// re-add through update state (needed if file didn't exist)
-	defer erow.UpdateState()
-
 	// save
 	flags := os.O_WRONLY | os.O_TRUNC | os.O_CREATE
 	f, err := os.OpenFile(filename, flags, 0644)
@@ -276,16 +329,8 @@ func (erow *ERow) saveContent2(str string, filename string) error {
 	return err
 }
 
-func (erow *ERow) TextAreaAppendAsync(str string) {
-	erow.ed.ui.TextAreaAppendAsync(erow.row.TextArea, str)
-}
-
 func (erow *ERow) filepathContent(filepath string) (string, error) {
-	fi, err := os.Stat(filepath)
-	if err != nil {
-		return "", err
-	}
-	if fi.IsDir() {
+	if erow.IsDir() {
 		return cmdutil.ListDir(filepath, false, true)
 	}
 	// file content
@@ -294,6 +339,10 @@ func (erow *ERow) filepathContent(filepath string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func (erow *ERow) TextAreaAppendAsync(str string) {
+	erow.ed.ui.TextAreaAppendAsync(erow.row.TextArea, str)
 }
 
 func (erow *ERow) onRowKeyPress(ev0 interface{}) {
@@ -318,10 +367,9 @@ func (erow *ERow) onRowKeyPress(ev0 interface{}) {
 }
 
 func (erow *ERow) UpdateDuplicates() {
-	if erow.IsDir() || erow.IsSpecialName() {
+	if !erow.IsRegular() {
 		return
 	}
-
 	for _, erow2 := range erow.ed.erows {
 		if erow2 == erow {
 			continue
@@ -330,11 +378,13 @@ func (erow *ERow) UpdateDuplicates() {
 			ta := erow.Row().TextArea
 			ta2 := erow2.Row().TextArea
 
-			// set temporary history to set the string
-			// then share the history to allow undo/redo in duplicates
+			// use temporary history to set the string in the duplicate
+			// then share the history to allow undo/redo
 
 			tmp := tautil.NewEditHistory(1)
 			ta2.SetEditHistory(tmp)
+
+			//ci := ta2.CursorIndex()
 
 			erow2.disableTextAreaSetStrEventHandler = true // avoid recursive events
 			ta2.SetStrClear(ta.Str(), false, false)
@@ -342,9 +392,15 @@ func (erow *ERow) UpdateDuplicates() {
 
 			ta2.SetEditHistory(ta.EditHistory())
 
-			// update square
-			se := erow.Row().Square.Value(ui.SquareEdited)
-			erow2.SetUIEdited(se)
+			// TODO: fix cursor position with last edit to avoid annoying cursor moves
+			////ta2.SetCursorIndex(0)
+			//i2 := ta2.PointIndex(ip)
+			//ta2.SetCursorIndex(i2)
+			//i2 := ta2.EditHistory().IndexAfterLastEditIfAt(ci)
+			//ta2.SetCursorIndex(i2)
+
+			erow2.UpdateState()
+			erow2.state.disk.savedHash = erow.state.disk.savedHash
 		}
 	}
 }
