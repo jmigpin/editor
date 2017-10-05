@@ -191,6 +191,9 @@ func (ed *Editor) NewERowBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row
 	row.EvReg.Add(ui.RowCloseEventId,
 		&evreg.Callback{func(ev0 interface{}) {
 			delete(ed.erows, row)
+
+			// clears square visual queue of the duplicate that stays, if any
+			erow.UpdateDuplicates()
 		}})
 
 	return erow

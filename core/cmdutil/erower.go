@@ -24,5 +24,6 @@ type ERower interface {
 
 	TextAreaAppendAsync(string)
 
+	UpdateState()
 	UpdateDuplicates()
 }

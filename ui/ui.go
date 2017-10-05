@@ -121,6 +121,9 @@ func (ui *UI) Image() draw.Image {
 func (ui *UI) FillRectangle(r *image.Rectangle, c color.Color) {
 	imageutil.FillRectangle(ui.Image(), r, c)
 }
+func (ui *UI) BorderRectangle(r *image.Rectangle, c color.Color, size int) {
+	imageutil.BorderRectangle(ui.Image(), r, c, size)
+}
 
 // Default fontface (used by textarea)
 func (ui *UI) FontFace() font.Face {

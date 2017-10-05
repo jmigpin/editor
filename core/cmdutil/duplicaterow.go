@@ -27,6 +27,7 @@ func DuplicateRow(ed Editorer) {
 	tbStr := filename
 	erow2 := ed.NewERowBeforeRow(tbStr, col, next)
 
+	erow.UpdateState() // visual cue for duplicates
 	erow.UpdateDuplicates()
 
 	// set position

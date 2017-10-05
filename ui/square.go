@@ -19,7 +19,7 @@ type Square struct {
 
 	pressPointPad image.Point
 	buttonPressed bool
-	values        [6]bool // bg and mini-squares
+	values        [7]bool // bg and mini-squares
 
 	ColumnStyle bool
 }
@@ -59,6 +59,11 @@ func (sq *Square) paint() {
 		c = SquareExecutingColor
 	}
 	sq.ui.FillRectangle(&sq.C.Bounds, c)
+
+	if sq.values[SquareDuplicate] {
+		c2 := SquareEditedColor
+		sq.ui.BorderRectangle(&sq.C.Bounds, c2, 2)
+	}
 
 	// separator
 	r3 := sq.C.Bounds
@@ -177,6 +182,7 @@ const (
 	SquareEdited
 	SquareDiskChanges
 	SquareNotExist
+	SquareDuplicate
 )
 
 const (
