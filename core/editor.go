@@ -338,37 +338,11 @@ forEnd:
 
 func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
 	//log.Printf("watcher event: %+v", ev)
-
 	for _, erow := range ed.erows {
 		if erow.Filename() == ev.Name {
 			erow.UpdateState()
 		}
 	}
-
-	//isDirEvent := ev.Filename != ""
-
-	//switch {
-	//case ev.Op.HasModify() && !isDirEvent:
-	//	for _, erow := range ed.erows {
-	//		name := erow.Filename()
-	//		if name == ev.Name {
-	//			//erow.SetUIDiskChanges(true)
-	//			erow.UpdateState()
-	//		}
-	//	}
-	//case ev.Op.HasDelete(), ev.Op.HasCreate():
-	//	for _, erow := range ed.erows {
-	//		name := erow.Filename()
-	//		if name == ev.Name {
-	//			if isDirEvent {
-	//				//erow.SetUIDiskChanges(true)
-	//			} else {
-	//				//
-	//				erow.UpdateState()
-	//			}
-	//		}
-	//	}
-	//}
 }
 
 func (ed *Editor) IncreaseWatch(filename string) {
