@@ -54,7 +54,7 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.C.PaintFunc = ta.paint
 	ta.C.OnCalcFunc = ta.onContainerCalc
 	ta.EvReg = evreg.NewRegister()
-	ta.history = tahistory.NewHistory(64)
+	ta.history = tahistory.NewHistory(128)
 
 	r1 := ta.ui.EvReg.Add(xinput.KeyPressEventId,
 		&evreg.Callback{ta.onKeyPress})
