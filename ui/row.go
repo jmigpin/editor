@@ -20,6 +20,8 @@ type Row struct {
 	evUnreg evreg.Unregister
 
 	buttonPressed bool
+
+	state RowState
 }
 
 func NewRow(col *Column) *Row {
@@ -85,12 +87,6 @@ func NewRow(col *Column) *Row {
 	row.YAxis = true
 	widget.AppendChilds(row, row.sep, tb, tbSep, row.scrollArea)
 
-	//// dynamic toolbar bounds
-	//w1.Style.DynamicMainSize = func() int {
-	//	dx := row.Bounds().Dx() - *row.Square.C.Style.MainSize
-	//	return row.Toolbar.CalcStringHeight(dx)
-	//}
-
 	return row
 }
 func (row *Row) activate() {
@@ -131,6 +127,13 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
 	case ev.Button.Mods.IsButton(1):
+		r, ok := row.Col.Cols.PointRow(ev.Point)
+		if ok && r == row {
+			row.toggleMaximize()
+			break
+		}
+
+		// TODO: review
 		c, r, ok := row.Col.Cols.PointNextRow(row, ev.Point)
 		if ok {
 			row.Col.Cols.MoveRowToColumnBeforeRow(row, c, r)
@@ -197,6 +200,46 @@ func (row *Row) HideSeparator(v bool) {
 		row.MarkNeedsPaint()
 	}
 }
+
+func (row *Row) toggleMaximize() {
+	switch row.state {
+	case RowNormalState:
+		row.maximize()
+	case RowMinimizedState:
+		row.maximize()
+	case RowMaximizedState:
+		row.unmaximize()
+	}
+}
+func (row *Row) maximize() {
+	row.setRowsState(RowMinimizedState)
+	row.setState(RowMaximizedState)
+	row.Col.CalcChildsBounds()
+	row.Col.MarkNeedsPaint()
+}
+func (row *Row) unmaximize() {
+	row.setRowsState(RowNormalState)
+	row.Col.CalcChildsBounds()
+	row.Col.MarkNeedsPaint()
+}
+func (row *Row) setRowsState(state RowState) {
+	for _, r := range row.Col.Rows() {
+		r.setState(state)
+	}
+}
+func (row *Row) setState(state RowState) {
+	row.state = state
+	hide := state == RowMinimizedState
+	row.scrollArea.SetHidden(hide)
+}
+
+type RowState int
+
+const (
+	RowNormalState RowState = iota
+	RowMaximizedState
+	RowMinimizedState
+)
 
 const (
 	RowKeyPressEventId = iota

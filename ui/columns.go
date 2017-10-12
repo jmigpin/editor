@@ -148,6 +148,17 @@ func (cols *Columns) resizeColumn(col *Column, px int) {
 	}
 }
 
+func (cols *Columns) PointRow(p *image.Point) (*Row, bool) {
+	for _, c := range cols.Columns() {
+		for _, r := range c.Rows() {
+			if p.In(r.Bounds()) {
+				return r, true
+			}
+		}
+	}
+	return nil, false
+}
+
 func (cols *Columns) PointNextRow(row *Row, p *image.Point) (*Column, *Row, bool) {
 	c, r := cols.pointColumnRow(row, p)
 	if c == nil && r == nil {

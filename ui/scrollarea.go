@@ -126,10 +126,14 @@ func (sa *ScrollArea) taHeight() fixed.Int26_6 {
 }
 
 func (sa *ScrollArea) onButtonPress(ev0 interface{}) {
+	if sa.Hidden() {
+		return
+	}
+
 	ev := ev0.(*xinput.ButtonPressEvent)
 
+	// allow scrolling in content area
 	if ev.Point.In(sa.Bounds()) && !ev.Point.In(*sa.VBarBounds()) {
-		// TODO: use ta.scrollup
 		switch {
 		case ev.Button.Button(4): // wheel up
 			sa.CalcPositionFromScroll(true)
