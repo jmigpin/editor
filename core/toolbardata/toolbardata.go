@@ -118,9 +118,10 @@ func fieldsFunc(str string, a, b int, split func(rune) bool) []*Token {
 func filterEmptyTokens(toks []*Token) []*Token {
 	var u []*Token
 	for _, t := range toks {
-		if !t.isEmpty() {
-			u = append(u, t)
+		if t.isEmpty() && !t.quoted {
+			continue
 		}
+		u = append(u, t)
 	}
 	return u
 }
@@ -133,6 +134,8 @@ type Part struct {
 type Token struct {
 	Str  string // token string
 	S, E int    // start/end str indexes of the root string
+
+	quoted bool
 }
 
 func NewToken(str string, s, e int) *Token {
@@ -150,6 +153,7 @@ func NewToken(str string, s, e int) *Token {
 		tok.S += l
 		tok.E -= l
 		tok.Str = str2
+		tok.quoted = true
 	}
 
 	return tok

@@ -62,3 +62,12 @@ func TestParseParts4(t *testing.T) {
 		t.Fatal(spew.Sdump(u))
 	}
 }
+func TestParseParts5(t *testing.T) {
+	s := `a|b v "" |c`
+	u := parseParts(s)
+	if !(len(u) == 3 &&
+		len(u[1].Args) == 3 &&
+		u[1].Args[2].Str == "") {
+		t.Fatal(spew.Sdump(u))
+	}
+}
