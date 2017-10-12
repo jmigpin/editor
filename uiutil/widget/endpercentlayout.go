@@ -45,12 +45,12 @@ func (epl *EndPercentLayout) Measure(hint image.Point) image.Point {
 }
 
 func (epl *EndPercentLayout) CalcChildsBounds() {
-	if epl.NChilds() == 0 {
+	childs := epl.Childs()
+	if len(childs) == 0 {
 		return
 	}
 
 	epl.lazyInit()
-	childs := epl.Childs()
 
 	// translate axis
 	xya := XYAxis{epl.YAxis}

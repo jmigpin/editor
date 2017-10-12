@@ -20,7 +20,7 @@ func NewColumns(layout *Layout) *Columns {
 	return cols
 }
 func (cols *Columns) Paint() {
-	if cols.NChilds() == 0 {
+	if len(cols.Childs()) == 0 {
 		b := cols.Bounds()
 		cols.Layout.UI.FillRectangle(&b, color.White)
 	}
@@ -82,7 +82,7 @@ func (cols *Columns) fixFirstColSeparator() {
 func (cols *Columns) CloseColumnEnsureOne(col *Column) {
 	col.Close()
 	// ensure one column
-	if cols.NChilds() == 0 {
+	if len(cols.Childs()) == 0 {
 		_ = cols.NewColumn()
 	}
 }
@@ -90,7 +90,7 @@ func (cols *Columns) CloseColumnEnsureOne(col *Column) {
 // Used by restore session.
 func (cols *Columns) CloseAllAndOpenN(n int) {
 	// close all columns
-	for cols.NChilds() > 0 {
+	for len(cols.Childs()) > 0 {
 		u, _ := cols.FirstChildColumn()
 		u.Close()
 	}

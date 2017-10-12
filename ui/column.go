@@ -73,7 +73,7 @@ func (col *Column) Close() {
 	}
 }
 func (col *Column) Paint() {
-	if col.rowsLayout.NChilds() == 0 {
+	if len(col.rowsLayout.Childs()) == 0 {
 		b := col.Bounds()
 		col.Cols.Layout.UI.FillRectangle(&b, color.White)
 		return

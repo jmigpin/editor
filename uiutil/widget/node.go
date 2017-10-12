@@ -24,7 +24,6 @@ type Node interface {
 
 	Swap(Node)
 
-	NChilds() int
 	Childs() []Node
 	childsList() *list.List
 	HasChild(Node) bool
@@ -34,13 +33,8 @@ type Node interface {
 	Fill() (x, y bool)
 	SetFill(x, y bool)
 
-	// Hidden nodes
-	// hidden at: FirstChild, LastChild, Prev, Next, Childs, NChilds
-	// counted at: pushBack, insertBefore, Remove, SetHidden
-
 	Hidden() bool
 	SetHidden(bool)
-	incrHiddenCount(v int)
 
 	Bounds() image.Rectangle
 	SetBounds(*image.Rectangle)
@@ -108,8 +102,7 @@ type EmbedNode struct {
 	expand struct{ x, y bool }
 	fill   struct{ x, y bool }
 
-	hidden      bool
-	hiddenCount int
+	hidden bool
 }
 
 func (en *EmbedNode) Elem() *list.Element {
@@ -128,23 +121,14 @@ func (en *EmbedNode) SetParent(p Node) {
 func (en *EmbedNode) pushBack(n Node) {
 	elem := en.childs.PushBack(n)
 	n.SetElem(elem)
-	if n.Hidden() {
-		en.hiddenCount++
-	}
 }
 func (en *EmbedNode) insertBefore(n, mark Node) {
 	elem := en.childs.InsertBefore(n, mark.Elem())
 	n.SetElem(elem)
-	if n.Hidden() {
-		en.hiddenCount++
-	}
 }
 
 func (en *EmbedNode) Remove(n Node) {
 	en.childs.Remove(n.Elem())
-	if n.Hidden() {
-		en.hiddenCount--
-	}
 }
 
 func (en *EmbedNode) FirstChild() Node {
@@ -205,11 +189,8 @@ func (en *EmbedNode) Swap(n Node) {
 	}
 }
 
-func (en *EmbedNode) NChilds() int {
-	return en.childs.Len() - en.hiddenCount
-}
 func (en *EmbedNode) Childs() []Node {
-	u := make([]Node, 0, en.NChilds())
+	var u []Node
 	for e := en.childs.Front(); e != nil; e = e.Next() {
 		n := e.Value.(Node)
 		if n.Hidden() {
@@ -255,17 +236,6 @@ func (en *EmbedNode) Hidden() bool {
 }
 func (en *EmbedNode) SetHidden(v bool) {
 	en.hidden = v
-	p := en.Parent()
-	if p != nil {
-		if v {
-			p.incrHiddenCount(1)
-		} else {
-			p.incrHiddenCount(-1)
-		}
-	}
-}
-func (en *EmbedNode) incrHiddenCount(v int) {
-	en.hiddenCount += v
 }
 
 func (en *EmbedNode) Bounds() image.Rectangle {

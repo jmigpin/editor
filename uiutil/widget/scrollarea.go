@@ -99,8 +99,8 @@ func (sa *ScrollArea) Measure(hint image.Point) image.Point {
 }
 
 func (sa *ScrollArea) CalcChildsBounds() {
-	if sa.NChilds() == 0 {
-		panic("!")
+	if len(sa.Childs()) == 0 {
+		return
 	}
 
 	// bar
