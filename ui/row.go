@@ -2,32 +2,32 @@ package ui
 
 import (
 	"github.com/BurntSushi/xgbutil/xcursor"
-	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type Row struct {
-	C         uiutil.Container
-	Col       *Column
-	Toolbar   *Toolbar
-	TextArea  *TextArea
-	Square    *Square
-	scrollbar *Scrollbar
-	rowSep    *Separator
-	EvReg     *evreg.Register
-	evUnreg   evreg.Unregister
+	widget.FlowLayout
+	Square     *Square
+	Toolbar    *Toolbar
+	scrollArea *ScrollArea
+	TextArea   *TextArea
+	sep        *widget.Space
+
+	Col     *Column
+	EvReg   *evreg.Register
+	evUnreg evreg.Unregister
 
 	buttonPressed bool
 }
 
 func NewRow(col *Column) *Row {
 	row := &Row{Col: col}
-	row.C.Owner = row
-	row.EvReg = evreg.NewRegister()
 
 	ui := row.Col.Cols.Layout.UI
 
+	row.EvReg = evreg.NewRegister()
 	r1 := ui.EvReg.Add(xinput.KeyPressEventId,
 		&evreg.Callback{row.onKeyPress})
 	r2 := ui.EvReg.Add(xinput.ButtonPressEventId,
@@ -36,9 +36,11 @@ func NewRow(col *Column) *Row {
 		&evreg.Callback{row.onButtonRelease})
 	row.evUnreg.Add(r1, r2, r3)
 
-	row.Toolbar = NewToolbar(ui, &row.C)
+	row.Toolbar = NewToolbar(ui, row)
+	row.Toolbar.SetExpand(true, false)
 
 	row.Square = NewSquare(ui)
+	row.Square.SetFill(false, true)
 	row.Square.EvReg.Add(SquareButtonPressEventId,
 		&evreg.Callback{row.onSquareButtonPress})
 	row.Square.EvReg.Add(SquareButtonReleaseEventId,
@@ -46,37 +48,44 @@ func NewRow(col *Column) *Row {
 	row.Square.EvReg.Add(SquareMotionNotifyEventId,
 		&evreg.Callback{row.onSquareMotionNotify})
 
+	// row separator
+	row.sep = widget.NewSpace(ui)
+	row.sep.SetExpand(true, false)
+	row.sep.Size.Y = SeparatorWidth
+	row.sep.Color = SeparatorColor
+
+	// square and toolbar
+	tb := &widget.FlowLayout{YAxis: false}
+	if ScrollbarLeft {
+		widget.AppendChilds(tb, row.Square, row.Toolbar)
+	} else {
+		widget.AppendChilds(tb, row.Toolbar, row.Square)
+	}
+
+	// toolbar separator
+	tbSep := widget.NewSpace(ui)
+	tbSep.SetExpand(true, false)
+	tbSep.Size.Y = SeparatorWidth
+	tbSep.Color = RowInnerSeparatorColor
+
+	// scrollarea with textarea
 	row.TextArea = NewTextArea(ui)
 	row.TextArea.Colors = &TextAreaColors
+	row.scrollArea = NewScrollArea(ui, row.TextArea)
+	row.scrollArea.SetExpand(true, true)
+	row.scrollArea.LeftScroll = ScrollbarLeft
+	row.scrollArea.ScrollWidth = ScrollbarWidth
+	row.scrollArea.Fg = ScrollbarFgColor
+	row.scrollArea.Bg = ScrollbarBgColor
 
-	row.scrollbar = NewScrollbar(row.TextArea)
+	row.YAxis = true
+	widget.AppendChilds(row, row.sep, tb, tbSep, row.scrollArea)
 
-	// separators
-	sw := SeparatorWidth
-	row.rowSep = NewSeparator(ui, sw, SeparatorColor)
-	tbSep := NewSeparator(ui, sw, RowInnerSeparatorColor)
-
-	// wrap containers
-	w1 := &uiutil.Container{}
-	if ScrollbarLeft {
-		w1.AppendChilds(&row.Square.C, &row.Toolbar.C)
-	} else {
-		w1.AppendChilds(&row.Toolbar.C, &row.Square.C)
-	}
-	w2 := &uiutil.Container{}
-	if ScrollbarLeft {
-		w2.AppendChilds(&row.scrollbar.C, &row.TextArea.C)
-	} else {
-		w2.AppendChilds(&row.TextArea.C, &row.scrollbar.C)
-	}
-	row.C.Style.Direction = uiutil.ColumnDirection
-	row.C.AppendChilds(&row.rowSep.C, w1, &tbSep.C, w2)
-
-	// dynamic toolbar bounds
-	w1.Style.DynamicMainSize = func() int {
-		dx := row.C.Bounds.Dx() - *row.Square.C.Style.MainSize
-		return row.Toolbar.CalcStringHeight(dx)
-	}
+	//// dynamic toolbar bounds
+	//w1.Style.DynamicMainSize = func() int {
+	//	dx := row.Bounds().Dx() - *row.Square.C.Style.MainSize
+	//	return row.Toolbar.CalcStringHeight(dx)
+	//}
 
 	return row
 }
@@ -93,7 +102,7 @@ func (row *Row) activate() {
 func (row *Row) Close() {
 	row.Col.removeRow(row)
 	row.evUnreg.UnregisterAll()
-	row.scrollbar.Close()
+	row.scrollArea.Close()
 	row.Toolbar.Close()
 	row.TextArea.Close()
 	row.Square.Close()
@@ -125,7 +134,7 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 	case ev.Button.Mods.IsButtonAndControl(1):
 		row.Col.Cols.MoveColumnToPoint(row.Col, ev.Point)
 	case ev.Button.Mods.IsButton(2):
-		if ev.Point.In(row.Square.C.Bounds) {
+		if ev.Point.In(row.Square.Bounds()) {
 			row.Close()
 		}
 	}
@@ -141,7 +150,7 @@ func (row *Row) onSquareMotionNotify(ev0 interface{}) {
 }
 func (row *Row) onKeyPress(ev0 interface{}) {
 	ev := ev0.(*xinput.KeyPressEvent)
-	if !ev.Point.In(row.C.Bounds) {
+	if !ev.Point.In(row.Bounds()) {
 		return
 	}
 	row.activate()
@@ -150,7 +159,7 @@ func (row *Row) onKeyPress(ev0 interface{}) {
 }
 func (row *Row) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
-	if !ev.Point.In(row.C.Bounds) {
+	if !ev.Point.In(row.Bounds()) {
 		return
 	}
 	row.buttonPressed = true
@@ -161,7 +170,7 @@ func (row *Row) onButtonRelease(ev0 interface{}) {
 	}
 	row.buttonPressed = false
 	ev := ev0.(*xinput.ButtonReleaseEvent)
-	if !ev.Point.In(row.C.Bounds) {
+	if !ev.Point.In(row.Bounds()) {
 		return
 	}
 	row.activate()
@@ -169,19 +178,19 @@ func (row *Row) onButtonRelease(ev0 interface{}) {
 func (row *Row) WarpPointer() {
 	row.Square.WarpPointer()
 }
-func (row *Row) NextSiblingRow() (*Row, bool) {
-	u := row.C.NextSibling()
+
+func (row *Row) NextRow() (*Row, bool) {
+	u := row.Next()
 	if u == nil {
 		return nil, false
 	}
-	return u.Owner.(*Row), true
+	return u.(*Row), true
 }
 
 func (row *Row) HideSeparator(v bool) {
-	h := &row.rowSep.C.Style.Hidden
-	if *h != v {
-		*h = v
-		row.C.NeedPaint()
+	if row.sep.Hidden() != v {
+		row.sep.SetHidden(v)
+		row.MarkNeedsPaint()
 	}
 }
 

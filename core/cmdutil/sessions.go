@@ -78,11 +78,10 @@ func (s *Session) restore(ed Editorer) {
 	// setup columns sizes (end percents)
 	columns := cols.Columns()
 	for i, c := range s.Columns {
-		endp := c.EndPercent
-		columns[i].C.Style.EndPercent = &endp
+		cols.SetChildEndPercent(columns[i], c.EndPercent)
 	}
 	// calc areas since the columns ends have been set
-	cols.C.CalcChildsBounds()
+	cols.CalcChildsBounds()
 
 	// create the rows
 	for i, c := range s.Columns {
@@ -99,10 +98,7 @@ type ColumnState struct {
 }
 
 func NewColumnState(col *ui.Column) *ColumnState {
-	endp := 1.0
-	if col.C.Style.EndPercent != nil {
-		endp = *col.C.Style.EndPercent
-	}
+	endp := col.Cols.ChildEndPercent(col)
 
 	// truncate float for a shorter string
 	endp = float64(int(endp*10000)) / 10000

@@ -71,7 +71,7 @@ func (h *dndHandler) onPosition2(ev *dragndrop.PositionEvent) (xproto.Atom, bool
 }
 func (h *dndHandler) columnAtPoint(p *image.Point) (*ui.Column, bool) {
 	for _, col := range h.ed.UI().Layout.Cols.Columns() {
-		if p.In(col.C.Bounds) {
+		if p.In(col.Bounds()) {
 			return col, true
 		}
 	}

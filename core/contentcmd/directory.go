@@ -15,7 +15,7 @@ func directory(erow cmdutil.ERower, p string) bool {
 	erow2, ok := ed.FindERow(dir)
 	if !ok {
 		col := erow.Row().Col
-		u, ok := erow.Row().NextSiblingRow()
+		u, ok := erow.Row().NextRow()
 		if !ok {
 			u = nil
 		}

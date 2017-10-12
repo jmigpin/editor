@@ -28,7 +28,7 @@ type Texta interface {
 	OffsetY() fixed.Int26_6
 	SetOffsetY(v fixed.Int26_6)
 	StrHeight() fixed.Int26_6
-	Bounds() *image.Rectangle
+	Bounds() image.Rectangle
 	LineHeight() fixed.Int26_6
 	IndexPoint(int) *fixed.Point26_6
 	PointIndex(*fixed.Point26_6) int

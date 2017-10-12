@@ -9,7 +9,7 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/ui/tautil/tahistory"
-	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 
@@ -17,7 +17,7 @@ import (
 )
 
 type TextArea struct {
-	C  uiutil.Container
+	widget.EmbedNode
 	ui *UI
 
 	drawer *hsdrawer.HSDrawer
@@ -43,16 +43,20 @@ type TextArea struct {
 	DisableHighlightCursorWord bool
 	DisablePageUpDown          bool
 
-	drawerWidth int
+	lastMeasureHint image.Point
+	measurement     image.Point
 }
 
 func NewTextArea(ui *UI) *TextArea {
-	ta := &TextArea{ui: ui}
+	var ta TextArea
+	ta.Init(ui)
+	return &ta
+}
+func (ta *TextArea) Init(ui *UI) {
+	*ta = TextArea{ui: ui}
 	ta.drawer = hsdrawer.NewHSDrawer(ui.FontFace())
 	c := hsdrawer.DefaultColors
 	ta.Colors = &c
-	ta.C.PaintFunc = ta.paint
-	ta.C.OnCalcFunc = ta.onContainerCalc
 	ta.EvReg = evreg.NewRegister()
 	ta.history = tahistory.NewHistory(128)
 
@@ -69,52 +73,47 @@ func NewTextArea(ui *UI) *TextArea {
 	r6 := ta.ui.EvReg.Add(xinput.TripleClickEventId,
 		&evreg.Callback{ta.onTripleClick})
 	ta.evUnreg.Add(r1, r2, r3, r4, r5, r6)
-
-	return ta
 }
 func (ta *TextArea) Close() {
 	ta.evUnreg.UnregisterAll()
 }
-func (ta *TextArea) Bounds() *image.Rectangle {
-	return &ta.C.Bounds
+
+func (ta *TextArea) Measure(hint image.Point) image.Point {
+	return ta.measureChilds(hint)
 }
 
-func (ta *TextArea) drawerMeasure(width int) {
-	if ta.str != ta.drawer.Str || ta.drawerWidth != width {
+func (ta *TextArea) measureChilds(hint image.Point) image.Point {
+	// Looking at the drawer as a "child" of the textarea.
+	// This textarea should have no child nodes.
+
+	// cache measurement
+	if ta.str != ta.drawer.Str || hint != ta.lastMeasureHint {
+
+		// keep offset for restoration
+		offsetIndex := 0
+		changed := hint != ta.lastMeasureHint
+		if changed {
+			offsetIndex = ta.OffsetIndex()
+		}
+
+		ta.lastMeasureHint = hint
 		ta.drawer.Str = ta.str
-		ta.drawerWidth = width
+		m := ta.drawer.Measure(&image.Point{hint.X, 1000000})
+		ta.measurement = image.Point{m.X.Ceil(), m.Y.Ceil()}
 
-		max := image.Point{width, 1000000}
-		ta.drawer.Measure(&max)
+		// restore offset to keep the same first line while resizing
+		if changed {
+			ta.SetOffsetIndex(offsetIndex)
+		}
 	}
+	return ta.measurement
 }
 
-func (ta *TextArea) onContainerCalc() {
-	ta.updateStringCacheWithBoundsChangedCheck()
+func (ta *TextArea) CalcChildsBounds() {
+	max := ta.Bounds().Sub(ta.Bounds().Min).Max
+	_ = ta.measureChilds(max)
 }
-func (ta *TextArea) updateStringCacheWithBoundsChangedCheck() {
-	// check if bounds have changed to emit event
-	changed := false
-	offsetIndex := 0
-	if !ta.C.Bounds.Eq(ta.boundsChange) {
-		changed = true
-		ta.boundsChange = ta.C.Bounds
-		offsetIndex = ta.OffsetIndex()
-	}
 
-	ta.updateStringCache()
-
-	if changed {
-		// set offset to keep the same first line while resizing
-		ta.SetOffsetIndex(offsetIndex)
-
-		ev := &TextAreaBoundsChangeEvent{ta}
-		ta.EvReg.RunCallbacks(TextAreaBoundsChangeEventId, ev)
-	}
-}
-func (ta *TextArea) updateStringCache() {
-	ta.drawerMeasure(ta.C.Bounds.Dx())
-}
 func (ta *TextArea) StrHeight() fixed.Int26_6 {
 	h := ta.drawer.Height()
 	min := ta.LineHeight()
@@ -124,15 +123,55 @@ func (ta *TextArea) StrHeight() fixed.Int26_6 {
 	return h
 }
 
-// Used externally for dynamic textarea height.
-func (ta *TextArea) CalcStringHeight(width int) int {
-	ta.drawerMeasure(width)
-	return ta.StrHeight().Round()
-}
+//func (ta *TextArea) drawerMeasure(width int) {
+//	panic("!")
+//	//if ta.str != ta.drawer.Str || ta.drawerWidth != width {
+//	//	ta.drawer.Str = ta.str
+//	//	ta.drawerWidth = width
 
-func (ta *TextArea) paint() {
+//	//	max := image.Point{width, 1000000}
+//	//	ta.drawer.Measure(&max)
+//	//}
+//}
+
+//func (ta *TextArea) onContainerCalc() {
+//	ta.updateStringCacheWithBoundsChangedCheck()
+//}
+//func (ta *TextArea) updateStringCacheWithBoundsChangedCheck() {
+//	// check if bounds have changed to emit event
+//	changed := false
+//	offsetIndex := 0
+//	if !ta.Bounds().Eq(ta.boundsChange) {
+//		changed = true
+//		ta.boundsChange = *ta.Bounds()
+//		offsetIndex = ta.OffsetIndex()
+//	}
+
+//	ta.updateStringCache()
+
+//	if changed {
+//		// set offset to keep the same first line while resizing
+//		ta.SetOffsetIndex(offsetIndex)
+
+//		ev := &TextAreaBoundsChangeEvent{ta}
+//		ta.EvReg.RunCallbacks(TextAreaBoundsChangeEventId, ev)
+//	}
+//}
+
+//func (ta *TextArea) updateStringCache() {
+//	ta.drawerMeasure(ta.Bounds().Dx())
+//}
+
+//// Used externally for dynamic textarea height.
+//func (ta *TextArea) CalcStringHeight(width int) int {
+//	ta.drawerMeasure(width)
+//	return ta.StrHeight().Round()
+//}
+
+func (ta *TextArea) Paint() {
 	// fill background
-	imageutil.FillRectangle(ta.ui.Image(), &ta.C.Bounds, ta.Colors.Normal.Bg)
+	bounds := ta.Bounds()
+	imageutil.FillRectangle(ta.ui.Image(), &bounds, ta.Colors.Normal.Bg)
 
 	d := ta.drawer
 	d.CursorIndex = ta.cursorIndex
@@ -140,7 +179,7 @@ func (ta *TextArea) paint() {
 	d.OffsetY = ta.offsetY
 	d.Colors = ta.Colors
 	d.Selection = ta.getDrawSelection()
-	d.Draw(ta.ui.Image(), &ta.C.Bounds)
+	d.Draw(ta.ui.Image(), &bounds)
 }
 func (ta *TextArea) getDrawSelection() *loopers.SelectionIndexes {
 	if ta.SelectionOn() {
@@ -165,7 +204,7 @@ func (ta *TextArea) setStr(s string) {
 		return
 	}
 
-	oldBounds := ta.C.Bounds
+	oldBounds := ta.Bounds()
 
 	ta.str = s
 
@@ -173,8 +212,9 @@ func (ta *TextArea) setStr(s string) {
 	ta.SetCursorIndex(ta.CursorIndex())
 	ta.SetSelectionIndex(ta.SelectionIndex())
 
-	ta.updateStringCache()
-	ta.C.NeedPaint()
+	//ta.updateStringCache()
+	ta.CalcChildsBounds()
+	ta.MarkNeedsPaint()
 
 	ev := &TextAreaSetStrEvent{ta, oldBounds}
 	ta.EvReg.RunCallbacks(TextAreaSetStrEventId, ev)
@@ -250,7 +290,7 @@ func (ta *TextArea) SetCursorIndex(v int) {
 		ta.cursorIndex = v
 		ta.validateSelection()
 		ta.makeIndexVisible(v)
-		ta.C.NeedPaint()
+		ta.MarkNeedsPaint()
 	}
 }
 func (ta *TextArea) SelectionIndex() int {
@@ -261,7 +301,7 @@ func (ta *TextArea) SetSelectionIndex(v int) {
 	if v != ta.selection.index {
 		ta.selection.index = v
 		ta.validateSelection()
-		ta.C.NeedPaint()
+		ta.MarkNeedsPaint()
 	}
 }
 func (ta *TextArea) SetSelection(si, ci int) {
@@ -279,7 +319,7 @@ func (ta *TextArea) SetSelectionOff() {
 func (ta *TextArea) setSelectionOn(v bool) {
 	if v != ta.selection.on {
 		ta.selection.on = v
-		ta.C.NeedPaint()
+		ta.MarkNeedsPaint()
 	}
 }
 
@@ -314,7 +354,7 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 	}
 	if v != ta.offsetY {
 		ta.offsetY = v
-		ta.C.NeedPaint()
+		ta.MarkNeedsPaint()
 
 		ev := &TextAreaSetOffsetYEvent{ta}
 		ta.EvReg.RunCallbacks(TextAreaSetOffsetYEventId, ev)
@@ -331,7 +371,7 @@ func (ta *TextArea) SetOffsetIndex(i int) {
 }
 func (ta *TextArea) makeIndexVisible(index int) {
 	y0 := ta.OffsetY()
-	y1 := y0 + fixed.I(ta.C.Bounds.Dy())
+	y1 := y0 + fixed.I(ta.Bounds().Dy())
 
 	// is all visible
 	a0 := ta.drawer.GetPoint(index).Y
@@ -348,20 +388,20 @@ func (ta *TextArea) makeIndexVisible(index int) {
 	}
 	if y1 >= a0 && y1 <= a1 {
 		// partially visible at bottom
-		sy := fixed.I(ta.C.Bounds.Dy())
+		sy := fixed.I(ta.Bounds().Dy())
 		ta.SetOffsetY(a0 - sy + ta.LineHeight())
 		return
 	}
 
 	// set at half bounds
-	half := fixed.I(ta.C.Bounds.Dy() / 2)
+	half := fixed.I(ta.Bounds().Dy() / 2)
 	ta.SetOffsetY(a0 - half)
 }
 
 func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	// set at half bounds
 	p0 := ta.drawer.GetPoint(index).Y
-	half := fixed.I(ta.C.Bounds.Dy() / 2)
+	half := fixed.I(ta.Bounds().Dy() / 2)
 	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
 }
@@ -369,13 +409,13 @@ func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
 	p := ta.drawer.GetPoint(index)
 	p.Y -= ta.OffsetY()
 	p2 := &image.Point{p.X.Round(), p.Y.Round()}
-	p3 := p2.Add(ta.C.Bounds.Min)
+	p3 := p2.Add(ta.Bounds().Min)
 
 	// padding
 	p3.Y += ta.LineHeight().Round() - 1
 	p3.X += 5
 
-	if !p3.In(ta.C.Bounds) {
+	if !p3.In(ta.Bounds()) {
 		return
 	}
 	ta.ui.WarpPointer(&p3)
@@ -420,7 +460,7 @@ func (ta *TextArea) PageDown() {
 
 func (ta *TextArea) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
-	if !ev.Point.In(ta.C.Bounds) {
+	if !ev.Point.In(ta.Bounds()) {
 		return
 	}
 
@@ -435,16 +475,17 @@ func (ta *TextArea) onButtonPress(ev0 interface{}) {
 		}
 	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		ta.ui.CursorMan.SetCursor(xcursor.Hand2)
-	case ev.Button.Button(4):
-		canScroll := !ta.DisablePageUpDown
-		if canScroll {
-			tautil.ScrollUp(ta)
-		}
-	case ev.Button.Button(5):
-		canScroll := !ta.DisablePageUpDown
-		if canScroll {
-			tautil.ScrollDown(ta)
-		}
+
+		//case ev.Button.Button(4):
+		//	canScroll := !ta.DisablePageUpDown
+		//	if canScroll {
+		//		tautil.ScrollUp(ta)
+		//	}
+		//case ev.Button.Button(5):
+		//	canScroll := !ta.DisablePageUpDown
+		//	if canScroll {
+		//		tautil.ScrollDown(ta)
+		//	}
 	}
 }
 func (ta *TextArea) onMotionNotify(ev0 interface{}) {
@@ -467,7 +508,7 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonReleaseEvent)
 
 	// release must be in the area
-	if !ev.Point.In(ta.C.Bounds) {
+	if !ev.Point.In(ta.Bounds()) {
 		return
 	}
 
@@ -505,7 +546,7 @@ func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 
 func (ta *TextArea) onDoubleClick(ev0 interface{}) {
 	ev := ev0.(*xinput.DoubleClickEvent)
-	if !ev.Point.In(ta.C.Bounds) {
+	if !ev.Point.In(ta.Bounds()) {
 		return
 	}
 	switch {
@@ -520,7 +561,7 @@ func (ta *TextArea) onDoubleClick(ev0 interface{}) {
 }
 func (ta *TextArea) onTripleClick(ev0 interface{}) {
 	ev := ev0.(*xinput.TripleClickEvent)
-	if !ev.Point.In(ta.C.Bounds) {
+	if !ev.Point.In(ta.Bounds()) {
 		return
 	}
 	switch {
@@ -536,7 +577,7 @@ func (ta *TextArea) onTripleClick(ev0 interface{}) {
 
 func (ta *TextArea) onKeyPress(ev0 interface{}) {
 	ev := ev0.(*xinput.KeyPressEvent)
-	if !ev.Point.In(ta.C.Bounds) {
+	if !ev.Point.In(ta.Bounds()) {
 		return
 	}
 
@@ -714,7 +755,7 @@ const (
 	TextAreaCmdEventId = iota
 	TextAreaSetStrEventId
 	TextAreaSetOffsetYEventId
-	TextAreaBoundsChangeEventId
+	//TextAreaBoundsChangeEventId
 	TextAreaSetCursorIndexEventId
 )
 
@@ -728,6 +769,7 @@ type TextAreaSetStrEvent struct {
 type TextAreaSetOffsetYEvent struct {
 	TextArea *TextArea
 }
-type TextAreaBoundsChangeEvent struct {
-	TextArea *TextArea
-}
+
+//type TextAreaBoundsChangeEvent struct {
+//	TextArea *TextArea
+//}

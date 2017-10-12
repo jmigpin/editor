@@ -17,7 +17,7 @@ func DuplicateRow(ed Editorer) {
 
 	// col/row position of the duplicate
 	col := erow.Row().Col
-	next, ok := erow.Row().NextSiblingRow()
+	next, ok := erow.Row().NextRow()
 	if !ok {
 		next = nil
 	}

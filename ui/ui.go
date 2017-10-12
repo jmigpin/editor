@@ -10,8 +10,10 @@ import (
 
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
+	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
+	"github.com/jmigpin/editor/xgbutil/xwindow"
 
 	"github.com/BurntSushi/xgb/xproto"
 )
@@ -32,7 +34,7 @@ func SetScrollbarAndSquareWidth(v int) {
 }
 
 type UI struct {
-	win       *Window
+	win       *xwindow.Window
 	Layout    *Layout
 	fface1    font.Face
 	CursorMan *CursorMan
@@ -52,10 +54,11 @@ func NewUI(fface font.Face) (*UI, error) {
 	ui.EvReg = evreg.NewRegister()
 	ui.EvReg.Events = ui.Events2
 
-	win, err := NewWindow(ui.EvReg)
+	win, err := xwindow.NewWindow(ui.EvReg)
 	if err != nil {
 		return nil, err
 	}
+	win.SetWindowName("Editor")
 	ui.win = win
 
 	ui.CursorMan = NewCursorMan(ui)
@@ -80,7 +83,7 @@ func (ui *UI) Close() {
 
 func (ui *UI) onExpose(ev0 interface{}) {
 	ui.UpdateImageSize()
-	ui.Layout.C.NeedPaint()
+	ui.Layout.MarkNeedsPaint()
 }
 
 func (ui *UI) UpdateImageSize() {
@@ -89,17 +92,17 @@ func (ui *UI) UpdateImageSize() {
 		log.Println(err)
 	} else {
 		ib := ui.win.Image().Bounds()
-		if !ui.Layout.C.Bounds.Eq(ib) {
-			ui.Layout.C.Bounds = ib
-			ui.Layout.C.CalcChildsBounds()
-			ui.Layout.C.NeedPaint()
+		if !ui.Layout.Bounds().Eq(ib) {
+			ui.Layout.SetBounds(&ib)
+			ui.Layout.CalcChildsBounds()
+			ui.Layout.MarkNeedsPaint()
 		}
 	}
 }
 
 func (ui *UI) PaintIfNeeded() (painted bool) {
 	if ui.incompleteDraws == 0 {
-		ui.Layout.C.PaintIfNeeded(func(r *image.Rectangle) {
+		widget.PaintIfNeeded(ui.Layout, func(r *image.Rectangle) {
 			painted = true
 			ui.incompleteDraws++
 			ui.win.PutImage(r)

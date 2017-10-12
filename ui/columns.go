@@ -4,27 +4,25 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/uiutil/widget"
 )
 
 type Columns struct {
-	C      uiutil.Container
+	widget.EndPercentLayout
 	Layout *Layout
 }
 
 func NewColumns(layout *Layout) *Columns {
 	cols := &Columns{Layout: layout}
-	cols.C.PaintFunc = cols.paint
-	cols.C.Style.Distribution = uiutil.EndPercentDistribution
 
 	cols.NewColumn() // start with 1 column
 
 	return cols
 }
-func (cols *Columns) paint() {
-	if cols.C.NChilds() == 0 {
-		cols.Layout.UI.FillRectangle(&cols.C.Bounds, color.White)
-		return
+func (cols *Columns) Paint() {
+	if cols.NChilds() == 0 {
+		b := cols.Bounds()
+		cols.Layout.UI.FillRectangle(&b, color.White)
 	}
 }
 func (cols *Columns) LastColumnOrNew() *Column {
@@ -36,26 +34,43 @@ func (cols *Columns) LastColumnOrNew() *Column {
 }
 func (cols *Columns) NewColumn() *Column {
 	col := NewColumn(cols)
-	cols.insertColumnBefore(col, nil)
+	cols.InsertBefore(col, nil)
 	return col
 }
-func (cols *Columns) insertColumnBefore(col, next *Column) {
-	var nextC *uiutil.Container
-	if next != nil {
-		nextC = &next.C
+func (cols *Columns) InsertBefore(col, next *Column) {
+	if next == nil {
+
+		// TODO: need to return false
+
+		//// don't insert if it will be too small
+		//lc := cols.LastChild()
+		//if lc != nil && lc.Prev() != nil {
+		//	start := cols.ChildEndPercent(lc.Prev())
+		//	end := cols.ChildEndPercent(lc)
+		//	x := int((end - start) * float64(cols.Bounds().Dx()))
+		//	if x < 40 {
+		//		return
+		//	}
+		//}
+
+		widget.PushBack(cols, col)
+	} else {
+		panic("TODO")
+		widget.InsertBefore(cols, col, next)
 	}
-	cols.C.InsertChildBefore(&col.C, nextC)
 
 	cols.fixFirstColSeparator()
-	cols.C.CalcChildsBounds()
-	cols.C.NeedPaint()
+	cols.CalcChildsBounds()
+	cols.MarkNeedsPaint()
 }
-func (cols *Columns) removeColumn(col *Column) {
-	cols.C.RemoveChild(&col.C)
 
+// TODO: override node.Remove?
+
+func (cols *Columns) removeColumn(col *Column) {
+	cols.Remove(col)
 	cols.fixFirstColSeparator()
-	cols.C.CalcChildsBounds()
-	cols.C.NeedPaint()
+	cols.CalcChildsBounds()
+	cols.MarkNeedsPaint()
 }
 
 func (cols *Columns) fixFirstColSeparator() {
@@ -67,7 +82,7 @@ func (cols *Columns) fixFirstColSeparator() {
 func (cols *Columns) CloseColumnEnsureOne(col *Column) {
 	col.Close()
 	// ensure one column
-	if cols.C.NChilds() == 0 {
+	if cols.NChilds() == 0 {
 		_ = cols.NewColumn()
 	}
 }
@@ -75,7 +90,7 @@ func (cols *Columns) CloseColumnEnsureOne(col *Column) {
 // Used by restore session.
 func (cols *Columns) CloseAllAndOpenN(n int) {
 	// close all columns
-	for cols.C.NChilds() > 0 {
+	for cols.NChilds() > 0 {
 		u, _ := cols.FirstChildColumn()
 		u.Close()
 	}
@@ -91,45 +106,45 @@ func (cols *Columns) CloseAllAndOpenN(n int) {
 
 func (cols *Columns) resizeColumn(col *Column, px int) {
 	if ScrollbarLeft {
-		u, ok := col.PrevSiblingColumn()
+		u, ok := col.PrevColumn()
 		if !ok {
 			return
 		}
 		col = u
 	}
 
-	colsB := col.Cols.C.Bounds
-	ep := float64(px-cols.C.Bounds.Min.X) / float64(colsB.Dx())
+	bounds := cols.Bounds()
+	ep := float64(px-bounds.Min.X) / float64(bounds.Dx())
 
 	// minimum size
-	min := float64(10) / float64(colsB.Dx())
+	min := float64(10) / float64(bounds.Dx())
 
 	// limit to siblings column end percent
-	if col.C.PrevSibling() == nil {
+	if col.Prev() == nil {
 		if ep < min {
 			ep = min
 		}
 	}
-	if col.C.PrevSibling() != nil {
-		u := &col.C.PrevSibling().Style.EndPercent
-		if *u != nil && ep < **u+min {
-			ep = **u + min
+	if col.Prev() != nil {
+		u := cols.ChildEndPercent(col.Prev())
+		if ep < u+min {
+			ep = u + min
 		}
 	}
-	if col.C.NextSibling() != nil {
-		u := &col.C.NextSibling().Style.EndPercent
-		if *u != nil && ep > **u-min {
-			ep = **u - min
+	if col.Next() != nil {
+		u := cols.ChildEndPercent(col.Next())
+		if ep > u-min {
+			ep = u - min
 		}
 	}
 
-	col.C.Style.EndPercent = &ep
-	cols.C.CalcChildsBounds()
+	cols.SetChildEndPercent(col, ep)
+	cols.CalcChildsBounds()
 
-	//cols.C.NeedPaint() // commented: only 2 columns need paint
-	col.C.NeedPaint()
-	if col.C.NextSibling() != nil {
-		col.C.NextSibling().NeedPaint()
+	// only 2 columns need paint
+	col.MarkNeedsPaint()
+	if col.Next() != nil {
+		col.Next().MarkNeedsPaint()
 	}
 }
 
@@ -145,7 +160,7 @@ func (cols *Columns) PointNextRow(row *Row, p *image.Point) (*Column, *Row, bool
 	}
 
 	getNext := func(r *Row) *Row {
-		for u, ok := r.NextSiblingRow(); ok; u, ok = u.NextSiblingRow() {
+		for u, ok := r.NextRow(); ok; u, ok = u.NextRow() {
 			if u != row {
 				return u
 			}
@@ -156,11 +171,11 @@ func (cols *Columns) PointNextRow(row *Row, p *image.Point) (*Column, *Row, bool
 	if r != nil {
 		sameCol := row != nil && row.Col == r.Col
 		if sameCol {
-			if row.C.IsAPrevSiblingOf(&r.C) {
+			if widget.IsAPrevOf(row, r) {
 				r = getNext(r)
 			}
 		} else {
-			inFirstHalf := p.Y >= r.C.Bounds.Min.Y && p.Y < r.C.Bounds.Min.Y+r.C.Bounds.Dy()/2
+			inFirstHalf := p.Y >= r.Bounds().Min.Y && p.Y < r.Bounds().Min.Y+r.Bounds().Dy()/2
 			if !inFirstHalf {
 				r = getNext(r)
 			}
@@ -173,14 +188,14 @@ func (cols *Columns) PointNextRow(row *Row, p *image.Point) (*Column, *Row, bool
 // Row arg can be nil to allow calc before row exists.
 func (cols *Columns) pointColumnRow(row *Row, p *image.Point) (*Column, *Row) {
 	for _, c := range cols.Columns() {
-		if !p.In(c.C.Bounds) {
+		if !p.In(c.Bounds()) {
 			continue
 		}
 		if _, ok := c.FirstChildRow(); !ok {
 			return c, nil
 		}
 		for _, r := range c.Rows() {
-			if !p.In(r.C.Bounds) {
+			if !p.In(r.Bounds()) {
 				continue
 			}
 			return c, r
@@ -191,13 +206,13 @@ func (cols *Columns) pointColumnRow(row *Row, p *image.Point) (*Column, *Row) {
 
 func (cols *Columns) MoveRowToColumnBeforeRow(row *Row, col *Column, next *Row) {
 	row.Col.removeRow(row)
-	col.insertRowBefore(row, next)
+	col.insertBefore(row, next)
 	row.WarpPointer()
 }
 
 func (cols *Columns) MoveColumnToPoint(col *Column, p *image.Point) {
 	for _, c := range cols.Columns() {
-		if p.In(c.C.Bounds) {
+		if p.In(c.Bounds()) {
 			cols.moveColumnToColumn(col, c, p)
 			break
 		}
@@ -208,14 +223,15 @@ func (cols *Columns) moveColumnToColumn(col, dest *Column, p *image.Point) {
 		return
 	}
 
-	col.C.SwapWithSibling(&dest.C)
-	a1 := &col.C.Style.EndPercent
-	a2 := &dest.C.Style.EndPercent
-	*a1, *a2 = *a2, *a1
+	col.Swap(dest)
+	a1 := cols.ChildEndPercent(col)
+	a2 := cols.ChildEndPercent(dest)
+	cols.SetChildEndPercent(col, a2)
+	cols.SetChildEndPercent(dest, a1)
 
 	cols.fixFirstColSeparator()
-	cols.C.CalcChildsBounds()
-	cols.C.NeedPaint()
+	cols.CalcChildsBounds()
+	cols.MarkNeedsPaint()
 }
 
 func (cols *Columns) ColumnWithGoodPlaceForNewRow() *Column {
@@ -236,16 +252,16 @@ func (cols *Columns) ColumnWithGoodPlaceForNewRow() *Column {
 	}
 	columns := cols.Columns()
 	for _, col := range columns {
-		dy0 := col.C.Bounds.Dy()
+		dy0 := col.Bounds().Dy()
 		dy := dy0 / (len(columns) + 1)
 
 		// take into consideration the textarea content size
 		usedY := 0
 		for _, r := range col.Rows() {
-			ry := r.C.Bounds.Dy()
+			ry := r.Bounds().Dy()
 
 			// small text - count only needed height
-			ry1 := ry - r.TextArea.C.Bounds.Dy()
+			ry1 := ry - r.TextArea.Bounds().Dy()
 			ry2 := ry1 + r.TextArea.StrHeight().Round()
 			if ry2 < ry {
 				ry = ry2
@@ -258,7 +274,7 @@ func (cols *Columns) ColumnWithGoodPlaceForNewRow() *Column {
 			dy = dy2
 		}
 
-		r := image.Rect(0, 0, col.C.Bounds.Dx(), dy)
+		r := image.Rect(0, 0, col.Bounds().Dx(), dy)
 		area := rectArea(&r)
 		if area > best.area {
 			best.area = area
@@ -273,24 +289,24 @@ func (cols *Columns) ColumnWithGoodPlaceForNewRow() *Column {
 }
 
 func (cols *Columns) FirstChildColumn() (*Column, bool) {
-	u := cols.C.FirstChild()
+	u := cols.FirstChild()
 	if u == nil {
 		return nil, false
 	}
-	return u.Owner.(*Column), true
+	return u.(*Column), true
 }
 func (cols *Columns) LastChildColumn() (*Column, bool) {
-	u := cols.C.LastChild()
+	u := cols.LastChild()
 	if u == nil {
 		return nil, false
 	}
-	return u.Owner.(*Column), true
+	return u.(*Column), true
 }
 func (cols *Columns) Columns() []*Column {
-	childs := cols.C.Childs()
+	childs := cols.Childs()
 	u := make([]*Column, 0, len(childs))
 	for _, h := range childs {
-		u = append(u, h.Owner.(*Column))
+		u = append(u, h.(*Column))
 	}
 	return u
 }

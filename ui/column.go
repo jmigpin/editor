@@ -4,28 +4,28 @@ import (
 	"image/color"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
-	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type Column struct {
-	C      uiutil.Container
-	Cols   *Columns
-	Square *Square
-	colSep *Separator
-	RowsC  uiutil.Container
+	widget.FlowLayout
+	Square     *Square
+	sep        *widget.Space
+	rowsLayout *widget.FlowLayout
+
+	sqc *widget.FlowLayout // square container (show/hide)
+
+	Cols *Columns
 }
 
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols}
-	col.C.Owner = col
 
 	ui := col.Cols.Layout.UI
 
 	col.Square = NewSquare(ui)
 	col.Square.ColumnStyle = true
-	height := SquareWidth
-	col.Square.C.Style.CrossSize = &height
 	col.Square.EvReg.Add(SquareButtonPressEventId,
 		&evreg.Callback{col.onSquareButtonPress})
 	col.Square.EvReg.Add(SquareButtonReleaseEventId,
@@ -33,17 +33,28 @@ func NewColumn(cols *Columns) *Column {
 	col.Square.EvReg.Add(SquareMotionNotifyEventId,
 		&evreg.Callback{col.onSquareMotionNotify})
 
-	col.colSep = NewSeparator(ui, SeparatorWidth, SeparatorColor)
+	col.sep = widget.NewSpace(ui)
+	col.sep.SetExpand(false, true)
+	col.sep.Size.X = SeparatorWidth
+	col.sep.Color = SeparatorColor
 
-	col.C.PaintFunc = col.paint
-	col.RowsC.Style.Direction = uiutil.ColumnDirection
-	col.RowsC.Style.Distribution = uiutil.EqualDistribution
+	col.rowsLayout = &widget.FlowLayout{YAxis: true}
 
+	// square (when there are no rows)
+	col.sqc = &widget.FlowLayout{}
+	space := widget.NewSpace(ui)
+	space.SetFill(true, true)
+	space.Color = nil
 	if ScrollbarLeft {
-		col.C.AppendChilds(&col.colSep.C, &col.Square.C, &col.RowsC)
+		widget.AppendChilds(col.sqc, col.Square, space)
 	} else {
-		col.C.AppendChilds(&col.colSep.C, &col.RowsC, &col.Square.C)
+		widget.AppendChilds(col.sqc, space, col.Square)
 	}
+
+	rightSide := &widget.FlowLayout{YAxis: true}
+	widget.AppendChilds(rightSide, col.sqc, col.rowsLayout)
+
+	widget.AppendChilds(col, col.sep, rightSide)
 
 	return col
 }
@@ -54,37 +65,37 @@ func (col *Column) Close() {
 		r.Close()
 	}
 }
-func (col *Column) paint() {
-	if col.RowsC.NChilds() == 0 {
-		col.Cols.Layout.UI.FillRectangle(&col.C.Bounds, color.White)
+func (col *Column) Paint() {
+	if col.rowsLayout.NChilds() == 0 {
+		b := col.Bounds()
+		col.Cols.Layout.UI.FillRectangle(&b, color.White)
 		return
 	}
 }
 
 func (col *Column) NewRowBefore(next *Row) *Row {
 	row := NewRow(col)
-	col.insertRowBefore(row, next)
+	col.insertBefore(row, next)
 	return row
 }
-func (col *Column) insertRowBefore(row, next *Row) {
+
+func (col *Column) insertBefore(row, next *Row) {
 	row.Col = col
-
-	var nextC *uiutil.Container
-	if next != nil {
-		nextC = &next.C
+	if next == nil {
+		widget.PushBack(col.rowsLayout, row)
+	} else {
+		widget.InsertBefore(col.rowsLayout, row, next)
 	}
-	col.RowsC.InsertChildBefore(&row.C, nextC)
-
 	col.fixFirstRowSeparatorAndSquare()
-	col.C.CalcChildsBounds()
-	col.C.NeedPaint()
+	col.CalcChildsBounds()
+	col.MarkNeedsPaint()
 }
-func (col *Column) removeRow(row *Row) {
-	col.RowsC.RemoveChild(&row.C)
 
+func (col *Column) removeRow(row *Row) {
+	col.rowsLayout.Remove(row)
 	col.fixFirstRowSeparatorAndSquare()
-	col.C.CalcChildsBounds()
-	col.C.NeedPaint()
+	col.CalcChildsBounds()
+	col.MarkNeedsPaint()
 }
 
 func (col *Column) fixFirstRowSeparatorAndSquare() {
@@ -94,11 +105,10 @@ func (col *Column) fixFirstRowSeparatorAndSquare() {
 
 	// hide/show column square if we have a first row
 	_, ok := col.FirstChildRow()
-	h := &col.Square.C.Style.Hidden
-	haveFirstRow := ok
-	if *h != haveFirstRow {
-		*h = haveFirstRow
-		col.C.NeedPaint()
+	hide := ok
+	if col.sqc.Hidden() != hide {
+		col.sqc.SetHidden(hide)
+		col.MarkNeedsPaint()
 	}
 }
 
@@ -119,7 +129,7 @@ func (col *Column) onSquareButtonRelease(ev0 interface{}) {
 	case ev.Button.Mods.IsButton(1):
 		col.Cols.MoveColumnToPoint(col, ev.Point)
 	case ev.Button.Mods.IsButton(2):
-		if ev.Point.In(col.Square.C.Bounds) {
+		if ev.Point.In(col.Square.Bounds()) {
 			col.Cols.CloseColumnEnsureOne(col)
 		}
 	}
@@ -134,39 +144,38 @@ func (col *Column) onSquareMotionNotify(ev0 interface{}) {
 }
 
 func (col *Column) FirstChildRow() (*Row, bool) {
-	u := col.RowsC.FirstChild()
+	u := col.rowsLayout.FirstChild()
 	if u == nil {
 		return nil, false
 	}
-	return u.Owner.(*Row), true
+	return u.(*Row), true
 }
-func (col *Column) NextSiblingColumn() (*Column, bool) {
-	u := col.C.NextSibling()
+func (col *Column) NextColumn() (*Column, bool) {
+	u := col.Next()
 	if u == nil {
 		return nil, false
 	}
-	return u.Owner.(*Column), true
+	return u.(*Column), true
 }
-func (col *Column) PrevSiblingColumn() (*Column, bool) {
-	u := col.C.PrevSibling()
+func (col *Column) PrevColumn() (*Column, bool) {
+	u := col.Prev()
 	if u == nil {
 		return nil, false
 	}
-	return u.Owner.(*Column), true
+	return u.(*Column), true
 }
 func (col *Column) Rows() []*Row {
-	childs := col.RowsC.Childs()
+	childs := col.rowsLayout.Childs()
 	u := make([]*Row, 0, len(childs))
 	for _, h := range childs {
-		u = append(u, h.Owner.(*Row))
+		u = append(u, h.(*Row))
 	}
 	return u
 }
 
 func (col *Column) HideSeparator(v bool) {
-	h := &col.colSep.C.Style.Hidden
-	if *h != v {
-		*h = v
-		col.C.NeedPaint()
+	if col.sep.Hidden() != v {
+		col.sep.SetHidden(v)
+		col.MarkNeedsPaint()
 	}
 }

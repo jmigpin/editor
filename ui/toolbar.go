@@ -1,17 +1,19 @@
 package ui
 
 import (
-	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type Toolbar struct {
-	*TextArea
-	parentC *uiutil.Container
+	TextArea
+	parent widget.Node
 }
 
-func NewToolbar(ui *UI, parentC *uiutil.Container) *Toolbar {
-	tb := &Toolbar{TextArea: NewTextArea(ui), parentC: parentC}
+func NewToolbar(ui *UI, parent widget.Node) *Toolbar {
+	tb := &Toolbar{parent: parent}
+	tb.TextArea.Init(ui)
+
 	tb.DisableHighlightCursorWord = true
 	tb.DisablePageUpDown = true
 
@@ -25,18 +27,18 @@ func NewToolbar(ui *UI, parentC *uiutil.Container) *Toolbar {
 func (tb *Toolbar) onTextAreaSetStr(ev0 interface{}) {
 	ev := ev0.(*TextAreaSetStrEvent)
 
-	// dynamic toolbar bounds
+	// dynamic toolbar bounds that change when edited
 	// if toolbar bounds changed due to text change (dynamic height) then the parent container needs paint
-	b := tb.C.Bounds
-	tb.parentC.CalcChildsBounds()
-	if !tb.C.Bounds.Eq(b) {
-		tb.parentC.NeedPaint()
+	b := tb.Bounds()
+	tb.parent.CalcChildsBounds()
+	if !tb.Bounds().Eq(b) {
+		tb.parent.MarkNeedsPaint()
 	}
 
-	// keep pointer inside if it was in before
+	// keep pointer inside if it was in before -- need to test if it was in before otherwise and auto-change that edits the toolbar will warp the pointer
 	// useful in dynamic bounds becoming shorter and leaving the pointer outside, losing keyboard focus
 	p, ok := tb.ui.QueryPointer()
-	if ok && p.In(ev.OldBounds) && !p.In(tb.C.Bounds) {
-		tb.ui.WarpPointerToRectanglePad(&tb.C.Bounds)
+	if ok && p.In(ev.OldBounds) && !p.In(b) {
+		tb.ui.WarpPointerToRectanglePad(&b)
 	}
 }

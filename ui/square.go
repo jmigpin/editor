@@ -5,14 +5,15 @@ import (
 	"image/color"
 
 	// only for cursordef
-	"github.com/jmigpin/editor/uiutil"
+
+	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 // Used in row and column to move and close.
 type Square struct {
-	C       uiutil.Container
+	widget.EmbedNode
 	ui      *UI
 	EvReg   *evreg.Register
 	evUnreg evreg.Unregister
@@ -21,16 +22,19 @@ type Square struct {
 	buttonPressed bool
 	values        [7]bool // bg and mini-squares
 
+	Width int
+
 	ColumnStyle bool
 }
 
 func NewSquare(ui *UI) *Square {
 	sq := &Square{ui: ui}
-	width := SquareWidth
-	sq.C.Style.MainSize = &width
-	sq.C.PaintFunc = sq.paint
-	sq.EvReg = evreg.NewRegister()
+	sq.Width = SquareWidth
 
+	//width := SquareWidth
+	//sq.C.Style.MainSize = &width
+
+	sq.EvReg = evreg.NewRegister()
 	r1 := sq.ui.EvReg.Add(xinput.ButtonPressEventId,
 		&evreg.Callback{sq.onButtonPress})
 	r2 := sq.ui.EvReg.Add(xinput.ButtonReleaseEventId,
@@ -39,15 +43,21 @@ func NewSquare(ui *UI) *Square {
 		&evreg.Callback{sq.onMotionNotify})
 	sq.evUnreg.Add(r1, r2, r3)
 
-	//sq.ui.CursorMan.SetBoundsCursor(&sq.C.Bounds, xcursor.Icon)
+	//sq.ui.CursorMan.SetBoundsCursor(&sq.Bounds(), xcursor.Icon)
 
 	return sq
 }
 func (sq *Square) Close() {
 	sq.evUnreg.UnregisterAll()
-	//sq.ui.CursorMan.RemoveBoundsCursor(&sq.C.Bounds)
+	//sq.ui.CursorMan.RemoveBoundsCursor(&sq.Bounds())
 }
-func (sq *Square) paint() {
+
+func (sq *Square) Measure(hint image.Point) image.Point {
+	return image.Point{sq.Width, sq.Width}
+}
+func (sq *Square) CalcChildsBounds() {
+}
+func (sq *Square) Paint() {
 	var c color.Color = SquareColor
 	if sq.values[SquareEdited] {
 		c = SquareEditedColor
@@ -58,15 +68,16 @@ func (sq *Square) paint() {
 	if sq.values[SquareExecuting] {
 		c = SquareExecutingColor
 	}
-	sq.ui.FillRectangle(&sq.C.Bounds, c)
+	bounds := sq.Bounds()
+	sq.ui.FillRectangle(&bounds, c)
 
 	if sq.values[SquareDuplicate] {
 		c2 := SquareEditedColor
-		sq.ui.BorderRectangle(&sq.C.Bounds, c2, 2)
+		sq.ui.BorderRectangle(&bounds, c2, 2)
 	}
 
 	// separator
-	r3 := sq.C.Bounds
+	r3 := bounds
 	if ScrollbarLeft {
 		r3.Min.X = r3.Max.X - 1
 	} else {
@@ -75,7 +86,7 @@ func (sq *Square) paint() {
 	sq.ui.FillRectangle(&r3, RowInnerSeparatorColor)
 
 	if sq.ColumnStyle {
-		r4 := sq.C.Bounds
+		r4 := bounds
 		r4.Min.Y = r4.Max.Y - 1
 		sq.ui.FillRectangle(&r4, RowInnerSeparatorColor)
 	}
@@ -83,7 +94,7 @@ func (sq *Square) paint() {
 	// mini-squares
 
 	miniSq := func(i int) *image.Rectangle {
-		r := sq.C.Bounds
+		r := bounds
 		w := (r.Max.X - r.Min.X) / 2
 		r.Max.X = r.Min.X + w
 		r.Max.Y = r.Min.Y + w
@@ -122,17 +133,21 @@ func (sq *Square) paint() {
 	}
 }
 func (sq *Square) onButtonPress(ev0 interface{}) {
+	if sq.Hidden() {
+		return
+	}
+
 	ev := ev0.(*xinput.ButtonPressEvent)
-	if !ev.Point.In(sq.C.Bounds) {
+	if !ev.Point.In(sq.Bounds()) {
 		return
 	}
 	sq.buttonPressed = true
 
 	var u image.Point
 	if ScrollbarLeft {
-		u = image.Point{sq.C.Bounds.Min.X, sq.C.Bounds.Min.Y}
+		u = image.Point{sq.Bounds().Min.X, sq.Bounds().Min.Y}
 	} else {
-		u = image.Point{sq.C.Bounds.Max.X, sq.C.Bounds.Min.Y}
+		u = image.Point{sq.Bounds().Max.X, sq.Bounds().Min.Y}
 	}
 	sq.pressPointPad = u.Sub(*ev.Point)
 
@@ -158,7 +173,7 @@ func (sq *Square) onMotionNotify(ev0 interface{}) {
 }
 
 func (sq *Square) WarpPointer() {
-	sa := sq.C.Bounds
+	sa := sq.Bounds()
 	p := sa.Min.Add(image.Pt(sa.Dx()/2, sa.Dy()/2))
 	sq.ui.WarpPointer(&p)
 }
@@ -169,7 +184,7 @@ func (sq *Square) Value(t SquareType) bool {
 func (sq *Square) SetValue(t SquareType, v bool) {
 	if sq.values[t] != v {
 		sq.values[t] = v
-		sq.C.NeedPaint()
+		sq.MarkNeedsPaint()
 	}
 }
 
