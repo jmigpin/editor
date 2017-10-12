@@ -48,21 +48,25 @@ func NewRow(col *Column) *Row {
 	row.Square.EvReg.Add(SquareMotionNotifyEventId,
 		&evreg.Callback{row.onSquareMotionNotify})
 
-	// row separator
+	// row separator from other rows
 	row.sep = widget.NewSpace(ui)
 	row.sep.SetExpand(true, false)
 	row.sep.Size.Y = SeparatorWidth
 	row.sep.Color = SeparatorColor
 
 	// square and toolbar
-	tb := &widget.FlowLayout{YAxis: false}
+	tb := &widget.FlowLayout{}
+	sep1 := widget.NewSpace(ui)
+	sep1.Color = RowInnerSeparatorColor
+	sep1.Size.X = SeparatorWidth
+	sep1.SetFill(false, true)
 	if ScrollbarLeft {
-		widget.AppendChilds(tb, row.Square, row.Toolbar)
+		widget.AppendChilds(tb, row.Square, sep1, row.Toolbar)
 	} else {
-		widget.AppendChilds(tb, row.Toolbar, row.Square)
+		widget.AppendChilds(tb, row.Toolbar, sep1, row.Square)
 	}
 
-	// toolbar separator
+	// toolbar separator from scrollarea
 	tbSep := widget.NewSpace(ui)
 	tbSep.SetExpand(true, false)
 	tbSep.Size.Y = SeparatorWidth

@@ -23,16 +23,11 @@ type Square struct {
 	values        [7]bool // bg and mini-squares
 
 	Width int
-
-	ColumnStyle bool
 }
 
 func NewSquare(ui *UI) *Square {
 	sq := &Square{ui: ui}
 	sq.Width = SquareWidth
-
-	//width := SquareWidth
-	//sq.C.Style.MainSize = &width
 
 	sq.EvReg = evreg.NewRegister()
 	r1 := sq.ui.EvReg.Add(xinput.ButtonPressEventId,
@@ -74,21 +69,6 @@ func (sq *Square) Paint() {
 	if sq.values[SquareDuplicate] {
 		c2 := SquareEditedColor
 		sq.ui.BorderRectangle(&bounds, c2, 2)
-	}
-
-	// separator
-	r3 := bounds
-	if ScrollbarLeft {
-		r3.Min.X = r3.Max.X - 1
-	} else {
-		r3.Max.X = r3.Min.X + 1
-	}
-	sq.ui.FillRectangle(&r3, RowInnerSeparatorColor)
-
-	if sq.ColumnStyle {
-		r4 := bounds
-		r4.Min.Y = r4.Max.Y - 1
-		sq.ui.FillRectangle(&r4, RowInnerSeparatorColor)
 	}
 
 	// mini-squares

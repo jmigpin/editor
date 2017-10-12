@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"image/color"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
@@ -25,7 +26,7 @@ func NewColumn(cols *Columns) *Column {
 	ui := col.Cols.Layout.UI
 
 	col.Square = NewSquare(ui)
-	col.Square.ColumnStyle = true
+	//col.Square.ColumnStyle = true
 	col.Square.EvReg.Add(SquareButtonPressEventId,
 		&evreg.Callback{col.onSquareButtonPress})
 	col.Square.EvReg.Add(SquareButtonReleaseEventId,
@@ -42,13 +43,19 @@ func NewColumn(cols *Columns) *Column {
 
 	// square (when there are no rows)
 	col.sqc = &widget.FlowLayout{}
+	sqBorder := widget.NewBorder(ui, col.Square)
+	sqBorder.Color = RowInnerSeparatorColor
+	sqBorder.Bottom = SeparatorWidth
+	sep1 := widget.NewSpace(ui)
+	sep1.Color = RowInnerSeparatorColor
+	sep1.Size = image.Point{SeparatorWidth, col.Square.Width}
 	space := widget.NewSpace(ui)
 	space.SetFill(true, true)
-	space.Color = nil
+	space.Color = nil // filled by full bg paint
 	if ScrollbarLeft {
-		widget.AppendChilds(col.sqc, col.Square, space)
+		widget.AppendChilds(col.sqc, sqBorder, sep1, space)
 	} else {
-		widget.AppendChilds(col.sqc, space, col.Square)
+		widget.AppendChilds(col.sqc, space, sep1, sqBorder)
 	}
 
 	rightSide := &widget.FlowLayout{YAxis: true}
