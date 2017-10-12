@@ -1,4 +1,4 @@
-package ui
+package xwindow
 
 import (
 	"image"
@@ -155,8 +155,6 @@ func (win *Window) init() error {
 	if err != nil {
 		return err
 	}
-
-	win.SetWindowName("Editor")
 
 	return nil
 }
