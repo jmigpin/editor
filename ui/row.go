@@ -127,6 +127,7 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
 	case ev.Button.Mods.IsButton(1):
+		// toggle maximize
 		r, ok := row.Col.Cols.PointRow(ev.Point)
 		if ok && r == row {
 			row.toggleMaximize()
@@ -136,6 +137,13 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 		// TODO: review
 		c, r, ok := row.Col.Cols.PointNextRow(row, ev.Point)
 		if ok {
+
+			// fix row states on this column before moving the row
+			if row.state == RowMaximizedState {
+				row.setRowsState(RowNormalState)
+			}
+			row.setState(RowNormalState)
+
 			row.Col.Cols.MoveRowToColumnBeforeRow(row, c, r)
 		}
 	case ev.Button.Mods.IsButtonAndControl(1):
