@@ -60,18 +60,12 @@ func (ta *TextArea) Init(ui *UI) {
 	ta.EvReg = evreg.NewRegister()
 	ta.history = tahistory.NewHistory(128)
 
-	r1 := ta.ui.EvReg.Add(xinput.KeyPressEventId,
-		&evreg.Callback{ta.onKeyPress})
-	r2 := ta.ui.EvReg.Add(xinput.ButtonPressEventId,
-		&evreg.Callback{ta.onButtonPress})
-	r3 := ta.ui.EvReg.Add(xinput.ButtonReleaseEventId,
-		&evreg.Callback{ta.onButtonRelease})
-	r4 := ta.ui.EvReg.Add(xinput.MotionNotifyEventId,
-		&evreg.Callback{ta.onMotionNotify})
-	r5 := ta.ui.EvReg.Add(xinput.DoubleClickEventId,
-		&evreg.Callback{ta.onDoubleClick})
-	r6 := ta.ui.EvReg.Add(xinput.TripleClickEventId,
-		&evreg.Callback{ta.onTripleClick})
+	r1 := ta.ui.EvReg.Add(xinput.KeyPressEventId, ta.onKeyPress)
+	r2 := ta.ui.EvReg.Add(xinput.ButtonPressEventId, ta.onButtonPress)
+	r3 := ta.ui.EvReg.Add(xinput.ButtonReleaseEventId, ta.onButtonRelease)
+	r4 := ta.ui.EvReg.Add(xinput.MotionNotifyEventId, ta.onMotionNotify)
+	r5 := ta.ui.EvReg.Add(xinput.DoubleClickEventId, ta.onDoubleClick)
+	r6 := ta.ui.EvReg.Add(xinput.TripleClickEventId, ta.onTripleClick)
 	ta.evUnreg.Add(r1, r2, r3, r4, r5, r6)
 }
 func (ta *TextArea) Close() {

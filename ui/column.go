@@ -6,7 +6,6 @@ import (
 
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type Column struct {
@@ -26,13 +25,9 @@ func NewColumn(cols *Columns) *Column {
 	ui := col.Cols.Layout.UI
 
 	col.Square = NewSquare(ui)
-	//col.Square.ColumnStyle = true
-	col.Square.EvReg.Add(SquareButtonPressEventId,
-		&evreg.Callback{col.onSquareButtonPress})
-	col.Square.EvReg.Add(SquareButtonReleaseEventId,
-		&evreg.Callback{col.onSquareButtonRelease})
-	col.Square.EvReg.Add(SquareMotionNotifyEventId,
-		&evreg.Callback{col.onSquareMotionNotify})
+	col.Square.EvReg.Add(SquareButtonPressEventId, col.onSquareButtonPress)
+	col.Square.EvReg.Add(SquareButtonReleaseEventId, col.onSquareButtonRelease)
+	col.Square.EvReg.Add(SquareMotionNotifyEventId, col.onSquareMotionNotify)
 
 	col.sep = widget.NewSpace(ui)
 	col.sep.SetExpand(false, true)

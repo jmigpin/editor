@@ -26,28 +26,23 @@ func NewScrollArea(ui *UI, ta *TextArea) *ScrollArea {
 	sa.ScrollArea.Init(ui)
 	widget.AppendChilds(sa, ta)
 
-	r1 := ui.EvReg.Add(xinput.ButtonPressEventId,
-		&evreg.Callback{sa.onButtonPress})
-	r2 := ui.EvReg.Add(xinput.ButtonReleaseEventId,
-		&evreg.Callback{sa.onButtonRelease})
-	r3 := ui.EvReg.Add(xinput.MotionNotifyEventId,
-		&evreg.Callback{sa.onMotionNotify})
+	r1 := ui.EvReg.Add(xinput.ButtonPressEventId, sa.onButtonPress)
+	r2 := ui.EvReg.Add(xinput.ButtonReleaseEventId, sa.onButtonRelease)
+	r3 := ui.EvReg.Add(xinput.MotionNotifyEventId, sa.onMotionNotify)
 	sa.evUnreg.Add(r1, r2, r3)
 
 	// textarea set text
-	sa.ta.EvReg.Add(TextAreaSetStrEventId,
-		&evreg.Callback{func(ev0 interface{}) {
+	sa.ta.EvReg.Add(TextAreaSetStrEventId, func(ev0 interface{}) {
+		sa.CalcChildsBounds()
+		sa.MarkNeedsPaint()
+	})
+	// textarea set offset y
+	sa.ta.EvReg.Add(TextAreaSetOffsetYEventId, func(ev0 interface{}) {
+		if !sa.disableTextAreaOffsetYEvent {
 			sa.CalcChildsBounds()
 			sa.MarkNeedsPaint()
-		}})
-	// textarea set offset y
-	sa.ta.EvReg.Add(TextAreaSetOffsetYEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			if !sa.disableTextAreaOffsetYEvent {
-				sa.CalcChildsBounds()
-				sa.MarkNeedsPaint()
-			}
-		}})
+		}
+	})
 
 	return sa
 }

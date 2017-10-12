@@ -65,14 +65,10 @@ func NewUI(fface font.Face) (*UI, error) {
 
 	ui.Layout = NewLayout(ui)
 
-	ui.EvReg.Add(xproto.Expose,
-		&evreg.Callback{ui.onExpose})
-	ui.EvReg.Add(evreg.ShmCompletionEventId,
-		&evreg.Callback{ui.onShmCompletion})
-	ui.EvReg.Add(UITextAreaAppendAsyncEventId,
-		&evreg.Callback{ui.onTextAreaAppendAsync})
-	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId,
-		&evreg.Callback{ui.onTextAreaInsertStringAsync})
+	ui.EvReg.Add(xproto.Expose, ui.onExpose)
+	ui.EvReg.Add(evreg.ShmCompletionEventId, ui.onShmCompletion)
+	ui.EvReg.Add(UITextAreaAppendAsyncEventId, ui.onTextAreaAppendAsync)
+	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId, ui.onTextAreaInsertStringAsync)
 
 	return ui, nil
 }

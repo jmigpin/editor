@@ -3,7 +3,6 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 )
@@ -24,8 +23,7 @@ func NewCursorMan(ui *UI) *CursorMan {
 		freeCursor: xcursors.XCNone,
 	}
 
-	cm.ui.EvReg.Add(xinput.MotionNotifyEventId,
-		&evreg.Callback{cm.onMotionNotify})
+	cm.ui.EvReg.Add(xinput.MotionNotifyEventId, cm.onMotionNotify)
 
 	return cm
 }

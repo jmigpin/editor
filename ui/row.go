@@ -30,12 +30,9 @@ func NewRow(col *Column) *Row {
 	ui := row.Col.Cols.Layout.UI
 
 	row.EvReg = evreg.NewRegister()
-	r1 := ui.EvReg.Add(xinput.KeyPressEventId,
-		&evreg.Callback{row.onKeyPress})
-	r2 := ui.EvReg.Add(xinput.ButtonPressEventId,
-		&evreg.Callback{row.onButtonPress})
-	r3 := ui.EvReg.Add(xinput.ButtonReleaseEventId,
-		&evreg.Callback{row.onButtonRelease})
+	r1 := ui.EvReg.Add(xinput.KeyPressEventId, row.onKeyPress)
+	r2 := ui.EvReg.Add(xinput.ButtonPressEventId, row.onButtonPress)
+	r3 := ui.EvReg.Add(xinput.ButtonReleaseEventId, row.onButtonRelease)
 	row.evUnreg.Add(r1, r2, r3)
 
 	row.Toolbar = NewToolbar(ui, row)
@@ -43,12 +40,9 @@ func NewRow(col *Column) *Row {
 
 	row.Square = NewSquare(ui)
 	row.Square.SetFill(false, true)
-	row.Square.EvReg.Add(SquareButtonPressEventId,
-		&evreg.Callback{row.onSquareButtonPress})
-	row.Square.EvReg.Add(SquareButtonReleaseEventId,
-		&evreg.Callback{row.onSquareButtonRelease})
-	row.Square.EvReg.Add(SquareMotionNotifyEventId,
-		&evreg.Callback{row.onSquareMotionNotify})
+	row.Square.EvReg.Add(SquareButtonPressEventId, row.onSquareButtonPress)
+	row.Square.EvReg.Add(SquareButtonReleaseEventId, row.onSquareButtonRelease)
+	row.Square.EvReg.Add(SquareMotionNotifyEventId, row.onSquareMotionNotify)
 
 	// row separator from other rows
 	row.sep = widget.NewSpace(ui)

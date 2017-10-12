@@ -26,8 +26,7 @@ func NewWMP(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*WMP, err
 	if err := wmp.setupWindowProperty(); err != nil {
 		return nil, err
 	}
-	evReg.Add(xproto.ClientMessage,
-		&evreg.Callback{wmp.onClientMessage})
+	evReg.Add(xproto.ClientMessage, wmp.onClientMessage)
 	return wmp, nil
 }
 func (wmp *WMP) setupWindowProperty() error {

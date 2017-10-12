@@ -39,11 +39,10 @@ func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Paste,
 	p.reply = make(chan *xproto.SelectionNotifyEvent, 1)
 
 	if evReg != nil {
-		evReg.Add(xproto.SelectionNotify,
-			&evreg.Callback{func(ev0 interface{}) {
-				ev := ev0.(xproto.SelectionNotifyEvent)
-				p.OnSelectionNotify(&ev)
-			}})
+		evReg.Add(xproto.SelectionNotify, func(ev0 interface{}) {
+			ev := ev0.(xproto.SelectionNotifyEvent)
+			p.OnSelectionNotify(&ev)
+		})
 	}
 
 	return p, nil

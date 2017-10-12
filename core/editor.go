@@ -67,10 +67,9 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.ui = ui0
 
 	// close editor when the window is deleted
-	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			ed.Close()
-		}})
+	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId, func(ev0 interface{}) {
+		ed.Close()
+	})
 
 	// setup drop support (files, dirs, ...) from other applications
 	cmdutil.SetupDragNDrop(ed)
@@ -79,10 +78,9 @@ func NewEditor(opt *Options) (*Editor, error) {
 	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | Reload | DuplicateRow | "
 	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
 	// execute commands on layout toolbar
-	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
-		&evreg.Callback{func(ev interface{}) {
-			ToolbarCmdFromLayout(ed, ed.ui.Layout)
-		}})
+	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+		ToolbarCmdFromLayout(ed, ed.ui.Layout)
+	})
 
 	// layout home vars
 	ed.homeVars.Append("~", os.Getenv("HOME"))
@@ -195,13 +193,12 @@ func (ed *Editor) NewERowBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row
 
 	// add/remove to erows
 	ed.erows[row] = erow
-	row.EvReg.Add(ui.RowCloseEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			delete(ed.erows, row)
+	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
+		delete(ed.erows, row)
 
-			// clears square visual queue of the duplicate that stays, if any
-			erow.UpdateDuplicates()
-		}})
+		// clears square visual queue of the duplicate that stays, if any
+		erow.UpdateDuplicates()
+	})
 
 	return erow
 }

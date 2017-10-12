@@ -1,9 +1,6 @@
 package ui
 
-import (
-	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/evreg"
-)
+import "github.com/jmigpin/editor/uiutil/widget"
 
 type Toolbar struct {
 	TextArea
@@ -19,8 +16,7 @@ func NewToolbar(ui *UI, parent widget.Node) *Toolbar {
 
 	tb.Colors = &ToolbarColors
 
-	tb.TextArea.EvReg.Add(TextAreaSetStrEventId,
-		&evreg.Callback{tb.onTextAreaSetStr})
+	tb.TextArea.EvReg.Add(TextAreaSetStrEventId, tb.onTextAreaSetStr)
 
 	return tb
 }

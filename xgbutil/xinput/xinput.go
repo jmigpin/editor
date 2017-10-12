@@ -30,16 +30,11 @@ func NewXInput(conn *xgb.Conn, evReg *evreg.Register) (*XInput, error) {
 	xi := &XInput{km: km, evReg: evReg}
 
 	xi.evReg = evReg
-	xi.evReg.Add(xproto.KeyPress,
-		&evreg.Callback{xi.onEvRegKeyPress})
-	xi.evReg.Add(xproto.KeyRelease,
-		&evreg.Callback{xi.onEvRegKeyRelease})
-	xi.evReg.Add(xproto.ButtonPress,
-		&evreg.Callback{xi.onEvRegButtonPress})
-	xi.evReg.Add(xproto.ButtonRelease,
-		&evreg.Callback{xi.onEvRegButtonRelease})
-	xi.evReg.Add(xproto.MotionNotify,
-		&evreg.Callback{xi.onEvRegMotionNotify})
+	xi.evReg.Add(xproto.KeyPress, xi.onEvRegKeyPress)
+	xi.evReg.Add(xproto.KeyRelease, xi.onEvRegKeyRelease)
+	xi.evReg.Add(xproto.ButtonPress, xi.onEvRegButtonPress)
+	xi.evReg.Add(xproto.ButtonRelease, xi.onEvRegButtonRelease)
+	xi.evReg.Add(xproto.MotionNotify, xi.onEvRegMotionNotify)
 
 	return xi, nil
 }

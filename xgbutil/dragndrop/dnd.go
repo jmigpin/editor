@@ -38,10 +38,8 @@ func NewDnd(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Dnd, err
 	}
 
 	dnd.evReg = evReg
-	dnd.evReg.Add(xproto.ClientMessage,
-		&evreg.Callback{dnd.onClientMessage})
-	dnd.evReg.Add(xproto.SelectionNotify,
-		&evreg.Callback{dnd.onSelectionNotify})
+	dnd.evReg.Add(xproto.ClientMessage, dnd.onClientMessage)
+	dnd.evReg.Add(xproto.SelectionNotify, dnd.onSelectionNotify)
 
 	return dnd, nil
 }

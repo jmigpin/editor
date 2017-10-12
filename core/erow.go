@@ -15,7 +15,6 @@ import (
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/ui/tautil/tahistory"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/pkg/errors"
 )
 
@@ -69,41 +68,35 @@ func (erow *ERow) initHandlers() {
 	row := erow.row
 	ed := erow.ed
 	// toolbar set str
-	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			erow.parseToolbar()
-		}})
+	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
+		erow.parseToolbar()
+	})
 	// toolbar cmds
-	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			ToolbarCmdFromRow(erow)
-		}})
+	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
+		ToolbarCmdFromRow(erow)
+	})
 	// textarea set str
-	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			if erow.disableTextAreaSetStrEventHandler {
-				return
-			}
-			erow.UpdateState()
-			erow.UpdateDuplicates()
-		}})
+	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
+		if erow.disableTextAreaSetStrEventHandler {
+			return
+		}
+		erow.UpdateState()
+		erow.UpdateDuplicates()
+	})
 	// textarea content cmds
-	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			contentcmd.Cmd(erow)
-		}})
+	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
+		contentcmd.Cmd(erow)
+	})
 	// key shortcuts
-	row.EvReg.Add(ui.RowKeyPressEventId,
-		&evreg.Callback{erow.onRowKeyPress})
+	row.EvReg.Add(ui.RowKeyPressEventId, erow.onRowKeyPress)
 	// close
-	row.EvReg.Add(ui.RowCloseEventId,
-		&evreg.Callback{func(ev0 interface{}) {
-			cmdutil.RowCtxCancel(row)
-			ed.reopenRow.Add(row)
-			if erow.state.watch {
-				erow.ed.DecreaseWatch(erow.state.filename)
-			}
-		}})
+	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
+		cmdutil.RowCtxCancel(row)
+		ed.reopenRow.Add(row)
+		if erow.state.watch {
+			erow.ed.DecreaseWatch(erow.state.filename)
+		}
+	})
 }
 
 func (erow *ERow) Row() *ui.Row {

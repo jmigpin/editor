@@ -6,25 +6,26 @@ type Register struct {
 	m map[int]*list.List
 
 	Events chan<- interface{}
-
-	//UnhandledEventFunc func(ev *EventWrap)
 }
 
 func NewRegister() *Register {
-	er := &Register{m: make(map[int]*list.List)}
-	return er
+	reg := &Register{m: make(map[int]*list.List)}
+	return reg
 }
-func (er *Register) Add(evId int, cb *Callback) *Regist {
-	l, ok := er.m[evId]
+func (reg *Register) AddCallback(evId int, cb *Callback) *Regist {
+	l, ok := reg.m[evId]
 	if !ok {
 		l = list.New()
-		er.m[evId] = l
+		reg.m[evId] = l
 	}
 	l.PushBack(cb)
-	return &Regist{er, evId, cb}
+	return &Regist{reg, evId, cb}
 }
-func (er *Register) Remove(evId int, cb *Callback) {
-	l, ok := er.m[evId]
+func (reg *Register) Add(evId int, fn func(interface{})) *Regist {
+	return reg.AddCallback(evId, &Callback{fn})
+}
+func (reg *Register) Remove(evId int, cb *Callback) {
+	l, ok := reg.m[evId]
 	if !ok {
 		return
 	}
@@ -33,15 +34,15 @@ func (er *Register) Remove(evId int, cb *Callback) {
 		if cb2 == cb {
 			l.Remove(e)
 			if l.Len() == 0 {
-				delete(er.m, evId)
+				delete(reg.m, evId)
 			}
 			break
 		}
 	}
 }
 
-func (er *Register) RunCallbacks(evId int, ev interface{}) int {
-	l, ok := er.m[evId]
+func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
+	l, ok := reg.m[evId]
 	if !ok {
 		return 0
 	}
@@ -54,15 +55,15 @@ func (er *Register) RunCallbacks(evId int, ev interface{}) int {
 	return c
 }
 
-func (er *Register) Enqueue(evId int, ev interface{}) {
+func (reg *Register) Enqueue(evId int, ev interface{}) {
 	// run inside goroutine to not allow deadlocks
-	//go func() { er.Events <- &EventWrap{evId, ev} }()
+	//go func() { reg.Events <- &EventWrap{evId, ev} }()
 
-	// ensures call event order if not inside a goroutine
-	er.Events <- &EventWrap{evId, ev}
+	// ensures call event ordreg if not inside a goroutine
+	reg.Events <- &EventWrap{evId, ev}
 }
-func (er *Register) EnqueueError(err error) {
-	er.Enqueue(ErrorEventId, err)
+func (reg *Register) EnqueueError(err error) {
+	reg.Enqueue(ErrorEventId, err)
 }
 
 type Callback struct {
@@ -72,12 +73,7 @@ type Callback struct {
 type EventWrap struct {
 	EventId int
 	Event   interface{}
-	//reg     *Register
 }
-
-//func (ew *EventWrap) RunCallbacks() {
-//	ew.reg.RunCallbacks(ew.EventId, ew.Event)
-//}
 
 type Regist struct {
 	evReg *Register

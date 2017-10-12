@@ -38,16 +38,14 @@ func NewCopy(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Copy, e
 	}
 
 	if evReg != nil {
-		evReg.Add(xproto.SelectionRequest,
-			&evreg.Callback{func(ev0 interface{}) {
-				ev := ev0.(xproto.SelectionRequestEvent)
-				c.OnSelectionRequest(&ev)
-			}})
-		evReg.Add(xproto.SelectionClear,
-			&evreg.Callback{func(ev0 interface{}) {
-				ev := ev0.(xproto.SelectionClearEvent)
-				c.OnSelectionClear(&ev)
-			}})
+		evReg.Add(xproto.SelectionRequest, func(ev0 interface{}) {
+			ev := ev0.(xproto.SelectionRequestEvent)
+			c.OnSelectionRequest(&ev)
+		})
+		evReg.Add(xproto.SelectionClear, func(ev0 interface{}) {
+			ev := ev0.(xproto.SelectionClearEvent)
+			c.OnSelectionClear(&ev)
+		})
 	}
 
 	return c, nil

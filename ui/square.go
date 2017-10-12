@@ -30,12 +30,9 @@ func NewSquare(ui *UI) *Square {
 	sq.Width = SquareWidth
 
 	sq.EvReg = evreg.NewRegister()
-	r1 := sq.ui.EvReg.Add(xinput.ButtonPressEventId,
-		&evreg.Callback{sq.onButtonPress})
-	r2 := sq.ui.EvReg.Add(xinput.ButtonReleaseEventId,
-		&evreg.Callback{sq.onButtonRelease})
-	r3 := sq.ui.EvReg.Add(xinput.MotionNotifyEventId,
-		&evreg.Callback{sq.onMotionNotify})
+	r1 := sq.ui.EvReg.Add(xinput.ButtonPressEventId, sq.onButtonPress)
+	r2 := sq.ui.EvReg.Add(xinput.ButtonReleaseEventId, sq.onButtonRelease)
+	r3 := sq.ui.EvReg.Add(xinput.MotionNotifyEventId, sq.onMotionNotify)
 	sq.evUnreg.Add(r1, r2, r3)
 
 	//sq.ui.CursorMan.SetBoundsCursor(&sq.Bounds(), xcursor.Icon)
