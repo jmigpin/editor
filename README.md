@@ -41,20 +41,22 @@ Usage of ./editor:
   -fontsize float
     	 (default 12)
   -scrollbarleft
-    	set scrollbars on the left side
+    	set scrollbars on the left side (default true)
   -scrollbarwidth int
     	textarea scrollbar width (default 12)
+  -sessionname string
+    	open existing session
   -tabwidth int
     	 (default 8)
   -wraplinerune int
-    	code for wrap line rune (default 8594)
+    	code for wrap line rune (default 8596)
 ```
 
 ### key/button shortcuts
 
 #### Column key/button shortcuts
 
-(top right square):
+(top square):
 
 - `button2`: close column
 
@@ -65,8 +67,9 @@ Usage of ./editor:
 - Any button press: make row active to layout toolbar commands
 
 
-(top right square):
+(top square):
 
+- `button1` click: maximize/unmaximize
 - `button1` drag: move row to point
 - `button2`: close row
 - `button3` drag: resize column
@@ -101,7 +104,6 @@ Usage of ./editor:
 - `ctrl`+`shift`+`z`: redo
 - `ctrl`+`d`: comment lines
 - `ctrl`+`shift`+`d`: uncomment lines
-
 - `button1`: move cursor to point
 - `button2`: paste from primary
 - `button3`: move cursor to point + text area cmd
