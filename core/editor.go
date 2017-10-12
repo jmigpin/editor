@@ -1,7 +1,6 @@
 package core
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -97,12 +96,23 @@ func NewEditor(opt *Options) (*Editor, error) {
 	}
 	ed.fwatcher = w
 
+	ed.openInitialRows(opt)
+
+	ed.eventLoop() // blocks
+
+	return ed, nil
+}
+
+func (ed *Editor) openInitialRows(opt *Options) {
+	if opt.SessionName != "" {
+		cmdutil.OpenSessionFromString(ed, opt.SessionName)
+		return
+	}
+
 	// cmd line filenames to open
-	// TODO: get from file options
-	args := flag.Args()
-	if len(args) > 0 {
+	if len(opt.Filenames) > 0 {
 		col, _ := ed.ui.Layout.Cols.FirstChildColumn()
-		for _, s := range args {
+		for _, s := range opt.Filenames {
 			_, ok := ed.FindERow(s)
 			if !ok {
 				erow := ed.NewERowBeforeRow(s, col, nil) // position at end
@@ -113,22 +123,19 @@ func NewEditor(opt *Options) (*Editor, error) {
 				}
 			}
 		}
-	} else {
-		// start with 2 colums and a current directory row on 2nd column
-		cols := ed.ui.Layout.Cols
-		_ = cols.NewColumn()
-		col, ok := cols.LastChildColumn()
-		if ok {
-			dir, err := os.Getwd()
-			if err == nil {
-				cmdutil.OpenDirectoryRow(ed, dir, col, nil)
-			}
-		}
+		return
 	}
 
-	ed.eventLoop() // blocks
-
-	return ed, nil
+	// start with 2 colums and a current directory row on 2nd column
+	cols := ed.ui.Layout.Cols
+	_ = cols.NewColumn()
+	col, ok := cols.LastChildColumn()
+	if ok {
+		dir, err := os.Getwd()
+		if err == nil {
+			cmdutil.OpenDirectoryRow(ed, dir, col, nil)
+		}
+	}
 }
 
 func (ed *Editor) getFontFace(opt *Options) (font.Face, error) {
@@ -375,4 +382,6 @@ type Options struct {
 	WrapLineRune   int
 	TabWidth       int
 	ScrollbarLeft  bool
+	SessionName    string
+	Filenames      []string
 }

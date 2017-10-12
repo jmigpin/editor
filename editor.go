@@ -24,6 +24,7 @@ func main() {
 	wrapLineRune := flag.Int("wraplinerune", 8596, "code for wrap line rune")
 	tabWidth := flag.Int("tabwidth", 8, "")
 	scrollbarLeft := flag.Bool("scrollbarleft", true, "set scrollbars on the left side")
+	sessionName := flag.String("sessionname", "", "open existing session")
 
 	flag.Parse()
 
@@ -45,6 +46,8 @@ func main() {
 		WrapLineRune:   *wrapLineRune,
 		TabWidth:       *tabWidth,
 		ScrollbarLeft:  *scrollbarLeft,
+		SessionName:    *sessionName,
+		Filenames:      flag.Args(),
 	}
 	_, err := core.NewEditor(eopt)
 	if err != nil {
