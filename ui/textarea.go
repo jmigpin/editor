@@ -459,6 +459,10 @@ func (ta *TextArea) PageDown() {
 }
 
 func (ta *TextArea) onButtonPress(ev0 interface{}) {
+	if ta.Hidden() {
+		return
+	}
+
 	ev := ev0.(*xinput.ButtonPressEvent)
 	if !ev.Point.In(ta.Bounds()) {
 		return
@@ -545,6 +549,10 @@ func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 }
 
 func (ta *TextArea) onDoubleClick(ev0 interface{}) {
+	if ta.Hidden() {
+		return
+	}
+
 	ev := ev0.(*xinput.DoubleClickEvent)
 	if !ev.Point.In(ta.Bounds()) {
 		return
@@ -560,6 +568,10 @@ func (ta *TextArea) onDoubleClick(ev0 interface{}) {
 	}
 }
 func (ta *TextArea) onTripleClick(ev0 interface{}) {
+	if ta.Hidden() {
+		return
+	}
+
 	ev := ev0.(*xinput.TripleClickEvent)
 	if !ev.Point.In(ta.Bounds()) {
 		return
@@ -576,6 +588,10 @@ func (ta *TextArea) onTripleClick(ev0 interface{}) {
 }
 
 func (ta *TextArea) onKeyPress(ev0 interface{}) {
+	if ta.Hidden() {
+		return
+	}
+
 	ev := ev0.(*xinput.KeyPressEvent)
 	if !ev.Point.In(ta.Bounds()) {
 		return
