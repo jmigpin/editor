@@ -322,7 +322,7 @@ func (ed *Editor) eventLoop() {
 		} else {
 			// ensure a paint at x frames per second
 			d := time.Now().Sub(lastPaint)
-			if d > time.Second/30 {
+			if d > time.Second/35 {
 				paintIfNeeded()
 			}
 		}

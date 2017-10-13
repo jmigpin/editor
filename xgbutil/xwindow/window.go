@@ -213,7 +213,7 @@ func (win *Window) motionEventFilterLoop(in <-chan interface{}, out chan<- inter
 		//n++
 		lastMotionEv = ev
 		if ticker == nil {
-			ticker = time.NewTicker(time.Second / 30)
+			ticker = time.NewTicker(time.Second / 40)
 			timeToSend = ticker.C
 		}
 	}
