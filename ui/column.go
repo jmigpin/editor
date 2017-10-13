@@ -62,7 +62,6 @@ func NewColumn(cols *Columns) *Column {
 }
 func (col *Column) Close() {
 	col.Cols.removeColumn(col)
-	col.Square.Close()
 	for _, r := range col.Rows() {
 		r.Close()
 	}

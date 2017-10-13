@@ -22,8 +22,7 @@ type TextArea struct {
 
 	drawer *hsdrawer.HSDrawer
 
-	EvReg   *evreg.Register
-	evUnreg evreg.Unregister
+	EvReg *evreg.Register
 
 	history *tahistory.History
 	edit    *tahistory.Edit
@@ -59,17 +58,6 @@ func (ta *TextArea) Init(ui *UI) {
 	ta.Colors = &c
 	ta.EvReg = evreg.NewRegister()
 	ta.history = tahistory.NewHistory(128)
-
-	r1 := ta.ui.EvReg.Add(xinput.KeyPressEventId, ta.onKeyPress)
-	r2 := ta.ui.EvReg.Add(xinput.ButtonPressEventId, ta.onButtonPress)
-	r3 := ta.ui.EvReg.Add(xinput.ButtonReleaseEventId, ta.onButtonRelease)
-	r4 := ta.ui.EvReg.Add(xinput.MotionNotifyEventId, ta.onMotionNotify)
-	r5 := ta.ui.EvReg.Add(xinput.DoubleClickEventId, ta.onDoubleClick)
-	r6 := ta.ui.EvReg.Add(xinput.TripleClickEventId, ta.onTripleClick)
-	ta.evUnreg.Add(r1, r2, r3, r4, r5, r6)
-}
-func (ta *TextArea) Close() {
-	ta.evUnreg.UnregisterAll()
 }
 
 func (ta *TextArea) Measure(hint image.Point) image.Point {
@@ -452,17 +440,26 @@ func (ta *TextArea) PageDown() {
 	tautil.PageDown(ta)
 }
 
-func (ta *TextArea) onButtonPress(ev0 interface{}) {
-	if ta.Hidden() {
-		return
+func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	switch evt := ev0.(type) {
+	case *xinput.KeyPressEvent:
+		ta.onKeyPress(evt)
+	case *xinput.ButtonPressEvent:
+		ta.onButtonPress(evt)
+	case *xinput.ButtonReleaseEvent:
+		ta.onButtonRelease(evt)
+	case *xinput.MotionNotifyEvent:
+		ta.onMotionNotify(evt)
+	case *xinput.DoubleClickEvent:
+		ta.onDoubleClick(evt)
+	case *xinput.TripleClickEvent:
+		ta.onTripleClick(evt)
 	}
-
-	ev := ev0.(*xinput.ButtonPressEvent)
-	if !ev.Point.In(ta.Bounds()) {
-		return
-	}
-
+	return false
+}
+func (ta *TextArea) onButtonPress(ev *xinput.ButtonPressEvent) {
 	ta.buttonPressed = true
+	ta.ui.Layout.SetInputEventNode(ta, true)
 	switch {
 	case ev.Button.Button(1):
 		switch {
@@ -473,6 +470,7 @@ func (ta *TextArea) onButtonPress(ev0 interface{}) {
 		}
 	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		ta.ui.CursorMan.SetCursor(xcursor.Hand2)
+		ta.ui.Layout.SetInputEventNode(ta, true)
 
 		//case ev.Button.Button(4):
 		//	canScroll := !ta.DisablePageUpDown
@@ -486,24 +484,14 @@ func (ta *TextArea) onButtonPress(ev0 interface{}) {
 		//	}
 	}
 }
-func (ta *TextArea) onMotionNotify(ev0 interface{}) {
-	if !ta.buttonPressed {
-		return
-	}
-	ev := ev0.(*xinput.MotionNotifyEvent)
-	if ev.Mods.IsButton(1) {
-		tautil.MoveCursorToPoint(ta, ev.Point, true)
-	}
-}
-func (ta *TextArea) onButtonRelease(ev0 interface{}) {
+func (ta *TextArea) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	if !ta.buttonPressed {
 		return
 	}
 	ta.buttonPressed = false
 
 	ta.ui.CursorMan.UnsetCursor()
-
-	ev := ev0.(*xinput.ButtonReleaseEvent)
+	ta.ui.Layout.SetInputEventNode(ta, false)
 
 	// release must be in the area
 	if !ev.Point.In(ta.Bounds()) {
@@ -529,6 +517,14 @@ func (ta *TextArea) onButtonRelease(ev0 interface{}) {
 		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 	}
 }
+func (ta *TextArea) onMotionNotify(ev *xinput.MotionNotifyEvent) {
+	if !ta.buttonPressed {
+		return
+	}
+	if ev.Mods.IsButton(1) {
+		tautil.MoveCursorToPoint(ta, ev.Point, true)
+	}
+}
 
 func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 	if ta.SelectionOn() {
@@ -542,12 +538,7 @@ func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 	return false
 }
 
-func (ta *TextArea) onDoubleClick(ev0 interface{}) {
-	if ta.Hidden() {
-		return
-	}
-
-	ev := ev0.(*xinput.DoubleClickEvent)
+func (ta *TextArea) onDoubleClick(ev *xinput.DoubleClickEvent) {
 	if !ev.Point.In(ta.Bounds()) {
 		return
 	}
@@ -561,12 +552,7 @@ func (ta *TextArea) onDoubleClick(ev0 interface{}) {
 		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 	}
 }
-func (ta *TextArea) onTripleClick(ev0 interface{}) {
-	if ta.Hidden() {
-		return
-	}
-
-	ev := ev0.(*xinput.TripleClickEvent)
+func (ta *TextArea) onTripleClick(ev *xinput.TripleClickEvent) {
 	if !ev.Point.In(ta.Bounds()) {
 		return
 	}
@@ -580,17 +566,10 @@ func (ta *TextArea) onTripleClick(ev0 interface{}) {
 		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 	}
 }
-
-func (ta *TextArea) onKeyPress(ev0 interface{}) {
-	if ta.Hidden() {
-		return
-	}
-
-	ev := ev0.(*xinput.KeyPressEvent)
+func (ta *TextArea) onKeyPress(ev *xinput.KeyPressEvent) {
 	if !ev.Point.In(ta.Bounds()) {
 		return
 	}
-
 	k := ev.Key
 	firstKeysym := k.FirstKeysym()
 	mods := k.Mods.ClearButtons()

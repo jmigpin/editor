@@ -6,7 +6,6 @@ import (
 	"golang.org/x/image/math/fixed"
 
 	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
@@ -15,7 +14,6 @@ type ScrollArea struct {
 	ui            *UI
 	ta            *TextArea
 	buttonPressed bool
-	evUnreg       evreg.Unregister
 
 	disableTextAreaOffsetYEvent bool
 }
@@ -25,11 +23,6 @@ func NewScrollArea(ui *UI, ta *TextArea) *ScrollArea {
 
 	sa.ScrollArea.Init(ui)
 	widget.AppendChilds(sa, ta)
-
-	r1 := ui.EvReg.Add(xinput.ButtonPressEventId, sa.onButtonPress)
-	r2 := ui.EvReg.Add(xinput.ButtonReleaseEventId, sa.onButtonRelease)
-	r3 := ui.EvReg.Add(xinput.MotionNotifyEventId, sa.onMotionNotify)
-	sa.evUnreg.Add(r1, r2, r3)
 
 	// textarea set text
 	sa.ta.EvReg.Add(TextAreaSetStrEventId, func(ev0 interface{}) {
@@ -45,9 +38,6 @@ func NewScrollArea(ui *UI, ta *TextArea) *ScrollArea {
 	})
 
 	return sa
-}
-func (sa *ScrollArea) Close() {
-	sa.evUnreg.UnregisterAll()
 }
 
 func (sa *ScrollArea) CalcChildsBounds() {
@@ -120,13 +110,18 @@ func (sa *ScrollArea) taHeight() fixed.Int26_6 {
 	return sa.ta.StrHeight() + extra
 }
 
-func (sa *ScrollArea) onButtonPress(ev0 interface{}) {
-	if sa.Hidden() {
-		return
+func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	switch evt := ev0.(type) {
+	case *xinput.ButtonPressEvent:
+		sa.onButtonPress(evt)
+	case *xinput.ButtonReleaseEvent:
+		sa.onButtonRelease(evt)
+	case *xinput.MotionNotifyEvent:
+		sa.onMotionNotify(evt)
 	}
-
-	ev := ev0.(*xinput.ButtonPressEvent)
-
+	return false
+}
+func (sa *ScrollArea) onButtonPress(ev *xinput.ButtonPressEvent) {
 	// allow scrolling in content area
 	if ev.Point.In(sa.Bounds()) && !ev.Point.In(*sa.VBarBounds()) {
 		switch {
@@ -142,6 +137,7 @@ func (sa *ScrollArea) onButtonPress(ev0 interface{}) {
 		return
 	}
 	sa.buttonPressed = true
+	sa.ui.Layout.SetInputEventNode(sa, true)
 	switch {
 	case ev.Button.Button(1):
 		sa.SetVBarOrigPad(ev.Point) // keep pad for drag calc
@@ -152,21 +148,20 @@ func (sa *ScrollArea) onButtonPress(ev0 interface{}) {
 		sa.ta.PageDown()
 	}
 }
-func (sa *ScrollArea) onButtonRelease(ev0 interface{}) {
+func (sa *ScrollArea) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	if !sa.buttonPressed {
 		return
 	}
 	sa.buttonPressed = false
-	ev := ev0.(*xinput.ButtonReleaseEvent)
+	sa.ui.Layout.SetInputEventNode(sa, false)
 	if ev.Button.Button(1) {
 		sa.CalcPositionFromPoint(ev.Point)
 	}
 }
-func (sa *ScrollArea) onMotionNotify(ev0 interface{}) {
+func (sa *ScrollArea) onMotionNotify(ev *xinput.MotionNotifyEvent) {
 	if !sa.buttonPressed {
 		return
 	}
-	ev := ev0.(*xinput.MotionNotifyEvent)
 	switch {
 	case ev.Mods.HasButton(1):
 		sa.CalcPositionFromPoint(ev.Point)

@@ -13,6 +13,7 @@ import (
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
+	"github.com/jmigpin/editor/xgbutil/xinput"
 	"github.com/jmigpin/editor/xgbutil/xwindow"
 
 	"github.com/BurntSushi/xgb/xproto"
@@ -67,6 +68,15 @@ func NewUI(fface font.Face) (*UI, error) {
 
 	ui.EvReg.Add(xproto.Expose, ui.onExpose)
 	ui.EvReg.Add(evreg.ShmCompletionEventId, ui.onShmCompletion)
+
+	// TODO: can be improved with a "pointevent" that as a point to test inbounds
+	ui.EvReg.Add(xinput.KeyPressEventId, ui.onKeyPress)
+	ui.EvReg.Add(xinput.ButtonPressEventId, ui.onButtonPress)
+	ui.EvReg.Add(xinput.ButtonReleaseEventId, ui.onButtonRelease)
+	ui.EvReg.Add(xinput.MotionNotifyEventId, ui.onMotionNotify)
+	ui.EvReg.Add(xinput.DoubleClickEventId, ui.onDoubleClick)
+	ui.EvReg.Add(xinput.TripleClickEventId, ui.onTripleClick)
+
 	ui.EvReg.Add(UITextAreaAppendAsyncEventId, ui.onTextAreaAppendAsync)
 	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId, ui.onTextAreaInsertStringAsync)
 	ui.EvReg.Add(UIRowDoneExecutingAsyncEventId, ui.onRowDoneExecutingAsync)
@@ -108,6 +118,31 @@ func (ui *UI) PaintIfNeeded() (painted bool) {
 }
 func (ui *UI) onShmCompletion(_ interface{}) {
 	ui.incompleteDraws--
+}
+
+func (ui *UI) onKeyPress(ev0 interface{}) {
+	ev := ev0.(*xinput.KeyPressEvent)
+	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+}
+func (ui *UI) onButtonPress(ev0 interface{}) {
+	ev := ev0.(*xinput.ButtonPressEvent)
+	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+}
+func (ui *UI) onButtonRelease(ev0 interface{}) {
+	ev := ev0.(*xinput.ButtonReleaseEvent)
+	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+}
+func (ui *UI) onMotionNotify(ev0 interface{}) {
+	ev := ev0.(*xinput.MotionNotifyEvent)
+	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+}
+func (ui *UI) onDoubleClick(ev0 interface{}) {
+	ev := ev0.(*xinput.DoubleClickEvent)
+	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+}
+func (ui *UI) onTripleClick(ev0 interface{}) {
+	ev := ev0.(*xinput.TripleClickEvent)
+	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
 }
 
 func (ui *UI) RequestPaint() {

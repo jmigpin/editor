@@ -276,33 +276,33 @@ func (ed *Editor) eventLoop() {
 		case <-ed.close:
 			goto forEnd
 
-		case ev, ok := <-ed.ui.Events2:
-			if !ok {
-				goto forEnd
-			}
+		case ev, _ := <-ed.ui.Events2:
 
-			switch ev2 := ev.(type) {
-			case *evreg.EventWrap:
+			// TODO: replace this with evreg.onevent callback?
 
-				switch ev2.EventId {
-				case evreg.NoOpEventId:
-					// do nothing, allows to check if paint is needed
-				case evreg.ErrorEventId:
-					err := ev2.Event.(error)
-					if err, ok := err.(xgb.Error); ok {
-						log.Print(err)
-					} else {
-						ed.Error(err)
-					}
-				default:
-					n := ed.ui.EvReg.RunCallbacks(ev2.EventId, ev2.Event)
-					if n == 0 {
-						// unhandled enqueued events (mostly coming from xgb)
-						ed.Errorf("%#v", ev2)
-					}
+			// commented: ed.close is used
+			//if !ok {
+			//	goto forEnd
+			//}
+
+			ev2 := ev.(*evreg.EventWrap) // always this type for now
+
+			switch ev2.EventId {
+			case evreg.NoOpEventId:
+				// do nothing, allows to check if paint is needed
+			case evreg.ErrorEventId:
+				err := ev2.Event.(error)
+				if err, ok := err.(xgb.Error); ok {
+					log.Print(err)
+				} else {
+					ed.Error(err)
 				}
 			default:
-				panic(fmt.Sprintf("unhandled event type: %v", ev))
+				n := ed.ui.EvReg.RunCallbacks(ev2.EventId, ev2.Event)
+				if n == 0 {
+					// unhandled enqueued events (mostly coming from xgb)
+					ed.Errorf("%#v", ev2)
+				}
 			}
 
 		case ev, ok := <-ed.fwatcher.Events:

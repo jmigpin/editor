@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"image"
+
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
@@ -15,9 +17,8 @@ type Row struct {
 	TextArea   *TextArea
 	sep        *widget.Space
 
-	Col     *Column
-	EvReg   *evreg.Register
-	evUnreg evreg.Unregister
+	Col   *Column
+	EvReg *evreg.Register
 
 	buttonPressed bool
 
@@ -30,10 +31,6 @@ func NewRow(col *Column) *Row {
 	ui := row.Col.Cols.Layout.UI
 
 	row.EvReg = evreg.NewRegister()
-	r1 := ui.EvReg.Add(xinput.KeyPressEventId, row.onKeyPress)
-	r2 := ui.EvReg.Add(xinput.ButtonPressEventId, row.onButtonPress)
-	r3 := ui.EvReg.Add(xinput.ButtonReleaseEventId, row.onButtonRelease)
-	row.evUnreg.Add(r1, r2, r3)
 
 	row.Toolbar = NewToolbar(ui, row)
 	row.Toolbar.SetExpand(true, false)
@@ -95,11 +92,6 @@ func (row *Row) activate() {
 }
 func (row *Row) Close() {
 	row.Col.removeRow(row)
-	row.evUnreg.UnregisterAll()
-	row.scrollArea.Close()
-	row.Toolbar.Close()
-	row.TextArea.Close()
-	row.Square.Close()
 	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
 }
 func (row *Row) onSquareButtonPress(ev0 interface{}) {
@@ -157,31 +149,32 @@ func (row *Row) onSquareMotionNotify(ev0 interface{}) {
 		col.Cols.resizeColumn(col, p2.X)
 	}
 }
-func (row *Row) onKeyPress(ev0 interface{}) {
-	ev := ev0.(*xinput.KeyPressEvent)
-	if !ev.Point.In(row.Bounds()) {
-		return
+
+func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	switch evt := ev0.(type) {
+	case *xinput.KeyPressEvent:
+		row.onKeyPress(evt)
+	case *xinput.ButtonPressEvent:
+		row.onButtonPress(evt)
+	case *xinput.ButtonReleaseEvent:
+		row.onButtonRelease(evt)
 	}
+	return false
+}
+
+func (row *Row) onKeyPress(ev *xinput.KeyPressEvent) {
 	row.activate()
 	ev2 := &RowKeyPressEvent{row, ev.Key}
 	row.EvReg.RunCallbacks(RowKeyPressEventId, ev2)
 }
-func (row *Row) onButtonPress(ev0 interface{}) {
-	ev := ev0.(*xinput.ButtonPressEvent)
-	if !ev.Point.In(row.Bounds()) {
-		return
-	}
+func (row *Row) onButtonPress(ev *xinput.ButtonPressEvent) {
 	row.buttonPressed = true
 }
-func (row *Row) onButtonRelease(ev0 interface{}) {
+func (row *Row) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	if !row.buttonPressed {
 		return
 	}
 	row.buttonPressed = false
-	ev := ev0.(*xinput.ButtonReleaseEvent)
-	if !ev.Point.In(row.Bounds()) {
-		return
-	}
 	row.activate()
 }
 func (row *Row) WarpPointer() {

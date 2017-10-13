@@ -14,9 +14,8 @@ import (
 // Used in row and column to move and close.
 type Square struct {
 	widget.EmbedNode
-	ui      *UI
-	EvReg   *evreg.Register
-	evUnreg evreg.Unregister
+	ui    *UI
+	EvReg *evreg.Register
 
 	pressPointPad image.Point
 	buttonPressed bool
@@ -30,19 +29,15 @@ func NewSquare(ui *UI) *Square {
 	sq.Width = SquareWidth
 
 	sq.EvReg = evreg.NewRegister()
-	r1 := sq.ui.EvReg.Add(xinput.ButtonPressEventId, sq.onButtonPress)
-	r2 := sq.ui.EvReg.Add(xinput.ButtonReleaseEventId, sq.onButtonRelease)
-	r3 := sq.ui.EvReg.Add(xinput.MotionNotifyEventId, sq.onMotionNotify)
-	sq.evUnreg.Add(r1, r2, r3)
 
 	//sq.ui.CursorMan.SetBoundsCursor(&sq.Bounds(), xcursor.Icon)
 
 	return sq
 }
-func (sq *Square) Close() {
-	sq.evUnreg.UnregisterAll()
-	//sq.ui.CursorMan.RemoveBoundsCursor(&sq.Bounds())
-}
+
+//func (sq *Square) Close() {
+//	//sq.ui.CursorMan.RemoveBoundsCursor(&sq.Bounds())
+//}
 
 func (sq *Square) Measure(hint image.Point) image.Point {
 	return image.Point{sq.Width, sq.Width}
@@ -109,17 +104,24 @@ func (sq *Square) Paint() {
 		sq.ui.FillRectangle(r, SquareActiveColor)
 	}
 }
-func (sq *Square) onButtonPress(ev0 interface{}) {
-	if sq.Hidden() {
-		return
-	}
 
-	ev := ev0.(*xinput.ButtonPressEvent)
+func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	switch evt := ev0.(type) {
+	case *xinput.ButtonPressEvent:
+		sq.onButtonPress(evt)
+	case *xinput.ButtonReleaseEvent:
+		sq.onButtonRelease(evt)
+	case *xinput.MotionNotifyEvent:
+		sq.onMotionNotify(evt)
+	}
+	return false
+}
+func (sq *Square) onButtonPress(ev *xinput.ButtonPressEvent) {
 	if !ev.Point.In(sq.Bounds()) {
 		return
 	}
 	sq.buttonPressed = true
-
+	sq.ui.Layout.SetInputEventNode(sq, true)
 	var u image.Point
 	if ScrollbarLeft {
 		u = image.Point{sq.Bounds().Min.X, sq.Bounds().Min.Y}
@@ -131,20 +133,19 @@ func (sq *Square) onButtonPress(ev0 interface{}) {
 	ev2 := &SquareButtonPressEvent{sq, ev.Button, ev.Point}
 	sq.EvReg.RunCallbacks(SquareButtonPressEventId, ev2)
 }
-func (sq *Square) onButtonRelease(ev0 interface{}) {
+func (sq *Square) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	if !sq.buttonPressed {
 		return
 	}
 	sq.buttonPressed = false
-	ev := ev0.(*xinput.ButtonReleaseEvent)
+	sq.ui.Layout.SetInputEventNode(sq, false)
 	ev2 := &SquareButtonReleaseEvent{sq, ev.Button, ev.Point}
 	sq.EvReg.RunCallbacks(SquareButtonReleaseEventId, ev2)
 }
-func (sq *Square) onMotionNotify(ev0 interface{}) {
+func (sq *Square) onMotionNotify(ev *xinput.MotionNotifyEvent) {
 	if !sq.buttonPressed {
 		return
 	}
-	ev := ev0.(*xinput.MotionNotifyEvent)
 	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point, &sq.pressPointPad}
 	sq.EvReg.RunCallbacks(SquareMotionNotifyEventId, ev2)
 }

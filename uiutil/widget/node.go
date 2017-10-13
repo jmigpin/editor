@@ -47,6 +47,8 @@ type Node interface {
 
 	Paint() // should not be called directly, called by PaintIfNeeded
 	PaintChilds()
+
+	OnInputEvent(ev interface{}, p image.Point) bool
 }
 
 // These cannot be in a specific implementation (like in EmbedNode).
@@ -77,6 +79,8 @@ func AppendChilds(parent Node, nodes ...Node) {
 	}
 }
 
+// These functions could belong to a node, but are only to be called by the root node.
+
 func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 	if node.Marks().NeedsPaint() {
 		node.Marks().UnmarkNeedsPaint()
@@ -90,6 +94,20 @@ func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 			PaintIfNeeded(child, painted)
 		}
 	}
+}
+
+func ApplyInputEventInBounds(node Node, ev interface{}, p image.Point) bool {
+	// reversed iteration for the possibility that later childs are drawn over
+	// hidden notes are inherently not iterated
+	for c := node.LastChild(); c != nil; c = c.Prev() {
+		if p.In(c.Bounds()) {
+			stop := ApplyInputEventInBounds(c, ev, p)
+			if stop {
+				return true
+			}
+		}
+	}
+	return node.OnInputEvent(ev, p)
 }
 
 type EmbedNode struct {
@@ -274,6 +292,10 @@ func (en *EmbedNode) PaintChilds() {
 		//}(child)
 	}
 	//wg.Wait()
+}
+
+func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
+	return false
 }
 
 //type LeafNode struct {
