@@ -11,7 +11,6 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/xproto"
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
@@ -273,7 +272,6 @@ func (ed *Editor) eventLoop() {
 	}
 
 	for {
-	selectStart:
 		select {
 		case <-ed.close:
 			goto forEnd
@@ -285,14 +283,6 @@ func (ed *Editor) eventLoop() {
 
 			switch ev2 := ev.(type) {
 			case *evreg.EventWrap:
-
-				// bypass quick motionnotify events
-				// TODO: can bypass a motion segment if last event is not motion
-				if len(ed.ui.Events2) > 0 {
-					if ev2.EventId == xproto.MotionNotify {
-						goto selectStart
-					}
-				}
 
 				switch ev2.EventId {
 				case evreg.NoOpEventId:

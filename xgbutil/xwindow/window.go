@@ -5,6 +5,7 @@ import (
 	"image/draw"
 	"log"
 	"runtime"
+	"time"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -160,20 +161,78 @@ func (win *Window) init() error {
 }
 
 func (win *Window) eventLoop() {
-	for {
-		ev, xerr := win.Conn.WaitForEvent()
-		if ev == nil && xerr == nil {
-			win.evReg.Enqueue(evreg.ConnectionClosedEventId, nil)
-			goto forEnd
+	events := make(chan interface{}, 8)
+
+	go func() {
+		for {
+			ev, xerr := win.Conn.WaitForEvent()
+			if ev == nil && xerr == nil {
+				events <- &evreg.EventWrap{evreg.ConnectionClosedEventId, nil}
+				close(events)
+				goto forEnd
+			}
+			if xerr != nil {
+				events <- &evreg.EventWrap{evreg.ErrorEventId, xerr}
+			} else if ev != nil {
+				eid := evreg.XgbEventId(ev)
+				events <- &evreg.EventWrap{eid, ev}
+			}
 		}
-		if xerr != nil {
-			win.evReg.EnqueueError(xerr)
-		} else if ev != nil {
-			eid := evreg.XgbEventId(ev)
-			win.evReg.Enqueue(eid, ev)
+	forEnd:
+	}()
+
+	win.motionEventFilterLoop(events, win.evReg.Events)
+}
+
+func (win *Window) motionEventFilterLoop(in <-chan interface{}, out chan<- interface{}) {
+	var lastMotionEv interface{}
+	var ticker *time.Ticker
+	zeroChan := make(chan time.Time)
+	var timeToSend <-chan time.Time = zeroChan
+
+	//n := 0
+	keepMotionEv := func(ev interface{}) {
+		//n++
+		lastMotionEv = ev
+		if ticker == nil {
+			ticker = time.NewTicker(time.Second / 30)
+			timeToSend = ticker.C
 		}
 	}
-forEnd:
+
+	sendMotionEv := func() {
+		//log.Printf("kept %d times before sending", n)
+		//n = 0
+		ticker.Stop()
+		ticker = nil
+		timeToSend = zeroChan
+		out <- lastMotionEv
+	}
+
+	sendMotionEvIfKept := func() {
+		if ticker != nil {
+			sendMotionEv()
+		}
+	}
+
+	for {
+		select {
+		case ev, ok := <-in:
+			if !ok {
+				break
+			}
+			evw := ev.(*evreg.EventWrap)
+			switch evw.Event.(type) {
+			case xproto.MotionNotifyEvent:
+				keepMotionEv(evw)
+			default:
+				sendMotionEvIfKept()
+				out <- evw
+			}
+		case <-timeToSend:
+			sendMotionEv()
+		}
+	}
 }
 
 func (win *Window) Close() {
