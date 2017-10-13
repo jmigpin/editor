@@ -27,6 +27,7 @@ type Window struct {
 	GCtx   xproto.Gcontext
 
 	evReg *evreg.Register
+	done  chan struct{}
 
 	Dnd          *dragndrop.Dnd
 	Paste        *copypaste.Paste
@@ -49,6 +50,7 @@ func NewWindow(evReg *evreg.Register) (*Window, error) {
 	win := &Window{
 		Conn:  conn,
 		evReg: evReg,
+		done:  make(chan struct{}, 1),
 	}
 	if err := win.init(); err != nil {
 		return nil, errors.Wrap(err, "win init")
@@ -59,7 +61,10 @@ func NewWindow(evReg *evreg.Register) (*Window, error) {
 	return win, nil
 }
 func (win *Window) init() error {
-	// disable xgb logger that prints to stderr
+	// Disable xgb logger that prints to stderr
+	// Prevents error msg on clean exit when testing in race mode
+	// "XGB: xgb.go:526: Invalid event/error type: <nil>"
+	// this is an issue with xgb not exiting cleanly on conn.close
 	//xgb.Logger = log.New(ioutil.Discard, "", 0)
 
 	si := xproto.Setup(win.Conn)
@@ -160,6 +165,17 @@ func (win *Window) init() error {
 	return nil
 }
 
+func (win *Window) Close() {
+	err := win.ShmImageWrap.Close()
+	if err != nil {
+		log.Println(err)
+	}
+	win.Conn.Close()
+
+	// xgb is not exiting cleanly otherwise this should not block
+	// <-win.done
+}
+
 func (win *Window) eventLoop() {
 	events := make(chan interface{}, 8)
 
@@ -182,6 +198,8 @@ func (win *Window) eventLoop() {
 	}()
 
 	win.motionEventFilterLoop(events, win.evReg.Events)
+
+	win.done <- struct{}{}
 }
 
 func (win *Window) motionEventFilterLoop(in <-chan interface{}, out chan<- interface{}) {
@@ -219,7 +237,7 @@ func (win *Window) motionEventFilterLoop(in <-chan interface{}, out chan<- inter
 		select {
 		case ev, ok := <-in:
 			if !ok {
-				break
+				goto forEnd
 			}
 			evw := ev.(*evreg.EventWrap)
 			switch evw.Event.(type) {
@@ -233,14 +251,7 @@ func (win *Window) motionEventFilterLoop(in <-chan interface{}, out chan<- inter
 			sendMotionEv()
 		}
 	}
-}
-
-func (win *Window) Close() {
-	err := win.ShmImageWrap.Close()
-	if err != nil {
-		log.Println(err)
-	}
-	win.Conn.Close()
+forEnd:
 }
 
 func (win *Window) SetWindowName(str string) {

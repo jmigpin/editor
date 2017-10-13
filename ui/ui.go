@@ -69,12 +69,12 @@ func NewUI(fface font.Face) (*UI, error) {
 	ui.EvReg.Add(evreg.ShmCompletionEventId, ui.onShmCompletion)
 	ui.EvReg.Add(UITextAreaAppendAsyncEventId, ui.onTextAreaAppendAsync)
 	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId, ui.onTextAreaInsertStringAsync)
+	ui.EvReg.Add(UIRowDoneExecutingAsyncEventId, ui.onRowDoneExecutingAsync)
 
 	return ui, nil
 }
 func (ui *UI) Close() {
 	ui.win.Close()
-	close(ui.Events2)
 }
 
 func (ui *UI) onExpose(ev0 interface{}) {
@@ -272,9 +272,15 @@ func (ui *UI) onTextAreaInsertStringAsync(ev0 interface{}) {
 	tautil.InsertString(ev.TextArea, ev.Str)
 }
 
+func (ui *UI) onRowDoneExecutingAsync(ev0 interface{}) {
+	ev := ev0.(*UIRowDoneExecutingAsyncEvent)
+	ev.Row.Square.SetValue(SquareExecuting, false)
+}
+
 const (
 	UITextAreaAppendAsyncEventId = evreg.UIEventIdStart + iota
 	UITextAreaInsertStringAsyncEventId
+	UIRowDoneExecutingAsyncEventId
 )
 
 type UITextAreaAppendAsyncEvent struct {
@@ -284,4 +290,7 @@ type UITextAreaAppendAsyncEvent struct {
 type UITextAreaInsertStringAsyncEvent struct {
 	TextArea *TextArea
 	Str      string
+}
+type UIRowDoneExecutingAsyncEvent struct {
+	Row *Row
 }

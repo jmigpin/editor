@@ -3,7 +3,6 @@ package widget
 import (
 	"container/list"
 	"image"
-	"sync"
 )
 
 type Node interface {
@@ -260,18 +259,21 @@ func (en *EmbedNode) Paint() {
 }
 
 func (en *EmbedNode) PaintChilds() {
+	// commented waitgroup code to avoid data races
+	// childs now need to check parents to see if they are hidden and splitting the work here causes runtime detection
+
 	en.Marks().UnmarkChildNeedsPaint()
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	for _, child := range en.Childs() {
-		wg.Add(1)
-		go func(child Node) {
-			defer wg.Done()
-			en.Marks().UnmarkNeedsPaint()
-			child.Paint()
-			child.PaintChilds()
-		}(child)
+		//wg.Add(1)
+		//go func(child Node) {
+		//defer wg.Done()
+		en.Marks().UnmarkNeedsPaint()
+		child.Paint()
+		child.PaintChilds()
+		//}(child)
 	}
-	wg.Wait()
+	//wg.Wait()
 }
 
 //type LeafNode struct {

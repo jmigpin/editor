@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os/exec"
 	"strings"
 	"sync"
@@ -79,6 +80,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 		for {
 			n, err := pr.Read(buf[:])
 			if n > 0 {
+				log.Printf("external cmd n %v", n)
 				taAppend(string(buf[:n]))
 			}
 			if err != nil {
@@ -111,8 +113,8 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 	row := erow.Row()
 	gRowCtx.ClearIfNotNewCtx(row, ctx, func() {
 		// indicate the cmd is not running anymore
-		row.Square.SetValue(ui.SquareExecuting, false)
-		row.Square.SetValue(ui.SquareEdited, false)
-		row.Col.Cols.Layout.UI.RequestPaint()
+		eid := ui.UIRowDoneExecutingAsyncEventId
+		ev := &ui.UIRowDoneExecutingAsyncEvent{row}
+		erow.Ed().UI().EvReg.Enqueue(eid, ev)
 	})
 }
