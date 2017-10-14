@@ -445,11 +445,12 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *xinput.KeyPressEvent:
 		ta.onKeyPress(evt)
 	case *xinput.ButtonPressEvent:
-		ta.onButtonPress(evt)
-	case *xinput.ButtonReleaseEvent:
-		ta.onButtonRelease(evt)
+		return ta.onButtonPress(evt)
 	case *xinput.MotionNotifyEvent:
 		ta.onMotionNotify(evt)
+	case *xinput.ButtonReleaseEvent:
+		ta.onButtonRelease(evt)
+		return true
 	case *xinput.DoubleClickEvent:
 		ta.onDoubleClick(evt)
 	case *xinput.TripleClickEvent:
@@ -457,9 +458,8 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	}
 	return false
 }
-func (ta *TextArea) onButtonPress(ev *xinput.ButtonPressEvent) {
+func (ta *TextArea) onButtonPress(ev *xinput.ButtonPressEvent) bool {
 	ta.buttonPressed = true
-	ta.ui.Layout.SetInputEventNode(ta, true)
 	switch {
 	case ev.Button.Button(1):
 		switch {
@@ -470,19 +470,10 @@ func (ta *TextArea) onButtonPress(ev *xinput.ButtonPressEvent) {
 		}
 	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		ta.ui.CursorMan.SetCursor(xcursor.Hand2)
-		ta.ui.Layout.SetInputEventNode(ta, true)
-
-		//case ev.Button.Button(4):
-		//	canScroll := !ta.DisablePageUpDown
-		//	if canScroll {
-		//		tautil.ScrollUp(ta)
-		//	}
-		//case ev.Button.Button(5):
-		//	canScroll := !ta.DisablePageUpDown
-		//	if canScroll {
-		//		tautil.ScrollDown(ta)
-		//	}
+	default:
+		return false
 	}
+	return true
 }
 func (ta *TextArea) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	if !ta.buttonPressed {
@@ -491,7 +482,6 @@ func (ta *TextArea) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	ta.buttonPressed = false
 
 	ta.ui.CursorMan.UnsetCursor()
-	ta.ui.Layout.SetInputEventNode(ta, false)
 
 	// release must be in the area
 	if !ev.Point.In(ta.Bounds()) {

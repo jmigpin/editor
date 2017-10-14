@@ -122,27 +122,42 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 
 func (ui *UI) onKeyPress(ev0 interface{}) {
 	ev := ev0.(*xinput.KeyPressEvent)
-	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+	ui.handleInputEvent(ev, ev.Point)
 }
 func (ui *UI) onButtonPress(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonPressEvent)
-	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+	ui.handleInputEvent(ev, ev.Point)
 }
 func (ui *UI) onButtonRelease(ev0 interface{}) {
 	ev := ev0.(*xinput.ButtonReleaseEvent)
-	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+	ui.handleInputEvent(ev, ev.Point)
 }
 func (ui *UI) onMotionNotify(ev0 interface{}) {
 	ev := ev0.(*xinput.MotionNotifyEvent)
-	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+	ui.handleInputEvent(ev, ev.Point)
 }
 func (ui *UI) onDoubleClick(ev0 interface{}) {
 	ev := ev0.(*xinput.DoubleClickEvent)
-	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+	ui.handleInputEvent(ev, ev.Point)
 }
 func (ui *UI) onTripleClick(ev0 interface{}) {
 	ev := ev0.(*xinput.TripleClickEvent)
-	widget.ApplyInputEventInBounds(ui.Layout, ev, *ev.Point)
+	ui.handleInputEvent(ev, ev.Point)
+}
+func (ui *UI) handleInputEvent(ev0 interface{}, p *image.Point) {
+	widget.ApplyInputEventInBounds(
+		ui.Layout,
+		ev0,
+		*p,
+		func(ev interface{}) bool {
+			_, ok := ev.(*xinput.ButtonPressEvent)
+			return ok
+		},
+		func(ev interface{}) bool {
+			_, ok := ev.(*xinput.ButtonReleaseEvent)
+			return ok
+		},
+	)
 }
 
 func (ui *UI) RequestPaint() {

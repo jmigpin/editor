@@ -93,18 +93,55 @@ func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 	}
 }
 
-func ApplyInputEventInBounds(node Node, ev interface{}, p image.Point) bool {
+// ApplyInputEventInBounds press node var
+var pressNode Node
+
+// Auto-locks all input events into the node on the tree that handles
+// a press event. The node is responsible for unlocking by handling
+// the release event. Handling means OnInputEvent() returns true.
+// TESTING: scrollarea, square, textarea
+func ApplyInputEventInBounds(
+	node Node,
+	ev interface{},
+	p image.Point,
+	isPressEvent func(ev interface{}) bool,
+	isReleaseEvent func(ev interface{}) bool,
+) bool {
+
+	// run events on press node only when present
+	if pressNode != nil {
+		handled := pressNode.OnInputEvent(ev, p)
+		if handled {
+			// unlock node
+			if isReleaseEvent(ev) {
+				//log.Printf("unlocking %p", pressNode)
+				pressNode = nil
+			}
+			return true
+		}
+		return false
+	}
+
 	// reversed iteration for the possibility that later childs are drawn over
 	// hidden notes are inherently not iterated
 	for c := node.LastChild(); c != nil; c = c.Prev() {
 		if p.In(c.Bounds()) {
-			stop := ApplyInputEventInBounds(c, ev, p)
-			if stop {
+			handled := ApplyInputEventInBounds(c, ev, p, isPressEvent, isReleaseEvent)
+			if handled {
 				return true
 			}
 		}
 	}
-	return node.OnInputEvent(ev, p)
+
+	handled := node.OnInputEvent(ev, p)
+	if handled {
+		// lock node
+		if isPressEvent(ev) {
+			//log.Printf("locking %p", node)
+			pressNode = node
+		}
+	}
+	return handled
 }
 
 type EmbedNode struct {

@@ -118,13 +118,11 @@ func (sa *ScrollArea) taHeight() fixed.Int26_6 {
 func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	switch evt := ev0.(type) {
 	case *xinput.ButtonPressEvent:
-		sa.ui.Layout.SetInputEventNode(sa, true)
 		sa.onButtonPress(evt)
 		return true
 	case *xinput.MotionNotifyEvent:
 		sa.onMotionNotify(evt)
 	case *xinput.ButtonReleaseEvent:
-		sa.ui.Layout.SetInputEventNode(sa, false)
 		sa.onButtonRelease(evt)
 		return true
 	}

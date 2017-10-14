@@ -109,10 +109,12 @@ func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	switch evt := ev0.(type) {
 	case *xinput.ButtonPressEvent:
 		sq.onButtonPress(evt)
-	case *xinput.ButtonReleaseEvent:
-		sq.onButtonRelease(evt)
+		return true
 	case *xinput.MotionNotifyEvent:
 		sq.onMotionNotify(evt)
+	case *xinput.ButtonReleaseEvent:
+		sq.onButtonRelease(evt)
+		return true
 	}
 	return false
 }
@@ -121,7 +123,6 @@ func (sq *Square) onButtonPress(ev *xinput.ButtonPressEvent) {
 		return
 	}
 	sq.buttonPressed = true
-	sq.ui.Layout.SetInputEventNode(sq, true)
 	var u image.Point
 	if ScrollbarLeft {
 		u = image.Point{sq.Bounds().Min.X, sq.Bounds().Min.Y}
@@ -138,7 +139,6 @@ func (sq *Square) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 		return
 	}
 	sq.buttonPressed = false
-	sq.ui.Layout.SetInputEventNode(sq, false)
 	ev2 := &SquareButtonReleaseEvent{sq, ev.Button, ev.Point}
 	sq.EvReg.RunCallbacks(SquareButtonReleaseEventId, ev2)
 }
