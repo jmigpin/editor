@@ -69,11 +69,12 @@ Usage of ./editor:
 
 (top square):
 
-- `button1` click: maximize/unmaximize
-- `button1` drag: move row to point
+- `button1`:
+  - click: maximize/unmaximize
+  - drag vertical: resize row
+  - drag horizontal: resize column
+  - drag diagonal: move row
 - `button2`: close row
-- `button3` drag: resize column
-- `ctrl`+`button1` drag: move row column to point
 
 #### Textarea key/button shortcuts
 
@@ -152,7 +153,7 @@ Note: Some row commands work from the layout toolbar because they act on the cur
 - `OpenSession <name>`: opens previously saved session
 - `<url>`: opens url in x-www-browser
 - `<filepath>`: opens filepath
-- `<filename:number>`: opens filename at line (usual format from compilers)
+- `<filename:number:number?>`: opens filename at line (usual format from compilers)
 - `<quoted string>`: opens filepath if existent on goroot/gopath
 
 ### Notes
