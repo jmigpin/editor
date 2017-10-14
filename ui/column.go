@@ -123,18 +123,18 @@ func (col *Column) onSquareButtonPress(ev0 interface{}) {
 	ui := col.Cols.Layout.UI
 
 	switch {
+	case ev.Button.Button(1):
+		ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+		col.startResizeToPoint(ev.Point)
 	case ev.Button.Button(2):
 		// indicate close
 		ui.CursorMan.SetCursor(xcursor.XCursor)
-	case ev.Button.Button(3):
-		ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
-		col.startResizeToPoint(ev.Point)
 	}
 }
 func (col *Column) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
-	case ev.Mods.IsButton(3):
+	case ev.Mods.IsButton(1):
 		col.resizeToPoint(ev.Point)
 	}
 }
@@ -145,12 +145,12 @@ func (col *Column) onSquareButtonRelease(ev0 interface{}) {
 	ui.CursorMan.UnsetCursor()
 
 	switch {
+	case ev.Button.Mods.IsButton(1):
+		col.endResizeToPoint(ev.Point)
 	case ev.Button.Mods.IsButton(2):
 		if ev.Point.In(col.Square.Bounds()) {
 			col.Cols.CloseColumnEnsureOne(col)
 		}
-	case ev.Button.Mods.IsButton(3):
-		col.endResizeToPoint(ev.Point)
 	}
 }
 
