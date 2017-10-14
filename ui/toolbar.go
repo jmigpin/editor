@@ -36,6 +36,6 @@ func (tb *Toolbar) onTextAreaSetStr(ev0 interface{}) {
 	b2 := tb.Bounds() // new recalc'ed bounds
 	p, ok := tb.ui.QueryPointer()
 	if ok && p.In(ev.OldBounds) && !p.In(b2) {
-		tb.ui.WarpPointerToRectanglePad(&b)
+		tb.ui.WarpPointerToRectanglePad(&b2)
 	}
 }

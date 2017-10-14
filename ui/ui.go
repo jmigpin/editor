@@ -169,94 +169,32 @@ func (ui *UI) QueryPointer() (*image.Point, bool) {
 }
 func (ui *UI) WarpPointer(p *image.Point) {
 	ui.win.WarpPointer(p)
-	//ui.animatedWarpPointer(p)
 }
-
-//func (ui *UI) animatedWarpPointer(p *image.Point) {
-//	p0, ok := ui.QueryPointer()
-//	if !ok {
-//		ui.win.WarpPointer(p)
-//		return
-//	}
-
-//	//jump := 50
-//	//jumpTime := time.Duration(20 * time.Millisecond)
-
-//	//dx := p.X - p0.X
-//	//dy := p.Y - p0.Y
-//	//dist := math.Sqrt(float64(dx*dx + dy*dy))
-//	//jx := int(float64(jump) * float64(dx) / dist)
-//	//jy := int(float64(jump) * float64(dy) / dist)
-//	//x, y := p0.X, p0.Y
-//	//for u := 0.0; u < dist; u += float64(jump) {
-//	//	x, y = x+jx, y+jy
-//	//	p2 := image.Point{x, y}
-//	//	ui.win.WarpPointer(&p2)
-//	//	time.Sleep(jumpTime)
-//	//}
-//	//ui.win.WarpPointer(p)
-
-//	//return
-
-//	fps := 30
-//	frameDur := time.Second / time.Duration(fps)
-//	dur := time.Duration(400 * time.Millisecond)
-//	now := time.Now()
-//	end := now.Add(dur)
-//	for ; !now.After(end); now = time.Now() {
-//		step := dur - end.Sub(now)
-//		step2 := float64(step) / float64(dur)
-
-//		dx := p.X - p0.X
-//		x := p0.X + int(float64(dx)*step2)
-
-//		dy := p.Y - p0.Y
-//		y := p0.Y + int(float64(dy)*step2)
-
-//		p2 := &image.Point{x, y}
-
-//		ui.win.WarpPointer(p2)
-
-//		time.Sleep(frameDur)
-//	}
-
-//	// ensure final position at p
-//	ui.win.WarpPointer(p)
-//}
 
 func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
 	p, ok := ui.QueryPointer()
 	if !ok {
 		return
 	}
-	// pad rectangle
-	pad := 25
+
+	pad := 5
+
+	set := func(v *int, min, max int) {
+		if max-min < pad*2 {
+			*v = min + (max-min)/2
+		} else {
+			if *v < min+pad {
+				*v = min + pad
+			} else if *v > max-pad {
+				*v = max - pad
+			}
+		}
+	}
+
 	r := *r0
-	if r.Dx() < pad*2 {
-		r.Min.X = r.Min.X + r.Dx()/2
-		r.Max.X = r.Min.X
-	} else {
-		r.Min.X += pad
-		r.Max.X -= pad
-	}
-	if r.Dy() < pad*2 {
-		r.Min.Y = r.Min.Y + r.Dy()/2
-		r.Max.Y = r.Min.Y
-	} else {
-		r.Min.Y += pad
-		r.Max.Y -= pad
-	}
-	// put p inside
-	if p.Y < r.Min.Y {
-		p.Y = r.Min.Y
-	} else if p.Y >= r.Max.Y {
-		p.Y = r.Max.Y
-	}
-	if p.X < r.Min.X {
-		p.X = r.Min.X
-	} else if p.X >= r.Max.X {
-		p.X = r.Max.X
-	}
+	set(&p.X, r.Min.X, r.Max.X)
+	set(&p.Y, r.Min.Y, r.Max.Y)
+
 	ui.WarpPointer(p)
 }
 
