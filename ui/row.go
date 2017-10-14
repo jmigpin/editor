@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"math"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil/widget"
@@ -22,7 +23,12 @@ type Row struct {
 
 	buttonPressed bool
 
-	state RowState
+	resize struct {
+		detect bool
+		on     bool
+		origin image.Point
+		typ    RowRType
+	}
 }
 
 func NewRow(col *Column) *Row {
@@ -99,11 +105,21 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	ui := row.Col.Cols.Layout.UI
 	switch {
 	case ev.Button.Button(1):
+		// indicate moving
 		ui.CursorMan.SetCursor(xcursor.Fleur)
 	case ev.Button.Button(2):
+		// indicate close
 		ui.CursorMan.SetCursor(xcursor.XCursor)
 	case ev.Button.Button(3):
-		ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+		row.startResizeToPoint(ev.Point)
+	}
+}
+func (row *Row) onSquareMotionNotify(ev0 interface{}) {
+	ev := ev0.(*SquareMotionNotifyEvent)
+	switch {
+	case ev.Mods.IsButton(1):
+	case ev.Mods.IsButton(3):
+		row.detectAndResizeToPoint(ev.Point)
 	}
 }
 func (row *Row) onSquareButtonRelease(ev0 interface{}) {
@@ -113,40 +129,21 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
 	case ev.Button.Mods.IsButton(1):
-		// toggle maximize
-		r, ok := row.Col.Cols.PointRow(ev.Point)
-		if ok && r == row {
-			row.toggleMaximize()
-			break
+		if ev.Point.In(row.Square.Bounds()) {
+			row.maximizeRow()
+		} else {
+			row.moveRowToPoint(ev.Point)
 		}
 
-		// TODO: review
-		c, r, ok := row.Col.Cols.PointNextRow(row, ev.Point)
-		if ok {
+	//case ev.Button.Mods.IsButtonAndControl(1):
+	//row.Col.Cols.MoveColumnToPoint(row.Col, ev.Point)
 
-			// fix row states on this column before moving the row
-			if row.state == RowMaximizedState {
-				row.setRowsState(RowNormalState)
-			}
-			row.setState(RowNormalState)
-
-			row.Col.Cols.MoveRowToColumnBeforeRow(row, c, r)
-		}
-	case ev.Button.Mods.IsButtonAndControl(1):
-		row.Col.Cols.MoveColumnToPoint(row.Col, ev.Point)
 	case ev.Button.Mods.IsButton(2):
 		if ev.Point.In(row.Square.Bounds()) {
 			row.Close()
 		}
-	}
-}
-func (row *Row) onSquareMotionNotify(ev0 interface{}) {
-	ev := ev0.(*SquareMotionNotifyEvent)
-	switch {
-	case ev.Mods.IsButton(3):
-		p2 := ev.Point.Add(*ev.PressPointPad)
-		col := row.Col
-		col.Cols.resizeColumn(col, p2.X)
+	case ev.Button.Mods.IsButton(3):
+		row.endResizeToPoint(ev.Point)
 	}
 }
 
@@ -196,44 +193,120 @@ func (row *Row) HideSeparator(v bool) {
 	}
 }
 
-func (row *Row) toggleMaximize() {
-	switch row.state {
-	case RowNormalState:
-		row.maximize()
-	case RowMinimizedState:
-		row.maximize()
-	case RowMaximizedState:
-		row.unmaximize()
+func (row *Row) startResizeToPoint(p *image.Point) {
+	row.resize.detect = true
+	row.resize.on = false
+	row.resize.origin = p.Sub(row.Square.Bounds().Min)
+}
+func (row *Row) detectAndResizeToPoint(p *image.Point) {
+	if row.resize.detect {
+		row.detectResize(p)
+	}
+	if row.resize.on {
+		switch row.resize.typ {
+		case ResizeRowRType:
+			row.resizeRowToPoint(p)
+		case ResizeColumnRType:
+			row.resizeColumnToPoint(p)
+		default:
+			panic("!")
+		}
 	}
 }
-func (row *Row) maximize() {
-	row.setRowsState(RowMinimizedState)
-	row.setState(RowMaximizedState)
+func (row *Row) detectResize(p *image.Point) {
+	u := p.Sub(row.Square.Bounds().Min)
+	w := u.Sub(row.resize.origin)
+	x := math.Abs(float64(w.X))
+	y := math.Abs(float64(w.Y))
+
+	// give some pixels to make the decision
+	dist := math.Sqrt(x*x + y*y)
+	if dist < 15 {
+		return
+	}
+
+	// detect
+	a := math.Atan(y/x) * 180.0 / math.Pi
+	sc := row.Col.Cols.Layout.UI.CursorMan.SetCursor
+	if a <= 45 {
+		// horizontal
+		sc(xcursor.SBHDoubleArrow)
+		row.resize.typ = ResizeColumnRType
+	} else {
+		// vertical
+		sc(xcursor.SBVDoubleArrow)
+		row.resize.typ = ResizeRowRType
+	}
+
+	// re-keep origin to avoid jump
+	row.resize.origin = p.Sub(row.Square.Bounds().Min)
+
+	row.resize.detect = false
+	row.resize.on = true
+
+}
+func (row *Row) endResizeToPoint(p *image.Point) {
+	if row.resize.on {
+		row.resize.on = false
+		switch row.resize.typ {
+		case ResizeRowRType:
+			row.resizeRowToPoint(p)
+		case ResizeColumnRType:
+			row.resizeColumnToPoint(p)
+		default:
+			panic("!")
+		}
+	}
+}
+func (row *Row) resizeRowToPoint(p *image.Point) {
+	bounds := row.Col.Bounds()
+	dy := float64(bounds.Dy())
+	perc := float64(p.Sub(row.resize.origin).Sub(bounds.Min).Y) / dy
+	min := 30 / dy
+
+	row.Col.rowsLayout.ResizeEndPercent(row, perc, min)
+	row.Col.rowsLayout.AttemptToSwap(row.Col.rowsLayout, row, perc, min)
+
+	row.Col.fixFirstRowSeparatorAndSquare()
 	row.Col.CalcChildsBounds()
 	row.Col.MarkNeedsPaint()
 }
-func (row *Row) unmaximize() {
-	row.setRowsState(RowNormalState)
-	row.Col.CalcChildsBounds()
-	row.Col.MarkNeedsPaint()
-}
-func (row *Row) setRowsState(state RowState) {
-	for _, r := range row.Col.Rows() {
-		r.setState(state)
-	}
-}
-func (row *Row) setState(state RowState) {
-	row.state = state
-	hide := state == RowMinimizedState
-	row.scrollArea.SetHidden(hide)
+func (row *Row) resizeColumnToPoint(p *image.Point) {
+	row.Col.resizeToPointOrigin(p, &row.resize.origin)
 }
 
-type RowState int
+func (row *Row) moveRowToPoint(p *image.Point) {
+	col, ok := row.Col.Cols.PointColumn(p)
+	if !ok {
+		return
+	}
+	next, ok := col.PointRow(p)
+	if ok {
+		next, _ = next.NextRow()
+	}
+	if next != row {
+		row.Col.removeRow(row)
+		col.insertBefore(row, next)
+	}
+	row.resize.origin = image.Point{} // accurate drop
+	row.resizeRowToPoint(p)
+	row.WarpPointer()
+}
+func (row *Row) maximizeRow() {
+	col := row.Col
+	dy := float64(col.Bounds().Dy())
+	min := 30 / dy
+	col.rowsLayout.MaximizeEndPercentNode(row, min)
+	col.CalcChildsBounds()
+	col.MarkNeedsPaint()
+}
+
+type RowRType int
 
 const (
-	RowNormalState RowState = iota
-	RowMaximizedState
-	RowMinimizedState
+	ResizeRowRType RowRType = iota
+	ResizeColumnRType
+	//MoveRowRType
 )
 
 const (

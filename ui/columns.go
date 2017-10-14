@@ -34,10 +34,10 @@ func (cols *Columns) LastColumnOrNew() *Column {
 }
 func (cols *Columns) NewColumn() *Column {
 	col := NewColumn(cols)
-	cols.InsertBefore(col, nil)
+	cols.insertColumnBefore(col, nil)
 	return col
 }
-func (cols *Columns) InsertBefore(col, next *Column) {
+func (cols *Columns) insertColumnBefore(col, next *Column) {
 	if next == nil {
 
 		// TODO: need to return false
@@ -146,6 +146,15 @@ func (cols *Columns) resizeColumn(col *Column, px int) {
 	if col.Next() != nil {
 		col.Next().MarkNeedsPaint()
 	}
+}
+
+func (cols *Columns) PointColumn(p *image.Point) (*Column, bool) {
+	for _, c := range cols.Columns() {
+		if p.In(c.Bounds()) {
+			return c, true
+		}
+	}
+	return nil, false
 }
 
 func (cols *Columns) PointRow(p *image.Point) (*Row, bool) {
