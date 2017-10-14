@@ -106,20 +106,19 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	switch {
 	case ev.Button.Button(1):
 		// indicate moving
-		ui.CursorMan.SetCursor(xcursor.Fleur)
+		//ui.CursorMan.SetCursor(xcursor.Fleur)
+		row.startResizeToPoint(ev.Point)
 	case ev.Button.Button(2):
 		// indicate close
 		ui.CursorMan.SetCursor(xcursor.XCursor)
-	case ev.Button.Button(3):
-		row.startResizeToPoint(ev.Point)
 	}
 }
 func (row *Row) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
 	case ev.Mods.IsButton(1):
-	case ev.Mods.IsButton(3):
 		row.detectAndResizeToPoint(ev.Point)
+	case ev.Mods.IsButton(3):
 	}
 }
 func (row *Row) onSquareButtonRelease(ev0 interface{}) {
@@ -129,21 +128,17 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
 	case ev.Button.Mods.IsButton(1):
-		if ev.Point.In(row.Square.Bounds()) {
-			row.maximizeRow()
+		if !row.resize.on {
+			if ev.Point.In(row.Square.Bounds()) {
+				row.maximizeRow()
+			}
 		} else {
-			row.moveRowToPoint(ev.Point)
+			row.endResizeToPoint(ev.Point)
 		}
-
-	//case ev.Button.Mods.IsButtonAndControl(1):
-	//row.Col.Cols.MoveColumnToPoint(row.Col, ev.Point)
-
 	case ev.Button.Mods.IsButton(2):
 		if ev.Point.In(row.Square.Bounds()) {
 			row.Close()
 		}
-	case ev.Button.Mods.IsButton(3):
-		row.endResizeToPoint(ev.Point)
 	}
 }
 
@@ -208,11 +203,24 @@ func (row *Row) detectAndResizeToPoint(p *image.Point) {
 			row.resizeRowToPoint(p)
 		case ResizeColumnRType:
 			row.resizeColumnToPoint(p)
-		default:
-			panic("!")
+		case MoveRowRType:
 		}
 	}
 }
+func (row *Row) endResizeToPoint(p *image.Point) {
+	if row.resize.on {
+		row.resize.on = false
+		switch row.resize.typ {
+		case ResizeRowRType:
+			row.resizeRowToPoint(p)
+		case ResizeColumnRType:
+			row.resizeColumnToPoint(p)
+		case MoveRowRType:
+			row.moveRowToPoint(p)
+		}
+	}
+}
+
 func (row *Row) detectResize(p *image.Point) {
 	u := p.Sub(row.Square.Bounds().Min)
 	w := u.Sub(row.resize.origin)
@@ -228,10 +236,14 @@ func (row *Row) detectResize(p *image.Point) {
 	// detect
 	a := math.Atan(y/x) * 180.0 / math.Pi
 	sc := row.Col.Cols.Layout.UI.CursorMan.SetCursor
-	if a <= 45 {
+	if a <= 25 {
 		// horizontal
 		sc(xcursor.SBHDoubleArrow)
 		row.resize.typ = ResizeColumnRType
+	} else if a <= 75 {
+		// diagonal
+		sc(xcursor.Fleur)
+		row.resize.typ = MoveRowRType
 	} else {
 		// vertical
 		sc(xcursor.SBVDoubleArrow)
@@ -243,21 +255,8 @@ func (row *Row) detectResize(p *image.Point) {
 
 	row.resize.detect = false
 	row.resize.on = true
+}
 
-}
-func (row *Row) endResizeToPoint(p *image.Point) {
-	if row.resize.on {
-		row.resize.on = false
-		switch row.resize.typ {
-		case ResizeRowRType:
-			row.resizeRowToPoint(p)
-		case ResizeColumnRType:
-			row.resizeColumnToPoint(p)
-		default:
-			panic("!")
-		}
-	}
-}
 func (row *Row) resizeRowToPoint(p *image.Point) {
 	bounds := row.Col.Bounds()
 	dy := float64(bounds.Dy())
@@ -306,7 +305,7 @@ type RowRType int
 const (
 	ResizeRowRType RowRType = iota
 	ResizeColumnRType
-	//MoveRowRType
+	MoveRowRType
 )
 
 const (
