@@ -5,14 +5,27 @@ import (
 	"image"
 )
 
+// Note on node PushBack/InsertBefore.
+//
+// The parent argument is needed to set the node parent to the
+// wrapping instance. Doing it in the interface allows easy override.
+//
+// Having this then allows function overrides (ex: Paint(), Measure(...))
+// to be called and Parent() then correctly returns the wrapper node.
+//
+// Note that in the insertBefore case the mark can't be tested for nil
+// because it could be receiving a non-nil interface that is nil, and
+// testing (Node==nil) would be false. So this function expects the
+// arguments to be present and have PushBack be used for appends.
+
 type Node interface {
 	Elem() *list.Element
 	SetElem(*list.Element)
 	Parent() Node
 	SetParent(Node)
 
-	pushBack(Node)           // use package PushBack(...)
-	insertBefore(Node, Node) // use package InsertBefore(...)
+	PushBack(parent, n Node)
+	InsertBefore(parent, n, mark Node)
 
 	Remove(Node)
 
@@ -51,31 +64,15 @@ type Node interface {
 	OnInputEvent(ev interface{}, p image.Point) bool
 }
 
-// These cannot be in a specific implementation (like in EmbedNode).
-// Allows function overrides (ex: Paint(), Measure(...)) to be called, as well
-// as other functions returning the implementing node (ex: Parent())
-
 func PushBack(parent, n Node) {
-	n.SetParent(parent)
-	parent.pushBack(n)
+	parent.PushBack(parent, n)
 }
-
 func InsertBefore(parent, n, mark Node) {
-	// NOTE: can't test here if mark is nil because it could be receiving
-	// a pointer type that is nil, but (Node==nil) will be false.
-	// So this function expects the arguments to be present.
-	// PushBack is available for use where insertbefore doesn't work.
-
-	if mark.Parent() != parent {
-		panic("mark is not a child of this parent")
-	}
-	n.SetParent(parent)
-	parent.insertBefore(n, mark)
+	parent.InsertBefore(parent, n, mark)
 }
-
 func AppendChilds(parent Node, nodes ...Node) {
 	for _, n := range nodes {
-		PushBack(parent, n)
+		parent.PushBack(parent, n)
 	}
 }
 
@@ -135,12 +132,31 @@ func (en *EmbedNode) SetParent(p Node) {
 	en.parent = p
 }
 
-func (en *EmbedNode) pushBack(n Node) {
-	elem := en.childs.PushBack(n)
+func (en *EmbedNode) PushBack(parent, n Node) {
+	if en.elem != parent.Elem() {
+		panic("embednode elem differs from parent elem")
+	}
+	n.SetParent(parent)
+
+	elem := parent.childsList().PushBack(n)
+	if elem == nil {
+		panic("element not inserted")
+	}
 	n.SetElem(elem)
 }
-func (en *EmbedNode) insertBefore(n, mark Node) {
-	elem := en.childs.InsertBefore(n, mark.Elem())
+func (en *EmbedNode) InsertBefore(parent, n, mark Node) {
+	if en.elem != parent.Elem() {
+		panic("embednode elem differs from parent elem")
+	}
+	if mark.Parent() != parent {
+		panic("mark is not a child of this parent")
+	}
+	n.SetParent(parent)
+
+	elem := parent.childsList().InsertBefore(n, mark.Elem())
+	if elem == nil {
+		panic("element not inserted")
+	}
 	n.SetElem(elem)
 }
 
