@@ -192,6 +192,9 @@ func (row *Row) startResizeToPoint(p *image.Point) {
 	row.resize.detect = true
 	row.resize.on = false
 	row.resize.origin = p.Sub(row.Square.Bounds().Min)
+	if !ScrollbarLeft {
+		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
+	}
 }
 func (row *Row) detectAndResizeToPoint(p *image.Point) {
 	if row.resize.detect {
@@ -223,6 +226,9 @@ func (row *Row) endResizeToPoint(p *image.Point) {
 
 func (row *Row) detectResize(p *image.Point) {
 	u := p.Sub(row.Square.Bounds().Min)
+	if !ScrollbarLeft {
+		u.X = p.Sub(row.Square.Bounds().Max).X
+	}
 	w := u.Sub(row.resize.origin)
 	x := math.Abs(float64(w.X))
 	y := math.Abs(float64(w.Y))
@@ -252,6 +258,19 @@ func (row *Row) detectResize(p *image.Point) {
 
 	// re-keep origin to avoid jump
 	row.resize.origin = p.Sub(row.Square.Bounds().Min)
+	if !ScrollbarLeft {
+		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
+	}
+
+	//// accurante position (makes jump)
+	//row.resize.origin = image.Point{}
+
+	//// reposition pointer to look accurate without jumping the movement
+	//p2 := row.Square.Bounds().Min.Add(row.resize.origin)
+	//if !ScrollbarLeft {
+	//	p2.X = row.Square.Bounds().Max.Add(row.resize.origin).X
+	//}
+	//row.Col.Cols.Layout.UI.WarpPointer(&p2)
 
 	row.resize.detect = false
 	row.resize.on = true

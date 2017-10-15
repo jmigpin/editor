@@ -203,6 +203,9 @@ func (col *Column) PointRow(p *image.Point) (*Row, bool) {
 func (col *Column) startResizeToPoint(p *image.Point) {
 	col.resize.on = true
 	col.resize.origin = p.Sub(col.Square.Bounds().Min)
+	if !ScrollbarLeft {
+		col.resize.origin.X = p.Sub(col.Square.Bounds().Max).X
+	}
 }
 func (col *Column) resizeToPoint(p *image.Point) {
 	if col.resize.on {
@@ -211,12 +214,13 @@ func (col *Column) resizeToPoint(p *image.Point) {
 }
 func (col *Column) endResizeToPoint(p *image.Point) {
 	if col.resize.on {
+		col.resize.on = false
 		col.resizeToPointOrigin(p, &col.resize.origin)
 	}
-	col.resize.on = false
 }
 
 func (col *Column) resizeToPointOrigin(p *image.Point, origin *image.Point) {
+
 	bounds := col.Cols.Layout.Bounds()
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(*origin).Sub(bounds.Min).X) / dx
@@ -224,13 +228,18 @@ func (col *Column) resizeToPointOrigin(p *image.Point, origin *image.Point) {
 
 	if !ScrollbarLeft {
 		u, ok := col.NextColumn()
-		if ok {
-			col = u
+		if !ok {
+			return
 		}
+		col = u
 	}
 
 	col.Cols.ResizeEndPercent(col, perc, min)
-	col.Cols.AttemptToSwap(col.Cols, col, perc, min)
+	if !ScrollbarLeft {
+		// TODO
+	} else {
+		col.Cols.AttemptToSwap(col.Cols, col, perc, min)
+	}
 
 	col.Cols.fixFirstColSeparator()
 	col.Cols.CalcChildsBounds()
