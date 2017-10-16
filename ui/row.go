@@ -109,6 +109,10 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	case ev.Button.Button(2):
 		// indicate close
 		ui.CursorMan.SetCursor(xcursor.XCursor)
+	case ev.Button.Button(4):
+		row.resizeWithPush(true)
+	case ev.Button.Button(5):
+		row.resizeWithPush(false)
 	}
 }
 func (row *Row) onSquareMotionNotify(ev0 interface{}) {
@@ -167,6 +171,7 @@ func (row *Row) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	row.buttonPressed = false
 	row.activate()
 }
+
 func (row *Row) WarpPointer() {
 	row.Square.WarpPointer()
 }
@@ -315,6 +320,27 @@ func (row *Row) maximizeRow() {
 	col.rowsLayout.MaximizeEndPercentNode(row, min)
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
+}
+
+func (row *Row) resizeWithPush(up bool) {
+	col := row.Col
+	dy := float64(col.Bounds().Dy())
+	min := 30 / dy
+
+	jump := 30
+	if up {
+		jump *= -1
+	}
+	perc := float64(row.Bounds().Min.Y-col.Bounds().Min.Y+jump) / dy
+
+	col.rowsLayout.ResizeEndPercentWithPush(row, perc, min)
+	col.CalcChildsBounds()
+	col.MarkNeedsPaint()
+
+	// keep pointer inside the square (newly calculated)
+	b := row.Square.Bounds()
+	sqCenter := b.Min.Add(b.Max.Sub(b.Min).Div(2))
+	row.Col.Cols.Layout.UI.WarpPointer(&sqCenter)
 }
 
 type RowRType int

@@ -74,6 +74,8 @@ Usage of ./editor:
   - drag horizontal: resize column
   - drag (non-horizontal): move/resize row
 - `button2`: close row
+- `button4`: increase row size vertically, pushing other rows up
+- `button5`: increase row size vertically, pushing other rows down
 
 #### Textarea key/button shortcuts
 

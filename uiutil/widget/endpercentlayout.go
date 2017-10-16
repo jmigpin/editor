@@ -126,6 +126,12 @@ func (epl *EndPercentLayout) CalcChildsBounds() {
 }
 
 func (epl *EndPercentLayout) ResizeEndPercent(node Node, ep, min float64) {
+	epl.resizeEndPercent2(node, ep, min, false)
+}
+func (epl *EndPercentLayout) ResizeEndPercentWithPush(node Node, ep, min float64) {
+	epl.resizeEndPercent2(node, ep, min, true)
+}
+func (epl *EndPercentLayout) resizeEndPercent2(node Node, ep, min float64, push bool) {
 	// limit to siblings bounds
 	start := 0.0
 	if node.Prev() != nil {
@@ -133,11 +139,29 @@ func (epl *EndPercentLayout) ResizeEndPercent(node Node, ep, min float64) {
 			start = epl.endPercents[node.Prev().Prev()]
 		}
 	}
-	end := epl.endPercents[node]
 	if ep < start+min {
+
+		// if pushing, resize siblings up
+		if push && node.Prev() != nil {
+			diff := (start + min) - ep
+			epl.resizeEndPercent2(node.Prev(), start-diff, min, true)
+			if node.Prev().Prev() != nil {
+				start = epl.endPercents[node.Prev().Prev()]
+			}
+		}
+
 		ep = start + min
 	}
+	end := epl.endPercents[node]
 	if ep > end-min {
+
+		// if pushing, resize siblings down
+		if push && node.Next() != nil {
+			diff := ep - (end - min)
+			epl.resizeEndPercent2(node.Next(), end+diff, min, true)
+			end = epl.endPercents[node]
+		}
+
 		ep = end - min
 	}
 
