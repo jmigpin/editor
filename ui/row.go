@@ -105,8 +105,6 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	ui := row.Col.Cols.Layout.UI
 	switch {
 	case ev.Button.Button(1):
-		// indicate moving
-		//ui.CursorMan.SetCursor(xcursor.Fleur)
 		row.startResizeToPoint(ev.Point)
 	case ev.Button.Button(2):
 		// indicate close
@@ -206,7 +204,8 @@ func (row *Row) detectAndResizeToPoint(p *image.Point) {
 			row.resizeRowToPoint(p)
 		case ResizeColumnRType:
 			row.resizeColumnToPoint(p)
-		case MoveRowRType:
+		default:
+			panic("!")
 		}
 	}
 }
@@ -218,8 +217,8 @@ func (row *Row) endResizeToPoint(p *image.Point) {
 			row.resizeRowToPoint(p)
 		case ResizeColumnRType:
 			row.resizeColumnToPoint(p)
-		case MoveRowRType:
-			row.moveRowToPoint(p)
+		default:
+			panic("!")
 		}
 	}
 }
@@ -246,21 +245,17 @@ func (row *Row) detectResize(p *image.Point) {
 		// horizontal
 		sc(xcursor.SBHDoubleArrow)
 		row.resize.typ = ResizeColumnRType
-	} else if a <= 75 {
-		// diagonal
-		sc(xcursor.Fleur)
-		row.resize.typ = MoveRowRType
 	} else {
-		// vertical
-		sc(xcursor.SBVDoubleArrow)
+		// any other angle
+		sc(xcursor.Fleur)
 		row.resize.typ = ResizeRowRType
 	}
 
-	// re-keep origin to avoid jump
-	row.resize.origin = p.Sub(row.Square.Bounds().Min)
-	if !ScrollbarLeft {
-		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
-	}
+	//// re-keep origin to avoid jump
+	//row.resize.origin = p.Sub(row.Square.Bounds().Min)
+	//if !ScrollbarLeft {
+	//	row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
+	//}
 
 	//// accurante position (makes jump)
 	//row.resize.origin = image.Point{}
@@ -277,6 +272,26 @@ func (row *Row) detectResize(p *image.Point) {
 }
 
 func (row *Row) resizeRowToPoint(p *image.Point) {
+
+	col, ok := row.Col.Cols.PointColumn(p)
+	if !ok {
+		return
+	}
+	if col != row.Col {
+		// move to another column
+		next, ok := col.PointRow(p)
+		if ok {
+			next, _ = next.NextRow()
+		}
+		if next != row {
+			row.Col.removeRow(row)
+			col.insertBefore(row, next)
+		}
+
+		//// take the opportunity and make the origin accurate
+		//row.resize.origin = image.Point{}
+	}
+
 	bounds := row.Col.Bounds()
 	dy := float64(bounds.Dy())
 	perc := float64(p.Sub(row.resize.origin).Sub(bounds.Min).Y) / dy
@@ -293,23 +308,6 @@ func (row *Row) resizeColumnToPoint(p *image.Point) {
 	row.Col.resizeToPointOrigin(p, &row.resize.origin)
 }
 
-func (row *Row) moveRowToPoint(p *image.Point) {
-	col, ok := row.Col.Cols.PointColumn(p)
-	if !ok {
-		return
-	}
-	next, ok := col.PointRow(p)
-	if ok {
-		next, _ = next.NextRow()
-	}
-	if next != row {
-		row.Col.removeRow(row)
-		col.insertBefore(row, next)
-	}
-	row.resize.origin = image.Point{} // accurate drop
-	row.resizeRowToPoint(p)
-	row.WarpPointer()
-}
 func (row *Row) maximizeRow() {
 	col := row.Col
 	dy := float64(col.Bounds().Dy())
@@ -324,7 +322,6 @@ type RowRType int
 const (
 	ResizeRowRType RowRType = iota
 	ResizeColumnRType
-	MoveRowRType
 )
 
 const (

@@ -70,10 +70,9 @@ Usage of ./editor:
 (top square):
 
 - `button1`:
-  - click: maximize/unmaximize
-  - drag vertical: resize row
+  - click: maximize
   - drag horizontal: resize column
-  - drag diagonal: move row
+  - drag (non-horizontal): move/resize row
 - `button2`: close row
 
 #### Textarea key/button shortcuts
