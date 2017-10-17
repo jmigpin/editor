@@ -472,12 +472,14 @@ func (ta *TextArea) onButtonPress(ev *xinput.ButtonPressEvent) bool {
 		default:
 			tautil.MoveCursorToPoint(ta, ev.Point, false)
 		}
+		return true
+	case ev.Button.Button(2):
+		return true
 	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
 		ta.ui.CursorMan.SetCursor(xcursor.Hand2)
-	default:
-		return false
+		return true
 	}
-	return true
+	return false
 }
 func (ta *TextArea) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	if !ta.buttonPressed {
