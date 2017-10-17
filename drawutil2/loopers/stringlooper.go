@@ -84,17 +84,16 @@ func (lpr *StringLooper) PenBounds() *fixed.Rectangle26_6 {
 func (lpr *StringLooper) PenBoundsForImage() *image.Rectangle {
 	pb := lpr.PenBounds()
 	min := image.Point{pb.Min.X.Floor(), pb.Min.Y.Floor()}
-	max := image.Point{pb.Max.X.Ceil(), pb.Max.Y.Ceil()}
+	max := image.Point{pb.Max.X.Floor(), pb.Max.Y.Floor()}
 	r := image.Rect(min.X, min.Y, max.X, max.Y)
 	return &r
 }
 
 func (lpr *StringLooper) LineBaseline() fixed.Int26_6 {
-	return lpr.Metrics.Ascent
+	return fixed.I(lpr.Metrics.Ascent.Ceil())
 }
 func (lpr *StringLooper) LineHeight() fixed.Int26_6 {
-	lh := lpr.LineBaseline() + lpr.Metrics.Descent
-	return fixed.I(lh.Ceil())
+	return lpr.LineBaseline() + fixed.I(lpr.Metrics.Descent.Ceil())
 }
 func (lpr *StringLooper) LineY0() fixed.Int26_6 {
 	return lpr.Pen.Y - lpr.LineBaseline()
