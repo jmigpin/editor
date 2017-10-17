@@ -220,26 +220,13 @@ func (col *Column) endResizeToPoint(p *image.Point) {
 }
 
 func (col *Column) resizeToPointOrigin(p *image.Point, origin *image.Point) {
-
 	bounds := col.Cols.Layout.Bounds()
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(*origin).Sub(bounds.Min).X) / dx
 	min := 30 / dx
 
-	if !ScrollbarLeft {
-		u, ok := col.NextColumn()
-		if !ok {
-			return
-		}
-		col = u
-	}
-
-	col.Cols.ResizeEndPercent(col, perc, min)
-	if !ScrollbarLeft {
-		// TODO
-	} else {
-		col.Cols.AttemptToSwap(col.Cols, col, perc, min)
-	}
+	percIsLeft := ScrollbarLeft
+	col.Cols.ResizeEndPercentWithSwap(col.Cols, col, perc, percIsLeft, min)
 
 	col.Cols.fixFirstColSeparator()
 	col.Cols.CalcChildsBounds()

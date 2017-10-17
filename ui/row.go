@@ -262,8 +262,9 @@ func (row *Row) detectResize(p *image.Point) {
 	//	row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
 	//}
 
-	//// accurante position (makes jump)
-	//row.resize.origin = image.Point{}
+	// accurate position (makes jump)
+	// works best as well for accurate swaps
+	row.resize.origin = image.Point{}
 
 	//// reposition pointer to look accurate without jumping the movement
 	//p2 := row.Square.Bounds().Min.Add(row.resize.origin)
@@ -302,8 +303,9 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 	perc := float64(p.Sub(row.resize.origin).Sub(bounds.Min).Y) / dy
 	min := 30 / dy
 
-	row.Col.rowsLayout.ResizeEndPercent(row, perc, min)
-	row.Col.rowsLayout.AttemptToSwap(row.Col.rowsLayout, row, perc, min)
+	percIsTop := true
+	rl := row.Col.rowsLayout
+	rl.ResizeEndPercentWithSwap(rl, row, perc, percIsTop, min)
 
 	row.Col.fixFirstRowSeparatorAndSquare()
 	row.Col.CalcChildsBounds()
@@ -333,7 +335,9 @@ func (row *Row) resizeWithPush(up bool) {
 	}
 	perc := float64(row.Bounds().Min.Y-col.Bounds().Min.Y+jump) / dy
 
-	col.rowsLayout.ResizeEndPercentWithPush(row, perc, min)
+	percIsTop := true
+	col.rowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 
