@@ -125,28 +125,21 @@ func (h *dndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*u
 }
 func (h *dndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL) {
 
-	// window.warppointer is checking if the window has focus before it warps - not working here has the dropper has the focus
+	// window.warppointer is checking if the window has focus before it warps - not working here as the dropper has the focus
 
-	erow, ok := h.ed.FindERow(u.Path)
-	if !ok {
-		c, r, ok := col.Cols.PointNextRow(nil, p)
-		if !ok {
-			return
+	row, ok := col.PointRow(p)
+	if ok {
+		// next row for insertion
+		r, ok := row.NextRow()
+		if ok {
+			row = r
 		}
-		erow = h.ed.NewERowBeforeRow(u.Path, c, r)
-		err := erow.LoadContentClear()
-		if err != nil {
-			h.ed.Error(err)
-			return
-		}
-	} else {
-		c, r, ok := col.Cols.PointNextRow(erow.Row(), p)
-		if !ok {
-			return
-		}
-		col.Cols.MoveRowToColumnBeforeRow(erow.Row(), c, r)
 	}
-
+	erow := h.ed.NewERowBeforeRow(u.Path, col, row)
+	err := erow.LoadContentClear()
+	if err != nil {
+		h.ed.Error(err)
+	}
 }
 
 func parseAsTextURLList(data []byte) ([]*url.URL, error) {
