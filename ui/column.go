@@ -19,8 +19,7 @@ type Column struct {
 	Cols *Columns
 
 	resize struct {
-		on     bool
-		origin image.Point
+		on bool
 	}
 }
 
@@ -128,7 +127,7 @@ func (col *Column) onSquareButtonPress(ev0 interface{}) {
 	switch {
 	case ev.Button.Button(1) || ev.Button.Button(3):
 		ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
-		col.startResizeToPoint(ev.Point)
+		col.startResizeToPoint(ev.TopPoint)
 	case ev.Button.Button(2):
 		// indicate close
 		ui.CursorMan.SetCursor(xcursor.XCursor)
@@ -138,7 +137,7 @@ func (col *Column) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
 	case ev.Mods.HasButton(1) || ev.Mods.HasButton(3):
-		col.resizeToPoint(ev.Point)
+		col.resizeToPointIfOn(ev.TopPoint)
 	}
 }
 func (col *Column) onSquareButtonRelease(ev0 interface{}) {
@@ -149,7 +148,7 @@ func (col *Column) onSquareButtonRelease(ev0 interface{}) {
 
 	switch {
 	case ev.Button.Mods.HasButton(1) || ev.Button.Mods.HasButton(3):
-		col.endResizeToPoint(ev.Point)
+		col.endResizeToPoint(ev.TopPoint)
 	case ev.Button.Mods.IsButton(2):
 		if ev.Point.In(col.Square.Bounds()) {
 			col.Cols.CloseColumnEnsureOne(col)
@@ -205,27 +204,24 @@ func (col *Column) PointRow(p *image.Point) (*Row, bool) {
 
 func (col *Column) startResizeToPoint(p *image.Point) {
 	col.resize.on = true
-	col.resize.origin = p.Sub(col.Square.Bounds().Min)
-	if !ScrollbarLeft {
-		col.resize.origin.X = p.Sub(col.Square.Bounds().Max).X
-	}
+	col.resizeToPoint(p)
 }
-func (col *Column) resizeToPoint(p *image.Point) {
+func (col *Column) resizeToPointIfOn(p *image.Point) {
 	if col.resize.on {
-		col.resizeToPointOrigin(p, &col.resize.origin)
+		col.resizeToPoint(p)
 	}
 }
 func (col *Column) endResizeToPoint(p *image.Point) {
 	if col.resize.on {
 		col.resize.on = false
-		col.resizeToPointOrigin(p, &col.resize.origin)
+		col.resizeToPoint(p)
 	}
 }
 
-func (col *Column) resizeToPointOrigin(p *image.Point, origin *image.Point) {
+func (col *Column) resizeToPoint(p *image.Point) {
 	bounds := col.Cols.Layout.Bounds()
 	dx := float64(bounds.Dx())
-	perc := float64(p.Sub(*origin).Sub(bounds.Min).X) / dx
+	perc := float64(p.Sub(bounds.Min).X) / dx
 	min := 30 / dx
 
 	percIsLeft := ScrollbarLeft

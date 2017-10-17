@@ -25,8 +25,10 @@ type Row struct {
 	resize struct {
 		detect bool
 		on     bool
-		origin image.Point
 		typ    RowRType
+
+		// for testing movement
+		pressPoint image.Point
 	}
 }
 
@@ -104,12 +106,12 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	ui := row.Col.Cols.Layout.UI
 	switch {
 	case ev.Button.Button(1):
-		row.startResizeToPoint(ev.Point)
+		row.startResizeToPoint(ev.TopPoint)
 	case ev.Button.Button(2):
 		// indicate close
 		ui.CursorMan.SetCursor(xcursor.XCursor)
 	case ev.Button.Button(3):
-		row.startColumnResizeToPoint(ev.Point)
+		row.startColumnResizeToPoint(ev.TopPoint)
 	case ev.Button.Button(4):
 		row.resizeWithPush(true)
 	case ev.Button.Button(5):
@@ -120,7 +122,7 @@ func (row *Row) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
 	case ev.Mods.HasButton(1), ev.Mods.HasButton(3):
-		row.resizeToPoint(ev.Point)
+		row.resizeToPoint(ev.TopPoint)
 	}
 }
 func (row *Row) onSquareButtonRelease(ev0 interface{}) {
@@ -130,7 +132,7 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
 	case ev.Button.Mods.HasButton(1), ev.Button.Mods.HasButton(3):
-		row.endResizeToPoint(ev.Point)
+		row.endResizeToPoint(ev.TopPoint)
 	case ev.Button.Mods.IsButton(2):
 		if ev.Point.In(row.Square.Bounds()) {
 			row.Close()
@@ -188,10 +190,7 @@ func (row *Row) HideSeparator(v bool) {
 func (row *Row) startResizeToPoint(p *image.Point) {
 	row.resize.detect = true
 	row.resize.on = false
-	row.resize.origin = p.Sub(row.Square.Bounds().Min)
-	if !ScrollbarLeft {
-		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
-	}
+	row.resize.pressPoint = *p
 }
 func (row *Row) startColumnResizeToPoint(p *image.Point) {
 	row.startResizeToPoint(p)
@@ -247,9 +246,7 @@ func (row *Row) endResizeToPoint(p *image.Point) {
 }
 
 func (row *Row) detectResize2(p *image.Point) {
-	min := row.Square.Bounds().Min
-	u := p.Sub(min)
-	movement := u != row.resize.origin
+	movement := *p != row.resize.pressPoint
 	if movement {
 		row.startRowResizeToPoint(p)
 	}
@@ -324,7 +321,7 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 
 	bounds := row.Col.Bounds()
 	dy := float64(bounds.Dy())
-	perc := float64(p.Sub(row.resize.origin).Sub(bounds.Min).Y) / dy
+	perc := float64(p.Sub(bounds.Min).Y) / dy
 	min := float64(row.minimumSize()) / dy
 
 	percIsTop := true
@@ -335,7 +332,7 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 	row.Col.MarkNeedsPaint()
 }
 func (row *Row) resizeColumnToPoint(p *image.Point) {
-	row.Col.resizeToPointOrigin(p, &row.resize.origin)
+	row.Col.resizeToPoint(p)
 }
 
 func (row *Row) maximize() {

@@ -106,7 +106,6 @@ func (sq *Square) Paint() {
 }
 
 func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
-
 	switch evt := ev0.(type) {
 	case *xinput.ButtonPressEvent:
 		sq.onButtonPress(evt)
@@ -120,35 +119,35 @@ func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	return false
 }
 func (sq *Square) onButtonPress(ev *xinput.ButtonPressEvent) {
-	if !ev.Point.In(sq.Bounds()) {
+	sq.buttonPressed = true
+
+	// press point pad
+	u := ev.Point.Sub(sq.Bounds().Min)
+	if !ScrollbarLeft {
+		u.X = ev.Point.X - sq.Bounds().Max.X
+	}
+	sq.pressPointPad = u
+
+	topPoint := ev.Point.Sub(sq.pressPointPad)
+	ev2 := &SquareButtonPressEvent{sq, ev.Button, ev.Point, &topPoint}
+	sq.EvReg.RunCallbacks(SquareButtonPressEventId, ev2)
+}
+func (sq *Square) onMotionNotify(ev *xinput.MotionNotifyEvent) {
+	if !sq.buttonPressed {
 		return
 	}
-	sq.buttonPressed = true
-	var u image.Point
-	if ScrollbarLeft {
-		u = image.Point{sq.Bounds().Min.X, sq.Bounds().Min.Y}
-	} else {
-		u = image.Point{sq.Bounds().Max.X, sq.Bounds().Min.Y}
-	}
-	sq.pressPointPad = u.Sub(*ev.Point)
-
-	ev2 := &SquareButtonPressEvent{sq, ev.Button, ev.Point}
-	sq.EvReg.RunCallbacks(SquareButtonPressEventId, ev2)
+	topPoint := ev.Point.Sub(sq.pressPointPad)
+	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point, &topPoint}
+	sq.EvReg.RunCallbacks(SquareMotionNotifyEventId, ev2)
 }
 func (sq *Square) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
 	if !sq.buttonPressed {
 		return
 	}
 	sq.buttonPressed = false
-	ev2 := &SquareButtonReleaseEvent{sq, ev.Button, ev.Point}
+	topPoint := ev.Point.Sub(sq.pressPointPad)
+	ev2 := &SquareButtonReleaseEvent{sq, ev.Button, ev.Point, &topPoint}
 	sq.EvReg.RunCallbacks(SquareButtonReleaseEventId, ev2)
-}
-func (sq *Square) onMotionNotify(ev *xinput.MotionNotifyEvent) {
-	if !sq.buttonPressed {
-		return
-	}
-	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point, &sq.pressPointPad}
-	sq.EvReg.RunCallbacks(SquareMotionNotifyEventId, ev2)
 }
 
 func (sq *Square) WarpPointer() {
@@ -186,19 +185,20 @@ const (
 )
 
 type SquareButtonPressEvent struct {
-	Square *Square
-	Button *xinput.Button
-	Point  *image.Point
+	Square   *Square
+	Button   *xinput.Button
+	Point    *image.Point
+	TopPoint *image.Point
 }
 type SquareButtonReleaseEvent struct {
-	Square *Square
-	Button *xinput.Button
-	Point  *image.Point
+	Square   *Square
+	Button   *xinput.Button
+	Point    *image.Point
+	TopPoint *image.Point
 }
 type SquareMotionNotifyEvent struct {
-	Square *Square
-	Mods   xinput.Modifiers
-	Point  *image.Point
-
-	PressPointPad *image.Point
+	Square   *Square
+	Mods     xinput.Modifiers
+	Point    *image.Point
+	TopPoint *image.Point
 }
