@@ -93,12 +93,10 @@ func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 	}
 }
 
-// ApplyInputEventInBounds press node var
-var pressNode Node
-
 // Auto-locks all input events into the node on the tree that handles
 // a press event. The node is responsible for unlocking by handling
 // the release event. Handling means OnInputEvent() returns true.
+
 func ApplyInputEventInBounds(
 	node Node,
 	ev interface{},
@@ -106,37 +104,68 @@ func ApplyInputEventInBounds(
 	isPressEvent func(ev interface{}) bool,
 	isReleaseEvent func(ev interface{}) bool,
 ) {
-
-	// run events on press node only when present
 	if pressNode != nil {
-		pn := pressNode
-
-		handled := pressNode.OnInputEvent(ev, p)
-		if handled && isReleaseEvent(ev) {
-			pressNode = nil // unlock node
-		}
-
-		// call event up in the parent chain
-		for u := pn.Parent(); u != nil; u = u.Parent() {
-			_ = u.OnInputEvent(ev, p)
-		}
-
-		return
+		applyInputEventToPressNode(pressNode, ev, p, isPressEvent, isReleaseEvent)
+	} else {
+		applyInputEventInBounds2(node, ev, p, isPressEvent, isReleaseEvent)
 	}
+}
+
+func applyInputEventInBounds2(
+	node Node,
+	ev interface{},
+	p image.Point,
+	isPressEvent func(ev interface{}) bool,
+	isReleaseEvent func(ev interface{}) bool,
+) bool {
+	// helps breaking early and avoid running siblings in the case of structure changes
+	handled := false
 
 	// Reversed iteration for the possibility that later childs are drawn over.
 	// Hidden nodes are inherently not iterated.
 	for c := node.LastChild(); c != nil; c = c.Prev() {
 		if p.In(c.Bounds()) {
-			ApplyInputEventInBounds(c, ev, p, isPressEvent, isReleaseEvent)
+			h := applyInputEventInBounds2(c, ev, p, isPressEvent, isReleaseEvent)
+			if h {
+				// Don't handle other siblings. The structure could have changed
+				// with this node having called CalcChildsBounds and now siblings
+				// could get the event as well.
+
+				handled = handled || h
+				break
+			}
 		}
 	}
 
-	handled := node.OnInputEvent(ev, p)
-	if handled && isPressEvent(ev) {
+	h := node.OnInputEvent(ev, p)
+	if h && isPressEvent(ev) {
+		handled = handled || h
 		if pressNode == nil { // only the first one locks
 			pressNode = node // lock node
 		}
+	}
+	return handled
+}
+
+var pressNode Node
+
+func applyInputEventToPressNode(
+	node Node,
+	ev interface{},
+	p image.Point,
+	isPressEvent func(ev interface{}) bool,
+	isReleaseEvent func(ev interface{}) bool,
+) {
+	pn := pressNode
+
+	handled := pressNode.OnInputEvent(ev, p)
+	if handled && isReleaseEvent(ev) {
+		pressNode = nil // unlock node
+	}
+
+	// call event up in the parent chain
+	for u := pn.Parent(); u != nil; u = u.Parent() {
+		_ = u.OnInputEvent(ev, p)
 	}
 }
 
