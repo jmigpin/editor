@@ -141,18 +141,18 @@ func (epl *EndPercentLayout) CalcChildsBounds() {
 	}
 }
 
-func (epl *EndPercentLayout) ResizeEndPercent(node Node, percent float64, percentIsMin bool, pad float64) {
-	epl.resizeChild(node, percent, percentIsMin, pad)
+func (epl *EndPercentLayout) ResizeEndPercent(node Node, percent float64, percentIsMin bool, minPerc float64) {
+	epl.resizeChild(node, percent, percentIsMin, minPerc)
 }
-func (epl *EndPercentLayout) ResizeEndPercentWithPush(node Node, percent float64, percentIsMin bool, pad float64) {
-	epl.resizeChildWithPush(node, percent, percentIsMin, pad)
+func (epl *EndPercentLayout) ResizeEndPercentWithPush(node Node, percent float64, percentIsMin bool, minPerc float64) {
+	epl.resizeChildWithPush(node, percent, percentIsMin, minPerc)
 }
-func (epl *EndPercentLayout) ResizeEndPercentWithSwap(parent, node Node, percent float64, percentIsMin bool, pad float64) {
-	epl.attemptToSwap(parent, node, percent, percentIsMin, pad)
-	epl.resizeChild(node, percent, percentIsMin, pad)
+func (epl *EndPercentLayout) ResizeEndPercentWithSwap(parent, node Node, percent float64, percentIsMin bool, minPerc float64) {
+	epl.attemptToSwap(parent, node, percent, percentIsMin)
+	epl.resizeChild(node, percent, percentIsMin, minPerc)
 }
 
-func (epl *EndPercentLayout) resizeChild(node Node, percent float64, percentIsMin bool, pad float64) {
+func (epl *EndPercentLayout) resizeChild(node Node, percent float64, percentIsMin bool, minPerc float64) {
 	min := 0.0
 	max := 1.0
 	if percentIsMin {
@@ -167,16 +167,16 @@ func (epl *EndPercentLayout) resizeChild(node Node, percent float64, percentIsMi
 		}
 	}
 
-	// limit with some pad
-	if percent < min+pad {
-		percent = min + pad
+	// check limits
+	if percent < min+minPerc {
+		percent = min + minPerc
 	}
-	if percent > max-pad {
-		percent = max - pad
+	if percent > max-minPerc {
+		percent = max - minPerc
 	}
 
 	// squash it in the middle
-	if percent < min+pad {
+	if percent < min+minPerc {
 		percent = min + (max-min)/2
 	}
 
@@ -192,40 +192,59 @@ func (epl *EndPercentLayout) resizeChild(node Node, percent float64, percentIsMi
 	}
 }
 
-func (epl *EndPercentLayout) resizeChildWithPush(node Node, percent float64, percentIsMin bool, pad float64) {
+func (epl *EndPercentLayout) resizeChildWithPush(node Node, percent float64, percentIsMin bool, minPerc float64) {
 	if percentIsMin {
-		// resize siblings up
 		if node.Prev() != nil {
 			min := epl.ChildStartPercent(node.Prev())
-			if percent < min+pad {
-				diff := (min + pad) - percent
-				epl.resizeChildWithPush(node.Prev(), min-diff, percentIsMin, pad)
+			if percent < min+minPerc {
+				diff := (min + minPerc) - percent
+				epl.resizeChildWithPush(node.Prev(), min-diff, percentIsMin, minPerc)
 				min = epl.ChildStartPercent(node.Prev())
-				if percent < min+pad {
-					percent = min + pad
+				if percent < min+minPerc {
+					percent = min + minPerc
 				}
 			}
 		}
-		// resize siblings down
 		if node.Next() != nil {
 			max := epl.ChildEndPercent(node)
-			if percent > max-pad {
-				diff := percent - (max - pad)
-				epl.resizeChildWithPush(node.Next(), max+diff, percentIsMin, pad)
+			if percent > max-minPerc {
+				diff := percent - (max - minPerc)
+				epl.resizeChildWithPush(node.Next(), max+diff, percentIsMin, minPerc)
 				max = epl.ChildEndPercent(node)
-				if percent > max-pad {
-					percent = max - pad
+				if percent > max-minPerc {
+					percent = max - minPerc
 				}
 			}
 		}
 	} else {
-		panic("TODO: not used yet so not implemented")
+		if node.Prev() != nil {
+			min := epl.ChildStartPercent(node)
+			if percent < min+minPerc {
+				diff := (min + minPerc) - percent
+				epl.resizeChildWithPush(node.Prev(), min-diff, percentIsMin, minPerc)
+				min = epl.ChildStartPercent(node)
+				if percent < min+minPerc {
+					percent = min + minPerc
+				}
+			}
+		}
+		if node.Next() != nil {
+			max := epl.ChildEndPercent(node.Next())
+			if percent > max-minPerc {
+				diff := percent - (max - minPerc)
+				epl.resizeChildWithPush(node.Next(), max+diff, percentIsMin, minPerc)
+				max = epl.ChildEndPercent(node.Next())
+				if percent > max-minPerc {
+					percent = max - minPerc
+				}
+			}
+		}
 	}
 
-	epl.resizeChild(node, percent, percentIsMin, pad)
+	epl.resizeChild(node, percent, percentIsMin, minPerc)
 }
 
-func (epl *EndPercentLayout) attemptToSwap(parent, node Node, percent float64, percentIsMin bool, pad float64) {
+func (epl *EndPercentLayout) attemptToSwap(parent, node Node, percent float64, percentIsMin bool) {
 	if percentIsMin {
 		if node.Prev() != nil && node.Prev().Prev() != nil {
 			min := epl.ChildStartPercent(node.Prev())
