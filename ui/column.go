@@ -92,29 +92,32 @@ func (col *Column) insertBefore(row, next *Row) {
 	} else {
 		widget.InsertBefore(col.rowsLayout, row, next)
 	}
-	col.fixFirstRowSeparatorAndSquare()
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 }
 
 func (col *Column) removeRow(row *Row) {
 	col.rowsLayout.Remove(row)
-	col.fixFirstRowSeparatorAndSquare()
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 }
 
-func (col *Column) fixFirstRowSeparatorAndSquare() {
-	for i, r := range col.Rows() {
-		r.HideSeparator(i == 0)
-	}
+func (col *Column) CalcChildsBounds() {
+	col.fixFirstRowSeparatorAndSquare()
+	col.FlowLayout.CalcChildsBounds()
+}
 
+func (col *Column) fixFirstRowSeparatorAndSquare() {
 	// hide/show column square if we have a first row
 	_, ok := col.FirstChildRow()
 	hide := ok
 	if col.sqc.Hidden() != hide {
 		col.sqc.SetHidden(hide)
 		col.MarkNeedsPaint()
+	}
+	// hide first row separator
+	for i, r := range col.Rows() {
+		r.HideSeparator(i == 0)
 	}
 }
 

@@ -307,7 +307,6 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 	rl := row.Col.rowsLayout
 	rl.ResizeEndPercentWithSwap(rl, row, perc, percIsTop, min)
 
-	row.Col.fixFirstRowSeparatorAndSquare()
 	row.Col.CalcChildsBounds()
 	row.Col.MarkNeedsPaint()
 }
