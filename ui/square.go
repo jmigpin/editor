@@ -106,6 +106,7 @@ func (sq *Square) Paint() {
 }
 
 func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
+
 	switch evt := ev0.(type) {
 	case *xinput.ButtonPressEvent:
 		sq.onButtonPress(evt)
@@ -152,7 +153,7 @@ func (sq *Square) onMotionNotify(ev *xinput.MotionNotifyEvent) {
 
 func (sq *Square) WarpPointer() {
 	sa := sq.Bounds()
-	p := sa.Min.Add(image.Pt(sa.Dx()/2, sa.Dy()/2))
+	p := sa.Min.Add(sa.Max.Sub(sa.Min).Div(2))
 	sq.ui.WarpPointer(&p)
 }
 

@@ -365,9 +365,9 @@ func (row *Row) resizeWithPush(up bool) {
 	col.MarkNeedsPaint()
 
 	// keep pointer inside the square (newly calculated)
-	b := row.Square.Bounds()
-	sqCenter := b.Min.Add(b.Max.Sub(b.Min).Div(2))
-	row.Col.Cols.Layout.UI.WarpPointer(&sqCenter)
+	row.WarpPointer()
+
+	// FIXME: discard events of certain type here since point will be invalid after the warppointer but events might be already on the stack. This can cause point events into the wrong node.
 }
 
 func (row *Row) ResizeTextAreaIfVerySmall() {
