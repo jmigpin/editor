@@ -232,7 +232,7 @@ func (epl *EndPercentLayout) attemptToSwap(parent, node Node, percent float64, p
 			if percent < min {
 				prev := node.Prev()
 				epl.Remove(node)
-				epl.InsertBefore(parent, node, prev)
+				InsertBefore(parent, node, prev)
 			}
 		}
 		if node.Next() != nil {
@@ -241,9 +241,9 @@ func (epl *EndPercentLayout) attemptToSwap(parent, node Node, percent float64, p
 				nextnext := node.Next().Next()
 				epl.Remove(node)
 				if nextnext == nil {
-					epl.PushBack(parent, node)
+					PushBack(parent, node)
 				} else {
-					epl.InsertBefore(parent, node, nextnext)
+					InsertBefore(parent, node, nextnext)
 				}
 			}
 		}
@@ -256,7 +256,7 @@ func (epl *EndPercentLayout) attemptToSwap(parent, node Node, percent float64, p
 
 				prev := node.Prev()
 				epl.Remove(node)
-				epl.InsertBefore(parent, node, prev)
+				InsertBefore(parent, node, prev)
 
 				epl.SetChildStartPercent(node, start)
 				epl.SetChildEndPercent(prev, end)
@@ -272,9 +272,9 @@ func (epl *EndPercentLayout) attemptToSwap(parent, node Node, percent float64, p
 				nextnext := node.Next().Next()
 				epl.Remove(node)
 				if nextnext == nil {
-					epl.PushBack(parent, node)
+					PushBack(parent, node)
 				} else {
-					epl.InsertBefore(parent, node, nextnext)
+					InsertBefore(parent, node, nextnext)
 				}
 
 				epl.SetChildStartPercent(next, start)
