@@ -325,7 +325,7 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 	bounds := row.Col.Bounds()
 	dy := float64(bounds.Dy())
 	perc := float64(p.Sub(row.resize.origin).Sub(bounds.Min).Y) / dy
-	min := 30 / dy
+	min := float64(row.minimumSize()) / dy
 
 	percIsTop := true
 	rl := row.Col.rowsLayout
@@ -341,7 +341,7 @@ func (row *Row) resizeColumnToPoint(p *image.Point) {
 func (row *Row) maximize() {
 	col := row.Col
 	dy := float64(col.Bounds().Dy())
-	min := 30 / dy
+	min := float64(row.minimumSize()) / dy
 	col.rowsLayout.MaximizeEndPercentNode(row, min)
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
@@ -350,7 +350,7 @@ func (row *Row) maximize() {
 func (row *Row) resizeWithPush(up bool) {
 	col := row.Col
 	dy := float64(col.Bounds().Dy())
-	min := 30 / dy
+	min := float64(row.minimumSize()) / dy
 
 	jump := 30
 	if up {
@@ -373,7 +373,7 @@ func (row *Row) resizeWithPush(up bool) {
 func (row *Row) ResizeTextAreaIfVerySmall() {
 	col := row.Col
 	dy := float64(col.Bounds().Dy())
-	min := 30 / dy
+	min := float64(row.minimumSize()) / dy
 	ta := row.TextArea
 	taMin := ta.LineHeight().Ceil()
 
@@ -407,6 +407,10 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
+}
+
+func (row *Row) minimumSize() int {
+	return row.TextArea.LineHeight().Ceil()
 }
 
 type RowRType int
