@@ -383,24 +383,28 @@ func (ta *TextArea) makeIndexVisible(index int) {
 func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	// set at half bounds
 	p0 := ta.drawer.GetPoint(index).Y
-	half := fixed.I(ta.Bounds().Dy() / 2)
+	half := fixed.I((ta.Bounds().Dy() - ta.LineHeight().Ceil()) / 2)
 	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
 }
-func (ta *TextArea) WarpPointerToIndexIfVisible(index int) {
+func (ta *TextArea) WarpPointerToIndexIfVisible(index int) bool {
+	// Tests visibility to prevent warping to outside the textarea,
+	// (ex: Textarea too small or even not showing).
+
 	p := ta.drawer.GetPoint(index)
 	p.Y -= ta.OffsetY()
-	p2 := &image.Point{p.X.Round(), p.Y.Round()}
+	p2 := &image.Point{p.X.Floor(), p.Y.Floor()}
 	p3 := p2.Add(ta.Bounds().Min)
 
 	// padding
-	p3.Y += ta.LineHeight().Round() - 1
+	p3.Y += ta.LineHeight().Floor() - 1
 	p3.X += 5
 
 	if !p3.In(ta.Bounds()) {
-		return
+		return false
 	}
 	ta.ui.WarpPointer(&p3)
+	return true
 }
 
 func (ta *TextArea) RequestPrimaryPaste() (string, error) {

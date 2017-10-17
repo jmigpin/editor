@@ -22,10 +22,11 @@ func GotoLine(erow ERower, part *toolbardata.Part) {
 		return
 	}
 
-	GotoLineColumnInTextArea(erow.Row().TextArea, int(line), 0)
+	GotoLineColumnInTextArea(erow.Row(), int(line), 0)
 }
 
-func GotoLineColumnInTextArea(ta *ui.TextArea, line, column int) {
+func GotoLineColumnInTextArea(row *ui.Row, line, column int) {
+	ta := row.TextArea
 	line--
 	column--
 
@@ -54,6 +55,10 @@ func GotoLineColumnInTextArea(ta *ui.TextArea, line, column int) {
 	// goto index
 	ta.SetSelectionOff()
 	ta.SetCursorIndex(index)
+	row.ResizeTextAreaIfVerySmall()
 	ta.MakeIndexVisibleAtCenter(index)
-	ta.WarpPointerToIndexIfVisible(index)
+	ok := ta.WarpPointerToIndexIfVisible(index)
+	if !ok {
+		row.WarpPointer()
+	}
 }

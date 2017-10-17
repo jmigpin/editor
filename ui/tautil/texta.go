@@ -23,7 +23,6 @@ type Texta interface {
 	SetSelection(int, int) // selection/cursor indexes
 
 	MakeIndexVisibleAtCenter(int)
-	WarpPointerToIndexIfVisible(int)
 
 	OffsetY() fixed.Int26_6
 	SetOffsetY(v fixed.Int26_6)

@@ -385,6 +385,46 @@ func (row *Row) resizeWithPush(up bool) {
 	row.Col.Cols.Layout.UI.WarpPointer(&sqCenter)
 }
 
+func (row *Row) ResizeTextAreaIfVerySmall() {
+	col := row.Col
+	dy := float64(col.Bounds().Dy())
+	min := 30 / dy
+	ta := row.TextArea
+	taMin := ta.LineHeight().Ceil()
+
+	taDy := ta.Bounds().Dy()
+	if taDy > taMin {
+		return
+	}
+
+	hint := image.Point{row.Bounds().Dx(), 1000000}
+	rm := row.Measure(hint)
+	tm := row.TextArea.Measure(hint)
+	size := (rm.Y - tm.Y) + taMin
+
+	// push siblings down
+	perc := float64(row.Bounds().Min.Sub(col.Bounds().Min).Y+size) / dy
+	percIsTop := false
+	col.rowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+
+	col.CalcChildsBounds()
+	col.MarkNeedsPaint()
+
+	// check if good already
+	taDy = ta.Bounds().Dy()
+	if taDy > taMin {
+		return
+	}
+
+	// push siblings up
+	perc = float64(row.Bounds().Max.Sub(col.Bounds().Min).Y-size) / dy
+	percIsTop = true
+	col.rowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+
+	col.CalcChildsBounds()
+	col.MarkNeedsPaint()
+}
+
 type RowRType int
 
 const (
