@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image"
-	"math"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil/widget"
@@ -105,9 +104,7 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	ui := row.Col.Cols.Layout.UI
 	switch {
 	case ev.Button.Button(1):
-		//resizeCol := ev.Button.Mods.HasControl()
-		//row.startResizeToPoint(ev.Point)
-		row.startRowResizeToPoint(ev.Point)
+		row.startResizeToPoint(ev.Point)
 	case ev.Button.Button(2):
 		// indicate close
 		ui.CursorMan.SetCursor(xcursor.XCursor)
@@ -122,10 +119,8 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 func (row *Row) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
-	case ev.Mods.HasButton(1):
-		row.detectAndResizeToPoint(ev.Point)
-	case ev.Mods.IsButton(3):
-		row.detectAndResizeToPoint(ev.Point)
+	case ev.Mods.HasButton(1), ev.Mods.HasButton(3):
+		row.resizeToPoint(ev.Point)
 	}
 }
 func (row *Row) onSquareButtonRelease(ev0 interface{}) {
@@ -134,14 +129,8 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
-	case ev.Button.Mods.HasButton(1):
-		if !row.resize.on {
-			if ev.Point.In(row.Square.Bounds()) {
-				row.maximizeRow()
-			}
-		} else {
-			row.endResizeToPoint(ev.Point)
-		}
+	case ev.Button.Mods.HasButton(1), ev.Button.Mods.HasButton(3):
+		row.endResizeToPoint(ev.Point)
 	case ev.Button.Mods.IsButton(2):
 		if ev.Point.In(row.Square.Bounds()) {
 			row.Close()
@@ -196,36 +185,6 @@ func (row *Row) HideSeparator(v bool) {
 	}
 }
 
-func (row *Row) startColumnResizeToPoint(p *image.Point) {
-	row.resize.detect = false
-	row.resize.on = true
-	row.resize.origin = p.Sub(row.Square.Bounds().Min)
-	if !ScrollbarLeft {
-		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
-	}
-
-	ui := row.Col.Cols.Layout.UI
-	ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
-	row.resize.typ = ResizeColumnRType
-
-	row.resizeToPoint(p)
-}
-
-func (row *Row) startRowResizeToPoint(p *image.Point) {
-	row.resize.detect = false
-	row.resize.on = true
-	row.resize.origin = p.Sub(row.Square.Bounds().Min)
-	if !ScrollbarLeft {
-		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
-	}
-
-	ui := row.Col.Cols.Layout.UI
-	ui.CursorMan.SetCursor(xcursor.Fleur)
-	row.resize.typ = ResizeRowRType
-
-	row.resizeToPoint(p)
-}
-
 func (row *Row) startResizeToPoint(p *image.Point) {
 	row.resize.detect = true
 	row.resize.on = false
@@ -234,14 +193,31 @@ func (row *Row) startResizeToPoint(p *image.Point) {
 		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
 	}
 }
-func (row *Row) detectAndResizeToPoint(p *image.Point) {
-	if row.resize.detect {
-		row.detectResize(p)
-	}
+func (row *Row) startColumnResizeToPoint(p *image.Point) {
+	row.startResizeToPoint(p)
+	row.resize.detect = false
+	row.resize.on = true
+	ui := row.Col.Cols.Layout.UI
+	ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+	row.resize.typ = ResizeColumnRType
+	row.resizeToPoint(p)
+}
+
+func (row *Row) startRowResizeToPoint(p *image.Point) {
+	row.startResizeToPoint(p)
+	row.resize.detect = false
+	row.resize.on = true
+	ui := row.Col.Cols.Layout.UI
+	ui.CursorMan.SetCursor(xcursor.Fleur)
+	row.resize.typ = ResizeRowRType
 	row.resizeToPoint(p)
 }
 
 func (row *Row) resizeToPoint(p *image.Point) {
+	if row.resize.detect {
+		row.detectResize2(p)
+		return
+	}
 	if row.resize.on {
 		switch row.resize.typ {
 		case ResizeRowRType:
@@ -264,58 +240,70 @@ func (row *Row) endResizeToPoint(p *image.Point) {
 		default:
 			panic("!")
 		}
-	}
-}
-
-func (row *Row) detectResize(p *image.Point) {
-	u := p.Sub(row.Square.Bounds().Min)
-	if !ScrollbarLeft {
-		u.X = p.Sub(row.Square.Bounds().Max).X
-	}
-	w := u.Sub(row.resize.origin)
-	x := math.Abs(float64(w.X))
-	y := math.Abs(float64(w.Y))
-
-	// give some pixels to make the decision
-	dist := math.Sqrt(x*x + y*y)
-	if dist < 15 {
-		return
-	}
-
-	// detect
-	a := math.Atan(y/x) * 180.0 / math.Pi
-	sc := row.Col.Cols.Layout.UI.CursorMan.SetCursor
-	if a <= 15 {
-		// horizontal
-		sc(xcursor.SBHDoubleArrow)
-		row.resize.typ = ResizeColumnRType
 	} else {
-		// any other angle
-		sc(xcursor.Fleur)
-		row.resize.typ = ResizeRowRType
+		row.maximize()
+		row.WarpPointer()
 	}
-
-	//// re-keep origin to avoid jump
-	//// difficult to push beyond other rows if the square has big Y
-	//row.resize.origin = p.Sub(row.Square.Bounds().Min)
-	//if !ScrollbarLeft {
-	//	row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
-	//}
-
-	// accurate position (makes jump)
-	// works best as well for accurate swaps
-	row.resize.origin = image.Point{}
-
-	//// reposition pointer to look accurate without jumping the movement
-	//p2 := row.Square.Bounds().Min.Add(row.resize.origin)
-	//if !ScrollbarLeft {
-	//	p2.X = row.Square.Bounds().Max.Add(row.resize.origin).X
-	//}
-	//row.Col.Cols.Layout.UI.WarpPointer(&p2)
-
-	row.resize.detect = false
-	row.resize.on = true
 }
+
+func (row *Row) detectResize2(p *image.Point) {
+	min := row.Square.Bounds().Min
+	u := p.Sub(min)
+	movement := u != row.resize.origin
+	if movement {
+		row.startRowResizeToPoint(p)
+	}
+}
+
+//func (row *Row) detectResize1(p *image.Point) {
+//	u := p.Sub(row.Square.Bounds().Min)
+//	if !ScrollbarLeft {
+//		u.X = p.Sub(row.Square.Bounds().Max).X
+//	}
+//	w := u.Sub(row.resize.origin)
+//	x := math.Abs(float64(w.X))
+//	y := math.Abs(float64(w.Y))
+
+//	// give some pixels to make the decision
+//	dist := math.Sqrt(x*x + y*y)
+//	if dist < 15 {
+//		return
+//	}
+
+//	// detect
+//	a := math.Atan(y/x) * 180.0 / math.Pi
+//	sc := row.Col.Cols.Layout.UI.CursorMan.SetCursor
+//	if a <= 15 {
+//		// horizontal
+//		sc(xcursor.SBHDoubleArrow)
+//		row.resize.typ = ResizeColumnRType
+//	} else {
+//		// any other angle
+//		sc(xcursor.Fleur)
+//		row.resize.typ = ResizeRowRType
+//	}
+
+//	//// re-keep origin to avoid jump
+//	//// difficult to push beyond other rows if the square has big Y
+//	//row.resize.origin = p.Sub(row.Square.Bounds().Min)
+//	//if !ScrollbarLeft {
+//	//	row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
+//	//}
+
+//	// accurate position (makes jump)
+//	// works best as well for accurate swaps
+//	row.resize.origin = image.Point{}
+
+//	//// reposition pointer to look accurate without jumping the movement
+//	//p2 := row.Square.Bounds().Min.Add(row.resize.origin)
+//	//if !ScrollbarLeft {
+//	//	p2.X = row.Square.Bounds().Max.Add(row.resize.origin).X
+//	//}
+//	//row.Col.Cols.Layout.UI.WarpPointer(&p2)
+
+//	row.resize.detect = false
+//	row.resize.on = true
+//}
 
 func (row *Row) resizeRowToPoint(p *image.Point) {
 	col, ok := row.Col.Cols.PointColumn(p)
@@ -332,9 +320,6 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 			row.Col.removeRow(row)
 			col.insertBefore(row, next)
 		}
-
-		//// take the opportunity and make the origin accurate
-		//row.resize.origin = image.Point{}
 	}
 
 	bounds := row.Col.Bounds()
@@ -353,7 +338,7 @@ func (row *Row) resizeColumnToPoint(p *image.Point) {
 	row.Col.resizeToPointOrigin(p, &row.resize.origin)
 }
 
-func (row *Row) maximizeRow() {
+func (row *Row) maximize() {
 	col := row.Col
 	dy := float64(col.Bounds().Dy())
 	min := 30 / dy
@@ -398,9 +383,8 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 	}
 
 	hint := image.Point{row.Bounds().Dx(), 1000000}
-	rm := row.Measure(hint)
-	tm := row.TextArea.Measure(hint)
-	size := (rm.Y - tm.Y) + taMin
+	tbm := row.Toolbar.Measure(hint)
+	size := tbm.Y + taMin + 10 // pad to cover borders used (TODO: improve)
 
 	// push siblings down
 	perc := float64(row.Bounds().Min.Sub(col.Bounds().Min).Y+size) / dy
