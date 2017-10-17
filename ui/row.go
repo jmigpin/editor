@@ -105,10 +105,14 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 	ui := row.Col.Cols.Layout.UI
 	switch {
 	case ev.Button.Button(1):
-		row.startResizeToPoint(ev.Point)
+		//resizeCol := ev.Button.Mods.HasControl()
+		//row.startResizeToPoint(ev.Point)
+		row.startRowResizeToPoint(ev.Point)
 	case ev.Button.Button(2):
 		// indicate close
 		ui.CursorMan.SetCursor(xcursor.XCursor)
+	case ev.Button.Button(3):
+		row.startColumnResizeToPoint(ev.Point)
 	case ev.Button.Button(4):
 		row.resizeWithPush(true)
 	case ev.Button.Button(5):
@@ -118,9 +122,10 @@ func (row *Row) onSquareButtonPress(ev0 interface{}) {
 func (row *Row) onSquareMotionNotify(ev0 interface{}) {
 	ev := ev0.(*SquareMotionNotifyEvent)
 	switch {
-	case ev.Mods.IsButton(1):
+	case ev.Mods.HasButton(1):
 		row.detectAndResizeToPoint(ev.Point)
 	case ev.Mods.IsButton(3):
+		row.detectAndResizeToPoint(ev.Point)
 	}
 }
 func (row *Row) onSquareButtonRelease(ev0 interface{}) {
@@ -129,7 +134,7 @@ func (row *Row) onSquareButtonRelease(ev0 interface{}) {
 
 	ev := ev0.(*SquareButtonReleaseEvent)
 	switch {
-	case ev.Button.Mods.IsButton(1):
+	case ev.Button.Mods.HasButton(1):
 		if !row.resize.on {
 			if ev.Point.In(row.Square.Bounds()) {
 				row.maximizeRow()
@@ -191,6 +196,36 @@ func (row *Row) HideSeparator(v bool) {
 	}
 }
 
+func (row *Row) startColumnResizeToPoint(p *image.Point) {
+	row.resize.detect = false
+	row.resize.on = true
+	row.resize.origin = p.Sub(row.Square.Bounds().Min)
+	if !ScrollbarLeft {
+		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
+	}
+
+	ui := row.Col.Cols.Layout.UI
+	ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+	row.resize.typ = ResizeColumnRType
+
+	row.resizeToPoint(p)
+}
+
+func (row *Row) startRowResizeToPoint(p *image.Point) {
+	row.resize.detect = false
+	row.resize.on = true
+	row.resize.origin = p.Sub(row.Square.Bounds().Min)
+	if !ScrollbarLeft {
+		row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
+	}
+
+	ui := row.Col.Cols.Layout.UI
+	ui.CursorMan.SetCursor(xcursor.Fleur)
+	row.resize.typ = ResizeRowRType
+
+	row.resizeToPoint(p)
+}
+
 func (row *Row) startResizeToPoint(p *image.Point) {
 	row.resize.detect = true
 	row.resize.on = false
@@ -203,6 +238,10 @@ func (row *Row) detectAndResizeToPoint(p *image.Point) {
 	if row.resize.detect {
 		row.detectResize(p)
 	}
+	row.resizeToPoint(p)
+}
+
+func (row *Row) resizeToPoint(p *image.Point) {
 	if row.resize.on {
 		switch row.resize.typ {
 		case ResizeRowRType:
@@ -246,7 +285,7 @@ func (row *Row) detectResize(p *image.Point) {
 	// detect
 	a := math.Atan(y/x) * 180.0 / math.Pi
 	sc := row.Col.Cols.Layout.UI.CursorMan.SetCursor
-	if a <= 25 {
+	if a <= 15 {
 		// horizontal
 		sc(xcursor.SBHDoubleArrow)
 		row.resize.typ = ResizeColumnRType
@@ -257,6 +296,7 @@ func (row *Row) detectResize(p *image.Point) {
 	}
 
 	//// re-keep origin to avoid jump
+	//// difficult to push beyond other rows if the square has big Y
 	//row.resize.origin = p.Sub(row.Square.Bounds().Min)
 	//if !ScrollbarLeft {
 	//	row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
@@ -278,7 +318,6 @@ func (row *Row) detectResize(p *image.Point) {
 }
 
 func (row *Row) resizeRowToPoint(p *image.Point) {
-
 	col, ok := row.Col.Cols.PointColumn(p)
 	if !ok {
 		return

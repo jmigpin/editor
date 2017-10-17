@@ -71,9 +71,9 @@ Usage of ./editor:
 
 - `button1`:
   - click: maximize
-  - drag horizontal: resize column
-  - drag (non-horizontal): move/resize row
+  - drag: move/resize row
 - `button2`: close row
+- `button3`: resize column
 - `button4`: increase row size vertically, pushing other rows up
 - `button5`: increase row size vertically, pushing other rows down
 
