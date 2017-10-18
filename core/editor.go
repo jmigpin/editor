@@ -256,8 +256,7 @@ func (ed *Editor) ActiveERow() (cmdutil.ERower, bool) {
 }
 
 func (ed *Editor) GoodColumnRowPlace() (*ui.Column, *ui.Row) {
-	col := ed.ui.Layout.Cols.ColumnWithGoodPlaceForNewRow()
-	return col, nil // last position
+	return ed.ui.Layout.GoodColumnRowPlace()
 }
 
 func (ed *Editor) eventLoop() {

@@ -113,60 +113,6 @@ func (cols *Columns) PointColumn(p *image.Point) (*Column, bool) {
 	return nil, false
 }
 
-func (cols *Columns) ColumnWithGoodPlaceForNewRow() *Column {
-	var best struct {
-		r    *image.Rectangle
-		area int
-		col  *Column
-	}
-
-	u, ok := cols.FirstChildColumn()
-	if ok {
-		best.col = u
-	}
-
-	rectArea := func(r *image.Rectangle) int {
-		p := r.Size()
-		return p.X * p.Y
-	}
-	columns := cols.Columns()
-	for _, col := range columns {
-		dy0 := col.Bounds().Dy()
-		dy := dy0 / (len(columns) + 1)
-
-		// take into consideration the textarea content size
-		usedY := 0
-		for _, r := range col.Rows() {
-			ry := r.Bounds().Dy()
-
-			// small text - count only needed height
-			ry1 := ry - r.TextArea.Bounds().Dy()
-			ry2 := ry1 + r.TextArea.StrHeight().Round()
-			if ry2 < ry {
-				ry = ry2
-			}
-
-			usedY += ry
-		}
-		dy2 := dy0 - usedY
-		if dy < dy2 {
-			dy = dy2
-		}
-
-		r := image.Rect(0, 0, col.Bounds().Dx(), dy)
-		area := rectArea(&r)
-		if area > best.area {
-			best.area = area
-			best.r = &r
-			best.col = col
-		}
-	}
-	if best.col == nil {
-		panic("col is nil")
-	}
-	return best.col
-}
-
 func (cols *Columns) FirstChildColumn() (*Column, bool) {
 	u := cols.FirstChild()
 	if u == nil {
