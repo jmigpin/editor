@@ -109,7 +109,8 @@ func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
 
 	// input event
 	topPoint := p.Sub(sq.pressPointPad)
-	ev2 := &SquareInputEvent{sq, ev0, &p, &topPoint}
+	topXPoint := image.Point{p.X, topPoint.Y}
+	ev2 := &SquareInputEvent{sq, ev0, &p, &topPoint, &topXPoint}
 	sq.EvReg.RunCallbacks(SquareInputEventId, ev2)
 
 	// return handled
@@ -117,6 +118,7 @@ func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *xinput.ButtonPressEvent:
 		return true
 	case *xinput.ButtonReleaseEvent:
+		sq.pressPointPad = image.Point{}
 		return true
 	}
 	return false
@@ -155,8 +157,9 @@ const (
 )
 
 type SquareInputEvent struct {
-	Square   *Square
-	Event    interface{}
-	Point    *image.Point
-	TopPoint *image.Point
+	Square    *Square
+	Event     interface{}
+	Point     *image.Point
+	TopPoint  *image.Point
+	TopXPoint *image.Point
 }
