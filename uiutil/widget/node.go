@@ -58,7 +58,7 @@ type Node interface {
 
 	CalcChildsBounds()
 
-	Paint() // should not be called directly, called by PaintIfNeeded
+	Paint()
 	PaintChilds()
 
 	OnInputEvent(ev interface{}, p image.Point) bool
@@ -76,8 +76,6 @@ func AppendChilds(parent Node, nodes ...Node) {
 	}
 }
 
-// These functions could belong to a node, but are only to be called by the root node.
-
 func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 	if node.Marks().NeedsPaint() {
 		node.Marks().UnmarkNeedsPaint()
@@ -90,82 +88,6 @@ func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 		for _, child := range node.Childs() {
 			PaintIfNeeded(child, painted)
 		}
-	}
-}
-
-// Auto-locks all input events into the node on the tree that handles
-// a press event. The node is responsible for unlocking by handling
-// the release event. Handling means OnInputEvent() returns true.
-
-func ApplyInputEventInBounds(
-	node Node,
-	ev interface{},
-	p image.Point,
-	isPressEvent func(ev interface{}) bool,
-	isReleaseEvent func(ev interface{}) bool,
-) {
-	if pressNode != nil {
-		applyInputEventToPressNode(pressNode, ev, p, isPressEvent, isReleaseEvent)
-	} else {
-		applyInputEventInBounds2(node, ev, p, isPressEvent, isReleaseEvent)
-	}
-}
-
-func applyInputEventInBounds2(
-	node Node,
-	ev interface{},
-	p image.Point,
-	isPressEvent func(ev interface{}) bool,
-	isReleaseEvent func(ev interface{}) bool,
-) bool {
-	// helps breaking early and avoid running siblings in the case of structure changes
-	handled := false
-
-	// Reversed iteration for the possibility that later childs are drawn over.
-	// Hidden nodes are inherently not iterated.
-	for c := node.LastChild(); c != nil; c = c.Prev() {
-		if p.In(c.Bounds()) {
-			h := applyInputEventInBounds2(c, ev, p, isPressEvent, isReleaseEvent)
-			if h {
-				// Don't handle other siblings. The structure could have changed
-				// with this node having called CalcChildsBounds and now siblings
-				// could get the event as well.
-
-				handled = handled || h
-				break
-			}
-		}
-	}
-
-	h := node.OnInputEvent(ev, p)
-	if h && isPressEvent(ev) {
-		handled = handled || h
-		if pressNode == nil { // only the first one locks
-			pressNode = node // lock node
-		}
-	}
-	return handled
-}
-
-var pressNode Node
-
-func applyInputEventToPressNode(
-	node Node,
-	ev interface{},
-	p image.Point,
-	isPressEvent func(ev interface{}) bool,
-	isReleaseEvent func(ev interface{}) bool,
-) {
-	pn := pressNode
-
-	handled := pressNode.OnInputEvent(ev, p)
-	if handled && isReleaseEvent(ev) {
-		pressNode = nil // unlock node
-	}
-
-	// call event up in the parent chain
-	for u := pn.Parent(); u != nil; u = u.Parent() {
-		_ = u.OnInputEvent(ev, p)
 	}
 }
 
@@ -376,43 +298,40 @@ func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
 	return false
 }
 
-//type LeafNode struct {
-//	EmbedNode
-//}
+type ShellEmbedNode struct {
+	EmbedNode
+}
 
-//func (ln *LeafNode) pushBack(n Node) {
-//	panic("can't insert child on a leaf node")
-//}
-//func (ln *LeafNode) insertBefore(n, mark Node) {
-//	panic("can't insert child on a leaf node")
-//}
-//func (ln *LeafNode) CalcChildsBounds() {
-//}
+func (sn *ShellEmbedNode) PushBack(parent, n Node) {
+	if sn.FirstChild() != nil {
+		panic("shell node already has a child")
+	}
+	sn.EmbedNode.PushBack(parent, n)
+}
+func (sn *ShellEmbedNode) InsertBefore(parent, n, mark Node) {
+	panic("shell node can have only one child, use pushback")
+}
+func (sn *ShellEmbedNode) Measure(hint image.Point) image.Point {
+	return sn.FirstChild().Measure(hint)
+}
+func (sn *ShellEmbedNode) CalcChildsBounds() {
+	u := sn.Bounds()
+	sn.FirstChild().SetBounds(&u)
+	sn.FirstChild().CalcChildsBounds()
+}
 
-//type ShellNode struct {
-//	EmbedNode
-//}
+type LeafEmbedNode struct {
+	EmbedNode
+}
 
-//func (sn *ShellNode) pushBack(n Node) {
-//	if sn.NChilds() > 0 {
-//		panic("shell node already has a child")
-//	}
-//	sn.EmbedNode.pushBack(n)
-//}
-//func (sn *ShellNode) insertBefore(n, mark Node) {
-//	panic("shell node can have only one child, use pushback")
-//}
-//func (sn *ShellNode) Measure(hint image.Point) *image.Point {
-//	return sn.FirstChild().Measure(hint)
-//}
-//func (sn *ShellNode) CalcChildsBounds() {
-//	sn.FirstChild().SetBounds(sn.Bounds())
-//	sn.FirstChild().CalcChildsBounds()
-//}
-
-//type ContainerNode struct {
-//	EmbedNode
-//}
+func (ln *LeafEmbedNode) PushBack(parent, n Node) {
+	panic("can't insert child on a leaf node")
+}
+func (ln *LeafEmbedNode) InsertBefore(parent, n, mark Node) {
+	panic("can't insert child on a leaf node")
+}
+func (ln *LeafEmbedNode) CalcChildsBounds() {
+}
 
 type Marks uint8
 
@@ -439,20 +358,3 @@ func (m *Marks) MarkChildNeedsPaint() { m.Add(MarkChildNeedsPaint) }
 
 func (m *Marks) UnmarkNeedsPaint()      { m.Remove(MarkNeedsPaint) }
 func (m *Marks) UnmarkChildNeedsPaint() { m.Remove(MarkChildNeedsPaint) }
-
-func IsAPrevOf(a, b Node) bool {
-	for u := b.Prev(); u != nil; u = u.Prev() {
-		if u == a {
-			return true
-		}
-	}
-	return false
-}
-func IsANextOf(a, b Node) bool {
-	for u := b.Next(); u != nil; u = u.Next() {
-		if u == a {
-			return true
-		}
-	}
-	return false
-}
