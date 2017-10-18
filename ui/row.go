@@ -120,14 +120,18 @@ func (row *Row) onSquareInput(ev0 interface{}) {
 		}
 	case *xinput.MotionNotifyEvent:
 		switch {
-		case ev.Mods.HasButton(1), ev.Mods.HasButton(3):
+		case ev.Mods.HasButton(1):
 			row.resizeToPoint(sqEv.TopXPoint)
+		case ev.Mods.HasButton(3):
+			row.resizeToPoint(sqEv.TopPoint)
 		}
 	case *xinput.ButtonReleaseEvent:
 		ui.CursorMan.UnsetCursor()
 		switch {
-		case ev.Button.Mods.HasButton(1), ev.Button.Mods.HasButton(3):
+		case ev.Button.Mods.HasButton(1):
 			row.endResizeToPoint(sqEv.TopXPoint)
+		case ev.Button.Mods.HasButton(3):
+			row.endResizeToPoint(sqEv.TopPoint)
 		case ev.Button.Mods.IsButton(2):
 			if ev.Point.In(row.Square.Bounds()) {
 				row.Close()
