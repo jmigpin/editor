@@ -37,12 +37,18 @@ func (epl *EndPercentLayout) InsertBefore(parent, n, mark Node) {
 
 	epl.lazyInit()
 
-	// insert between siblings end percents
-	start, end := 0.0, 1.0
+	// share with previous sibling, or with the next one if becoming first child
+	var end float64
 	if n.Prev() != nil {
-		start, end = epl.ChildPercents(n.Prev())
+		start := epl.ChildStartPercent(n.Prev())
+		end = epl.ChildEndPercent(n.Prev())
 		epl.SetChildEndPercent(n.Prev(), start+(end-start)/2)
+	} else {
+		// first child
+		w := epl.ChildEndPercent(mark)
+		end = w / 2
 	}
+
 	epl.endPercents[n] = end
 }
 
@@ -89,12 +95,6 @@ func (epl *EndPercentLayout) SetChildStartPercent(child Node, v float64) {
 	if child.Prev() != nil {
 		epl.endPercents[child.Prev()] = v
 	}
-}
-
-func (epl *EndPercentLayout) ChildPercents(child Node) (float64, float64) {
-	start := epl.ChildStartPercent(child)
-	end := epl.ChildEndPercent(child)
-	return start, end
 }
 
 func (epl *EndPercentLayout) Measure(hint image.Point) image.Point {

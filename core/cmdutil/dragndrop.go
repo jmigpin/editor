@@ -133,6 +133,8 @@ func (h *dndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL
 		r, ok := row.NextRow()
 		if ok {
 			row = r
+		} else {
+			row = nil // pushback
 		}
 	}
 	erow := h.ed.NewERowBeforeRow(u.Path, col, row)
