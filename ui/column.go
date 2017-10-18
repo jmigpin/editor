@@ -6,6 +6,7 @@ import (
 
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil/widget"
+	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type Column struct {
@@ -29,9 +30,7 @@ func NewColumn(cols *Columns) *Column {
 	ui := col.Cols.Layout.UI
 
 	col.Square = NewSquare(ui)
-	col.Square.EvReg.Add(SquareButtonPressEventId, col.onSquareButtonPress)
-	col.Square.EvReg.Add(SquareButtonReleaseEventId, col.onSquareButtonRelease)
-	col.Square.EvReg.Add(SquareMotionNotifyEventId, col.onSquareMotionNotify)
+	col.Square.EvReg.Add(SquareInputEventId, col.onSquareInput)
 
 	col.sep = widget.NewSpace(ui)
 	col.sep.SetExpand(false, true)
@@ -120,38 +119,33 @@ func (col *Column) fixFirstRowSeparatorAndSquare() {
 	}
 }
 
-func (col *Column) onSquareButtonPress(ev0 interface{}) {
-	ev := ev0.(*SquareButtonPressEvent)
+func (col *Column) onSquareInput(ev0 interface{}) {
+	sqEv := ev0.(*SquareInputEvent)
 	ui := col.Cols.Layout.UI
-
-	switch {
-	case ev.Button.Button(1) || ev.Button.Button(3):
-		ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
-		col.startResizeToPoint(ev.TopPoint)
-	case ev.Button.Button(2):
-		// indicate close
-		ui.CursorMan.SetCursor(xcursor.XCursor)
-	}
-}
-func (col *Column) onSquareMotionNotify(ev0 interface{}) {
-	ev := ev0.(*SquareMotionNotifyEvent)
-	switch {
-	case ev.Mods.HasButton(1) || ev.Mods.HasButton(3):
-		col.resizeToPointIfOn(ev.TopPoint)
-	}
-}
-func (col *Column) onSquareButtonRelease(ev0 interface{}) {
-	ev := ev0.(*SquareButtonReleaseEvent)
-
-	ui := col.Cols.Layout.UI
-	ui.CursorMan.UnsetCursor()
-
-	switch {
-	case ev.Button.Mods.HasButton(1) || ev.Button.Mods.HasButton(3):
-		col.endResizeToPoint(ev.TopPoint)
-	case ev.Button.Mods.IsButton(2):
-		if ev.Point.In(col.Square.Bounds()) {
-			col.Cols.CloseColumnEnsureOne(col)
+	switch ev := sqEv.Event.(type) {
+	case *xinput.ButtonPressEvent:
+		switch {
+		case ev.Button.Button(1) || ev.Button.Button(3):
+			ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+			col.startResizeToPoint(sqEv.TopPoint)
+		case ev.Button.Button(2):
+			// indicate close
+			ui.CursorMan.SetCursor(xcursor.XCursor)
+		}
+	case *xinput.MotionNotifyEvent:
+		switch {
+		case ev.Mods.HasButton(1) || ev.Mods.HasButton(3):
+			col.resizeToPointIfOn(sqEv.TopPoint)
+		}
+	case *xinput.ButtonReleaseEvent:
+		ui.CursorMan.UnsetCursor()
+		switch {
+		case ev.Button.Mods.HasButton(1) || ev.Button.Mods.HasButton(3):
+			col.endResizeToPoint(sqEv.TopPoint)
+		case ev.Button.Mods.IsButton(2):
+			if ev.Point.In(col.Square.Bounds()) {
+				col.Cols.CloseColumnEnsureOne(col)
+			}
 		}
 	}
 }

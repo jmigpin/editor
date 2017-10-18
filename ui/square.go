@@ -27,17 +27,9 @@ type Square struct {
 func NewSquare(ui *UI) *Square {
 	sq := &Square{ui: ui}
 	sq.Width = SquareWidth
-
 	sq.EvReg = evreg.NewRegister()
-
-	//sq.ui.CursorMan.SetBoundsCursor(&sq.Bounds(), xcursor.Icon)
-
 	return sq
 }
-
-//func (sq *Square) Close() {
-//	//sq.ui.CursorMan.RemoveBoundsCursor(&sq.Bounds())
-//}
 
 func (sq *Square) Measure(hint image.Point) image.Point {
 	return image.Point{sq.Width, sq.Width}
@@ -106,48 +98,28 @@ func (sq *Square) Paint() {
 }
 
 func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	switch evt := ev0.(type) {
+	// press point pad
+	if evt, ok := ev0.(*xinput.ButtonPressEvent); ok {
+		u := evt.Point.Sub(sq.Bounds().Min)
+		if !ScrollbarLeft {
+			u.X = evt.Point.X - sq.Bounds().Max.X
+		}
+		sq.pressPointPad = u
+	}
+
+	// input event
+	topPoint := p.Sub(sq.pressPointPad)
+	ev2 := &SquareInputEvent{sq, ev0, &p, &topPoint}
+	sq.EvReg.RunCallbacks(SquareInputEventId, ev2)
+
+	// return handled
+	switch ev0.(type) {
 	case *xinput.ButtonPressEvent:
-		sq.onButtonPress(evt)
 		return true
-	case *xinput.MotionNotifyEvent:
-		sq.onMotionNotify(evt)
 	case *xinput.ButtonReleaseEvent:
-		sq.onButtonRelease(evt)
 		return true
 	}
 	return false
-}
-func (sq *Square) onButtonPress(ev *xinput.ButtonPressEvent) {
-	sq.buttonPressed = true
-
-	// press point pad
-	u := ev.Point.Sub(sq.Bounds().Min)
-	if !ScrollbarLeft {
-		u.X = ev.Point.X - sq.Bounds().Max.X
-	}
-	sq.pressPointPad = u
-
-	topPoint := ev.Point.Sub(sq.pressPointPad)
-	ev2 := &SquareButtonPressEvent{sq, ev.Button, ev.Point, &topPoint}
-	sq.EvReg.RunCallbacks(SquareButtonPressEventId, ev2)
-}
-func (sq *Square) onMotionNotify(ev *xinput.MotionNotifyEvent) {
-	if !sq.buttonPressed {
-		return
-	}
-	topPoint := ev.Point.Sub(sq.pressPointPad)
-	ev2 := &SquareMotionNotifyEvent{sq, ev.Mods, ev.Point, &topPoint}
-	sq.EvReg.RunCallbacks(SquareMotionNotifyEventId, ev2)
-}
-func (sq *Square) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
-	if !sq.buttonPressed {
-		return
-	}
-	sq.buttonPressed = false
-	topPoint := ev.Point.Sub(sq.pressPointPad)
-	ev2 := &SquareButtonReleaseEvent{sq, ev.Button, ev.Point, &topPoint}
-	sq.EvReg.RunCallbacks(SquareButtonReleaseEventId, ev2)
 }
 
 func (sq *Square) WarpPointer() {
@@ -179,26 +151,12 @@ const (
 )
 
 const (
-	SquareButtonPressEventId = iota
-	SquareButtonReleaseEventId
-	SquareMotionNotifyEventId
+	SquareInputEventId = iota
 )
 
-type SquareButtonPressEvent struct {
+type SquareInputEvent struct {
 	Square   *Square
-	Button   *xinput.Button
-	Point    *image.Point
-	TopPoint *image.Point
-}
-type SquareButtonReleaseEvent struct {
-	Square   *Square
-	Button   *xinput.Button
-	Point    *image.Point
-	TopPoint *image.Point
-}
-type SquareMotionNotifyEvent struct {
-	Square   *Square
-	Mods     xinput.Modifiers
+	Event    interface{}
 	Point    *image.Point
 	TopPoint *image.Point
 }

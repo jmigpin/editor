@@ -44,9 +44,7 @@ func NewRow(col *Column) *Row {
 
 	row.Square = NewSquare(ui)
 	row.Square.SetFill(false, true)
-	row.Square.EvReg.Add(SquareButtonPressEventId, row.onSquareButtonPress)
-	row.Square.EvReg.Add(SquareButtonReleaseEventId, row.onSquareButtonRelease)
-	row.Square.EvReg.Add(SquareMotionNotifyEventId, row.onSquareMotionNotify)
+	row.Square.EvReg.Add(SquareInputEventId, row.onSquareInput)
 
 	// row separator from other rows
 	row.sep = widget.NewSpace(ui)
@@ -101,41 +99,39 @@ func (row *Row) Close() {
 	row.Col.removeRow(row)
 	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
 }
-func (row *Row) onSquareButtonPress(ev0 interface{}) {
-	ev := ev0.(*SquareButtonPressEvent)
-	ui := row.Col.Cols.Layout.UI
-	switch {
-	case ev.Button.Button(1):
-		row.startResizeToPoint(ev.TopPoint)
-	case ev.Button.Button(2):
-		// indicate close
-		ui.CursorMan.SetCursor(xcursor.XCursor)
-	case ev.Button.Button(3):
-		row.startColumnResizeToPoint(ev.TopPoint)
-	case ev.Button.Button(4):
-		row.resizeWithPush(true)
-	case ev.Button.Button(5):
-		row.resizeWithPush(false)
-	}
-}
-func (row *Row) onSquareMotionNotify(ev0 interface{}) {
-	ev := ev0.(*SquareMotionNotifyEvent)
-	switch {
-	case ev.Mods.HasButton(1), ev.Mods.HasButton(3):
-		row.resizeToPoint(ev.TopPoint)
-	}
-}
-func (row *Row) onSquareButtonRelease(ev0 interface{}) {
-	ui := row.Col.Cols.Layout.UI
-	ui.CursorMan.UnsetCursor()
 
-	ev := ev0.(*SquareButtonReleaseEvent)
-	switch {
-	case ev.Button.Mods.HasButton(1), ev.Button.Mods.HasButton(3):
-		row.endResizeToPoint(ev.TopPoint)
-	case ev.Button.Mods.IsButton(2):
-		if ev.Point.In(row.Square.Bounds()) {
-			row.Close()
+func (row *Row) onSquareInput(ev0 interface{}) {
+	sqEv := ev0.(*SquareInputEvent)
+	ui := row.Col.Cols.Layout.UI
+	switch ev := sqEv.Event.(type) {
+	case *xinput.ButtonPressEvent:
+		switch {
+		case ev.Button.Button(1):
+			row.startResizeToPoint(sqEv.TopPoint)
+		case ev.Button.Button(2):
+			// indicate close
+			ui.CursorMan.SetCursor(xcursor.XCursor)
+		case ev.Button.Button(3):
+			row.startColumnResizeToPoint(sqEv.TopPoint)
+		case ev.Button.Button(4):
+			row.resizeWithPush(true)
+		case ev.Button.Button(5):
+			row.resizeWithPush(false)
+		}
+	case *xinput.MotionNotifyEvent:
+		switch {
+		case ev.Mods.HasButton(1), ev.Mods.HasButton(3):
+			row.resizeToPoint(sqEv.TopPoint)
+		}
+	case *xinput.ButtonReleaseEvent:
+		ui.CursorMan.UnsetCursor()
+		switch {
+		case ev.Button.Mods.HasButton(1), ev.Button.Mods.HasButton(3):
+			row.endResizeToPoint(sqEv.TopPoint)
+		case ev.Button.Mods.IsButton(2):
+			if ev.Point.In(row.Square.Bounds()) {
+				row.Close()
+			}
 		}
 	}
 }
