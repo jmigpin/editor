@@ -20,6 +20,7 @@ type HSDrawer struct {
 	HWordIndex  int // <0 to disable
 	Selection   *loopers.SelectionIndexes
 	OffsetY     fixed.Int26_6
+	Pad         image.Point // left/top pad
 
 	height fixed.Int26_6
 
@@ -35,10 +36,16 @@ func NewHSDrawer(face font.Face) *HSDrawer {
 	// allows getpoint to work without a calcrunedata be called
 	//d.Measure(&image.Point{})
 
+	// small pad added to allow the cursor to be fully drawn on first position
+	d.Pad = image.Point{1, 0}
+
 	return d
 }
 
-func (d *HSDrawer) Measure(max *image.Point) *fixed.Point26_6 {
+func (d *HSDrawer) Measure(max0 *image.Point) *fixed.Point26_6 {
+	max := *max0
+	max = max.Sub(d.Pad)
+
 	max2 := fixed.P(max.X, max.Y)
 
 	strl := loopers.NewStringLooper(d.Face, d.Str)
@@ -65,13 +72,17 @@ func (d *HSDrawer) Measure(max *image.Point) *fixed.Point26_6 {
 
 	return ml.M
 }
-func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
+func (d *HSDrawer) Draw(img draw.Image, bounds0 *image.Rectangle) {
+	t := *bounds0
+	bounds := &t
+	bounds.Min = bounds.Min.Add(d.Pad)
+
 	strl := d.pdl.Strl
 	wlinel := d.wlinel
 	dl := loopers.NewDrawLooper(strl, img, bounds)
 	bgl := loopers.NewBgLooper(strl, dl)
 	sl := loopers.NewSelectionLooper(strl, bgl, dl)
-	cursorl := loopers.NewCursorLooper(strl, dl)
+	cursorl := loopers.NewCursorLooper(strl, dl, bounds0)
 	hwl := loopers.NewHWordLooper(strl, bgl, dl, sl)
 	scl := loopers.NewSetColorsLooper(dl, bgl)
 	eel := loopers.NewEarlyExitLooper(strl, bounds)
@@ -144,8 +155,9 @@ func (d *HSDrawer) GetIndex(p *fixed.Point26_6) int {
 		return 0
 	}
 
-	d.pdl.RestorePosDataCloseToPoint(p)
-	return d.pdl.GetIndex(p, d.wlinel)
+	p2 := p.Sub(fixed.P(d.Pad.X, d.Pad.Y))
+	d.pdl.RestorePosDataCloseToPoint(&p2)
+	return d.pdl.GetIndex(&p2, d.wlinel)
 }
 
 type HSPosDataKeeper struct {
