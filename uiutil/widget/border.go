@@ -6,16 +6,20 @@ import (
 )
 
 type Border struct {
-	EmbedNode
+	ShellEmbedNode
 	ui                       UIer
 	Top, Right, Bottom, Left int
 	Color                    color.Color
 }
 
 func NewBorder(ui UIer, n Node) *Border {
-	b := &Border{ui: ui}
+	var b Border
+	b.Init(ui, n)
+	return &b
+}
+func (b *Border) Init(ui UIer, n Node) {
+	b.ui = ui
 	AppendChilds(b, n)
-	return b
 }
 func (b *Border) Set(v int) {
 	b.Top = v
@@ -26,12 +30,15 @@ func (b *Border) Set(v int) {
 func (b *Border) Measure(hint image.Point) image.Point {
 	hint.X -= b.Right + b.Left
 	hint.Y -= b.Top + b.Bottom
-	return b.FirstChild().Measure(hint)
+	m := b.FirstChild().Measure(hint)
+	m.X += b.Right + b.Left
+	m.Y += b.Top + b.Bottom
+	return m
 }
 func (b *Border) CalcChildsBounds() {
 	u := b.Bounds()
-	u.Max = u.Max.Sub(image.Point{b.Right, b.Bottom})
 	u.Min = u.Min.Add(image.Point{b.Left, b.Top})
+	u.Max = u.Max.Sub(image.Point{b.Right, b.Bottom})
 	b.FirstChild().SetBounds(&u)
 	b.FirstChild().CalcChildsBounds()
 }

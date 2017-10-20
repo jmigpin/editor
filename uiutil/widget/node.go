@@ -146,6 +146,7 @@ func (en *EmbedNode) InsertBefore(parent, n, mark Node) {
 
 func (en *EmbedNode) Remove(n Node) {
 	en.childs.Remove(n.Elem())
+	n.SetParent(nil)
 }
 
 func (en *EmbedNode) FirstChild() Node {
@@ -269,7 +270,11 @@ func (en *EmbedNode) MarkNeedsPaint() {
 	en.marks.MarkNeedsPaint()
 	// set mark in parents
 	for n := en.Parent(); n != nil; n = n.Parent() {
-		n.Marks().MarkChildNeedsPaint()
+		m := n.Marks()
+		if m.ChildNeedsPaint() {
+			break // parents already marked, early exit
+		}
+		m.MarkChildNeedsPaint()
 	}
 }
 
@@ -338,6 +343,7 @@ type Marks uint8
 const (
 	MarkNeedsPaint Marks = 1 << iota
 	MarkChildNeedsPaint
+	MarkPointerInside // used for mouseEnter/mouseLeave events
 )
 
 func (m *Marks) Add(u Marks) {
@@ -350,11 +356,14 @@ func (m *Marks) Has(u Marks) bool {
 	return *m&u > 0
 }
 
-func (m *Marks) NeedsPaint() bool      { return m.Has(MarkNeedsPaint) }
-func (m *Marks) ChildNeedsPaint() bool { return m.Has(MarkChildNeedsPaint) }
+func (m *Marks) NeedsPaint() bool  { return m.Has(MarkNeedsPaint) }
+func (m *Marks) MarkNeedsPaint()   { m.Add(MarkNeedsPaint) }
+func (m *Marks) UnmarkNeedsPaint() { m.Remove(MarkNeedsPaint) }
 
-func (m *Marks) MarkNeedsPaint()      { m.Add(MarkNeedsPaint) }
-func (m *Marks) MarkChildNeedsPaint() { m.Add(MarkChildNeedsPaint) }
-
-func (m *Marks) UnmarkNeedsPaint()      { m.Remove(MarkNeedsPaint) }
+func (m *Marks) ChildNeedsPaint() bool  { return m.Has(MarkChildNeedsPaint) }
+func (m *Marks) MarkChildNeedsPaint()   { m.Add(MarkChildNeedsPaint) }
 func (m *Marks) UnmarkChildNeedsPaint() { m.Remove(MarkChildNeedsPaint) }
+
+func (m *Marks) PointerInside() bool  { return m.Has(MarkPointerInside) }
+func (m *Marks) MarkPointerInside()   { m.Add(MarkPointerInside) }
+func (m *Marks) UnmarkPointerInside() { m.Remove(MarkPointerInside) }
