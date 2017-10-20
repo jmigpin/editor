@@ -96,23 +96,22 @@ Usage of ./editor:
 - `shift`+`tab`: remove tab from beginning of line
 - `ctrl`+`a`: select all
 - `ctrl`+`c`: copy to clipboard
+- `ctrl`+`d`: comment lines
 - `ctrl`+`k`: remove lines
 - `ctrl`+`v`: paste from clipboard
 - `ctrl`+`x`: cut
+- `ctrl`+`z`: undo
 - `ctrl`+`alt`+`down`: move line down
 - `ctrl`+`alt`+`shift`+`down`: duplicate lines
-- `ctrl`+`z`: undo
 - `ctrl`+`shift`+`z`: redo
-- `ctrl`+`d`: comment lines
 - `ctrl`+`shift`+`d`: uncomment lines
 - `buttonLeft`: move cursor to point
+  - drag: selects text - works as copy making it available for paste (primary selection).
 - `buttonMiddle`: paste from primary
 - `buttonRight`: move cursor to point + text area cmd
 - `buttonWheelUp`: scroll up
 - `buttonWheelDown`: scroll down
 - `shift`+`buttonLeft`: move cursor to point adding to selection
-
-Note: selecting text with `buttonLeft` works as copy and makes it available for paste (primary selection).
 
 ### Commands
 
@@ -122,14 +121,14 @@ Note: selecting text with `buttonLeft` works as copy and makes it available for 
 - `SaveSession <name>`: save session to ~/.editor_sessions.json
 - `DeleteSession <name>`: deletes the session from the sessions file
 - `NewColumn`: opens new column
-- `NewRow`: opens new row
+- `NewRow`: opens new empty row located at the active-row directory, or if there is none, the current directory. Useful to run commands in a directory.
 - `ReopenRow`: reopen a previously closed row
 - `SaveAllFiles`: saves all files
 - `ReloadAll`: reloads all filepaths
 - `ReloadAllFiles`: reloads all filepaths that are files
-- `XdgOpenDir`: calls xdg-open to open the active row directory with the preferred external application (ex: a filemanager)
-- `RowDirectory`: open row with the active row directory: useful when editing a file and want to access the file directory contents
-- `DuplicateRow`: make active row share the edit history with a new row that updates when changes are made.
+- `RowDirectory`: get the active-row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.
+- `DuplicateRow`: make active-row share the edit history with a new row that updates when changes are made.
+- `XdgOpenDir`: calls xdg-open to open the active-row directory with the preferred external application (ex: a filemanager)
 - `Exit`: exits the program
 
 Note: Some row commands work from the layout toolbar because they act on the current active row (ex: Find, Replace).
