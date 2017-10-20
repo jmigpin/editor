@@ -15,6 +15,7 @@ import (
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/ui/tautil/tahistory"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/pkg/errors"
 )
 
@@ -88,7 +89,7 @@ func (erow *ERow) initHandlers() {
 		contentcmd.Cmd(erow)
 	})
 	// key shortcuts
-	row.EvReg.Add(ui.RowKeyPressEventId, erow.onRowKeyPress)
+	row.EvReg.Add(ui.RowInputEventId, erow.onRowInput)
 	// close
 	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
 		cmdutil.RowCtxCancel(row)
@@ -334,24 +335,16 @@ func (erow *ERow) TextAreaAppendAsync(str string) {
 	erow.ed.ui.TextAreaAppendAsync(erow.row.TextArea, str)
 }
 
-func (erow *ERow) onRowKeyPress(ev0 interface{}) {
-	ev := ev0.(*ui.RowKeyPressEvent)
-	fks := ev.Key.FirstKeysym()
-	m := ev.Key.Mods
-	ed := erow.ed
-	switch {
-	case m.IsControl() && fks == 's':
-		erow, ok := ed.erows[ev.Row]
-		if !ok {
-			panic("!")
+func (erow *ERow) onRowInput(ev0 interface{}) {
+	ev := ev0.(*ui.RowInputEvent)
+	switch evt := ev.Event.(type) {
+	case *event.KeyDown:
+		switch {
+		case evt.Modifiers.Is(event.ModControl) && evt.Code == 's':
+			cmdutil.SaveRowFile(erow)
+		case evt.Modifiers.Is(event.ModControl) && evt.Code == 'f':
+			cmdutil.FindShortcut(erow)
 		}
-		cmdutil.SaveRowFile(erow)
-	case m.IsControl() && fks == 'f':
-		erow, ok := ed.erows[ev.Row]
-		if !ok {
-			panic("!")
-		}
-		cmdutil.FindShortcut(erow)
 	}
 }
 
