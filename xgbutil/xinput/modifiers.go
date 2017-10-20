@@ -162,6 +162,14 @@ func buttonMask(b int) int {
 		return xproto.KeyButMaskButton4
 	case 5:
 		return xproto.KeyButMaskButton5
+	case 6:
+		return xproto.KeyButMaskButton5 << 1
+	case 7:
+		return xproto.KeyButMaskButton5 << 2
+	case 8:
+		return xproto.KeyButMaskButton5 << 3
+	case 9:
+		return xproto.KeyButMaskButton5 << 4
 	default:
 		panic("button index out of range")
 	}

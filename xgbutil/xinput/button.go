@@ -3,9 +3,9 @@ package xinput
 import "github.com/BurntSushi/xgb/xproto"
 
 type Button struct {
-	km     *KMap
-	button xproto.Button // xproto.ButtonIndex1...
-	Mods   Modifiers     // xproto.KeyButMaskButton1...
+	km      *KMap
+	XButton xproto.Button // xproto.ButtonIndex1...
+	Mods    Modifiers     // xproto.KeyButMaskButton1...
 }
 
 func NewButton(km *KMap, button xproto.Button, state uint16) *Button {
@@ -17,7 +17,7 @@ func NewButton(km *KMap, button xproto.Button, state uint16) *Button {
 func (b *Button) Button(v int) bool {
 	if v >= 0 && v <= 5 {
 		// xproto.ButtonIndex1 = 1
-		return v == int(b.button)
+		return v == int(b.XButton)
 	}
 	panic("button index out of range")
 }

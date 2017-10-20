@@ -2,11 +2,14 @@ package xinput
 
 import (
 	"image"
+	"log"
 	"time"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/xgbutil/evreg"
+
+	"github.com/jmigpin/editor/uiutil/event"
 )
 
 type XInput struct {
@@ -35,86 +38,152 @@ func NewXInput(conn *xgb.Conn, evReg *evreg.Register) (*XInput, error) {
 	xi.evReg.Add(xproto.ButtonPress, xi.onEvRegButtonPress)
 	xi.evReg.Add(xproto.ButtonRelease, xi.onEvRegButtonRelease)
 	xi.evReg.Add(xproto.MotionNotify, xi.onEvRegMotionNotify)
+	xi.evReg.Add(xproto.MappingNotify, xi.onEvRegMappingNotify)
 
 	return xi, nil
+}
+func (xi *XInput) onEvRegMappingNotify(ev0 interface{}) {
+	err := xi.km.ReadTable()
+	if err != nil {
+		log.Print(err)
+	}
 }
 func (xi *XInput) onEvRegKeyPress(ev0 interface{}) {
 	ev := ev0.(xproto.KeyPressEvent)
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
-	k := NewKey(xi.km, ev.Detail, ev.State)
-	ev2 := &KeyPressEvent{p, k}
-	xi.evReg.RunCallbacks(KeyPressEventId, ev2)
+	//k := NewKey(xi.km, ev.Detail, ev.State)
+	//ev2 := &KeyPressEvent{p, k}
+	//xi.evReg.RunCallbacks(KeyPressEventId, ev2)
+
+	keycode := xproto.Keycode(ev.Detail)
+	mods := Modifiers(ev.State)
+	ru, code := xi.km.Lookup(keycode, mods)
+	m2 := translateModifiersToEventKeyModifiers(mods)
+	ev3 := &event.KeyDown{*p, code, m2, ru}
+	ev4 := &InputEvent{*p, ev3}
+	xi.evReg.RunCallbacks(InputEventId, ev4)
 }
 func (xi *XInput) onEvRegKeyRelease(ev0 interface{}) {
 	ev := ev0.(xproto.KeyReleaseEvent)
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
-	k := NewKey(xi.km, ev.Detail, ev.State)
-	ev2 := &KeyReleaseEvent{p, k}
-	xi.evReg.RunCallbacks(KeyReleaseEventId, ev2)
+	//k := NewKey(xi.km, ev.Detail, ev.State)
+	//ev2 := &KeyReleaseEvent{p, k}
+	//xi.evReg.RunCallbacks(KeyReleaseEventId, ev2)
+
+	keycode := xproto.Keycode(ev.Detail)
+	mods := Modifiers(ev.State)
+	ru, code := xi.km.Lookup(keycode, mods)
+	m2 := translateModifiersToEventKeyModifiers(mods)
+	ev3 := &event.KeyUp{*p, code, m2, ru}
+	ev4 := &InputEvent{*p, ev3}
+	xi.evReg.RunCallbacks(InputEventId, ev4)
 }
 func (xi *XInput) onEvRegButtonPress(ev0 interface{}) {
 	ev := ev0.(xproto.ButtonPressEvent)
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	b := NewButton(xi.km, ev.Detail, ev.State)
 
-	// double and triple clicks
-	// buttons 4 and 5 are wheel up/down, double/tripple click should not affect them
-	// TODO: mods mapping could affect this
-	index := int(b.button)
-	if index >= 1 && index <= 3 {
-		bpt := &xi.buttonPressedTime[index-1]
+	//ev2 := &ButtonPressEvent{p, b}
+	//xi.evReg.RunCallbacks(ButtonPressEventId, ev2)
 
-		t0 := bpt.t
-		p0 := bpt.p
-
-		// update time and point
-		bpt.t = time.Now()
-		bpt.p = *p
-
-		d := bpt.t.Sub(t0)
-		if d > 400*time.Millisecond {
-			bpt.action = 0
-		} else {
-			pad := image.Point{1, 1}
-			var r image.Rectangle
-			r.Min = p0.Sub(pad)
-			r.Max = p0.Add(pad)
-
-			if p.In(r) {
-				bpt.action = (bpt.action + 1) % 3
-			} else {
-				bpt.action = 0
-			}
-
-			switch bpt.action {
-			case 1:
-				ev2 := &DoubleClickEvent{p, b}
-				xi.evReg.RunCallbacks(DoubleClickEventId, ev2)
-				return
-			case 2:
-				ev2 := &TripleClickEvent{p, b}
-				xi.evReg.RunCallbacks(TripleClickEventId, ev2)
-				return
-			}
-		}
-	}
-
-	ev2 := &ButtonPressEvent{p, b}
-	xi.evReg.RunCallbacks(ButtonPressEventId, ev2)
+	b2 := translateButtonToEventButton(b.XButton)
+	m2 := translateModifiersToEventKeyModifiers(b.Mods)
+	ev3 := &event.MouseDown{*p, b2, m2}
+	ev4 := &InputEvent{*p, ev3}
+	xi.evReg.RunCallbacks(InputEventId, ev4)
 }
 func (xi *XInput) onEvRegButtonRelease(ev interface{}) {
 	ev0 := ev.(xproto.ButtonReleaseEvent)
 	p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
 	b := NewButton(xi.km, ev0.Detail, ev0.State)
-	ev2 := &ButtonReleaseEvent{p, b}
-	xi.evReg.RunCallbacks(ButtonReleaseEventId, ev2)
+	//ev2 := &ButtonReleaseEvent{p, b}
+	//xi.evReg.RunCallbacks(ButtonReleaseEventId, ev2)
+
+	b2 := translateButtonToEventButton(b.XButton)
+	m2 := translateModifiersToEventKeyModifiers(b.Mods)
+	ev3 := &event.MouseUp{*p, b2, m2}
+	ev4 := &InputEvent{*p, ev3}
+	xi.evReg.RunCallbacks(InputEventId, ev4)
 }
 func (xi *XInput) onEvRegMotionNotify(ev interface{}) {
 	ev0 := ev.(xproto.MotionNotifyEvent)
 	p := &image.Point{int(ev0.EventX), int(ev0.EventY)}
 	m := Modifiers(ev0.State)
-	ev2 := &MotionNotifyEvent{p, m}
-	xi.evReg.RunCallbacks(MotionNotifyEventId, ev2)
+	//ev2 := &MotionNotifyEvent{p, m}
+	//xi.evReg.RunCallbacks(MotionNotifyEventId, ev2)
+
+	var b2 event.MouseButtons
+	if m.HasButton(1) {
+		b2 |= event.MouseButtons(event.ButtonLeft)
+	}
+	if m.HasButton(2) {
+		b2 |= event.MouseButtons(event.ButtonMiddle)
+	}
+	if m.HasButton(3) {
+		b2 |= event.MouseButtons(event.ButtonRight)
+	}
+	if m.HasButton(4) {
+		b2 |= event.MouseButtons(event.ButtonWheelUp)
+	}
+	if m.HasButton(5) {
+		b2 |= event.MouseButtons(event.ButtonWheelDown)
+	}
+	if m.HasButton(6) {
+		b2 |= event.MouseButtons(event.ButtonWheelLeft)
+	}
+	if m.HasButton(7) {
+		b2 |= event.MouseButtons(event.ButtonWheelRight)
+	}
+	if m.HasButton(8) {
+		b2 |= event.MouseButtons(event.ButtonBackward)
+	}
+	if m.HasButton(9) {
+		b2 |= event.MouseButtons(event.ButtonForward)
+	}
+
+	m2 := translateModifiersToEventKeyModifiers(m)
+	ev3 := &event.MouseMove{*p, b2, m2}
+	ev4 := &InputEvent{*p, ev3}
+	xi.evReg.RunCallbacks(InputEventId, ev4)
+}
+
+func translateButtonToEventButton(b xproto.Button) event.MouseButton {
+	var b2 event.MouseButton
+	switch b {
+	case 1:
+		b2 = event.ButtonLeft
+	case 2:
+		b2 = event.ButtonMiddle
+	case 3:
+		b2 = event.ButtonRight
+	case 4:
+		b2 = event.ButtonWheelUp
+	case 5:
+		b2 = event.ButtonWheelDown
+	case 6:
+		b2 = event.ButtonWheelLeft
+	case 7:
+		b2 = event.ButtonWheelRight
+	case 8:
+		b2 = event.ButtonBackward
+	case 9:
+		b2 = event.ButtonForward
+	}
+	return b2
+}
+
+func translateModifiersToEventKeyModifiers(u Modifiers) event.KeyModifiers {
+	var m event.KeyModifiers
+	if u.HasShift() {
+		m |= event.ModShift
+	}
+	if u.HasControl() {
+		m |= event.ModControl
+	}
+	if u.HasMod1() {
+		m |= event.ModAlt
+	}
+	return m
 }
 
 const (
@@ -125,34 +194,10 @@ const (
 	MotionNotifyEventId
 	DoubleClickEventId
 	TripleClickEventId
+	InputEventId
 )
 
-type KeyPressEvent struct {
-	Point *image.Point
-	Key   *Key
-}
-type KeyReleaseEvent struct {
-	Point *image.Point
-	Key   *Key
-}
-type ButtonPressEvent struct {
-	Point  *image.Point
-	Button *Button
-}
-type ButtonReleaseEvent struct {
-	Point  *image.Point
-	Button *Button
-}
-type MotionNotifyEvent struct {
-	Point *image.Point
-	Mods  Modifiers
-}
-
-type DoubleClickEvent struct {
-	Point  *image.Point
-	Button *Button
-}
-type TripleClickEvent struct {
-	Point  *image.Point
-	Button *Button
+type InputEvent struct {
+	Point image.Point
+	Event interface{}
 }
