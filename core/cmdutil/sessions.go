@@ -86,10 +86,22 @@ func (s *Session) restore(ed Editorer) {
 	// create the rows
 	for i, c := range s.Columns {
 		col := columns[i]
-		for _, r := range c.Rows {
-			_ = NewERowFromRowState(ed, r, col, nil)
+		for _, rs := range c.Rows {
+			_ = NewERowFromRowState(ed, rs, col, nil)
 		}
 	}
+
+	// setup rows sizes (end percents) if possible
+	for i, c := range s.Columns {
+		col := columns[i]
+		rows := col.Rows()
+		for j, rs := range c.Rows {
+			if rs.EndPercent != 0 {
+				col.RowsLayout.SetChildEndPercent(rows[j], rs.EndPercent)
+			}
+		}
+	}
+	cols.CalcChildsBounds()
 }
 
 type ColumnState struct {

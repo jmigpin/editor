@@ -8,15 +8,21 @@ type RowState struct {
 	TbCursorIndex int
 	TaCursorIndex int
 	TaOffsetIndex int
+	EndPercent    float64
 }
 
 func NewRowState(row *ui.Row) *RowState {
-	return &RowState{
+	rs := &RowState{
 		TbStr:         row.Toolbar.Str(),
 		TbCursorIndex: row.Toolbar.CursorIndex(),
 		TaCursorIndex: row.TextArea.CursorIndex(),
 		TaOffsetIndex: row.TextArea.OffsetIndex(),
 	}
+	// Keep end percent if possible. ReopenRow uses this after the row is removed and doesn't have a parent anymore.
+	if row.Parent() != nil {
+		rs.EndPercent = row.Col.RowsLayout.ChildEndPercent(row)
+	}
+	return rs
 }
 func NewERowFromRowState(ed Editorer, state *RowState, col *ui.Column, nextRow *ui.Row) ERower {
 	erow := ed.NewERowBeforeRow(state.TbStr, col, nextRow)
