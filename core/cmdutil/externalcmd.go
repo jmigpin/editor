@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
 	"strings"
 	"sync"
@@ -80,7 +79,7 @@ func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
 		for {
 			n, err := pr.Read(buf[:])
 			if n > 0 {
-				log.Printf("external cmd n %v", n)
+				//log.Printf("external cmd n %v", n)
 				taAppend(string(buf[:n]))
 			}
 			if err != nil {

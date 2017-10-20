@@ -223,6 +223,7 @@ func (ed *Editor) Errorf(f string, a ...interface{}) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
+	log.Printf("%v", err)
 	ed.Messagef("error: " + err.Error())
 }
 
@@ -279,11 +280,6 @@ func (ed *Editor) eventLoop() {
 
 			// TODO: replace this with evreg.onevent callback?
 
-			// commented: ed.close is used
-			//if !ok {
-			//	goto forEnd
-			//}
-
 			ev2 := ev.(*evreg.EventWrap) // always this type for now
 
 			switch ev2.EventId {
@@ -291,8 +287,8 @@ func (ed *Editor) eventLoop() {
 				// do nothing, allows to check if paint is needed
 			case evreg.ErrorEventId:
 				err := ev2.Event.(error)
-				if err, ok := err.(xgb.Error); ok {
-					log.Print(err)
+				if err2, ok := err.(xgb.Error); ok {
+					log.Print(err2)
 				} else {
 					ed.Error(err)
 				}
