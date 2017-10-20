@@ -58,7 +58,7 @@ Usage of ./editor:
 
 (top square):
 
-- `button2`: close column
+- `buttonMiddle`: close column
 
 #### Row key/button shortcuts
 
@@ -66,54 +66,53 @@ Usage of ./editor:
 - `ctrl`+`f`: warp pointer to "Find" cmd in row toolbar
 - Any button press: make row active to layout toolbar commands
 
-
 (top square):
 
-- `button1`:
+- `buttonLeft`:
   - click: maximize
   - drag: move/resize row
-- `button2`: close row
-- `button3`: resize column
-- `button4`: increase row size vertically, pushing other rows up
-- `button5`: increase row size vertically, pushing other rows down
+- `buttonMiddle`: close row
+- `buttonRight`: resize column
+- `buttonWheelUp`: increase row size vertically, pushing other rows up
+- `buttonWheelDown`: increase row size vertically, pushing other rows down
 
 #### Textarea key/button shortcuts
 
-- `up`: move cursor up
-- `down`: move cursor down
 - `left`: move cursor left
 - `right`: move cursor right
-- `shift`+`up`: move cursor up adding to selection
-- `shift`+`down`: move cursor down adding to selection
-- `shift`+`left`: move cursor left adding to selection
-- `shift`+`right`: move cursor right adding to selection
+- `up`: move cursor up
+- `down`: move cursor down
+- `home`: start of line
+- `end`: end of line
 - `delete`: delete current rune
 - `backspace`: delete previous rune
-- `end`: end of line
-- `home`: start of line
-- `shift`+`end`: end of string
-- `shift`+`home`: start of string
+- `tab` (if selection is on): insert tab at beginning of lines
+- `shift`+`left`: move cursor left adding to selection
+- `shift`+`right`: move cursor right adding to selection
+- `shift`+`up`: move cursor up adding to selection
+- `shift`+`down`: move cursor down adding to selection
+- `shift`+`home`: start of string adding to selection
+- `shift`+`end`: end of string adding to selection
+- `shift`+`tab`: remove tab from beginning of line
 - `ctrl`+`a`: select all
 - `ctrl`+`c`: copy to clipboard
 - `ctrl`+`k`: remove lines
 - `ctrl`+`v`: paste from clipboard
 - `ctrl`+`x`: cut
-- `ctrl`+`mod1`+`down`: move line down
-- `ctrl`+`mod1`+`shift`+`down`: duplicate lines
-- `tab` (if selection is on): insert tab at beginning of lines
-- `shift`+`tab`: remove tab from beginning of line
+- `ctrl`+`alt`+`down`: move line down
+- `ctrl`+`alt`+`shift`+`down`: duplicate lines
 - `ctrl`+`z`: undo
 - `ctrl`+`shift`+`z`: redo
 - `ctrl`+`d`: comment lines
 - `ctrl`+`shift`+`d`: uncomment lines
-- `button1`: move cursor to point
-- `button2`: paste from primary
-- `button3`: move cursor to point + text area cmd
-- `button4`: scroll up
-- `button5`: scroll down
-- `shift`+`button1`: move cursor to point adding to selection
+- `buttonLeft`: move cursor to point
+- `buttonMiddle`: paste from primary
+- `buttonRight`: move cursor to point + text area cmd
+- `buttonWheelUp`: scroll up
+- `buttonWheelDown`: scroll down
+- `shift`+`buttonLeft`: move cursor to point adding to selection
 
-Note: selecting text with `button1` works as copy and makes it available for paste (primary selection).
+Note: selecting text with `buttonLeft` works as copy and makes it available for paste (primary selection).
 
 ### Commands
 
