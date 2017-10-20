@@ -1,19 +1,15 @@
 package ui
 
 import (
-	"image"
-
 	"golang.org/x/image/math/fixed"
 
 	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type ScrollArea struct {
 	widget.ScrollArea
-	ui            *UI
-	ta            *TextArea
-	buttonPressed bool
+	ui *UI
+	ta *TextArea
 
 	disableTextAreaOffsetYEvent bool
 }
@@ -21,8 +17,7 @@ type ScrollArea struct {
 func NewScrollArea(ui *UI, ta *TextArea) *ScrollArea {
 	sa := &ScrollArea{ui: ui, ta: ta}
 
-	sa.ScrollArea.Init(ui)
-	widget.AppendChilds(sa, ta)
+	sa.ScrollArea.Init(sa, ui, ta)
 
 	// textarea set text
 	sa.ta.EvReg.Add(TextAreaSetStrEventId, func(ev0 interface{}) {
@@ -56,10 +51,8 @@ func (sa *ScrollArea) CalcChildsBounds() {
 	sa.ScrollArea.CalcChildsBounds()
 }
 
-func (sa *ScrollArea) CalcPositionFromPoint(p *image.Point) {
+func (sa *ScrollArea) UpdatePositionFromPoint() {
 	// Dragging the scrollbar, updates textarea offset
-
-	sa.ScrollArea.CalcPositionFromPoint(p)
 
 	sa.disableTextAreaOffsetYEvent = true // ignore loop event
 
@@ -113,63 +106,4 @@ func (sa *ScrollArea) taHeight() fixed.Int26_6 {
 	extra := dy - 2*sa.ta.LineHeight() // keep something visible
 
 	return sa.ta.StrHeight() + extra
-}
-
-func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	switch evt := ev0.(type) {
-	case *xinput.ButtonPressEvent:
-		sa.onButtonPress(evt)
-		return true
-	case *xinput.MotionNotifyEvent:
-		sa.onMotionNotify(evt)
-	case *xinput.ButtonReleaseEvent:
-		sa.onButtonRelease(evt)
-		return true
-	}
-	return false
-}
-func (sa *ScrollArea) onButtonPress(ev *xinput.ButtonPressEvent) {
-
-	// allow scrolling in content area
-	if ev.Point.In(sa.Bounds()) && !ev.Point.In(*sa.VBarBounds()) {
-		switch {
-		case ev.Button.Button(4): // wheel up
-			sa.CalcPositionFromScroll(true)
-		case ev.Button.Button(5): // wheel down
-			sa.CalcPositionFromScroll(false)
-		}
-		return
-	}
-
-	// input inside the scroll bar
-	if ev.Point.In(*sa.VBarBounds()) {
-		sa.buttonPressed = true
-		switch {
-		case ev.Button.Button(1):
-			sa.SetVBarOrigPad(ev.Point) // keep pad for drag calc
-			sa.CalcPositionFromPoint(ev.Point)
-		case ev.Button.Button(4): // wheel up
-			sa.ta.PageUp()
-		case ev.Button.Button(5): // wheel down
-			sa.ta.PageDown()
-		}
-	}
-}
-func (sa *ScrollArea) onMotionNotify(ev *xinput.MotionNotifyEvent) {
-	if !sa.buttonPressed {
-		return
-	}
-	switch {
-	case ev.Mods.HasButton(1):
-		sa.CalcPositionFromPoint(ev.Point)
-	}
-}
-func (sa *ScrollArea) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
-	if !sa.buttonPressed {
-		return
-	}
-	sa.buttonPressed = false
-	if ev.Button.Button(1) {
-		sa.CalcPositionFromPoint(ev.Point)
-	}
 }

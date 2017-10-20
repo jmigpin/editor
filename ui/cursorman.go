@@ -4,7 +4,6 @@ import (
 	"image"
 
 	"github.com/jmigpin/editor/xgbutil/xcursors"
-	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type CursorMan struct {
@@ -23,29 +22,30 @@ func NewCursorMan(ui *UI) *CursorMan {
 		freeCursor: xcursors.XCNone,
 	}
 
-	cm.ui.EvReg.Add(xinput.MotionNotifyEventId, cm.onMotionNotify)
+	//cm.ui.EvReg.Add(xinput.MotionNotifyEventId, cm.onMotionNotify)
 
 	return cm
 }
-func (cm *CursorMan) onMotionNotify(ev0 interface{}) {
-	ev := ev0.(*xinput.MotionNotifyEvent)
 
-	// always calc free cursor to have it ready when the fixed cursor gets unsed
-	c := xcursors.Cursor(xcursors.XCNone)
-	for r, c2 := range cm.m {
-		if ev.Point.In(*r) {
-			c = c2
-			break
-		}
-	}
-	cm.freeCursor = c
+//func (cm *CursorMan) onMotionNotify(ev0 interface{}) {
+//	ev := ev0.(*xinput.MotionNotifyEvent)
 
-	c2 := cm.freeCursor
-	if cm.fixedState {
-		c2 = cm.fixedCursor
-	}
-	cm.setCursorCached(c2)
-}
+//	// always calc free cursor to have it ready when the fixed cursor gets unsed
+//	c := xcursors.Cursor(xcursors.XCNone)
+//	for r, c2 := range cm.m {
+//		if ev.Point.In(*r) {
+//			c = c2
+//			break
+//		}
+//	}
+//	cm.freeCursor = c
+
+//	c2 := cm.freeCursor
+//	if cm.fixedState {
+//		c2 = cm.fixedCursor
+//	}
+//	cm.setCursorCached(c2)
+//}
 func (cm *CursorMan) setCursorCached(c xcursors.Cursor) {
 	if c == cm.cursor {
 		return
@@ -70,6 +70,6 @@ func (cm *CursorMan) RemoveBoundsCursor(r *image.Rectangle) {
 	delete(cm.m, r)
 }
 
-type CMCallback struct {
-	F func(*xinput.MotionNotifyEvent) (xcursors.Cursor, bool)
-}
+//type CMCallback struct {
+//	F func(*xinput.MotionNotifyEvent) (xcursors.Cursor, bool)
+//}

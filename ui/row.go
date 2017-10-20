@@ -4,32 +4,22 @@ import (
 	"image"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
-	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type Row struct {
 	widget.FlowLayout
-	Square     *Square
-	Toolbar    *Toolbar
-	scrollArea *ScrollArea
-	TextArea   *TextArea
-	sep        *widget.Space
+	Square   *Square
+	Toolbar  *Toolbar
+	TextArea *TextArea
+	Col      *Column
+	EvReg    *evreg.Register
 
-	Col   *Column
-	EvReg *evreg.Register
-
-	buttonPressed bool
-
-	resize struct {
-		detect bool
-		on     bool
-		typ    RowRType
-
-		// for testing movement
-		pressPoint image.Point
-	}
+	scrollArea    *ScrollArea
+	sep           *widget.Space
+	closingCursor bool
 }
 
 func NewRow(col *Column) *Row {
@@ -77,8 +67,8 @@ func NewRow(col *Column) *Row {
 	row.scrollArea.SetExpand(true, true)
 	row.scrollArea.LeftScroll = ScrollbarLeft
 	row.scrollArea.ScrollWidth = ScrollbarWidth
-	row.scrollArea.Fg = ScrollbarFgColor
-	row.scrollArea.Bg = ScrollbarBgColor
+	row.scrollArea.VBar.Color = ScrollbarBgColor
+	row.scrollArea.VBar.Handle.Color = ScrollbarFgColor
 
 	row.YAxis = true
 	widget.AppendChilds(row, row.sep, tb, tbSep, row.scrollArea)
@@ -86,6 +76,9 @@ func NewRow(col *Column) *Row {
 	return row
 }
 func (row *Row) activate() {
+	if row.Square.Value(SquareActive) {
+		return
+	}
 	// deactivate previous active row
 	for _, c := range row.Col.Cols.Columns() {
 		for _, r := range c.Rows() {
@@ -104,68 +97,70 @@ func (row *Row) onSquareInput(ev0 interface{}) {
 	sqEv := ev0.(*SquareInputEvent)
 	ui := row.Col.Cols.Layout.UI
 	switch ev := sqEv.Event.(type) {
-	case *xinput.ButtonPressEvent:
-		switch {
-		case ev.Button.Button(1):
-			row.startResizeToPoint(sqEv.TopXPoint)
-		case ev.Button.Button(2):
-			// indicate close
+	case *event.MouseDown:
+		switch ev.Button {
+		case event.ButtonMiddle:
+			row.closingCursor = true
 			ui.CursorMan.SetCursor(xcursor.XCursor)
-		case ev.Button.Button(3):
-			row.startColumnResizeToPoint(sqEv.TopPoint)
-		case ev.Button.Button(4):
+		case event.ButtonWheelUp:
 			row.resizeWithPush(true)
-		case ev.Button.Button(5):
+		case event.ButtonWheelDown:
 			row.resizeWithPush(false)
 		}
-	case *xinput.MotionNotifyEvent:
-		switch {
-		case ev.Mods.HasButton(1):
-			row.resizeToPoint(sqEv.TopXPoint)
-		case ev.Mods.HasButton(3):
-			row.resizeToPoint(sqEv.TopPoint)
+
+	case *event.MouseClick:
+		switch ev.Button {
+		case event.ButtonLeft:
+			row.maximize(&ev.Point)
+		case event.ButtonMiddle:
+			row.Close()
+			ui.CursorMan.UnsetCursor()
 		}
-	case *xinput.ButtonReleaseEvent:
-		ui.CursorMan.UnsetCursor()
+
+	case *event.MouseDragStart:
+		if row.closingCursor {
+			row.closingCursor = false
+			ui.CursorMan.UnsetCursor()
+		}
+		switch ev.Button {
+		case event.ButtonLeft:
+			ui.CursorMan.SetCursor(xcursor.Fleur)
+			row.resizeRowToPoint(sqEv.TopXPoint)
+		case event.ButtonRight:
+			ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+			row.resizeColumnToPoint(sqEv.TopPoint)
+		}
+	case *event.MouseDragMove:
 		switch {
-		case ev.Button.Mods.HasButton(1):
-			row.endResizeToPoint(sqEv.TopXPoint)
-		case ev.Button.Mods.HasButton(3):
-			row.endResizeToPoint(sqEv.TopPoint)
-		case ev.Button.Mods.IsButton(2):
-			if ev.Point.In(row.Square.Bounds()) {
-				row.Close()
-			}
+		case ev.Buttons.Has(event.ButtonLeft):
+			row.resizeRowToPoint(sqEv.TopXPoint)
+		case ev.Buttons.Has(event.ButtonRight):
+			row.resizeColumnToPoint(sqEv.TopPoint)
+		}
+	case *event.MouseDragEnd:
+		switch ev.Button {
+		case event.ButtonLeft:
+			row.resizeRowToPoint(sqEv.TopXPoint)
+			ui.CursorMan.UnsetCursor()
+		case event.ButtonRight:
+			row.resizeColumnToPoint(sqEv.TopPoint)
+			ui.CursorMan.UnsetCursor()
 		}
 	}
 }
 
 func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	switch evt := ev0.(type) {
-	case *xinput.KeyPressEvent:
-		row.onKeyPress(evt)
-	case *xinput.ButtonPressEvent:
-		row.onButtonPress(evt)
-	case *xinput.ButtonReleaseEvent:
-		row.onButtonRelease(evt)
+	switch ev0.(type) {
+	case *event.KeyDown:
+		row.activate()
+	case *event.MouseDown:
+		row.activate()
 	}
-	return false
-}
 
-func (row *Row) onKeyPress(ev *xinput.KeyPressEvent) {
-	row.activate()
-	ev2 := &RowKeyPressEvent{row, ev.Key}
-	row.EvReg.RunCallbacks(RowKeyPressEventId, ev2)
-}
-func (row *Row) onButtonPress(ev *xinput.ButtonPressEvent) {
-	row.buttonPressed = true
-}
-func (row *Row) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
-	if !row.buttonPressed {
-		return
-	}
-	row.buttonPressed = false
-	row.activate()
+	ev2 := &RowInputEvent{row, ev0}
+	row.EvReg.RunCallbacks(RowInputEventId, ev2)
+
+	return false
 }
 
 func (row *Row) WarpPointer() {
@@ -186,121 +181,6 @@ func (row *Row) HideSeparator(v bool) {
 		row.MarkNeedsPaint()
 	}
 }
-
-func (row *Row) startResizeToPoint(p *image.Point) {
-	row.resize.detect = true
-	row.resize.on = false
-	row.resize.pressPoint = *p
-}
-func (row *Row) startColumnResizeToPoint(p *image.Point) {
-	row.startResizeToPoint(p)
-	row.resize.detect = false
-	row.resize.on = true
-	ui := row.Col.Cols.Layout.UI
-	ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
-	row.resize.typ = ResizeColumnRType
-	row.resizeToPoint(p)
-}
-
-func (row *Row) startRowResizeToPoint(p *image.Point) {
-	row.startResizeToPoint(p)
-	row.resize.detect = false
-	row.resize.on = true
-	ui := row.Col.Cols.Layout.UI
-	ui.CursorMan.SetCursor(xcursor.Fleur)
-	row.resize.typ = ResizeRowRType
-	row.resizeToPoint(p)
-}
-
-func (row *Row) resizeToPoint(p *image.Point) {
-	if row.resize.detect {
-		row.detectResize2(p)
-		return
-	}
-	if row.resize.on {
-		switch row.resize.typ {
-		case ResizeRowRType:
-			row.resizeRowToPoint(p)
-		case ResizeColumnRType:
-			row.resizeColumnToPoint(p)
-		default:
-			panic("!")
-		}
-	}
-}
-func (row *Row) endResizeToPoint(p *image.Point) {
-	if row.resize.on {
-		row.resize.on = false
-		switch row.resize.typ {
-		case ResizeRowRType:
-			row.resizeRowToPoint(p)
-		case ResizeColumnRType:
-			row.resizeColumnToPoint(p)
-		default:
-			panic("!")
-		}
-	} else {
-		row.maximize()
-		row.WarpPointer()
-	}
-}
-
-func (row *Row) detectResize2(p *image.Point) {
-	movement := *p != row.resize.pressPoint
-	if movement {
-		row.startRowResizeToPoint(p)
-	}
-}
-
-//func (row *Row) detectResize1(p *image.Point) {
-//	u := p.Sub(row.Square.Bounds().Min)
-//	if !ScrollbarLeft {
-//		u.X = p.Sub(row.Square.Bounds().Max).X
-//	}
-//	w := u.Sub(row.resize.origin)
-//	x := math.Abs(float64(w.X))
-//	y := math.Abs(float64(w.Y))
-
-//	// give some pixels to make the decision
-//	dist := math.Sqrt(x*x + y*y)
-//	if dist < 15 {
-//		return
-//	}
-
-//	// detect
-//	a := math.Atan(y/x) * 180.0 / math.Pi
-//	sc := row.Col.Cols.Layout.UI.CursorMan.SetCursor
-//	if a <= 15 {
-//		// horizontal
-//		sc(xcursor.SBHDoubleArrow)
-//		row.resize.typ = ResizeColumnRType
-//	} else {
-//		// any other angle
-//		sc(xcursor.Fleur)
-//		row.resize.typ = ResizeRowRType
-//	}
-
-//	//// re-keep origin to avoid jump
-//	//// difficult to push beyond other rows if the square has big Y
-//	//row.resize.origin = p.Sub(row.Square.Bounds().Min)
-//	//if !ScrollbarLeft {
-//	//	row.resize.origin.X = p.Sub(row.Square.Bounds().Max).X
-//	//}
-
-//	// accurate position (makes jump)
-//	// works best as well for accurate swaps
-//	row.resize.origin = image.Point{}
-
-//	//// reposition pointer to look accurate without jumping the movement
-//	//p2 := row.Square.Bounds().Min.Add(row.resize.origin)
-//	//if !ScrollbarLeft {
-//	//	p2.X = row.Square.Bounds().Max.Add(row.resize.origin).X
-//	//}
-//	//row.Col.Cols.Layout.UI.WarpPointer(&p2)
-
-//	row.resize.detect = false
-//	row.resize.on = true
-//}
 
 func (row *Row) resizeRowToPoint(p *image.Point) {
 	col, ok := row.Col.Cols.PointColumn(p)
@@ -325,7 +205,7 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 	min := float64(row.minimumSize()) / dy
 
 	percIsTop := true
-	rl := row.Col.rowsLayout
+	rl := row.Col.RowsLayout
 	rl.ResizeEndPercentWithSwap(rl, row, perc, percIsTop, min)
 
 	row.Col.CalcChildsBounds()
@@ -335,13 +215,16 @@ func (row *Row) resizeColumnToPoint(p *image.Point) {
 	row.Col.resizeToPoint(p)
 }
 
-func (row *Row) maximize() {
+func (row *Row) maximize(p *image.Point) {
 	col := row.Col
 	dy := float64(col.Bounds().Dy())
 	min := float64(row.minimumSize()) / dy
-	col.rowsLayout.MaximizeEndPercentNode(row, min)
+	col.RowsLayout.MaximizeEndPercentNode(row, min)
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
+	if !p.In(row.Square.Bounds()) {
+		row.WarpPointer()
+	}
 }
 
 func (row *Row) resizeWithPush(up bool) {
@@ -356,15 +239,13 @@ func (row *Row) resizeWithPush(up bool) {
 	perc := float64(row.Bounds().Min.Y-col.Bounds().Min.Y+jump) / dy
 
 	percIsTop := true
-	col.rowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+	col.RowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
 
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 
 	// keep pointer inside the square (newly calculated)
 	row.WarpPointer()
-
-	// FIXME: discard events of certain type here since point will be invalid after the warppointer but events might be already on the stack. This can cause point events into the wrong node.
 }
 
 func (row *Row) ResizeTextAreaIfVerySmall() {
@@ -386,7 +267,7 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 	// push siblings down
 	perc := float64(row.Bounds().Min.Sub(col.Bounds().Min).Y+size) / dy
 	percIsTop := false
-	col.rowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+	col.RowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
 
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
@@ -400,7 +281,7 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 	// push siblings up
 	perc = float64(row.Bounds().Max.Sub(col.Bounds().Min).Y-size) / dy
 	percIsTop = true
-	col.rowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+	col.RowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
 
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
@@ -418,13 +299,13 @@ const (
 )
 
 const (
-	RowKeyPressEventId = iota
+	RowInputEventId = iota
 	RowCloseEventId
 )
 
-type RowKeyPressEvent struct {
-	Row *Row
-	Key *xinput.Key
+type RowInputEvent struct {
+	Row   *Row
+	Event interface{}
 }
 type RowCloseEvent struct {
 	Row *Row

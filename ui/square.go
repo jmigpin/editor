@@ -6,22 +6,20 @@ import (
 
 	// only for cursordef
 
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
-	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 // Used in row and column to move and close.
 type Square struct {
 	widget.EmbedNode
-	ui    *UI
 	EvReg *evreg.Register
-
-	pressPointPad image.Point
-	buttonPressed bool
-	values        [7]bool // bg and mini-squares
-
 	Width int
+
+	ui       *UI
+	values   [7]bool // bg and mini-squares
+	pressPad image.Point
 }
 
 func NewSquare(ui *UI) *Square {
@@ -97,31 +95,27 @@ func (sq *Square) Paint() {
 	}
 }
 
-func (sq *Square) OnInputEvent(ev0 interface{}, p image.Point) bool {
+func (sq *Square) OnInputEvent(ev interface{}, p image.Point) bool {
 	// press point pad
-	if evt, ok := ev0.(*xinput.ButtonPressEvent); ok {
+	switch evt := ev.(type) {
+	case *event.MouseDown:
 		u := evt.Point.Sub(sq.Bounds().Min)
 		if !ScrollbarLeft {
 			u.X = evt.Point.X - sq.Bounds().Max.X
 		}
-		sq.pressPointPad = u
+		sq.pressPad = u
 	}
 
-	// input event
-	topPoint := p.Sub(sq.pressPointPad)
-	topXPoint := image.Point{p.X, topPoint.Y}
-	ev2 := &SquareInputEvent{sq, ev0, &p, &topPoint, &topXPoint}
-	sq.EvReg.RunCallbacks(SquareInputEventId, ev2)
+	sq.runCallbacks(ev, p)
 
-	// return handled
-	switch ev0.(type) {
-	case *xinput.ButtonPressEvent:
-		return true
-	case *xinput.ButtonReleaseEvent:
-		sq.pressPointPad = image.Point{}
-		return true
-	}
 	return false
+}
+func (sq *Square) runCallbacks(ev interface{}, p image.Point) {
+	// input event for registered callbacks
+	topPoint := p.Sub(sq.pressPad)
+	topXPoint := image.Point{p.X, topPoint.Y}
+	ev2 := &SquareInputEvent{sq, ev, &p, &topPoint, &topXPoint}
+	sq.EvReg.RunCallbacks(SquareInputEventId, ev2)
 }
 
 func (sq *Square) WarpPointer() {

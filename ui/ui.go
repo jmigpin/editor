@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/image/font"
 
+	"github.com/jmigpin/editor/drawutil2/simpledrawer"
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil/widget"
@@ -69,13 +70,8 @@ func NewUI(fface font.Face) (*UI, error) {
 	ui.EvReg.Add(xproto.Expose, ui.onExpose)
 	ui.EvReg.Add(evreg.ShmCompletionEventId, ui.onShmCompletion)
 
-	// TODO: can be improved with a "pointevent" that as a point to test inbounds
-	ui.EvReg.Add(xinput.KeyPressEventId, ui.onKeyPress)
-	ui.EvReg.Add(xinput.ButtonPressEventId, ui.onButtonPress)
-	ui.EvReg.Add(xinput.ButtonReleaseEventId, ui.onButtonRelease)
-	ui.EvReg.Add(xinput.MotionNotifyEventId, ui.onMotionNotify)
-	ui.EvReg.Add(xinput.DoubleClickEventId, ui.onDoubleClick)
-	ui.EvReg.Add(xinput.TripleClickEventId, ui.onTripleClick)
+	// Inputs events coming from X11 masked into events from the event package
+	ui.EvReg.Add(xinput.InputEventId, ui.onInput)
 
 	ui.EvReg.Add(UITextAreaAppendAsyncEventId, ui.onTextAreaAppendAsync)
 	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId, ui.onTextAreaInsertStringAsync)
@@ -120,44 +116,9 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 	ui.incompleteDraws--
 }
 
-func (ui *UI) onKeyPress(ev0 interface{}) {
-	ev := ev0.(*xinput.KeyPressEvent)
-	ui.handleInputEvent(ev, ev.Point)
-}
-func (ui *UI) onButtonPress(ev0 interface{}) {
-	ev := ev0.(*xinput.ButtonPressEvent)
-	ui.handleInputEvent(ev, ev.Point)
-}
-func (ui *UI) onButtonRelease(ev0 interface{}) {
-	ev := ev0.(*xinput.ButtonReleaseEvent)
-	ui.handleInputEvent(ev, ev.Point)
-}
-func (ui *UI) onMotionNotify(ev0 interface{}) {
-	ev := ev0.(*xinput.MotionNotifyEvent)
-	ui.handleInputEvent(ev, ev.Point)
-}
-func (ui *UI) onDoubleClick(ev0 interface{}) {
-	ev := ev0.(*xinput.DoubleClickEvent)
-	ui.handleInputEvent(ev, ev.Point)
-}
-func (ui *UI) onTripleClick(ev0 interface{}) {
-	ev := ev0.(*xinput.TripleClickEvent)
-	ui.handleInputEvent(ev, ev.Point)
-}
-func (ui *UI) handleInputEvent(ev0 interface{}, p *image.Point) {
-	widget.ApplyInputEventInBounds(
-		ui.Layout,
-		ev0,
-		*p,
-		func(ev interface{}) bool {
-			_, ok := ev.(*xinput.ButtonPressEvent)
-			return ok
-		},
-		func(ev interface{}) bool {
-			_, ok := ev.(*xinput.ButtonReleaseEvent)
-			return ok
-		},
-	)
+func (ui *UI) onInput(ev0 interface{}) {
+	ev := ev0.(*xinput.InputEvent)
+	widget.ApplyInputEventInBounds(ui.Layout, ev.Event, ev.Point)
 }
 
 func (ui *UI) RequestPaint() {
@@ -172,6 +133,17 @@ func (ui *UI) FillRectangle(r *image.Rectangle, c color.Color) {
 }
 func (ui *UI) BorderRectangle(r *image.Rectangle, c color.Color, size int) {
 	imageutil.BorderRectangle(ui.Image(), r, c, size)
+}
+
+// Implement widget.UIStrDrawer
+func (ui *UI) MeasureString(str string, hint image.Point) image.Point {
+	m := simpledrawer.Measure(ui.fface1, str, &hint)
+	return image.Point{m.X.Ceil(), m.Y.Ceil()}
+}
+
+// Implement widget.UIStrDrawer
+func (ui *UI) DrawString(str string, bounds *image.Rectangle, color color.Color) {
+	simpledrawer.Draw(ui.Image(), ui.fface1, str, bounds, color)
 }
 
 // Default fontface (used by textarea)

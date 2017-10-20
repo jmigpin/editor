@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"unicode"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/drawutil2/hsdrawer"
@@ -9,9 +10,9 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/ui/tautil/tahistory"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
-	"github.com/jmigpin/editor/xgbutil/xinput"
 
 	"golang.org/x/image/math/fixed"
 )
@@ -40,10 +41,11 @@ type TextArea struct {
 
 	Colors                     *hsdrawer.Colors
 	DisableHighlightCursorWord bool
-	DisablePageUpDown          bool
 
 	lastMeasureHint image.Point
 	measurement     image.Point
+
+	execCursor bool
 }
 
 func NewTextArea(ui *UI) *TextArea {
@@ -104,51 +106,6 @@ func (ta *TextArea) StrHeight() fixed.Int26_6 {
 	}
 	return h
 }
-
-//func (ta *TextArea) drawerMeasure(width int) {
-//	panic("!")
-//	//if ta.str != ta.drawer.Str || ta.drawerWidth != width {
-//	//	ta.drawer.Str = ta.str
-//	//	ta.drawerWidth = width
-
-//	//	max := image.Point{width, 1000000}
-//	//	ta.drawer.Measure(&max)
-//	//}
-//}
-
-//func (ta *TextArea) onContainerCalc() {
-//	ta.updateStringCacheWithBoundsChangedCheck()
-//}
-//func (ta *TextArea) updateStringCacheWithBoundsChangedCheck() {
-//	// check if bounds have changed to emit event
-//	changed := false
-//	offsetIndex := 0
-//	if !ta.Bounds().Eq(ta.boundsChange) {
-//		changed = true
-//		ta.boundsChange = *ta.Bounds()
-//		offsetIndex = ta.OffsetIndex()
-//	}
-
-//	ta.updateStringCache()
-
-//	if changed {
-//		// set offset to keep the same first line while resizing
-//		ta.SetOffsetIndex(offsetIndex)
-
-//		ev := &TextAreaBoundsChangeEvent{ta}
-//		ta.EvReg.RunCallbacks(TextAreaBoundsChangeEventId, ev)
-//	}
-//}
-
-//func (ta *TextArea) updateStringCache() {
-//	ta.drawerMeasure(ta.Bounds().Dx())
-//}
-
-//// Used externally for dynamic textarea height.
-//func (ta *TextArea) CalcStringHeight(width int) int {
-//	ta.drawerMeasure(width)
-//	return ta.StrHeight().Round()
-//}
 
 func (ta *TextArea) Paint() {
 	// fill background
@@ -431,94 +388,80 @@ func (ta *TextArea) PointIndex(p *fixed.Point26_6) int {
 	return ta.drawer.GetIndex(p)
 }
 
-func (ta *TextArea) PageUp() {
-	if ta.DisablePageUpDown {
-		return
-	}
-	tautil.PageUp(ta)
-}
-func (ta *TextArea) PageDown() {
-	if ta.DisablePageUpDown {
-		return
-	}
-	tautil.PageDown(ta)
-}
-
 func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	switch evt := ev0.(type) {
-	case *xinput.KeyPressEvent:
-		ta.onKeyPress(evt)
-	case *xinput.ButtonPressEvent:
-		return ta.onButtonPress(evt)
-	case *xinput.MotionNotifyEvent:
-		ta.onMotionNotify(evt)
-	case *xinput.ButtonReleaseEvent:
-		ta.onButtonRelease(evt)
-		return true
-	case *xinput.DoubleClickEvent:
-		ta.onDoubleClick(evt)
-	case *xinput.TripleClickEvent:
-		ta.onTripleClick(evt)
-	}
-	return false
-}
-func (ta *TextArea) onButtonPress(ev *xinput.ButtonPressEvent) bool {
-	ta.buttonPressed = true
-	switch {
-	case ev.Button.Button(1):
-		switch {
-		case ev.Button.Mods.IsShift():
-			tautil.MoveCursorToPoint(ta, ev.Point, true)
-		default:
-			tautil.MoveCursorToPoint(ta, ev.Point, false)
+	switch ev := ev0.(type) {
+	case *event.KeyDown:
+		ta.onKeyDown(ev)
+
+	case *event.MouseDown:
+		switch ev.Button {
+		case event.ButtonRight:
+			ta.execCursor = true
+			ta.ui.CursorMan.SetCursor(xcursor.Hand2)
+		case event.ButtonLeft:
+			if ev.Modifiers.Is(event.ModShift) {
+				tautil.MoveCursorToPoint(ta, &ev.Point, true)
+			} else {
+				tautil.MoveCursorToPoint(ta, &ev.Point, false)
+			}
 		}
-		return true
-	case ev.Button.Button(2):
-		return true
-	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
-		ta.ui.CursorMan.SetCursor(xcursor.Hand2)
-		return true
+	case *event.MouseUp:
+		switch ev.Button {
+		case event.ButtonRight:
+			ta.execCursor = false
+			ta.ui.CursorMan.UnsetCursor()
+		}
+
+	case *event.MouseDragStart:
+		if ta.execCursor {
+			ta.execCursor = false
+			ta.ui.CursorMan.UnsetCursor()
+		}
+	case *event.MouseDragMove:
+		if ev.Buttons.Has(event.ButtonLeft) {
+			tautil.MoveCursorToPoint(ta, &ev.Point, true)
+		}
+	case *event.MouseDragEnd:
+		switch ev.Button {
+		case event.ButtonLeft:
+			tautil.MoveCursorToPoint(ta, &ev.Point, true)
+		}
+
+	case *event.MouseClick:
+		ta.onMouseClick(ev)
+	case *event.MouseDoubleClick:
+		ta.onMouseDoubleClick(ev)
+	case *event.MouseTripleClick:
+		ta.onMouseTripleClick(ev)
 	}
 	return false
 }
-func (ta *TextArea) onButtonRelease(ev *xinput.ButtonReleaseEvent) {
-	if !ta.buttonPressed {
-		return
-	}
-	ta.buttonPressed = false
 
-	ta.ui.CursorMan.UnsetCursor()
-
-	// release must be in the area
-	if !ev.Point.In(ta.Bounds()) {
-		return
-	}
-
-	switch {
-	case ev.Button.Mods.IsButton(1):
-		// Commented: on press the cursor is moved and the
-		// text position might be ajusted to have the cursor be visible
-		// if on release the cursor is moved as well then it can cause an
-		// undesired selected area from the visible cursor to the pointer
-		//tautil.MoveCursorToPoint(ta, ev.Point, true)
-
-	case ev.Button.Mods.IsButton(2):
-		tautil.MoveCursorToPoint(ta, ev.Point, false)
-		tautil.PastePrimary(ta)
-	case ev.Button.Mods.IsButton(3):
-		if !ta.PointIndexInsideSelection(ev.Point) {
-			tautil.MoveCursorToPoint(ta, ev.Point, false)
+func (ta *TextArea) onMouseClick(ev *event.MouseClick) {
+	switch ev.Button {
+	case event.ButtonRight:
+		if !ta.PointIndexInsideSelection(&ev.Point) {
+			tautil.MoveCursorToPoint(ta, &ev.Point, false)
 		}
 		ev2 := &TextAreaCmdEvent{ta}
 		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
+	case event.ButtonMiddle:
+		tautil.MoveCursorToPoint(ta, &ev.Point, false)
+		tautil.PastePrimary(ta)
 	}
 }
-func (ta *TextArea) onMotionNotify(ev *xinput.MotionNotifyEvent) {
-	if !ta.buttonPressed {
-		return
+func (ta *TextArea) onMouseDoubleClick(ev *event.MouseDoubleClick) {
+	switch ev.Button {
+	case event.ButtonLeft:
+		tautil.MoveCursorToPoint(ta, &ev.Point, false)
+		tautil.SelectWord(ta)
 	}
-	if ev.Mods.IsButton(1) {
-		tautil.MoveCursorToPoint(ta, ev.Point, true)
+}
+func (ta *TextArea) onMouseTripleClick(ev *event.MouseTripleClick) {
+	switch ev.Button {
+	case event.ButtonLeft:
+		tautil.MoveCursorToPoint(ta, &ev.Point, false)
+		tautil.SelectLine(ta)
 	}
 }
 
@@ -534,161 +477,112 @@ func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 	return false
 }
 
-func (ta *TextArea) onDoubleClick(ev *xinput.DoubleClickEvent) {
-	if !ev.Point.In(ta.Bounds()) {
-		return
-	}
-	switch {
-	case ev.Button.Button(1):
-		tautil.MoveCursorToPoint(ta, ev.Point, false)
-		tautil.SelectWord(ta)
-	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
-		tautil.MoveCursorToPoint(ta, ev.Point, false)
-		ev2 := &TextAreaCmdEvent{ta}
-		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
-	}
-}
-func (ta *TextArea) onTripleClick(ev *xinput.TripleClickEvent) {
-	if !ev.Point.In(ta.Bounds()) {
-		return
-	}
-	switch {
-	case ev.Button.Button(1):
-		tautil.MoveCursorToPoint(ta, ev.Point, false)
-		tautil.SelectLine(ta)
-	case ev.Button.Button(3) && ev.Button.Mods.IsNone():
-		tautil.MoveCursorToPoint(ta, ev.Point, false)
-		ev2 := &TextAreaCmdEvent{ta}
-		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
-	}
-}
-func (ta *TextArea) onKeyPress(ev *xinput.KeyPressEvent) {
-	if !ev.Point.In(ta.Bounds()) {
-		return
-	}
-	k := ev.Key
-	firstKeysym := k.FirstKeysym()
-	mods := k.Mods.ClearButtons()
-
-	switch firstKeysym {
-	case xinput.XKAltL,
-		xinput.XKIsoLevel3Shift,
-		xinput.XKShiftL,
-		xinput.XKShiftR,
-		xinput.XKControlL,
-		xinput.XKControlR,
-		xinput.XKCapsLock,
-		xinput.XKNumLock,
-		xinput.XKSuperL,
-		xinput.XKInsert:
+func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
+	switch ev.Code {
+	case event.KCodeAltL,
+		event.KCodeAltGr,
+		event.KCodeShiftL,
+		event.KCodeShiftR,
+		event.KCodeControlL,
+		event.KCodeControlR,
+		event.KCodeCapsLock,
+		event.KCodeNumLock,
+		event.KCodeInsert,
+		event.KCodePageUp,
+		event.KCodePageDown,
+		event.KCodeSuperL: // windows key
 		// ignore these
-	case xinput.XKRight:
+	case event.KCodeRight:
 		switch {
-		case mods.IsControlShift():
+		case ev.Modifiers.Is(event.ModControl | event.ModShift):
 			tautil.MoveCursorJumpRight(ta, true)
-		case mods.IsControl():
+		case ev.Modifiers.Is(event.ModControl):
 			tautil.MoveCursorJumpRight(ta, false)
-		case mods.IsShift():
+		case ev.Modifiers.Is(event.ModShift):
 			tautil.MoveCursorRight(ta, true)
-		case mods.IsNone():
+		default:
 			tautil.MoveCursorRight(ta, false)
 		}
-	case xinput.XKLeft:
+	case event.KCodeLeft:
 		switch {
-		case mods.IsControlShift():
+		case ev.Modifiers.Is(event.ModControl | event.ModShift):
 			tautil.MoveCursorJumpLeft(ta, true)
-		case mods.IsControl():
+		case ev.Modifiers.Is(event.ModControl):
 			tautil.MoveCursorJumpLeft(ta, false)
-		case mods.IsShift():
+		case ev.Modifiers.Is(event.ModShift):
 			tautil.MoveCursorLeft(ta, true)
-		case mods.IsNone():
+		default:
 			tautil.MoveCursorLeft(ta, false)
 		}
-	case xinput.XKUp:
+	case event.KCodeUp:
 		switch {
-		case mods.IsControlMod1():
+		case ev.Modifiers.Is(event.ModControl | event.ModAlt):
 			tautil.MoveLineUp(ta)
-		case mods.IsShift():
+		case ev.Modifiers.Is(event.ModShift):
 			tautil.MoveCursorUp(ta, true)
-		case mods.IsNone():
+		default:
 			tautil.MoveCursorUp(ta, false)
 		}
-	case xinput.XKDown:
+	case event.KCodeDown:
 		switch {
-		case mods.IsControlShiftMod1():
+		case ev.Modifiers.Is(event.ModControl | event.ModShift | event.ModAlt):
 			tautil.DuplicateLines(ta)
-		case mods.IsControlMod1():
+		case ev.Modifiers.Is(event.ModControl | event.ModAlt):
 			tautil.MoveLineDown(ta)
-		case mods.IsShift():
+		case ev.Modifiers.Is(event.ModShift):
 			tautil.MoveCursorDown(ta, true)
-		case mods.IsNone():
+		default:
 			tautil.MoveCursorDown(ta, false)
 		}
-	case xinput.XKHome:
+	case event.KCodeHome:
 		switch {
-		case mods.IsControlShift():
+		case ev.Modifiers.Is(event.ModControl | event.ModShift):
 			tautil.StartOfString(ta, true)
-		case mods.IsControl():
+		case ev.Modifiers.Is(event.ModControl):
 			tautil.StartOfString(ta, false)
-		case mods.IsShift():
+		case ev.Modifiers.Is(event.ModShift):
 			tautil.StartOfLine(ta, true)
-		case mods.IsNone():
+		default:
 			tautil.StartOfLine(ta, false)
 		}
-	case xinput.XKEnd:
+	case event.KCodeEnd:
 		switch {
-		case mods.IsControlShift():
+		case ev.Modifiers.Is(event.ModControl | event.ModShift):
 			tautil.EndOfString(ta, true)
-		case mods.IsControl():
+		case ev.Modifiers.Is(event.ModControl):
 			tautil.EndOfString(ta, false)
-		case mods.IsShift():
+		case ev.Modifiers.Is(event.ModShift):
 			tautil.EndOfLine(ta, true)
-		case mods.IsNone():
+		default:
 			tautil.EndOfLine(ta, false)
 		}
-	case xinput.XKBackspace:
+	case event.KCodeBackspace:
 		tautil.Backspace(ta)
-	case xinput.XKDelete:
+	case event.KCodeDelete:
+		tautil.Delete(ta)
+	case event.KCodeTab:
 		switch {
-		case mods.IsNone():
-			tautil.Delete(ta)
-		}
-	case xinput.XKPageUp:
-		switch {
-		case mods.IsNone():
-			ta.PageUp()
-		}
-	case xinput.XKPageDown:
-		switch {
-		case mods.IsNone():
-			ta.PageDown()
-		}
-	case xinput.XKTab:
-		switch {
-		case mods.IsNone():
-			tautil.TabRight(ta)
-		case mods.IsShift():
+		case ev.Modifiers.Is(event.ModShift):
 			tautil.TabLeft(ta)
+		default:
+			tautil.TabRight(ta)
 		}
-	case xinput.XKReturn:
-		switch {
-		case mods.IsNone():
-			tautil.AutoIndent(ta)
-		}
-	case xinput.XKSpace:
+	case event.KCodeReturn:
+		tautil.AutoIndent(ta)
+	case event.KCodeSpace:
 		tautil.InsertString(ta, " ")
 	default:
 		// shortcuts with printable runes
 		switch {
-		case mods.IsControlShift():
-			switch firstKeysym {
+		case ev.Modifiers.Is(event.ModControl | event.ModShift):
+			switch ev.Code {
 			case 'd':
 				tautil.Uncomment(ta)
 			case 'z':
 				ta.unpopRedo()
 			}
-		case mods.IsControl():
-			switch firstKeysym {
+		case ev.Modifiers.Is(event.ModControl):
+			switch ev.Code {
 			case 'd':
 				tautil.Comment(ta)
 			case 'c':
@@ -704,27 +598,14 @@ func (ta *TextArea) onKeyPress(ev *xinput.KeyPressEvent) {
 			case 'z':
 				ta.popUndo()
 			}
-		default: // all other modifier combos
-			ta.insertKeyRune(k)
+		default:
+			if unicode.IsPrint(ev.Rune) {
+				tautil.InsertString(ta, string(ev.Rune))
+			}
 		}
 	}
 }
-func (ta *TextArea) insertKeyRune(k *xinput.Key) {
-	// print rune from keysym table (takes into consideration the modifiers)
-	ks := k.Keysym()
-	switch ks {
-	case xinput.XKAsciiTilde:
-		tautil.InsertString(ta, "~")
-	case xinput.XKAsciiCircum:
-		tautil.InsertString(ta, "^")
-	case xinput.XKAcute:
-		tautil.InsertString(ta, "´")
-	case xinput.XKGrave:
-		tautil.InsertString(ta, "`")
-	default:
-		tautil.InsertString(ta, string(rune(ks)))
-	}
-}
+
 func (ta *TextArea) InsertStringAsync(str string) {
 	ta.ui.TextAreaInsertStringAsync(ta, str)
 }
@@ -740,7 +621,6 @@ const (
 	TextAreaCmdEventId = iota
 	TextAreaSetStrEventId
 	TextAreaSetOffsetYEventId
-	//TextAreaBoundsChangeEventId
 	TextAreaSetCursorIndexEventId
 )
 
@@ -754,7 +634,3 @@ type TextAreaSetStrEvent struct {
 type TextAreaSetOffsetYEvent struct {
 	TextArea *TextArea
 }
-
-//type TextAreaBoundsChangeEvent struct {
-//	TextArea *TextArea
-//}

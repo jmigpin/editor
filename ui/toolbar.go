@@ -12,8 +12,6 @@ func NewToolbar(ui *UI, parent widget.Node) *Toolbar {
 	tb.TextArea.Init(ui)
 
 	tb.DisableHighlightCursorWord = true
-	tb.DisablePageUpDown = true
-
 	tb.Colors = &ToolbarColors
 
 	tb.TextArea.EvReg.Add(TextAreaSetStrEventId, tb.onTextAreaSetStr)

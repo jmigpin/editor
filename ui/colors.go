@@ -57,5 +57,5 @@ func AcmeColors() {
 	}
 	SquareColor = ToolbarColors.Normal.Bg
 	ScrollbarFgColor = color.RGBA{153, 153, 76, 255}
-	ScrollbarBgColor = imageutil.Shade(TextAreaColors.Normal.Bg, 0.90)
+	ScrollbarBgColor = imageutil.Shade(TextAreaColors.Normal.Bg, 0.05)
 }

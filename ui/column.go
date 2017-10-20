@@ -5,23 +5,19 @@ import (
 	"image/color"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/xinput"
 )
 
 type Column struct {
 	widget.FlowLayout
 	Square     *Square
-	sep        *widget.Space
-	rowsLayout *widget.EndPercentLayout
+	Cols       *Columns
+	RowsLayout *widget.EndPercentLayout
 
-	sqc *widget.FlowLayout // square container (show/hide)
-
-	Cols *Columns
-
-	resize struct {
-		on bool
-	}
+	sep           *widget.Space
+	sqc           *widget.FlowLayout // square container (show/hide)
+	closingCursor bool
 }
 
 func NewColumn(cols *Columns) *Column {
@@ -37,7 +33,7 @@ func NewColumn(cols *Columns) *Column {
 	col.sep.Size.X = SeparatorWidth
 	col.sep.Color = SeparatorColor
 
-	col.rowsLayout = &widget.EndPercentLayout{YAxis: true}
+	col.RowsLayout = &widget.EndPercentLayout{YAxis: true}
 
 	// square (when there are no rows)
 	col.sqc = &widget.FlowLayout{}
@@ -57,7 +53,7 @@ func NewColumn(cols *Columns) *Column {
 	}
 
 	rightSide := &widget.FlowLayout{YAxis: true}
-	widget.AppendChilds(rightSide, col.sqc, col.rowsLayout)
+	widget.AppendChilds(rightSide, col.sqc, col.RowsLayout)
 
 	widget.AppendChilds(col, col.sep, rightSide)
 
@@ -70,7 +66,7 @@ func (col *Column) Close() {
 	}
 }
 func (col *Column) Paint() {
-	if len(col.rowsLayout.Childs()) == 0 {
+	if len(col.RowsLayout.Childs()) == 0 {
 		b := col.Bounds()
 		col.Cols.Layout.UI.FillRectangle(&b, color.White)
 		return
@@ -86,16 +82,16 @@ func (col *Column) NewRowBefore(next *Row) *Row {
 func (col *Column) insertBefore(row, next *Row) {
 	row.Col = col
 	if next == nil {
-		widget.PushBack(col.rowsLayout, row)
+		widget.PushBack(col.RowsLayout, row)
 	} else {
-		widget.InsertBefore(col.rowsLayout, row, next)
+		widget.InsertBefore(col.RowsLayout, row, next)
 	}
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 }
 
 func (col *Column) removeRow(row *Row) {
-	col.rowsLayout.Remove(row)
+	col.RowsLayout.Remove(row)
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 }
@@ -123,35 +119,46 @@ func (col *Column) onSquareInput(ev0 interface{}) {
 	sqEv := ev0.(*SquareInputEvent)
 	ui := col.Cols.Layout.UI
 	switch ev := sqEv.Event.(type) {
-	case *xinput.ButtonPressEvent:
-		switch {
-		case ev.Button.Button(1) || ev.Button.Button(3):
-			ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
-			col.startResizeToPoint(sqEv.TopPoint)
-		case ev.Button.Button(2):
-			// indicate close
+	case *event.MouseDown:
+		switch ev.Button {
+		case event.ButtonMiddle:
+			col.closingCursor = true
 			ui.CursorMan.SetCursor(xcursor.XCursor)
 		}
-	case *xinput.MotionNotifyEvent:
-		switch {
-		case ev.Mods.HasButton(1) || ev.Mods.HasButton(3):
-			col.resizeToPointIfOn(sqEv.TopPoint)
+
+	case *event.MouseClick:
+		switch ev.Button {
+		case event.ButtonMiddle:
+			col.Cols.CloseColumnEnsureOne(col)
+			ui.CursorMan.UnsetCursor()
 		}
-	case *xinput.ButtonReleaseEvent:
-		ui.CursorMan.UnsetCursor()
+
+	case *event.MouseDragStart:
+		if col.closingCursor {
+			col.closingCursor = false
+			ui.CursorMan.UnsetCursor()
+		}
+		switch ev.Button {
+		case event.ButtonLeft, event.ButtonRight:
+			ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+			col.resizeToPoint(sqEv.TopPoint)
+		}
+	case *event.MouseDragMove:
 		switch {
-		case ev.Button.Mods.HasButton(1) || ev.Button.Mods.HasButton(3):
-			col.endResizeToPoint(sqEv.TopPoint)
-		case ev.Button.Mods.IsButton(2):
-			if ev.Point.In(col.Square.Bounds()) {
-				col.Cols.CloseColumnEnsureOne(col)
-			}
+		case ev.Buttons.Has(event.ButtonLeft) || ev.Buttons.Has(event.ButtonRight):
+			col.resizeToPoint(sqEv.TopPoint)
+		}
+	case *event.MouseDragEnd:
+		switch ev.Button {
+		case event.ButtonLeft, event.ButtonRight:
+			col.resizeToPoint(sqEv.TopPoint)
+			ui.CursorMan.UnsetCursor()
 		}
 	}
 }
 
 func (col *Column) FirstChildRow() (*Row, bool) {
-	u := col.rowsLayout.FirstChild()
+	u := col.RowsLayout.FirstChild()
 	if u == nil {
 		return nil, false
 	}
@@ -172,7 +179,7 @@ func (col *Column) PrevColumn() (*Column, bool) {
 	return u.(*Column), true
 }
 func (col *Column) Rows() []*Row {
-	childs := col.rowsLayout.Childs()
+	childs := col.RowsLayout.Childs()
 	u := make([]*Row, 0, len(childs))
 	for _, h := range childs {
 		u = append(u, h.(*Row))
@@ -194,22 +201,6 @@ func (col *Column) PointRow(p *image.Point) (*Row, bool) {
 		}
 	}
 	return nil, false
-}
-
-func (col *Column) startResizeToPoint(p *image.Point) {
-	col.resize.on = true
-	col.resizeToPoint(p)
-}
-func (col *Column) resizeToPointIfOn(p *image.Point) {
-	if col.resize.on {
-		col.resizeToPoint(p)
-	}
-}
-func (col *Column) endResizeToPoint(p *image.Point) {
-	if col.resize.on {
-		col.resize.on = false
-		col.resizeToPoint(p)
-	}
 }
 
 func (col *Column) resizeToPoint(p *image.Point) {
