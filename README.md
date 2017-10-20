@@ -52,11 +52,27 @@ Usage of ./editor:
     	code for wrap line rune (default 8596)
 ```
 
+### Basic Layout
+
+The editor has a top toolbar and columns. Columns have rows. Rows have a square-button, a toolbar and a textarea.
+
+These toolbars are textareas where clicking on the text will run that text as a command.
+
+The square-button allows the row to be moved/resized/closed with the mouse. It also shows the state of the row.
+
+### Row square-button states
+
+- `blue`: row file has been edited.
+- `orange`: row file doesn't exist.
+- `black dot`: row currently active. There is only one active row.
+- `red dot`: row file was edited outside (changed on disk) and doesn't match last known save. You can run `Reload` to get the disk version.
+- `blue border`: row is duplicated (2 or more).
+
 ### key/button shortcuts
 
 #### Column key/button shortcuts
 
-(top square):
+(square-button):
 
 - `buttonMiddle`: close column
 
@@ -66,7 +82,7 @@ Usage of ./editor:
 - `ctrl`+`f`: warp pointer to "Find" cmd in row toolbar
 - Any button press: make row active to layout toolbar commands
 
-(top square):
+(square-button):
 
 - `buttonLeft`:
   - click: maximize
@@ -131,9 +147,9 @@ Usage of ./editor:
 - `XdgOpenDir`: calls xdg-open to open the active-row directory with the preferred external application (ex: a filemanager)
 - `Exit`: exits the program
 
-Note: Some row commands work from the layout toolbar because they act on the current active row (ex: Find, Replace).
-
 #### Row toolbar commands
+
+These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 - `Save`: save file
 - `Reload`: reload content
@@ -142,7 +158,7 @@ Note: Some row commands work from the layout toolbar because they act on the cur
 - `Find`: find string (ignores case)
 - `GotoLine <num>`: goes to line number
 - `Replace <old> <new>`: replaces old string with new, respects selections
-- `Stop`: stops current processing (external cmd) running in the row
+- `Stop`: stops current process (external cmd) running in the row
 - `ListDir`: lists directory
 - `ListDirSub`: lists directory and sub directories
 - `ListDirHidden`: lists directory including hidden
