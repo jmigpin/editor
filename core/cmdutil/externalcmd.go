@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
@@ -32,7 +33,8 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	// setup context
 	ctx0 := context.Background()
 	ctx := gRowCtx.Add(row, ctx0)
-	// prepare row
+
+	// indicate the row is running an external cmd
 	row.Square.SetValue(ui.SquareExecuting, true)
 	row.TextArea.SetStrClear("", true, true)
 
@@ -57,63 +59,99 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 
 	// exec
 	go func() {
-		execRowCmd2(erow, ctx, cmd)
+		execRowCmd2(erow, cmd)
+
+		// another context could be added already to the row
+		row := erow.Row()
+		gRowCtx.ClearIfNotNewCtx(row, ctx, func() {
+			// indicate the cmd is not running anymore
+			eid := ui.UIRowDoneExecutingAsyncEventId
+			ev := &ui.UIRowDoneExecutingAsyncEvent{row}
+			erow.Ed().UI().EvReg.Enqueue(eid, ev)
+		})
 	}()
 }
-func execRowCmd2(erow ERower, ctx context.Context, cmd *exec.Cmd) {
-	// pipes to read the cmd output
-	opr, opw := io.Pipe()
-	epr, epw := io.Pipe()
-	cmd.Stdout = opw
-	cmd.Stderr = epw
-
-	taAppend := func(s string) {
-		erow.TextAreaAppendAsync(s)
-	}
+func execRowCmd2(erow ERower, cmd *exec.Cmd) {
 
 	var wg sync.WaitGroup
+	defer wg.Wait()
+	pipeToTextarea := func(w *io.Writer) *io.PipeWriter {
+		pr, pw := io.Pipe()
+		*w = pw
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			readToERow(pr, erow)
+		}()
+		return pw
+	}
 
-	readPipe := func(pr io.Reader) {
-		defer wg.Done()
-		var buf [1 * 1024 * 1024]byte
+	opw := pipeToTextarea(&cmd.Stdout)
+	epw := pipeToTextarea(&cmd.Stderr)
+	defer opw.Close()
+	defer epw.Close()
+
+	// run command
+	err := cmd.Start()
+	if err != nil {
+		erow.TextAreaAppendAsync(err.Error())
+		return
+	}
+	erow.TextAreaAppendAsync(fmt.Sprintf("# pid %d\n", cmd.Process.Pid))
+	err = cmd.Wait() // error already going through stderr?
+	if err != nil {
+		erow.TextAreaAppendAsync(err.Error())
+	}
+}
+
+// Reads and sends to erow only n frames per second.
+// Prevents the editor from hanging with small textarea append requests when the external command is outputting in a tight loop.
+// Exits when the reader returns an error (like in close).
+func readToERow(reader io.Reader, erow ERower) {
+	ch := make(chan string)
+
+	go func() {
+		var buf [4 * 1024]byte
 		for {
-			n, err := pr.Read(buf[:])
+			n, err := reader.Read(buf[:])
 			if n > 0 {
-				//log.Printf("external cmd n %v", n)
-				taAppend(string(buf[:n]))
+				ch <- string(buf[:n])
 			}
 			if err != nil {
 				break
 			}
 		}
+		close(ch)
+	}()
+
+	var q []string
+	var ticker *time.Ticker
+	var timeToSend <-chan time.Time
+	for {
+		select {
+		case s, ok := <-ch:
+			if !ok {
+				erow.TextAreaAppendAsync(strings.Join(q, ""))
+				goto forEnd
+			}
+			if ticker == nil {
+				ticker = time.NewTicker(time.Second / 30)
+				timeToSend = ticker.C
+				// send first now instead of appending for quick first output
+				erow.TextAreaAppendAsync(s)
+			} else {
+				q = append(q, s)
+			}
+		case <-timeToSend:
+			u := strings.Join(q, "")
+			if u != "" {
+				erow.TextAreaAppendAsync(u)
+			}
+			q = []string{}
+		}
 	}
-	// setup piping to the chan
-	wg.Add(2)
-	go readPipe(opr)
-	go readPipe(epr)
-
-	// run command
-	err := cmd.Start()
-	if err != nil {
-		taAppend(err.Error())
-	} else {
-		taAppend(fmt.Sprintf("# pid %d\n", cmd.Process.Pid))
+forEnd:
+	if ticker != nil {
+		ticker.Stop()
 	}
-	_ = cmd.Wait() // this error is going already to the stderr pipe
-
-	// release goroutines reading the pipes
-	opw.Close()
-	epw.Close()
-
-	// wait for the pipetochan goroutines to finish
-	wg.Wait()
-
-	// another context could be added already to the row
-	row := erow.Row()
-	gRowCtx.ClearIfNotNewCtx(row, ctx, func() {
-		// indicate the cmd is not running anymore
-		eid := ui.UIRowDoneExecutingAsyncEventId
-		ev := &ui.UIRowDoneExecutingAsyncEvent{row}
-		erow.Ed().UI().EvReg.Enqueue(eid, ev)
-	})
 }
