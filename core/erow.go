@@ -359,13 +359,14 @@ func (erow *ERow) UpdateDuplicates() {
 		ta := erow.Row().TextArea
 		ta2 := erow2.Row().TextArea
 
+		ci := ta2.CursorIndex()
+		ip := ta2.IndexPoint(ci)
+
 		// use temporary history to set the string in the duplicate
-		// then share the history to allow undo/redo
+		// then get the main shared history to allow undo/redo
 
 		tmp := tahistory.NewHistory(1)
 		ta2.SetHistory(tmp)
-
-		//ci := ta2.CursorIndex()
 
 		erow2.disableTextAreaSetStrEventHandler = true // avoid recursive events
 		ta2.SetStrClear(ta.Str(), false, false)
@@ -373,12 +374,9 @@ func (erow *ERow) UpdateDuplicates() {
 
 		ta2.SetHistory(ta.History())
 
-		// TODO: fix cursor position with last edit to avoid annoying cursor moves
-		////ta2.SetCursorIndex(0)
-		//i2 := ta2.PointIndex(ip)
-		//ta2.SetCursorIndex(i2)
-		//i2 := ta2.EditHistory().IndexAfterLastEditIfAt(ci)
-		//ta2.SetCursorIndex(i2)
+		// restore position (avoid cursor moving while editing in another row)
+		pi := ta2.PointIndex(ip)
+		ta2.SetCursorIndex(pi)
 
 		erow2.saved.size = erow.saved.size
 		erow2.saved.hash = erow.saved.hash
