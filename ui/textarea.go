@@ -73,7 +73,7 @@ func (ta *TextArea) measureChilds(hint image.Point) image.Point {
 	// This textarea should have no child nodes.
 
 	// cache measurement
-	if ta.str != ta.drawer.Str || hint != ta.lastMeasureHint {
+	if ta.str != ta.drawer.Str || hint.X != ta.lastMeasureHint.X {
 
 		// keep offset for restoration
 		offsetIndex := 0
