@@ -17,9 +17,9 @@ func TabRight(ta Texta) {
 
 	// replace
 	ta.EditOpen()
+	defer ta.EditCloseAfterSetCursor()
 	ta.EditDelete(a, b)
 	ta.EditInsert(a, str)
-	ta.EditClose()
 
 	// don't select newline as last char
 	c := previousRuneIndexIfLastIsNewline(str)
@@ -48,9 +48,9 @@ func TabLeft(ta Texta) {
 
 	// replace
 	ta.EditOpen()
+	defer ta.EditCloseAfterSetCursor()
 	ta.EditDelete(a, b)
 	ta.EditInsert(a, str)
-	ta.EditClose()
 
 	// don't select newline as last char
 	c := previousRuneIndexIfLastIsNewline(str)

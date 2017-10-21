@@ -2,6 +2,7 @@ package tautil
 
 func InsertString(ta Texta, s string) {
 	ta.EditOpen()
+	defer ta.EditCloseAfterSetCursor()
 	if ta.SelectionOn() {
 		// remove selection
 		a, b := SelectionStringIndexes(ta)
@@ -11,6 +12,5 @@ func InsertString(ta Texta, s string) {
 	}
 	// insert
 	ta.EditInsert(ta.CursorIndex(), s)
-	ta.EditClose()
 	ta.SetCursorIndex(ta.CursorIndex() + len(s))
 }

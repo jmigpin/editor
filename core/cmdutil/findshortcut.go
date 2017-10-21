@@ -41,9 +41,11 @@ func FindShortcut(erow ERower) {
 		}
 	}
 
+	ta.EditOpen()
+	defer ta.EditCloseAfterSetCursor()
+
 	if found {
 		// select current find cmd string
-		ta.EditOpen()
 		a := part.Args[0].E
 		b := part.E
 		if a == b {
@@ -62,10 +64,8 @@ func FindShortcut(erow ERower) {
 			ta.EditInsert(a, searchStr)
 			ta.SetSelection(a, a+len(searchStr))
 		}
-		ta.EditClose()
 	} else {
 		// insert find cmd
-		ta.EditOpen()
 		ta.EditInsert(len(ta.Str()), " | Find ")
 		a := len(ta.Str())
 		if searchStr != "" {
@@ -75,7 +75,6 @@ func FindShortcut(erow ERower) {
 			ta.SetSelectionOff()
 			ta.SetCursorIndex(a + len(searchStr))
 		}
-		ta.EditClose()
 	}
 
 	// warp pointer to toolbar close to "Find " text cmd to be able to click for run

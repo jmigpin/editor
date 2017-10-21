@@ -14,7 +14,7 @@ func Backspace(ta Texta) {
 		}
 	}
 	ta.EditOpen()
+	defer ta.EditCloseAfterSetCursor()
 	ta.EditDelete(a, b)
-	ta.EditClose()
 	ta.SetCursorIndex(a)
 }

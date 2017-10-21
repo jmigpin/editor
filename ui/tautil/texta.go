@@ -12,7 +12,7 @@ type Texta interface {
 	EditOpen()
 	EditInsert(index int, str string)
 	EditDelete(index, index2 int)
-	EditClose()
+	EditCloseAfterSetCursor()
 
 	CursorIndex() int
 	SetCursorIndex(int)

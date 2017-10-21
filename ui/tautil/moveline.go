@@ -8,6 +8,7 @@ func MoveLineUp(ta Texta) {
 	}
 	s := ta.Str()[a:b]
 	ta.EditOpen()
+	defer ta.EditCloseAfterSetCursor()
 	ta.EditDelete(a, b)
 	a2 := lineStartIndex(ta.Str(), a-1) // previous line, -1 is size of '\n'
 	if !hasNewline {
@@ -15,7 +16,6 @@ func MoveLineUp(ta Texta) {
 		s = s + "\n"
 	}
 	ta.EditInsert(a2, s)
-	ta.EditClose()
 
 	if ta.SelectionOn() {
 		_, b2, ok := PreviousRuneIndex(ta.Str(), a2+len(s))
@@ -36,6 +36,7 @@ func MoveLineDown(ta Texta) {
 	}
 	s := ta.Str()[a:b]
 	ta.EditOpen()
+	defer ta.EditCloseAfterSetCursor()
 	ta.EditDelete(a, b)
 	a2, hasNewline := lineEndIndexNextIndex(ta.Str(), a)
 	if !hasNewline {
@@ -46,7 +47,6 @@ func MoveLineDown(ta Texta) {
 		a2++
 	}
 	ta.EditInsert(a2, s)
-	ta.EditClose()
 
 	if ta.SelectionOn() {
 		b2 := a2 + len(s)

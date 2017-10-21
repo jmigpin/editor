@@ -25,8 +25,10 @@ type TextArea struct {
 
 	EvReg *evreg.Register
 
-	history *tahistory.History
-	edit    *tahistory.Edit
+	history        *tahistory.History
+	edit           *tahistory.Edit
+	editStr        string
+	editOpenCursor int
 
 	buttonPressed bool
 	boundsChange  image.Rectangle
@@ -133,7 +135,7 @@ func (ta *TextArea) getDrawSelection() *loopers.SelectionIndexes {
 func (ta *TextArea) Str() string {
 	if ta.edit != nil {
 		// return edit str while editing
-		return ta.edit.Str()
+		return ta.editStr
 	}
 	return ta.str
 }
@@ -174,7 +176,7 @@ func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 		ta.EditOpen()
 		ta.EditDelete(0, len(ta.Str()))
 		ta.EditInsert(0, str)
-		ta.EditClose()
+		ta.EditCloseAfterSetCursor()
 	}
 }
 
@@ -182,26 +184,40 @@ func (ta *TextArea) EditOpen() {
 	if ta.edit != nil {
 		panic("edit already exists")
 	}
-	ta.edit = tahistory.NewEdit(ta.Str())
+	ta.edit = &tahistory.Edit{}
+	ta.editStr = ta.str
+	ta.editOpenCursor = ta.CursorIndex()
 }
 func (ta *TextArea) EditInsert(index int, str string) {
-	ta.edit.Insert(index, str)
+	ta.editStr = ta.edit.Insert(ta.editStr, index, str)
 }
 func (ta *TextArea) EditDelete(index, index2 int) {
-	ta.edit.Delete(index, index2)
+	ta.editStr = ta.edit.Delete(ta.editStr, index, index2)
 }
-func (ta *TextArea) EditClose() {
-	str, strEdit, ok := ta.edit.Close()
-	ta.edit = nil
-	if !ok {
+func (ta *TextArea) EditCloseAfterSetCursor() {
+	cleanup := func() {
+		ta.edit = nil
+		ta.editStr = ""
+		ta.editOpenCursor = 0
+	}
+
+	if ta.editStr == ta.str {
+		cleanup()
 		return
 	}
-	ta.history.PushStrEdit(strEdit)
+
+	c1 := ta.editOpenCursor
+	c2 := ta.CursorIndex()
+	ta.edit.SetOpenCloseCursors(c1, c2)
+	ta.history.PushEdit(ta.edit)
 	ta.history.TryToMergeLastTwoEdits()
-	ta.setStr(str)
+
+	u := ta.editStr
+	cleanup()
+	ta.setStr(u)
 }
 
-func (ta *TextArea) popUndo() {
+func (ta *TextArea) undo() {
 	s, i, ok := ta.history.Undo(ta.Str())
 	if !ok {
 		return
@@ -210,7 +226,7 @@ func (ta *TextArea) popUndo() {
 	ta.SetCursorIndex(i)
 	ta.SetSelectionOff()
 }
-func (ta *TextArea) unpopRedo() {
+func (ta *TextArea) redo() {
 	s, i, ok := ta.history.Redo(ta.Str())
 	if !ok {
 		return
@@ -579,7 +595,7 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 			case 'd':
 				tautil.Uncomment(ta)
 			case 'z':
-				ta.unpopRedo()
+				ta.redo()
 			}
 		case ev.Modifiers.Is(event.ModControl):
 			switch ev.Code {
@@ -596,7 +612,7 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 			case 'a':
 				tautil.SelectAll(ta)
 			case 'z':
-				ta.popUndo()
+				ta.undo()
 			}
 		default:
 			if unicode.IsPrint(ev.Rune) {

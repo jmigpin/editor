@@ -57,7 +57,7 @@ func Comment(ta Texta) {
 	ta.EditOpen()
 	ta.EditDelete(a, b)
 	ta.EditInsert(a, str)
-	ta.EditClose()
+	defer ta.EditCloseAfterSetCursor()
 
 	if nlines <= 1 {
 		ta.SetSelectionOff()
@@ -104,7 +104,7 @@ func Uncomment(ta Texta) {
 	ta.EditOpen()
 	ta.EditDelete(a, b)
 	ta.EditInsert(a, str)
-	ta.EditClose()
+	defer ta.EditCloseAfterSetCursor()
 
 	if nlines <= 1 {
 		ta.SetSelectionOff()

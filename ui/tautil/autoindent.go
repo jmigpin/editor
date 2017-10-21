@@ -23,6 +23,6 @@ func AutoIndent(ta Texta) {
 	}
 	// insert
 	ta.EditInsert(ta.CursorIndex(), str)
-	ta.EditClose()
 	ta.SetCursorIndex(ta.CursorIndex() + len(str))
+	ta.EditCloseAfterSetCursor()
 }
