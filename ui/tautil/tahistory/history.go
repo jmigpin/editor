@@ -2,6 +2,7 @@ package tahistory
 
 import (
 	"container/list"
+	"strings"
 	"unicode"
 )
 
@@ -14,7 +15,7 @@ type History struct {
 func NewHistory(maxSize int) *History {
 	return &History{l: list.New(), maxSize: maxSize}
 }
-func (h *History) PushStrEdit(edit *StrEdit) {
+func (h *History) PushEdit(edit *Edit) {
 	if h.cur == nil {
 		h.cur = h.l.PushFront(edit)
 	} else {
@@ -41,9 +42,9 @@ func (h *History) Undo(str string) (string, int, bool) {
 	if h.cur == nil {
 		return "", 0, false
 	}
-	edit := h.cur.Value.(*StrEdit)
+	edit := h.cur.Value.(*Edit)
 	h.cur = h.cur.Prev()
-	s, i := edit.undos.Apply(str)
+	s, i := edit.ApplyUndo(str)
 	return s, i, true
 }
 func (h *History) Redo(str string) (string, int, bool) {
@@ -57,10 +58,11 @@ func (h *History) Redo(str string) (string, int, bool) {
 		return "", 0, false
 	}
 	h.cur = next
-	edit := h.cur.Value.(*StrEdit)
-	s, i := edit.edits.Apply(str)
+	edit := h.cur.Value.(*Edit)
+	s, i := edit.Apply(str)
 	return s, i, true
 }
+
 func (h *History) Clear() {
 	h.l = list.New()
 	h.cur = nil
@@ -74,141 +76,80 @@ func (h *History) TryToMergeLastTwoEdits() {
 	if prev == nil {
 		return
 	}
+	ed1 := prev.Value.(*Edit)  // oldest
+	ed2 := h.cur.Value.(*Edit) // recent
 
-	se1 := prev.Value.(*StrEdit)  // oldest
-	se2 := h.cur.Value.(*StrEdit) // recent
-
-	editIsInsertLetter := func(edit *StrEdit) (int, bool) {
-		if edit.edits.Len() != 1 {
-			return 0, false
+	insConsecutiveLetters := func() bool {
+		elemOk := func(id *InsertDelete) bool {
+			return id.IsInsert && strings.TrimFunc(id.str, unicode.IsLetter) == ""
 		}
-		sei, ok := edit.edits.Back().Value.(*StrEditInsert)
-		if !ok {
-			return 0, false
-		}
-		if len(sei.str) != 1 || !unicode.IsLetter(rune(sei.str[0])) {
-			return 0, false
-		}
-		return sei.index, true
-	}
-
-	editLastActionIsInsertLetter := func(edit *StrEdit) (int, bool) {
-		if edit.edits.Len() == 0 {
-			return 0, false
-		}
-
-		// all inserts
-		for e := edit.edits.Front(); e != nil; e = e.Next() {
-			_, ok := e.Value.(*StrEditInsert)
-			if !ok {
-				return 0, false
+		consecOk := func(e1, e2 *list.Element) bool {
+			v1 := e1.Value.(*InsertDelete)
+			v2 := e2.Value.(*InsertDelete)
+			if !(elemOk(v1) && elemOk(v2)) {
+				return false
 			}
+			return v1.index == v2.index-1
 		}
-
-		sei, ok := edit.edits.Back().Value.(*StrEditInsert)
-		if !ok {
-			return 0, false
+		prev := ed1.Front()
+		for e := prev.Next(); e != nil; e = e.Next() {
+			if !consecOk(prev, e) {
+				return false
+			}
+			prev = e
 		}
-		if len(sei.str) != 1 || !unicode.IsLetter(rune(sei.str[0])) {
-			return 0, false
-		}
-		return sei.index, true
-	}
-
-	editIsDeleteOne := func(edit *StrEdit) (int, bool) {
-		if edit.edits.Len() != 1 {
-			return 0, false
-		}
-		sed, ok := edit.edits.Back().Value.(*StrEditDelete)
-		if !ok {
-			return 0, false
-		}
-		return sed.index, sed.index2-sed.index == 1
-	}
-
-	editLastActionIsDeleteOne := func(edit *StrEdit) (int, bool) {
-		if edit.edits.Len() == 0 {
-			return 0, false
-		}
-		sed, ok := edit.edits.Back().Value.(*StrEditDelete)
-		if !ok {
-			return 0, false
-		}
-		return sed.index, sed.index2-sed.index == 1
-	}
-
-	insertedConsecutiveLetters := func() bool {
-		a1, ok := editLastActionIsInsertLetter(se1)
-		if !ok {
-			return false
-		}
-		a2, ok := editIsInsertLetter(se2)
-		if !ok {
-			return false
-		}
-		if a1 != a2-1 { // size 1
-			return false
+		for e := ed2.Front(); e != nil; e = e.Next() {
+			if !consecOk(prev, e) {
+				return false
+			}
+			prev = e
 		}
 		return true
 	}
 
-	deletedConsecutiveBackspaces := func() bool {
-		a1, ok := editLastActionIsDeleteOne(se1)
-		if !ok {
+	consecutiveSpaces := func() bool {
+		if ed2.Len() > 1 {
 			return false
 		}
-		a2, ok := editIsDeleteOne(se2)
-		if !ok {
-			return false
+		elemOk := func(id *InsertDelete) bool {
+			// can be del or insert
+			return strings.TrimSpace(id.str) == ""
 		}
-		if a1 != a2+1 {
-			return false
+		consecOk := func(e1, e2 *list.Element) bool {
+			v1 := e1.Value.(*InsertDelete)
+			v2 := e2.Value.(*InsertDelete)
+			if !(elemOk(v1) && elemOk(v2)) {
+				return false
+			}
+			// del, backspace, space/newline
+			return v1.index == v2.index ||
+				v1.index-len(v1.str) == v2.index ||
+				v1.index+len(v1.str) == v2.index
+		}
+		prev := ed1.Front()
+		for e := prev.Next(); e != nil; e = e.Next() {
+			if !consecOk(prev, e) {
+				return false
+			}
+			prev = e
+		}
+		for e := ed2.Front(); e != nil; e = e.Next() {
+			if !consecOk(prev, e) {
+				return false
+			}
+			prev = e
 		}
 		return true
 	}
 
-	if !(insertedConsecutiveLetters() ||
-		deletedConsecutiveBackspaces()) {
+	if !(insConsecutiveLetters() || consecutiveSpaces()) {
 		return
 	}
 
-	// merge s2 into s1
-	se1.edits.PushBackList(&se2.edits.List)
-	se1.undos.PushFrontList(&se2.undos.List)
+	// merge ed2 into ed1
+	ed1.PushBackList(&ed2.List)
 
-	// remove se2 (h.cur)
+	// remove ed2 (h.cur)
 	h.l.Remove(h.cur)
 	h.cur = prev
-}
-
-func (h *History) LenToCur() int {
-	if h.cur == nil {
-		return 0
-	}
-	c := 1
-	for e := h.l.Front(); e != h.cur; e = e.Next() {
-		c++
-	}
-	return c
-}
-
-func (h *History) MergeLastTwoEditsAndAddPosition(index int) {
-	if h.LenToCur() < 2 {
-		return
-	}
-
-	prev := h.cur.Prev()
-
-	se1 := prev.Value.(*StrEdit)  // oldest
-	se2 := h.cur.Value.(*StrEdit) // recent
-
-	se1.edits.PushBackList(&se2.edits.List)
-	se1.undos.PushFrontList(&se2.undos.List)
-
-	// remove se2 (h.cur)
-	h.l.Remove(h.cur)
-	h.cur = prev
-
-	// add position step
-	se1.WrapLastEditWithPosition(index)
 }
