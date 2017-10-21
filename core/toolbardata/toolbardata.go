@@ -65,16 +65,16 @@ func (td *ToolbarData) StrWithPart0Arg0Decoded() string {
 
 func parseParts(str string) []*Part {
 	var parts []*Part
-	toks := parseTokens(str, 0, len(str), '|')
+	toks := parseTokens(str, 0, len(str), "|\n")
 	for _, t := range toks {
-		ctoks := parseTokens(str, t.S, t.E, ' ')
+		ctoks := parseTokens(str, t.S, t.E, " ")
 		ctoks = filterEmptyTokens(ctoks)
 		p := &Part{Token: *t, Args: ctoks}
 		parts = append(parts, p)
 	}
 	return parts
 }
-func parseTokens(str string, a, b int, sep rune) []*Token {
+func parseTokens(str string, a, b int, seps string) []*Token {
 	lastQuote := rune(0)
 	escape := false
 	split := func(ru rune) bool {
@@ -94,7 +94,12 @@ func parseTokens(str string, a, b int, sep rune) []*Token {
 			lastQuote = ru
 			return false
 		default:
-			return ru == sep
+			for _, ru2 := range seps {
+				if ru2 == ru {
+					return true
+				}
+			}
+			return false
 		}
 	}
 	return fieldsFunc(str, a, b, split)
