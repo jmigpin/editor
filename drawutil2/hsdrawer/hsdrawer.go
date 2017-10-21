@@ -147,7 +147,9 @@ func (d *HSDrawer) GetPoint(index int) *fixed.Point26_6 {
 	}
 
 	d.pdl.RestorePosDataCloseToIndex(index)
-	return d.pdl.GetPoint(index, d.wlinel)
+	p := d.pdl.GetPoint(index, d.wlinel)
+	p2 := p.Add(fixed.P(d.Pad.X, d.Pad.Y))
+	return &p2
 }
 func (d *HSDrawer) GetIndex(p *fixed.Point26_6) int {
 	// TODO: remove this check
