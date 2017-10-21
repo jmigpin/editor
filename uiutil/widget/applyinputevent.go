@@ -130,12 +130,15 @@ func (aie *ApplyInputEvent) mouseDragStartMove(ev *event.MouseMove, p image.Poin
 }
 func (aie *ApplyInputEvent) mouseDragEnd(ev *event.MouseUp, p image.Point) bool {
 	h := false
-	if aie.drag.on {
+
+	cleanup := false
+	if aie.drag.on && ev.Button == aie.drag.button {
+		cleanup = true
 		ev2 := &event.MouseDragEnd{p, ev.Button, ev.Modifiers}
 		h = aie.drag.node.OnInputEvent(ev2, p) || h
 	}
-	cleanup := aie.drag.detect || aie.drag.on
-	if cleanup {
+
+	if aie.drag.detect || cleanup {
 		aie.drag.detect = false
 		aie.drag.on = false
 		aie.drag.start = false
