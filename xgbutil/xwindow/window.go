@@ -205,8 +205,7 @@ func (win *Window) eventLoop() {
 func (win *Window) motionEventFilterLoop(in <-chan interface{}, out chan<- interface{}) {
 	var lastMotionEv interface{}
 	var ticker *time.Ticker
-	zeroChan := make(chan time.Time)
-	var timeToSend <-chan time.Time = zeroChan
+	var timeToSend <-chan time.Time
 
 	//n := 0
 	keepMotionEv := func(ev interface{}) {
@@ -223,7 +222,7 @@ func (win *Window) motionEventFilterLoop(in <-chan interface{}, out chan<- inter
 		//n = 0
 		ticker.Stop()
 		ticker = nil
-		timeToSend = zeroChan
+		timeToSend = nil
 		out <- lastMotionEv
 	}
 
