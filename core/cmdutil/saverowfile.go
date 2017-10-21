@@ -25,18 +25,8 @@ func SaveRowFile(erow ERower) {
 		if err != nil {
 			// ignore errors, can catch them when compiling
 		} else {
-			// Setting str to a full new string from goimports will
-			// have the cursor be set at the end of the string.
-			// This becomes annoying when doing undo/redo.
-			// The altered history is to keep the previous cursor
-			// position and make it pleasant.
-
-			ci := row.TextArea.CursorIndex()
-
 			str = u
 			row.TextArea.SetStrClear(str, false, false)
-
-			row.TextArea.History().MergeLastTwoEditsAndAddPosition(ci)
 		}
 	}
 
