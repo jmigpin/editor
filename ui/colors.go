@@ -48,14 +48,15 @@ var ToolbarColors = hsdrawer.Colors{
 func AcmeColors() {
 	TextAreaColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, color.RGBA{255, 255, 234, 255}},
-		Selection: hsdrawer.FgBg{nil, imageutil.Tint(Yellow, 0.50)},
-		Highlight: hsdrawer.FgBg{nil, imageutil.Tint(Blue, 0.70)},
+		Selection: hsdrawer.FgBg{nil, color.RGBA{238, 238, 158, 255}},
+		Highlight: hsdrawer.FgBg{nil, color.RGBA{198, 238, 158, 255}}, // analogous to selection bg
 	}
 	ToolbarColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, color.RGBA{234, 255, 255, 255}},
-		Selection: hsdrawer.FgBg{nil, TextAreaColors.Selection.Bg},
+		Selection: hsdrawer.FgBg{nil, color.RGBA{158, 238, 238, 255}},
 	}
 	SquareColor = ToolbarColors.Normal.Bg
 	ScrollbarFgColor = color.RGBA{153, 153, 76, 255}
 	ScrollbarBgColor = imageutil.Shade(TextAreaColors.Normal.Bg, 0.05)
+	SquareEditedColor = color.RGBA{136, 136, 204, 255}
 }
