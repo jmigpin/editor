@@ -83,8 +83,8 @@ func (d *HSDrawer) Draw(img draw.Image, bounds0 *image.Rectangle) {
 	bgl := loopers.NewBgLooper(strl, dl)
 	sl := loopers.NewSelectionLooper(strl, bgl, dl)
 	cursorl := loopers.NewCursorLooper(strl, dl, bounds0)
-	hwl := loopers.NewHWordLooper(strl, bgl, dl, sl)
 	scl := loopers.NewSetColorsLooper(dl, bgl)
+	hwl := loopers.NewHWordLooper(strl, bgl, dl)
 	eel := loopers.NewEarlyExitLooper(strl, bounds)
 
 	// options
@@ -116,7 +116,10 @@ func (d *HSDrawer) Draw(img draw.Image, bounds0 *image.Rectangle) {
 	eel.Loop(func() bool { return true })
 
 	// iterator order
-	cursorl.SetOuterLooper(wlinel)
+	scl.SetOuterLooper(wlinel)
+	sl.SetOuterLooper(scl)
+	hwl.SetOuterLooper(sl)
+	cursorl.SetOuterLooper(hwl)
 	dl.SetOuterLooper(cursorl)
 	eel.SetOuterLooper(dl)
 

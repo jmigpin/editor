@@ -12,7 +12,6 @@ type HWordLooper struct {
 	strl *StringLooper
 	bgl  *BgLooper
 	dl   *DrawLooper
-	sl   *SelectionLooper
 
 	WordIndex int
 	Fg, Bg    color.Color
@@ -28,13 +27,11 @@ func NewHWordLooper(
 	strl *StringLooper,
 	bgl *BgLooper,
 	dl *DrawLooper,
-	sl *SelectionLooper,
 ) *HWordLooper {
 	return &HWordLooper{
 		strl: strl,
 		bgl:  bgl,
 		dl:   dl,
-		sl:   sl,
 	}
 }
 func (lpr *HWordLooper) Loop(fn func() bool) {
@@ -54,11 +51,6 @@ func (lpr *HWordLooper) Loop(fn func() bool) {
 	})
 }
 func (lpr *HWordLooper) colorize() bool {
-	// don't highlight words if a selection is on
-	if lpr.sl.Selection != nil {
-		return false
-	}
-
 	if !lpr.hword.on {
 		return false
 	}
