@@ -10,17 +10,26 @@ import (
 )
 
 type MainMenu struct {
-	widget.Button
+	*widget.Button
 	ui *UI
 }
 
 func NewMainMenu(ui *UI) *MainMenu {
 	mm := &MainMenu{ui: ui}
-	mm.Button.Init(ui)
+	mm.Button = widget.NewButton(ui)
 	mm.Button.Label.Text.Str = string(rune(8801))
 	mm.Button.Label.Pad.Left = 5
 	mm.Button.Label.Pad.Right = 5
+
 	return mm
+}
+func (mm *MainMenu) openMenu() {
+
+	//flow := &widget.FlowLayout{YAxis: true}
+	//b1 := mm.newMenuButton("ListSessions")
+	//b2 := mm.newMenuButton("Exit")
+	//widget.AppendChilds(flow, b1, b2)
+
 }
 func (mm *MainMenu) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	mm.Button.OnInputEvent(ev0, p)

@@ -3,13 +3,13 @@ package ui
 import "github.com/jmigpin/editor/uiutil/widget"
 
 type Toolbar struct {
-	TextArea
+	*TextArea
 	parent widget.Node
 }
 
 func NewToolbar(ui *UI, parent widget.Node) *Toolbar {
 	tb := &Toolbar{parent: parent}
-	tb.TextArea.Init(ui)
+	tb.TextArea = NewTextArea(ui)
 
 	tb.DisableHighlightCursorWord = true
 	tb.Colors = &ToolbarColors

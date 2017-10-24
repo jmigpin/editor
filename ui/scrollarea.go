@@ -7,17 +7,16 @@ import (
 )
 
 type ScrollArea struct {
-	widget.ScrollArea
-	ui *UI
+	*widget.ScrollArea
 	ta *TextArea
+	ui *UI
 
 	disableTextAreaOffsetYEvent bool
 }
 
 func NewScrollArea(ui *UI, ta *TextArea) *ScrollArea {
 	sa := &ScrollArea{ui: ui, ta: ta}
-
-	sa.ScrollArea.Init(sa, ui, ta)
+	sa.ScrollArea = widget.NewScrollArea(ui, sa, ta)
 
 	// textarea set text
 	sa.ta.EvReg.Add(TextAreaSetStrEventId, func(ev0 interface{}) {

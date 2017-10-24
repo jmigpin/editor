@@ -6,6 +6,7 @@ import (
 
 	// only for cursordef
 
+	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
@@ -13,7 +14,7 @@ import (
 
 // Used in row and column to move and close.
 type Square struct {
-	widget.EmbedNode
+	widget.LeafEmbedNode
 	EvReg *evreg.Register
 	Width int
 
@@ -32,8 +33,6 @@ func NewSquare(ui *UI) *Square {
 func (sq *Square) Measure(hint image.Point) image.Point {
 	return image.Point{sq.Width, sq.Width}
 }
-func (sq *Square) CalcChildsBounds() {
-}
 func (sq *Square) Paint() {
 	var c color.Color = SquareColor
 	if sq.values[SquareEdited] {
@@ -46,11 +45,11 @@ func (sq *Square) Paint() {
 		c = SquareExecutingColor
 	}
 	bounds := sq.Bounds()
-	sq.ui.FillRectangle(&bounds, c)
+	imageutil.FillRectangle(sq.ui.Image(), &bounds, c)
 
 	if sq.values[SquareDuplicate] {
 		c2 := SquareEditedColor
-		sq.ui.BorderRectangle(&bounds, c2, 2)
+		imageutil.BorderRectangle(sq.ui.Image(), &bounds, c2, 2)
 	}
 
 	// mini-squares
@@ -83,7 +82,7 @@ func (sq *Square) Paint() {
 			u = 1
 		}
 		r := miniSq(u)
-		sq.ui.FillRectangle(r, SquareDiskChangesColor)
+		imageutil.FillRectangle(sq.ui.Image(), r, SquareDiskChangesColor)
 	}
 	if sq.values[SquareActive] {
 		u := 1
@@ -91,7 +90,7 @@ func (sq *Square) Paint() {
 			u = 0
 		}
 		r := miniSq(u)
-		sq.ui.FillRectangle(r, SquareActiveColor)
+		imageutil.FillRectangle(sq.ui.Image(), r, SquareActiveColor)
 	}
 }
 

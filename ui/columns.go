@@ -4,25 +4,28 @@ import (
 	"image"
 	"image/color"
 
+	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/uiutil/widget"
 )
 
 type Columns struct {
-	widget.EndPercentLayout
+	*widget.EndPercentLayout
 	Layout *Layout
 }
 
 func NewColumns(layout *Layout) *Columns {
 	cols := &Columns{Layout: layout}
+	cols.EndPercentLayout = widget.NewEndPercentLayout()
+	cols.SetWrapper(cols)
 
 	cols.NewColumn() // start with 1 column
-
 	return cols
 }
 func (cols *Columns) Paint() {
 	if len(cols.Childs()) == 0 {
+		ui := cols.Layout.UI
 		b := cols.Bounds()
-		cols.Layout.UI.FillRectangle(&b, color.White)
+		imageutil.FillRectangle(ui.Image(), &b, color.White)
 	}
 }
 func (cols *Columns) LastColumnOrNew() *Column {
@@ -53,10 +56,9 @@ func (cols *Columns) insertColumnBefore(col, next *Column) {
 		//	}
 		//}
 
-		widget.PushBack(cols, col)
+		cols.PushBack(col)
 	} else {
 		panic("TODO")
-		widget.InsertBefore(cols, col, next)
 	}
 
 	cols.fixFirstColSeparator()

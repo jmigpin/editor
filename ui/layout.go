@@ -8,15 +8,16 @@ import (
 )
 
 type Layout struct {
-	widget.FlowLayout
+	*widget.FlowLayout
 	UI      *UI
 	Toolbar *Toolbar
 	Cols    *Columns
 }
 
 func NewLayout(ui *UI) *Layout {
-	layout := &Layout{}
-	layout.UI = ui
+	layout := &Layout{UI: ui}
+	layout.FlowLayout = widget.NewFlowLayout()
+	layout.SetWrapper(layout)
 
 	mm := NewMainMenu(ui)
 	mm.Label.Border.Right = 1
@@ -27,12 +28,12 @@ func NewLayout(ui *UI) *Layout {
 	layout.Toolbar = NewToolbar(ui, layout)
 	layout.Toolbar.SetExpand(true, false)
 
-	ttb := &widget.FlowLayout{}
+	ttb := widget.NewFlowLayout()
 	sep2 := widget.NewSpace(ui)
 	sep2.SetFill(false, true)
 	sep2.Size.X = 5
 	sep2.Color = ToolbarColors.Normal.Bg
-	widget.AppendChilds(ttb, mm, sep2, layout.Toolbar)
+	ttb.Append(mm, sep2, layout.Toolbar)
 
 	sep := widget.NewSpace(ui)
 	sep.SetExpand(true, false)
@@ -43,7 +44,7 @@ func NewLayout(ui *UI) *Layout {
 	layout.Cols.SetExpand(true, true)
 
 	layout.YAxis = true
-	widget.AppendChilds(layout, ttb, sep, layout.Cols)
+	layout.Append(ttb, sep, layout.Cols)
 
 	return layout
 }

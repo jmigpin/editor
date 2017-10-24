@@ -2,16 +2,13 @@ package ui
 
 import (
 	"image"
-	"image/color"
 	"image/draw"
 	"log"
 
 	"golang.org/x/image/font"
 
-	"github.com/jmigpin/editor/drawutil2/simpledrawer"
-	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
-	"github.com/jmigpin/editor/uiutil/widget"
+	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
 	"github.com/jmigpin/editor/xgbutil/xinput"
@@ -69,10 +66,7 @@ func NewUI(fface font.Face) (*UI, error) {
 
 	ui.EvReg.Add(xproto.Expose, ui.onExpose)
 	ui.EvReg.Add(evreg.ShmCompletionEventId, ui.onShmCompletion)
-
-	// Inputs events coming from X11 masked into events from the event package
 	ui.EvReg.Add(xinput.InputEventId, ui.onInput)
-
 	ui.EvReg.Add(UITextAreaAppendAsyncEventId, ui.onTextAreaAppendAsync)
 	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId, ui.onTextAreaInsertStringAsync)
 	ui.EvReg.Add(UIRowDoneExecutingAsyncEventId, ui.onRowDoneExecutingAsync)
@@ -104,7 +98,7 @@ func (ui *UI) UpdateImageSize() {
 
 func (ui *UI) PaintIfNeeded() (painted bool) {
 	if ui.incompleteDraws == 0 {
-		widget.PaintIfNeeded(ui.Layout, func(r *image.Rectangle) {
+		uiutil.PaintIfNeeded(ui.Layout, func(r *image.Rectangle) {
 			painted = true
 			ui.incompleteDraws++
 			ui.win.PutImage(r)
@@ -118,36 +112,20 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 
 func (ui *UI) onInput(ev0 interface{}) {
 	ev := ev0.(*xinput.InputEvent)
-	widget.ApplyInputEventInBounds(ui.Layout, ev.Event, ev.Point)
+	uiutil.ApplyInputEventInBounds(ui.Layout, ev.Event, ev.Point)
 }
 
 func (ui *UI) RequestPaint() {
 	ui.EvReg.Enqueue(evreg.NoOpEventId, nil)
 }
 
+// Implements widget.Context
 func (ui *UI) Image() draw.Image {
 	return ui.win.Image()
 }
-func (ui *UI) FillRectangle(r *image.Rectangle, c color.Color) {
-	imageutil.FillRectangle(ui.Image(), r, c)
-}
-func (ui *UI) BorderRectangle(r *image.Rectangle, c color.Color, size int) {
-	imageutil.BorderRectangle(ui.Image(), r, c, size)
-}
 
-// Implement widget.UIStrDrawer
-func (ui *UI) MeasureString(str string, hint image.Point) image.Point {
-	m := simpledrawer.Measure(ui.fface1, str, &hint)
-	return image.Point{m.X.Ceil(), m.Y.Ceil()}
-}
-
-// Implement widget.UIStrDrawer
-func (ui *UI) DrawString(str string, bounds *image.Rectangle, color color.Color) {
-	simpledrawer.Draw(ui.Image(), ui.fface1, str, bounds, color)
-}
-
-// Default fontface (used by textarea)
-func (ui *UI) FontFace() font.Face {
+// Implements widget.Context
+func (ui *UI) FontFace1() font.Face {
 	return ui.fface1
 }
 

@@ -10,7 +10,7 @@ import (
 )
 
 type Row struct {
-	widget.FlowLayout
+	*widget.FlowLayout
 	Square   *Square
 	Toolbar  *Toolbar
 	TextArea *TextArea
@@ -24,6 +24,8 @@ type Row struct {
 
 func NewRow(col *Column) *Row {
 	row := &Row{Col: col}
+	row.FlowLayout = widget.NewFlowLayout()
+	row.SetWrapper(row)
 
 	ui := row.Col.Cols.Layout.UI
 
@@ -43,15 +45,15 @@ func NewRow(col *Column) *Row {
 	row.sep.Color = SeparatorColor
 
 	// square and toolbar
-	tb := &widget.FlowLayout{}
+	tb := widget.NewFlowLayout()
 	sep1 := widget.NewSpace(ui)
 	sep1.Color = RowInnerSeparatorColor
 	sep1.Size.X = SeparatorWidth
 	sep1.SetFill(false, true)
 	if ScrollbarLeft {
-		widget.AppendChilds(tb, row.Square, sep1, row.Toolbar)
+		tb.Append(row.Square, sep1, row.Toolbar)
 	} else {
-		widget.AppendChilds(tb, row.Toolbar, sep1, row.Square)
+		tb.Append(row.Toolbar, sep1, row.Square)
 	}
 
 	// toolbar separator from scrollarea
@@ -71,7 +73,7 @@ func NewRow(col *Column) *Row {
 	row.scrollArea.VBar.Handle.Color = ScrollbarFgColor
 
 	row.YAxis = true
-	widget.AppendChilds(row, row.sep, tb, tbSep, row.scrollArea)
+	row.Append(row.sep, tb, tbSep, row.scrollArea)
 
 	return row
 }
@@ -206,7 +208,7 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 
 	percIsTop := true
 	rl := row.Col.RowsLayout
-	rl.ResizeEndPercentWithSwap(rl, row, perc, percIsTop, min)
+	rl.ResizeEndPercentWithSwap(row, perc, percIsTop, min)
 
 	row.Col.CalcChildsBounds()
 	row.Col.MarkNeedsPaint()

@@ -5,12 +5,13 @@ import (
 	"image/color"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
+	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 )
 
 type Column struct {
-	widget.FlowLayout
+	*widget.FlowLayout
 	Square     *Square
 	Cols       *Columns
 	RowsLayout *widget.EndPercentLayout
@@ -22,6 +23,8 @@ type Column struct {
 
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols}
+	col.FlowLayout = widget.NewFlowLayout()
+	col.SetWrapper(col)
 
 	ui := col.Cols.Layout.UI
 
@@ -33,10 +36,11 @@ func NewColumn(cols *Columns) *Column {
 	col.sep.Size.X = SeparatorWidth
 	col.sep.Color = SeparatorColor
 
-	col.RowsLayout = &widget.EndPercentLayout{YAxis: true}
+	col.RowsLayout = widget.NewEndPercentLayout()
+	col.RowsLayout.YAxis = true
 
 	// square (when there are no rows)
-	col.sqc = &widget.FlowLayout{}
+	col.sqc = widget.NewFlowLayout()
 	sqBorder := widget.NewBorder(ui, col.Square)
 	sqBorder.Color = RowInnerSeparatorColor
 	sqBorder.Bottom = SeparatorWidth
@@ -47,15 +51,16 @@ func NewColumn(cols *Columns) *Column {
 	space.SetFill(true, true)
 	space.Color = nil // filled by full bg paint
 	if ScrollbarLeft {
-		widget.AppendChilds(col.sqc, sqBorder, sep1, space)
+		col.sqc.Append(sqBorder, sep1, space)
 	} else {
-		widget.AppendChilds(col.sqc, space, sep1, sqBorder)
+		col.sqc.Append(space, sep1, sqBorder)
 	}
 
-	rightSide := &widget.FlowLayout{YAxis: true}
-	widget.AppendChilds(rightSide, col.sqc, col.RowsLayout)
+	rightSide := widget.NewFlowLayout()
+	rightSide.YAxis = true
+	rightSide.Append(col.sqc, col.RowsLayout)
 
-	widget.AppendChilds(col, col.sep, rightSide)
+	col.Append(col.sep, rightSide)
 
 	return col
 }
@@ -67,8 +72,9 @@ func (col *Column) Close() {
 }
 func (col *Column) Paint() {
 	if len(col.RowsLayout.Childs()) == 0 {
+		ui := col.Cols.Layout.UI
 		b := col.Bounds()
-		col.Cols.Layout.UI.FillRectangle(&b, color.White)
+		imageutil.FillRectangle(ui.Image(), &b, color.White)
 		return
 	}
 }
@@ -82,9 +88,9 @@ func (col *Column) NewRowBefore(next *Row) *Row {
 func (col *Column) insertBefore(row, next *Row) {
 	row.Col = col
 	if next == nil {
-		widget.PushBack(col.RowsLayout, row)
+		col.RowsLayout.PushBack(row)
 	} else {
-		widget.InsertBefore(col.RowsLayout, row, next)
+		col.RowsLayout.InsertBefore(row, next)
 	}
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
@@ -210,7 +216,7 @@ func (col *Column) resizeToPoint(p *image.Point) {
 	min := 30 / dx
 
 	percIsLeft := ScrollbarLeft
-	col.Cols.ResizeEndPercentWithSwap(col.Cols, col, perc, percIsLeft, min)
+	col.Cols.ResizeEndPercentWithSwap(col, perc, percIsLeft, min)
 
 	col.Cols.fixFirstColSeparator()
 	col.Cols.CalcChildsBounds()

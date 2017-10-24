@@ -18,10 +18,10 @@ import (
 )
 
 type TextArea struct {
-	widget.EmbedNode
+	widget.LeafEmbedNode
 	ui *UI
 
-	drawer *hsdrawer.HSDrawer
+	drawer *hsdrawer.HSDrawer2
 
 	EvReg *evreg.Register
 
@@ -51,17 +51,14 @@ type TextArea struct {
 }
 
 func NewTextArea(ui *UI) *TextArea {
-	var ta TextArea
-	ta.Init(ui)
-	return &ta
-}
-func (ta *TextArea) Init(ui *UI) {
-	*ta = TextArea{ui: ui}
-	ta.drawer = hsdrawer.NewHSDrawer(ui.FontFace())
+	ta := &TextArea{ui: ui}
+	ta.SetWrapper(ta)
+	ta.drawer = hsdrawer.NewHSDrawer2(ui.FontFace1())
 	c := hsdrawer.DefaultColors
 	ta.Colors = &c
 	ta.EvReg = evreg.NewRegister()
 	ta.history = tahistory.NewHistory(128)
+	return ta
 }
 
 func (ta *TextArea) Measure(hint image.Point) image.Point {
@@ -116,10 +113,16 @@ func (ta *TextArea) Paint() {
 
 	d := ta.drawer
 	d.CursorIndex = ta.cursorIndex
-	d.HWordIndex = ta.cursorIndex
 	d.OffsetY = ta.offsetY
 	d.Colors = ta.Colors
 	d.Selection = ta.getDrawSelection()
+
+	// don't highlight word if selection is on
+	d.HWordIndex = ta.cursorIndex
+	if d.Selection != nil {
+		d.HWordIndex = -1
+	}
+
 	d.Draw(ta.ui.Image(), &bounds)
 }
 func (ta *TextArea) getDrawSelection() *loopers.SelectionIndexes {
@@ -210,7 +213,7 @@ func (ta *TextArea) EditCloseAfterSetCursor() {
 	c2 := ta.CursorIndex()
 	ta.edit.SetOpenCloseCursors(c1, c2)
 	ta.history.PushEdit(ta.edit)
-	ta.history.TryToMergeLastTwoEdits()
+	tahistory.TryToMergeLastTwoEdits(ta.history)
 
 	u := ta.editStr
 	cleanup()
