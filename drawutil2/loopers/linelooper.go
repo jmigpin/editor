@@ -6,7 +6,6 @@ type LineLooper struct {
 	EmbedLooper
 	strl *StringLooper
 	MaxY fixed.Int26_6
-	Line int
 }
 
 func NewLineLooper(strl *StringLooper, maxY fixed.Int26_6) *LineLooper {
@@ -28,7 +27,6 @@ func (lpr *LineLooper) Loop(fn func() bool) {
 	})
 }
 func (lpr *LineLooper) NewLine() {
-	lpr.Line++
 	lpr.strl.Pen.X = 0
 	lpr.strl.Pen.Y += lpr.strl.LineHeight()
 	lpr.strl.PrevRu = 0

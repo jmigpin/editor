@@ -25,6 +25,11 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 	img := lpr.Image
 
 	lpr.OuterLooper().Loop(func() bool {
+		// allow to skip draw with a rune 0
+		if strl.Ru == 0 {
+			return fn()
+		}
+
 		dr, mask, maskp, _, ok := strl.Face.Glyph(strl.Pen, strl.Ru)
 		if !ok {
 			return fn()
@@ -44,12 +49,7 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 		}
 
 		dr2 := dr.Intersect(*bounds)
-		imageutil.DrawUniformMask(
-			img,
-			&dr2,
-			lpr.Fg,
-			mask, maskp,
-			draw.Over)
+		imageutil.DrawUniformMask(img, &dr2, lpr.Fg, mask, maskp, draw.Over)
 
 		return fn()
 	})
