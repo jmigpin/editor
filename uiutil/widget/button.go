@@ -10,18 +10,17 @@ import (
 
 type Button struct {
 	ShellEmbedNode
-	Label  Label
+	Label  *Label
 	fg, bg color.Color
+	down   bool
 }
 
-//func NewButton(ui UIStrDrawer) *Button {
-//	var b Button
-//	b.Init(ui)
-//	return &b
-//}
-func (b *Button) Init(ui UIStrDrawer) {
-	b.Label.Init(ui)
-	AppendChilds(b, &b.Label)
+func NewButton(ctx Context) *Button {
+	b := &Button{}
+	b.SetWrapper(b)
+	b.Label = NewLabel(ctx)
+	b.Append(b.Label)
+	return b
 }
 func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	switch ev0.(type) {
@@ -36,14 +35,16 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		b.MarkNeedsPaint()
 
 	case *event.MouseDown:
+		b.down = true
 		b.Label.Bg = b.fg
 		b.Label.Text.Color = b.bg
 		b.MarkNeedsPaint()
 	case *event.MouseUp:
-		b.Label.Text.Color = b.fg
-		b.Label.Bg = imageutil.Shade(b.bg, 0.10)
-		b.MarkNeedsPaint()
-
+		if b.down {
+			b.Label.Text.Color = b.fg
+			b.Label.Bg = imageutil.Shade(b.bg, 0.10)
+			b.MarkNeedsPaint()
+		}
 	}
 	return false
 }

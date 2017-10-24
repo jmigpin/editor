@@ -12,14 +12,19 @@ type EndPercentLayout struct {
 	endPercents map[Node]float64 // between 0 and 1
 }
 
+func NewEndPercentLayout() *EndPercentLayout {
+	epl := &EndPercentLayout{}
+	epl.SetWrapper(epl)
+	return epl
+}
 func (epl *EndPercentLayout) lazyInit() {
 	if epl.endPercents == nil {
 		epl.endPercents = make(map[Node]float64)
 	}
 }
 
-func (epl *EndPercentLayout) PushBack(parent, n Node) {
-	epl.EmbedNode.PushBack(parent, n)
+func (epl *EndPercentLayout) PushBack(n Node) {
+	epl.EmbedNode.PushBack(n)
 
 	epl.lazyInit()
 
@@ -32,8 +37,8 @@ func (epl *EndPercentLayout) PushBack(parent, n Node) {
 	}
 	epl.endPercents[n] = end
 }
-func (epl *EndPercentLayout) InsertBefore(parent, n, mark Node) {
-	epl.EmbedNode.InsertBefore(parent, n, mark)
+func (epl *EndPercentLayout) InsertBefore(n, mark Node) {
+	epl.EmbedNode.InsertBefore(n, mark)
 
 	epl.lazyInit()
 
@@ -147,8 +152,8 @@ func (epl *EndPercentLayout) ResizeEndPercent(node Node, percent float64, percen
 func (epl *EndPercentLayout) ResizeEndPercentWithPush(node Node, percent float64, percentIsMin bool, minPerc float64) {
 	epl.resizeChildWithPush(node, percent, percentIsMin, minPerc)
 }
-func (epl *EndPercentLayout) ResizeEndPercentWithSwap(parent, node Node, percent float64, percentIsMin bool, minPerc float64) {
-	epl.resizeChildWithAttemptToSwap(parent, node, percent, percentIsMin, minPerc)
+func (epl *EndPercentLayout) ResizeEndPercentWithSwap(node Node, percent float64, percentIsMin bool, minPerc float64) {
+	epl.resizeChildWithAttemptToSwap(node, percent, percentIsMin, minPerc)
 }
 
 func (epl *EndPercentLayout) resizeChild(node Node, percent float64, percentIsMin bool, minPerc float64) {
@@ -243,7 +248,7 @@ func (epl *EndPercentLayout) resizeChildWithPush(node Node, percent float64, per
 	epl.resizeChild(node, percent, percentIsMin, minPerc)
 }
 
-func (epl *EndPercentLayout) resizeChildWithAttemptToSwap(parent, node Node, percent float64, percentIsMin bool, minPerc float64) {
+func (epl *EndPercentLayout) resizeChildWithAttemptToSwap(node Node, percent float64, percentIsMin bool, minPerc float64) {
 	// n0,n1,n2,n3,n4: moving n2
 
 	n1 := node.Prev()

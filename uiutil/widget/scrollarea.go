@@ -14,28 +14,23 @@ type ScrollArea struct {
 	EmbedNode
 	ScrollWidth int
 	LeftScroll  bool
-	VBar        ScrollBar
+	VBar        *ScrollBar
 
-	ui      UIer
-	wrapper ScrollAreaWrapper
 	content Node
+	updater ScrollAreaUpdater
 }
 
-func (sa *ScrollArea) Init(wrapper ScrollAreaWrapper, ui UIer, content Node) {
-	*sa = ScrollArea{
-		ui:          ui,
+func NewScrollArea(ctx Context, updater ScrollAreaUpdater, content Node) *ScrollArea {
+	sa := &ScrollArea{
 		ScrollWidth: 10,
 		LeftScroll:  true,
 	}
-	sa.VBar.Init(ui, sa)
-	sa.wrapper = wrapper
+	sa.SetWrapper(sa)
+	sa.VBar = NewScrollBar(ctx, sa)
 	sa.content = content
-	AppendChilds(wrapper, &sa.VBar, content)
-
-	// sanity check
-	if !sa.HasChild(content) {
-		panic("wrapper has different element")
-	}
+	sa.updater = updater
+	sa.Append(sa.VBar, sa.content)
+	return sa
 }
 
 func (sa *ScrollArea) CalcPosition(offset, height, viewh float64) {
@@ -58,7 +53,7 @@ func (sa *ScrollArea) CalcPosition(offset, height, viewh float64) {
 	sa.VBar.positionPercent = pp
 }
 
-func (sa *ScrollArea) CalcPositionFromPoint(p *image.Point) {
+func (sa *ScrollArea) calcPositionFromPoint(p *image.Point) {
 	// Called when dragging the scrollbar
 
 	py := float64(p.Sub(sa.VBar.pressPad).Sub(sa.VBar.Bounds().Min).Y)
@@ -68,16 +63,17 @@ func (sa *ScrollArea) CalcPositionFromPoint(p *image.Point) {
 	height := 1.0
 	viewh := sa.VBar.sizePercent
 
-	sa.CalcPosition(offset, height, viewh)
+	// avoid small adjustments to the textarea if the handle doesn't move
+	//sp
 
-	// call wrapper update
-	sa.wrapper.UpdatePositionFromPoint()
+	sa.CalcPosition(offset, height, viewh)
+	sa.updater.UpdatePositionFromPoint()
 }
 
 func (sa *ScrollArea) PageUp()   { sa.scrollPage(true) }
 func (sa *ScrollArea) PageDown() { sa.scrollPage(false) }
 func (sa *ScrollArea) scrollPage(up bool) {
-	// TODO: real scroll size to allow accuratepageup/down on big files
+	// TODO: real scroll size to allow accurate pageup/down on big files
 
 	// page up/down through the scrollbar handle size
 	vb := sa.VBar.Handle.Bounds()
@@ -87,20 +83,7 @@ func (sa *ScrollArea) scrollPage(up bool) {
 		mult *= -1
 	}
 	y := vb.Min.Y + int(float64(hsize)*mult)
-	sa.CalcPositionFromPoint(&image.Point{0, y})
-}
-
-func (sa *ScrollArea) SetVBarPressPad(p *image.Point) {
-	b := sa.VBar.Handle.Bounds()
-	if p.In(b) {
-		// set position relative to the bar top
-		sa.VBar.pressPad.X = p.X - b.Min.X
-		sa.VBar.pressPad.Y = p.Y - b.Min.Y
-	} else {
-		// set position in the middle of the bar
-		sa.VBar.pressPad.X = b.Dx() / 2
-		sa.VBar.pressPad.Y = b.Dy() / 2
-	}
+	sa.calcPositionFromPoint(&image.Point{0, y})
 }
 
 func (sa *ScrollArea) VBarPositionPercent() float64 {
@@ -164,17 +147,16 @@ func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		if p.In(sa.content.Bounds()) {
 			switch {
 			case evt.Button == event.ButtonWheelUp:
-				sa.wrapper.CalcPositionFromScroll(true)
+				sa.updater.CalcPositionFromScroll(true)
 			case evt.Button == event.ButtonWheelDown:
-				sa.wrapper.CalcPositionFromScroll(false)
+				sa.updater.CalcPositionFromScroll(false)
 			}
 		}
 	}
 	return false
 }
 
-type ScrollAreaWrapper interface {
-	Node
+type ScrollAreaUpdater interface {
 	UpdatePositionFromPoint()
 	CalcPositionFromScroll(bool)
 }
@@ -182,42 +164,63 @@ type ScrollAreaWrapper interface {
 type ScrollBar struct {
 	ShellEmbedNode
 	Color  color.Color
-	Handle ScrollHandle
+	Handle *ScrollHandle
 
-	ui              UIer
 	sizePercent     float64
 	positionPercent float64
 	pressPad        image.Point
 	sa              *ScrollArea
+
+	clicking bool
+	dragging bool
+
+	ctx Context
 }
 
-func (sb *ScrollBar) Init(ui UIer, sa *ScrollArea) {
-	sb.ui = ui
+func NewScrollBar(ctx Context, sa *ScrollArea) *ScrollBar {
+	sb := &ScrollBar{}
+	sb.SetWrapper(sb)
+
+	sb.ctx = ctx
 	sb.sa = sa
 	sb.positionPercent = 0.0
 	sb.sizePercent = 1.0
 	sb.Color = colornames.Antiquewhite
 
-	sb.Handle.ui = ui
-	sb.Handle.sa = sa
+	sb.Handle = NewScrollHandle(sb)
 	sb.Handle.Color = colornames.Orange
-	AppendChilds(sb, &sb.Handle)
+	sb.Handle.Marks().SetNotDraggable(true)
+	sb.Append(sb.Handle)
+
+	return sb
+}
+func (sb *ScrollBar) setPressPad(p *image.Point) {
+	b := sb.Handle.Bounds()
+	if p.In(b) {
+		// set position relative to the bar top
+		sb.pressPad.X = p.X - b.Min.X
+		sb.pressPad.Y = p.Y - b.Min.Y
+	} else {
+		// set position in the middle of the bar
+		sb.pressPad.X = b.Dx() / 2
+		sb.pressPad.Y = b.Dy() / 2
+	}
 }
 func (sb *ScrollBar) Measure(hint image.Point) image.Point {
 	return image.Point{}
 }
 func (sb *ScrollBar) Paint() {
 	u := sb.Bounds()
-	sb.ui.FillRectangle(&u, sb.Color)
+	imageutil.FillRectangle(sb.ctx.Image(), &u, sb.Color)
 }
 func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
 	switch evt := ev.(type) {
 	case *event.MouseDown:
 		switch evt.Button {
 		case event.ButtonLeft:
-			sb.Handle.clickdrag = true
-			sb.sa.SetVBarPressPad(&evt.Point)
-			sb.sa.CalcPositionFromPoint(&evt.Point)
+			sb.clicking = true
+			sb.setPressPad(&evt.Point)
+			sb.sa.calcPositionFromPoint(&evt.Point)
 
 			// TODO: disabled to avoid other row events when scrolling the row square that calculates new nodes positions
 			//case ev.Button == event.ButtonWheelUp:
@@ -226,18 +229,26 @@ func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
 			//	sa.PageDown()
 		}
 
+	case *event.MouseMove:
+		if sb.clicking {
+			sb.sa.calcPositionFromPoint(&evt.Point)
+		}
 	case *event.MouseUp:
-		sb.Handle.clickdrag = false
-		sb.MarkNeedsPaint()
+		if sb.clicking {
+			sb.clicking = false
+			sb.sa.calcPositionFromPoint(&evt.Point)
+			sb.MarkNeedsPaint()
+		}
 
 	case *event.MouseDragStart:
-		sb.Handle.clickdrag = true
-		sb.sa.CalcPositionFromPoint(&evt.Point)
+		sb.clicking = false
+		sb.dragging = true
+		sb.sa.calcPositionFromPoint(&evt.Point)
 	case *event.MouseDragMove:
-		sb.sa.CalcPositionFromPoint(&evt.Point)
+		sb.sa.calcPositionFromPoint(&evt.Point)
 	case *event.MouseDragEnd:
-		sb.Handle.clickdrag = false
-		sb.sa.CalcPositionFromPoint(&evt.Point)
+		sb.dragging = false
+		sb.sa.calcPositionFromPoint(&evt.Point)
 	}
 	return false
 }
@@ -246,19 +257,22 @@ type ScrollHandle struct {
 	LeafEmbedNode
 	Color color.Color
 
-	ui        UIer
-	inside    bool
-	clickdrag bool
+	inside bool
 
-	sa *ScrollArea
+	sb *ScrollBar
 }
 
+func NewScrollHandle(sb *ScrollBar) *ScrollHandle {
+	sh := &ScrollHandle{sb: sb}
+	sh.SetWrapper(sh)
+	return sh
+}
 func (sh *ScrollHandle) Measure(hint image.Point) image.Point {
 	return image.Point{}
 }
 func (sh *ScrollHandle) Paint() {
 	var c color.Color
-	if sh.clickdrag {
+	if sh.sb.clicking || sh.sb.dragging {
 		c = sh.Color
 	} else if sh.inside {
 		c = imageutil.Tint(sh.Color, 0.30)
@@ -267,33 +281,16 @@ func (sh *ScrollHandle) Paint() {
 		c = imageutil.Tint(sh.Color, 0.40)
 	}
 	b := sh.Bounds()
-	sh.ui.FillRectangle(&b, c)
+	imageutil.FillRectangle(sh.sb.ctx.Image(), &b, c)
 }
 func (sh *ScrollHandle) OnInputEvent(ev interface{}, p image.Point) bool {
-	switch evt := ev.(type) {
+	switch ev.(type) {
 	case *event.MouseEnter:
 		sh.inside = true
 		sh.MarkNeedsPaint()
 	case *event.MouseLeave:
 		sh.inside = false
 		sh.MarkNeedsPaint()
-
-	case *event.MouseDown:
-		sh.clickdrag = true
-		sh.sa.SetVBarPressPad(&evt.Point)
-		sh.sa.CalcPositionFromPoint(&evt.Point)
-	case *event.MouseUp:
-		sh.clickdrag = false
-		sh.MarkNeedsPaint()
-
-	case *event.MouseDragStart:
-		sh.clickdrag = true
-		sh.sa.CalcPositionFromPoint(&evt.Point)
-	case *event.MouseDragMove:
-		sh.sa.CalcPositionFromPoint(&evt.Point)
-	case *event.MouseDragEnd:
-		sh.clickdrag = false
-		sh.sa.CalcPositionFromPoint(&evt.Point)
 	}
 	return false
 }

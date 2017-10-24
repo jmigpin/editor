@@ -1,11 +1,9 @@
 package widget
 
 type Space struct {
-	Rectangle
+	*Rectangle
 }
 
-func NewSpace(ui UIer) *Space {
-	s := &Space{}
-	s.Rectangle.ui = ui
-	return s
+func NewSpace(ctx Context) *Space {
+	return &Space{Rectangle: NewRectangle(ctx)}
 }

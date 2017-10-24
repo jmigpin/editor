@@ -9,6 +9,11 @@ type FlowLayout struct {
 	YAxis bool
 }
 
+func NewFlowLayout() *FlowLayout {
+	fl := &FlowLayout{}
+	fl.SetWrapper(fl)
+	return fl
+}
 func (fl *FlowLayout) Measure(hint image.Point) image.Point {
 	sizes := fl.measureChildsSizes(hint)
 	xya := &XYAxis{fl.YAxis}

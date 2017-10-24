@@ -36,9 +36,9 @@ type ApplyInputEvent struct {
 }
 
 func (aie *ApplyInputEvent) apply(node widget.Node, ev interface{}, p image.Point) {
-	//if !aie.drag.on {
-	_ = aie.mouseEnter(node, p)
-	//}
+	if !aie.drag.on {
+		_ = aie.mouseEnter(node, p)
+	}
 	switch evt := ev.(type) {
 	case *event.MouseDown:
 		_ = aie.mouseDown(node, evt, p)
@@ -50,9 +50,9 @@ func (aie *ApplyInputEvent) apply(node widget.Node, ev interface{}, p image.Poin
 		dragWasOn := aie.drag.on
 		_ = aie.applyInbound(node, evt, p)
 		_ = aie.mouseDragEnd(evt, p)
-		//if dragWasOn {
-		_ = aie.mouseEnter(node, p)
-		//}
+		if dragWasOn {
+			_ = aie.mouseEnter(node, p)
+		}
 		if !dragWasOn {
 			_ = aie.multipleClickMouseUp(node, evt, p)
 		}
@@ -68,7 +68,7 @@ func (aie *ApplyInputEvent) mouseEnter(node widget.Node, p image.Point) bool {
 	}
 	h := false
 	if !node.Marks().PointerInside() {
-		node.Marks().MarkPointerInside()
+		node.Marks().SetPointerInside(true)
 		h = node.OnInputEvent(&event.MouseEnter{}, p)
 	}
 	for c := node.FirstChild(); c != nil; c = c.Next() {
@@ -86,7 +86,7 @@ func (aie *ApplyInputEvent) mouseLeave(node widget.Node, p image.Point) bool {
 		h = aie.mouseLeave(c, p) || h
 	}
 	if !p.In(node.Bounds()) {
-		node.Marks().UnmarkPointerInside()
+		node.Marks().SetPointerInside(false)
 		h = node.OnInputEvent(&event.MouseLeave{}, p) || h
 	}
 	return h

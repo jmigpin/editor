@@ -3,29 +3,31 @@ package widget
 import (
 	"image"
 	"image/color"
+
+	"github.com/jmigpin/editor/imageutil"
 )
 
 type Rectangle struct {
-	EmbedNode
+	LeafEmbedNode
 	Color color.Color
 	Size  image.Point
-	ui    UIer
+	ctx   Context
 }
 
-func NewRectangle(ui UIer) *Rectangle {
-	return &Rectangle{
-		ui:   ui,
+func NewRectangle(ctx Context) *Rectangle {
+	r := &Rectangle{
+		ctx:  ctx,
 		Size: image.Point{10, 10}, // this size is used in tests
 	}
+	r.SetWrapper(r)
+	return r
 }
 func (r *Rectangle) Measure(max image.Point) image.Point {
 	return r.Size
 }
-func (r *Rectangle) CalcChildsBounds() {
-}
 func (r *Rectangle) Paint() {
 	if r.Color != nil {
 		b := r.Bounds()
-		r.ui.FillRectangle(&b, r.Color)
+		imageutil.FillRectangle(r.ctx.Image(), &b, r.Color)
 	}
 }

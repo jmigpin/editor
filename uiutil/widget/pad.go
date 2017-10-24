@@ -7,8 +7,11 @@ type Pad struct {
 	Top, Right, Bottom, Left int
 }
 
-func (p *Pad) Init(n Node) {
-	AppendChilds(p, n)
+func NewPad(n Node) *Pad {
+	p := &Pad{}
+	p.SetWrapper(p)
+	p.Append(n)
+	return p
 }
 func (p *Pad) Set(v int) {
 	p.Top = v

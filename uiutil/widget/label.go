@@ -2,28 +2,33 @@ package widget
 
 import (
 	"image/color"
+
+	"github.com/jmigpin/editor/imageutil"
 )
 
 type Label struct {
 	ShellEmbedNode
-	Text   BasicText
-	Border Border
-	Pad    Pad
+	Text   *BasicText
+	Border *Border
+	Pad    *Pad
 	Bg     color.Color
-	ui     UIStrDrawer
+	ctx    Context
 }
 
-func (l *Label) Init(ui UIStrDrawer) {
-	l.ui = ui
-	l.Text.Init(ui)
-	l.Pad.Init(&l.Text)
-	l.Border.Init(ui, &l.Pad)
+func NewLabel(ctx Context) *Label {
+	l := &Label{}
+	l.SetWrapper(l)
+	l.ctx = ctx
 	l.Bg = color.White
-	AppendChilds(l, &l.Border)
+	l.Text = NewBasicText(ctx)
+	l.Pad = NewPad(l.Text)
+	l.Border = NewBorder(ctx, l.Pad)
+	l.Append(l.Border)
+	return l
 }
 func (l *Label) Paint() {
 	if l.Bg != nil {
 		u := l.Bounds()
-		l.ui.FillRectangle(&u, l.Bg)
+		imageutil.FillRectangle(l.ctx.Image(), &u, l.Bg)
 	}
 }

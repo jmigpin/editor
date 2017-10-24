@@ -3,23 +3,23 @@ package widget
 import (
 	"image"
 	"image/color"
+
+	"github.com/jmigpin/editor/imageutil"
 )
 
 type Border struct {
 	ShellEmbedNode
-	ui                       UIer
 	Top, Right, Bottom, Left int
 	Color                    color.Color
+	ctx                      Context
 }
 
-func NewBorder(ui UIer, n Node) *Border {
-	var b Border
-	b.Init(ui, n)
-	return &b
-}
-func (b *Border) Init(ui UIer, n Node) {
-	b.ui = ui
-	AppendChilds(b, n)
+func NewBorder(ctx Context, n Node) *Border {
+	b := &Border{}
+	b.SetWrapper(b)
+	b.ctx = ctx
+	b.Append(n)
+	return b
 }
 func (b *Border) Set(v int) {
 	b.Top = v
@@ -46,18 +46,17 @@ func (b *Border) Paint() {
 	// top
 	u := b.Bounds()
 	u.Max.Y = u.Min.Y + b.Top
-	b.ui.FillRectangle(&u, b.Color)
+	imageutil.FillRectangle(b.ctx.Image(), &u, b.Color)
 	// bottom
 	u = b.Bounds()
 	u.Min.Y = u.Max.Y - b.Bottom
-	b.ui.FillRectangle(&u, b.Color)
+	imageutil.FillRectangle(b.ctx.Image(), &u, b.Color)
 	// right
 	u = b.Bounds()
 	u.Min.X = u.Max.X - b.Right
-	b.ui.FillRectangle(&u, b.Color)
+	imageutil.FillRectangle(b.ctx.Image(), &u, b.Color)
 	// left
 	u = b.Bounds()
 	u.Max.X = u.Min.X + b.Left
-	b.ui.FillRectangle(&u, b.Color)
-
+	imageutil.FillRectangle(b.ctx.Image(), &u, b.Color)
 }
