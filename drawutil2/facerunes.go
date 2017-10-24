@@ -8,6 +8,7 @@ import (
 )
 
 var TabWidth = 8
+var CarriageReturnRune = rune(8453) // "care of" symbol but using it for "carriage return"
 
 // Special runes face
 type FaceRunes struct {
@@ -25,25 +26,29 @@ func (fr *FaceRunes) Glyph(dot fixed.Point26_6, ru rune) (
 	advance fixed.Int26_6,
 	ok bool,
 ) {
-	if ru == '\t' || ru == '\n' || ru == '\r' {
+	switch ru {
+	case '\t', '\n':
 		zero := image.Rect(0, 0, 0, 0)
 		dr := zero
 		mask := image.NewAlpha(zero)
 		maskp = image.Point{}
 		adv, ok := fr.GlyphAdvance(ru)
 		return dr, mask, maskp, adv, ok
+	case '\r':
+		ru = CarriageReturnRune
 	}
 	return fr.Face.Glyph(dot, ru)
 }
 func (fr *FaceRunes) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
-	if ru == '\t' {
+	switch ru {
+	case '\t':
 		adv, ok := fr.Face.GlyphAdvance(' ')
 		return adv * fixed.Int26_6(TabWidth), ok
-	}
-
-	if ru == '\n' || ru == '\r' {
+	case '\n':
 		a, ok := fr.Face.GlyphAdvance(' ')
 		return a / 2, ok
+	case '\r':
+		ru = CarriageReturnRune
 	}
 	return fr.Face.GlyphAdvance(ru)
 }
