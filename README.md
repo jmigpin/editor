@@ -3,6 +3,8 @@
 Source code editor in pure Go.
 
 ![screenshot](./screenshot2.png)
+
+![screenshot](./screenshot3.png)
 Screenshot taken using DejaVuSans.ttf font.
 
 - This is a know-what-you're-doing source code editor
@@ -176,6 +178,6 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - Uses X shared memory extension (MIT-SHM). 
 - MacOS might need to have XQuartz installed.
 - Notable projects that inspired many features:
-- Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU 
-- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
+  - Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU 
+  - Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
