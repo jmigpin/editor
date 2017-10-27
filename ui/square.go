@@ -12,11 +12,12 @@ import (
 	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
-// Used in row and column to move and close.
+// Used in row to move, close, and show row states.
 type Square struct {
 	widget.LeafEmbedNode
-	EvReg *evreg.Register
-	Width int
+	EvReg    *evreg.Register
+	Width    int
+	Triangle bool
 
 	ui       *UI
 	values   [7]bool // bg and mini-squares
@@ -34,6 +35,7 @@ func (sq *Square) Measure(hint image.Point) image.Point {
 	return image.Point{sq.Width, sq.Width}
 }
 func (sq *Square) Paint() {
+	// full background
 	var c color.Color = SquareColor
 	if sq.values[SquareEdited] {
 		c = SquareEditedColor
@@ -47,13 +49,24 @@ func (sq *Square) Paint() {
 	bounds := sq.Bounds()
 	imageutil.FillRectangle(sq.ui.Image(), &bounds, c)
 
+	//// triangle
+	//b2 := bounds
+	//b2.Max.X = b2.Min.X + 1
+	//b2.Min.Y = b2.Min.Y + sq.Width
+	//b2.Max.Y = b2.Min.Y + 1
+	//for x := 0; x < sq.Width; x++ {
+	//	imageutil.FillRectangle(sq.ui.Image(), &b2, colornames.Grey)
+	//	b2 = b2.Add(image.Point{1, -1})
+	//	//b2.Min.Y++
+	//}
+
+	// duplicate
 	if sq.values[SquareDuplicate] {
 		c2 := SquareEditedColor
 		imageutil.BorderRectangle(sq.ui.Image(), &bounds, c2, 2)
 	}
 
 	// mini-squares
-
 	miniSq := func(i int) *image.Rectangle {
 		r := bounds
 		w := (r.Max.X - r.Min.X) / 2
@@ -75,7 +88,6 @@ func (sq *Square) Paint() {
 		}
 		return &r
 	}
-
 	if sq.values[SquareDiskChanges] {
 		u := 0
 		if ScrollbarLeft {
@@ -113,7 +125,7 @@ func (sq *Square) runCallbacks(ev interface{}, p image.Point) {
 	// input event for registered callbacks
 	topPoint := p.Sub(sq.pressPad)
 	topXPoint := image.Point{p.X, topPoint.Y}
-	ev2 := &SquareInputEvent{sq, ev, &p, &topPoint, &topXPoint}
+	ev2 := &SquareInputEvent{ev, &p, &topPoint, &topXPoint}
 	sq.EvReg.RunCallbacks(SquareInputEventId, ev2)
 }
 
@@ -150,7 +162,6 @@ const (
 )
 
 type SquareInputEvent struct {
-	Square    *Square
 	Event     interface{}
 	Point     *image.Point
 	TopPoint  *image.Point
