@@ -31,16 +31,16 @@ var (
 )
 
 var TextAreaColors = hsdrawer.Colors{
-	Normal: hsdrawer.FgBg{Black, White},
-	//Selection: hsdrawer.FgBg{nil, imageutil.Tint(Yellow, 0.50)},
-	//Highlight: hsdrawer.FgBg{nil, imageutil.Tint(Blue, 0.70)},
+	Normal:    hsdrawer.FgBg{Black, White},
 	Selection: hsdrawer.FgBg{nil, color.RGBA{238, 238, 158, 255}},
 	Highlight: hsdrawer.FgBg{nil, color.RGBA{198, 238, 158, 255}}, // analogous to selection bg
+	WrapLine:  hsdrawer.FgBg{nil, color.RGBA{200, 200, 200, 255}}, // between 198,245
 }
 
 var ToolbarColors = hsdrawer.Colors{
 	Normal:    hsdrawer.FgBg{Black, imageutil.Tint(Black, 0.95)},
 	Selection: hsdrawer.FgBg{nil, TextAreaColors.Selection.Bg},
+	WrapLine:  TextAreaColors.WrapLine,
 }
 
 func AcmeColors() {
@@ -48,10 +48,12 @@ func AcmeColors() {
 		Normal:    hsdrawer.FgBg{Black, color.RGBA{255, 255, 234, 255}},
 		Selection: hsdrawer.FgBg{nil, color.RGBA{238, 238, 158, 255}},
 		Highlight: hsdrawer.FgBg{nil, color.RGBA{198, 238, 158, 255}}, // analogous to selection bg
+		WrapLine:  TextAreaColors.WrapLine,
 	}
 	ToolbarColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, color.RGBA{234, 255, 255, 255}},
 		Selection: hsdrawer.FgBg{nil, color.RGBA{158, 238, 238, 255}},
+		WrapLine:  TextAreaColors.WrapLine,
 	}
 	ScrollbarFgColor = color.RGBA{153, 153, 76, 255}
 	ScrollbarBgColor = imageutil.Shade(TextAreaColors.Normal.Bg, 0.05)
