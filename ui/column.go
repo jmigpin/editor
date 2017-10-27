@@ -44,16 +44,15 @@ func NewColumn(cols *Columns) *Column {
 	sqBorder := widget.NewBorder(ui, col.Square)
 	sqBorder.Color = RowInnerSeparatorColor
 	sqBorder.Bottom = SeparatorWidth
-	sep1 := widget.NewSpace(ui)
-	sep1.Color = RowInnerSeparatorColor
-	sep1.Size = image.Point{SeparatorWidth, col.Square.Width}
 	space := widget.NewSpace(ui)
 	space.SetFill(true, true)
 	space.Color = nil // filled by full bg paint
 	if ScrollbarLeft {
-		col.sqc.Append(sqBorder, sep1, space)
+		sqBorder.Right = SeparatorWidth
+		col.sqc.Append(sqBorder, space)
 	} else {
-		col.sqc.Append(space, sep1, sqBorder)
+		sqBorder.Left = SeparatorWidth
+		col.sqc.Append(space, sqBorder)
 	}
 
 	rightSide := widget.NewFlowLayout()
