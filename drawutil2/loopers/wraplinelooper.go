@@ -130,6 +130,9 @@ func (lpr *WrapLineLooper) advance() fixed.Int26_6 {
 	return lpr.strl.LineHeight() / 2
 }
 func (lpr *WrapLineLooper) wrapLineRuneAdvance(ru rune) fixed.Int26_6 {
+	if ru == 0 {
+		return lpr.strl.LineHeight() / 2
+	}
 	origRu := lpr.strl.Ru
 	adv := lpr.strl.Advance
 	defer func() {
