@@ -23,11 +23,7 @@ type HWordLooper struct {
 	}
 }
 
-func NewHWordLooper(
-	strl *StringLooper,
-	bgl *BgLooper,
-	dl *DrawLooper,
-) *HWordLooper {
+func NewHWordLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) *HWordLooper {
 	return &HWordLooper{
 		strl: strl,
 		bgl:  bgl,
@@ -41,6 +37,9 @@ func (lpr *HWordLooper) Loop(fn func() bool) {
 		lpr.hword.word = word
 	}
 	lpr.OuterLooper().Loop(func() bool {
+		if lpr.strl.RiClone {
+			return fn()
+		}
 		if lpr.colorize() {
 			if lpr.Fg != nil {
 				lpr.dl.Fg = lpr.Fg
@@ -52,9 +51,6 @@ func (lpr *HWordLooper) Loop(fn func() bool) {
 }
 func (lpr *HWordLooper) colorize() bool {
 	if !lpr.hword.on {
-		return false
-	}
-	if lpr.strl.RiClone {
 		return false
 	}
 	inWord := false
@@ -103,7 +99,7 @@ func wordAtIndex(str string, index int) (string, int, bool) {
 	li := strings.LastIndexFunc(str2, isNotWordRune)
 	if li < 0 {
 		li = 0
-	} else if li > 0 {
+	} else if li >= 0 {
 		// next rune to the right, stopped at failing rune
 		_, slze := utf8.DecodeRuneInString(str2[li:])
 		li += slze

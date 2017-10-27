@@ -21,7 +21,10 @@ func NewCursorLooper(strl *StringLooper, dl *DrawLooper, bounds *image.Rectangle
 func (lpr *CursorLooper) Loop(fn func() bool) {
 	ci := lpr.CursorIndex
 	lpr.OuterLooper().Loop(func() bool {
-		if !lpr.strl.RiClone && lpr.strl.Ri == ci {
+		if lpr.strl.RiClone {
+			return fn()
+		}
+		if lpr.strl.Ri == ci {
 			lpr.drawCursor()
 		}
 		return fn()

@@ -1,6 +1,7 @@
 package hsdrawer
 
 import (
+	"fmt"
 	"image"
 	"image/draw"
 
@@ -19,22 +20,27 @@ type HSDrawer struct {
 	CursorIndex int // <0 to disable
 	HWordIndex  int // <0 to disable
 	Selection   *loopers.SelectionIndexes
-	OffsetY     fixed.Int26_6
+	OffsetY     int
 	Pad         image.Point // left/top pad
 
-	height fixed.Int26_6
+	height int
 
-	pdl    *loopers.PosDataLooper
-	pdk    *HSPosDataKeeper
-	wlinel *loopers.WrapLineLooper
+	strl    loopers.StringLooper
+	wlinel  loopers.WrapLineLooper
+	pdl     loopers.PosDataLooper
+	wlinecl loopers.WrapLineColorLooper
+	dl      loopers.DrawLooper
+	bgl     loopers.BgLooper
+	eel     loopers.EarlyExitLooper
+
+	maxX int
 }
 
 func NewHSDrawer(face font.Face) *HSDrawer {
 	d := &HSDrawer{Face: face}
 
-	// compute with minimal data
-	// allows getpoint to work without a calcrunedata be called
-	//d.Measure(&image.Point{})
+	// Needs strl initialized with face to answer to d.LineHeight
+	d.strl.Init(d.Face, d.Str)
 
 	// small pad added to allow the cursor to be fully drawn on first position
 	d.Pad = image.Point{1, 0}
@@ -42,50 +48,107 @@ func NewHSDrawer(face font.Face) *HSDrawer {
 	return d
 }
 
-func (d *HSDrawer) Measure(max0 *image.Point) *fixed.Point26_6 {
-	max := *max0
-	max = max.Sub(d.Pad)
+func (d *HSDrawer) Measure(max image.Point) image.Point {
 
-	max2 := fixed.P(max.X, max.Y)
+	//if d.hintStr == d.Str {
+	//	return d.update(hint)
+	//}
 
-	strl := loopers.NewStringLooper(d.Face, d.Str)
-	linel := loopers.NewLineLooper(strl, max2.Y)
-	wlinel := loopers.NewWrapLineLooper(strl, linel, max2.X)
-	d.pdk = NewHSPosDataKeeper(wlinel)
-	d.pdl = loopers.NewPosDataLooper(strl, d.pdk)
-	ml := loopers.NewMeasureLooper(strl, &max2)
+	// fixed.Int26_6 integer part ranges from -33554432 to 33554431
+	//fixedMaxY := fixed.I(33554431).Ceil()
 
-	d.wlinel = wlinel
+	d.maxX = max.X
+	unpaddedMaxX := d.maxX - d.Pad.X
+
+	// loopers
+	d.pdl.Init()
+	d.initMeasureLoopers(unpaddedMaxX)
+	ml := loopers.NewMeasureLooper(&d.strl)
 
 	// iterator order
-	linel.SetOuterLooper(strl)
-	wlinel.SetOuterLooper(linel)
-	d.pdl.SetOuterLooper(wlinel)
-	ml.SetOuterLooper(d.pdl)
+	ml.SetOuterLooper(&d.pdl)
 
+	// run measure
 	ml.Loop(func() bool { return true })
+	m := image.Point{ml.M.X.Ceil(), ml.M.Y.Ceil()}
 
-	d.height = ml.M.Y
+	// keep string height
+	d.height = m.Y
 	if d.Str == "" {
 		d.height = 0
 	}
 
-	return ml.M
-}
-func (d *HSDrawer) Draw(img draw.Image, bounds0 *image.Rectangle) {
-	t := *bounds0
-	bounds := &t
-	bounds.Min = bounds.Min.Add(d.Pad)
+	// add pad and truncate measure
+	m = m.Add(d.Pad)
+	if m.X > max.X {
+		m.X = max.X
+	}
+	if m.Y > max.Y {
+		m.Y = max.Y
+	}
 
-	strl := d.pdl.Strl
-	wlinel := d.wlinel
-	dl := loopers.NewDrawLooper(strl, img, bounds)
-	bgl := loopers.NewBgLooper(strl, dl)
-	sl := loopers.NewSelectionLooper(strl, bgl, dl)
-	cursorl := loopers.NewCursorLooper(strl, dl, bounds0)
-	scl := loopers.NewSetColorsLooper(dl, bgl)
-	hwl := loopers.NewHWordLooper(strl, bgl, dl)
-	eel := loopers.NewEarlyExitLooper(strl, bounds)
+	return m
+}
+func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
+	if bounds.Size().X != d.maxX {
+		panic(fmt.Sprintf("drawing for %v but measured with hint %v", bounds.Size().X, d.maxX))
+	}
+
+	// draw bg first to correctly paint below all runes drawn later
+	d.initDrawLoopers(img, bounds)
+
+	// restore position to a close data point (performance)
+	p := &fixed.Point26_6{0, fixed.I(d.OffsetY)}
+	d.pdl.RestorePosDataCloseToPoint(p)
+	d.strl.Pen.Y -= fixed.I(d.OffsetY)
+
+	// draw bg
+	d.eel.SetOuterLooper(&d.bgl)
+	d.eel.Loop(func() bool { return true })
+
+	// prepare for draw runes
+	d.initDrawLoopers(img, bounds)
+
+	// restore position to a close data point (performance)
+	d.pdl.RestorePosDataCloseToPoint(p)
+	d.strl.Pen.Y -= fixed.I(d.OffsetY)
+
+	// draw runes
+	d.eel.SetOuterLooper(&d.dl)
+	d.eel.Loop(func() bool { return true })
+}
+
+func (d *HSDrawer) initMeasureLoopers(maxX int) {
+	fmaxX := fixed.I(maxX)
+
+	d.strl.Init(d.Face, d.Str)
+	linel := loopers.NewLineLooper(&d.strl)
+	d.wlinel.Init(&d.strl, linel, fmaxX)
+	d.pdl.Setup(&d.strl, []loopers.PosDataKeeper{&d.strl, &d.wlinel})
+
+	// iterator order
+	start := &loopers.EmbedLooper{}
+	d.strl.SetOuterLooper(start)
+	linel.SetOuterLooper(&d.strl)
+	d.wlinel.SetOuterLooper(linel)
+	d.pdl.SetOuterLooper(&d.wlinel)
+}
+func (d *HSDrawer) initDrawLoopers(img draw.Image, bounds *image.Rectangle) {
+	// use bounds without the pad for drawing runes, the cursor draws on full bounds
+	u := *bounds
+	u.Min = u.Min.Add(d.Pad)
+	unpaddedBounds := &u
+
+	// loopers
+	d.initMeasureLoopers(unpaddedBounds.Size().X)
+	d.dl.Init(&d.strl, img, unpaddedBounds)
+	d.bgl.Init(&d.strl, &d.dl)
+	sl := loopers.NewSelectionLooper(&d.strl, &d.bgl, &d.dl)
+	cursorl := loopers.NewCursorLooper(&d.strl, &d.dl, bounds)
+	scl := loopers.NewSetColorsLooper(&d.dl, &d.bgl)
+	hwl := loopers.NewHWordLooper(&d.strl, &d.bgl, &d.dl)
+	d.wlinecl.Init(&d.wlinel, &d.dl, &d.bgl)
+	d.eel.Init(&d.strl, fixed.I(unpaddedBounds.Size().Y))
 
 	// options
 	scl.Fg = d.Colors.Normal.Fg
@@ -97,91 +160,41 @@ func (d *HSDrawer) Draw(img draw.Image, bounds0 *image.Rectangle) {
 	hwl.Fg = d.Colors.Highlight.Fg
 	hwl.Bg = d.Colors.Highlight.Bg
 	cursorl.CursorIndex = d.CursorIndex
+	d.wlinecl.Fg = d.Colors.WrapLine.Fg
+	d.wlinecl.Bg = d.Colors.WrapLine.Bg
 
-	// draw background first to correctly paint letters above the background
-
-	// bg iteration order
-	scl.SetOuterLooper(wlinel)
+	// iteration order
+	scl.SetOuterLooper(&d.wlinel)
 	sl.SetOuterLooper(scl)
 	hwl.SetOuterLooper(sl)
-	bgl.SetOuterLooper(hwl)
-	eel.SetOuterLooper(bgl)
-
-	// restore position to a close data point (performance)
-	p := &fixed.Point26_6{0, d.OffsetY}
-	d.pdl.RestorePosDataCloseToPoint(p)
-	d.pdl.Strl.Pen.Y -= d.OffsetY
-
-	// draw bg
-	eel.Loop(func() bool { return true })
-
-	// iterator order
-	scl.SetOuterLooper(wlinel)
-	sl.SetOuterLooper(scl)
-	hwl.SetOuterLooper(sl)
-	cursorl.SetOuterLooper(hwl)
-	dl.SetOuterLooper(cursorl)
-	eel.SetOuterLooper(dl)
-
-	// restore position to a close data point (performance)
-	d.pdl.RestorePosDataCloseToPoint(p)
-	d.pdl.Strl.Pen.Y -= d.OffsetY
-
-	// draw runes
-	eel.Loop(func() bool { return true })
+	d.wlinecl.SetOuterLooper(hwl)
+	d.bgl.SetOuterLooper(&d.wlinecl)   // bg phase
+	cursorl.SetOuterLooper(&d.wlinecl) // rune phase
+	d.dl.SetOuterLooper(cursorl)
 }
 
-func (d *HSDrawer) Height() fixed.Int26_6 {
+func (d *HSDrawer) Height() int {
 	return d.height
 }
-func (d *HSDrawer) LineHeight() fixed.Int26_6 {
-	// TODO: remove this check
-	if d.pdl == nil {
-		return 0
-	}
-
-	return d.pdl.Strl.LineHeight()
+func (d *HSDrawer) LineHeight() int {
+	return d.strl.LineHeight().Ceil()
 }
 
-func (d *HSDrawer) GetPoint(index int) *fixed.Point26_6 {
-	// TODO: remove this check
-	if d.pdl == nil {
-		return &fixed.Point26_6{}
-	}
+func (d *HSDrawer) GetPoint(index int) image.Point {
+	unpaddedMaxX := d.maxX - d.Pad.X
+	d.initMeasureLoopers(unpaddedMaxX)
 
 	d.pdl.RestorePosDataCloseToIndex(index)
-	p := d.pdl.GetPoint(index, d.wlinel)
-	p2 := p.Add(fixed.P(d.Pad.X, d.Pad.Y))
-	return &p2
+	p := d.pdl.GetPoint(index, &d.wlinel)     // minimum of pen bounds
+	p2 := image.Point{p.X.Ceil(), p.Y.Ceil()} // equal or inside the pen bounds
+	return p2.Add(d.Pad)
 }
-func (d *HSDrawer) GetIndex(p *fixed.Point26_6) int {
-	// TODO: remove this check
-	if d.pdl == nil {
-		return 0
-	}
+func (d *HSDrawer) GetIndex(p *image.Point) int {
+	unpaddedMaxX := d.maxX - d.Pad.X
+	d.initMeasureLoopers(unpaddedMaxX)
 
-	p2 := p.Sub(fixed.P(d.Pad.X, d.Pad.Y))
-	d.pdl.RestorePosDataCloseToPoint(&p2)
-	return d.pdl.GetIndex(&p2, d.wlinel)
-}
-
-type HSPosDataKeeper struct {
-	wlinel *loopers.WrapLineLooper
-}
-
-func NewHSPosDataKeeper(wlinel *loopers.WrapLineLooper) *HSPosDataKeeper {
-	return &HSPosDataKeeper{wlinel: wlinel}
-}
-func (pdk *HSPosDataKeeper) KeepPosData() interface{} {
-	return &HSPosData{
-		wrapIndent: pdk.wlinel.WrapIndent,
-	}
-}
-func (pdk *HSPosDataKeeper) RestorePosData(data interface{}) {
-	u := data.(*HSPosData)
-	pdk.wlinel.WrapIndent = u.wrapIndent
-}
-
-type HSPosData struct {
-	wrapIndent loopers.WrapIndent
+	p2 := p.Sub(d.Pad)
+	p3 := fixed.P(p2.X, p2.Y)
+	d.pdl.RestorePosDataCloseToPoint(&p3)
+	return d.pdl.GetIndex(&p3, &d.wlinel)
 }

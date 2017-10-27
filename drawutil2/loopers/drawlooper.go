@@ -16,8 +16,8 @@ type DrawLooper struct {
 	Bounds *image.Rectangle
 }
 
-func NewDrawLooper(strl *StringLooper, image draw.Image, bounds *image.Rectangle) *DrawLooper {
-	return &DrawLooper{strl: strl, Image: image, Bounds: bounds}
+func (lpr *DrawLooper) Init(strl *StringLooper, image draw.Image, bounds *image.Rectangle) {
+	*lpr = DrawLooper{strl: strl, Image: image, Bounds: bounds}
 }
 func (lpr *DrawLooper) Loop(fn func() bool) {
 	bounds := lpr.Bounds
@@ -30,7 +30,9 @@ func (lpr *DrawLooper) Loop(fn func() bool) {
 			return fn()
 		}
 
-		dr, mask, maskp, _, ok := strl.Face.Glyph(strl.Pen, strl.Ru)
+		baselinePen := strl.Pen
+		baselinePen.Y += strl.Baseline()
+		dr, mask, maskp, _, ok := strl.Face.Glyph(baselinePen, strl.Ru)
 		if !ok {
 			return fn()
 		}

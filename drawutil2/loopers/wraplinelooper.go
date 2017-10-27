@@ -1,6 +1,7 @@
 package loopers
 
 import (
+	"image/color"
 	"unicode"
 
 	"golang.org/x/image/math/fixed"
@@ -10,40 +11,61 @@ var WrapLineRune = rune(0) // positioned at the start of wrapped line (left)
 
 type WrapLineLooper struct {
 	EmbedLooper
-	strl           *StringLooper
-	linei          *LineLooper
-	MaxX           fixed.Int26_6
-	WrapIndent     WrapIndent
-	IsWrapLineRune bool
+	strl  *StringLooper
+	linei *LineLooper
+	MaxX  fixed.Int26_6
+
+	state int
+
+	data WrapLine2Data // positional data for keep/restore
 }
 
-func NewWrapLineLooper(strl *StringLooper, linei *LineLooper, maxX fixed.Int26_6) *WrapLineLooper {
-	return &WrapLineLooper{strl: strl, linei: linei, MaxX: maxX}
+func (lpr *WrapLineLooper) Init(strl *StringLooper, linei *LineLooper, maxX fixed.Int26_6) {
+	*lpr = WrapLineLooper{strl: strl, linei: linei, MaxX: maxX}
 }
 func (lpr *WrapLineLooper) Loop(fn func() bool) {
-	// wrap line margin constant
-	margin := fixed.I(30)
-	adv, ok := lpr.strl.Face.GlyphAdvance(WrapLineRune)
+	wlrAdv := lpr.wrapLineRuneAdvance(WrapLineRune)
+
+	// wrap line margin-to-border minimum
+	margin := wlrAdv
+	adv, ok := lpr.strl.Face.GlyphAdvance(' ')
 	if ok {
-		margin = adv
+		margin = wlrAdv + 8*adv
 	}
 
 	lpr.OuterLooper().Loop(func() bool {
+		lpr.state = 0
+
 		penXAdv := lpr.strl.PenXAdvance()
 
 		// keep track of indentation for wrapped lines
-		if !lpr.WrapIndent.NotStartingSpaces {
+		if !lpr.data.NotStartingSpaces {
 			if unicode.IsSpace(lpr.strl.Ru) {
-				lpr.WrapIndent.PenX = penXAdv
+				lpr.data.PenX = penXAdv
 			} else {
-				lpr.WrapIndent.NotStartingSpaces = true
+				lpr.data.NotStartingSpaces = true
 			}
 		}
 
 		// wrap line
-		if lpr.strl.Ri > 0 && penXAdv > lpr.MaxX {
+		if penXAdv > lpr.MaxX && lpr.strl.Ri > 0 {
+			runeAdv := penXAdv - lpr.strl.Pen.X
+			runeCut := penXAdv - lpr.MaxX
+
+			origRu := lpr.strl.Ru
+			lpr.strl.RiClone = true
+
+			// bg close to the border - current rune size covers the space
+			lpr.state = 1
+			lpr.strl.Ru = 0
+			lpr.strl.Advance = runeAdv - runeCut // accurate advance for measure
+			if ok := fn(); !ok {
+				return false
+			}
+
+			// newline
 			lpr.linei.NewLine()
-			lpr.strl.Pen.X = lpr.WrapIndent.PenX
+			lpr.strl.Pen.X = lpr.data.PenX
 
 			// make wrap line rune always visible
 			if lpr.strl.Pen.X >= lpr.MaxX-margin {
@@ -53,41 +75,119 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 				}
 			}
 
-			// keep original rune
-			origRu := lpr.strl.Ru
+			startPenX := lpr.strl.Pen.X
 
-			// insert wrap line symbol at beginning of the line
-			lpr.strl.RiClone = true
-			lpr.strl.Ru = WrapLineRune
-			lpr.IsWrapLineRune = true
-			lpr.strl.PrevRu = rune(0)
-			if ok := lpr.strl.Iterate(fn); !ok {
+			// bg on start of newline
+			lpr.state = 2
+			lpr.strl.Ru = 0
+			lpr.strl.Pen.X = startPenX
+			fixedAdv := wlrAdv + lpr.advance()
+			movingAdv := fixedAdv + runeCut - runeAdv
+			if movingAdv < wlrAdv {
+				movingAdv = wlrAdv
+			}
+			lpr.strl.Advance = movingAdv // moving bg
+			//lpr.strl.Advance = fixedAdv // fixed bg (debug)
+			if ok := fn(); !ok {
 				return false
 			}
-			lpr.IsWrapLineRune = false
+
+			// wraplinerune
+			lpr.state = 3
+			lpr.strl.Ru = WrapLineRune
+			lpr.strl.Pen.X = startPenX
+			lpr.strl.Advance = wlrAdv
+			if ok := fn(); !ok {
+				return false
+			}
+
+			// original rune
+			lpr.state = 4
 			lpr.strl.RiClone = false
-
-			// continue with original rune - no newline
 			lpr.strl.Ru = origRu
-			lpr.strl.AddKern()
-			lpr.strl.CalcAdvance()
-			// penXAdv = lpr.PenXAdvance() // not used below
-		}
+			lpr.strl.Pen.X = startPenX + movingAdv
+			lpr.strl.Advance = runeAdv
+			if ok := fn(); !ok {
+				return false
+			}
 
-		if ok := fn(); !ok {
-			return false
+			lpr.state = 0
+		} else {
+			if ok := fn(); !ok {
+				return false
+			}
 		}
 
 		// reset wrapindent counters on newline
 		if lpr.strl.Ru == '\n' {
-			lpr.WrapIndent.NotStartingSpaces = false
-			lpr.WrapIndent.PenX = 0
+			lpr.data.NotStartingSpaces = false
+			lpr.data.PenX = 0
 		}
 		return true
 	})
 }
+func (lpr *WrapLineLooper) advance() fixed.Int26_6 {
+	return lpr.strl.LineHeight() / 2
+}
+func (lpr *WrapLineLooper) wrapLineRuneAdvance(ru rune) fixed.Int26_6 {
+	origRu := lpr.strl.Ru
+	adv := lpr.strl.Advance
+	defer func() {
+		// restore values
+		lpr.strl.Ru = origRu
+		lpr.strl.Advance = adv
+	}()
 
-type WrapIndent struct {
-	NotStartingSpaces bool // after first non space char
-	PenX              fixed.Int26_6
+	lpr.strl.Ru = ru
+	ok := lpr.strl.CalcAdvance()
+	if !ok {
+		return 0
+	}
+	return lpr.strl.Advance
+}
+
+// Implements PosDataKeeper
+func (lpr *WrapLineLooper) KeepPosData() interface{} {
+	return lpr.data
+}
+
+// Implements PosDataKeeper
+func (lpr *WrapLineLooper) RestorePosData(data interface{}) {
+	lpr.data = data.(WrapLine2Data)
+}
+
+// Implements PosDataKeeper
+func (lpr *WrapLineLooper) UpdatePosData() {
+}
+
+type WrapLine2Data struct {
+	NotStartingSpaces bool          // is after first non space char
+	PenX              fixed.Int26_6 // indent size, or first rune position after indent
+}
+
+type WrapLineColorLooper struct {
+	EmbedLooper
+	wlinel *WrapLineLooper
+	dl     *DrawLooper
+	bgl    *BgLooper
+	Fg, Bg color.Color
+}
+
+func (lpr *WrapLineColorLooper) Init(wlinel *WrapLineLooper, dl *DrawLooper, bgl *BgLooper) {
+	*lpr = WrapLineColorLooper{wlinel: wlinel, dl: dl, bgl: bgl}
+}
+func (lpr *WrapLineColorLooper) Loop(fn func() bool) {
+	lpr.OuterLooper().Loop(func() bool {
+		switch lpr.wlinel.state {
+		case 1, 2:
+			if lpr.Bg != nil {
+				lpr.bgl.Bg = lpr.Bg
+			}
+		case 3, 4:
+			if lpr.Fg != nil {
+				lpr.dl.Fg = lpr.Fg
+			}
+		}
+		return fn()
+	})
 }

@@ -13,8 +13,8 @@ type BgLooper struct {
 	Bg   color.Color
 }
 
-func NewBgLooper(strl *StringLooper, dl *DrawLooper) *BgLooper {
-	return &BgLooper{strl: strl, dl: dl}
+func (lpr *BgLooper) Init(strl *StringLooper, dl *DrawLooper) {
+	*lpr = BgLooper{strl: strl, dl: dl}
 }
 func (lpr *BgLooper) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {

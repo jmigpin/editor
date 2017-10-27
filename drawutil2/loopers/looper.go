@@ -16,3 +16,10 @@ func (el *EmbedLooper) OuterLooper() Looper {
 func (el *EmbedLooper) SetOuterLooper(l Looper) {
 	el.outer = l
 }
+func (el *EmbedLooper) Loop(fn func() bool) {
+	for {
+		if !fn() {
+			break
+		}
+	}
+}

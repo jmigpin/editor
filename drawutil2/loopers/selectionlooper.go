@@ -16,6 +16,9 @@ func NewSelectionLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) *Sele
 }
 func (lpr *SelectionLooper) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
+		if lpr.strl.RiClone {
+			return fn()
+		}
 		if lpr.colorize() {
 			if lpr.Fg != nil {
 				lpr.dl.Fg = lpr.Fg
@@ -28,9 +31,6 @@ func (lpr *SelectionLooper) Loop(fn func() bool) {
 func (lpr *SelectionLooper) colorize() bool {
 	sl := lpr.Selection
 	if sl == nil {
-		return false
-	}
-	if lpr.strl.RiClone {
 		return false
 	}
 	s, e := sl.Start, sl.End

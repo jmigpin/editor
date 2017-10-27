@@ -9,22 +9,29 @@ import (
 // Cached Position Data looper with getpoint/getindex.
 type PosDataLooper struct {
 	EmbedLooper
-	Strl *StringLooper
-	pdk  PosDataKeeper
-	data []*PosData
+	strl    *StringLooper
+	keepers []PosDataKeeper
+	Jump    int
+	data    []*PosData
 }
 
-func NewPosDataLooper(strl *StringLooper, pdk PosDataKeeper) *PosDataLooper {
-	return &PosDataLooper{Strl: strl, pdk: pdk}
+func (pdl *PosDataLooper) Init() {
+	*pdl = PosDataLooper{Jump: 250}
+}
+func (pdl *PosDataLooper) Setup(strl *StringLooper, keepers []PosDataKeeper) {
+	pdl.strl = strl
+	pdl.keepers = keepers
 }
 func (pdl *PosDataLooper) Loop(fn func() bool) {
-	jump := 250 // experimental value
 	pdl.data = []*PosData{}
 
 	// keep values of first iteration, if string empty it's ok to not keep anything
 	count := 0
 	pdl.OuterLooper().Loop(func() bool {
-		if count%jump == 0 {
+		if pdl.strl.RiClone {
+			return fn()
+		}
+		if count%pdl.Jump == 0 {
 			pdl.keep()
 		}
 		count++
@@ -33,26 +40,21 @@ func (pdl *PosDataLooper) Loop(fn func() bool) {
 }
 
 func (pdl *PosDataLooper) keep() {
-	data := pdl.pdk.KeepPosData()
+	kd := make([]interface{}, len(pdl.keepers))
+	for i, k := range pdl.keepers {
+		kd[i] = k.KeepPosData()
+	}
 	pd := &PosData{
-		ri:      pdl.Strl.Ri,
-		riClone: pdl.Strl.RiClone,
-		prevRu:  pdl.Strl.PrevRu,
-		pen:     pdl.Strl.Pen,
-
-		// not to be restored, just used for detection
-		penBoundsMaxY: pdl.Strl.PenBounds().Max.Y,
-
-		data: data,
+		ri:            pdl.strl.Ri,
+		penBoundsMaxY: pdl.strl.LineY1(),
+		keepersData:   kd,
 	}
 	pdl.data = append(pdl.data, pd)
 }
 func (pdl *PosDataLooper) restore(pd *PosData) {
-	pdl.Strl.Ri = pd.ri
-	pdl.Strl.RiClone = pd.riClone
-	pdl.Strl.PrevRu = pd.prevRu
-	pdl.Strl.Pen = pd.pen
-	pdl.pdk.RestorePosData(pd.data)
+	for i, kd := range pd.keepersData {
+		pdl.keepers[i].RestorePosData(kd)
+	}
 }
 
 func (pdl *PosDataLooper) RestorePosDataCloseToIndex(index int) {
@@ -100,8 +102,11 @@ func (pdl *PosDataLooper) PosDataCloseToPoint(p *fixed.Point26_6) (*PosData, boo
 }
 
 func (pdl *PosDataLooper) GetPoint(index int, looper Looper) *fixed.Point26_6 {
-	strl := pdl.Strl
+	strl := pdl.strl
 	looper.Loop(func() bool {
+		if strl.RiClone {
+			return true
+		}
 		if strl.Ri >= index {
 			return false
 		}
@@ -111,13 +116,17 @@ func (pdl *PosDataLooper) GetPoint(index int, looper Looper) *fixed.Point26_6 {
 	return &pb.Min
 }
 func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6, looper Looper) int {
-	strl := pdl.Strl
+	strl := pdl.strl
 
 	found := false
 	foundLine := false
 	lineRuneIndex := 0
 
 	looper.Loop(func() bool {
+		if strl.RiClone {
+			return true
+		}
+
 		pb := strl.PenBounds()
 
 		// before the start or already passed the line
@@ -140,17 +149,20 @@ func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6, looper Looper) int {
 				found = true
 				return false
 			}
-			// after last rune of the line
+			// after this rune - keep to have last rune of the line
 			foundLine = true
 			lineRuneIndex = strl.Ri
 		}
 		return true
 	})
+
+	//log.Printf("**p %v pen %v", p, pdl.strl.Pen)
+
 	if found {
 		return strl.Ri
 	}
 	if foundLine {
-		// position at end of string if last line and not a newline
+		// clicking beyond the last rune should return len(str), but if a foundLine was triggered, it will return the lineRuneIndex with the last rune. Which is ok if it is a newline.
 		if strl.Ri == len(strl.Str) && strl.PrevRu != '\n' {
 			return len(strl.Str)
 		}
@@ -160,20 +172,24 @@ func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6, looper Looper) int {
 	return len(strl.Str)
 }
 
+func (pdl *PosDataLooper) Update() {
+	for _, pd := range pdl.data {
+		pdl.restore(pd)
+		for _, k := range pdl.keepers {
+			k.UpdatePosData()
+		}
+		pdl.keep()
+	}
+}
+
 type PosDataKeeper interface {
 	KeepPosData() interface{}
 	RestorePosData(interface{})
+	UpdatePosData()
 }
 
 type PosData struct {
-	ri      int
-	riClone bool
-	prevRu  rune
-	pen     fixed.Point26_6
-
-	// upper left corner of pen
-	// not to be restored, just used for detection
+	ri            int
 	penBoundsMaxY fixed.Int26_6
-
-	data interface{}
+	keepersData   []interface{}
 }

@@ -2,6 +2,7 @@ package loopers
 
 import (
 	"image"
+	"unicode/utf8"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
@@ -11,42 +12,44 @@ import (
 // https://developer.apple.com/library/content/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png
 
 type StringLooper struct {
-	EmbedLooper // not used, this is the outmost looper
+	EmbedLooper
 
 	Face    font.Face
 	Str     string
 	Ri      int
 	Ru      rune
 	PrevRu  rune
-	Pen     fixed.Point26_6
+	Pen     fixed.Point26_6 // upper left corner
+	Kern    fixed.Int26_6
 	Advance fixed.Int26_6
-	Metrics *font.Metrics
 
 	// set externally - helps detect extra drawn runes (ex: wraplinerune)
 	RiClone bool
+
+	Metrics font.Metrics
 }
 
-func NewStringLooper(face font.Face, str string) *StringLooper {
-	fm := face.Metrics()
-	lpr := &StringLooper{
+func (lpr *StringLooper) Init(face font.Face, str string) {
+	*lpr = StringLooper{
 		Face:    face,
-		Metrics: &fm,
 		Str:     str,
+		Metrics: face.Metrics(),
 	}
-	lpr.Pen.Y = lpr.LineBaseline()
-	return lpr
 }
 func (lpr *StringLooper) Loop(fn func() bool) {
-	o := lpr.Ri
-	for Ri, Ru := range lpr.Str[o:] {
-		lpr.Ri = o + Ri
-		lpr.Ru = Ru
-		if !lpr.Iterate(fn) {
-			return
+	lpr.OuterLooper().Loop(func() bool {
+		if lpr.Ri >= len(lpr.Str) {
+			return false
 		}
-	}
-	// set ri to allow testing that it reached the end
-	lpr.Ri = len(lpr.Str)
+		ru, w := utf8.DecodeRuneInString(lpr.Str[lpr.Ri:])
+		lpr.Ru = ru
+		lpr.RiClone = false
+		if !lpr.Iterate(fn) {
+			return false
+		}
+		lpr.Ri += w
+		return true
+	})
 }
 func (lpr *StringLooper) Iterate(fn func() bool) bool {
 	lpr.AddKern()
@@ -59,7 +62,8 @@ func (lpr *StringLooper) Iterate(fn func() bool) bool {
 	return true
 }
 func (lpr *StringLooper) AddKern() {
-	lpr.Pen.X += lpr.Face.Kern(lpr.PrevRu, lpr.Ru)
+	lpr.Kern = lpr.Face.Kern(lpr.PrevRu, lpr.Ru)
+	lpr.Pen.X += lpr.Kern
 }
 func (lpr *StringLooper) CalcAdvance() bool {
 	adv, ok := lpr.Face.GlyphAdvance(lpr.Ru)
@@ -83,21 +87,52 @@ func (lpr *StringLooper) PenBounds() *fixed.Rectangle26_6 {
 }
 func (lpr *StringLooper) PenBoundsForImage() *image.Rectangle {
 	pb := lpr.PenBounds()
+	// min floor / max ceil ensures the bounds cover the rune.
 	min := image.Point{pb.Min.X.Floor(), pb.Min.Y.Floor()}
-	max := image.Point{pb.Max.X.Floor(), pb.Max.Y.Floor()}
+	max := image.Point{pb.Max.X.Ceil(), pb.Max.Y.Ceil()}
 	r := image.Rect(min.X, min.Y, max.X, max.Y)
 	return &r
 }
 
-func (lpr *StringLooper) LineBaseline() fixed.Int26_6 {
-	return fixed.I(lpr.Metrics.Ascent.Ceil())
+func (lpr *StringLooper) Baseline() fixed.Int26_6 {
+	return lpr.Metrics.Ascent
 }
 func (lpr *StringLooper) LineHeight() fixed.Int26_6 {
-	return lpr.LineBaseline() + fixed.I(lpr.Metrics.Descent.Ceil())
+	lh := lpr.Baseline() + lpr.Metrics.Descent
+	// line height needs to be aligned with an int to have predictable line positions to be used in calculations.
+	return fixed.I(lh.Ceil())
 }
 func (lpr *StringLooper) LineY0() fixed.Int26_6 {
-	return lpr.Pen.Y - lpr.LineBaseline()
+	return lpr.Pen.Y
 }
 func (lpr *StringLooper) LineY1() fixed.Int26_6 {
 	return lpr.LineY0() + lpr.LineHeight()
+}
+
+// Implements PosDataKeeper
+func (lpr *StringLooper) KeepPosData() interface{} {
+	d := &StringLooperData{
+		Ri:     lpr.Ri,
+		PrevRu: lpr.PrevRu,
+		Pen:    lpr.Pen,
+	}
+	return d
+}
+
+// Implements PosDataKeeper
+func (lpr *StringLooper) RestorePosData(data interface{}) {
+	d := data.(*StringLooperData)
+	lpr.Ri = d.Ri
+	lpr.PrevRu = d.PrevRu
+	lpr.Pen = d.Pen
+}
+
+// Implements PosDataKeeper
+func (lpr *StringLooper) UpdatePosData() {
+}
+
+type StringLooperData struct {
+	Ri     int
+	PrevRu rune
+	Pen    fixed.Point26_6
 }

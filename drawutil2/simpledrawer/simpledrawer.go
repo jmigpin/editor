@@ -11,40 +11,52 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-func Measure(face font.Face, str string, max *image.Point) *fixed.Point26_6 {
-	max2 := fixed.P(max.X, max.Y)
-	var bounds image.Rectangle
-	bounds.Max = *max
-	strl := loopers.NewStringLooper(face, str)
-	linel := loopers.NewLineLooper(strl, max2.Y)
-	ml := loopers.NewMeasureLooper(strl, &max2)
-	eel := loopers.NewEarlyExitLooper(strl, &bounds)
+func Measure(face font.Face, str string, max image.Point) image.Point {
+	start := &loopers.EmbedLooper{}
+	var strl loopers.StringLooper
+	strl.Init(face, str)
+	linel := loopers.NewLineLooper(&strl)
+	ml := loopers.NewMeasureLooper(&strl)
 
 	// iterator order
-	linel.SetOuterLooper(strl)
+	strl.SetOuterLooper(start)
+	linel.SetOuterLooper(&strl)
 	ml.SetOuterLooper(linel)
-	eel.SetOuterLooper(ml)
 
-	eel.Loop(func() bool { return true })
+	ml.Loop(func() bool { return true })
 
-	return ml.M
+	// truncate measure
+	m := image.Point{ml.M.X.Ceil(), ml.M.Y.Ceil()}
+	if m.X > max.X {
+		m.X = max.X
+	}
+	if m.Y > max.Y {
+		m.Y = max.Y
+	}
+
+	return m
 }
 
 func Draw(img draw.Image, face font.Face, str string, bounds *image.Rectangle, fg color.Color) {
-	max := bounds.Max
-	max2 := fixed.P(max.X, max.Y)
+	max := bounds.Size()
+	fmax := fixed.P(max.X, max.Y)
 
-	strl := loopers.NewStringLooper(face, str)
-	linel := loopers.NewLineLooper(strl, max2.Y)
-	dl := loopers.NewDrawLooper(strl, img, bounds)
-	eel := loopers.NewEarlyExitLooper(strl, bounds)
+	start := &loopers.EmbedLooper{}
+	var strl loopers.StringLooper
+	strl.Init(face, str)
+	linel := loopers.NewLineLooper(&strl)
+	var dl loopers.DrawLooper
+	dl.Init(&strl, img, bounds)
+	var eel loopers.EarlyExitLooper
+	eel.Init(&strl, fmax.Y)
 
 	dl.Fg = fg
 
 	// iterator order
-	linel.SetOuterLooper(strl)
+	strl.SetOuterLooper(start)
+	linel.SetOuterLooper(&strl)
 	dl.SetOuterLooper(linel)
-	eel.SetOuterLooper(dl)
+	eel.SetOuterLooper(&dl)
 
 	// draw runes
 	eel.Loop(func() bool { return true })
