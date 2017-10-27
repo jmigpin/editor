@@ -1,7 +1,6 @@
 package cmdutil
 
 import (
-	"image"
 	"strings"
 
 	"github.com/jmigpin/editor/core/toolbardata"
@@ -78,9 +77,8 @@ func FindShortcut(erow ERower) {
 	}
 
 	// warp pointer to toolbar close to "Find " text cmd to be able to click for run
-	p := ta.IndexPoint(ta.CursorIndex())
-	p2 := &image.Point{p.X.Round(), p.Y.Round()}
-	p3 := p2.Add(ta.Bounds().Min)
-	p3.Y += ta.LineHeight().Round() / 2 // center of rune
+	p := ta.GetPoint(ta.CursorIndex())
+	p3 := p.Add(ta.Bounds().Min)
+	p3.Y += ta.LineHeight() / 2 // center of rune
 	erow.Ed().UI().WarpPointer(&p3)
 }

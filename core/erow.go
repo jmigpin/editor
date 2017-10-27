@@ -360,7 +360,7 @@ func (erow *ERow) UpdateDuplicates() {
 		ta2 := erow2.Row().TextArea
 
 		ci := ta2.CursorIndex()
-		ip := ta2.IndexPoint(ci)
+		ip := ta2.GetPoint(ci)
 
 		// use temporary history to set the string in the duplicate
 		// then get the main shared history to allow undo/redo
@@ -375,7 +375,7 @@ func (erow *ERow) UpdateDuplicates() {
 		ta2.SetHistory(ta.History())
 
 		// restore position (avoid cursor moving while editing in another row)
-		pi := ta2.PointIndex(ip)
+		pi := ta2.GetIndex(&ip)
 		ta2.SetCursorIndex(pi)
 
 		erow2.saved.size = erow.saved.size

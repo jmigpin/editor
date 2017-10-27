@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"golang.org/x/image/math/fixed"
-
 	"github.com/jmigpin/editor/uiutil/widget"
 )
 
@@ -39,10 +37,10 @@ func (sa *ScrollArea) CalcChildsBounds() {
 	// TODO: needs improvement, using scrollwidth from widget.scrollarea
 	b := sa.Bounds()
 	b.Max.X -= sa.ScrollWidth
-	_ = sa.ta.Measure(b.Sub(b.Min).Max)
+	_ = sa.ta.Measure(b.Size())
 
 	// calc position using int26_6 values cast to floats
-	dy := float64(fixed.I(sa.Bounds().Dy()))
+	dy := float64(sa.Bounds().Dy())
 	offset := float64(sa.ta.OffsetY())
 	height := float64(sa.taHeight())
 	sa.ScrollArea.CalcPosition(offset, height, dy)
@@ -57,7 +55,7 @@ func (sa *ScrollArea) UpdatePositionFromPoint() {
 
 	// set textarea offset
 	pp := sa.VBarPositionPercent()
-	oy := fixed.Int26_6(pp * float64(sa.taHeight()))
+	oy := int(pp * float64(sa.taHeight()))
 	sa.setTaOffsetY(oy)
 
 	sa.disableTextAreaOffsetYEvent = false
@@ -76,12 +74,12 @@ func (sa *ScrollArea) CalcPositionFromScroll(up bool) {
 
 	// set textarea offset
 	line := sa.ta.LineHeight()
-	lines := int(fixed.I(sa.Bounds().Dy()) / line)
+	lines := int(sa.Bounds().Dy() / line)
 	nScrollLines := 4
 	if lines < 12 {
 		nScrollLines = 1
 	}
-	v := fixed.Int26_6(nScrollLines*mult) * line
+	v := nScrollLines * mult * line
 	sa.setTaOffsetY(sa.ta.OffsetY() + v)
 
 	sa.disableTextAreaOffsetYEvent = false
@@ -90,8 +88,8 @@ func (sa *ScrollArea) CalcPositionFromScroll(up bool) {
 	sa.MarkNeedsPaint()
 }
 
-func (sa *ScrollArea) setTaOffsetY(v fixed.Int26_6) {
-	dy := fixed.I(sa.Bounds().Dy())
+func (sa *ScrollArea) setTaOffsetY(v int) {
+	dy := sa.Bounds().Dy()
 	max := sa.taHeight() - dy
 	if v > max {
 		v = max
@@ -99,9 +97,9 @@ func (sa *ScrollArea) setTaOffsetY(v fixed.Int26_6) {
 	sa.ta.SetOffsetY(v)
 }
 
-func (sa *ScrollArea) taHeight() fixed.Int26_6 {
+func (sa *ScrollArea) taHeight() int {
 	// extra height allows to scroll past the str height
-	dy := fixed.I(sa.Bounds().Dy())
+	dy := sa.Bounds().Dy()
 	extra := dy - 2*sa.ta.LineHeight() // keep something visible
 
 	return sa.ta.StrHeight() + extra

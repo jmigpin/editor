@@ -2,8 +2,6 @@ package tautil
 
 import (
 	"image"
-
-	"golang.org/x/image/math/fixed"
 )
 
 type Texta interface {
@@ -24,13 +22,16 @@ type Texta interface {
 
 	MakeIndexVisibleAtCenter(int)
 
-	OffsetY() fixed.Int26_6
-	SetOffsetY(v fixed.Int26_6)
-	StrHeight() fixed.Int26_6
 	Bounds() image.Rectangle
-	LineHeight() fixed.Int26_6
-	IndexPoint(int) *fixed.Point26_6
-	PointIndex(*fixed.Point26_6) int
+
+	OffsetY() int
+	SetOffsetY(v int)
+
+	StrHeight() int
+	LineHeight() int
+
+	GetPoint(int) image.Point
+	GetIndex(*image.Point) int
 
 	RequestPrimaryPaste() (string, error)
 	RequestClipboardPaste() (string, error)

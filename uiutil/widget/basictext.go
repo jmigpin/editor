@@ -21,8 +21,7 @@ func NewBasicText(ctx Context) *BasicText {
 	return &bt
 }
 func (bt *BasicText) Measure(hint image.Point) image.Point {
-	m := simpledrawer.Measure(bt.ctx.FontFace1(), bt.Str, &hint)
-	return image.Point{m.X.Ceil(), m.Y.Ceil()}
+	return simpledrawer.Measure(bt.ctx.FontFace1(), bt.Str, hint)
 }
 func (bt *BasicText) Paint() {
 	if bt.Color != nil {

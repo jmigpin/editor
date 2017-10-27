@@ -13,15 +13,13 @@ import (
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
-
-	"golang.org/x/image/math/fixed"
 )
 
 type TextArea struct {
 	widget.LeafEmbedNode
 	ui *UI
 
-	drawer *hsdrawer.HSDrawer2
+	drawer *hsdrawer.HSDrawer
 
 	EvReg *evreg.Register
 
@@ -35,7 +33,7 @@ type TextArea struct {
 
 	str         string
 	cursorIndex int
-	offsetY     fixed.Int26_6
+	offsetY     int
 	selection   struct {
 		on    bool
 		index int // from index to cursorIndex
@@ -53,7 +51,7 @@ type TextArea struct {
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui}
 	ta.SetWrapper(ta)
-	ta.drawer = hsdrawer.NewHSDrawer2(ui.FontFace1())
+	ta.drawer = hsdrawer.NewHSDrawer(ui.FontFace1())
 	c := hsdrawer.DefaultColors
 	ta.Colors = &c
 	ta.EvReg = evreg.NewRegister()
@@ -81,8 +79,12 @@ func (ta *TextArea) measureChilds(hint image.Point) image.Point {
 
 		ta.lastMeasureHint = hint
 		ta.drawer.Str = ta.str
-		m := ta.drawer.Measure(&image.Point{hint.X, 1000000})
-		ta.measurement = image.Point{m.X.Ceil(), m.Y.Ceil()}
+
+		// TODO: ensure the layout gives maximum space to not have to ignore Y in order for the textareas to work properly in dynamic sizes (toolbars)
+		// ignore Y hint
+		hint2 := image.Point{hint.X, 100000}
+
+		ta.measurement = ta.drawer.Measure(hint2)
 
 		// restore offset to keep the same first line while resizing
 		if changed {
@@ -97,7 +99,7 @@ func (ta *TextArea) CalcChildsBounds() {
 	_ = ta.measureChilds(max)
 }
 
-func (ta *TextArea) StrHeight() fixed.Int26_6 {
+func (ta *TextArea) StrHeight() int {
 	h := ta.drawer.Height()
 	min := ta.LineHeight()
 	if h < min {
@@ -247,7 +249,6 @@ func (ta *TextArea) SetCursorIndex(v int) {
 	if v != ta.cursorIndex {
 		ta.cursorIndex = v
 		ta.validateSelection()
-		ta.makeIndexVisible(v)
 		ta.MarkNeedsPaint()
 	}
 }
@@ -300,10 +301,10 @@ func (ta *TextArea) somethingSelected() bool {
 	return si != ci
 }
 
-func (ta *TextArea) OffsetY() fixed.Int26_6 {
+func (ta *TextArea) OffsetY() int {
 	return ta.offsetY
 }
-func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
+func (ta *TextArea) SetOffsetY(v int) {
 	if v < 0 {
 		v = 0
 	}
@@ -320,16 +321,19 @@ func (ta *TextArea) SetOffsetY(v fixed.Int26_6) {
 }
 
 func (ta *TextArea) OffsetIndex() int {
-	p := fixed.Point26_6{X: 0, Y: ta.offsetY}
-	return ta.drawer.GetIndex(&p)
+	return ta.drawer.GetIndex(&image.Point{0, ta.offsetY})
 }
 func (ta *TextArea) SetOffsetIndex(i int) {
 	p := ta.drawer.GetPoint(i)
 	ta.SetOffsetY(p.Y)
 }
+
+func (ta *TextArea) MakeCursorVisible() {
+	ta.makeIndexVisible(ta.CursorIndex())
+}
 func (ta *TextArea) makeIndexVisible(index int) {
 	y0 := ta.OffsetY()
-	y1 := y0 + fixed.I(ta.Bounds().Dy())
+	y1 := y0 + ta.Bounds().Dy()
 
 	// is all visible
 	a0 := ta.drawer.GetPoint(index).Y
@@ -346,34 +350,34 @@ func (ta *TextArea) makeIndexVisible(index int) {
 	}
 	if y1 >= a0 && y1 <= a1 {
 		// partially visible at bottom
-		sy := fixed.I(ta.Bounds().Dy())
+		sy := ta.Bounds().Dy()
 		ta.SetOffsetY(a0 - sy + ta.LineHeight())
 		return
 	}
 
 	// set at half bounds
-	half := fixed.I(ta.Bounds().Dy() / 2)
+	half := ta.Bounds().Dy() / 2
 	ta.SetOffsetY(a0 - half)
 }
 
 func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	// set at half bounds
 	p0 := ta.drawer.GetPoint(index).Y
-	half := fixed.I((ta.Bounds().Dy() - ta.LineHeight().Ceil()) / 2)
+	half := (ta.Bounds().Dy() - ta.LineHeight()) / 2
 	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
 }
+
 func (ta *TextArea) WarpPointerToIndexIfVisible(index int) bool {
 	// Tests visibility to prevent warping to outside the textarea,
 	// (ex: Textarea too small or even not showing).
 
 	p := ta.drawer.GetPoint(index)
 	p.Y -= ta.OffsetY()
-	p2 := &image.Point{p.X.Floor(), p.Y.Floor()}
-	p3 := p2.Add(ta.Bounds().Min)
+	p3 := p.Add(ta.Bounds().Min)
 
 	// padding
-	p3.Y += ta.LineHeight().Floor() - 1
+	p3.Y += ta.LineHeight() - 1
 	p3.X += 5
 
 	if !p3.In(ta.Bounds()) {
@@ -397,13 +401,13 @@ func (ta *TextArea) SetPrimaryCopy(v string) {
 	ta.ui.SetPrimaryCopy(v)
 }
 
-func (ta *TextArea) LineHeight() fixed.Int26_6 {
+func (ta *TextArea) LineHeight() int {
 	return ta.drawer.LineHeight()
 }
-func (ta *TextArea) IndexPoint(i int) *fixed.Point26_6 {
+func (ta *TextArea) GetPoint(i int) image.Point {
 	return ta.drawer.GetPoint(i)
 }
-func (ta *TextArea) PointIndex(p *fixed.Point26_6) int {
+func (ta *TextArea) GetIndex(p *image.Point) int {
 	return ta.drawer.GetIndex(p)
 }
 
@@ -439,6 +443,7 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *event.MouseDragMove:
 		if ev.Buttons.Has(event.ButtonLeft) {
 			tautil.MoveCursorToPoint(ta, &ev.Point, true)
+			ta.MakeCursorVisible()
 		}
 	case *event.MouseDragEnd:
 		switch ev.Button {
@@ -487,9 +492,8 @@ func (ta *TextArea) onMouseTripleClick(ev *event.MouseTripleClick) {
 func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 	if ta.SelectionOn() {
 		p2 := p.Sub(ta.Bounds().Min)
-		p3 := fixed.P(p2.X, p2.Y)
-		p3.Y += ta.OffsetY()
-		i := ta.PointIndex(&p3)
+		p2.Y += ta.OffsetY()
+		i := ta.GetIndex(&p2)
 		s, e := tautil.SelectionStringIndexes(ta)
 		return i >= s && i < e
 	}
@@ -511,7 +515,18 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 		event.KCodePageDown,
 		event.KCodeSuperL: // windows key
 		// ignore these
+	default:
+		ta.onKeyDown2(ev)
+	}
+}
+func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
+	//defer ta.MakeCursorVisible()
+
+	//log.Printf("%+v", ev)
+
+	switch ev.Code {
 	case event.KCodeRight:
+		ta.MakeCursorVisible() // before and after
 		switch {
 		case ev.Modifiers.Is(event.ModControl | event.ModShift):
 			tautil.MoveCursorJumpRight(ta, true)
@@ -522,7 +537,9 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 		default:
 			tautil.MoveCursorRight(ta, false)
 		}
+		ta.MakeCursorVisible()
 	case event.KCodeLeft:
+		ta.MakeCursorVisible() // before and after
 		switch {
 		case ev.Modifiers.Is(event.ModControl | event.ModShift):
 			tautil.MoveCursorJumpLeft(ta, true)
@@ -533,26 +550,31 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 		default:
 			tautil.MoveCursorLeft(ta, false)
 		}
+		ta.MakeCursorVisible()
 	case event.KCodeUp:
+		ta.MakeCursorVisible() // before and after
 		switch {
 		case ev.Modifiers.Is(event.ModControl | event.ModAlt):
 			tautil.MoveLineUp(ta)
-		case ev.Modifiers.Is(event.ModShift):
+		case ev.Modifiers.HasAny(event.ModShift):
 			tautil.MoveCursorUp(ta, true)
 		default:
 			tautil.MoveCursorUp(ta, false)
 		}
+		ta.MakeCursorVisible()
 	case event.KCodeDown:
+		ta.MakeCursorVisible() // before and after
 		switch {
 		case ev.Modifiers.Is(event.ModControl | event.ModShift | event.ModAlt):
 			tautil.DuplicateLines(ta)
 		case ev.Modifiers.Is(event.ModControl | event.ModAlt):
 			tautil.MoveLineDown(ta)
-		case ev.Modifiers.Is(event.ModShift):
+		case ev.Modifiers.HasAny(event.ModShift):
 			tautil.MoveCursorDown(ta, true)
 		default:
 			tautil.MoveCursorDown(ta, false)
 		}
+		ta.MakeCursorVisible()
 	case event.KCodeHome:
 		switch {
 		case ev.Modifiers.Is(event.ModControl | event.ModShift):
@@ -564,6 +586,7 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 		default:
 			tautil.StartOfLine(ta, false)
 		}
+		ta.MakeCursorVisible()
 	case event.KCodeEnd:
 		switch {
 		case ev.Modifiers.Is(event.ModControl | event.ModShift):
@@ -575,10 +598,15 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 		default:
 			tautil.EndOfLine(ta, false)
 		}
+		ta.MakeCursorVisible()
 	case event.KCodeBackspace:
 		tautil.Backspace(ta)
+		ta.MakeCursorVisible()
 	case event.KCodeDelete:
 		tautil.Delete(ta)
+	case event.KCodeReturn:
+		tautil.AutoIndent(ta)
+		ta.MakeCursorVisible()
 	case event.KCodeTab:
 		switch {
 		case ev.Modifiers.Is(event.ModShift):
@@ -586,12 +614,13 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 		default:
 			tautil.TabRight(ta)
 		}
-	case event.KCodeReturn:
-		tautil.AutoIndent(ta)
-	case event.KCodeSpace:
+		ta.MakeCursorVisible()
+	case ' ':
+		// ensure space even if modifiers are present
 		tautil.InsertString(ta, " ")
+		ta.MakeCursorVisible()
 	default:
-		// shortcuts with printable runes
+		// shortcuts with printable runes - also avoids non-defined shortcuts to get a rune printed
 		switch {
 		case ev.Modifiers.Is(event.ModControl | event.ModShift):
 			switch ev.Code {
@@ -620,6 +649,7 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 		default:
 			if unicode.IsPrint(ev.Rune) {
 				tautil.InsertString(ta, string(ev.Rune))
+				ta.MakeCursorVisible()
 			}
 		}
 	}

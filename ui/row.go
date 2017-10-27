@@ -255,7 +255,7 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 	dy := float64(col.Bounds().Dy())
 	min := float64(row.minimumSize()) / dy
 	ta := row.TextArea
-	taMin := ta.LineHeight().Ceil()
+	taMin := ta.LineHeight()
 
 	taDy := ta.Bounds().Dy()
 	if taDy > taMin {
@@ -290,7 +290,7 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 }
 
 func (row *Row) minimumSize() int {
-	return row.TextArea.LineHeight().Ceil()
+	return row.TextArea.LineHeight()
 }
 
 type RowRType int

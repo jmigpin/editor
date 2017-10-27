@@ -3,15 +3,12 @@ package tautil
 import (
 	"image"
 	"strings"
-
-	"golang.org/x/image/math/fixed"
 )
 
 func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
 	p2 := p.Sub(ta.Bounds().Min)
-	p3 := fixed.P(p2.X, p2.Y)
-	p3.Y += ta.OffsetY()
-	i := ta.PointIndex(&p3)
+	p2.Y += ta.OffsetY()
+	i := ta.GetIndex(&p2)
 	updateSelection(ta, sel, i)
 
 	// set primary copy
@@ -38,15 +35,15 @@ func MoveCursorLeft(ta Texta, sel bool) {
 }
 
 func MoveCursorUp(ta Texta, sel bool) {
-	p := ta.IndexPoint(ta.CursorIndex())
-	p.Y -= ta.LineHeight()
-	i := ta.PointIndex(p)
+	p := ta.GetPoint(ta.CursorIndex())
+	p.Y -= ta.LineHeight() - 1
+	i := ta.GetIndex(&p)
 	updateSelection(ta, sel, i)
 }
 func MoveCursorDown(ta Texta, sel bool) {
-	p := ta.IndexPoint(ta.CursorIndex())
-	p.Y += ta.LineHeight()
-	i := ta.PointIndex(p)
+	p := ta.GetPoint(ta.CursorIndex())
+	p.Y += ta.LineHeight() + 1
+	i := ta.GetIndex(&p)
 	updateSelection(ta, sel, i)
 }
 
