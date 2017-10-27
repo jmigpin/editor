@@ -100,19 +100,20 @@ func (km *KMap) Lookup(keycode xproto.Keycode, mods Modifiers) (rune, event.KeyC
 	ks := km.Keysym(keycode, col)
 	ru := rune(ks)
 
+	// extract code from the unshifted keysym (first column)
 	ks0 := km.Keysym(keycode, 0)
 	ru0 := rune(ks0)
 	code, ok := runeKeyCodeMap[ru0]
 	if !ok {
-		code = event.KeyCode(ks0) // first column keysym (>=0)
+		// codes with recognizable ascii code
+		switch ks0 {
+		default:
+			code = event.KeyCode(ks0)
+		}
 	}
 
-	// codes with runes not in the keysym table
-	switch ks {
-	case xkSpace:
-		ru = ' '
-	case xkTab:
-		ru = '\t'
+	// runes the keysym table is not providing directly
+	switch ru {
 	case xkTilde:
 		ru = '~'
 	case xkCircumflex:
@@ -121,8 +122,6 @@ func (km *KMap) Lookup(keycode xproto.Keycode, mods Modifiers) (rune, event.KeyC
 		ru = '´'
 	case xkGrave:
 		ru = '`'
-	case xkISOLevel3Shift:
-		ru = '¶' // TESTING
 	}
 
 	return ru, code
@@ -172,9 +171,7 @@ const (
 	xkSuperL    = 0xffeb // windows key
 	xkSuperR    = 0xffec
 	xkDelete    = 0xffff
-
-	xkTab   = 0xff09
-	xkSpace = 0x20
+	xkTab       = 0xff09
 
 	xkGrave      = 0xfe50
 	xkAcute      = 0xfe51
@@ -221,12 +218,10 @@ var runeKeyCodeMap = map[rune]event.KeyCode{
 	xkSuperL:         event.KCodeSuperL, // windows key
 	xkSuperR:         event.KCodeSuperR,
 	xkDelete:         event.KCodeDelete,
+	xkTab:            event.KCodeTab,
 
 	xkNumLock:  event.KCodeNumLock,
 	xkCapsLock: event.KCodeCapsLock,
-
-	xkSpace: event.KCodeSpace,
-	xkTab:   event.KCodeTab,
 
 	xf86xkAudioLowerVolume: event.KCodeVolumeDown,
 	xf86xkAudioRaiseVolume: event.KCodeVolumeUp,

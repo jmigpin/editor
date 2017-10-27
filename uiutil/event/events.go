@@ -152,12 +152,10 @@ const (
 	KCodeSuperL // windows key
 	KCodeSuperR
 	KCodeDelete
+	KCodeTab
 
 	KCodeNumLock
 	KCodeCapsLock
-
-	KCodeTab
-	KCodeSpace
 
 	KCodeVolumeUp
 	KCodeVolumeDown
