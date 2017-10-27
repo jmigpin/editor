@@ -59,7 +59,10 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 
 	// exec
 	go func() {
-		execRowCmd2(erow, cmd)
+		err := execRowCmd2(erow, cmd)
+		if err != nil {
+			erow.TextAreaAppendAsync(err.Error())
+		}
 
 		// another context could be added already to the row
 		row := erow.Row()
@@ -71,7 +74,7 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 		})
 	}()
 }
-func execRowCmd2(erow ERower, cmd *exec.Cmd) {
+func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -94,14 +97,10 @@ func execRowCmd2(erow ERower, cmd *exec.Cmd) {
 	// run command
 	err := cmd.Start()
 	if err != nil {
-		erow.TextAreaAppendAsync(err.Error())
-		return
+		return err
 	}
 	erow.TextAreaAppendAsync(fmt.Sprintf("# pid %d\n", cmd.Process.Pid))
-	err = cmd.Wait() // error already going through stderr?
-	if err != nil {
-		erow.TextAreaAppendAsync(err.Error())
-	}
+	return cmd.Wait()
 }
 
 // Reads and sends to erow only n frames per second.
