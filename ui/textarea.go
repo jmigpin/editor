@@ -521,7 +521,6 @@ func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
 }
 func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 	//defer ta.MakeCursorVisible()
-
 	//log.Printf("%+v", ev)
 
 	switch ev.Code {
@@ -628,6 +627,7 @@ func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 				tautil.Uncomment(ta)
 			case 'z':
 				ta.redo()
+				ta.MakeCursorVisible()
 			}
 		case ev.Modifiers.Is(event.ModControl):
 			switch ev.Code {
@@ -645,6 +645,7 @@ func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 				tautil.SelectAll(ta)
 			case 'z':
 				ta.undo()
+				ta.MakeCursorVisible()
 			}
 		default:
 			if unicode.IsPrint(ev.Rune) {
