@@ -95,7 +95,7 @@ func (ta *TextArea) measureChilds(hint image.Point) image.Point {
 }
 
 func (ta *TextArea) CalcChildsBounds() {
-	max := ta.Bounds().Sub(ta.Bounds().Min).Max
+	max := ta.Bounds().Size()
 	_ = ta.measureChilds(max)
 }
 
@@ -109,9 +109,12 @@ func (ta *TextArea) StrHeight() int {
 }
 
 func (ta *TextArea) Paint() {
-	// fill background
 	bounds := ta.Bounds()
-	imageutil.FillRectangle(ta.ui.Image(), &bounds, ta.Colors.Normal.Bg)
+
+	// fill background
+	if ta.Colors.Normal.Bg != nil {
+		imageutil.FillRectangle(ta.ui.Image(), &bounds, ta.Colors.Normal.Bg)
+	}
 
 	d := ta.drawer
 	d.CursorIndex = ta.cursorIndex

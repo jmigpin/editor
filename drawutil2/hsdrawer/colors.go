@@ -18,7 +18,7 @@ type FgBg struct {
 }
 
 var DefaultColors = Colors{
-	Normal:    FgBg{color.Black, nil},
+	Normal:    FgBg{color.Black, color.White},
 	Selection: FgBg{color.Black, colornames.Orange},
 	Highlight: FgBg{color.Black, colornames.Aqua},
 	WrapLine:  FgBg{color.White, colornames.Maroon},
