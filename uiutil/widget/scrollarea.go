@@ -11,7 +11,7 @@ import (
 )
 
 type ScrollArea struct {
-	EmbedNode
+	ContainerEmbedNode
 	ScrollWidth int
 	LeftScroll  bool
 	VBar        *ScrollBar

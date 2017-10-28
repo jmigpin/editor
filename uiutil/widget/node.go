@@ -3,7 +3,6 @@ package widget
 import (
 	"container/list"
 	"image"
-	"sync"
 )
 
 type Node interface {
@@ -55,8 +54,6 @@ type EmbedNode struct {
 	marks   Marks
 	expand  struct{ x, y bool }
 	fill    struct{ x, y bool }
-
-	marksLock sync.Mutex
 }
 
 func (en *EmbedNode) Wrappee() *EmbedNode {
@@ -75,10 +72,10 @@ func (en *EmbedNode) SetWrapper(n Node) {
 func (en *EmbedNode) Parent() Node {
 	if en.parent != nil {
 		w := en.parent.wrapper
-		if w != nil {
-			return w
+		if w == nil {
+			panic("parent node without wrapper")
 		}
-		return en.parent
+		return w
 	}
 	return nil
 }
@@ -197,6 +194,14 @@ func (en *EmbedNode) Childs() []Node {
 	}
 	return u
 }
+func (en *EmbedNode) AllChilds() []Node {
+	var u []Node
+	for e := en.childs.Front(); e != nil; e = e.Next() {
+		n := e.Value.(Node)
+		u = append(u, n)
+	}
+	return u
+}
 
 func (en *EmbedNode) HasChild(n Node) bool {
 	return en == n.Wrappee().parent
@@ -259,31 +264,21 @@ func (en *EmbedNode) hasHiddenParent() bool {
 	return false
 }
 
-func (en *EmbedNode) Measure(hint image.Point) image.Point {
-	return image.Point{}
-}
-func (en *EmbedNode) CalcChildsBounds() {
-}
-func (en *EmbedNode) Paint() {
-}
-
 func (en *EmbedNode) PaintChilds() {
-	en.marksLock.Lock()
+	// Issues painting concurrently due to multilayers, otherwise should be used
+
 	en.marks.SetChildNeedsPaint(false)
-	en.marksLock.Unlock()
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	for _, child := range en.Childs() {
-		wg.Add(1)
-		go func(child Node) {
-			defer wg.Done()
-			en.marksLock.Lock()
-			en.marks.SetNeedsPaint(false)
-			en.marksLock.Unlock()
-			child.Paint()
-			child.PaintChilds()
-		}(child)
+		//wg.Add(1)
+		//go func(child Node) {
+		//defer wg.Done()
+		child.Marks().SetNeedsPaint(false)
+		child.Paint()
+		child.PaintChilds()
+		//}(child)
 	}
-	wg.Wait()
+	//wg.Wait()
 }
 
 func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
@@ -299,6 +294,8 @@ func (ln *LeafEmbedNode) PushBack(n Node) {
 }
 func (ln *LeafEmbedNode) InsertBefore(n, mark Node) {
 	panic("can't insert child on a leaf node")
+}
+func (ln *LeafEmbedNode) CalcChildsBounds() {
 }
 
 type ShellEmbedNode struct {
@@ -318,9 +315,19 @@ func (sn *ShellEmbedNode) Measure(hint image.Point) image.Point {
 	return sn.FirstChild().Measure(hint)
 }
 func (sn *ShellEmbedNode) CalcChildsBounds() {
-	u := sn.Bounds()
-	sn.FirstChild().SetBounds(&u)
-	sn.FirstChild().CalcChildsBounds()
+	b := sn.Bounds()
+	child := sn.FirstChild()
+	child.SetBounds(&b)
+	child.CalcChildsBounds()
+}
+func (sn *ShellEmbedNode) Paint() {
+}
+
+type ContainerEmbedNode struct {
+	EmbedNode
+}
+
+func (cn *ContainerEmbedNode) Paint() {
 }
 
 type Marks uint8

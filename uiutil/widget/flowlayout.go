@@ -5,7 +5,7 @@ import "image"
 // TODO: improve tree search performance with a cache (calcchilds seed?)
 
 type FlowLayout struct {
-	EmbedNode
+	ContainerEmbedNode
 	YAxis bool
 }
 

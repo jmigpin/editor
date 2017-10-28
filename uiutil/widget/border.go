@@ -7,6 +7,7 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 )
 
+// Can be used as pad. If not color is set it won't paint.
 type Border struct {
 	ShellEmbedNode
 	Top, Right, Bottom, Left int
@@ -14,11 +15,11 @@ type Border struct {
 	ctx                      Context
 }
 
-func NewBorder(ctx Context, n Node) *Border {
+func NewBorder(ctx Context, child Node) *Border {
 	b := &Border{}
 	b.SetWrapper(b)
 	b.ctx = ctx
-	b.Append(n)
+	b.Append(child)
 	return b
 }
 func (b *Border) Set(v int) {
@@ -39,10 +40,14 @@ func (b *Border) CalcChildsBounds() {
 	u := b.Bounds()
 	u.Min = u.Min.Add(image.Point{b.Left, b.Top})
 	u.Max = u.Max.Sub(image.Point{b.Right, b.Bottom})
-	b.FirstChild().SetBounds(&u)
-	b.FirstChild().CalcChildsBounds()
+	child := b.FirstChild()
+	child.SetBounds(&u)
+	child.CalcChildsBounds()
 }
 func (b *Border) Paint() {
+	if b.Color == nil {
+		return
+	}
 	// top
 	u := b.Bounds()
 	u.Max.Y = u.Min.Y + b.Top

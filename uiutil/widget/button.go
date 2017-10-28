@@ -11,8 +11,11 @@ import (
 type Button struct {
 	ShellEmbedNode
 	Label  *Label
+	Sticky bool
+
 	fg, bg color.Color
 	down   bool
+	active bool
 }
 
 func NewButton(ctx Context) *Button {
@@ -23,26 +26,58 @@ func NewButton(ctx Context) *Button {
 	return b
 }
 func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	switch ev0.(type) {
-	case *event.MouseEnter:
+
+	keepColor := func() {
 		b.fg = b.Label.Text.Color
 		b.bg = b.Label.Bg
-		b.Label.Bg = imageutil.Shade(b.bg, 0.10)
-		b.MarkNeedsPaint()
-	case *event.MouseLeave:
+	}
+	restoreColor := func() {
 		b.Label.Text.Color = b.fg
 		b.Label.Bg = b.bg
-		b.MarkNeedsPaint()
+	}
+	restoreSwitchedColor := func() {
+		b.Label.Text.Color = b.bg
+		b.Label.Bg = b.fg
+	}
+	hoverShade := func() {
+		b.Label.Bg = imageutil.Shade(b.bg, 0.10)
+	}
+
+	switch ev0.(type) {
+	case *event.MouseEnter:
+		if !b.active {
+			keepColor()
+			hoverShade()
+			b.MarkNeedsPaint()
+		}
+	case *event.MouseLeave:
+		if !b.active {
+			restoreColor()
+			b.MarkNeedsPaint()
+		}
 
 	case *event.MouseDown:
-		b.down = true
-		b.Label.Bg = b.fg
-		b.Label.Text.Color = b.bg
-		b.MarkNeedsPaint()
+		if b.active {
+
+		} else {
+			b.down = true
+			restoreSwitchedColor()
+			b.MarkNeedsPaint()
+		}
 	case *event.MouseUp:
 		if b.down {
-			b.Label.Text.Color = b.fg
-			b.Label.Bg = imageutil.Shade(b.bg, 0.10)
+			b.down = false
+			if b.Sticky {
+				b.active = true
+			} else {
+				restoreColor()
+				hoverShade()
+				b.MarkNeedsPaint()
+			}
+		} else if b.active {
+			b.active = false
+			restoreColor()
+			hoverShade()
 			b.MarkNeedsPaint()
 		}
 	}

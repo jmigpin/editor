@@ -10,7 +10,7 @@ type Label struct {
 	ShellEmbedNode
 	Text   *BasicText
 	Border *Border
-	Pad    *Pad
+	Pad    *Border
 	Bg     color.Color
 	ctx    Context
 }
@@ -21,7 +21,7 @@ func NewLabel(ctx Context) *Label {
 	l.ctx = ctx
 	l.Bg = color.White
 	l.Text = NewBasicText(ctx)
-	l.Pad = NewPad(l.Text)
+	l.Pad = NewBorder(ctx, l.Text)
 	l.Border = NewBorder(ctx, l.Pad)
 	l.Append(l.Border)
 	return l

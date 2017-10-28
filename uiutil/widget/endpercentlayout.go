@@ -6,7 +6,7 @@ import "image"
 // This ensures a change in the percentage of a middle child doesn't affect the bounds of the other childs (ex: like causing a small adjustment when resizing).
 
 type EndPercentLayout struct {
-	EmbedNode
+	ContainerEmbedNode
 	YAxis bool
 
 	endPercents map[Node]float64 // between 0 and 1
