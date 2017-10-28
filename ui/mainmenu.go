@@ -1,41 +1,71 @@
 package ui
 
 import (
-	"fmt"
 	"image"
+	"image/color"
 
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
-type MainMenu struct {
+type MainMenuButton struct {
 	*widget.Button
+	FloatMenu FloatMenu
+
 	ui *UI
 }
 
-func NewMainMenu(ui *UI) *MainMenu {
-	mm := &MainMenu{ui: ui}
-	mm.Button = widget.NewButton(ui)
-	mm.Button.Label.Text.Str = string(rune(8801))
-	mm.Button.Label.Pad.Left = 5
-	mm.Button.Label.Pad.Right = 5
-
-	return mm
+func NewMainMenuButton(ui *UI) *MainMenuButton {
+	m := &MainMenuButton{ui: ui}
+	m.Button = widget.NewButton(ui)
+	m.SetWrapper(m)
+	m.Button.Label.Text.Str = string(rune(8801)) // 3 lines rune
+	m.Button.Label.Pad.Left = 5
+	m.Button.Label.Pad.Right = 5
+	m.Button.Sticky = true
+	m.FloatMenu.Init(m)
+	return m
 }
-func (mm *MainMenu) openMenu() {
-
-	//flow := &widget.FlowLayout{YAxis: true}
-	//b1 := mm.newMenuButton("ListSessions")
-	//b2 := mm.newMenuButton("Exit")
-	//widget.AppendChilds(flow, b1, b2)
-
-}
-func (mm *MainMenu) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	mm.Button.OnInputEvent(ev0, p)
+func (m *MainMenuButton) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	m.Button.OnInputEvent(ev0, p)
 	switch ev0.(type) {
 	case *event.MouseClick:
-		mm.ui.EvReg.Enqueue(evreg.ErrorEventId, fmt.Errorf("TODO"))
+		fm := &m.FloatMenu
+		toggle := !fm.Hidden()
+		fm.SetHidden(toggle)
+		if !fm.Hidden() {
+			// needs to calc to set full bounds to the hidden nodes/layers (menu)
+			m.ui.Layout.CalcChildsBounds()
+		}
+		m.ui.Layout.MarkNeedsPaint()
 	}
 	return false
+}
+
+type FloatMenu struct {
+	widget.FloatBox
+	Toolbar *Toolbar
+
+	m *MainMenuButton
+}
+
+func (fm *FloatMenu) Init(m *MainMenuButton) {
+	*fm = FloatMenu{m: m}
+
+	fm.Toolbar = NewToolbar(m.ui, &m.ui.Layout)
+	pad := widget.NewBorder(m.ui, fm.Toolbar)
+	pad.Set(10)
+	pad.Color = fm.Toolbar.Colors.Normal.Bg
+	border := widget.NewBorder(m.ui, pad)
+	border.Set(1)
+	border.Color = color.Black
+
+	fm.FloatBox.Init(m.Button, border)
+	fm.SetWrapper(fm)
+
+	fm.SetHidden(true)
+}
+func (fm *FloatMenu) Paint() {
+	// always needs paint, if hidden it won't be tested
+	fm.Marks().SetNeedsPaint(true)
 }

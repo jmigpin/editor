@@ -8,24 +8,32 @@ import (
 )
 
 type Layout struct {
-	*widget.FlowLayout
-	UI      *UI
-	Toolbar *Toolbar
-	Cols    *Columns
+	widget.MultiLayer
+
+	BgLayer   *widget.FlowLayout
+	MenuLayer widget.Node
+
+	Toolbar        *Toolbar
+	MainMenuButton *MainMenuButton
+	Cols           *Columns
+
+	UI *UI
 }
 
-func NewLayout(ui *UI) *Layout {
-	layout := &Layout{UI: ui}
-	layout.FlowLayout = widget.NewFlowLayout()
-	layout.SetWrapper(layout)
+func (layout *Layout) Init(ui *UI) {
+	layout.UI = ui
 
-	mm := NewMainMenu(ui)
-	mm.Label.Border.Right = 1
-	mm.Label.Border.Color = color.Black
-	mm.Label.Bg = ToolbarColors.Normal.Bg
-	mm.SetFill(false, true)
+	layout.BgLayer = widget.NewFlowLayout()
+	layout.BgLayer.SetWrapper(layout.BgLayer)
 
-	layout.Toolbar = NewToolbar(ui, layout)
+	mmb := NewMainMenuButton(ui)
+	mmb.Label.Border.Left = 1
+	mmb.Label.Border.Color = color.Black
+	mmb.Label.Bg = ToolbarColors.Normal.Bg
+	mmb.SetFill(false, true)
+	layout.MainMenuButton = mmb
+
+	layout.Toolbar = NewToolbar(ui, layout.BgLayer)
 	layout.Toolbar.SetExpand(true, false)
 
 	ttb := widget.NewFlowLayout()
@@ -33,7 +41,7 @@ func NewLayout(ui *UI) *Layout {
 	sep2.SetFill(false, true)
 	sep2.Size.X = 5
 	sep2.Color = ToolbarColors.Normal.Bg
-	ttb.Append(mm, sep2, layout.Toolbar)
+	ttb.Append(layout.Toolbar, sep2, mmb)
 
 	sep := widget.NewSpace(ui)
 	sep.SetExpand(true, false)
@@ -43,10 +51,14 @@ func NewLayout(ui *UI) *Layout {
 	layout.Cols = NewColumns(layout)
 	layout.Cols.SetExpand(true, true)
 
-	layout.YAxis = true
-	layout.Append(ttb, sep, layout.Cols)
+	layout.BgLayer.YAxis = true
+	layout.BgLayer.Append(ttb, sep, layout.Cols)
 
-	return layout
+	// layer 1
+	layout.MenuLayer = &mmb.FloatMenu
+
+	// multi layer
+	layout.Append(layout.BgLayer, layout.MenuLayer)
 }
 
 func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {

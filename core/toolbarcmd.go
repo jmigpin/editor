@@ -10,8 +10,7 @@ import (
 	"github.com/jmigpin/editor/ui/tautil"
 )
 
-func ToolbarCmdFromLayout(ed *Editor, layout *ui.Layout) {
-	ta := layout.Toolbar.TextArea
+func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 	td := toolbardata.NewToolbarData(ta.Str(), ed.HomeVars())
 	part, ok := td.GetPartAtIndex(ta.CursorIndex())
 	if !ok {

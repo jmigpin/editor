@@ -74,12 +74,33 @@ func NewEditor(opt *Options) (*Editor, error) {
 	cmdutil.SetupDragNDrop(ed)
 
 	// set up layout toolbar
-	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | RowDirectory | Reload | DuplicateRow | "
-	ed.ui.Layout.Toolbar.SetStrClear(s, true, true)
-	// execute commands on layout toolbar
-	ed.ui.Layout.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
-		ToolbarCmdFromLayout(ed, ed.ui.Layout)
-	})
+	{
+		s := "Exit | ListSessions | NewColumn | NewRow | Reload | DuplicateRow | "
+		tb := ed.ui.Layout.Toolbar
+		tb.SetStrClear(s, true, true)
+		// execute commands on layout toolbar
+		tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+			ToolbarCmdFromLayout(ed, tb.TextArea)
+		})
+	}
+
+	// set up menu toolbar
+	{
+		s := `XdgOpenDir
+GotoLine
+RowDirectory | ReopenRow
+ListDir | ListDirHidden | ListDirSub 
+Reload | ReloadAll | ReloadAllFiles
+SaveAllFiles
+FontRunes
+ListSessions
+Exit | Stop`
+		tb := ed.ui.Layout.MainMenuButton.FloatMenu.Toolbar
+		tb.SetStrClear(s, true, true)
+		tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+			ToolbarCmdFromLayout(ed, tb.TextArea)
+		})
+	}
 
 	// layout home vars
 	ed.homeVars.Append("~", os.Getenv("HOME"))

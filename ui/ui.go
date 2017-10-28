@@ -34,7 +34,7 @@ func SetScrollbarAndSquareWidth(v int) {
 
 type UI struct {
 	win       *xwindow.Window
-	Layout    *Layout
+	Layout    Layout
 	fface1    font.Face
 	CursorMan *CursorMan
 
@@ -62,7 +62,7 @@ func NewUI(fface font.Face) (*UI, error) {
 
 	ui.CursorMan = NewCursorMan(ui)
 
-	ui.Layout = NewLayout(ui)
+	ui.Layout.Init(ui)
 
 	ui.EvReg.Add(xproto.Expose, ui.onExpose)
 	ui.EvReg.Add(evreg.ShmCompletionEventId, ui.onShmCompletion)
@@ -98,11 +98,16 @@ func (ui *UI) UpdateImageSize() {
 
 func (ui *UI) PaintIfNeeded() (painted bool) {
 	if ui.incompleteDraws == 0 {
-		uiutil.PaintIfNeeded(ui.Layout, func(r *image.Rectangle) {
+		var u []*image.Rectangle
+		uiutil.PaintIfNeeded(&ui.Layout, func(r *image.Rectangle) {
 			painted = true
 			ui.incompleteDraws++
-			ui.win.PutImage(r)
+			//ui.win.PutImage(r)
+			u = append(u, r)
 		})
+		for _, r := range u {
+			ui.win.PutImage(r)
+		}
 	}
 	return painted
 }
@@ -112,7 +117,8 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 
 func (ui *UI) onInput(ev0 interface{}) {
 	ev := ev0.(*xinput.InputEvent)
-	uiutil.ApplyInputEventInBounds(ui.Layout, ev.Event, ev.Point)
+	//ui.Layout.ApplyInputEvent(ev.Event, ev.Point)
+	uiutil.ApplyInputEventInBounds(&ui.Layout, ev.Event, ev.Point)
 }
 
 func (ui *UI) RequestPaint() {
