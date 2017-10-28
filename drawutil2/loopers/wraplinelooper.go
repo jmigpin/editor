@@ -102,7 +102,7 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 			}
 
 			// original rune
-			lpr.state = 4
+			lpr.state = 0
 			lpr.strl.RiClone = false
 			lpr.strl.Ru = origRu
 			lpr.strl.Pen.X = startPenX + movingAdv
@@ -111,7 +111,6 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 				return false
 			}
 
-			lpr.state = 0
 		} else {
 			if ok := fn(); !ok {
 				return false
@@ -182,11 +181,11 @@ func (lpr *WrapLineColorLooper) Init(wlinel *WrapLineLooper, dl *DrawLooper, bgl
 func (lpr *WrapLineColorLooper) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		switch lpr.wlinel.state {
-		case 1, 2:
+		case 1, 2: // bg1 and bg2
 			if lpr.Bg != nil {
 				lpr.bgl.Bg = lpr.Bg
 			}
-		case 3, 4:
+		case 3: // wrapline rune
 			if lpr.Fg != nil {
 				lpr.dl.Fg = lpr.Fg
 			}
