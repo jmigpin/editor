@@ -48,7 +48,9 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ui.SetScrollbarAndSquareWidth(opt.ScrollbarWidth)
 
 	if opt.AcmeColors {
-		ui.AcmeColors()
+		ui.AcmeThemeColors()
+	} else {
+		ui.LightThemeColors()
 	}
 
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
@@ -92,7 +94,7 @@ RowDirectory | ReopenRow
 ListDir | ListDirHidden | ListDirSub 
 Reload | ReloadAll | ReloadAllFiles
 SaveAllFiles
-FontRunes
+FontRunes | ColorTheme
 ListSessions
 Exit | Stop`
 		tb := ed.ui.Layout.MainMenuButton.FloatMenu.Toolbar

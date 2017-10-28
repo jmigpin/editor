@@ -49,6 +49,9 @@ func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 		cmdutil.OpenRowDirectory(ed)
 	case "DuplicateRow":
 		cmdutil.DuplicateRow(ed)
+	case "ColorTheme":
+		ui.CycleColorTheme()
+		ed.ui.Layout.MarkNeedsPaint()
 
 	case "FontRunes":
 		var u string
@@ -67,17 +70,18 @@ func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 		ed.Messagef("%s", ed.fwatcher.Status())
 
 	default:
-		// try running row command
 		erow, ok := ed.ActiveERower()
-		if ok {
-			ok := rowToolbarCmd(erow.(*ERow), part)
-			if ok {
-				return
-			}
+		if !ok {
+			ed.Errorf("unknown layout command (no active row): %v", part.Str)
+			return
+		}
+		// try running row command
+		ok = rowToolbarCmd(erow.(*ERow), part)
+		if !ok {
+			ed.Errorf("unknown command: %v", part.Str)
+			return
 		}
 		// TODO: consider running external command in new row
-		err := fmt.Errorf("unknown layout command (no row is selected or it's also not a row command): %v", part.Str)
-		ed.Error(err)
 	}
 }
 

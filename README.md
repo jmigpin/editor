@@ -147,6 +147,7 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 - `RowDirectory`: get the active-row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.
 - `DuplicateRow`: make active-row share the edit history with a new row that updates when changes are made.
 - `XdgOpenDir`: calls xdg-open to open the active-row directory with the preferred external application (ex: a filemanager)
+- `ColorTheme`: cycles through available color themes.
 - `Exit`: exits the program
 
 #### Row toolbar commands
