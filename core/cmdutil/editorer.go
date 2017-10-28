@@ -10,10 +10,10 @@ type Editorer interface {
 	Errorf(string, ...interface{})
 	UI() *ui.UI
 
-	NewERowBeforeRow(string, *ui.Column, *ui.Row) ERower
-	FindERow(string) (ERower, bool)
-	ERows() []ERower
-	ActiveERow() (ERower, bool)
+	NewERowerBeforeRow(string, *ui.Column, *ui.Row) ERower
+	ERowers() []ERower
+	FindERower(string) (ERower, bool)
+	ActiveERower() (ERower, bool)
 
 	GoodColumnRowPlace() (col *ui.Column, next *ui.Row)
 

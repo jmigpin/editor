@@ -1,7 +1,7 @@
 package cmdutil
 
 func DuplicateRow(ed Editorer) {
-	erow, ok := ed.ActiveERow()
+	erow, ok := ed.ActiveERower()
 	if !ok {
 		return
 	}
@@ -25,7 +25,7 @@ func DuplicateRow(ed Editorer) {
 	// make duplicate (have same filename)
 	filename := erow.Filename()
 	tbStr := filename
-	erow2 := ed.NewERowBeforeRow(tbStr, col, next)
+	erow2 := ed.NewERowerBeforeRow(tbStr, col, next)
 
 	erow.UpdateState() // visual cue for duplicates
 	erow.UpdateDuplicates()

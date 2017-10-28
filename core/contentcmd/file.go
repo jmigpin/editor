@@ -42,10 +42,10 @@ func file(erow cmdutil.ERower, str string) bool {
 
 	// erow
 	ed := erow.Ed()
-	erow2, ok := ed.FindERow(filename)
+	erow2, ok := ed.FindERower(filename)
 	if !ok {
 		col, nextRow := ed.GoodColumnRowPlace()
-		erow2 = ed.NewERowBeforeRow(filename, col, nextRow)
+		erow2 = ed.NewERowerBeforeRow(filename, col, nextRow)
 		err := erow2.LoadContentClear()
 		if err != nil {
 			ed.Error(err)

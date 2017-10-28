@@ -15,7 +15,7 @@ func NewRow(ed Editorer) {
 
 	col, nextRow := ed.GoodColumnRowPlace()
 
-	erow2, ok := ed.ActiveERow()
+	erow2, ok := ed.ActiveERower()
 	if ok {
 		fp := erow2.Filename()
 
@@ -36,6 +36,6 @@ func NewRow(ed Editorer) {
 		}
 	}
 
-	erow := ed.NewERowBeforeRow(p, col, nextRow)
+	erow := ed.NewERowerBeforeRow(p, col, nextRow)
 	erow.Row().WarpPointer()
 }

@@ -21,6 +21,7 @@ type ERower interface {
 	Filename() string
 	Dir() string
 	IsDir() bool
+	IsRegular() bool
 
 	TextAreaAppendAsync(string)
 

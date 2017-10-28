@@ -68,7 +68,7 @@ func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 
 	default:
 		// try running row command
-		erow, ok := ed.ActiveERow()
+		erow, ok := ed.ActiveERower()
 		if ok {
 			ok := rowToolbarCmd(erow.(*ERow), part)
 			if ok {

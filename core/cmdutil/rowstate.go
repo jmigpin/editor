@@ -25,7 +25,7 @@ func NewRowState(row *ui.Row) *RowState {
 	return rs
 }
 func NewERowFromRowState(ed Editorer, state *RowState, col *ui.Column, nextRow *ui.Row) ERower {
-	erow := ed.NewERowBeforeRow(state.TbStr, col, nextRow)
+	erow := ed.NewERowerBeforeRow(state.TbStr, col, nextRow)
 	row := erow.Row()
 	row.Toolbar.SetCursorIndex(state.TbCursorIndex)
 	err := erow.LoadContentClear()

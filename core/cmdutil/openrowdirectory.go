@@ -8,7 +8,7 @@ import (
 )
 
 func OpenRowDirectory(ed Editorer) {
-	erow, ok := ed.ActiveERow()
+	erow, ok := ed.ActiveERower()
 	if !ok {
 		return
 	}
@@ -31,9 +31,9 @@ func OpenRowDirectory(ed Editorer) {
 	erow2.Row().WarpPointer()
 }
 func OpenDirectoryRow(ed Editorer, path string, col *ui.Column, next *ui.Row) ERower {
-	erow, ok := ed.FindERow(path)
+	erow, ok := ed.FindERower(path)
 	if !ok {
-		erow = ed.NewERowBeforeRow(path, col, next)
+		erow = ed.NewERowerBeforeRow(path, col, next)
 		err := erow.LoadContentClear()
 		if err != nil {
 			erow.Ed().Error(err)

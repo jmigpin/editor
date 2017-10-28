@@ -176,10 +176,10 @@ func ListSessions(ed Editorer) {
 		str += fmt.Sprintf("OpenSession %v\n", session.Name)
 	}
 	s := "+Sessions"
-	erow, ok := ed.FindERow(s)
+	erow, ok := ed.FindERower(s)
 	if !ok {
 		col, nextRow := ed.GoodColumnRowPlace()
-		erow = ed.NewERowBeforeRow(s, col, nextRow)
+		erow = ed.NewERowerBeforeRow(s, col, nextRow)
 	}
 	erow.Row().TextArea.SetStrClear(str, false, false)
 }

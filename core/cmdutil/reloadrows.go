@@ -1,7 +1,7 @@
 package cmdutil
 
 func ReloadRows(ed Editorer) {
-	for _, erow := range ed.ERows() {
+	for _, erow := range ed.ERowers() {
 		ReloadRow(erow)
 	}
 }
@@ -13,7 +13,7 @@ func ReloadRow(erow ERower) {
 }
 
 func ReloadRowsFiles(ed Editorer) {
-	for _, erow := range ed.ERows() {
+	for _, erow := range ed.ERowers() {
 		if erow.IsSpecialName() || erow.IsDir() {
 			continue
 		}

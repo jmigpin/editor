@@ -131,9 +131,9 @@ func (ed *Editor) openInitialRows(opt *Options) {
 	if len(opt.Filenames) > 0 {
 		col, _ := ed.ui.Layout.Cols.FirstChildColumn()
 		for _, s := range opt.Filenames {
-			_, ok := ed.FindERow(s)
+			_, ok := ed.FindERower(s)
 			if !ok {
-				erow := ed.NewERowBeforeRow(s, col, nil) // position at end
+				erow := ed.NewERowerBeforeRow(s, col, nil) // position at end
 				err := erow.LoadContentClear()
 				if err != nil {
 					ed.Error(err)
@@ -197,7 +197,7 @@ func (ed *Editor) HomeVars() *toolbardata.HomeVars {
 	return &ed.homeVars
 }
 
-func (ed *Editor) ERows() []cmdutil.ERower {
+func (ed *Editor) ERowers() []cmdutil.ERower {
 	u := make([]cmdutil.ERower, len(ed.erows))
 	i := 0
 	for _, erow := range ed.erows {
@@ -207,7 +207,7 @@ func (ed *Editor) ERows() []cmdutil.ERower {
 	return u
 }
 
-func (ed *Editor) NewERowBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row) cmdutil.ERower {
+func (ed *Editor) NewERowerBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row) cmdutil.ERower {
 	row := col.NewRowBefore(nextRow)
 	erow := NewERow(ed, row, tbStr)
 
@@ -223,7 +223,7 @@ func (ed *Editor) NewERowBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row
 	return erow
 }
 
-func (ed *Editor) FindERow(str string) (cmdutil.ERower, bool) {
+func (ed *Editor) FindERower(str string) (cmdutil.ERower, bool) {
 	// If iterate over ed.erows, then finderow will not be deterministic
 	// Important when clicking a file name with duplicate rows present,
 	// and not going to the same row consistently.
@@ -255,10 +255,10 @@ func (ed *Editor) Messagef(f string, a ...interface{}) {
 }
 func (ed *Editor) messagesERow() cmdutil.ERower {
 	s := "+Messages" // special name format
-	erow, ok := ed.FindERow(s)
+	erow, ok := ed.FindERower(s)
 	if !ok {
 		col, nextRow := ed.GoodColumnRowPlace()
-		erow = ed.NewERowBeforeRow(s, col, nextRow)
+		erow = ed.NewERowerBeforeRow(s, col, nextRow)
 	}
 	return erow
 }
@@ -268,7 +268,7 @@ func (ed *Editor) IsSpecialName(s string) bool {
 }
 
 // Used to run layout toolbar commands.
-func (ed *Editor) ActiveERow() (cmdutil.ERower, bool) {
+func (ed *Editor) ActiveERower() (cmdutil.ERower, bool) {
 	for _, erow := range ed.erows {
 		if erow.row.Square.Value(ui.SquareActive) {
 			return erow, true

@@ -10,8 +10,10 @@ import (
 )
 
 func SaveRowsFiles(ed Editorer) {
-	for _, erow := range ed.ERows() {
-		SaveRowFile(erow)
+	for _, erow := range ed.ERowers() {
+		if erow.IsRegular() {
+			SaveRowFile(erow)
+		}
 	}
 }
 func SaveRowFile(erow ERower) {

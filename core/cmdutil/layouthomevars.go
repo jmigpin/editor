@@ -52,7 +52,7 @@ func (lhv *LayoutHomeVars) update(ev *ui.TextAreaSetStrEvent) {
 
 	// get all decoded toolbars in all rows
 	m := make(map[ERower]string)
-	for _, erow := range lhv.ed.ERows() {
+	for _, erow := range lhv.ed.ERowers() {
 		td := erow.ToolbarData()
 		decoded := td.StrWithPart0Arg0Decoded()
 		m[erow] = decoded

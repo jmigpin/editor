@@ -3,7 +3,7 @@ package cmdutil
 import "os/exec"
 
 func XdgOpenDirShortcut(ed Editorer) {
-	erow, ok := ed.ActiveERow()
+	erow, ok := ed.ActiveERower()
 	if !ok {
 		return
 	}

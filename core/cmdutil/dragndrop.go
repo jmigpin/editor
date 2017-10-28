@@ -137,7 +137,7 @@ func (h *dndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL
 			row = nil // pushback
 		}
 	}
-	erow := h.ed.NewERowBeforeRow(u.Path, col, row)
+	erow := h.ed.NewERowerBeforeRow(u.Path, col, row)
 	err := erow.LoadContentClear()
 	if err != nil {
 		h.ed.Error(err)
