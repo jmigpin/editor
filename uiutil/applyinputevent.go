@@ -50,11 +50,11 @@ func (aie *ApplyInputEvent) apply(node widget.Node, ev interface{}, p image.Poin
 		dragWasOn := aie.drag.on
 		_ = aie.applyInbound(node, evt, p)
 		_ = aie.mouseDragEnd(evt, p)
-		if dragWasOn {
-			_ = aie.mouseEnter(node, p)
-		}
 		if !dragWasOn {
 			_ = aie.multipleClickMouseUp(node, evt, p)
+		}
+		if dragWasOn && !aie.drag.on {
+			_ = aie.mouseEnter(node, p)
 		}
 	default:
 		_ = aie.applyInbound(node, ev, p)
@@ -82,7 +82,7 @@ func (aie *ApplyInputEvent) mouseLeave(node widget.Node, p image.Point) bool {
 		return false
 	}
 	h := false
-	for c := node.FirstChild(); c != nil; c = c.Next() {
+	for c := node.LastChild(); c != nil; c = c.Prev() {
 		h = aie.mouseLeave(c, p) || h
 	}
 	if !p.In(node.Bounds()) {
@@ -167,7 +167,8 @@ func (aie *ApplyInputEvent) visitDepthFirst(node widget.Node, p image.Point, fn 
 }
 func (aie *ApplyInputEvent) visitDepthFirst2(node widget.Node, p image.Point, fn func(node widget.Node) bool) bool {
 	h := false
-	for c := node.FirstChild(); c != nil; c = c.Next() {
+	// later childs could be drawn over previous ones, run loop backwards
+	for c := node.LastChild(); c != nil; c = c.Prev() {
 		if p.In(c.Bounds()) {
 			h = aie.visitDepthFirst2(c, p, fn) || h
 			break
