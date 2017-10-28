@@ -10,20 +10,19 @@ import (
 
 type Button struct {
 	ShellEmbedNode
-	Label  *Label
+	Label  Label
 	Sticky bool
 
-	fg, bg color.Color
+	fg, bg *color.Color
 	down   bool
 	active bool
 }
 
-func NewButton(ctx Context) *Button {
-	b := &Button{}
+func (b *Button) Init(ctx Context) {
+	*b = Button{}
 	b.SetWrapper(b)
-	b.Label = NewLabel(ctx)
-	b.Append(b.Label)
-	return b
+	b.Label.Init(ctx)
+	b.Append(&b.Label)
 }
 func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 
@@ -40,7 +39,8 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		b.Label.Bg = b.fg
 	}
 	hoverShade := func() {
-		b.Label.Bg = imageutil.Shade(b.bg, 0.10)
+		var c color.Color = imageutil.Shade(*b.bg, 0.10)
+		b.Label.Bg = &c
 	}
 
 	switch ev0.(type) {

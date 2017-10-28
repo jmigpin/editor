@@ -18,7 +18,7 @@ type Row struct {
 	EvReg    *evreg.Register
 
 	scrollArea    *ScrollArea
-	sep           *widget.Space
+	sep           widget.Rectangle
 	closingCursor bool
 }
 
@@ -39,28 +39,30 @@ func NewRow(col *Column) *Row {
 	row.Square.EvReg.Add(SquareInputEventId, row.onSquareInput)
 
 	// row separator from other rows
-	row.sep = widget.NewSpace(ui)
+	row.sep.Init(ui)
 	row.sep.SetExpand(true, false)
 	row.sep.Size.Y = SeparatorWidth
-	row.sep.Color = SeparatorColor
+	row.sep.Color = &SeparatorColor
 
 	// square and toolbar
 	tb := widget.NewFlowLayout()
-	sep1 := widget.NewSpace(ui)
-	sep1.Color = RowInnerSeparatorColor
+	var sep1 widget.Rectangle
+	sep1.Init(ui)
+	sep1.Color = &RowInnerSeparatorColor
 	sep1.Size.X = SeparatorWidth
 	sep1.SetFill(false, true)
 	if ScrollbarLeft {
-		tb.Append(row.Square, sep1, row.Toolbar)
+		tb.Append(row.Square, &sep1, row.Toolbar)
 	} else {
-		tb.Append(row.Toolbar, sep1, row.Square)
+		tb.Append(row.Toolbar, &sep1, row.Square)
 	}
 
 	// toolbar separator from scrollarea
-	tbSep := widget.NewSpace(ui)
+	var tbSep widget.Rectangle
+	tbSep.Init(ui)
 	tbSep.SetExpand(true, false)
 	tbSep.Size.Y = SeparatorWidth
-	tbSep.Color = RowInnerSeparatorColor
+	tbSep.Color = &RowInnerSeparatorColor
 
 	// scrollarea with textarea
 	row.TextArea = NewTextArea(ui)
@@ -69,11 +71,11 @@ func NewRow(col *Column) *Row {
 	row.scrollArea.SetExpand(true, true)
 	row.scrollArea.LeftScroll = ScrollbarLeft
 	row.scrollArea.ScrollWidth = ScrollbarWidth
-	row.scrollArea.VBar.Color = ScrollbarBgColor
-	row.scrollArea.VBar.Handle.Color = ScrollbarFgColor
+	row.scrollArea.VBar.Color = &ScrollbarBgColor
+	row.scrollArea.VBar.Handle.Color = &ScrollbarFgColor
 
 	row.YAxis = true
-	row.Append(row.sep, tb, tbSep, row.scrollArea)
+	row.Append(&row.sep, tb, &tbSep, row.scrollArea)
 
 	return row
 }

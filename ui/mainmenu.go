@@ -2,14 +2,13 @@ package ui
 
 import (
 	"image"
-	"image/color"
 
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 )
 
 type MainMenuButton struct {
-	*widget.Button
+	widget.Button
 	FloatMenu FloatMenu
 
 	ui *UI
@@ -17,7 +16,7 @@ type MainMenuButton struct {
 
 func NewMainMenuButton(ui *UI) *MainMenuButton {
 	m := &MainMenuButton{ui: ui}
-	m.Button = widget.NewButton(ui)
+	m.Button.Init(ui)
 	m.SetWrapper(m)
 	m.Button.Label.Text.Str = string(rune(8801)) // 3 lines rune
 	m.Button.Label.Pad.Left = 5
@@ -53,14 +52,16 @@ func (fm *FloatMenu) Init(m *MainMenuButton) {
 	*fm = FloatMenu{m: m}
 
 	fm.Toolbar = NewToolbar(m.ui, &m.ui.Layout)
-	pad := widget.NewBorder(m.ui, fm.Toolbar)
+	var pad widget.Pad
+	pad.Init(m.ui, fm.Toolbar)
 	pad.Set(10)
-	pad.Color = fm.Toolbar.Colors.Normal.Bg
-	border := widget.NewBorder(m.ui, pad)
+	pad.Color = &fm.Toolbar.Colors.Normal.Bg
+	var border widget.Pad
+	border.Init(m.ui, &pad)
 	border.Set(1)
-	border.Color = color.Black
+	border.Color = &fm.Toolbar.Colors.Normal.Fg
 
-	fm.FloatBox.Init(m.Button, border)
+	fm.FloatBox.Init(&m.Button, &border)
 	fm.SetWrapper(fm)
 
 	fm.SetHidden(true)

@@ -8,27 +8,26 @@ import (
 
 type Label struct {
 	ShellEmbedNode
-	Text   *BasicText
-	Border *Border
-	Pad    *Border
-	Bg     color.Color
+	Text   BasicText
+	Border Pad
+	Pad    Pad
+	Bg     *color.Color
 	ctx    Context
 }
 
-func NewLabel(ctx Context) *Label {
-	l := &Label{}
+func (l *Label) Init(ctx Context) {
+	*l = Label{}
 	l.SetWrapper(l)
 	l.ctx = ctx
-	l.Bg = color.White
-	l.Text = NewBasicText(ctx)
-	l.Pad = NewBorder(ctx, l.Text)
-	l.Border = NewBorder(ctx, l.Pad)
-	l.Append(l.Border)
-	return l
+	l.Text.Init(ctx)
+	l.Pad.Init(ctx, &l.Text)
+	l.Border.Init(ctx, &l.Pad)
+	l.Append(&l.Border)
 }
 func (l *Label) Paint() {
-	if l.Bg != nil {
-		u := l.Bounds()
-		imageutil.FillRectangle(l.ctx.Image(), &u, l.Bg)
+	if l.Bg == nil {
+		return
 	}
+	u := l.Bounds()
+	imageutil.FillRectangle(l.ctx.Image(), &u, *l.Bg)
 }

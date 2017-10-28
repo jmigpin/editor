@@ -7,30 +7,28 @@ import (
 
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/uiutil/event"
-	"golang.org/x/image/colornames"
 )
 
 type ScrollArea struct {
 	ContainerEmbedNode
 	ScrollWidth int
 	LeftScroll  bool
-	VBar        *ScrollBar
+	VBar        ScrollBar
 
 	content Node
 	updater ScrollAreaUpdater
 }
 
-func NewScrollArea(ctx Context, updater ScrollAreaUpdater, content Node) *ScrollArea {
-	sa := &ScrollArea{
+func (sa *ScrollArea) Init(ctx Context, updater ScrollAreaUpdater, content Node) {
+	*sa = ScrollArea{
 		ScrollWidth: 10,
 		LeftScroll:  true,
+		content:     content,
+		updater:     updater,
 	}
 	sa.SetWrapper(sa)
-	sa.VBar = NewScrollBar(ctx, sa)
-	sa.content = content
-	sa.updater = updater
-	sa.Append(sa.VBar, sa.content)
-	return sa
+	sa.VBar.Init(ctx, sa)
+	sa.Append(&sa.VBar, sa.content)
 }
 
 func (sa *ScrollArea) CalcPosition(offset, height, viewh float64) {
@@ -64,7 +62,6 @@ func (sa *ScrollArea) calcPositionFromPoint(p *image.Point) {
 	viewh := sa.VBar.sizePercent
 
 	// avoid small adjustments to the textarea if the handle doesn't move
-	//sp
 
 	sa.CalcPosition(offset, height, viewh)
 	sa.updater.UpdatePositionFromPoint()
@@ -163,8 +160,8 @@ type ScrollAreaUpdater interface {
 
 type ScrollBar struct {
 	ShellEmbedNode
-	Color  color.Color
-	Handle *ScrollHandle
+	Handle ScrollHandle
+	Color  *color.Color
 
 	sizePercent     float64
 	positionPercent float64
@@ -177,22 +174,15 @@ type ScrollBar struct {
 	ctx Context
 }
 
-func NewScrollBar(ctx Context, sa *ScrollArea) *ScrollBar {
-	sb := &ScrollBar{}
+func (sb *ScrollBar) Init(ctx Context, sa *ScrollArea) {
+	*sb = ScrollBar{ctx: ctx, sa: sa}
 	sb.SetWrapper(sb)
-
-	sb.ctx = ctx
-	sb.sa = sa
 	sb.positionPercent = 0.0
 	sb.sizePercent = 1.0
-	sb.Color = colornames.Antiquewhite
 
-	sb.Handle = NewScrollHandle(sb)
-	sb.Handle.Color = colornames.Orange
+	sb.Handle.Init(ctx, sb)
 	sb.Handle.Marks().SetNotDraggable(true)
-	sb.Append(sb.Handle)
-
-	return sb
+	sb.Append(&sb.Handle)
 }
 func (sb *ScrollBar) setPressPad(p *image.Point) {
 	b := sb.Handle.Bounds()
@@ -210,8 +200,11 @@ func (sb *ScrollBar) Measure(hint image.Point) image.Point {
 	return image.Point{}
 }
 func (sb *ScrollBar) Paint() {
+	if sb.Color == nil {
+		return
+	}
 	u := sb.Bounds()
-	imageutil.FillRectangle(sb.ctx.Image(), &u, sb.Color)
+	imageutil.FillRectangle(sb.ctx.Image(), &u, *sb.Color)
 }
 func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
 	switch evt := ev.(type) {
@@ -255,33 +248,35 @@ func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
 
 type ScrollHandle struct {
 	LeafEmbedNode
-	Color color.Color
+	Color *color.Color
 
+	ctx    Context
+	sb     *ScrollBar
 	inside bool
-
-	sb *ScrollBar
 }
 
-func NewScrollHandle(sb *ScrollBar) *ScrollHandle {
-	sh := &ScrollHandle{sb: sb}
+func (sh *ScrollHandle) Init(ctx Context, sb *ScrollBar) {
+	*sh = ScrollHandle{ctx: ctx, sb: sb}
 	sh.SetWrapper(sh)
-	return sh
 }
 func (sh *ScrollHandle) Measure(hint image.Point) image.Point {
 	return image.Point{}
 }
 func (sh *ScrollHandle) Paint() {
+	if sh.Color == nil {
+		return
+	}
 	var c color.Color
 	if sh.sb.clicking || sh.sb.dragging {
-		c = sh.Color
+		c = *sh.Color
 	} else if sh.inside {
-		c = imageutil.Tint(sh.Color, 0.30)
+		c = imageutil.Tint(*sh.Color, 0.30)
 	} else {
 		// normal
-		c = imageutil.Tint(sh.Color, 0.40)
+		c = imageutil.Tint(*sh.Color, 0.40)
 	}
 	b := sh.Bounds()
-	imageutil.FillRectangle(sh.sb.ctx.Image(), &b, c)
+	imageutil.FillRectangle(sh.ctx.Image(), &b, c)
 }
 func (sh *ScrollHandle) OnInputEvent(ev interface{}, p image.Point) bool {
 	switch ev.(type) {

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image"
-	"image/color"
 
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/imageutil"
@@ -16,7 +15,7 @@ type Column struct {
 	Cols       *Columns
 	RowsLayout *widget.EndPercentLayout
 
-	sep           *widget.Space
+	sep           widget.Rectangle
 	sqc           *widget.FlowLayout // square container (show/hide)
 	closingCursor bool
 }
@@ -31,35 +30,36 @@ func NewColumn(cols *Columns) *Column {
 	col.Square = NewSquare(ui)
 	col.Square.EvReg.Add(SquareInputEventId, col.onSquareInput)
 
-	col.sep = widget.NewSpace(ui)
+	col.sep.Init(ui)
 	col.sep.SetExpand(false, true)
 	col.sep.Size.X = SeparatorWidth
-	col.sep.Color = SeparatorColor
+	col.sep.Color = &SeparatorColor
 
 	col.RowsLayout = widget.NewEndPercentLayout()
 	col.RowsLayout.YAxis = true
 
 	// square (when there are no rows)
 	col.sqc = widget.NewFlowLayout()
-	sqBorder := widget.NewBorder(ui, col.Square)
-	sqBorder.Color = RowInnerSeparatorColor
+	var sqBorder widget.Pad
+	sqBorder.Init(ui, col.Square)
+	sqBorder.Color = &RowInnerSeparatorColor
 	sqBorder.Bottom = SeparatorWidth
-	space := widget.NewSpace(ui)
+	var space widget.Rectangle
+	space.Init(ui)
 	space.SetFill(true, true)
-	space.Color = nil // filled by full bg paint
 	if ScrollbarLeft {
 		sqBorder.Right = SeparatorWidth
-		col.sqc.Append(sqBorder, space)
+		col.sqc.Append(&sqBorder, &space)
 	} else {
 		sqBorder.Left = SeparatorWidth
-		col.sqc.Append(space, sqBorder)
+		col.sqc.Append(&space, &sqBorder)
 	}
 
 	rightSide := widget.NewFlowLayout()
 	rightSide.YAxis = true
 	rightSide.Append(col.sqc, col.RowsLayout)
 
-	col.Append(col.sep, rightSide)
+	col.Append(&col.sep, rightSide)
 
 	return col
 }
@@ -73,7 +73,7 @@ func (col *Column) Paint() {
 	if len(col.RowsLayout.Childs()) == 0 {
 		ui := col.Cols.Layout.UI
 		b := col.Bounds()
-		imageutil.FillRectangle(ui.Image(), &b, color.White)
+		imageutil.FillRectangle(ui.Image(), &b, ColumnBgColor)
 		return
 	}
 }

@@ -9,25 +9,22 @@ import (
 
 type Rectangle struct {
 	LeafEmbedNode
-	Color color.Color
 	Size  image.Point
+	Color *color.Color
 	ctx   Context
 }
 
-func NewRectangle(ctx Context) *Rectangle {
-	r := &Rectangle{
-		ctx:  ctx,
-		Size: image.Point{10, 10}, // this size is used in tests
-	}
+func (r *Rectangle) Init(ctx Context) {
+	*r = Rectangle{ctx: ctx}
 	r.SetWrapper(r)
-	return r
 }
 func (r *Rectangle) Measure(max image.Point) image.Point {
 	return r.Size
 }
 func (r *Rectangle) Paint() {
-	if r.Color != nil {
-		b := r.Bounds()
-		imageutil.FillRectangle(r.ctx.Image(), &b, r.Color)
+	if r.Color == nil {
+		return
 	}
+	b := r.Bounds()
+	imageutil.FillRectangle(r.ctx.Image(), &b, *r.Color)
 }

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image"
-	"image/color"
 
 	"github.com/jmigpin/editor/uiutil/widget"
 )
@@ -28,8 +27,9 @@ func (layout *Layout) Init(ui *UI) {
 
 	mmb := NewMainMenuButton(ui)
 	mmb.Label.Border.Left = 1
-	mmb.Label.Border.Color = color.Black
-	mmb.Label.Bg = ToolbarColors.Normal.Bg
+	mmb.Label.Border.Color = &SeparatorColor
+	mmb.Label.Bg = &ToolbarColors.Normal.Bg
+	mmb.Label.Text.Color = &ToolbarColors.Normal.Fg
 	mmb.SetFill(false, true)
 	layout.MainMenuButton = mmb
 
@@ -37,22 +37,24 @@ func (layout *Layout) Init(ui *UI) {
 	layout.Toolbar.SetExpand(true, false)
 
 	ttb := widget.NewFlowLayout()
-	sep2 := widget.NewSpace(ui)
+	var sep2 widget.Rectangle
+	sep2.Init(ui)
 	sep2.SetFill(false, true)
 	sep2.Size.X = 5
-	sep2.Color = ToolbarColors.Normal.Bg
-	ttb.Append(layout.Toolbar, sep2, mmb)
+	sep2.Color = &ToolbarColors.Normal.Bg
+	ttb.Append(layout.Toolbar, &sep2, mmb)
 
-	sep := widget.NewSpace(ui)
+	var sep widget.Rectangle
+	sep.Init(ui)
 	sep.SetExpand(true, false)
 	sep.Size.Y = SeparatorWidth
-	sep.Color = SeparatorColor
+	sep.Color = &SeparatorColor
 
 	layout.Cols = NewColumns(layout)
 	layout.Cols.SetExpand(true, true)
 
 	layout.BgLayer.YAxis = true
-	layout.BgLayer.Append(ttb, sep, layout.Cols)
+	layout.BgLayer.Append(ttb, &sep, layout.Cols)
 
 	// layer 1
 	layout.MenuLayer = &mmb.FloatMenu
