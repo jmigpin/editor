@@ -44,9 +44,14 @@ func NewEditor(opt *Options) (*Editor, error) {
 
 	ui.SetScrollbarAndSquareWidth(opt.ScrollbarWidth)
 
-	if opt.AcmeColors {
+	switch opt.ColorTheme {
+	case "light":
+		ui.LightThemeColors()
+	case "dark":
+		ui.DarkThemeColors()
+	case "acme":
 		ui.AcmeThemeColors()
-	} else {
+	default:
 		ui.LightThemeColors()
 	}
 
@@ -358,7 +363,7 @@ type Options struct {
 	FontSize       float64
 	DPI            float64
 	ScrollbarWidth int
-	AcmeColors     bool
+	ColorTheme     string
 	WrapLineRune   int
 	TabWidth       int
 	ScrollbarLeft  bool

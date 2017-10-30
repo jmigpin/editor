@@ -31,8 +31,8 @@ go build
 ```
 ./editor --help
 Usage of ./editor:
-  -acmecolors
-    	acme editor color theme
+  -colortheme string
+    	available: light, dark, acme (default "light")
   -cpuprofile string
     	profile cpu filename
   -dpi float
@@ -50,7 +50,7 @@ Usage of ./editor:
   -tabwidth int
     	 (default 8)
   -wraplinerune int
-    	code for wrap line rune (default 8596)
+    	code for wrap line rune, can be set to zero for a space of half line height (default 8594)
 ```
 
 ### Basic Layout

@@ -20,7 +20,7 @@ func main() {
 	fontSizeFlag := flag.Float64("fontsize", 12, "")
 	dpiFlag := flag.Float64("dpi", 72, "monitor dots per inch")
 	scrollbarWidth := flag.Int("scrollbarwidth", 12, "textarea scrollbar width")
-	acmeColors := flag.Bool("acmecolors", false, "acme editor color theme")
+	colorTheme := flag.String("colortheme", "light", "available: light, dark, acme")
 	wrapLineRune := flag.Int("wraplinerune", 8594, "code for wrap line rune, can be set to zero for a space of half line height")
 	tabWidth := flag.Int("tabwidth", 8, "")
 	scrollbarLeft := flag.Bool("scrollbarleft", true, "set scrollbars on the left side")
@@ -42,7 +42,7 @@ func main() {
 		FontSize:       *fontSizeFlag,
 		DPI:            *dpiFlag,
 		ScrollbarWidth: *scrollbarWidth,
-		AcmeColors:     *acmeColors,
+		ColorTheme:     *colorTheme,
 		WrapLineRune:   *wrapLineRune,
 		TabWidth:       *tabWidth,
 		ScrollbarLeft:  *scrollbarLeft,
