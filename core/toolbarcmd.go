@@ -52,6 +52,10 @@ func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 	case "ColorTheme":
 		ui.CycleColorTheme()
 		ed.ui.Layout.MarkNeedsPaint()
+	case "FontTheme":
+		ui.CycleFontTheme()
+		ed.ui.Layout.CalcChildsBounds()
+		ed.ui.Layout.MarkNeedsPaint()
 
 	case "FontRunes":
 		var u string

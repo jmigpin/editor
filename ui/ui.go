@@ -35,7 +35,6 @@ func SetScrollbarAndSquareWidth(v int) {
 type UI struct {
 	win       *xwindow.Window
 	Layout    Layout
-	fface1    font.Face
 	CursorMan *CursorMan
 
 	EvReg   *evreg.Register
@@ -44,9 +43,8 @@ type UI struct {
 	incompleteDraws int
 }
 
-func NewUI(fface font.Face) (*UI, error) {
+func NewUI() (*UI, error) {
 	ui := &UI{
-		fface1:  fface,
 		Events2: make(chan interface{}, 256),
 	}
 
@@ -132,7 +130,7 @@ func (ui *UI) Image() draw.Image {
 
 // Implements widget.Context
 func (ui *UI) FontFace1() font.Face {
-	return ui.fface1
+	return FontFace
 }
 
 func (ui *UI) QueryPointer() (*image.Point, bool) {

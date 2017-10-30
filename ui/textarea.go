@@ -13,6 +13,7 @@ import (
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
+	"golang.org/x/image/font"
 )
 
 type TextArea struct {
@@ -44,6 +45,7 @@ type TextArea struct {
 
 	lastMeasureHint image.Point
 	measurement     image.Point
+	measureFace     font.Face
 
 	execCursor bool
 }
@@ -68,7 +70,11 @@ func (ta *TextArea) measureChilds(hint image.Point) image.Point {
 	// This textarea should have no child nodes.
 
 	// cache measurement
-	if ta.str != ta.drawer.Str || hint.X != ta.lastMeasureHint.X {
+	face := ta.ui.FontFace1()
+	if ta.str != ta.drawer.Str || hint.X != ta.lastMeasureHint.X || ta.measureFace != face {
+
+		ta.measureFace = face
+		ta.drawer.Face = face
 
 		// keep offset for restoration
 		offsetIndex := 0

@@ -2,16 +2,13 @@ package core
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"time"
 
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/BurntSushi/xgb"
-	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
 	"github.com/jmigpin/editor/core/toolbardata"
@@ -55,13 +52,21 @@ func NewEditor(opt *Options) (*Editor, error) {
 
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
-	fface, err := ed.getFontFace(opt)
-	if err != nil {
-		return nil, err
+	// font
+	ui.FontOpt.Hinting = font.HintingFull
+	ui.FontOpt.Size = opt.FontSize
+	ui.FontOpt.DPI = opt.DPI
+	if opt.FontFilename != "" {
+		err := ui.SetNamedFont(opt.FontFilename)
+		if err != nil {
+			log.Print(err)
+			ui.DefaultFont()
+		}
+	} else {
+		ui.DefaultFont()
 	}
-	defer fface.Close()
 
-	ui0, err := ui.NewUI(fface)
+	ui0, err := ui.NewUI()
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +99,7 @@ RowDirectory | ReopenRow
 ListDir | ListDirHidden | ListDirSub 
 Reload | ReloadAll | ReloadAllFiles
 SaveAllFiles
-FontRunes | ColorTheme
+FontRunes | FontTheme | ColorTheme
 ListSessions
 Exit | Stop`
 		tb := ed.ui.Layout.MainMenuButton.FloatMenu.Toolbar
@@ -156,36 +161,6 @@ func (ed *Editor) openInitialRows(opt *Options) {
 			cmdutil.OpenDirectoryRow(ed, dir, col, nil)
 		}
 	}
-}
-
-func (ed *Editor) getFontFace(opt *Options) (font.Face, error) {
-	// test font
-	// "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-
-	ttf := goregular.TTF // default font
-
-	if opt.FontFilename != "" {
-		ttf2, err := ioutil.ReadFile(opt.FontFilename)
-		if err != nil {
-			// show error and continue with default
-			log.Println(err)
-		} else {
-			ttf = ttf2
-		}
-	}
-
-	f, err := truetype.Parse(ttf)
-	if err != nil {
-		return nil, err
-	}
-
-	ttOpt := &truetype.Options{
-		Hinting: font.HintingFull,
-		Size:    opt.FontSize,
-		DPI:     opt.DPI,
-	}
-	fface := drawutil2.NewFace(f, ttOpt)
-	return fface, nil
 }
 
 func (ed *Editor) Close() {
