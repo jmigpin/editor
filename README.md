@@ -2,10 +2,9 @@
 
 Source code editor in pure Go.
 
-![screenshot](./screenshot2.png)
+![screenshot](./screenshot.png)
 
-![screenshot](./screenshot3.png)
-Screenshot taken using DejaVuSans.ttf font.
+![screenshot](./screenshot2.png)
 
 - This is a know-what-you're-doing source code editor
 - As the editor is being developed, the rules of how the UI interacts will become more well defined.
