@@ -95,19 +95,41 @@ func (ui *UI) UpdateImageSize() {
 }
 
 func (ui *UI) PaintIfNeeded() (painted bool) {
-	if ui.incompleteDraws == 0 {
-		var u []*image.Rectangle
-		uiutil.PaintIfNeeded(&ui.Layout, func(r *image.Rectangle) {
-			painted = true
-			ui.incompleteDraws++
-			//ui.win.PutImage(r)
-			u = append(u, r)
-		})
-		for _, r := range u {
-			ui.win.PutImage(r)
-		}
+	// Still painting something else, don't paint now. This function should be called again uppon the draw completion event.
+	if ui.incompleteDraws != 0 {
+		return false
 	}
+
+	var u []*image.Rectangle
+	uiutil.PaintIfNeeded(&ui.Layout, func(r *image.Rectangle) {
+		painted = true
+
+		// Putting the image here causes tearing since multilayers have been introduced. This happens because the lower layer is painted and gets actually visible in the screen before the top layer paint signal arrives.
+		//ui.putImage(r)
+
+		u = append(u, r)
+	})
+
+	// send a put for each rectangle
+	//for _, r := range u {
+	//	ui.putImage(r)
+	//}
+
+	// union the rectangles into one put
+	if len(u) > 0 {
+		var r2 image.Rectangle
+		for _, r := range u {
+			r2 = r2.Union(*r)
+		}
+		ui.putImage(&r2)
+	}
+
 	return painted
+}
+
+func (ui *UI) putImage(r *image.Rectangle) {
+	ui.incompleteDraws++
+	ui.win.PutImage(r)
 }
 func (ui *UI) onShmCompletion(_ interface{}) {
 	ui.incompleteDraws--
