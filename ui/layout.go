@@ -9,21 +9,19 @@ import (
 type Layout struct {
 	widget.MultiLayer
 
-	BgLayer   *widget.FlowLayout
-	MenuLayer widget.Node
-
-	Toolbar        *Toolbar
-	MainMenuButton *MainMenuButton
-	Cols           *Columns
+	Toolbar         *Toolbar
+	MainMenuButton  *MainMenuButton
+	ContextFloatBox *ContextFloatBox
+	Cols            *Columns
 
 	UI *UI
 }
 
 func (layout *Layout) Init(ui *UI) {
 	layout.UI = ui
+	layout.SetWrapper(layout)
 
-	layout.BgLayer = widget.NewFlowLayout()
-	layout.BgLayer.SetWrapper(layout.BgLayer)
+	bgLayer := widget.NewFlowLayout()
 
 	mmb := NewMainMenuButton(ui)
 	mmb.Label.Border.Left = 1
@@ -33,7 +31,7 @@ func (layout *Layout) Init(ui *UI) {
 	mmb.SetFill(false, true)
 	layout.MainMenuButton = mmb
 
-	layout.Toolbar = NewToolbar(ui, layout.BgLayer)
+	layout.Toolbar = NewToolbar(ui, bgLayer)
 	layout.Toolbar.SetExpand(true, false)
 
 	ttb := widget.NewFlowLayout()
@@ -53,14 +51,16 @@ func (layout *Layout) Init(ui *UI) {
 	layout.Cols = NewColumns(layout)
 	layout.Cols.SetExpand(true, true)
 
-	layout.BgLayer.YAxis = true
-	layout.BgLayer.Append(ttb, &sep, layout.Cols)
+	bgLayer.YAxis = true
+	bgLayer.Append(ttb, &sep, layout.Cols)
 
-	// layer 1
-	layout.MenuLayer = &mmb.FloatMenu
+	// TODO: function that checks which elements of the lower layer need paint when an upper layer element needs paint
+
+	layout.ContextFloatBox = NewContextFloatBox(layout)
+	layout.ContextFloatBox.SetHidden(true)
 
 	// multi layer
-	layout.Append(layout.BgLayer, layout.MenuLayer)
+	layout.Append(bgLayer, layout.ContextFloatBox, &mmb.FloatMenu)
 }
 
 func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {
@@ -108,4 +108,23 @@ func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {
 	}
 
 	return best.col, best.nextRow
+}
+
+type ContextFloatBox struct {
+	widget.FloatBox
+	Label widget.Label
+	l     *Layout
+}
+
+func NewContextFloatBox(l *Layout) *ContextFloatBox {
+	cfb := &ContextFloatBox{l: l}
+	//cfb.Label.Border.Color = &colornames.White
+
+	cfb.FloatBox.Init(&l.MultiLayer, &cfb.Label)
+	return cfb
+}
+func (cfb *ContextFloatBox) SetStr(s string) {
+	cfb.Label.Text.Str = s
+	//cfb.l.UpperLayerNeedsPaint(cfb)
+	cfb.MarkNeedsPaint()
 }

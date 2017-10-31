@@ -344,6 +344,9 @@ func (erow *ERow) onRowInput(ev0 interface{}) {
 			cmdutil.SaveRowFile(erow)
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == 'f':
 			cmdutil.FindShortcut(erow)
+		case evt.Modifiers.Is(event.ModControl) && evt.Code == ' ':
+			//fb := erow.row.FloatBox()
+			//fb.SetStr("testing")
 		}
 	}
 }

@@ -241,6 +241,8 @@ func (ui *UI) onRowDoneExecutingAsync(ev0 interface{}) {
 	ev.Row.Square.SetValue(SquareExecuting, false)
 }
 
+// TODO: remove these events and directly create locks inside to set the variables, and then call the requestpaint event
+
 const (
 	UITextAreaAppendAsyncEventId = evreg.UIEventIdStart + iota
 	UITextAreaInsertStringAsyncEventId

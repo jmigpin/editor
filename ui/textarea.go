@@ -167,7 +167,6 @@ func (ta *TextArea) setStr(s string) {
 	ta.SetCursorIndex(ta.CursorIndex())
 	ta.SetSelectionIndex(ta.SelectionIndex())
 
-	//ta.updateStringCache()
 	ta.CalcChildsBounds()
 	ta.MarkNeedsPaint()
 

@@ -6,25 +6,28 @@ import (
 
 type FloatBox struct {
 	ShellEmbedNode
-	AlignRight bool
-
-	ref Node
+	RefPoint image.Point
+	ml       *MultiLayer
 }
 
-func (fb *FloatBox) Init(ref, child Node) {
-	*fb = FloatBox{ref: ref}
+func (fb *FloatBox) Init(ml *MultiLayer, child Node) {
+	*fb = FloatBox{ml: ml}
 	fb.SetWrapper(fb)
 	fb.Append(child)
 }
+func (fb *FloatBox) Measure(hint image.Point) image.Point {
+	panic("calling measure on floatbox")
+}
 func (fb *FloatBox) CalcChildsBounds() {
-	rb := fb.ref.Bounds()
-	fbb := fb.Bounds()
+	// start with the multilayer bounds
+	fbb := fb.ml.Bounds()
+
+	child := fb.FirstChild()
 
 	// bounds bellow reference node
-	b := image.Rect(rb.Min.X, rb.Max.Y, rb.Min.X+fbb.Dx(), rb.Max.Y+fbb.Dy())
+	b := image.Rect(fb.RefPoint.X, fb.RefPoint.Y, fb.RefPoint.X+fbb.Dx(), fb.RefPoint.Y+fbb.Dy())
 
 	// measure child
-	child := fb.FirstChild()
 	m := child.Measure(b.Size()).Add(b.Min)
 	b2 := image.Rect(b.Min.X, b.Min.Y, m.X, m.Y)
 	if b2.Max.X > fbb.Max.X {
@@ -34,8 +37,23 @@ func (fb *FloatBox) CalcChildsBounds() {
 	b2 = b2.Intersect(fbb)
 	child.SetBounds(&b2)
 
-	// keep same bounds as the child
+	// set own bounds, same as the child
 	fb.SetBounds(&b2)
 
 	child.CalcChildsBounds()
+}
+func (fb *FloatBox) SetHidden(v bool) {
+	fb.ShellEmbedNode.SetHidden(v)
+	if !v {
+		fb.Wrappee().wrapper.CalcChildsBounds()
+	}
+	// TODO: improve - lower layers need to detect what childs need paint
+	// TODO: marking that all layers need paint
+	fb.ml.MarkNeedsPaint()
+}
+func (fb *FloatBox) Paint() {
+	// TODO: improve - lower layers need to detect if this layer needs paint
+
+	// always needs paint, if hidden it won't be tested
+	fb.Marks().SetNeedsPaint(true)
 }

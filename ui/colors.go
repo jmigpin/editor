@@ -8,6 +8,8 @@ import (
 	"golang.org/x/image/colornames"
 )
 
+// This is temporary until a theme structure is in place.
+
 var (
 	White  color.Color = color.RGBA{255, 255, 255, 255}
 	Black  color.Color = color.RGBA{0, 0, 0, 255}

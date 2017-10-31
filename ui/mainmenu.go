@@ -32,11 +32,10 @@ func (m *MainMenuButton) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		fm := &m.FloatMenu
 		toggle := !fm.Hidden()
 		fm.SetHidden(toggle)
-		if !fm.Hidden() {
-			// needs to calc to set full bounds to the hidden nodes/layers (menu)
-			m.ui.Layout.CalcChildsBounds()
-		}
-		m.ui.Layout.MarkNeedsPaint()
+		//if !fm.Hidden() {
+		//	fm.CalcChildsBounds()
+		//	fm.MarkNeedsPaint()
+		//}
 	}
 	return false
 }
@@ -61,12 +60,13 @@ func (fm *FloatMenu) Init(m *MainMenuButton) {
 	border.Set(1)
 	border.Color = &fm.Toolbar.Colors.Normal.Fg
 
-	fm.FloatBox.Init(&m.Button, &border)
+	fm.FloatBox.Init(&m.ui.Layout.MultiLayer, &border)
 	fm.SetWrapper(fm)
 
 	fm.SetHidden(true)
 }
-func (fm *FloatMenu) Paint() {
-	// always needs paint, if hidden it won't be tested
-	fm.Marks().SetNeedsPaint(true)
+func (fm *FloatMenu) CalcChildsBounds() {
+	b := fm.m.Bounds()
+	fm.RefPoint = image.Point{b.Min.X, b.Max.Y}
+	fm.FloatBox.CalcChildsBounds()
 }

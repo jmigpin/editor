@@ -2,7 +2,9 @@ package widget
 
 import (
 	"container/list"
+	"fmt"
 	"image"
+	"reflect"
 )
 
 type Node interface {
@@ -34,6 +36,7 @@ type Node interface {
 
 	Marks() *Marks
 	MarkNeedsPaint()
+	MarkChildNeedsPaint()
 	Hidden() bool
 	SetHidden(bool)
 
@@ -73,7 +76,8 @@ func (en *EmbedNode) Parent() Node {
 	if en.parent != nil {
 		w := en.parent.wrapper
 		if w == nil {
-			panic("parent node without wrapper")
+			s := fmt.Sprintf("%s", reflect.TypeOf(en.wrapper))
+			panic("parent node without wrapper: child wrapper is " + s)
 		}
 		return w
 	}
@@ -233,13 +237,12 @@ func (en *EmbedNode) Marks() *Marks {
 func (en *EmbedNode) MarkNeedsPaint() {
 	en.marks.SetNeedsPaint(true)
 	// set mark in parents
-	for n := en.parent; n != nil; n = n.parent {
-		m := n.Marks()
-		if m.ChildNeedsPaint() {
-			break // parents already marked, early exit
-		}
-		m.SetChildNeedsPaint(true)
+	for n := en.Parent(); n != nil; n = n.Parent() {
+		n.MarkChildNeedsPaint()
 	}
+}
+func (en *EmbedNode) MarkChildNeedsPaint() {
+	en.Marks().SetChildNeedsPaint(true)
 }
 
 func (en *EmbedNode) Hidden() bool {
