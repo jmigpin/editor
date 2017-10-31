@@ -34,6 +34,7 @@ func DuplicateRow(ed Editorer) {
 	ta := erow.Row().TextArea
 	ta2 := erow2.Row().TextArea
 	ta2.SetCursorIndex(ta.CursorIndex())
+	ta2.MakeCursorVisible()
 
 	erow2.Row().WarpPointer()
 }
