@@ -119,6 +119,17 @@ func (row *Row) onSquareInput(ev0 interface{}) {
 		case event.ButtonMiddle:
 			row.Close()
 			ui.CursorMan.UnsetCursor()
+
+		case event.ButtonWheelLeft:
+			p2 := sqEv.TopPoint
+			p2.X -= 20
+			row.resizeColumnToPoint(p2)
+			row.WarpPointer()
+		case event.ButtonWheelRight:
+			p2 := sqEv.TopPoint
+			p2.X += 20
+			row.resizeColumnToPoint(p2)
+			row.WarpPointer()
 		}
 
 	case *event.MouseDragStart:
@@ -264,9 +275,9 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 		return
 	}
 
-	hint := image.Point{row.Bounds().Dx(), 1000000}
+	hint := image.Point{row.Bounds().Dx(), 1000000} // TODO: use column dy?
 	tbm := row.Toolbar.Measure(hint)
-	size := tbm.Y + taMin + 10 // pad to cover borders used (TODO: improve)
+	size := tbm.Y + taMin + 10 // pad to cover borders used // TODO: improve by getting toolbar+border size from a func?
 
 	// push siblings down
 	perc := float64(row.Bounds().Min.Sub(col.Bounds().Min).Y+size) / dy
@@ -294,13 +305,6 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 func (row *Row) minimumSize() int {
 	return row.TextArea.LineHeight()
 }
-
-type RowRType int
-
-const (
-	ResizeRowRType RowRType = iota
-	ResizeColumnRType
-)
 
 const (
 	RowInputEventId = iota
