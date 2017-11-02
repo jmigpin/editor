@@ -32,10 +32,10 @@ func (m *MainMenuButton) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		fm := &m.FloatMenu
 		toggle := !fm.Hidden()
 		fm.SetHidden(toggle)
-		//if !fm.Hidden() {
-		//	fm.CalcChildsBounds()
-		//	fm.MarkNeedsPaint()
-		//}
+		if !fm.Hidden() {
+			fm.CalcChildsBounds()
+		}
+		fm.MarkNeedsPaint()
 	}
 	return false
 }
@@ -60,7 +60,17 @@ func (fm *FloatMenu) Init(m *MainMenuButton) {
 	border.Set(1)
 	border.Color = &fm.Toolbar.Colors.Normal.Fg
 
-	fm.FloatBox.Init(&m.ui.Layout.MultiLayer, &border)
+	// shadow
+	var container widget.Node = &border
+	if ShadowsOn {
+		var shadow widget.Shadow
+		shadow.Init(m.ui, &border)
+		shadow.Bottom = ShadowSteps
+		shadow.MaxShade = ShadowMaxShade
+		container = &shadow
+	}
+
+	fm.FloatBox.Init(container)
 	fm.SetWrapper(fm)
 
 	fm.SetHidden(true)

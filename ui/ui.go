@@ -17,14 +17,14 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
-const (
-	SeparatorWidth = 1
-)
-
 var (
+	SeparatorWidth = 1
 	ScrollbarWidth = 10
 	SquareWidth    = 10
 	ScrollbarLeft  = false
+	ShadowsOn      = true
+	ShadowMaxShade = 0.25
+	ShadowSteps    = 8
 )
 
 func SetScrollbarAndSquareWidth(v int) {

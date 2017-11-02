@@ -57,13 +57,6 @@ func NewRow(col *Column) *Row {
 		tb.Append(row.Toolbar, &sep1, row.Square)
 	}
 
-	// toolbar separator from scrollarea
-	var tbSep widget.Rectangle
-	tbSep.Init(ui)
-	tbSep.SetExpand(true, false)
-	tbSep.Size.Y = SeparatorWidth
-	tbSep.Color = &RowInnerSeparatorColor
-
 	// scrollarea with textarea
 	row.TextArea = NewTextArea(ui)
 	row.TextArea.Colors = &TextAreaColors
@@ -75,7 +68,26 @@ func NewRow(col *Column) *Row {
 	row.scrollArea.VBar.Handle.Color = &ScrollbarFgColor
 
 	row.YAxis = true
-	row.Append(&row.sep, tb, &tbSep, row.scrollArea)
+	row.Append(&row.sep, tb)
+
+	if ShadowsOn {
+		// scrollarea innershadow bellow the toolbar
+		var shadow widget.Shadow
+		shadow.Init(ui, row.scrollArea)
+		shadow.Top = ShadowSteps
+		shadow.MaxShade = ShadowMaxShade
+
+		row.Append(&shadow)
+	} else {
+		// toolbar/scrollarea separator
+		var tbSep widget.Rectangle
+		tbSep.Init(ui)
+		tbSep.SetExpand(true, false)
+		tbSep.Size.Y = SeparatorWidth
+		tbSep.Color = &RowInnerSeparatorColor
+
+		row.Append(&tbSep, row.scrollArea)
+	}
 
 	return row
 }

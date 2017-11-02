@@ -25,6 +25,7 @@ func main() {
 	tabWidth := flag.Int("tabwidth", 8, "")
 	scrollbarLeft := flag.Bool("scrollbarleft", true, "set scrollbars on the left side")
 	sessionName := flag.String("sessionname", "", "open existing session")
+	shadows := flag.Bool("shadows", true, "shadow effects on some elements")
 
 	flag.Parse()
 
@@ -47,6 +48,7 @@ func main() {
 		TabWidth:       *tabWidth,
 		ScrollbarLeft:  *scrollbarLeft,
 		SessionName:    *sessionName,
+		Shadows:        *shadows,
 		Filenames:      flag.Args(),
 	}
 	_, err := core.NewEditor(eopt)

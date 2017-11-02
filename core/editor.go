@@ -55,6 +55,8 @@ func NewEditor(opt *Options) (*Editor, error) {
 		ui.LightThemeColors()
 	}
 
+	ui.ShadowsOn = opt.Shadows
+
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
 	// font
@@ -374,5 +376,6 @@ type Options struct {
 	TabWidth       int
 	ScrollbarLeft  bool
 	SessionName    string
+	Shadows        bool
 	Filenames      []string
 }

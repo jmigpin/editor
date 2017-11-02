@@ -47,6 +47,8 @@ Usage of ./editor:
     	textarea scrollbar width (default 12)
   -sessionname string
     	open existing session
+  -shadows
+    	shadow effects on some elements (default true)
   -tabwidth int
     	 (default 8)
   -wraplinerune int
