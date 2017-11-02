@@ -28,19 +28,19 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 
 	keepColor := func() {
 		b.fg = b.Label.Text.Color
-		b.bg = b.Label.Bg
+		b.bg = b.Label.Color
 	}
 	restoreColor := func() {
 		b.Label.Text.Color = b.fg
-		b.Label.Bg = b.bg
+		b.Label.Color = b.bg
 	}
 	restoreSwitchedColor := func() {
 		b.Label.Text.Color = b.bg
-		b.Label.Bg = b.fg
+		b.Label.Color = b.fg
 	}
 	hoverShade := func() {
 		var c color.Color = imageutil.Shade(*b.bg, 0.10)
-		b.Label.Bg = &c
+		b.Label.Color = &c
 	}
 
 	switch ev0.(type) {

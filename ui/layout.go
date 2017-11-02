@@ -2,8 +2,10 @@ package ui
 
 import (
 	"image"
+	"image/color"
 
 	"github.com/jmigpin/editor/uiutil/widget"
+	"golang.org/x/image/colornames"
 )
 
 type Layout struct {
@@ -26,7 +28,7 @@ func (layout *Layout) Init(ui *UI) {
 	mmb := NewMainMenuButton(ui)
 	mmb.Label.Border.Left = 1
 	mmb.Label.Border.Color = &SeparatorColor
-	mmb.Label.Bg = &ToolbarColors.Normal.Bg
+	mmb.Label.Color = &ToolbarColors.Normal.Bg
 	mmb.Label.Text.Color = &ToolbarColors.Normal.Fg
 	mmb.SetFill(false, true)
 	layout.MainMenuButton = mmb
@@ -35,12 +37,7 @@ func (layout *Layout) Init(ui *UI) {
 	layout.Toolbar.SetExpand(true, false)
 
 	ttb := widget.NewFlowLayout()
-	var sep2 widget.Rectangle
-	sep2.Init(ui)
-	sep2.SetFill(false, true)
-	sep2.Size.X = 5
-	sep2.Color = &ToolbarColors.Normal.Bg
-	ttb.Append(layout.Toolbar, &sep2, mmb)
+	ttb.Append(layout.Toolbar, mmb)
 
 	var sep widget.Rectangle
 	sep.Init(ui)
@@ -118,13 +115,27 @@ type ContextFloatBox struct {
 
 func NewContextFloatBox(l *Layout) *ContextFloatBox {
 	cfb := &ContextFloatBox{l: l}
-	//cfb.Label.Border.Color = &colornames.White
+	cfb.Label.Init(l.UI)
+	cfb.FloatBox.Init(&cfb.Label)
 
-	cfb.FloatBox.Init(&l.MultiLayer, &cfb.Label)
+	var c1 color.Color = colornames.Black
+	var c2 color.Color = colornames.Orange
+
+	cfb.Label.Text.Str = "testing"
+	cfb.Label.Text.Color = &c1
+	cfb.Label.Color = &c2
+	cfb.Label.Pad.Set(5)
+	cfb.Label.Pad.Color = &c2
+	cfb.Label.Border.Set(1)
+	cfb.Label.Border.Color = &c1
+
 	return cfb
 }
 func (cfb *ContextFloatBox) SetStr(s string) {
 	cfb.Label.Text.Str = s
-	//cfb.l.UpperLayerNeedsPaint(cfb)
 	cfb.MarkNeedsPaint()
+}
+func (cfb *ContextFloatBox) CalcChildsBounds() {
+	cfb.RefPoint = image.Point{40, 40}
+	cfb.FloatBox.CalcChildsBounds()
 }

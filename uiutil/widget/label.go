@@ -11,7 +11,7 @@ type Label struct {
 	Text   BasicText
 	Border Pad
 	Pad    Pad
-	Bg     *color.Color
+	Color  *color.Color
 	ctx    Context
 }
 
@@ -25,9 +25,9 @@ func (l *Label) Init(ctx Context) {
 	l.Append(&l.Border)
 }
 func (l *Label) Paint() {
-	if l.Bg == nil {
+	if l.Color == nil {
 		return
 	}
 	u := l.Bounds()
-	imageutil.FillRectangle(l.ctx.Image(), &u, *l.Bg)
+	imageutil.FillRectangle(l.ctx.Image(), &u, *l.Color)
 }
