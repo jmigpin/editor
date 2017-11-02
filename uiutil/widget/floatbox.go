@@ -4,14 +4,14 @@ import (
 	"image"
 )
 
+// Should be a child of a top layer (possibly MultiLayer). It relies on the parent bounds.
 type FloatBox struct {
 	ShellEmbedNode
 	RefPoint image.Point
-	ml       *MultiLayer
 }
 
-func (fb *FloatBox) Init(ml *MultiLayer, child Node) {
-	*fb = FloatBox{ml: ml}
+func (fb *FloatBox) Init(child Node) {
+	*fb = FloatBox{}
 	fb.SetWrapper(fb)
 	fb.Append(child)
 }
@@ -19,8 +19,8 @@ func (fb *FloatBox) Measure(hint image.Point) image.Point {
 	panic("calling measure on floatbox")
 }
 func (fb *FloatBox) CalcChildsBounds() {
-	// start with the multilayer bounds
-	fbb := fb.ml.Bounds()
+	// start with the parent bounds
+	fbb := fb.Parent().Bounds()
 
 	child := fb.FirstChild()
 
@@ -41,19 +41,4 @@ func (fb *FloatBox) CalcChildsBounds() {
 	fb.SetBounds(&b2)
 
 	child.CalcChildsBounds()
-}
-func (fb *FloatBox) SetHidden(v bool) {
-	fb.ShellEmbedNode.SetHidden(v)
-	if !v {
-		fb.Wrappee().wrapper.CalcChildsBounds()
-	}
-	// TODO: improve - lower layers need to detect what childs need paint
-	// TODO: marking that all layers need paint
-	fb.ml.MarkNeedsPaint()
-}
-func (fb *FloatBox) Paint() {
-	// TODO: improve - lower layers need to detect if this layer needs paint
-
-	// always needs paint, if hidden it won't be tested
-	fb.Marks().SetNeedsPaint(true)
 }
