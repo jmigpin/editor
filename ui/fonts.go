@@ -23,17 +23,12 @@ type FontTheme struct {
 }
 
 var fontThemes = []*FontTheme{
-	&FontTheme{regularFont},
-	&FontTheme{mediumFont},
-	&FontTheme{monoFont},
+	&FontTheme{RegularFont},
+	&FontTheme{MediumFont},
+	&FontTheme{MonoFont},
 }
 
 var curFontTheme *FontTheme
-
-// Loads first font from font themes
-func DefaultFont() {
-	CycleFontTheme()
-}
 
 func CycleFontTheme() {
 	index := -1
@@ -59,13 +54,13 @@ func CycleFontTheme() {
 	}
 }
 
-func regularFont() error {
+func RegularFont() error {
 	return loadFont(goregular.TTF)
 }
-func mediumFont() error {
+func MediumFont() error {
 	return loadFont(gomedium.TTF)
 }
-func monoFont() error {
+func MonoFont() error {
 	return loadFont(gomono.TTF)
 }
 func namedFont() error {
@@ -93,8 +88,7 @@ func SetNamedFont(name string) error {
 	if err != nil {
 		return err
 	}
-	curFontTheme = &FontTheme{namedFont}
 	// include function for cycle-font-theme
-	fontThemes = append(fontThemes, curFontTheme)
+	fontThemes = append(fontThemes, &FontTheme{namedFont})
 	return nil
 }

@@ -61,14 +61,20 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ui.FontOpt.Hinting = font.HintingFull
 	ui.FontOpt.Size = opt.FontSize
 	ui.FontOpt.DPI = opt.DPI
-	if opt.FontFilename != "" {
-		err := ui.SetNamedFont(opt.FontFilename)
+	switch opt.Font {
+	case "regular":
+		ui.RegularFont()
+	case "medium":
+		ui.MediumFont()
+	case "mono":
+		ui.MonoFont()
+	default:
+		filename := opt.Font
+		err := ui.SetNamedFont(filename)
 		if err != nil {
 			log.Print(err)
-			ui.DefaultFont()
+			ui.RegularFont()
 		}
-	} else {
-		ui.DefaultFont()
 	}
 
 	ui0, err := ui.NewUI()
@@ -359,7 +365,7 @@ func (ed *Editor) DecreaseWatch(filename string) {
 }
 
 type Options struct {
-	FontFilename   string
+	Font           string
 	FontSize       float64
 	DPI            float64
 	ScrollbarWidth int

@@ -16,7 +16,7 @@ func main() {
 
 	// flags
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
-	fontFilenameFlag := flag.String("font", "", "ttf font filename")
+	fontFlag := flag.String("font", "regular", "ttf font filename or: regular, medium, mono")
 	fontSizeFlag := flag.Float64("fontsize", 12, "")
 	dpiFlag := flag.Float64("dpi", 72, "monitor dots per inch")
 	scrollbarWidth := flag.Int("scrollbarwidth", 12, "textarea scrollbar width")
@@ -38,7 +38,7 @@ func main() {
 	}
 
 	eopt := &core.Options{
-		FontFilename:   *fontFilenameFlag,
+		Font:           *fontFlag,
 		FontSize:       *fontSizeFlag,
 		DPI:            *dpiFlag,
 		ScrollbarWidth: *scrollbarWidth,

@@ -38,7 +38,7 @@ Usage of ./editor:
   -dpi float
     	monitor dots per inch (default 72)
   -font string
-    	ttf font filename
+    	ttf font filename or: regular, medium, mono (default "regular")
   -fontsize float
     	 (default 12)
   -scrollbarleft
