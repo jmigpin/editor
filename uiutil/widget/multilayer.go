@@ -9,13 +9,15 @@ type MultiLayer struct {
 	ContainerEmbedNode
 }
 
-func (ml *MultiLayer) MarkChildNeedsPaint(r *image.Rectangle) {
-	ml.ContainerEmbedNode.MarkChildNeedsPaint(r)
+func (ml *MultiLayer) MarkChildNeedsPaint(child Node, r *image.Rectangle) {
+	ml.ContainerEmbedNode.MarkChildNeedsPaint(child, r)
 	for _, c := range ml.Childs() {
+		if c == child {
+			continue
+		}
 		ml.visit(c, r)
 	}
 }
-
 func (ml *MultiLayer) visit(n Node, r *image.Rectangle) {
 	if n.Marks().NeedsPaint() {
 		return
@@ -28,7 +30,9 @@ func (ml *MultiLayer) visit(n Node, r *image.Rectangle) {
 		return
 	}
 
-	// if the childs union doesn't contain the rectangle, mark this node
+	// overlap
+
+	// if the childs union doesn't contain the rectangle, this node needs paint
 	var u image.Rectangle
 	for _, c := range n.Childs() {
 		u = u.Union(c.Bounds())

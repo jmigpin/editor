@@ -36,7 +36,7 @@ type Node interface {
 
 	Marks() *Marks
 	MarkNeedsPaint()
-	MarkChildNeedsPaint(*image.Rectangle)
+	MarkChildNeedsPaint(Node, *image.Rectangle)
 	Hidden() bool
 	SetHidden(bool)
 
@@ -239,11 +239,15 @@ func (en *EmbedNode) MarkNeedsPaint() {
 
 	// set mark in parents
 	r := en.Bounds()
+	child := en.wrapper
 	for n := en.Parent(); n != nil; n = n.Parent() {
-		n.MarkChildNeedsPaint(&r)
+		n.MarkChildNeedsPaint(child, &r)
+		child = n
 	}
 }
-func (en *EmbedNode) MarkChildNeedsPaint(r *image.Rectangle) {
+
+// Child is an immediate child of this node, while the rectangle is the bounds of the original node that requested paint.
+func (en *EmbedNode) MarkChildNeedsPaint(child Node, r *image.Rectangle) {
 	en.Marks().SetChildNeedsPaint(true)
 }
 
