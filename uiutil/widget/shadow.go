@@ -18,9 +18,24 @@ func (s *Shadow) Init(ctx Context, child Node) {
 	s.SetWrapper(s)
 	s.Append(child)
 }
-func (s *Shadow) MarkChildNeedsPaint(b *image.Rectangle) {
-	s.ShellEmbedNode.MarkChildNeedsPaint(b)
-	s.MarkNeedsPaint()
+func (s *Shadow) MarkChildNeedsPaint(child Node, r *image.Rectangle) {
+	s.ShellEmbedNode.MarkChildNeedsPaint(child, r)
+	// top
+	if s.Top > 0 {
+		r2 := s.Bounds()
+		r2.Max.Y = r2.Min.Y + s.Top
+		if r2.Overlaps(*r) {
+			s.MarkNeedsPaint()
+		}
+	}
+	// bottom
+	if s.Bottom > 0 {
+		r2 := s.Bounds()
+		r2.Min.Y = r2.Max.Y - s.Bottom
+		if r2.Overlaps(*r) {
+			s.MarkNeedsPaint()
+		}
+	}
 }
 func (s *Shadow) Measure(hint image.Point) image.Point {
 	if s.Bottom > 0 {
