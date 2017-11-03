@@ -45,13 +45,13 @@ func AcmeThemeColors() {
 	defer func() { colorThemeIndex = 0 }()
 	TextAreaColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, color.RGBA{255, 255, 234, 255}},
-		Selection: hsdrawer.FgBg{nil, color.RGBA{238, 238, 158, 255}},
-		Highlight: hsdrawer.FgBg{nil, color.RGBA{198, 238, 158, 255}}, // analogous to selection bg
-		WrapLine:  hsdrawer.FgBg{nil, color.RGBA{200, 200, 200, 255}}, // between 198,245
+		Selection: hsdrawer.FgBg{Black, color.RGBA{238, 238, 158, 255}},
+		Highlight: hsdrawer.FgBg{Black, color.RGBA{198, 238, 158, 255}}, // analogous to selection bg
+		WrapLine:  hsdrawer.FgBg{Black, color.RGBA{200, 200, 200, 255}}, // between 198,245
 	}
 	ToolbarColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, color.RGBA{234, 255, 255, 255}},
-		Selection: hsdrawer.FgBg{nil, color.RGBA{158, 238, 238, 255}},
+		Selection: hsdrawer.FgBg{Black, color.RGBA{158, 238, 238, 255}},
 		WrapLine:  TextAreaColors.WrapLine,
 	}
 
@@ -75,13 +75,13 @@ func LightThemeColors() {
 	AcmeThemeColors()
 	TextAreaColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, White},
-		Selection: hsdrawer.FgBg{nil, color.RGBA{238, 238, 158, 255}},
-		Highlight: hsdrawer.FgBg{nil, color.RGBA{198, 238, 158, 255}},
-		WrapLine:  hsdrawer.FgBg{nil, color.RGBA{200, 200, 200, 255}},
+		Selection: hsdrawer.FgBg{Black, color.RGBA{238, 238, 158, 255}},
+		Highlight: hsdrawer.FgBg{Black, color.RGBA{198, 238, 158, 255}},
+		WrapLine:  hsdrawer.FgBg{Black, color.RGBA{200, 200, 200, 255}},
 	}
 	ToolbarColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{Black, imageutil.Tint(Black, 0.95)},
-		Selection: hsdrawer.FgBg{nil, TextAreaColors.Selection.Bg},
+		Selection: hsdrawer.FgBg{Black, TextAreaColors.Selection.Bg},
 		WrapLine:  TextAreaColors.WrapLine,
 	}
 

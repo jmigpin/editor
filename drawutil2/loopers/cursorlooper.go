@@ -39,6 +39,9 @@ func (lpr *CursorLooper) drawCursor() {
 
 	// use drawer foreground color
 	c := lpr.dl.Fg
+	if c == nil {
+		panic("cursor color is nil")
+	}
 
 	// allow to draw outside the bounds used for drawing text
 	bounds2 := *lpr.bounds

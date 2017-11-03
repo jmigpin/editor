@@ -151,6 +151,7 @@ func (d *HSDrawer) initDrawLoopers(img draw.Image, bounds *image.Rectangle) {
 	d.eel.Init(&d.strl, fixed.I(unpaddedBounds.Size().Y))
 
 	// options
+	d.dl.Fg = d.Colors.Normal.Fg // default fg on which the cursor looks at. If there are nothing to draw, then this never gets set by the scl, and the cursor needs this to be non-nil
 	scl.Fg = d.Colors.Normal.Fg
 	scl.Bg = nil // d.Colors.Normal.Bg // default bg filled externallly
 	sl.Selection = d.Selection
