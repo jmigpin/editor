@@ -102,7 +102,7 @@ func DarkThemeColors() {
 	}
 	ToolbarColors = hsdrawer.Colors{
 		Normal:    hsdrawer.FgBg{White, Black},
-		Selection: hsdrawer.FgBg{nil, TextAreaColors.Selection.Bg},
+		Selection: hsdrawer.FgBg{Black, TextAreaColors.Selection.Bg},
 		WrapLine:  TextAreaColors.WrapLine,
 	}
 
