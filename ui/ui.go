@@ -9,12 +9,14 @@ import (
 
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
 	"github.com/jmigpin/editor/xgbutil/xinput"
 	"github.com/jmigpin/editor/xgbutil/xwindow"
 
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/BurntSushi/xgbutil/xcursor"
 )
 
 var (
@@ -33,9 +35,8 @@ func SetScrollbarAndSquareWidth(v int) {
 }
 
 type UI struct {
-	win       *xwindow.Window
-	Layout    Layout
-	CursorMan *CursorMan
+	win    *xwindow.Window
+	Layout Layout
 
 	EvReg   *evreg.Register
 	Events2 chan interface{}
@@ -57,8 +58,6 @@ func NewUI() (*UI, error) {
 	}
 	win.SetWindowName("Editor")
 	ui.win = win
-
-	ui.CursorMan = NewCursorMan(ui)
 
 	ui.Layout.Init(ui)
 
@@ -155,6 +154,27 @@ func (ui *UI) FontFace1() font.Face {
 	return FontFace
 }
 
+// Implements widget.Context
+func (ui *UI) SetCursor(c widget.Cursor) {
+	sc := ui.win.Cursors.SetCursor
+	switch c {
+	case widget.NoCursor:
+		sc(xcursors.XCNone)
+	case widget.NSResizeCursor:
+		sc(xcursor.SBVDoubleArrow)
+	case widget.WEResizeCursor:
+		sc(xcursor.SBHDoubleArrow)
+	case widget.CloseCursor:
+		sc(xcursor.XCursor)
+	case widget.MoveCursor:
+		sc(xcursor.Fleur)
+	case widget.PointerCursor:
+		sc(xcursor.Hand2)
+	default:
+
+	}
+}
+
 func (ui *UI) QueryPointer() (*image.Point, bool) {
 	return ui.win.QueryPointer()
 }
@@ -187,10 +207,6 @@ func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
 	set(&p.Y, r.Min.Y, r.Max.Y)
 
 	ui.WarpPointer(p)
-}
-
-func (ui *UI) SetCursor(c xcursors.Cursor) {
-	ui.win.Cursors.SetCursor(c)
 }
 
 func (ui *UI) RequestPrimaryPaste() (string, error) {

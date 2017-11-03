@@ -3,7 +3,6 @@ package ui
 import (
 	"image"
 
-	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
@@ -117,7 +116,7 @@ func (row *Row) onSquareInput(ev0 interface{}) {
 		switch ev.Button {
 		case event.ButtonMiddle:
 			row.closingCursor = true
-			ui.CursorMan.SetCursor(xcursor.XCursor)
+			ui.SetCursor(widget.CloseCursor)
 		case event.ButtonWheelUp:
 			row.resizeWithPush(true)
 		case event.ButtonWheelDown:
@@ -130,7 +129,7 @@ func (row *Row) onSquareInput(ev0 interface{}) {
 			row.maximize(&ev.Point)
 		case event.ButtonMiddle:
 			row.Close()
-			ui.CursorMan.UnsetCursor()
+			ui.SetCursor(widget.NoCursor)
 
 		case event.ButtonWheelLeft:
 			p2 := sqEv.TopPoint
@@ -147,14 +146,14 @@ func (row *Row) onSquareInput(ev0 interface{}) {
 	case *event.MouseDragStart:
 		if row.closingCursor {
 			row.closingCursor = false
-			ui.CursorMan.UnsetCursor()
+			ui.SetCursor(widget.NoCursor)
 		}
 		switch ev.Button {
 		case event.ButtonLeft:
-			ui.CursorMan.SetCursor(xcursor.Fleur)
+			ui.SetCursor(widget.MoveCursor)
 			row.resizeRowToPoint(sqEv.TopXPoint)
 		case event.ButtonRight:
-			ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+			ui.SetCursor(widget.WEResizeCursor)
 			row.resizeColumnToPoint(sqEv.TopPoint)
 		}
 	case *event.MouseDragMove:
@@ -168,10 +167,10 @@ func (row *Row) onSquareInput(ev0 interface{}) {
 		switch ev.Button {
 		case event.ButtonLeft:
 			row.resizeRowToPoint(sqEv.TopXPoint)
-			ui.CursorMan.UnsetCursor()
+			ui.SetCursor(widget.NoCursor)
 		case event.ButtonRight:
 			row.resizeColumnToPoint(sqEv.TopPoint)
-			ui.CursorMan.UnsetCursor()
+			ui.SetCursor(widget.NoCursor)
 		}
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"image"
 	"unicode"
 
-	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/drawutil2/hsdrawer"
 	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/imageutil"
@@ -428,7 +427,7 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		switch ev.Button {
 		case event.ButtonRight:
 			ta.execCursor = true
-			ta.ui.CursorMan.SetCursor(xcursor.Hand2)
+			ta.ui.SetCursor(widget.PointerCursor)
 		case event.ButtonLeft:
 			if ev.Modifiers.Is(event.ModShift) {
 				tautil.MoveCursorToPoint(ta, &ev.Point, true)
@@ -440,13 +439,13 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		switch ev.Button {
 		case event.ButtonRight:
 			ta.execCursor = false
-			ta.ui.CursorMan.UnsetCursor()
+			ta.ui.SetCursor(widget.NoCursor)
 		}
 
 	case *event.MouseDragStart:
 		if ta.execCursor {
 			ta.execCursor = false
-			ta.ui.CursorMan.UnsetCursor()
+			ta.ui.SetCursor(widget.NoCursor)
 		}
 	case *event.MouseDragMove:
 		if ev.Buttons.Has(event.ButtonLeft) {

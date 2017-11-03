@@ -3,7 +3,6 @@ package ui
 import (
 	"image"
 
-	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
@@ -128,24 +127,24 @@ func (col *Column) onSquareInput(ev0 interface{}) {
 		switch ev.Button {
 		case event.ButtonMiddle:
 			col.closingCursor = true
-			ui.CursorMan.SetCursor(xcursor.XCursor)
+			ui.SetCursor(widget.CloseCursor)
 		}
 
 	case *event.MouseClick:
 		switch ev.Button {
 		case event.ButtonMiddle:
 			col.Cols.CloseColumnEnsureOne(col)
-			ui.CursorMan.UnsetCursor()
+			ui.SetCursor(widget.NoCursor)
 		}
 
 	case *event.MouseDragStart:
 		if col.closingCursor {
 			col.closingCursor = false
-			ui.CursorMan.UnsetCursor()
+			ui.SetCursor(widget.NoCursor)
 		}
 		switch ev.Button {
 		case event.ButtonLeft, event.ButtonRight:
-			ui.CursorMan.SetCursor(xcursor.SBHDoubleArrow)
+			ui.SetCursor(widget.WEResizeCursor)
 			col.resizeToPoint(sqEv.TopPoint)
 		}
 	case *event.MouseDragMove:
@@ -157,7 +156,7 @@ func (col *Column) onSquareInput(ev0 interface{}) {
 		switch ev.Button {
 		case event.ButtonLeft, event.ButtonRight:
 			col.resizeToPoint(sqEv.TopPoint)
-			ui.CursorMan.UnsetCursor()
+			ui.SetCursor(widget.NoCursor)
 		}
 	}
 }
