@@ -18,7 +18,7 @@ func (r *Rectangle) Init(ctx Context) {
 	*r = Rectangle{ctx: ctx}
 	r.SetWrapper(r)
 }
-func (r *Rectangle) Measure(max image.Point) image.Point {
+func (r *Rectangle) Measure(hint image.Point) image.Point {
 	return r.Size
 }
 func (r *Rectangle) Paint() {

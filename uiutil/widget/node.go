@@ -17,10 +17,10 @@ type Node interface {
 	Append(n ...Node)
 	Remove(Node)
 
-	FirstChild() Node
-	LastChild() Node
-	Prev() Node
-	Next() Node
+	FirstChild() Node // doesn't include hidden nodes
+	LastChild() Node  // doesn't include hidden nodes
+	Prev() Node       // doesn't include hidden nodes
+	Next() Node       // doesn't include hidden nodes
 
 	Swap(Node)
 
@@ -127,8 +127,12 @@ func (en *EmbedNode) Append(nodes ...Node) {
 }
 
 func (en *EmbedNode) Remove(n Node) {
+	if !en.HasChild(n) {
+		panic("not a child of this node")
+	}
 	nw := n.Wrappee()
 	en.childs.Remove(nw.elem)
+	nw.elem = nil
 	nw.parent = nil
 	nw.Marks().SetParentHidden(false)
 }
@@ -255,6 +259,9 @@ func (en *EmbedNode) Hidden() bool {
 	return en.marks.Hidden() || en.marks.ParentHidden()
 }
 func (en *EmbedNode) SetHidden(v bool) {
+	if v {
+		en.bounds = image.Rectangle{}
+	}
 	en.marks.SetHidden(v)
 	en.setParentHiddenInChilds(v)
 }
