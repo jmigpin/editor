@@ -24,6 +24,8 @@ func (layout *Layout) Init(ui *UI) {
 	layout.SetWrapper(layout)
 
 	bgLayer := widget.NewFlowLayout()
+	bgLayer.YAxis = true
+	layout.Append(bgLayer)
 
 	mmb := NewMainMenuButton(ui)
 	mmb.Label.Border.Left = 1
@@ -48,16 +50,12 @@ func (layout *Layout) Init(ui *UI) {
 	layout.Cols = NewColumns(layout)
 	layout.Cols.SetExpand(true, true)
 
-	bgLayer.YAxis = true
 	bgLayer.Append(ttb, &sep, layout.Cols)
-
-	// TODO: function that checks which elements of the lower layer need paint when an upper layer element needs paint
 
 	layout.ContextFloatBox = NewContextFloatBox(layout)
 	layout.ContextFloatBox.SetHidden(true)
 
-	// multi layer
-	layout.Append(bgLayer, layout.ContextFloatBox, &mmb.FloatMenu)
+	layout.Append(layout.ContextFloatBox, &mmb.FloatMenu)
 }
 
 func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {
