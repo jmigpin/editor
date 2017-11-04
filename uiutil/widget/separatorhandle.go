@@ -10,8 +10,9 @@ import (
 // Calculations are made on top of the reference node (usually a thin separator that otherwise would not be easy to put the pointer over for dragging).
 type SeparatorHandle struct {
 	LeafEmbedNode
-	Dragging                 bool
 	Top, Bottom, Left, Right int
+
+	Dragging bool
 
 	ref Node // reference node for calc bounds
 	ctx Context
@@ -51,19 +52,24 @@ func (sh *SeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *event.MouseEnter:
 		sh.ctx.SetCursor(c)
 	case *event.MouseLeave:
-		if !sh.Dragging {
-			sh.ctx.SetCursor(NoCursor)
-		}
+		sh.ctx.SetCursor(NoCursor)
+
 	case *event.MouseDown:
 		switch ev.Button {
 		case event.ButtonLeft:
 			sh.Dragging = true
-			sh.ctx.SetCursor(c)
 		}
+	case *event.MouseUp:
+		switch ev.Button {
+		case event.ButtonLeft:
+			if sh.Dragging {
+				sh.Dragging = false
+			}
+		}
+
 	case *event.MouseDragEnd:
 		if sh.Dragging {
 			sh.Dragging = false
-			sh.ctx.SetCursor(NoCursor)
 		}
 	}
 	return false

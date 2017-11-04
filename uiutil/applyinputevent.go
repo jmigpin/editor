@@ -59,7 +59,9 @@ func (aie *ApplyInputEvent) apply(node widget.Node, ev interface{}, p image.Poin
 	default:
 		_ = aie.applyInbound(node, ev, p)
 	}
-	_ = aie.mouseLeave(node, p) // catches structure changes in this cycle
+	if !aie.drag.on {
+		_ = aie.mouseLeave(node, p) // catches structure changes in this cycle
+	}
 }
 
 func (aie *ApplyInputEvent) mouseEnter(node widget.Node, p image.Point) bool {

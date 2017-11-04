@@ -238,7 +238,7 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 	row.Col.MarkNeedsPaint()
 }
 func (row *Row) resizeColumnToPoint(p *image.Point) {
-	row.Col.resizeToPoint(p)
+	row.Col.resizeToPointWithSwap(p)
 }
 
 func (row *Row) maximize(p *image.Point) {

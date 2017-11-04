@@ -15,6 +15,7 @@ type Column struct {
 	RowsLayout *widget.EndPercentLayout
 
 	sep           widget.Rectangle
+	sepHandle     ColSeparatorHandle
 	sqc           *widget.FlowLayout // square container (show/hide)
 	closingCursor bool
 }
@@ -33,6 +34,11 @@ func NewColumn(cols *Columns) *Column {
 	col.sep.SetExpand(false, true)
 	col.sep.Size.X = SeparatorWidth
 	col.sep.Color = &SeparatorColor
+
+	col.sepHandle.Init(ui, &col.sep, col)
+	col.sepHandle.Left = 2
+	col.sepHandle.Right = 2
+	col.Cols.Layout.InsertLevel1(&col.sepHandle)
 
 	col.RowsLayout = widget.NewEndPercentLayout()
 	col.RowsLayout.YAxis = true
@@ -63,10 +69,11 @@ func NewColumn(cols *Columns) *Column {
 	return col
 }
 func (col *Column) Close() {
-	col.Cols.removeColumn(col)
 	for _, r := range col.Rows() {
 		r.Close()
 	}
+	col.Cols.Layout.Remove(&col.sepHandle)
+	col.Cols.removeColumn(col)
 }
 func (col *Column) Paint() {
 	if len(col.RowsLayout.Childs()) == 0 {
@@ -103,6 +110,7 @@ func (col *Column) removeRow(row *Row) {
 func (col *Column) CalcChildsBounds() {
 	col.fixFirstRowSeparatorAndSquare()
 	col.FlowLayout.CalcChildsBounds()
+	col.sepHandle.CalcChildsBounds()
 }
 
 func (col *Column) fixFirstRowSeparatorAndSquare() {
@@ -145,17 +153,17 @@ func (col *Column) onSquareInput(ev0 interface{}) {
 		switch ev.Button {
 		case event.ButtonLeft, event.ButtonRight:
 			ui.SetCursor(widget.WEResizeCursor)
-			col.resizeToPoint(sqEv.TopPoint)
+			col.resizeToPointWithSwap(sqEv.TopPoint)
 		}
 	case *event.MouseDragMove:
 		switch {
 		case ev.Buttons.Has(event.ButtonLeft) || ev.Buttons.Has(event.ButtonRight):
-			col.resizeToPoint(sqEv.TopPoint)
+			col.resizeToPointWithSwap(sqEv.TopPoint)
 		}
 	case *event.MouseDragEnd:
 		switch ev.Button {
 		case event.ButtonLeft, event.ButtonRight:
-			col.resizeToPoint(sqEv.TopPoint)
+			col.resizeToPointWithSwap(sqEv.TopPoint)
 			ui.SetCursor(widget.NoCursor)
 		}
 	}
@@ -207,7 +215,7 @@ func (col *Column) PointRow(p *image.Point) (*Row, bool) {
 	return nil, false
 }
 
-func (col *Column) resizeToPoint(p *image.Point) {
+func (col *Column) resizeToPointWithSwap(p *image.Point) {
 	bounds := col.Cols.Layout.Bounds()
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
@@ -219,4 +227,35 @@ func (col *Column) resizeToPoint(p *image.Point) {
 	col.Cols.fixFirstColSeparator()
 	col.Cols.CalcChildsBounds()
 	col.Cols.MarkNeedsPaint()
+}
+
+func (col *Column) resizeToPointSimple(p *image.Point) {
+	bounds := col.Cols.Layout.Bounds()
+	dx := float64(bounds.Dx())
+	perc := float64(p.Sub(bounds.Min).X) / dx
+	min := 30 / dx
+
+	percIsLeft := true // always on the left, nothing to do with square position
+	col.Cols.ResizeEndPercent(col, perc, percIsLeft, min)
+
+	col.Cols.CalcChildsBounds()
+	col.Cols.MarkNeedsPaint()
+}
+
+type ColSeparatorHandle struct {
+	widget.SeparatorHandle
+	col *Column
+}
+
+func (sh *ColSeparatorHandle) Init(ctx widget.Context, ref widget.Node, col *Column) {
+	sh.SeparatorHandle.Init(ctx, ref)
+	sh.SetWrapper(sh)
+	sh.col = col
+}
+func (sh *ColSeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	_ = sh.SeparatorHandle.OnInputEvent(ev0, p)
+	if sh.Dragging {
+		sh.col.resizeToPointSimple(&p)
+	}
+	return false
 }
