@@ -28,6 +28,8 @@ func (cols *Columns) Paint() {
 		imageutil.FillRectangle(ui.Image(), &b, color.White)
 	}
 }
+
+// TODO: rename to lastcolumn and panic if there's none
 func (cols *Columns) LastColumnOrNew() *Column {
 	col, ok := cols.LastChildColumn()
 	if !ok {
@@ -112,6 +114,34 @@ func (cols *Columns) PointColumn(p *image.Point) (*Column, bool) {
 			return c, true
 		}
 	}
+	return nil, false
+}
+func (cols *Columns) PointColumnExtra(p *image.Point) (*Column, bool) {
+	col, ok := cols.PointColumn(p)
+	if ok {
+		return col, true
+	}
+
+	// detect outside of limits, throught X coord
+	if p.X < 0 {
+		col2, ok := cols.FirstChildColumn()
+		if ok {
+			return col2, true
+		}
+	} else if p.X > cols.LastChild().Bounds().Max.X {
+		col2, ok := cols.LastChildColumn()
+		if ok {
+			return col2, true
+		}
+	} else {
+		for _, c := range cols.Columns() {
+			x0, x1 := c.Bounds().Min.X, c.Bounds().Max.X
+			if p.X >= x0 && p.X < x1 {
+				return c, true
+			}
+		}
+	}
+
 	return nil, false
 }
 

@@ -209,7 +209,7 @@ func (row *Row) HideSeparator(v bool) {
 }
 
 func (row *Row) resizeRowToPoint(p *image.Point) {
-	col, ok := row.Col.Cols.PointColumn(p)
+	col, ok := row.Col.Cols.PointColumnExtra(p)
 	if !ok {
 		return
 	}
