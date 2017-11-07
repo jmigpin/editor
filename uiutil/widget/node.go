@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"image"
 	"reflect"
+	"sync"
 )
 
 type Node interface {
-	Wrappee() *EmbedNode
+	Embed() *EmbedNode
 
 	Parent() Node // returns wrapper if present
 
@@ -25,11 +26,7 @@ type Node interface {
 	Swap(Node)
 
 	Childs() []Node // doesn't include hidden nodes
-
-	Expand() (x, y bool)
-	SetExpand(x, y bool)
-	Fill() (x, y bool)
-	SetFill(x, y bool)
+	AllChilds() []Node
 
 	Bounds() image.Rectangle
 	SetBounds(*image.Rectangle)
@@ -59,13 +56,13 @@ type EmbedNode struct {
 	fill    struct{ x, y bool }
 }
 
-func (en *EmbedNode) Wrappee() *EmbedNode {
+func (en *EmbedNode) Embed() *EmbedNode {
 	return en
 }
 
 // Important when a node needs to reach a wrap implementation.
 func (en *EmbedNode) SetWrapper(n Node) {
-	if en != n.Wrappee() {
+	if en != n.Embed() {
 		panic("node not wrapping")
 	}
 	en.wrapper = n
@@ -77,7 +74,7 @@ func (en *EmbedNode) Parent() Node {
 		w := en.parent.wrapper
 		if w == nil {
 			s := fmt.Sprintf("%s", reflect.TypeOf(en.wrapper))
-			panic("parent node without wrapper: child wrapper is " + s)
+			panic("parent node without wrapper: en.wrapper is " + s)
 		}
 		return w
 	}
@@ -85,39 +82,39 @@ func (en *EmbedNode) Parent() Node {
 }
 
 func (en *EmbedNode) PushBack(n Node) {
-	nw := n.Wrappee()
-	if nw == en {
-		panic("!")
+	ne := n.Embed()
+	if ne == en {
+		panic("inserting into itself")
 	}
-	nw.parent = en
 	elem := en.childs.PushBack(n)
 	if elem == nil {
 		panic("element not inserted")
 	}
-	nw.elem = elem
-	if en.hasHiddenParent() {
-		nw.Marks().SetParentHidden(true)
+	ne.elem = elem
+	ne.parent = en
+	if en.Hidden() {
+		ne.Marks().SetParentHidden(true)
 	}
 }
 
 // Note that the next node can't be tested for nil because it could be receiving a non-nil interface that is nil, and testing (Node==nil) would be false. So this function expects the arguments to be present and have PushBack be used for appends.
 func (en *EmbedNode) InsertBefore(n, next Node) {
-	nextw := next.Wrappee()
-	if nextw.parent != en {
+	nexte := next.Embed()
+	if nexte.parent != en {
 		panic("next is not a child of this node")
 	}
-	nw := n.Wrappee()
-	if nw == en {
-		panic("!")
+	ne := n.Embed()
+	if ne == en {
+		panic("inserting into itself")
 	}
-	nw.parent = en
-	elem := en.childs.InsertBefore(n, next.Wrappee().elem)
+	elem := en.childs.InsertBefore(n, nexte.elem)
 	if elem == nil {
 		panic("element not inserted")
 	}
-	nw.elem = elem
-	if en.hasHiddenParent() {
-		nw.Marks().SetParentHidden(true)
+	ne.elem = elem
+	ne.parent = en
+	if en.Hidden() {
+		ne.Marks().SetParentHidden(true)
 	}
 }
 func (en *EmbedNode) Append(nodes ...Node) {
@@ -130,11 +127,11 @@ func (en *EmbedNode) Remove(n Node) {
 	if !en.HasChild(n) {
 		panic("not a child of this node")
 	}
-	nw := n.Wrappee()
-	en.childs.Remove(nw.elem)
-	nw.elem = nil
-	nw.parent = nil
-	nw.Marks().SetParentHidden(false)
+	ne := n.Embed()
+	en.childs.Remove(ne.elem)
+	ne.elem = nil
+	ne.parent = nil
+	ne.Marks().SetParentHidden(false)
 }
 
 func (en *EmbedNode) FirstChild() Node {
@@ -171,15 +168,34 @@ func (en *EmbedNode) notHiddenOrNext(e0 *list.Element) Node {
 	return nil
 }
 
+func (en *EmbedNode) FirstChildInAll() Node {
+	return en.elemNode(en.childs.Front())
+}
+func (en *EmbedNode) LastChildInAll() Node {
+	return en.elemNode(en.childs.Back())
+}
+func (en *EmbedNode) PrevInAll() Node {
+	return en.elemNode(en.elem.Prev())
+}
+func (en *EmbedNode) NextInAll() Node {
+	return en.elemNode(en.elem.Next())
+}
+func (en *EmbedNode) elemNode(e *list.Element) Node {
+	if e == nil {
+		return nil
+	}
+	return e.Value.(Node)
+}
+
 // Doesn't use Remove/Insert. So implementing nodes overriding those will not see their functions used.
 func (en *EmbedNode) Swap(n Node) {
-	nw := n.Wrappee()
-	if en.parent != nw.parent {
+	ne := n.Embed()
+	if en.parent != ne.parent {
 		panic("nodes don't have the same parent")
 	}
 	l := &en.parent.childs
 	e1 := en.elem
-	e2 := nw.elem
+	e2 := ne.elem
 	if e1.Next() == e2 {
 		l.MoveAfter(e1, e2)
 	} else if e2.Next() == e1 {
@@ -198,7 +214,9 @@ func (en *EmbedNode) Swap(n Node) {
 func (en *EmbedNode) Childs() []Node {
 	var u []Node
 	for n := en.FirstChild(); n != nil; n = n.Next() {
-		u = append(u, n)
+		if !n.Hidden() {
+			u = append(u, n)
+		}
 	}
 	return u
 }
@@ -212,7 +230,7 @@ func (en *EmbedNode) AllChilds() []Node {
 }
 
 func (en *EmbedNode) HasChild(n Node) bool {
-	return en == n.Wrappee().parent
+	return en == n.Embed().parent
 }
 
 func (en *EmbedNode) Expand() (bool, bool) {
@@ -259,17 +277,14 @@ func (en *EmbedNode) Hidden() bool {
 	return en.marks.Hidden() || en.marks.ParentHidden()
 }
 func (en *EmbedNode) SetHidden(v bool) {
-	if v {
-		en.bounds = image.Rectangle{}
-	}
 	en.marks.SetHidden(v)
 	en.setParentHiddenInChilds(v)
 }
 func (en *EmbedNode) setParentHiddenInChilds(v bool) {
 	for e := en.childs.Front(); e != nil; e = e.Next() {
-		cw := e.Value.(Node).Wrappee()
-		cw.Marks().SetParentHidden(v)
-		cw.setParentHiddenInChilds(v)
+		ce := e.Value.(Node).Embed()
+		ce.Marks().SetParentHidden(v)
+		ce.setParentHiddenInChilds(v)
 	}
 }
 func (en *EmbedNode) hasHiddenParent() bool {
@@ -280,21 +295,35 @@ func (en *EmbedNode) hasHiddenParent() bool {
 	return false
 }
 
-func (en *EmbedNode) PaintChilds() {
-	// Issues painting concurrently due to multilayers, otherwise should be used
-
-	en.marks.SetChildNeedsPaint(false)
-	//var wg sync.WaitGroup
-	for _, child := range en.Childs() {
-		//wg.Add(1)
-		//go func(child Node) {
-		//defer wg.Done()
-		child.Marks().SetNeedsPaint(false)
-		child.Paint()
-		child.PaintChilds()
-		//}(child)
+func PaintTree(node Node) (painted bool) {
+	node.Marks().SetNeedsPaint(false)
+	if !node.Hidden() {
+		node.Paint()
+		painted = true
 	}
-	//wg.Wait()
+	node.PaintChilds()
+	return
+}
+
+//func (en *EmbedNode) PaintChilds() {
+//	en.marks.SetChildNeedsPaint(false)
+//	for _, child := range en.Childs() {
+//		_ = PaintTree(child)
+//	}
+//}
+
+func (en *EmbedNode) PaintChilds() {
+	childs := en.Childs()
+	var wg sync.WaitGroup
+	wg.Add(len(childs))
+	en.marks.SetChildNeedsPaint(false)
+	for _, child := range childs {
+		go func(child Node) {
+			defer wg.Done()
+			_ = PaintTree(child)
+		}(child)
+	}
+	wg.Wait()
 }
 
 func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
@@ -351,7 +380,7 @@ type Marks uint8
 const (
 	MarkNeedsPaint Marks = 1 << iota
 	MarkChildNeedsPaint
-	MarkPointerInside // used for mouseEnter/mouseLeave events
+	MarkPointerInside // mouseEnter/mouseLeave events
 	MarkNotDraggable
 	MarkHidden
 	MarkParentHidden

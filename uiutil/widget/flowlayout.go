@@ -94,22 +94,22 @@ func (fl *FlowLayout) measureChildsSizes(max image.Point) map[Node]*image.Point 
 }
 
 func axisExpandX(n Node, xya *XYAxis) bool {
-	x0, y0 := n.Expand()
+	x0, y0 := n.Embed().Expand()
 	x, _ := xya.BoolPair(x0, y0)
 	return x
 }
 func axisExpandY(n Node, xya *XYAxis) bool {
-	x0, y0 := n.Expand()
+	x0, y0 := n.Embed().Expand()
 	_, y := xya.BoolPair(x0, y0)
 	return y
 }
 func axisFillX(n Node, xya *XYAxis) bool {
-	x0, y0 := n.Fill()
+	x0, y0 := n.Embed().Fill()
 	x, _ := xya.BoolPair(x0, y0)
 	return x
 }
 func axisFillY(n Node, xya *XYAxis) bool {
-	x0, y0 := n.Fill()
+	x0, y0 := n.Embed().Fill()
 	_, y := xya.BoolPair(x0, y0)
 	return y
 }
