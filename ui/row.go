@@ -16,50 +16,51 @@ type Row struct {
 	Col      *Column
 	EvReg    *evreg.Register
 
-	scrollArea    *ScrollArea
-	sep           widget.Rectangle
-	closingCursor bool
+	scrollArea *ScrollArea
+	sep        widget.Rectangle
+	sepHandle  RowSeparatorHandle
+	ui         *UI
 }
 
 func NewRow(col *Column) *Row {
-	row := &Row{Col: col}
+	row := &Row{Col: col, ui: col.Cols.Layout.UI}
 	row.FlowLayout = widget.NewFlowLayout()
 	row.SetWrapper(row)
 
-	ui := row.Col.Cols.Layout.UI
-
 	row.EvReg = evreg.NewRegister()
 
-	row.Toolbar = NewToolbar(ui, row)
+	row.Toolbar = NewToolbar(row.ui, row)
 	row.Toolbar.SetExpand(true, false)
 
-	row.Square = NewSquare(ui)
+	row.Square = NewSquare(row.ui)
 	row.Square.SetFill(false, true)
 	row.Square.EvReg.Add(SquareInputEventId, row.onSquareInput)
 
 	// row separator from other rows
-	row.sep.Init(ui)
+	row.sep.Init(row.ui)
 	row.sep.SetExpand(true, false)
 	row.sep.Size.Y = SeparatorWidth
 	row.sep.Color = &SeparatorColor
 
+	row.sepHandle.Init(row.ui, &row.sep, row)
+	row.sepHandle.Top = 3
+	row.sepHandle.Bottom = 3
+	row.sepHandle.Cursor = widget.MoveCursor
+	row.Col.Cols.Layout.InsertRowSepHandle(&row.sepHandle)
+
 	// square and toolbar
 	tb := widget.NewFlowLayout()
 	var sep1 widget.Rectangle
-	sep1.Init(ui)
+	sep1.Init(row.ui)
 	sep1.Color = &RowInnerSeparatorColor
 	sep1.Size.X = SeparatorWidth
 	sep1.SetFill(false, true)
-	if ScrollbarLeft {
-		tb.Append(row.Square, &sep1, row.Toolbar)
-	} else {
-		tb.Append(row.Toolbar, &sep1, row.Square)
-	}
+	tb.Append(row.Square, &sep1, row.Toolbar)
 
 	// scrollarea with textarea
-	row.TextArea = NewTextArea(ui)
+	row.TextArea = NewTextArea(row.ui)
 	row.TextArea.Colors = &TextAreaColors
-	row.scrollArea = NewScrollArea(ui, row.TextArea)
+	row.scrollArea = NewScrollArea(row.ui, row.TextArea)
 	row.scrollArea.SetExpand(true, true)
 	row.scrollArea.LeftScroll = ScrollbarLeft
 	row.scrollArea.ScrollWidth = ScrollbarWidth
@@ -72,7 +73,7 @@ func NewRow(col *Column) *Row {
 	if ShadowsOn {
 		// scrollarea innershadow bellow the toolbar
 		var shadow widget.Shadow
-		shadow.Init(ui, row.scrollArea)
+		shadow.Init(row.ui, row.scrollArea)
 		shadow.Top = ShadowSteps
 		shadow.MaxShade = ShadowMaxShade
 
@@ -80,7 +81,7 @@ func NewRow(col *Column) *Row {
 	} else {
 		// toolbar/scrollarea separator
 		var tbSep widget.Rectangle
-		tbSep.Init(ui)
+		tbSep.Init(row.ui)
 		tbSep.SetExpand(true, false)
 		tbSep.Size.Y = SeparatorWidth
 		tbSep.Color = &RowInnerSeparatorColor
@@ -90,6 +91,7 @@ func NewRow(col *Column) *Row {
 
 	return row
 }
+
 func (row *Row) activate() {
 	if row.Square.Value(SquareActive) {
 		return
@@ -103,74 +105,31 @@ func (row *Row) activate() {
 	// activate this row
 	row.Square.SetValue(SquareActive, true)
 }
+
 func (row *Row) Close() {
+	row.TextArea.UnsetPointerCursor(row.ui)
+	row.Col.Cols.Layout.Remove(&row.sepHandle)
 	row.Col.removeRow(row)
 	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
 }
 
+func (row *Row) CalcChildsBounds() {
+	row.FlowLayout.CalcChildsBounds()
+	row.sepHandle.CalcChildsBounds()
+}
+
 func (row *Row) onSquareInput(ev0 interface{}) {
 	sqEv := ev0.(*SquareInputEvent)
-	ui := row.Col.Cols.Layout.UI
 	switch ev := sqEv.Event.(type) {
-	case *event.MouseDown:
-		switch ev.Button {
-		case event.ButtonMiddle:
-			row.closingCursor = true
-			ui.SetCursor(widget.CloseCursor)
-		case event.ButtonWheelUp:
-			row.resizeWithPush(true)
-		case event.ButtonWheelDown:
-			row.resizeWithPush(false)
-		}
-
+	case *event.MouseEnter:
+		row.SetPointerCursor(row.ui, widget.CloseCursor)
+	case *event.MouseLeave:
+		row.UnsetPointerCursor(row.ui)
 	case *event.MouseClick:
 		switch ev.Button {
 		case event.ButtonLeft:
-			row.maximize(&ev.Point)
-		case event.ButtonMiddle:
+			row.UnsetPointerCursor(row.ui)
 			row.Close()
-			ui.SetCursor(widget.NoCursor)
-
-		case event.ButtonWheelLeft:
-			p2 := sqEv.TopPoint
-			p2.X -= 20
-			row.resizeColumnToPoint(p2)
-			row.WarpPointer()
-		case event.ButtonWheelRight:
-			p2 := sqEv.TopPoint
-			p2.X += 20
-			row.resizeColumnToPoint(p2)
-			row.WarpPointer()
-		}
-
-	case *event.MouseDragStart:
-		if row.closingCursor {
-			row.closingCursor = false
-			ui.SetCursor(widget.NoCursor)
-		}
-		switch ev.Button {
-		case event.ButtonLeft:
-			ui.SetCursor(widget.MoveCursor)
-			row.resizeRowToPoint(sqEv.TopXPoint)
-		case event.ButtonRight:
-			ui.SetCursor(widget.WEResizeCursor)
-			row.resizeColumnToPoint(sqEv.TopPoint)
-		}
-	case *event.MouseDragMove:
-		switch {
-		case ev.Buttons.Has(event.ButtonLeft):
-			row.resizeRowToPoint(sqEv.TopXPoint)
-		case ev.Buttons.Has(event.ButtonRight):
-			row.resizeColumnToPoint(sqEv.TopPoint)
-		}
-	case *event.MouseDragEnd:
-		switch ev.Button {
-		case event.ButtonLeft:
-			row.resizeRowToPoint(sqEv.TopXPoint)
-			ui.SetCursor(widget.NoCursor)
-		case event.ButtonRight:
-			row.resizeColumnToPoint(sqEv.TopPoint)
-			ui.SetCursor(widget.NoCursor)
 		}
 	}
 }
@@ -189,8 +148,9 @@ func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	return false
 }
 
-func (row *Row) WarpPointer() {
-	row.Square.WarpPointer()
+func (row *Row) Flash() {
+	row.Toolbar.Flash()
+	//row.Square.WarpPointer()
 }
 
 func (row *Row) NextRow() (*Row, bool) {
@@ -201,14 +161,7 @@ func (row *Row) NextRow() (*Row, bool) {
 	return u.(*Row), true
 }
 
-func (row *Row) HideSeparator(v bool) {
-	if row.sep.Hidden() != v {
-		row.sep.SetHidden(v)
-		row.MarkNeedsPaint()
-	}
-}
-
-func (row *Row) resizeRowToPoint(p *image.Point) {
+func (row *Row) resizeWithSwapToPoint(p *image.Point) {
 	col, ok := row.Col.Cols.PointColumnExtra(p)
 	if !ok {
 		return
@@ -237,9 +190,6 @@ func (row *Row) resizeRowToPoint(p *image.Point) {
 	row.Col.CalcChildsBounds()
 	row.Col.MarkNeedsPaint()
 }
-func (row *Row) resizeColumnToPoint(p *image.Point) {
-	row.Col.resizeToPointWithSwap(p)
-}
 
 func (row *Row) maximize(p *image.Point) {
 	col := row.Col
@@ -248,30 +198,35 @@ func (row *Row) maximize(p *image.Point) {
 	col.RowsLayout.MaximizeEndPercentNode(row, min)
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
-	if !p.In(row.Square.Bounds()) {
-		row.WarpPointer()
-	}
 }
 
-func (row *Row) resizeWithPush(up bool) {
-	col := row.Col
-	dy := float64(col.Bounds().Dy())
-	min := float64(row.minimumSize()) / dy
-
+func (row *Row) resizeWithPushJump(up bool, p *image.Point) {
 	jump := 30
 	if up {
 		jump *= -1
 	}
-	perc := float64(row.Bounds().Min.Y-col.Bounds().Min.Y+jump) / dy
+
+	pad := p.Sub(row.Bounds().Min)
+
+	p2 := row.Bounds().Min
+	p2.Y += jump
+	row.resizeWithPushToPoint(&p2)
+
+	// keep same pad since using it as well when moving from the square
+	p3 := row.Bounds().Min.Add(pad)
+	row.ui.WarpPointer(&p3)
+}
+func (row *Row) resizeWithPushToPoint(p *image.Point) {
+	col := row.Col
+	dy := float64(col.Bounds().Dy())
+	perc := float64(p.Sub(col.Bounds().Min).Y) / dy
+	min := float64(row.minimumSize()) / dy
 
 	percIsTop := true
 	col.RowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
 
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
-
-	// keep pointer inside the square (newly calculated)
-	row.WarpPointer()
 }
 
 func (row *Row) ResizeTextAreaIfVerySmall() {
@@ -328,4 +283,31 @@ type RowInputEvent struct {
 }
 type RowCloseEvent struct {
 	Row *Row
+}
+
+type RowSeparatorHandle struct {
+	widget.SeparatorHandle
+	row *Row
+}
+
+func (sh *RowSeparatorHandle) Init(ctx widget.Context, ref widget.Node, row *Row) {
+	sh.SeparatorHandle.Init(ctx, ref)
+	sh.SetWrapper(sh)
+	sh.row = row
+}
+func (sh *RowSeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	_ = sh.SeparatorHandle.OnInputEvent(ev0, p)
+	if sh.Dragging {
+		sh.row.resizeWithSwapToPoint(&p)
+	}
+	switch ev := ev0.(type) {
+	case *event.MouseDown:
+		switch ev.Button {
+		case event.ButtonWheelUp:
+			sh.row.resizeWithPushJump(true, &p)
+		case event.ButtonWheelDown:
+			sh.row.resizeWithPushJump(false, &p)
+		}
+	}
+	return false
 }

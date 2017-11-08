@@ -45,8 +45,6 @@ type TextArea struct {
 	lastMeasureHint image.Point
 	measurement     image.Point
 	measureFace     font.Face
-
-	execCursor bool
 }
 
 func NewTextArea(ui *UI) *TextArea {
@@ -422,12 +420,10 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	switch ev := ev0.(type) {
 	case *event.KeyDown:
 		ta.onKeyDown(ev)
-
 	case *event.MouseDown:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.execCursor = true
-			ta.ui.SetCursor(widget.PointerCursor)
+			ta.SetPointerCursor(ta.ui, widget.PointerCursor)
 		case event.ButtonLeft:
 			if ev.Modifiers.Is(event.ModShift) {
 				tautil.MoveCursorToPoint(ta, &ev.Point, true)
@@ -438,14 +434,16 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *event.MouseUp:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.execCursor = false
-			ta.ui.SetCursor(widget.NoCursor)
+			ta.SetPointerCursor(ta.ui, widget.TextCursor)
 		}
-
+	case *event.MouseEnter:
+		ta.SetPointerCursor(ta.ui, widget.TextCursor)
+	case *event.MouseLeave:
+		ta.UnsetPointerCursor(ta.ui)
 	case *event.MouseDragStart:
-		if ta.execCursor {
-			ta.execCursor = false
-			ta.ui.SetCursor(widget.NoCursor)
+		switch ev.Button {
+		case event.ButtonRight:
+			ta.SetPointerCursor(ta.ui, widget.TextCursor)
 		}
 	case *event.MouseDragMove:
 		if ev.Buttons.Has(event.ButtonLeft) {
@@ -457,7 +455,6 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		case event.ButtonLeft:
 			tautil.MoveCursorToPoint(ta, &ev.Point, true)
 		}
-
 	case *event.MouseClick:
 		ta.onMouseClick(ev)
 	case *event.MouseDoubleClick:

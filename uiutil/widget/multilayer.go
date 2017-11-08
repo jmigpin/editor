@@ -9,16 +9,6 @@ type MultiLayer struct {
 	ContainerEmbedNode
 }
 
-// Level 1 nodes are nodes immediatly after Level 0 (bottom layer) so they stay always below other upper layers (like menus or floatboxes)
-func (ml *MultiLayer) InsertLevel1(n Node) {
-	child := ml.FirstChild().Embed()
-	if child == nil || child.NextInAll() == nil {
-		ml.Append(n)
-	} else {
-		ml.InsertBefore(n, child.NextInAll())
-	}
-}
-
 func (ml *MultiLayer) MarkChildNeedsPaint(child Node, r *image.Rectangle) {
 	ml.ContainerEmbedNode.MarkChildNeedsPaint(child, r)
 	for _, c := range ml.Childs() {

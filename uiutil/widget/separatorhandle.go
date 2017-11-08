@@ -11,11 +11,12 @@ import (
 type SeparatorHandle struct {
 	LeafEmbedNode
 	Top, Bottom, Left, Right int
+	Cursor                   Cursor
+	Dragging                 bool
 
-	Dragging bool
-
-	ref Node // reference node for calc bounds
-	ctx Context
+	ref       Node // reference node for calc bounds
+	ctx       Context
+	cursorRef *CursorRef
 }
 
 func (sh *SeparatorHandle) Init(ctx Context, ref Node) {
@@ -42,17 +43,11 @@ func (sh *SeparatorHandle) CalcChildsBounds() {
 func (sh *SeparatorHandle) Paint() {
 }
 func (sh *SeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	c := NSResizeCursor
-	we := sh.Left+sh.Right > 0
-	if we {
-		c = WEResizeCursor
-	}
-
 	switch ev := ev0.(type) {
 	case *event.MouseEnter:
-		sh.ctx.SetCursor(c)
+		sh.SetPointerCursor(sh.ctx, sh.Cursor)
 	case *event.MouseLeave:
-		sh.ctx.SetCursor(NoCursor)
+		sh.UnsetPointerCursor(sh.ctx)
 
 	case *event.MouseDown:
 		switch ev.Button {

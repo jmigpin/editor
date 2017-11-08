@@ -9,16 +9,5 @@ import (
 type Context interface {
 	Image() draw.Image
 	FontFace1() font.Face
-	SetCursor(Cursor)
+	SetCursor(Cursor) // shouldn't be used directly, use PushCursor instead
 }
-
-type Cursor int
-
-const (
-	NoCursor Cursor = iota
-	NSResizeCursor
-	WEResizeCursor
-	CloseCursor
-	MoveCursor
-	PointerCursor
-)

@@ -214,14 +214,11 @@ func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
 			sb.clicking = true
 			sb.setPressPad(&evt.Point)
 			sb.sa.calcPositionFromPoint(&evt.Point)
-
-			// TODO: disabled to avoid other row events when scrolling the row square that calculates new nodes positions
-			//case ev.Button == event.ButtonWheelUp:
-			//	sa.PageUp()
-			//case ev.Button == event.ButtonWheelDown:
-			//	sa.PageDown()
+		case event.ButtonWheelUp:
+			sb.sa.PageUp()
+		case event.ButtonWheelDown:
+			sb.sa.PageDown()
 		}
-
 	case *event.MouseMove:
 		if sb.clicking {
 			sb.sa.calcPositionFromPoint(&evt.Point)

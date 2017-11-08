@@ -54,10 +54,26 @@ type EmbedNode struct {
 	marks   Marks
 	expand  struct{ x, y bool }
 	fill    struct{ x, y bool }
+
+	cursorRef *CursorRef
 }
 
 func (en *EmbedNode) Embed() *EmbedNode {
 	return en
+}
+
+func (en *EmbedNode) SetPointerCursor(ctx Context, c Cursor) {
+	CursorStk.Pop(en.cursorRef)
+	en.cursorRef = CursorStk.Push(c)
+	CursorStk.SetTop(ctx)
+}
+
+func (en *EmbedNode) UnsetPointerCursor(ctx Context) {
+	if en.cursorRef != nil {
+		CursorStk.Pop(en.cursorRef)
+		en.cursorRef = nil
+		CursorStk.SetTop(ctx)
+	}
 }
 
 // Important when a node needs to reach a wrap implementation.

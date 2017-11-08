@@ -49,17 +49,6 @@ func (sq *Square) Paint() {
 	bounds := sq.Bounds()
 	imageutil.FillRectangle(sq.ui.Image(), &bounds, c)
 
-	//// triangle
-	//b2 := bounds
-	//b2.Max.X = b2.Min.X + 1
-	//b2.Min.Y = b2.Min.Y + sq.Width
-	//b2.Max.Y = b2.Min.Y + 1
-	//for x := 0; x < sq.Width; x++ {
-	//	imageutil.FillRectangle(sq.ui.Image(), &b2, colornames.Grey)
-	//	b2 = b2.Add(image.Point{1, -1})
-	//	//b2.Min.Y++
-	//}
-
 	// duplicate
 	if sq.values[SquareDuplicate] {
 		c2 := SquareEditedColor
@@ -165,5 +154,5 @@ type SquareInputEvent struct {
 	Event     interface{}
 	Point     *image.Point
 	TopPoint  *image.Point
-	TopXPoint *image.Point
+	TopXPoint *image.Point // keeps original x, and uses top y
 }

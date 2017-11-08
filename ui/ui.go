@@ -136,7 +136,6 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 
 func (ui *UI) onInput(ev0 interface{}) {
 	ev := ev0.(*xinput.InputEvent)
-	//ui.Layout.ApplyInputEvent(ev.Event, ev.Point)
 	uiutil.ApplyInputEventInBounds(&ui.Layout, ev.Event, ev.Point)
 }
 
@@ -160,6 +159,8 @@ func (ui *UI) SetCursor(c widget.Cursor) {
 	switch c {
 	case widget.NoCursor:
 		sc(xcursors.XCNone)
+	case widget.DefaultCursor:
+		sc(xcursors.XCNone)
 	case widget.NSResizeCursor:
 		sc(xcursor.SBVDoubleArrow)
 	case widget.WEResizeCursor:
@@ -170,8 +171,8 @@ func (ui *UI) SetCursor(c widget.Cursor) {
 		sc(xcursor.Fleur)
 	case widget.PointerCursor:
 		sc(xcursor.Hand2)
-	default:
-
+	case widget.TextCursor:
+		sc(xcursor.XTerm)
 	}
 }
 
@@ -180,6 +181,7 @@ func (ui *UI) QueryPointer() (*image.Point, bool) {
 }
 func (ui *UI) WarpPointer(p *image.Point) {
 	ui.win.WarpPointer(p)
+	uiutil.InputEventWarpedPointUntilMouseMove(*p)
 }
 
 func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {

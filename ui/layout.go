@@ -10,13 +10,14 @@ import (
 
 type Layout struct {
 	widget.MultiLayer
-
+	UI              *UI
 	Toolbar         *Toolbar
 	MainMenuButton  *MainMenuButton
 	ContextFloatBox *ContextFloatBox
 	Cols            *Columns
 
-	UI *UI
+	rowSepHandlesMark widget.Rectangle
+	colSepHandlesMark widget.Rectangle
 }
 
 func (layout *Layout) Init(ui *UI) {
@@ -26,6 +27,10 @@ func (layout *Layout) Init(ui *UI) {
 	bgLayer := widget.NewFlowLayout()
 	bgLayer.YAxis = true
 	layout.Append(bgLayer)
+
+	layout.colSepHandlesMark.SetHidden(true)
+	layout.rowSepHandlesMark.SetHidden(true)
+	layout.Append(&layout.colSepHandlesMark, &layout.rowSepHandlesMark)
 
 	mmb := NewMainMenuButton(ui)
 	mmb.Label.Border.Left = 1
@@ -41,21 +46,31 @@ func (layout *Layout) Init(ui *UI) {
 	ttb := widget.NewFlowLayout()
 	ttb.Append(layout.Toolbar, mmb)
 
-	var sep widget.Rectangle
-	sep.Init(ui)
-	sep.SetExpand(true, false)
-	sep.Size.Y = SeparatorWidth
-	sep.Color = &SeparatorColor
-
 	layout.Cols = NewColumns(layout)
 	layout.Cols.SetExpand(true, true)
 
-	bgLayer.Append(ttb, &sep, layout.Cols)
+	if ShadowsOn {
+		bgLayer.Append(ttb, layout.Cols)
+	} else {
+		var sep widget.Rectangle
+		sep.Init(ui)
+		sep.SetExpand(true, false)
+		sep.Size.Y = SeparatorWidth
+		sep.Color = &SeparatorColor
+		bgLayer.Append(ttb, &sep, layout.Cols)
+	}
 
 	layout.ContextFloatBox = NewContextFloatBox(layout)
 	layout.ContextFloatBox.SetHidden(true)
 
 	layout.Append(layout.ContextFloatBox, &mmb.FloatMenu)
+}
+
+func (l *Layout) InsertRowSepHandle(n widget.Node) {
+	l.InsertBefore(n, &l.rowSepHandlesMark)
+}
+func (l *Layout) InsertColSepHandle(n widget.Node) {
+	l.InsertBefore(n, &l.colSepHandlesMark)
 }
 
 func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {

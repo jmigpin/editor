@@ -76,7 +76,11 @@ func (s *Shadow) Paint() {
 		b := s.Bounds()
 		j := 0.0
 		img := s.ctx.Image()
-		for y := b.Min.Y; y < b.Min.Y+s.Top; y++ {
+		maxY := b.Min.Y + s.Top
+		if maxY > b.Max.Y {
+			maxY = b.Max.Y
+		}
+		for y := b.Min.Y; y < maxY; y++ {
 			for x := b.Min.X; x < b.Max.X; x++ {
 				at := img.At(x, y)
 				c2 := imageutil.Shade(at, s.MaxShade-j)

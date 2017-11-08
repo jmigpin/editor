@@ -63,7 +63,6 @@ func (cols *Columns) insertColumnBefore(col, next *Column) {
 		panic("TODO")
 	}
 
-	cols.fixFirstColSeparator()
 	cols.CalcChildsBounds()
 	cols.MarkNeedsPaint()
 }
@@ -72,15 +71,8 @@ func (cols *Columns) insertColumnBefore(col, next *Column) {
 
 func (cols *Columns) removeColumn(col *Column) {
 	cols.Remove(col)
-	cols.fixFirstColSeparator()
 	cols.CalcChildsBounds()
 	cols.MarkNeedsPaint()
-}
-
-func (cols *Columns) fixFirstColSeparator() {
-	for i, c := range cols.Columns() {
-		c.HideSeparator(i == 0)
-	}
 }
 
 func (cols *Columns) CloseColumnEnsureOne(col *Column) {
