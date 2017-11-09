@@ -144,8 +144,9 @@ func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6, looper Looper) int {
 				found = true
 				return false
 			}
-			// in a rune
-			if p.X < pb.Max.X {
+			// in first half of a rune
+			half := (pb.Max.X - pb.Min.X) / 2
+			if p.X < pb.Max.X-half {
 				found = true
 				return false
 			}
