@@ -9,8 +9,7 @@ type MultiLayer struct {
 	ContainerEmbedNode
 }
 
-func (ml *MultiLayer) MarkChildNeedsPaint(child Node, r *image.Rectangle) {
-	ml.ContainerEmbedNode.MarkChildNeedsPaint(child, r)
+func (ml *MultiLayer) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 	for _, c := range ml.Childs() {
 		if c == child {
 			continue
@@ -19,14 +18,14 @@ func (ml *MultiLayer) MarkChildNeedsPaint(child Node, r *image.Rectangle) {
 	}
 }
 func (ml *MultiLayer) visit(n Node, r *image.Rectangle) {
-	if n.Marks().NeedsPaint() {
+	if n.Embed().NeedsPaint() {
 		return
 	}
 	if !n.Bounds().Overlaps(*r) {
 		return
 	}
 	if n.Bounds().Eq(*r) {
-		n.MarkNeedsPaint() // highly recursive from here
+		n.Embed().MarkNeedsPaint() // highly recursive from here
 		return
 	}
 
@@ -38,7 +37,7 @@ func (ml *MultiLayer) visit(n Node, r *image.Rectangle) {
 		u = u.Union(c.Bounds())
 	}
 	if !r.In(u) {
-		n.MarkNeedsPaint() // highly recursive from here
+		n.Embed().MarkNeedsPaint() // highly recursive from here
 		return
 	}
 

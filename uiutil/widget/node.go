@@ -31,11 +31,7 @@ type Node interface {
 	Bounds() image.Rectangle
 	SetBounds(*image.Rectangle)
 
-	Marks() *Marks
-	MarkNeedsPaint()
-	MarkChildNeedsPaint(Node, *image.Rectangle)
-	Hidden() bool
-	SetHidden(bool)
+	OnMarkChildNeedsPaint(Node, *image.Rectangle)
 
 	Measure(hint image.Point) image.Point
 	CalcChildsBounds()
@@ -46,16 +42,17 @@ type Node interface {
 }
 
 type EmbedNode struct {
-	childs  list.List
-	elem    *list.Element
-	parent  *EmbedNode
-	wrapper Node
-	bounds  image.Rectangle
-	marks   Marks
-	expand  struct{ x, y bool }
-	fill    struct{ x, y bool }
-
+	childs    list.List
+	elem      *list.Element
+	parent    *EmbedNode
+	wrapper   Node
+	bounds    image.Rectangle
+	expand    struct{ x, y bool }
+	fill      struct{ x, y bool }
 	cursorRef *CursorRef
+
+	marks     Marks
+	marksLock sync.RWMutex
 }
 
 func (en *EmbedNode) Embed() *EmbedNode {
@@ -109,12 +106,14 @@ func (en *EmbedNode) PushBack(n Node) {
 	ne.elem = elem
 	ne.parent = en
 	if en.Hidden() {
-		ne.Marks().SetParentHidden(true)
+		ne.setParentHidden(true)
 	}
 }
 
-// Note that the next node can't be tested for nil because it could be receiving a non-nil interface that is nil, and testing (Node==nil) would be false. So this function expects the arguments to be present and have PushBack be used for appends.
 func (en *EmbedNode) InsertBefore(n, next Node) {
+	// This function expects the arguments to be present and have PushBack be used for appends.
+	// Note that the next node can't be tested for nil because it could be receiving a non-nil interface that is nil, and testing (Node==nil) would be false.
+
 	nexte := next.Embed()
 	if nexte.parent != en {
 		panic("next is not a child of this node")
@@ -130,7 +129,7 @@ func (en *EmbedNode) InsertBefore(n, next Node) {
 	ne.elem = elem
 	ne.parent = en
 	if en.Hidden() {
-		ne.Marks().SetParentHidden(true)
+		ne.setParentHidden(true)
 	}
 }
 func (en *EmbedNode) Append(nodes ...Node) {
@@ -147,7 +146,7 @@ func (en *EmbedNode) Remove(n Node) {
 	en.childs.Remove(ne.elem)
 	ne.elem = nil
 	ne.parent = nil
-	ne.Marks().SetParentHidden(false)
+	ne.setParentHidden(false)
 }
 
 func (en *EmbedNode) FirstChild() Node {
@@ -166,7 +165,7 @@ func (en *EmbedNode) Next() Node {
 func (en *EmbedNode) notHiddenOrPrev(e0 *list.Element) Node {
 	for e := e0; e != nil; e = e.Prev() {
 		n := e.Value.(Node)
-		if n.Hidden() {
+		if n.Embed().Hidden() {
 			continue
 		}
 		return n
@@ -176,7 +175,7 @@ func (en *EmbedNode) notHiddenOrPrev(e0 *list.Element) Node {
 func (en *EmbedNode) notHiddenOrNext(e0 *list.Element) Node {
 	for e := e0; e != nil; e = e.Next() {
 		n := e.Value.(Node)
-		if n.Hidden() {
+		if n.Embed().Hidden() {
 			continue
 		}
 		return n
@@ -230,7 +229,7 @@ func (en *EmbedNode) Swap(n Node) {
 func (en *EmbedNode) Childs() []Node {
 	var u []Node
 	for n := en.FirstChild(); n != nil; n = n.Next() {
-		if !n.Hidden() {
+		if !n.Embed().Hidden() {
 			u = append(u, n)
 		}
 	}
@@ -269,51 +268,83 @@ func (en *EmbedNode) SetBounds(b *image.Rectangle) {
 	en.bounds = *b
 }
 
-func (en *EmbedNode) Marks() *Marks {
-	return &en.marks
+func (en *EmbedNode) hasMarks(m Marks) bool {
+	en.marksLock.RLock()
+	defer en.marksLock.RUnlock()
+	return en.marks.has(m)
+}
+func (en *EmbedNode) setMarks(m Marks, v bool) {
+	en.marksLock.Lock()
+	defer en.marksLock.Unlock()
+	en.marks.set(m, v)
+}
+
+func (en *EmbedNode) NeedsPaint() bool {
+	return en.hasMarks(NeedsPaintMark)
 }
 func (en *EmbedNode) MarkNeedsPaint() {
-	en.marks.SetNeedsPaint(true)
-
-	// set mark in parents
-	r := en.Bounds()
-	child := en.wrapper
-	for n := en.Parent(); n != nil; n = n.Parent() {
-		n.MarkChildNeedsPaint(child, &r)
-		child = n
+	en.SetNeedsPaint(true)
+}
+func (en *EmbedNode) SetNeedsPaint(v bool) {
+	en.setMarks(NeedsPaintMark, v)
+	if v {
+		// set mark in parents
+		r := en.Bounds()
+		child := en.wrapper
+		for n := en.Parent(); n != nil; n = n.Parent() {
+			n.Embed().setMarks(ChildNeedsPaintMark, true)
+			n.OnMarkChildNeedsPaint(child, &r)
+			child = n
+		}
 	}
+}
+
+func (en *EmbedNode) ChildNeedsPaint() bool {
+	return en.hasMarks(ChildNeedsPaintMark)
+}
+func (en *EmbedNode) UnmarkChildNeedsPaint() {
+	en.setMarks(ChildNeedsPaintMark, false)
 }
 
 // Child is an immediate child of this node, while the rectangle is the bounds of the original node that requested paint.
-func (en *EmbedNode) MarkChildNeedsPaint(child Node, r *image.Rectangle) {
-	en.Marks().SetChildNeedsPaint(true)
+func (en *EmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 }
 
 func (en *EmbedNode) Hidden() bool {
-	return en.marks.Hidden() || en.marks.ParentHidden()
+	return en.hasMarks(HiddenMark | ParentHiddenMark)
 }
 func (en *EmbedNode) SetHidden(v bool) {
-	en.marks.SetHidden(v)
-	en.setParentHiddenInChilds(v)
-}
-func (en *EmbedNode) setParentHiddenInChilds(v bool) {
+	en.setMarks(HiddenMark, v)
 	for e := en.childs.Front(); e != nil; e = e.Next() {
 		ce := e.Value.(Node).Embed()
-		ce.Marks().SetParentHidden(v)
-		ce.setParentHiddenInChilds(v)
+		ce.setParentHidden(v)
 	}
 }
-func (en *EmbedNode) hasHiddenParent() bool {
-	if en.parent != nil {
-		m := en.parent.Marks()
-		return m.Hidden() || m.ParentHidden()
+func (en *EmbedNode) setParentHidden(v bool) {
+	en.setMarks(ParentHiddenMark, v)
+	for e := en.childs.Front(); e != nil; e = e.Next() {
+		ce := e.Value.(Node).Embed()
+		ce.setParentHidden(v)
 	}
-	return false
+}
+
+func (en *EmbedNode) NotDraggable() bool {
+	return en.hasMarks(NotDraggableMark)
+}
+func (en *EmbedNode) SetNotDraggable(v bool) {
+	en.setMarks(NotDraggableMark, v)
+}
+func (en *EmbedNode) PointerInside() bool {
+	return en.hasMarks(PointerInsideMark)
+}
+func (en *EmbedNode) SetPointerInside(v bool) {
+	en.setMarks(PointerInsideMark, v)
 }
 
 func PaintTree(node Node) (painted bool) {
-	node.Marks().SetNeedsPaint(false)
-	if !node.Hidden() {
+	ne := node.Embed()
+	ne.SetNeedsPaint(false)
+	if !node.Embed().Hidden() {
 		node.Paint()
 		painted = true
 	}
@@ -322,7 +353,7 @@ func PaintTree(node Node) (painted bool) {
 }
 
 //func (en *EmbedNode) PaintChilds() {
-//	en.marks.SetChildNeedsPaint(false)
+//	en.UnmarkChildNeedsPaint()
 //	for _, child := range en.Childs() {
 //		_ = PaintTree(child)
 //	}
@@ -332,7 +363,7 @@ func (en *EmbedNode) PaintChilds() {
 	childs := en.Childs()
 	var wg sync.WaitGroup
 	wg.Add(len(childs))
-	en.marks.SetChildNeedsPaint(false)
+	en.UnmarkChildNeedsPaint()
 	for _, child := range childs {
 		go func(child Node) {
 			defer wg.Done()
@@ -394,45 +425,27 @@ func (cn *ContainerEmbedNode) Paint() {
 type Marks uint8
 
 const (
-	MarkNeedsPaint Marks = 1 << iota
-	MarkChildNeedsPaint
-	MarkPointerInside // mouseEnter/mouseLeave events
-	MarkNotDraggable
-	MarkHidden
-	MarkParentHidden
+	NeedsPaintMark Marks = 1 << iota
+	ChildNeedsPaintMark
+	PointerInsideMark // mouseEnter/mouseLeave events
+	NotDraggableMark
+	HiddenMark
+	ParentHiddenMark
 )
 
-func (m *Marks) Add(u Marks) {
+func (m *Marks) add(u Marks) {
 	*m |= u
 }
-func (m *Marks) Remove(u Marks) {
+func (m *Marks) remove(u Marks) {
 	*m &^= u
 }
-func (m *Marks) Has(u Marks) bool {
+func (m *Marks) has(u Marks) bool {
 	return *m&u > 0
 }
-func (m *Marks) Set(u Marks, v bool) {
+func (m *Marks) set(u Marks, v bool) {
 	if v {
-		m.Add(u)
+		m.add(u)
 	} else {
-		m.Remove(u)
+		m.remove(u)
 	}
 }
-
-func (m *Marks) NeedsPaint() bool     { return m.Has(MarkNeedsPaint) }
-func (m *Marks) SetNeedsPaint(v bool) { m.Set(MarkNeedsPaint, v) }
-
-func (m *Marks) ChildNeedsPaint() bool     { return m.Has(MarkChildNeedsPaint) }
-func (m *Marks) SetChildNeedsPaint(v bool) { m.Set(MarkChildNeedsPaint, v) }
-
-func (m *Marks) PointerInside() bool     { return m.Has(MarkPointerInside) }
-func (m *Marks) SetPointerInside(v bool) { m.Set(MarkPointerInside, v) }
-
-func (m *Marks) NotDraggable() bool     { return m.Has(MarkNotDraggable) }
-func (m *Marks) SetNotDraggable(v bool) { m.Set(MarkNotDraggable, v) }
-
-func (m *Marks) Hidden() bool     { return m.Has(MarkHidden) }
-func (m *Marks) SetHidden(v bool) { m.Set(MarkHidden, v) }
-
-func (m *Marks) ParentHidden() bool     { return m.Has(MarkParentHidden) }
-func (m *Marks) SetParentHidden(v bool) { m.Set(MarkParentHidden, v) }

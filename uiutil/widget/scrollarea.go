@@ -181,7 +181,7 @@ func (sb *ScrollBar) Init(ctx Context, sa *ScrollArea) {
 	sb.sizePercent = 1.0
 
 	sb.Handle.Init(ctx, sb)
-	sb.Handle.Marks().SetNotDraggable(true)
+	sb.Handle.SetNotDraggable(true)
 	sb.Append(&sb.Handle)
 }
 func (sb *ScrollBar) setPressPad(p *image.Point) {

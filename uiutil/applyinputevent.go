@@ -88,8 +88,8 @@ func (aie *ApplyInputEvent) apply(node widget.Node, ev interface{}, p image.Poin
 func (aie *ApplyInputEvent) mouseEnter(node widget.Node, p image.Point) bool {
 	return aie.visitDepthLast(node, p, func(n widget.Node) bool {
 		h := false
-		if !n.Marks().PointerInside() {
-			n.Marks().SetPointerInside(true)
+		if !n.Embed().PointerInside() {
+			n.Embed().SetPointerInside(true)
 			h = n.OnInputEvent(&event.MouseEnter{}, p) || h
 		}
 		return h
@@ -97,7 +97,7 @@ func (aie *ApplyInputEvent) mouseEnter(node widget.Node, p image.Point) bool {
 }
 
 func (aie *ApplyInputEvent) mouseLeave(node widget.Node, p image.Point) bool {
-	if !node.Marks().PointerInside() {
+	if !node.Embed().PointerInside() {
 		return false
 	}
 	h := false
@@ -105,7 +105,7 @@ func (aie *ApplyInputEvent) mouseLeave(node widget.Node, p image.Point) bool {
 		h = aie.mouseLeave(c, p) || h
 	}
 	if !p.In(node.Bounds()) {
-		node.Marks().SetPointerInside(false)
+		node.Embed().SetPointerInside(false)
 		h = node.OnInputEvent(&event.MouseLeave{}, p) || h
 	}
 	return h
@@ -116,7 +116,7 @@ func (aie *ApplyInputEvent) mouseDown(node widget.Node, ev *event.MouseDown, p i
 		h := n.OnInputEvent(ev, p)
 
 		// deepest node found
-		if !aie.drag.detect && !aie.drag.on && !n.Marks().NotDraggable() {
+		if !aie.drag.detect && !aie.drag.on && !n.Embed().NotDraggable() {
 			aie.drag.detect = true
 			aie.drag.button = ev.Button
 			aie.drag.point = p

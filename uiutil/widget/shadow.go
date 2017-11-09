@@ -18,8 +18,7 @@ func (s *Shadow) Init(ctx Context, child Node) {
 	s.SetWrapper(s)
 	s.Append(child)
 }
-func (s *Shadow) MarkChildNeedsPaint(child Node, r *image.Rectangle) {
-	s.ShellEmbedNode.MarkChildNeedsPaint(child, r)
+func (s *Shadow) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 	// top
 	if s.Top > 0 {
 		r2 := s.Bounds()

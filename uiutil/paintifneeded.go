@@ -7,13 +7,13 @@ import (
 )
 
 func PaintIfNeeded(node widget.Node, painted func(*image.Rectangle)) {
-	if node.Marks().NeedsPaint() {
+	if node.Embed().NeedsPaint() {
 		if widget.PaintTree(node) {
 			b := node.Bounds()
 			painted(&b)
 		}
-	} else if node.Marks().ChildNeedsPaint() {
-		node.Marks().SetChildNeedsPaint(false)
+	} else if node.Embed().ChildNeedsPaint() {
+		node.Embed().UnmarkChildNeedsPaint()
 		for _, child := range node.Childs() {
 			PaintIfNeeded(child, painted)
 		}
