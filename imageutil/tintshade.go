@@ -1,6 +1,8 @@
 package imageutil
 
-import "image/color"
+import (
+	"image/color"
+)
 
 // Turn color lighter by v percent (0.0, 1.0).
 func Tint(c0 color.Color, v float64) color.Color {
@@ -16,7 +18,7 @@ func Tint(c0 color.Color, v float64) color.Color {
 }
 
 // Turn color darker by v percent (0.0, 1.0).
-func Shade(c0 color.Color, v float64) color.RGBA {
+func Shade(c0 color.Color, v float64) color.Color {
 	if v < 0 || v > 1 {
 		panic("!")
 	}
@@ -27,4 +29,15 @@ func Shade(c0 color.Color, v float64) color.RGBA {
 	c.G = uint8(v * float64(c2.G))
 	c.B = uint8(v * float64(c2.B))
 	return c
+}
+
+func TintOrShade(c0 color.Color, v float64) color.Color {
+	c2 := color.RGBAModel.Convert(c0).(color.RGBA)
+	u := int(c2.R) + int(c2.G) + int(c2.B)
+	m := 256 * 3
+	if u > m/2 {
+		return Shade(c2, v)
+	} else {
+		return Tint(c2, v)
+	}
 }
