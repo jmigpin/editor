@@ -25,6 +25,6 @@ func directory(erow cmdutil.ERower, p string) bool {
 			ed.Error(err)
 		}
 	}
-	erow2.Row().WarpPointer()
+	erow2.Row().Flash()
 	return true
 }

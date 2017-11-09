@@ -37,5 +37,5 @@ func NewRow(ed Editorer) {
 	}
 
 	erow := ed.NewERowerBeforeRow(p, col, nextRow)
-	erow.Row().WarpPointer()
+	erow.Row().Flash()
 }

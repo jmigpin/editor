@@ -59,6 +59,6 @@ func GotoLineColumnInTextArea(row *ui.Row, line, column int) {
 	ta.MakeIndexVisibleAtCenter(index)
 	ok := ta.WarpPointerToIndexIfVisible(index)
 	if !ok {
-		row.WarpPointer()
+		row.Flash()
 	}
 }

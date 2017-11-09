@@ -241,7 +241,7 @@ func (ed *Editor) Error(err error) {
 func (ed *Editor) Messagef(f string, a ...interface{}) {
 	erow := ed.messagesERow()
 	erow.TextAreaAppendAsync(fmt.Sprintf(f, a...) + "\n")
-	//erow.Row().WarpPointer()
+	erow.Row().Flash()
 }
 func (ed *Editor) messagesERow() cmdutil.ERower {
 	s := "+Messages" // special name format
@@ -337,7 +337,6 @@ forEnd:
 }
 
 func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
-	//log.Printf("watcher event: %+v", ev)
 	for _, erow := range ed.erows {
 		if erow.Filename() == ev.Name {
 			erow.UpdateState()

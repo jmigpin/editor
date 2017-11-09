@@ -54,7 +54,7 @@ func file(erow cmdutil.ERower, str string) bool {
 	}
 
 	if line == 0 && column == 0 {
-		erow2.Row().WarpPointer()
+		erow2.Row().Flash()
 	} else {
 		cmdutil.GotoLineColumnInTextArea(erow2.Row(), line, column)
 	}

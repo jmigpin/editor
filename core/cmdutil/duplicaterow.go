@@ -36,5 +36,5 @@ func DuplicateRow(ed Editorer) {
 	ta2.SetCursorIndex(ta.CursorIndex())
 	ta2.MakeCursorVisible()
 
-	erow2.Row().WarpPointer()
+	erow2.Row().Flash()
 }
