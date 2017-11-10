@@ -108,21 +108,39 @@ func findFileinfo(erow cmdutil.ERower, p string) (string, os.FileInfo, bool) {
 	}
 
 	// erow path
-	u := path.Join(erow.Dir(), p)
-	fi, err := os.Stat(u)
-	if err == nil {
-		return u, fi, true
-	}
-
-	// go paths
-	gopath := os.Getenv("GOPATH")
-	a := strings.Split(gopath, ":")
-	a = append(a, os.Getenv("GOROOT"))
-	for _, d := range a {
-		u := path.Join(d, "src", p)
+	{
+		u := path.Join(erow.Dir(), p)
 		fi, err := os.Stat(u)
 		if err == nil {
 			return u, fi, true
+		}
+	}
+
+	// go paths
+	{
+		gopath := os.Getenv("GOPATH")
+		a := strings.Split(gopath, ":")
+		a = append(a, os.Getenv("GOROOT"))
+		for _, d := range a {
+			u := path.Join(d, "src", p)
+			fi, err := os.Stat(u)
+			if err == nil {
+				return u, fi, true
+			}
+		}
+	}
+
+	// c include paths
+	{
+		a := []string{
+			"/usr/include",
+		}
+		for _, d := range a {
+			u := path.Join(d, p)
+			fi, err := os.Stat(u)
+			if err == nil {
+				return u, fi, true
+			}
 		}
 	}
 
