@@ -66,7 +66,7 @@ func (tb *Toolbar) Paint() {
 	// setup flash colors
 	if tb.flash.on {
 		now := time.Now()
-		dur := 500 * time.Millisecond
+		dur := 250 * time.Millisecond
 		end := tb.flash.start.Add(dur)
 		if now.After(end) {
 			tb.flash.on = false

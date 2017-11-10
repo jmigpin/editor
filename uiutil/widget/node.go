@@ -395,24 +395,26 @@ func PaintTree(node Node) (painted bool) {
 	return
 }
 
-//func (en *EmbedNode) PaintChilds() {
-//	for _, child := range en.Childs() {
-//		_ = PaintTree(child)
-//	}
-//}
-
 func (en *EmbedNode) PaintChilds() {
-	childs := en.Childs()
-	var wg sync.WaitGroup
-	wg.Add(len(childs))
-	for _, child := range childs {
-		go func(child Node) {
-			defer wg.Done()
-			_ = PaintTree(child)
-		}(child)
+	for _, child := range en.Childs() {
+		_ = PaintTree(child)
 	}
-	wg.Wait()
 }
+
+//func (en *EmbedNode) PaintChilds() {
+//	// currently not used: unable to ensure the top layer gets drawn first (multilayer, menu layer)
+
+//	childs := en.Childs()
+//	var wg sync.WaitGroup
+//	wg.Add(len(childs))
+//	for _, child := range childs {
+//		go func(child Node) {
+//			defer wg.Done()
+//			_ = PaintTree(child)
+//		}(child)
+//	}
+//	wg.Wait()
+//}
 
 type LeafEmbedNode struct {
 	EmbedNode
