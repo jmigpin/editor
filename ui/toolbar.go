@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/drawutil2/hsdrawer"
@@ -14,7 +13,6 @@ type Toolbar struct {
 	parent widget.Node
 
 	flash struct {
-		sync.Mutex
 		on     bool
 		start  time.Time
 		colors *hsdrawer.Colors
@@ -52,42 +50,44 @@ func (tb *Toolbar) onTextAreaSetStr(ev0 interface{}) {
 	}
 }
 
-// Safe to use concurrently
+// Safe to use concurrently.
 func (tb *Toolbar) Flash() {
-	tb.flash.Lock()
-	// keep but don't override the original colors
-	if !tb.flash.on {
-		tb.flash.colors = tb.Colors
-	}
-
-	tb.flash.on = true
-	tb.flash.start = time.Now()
-	tb.flash.Unlock()
-
-	tb.MarkNeedsPaint()
+	tb.ui.EnqueueRunFunc(func() {
+		if !tb.flash.on { // don't override original colors if it was on already
+			tb.flash.colors = tb.Colors
+		}
+		tb.flash.on = true
+		tb.flash.start = time.Now()
+		tb.MarkNeedsPaint()
+	})
 }
+
 func (tb *Toolbar) Paint() {
+	// setup flash colors
 	if tb.flash.on {
-		// setup flash colors
-		tb.flash.Lock()
 		now := time.Now()
-		end := tb.flash.start.Add(250 * time.Millisecond)
+		dur := 500 * time.Millisecond
+		end := tb.flash.start.Add(dur)
 		if now.After(end) {
 			tb.flash.on = false
 			tb.Colors = tb.flash.colors
 		} else {
 			t := now.Sub(tb.flash.start)
-			d := end.Sub(tb.flash.start)
-			perc := 1.0 - (float64(t) / float64(d))
+			perc := 1.0 - (float64(t) / float64(dur))
 			c1 := *tb.flash.colors
 			nc := &tb.flash.colors.Normal
 			c1.Normal.Fg = imageutil.TintOrShade(nc.Fg, perc)
 			c1.Normal.Bg = imageutil.TintOrShade(nc.Bg, perc)
 			tb.Colors = &c1
-		}
-		tb.flash.Unlock()
 
-		tb.MarkNeedsPaint()
+		}
+
+		// needs paint until the animation is over
+		// enqueue markneedspaint otherwise the childneedspaint flag will be overriden since this is running inside a paint call
+		tb.ui.EnqueueRunFunc(func() {
+			tb.MarkNeedsPaint()
+		})
 	}
+
 	tb.TextArea.Paint()
 }

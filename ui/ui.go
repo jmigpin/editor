@@ -67,6 +67,7 @@ func NewUI() (*UI, error) {
 	ui.EvReg.Add(UITextAreaAppendAsyncEventId, ui.onTextAreaAppendAsync)
 	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId, ui.onTextAreaInsertStringAsync)
 	ui.EvReg.Add(UIRowDoneExecutingAsyncEventId, ui.onRowDoneExecutingAsync)
+	ui.EvReg.Add(UIRunFuncEventId, ui.onRunFunc)
 
 	return ui, nil
 }
@@ -100,7 +101,7 @@ func (ui *UI) PaintIfNeeded() (painted bool) {
 	}
 
 	var u []*image.Rectangle
-	uiutil.PaintIfNeeded(&ui.Layout, func(r *image.Rectangle) {
+	widget.PaintIfNeeded(&ui.Layout, func(r *image.Rectangle) {
 		painted = true
 
 		// Putting the image here causes tearing since multilayers have been introduced. This happens because the lower layer is painted and gets actually visible in the screen before the top layer paint signal arrives.
@@ -259,12 +260,22 @@ func (ui *UI) onRowDoneExecutingAsync(ev0 interface{}) {
 	ev.Row.Square.SetValue(SquareExecuting, false)
 }
 
+func (ui *UI) EnqueueRunFunc(f func()) {
+	ev := &UIRunFuncEvent{f}
+	ui.EvReg.Enqueue(UIRunFuncEventId, ev)
+}
+func (ui *UI) onRunFunc(ev0 interface{}) {
+	ev := ev0.(*UIRunFuncEvent)
+	ev.F()
+}
+
 // TODO: remove these events and directly create locks inside to set the variables, and then call the requestpaint event
 
 const (
 	UITextAreaAppendAsyncEventId = evreg.UIEventIdStart + iota
 	UITextAreaInsertStringAsyncEventId
 	UIRowDoneExecutingAsyncEventId
+	UIRunFuncEventId
 )
 
 type UITextAreaAppendAsyncEvent struct {
@@ -277,4 +288,8 @@ type UITextAreaInsertStringAsyncEvent struct {
 }
 type UIRowDoneExecutingAsyncEvent struct {
 	Row *Row
+}
+
+type UIRunFuncEvent struct {
+	F func()
 }
