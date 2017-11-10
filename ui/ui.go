@@ -7,7 +7,6 @@ import (
 
 	"golang.org/x/image/font"
 
-	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
@@ -64,9 +63,6 @@ func NewUI() (*UI, error) {
 	ui.EvReg.Add(xproto.Expose, ui.onExpose)
 	ui.EvReg.Add(evreg.ShmCompletionEventId, ui.onShmCompletion)
 	ui.EvReg.Add(xinput.InputEventId, ui.onInput)
-	ui.EvReg.Add(UITextAreaAppendAsyncEventId, ui.onTextAreaAppendAsync)
-	ui.EvReg.Add(UITextAreaInsertStringAsyncEventId, ui.onTextAreaInsertStringAsync)
-	ui.EvReg.Add(UIRowDoneExecutingAsyncEventId, ui.onRowDoneExecutingAsync)
 	ui.EvReg.Add(UIRunFuncEventId, ui.onRunFunc)
 
 	return ui, nil
@@ -225,41 +221,6 @@ func (ui *UI) SetPrimaryCopy(v string) {
 	ui.win.Copy.SetPrimary(v)
 }
 
-func (ui *UI) TextAreaAppendAsync(ta *TextArea, str string) {
-	ev := &UITextAreaAppendAsyncEvent{ta, str}
-	ui.EvReg.Enqueue(UITextAreaAppendAsyncEventId, ev)
-}
-func (ui *UI) onTextAreaAppendAsync(ev0 interface{}) {
-	ev := ev0.(*UITextAreaAppendAsyncEvent)
-	ta := ev.TextArea
-	str := ev.Str
-
-	// max size for appends
-	maxSize := 5 * 1024 * 1024
-	str2 := ta.Str() + str
-	if len(str2) > maxSize {
-		d := len(str2) - maxSize
-		str2 = str2[d:]
-	}
-
-	// false,true = keep pos, but clear undo for massive savings
-	ta.SetStrClear(str2, false, true)
-}
-
-func (ui *UI) TextAreaInsertStringAsync(ta *TextArea, str string) {
-	ev := &UITextAreaInsertStringAsyncEvent{ta, str}
-	ui.EvReg.Enqueue(UITextAreaInsertStringAsyncEventId, ev)
-}
-func (ui *UI) onTextAreaInsertStringAsync(ev0 interface{}) {
-	ev := ev0.(*UITextAreaInsertStringAsyncEvent)
-	tautil.InsertString(ev.TextArea, ev.Str)
-}
-
-func (ui *UI) onRowDoneExecutingAsync(ev0 interface{}) {
-	ev := ev0.(*UIRowDoneExecutingAsyncEvent)
-	ev.Row.Square.SetValue(SquareExecuting, false)
-}
-
 func (ui *UI) EnqueueRunFunc(f func()) {
 	ev := &UIRunFuncEvent{f}
 	ui.EvReg.Enqueue(UIRunFuncEventId, ev)
@@ -269,26 +230,9 @@ func (ui *UI) onRunFunc(ev0 interface{}) {
 	ev.F()
 }
 
-// TODO: remove these events and directly create locks inside to set the variables, and then call the requestpaint event
-
 const (
-	UITextAreaAppendAsyncEventId = evreg.UIEventIdStart + iota
-	UITextAreaInsertStringAsyncEventId
-	UIRowDoneExecutingAsyncEventId
-	UIRunFuncEventId
+	UIRunFuncEventId = evreg.UIEventIdStart + iota
 )
-
-type UITextAreaAppendAsyncEvent struct {
-	TextArea *TextArea
-	Str      string
-}
-type UITextAreaInsertStringAsyncEvent struct {
-	TextArea *TextArea
-	Str      string
-}
-type UIRowDoneExecutingAsyncEvent struct {
-	Row *Row
-}
 
 type UIRunFuncEvent struct {
 	F func()

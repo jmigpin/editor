@@ -332,7 +332,20 @@ func (erow *ERow) filepathContent(filepath string) (string, error) {
 }
 
 func (erow *ERow) TextAreaAppendAsync(str string) {
-	erow.ed.ui.TextAreaAppendAsync(erow.row.TextArea, str)
+	erow.ed.ui.EnqueueRunFunc(func() {
+		ta := erow.row.TextArea
+
+		// max size for appends
+		maxSize := 5 * 1024 * 1024
+		str2 := ta.Str() + str
+		if len(str2) > maxSize {
+			d := len(str2) - maxSize
+			str2 = str2[d:]
+		}
+
+		// false,true = keep pos, but clear undo for massive savings
+		ta.SetStrClear(str2, false, true)
+	})
 }
 
 func (erow *ERow) onRowInput(ev0 interface{}) {

@@ -60,17 +60,18 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	// exec
 	go func() {
 		err := execRowCmd2(erow, cmd)
-		if err != nil {
-			erow.TextAreaAppendAsync(err.Error())
-		}
 
 		// another context could be added already to the row
 		row := erow.Row()
 		gRowCtx.ClearIfNotNewCtx(row, ctx, func() {
+			// show error if any
+			if err != nil {
+				erow.TextAreaAppendAsync(err.Error())
+			}
 			// indicate the cmd is not running anymore
-			eid := ui.UIRowDoneExecutingAsyncEventId
-			ev := &ui.UIRowDoneExecutingAsyncEvent{row}
-			erow.Ed().UI().EvReg.Enqueue(eid, ev)
+			erow.Ed().UI().EnqueueRunFunc(func() {
+				row.Square.SetValue(ui.SquareExecuting, false)
+			})
 		})
 	}()
 }

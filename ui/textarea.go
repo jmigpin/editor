@@ -661,7 +661,9 @@ func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 }
 
 func (ta *TextArea) InsertStringAsync(str string) {
-	ta.ui.TextAreaInsertStringAsync(ta, str)
+	ta.ui.EnqueueRunFunc(func() {
+		tautil.InsertString(ta, str)
+	})
 }
 
 func (ta *TextArea) History() *tahistory.History {
