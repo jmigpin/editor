@@ -31,6 +31,7 @@ type Node interface {
 	Bounds() image.Rectangle
 	SetBounds(*image.Rectangle)
 
+	// Child is an immediate child of this node, while the rectangle is the bounds of the original node that requested paint.
 	OnMarkChildNeedsPaint(Node, *image.Rectangle)
 
 	Measure(hint image.Point) image.Point
@@ -283,16 +284,24 @@ func (en *EmbedNode) NeedsPaint() bool {
 	return en.hasMarks(NeedsPaintMark)
 }
 func (en *EmbedNode) MarkNeedsPaint() {
-	en.SetNeedsPaint(true)
+	en.setNeedsPaint(true)
 }
-func (en *EmbedNode) SetNeedsPaint(v bool) {
+func (en *EmbedNode) setNeedsPaint(v bool) {
+	if v && en.NotPaintable() {
+		return
+	}
 	en.setMarks(NeedsPaintMark, v)
 	if v {
-		// set mark in parents
+		//log.Printf("---needspaint %v", reflect.TypeOf(en.wrapper))
+
+		// set mark in parents if not already marked
+		for n := en.Parent(); n != nil; n = n.Parent() {
+			n.Embed().setMarks(ChildNeedsPaintMark, true)
+		}
+		// run callbacks with this node rectangle argument
 		r := en.Bounds()
 		child := en.wrapper
 		for n := en.Parent(); n != nil; n = n.Parent() {
-			n.Embed().setMarks(ChildNeedsPaintMark, true)
 			n.OnMarkChildNeedsPaint(child, &r)
 			child = n
 		}
@@ -302,12 +311,8 @@ func (en *EmbedNode) SetNeedsPaint(v bool) {
 func (en *EmbedNode) ChildNeedsPaint() bool {
 	return en.hasMarks(ChildNeedsPaintMark)
 }
-func (en *EmbedNode) UnmarkChildNeedsPaint() {
+func (en *EmbedNode) unmarkChildNeedsPaint() {
 	en.setMarks(ChildNeedsPaintMark, false)
-}
-
-// Child is an immediate child of this node, while the rectangle is the bounds of the original node that requested paint.
-func (en *EmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 }
 
 func (en *EmbedNode) Hidden() bool {
@@ -315,16 +320,22 @@ func (en *EmbedNode) Hidden() bool {
 }
 func (en *EmbedNode) SetHidden(v bool) {
 	en.setMarks(HiddenMark, v)
+
+	// update childs, note that it could have a hidden parent
+	isHidden := en.Hidden()
 	for e := en.childs.Front(); e != nil; e = e.Next() {
 		ce := e.Value.(Node).Embed()
-		ce.setParentHidden(v)
+		ce.setParentHidden(isHidden)
 	}
 }
 func (en *EmbedNode) setParentHidden(v bool) {
 	en.setMarks(ParentHiddenMark, v)
+
+	// update childs, note that this node itself could be hidden
+	isHidden := en.Hidden()
 	for e := en.childs.Front(); e != nil; e = e.Next() {
 		ce := e.Value.(Node).Embed()
-		ce.setParentHidden(v)
+		ce.setParentHidden(isHidden)
 	}
 }
 
@@ -340,11 +351,43 @@ func (en *EmbedNode) PointerInside() bool {
 func (en *EmbedNode) SetPointerInside(v bool) {
 	en.setMarks(PointerInsideMark, v)
 }
+func (en *EmbedNode) NotPaintable() bool {
+	return en.hasMarks(NotPaintableMark)
+}
+func (en *EmbedNode) SetNotPaintable(v bool) {
+	en.setMarks(NotPaintableMark, v)
+}
+
+func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
+	return false
+}
+
+func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
+	if node.Embed().NeedsPaint() {
+		if PaintTree(node) {
+			b := node.Bounds()
+			painted(&b)
+		}
+	} else if node.Embed().ChildNeedsPaint() {
+		node.Embed().unmarkChildNeedsPaint()
+		for _, child := range node.Childs() {
+			PaintIfNeeded(child, painted)
+		}
+	}
+}
+
+//var paintDepth int
 
 func PaintTree(node Node) (painted bool) {
+	//paintDepth++
+	//defer func() { paintDepth-- }()
+
 	ne := node.Embed()
-	ne.SetNeedsPaint(false)
+	ne.setNeedsPaint(false)
+	ne.unmarkChildNeedsPaint()
 	if !node.Embed().Hidden() {
+		//log.Printf("%*s%s", paintDepth, "", reflect.TypeOf(node))
+
 		node.Paint()
 		painted = true
 	}
@@ -353,7 +396,6 @@ func PaintTree(node Node) (painted bool) {
 }
 
 //func (en *EmbedNode) PaintChilds() {
-//	en.UnmarkChildNeedsPaint()
 //	for _, child := range en.Childs() {
 //		_ = PaintTree(child)
 //	}
@@ -363,7 +405,6 @@ func (en *EmbedNode) PaintChilds() {
 	childs := en.Childs()
 	var wg sync.WaitGroup
 	wg.Add(len(childs))
-	en.UnmarkChildNeedsPaint()
 	for _, child := range childs {
 		go func(child Node) {
 			defer wg.Done()
@@ -371,10 +412,6 @@ func (en *EmbedNode) PaintChilds() {
 		}(child)
 	}
 	wg.Wait()
-}
-
-func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
-	return false
 }
 
 type LeafEmbedNode struct {
@@ -388,6 +425,8 @@ func (ln *LeafEmbedNode) InsertBefore(n, mark Node) {
 	panic("can't insert child on a leaf node")
 }
 func (ln *LeafEmbedNode) CalcChildsBounds() {
+}
+func (ln *LeafEmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 }
 
 type ShellEmbedNode struct {
@@ -414,12 +453,16 @@ func (sn *ShellEmbedNode) CalcChildsBounds() {
 }
 func (sn *ShellEmbedNode) Paint() {
 }
+func (sn *ShellEmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
+}
 
 type ContainerEmbedNode struct {
 	EmbedNode
 }
 
 func (cn *ContainerEmbedNode) Paint() {
+}
+func (cn *ContainerEmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 }
 
 type Marks uint8
@@ -431,6 +474,9 @@ const (
 	NotDraggableMark
 	HiddenMark
 	ParentHiddenMark
+
+	// For transparent widgets that cross 2 or more other widgets (ex: separatorHandle). Improves on detecting if others need paint and reduces the number of widgets that get painted.
+	NotPaintableMark
 )
 
 func (m *Marks) add(u Marks) {

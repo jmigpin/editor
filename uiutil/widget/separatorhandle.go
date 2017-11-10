@@ -22,6 +22,7 @@ type SeparatorHandle struct {
 func (sh *SeparatorHandle) Init(ctx Context, ref Node) {
 	*sh = SeparatorHandle{ctx: ctx, ref: ref}
 	sh.SetWrapper(sh)
+	sh.SetNotPaintable(true)
 }
 func (sh *SeparatorHandle) Measure(hint image.Point) image.Point {
 	panic("calling measure on thin separator handle")

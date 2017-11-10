@@ -10,26 +10,23 @@ type MultiLayer struct {
 }
 
 func (ml *MultiLayer) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
+	// visit other layers to mark if they need paint
 	for _, c := range ml.Childs() {
 		if c == child {
 			continue
 		}
-		ml.visit(c, r)
+		ml.visitForNeedPaint(c, r)
 	}
 }
-func (ml *MultiLayer) visit(n Node, r *image.Rectangle) {
-	if n.Embed().NeedsPaint() {
+
+func (ml *MultiLayer) visitForNeedPaint(n Node, r *image.Rectangle) {
+	ne := n.Embed()
+	if ne.NeedsPaint() || ne.Hidden() || ne.NotPaintable() {
 		return
 	}
 	if !n.Bounds().Overlaps(*r) {
 		return
 	}
-	if n.Bounds().Eq(*r) {
-		n.Embed().MarkNeedsPaint() // highly recursive from here
-		return
-	}
-
-	// overlap
 
 	// if the childs union doesn't contain the rectangle, this node needs paint
 	var u image.Rectangle
@@ -37,13 +34,12 @@ func (ml *MultiLayer) visit(n Node, r *image.Rectangle) {
 		u = u.Union(c.Bounds())
 	}
 	if !r.In(u) {
-		n.Embed().MarkNeedsPaint() // highly recursive from here
+		ne.MarkNeedsPaint() // highly recursive from here
 		return
 	}
 
-	// visit each child to see which ones contain or partially contain the rectangle
 	for _, c := range n.Childs() {
-		ml.visit(c, r)
+		ml.visitForNeedPaint(c, r)
 	}
 }
 
