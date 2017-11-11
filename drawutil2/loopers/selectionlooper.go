@@ -15,14 +15,16 @@ func NewSelectionLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) *Sele
 	return &SelectionLooper{strl: strl, bgl: bgl, dl: dl}
 }
 func (lpr *SelectionLooper) Loop(fn func() bool) {
+	if lpr.Selection == nil {
+		lpr.OuterLooper().Loop(fn)
+		return
+	}
 	lpr.OuterLooper().Loop(func() bool {
 		if lpr.strl.RiClone {
 			return fn()
 		}
 		if lpr.colorize() {
-			if lpr.Fg != nil {
-				lpr.dl.Fg = lpr.Fg
-			}
+			lpr.dl.Fg = lpr.Fg
 			lpr.bgl.Bg = lpr.Bg
 		}
 		return fn()
@@ -30,9 +32,6 @@ func (lpr *SelectionLooper) Loop(fn func() bool) {
 }
 func (lpr *SelectionLooper) colorize() bool {
 	sl := lpr.Selection
-	if sl == nil {
-		return false
-	}
 	s, e := sl.Start, sl.End
 	if s > e {
 		s, e = e, s

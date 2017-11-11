@@ -16,12 +16,13 @@ type HSDrawer struct {
 	Face font.Face
 	Str  string
 
-	Colors      *Colors
-	CursorIndex int // <0 to disable
-	HWordIndex  int // <0 to disable
-	Selection   *loopers.SelectionIndexes
-	OffsetY     int
-	Pad         image.Point // left/top pad
+	Colors         *Colors
+	CursorIndex    *int
+	HWordIndex     *int
+	Selection      *loopers.SelectionIndexes
+	FlashSelection *loopers.FlashSelectionIndexes
+	OffsetY        int
+	Pad            image.Point // left/top pad
 
 	height int
 
@@ -50,6 +51,7 @@ func NewHSDrawer(face font.Face) *HSDrawer {
 
 func (d *HSDrawer) Measure(max image.Point) image.Point {
 
+	// TODO: update only parts of the cache
 	//if d.hintStr == d.Str {
 	//	return d.update(hint)
 	//}
@@ -144,22 +146,26 @@ func (d *HSDrawer) initDrawLoopers(img draw.Image, bounds *image.Rectangle) {
 	d.dl.Init(&d.strl, img, unpaddedBounds)
 	d.bgl.Init(&d.strl, &d.dl)
 	sl := loopers.NewSelectionLooper(&d.strl, &d.bgl, &d.dl)
-	cursorl := loopers.NewCursorLooper(&d.strl, &d.dl, bounds)
 	scl := loopers.NewSetColorsLooper(&d.dl, &d.bgl)
 	hwl := loopers.NewHWordLooper(&d.strl, &d.bgl, &d.dl)
+	fsl := loopers.NewFlashSelectionLooper(&d.strl, &d.bgl, &d.dl)
+	cursorl := loopers.NewCursorLooper(&d.strl, &d.dl, bounds)
 	d.wlinecl.Init(&d.wlinel, &d.dl, &d.bgl)
 	d.eel.Init(&d.strl, fixed.I(unpaddedBounds.Size().Y))
 
+	// if nil colors are allowed, they should be dealt with here
+
 	// options
-	d.dl.Fg = d.Colors.Normal.Fg // default fg on which the cursor looks at. If there are nothing to draw, then this never gets set by the scl, and the cursor needs this to be non-nil
+	d.bgl.NoColorizeBg = d.Colors.Normal.Bg // filled externally so don't colorize here if it is this color
 	scl.Fg = d.Colors.Normal.Fg
-	scl.Bg = nil // d.Colors.Normal.Bg // default bg filled externallly
+	scl.Bg = d.Colors.Normal.Bg
 	sl.Selection = d.Selection
 	sl.Fg = d.Colors.Selection.Fg
 	sl.Bg = d.Colors.Selection.Bg
 	hwl.WordIndex = d.HWordIndex
 	hwl.Fg = d.Colors.Highlight.Fg
 	hwl.Bg = d.Colors.Highlight.Bg
+	fsl.Selection = d.FlashSelection
 	cursorl.CursorIndex = d.CursorIndex
 	d.wlinecl.Fg = d.Colors.WrapLine.Fg
 	d.wlinecl.Bg = d.Colors.WrapLine.Bg
@@ -169,8 +175,9 @@ func (d *HSDrawer) initDrawLoopers(img draw.Image, bounds *image.Rectangle) {
 	sl.SetOuterLooper(scl)
 	hwl.SetOuterLooper(sl)
 	d.wlinecl.SetOuterLooper(hwl)
-	d.bgl.SetOuterLooper(&d.wlinecl)   // bg phase
-	cursorl.SetOuterLooper(&d.wlinecl) // rune phase
+	fsl.SetOuterLooper(&d.wlinecl)
+	d.bgl.SetOuterLooper(fsl)   // bg phase
+	cursorl.SetOuterLooper(fsl) // rune phase
 	d.dl.SetOuterLooper(cursorl)
 }
 

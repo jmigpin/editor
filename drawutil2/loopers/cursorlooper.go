@@ -11,14 +11,18 @@ type CursorLooper struct {
 	strl        *StringLooper
 	dl          *DrawLooper
 	bounds      *image.Rectangle
-	CursorIndex int
+	CursorIndex *int
 }
 
 func NewCursorLooper(strl *StringLooper, dl *DrawLooper, bounds *image.Rectangle) *CursorLooper {
 	return &CursorLooper{strl: strl, dl: dl, bounds: bounds}
 }
 func (lpr *CursorLooper) Loop(fn func() bool) {
-	ci := lpr.CursorIndex
+	if lpr.CursorIndex == nil {
+		lpr.OuterLooper().Loop(fn)
+		return
+	}
+	ci := *lpr.CursorIndex
 	lpr.OuterLooper().Loop(func() bool {
 		if lpr.strl.RiClone {
 			return fn()
@@ -39,9 +43,6 @@ func (lpr *CursorLooper) drawCursor() {
 
 	// use drawer foreground color
 	c := lpr.dl.Fg
-	if c == nil {
-		panic("cursor color is nil")
-	}
 
 	// allow to draw outside the bounds used for drawing text
 	bounds2 := *lpr.bounds

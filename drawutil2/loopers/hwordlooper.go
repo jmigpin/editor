@@ -13,7 +13,7 @@ type HWordLooper struct {
 	bgl  *BgLooper
 	dl   *DrawLooper
 
-	WordIndex int
+	WordIndex *int
 	Fg, Bg    color.Color
 
 	hword struct {
@@ -31,19 +31,19 @@ func NewHWordLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) *HWordLoo
 	}
 }
 func (lpr *HWordLooper) Loop(fn func() bool) {
-	if lpr.WordIndex >= 0 {
-		word, _, ok := wordAtIndex(lpr.strl.Str, lpr.WordIndex)
-		lpr.hword.on = ok
-		lpr.hword.word = word
+	if lpr.WordIndex == nil {
+		lpr.OuterLooper().Loop(fn)
+		return
 	}
+	word, _, ok := wordAtIndex(lpr.strl.Str, *lpr.WordIndex)
+	lpr.hword.on = ok
+	lpr.hword.word = word
 	lpr.OuterLooper().Loop(func() bool {
 		if lpr.strl.RiClone {
 			return fn()
 		}
 		if lpr.colorize() {
-			if lpr.Fg != nil {
-				lpr.dl.Fg = lpr.Fg
-			}
+			lpr.dl.Fg = lpr.Fg
 			lpr.bgl.Bg = lpr.Bg
 		}
 		return fn()

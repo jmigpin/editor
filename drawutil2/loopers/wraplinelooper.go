@@ -1,7 +1,6 @@
 package loopers
 
 import (
-	"image/color"
 	"unicode"
 
 	"golang.org/x/image/math/fixed"
@@ -15,7 +14,7 @@ type WrapLineLooper struct {
 	linei *LineLooper
 	MaxX  fixed.Int26_6
 
-	state int
+	state int // states used by WrapLineColorLooper
 
 	data WrapLine2Data // positional data for keep/restore
 }
@@ -165,31 +164,4 @@ func (lpr *WrapLineLooper) UpdatePosData() {
 type WrapLine2Data struct {
 	NotStartingSpaces bool          // is after first non space char
 	PenX              fixed.Int26_6 // indent size, or first rune position after indent
-}
-
-type WrapLineColorLooper struct {
-	EmbedLooper
-	wlinel *WrapLineLooper
-	dl     *DrawLooper
-	bgl    *BgLooper
-	Fg, Bg color.Color
-}
-
-func (lpr *WrapLineColorLooper) Init(wlinel *WrapLineLooper, dl *DrawLooper, bgl *BgLooper) {
-	*lpr = WrapLineColorLooper{wlinel: wlinel, dl: dl, bgl: bgl}
-}
-func (lpr *WrapLineColorLooper) Loop(fn func() bool) {
-	lpr.OuterLooper().Loop(func() bool {
-		switch lpr.wlinel.state {
-		case 1, 2: // bg1 and bg2
-			if lpr.Bg != nil {
-				lpr.bgl.Bg = lpr.Bg
-			}
-		case 3: // wrapline rune
-			if lpr.Fg != nil {
-				lpr.dl.Fg = lpr.Fg
-			}
-		}
-		return fn()
-	})
 }
