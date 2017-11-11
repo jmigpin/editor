@@ -75,25 +75,20 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 
 #### Column key/button shortcuts
 
-(square-button):
-
-- `buttonMiddle`: close column
+- `buttonLeft`:
+  - on left border: drag to move/resize
+  - on square-button: close
 
 #### Row key/button shortcuts
 
 - `ctrl`+`s`: save file
 - `ctrl`+`f`: warp pointer to "Find" cmd in row toolbar
-- Any button press: make row active to layout toolbar commands
-
-(square-button):
-
 - `buttonLeft`:
-  - click: maximize
-  - drag: move/resize row
-- `buttonMiddle`: close row
-- `buttonRight`: resize column
-- `buttonWheelUp`: increase row size vertically, pushing other rows up
-- `buttonWheelDown`: increase row size vertically, pushing other rows down
+  - on top border: drag to move/resize
+  - on square-button: close
+- `buttonWheelUp` on top border: increase row size vertically, pushing other rows up
+- `buttonWheelDown` on top border: increase row size vertically, pushing other rows down
+- Any button press: make row active to layout toolbar commands
 
 #### Textarea key/button shortcuts
 
@@ -105,6 +100,8 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 - `end`: end of line
 - `delete`: delete current rune
 - `backspace`: delete previous rune
+- `pageUp`: page up
+- `pageDown`: page down
 - `tab` (if selection is on): insert tab at beginning of lines
 - `shift`+`left`: move cursor left adding to selection
 - `shift`+`right`: move cursor right adding to selection
@@ -130,6 +127,8 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 - `buttonRight`: move cursor to point + text area cmd
 - `buttonWheelUp`: scroll up
 - `buttonWheelDown`: scroll down
+- `buttonWheelUp` on scrollbar: page up
+- `buttonWheelDown` on scrollbar: page down
 - `shift`+`buttonLeft`: move cursor to point adding to selection
 
 ### Commands
@@ -147,6 +146,7 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 - `ReloadAllFiles`: reloads all filepaths that are files
 - `RowDirectory`: get the active-row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.
 - `DuplicateRow`: make active-row share the edit history with a new row that updates when changes are made.
+- `MaximizeRow`: maximize active-row. Will push other rows up/down.
 - `XdgOpenDir`: calls xdg-open to open the active-row directory with the preferred external application (ex: a filemanager)
 - `ColorTheme`: cycles through available color themes.
 - `Exit`: exits the program
