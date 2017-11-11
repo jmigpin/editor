@@ -49,6 +49,8 @@ func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
 		cmdutil.OpenRowDirectory(ed)
 	case "DuplicateRow":
 		cmdutil.DuplicateRow(ed)
+	case "MaximizeRow":
+		cmdutil.MaximizeRow(ed)
 	case "ColorTheme":
 		ui.CycleColorTheme()
 		ed.ui.Layout.MarkNeedsPaint()

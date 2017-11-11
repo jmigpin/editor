@@ -10,6 +10,7 @@ import (
 func OpenRowDirectory(ed Editorer) {
 	erow, ok := ed.ActiveERower()
 	if !ok {
+		ed.Errorf("no active row")
 		return
 	}
 

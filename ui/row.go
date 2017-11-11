@@ -191,7 +191,7 @@ func (row *Row) resizeWithSwapToPoint(p *image.Point) {
 	row.Col.MarkNeedsPaint()
 }
 
-func (row *Row) maximize(p *image.Point) {
+func (row *Row) Maximize() {
 	col := row.Col
 	dy := float64(col.Bounds().Dy())
 	min := float64(row.minimumSize()) / dy

@@ -108,7 +108,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	{
 		s := `XdgOpenDir
 GotoLine
-RowDirectory | ReopenRow
+RowDirectory | ReopenRow | MaximizeRow
 ListDir | ListDirHidden | ListDirSub 
 Reload | ReloadAll | ReloadAllFiles
 SaveAllFiles
