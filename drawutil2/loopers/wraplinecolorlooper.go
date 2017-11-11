@@ -16,9 +16,9 @@ func (lpr *WrapLineColorLooper) Init(wlinel *WrapLineLooper, dl *DrawLooper, bgl
 func (lpr *WrapLineColorLooper) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		switch lpr.wlinel.state {
-		case 1, 2: // bg1 and bg2
+		case 0: // other runes
+		case 1, 2, 3: // wrapline: bg1, bg2, and rune
 			lpr.bgl.Bg = lpr.Bg
-		case 3: // wrapline rune
 			lpr.dl.Fg = lpr.Fg
 		}
 		return fn()

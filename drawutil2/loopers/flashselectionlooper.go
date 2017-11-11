@@ -18,25 +18,19 @@ func (lpr *FlashSelectionLooper) Loop(fn func() bool) {
 		lpr.OuterLooper().Loop(fn)
 		return
 	}
+	sl := lpr.Selection
+	s, e := sl.Start, sl.End
+	if s > e {
+		s, e = e, s
+	}
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.strl.RiClone {
-			return fn()
-		}
-		if lpr.colorize() {
+		if lpr.strl.Ri >= s && lpr.strl.Ri < e {
 			p := lpr.Selection.Perc
 			lpr.dl.Fg = imageutil.TintOrShade(lpr.dl.Fg, p)
 			lpr.bgl.Bg = imageutil.TintOrShade(lpr.bgl.Bg, p)
 		}
 		return fn()
 	})
-}
-func (lpr *FlashSelectionLooper) colorize() bool {
-	sl := lpr.Selection
-	s, e := sl.Start, sl.End
-	if s > e {
-		s, e = e, s
-	}
-	return lpr.strl.Ri >= s && lpr.strl.Ri < e
 }
 
 type FlashSelectionIndexes struct {

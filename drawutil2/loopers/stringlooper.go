@@ -87,9 +87,11 @@ func (lpr *StringLooper) PenBounds() *fixed.Rectangle26_6 {
 }
 func (lpr *StringLooper) PenBoundsForImage() *image.Rectangle {
 	pb := lpr.PenBounds()
-	// min floor / max ceil ensures the bounds cover the rune.
-	min := image.Point{pb.Min.X.Floor(), pb.Min.Y.Floor()}
-	max := image.Point{pb.Max.X.Ceil(), pb.Max.Y.Ceil()}
+
+	// both min and max should use the same function (floor/ceil/round) because while the first rune uses ceil on max, if the next rune uses floor on min it will overwrite the previous rune on one pixel. This is noticeable in painting backgrounds.
+	min := image.Point{pb.Min.X.Round(), pb.Min.Y.Round()}
+	max := image.Point{pb.Max.X.Round(), pb.Max.Y.Round()}
+
 	r := image.Rect(min.X, min.Y, max.X, max.Y)
 	return &r
 }
