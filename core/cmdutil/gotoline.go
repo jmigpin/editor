@@ -57,6 +57,6 @@ func GotoLineColumnInTextArea(row *ui.Row, line, column int) {
 	ta.SetCursorIndex(index)
 	row.ResizeTextAreaIfVerySmall()
 	ta.MakeIndexVisibleAtCenter(index)
-	row.Flash()
+	//row.Flash()
 	row.TextArea.FlashCursorLine()
 }

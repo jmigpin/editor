@@ -162,7 +162,7 @@ func (ta *TextArea) getFlashSelection() *loopers.FlashSelectionIndexes {
 	}
 
 	now := time.Now()
-	dur := 250 * time.Millisecond
+	dur := 500 * time.Millisecond
 	end := ta.flash.start.Add(dur)
 
 	// animation time ended
