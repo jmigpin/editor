@@ -148,9 +148,9 @@ func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	return false
 }
 
+// Safe to use concurrently.
 func (row *Row) Flash() {
-	row.Toolbar.Flash()
-	//row.Square.WarpPointer()
+	row.Toolbar.Flash() // Safe to use concurrently.
 }
 
 func (row *Row) NextRow() (*Row, bool) {

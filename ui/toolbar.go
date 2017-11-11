@@ -80,13 +80,12 @@ func (tb *Toolbar) Paint() {
 			c1.Normal.Bg = imageutil.TintOrShade(nc.Bg, perc)
 			tb.Colors = &c1
 
+			// needs paint until the animation is over
+			// enqueue markneedspaint otherwise the childneedspaint flag will be overriden since this is running inside a paint call
+			tb.ui.EnqueueRunFunc(func() {
+				tb.MarkNeedsPaint()
+			})
 		}
-
-		// needs paint until the animation is over
-		// enqueue markneedspaint otherwise the childneedspaint flag will be overriden since this is running inside a paint call
-		tb.ui.EnqueueRunFunc(func() {
-			tb.MarkNeedsPaint()
-		})
 	}
 
 	tb.TextArea.Paint()
