@@ -2,6 +2,8 @@ package ui
 
 import (
 	"image"
+	"strings"
+	"time"
 	"unicode"
 
 	"github.com/jmigpin/editor/drawutil2/hsdrawer"
@@ -45,6 +47,11 @@ type TextArea struct {
 	lastMeasureHint image.Point
 	measurement     image.Point
 	measureFace     font.Face
+
+	flash struct {
+		on    bool
+		start time.Time
+	}
 }
 
 func NewTextArea(ui *UI) *TextArea {
@@ -120,18 +127,25 @@ func (ta *TextArea) Paint() {
 	}
 
 	d := ta.drawer
-	d.CursorIndex = ta.cursorIndex
+	d.CursorIndex = &ta.cursorIndex
 	d.OffsetY = ta.offsetY
 	d.Colors = ta.Colors
 	d.Selection = ta.getDrawSelection()
-
-	// don't highlight word if selection is on
-	d.HWordIndex = ta.cursorIndex
-	if d.Selection != nil {
-		d.HWordIndex = -1
-	}
+	d.FlashSelection = ta.getFlashSelection()
+	d.HWordIndex = ta.getHighlightWordIndex()
 
 	d.Draw(ta.ui.Image(), &bounds)
+}
+func (ta *TextArea) getHighlightWordIndex() *int {
+	if ta.DisableHighlightCursorWord {
+		return nil
+	}
+	// don't highlight word if selection is on
+	if ta.SelectionOn() {
+		return nil
+	}
+
+	return &ta.cursorIndex
 }
 func (ta *TextArea) getDrawSelection() *loopers.SelectionIndexes {
 	if ta.SelectionOn() {
@@ -141,6 +155,60 @@ func (ta *TextArea) getDrawSelection() *loopers.SelectionIndexes {
 		}
 	}
 	return nil
+}
+func (ta *TextArea) getFlashSelection() *loopers.FlashSelectionIndexes {
+	if !ta.flash.on {
+		return nil
+	}
+
+	now := time.Now()
+	dur := 250 * time.Millisecond
+	end := ta.flash.start.Add(dur)
+
+	// animation time ended
+	if now.After(end) {
+		ta.flash.on = false
+		return nil
+	}
+
+	t := now.Sub(ta.flash.start)
+	perc := 1.0 - (float64(t) / float64(dur))
+
+	// find line indexes
+	s, e := 0, len(ta.Str())
+	ci := ta.CursorIndex()
+	m := 100
+	// start index
+	i := ci - m
+	if i < s {
+		i = s
+	}
+	k := strings.LastIndex(ta.Str()[i:ci], "\n")
+	if i >= 0 {
+		s = i + k + 1
+	}
+	// end index
+	i = ci + m
+	if i > e {
+		i = e
+	}
+	k = strings.Index(ta.Str()[ci:i], "\n")
+	if i >= 0 {
+		e = ci + k
+	}
+
+	fsi := &loopers.FlashSelectionIndexes{
+		Perc:  perc,
+		Start: s,
+		End:   e,
+	}
+
+	// need to keep painting while flashing
+	ta.ui.EnqueueRunFunc(func() {
+		ta.MarkNeedsPaint()
+	})
+
+	return fsi
 }
 
 func (ta *TextArea) Str() string {
@@ -373,24 +441,28 @@ func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	ta.SetOffsetY(offsetY)
 }
 
-func (ta *TextArea) WarpPointerToIndexIfVisible(index int) bool {
-	// Tests visibility to prevent warping to outside the textarea,
-	// (ex: Textarea too small or even not showing).
+//func (ta *TextArea) WarpPointerToIndexIfVisible(index int) bool {
+//	// TODO
+//	ta.Flash()
+//	return true
 
-	p := ta.drawer.GetPoint(index)
-	p.Y -= ta.OffsetY()
-	p3 := p.Add(ta.Bounds().Min)
+//	// Tests visibility to prevent warping to outside the textarea,
+//	// (ex: Textarea too small or even not showing).
 
-	// padding
-	p3.Y += ta.LineHeight() - 1
-	p3.X += 5
+//	p := ta.drawer.GetPoint(index)
+//	p.Y -= ta.OffsetY()
+//	p3 := p.Add(ta.Bounds().Min)
 
-	if !p3.In(ta.Bounds()) {
-		return false
-	}
-	ta.ui.WarpPointer(&p3)
-	return true
-}
+//	// padding
+//	p3.Y += ta.LineHeight() - 1
+//	p3.X += 5
+
+//	if !p3.In(ta.Bounds()) {
+//		return false
+//	}
+//	ta.ui.WarpPointer(&p3)
+//	return true
+//}
 
 func (ta *TextArea) RequestPrimaryPaste() (string, error) {
 	return ta.ui.RequestPrimaryPaste()
@@ -671,6 +743,15 @@ func (ta *TextArea) History() *tahistory.History {
 }
 func (ta *TextArea) SetHistory(h *tahistory.History) {
 	ta.history = h
+}
+
+// Safe to use concurrently.
+func (ta *TextArea) FlashCursorLine() {
+	ta.ui.EnqueueRunFunc(func() {
+		ta.flash.on = true
+		ta.flash.start = time.Now()
+		ta.MarkNeedsPaint()
+	})
 }
 
 const (
