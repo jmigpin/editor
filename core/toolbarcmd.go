@@ -126,6 +126,8 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ListDirEd(e, true, false) })
 	case "ListDirHidden":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ListDirEd(e, false, true) })
+	case "CopyFilePosition":
+		erowCmd(func(e cmdutil.ERower) { cmdutil.CopyFilePosition(ed, e) })
 
 	default:
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ExternalCmd(e, part) })

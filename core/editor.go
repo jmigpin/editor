@@ -106,7 +106,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	// set up menu toolbar
 	{
 		s := `XdgOpenDir
-GotoLine
+GotoLine | CopyFilePosition
 RowDirectory | ReopenRow | MaximizeRow
 ListDir | ListDirHidden | ListDirSub 
 Reload | ReloadAll | ReloadAllFiles
