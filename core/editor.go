@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"golang.org/x/image/font"
 
@@ -274,23 +273,12 @@ func (ed *Editor) GoodColumnRowPlace() (*ui.Column, *ui.Row) {
 func (ed *Editor) eventLoop() {
 	defer ed.ui.Close()
 
-	var lastPaint time.Time
-	paintIfNeeded := func() {
-		painted := ed.ui.PaintIfNeeded()
-		if painted {
-			lastPaint = time.Now()
-		}
-	}
-
 	for {
 		select {
 		case <-ed.close:
 			goto forEnd
 
 		case ev, _ := <-ed.ui.Events2:
-
-			// TODO: replace this with evreg.onevent callback?
-
 			ev2 := ev.(*evreg.EventWrap) // always this type for now
 
 			switch ev2.EventId {
@@ -323,15 +311,7 @@ func (ed *Editor) eventLoop() {
 			}
 		}
 
-		if len(ed.ui.Events2) == 0 {
-			paintIfNeeded()
-		} else {
-			// ensure a paint at x frames per second
-			d := time.Now().Sub(lastPaint)
-			if d > time.Second/35 {
-				paintIfNeeded()
-			}
-		}
+		ed.ui.PaintIfNeeded()
 	}
 forEnd:
 }

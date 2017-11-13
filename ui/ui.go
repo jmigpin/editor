@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 	"log"
+	"time"
 
 	"golang.org/x/image/font"
 
@@ -40,6 +41,7 @@ type UI struct {
 	EvReg   *evreg.Register
 	Events2 chan interface{}
 
+	lastPaint       time.Time
 	incompleteDraws int
 }
 
@@ -90,7 +92,27 @@ func (ui *UI) UpdateImageSize() {
 	}
 }
 
-func (ui *UI) PaintIfNeeded() (painted bool) {
+// This function should be called in the event loop after every event.
+func (ui *UI) PaintIfNeeded() {
+	const fps = 35
+	now := time.Now()
+	d := now.Sub(ui.lastPaint)
+	canPaint := d > (time.Second / fps)
+	if canPaint {
+		painted := ui.paintIfNeeded2()
+		if painted {
+			//log.Printf("time since last paint %v", time.Now().Sub(ui.lastPaint))
+			ui.lastPaint = now
+		}
+	} else {
+		if len(ui.Events2) == 0 {
+			// Didn't paint to avoid high fps. Need to ensure a new paint call will happen later.
+			ui.EvReg.Enqueue(evreg.NoOpEventId, nil)
+		}
+	}
+}
+
+func (ui *UI) paintIfNeeded2() (painted bool) {
 	// Still painting something else, don't paint now. This function should be called again uppon the draw completion event.
 	if ui.incompleteDraws != 0 {
 		return false
@@ -99,17 +121,8 @@ func (ui *UI) PaintIfNeeded() (painted bool) {
 	var u []*image.Rectangle
 	widget.PaintIfNeeded(&ui.Layout, func(r *image.Rectangle) {
 		painted = true
-
-		// Putting the image here causes tearing since multilayers have been introduced. This happens because the lower layer is painted and gets actually visible in the screen before the top layer paint signal arrives.
-		//ui.putImage(r)
-
 		u = append(u, r)
 	})
-
-	// send a put for each rectangle
-	//for _, r := range u {
-	//	ui.putImage(r)
-	//}
 
 	// union the rectangles into one put
 	if len(u) > 0 {
