@@ -383,16 +383,17 @@ func PaintTree(node Node) (painted bool) {
 	//defer func() { paintDepth-- }()
 
 	ne := node.Embed()
+	if ne.Hidden() {
+		return false
+	}
+
+	//log.Printf("%*s%s", paintDepth, "", reflect.TypeOf(node))
+
 	ne.setNeedsPaint(false)
 	ne.unmarkChildNeedsPaint()
-	if !node.Embed().Hidden() {
-		//log.Printf("%*s%s", paintDepth, "", reflect.TypeOf(node))
-
-		node.Paint()
-		painted = true
-	}
+	node.Paint()
 	node.PaintChilds()
-	return
+	return true
 }
 
 func (en *EmbedNode) PaintChilds() {

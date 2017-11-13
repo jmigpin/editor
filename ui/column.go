@@ -84,6 +84,12 @@ func (col *Column) Close() {
 	col.Cols.Layout.Remove(&col.sepHandle)
 	col.Cols.removeColumn(col)
 }
+func (col *Column) OnMarkChildNeedsPaint(child widget.Node, r *image.Rectangle) {
+	// A menu over an empty column would not paint since the column would delegate the paint to its childs, but the RowsLayout doesn't paint if it has no rows and thereforce the old image would stay.
+	if !col.sqc.Hidden() {
+		col.MarkNeedsPaint()
+	}
+}
 func (col *Column) Paint() {
 	if len(col.RowsLayout.Childs()) == 0 {
 		b := col.Bounds()
