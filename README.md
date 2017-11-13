@@ -144,11 +144,8 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 - `SaveAllFiles`: saves all files
 - `ReloadAll`: reloads all filepaths
 - `ReloadAllFiles`: reloads all filepaths that are files
-- `RowDirectory`: get the active-row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.
-- `DuplicateRow`: make active-row share the edit history with a new row that updates when changes are made.
-- `MaximizeRow`: maximize active-row. Will push other rows up/down.
-- `XdgOpenDir`: calls xdg-open to open the active-row directory with the preferred external application (ex: a filemanager)
 - `ColorTheme`: cycles through available color themes.
+- `FontTheme`: cycles through available font themes.
 - `Exit`: exits the program
 
 #### Row toolbar commands
@@ -166,6 +163,11 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `ListDir`: lists directory
 - `ListDirSub`: lists directory and sub directories
 - `ListDirHidden`: lists directory including hidden
+- `MaximizeRow`: maximize row. Will push other rows up/down.
+- `RowDirectory`: get the row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.
+- `DuplicateRow`: make row share the edit history with a new row that updates when changes are made.
+- `CopyFilePosition`: copy to clipboard the cursor file position in the format <file:line:col>. Useful to keep a clickable text for to come back later to that position.
+- `XdgOpenDir`: calls xdg-open to open the row directory with the preferred external application (ex: a filemanager).
 
 #### Textarea commands
 
