@@ -18,10 +18,16 @@ func BenchmarkDraw1(b *testing.B) {
 	img := image.NewRGBA(drawRect)
 
 	bounds := img.Bounds()
-	strl := NewStringLooper(face, loremStr)
-	dl := NewDrawLooper(strl, img, &bounds)
+
+	start := &EmbedLooper{}
+	var strl StringLooper
+	strl.Init(face, loremStr)
+	var dl DrawLooper
+	dl.Init(&strl, img, &bounds)
 	dl.Fg = color.Black
-	dl.SetOuterLooper(strl)
+
+	strl.SetOuterLooper(start)
+	dl.SetOuterLooper(&strl)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -33,10 +39,16 @@ func BenchmarkDraw2(b *testing.B) {
 	img := imageutil.NewBGRA(&drawRect)
 
 	bounds := img.Bounds()
-	strl := NewStringLooper(face, loremStr)
-	dl := NewDrawLooper(strl, img, &bounds)
+
+	start := &EmbedLooper{}
+	var strl StringLooper
+	strl.Init(face, loremStr)
+	var dl DrawLooper
+	dl.Init(&strl, img, &bounds)
 	dl.Fg = color.Black
-	dl.SetOuterLooper(strl)
+
+	strl.SetOuterLooper(start)
+	dl.SetOuterLooper(&strl)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

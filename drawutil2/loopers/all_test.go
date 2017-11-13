@@ -2,7 +2,6 @@ package loopers
 
 import (
 	"image"
-	"log"
 	"testing"
 
 	"github.com/jmigpin/editor/drawutil2"
@@ -44,24 +43,26 @@ func TestPosData1(t *testing.T) {
 	max := fixed.P(bounds.Dx(), bounds.Dy())
 
 	start := &EmbedLooper{}
-	strl := NewStringLooper(face, testStr7)
-	linel := NewLineLooper(strl, max.Y)
-	wlinel := NewWrapLine2Looper(strl, linel, max.X)
-	pdl := NewPosDataLooper()
-	pdl.Strl = strl
-	pdl.Keepers = []PosDataKeeper{strl, wlinel}
+	var strl StringLooper
+	strl.Init(face, testStr7)
+	linel := NewLineLooper(&strl)
+	var wlinel WrapLineLooper
+	wlinel.Init(&strl, linel, max.X)
+	var pdl PosDataLooper
+	pdl.Init()
+	pdl.Setup(&strl, []PosDataKeeper{&strl, &wlinel})
 	pdl.Jump = 5
 
-	pdl.SetOuterLooper(start)
-	strl.SetOuterLooper(pdl)
-	linel.SetOuterLooper(strl)
+	strl.SetOuterLooper(start)
+	linel.SetOuterLooper(&strl)
 	wlinel.SetOuterLooper(linel)
+	pdl.SetOuterLooper(&wlinel)
 
-	wlinel.Loop(func() bool { return true })
+	pdl.Loop(func() bool { return true })
 
-	log.Printf("pdl has %v points", len(pdl.data))
+	t.Logf("pdl has %v points", len(pdl.data))
 
-	log.Printf("ri %v", strl.Ri)
+	t.Logf("ri %v", strl.Ri)
 
 	//for _, d := range pdl.data {
 	//log.Printf("pdl data ri %v %v", d.ri, d.penBoundsMaxY)
@@ -71,13 +72,13 @@ func TestPosData1(t *testing.T) {
 	//pdl.RestorePosDataCloseToPoint(&p)
 	pd, ok := pdl.PosDataCloseToPoint(&p)
 	if ok {
-		log.Printf("restoring %+v", pd)
+		t.Logf("restoring %+v", pd)
 		pdl.restore(pd)
 	}
-	i := pdl.GetIndex(&p, wlinel)
+	i := pdl.GetIndex(&p, &wlinel)
 
-	log.Printf("ri %v", strl.Ri)
-	log.Printf("i %v", i)
+	t.Logf("ri %v", strl.Ri)
+	t.Logf("i %v", i)
 
 	//------
 

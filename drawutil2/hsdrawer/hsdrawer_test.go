@@ -25,14 +25,16 @@ func BenchmarkDraw(b *testing.B) {
 	}
 
 	d := &HSDrawer{Face: face, Str: str}
-	d.CursorIndex = 3
-	d.HWordIndex = 15
+	ci := 3
+	hwi := 15
+	d.CursorIndex = &ci
+	d.HWordIndex = &hwi
 	d.Selection = &loopers.SelectionIndexes{4, 50}
 	c0 := DefaultColors
 	d.Colors = &c0
 
 	max := image.Point{bounds.Dx(), 100000}
-	d.Measure(&max)
+	d.Measure(max)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
