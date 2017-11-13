@@ -7,13 +7,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func OpenRowDirectory(ed Editorer) {
-	erow, ok := ed.ActiveERower()
-	if !ok {
-		ed.Errorf("no active row")
-		return
-	}
-
+func OpenRowDirectory(ed Editorer, erow ERower) {
 	fp := erow.Filename()
 	p := path.Dir(fp) // if fp=="", dir returns "."
 

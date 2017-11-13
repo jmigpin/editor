@@ -1,11 +1,6 @@
 package cmdutil
 
-func DuplicateRow(ed Editorer) {
-	erow, ok := ed.ActiveERower()
-	if !ok {
-		return
-	}
-
+func DuplicateRow(ed Editorer, erow ERower) {
 	if erow.IsDir() {
 		ed.Errorf("can't duplicate directory: %s", erow.Filename())
 		return

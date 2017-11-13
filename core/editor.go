@@ -233,7 +233,7 @@ func (ed *Editor) Errorf(f string, a ...interface{}) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
-	log.Printf("%v", err)
+	//log.Printf("%v", err)
 	ed.Messagef("error: " + err.Error())
 }
 
