@@ -35,8 +35,8 @@ func listDir2(filepath, addedFilepath string, tree, hidden bool) (string, error)
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
 	fis, err := f.Readdir(-1)
+	f.Close()
 	if err != nil {
 		return "", fmt.Errorf("listdirtree: %s: %s", fp2, err.Error())
 	}
