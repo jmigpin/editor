@@ -118,6 +118,8 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		erowCmd(func(e cmdutil.ERower) { _findCmd(e, part) })
 	case "GotoLine":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.GotoLine(e, part) })
+	case "Replace":
+		erowCmd(func(e cmdutil.ERower) { cmdutil.Replace(e, part) })
 	case "Stop":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.RowCtxCancel(e.Row()) })
 	case "ListDir":
