@@ -18,6 +18,7 @@ Source code editor in pure Go.
 - Drag and drop files/directories to the editor.
 - Detects if files opened are changed outside of the editor.
 - Calls goimports if available when saving a .go file.
+- Clicking on `.go` files identifiers will jump to the identifier definition (Ex: a function definition).
 
 ### Installation and usage
 
@@ -166,7 +167,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `MaximizeRow`: maximize row. Will push other rows up/down.
 - `RowDirectory`: get the row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.
 - `DuplicateRow`: make row share the edit history with a new row that updates when changes are made.
-- `CopyFilePosition`: copy to clipboard the cursor file position in the format <file:line:col>. Useful to keep a clickable text for to come back later to that position.
+- `CopyFilePosition`: copy to clipboard the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
 - `XdgOpenDir`: calls xdg-open to open the row directory with the preferred external application (ex: a filemanager).
 
 #### Textarea commands
@@ -175,7 +176,8 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `<url>`: opens url in x-www-browser
 - `<filepath>`: opens filepath
 - `<filename:number:number?>`: opens filename at line (usual format from compilers)
-- `<quoted string>`: opens filepath if existent on goroot/gopath
+- `<quoted-string>`: opens filepath if existent. Checks for common locations like `$GOROOT` and C include directories.
+- `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
 
 ### Notes
 

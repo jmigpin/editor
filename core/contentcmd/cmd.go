@@ -21,7 +21,7 @@ func Cmd(erow cmdutil.ERower) {
 		s = expandLeftRight(ta.Str(), ta.CursorIndex())
 	}
 
-	if ok := file(erow, s); ok {
+	if ok := filePos(erow, s); ok {
 		return
 	}
 	if ok := directory(erow, s); ok {
@@ -33,8 +33,11 @@ func Cmd(erow cmdutil.ERower) {
 	if ok := http(erow, s); ok {
 		return
 	}
+	if ok := goSource(erow, s); ok {
+		return
+	}
 
-	erow.Ed().Errorf("no content cmd was run")
+	erow.Ed().Errorf("no content cmd was successful")
 }
 
 func expandLeftRight(str string, index int) string {
