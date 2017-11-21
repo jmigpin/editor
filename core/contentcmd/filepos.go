@@ -9,7 +9,7 @@ import (
 
 // Opens filename.
 // Detects compiler errors format <string(:int)?(:int?)>, and goes to line/column.
-func file(erow cmdutil.ERower, str string) bool {
+func filePos(erow cmdutil.ERower, str string) bool {
 	a := strings.Split(str, ":")
 
 	// filename
