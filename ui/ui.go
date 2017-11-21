@@ -19,6 +19,10 @@ import (
 	"github.com/BurntSushi/xgbutil/xcursor"
 )
 
+const (
+	DrawFrameRate = 35
+)
+
 var (
 	SeparatorWidth = 1
 	ScrollbarWidth = 10
@@ -94,7 +98,7 @@ func (ui *UI) UpdateImageSize() {
 
 // This function should be called in the event loop after every event.
 func (ui *UI) PaintIfNeeded() {
-	const fps = 35
+	const fps = DrawFrameRate
 	now := time.Now()
 	d := now.Sub(ui.lastPaint)
 	canPaint := d > (time.Second / fps)

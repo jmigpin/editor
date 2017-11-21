@@ -336,7 +336,8 @@ func (erow *ERow) TextAreaAppendAsync(str string) {
 		ta := erow.row.TextArea
 
 		// max size for appends
-		maxSize := 5 * 1024 * 1024
+		// TODO: unlimited output? some xterms have more or less this limit as well. Bigger limits will slow down the ui since it will be calculating the new string content. This will be improved once the textarea drawer supports append/cutTop operations.
+		maxSize := 64 * 1024
 		str2 := ta.Str() + str
 		if len(str2) > maxSize {
 			d := len(str2) - maxSize

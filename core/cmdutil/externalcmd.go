@@ -79,9 +79,11 @@ func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	pipeToTextarea := func(w *io.Writer) *io.PipeWriter {
+	pipeToTextArea := func(w ...*io.Writer) *io.PipeWriter {
 		pr, pw := io.Pipe()
-		*w = pw
+		for _, u := range w {
+			*u = pw
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -90,10 +92,8 @@ func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
 		return pw
 	}
 
-	opw := pipeToTextarea(&cmd.Stdout)
-	epw := pipeToTextarea(&cmd.Stderr)
+	opw := pipeToTextArea(&cmd.Stdout, &cmd.Stderr)
 	defer opw.Close()
-	defer epw.Close()
 
 	// run command
 	err := cmd.Start()
@@ -104,54 +104,19 @@ func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
 	return cmd.Wait()
 }
 
-// Reads and sends to erow only n frames per second.
-// Prevents the editor from hanging with small textarea append requests when the external command is outputting in a tight loop.
-// Exits when the reader returns an error (like in close).
+// Reads and sends to erow only n times per second.
 func readToERow(reader io.Reader, erow ERower) {
-	ch := make(chan string)
-
-	go func() {
-		var buf [4 * 1024]byte
-		for {
-			n, err := reader.Read(buf[:])
-			if n > 0 {
-				ch <- string(buf[:n])
-			}
-			if err != nil {
-				break
-			}
-		}
-		close(ch)
-	}()
-
-	var q []string
-	var ticker *time.Ticker
-	var timeToSend <-chan time.Time
+	var buf [64 * 1024]byte
 	for {
-		select {
-		case s, ok := <-ch:
-			if !ok {
-				erow.TextAreaAppendAsync(strings.Join(q, ""))
-				goto forEnd
-			}
-			if ticker == nil {
-				ticker = time.NewTicker(time.Second / 30)
-				timeToSend = ticker.C
-				// send first now instead of appending for quick first output
-				erow.TextAreaAppendAsync(s)
-			} else {
-				q = append(q, s)
-			}
-		case <-timeToSend:
-			u := strings.Join(q, "")
-			if u != "" {
-				erow.TextAreaAppendAsync(u)
-			}
-			q = []string{}
+		n, err := reader.Read(buf[:])
+		if n > 0 {
+			s := string(buf[:n])
+			erow.TextAreaAppendAsync(s)
+			// prevent tight loop that can leave UI unresponsive
+			time.Sleep(time.Second / (ui.DrawFrameRate - 1))
 		}
-	}
-forEnd:
-	if ticker != nil {
-		ticker.Stop()
+		if err != nil {
+			break
+		}
 	}
 }
