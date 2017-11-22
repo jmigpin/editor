@@ -119,12 +119,48 @@ func TestVisit6(t *testing.T) {
 	testVisitSrc(t, src, 130) // Year
 }
 
+func TestVisit7(t *testing.T) {
+	src := ` 
+		package pack1
+		import(
+			"go/ast"
+			"image"
+		)
+		func func1(u interface{}){
+			switch u.(type){
+			case *ast.Field:
+			case *image.Rectangle:
+			}
+		}
+	`
+	testVisitSrc(t, src, 117) // Field
+	testVisitSrc(t, src, 139) // Rectangle
+}
+
+func TestVisit8(t *testing.T) {
+	src := ` 
+		package pack1
+		func func1(){
+			var u int
+			_ = u
+		}
+	`
+	testVisitSrc(t, src, 43) // int
+}
+
 func TestVisitFile1(t *testing.T) {
 	filename := "image/image.go"
 	testVisit(t, filename, nil, 1531) // Rectangle
 }
 
+// TEMPORARY TEST
 func TestVisitFile2(t *testing.T) {
 	filename := "github.com/jmigpin/editor/core/toolbarcmd.go"
 	testVisit(t, filename, nil, 1713) // NewColumn
+}
+
+// TEMPORARY TEST
+func TestVisitFile3(t *testing.T) {
+	filename := "github.com/jmigpin/editor/core/erow.go"
+	testVisit(t, filename, nil, 8354) // erow.row
 }
