@@ -213,21 +213,29 @@ func (ed *Editor) NewERowerBeforeRow(tbStr string, col *ui.Column, nextRow *ui.R
 	return erow
 }
 
+// TODO: rename to FindFirstERower?
 func (ed *Editor) FindERower(str string) (cmdutil.ERower, bool) {
-	// If iterate over ed.erows, then finderow will not be deterministic
-	// Important when clicking a file name with duplicate rows present,
-	// and not going to the same row consistently.
+	a := ed.FindERowers(str)
+	if len(a) == 0 {
+		return nil, false
+	}
+	return a[0], true
+}
 
+func (ed *Editor) FindERowers(str string) []cmdutil.ERower {
+	// If iterated over ed.erows, then the row will not be deterministic. Important when clicking a file name with duplicate rows present, and not going to the same row consistently.
+
+	var a []cmdutil.ERower
 	for _, col := range ed.ui.Layout.Cols.Columns() {
 		for _, row := range col.Rows() {
 			erow := ed.erows[row]
 			// name covers special rows, filename covers abs path
 			if str == erow.Name() || str == erow.Filename() {
-				return erow, true
+				a = append(a, erow)
 			}
 		}
 	}
-	return nil, false
+	return a
 }
 
 func (ed *Editor) Errorf(f string, a ...interface{}) {

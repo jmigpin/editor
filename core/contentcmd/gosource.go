@@ -1,6 +1,7 @@
 package contentcmd
 
 import (
+	"container/list"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -15,37 +16,69 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jmigpin/editor/core/cmdutil"
 )
 
-func goSource(erow cmdutil.ERower, s string) bool {
+func goSource(erow cmdutil.ERower) bool {
 	if !erow.IsRegular() {
 		return false
 	}
 	if path.Ext(erow.Filename()) != ".go" {
 		return false
 	}
-	//log.Printf("go source: %s", s)
-	return parseERow(erow)
-}
-
-func parseERow(erow cmdutil.ERower) bool {
 	ta := erow.Row().TextArea
 	pos, err := visitGoSource(erow.Filename(), ta.Str(), ta.CursorIndex())
 	if err != nil {
 		//log.Print(err)
 		return false
 	}
-	return filePos(erow, pos.String())
+
+	goSourceOpenPosition(erow, pos)
+
+	return true
 }
 
-type importFn func(path, dir string, mode types.ImportMode) (*types.Package, error)
+func goSourceOpenPosition(erow cmdutil.ERower, pos *token.Position) {
+	var erow2 cmdutil.ERower
+	ed := erow.Ed()
 
-func (fn importFn) Import(path string) (*types.Package, error) {
-	return fn.ImportFrom(path, "", 0)
-}
-func (fn importFn) ImportFrom(path, dir string, mode types.ImportMode) (*types.Package, error) {
-	return fn(path, dir, mode)
+	// highlight directly on the same row
+	if erow.Filename() == pos.Filename {
+		if erow.Row().TextArea.IndexIsVisible(pos.Offset) {
+			erow2 = erow
+		}
+	}
+
+	// choose a duplicate row that is not the current row
+	if erow2 == nil {
+		erows := ed.FindERowers(pos.Filename)
+		for _, e := range erows {
+			if e != erow {
+				erow2 = e
+				break
+			}
+		}
+	}
+
+	// open new row
+	if erow2 == nil {
+		col, nextRow := ed.GoodColumnRowPlace()
+		erow2 = ed.NewERowerBeforeRow(pos.Filename, col, nextRow)
+		err := erow2.LoadContentClear()
+		if err != nil {
+			ed.Error(err)
+		}
+	}
+
+	// goto index
+	row2 := erow2.Row()
+	row2.ResizeTextAreaIfVerySmall()
+	ta2 := row2.TextArea
+	ta2.SetSelectionOff()
+	ta2.SetCursorIndex(pos.Offset)
+	ta2.MakeCursorVisible()
+	row2.TextArea.FlashCursorLine()
 }
 
 func visitGoSource(filename string, src interface{}, cursorIndex int) (*token.Position, error) {
@@ -60,12 +93,17 @@ type GSVisitor struct {
 	mainFile     *ast.File
 	mainFilename string
 	imported     map[string]*types.Package
+	importable   map[string]bool
+	visited      map[ast.Node]struct{}
+	astFiles     map[string]*ast.File
 	astFilesMu   sync.RWMutex // just a load mutex, not used during ast traversal
-	astFiles     astFiles
+	idStack      list.List
+
+	resolveDepth int
 	Debug        bool
 }
 
-type astFiles map[string]*ast.File
+var universe = ast.NewScope(nil)
 
 func NewGSVisitor() *GSVisitor {
 	v := &GSVisitor{
@@ -84,12 +122,14 @@ func NewGSVisitor() *GSVisitor {
 				//log.Printf("conf error: %v", err)
 			},
 		},
-		imported: make(map[string]*types.Package),
-		astFiles: make(map[string]*ast.File),
+
+		astFiles:   make(map[string]*ast.File),
+		imported:   make(map[string]*types.Package),
+		importable: make(map[string]bool),
+		visited:    make(map[ast.Node]struct{}),
 	}
 
-	// Calls to conf.check will only use cached imports imported first with packageImporter. This improves performance by not automatically parse/check all packages included in the source code.
-	v.conf.Importer = importFn(v.cachedPackageImporter)
+	v.conf.Importer = importFn(v.packageImporter)
 
 	return v
 }
@@ -100,61 +140,38 @@ func (v *GSVisitor) visitSource(filename string, src interface{}, cursorIndex in
 	if bpkg.Dir != "" {
 		filename = filepath.Join(bpkg.Dir, filepath.Base(filename))
 		if v.Debug {
-			log.Printf("filename is now %v", filename)
+			v.Printf("filename is now %v", filename)
 		}
 		//spew.Dump(bpkg)
 	}
 
-	// parse source
+	// parse source (src string)
 	v.mainFilename = filename
 	v.mainFile = v.parseFilename(filename, src)
 
-	// first check pass without any imports (cached imports are empty)
-	path1 := v.posFilePath(v.mainFile.Package)
-	_, _ = v.confCheck(path1, []*ast.File{v.mainFile})
+	// first check pass without any imports cached
+	v.confCheckMainFile()
 
 	id := v.resolveMainFileIdentNode(cursorIndex)
 	if id != nil {
-		pos := v.identObjPos(id)
+		pos := v.idPos(id)
 		if pos != token.NoPos {
 			u := v.fset.Position(pos)
 			if v.Debug {
-				log.Printf("result: %v", u.Offset)
+				v.Printf("result: offset=%v %v", u.Offset, u)
 			}
 			return &u, nil
 		}
 	}
 
-	return nil, fmt.Errorf("identifier object not found")
+	return nil, fmt.Errorf("identifier position not found")
 }
 
-func (v *GSVisitor) identObjPos(id *ast.Ident) token.Pos {
-	if id.Obj != nil {
-		if n, ok := id.Obj.Decl.(ast.Node); ok {
-			return n.Pos()
-		}
-	}
-	obj, ok := v.info.Uses[id]
-	if !ok {
-		obj, ok = v.info.Defs[id]
-	}
+func (v *GSVisitor) idPos(id *ast.Ident) token.Pos {
+	obj := v.info.ObjectOf(id)
 	if obj == nil {
 		return token.NoPos
 	}
-
-	// builtin basic types
-	switch t := obj.(type) {
-	case *types.TypeName:
-		switch t.Type().(type) {
-		case *types.Basic:
-			pkg, _ := v.packageImporter("builtin", "", 0)
-			obj = pkg.Scope().Lookup(id.Name)
-			if obj != nil {
-				return obj.Pos()
-			}
-		}
-	}
-
 	return obj.Pos()
 }
 
@@ -178,7 +195,7 @@ func (v *GSVisitor) resolveMainFileIdentNode(index int) *ast.Ident {
 		case *ast.Ident:
 
 			if v.Debug {
-				log.Printf("ident %v %v", t, v.fset.Position(t.Pos()).Offset)
+				//v.Printf("ident %v %v", t, v.fset.Position(t.Pos()).Offset)
 			}
 
 			s := v.fset.Position(node.Pos()).Offset
@@ -198,6 +215,188 @@ func (v *GSVisitor) resolveMainFileIdentNode(index int) *ast.Ident {
 	return id
 }
 
+func (v *GSVisitor) resolveNode(node ast.Node) {
+	if v.Debug {
+		v.resolveDepth++
+		defer func() { v.resolveDepth-- }()
+	}
+	_, ok := v.visited[node]
+	if ok {
+		if v.Debug {
+			v.DepthPrintf("resolveNode already visited %v", node)
+		}
+		return
+	}
+	v.visited[node] = struct{}{}
+
+	if v.Debug {
+		v.DepthPrintf("resolveNode %v", reflect.TypeOf(node))
+	}
+
+	switch t := node.(type) {
+	case *ast.Ident:
+		v.resolveId(t)
+	case *ast.ImportSpec:
+		v.resolveImportSpec(t)
+	case *ast.SelectorExpr:
+		sel, ok := v.info.Selections[t]
+		if ok {
+			v.resolvePos(sel.Obj().Pos())
+			break
+		}
+		v.idStack.PushBack(t.Sel)
+		v.resolveNode(t.X)
+		v.idStack.Remove(v.idStack.Back())
+		v.resolveNode(t.Sel)
+	case *ast.AssignStmt:
+		// TODO: should resolve only the necessary node
+		for _, e := range t.Rhs {
+			v.resolveNode(e)
+		}
+	case *ast.TypeAssertExpr:
+		v.resolveNode(t.Type)
+	case *ast.CallExpr:
+		v.resolveNode(t.Fun)
+	case *ast.ValueSpec:
+		v.resolveNode(t.Type)
+	case *ast.TypeSpec:
+		v.resolveNode(t.Type)
+	case *ast.Field:
+		v.resolveNode(t.Type)
+	case *ast.StarExpr:
+		v.resolveNode(t.X)
+	case *ast.FuncType:
+		// TODO: should resolve only the necessary node
+		for _, e := range t.Results.List {
+			v.resolveNode(e)
+		}
+	case *ast.StructType:
+		v.resolveFieldList(t.Fields)
+	case *ast.InterfaceType:
+		v.resolveFieldList(t.Methods)
+	}
+}
+
+func (v *GSVisitor) resolveFieldList(fl *ast.FieldList) {
+	if v.idStack.Len() > 0 {
+		// TODO: should not have to check all ids in stack
+		for e := v.idStack.Back(); e != nil; e = e.Prev() {
+			id := e.Value.(*ast.Ident)
+			for _, field := range fl.List {
+				for _, id2 := range field.Names {
+					if id2.Name == id.Name {
+						if v.Debug {
+							v.Printf("found field %v", id.Name)
+						}
+						v.resolveNode(field)
+						break
+					}
+				}
+			}
+		}
+	}
+}
+
+func (v *GSVisitor) resolveId(id *ast.Ident) {
+	//v.idStack.PushBack(id)
+	//defer v.idStack.Remove(v.idStack.Back())
+
+	if v.Debug {
+		var u []string
+		for e := v.idStack.Front(); e != nil; e = e.Next() {
+			u = append(u, e.Value.(*ast.Ident).String())
+		}
+		v.DepthPrintf("resolveId %v, %v", id, strings.Join(u, "->"))
+		v.DepthPrintf("id pos %v", v.fset.Position(id.Pos()))
+	}
+
+	// solved by the parser
+	if id.Obj != nil {
+		if n, ok := id.Obj.Decl.(ast.Node); ok {
+			v.resolveNode(n)
+			return
+		}
+		if v.Debug {
+			v.Dump(id.Obj)
+		}
+	}
+
+	// a  variable declaration or a package use
+	obj := v.info.ObjectOf(id)
+	if obj != nil {
+		v.resolveIdObj(id, obj)
+		return
+	}
+
+	// could be a variable defined in the same package but in another file
+	path := v.posFilePath(v.mainFile.Package)
+	if _, ok := v.importable[path]; !ok {
+		v.importable[path] = true
+		v.confCheckMainFile()
+		v.resolveId(id)
+		return
+	}
+
+	if v.Debug {
+		v.DepthPrintf("resolveId not solved %v", id)
+	}
+}
+
+func (v *GSVisitor) resolveIdObj(id *ast.Ident, obj types.Object) {
+	pos := obj.Pos()
+
+	// could be from the bulitin package
+	if pos == token.NoPos {
+		b := "builtin"
+		v.importable[b] = true
+		pkg, _ := v.packageImporter(b, "", 0)
+		obj2 := pkg.Scope().Lookup(obj.Name())
+		if obj2 != nil {
+			v.info.Defs[id] = obj2
+			pos = obj2.Pos()
+		}
+	}
+
+	v.resolvePos(pos)
+}
+
+func (v *GSVisitor) resolvePos(pos token.Pos) {
+	if pos == token.NoPos {
+		if v.Debug {
+			v.DepthPrintf("resolvePos no pos")
+		}
+		return
+	}
+	if v.Debug {
+		v.DepthPrintf("resolvePos: have pos %v %v", pos, v.fset.Position(pos))
+	}
+	pvis := v.posNodeVisitor(pos)
+	astFile := v.posAstFile(pos)
+	ast.Walk(pvis, astFile)
+	last := pvis.path[len(pvis.path)-1]
+	v.resolveNode(last)
+}
+
+func (v *GSVisitor) resolveImportSpec(imp *ast.ImportSpec) {
+	// make this import importable
+	path, _ := strconv.Unquote(imp.Path.Value)
+	v.importable[path] = true
+
+	// previous imported paths
+	var paths []string
+	for k, _ := range v.imported {
+		paths = append(paths, k)
+	}
+
+	// mark all paths as not imported
+	for _, p := range paths {
+		delete(v.imported, p)
+	}
+
+	// re check main file that will now re-import available importables
+	v.confCheckMainFile()
+}
+
 func (v *GSVisitor) posNodeVisitor(pos token.Pos) *PathVisitor {
 	pvis := NewPathVisitor()
 	pvis.OnVisit = func(node ast.Node) {
@@ -208,155 +407,43 @@ func (v *GSVisitor) posNodeVisitor(pos token.Pos) *PathVisitor {
 	return pvis
 }
 
-func (v *GSVisitor) resolvePosNode(pos token.Pos) {
-	pvis := v.posNodeVisitor(pos)
-	astFile := v.posAstFile(pos)
-	ast.Walk(pvis, astFile)
-	v.resolveNode(pvis.path[len(pvis.path)-1])
+func (v *GSVisitor) confCheckMainFile() {
+	path := v.posFilePath(v.mainFile.Package)
+
+	// conf check the main file package
+	if _, ok := v.importable[path]; ok {
+		_, _ = v.confCheckPath(path, "", 0)
+		return
+	}
+
+	// just conf check the main file
+	_, _ = v.confCheckFiles(path, []*ast.File{v.mainFile})
 }
-
-func (v *GSVisitor) resolveNode(node ast.Node) {
-	if v.Debug {
-		extra := ""
-		switch t := node.(type) {
-		case *ast.Ident:
-			extra = fmt.Sprintf("%q", node)
-		case *ast.Field:
-			extra = fmt.Sprintf("%q", t.Type)
-		}
-		log.Printf("resolveNode %v %v", reflect.TypeOf(node), extra)
-	}
-
-	switch t := node.(type) {
-	case *ast.ValueSpec:
-		v.resolveNode(t.Type)
-	case *ast.StarExpr:
-		v.resolveNode(t.X)
-	case *ast.Field:
-		v.resolveNode(t.Type)
-
-	case *ast.Ident:
-		if v.resolveObjOfIdent(t) {
-			break
-		}
-
-		// could be a variable defined in another file (same package)
-		path1 := v.posFilePath(t.Pos())
-		_, _ = v.packageImporter(path1, "", 0)
-
-		if v.resolveObjOfIdent(t) {
-			break
-		}
-
-		// last resort
-		v.importAllNodeFileImports(t)
-
-	case *ast.SelectorExpr:
-		sel, ok := v.info.Selections[t]
-		if ok {
-			v.resolveObj(t, sel.Obj())
-			break
-		}
-		v.resolveNode(t.X)
-		v.resolveNode(t.Sel)
-	case *ast.ImportSpec:
-		// import path referenced by the importspec
-		ipath, _ := strconv.Unquote(t.Path.Value)
-		_, _ = v.packageImporter(ipath, "", 0)
-		// re-check the path that this node belongs to
-		v.parseConfCheckNodePackage(t)
-	}
-}
-
-func (v *GSVisitor) resolveObjOfIdent(id *ast.Ident) bool {
-	// already solved
-	obj, ok := v.info.Defs[id]
-	if ok {
-		return true
-	}
-	// if it is solved as a use, resolve the object to get to the definition
-	obj, ok = v.info.Uses[id]
-	if ok {
-		v.resolveObj(id, obj)
-		return true
-	}
-	return false
-}
-
-func (v *GSVisitor) resolveObj(node ast.Node, obj types.Object) {
-	if v.Debug {
-		log.Printf("resolveObj %v %q", reflect.TypeOf(obj), obj)
-	}
-	pos := obj.Pos()
-	if pos != token.NoPos {
-		v.resolvePosNode(pos)
-	}
-}
-
-func (v *GSVisitor) parseConfCheckNodePackage(node ast.Node) {
-	path1 := v.posFilePath(node.Pos())
-	_, _ = v.parseConfCheck(path1, "", 0)
-}
-
-func (v *GSVisitor) importAllNodeFileImports(id *ast.Ident) {
-	astFile := v.posAstFile(id.Pos())
-	for _, imp := range astFile.Imports {
-		ipath, _ := strconv.Unquote(imp.Path.Value)
-		_, _ = v.packageImporter(ipath, "", 0)
-	}
-	v.parseConfCheckNodePackage(id)
-}
-
-//func (v *GSVisitor) importPackageMatchingIdent(id *ast.Ident) {
-//	astFile := v.posAstFile(id.Pos())
-//	for _, imp := range astFile.Imports {
-//		// import path referenced by the importspec
-//		ipath, _ := strconv.Unquote(imp.Path.Value)
-
-//		// Slow operation, would import first and check name later
-//		//pkg, _ := v.packageImporter(ipath, "", 0)
-//		//if pkg.Name() == t.Name {
-
-//		match := (imp.Name != nil && imp.Name.Name == id.Name) ||
-//			filepath.Base(ipath) == id.Name
-
-//		if match {
-//			if v.Debug {
-//				log.Printf("resolveNode ident: import match %v->%v", ipath, id.Name)
-//			}
-//			_, _ = v.packageImporter(ipath, "", 0)
-
-//			// re-check the path that this node belongs to
-//			v.parseConfCheckNodePackage(id)
-//			break
-//		}
-//	}
-//}
 
 func (v *GSVisitor) packageImporter(path, dir string, mode types.ImportMode) (*types.Package, error) {
-	key := path
-	pkg, ok := v.imported[key]
+	pkg, ok := v.imported[path]
 	if ok {
 		return pkg, nil
 	}
-	if v.Debug {
-		log.Printf("importing: %q %q", path, dir)
-	}
-	pkg, _ = v.parseConfCheck(path, dir, build.ImportMode(mode))
-	if v.Debug {
-		log.Printf("imported: %v", pkg)
-	}
-	v.imported[key] = pkg
-	return pkg, nil
-}
 
-func (v *GSVisitor) cachedPackageImporter(path, dir string, mode types.ImportMode) (*types.Package, error) {
-	key := path
-	pkg, ok := v.imported[key]
-	if ok {
-		return pkg, nil
+	_, ok = v.importable[path]
+	if !ok {
+		return nil, fmt.Errorf("not importable")
 	}
-	return nil, fmt.Errorf("not cached")
+
+	if v.Debug {
+		v.Printf("importing: %q %q", path, dir)
+	}
+
+	pkg, _ = v.confCheckPath(path, dir, build.ImportMode(mode))
+
+	v.imported[path] = pkg
+
+	if v.Debug {
+		v.Printf("imported: %v", pkg)
+	}
+
+	return pkg, nil
 }
 
 func (v *GSVisitor) normalizePath(path string) string {
@@ -416,7 +503,7 @@ func (v *GSVisitor) parseFilename(filename string, src interface{}) *ast.File {
 	}
 	file, err := parser.ParseFile(v.fset, filename, src, parser.AllErrors)
 	if v.Debug {
-		log.Printf("parseFilename: %v (err=%v)", filepath.Base(filename), err)
+		v.Printf("parseFilename: %v (err=%v)", filepath.Base(filename), err)
 	}
 	v.astFilesMu.Lock()
 	v.astFiles[filename] = file
@@ -424,18 +511,35 @@ func (v *GSVisitor) parseFilename(filename string, src interface{}) *ast.File {
 	return file
 }
 
-func (v *GSVisitor) parseConfCheck(path, dir string, mode build.ImportMode) (*types.Package, error) {
+func (v *GSVisitor) confCheckPath(path, dir string, mode build.ImportMode) (*types.Package, error) {
 	filenames := v.pathFilenames(path, dir, mode)
 	files := v.parseFilenames(filenames)
-	return v.confCheck(path, files)
+	return v.confCheckFiles(path, files)
 }
 
-func (v *GSVisitor) confCheck(path string, files []*ast.File) (*types.Package, error) {
+func (v *GSVisitor) confCheckFiles(path string, files []*ast.File) (*types.Package, error) {
 	pkg, err := v.conf.Check(path, v.fset, files, &v.info)
 	if v.Debug {
-		log.Printf("confCheck %v (err=%v)", path, err)
+		v.Printf("confCheckFiles %v (err= %v )", path, err)
 	}
 	return pkg, err
+}
+
+func (v *GSVisitor) DepthPrintf(f string, a ...interface{}) {
+	u := append([]interface{}{(v.resolveDepth - 1) * 4, ""}, a...)
+	v.Printf("%*s"+f, u...)
+}
+func (v *GSVisitor) Printf(f string, a ...interface{}) {
+	log.Printf(f, a...)
+}
+func (v *GSVisitor) Dump(a ...interface{}) {
+	v.Printf(v.Sdumpd(4, a...))
+}
+func (v *GSVisitor) Sdumpd(depth int, a ...interface{}) string {
+	conf := spew.NewDefaultConfig()
+	conf.MaxDepth = depth
+	conf.Indent = "\t"
+	return conf.Sdump(a...)
 }
 
 type PathVisitor struct {
@@ -481,4 +585,13 @@ func (pv *PathVisitor) PrintPath() {
 		}
 		log.Printf("%v: %v%v", i, reflect.TypeOf(n), extra)
 	}
+}
+
+type importFn func(path, dir string, mode types.ImportMode) (*types.Package, error)
+
+func (fn importFn) Import(path string) (*types.Package, error) {
+	return fn.ImportFrom(path, "", 0)
+}
+func (fn importFn) ImportFrom(path, dir string, mode types.ImportMode) (*types.Package, error) {
+	return fn(path, dir, mode)
 }

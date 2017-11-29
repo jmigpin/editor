@@ -433,6 +433,19 @@ func (ta *TextArea) makeIndexVisible(index int) {
 	ta.SetOffsetY(a0 - half)
 }
 
+func (ta *TextArea) IndexIsVisible(index int) bool {
+	y0 := ta.OffsetY()
+	y1 := y0 + ta.Bounds().Dy()
+
+	// is all visible
+	a0 := ta.drawer.GetPoint(index).Y
+	a1 := a0 + ta.LineHeight()
+	if a0 >= y0 && a1 <= y1 {
+		return true
+	}
+	return false
+}
+
 func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	// set at half bounds
 	p0 := ta.drawer.GetPoint(index).Y

@@ -33,7 +33,7 @@ func Cmd(erow cmdutil.ERower) {
 	if ok := http(erow, s); ok {
 		return
 	}
-	if ok := goSource(erow, s); ok {
+	if ok := goSource(erow); ok {
 		return
 	}
 

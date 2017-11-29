@@ -64,11 +64,12 @@ func TestVisit3(t *testing.T) {
 		func func1(){
 			var u interface{}
 			_,_=u.(*ast.ValueSpec)
-			_,_=u.(*ttt.Package)
+			p,_:=u.(*ttt.Package)
+			p.Complete()
 		}
 	`
 	testVisitSrc(t, src, 114) // ValueSpec
-	testVisitSrc(t, src, 140) // Package
+	testVisitSrc(t, src, 141) // Package
 }
 
 func TestVisit4(t *testing.T) {
@@ -148,6 +149,52 @@ func TestVisit8(t *testing.T) {
 	testVisitSrc(t, src, 43) // int
 }
 
+func TestVisit9(t *testing.T) {
+	src := ` 
+		package pack1
+		import(
+			ttt "go/types"
+		)
+		func func1(){
+			var u interface{}
+			p,ok:=u.(*ttt.Package)
+			_=ok
+			p.Complete()
+		}
+	`
+	testVisitSrc(t, src, 118) // 92
+	testVisitSrc(t, src, 126) // Complete
+}
+
+func TestVisit10(t *testing.T) {
+	src := `
+		package pack1
+		import(
+			"image"
+		)
+		type type1 interface{
+			img() image.Image
+		}
+		func func1(){
+			var t1 type1
+			x := t1.img().Bounds().Max.X
+			_=x
+		}
+	`
+	testVisitSrc(t, src, 153) // X
+}
+
+func TestVisit11(t *testing.T) {
+	src := `
+		package pack1
+		func func1(){
+			a,b:=false,0
+			_,_=a,b
+		}
+	`
+	testVisitSrc(t, src, 41) // false
+}
+
 func TestVisitFile1(t *testing.T) {
 	filename := "image/image.go"
 	testVisit(t, filename, nil, 1531) // Rectangle
@@ -163,4 +210,11 @@ func TestVisitFile2(t *testing.T) {
 func TestVisitFile3(t *testing.T) {
 	filename := "github.com/jmigpin/editor/core/erow.go"
 	testVisit(t, filename, nil, 8354) // erow.row
+}
+
+// TEMPORARY TEST
+func TestVisitFile4(t *testing.T) {
+	filename := "github.com/jmigpin/editor/core/contentcmd/gosource.go"
+	//testVisit(t, filename, nil, 1473) // TextArea
+	testVisit(t, filename, nil, 1482) // FlashCursorLine
 }
