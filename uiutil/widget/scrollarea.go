@@ -70,17 +70,18 @@ func (sa *ScrollArea) calcPositionFromPoint(p *image.Point) {
 func (sa *ScrollArea) PageUp()   { sa.scrollPage(true) }
 func (sa *ScrollArea) PageDown() { sa.scrollPage(false) }
 func (sa *ScrollArea) scrollPage(up bool) {
-	// TODO: real scroll size to allow accurate pageup/down on big files
-
-	// page up/down through the scrollbar handle size
-	vb := sa.VBar.Handle.Bounds()
-	hsize := vb.Dy()
-	mult := 0.95
+	v := sa.VBar.sizePercent * 0.90
 	if up {
-		mult *= -1
+		v = -v
 	}
-	y := vb.Min.Y + int(float64(hsize)*mult)
-	sa.calcPositionFromPoint(&image.Point{0, y})
+	pp := sa.VBar.positionPercent + v
+
+	offset := pp
+	height := 1.0
+	viewh := sa.VBar.sizePercent
+
+	sa.CalcPosition(offset, height, viewh)
+	sa.updater.UpdatePositionFromPoint()
 }
 
 func (sa *ScrollArea) VBarPositionPercent() float64 {
