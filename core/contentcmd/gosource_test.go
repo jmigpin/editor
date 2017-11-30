@@ -10,7 +10,7 @@ func testVisit(t *testing.T, filename string, src interface{}, ci int) {
 	v := NewGSVisitor()
 	log.SetFlags(0)
 	//v.Debug = true
-	pos, err := v.visitSource(filename, src, ci)
+	pos, _, err := v.visitSource(filename, src, ci)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,18 +209,24 @@ func TestVisitFile2(t *testing.T) {
 // TEMPORARY TEST
 func TestVisitFile3(t *testing.T) {
 	filename := "github.com/jmigpin/editor/core/erow.go"
-	testVisit(t, filename, nil, 8354) // erow.row
+	testVisit(t, filename, nil, 8354) // bla erow.row
 }
 
 // TEMPORARY TEST
 func TestVisitFile4(t *testing.T) {
 	filename := "github.com/jmigpin/editor/core/contentcmd/gosource.go"
-	//testVisit(t, filename, nil, 1473) // TextArea
-	testVisit(t, filename, nil, 1482) // FlashCursorLine
+	testVisit(t, filename, nil, 1461) // FlashIndexLen
 }
 
 // TEMPORARY TEST
 func TestVisitFile5(t *testing.T) {
 	filename := "github.com/jmigpin/editor/ui/toolbar.go"
 	testVisit(t, filename, nil, 1594) // MarkNeedsPaint
+}
+
+// TEMPORARY TEST
+func TestVisitFile6(t *testing.T) {
+	filename := "github.com/jmigpin/editor/ui/textarea.go"
+	//testVisit(t, filename, nil, 70000000) // img.set
+	testVisit(t, filename, nil, 4294) // img.set
 }
