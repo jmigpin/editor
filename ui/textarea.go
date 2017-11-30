@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image"
-	"strings"
 	"time"
 	"unicode"
 
@@ -48,9 +47,15 @@ type TextArea struct {
 	measurement     image.Point
 	measureFace     font.Face
 
-	flash struct {
+	flashLine struct {
 		on    bool
 		start time.Time
+		p     image.Point
+	}
+	flashIndex struct {
+		on         bool
+		start      time.Time
+		index, len int
 	}
 }
 
@@ -131,11 +136,14 @@ func (ta *TextArea) Paint() {
 	d.OffsetY = ta.offsetY
 	d.Colors = ta.Colors
 	d.Selection = ta.getDrawSelection()
-	d.FlashSelection = ta.getFlashSelection()
+	d.FlashSelection = ta.getFlashIndexSelection()
 	d.HWordIndex = ta.getHighlightWordIndex()
 
 	d.Draw(ta.ui.Image(), &bounds)
+
+	ta.paintFlashLine()
 }
+
 func (ta *TextArea) getHighlightWordIndex() *int {
 	if ta.DisableHighlightCursorWord {
 		return nil
@@ -156,51 +164,72 @@ func (ta *TextArea) getDrawSelection() *loopers.SelectionIndexes {
 	}
 	return nil
 }
-func (ta *TextArea) getFlashSelection() *loopers.FlashSelectionIndexes {
-	if !ta.flash.on {
+
+func (ta *TextArea) paintFlashLine() {
+	if !ta.flashLine.on {
+		return
+	}
+
+	now := time.Now()
+	dur := FlashDuration
+	end := ta.flashLine.start.Add(dur)
+
+	// animation time ended
+	if now.After(end) {
+		ta.flashLine.on = false
+		return
+	}
+
+	// rectangle to paint
+	r := ta.Bounds()
+	r.Min.Y += ta.flashLine.p.Y - ta.OffsetY()
+	r.Max.Y = r.Min.Y + ta.LineHeight()
+	//r.Min.X += ta.flashLine.p.X // start flash from p.X
+	r = r.Intersect(ta.Bounds())
+
+	// tint percentage
+	t := now.Sub(ta.flashLine.start)
+	perc := 1.0 - (float64(t) / float64(dur))
+
+	// paint
+	img := ta.ui.Image()
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			c := img.At(x, y)
+			c2 := imageutil.TintOrShade(c, perc)
+			img.Set(x, y, c2)
+		}
+	}
+
+	// need to keep painting while flashing
+	ta.ui.EnqueueRunFunc(func() {
+		ta.MarkNeedsPaint()
+	})
+}
+
+func (ta *TextArea) getFlashIndexSelection() *loopers.FlashSelectionIndexes {
+	if !ta.flashIndex.on {
 		return nil
 	}
 
 	now := time.Now()
-	dur := 500 * time.Millisecond
-	end := ta.flash.start.Add(dur)
+	dur := FlashDuration
+	end := ta.flashIndex.start.Add(dur)
 
 	// animation time ended
 	if now.After(end) {
-		ta.flash.on = false
+		ta.flashIndex.on = false
 		return nil
 	}
 
-	t := now.Sub(ta.flash.start)
+	// tint percentage
+	t := now.Sub(ta.flashIndex.start)
 	perc := 1.0 - (float64(t) / float64(dur))
-
-	// find line indexes
-	s, e := 0, len(ta.Str())
-	ci := ta.CursorIndex()
-	m := 100
-	// start index
-	i := ci - m
-	if i < s {
-		i = s
-	}
-	k := strings.LastIndex(ta.Str()[i:ci], "\n")
-	if i >= 0 {
-		s = i + k + 1
-	}
-	// end index
-	i = ci + m
-	if i > e {
-		i = e
-	}
-	k = strings.Index(ta.Str()[ci:i], "\n")
-	if i >= 0 {
-		e = ci + k
-	}
 
 	fsi := &loopers.FlashSelectionIndexes{
 		Perc:  perc,
-		Start: s,
-		End:   e,
+		Start: ta.flashIndex.index,
+		End:   ta.flashIndex.index + ta.flashIndex.len,
 	}
 
 	// need to keep painting while flashing
@@ -209,6 +238,27 @@ func (ta *TextArea) getFlashSelection() *loopers.FlashSelectionIndexes {
 	})
 
 	return fsi
+}
+
+// Safe to use concurrently. Handles flashing the line independently of the number of runes that it contain, even if zero.
+func (ta *TextArea) FlashIndexLine(index int) {
+	ta.ui.EnqueueRunFunc(func() {
+		ta.flashLine.on = true
+		ta.flashLine.start = time.Now()
+		ta.flashLine.p = ta.drawer.GetPoint(index)
+		ta.MarkNeedsPaint()
+	})
+}
+
+// Safe to use concurrently. Handles segments that span over more then one line.
+func (ta *TextArea) FlashIndexLen(index, len int) {
+	ta.ui.EnqueueRunFunc(func() {
+		ta.flashIndex.on = true
+		ta.flashIndex.start = time.Now()
+		ta.flashIndex.index = index
+		ta.flashIndex.len = len
+		ta.MarkNeedsPaint()
+	})
 }
 
 func (ta *TextArea) Str() string {
@@ -402,9 +452,9 @@ func (ta *TextArea) SetOffsetIndex(i int) {
 }
 
 func (ta *TextArea) MakeCursorVisible() {
-	ta.makeIndexVisible(ta.CursorIndex())
+	ta.MakeIndexVisible(ta.CursorIndex())
 }
-func (ta *TextArea) makeIndexVisible(index int) {
+func (ta *TextArea) MakeIndexVisible(index int) {
 	y0 := ta.OffsetY()
 	y1 := y0 + ta.Bounds().Dy()
 
@@ -756,15 +806,6 @@ func (ta *TextArea) History() *tahistory.History {
 }
 func (ta *TextArea) SetHistory(h *tahistory.History) {
 	ta.history = h
-}
-
-// Safe to use concurrently.
-func (ta *TextArea) FlashCursorLine() {
-	ta.ui.EnqueueRunFunc(func() {
-		ta.flash.on = true
-		ta.flash.start = time.Now()
-		ta.MarkNeedsPaint()
-	})
 }
 
 const (

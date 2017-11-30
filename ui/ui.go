@@ -21,6 +21,7 @@ import (
 
 const (
 	DrawFrameRate = 35
+	FlashDuration = 500 * time.Millisecond
 )
 
 var (

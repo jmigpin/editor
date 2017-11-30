@@ -53,10 +53,9 @@ func GotoLineColumnInTextArea(row *ui.Row, line, column int) {
 	}
 
 	// goto index
+	row.ResizeTextAreaIfVerySmall()
 	ta.SetSelectionOff()
 	ta.SetCursorIndex(index)
-	row.ResizeTextAreaIfVerySmall()
 	ta.MakeIndexVisibleAtCenter(index)
-	//row.Flash()
-	row.TextArea.FlashCursorLine()
+	row.TextArea.FlashIndexLine(index)
 }
