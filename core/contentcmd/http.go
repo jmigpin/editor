@@ -8,8 +8,10 @@ import (
 )
 
 // Opens http/https lines in x-www-browser.
-func http(erow cmdutil.ERower, s string) bool {
-	u, err := url.Parse(s)
+func http(erow cmdutil.ERower) bool {
+	ta := erow.Row().TextArea
+	str := expandLeftRightStopRunes(ta.Str(), ta.CursorIndex(), "")
+	u, err := url.Parse(str)
 	if err != nil {
 		return false
 	}

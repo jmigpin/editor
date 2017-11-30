@@ -9,7 +9,13 @@ import (
 
 // Opens filename.
 // Detects compiler errors format <string(:int)?(:int?)>, and goes to line/column.
-func filePos(erow cmdutil.ERower, str string) bool {
+func filePos(erow cmdutil.ERower) bool {
+	ta := erow.Row().TextArea
+	str := expandLeftRightStopRunes(ta.Str(), ta.CursorIndex(), "\"'`=<>()[]")
+	if str == "" {
+		return false
+	}
+
 	a := strings.Split(str, ":")
 
 	// filename

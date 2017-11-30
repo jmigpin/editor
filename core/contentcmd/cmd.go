@@ -7,56 +7,44 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/core/cmdutil"
-	"github.com/jmigpin/editor/ui/tautil"
 )
 
 func Cmd(erow cmdutil.ERower) {
-	var s string
-	ta := erow.Row().TextArea
-
-	if ta.SelectionOn() {
-		a, b := tautil.SelectionStringIndexes(ta)
-		s = ta.Str()[a:b]
-	} else {
-		s = expandLeftRight(ta.Str(), ta.CursorIndex())
-	}
-
-	if ok := filePos(erow, s); ok {
+	if ok := filePos(erow); ok {
 		return
 	}
-	if ok := directory(erow, s); ok {
+	if ok := directory(erow); ok {
 		return
 	}
-	if ok := openSession(erow, s); ok {
+	if ok := openSession(erow); ok {
 		return
 	}
-	if ok := http(erow, s); ok {
+	if ok := http(erow); ok {
 		return
 	}
 	if ok := goSource(erow); ok {
 		return
 	}
-
 	erow.Ed().Errorf("no content cmd was successful")
 }
 
-func expandLeftRight(str string, index int) string {
+func expandLeftRightStopRunes(str string, index int, stopRunes string) string {
 	isStop := func(ru rune) bool {
 		if unicode.IsSpace(ru) {
 			return true
 		}
-		switch ru {
-		case '"', '<', '>':
-			return true
-		}
-		return false
+		i := strings.IndexAny(string(ru), stopRunes)
+		return i >= 0
 	}
+	return expandLeftRightStop(str, index, isStop)
+}
 
+func expandLeftRightStop(str string, index int, isStop func(rune) bool) string {
 	i0 := strings.LastIndexFunc(str[:index], isStop)
 	if i0 < 0 {
 		i0 = 0
 	} else {
-		i0 += 1 // size of stop rune (quote or space)
+		i0 += 1 // size of stop rune // TODO: rune size
 	}
 	i1 := strings.IndexFunc(str[index:], isStop)
 	if i1 < 0 {
@@ -68,7 +56,8 @@ func expandLeftRight(str string, index int) string {
 	return s2
 }
 
-// Used on opensession command to get argument.
+// TODO: use expand left right
+// Used to get argument after a command (ex: opensession)
 func afterSpaceExpandRightUntilSpace(str string, index int) string {
 	if index > len(str) {
 		index = len(str)
