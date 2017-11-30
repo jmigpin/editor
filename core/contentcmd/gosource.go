@@ -94,10 +94,11 @@ type GSVisitor struct {
 	mainFilename string
 	imported     map[string]*types.Package
 	importable   map[string]bool
-	visited      map[ast.Node]struct{}
+	visited      map[ast.Node]bool
 	astFiles     map[string]*ast.File
 	astFilesMu   sync.RWMutex // just a load mutex, not used during ast traversal
 	idStack      list.List
+	nodeParent   map[ast.Node]ast.Node // just the id path node parents
 
 	resolveDepth int
 	Debug        bool
@@ -126,7 +127,8 @@ func NewGSVisitor() *GSVisitor {
 		astFiles:   make(map[string]*ast.File),
 		imported:   make(map[string]*types.Package),
 		importable: make(map[string]bool),
-		visited:    make(map[ast.Node]struct{}),
+		visited:    make(map[ast.Node]bool),
+		nodeParent: make(map[ast.Node]ast.Node),
 	}
 
 	v.conf.Importer = importFn(v.packageImporter)
@@ -152,11 +154,12 @@ func (v *GSVisitor) visitSource(filename string, src interface{}, cursorIndex in
 	// first check pass without any imports cached
 	v.confCheckMainFile()
 
-	id := v.resolveMainFileIdentNode(cursorIndex)
+	id := v.mainFileIdentNode(cursorIndex)
 	if id != nil {
-		pos := v.idPos(id)
-		if pos != token.NoPos {
-			u := v.fset.Position(pos)
+		v.resolveNode(id)
+		obj := v.info.ObjectOf(id)
+		if obj != nil && obj.Pos() != token.NoPos {
+			u := v.fset.Position(obj.Pos())
 			if v.Debug {
 				v.Printf("result: offset=%v %v", u.Offset, u)
 			}
@@ -165,14 +168,6 @@ func (v *GSVisitor) visitSource(filename string, src interface{}, cursorIndex in
 	}
 
 	return nil, fmt.Errorf("identifier position not found")
-}
-
-func (v *GSVisitor) idPos(id *ast.Ident) token.Pos {
-	obj := v.info.ObjectOf(id)
-	if obj == nil {
-		return token.NoPos
-	}
-	return obj.Pos()
 }
 
 func (v *GSVisitor) posFilePath(pos token.Pos) string {
@@ -187,7 +182,7 @@ func (v *GSVisitor) posAstFile(pos token.Pos) *ast.File {
 	return v.astFiles[tokenFile.Name()]
 }
 
-func (v *GSVisitor) resolveMainFileIdentNode(index int) *ast.Ident {
+func (v *GSVisitor) mainFileIdentNode(index int) *ast.Ident {
 	var id *ast.Ident
 	pvis := NewPathVisitor()
 	pvis.OnVisit = func(node ast.Node) {
@@ -209,9 +204,14 @@ func (v *GSVisitor) resolveMainFileIdentNode(index int) *ast.Ident {
 	}
 	ast.Walk(pvis, v.mainFile)
 	//pvis.PrintPath()
-	for _, n := range pvis.path {
-		v.resolveNode(n)
+
+	// populate parents map to resolve if the id is not directly resolved
+	for i, n := range pvis.path {
+		if i > 0 {
+			v.nodeParent[n] = pvis.path[i-1]
+		}
 	}
+
 	return id
 }
 
@@ -220,14 +220,13 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 		v.resolveDepth++
 		defer func() { v.resolveDepth-- }()
 	}
-	_, ok := v.visited[node]
-	if ok {
+	if v.visited[node] {
 		if v.Debug {
-			v.DepthPrintf("resolveNode already visited %v", node)
+			v.DepthPrintf("resolveNode already visited %v", reflect.TypeOf(node))
 		}
 		return
 	}
-	v.visited[node] = struct{}{}
+	v.visited[node] = true
 
 	if v.Debug {
 		v.DepthPrintf("resolveNode %v", reflect.TypeOf(node))
@@ -238,6 +237,23 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 		v.resolveId(t)
 	case *ast.ImportSpec:
 		v.resolveImportSpec(t)
+	case *ast.TypeAssertExpr:
+		v.resolveNode(t.Type)
+	case *ast.CallExpr:
+		v.resolveNode(t.Fun)
+	case *ast.ValueSpec:
+		v.resolveNode(t.Type)
+	case *ast.TypeSpec:
+		v.resolveNode(t.Type)
+	case *ast.Field:
+		v.resolveNode(t.Type)
+	case *ast.StarExpr:
+		v.resolveNode(t.X)
+	case *ast.StructType:
+		v.resolveFieldList(t.Fields)
+	case *ast.InterfaceType:
+		v.resolveFieldList(t.Methods)
+
 	case *ast.SelectorExpr:
 		sel, ok := v.info.Selections[t]
 		if ok {
@@ -253,44 +269,43 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 		for _, e := range t.Rhs {
 			v.resolveNode(e)
 		}
-	case *ast.TypeAssertExpr:
-		v.resolveNode(t.Type)
-	case *ast.CallExpr:
-		v.resolveNode(t.Fun)
-	case *ast.ValueSpec:
-		v.resolveNode(t.Type)
-	case *ast.TypeSpec:
-		v.resolveNode(t.Type)
-	case *ast.Field:
-		v.resolveNode(t.Type)
-	case *ast.StarExpr:
-		v.resolveNode(t.X)
 	case *ast.FuncType:
 		// TODO: should resolve only the necessary node
 		for _, e := range t.Results.List {
 			v.resolveNode(e)
 		}
-	case *ast.StructType:
-		v.resolveFieldList(t.Fields)
-	case *ast.InterfaceType:
-		v.resolveFieldList(t.Methods)
 	}
 }
 
 func (v *GSVisitor) resolveFieldList(fl *ast.FieldList) {
-	if v.idStack.Len() > 0 {
+	for _, field := range fl.List {
+		obj, ok := v.info.Implicits[field]
+		if ok {
+			v.Printf("***TODO***")
+			v.Dump(obj)
+		}
+
+		// resolve all inherited fields
+		anonymous := field.Names == nil
+		if anonymous {
+			if v.Debug {
+				v.DepthPrintf("resolveFieldList anonymous field %v", field)
+			}
+			v.resolveNode(field)
+			continue
+		}
+
+		// check field if it matches an id being searched
 		// TODO: should not have to check all ids in stack
 		for e := v.idStack.Back(); e != nil; e = e.Prev() {
 			id := e.Value.(*ast.Ident)
-			for _, field := range fl.List {
-				for _, id2 := range field.Names {
-					if id2.Name == id.Name {
-						if v.Debug {
-							v.Printf("found field %v", id.Name)
-						}
-						v.resolveNode(field)
-						break
+			for _, id2 := range field.Names {
+				if id2.Name == id.Name {
+					if v.Debug {
+						v.DepthPrintf("resolveFieldList found field %v", id.Name)
 					}
+					v.resolveNode(field)
+					break
 				}
 			}
 		}
@@ -307,7 +322,7 @@ func (v *GSVisitor) resolveId(id *ast.Ident) {
 			u = append(u, e.Value.(*ast.Ident).String())
 		}
 		v.DepthPrintf("resolveId %v, %v", id, strings.Join(u, "->"))
-		v.DepthPrintf("id pos %v", v.fset.Position(id.Pos()))
+		v.DepthPrintf("resolveId pos %v", v.fset.Position(id.Pos()))
 	}
 
 	// solved by the parser
@@ -317,23 +332,52 @@ func (v *GSVisitor) resolveId(id *ast.Ident) {
 			return
 		}
 		if v.Debug {
+			v.Printf("***TODO***")
 			v.Dump(id.Obj)
 		}
 	}
 
-	// a  variable declaration or a package use
-	obj := v.info.ObjectOf(id)
-	if obj != nil {
-		v.resolveIdObj(id, obj)
+	// solved in info
+	obj1, obj2 := v.info.Defs[id], v.info.Uses[id]
+	if obj1 != nil || obj2 != nil {
+		if obj1 != nil {
+			v.resolveIdObj(id, obj1)
+		}
+		if obj2 != nil {
+			v.resolveIdObj(id, obj2)
+		}
 		return
 	}
 
-	// could be a variable defined in the same package but in another file
+	// implicit
+	obj, ok := v.info.Implicits[id]
+	if ok {
+		if v.Debug {
+			v.Printf("***TODO***")
+			v.Dump(obj)
+		}
+	}
+
+	// could be an id defined in the same package but in another file
 	path := v.posFilePath(v.mainFile.Package)
-	if _, ok := v.importable[path]; !ok {
+	if !v.importable[path] {
+		if v.Debug {
+			v.DepthPrintf("resolveId making main path importable")
+		}
 		v.importable[path] = true
 		v.confCheckMainFile()
-		v.resolveId(id)
+		v.resolveId(id) // try again
+		return
+	}
+
+	// need to solve parent node
+	np, ok := v.nodeParent[id]
+	if ok && !v.visited[np] {
+		if v.Debug {
+			v.DepthPrintf("resolveId solving parent node %v", np)
+		}
+		//v.visited[id] = false // allow to revisit this id later
+		v.resolveNode(np)
 		return
 	}
 
@@ -382,16 +426,8 @@ func (v *GSVisitor) resolveImportSpec(imp *ast.ImportSpec) {
 	path, _ := strconv.Unquote(imp.Path.Value)
 	v.importable[path] = true
 
-	// previous imported paths
-	var paths []string
-	for k, _ := range v.imported {
-		paths = append(paths, k)
-	}
-
-	// mark all paths as not imported
-	for _, p := range paths {
-		delete(v.imported, p)
-	}
+	// reset imported paths to allow re-confcheck all
+	v.imported = make(map[string]*types.Package)
 
 	// re check main file that will now re-import available importables
 	v.confCheckMainFile()
@@ -411,7 +447,7 @@ func (v *GSVisitor) confCheckMainFile() {
 	path := v.posFilePath(v.mainFile.Package)
 
 	// conf check the main file package
-	if _, ok := v.importable[path]; ok {
+	if v.importable[path] {
 		_, _ = v.confCheckPath(path, "", 0)
 		return
 	}
@@ -421,28 +457,21 @@ func (v *GSVisitor) confCheckMainFile() {
 }
 
 func (v *GSVisitor) packageImporter(path, dir string, mode types.ImportMode) (*types.Package, error) {
+	if !v.importable[path] {
+		return nil, fmt.Errorf("not importable")
+	}
 	pkg, ok := v.imported[path]
 	if ok {
 		return pkg, nil
 	}
-
-	_, ok = v.importable[path]
-	if !ok {
-		return nil, fmt.Errorf("not importable")
-	}
-
 	if v.Debug {
 		v.Printf("importing: %q %q", path, dir)
 	}
-
 	pkg, _ = v.confCheckPath(path, dir, build.ImportMode(mode))
-
 	v.imported[path] = pkg
-
 	if v.Debug {
 		v.Printf("imported: %v", pkg)
 	}
-
 	return pkg, nil
 }
 
@@ -520,7 +549,11 @@ func (v *GSVisitor) confCheckPath(path, dir string, mode build.ImportMode) (*typ
 func (v *GSVisitor) confCheckFiles(path string, files []*ast.File) (*types.Package, error) {
 	pkg, err := v.conf.Check(path, v.fset, files, &v.info)
 	if v.Debug {
-		v.Printf("confCheckFiles %v (err= %v )", path, err)
+		v.Printf("confCheckFiles %v (err=%v)", path, err)
+		//for _, f := range files {
+		//	pos := v.fset.Position(f.Package)
+		//	v.Printf("conf checked %v", filepath.Base(pos.Filename))
+		//}
 	}
 	return pkg, err
 }

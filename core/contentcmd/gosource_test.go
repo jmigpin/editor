@@ -218,3 +218,9 @@ func TestVisitFile4(t *testing.T) {
 	//testVisit(t, filename, nil, 1473) // TextArea
 	testVisit(t, filename, nil, 1482) // FlashCursorLine
 }
+
+// TEMPORARY TEST
+func TestVisitFile5(t *testing.T) {
+	filename := "github.com/jmigpin/editor/ui/toolbar.go"
+	testVisit(t, filename, nil, 1594) // MarkNeedsPaint
+}
