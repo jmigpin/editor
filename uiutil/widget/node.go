@@ -11,25 +11,13 @@ import (
 type Node interface {
 	Embed() *EmbedNode
 
-	Parent() Node // returns wrapper if present
-
 	PushBack(n Node)
 	InsertBefore(n, mark Node)
 	Append(n ...Node)
 	Remove(Node)
-
-	FirstChild() Node // doesn't include hidden nodes
-	LastChild() Node  // doesn't include hidden nodes
-	Prev() Node       // doesn't include hidden nodes
-	Next() Node       // doesn't include hidden nodes
-
 	Swap(Node)
 
-	Childs() []Node // doesn't include hidden nodes
-	AllChilds() []Node
-
-	Bounds() image.Rectangle
-	SetBounds(*image.Rectangle)
+	Parent() Node
 
 	// Child is an immediate child of this node, while the rectangle is the bounds of the original node that requested paint.
 	OnMarkChildNeedsPaint(Node, *image.Rectangle)
@@ -43,35 +31,22 @@ type Node interface {
 }
 
 type EmbedNode struct {
-	childs    list.List
-	elem      *list.Element
-	parent    *EmbedNode
-	wrapper   Node
-	bounds    image.Rectangle
+	Cursor Cursor
+	Bounds image.Rectangle
+
+	wrapper Node
+	childs  list.List
+	elem    *list.Element
+	parent  *EmbedNode
+
 	expand    struct{ x, y bool }
 	fill      struct{ x, y bool }
-	cursorRef *CursorRef
-
 	marks     Marks
 	marksLock sync.RWMutex
 }
 
 func (en *EmbedNode) Embed() *EmbedNode {
 	return en
-}
-
-func (en *EmbedNode) SetPointerCursor(ctx Context, c Cursor) {
-	CursorStk.Pop(en.cursorRef)
-	en.cursorRef = CursorStk.Push(c)
-	CursorStk.SetTop(ctx)
-}
-
-func (en *EmbedNode) UnsetPointerCursor(ctx Context) {
-	if en.cursorRef != nil {
-		CursorStk.Pop(en.cursorRef)
-		en.cursorRef = nil
-		CursorStk.SetTop(ctx)
-	}
 }
 
 // Important when a node needs to reach a wrap implementation.
@@ -227,22 +202,59 @@ func (en *EmbedNode) Swap(n Node) {
 	}
 }
 
-func (en *EmbedNode) Childs() []Node {
-	var u []Node
-	for n := en.FirstChild(); n != nil; n = n.Next() {
-		if !n.Embed().Hidden() {
-			u = append(u, n)
+// Current element can be safely removed from inside the loop.
+func (en *EmbedNode) IterChildsStop(fn func(Node) bool) {
+	var next *list.Element
+	for e := en.childs.Front(); e != nil; e = next {
+		n := e.Value.(Node)
+		next = e.Next()
+		if n.Embed().Hidden() {
+			continue
+		}
+		if !fn(n) {
+			break
 		}
 	}
-	return u
 }
-func (en *EmbedNode) AllChilds() []Node {
-	var u []Node
-	for e := en.childs.Front(); e != nil; e = e.Next() {
+
+// Current element can be safely removed from inside the loop.
+func (en *EmbedNode) IterChildsReverseStop(fn func(Node) bool) {
+	var prev *list.Element
+	for e := en.childs.Back(); e != nil; e = prev {
 		n := e.Value.(Node)
-		u = append(u, n)
+		prev = e.Prev()
+		if n.Embed().Hidden() {
+			continue
+		}
+		if !fn(n) {
+			break
+		}
 	}
-	return u
+}
+
+func (en *EmbedNode) IterChilds(fn func(Node)) {
+	en.IterChildsStop(func(n Node) bool {
+		fn(n)
+		return true
+	})
+}
+func (en *EmbedNode) IterChildsReverse(fn func(Node)) {
+	en.IterChildsReverseStop(func(n Node) bool {
+		fn(n)
+		return true
+	})
+}
+
+func (en *EmbedNode) ChildsLen() int {
+	c := 0
+	for e := en.childs.Back(); e != nil; e = e.Prev() {
+		n := e.Value.(Node)
+		if n.Embed().Hidden() {
+			continue
+		}
+		c++
+	}
+	return c
 }
 
 func (en *EmbedNode) HasChild(n Node) bool {
@@ -260,13 +272,6 @@ func (en *EmbedNode) Fill() (bool, bool) {
 }
 func (en *EmbedNode) SetFill(x, y bool) {
 	en.fill.x, en.fill.y = x, y
-}
-
-func (en *EmbedNode) Bounds() image.Rectangle {
-	return en.bounds
-}
-func (en *EmbedNode) SetBounds(b *image.Rectangle) {
-	en.bounds = *b
 }
 
 func (en *EmbedNode) hasMarks(m Marks) bool {
@@ -299,13 +304,15 @@ func (en *EmbedNode) setNeedsPaint(v bool) {
 			n.Embed().setMarks(ChildNeedsPaintMark, true)
 		}
 		// run callbacks with this node rectangle argument
-		r := en.Bounds()
 		child := en.wrapper
 		for n := en.Parent(); n != nil; n = n.Parent() {
-			n.OnMarkChildNeedsPaint(child, &r)
+			n.OnMarkChildNeedsPaint(child, &en.Bounds)
 			child = n
 		}
 	}
+}
+
+func (en *EmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 }
 
 func (en *EmbedNode) ChildNeedsPaint() bool {
@@ -358,6 +365,44 @@ func (en *EmbedNode) SetNotPaintable(v bool) {
 	en.setMarks(NotPaintableMark, v)
 }
 
+func MaxPoint(p1, p2 image.Point) image.Point {
+	if p1.X < p2.X {
+		p1.X = p2.X
+	}
+	if p1.Y < p2.Y {
+		p1.Y = p2.Y
+	}
+	return p1
+}
+func MinPoint(p1, p2 image.Point) image.Point {
+	if p1.X > p2.X {
+		p1.X = p2.X
+	}
+	if p1.Y > p2.Y {
+		p1.Y = p2.Y
+	}
+	return p1
+}
+
+func (en *EmbedNode) Measure(hint image.Point) image.Point {
+	var max image.Point
+	en.IterChilds(func(c Node) {
+		m := c.Measure(hint)
+		max = MaxPoint(max, m)
+	})
+	return max
+}
+
+func (en *EmbedNode) CalcChildsBounds() {
+	en.IterChilds(func(c Node) {
+		c.Embed().Bounds = en.Bounds
+		c.CalcChildsBounds()
+	})
+}
+
+func (en *EmbedNode) Paint() {
+}
+
 func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
 	return false
 }
@@ -365,14 +410,13 @@ func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
 func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 	if node.Embed().NeedsPaint() {
 		if PaintTree(node) {
-			b := node.Bounds()
-			painted(&b)
+			painted(&node.Embed().Bounds)
 		}
 	} else if node.Embed().ChildNeedsPaint() {
 		node.Embed().unmarkChildNeedsPaint()
-		for _, child := range node.Childs() {
+		node.Embed().IterChilds(func(child Node) {
 			PaintIfNeeded(child, painted)
-		}
+		})
 	}
 }
 
@@ -397,9 +441,9 @@ func PaintTree(node Node) (painted bool) {
 }
 
 func (en *EmbedNode) PaintChilds() {
-	for _, child := range en.Childs() {
+	en.IterChilds(func(child Node) {
 		_ = PaintTree(child)
-	}
+	})
 }
 
 //func (en *EmbedNode) PaintChilds() {
@@ -416,57 +460,6 @@ func (en *EmbedNode) PaintChilds() {
 //	}
 //	wg.Wait()
 //}
-
-type LeafEmbedNode struct {
-	EmbedNode
-}
-
-func (ln *LeafEmbedNode) PushBack(n Node) {
-	panic("can't insert child on a leaf node")
-}
-func (ln *LeafEmbedNode) InsertBefore(n, mark Node) {
-	panic("can't insert child on a leaf node")
-}
-func (ln *LeafEmbedNode) CalcChildsBounds() {
-}
-func (ln *LeafEmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
-}
-
-type ShellEmbedNode struct {
-	EmbedNode
-}
-
-func (sn *ShellEmbedNode) PushBack(n Node) {
-	if sn.FirstChild() != nil {
-		panic("shell node already has a child")
-	}
-	sn.EmbedNode.PushBack(n)
-}
-func (sn *ShellEmbedNode) InsertBefore(n, mark Node) {
-	panic("shell node can have only one child, use pushback")
-}
-func (sn *ShellEmbedNode) Measure(hint image.Point) image.Point {
-	return sn.FirstChild().Measure(hint)
-}
-func (sn *ShellEmbedNode) CalcChildsBounds() {
-	b := sn.Bounds()
-	child := sn.FirstChild()
-	child.SetBounds(&b)
-	child.CalcChildsBounds()
-}
-func (sn *ShellEmbedNode) Paint() {
-}
-func (sn *ShellEmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
-}
-
-type ContainerEmbedNode struct {
-	EmbedNode
-}
-
-func (cn *ContainerEmbedNode) Paint() {
-}
-func (cn *ContainerEmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
-}
 
 type Marks uint8
 

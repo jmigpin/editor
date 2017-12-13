@@ -10,7 +10,7 @@ import (
 )
 
 type ScrollArea struct {
-	ContainerEmbedNode
+	EmbedNode
 	ScrollWidth int
 	LeftScroll  bool
 	VBar        ScrollBar
@@ -54,8 +54,8 @@ func (sa *ScrollArea) CalcPosition(offset, height, viewh float64) {
 func (sa *ScrollArea) calcPositionFromPoint(p *image.Point) {
 	// Called when dragging the scrollbar
 
-	py := float64(p.Sub(sa.VBar.pressPad).Sub(sa.VBar.Bounds().Min).Y)
-	dy := float64(sa.VBar.Bounds().Dy())
+	py := float64(p.Sub(sa.VBar.pressPad).Sub(sa.VBar.Bounds.Min).Y)
+	dy := float64(sa.VBar.Bounds.Dy())
 
 	offset := py / dy
 	height := 1.0
@@ -89,20 +89,23 @@ func (sa *ScrollArea) VBarPositionPercent() float64 {
 }
 
 func (sa *ScrollArea) Measure(hint image.Point) image.Point {
-	// Not measuring child or a big value could be passed up.
-	// A scrollarea allows the child node to be small.
-
-	return image.Point{50, 50}
+	h := hint
+	h.X -= sa.ScrollWidth
+	h = MaxPoint(h, image.Point{0, 0})
+	m := sa.EmbedNode.Measure(h)
+	m.X += sa.ScrollWidth
+	m = MinPoint(m, hint)
+	return m
 }
 
 func (sa *ScrollArea) CalcChildsBounds() {
-	if len(sa.Childs()) == 0 {
+	if sa.ChildsLen() == 0 {
 		return
 	}
 
 	// bar
-	sa.VBar.bounds = sa.Bounds()
-	vbb := &sa.VBar.bounds
+	sa.VBar.Bounds = sa.Bounds
+	vbb := &sa.VBar.Bounds
 	if sa.LeftScroll {
 		vbb.Max.X = vbb.Min.X + sa.ScrollWidth
 	} else {
@@ -118,16 +121,16 @@ func (sa *ScrollArea) CalcChildsBounds() {
 	}
 	r2.Max.Y = r2.Min.Y + size
 	r2 = r2.Intersect(*vbb)
-	sa.VBar.Handle.SetBounds(&r2)
+	sa.VBar.Handle.Bounds = r2
 
 	// child bounds
-	r := sa.Bounds()
+	r := sa.Bounds
 	if sa.LeftScroll {
-		r.Min.X = sa.VBar.bounds.Max.X
+		r.Min.X = sa.VBar.Bounds.Max.X
 	} else {
-		r.Max.X = sa.VBar.bounds.Min.X
+		r.Max.X = sa.VBar.Bounds.Min.X
 	}
-	sa.content.SetBounds(&r)
+	sa.content.Embed().Bounds = r
 	sa.content.CalcChildsBounds()
 }
 
@@ -142,7 +145,7 @@ func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		}
 	case *event.MouseDown:
 		// line scrolling with the wheel on the content area
-		if p.In(sa.content.Bounds()) {
+		if p.In(sa.content.Embed().Bounds) {
 			switch {
 			case evt.Button == event.ButtonWheelUp:
 				sa.updater.CalcPositionFromScroll(true)
@@ -160,7 +163,7 @@ type ScrollAreaUpdater interface {
 }
 
 type ScrollBar struct {
-	ShellEmbedNode
+	EmbedNode
 	Handle ScrollHandle
 	Color  *color.Color
 
@@ -186,7 +189,7 @@ func (sb *ScrollBar) Init(ctx Context, sa *ScrollArea) {
 	sb.Append(&sb.Handle)
 }
 func (sb *ScrollBar) setPressPad(p *image.Point) {
-	b := sb.Handle.Bounds()
+	b := sb.Handle.Bounds
 	if p.In(b) {
 		// set position relative to the bar top
 		sb.pressPad.X = p.X - b.Min.X
@@ -204,8 +207,7 @@ func (sb *ScrollBar) Paint() {
 	if sb.Color == nil {
 		return
 	}
-	u := sb.Bounds()
-	imageutil.FillRectangle(sb.ctx.Image(), &u, *sb.Color)
+	imageutil.FillRectangle(sb.ctx.Image(), &sb.Bounds, *sb.Color)
 }
 func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
 	switch evt := ev.(type) {
@@ -245,7 +247,7 @@ func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
 }
 
 type ScrollHandle struct {
-	LeafEmbedNode
+	EmbedNode
 	Color *color.Color
 
 	ctx    Context
@@ -273,8 +275,7 @@ func (sh *ScrollHandle) Paint() {
 		// normal
 		c = imageutil.Tint(*sh.Color, 0.40)
 	}
-	b := sh.Bounds()
-	imageutil.FillRectangle(sh.ctx.Image(), &b, c)
+	imageutil.FillRectangle(sh.ctx.Image(), &sh.Bounds, c)
 }
 func (sh *ScrollHandle) OnInputEvent(ev interface{}, p image.Point) bool {
 	switch ev.(type) {

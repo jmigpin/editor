@@ -13,18 +13,19 @@ import (
 
 // Highlight and Selection drawer.
 type HSDrawer struct {
-	Face font.Face
-	Str  string
-
-	Colors         *Colors
-	CursorIndex    *int
-	HWordIndex     *int
-	Selection      *loopers.SelectionIndexes
-	FlashSelection *loopers.FlashSelectionIndexes
-	OffsetY        int
-	Pad            image.Point // left/top pad
+	Face             font.Face
+	Str              string
+	Colors           *Colors
+	CursorIndex      *int
+	HWordIndex       *int
+	Selection        *loopers.SelectionIndexes
+	FlashSelection   *loopers.FlashSelectionIndexes
+	OffsetY          int
+	Pad              image.Point // left/top pad
+	FirstLineOffsetX int
 
 	height int
+	maxX   int
 
 	strl    loopers.StringLooper
 	wlinel  loopers.WrapLineLooper
@@ -33,8 +34,6 @@ type HSDrawer struct {
 	dl      loopers.DrawLooper
 	bgl     loopers.BgLooper
 	eel     loopers.EarlyExitLooper
-
-	maxX int
 }
 
 func NewHSDrawer(face font.Face) *HSDrawer {
@@ -44,7 +43,7 @@ func NewHSDrawer(face font.Face) *HSDrawer {
 	d.strl.Init(d.Face, d.Str)
 
 	// small pad added to allow the cursor to be fully drawn on first position
-	d.Pad = image.Point{1, 0}
+	d.Pad = image.Point{0, 0}
 
 	return d
 }
@@ -124,6 +123,7 @@ func (d *HSDrawer) initMeasureLoopers(maxX int) {
 	fmaxX := fixed.I(maxX)
 
 	d.strl.Init(d.Face, d.Str)
+	d.strl.Pen.X = fixed.I(d.FirstLineOffsetX)
 	linel := loopers.NewLineLooper(&d.strl)
 	d.wlinel.Init(&d.strl, linel, fmaxX)
 	d.pdl.Setup(&d.strl, []loopers.PosDataKeeper{&d.strl, &d.wlinel})

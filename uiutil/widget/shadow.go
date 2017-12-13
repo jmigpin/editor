@@ -7,7 +7,7 @@ import (
 )
 
 type Shadow struct {
-	ShellEmbedNode
+	EmbedNode
 	ctx         Context
 	MaxShade    float64
 	Top, Bottom int
@@ -21,7 +21,7 @@ func (s *Shadow) Init(ctx Context, child Node) {
 func (s *Shadow) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 	// top
 	if s.Top > 0 {
-		r2 := s.Bounds()
+		r2 := s.Bounds
 		r2.Max.Y = r2.Min.Y + s.Top
 		if r2.Overlaps(*r) {
 			s.MarkNeedsPaint()
@@ -29,7 +29,7 @@ func (s *Shadow) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 	}
 	// bottom
 	if s.Bottom > 0 {
-		r2 := s.Bounds()
+		r2 := s.Bounds
 		r2.Min.Y = r2.Max.Y - s.Bottom
 		if r2.Overlaps(*r) {
 			s.MarkNeedsPaint()
@@ -40,39 +40,35 @@ func (s *Shadow) Measure(hint image.Point) image.Point {
 	if s.Bottom > 0 {
 		h := hint
 		h.Y -= s.Bottom
-		if h.Y < 0 {
-			h.Y = 0
-		}
-		m := s.ShellEmbedNode.Measure(h)
+		h = MaxPoint(h, image.Point{0, 0})
+		m := s.EmbedNode.Measure(h)
 		m.Y += s.Bottom
-		if m.Y > hint.Y {
-			m.Y = hint.Y
-		}
+		m = MinPoint(m, hint)
 		return m
 	}
-	return s.ShellEmbedNode.Measure(hint)
+	return s.EmbedNode.Measure(hint)
 }
+
 func (s *Shadow) CalcChildsBounds() {
 	if s.Bottom > 0 {
-		b := s.Bounds()
+		b := s.Bounds
 		b.Max.Y -= s.Bottom
-		if b.Max.Y < 0 {
-			b.Max.Y = 0
-		}
+		b.Max = MaxPoint(b.Max, image.Point{0, 0})
 		child := s.FirstChild()
-		child.SetBounds(&b)
+		child.Embed().Bounds = b
 		child.CalcChildsBounds()
 		return
 	}
-	s.ShellEmbedNode.CalcChildsBounds()
+	s.EmbedNode.CalcChildsBounds()
 }
+
 func (s *Shadow) PaintChilds() {
-	// childs are painted first - at the top of Paint()
+	// childs are painted first at the top of Paint()
 }
 func (s *Shadow) Paint() {
-	s.ShellEmbedNode.PaintChilds()
+	s.EmbedNode.PaintChilds()
 	if s.Top > 0 {
-		b := s.Bounds()
+		b := s.Bounds
 		j := 0.0
 		img := s.ctx.Image()
 		maxY := b.Min.Y + s.Top
@@ -89,7 +85,7 @@ func (s *Shadow) Paint() {
 		}
 	}
 	if s.Bottom > 0 {
-		b := s.Bounds()
+		b := s.Bounds
 		j := 0.0
 		img := s.ctx.Image()
 		for y := b.Max.Y - s.Bottom; y < b.Max.Y; y++ {

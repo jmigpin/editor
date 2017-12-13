@@ -9,7 +9,7 @@ import (
 )
 
 type Button struct {
-	ShellEmbedNode
+	EmbedNode
 	Label  Label
 	Sticky bool
 

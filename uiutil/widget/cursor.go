@@ -1,14 +1,13 @@
 package widget
 
 import (
-	"container/list"
+	"image"
 )
 
 type Cursor int
 
 const (
-	NoCursor Cursor = iota
-	DefaultCursor
+	NoneCursor Cursor = iota
 	NSResizeCursor
 	WEResizeCursor
 	CloseCursor
@@ -17,36 +16,36 @@ const (
 	TextCursor
 )
 
-type CursorStack struct {
-	list.List
-}
-
-func (cs *CursorStack) Push(c Cursor) *CursorRef {
-	elem := cs.PushBack(c)
-	if elem == nil {
-		panic("cursor not inserted")
-	}
-	return &CursorRef{elem}
-}
-
-func (cs *CursorStack) Pop(cr *CursorRef) {
-	if cr == nil || cr.elem == nil {
-		return
-	}
-	cs.Remove(cr.elem)
-	cr.elem = nil
-}
-
-func (cs *CursorStack) SetTop(ctx Context) {
-	if cs.Len() == 0 {
-		ctx.SetCursor(NoCursor)
-	} else {
-		ctx.SetCursor(cs.Back().Value.(Cursor))
+func SetTreeCursor(ctx Context, node Node, p image.Point) {
+	v := setTreeCursor2(ctx, node, p)
+	if !v {
+		ctx.SetCursor(NoneCursor)
 	}
 }
+func setTreeCursor2(ctx Context, node Node, p image.Point) bool {
+	if !p.In(node.Embed().Bounds) {
+		return false
+	}
 
-type CursorRef struct {
-	elem *list.Element
+	// execute on childs
+	set := false
+	node.Embed().IterChildsReverseStop(func(c Node) bool {
+		v := setTreeCursor2(ctx, c, p)
+		if v {
+			set = true
+			return false // early stop
+		}
+		return true
+	})
+
+	// execute on node
+	if !set {
+		nc := node.Embed().Cursor
+		if nc != NoneCursor {
+			set = true
+			ctx.SetCursor(nc)
+		}
+	}
+
+	return set
 }
-
-var CursorStk CursorStack

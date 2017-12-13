@@ -22,21 +22,12 @@ func NewColumns(layout *Layout) *Columns {
 	return cols
 }
 func (cols *Columns) Paint() {
-	if len(cols.Childs()) == 0 {
+	if cols.ChildsLen() == 0 {
 		ui := cols.Layout.UI
-		b := cols.Bounds()
-		imageutil.FillRectangle(ui.Image(), &b, color.White)
+		imageutil.FillRectangle(ui.Image(), &cols.Bounds, color.White)
 	}
 }
 
-// TODO: rename to lastcolumn and panic if there's none
-func (cols *Columns) LastColumnOrNew() *Column {
-	col, ok := cols.LastChildColumn()
-	if !ok {
-		col = cols.NewColumn()
-	}
-	return col
-}
 func (cols *Columns) NewColumn() *Column {
 	col := NewColumn(cols)
 	cols.insertColumnBefore(col, nil)
@@ -67,18 +58,13 @@ func (cols *Columns) insertColumnBefore(col, next *Column) {
 	cols.MarkNeedsPaint()
 }
 
-// TODO: override node.Remove?
-
 func (cols *Columns) removeColumn(col *Column) {
 	cols.Remove(col)
 	cols.CalcChildsBounds()
 	cols.MarkNeedsPaint()
-}
 
-func (cols *Columns) CloseColumnEnsureOne(col *Column) {
-	col.Close()
 	// ensure one column
-	if len(cols.Childs()) == 0 {
+	if cols.ChildsLen() == 0 {
 		_ = cols.NewColumn()
 	}
 }
@@ -86,23 +72,19 @@ func (cols *Columns) CloseColumnEnsureOne(col *Column) {
 // Used by restore session.
 func (cols *Columns) CloseAllAndOpenN(n int) {
 	// close all columns
-	for len(cols.Childs()) > 0 {
-		u, _ := cols.FirstChildColumn()
-		u.Close()
-	}
-	// ensure one column
-	if n <= 1 {
-		n = 1
-	}
-	// n new columns
-	for i := 0; i < n; i++ {
+	cols.IterChilds(func(c widget.Node) {
+		col := c.(*Column)
+		col.Close()
+	})
+	// n new columns (there is already one column ensured)
+	for i := 1; i < n; i++ {
 		_ = cols.NewColumn()
 	}
 }
 
 func (cols *Columns) PointColumn(p *image.Point) (*Column, bool) {
 	for _, c := range cols.Columns() {
-		if p.In(c.Bounds()) {
+		if p.In(c.Bounds) {
 			return c, true
 		}
 	}
@@ -120,14 +102,14 @@ func (cols *Columns) PointColumnExtra(p *image.Point) (*Column, bool) {
 		if ok {
 			return col2, true
 		}
-	} else if p.X > cols.LastChild().Bounds().Max.X {
+	} else if p.X > cols.LastChild().Embed().Bounds.Max.X {
 		col2, ok := cols.LastChildColumn()
 		if ok {
 			return col2, true
 		}
 	} else {
 		for _, c := range cols.Columns() {
-			x0, x1 := c.Bounds().Min.X, c.Bounds().Max.X
+			x0, x1 := c.Bounds.Min.X, c.Bounds.Max.X
 			if p.X >= x0 && p.X < x1 {
 				return c, true
 			}
@@ -152,10 +134,9 @@ func (cols *Columns) LastChildColumn() (*Column, bool) {
 	return u.(*Column), true
 }
 func (cols *Columns) Columns() []*Column {
-	childs := cols.Childs()
-	u := make([]*Column, 0, len(childs))
-	for _, h := range childs {
-		u = append(u, h.(*Column))
-	}
+	u := make([]*Column, 0, cols.ChildsLen())
+	cols.IterChilds(func(c widget.Node) {
+		u = append(u, c.(*Column))
+	})
 	return u
 }

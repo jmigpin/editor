@@ -48,6 +48,8 @@ type UI struct {
 
 	lastPaint       time.Time
 	incompleteDraws int
+
+	curCursor widget.Cursor
 }
 
 func NewUI() (*UI, error) {
@@ -89,8 +91,8 @@ func (ui *UI) UpdateImageSize() {
 		log.Println(err)
 	} else {
 		ib := ui.win.Image().Bounds()
-		if !ui.Layout.Bounds().Eq(ib) {
-			ui.Layout.SetBounds(&ib)
+		if !ui.Layout.Bounds.Eq(ib) {
+			ui.Layout.Bounds = ib
 			ui.Layout.CalcChildsBounds()
 			ui.Layout.MarkNeedsPaint()
 		}
@@ -151,7 +153,7 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 
 func (ui *UI) onInput(ev0 interface{}) {
 	ev := ev0.(*xinput.InputEvent)
-	uiutil.ApplyInputEventInBounds(&ui.Layout, ev.Event, ev.Point)
+	uiutil.AIE.Apply(ui, &ui.Layout, ev.Event, ev.Point)
 }
 
 func (ui *UI) RequestPaint() {
@@ -170,11 +172,18 @@ func (ui *UI) FontFace1() font.Face {
 
 // Implements widget.Context
 func (ui *UI) SetCursor(c widget.Cursor) {
-	sc := ui.win.Cursors.SetCursor
+	if ui.curCursor == c {
+		return
+	}
+	ui.curCursor = c
+	sc := func(c2 xcursors.Cursor) {
+		err := ui.win.Cursors.SetCursor(c2)
+		if err != nil {
+			log.Print(err)
+		}
+	}
 	switch c {
-	case widget.NoCursor:
-		sc(xcursors.XCNone)
-	case widget.DefaultCursor:
+	case widget.NoneCursor:
 		sc(xcursors.XCNone)
 	case widget.NSResizeCursor:
 		sc(xcursor.SBVDoubleArrow)
@@ -196,7 +205,7 @@ func (ui *UI) QueryPointer() (*image.Point, bool) {
 }
 func (ui *UI) WarpPointer(p *image.Point) {
 	ui.win.WarpPointer(p)
-	uiutil.InputEventWarpedPointUntilMouseMove(*p)
+	uiutil.AIE.SetWarpedPointUntilMouseMove(*p)
 }
 
 func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {

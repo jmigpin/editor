@@ -35,7 +35,7 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	ctx := gRowCtx.Add(row, ctx0)
 
 	// indicate the row is running an external cmd
-	row.Square.SetValue(ui.SquareExecuting, true)
+	row.SetState(ui.ExecutingRowState, true)
 	row.TextArea.SetStrClear("", true, true)
 
 	// cmd str
@@ -70,7 +70,7 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 			}
 			// indicate the cmd is not running anymore
 			erow.Ed().UI().EnqueueRunFunc(func() {
-				row.Square.SetValue(ui.SquareExecuting, false)
+				row.SetState(ui.ExecutingRowState, false)
 			})
 		})
 	}()

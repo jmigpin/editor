@@ -31,6 +31,6 @@ func (reop *ReopenRow) Reopen() bool {
 
 	col, nextRow := reop.ed.GoodColumnRowPlace()
 	erow := NewERowFromRowState(reop.ed, state, col, nextRow)
-	erow.Row().Flash()
+	erow.Flash()
 	return true
 }

@@ -108,7 +108,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 		s := `XdgOpenDir
 GotoLine | CopyFilePosition
 RowDirectory | ReopenRow | MaximizeRow
-CloseColumn
+CloseColumn | CloseRow
 ListDir | ListDirHidden | ListDirSub 
 Reload | ReloadAll | ReloadAllFiles
 SaveAllFiles
@@ -199,18 +199,42 @@ func (ed *Editor) ERowers() []cmdutil.ERower {
 
 func (ed *Editor) NewERowerBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row) cmdutil.ERower {
 	row := col.NewRowBefore(nextRow)
-	erow := NewERow(ed, row, tbStr)
+	return NewERow(ed, row, tbStr)
+}
 
-	// add/remove to erows
-	ed.erows[row] = erow
-	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
-		delete(ed.erows, row)
+func (ed *Editor) RegisterERow(e *ERow) {
+	ed.erows[e.row] = e
+}
+func (ed *Editor) UnregisterERow(e *ERow) {
+	delete(ed.erows, e.row)
+}
 
-		// clears square visual queue of the duplicate that stays, if any
-		erow.UpdateDuplicates()
-	})
+func (ed *Editor) FindERows(str string) []*ERow {
+	// find in col/row order to have consistent results
+	var a []*ERow
+	for _, col := range ed.ui.Layout.Cols.Columns() {
+		for _, row := range col.Rows() {
+			erow, ok := ed.erows[row]
+			if !ok {
+				// row is not yet in the mapping (creating a new erow)
+				continue
+			}
+			// name covers special rows, filename covers abs path
+			if str == erow.Name() || str == erow.Filename() {
+				a = append(a, erow)
+			}
+		}
+	}
+	return a
+}
 
-	return erow
+func (ed *Editor) FindERowers(str string) []cmdutil.ERower {
+	u := ed.FindERows(str)
+	a := make([]cmdutil.ERower, len(u))
+	for i, e := range u {
+		a[i] = e
+	}
+	return a
 }
 
 // TODO: rename to FindFirstERower?
@@ -220,22 +244,6 @@ func (ed *Editor) FindERower(str string) (cmdutil.ERower, bool) {
 		return nil, false
 	}
 	return a[0], true
-}
-
-func (ed *Editor) FindERowers(str string) []cmdutil.ERower {
-	// If iterated over ed.erows, then the row will not be deterministic. Important when clicking a file name with duplicate rows present, and not going to the same row consistently.
-
-	var a []cmdutil.ERower
-	for _, col := range ed.ui.Layout.Cols.Columns() {
-		for _, row := range col.Rows() {
-			erow := ed.erows[row]
-			// name covers special rows, filename covers abs path
-			if str == erow.Name() || str == erow.Filename() {
-				a = append(a, erow)
-			}
-		}
-	}
-	return a
 }
 
 func (ed *Editor) Errorf(f string, a ...interface{}) {
@@ -249,7 +257,7 @@ func (ed *Editor) Error(err error) {
 func (ed *Editor) Messagef(f string, a ...interface{}) {
 	erow := ed.messagesERow()
 	erow.TextAreaAppendAsync(fmt.Sprintf(f, a...) + "\n")
-	erow.Row().Flash()
+	erow.Flash()
 }
 func (ed *Editor) messagesERow() cmdutil.ERower {
 	s := "+Messages" // special name format
@@ -268,7 +276,7 @@ func (ed *Editor) IsSpecialName(s string) bool {
 // Used to run layout toolbar commands.
 func (ed *Editor) ActiveERower() (cmdutil.ERower, bool) {
 	for _, erow := range ed.erows {
-		if erow.row.Square.Value(ui.SquareActive) {
+		if erow.row.HasState(ui.ActiveRowState) {
 			return erow, true
 		}
 	}
@@ -328,7 +336,7 @@ forEnd:
 func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
 	for _, erow := range ed.erows {
 		if erow.Filename() == ev.Name {
-			erow.UpdateState()
+			erow.UpdateStateAndDuplicates()
 		}
 	}
 }

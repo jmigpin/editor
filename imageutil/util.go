@@ -13,6 +13,10 @@ func DrawUniformMask(
 	mask image.Image, mp image.Point,
 	op draw.Op,
 ) {
+	if c == nil {
+		return
+	}
+
 	// improve performance for bgra (no difference if mask!=nil)
 	if bgra, ok := dst.(*BGRA); ok {
 		dst, c = bgra.RGBAImageWithCorrectedColor(c)

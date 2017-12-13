@@ -8,35 +8,18 @@ import (
 	"github.com/jmigpin/editor/uiutil/widget"
 )
 
-// Childs bounds are assumed to be within parents bounds.
 // MouseEnter events run on the parents first, while MouseLeave events run on the childs first.
-//
+
 // Events order:
-// MouseEnter (if not dragging)
+// MouseLeave/MouseEnter
 // MouseDown
-// MouseMove -> MouseDragStart/MouseDragMove
-// MouseUp -> MouseDragEnd -> MouseClick -> MouseDoubleClick -> MouseTripleClick -> MouseEnter (after drag end)
-// MouseLeave (if not dragging)
+// MouseMove -> MouseDragStart -> MouseDragMove
+// MouseUp -> MouseDragEnd -> MouseClick -> MouseDoubleClick -> MouseTripleClick
 
-func ApplyInputEventInBounds(node widget.Node, ev interface{}, p image.Point) {
-	aie.apply(node, ev, p)
-}
-func InputEventWarpedPointUntilMouseMove(p image.Point) {
-	aie.warpedPoint.on = true
-	aie.warpedPoint.p = p
-}
-
-var aie ApplyInputEvent
+var AIE ApplyInputEvent
 
 type ApplyInputEvent struct {
-	drag struct {
-		detect bool
-		on     bool
-		start  bool
-		button event.MouseButton
-		point  image.Point
-		node   widget.Node
-	}
+	drag        AIEDrag
 	mclick      map[event.MouseButton]*MultipleClickData
 	warpedPoint struct {
 		on bool
@@ -44,19 +27,41 @@ type ApplyInputEvent struct {
 	}
 }
 
-func (aie *ApplyInputEvent) apply(node widget.Node, ev interface{}, p image.Point) {
-	// warped point (override until move) - improves rapid wheel movement position after warping the pointer
+type AIEDrag struct {
+	pressing bool
+	detect   bool
+	on       bool
+	start    bool
+	button   event.MouseButton
+	point    image.Point
+	node     widget.Node
+}
+
+func (aie *ApplyInputEvent) SetWarpedPointUntilMouseMove(p image.Point) {
+	aie.warpedPoint.on = true
+	aie.warpedPoint.p = p
+}
+
+func (aie *ApplyInputEvent) getWarpedPoint(ev interface{}, p image.Point) image.Point {
+	// warped point overrides the point until move - improves rapid wheel movement position after warping the pointer
 	if _, ok := ev.(*event.MouseMove); ok {
 		aie.warpedPoint.on = false
 	} else if aie.warpedPoint.on {
-		p = aie.warpedPoint.p
+		return aie.warpedPoint.p
 	}
+	return p
+}
+
+func (aie *ApplyInputEvent) Apply(ctx widget.Context, node widget.Node, ev interface{}, p image.Point) {
+	p = aie.getWarpedPoint(ev, p)
 
 	dragWasOn := aie.drag.on
 
-	if !aie.drag.on && !aie.drag.detect {
+	if !aie.drag.pressing {
+		_ = aie.mouseLeave(node, p)
 		_ = aie.mouseEnter(node, p)
 	}
+
 	switch evt := ev.(type) {
 	case *event.MouseDown:
 		_ = aie.mouseDown(node, evt, p) // sets drag.detect
@@ -71,18 +76,29 @@ func (aie *ApplyInputEvent) apply(node widget.Node, ev interface{}, p image.Poin
 			_ = aie.multipleClickMouseUp(node, evt, p)
 		}
 	default:
-		_ = aie.applyInbound(node, ev, p)
+		// ex: event.KeyDown
+		_ = aie.applyInbound(node, evt, p)
 	}
-	if !aie.drag.on && !aie.drag.detect {
-		// catch structural changes in this cycle by running these int the end
 
-		_ = aie.mouseLeave(node, p)
-
-		if dragWasOn {
-			// run after mouse leave
-			_ = aie.mouseEnter(node, p)
-		}
+	if !aie.drag.on {
+		widget.SetTreeCursor(ctx, node, p)
 	}
+
+	//// catch structural changes in this cycle by running these int the end
+	//// ex: allows visual update of a widget that closed and the mouse didn't move
+	//if !aie.drag.pressing {
+	//	_ = aie.mouseLeave(node, p)
+	//	//if dragWasOn {
+	//	// run after mouse leave
+	//	_ = aie.mouseEnter(node, p)
+	//	//}
+	//}
+}
+
+func (aie *ApplyInputEvent) applyInbound(node widget.Node, ev interface{}, p image.Point) bool {
+	return aie.visitDepthFirst(node, p, func(n widget.Node) bool {
+		return n.OnInputEvent(ev, p)
+	})
 }
 
 func (aie *ApplyInputEvent) mouseEnter(node widget.Node, p image.Point) bool {
@@ -92,7 +108,7 @@ func (aie *ApplyInputEvent) mouseEnter(node widget.Node, p image.Point) bool {
 			n.Embed().SetPointerInside(true)
 			h = n.OnInputEvent(&event.MouseEnter{}, p) || h
 		}
-		return h
+		return false // never early exit
 	})
 }
 
@@ -100,15 +116,20 @@ func (aie *ApplyInputEvent) mouseLeave(node widget.Node, p image.Point) bool {
 	if !node.Embed().PointerInside() {
 		return false
 	}
+
+	// execute on childs
 	h := false
-	for c := node.LastChild(); c != nil; c = c.Prev() {
+	node.Embed().IterChildsReverse(func(c widget.Node) {
 		h = aie.mouseLeave(c, p) || h
-	}
-	if !p.In(node.Bounds()) {
+	})
+
+	// execute on node
+	if !p.In(node.Embed().Bounds) {
 		node.Embed().SetPointerInside(false)
 		h = node.OnInputEvent(&event.MouseLeave{}, p) || h
 	}
-	return h
+
+	return false // never early exit
 }
 
 func (aie *ApplyInputEvent) mouseDown(node widget.Node, ev *event.MouseDown, p image.Point) bool {
@@ -116,9 +137,10 @@ func (aie *ApplyInputEvent) mouseDown(node widget.Node, ev *event.MouseDown, p i
 		h := n.OnInputEvent(ev, p)
 
 		// deepest node found
-		if !aie.drag.detect && !aie.drag.on && !n.Embed().NotDraggable() {
-			aie.drag.detect = true
+		if !aie.drag.pressing && !n.Embed().NotDraggable() {
+			aie.drag.pressing = true
 			aie.drag.button = ev.Button
+			aie.drag.detect = true
 			aie.drag.point = p
 			aie.drag.node = n
 		}
@@ -129,13 +151,11 @@ func (aie *ApplyInputEvent) mouseDown(node widget.Node, ev *event.MouseDown, p i
 
 func (aie *ApplyInputEvent) mouseDragStartMove(ev *event.MouseMove, p image.Point) bool {
 	if aie.drag.detect {
-		// if it goes outside the margin, it's a drag
+		// still haven't move enough, try to detect again later
 		if !aie.detectMove(aie.drag.point, p) {
-			// still inside, try to detect again later
 			return false
 		}
-
-		// detected, drag is on
+		// dragging
 		aie.drag.on = true
 		aie.drag.detect = false
 	}
@@ -155,62 +175,62 @@ func (aie *ApplyInputEvent) mouseDragStartMove(ev *event.MouseMove, p image.Poin
 }
 func (aie *ApplyInputEvent) mouseDragEnd(ev *event.MouseUp, p image.Point) bool {
 	h := false
-
-	cleanup := false
-	if aie.drag.on && ev.Button == aie.drag.button {
-		cleanup = true
-		ev2 := &event.MouseDragEnd{p, ev.Button, ev.Modifiers}
-		h = aie.drag.node.OnInputEvent(ev2, p) || h
-	}
-
-	if aie.drag.detect || cleanup {
-		aie.drag.detect = false
-		aie.drag.on = false
-		aie.drag.start = false
-		aie.drag.node = nil
+	if aie.drag.pressing && ev.Button == aie.drag.button {
+		if aie.drag.on {
+			ev2 := &event.MouseDragEnd{p, ev.Button, ev.Modifiers}
+			h = aie.drag.node.OnInputEvent(ev2, p)
+		}
+		// cleanup
+		aie.drag = AIEDrag{}
 	}
 	return h
 }
 
-func (aie *ApplyInputEvent) applyInbound(node widget.Node, ev interface{}, p image.Point) bool {
-	return aie.visitDepthFirst(node, p, func(n widget.Node) bool {
-		return n.OnInputEvent(ev, p)
-	})
-}
-
 func (aie *ApplyInputEvent) visitDepthFirst(node widget.Node, p image.Point, fn func(widget.Node) bool) bool {
-	if p.In(node.Bounds()) {
-		return aie.visitDepthFirst2(node, p, fn)
+	if !p.In(node.Embed().Bounds) {
+		return false
 	}
-	return false
-}
-func (aie *ApplyInputEvent) visitDepthFirst2(node widget.Node, p image.Point, fn func(widget.Node) bool) bool {
-	h := false
-	// later childs could be drawn over previous ones, run loop backwards
-	for c := node.LastChild(); c != nil; c = c.Prev() {
-		if p.In(c.Bounds()) {
-			h = aie.visitDepthFirst2(c, p, fn) || h
-			break
-		}
-	}
-	return fn(node) || h
-}
 
-func (aie *ApplyInputEvent) visitDepthLast(node widget.Node, p image.Point, fn func(widget.Node) bool) bool {
-	if p.In(node.Bounds()) {
-		return aie.visitDepthLast2(node, p, fn)
-	}
-	return false
-}
-func (aie *ApplyInputEvent) visitDepthLast2(node widget.Node, p image.Point, fn func(widget.Node) bool) bool {
-	h := fn(node)
-	// later childs could be drawn over previous ones, run loop backwards
-	for c := node.LastChild(); c != nil; c = c.Prev() {
-		if p.In(c.Bounds()) {
-			h = aie.visitDepthLast2(c, p, fn) || h
-			break
+	// execute on childs
+	h := false
+	// later childs are drawn over previous ones, run loop backwards
+	node.Embed().IterChildsReverseStop(func(c widget.Node) bool {
+		h = aie.visitDepthFirst(c, p, fn)
+		// early exit if handled
+		if h {
+			return false
 		}
+		return true
+	})
+
+	// execute on node
+	if !h {
+		h = fn(node)
 	}
+
+	return h
+}
+func (aie *ApplyInputEvent) visitDepthLast(node widget.Node, p image.Point, fn func(widget.Node) bool) bool {
+	if !p.In(node.Embed().Bounds) {
+		return false
+	}
+
+	// execute on node
+	h := fn(node)
+
+	// execute on childs
+	if !h {
+		// later childs are drawn over previous ones, run loop backwards
+		node.Embed().IterChildsReverseStop(func(c widget.Node) bool {
+			h = aie.visitDepthLast(c, p, fn)
+			// early exit if handled
+			if h {
+				return false
+			}
+			return true
+		})
+	}
+
 	return h
 }
 

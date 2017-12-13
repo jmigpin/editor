@@ -8,7 +8,7 @@ import (
 )
 
 type Rectangle struct {
-	LeafEmbedNode
+	EmbedNode
 	Size  image.Point
 	Color *color.Color
 	ctx   Context
@@ -25,6 +25,5 @@ func (r *Rectangle) Paint() {
 	if r.Color == nil {
 		return
 	}
-	b := r.Bounds()
-	imageutil.FillRectangle(r.ctx.Image(), &b, *r.Color)
+	imageutil.FillRectangle(r.ctx.Image(), &r.Bounds, *r.Color)
 }

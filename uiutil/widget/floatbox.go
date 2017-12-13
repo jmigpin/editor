@@ -6,7 +6,7 @@ import (
 
 // Should be a child of a top layer (possibly MultiLayer). It relies on the parent bounds.
 type FloatBox struct {
-	ShellEmbedNode
+	EmbedNode
 	RefPoint image.Point
 }
 
@@ -20,7 +20,7 @@ func (fb *FloatBox) Measure(hint image.Point) image.Point {
 }
 func (fb *FloatBox) CalcChildsBounds() {
 	// start with the parent bounds
-	fbb := fb.Parent().Bounds()
+	fbb := fb.Parent().Embed().Bounds
 
 	child := fb.FirstChild()
 
@@ -35,10 +35,14 @@ func (fb *FloatBox) CalcChildsBounds() {
 		b2 = b2.Sub(diff)
 	}
 	b2 = b2.Intersect(fbb)
-	child.SetBounds(&b2)
+	child.Embed().Bounds = b2
 
 	// set own bounds, same as the child
-	fb.SetBounds(&b2)
+	fb.Embed().Bounds = b2
 
 	child.CalcChildsBounds()
+}
+func (fb *FloatBox) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	// true=handled, don't let other layers get the event
+	return true
 }

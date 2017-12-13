@@ -4,13 +4,12 @@ import (
 	"image"
 
 	"github.com/jmigpin/editor/imageutil"
-	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 )
 
 type Column struct {
 	*widget.FlowLayout
-	Square     *Square
+	Square     *ColumnSquare
 	Cols       *Columns
 	RowsLayout *widget.EndPercentLayout
 
@@ -26,15 +25,15 @@ func NewColumn(cols *Columns) *Column {
 	col.FlowLayout = widget.NewFlowLayout()
 	col.SetWrapper(col)
 
-	col.Square = NewSquare(col.ui)
-	col.Square.EvReg.Add(SquareInputEventId, col.onSquareInput)
+	col.Square = NewColumnSquare(col)
+	col.Square.Size = NewRow(col).Toolbar.Square.Size
 
 	col.sep.Init(col.ui)
 	col.sep.SetExpand(false, true)
 	col.sep.Size.X = SeparatorWidth
 	col.sep.Color = &SeparatorColor
 
-	col.sepHandle.Init(col.ui, &col.sep, col)
+	col.sepHandle.Init(&col.sep, col)
 	col.sepHandle.Left = 3
 	col.sepHandle.Right = 3
 	col.sepHandle.Cursor = widget.WEResizeCursor
@@ -45,10 +44,6 @@ func NewColumn(cols *Columns) *Column {
 
 	// square (when there are no rows)
 	col.sqc = widget.NewFlowLayout()
-	var sqBorder widget.Pad
-	sqBorder.Init(col.ui, col.Square)
-	sqBorder.Color = &RowInnerSeparatorColor
-	sqBorder.Bottom = SeparatorWidth
 
 	var space widget.Rectangle
 	space.Init(col.ui)
@@ -62,12 +57,9 @@ func NewColumn(cols *Columns) *Column {
 		shadow.Top = ShadowSteps
 		shadow.MaxShade = ShadowMaxShade
 		spaceNode = &shadow
-
-		sqBorder.Top = SeparatorWidth
 	}
 
-	sqBorder.Right = SeparatorWidth
-	col.sqc.Append(&sqBorder, spaceNode)
+	col.sqc.Append(col.Square, spaceNode)
 
 	rightSide := widget.NewFlowLayout()
 	rightSide.YAxis = true
@@ -91,10 +83,8 @@ func (col *Column) OnMarkChildNeedsPaint(child widget.Node, r *image.Rectangle) 
 	}
 }
 func (col *Column) Paint() {
-	if len(col.RowsLayout.Childs()) == 0 {
-		b := col.Bounds()
-		imageutil.FillRectangle(col.ui.Image(), &b, ColumnBgColor)
-		return
+	if col.RowsLayout.ChildsLen() == 0 {
+		imageutil.FillRectangle(col.ui.Image(), &col.Bounds, ColumnBgColor)
 	}
 }
 
@@ -137,22 +127,6 @@ func (col *Column) fixSquareVisibility() {
 	}
 }
 
-func (col *Column) onSquareInput(ev0 interface{}) {
-	sqEv := ev0.(*SquareInputEvent)
-	switch ev := sqEv.Event.(type) {
-	case *event.MouseEnter:
-		col.SetPointerCursor(col.ui, widget.CloseCursor)
-	case *event.MouseLeave:
-		col.UnsetPointerCursor(col.ui)
-	case *event.MouseClick:
-		switch ev.Button {
-		case event.ButtonLeft:
-			col.UnsetPointerCursor(col.ui)
-			col.Cols.CloseColumnEnsureOne(col)
-		}
-	}
-}
-
 func (col *Column) FirstChildRow() (*Row, bool) {
 	u := col.RowsLayout.FirstChild()
 	if u == nil {
@@ -175,17 +149,16 @@ func (col *Column) PrevColumn() (*Column, bool) {
 	return u.(*Column), true
 }
 func (col *Column) Rows() []*Row {
-	childs := col.RowsLayout.Childs()
-	u := make([]*Row, 0, len(childs))
-	for _, h := range childs {
-		u = append(u, h.(*Row))
-	}
+	u := make([]*Row, 0, col.RowsLayout.ChildsLen())
+	col.RowsLayout.IterChilds(func(c widget.Node) {
+		u = append(u, c.(*Row))
+	})
 	return u
 }
 
 func (col *Column) PointRow(p *image.Point) (*Row, bool) {
 	for _, r := range col.Rows() {
-		if p.In(r.Bounds()) {
+		if p.In(r.Bounds) {
 			return r, true
 		}
 	}
@@ -193,7 +166,7 @@ func (col *Column) PointRow(p *image.Point) (*Row, bool) {
 }
 
 func (col *Column) resizeToPointWithSwap(p *image.Point) {
-	bounds := col.Cols.Layout.Bounds()
+	bounds := col.Cols.Layout.Bounds
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
 	min := 30 / dx
@@ -215,11 +188,11 @@ func (col *Column) resizeHandleWithSwapJump(left bool, p *image.Point) {
 	p2.X += jump
 	col.resizeHandleWithSwapToPoint(&p2)
 
-	p3 := image.Point{col.Bounds().Min.X, p.Y}
+	p3 := image.Point{col.Bounds.Min.X, p.Y}
 	col.ui.WarpPointer(&p3)
 }
 func (col *Column) resizeHandleWithSwapToPoint(p *image.Point) {
-	bounds := col.Cols.Layout.Bounds()
+	bounds := col.Cols.Layout.Bounds
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
 	min := 30 / dx
@@ -231,31 +204,4 @@ func (col *Column) resizeHandleWithSwapToPoint(p *image.Point) {
 
 	col.Cols.CalcChildsBounds()
 	col.Cols.MarkNeedsPaint()
-}
-
-type ColSeparatorHandle struct {
-	widget.SeparatorHandle
-	col *Column
-}
-
-func (sh *ColSeparatorHandle) Init(ctx widget.Context, ref widget.Node, col *Column) {
-	sh.SeparatorHandle.Init(ctx, ref)
-	sh.SetWrapper(sh)
-	sh.col = col
-}
-func (sh *ColSeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	_ = sh.SeparatorHandle.OnInputEvent(ev0, p)
-	if sh.Dragging {
-		sh.col.resizeHandleWithSwapToPoint(&p)
-	}
-	switch ev := ev0.(type) {
-	case *event.MouseDown:
-		switch ev.Button {
-		case event.ButtonWheelLeft:
-			sh.col.resizeHandleWithSwapJump(true, &p)
-		case event.ButtonWheelRight:
-			sh.col.resizeHandleWithSwapJump(false, &p)
-		}
-	}
-	return false
 }

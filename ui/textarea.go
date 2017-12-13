@@ -13,11 +13,10 @@ import (
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
-	"golang.org/x/image/font"
 )
 
 type TextArea struct {
-	widget.LeafEmbedNode
+	widget.EmbedNode
 	ui *UI
 
 	drawer *hsdrawer.HSDrawer
@@ -43,9 +42,11 @@ type TextArea struct {
 	Colors                     *hsdrawer.Colors
 	DisableHighlightCursorWord bool
 
-	lastMeasureHint image.Point
-	measurement     image.Point
-	measureFace     font.Face
+	MeasureOpt struct {
+		FirstLineOffsetX int
+		lastHint         image.Point
+		measurement      image.Point
+	}
 
 	flashLine struct {
 		on    bool
@@ -57,6 +58,8 @@ type TextArea struct {
 		start      time.Time
 		index, len int
 	}
+
+	defaultCursor widget.Cursor
 }
 
 func NewTextArea(ui *UI) *TextArea {
@@ -67,51 +70,56 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.Colors = &c
 	ta.EvReg = evreg.NewRegister()
 	ta.history = tahistory.NewHistory(128)
+
+	//ta.defaultCursor = widget.NoneCursor
+	ta.defaultCursor = widget.TextCursor
+	ta.Cursor = ta.defaultCursor
+
 	return ta
 }
 
 func (ta *TextArea) Measure(hint image.Point) image.Point {
-	return ta.measureChilds(hint)
+	return ta.measureStr(hint)
 }
 
-func (ta *TextArea) measureChilds(hint image.Point) image.Point {
-	// Looking at the drawer as a "child" of the textarea.
-	// This textarea should have no child nodes.
-
+func (ta *TextArea) measureStr(hint image.Point) image.Point {
 	// cache measurement
 	face := ta.ui.FontFace1()
-	if ta.str != ta.drawer.Str || hint.X != ta.lastMeasureHint.X || ta.measureFace != face {
-
-		ta.measureFace = face
-		ta.drawer.Face = face
+	if ta.str != ta.drawer.Str ||
+		ta.MeasureOpt.FirstLineOffsetX != ta.drawer.FirstLineOffsetX ||
+		face != ta.drawer.Face ||
+		hint.X != ta.MeasureOpt.lastHint.X {
 
 		// keep offset for restoration
 		offsetIndex := 0
-		changed := hint != ta.lastMeasureHint
+		changed := hint != ta.MeasureOpt.lastHint
 		if changed {
 			offsetIndex = ta.OffsetIndex()
 		}
 
-		ta.lastMeasureHint = hint
+		ta.drawer.FirstLineOffsetX = ta.MeasureOpt.FirstLineOffsetX
+		ta.drawer.Face = face
+		ta.MeasureOpt.lastHint = hint
 		ta.drawer.Str = ta.str
 
 		// TODO: ensure the layout gives maximum space to not have to ignore Y in order for the textareas to work properly in dynamic sizes (toolbars)
 		// ignore Y hint
 		hint2 := image.Point{hint.X, 100000}
 
-		ta.measurement = ta.drawer.Measure(hint2)
+		ta.MeasureOpt.measurement = ta.drawer.Measure(hint2)
 
 		// restore offset to keep the same first line while resizing
 		if changed {
 			ta.SetOffsetIndex(offsetIndex)
 		}
 	}
-	return ta.measurement
+	return ta.MeasureOpt.measurement
 }
 
 func (ta *TextArea) CalcChildsBounds() {
-	max := ta.Bounds().Size()
-	_ = ta.measureChilds(max)
+	max := ta.Bounds.Size()
+	_ = ta.measureStr(max)
+	ta.EmbedNode.CalcChildsBounds()
 }
 
 func (ta *TextArea) StrHeight() int {
@@ -124,12 +132,10 @@ func (ta *TextArea) StrHeight() int {
 }
 
 func (ta *TextArea) Paint() {
-	bounds := ta.Bounds()
+	bounds := ta.Bounds
 
 	// fill background
-	if ta.Colors.Normal.Bg != nil {
-		imageutil.FillRectangle(ta.ui.Image(), &bounds, ta.Colors.Normal.Bg)
-	}
+	imageutil.FillRectangle(ta.ui.Image(), &bounds, ta.Colors.Normal.Bg)
 
 	d := ta.drawer
 	d.CursorIndex = &ta.cursorIndex
@@ -181,11 +187,11 @@ func (ta *TextArea) paintFlashLine() {
 	}
 
 	// rectangle to paint
-	r := ta.Bounds()
+	r := ta.Bounds
 	r.Min.Y += ta.flashLine.p.Y - ta.OffsetY()
 	r.Max.Y = r.Min.Y + ta.LineHeight()
 	//r.Min.X += ta.flashLine.p.X // start flash from p.X
-	r = r.Intersect(ta.Bounds())
+	r = r.Intersect(ta.Bounds)
 
 	// tint percentage
 	t := now.Sub(ta.flashLine.start)
@@ -274,7 +280,7 @@ func (ta *TextArea) setStr(s string) {
 		return
 	}
 
-	oldBounds := ta.Bounds()
+	oldBounds := ta.Bounds
 
 	ta.str = s
 
@@ -456,7 +462,7 @@ func (ta *TextArea) MakeCursorVisible() {
 }
 func (ta *TextArea) MakeIndexVisible(index int) {
 	y0 := ta.OffsetY()
-	y1 := y0 + ta.Bounds().Dy()
+	y1 := y0 + ta.Bounds.Dy()
 
 	// is all visible
 	a0 := ta.drawer.GetPoint(index).Y
@@ -473,19 +479,19 @@ func (ta *TextArea) MakeIndexVisible(index int) {
 	}
 	if y1 >= a0 && y1 <= a1 {
 		// partially visible at bottom
-		sy := ta.Bounds().Dy()
+		sy := ta.Bounds.Dy()
 		ta.SetOffsetY(a0 - sy + ta.LineHeight())
 		return
 	}
 
 	// set at half bounds
-	half := ta.Bounds().Dy() / 2
+	half := ta.Bounds.Dy() / 2
 	ta.SetOffsetY(a0 - half)
 }
 
 func (ta *TextArea) IndexIsVisible(index int) bool {
 	y0 := ta.OffsetY()
-	y1 := y0 + ta.Bounds().Dy()
+	y1 := y0 + ta.Bounds.Dy()
 
 	// is all visible
 	a0 := ta.drawer.GetPoint(index).Y
@@ -499,7 +505,7 @@ func (ta *TextArea) IndexIsVisible(index int) bool {
 func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	// set at half bounds
 	p0 := ta.drawer.GetPoint(index).Y
-	half := (ta.Bounds().Dy() - ta.LineHeight()) / 2
+	half := (ta.Bounds.Dy() - ta.LineHeight()) / 2
 	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
 }
@@ -514,13 +520,13 @@ func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 
 //	p := ta.drawer.GetPoint(index)
 //	p.Y -= ta.OffsetY()
-//	p3 := p.Add(ta.Bounds().Min)
+//	p3 := p.Add(ta.Bounds.Min)
 
 //	// padding
 //	p3.Y += ta.LineHeight() - 1
 //	p3.X += 5
 
-//	if !p3.In(ta.Bounds()) {
+//	if !p3.In(ta.Bounds) {
 //		return false
 //	}
 //	ta.ui.WarpPointer(&p3)
@@ -558,7 +564,7 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *event.MouseDown:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.SetPointerCursor(ta.ui, widget.PointerCursor)
+			ta.Cursor = widget.PointerCursor
 		case event.ButtonLeft:
 			if ev.Modifiers.Is(event.ModShift) {
 				tautil.MoveCursorToPoint(ta, &ev.Point, true)
@@ -569,16 +575,12 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *event.MouseUp:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.SetPointerCursor(ta.ui, widget.TextCursor)
+			ta.Cursor = ta.defaultCursor
 		}
-	case *event.MouseEnter:
-		ta.SetPointerCursor(ta.ui, widget.TextCursor)
-	case *event.MouseLeave:
-		ta.UnsetPointerCursor(ta.ui)
 	case *event.MouseDragStart:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.SetPointerCursor(ta.ui, widget.TextCursor)
+			ta.Cursor = ta.defaultCursor
 		}
 	case *event.MouseDragMove:
 		if ev.Buttons.Has(event.ButtonLeft) {
@@ -591,16 +593,16 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 			tautil.MoveCursorToPoint(ta, &ev.Point, true)
 		}
 	case *event.MouseClick:
-		ta.onMouseClick(ev)
+		return ta.onMouseClick(ev)
 	case *event.MouseDoubleClick:
-		ta.onMouseDoubleClick(ev)
+		return ta.onMouseDoubleClick(ev)
 	case *event.MouseTripleClick:
-		ta.onMouseTripleClick(ev)
+		return ta.onMouseTripleClick(ev)
 	}
 	return false
 }
 
-func (ta *TextArea) onMouseClick(ev *event.MouseClick) {
+func (ta *TextArea) onMouseClick(ev *event.MouseClick) bool {
 	switch ev.Button {
 	case event.ButtonRight:
 		if !ta.PointIndexInsideSelection(&ev.Point) {
@@ -608,29 +610,36 @@ func (ta *TextArea) onMouseClick(ev *event.MouseClick) {
 		}
 		ev2 := &TextAreaCmdEvent{ta}
 		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
+		return true
 	case event.ButtonMiddle:
 		tautil.MoveCursorToPoint(ta, &ev.Point, false)
 		tautil.PastePrimary(ta)
+		return true
 	}
+	return false
 }
-func (ta *TextArea) onMouseDoubleClick(ev *event.MouseDoubleClick) {
+func (ta *TextArea) onMouseDoubleClick(ev *event.MouseDoubleClick) bool {
 	switch ev.Button {
 	case event.ButtonLeft:
 		tautil.MoveCursorToPoint(ta, &ev.Point, false)
 		tautil.SelectWord(ta)
+		return true
 	}
+	return false
 }
-func (ta *TextArea) onMouseTripleClick(ev *event.MouseTripleClick) {
+func (ta *TextArea) onMouseTripleClick(ev *event.MouseTripleClick) bool {
 	switch ev.Button {
 	case event.ButtonLeft:
 		tautil.MoveCursorToPoint(ta, &ev.Point, false)
 		tautil.SelectLine(ta)
+		return true
 	}
+	return false
 }
 
 func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 	if ta.SelectionOn() {
-		p2 := p.Sub(ta.Bounds().Min)
+		p2 := p.Sub(ta.Bounds.Min)
 		p2.Y += ta.OffsetY()
 		i := ta.GetIndex(&p2)
 		s, e := tautil.SelectionStringIndexes(ta)
@@ -806,6 +815,10 @@ func (ta *TextArea) History() *tahistory.History {
 }
 func (ta *TextArea) SetHistory(h *tahistory.History) {
 	ta.history = h
+}
+
+func (ta *TextArea) GetBounds() image.Rectangle {
+	return ta.Bounds
 }
 
 const (

@@ -22,7 +22,7 @@ type Texta interface {
 
 	MakeIndexVisibleAtCenter(int)
 
-	Bounds() image.Rectangle
+	GetBounds() image.Rectangle
 
 	OffsetY() int
 	SetOffsetY(v int)

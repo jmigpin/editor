@@ -30,6 +30,7 @@ func NewRow(ed Editorer) {
 		// position after active row
 		r := erow2.Row()
 		col = r.Col
+		nextRow = nil
 		nr, ok := r.NextRow()
 		if ok {
 			nextRow = nr
@@ -37,5 +38,5 @@ func NewRow(ed Editorer) {
 	}
 
 	erow := ed.NewERowerBeforeRow(p, col, nextRow)
-	erow.Row().Flash()
+	erow.Flash()
 }

@@ -39,6 +39,6 @@ func directory(erow cmdutil.ERower) bool {
 			ed.Error(err)
 		}
 	}
-	erow2.Row().Flash()
+	erow2.Flash()
 	return true
 }

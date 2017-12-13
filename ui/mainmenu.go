@@ -76,7 +76,7 @@ func (fm *FloatMenu) Init(m *MainMenuButton) {
 	fm.SetHidden(true)
 }
 func (fm *FloatMenu) CalcChildsBounds() {
-	b := fm.m.Bounds()
+	b := fm.m.Bounds
 	fm.RefPoint = image.Point{b.Min.X, b.Max.Y}
 	fm.FloatBox.CalcChildsBounds()
 }

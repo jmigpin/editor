@@ -182,7 +182,7 @@ func ListSessions(ed Editorer) {
 		erow = ed.NewERowerBeforeRow(s, col, nextRow)
 	}
 	erow.Row().TextArea.SetStrClear(str, false, false)
-	erow.Row().Flash()
+	erow.Flash()
 }
 
 func OpenSession(ed Editorer, part *toolbardata.Part) {

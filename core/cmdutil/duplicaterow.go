@@ -21,9 +21,11 @@ func DuplicateRow(ed Editorer, erow ERower) {
 	filename := erow.Filename()
 	tbStr := filename
 	erow2 := ed.NewERowerBeforeRow(tbStr, col, next)
-
-	erow.UpdateState() // visual cue for duplicates
-	erow.UpdateDuplicates()
+	err := erow2.LoadContentClear()
+	if err != nil {
+		ed.Error(err)
+		return
+	}
 
 	// set position
 	ta := erow.Row().TextArea
@@ -31,5 +33,5 @@ func DuplicateRow(ed Editorer, erow ERower) {
 	ta2.SetCursorIndex(ta.CursorIndex())
 	ta2.MakeCursorVisible()
 
-	erow2.Row().Flash()
+	erow2.Flash()
 }

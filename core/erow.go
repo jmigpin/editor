@@ -63,11 +63,16 @@ func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
 	// run after event handlers are set
 	erow.parseToolbar()
 
+	erow.UpdateState()
+	erow.UpdateDuplicatesState()
+
 	return erow
 }
 func (erow *ERow) initHandlers() {
 	row := erow.row
-	ed := erow.ed
+
+	erow.ed.RegisterERow(erow)
+
 	// toolbar set str
 	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
 		erow.parseToolbar()
@@ -81,8 +86,7 @@ func (erow *ERow) initHandlers() {
 		if erow.disableTextAreaSetStrEventHandler {
 			return
 		}
-		erow.UpdateState()
-		erow.UpdateDuplicates()
+		erow.UpdateStateAndDuplicates()
 	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
@@ -92,8 +96,10 @@ func (erow *ERow) initHandlers() {
 	row.EvReg.Add(ui.RowInputEventId, erow.onRowInput)
 	// close
 	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
+		erow.ed.UnregisterERow(erow)
+		erow.UpdateStateAndDuplicates()
 		cmdutil.RowCtxCancel(row)
-		ed.reopenRow.Add(row)
+		erow.ed.reopenRow.Add(row)
 		if erow.state.watch {
 			erow.ed.DecreaseWatch(erow.state.filename)
 		}
@@ -161,8 +167,6 @@ func (erow *ERow) parseToolbar() {
 	erow.tbStr = tbStr
 	erow.nameIsSet = true
 	erow.name = name
-
-	erow.UpdateState()
 }
 
 func (erow *ERow) UpdateState() {
@@ -170,7 +174,7 @@ func (erow *ERow) UpdateState() {
 
 	erow.updateState2()
 
-	// increase watch before decreasing, will not remove the watch if it was added before
+	// increase watch before decreasing to prevent removing the watch if it was added before
 	if erow.state.watch {
 		erow.ed.IncreaseWatch(erow.state.filename)
 	}
@@ -186,22 +190,28 @@ func (erow *ERow) UpdateState() {
 			hash := erow.contentHash([]byte(str))
 			edited = !bytes.Equal(hash, erow.saved.hash)
 		}
-		erow.row.Square.SetValue(ui.SquareEdited, edited)
+		erow.row.SetState(ui.EditedRowState, edited)
 	}
 
 	// disk changes
 	if erow.IsRegular() {
 		changes := !bytes.Equal(erow.state.disk.hash, erow.saved.hash)
-		erow.row.Square.SetValue(ui.SquareDiskChanges, changes)
+		erow.row.SetState(ui.DiskChangesRowState, changes)
 	}
 
 	// not exist
-	erow.row.Square.SetValue(ui.SquareNotExist, erow.state.notExist)
+	erow.row.SetState(ui.NotExistRowState, erow.state.notExist)
 
 	// has duplicates
 	hasDuplicate := len(erow.duplicateERows()) >= 2
-	erow.row.Square.SetValue(ui.SquareDuplicate, hasDuplicate)
+	if erow.IsRegular() {
+		erow.row.SetState(ui.DuplicateRowState, hasDuplicate)
+	}
+	if !hasDuplicate {
+		erow.updateHighlightDuplicates(false)
+	}
 }
+
 func (erow *ERow) updateState2() {
 	prev := erow.state // copy
 
@@ -252,15 +262,31 @@ func (erow *ERow) contentHash(b []byte) []byte {
 }
 
 func (erow *ERow) LoadContentClear() error {
-	return erow.loadContent(true)
+	return erow.loadContent(false, true)
 }
 func (erow *ERow) ReloadContent() error {
-	return erow.loadContent(false)
+	return erow.loadContent(true, false)
 }
-func (erow *ERow) loadContent(clear bool) error {
+func (erow *ERow) loadContent(reload, clear bool) error {
 	if erow.IsSpecialName() {
 		return fmt.Errorf("can't load special name: %s", erow.Name())
 	}
+
+	// if it has duplicates, load content from another row
+	if !reload && erow.IsRegular() {
+		erows := erow.duplicateERows()
+		if len(erows) >= 2 {
+			for _, e := range erows {
+				if e == erow {
+					continue
+				}
+				e.UpdateDuplicatesContent()
+				e.UpdateDuplicatesState()
+				return nil
+			}
+		}
+	}
+
 	fp := erow.Filename()
 	str, err := erow.filepathContent(fp)
 	if err != nil {
@@ -272,12 +298,11 @@ func (erow *ERow) loadContent(clear bool) error {
 		erow.saved.hash = erow.contentHash([]byte(str))
 	}
 
-	erow.disableTextAreaSetStrEventHandler = true // avoid running UpdateDuplicates twice
+	erow.disableTextAreaSetStrEventHandler = true // avoid recursive events
 	erow.row.TextArea.SetStrClear(str, clear, clear)
 	erow.disableTextAreaSetStrEventHandler = false
 
-	erow.UpdateState()
-	erow.UpdateDuplicates()
+	erow.UpdateStateAndDuplicates()
 
 	return nil
 }
@@ -297,12 +322,7 @@ func (erow *ERow) SaveContent(str string) error {
 	erow.saved.size = int64(len(str))
 	erow.saved.hash = erow.contentHash([]byte(str))
 
-	// There is no need to update state or duplicates, the file watcher would emit event.
-	// Here for redundancy to avoid having erow state be depended on the file watcher
-	// in edge cases like waking up from hibernation and things not working properly.
-
-	erow.UpdateState()
-	erow.UpdateDuplicates()
+	erow.UpdateStateAndDuplicates()
 
 	return nil
 }
@@ -359,57 +379,95 @@ func (erow *ERow) onRowInput(ev0 interface{}) {
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == 'f':
 			cmdutil.FindShortcut(erow)
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == ' ':
+			goto BLA
+		BLA:
+			_ = erow.row
 			//fb := erow.row.FloatBox()
 			//fb.SetStr("testing")
 		}
+
+	case *event.MouseEnter:
+		erow.updateHighlightDuplicates(true)
+	case *event.MouseLeave:
+		erow.updateHighlightDuplicates(false)
 	}
 }
 
-func (erow *ERow) UpdateDuplicates() {
-	//log.Printf("update duplicates %p", erow)
-
-	for _, erow2 := range erow.duplicateERows() {
-		if erow == erow2 {
-			continue // otherwise will discard own history
+func (erow *ERow) updateHighlightDuplicates(v bool) {
+	erows := erow.duplicateERows()
+	if !v || (v && len(erows) >= 2) {
+		for _, e := range erows {
+			e.Row().SetState(ui.HighlightDuplicateRowState, v)
 		}
-
-		ta := erow.Row().TextArea
-		ta2 := erow2.Row().TextArea
-
-		ci := ta2.CursorIndex()
-		ip := ta2.GetPoint(ci)
-
-		// use temporary history to set the string in the duplicate
-		// then get the main shared history to allow undo/redo
-
-		tmp := tahistory.NewHistory(1)
-		ta2.SetHistory(tmp)
-
-		erow2.disableTextAreaSetStrEventHandler = true // avoid recursive events
-		ta2.SetStrClear(ta.Str(), false, false)
-		erow2.disableTextAreaSetStrEventHandler = false
-
-		ta2.SetHistory(ta.History())
-
-		// restore position (avoid cursor moving while editing in another row)
-		pi := ta2.GetIndex(&ip)
-		ta2.SetCursorIndex(pi)
-
-		erow2.saved.size = erow.saved.size
-		erow2.saved.hash = erow.saved.hash
-		erow2.UpdateState()
 	}
 }
-func (erow *ERow) duplicateERows() []*ERow {
+
+func (erow *ERow) UpdateStateAndDuplicates() {
+	erow.UpdateState()
+	erow.UpdateDuplicatesContent()
+	erow.UpdateDuplicatesState()
+}
+
+func (erow *ERow) UpdateDuplicatesState() {
+	for _, e := range erow.duplicateERows() {
+		if e == erow {
+			continue
+		}
+		e.UpdateState()
+	}
+}
+func (erow *ERow) UpdateDuplicatesContent() {
+	for _, e := range erow.duplicateERows() {
+		if e == erow {
+			continue
+		}
+		e.updateContentFromDuplicate(erow)
+	}
+}
+func (erow *ERow) updateContentFromDuplicate(srcERow *ERow) {
+	// don't update itself - it will erase its own history
+	if erow == srcERow {
+		return
+	}
+
+	// update duplicate content only for files
 	if !erow.IsRegular() {
-		return nil
+		return
 	}
-	// includes self
-	var u []*ERow
-	for _, erow2 := range erow.ed.erows {
-		if erow2.Filename() == erow.Filename() {
-			u = append(u, erow2)
-		}
+
+	srcTa := srcERow.Row().TextArea
+	ta := erow.Row().TextArea
+
+	ci := ta.CursorIndex()
+	ip := ta.GetPoint(ci)
+
+	// use temporary history to set the string in the duplicate
+	// then get the main shared history to allow undo/redo
+
+	tmp := tahistory.NewHistory(1)
+	ta.SetHistory(tmp)
+
+	erow.disableTextAreaSetStrEventHandler = true // avoid recursive events
+	ta.SetStrClear(srcTa.Str(), false, false)
+	erow.disableTextAreaSetStrEventHandler = false
+
+	ta.SetHistory(srcTa.History())
+
+	// restore position (avoid cursor moving while editing in another row)
+	pi := ta.GetIndex(&ip)
+	ta.SetCursorIndex(pi)
+
+	erow.saved.size = srcERow.saved.size
+	erow.saved.hash = srcERow.saved.hash
+}
+
+func (erow *ERow) duplicateERows() []*ERow {
+	return erow.ed.FindERows(erow.Filename())
+}
+
+func (erow *ERow) Flash() {
+	p, ok := erow.td.GetPartAtIndex(0)
+	if ok {
+		erow.Row().Toolbar.FlashIndexLen(p.S, p.E-p.S)
 	}
-	return u
 }

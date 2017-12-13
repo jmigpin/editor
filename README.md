@@ -66,11 +66,14 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 
 ### Row square-button states
 
-- `blue`: row file has been edited.
-- `orange`: row file doesn't exist.
-- `black dot`: row currently active. There is only one active row.
-- `red dot`: row file was edited outside (changed on disk) and doesn't match last known save. You can run `Reload` to get the disk version.
-- `blue border`: row is duplicated (2 or more).
+- background colors:
+  - `blue`: row file has been edited.
+  - `orange`: row file doesn't exist.
+- dot colors:
+  - `black`: row currently active. There is only one active row.
+  - `red`: row file was edited outside (changed on disk) and doesn't match last known save. You can run `Reload` to get the disk version.
+  - `blue`: row is duplicated (2 or more). 
+  - `yellow`: there are other rows with same filename (2 or more). Color will change when the pointer is over one of the rows.
 
 ### key/button shortcuts
 
@@ -84,12 +87,13 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 
 - `ctrl`+`s`: save file
 - `ctrl`+`f`: warp pointer to "Find" cmd in row toolbar
-- `buttonLeft`:
-  - on top border: drag to move/resize
-  - on square-button: close
-- `buttonWheelUp` on top border: increase row size vertically, pushing other rows up
-- `buttonWheelDown` on top border: increase row size vertically, pushing other rows down
-- Any button press: make row active to layout toolbar commands
+- `buttonLeft` on square-button: close row
+- on top border:
+  - `buttonLeft`: drag to move/resize row
+  - `buttonMiddle`: close row
+  - `buttonWheelUp`: adjust row vertical position, pushing other rows up
+  - `buttonWheelDown`: adjust row vertical position, pushing other rows down
+- Any button/key press: make row active to layout toolbar commands
 
 #### Textarea key/button shortcuts
 
@@ -155,7 +159,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 - `Save`: save file
 - `Reload`: reload content
-- `Close`: close row
+- `CloseRow`: close row
 - `CloseColumn`: closes row column
 - `Find`: find string (ignores case)
 - `GotoLine <num>`: goes to line number

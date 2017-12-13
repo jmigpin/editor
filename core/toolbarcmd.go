@@ -52,7 +52,7 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		fn()
 	}
 
-	erowCmd := func(fn func(erow cmdutil.ERower)) {
+	erowCmd := func(fn func(cmdutil.ERower)) {
 		e := erow
 		if e == nil {
 			aerow, ok := ed.ActiveERower()
@@ -110,10 +110,10 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		erowCmd(func(e cmdutil.ERower) { cmdutil.SaveRowFile(e) })
 	case "Reload":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ReloadRow(e) })
-	case "Close":
+	case "CloseRow":
 		erowCmd(func(e cmdutil.ERower) { e.Row().Close() })
 	case "CloseColumn":
-		erowCmd(func(e cmdutil.ERower) { _closeColumnCmd(e) })
+		erowCmd(func(e cmdutil.ERower) { e.Row().Col.Close() })
 	case "Find":
 		erowCmd(func(e cmdutil.ERower) { _findCmd(e, part) })
 	case "GotoLine":
@@ -136,10 +136,6 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 	}
 }
 
-func _closeColumnCmd(erow cmdutil.ERower) {
-	col := erow.Row().Col
-	col.Cols.CloseColumnEnsureOne(col)
-}
 func _findCmd(erow cmdutil.ERower, part *toolbardata.Part) {
 	a := part.Args[1:]
 	if len(a) != 1 {

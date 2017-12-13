@@ -40,43 +40,48 @@ func goSource(erow cmdutil.ERower) bool {
 }
 
 func goSourceOpenPosition(erow cmdutil.ERower, pos, end *token.Position) {
-	var erow2 cmdutil.ERower
 	ed := erow.Ed()
+	m := make(map[cmdutil.ERower]bool)
 
-	// highlight directly on the same row
-	if erow.Filename() == pos.Filename {
-		if erow.Row().TextArea.IndexIsVisible(pos.Offset) {
-			erow2 = erow
+	// any duplicate row that has the index already visible
+	erows := ed.FindERowers(pos.Filename)
+	for _, e := range erows {
+		if e.Row().TextArea.IndexIsVisible(pos.Offset) {
+			m[e] = true
 		}
 	}
 
 	// choose a duplicate row that is not the current row
-	if erow2 == nil {
+	if len(m) == 0 {
 		erows := ed.FindERowers(pos.Filename)
 		for _, e := range erows {
 			if e != erow {
-				erow2 = e
+				m[e] = true
 				break
 			}
 		}
 	}
 
 	// open new row
-	if erow2 == nil {
+	if len(m) == 0 {
 		col, nextRow := ed.GoodColumnRowPlace()
-		erow2 = ed.NewERowerBeforeRow(pos.Filename, col, nextRow)
-		err := erow2.LoadContentClear()
+		e := ed.NewERowerBeforeRow(pos.Filename, col, nextRow)
+		err := e.LoadContentClear()
 		if err != nil {
 			ed.Error(err)
+			return
 		}
+		m[e] = true
 	}
 
-	// goto index
-	row2 := erow2.Row()
-	row2.ResizeTextAreaIfVerySmall()
-	ta2 := row2.TextArea
-	ta2.MakeIndexVisible(pos.Offset)
-	row2.TextArea.FlashIndexLen(pos.Offset, end.Offset-pos.Offset)
+	for e, _ := range m {
+		// show position
+		row2 := e.Row()
+		row2.ResizeTextAreaIfVerySmall()
+		ta2 := row2.TextArea
+		ta2.MakeIndexVisible(pos.Offset)
+		row2.TextArea.FlashIndexLen(pos.Offset, end.Offset-pos.Offset)
+	}
 }
 
 func visitGoSource(filename string, src interface{}, cursorIndex int) (*token.Position, *token.Position, error) {
@@ -149,34 +154,45 @@ func (v *GSVisitor) visitSource(filename string, src interface{}, cursorIndex in
 	v.mainFilename = filename
 	v.mainFile = v.parseFilename(filename, src)
 
+	// DEBUG
+	if v.Debug {
+		//v.printAllIdentsOffsets()
+	}
+
 	// first check pass without any imports cached
 	v.confCheckMainFile()
 
 	id := v.mainFileIdentNode(cursorIndex)
 	if id != nil {
+	RESOLVE_ID:
 		v.resolveNode(id)
-		pos, end, ok := v.idPosEnd(id)
-		if ok {
-			posp := v.fset.Position(pos)
-			endp := v.fset.Position(end)
+		pos := v.idObjPos(id)
+		if pos != token.NoPos {
+			posp, endp := v.posEnd(pos)
+			return posp, endp, nil
+		}
+
+		// could be an id defined in the same package but in another file
+		path := v.posFilePath(v.mainFile.Package)
+		//if !v.importable[path] {
+		if len(v.importable) == 0 {
 			if v.Debug {
-				v.Printf("result: offset=%v %v", posp.Offset, posp)
+				log.Printf("making mainfile path importable")
 			}
-			return &posp, &endp, nil
+			v.importable[path] = true
+
+			// reset visited
+			v.visited = make(map[ast.Node]bool)
+
+			// recheck main file
+			v.confCheckMainFile()
+
+			// try again
+			goto RESOLVE_ID
 		}
 	}
 
 	return nil, nil, fmt.Errorf("identifier position not found")
-}
-
-func (v *GSVisitor) idPosEnd(id *ast.Ident) (token.Pos, token.Pos, bool) {
-	pos := v.idObjPos(id)
-	if pos == token.NoPos {
-		return 0, 0, false
-	}
-	path := v.posDeepestPath(pos)
-	node := path[len(path)-1]
-	return node.Pos(), node.End(), true
 }
 
 func (v *GSVisitor) idObjPos(id *ast.Ident) token.Pos {
@@ -189,16 +205,33 @@ func (v *GSVisitor) idObjPos(id *ast.Ident) token.Pos {
 	// solved in info.uses
 	obj, ok := v.info.Uses[id]
 	if ok {
-		return obj.Pos()
+		pos := obj.Pos()
+
+		// could be from the bulitin package
+		if pos == token.NoPos {
+			b := "builtin"
+			v.importable[b] = true
+			pkg, _ := v.packageImporter(b, "", 0)
+			obj2 := pkg.Scope().Lookup(obj.Name())
+			if obj2 != nil {
+				pos = obj2.Pos()
+			}
+		}
+
+		return pos
 	}
-
-	//// solved in info.defs
-	//obj, ok := v.info.Defs[id]
-	//if ok {
-	//	return obj.Pos()
-	//}
-
 	return token.NoPos
+}
+
+func (v *GSVisitor) posEnd(pos token.Pos) (*token.Position, *token.Position) {
+	path := v.posDeepestPath(pos)
+	node := path[len(path)-1]
+	posp := v.fset.Position(node.Pos())
+	endp := v.fset.Position(node.End())
+	if v.Debug {
+		v.Printf("result: offset=%v %v", posp.Offset, posp)
+	}
+	return &posp, &endp
 }
 
 func (v *GSVisitor) posFilePath(pos token.Pos) string {
@@ -233,7 +266,7 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 	}
 	if v.visited[node] {
 		if v.Debug {
-			v.DepthPrintf("resolveNode already visited %v", reflect.TypeOf(node))
+			v.DepthPrintf("resolveNode already visited %v %v", reflect.TypeOf(node), v.fset.Position(node.Pos()))
 		}
 		return
 	}
@@ -245,7 +278,7 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 
 	switch t := node.(type) {
 	case *ast.BasicLit:
-		v.resolveParent(t)
+		_ = v.resolveParent(t)
 	case *ast.Ident:
 		v.resolveId(t)
 	case *ast.ImportSpec:
@@ -259,6 +292,11 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 	case *ast.TypeSpec:
 		v.resolveNode(t.Type)
 	case *ast.Field:
+		obj, ok := v.info.Implicits[t]
+		if ok {
+			v.resolvePos(obj.Pos())
+			break
+		}
 		v.resolveNode(t.Type)
 	case *ast.FuncDecl:
 		v.resolveNode(t.Type)
@@ -293,28 +331,8 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 	}
 }
 
-func (v *GSVisitor) resolveParent(node ast.Node) {
-	pn, ok := v.parents[node]
-	if ok {
-		if v.Debug {
-			v.DepthPrintf("resolveParent %v", pn)
-		}
-		v.resolveNode(pn)
-		return
-	}
-	if v.Debug {
-		v.DepthPrintf("resolveParent no parent")
-	}
-}
-
 func (v *GSVisitor) resolveFieldList(fl *ast.FieldList) {
 	for _, field := range fl.List {
-		//obj, ok := v.info.Implicits[field]
-		//if ok {
-		//	v.Printf("***TODO***")
-		//	v.Dump(obj)
-		//}
-
 		// resolve all inherited fields
 		anonymous := field.Names == nil
 		if anonymous {
@@ -334,6 +352,16 @@ func (v *GSVisitor) resolveFieldList(fl *ast.FieldList) {
 					if v.Debug {
 						v.DepthPrintf("resolveFieldList found field %v", id.Name)
 					}
+
+					// TODO: this should be solved by the parser/confcheck, not here
+					if id.Obj == nil {
+						if v.Debug {
+							v.Printf("**SETUP OBJ** %v", v.fset.Position(id.Pos()))
+						}
+						id.Obj = ast.NewObj(ast.Var, id2.Name)
+						id.Obj.Decl = id2
+					}
+
 					v.resolveNode(field)
 					break
 				}
@@ -352,7 +380,6 @@ func (v *GSVisitor) resolveId(id *ast.Ident) {
 			u = append(u, e.Value.(*ast.Ident).String())
 		}
 		v.DepthPrintf("resolveId %v idStack=[%v]", id, strings.Join(u, "->"))
-		v.DepthPrintf("resolveId pos %v", v.fset.Position(id.Pos()))
 	}
 
 	// solved by the parser
@@ -361,62 +388,24 @@ func (v *GSVisitor) resolveId(id *ast.Ident) {
 			v.resolveNode(n)
 			return
 		}
+		if v.Debug {
+			v.Printf("***TODO: resolve id obj non decl***")
+			v.Dump(id.Obj)
+		}
 	}
 	// solved in info.uses
 	obj := v.info.Uses[id]
 	if obj != nil {
-		v.resolveIdObj(id, obj)
+		v.resolvePos(obj.Pos())
 		return
 	}
-
-	//// solved in info.defs
-	//obj = v.info.Defs[id]
-	//if obj != nil {
-	//	v.resolveIdObj(id, obj)
-	//	return
-	//}
-
-	//// implicit
-	//obj, ok := v.info.Implicits[id]
-	//if ok {
-	//	if v.Debug {
-	//		v.Printf("***TODO***")
-	//		v.Dump(obj)
-	//	}
-	//}
-
-	// could be an id defined in the same package but in another file
-	path := v.posFilePath(v.mainFile.Package)
-	if !v.importable[path] {
-		if v.Debug {
-			v.DepthPrintf("resolveId making mainfile path importable")
-		}
-		v.importable[path] = true
-		v.confCheckMainFile()
-		v.resolveId(id) // try again
+	// solve the parent node
+	if v.resolveParent(id) {
 		return
 	}
-
-	// nothing else todo other then trying to solve the parent node
-	v.resolveParent(id)
-}
-
-func (v *GSVisitor) resolveIdObj(id *ast.Ident, obj types.Object) {
-	pos := obj.Pos()
-
-	// could be from the bulitin package
-	if pos == token.NoPos {
-		b := "builtin"
-		v.importable[b] = true
-		pkg, _ := v.packageImporter(b, "", 0)
-		obj2 := pkg.Scope().Lookup(obj.Name())
-		if obj2 != nil {
-			v.info.Uses[id] = obj2 // TODO: don't use the info.uses?
-			pos = obj2.Pos()
-		}
+	if v.Debug {
+		v.DepthPrintf("resolveId not solved")
 	}
-
-	v.resolvePos(pos)
 }
 
 func (v *GSVisitor) resolvePos(pos token.Pos) {
@@ -427,7 +416,7 @@ func (v *GSVisitor) resolvePos(pos token.Pos) {
 		return
 	}
 	if v.Debug {
-		v.DepthPrintf("resolvePos: have pos %v %v", pos, v.fset.Position(pos))
+		v.DepthPrintf("resolvePos: have pos %v", pos)
 	}
 	path := v.posDeepestPath(pos)
 	v.populateParents(path)
@@ -445,6 +434,21 @@ func (v *GSVisitor) resolveImportSpec(imp *ast.ImportSpec) {
 
 	// re check main file that will now re-import available importables
 	v.confCheckMainFile()
+}
+
+func (v *GSVisitor) resolveParent(node ast.Node) bool {
+	pn, ok := v.parents[node]
+	if ok && !v.visited[pn] {
+		if v.Debug {
+			v.DepthPrintf("resolveParent %v", pn)
+		}
+		v.resolveNode(pn)
+		return true
+	}
+	if v.Debug {
+		v.DepthPrintf("resolveParent no parent")
+	}
+	return false
 }
 
 //func (v *GSVisitor) posDeepestNode(pos token.Pos) ast.Node {
@@ -493,7 +497,7 @@ func (v *GSVisitor) posDeepestPath(pos token.Pos) []ast.Node {
 	})
 	if len(path2) > 0 {
 		if v.Debug {
-			v.printPath(path2)
+			//v.printPath(path2)
 		}
 		return path2
 	}
@@ -512,6 +516,20 @@ func (v *GSVisitor) populateParents(path []ast.Node) {
 	for i := 1; i < len(path); i++ {
 		v.parents[path[i]] = path[i-1]
 	}
+}
+
+func (v *GSVisitor) printAllIdentsOffsets() {
+	astFile := v.posAstFile(v.mainFile.Package)
+	ast.Inspect(astFile, func(node ast.Node) bool {
+		if node == nil {
+			return false
+		}
+		if id, ok := node.(*ast.Ident); ok {
+			p := v.fset.Position(id.Pos())
+			v.Printf("ident %v %v", p.Offset, id)
+		}
+		return true
+	})
 }
 
 func (v *GSVisitor) confCheckMainFile() {

@@ -7,7 +7,7 @@ import (
 )
 
 type Label struct {
-	ShellEmbedNode
+	EmbedNode
 	Text   BasicText
 	Border Pad
 	Pad    Pad
@@ -28,6 +28,5 @@ func (l *Label) Paint() {
 	if l.Color == nil {
 		return
 	}
-	u := l.Bounds()
-	imageutil.FillRectangle(l.ctx.Image(), &u, *l.Color)
+	imageutil.FillRectangle(l.ctx.Image(), &l.Bounds, *l.Color)
 }

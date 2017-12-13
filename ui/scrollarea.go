@@ -35,12 +35,12 @@ func NewScrollArea(ui *UI, ta *TextArea) *ScrollArea {
 func (sa *ScrollArea) CalcChildsBounds() {
 	// measure textarea to have accurate str height
 	// TODO: needs improvement, using scrollwidth from widget.scrollarea
-	b := sa.Bounds()
+	b := sa.Bounds
 	b.Max.X -= sa.ScrollWidth
 	_ = sa.ta.Measure(b.Size())
 
 	// calc position using int26_6 values cast to floats
-	dy := float64(sa.Bounds().Dy())
+	dy := float64(sa.Bounds.Dy())
 	offset := float64(sa.ta.OffsetY())
 	height := float64(sa.taHeight())
 	sa.ScrollArea.CalcPosition(offset, height, dy)
@@ -74,7 +74,7 @@ func (sa *ScrollArea) CalcPositionFromScroll(up bool) {
 
 	// set textarea offset
 	line := sa.ta.LineHeight()
-	lines := int(sa.Bounds().Dy() / line)
+	lines := int(sa.Bounds.Dy() / line)
 	nScrollLines := 4
 	if lines < 12 {
 		nScrollLines = 1
@@ -89,7 +89,7 @@ func (sa *ScrollArea) CalcPositionFromScroll(up bool) {
 }
 
 func (sa *ScrollArea) setTaOffsetY(v int) {
-	dy := sa.Bounds().Dy()
+	dy := sa.Bounds.Dy()
 	max := sa.taHeight() - dy
 	if v > max {
 		v = max
@@ -99,7 +99,7 @@ func (sa *ScrollArea) setTaOffsetY(v int) {
 
 func (sa *ScrollArea) taHeight() int {
 	// extra height allows to scroll past the str height
-	dy := sa.Bounds().Dy()
+	dy := sa.Bounds.Dy()
 	extra := dy - 2*sa.ta.LineHeight() // keep something visible
 
 	return sa.ta.StrHeight() + extra

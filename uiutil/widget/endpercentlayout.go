@@ -1,12 +1,14 @@
 package widget
 
-import "image"
+import (
+	"image"
+)
 
 // End percent means that the child right X bound ends in the percent set.
 // This ensures a change in the percentage of a middle child doesn't affect the bounds of the other childs (ex: like causing a small adjustment when resizing).
 
 type EndPercentLayout struct {
-	ContainerEmbedNode
+	EmbedNode
 	YAxis bool
 
 	endPercents map[Node]float64 // between 0 and 1
@@ -31,9 +33,10 @@ func (epl *EndPercentLayout) PushBack(n Node) {
 	// share with last sibling
 	start := 0.0
 	end := 1.0
-	if n.Prev() != nil {
-		start = epl.ChildStartPercent(n.Prev())
-		epl.endPercents[n.Prev()] = start + (end-start)/2
+	ne := n.Embed()
+	if ne.Prev() != nil {
+		start = epl.ChildStartPercent(ne.Prev())
+		epl.endPercents[ne.Prev()] = start + (end-start)/2
 	}
 	epl.endPercents[n] = end
 }
@@ -44,10 +47,11 @@ func (epl *EndPercentLayout) InsertBefore(n, mark Node) {
 
 	// share with previous sibling, or with the next one if becoming first child
 	var end float64
-	if n.Prev() != nil {
-		start := epl.ChildStartPercent(n.Prev())
-		end = epl.ChildEndPercent(n.Prev())
-		epl.SetChildEndPercent(n.Prev(), start+(end-start)/2)
+	ne := n.Embed()
+	if ne.Prev() != nil {
+		start := epl.ChildStartPercent(ne.Prev())
+		end = epl.ChildEndPercent(ne.Prev())
+		epl.SetChildEndPercent(ne.Prev(), start+(end-start)/2)
 	} else {
 		// first child
 		w := epl.ChildEndPercent(mark)
@@ -59,9 +63,10 @@ func (epl *EndPercentLayout) InsertBefore(n, mark Node) {
 
 func (epl *EndPercentLayout) Remove(n Node) {
 	// have the previous node keep the space
-	if n.Prev() != nil {
+	ne := n.Embed()
+	if ne.Prev() != nil {
 		u := epl.endPercents[n]
-		epl.SetChildEndPercent(n.Prev(), u)
+		epl.SetChildEndPercent(ne.Prev(), u)
 	}
 
 	delete(epl.endPercents, n)
@@ -84,8 +89,9 @@ func (epl *EndPercentLayout) SetChildEndPercent(child Node, v float64) {
 
 func (epl *EndPercentLayout) ChildStartPercent(child Node) float64 {
 	start := 0.0
-	if child.Prev() != nil {
-		v, ok := epl.endPercents[child.Prev()]
+	ce := child.Embed()
+	if ce.Prev() != nil {
+		v, ok := epl.endPercents[ce.Prev()]
 		if !ok {
 			panic("missing end percent")
 		}
@@ -97,8 +103,9 @@ func (epl *EndPercentLayout) SetChildStartPercent(child Node, v float64) {
 	if !epl.HasChild(child) {
 		panic("not a child")
 	}
-	if child.Prev() != nil {
-		epl.endPercents[child.Prev()] = v
+	ce := child.Embed()
+	if ce.Prev() != nil {
+		epl.endPercents[ce.Prev()] = v
 	}
 }
 
@@ -109,19 +116,13 @@ func (epl *EndPercentLayout) Measure(hint image.Point) image.Point {
 }
 
 func (epl *EndPercentLayout) CalcChildsBounds() {
-	childs := epl.Childs()
-	if len(childs) == 0 {
-		return
-	}
-
 	// translate axis
 	xya := XYAxis{epl.YAxis}
-	bounds := epl.Bounds()
-	abounds := xya.Rectangle(&bounds)
+	abounds := xya.Rectangle(&epl.Bounds)
 
 	// set sizes
 	cxs := abounds.Min.X
-	for _, child := range childs {
+	epl.IterChilds(func(child Node) {
 		ep, _ := epl.endPercents[child]
 
 		xEnd := int(ep * float64(abounds.Dx()))
@@ -140,10 +141,10 @@ func (epl *EndPercentLayout) CalcChildsBounds() {
 		// translate axis
 		r2 := xya.Rectangle(&r)
 
-		r3 := r2.Intersect(epl.Bounds())
-		child.SetBounds(&r3)
+		r3 := r2.Intersect(epl.Bounds)
+		child.Embed().Bounds = r3
 		child.CalcChildsBounds()
-	}
+	})
 }
 
 func (epl *EndPercentLayout) ResizeEndPercent(node Node, percent float64, percentIsMin bool, minPerc float64) {
@@ -160,14 +161,14 @@ func (epl *EndPercentLayout) resizeChild(node Node, percent float64, percentIsMi
 	min := 0.0
 	max := 1.0
 	if percentIsMin {
-		if node.Prev() != nil {
-			min = epl.ChildStartPercent(node.Prev())
+		if node.Embed().Prev() != nil {
+			min = epl.ChildStartPercent(node.Embed().Prev())
 		}
 		max = epl.ChildEndPercent(node)
 	} else {
 		min = epl.ChildStartPercent(node)
-		if node.Next() != nil {
-			max = epl.ChildEndPercent(node.Next())
+		if node.Embed().Next() != nil {
+			max = epl.ChildEndPercent(node.Embed().Next())
 		}
 	}
 
@@ -198,22 +199,22 @@ func (epl *EndPercentLayout) resizeChild(node Node, percent float64, percentIsMi
 
 func (epl *EndPercentLayout) resizeChildWithPush(node Node, percent float64, percentIsMin bool, minPerc float64) {
 	if percentIsMin {
-		if node.Prev() != nil {
-			min := epl.ChildStartPercent(node.Prev())
+		if node.Embed().Prev() != nil {
+			min := epl.ChildStartPercent(node.Embed().Prev())
 			if percent < min+minPerc {
 				diff := (min + minPerc) - percent
-				epl.resizeChildWithPush(node.Prev(), min-diff, percentIsMin, minPerc)
-				min = epl.ChildStartPercent(node.Prev())
+				epl.resizeChildWithPush(node.Embed().Prev(), min-diff, percentIsMin, minPerc)
+				min = epl.ChildStartPercent(node.Embed().Prev())
 				if percent < min+minPerc {
 					percent = min + minPerc
 				}
 			}
 		}
-		if node.Next() != nil {
+		if node.Embed().Next() != nil {
 			max := epl.ChildEndPercent(node)
 			if percent > max-minPerc {
 				diff := percent - (max - minPerc)
-				epl.resizeChildWithPush(node.Next(), max+diff, percentIsMin, minPerc)
+				epl.resizeChildWithPush(node.Embed().Next(), max+diff, percentIsMin, minPerc)
 				max = epl.ChildEndPercent(node)
 				if percent > max-minPerc {
 					percent = max - minPerc
@@ -221,23 +222,23 @@ func (epl *EndPercentLayout) resizeChildWithPush(node Node, percent float64, per
 			}
 		}
 	} else {
-		if node.Prev() != nil {
+		if node.Embed().Prev() != nil {
 			min := epl.ChildStartPercent(node)
 			if percent < min+minPerc {
 				diff := (min + minPerc) - percent
-				epl.resizeChildWithPush(node.Prev(), min-diff, percentIsMin, minPerc)
+				epl.resizeChildWithPush(node.Embed().Prev(), min-diff, percentIsMin, minPerc)
 				min = epl.ChildStartPercent(node)
 				if percent < min+minPerc {
 					percent = min + minPerc
 				}
 			}
 		}
-		if node.Next() != nil {
-			max := epl.ChildEndPercent(node.Next())
+		if node.Embed().Next() != nil {
+			max := epl.ChildEndPercent(node.Embed().Next())
 			if percent > max-minPerc {
 				diff := percent - (max - minPerc)
-				epl.resizeChildWithPush(node.Next(), max+diff, percentIsMin, minPerc)
-				max = epl.ChildEndPercent(node.Next())
+				epl.resizeChildWithPush(node.Embed().Next(), max+diff, percentIsMin, minPerc)
+				max = epl.ChildEndPercent(node.Embed().Next())
 				if percent > max-minPerc {
 					percent = max - minPerc
 				}
@@ -251,16 +252,16 @@ func (epl *EndPercentLayout) resizeChildWithPush(node Node, percent float64, per
 func (epl *EndPercentLayout) resizeChildWithAttemptToSwap(node Node, percent float64, percentIsMin bool, minPerc float64) {
 	// n0,n1,n2,n3,n4: moving n2
 
-	n1 := node.Prev()
+	n1 := node.Embed().Prev()
 	n2 := node
-	n3 := n2.Next()
+	n3 := n2.Embed().Next()
 	var n0 Node
-	if n1 != nil && n1.Prev() != nil {
-		n0 = n1.Prev()
+	if n1 != nil && n1.Embed().Prev() != nil {
+		n0 = n1.Embed().Prev()
 	}
 	var n4 Node
-	if n3 != nil && n3.Next() != nil {
-		n4 = n3.Next()
+	if n3 != nil && n3.Embed().Next() != nil {
+		n4 = n3.Embed().Next()
 	}
 
 	ep := epl.ChildEndPercent
@@ -317,15 +318,16 @@ func (epl *EndPercentLayout) resizeChildWithAttemptToSwap(node Node, percent flo
 }
 
 func (epl *EndPercentLayout) MaximizeEndPercentNode(node Node, min float64) {
-	childs := epl.Childs()
-	n := len(childs)
+	n := epl.ChildsLen()
 	ep := 0.0
-	for i, c := range childs {
+	i := 0
+	epl.IterChilds(func(c Node) {
 		if c == node {
 			ep = 1.0 - min*float64(n-(i+1))
 		} else {
 			ep += min
 		}
 		epl.SetChildEndPercent(c, ep)
-	}
+		i++
+	})
 }

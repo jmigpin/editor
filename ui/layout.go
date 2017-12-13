@@ -89,7 +89,7 @@ func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {
 	for _, c := range l.Cols.Columns() {
 		rows := c.Rows()
 		if len(rows) == 0 {
-			s := c.Bounds().Size()
+			s := c.Bounds.Size()
 			a := s.X * s.Y
 			if a > best.area {
 				best.area = a
@@ -98,7 +98,7 @@ func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {
 			}
 		} else {
 			for _, r := range rows {
-				s := r.Bounds().Size()
+				s := r.Bounds.Size()
 				a := (s.X * s.Y)
 
 				// endpercentlayout inserts rows and shares space with prev row, hence div by 2

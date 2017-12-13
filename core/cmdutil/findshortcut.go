@@ -78,7 +78,7 @@ func FindShortcut(erow ERower) {
 
 	// warp pointer to toolbar close to "Find " text cmd to be able to click for run
 	p := ta.GetPoint(ta.CursorIndex())
-	p3 := p.Add(ta.Bounds().Min)
+	p3 := p.Add(ta.Bounds.Min)
 	p3.Y += ta.LineHeight() / 2 // center of rune
 	erow.Ed().UI().WarpPointer(&p3)
 }

@@ -8,7 +8,7 @@ import (
 )
 
 type BasicText struct {
-	LeafEmbedNode
+	EmbedNode
 	Str   string
 	Color *color.Color
 	ctx   Context
@@ -25,6 +25,5 @@ func (bt *BasicText) Paint() {
 	if bt.Color == nil {
 		return
 	}
-	u := bt.Bounds()
-	simpledrawer.Draw(bt.ctx.Image(), bt.ctx.FontFace1(), bt.Str, &u, *bt.Color)
+	simpledrawer.Draw(bt.ctx.Image(), bt.ctx.FontFace1(), bt.Str, &bt.Bounds, *bt.Color)
 }

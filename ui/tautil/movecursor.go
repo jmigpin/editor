@@ -6,7 +6,7 @@ import (
 )
 
 func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
-	p2 := p.Sub(ta.Bounds().Min)
+	p2 := p.Sub(ta.GetBounds().Min)
 	p2.Y += ta.OffsetY()
 	i := ta.GetIndex(&p2)
 	updateSelection(ta, sel, i)
