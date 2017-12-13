@@ -247,7 +247,13 @@ func (v *GSVisitor) posAstFile(pos token.Pos) *ast.File {
 }
 
 func (v *GSVisitor) mainFileIdentNode(index int) *ast.Ident {
-	pos := v.fset.File(v.mainFile.Package).Pos(index)
+	f := v.fset.File(v.mainFile.Package)
+	// avoid panic
+	if index > f.Size() {
+		return nil
+	}
+
+	pos := f.Pos(index)
 	path := v.posDeepestPath(pos)
 	v.populateParents(path)
 	if len(path) > 0 {
@@ -263,6 +269,12 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 	if v.Debug {
 		v.resolveDepth++
 		defer func() { v.resolveDepth-- }()
+	}
+	if node == nil {
+		if v.Debug {
+			v.DepthPrintf("resolveNode node is nil")
+		}
+		return
 	}
 	if v.visited[node] {
 		if v.Debug {
@@ -284,7 +296,19 @@ func (v *GSVisitor) resolveNode(node ast.Node) {
 	case *ast.ImportSpec:
 		v.resolveImportSpec(t)
 	case *ast.TypeAssertExpr:
-		v.resolveNode(t.Type)
+		if t.Type == nil {
+			// type switch X.(type)
+			// TODO: need to get the child node and check the case clause
+			//v.resolveNode(t.X)
+
+			//tv, ok := v.info.Types[t.X]
+			//if ok {
+			//	v.Dump(tv)
+			//}
+
+		} else {
+			v.resolveNode(t.Type)
+		}
 	case *ast.CallExpr:
 		v.resolveNode(t.Fun)
 	case *ast.ValueSpec:
@@ -393,6 +417,14 @@ func (v *GSVisitor) resolveId(id *ast.Ident) {
 			v.Dump(id.Obj)
 		}
 	}
+
+	//// solved in types (ex: var comes from a case clause)
+	//tv, ok := v.info.Types[id]
+	//if ok {
+	//	v.Printf("**TODO**")
+	//	v.Dump(tv)
+	//}
+
 	// solved in info.uses
 	obj := v.info.Uses[id]
 	if obj != nil {
@@ -440,7 +472,7 @@ func (v *GSVisitor) resolveParent(node ast.Node) bool {
 	pn, ok := v.parents[node]
 	if ok && !v.visited[pn] {
 		if v.Debug {
-			v.DepthPrintf("resolveParent %v", pn)
+			v.DepthPrintf("resolveParent %v -> %v", node, pn)
 		}
 		v.resolveNode(pn)
 		return true
