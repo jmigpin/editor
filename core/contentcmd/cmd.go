@@ -10,6 +10,9 @@ import (
 )
 
 func Cmd(erow cmdutil.ERower) {
+	if ok := goSource(erow); ok {
+		return
+	}
 	if ok := filePos(erow); ok {
 		return
 	}
@@ -20,9 +23,6 @@ func Cmd(erow cmdutil.ERower) {
 		return
 	}
 	if ok := http(erow); ok {
-		return
-	}
-	if ok := goSource(erow); ok {
 		return
 	}
 	erow.Ed().Errorf("no content cmd was successful")

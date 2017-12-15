@@ -41,7 +41,6 @@ func TestVisit2(t *testing.T) {
 	src := ` 
 		package pack1
 		import(
-			"fmt"
 			"time"
 		)
 		type type1 struct{
@@ -51,7 +50,7 @@ func TestVisit2(t *testing.T) {
 			t1.t.String()
 		}
 	`
-	testVisitSrc(t, src, 127) // String
+	testVisitSrc(t, src, 118) // String
 }
 
 func TestVisit3(t *testing.T) {
@@ -146,7 +145,7 @@ func TestVisit8(t *testing.T) {
 			_ = u
 		}
 	`
-	testVisitSrc(t, src, 43) // int
+	testVisitSrc(t, src, 43) // int (basic type)
 }
 
 func TestVisit9(t *testing.T) {
@@ -162,7 +161,7 @@ func TestVisit9(t *testing.T) {
 			p.Complete()
 		}
 	`
-	testVisitSrc(t, src, 118) // 92
+	testVisitSrc(t, src, 118) // ok
 	testVisitSrc(t, src, 126) // Complete
 }
 
@@ -181,6 +180,9 @@ func TestVisit10(t *testing.T) {
 			_=x
 		}
 	`
+	testVisitSrc(t, src, 134) // img
+	testVisitSrc(t, src, 140) // Bounds
+	testVisitSrc(t, src, 149) // Max
 	testVisitSrc(t, src, 153) // X
 }
 
@@ -195,38 +197,131 @@ func TestVisit11(t *testing.T) {
 	testVisitSrc(t, src, 41) // false
 }
 
+func TestVisit12(t *testing.T) {
+	src := `
+		package pack1
+		import "github.com/jmigpin/editor/uiutil/event"
+		func func1(ev interface{}){
+			switch evt:=ev.(type){
+			case *event.KeyDown:
+				_ = evt.Code
+			}
+		}
+	`
+	testVisitSrc(t, src, 159) // Code
+}
+
+func TestVisit13(t *testing.T) {
+	src := `
+		package pack1
+		import "image/draw"
+		type type1 struct{
+			img draw.Image
+		}
+		func (t1*type1) Image() draw.Image{
+			return t1.img
+		}
+		func func1(){
+			var t1 type1
+			img:=t1.Image()
+			img.Set(0,0,nil)
+			_=img.Bounds()
+		}
+	`
+	testVisitSrc(t, src, 199) // img.Set
+	testVisitSrc(t, src, 221) // img.Bounds (inherited from image.Image in another pkg)
+}
+
+func TestVisit14(t *testing.T) {
+	src := `
+		package pack1
+		type type1 struct{
+			v int
+		}
+		func func1(){
+			m:=make(map[type1]int)
+			for k,v:=range m{
+				_=k.v
+				_=v
+			}
+		}
+	`
+	testVisitSrc(t, src, 122) // k.v
+	testVisitSrc(t, src, 130) // v
+}
+
+func TestVisit15(t *testing.T) {
+	src := `
+		package pack1
+		import "go/ast"
+		type type1 struct{
+			v int
+		}
+		func (t1*type1)func1(node ast.Node){
+			if id, ok := node.(*ast.Ident); ok {
+				_=id.Pos()
+			}
+		}
+	`
+	testVisitSrc(t, src, 135) // ast.Ident
+	testVisitSrc(t, src, 157) // id.Pos
+}
+
+func TestVisit16(t *testing.T) {
+	src := `
+		package pack1
+		import (
+			"go/ast"		
+			"go/types"
+		)
+		func func1(id *ast.Ident){
+			var info types.Info
+			s1, ok := info.Scopes[id]
+			if ok{
+				_ = s1.Innermost(id.Pos())
+			}
+		}	
+	`
+	testVisitSrc(t, src, 162) // InnerMost
+}
+
 func TestVisitFile1(t *testing.T) {
 	filename := "image/image.go"
-	testVisit(t, filename, nil, 1531) // Rectangle
+	testVisit(t, filename, nil, 1530) // Rectangle
 }
 
 // TEMPORARY TEST
 func TestVisitFile2(t *testing.T) {
 	filename := "github.com/jmigpin/editor/core/toolbarcmd.go"
-	testVisit(t, filename, nil, 1713) // NewColumn
+	testVisit(t, filename, nil, 1708) // NewColumn
 }
 
 // TEMPORARY TEST
 func TestVisitFile3(t *testing.T) {
-	filename := "github.com/jmigpin/editor/core/erow.go"
-	testVisit(t, filename, nil, 8354) // bla erow.row
+	filename := "github.com/jmigpin/editor/ui/toolbar.go"
+	testVisit(t, filename, nil, 743) // MarkNeedsPaint
 }
 
 // TEMPORARY TEST
 func TestVisitFile4(t *testing.T) {
-	filename := "github.com/jmigpin/editor/core/contentcmd/gosource.go"
-	testVisit(t, filename, nil, 1461) // FlashIndexLen
+	filename := "github.com/jmigpin/editor/core/editor.go"
+	testVisit(t, filename, nil, 832) // loopers.wraplinerune
 }
 
 // TEMPORARY TEST
 func TestVisitFile5(t *testing.T) {
-	filename := "github.com/jmigpin/editor/ui/toolbar.go"
-	testVisit(t, filename, nil, 1594) // MarkNeedsPaint
+	filename := "github.com/jmigpin/editor/drawutil2/loopers/wraplinelooper.go"
+	testVisit(t, filename, nil, 247) // loopers.wraplinerune
 }
 
 // TEMPORARY TEST
 func TestVisitFile6(t *testing.T) {
-	filename := "github.com/jmigpin/editor/ui/textarea.go"
-	//testVisit(t, filename, nil, 70000000) // img.set
-	testVisit(t, filename, nil, 4294) // img.set
+	filename := "github.com/jmigpin/editor/core/contentcmd/gosource_test.go"
+	testVisit(t, filename, nil, 76) // testing.T
+}
+
+// TEMPORARY TEST
+func TestVisitFile7(t *testing.T) {
+	filename := "github.com/jmigpin/editor/core/contentcmd/gosource.go"
+	testVisit(t, filename, nil, 7826) // makeImportSpecImportable
 }
