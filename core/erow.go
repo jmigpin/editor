@@ -280,8 +280,10 @@ func (erow *ERow) loadContent(reload, clear bool) error {
 				if e == erow {
 					continue
 				}
-				e.UpdateDuplicatesContent()
-				e.UpdateDuplicatesState()
+				//e.UpdateDuplicatesContent()
+				//e.UpdateDuplicatesState()
+				erow.updateContentFromDuplicate(e)
+				erow.UpdateState()
 				return nil
 			}
 		}
@@ -379,11 +381,10 @@ func (erow *ERow) onRowInput(ev0 interface{}) {
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == 'f':
 			cmdutil.FindShortcut(erow)
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == ' ':
-			goto BLA
-		BLA:
-			_ = erow.row
-			//fb := erow.row.FloatBox()
-			//fb.SetStr("testing")
+
+			//cfb := erow.ed.ui.Layout.ContextFloatBox
+			//cfb.SetHidden(false)
+			//cfb.SetStr("testing from erow")
 		}
 
 	case *event.MouseEnter:
@@ -468,6 +469,13 @@ func (erow *ERow) duplicateERows() []*ERow {
 func (erow *ERow) Flash() {
 	p, ok := erow.td.GetPartAtIndex(0)
 	if ok {
-		erow.Row().Toolbar.FlashIndexLen(p.S, p.E-p.S)
+		tok := &p.Token
+
+		// accurate using arg0
+		if len(p.Args) > 0 {
+			tok = p.Args[0]
+		}
+
+		erow.Row().Toolbar.FlashIndexLen(tok.S, tok.E-tok.S)
 	}
 }
