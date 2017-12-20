@@ -71,8 +71,8 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.EvReg = evreg.NewRegister()
 	ta.history = tahistory.NewHistory(128)
 
-	//ta.defaultCursor = widget.NoneCursor
-	ta.defaultCursor = widget.TextCursor
+	ta.defaultCursor = widget.NoneCursor
+	//ta.defaultCursor = widget.TextCursor
 	ta.Cursor = ta.defaultCursor
 
 	return ta
