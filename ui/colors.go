@@ -48,8 +48,9 @@ func AcmeThemeColors() {
 		Highlight: hsdrawer.FgBg{Black, color.RGBA{198, 238, 158, 255}}, // analogous to selection bg
 	}
 	ToolbarColors = hsdrawer.Colors{
-		Normal:    hsdrawer.FgBg{Black, color.RGBA{234, 255, 255, 255}},
-		Selection: hsdrawer.FgBg{Black, color.RGBA{158, 238, 238, 255}},
+		Normal: hsdrawer.FgBg{Black, color.RGBA{234, 255, 255, 255}},
+		//Selection: hsdrawer.FgBg{Black, color.RGBA{158, 238, 238, 255}},
+		Selection: TextAreaColors.Selection,
 	}
 
 	calcOtherColors()
