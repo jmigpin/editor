@@ -1,6 +1,9 @@
 package tahistory
 
-import "container/list"
+import (
+	"container/list"
+	"strings"
+)
 
 type Edit struct {
 	list.List
@@ -69,9 +72,11 @@ func (id *InsertDelete) IsDel() bool {
 func (id *InsertDelete) apply(str string, undo bool) (string, int) {
 	var str2 string
 	if (id.IsInsert && !undo) || (!id.IsInsert && undo) {
-		str2 = str[:id.index] + id.str + str[id.index:]
+		//str2 = str[:id.index] + id.str + str[id.index:]
+		str2 = strings.Join([]string{str[:id.index], id.str, str[id.index:]}, "")
 	} else {
-		str2 = str[:id.index] + str[id.index+len(id.str):]
+		//str2 = str[:id.index] + str[id.index+len(id.str):]
+		str2 = strings.Join([]string{str[:id.index], str[id.index+len(id.str):]}, "")
 	}
 	c := id.cursorAfter
 	if undo {
