@@ -13,7 +13,9 @@ func directory(erow cmdutil.ERower) bool {
 		a, b := tautil.SelectionStringIndexes(ta)
 		str = ta.Str()[a:b]
 	} else {
-		str = expandLeftRightStopRunes(ta.Str(), ta.CursorIndex(), "\"'`=:<>()[]")
+		isStop := StopOnSpaceAndRunesFn(FilenameStopRunes)
+		l, r := expandLeftRightStop(ta.Str(), ta.CursorIndex(), isStop)
+		str = ta.Str()[l:r]
 	}
 
 	if str == "" {

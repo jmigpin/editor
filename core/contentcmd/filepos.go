@@ -3,46 +3,71 @@ package contentcmd
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/jmigpin/editor/core/cmdutil"
+	"github.com/jmigpin/editor/ui/tautil"
 )
+
+const FilenameStopRunes = "\"'`&=:<>[]"
 
 // Opens filename.
 // Detects compiler errors format <string(:int)?(:int?)>, and goes to line/column.
 func filePos(erow cmdutil.ERower) bool {
 	ta := erow.Row().TextArea
-	str := expandLeftRightStopRunes(ta.Str(), ta.CursorIndex(), "\"'`=<>()[]")
-	if str == "" {
-		return false
+
+	var str string
+	if ta.SelectionOn() {
+		a, b := tautil.SelectionStringIndexes(ta)
+		str = ta.Str()[a:b]
+	} else {
+		isStop := StopOnSpaceAndRunesFn(FilenameStopRunes)
+		l, r := expandLeftRightStop(ta.Str(), ta.CursorIndex(), isStop)
+		str = ta.Str()[l:r]
+
+		// line
+		if ta.Str()[r] == ':' {
+			r2 := expandRightStop(ta.Str(), r+1, NotStop(unicode.IsNumber))
+			str = ta.Str()[l:r2]
+
+			// column
+			if ta.Str()[r2] == ':' {
+				r3 := expandRightStop(ta.Str(), r2+1, NotStop(unicode.IsNumber))
+				str = ta.Str()[l:r3]
+			}
+		}
+
 	}
 
 	a := strings.Split(str, ":")
 
 	// filename
-	p := a[0]
-	if p == "" {
+	if len(a) == 0 {
 		return false
 	}
-	filename, fi, ok := findFileinfo(erow, p)
+	if a[0] == "" {
+		return false
+	}
+	filename, fi, ok := findFileinfo(erow, a[0])
 	if !ok || fi.IsDir() {
 		return false
 	}
 
-	// line number
+	// line and column
 	line := 0
-	if len(a) >= 2 {
+	column := 0
+	if len(a) > 1 {
+		// line
 		v, err := strconv.ParseUint(a[1], 10, 64)
 		if err == nil {
 			line = int(v)
 		}
-	}
-
-	// column number
-	column := 0
-	if len(a) >= 3 {
-		v, err := strconv.ParseUint(a[2], 10, 64)
-		if err == nil {
-			column = int(v)
+		// column
+		if len(a) > 2 {
+			v, err := strconv.ParseUint(a[2], 10, 64)
+			if err == nil {
+				column = int(v)
+			}
 		}
 	}
 

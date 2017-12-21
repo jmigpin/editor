@@ -90,7 +90,8 @@ func (erow *ERow) initHandlers() {
 	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
-		contentcmd.Cmd(erow)
+		ev := ev0.(*ui.TextAreaCmdEvent)
+		contentcmd.Cmd(erow, ev.Index)
 	})
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, erow.onRowInput)
@@ -381,10 +382,14 @@ func (erow *ERow) onRowInput(ev0 interface{}) {
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == 'f':
 			cmdutil.FindShortcut(erow)
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == ' ':
-
 			//cfb := erow.ed.ui.Layout.ContextFloatBox
-			//cfb.SetHidden(false)
+			//if cfb.Hidden() {
+			//	cfb.SetHidden(false)
+			//} else {
+			//	cfb.SetHidden(true)
+			//}
 			//cfb.SetStr("testing from erow")
+			//erow.ed.ui.Layout.MarkNeedsPaint()
 		}
 
 	case *event.MouseEnter:

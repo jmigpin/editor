@@ -3,6 +3,7 @@ package contentcmd
 import (
 	"net/url"
 	"os/exec"
+	"unicode"
 
 	"github.com/jmigpin/editor/core/cmdutil"
 )
@@ -10,7 +11,10 @@ import (
 // Opens http/https lines in x-www-browser.
 func http(erow cmdutil.ERower) bool {
 	ta := erow.Row().TextArea
-	str := expandLeftRightStopRunes(ta.Str(), ta.CursorIndex(), "")
+
+	l, r := expandLeftRightStop(ta.Str(), ta.CursorIndex(), unicode.IsSpace)
+	str := ta.Str()[l:r]
+
 	u, err := url.Parse(str)
 	if err != nil {
 		return false
