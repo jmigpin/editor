@@ -550,11 +550,23 @@ func (ta *TextArea) SetPrimaryCopy(v string) {
 func (ta *TextArea) LineHeight() int {
 	return ta.drawer.LineHeight()
 }
+
 func (ta *TextArea) GetPoint(i int) image.Point {
 	return ta.drawer.GetPoint(i)
 }
 func (ta *TextArea) GetIndex(p *image.Point) int {
 	return ta.drawer.GetIndex(p)
+}
+
+func (ta *TextArea) IndexPoint(i int) image.Point {
+	p := ta.GetPoint(i)
+	p.Y -= ta.OffsetY()
+	return p.Add(ta.Bounds.Min)
+}
+func (ta *TextArea) PointIndex(p *image.Point) int {
+	p2 := p.Sub(ta.Bounds.Min)
+	p2.Y += ta.OffsetY()
+	return ta.GetIndex(&p2)
 }
 
 func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
@@ -645,11 +657,6 @@ func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 		return i >= s && i < e
 	}
 	return false
-}
-func (ta *TextArea) PointIndex(p *image.Point) int {
-	p2 := p.Sub(ta.Bounds.Min)
-	p2.Y += ta.OffsetY()
-	return ta.GetIndex(&p2)
 }
 
 func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
@@ -799,11 +806,13 @@ func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 				ta.undo()
 				ta.MakeCursorVisible()
 			}
+		case ev.Code >= event.KCodeF1 && ev.Code <= event.KCodeF12:
+			// do nothing
+		case !unicode.IsPrint(ev.Rune):
+			// do nothing
 		default:
-			if unicode.IsPrint(ev.Rune) {
-				tautil.InsertString(ta, string(ev.Rune))
-				ta.MakeCursorVisible()
-			}
+			tautil.InsertString(ta, string(ev.Rune))
+			ta.MakeCursorVisible()
 		}
 	}
 }
