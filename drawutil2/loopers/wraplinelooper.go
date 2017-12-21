@@ -29,8 +29,10 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 	margin := wlrAdv
 	adv, ok := lpr.strl.Face.GlyphAdvance(' ')
 	if ok {
-		margin = wlrAdv + 8*adv
+		margin = wlrAdv + 16*adv
 	}
+
+	// TODO: ideally, have the identation be used if the rest of the line fits, otherwise use space available from the start of the line.
 
 	lpr.OuterLooper().Loop(func() bool {
 		lpr.state = 0
