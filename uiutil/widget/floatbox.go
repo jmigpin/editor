@@ -12,6 +12,7 @@ type FloatBox struct {
 
 func (fb *FloatBox) Init(child Node) {
 	*fb = FloatBox{}
+	fb.Cursor = DefaultCursor
 	fb.SetWrapper(fb)
 	fb.Append(child)
 }
@@ -22,7 +23,7 @@ func (fb *FloatBox) CalcChildsBounds() {
 	// start with the parent bounds
 	fbb := fb.Parent().Embed().Bounds
 
-	child := fb.FirstChild()
+	child := fb.FirstChildInAll()
 
 	// bounds bellow reference node
 	b := image.Rect(fb.RefPoint.X, fb.RefPoint.Y, fb.RefPoint.X+fbb.Dx(), fb.RefPoint.Y+fbb.Dy())

@@ -185,6 +185,8 @@ func (ui *UI) SetCursor(c widget.Cursor) {
 	switch c {
 	case widget.NoneCursor:
 		sc(xcursors.XCNone)
+	case widget.DefaultCursor:
+		sc(xcursors.XCNone)
 	case widget.NSResizeCursor:
 		sc(xcursor.SBVDoubleArrow)
 	case widget.WEResizeCursor:
