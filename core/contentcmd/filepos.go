@@ -26,12 +26,12 @@ func filePos(erow cmdutil.ERower) bool {
 		str = ta.Str()[l:r]
 
 		// line
-		if ta.Str()[r] == ':' {
+		if r < len(ta.Str()) && ta.Str()[r] == ':' {
 			r2 := expandRightStop(ta.Str(), r+1, NotStop(unicode.IsNumber))
 			str = ta.Str()[l:r2]
 
 			// column
-			if ta.Str()[r2] == ':' {
+			if r2 < len(ta.Str()) && ta.Str()[r2] == ':' {
 				r3 := expandRightStop(ta.Str(), r2+1, NotStop(unicode.IsNumber))
 				str = ta.Str()[l:r3]
 			}
