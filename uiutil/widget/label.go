@@ -8,21 +8,21 @@ import (
 
 type Label struct {
 	EmbedNode
-	Text   BasicText
-	Border Pad
-	Pad    Pad
+	Text   *BasicText
+	Border *Pad
+	Pad    *Pad
 	Color  *color.Color
 	ctx    Context
 }
 
-func (l *Label) Init(ctx Context) {
-	*l = Label{}
+func NewLabel(ctx Context) *Label {
+	l := &Label{ctx: ctx}
 	l.SetWrapper(l)
-	l.ctx = ctx
-	l.Text.Init(ctx)
-	l.Pad.Init(ctx, &l.Text)
-	l.Border.Init(ctx, &l.Pad)
-	l.Append(&l.Border)
+	l.Text = NewBasicText(ctx)
+	l.Pad = NewPad(ctx, l.Text)
+	l.Border = NewPad(ctx, l.Pad)
+	l.Append(l.Border)
+	return l
 }
 func (l *Label) Paint() {
 	if l.Color == nil {

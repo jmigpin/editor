@@ -13,22 +13,23 @@ type ScrollArea struct {
 	EmbedNode
 	ScrollWidth int
 	LeftScroll  bool
-	VBar        ScrollBar
+	VBar        *ScrollBar
 
 	content Node
 	updater ScrollAreaUpdater
 }
 
-func (sa *ScrollArea) Init(ctx Context, updater ScrollAreaUpdater, content Node) {
-	*sa = ScrollArea{
+func NewScrollArea(ctx Context, updater ScrollAreaUpdater, content Node) *ScrollArea {
+	sa := &ScrollArea{
 		ScrollWidth: 10,
 		LeftScroll:  true,
 		content:     content,
 		updater:     updater,
 	}
 	sa.SetWrapper(sa)
-	sa.VBar.Init(ctx, sa)
-	sa.Append(&sa.VBar, sa.content)
+	sa.VBar = NewScrollBar(ctx, sa)
+	sa.Append(sa.VBar, sa.content)
+	return sa
 }
 
 func (sa *ScrollArea) CalcPosition(offset, height, viewh float64) {
@@ -164,7 +165,7 @@ type ScrollAreaUpdater interface {
 
 type ScrollBar struct {
 	EmbedNode
-	Handle ScrollHandle
+	Handle *ScrollHandle
 	Color  *color.Color
 
 	sizePercent     float64
@@ -178,15 +179,16 @@ type ScrollBar struct {
 	ctx Context
 }
 
-func (sb *ScrollBar) Init(ctx Context, sa *ScrollArea) {
-	*sb = ScrollBar{ctx: ctx, sa: sa}
+func NewScrollBar(ctx Context, sa *ScrollArea) *ScrollBar {
+	sb := &ScrollBar{ctx: ctx, sa: sa}
 	sb.SetWrapper(sb)
 	sb.positionPercent = 0.0
 	sb.sizePercent = 1.0
 
-	sb.Handle.Init(ctx, sb)
+	sb.Handle = NewScrollHandle(ctx, sb)
 	sb.Handle.SetNotDraggable(true)
-	sb.Append(&sb.Handle)
+	sb.Append(sb.Handle)
+	return sb
 }
 func (sb *ScrollBar) setPressPad(p *image.Point) {
 	b := sb.Handle.Bounds
@@ -255,9 +257,10 @@ type ScrollHandle struct {
 	inside bool
 }
 
-func (sh *ScrollHandle) Init(ctx Context, sb *ScrollBar) {
-	*sh = ScrollHandle{ctx: ctx, sb: sb}
+func NewScrollHandle(ctx Context, sb *ScrollBar) *ScrollHandle {
+	sh := &ScrollHandle{ctx: ctx, sb: sb}
 	sh.SetWrapper(sh)
+	return sh
 }
 func (sh *ScrollHandle) Measure(hint image.Point) image.Point {
 	return image.Point{}

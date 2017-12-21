@@ -16,7 +16,7 @@ type Row struct {
 	EvReg    *evreg.Register
 
 	scrollArea *ScrollArea
-	sep        widget.Rectangle
+	sep        *widget.Rectangle
 	sepHandle  RowSeparatorHandle
 	ui         *UI
 }
@@ -32,12 +32,12 @@ func NewRow(col *Column) *Row {
 	row.Toolbar.SetExpand(true, false)
 
 	// row separator from other rows
-	row.sep.Init(row.ui)
+	row.sep = widget.NewRectangle(row.ui)
 	row.sep.SetExpand(true, false)
 	row.sep.Size.Y = SeparatorWidth
 	row.sep.Color = &SeparatorColor
 
-	row.sepHandle.Init(row.ui, &row.sep, row)
+	row.sepHandle.Init(row.ui, row.sep, row)
 	row.sepHandle.Top = 3
 	row.sepHandle.Bottom = 3
 	row.sepHandle.Cursor = widget.MoveCursor
@@ -54,25 +54,23 @@ func NewRow(col *Column) *Row {
 	row.scrollArea.VBar.Handle.Color = &ScrollbarFgColor
 
 	row.YAxis = true
-	row.Append(&row.sep, row.Toolbar)
+	row.Append(row.sep, row.Toolbar)
 
 	if ShadowsOn {
 		// scrollarea innershadow bellow the toolbar
-		var shadow widget.Shadow
-		shadow.Init(row.ui, row.scrollArea)
+		shadow := widget.NewShadow(row.ui, row.scrollArea)
 		shadow.Top = ShadowSteps
 		shadow.MaxShade = ShadowMaxShade
 
-		row.Append(&shadow)
+		row.Append(shadow)
 	} else {
 		// toolbar/scrollarea separator
-		var tbSep widget.Rectangle
-		tbSep.Init(row.ui)
+		tbSep := widget.NewRectangle(row.ui)
 		tbSep.SetExpand(true, false)
 		tbSep.Size.Y = SeparatorWidth
 		tbSep.Color = &RowInnerSeparatorColor
 
-		row.Append(&tbSep, row.scrollArea)
+		row.Append(tbSep, row.scrollArea)
 	}
 
 	return row

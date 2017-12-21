@@ -8,12 +8,12 @@ import (
 )
 
 type ColSeparatorHandle struct {
-	widget.SeparatorHandle
+	*widget.SeparatorHandle
 	col *Column
 }
 
 func (sh *ColSeparatorHandle) Init(ref widget.Node, col *Column) {
-	sh.SeparatorHandle.Init(ref)
+	sh.SeparatorHandle = widget.NewSeparatorHandle(ref)
 	sh.SetWrapper(sh)
 	sh.col = col
 }

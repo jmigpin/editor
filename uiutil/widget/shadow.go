@@ -13,10 +13,11 @@ type Shadow struct {
 	Top, Bottom int
 }
 
-func (s *Shadow) Init(ctx Context, child Node) {
-	*s = Shadow{ctx: ctx, MaxShade: 0.30}
+func NewShadow(ctx Context, child Node) *Shadow {
+	s := &Shadow{ctx: ctx, MaxShade: 0.30}
 	s.SetWrapper(s)
 	s.Append(child)
+	return s
 }
 func (s *Shadow) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
 	// top

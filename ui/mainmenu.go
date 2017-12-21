@@ -8,28 +8,28 @@ import (
 )
 
 type MainMenuButton struct {
-	widget.Button
-	FloatMenu FloatMenu
+	*widget.Button
+	FloatMenu *FloatMenu
 
 	ui *UI
 }
 
 func NewMainMenuButton(ui *UI) *MainMenuButton {
 	m := &MainMenuButton{ui: ui}
-	m.Button.Init(ui)
+	m.Button = widget.NewButton(ui)
 	m.SetWrapper(m)
 	m.Button.Label.Text.Str = string(rune(8801)) // 3 lines rune
 	m.Button.Label.Pad.Left = 5
 	m.Button.Label.Pad.Right = 5
 	m.Button.Sticky = true
-	m.FloatMenu.Init(m)
+	m.FloatMenu = NewFloatMenu(m)
 	return m
 }
 func (m *MainMenuButton) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	m.Button.OnInputEvent(ev0, p)
 	switch ev0.(type) {
 	case *event.MouseClick:
-		fm := &m.FloatMenu
+		fm := m.FloatMenu
 		toggle := !fm.Hidden()
 		fm.SetHidden(toggle)
 		if !fm.Hidden() {
@@ -41,39 +41,38 @@ func (m *MainMenuButton) OnInputEvent(ev0 interface{}, p image.Point) bool {
 }
 
 type FloatMenu struct {
-	widget.FloatBox
+	*widget.FloatBox
 	Toolbar *Toolbar
 
 	m *MainMenuButton
 }
 
-func (fm *FloatMenu) Init(m *MainMenuButton) {
-	*fm = FloatMenu{m: m}
+func NewFloatMenu(m *MainMenuButton) *FloatMenu {
+	fm := &FloatMenu{m: m}
 
 	fm.Toolbar = NewToolbar(m.ui, &m.ui.Layout)
-	var pad widget.Pad
-	pad.Init(m.ui, fm.Toolbar)
+	pad := widget.NewPad(m.ui, fm.Toolbar)
 	pad.Set(10)
 	pad.Color = &fm.Toolbar.Colors.Normal.Bg
-	var border widget.Pad
-	border.Init(m.ui, &pad)
+	border := widget.NewPad(m.ui, pad)
 	border.Set(1)
 	border.Color = &fm.Toolbar.Colors.Normal.Fg
 
 	// shadow
-	var container widget.Node = &border
+	var container widget.Node = border
 	if ShadowsOn {
-		var shadow widget.Shadow
-		shadow.Init(m.ui, &border)
+		shadow := widget.NewShadow(m.ui, border)
 		shadow.Bottom = ShadowSteps
 		shadow.MaxShade = ShadowMaxShade
-		container = &shadow
+		container = shadow
 	}
 
-	fm.FloatBox.Init(container)
+	fm.FloatBox = widget.NewFloatBox(container)
 	fm.SetWrapper(fm)
 
 	fm.SetHidden(true)
+
+	return fm
 }
 func (fm *FloatMenu) CalcChildsBounds() {
 	b := fm.m.Bounds

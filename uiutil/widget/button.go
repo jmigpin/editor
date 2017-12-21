@@ -10,7 +10,7 @@ import (
 
 type Button struct {
 	EmbedNode
-	Label  Label
+	Label  *Label
 	Sticky bool
 
 	fg, bg *color.Color
@@ -18,11 +18,12 @@ type Button struct {
 	active bool
 }
 
-func (b *Button) Init(ctx Context) {
-	*b = Button{}
+func NewButton(ctx Context) *Button {
+	b := &Button{}
 	b.SetWrapper(b)
-	b.Label.Init(ctx)
-	b.Append(&b.Label)
+	b.Label = NewLabel(ctx)
+	b.Append(b.Label)
+	return b
 }
 func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 

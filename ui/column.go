@@ -13,7 +13,7 @@ type Column struct {
 	Cols       *Columns
 	RowsLayout *widget.EndPercentLayout
 
-	sep       widget.Rectangle
+	sep       *widget.Rectangle
 	sepHandle ColSeparatorHandle
 	sqc       *widget.FlowLayout // square container (show/hide)
 
@@ -28,12 +28,12 @@ func NewColumn(cols *Columns) *Column {
 	col.Square = NewColumnSquare(col)
 	col.Square.Size = NewRow(col).Toolbar.Square.Size
 
-	col.sep.Init(col.ui)
+	col.sep = widget.NewRectangle(col.ui)
 	col.sep.SetExpand(false, true)
 	col.sep.Size.X = SeparatorWidth
 	col.sep.Color = &SeparatorColor
 
-	col.sepHandle.Init(&col.sep, col)
+	col.sepHandle.Init(col.sep, col)
 	col.sepHandle.Left = 3
 	col.sepHandle.Right = 3
 	col.sepHandle.Cursor = widget.WEResizeCursor
@@ -45,18 +45,16 @@ func NewColumn(cols *Columns) *Column {
 	// square (when there are no rows)
 	col.sqc = widget.NewFlowLayout()
 
-	var space widget.Rectangle
-	space.Init(col.ui)
+	space := widget.NewRectangle(col.ui)
 	space.SetFill(true, true)
 
-	var spaceNode widget.Node = &space
+	var spaceNode widget.Node = space
 	if ShadowsOn {
 		// innershadow bellow the toolbar
-		var shadow widget.Shadow
-		shadow.Init(col.ui, &space)
+		shadow := widget.NewShadow(col.ui, space)
 		shadow.Top = ShadowSteps
 		shadow.MaxShade = ShadowMaxShade
-		spaceNode = &shadow
+		spaceNode = shadow
 	}
 
 	col.sqc.Append(col.Square, spaceNode)
@@ -65,7 +63,7 @@ func NewColumn(cols *Columns) *Column {
 	rightSide.YAxis = true
 	rightSide.Append(col.sqc, col.RowsLayout)
 
-	col.Append(&col.sep, rightSide)
+	col.Append(col.sep, rightSide)
 
 	return col
 }

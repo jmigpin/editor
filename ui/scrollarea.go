@@ -5,7 +5,7 @@ import (
 )
 
 type ScrollArea struct {
-	widget.ScrollArea
+	*widget.ScrollArea
 	ta *TextArea
 	ui *UI
 
@@ -14,7 +14,7 @@ type ScrollArea struct {
 
 func NewScrollArea(ui *UI, ta *TextArea) *ScrollArea {
 	sa := &ScrollArea{ui: ui, ta: ta}
-	sa.ScrollArea.Init(ui, sa, ta)
+	sa.ScrollArea = widget.NewScrollArea(ui, sa, ta)
 
 	// textarea set text
 	sa.ta.EvReg.Add(TextAreaSetStrEventId, func(ev0 interface{}) {

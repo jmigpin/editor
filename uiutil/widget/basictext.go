@@ -14,9 +14,10 @@ type BasicText struct {
 	ctx   Context
 }
 
-func (bt *BasicText) Init(ctx Context) {
-	*bt = BasicText{ctx: ctx}
+func NewBasicText(ctx Context) *BasicText {
+	bt := &BasicText{ctx: ctx}
 	bt.SetWrapper(bt)
+	return bt
 }
 func (bt *BasicText) Measure(hint image.Point) image.Point {
 	return simpledrawer.Measure(bt.ctx.FontFace1(), bt.Str, hint)

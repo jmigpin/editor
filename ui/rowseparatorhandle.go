@@ -8,12 +8,12 @@ import (
 )
 
 type RowSeparatorHandle struct {
-	widget.SeparatorHandle
+	*widget.SeparatorHandle
 	row *Row
 }
 
 func (sh *RowSeparatorHandle) Init(ctx widget.Context, ref widget.Node, row *Row) {
-	sh.SeparatorHandle.Init(ref)
+	sh.SeparatorHandle = widget.NewSeparatorHandle(ref)
 	sh.SetWrapper(sh)
 	sh.row = row
 }

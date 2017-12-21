@@ -16,10 +16,11 @@ type SeparatorHandle struct {
 	ref Node // reference node for calc bounds
 }
 
-func (sh *SeparatorHandle) Init(ref Node) {
-	*sh = SeparatorHandle{ref: ref}
+func NewSeparatorHandle(ref Node) *SeparatorHandle {
+	sh := &SeparatorHandle{ref: ref}
 	sh.SetWrapper(sh)
 	sh.SetNotPaintable(true)
+	return sh
 }
 func (sh *SeparatorHandle) Measure(hint image.Point) image.Point {
 	panic("calling measure on thin separator handle")

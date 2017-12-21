@@ -10,11 +10,12 @@ type FloatBox struct {
 	RefPoint image.Point
 }
 
-func (fb *FloatBox) Init(child Node) {
-	*fb = FloatBox{}
+func NewFloatBox(child Node) *FloatBox {
+	fb := &FloatBox{}
 	fb.Cursor = DefaultCursor
 	fb.SetWrapper(fb)
 	fb.Append(child)
+	return fb
 }
 func (fb *FloatBox) Measure(hint image.Point) image.Point {
 	panic("calling measure on floatbox")

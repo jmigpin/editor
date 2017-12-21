@@ -14,9 +14,10 @@ type Rectangle struct {
 	ctx   Context
 }
 
-func (r *Rectangle) Init(ctx Context) {
-	*r = Rectangle{ctx: ctx}
+func NewRectangle(ctx Context) *Rectangle {
+	r := &Rectangle{ctx: ctx}
 	r.SetWrapper(r)
+	return r
 }
 func (r *Rectangle) Measure(hint image.Point) image.Point {
 	return r.Size

@@ -15,11 +15,11 @@ type Pad struct {
 	ctx                      Context
 }
 
-func (p *Pad) Init(ctx Context, child Node) {
-	*p = Pad{}
+func NewPad(ctx Context, child Node) *Pad {
+	p := &Pad{ctx: ctx}
 	p.SetWrapper(p)
-	p.ctx = ctx
 	p.Append(child)
+	return p
 }
 func (p *Pad) Set(v int) {
 	p.Top = v

@@ -52,18 +52,17 @@ func (layout *Layout) Init(ui *UI) {
 	if ShadowsOn {
 		bgLayer.Append(ttb, layout.Cols)
 	} else {
-		var sep widget.Rectangle
-		sep.Init(ui)
+		sep := widget.NewRectangle(ui)
 		sep.SetExpand(true, false)
 		sep.Size.Y = SeparatorWidth
 		sep.Color = &SeparatorColor
-		bgLayer.Append(ttb, &sep, layout.Cols)
+		bgLayer.Append(ttb, sep, layout.Cols)
 	}
 
 	layout.ContextFloatBox = NewContextFloatBox(layout)
 	layout.ContextFloatBox.SetHidden(true)
 
-	layout.Append(layout.ContextFloatBox, &mmb.FloatMenu)
+	layout.Append(layout.ContextFloatBox, mmb.FloatMenu)
 }
 
 func (l *Layout) InsertRowSepHandle(n widget.Node) {
@@ -121,15 +120,16 @@ func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {
 }
 
 type ContextFloatBox struct {
-	widget.FloatBox
-	Label widget.Label
-	l     *Layout
+	*widget.FloatBox
+	Label  *widget.Label
+	layout *Layout
+	ta     *TextArea
 }
 
 func NewContextFloatBox(l *Layout) *ContextFloatBox {
-	cfb := &ContextFloatBox{l: l}
-	cfb.Label.Init(l.UI)
-	cfb.FloatBox.Init(&cfb.Label)
+	cfb := &ContextFloatBox{layout: l}
+	cfb.Label = widget.NewLabel(l.UI)
+	cfb.FloatBox = widget.NewFloatBox(cfb.Label)
 
 	var c1 color.Color = colornames.Black
 	var c2 color.Color = colornames.Orange
@@ -144,11 +144,28 @@ func NewContextFloatBox(l *Layout) *ContextFloatBox {
 
 	return cfb
 }
+
 func (cfb *ContextFloatBox) SetStr(s string) {
+	// needspaint before change refpoint to clear old lower widgets ?
+	//cfb.MarkNeedsPaint()
+
 	cfb.Label.Text.Str = s
+
+	if cfb.ta != nil {
+		p := cfb.ta.IndexPoint(cfb.ta.CursorIndex())
+		p.Y += cfb.ta.LineHeight()
+		cfb.RefPoint = p
+	}
+
+	cfb.CalcChildsBounds()
 	cfb.MarkNeedsPaint()
 }
-func (cfb *ContextFloatBox) CalcChildsBounds() {
-	cfb.RefPoint = image.Point{40, 40}
-	cfb.FloatBox.CalcChildsBounds()
+
+func (cfb *ContextFloatBox) SetTextArea(ta *TextArea) {
+	cfb.ta = ta
+}
+
+func (cfb *ContextFloatBox) Toggle() {
+	cfb.SetHidden(!cfb.Hidden())
+	cfb.MarkNeedsPaint()
 }
