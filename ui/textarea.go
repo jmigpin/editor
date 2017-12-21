@@ -608,7 +608,8 @@ func (ta *TextArea) onMouseClick(ev *event.MouseClick) bool {
 		if !ta.PointIndexInsideSelection(&ev.Point) {
 			tautil.MoveCursorToPoint(ta, &ev.Point, false)
 		}
-		ev2 := &TextAreaCmdEvent{ta}
+		i := ta.PointIndex(&ev.Point)
+		ev2 := &TextAreaCmdEvent{ta, i}
 		ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 		return true
 	case event.ButtonMiddle:
@@ -639,13 +640,16 @@ func (ta *TextArea) onMouseTripleClick(ev *event.MouseTripleClick) bool {
 
 func (ta *TextArea) PointIndexInsideSelection(p *image.Point) bool {
 	if ta.SelectionOn() {
-		p2 := p.Sub(ta.Bounds.Min)
-		p2.Y += ta.OffsetY()
-		i := ta.GetIndex(&p2)
+		i := ta.PointIndex(p)
 		s, e := tautil.SelectionStringIndexes(ta)
 		return i >= s && i < e
 	}
 	return false
+}
+func (ta *TextArea) PointIndex(p *image.Point) int {
+	p2 := p.Sub(ta.Bounds.Min)
+	p2.Y += ta.OffsetY()
+	return ta.GetIndex(&p2)
 }
 
 func (ta *TextArea) onKeyDown(ev *event.KeyDown) {
@@ -830,6 +834,7 @@ const (
 
 type TextAreaCmdEvent struct {
 	TextArea *TextArea
+	Index    int
 }
 type TextAreaSetStrEvent struct {
 	TextArea  *TextArea
