@@ -285,9 +285,111 @@ func TestVisit16(t *testing.T) {
 	testVisitSrc(t, src, 162) // InnerMost
 }
 
+func TestVisit17(t *testing.T) {
+	src := `
+		package pack1
+		import (
+			"go/ast"
+			"go/token"
+		)
+		type type1 struct{
+			ast.Ident
+		}
+		func (t1*type1)Pos()token.Pos{
+			return token.NoPos
+		}
+		func func1(){
+			var t1 type1
+			_ = t1.Ident.Pos()
+		}	
+	`
+	testVisitSrc(t, src, 197) // Ident: ensure the position is ident instead of ast (:8:8)
+	testVisitSrc(t, src, 203) // Pos: t1 overrides Pos, but want to access ident.pos
+}
+
+func TestVisit18(t *testing.T) {
+	src := ` 
+		package pack1
+		import(
+			"go/ast"
+		)
+		func func1(u interface{}){
+			switch t:=u.(type){
+			case *ast.Field:
+				_=t.Pos()
+			}
+		}
+	`
+	testVisitSrc(t, src, 124) // Pos
+}
+
+func TestVisit19(t *testing.T) {
+	src := ` 
+		package pack1
+		type type1 struct{
+			v int
+		}
+		func func1(){
+			a:=&type1{}
+			_=a.v
+		}
+	`
+	testVisitSrc(t, src, 90) // a.v
+}
+
+func TestVisit20(t *testing.T) {
+	src := ` 
+		package pack1
+		func func1(){
+			var ccc,aaa,bbb int
+			_=aaa
+		}
+	`
+	testVisitSrc(t, src, 62) // aaa: just "aaa" without getting "aaa int"
+}
+
+func TestVisit21(t *testing.T) {
+	src := ` 
+		package pack1
+		import "go/ast"
+		func func1(){
+			var b[]*ast.Ident
+			_=b[0].Pos()
+		}
+	`
+	testVisitSrc(t, src, 83) // Pos
+}
+
+func TestVisit22(t *testing.T) {
+	src := ` 
+		package pack1
+		import "go/ast"
+		func func1(){
+			var b func() *ast.Ident	
+			_=b().Pos()
+		}
+	`
+	testVisitSrc(t, src, 89) // Pos
+}
+
+func TestVisit23(t *testing.T) {
+	src := ` 
+		package pack1
+		import (
+			"go/ast"
+			"go/token"
+		)
+		func func1(){
+			var as *ast.AssignStmt
+			as.Tok = token.NoPos			
+		}
+	`
+	testVisitSrc(t, src, 107) // as.Tok
+}
+
 func TestVisitFile1(t *testing.T) {
 	filename := "image/image.go"
-	testVisit(t, filename, nil, 1530) // Rectangle
+	testVisit(t, filename, nil, 1530) // Rectangle: same package but another file
 }
 
 // TEMPORARY TEST
@@ -320,8 +422,8 @@ func TestVisitFile6(t *testing.T) {
 	testVisit(t, filename, nil, 76) // testing.T
 }
 
-// TEMPORARY TEST
-func TestVisitFile7(t *testing.T) {
-	filename := "github.com/jmigpin/editor/core/contentcmd/gosource.go"
-	testVisit(t, filename, nil, 7826) // makeImportSpecImportable
-}
+//// TEMPORARY TEST
+//func TestVisitFile7(t *testing.T) {
+//	filename := "github.com/jmigpin/editor/core/contentcmd/gosource.go"
+//	testVisit(t, filename, nil, 7856) // makeImportSpecImportable
+//}

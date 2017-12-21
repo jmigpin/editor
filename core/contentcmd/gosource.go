@@ -20,7 +20,7 @@ import (
 	"github.com/jmigpin/editor/core/cmdutil"
 )
 
-func goSource(erow cmdutil.ERower) bool {
+func goSource(erow cmdutil.ERower, strIndex int) bool {
 	if !erow.IsRegular() {
 		return false
 	}
@@ -28,7 +28,7 @@ func goSource(erow cmdutil.ERower) bool {
 		return false
 	}
 	ta := erow.Row().TextArea
-	pos, end, err := visitGoSource(erow.Filename(), ta.Str(), ta.CursorIndex())
+	pos, end, err := visitGoSource(erow.Filename(), ta.Str(), strIndex)
 	if err != nil {
 		//log.Print(err)
 		return false
@@ -84,9 +84,9 @@ func goSourceOpenPosition(erow cmdutil.ERower, pos, end *token.Position) {
 	}
 }
 
-func visitGoSource(filename string, src interface{}, cursorIndex int) (*token.Position, *token.Position, error) {
+func visitGoSource(filename string, src interface{}, strIndex int) (*token.Position, *token.Position, error) {
 	v := NewGSVisitor()
-	return v.visitSource(filename, src, cursorIndex)
+	return v.visitSource(filename, src, strIndex)
 }
 
 type GSVisitor struct {
@@ -142,7 +142,7 @@ func NewGSVisitor() *GSVisitor {
 	return v
 }
 
-func (v *GSVisitor) visitSource(filename string, src interface{}, cursorIndex int) (*token.Position, *token.Position, error) {
+func (v *GSVisitor) visitSource(filename string, src interface{}, strIndex int) (*token.Position, *token.Position, error) {
 	// find full filename if the package import path was given (not full path)
 	bpkg, _ := build.Import(filepath.Dir(filename), "", 0)
 	if bpkg.Dir != "" {
@@ -172,19 +172,22 @@ func (v *GSVisitor) visitSource(filename string, src interface{}, cursorIndex in
 	// cursor node
 	mainTokenFile := v.fset.File(v.mainFile.Package)
 	// avoid panic from a bad index
-	if cursorIndex > mainTokenFile.Size() {
+	if strIndex > mainTokenFile.Size() {
 		return nil, nil, fmt.Errorf("bad cursor index")
 	}
-	cursorNode := v.posNode(mainTokenFile.Pos(cursorIndex))
+	strIndexNode := v.posNode(mainTokenFile.Pos(strIndex))
 
 	// must be an id
-	cursorId, ok := cursorNode.(*ast.Ident)
+	strIndexId, ok := strIndexNode.(*ast.Ident)
 	if !ok {
 		return nil, nil, fmt.Errorf("cursor not at an id node")
 	}
 
+	// preemptively solve types to help the checker
+	v.resolveCertainPathNodeTypesToHelpChecker(strIndexId)
+
 	// resolve id declaration
-	node := v.resolveDecl(cursorId)
+	node := v.resolveDecl(strIndexId)
 	if node == nil {
 		return nil, nil, fmt.Errorf("id decl not found")
 	}
@@ -196,13 +199,20 @@ func (v *GSVisitor) visitSource(filename string, src interface{}, cursorIndex in
 	case *ast.TypeSpec:
 		node = t.Name
 	case *ast.AssignStmt:
-		lhsi, _ := v.idAssignStmtRhs(cursorId, t)
+		lhsi, _ := v.idAssignStmtRhs(strIndexId, t)
 		if lhsi >= 0 {
 			node = t.Lhs[lhsi]
 		}
 	case *ast.Field:
 		for _, id2 := range t.Names {
-			if id2.Name == cursorId.Name {
+			if id2.Name == strIndexId.Name {
+				node = id2
+				break
+			}
+		}
+	case *ast.ValueSpec:
+		for _, id2 := range t.Names {
+			if id2.Name == strIndexId.Name {
 				node = id2
 				break
 			}
@@ -241,8 +251,24 @@ func (v *GSVisitor) posNode(pos token.Pos) ast.Node {
 	v.debugf("have pos %v", v.fset.Position(pos).Offset)
 	path := v.posNodePath(pos)
 	if len(path) > 0 {
-		last := path[len(path)-1]
-		return last
+		n := path[len(path)-1]
+
+		// anon field with a SelectorExpr, need to continue with the selector
+		if id, ok := n.(*ast.Ident); ok {
+			if pn, ok := v.nodeParent(id); ok {
+				if se, ok := pn.(*ast.SelectorExpr); ok {
+					if pn2, ok := v.nodeParent(se); ok {
+						if f, ok := pn2.(*ast.Field); ok && f.Names == nil {
+							if se.Pos() == n.Pos() {
+								n = se.Sel
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return n
 	}
 	return nil
 }
@@ -275,10 +301,6 @@ func (v *GSVisitor) resolveDecl(node ast.Node) ast.Node {
 
 	switch t := node.(type) {
 	case *ast.Ident:
-
-		// preemptively solve case clause types to help the checker
-		v.resolvePathCaseClauseTypes(t)
-
 		if n := v.getIdDecl(t); n != nil {
 			return n
 		}
@@ -289,7 +311,15 @@ func (v *GSVisitor) resolveDecl(node ast.Node) ast.Node {
 		}
 	case *ast.SelectorExpr:
 		if n := v.resolveType(t.X); n != nil {
-			return v.getIdDecl(t.Sel)
+			switch t2 := n.(type) {
+			case *ast.FuncType:
+				if t2.Results != nil && len(t2.Results.List) >= 1 {
+					_ = v.resolveType(t2.Results.List[0])
+				}
+			}
+			if n := v.getIdDecl(t.Sel); n != nil {
+				return n
+			}
 		}
 	default:
 		_ = t
@@ -297,7 +327,7 @@ func (v *GSVisitor) resolveDecl(node ast.Node) ast.Node {
 		v.Dump(node)
 	}
 
-	v.debugf("not solved")
+	v.debugf("not solved (%v)", reflect.TypeOf(node))
 	return nil
 }
 
@@ -340,6 +370,10 @@ func (v *GSVisitor) resolveType(node ast.Node) ast.Node {
 								return t3
 							case *ast.InterfaceType:
 								return t3
+							case *ast.FuncType:
+								if t3.Results != nil && len(t3.Results.List) >= 1 {
+									return v.resolveType(t3.Results.List[0])
+								}
 							}
 						}
 						v.debugf("TODO id AssignStmt")
@@ -361,32 +395,21 @@ func (v *GSVisitor) resolveType(node ast.Node) ast.Node {
 			return t
 		}
 	case *ast.SelectorExpr:
-		var node2 ast.Node
 		if n := v.getSelectorExprType(t); n != nil {
-			node2 = n
+			return n
 		}
-		if node2 == nil {
-			if n := v.resolveType(t.X); n != nil {
-				if n := v.getSelectorExprType(t); n != nil {
-					node2 = n
-				} else {
-					node2 = v.resolveType(t.Sel)
-				}
-			}
-		}
-		if node2 != nil {
-			switch t2 := node2.(type) {
+		if n := v.resolveType(t.X); n != nil {
+			switch t2 := n.(type) {
 			case *ast.FuncType:
 				if t2.Results != nil && len(t2.Results.List) >= 1 {
-					return v.resolveType(t2.Results.List[0])
+					_ = v.resolveType(t2.Results.List[0])
 				}
-			case *ast.StructType:
-				return t2
-			case *ast.InterfaceType:
-				return t2
-			default:
-				v.debugf("TODO selectorExpr node2")
-				v.Dump(node2)
+			}
+			if n := v.getSelectorExprType(t); n != nil {
+				return n
+			}
+			if n := v.resolveType(t.Sel); n != nil {
+				return n
 			}
 		}
 	case *ast.Field:
@@ -405,7 +428,6 @@ func (v *GSVisitor) resolveType(node ast.Node) ast.Node {
 			if pn, ok := v.nodeParent(t); ok {
 				return v.resolveType(pn)
 			}
-			return nil
 		} else {
 			return v.resolveType(t.Type)
 		}
@@ -430,6 +452,14 @@ func (v *GSVisitor) resolveType(node ast.Node) ast.Node {
 		return v.resolveType(t.X)
 	case *ast.MapType:
 		return v.resolveType(t.Value)
+	case *ast.UnaryExpr:
+		return v.resolveType(t.X)
+	case *ast.CompositeLit:
+		if t.Type != nil {
+			return v.resolveType(t.Type)
+		}
+	case *ast.ArrayType:
+		return v.resolveType(t.Elt)
 	default:
 		_ = t
 		v.debugf("TODO")
@@ -498,15 +528,48 @@ func (v *GSVisitor) getIdDecl(id *ast.Ident) ast.Node {
 	return nil
 }
 
-func (v *GSVisitor) resolvePathCaseClauseTypes(node ast.Node) {
+func (v *GSVisitor) resolveCertainPathNodeTypesToHelpChecker(node ast.Node) {
 	// in some cases the CaseClause is not present in v.info.scopes
 
 	path := v.nodePath(node)
+	//v.printPath(path)
+
 	for _, n := range path {
+		// TypeSwitchStmt expression
+		if tss, ok := n.(*ast.TypeSwitchStmt); ok {
+			var n2 ast.Node = tss.Assign
+		L1:
+			switch t2 := n2.(type) {
+			case *ast.AssignStmt:
+				if len(t2.Rhs) >= 1 {
+					n2 = t2.Rhs[0]
+					goto L1
+				}
+			case *ast.TypeAssertExpr:
+				v.debugf("typeswitchstmtexpr %v %v", node, t2.X)
+				_ = v.resolveType(t2.X)
+			default:
+				v.debugf("TODO 1")
+				v.Dump(n2)
+			}
+		}
+
+		// CaseClause
 		if cc, ok := n.(*ast.CaseClause); ok {
 			for _, e := range cc.List {
-				v.debugf("%v %v", e, node)
+				v.debugf("caseclause %v %v", node, e)
 				_ = v.resolveType(e)
+			}
+		}
+
+		// left side of AssignStmt, need to solve right side
+		if as, ok := n.(*ast.AssignStmt); ok {
+			if node.Pos() < as.TokPos {
+				//v.Dump(as)
+				for _, e := range as.Rhs {
+					v.debugf("leftsideofassign %v %v", node, e)
+					_ = v.resolveType(e)
+				}
 			}
 		}
 	}
@@ -637,6 +700,7 @@ func (v *GSVisitor) debugInfo(node ast.Node) {
 }
 
 func (v *GSVisitor) nodeParent(node ast.Node) (ast.Node, bool) {
+	v.debugf("")
 	if pn, ok := v.parents[node]; ok {
 		return pn, true
 	}
