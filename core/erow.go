@@ -381,15 +381,14 @@ func (erow *ERow) onRowInput(ev0 interface{}) {
 			cmdutil.SaveRowFile(erow)
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == 'f':
 			cmdutil.FindShortcut(erow)
-		case evt.Modifiers.Is(event.ModControl) && evt.Code == ' ':
+
+			//case evt.Code == event.KCodeF1:
 			//cfb := erow.ed.ui.Layout.ContextFloatBox
-			//if cfb.Hidden() {
-			//	cfb.SetHidden(false)
-			//} else {
-			//	cfb.SetHidden(true)
-			//}
+			//cfb.Toggle()
+			//cfb.SetTextArea(erow.row.TextArea)
 			//cfb.SetStr("testing from erow")
-			//erow.ed.ui.Layout.MarkNeedsPaint()
+			//info := gosource.NewInfo()
+			//_ = info
 		}
 
 	case *event.MouseEnter:

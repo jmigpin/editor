@@ -1,25 +1,26 @@
-package contentcmd
+package gosource
 
 import (
-	"log"
 	"testing"
 )
 
-func testVisit(t *testing.T, filename string, src interface{}, ci int) {
+func testVisit(t *testing.T, filename string, src interface{}, index int) {
 	t.Helper()
-	v := NewGSVisitor()
-	log.SetFlags(0)
-	//v.Debug = true
-	pos, _, err := v.visitSource(filename, src, ci)
+
+	//LogDebug()
+
+	pos, end, err := DeclPosition(filename, src, index)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf(pos.String())
+	_, _ = pos, end
+	//t.Logf(pos.String())
+	//t.Logf(end.String())
 }
 
-func testVisitSrc(t *testing.T, src interface{}, ci int) {
+func testVisitSrc(t *testing.T, src interface{}, index int) {
 	filename := "t000/src.go"
-	testVisit(t, filename, src, ci)
+	testVisit(t, filename, src, index)
 }
 
 func TestVisit1(t *testing.T) {
@@ -387,43 +388,38 @@ func TestVisit23(t *testing.T) {
 	testVisitSrc(t, src, 107) // as.Tok
 }
 
+func TestVisit24(t *testing.T) {
+	src := `
+		package pack1
+		import (
+			"go/ast"
+		)
+		func IsExported()bool{
+			return ast.IsExported("a")
+		}
+	`
+	testVisitSrc(t, src, 84) // IsExported
+}
+
+func TestVisit25(t *testing.T) {
+	src := `
+		package pack1
+		import (
+			"testing"
+		)
+		func func1(t *testing.T){
+			_ = t.Name()
+		}
+	`
+	testVisitSrc(t, src, 82) // t.Name
+}
+
 func TestVisitFile1(t *testing.T) {
 	filename := "image/image.go"
 	testVisit(t, filename, nil, 1530) // Rectangle: same package but another file
 }
 
-// TEMPORARY TEST
 func TestVisitFile2(t *testing.T) {
-	filename := "github.com/jmigpin/editor/core/toolbarcmd.go"
-	testVisit(t, filename, nil, 1708) // NewColumn
+	filename := "github.com/jmigpin/editor/core/gosource/resolver.go"
+	testVisit(t, filename, nil, 1823) // Rectangle: same package but another file
 }
-
-// TEMPORARY TEST
-func TestVisitFile3(t *testing.T) {
-	filename := "github.com/jmigpin/editor/ui/toolbar.go"
-	testVisit(t, filename, nil, 743) // MarkNeedsPaint
-}
-
-// TEMPORARY TEST
-func TestVisitFile4(t *testing.T) {
-	filename := "github.com/jmigpin/editor/core/editor.go"
-	testVisit(t, filename, nil, 832) // loopers.wraplinerune
-}
-
-// TEMPORARY TEST
-func TestVisitFile5(t *testing.T) {
-	filename := "github.com/jmigpin/editor/drawutil2/loopers/wraplinelooper.go"
-	testVisit(t, filename, nil, 247) // loopers.wraplinerune
-}
-
-// TEMPORARY TEST
-func TestVisitFile6(t *testing.T) {
-	filename := "github.com/jmigpin/editor/core/contentcmd/gosource_test.go"
-	testVisit(t, filename, nil, 76) // testing.T
-}
-
-//// TEMPORARY TEST
-//func TestVisitFile7(t *testing.T) {
-//	filename := "github.com/jmigpin/editor/core/contentcmd/gosource.go"
-//	testVisit(t, filename, nil, 7856) // makeImportSpecImportable
-//}
