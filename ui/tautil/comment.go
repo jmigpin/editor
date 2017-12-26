@@ -6,6 +6,8 @@ import (
 )
 
 func Comment(ta Texta) {
+	cstr := ta.CommentString()
+
 	a, b, _ := linesStringIndexes(ta)
 
 	str := ta.Str()[a:b]
@@ -43,7 +45,7 @@ func Comment(ta Texta) {
 		i += start
 
 		// insert comment
-		str = str[:i] + "//" + str[i:]
+		str = str[:i] + cstr + str[i:]
 		altered = true
 
 		nlines++
@@ -62,11 +64,11 @@ func Comment(ta Texta) {
 	if nlines <= 1 {
 		ta.SetSelectionOff()
 		// move cursor to the right due to inserted runes
-		i := strings.Index(ta.Str()[a:a+len(str)], "//")
+		i := strings.Index(ta.Str()[a:a+len(str)], cstr)
 		if i >= 0 {
 			ci := ta.CursorIndex()
 			if ci >= a+i {
-				ta.SetCursorIndex(ci + 2)
+				ta.SetCursorIndex(ci + len(cstr))
 			}
 		}
 	} else {
@@ -74,6 +76,8 @@ func Comment(ta Texta) {
 	}
 }
 func Uncomment(ta Texta) {
+	cstr := ta.CommentString()
+
 	a, b, _ := linesStringIndexes(ta)
 
 	str := ta.Str()[a:b]
@@ -88,9 +92,9 @@ func Uncomment(ta Texta) {
 		i += j
 
 		// remove comment
-		if strings.HasPrefix(str[i:], "//") {
+		if strings.HasPrefix(str[i:], cstr) {
 			altered = true
-			str = str[:i] + str[i+len("//"):]
+			str = str[:i] + str[i+len(cstr):]
 		}
 
 		nlines++
@@ -113,7 +117,7 @@ func Uncomment(ta Texta) {
 		if i >= 0 {
 			ci := ta.CursorIndex()
 			if ci > a+i {
-				ta.SetCursorIndex(ci - 2)
+				ta.SetCursorIndex(ci - len(cstr))
 			}
 		}
 	} else {

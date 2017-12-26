@@ -39,4 +39,6 @@ type Texta interface {
 	SetPrimaryCopy(string)
 
 	InsertStringAsync(string)
+
+	CommentString() string
 }
