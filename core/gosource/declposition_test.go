@@ -240,15 +240,15 @@ func TestVisit14(t *testing.T) {
 			v int
 		}
 		func func1(){
-			m:=make(map[type1]int)
+			m:=make(map[type1]type1)
 			for k,v:=range m{
 				_=k.v
-				_=v
+				_=v.v
 			}
 		}
 	`
-	testVisitSrc(t, src, 122) // k.v
-	testVisitSrc(t, src, 130) // v
+	testVisitSrc(t, src, 124) // k.v
+	testVisitSrc(t, src, 134) // v.v
 }
 
 func TestVisit15(t *testing.T) {
@@ -414,12 +414,46 @@ func TestVisit25(t *testing.T) {
 	testVisitSrc(t, src, 82) // t.Name
 }
 
+func TestVisit26(t *testing.T) {
+	src := `
+		package pack1
+		import "go/ast"
+		func func1()(ast.Node, ast.Node, ast.Node){
+			return nil,nil,nil
+		}
+		func func2(){
+			a,b,c:=func1()
+			_=a.Pos()
+			_=b.Pos()
+			_=c.Pos()
+		}
+	`
+	testVisitSrc(t, src, 148) // a.Pos
+	testVisitSrc(t, src, 161) // b.Pos
+	testVisitSrc(t, src, 174) // c.Pos
+}
+
+//func TestVisit27(t *testing.T) {
+//	src := `
+//		package pack1
+//		import "os"
+//		func func1(){
+//			_=os.Getenv("e1")
+//			a:=[]string{}
+//			_=append(a, os.Getenv("e2"))
+//		}
+//	`
+//	testVisitSrc(t, src, 55)  // os.Getenv
+//	testVisitSrc(t, src, 105) // os.Getenv
+//}
+
 func TestVisitFile1(t *testing.T) {
 	filename := "image/image.go"
 	testVisit(t, filename, nil, 1530) // Rectangle: same package but another file
 }
 
-func TestVisitFile2(t *testing.T) {
-	filename := "github.com/jmigpin/editor/core/gosource/resolver.go"
-	testVisit(t, filename, nil, 1823) // Rectangle: same package but another file
-}
+//// TEMPORARY TEST
+//func TestVisitFile2(t *testing.T) {
+//	filename := "github.com/jmigpin/editor/core/cmdutil/codecompletion.go"
+//	testVisit(t, filename, nil, 691)
+//}

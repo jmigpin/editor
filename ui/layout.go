@@ -2,10 +2,8 @@ package ui
 
 import (
 	"image"
-	"image/color"
 
 	"github.com/jmigpin/editor/uiutil/widget"
-	"golang.org/x/image/colornames"
 )
 
 type Layout struct {
@@ -60,7 +58,6 @@ func (layout *Layout) Init(ui *UI) {
 	}
 
 	layout.ContextFloatBox = NewContextFloatBox(layout)
-	layout.ContextFloatBox.SetHidden(true)
 
 	layout.Append(layout.ContextFloatBox, mmb.FloatMenu)
 }
@@ -117,55 +114,4 @@ func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {
 	}
 
 	return best.col, best.nextRow
-}
-
-type ContextFloatBox struct {
-	*widget.FloatBox
-	Label  *widget.Label
-	layout *Layout
-	ta     *TextArea
-}
-
-func NewContextFloatBox(l *Layout) *ContextFloatBox {
-	cfb := &ContextFloatBox{layout: l}
-	cfb.Label = widget.NewLabel(l.UI)
-	cfb.FloatBox = widget.NewFloatBox(cfb.Label)
-
-	var c1 color.Color = colornames.Black
-	var c2 color.Color = colornames.Orange
-
-	cfb.Label.Text.Str = "testing"
-	cfb.Label.Text.Color = &c1
-	cfb.Label.Color = &c2
-	cfb.Label.Pad.Set(5)
-	cfb.Label.Pad.Color = &c2
-	cfb.Label.Border.Set(1)
-	cfb.Label.Border.Color = &c1
-
-	return cfb
-}
-
-func (cfb *ContextFloatBox) SetStr(s string) {
-	// needspaint before change refpoint to clear old lower widgets ?
-	//cfb.MarkNeedsPaint()
-
-	cfb.Label.Text.Str = s
-
-	if cfb.ta != nil {
-		p := cfb.ta.IndexPoint(cfb.ta.CursorIndex())
-		p.Y += cfb.ta.LineHeight()
-		cfb.RefPoint = p
-	}
-
-	cfb.CalcChildsBounds()
-	cfb.MarkNeedsPaint()
-}
-
-func (cfb *ContextFloatBox) SetTextArea(ta *TextArea) {
-	cfb.ta = ta
-}
-
-func (cfb *ContextFloatBox) Toggle() {
-	cfb.SetHidden(!cfb.Hidden())
-	cfb.MarkNeedsPaint()
 }

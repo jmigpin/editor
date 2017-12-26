@@ -11,8 +11,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 type Info struct {
@@ -118,7 +116,7 @@ func (info *Info) PosNodePath(pos token.Pos) []ast.Node {
 	astFile := info.PosAstFile(pos)
 	var path []ast.Node
 	var path2 []ast.Node
-	size := 10000
+	end := astFile.End()
 	ast.Inspect(astFile, func(node ast.Node) bool {
 		if node == nil {
 			path = path[:len(path)-1]
@@ -129,13 +127,11 @@ func (info *Info) PosNodePath(pos token.Pos) []ast.Node {
 			return false
 		}
 		// find innermost node that matches pos
-		if pos < node.End() {
-			s := int(node.End() - node.Pos())
-			if s <= size {
-				size = s
-				path2 = make([]ast.Node, len(path))
-				copy(path2, path)
-			}
+		nend := node.End()
+		if pos < nend && nend <= end {
+			end = nend
+			path2 = make([]ast.Node, len(path))
+			copy(path2, path)
 		}
 		return true
 	})
@@ -245,7 +241,7 @@ func (info *Info) PathFilenames(path, dir string, mode build.ImportMode) []strin
 
 	// build.package contains info to get the full filename
 	bpkg, _ := build.Import(path, dir, mode)
-	//spew.Dump(bpkg, path)
+	//Dump(bpkg, path)
 
 	var names []string
 
@@ -348,9 +344,55 @@ func (info *Info) PrintIdOffsets(astFile *ast.File) {
 	})
 }
 
-func (info *Info) Dump(a ...interface{}) {
-	if Logf != nil {
-		spew.Dump(a...)
+func (info *Info) PrintNodeOnInfo(node ast.Node) {
+	Logf("%v %v", reflect.TypeOf(node), node)
+	// types
+	if e, ok := node.(ast.Expr); ok {
+		tv, ok := info.Info.Types[e]
+		if ok {
+			Logf("in types")
+			Dump(tv)
+		}
+	}
+	// defs
+	if id, ok := node.(*ast.Ident); ok {
+		obj, ok := info.Info.Defs[id]
+		if ok {
+			Logf("in defs")
+			Dump(obj)
+		}
+	}
+	// uses
+	if id, ok := node.(*ast.Ident); ok {
+		obj, ok := info.Info.Uses[id]
+		if ok {
+			Logf("in uses")
+			Dump(obj)
+		}
+	}
+	// implicits
+	if true {
+		obj, ok := info.Info.Implicits[node]
+		if ok {
+			Logf("in implicits")
+			Dump(obj)
+		}
+	}
+	// selections
+	if se, ok := node.(*ast.SelectorExpr); ok {
+		sel, ok := info.Info.Selections[se]
+		if ok {
+			Logf("in selections")
+			Dump(sel)
+		}
+	}
+	// scopes
+	if true {
+		scope, ok := info.Info.Scopes[node]
+		if ok {
+			Logf("in scopes")
+			Dump(scope)
+		}
 	}
 }
 

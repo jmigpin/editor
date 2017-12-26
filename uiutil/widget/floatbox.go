@@ -20,7 +20,11 @@ func NewFloatBox(child Node) *FloatBox {
 func (fb *FloatBox) Measure(hint image.Point) image.Point {
 	panic("calling measure on floatbox")
 }
+
 func (fb *FloatBox) CalcChildsBounds() {
+	// mark for paint nodes that the old bounds intersect
+	fb.MarkNeedsPaint()
+
 	// start with the parent bounds
 	fbb := fb.Parent().Embed().Bounds
 
@@ -44,7 +48,22 @@ func (fb *FloatBox) CalcChildsBounds() {
 
 	child.CalcChildsBounds()
 }
+
 func (fb *FloatBox) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	// true=handled, don't let other layers get the event
+	// true=handled, don't let other layers get the event. This behavior can be overriden by parent nodes.
 	return true
+}
+
+func (fb *FloatBox) ShowCalcMark(v bool) {
+	hide := !v
+	if hide {
+		if !fb.Hidden() {
+			fb.SetHidden(true)
+			fb.MarkNeedsPaint()
+		}
+	} else {
+		fb.SetHidden(false)
+		fb.Wrapper().CalcChildsBounds()
+		fb.MarkNeedsPaint()
+	}
 }

@@ -25,17 +25,18 @@ func NewMainMenuButton(ui *UI) *MainMenuButton {
 	m.FloatMenu = NewFloatMenu(m)
 	return m
 }
+func (m *MainMenuButton) CalcChildsBounds() {
+	m.EmbedNode.CalcChildsBounds()
+	if !m.FloatMenu.Hidden() {
+		m.FloatMenu.CalcChildsBounds()
+	}
+}
 func (m *MainMenuButton) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	m.Button.OnInputEvent(ev0, p)
 	switch ev0.(type) {
 	case *event.MouseClick:
-		fm := m.FloatMenu
-		toggle := !fm.Hidden()
-		fm.SetHidden(toggle)
-		if !fm.Hidden() {
-			fm.CalcChildsBounds()
-		}
-		fm.MarkNeedsPaint()
+		toggle := m.FloatMenu.Hidden()
+		m.FloatMenu.ShowCalcMark(toggle)
 	}
 	return false
 }

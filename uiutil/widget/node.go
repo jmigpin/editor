@@ -56,6 +56,9 @@ func (en *EmbedNode) SetWrapper(n Node) {
 	}
 	en.wrapper = n
 }
+func (en *EmbedNode) Wrapper() Node {
+	return en.wrapper
+}
 
 // Returns the parent wrapping node if present.
 func (en *EmbedNode) Parent() Node {

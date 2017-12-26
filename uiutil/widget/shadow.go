@@ -55,7 +55,7 @@ func (s *Shadow) CalcChildsBounds() {
 		b := s.Bounds
 		b.Max.Y -= s.Bottom
 		b.Max = MaxPoint(b.Max, image.Point{0, 0})
-		child := s.FirstChild()
+		child := s.FirstChildInAll()
 		child.Embed().Bounds = b
 		child.CalcChildsBounds()
 		return

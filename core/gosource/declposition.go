@@ -21,8 +21,11 @@ func DeclPosition(filename string, src interface{}, index int) (*token.Position,
 		info.PrintIdOffsets(astFile)
 	}
 
-	// index node
+	// get index node
 	tokenFile := info.FSet.File(astFile.Package)
+	if tokenFile == nil {
+		return nil, nil, fmt.Errorf("unable to get token file")
+	}
 	// avoid panic from a bad index
 	if index > tokenFile.Size() {
 		return nil, nil, fmt.Errorf("index bigger than file size")
@@ -37,10 +40,7 @@ func DeclPosition(filename string, src interface{}, index int) (*token.Position,
 
 	// new resolver for the path
 	path := info.PosFilePath(astFile.Package)
-	res := NewResolver(info, path)
-
-	// preemptively help the checker
-	res.ResolveCertainPathNodeTypesToHelpChecker(id)
+	res := NewResolver(info, path, id)
 
 	// resolve id declaration
 	node := res.ResolveDecl(id)

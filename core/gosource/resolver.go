@@ -15,7 +15,7 @@ type Resolver struct {
 	mainPath string
 }
 
-func NewResolver(info *Info, mainPath string) *Resolver {
+func NewResolver(info *Info, mainPath string, checkerNode ast.Node) *Resolver {
 	res := &Resolver{
 		info:     info,
 		visited1: make(map[ast.Node]bool),
@@ -28,6 +28,11 @@ func NewResolver(info *Info, mainPath string) *Resolver {
 
 	// first confcheck without extra imports
 	res.info.ConfCheckPath(res.mainPath, "", 0)
+
+	// preemptively help the checker
+	if checkerNode != nil {
+		res.resolveCertainPathNodeTypesToHelpChecker(checkerNode)
+	}
 
 	return res
 }
@@ -106,21 +111,20 @@ func (res *Resolver) ResolveType(node ast.Node) ast.Node {
 				lhsi, rhsn := res.IdAssignStmtRhs(id, as)
 				if rhsn != nil && lhsi >= 0 {
 					if n := res.ResolveType(rhsn); n != nil {
-						if lhsi == 0 {
-							switch t3 := n.(type) {
-							case *ast.StructType:
-								return t3
-							case *ast.InterfaceType:
-								return t3
-							case *ast.FuncType:
-								if t3.Results != nil && len(t3.Results.List) >= 1 {
-									return res.ResolveType(t3.Results.List[0])
-								}
+						switch t3 := n.(type) {
+						case *ast.StructType:
+							return t3
+						case *ast.InterfaceType:
+							return t3
+						case *ast.FuncType:
+							if t3.Results != nil && lhsi < len(t3.Results.List) {
+								return res.ResolveType(t3.Results.List[lhsi])
 							}
+						default:
+							Logf("TODO id AssignStmt")
+							Dump(lhsi)
+							Dump(n)
 						}
-						Logf("TODO id AssignStmt")
-						Dump(lhsi)
-						Dump(n)
 					}
 				}
 			default:
@@ -211,7 +215,7 @@ func (res *Resolver) ResolveType(node ast.Node) ast.Node {
 		Dump(node)
 	}
 
-	Logf("not solved")
+	Logf("not solved (%v)", reflect.TypeOf(node))
 	return nil
 }
 
@@ -274,7 +278,7 @@ func (res *Resolver) GetIdDecl(id *ast.Ident) ast.Node {
 	return nil
 }
 
-func (res *Resolver) ResolveCertainPathNodeTypesToHelpChecker(node ast.Node) {
+func (res *Resolver) resolveCertainPathNodeTypesToHelpChecker(node ast.Node) {
 	// in some cases the CaseClause is not present in res.info.scopes
 
 	path := res.info.NodePath(node)
