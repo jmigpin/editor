@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -22,7 +22,7 @@ func SaveRowFile(erow ERower) {
 
 	// run go imports for go content, updates content string
 	fp := erow.Filename()
-	if path.Ext(fp) == ".go" {
+	if filepath.Ext(fp) == ".go" {
 		u, err := runGoImports(str)
 		if err != nil {
 			// ignore errors, can catch them when compiling
