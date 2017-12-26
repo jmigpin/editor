@@ -3,6 +3,7 @@ package contentcmd
 import (
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -66,8 +67,7 @@ func StopOnSpaceAndRunesFn(stopRunes string) func(rune) bool {
 	}
 }
 
-// Used by "file" and "directory".
-// Also checks in GOPATH and GOROOT.
+// Used by "file" and "directory". Also checks in GOPATH and GOROOT.
 func findFileinfo(erow cmdutil.ERower, p string) (string, os.FileInfo, bool) {
 	// absolute path
 	if path.IsAbs(p) {
@@ -89,9 +89,8 @@ func findFileinfo(erow cmdutil.ERower, p string) (string, os.FileInfo, bool) {
 
 	// go paths
 	{
-		gopath := os.Getenv("GOPATH")
-		a := strings.Split(gopath, ":")
-		a = append(a, os.Getenv("GOROOT"))
+		a := []string{os.Getenv("GOROOT")}
+		a = append(a, filepath.SplitList(os.Getenv("GOPATH"))...)
 		for _, d := range a {
 			u := path.Join(d, "src", p)
 			fi, err := os.Stat(u)
