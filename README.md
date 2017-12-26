@@ -53,7 +53,7 @@ Usage of ./editor:
   -tabwidth int
     	 (default 8)
   -wraplinerune int
-    	code for wrap line rune, can be set to zero for a space of half line height (default 8594)
+    	code for wrap line rune, can be set to zero (default 8594)
 ```
 
 ### Basic Layout
