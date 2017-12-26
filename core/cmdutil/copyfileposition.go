@@ -1,6 +1,10 @@
 package cmdutil
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jmigpin/editor/uiutil/event"
+)
 
 func CopyFilePosition(ed Editorer, erow ERower) {
 	if !erow.IsRegular() {
@@ -23,5 +27,8 @@ func CopyFilePosition(ed Editorer, erow ERower) {
 	col := ci - lineStart
 	line++
 	s := fmt.Sprintf("%v:%v:%v", erow.Filename(), line, col)
-	ta.SetClipboardCopy(s)
+	err := ta.SetCPCopy(event.ClipboardCPI, s)
+	if err != nil {
+		ed.Error(err)
+	}
 }

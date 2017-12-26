@@ -3,6 +3,8 @@ package tautil
 import (
 	"image"
 	"strings"
+
+	"github.com/jmigpin/editor/uiutil/event"
 )
 
 func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
@@ -15,7 +17,10 @@ func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {
 	if ta.SelectionOn() {
 		a, b := SelectionStringIndexes(ta)
 		s := ta.Str()[a:b]
-		ta.SetPrimaryCopy(s)
+		err := ta.SetCPCopy(event.PrimaryCPI, s)
+		if err != nil {
+			ta.Error(err)
+		}
 	}
 }
 

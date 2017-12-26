@@ -7,6 +7,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 )
@@ -51,16 +52,20 @@ func NewCopy(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Copy, e
 	return c, nil
 }
 
-func (c *Copy) SetClipboard(str string) {
-	c.clipboardStr = str
-	c.set(CopyAtoms.CLIPBOARD)
+func (c *Copy) Set(i event.CopyPasteIndex, str string) error {
+	switch i {
+	case event.PrimaryCPI:
+		c.primaryStr = str
+		return c.set(xproto.AtomPrimary)
+	case event.ClipboardCPI:
+		c.clipboardStr = str
+		return c.set(CopyAtoms.CLIPBOARD)
+	}
+	panic("unhandled index")
 }
-func (c *Copy) SetPrimary(str string) {
-	c.primaryStr = str
-	c.set(xproto.AtomPrimary)
-}
-func (c *Copy) set(selection xproto.Atom) {
-	xproto.SetSelectionOwner(c.conn, c.win, selection, 0)
+func (c *Copy) set(selection xproto.Atom) error {
+	cookie := xproto.SetSelectionOwnerChecked(c.conn, c.win, selection, 0)
+	return cookie.Check()
 }
 
 // Another application is asking for the data

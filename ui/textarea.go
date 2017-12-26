@@ -532,18 +532,11 @@ func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 //	return true
 //}
 
-func (ta *TextArea) RequestPrimaryPaste() (string, error) {
-	return ta.ui.RequestPrimaryPaste()
+func (ta *TextArea) GetCPPaste(i event.CopyPasteIndex) (string, error) {
+	return ta.ui.GetCPPaste(i)
 }
-func (ta *TextArea) RequestClipboardPaste() (string, error) {
-	return ta.ui.RequestClipboardPaste()
-}
-
-func (ta *TextArea) SetClipboardCopy(v string) {
-	ta.ui.SetClipboardCopy(v)
-}
-func (ta *TextArea) SetPrimaryCopy(v string) {
-	ta.ui.SetPrimaryCopy(v)
+func (ta *TextArea) SetCPCopy(i event.CopyPasteIndex, v string) error {
+	return ta.ui.SetCPCopy(i, v)
 }
 
 func (ta *TextArea) LineHeight() int {
@@ -626,7 +619,7 @@ func (ta *TextArea) onMouseClick(ev *event.MouseClick) bool {
 		return true
 	case event.ButtonMiddle:
 		tautil.MoveCursorToPoint(ta, &ev.Point, false)
-		tautil.PastePrimary(ta)
+		tautil.Paste(ta, event.PrimaryCPI)
 		return true
 	}
 	return false
@@ -797,7 +790,7 @@ func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 			case 'x':
 				tautil.Cut(ta)
 			case 'v':
-				tautil.PasteClipboard(ta)
+				tautil.Paste(ta, event.ClipboardCPI)
 			case 'k':
 				tautil.RemoveLines(ta)
 			case 'a':
@@ -836,6 +829,10 @@ func (ta *TextArea) GetBounds() image.Rectangle {
 
 func (ta *TextArea) CommentString() string {
 	return ta.CommentStr
+}
+
+func (ta *TextArea) Error(err error) {
+	ta.ui.OnError(err)
 }
 
 const (

@@ -8,6 +8,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 )
@@ -48,12 +49,17 @@ func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Paste,
 	return p, nil
 }
 
-func (p *Paste) RequestPrimary() (string, error) {
-	return p.request(xproto.AtomPrimary)
+func (p *Paste) Get(i event.CopyPasteIndex) (string, error) {
+	switch i {
+	case event.PrimaryCPI:
+		return p.request(xproto.AtomPrimary)
+	case event.ClipboardCPI:
+		return p.request(PasteAtoms.CLIPBOARD)
+	default:
+		return "", fmt.Errorf("unhandled index")
+	}
 }
-func (p *Paste) RequestClipboard() (string, error) {
-	return p.request(PasteAtoms.CLIPBOARD)
-}
+
 func (p *Paste) request(selection xproto.Atom) (string, error) {
 	p.reqs.Lock()
 	p.reqs.waiting++
@@ -87,12 +93,12 @@ func (p *Paste) request(selection xproto.Atom) (string, error) {
 func (p *Paste) getData(ev *xproto.SelectionNotifyEvent) (string, error) {
 	switch ev.Property {
 	case xproto.AtomNone:
-		err := fmt.Errorf("nothing to paste (no owner exist)")
-		return "", err
+		// nothing to paste (no owner exists)
+		return "", nil
 	case PasteAtoms.XSEL_DATA:
 		return p.extractData(ev)
 	default:
-		panic("!")
+		return "", fmt.Errorf("unhandled property: %v", ev.Property)
 	}
 }
 

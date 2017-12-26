@@ -9,6 +9,9 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/BurntSushi/xgbutil/xcursor"
+	"github.com/jmigpin/editor/uiutil/event"
+	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/copypaste"
 	"github.com/jmigpin/editor/xgbutil/dragndrop"
@@ -313,14 +316,48 @@ func (win *Window) WarpPointer(p *image.Point) {
 		0, 0, 0, 0,
 		int16(p.X), int16(p.Y))
 }
-func (win *Window) QueryPointer() (*image.Point, bool) {
+func (win *Window) QueryPointer() (*image.Point, error) {
 	cookie := xproto.QueryPointer(win.Conn, win.Window)
 	r, err := cookie.Reply()
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	p := &image.Point{int(r.WinX), int(r.WinY)}
-	return p, true
+	return p, nil
+}
+
+func (win *Window) GetCPPaste(i event.CopyPasteIndex) (string, error) {
+	return win.Paste.Get(i)
+}
+func (win *Window) SetCPCopy(i event.CopyPasteIndex, v string) error {
+	return win.Copy.Set(i, v)
+}
+
+func (win *Window) SetCursor(c widget.Cursor) {
+	sc := func(c2 xcursors.Cursor) {
+		err := win.Cursors.SetCursor(c2)
+		if err != nil {
+			log.Print(err)
+		}
+	}
+	switch c {
+	case widget.NoneCursor:
+		sc(xcursors.XCNone)
+	case widget.DefaultCursor:
+		sc(xcursors.XCNone)
+	case widget.NSResizeCursor:
+		sc(xcursor.SBVDoubleArrow)
+	case widget.WEResizeCursor:
+		sc(xcursor.SBHDoubleArrow)
+	case widget.CloseCursor:
+		sc(xcursor.XCursor)
+	case widget.MoveCursor:
+		sc(xcursor.Fleur)
+	case widget.PointerCursor:
+		sc(xcursor.Hand2)
+	case widget.TextCursor:
+		sc(xcursor.XTerm)
+	}
 }
 
 var Atoms struct {

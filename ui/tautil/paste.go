@@ -1,21 +1,16 @@
 package tautil
 
-import "log"
+import (
+	"github.com/jmigpin/editor/uiutil/event"
+)
 
-func PastePrimary(ta Texta) {
-	pasteFn(ta, ta.RequestPrimaryPaste)
-}
-func PasteClipboard(ta Texta) {
-	pasteFn(ta, ta.RequestClipboardPaste)
-}
-func pasteFn(ta Texta, fn func() (string, error)) {
+func Paste(ta Texta, i event.CopyPasteIndex) {
 	// The request blocks while it communicates with the x server.
 	// The x server answer can only be handled if this procedure is not blocking the eventloop.
 	go func() {
-		str, err := fn()
+		str, err := ta.GetCPPaste(i)
 		if err != nil {
-			// TODO
-			log.Print(err)
+			ta.Error(err)
 			return
 		}
 		ta.InsertStringAsync(str)

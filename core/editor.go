@@ -85,6 +85,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 		return nil, err
 	}
 	ed.ui = ui0
+	ed.ui.OnError = ed.Error
 
 	// close editor when the window is deleted
 	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId, func(ev0 interface{}) {

@@ -1,6 +1,10 @@
 package tautil
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jmigpin/editor/uiutil/event"
+)
 
 func SelectWord(ta Texta) {
 	index := ta.CursorIndex()
@@ -12,7 +16,10 @@ func SelectWord(ta Texta) {
 	if ta.SelectionOn() {
 		a, b := SelectionStringIndexes(ta)
 		s := ta.Str()[a:b]
-		ta.SetPrimaryCopy(s)
+		err := ta.SetCPCopy(event.PrimaryCPI, s)
+		if err != nil {
+			ta.Error(err)
+		}
 	}
 }
 

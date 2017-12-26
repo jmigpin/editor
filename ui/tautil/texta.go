@@ -2,9 +2,13 @@ package tautil
 
 import (
 	"image"
+
+	"github.com/jmigpin/editor/uiutil/event"
 )
 
 type Texta interface {
+	Error(error)
+
 	Str() string
 
 	EditOpen()
@@ -33,10 +37,8 @@ type Texta interface {
 	GetPoint(int) image.Point
 	GetIndex(*image.Point) int
 
-	RequestPrimaryPaste() (string, error)
-	RequestClipboardPaste() (string, error)
-	SetClipboardCopy(string)
-	SetPrimaryCopy(string)
+	GetCPPaste(event.CopyPasteIndex) (string, error)
+	SetCPCopy(event.CopyPasteIndex, string) error
 
 	InsertStringAsync(string)
 

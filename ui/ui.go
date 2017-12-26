@@ -8,15 +8,14 @@ import (
 
 	"golang.org/x/image/font"
 
+	"github.com/jmigpin/editor/driver"
 	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
-	"github.com/jmigpin/editor/xgbutil/xcursors"
 	"github.com/jmigpin/editor/xgbutil/xinput"
-	"github.com/jmigpin/editor/xgbutil/xwindow"
 
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/BurntSushi/xgbutil/xcursor"
 )
 
 const (
@@ -44,8 +43,9 @@ type UI struct {
 	EvReg           *evreg.Register
 	Events2         chan interface{}
 	AfterInputEvent func(ev interface{}, p image.Point)
+	OnError         func(error)
 
-	win             *xwindow.Window
+	win             driver.Window
 	lastPaint       time.Time
 	incompleteDraws int
 	curCursor       widget.Cursor
@@ -54,12 +54,13 @@ type UI struct {
 func NewUI() (*UI, error) {
 	ui := &UI{
 		Events2: make(chan interface{}, 256),
+		OnError: func(error) {},
 	}
 
 	ui.EvReg = evreg.NewRegister()
 	ui.EvReg.Events = ui.Events2
 
-	win, err := xwindow.NewWindow(ui.EvReg)
+	win, err := driver.NewWindow(ui.EvReg)
 	if err != nil {
 		return nil, err
 	}
@@ -178,34 +179,15 @@ func (ui *UI) SetCursor(c widget.Cursor) {
 		return
 	}
 	ui.curCursor = c
-	sc := func(c2 xcursors.Cursor) {
-		err := ui.win.Cursors.SetCursor(c2)
-		if err != nil {
-			log.Print(err)
-		}
-	}
-	switch c {
-	case widget.NoneCursor:
-		sc(xcursors.XCNone)
-	case widget.DefaultCursor:
-		sc(xcursors.XCNone)
-	case widget.NSResizeCursor:
-		sc(xcursor.SBVDoubleArrow)
-	case widget.WEResizeCursor:
-		sc(xcursor.SBHDoubleArrow)
-	case widget.CloseCursor:
-		sc(xcursor.XCursor)
-	case widget.MoveCursor:
-		sc(xcursor.Fleur)
-	case widget.PointerCursor:
-		sc(xcursor.Hand2)
-	case widget.TextCursor:
-		sc(xcursor.XTerm)
-	}
+	ui.win.SetCursor(c)
 }
 
 func (ui *UI) QueryPointer() (*image.Point, bool) {
-	return ui.win.QueryPointer()
+	p, err := ui.win.QueryPointer()
+	if err != nil {
+		return nil, false
+	}
+	return p, true
 }
 func (ui *UI) WarpPointer(p *image.Point) {
 	ui.win.WarpPointer(p)
@@ -239,17 +221,11 @@ func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
 	ui.WarpPointer(p)
 }
 
-func (ui *UI) RequestPrimaryPaste() (string, error) {
-	return ui.win.Paste.RequestPrimary()
+func (ui *UI) GetCPPaste(i event.CopyPasteIndex) (string, error) {
+	return ui.win.GetCPPaste(i)
 }
-func (ui *UI) RequestClipboardPaste() (string, error) {
-	return ui.win.Paste.RequestClipboard()
-}
-func (ui *UI) SetClipboardCopy(v string) {
-	ui.win.Copy.SetClipboard(v)
-}
-func (ui *UI) SetPrimaryCopy(v string) {
-	ui.win.Copy.SetPrimary(v)
+func (ui *UI) SetCPCopy(i event.CopyPasteIndex, s string) error {
+	return ui.win.SetCPCopy(i, s)
 }
 
 func (ui *UI) EnqueueRunFunc(f func()) {

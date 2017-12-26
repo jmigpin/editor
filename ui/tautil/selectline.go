@@ -1,5 +1,7 @@
 package tautil
 
+import "github.com/jmigpin/editor/uiutil/event"
+
 func SelectLine(ta Texta) {
 	ta.SetSelectionOff()
 	a, b, _ := linesStringIndexes(ta)
@@ -9,6 +11,9 @@ func SelectLine(ta Texta) {
 	if ta.SelectionOn() {
 		a, b := SelectionStringIndexes(ta)
 		s := ta.Str()[a:b]
-		ta.SetPrimaryCopy(s)
+		err := ta.SetCPCopy(event.PrimaryCPI, s)
+		if err != nil {
+			ta.Error(err)
+		}
 	}
 }
