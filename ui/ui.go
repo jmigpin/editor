@@ -40,16 +40,15 @@ func SetScrollbarAndSquareWidth(v int) {
 }
 
 type UI struct {
-	win    *xwindow.Window
-	Layout Layout
+	Layout          Layout
+	EvReg           *evreg.Register
+	Events2         chan interface{}
+	AfterInputEvent func(ev interface{}, p image.Point)
 
-	EvReg   *evreg.Register
-	Events2 chan interface{}
-
+	win             *xwindow.Window
 	lastPaint       time.Time
 	incompleteDraws int
-
-	curCursor widget.Cursor
+	curCursor       widget.Cursor
 }
 
 func NewUI() (*UI, error) {
@@ -154,6 +153,9 @@ func (ui *UI) onShmCompletion(_ interface{}) {
 func (ui *UI) onInput(ev0 interface{}) {
 	ev := ev0.(*xinput.InputEvent)
 	uiutil.AIE.Apply(ui, &ui.Layout, ev.Event, ev.Point)
+	if ui.AfterInputEvent != nil {
+		ui.AfterInputEvent(ev.Event, ev.Point)
+	}
 }
 
 func (ui *UI) RequestPaint() {

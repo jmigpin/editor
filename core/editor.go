@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"image"
 	"log"
 	"os"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/jmigpin/editor/drawutil2"
 	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/wmprotocols"
 )
@@ -92,35 +94,11 @@ func NewEditor(opt *Options) (*Editor, error) {
 	// setup drop support (files, dirs, ...) from other applications
 	cmdutil.SetupDragNDrop(ed)
 
-	// set up layout toolbar
-	{
-		s := "Exit | ListSessions | NewColumn | NewRow | Reload | DuplicateRow | "
-		tb := ed.ui.Layout.Toolbar
-		tb.SetStrClear(s, true, true)
-		// execute commands on layout toolbar
-		tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
-			ToolbarCmdFromLayout(ed, tb.TextArea)
-		})
-	}
+	ed.setupLayoutToolbar()
 
-	// set up menu toolbar
-	{
-		s := `XdgOpenDir
-GotoLine | CopyFilePosition
-RowDirectory | ReopenRow | MaximizeRow
-CloseColumn | CloseRow
-ListDir | ListDirHidden | ListDirSub 
-Reload | ReloadAll | ReloadAllFiles
-SaveAllFiles
-FontRunes | FontTheme | ColorTheme
-ListSessions
-Exit | Stop`
-		tb := ed.ui.Layout.MainMenuButton.FloatMenu.Toolbar
-		tb.SetStrClear(s, true, true)
-		tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
-			ToolbarCmdFromLayout(ed, tb.TextArea)
-		})
-	}
+	ed.setupMenuToolbar()
+
+	ed.setupGlobalShortcuts()
 
 	// layout home vars
 	ed.homeVars.Append("~", os.Getenv("HOME"))
@@ -139,6 +117,51 @@ Exit | Stop`
 	ed.eventLoop() // blocks
 
 	return ed, nil
+}
+
+func (ed *Editor) setupLayoutToolbar() {
+	s := "Exit | ListSessions | NewColumn | NewRow | Reload | DuplicateRow | "
+	tb := ed.ui.Layout.Toolbar
+	tb.SetStrClear(s, true, true)
+	// execute commands on layout toolbar
+	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+		ToolbarCmdFromLayout(ed, tb.TextArea)
+	})
+}
+
+func (ed *Editor) setupMenuToolbar() {
+	s := `XdgOpenDir
+GotoLine | CopyFilePosition
+RowDirectory | ReopenRow | MaximizeRow
+CloseColumn | CloseRow
+ListDir | ListDirHidden | ListDirSub 
+Reload | ReloadAll | ReloadAllFiles
+SaveAllFiles
+FontRunes | FontTheme | ColorTheme
+ListSessions
+Exit | Stop`
+	tb := ed.ui.Layout.MainMenuButton.FloatMenu.Toolbar
+	tb.SetStrClear(s, true, true)
+	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+		ToolbarCmdFromLayout(ed, tb.TextArea)
+	})
+
+}
+
+func (ed *Editor) setupGlobalShortcuts() {
+	ed.ui.AfterInputEvent = func(ev interface{}, p image.Point) {
+		switch t := ev.(type) {
+		case *event.KeyDown:
+			switch {
+			case t.Code == event.KCodeF1:
+				cmdutil.ToggleContextFloatBox(ed, p)
+			default:
+				cmdutil.UpdateContextFloatBox(ed, p)
+			}
+		case *event.MouseDown:
+			cmdutil.UpdateContextFloatBox(ed, p)
+		}
+	}
 }
 
 func (ed *Editor) openInitialRows(opt *Options) {
