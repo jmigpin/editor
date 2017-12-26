@@ -2,6 +2,9 @@ package core
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/toolbardata"
@@ -28,13 +31,58 @@ func ToolbarCmdFromRow(ed *Editor, erow *ERow) {
 		return
 	}
 
-	// don't allow commands on row first part
 	if part == td.Parts[0] {
-		ed.Errorf("running a command on first part")
+		if !firstPartCmd(ed, part, erow) {
+			ed.Errorf("no cmd was run")
+		}
 		return
 	}
 
 	runCommand(ed, part, erow)
+}
+
+func firstPartCmd(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) bool {
+	if len(part.Args) == 0 {
+		return false
+	}
+
+	a0 := part.Args[0]
+	tb := erow.Row().Toolbar
+	ci := tb.CursorIndex()
+
+	// cursor index beyond arg0
+	if ci > a0.E {
+		return false
+	}
+
+	// get path up to cursor index
+	str := a0.Str
+	i := strings.Index(str[ci:], string(filepath.Separator))
+	if i >= 0 {
+		str = str[:ci+i]
+	}
+
+	// decode str
+	td := toolbardata.NewToolbarData(str, erow.Ed().HomeVars())
+	str = td.DecodePart0Arg0()
+
+	// file info
+	_, err := os.Stat(str)
+	if err == nil {
+		// open row next to erow and load content
+		col := erow.Row().Col
+		u, ok := erow.Row().NextRow()
+		if !ok {
+			u = nil
+		}
+		erow2 := ed.NewERowerBeforeRow(str, col, u)
+		err := erow2.LoadContentClear()
+		if err != nil {
+			ed.Error(err)
+		}
+	}
+
+	return true
 }
 
 func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
