@@ -32,7 +32,7 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 		margin = wlrAdv + 16*adv
 	}
 
-	// TODO: ideally, have the identation be used if the rest of the line fits, otherwise use space available from the start of the line.
+	// TODO: ideally, have the identation be used if the rest of the line fits, otherwise use space available from the start of the line. (Would still have the issue with long line comments not honoring the wrapline indent).
 
 	lpr.OuterLooper().Loop(func() bool {
 		lpr.state = 0
@@ -52,6 +52,8 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 		if penXAdv > lpr.MaxX && lpr.strl.Ri > 0 {
 			runeAdv := penXAdv - lpr.strl.Pen.X
 			runeCut := penXAdv - lpr.MaxX
+			runeAdvPart1 := runeAdv - runeCut
+			sepSpace := runeAdv
 
 			origRu := lpr.strl.Ru
 			lpr.strl.RiClone = true
@@ -59,7 +61,7 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 			// bg close to the border - current rune size covers the space
 			lpr.state = 1
 			lpr.strl.Ru = 0
-			lpr.strl.Advance = runeAdv - runeCut // accurate advance for measure
+			lpr.strl.Advance = runeAdvPart1
 			if ok := fn(); !ok {
 				return false
 			}
@@ -82,13 +84,8 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 			lpr.state = 2
 			lpr.strl.Ru = 0
 			lpr.strl.Pen.X = startPenX
-			fixedAdv := wlrAdv + lpr.advance()
-			movingAdv := fixedAdv + runeCut - runeAdv
-			if movingAdv < wlrAdv {
-				movingAdv = wlrAdv
-			}
-			lpr.strl.Advance = movingAdv // moving bg
-			//lpr.strl.Advance = fixedAdv // fixed bg (debug)
+			bgAdv := wlrAdv + (sepSpace - runeAdvPart1)
+			lpr.strl.Advance = bgAdv
 			if ok := fn(); !ok {
 				return false
 			}
@@ -106,7 +103,7 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 			lpr.state = 0
 			lpr.strl.RiClone = false
 			lpr.strl.Ru = origRu
-			lpr.strl.Pen.X = startPenX + movingAdv
+			lpr.strl.Pen.X = startPenX + bgAdv
 			lpr.strl.Advance = runeAdv
 			if ok := fn(); !ok {
 				return false
@@ -126,21 +123,22 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 		return true
 	})
 }
-func (lpr *WrapLineLooper) advance() fixed.Int26_6 {
-	return lpr.strl.LineHeight() / 2
-}
 func (lpr *WrapLineLooper) wrapLineRuneAdvance(ru rune) fixed.Int26_6 {
 	if ru == 0 {
-		return lpr.strl.LineHeight() / 2
+		return 0
 	}
+
+	// keep original rune and advance
 	origRu := lpr.strl.Ru
 	adv := lpr.strl.Advance
+
+	// restore at the end
 	defer func() {
-		// restore values
 		lpr.strl.Ru = origRu
 		lpr.strl.Advance = adv
 	}()
 
+	// calc advance of rune
 	lpr.strl.Ru = ru
 	ok := lpr.strl.CalcAdvance()
 	if !ok {

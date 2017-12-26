@@ -21,7 +21,7 @@ func main() {
 	dpiFlag := flag.Float64("dpi", 72, "monitor dots per inch")
 	scrollbarWidth := flag.Int("scrollbarwidth", 12, "textarea scrollbar width")
 	colorTheme := flag.String("colortheme", "light", "available: light, dark, acme")
-	wrapLineRune := flag.Int("wraplinerune", 8594, "code for wrap line rune, can be set to zero for a space of half line height")
+	wrapLineRune := flag.Int("wraplinerune", 8594, "code for wrap line rune, can be set to zero")
 	tabWidth := flag.Int("tabwidth", 8, "")
 	scrollbarLeft := flag.Bool("scrollbarleft", true, "set scrollbars on the left side")
 	sessionName := flag.String("sessionname", "", "open existing session")
