@@ -66,6 +66,16 @@ func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
 	erow.UpdateState()
 	erow.UpdateDuplicatesState()
 
+	// setup textarea comment string based on file extension
+	cstr := "//"
+	switch filepath.Ext(erow.Filename()) {
+	case ".sh", ".conf", ".list", ".txt":
+		cstr = "#"
+	case ".go", ".c", ".cpp":
+		cstr = "//"
+	}
+	erow.row.TextArea.CommentStr = cstr
+
 	return erow
 }
 func (erow *ERow) initHandlers() {
@@ -208,9 +218,7 @@ func (erow *ERow) UpdateState() {
 	if erow.IsRegular() {
 		erow.row.SetState(ui.DuplicateRowState, hasDuplicate)
 	}
-	if !hasDuplicate {
-		erow.updateHighlightDuplicates(false)
-	}
+	erow.updateHighlightDuplicates(hasDuplicate)
 }
 
 func (erow *ERow) updateState2() {
@@ -381,16 +389,7 @@ func (erow *ERow) onRowInput(ev0 interface{}) {
 			cmdutil.SaveRowFile(erow)
 		case evt.Modifiers.Is(event.ModControl) && evt.Code == 'f':
 			cmdutil.FindShortcut(erow)
-
-			//case evt.Code == event.KCodeF1:
-			//cfb := erow.ed.ui.Layout.ContextFloatBox
-			//cfb.Toggle()
-			//cfb.SetTextArea(erow.row.TextArea)
-			//cfb.SetStr("testing from erow")
-			//info := gosource.NewInfo()
-			//_ = info
 		}
-
 	case *event.MouseEnter:
 		erow.updateHighlightDuplicates(true)
 	case *event.MouseLeave:

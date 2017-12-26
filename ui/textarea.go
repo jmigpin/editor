@@ -17,11 +17,12 @@ import (
 
 type TextArea struct {
 	widget.EmbedNode
-	ui *UI
+	EvReg                      *evreg.Register
+	Colors                     *hsdrawer.Colors
+	DisableHighlightCursorWord bool
 
+	ui     *UI
 	drawer *hsdrawer.HSDrawer
-
-	EvReg *evreg.Register
 
 	history        *tahistory.History
 	edit           *tahistory.Edit
@@ -38,9 +39,6 @@ type TextArea struct {
 		on    bool
 		index int // from index to cursorIndex
 	}
-
-	Colors                     *hsdrawer.Colors
-	DisableHighlightCursorWord bool
 
 	MeasureOpt struct {
 		FirstLineOffsetX int
@@ -60,10 +58,11 @@ type TextArea struct {
 	}
 
 	defaultCursor widget.Cursor
+	CommentStr    string
 }
 
 func NewTextArea(ui *UI) *TextArea {
-	ta := &TextArea{ui: ui}
+	ta := &TextArea{ui: ui, CommentStr: "//"}
 	ta.SetWrapper(ta)
 	ta.drawer = hsdrawer.NewHSDrawer(ui.FontFace1())
 	c := hsdrawer.DefaultColors
@@ -611,6 +610,7 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *event.MouseTripleClick:
 		return ta.onMouseTripleClick(ev)
 	}
+
 	return false
 }
 
@@ -834,11 +834,14 @@ func (ta *TextArea) GetBounds() image.Rectangle {
 	return ta.Bounds
 }
 
+func (ta *TextArea) CommentString() string {
+	return ta.CommentStr
+}
+
 const (
 	TextAreaCmdEventId = iota
 	TextAreaSetStrEventId
 	TextAreaSetOffsetYEventId
-	TextAreaSetCursorIndexEventId
 )
 
 type TextAreaCmdEvent struct {
