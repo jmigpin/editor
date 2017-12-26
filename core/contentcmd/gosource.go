@@ -52,8 +52,13 @@ func goSourceOpenPosition(erow cmdutil.ERower, pos, end *token.Position) {
 
 	// open new row
 	if len(m) == 0 {
-		col, nextRow := ed.GoodColumnRowPlace()
-		e := ed.NewERowerBeforeRow(pos.Filename, col, nextRow)
+		// place new row after erow
+		col := erow.Row().Col
+		u, ok := erow.Row().NextRow()
+		if !ok {
+			u = nil
+		}
+		e := ed.NewERowerBeforeRow(pos.Filename, col, u)
 		err := e.LoadContentClear()
 		if err != nil {
 			ed.Error(err)
