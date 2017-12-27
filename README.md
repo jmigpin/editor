@@ -178,7 +178,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `DuplicateRow`: make row share the edit history with a new row that updates when changes are made.
 - `CopyFilePosition`: copy to clipboard the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
 - `XdgOpenDir`: calls xdg-open to open the row directory with the preferred external application (ex: a filemanager).
-- toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. For example. if a row filename is "~/a/b/c.txt" clicking on "~/a" will open a new row with that directory listing, while clicking on "~a/b/c.txt" will open a duplicate of that file.
+- toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open a duplicate of that file.
 
 #### Textarea commands
 
