@@ -69,6 +69,8 @@ func firstPartCmd(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) bool 
 	// file info
 	_, err := os.Stat(str)
 	if err == nil {
+		// TODO: this is identical code to cmdutil.DuplicateRow, deprecate cmd?
+
 		// open row next to erow and load content
 		col := erow.Row().Col
 		u, ok := erow.Row().NextRow()
@@ -79,6 +81,15 @@ func firstPartCmd(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) bool 
 		err := erow2.LoadContentClear()
 		if err != nil {
 			ed.Error(err)
+		}
+		erow2.Flash()
+
+		// set same position if regular
+		if erow2.IsRegular() {
+			ta := erow.Row().TextArea
+			ta2 := erow2.Row().TextArea
+			ta2.SetCursorIndex(ta.CursorIndex())
+			ta2.MakeCursorVisible()
 		}
 	}
 
