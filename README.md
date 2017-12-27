@@ -77,6 +77,11 @@ The square-button allows the row to be moved/resized/closed with the mouse. It a
 
 ### key/button shortcuts
 
+#### Global key/button shortcuts
+
+- `f1`: toggle context float box (__experimental__)
+  - does auto-completion for `.go` files. (__experimental__)
+
 #### Column key/button shortcuts
 
 - `buttonLeft`:
@@ -173,13 +178,14 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `DuplicateRow`: make row share the edit history with a new row that updates when changes are made.
 - `CopyFilePosition`: copy to clipboard the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
 - `XdgOpenDir`: calls xdg-open to open the row directory with the preferred external application (ex: a filemanager).
+- toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. For example. if a row filename is "~/a/b/c.txt" clicking on "~/a" will open a new row with that directory listing, while clicking on "~a/b/c.txt" will open a duplicate of that file.
 
 #### Textarea commands
 
 - `OpenSession <name>`: opens previously saved session
 - `<url>`: opens url in x-www-browser
-- `<filepath>`: opens filepath
-- `<filename:number:number?>`: opens filename at line (usual format from compilers)
+- `<directory>`: opens directory
+- `<filename:number?:number?>`: opens filename, possibly at line/column (usual output from compilers)
 - `<quoted-string>`: opens filepath if existent. Checks for common locations like `$GOROOT` and C include directories.
 - `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
 
