@@ -63,7 +63,7 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 	cfb.RefPoint = p2
 
 	// set string and unhide
-	cfb.SetStr(str)
+	cfb.SetStr("**TODO/TESTING**\n" + str)
 	cfb.ShowCalcMark(true)
 }
 
