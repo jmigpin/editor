@@ -5,7 +5,6 @@ import (
 	"image/draw"
 	"log"
 	"runtime"
-	"time"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
@@ -16,7 +15,6 @@ import (
 	"github.com/jmigpin/editor/xgbutil"
 	"github.com/jmigpin/editor/xgbutil/copypaste"
 	"github.com/jmigpin/editor/xgbutil/dragndrop"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 	"github.com/jmigpin/editor/xgbutil/shmimage"
 	"github.com/jmigpin/editor/xgbutil/wmprotocols"
 	"github.com/jmigpin/editor/xgbutil/xcursors"
@@ -32,12 +30,12 @@ type Window struct {
 
 	done chan struct{}
 
-	Dnd          *dragndrop.Dnd
 	Paste        *copypaste.Paste
 	Copy         *copypaste.Copy
 	Cursors      *xcursors.Cursors
 	XInput       *xinput.XInput
 	WMP          *wmprotocols.WMP
+	Dnd          *dragndrop.Dnd
 	ShmImageWrap *shmimage.ShmImageWrap
 }
 
@@ -229,57 +227,6 @@ forEnd:
 	win.done <- struct{}{}
 }
 
-func (win *Window) motionEventFilterLoop(in <-chan interface{}, out chan<- interface{}) {
-	var lastMotionEv interface{}
-	var ticker *time.Ticker
-	var timeToSend <-chan time.Time
-
-	//n := 0
-	keepMotionEv := func(ev interface{}) {
-		//n++
-		lastMotionEv = ev
-		if ticker == nil {
-			ticker = time.NewTicker(time.Second / 40)
-			timeToSend = ticker.C
-		}
-	}
-
-	sendMotionEv := func() {
-		//log.Printf("kept %d times before sending", n)
-		//n = 0
-		ticker.Stop()
-		ticker = nil
-		timeToSend = nil
-		out <- lastMotionEv
-	}
-
-	sendMotionEvIfKept := func() {
-		if ticker != nil {
-			sendMotionEv()
-		}
-	}
-
-	for {
-		select {
-		case ev, ok := <-in:
-			if !ok {
-				goto forEnd
-			}
-			evw := ev.(*evreg.EventWrap)
-			switch evw.Event.(type) {
-			case xproto.MotionNotifyEvent:
-				keepMotionEv(evw)
-			default:
-				sendMotionEvIfKept()
-				out <- evw
-			}
-		case <-timeToSend:
-			sendMotionEv()
-		}
-	}
-forEnd:
-}
-
 func (win *Window) SetWindowName(str string) {
 	b := []byte(str)
 	_ = xproto.ChangeProperty(
@@ -292,6 +239,7 @@ func (win *Window) SetWindowName(str string) {
 		uint32(len(b)),
 		b)
 }
+
 func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
 	drawable := xproto.Drawable(win.Window)
 	cookie := xproto.GetGeometry(win.Conn, drawable)

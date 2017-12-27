@@ -8,11 +8,6 @@ type StatusEvent struct {
 	Action xproto.Atom
 }
 
-const (
-	StatusEventAcceptFlag        = 1 << 0
-	StatusEventSendPositionsFlag = 1 << 1
-)
-
 func (st *StatusEvent) Data32() []uint32 {
 	return []uint32{
 		uint32(st.Window),
@@ -22,3 +17,8 @@ func (st *StatusEvent) Data32() []uint32 {
 		uint32(st.Action), // accepted action
 	}
 }
+
+const (
+	StatusEventAcceptFlag        = 1 << 0
+	StatusEventSendPositionsFlag = 1 << 1 // ask to keep sending positions
+)

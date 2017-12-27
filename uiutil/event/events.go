@@ -162,21 +162,47 @@ const (
 	KCodeMute
 )
 
+type WindowClose struct{}
+type WindowExpose struct{}
+type WindowPutImageDone struct{}
+type WindowInput struct {
+	Point image.Point
+	Event interface{}
+}
+
+// drag and drop
+type DndPosition struct {
+	Point image.Point
+	Types []DndType
+	Reply func(DndAction)
+}
+type DndDrop struct {
+	Point       image.Point
+	ReplyAccept func(bool)
+	RequestData func(DndType) ([]byte, error)
+}
+
+type DndAction int
+
+const (
+	DenyDndA DndAction = iota
+	CopyDndA
+	MoveDndA
+	LinkDndA
+	AskDndA
+	PrivateDndA
+)
+
+type DndType int
+
+const (
+	TextURLListDndT DndType = iota
+)
+
+// copy/paste
 type CopyPasteIndex int
 
 const (
 	PrimaryCPI CopyPasteIndex = iota
 	ClipboardCPI
 )
-
-type WindowClose struct{}
-type WindowExpose struct{}
-type WindowPutImageDone struct{}
-
-type WindowInput struct {
-	Point image.Point
-	Event interface{}
-}
-
-//type DndPosition struct {
-//}

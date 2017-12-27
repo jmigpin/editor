@@ -12,7 +12,6 @@ import (
 	"github.com/jmigpin/editor/uiutil"
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 const (
@@ -40,16 +39,14 @@ type UI struct {
 	AfterInputEvent func(ev interface{}, p image.Point)
 	OnError         func(error)
 
-	EvReg *evreg.Register
-
 	win             driver.Window
-	events          chan interface{}
+	events          chan<- interface{}
 	lastPaint       time.Time
 	incompleteDraws int
 	curCursor       widget.Cursor
 }
 
-func NewUI(events chan interface{}, winName string) (*UI, error) {
+func NewUI(events chan<- interface{}, winName string) (*UI, error) {
 	win, err := driver.NewWindow()
 	if err != nil {
 		return nil, err
@@ -65,8 +62,6 @@ func NewUI(events chan interface{}, winName string) (*UI, error) {
 		events:  events,
 		OnError: func(error) {},
 		win:     win,
-
-		EvReg: evreg.NewRegister(),
 	}
 	ui.Layout.Init(ui)
 

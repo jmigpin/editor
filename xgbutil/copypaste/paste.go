@@ -30,10 +30,7 @@ func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
 		conn: conn,
 		win:  win,
 	}
-
-	// need buffer size 1 or it can deadlock on onselectionnotify
-	p.reply = make(chan *xproto.SelectionNotifyEvent, 1)
-
+	p.reply = make(chan *xproto.SelectionNotifyEvent)
 	return p, nil
 }
 
@@ -53,40 +50,24 @@ func (p *Paste) request(selection xproto.Atom) (string, error) {
 	p.reqs.waiting++
 	p.reqs.Unlock()
 
-	p.requestDataToServer(selection)
+	p.requestData(selection)
 
-	tick := time.Tick(500 * time.Millisecond)
+	timer := time.NewTimer(500 * time.Millisecond)
+	defer timer.Stop()
+
 	select {
-
-	case <-tick:
-		// the receiver could lock here and do a "waiting--"
-
+	case <-timer.C:
 		p.reqs.Lock()
 		defer p.reqs.Unlock()
-		if p.reqs.waiting > 0 {
-			p.reqs.waiting--
-		} else {
-			// consume the event that just got in
+		if p.reqs.waiting == 0 {
+			// an event just got in and did "waiting--"
 			ev := <-p.reply
-			return p.getData(ev)
+			return p.extractData(ev)
 		}
-
+		p.reqs.waiting--
 		return "", fmt.Errorf("paste: request timeout")
-
 	case ev := <-p.reply:
-		return p.getData(ev)
-	}
-}
-
-func (p *Paste) getData(ev *xproto.SelectionNotifyEvent) (string, error) {
-	switch ev.Property {
-	case xproto.AtomNone:
-		// nothing to paste (no owner exists)
-		return "", nil
-	case PasteAtoms.XSEL_DATA:
 		return p.extractData(ev)
-	default:
-		return "", fmt.Errorf("unhandled property: %v", ev.Property)
 	}
 }
 
@@ -100,18 +81,15 @@ func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 		return
 	}
 
-	//log.Printf("%+v", spew.Sdump(ev))
-
 	p.reqs.Lock()
-	defer p.reqs.Unlock()
-	if p.reqs.waiting == 0 {
-		return
+	if p.reqs.waiting > 0 {
+		p.reqs.waiting--
+		p.reply <- ev
 	}
-	p.reqs.waiting--
-	p.reply <- ev
+	p.reqs.Unlock()
 }
 
-func (p *Paste) requestDataToServer(selection xproto.Atom) {
+func (p *Paste) requestData(selection xproto.Atom) {
 	_ = xproto.ConvertSelection(
 		p.conn,
 		p.win,
@@ -122,6 +100,17 @@ func (p *Paste) requestDataToServer(selection xproto.Atom) {
 }
 
 func (p *Paste) extractData(ev *xproto.SelectionNotifyEvent) (string, error) {
+	switch ev.Property {
+	case xproto.AtomNone:
+		// nothing to paste (no owner exists)
+		return "", nil
+	case PasteAtoms.XSEL_DATA:
+		return p.extractData2(ev)
+	default:
+		return "", fmt.Errorf("unhandled property: %v", ev.Property)
+	}
+}
+func (p *Paste) extractData2(ev *xproto.SelectionNotifyEvent) (string, error) {
 	if ev.Target != PasteAtoms.UTF8_STRING {
 		s, err := xgbutil.GetAtomName(p.conn, ev.Target)
 		if err != nil {

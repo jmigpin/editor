@@ -21,8 +21,8 @@ type Editor struct {
 	ui     *ui.UI
 	events chan interface{}
 	close  chan struct{}
-
-	erows map[*ui.Row]*ERow
+	erows  map[*ui.Row]*ERow
+	dndh   *cmdutil.DndHandler
 
 	homeVars  toolbardata.HomeVars
 	reopenRow *cmdutil.ReopenRow
@@ -87,8 +87,8 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ui0.OnError = ed.Error
 	ed.ui = ui0
 
-	// setup drop support (files, dirs, ...) from other applications
-	cmdutil.SetupDragNDrop(ed)
+	// drag and drop
+	ed.dndh = cmdutil.NewDndHandler(ed)
 
 	ed.setupLayoutToolbar()
 
@@ -307,7 +307,7 @@ func (ed *Editor) GoodColumnRowPlace() (*ui.Column, *ui.Row) {
 }
 
 func (ed *Editor) eventLoop() {
-	defer ed.ui.Close()
+	defer ed.ui.Close() // TODO: review
 
 	for {
 		select {
@@ -319,31 +319,14 @@ func (ed *Editor) eventLoop() {
 			case error:
 				ed.Error(t)
 			case *event.WindowClose:
-				ed.Close()
+				ed.Close() // TODO: review
+			case *event.DndPosition:
+				ed.dndh.OnPosition(t)
+			case *event.DndDrop:
+				ed.dndh.OnDrop(t)
 			default:
 				ed.ui.HandleEvent(ev)
 			}
-
-		//case ev, _ := <-ed.ui.Events2:
-		//	ev2 := ev.(*evreg.EventWrap) // always this type for now
-
-		//	switch ev2.EventId {
-		//	case evreg.NoOpEventId:
-		//		// do nothing, allows to check if paint is needed
-		//	case evreg.ErrorEventId:
-		//		err := ev2.Event.(error)
-		//		if err2, ok := err.(xgb.Error); ok {
-		//			log.Print(err2)
-		//		} else {
-		//			ed.Error(err)
-		//		}
-		//	default:
-		//		n := ed.ui.EvReg.RunCallbacks(ev2.EventId, ev2.Event)
-		//		if n == 0 {
-		//			// unhandled enqueued events (mostly coming from xgb)
-		//			ed.Errorf("%#v", ev2)
-		//		}
-		//	}
 
 		case ev, ok := <-ed.fwatcher.Events:
 			if !ok {

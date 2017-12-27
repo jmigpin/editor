@@ -11,12 +11,10 @@ type FinishedEvent struct {
 func (f *FinishedEvent) Data32() []uint32 {
 	acc := uint32(0)
 	if f.Accepted {
-		acc = 1 // bit 0
+		acc = 1 // first bit of uint32
+	} else {
+		f.Action = xproto.AtomNone
 	}
-	//} else {
-	// if not accepted, this should also be none
-	//f.Action = xproto.AtomNone
-	//}
 	return []uint32{
 		uint32(f.Window),
 		acc,
