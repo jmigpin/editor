@@ -4,17 +4,16 @@ import (
 	"log"
 
 	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
 )
 
 const (
 	UnknownEventId = 1000 + iota // avoid clash with xproto
 	NoOpEventId
-	ErrorEventId
-	XErrorEventId
-	ConnectionClosedEventId
-	ShmCompletionEventId
+	//ErrorEventId
+	//XErrorEventId
+	//ConnectionClosedEventId
+	//ShmCompletionEventId
 )
 
 // event ids for other tasks
@@ -49,8 +48,8 @@ func XgbEventId(ev xgb.Event) int {
 		return xproto.SelectionClear
 	case xproto.MappingNotifyEvent:
 		return xproto.MappingNotify
-	case shm.CompletionEvent:
-		return ShmCompletionEventId
+	//case shm.CompletionEvent:
+	//return ShmCompletionEventId
 	default:
 		log.Printf("unhandled event: %#v", ev)
 		return UnknownEventId

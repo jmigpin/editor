@@ -161,3 +161,22 @@ const (
 	KCodeVolumeDown
 	KCodeMute
 )
+
+type CopyPasteIndex int
+
+const (
+	PrimaryCPI CopyPasteIndex = iota
+	ClipboardCPI
+)
+
+type WindowClose struct{}
+type WindowExpose struct{}
+type WindowPutImageDone struct{}
+
+type WindowInput struct {
+	Point image.Point
+	Event interface{}
+}
+
+//type DndPosition struct {
+//}

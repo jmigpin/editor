@@ -13,9 +13,6 @@ import (
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 	"github.com/jmigpin/editor/xgbutil/evreg"
-	"github.com/jmigpin/editor/xgbutil/xinput"
-
-	"github.com/BurntSushi/xgb/xproto"
 )
 
 const (
@@ -40,39 +37,38 @@ func SetScrollbarAndSquareWidth(v int) {
 
 type UI struct {
 	Layout          Layout
-	EvReg           *evreg.Register
-	Events2         chan interface{}
 	AfterInputEvent func(ev interface{}, p image.Point)
 	OnError         func(error)
 
+	EvReg *evreg.Register
+
 	win             driver.Window
+	events          chan interface{}
 	lastPaint       time.Time
 	incompleteDraws int
 	curCursor       widget.Cursor
 }
 
-func NewUI() (*UI, error) {
-	ui := &UI{
-		Events2: make(chan interface{}, 256),
-		OnError: func(error) {},
-	}
-
-	ui.EvReg = evreg.NewRegister()
-	ui.EvReg.Events = ui.Events2
-
-	win, err := driver.NewWindow(ui.EvReg)
+func NewUI(events chan interface{}, winName string) (*UI, error) {
+	win, err := driver.NewWindow()
 	if err != nil {
 		return nil, err
 	}
-	win.SetWindowName("Editor")
-	ui.win = win
+	win.SetWindowName(winName)
 
+	// start window event loop with mousemove event filter
+	events2 := make(chan interface{}, cap(events))
+	go win.EventLoop(events2)
+	go uiutil.MouseMoveFilterLoop(events2, events)
+
+	ui := &UI{
+		events:  events,
+		OnError: func(error) {},
+		win:     win,
+
+		EvReg: evreg.NewRegister(),
+	}
 	ui.Layout.Init(ui)
-
-	ui.EvReg.Add(xproto.Expose, ui.onExpose)
-	ui.EvReg.Add(evreg.ShmCompletionEventId, ui.onShmCompletion)
-	ui.EvReg.Add(xinput.InputEventId, ui.onInput)
-	ui.EvReg.Add(UIRunFuncEventId, ui.onRunFunc)
 
 	return ui, nil
 }
@@ -80,9 +76,25 @@ func (ui *UI) Close() {
 	ui.win.Close()
 }
 
-func (ui *UI) onExpose(ev0 interface{}) {
-	ui.UpdateImageSize()
-	ui.Layout.MarkNeedsPaint()
+func (ui *UI) HandleEvent(ev interface{}) {
+	switch t := ev.(type) {
+	case *event.WindowExpose:
+		ui.UpdateImageSize()
+		ui.Layout.MarkNeedsPaint()
+	case *event.WindowInput:
+		uiutil.AIE.Apply(ui, &ui.Layout, t.Event, t.Point)
+		if ui.AfterInputEvent != nil {
+			ui.AfterInputEvent(t.Event, t.Point)
+		}
+	case *event.WindowPutImageDone:
+		ui.onWindowPutImageDone()
+	case *UIRunFuncEvent:
+		ui.onRunFunc(t)
+	case struct{}:
+		// no op
+	default:
+		log.Printf("unhandled event: %#v", ev)
+	}
 }
 
 func (ui *UI) UpdateImageSize() {
@@ -112,9 +124,9 @@ func (ui *UI) PaintIfNeeded() {
 			ui.lastPaint = now
 		}
 	} else {
-		if len(ui.Events2) == 0 {
-			// Didn't paint to avoid high fps. Need to ensure a new paint call will happen later.
-			ui.EvReg.Enqueue(evreg.NoOpEventId, nil)
+		if len(ui.events) == 0 {
+			// Didn't paint to avoid high fps. Need to ensure a new paint call will happen later by sending a no op event just to allow the loop to iterate.
+			ui.EnqueueNoOpEvent()
 		}
 	}
 }
@@ -147,20 +159,15 @@ func (ui *UI) putImage(r *image.Rectangle) {
 	ui.incompleteDraws++
 	ui.win.PutImage(r)
 }
-func (ui *UI) onShmCompletion(_ interface{}) {
+func (ui *UI) onWindowPutImageDone() {
 	ui.incompleteDraws--
 }
 
-func (ui *UI) onInput(ev0 interface{}) {
-	ev := ev0.(*xinput.InputEvent)
-	uiutil.AIE.Apply(ui, &ui.Layout, ev.Event, ev.Point)
-	if ui.AfterInputEvent != nil {
-		ui.AfterInputEvent(ev.Event, ev.Point)
-	}
+func (ui *UI) EnqueueNoOpEvent() {
+	ui.events <- struct{}{}
 }
-
 func (ui *UI) RequestPaint() {
-	ui.EvReg.Enqueue(evreg.NoOpEventId, nil)
+	ui.EnqueueNoOpEvent()
 }
 
 // Implements widget.Context
@@ -229,17 +236,11 @@ func (ui *UI) SetCPCopy(i event.CopyPasteIndex, s string) error {
 }
 
 func (ui *UI) EnqueueRunFunc(f func()) {
-	ev := &UIRunFuncEvent{f}
-	ui.EvReg.Enqueue(UIRunFuncEventId, ev)
+	ui.events <- &UIRunFuncEvent{f}
 }
-func (ui *UI) onRunFunc(ev0 interface{}) {
-	ev := ev0.(*UIRunFuncEvent)
+func (ui *UI) onRunFunc(ev *UIRunFuncEvent) {
 	ev.F()
 }
-
-const (
-	UIRunFuncEventId = evreg.UIEventIdStart + iota
-)
 
 type UIRunFuncEvent struct {
 	F func()

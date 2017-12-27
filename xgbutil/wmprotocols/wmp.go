@@ -6,27 +6,25 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/xgbutil"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 // https://tronche.com/gui/x/icccm/sec-4.html#s-4.2.8.1
 
 type WMP struct {
-	conn  *xgb.Conn
-	win   xproto.Window
-	evReg *evreg.Register
+	conn *xgb.Conn
+	win  xproto.Window
 }
 
-func NewWMP(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*WMP, error) {
+func NewWMP(conn *xgb.Conn, win xproto.Window) (*WMP, error) {
 	if err := xgbutil.LoadAtoms(conn, &atoms); err != nil {
 		return nil, err
 	}
-	wmp := &WMP{conn: conn, win: win, evReg: evReg}
+	wmp := &WMP{conn: conn, win: win}
 	if err := wmp.setupWindowProperty(); err != nil {
 		return nil, err
 	}
-	evReg.Add(xproto.ClientMessage, wmp.onClientMessage)
 	return wmp, nil
 }
 func (wmp *WMP) setupWindowProperty() error {
@@ -43,8 +41,7 @@ func (wmp *WMP) setupWindowProperty() error {
 		data)
 	return cookie.Check()
 }
-func (wmp *WMP) onClientMessage(ev0 interface{}) {
-	ev := ev0.(xproto.ClientMessageEvent)
+func (wmp *WMP) OnClientMessage(ev *xproto.ClientMessageEvent, events chan<- interface{}) {
 	if ev.Type != atoms.WM_PROTOCOLS {
 		return
 	}
@@ -56,7 +53,7 @@ func (wmp *WMP) onClientMessage(ev0 interface{}) {
 	for _, e := range data {
 		atom := xproto.Atom(e)
 		if atom == atoms.WM_DELETE_WINDOW {
-			wmp.evReg.RunCallbacks(DeleteWindowEventId, nil)
+			events <- &event.WindowClose{}
 		}
 	}
 }
@@ -65,7 +62,3 @@ var atoms struct {
 	WM_PROTOCOLS     xproto.Atom
 	WM_DELETE_WINDOW xproto.Atom
 }
-
-const (
-	DeleteWindowEventId = iota
-)

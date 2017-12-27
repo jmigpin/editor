@@ -2,6 +2,7 @@ package dragndrop
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -15,17 +16,16 @@ import (
 // TODO: contexts with timeouts
 
 type Dnd struct { // drag and drop
-	conn  *xgb.Conn
-	win   xproto.Window
-	evReg *evreg.Register // event register support
-	tmp   struct {
+	conn *xgb.Conn
+	win  xproto.Window
+	tmp  struct {
 		enterEvent    *EnterEvent    // contains supported types
 		positionEvent *PositionEvent // contains position
 		dropEvent     *DropEvent     // waits for onselectionreply
 	}
 }
 
-func NewDnd(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Dnd, error) {
+func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
 	if err := xgbutil.LoadAtoms(conn, &DndAtoms); err != nil {
 		return nil, err
 	}
@@ -37,9 +37,15 @@ func NewDnd(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Dnd, err
 		return nil, err
 	}
 
-	dnd.evReg = evReg
-	dnd.evReg.Add(xproto.ClientMessage, dnd.onClientMessage)
-	dnd.evReg.Add(xproto.SelectionNotify, dnd.onSelectionNotify)
+	//dnd.evReg = evReg
+	//dnd.evReg.Add(xproto.ClientMessage, func(ev0 interface{}) {
+	//	ev := ev0.(xproto.ClientMessageEvent)
+	//	dnd.OnClientMessage(&ev)
+	//})
+	//dnd.evReg.Add(xproto.SelectionNotify, func(ev0 interface{}) {
+	//	ev := ev0.(xproto.SelectionNotifyEvent)
+	//	dnd.OnSelectionNotify(&ev)
+	//})
 
 	return dnd, nil
 }
@@ -65,17 +71,10 @@ func (dnd *Dnd) ClearTmp() {
 	dnd.tmp.dropEvent = nil
 }
 
-func (dnd *Dnd) onClientMessage(ev0 interface{}) {
-	ev := ev0.(xproto.ClientMessageEvent)
-	err := dnd.onClientMessage2(&ev)
-	if err != nil {
-		dnd.evReg.EnqueueError(err)
-		return
-	}
-}
-func (dnd *Dnd) onClientMessage2(ev *xproto.ClientMessageEvent) error {
+func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent, events chan<- interface{}) {
 	if ev.Format != 32 {
-		return fmt.Errorf("dnd event: data format is not 32: %d", ev.Format)
+		log.Printf("dnd event: data format is not 32: %d", ev.Format)
+		return
 	}
 	data := ev.Data.Data32
 	switch ev.Type {
@@ -86,20 +85,23 @@ func (dnd *Dnd) onClientMessage2(ev *xproto.ClientMessageEvent) error {
 		// after the enter event, it follows many position events
 		ev2, err := dnd.onPosition(data)
 		if err != nil {
-			return err
+			events <- err
+			return
 		}
-		dnd.evReg.RunCallbacks(PositionEventId, ev2)
+		//dnd.evReg.RunCallbacks(PositionEventId, ev2)
+		events <- ev2
 	case DndAtoms.XdndDrop:
 		// drag released
 		ev2, err := dnd.onDrop(data)
 		if err != nil {
-			return err
+			events <- err
+			return
 		}
-		dnd.evReg.RunCallbacks(DropEventId, ev2)
+		//dnd.evReg.RunCallbacks(DropEventId, ev2)
+		events <- ev2
 	case DndAtoms.XdndLeave:
 		dnd.ClearTmp()
 	}
-	return nil
 }
 
 func (dnd *Dnd) onEnter(data []uint32) {
@@ -187,12 +189,11 @@ func (dnd *Dnd) sendEvent(cme *xproto.ClientMessageEvent) {
 }
 
 // Called after a request for data.
-func (dnd *Dnd) onSelectionNotify(ev0 interface{}) {
-	ev := ev0.(xproto.SelectionNotifyEvent)
+func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 	if dnd.tmp.dropEvent != nil {
 		// safe to defer clear tmp variable after onselectionnotify since the dropEvent has the data
 		defer dnd.ClearTmp()
-		_ = dnd.tmp.dropEvent.OnSelectionNotify(&ev)
+		_ = dnd.tmp.dropEvent.OnSelectionNotify(ev)
 	}
 }
 

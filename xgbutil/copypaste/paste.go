@@ -10,15 +10,11 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/xgbutil"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type Paste struct {
-	conn *xgb.Conn
-	win  xproto.Window
-
-	evReg *evreg.Register
-
+	conn  *xgb.Conn
+	win   xproto.Window
 	reply chan *xproto.SelectionNotifyEvent
 	reqs  struct {
 		sync.Mutex
@@ -26,25 +22,17 @@ type Paste struct {
 	}
 }
 
-func NewPaste(conn *xgb.Conn, win xproto.Window, evReg *evreg.Register) (*Paste, error) {
+func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
 	if err := xgbutil.LoadAtoms(conn, &PasteAtoms); err != nil {
 		return nil, err
 	}
 	p := &Paste{
-		conn:  conn,
-		win:   win,
-		evReg: evReg,
+		conn: conn,
+		win:  win,
 	}
 
 	// need buffer size 1 or it can deadlock on onselectionnotify
 	p.reply = make(chan *xproto.SelectionNotifyEvent, 1)
-
-	if evReg != nil {
-		evReg.Add(xproto.SelectionNotify, func(ev0 interface{}) {
-			ev := ev0.(xproto.SelectionNotifyEvent)
-			p.OnSelectionNotify(&ev)
-		})
-	}
 
 	return p, nil
 }

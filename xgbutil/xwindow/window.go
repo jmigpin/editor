@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/uiutil/event"
@@ -29,18 +30,18 @@ type Window struct {
 	Screen *xproto.ScreenInfo
 	GCtx   xproto.Gcontext
 
-	evReg *evreg.Register
-	done  chan struct{}
+	done chan struct{}
 
 	Dnd          *dragndrop.Dnd
 	Paste        *copypaste.Paste
 	Copy         *copypaste.Copy
 	Cursors      *xcursors.Cursors
 	XInput       *xinput.XInput
+	WMP          *wmprotocols.WMP
 	ShmImageWrap *shmimage.ShmImageWrap
 }
 
-func NewWindow(evReg *evreg.Register) (*Window, error) {
+func NewWindow() (*Window, error) {
 	conn, err := xgb.NewConn()
 	if err != nil {
 		if runtime.GOOS == "darwin" {
@@ -51,19 +52,16 @@ func NewWindow(evReg *evreg.Register) (*Window, error) {
 		return nil, err2
 	}
 	win := &Window{
-		Conn:  conn,
-		evReg: evReg,
-		done:  make(chan struct{}, 1),
+		Conn: conn,
+		done: make(chan struct{}, 1),
 	}
-	if err := win.init(); err != nil {
+	if err := win.initialize(); err != nil {
 		return nil, errors.Wrap(err, "win init")
 	}
 
-	go win.eventLoop()
-
 	return win, nil
 }
-func (win *Window) init() error {
+func (win *Window) initialize() error {
 	// Disable xgb logger that prints to stderr
 	// Prevents error msg on clean exit when testing in race mode
 	// "XGB: xgb.go:526: Invalid event/error type: <nil>"
@@ -124,25 +122,25 @@ func (win *Window) init() error {
 	var gvalues []uint32
 	_ = xproto.CreateGC(win.Conn, win.GCtx, drawable, gmask, gvalues)
 
-	xi, err := xinput.NewXInput(win.Conn, win.evReg)
+	xi, err := xinput.NewXInput(win.Conn)
 	if err != nil {
 		return err
 	}
 	win.XInput = xi
 
-	dnd, err := dragndrop.NewDnd(win.Conn, win.Window, win.evReg)
+	dnd, err := dragndrop.NewDnd(win.Conn, win.Window)
 	if err != nil {
 		return err
 	}
 	win.Dnd = dnd
 
-	paste, err := copypaste.NewPaste(win.Conn, win.Window, win.evReg)
+	paste, err := copypaste.NewPaste(win.Conn, win.Window)
 	if err != nil {
 		return err
 	}
 	win.Paste = paste
 
-	copy, err := copypaste.NewCopy(win.Conn, win.Window, win.evReg)
+	copy, err := copypaste.NewCopy(win.Conn, win.Window)
 	if err != nil {
 		return err
 	}
@@ -160,10 +158,11 @@ func (win *Window) init() error {
 	}
 	win.ShmImageWrap = shmImageWrap
 
-	_, err = wmprotocols.NewWMP(win.Conn, win.Window, win.evReg)
+	wmp, err := wmprotocols.NewWMP(win.Conn, win.Window)
 	if err != nil {
 		return err
 	}
+	win.WMP = wmp
 
 	return nil
 }
@@ -179,28 +178,53 @@ func (win *Window) Close() {
 	// <-win.done
 }
 
-func (win *Window) eventLoop() {
-	events := make(chan interface{}, 8)
+func (win *Window) EventLoop(events chan<- interface{}) {
+	for {
+		ev, xerr := win.Conn.WaitForEvent()
+		if ev == nil && xerr == nil {
+			events <- &event.WindowClose{}
+			goto forEnd
+		}
+		if xerr != nil {
+			events <- error(xerr)
+		}
+		if ev != nil {
+			switch t := ev.(type) {
+			case xproto.ExposeEvent:
+				events <- &event.WindowExpose{}
+			case shm.CompletionEvent:
+				events <- &event.WindowPutImageDone{}
 
-	go func() {
-		for {
-			ev, xerr := win.Conn.WaitForEvent()
-			if ev == nil && xerr == nil {
-				events <- &evreg.EventWrap{evreg.ConnectionClosedEventId, nil}
-				close(events)
-				goto forEnd
-			}
-			if xerr != nil {
-				events <- &evreg.EventWrap{evreg.ErrorEventId, xerr}
-			} else if ev != nil {
-				eid := evreg.XgbEventId(ev)
-				events <- &evreg.EventWrap{eid, ev}
+			case xproto.MappingNotifyEvent:
+				win.XInput.ReadMapTable()
+
+			case xproto.KeyPressEvent:
+				events <- win.XInput.KeyPress(&t)
+			case xproto.KeyReleaseEvent:
+				events <- win.XInput.KeyRelease(&t)
+			case xproto.ButtonPressEvent:
+				events <- win.XInput.ButtonPress(&t)
+			case xproto.ButtonReleaseEvent:
+				events <- win.XInput.ButtonRelease(&t)
+			case xproto.MotionNotifyEvent:
+				events <- win.XInput.MotionNotify(&t)
+
+			case xproto.SelectionNotifyEvent:
+				win.Paste.OnSelectionNotify(&t)
+				win.Dnd.OnSelectionNotify(&t)
+			case xproto.SelectionRequestEvent:
+				win.Copy.OnSelectionRequest(&t)
+			case xproto.SelectionClearEvent:
+				win.Copy.OnSelectionClear(&t)
+			case xproto.ClientMessageEvent:
+				win.WMP.OnClientMessage(&t, events)
+				win.Dnd.OnClientMessage(&t, events)
+			default:
+				log.Printf("unhandled event: %#v", ev)
 			}
 		}
-	forEnd:
-	}()
-
-	win.motionEventFilterLoop(events, win.evReg.Events)
+	}
+forEnd:
 
 	win.done <- struct{}{}
 }

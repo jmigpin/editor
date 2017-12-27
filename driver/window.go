@@ -6,10 +6,11 @@ import (
 
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/evreg"
 )
 
 type Window interface {
+	EventLoop(events chan<- interface{})
+
 	Close()
 	SetWindowName(string)
 
@@ -24,8 +25,4 @@ type Window interface {
 	// copypaste
 	GetCPPaste(event.CopyPasteIndex) (string, error)
 	SetCPCopy(event.CopyPasteIndex, string) error
-}
-
-func NewWindow(evReg *evreg.Register) (Window, error) {
-	return NewDriverWindow(evReg)
 }

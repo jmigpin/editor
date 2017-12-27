@@ -8,7 +8,6 @@ import (
 
 	"golang.org/x/image/font"
 
-	"github.com/BurntSushi/xgb"
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
 	"github.com/jmigpin/editor/core/toolbardata"
@@ -16,14 +15,14 @@ import (
 	"github.com/jmigpin/editor/drawutil2/loopers"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/uiutil/event"
-	"github.com/jmigpin/editor/xgbutil/evreg"
-	"github.com/jmigpin/editor/xgbutil/wmprotocols"
 )
 
 type Editor struct {
-	ui    *ui.UI
+	ui     *ui.UI
+	events chan interface{}
+	close  chan struct{}
+
 	erows map[*ui.Row]*ERow
-	close chan struct{}
 
 	homeVars  toolbardata.HomeVars
 	reopenRow *cmdutil.ReopenRow
@@ -34,9 +33,10 @@ type Editor struct {
 
 func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
-		erows: make(map[*ui.Row]*ERow),
-		close: make(chan struct{}),
-		watch: make(map[string]int),
+		events: make(chan interface{}, 32),
+		erows:  make(map[*ui.Row]*ERow),
+		close:  make(chan struct{}),
+		watch:  make(map[string]int),
 	}
 
 	loopers.WrapLineRune = rune(opt.WrapLineRune)
@@ -80,17 +80,12 @@ func NewEditor(opt *Options) (*Editor, error) {
 		}
 	}
 
-	ui0, err := ui.NewUI()
+	ui0, err := ui.NewUI(ed.events, "Editor")
 	if err != nil {
 		return nil, err
 	}
+	ui0.OnError = ed.Error
 	ed.ui = ui0
-	ed.ui.OnError = ed.Error
-
-	// close editor when the window is deleted
-	ed.ui.EvReg.Add(wmprotocols.DeleteWindowEventId, func(ev0 interface{}) {
-		ed.Close()
-	})
 
 	// setup drop support (files, dirs, ...) from other applications
 	cmdutil.SetupDragNDrop(ed)
@@ -319,26 +314,36 @@ func (ed *Editor) eventLoop() {
 		case <-ed.close:
 			goto forEnd
 
-		case ev, _ := <-ed.ui.Events2:
-			ev2 := ev.(*evreg.EventWrap) // always this type for now
-
-			switch ev2.EventId {
-			case evreg.NoOpEventId:
-				// do nothing, allows to check if paint is needed
-			case evreg.ErrorEventId:
-				err := ev2.Event.(error)
-				if err2, ok := err.(xgb.Error); ok {
-					log.Print(err2)
-				} else {
-					ed.Error(err)
-				}
+		case ev := <-ed.events:
+			switch t := ev.(type) {
+			case error:
+				ed.Error(t)
+			case *event.WindowClose:
+				ed.Close()
 			default:
-				n := ed.ui.EvReg.RunCallbacks(ev2.EventId, ev2.Event)
-				if n == 0 {
-					// unhandled enqueued events (mostly coming from xgb)
-					ed.Errorf("%#v", ev2)
-				}
+				ed.ui.HandleEvent(ev)
 			}
+
+		//case ev, _ := <-ed.ui.Events2:
+		//	ev2 := ev.(*evreg.EventWrap) // always this type for now
+
+		//	switch ev2.EventId {
+		//	case evreg.NoOpEventId:
+		//		// do nothing, allows to check if paint is needed
+		//	case evreg.ErrorEventId:
+		//		err := ev2.Event.(error)
+		//		if err2, ok := err.(xgb.Error); ok {
+		//			log.Print(err2)
+		//		} else {
+		//			ed.Error(err)
+		//		}
+		//	default:
+		//		n := ed.ui.EvReg.RunCallbacks(ev2.EventId, ev2.Event)
+		//		if n == 0 {
+		//			// unhandled enqueued events (mostly coming from xgb)
+		//			ed.Errorf("%#v", ev2)
+		//		}
+		//	}
 
 		case ev, ok := <-ed.fwatcher.Events:
 			if !ok {

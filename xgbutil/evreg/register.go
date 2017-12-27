@@ -5,7 +5,7 @@ import "container/list"
 type Register struct {
 	m map[int]*list.List
 
-	Events chan<- interface{}
+	//Events chan<- interface{}
 }
 
 func NewRegister() *Register {
@@ -55,16 +55,17 @@ func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
 	return c
 }
 
-func (reg *Register) Enqueue(evId int, ev interface{}) {
-	// run inside goroutine to not allow deadlocks
-	//go func() { reg.Events <- &EventWrap{evId, ev} }()
+//func (reg *Register) Enqueue(evId int, ev interface{}) {
+//	// run inside goroutine to not allow deadlocks
+//	//go func() { reg.Events <- &EventWrap{evId, ev} }()
 
-	// ensures call event ordreg if not inside a goroutine
-	reg.Events <- &EventWrap{evId, ev}
-}
-func (reg *Register) EnqueueError(err error) {
-	reg.Enqueue(ErrorEventId, err)
-}
+//	// ensures call event ordreg if not inside a goroutine
+//	reg.Events <- &EventWrap{evId, ev}
+//}
+
+//func (reg *Register) EnqueueError(err error) {
+//	reg.Enqueue(ErrorEventId, err)
+//}
 
 type Callback struct {
 	F func(interface{})
