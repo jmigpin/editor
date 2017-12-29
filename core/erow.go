@@ -66,15 +66,7 @@ func NewERow(ed *Editor, row *ui.Row, tbStr string) *ERow {
 	erow.UpdateState()
 	erow.UpdateDuplicatesState()
 
-	// setup textarea comment string based on file extension
-	cstr := "//"
-	switch filepath.Ext(erow.Filename()) {
-	case ".sh", ".conf", ".list", ".txt":
-		cstr = "#"
-	case ".go", ".c", ".cpp":
-		cstr = "//"
-	}
-	erow.row.TextArea.CommentStr = cstr
+	erow.setupTextAreaCommentString()
 
 	return erow
 }
@@ -481,4 +473,15 @@ func (erow *ERow) Flash() {
 
 		erow.Row().Toolbar.FlashIndexLen(tok.S, tok.E-tok.S)
 	}
+}
+
+func (erow *ERow) setupTextAreaCommentString() {
+	cstr := "//"
+	switch filepath.Ext(erow.Filename()) {
+	case "", ".sh", ".conf", ".list", ".txt":
+		cstr = "#"
+	case ".go", ".c", ".cpp", ".h", ".hpp":
+		cstr = "//"
+	}
+	erow.row.TextArea.CommentStr = cstr
 }
