@@ -22,17 +22,11 @@ const (
 var (
 	SeparatorWidth = 1
 	ScrollbarWidth = 10
-	SquareWidth    = 10
 	ScrollbarLeft  = false
 	ShadowsOn      = true
 	ShadowMaxShade = 0.25
 	ShadowSteps    = 8
 )
-
-func SetScrollbarAndSquareWidth(v int) {
-	ScrollbarWidth = v
-	SquareWidth = v
-}
 
 type UI struct {
 	Layout          Layout

@@ -42,8 +42,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	loopers.WrapLineRune = rune(opt.WrapLineRune)
 	drawutil2.TabWidth = opt.TabWidth
 	ui.ScrollbarLeft = opt.ScrollbarLeft
-
-	ui.SetScrollbarAndSquareWidth(opt.ScrollbarWidth)
+	ui.ScrollbarWidth = opt.ScrollbarWidth
 
 	switch opt.ColorTheme {
 	case "light":

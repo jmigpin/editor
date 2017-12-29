@@ -49,11 +49,6 @@ func (fb *FloatBox) CalcChildsBounds() {
 	child.CalcChildsBounds()
 }
 
-func (fb *FloatBox) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	// true=handled, don't let other layers get the event. This behavior can be overriden by parent nodes.
-	return true
-}
-
 func (fb *FloatBox) ShowCalcMark(v bool) {
 	hide := !v
 	if hide {

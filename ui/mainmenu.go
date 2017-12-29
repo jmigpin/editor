@@ -80,3 +80,7 @@ func (fm *FloatMenu) CalcChildsBounds() {
 	fm.RefPoint = image.Point{b.Min.X, b.Max.Y}
 	fm.FloatBox.CalcChildsBounds()
 }
+func (fm *FloatMenu) OnInputEvent(ev0 interface{}, p image.Point) bool {
+	// don't let other layers get the event
+	return true
+}
