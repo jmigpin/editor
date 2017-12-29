@@ -2,17 +2,17 @@ package loopers
 
 import "image/color"
 
-type SetColorsLooper struct {
+type SetColors struct {
 	EmbedLooper
-	dl     *DrawLooper
-	bgl    *BgLooper
+	dl     *Draw
+	bgl    *Bg
 	Fg, Bg color.Color
 }
 
-func NewSetColorsLooper(dl *DrawLooper, bgl *BgLooper) *SetColorsLooper {
-	return &SetColorsLooper{dl: dl, bgl: bgl}
+func NewSetColors(dl *Draw, bgl *Bg) *SetColors {
+	return &SetColors{dl: dl, bgl: bgl}
 }
-func (lpr *SetColorsLooper) Loop(fn func() bool) {
+func (lpr *SetColors) Loop(fn func() bool) {
 	// also set if the string is empty, other loopers might need the colors
 	lpr.dl.Fg = lpr.Fg
 	lpr.bgl.Bg = lpr.Bg

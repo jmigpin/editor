@@ -2,16 +2,16 @@ package loopers
 
 import "golang.org/x/image/math/fixed"
 
-type LineLooper struct {
+type Line struct {
 	EmbedLooper
-	strl    *StringLooper
+	strl    *String
 	offsetX fixed.Int26_6
 }
 
-func MakeLineLooper(strl *StringLooper, offsetX fixed.Int26_6) LineLooper {
-	return LineLooper{strl: strl, offsetX: offsetX}
+func MakeLine(strl *String, offsetX fixed.Int26_6) Line {
+	return Line{strl: strl, offsetX: offsetX}
 }
-func (lpr *LineLooper) Loop(fn func() bool) {
+func (lpr *Line) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		if lpr.strl.RiClone {
 			return fn()
@@ -25,7 +25,7 @@ func (lpr *LineLooper) Loop(fn func() bool) {
 		return true
 	})
 }
-func (lpr *LineLooper) NewLine() {
+func (lpr *Line) NewLine() {
 	lpr.strl.Pen.X = -lpr.offsetX
 	lpr.strl.Pen.Y += lpr.strl.LineHeight()
 	lpr.strl.PrevRu = 0

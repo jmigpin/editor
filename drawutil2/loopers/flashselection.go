@@ -2,18 +2,18 @@ package loopers
 
 import "github.com/jmigpin/editor/imageutil"
 
-type FlashSelectionLooper struct {
+type FlashSelection struct {
 	EmbedLooper
-	strl      *StringLooper
-	bgl       *BgLooper
-	dl        *DrawLooper
+	strl      *String
+	bgl       *Bg
+	dl        *Draw
 	Selection *FlashSelectionIndexes
 }
 
-func NewFlashSelectionLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) *FlashSelectionLooper {
-	return &FlashSelectionLooper{strl: strl, bgl: bgl, dl: dl}
+func NewFlashSelection(strl *String, bgl *Bg, dl *Draw) *FlashSelection {
+	return &FlashSelection{strl: strl, bgl: bgl, dl: dl}
 }
-func (lpr *FlashSelectionLooper) Loop(fn func() bool) {
+func (lpr *FlashSelection) Loop(fn func() bool) {
 	if lpr.Selection == nil {
 		lpr.OuterLooper().Loop(fn)
 		return

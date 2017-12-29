@@ -7,24 +7,22 @@ import (
 )
 
 // Cached Position Data looper with getpoint/getindex.
-type PosDataLooper struct {
+type PosData struct {
 	EmbedLooper
-	strl    *StringLooper
+	strl    *String
 	keepers []PosDataKeeper
 	Jump    int
-	data    []*PosData
+	data    []*PosDataData
 }
 
-func MakePosDataLooper() PosDataLooper {
-	return PosDataLooper{Jump: 250}
+func MakePosData() PosData {
+	return PosData{Jump: 250}
 }
-func (pdl *PosDataLooper) Setup(strl *StringLooper, keepers []PosDataKeeper) {
+func (pdl *PosData) Setup(strl *String, keepers []PosDataKeeper) {
 	pdl.strl = strl
 	pdl.keepers = keepers
 }
-func (pdl *PosDataLooper) Loop(fn func() bool) {
-	pdl.data = []*PosData{}
-
+func (pdl *PosData) Loop(fn func() bool) {
 	// keep values of first iteration, if string empty it's ok to not keep anything
 	count := 0
 	pdl.OuterLooper().Loop(func() bool {
@@ -39,37 +37,37 @@ func (pdl *PosDataLooper) Loop(fn func() bool) {
 	})
 }
 
-func (pdl *PosDataLooper) keep() {
+func (pdl *PosData) keep() {
 	kd := make([]interface{}, len(pdl.keepers))
 	for i, k := range pdl.keepers {
 		kd[i] = k.KeepPosData()
 	}
-	pd := &PosData{
+	pd := &PosDataData{
 		ri:            pdl.strl.Ri,
 		penBoundsMaxY: pdl.strl.LineY1(),
 		keepersData:   kd,
 	}
 	pdl.data = append(pdl.data, pd)
 }
-func (pdl *PosDataLooper) restore(pd *PosData) {
+func (pdl *PosData) restore(pd *PosDataData) {
 	for i, kd := range pd.keepersData {
 		pdl.keepers[i].RestorePosData(kd)
 	}
 }
 
-func (pdl *PosDataLooper) RestorePosDataCloseToIndex(index int) {
+func (pdl *PosData) RestorePosDataCloseToIndex(index int) {
 	pd, ok := pdl.PosDataCloseToIndex(index)
 	if ok {
 		pdl.restore(pd)
 	}
 }
-func (pdl *PosDataLooper) RestorePosDataCloseToPoint(p *fixed.Point26_6) {
+func (pdl *PosData) RestorePosDataCloseToPoint(p *fixed.Point26_6) {
 	pd, ok := pdl.PosDataCloseToPoint(p)
 	if ok {
 		pdl.restore(pd)
 	}
 }
-func (pdl *PosDataLooper) PosDataCloseToIndex(index int) (*PosData, bool) {
+func (pdl *PosData) PosDataCloseToIndex(index int) (*PosDataData, bool) {
 	n := len(pdl.data)
 	if n == 0 {
 		return nil, false
@@ -83,7 +81,7 @@ func (pdl *PosDataLooper) PosDataCloseToIndex(index int) (*PosData, bool) {
 	}
 	return pdl.data[j], true
 }
-func (pdl *PosDataLooper) PosDataCloseToPoint(p *fixed.Point26_6) (*PosData, bool) {
+func (pdl *PosData) PosDataCloseToPoint(p *fixed.Point26_6) (*PosDataData, bool) {
 	n := len(pdl.data)
 	if n == 0 {
 		return nil, false
@@ -101,7 +99,7 @@ func (pdl *PosDataLooper) PosDataCloseToPoint(p *fixed.Point26_6) (*PosData, boo
 	return pdl.data[j], true
 }
 
-func (pdl *PosDataLooper) GetPoint(index int) *fixed.Point26_6 {
+func (pdl *PosData) GetPoint(index int) *fixed.Point26_6 {
 	strl := pdl.strl
 	pdl.OuterLooper().Loop(func() bool {
 		if strl.RiClone {
@@ -115,7 +113,7 @@ func (pdl *PosDataLooper) GetPoint(index int) *fixed.Point26_6 {
 	pb := strl.PenBounds()
 	return &pb.Min
 }
-func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6) int {
+func (pdl *PosData) GetIndex(p *fixed.Point26_6) int {
 	strl := pdl.strl
 
 	found := false
@@ -181,7 +179,7 @@ func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6) int {
 	return len(strl.Str)
 }
 
-func (pdl *PosDataLooper) Update() {
+func (pdl *PosData) Update() {
 	for _, pd := range pdl.data {
 		pdl.restore(pd)
 		for _, k := range pdl.keepers {
@@ -197,7 +195,7 @@ type PosDataKeeper interface {
 	UpdatePosData()
 }
 
-type PosData struct {
+type PosDataData struct {
 	ri            int
 	penBoundsMaxY fixed.Int26_6
 	keepersData   []interface{}

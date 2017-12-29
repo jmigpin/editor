@@ -11,7 +11,7 @@ import (
 // glyph metrics
 // https://developer.apple.com/library/content/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png
 
-type StringLooper struct {
+type String struct {
 	EmbedLooper
 
 	Face    font.Face
@@ -29,14 +29,14 @@ type StringLooper struct {
 	Metrics font.Metrics
 }
 
-func MakeStringLooper(face font.Face, str string) StringLooper {
-	return StringLooper{
+func MakeString(face font.Face, str string) String {
+	return String{
 		Face:    face,
 		Str:     str,
 		Metrics: face.Metrics(),
 	}
 }
-func (lpr *StringLooper) Loop(fn func() bool) {
+func (lpr *String) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		if lpr.Ri >= len(lpr.Str) {
 			return false
@@ -51,7 +51,7 @@ func (lpr *StringLooper) Loop(fn func() bool) {
 		return true
 	})
 }
-func (lpr *StringLooper) Iterate(fn func() bool) bool {
+func (lpr *String) Iterate(fn func() bool) bool {
 	lpr.AddKern()
 	lpr.CalcAdvance()
 	if ok := fn(); !ok {
@@ -61,11 +61,11 @@ func (lpr *StringLooper) Iterate(fn func() bool) bool {
 	lpr.Pen.X = lpr.PenXAdvance()
 	return true
 }
-func (lpr *StringLooper) AddKern() {
+func (lpr *String) AddKern() {
 	lpr.Kern = lpr.Face.Kern(lpr.PrevRu, lpr.Ru)
 	lpr.Pen.X += lpr.Kern
 }
-func (lpr *StringLooper) CalcAdvance() bool {
+func (lpr *String) CalcAdvance() bool {
 	adv, ok := lpr.Face.GlyphAdvance(lpr.Ru)
 	if !ok {
 		lpr.Advance = 0
@@ -74,10 +74,10 @@ func (lpr *StringLooper) CalcAdvance() bool {
 	lpr.Advance = adv
 	return true
 }
-func (lpr *StringLooper) PenXAdvance() fixed.Int26_6 {
+func (lpr *String) PenXAdvance() fixed.Int26_6 {
 	return lpr.Pen.X + lpr.Advance
 }
-func (lpr *StringLooper) PenBounds() *fixed.Rectangle26_6 {
+func (lpr *String) PenBounds() *fixed.Rectangle26_6 {
 	var r fixed.Rectangle26_6
 	r.Min.X = lpr.Pen.X
 	r.Max.X = lpr.PenXAdvance()
@@ -85,7 +85,7 @@ func (lpr *StringLooper) PenBounds() *fixed.Rectangle26_6 {
 	r.Max.Y = lpr.LineY1()
 	return &r
 }
-func (lpr *StringLooper) PenBoundsForImage() *image.Rectangle {
+func (lpr *String) PenBoundsForImage() *image.Rectangle {
 	pb := lpr.PenBounds()
 
 	// both min and max should use the same function (floor/ceil/round) because while the first rune uses ceil on max, if the next rune uses floor on min it will overwrite the previous rune on one pixel. This is noticeable in painting backgrounds.
@@ -96,24 +96,24 @@ func (lpr *StringLooper) PenBoundsForImage() *image.Rectangle {
 	return &r
 }
 
-func (lpr *StringLooper) Baseline() fixed.Int26_6 {
+func (lpr *String) Baseline() fixed.Int26_6 {
 	return lpr.Metrics.Ascent
 }
-func (lpr *StringLooper) LineHeight() fixed.Int26_6 {
+func (lpr *String) LineHeight() fixed.Int26_6 {
 	lh := lpr.Baseline() + lpr.Metrics.Descent
 	// line height needs to be aligned with an int to have predictable line positions to be used in calculations.
 	return fixed.I(lh.Ceil())
 }
-func (lpr *StringLooper) LineY0() fixed.Int26_6 {
+func (lpr *String) LineY0() fixed.Int26_6 {
 	return lpr.Pen.Y
 }
-func (lpr *StringLooper) LineY1() fixed.Int26_6 {
+func (lpr *String) LineY1() fixed.Int26_6 {
 	return lpr.LineY0() + lpr.LineHeight()
 }
 
 // Implements PosDataKeeper
-func (lpr *StringLooper) KeepPosData() interface{} {
-	d := &StringLooperData{
+func (lpr *String) KeepPosData() interface{} {
+	d := &StringData{
 		Ri:     lpr.Ri,
 		PrevRu: lpr.PrevRu,
 		Pen:    lpr.Pen,
@@ -122,18 +122,18 @@ func (lpr *StringLooper) KeepPosData() interface{} {
 }
 
 // Implements PosDataKeeper
-func (lpr *StringLooper) RestorePosData(data interface{}) {
-	d := data.(*StringLooperData)
+func (lpr *String) RestorePosData(data interface{}) {
+	d := data.(*StringData)
 	lpr.Ri = d.Ri
 	lpr.PrevRu = d.PrevRu
 	lpr.Pen = d.Pen
 }
 
 // Implements PosDataKeeper
-func (lpr *StringLooper) UpdatePosData() {
+func (lpr *String) UpdatePosData() {
 }
 
-type StringLooperData struct {
+type StringData struct {
 	Ri     int
 	PrevRu rune
 	Pen    fixed.Point26_6

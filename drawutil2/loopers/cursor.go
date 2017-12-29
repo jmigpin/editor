@@ -6,18 +6,18 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 )
 
-type CursorLooper struct {
+type Cursor struct {
 	EmbedLooper
-	strl        *StringLooper
-	dl          *DrawLooper
+	strl        *String
+	dl          *Draw
 	bounds      *image.Rectangle
 	CursorIndex *int
 }
 
-func NewCursorLooper(strl *StringLooper, dl *DrawLooper, bounds *image.Rectangle) *CursorLooper {
-	return &CursorLooper{strl: strl, dl: dl, bounds: bounds}
+func NewCursor(strl *String, dl *Draw, bounds *image.Rectangle) *Cursor {
+	return &Cursor{strl: strl, dl: dl, bounds: bounds}
 }
-func (lpr *CursorLooper) Loop(fn func() bool) {
+func (lpr *Cursor) Loop(fn func() bool) {
 	if lpr.CursorIndex == nil {
 		lpr.OuterLooper().Loop(fn)
 		return
@@ -37,7 +37,7 @@ func (lpr *CursorLooper) Loop(fn func() bool) {
 		lpr.drawCursor()
 	}
 }
-func (lpr *CursorLooper) drawCursor() {
+func (lpr *Cursor) drawCursor() {
 	img := lpr.dl.Image
 	bounds := lpr.dl.Bounds
 

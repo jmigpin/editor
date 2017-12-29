@@ -2,19 +2,19 @@ package loopers
 
 import "image/color"
 
-type SelectionLooper struct {
+type Selection struct {
 	EmbedLooper
-	strl      *StringLooper
-	bgl       *BgLooper
-	dl        *DrawLooper
+	strl      *String
+	bgl       *Bg
+	dl        *Draw
 	Selection *SelectionIndexes
 	Fg, Bg    color.Color
 }
 
-func MakeSelectionLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) SelectionLooper {
-	return SelectionLooper{strl: strl, bgl: bgl, dl: dl}
+func MakeSelection(strl *String, bgl *Bg, dl *Draw) Selection {
+	return Selection{strl: strl, bgl: bgl, dl: dl}
 }
-func (lpr *SelectionLooper) Loop(fn func() bool) {
+func (lpr *Selection) Loop(fn func() bool) {
 	if lpr.Selection == nil {
 		lpr.OuterLooper().Loop(fn)
 		return
@@ -30,7 +30,7 @@ func (lpr *SelectionLooper) Loop(fn func() bool) {
 		return fn()
 	})
 }
-func (lpr *SelectionLooper) colorize() bool {
+func (lpr *Selection) colorize() bool {
 	sl := lpr.Selection
 	s, e := sl.Start, sl.End
 	if s > e {

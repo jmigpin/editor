@@ -4,16 +4,16 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-type EarlyExitLooper struct {
+type EarlyExit struct {
 	EmbedLooper
-	strl *StringLooper
+	strl *String
 	maxY fixed.Int26_6
 }
 
-func MakeEarlyExitLooper(strl *StringLooper, maxY fixed.Int26_6) EarlyExitLooper {
-	return EarlyExitLooper{strl: strl, maxY: maxY}
+func MakeEarlyExit(strl *String, maxY fixed.Int26_6) EarlyExit {
+	return EarlyExit{strl: strl, maxY: maxY}
 }
-func (lpr *EarlyExitLooper) Loop(fn func() bool) {
+func (lpr *EarlyExit) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		// early exit
 		minY := lpr.strl.LineY0()

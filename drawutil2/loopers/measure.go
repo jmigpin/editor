@@ -4,16 +4,16 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-type MeasureLooper struct {
+type Measure struct {
 	EmbedLooper
-	strl *StringLooper
+	strl *String
 	M    fixed.Point26_6
 }
 
-func NewMeasureLooper(strl *StringLooper) *MeasureLooper {
-	return &MeasureLooper{strl: strl}
+func NewMeasure(strl *String) *Measure {
+	return &Measure{strl: strl}
 }
-func (lpr *MeasureLooper) Loop(fn func() bool) {
+func (lpr *Measure) Loop(fn func() bool) {
 	var m fixed.Point26_6
 	lpr.OuterLooper().Loop(func() bool {
 		penXAdv := lpr.strl.PenXAdvance()

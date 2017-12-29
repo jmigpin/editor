@@ -8,18 +8,18 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 )
 
-type DrawLooper struct {
+type Draw struct {
 	EmbedLooper
-	strl   *StringLooper
+	strl   *String
 	Fg     color.Color
 	Image  draw.Image
 	Bounds *image.Rectangle
 }
 
-func MakeDrawLooper(strl *StringLooper, image draw.Image, bounds *image.Rectangle) DrawLooper {
-	return DrawLooper{strl: strl, Image: image, Bounds: bounds}
+func MakeDraw(strl *String, image draw.Image, bounds *image.Rectangle) Draw {
+	return Draw{strl: strl, Image: image, Bounds: bounds}
 }
-func (lpr *DrawLooper) Loop(fn func() bool) {
+func (lpr *Draw) Loop(fn func() bool) {
 	bounds := lpr.Bounds
 	strl := lpr.strl
 	img := lpr.Image

@@ -8,21 +8,21 @@ import (
 
 var WrapLineRune = rune(0) // positioned at the start of wrapped line (left)
 
-type WrapLineLooper struct {
+type WrapLine struct {
 	EmbedLooper
-	strl  *StringLooper
-	linei *LineLooper
+	strl  *String
+	linei *Line
 	MaxX  fixed.Int26_6
 
-	state int // states used by WrapLineColorLooper
+	state int // states used by WrapLineColor
 
 	data WrapLine2Data // positional data for keep/restore
 }
 
-func MakeWrapLineLooper(strl *StringLooper, linei *LineLooper, maxX fixed.Int26_6) WrapLineLooper {
-	return WrapLineLooper{strl: strl, linei: linei, MaxX: maxX}
+func MakeWrapLine(strl *String, linei *Line, maxX fixed.Int26_6) WrapLine {
+	return WrapLine{strl: strl, linei: linei, MaxX: maxX}
 }
-func (lpr *WrapLineLooper) Loop(fn func() bool) {
+func (lpr *WrapLine) Loop(fn func() bool) {
 	wlrAdv := lpr.wrapLineRuneAdvance(WrapLineRune)
 
 	// wrap line margin-to-border minimum
@@ -123,7 +123,7 @@ func (lpr *WrapLineLooper) Loop(fn func() bool) {
 		return true
 	})
 }
-func (lpr *WrapLineLooper) wrapLineRuneAdvance(ru rune) fixed.Int26_6 {
+func (lpr *WrapLine) wrapLineRuneAdvance(ru rune) fixed.Int26_6 {
 	if ru == 0 {
 		return 0
 	}
@@ -148,17 +148,17 @@ func (lpr *WrapLineLooper) wrapLineRuneAdvance(ru rune) fixed.Int26_6 {
 }
 
 // Implements PosDataKeeper
-func (lpr *WrapLineLooper) KeepPosData() interface{} {
+func (lpr *WrapLine) KeepPosData() interface{} {
 	return lpr.data
 }
 
 // Implements PosDataKeeper
-func (lpr *WrapLineLooper) RestorePosData(data interface{}) {
+func (lpr *WrapLine) RestorePosData(data interface{}) {
 	lpr.data = data.(WrapLine2Data)
 }
 
 // Implements PosDataKeeper
-func (lpr *WrapLineLooper) UpdatePosData() {
+func (lpr *WrapLine) UpdatePosData() {
 }
 
 type WrapLine2Data struct {

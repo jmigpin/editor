@@ -6,18 +6,18 @@ import (
 	"github.com/jmigpin/editor/imageutil"
 )
 
-type BgLooper struct {
+type Bg struct {
 	EmbedLooper
-	strl         *StringLooper
-	dl           *DrawLooper
+	strl         *String
+	dl           *Draw
 	Bg           color.Color
 	NoColorizeBg color.Color // colorize only if different from this
 }
 
-func MakeBgLooper(strl *StringLooper, dl *DrawLooper) BgLooper {
-	return BgLooper{strl: strl, dl: dl}
+func MakeBg(strl *String, dl *Draw) Bg {
+	return Bg{strl: strl, dl: dl}
 }
-func (lpr *BgLooper) Loop(fn func() bool) {
+func (lpr *Bg) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		if lpr.Bg != lpr.NoColorizeBg {
 			pb := lpr.strl.PenBoundsForImage()

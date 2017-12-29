@@ -13,9 +13,9 @@ import (
 
 func Measure(face font.Face, str string, max image.Point) image.Point {
 	start := &loopers.EmbedLooper{}
-	strl := loopers.MakeStringLooper(face, str)
-	linel := loopers.MakeLineLooper(&strl, 0)
-	ml := loopers.NewMeasureLooper(&strl)
+	strl := loopers.MakeString(face, str)
+	linel := loopers.MakeLine(&strl, 0)
+	ml := loopers.NewMeasure(&strl)
 
 	// iterator order
 	strl.SetOuterLooper(start)
@@ -41,10 +41,10 @@ func Draw(img draw.Image, face font.Face, str string, bounds *image.Rectangle, f
 	fmax := fixed.P(max.X, max.Y)
 
 	start := &loopers.EmbedLooper{}
-	strl := loopers.MakeStringLooper(face, str)
-	linel := loopers.MakeLineLooper(&strl, 0)
-	dl := loopers.MakeDrawLooper(&strl, img, bounds)
-	eel := loopers.MakeEarlyExitLooper(&strl, fmax.Y)
+	strl := loopers.MakeString(face, str)
+	linel := loopers.MakeLine(&strl, 0)
+	dl := loopers.MakeDraw(&strl, img, bounds)
+	eel := loopers.MakeEarlyExit(&strl, fmax.Y)
 
 	dl.Fg = fg
 
