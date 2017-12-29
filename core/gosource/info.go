@@ -9,6 +9,7 @@ import (
 	"go/types"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -18,7 +19,7 @@ type Info struct {
 	Info       types.Info
 	Conf       types.Config
 	Pkgs       map[string]*types.Package // if present, means imported
-	Importable map[string]bool
+	Importable map[string]struct{}
 	Parents    map[ast.Node]ast.Node
 
 	astFiles   map[string]*ast.File
@@ -39,7 +40,7 @@ func NewInfo() *Info {
 			Scopes:     make(map[ast.Node]*types.Scope),
 		},
 		Pkgs:           make(map[string]*types.Package),
-		Importable:     make(map[string]bool),
+		Importable:     make(map[string]struct{}),
 		Parents:        make(map[ast.Node]ast.Node),
 		astFiles:       make(map[string]*ast.File),
 		extraPathFiles: make(map[string]map[string]bool),
@@ -53,6 +54,71 @@ func NewInfo() *Info {
 	}
 
 	return info
+}
+
+func (info *Info) GetIdDecl(id *ast.Ident) ast.Node {
+	Logf("%v", id)
+
+	// solved by the parser
+	if id.Obj != nil {
+		if n, ok := id.Obj.Decl.(ast.Node); ok {
+			Logf("in parser")
+			return n
+		}
+		Logf("TODO 1")
+		Dump(id.Obj)
+	}
+
+	// solved in info.uses
+	obj := info.Info.Uses[id]
+	if obj != nil {
+		pos := obj.Pos()
+		if pos.IsValid() {
+			Logf("in uses")
+			return info.PosNode(pos)
+		}
+
+		// builtin package
+		if !pos.IsValid() {
+			b := "builtin"
+			info.Importable[b] = struct{}{}
+			pkg, _ := info.PackageImporter(b, "", 0)
+			obj2 := pkg.Scope().Lookup(id.Name)
+			if obj2 != nil {
+				Logf("in builtin")
+				return info.PosNode(obj2.Pos())
+			}
+		}
+	}
+
+	// solved in info.defs
+	obj = info.Info.Defs[id]
+	if obj != nil {
+		Logf("in defs")
+		return id
+	}
+
+	Logf("not found")
+	return nil
+}
+
+func (info *Info) MakeImportSpecImportableAndConfCheck(imp *ast.ImportSpec) {
+	path2 := info.ImportSpecPath(imp)
+	if _, ok := info.Importable[path2]; !ok {
+		Logf("%v", imp.Path)
+		// make path importable
+		info.Importable[path2] = struct{}{}
+		// re-confcheck
+		info.ReConfCheckImportables()
+	}
+}
+func (info *Info) ImportSpecImported(imp *ast.ImportSpec) bool {
+	path := info.ImportSpecPath(imp)
+	return info.Pkgs[path] != nil
+}
+func (info *Info) ImportSpecPath(imp *ast.ImportSpec) string {
+	path, _ := strconv.Unquote(imp.Path.Value)
+	return path
 }
 
 func (info *Info) AddPathFile(filename string) string {
@@ -81,8 +147,16 @@ func (info *Info) FullFilename(filename string) string {
 	return filename
 }
 
+func (info *Info) SafeOffsetPos(tf *token.File, offset int) token.Pos {
+	// avoid panic from a bad offset
+	if offset > tf.Size() {
+		return token.NoPos
+	}
+	return tf.Pos(offset)
+}
+
 func (info *Info) PosNode(pos token.Pos) ast.Node {
-	if pos == token.NoPos {
+	if !pos.IsValid() {
 		Logf("no pos")
 		return nil
 	}
@@ -213,7 +287,7 @@ func (info *Info) removeSrcDirPrefix(path string) string {
 }
 
 func (info *Info) PackageImporter(path, dir string, mode types.ImportMode) (*types.Package, error) {
-	if !info.Importable[path] {
+	if _, ok := info.Importable[path]; !ok {
 		return nil, fmt.Errorf("not importable")
 	}
 	pkg, ok := info.Pkgs[path]
@@ -221,17 +295,28 @@ func (info *Info) PackageImporter(path, dir string, mode types.ImportMode) (*typ
 		return pkg, nil
 	}
 	//Logf("importing path %q", path)
-	pkg, _ = info.ConfCheckPath(path, dir, build.ImportMode(mode))
+	pkg, _ = info.ConfCheckPathDir(path, dir, build.ImportMode(mode))
 	info.Pkgs[path] = pkg
 	Logf("imported: %v", pkg)
 	return pkg, nil
 }
 
-func (info *Info) ConfCheckPath(path, dir string, mode build.ImportMode) (*types.Package, error) {
+func (info *Info) ReConfCheckImportables() {
+	// clear cached pkgs
+	info.Pkgs = make(map[string]*types.Package)
+	// conf check importable paths
+	for p, _ := range info.Importable {
+		if info.Pkgs[p] == nil {
+			_, _ = info.ConfCheckPath(p) // will fill info.Pkgs through the importer
+		}
+	}
+}
+
+func (info *Info) ConfCheckPath(path string) (*types.Package, error) {
+	return info.ConfCheckPathDir(path, "", 0)
+}
+func (info *Info) ConfCheckPathDir(path, dir string, mode build.ImportMode) (*types.Package, error) {
 	filenames := info.PathFilenames(path, dir, mode)
-	//for _, f := range filenames {
-	//	Logf("%v", f)
-	//}
 	files := info.AstFiles(filenames)
 	return info.ConfCheckFiles(path, files)
 }

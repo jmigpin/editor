@@ -2,10 +2,7 @@ package gosource
 
 import (
 	"go/ast"
-	"go/token"
-	"go/types"
 	"reflect"
-	"strconv"
 )
 
 type Resolver struct {
@@ -24,10 +21,10 @@ func NewResolver(info *Info, mainPath string, checkerNode ast.Node) *Resolver {
 	}
 
 	// make path importable (imports other files on the same path)
-	info.Importable[res.mainPath] = true
+	info.Importable[res.mainPath] = struct{}{}
 
 	// first confcheck without extra imports
-	res.info.ConfCheckPath(res.mainPath, "", 0)
+	res.info.ConfCheckPath(res.mainPath)
 
 	// preemptively help the checker
 	if checkerNode != nil {
@@ -50,7 +47,7 @@ func (res *Resolver) ResolveDecl(node ast.Node) ast.Node {
 
 	switch t := node.(type) {
 	case *ast.Ident:
-		if n := res.GetIdDecl(t); n != nil {
+		if n := res.info.GetIdDecl(t); n != nil {
 			return n
 		}
 		if pn, ok := res.info.NodeParent(t); ok {
@@ -66,14 +63,12 @@ func (res *Resolver) ResolveDecl(node ast.Node) ast.Node {
 					_ = res.ResolveType(t2.Results.List[0])
 				}
 			}
-			if n := res.GetIdDecl(t.Sel); n != nil {
+			if n := res.info.GetIdDecl(t.Sel); n != nil {
 				return n
 			}
 		}
 	default:
-		_ = t
-		Logf("TODO")
-		Dump(node)
+		LogTODO(node)
 	}
 
 	Logf("not solved (%v)", reflect.TypeOf(node))
@@ -112,18 +107,13 @@ func (res *Resolver) ResolveType(node ast.Node) ast.Node {
 				if rhsn != nil && lhsi >= 0 {
 					if n := res.ResolveType(rhsn); n != nil {
 						switch t3 := n.(type) {
-						case *ast.StructType:
-							return t3
-						case *ast.InterfaceType:
-							return t3
 						case *ast.FuncType:
 							if t3.Results != nil && lhsi < len(t3.Results.List) {
 								return res.ResolveType(t3.Results.List[lhsi])
 							}
 						default:
-							Logf("TODO id AssignStmt")
-							Dump(lhsi)
-							Dump(n)
+							//LogTODO(lhsi, t3)
+							return n
 						}
 					}
 				}
@@ -136,8 +126,8 @@ func (res *Resolver) ResolveType(node ast.Node) ast.Node {
 			return res.ResolveType(pn)
 		}
 	case *ast.ImportSpec:
-		res.makeImportSpecImportableAndConfCheck(t)
-		if res.importSpecImported(t) {
+		res.info.MakeImportSpecImportableAndConfCheck(t)
+		if res.info.ImportSpecImported(t) {
 			return t
 		}
 	case *ast.SelectorExpr:
@@ -161,12 +151,17 @@ func (res *Resolver) ResolveType(node ast.Node) ast.Node {
 	case *ast.Field:
 		return res.ResolveType(t.Type)
 	case *ast.TypeSpec:
-		return res.ResolveType(t.Type)
-	case *ast.StructType:
-		res.resolveAnonFieldsTypes(t.Fields)
-		return t
-	case *ast.InterfaceType:
-		res.resolveAnonFieldsTypes(t.Methods)
+		switch t2 := t.Type.(type) {
+		case *ast.StructType:
+			res.resolveAnonFieldsTypes(t2.Fields)
+		case *ast.InterfaceType:
+			res.resolveAnonFieldsTypes(t2.Methods)
+		case *ast.Ident:
+			// Ex: "type A B", resolving B here, but returning it
+			_ = res.ResolveType(t2)
+		default:
+			LogTODO(t2)
+		}
 		return t
 	case *ast.ValueSpec:
 		if t.Type == nil {
@@ -210,71 +205,10 @@ func (res *Resolver) ResolveType(node ast.Node) ast.Node {
 	case *ast.ArrayType:
 		return res.ResolveType(t.Elt)
 	default:
-		_ = t
-		Logf("TODO")
-		Dump(node)
+		LogTODO(node)
 	}
 
 	Logf("not solved (%v)", reflect.TypeOf(node))
-	return nil
-}
-
-func (res *Resolver) GetIdDecl(id *ast.Ident) ast.Node {
-	Logf("%v", id)
-
-	// solved by the parser
-	if id.Obj != nil {
-		if n, ok := id.Obj.Decl.(ast.Node); ok {
-			Logf("in parser")
-			return n
-		}
-		Logf("TODO 1")
-		Dump(id.Obj)
-	}
-
-	// solved in info.uses
-	obj := res.info.Info.Uses[id]
-	if obj != nil {
-		pos := obj.Pos()
-		if pos != token.NoPos {
-			Logf("in uses")
-			return res.info.PosNode(pos)
-		}
-		// builtin package
-		if pos == token.NoPos {
-			b := "builtin"
-			res.info.Importable[b] = true
-			pkg, _ := res.info.PackageImporter(b, "", 0)
-			obj2 := pkg.Scope().Lookup(id.Name)
-			if obj2 != nil {
-				return res.info.PosNode(obj2.Pos())
-			}
-		}
-	}
-
-	// solved in info.defs
-	obj = res.info.Info.Defs[id]
-	if obj != nil {
-		Logf("in defs")
-		return id
-	}
-
-	// can't use: not correct for some cases
-	//// search in scopes
-	//astFile := res.info.PosAstFile(id.Pos())
-	//s1, ok := res.info.Info.Scopes[astFile]
-	//if ok {
-	//	s := s1.Innermost(id.Pos())
-	//	if s != nil {
-	//		_, obj := s.LookupParent(id.Name, id.Pos())
-	//		if obj != nil {
-	//			Logf("in scopes")
-	//			return res.info.PosNode(obj.Pos())
-	//		}
-	//	}
-	//}
-
-	Logf("not found")
 	return nil
 }
 
@@ -304,8 +238,7 @@ func (res *Resolver) resolveCertainPathNodeTypesToHelpChecker(node ast.Node) {
 				Logf("typeswitchstmtexpr %v %v", node, t2)
 				_ = res.ResolveType(t2)
 			default:
-				Logf("TODO 1")
-				Dump(n2)
+				LogTODO(n2)
 			}
 
 		case *ast.TypeAssertExpr:
@@ -338,27 +271,6 @@ func (res *Resolver) getSelectorExprType(se *ast.SelectorExpr) ast.Node {
 	}
 	Logf("not found")
 	return nil
-}
-
-func (res *Resolver) makeImportSpecImportableAndConfCheck(imp *ast.ImportSpec) {
-	path := res.importSpecPath(imp)
-	if _, ok := res.info.Importable[path]; !ok {
-		Logf("%v", imp.Path)
-		// make path importable
-		res.info.Importable[path] = true
-		// reset imported paths to clear cached pkgs
-		res.info.Pkgs = make(map[string]*types.Package)
-		// check main path that will now re-import available importables
-		_, _ = res.info.ConfCheckPath(res.mainPath, "", 0)
-	}
-}
-func (res *Resolver) importSpecImported(imp *ast.ImportSpec) bool {
-	path := res.importSpecPath(imp)
-	return res.info.Pkgs[path] != nil
-}
-func (res *Resolver) importSpecPath(imp *ast.ImportSpec) string {
-	path, _ := strconv.Unquote(imp.Path.Value)
-	return path
 }
 
 func (res *Resolver) IdAssignStmtRhs(id *ast.Ident, as *ast.AssignStmt) (int, ast.Node) {

@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 
+	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
 )
 
@@ -26,8 +27,20 @@ func NewContextFloatBox(l *Layout) *ContextFloatBox {
 	cfb.Label.Border.Set(1)
 	cfb.Label.Border.Color = &TextAreaColors.Normal.Fg
 
+	//scrollArea := widget.NewScrollArea(l.UI, cfb.Label)
+	////scrollArea.SetExpand(true, true)
+	//scrollArea.LeftScroll = ScrollbarLeft
+	//scrollArea.ScrollWidth = ScrollbarWidth
+	//scrollArea.VBar.Color = &ScrollbarBgColor
+	//scrollArea.VBar.Handle.Color = &ScrollbarFgColor
+
+	//border := widget.NewPad(l.UI, scrollArea)
+	//border.Set(1)
+	//border.Color = &TextAreaColors.Normal.Fg
+
 	// shadow
 	var container widget.Node = cfb.Label
+	//var container widget.Node = border
 	if ShadowsOn {
 		shadow := widget.NewShadow(l.UI, container)
 		shadow.Bottom = ShadowSteps
@@ -47,7 +60,12 @@ func (cfb *ContextFloatBox) SetStr(s string) {
 	cfb.Label.Text.Str = s
 }
 
-func (cfb *ContextFloatBox) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	// let lower layers get events
-	return false
+func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) bool {
+	switch ev.(type) {
+	case *event.KeyUp,
+		*event.KeyDown:
+		// let lower layers get events
+		return false
+	}
+	return true
 }

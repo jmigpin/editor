@@ -47,10 +47,9 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 	index, str := ta.CursorIndex(), ""
 	switch filepath.Ext(erow.Filename()) {
 	case ".go":
-		index2, str2, err := codeCompletion(erow)
-		if err != nil {
-			//log.Print(err)
-		} else {
+		ta := erow.Row().TextArea
+		index2, str2, err := gosource.CodeCompletion(erow.Filename(), ta.Str(), ta.CursorIndex())
+		if err == nil {
 			index = index2
 			str = str2
 		}
@@ -63,16 +62,6 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 	cfb.RefPoint = p2
 
 	// set string and unhide
-	cfb.SetStr("**TODO/TESTING**\n" + str)
+	cfb.SetStr(str)
 	cfb.ShowCalcMark(true)
-}
-
-func codeCompletion(erow ERower) (int, string, error) {
-	ta := erow.Row().TextArea
-	index2, objs, err := gosource.CodeCompletion(erow.Filename(), ta.Str(), ta.CursorIndex())
-	if err != nil {
-		return 0, "", err
-	}
-	str := gosource.FormatObjs(objs)
-	return index2, str, nil
 }

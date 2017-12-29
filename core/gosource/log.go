@@ -40,3 +40,27 @@ func CallerDepthLogf(f string, a ...interface{}) {
 	u := append([]interface{}{LogDepth * 4, ""}, a...)
 	fmt.Printf("%*s"+fname+f+"\n", u...)
 }
+
+func LogTODO(a ...interface{}) {
+	if !Debug {
+		return
+	}
+
+	pcs := make([]uintptr, 1) // num of callers to get
+	n := runtime.Callers(2, pcs)
+	pcs = pcs[:n]
+	frames := runtime.CallersFrames(pcs)
+	frame, more := frames.Next()
+	_ = more
+
+	name := frame.Function
+	k := strings.LastIndex(name, ".")
+	if k >= 0 {
+		name = name[k:]
+	}
+
+	fmt.Printf("*TODO: %v %v:%v\n", name, frame.File, frame.Line)
+	if len(a) > 0 {
+		spew.Dump(a)
+	}
+}

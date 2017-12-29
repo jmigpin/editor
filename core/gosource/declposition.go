@@ -26,11 +26,10 @@ func DeclPosition(filename string, src interface{}, index int) (*token.Position,
 	if tokenFile == nil {
 		return nil, nil, fmt.Errorf("unable to get token file")
 	}
-	// avoid panic from a bad index
-	if index > tokenFile.Size() {
-		return nil, nil, fmt.Errorf("index bigger than file size")
+	indexNode := info.PosNode(info.SafeOffsetPos(tokenFile, index))
+	if indexNode == nil {
+		return nil, nil, fmt.Errorf("index node not found")
 	}
-	indexNode := info.PosNode(tokenFile.Pos(index))
 
 	// must be an id
 	id, ok := indexNode.(*ast.Ident)
@@ -74,7 +73,7 @@ func DeclPosition(filename string, src interface{}, index int) (*token.Position,
 			}
 		}
 	default:
-		//Logf("TODO")
+		//LogTODO()
 		//Dump(node)
 	}
 
