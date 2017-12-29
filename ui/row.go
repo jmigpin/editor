@@ -15,7 +15,7 @@ type Row struct {
 	Col      *Column
 	EvReg    *evreg.Register
 
-	scrollArea *ScrollArea
+	scrollArea *widget.ScrollArea
 	sep        *widget.Rectangle
 	sepHandle  RowSeparatorHandle
 	ui         *UI
@@ -46,12 +46,16 @@ func NewRow(col *Column) *Row {
 	// scrollarea with textarea
 	row.TextArea = NewTextArea(row.ui)
 	row.TextArea.Colors = &TextAreaColors
-	row.scrollArea = NewScrollArea(row.ui, row.TextArea)
+	row.scrollArea = widget.NewScrollArea(row.ui, row.TextArea, true, false)
 	row.scrollArea.SetExpand(true, true)
 	row.scrollArea.LeftScroll = ScrollbarLeft
 	row.scrollArea.ScrollWidth = ScrollbarWidth
-	row.scrollArea.VBar.Color = &ScrollbarBgColor
-	row.scrollArea.VBar.Handle.Color = &ScrollbarFgColor
+	row.scrollArea.VSBar.Color = &ScrollbarBgColor
+	row.scrollArea.VSBar.Handle.Color = &ScrollbarFgColor
+	if row.scrollArea.HSBar != nil {
+		row.scrollArea.HSBar.Color = &ScrollbarBgColor
+		row.scrollArea.HSBar.Handle.Color = &ScrollbarFgColor
+	}
 
 	row.YAxis = true
 	row.Append(row.sep, row.Toolbar)

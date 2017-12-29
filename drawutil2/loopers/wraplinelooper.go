@@ -19,8 +19,8 @@ type WrapLineLooper struct {
 	data WrapLine2Data // positional data for keep/restore
 }
 
-func (lpr *WrapLineLooper) Init(strl *StringLooper, linei *LineLooper, maxX fixed.Int26_6) {
-	*lpr = WrapLineLooper{strl: strl, linei: linei, MaxX: maxX}
+func MakeWrapLineLooper(strl *StringLooper, linei *LineLooper, maxX fixed.Int26_6) WrapLineLooper {
+	return WrapLineLooper{strl: strl, linei: linei, MaxX: maxX}
 }
 func (lpr *WrapLineLooper) Loop(fn func() bool) {
 	wlrAdv := lpr.wrapLineRuneAdvance(WrapLineRune)

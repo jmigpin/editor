@@ -13,15 +13,14 @@ import (
 
 func Measure(face font.Face, str string, max image.Point) image.Point {
 	start := &loopers.EmbedLooper{}
-	var strl loopers.StringLooper
-	strl.Init(face, str)
-	linel := loopers.NewLineLooper(&strl)
+	strl := loopers.MakeStringLooper(face, str)
+	linel := loopers.MakeLineLooper(&strl, 0)
 	ml := loopers.NewMeasureLooper(&strl)
 
 	// iterator order
 	strl.SetOuterLooper(start)
 	linel.SetOuterLooper(&strl)
-	ml.SetOuterLooper(linel)
+	ml.SetOuterLooper(&linel)
 
 	ml.Loop(func() bool { return true })
 
@@ -42,20 +41,17 @@ func Draw(img draw.Image, face font.Face, str string, bounds *image.Rectangle, f
 	fmax := fixed.P(max.X, max.Y)
 
 	start := &loopers.EmbedLooper{}
-	var strl loopers.StringLooper
-	strl.Init(face, str)
-	linel := loopers.NewLineLooper(&strl)
-	var dl loopers.DrawLooper
-	dl.Init(&strl, img, bounds)
-	var eel loopers.EarlyExitLooper
-	eel.Init(&strl, fmax.Y)
+	strl := loopers.MakeStringLooper(face, str)
+	linel := loopers.MakeLineLooper(&strl, 0)
+	dl := loopers.MakeDrawLooper(&strl, img, bounds)
+	eel := loopers.MakeEarlyExitLooper(&strl, fmax.Y)
 
 	dl.Fg = fg
 
 	// iterator order
 	strl.SetOuterLooper(start)
 	linel.SetOuterLooper(&strl)
-	dl.SetOuterLooper(linel)
+	dl.SetOuterLooper(&linel)
 	eel.SetOuterLooper(&dl)
 
 	// draw runes

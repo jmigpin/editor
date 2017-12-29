@@ -10,8 +10,8 @@ type WrapLineColorLooper struct {
 	Fg, Bg color.Color
 }
 
-func (lpr *WrapLineColorLooper) Init(wlinel *WrapLineLooper, dl *DrawLooper, bgl *BgLooper) {
-	*lpr = WrapLineColorLooper{wlinel: wlinel, dl: dl, bgl: bgl}
+func MakeWrapLineColorLooper(wlinel *WrapLineLooper, dl *DrawLooper, bgl *BgLooper) WrapLineColorLooper {
+	return WrapLineColorLooper{wlinel: wlinel, dl: dl, bgl: bgl}
 }
 func (lpr *WrapLineColorLooper) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {

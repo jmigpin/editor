@@ -23,12 +23,8 @@ type HWordLooper struct {
 	}
 }
 
-func NewHWordLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) *HWordLooper {
-	return &HWordLooper{
-		strl: strl,
-		bgl:  bgl,
-		dl:   dl,
-	}
+func MakeHWordLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) HWordLooper {
+	return HWordLooper{strl: strl, bgl: bgl, dl: dl}
 }
 func (lpr *HWordLooper) Loop(fn func() bool) {
 	if lpr.WordIndex == nil {

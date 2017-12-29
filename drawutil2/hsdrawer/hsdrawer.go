@@ -20,12 +20,14 @@ type HSDrawer struct {
 	HWordIndex       *int
 	Selection        *loopers.SelectionIndexes
 	FlashSelection   *loopers.FlashSelectionIndexes
-	OffsetY          int
+	Offset           image.Point
 	Pad              image.Point // left/top pad
 	FirstLineOffsetX int
 
-	height int
-	maxX   int
+	EnableWrapLine bool
+	Measurement    image.Point
+
+	maxX int
 
 	strl    loopers.StringLooper
 	wlinel  loopers.WrapLineLooper
@@ -40,15 +42,19 @@ func NewHSDrawer(face font.Face) *HSDrawer {
 	d := &HSDrawer{Face: face}
 
 	// Needs strl initialized with face to answer to d.LineHeight
-	d.strl.Init(d.Face, d.Str)
+	d.strl = loopers.MakeStringLooper(d.Face, d.Str)
 
 	// small pad added to allow the cursor to be fully drawn on first position
 	d.Pad = image.Point{0, 0}
+
+	//d.EnableWrapLine = true
 
 	return d
 }
 
 func (d *HSDrawer) Measure(max image.Point) image.Point {
+
+	// TODO: remove pad from offset?
 
 	// TODO: update only parts of the cache
 	//if d.hintStr == d.Str {
@@ -62,7 +68,7 @@ func (d *HSDrawer) Measure(max image.Point) image.Point {
 	unpaddedMaxX := d.maxX - d.Pad.X
 
 	// loopers
-	d.pdl.Init()
+	d.pdl = loopers.MakePosDataLooper()
 	d.initMeasureLoopers(unpaddedMaxX)
 	ml := loopers.NewMeasureLooper(&d.strl)
 
@@ -73,14 +79,11 @@ func (d *HSDrawer) Measure(max image.Point) image.Point {
 	ml.Loop(func() bool { return true })
 	m := image.Point{ml.M.X.Ceil(), ml.M.Y.Ceil()}
 
-	// keep string height
-	d.height = m.Y
-	if d.Str == "" {
-		d.height = 0
-	}
-
-	// add pad and truncate measure
+	// add pad
 	m = m.Add(d.Pad)
+	d.Measurement = m
+
+	// truncate measure for return
 	if m.X > max.X {
 		m.X = max.X
 	}
@@ -90,6 +93,7 @@ func (d *HSDrawer) Measure(max image.Point) image.Point {
 
 	return m
 }
+
 func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	if bounds.Size().X != d.maxX {
 		panic(fmt.Sprintf("drawing for %v but measured with hint %v", bounds.Size().X, d.maxX))
@@ -99,9 +103,11 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	d.initDrawLoopers(img, bounds)
 
 	// restore position to a close data point (performance)
-	p := &fixed.Point26_6{0, fixed.I(d.OffsetY)}
-	d.pdl.RestorePosDataCloseToPoint(p)
-	d.strl.Pen.Y -= fixed.I(d.OffsetY)
+	p := fixed.P(d.Offset.X, d.Offset.Y)
+	//p := &fixed.Point26_6{0, fixed.I(d.Offset.Y)}
+	d.pdl.RestorePosDataCloseToPoint(&p)
+	//d.strl.Pen.Y -= fixed.I(d.Offset.Y)
+	d.strl.Pen = d.strl.Pen.Sub(p)
 
 	// draw bg
 	d.eel.SetOuterLooper(&d.bgl)
@@ -111,8 +117,9 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	d.initDrawLoopers(img, bounds)
 
 	// restore position to a close data point (performance)
-	d.pdl.RestorePosDataCloseToPoint(p)
-	d.strl.Pen.Y -= fixed.I(d.OffsetY)
+	d.pdl.RestorePosDataCloseToPoint(&p)
+	//d.strl.Pen.Y -= fixed.I(d.Offset.Y)
+	d.strl.Pen = d.strl.Pen.Sub(p)
 
 	// draw runes
 	d.eel.SetOuterLooper(&d.dl)
@@ -122,19 +129,27 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 func (d *HSDrawer) initMeasureLoopers(maxX int) {
 	fmaxX := fixed.I(maxX)
 
-	d.strl.Init(d.Face, d.Str)
+	d.strl = loopers.MakeStringLooper(d.Face, d.Str)
 	d.strl.Pen.X = fixed.I(d.FirstLineOffsetX)
-	linel := loopers.NewLineLooper(&d.strl)
-	d.wlinel.Init(&d.strl, linel, fmaxX)
-	d.pdl.Setup(&d.strl, []loopers.PosDataKeeper{&d.strl, &d.wlinel})
+	linel := loopers.MakeLineLooper(&d.strl, fixed.I(d.Offset.X))
+	keepers := []loopers.PosDataKeeper{&d.strl}
+	if d.EnableWrapLine {
+		d.wlinel = loopers.MakeWrapLineLooper(&d.strl, &linel, fmaxX)
+		keepers = append(keepers, &d.wlinel)
+	}
+	d.pdl.Setup(&d.strl, keepers)
 
 	// iterator order
 	start := &loopers.EmbedLooper{}
 	d.strl.SetOuterLooper(start)
 	linel.SetOuterLooper(&d.strl)
-	d.wlinel.SetOuterLooper(linel)
-	d.pdl.SetOuterLooper(&d.wlinel)
+	d.pdl.SetOuterLooper(&linel)
+	if d.EnableWrapLine {
+		d.wlinel.SetOuterLooper(&linel)
+		d.pdl.SetOuterLooper(&d.wlinel)
+	}
 }
+
 func (d *HSDrawer) initDrawLoopers(img draw.Image, bounds *image.Rectangle) {
 	// use bounds without the pad for drawing runes, the cursor draws on full bounds
 	u := *bounds
@@ -143,15 +158,17 @@ func (d *HSDrawer) initDrawLoopers(img draw.Image, bounds *image.Rectangle) {
 
 	// loopers
 	d.initMeasureLoopers(unpaddedBounds.Size().X)
-	d.dl.Init(&d.strl, img, unpaddedBounds)
-	d.bgl.Init(&d.strl, &d.dl)
-	sl := loopers.NewSelectionLooper(&d.strl, &d.bgl, &d.dl)
+	d.dl = loopers.MakeDrawLooper(&d.strl, img, unpaddedBounds)
+	d.bgl = loopers.MakeBgLooper(&d.strl, &d.dl)
+	sl := loopers.MakeSelectionLooper(&d.strl, &d.bgl, &d.dl)
 	scl := loopers.NewSetColorsLooper(&d.dl, &d.bgl)
-	hwl := loopers.NewHWordLooper(&d.strl, &d.bgl, &d.dl)
+	hwl := loopers.MakeHWordLooper(&d.strl, &d.bgl, &d.dl)
 	fsl := loopers.NewFlashSelectionLooper(&d.strl, &d.bgl, &d.dl)
 	cursorl := loopers.NewCursorLooper(&d.strl, &d.dl, bounds)
-	d.wlinecl.Init(&d.wlinel, &d.dl, &d.bgl)
-	d.eel.Init(&d.strl, fixed.I(unpaddedBounds.Size().Y))
+	if d.EnableWrapLine {
+		d.wlinecl = loopers.MakeWrapLineColorLooper(&d.wlinel, &d.dl, &d.bgl)
+	}
+	d.eel = loopers.MakeEarlyExitLooper(&d.strl, fixed.I(unpaddedBounds.Size().Y))
 
 	// if nil colors are allowed, they should be dealt with here
 
@@ -167,23 +184,25 @@ func (d *HSDrawer) initDrawLoopers(img draw.Image, bounds *image.Rectangle) {
 	hwl.Bg = d.Colors.Highlight.Bg
 	fsl.Selection = d.FlashSelection
 	cursorl.CursorIndex = d.CursorIndex
-	d.wlinecl.Fg = d.Colors.WrapLine.Fg
-	d.wlinecl.Bg = d.Colors.WrapLine.Bg
+	if d.EnableWrapLine {
+		d.wlinecl.Fg = d.Colors.WrapLine.Fg
+		d.wlinecl.Bg = d.Colors.WrapLine.Bg
+	}
 
 	// iteration order
-	scl.SetOuterLooper(&d.wlinel)
+	scl.SetOuterLooper(d.pdl.OuterLooper())
 	sl.SetOuterLooper(scl)
-	hwl.SetOuterLooper(sl)
-	d.wlinecl.SetOuterLooper(hwl)
-	fsl.SetOuterLooper(&d.wlinecl)
+	hwl.SetOuterLooper(&sl)
+	fsl.SetOuterLooper(&hwl)
+	if d.EnableWrapLine {
+		d.wlinecl.SetOuterLooper(&hwl)
+		fsl.SetOuterLooper(&d.wlinecl)
+	}
 	d.bgl.SetOuterLooper(fsl)   // bg phase
 	cursorl.SetOuterLooper(fsl) // rune phase
 	d.dl.SetOuterLooper(cursorl)
 }
 
-func (d *HSDrawer) Height() int {
-	return d.height
-}
 func (d *HSDrawer) LineHeight() int {
 	return d.strl.LineHeight().Ceil()
 }
@@ -193,7 +212,7 @@ func (d *HSDrawer) GetPoint(index int) image.Point {
 	d.initMeasureLoopers(unpaddedMaxX)
 
 	d.pdl.RestorePosDataCloseToIndex(index)
-	p := d.pdl.GetPoint(index, &d.wlinel)     // minimum of pen bounds
+	p := d.pdl.GetPoint(index)                // minimum of pen bounds
 	p2 := image.Point{p.X.Ceil(), p.Y.Ceil()} // equal or inside the pen bounds
 	return p2.Add(d.Pad)
 }
@@ -204,5 +223,5 @@ func (d *HSDrawer) GetIndex(p *image.Point) int {
 	p2 := p.Sub(d.Pad)
 	p3 := fixed.P(p2.X, p2.Y)
 	d.pdl.RestorePosDataCloseToPoint(&p3)
-	return d.pdl.GetIndex(&p3, &d.wlinel)
+	return d.pdl.GetIndex(&p3)
 }

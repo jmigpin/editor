@@ -10,8 +10,8 @@ type EarlyExitLooper struct {
 	maxY fixed.Int26_6
 }
 
-func (lpr *EarlyExitLooper) Init(strl *StringLooper, maxY fixed.Int26_6) {
-	*lpr = EarlyExitLooper{strl: strl, maxY: maxY}
+func MakeEarlyExitLooper(strl *StringLooper, maxY fixed.Int26_6) EarlyExitLooper {
+	return EarlyExitLooper{strl: strl, maxY: maxY}
 }
 func (lpr *EarlyExitLooper) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {

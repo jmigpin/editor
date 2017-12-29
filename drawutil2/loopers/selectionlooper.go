@@ -11,8 +11,8 @@ type SelectionLooper struct {
 	Fg, Bg    color.Color
 }
 
-func NewSelectionLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) *SelectionLooper {
-	return &SelectionLooper{strl: strl, bgl: bgl, dl: dl}
+func MakeSelectionLooper(strl *StringLooper, bgl *BgLooper, dl *DrawLooper) SelectionLooper {
+	return SelectionLooper{strl: strl, bgl: bgl, dl: dl}
 }
 func (lpr *SelectionLooper) Loop(fn func() bool) {
 	if lpr.Selection == nil {

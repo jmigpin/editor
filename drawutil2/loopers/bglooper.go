@@ -14,8 +14,8 @@ type BgLooper struct {
 	NoColorizeBg color.Color // colorize only if different from this
 }
 
-func (lpr *BgLooper) Init(strl *StringLooper, dl *DrawLooper) {
-	*lpr = BgLooper{strl: strl, dl: dl}
+func MakeBgLooper(strl *StringLooper, dl *DrawLooper) BgLooper {
+	return BgLooper{strl: strl, dl: dl}
 }
 func (lpr *BgLooper) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {

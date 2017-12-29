@@ -20,21 +20,21 @@ type TextArea struct {
 	EvReg                      *evreg.Register
 	Colors                     *hsdrawer.Colors
 	DisableHighlightCursorWord bool
+	CommentStr                 string
 
-	ui     *UI
-	drawer *hsdrawer.HSDrawer
+	ui            *UI
+	drawer        *hsdrawer.HSDrawer
+	scroller      widget.Scroller
+	defaultCursor widget.Cursor
 
 	history        *tahistory.History
 	edit           *tahistory.Edit
 	editStr        string
 	editOpenCursor int
 
-	buttonPressed bool
-	boundsChange  image.Rectangle
-
 	str         string
 	cursorIndex int
-	offsetY     int
+	offset      image.Point
 	selection   struct {
 		on    bool
 		index int // from index to cursorIndex
@@ -56,28 +56,28 @@ type TextArea struct {
 		start      time.Time
 		index, len int
 	}
-
-	defaultCursor widget.Cursor
-	CommentStr    string
 }
 
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui, CommentStr: "//"}
 	ta.SetWrapper(ta)
 	ta.drawer = hsdrawer.NewHSDrawer(ui.FontFace1())
+	ta.drawer.EnableWrapLine = true
 	c := hsdrawer.DefaultColors
 	ta.Colors = &c
 	ta.EvReg = evreg.NewRegister()
 	ta.history = tahistory.NewHistory(128)
 
 	ta.defaultCursor = widget.NoneCursor
-	//ta.defaultCursor = widget.TextCursor
 	ta.Cursor = ta.defaultCursor
 
 	return ta
 }
 
 func (ta *TextArea) Measure(hint image.Point) image.Point {
+
+	// test if it has scroller
+
 	return ta.measureStr(hint)
 }
 
@@ -119,10 +119,11 @@ func (ta *TextArea) CalcChildsBounds() {
 	max := ta.Bounds.Size()
 	_ = ta.measureStr(max)
 	ta.EmbedNode.CalcChildsBounds()
+	ta.updateScroller()
 }
 
 func (ta *TextArea) StrHeight() int {
-	h := ta.drawer.Height()
+	h := ta.drawer.Measurement.Y
 	min := ta.LineHeight()
 	if h < min {
 		h = min
@@ -138,7 +139,7 @@ func (ta *TextArea) Paint() {
 
 	d := ta.drawer
 	d.CursorIndex = &ta.cursorIndex
-	d.OffsetY = ta.offsetY
+	d.Offset = ta.offset
 	d.Colors = ta.Colors
 	d.Selection = ta.getDrawSelection()
 	d.FlashSelection = ta.getFlashIndexSelection()
@@ -430,26 +431,46 @@ func (ta *TextArea) somethingSelected() bool {
 }
 
 func (ta *TextArea) OffsetY() int {
-	return ta.offsetY
+	return ta.offset.Y
 }
 func (ta *TextArea) SetOffsetY(v int) {
-	if v < 0 {
-		v = 0
-	}
-	if v > ta.StrHeight() {
-		v = ta.StrHeight()
-	}
-	if v != ta.offsetY {
-		ta.offsetY = v
-		ta.MarkNeedsPaint()
+	ta._setOffset(image.Point{ta.offset.X, v})
+	ta.updateScroller()
+}
+func (ta *TextArea) _setOffset(o image.Point) {
+	//if v < 0 {
+	//	v = 0
+	//}
+	//if v > ta.StrHeight() {
+	//	v = ta.StrHeight()
+	//}
+	//if v != ta.offsetY {
+	//	if ta.scroller != nil {
+	//		// must have a scroller to change the offset
+	//		ta.offsetY = v
+	//		ta.MarkNeedsPaint()
+	//	}
+	//}
 
-		ev := &TextAreaSetOffsetYEvent{ta}
-		ta.EvReg.RunCallbacks(TextAreaSetOffsetYEventId, ev)
+	o = widget.MaxPoint(o, image.Point{0, 0})
+	o = widget.MinPoint(o, ta.drawer.Measurement)
+	if o != ta.offset {
+		// must have a scroller to change the offset
+		if ta.scroller != nil {
+			ta.offset = o
+			ta.MarkNeedsPaint()
+		}
+	}
+}
+
+func (ta *TextArea) updateScroller() {
+	if ta.scroller != nil {
+		ta.scroller.SetScrollerOffset(ta.offset)
 	}
 }
 
 func (ta *TextArea) OffsetIndex() int {
-	return ta.drawer.GetIndex(&image.Point{0, ta.offsetY})
+	return ta.drawer.GetIndex(&ta.offset)
 }
 func (ta *TextArea) SetOffsetIndex(i int) {
 	p := ta.drawer.GetPoint(i)
@@ -508,29 +529,6 @@ func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
 	offsetY := p0 - half
 	ta.SetOffsetY(offsetY)
 }
-
-//func (ta *TextArea) WarpPointerToIndexIfVisible(index int) bool {
-//	// TODO
-//	ta.Flash()
-//	return true
-
-//	// Tests visibility to prevent warping to outside the textarea,
-//	// (ex: Textarea too small or even not showing).
-
-//	p := ta.drawer.GetPoint(index)
-//	p.Y -= ta.OffsetY()
-//	p3 := p.Add(ta.Bounds.Min)
-
-//	// padding
-//	p3.Y += ta.LineHeight() - 1
-//	p3.X += 5
-
-//	if !p3.In(ta.Bounds) {
-//		return false
-//	}
-//	ta.ui.WarpPointer(&p3)
-//	return true
-//}
 
 func (ta *TextArea) GetCPPaste(i event.CopyPasteIndex) (string, error) {
 	return ta.ui.GetCPPaste(i)
@@ -835,10 +833,43 @@ func (ta *TextArea) Error(err error) {
 	ta.ui.OnError(err)
 }
 
+// Implement widget.Scrollable
+func (ta *TextArea) SetScroller(scroller widget.Scroller) {
+	ta.scroller = scroller
+}
+
+// Implement widget.Scrollable
+func (ta *TextArea) SetScrollableOffset(p image.Point) {
+	ta._setOffset(p)
+}
+
+// Implement widget.Scrollable
+func (ta *TextArea) ScrollableSize() image.Point {
+	// extra height allows to scroll past the str height
+	visible := 2 * ta.LineHeight() // keep n lines visible at the end
+	extra := ta.Bounds.Dy() - visible
+
+	//y := ta.StrHeight() + extra
+	//return image.Point{ta.Bounds.Dx(), y}
+
+	m := ta.drawer.Measurement
+	m.Y += extra
+	return m
+}
+
+// Implement widget.Scrollable
+func (ta *TextArea) ScrollablePagingMargin() int {
+	return ta.LineHeight() * 1
+}
+
+// Implement widget.Scrollable
+func (ta *TextArea) ScrollableScrollJump() int {
+	return ta.LineHeight() * 4
+}
+
 const (
 	TextAreaCmdEventId = iota
 	TextAreaSetStrEventId
-	TextAreaSetOffsetYEventId
 )
 
 type TextAreaCmdEvent struct {
@@ -848,7 +879,4 @@ type TextAreaCmdEvent struct {
 type TextAreaSetStrEvent struct {
 	TextArea  *TextArea
 	OldBounds image.Rectangle // TODO: should not be here
-}
-type TextAreaSetOffsetYEvent struct {
-	TextArea *TextArea
 }

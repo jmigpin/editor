@@ -15,8 +15,8 @@ type PosDataLooper struct {
 	data    []*PosData
 }
 
-func (pdl *PosDataLooper) Init() {
-	*pdl = PosDataLooper{Jump: 250}
+func MakePosDataLooper() PosDataLooper {
+	return PosDataLooper{Jump: 250}
 }
 func (pdl *PosDataLooper) Setup(strl *StringLooper, keepers []PosDataKeeper) {
 	pdl.strl = strl
@@ -101,9 +101,9 @@ func (pdl *PosDataLooper) PosDataCloseToPoint(p *fixed.Point26_6) (*PosData, boo
 	return pdl.data[j], true
 }
 
-func (pdl *PosDataLooper) GetPoint(index int, looper Looper) *fixed.Point26_6 {
+func (pdl *PosDataLooper) GetPoint(index int) *fixed.Point26_6 {
 	strl := pdl.strl
-	looper.Loop(func() bool {
+	pdl.OuterLooper().Loop(func() bool {
 		if strl.RiClone {
 			return true
 		}
@@ -115,14 +115,14 @@ func (pdl *PosDataLooper) GetPoint(index int, looper Looper) *fixed.Point26_6 {
 	pb := strl.PenBounds()
 	return &pb.Min
 }
-func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6, looper Looper) int {
+func (pdl *PosDataLooper) GetIndex(p *fixed.Point26_6) int {
 	strl := pdl.strl
 
 	found := false
 	foundLine := false
 	lineRuneIndex := 0
 
-	looper.Loop(func() bool {
+	pdl.OuterLooper().Loop(func() bool {
 		if strl.RiClone {
 			return true
 		}

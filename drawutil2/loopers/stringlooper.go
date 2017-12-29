@@ -29,8 +29,8 @@ type StringLooper struct {
 	Metrics font.Metrics
 }
 
-func (lpr *StringLooper) Init(face font.Face, str string) {
-	*lpr = StringLooper{
+func MakeStringLooper(face font.Face, str string) StringLooper {
+	return StringLooper{
 		Face:    face,
 		Str:     str,
 		Metrics: face.Metrics(),
