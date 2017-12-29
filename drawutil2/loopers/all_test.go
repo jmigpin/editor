@@ -43,19 +43,16 @@ func TestPosData1(t *testing.T) {
 	max := fixed.P(bounds.Dx(), bounds.Dy())
 
 	start := &EmbedLooper{}
-	var strl StringLooper
-	strl.Init(face, testStr7)
-	linel := NewLineLooper(&strl)
-	var wlinel WrapLineLooper
-	wlinel.Init(&strl, linel, max.X)
-	var pdl PosDataLooper
-	pdl.Init()
+	strl := MakeString(face, testStr7)
+	linel := MakeLine(&strl, 0)
+	wlinel := MakeWrapLine(&strl, &linel, max.X)
+	pdl := MakePosData()
 	pdl.Setup(&strl, []PosDataKeeper{&strl, &wlinel})
 	pdl.Jump = 5
 
 	strl.SetOuterLooper(start)
 	linel.SetOuterLooper(&strl)
-	wlinel.SetOuterLooper(linel)
+	wlinel.SetOuterLooper(&linel)
 	pdl.SetOuterLooper(&wlinel)
 
 	pdl.Loop(func() bool { return true })
@@ -75,7 +72,7 @@ func TestPosData1(t *testing.T) {
 		t.Logf("restoring %+v", pd)
 		pdl.restore(pd)
 	}
-	i := pdl.GetIndex(&p, &wlinel)
+	i := pdl.GetIndex(&p)
 
 	t.Logf("ri %v", strl.Ri)
 	t.Logf("i %v", i)

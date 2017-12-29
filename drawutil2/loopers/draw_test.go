@@ -20,10 +20,8 @@ func BenchmarkDraw1(b *testing.B) {
 	bounds := img.Bounds()
 
 	start := &EmbedLooper{}
-	var strl StringLooper
-	strl.Init(face, loremStr)
-	var dl DrawLooper
-	dl.Init(&strl, img, &bounds)
+	strl := MakeString(face, loremStr)
+	dl := MakeDraw(&strl, img, &bounds)
 	dl.Fg = color.Black
 
 	strl.SetOuterLooper(start)
@@ -41,10 +39,8 @@ func BenchmarkDraw2(b *testing.B) {
 	bounds := img.Bounds()
 
 	start := &EmbedLooper{}
-	var strl StringLooper
-	strl.Init(face, loremStr)
-	var dl DrawLooper
-	dl.Init(&strl, img, &bounds)
+	strl := MakeString(face, loremStr)
+	dl := MakeDraw(&strl, img, &bounds)
 	dl.Fg = color.Black
 
 	strl.SetOuterLooper(start)
