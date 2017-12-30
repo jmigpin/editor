@@ -22,9 +22,11 @@ type Info struct {
 	Importable map[string]struct{}
 	Parents    map[ast.Node]ast.Node
 
-	astFiles   map[string]*ast.File
-	astFilesMu sync.RWMutex
+	ParserMode       parser.Mode // options: parser.AllErrors, ...
+	IncludeTestFiles bool
 
+	astFiles       map[string]*ast.File
+	astFilesMu     sync.RWMutex
 	extraPathFiles map[string]map[string]bool
 }
 
@@ -149,7 +151,7 @@ func (info *Info) FullFilename(filename string) string {
 
 func (info *Info) SafeOffsetPos(tf *token.File, offset int) token.Pos {
 	// avoid panic from a bad offset
-	if offset > tf.Size() {
+	if offset < 0 || offset > tf.Size() {
 		return token.NoPos
 	}
 	return tf.Pos(offset)
@@ -341,7 +343,9 @@ func (info *Info) PathFilenames(path, dir string, mode build.ImportMode) []strin
 
 	// package filenames
 	a := append(bpkg.GoFiles, bpkg.CgoFiles...)
-	a = append(a, bpkg.TestGoFiles...)
+	if info.IncludeTestFiles {
+		a = append(a, bpkg.TestGoFiles...)
+	}
 	for _, fname := range a {
 		u := filepath.Join(bpkg.Dir, fname)
 		if _, ok := added[u]; !ok {
@@ -390,7 +394,7 @@ func (info *Info) ParseFile(filename string, src interface{}) *ast.File {
 	if ok {
 		return file
 	}
-	file, err := parser.ParseFile(info.FSet, filename, src, parser.AllErrors)
+	file, err := parser.ParseFile(info.FSet, filename, src, info.ParserMode)
 	Logf("%v (err=%v)", filepath.Base(filename), err)
 	info.astFilesMu.Lock()
 	info.astFiles[filename] = file

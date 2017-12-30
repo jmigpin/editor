@@ -9,6 +9,7 @@ import (
 // Find index declaration position.
 func DeclPosition(filename string, src interface{}, index int) (*token.Position, *token.Position, error) {
 	info := NewInfo()
+	//info.IncludeTestFiles = true
 
 	// parse main file
 	filename = info.AddPathFile(filename)
