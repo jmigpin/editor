@@ -73,8 +73,12 @@ func filePos(erow cmdutil.ERower) bool {
 
 	// erow
 	ed := erow.Ed()
-	erow2, ok := ed.FindERower(filename)
-	if !ok {
+	var erow2 cmdutil.ERower
+	erows := ed.FindERowers(filename)
+	if len(erows) > 0 {
+		erow2 = erows[0]
+	} else {
+		// new row
 		col, nextRow := ed.GoodColumnRowPlace()
 		erow2 = ed.NewERowerBeforeRow(filename, col, nextRow)
 		err := erow2.LoadContentClear()
