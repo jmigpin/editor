@@ -5,12 +5,19 @@ import (
 	"path/filepath"
 
 	"github.com/jmigpin/editor/core/gosource"
+	"github.com/jmigpin/editor/drawutil2/loopers"
+	"github.com/jmigpin/editor/ui"
 )
 
 func ToggleContextFloatBox(ed Editorer, p image.Point) {
 	cfb := ed.UI().Layout.ContextFloatBox
 	cfb.Enabled = !cfb.Enabled
 	UpdateContextFloatBox(ed, p)
+}
+func DisableContextFloatBox(ed Editorer) {
+	cfb := ed.UI().Layout.ContextFloatBox
+	cfb.Enabled = false
+	UpdateContextFloatBox(ed, image.Point{})
 }
 func UpdateContextFloatBox(ed Editorer, p image.Point) {
 	cfb := ed.UI().Layout.ContextFloatBox
@@ -43,15 +50,26 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 		return
 	}
 
-	// get context
+	// context defaults
 	index, str := ta.CursorIndex(), ""
+	var hopt *loopers.HighlightSegmentsOpt
+
+	// context data
 	switch filepath.Ext(erow.Filename()) {
 	case ".go":
 		ta := erow.Row().TextArea
-		index2, str2, err := gosource.CodeCompletion(erow.Filename(), ta.Str(), ta.CursorIndex())
-		if err == nil {
+		index2, str2, segs, ok := gosource.CodeCompletion(erow.Filename(), ta.Str(), ta.CursorIndex())
+		if ok {
 			index = index2
 			str = str2
+			if len(segs) > 0 {
+				hopt = &loopers.HighlightSegmentsOpt{
+					Fg: ta.Colors.Highlight.Fg,
+					//Bg:              ta.Colors.Highlight.Bg,
+					Bg:              ui.HighlightSegmentBgColor,
+					OrderedSegments: segs,
+				}
+			}
 		}
 	}
 
@@ -62,6 +80,7 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 	cfb.RefPoint = p2
 
 	// set string and unhide
-	cfb.SetStr(str)
+	cfb.Label.Text.Drawer.HighlightSegmentsOpt = hopt
+	cfb.Label.Text.Str = str
 	cfb.ShowCalcMark(true)
 }
