@@ -355,7 +355,7 @@ func (erow *ERow) filepathContent(filepath string) (string, error) {
 }
 
 func (erow *ERow) TextAreaAppendAsync(str string) {
-	erow.ed.ui.EnqueueRunFunc(func() {
+	erow.ed.ui.RunOnUIThread(func() {
 		ta := erow.row.TextArea
 
 		// max size for appends

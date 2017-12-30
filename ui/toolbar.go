@@ -35,8 +35,8 @@ func (tb *Toolbar) onTextAreaSetStr(ev0 interface{}) {
 	// keep pointer inside if it was in before -- need to test if it was in before otherwise and auto-change that edits the toolbar will warp the pointer
 	// useful in dynamic bounds becoming shorter and leaving the pointer outside, losing keyboard focus
 	b2 := tb.Bounds // new recalc'ed bounds
-	p, ok := tb.ui.QueryPointer()
-	if ok && p.In(ev.OldBounds) && !p.In(b2) {
+	p, err := tb.ui.QueryPointer()
+	if err != nil && p.In(ev.OldBounds) && !p.In(b2) {
 		tb.ui.WarpPointerToRectanglePad(&b2)
 	}
 }

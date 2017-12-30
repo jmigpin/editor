@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"image"
 	"log"
 	"os"
 
@@ -93,8 +92,6 @@ func NewEditor(opt *Options) (*Editor, error) {
 
 	ed.setupMenuToolbar()
 
-	ed.setupGlobalShortcuts()
-
 	// layout home vars
 	ed.homeVars.Append("~", os.Getenv("HOME"))
 	cmdutil.SetupLayoutHomeVars(ed)
@@ -143,19 +140,24 @@ Exit | Stop`
 
 }
 
-func (ed *Editor) setupGlobalShortcuts() {
-	ed.ui.AfterInputEvent = func(ev interface{}, p image.Point) {
-		switch t := ev.(type) {
-		case *event.KeyDown:
-			switch {
-			case t.Code == event.KCodeF1:
-				cmdutil.ToggleContextFloatBox(ed, p)
-			default:
-				cmdutil.UpdateContextFloatBox(ed, p)
-			}
-		case *event.MouseDown:
+func (ed *Editor) runGlobalShortcuts(ev interface{}) {
+	wi, ok := ev.(*event.WindowInput)
+	if !ok {
+		return
+	}
+	p := wi.Point
+	switch t := wi.Event.(type) {
+	case *event.KeyDown:
+		switch {
+		case t.Code == event.KCodeF1:
+			cmdutil.ToggleContextFloatBox(ed, p)
+		case t.Code == event.KCodeEscape:
+			cmdutil.DisableContextFloatBox(ed)
+		default:
 			cmdutil.UpdateContextFloatBox(ed, p)
 		}
+	case *event.MouseDown:
+		cmdutil.UpdateContextFloatBox(ed, p)
 	}
 }
 
@@ -325,6 +327,7 @@ func (ed *Editor) eventLoop() {
 				ed.dndh.OnDrop(t)
 			default:
 				ed.ui.HandleEvent(ev)
+				ed.runGlobalShortcuts(ev)
 			}
 
 		case ev, ok := <-ed.fwatcher.Events:
@@ -339,7 +342,7 @@ func (ed *Editor) eventLoop() {
 			}
 		}
 
-		ed.ui.PaintIfNeeded()
+		ed.ui.PaintIfTime()
 	}
 forEnd:
 }

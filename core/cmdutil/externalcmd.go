@@ -69,7 +69,7 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 				erow.TextAreaAppendAsync(err.Error())
 			}
 			// indicate the cmd is not running anymore
-			erow.Ed().UI().EnqueueRunFunc(func() {
+			erow.Ed().UI().RunOnUIThread(func() {
 				row.SetState(ui.ExecutingRowState, false)
 			})
 		})

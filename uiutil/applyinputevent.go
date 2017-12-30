@@ -52,7 +52,7 @@ func (aie *ApplyInputEvent) getWarpedPoint(ev interface{}, p image.Point) image.
 	return p
 }
 
-func (aie *ApplyInputEvent) Apply(ctx widget.Context, node widget.Node, ev interface{}, p image.Point) {
+func (aie *ApplyInputEvent) Apply(ctx widget.CursorContext, node widget.Node, ev interface{}, p image.Point) {
 	p = aie.getWarpedPoint(ev, p)
 
 	dragWasOn := aie.drag.on

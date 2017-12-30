@@ -143,7 +143,7 @@ func (ta *TextArea) Paint() {
 	d.Colors = ta.Colors
 	d.Selection = ta.getDrawSelection()
 	d.FlashSelection = ta.getFlashIndexSelection()
-	d.HWordIndex = ta.getHighlightWordIndex()
+	d.HighlightWordIndex = ta.getHighlightWordIndex()
 
 	d.Draw(ta.ui.Image(), &bounds)
 
@@ -208,7 +208,7 @@ func (ta *TextArea) paintFlashLine() {
 	}
 
 	// need to keep painting while flashing
-	ta.ui.EnqueueRunFunc(func() {
+	ta.ui.RunOnUIThread(func() {
 		ta.MarkNeedsPaint()
 	})
 }
@@ -239,7 +239,7 @@ func (ta *TextArea) getFlashIndexSelection() *loopers.FlashSelectionIndexes {
 	}
 
 	// need to keep painting while flashing
-	ta.ui.EnqueueRunFunc(func() {
+	ta.ui.RunOnUIThread(func() {
 		ta.MarkNeedsPaint()
 	})
 
@@ -248,7 +248,7 @@ func (ta *TextArea) getFlashIndexSelection() *loopers.FlashSelectionIndexes {
 
 // Safe to use concurrently. Handles flashing the line independently of the number of runes that it contain, even if zero.
 func (ta *TextArea) FlashIndexLine(index int) {
-	ta.ui.EnqueueRunFunc(func() {
+	ta.ui.RunOnUIThread(func() {
 		ta.flashLine.on = true
 		ta.flashLine.start = time.Now()
 		ta.flashLine.p = ta.drawer.GetPoint(index)
@@ -258,7 +258,7 @@ func (ta *TextArea) FlashIndexLine(index int) {
 
 // Safe to use concurrently. Handles segments that span over more then one line.
 func (ta *TextArea) FlashIndexLen(index, len int) {
-	ta.ui.EnqueueRunFunc(func() {
+	ta.ui.RunOnUIThread(func() {
 		ta.flashIndex.on = true
 		ta.flashIndex.start = time.Now()
 		ta.flashIndex.index = index
@@ -797,7 +797,8 @@ func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 				ta.undo()
 				ta.MakeCursorVisible()
 			}
-		case ev.Code >= event.KCodeF1 && ev.Code <= event.KCodeF12:
+		case ev.Code >= event.KCodeF1 && ev.Code <= event.KCodeF12,
+			ev.Code == event.KCodeEscape:
 			// do nothing
 		case !unicode.IsPrint(ev.Rune):
 			// do nothing
@@ -809,7 +810,7 @@ func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 }
 
 func (ta *TextArea) InsertStringAsync(str string) {
-	ta.ui.EnqueueRunFunc(func() {
+	ta.ui.RunOnUIThread(func() {
 		tautil.InsertString(ta, str)
 	})
 }

@@ -89,7 +89,8 @@ func (win *Window) initialize() error {
 			xproto.EventMaskPointerMotion |
 			xproto.EventMaskButtonPress |
 			xproto.EventMaskButtonRelease |
-			xproto.EventMaskKeyPress,
+			xproto.EventMaskKeyPress |
+			xproto.EventMaskKeyRelease,
 	}
 
 	_ = xproto.CreateWindow(

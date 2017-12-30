@@ -17,13 +17,17 @@ const (
 	TextCursor
 )
 
-func SetTreeCursor(ctx Context, node Node, p image.Point) {
+type CursorContext interface {
+	SetCursor(Cursor)
+}
+
+func SetTreeCursor(ctx CursorContext, node Node, p image.Point) {
 	v := setTreeCursor2(ctx, node, p)
 	if !v {
 		ctx.SetCursor(NoneCursor)
 	}
 }
-func setTreeCursor2(ctx Context, node Node, p image.Point) bool {
+func setTreeCursor2(ctx CursorContext, node Node, p image.Point) bool {
 	if !p.In(node.Embed().Bounds) {
 		return false
 	}

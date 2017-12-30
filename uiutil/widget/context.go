@@ -9,5 +9,4 @@ import (
 type Context interface {
 	Image() draw.Image
 	FontFace1() font.Face
-	SetCursor(Cursor)
 }
