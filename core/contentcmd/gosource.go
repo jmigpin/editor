@@ -39,16 +39,21 @@ func goSourceOpenPosition(erow cmdutil.ERower, pos, end *token.Position) {
 		}
 	}
 
-	// choose a duplicate row that is not the current row
-	if len(m) == 0 {
-		erows := ed.FindERowers(pos.Filename)
-		for _, e := range erows {
-			if e != erow {
-				m[e] = true
-				break
-			}
-		}
-	}
+	//// choose a duplicate row that is not the current row (old way).
+	//// choose a duplicate row that is after the current row. Allows to maintain previous rows editing position while creating rows downward.
+	//if len(m) == 0 {
+	//	erows := ed.FindERowers(pos.Filename)
+	//	ei := -1
+	//	for i, e := range erows {
+	//		if e == erow {
+	//			ei = i
+	//		}
+	//		if e != erow && ei >= 0 && i > ei {
+	//			m[e] = true
+	//			break
+	//		}
+	//	}
+	//}
 
 	// open new row
 	if len(m) == 0 {
