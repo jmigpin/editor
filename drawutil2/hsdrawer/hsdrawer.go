@@ -15,17 +15,20 @@ import (
 type HSDrawer struct {
 	Face             font.Face
 	Str              string
-	Colors           *Colors
-	CursorIndex      *int
-	HWordIndex       *int
-	Selection        *loopers.SelectionIndexes
-	FlashSelection   *loopers.FlashSelectionIndexes
-	Offset           image.Point
 	Pad              image.Point // left/top pad
+	Offset           image.Point
 	FirstLineOffsetX int
+	Measurement      image.Point
 
-	EnableWrapLine bool
-	Measurement    image.Point
+	Colors *Colors // TODO: change color options to extensions options
+
+	// extensions
+	EnableWrapLine       bool
+	CursorIndex          *int
+	HighlightWordIndex   *int
+	Selection            *loopers.SelectionIndexes
+	FlashSelection       *loopers.FlashSelectionIndexes
+	HighlightSegmentsOpt *loopers.HighlightSegmentsOpt
 
 	maxX int
 
@@ -46,8 +49,6 @@ func NewHSDrawer(face font.Face) *HSDrawer {
 
 	// small pad added to allow the cursor to be fully drawn on first position
 	d.Pad = image.Point{0, 0}
-
-	//d.EnableWrapLine = true
 
 	return d
 }
@@ -162,11 +163,15 @@ func (d *HSDrawer) initDraws(img draw.Image, bounds *image.Rectangle) {
 	d.bgl = loopers.MakeBg(&d.strl, &d.dl)
 	sl := loopers.MakeSelection(&d.strl, &d.bgl, &d.dl)
 	scl := loopers.NewSetColors(&d.dl, &d.bgl)
-	hwl := loopers.MakeHWord(&d.strl, &d.bgl, &d.dl)
+	hwl := loopers.MakeHighlightWord(&d.strl, &d.bgl, &d.dl)
 	fsl := loopers.NewFlashSelection(&d.strl, &d.bgl, &d.dl)
 	cursorl := loopers.NewCursor(&d.strl, &d.dl, bounds)
 	if d.EnableWrapLine {
 		d.wlinecl = loopers.MakeWrapLineColor(&d.wlinel, &d.dl, &d.bgl)
+	}
+	var hsl loopers.HighlightSegments
+	if d.HighlightSegmentsOpt != nil {
+		hsl = loopers.MakeHighlightSegments(&d.strl, &d.bgl, &d.dl, d.HighlightSegmentsOpt)
 	}
 	d.eel = loopers.MakeEarlyExit(&d.strl, fixed.I(unpaddedBounds.Size().Y))
 
@@ -179,7 +184,7 @@ func (d *HSDrawer) initDraws(img draw.Image, bounds *image.Rectangle) {
 	sl.Selection = d.Selection
 	sl.Fg = d.Colors.Selection.Fg
 	sl.Bg = d.Colors.Selection.Bg
-	hwl.WordIndex = d.HWordIndex
+	hwl.WordIndex = d.HighlightWordIndex
 	hwl.Fg = d.Colors.Highlight.Fg
 	hwl.Bg = d.Colors.Highlight.Bg
 	fsl.Selection = d.FlashSelection
@@ -194,12 +199,17 @@ func (d *HSDrawer) initDraws(img draw.Image, bounds *image.Rectangle) {
 	sl.SetOuterLooper(scl)
 	hwl.SetOuterLooper(&sl)
 	fsl.SetOuterLooper(&hwl)
+	last := fsl
 	if d.EnableWrapLine {
-		d.wlinecl.SetOuterLooper(&hwl)
-		fsl.SetOuterLooper(&d.wlinecl)
+		d.wlinecl.SetOuterLooper(last.OuterLooper())
+		last.SetOuterLooper(&d.wlinecl)
 	}
-	d.bgl.SetOuterLooper(fsl)   // bg phase
-	cursorl.SetOuterLooper(fsl) // rune phase
+	if d.HighlightSegmentsOpt != nil {
+		hsl.SetOuterLooper(last.OuterLooper())
+		last.SetOuterLooper(&hsl)
+	}
+	d.bgl.SetOuterLooper(last)   // bg phase
+	cursorl.SetOuterLooper(last) // rune phase
 	d.dl.SetOuterLooper(cursorl)
 }
 

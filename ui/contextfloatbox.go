@@ -56,10 +56,6 @@ func NewContextFloatBox(l *Layout) *ContextFloatBox {
 	return cfb
 }
 
-func (cfb *ContextFloatBox) SetStr(s string) {
-	cfb.Label.Text.Str = s
-}
-
 func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) bool {
 	switch ev.(type) {
 	case *event.KeyUp,

@@ -30,6 +30,7 @@ var ScrollbarBgColor color.Color
 var SeparatorColor color.Color
 var RowInnerSeparatorColor color.Color
 var ColumnBgColor color.Color
+var HighlightSegmentBgColor color.Color
 
 var colorThemeIndex = 0
 var colorThemeFn = []func(){AcmeThemeColors, LightThemeColors, DarkThemeColors}
@@ -67,6 +68,7 @@ func AcmeThemeColors() {
 	SeparatorColor = Black
 	RowInnerSeparatorColor = color.RGBA{136, 136, 204, 255} // blueish
 	ColumnBgColor = White
+	HighlightSegmentBgColor = color.RGBA{158, 238, 238, 255} // light blue
 }
 
 func LightThemeColors() {

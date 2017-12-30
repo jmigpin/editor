@@ -115,9 +115,10 @@ type KeyUp struct {
 
 type KeyCode int
 
+// TODO: needs improvement
 // Other codes not defined here will be their first column key symbol (like 'a','b',..., but not 'A'), going from 0 upwards.
 const (
-	KCodeNone KeyCode = iota - 300
+	KCodeNone KeyCode = iota - 300 // just to cover to the last defined constant
 	KCodeBackspace
 	KCodeReturn
 	KCodeEscape

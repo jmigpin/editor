@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 )
 
-type HWord struct {
+type HighlightWord struct {
 	EmbedLooper
 	strl *String
 	bgl  *Bg
@@ -23,10 +23,10 @@ type HWord struct {
 	}
 }
 
-func MakeHWord(strl *String, bgl *Bg, dl *Draw) HWord {
-	return HWord{strl: strl, bgl: bgl, dl: dl}
+func MakeHighlightWord(strl *String, bgl *Bg, dl *Draw) HighlightWord {
+	return HighlightWord{strl: strl, bgl: bgl, dl: dl}
 }
-func (lpr *HWord) Loop(fn func() bool) {
+func (lpr *HighlightWord) Loop(fn func() bool) {
 	if lpr.WordIndex == nil {
 		lpr.OuterLooper().Loop(fn)
 		return
@@ -45,7 +45,7 @@ func (lpr *HWord) Loop(fn func() bool) {
 		return fn()
 	})
 }
-func (lpr *HWord) colorize() bool {
+func (lpr *HighlightWord) colorize() bool {
 	if !lpr.hword.on {
 		return false
 	}
