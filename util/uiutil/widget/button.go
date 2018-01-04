@@ -20,7 +20,6 @@ type Button struct {
 
 func NewButton(ctx Context) *Button {
 	b := &Button{}
-	b.SetWrapper(b)
 	b.Label = NewLabel(ctx)
 	b.Append(b.Label)
 	return b

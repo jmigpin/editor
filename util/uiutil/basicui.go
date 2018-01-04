@@ -101,8 +101,10 @@ func (ui *BasicUI) PaintIfTime() {
 			ui.lastPaint = now
 		}
 	} else {
+		// Didn't paint to avoid high fps.
+
 		if len(ui.events) == 0 {
-			// Didn't paint to avoid high fps. Need to ensure a new paint call will happen later by sending a no op event just to allow the loop to iterate.
+			// There are no events in the queue that will allow later to check if it is time to paint. Ensure there is one by sending a no-op event to have the loop iterate and call PaintIfTime.
 			ui.EnqueueNoOpEvent()
 		}
 	}
@@ -119,6 +121,8 @@ func (ui *BasicUI) paintIfNeeded() (painted bool) {
 		painted = true
 		u = append(u, r)
 	})
+
+	// TODO: review rectangle union performance vs paint rectangles.
 
 	// union the rectangles into one put
 	if len(u) > 0 {

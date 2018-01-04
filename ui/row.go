@@ -24,7 +24,6 @@ type Row struct {
 func NewRow(col *Column) *Row {
 	row := &Row{Col: col, ui: col.Cols.Layout.UI}
 	row.FlowLayout = widget.NewFlowLayout()
-	row.SetWrapper(row)
 
 	row.EvReg = evreg.NewRegister()
 

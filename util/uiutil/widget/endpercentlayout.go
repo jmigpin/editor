@@ -16,7 +16,6 @@ type EndPercentLayout struct {
 
 func NewEndPercentLayout() *EndPercentLayout {
 	epl := &EndPercentLayout{}
-	epl.SetWrapper(epl)
 	return epl
 }
 func (epl *EndPercentLayout) lazyInit() {
@@ -26,7 +25,7 @@ func (epl *EndPercentLayout) lazyInit() {
 }
 
 func (epl *EndPercentLayout) PushBack(n Node) {
-	epl.EmbedNode.PushBack(n)
+	epl.EmbedNode.Append(n)
 
 	epl.lazyInit()
 

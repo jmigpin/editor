@@ -17,7 +17,6 @@ type MainMenuButton struct {
 func NewMainMenuButton(ui *UI) *MainMenuButton {
 	m := &MainMenuButton{ui: ui}
 	m.Button = widget.NewButton(ui)
-	m.SetWrapper(m)
 	m.Button.Label.Text.Str = string(rune(8801)) // 3 lines rune
 	m.Button.Label.Pad.Left = 5
 	m.Button.Label.Pad.Right = 5
@@ -69,7 +68,6 @@ func NewFloatMenu(m *MainMenuButton) *FloatMenu {
 	}
 
 	fm.FloatBox = widget.NewFloatBox(container)
-	fm.SetWrapper(fm)
 
 	fm.SetHidden(true)
 

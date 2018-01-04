@@ -60,7 +60,6 @@ type TextArea struct {
 
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui, CommentStr: "//"}
-	ta.SetWrapper(ta)
 	ta.drawer = hsdrawer.NewHSDrawer(ui.FontFace1())
 	ta.drawer.EnableWrapLine = true
 	c := hsdrawer.DefaultColors

@@ -12,7 +12,6 @@ type Toolbar struct {
 func NewToolbar(ui *UI, parent widget.Node) *Toolbar {
 	tb := &Toolbar{parent: parent}
 	tb.TextArea = NewTextArea(ui)
-	tb.SetWrapper(tb)
 
 	tb.DisableHighlightCursorWord = true
 	tb.Colors = &ToolbarColors

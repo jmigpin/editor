@@ -16,8 +16,6 @@ type Columns struct {
 func NewColumns(layout *Layout) *Columns {
 	cols := &Columns{Layout: layout}
 	cols.EndPercentLayout = widget.NewEndPercentLayout()
-	cols.SetWrapper(cols)
-
 	cols.NewColumn() // start with 1 column
 	return cols
 }

@@ -23,7 +23,6 @@ type Column struct {
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols, ui: cols.Layout.UI}
 	col.FlowLayout = widget.NewFlowLayout()
-	col.SetWrapper(col)
 
 	col.Square = NewColumnSquare(col)
 	col.Square.Size = NewRow(col).Toolbar.Square.Size

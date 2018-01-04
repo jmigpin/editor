@@ -15,7 +15,6 @@ type Shadow struct {
 
 func NewShadow(ctx Context, child Node) *Shadow {
 	s := &Shadow{ctx: ctx, MaxShade: 0.30}
-	s.SetWrapper(s)
 	s.Append(child)
 	return s
 }

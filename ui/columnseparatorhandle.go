@@ -14,7 +14,6 @@ type ColSeparatorHandle struct {
 
 func (sh *ColSeparatorHandle) Init(ref widget.Node, col *Column) {
 	sh.SeparatorHandle = widget.NewSeparatorHandle(ref)
-	sh.SetWrapper(sh)
 	sh.col = col
 }
 func (sh *ColSeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {

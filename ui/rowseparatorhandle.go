@@ -14,7 +14,6 @@ type RowSeparatorHandle struct {
 
 func (sh *RowSeparatorHandle) Init(ctx widget.Context, ref widget.Node, row *Row) {
 	sh.SeparatorHandle = widget.NewSeparatorHandle(ref)
-	sh.SetWrapper(sh)
 	sh.row = row
 }
 func (sh *RowSeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {

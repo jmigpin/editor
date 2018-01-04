@@ -16,7 +16,6 @@ type Rectangle struct {
 
 func NewRectangle(ctx Context) *Rectangle {
 	r := &Rectangle{ctx: ctx}
-	r.SetWrapper(r)
 	return r
 }
 func (r *Rectangle) Measure(hint image.Point) image.Point {

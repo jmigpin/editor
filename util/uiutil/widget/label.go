@@ -17,7 +17,6 @@ type Label struct {
 
 func NewLabel(ctx Context) *Label {
 	l := &Label{ctx: ctx}
-	l.SetWrapper(l)
 	l.Text = NewBasicText(ctx)
 	l.Pad = NewPad(ctx, l.Text)
 	l.Border = NewPad(ctx, l.Pad)

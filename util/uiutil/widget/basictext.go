@@ -17,7 +17,6 @@ type BasicText struct {
 
 func NewBasicText(ctx Context) *BasicText {
 	bt := &BasicText{ctx: ctx}
-	bt.SetWrapper(bt)
 	bt.Drawer = hsdrawer.NewHSDrawer(bt.ctx.FontFace1())
 	return bt
 }

@@ -17,7 +17,6 @@ type Pad struct {
 
 func NewPad(ctx Context, child Node) *Pad {
 	p := &Pad{ctx: ctx}
-	p.SetWrapper(p)
 	p.Append(child)
 	return p
 }

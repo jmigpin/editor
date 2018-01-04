@@ -11,7 +11,6 @@ type FlowLayout struct {
 
 func NewFlowLayout() *FlowLayout {
 	fl := &FlowLayout{}
-	fl.SetWrapper(fl)
 	return fl
 }
 func (fl *FlowLayout) Measure(hint image.Point) image.Point {

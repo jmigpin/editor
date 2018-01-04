@@ -13,11 +13,11 @@ type FloatBox struct {
 func NewFloatBox(child Node) *FloatBox {
 	fb := &FloatBox{}
 	fb.Cursor = DefaultCursor
-	fb.SetWrapper(fb)
 	fb.Append(child)
 	return fb
 }
 func (fb *FloatBox) Measure(hint image.Point) image.Point {
+	// TODO: review
 	panic("calling measure on floatbox")
 }
 
@@ -25,6 +25,7 @@ func (fb *FloatBox) CalcChildsBounds() {
 	// mark for paint nodes that the old bounds intersect
 	fb.MarkNeedsPaint()
 
+	// TODO: review - should be on measure?
 	// start with the parent bounds
 	fbb := fb.Parent().Embed().Bounds
 
@@ -43,6 +44,7 @@ func (fb *FloatBox) CalcChildsBounds() {
 	b2 = b2.Intersect(fbb)
 	child.Embed().Bounds = b2
 
+	// TODO: review
 	// set own bounds, same as the child
 	fb.Embed().Bounds = b2
 

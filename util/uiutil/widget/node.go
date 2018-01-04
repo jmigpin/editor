@@ -11,15 +11,12 @@ import (
 type Node interface {
 	Embed() *EmbedNode
 
-	PushBack(n Node)
 	InsertBefore(n, mark Node)
 	Append(n ...Node)
 	Remove(Node)
 	Swap(Node)
 
-	Parent() Node
-
-	// Child is an immediate child of this node, while the rectangle is the bounds of the original node that requested paint.
+	// Node is an immediate child of this node, while the rectangle is the bounds of the original subchild node that requested the paint.
 	OnMarkChildNeedsPaint(Node, *image.Rectangle)
 
 	Measure(hint image.Point) image.Point
@@ -34,13 +31,19 @@ type EmbedNode struct {
 	Cursor Cursor
 	Bounds image.Rectangle
 
+	// Layout testing
+	//Pos         image.Point
+	//Measurement image.Point
+
 	wrapper Node
 	childs  list.List
 	elem    *list.Element
 	parent  *EmbedNode
 
-	expand    struct{ x, y bool }
-	fill      struct{ x, y bool }
+	// TODO: pass these to the implementing node
+	expand struct{ x, y bool }
+	fill   struct{ x, y bool }
+
 	marks     Marks
 	marksLock sync.RWMutex
 }
@@ -49,13 +52,11 @@ func (en *EmbedNode) Embed() *EmbedNode {
 	return en
 }
 
-// Important when a node needs to reach a wrap implementation.
-func (en *EmbedNode) SetWrapper(n Node) {
-	if en != n.Embed() {
-		panic("node not wrapping")
-	}
+// Only the root node should need to set the wrapper explicitly.
+func (en *EmbedNode) RootNodeWrapper(n Node) {
 	en.wrapper = n
 }
+
 func (en *EmbedNode) Wrapper() Node {
 	return en.wrapper
 }
@@ -73,47 +74,45 @@ func (en *EmbedNode) Parent() Node {
 	return nil
 }
 
-func (en *EmbedNode) PushBack(n Node) {
-	ne := n.Embed()
-	if ne == en {
-		panic("inserting into itself")
-	}
-	elem := en.childs.PushBack(n)
-	if elem == nil {
-		panic("element not inserted")
-	}
-	ne.elem = elem
-	ne.parent = en
-	if en.Hidden() {
-		ne.setParentHidden(true)
-	}
-}
-
-func (en *EmbedNode) InsertBefore(n, next Node) {
-	// This function expects the arguments to be present and have PushBack be used for appends.
-	// Note that the next node can't be tested for nil because it could be receiving a non-nil interface that is nil, and testing (Node==nil) would be false.
-
-	nexte := next.Embed()
-	if nexte.parent != en {
-		panic("next is not a child of this node")
-	}
-	ne := n.Embed()
-	if ne == en {
-		panic("inserting into itself")
-	}
-	elem := en.childs.InsertBefore(n, nexte.elem)
-	if elem == nil {
-		panic("element not inserted")
-	}
-	ne.elem = elem
-	ne.parent = en
-	if en.Hidden() {
-		ne.setParentHidden(true)
-	}
-}
 func (en *EmbedNode) Append(nodes ...Node) {
 	for _, n := range nodes {
-		en.PushBack(n)
+		en._insertBefore(n, nil)
+	}
+}
+
+// Next should not be nil. Use Append to add to the end.
+func (en *EmbedNode) InsertBefore(n, next Node) {
+	// Note that testing next for nil could fail if it is a non-nil interface that is nil, and testing (Node==nil) would be false.
+	en._insertBefore(n, next)
+}
+
+func (en *EmbedNode) _insertBefore(n, next Node) {
+	ne := n.Embed()
+	if ne == en {
+		panic("inserting into itself")
+	}
+
+	// insert in list and get element
+	var elem *list.Element
+	if next == nil {
+		elem = en.childs.PushBack(n)
+	} else {
+		nexte := next.Embed()
+		if nexte.parent != en {
+			panic("next is not a child of this node")
+		}
+		elem = en.childs.InsertBefore(n, nexte.elem)
+	}
+	if elem == nil {
+		panic("element not inserted")
+	}
+
+	ne.elem = elem
+	ne.parent = en
+	ne.wrapper = n // auto set the wrapper
+
+	if en.Hidden() {
+		ne.setParentHidden(true)
 	}
 }
 
@@ -303,14 +302,15 @@ func (en *EmbedNode) setNeedsPaint(v bool) {
 		//log.Printf("---needspaint %v", reflect.TypeOf(en.wrapper))
 
 		// set mark in parents if not already marked
-		for n := en.Parent(); n != nil; n = n.Parent() {
-			n.Embed().setMarks(ChildNeedsPaintMark, true)
+		for pn := en.parent; pn != nil; pn = pn.parent {
+			pn.setMarks(ChildNeedsPaintMark, true)
 		}
+
 		// run callbacks with this node rectangle argument
-		child := en.wrapper
-		for n := en.Parent(); n != nil; n = n.Parent() {
-			n.OnMarkChildNeedsPaint(child, &en.Bounds)
-			child = n
+		child := en
+		for pn := en.parent; pn != nil; pn = pn.parent {
+			pn.wrapper.OnMarkChildNeedsPaint(child.wrapper, &en.Bounds)
+			child = pn
 		}
 	}
 }
@@ -366,25 +366,6 @@ func (en *EmbedNode) NotPaintable() bool {
 }
 func (en *EmbedNode) SetNotPaintable(v bool) {
 	en.setMarks(NotPaintableMark, v)
-}
-
-func MaxPoint(p1, p2 image.Point) image.Point {
-	if p1.X < p2.X {
-		p1.X = p2.X
-	}
-	if p1.Y < p2.Y {
-		p1.Y = p2.Y
-	}
-	return p1
-}
-func MinPoint(p1, p2 image.Point) image.Point {
-	if p1.X > p2.X {
-		p1.X = p2.X
-	}
-	if p1.Y > p2.Y {
-		p1.Y = p2.Y
-	}
-	return p1
 }
 
 func (en *EmbedNode) Measure(hint image.Point) image.Point {
@@ -493,4 +474,23 @@ func (m *Marks) set(u Marks, v bool) {
 	} else {
 		m.remove(u)
 	}
+}
+
+func MaxPoint(p1, p2 image.Point) image.Point {
+	if p1.X < p2.X {
+		p1.X = p2.X
+	}
+	if p1.Y < p2.Y {
+		p1.Y = p2.Y
+	}
+	return p1
+}
+func MinPoint(p1, p2 image.Point) image.Point {
+	if p1.X > p2.X {
+		p1.X = p2.X
+	}
+	if p1.Y > p2.Y {
+		p1.Y = p2.Y
+	}
+	return p1
 }

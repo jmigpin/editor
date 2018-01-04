@@ -49,7 +49,6 @@ func NewContextFloatBox(l *Layout) *ContextFloatBox {
 	}
 
 	cfb.FloatBox = widget.NewFloatBox(container)
-	cfb.SetWrapper(cfb)
 
 	cfb.SetHidden(true)
 

@@ -18,7 +18,6 @@ type SeparatorHandle struct {
 
 func NewSeparatorHandle(ref Node) *SeparatorHandle {
 	sh := &SeparatorHandle{ref: ref}
-	sh.SetWrapper(sh)
 	sh.SetNotPaintable(true)
 	return sh
 }

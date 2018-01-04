@@ -25,7 +25,6 @@ func NewScrollArea(ctx Context, scrollable Scrollable, vert, horiz bool) *Scroll
 		LeftScroll:  true,
 		scrollable:  scrollable,
 	}
-	sa.SetWrapper(sa)
 	if vert {
 		sa.VSBar = NewScrollBar(ctx, sa)
 		sa.Append(sa.VSBar)
@@ -230,7 +229,6 @@ type ScrollBar struct {
 
 func NewScrollBar(ctx Context, sa *ScrollArea) *ScrollBar {
 	sb := &ScrollBar{ctx: ctx, sa: sa}
-	sb.SetWrapper(sb)
 	sb.positionPercent = 0.0
 	sb.sizePercent = 1.0
 
@@ -360,7 +358,6 @@ type ScrollHandle struct {
 
 func NewScrollHandle(ctx Context, sb *ScrollBar) *ScrollHandle {
 	sh := &ScrollHandle{ctx: ctx, sb: sb}
-	sh.SetWrapper(sh)
 	return sh
 }
 func (sh *ScrollHandle) Measure(hint image.Point) image.Point {

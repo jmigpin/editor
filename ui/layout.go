@@ -20,7 +20,7 @@ type Layout struct {
 
 func (layout *Layout) Init(ui *UI) {
 	layout.UI = ui
-	layout.SetWrapper(layout)
+	layout.RootNodeWrapper(layout)
 
 	bgLayer := widget.NewFlowLayout()
 	bgLayer.YAxis = true
