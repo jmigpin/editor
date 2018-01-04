@@ -23,7 +23,7 @@ type ERower interface {
 	IsDir() bool
 	IsRegular() bool
 
-	TextAreaAppendAsync(string)
+	TextAreaAppendAsync(string) <-chan struct{}
 
 	Flash()
 }

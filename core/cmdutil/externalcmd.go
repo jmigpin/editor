@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
@@ -104,16 +103,16 @@ func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
 	return cmd.Wait()
 }
 
-// Reads and sends to erow only n times per second.
 func readToERow(reader io.Reader, erow ERower) {
-	var buf [64 * 1024]byte
+	var buf [32 * 1024]byte
 	for {
 		n, err := reader.Read(buf[:])
 		if n > 0 {
-			s := string(buf[:n])
-			erow.TextAreaAppendAsync(s)
-			// prevent tight loop that can leave UI unresponsive
-			time.Sleep(time.Second / (ui.DrawFrameRate - 1))
+			str := string(buf[:n])
+			c := erow.TextAreaAppendAsync(str)
+
+			// Wait for the ui to have handled the content. This prevents a tight loop program from leaving the UI unresponsive.
+			<-c
 		}
 		if err != nil {
 			break

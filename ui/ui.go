@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	DrawFrameRate = 35
 	FlashDuration = 500 * time.Millisecond
 )
 
@@ -38,7 +37,7 @@ func NewUI(events chan<- interface{}, winName string) (*UI, error) {
 		BasicUI: bui,
 		OnError: func(error) {},
 	}
-	ui.DrawFrameRate = DrawFrameRate
+	ui.DrawFrameRate = 35
 
 	ui.Layout.Init(ui)
 	ui.BasicUI.RootNode = &ui.Layout

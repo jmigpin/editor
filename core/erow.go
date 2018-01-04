@@ -354,22 +354,29 @@ func (erow *ERow) filepathContent(filepath string) (string, error) {
 	return string(b), nil
 }
 
-func (erow *ERow) TextAreaAppendAsync(str string) {
+func (erow *ERow) TextAreaAppendAsync(str string) <-chan struct{} {
+	comm := make(chan struct{}, 1)
 	erow.ed.ui.RunOnUIThread(func() {
-		ta := erow.row.TextArea
-
-		// max size for appends
-		// TODO: unlimited output? some xterms have more or less this limit as well. Bigger limits will slow down the ui since it will be calculating the new string content. This will be improved once the textarea drawer supports append/cutTop operations.
-		maxSize := 64 * 1024
-		str2 := ta.Str() + str
-		if len(str2) > maxSize {
-			d := len(str2) - maxSize
-			str2 = str2[d:]
-		}
-
-		// false,true = keep pos, but clear undo for massive savings
-		ta.SetStrClear(str2, false, true)
+		erow.textAreaAppend(str)
+		comm <- struct{}{}
 	})
+	return comm
+}
+
+func (erow *ERow) textAreaAppend(str string) {
+	// TODO: unlimited output? some xterms have more or less 64k limit. Bigger limits will slow down the ui since it will be calculating the new string content. This will be improved once the textarea drawer supports append/cutTop operations.
+
+	ta := erow.row.TextArea
+
+	maxSize := 64 * 1024
+	str2 := ta.Str() + str
+	if len(str2) > maxSize {
+		d := len(str2) - maxSize
+		str2 = str2[d:]
+	}
+
+	// false,true = keep pos, but clear undo for massive savings
+	ta.SetStrClear(str2, false, true)
 }
 
 func (erow *ERow) onRowInput(ev0 interface{}) {
