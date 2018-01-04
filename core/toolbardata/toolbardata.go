@@ -15,6 +15,12 @@ type ToolbarData struct {
 func NewToolbarData(str string, hv *HomeVars) *ToolbarData {
 	td := &ToolbarData{Str: str, hv: hv}
 	td.Parts = parseParts(str)
+
+	// fill parts toolbardata pointer to have access to root str
+	for _, p := range td.Parts {
+		p.ToolbarData = td
+	}
+
 	return td
 }
 
@@ -90,7 +96,7 @@ func parseTokens(str string, a, b int, seps string) []*Token {
 			return false
 		case lastQuote != 0: // inside a quote
 			return false
-		case unicode.In(ru, unicode.Quotation_Mark):
+		case ru == '`', unicode.In(ru, unicode.Quotation_Mark):
 			lastQuote = ru
 			return false
 		default:
@@ -123,7 +129,7 @@ func fieldsFunc(str string, a, b int, split func(rune) bool) []*Token {
 func filterEmptyTokens(toks []*Token) []*Token {
 	var u []*Token
 	for _, t := range toks {
-		if t.isEmpty() && !t.quoted {
+		if t.isEmpty() {
 			continue
 		}
 		u = append(u, t)
@@ -134,36 +140,43 @@ func filterEmptyTokens(toks []*Token) []*Token {
 type Part struct {
 	Token
 	Args []*Token
+
+	ToolbarData *ToolbarData // provides access to root string
 }
 
 type Token struct {
 	Str  string // token string
 	S, E int    // start/end str indexes of the root string
-
-	quoted bool
 }
 
 func NewToken(str string, s, e int) *Token {
 	tok := &Token{Str: str[s:e], S: s, E: e}
-
-	// unquote str if possible
-	str2, err := strconv.Unquote(tok.Str)
-	if err == nil {
-		v, _, _, err2 := strconv.UnquoteChar(tok.Str, 0)
-		if err2 != nil {
-			panic(err2)
-		}
-
-		l := len(string(v))
-		tok.S += l
-		tok.E -= l
-		tok.Str = str2
-		tok.quoted = true
-	}
-
 	return tok
 }
 
 func (tok *Token) isEmpty() bool {
 	return strings.TrimSpace(tok.Str) == ""
+}
+
+func (tok *Token) Unquote() (rune, int, int, string, bool) {
+	str, err := strconv.Unquote(tok.Str)
+	if err != nil {
+		return 0, 0, 0, "", false
+	}
+	v, _, _, err := strconv.UnquoteChar(tok.Str, 0)
+	if err != nil {
+		return 0, 0, 0, "", false
+	}
+	l := len(string(v))
+	s := tok.S + l
+	e := s + len(str)
+	return v, s, e, str, true
+}
+
+func (tok *Token) UnquotedStr() string {
+	_, _, _, s, ok := tok.Unquote()
+	if ok {
+		return s
+	}
+	return tok.Str
 }

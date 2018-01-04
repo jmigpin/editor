@@ -9,7 +9,6 @@ import (
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/ui/tautil"
 )
 
 func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
@@ -174,7 +173,7 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 	case "CloseColumn":
 		erowCmd(func(e cmdutil.ERower) { e.Row().Col.Close() })
 	case "Find":
-		erowCmd(func(e cmdutil.ERower) { _findCmd(e, part) })
+		erowCmd(func(e cmdutil.ERower) { cmdutil.Find(e, part) })
 	case "GotoLine":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.GotoLine(e, part) })
 	case "Replace":
@@ -195,14 +194,6 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 	}
 }
 
-func _findCmd(erow cmdutil.ERower, part *toolbardata.Part) {
-	a := part.Args[1:]
-	if len(a) != 1 {
-		erow.Ed().Error(fmt.Errorf("find: expecting 1 argument"))
-		return
-	}
-	tautil.Find(erow.Row().TextArea, a[0].Str)
-}
 func _colorThemeCmd(ed *Editor) {
 	ui.CycleColorTheme()
 	ed.ui.Layout.MarkNeedsPaint()

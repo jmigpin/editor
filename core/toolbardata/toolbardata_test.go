@@ -20,7 +20,7 @@ func TestParseTokens2(t *testing.T) {
 	s := "\"b|c\""
 	u := parseTokens(s, 0, len(s), "|")
 	if !(len(u) == 1 &&
-		u[0].Str == "b|c") {
+		u[0].Str == "\"b|c\"") {
 		t.Fatal(spew.Sdump(u))
 	}
 }
@@ -30,7 +30,7 @@ func TestParseParts1(t *testing.T) {
 	u := parseParts(s)
 	if !(len(u) == 3 &&
 		len(u[1].Args) == 1 &&
-		u[1].Args[0].Str == "b | c") {
+		u[1].Args[0].Str == "\"b | c\"") {
 		t.Fatal(spew.Sdump(u))
 	}
 }
@@ -67,7 +67,7 @@ func TestParseParts5(t *testing.T) {
 	u := parseParts(s)
 	if !(len(u) == 3 &&
 		len(u[1].Args) == 3 &&
-		u[1].Args[2].Str == "") {
+		u[1].Args[2].Str == "\"\"") {
 		t.Fatal(spew.Sdump(u))
 	}
 }
@@ -78,5 +78,36 @@ func TestParseParts6(t *testing.T) {
 		len(u[2].Args) == 1 &&
 		u[2].Args[0].Str == "c") {
 		t.Fatal(spew.Sdump(u))
+	}
+}
+
+func TestParseParts7(t *testing.T) {
+	s := `  grep -niIR      "== last"  `
+	u := parseParts(s)
+	if !(len(u) == 1 &&
+		len(u[0].Args) == 3 &&
+		u[0].Args[0].Str == `grep` &&
+		u[0].Args[1].Str == `-niIR` &&
+		u[0].Args[2].Str == `"== last"`) {
+		t.Fatal(spew.Sdump(u))
+	}
+}
+func TestParseParts8(t *testing.T) {
+	s := "\"a\"|'b'|`c\nd`"
+	u := parseParts(s)
+	ru, a, b, s, ok := u[0].Args[0].Unquote()
+	if !(ok && s == "a") {
+		t.Log(ru, a, b, s, ok)
+		t.Fatal()
+	}
+	ru, a, b, s, ok = u[1].Args[0].Unquote()
+	if !(ok && s == "b") {
+		t.Log(ru, a, b, s, ok)
+		t.Fatal()
+	}
+	ru, a, b, s, ok = u[2].Args[0].Unquote()
+	if !(ok && s == "c\nd") {
+		t.Log(ru, a, b, s, ok)
+		t.Fatal()
 	}
 }

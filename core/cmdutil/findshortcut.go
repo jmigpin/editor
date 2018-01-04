@@ -40,6 +40,15 @@ func FindShortcut(erow ERower) {
 		}
 	}
 
+	// defer warppointer to run after ta.editclose
+	defer func() {
+		// warp pointer to toolbar close to "Find " text cmd to be able to click for run
+		p := ta.GetPoint(ta.CursorIndex())
+		p3 := p.Add(ta.Bounds.Min)
+		p3.Y += ta.LineHeight() * 3 / 4 // center of rune
+		erow.Ed().UI().WarpPointer(&p3)
+	}()
+
 	ta.EditOpen()
 	defer ta.EditCloseAfterSetCursor()
 
@@ -75,10 +84,4 @@ func FindShortcut(erow ERower) {
 			ta.SetCursorIndex(a + len(searchStr))
 		}
 	}
-
-	// warp pointer to toolbar close to "Find " text cmd to be able to click for run
-	p := ta.GetPoint(ta.CursorIndex())
-	p3 := p.Add(ta.Bounds.Min)
-	p3.Y += ta.LineHeight() / 2 // center of rune
-	erow.Ed().UI().WarpPointer(&p3)
 }

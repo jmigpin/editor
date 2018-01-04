@@ -4,16 +4,18 @@ import (
 	"strings"
 )
 
-func Find(ta Texta, str string) {
+func Find(ta Texta, str string) bool {
 	if str == "" {
-		return
+		return false
 	}
 	index, ok := findNextString(ta.Str(), str, ta.CursorIndex())
 	if ok {
 		i := index + len(str)
 		ta.SetSelection(index, i)
 		ta.MakeIndexVisibleAtCenter(i)
+		return true
 	}
+	return false
 }
 func findNextString(text, str string, index int) (int, bool) {
 	// ignore case

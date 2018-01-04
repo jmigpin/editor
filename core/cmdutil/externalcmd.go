@@ -38,11 +38,18 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	row.TextArea.SetStrClear("", true, true)
 
 	// cmd str
-	var u []string
-	for _, a := range part.Args {
-		u = append(u, a.Str)
+	var cmdStr string
+	if len(part.Args) == 1 {
+		// if quoted it will pass the string inside verbatim
+		cmdStr = part.Args[0].UnquotedStr()
+	} else {
+		// concat args
+		var u []string
+		for _, a := range part.Args {
+			u = append(u, a.Str)
+		}
+		cmdStr = strings.Join(u, " ")
 	}
-	cmdStr := strings.Join(u, " ")
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	cmd.Dir = dir
