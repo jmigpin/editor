@@ -62,7 +62,7 @@ The editor has a top toolbar and columns. Columns have rows. Rows have a square-
 
 These toolbars are textareas where clicking on the text will run that text as a command.
 
-The square-button allows the row to be moved/resized/closed with the mouse. It also shows the state of the row.
+The square-button shows the state of the row.
 
 ### Row square-button states
 
