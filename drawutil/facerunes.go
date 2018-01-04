@@ -1,4 +1,4 @@
-package drawutil2
+package drawutil
 
 import (
 	"image"

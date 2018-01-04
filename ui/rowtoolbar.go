@@ -3,7 +3,7 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/drawutil2/hsdrawer"
+	"github.com/jmigpin/editor/drawutil/hsdrawer"
 )
 
 type RowToolbar struct {

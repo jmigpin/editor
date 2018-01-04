@@ -5,8 +5,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/jmigpin/editor/drawutil2/hsdrawer"
-	"github.com/jmigpin/editor/drawutil2/loopers"
+	"github.com/jmigpin/editor/drawutil/hsdrawer"
+	"github.com/jmigpin/editor/drawutil/loopers"
 	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/ui/tautil/tahistory"

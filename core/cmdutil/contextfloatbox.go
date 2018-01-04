@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/jmigpin/editor/core/gosource"
-	"github.com/jmigpin/editor/drawutil2/loopers"
+	"github.com/jmigpin/editor/drawutil/loopers"
 	"github.com/jmigpin/editor/ui"
 )
 

@@ -9,7 +9,7 @@ import (
 )
 
 type Window interface {
-	EventLoop(events chan<- interface{})
+	EventLoop(events chan<- interface{}) // should emit events from uiutil/event
 
 	Close()
 	SetWindowName(string)

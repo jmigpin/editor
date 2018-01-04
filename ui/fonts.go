@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/golang/freetype/truetype"
-	"github.com/jmigpin/editor/drawutil2"
+	"github.com/jmigpin/editor/drawutil"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gomedium"
 	"golang.org/x/image/font/gofont/gomono"
@@ -78,7 +78,7 @@ func loadFont(ttf []byte) error {
 	if FontFace != nil {
 		FontFace.Close()
 	}
-	FontFace = drawutil2.NewFace(f, &FontOpt)
+	FontFace = drawutil.NewFace(f, &FontOpt)
 	return nil
 }
 

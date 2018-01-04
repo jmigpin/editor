@@ -4,9 +4,8 @@ import (
 	"image"
 	"time"
 
-	"golang.org/x/image/font"
-
 	"github.com/jmigpin/editor/uiutil"
+	"golang.org/x/image/font"
 )
 
 const (

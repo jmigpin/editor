@@ -10,8 +10,8 @@ import (
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
 	"github.com/jmigpin/editor/core/toolbardata"
-	"github.com/jmigpin/editor/drawutil2"
-	"github.com/jmigpin/editor/drawutil2/loopers"
+	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/drawutil/loopers"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/uiutil/event"
 )
@@ -39,7 +39,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	}
 
 	loopers.WrapLineRune = rune(opt.WrapLineRune)
-	drawutil2.TabWidth = opt.TabWidth
+	drawutil.TabWidth = opt.TabWidth
 	ui.ScrollbarLeft = opt.ScrollbarLeft
 	ui.ScrollbarWidth = opt.ScrollbarWidth
 
