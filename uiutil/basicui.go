@@ -6,9 +6,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/golang/freetype/truetype"
+	"github.com/jmigpin/editor/drawutil"
 	"github.com/jmigpin/editor/driver"
 	"github.com/jmigpin/editor/uiutil/event"
 	"github.com/jmigpin/editor/uiutil/widget"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/gomedium"
 )
 
 type BasicUI struct {
@@ -20,6 +24,8 @@ type BasicUI struct {
 	lastPaint       time.Time
 	incompleteDraws int
 	curCursor       widget.Cursor
+
+	fontFace1 font.Face
 }
 
 func NewBasicUI(events chan<- interface{}, WinName string) (*BasicUI, error) {
@@ -35,10 +41,13 @@ func NewBasicUI(events chan<- interface{}, WinName string) (*BasicUI, error) {
 		events:        events,
 	}
 
-	// start Window event loop with mousemove event filter
+	// slow UI without mouse move filter
+	//go ui.Win.EventLoop(events)
+
+	// start window event loop with mousemove event filter
 	events2 := make(chan interface{}, cap(events))
 	go ui.Win.EventLoop(events2)
-	go MouseMoveFilterLoop(events2, events)
+	go MouseMoveFilterLoop(events2, events, &ui.DrawFrameRate)
 
 	return ui, nil
 }
@@ -165,6 +174,17 @@ func (ui *BasicUI) GetCPPaste(i event.CopyPasteIndex) (string, error) {
 }
 func (ui *BasicUI) SetCPCopy(i event.CopyPasteIndex, s string) error {
 	return ui.Win.SetCPCopy(i, s)
+}
+
+// Implements widget.Context
+func (ui *BasicUI) FontFace1() font.Face {
+	if ui.fontFace1 == nil {
+		// default font
+		opt := &truetype.Options{DPI: 0, Size: 14, Hinting: font.HintingFull}
+		f, _ := truetype.Parse(gomedium.TTF)
+		ui.fontFace1 = drawutil.NewFace(f, opt)
+	}
+	return ui.fontFace1
 }
 
 func (ui *BasicUI) RunOnUIThread(f func()) {

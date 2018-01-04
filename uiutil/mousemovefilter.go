@@ -6,7 +6,7 @@ import (
 	"github.com/jmigpin/editor/uiutil/event"
 )
 
-func MouseMoveFilterLoop(in <-chan interface{}, out chan<- interface{}) {
+func MouseMoveFilterLoop(in <-chan interface{}, out chan<- interface{}, fps *int) {
 	var lastMoveEv interface{}
 	var ticker *time.Ticker
 	var timeToSend <-chan time.Time
@@ -16,7 +16,7 @@ func MouseMoveFilterLoop(in <-chan interface{}, out chan<- interface{}) {
 		//n++
 		lastMoveEv = ev
 		if ticker == nil {
-			ticker = time.NewTicker(time.Second / 40)
+			ticker = time.NewTicker(time.Second / time.Duration(*fps))
 			timeToSend = ticker.C
 		}
 	}
