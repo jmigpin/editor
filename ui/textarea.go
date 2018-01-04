@@ -279,9 +279,6 @@ func (ta *TextArea) setStr(s string) {
 	if s == ta.str {
 		return
 	}
-
-	oldBounds := ta.Bounds
-
 	ta.str = s
 
 	// ensure valid indexes
@@ -291,7 +288,7 @@ func (ta *TextArea) setStr(s string) {
 	ta.CalcChildsBounds()
 	ta.MarkNeedsPaint()
 
-	ev := &TextAreaSetStrEvent{ta, oldBounds}
+	ev := &TextAreaSetStrEvent{ta}
 	ta.EvReg.RunCallbacks(TextAreaSetStrEventId, ev)
 }
 
@@ -878,6 +875,5 @@ type TextAreaCmdEvent struct {
 	Index    int
 }
 type TextAreaSetStrEvent struct {
-	TextArea  *TextArea
-	OldBounds image.Rectangle // TODO: should not be here
+	TextArea *TextArea
 }

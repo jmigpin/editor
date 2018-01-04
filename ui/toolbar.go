@@ -1,6 +1,8 @@
 package ui
 
-import "github.com/jmigpin/editor/util/uiutil/widget"
+import (
+	"github.com/jmigpin/editor/util/uiutil/widget"
+)
 
 type Toolbar struct {
 	*TextArea
@@ -20,7 +22,7 @@ func NewToolbar(ui *UI, parent widget.Node) *Toolbar {
 	return tb
 }
 func (tb *Toolbar) onTextAreaSetStr(ev0 interface{}) {
-	ev := ev0.(*TextAreaSetStrEvent)
+	//ev := ev0.(*TextAreaSetStrEvent)
 
 	// dynamic toolbar bounds that change when edited
 	// if toolbar bounds changed due to text change (dynamic height) then the parent container needs paint
@@ -30,11 +32,11 @@ func (tb *Toolbar) onTextAreaSetStr(ev0 interface{}) {
 		tb.parent.Embed().MarkNeedsPaint()
 	}
 
-	// keep pointer inside if it was in before -- need to test if it was in before otherwise and auto-change that edits the toolbar will warp the pointer
-	// useful in dynamic bounds becoming shorter and leaving the pointer outside, losing keyboard focus
+	// Keep pointer inside if it was in before. Need to test if it was in before, otherwise it will warp the pointer on any change.
+	// Useful in dynamic bounds becoming shorter and leaving the pointer outside, losing keyboard focus.
 	b2 := tb.Bounds // new recalc'ed bounds
 	p, err := tb.ui.QueryPointer()
-	if err != nil && p.In(ev.OldBounds) && !p.In(b2) {
+	if err == nil && p.In(b) && !p.In(b2) {
 		tb.ui.WarpPointerToRectanglePad(&b2)
 	}
 }
