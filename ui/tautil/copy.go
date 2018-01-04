@@ -1,6 +1,6 @@
 package tautil
 
-import "github.com/jmigpin/editor/uiutil/event"
+import "github.com/jmigpin/editor/util/uiutil/event"
 
 func Copy(ta Texta) {
 	if !ta.SelectionOn() {

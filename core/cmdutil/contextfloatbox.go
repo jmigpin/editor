@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/jmigpin/editor/core/gosource"
-	"github.com/jmigpin/editor/drawutil/loopers"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/drawutil/loopers"
 )
 
 func ToggleContextFloatBox(ed Editorer, p image.Point) {

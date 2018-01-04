@@ -1,6 +1,6 @@
 package tautil
 
-import "github.com/jmigpin/editor/uiutil/event"
+import "github.com/jmigpin/editor/util/uiutil/event"
 
 func SelectLine(ta Texta) {
 	ta.SetSelectionOff()

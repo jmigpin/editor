@@ -4,9 +4,9 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/jmigpin/editor/imageutil"
-	"github.com/jmigpin/editor/uiutil/event"
-	"github.com/jmigpin/editor/uiutil/widget"
+	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type RowSquare struct {

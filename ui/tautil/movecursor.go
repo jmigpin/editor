@@ -4,7 +4,7 @@ import (
 	"image"
 	"strings"
 
-	"github.com/jmigpin/editor/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 func MoveCursorToPoint(ta Texta, p *image.Point, sel bool) {

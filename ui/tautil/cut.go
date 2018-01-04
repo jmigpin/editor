@@ -1,6 +1,6 @@
 package tautil
 
-import "github.com/jmigpin/editor/uiutil/event"
+import "github.com/jmigpin/editor/util/uiutil/event"
 
 func Cut(ta Texta) {
 	if !ta.SelectionOn() {

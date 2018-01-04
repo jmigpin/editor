@@ -3,7 +3,7 @@ package cmdutil
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 func CopyFilePosition(ed Editorer, erow ERower) {

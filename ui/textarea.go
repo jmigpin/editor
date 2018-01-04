@@ -5,14 +5,14 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/jmigpin/editor/drawutil/hsdrawer"
-	"github.com/jmigpin/editor/drawutil/loopers"
-	"github.com/jmigpin/editor/imageutil"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/ui/tautil/tahistory"
-	"github.com/jmigpin/editor/uiutil/event"
-	"github.com/jmigpin/editor/uiutil/widget"
-	"github.com/jmigpin/editor/xgbutil/evreg"
+	"github.com/jmigpin/editor/util/drawutil/hsdrawer"
+	"github.com/jmigpin/editor/util/drawutil/loopers"
+	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type TextArea struct {

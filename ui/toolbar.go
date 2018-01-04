@@ -1,8 +1,6 @@
 package ui
 
-import (
-	"github.com/jmigpin/editor/uiutil/widget"
-)
+import "github.com/jmigpin/editor/util/uiutil/widget"
 
 type Toolbar struct {
 	*TextArea

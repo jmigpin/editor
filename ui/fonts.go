@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/golang/freetype/truetype"
-	"github.com/jmigpin/editor/drawutil"
+	"github.com/jmigpin/editor/util/drawutil"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gomedium"
 	"golang.org/x/image/font/gofont/gomono"

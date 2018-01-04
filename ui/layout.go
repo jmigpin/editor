@@ -3,7 +3,7 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/uiutil/widget"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type Layout struct {

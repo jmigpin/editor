@@ -10,10 +10,10 @@ import (
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
 	"github.com/jmigpin/editor/core/toolbardata"
-	"github.com/jmigpin/editor/drawutil"
-	"github.com/jmigpin/editor/drawutil/loopers"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/uiutil/event"
+	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/drawutil/loopers"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type Editor struct {

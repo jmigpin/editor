@@ -1,0 +1,1 @@
+The contents of this package should be generic enough to be usable on any project.

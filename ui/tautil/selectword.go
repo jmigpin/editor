@@ -3,7 +3,7 @@ package tautil
 import (
 	"strings"
 
-	"github.com/jmigpin/editor/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 func SelectWord(ta Texta) {

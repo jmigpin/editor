@@ -3,8 +3,8 @@ package ui
 import (
 	"image/color"
 
-	"github.com/jmigpin/editor/drawutil/hsdrawer"
-	"github.com/jmigpin/editor/imageutil"
+	"github.com/jmigpin/editor/util/drawutil/hsdrawer"
+	"github.com/jmigpin/editor/util/imageutil"
 	"golang.org/x/image/colornames"
 )
 

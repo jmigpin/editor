@@ -4,7 +4,7 @@ import (
 	"image"
 	"time"
 
-	"github.com/jmigpin/editor/uiutil"
+	"github.com/jmigpin/editor/util/uiutil"
 	"golang.org/x/image/font"
 )
 

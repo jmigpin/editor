@@ -15,7 +15,7 @@ import (
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/ui/tautil/tahistory"
-	"github.com/jmigpin/editor/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/pkg/errors"
 )
 

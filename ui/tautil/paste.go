@@ -1,8 +1,6 @@
 package tautil
 
-import (
-	"github.com/jmigpin/editor/uiutil/event"
-)
+import "github.com/jmigpin/editor/util/uiutil/event"
 
 func Paste(ta Texta, i event.CopyPasteIndex) {
 	// The request blocks while it communicates with the x server.

@@ -3,8 +3,8 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/imageutil"
-	"github.com/jmigpin/editor/uiutil/widget"
+	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type Column struct {

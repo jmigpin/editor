@@ -3,7 +3,7 @@ package tautil
 import (
 	"image"
 
-	"github.com/jmigpin/editor/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type Texta interface {
