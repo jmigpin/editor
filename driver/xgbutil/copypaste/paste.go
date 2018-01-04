@@ -66,6 +66,7 @@ func (p *Paste) request(selection xproto.Atom) (string, error) {
 		}
 		p.reqs.waiting--
 		return "", fmt.Errorf("paste: request timeout")
+
 	case ev := <-p.reply:
 		return p.extractData(ev)
 	}
@@ -84,9 +85,11 @@ func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 	p.reqs.Lock()
 	if p.reqs.waiting > 0 {
 		p.reqs.waiting--
+		p.reqs.Unlock() // unlock before sending event or could be locked down
 		p.reply <- ev
+	} else {
+		p.reqs.Unlock()
 	}
-	p.reqs.Unlock()
 }
 
 func (p *Paste) requestData(selection xproto.Atom) {

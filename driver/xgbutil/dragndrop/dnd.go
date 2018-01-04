@@ -231,9 +231,11 @@ func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 	dnd.reqs.Lock()
 	if dnd.reqs.waiting > 0 {
 		dnd.reqs.waiting--
+		dnd.reqs.Unlock() // unlock before sending event or could be locked down
 		dnd.reply <- ev
+	} else {
+		dnd.reqs.Unlock()
 	}
-	dnd.reqs.Unlock()
 }
 
 func (dnd *Dnd) requestData(typ xproto.Atom) {
