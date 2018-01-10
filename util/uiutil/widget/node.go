@@ -14,7 +14,6 @@ type Node interface {
 	InsertBefore(n, mark Node)
 	Append(n ...Node)
 	Remove(Node)
-	Swap(Node)
 
 	// Node is an immediate child of this node, while the rectangle is the bounds of the original subchild node that requested the paint.
 	OnMarkChildNeedsPaint(Node, *image.Rectangle)
@@ -31,21 +30,13 @@ type EmbedNode struct {
 	Cursor Cursor
 	Bounds image.Rectangle
 
-	// Layout testing
-	//Pos         image.Point
-	//Measurement image.Point
-
 	wrapper Node
 	childs  list.List
 	elem    *list.Element
 	parent  *EmbedNode
 
-	// TODO: pass these to the implementing node
-	expand struct{ x, y bool }
-	fill   struct{ x, y bool }
-
 	marks     Marks
-	marksLock sync.RWMutex
+	marksLock sync.RWMutex // allow marks from non-paint goroutines
 }
 
 func (en *EmbedNode) Embed() *EmbedNode {
@@ -66,27 +57,25 @@ func (en *EmbedNode) Parent() Node {
 	if en.parent != nil {
 		w := en.parent.wrapper
 		if w == nil {
-			s := fmt.Sprintf("%s", reflect.TypeOf(en.wrapper))
-			panic("parent node without wrapper: en.wrapper is " + s)
+			panic(fmt.Sprintf("parent node without wrapper: en.wrapper is %s", reflect.TypeOf(en.wrapper)))
 		}
 		return w
 	}
 	return nil
 }
 
+// If a node wants its InsertBefore implementation to be used, the wrapper must be set.
 func (en *EmbedNode) Append(nodes ...Node) {
 	for _, n := range nodes {
-		en._insertBefore(n, nil)
+		if en.wrapper != nil {
+			en.wrapper.InsertBefore(n, nil)
+		} else {
+			en.InsertBefore(n, nil)
+		}
 	}
 }
 
-// Next should not be nil. Use Append to add to the end.
 func (en *EmbedNode) InsertBefore(n, next Node) {
-	// Note that testing next for nil could fail if it is a non-nil interface that is nil, and testing (Node==nil) would be false.
-	en._insertBefore(n, next)
-}
-
-func (en *EmbedNode) _insertBefore(n, next Node) {
 	ne := n.Embed()
 	if ne == en {
 		panic("inserting into itself")
@@ -94,7 +83,7 @@ func (en *EmbedNode) _insertBefore(n, next Node) {
 
 	// insert in list and get element
 	var elem *list.Element
-	if next == nil {
+	if next == nil || reflect.ValueOf(next).IsNil() {
 		elem = en.childs.PushBack(n)
 	} else {
 		nexte := next.Embed()
@@ -249,31 +238,14 @@ func (en *EmbedNode) IterChildsReverse(fn func(Node)) {
 
 func (en *EmbedNode) ChildsLen() int {
 	c := 0
-	for e := en.childs.Back(); e != nil; e = e.Prev() {
-		n := e.Value.(Node)
-		if n.Embed().Hidden() {
-			continue
-		}
+	en.IterChilds(func(Node) {
 		c++
-	}
+	})
 	return c
 }
 
 func (en *EmbedNode) HasChild(n Node) bool {
 	return en == n.Embed().parent
-}
-
-func (en *EmbedNode) Expand() (bool, bool) {
-	return en.expand.x, en.expand.y
-}
-func (en *EmbedNode) SetExpand(x, y bool) {
-	en.expand.x, en.expand.y = x, y
-}
-func (en *EmbedNode) Fill() (bool, bool) {
-	return en.fill.x, en.fill.y
-}
-func (en *EmbedNode) SetFill(x, y bool) {
-	en.fill.x, en.fill.y = x, y
 }
 
 func (en *EmbedNode) hasMarks(m Marks) bool {
@@ -291,6 +263,8 @@ func (en *EmbedNode) NeedsPaint() bool {
 	return en.hasMarks(NeedsPaintMark)
 }
 func (en *EmbedNode) MarkNeedsPaint() {
+	// Can't test if it already needs paint because setNeedsPaint is running a callback (OnMarkChildNeedsPaint) with the bounds of the marking rectangle, and the top root node would not get that callback.
+
 	en.setNeedsPaint(true)
 }
 func (en *EmbedNode) setNeedsPaint(v bool) {
@@ -298,10 +272,12 @@ func (en *EmbedNode) setNeedsPaint(v bool) {
 		return
 	}
 	en.setMarks(NeedsPaintMark, v)
+
+	// mark parents
 	if v {
 		//log.Printf("---needspaint %v", reflect.TypeOf(en.wrapper))
 
-		// set mark in parents if not already marked
+		// set mark in parents
 		for pn := en.parent; pn != nil; pn = pn.parent {
 			pn.setMarks(ChildNeedsPaintMark, true)
 		}
@@ -387,8 +363,58 @@ func (en *EmbedNode) CalcChildsBounds() {
 func (en *EmbedNode) Paint() {
 }
 
+func (en *EmbedNode) PaintChilds() {
+	en.IterChilds(func(child Node) {
+		_ = PaintTree(child)
+	})
+}
+
+//// unable to use at the moment: need to ensure top layer drawing order
+//func (en *EmbedNode) PaintChilds2() {
+//	var wg sync.WaitGroup
+//	wg.Add(en.ChildsLen())
+//	en.IterChilds(func(child Node) {
+//		go func(child Node) {
+//			defer wg.Done()
+//			_ = PaintTree(child)
+//		}(child)
+//	})
+//	wg.Wait()
+//}
+
 func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
 	return false
+}
+
+type Marks uint16
+
+const (
+	NeedsPaintMark Marks = 1 << iota
+	ChildNeedsPaintMark
+	PointerInsideMark // mouseEnter/mouseLeave events
+	NotDraggableMark
+	HiddenMark
+	ParentHiddenMark
+
+	// For transparent widgets that cross 2 or more other widgets (ex: separatorHandle). Improves on detecting if others need paint and reduces the number of widgets that get painted. Child nodes can still be painted.
+	NotPaintableMark
+)
+
+func (m *Marks) add(u Marks) {
+	*m |= u
+}
+func (m *Marks) remove(u Marks) {
+	*m &^= u
+}
+func (m *Marks) has(u Marks) bool {
+	return *m&u > 0
+}
+func (m *Marks) set(u Marks, v bool) {
+	if v {
+		m.add(u)
+	} else {
+		m.remove(u)
+	}
 }
 
 func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
@@ -422,58 +448,6 @@ func PaintTree(node Node) (painted bool) {
 	node.Paint()
 	node.PaintChilds()
 	return true
-}
-
-func (en *EmbedNode) PaintChilds() {
-	en.IterChilds(func(child Node) {
-		_ = PaintTree(child)
-	})
-}
-
-//func (en *EmbedNode) PaintChilds() {
-//	// currently not used: unable to ensure the top layer gets drawn first (multilayer, menu layer)
-
-//	childs := en.Childs()
-//	var wg sync.WaitGroup
-//	wg.Add(len(childs))
-//	for _, child := range childs {
-//		go func(child Node) {
-//			defer wg.Done()
-//			_ = PaintTree(child)
-//		}(child)
-//	}
-//	wg.Wait()
-//}
-
-type Marks uint8
-
-const (
-	NeedsPaintMark Marks = 1 << iota
-	ChildNeedsPaintMark
-	PointerInsideMark // mouseEnter/mouseLeave events
-	NotDraggableMark
-	HiddenMark
-	ParentHiddenMark
-
-	// For transparent widgets that cross 2 or more other widgets (ex: separatorHandle). Improves on detecting if others need paint and reduces the number of widgets that get painted.
-	NotPaintableMark
-)
-
-func (m *Marks) add(u Marks) {
-	*m |= u
-}
-func (m *Marks) remove(u Marks) {
-	*m &^= u
-}
-func (m *Marks) has(u Marks) bool {
-	return *m&u > 0
-}
-func (m *Marks) set(u Marks, v bool) {
-	if v {
-		m.add(u)
-	} else {
-		m.remove(u)
-	}
 }
 
 func MaxPoint(p1, p2 image.Point) image.Point {

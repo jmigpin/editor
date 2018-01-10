@@ -22,44 +22,57 @@ func (layout *Layout) Init(ui *UI) {
 	layout.UI = ui
 	layout.RootNodeWrapper(layout)
 
-	bgLayer := widget.NewFlowLayout()
-	bgLayer.YAxis = true
+	//  background layer
+	bgLayer := widget.NewBoxLayout()
 	layout.Append(bgLayer)
 
-	layout.colSepHandlesMark.SetHidden(true)
+	// column/row layer marks to be able to insert in a specific order
 	layout.rowSepHandlesMark.SetHidden(true)
-	layout.Append(&layout.colSepHandlesMark, &layout.rowSepHandlesMark)
+	layout.Append(&layout.rowSepHandlesMark)
+	layout.colSepHandlesMark.SetHidden(true)
+	layout.Append(&layout.colSepHandlesMark)
 
-	mmb := NewMainMenuButton(ui)
-	mmb.Label.Border.Left = 1
-	mmb.Label.Border.Color = &SeparatorColor
-	mmb.Label.Color = &ToolbarColors.Normal.Bg
-	mmb.Label.Text.Color = &ToolbarColors.Normal.Fg
-	mmb.SetFill(false, true)
-	layout.MainMenuButton = mmb
-
-	layout.Toolbar = NewToolbar(ui, bgLayer)
-	layout.Toolbar.SetExpand(true, false)
-
-	ttb := widget.NewFlowLayout()
-	ttb.Append(layout.Toolbar, mmb)
-
-	layout.Cols = NewColumns(layout)
-	layout.Cols.SetExpand(true, true)
-
-	if ShadowsOn {
-		bgLayer.Append(ttb, layout.Cols)
-	} else {
-		sep := widget.NewRectangle(ui)
-		sep.SetExpand(true, false)
-		sep.Size.Y = SeparatorWidth
-		sep.Color = &SeparatorColor
-		bgLayer.Append(ttb, sep, layout.Cols)
-	}
-
+	// context floatbox layer
 	layout.ContextFloatBox = NewContextFloatBox(layout)
+	layout.Append(layout.ContextFloatBox)
 
-	layout.Append(layout.ContextFloatBox, mmb.FloatMenu)
+	// floatmenu layer
+	mmb := NewMainMenuButton(ui)
+	layout.Append(mmb.FloatMenu)
+
+	// setup background layer
+	{
+		bgLayer.YAxis = true
+
+		// top toolbar
+		ttb := widget.NewBoxLayout()
+		bgLayer.Append(ttb)
+
+		// toolbar
+		layout.Toolbar = NewToolbar(ui, bgLayer)
+		ttb.Append(layout.Toolbar)
+		ttb.SetChildFlex(layout.Toolbar, true, false)
+
+		// main menu button
+		mmb.Label.Border.Left = 1
+		mmb.Label.Border.Color = &SeparatorColor
+		mmb.Label.Color = &ToolbarColors.Normal.Bg
+		mmb.Label.Text.Color = &ToolbarColors.Normal.Fg
+		ttb.Append(mmb)
+		ttb.SetChildFill(mmb, false, true)
+		layout.MainMenuButton = mmb
+
+		// separator if there are no shadow
+		if !ShadowsOn {
+			sep := widget.NewRectangle(ui)
+			sep.Size.Y = SeparatorWidth
+			sep.Color = &SeparatorColor
+			bgLayer.Append(sep)
+		}
+
+		layout.Cols = NewColumns(layout)
+		bgLayer.Append(layout.Cols)
+	}
 }
 
 func (l *Layout) InsertRowSepHandle(n widget.Node) {
@@ -97,17 +110,13 @@ func (l *Layout) GoodColumnRowPlace() (*Column, *Row) {
 				s := r.Bounds.Size()
 				a := (s.X * s.Y)
 
-				// endpercentlayout inserts rows and shares space with prev row, hence div by 2
+				// after insertion the space will be shared
 				a2 := a / 2
 
 				if a2 > best.area {
 					best.area = a2
 					best.col = c
-					best.nextRow = nil
-					r2, ok := r.NextRow()
-					if ok {
-						best.nextRow = r2
-					}
+					best.nextRow = r.NextRow()
 				}
 			}
 		}

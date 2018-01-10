@@ -25,28 +25,26 @@ func (fb *FloatBox) CalcChildsBounds() {
 	// mark for paint nodes that the old bounds intersect
 	fb.MarkNeedsPaint()
 
-	// TODO: review - should be on measure?
 	// start with the parent bounds
-	fbb := fb.Parent().Embed().Bounds
+	b := fb.Parent().Embed().Bounds
 
 	child := fb.FirstChildInAll()
 
 	// bounds bellow reference node
-	b := image.Rect(fb.RefPoint.X, fb.RefPoint.Y, fb.RefPoint.X+fbb.Dx(), fb.RefPoint.Y+fbb.Dy())
+	b2 := image.Rect(fb.RefPoint.X, fb.RefPoint.Y, fb.RefPoint.X+b.Dx(), fb.RefPoint.Y+b.Dy())
 
 	// measure child
-	m := child.Measure(b.Size()).Add(b.Min)
-	b2 := image.Rect(b.Min.X, b.Min.Y, m.X, m.Y)
-	if b2.Max.X > fbb.Max.X {
-		diff := image.Point{b2.Max.X - fbb.Max.X, 0}
-		b2 = b2.Sub(diff)
+	m := child.Measure(b2.Size()).Add(b2.Min)
+	b3 := image.Rect(b2.Min.X, b2.Min.Y, m.X, m.Y)
+	if b3.Max.X > b.Max.X {
+		diff := image.Point{b3.Max.X - b.Max.X, 0}
+		b3 = b3.Sub(diff)
 	}
-	b2 = b2.Intersect(fbb)
-	child.Embed().Bounds = b2
+	b3 = b3.Intersect(b)
+	child.Embed().Bounds = b3
 
-	// TODO: review
 	// set own bounds, same as the child
-	fb.Embed().Bounds = b2
+	fb.Embed().Bounds = b3
 
 	child.CalcChildsBounds()
 }

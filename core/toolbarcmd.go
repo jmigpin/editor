@@ -72,11 +72,8 @@ func firstPartCmd(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) bool 
 
 		// open row next to erow and load content
 		col := erow.Row().Col
-		u, ok := erow.Row().NextRow()
-		if !ok {
-			u = nil
-		}
-		erow2 := ed.NewERowerBeforeRow(str, col, u)
+		next := erow.Row().NextRow()
+		erow2 := ed.NewERowerBeforeRow(str, col, next)
 		err := erow2.LoadContentClear()
 		if err != nil {
 			ed.Error(err)

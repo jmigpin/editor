@@ -12,10 +12,7 @@ func DuplicateRow(ed Editorer, erow ERower) {
 
 	// col/row position of the duplicate
 	col := erow.Row().Col
-	next, ok := erow.Row().NextRow()
-	if !ok {
-		next = nil
-	}
+	next := erow.Row().NextRow()
 
 	// make duplicate (have same filename)
 	filename := erow.Filename()

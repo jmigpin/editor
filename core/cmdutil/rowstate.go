@@ -8,7 +8,8 @@ type RowState struct {
 	TbCursorIndex int
 	TaCursorIndex int
 	TaOffsetIndex int
-	EndPercent    float64
+	EndPercent    float64 // DEPRECATED: keeping to be backward compatible
+	StartPercent  float64
 }
 
 func NewRowState(row *ui.Row) *RowState {
@@ -17,10 +18,7 @@ func NewRowState(row *ui.Row) *RowState {
 		TbCursorIndex: row.Toolbar.CursorIndex(),
 		TaCursorIndex: row.TextArea.CursorIndex(),
 		TaOffsetIndex: row.TextArea.OffsetIndex(),
-	}
-	// Keep end percent if possible. ReopenRow uses this after the row is removed and doesn't have a parent anymore.
-	if row.Parent() != nil {
-		rs.EndPercent = row.Col.RowsLayout.ChildEndPercent(row)
+		StartPercent:  row.Col.RowsLayout.RawStartPercent(row),
 	}
 	return rs
 }

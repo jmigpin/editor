@@ -169,7 +169,7 @@ func (ed *Editor) openInitialRows(opt *Options) {
 
 	// cmd line filenames to open
 	if len(opt.Filenames) > 0 {
-		col, _ := ed.ui.Layout.Cols.FirstChildColumn()
+		col := ed.ui.Layout.Cols.FirstChildColumn()
 		for _, s := range opt.Filenames {
 			_, ok := ed.FindERower(s)
 			if !ok {
@@ -187,12 +187,10 @@ func (ed *Editor) openInitialRows(opt *Options) {
 	// start with 2 colums and a current directory row on 2nd column
 	cols := ed.ui.Layout.Cols
 	_ = cols.NewColumn()
-	col, ok := cols.LastChildColumn()
-	if ok {
-		dir, err := os.Getwd()
-		if err == nil {
-			cmdutil.OpenDirectoryRow(ed, dir, col, nil)
-		}
+	col := cols.LastChildColumn()
+	dir, err := os.Getwd()
+	if err == nil {
+		cmdutil.OpenDirectoryRow(ed, dir, col, nil)
 	}
 }
 
@@ -270,8 +268,7 @@ func (ed *Editor) Errorf(f string, a ...interface{}) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
-	//log.Printf("%v", err)
-	ed.Messagef("error: " + err.Error())
+	ed.Messagef("error: %v", err.Error())
 }
 
 func (ed *Editor) Messagef(f string, a ...interface{}) {

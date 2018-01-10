@@ -5,8 +5,7 @@ import (
 	"image/color"
 	"image/draw"
 
-	"github.com/jmigpin/editor/drawutil2/loopers"
-
+	"github.com/jmigpin/editor/util/drawutil/loopers"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )

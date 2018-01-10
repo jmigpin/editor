@@ -80,11 +80,11 @@ func (ui *BasicUI) UpdateImageSize() {
 		log.Println(err)
 	} else {
 		ib := ui.Win.Image().Bounds()
-		en := ui.RootNode.Embed()
-		if !en.Bounds.Eq(ib) {
-			en.Bounds = ib
-			en.CalcChildsBounds()
-			en.MarkNeedsPaint()
+		n := ui.RootNode
+		if !n.Embed().Bounds.Eq(ib) {
+			n.Embed().Bounds = ib
+			n.CalcChildsBounds()
+			n.Embed().MarkNeedsPaint()
 		}
 	}
 }
@@ -137,9 +137,14 @@ func (ui *BasicUI) paintIfNeeded() (painted bool) {
 }
 
 func (ui *BasicUI) putImage(r *image.Rectangle) {
-	ui.incompleteDraws++
-	ui.Win.PutImage(r)
+	err := ui.Win.PutImage(r)
+	if err != nil {
+		ui.events <- err
+	} else {
+		ui.incompleteDraws++
+	}
 }
+
 func (ui *BasicUI) onWindowPutImageDone() {
 	ui.incompleteDraws--
 }

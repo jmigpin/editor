@@ -1,9 +1,9 @@
 package hsdrawer
 
 import (
-	"fmt"
 	"image"
 	"image/draw"
+	"log"
 
 	"github.com/jmigpin/editor/util/drawutil/loopers"
 	"golang.org/x/image/font"
@@ -56,11 +56,6 @@ func (d *HSDrawer) Measure(max image.Point) image.Point {
 
 	// TODO: remove pad from offset?
 
-	// TODO: update only parts of the cache
-	//if d.hintStr == d.Str {
-	//	return d.update(hint)
-	//}
-
 	// fixed.Int26_6 integer part ranges from -33554432 to 33554431
 	//fixedMaxY := fixed.I(33554431).Ceil()
 
@@ -96,7 +91,7 @@ func (d *HSDrawer) Measure(max image.Point) image.Point {
 
 func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 	if bounds.Size().X != d.maxX {
-		panic(fmt.Sprintf("drawing for %v but measured with hint %v", bounds.Size().X, d.maxX))
+		log.Printf("hsdrawer: drawing for %v but measured with hint %v", bounds.Size().X, d.maxX)
 	}
 
 	// draw bg first to correctly paint below all runes drawn later
@@ -104,9 +99,7 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 
 	// restore position to a close data point (performance)
 	p := fixed.P(d.Offset.X, d.Offset.Y)
-	//p := &fixed.Point26_6{0, fixed.I(d.Offset.Y)}
 	d.pdl.RestorePosDataCloseToPoint(&p)
-	//d.strl.Pen.Y -= fixed.I(d.Offset.Y)
 	d.strl.Pen = d.strl.Pen.Sub(p)
 
 	// draw bg
@@ -118,7 +111,6 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 
 	// restore position to a close data point (performance)
 	d.pdl.RestorePosDataCloseToPoint(&p)
-	//d.strl.Pen.Y -= fixed.I(d.Offset.Y)
 	d.strl.Pen = d.strl.Pen.Sub(p)
 
 	// draw runes

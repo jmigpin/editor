@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/jmigpin/editor/drawutil2"
+	"github.com/jmigpin/editor/util/drawutil"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -34,9 +34,9 @@ abcde
 abcde`
 
 func TestPosData1(t *testing.T) {
-	f1 := drawutil2.GetTestFace()
-	f2 := drawutil2.NewFaceRunes(f1)
-	f3 := drawutil2.NewFaceCache(f2)
+	f1 := drawutil.GetTestFace()
+	f2 := drawutil.NewFaceRunes(f1)
+	f3 := drawutil.NewFaceCache(f2)
 	face := f3
 
 	bounds := image.Rect(0, 0, 1000, 1000)

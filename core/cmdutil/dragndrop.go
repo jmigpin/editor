@@ -85,15 +85,11 @@ func (h *DndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*u
 	}
 }
 func (h *DndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL) {
-	var nextRow *ui.Row
-	if row, ok := col.PointRow(p); ok {
-		// next row for insertion
-		r, ok := row.NextRow()
-		if ok {
-			nextRow = r
-		}
+	next, ok := col.PointNextRow(p)
+	if !ok {
+		next = nil
 	}
-	erow := h.ed.NewERowerBeforeRow(u.Path, col, nextRow)
+	erow := h.ed.NewERowerBeforeRow(u.Path, col, next)
 	err := erow.LoadContentClear()
 	if err != nil {
 		h.ed.Error(err)

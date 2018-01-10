@@ -1,7 +1,6 @@
 package tautil
 
 import (
-	//"fmt"
 	"testing"
 )
 
@@ -41,6 +40,9 @@ func (ta *TextaTester) SetSelectionIndex(v int) {
 func (ta *TextaTester) SetSelectionOn(v bool) {
 	ta.selectionOn = v
 }
+func (ta *TextaTester) SetSelectionOff() {
+	ta.SetSelectionOn(false)
+}
 func (ta *TextaTester) SelectionOn() bool {
 	visible := ta.CursorIndex() != ta.SelectionIndex()
 	return ta.selectionOn && visible
@@ -69,7 +71,7 @@ func TestMoveCursorJump0(t *testing.T) {
 		t.Fatal(ta.CursorIndex())
 	}
 	MoveCursorJumpRight(ta, false)
-	if !(ta.CursorIndex() == 6) {
+	if !(ta.CursorIndex() == 10) {
 		t.Fatal(ta.CursorIndex())
 	}
 }
@@ -85,11 +87,11 @@ func TestMoveCursorJump1(t *testing.T) {
 		t.Fatal("t1", ta.CursorIndex(), ta.SelectionIndex())
 	}
 	MoveCursorJumpRight(ta, false)
-	if !(ta.CursorIndex() == 7 && ta.SelectionIndex() == 3) {
+	if !(ta.CursorIndex() == 12 && ta.SelectionIndex() == 3) {
 		t.Fatal("t2", ta.CursorIndex(), ta.SelectionIndex())
 	}
 	MoveCursorJumpRight(ta, false)
-	if !(ta.CursorIndex() == 12 && ta.SelectionIndex() == 3) {
+	if !(ta.CursorIndex() == 13 && ta.SelectionIndex() == 3) {
 		t.Fatal("t3", ta.CursorIndex(), ta.SelectionIndex())
 	}
 }

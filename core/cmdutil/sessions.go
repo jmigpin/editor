@@ -78,7 +78,14 @@ func (s *Session) restore(ed Editorer) {
 	// setup columns sizes (end percents)
 	columns := cols.Columns()
 	for i, c := range s.Columns {
-		cols.SetChildEndPercent(columns[i], c.EndPercent)
+		sp := c.StartPercent
+
+		// backward compatible
+		if i > 0 && s.Columns[i-1].EndPercent != 0 {
+			sp = s.Columns[i-1].EndPercent
+		}
+
+		cols.ColsLayout.SetRawStartPercent(columns[i], sp)
 	}
 	// calc areas since the columns ends have been set
 	cols.CalcChildsBounds()
@@ -96,27 +103,28 @@ func (s *Session) restore(ed Editorer) {
 		col := columns[i]
 		rows := col.Rows()
 		for j, rs := range c.Rows {
-			if rs.EndPercent != 0 {
-				col.RowsLayout.SetChildEndPercent(rows[j], rs.EndPercent)
+			sp := rs.StartPercent
+
+			// backward compatible
+			if j > 0 && c.Rows[j-1].EndPercent != 0 {
+				sp = c.Rows[j-1].EndPercent
 			}
+
+			col.RowsLayout.SetRawStartPercent(rows[j], sp)
 		}
 	}
 	cols.CalcChildsBounds()
 }
 
 type ColumnState struct {
-	EndPercent float64
-	Rows       []*RowState
+	EndPercent   float64 // DEPRECATED: keeping to be backward compatible
+	StartPercent float64
+	Rows         []*RowState
 }
 
 func NewColumnState(col *ui.Column) *ColumnState {
-	endp := col.Cols.ChildEndPercent(col)
-
-	// truncate float for a shorter string
-	endp = float64(int(endp*10000)) / 10000
-
 	cstate := &ColumnState{
-		EndPercent: endp,
+		StartPercent: col.Cols.ColsLayout.RawStartPercent(col),
 	}
 	for _, row := range col.Rows() {
 		rstate := NewRowState(row)

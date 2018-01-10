@@ -3,69 +3,93 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type Column struct {
-	*widget.FlowLayout
-	Square     *ColumnSquare
+	*widget.BoxLayout
 	Cols       *Columns
-	RowsLayout *widget.EndPercentLayout
+	RowsLayout *widget.StartPercentLayout // exported to access sp values
 
+	noRows    widget.Node
 	sep       *widget.Rectangle
 	sepHandle ColSeparatorHandle
-	sqc       *widget.FlowLayout // square container (show/hide)
+	colSquare *ColumnSquare
 
 	ui *UI
 }
 
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols, ui: cols.Layout.UI}
-	col.FlowLayout = widget.NewFlowLayout()
+	col.BoxLayout = widget.NewBoxLayout()
 
-	col.Square = NewColumnSquare(col)
-	col.Square.Size = NewRow(col).Toolbar.Square.Size
-
+	// separator
 	col.sep = widget.NewRectangle(col.ui)
-	col.sep.SetExpand(false, true)
-	col.sep.Size.X = SeparatorWidth
-	col.sep.Color = &SeparatorColor
+	col.Append(col.sep)
+	col.SetChildFill(col.sep, false, true)
+	{
+		col.sep.Size.X = SeparatorWidth
+		col.sep.Color = &SeparatorColor
 
-	col.sepHandle.Init(col.sep, col)
-	col.sepHandle.Left = 3
-	col.sepHandle.Right = 3
-	col.sepHandle.Cursor = widget.WEResizeCursor
-	col.Cols.Layout.InsertColSepHandle(&col.sepHandle)
-
-	col.RowsLayout = widget.NewEndPercentLayout()
-	col.RowsLayout.YAxis = true
-
-	// square (when there are no rows)
-	col.sqc = widget.NewFlowLayout()
-
-	space := widget.NewRectangle(col.ui)
-	space.SetFill(true, true)
-
-	var spaceNode widget.Node = space
-	if ShadowsOn {
-		// innershadow bellow the toolbar
-		shadow := widget.NewShadow(col.ui, space)
-		shadow.Top = ShadowSteps
-		shadow.MaxShade = ShadowMaxShade
-		spaceNode = shadow
+		col.sepHandle.Init(col.sep, col)
+		col.sepHandle.Left = 3
+		col.sepHandle.Right = 3
+		col.sepHandle.Cursor = widget.WEResizeCursor
+		col.Cols.Layout.InsertColSepHandle(&col.sepHandle)
 	}
 
-	col.sqc.Append(col.Square, spaceNode)
+	// content to contain norows and rowslayout
+	content := &widget.EmbedNode{}
+	col.Append(content)
 
-	rightSide := widget.NewFlowLayout()
-	rightSide.YAxis = true
-	rightSide.Append(col.sqc, col.RowsLayout)
+	// when where are no rows, or the first row is pushed aside
+	noRows := widget.NewBoxLayout()
+	col.noRows = noRows
+	content.Append(col.noRows)
+	{
+		noRows.YAxis = true
 
-	col.Append(col.sep, rightSide)
+		// square+space box
+		ssBox := widget.NewBoxLayout()
+		noRows.Append(ssBox)
+
+		// ssBox content
+		{
+			col.colSquare = NewColumnSquare(col)
+			ssBox.Append(col.colSquare)
+
+			space := widget.NewRectangle(col.ui)
+			space.Color = &ColumnBgColor
+			space.Size = image.Point{5, 15}
+			var spaceNode widget.Node = space
+			if ShadowsOn {
+				shadow := widget.NewShadow(col.ui, spaceNode)
+				shadow.Top = ShadowSteps
+				shadow.MaxShade = ShadowMaxShade
+				spaceNode = shadow
+			}
+			ssBox.Append(spaceNode)
+			ssBox.SetChildFlex(spaceNode, true, false)
+			ssBox.SetChildFill(spaceNode, true, true)
+		}
+
+		// lower space
+		space2 := widget.NewRectangle(col.ui)
+		space2.Color = &ColumnBgColor
+		noRows.Append(space2)
+		noRows.SetChildFlex(space2, true, true)
+	}
+
+	// rows layout
+	{
+		col.RowsLayout = widget.NewStartPercentLayout()
+		col.RowsLayout.YAxis = true
+		content.Append(col.RowsLayout)
+	}
 
 	return col
 }
+
 func (col *Column) Close() {
 	for _, r := range col.Rows() {
 		r.Close()
@@ -73,31 +97,16 @@ func (col *Column) Close() {
 	col.Cols.Layout.Remove(&col.sepHandle)
 	col.Cols.removeColumn(col)
 }
-func (col *Column) OnMarkChildNeedsPaint(child widget.Node, r *image.Rectangle) {
-	// A menu over an empty column would not paint since the column would delegate the paint to its childs, but the RowsLayout doesn't paint if it has no rows and thereforce the old image would stay.
-	if !col.sqc.Hidden() {
-		col.MarkNeedsPaint()
-	}
-}
-func (col *Column) Paint() {
-	if col.RowsLayout.ChildsLen() == 0 {
-		imageutil.FillRectangle(col.ui.Image(), &col.Bounds, ColumnBgColor)
-	}
-}
 
 func (col *Column) NewRowBefore(next *Row) *Row {
 	row := NewRow(col)
-	col.insertBefore(row, next)
+	col.insertRowBefore(row, next)
 	return row
 }
 
-func (col *Column) insertBefore(row, next *Row) {
+func (col *Column) insertRowBefore(row, next *Row) {
 	row.Col = col
-	if next == nil {
-		col.RowsLayout.PushBack(row)
-	} else {
-		col.RowsLayout.InsertBefore(row, next)
-	}
+	col.RowsLayout.InsertBefore(row, next)
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 }
@@ -109,42 +118,44 @@ func (col *Column) removeRow(row *Row) {
 }
 
 func (col *Column) CalcChildsBounds() {
-	col.fixSquareVisibility()
-	col.FlowLayout.CalcChildsBounds()
-	col.sepHandle.CalcChildsBounds()
-}
+	// update these to handle theme change (based on a row)
+	// TODO: needs improvement
+	var row *Row
+	if col.RowsLayout.ChildsLen() > 0 {
+		row = col.RowsLayout.FirstChild().(*Row)
+	} else {
+		row = NewRow(col)
+	}
+	col.RowsLayout.MinimumChildSize = row.TextArea.LineHeight()
+	col.colSquare.Size = row.Toolbar.Square.Size
 
-func (col *Column) fixSquareVisibility() {
-	// hide/show column square if we have a first row
-	_, ok := col.FirstChildRow()
-	hide := ok
-	if col.sqc.Hidden() != hide {
-		col.sqc.SetHidden(hide)
-		col.MarkNeedsPaint()
+	col.BoxLayout.CalcChildsBounds()
+	col.sepHandle.CalcChildsBounds()
+
+	// redimension norows widget to match first row start
+	hasRows := col.RowsLayout.ChildsLen() > 0
+	if hasRows {
+		y := col.RowsLayout.FirstChild().Embed().Bounds.Min.Y
+		col.noRows.Embed().Bounds.Max.Y = y
+		col.noRows.CalcChildsBounds()
 	}
 }
 
-func (col *Column) FirstChildRow() (*Row, bool) {
+func (col *Column) FirstChildRow() *Row {
 	u := col.RowsLayout.FirstChild()
 	if u == nil {
-		return nil, false
+		return nil
 	}
-	return u.(*Row), true
+	return u.(*Row)
 }
-func (col *Column) NextColumn() (*Column, bool) {
-	u := col.Next()
+func (col *Column) LastChildRow() *Row {
+	u := col.RowsLayout.LastChild()
 	if u == nil {
-		return nil, false
+		return nil
 	}
-	return u.(*Column), true
+	return u.(*Row)
 }
-func (col *Column) PrevColumn() (*Column, bool) {
-	u := col.Prev()
-	if u == nil {
-		return nil, false
-	}
-	return u.(*Column), true
-}
+
 func (col *Column) Rows() []*Row {
 	u := make([]*Row, 0, col.RowsLayout.ChildsLen())
 	col.RowsLayout.IterChilds(func(c widget.Node) {
@@ -153,12 +164,39 @@ func (col *Column) Rows() []*Row {
 	return u
 }
 
-func (col *Column) PointRow(p *image.Point) (*Row, bool) {
+func (col *Column) PointNextRow(p *image.Point) (*Row, bool) {
 	for _, r := range col.Rows() {
 		if p.In(r.Bounds) {
-			return r, true
+			return r.NextRow(), true
 		}
 	}
+	return nil, false
+}
+
+func (col *Column) PointNextRowExtra(p *image.Point) (*Row, bool) {
+	next, ok := col.PointNextRow(p)
+	if ok {
+		return next, true
+	}
+
+	first := col.FirstChildRow()
+	if first == nil {
+		return nil, true
+	}
+	last := col.LastChildRow()
+	if p.Y < first.Embed().Bounds.Min.Y {
+		return first, true
+	} else if p.Y > last.Embed().Bounds.Max.Y {
+		return nil, true
+	} else {
+		for _, r := range col.Rows() {
+			y0, y1 := r.Bounds.Min.Y, r.Bounds.Max.Y
+			if y0 <= p.Y && p.Y < y1 {
+				return r.NextRow(), true
+			}
+		}
+	}
+
 	return nil, false
 }
 
@@ -166,16 +204,14 @@ func (col *Column) resizeToPointWithSwap(p *image.Point) {
 	bounds := col.Cols.Layout.Bounds
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
-	min := 30 / dx
 
-	percIsLeft := ScrollbarLeft
-	col.Cols.ResizeEndPercentWithSwap(col, perc, percIsLeft, min)
+	col.Cols.ColsLayout.ResizeWithMove(col, perc)
 
 	col.Cols.CalcChildsBounds()
 	col.Cols.MarkNeedsPaint()
 }
 
-func (col *Column) resizeHandleWithSwapJump(left bool, p *image.Point) {
+func (col *Column) resizeHandleWithMoveJump(left bool, p *image.Point) {
 	jump := 20
 	if left {
 		jump *= -1
@@ -183,21 +219,18 @@ func (col *Column) resizeHandleWithSwapJump(left bool, p *image.Point) {
 
 	p2 := *p
 	p2.X += jump
-	col.resizeHandleWithSwapToPoint(&p2)
+	col.resizeHandleWithMoveToPoint(&p2)
 
 	p3 := image.Point{col.Bounds.Min.X, p.Y}
 	col.ui.WarpPointer(&p3)
 }
-func (col *Column) resizeHandleWithSwapToPoint(p *image.Point) {
+
+func (col *Column) resizeHandleWithMoveToPoint(p *image.Point) {
 	bounds := col.Cols.Layout.Bounds
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
-	min := 30 / dx
 
-	// column handle is positioned on the left (beginning) of the column
-	percIsLeft := true // always on the left
-
-	col.Cols.ResizeEndPercentWithSwap(col, perc, percIsLeft, min)
+	col.Cols.ColsLayout.ResizeWithMove(col, perc)
 
 	col.Cols.CalcChildsBounds()
 	col.Cols.MarkNeedsPaint()

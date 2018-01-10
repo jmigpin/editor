@@ -19,6 +19,7 @@ func testVisit(t *testing.T, filename string, src interface{}, index int) {
 }
 
 func testVisitSrc(t *testing.T, src interface{}, index int) {
+	t.Helper()
 	filename := "t000/src.go"
 	testVisit(t, filename, src, index)
 }
@@ -201,7 +202,7 @@ func TestVisit11(t *testing.T) {
 func TestVisit12(t *testing.T) {
 	src := `
 		package pack1
-		import "github.com/jmigpin/editor/uiutil/event"
+		import "github.com/jmigpin/editor/util/uiutil/event"
 		func func1(ev interface{}){
 			switch evt:=ev.(type){
 			case *event.KeyDown:
@@ -209,7 +210,7 @@ func TestVisit12(t *testing.T) {
 			}
 		}
 	`
-	testVisitSrc(t, src, 159) // Code
+	testVisitSrc(t, src, 164) // Code
 }
 
 func TestVisit13(t *testing.T) {

@@ -15,5 +15,8 @@ func Replace(erow ERower, part *toolbardata.Part) {
 		return
 	}
 	old, new := a[0].UnquotedStr(), a[1].UnquotedStr()
-	tautil.Replace(erow.Row().TextArea, old, new)
+	replaced := tautil.Replace(erow.Row().TextArea, old, new)
+	if !replaced {
+		erow.Ed().Errorf("nothing replaced: %q", old)
+	}
 }

@@ -15,7 +15,7 @@ type Window interface {
 	SetWindowName(string)
 
 	Image() draw.Image
-	PutImage(*image.Rectangle)
+	PutImage(*image.Rectangle) error
 	UpdateImageSize() error
 
 	SetCursor(widget.Cursor)

@@ -28,8 +28,6 @@ func (ml *MultiLayer) visitForNeedPaint(n Node, r *image.Rectangle) {
 		return
 	}
 
-	//log.Printf("multilayer check? %v", reflect.TypeOf(n))
-
 	// if the childs union doesn't contain the rectangle, this node needs paint
 	var u image.Rectangle
 	n.Embed().IterChilds(func(c Node) {

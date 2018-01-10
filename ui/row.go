@@ -9,7 +9,7 @@ import (
 )
 
 type Row struct {
-	*widget.FlowLayout
+	*widget.BoxLayout
 	Toolbar  *RowToolbar
 	TextArea *TextArea
 	Col      *Column
@@ -23,57 +23,65 @@ type Row struct {
 
 func NewRow(col *Column) *Row {
 	row := &Row{Col: col, ui: col.Cols.Layout.UI}
-	row.FlowLayout = widget.NewFlowLayout()
+	row.BoxLayout = widget.NewBoxLayout()
+	row.YAxis = true
 
 	row.EvReg = evreg.NewRegister()
 
-	row.Toolbar = NewRowToolbar(row, NewToolbar(row.ui, row))
-	row.Toolbar.SetExpand(true, false)
-
 	// row separator from other rows
-	row.sep = widget.NewRectangle(row.ui)
-	row.sep.SetExpand(true, false)
-	row.sep.Size.Y = SeparatorWidth
-	row.sep.Color = &SeparatorColor
+	{
+		row.sep = widget.NewRectangle(row.ui)
+		row.sep.Size.Y = SeparatorWidth
+		row.sep.Color = &SeparatorColor
+		//row.sep.SetExpand(true, false)
 
-	row.sepHandle.Init(row.ui, row.sep, row)
-	row.sepHandle.Top = 3
-	row.sepHandle.Bottom = 3
-	row.sepHandle.Cursor = widget.MoveCursor
-	row.Col.Cols.Layout.InsertRowSepHandle(&row.sepHandle)
+		row.sepHandle.Init(row.ui, row.sep, row)
+		row.sepHandle.Top = 3
+		row.sepHandle.Bottom = 3
+		row.sepHandle.Cursor = widget.MoveCursor
+		row.Col.Cols.Layout.InsertRowSepHandle(&row.sepHandle)
 
-	// scrollarea with textarea
-	row.TextArea = NewTextArea(row.ui)
-	row.TextArea.Colors = &TextAreaColors
-	row.scrollArea = widget.NewScrollArea(row.ui, row.TextArea, true, false)
-	row.scrollArea.SetExpand(true, true)
-	row.scrollArea.LeftScroll = ScrollbarLeft
-	row.scrollArea.ScrollWidth = ScrollbarWidth
-	row.scrollArea.VSBar.Color = &ScrollbarBgColor
-	row.scrollArea.VSBar.Handle.Color = &ScrollbarFgColor
-	if row.scrollArea.HSBar != nil {
-		row.scrollArea.HSBar.Color = &ScrollbarBgColor
-		row.scrollArea.HSBar.Handle.Color = &ScrollbarFgColor
+		row.Append(row.sep)
+		row.SetChildFill(row.sep, true, false)
 	}
 
-	row.YAxis = true
-	row.Append(row.sep, row.Toolbar)
+	// toolbar
+	row.Toolbar = NewRowToolbar(row, NewToolbar(row.ui, row))
+	row.Append(row.Toolbar)
+	row.SetChildFlex(row.Toolbar, true, false)
 
-	if ShadowsOn {
-		// scrollarea innershadow bellow the toolbar
-		shadow := widget.NewShadow(row.ui, row.scrollArea)
-		shadow.Top = ShadowSteps
-		shadow.MaxShade = ShadowMaxShade
+	// scrollarea with textarea
+	{
+		row.TextArea = NewTextArea(row.ui)
+		row.TextArea.Colors = &TextAreaColors
+		row.scrollArea = widget.NewScrollArea(row.ui, row.TextArea, true, false)
+		row.scrollArea.LeftScroll = ScrollbarLeft
+		row.scrollArea.ScrollWidth = ScrollbarWidth
+		row.scrollArea.VSBar.Color = &ScrollbarBgColor
+		row.scrollArea.VSBar.Handle.Color = &ScrollbarFgColor
+		if row.scrollArea.HSBar != nil {
+			row.scrollArea.HSBar.Color = &ScrollbarBgColor
+			row.scrollArea.HSBar.Handle.Color = &ScrollbarFgColor
+		}
 
-		row.Append(shadow)
-	} else {
-		// toolbar/scrollarea separator
-		tbSep := widget.NewRectangle(row.ui)
-		tbSep.SetExpand(true, false)
-		tbSep.Size.Y = SeparatorWidth
-		tbSep.Color = &RowInnerSeparatorColor
+		var sa widget.Node = row.scrollArea
+		if ShadowsOn {
+			// scrollarea innershadow bellow the toolbar
+			shadow := widget.NewShadow(row.ui, row.scrollArea)
+			shadow.Top = ShadowSteps
+			shadow.MaxShade = ShadowMaxShade
+			sa = shadow
+		} else {
+			// toolbar/scrollarea separator
+			tbSep := widget.NewRectangle(row.ui)
+			tbSep.Size.Y = SeparatorWidth
+			tbSep.Color = &RowInnerSeparatorColor
+			row.Append(tbSep)
+			row.SetChildFill(tbSep, true, false)
+		}
 
-		row.Append(tbSep, row.scrollArea)
+		row.Append(sa)
+		row.SetChildFlex(sa, true, true)
 	}
 
 	return row
@@ -94,13 +102,15 @@ func (row *Row) activate() {
 }
 
 func (row *Row) Close() {
+	// run callbacks first to allow the read the state before removing
+	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
+
 	row.Col.Cols.Layout.Remove(&row.sepHandle)
 	row.Col.removeRow(row)
-	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
 }
 
 func (row *Row) CalcChildsBounds() {
-	row.FlowLayout.CalcChildsBounds()
+	row.BoxLayout.CalcChildsBounds()
 	row.sepHandle.CalcChildsBounds()
 }
 
@@ -118,39 +128,35 @@ func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	return false
 }
 
-func (row *Row) NextRow() (*Row, bool) {
+func (row *Row) NextRow() *Row {
 	u := row.Next()
 	if u == nil {
-		return nil, false
+		return nil
 	}
-	return u.(*Row), true
+	return u.(*Row)
 }
 
-func (row *Row) resizeWithSwapToPoint(p *image.Point) {
+func (row *Row) resizeWithMoveToPoint(p *image.Point) {
 	col, ok := row.Col.Cols.PointColumnExtra(p)
 	if !ok {
 		return
 	}
+
+	// move to another column
 	if col != row.Col {
-		// move to another column
-		next, ok := col.PointRow(p)
-		if ok {
-			next, _ = next.NextRow()
+		next, ok := col.PointNextRowExtra(p)
+		if !ok {
+			next = nil
 		}
-		if next != row {
-			row.Col.removeRow(row)
-			col.insertBefore(row, next)
-		}
+		row.Col.removeRow(row)
+		col.insertRowBefore(row, next)
 	}
 
 	bounds := row.Col.Bounds
 	dy := float64(bounds.Dy())
 	perc := float64(p.Sub(bounds.Min).Y) / dy
-	min := float64(row.minimumSize()) / dy
 
-	percIsTop := true
-	rl := row.Col.RowsLayout
-	rl.ResizeEndPercentWithSwap(row, perc, percIsTop, min)
+	row.Col.RowsLayout.ResizeWithMove(row, perc)
 
 	row.Col.CalcChildsBounds()
 	row.Col.MarkNeedsPaint()
@@ -158,9 +164,7 @@ func (row *Row) resizeWithSwapToPoint(p *image.Point) {
 
 func (row *Row) Maximize() {
 	col := row.Col
-	dy := float64(col.Bounds.Dy())
-	min := float64(row.minimumSize()) / dy
-	col.RowsLayout.MaximizeEndPercentNode(row, min)
+	col.RowsLayout.MaximizeNode(row)
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 }
@@ -185,10 +189,8 @@ func (row *Row) resizeWithPushToPoint(p *image.Point) {
 	col := row.Col
 	dy := float64(col.Bounds.Dy())
 	perc := float64(p.Sub(col.Bounds.Min).Y) / dy
-	min := float64(row.minimumSize()) / dy
 
-	percIsTop := true
-	col.RowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+	col.RowsLayout.ResizeWithPush(row, perc)
 
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
@@ -197,7 +199,6 @@ func (row *Row) resizeWithPushToPoint(p *image.Point) {
 func (row *Row) ResizeTextAreaIfVerySmall() {
 	col := row.Col
 	dy := float64(col.Bounds.Dy())
-	min := float64(row.minimumSize()) / dy
 	ta := row.TextArea
 	taMin := ta.LineHeight()
 
@@ -212,8 +213,7 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 
 	// push siblings down
 	perc := float64(row.Bounds.Min.Sub(col.Bounds.Min).Y+size) / dy
-	percIsTop := false
-	col.RowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+	col.RowsLayout.ResizeWithPush(row, perc)
 
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
@@ -226,15 +226,10 @@ func (row *Row) ResizeTextAreaIfVerySmall() {
 
 	// push siblings up
 	perc = float64(row.Bounds.Max.Sub(col.Bounds.Min).Y-size) / dy
-	percIsTop = true
-	col.RowsLayout.ResizeEndPercentWithPush(row, perc, percIsTop, min)
+	col.RowsLayout.ResizeWithPush(row, perc)
 
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
-}
-
-func (row *Row) minimumSize() int {
-	return row.TextArea.LineHeight()
 }
 
 func (row *Row) SetState(s RowState, v bool) {

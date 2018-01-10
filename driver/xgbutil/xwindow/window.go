@@ -250,8 +250,8 @@ func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
 func (win *Window) Image() draw.Image {
 	return win.ShmImageWrap.Image()
 }
-func (win *Window) PutImage(rect *image.Rectangle) {
-	win.ShmImageWrap.PutImage(win.GCtx, rect)
+func (win *Window) PutImage(rect *image.Rectangle) error {
+	return win.ShmImageWrap.PutImage(win.GCtx, rect)
 }
 func (win *Window) UpdateImageSize() error {
 	geom, err := win.GetGeometry()

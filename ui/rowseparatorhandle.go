@@ -19,7 +19,7 @@ func (sh *RowSeparatorHandle) Init(ctx widget.Context, ref widget.Node, row *Row
 func (sh *RowSeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	h := sh.SeparatorHandle.OnInputEvent(ev0, p)
 	if sh.Dragging {
-		sh.row.resizeWithSwapToPoint(&p)
+		sh.row.resizeWithMoveToPoint(&p)
 	}
 	switch ev := ev0.(type) {
 	case *event.MouseDown:

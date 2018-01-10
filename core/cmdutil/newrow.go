@@ -28,13 +28,8 @@ func NewRow(ed Editorer) {
 		}
 
 		// position after active row
-		r := erow2.Row()
-		col = r.Col
-		nextRow = nil
-		nr, ok := r.NextRow()
-		if ok {
-			nextRow = nr
-		}
+		col = erow2.Row().Col
+		nextRow = erow2.Row().NextRow()
 	}
 
 	erow := ed.NewERowerBeforeRow(p, col, nextRow)

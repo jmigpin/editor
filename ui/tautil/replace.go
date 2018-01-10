@@ -2,9 +2,11 @@ package tautil
 
 import "strings"
 
-func Replace(ta Texta, old, new string) {
+func Replace(ta Texta, old, new string) bool {
+	oldStr := ta.Str()
+
 	ta.EditOpen()
-	defer ta.EditCloseAfterSetCursor()
+
 	if ta.SelectionOn() {
 		a, b := SelectionStringIndexes(ta)
 		s := strings.Replace(ta.Str()[a:b], old, new, -1)
@@ -16,4 +18,8 @@ func Replace(ta Texta, old, new string) {
 		ta.EditDelete(0, len(ta.Str()))
 		ta.EditInsert(0, s)
 	}
+
+	ta.EditCloseAfterSetCursor()
+
+	return oldStr != ta.Str()
 }

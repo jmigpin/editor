@@ -75,7 +75,7 @@ func NewTextArea(ui *UI) *TextArea {
 
 func (ta *TextArea) Measure(hint image.Point) image.Point {
 
-	// test if it has scroller
+	// TODO: test if it has scroller in X
 
 	return ta.measureStr(hint)
 }
