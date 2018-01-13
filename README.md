@@ -39,13 +39,15 @@ Usage of ./editor:
   -dpi float
     	monitor dots per inch (default 72)
   -font string
-    	ttf font filename or: regular, medium, mono (default "regular")
+    	font: regular, medium, mono, or a filename (default "regular")
+  -fonthinting string
+    	font hinting: none, vertical, full (default "full")
   -fontsize float
     	 (default 12)
   -scrollbarleft
     	set scrollbars on the left side (default true)
   -scrollbarwidth int
-    	textarea scrollbar width (default 12)
+    	Textarea scrollbar width in pixels. A value of 0 takes 3/4 of the font size.
   -sessionname string
     	open existing session
   -shadows
