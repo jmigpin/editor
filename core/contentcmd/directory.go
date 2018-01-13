@@ -28,19 +28,19 @@ func directory(erow cmdutil.ERower) bool {
 	}
 
 	ed := erow.Ed()
-	var erow2 cmdutil.ERower
 	erows := ed.FindERowers(dir)
-	if len(erows) > 0 {
-		erow2 = erows[0]
-	} else {
+	if len(erows) == 0 {
 		col := erow.Row().Col
 		next := erow.Row().NextRow()
-		erow2 = ed.NewERowerBeforeRow(dir, col, next)
+		erow2 := ed.NewERowerBeforeRow(dir, col, next)
 		err := erow2.LoadContentClear()
 		if err != nil {
 			ed.Error(err)
 		}
+		erows = []cmdutil.ERower{erow2}
 	}
-	erow2.Flash()
+	for _, e := range erows {
+		e.Flash()
+	}
 	return true
 }

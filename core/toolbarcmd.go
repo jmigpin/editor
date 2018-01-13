@@ -156,7 +156,7 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 	case "XdgOpenDir":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.XdgOpenDirShortcut(ed, e) })
 	case "RowDirectory":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.OpenRowDirectory(ed, e) })
+		erowCmd(func(e cmdutil.ERower) { cmdutil.RowDirectory(ed, e) })
 	case "DuplicateRow":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.DuplicateRow(ed, e) })
 	case "MaximizeRow":
