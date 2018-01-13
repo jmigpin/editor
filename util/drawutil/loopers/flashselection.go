@@ -1,39 +1,51 @@
 package loopers
 
-import "github.com/jmigpin/editor/util/imageutil"
+import (
+	"image/color"
+
+	"github.com/jmigpin/editor/util/imageutil"
+)
 
 type FlashSelection struct {
 	EmbedLooper
-	strl      *String
-	bgl       *Bg
-	dl        *Draw
-	Selection *FlashSelectionIndexes
+	strl *String
+	bgl  *Bg
+	dl   *Draw
+	opt  *FlashSelectionOpt
 }
 
-func NewFlashSelection(strl *String, bgl *Bg, dl *Draw) *FlashSelection {
-	return &FlashSelection{strl: strl, bgl: bgl, dl: dl}
+func MakeFlashSelection(strl *String, bgl *Bg, dl *Draw, opt *FlashSelectionOpt) FlashSelection {
+	return FlashSelection{strl: strl, bgl: bgl, dl: dl, opt: opt}
 }
 func (lpr *FlashSelection) Loop(fn func() bool) {
-	if lpr.Selection == nil {
-		lpr.OuterLooper().Loop(fn)
-		return
-	}
-	sl := lpr.Selection
-	s, e := sl.Start, sl.End
+	s, e := lpr.opt.Start, lpr.opt.End
 	if s > e {
 		s, e = e, s
 	}
 	lpr.OuterLooper().Loop(func() bool {
+		if lpr.strl.RiClone {
+			return fn()
+		}
 		if lpr.strl.Ri >= s && lpr.strl.Ri < e {
-			p := lpr.Selection.Perc
+			p := lpr.opt.Perc
 			lpr.dl.Fg = imageutil.TintOrShade(lpr.dl.Fg, p)
-			lpr.bgl.Bg = imageutil.TintOrShade(lpr.bgl.Bg, p)
+
+			bg := lpr.bgl.Bg
+			if bg == nil {
+				bg = lpr.opt.Bg
+			}
+			if bg != nil {
+				lpr.bgl.Bg = imageutil.TintOrShade(bg, p)
+			}
 		}
 		return fn()
 	})
 }
 
-type FlashSelectionIndexes struct {
+type FlashSelectionOpt struct {
 	Perc       float64
 	Start, End int
+
+	// Background to use if the bg has not been set yet by other extensions. This should be the textarea normal background color..
+	Bg color.Color
 }

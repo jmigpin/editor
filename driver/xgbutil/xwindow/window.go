@@ -233,10 +233,10 @@ func (win *Window) SetWindowName(str string) {
 	_ = xproto.ChangeProperty(
 		win.Conn,
 		xproto.PropModeReplace,
-		win.Window,        // requestor window
-		Atoms.NET_WM_NAME, // property
-		Atoms.UTF8_STRING, // target
-		8,                 // format
+		win.Window,       // requestor window
+		Atoms.NetWMName,  // property
+		Atoms.Utf8String, // target
+		8,                // format
 		uint32(len(b)),
 		b)
 }
@@ -334,6 +334,6 @@ func (win *Window) SetCursor(c widget.Cursor) {
 }
 
 var Atoms struct {
-	NET_WM_NAME xproto.Atom `loadAtoms:"_NET_WM_NAME"`
-	UTF8_STRING xproto.Atom
+	NetWMName  xproto.Atom `loadAtoms:"_NET_WM_NAME"`
+	Utf8String xproto.Atom `loadAtoms:"UTF8_STRING"`
 }

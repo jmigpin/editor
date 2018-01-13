@@ -132,7 +132,7 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 	case "ListSessions":
 		layoutOnly(func() { cmdutil.ListSessions(ed) })
 	case "NewColumn":
-		layoutOnly(func() { _ = ed.ui.Layout.Cols.NewColumn() })
+		layoutOnly(func() { _ = ed.ui.Root.Cols.NewColumn() })
 	case "SaveAllFiles":
 		layoutOnly(func() { cmdutil.SaveRowsFiles(ed) })
 	case "ReloadAll":
@@ -192,13 +192,13 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 }
 
 func _colorThemeCmd(ed *Editor) {
-	ui.CycleColorTheme()
-	ed.ui.Layout.MarkNeedsPaint()
+	ui.ColorThemeCycler.Cycle()
+	ed.ui.Root.MarkNeedsPaint()
 }
 func _fontThemeCmd(ed *Editor) {
-	ui.CycleFontTheme()
-	ed.ui.Layout.CalcChildsBounds()
-	ed.ui.Layout.MarkNeedsPaint()
+	ui.FontThemeCycler.Cycle()
+	ed.ui.Root.CalcChildsBounds()
+	ed.ui.Root.MarkNeedsPaint()
 }
 func _fontRunesCmd(ed *Editor) {
 	var u string

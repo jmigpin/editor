@@ -12,7 +12,6 @@ type Editorer interface {
 
 	NewERowerBeforeRow(string, *ui.Column, *ui.Row) ERower
 	ERowers() []ERower
-	FindERower(string) (ERower, bool)
 	FindERowers(string) []ERower
 	ActiveERower() (ERower, bool)
 

@@ -12,7 +12,7 @@ type RowSeparatorHandle struct {
 	row *Row
 }
 
-func (sh *RowSeparatorHandle) Init(ctx widget.Context, ref widget.Node, row *Row) {
+func (sh *RowSeparatorHandle) Init(ref widget.Node, row *Row) {
 	sh.SeparatorHandle = widget.NewSeparatorHandle(ref)
 	sh.row = row
 }

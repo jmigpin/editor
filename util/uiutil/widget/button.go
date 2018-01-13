@@ -2,7 +2,6 @@ package widget
 
 import (
 	"image"
-	"image/color"
 
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -13,12 +12,12 @@ type Button struct {
 	Label  *Label
 	Sticky bool
 
-	fg, bg *color.Color
+	orig   *Theme // original
 	down   bool
 	active bool
 }
 
-func NewButton(ctx Context) *Button {
+func NewButton(ctx ImageContext) *Button {
 	b := &Button{}
 	b.Label = NewLabel(ctx)
 	b.Append(b.Label)
@@ -27,20 +26,24 @@ func NewButton(ctx Context) *Button {
 func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 
 	keepColor := func() {
-		b.fg = b.Label.Text.Color
-		b.bg = b.Label.Color
+		b.orig = b.Theme
 	}
 	restoreColor := func() {
-		b.Label.Text.Color = b.fg
-		b.Label.Color = b.bg
+		b.PropagateTheme(b.orig)
 	}
 	restoreSwitchedColor := func() {
-		b.Label.Text.Color = b.bg
-		b.Label.Color = b.fg
+		p := *b.orig.Palette()
+		p.Normal.Fg, p.Normal.Bg = p.Normal.Bg, p.Normal.Fg
+		t := *b.orig
+		t.SetPalette(&p)
+		b.PropagateTheme(&t)
 	}
 	hoverShade := func() {
-		var c color.Color = imageutil.Shade(*b.bg, 0.10)
-		b.Label.Color = &c
+		p := *b.orig.Palette()
+		p.Normal.Bg = imageutil.TintOrShade(p.Normal.Bg, 0.10)
+		t := *b.orig
+		t.SetPalette(&p)
+		b.PropagateTheme(&t)
 	}
 
 	switch ev0.(type) {

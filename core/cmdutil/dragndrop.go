@@ -69,7 +69,7 @@ func (h *DndHandler) onDrop3(ev *event.DndDrop) bool {
 }
 
 func (h *DndHandler) columnAtPoint(p *image.Point) (*ui.Column, bool) {
-	for _, col := range h.ed.UI().Layout.Cols.Columns() {
+	for _, col := range h.ed.UI().Root.Cols.Columns() {
 		if p.In(col.Bounds) {
 			return col, true
 		}

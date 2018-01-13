@@ -22,7 +22,7 @@ type Row struct {
 }
 
 func NewRow(col *Column) *Row {
-	row := &Row{Col: col, ui: col.Cols.Layout.UI}
+	row := &Row{Col: col, ui: col.Cols.Root.UI}
 	row.BoxLayout = widget.NewBoxLayout()
 	row.YAxis = true
 
@@ -30,19 +30,17 @@ func NewRow(col *Column) *Row {
 
 	// row separator from other rows
 	{
-		row.sep = widget.NewRectangle(row.ui)
-		row.sep.Size.Y = SeparatorWidth
-		row.sep.Color = &SeparatorColor
-		//row.sep.SetExpand(true, false)
+		sep := widget.NewSeparator(row.ui)
+		sep.Size.Y = SeparatorWidth
+		sep.Theme = &DefaultUITheme.TextAreaTheme
+		row.Append(sep)
+		row.SetChildFill(sep, true, false)
 
-		row.sepHandle.Init(row.ui, row.sep, row)
+		row.sepHandle.Init(sep, row)
 		row.sepHandle.Top = 3
 		row.sepHandle.Bottom = 3
 		row.sepHandle.Cursor = widget.MoveCursor
-		row.Col.Cols.Layout.InsertRowSepHandle(&row.sepHandle)
-
-		row.Append(row.sep)
-		row.SetChildFill(row.sep, true, false)
+		row.Col.Cols.Root.InsertRowSepHandle(&row.sepHandle)
 	}
 
 	// toolbar
@@ -53,35 +51,25 @@ func NewRow(col *Column) *Row {
 	// scrollarea with textarea
 	{
 		row.TextArea = NewTextArea(row.ui)
-		row.TextArea.Colors = &TextAreaColors
+		row.TextArea.HighlightCursorWord = true
+		row.TextArea.Theme = &DefaultUITheme.TextAreaTheme
+
 		row.scrollArea = widget.NewScrollArea(row.ui, row.TextArea, true, false)
-		row.scrollArea.LeftScroll = ScrollbarLeft
-		row.scrollArea.ScrollWidth = ScrollbarWidth
-		row.scrollArea.VSBar.Color = &ScrollbarBgColor
-		row.scrollArea.VSBar.Handle.Color = &ScrollbarFgColor
-		if row.scrollArea.HSBar != nil {
-			row.scrollArea.HSBar.Color = &ScrollbarBgColor
-			row.scrollArea.HSBar.Handle.Color = &ScrollbarFgColor
+		row.scrollArea.VSBar.PropagateTheme(&DefaultUITheme.ScrollBarTheme)
+		row.scrollArea.LeftScroll = ScrollBarLeft
+
+		// toolbar/scrollarea separator
+		if !ShadowsOn {
+			sep := widget.NewSeparator(row.ui)
+			sep.Size.Y = SeparatorWidth
+			sep.Theme = &DefaultUITheme.TextAreaTheme
+			row.Append(sep)
+			row.SetChildFill(sep, true, false)
 		}
 
-		var sa widget.Node = row.scrollArea
-		if ShadowsOn {
-			// scrollarea innershadow bellow the toolbar
-			shadow := widget.NewShadow(row.ui, row.scrollArea)
-			shadow.Top = ShadowSteps
-			shadow.MaxShade = ShadowMaxShade
-			sa = shadow
-		} else {
-			// toolbar/scrollarea separator
-			tbSep := widget.NewRectangle(row.ui)
-			tbSep.Size.Y = SeparatorWidth
-			tbSep.Color = &RowInnerSeparatorColor
-			row.Append(tbSep)
-			row.SetChildFill(tbSep, true, false)
-		}
-
-		row.Append(sa)
-		row.SetChildFlex(sa, true, true)
+		container := WrapInShadowTop(row.ui, row.scrollArea)
+		row.Append(container)
+		row.SetChildFlex(container, true, true)
 	}
 
 	return row
@@ -94,7 +82,9 @@ func (row *Row) activate() {
 	// deactivate previous active row
 	for _, c := range row.Col.Cols.Columns() {
 		for _, r := range c.Rows() {
-			r.SetState(ActiveRowState, false)
+			if r != row {
+				r.SetState(ActiveRowState, false)
+			}
 		}
 	}
 	// activate this row
@@ -102,14 +92,15 @@ func (row *Row) activate() {
 }
 
 func (row *Row) Close() {
-	// run callbacks first to allow the read the state before removing
-	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
-
-	row.Col.Cols.Layout.Remove(&row.sepHandle)
+	row.Col.Cols.Root.Remove(&row.sepHandle)
 	row.Col.removeRow(row)
+	row.Col = nil
+	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
 }
 
 func (row *Row) CalcChildsBounds() {
+	row.scrollArea.ScrollWidth = GetScrollBarWidth(row.TextArea.Theme)
+
 	row.BoxLayout.CalcChildsBounds()
 	row.sepHandle.CalcChildsBounds()
 }

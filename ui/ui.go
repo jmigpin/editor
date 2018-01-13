@@ -2,28 +2,13 @@ package ui
 
 import (
 	"image"
-	"time"
 
 	"github.com/jmigpin/editor/util/uiutil"
-	"golang.org/x/image/font"
-)
-
-const (
-	FlashDuration = 500 * time.Millisecond
-)
-
-var (
-	SeparatorWidth = 1
-	ScrollbarWidth = 10
-	ScrollbarLeft  = false
-	ShadowsOn      = true
-	ShadowMaxShade = 0.25
-	ShadowSteps    = 8
 )
 
 type UI struct {
 	*uiutil.BasicUI
-	Layout  Layout
+	Root    *Root
 	OnError func(error)
 }
 
@@ -37,17 +22,10 @@ func NewUI(events chan<- interface{}, winName string) (*UI, error) {
 		BasicUI: bui,
 		OnError: func(error) {},
 	}
-	ui.DrawFrameRate = 35
 
-	ui.Layout.Init(ui)
-	ui.BasicUI.RootNode = &ui.Layout
+	SetupRoot(ui)
 
 	return ui, nil
-}
-
-// Implements widget.Context
-func (ui *UI) FontFace1() font.Face {
-	return FontFace
 }
 
 func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {

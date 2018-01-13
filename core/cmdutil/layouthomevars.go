@@ -20,7 +20,7 @@ type LayoutHomeVars struct {
 func NewLayoutHomeVars(ed Editorer) *LayoutHomeVars {
 	lhv := &LayoutHomeVars{ed: ed}
 
-	ed.UI().Layout.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
+	ed.UI().Root.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaSetStrEvent)
 		lhv.update(ev)
 	})
@@ -29,7 +29,7 @@ func NewLayoutHomeVars(ed Editorer) *LayoutHomeVars {
 }
 
 func (lhv *LayoutHomeVars) update(ev *ui.TextAreaSetStrEvent) {
-	tb := lhv.ed.UI().Layout.Toolbar
+	tb := lhv.ed.UI().Root.Toolbar
 
 	entries := lhv.getEntries(tb.Str())
 

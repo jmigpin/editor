@@ -8,34 +8,29 @@ import (
 
 type Columns struct {
 	widget.EmbedNode
-	Layout     *Layout
+	Root       *Root
 	ColsLayout *widget.StartPercentLayout // exported to access sp values
 
 	noCols widget.Node
 }
 
-func NewColumns(layout *Layout) *Columns {
-	cols := &Columns{Layout: layout}
+func NewColumns(root *Root) *Columns {
+	cols := &Columns{Root: root}
 
 	// when where are no cols, or the first column is pushed aside
 	{
-		noCols := widget.NewRectangle(layout.UI)
-		noCols.Color = &ColumnBgColor
-		cols.noCols = noCols
-		if ShadowsOn {
-			shadow := widget.NewShadow(layout.UI, cols.noCols)
-			shadow.Top = ShadowSteps
-			shadow.MaxShade = ShadowMaxShade
-			cols.noCols = shadow
-		}
+		noCols0 := widget.NewRectangle(root.UI)
+		noCols0.Theme = &DefaultUITheme.NoRowColTheme
+		cols.noCols = WrapInShadowTop(root.UI, noCols0)
 		cols.Append(cols.noCols)
 	}
 
 	cols.ColsLayout = widget.NewStartPercentLayout()
-	cols.ColsLayout.MinimumChildSize = 15
+	cols.ColsLayout.MinimumChildSize = 15 // TODO
 	cols.Append(cols.ColsLayout)
 
-	// start with 1 column
+	// TODO: ensuring 1 column should be on the editor side?
+	// ensure 1 column
 	_ = cols.NewColumn()
 
 	return cols
@@ -82,8 +77,7 @@ func (cols *Columns) CalcChildsBounds() {
 func (cols *Columns) CloseAllAndOpenN(n int) {
 	// close all columns
 	cols.ColsLayout.IterChilds(func(c widget.Node) {
-		col := c.(*Column)
-		col.Close()
+		c.(*Column).Close()
 	})
 	// n new columns (there is already one column ensured)
 	for i := 1; i < n; i++ {

@@ -6,17 +6,14 @@ import (
 	"log"
 	"time"
 
-	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/driver"
-	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/gomedium"
 )
 
 type BasicUI struct {
-	DrawFrameRate int // frame per second
+	DrawFrameRate int // frames per second
 	RootNode      widget.Node
 	Win           driver.Window
 
@@ -183,17 +180,6 @@ func (ui *BasicUI) GetCPPaste(i event.CopyPasteIndex) (string, error) {
 }
 func (ui *BasicUI) SetCPCopy(i event.CopyPasteIndex, s string) error {
 	return ui.Win.SetCPCopy(i, s)
-}
-
-// Implements widget.Context
-func (ui *BasicUI) FontFace1() font.Face {
-	if ui.fontFace1 == nil {
-		// default font
-		opt := &truetype.Options{DPI: 0, Size: 14, Hinting: font.HintingFull}
-		f, _ := truetype.Parse(gomedium.TTF)
-		ui.fontFace1 = drawutil.NewFace(f, opt)
-	}
-	return ui.fontFace1
 }
 
 func (ui *BasicUI) RunOnUIThread(f func()) {

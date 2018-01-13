@@ -25,13 +25,14 @@ func OpenRowDirectory(ed Editorer, erow ERower) {
 	erow2.Flash()
 }
 func OpenDirectoryRow(ed Editorer, path string, col *ui.Column, next *ui.Row) ERower {
-	erow, ok := ed.FindERower(path)
-	if !ok {
-		erow = ed.NewERowerBeforeRow(path, col, next)
-		err := erow.LoadContentClear()
-		if err != nil {
-			erow.Ed().Error(err)
-		}
+	erows := ed.FindERowers(path)
+	if len(erows) > 0 {
+		return erows[0]
+	}
+	erow := ed.NewERowerBeforeRow(path, col, next)
+	err := erow.LoadContentClear()
+	if err != nil {
+		erow.Ed().Error(err)
 	}
 	return erow
 }

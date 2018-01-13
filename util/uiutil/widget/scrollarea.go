@@ -2,7 +2,6 @@ package widget
 
 import (
 	"image"
-	"image/color"
 	"math"
 
 	"github.com/jmigpin/editor/util/imageutil"
@@ -19,7 +18,7 @@ type ScrollArea struct {
 	scrollable Scrollable
 }
 
-func NewScrollArea(ctx Context, scrollable Scrollable, vert, horiz bool) *ScrollArea {
+func NewScrollArea(ctx ImageContext, scrollable Scrollable, vert, horiz bool) *ScrollArea {
 	sa := &ScrollArea{
 		ScrollWidth: 10,
 		LeftScroll:  true,
@@ -210,10 +209,10 @@ func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	return false
 }
 
+// Parent of the scroll handle.
 type ScrollBar struct {
 	EmbedNode
 	Handle     *ScrollHandle
-	Color      *color.Color
 	Horizontal bool
 
 	sizePercent     float64
@@ -224,10 +223,10 @@ type ScrollBar struct {
 	clicking bool
 	dragging bool
 
-	ctx Context
+	ctx ImageContext
 }
 
-func NewScrollBar(ctx Context, sa *ScrollArea) *ScrollBar {
+func NewScrollBar(ctx ImageContext, sa *ScrollArea) *ScrollBar {
 	sb := &ScrollBar{ctx: ctx, sa: sa}
 	sb.positionPercent = 0.0
 	sb.sizePercent = 1.0
@@ -305,10 +304,8 @@ func (sb *ScrollBar) setPressPad(p *image.Point) {
 }
 
 func (sb *ScrollBar) Paint() {
-	if sb.Color == nil {
-		return
-	}
-	imageutil.FillRectangle(sb.ctx.Image(), &sb.Bounds, *sb.Color)
+	c := sb.Theme.Palette().Normal.Bg
+	imageutil.FillRectangle(sb.ctx.Image(), &sb.Bounds, c)
 }
 
 func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
@@ -349,14 +346,12 @@ func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) bool {
 
 type ScrollHandle struct {
 	EmbedNode
-	Color *color.Color
-
-	ctx    Context
+	ctx    ImageContext
 	sb     *ScrollBar
 	inside bool
 }
 
-func NewScrollHandle(ctx Context, sb *ScrollBar) *ScrollHandle {
+func NewScrollHandle(ctx ImageContext, sb *ScrollBar) *ScrollHandle {
 	sh := &ScrollHandle{ctx: ctx, sb: sb}
 	return sh
 }
@@ -364,17 +359,11 @@ func (sh *ScrollHandle) Measure(hint image.Point) image.Point {
 	return image.Point{}
 }
 func (sh *ScrollHandle) Paint() {
-	if sh.Color == nil {
-		return
-	}
-	var c color.Color
+	c := sh.Theme.Palette().Normal.Fg
 	if sh.sb.clicking || sh.sb.dragging {
-		c = *sh.Color
+		c = sh.Theme.Palette().Selection.Fg
 	} else if sh.inside {
-		c = imageutil.Tint(*sh.Color, 0.30)
-	} else {
-		// normal
-		c = imageutil.Tint(*sh.Color, 0.40)
+		c = sh.Theme.Palette().Highlight.Fg
 	}
 	imageutil.FillRectangle(sh.ctx.Image(), &sh.Bounds, c)
 }

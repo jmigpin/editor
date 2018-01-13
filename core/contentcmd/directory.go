@@ -28,8 +28,11 @@ func directory(erow cmdutil.ERower) bool {
 	}
 
 	ed := erow.Ed()
-	erow2, ok := ed.FindERower(dir)
-	if !ok {
+	var erow2 cmdutil.ERower
+	erows := ed.FindERowers(dir)
+	if len(erows) > 0 {
+		erow2 = erows[0]
+	} else {
 		col := erow.Row().Col
 		next := erow.Row().NextRow()
 		erow2 = ed.NewERowerBeforeRow(dir, col, next)

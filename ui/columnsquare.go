@@ -24,9 +24,8 @@ func (sq *ColumnSquare) Measure(hint image.Point) image.Point {
 	return widget.MinPoint(sq.Size, hint)
 }
 func (sq *ColumnSquare) Paint() {
-	b := sq.Bounds
-	img := sq.col.ui.Image()
-	imageutil.FillRectangle(img, &b, SquareColor)
+	fgbg := NoSelectionColors(&DefaultUITheme.ToolbarTheme)
+	imageutil.FillRectangle(sq.col.ui.Image(), &sq.Bounds, fgbg.Bg)
 }
 func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) bool {
 	switch ev.(type) {

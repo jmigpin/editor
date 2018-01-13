@@ -4,41 +4,33 @@ import "image/color"
 
 type Selection struct {
 	EmbedLooper
-	strl      *String
-	bgl       *Bg
-	dl        *Draw
-	Selection *SelectionIndexes
-	Fg, Bg    color.Color
+	strl *String
+	bgl  *Bg
+	dl   *Draw
+	opt  *SelectionOpt
 }
 
-func MakeSelection(strl *String, bgl *Bg, dl *Draw) Selection {
-	return Selection{strl: strl, bgl: bgl, dl: dl}
+func MakeSelection(strl *String, bgl *Bg, dl *Draw, opt *SelectionOpt) Selection {
+	return Selection{strl: strl, bgl: bgl, dl: dl, opt: opt}
 }
 func (lpr *Selection) Loop(fn func() bool) {
-	if lpr.Selection == nil {
-		lpr.OuterLooper().Loop(fn)
-		return
+	s, e := lpr.opt.Start, lpr.opt.End
+	if s > e {
+		s, e = e, s
 	}
 	lpr.OuterLooper().Loop(func() bool {
 		if lpr.strl.RiClone {
 			return fn()
 		}
-		if lpr.colorize() {
-			lpr.dl.Fg = lpr.Fg
-			lpr.bgl.Bg = lpr.Bg
+		if lpr.strl.Ri >= s && lpr.strl.Ri < e {
+			lpr.dl.Fg = lpr.opt.Fg
+			lpr.bgl.Bg = lpr.opt.Bg
 		}
 		return fn()
 	})
 }
-func (lpr *Selection) colorize() bool {
-	sl := lpr.Selection
-	s, e := sl.Start, sl.End
-	if s > e {
-		s, e = e, s
-	}
-	return lpr.strl.Ri >= s && lpr.strl.Ri < e
-}
 
-type SelectionIndexes struct {
+type SelectionOpt struct {
+	Fg, Bg     color.Color
 	Start, End int
 }

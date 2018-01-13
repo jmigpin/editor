@@ -9,18 +9,15 @@ import (
 // Cached Position Data looper with getpoint/getindex.
 type PosData struct {
 	EmbedLooper
-	strl    *String
-	keepers []PosDataKeeper
-	Jump    int
-	data    []*PosDataData
+	strl        *String
+	keepers     []PosDataKeeper
+	jump        int
+	Data        []*PosDataData
+	Initialized bool
 }
 
-func MakePosData() PosData {
-	return PosData{Jump: 250}
-}
-func (pdl *PosData) Setup(strl *String, keepers []PosDataKeeper) {
-	pdl.strl = strl
-	pdl.keepers = keepers
+func MakePosData(strl *String, keepers []PosDataKeeper, jump int, prevData []*PosDataData) PosData {
+	return PosData{strl: strl, keepers: keepers, Data: prevData, jump: jump, Initialized: true}
 }
 func (pdl *PosData) Loop(fn func() bool) {
 	// keep values of first iteration, if string empty it's ok to not keep anything
@@ -29,7 +26,7 @@ func (pdl *PosData) Loop(fn func() bool) {
 		if pdl.strl.RiClone {
 			return fn()
 		}
-		if count%pdl.Jump == 0 {
+		if count%pdl.jump == 0 {
 			pdl.keep()
 		}
 		count++
@@ -47,7 +44,7 @@ func (pdl *PosData) keep() {
 		penBoundsMaxY: pdl.strl.LineY1(),
 		keepersData:   kd,
 	}
-	pdl.data = append(pdl.data, pd)
+	pdl.Data = append(pdl.Data, pd)
 }
 func (pdl *PosData) restore(pd *PosDataData) {
 	for i, kd := range pd.keepersData {
@@ -68,35 +65,35 @@ func (pdl *PosData) RestorePosDataCloseToPoint(p *fixed.Point26_6) {
 	}
 }
 func (pdl *PosData) PosDataCloseToIndex(index int) (*PosDataData, bool) {
-	n := len(pdl.data)
+	n := len(pdl.Data)
 	if n == 0 {
 		return nil, false
 	}
 	j := sort.Search(n, func(i int) bool {
-		return pdl.data[i].ri > index
+		return pdl.Data[i].ri > index
 	})
 	// get previous entry before p
 	if j > 0 {
 		j--
 	}
-	return pdl.data[j], true
+	return pdl.Data[j], true
 }
 func (pdl *PosData) PosDataCloseToPoint(p *fixed.Point26_6) (*PosDataData, bool) {
-	n := len(pdl.data)
+	n := len(pdl.Data)
 	if n == 0 {
 		return nil, false
 	}
 	j := sort.Search(n, func(i int) bool {
 		// has to be in a previous y or it won't draw
 		// all runes in a previous x position of the kept data
-		by := pdl.data[i].penBoundsMaxY
+		by := pdl.Data[i].penBoundsMaxY
 		return by > p.Y
 	})
 	// get previous entry before p
 	if j > 0 {
 		j--
 	}
-	return pdl.data[j], true
+	return pdl.Data[j], true
 }
 
 func (pdl *PosData) GetPoint(index int) *fixed.Point26_6 {
@@ -180,7 +177,7 @@ func (pdl *PosData) GetIndex(p *fixed.Point26_6) int {
 }
 
 func (pdl *PosData) Update() {
-	for _, pd := range pdl.data {
+	for _, pd := range pdl.Data {
 		pdl.restore(pd)
 		for _, k := range pdl.keepers {
 			k.UpdatePosData()

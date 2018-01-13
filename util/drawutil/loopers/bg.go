@@ -8,10 +8,9 @@ import (
 
 type Bg struct {
 	EmbedLooper
-	strl         *String
-	dl           *Draw
-	Bg           color.Color
-	NoColorizeBg color.Color // colorize only if different from this
+	strl *String
+	dl   *Draw
+	Bg   color.Color
 }
 
 func MakeBg(strl *String, dl *Draw) Bg {
@@ -19,7 +18,7 @@ func MakeBg(strl *String, dl *Draw) Bg {
 }
 func (lpr *Bg) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.Bg != lpr.NoColorizeBg {
+		if lpr.Bg != nil {
 			pb := lpr.strl.PenBoundsForImage()
 			dr := pb.Add(lpr.dl.Bounds.Min).Intersect(*lpr.dl.Bounds)
 			imageutil.FillRectangle(lpr.dl.Image, &dr, lpr.Bg)

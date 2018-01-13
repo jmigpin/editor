@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image"
-	"image/color"
 
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -30,34 +29,35 @@ func (sq *RowSquare) Paint() {
 	img := sq.row.ui.Image()
 
 	// background
-	var bg color.Color = SquareColor
+	t := &DefaultUITheme
+	bg := NoSelectionColors(&t.ToolbarTheme).Bg
 	if sq.state.has(EditedRowState) {
-		bg = SquareEditedColor
+		bg = t.RowSquare.Edited
 	}
 	if sq.state.has(NotExistRowState) {
-		bg = SquareNotExistColor
+		bg = t.RowSquare.NotExist
 	}
 	if sq.state.has(ExecutingRowState) {
-		bg = SquareExecutingColor
+		bg = t.RowSquare.Executing
 	}
 	imageutil.FillRectangle(img, &b, bg)
 
 	// mini-squares
 	if sq.state.has(ActiveRowState) {
 		r := sq.miniSq(0)
-		imageutil.FillRectangle(img, &r, SquareActiveColor)
+		imageutil.FillRectangle(img, &r, t.RowSquare.Active)
 	}
 	if sq.state.has(DiskChangesRowState) {
 		r := sq.miniSq(1)
-		imageutil.FillRectangle(img, &r, SquareDiskChangesColor)
+		imageutil.FillRectangle(img, &r, t.RowSquare.DiskChanges)
 	}
 	if sq.state.has(DuplicateRowState) {
 		r := sq.miniSq(2)
-		imageutil.FillRectangle(img, &r, SquareDuplicateColor)
+		imageutil.FillRectangle(img, &r, t.RowSquare.Duplicate)
 	}
 	if sq.state.has(HighlightDuplicateRowState) {
 		r := sq.miniSq(2)
-		imageutil.FillRectangle(img, &r, SquareHighlightDuplicateColor)
+		imageutil.FillRectangle(img, &r, t.RowSquare.HighlightDuplicate)
 	}
 }
 func (sq *RowSquare) miniSq(i int) image.Rectangle {

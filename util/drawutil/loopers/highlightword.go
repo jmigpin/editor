@@ -9,13 +9,10 @@ import (
 
 type HighlightWord struct {
 	EmbedLooper
-	strl *String
-	bgl  *Bg
-	dl   *Draw
-
-	WordIndex *int
-	Fg, Bg    color.Color
-
+	strl  *String
+	bgl   *Bg
+	dl    *Draw
+	opt   *HighlightWordOpt
 	hword struct {
 		on         bool
 		word       string
@@ -23,15 +20,11 @@ type HighlightWord struct {
 	}
 }
 
-func MakeHighlightWord(strl *String, bgl *Bg, dl *Draw) HighlightWord {
-	return HighlightWord{strl: strl, bgl: bgl, dl: dl}
+func MakeHighlightWord(strl *String, bgl *Bg, dl *Draw, opt *HighlightWordOpt) HighlightWord {
+	return HighlightWord{strl: strl, bgl: bgl, dl: dl, opt: opt}
 }
 func (lpr *HighlightWord) Loop(fn func() bool) {
-	if lpr.WordIndex == nil {
-		lpr.OuterLooper().Loop(fn)
-		return
-	}
-	word, _, ok := wordAtIndex(lpr.strl.Str, *lpr.WordIndex)
+	word, _, ok := wordAtIndex(lpr.strl.Str, lpr.opt.Index)
 	lpr.hword.on = ok
 	lpr.hword.word = word
 	lpr.OuterLooper().Loop(func() bool {
@@ -39,8 +32,8 @@ func (lpr *HighlightWord) Loop(fn func() bool) {
 			return fn()
 		}
 		if lpr.colorize() {
-			lpr.dl.Fg = lpr.Fg
-			lpr.bgl.Bg = lpr.Bg
+			lpr.dl.Fg = lpr.opt.Fg
+			lpr.bgl.Bg = lpr.opt.Bg
 		}
 		return fn()
 	})
@@ -131,4 +124,9 @@ func isNotWordRune(ru rune) bool {
 }
 func isWordRune(ru rune) bool {
 	return unicode.IsLetter(ru) || ru == '_' || unicode.IsDigit(ru)
+}
+
+type HighlightWordOpt struct {
+	Index  int
+	Fg, Bg color.Color
 }

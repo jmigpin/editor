@@ -6,30 +6,28 @@ import (
 
 type Toolbar struct {
 	*TextArea
-	parent widget.Node
+	upperNode widget.Node
 }
 
-func NewToolbar(ui *UI, parent widget.Node) *Toolbar {
-	tb := &Toolbar{parent: parent}
+func NewToolbar(ui *UI, upperNode widget.Node) *Toolbar {
+	tb := &Toolbar{upperNode: upperNode}
 	tb.TextArea = NewTextArea(ui)
-
-	tb.DisableHighlightCursorWord = true
-	tb.Colors = &ToolbarColors
-
+	tb.TextArea.Theme = &DefaultUITheme.ToolbarTheme
 	tb.TextArea.EvReg.Add(TextAreaSetStrEventId, tb.onTextAreaSetStr)
-
 	return tb
 }
 func (tb *Toolbar) onTextAreaSetStr(ev0 interface{}) {
 	//ev := ev0.(*TextAreaSetStrEvent)
 
 	// dynamic toolbar bounds that change when edited
-	// if toolbar bounds changed due to text change (dynamic height) then the parent container needs paint
+	// if toolbar bounds changed due to text change (dynamic height) then the upper node container needs paint
 	b := tb.Bounds
-	tb.parent.CalcChildsBounds()
+	tb.upperNode.CalcChildsBounds()
 	if !tb.Bounds.Eq(b) {
-		tb.parent.Embed().MarkNeedsPaint()
+		tb.upperNode.Embed().MarkNeedsPaint()
 	}
+
+	// TODO: move this to the textarea? (check dynamic flag)
 
 	// Keep pointer inside if it was in before. Need to test if it was in before, otherwise it will warp the pointer on any change.
 	// Useful in dynamic bounds becoming shorter and leaving the pointer outside, losing keyboard focus.

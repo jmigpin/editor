@@ -38,8 +38,6 @@ func (sh *SeparatorHandle) CalcChildsBounds() {
 
 	sh.Bounds = b
 }
-func (sh *SeparatorHandle) Paint() {
-}
 func (sh *SeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	switch ev := ev0.(type) {
 	case *event.MouseDown:

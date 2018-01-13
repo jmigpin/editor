@@ -17,13 +17,12 @@ import (
 
 type TextArea struct {
 	widget.EmbedNode
-	EvReg                      *evreg.Register
-	Colors                     *hsdrawer.Colors
-	DisableHighlightCursorWord bool
-	CommentStr                 string
+	EvReg               *evreg.Register
+	HighlightCursorWord bool
+	CommentStr          string
 
 	ui            *UI
-	drawer        *hsdrawer.HSDrawer
+	drawer        hsdrawer.HSDrawer
 	scroller      widget.Scroller
 	defaultCursor widget.Cursor
 
@@ -60,10 +59,10 @@ type TextArea struct {
 
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui, CommentStr: "//"}
-	ta.drawer = hsdrawer.NewHSDrawer(ui.FontFace1())
-	ta.drawer.EnableWrapLine = true
-	c := hsdrawer.DefaultColors
-	ta.Colors = &c
+
+	// enable wrapline
+	ta.drawer.WrapLineColorOpt = &loopers.WrapLineColorOpt{}
+
 	ta.EvReg = evreg.NewRegister()
 	ta.history = tahistory.NewHistory(128)
 
@@ -77,12 +76,8 @@ func (ta *TextArea) Measure(hint image.Point) image.Point {
 
 	// TODO: test if it has scroller in X
 
-	return ta.measureStr(hint)
-}
-
-func (ta *TextArea) measureStr(hint image.Point) image.Point {
 	// cache measurement
-	face := ta.ui.FontFace1()
+	face := ta.Theme.Font().Face(nil)
 	if ta.str != ta.drawer.Str ||
 		ta.MeasureOpt.FirstLineOffsetX != ta.drawer.FirstLineOffsetX ||
 		face != ta.drawer.Face ||
@@ -115,8 +110,7 @@ func (ta *TextArea) measureStr(hint image.Point) image.Point {
 }
 
 func (ta *TextArea) CalcChildsBounds() {
-	max := ta.Bounds.Size()
-	_ = ta.measureStr(max)
+	_ = ta.Measure(ta.Bounds.Size())
 	ta.EmbedNode.CalcChildsBounds()
 	ta.updateScroller()
 }
@@ -132,25 +126,34 @@ func (ta *TextArea) StrHeight() int {
 
 func (ta *TextArea) Paint() {
 	bounds := ta.Bounds
+	pal := ta.Theme.Palette()
 
 	// fill background
-	imageutil.FillRectangle(ta.ui.Image(), &bounds, ta.Colors.Normal.Bg)
+	imageutil.FillRectangle(ta.ui.Image(), &bounds, pal.Normal.Bg)
 
 	d := ta.drawer
 	d.CursorIndex = &ta.cursorIndex
 	d.Offset = ta.offset
-	d.Colors = ta.Colors
-	d.Selection = ta.getDrawSelection()
-	d.FlashSelection = ta.getFlashIndexSelection()
-	d.HighlightWordIndex = ta.getHighlightWordIndex()
+	d.Fg = pal.Normal.Fg
+	d.WrapLineColorOpt = ta.getDrawWrapLineColorOpt()
+	d.SelectionOpt = ta.getDrawSelectionOpt()
+	d.FlashSelectionOpt = ta.getDrawFlashSelectionOpt()
+	d.HighlightWordOpt = ta.getDrawHighlightWordOpt()
 
 	d.Draw(ta.ui.Image(), &bounds)
 
 	ta.paintFlashLine()
 }
 
-func (ta *TextArea) getHighlightWordIndex() *int {
-	if ta.DisableHighlightCursorWord {
+func (ta *TextArea) getDrawWrapLineColorOpt() *loopers.WrapLineColorOpt {
+	fgbg := NoSelectionColors(ta.Theme)
+	return &loopers.WrapLineColorOpt{
+		Fg: fgbg.Fg,
+		Bg: fgbg.Bg,
+	}
+}
+func (ta *TextArea) getDrawHighlightWordOpt() *loopers.HighlightWordOpt {
+	if !ta.HighlightCursorWord {
 		return nil
 	}
 	// don't highlight word if selection is on
@@ -158,11 +161,19 @@ func (ta *TextArea) getHighlightWordIndex() *int {
 		return nil
 	}
 
-	return &ta.cursorIndex
+	pal := ta.Theme.Palette()
+	return &loopers.HighlightWordOpt{
+		Index: ta.cursorIndex,
+		Fg:    pal.Highlight.Fg,
+		Bg:    pal.Highlight.Bg,
+	}
 }
-func (ta *TextArea) getDrawSelection() *loopers.SelectionIndexes {
+func (ta *TextArea) getDrawSelectionOpt() *loopers.SelectionOpt {
 	if ta.SelectionOn() {
-		return &loopers.SelectionIndexes{
+		pal := ta.Theme.Palette()
+		return &loopers.SelectionOpt{
+			Fg:    pal.Selection.Fg,
+			Bg:    pal.Selection.Bg,
 			Start: ta.SelectionIndex(),
 			End:   ta.CursorIndex(),
 		}
@@ -212,7 +223,7 @@ func (ta *TextArea) paintFlashLine() {
 	})
 }
 
-func (ta *TextArea) getFlashIndexSelection() *loopers.FlashSelectionIndexes {
+func (ta *TextArea) getDrawFlashSelectionOpt() *loopers.FlashSelectionOpt {
 	if !ta.flashIndex.on {
 		return nil
 	}
@@ -231,10 +242,11 @@ func (ta *TextArea) getFlashIndexSelection() *loopers.FlashSelectionIndexes {
 	t := now.Sub(ta.flashIndex.start)
 	perc := 1.0 - (float64(t) / float64(dur))
 
-	fsi := &loopers.FlashSelectionIndexes{
+	fsi := &loopers.FlashSelectionOpt{
 		Perc:  perc,
 		Start: ta.flashIndex.index,
 		End:   ta.flashIndex.index + ta.flashIndex.len,
+		Bg:    ta.Theme.Palette().Normal.Bg,
 	}
 
 	// need to keep painting while flashing

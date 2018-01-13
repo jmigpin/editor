@@ -12,7 +12,6 @@ type Column struct {
 	RowsLayout *widget.StartPercentLayout // exported to access sp values
 
 	noRows    widget.Node
-	sep       *widget.Rectangle
 	sepHandle ColSeparatorHandle
 	colSquare *ColumnSquare
 
@@ -20,22 +19,22 @@ type Column struct {
 }
 
 func NewColumn(cols *Columns) *Column {
-	col := &Column{Cols: cols, ui: cols.Layout.UI}
+	col := &Column{Cols: cols, ui: cols.Root.UI}
 	col.BoxLayout = widget.NewBoxLayout()
 
 	// separator
-	col.sep = widget.NewRectangle(col.ui)
-	col.Append(col.sep)
-	col.SetChildFill(col.sep, false, true)
 	{
-		col.sep.Size.X = SeparatorWidth
-		col.sep.Color = &SeparatorColor
+		sep := widget.NewSeparator(col.ui)
+		sep.Size.X = SeparatorWidth
+		sep.PropagateTheme(&DefaultUITheme.TextAreaTheme)
+		col.Append(sep)
+		col.SetChildFill(sep, false, true)
 
-		col.sepHandle.Init(col.sep, col)
+		col.sepHandle.Init(sep, col)
 		col.sepHandle.Left = 3
 		col.sepHandle.Right = 3
 		col.sepHandle.Cursor = widget.WEResizeCursor
-		col.Cols.Layout.InsertColSepHandle(&col.sepHandle)
+		col.Cols.Root.InsertColSepHandle(&col.sepHandle)
 	}
 
 	// content to contain norows and rowslayout
@@ -58,26 +57,23 @@ func NewColumn(cols *Columns) *Column {
 			col.colSquare = NewColumnSquare(col)
 			ssBox.Append(col.colSquare)
 
-			space := widget.NewRectangle(col.ui)
-			space.Color = &ColumnBgColor
-			space.Size = image.Point{5, 15}
-			var spaceNode widget.Node = space
-			if ShadowsOn {
-				shadow := widget.NewShadow(col.ui, spaceNode)
-				shadow.Top = ShadowSteps
-				shadow.MaxShade = ShadowMaxShade
-				spaceNode = shadow
-			}
-			ssBox.Append(spaceNode)
-			ssBox.SetChildFlex(spaceNode, true, false)
-			ssBox.SetChildFill(spaceNode, true, true)
+			//TODO: fix bottom shadow for this case
+			// container := WrapInShadowBottom(col.ui, col.colSquare)
+			//ssBox.Append(container)
+
+			space0 := widget.NewRectangle(col.ui)
+			space := WrapInShadowTop(col.ui, space0)
+			ssBox.Append(space)
+			ssBox.SetChildFlex(space, true, false)
+			ssBox.SetChildFill(space, true, true)
 		}
 
 		// lower space
 		space2 := widget.NewRectangle(col.ui)
-		space2.Color = &ColumnBgColor
 		noRows.Append(space2)
 		noRows.SetChildFlex(space2, true, true)
+
+		noRows.PropagateTheme(&DefaultUITheme.NoRowColTheme)
 	}
 
 	// rows layout
@@ -94,7 +90,7 @@ func (col *Column) Close() {
 	for _, r := range col.Rows() {
 		r.Close()
 	}
-	col.Cols.Layout.Remove(&col.sepHandle)
+	col.Cols.Root.Remove(&col.sepHandle)
 	col.Cols.removeColumn(col)
 }
 
@@ -118,16 +114,9 @@ func (col *Column) removeRow(row *Row) {
 }
 
 func (col *Column) CalcChildsBounds() {
-	// update these to handle theme change (based on a row)
-	// TODO: needs improvement
-	var row *Row
-	if col.RowsLayout.ChildsLen() > 0 {
-		row = col.RowsLayout.FirstChild().(*Row)
-	} else {
-		row = NewRow(col)
-	}
-	col.RowsLayout.MinimumChildSize = row.TextArea.LineHeight()
-	col.colSquare.Size = row.Toolbar.Square.Size
+	t := &DefaultUITheme.ToolbarTheme
+	col.RowsLayout.MinimumChildSize = RowMinimumHeight(t)
+	col.colSquare.Size = RowSquareSize(t)
 
 	col.BoxLayout.CalcChildsBounds()
 	col.sepHandle.CalcChildsBounds()
@@ -201,7 +190,7 @@ func (col *Column) PointNextRowExtra(p *image.Point) (*Row, bool) {
 }
 
 func (col *Column) resizeToPointWithSwap(p *image.Point) {
-	bounds := col.Cols.Layout.Bounds
+	bounds := col.Cols.Root.Bounds
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
 
@@ -226,7 +215,7 @@ func (col *Column) resizeHandleWithMoveJump(left bool, p *image.Point) {
 }
 
 func (col *Column) resizeHandleWithMoveToPoint(p *image.Point) {
-	bounds := col.Cols.Layout.Bounds
+	bounds := col.Cols.Root.Bounds
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
 

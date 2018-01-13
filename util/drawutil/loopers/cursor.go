@@ -8,32 +8,27 @@ import (
 
 type Cursor struct {
 	EmbedLooper
-	strl        *String
-	dl          *Draw
-	bounds      *image.Rectangle
-	CursorIndex *int
+	strl   *String
+	dl     *Draw
+	bounds *image.Rectangle
+	index  int
 }
 
-func NewCursor(strl *String, dl *Draw, bounds *image.Rectangle) *Cursor {
-	return &Cursor{strl: strl, dl: dl, bounds: bounds}
+func MakeCursor(strl *String, dl *Draw, bounds *image.Rectangle, index int) Cursor {
+	return Cursor{strl: strl, dl: dl, bounds: bounds, index: index}
 }
 func (lpr *Cursor) Loop(fn func() bool) {
-	if lpr.CursorIndex == nil {
-		lpr.OuterLooper().Loop(fn)
-		return
-	}
-	ci := *lpr.CursorIndex
 	lpr.OuterLooper().Loop(func() bool {
 		if lpr.strl.RiClone {
 			return fn()
 		}
-		if lpr.strl.Ri == ci {
+		if lpr.strl.Ri == lpr.index {
 			lpr.drawCursor()
 		}
 		return fn()
 	})
 	// draw past last position if at str len
-	if !lpr.strl.RiClone && lpr.strl.Ri == ci && ci == len(lpr.strl.Str) {
+	if !lpr.strl.RiClone && lpr.strl.Ri == lpr.index && lpr.index == len(lpr.strl.Str) {
 		lpr.drawCursor()
 	}
 }

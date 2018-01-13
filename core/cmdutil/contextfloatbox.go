@@ -10,17 +10,17 @@ import (
 )
 
 func ToggleContextFloatBox(ed Editorer, p image.Point) {
-	cfb := ed.UI().Layout.ContextFloatBox
+	cfb := ed.UI().Root.ContextFloatBox
 	cfb.Enabled = !cfb.Enabled
 	UpdateContextFloatBox(ed, p)
 }
 func DisableContextFloatBox(ed Editorer) {
-	cfb := ed.UI().Layout.ContextFloatBox
+	cfb := ed.UI().Root.ContextFloatBox
 	cfb.Enabled = false
 	UpdateContextFloatBox(ed, image.Point{})
 }
 func UpdateContextFloatBox(ed Editorer, p image.Point) {
-	cfb := ed.UI().Layout.ContextFloatBox
+	cfb := ed.UI().Root.ContextFloatBox
 
 	// ensure it's hidden if not enabled
 	if !cfb.Enabled {
@@ -63,10 +63,10 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 			index = index2
 			str = str2
 			if len(segs) > 0 {
+				fgbg := ui.DefaultUITheme.HighlightSegment()
 				hopt = &loopers.HighlightSegmentsOpt{
-					Fg: ta.Colors.Highlight.Fg,
-					//Bg:              ta.Colors.Highlight.Bg,
-					Bg:              ui.HighlightSegmentBgColor,
+					Fg:              fgbg.Fg,
+					Bg:              fgbg.Bg,
 					OrderedSegments: segs,
 				}
 			}

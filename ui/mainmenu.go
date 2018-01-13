@@ -17,6 +17,7 @@ type MainMenuButton struct {
 func NewMainMenuButton(ui *UI) *MainMenuButton {
 	m := &MainMenuButton{ui: ui}
 	m.Button = widget.NewButton(ui)
+	m.Button.PropagateTheme(&DefaultUITheme.ToolbarTheme)
 	m.Button.Label.Text.Str = string(rune(8801)) // 3 lines rune
 	m.Button.Label.Pad.Left = 5
 	m.Button.Label.Pad.Right = 5
@@ -50,23 +51,14 @@ type FloatMenu struct {
 func NewFloatMenu(m *MainMenuButton) *FloatMenu {
 	fm := &FloatMenu{m: m}
 
-	fm.Toolbar = NewToolbar(m.ui, &m.ui.Layout)
+	fm.Toolbar = NewToolbar(m.ui, m.ui.Root)
 	pad := widget.NewPad(m.ui, fm.Toolbar)
 	pad.Set(10)
-	pad.Color = &fm.Toolbar.Colors.Normal.Bg
-	border := widget.NewPad(m.ui, pad)
+	border := widget.NewBorder(m.ui, pad)
 	border.Set(1)
-	border.Color = &fm.Toolbar.Colors.Normal.Fg
+	border.PropagateTheme(&DefaultUITheme.ToolbarTheme)
 
-	// shadow
-	var container widget.Node = border
-	if ShadowsOn {
-		shadow := widget.NewShadow(m.ui, border)
-		shadow.Bottom = ShadowSteps
-		shadow.MaxShade = ShadowMaxShade
-		container = shadow
-	}
-
+	container := WrapInShadowBottom(m.ui, border)
 	fm.FloatBox = widget.NewFloatBox(container)
 
 	fm.SetHidden(true)

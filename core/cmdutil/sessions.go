@@ -52,25 +52,33 @@ func sessionsFilename() string {
 
 type Session struct {
 	Name        string
-	LayoutTbStr string
+	LayoutTbStr string // DEPRECATED: keeping to be backward compatible
+	RootTbStr   string
 	Columns     []*ColumnState
 }
 
 func NewSessionFromEditor(ed Editorer) *Session {
 	s := &Session{
-		LayoutTbStr: ed.UI().Layout.Toolbar.Str(),
+		RootTbStr: ed.UI().Root.Toolbar.Str(),
 	}
-	for _, c := range ed.UI().Layout.Cols.Columns() {
+	for _, c := range ed.UI().Root.Cols.Columns() {
 		cstate := NewColumnState(c)
 		s.Columns = append(s.Columns, cstate)
 	}
 	return s
 }
 func (s *Session) restore(ed Editorer) {
-	cols := ed.UI().Layout.Cols
+	cols := ed.UI().Root.Cols
 
 	// layout toolbar
-	ed.UI().Layout.Toolbar.SetStrClear(s.LayoutTbStr, true, true)
+	tbStr := s.RootTbStr
+
+	// backward compatible
+	if s.LayoutTbStr != "" {
+		tbStr = s.LayoutTbStr
+	}
+
+	ed.UI().Root.Toolbar.SetStrClear(tbStr, true, true)
 
 	// close all current columns and open n new
 	cols.CloseAllAndOpenN(len(s.Columns))
@@ -183,11 +191,15 @@ func ListSessions(ed Editorer) {
 	for _, session := range ss.Sessions {
 		str += fmt.Sprintf("OpenSession %v\n", session.Name)
 	}
-	s := "+Sessions"
-	erow, ok := ed.FindERower(s)
-	if !ok {
+
+	rowName := "+Sessions"
+	var erow ERower
+	erows := ed.FindERowers(rowName)
+	if len(erows) > 0 {
+		erow = erows[0]
+	} else {
 		col, nextRow := ed.GoodColumnRowPlace()
-		erow = ed.NewERowerBeforeRow(s, col, nextRow)
+		erow = ed.NewERowerBeforeRow(rowName, col, nextRow)
 	}
 	erow.Row().TextArea.SetStrClear(str, false, false)
 	erow.Flash()

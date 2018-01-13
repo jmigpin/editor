@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 
-	"golang.org/x/image/font"
-
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
 	"github.com/jmigpin/editor/core/toolbardata"
@@ -14,6 +12,7 @@ import (
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/loopers"
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"golang.org/x/image/font"
 )
 
 type Editor struct {
@@ -40,50 +39,21 @@ func NewEditor(opt *Options) (*Editor, error) {
 
 	loopers.WrapLineRune = rune(opt.WrapLineRune)
 	drawutil.TabWidth = opt.TabWidth
-	ui.ScrollbarLeft = opt.ScrollbarLeft
-	ui.ScrollbarWidth = opt.ScrollbarWidth
-
-	switch opt.ColorTheme {
-	case "light":
-		ui.LightThemeColors()
-	case "dark":
-		ui.DarkThemeColors()
-	case "acme":
-		ui.AcmeThemeColors()
-	default:
-		ui.LightThemeColors()
-	}
+	ui.ScrollBarLeft = opt.ScrollBarLeft
+	ui.ScrollBarWidth = opt.ScrollBarWidth
 
 	ui.ShadowsOn = opt.Shadows
 
 	ed.reopenRow = cmdutil.NewReopenRow(ed)
 
-	// font
-	ui.FontOpt.Hinting = font.HintingFull
-	ui.FontOpt.Size = opt.FontSize
-	ui.FontOpt.DPI = opt.DPI
-	switch opt.Font {
-	case "regular":
-		ui.RegularFont()
-	case "medium":
-		ui.MediumFont()
-	case "mono":
-		ui.MonoFont()
-	default:
-		filename := opt.Font
-		err := ui.SetNamedFont(filename)
-		if err != nil {
-			log.Print(err)
-			ui.RegularFont()
-		}
-	}
+	ed.setupTheme(opt)
 
-	ui0, err := ui.NewUI(ed.events, "Editor")
+	var err error
+	ed.ui, err = ui.NewUI(ed.events, "Editor")
 	if err != nil {
 		return nil, err
 	}
-	ui0.OnError = ed.Error
-	ed.ui = ui0
+	ed.ui.OnError = ed.Error
 
 	// drag and drop
 	ed.dndh = cmdutil.NewDndHandler(ed)
@@ -97,12 +67,11 @@ func NewEditor(opt *Options) (*Editor, error) {
 	cmdutil.SetupLayoutHomeVars(ed)
 
 	// files watcher for visual feedback when files change
-	w, err := fileswatcher.NewTargetWatcher(nil)
-	//w, err := fileswatcher.NewTargetWatcher(log.Printf)
+	ed.fwatcher, err = fileswatcher.NewTargetWatcher(nil)
+	//ed.fwatcher, err = fileswatcher.NewTargetWatcher(log.Printf)
 	if err != nil {
 		return nil, err
 	}
-	ed.fwatcher = w
 
 	ed.openInitialRows(opt)
 
@@ -113,7 +82,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 
 func (ed *Editor) setupLayoutToolbar() {
 	s := "Exit | ListSessions | NewColumn | NewRow | Reload | DuplicateRow | "
-	tb := ed.ui.Layout.Toolbar
+	tb := ed.ui.Root.Toolbar
 	tb.SetStrClear(s, true, true)
 	// execute commands on layout toolbar
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
@@ -132,12 +101,51 @@ SaveAllFiles
 FontRunes | FontTheme | ColorTheme
 ListSessions
 Exit | Stop`
-	tb := ed.ui.Layout.MainMenuButton.FloatMenu.Toolbar
+	tb := ed.ui.Root.MainMenuButton.FloatMenu.Toolbar
 	tb.SetStrClear(s, true, true)
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
 		ToolbarCmdFromLayout(ed, tb.TextArea)
 	})
 
+}
+
+func (ed *Editor) setupTheme(opt *Options) {
+	// color theme
+	if _, ok := ui.ColorThemeCycler.GetIndex(opt.ColorTheme); !ok {
+		fmt.Fprintf(os.Stderr, "unknown color theme: %v\n", opt.ColorTheme)
+		os.Exit(2)
+	}
+	ui.ColorThemeCycler.Set(opt.ColorTheme)
+
+	// font options
+	ui.TTFontOptions.Size = opt.FontSize
+	ui.TTFontOptions.DPI = opt.DPI
+	switch opt.FontHinting {
+	case "none":
+		ui.TTFontOptions.Hinting = font.HintingNone
+	case "vertical":
+		ui.TTFontOptions.Hinting = font.HintingVertical
+	case "full":
+		ui.TTFontOptions.Hinting = font.HintingFull
+	default:
+		fmt.Fprintf(os.Stderr, "unknown font hinting: %v\n", opt.FontHinting)
+		os.Exit(2)
+	}
+
+	// font theme
+	if _, ok := ui.FontThemeCycler.GetIndex(opt.Font); ok {
+		ui.FontThemeCycler.Set(opt.Font)
+	} else {
+		// font filename
+		err := ui.AddUserFont(opt.Font)
+		if err != nil {
+			// TODO: send error msg to "+messages"?
+			log.Print(err)
+
+			// could fail and abort, but instead continue with a known font
+			ui.FontThemeCycler.Set("regular")
+		}
+	}
 }
 
 func (ed *Editor) runGlobalShortcuts(ev interface{}) {
@@ -169,10 +177,10 @@ func (ed *Editor) openInitialRows(opt *Options) {
 
 	// cmd line filenames to open
 	if len(opt.Filenames) > 0 {
-		col := ed.ui.Layout.Cols.FirstChildColumn()
+		col := ed.ui.Root.Cols.FirstChildColumn()
 		for _, s := range opt.Filenames {
-			_, ok := ed.FindERower(s)
-			if !ok {
+			erows := ed.FindERowers(s)
+			if len(erows) == 0 {
 				erow := ed.NewERowerBeforeRow(s, col, nil) // position at end
 				err := erow.LoadContentClear()
 				if err != nil {
@@ -185,8 +193,8 @@ func (ed *Editor) openInitialRows(opt *Options) {
 	}
 
 	// start with 2 colums and a current directory row on 2nd column
-	cols := ed.ui.Layout.Cols
-	_ = cols.NewColumn()
+	cols := ed.ui.Root.Cols
+	_ = cols.NewColumn() // add second column
 	col := cols.LastChildColumn()
 	dir, err := os.Getwd()
 	if err == nil {
@@ -206,11 +214,9 @@ func (ed *Editor) HomeVars() *toolbardata.HomeVars {
 }
 
 func (ed *Editor) ERowers() []cmdutil.ERower {
-	u := make([]cmdutil.ERower, len(ed.erows))
-	i := 0
+	u := make([]cmdutil.ERower, 0, len(ed.erows))
 	for _, erow := range ed.erows {
-		u[i] = erow
-		i++
+		u = append(u, erow)
 	}
 	return u
 }
@@ -228,15 +234,17 @@ func (ed *Editor) UnregisterERow(e *ERow) {
 }
 
 func (ed *Editor) FindERows(str string) []*ERow {
-	// find in col/row order to have consistent results
+	// find in col/row order to have consistent results order
 	var a []*ERow
-	for _, col := range ed.ui.Layout.Cols.Columns() {
+	for _, col := range ed.ui.Root.Cols.Columns() {
 		for _, row := range col.Rows() {
 			erow, ok := ed.erows[row]
+
+			// row is not yet in the mapping (creating a new erow)
 			if !ok {
-				// row is not yet in the mapping (creating a new erow)
 				continue
 			}
+
 			// name covers special rows, filename covers abs path
 			if str == erow.Name() || str == erow.Filename() {
 				a = append(a, erow)
@@ -248,20 +256,11 @@ func (ed *Editor) FindERows(str string) []*ERow {
 
 func (ed *Editor) FindERowers(str string) []cmdutil.ERower {
 	u := ed.FindERows(str)
-	a := make([]cmdutil.ERower, len(u))
-	for i, e := range u {
-		a[i] = e
+	a := make([]cmdutil.ERower, 0, len(u))
+	for _, e := range u {
+		a = append(a, e)
 	}
 	return a
-}
-
-// TODO: rename to FindFirstERower?
-func (ed *Editor) FindERower(str string) (cmdutil.ERower, bool) {
-	a := ed.FindERowers(str)
-	if len(a) == 0 {
-		return nil, false
-	}
-	return a[0], true
 }
 
 func (ed *Editor) Errorf(f string, a ...interface{}) {
@@ -277,13 +276,13 @@ func (ed *Editor) Messagef(f string, a ...interface{}) {
 	erow.Flash()
 }
 func (ed *Editor) messagesERow() cmdutil.ERower {
-	s := "+Messages" // special name format
-	erow, ok := ed.FindERower(s)
-	if !ok {
-		col, nextRow := ed.GoodColumnRowPlace()
-		erow = ed.NewERowerBeforeRow(s, col, nextRow)
+	rowName := "+Messages" // special name format
+	erows := ed.FindERowers(rowName)
+	if len(erows) > 0 {
+		return erows[0]
 	}
-	return erow
+	col, nextRow := ed.GoodColumnRowPlace()
+	return ed.NewERowerBeforeRow(rowName, col, nextRow)
 }
 
 func (ed *Editor) IsSpecialName(s string) bool {
@@ -301,7 +300,7 @@ func (ed *Editor) ActiveERower() (cmdutil.ERower, bool) {
 }
 
 func (ed *Editor) GoodColumnRowPlace() (*ui.Column, *ui.Row) {
-	return ed.ui.Layout.GoodColumnRowPlace()
+	return ed.ui.Root.GoodColumnRowPlace()
 }
 
 func (ed *Editor) eventLoop() {
@@ -376,13 +375,14 @@ func (ed *Editor) DecreaseWatch(filename string) {
 type Options struct {
 	Font           string
 	FontSize       float64
+	FontHinting    string
 	DPI            float64
-	ScrollbarWidth int
+	ScrollBarWidth int
+	ScrollBarLeft  bool
 	ColorTheme     string
 	WrapLineRune   int
 	TabWidth       int
-	ScrollbarLeft  bool
-	SessionName    string
 	Shadows        bool
+	SessionName    string
 	Filenames      []string
 }

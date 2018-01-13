@@ -27,8 +27,9 @@ type Node interface {
 }
 
 type EmbedNode struct {
-	Cursor Cursor
 	Bounds image.Rectangle
+	Cursor Cursor
+	Theme  *Theme
 
 	wrapper Node
 	childs  list.List
@@ -43,8 +44,15 @@ func (en *EmbedNode) Embed() *EmbedNode {
 	return en
 }
 
+func (en *EmbedNode) PropagateTheme(t *Theme) {
+	en.Theme = t
+	en.IterChilds(func(c Node) {
+		c.Embed().PropagateTheme(t)
+	})
+}
+
 // Only the root node should need to set the wrapper explicitly.
-func (en *EmbedNode) RootNodeWrapper(n Node) {
+func (en *EmbedNode) SetWrapperForRootNode(n Node) {
 	en.wrapper = n
 }
 

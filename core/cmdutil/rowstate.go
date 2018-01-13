@@ -18,8 +18,13 @@ func NewRowState(row *ui.Row) *RowState {
 		TbCursorIndex: row.Toolbar.CursorIndex(),
 		TaCursorIndex: row.TextArea.CursorIndex(),
 		TaOffsetIndex: row.TextArea.OffsetIndex(),
-		StartPercent:  row.Col.RowsLayout.RawStartPercent(row),
 	}
+
+	// check row.col in case the row has been removed from columns
+	if row.Col != nil {
+		rs.StartPercent = row.Col.RowsLayout.RawStartPercent(row)
+	}
+
 	return rs
 }
 func NewERowFromRowState(ed Editorer, state *RowState, col *ui.Column, nextRow *ui.Row) ERower {

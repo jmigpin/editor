@@ -8,13 +8,15 @@ import (
 
 type Shadow struct {
 	EmbedNode
-	ctx         Context
-	MaxShade    float64
 	Top, Bottom int
+	MaxDiff     float64 // max value difference from the current color
+	Tint        bool
+
+	ctx ImageContext
 }
 
-func NewShadow(ctx Context, child Node) *Shadow {
-	s := &Shadow{ctx: ctx, MaxShade: 0.30}
+func NewShadow(ctx ImageContext, child Node) *Shadow {
+	s := &Shadow{ctx: ctx, MaxDiff: 0.30}
 	s.Append(child)
 	return s
 }
@@ -46,19 +48,24 @@ func (s *Shadow) Measure(hint image.Point) image.Point {
 		m = MinPoint(m, hint)
 		return m
 	}
+
 	return s.EmbedNode.Measure(hint)
 }
 
 func (s *Shadow) CalcChildsBounds() {
+	// reduce the child size and the lower part is where the shadow is drawn
 	if s.Bottom > 0 {
 		b := s.Bounds
 		b.Max.Y -= s.Bottom
 		b.Max = MaxPoint(b.Max, image.Point{0, 0})
+		b = b.Intersect(s.Bounds)
 		child := s.FirstChildInAll()
 		child.Embed().Bounds = b
 		child.CalcChildsBounds()
 		return
 	}
+
+	// gives this node bounds to the childs (shadow is at the top)
 	s.EmbedNode.CalcChildsBounds()
 }
 
@@ -67,6 +74,12 @@ func (s *Shadow) PaintChilds() {
 }
 func (s *Shadow) Paint() {
 	s.EmbedNode.PaintChilds()
+
+	fn := imageutil.Shade
+	if s.Tint {
+		fn = imageutil.Tint
+	}
+
 	if s.Top > 0 {
 		b := s.Bounds
 		j := 0.0
@@ -78,10 +91,10 @@ func (s *Shadow) Paint() {
 		for y := b.Min.Y; y < maxY; y++ {
 			for x := b.Min.X; x < b.Max.X; x++ {
 				at := img.At(x, y)
-				c2 := imageutil.Shade(at, s.MaxShade-j)
+				c2 := fn(at, s.MaxDiff-j)
 				img.Set(x, y, c2)
 			}
-			j += s.MaxShade / float64(s.Top)
+			j += s.MaxDiff / float64(s.Top)
 		}
 	}
 	if s.Bottom > 0 {
@@ -91,10 +104,10 @@ func (s *Shadow) Paint() {
 		for y := b.Max.Y - s.Bottom; y < b.Max.Y; y++ {
 			for x := b.Min.X; x < b.Max.X; x++ {
 				at := img.At(x, y)
-				c2 := imageutil.Shade(at, s.MaxShade-j)
+				c2 := fn(at, s.MaxDiff-j)
 				img.Set(x, y, c2)
 			}
-			j += s.MaxShade / float64(s.Bottom)
+			j += s.MaxDiff / float64(s.Bottom)
 		}
 	}
 }

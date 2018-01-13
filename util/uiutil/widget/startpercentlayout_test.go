@@ -318,7 +318,7 @@ func testPercentValue(l *StartPercentLayout, n Node, v float64) bool {
 	return feq(l.spm[n], v)
 }
 
-var eps float64 = 0.00000001
+var eps = 0.00000001
 
 func feq(a, b float64) bool {
 	if math.Abs(a-b) < eps {

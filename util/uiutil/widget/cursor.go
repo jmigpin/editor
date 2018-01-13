@@ -17,10 +17,6 @@ const (
 	TextCursor
 )
 
-type CursorContext interface {
-	SetCursor(Cursor)
-}
-
 func SetTreeCursor(ctx CursorContext, node Node, p image.Point) {
 	v := setTreeCursor2(ctx, node, p)
 	if !v {
