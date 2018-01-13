@@ -103,6 +103,18 @@ func (col *Column) NewRowBefore(next *Row) *Row {
 func (col *Column) insertRowBefore(row, next *Row) {
 	row.Col = col
 	col.RowsLayout.InsertBefore(row, next)
+
+	// improve insertion point beyond the half row done by StartPercentLayout
+	// set at half of the textarea
+	if row.Prev() != nil {
+		prevRow := row.Prev().(*Row)
+		colDy := col.Bounds.Dy()
+		prTADy := prevRow.TextArea.Bounds.Dy()
+		prEndY := prevRow.Bounds.Max.Y - col.Bounds.Min.Y
+		perc := (float64(prEndY) - float64(prTADy)/2) / float64(colDy)
+		col.RowsLayout.Resize(row, perc)
+	}
+
 	col.CalcChildsBounds()
 	col.MarkNeedsPaint()
 }
