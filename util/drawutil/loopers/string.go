@@ -129,10 +129,6 @@ func (lpr *String) RestorePosData(data interface{}) {
 	lpr.Pen = d.Pen
 }
 
-// Implements PosDataKeeper
-func (lpr *String) UpdatePosData() {
-}
-
 type StringData struct {
 	Ri     int
 	PrevRu rune

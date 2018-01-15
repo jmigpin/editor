@@ -483,12 +483,15 @@ func (erow *ERow) Flash() {
 }
 
 func (erow *ERow) setupTextAreaCommentString() {
-	cstr := "//"
+	ta := erow.row.TextArea
 	switch filepath.Ext(erow.Filename()) {
+	default:
+		fallthrough
 	case "", ".sh", ".conf", ".list", ".txt":
-		cstr = "#"
+		ta.CommentStr = "#"
+		ta.CommentStrEnclosed = [2]string{}
 	case ".go", ".c", ".cpp", ".h", ".hpp":
-		cstr = "//"
+		ta.CommentStr = "//"
+		ta.CommentStrEnclosed = [2]string{"/*", "*/"}
 	}
-	erow.row.TextArea.CommentStr = cstr
 }

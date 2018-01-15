@@ -157,11 +157,9 @@ func (lpr *WrapLine) RestorePosData(data interface{}) {
 	lpr.data = data.(WrapLine2Data)
 }
 
-// Implements PosDataKeeper
-func (lpr *WrapLine) UpdatePosData() {
-}
-
 type WrapLine2Data struct {
+	// TODO: use state here
+
 	NotStartingSpaces bool          // is after first non space char
 	PenX              fixed.Int26_6 // indent size, or first rune position after indent
 }

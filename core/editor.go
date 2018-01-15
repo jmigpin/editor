@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"image/color"
 	"log"
 	"os"
 
@@ -116,6 +117,17 @@ func (ed *Editor) setupTheme(opt *Options) {
 		os.Exit(2)
 	}
 	ui.ColorThemeCycler.Set(opt.ColorTheme)
+
+	// color comments
+	if opt.CommentsColor == 0 {
+		ui.TextAreaCommentsColor = nil
+	} else {
+		v := opt.CommentsColor & 0xffffff
+		r := uint8((v << 0) >> 16)
+		g := uint8((v << 8) >> 16)
+		b := uint8((v << 16) >> 16)
+		ui.TextAreaCommentsColor = color.RGBA{r, g, b, 255}
+	}
 
 	// font options
 	ui.TTFontOptions.Size = opt.FontSize
@@ -380,6 +392,7 @@ type Options struct {
 	ScrollBarWidth int
 	ScrollBarLeft  bool
 	ColorTheme     string
+	CommentsColor  int
 	WrapLineRune   int
 	TabWidth       int
 	Shadows        bool

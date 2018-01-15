@@ -63,7 +63,7 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 			index = index2
 			str = str2
 			if len(segs) > 0 {
-				fgbg := ui.DefaultUITheme.HighlightSegment()
+				fgbg := ui.HighlightSegmentColors()
 				hopt = &loopers.HighlightSegmentsOpt{
 					Fg:              fgbg.Fg,
 					Bg:              fgbg.Bg,

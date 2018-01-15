@@ -12,7 +12,7 @@ Source code editor in pure Go.
 ### Features
 
 - Auto indentation of wrapped lines.
-- No code coloring.
+- No code coloring (except comments).
 - Many TextArea utilities: undo/redo, replace, comment, ...
 - Start external processes from the toolbar with a click, capturing the output to a row. 
 - Drag and drop files/directories to the editor.
@@ -34,6 +34,8 @@ go build
 Usage of ./editor:
   -colortheme string
     	available: light, dark, acme (default "light")
+  -commentscolor int
+    	Colorize comments. Can be set to zero to use a percentage of the font color. Ex: 0=auto, 1=Black, 0xff0000=red.
   -cpuprofile string
     	profile cpu filename
   -dpi float

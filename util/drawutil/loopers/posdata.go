@@ -176,20 +176,21 @@ func (pdl *PosData) GetIndex(p *fixed.Point26_6) int {
 	return len(strl.Str)
 }
 
-func (pdl *PosData) Update() {
-	for _, pd := range pdl.Data {
-		pdl.restore(pd)
-		for _, k := range pdl.keepers {
-			k.UpdatePosData()
-		}
-		pdl.keep()
-	}
-}
+//func (pdl *PosData) Update() {
+//	for _, pd := range pdl.Data {
+//		pdl.restore(pd)
+//		for _, k := range pdl.keepers {
+//			k.UpdatePosData()
+//		}
+//		pdl.keep()
+//	}
+//}
 
 type PosDataKeeper interface {
 	KeepPosData() interface{}
 	RestorePosData(interface{})
-	UpdatePosData()
+
+	//UpdatePosData() // TODO
 }
 
 type PosDataData struct {

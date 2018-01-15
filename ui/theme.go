@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	FlashDuration      = 500 * time.Millisecond
-	ScrollBarLeft      = true
-	ScrollBarWidth int = 0
-	SeparatorWidth     = 1
+	FlashDuration             = 500 * time.Millisecond
+	ScrollBarLeft             = true
+	ScrollBarWidth        int = 0 // 0=based on a portion of the font size
+	SeparatorWidth            = 1
+	TextAreaCommentsColor color.Color
 )
 
 var DefaultUITheme UITheme
@@ -39,8 +40,16 @@ type UITheme struct {
 	RowSquare      *RowSquareTheme
 }
 
-func (t *UITheme) HighlightSegment() *widget.FgBg {
-	// TODO: currently fixed for all themes
+func GetTextAreaCommentsFg() color.Color {
+	if TextAreaCommentsColor != nil {
+		return TextAreaCommentsColor
+	}
+	pal := DefaultUITheme.TextAreaTheme.Palette()
+	return imageutil.TintOrShade(pal.Normal.Fg, 0.40)
+}
+
+// TODO: currently fixed for all themes
+func HighlightSegmentColors() *widget.FgBg {
 	fg := widget.Black
 	bg := color.RGBA{158, 238, 238, 255} // light blue
 	return &widget.FgBg{fg, bg}
