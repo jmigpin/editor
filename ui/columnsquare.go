@@ -21,7 +21,7 @@ func NewColumnSquare(col *Column) *ColumnSquare {
 }
 
 func (sq *ColumnSquare) Measure(hint image.Point) image.Point {
-	return widget.MinPoint(sq.Size, hint)
+	return imageutil.MinPoint(sq.Size, hint)
 }
 func (sq *ColumnSquare) Paint() {
 	fgbg := NoSelectionColors(&DefaultUITheme.ToolbarTheme)

@@ -459,22 +459,8 @@ func (ta *TextArea) SetOffsetY(v int) {
 	ta.updateScroller()
 }
 func (ta *TextArea) _setOffset(o image.Point) {
-	//if v < 0 {
-	//	v = 0
-	//}
-	//if v > ta.StrHeight() {
-	//	v = ta.StrHeight()
-	//}
-	//if v != ta.offsetY {
-	//	if ta.scroller != nil {
-	//		// must have a scroller to change the offset
-	//		ta.offsetY = v
-	//		ta.MarkNeedsPaint()
-	//	}
-	//}
-
-	o = widget.MaxPoint(o, image.Point{0, 0})
-	o = widget.MinPoint(o, ta.drawer.Measurement)
+	o = imageutil.MaxPoint(o, image.Point{0, 0})
+	o = imageutil.MinPoint(o, ta.drawer.Measurement)
 	if o != ta.offset {
 		// must have a scroller to change the offset
 		if ta.scroller != nil {

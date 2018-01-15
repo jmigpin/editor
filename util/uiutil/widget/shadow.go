@@ -42,10 +42,10 @@ func (s *Shadow) Measure(hint image.Point) image.Point {
 	if s.Bottom > 0 {
 		h := hint
 		h.Y -= s.Bottom
-		h = MaxPoint(h, image.Point{0, 0})
+		h = imageutil.MaxPoint(h, image.Point{0, 0})
 		m := s.EmbedNode.Measure(h)
 		m.Y += s.Bottom
-		m = MinPoint(m, hint)
+		m = imageutil.MinPoint(m, hint)
 		return m
 	}
 
@@ -57,7 +57,7 @@ func (s *Shadow) CalcChildsBounds() {
 	if s.Bottom > 0 {
 		b := s.Bounds
 		b.Max.Y -= s.Bottom
-		b.Max = MaxPoint(b.Max, image.Point{0, 0})
+		b.Max = imageutil.MaxPoint(b.Max, image.Point{0, 0})
 		b = b.Intersect(s.Bounds)
 		child := s.FirstChildInAll()
 		child.Embed().Bounds = b

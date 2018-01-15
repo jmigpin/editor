@@ -151,10 +151,10 @@ func (sa *ScrollArea) SetScrollerOffset(offset image.Point) {
 func (sa *ScrollArea) Measure(hint image.Point) image.Point {
 	h := hint
 	h.X -= sa.ScrollWidth
-	h = MaxPoint(h, image.Point{0, 0})
+	h = imageutil.MaxPoint(h, image.Point{0, 0})
 	m := sa.EmbedNode.Measure(h)
 	m.X += sa.ScrollWidth
-	m = MinPoint(m, hint)
+	m = imageutil.MinPoint(m, hint)
 	return m
 }
 

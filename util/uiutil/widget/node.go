@@ -6,6 +6,8 @@ import (
 	"image"
 	"reflect"
 	"sync"
+
+	"github.com/jmigpin/editor/util/imageutil"
 )
 
 type Node interface {
@@ -356,7 +358,7 @@ func (en *EmbedNode) Measure(hint image.Point) image.Point {
 	var max image.Point
 	en.IterChilds(func(c Node) {
 		m := c.Measure(hint)
-		max = MaxPoint(max, m)
+		max = imageutil.MaxPoint(max, m)
 	})
 	return max
 }
@@ -456,23 +458,4 @@ func PaintTree(node Node) (painted bool) {
 	node.Paint()
 	node.PaintChilds()
 	return true
-}
-
-func MaxPoint(p1, p2 image.Point) image.Point {
-	if p1.X < p2.X {
-		p1.X = p2.X
-	}
-	if p1.Y < p2.Y {
-		p1.Y = p2.Y
-	}
-	return p1
-}
-func MinPoint(p1, p2 image.Point) image.Point {
-	if p1.X > p2.X {
-		p1.X = p2.X
-	}
-	if p1.Y > p2.Y {
-		p1.Y = p2.Y
-	}
-	return p1
 }

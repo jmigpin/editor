@@ -21,7 +21,7 @@ func NewRowSquare(row *Row) *RowSquare {
 	return sq
 }
 func (sq *RowSquare) Measure(hint image.Point) image.Point {
-	return widget.MinPoint(sq.Size, hint)
+	return imageutil.MinPoint(sq.Size, hint)
 }
 
 func (sq *RowSquare) Paint() {

@@ -62,3 +62,22 @@ func BorderRectangle(img draw.Image, r *image.Rectangle, c color.Color, size int
 		DrawUniform(img, &r2, c, draw.Src)
 	}
 }
+
+func MaxPoint(p1, p2 image.Point) image.Point {
+	if p1.X < p2.X {
+		p1.X = p2.X
+	}
+	if p1.Y < p2.Y {
+		p1.Y = p2.Y
+	}
+	return p1
+}
+func MinPoint(p1, p2 image.Point) image.Point {
+	if p1.X > p2.X {
+		p1.X = p2.X
+	}
+	if p1.Y > p2.Y {
+		p1.Y = p2.Y
+	}
+	return p1
+}

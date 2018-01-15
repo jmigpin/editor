@@ -28,11 +28,11 @@ func (p *Pad) Measure(hint image.Point) image.Point {
 	h := hint
 	h.X -= p.Right + p.Left
 	h.Y -= p.Top + p.Bottom
-	h = MaxPoint(h, image.Point{0, 0})
+	h = imageutil.MaxPoint(h, image.Point{0, 0})
 	m := p.EmbedNode.Measure(h)
 	m.X += p.Right + p.Left
 	m.Y += p.Top + p.Bottom
-	m = MinPoint(m, hint)
+	m = imageutil.MinPoint(m, hint)
 	return m
 }
 func (p *Pad) CalcChildsBounds() {
