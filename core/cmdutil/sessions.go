@@ -62,7 +62,7 @@ func NewSessionFromEditor(ed Editorer) *Session {
 		RootTbStr: ed.UI().Root.Toolbar.Str(),
 	}
 	for _, c := range ed.UI().Root.Cols.Columns() {
-		cstate := NewColumnState(c)
+		cstate := NewColumnState(ed, c)
 		s.Columns = append(s.Columns, cstate)
 	}
 	return s
@@ -130,11 +130,21 @@ type ColumnState struct {
 	Rows         []*RowState
 }
 
-func NewColumnState(col *ui.Column) *ColumnState {
+func NewColumnState(ed Editorer, col *ui.Column) *ColumnState {
 	cstate := &ColumnState{
 		StartPercent: col.Cols.ColsLayout.RawStartPercent(col),
 	}
+
+	erows := ed.ERowers()
+outerFor:
 	for _, row := range col.Rows() {
+		// don't save special rows into sessions
+		for _, e := range erows {
+			if e.Row() == row && e.IsSpecialName() {
+				continue outerFor
+			}
+		}
+
 		rstate := NewRowState(row)
 		cstate.Rows = append(cstate.Rows, rstate)
 	}
