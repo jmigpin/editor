@@ -98,7 +98,7 @@ func (ta *TextArea) Measure(hint image.Point) image.Point {
 		hint2 := image.Point{hint.X, 100000}
 
 		// enable extensions needed for measuring
-		ta.drawer.WrapLineColorOpt = ta.getDrawWrapLineColorOpt()
+		ta.drawer.WrapLineOpt = ta.getDrawWrapLineOpt()
 		ta.drawer.CommentsOpt = ta.getDrawCommentsOpt()
 
 		ta.MeasureOpt.measurement = ta.drawer.Measure(hint2)
@@ -137,7 +137,7 @@ func (ta *TextArea) Paint() {
 	d.CursorIndex = &ta.cursorIndex
 	d.Offset = ta.offset
 	d.Fg = pal.Normal.Fg
-	d.WrapLineColorOpt = ta.getDrawWrapLineColorOpt()
+	d.WrapLineOpt = ta.getDrawWrapLineOpt()
 	d.CommentsOpt = ta.getDrawCommentsOpt()
 	d.SelectionOpt = ta.getDrawSelectionOpt()
 	d.FlashSelectionOpt = ta.getDrawFlashSelectionOpt()
@@ -158,9 +158,9 @@ func (ta *TextArea) getDrawCommentsOpt() *loopers.CommentsOpt {
 		Fg:       GetTextAreaCommentsFg(),
 	}
 }
-func (ta *TextArea) getDrawWrapLineColorOpt() *loopers.WrapLineColorOpt {
+func (ta *TextArea) getDrawWrapLineOpt() *loopers.WrapLineOpt {
 	fgbg := NoSelectionColors(ta.Theme)
-	return &loopers.WrapLineColorOpt{
+	return &loopers.WrapLineOpt{
 		Fg: fgbg.Fg,
 		Bg: fgbg.Bg,
 	}

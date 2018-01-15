@@ -22,7 +22,7 @@ type HSDrawer struct {
 
 	// extensions
 	CursorIndex          *int
-	WrapLineColorOpt     *loopers.WrapLineColorOpt
+	WrapLineOpt          *loopers.WrapLineOpt
 	HighlightWordOpt     *loopers.HighlightWordOpt
 	SelectionOpt         *loopers.SelectionOpt
 	FlashSelectionOpt    *loopers.FlashSelectionOpt
@@ -125,7 +125,7 @@ func (d *HSDrawer) initMeasurers(maxX int) {
 	// TODO: ensure keepers from measure?
 
 	keepers := []loopers.PosDataKeeper{&d.strl}
-	if d.WrapLineColorOpt != nil {
+	if d.WrapLineOpt != nil {
 		d.wlinel = loopers.MakeWrapLine(&d.strl, &linel, fmaxX)
 		keepers = append(keepers, &d.wlinel)
 	}
@@ -140,7 +140,7 @@ func (d *HSDrawer) initMeasurers(maxX int) {
 	d.strl.SetOuterLooper(start)
 	linel.SetOuterLooper(&d.strl)
 	var outer loopers.Looper = &linel
-	if d.WrapLineColorOpt != nil {
+	if d.WrapLineOpt != nil {
 		d.wlinel.SetOuterLooper(outer)
 		outer = &d.wlinel
 	}
@@ -179,8 +179,8 @@ func (d *HSDrawer) initDrawers(img draw.Image, bounds *image.Rectangle) {
 	if d.CursorIndex != nil {
 		cursorl = loopers.MakeCursor(&d.strl, &d.dl, bounds, *d.CursorIndex)
 	}
-	if d.WrapLineColorOpt != nil {
-		d.wlinecl = loopers.MakeWrapLineColor(&d.wlinel, &d.dl, &d.bgl, d.WrapLineColorOpt)
+	if d.WrapLineOpt != nil {
+		d.wlinecl = loopers.MakeWrapLineColor(&d.wlinel, &d.dl, &d.bgl, d.WrapLineOpt)
 	}
 	var hsl loopers.HighlightSegments
 	if d.HighlightSegmentsOpt != nil {
@@ -215,7 +215,7 @@ func (d *HSDrawer) initDrawers(img draw.Image, bounds *image.Rectangle) {
 		fsl.SetOuterLooper(outer)
 		outer = &fsl
 	}
-	if d.WrapLineColorOpt != nil {
+	if d.WrapLineOpt != nil {
 		d.wlinecl.SetOuterLooper(outer)
 		outer = &d.wlinecl
 	}

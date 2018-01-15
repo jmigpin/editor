@@ -1,6 +1,7 @@
 package loopers
 
 import (
+	"image/color"
 	"unicode"
 
 	"golang.org/x/image/math/fixed"
@@ -14,9 +15,7 @@ type WrapLine struct {
 	linei *Line
 	MaxX  fixed.Int26_6
 
-	state int // states used by WrapLineColor
-
-	data WrapLine2Data // positional data for keep/restore
+	data WrapLineData // positional data for keep/restore
 }
 
 func MakeWrapLine(strl *String, linei *Line, maxX fixed.Int26_6) WrapLine {
@@ -35,7 +34,7 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 	// TODO: ideally, have the identation be used if the rest of the line fits, otherwise use space available from the start of the line. (Would still have the issue with long line comments not honoring the wrapline indent).
 
 	lpr.OuterLooper().Loop(func() bool {
-		lpr.state = 0
+		lpr.data.state = WLStateNormal
 
 		penXAdv := lpr.strl.PenXAdvance()
 
@@ -59,7 +58,7 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 			lpr.strl.RiClone = true
 
 			// bg close to the border - current rune size covers the space
-			lpr.state = 1
+			lpr.data.state = WLStateLine1Bg
 			lpr.strl.Ru = 0
 			lpr.strl.Advance = runeAdvPart1
 			if ok := fn(); !ok {
@@ -81,7 +80,7 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 			startPenX := lpr.strl.Pen.X
 
 			// bg on start of newline
-			lpr.state = 2
+			lpr.data.state = WLStateLine2Bg
 			lpr.strl.Ru = 0
 			lpr.strl.Pen.X = startPenX
 			bgAdv := wlrAdv + (sepSpace - runeAdvPart1)
@@ -91,7 +90,7 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 			}
 
 			// wraplinerune
-			lpr.state = 3
+			lpr.data.state = WLStateLine2Rune
 			lpr.strl.Ru = WrapLineRune
 			lpr.strl.Pen.X = startPenX
 			lpr.strl.Advance = wlrAdv
@@ -100,7 +99,7 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 			}
 
 			// original rune
-			lpr.state = 0
+			lpr.data.state = WLStateNormal
 			lpr.strl.RiClone = false
 			lpr.strl.Ru = origRu
 			lpr.strl.Pen.X = startPenX + bgAdv
@@ -154,12 +153,47 @@ func (lpr *WrapLine) KeepPosData() interface{} {
 
 // Implements PosDataKeeper
 func (lpr *WrapLine) RestorePosData(data interface{}) {
-	lpr.data = data.(WrapLine2Data)
+	lpr.data = data.(WrapLineData)
 }
 
-type WrapLine2Data struct {
-	// TODO: use state here
+type WLState int
 
+const (
+	WLStateNormal WLState = iota
+	WLStateLine1Bg
+	WLStateLine2Bg
+	WLStateLine2Rune
+)
+
+type WrapLineData struct {
+	state             WLState
 	NotStartingSpaces bool          // is after first non space char
 	PenX              fixed.Int26_6 // indent size, or first rune position after indent
+}
+
+type WrapLineColor struct {
+	EmbedLooper
+	wlinel *WrapLine
+	dl     *Draw
+	bgl    *Bg
+	opt    *WrapLineOpt
+}
+
+func MakeWrapLineColor(wlinel *WrapLine, dl *Draw, bgl *Bg, opt *WrapLineOpt) WrapLineColor {
+	return WrapLineColor{wlinel: wlinel, dl: dl, bgl: bgl, opt: opt}
+}
+func (lpr *WrapLineColor) Loop(fn func() bool) {
+	lpr.OuterLooper().Loop(func() bool {
+		switch lpr.wlinel.data.state {
+		case WLStateLine1Bg, WLStateLine2Bg:
+			lpr.bgl.Bg = lpr.opt.Bg
+		case WLStateLine2Rune:
+			lpr.dl.Fg = lpr.opt.Fg
+		}
+		return fn()
+	})
+}
+
+type WrapLineOpt struct {
+	Fg, Bg color.Color
 }
