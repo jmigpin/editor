@@ -178,10 +178,11 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `ListDirSub`: lists directory and sub directories
 - `ListDirHidden`: lists directory including hidden
 - `MaximizeRow`: maximize row. Will push other rows up/down.
-- `RowDirectory`: get the row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.
+- ~~`RowDirectory`: get the row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.~~ Just click on the row toolbar first part to access a specific directory.
 - `DuplicateRow`: make row share the edit history with a new row that updates when changes are made.
 - `CopyFilePosition`: copy to clipboard the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
-- `XdgOpenDir`: calls xdg-open to open the row directory with the preferred external application (ex: a filemanager).
+- `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
+- `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open a duplicate of that file.
 
 #### Textarea commands

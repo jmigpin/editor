@@ -8,6 +8,8 @@ import (
 type Editorer interface {
 	Error(error)
 	Errorf(string, ...interface{})
+	Messagef(f string, a ...interface{})
+
 	UI() *ui.UI
 
 	NewERowerBeforeRow(string, *ui.Column, *ui.Row) ERower

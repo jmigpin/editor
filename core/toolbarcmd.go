@@ -185,6 +185,11 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ListDirEd(e, false, true) })
 	case "CopyFilePosition":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.CopyFilePosition(ed, e) })
+	case "GoRename":
+		erowCmd(func(e cmdutil.ERower) { cmdutil.GoRename(e, part) })
+
+	//case "GoDebug":
+	//erowCmd(func(e cmdutil.ERower) { cmdutil.GoDebug(e, part) })
 
 	default:
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ExternalCmd(e, part) })
