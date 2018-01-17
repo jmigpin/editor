@@ -85,12 +85,19 @@ func filename(erow cmdutil.ERower) bool {
 		}
 	}
 
-	// erow
+	// find or create row
 	ed := erow.Ed()
 	erows := ed.FindERowers(filename)
 	if len(erows) == 0 {
 		// new row
 		col, nextRow := ed.GoodColumnRowPlace()
+
+		// for directories, place under the calling row
+		if fi.IsDir() {
+			col = erow.Row().Col
+			nextRow = erow.Row().NextRow()
+		}
+
 		erow2 := ed.NewERowerBeforeRow(filename, col, nextRow)
 		err := erow2.LoadContentClear()
 		if err != nil {
