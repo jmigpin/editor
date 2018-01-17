@@ -7,17 +7,17 @@ import (
 	"log"
 
 	"github.com/jmigpin/editor/util/drawutil/loopers"
+	"github.com/jmigpin/editor/util/imageutil"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
-// Highlight and Selection drawer. Has no constructor but needs Face and Str set to measure/draw.
+// Highlight and Selection drawer. The empty value is a valid drawer.
 type HSDrawer struct {
 	Face             font.Face
 	Str              string
 	Offset           image.Point
 	FirstLineOffsetX int
-	Measurement      image.Point
 	Fg               color.Color
 
 	// extensions
@@ -38,7 +38,9 @@ type HSDrawer struct {
 	cl      loopers.Comments
 	eel     loopers.EarlyExit
 
-	maxX int
+	measurement image.Point // full string measurement (no Y bounds)
+
+	args args
 
 	// TODO: left/top pad to help cursor looper to be fully draw
 	// small pad added to allow the cursor to be fully drawn on first position
@@ -46,20 +48,48 @@ type HSDrawer struct {
 	//pad image.Point
 }
 
+// arguments that must match to allow the cached calculations to persist
+type args struct {
+	face             font.Face
+	str              string
+	maxX             int
+	firstLineOffsetX int
+}
+
+func (d *HSDrawer) NeedMeasure(max image.Point) bool {
+	a := d.getArgs(max)
+	return a != d.args
+}
+
+func (d *HSDrawer) getArgs(max image.Point) args {
+	return args{
+		face:             d.Face,
+		str:              d.Str,
+		maxX:             max.X,
+		firstLineOffsetX: d.FirstLineOffsetX,
+	}
+}
+
 func (d *HSDrawer) Measure(max image.Point) image.Point {
 	if d.Face == nil {
 		return image.Point{}
 	}
 
+	// use cached value, just need to update the bounded measure
+	a := d.getArgs(max)
+	if a == d.args {
+		// bounded measurement, smaller or equal than max
+		return imageutil.MinPoint(d.measurement, max)
+	}
+	d.args = a
+
 	// TODO: need to check early exit looper
 	// fixed.Int26_6 integer part ranges from -33554432 to 33554431
 	//fixedMaxY := fixed.I(33554431).Ceil()
 
-	d.maxX = max.X
-
 	// loopers
 	d.pdl.Data = nil // reset data
-	d.initMeasurers(d.maxX)
+	d.initMeasurers(d.args.maxX)
 	ml := loopers.NewMeasure(&d.strl)
 
 	// iterator order
@@ -68,17 +98,14 @@ func (d *HSDrawer) Measure(max image.Point) image.Point {
 	// run measure
 	ml.Loop(func() bool { return true })
 	m := image.Point{ml.M.X.Ceil(), ml.M.Y.Ceil()}
-	d.Measurement = m
+	d.measurement = m
 
-	// truncate measure for return
-	if m.X > max.X {
-		m.X = max.X
-	}
-	if m.Y > max.Y {
-		m.Y = max.Y
-	}
+	// bounded measurement, smaller or equal than max
+	return imageutil.MinPoint(d.measurement, max)
+}
 
-	return m
+func (d *HSDrawer) MeasurementFullY() image.Point {
+	return d.measurement
 }
 
 func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
@@ -86,8 +113,16 @@ func (d *HSDrawer) Draw(img draw.Image, bounds *image.Rectangle) {
 		return
 	}
 
-	if bounds.Size().X != d.maxX {
-		log.Printf("hsdrawer: drawing for %v but measured with hint %v", bounds.Size().X, d.maxX)
+	a := d.getArgs(bounds.Size())
+
+	// nothing todo
+	if a.maxX == 0 {
+		return
+	}
+
+	// self check
+	if a != d.args {
+		log.Printf("hsdrawer: drawing with different args: (maxx=%v vs %v", a.maxX, d.args.maxX)
 	}
 
 	// prepare for bg draw
@@ -219,7 +254,7 @@ func (d *HSDrawer) initDrawers(img draw.Image, bounds *image.Rectangle) {
 		d.wlinecl.SetOuterLooper(outer)
 		outer = &d.wlinecl
 	}
-	// bg phase
+	// bg phase last looper
 	d.bgl.SetOuterLooper(outer)
 	// rune phase
 	if d.CursorIndex != nil {
@@ -243,7 +278,7 @@ func (d *HSDrawer) GetPoint(index int) image.Point {
 		return image.Point{}
 	}
 
-	d.initMeasurers(d.maxX)
+	d.initMeasurers(d.args.maxX)
 
 	d.pdl.RestorePosDataCloseToIndex(index)
 	p := d.pdl.GetPoint(index)                // minimum of pen bounds
@@ -255,7 +290,7 @@ func (d *HSDrawer) GetIndex(p *image.Point) int {
 		return 0
 	}
 
-	d.initMeasurers(d.maxX)
+	d.initMeasurers(d.args.maxX)
 
 	p2 := fixed.P(p.X, p.Y)
 	d.pdl.RestorePosDataCloseToPoint(&p2)

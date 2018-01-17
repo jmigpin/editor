@@ -20,7 +20,8 @@ type TextArea struct {
 	EvReg               *evreg.Register
 	HighlightCursorWord bool
 	CommentStr          string
-	CommentStrEnclosed  [2]string // start, end
+	CommentStrEnclosed  [2]string   // start, end
+	FlexibleParent      widget.Node // for dynamic text areas that change size
 
 	ui            *UI
 	drawer        hsdrawer.HSDrawer
@@ -38,12 +39,6 @@ type TextArea struct {
 	selection   struct {
 		on    bool
 		index int // from index to cursorIndex
-	}
-
-	MeasureOpt struct {
-		FirstLineOffsetX int
-		lastHint         image.Point
-		measurement      image.Point
 	}
 
 	flashLine struct {
@@ -71,44 +66,27 @@ func NewTextArea(ui *UI) *TextArea {
 }
 
 func (ta *TextArea) Measure(hint image.Point) image.Point {
+	d := &ta.drawer
+	d.Str = ta.str
+	d.Face = ta.Theme.Font().Face(nil)
+	d.WrapLineOpt = ta.getDrawWrapLineOpt()
+	d.CommentsOpt = ta.getDrawCommentsOpt() // needed at measure to keep state
 
-	// TODO: test if it has scroller in X
-
-	// cache measurement
-	face := ta.Theme.Font().Face(nil)
-	if ta.str != ta.drawer.Str ||
-		ta.MeasureOpt.FirstLineOffsetX != ta.drawer.FirstLineOffsetX ||
-		face != ta.drawer.Face ||
-		hint.X != ta.MeasureOpt.lastHint.X {
-
-		// keep offset for restoration
-		offsetIndex := 0
-		changed := hint != ta.MeasureOpt.lastHint
-		if changed {
-			offsetIndex = ta.OffsetIndex()
-		}
-
-		ta.drawer.FirstLineOffsetX = ta.MeasureOpt.FirstLineOffsetX
-		ta.drawer.Face = face
-		ta.MeasureOpt.lastHint = hint
-		ta.drawer.Str = ta.str
-
-		// TODO: ensure the layout gives maximum space to not have to ignore Y in order for the textareas to work properly in dynamic sizes (toolbars)
-		// ignore Y hint
-		hint2 := image.Point{hint.X, 100000}
-
-		// enable extensions needed for measuring
-		ta.drawer.WrapLineOpt = ta.getDrawWrapLineOpt()
-		ta.drawer.CommentsOpt = ta.getDrawCommentsOpt()
-
-		ta.MeasureOpt.measurement = ta.drawer.Measure(hint2)
-
-		// restore offset to keep the same first line while resizing
-		if changed {
-			ta.SetOffsetIndex(offsetIndex)
-		}
+	// keep offset for restoration of offset index
+	offsetIndex := 0
+	neededMeasure := d.NeedMeasure(hint)
+	if neededMeasure {
+		offsetIndex = ta.OffsetIndex()
 	}
-	return ta.MeasureOpt.measurement
+
+	m := d.Measure(hint)
+
+	// restore offset to keep the same first line while resizing
+	if neededMeasure {
+		ta.SetOffsetIndex(offsetIndex)
+	}
+
+	return m
 }
 
 func (ta *TextArea) CalcChildsBounds() {
@@ -118,7 +96,7 @@ func (ta *TextArea) CalcChildsBounds() {
 }
 
 func (ta *TextArea) StrHeight() int {
-	h := ta.drawer.Measurement.Y
+	h := ta.drawer.MeasurementFullY().Y
 	min := ta.LineHeight()
 	if h < min {
 		h = min
@@ -309,7 +287,24 @@ func (ta *TextArea) setStr(s string) {
 	ta.SetCursorIndex(ta.CursorIndex())
 	ta.SetSelectionIndex(ta.SelectionIndex())
 
-	ta.CalcChildsBounds()
+	// calc bounds from flexibleparent
+	if ta.FlexibleParent != nil {
+		oldBounds := ta.Bounds
+
+		// should trigger a call to ta.CalcChildsBounds
+		ta.FlexibleParent.CalcChildsBounds()
+
+		// Keep pointer inside if it was in before.
+		// Need to test if it was in before to avoid warping on all changes.
+		// Useful in dynamic bounds becoming shorter and leaving the pointer outside, losing keyboard focus.
+		p, err := ta.ui.QueryPointer()
+		if err == nil && p.In(oldBounds) && !p.In(ta.Bounds) {
+			ta.ui.WarpPointerToRectanglePad(&ta.Bounds)
+		}
+	} else {
+		ta.CalcChildsBounds()
+	}
+
 	ta.MarkNeedsPaint()
 
 	ev := &TextAreaSetStrEvent{ta}
@@ -460,7 +455,7 @@ func (ta *TextArea) SetOffsetY(v int) {
 }
 func (ta *TextArea) _setOffset(o image.Point) {
 	o = imageutil.MaxPoint(o, image.Point{0, 0})
-	o = imageutil.MinPoint(o, ta.drawer.Measurement)
+	o = imageutil.MinPoint(o, ta.drawer.MeasurementFullY())
 	if o != ta.offset {
 		// must have a scroller to change the offset
 		if ta.scroller != nil {
@@ -860,7 +855,7 @@ func (ta *TextArea) ScrollableSize() image.Point {
 	//y := ta.StrHeight() + extra
 	//return image.Point{ta.Bounds.Dx(), y}
 
-	m := ta.drawer.Measurement
+	m := ta.drawer.MeasurementFullY()
 	m.Y += extra
 	return m
 }

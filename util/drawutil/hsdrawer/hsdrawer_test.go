@@ -2,10 +2,12 @@ package hsdrawer
 
 import (
 	"image"
+	"image/color"
 	"testing"
 
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/loopers"
+	"golang.org/x/image/colornames"
 )
 
 var loremStr = `Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`
@@ -24,14 +26,11 @@ func BenchmarkDraw(b *testing.B) {
 		str += loremStr
 	}
 
-	d := &HSDrawer{Face: face, Str: str}
+	d := &HSDrawer{Face: face, Str: str, Fg: color.Black}
 	ci := 3
-	hwi := 15
 	d.CursorIndex = &ci
-	d.HighlightWordIndex = &hwi
-	d.Selection = &loopers.SelectionIndexes{4, 50}
-	c0 := DefaultColors
-	d.Colors = &c0
+	d.HighlightWordOpt = &loopers.HighlightWordOpt{Index: 15, Fg: colornames.Blue}
+	d.SelectionOpt = &loopers.SelectionOpt{Start: 4, End: 50, Fg: colornames.Orange}
 
 	max := image.Point{bounds.Dx(), 100000}
 	d.Measure(max)

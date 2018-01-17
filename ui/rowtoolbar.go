@@ -16,7 +16,7 @@ func NewRowToolbar(row *Row, tb0 *Toolbar) *RowToolbar {
 
 func (tb *RowToolbar) CalcChildsBounds() {
 	tb.Square.Size = RowSquareSize(tb.Theme)
-	tb.MeasureOpt.FirstLineOffsetX = tb.Square.Size.X
+	tb.drawer.FirstLineOffsetX = tb.Square.Size.X
 
 	m := tb.Square.Measure(tb.Bounds.Size())
 	r := tb.Bounds
