@@ -22,23 +22,19 @@ func NewMainMenuButton(ui *UI) *MainMenuButton {
 	m.Button.Label.Pad.Left = 5
 	m.Button.Label.Pad.Right = 5
 	m.Button.Sticky = true
+	m.Button.OnClick = func(*event.MouseClick) {
+		toggle := m.FloatMenu.Hidden()
+		m.FloatMenu.ShowCalcMark(toggle)
+	}
+
 	m.FloatMenu = NewFloatMenu(m)
 	return m
 }
 func (m *MainMenuButton) CalcChildsBounds() {
-	m.EmbedNode.CalcChildsBounds()
+	m.Button.CalcChildsBounds()
 	if !m.FloatMenu.Hidden() {
 		m.FloatMenu.CalcChildsBounds()
 	}
-}
-func (m *MainMenuButton) OnInputEvent(ev0 interface{}, p image.Point) bool {
-	m.Button.OnInputEvent(ev0, p)
-	switch ev0.(type) {
-	case *event.MouseClick:
-		toggle := m.FloatMenu.Hidden()
-		m.FloatMenu.ShowCalcMark(toggle)
-	}
-	return false
 }
 
 type FloatMenu struct {

@@ -9,8 +9,9 @@ import (
 
 type Button struct {
 	EmbedNode
-	Label  *Label
-	Sticky bool
+	Label   *Label
+	Sticky  bool // stay down after click to behave like a menu button
+	OnClick func(*event.MouseClick)
 
 	orig   *Theme // original
 	down   bool
@@ -26,7 +27,7 @@ func NewButton(ctx ImageContext) *Button {
 func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 
 	keepColor := func() {
-		b.orig = b.Theme
+		b.orig = b.Theme // can be nil
 	}
 	restoreColor := func() {
 		b.PropagateTheme(b.orig)
@@ -34,19 +35,31 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	restoreSwitchedColor := func() {
 		p := *b.orig.Palette()
 		p.Normal.Fg, p.Normal.Bg = p.Normal.Bg, p.Normal.Fg
-		t := *b.orig
+
+		// ensure a theme instance to hold the new pallete
+		var t Theme
+		if b.orig != nil {
+			t = *b.orig
+		}
+
 		t.SetPalette(&p)
 		b.PropagateTheme(&t)
 	}
 	hoverShade := func() {
 		p := *b.orig.Palette()
 		p.Normal.Bg = imageutil.TintOrShade(p.Normal.Bg, 0.10)
-		t := *b.orig
+
+		// ensure a theme instance to hold the new pallete
+		var t Theme
+		if b.orig != nil {
+			t = *b.orig
+		}
+
 		t.SetPalette(&p)
 		b.PropagateTheme(&t)
 	}
 
-	switch ev0.(type) {
+	switch t := ev0.(type) {
 	case *event.MouseEnter:
 		if !b.active {
 			keepColor()
@@ -82,6 +95,10 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 			restoreColor()
 			hoverShade()
 			b.MarkNeedsPaint()
+		}
+	case *event.MouseClick:
+		if b.OnClick != nil {
+			b.OnClick(t)
 		}
 	}
 	return false
