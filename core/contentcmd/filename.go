@@ -1,6 +1,7 @@
 package contentcmd
 
 import (
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
@@ -11,9 +12,9 @@ import (
 
 const FilenameStopRunes = "\"'`&=:<>[]"
 
-// Opens filename.
+// Opens filename, including directories.
 // Detects compiler errors format <string(:int)?(:int?)>, and goes to line/column.
-func filePos(erow cmdutil.ERower) bool {
+func filename(erow cmdutil.ERower) bool {
 	ta := erow.Row().TextArea
 
 	var str string
@@ -25,6 +26,19 @@ func filePos(erow cmdutil.ERower) bool {
 		l, r := expandLeftRightStop(ta.Str(), ta.CursorIndex(), isStop)
 		str = ta.Str()[l:r]
 
+		// get path up to cursor index to allow opening previous directories
+		ci := ta.CursorIndex() - l
+		i := strings.Index(str[ci:], string(filepath.Separator))
+		if i >= 0 {
+			// if there is line/column (parse later), the str will be set and  the full filename is considered
+			str = str[:ci+i]
+
+			//// line/column can only parse from here
+			//r = l + ci + i
+			//str = ta.Str()[l:r]
+		}
+
+		// expand string to get line/column
 		// line
 		if r < len(ta.Str()) && ta.Str()[r] == ':' {
 			r2 := expandRightStop(ta.Str(), r+1, NotStop(unicode.IsNumber))
@@ -36,7 +50,6 @@ func filePos(erow cmdutil.ERower) bool {
 				str = ta.Str()[l:r3]
 			}
 		}
-
 	}
 
 	a := strings.Split(str, ":")
@@ -49,49 +62,49 @@ func filePos(erow cmdutil.ERower) bool {
 		return false
 	}
 	filename, fi, ok := findFileinfo(erow, a[0])
-	if !ok || fi.IsDir() {
+	if !ok {
 		return false
 	}
 
 	// line and column
-	line := 0
-	column := 0
-	if len(a) > 1 {
-		// line
-		v, err := strconv.ParseUint(a[1], 10, 64)
-		if err == nil {
-			line = int(v)
-		}
-		// column
-		if len(a) > 2 {
-			v, err := strconv.ParseUint(a[2], 10, 64)
+	var line, column int = 0, 0 // if existent, both are in [1,...)
+	if fi.Mode().IsRegular() {
+		if len(a) > 1 {
+			// line
+			v, err := strconv.ParseUint(a[1], 10, 64)
 			if err == nil {
-				column = int(v)
+				line = int(v)
+			}
+			// column
+			if len(a) > 2 {
+				v, err := strconv.ParseUint(a[2], 10, 64)
+				if err == nil {
+					column = int(v)
+				}
 			}
 		}
 	}
 
 	// erow
 	ed := erow.Ed()
-	var erow2 cmdutil.ERower
 	erows := ed.FindERowers(filename)
-	if len(erows) > 0 {
-		erow2 = erows[0]
-	} else {
+	if len(erows) == 0 {
 		// new row
 		col, nextRow := ed.GoodColumnRowPlace()
-		erow2 = ed.NewERowerBeforeRow(filename, col, nextRow)
+		erow2 := ed.NewERowerBeforeRow(filename, col, nextRow)
 		err := erow2.LoadContentClear()
 		if err != nil {
 			ed.Error(err)
-			return true
 		}
+		erows = []cmdutil.ERower{erow2}
 	}
 
-	if line == 0 && column == 0 {
-		erow2.Flash()
+	if line >= 1 {
+		cmdutil.GotoLineColumnInTextArea(erows[0].Row(), line, column)
 	} else {
-		cmdutil.GotoLineColumnInTextArea(erow2.Row(), line, column)
+		for _, e := range erows {
+			e.Flash()
+		}
 	}
 
 	return true

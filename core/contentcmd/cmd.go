@@ -14,10 +14,7 @@ func Cmd(erow cmdutil.ERower, index int) {
 	if ok := goSource(erow, index); ok {
 		return
 	}
-	if ok := filePos(erow); ok {
-		return
-	}
-	if ok := directory(erow); ok {
+	if ok := filename(erow); ok {
 		return
 	}
 	if ok := openSession(erow); ok {
