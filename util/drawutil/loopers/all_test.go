@@ -46,50 +46,43 @@ func TestPosData1(t *testing.T) {
 	strl := MakeString(face, testStr7)
 	linel := MakeLine(&strl, 0)
 	wlinel := MakeWrapLine(&strl, &linel, max.X)
-	pdl := MakePosData()
-	pdl.Setup(&strl, []PosDataKeeper{&strl, &wlinel})
-	pdl.Jump = 5
+	keepers := []PosDataKeeper{&strl, &wlinel}
+	pdl := MakePosData(&strl, keepers, 5, nil)
 
 	strl.SetOuterLooper(start)
 	linel.SetOuterLooper(&strl)
 	wlinel.SetOuterLooper(&linel)
 	pdl.SetOuterLooper(&wlinel)
 
+	// run
 	pdl.Loop(func() bool { return true })
 
-	t.Logf("pdl has %v points", len(pdl.data))
+	if len(pdl.Data) != 14 {
+		t.Logf("data len %v", len(pdl.Data))
+		t.Fatal()
+	}
 
-	t.Logf("ri %v", strl.Ri)
-
-	//for _, d := range pdl.data {
-	//log.Printf("pdl data ri %v %v", d.ri, d.penBoundsMaxY)
-	//}
-
+	// test position
 	p := fixed.P(10, 0)
-	//pdl.RestorePosDataCloseToPoint(&p)
 	pd, ok := pdl.PosDataCloseToPoint(&p)
 	if ok {
-		t.Logf("restoring %+v", pd)
 		pdl.restore(pd)
 	}
 	i := pdl.GetIndex(&p)
+	if i != 0 {
+		t.Log(i)
+		t.Fatal()
+	}
 
-	t.Logf("ri %v", strl.Ri)
-	t.Logf("i %v", i)
-
-	//------
-
-	//// update
-
-	//bounds = image.Rect(0, 0, 200, 20)
-	//max = fixed.P(bounds.Dx(), bounds.Dy())
-
-	//wlinel.MaxX = max.X
-	//pdl.Update()
-
-	//log.Printf("pen max %v", max)
-	//log.Printf("pen %v", strl.Pen)
-	//for _, d := range pdl.data {
-	//	log.Printf("%v", spew.Sdump(d))
-	//}
+	// test position
+	p = fixed.P(20, 40)
+	pd, ok = pdl.PosDataCloseToPoint(&p)
+	if ok {
+		pdl.restore(pd)
+	}
+	i = pdl.GetIndex(&p)
+	if i != 10 {
+		t.Log(i)
+		t.Fatal()
+	}
 }
