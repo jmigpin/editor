@@ -14,8 +14,6 @@ func main() {
 	log.SetFlags(0)
 	//log.SetFlags(log.Llongfile)
 
-	/*testing*/
-
 	// flags
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
 	fontFlag := flag.String("font", "regular", "font: regular, medium, mono, or a filename")

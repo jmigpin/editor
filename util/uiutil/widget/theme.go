@@ -93,8 +93,10 @@ func NewTTThemeFont(ttf []byte, opt *truetype.Options) (*TTThemeFont, error) {
 }
 func (tf *TTThemeFont) Face(ffopt *ThemeFontOptions) font.Face {
 	opt2 := *tf.opt
-	if ffopt != nil && ffopt.Size != SmallTFOS {
-		opt2.Size *= 2 / 3
+	if ffopt != nil {
+		if ffopt.Size == SmallTFOS {
+			opt2.Size *= float64(2) / 3
+		}
 	}
 	face, ok := tf.faces[opt2]
 	if !ok {

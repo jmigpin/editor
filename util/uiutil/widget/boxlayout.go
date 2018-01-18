@@ -122,19 +122,17 @@ func (bl *BoxLayout) childsBounds(max image.Point, measure bool) map[Node]image.
 
 				// flex: +X+Y
 				if bp.Y || (!measure && bp2.Y) {
-					m = available
+					m = share
 				} else {
 					// flex: +X-Y
 					m0 := child.Measure(xya.Point(&share))
 					m = xya.Point(&m0)
+					m.X = share.X
 				}
 
 				// correct rounding errors on last node
-				shareX := share.X
 				if child == lastFlexXNode {
-					m.X = available.X - (shareX * (nX - 1))
-				} else {
-					m.X = shareX
+					m.X = available.X - (share.X * (nX - 1))
 				}
 
 				sizes[child] = m

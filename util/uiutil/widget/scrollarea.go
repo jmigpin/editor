@@ -181,7 +181,7 @@ func (sa *ScrollArea) CalcChildsBounds() {
 	}
 	// scrollable bounds
 	{
-		sa.scrollable.Embed().Bounds = b
+		sa.scrollable.Embed().Bounds = b.Intersect(sa.Bounds)
 		sa.scrollable.CalcChildsBounds()
 	}
 }
