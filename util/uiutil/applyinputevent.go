@@ -57,10 +57,14 @@ func (aie *ApplyInputEvent) Apply(ctx widget.CursorContext, node widget.Node, ev
 
 	dragWasOn := aie.drag.on
 
-	if !aie.drag.pressing {
-		_ = aie.mouseLeave(node, p)
-		_ = aie.mouseEnter(node, p)
+	runLeaveEnter := func() {
+		if !aie.drag.pressing {
+			_ = aie.mouseLeave(node, p)
+			_ = aie.mouseEnter(node, p)
+		}
 	}
+
+	runLeaveEnter()
 
 	switch evt := ev.(type) {
 	case *event.MouseDown:
@@ -71,7 +75,12 @@ func (aie *ApplyInputEvent) Apply(ctx widget.CursorContext, node widget.Node, ev
 		_ = aie.mouseDragStartMove(evt, p) // sets drag.on
 	case *event.MouseUp:
 		_ = aie.applyInbound(node, evt, p)
-		_ = aie.mouseDragEnd(evt, p) // clears drag.on
+		_ = aie.mouseDragEnd(evt, p) // clears aie.drag
+
+		// update after stopped pressing
+		// Fixes dragging a button and releasing out of the button bounds, without moving the mouse, would leave the button with the previous paint state. Moving the mouse would cause the update.
+		runLeaveEnter()
+
 		if !dragWasOn {
 			_ = aie.multipleClickMouseUp(node, evt, p)
 		}
@@ -83,16 +92,6 @@ func (aie *ApplyInputEvent) Apply(ctx widget.CursorContext, node widget.Node, ev
 	if !aie.drag.on {
 		widget.SetTreeCursor(ctx, node, p)
 	}
-
-	//// catch structural changes in this cycle by running these int the end
-	//// ex: allows visual update of a widget that closed and the mouse didn't move
-	//if !aie.drag.pressing {
-	//	_ = aie.mouseLeave(node, p)
-	//	//if dragWasOn {
-	//	// run after mouse leave
-	//	_ = aie.mouseEnter(node, p)
-	//	//}
-	//}
 }
 
 func (aie *ApplyInputEvent) applyInbound(node widget.Node, ev interface{}, p image.Point) bool {

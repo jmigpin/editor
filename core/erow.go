@@ -441,8 +441,9 @@ func (erow *ERow) updateContentFromDuplicate(srcERow *ERow) {
 	srcTa := srcERow.Row().TextArea
 	ta := erow.Row().TextArea
 
-	ci := ta.CursorIndex()
-	ip := ta.GetPoint(ci)
+	// keep data for later restoration
+	oy := ta.OffsetY()
+	ip := ta.GetPoint(ta.CursorIndex())
 
 	// use temporary history to set the string in the duplicate
 	// then get the main shared history to allow undo/redo
@@ -457,8 +458,8 @@ func (erow *ERow) updateContentFromDuplicate(srcERow *ERow) {
 	ta.SetHistory(srcTa.History())
 
 	// restore position (avoid cursor moving while editing in another row)
-	pi := ta.GetIndex(&ip)
-	ta.SetCursorIndex(pi)
+	ta.SetOffsetY(oy)
+	ta.SetCursorIndex(ta.GetIndex(&ip))
 
 	erow.saved.size = srcERow.saved.size
 	erow.saved.hash = srcERow.saved.hash
