@@ -1,7 +1,6 @@
 package cmdutil
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -10,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/jmigpin/editor/core/toolbardata"
-	"github.com/jmigpin/editor/ui"
 )
 
 func ExternalCmd(erow ERower, part *toolbardata.Part) {
@@ -18,24 +16,11 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	ed := erow.Ed()
 
 	// only run commands on directories
-	fp := erow.Filename()
+	dir := erow.Filename()
 	if !erow.IsDir() {
-		ed.Errorf("running external cmd on a row that is not a directory: %v", fp)
+		ed.Errorf("running external cmd on a row that is not a directory: %v", dir)
 		return
 	}
-
-	dir := fp
-
-	// cancel previous context if any
-	gRowCtx.Cancel(row)
-
-	// setup context
-	ctx0 := context.Background()
-	ctx := gRowCtx.Add(row, ctx0)
-
-	// indicate the row is running an external cmd
-	row.SetState(ui.ExecutingRowState, true)
-	row.TextArea.SetStrClear("", true, true)
 
 	// cmd str
 	var cmdStr string
@@ -51,6 +36,13 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 		cmdStr = strings.Join(u, " ")
 	}
 
+	// cleanup row content
+	row.TextArea.SetStrClear("", true, true)
+
+	// start erow exec state, will clear previous runs if any
+	ctx := erow.StartExecState()
+
+	// prepare cmd exec
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	cmd.Dir = dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -66,18 +58,11 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	// exec
 	go func() {
 		err := execRowCmd2(erow, cmd)
-
-		// another context could be added already to the row
-		row := erow.Row()
-		gRowCtx.ClearIfNotNewCtx(row, ctx, func() {
-			// show error if any
+		erow.ClearExecState(ctx, func() {
+			// show error if still on the same context
 			if err != nil {
 				erow.TextAreaAppendAsync(err.Error())
 			}
-			// indicate the cmd is not running anymore
-			erow.Ed().UI().RunOnUIThread(func() {
-				row.SetState(ui.ExecutingRowState, false)
-			})
 		})
 	}()
 }

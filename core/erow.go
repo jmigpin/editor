@@ -2,12 +2,14 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/core/cmdutil"
@@ -36,6 +38,12 @@ type ERow struct {
 	}
 
 	disableTextAreaSetStrEventHandler bool
+
+	execState struct {
+		sync.Mutex
+		ctx    context.Context
+		cancel context.CancelFunc
+	}
 }
 
 type ERowState struct {
@@ -101,7 +109,7 @@ func (erow *ERow) initHandlers() {
 	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
 		erow.ed.UnregisterERow(erow)
 		erow.UpdateStateAndDuplicates()
-		cmdutil.RowCtxCancel(row)
+		erow.StopExecState()
 		erow.ed.reopenRow.Add(row)
 		if erow.state.watch {
 			erow.ed.DecreaseWatch(erow.state.filename)
@@ -494,5 +502,65 @@ func (erow *ERow) setupTextAreaCommentString() {
 	case ".go", ".c", ".cpp", ".h", ".hpp":
 		ta.CommentStr = "//"
 		ta.CommentStrEnclosed = [2]string{"/*", "*/"}
+	}
+}
+
+func (erow *ERow) StartExecState() context.Context {
+	erow.execState.Lock()
+	defer erow.execState.Unlock()
+
+	// clear old context if exists
+	if erow.execState.ctx != nil {
+		erow.clearExecState2(erow.execState.ctx, nil)
+	}
+
+	// indicate the row is running
+	erow.Ed().UI().RunOnUIThread(func() {
+		erow.row.SetState(ui.ExecutingRowState, true)
+	})
+
+	// new context
+	erow.execState.ctx, erow.execState.cancel = context.WithCancel(context.Background())
+	return erow.execState.ctx
+}
+func (erow *ERow) StopExecState() {
+	erow.execState.Lock()
+	defer erow.execState.Unlock()
+	if erow.execState.cancel != nil {
+		erow.execState.cancel()
+	}
+}
+func (erow *ERow) ClearExecState(ctx context.Context, fn func()) {
+	erow.execState.Lock()
+	defer erow.execState.Unlock()
+	erow.clearExecState2(ctx, fn)
+}
+func (erow *ERow) clearExecState2(ctx context.Context, fn func()) {
+	stop := false
+
+	if ctx == nil {
+		// stop if arg is nil (stop current context)
+		stop = true
+	} else {
+		// stop the requested context (other context could be running already)
+		if erow.execState.ctx == ctx {
+			stop = true
+		}
+	}
+
+	if stop {
+		// run function since still running in the requested context
+		if fn != nil {
+			fn()
+		}
+
+		erow.execState.cancel() // clear resources
+		erow.execState.ctx = nil
+		erow.execState.cancel = nil
+
+		// indicate the row is not running
+		erow.Ed().UI().RunOnUIThread(func() {
+			erow.row.SetState(ui.ExecutingRowState, false)
+		})
 	}
 }

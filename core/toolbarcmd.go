@@ -176,7 +176,7 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 	case "Replace":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.Replace(e, part) })
 	case "Stop":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.RowCtxCancel(e.Row()) })
+		erowCmd(func(e cmdutil.ERower) { e.StopExecState() })
 	case "ListDir":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ListDirEd(e, false, false) })
 	case "ListDirSub":
@@ -187,9 +187,8 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		erowCmd(func(e cmdutil.ERower) { cmdutil.CopyFilePosition(ed, e) })
 	case "GoRename":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.GoRename(e, part) })
-
 	//case "GoDebug":
-	//erowCmd(func(e cmdutil.ERower) { cmdutil.GoDebug(e, part) })
+	//	erowCmd(func(e cmdutil.ERower) { cmdutil.GoDebug(e, part) })
 
 	default:
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ExternalCmd(e, part) })
