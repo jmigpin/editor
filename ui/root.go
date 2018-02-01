@@ -103,6 +103,9 @@ func (l *Root) GoodColumnRowPlace() (*Column, *Row) {
 		nextRow *Row
 	}
 
+	// allow to find a column at ui start when the area is 0
+	best.area = -1
+
 	for _, c := range l.Cols.Columns() {
 		rows := c.Rows()
 		if len(rows) == 0 {
