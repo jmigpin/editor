@@ -2,10 +2,8 @@ package cmdutil
 
 import (
 	"fmt"
-	"io"
 	"os/exec"
 	"strings"
-	"sync"
 	"syscall"
 
 	"github.com/jmigpin/editor/core/toolbardata"
@@ -67,24 +65,11 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	}()
 }
 func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
-
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	pipeToTextArea := func(w ...*io.Writer) *io.PipeWriter {
-		pr, pw := io.Pipe()
-		for _, u := range w {
-			*u = pw
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			readToERow(pr, erow)
-		}()
-		return pw
-	}
-
-	opw := pipeToTextArea(&cmd.Stdout, &cmd.Stderr)
-	defer opw.Close()
+	// setup output
+	w := erow.TextAreaWriter()
+	defer w.Close()
+	cmd.Stdout = w
+	cmd.Stderr = w
 
 	// run command
 	err := cmd.Start()
@@ -93,21 +78,4 @@ func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
 	}
 	erow.TextAreaAppendAsync(fmt.Sprintf("# pid %d\n", cmd.Process.Pid))
 	return cmd.Wait()
-}
-
-func readToERow(reader io.Reader, erow ERower) {
-	var buf [32 * 1024]byte
-	for {
-		n, err := reader.Read(buf[:])
-		if n > 0 {
-			str := string(buf[:n])
-			c := erow.TextAreaAppendAsync(str)
-
-			// Wait for the ui to have handled the content. This prevents a tight loop program from leaving the UI unresponsive.
-			<-c
-		}
-		if err != nil {
-			break
-		}
-	}
 }

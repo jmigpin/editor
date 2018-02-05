@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -562,5 +563,31 @@ func (erow *ERow) clearExecState2(ctx context.Context, fn func()) {
 		erow.Ed().UI().RunOnUIThread(func() {
 			erow.row.SetState(ui.ExecutingRowState, false)
 		})
+	}
+}
+
+// Caller is responsible for closing the writer at the end.
+func (erow *ERow) TextAreaWriter() io.WriteCloser {
+	pr, pw := io.Pipe()
+	go func() {
+		erow.readLoopToTextArea(pr)
+	}()
+	return pw
+}
+
+func (erow *ERow) readLoopToTextArea(reader io.Reader) {
+	var buf [32 * 1024]byte
+	for {
+		n, err := reader.Read(buf[:])
+		if n > 0 {
+			str := string(buf[:n])
+			c := erow.TextAreaAppendAsync(str)
+
+			// Wait for the ui to have handled the content. This prevents a tight loop program from leaving the UI unresponsive.
+			<-c
+		}
+		if err != nil {
+			break
+		}
 	}
 }

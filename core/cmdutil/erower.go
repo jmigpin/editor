@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"context"
+	"io"
 
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui"
@@ -32,4 +33,6 @@ type ERower interface {
 	StartExecState() context.Context
 	StopExecState()
 	ClearExecState(context.Context, func())
+
+	TextAreaWriter() io.WriteCloser
 }
