@@ -27,7 +27,7 @@ type HSDrawer struct {
 	SelectionOpt         *loopers.SelectionOpt
 	FlashSelectionOpt    *loopers.FlashSelectionOpt
 	HighlightSegmentsOpt *loopers.HighlightSegmentsOpt
-	CommentsOpt          *loopers.CommentsOpt
+	ColorizeOpt          *loopers.ColorizeOpt
 
 	strl    loopers.String
 	wlinel  loopers.WrapLine
@@ -35,7 +35,7 @@ type HSDrawer struct {
 	wlinecl loopers.WrapLineColor
 	dl      loopers.Draw
 	bgl     loopers.Bg
-	cl      loopers.Comments
+	cl      loopers.Colorize
 	eel     loopers.EarlyExit
 
 	measurement image.Point // full string measurement (no Y bounds)
@@ -164,8 +164,8 @@ func (d *HSDrawer) initMeasurers(maxX int) {
 		d.wlinel = loopers.MakeWrapLine(&d.strl, &linel, fmaxX)
 		keepers = append(keepers, &d.wlinel)
 	}
-	if d.CommentsOpt != nil {
-		d.cl = loopers.MakeComments(&d.strl, d.CommentsOpt)
+	if d.ColorizeOpt != nil {
+		d.cl = loopers.MakeColorize(&d.strl, d.ColorizeOpt)
 		keepers = append(keepers, &d.cl)
 	}
 	d.pdl = loopers.MakePosData(&d.strl, keepers, 250, d.pdl.Data)
@@ -179,7 +179,7 @@ func (d *HSDrawer) initMeasurers(maxX int) {
 		d.wlinel.SetOuterLooper(outer)
 		outer = &d.wlinel
 	}
-	if d.CommentsOpt != nil {
+	if d.ColorizeOpt != nil {
 		d.cl.SetOuterLooper(outer)
 		outer = &d.cl
 	}
@@ -221,16 +221,16 @@ func (d *HSDrawer) initDrawers(img draw.Image, bounds *image.Rectangle) {
 	if d.HighlightSegmentsOpt != nil {
 		hsl = loopers.MakeHighlightSegments(&d.strl, &d.bgl, &d.dl, d.HighlightSegmentsOpt)
 	}
-	var ccl loopers.CommentsColor
-	if d.CommentsOpt != nil {
-		ccl = loopers.MakeCommentsColor(&d.dl, &d.cl)
+	var ccl loopers.ColorizeColor
+	if d.ColorizeOpt != nil {
+		ccl = loopers.MakeColorizeColor(&d.dl, &d.cl)
 	}
 	d.eel = loopers.MakeEarlyExit(&d.strl, fixed.I(unpaddedBounds.Size().Y))
 
 	// iteration order
 	scl.SetOuterLooper(d.pdl.OuterLooper())
 	var outer loopers.Looper = &scl
-	if d.CommentsOpt != nil {
+	if d.ColorizeOpt != nil {
 		ccl.SetOuterLooper(outer)
 		outer = &ccl
 	}

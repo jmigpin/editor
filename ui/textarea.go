@@ -70,7 +70,7 @@ func (ta *TextArea) Measure(hint image.Point) image.Point {
 	d.Str = ta.str
 	d.Face = ta.Theme.Font().Face(nil)
 	d.WrapLineOpt = ta.getDrawWrapLineOpt()
-	d.CommentsOpt = ta.getDrawCommentsOpt() // needed at measure to keep state
+	d.ColorizeOpt = ta.getDrawCommentsOpt() // needed at measure to keep state
 
 	// keep offset for restoration of offset index
 	offsetIndex := 0
@@ -116,7 +116,7 @@ func (ta *TextArea) Paint() {
 	d.Offset = ta.offset
 	d.Fg = pal.Normal.Fg
 	d.WrapLineOpt = ta.getDrawWrapLineOpt()
-	d.CommentsOpt = ta.getDrawCommentsOpt()
+	d.ColorizeOpt = ta.getDrawCommentsOpt()
 	d.SelectionOpt = ta.getDrawSelectionOpt()
 	d.FlashSelectionOpt = ta.getDrawFlashSelectionOpt()
 	d.HighlightWordOpt = ta.getDrawHighlightWordOpt()
@@ -126,14 +126,16 @@ func (ta *TextArea) Paint() {
 	ta.paintFlashLine()
 }
 
-func (ta *TextArea) getDrawCommentsOpt() *loopers.CommentsOpt {
+func (ta *TextArea) getDrawCommentsOpt() *loopers.ColorizeOpt {
 	if ta.CommentStr == "" && ta.CommentStrEnclosed == [2]string{} {
 		return nil
 	}
-	return &loopers.CommentsOpt{
-		Line:     ta.CommentStr,
-		Enclosed: ta.CommentStrEnclosed,
-		Fg:       GetTextAreaCommentsFg(),
+	return &loopers.ColorizeOpt{
+		Comment: loopers.ColorizeCommentOpt{
+			Line:     ta.CommentStr,
+			Enclosed: ta.CommentStrEnclosed,
+			Fg:       GetTextAreaCommentsFg(),
+		},
 	}
 }
 func (ta *TextArea) getDrawWrapLineOpt() *loopers.WrapLineOpt {
