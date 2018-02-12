@@ -45,8 +45,9 @@ func (root *Root) init() {
 	root.ContextFloatBox = NewContextFloatBox(root)
 	root.Append(root.ContextFloatBox)
 
-	// floatmenu layer
+	// main-menu-button floatmenu layer
 	mmb := NewMainMenuButton(root.UI)
+	root.MainMenuButton = mmb
 	root.Append(mmb.FloatMenu)
 
 	// setup background layer after other layers are set
@@ -65,14 +66,13 @@ func (root *Root) init() {
 			mmb.Label.Border.Left = 1
 			ttb.Append(mmb)
 			ttb.SetChildFill(mmb, false, true)
-			root.MainMenuButton = mmb
 		}
 
 		// separator if there are no shadows
 		if !ShadowsOn {
 			sep := widget.NewSeparator(root.UI)
 			sep.Size.Y = SeparatorWidth
-			sep.Theme = &DefaultUITheme.ToolbarTheme
+			sep.Theme = &UITheme.ToolbarTheme
 			bgLayer.Append(sep)
 			bgLayer.SetChildFill(sep, true, false)
 		}

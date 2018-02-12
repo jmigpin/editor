@@ -26,7 +26,9 @@ func BenchmarkDraw(b *testing.B) {
 		str += loremStr
 	}
 
-	d := &HSDrawer{Face: face, Str: str, Fg: color.Black}
+	d := &HSDrawer{Fg: color.Black}
+	d.Args.Face = face
+	d.Args.Str = str
 	ci := 3
 	d.CursorIndex = &ci
 	d.HighlightWordOpt = &loopers.HighlightWordOpt{Index: 15, Fg: colornames.Blue}

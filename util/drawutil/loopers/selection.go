@@ -18,13 +18,18 @@ func (lpr *Selection) Loop(fn func() bool) {
 	if s > e {
 		s, e = e, s
 	}
+
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.strl.RiClone {
+		if lpr.strl.IsRiClone() {
 			return fn()
 		}
 		if lpr.strl.Ri >= s && lpr.strl.Ri < e {
-			lpr.dl.Fg = lpr.opt.Fg
-			lpr.bgl.Bg = lpr.opt.Bg
+			if lpr.opt.Fg != nil {
+				lpr.dl.Fg = lpr.opt.Fg
+			}
+			if lpr.opt.Bg != nil {
+				lpr.bgl.Bg = lpr.opt.Bg
+			}
 		}
 		return fn()
 	})

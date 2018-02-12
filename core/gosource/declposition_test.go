@@ -1,21 +1,19 @@
 package gosource
 
 import (
+	"log"
+	"strings"
 	"testing"
 )
 
 func testVisit(t *testing.T, filename string, src interface{}, index int) {
 	t.Helper()
-
-	//LogDebug()
-
-	pos, end, err := DeclPosition(filename, src, index)
+	posp, endp, err := DeclPosition(filename, src, index)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _ = pos, end
-	//t.Logf(pos.String())
-	//t.Logf(end.String())
+	_, _ = posp, endp
+	t.Logf("result: %v:%v:%v", posp.Filename, posp.Line, posp.Column)
 }
 
 func testVisitSrc(t *testing.T, src interface{}, index int) {
@@ -178,14 +176,14 @@ func TestVisit10(t *testing.T) {
 		}
 		func func1(){
 			var t1 type1
-			x := t1.img().Bounds().Max.X
-			_=x
+			y := t1.img().Bounds().Max.Y
+			_=y
 		}
 	`
 	testVisitSrc(t, src, 134) // img
 	testVisitSrc(t, src, 140) // Bounds
 	testVisitSrc(t, src, 149) // Max
-	testVisitSrc(t, src, 153) // X
+	testVisitSrc(t, src, 153) // Y
 }
 
 func TestVisit11(t *testing.T) {
@@ -345,6 +343,8 @@ func TestVisit20(t *testing.T) {
 		func func1(){
 			var ccc,aaa,bbb int
 			_=aaa
+			_=bbb
+			_=ccc
 		}
 	`
 	testVisitSrc(t, src, 62) // aaa: just "aaa" without getting "aaa int"
@@ -383,7 +383,7 @@ func TestVisit23(t *testing.T) {
 		)
 		func func1(){
 			var as *ast.AssignStmt
-			as.Tok = token.NoPos			
+			as.TokPos = token.NoPos			
 		}
 	`
 	testVisitSrc(t, src, 107) // as.Tok
@@ -434,19 +434,59 @@ func TestVisit26(t *testing.T) {
 	testVisitSrc(t, src, 174) // c.Pos
 }
 
-//func TestVisit27(t *testing.T) {
-//	src := `
-//		package pack1
-//		import "os"
-//		func func1(){
-//			_=os.Getenv("e1")
-//			a:=[]string{}
-//			_=append(a, os.Getenv("e2"))
-//		}
-//	`
-//	testVisitSrc(t, src, 55)  // os.Getenv
-//	testVisitSrc(t, src, 105) // os.Getenv
-//}
+func TestVisit27(t *testing.T) {
+	src := `
+		package pack1
+		import "go/ast"
+		func func1(node ast.Node){			
+			switch t:=node.(type){
+			case *ast.SelectorExpr:
+				var n ast.Node = t.X
+				switch t2:=n.(type){
+				case *ast.FuncType:
+					if t2.Results!=nil{
+					}
+				}
+			}
+		}
+	`
+	testVisitSrc(t, src, 205) // t2.Results
+}
+
+func TestVisit28(t *testing.T) {
+	src := `
+		package pack1
+		func func1(){			
+			var a=1
+			a=40			
+		}
+	`
+	testVisitSrc(t, src, 50) // a in a=40
+}
+
+func TestVisit29(t *testing.T) {
+	src := `
+		package pack1
+		import "fmt"
+		func f1(){
+			fmt.P
+		}
+	`
+	testVisitSrc(t, src, 48) // fmt
+}
+
+func TestVisit30(t *testing.T) {
+	src := `
+		package pack1
+		import "fmt"
+		func f1(){
+			a:=[]int{}
+			for i:=0; len(a
+		}
+	`
+	testVisitSrc(t, src, 72) // len
+	testVisitSrc(t, src, 76) // a
+}
 
 func TestVisitFile1(t *testing.T) {
 	filename := "image/image.go"
@@ -458,3 +498,31 @@ func TestVisitFile1(t *testing.T) {
 //	filename := "github.com/jmigpin/editor/core/cmdutil/codecompletion.go"
 //	testVisit(t, filename, nil, 691)
 //}
+
+func TestFullFilenameDirectory1(t *testing.T) {
+	if n := FullFilename("image/image.go"); !strings.HasSuffix(n, "src/image/image.go") {
+		t.Fatalf(n)
+	}
+	if n := FullFilename("/a/b.txt"); n != "/a/b.txt" {
+		t.Fatalf(n)
+	}
+	if n := FullFilename("a/b.txt"); n != "a/b.txt" {
+		t.Fatalf(n)
+	}
+	if n := FullDirectory("fmt"); !strings.HasSuffix(n, "src/fmt") {
+		t.Fatalf(n)
+	}
+	if n := FullDirectory("os/exec"); !strings.HasSuffix(n, "src/os/exec") {
+		t.Fatalf(n)
+	}
+
+	{
+		a, b, c, d := PkgFilenames("fmt", false)
+		log.Printf("%v %v %v %v", a, b, c, d)
+	}
+
+	{
+		a, b, c, d := PkgFilenames("..", false)
+		log.Printf("%v %v %v %v", a, b, c, d)
+	}
+}

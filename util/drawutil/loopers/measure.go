@@ -10,8 +10,8 @@ type Measure struct {
 	M    fixed.Point26_6
 }
 
-func NewMeasure(strl *String) *Measure {
-	return &Measure{strl: strl}
+func MakeMeasure(strl *String) Measure {
+	return Measure{strl: strl}
 }
 func (lpr *Measure) Loop(fn func() bool) {
 	var m fixed.Point26_6

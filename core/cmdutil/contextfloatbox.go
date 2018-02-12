@@ -58,17 +58,20 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 	switch filepath.Ext(erow.Filename()) {
 	case ".go":
 		ta := erow.Row().TextArea
-		index2, str2, segs, ok := gosource.CodeCompletion(erow.Filename(), ta.Str(), ta.CursorIndex())
-		if ok {
-			index = index2
-			str = str2
-			if len(segs) > 0 {
-				fgbg := ui.HighlightSegmentColors()
-				hopt = &loopers.HighlightSegmentsOpt{
-					Fg:              fgbg.Fg,
-					Bg:              fgbg.Bg,
-					OrderedSegments: segs,
-				}
+		res, err := gosource.CodeCompletion(erow.Filename(), ta.Str(), ta.CursorIndex())
+		if err != nil {
+			//ed.Error(err)
+			//log.Print(err)
+			break
+		}
+		index = res.StartIndex
+		str = res.Str
+		if len(res.Segments) > 0 {
+			fgbg := ui.UITheme.HighlightSegmentColors()
+			hopt = &loopers.HighlightSegmentsOpt{
+				Fg:              fgbg.Fg,
+				Bg:              fgbg.Bg,
+				OrderedSegments: res.Segments,
 			}
 		}
 	}
@@ -81,6 +84,6 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 
 	// set string and unhide
 	cfb.Label.Text.Drawer.HighlightSegmentsOpt = hopt
-	cfb.Label.Text.Str = str
+	cfb.Label.Text.SetStr(str)
 	cfb.ShowCalcMark(true)
 }

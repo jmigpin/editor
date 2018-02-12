@@ -18,13 +18,13 @@ func Comment(ta Texta) {
 
 	// find comment insertion index
 	start := 1000
-	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
+	for i := 0; i < len(str); i, _ = LineEndIndexNextIndex(str, i) {
 		j := strings.IndexFunc(str[i:], IsNotASpaceExceptNewLine)
 		if j < 0 {
 			break
 		}
 		// ignore empty lines
-		w, _ := lineEndIndexNextIndex(str, i)
+		w, _ := LineEndIndexNextIndex(str, i)
 		if strings.TrimSpace(str[i:w]) == "" {
 			continue
 		}
@@ -35,9 +35,9 @@ func Comment(ta Texta) {
 
 	altered := false
 	nlines := 0
-	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
+	for i := 0; i < len(str); i, _ = LineEndIndexNextIndex(str, i) {
 		// ignore empty lines
-		w, _ := lineEndIndexNextIndex(str, i)
+		w, _ := LineEndIndexNextIndex(str, i)
 		if strings.TrimSpace(str[i:w]) == "" {
 			continue
 		}
@@ -83,7 +83,7 @@ func Uncomment(ta Texta) {
 	str := ta.Str()[a:b]
 	altered := false
 	nlines := 0
-	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
+	for i := 0; i < len(str); i, _ = LineEndIndexNextIndex(str, i) {
 		// first non space rune: possible multiline jump
 		j := strings.IndexFunc(str[i:], isNotSpace)
 		if j < 0 {

@@ -49,16 +49,16 @@ func (op Op) String() string {
 }
 
 var unixMasks = []KV{
-	KV{unix.IN_CREATE, "create"},
-	KV{unix.IN_DELETE, "delete"},
-	KV{unix.IN_DELETE_SELF, "deleteSelf"},
-	KV{unix.IN_MODIFY, "modify"},
-	KV{unix.IN_MOVE_SELF, "moveSelf"},
-	KV{unix.IN_MOVED_FROM, "movedFrom"},
-	KV{unix.IN_MOVED_TO, "movedTo"},
-	KV{unix.IN_IGNORED, "ignored"},
-	KV{unix.IN_ISDIR, "isDir"},
-	KV{unix.IN_Q_OVERFLOW, "qOverflow"},
+	{unix.IN_CREATE, "create"},
+	{unix.IN_DELETE, "delete"},
+	{unix.IN_DELETE_SELF, "deleteSelf"},
+	{unix.IN_MODIFY, "modify"},
+	{unix.IN_MOVE_SELF, "moveSelf"},
+	{unix.IN_MOVED_FROM, "movedFrom"},
+	{unix.IN_MOVED_TO, "movedTo"},
+	{unix.IN_IGNORED, "ignored"},
+	{unix.IN_ISDIR, "isDir"},
+	{unix.IN_Q_OVERFLOW, "qOverflow"},
 }
 
 type KV struct {

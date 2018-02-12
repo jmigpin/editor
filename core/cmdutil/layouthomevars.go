@@ -38,7 +38,7 @@ func (lhv *LayoutHomeVars) update(ev *ui.TextAreaSetStrEvent) {
 	if len(entries) != len(lhv.entries) {
 		changes = true
 	} else {
-		for i, _ := range entries {
+		for i := range entries {
 			if entries[i] != lhv.entries[i] {
 				changes = true
 				break

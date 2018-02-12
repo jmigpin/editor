@@ -12,9 +12,11 @@ type RowSeparatorHandle struct {
 	row *Row
 }
 
-func (sh *RowSeparatorHandle) Init(ref widget.Node, row *Row) {
-	sh.SeparatorHandle = widget.NewSeparatorHandle(ref)
-	sh.row = row
+func NewRowSeparatorHandle(ref widget.Node, row *Row) *RowSeparatorHandle {
+	return &RowSeparatorHandle{
+		SeparatorHandle: widget.NewSeparatorHandle(ref),
+		row:             row,
+	}
 }
 func (sh *RowSeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	h := sh.SeparatorHandle.OnInputEvent(ev0, p)

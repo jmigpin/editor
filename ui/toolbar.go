@@ -12,6 +12,6 @@ func NewToolbar(ui *UI, flexibleParent widget.Node) *Toolbar {
 	tb := &Toolbar{}
 	tb.TextArea = NewTextArea(ui)
 	tb.TextArea.FlexibleParent = flexibleParent
-	tb.TextArea.Theme = &DefaultUITheme.ToolbarTheme
+	tb.TextArea.Theme = &UITheme.ToolbarTheme
 	return tb
 }

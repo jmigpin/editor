@@ -12,28 +12,22 @@ var WrapLineRune = rune(0) // positioned at the start of wrapped line (left)
 type WrapLine struct {
 	EmbedLooper
 	strl  *String
-	linei *Line
+	linel *Line
 	MaxX  fixed.Int26_6
 
 	data WrapLineData // positional data for keep/restore
 }
 
 func MakeWrapLine(strl *String, linei *Line, maxX fixed.Int26_6) WrapLine {
-	return WrapLine{strl: strl, linei: linei, MaxX: maxX}
+	return WrapLine{strl: strl, linel: linei, MaxX: maxX}
 }
 func (lpr *WrapLine) Loop(fn func() bool) {
-	wlrAdv := lpr.wrapLineRuneAdvance(WrapLineRune)
-
-	// wrap line margin-to-border minimum
-	margin := wlrAdv
-	adv, ok := lpr.strl.Face.GlyphAdvance(' ')
-	if ok {
-		margin = wlrAdv + 16*adv
-	}
-
-	// TODO: ideally, have the identation be used if the rest of the line fits, otherwise use space available from the start of the line. (Would still have the issue with long line comments not honoring the wrapline indent).
-
 	lpr.OuterLooper().Loop(func() bool {
+		// don't act if other clones are active (ex: annotations)
+		if lpr.strl.IsRiClone() {
+			return fn()
+		}
+
 		lpr.data.state = WLStateNormal
 
 		penXAdv := lpr.strl.PenXAdvance()
@@ -49,24 +43,40 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 
 		// wrap line
 		if penXAdv > lpr.MaxX && lpr.strl.Ri > 0 {
+			// wrap line rune advance
+			wlrAdv, _ := lpr.strl.Face.GlyphAdvance(WrapLineRune)
+
+			// wrap line margin-to-border minimum
+			margin := wlrAdv
+			wAdv, _ := lpr.strl.Face.GlyphAdvance('W')
+			margin = wlrAdv + 8*wAdv
+
+			// helper vars
 			runeAdv := penXAdv - lpr.strl.Pen.X
-			runeCut := penXAdv - lpr.MaxX
-			runeAdvPart1 := runeAdv - runeCut
-			sepSpace := runeAdv
+			runeAdv1 := lpr.MaxX - lpr.strl.Pen.X
+			//runeAdv2 := penXAdv - lpr.MaxX
+			//sepSpace := runeAdv // dynamic width leads to back an forth adjustments (annoying)
+			//sepSpace, _ := lpr.strl.Face.GlyphAdvance('W') // fixed width of a wide rune
+
+			//// special case for wider rune tab
+			//sepSpace2, _ := lpr.strl.Face.GlyphAdvance(lpr.strl.Ru)
+			//if sepSpace2 > sepSpace {
+			//	sepSpace = sepSpace2
+			//}
 
 			origRu := lpr.strl.Ru
-			lpr.strl.RiClone = true
+			lpr.strl.PushRiClone()
 
 			// bg close to the border - current rune size covers the space
 			lpr.data.state = WLStateLine1Bg
 			lpr.strl.Ru = 0
-			lpr.strl.Advance = runeAdvPart1
+			lpr.strl.Advance = runeAdv1
 			if ok := fn(); !ok {
 				return false
 			}
 
 			// newline
-			lpr.linei.NewLine()
+			lpr.linel.NewLine()
 			lpr.strl.Pen.X = lpr.data.PenX
 
 			// make wrap line rune always visible
@@ -83,7 +93,8 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 			lpr.data.state = WLStateLine2Bg
 			lpr.strl.Ru = 0
 			lpr.strl.Pen.X = startPenX
-			bgAdv := wlrAdv + (sepSpace - runeAdvPart1)
+			//bgAdv := wlrAdv + (sepSpace - runeAdv1) // dynamic size
+			bgAdv := wlrAdv // fixed size
 			lpr.strl.Advance = bgAdv
 			if ok := fn(); !ok {
 				return false
@@ -100,7 +111,7 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 
 			// original rune
 			lpr.data.state = WLStateNormal
-			lpr.strl.RiClone = false
+			lpr.strl.PopRiClone()
 			lpr.strl.Ru = origRu
 			lpr.strl.Pen.X = startPenX + bgAdv
 			lpr.strl.Advance = runeAdv
@@ -121,29 +132,6 @@ func (lpr *WrapLine) Loop(fn func() bool) {
 		}
 		return true
 	})
-}
-func (lpr *WrapLine) wrapLineRuneAdvance(ru rune) fixed.Int26_6 {
-	if ru == 0 {
-		return 0
-	}
-
-	// keep original rune and advance
-	origRu := lpr.strl.Ru
-	adv := lpr.strl.Advance
-
-	// restore at the end
-	defer func() {
-		lpr.strl.Ru = origRu
-		lpr.strl.Advance = adv
-	}()
-
-	// calc advance of rune
-	lpr.strl.Ru = ru
-	ok := lpr.strl.CalcAdvance()
-	if !ok {
-		return 0
-	}
-	return lpr.strl.Advance
 }
 
 // Implements PosDataKeeper
@@ -185,10 +173,13 @@ func MakeWrapLineColor(wlinel *WrapLine, dl *Draw, bgl *Bg, opt *WrapLineOpt) Wr
 func (lpr *WrapLineColor) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		switch lpr.wlinel.data.state {
-		case WLStateLine1Bg, WLStateLine2Bg:
-			lpr.bgl.Bg = lpr.opt.Bg
-		case WLStateLine2Rune:
-			lpr.dl.Fg = lpr.opt.Fg
+		case WLStateLine1Bg, WLStateLine2Bg, WLStateLine2Rune:
+			if lpr.opt.Fg != nil {
+				lpr.dl.Fg = lpr.opt.Fg
+			}
+			if lpr.opt.Bg != nil {
+				lpr.bgl.Bg = lpr.opt.Bg
+			}
 		}
 		return fn()
 	})

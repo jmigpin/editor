@@ -9,97 +9,101 @@ import (
 // Cached Position Data looper with getpoint/getindex.
 type PosData struct {
 	EmbedLooper
-	strl        *String
-	keepers     []PosDataKeeper
-	jump        int
-	Data        []*PosDataData
-	Initialized bool
+	strl    *String
+	keepers []PosDataKeeper
+	Data    []*PosDataData
+	jump    int
 }
 
 func MakePosData(strl *String, keepers []PosDataKeeper, jump int, prevData []*PosDataData) PosData {
-	return PosData{strl: strl, keepers: keepers, Data: prevData, jump: jump, Initialized: true}
+	return PosData{strl: strl, keepers: keepers, Data: prevData, jump: jump}
 }
-func (pdl *PosData) Loop(fn func() bool) {
-	// keep values of first iteration, if string empty it's ok to not keep anything
+
+func (lpr *PosData) Loop(fn func() bool) {
+	// keep values of first iteration, if string empty it's ok to keep nothing
 	count := 0
-	pdl.OuterLooper().Loop(func() bool {
-		if pdl.strl.RiClone {
+	lpr.OuterLooper().Loop(func() bool {
+		if lpr.strl.IsRiClone() {
 			return fn()
 		}
-		if count%pdl.jump == 0 {
-			pdl.keep()
+		if count%lpr.jump == 0 {
+			lpr.keep()
 		}
 		count++
 		return fn()
 	})
 }
 
-func (pdl *PosData) keep() {
-	kd := make([]interface{}, len(pdl.keepers))
-	for i, k := range pdl.keepers {
-		kd[i] = k.KeepPosData()
+func (lpr *PosData) keep() {
+	kd := make([]interface{}, len(lpr.keepers))
+	for i, k := range lpr.keepers {
+		if k != nil {
+			kd[i] = k.KeepPosData()
+		}
 	}
 	pd := &PosDataData{
-		ri:            pdl.strl.Ri,
-		penBoundsMaxY: pdl.strl.LineY1(),
+		ri:            lpr.strl.Ri,
+		penBoundsMaxY: lpr.strl.LineY1(),
 		keepersData:   kd,
 	}
-	pdl.Data = append(pdl.Data, pd)
+	lpr.Data = append(lpr.Data, pd)
 }
-func (pdl *PosData) restore(pd *PosDataData) {
+func (lpr *PosData) restore(pd *PosDataData) {
 	for i, kd := range pd.keepersData {
-		pdl.keepers[i].RestorePosData(kd)
+		if lpr.keepers[i] != nil && kd != nil {
+			lpr.keepers[i].RestorePosData(kd)
+		}
 	}
 }
 
-func (pdl *PosData) RestorePosDataCloseToIndex(index int) {
-	pd, ok := pdl.PosDataCloseToIndex(index)
+func (lpr *PosData) RestorePosDataCloseToIndex(index int) {
+	pd, ok := lpr.PosDataCloseToIndex(index)
 	if ok {
-		pdl.restore(pd)
+		lpr.restore(pd)
 	}
 }
-func (pdl *PosData) RestorePosDataCloseToPoint(p *fixed.Point26_6) {
-	pd, ok := pdl.PosDataCloseToPoint(p)
+func (lpr *PosData) RestorePosDataCloseToPoint(p *fixed.Point26_6) {
+	pd, ok := lpr.PosDataCloseToPoint(p)
 	if ok {
-		pdl.restore(pd)
+		lpr.restore(pd)
 	}
 }
-func (pdl *PosData) PosDataCloseToIndex(index int) (*PosDataData, bool) {
-	n := len(pdl.Data)
+
+func (lpr *PosData) PosDataCloseToIndex(index int) (*PosDataData, bool) {
+	n := len(lpr.Data)
 	if n == 0 {
 		return nil, false
 	}
 	j := sort.Search(n, func(i int) bool {
-		return pdl.Data[i].ri > index
+		return lpr.Data[i].ri > index
 	})
 	// get previous entry before p
 	if j > 0 {
 		j--
 	}
-	return pdl.Data[j], true
+	return lpr.Data[j], true
 }
-func (pdl *PosData) PosDataCloseToPoint(p *fixed.Point26_6) (*PosDataData, bool) {
-	n := len(pdl.Data)
+func (lpr *PosData) PosDataCloseToPoint(p *fixed.Point26_6) (*PosDataData, bool) {
+	n := len(lpr.Data)
 	if n == 0 {
 		return nil, false
 	}
 	j := sort.Search(n, func(i int) bool {
-		// has to be in a previous y or it won't draw
-		// all runes in a previous x position of the kept data
-		by := pdl.Data[i].penBoundsMaxY
+		// has to be in a previous y or it won't draw all runes in a previous x position of the kept data
+		by := lpr.Data[i].penBoundsMaxY
 		return by > p.Y
 	})
 	// get previous entry before p
 	if j > 0 {
 		j--
 	}
-	return pdl.Data[j], true
+	return lpr.Data[j], true
 }
 
-func (pdl *PosData) GetPoint(index int) *fixed.Point26_6 {
-	strl := pdl.strl
-	pdl.OuterLooper().Loop(func() bool {
-		if strl.RiClone {
+func (lpr *PosData) GetPoint(index int) *fixed.Point26_6 {
+	strl := lpr.strl
+	lpr.OuterLooper().Loop(func() bool {
+		if strl.IsRiClone() {
 			return true
 		}
 		if strl.Ri >= index {
@@ -110,15 +114,15 @@ func (pdl *PosData) GetPoint(index int) *fixed.Point26_6 {
 	pb := strl.PenBounds()
 	return &pb.Min
 }
-func (pdl *PosData) GetIndex(p *fixed.Point26_6) int {
-	strl := pdl.strl
+func (lpr *PosData) GetIndex(p *fixed.Point26_6) int {
+	strl := lpr.strl
 
 	found := false
 	foundLine := false
 	lineRuneIndex := 0
 
-	pdl.OuterLooper().Loop(func() bool {
-		if strl.RiClone {
+	lpr.OuterLooper().Loop(func() bool {
+		if strl.IsRiClone() {
 			return true
 		}
 
@@ -166,31 +170,14 @@ func (pdl *PosData) GetIndex(p *fixed.Point26_6) int {
 		return strl.Ri
 	}
 	if foundLine {
-		// clicking beyond the last rune should return len(str), but if a foundLine was triggered, it will return the lineRuneIndex with the last rune. Which is ok if it is a newline.
-		if strl.Ri == len(strl.Str) && strl.PrevRu != '\n' {
-			return len(strl.Str)
-		}
-
 		return lineRuneIndex
 	}
 	return len(strl.Str)
 }
 
-//func (pdl *PosData) Update() {
-//	for _, pd := range pdl.Data {
-//		pdl.restore(pd)
-//		for _, k := range pdl.keepers {
-//			k.UpdatePosData()
-//		}
-//		pdl.keep()
-//	}
-//}
-
 type PosDataKeeper interface {
 	KeepPosData() interface{}
 	RestorePosData(interface{})
-
-	//UpdatePosData() // TODO
 }
 
 type PosDataData struct {

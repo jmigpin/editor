@@ -20,7 +20,7 @@ func NewColumns(root *Root) *Columns {
 	// when where are no cols, or the first column is pushed aside
 	{
 		noCols0 := widget.NewRectangle(root.UI)
-		noCols0.Theme = &DefaultUITheme.NoRowColTheme
+		noCols0.Theme = &UITheme.NoRowColTheme
 		cols.noCols = WrapInShadowTop(root.UI, noCols0)
 		cols.Append(cols.noCols)
 	}

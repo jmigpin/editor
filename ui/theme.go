@@ -23,96 +23,124 @@ var (
 	TextAreaCommentsColor color.Color
 )
 
-var DefaultUITheme UITheme
+var UITheme *uiTheme
 var TTFontOptions truetype.Options
 
 func init() {
+	UITheme = NewUITheme()
 	regularThemeFont()
 	lightThemeColors()
-	DefaultUITheme.RowSquare = defaultRowSquareTheme()
 }
 
-type UITheme struct {
+type uiTheme struct {
 	TextAreaTheme  widget.Theme
 	ToolbarTheme   widget.Theme
 	ScrollBarTheme widget.Theme
 	NoRowColTheme  widget.Theme
-	RowSquare      *RowSquareTheme
+	RowSquare      *RowSquareColors
+
+	textAreaCommentsFg color.Color
 }
 
-func GetTextAreaCommentsFg() color.Color {
+func NewUITheme() *uiTheme {
+	uit := &uiTheme{}
+	uit.RowSquare = defaultRowSquareColors()
+	return uit
+}
+
+func (uit *uiTheme) GetTextAreaCommentsFg() color.Color {
 	if TextAreaCommentsColor != nil {
 		return TextAreaCommentsColor
 	}
-	pal := DefaultUITheme.TextAreaTheme.Palette()
-	return imageutil.TintOrShade(pal.Normal.Fg, 0.40)
+	return uit.textAreaCommentsFg
 }
 
-// TODO: currently fixed for all themes
-func HighlightSegmentColors() *widget.FgBg {
+// Used for: floatbox content
+func (*uiTheme) HighlightSegmentColors() *widget.FgBg {
+	// TODO: currently fixed for all themes
 	fg := widget.Black
 	bg := color.RGBA{158, 238, 238, 255} // light blue
 	return &widget.FgBg{fg, bg}
 }
 
 // Used for:  row square color, textarea wrapline background.
-func NoSelectionColors(t *widget.Theme) *widget.FgBg {
+func (*uiTheme) NoSelectionColors(t *widget.Theme) (_, _ color.Color) {
 	pal := t.Palette()
 	fg := pal.Normal.Fg
 	bg := imageutil.TintOrShade(pal.Normal.Bg, 0.15)
-	return &widget.FgBg{fg, bg}
+	return fg, bg
 }
 
-type RowSquareTheme struct {
+func (uit *uiTheme) RowMinimumHeight(t *widget.Theme) int {
+	return uit.FontFaceHeightInPixels(t.Font().Face(nil))
+}
+func (uit *uiTheme) RowSquareSize(t *widget.Theme) image.Point {
+	lh := uit.FontFaceHeightInPixels(t.Font().Face(nil))
+	w := int(float64(lh) * 3 / 4)
+	return image.Point{w, lh}
+}
+
+func (uit *uiTheme) FontFaceHeightInPixels(face font.Face) int {
+	m := face.Metrics()
+	return (m.Ascent + m.Descent).Ceil()
+}
+
+func (uit *uiTheme) GetScrollBarWidth(t *widget.Theme) int {
+	if ScrollBarWidth != 0 {
+		return ScrollBarWidth
+	}
+	lh := uit.FontFaceHeightInPixels(t.Font().Face(nil))
+	w := int(float64(lh) * 3 / 4)
+	return w
+}
+
+func (uit *uiTheme) ShadowHeight() int {
+	t := &UITheme.TextAreaTheme
+	lh := uit.FontFaceHeightInPixels(t.Font().Face(nil))
+	h := int(float64(lh) * 1 / 2)
+	return h
+}
+
+func (uit *uiTheme) AnnotationsColors() (fg, bg color.Color) {
+	pal := UITheme.TextAreaTheme.Palette()
+	//return pal.Normal.Bg, pal.Normal.Fg
+
+	hsv := imageutil.HSVModel.Convert(pal.Normal.Bg).(imageutil.HSV)
+	d := uint8(float64(hsv.V) * 0.15)
+	if hsv.V < 255/2 {
+		hsv.V += d
+	} else {
+		hsv.V -= d
+	}
+	bg1 := color.RGBAModel.Convert(hsv).(color.RGBA)
+
+	return pal.Normal.Fg, bg1
+}
+
+type RowSquareColors struct {
 	Active             color.Color
 	Executing          color.Color
 	Edited             color.Color
 	DiskChanges        color.Color
 	NotExist           color.Color
 	Duplicate          color.Color
-	HighlightDuplicate color.Color
+	DuplicateHighlight color.Color
+	Annotations        color.Color
+	AnnotationsEdited  color.Color
 }
 
-func defaultRowSquareTheme() *RowSquareTheme {
-	return &RowSquareTheme{
+func defaultRowSquareColors() *RowSquareColors {
+	return &RowSquareColors{
 		Active:             widget.Black,
-		Executing:          color.RGBA{15, 173, 0, 255},    // dark green
-		Edited:             color.RGBA{0, 0, 255, 255},     // blue
-		DiskChanges:        color.RGBA{255, 0, 0, 255},     // red
-		NotExist:           color.RGBA{255, 153, 0, 255},   // orange
-		Duplicate:          color.RGBA{136, 136, 204, 255}, // blueish
-		HighlightDuplicate: color.RGBA{255, 255, 0, 255},   // yellow
+		Executing:          color.RGBA{15, 173, 0, 255},        // dark green
+		Edited:             color.RGBA{0, 0, 255, 255},         // blue
+		DiskChanges:        color.RGBA{255, 0, 0, 255},         // red
+		NotExist:           color.RGBA{255, 153, 0, 255},       // orange
+		Duplicate:          color.RGBA{136, 136, 204, 255},     // blueish
+		DuplicateHighlight: color.RGBA{255, 255, 0, 255},       // yellow
+		Annotations:        color.RGBA{0xd3, 0x54, 0x00, 0xff}, // pumpkin
+		AnnotationsEdited:  color.RGBA{255, 255, 0, 255},       // yellow
 	}
-}
-
-func RowMinimumHeight(t *widget.Theme) int {
-	return FontFaceHeightInPixels(t.Font().Face(nil))
-}
-func RowSquareSize(t *widget.Theme) image.Point {
-	lh := FontFaceHeightInPixels(t.Font().Face(nil))
-	w := int(float64(lh) * 3 / 4)
-	return image.Point{w, lh}
-}
-
-func FontFaceHeightInPixels(face font.Face) int {
-	m := face.Metrics()
-	return (m.Ascent + m.Descent).Ceil()
-}
-
-func GetScrollBarWidth(t *widget.Theme) int {
-	if ScrollBarWidth != 0 {
-		return ScrollBarWidth
-	}
-	lh := FontFaceHeightInPixels(t.Font().Face(nil))
-	w := int(float64(lh) * 3 / 4)
-	return w
-}
-
-func ShadowHeight() int {
-	t := &DefaultUITheme.TextAreaTheme
-	lh := FontFaceHeightInPixels(t.Font().Face(nil))
-	h := int(float64(lh) * 1 / 2)
-	return h
 }
 
 type cycler struct {
@@ -149,39 +177,40 @@ func (c *cycler) Set(name string) {
 
 var ColorThemeCycler cycler = cycler{
 	entries: []cycleEntry{
-		cycleEntry{"light", lightThemeColors},
-		cycleEntry{"dark", darkThemeColors},
-		cycleEntry{"acme", acmeThemeColors},
+		{"light", lightThemeColors},
+		{"dark", darkThemeColors},
+		{"acme", acmeThemeColors},
 	},
 }
 
 func lightThemeColors() {
 	textareaPal := &widget.Palette{
 		Normal:    widget.FgBg{widget.Black, widget.White},
-		Selection: widget.FgBg{widget.Black, color.RGBA{238, 238, 158, 255}},
-		Highlight: widget.FgBg{widget.Black, color.RGBA{198, 238, 158, 255}},
+		Selection: widget.FgBg{nil, color.RGBA{238, 238, 158, 255}},
+		Highlight: widget.FgBg{nil, color.RGBA{198, 238, 158, 255}},
 	}
 	toolbarPal := &widget.Palette{
-		Normal:    widget.FgBg{widget.Black, color.RGBA{0xfa, 0xfa, 0xfa, 0xff}}, // "grey 50"
+		Normal:    widget.FgBg{widget.Black, color.RGBA{0xec, 0xf0, 0xf1, 0xff}}, // "clouds", prev was "grey 50"
 		Selection: textareaPal.Selection,
 	}
 
-	DefaultUITheme.TextAreaTheme.SetPalette(textareaPal)
-	DefaultUITheme.ToolbarTheme.SetPalette(toolbarPal)
-	DefaultUITheme.NoRowColTheme.SetPalette(nil)
+	UITheme.TextAreaTheme.SetPalette(textareaPal)
+	UITheme.ToolbarTheme.SetPalette(toolbarPal)
+	UITheme.NoRowColTheme.SetPalette(nil)
+	UITheme.textAreaCommentsFg = color.RGBA{0x75, 0x75, 0x75, 0xff} // "grey 600"
 
 	calcScrollBarTheme()
 }
 
 func calcScrollBarTheme() {
 	//  colors based on normal.bg
-	c1 := DefaultUITheme.TextAreaTheme.Palette().Normal.Bg
+	c1 := UITheme.TextAreaTheme.Palette().Normal.Bg
 	var pal widget.Palette
 	pal.Normal.Bg = imageutil.TintOrShade(c1, 0.05)
 	pal.Normal.Fg = imageutil.TintOrShade(c1, 0.30)
 	pal.Highlight.Fg = imageutil.TintOrShade(pal.Normal.Fg, 0.20)
 	pal.Selection.Fg = imageutil.TintOrShade(pal.Normal.Fg, 0.40)
-	DefaultUITheme.ScrollBarTheme.SetPalette(&pal)
+	UITheme.ScrollBarTheme.SetPalette(&pal)
 }
 
 func darkThemeColors() {
@@ -195,13 +224,14 @@ func darkThemeColors() {
 		Selection: textareaPal.Selection,
 	}
 
-	DefaultUITheme.TextAreaTheme.SetPalette(textareaPal)
-	DefaultUITheme.ToolbarTheme.SetPalette(toolbarPal)
+	UITheme.TextAreaTheme.SetPalette(textareaPal)
+	UITheme.ToolbarTheme.SetPalette(toolbarPal)
+	UITheme.textAreaCommentsFg = color.RGBA{0xb8, 0xb8, 0xb8, 0xff}
 
 	// no rows/cols theme
 	var pal widget.Palette
 	pal.Normal.Bg = imageutil.Shade(color.White, 0.30)
-	DefaultUITheme.NoRowColTheme.SetPalette(&pal)
+	UITheme.NoRowColTheme.SetPalette(&pal)
 
 	calcScrollBarTheme()
 }
@@ -209,39 +239,40 @@ func darkThemeColors() {
 func acmeThemeColors() {
 	textareaPal := &widget.Palette{
 		Normal:    widget.FgBg{widget.Black, color.RGBA{255, 255, 234, 255}},
-		Selection: widget.FgBg{widget.Black, color.RGBA{238, 238, 158, 255}},
+		Selection: widget.FgBg{nil, color.RGBA{238, 238, 158, 255}},
 		// bg is analogous to selection bg
-		Highlight: widget.FgBg{widget.Black, color.RGBA{198, 238, 158, 255}},
+		Highlight: widget.FgBg{nil, color.RGBA{198, 238, 158, 255}},
 	}
 	toolbarPal := &widget.Palette{
 		Normal:    widget.FgBg{widget.Black, color.RGBA{234, 255, 255, 255}},
 		Selection: textareaPal.Selection,
 	}
 
-	DefaultUITheme.TextAreaTheme.SetPalette(textareaPal)
-	DefaultUITheme.ToolbarTheme.SetPalette(toolbarPal)
-	DefaultUITheme.NoRowColTheme.SetPalette(nil)
+	UITheme.TextAreaTheme.SetPalette(textareaPal)
+	UITheme.ToolbarTheme.SetPalette(toolbarPal)
+	UITheme.NoRowColTheme.SetPalette(nil)
+	UITheme.textAreaCommentsFg = color.RGBA{0x75, 0x75, 0x75, 0xff} // "grey 600"
 
 	// scrollbar
 	{
 		// TODO: use hsva to alter color and calc from the lighter color
 		//pal.Normal.Fg = color.RGBA{193, 193, 147, 255}
 
-		pal := *DefaultUITheme.TextAreaTheme.Palette()
+		pal := *UITheme.TextAreaTheme.Palette()
 		pal.Normal.Bg = imageutil.Shade(textareaPal.Normal.Bg, 0.05)
 		darker := color.RGBA{153, 153, 76, 255}
 		pal.Normal.Fg = imageutil.Tint(darker, 0.40)
 		pal.Highlight.Fg = imageutil.Tint(darker, 0.20)
 		pal.Selection.Fg = darker
-		DefaultUITheme.ScrollBarTheme.SetPalette(&pal)
+		UITheme.ScrollBarTheme.SetPalette(&pal)
 	}
 }
 
 var FontThemeCycler cycler = cycler{
 	entries: []cycleEntry{
-		cycleEntry{"regular", regularThemeFont},
-		cycleEntry{"medium", mediumThemeFont},
-		cycleEntry{"mono", monoThemeFont},
+		{"regular", regularThemeFont},
+		{"medium", mediumThemeFont},
+		{"mono", monoThemeFont},
 	},
 }
 
@@ -257,8 +288,8 @@ func monoThemeFont() {
 
 func loadThemeFont(b []byte) {
 	themes := []*widget.Theme{
-		&DefaultUITheme.TextAreaTheme,
-		&DefaultUITheme.ToolbarTheme,
+		&UITheme.TextAreaTheme,
+		&UITheme.ToolbarTheme,
 	}
 
 	// clear previous fonts.

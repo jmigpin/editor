@@ -19,7 +19,7 @@ func MakeColorize(strl *String, opt *ColorizeOpt) Colorize {
 }
 func (lpr *Colorize) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.strl.RiClone {
+		if lpr.strl.IsRiClone() {
 			return fn()
 		}
 
@@ -48,8 +48,6 @@ func (lpr *Colorize) Loop(fn func() bool) {
 				lpr.data.state = CDStateNormal
 			}
 		case CDStateString:
-			// TODO: colorize strings should be optional (if any) for .txt files
-
 			// escape rune inside string
 			if lpr.strl.Ru == '\\' {
 				lpr.data.state = CDStateStringEscape
@@ -121,13 +119,14 @@ const (
 )
 
 type ColorizeOpt struct {
-	Comment ColorizeCommentOpt
-}
-
-type ColorizeCommentOpt struct {
-	Line     string    // ex: "//", "#"
-	Enclosed [2]string // ex: "/*" "*/"
-	Fg       color.Color
+	String struct {
+		Fg color.Color
+	}
+	Comment struct {
+		Line     string    // ex: "//", "#"
+		Enclosed [2]string // ex: "/*" "*/"
+		Fg       color.Color
+	}
 }
 
 type ColorizeColor struct {
@@ -142,10 +141,16 @@ func MakeColorizeColor(dl *Draw, colorize *Colorize) ColorizeColor {
 func (lpr *ColorizeColor) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
 		switch lpr.colorize.data.state {
-		case CDStateCommentLine, CDStateCommentEnclosed, CDStateCommentEnclosedClosing:
-			lpr.dl.Fg = lpr.colorize.opt.Comment.Fg
 		case CDStateString, CDStateStringEscape:
-			//lpr.dl.Fg = lpr.colorize.opt.Comment.Fg
+			fg := lpr.colorize.opt.String.Fg
+			if fg != nil {
+				lpr.dl.Fg = fg
+			}
+		case CDStateCommentLine, CDStateCommentEnclosed, CDStateCommentEnclosedClosing:
+			fg := lpr.colorize.opt.Comment.Fg
+			if fg != nil {
+				lpr.dl.Fg = fg
+			}
 		}
 		return fn()
 	})

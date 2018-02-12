@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/jmigpin/editor/core/cmdutil"
 	"github.com/jmigpin/editor/core/fileswatcher"
@@ -94,13 +95,13 @@ func (ed *Editor) setupLayoutToolbar() {
 func (ed *Editor) setupMenuToolbar() {
 	s := `XdgOpenDir
 GotoLine | CopyFilePosition
-RowDirectory | ReopenRow | MaximizeRow
+ReopenRow | MaximizeRow
 CloseColumn | CloseRow
 ListDir | ListDirHidden | ListDirSub 
-Reload | ReloadAll | ReloadAllFiles
-SaveAllFiles
+Reload | ReloadAll | ReloadAllFiles | SaveAllFiles
 FontRunes | FontTheme | ColorTheme
 ListSessions
+GoDebug
 Exit | Stop`
 	tb := ed.ui.Root.MainMenuButton.FloatMenu.Toolbar
 	tb.SetStrClear(s, true, true)
@@ -173,6 +174,25 @@ func (ed *Editor) runGlobalShortcuts(ev interface{}) {
 			cmdutil.ToggleContextFloatBox(ed, p)
 		case t.Code == event.KCodeEscape:
 			cmdutil.DisableContextFloatBox(ed)
+			cmdutil.GoDebugArgs(ed, nil, []string{"clear"})
+
+		case t.Code == event.KCodeF3:
+			cmdutil.GoDebugArgs(ed, nil, []string{"find", "-all", "first"})
+		case t.Code == event.KCodeF4:
+			cmdutil.GoDebugArgs(ed, nil, []string{"find", "-all", "last"})
+
+		case t.Code == event.KCodeF5:
+			cmdutil.GoDebugArgs(ed, nil, []string{"find", "-all", "prev"})
+		case t.Code == event.KCodeF6:
+			cmdutil.GoDebugArgs(ed, nil, []string{"find", "-all", "next"})
+
+		case t.Code == event.KCodeF7:
+			aerow, _ := ed.ActiveERower()
+			cmdutil.GoDebugArgs(ed, aerow, []string{"find", "-line", "prev"})
+		case t.Code == event.KCodeF8:
+			aerow, _ := ed.ActiveERower()
+			cmdutil.GoDebugArgs(ed, aerow, []string{"find", "-line", "next"})
+
 		default:
 			cmdutil.UpdateContextFloatBox(ed, p)
 		}
@@ -225,6 +245,7 @@ func (ed *Editor) HomeVars() *toolbardata.HomeVars {
 	return &ed.homeVars
 }
 
+// Order is not consistent.
 func (ed *Editor) ERowers() []cmdutil.ERower {
 	u := make([]cmdutil.ERower, 0, len(ed.erows))
 	for _, erow := range ed.erows {
@@ -252,7 +273,7 @@ func (ed *Editor) FindERows(str string) []*ERow {
 		for _, row := range col.Rows() {
 			erow, ok := ed.erows[row]
 
-			// row is not yet in the mapping (creating a new erow)
+			// Row is not yet in the erow mapping due to creating a new erow. Could only happen in a concurrent scenario.
 			if !ok {
 				continue
 			}
@@ -283,9 +304,27 @@ func (ed *Editor) Error(err error) {
 }
 
 func (ed *Editor) Messagef(f string, a ...interface{}) {
-	erow := ed.messagesERow()
-	erow.TextAreaAppendAsync(fmt.Sprintf(f, a...) + "\n")
-	erow.Flash()
+	ed.UI().RunOnUIGoRoutine(func() {
+		erow := ed.messagesERow()
+
+		// add newline
+		s := fmt.Sprintf(f, a...)
+		if !strings.HasSuffix(s, "\n") {
+			s = s + "\n"
+		}
+
+		// index to make visible, get before append
+		ta := erow.Row().TextArea
+		index := len(ta.Str()) + 1 // +1 for "\n" that is inserted above
+
+		erow.(*ERow).textAreaAppend(s)
+
+		// auto scroll to show the new message
+		ta.MakeIndexVisible(index)
+
+		erow.Flash() // TODO: need to flash since if too small, the content flash won't show
+		ta.FlashIndexLine(index)
+	})
 }
 func (ed *Editor) messagesERow() cmdutil.ERower {
 	rowName := "+Messages" // special name format
@@ -294,7 +333,7 @@ func (ed *Editor) messagesERow() cmdutil.ERower {
 		return erows[0]
 	}
 	col, nextRow := ed.GoodColumnRowPlace()
-	return ed.NewERowerBeforeRow(rowName, col, nextRow)
+	return ed.NewERowerBeforeRow(rowName+" | Clear", col, nextRow)
 }
 
 func (ed *Editor) IsSpecialName(s string) bool {

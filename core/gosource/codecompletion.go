@@ -7,264 +7,280 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"reflect"
+	"log"
 	"sort"
+	"strconv"
 	"strings"
+
+	"golang.org/x/tools/go/ast/astutil"
 )
 
-func CodeCompletion(filename string, src interface{}, index int) (int, string, [][2]int, bool) {
-	cc := &CC{}
-	err := cc.Run(filename, src, index)
+type CCResult struct {
+	StartIndex int
+	Str        string
+	Segments   [][2]int
+	Objs       []types.Object
+}
+
+func CodeCompletion(filename string, src interface{}, index int) (*CCResult, error) {
+	cc := &CC2{}
+	res, err := cc.run(filename, src, index)
 	if err != nil {
-		//log.Print(err)
-		return 0, "", nil, false
-	}
-	return cc.index, cc.str, cc.segments, true
-}
-
-type CC struct {
-	info     *Info
-	objs     []types.Object
-	segments [][2]int
-	index    int
-	str      string
-}
-
-func (cc *CC) Run(filename string, src interface{}, index int) error {
-	//LogDebug()
-
-	cc.info = NewInfo()
-	cc.info.ParserMode = parser.ParseComments
-
-	// parse main file
-	filename = cc.info.AddPathFile(filename)
-	astFile := cc.info.ParseFile(filename, src)
-	if astFile == nil {
-		return fmt.Errorf("unable to parse file")
+		return nil, err
 	}
 
-	if Debug {
-		cc.info.PrintIdOffsets(astFile)
-	}
-
-	// translate index to a position
-	tokenFile := cc.info.FSet.File(astFile.Package)
-	if tokenFile == nil {
-		return fmt.Errorf("unable to get token file")
-	}
-	ipos := cc.info.SafeOffsetPos(tokenFile, index)
-	if !ipos.IsValid() {
-		return fmt.Errorf("invalid index")
-	}
-
-	inode := cc.info.PosNode(ipos)
-
-	// try to correct ipos/inode for certain positions
-	previous := 0
-	switch t := inode.(type) {
-	case *ast.BlockStmt:
-		previous = 1
-	case *ast.SelectorExpr:
-		// at "a|.b"
-		if ipos == t.X.End() {
-			previous = 1
-		}
-		// at "a.|_"
-		if ipos == t.X.End()+1 {
-			inode = t.Sel
-		}
-	case *ast.CallExpr:
-		// at "(" or ")"
-		if ipos == t.Lparen || ipos == t.Rparen {
-			previous = 1
-		}
-		// in an arg separator ","
-		for i, a := range t.Args {
-			if i < len(t.Args) && ipos == a.End() {
-				previous = 1
+	// show comment if the first result is matching
+	comment := ""
+	if len(res.Objs) > 0 {
+		obj := res.Objs[0]
+		seg := res.Segments[0]
+		if len(res.Objs) == 1 || (seg[0] == 0 && seg[1] == len(obj.Name())) {
+			s, ok := cc.objComment(obj)
+			if ok {
+				comment = "\n\n" + s
 			}
 		}
 	}
-	if previous > 0 {
-		inode = cc.info.PosNode(ipos - token.Pos(previous))
-		if inode == nil {
-			return fmt.Errorf("index node not found")
-		}
+
+	showArgs := len(res.Objs) < 3
+
+	FormatResult2(res, showArgs) // alters res.Str and res.Segments
+
+	res.Str += comment
+
+	return res, err
+}
+
+type CC2 struct {
+	astFile   *ast.File
+	conf      *Config
+	res       *DeclResolver
+	result    *CCResult
+	filterStr string
+	//filter    struct {
+	//types bool
+	//}
+}
+
+func (cc *CC2) run(filename string, src interface{}, index int) (*CCResult, error) {
+	cc.result = &CCResult{StartIndex: index}
+	cc.conf = NewConfig()
+	cc.conf.ParserMode = parser.ParseComments
+
+	astFile, err, ok := cc.conf.ParseFile(filename, src, 0)
+	if !ok {
+		return nil, err
+	}
+	cc.astFile = astFile
+
+	// make package path importable and re-import (type check added astfile)
+	cc.conf.MakeFilePkgImportable(filename)
+	_ = cc.conf.ReImportImportables()
+
+	// index fset position
+	tf, err := cc.conf.PosTokenFile(cc.astFile.Package)
+	if err != nil {
+		return nil, err
+	}
+	if index >= tf.Size() {
+		return nil, fmt.Errorf("index bigger than filesize")
+	}
+	ipos := token.Pos(tf.Base() + index)
+
+	cc.res = NewDeclResolver(cc.conf)
+
+	// DEBUG
+	src2 := ""
+	if s, ok := src.(string); ok {
+		src2 = s
 	}
 
-	Logf("inode after previous (if any)")
-	Dump(inode)
+	//// DEBUG
+	//PrintInspect(cc.astFile)
+	//ast.Inspect(cc.astFile, func(node ast.Node) bool {
+	//	if node == nil {
+	//		return false
+	//	}
+	//	log.Printf("%T %v", node, node)
+	//	return true
+	//})
 
-	// extract candidates from node according to type
-	switch t := inode.(type) {
+	if err := cc.candidatesInPos(ipos, src2); err != nil {
+		return nil, err
+	}
+
+	cc.filterCandidates(cc.filterStr)
+
+	return cc.result, nil
+}
+
+func (cc *CC2) candidatesInPos(pos token.Pos, src string) error {
+	// TODO: help the checker
+
+	orPos := pos
+
+	//posStart:
+
+	// path in astFile
+	path, _ := astutil.PathEnclosingInterval(cc.astFile, pos, pos)
+	if len(path) < 2 {
+		return fmt.Errorf("path len: %v", len(path))
+	}
+	node := path[0]
+
+	// DEBUG
+	p := cc.conf.FSet.Position(pos)
+	_, _ = TokPositionStr(src, p)
+
+switchStart:
+
+	switch t := node.(type) {
 	case *ast.Ident:
-		id := t
-		str := ""
-		diff := ipos - id.Pos()
-		if diff > 0 {
-			str = id.Name[:diff]
+		// parent node
+		switch t2 := path[1].(type) {
+		case *ast.SelectorExpr:
+			node = t2
+			goto switchStart
 		}
-		cc.candidatesInId(id)
-		cc.filterCandidates(str)
+	case *ast.BlockStmt:
+		return nil
+		//pos--
+		//goto posStart
 	case *ast.CallExpr:
-		if ipos > t.Lparen && ipos <= t.Rparen {
-			cc.candidatesInScope(t)
+		if pos == t.Lparen {
+			node = t.Fun
+			goto switchStart
+		} else if pos == t.Rparen {
+			// ex: "fmt.Print(|)"
+			return cc.candidatesInLastArg(t)
 		}
+	case *ast.SelectorExpr:
+		pos := orPos
+		if pos >= t.X.Pos() && pos <= t.X.End() {
+			// ex: "fmt|."
+			if id, ok := t.X.(*ast.Ident); ok {
+				cc.result.StartIndex = cc.conf.FSet.Position(t.X.Pos()).Offset
+				cc.filterStr = id.Name[:pos-t.X.Pos()]
+				return cc.candidatesInScopeUp(t.X)
+			}
+		} else if pos >= t.Sel.Pos() && pos <= t.Sel.End() {
+			// ex: "fmt.|P"
+			cc.result.StartIndex = cc.conf.FSet.Position(t.Sel.Pos()).Offset
+			cc.filterStr = t.Sel.Name[:pos-t.Sel.Pos()]
+			return cc.candidatesInNode(t.X)
+		}
+
 	default:
-		LogTODO()
-		Dump(t)
+		return fmt.Errorf("todo: %T", node)
 	}
 
-	if len(cc.objs) == 0 {
-		return fmt.Errorf("no objects found")
+	return fmt.Errorf("unable to get candidates in pos")
+}
+
+//------------
+
+func (cc *CC2) candidatesInNode(node ast.Node) error {
+	n2, err := cc.res.ResolveType(node)
+	if err != nil {
+		return err
+	}
+	switch t := n2.(type) {
+	case *ast.ImportSpec:
+		return cc.candidatesInImportSpec(t, node)
+	case *ast.StructType:
+		return cc.candidatesInNode2(t, node)
+	}
+	return fmt.Errorf("todo")
+}
+
+func (cc *CC2) candidatesInImportSpec(imp *ast.ImportSpec, reqNode ast.Node) error {
+	// importspec pkg
+	impPath, _ := strconv.Unquote(imp.Path.Value)
+	pkg, ok := cc.conf.Pkgs[impPath]
+	if !ok {
+		return fmt.Errorf("importspec pkg not found")
 	}
 
-	// format output
-	//cc.str = FormatObjsDefaults(cc.objs)
-	cc.str = FormatObjsSegs(cc.objs, cc.segments)
+	// node pkg dir
+	pkgDir, err := cc.conf.PosPkgDir(reqNode.Pos())
+	if err != nil {
+		return err
+	}
 
-	// TODO: show comment if there is a match to the first func in sort
-	// show comments if there is only one result
-	if len(cc.objs) == 1 {
-		obj := cc.objs[0]
-		s, ok := cc.getComment(obj)
-		if ok {
-			cc.str += "\n\n" + s
+	// want not exported (private) entries if on same path
+	wantNotExp := pkgDir == impPath
+
+	scope := pkg.Scope()
+	for _, name := range scope.Names() {
+		obj := scope.Lookup(name)
+		if wantNotExp || obj.Exported() {
+			cc.result.Objs = append(cc.result.Objs, obj)
 		}
 	}
-
-	// index on where to "attach" the output
-	inpos := cc.info.FSet.Position(inode.Pos())
-	cc.index = inpos.Offset
-
 	return nil
 }
 
-func (cc *CC) candidatesInId(id *ast.Ident) {
-	if pn, ok := cc.info.NodeParent(id); ok {
-		switch t2 := pn.(type) {
-		case *ast.SelectorExpr:
-			se := t2
-			if id == se.Sel {
-				cc.candidatesInNode(se.X)
-				return
-			}
-		case *ast.FuncDecl:
+func (cc *CC2) candidatesInNode2(node, reqNode ast.Node) error {
+	//// help the checker
+	//_, err := cc.res.ResolveType(node)
+	//if err != nil {
+	//	return err
+	//}
 
-			// TODO: complete inherited anon methods to overwrite
+	astFile, err := cc.conf.PosAstFile(node.Pos())
+	if err != nil {
+		return err
+	}
 
-			return
-		case *ast.CallExpr:
-			// inside arguments
-		default:
-			LogTODO(t2)
+	// find name
+	name := ""
+	path, _ := astutil.PathEnclosingInterval(astFile, node.Pos(), node.Pos())
+	switch path[0].(type) {
+	case *ast.StructType:
+		switch t2 := path[1].(type) {
+		case *ast.TypeSpec:
+			name = t2.Name.Name
 		}
 	}
-	cc.candidatesInScope(id)
-}
 
-func (cc *CC) candidatesInScope(node ast.Node) {
-	Logf("")
-
-	path := cc.info.PosFilePath(node.Pos())
-	res := NewResolver(cc.info, path, node)
-	_ = res.ResolveType(node)
-
-	// get scope
-	astFile := cc.info.PosAstFile(node.Pos())
-	scope, ok := cc.info.Info.Scopes[astFile]
-	if !ok {
-		return
-	}
-
-	// search scope and parent scopes
-	m := make(map[string]bool)
-	for s := scope.Innermost(node.Pos()); s != nil; s = s.Parent() {
-		for _, n := range s.Names() {
-			if _, ok := m[n]; !ok {
-				m[n] = true
-				obj := s.Lookup(n)
-				cc.objs = append(cc.objs, obj)
-			}
+	if name == "" {
+		u := []string{}
+		for _, n := range path {
+			u = append(u, fmt.Sprintf("%T", n))
 		}
-	}
-}
-
-func (cc *CC) candidatesInNode(node ast.Node) {
-	Logf("")
-
-	path := cc.info.PosFilePath(node.Pos())
-	res := NewResolver(cc.info, path, node)
-	n := res.ResolveType(node)
-
-	Logf("%v", reflect.TypeOf(n))
-
-	switch t := n.(type) {
-	case *ast.ImportSpec:
-		cc.getCandidatesInImportSpec(node, t)
-	case *ast.TypeSpec:
-		cc.getCandidatesInTypeSpec(node, t)
-	case *ast.FuncType:
-		if t.Results != nil && len(t.Results.List) > 0 {
-			n2 := t.Results.List[0]
-			n3 := res.ResolveType(n2)
-			switch t2 := n3.(type) {
-			case *ast.TypeSpec:
-				cc.getCandidatesInTypeSpec(node, t2)
-			default:
-				LogTODO(t2)
-			}
-		}
-	default:
-		LogTODO(n)
-	}
-}
-
-func (cc *CC) getCandidatesInImportSpec(node ast.Node, imp *ast.ImportSpec) {
-	impPath := cc.info.ImportSpecPath(imp)
-	nodePath := cc.info.PosFilePath(node.Pos())
-	wantNotExp := nodePath == impPath
-	if pkg, ok := cc.info.Pkgs[impPath]; ok {
-		scope := pkg.Scope()
-		for _, name := range scope.Names() {
-			obj := scope.Lookup(name)
-			if obj != nil && (wantNotExp || obj.Exported()) {
-				cc.objs = append(cc.objs, obj)
-			}
-		}
-	}
-}
-
-func (cc *CC) getCandidatesInTypeSpec(node ast.Node, ts *ast.TypeSpec) {
-	// get scope
-	astFile := cc.info.PosAstFile(ts.Pos())
-	scope, ok := cc.info.Info.Scopes[astFile]
-	if !ok {
-		return
+		return fmt.Errorf("unable to get name from node path: %v", u)
 	}
 
-	// search obj in scope chain
-	s2 := scope.Innermost(ts.Pos())
-	if s2 == nil {
-		return
+	// scope to search for the name
+	scope, err := cc.conf.PosAstFileScope(node.Pos())
+	if err != nil {
+		return err
 	}
-	_, obj := s2.LookupParent(ts.Name.Name, ts.Pos())
+
+	// innermost scope
+	scope2 := scope.Innermost(node.Pos())
+	if scope2 == nil {
+		return fmt.Errorf("innermost scope not found")
+	}
+
+	// lookup name
+	_, obj := scope2.LookupParent(name, node.Pos())
 	if obj == nil {
-		return
+		return fmt.Errorf("object not found: %v", name)
 	}
+
+	// exported
+	wantNotExp := cc.sameDir(node, reqNode)
 
 	typ := obj.Type()
 
-	wantNotExp := cc.wantNotExported(node, ts)
-
+	// fields
 	switch t := typ.Underlying().(type) {
 	case *types.Struct:
-		s := t
-		for i := 0; i < s.NumFields(); i++ {
-			vobj := s.Field(i)
+		for i := 0; i < t.NumFields(); i++ {
+			vobj := t.Field(i)
 			if wantNotExp || vobj.Exported() {
-				Logf("adding 2 %v", obj.Name())
-				cc.objs = append(cc.objs, vobj)
+				cc.result.Objs = append(cc.result.Objs, vobj)
 			}
 		}
 	}
@@ -276,70 +292,109 @@ func (cc *CC) getCandidatesInTypeSpec(node ast.Node, ts *ast.TypeSpec) {
 	for i := 0; i < mset.Len(); i++ {
 		obj := mset.At(i).Obj()
 		if wantNotExp || obj.Exported() {
-			Logf("adding 1 %v", obj.Name())
-			cc.objs = append(cc.objs, obj)
-		}
-	}
-}
-
-func (cc *CC) filterCandidates(str string) {
-	Logf("searching for %q", str)
-
-	type entry struct {
-		obj           types.Object
-		indexStrIndex int
-		segment       [2]int
-	}
-
-	var entries []entry
-	indexStrLow := strings.ToLower(str)
-	for _, obj := range cc.objs {
-		name := obj.Name()
-		nameLow := strings.ToLower(name)
-		i1 := strings.Index(nameLow, indexStrLow)
-		if i1 >= 0 {
-			seg := [2]int{i1, i1 + len(indexStrLow)}
-			entries = append(entries, entry{obj, i1, seg})
+			cc.result.Objs = append(cc.result.Objs, obj)
 		}
 	}
 
-	sort.Slice(entries, func(a, b int) bool {
-		ea, eb := entries[a], entries[b]
-		if ea.indexStrIndex == eb.indexStrIndex {
-			na, nb := ea.obj.Name(), eb.obj.Name()
-			return na < nb
-		}
-		return ea.indexStrIndex < eb.indexStrIndex
-	})
+	return nil
+}
 
-	var objs []types.Object
-	var segs [][2]int
-	for _, e := range entries {
-		objs = append(objs, e.obj)
-		segs = append(segs, e.segment)
+//------------
+
+func (cc *CC2) candidatesInLastArg(ce *ast.CallExpr) error {
+	tn, err := cc.res.ResolveType(ce.Fun)
+	if err != nil {
+		return err
 	}
-	cc.objs = objs
-	cc.segments = segs
+
+	ft, ok := tn.(*ast.FuncType)
+	if !ok {
+		return fmt.Errorf("resolved type not a functype")
+	}
+
+	// no params
+	if len(ft.Params.List) == 0 {
+		return nil
+	}
+
+	l := len(ft.Params.List)
+	field0 := ft.Params.List[l-1]
+
+	tn2, err := cc.res.ResolveType(field0.Type)
+	if err != nil {
+		return err
+	}
+
+	switch tn2.(type) {
+	case *ast.InterfaceType:
+		//cc.filter.types = false
+		return cc.candidatesInScopeUp(ce)
+	default:
+		_ = fmt.Sprintf("%T", tn2)
+	}
+	return nil
 }
 
-func (cc *CC) wantNotExported(n1, n2 ast.Node) bool {
-	path1 := cc.info.PosFilePath(n1.Pos())
-	path2 := cc.info.PosFilePath(n2.Pos())
-	return path1 == path2
+//------------
+
+func (cc *CC2) candidatesInScopeLevel(node ast.Node, reqNode ast.Node) error {
+
+	// want not exported (private) entries if on same path
+	wantNotExp := cc.sameDir(node, reqNode)
+
+	scope, err := cc.conf.PosAstFileScope(node.Pos())
+	if err != nil {
+		return err
+	}
+
+	scope = scope.Innermost(node.Pos())
+	if scope == nil {
+		return fmt.Errorf("failed to get innermost scope")
+	}
+
+	for _, name := range scope.Names() {
+		obj := scope.Lookup(name)
+		if obj != nil && (wantNotExp || obj.Exported()) {
+			cc.result.Objs = append(cc.result.Objs, obj)
+		}
+	}
+	return nil
 }
 
-func (cc *CC) getComment(obj types.Object) (string, bool) {
-	n := cc.info.PosNode(obj.Pos())
-	if n == nil {
+func (cc *CC2) candidatesInScopeUp(node ast.Node) error {
+	scope, err := cc.conf.PosAstFileScope(node.Pos())
+	if err != nil {
+		return err
+	}
+
+	// go to innermost scope and search going up in scopes
+	seen := make(map[string]bool)
+	for s := scope.Innermost(node.Pos()); s != nil; s = s.Parent() {
+		for _, n := range s.Names() {
+			if seen[n] {
+				continue
+			}
+			seen[n] = true
+			obj := s.Lookup(n)
+			cc.result.Objs = append(cc.result.Objs, obj)
+		}
+	}
+	return nil
+}
+
+//------------
+
+func (cc *CC2) objComment(obj types.Object) (string, bool) {
+	path, _, ok := cc.conf.PosAstPath(obj.Pos())
+	if !ok {
 		return "", false
 	}
-	if n2, ok := cc.info.NodeParent(n); ok {
-		n = n2
-	} else {
+	if len(path) < 2 {
 		return "", false
 	}
+
 	s := ""
-	switch t := n.(type) {
+	switch t := path[1].(type) {
 	case *ast.FuncDecl:
 		s = t.Doc.Text()
 	case *ast.TypeSpec:
@@ -349,10 +404,10 @@ func (cc *CC) getComment(obj types.Object) (string, bool) {
 	case *ast.ValueSpec:
 		s = t.Doc.Text()
 	default:
-		LogTODO()
-		Logf("%v", reflect.TypeOf(t))
+		log.Printf("todo: %T", t)
 		return "", false
 	}
+
 	s = strings.TrimRight(s, "\n")
 	if len(s) == 0 {
 		return "", false
@@ -360,29 +415,79 @@ func (cc *CC) getComment(obj types.Object) (string, bool) {
 	return s, true
 }
 
-func FormatObjsDefault(objs []types.Object) string {
+//------------
+
+func (cc *CC2) filterCandidates(str string) {
+	type entry struct {
+		obj   types.Object
+		index int    // index where str starts in the object name
+		pos   [2]int // position {start,end} of str in the object name
+	}
+
+	var entries []entry
+	strLow := strings.ToLower(str)
+	for _, obj := range cc.result.Objs {
+
+		_ = obj.Type()
+
+		name := obj.Name()
+		nameLow := strings.ToLower(name)
+		i1 := strings.Index(nameLow, strLow)
+		if i1 >= 0 {
+			pos := [2]int{i1, i1 + len(strLow)}
+			entries = append(entries, entry{obj, i1, pos})
+		}
+	}
+
+	sort.Slice(entries, func(a, b int) bool {
+		ea, eb := entries[a], entries[b]
+		if ea.index == eb.index {
+			na, nb := ea.obj.Name(), eb.obj.Name()
+			return na < nb
+		}
+		return ea.index < eb.index
+	})
+
+	var objs []types.Object
+	var positions [][2]int
+	for _, e := range entries {
+		objs = append(objs, e.obj)
+		positions = append(positions, e.pos)
+	}
+	cc.result.Objs = objs
+	cc.result.Segments = positions
+}
+
+//------------
+
+func FormatResult(res *CCResult) {
 	var u []string
-	for _, o := range objs {
+	for _, o := range res.Objs {
 		var buf bytes.Buffer
 		buf.WriteString(o.String())
 		u = append(u, buf.String())
 	}
-	return strings.Join(u, "\n")
+	res.Str = strings.Join(u, "\n")
 }
 
-func FormatObjsSegs(objs []types.Object, segs [][2]int) string {
+func FormatResult2(res *CCResult, showArgs bool) {
 	var buf bytes.Buffer
 	ws := buf.WriteString
 
-	for i, o := range objs {
+	// set string at the end
+	defer func() {
+		res.Str = buf.String()
+	}()
+
+	for i, o := range res.Objs {
 		if i > 0 {
 			ws("\n")
 		}
 
 		wsseg := func(s string) {
 			l := buf.Len()
-			if segs != nil {
-				seg := &segs[i]
+			if res.Segments != nil {
+				seg := &res.Segments[i]
 				seg[0] += l
 				seg[1] += l
 			}
@@ -391,44 +496,18 @@ func FormatObjsSegs(objs []types.Object, segs [][2]int) string {
 
 		switch t := o.(type) {
 		case *types.Const:
-			//ws("const ")
 			wsseg(t.Name())
-			//ws(t.Val().String())
 		case *types.Var:
 			wsseg(t.Name())
-			//ws(": var")
-			//ws(" ")
-			//ws(t.Type().String())
 		case *types.Builtin:
-			//ws("builtin ")
 			wsseg(t.Name())
 			ws("(...)")
-			//ws(t.Type().String())
 		case *types.PkgName:
-			//ws("package ")
 			wsseg(t.Name())
-			//ws("package ")
 		case *types.Nil:
 			wsseg(t.Name())
 		case *types.TypeName:
-			//ws("type ")
 			wsseg(t.Name())
-			//switch t2 := t.Type().Underlying().(type) {
-			//case *types.Interface:
-			//	ws(" interface")
-			//case *types.Struct:
-			//	ws(" struct")
-			//case *types.Slice:
-			//	ws(" []")
-			//	//ws(t2.Underlying().String())
-			//case *types.Basic:
-			//	//ws(t2.Name())
-			//	//ws(" basic")
-			//default:
-			//	Logf("TODO 3")
-			//	Dump(t2)
-			//}
-
 		case *types.Func:
 			wsseg(t.Name())
 			switch t2 := t.Type().(type) {
@@ -436,27 +515,39 @@ func FormatObjsSegs(objs []types.Object, segs [][2]int) string {
 				ws("(")
 				if tuple := t2.Params(); tuple != nil {
 					if tuple.Len() > 0 {
-						ws("...")
+						if !showArgs {
+							ws("...")
+						} else {
+							w := []string{}
+							for i := 0; i < tuple.Len(); i++ {
+								v := tuple.At(i)
+								u := v.Name() + " " + v.Type().String()
+								w = append(w, u)
+							}
+							ws(strings.Join(w, ", "))
+						}
 					}
-					//w := []string{}
-					//for i := 0; i < tuple.Len(); i++ {
-					//	v := tuple.At(i)
-					//	w = append(w, v.Name())
-					//	w = append(w, " ")
-					//	w = append(w, v.Type().String())
-					//}
-					//ws(strings.Join(w, ","))
 				}
 				ws(")")
 			default:
-				LogTODO(t2)
 			}
-
 		default:
-			Logf("TODO 1")
-			Dump(o)
-			continue
 		}
 	}
-	return buf.String()
+}
+
+//------------
+
+//------------
+
+func (cc *CC2) sameDir(n1, n2 ast.Node) bool {
+	dir1, err := cc.conf.PosPkgDir(n1.Pos())
+	if err != nil {
+		return false
+	}
+	dir2, err := cc.conf.PosPkgDir(n2.Pos())
+	if err != nil {
+		return false
+	}
+	return dir1 == dir2
 }

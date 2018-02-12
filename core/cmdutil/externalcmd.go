@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -45,17 +46,9 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 	cmd.Dir = dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
-	// ensure kill to child processes on context cancel
-	go func() {
-		select {
-		case <-ctx.Done():
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
-	}()
-
 	// exec
 	go func() {
-		err := execRowCmd2(erow, cmd)
+		err := execRowCmd2(ctx, erow, cmd)
 		erow.ClearExecState(ctx, func() {
 			// show error if still on the same context
 			if err != nil {
@@ -64,7 +57,7 @@ func ExternalCmd(erow ERower, part *toolbardata.Part) {
 		})
 	}()
 }
-func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
+func execRowCmd2(ctx context.Context, erow ERower, cmd *exec.Cmd) error {
 	// setup output
 	w := erow.TextAreaWriter()
 	defer w.Close()
@@ -76,6 +69,15 @@ func execRowCmd2(erow ERower, cmd *exec.Cmd) error {
 	if err != nil {
 		return err
 	}
+
+	// ensure kill to child processes on context cancel
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
+	}()
+
 	erow.TextAreaAppendAsync(fmt.Sprintf("# pid %d\n", cmd.Process.Pid))
 	return cmd.Wait()
 }

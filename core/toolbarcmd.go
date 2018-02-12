@@ -99,7 +99,7 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 
 	p0 := part.Args[0].Str
 
-	layoutOnly := func(fn func()) {
+	layoutOnlyCmd := func(fn func()) {
 		if erow != nil {
 			ed.Errorf("%s: layout only command", p0)
 			return
@@ -107,42 +107,49 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		fn()
 	}
 
+	currentERow := func() cmdutil.ERower {
+		if erow != nil {
+			return erow
+		}
+		e, ok := ed.ActiveERower()
+		if ok {
+			return e
+		}
+		return nil
+	}
+
 	erowCmd := func(fn func(cmdutil.ERower)) {
-		e := erow
+		e := currentERow()
 		if e == nil {
-			aerow, ok := ed.ActiveERower()
-			if !ok {
-				ed.Errorf("%s: no active row", p0)
-				return
-			}
-			e = aerow
+			ed.Errorf("%s: no active row", p0)
+			return
 		}
 		fn(e)
 	}
 
 	switch p0 {
 	case "Exit":
-		layoutOnly(func() { ed.Close() })
+		layoutOnlyCmd(func() { ed.Close() })
 	case "SaveSession":
-		layoutOnly(func() { cmdutil.SaveSession(ed, part) })
+		layoutOnlyCmd(func() { cmdutil.SaveSession(ed, part) })
 	case "OpenSession":
-		layoutOnly(func() { cmdutil.OpenSession(ed, part) })
+		layoutOnlyCmd(func() { cmdutil.OpenSession(ed, part) })
 	case "DeleteSession":
-		layoutOnly(func() { cmdutil.DeleteSession(ed, part) })
+		layoutOnlyCmd(func() { cmdutil.DeleteSession(ed, part) })
 	case "ListSessions":
-		layoutOnly(func() { cmdutil.ListSessions(ed) })
+		layoutOnlyCmd(func() { cmdutil.ListSessions(ed) })
 	case "NewColumn":
-		layoutOnly(func() { _ = ed.ui.Root.Cols.NewColumn() })
+		layoutOnlyCmd(func() { _ = ed.ui.Root.Cols.NewColumn() })
 	case "SaveAllFiles":
-		layoutOnly(func() { cmdutil.SaveRowsFiles(ed) })
+		layoutOnlyCmd(func() { cmdutil.SaveRowsFiles(ed) })
 	case "ReloadAll":
-		layoutOnly(func() { cmdutil.ReloadRows(ed) })
+		layoutOnlyCmd(func() { cmdutil.ReloadRows(ed) })
 	case "ReloadAllFiles":
-		layoutOnly(func() { cmdutil.ReloadRowsFiles(ed) })
+		layoutOnlyCmd(func() { cmdutil.ReloadRowsFiles(ed) })
 	case "NewRow":
-		layoutOnly(func() { cmdutil.NewRow(ed) })
+		layoutOnlyCmd(func() { cmdutil.NewRow(ed) })
 	case "ReopenRow":
-		layoutOnly(func() { ed.reopenRow.Reopen() })
+		layoutOnlyCmd(func() { ed.reopenRow.Reopen() })
 
 	case "ColorTheme":
 		_colorThemeCmd(ed)
@@ -153,10 +160,12 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 	case "FWStatus":
 		_fwStatusCmd(ed)
 
-	case "XdgOpenDir":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.XdgOpenDirShortcut(ed, e) })
+	// TODO: remove: deprecated since it can click on row filename section
 	case "RowDirectory":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.RowDirectory(ed, e) })
+
+	case "XdgOpenDir":
+		erowCmd(func(e cmdutil.ERower) { cmdutil.XdgOpenDirShortcut(ed, e) })
 	case "DuplicateRow":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.DuplicateRow(ed, e) })
 	case "MaximizeRow":
@@ -169,6 +178,8 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		erowCmd(func(e cmdutil.ERower) { e.Row().Close() })
 	case "CloseColumn":
 		erowCmd(func(e cmdutil.ERower) { e.Row().Col.Close() })
+	case "Clear":
+		erowCmd(func(e cmdutil.ERower) { e.Row().TextArea.SetStrClear("", true, false) })
 	case "Find":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.Find(e, part) })
 	case "GotoLine":
@@ -187,8 +198,10 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 		erowCmd(func(e cmdutil.ERower) { cmdutil.CopyFilePosition(ed, e) })
 	case "GoRename":
 		erowCmd(func(e cmdutil.ERower) { cmdutil.GoRename(e, part) })
-	//case "GoDebug":
-	//	erowCmd(func(e cmdutil.ERower) { cmdutil.GoDebug(e, part) })
+
+	case "GoDebug":
+		//erowCmd(func(e cmdutil.ERower) { cmdutil.GoDebug(e, part) })
+		cmdutil.GoDebug(ed, currentERow(), part)
 
 	default:
 		erowCmd(func(e cmdutil.ERower) { cmdutil.ExternalCmd(e, part) })
@@ -197,6 +210,7 @@ func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
 
 func _colorThemeCmd(ed *Editor) {
 	ui.ColorThemeCycler.Cycle()
+	ed.ui.Root.CalcChildsBounds()
 	ed.ui.Root.MarkNeedsPaint()
 }
 func _fontThemeCmd(ed *Editor) {
@@ -204,6 +218,7 @@ func _fontThemeCmd(ed *Editor) {
 	ed.ui.Root.CalcChildsBounds()
 	ed.ui.Root.MarkNeedsPaint()
 }
+
 func _fontRunesCmd(ed *Editor) {
 	var u string
 	for i := 0; i < 15000; {

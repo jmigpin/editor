@@ -3,7 +3,7 @@ package tautil
 import "unicode"
 
 func StartOfLine(ta Texta, sel bool) {
-	i := lineStartIndex(ta.Str(), ta.CursorIndex())
+	i := LineStartIndex(ta.Str(), ta.CursorIndex())
 
 	// stop at first non blank rune from the left
 	t := ta.Str()[i:ta.CursorIndex()]

@@ -1,6 +1,7 @@
 package loopers
 
 import (
+	"fmt"
 	"image"
 	"unicode/utf8"
 
@@ -16,17 +17,16 @@ type String struct {
 
 	Face    font.Face
 	Str     string
-	Ri      int
+	Ri      int // will be equal to len(Str) at end-of-string rune
 	Ru      rune
 	PrevRu  rune
 	Pen     fixed.Point26_6 // upper left corner
 	Kern    fixed.Int26_6
 	Advance fixed.Int26_6
-
-	// set externally - helps detect extra drawn runes (ex: wraplinerune)
-	RiClone bool
-
 	Metrics font.Metrics
+
+	// use externally to help detect extra runes (ex: wraplinerune, annotations)
+	riClone int
 }
 
 func MakeString(face font.Face, str string) String {
@@ -36,14 +36,22 @@ func MakeString(face font.Face, str string) String {
 		Metrics: face.Metrics(),
 	}
 }
+
 func (lpr *String) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.Ri >= len(lpr.Str) {
+		if lpr.Ri > len(lpr.Str) {
+			panic(fmt.Sprintf("ri>len: %v %v", lpr.Ri, len(lpr.Str)))
+		}
+		if lpr.Ri == len(lpr.Str) {
+			// end of string
+			lpr.Ru = 0
+			lpr.riClone = 0
+			_ = lpr.Iterate(fn)
 			return false
 		}
 		ru, w := utf8.DecodeRuneInString(lpr.Str[lpr.Ri:])
 		lpr.Ru = ru
-		lpr.RiClone = false
+		lpr.riClone = 0
 		if !lpr.Iterate(fn) {
 			return false
 		}
@@ -109,6 +117,16 @@ func (lpr *String) LineY0() fixed.Int26_6 {
 }
 func (lpr *String) LineY1() fixed.Int26_6 {
 	return lpr.LineY0() + lpr.LineHeight()
+}
+
+func (lpr *String) PushRiClone() {
+	lpr.riClone++
+}
+func (lpr *String) PopRiClone() {
+	lpr.riClone--
+}
+func (lpr *String) IsRiClone() bool {
+	return lpr.riClone > 0
 }
 
 // Implements PosDataKeeper

@@ -26,7 +26,7 @@ func NewColumn(cols *Columns) *Column {
 	{
 		sep := widget.NewSeparator(col.ui)
 		sep.Size.X = SeparatorWidth
-		sep.PropagateTheme(&DefaultUITheme.TextAreaTheme)
+		sep.PropagateTheme(&UITheme.TextAreaTheme)
 		col.Append(sep)
 		col.SetChildFill(sep, false, true)
 
@@ -73,7 +73,7 @@ func NewColumn(cols *Columns) *Column {
 		noRows.Append(space2)
 		noRows.SetChildFlex(space2, true, true)
 
-		noRows.PropagateTheme(&DefaultUITheme.NoRowColTheme)
+		noRows.PropagateTheme(&UITheme.NoRowColTheme)
 	}
 
 	// rows layout
@@ -126,9 +126,9 @@ func (col *Column) removeRow(row *Row) {
 }
 
 func (col *Column) CalcChildsBounds() {
-	t := &DefaultUITheme.ToolbarTheme
-	col.RowsLayout.MinimumChildSize = RowMinimumHeight(t)
-	col.colSquare.Size = RowSquareSize(t)
+	t := &UITheme.ToolbarTheme
+	col.RowsLayout.MinimumChildSize = UITheme.RowMinimumHeight(t)
+	col.colSquare.Size = UITheme.RowSquareSize(t)
 
 	col.BoxLayout.CalcChildsBounds()
 	col.sepHandle.CalcChildsBounds()

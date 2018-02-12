@@ -17,7 +17,7 @@ type Row struct {
 
 	scrollArea *widget.ScrollArea
 	sep        *widget.Rectangle
-	sepHandle  RowSeparatorHandle
+	sepHandle  *RowSeparatorHandle
 	ui         *UI
 }
 
@@ -32,15 +32,15 @@ func NewRow(col *Column) *Row {
 	{
 		sep := widget.NewSeparator(row.ui)
 		sep.Size.Y = SeparatorWidth
-		sep.Theme = &DefaultUITheme.TextAreaTheme
+		sep.Theme = &UITheme.TextAreaTheme
 		row.Append(sep)
 		row.SetChildFill(sep, true, false)
 
-		row.sepHandle.Init(sep, row)
+		row.sepHandle = NewRowSeparatorHandle(sep, row)
 		row.sepHandle.Top = 3
 		row.sepHandle.Bottom = 3
 		row.sepHandle.Cursor = widget.MoveCursor
-		row.Col.Cols.Root.InsertRowSepHandle(&row.sepHandle)
+		row.Col.Cols.Root.InsertRowSepHandle(row.sepHandle)
 	}
 
 	// toolbar
@@ -52,17 +52,17 @@ func NewRow(col *Column) *Row {
 	{
 		row.TextArea = NewTextArea(row.ui)
 		row.TextArea.HighlightCursorWord = true
-		row.TextArea.Theme = &DefaultUITheme.TextAreaTheme
+		row.TextArea.Theme = &UITheme.TextAreaTheme
 
 		row.scrollArea = widget.NewScrollArea(row.ui, row.TextArea, true, false)
-		row.scrollArea.VSBar.PropagateTheme(&DefaultUITheme.ScrollBarTheme)
+		row.scrollArea.VSBar.PropagateTheme(&UITheme.ScrollBarTheme)
 		row.scrollArea.LeftScroll = ScrollBarLeft
 
 		// toolbar/scrollarea separator
 		if !ShadowsOn {
 			sep := widget.NewSeparator(row.ui)
 			sep.Size.Y = SeparatorWidth
-			sep.Theme = &DefaultUITheme.TextAreaTheme
+			sep.Theme = &UITheme.TextAreaTheme
 			row.Append(sep)
 			row.SetChildFill(sep, true, false)
 		}
@@ -92,15 +92,14 @@ func (row *Row) activate() {
 }
 
 func (row *Row) Close() {
-	row.Col.Cols.Root.Remove(&row.sepHandle)
+	row.Col.Cols.Root.Remove(row.sepHandle)
 	row.Col.removeRow(row)
 	row.Col = nil
 	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
 }
 
 func (row *Row) CalcChildsBounds() {
-	row.scrollArea.ScrollWidth = GetScrollBarWidth(row.TextArea.Theme)
-
+	row.scrollArea.ScrollWidth = UITheme.GetScrollBarWidth(row.TextArea.Theme)
 	row.BoxLayout.CalcChildsBounds()
 	row.sepHandle.CalcChildsBounds()
 }
@@ -161,7 +160,7 @@ func (row *Row) Maximize() {
 }
 
 func (row *Row) resizeWithPushJump(up bool, p *image.Point) {
-	jump := 30
+	jump := 40
 	if up {
 		jump *= -1
 	}

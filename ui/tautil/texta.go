@@ -31,7 +31,6 @@ type Texta interface {
 	OffsetY() int
 	SetOffsetY(v int)
 
-	StrHeight() int
 	LineHeight() int
 
 	GetPoint(int) image.Point

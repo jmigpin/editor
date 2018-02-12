@@ -26,8 +26,6 @@ type ERower interface {
 	IsDir() bool
 	IsRegular() bool
 
-	TextAreaAppendAsync(string) <-chan struct{}
-
 	Flash()
 
 	StartExecState() context.Context
@@ -35,4 +33,8 @@ type ERower interface {
 	ClearExecState(context.Context, func())
 
 	TextAreaWriter() io.WriteCloser
+	TextAreaAppendAsync(string) <-chan struct{}
+	TextAreaStrHashEqual(size int, hash []byte) bool
+
+	UpdateStateAndDuplicates()
 }

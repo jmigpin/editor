@@ -28,12 +28,16 @@ func (lpr *HighlightWord) Loop(fn func() bool) {
 	lpr.hword.on = ok
 	lpr.hword.word = word
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.strl.RiClone {
+		if lpr.strl.IsRiClone() {
 			return fn()
 		}
 		if lpr.colorize() {
-			lpr.dl.Fg = lpr.opt.Fg
-			lpr.bgl.Bg = lpr.opt.Bg
+			if lpr.opt.Fg != nil {
+				lpr.dl.Fg = lpr.opt.Fg
+			}
+			if lpr.opt.Bg != nil {
+				lpr.bgl.Bg = lpr.opt.Bg
+			}
 		}
 		return fn()
 	})

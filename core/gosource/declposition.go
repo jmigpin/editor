@@ -4,83 +4,95 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+
+	"golang.org/x/tools/go/ast/astutil"
 )
 
-// Find index declaration position.
 func DeclPosition(filename string, src interface{}, index int) (*token.Position, *token.Position, error) {
-	info := NewInfo()
-	//info.IncludeTestFiles = true
-
-	// parse main file
-	filename = info.AddPathFile(filename)
-	astFile := info.ParseFile(filename, src)
-	if astFile == nil {
-		return nil, nil, fmt.Errorf("unable to parse file")
+	conf := NewConfig()
+	node, err := declPosition2(conf, filename, src, index)
+	if err != nil {
+		return nil, nil, err
 	}
+	// position
+	posp := conf.FSet.Position(node.Pos())
+	endp := conf.FSet.Position(node.End())
+	return &posp, &endp, nil
+}
 
-	if Debug {
-		info.PrintIdOffsets(astFile)
-	}
-
-	// get index node
-	tokenFile := info.FSet.File(astFile.Package)
-	if tokenFile == nil {
-		return nil, nil, fmt.Errorf("unable to get token file")
-	}
-	indexNode := info.PosNode(info.SafeOffsetPos(tokenFile, index))
-	if indexNode == nil {
-		return nil, nil, fmt.Errorf("index node not found")
-	}
-
-	// must be an id
-	id, ok := indexNode.(*ast.Ident)
+func declPosition2(conf *Config, filename string, src interface{}, index int) (ast.Node, error) {
+	astFile, err, ok := conf.ParseFile(filename, src, 0)
 	if !ok {
-		return nil, nil, fmt.Errorf("index not at an id node")
+		return nil, err
 	}
 
-	// new resolver for the path
-	path := info.PosFilePath(astFile.Package)
-	res := NewResolver(info, path, id)
+	//// DEBUG: find positions for tests
+	//ast.Inspect(astFile, func(node ast.Node) bool {
+	//	if node == nil {
+	//		return false
+	//	}
+	//	p := conf.FSet.Position(node.Pos())
+	//	log.Printf("%v %v %v", reflect.TypeOf(node), node, p.Offset)
+	//	return true
+	//})
 
-	// resolve id declaration
-	node := res.ResolveDecl(id)
-	if node == nil {
-		return nil, nil, fmt.Errorf("id decl not found")
+	// make package path importable and re-import (type check added astfile)
+	conf.MakeFilePkgImportable(filename)
+	_ = conf.ReImportImportables()
+
+	// index token (need parsed file position)
+	tf, err := conf.PosTokenFile(astFile.Package)
+	if tf == nil {
+		return nil, err
+	}
+	start := token.Pos(tf.Base() + index)
+
+	// path to index in astFile
+	path, exact := astutil.PathEnclosingInterval(astFile, start, start)
+
+	// solve only for idents
+	if len(path) == 0 || !exact {
+		return nil, fmt.Errorf("index has no node")
+	}
+	id, ok := path[0].(*ast.Ident)
+	if !ok {
+		return nil, fmt.Errorf("node is not an ident")
 	}
 
-	// improve final node to extract the position
-	switch t := node.(type) {
+	res := NewDeclResolver(conf)
+
+	n, err := res.ResolveDecl(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// improve position
+	switch t := n.(type) {
+	case *Builtin:
+		return conf.BuiltinLookup(t.Name)
 	case *ast.FuncDecl:
-		node = t.Name
+		return t.Name, nil
 	case *ast.TypeSpec:
-		node = t.Name
+		return t.Name, nil
 	case *ast.AssignStmt:
-		lhsi, _ := res.IdAssignStmtRhs(id, t)
-		if lhsi >= 0 {
-			node = t.Lhs[lhsi]
+		for _, e := range t.Lhs {
+			if id2, ok := e.(*ast.Ident); ok && id2.Name == id.Name {
+				return id2, nil
+			}
 		}
 	case *ast.Field:
 		for _, id2 := range t.Names {
 			if id2.Name == id.Name {
-				node = id2
-				break
+				return id2, nil
 			}
 		}
 	case *ast.ValueSpec:
 		for _, id2 := range t.Names {
 			if id2.Name == id.Name {
-				node = id2
-				break
+				return id2, nil
 			}
 		}
-	default:
-		//LogTODO()
-		//Dump(node)
 	}
 
-	// node position
-	posp := info.FSet.Position(node.Pos())
-	endp := info.FSet.Position(node.End())
-	Logf("***result: offset=%v %v", posp.Offset, posp)
-	return &posp, &endp, nil
+	return n, nil
 }

@@ -4,11 +4,10 @@ import "image/color"
 
 type HighlightSegments struct {
 	EmbedLooper
-	strl  *String
-	bgl   *Bg
-	dl    *Draw
-	index int
-	opt   *HighlightSegmentsOpt
+	strl *String
+	bgl  *Bg
+	dl   *Draw
+	opt  *HighlightSegmentsOpt
 }
 
 func MakeHighlightSegments(strl *String, bgl *Bg, dl *Draw, opt *HighlightSegmentsOpt) HighlightSegments {
@@ -16,31 +15,38 @@ func MakeHighlightSegments(strl *String, bgl *Bg, dl *Draw, opt *HighlightSegmen
 }
 
 func (lpr *HighlightSegments) Loop(fn func() bool) {
+	segs := lpr.opt.OrderedSegments
+	index := 0
+
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.strl.RiClone {
+		if lpr.strl.IsRiClone() {
 			return fn()
 		}
-		if lpr.colorize() {
-			lpr.dl.Fg = lpr.opt.Fg
-			lpr.bgl.Bg = lpr.opt.Bg
+
+		colorize := false
+		ri := lpr.strl.Ri
+		for ; index < len(segs); index++ {
+			e := segs[index]
+			start, end := e[0], e[1]
+			if ri < start {
+				break
+			}
+			if ri < end {
+				colorize = true
+				break
+			}
+		}
+
+		if colorize {
+			if lpr.opt.Fg != nil {
+				lpr.dl.Fg = lpr.opt.Fg
+			}
+			if lpr.opt.Bg != nil {
+				lpr.bgl.Bg = lpr.opt.Bg
+			}
 		}
 		return fn()
 	})
-}
-func (lpr *HighlightSegments) colorize() bool {
-	segs := lpr.opt.OrderedSegments
-	ri := lpr.strl.Ri
-	for ; lpr.index < len(segs); lpr.index++ {
-		e := segs[lpr.index]
-		start, end := e[0], e[1]
-		if ri < start {
-			return false
-		}
-		if ri < end {
-			return true
-		}
-	}
-	return false
 }
 
 type HighlightSegmentsOpt struct {

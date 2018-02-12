@@ -5,7 +5,7 @@ import "golang.org/x/image/math/fixed"
 type Line struct {
 	EmbedLooper
 	strl    *String
-	offsetX fixed.Int26_6
+	offsetX fixed.Int26_6 // horizontal scrolling
 }
 
 func MakeLine(strl *String, offsetX fixed.Int26_6) Line {
@@ -13,7 +13,7 @@ func MakeLine(strl *String, offsetX fixed.Int26_6) Line {
 }
 func (lpr *Line) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.strl.RiClone {
+		if lpr.strl.IsRiClone() {
 			return fn()
 		}
 		if ok := fn(); !ok {

@@ -6,6 +6,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
+// TODO: rename to rowreopener
 type ReopenRow struct {
 	ed Editorer
 	q  list.List

@@ -131,7 +131,7 @@ func (bl *BoxLayout) childsBounds(max image.Point, measure bool) map[Node]image.
 				}
 
 				// correct rounding errors on last node
-				if child == lastFlexXNode {
+				if child == lastFlexXNode || child == lastFillXNode {
 					m.X = available.X - (share.X * (nX - 1))
 				}
 

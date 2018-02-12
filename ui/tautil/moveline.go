@@ -10,7 +10,7 @@ func MoveLineUp(ta Texta) {
 	ta.EditOpen()
 	defer ta.EditCloseAfterSetCursor()
 	ta.EditDelete(a, b)
-	a2 := lineStartIndex(ta.Str(), a-1) // previous line, -1 is size of '\n'
+	a2 := LineStartIndex(ta.Str(), a-1) // previous line, -1 is size of '\n'
 	if !hasNewline {
 		ta.EditDelete(a-1, a) // remove newline to honor the moving line
 		s = s + "\n"
@@ -38,7 +38,7 @@ func MoveLineDown(ta Texta) {
 	ta.EditOpen()
 	defer ta.EditCloseAfterSetCursor()
 	ta.EditDelete(a, b)
-	a2, hasNewline := lineEndIndexNextIndex(ta.Str(), a)
+	a2, hasNewline := LineEndIndexNextIndex(ta.Str(), a)
 	if !hasNewline {
 		// remove newline from previous
 		s = s[:len(s)-1]

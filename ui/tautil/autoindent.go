@@ -5,7 +5,7 @@ import "strings"
 func AutoIndent(ta Texta) {
 	// string to insert
 	ci := ta.CursorIndex()
-	k := lineStartIndex(ta.Str(), ci)
+	k := LineStartIndex(ta.Str(), ci)
 	j := strings.IndexFunc(ta.Str()[k:ci], isNotSpace)
 	if j < 0 {
 		// full line of spaces, indent to cursor position

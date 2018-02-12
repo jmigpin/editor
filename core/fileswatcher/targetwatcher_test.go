@@ -102,11 +102,11 @@ func testWatchLeaks(t *testing.T, w *TargetWatcher) {
 		t.Logf("watch entries: %v %v", l1, l2)
 
 		t.Logf("watching %d", len(w.entries.m))
-		for k, _ := range w.entries.m {
+		for k := range w.entries.m {
 			w.Logf("k=%v", k)
 		}
 		t.Logf("inner watching %d", len(w.w.watches.m))
-		for k, _ := range w.w.watches.m {
+		for k := range w.w.watches.m {
 			w.Logf("k=%v", k)
 		}
 

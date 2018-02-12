@@ -15,11 +15,13 @@ func NewRowToolbar(row *Row, tb0 *Toolbar) *RowToolbar {
 }
 
 func (tb *RowToolbar) CalcChildsBounds() {
-	tb.Square.Size = RowSquareSize(tb.Theme)
-	tb.drawer.FirstLineOffsetX = tb.Square.Size.X
-
+	// square size and bounds
+	tb.Square.Size = UITheme.RowSquareSize(tb.Theme)
 	m := tb.Square.Measure(tb.Bounds.Size())
-	r := tb.Bounds
-	r.Max = r.Min.Add(m)
-	tb.Square.Bounds = r
+	sb := tb.Bounds
+	sb.Max = sb.Min.Add(m)
+	tb.Square.Bounds = sb.Intersect(tb.Bounds)
+
+	// drawer FirstLineOffsetX
+	tb.Drawer.Args.FirstLineOffsetX = tb.Square.Size.X
 }

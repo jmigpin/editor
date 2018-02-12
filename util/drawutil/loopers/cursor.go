@@ -19,7 +19,7 @@ func MakeCursor(strl *String, dl *Draw, bounds *image.Rectangle, index int) Curs
 }
 func (lpr *Cursor) Loop(fn func() bool) {
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.strl.RiClone {
+		if lpr.strl.IsRiClone() {
 			return fn()
 		}
 		if lpr.strl.Ri == lpr.index {
@@ -27,10 +27,6 @@ func (lpr *Cursor) Loop(fn func() bool) {
 		}
 		return fn()
 	})
-	// draw past last position if at str len
-	if !lpr.strl.RiClone && lpr.strl.Ri == lpr.index && lpr.index == len(lpr.strl.Str) {
-		lpr.drawCursor()
-	}
 }
 func (lpr *Cursor) drawCursor() {
 	img := lpr.dl.Image

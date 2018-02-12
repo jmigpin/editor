@@ -11,7 +11,7 @@ func TabRight(ta Texta) {
 	str := ta.Str()[a:b]
 
 	// insert at line start
-	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
+	for i := 0; i < len(str); i, _ = LineEndIndexNextIndex(str, i) {
 		str = str[:i] + string('\t') + str[i:]
 	}
 
@@ -34,7 +34,7 @@ func TabLeft(ta Texta) {
 	// remove from line start
 	altered := false
 	deletions := 0
-	for i := 0; i < len(str); i, _ = lineEndIndexNextIndex(str, i) {
+	for i := 0; i < len(str); i, _ = LineEndIndexNextIndex(str, i) {
 		if str[i] == '\t' || str[i] == ' ' {
 			altered = true
 			deletions++

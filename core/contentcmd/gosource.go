@@ -15,6 +15,9 @@ func goSource(erow cmdutil.ERower, strIndex int) bool {
 	if path.Ext(erow.Filename()) != ".go" {
 		return false
 	}
+
+	// TODO: erow exec ctx
+
 	ta := erow.Row().TextArea
 	pos, end, err := gosource.DeclPosition(erow.Filename(), ta.Str(), strIndex)
 	if err != nil {
@@ -70,7 +73,7 @@ func goSourceOpenPosition(erow cmdutil.ERower, pos, end *token.Position) {
 	}
 
 	// show position on selected rows
-	for e, _ := range m {
+	for e := range m {
 		row2 := e.Row()
 		row2.ResizeTextAreaIfVerySmall()
 		ta2 := row2.TextArea

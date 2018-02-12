@@ -23,9 +23,11 @@ func (lpr *FlashSelection) Loop(fn func() bool) {
 		s, e = e, s
 	}
 	lpr.OuterLooper().Loop(func() bool {
-		if lpr.strl.RiClone {
-			return fn()
-		}
+		// commented: flash wraplines and annotations
+		//if lpr.strl.IsRiClone() {
+		//	return fn()
+		//}
+
 		if lpr.strl.Ri >= s && lpr.strl.Ri < e {
 			p := lpr.opt.Perc
 			lpr.dl.Fg = imageutil.TintOrShade(lpr.dl.Fg, p)
@@ -46,6 +48,6 @@ type FlashSelectionOpt struct {
 	Perc       float64
 	Start, End int
 
-	// Background to use if the bg has not been set yet by other extensions. This should be the textarea normal background color..
+	// Background to use if the bg has not been set yet by other extensions. This should be the textarea normal background color.
 	Bg color.Color
 }

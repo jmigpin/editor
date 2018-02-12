@@ -76,12 +76,12 @@ func linesStringIndexes(ta Texta) (int, int, bool) {
 		a = ta.CursorIndex()
 		b = a
 	}
-	a = lineStartIndex(ta.Str(), a)
-	b, hasNewline := lineEndIndexNextIndex(ta.Str(), b)
+	a = LineStartIndex(ta.Str(), a)
+	b, hasNewline := LineEndIndexNextIndex(ta.Str(), b)
 	return a, b, hasNewline
 }
 
-func lineStartIndex(str string, index int) int {
+func LineStartIndex(str string, index int) int {
 	i := strings.LastIndex(str[:index], "\n")
 	if i < 0 {
 		i = 0
@@ -91,7 +91,7 @@ func lineStartIndex(str string, index int) int {
 	return i
 }
 
-func lineEndIndexNextIndex(str string, index int) (_ int, hasNewline bool) {
+func LineEndIndexNextIndex(str string, index int) (_ int, hasNewline bool) {
 	i := strings.Index(str[index:], "\n")
 	if i < 0 {
 		return len(str), false

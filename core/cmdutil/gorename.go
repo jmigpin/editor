@@ -42,7 +42,7 @@ func GoRename(erow ERower, part *toolbardata.Part) {
 		if err != nil {
 			erow.Ed().Error(err)
 		} else {
-			erow.Ed().UI().RunOnUIThread(func() {
+			erow.Ed().UI().RunOnUIGoRoutine(func() {
 				ReloadRow(erow)
 			})
 		}

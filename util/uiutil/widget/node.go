@@ -30,27 +30,21 @@ type Node interface {
 
 type EmbedNode struct {
 	Bounds image.Rectangle
-	Cursor Cursor
 	Theme  *Theme
+	Cursor Cursor
 
 	wrapper Node
 	childs  list.List
 	elem    *list.Element
 	parent  *EmbedNode
 
-	marks     Marks
+	marks Marks
+	// TODO: remove locks, all node functions should then be called on the UIGoRoutine
 	marksLock sync.RWMutex // allow marks from non-paint goroutines
 }
 
 func (en *EmbedNode) Embed() *EmbedNode {
 	return en
-}
-
-func (en *EmbedNode) PropagateTheme(t *Theme) {
-	en.Theme = t
-	en.IterChilds(func(c Node) {
-		c.Embed().PropagateTheme(t)
-	})
 }
 
 // Only the root node should need to set the wrapper explicitly.
@@ -379,6 +373,13 @@ func (en *EmbedNode) PaintChilds() {
 	})
 }
 
+func (en *EmbedNode) PropagateTheme(t *Theme) {
+	en.Theme = t
+	en.IterChilds(func(c Node) {
+		c.Embed().PropagateTheme(t)
+	})
+}
+
 //// unable to use at the moment: need to ensure top layer drawing order
 //func (en *EmbedNode) PaintChilds2() {
 //	var wg sync.WaitGroup
@@ -398,6 +399,17 @@ func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
 
 type Marks uint16
 
+func (m *Marks) add(u Marks)      { *m |= u }
+func (m *Marks) remove(u Marks)   { *m &^= u }
+func (m *Marks) has(u Marks) bool { return *m&u > 0 }
+func (m *Marks) set(u Marks, v bool) {
+	if v {
+		m.add(u)
+	} else {
+		m.remove(u)
+	}
+}
+
 const (
 	NeedsPaintMark Marks = 1 << iota
 	ChildNeedsPaintMark
@@ -409,23 +421,6 @@ const (
 	// For transparent widgets that cross 2 or more other widgets (ex: separatorHandle). Improves on detecting if others need paint and reduces the number of widgets that get painted. Child nodes can still be painted.
 	NotPaintableMark
 )
-
-func (m *Marks) add(u Marks) {
-	*m |= u
-}
-func (m *Marks) remove(u Marks) {
-	*m &^= u
-}
-func (m *Marks) has(u Marks) bool {
-	return *m&u > 0
-}
-func (m *Marks) set(u Marks, v bool) {
-	if v {
-		m.add(u)
-	} else {
-		m.remove(u)
-	}
-}
 
 func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 	if node.Embed().NeedsPaint() {

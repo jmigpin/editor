@@ -19,16 +19,18 @@ type TextArea struct {
 	widget.EmbedNode
 	EvReg               *evreg.Register
 	HighlightCursorWord bool
-	CommentStr          string
-	CommentStrEnclosed  [2]string   // start, end
 	FlexibleParent      widget.Node // for dynamic text areas that change size
 
+	Drawer  *hsdrawer.HSDrawer
+	History *tahistory.History
+
+	commentStr         string
+	commentStrEnclosed [2]string // start, end
+
 	ui            *UI
-	drawer        hsdrawer.HSDrawer
 	scroller      widget.Scroller
 	defaultCursor widget.Cursor
 
-	history        *tahistory.History
 	edit           *tahistory.Edit
 	editStr        string
 	editOpenCursor int
@@ -44,7 +46,8 @@ type TextArea struct {
 	flashLine struct {
 		on    bool
 		start time.Time
-		p     image.Point
+		p1    image.Point
+		p2    image.Point
 	}
 	flashIndex struct {
 		on         bool
@@ -56,8 +59,9 @@ type TextArea struct {
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui}
 
+	ta.Drawer = &hsdrawer.HSDrawer{}
 	ta.EvReg = evreg.NewRegister()
-	ta.history = tahistory.NewHistory(128)
+	ta.History = tahistory.NewHistory(128)
 
 	ta.defaultCursor = widget.NoneCursor
 	ta.Cursor = ta.defaultCursor
@@ -66,24 +70,39 @@ func NewTextArea(ui *UI) *TextArea {
 }
 
 func (ta *TextArea) Measure(hint image.Point) image.Point {
-	d := &ta.drawer
-	d.Str = ta.str
-	d.Face = ta.Theme.Font().Face(nil)
-	d.WrapLineOpt = ta.getDrawWrapLineOpt()
-	d.ColorizeOpt = ta.getDrawCommentsOpt() // needed at measure to keep state
+	d := ta.Drawer
+	d.Args.Face = ta.Theme.Font().Face(nil)
+	d.Args.WrapLineOpt = ta.wrapLineOpt()
+	d.Args.ColorizeOpt = ta.colorizeOpt()
+	d.Args.AnnotationsOpt = ta.annotationsOpt()
 
-	// keep offset for restoration of offset index
+	//// TESTING
+	//d.AnnotationsOpt = &loopers.AnnotationsOpt{
+	//	Fg: color.White,
+	//	Bg: color.RGBA{100, 0, 0, 255},
+	//}
+	//for i := 0; i < 1000; i++ {
+	//	u := &d.AnnotationsOpt.OrderedEntries
+	//	*u = append(*u, &loopers.AnnotationsEntry{i * 10, fmt.Sprintf("entry %v", i)})
+	//}
+
+	// keep offset for restoration of accurate offset index
 	offsetIndex := 0
-	neededMeasure := d.NeedMeasure(hint)
+	indexOffsetY := 0
+	neededMeasure := d.NeedMeasure(hint.X)
 	if neededMeasure {
 		offsetIndex = ta.OffsetIndex()
+		p := ta.Drawer.GetPoint(offsetIndex)
+		indexOffsetY = ta.offset.Y - p.Y
 	}
 
 	m := d.Measure(hint)
 
 	// restore offset to keep the same first line while resizing
 	if neededMeasure {
-		ta.SetOffsetIndex(offsetIndex)
+		p := ta.Drawer.GetPoint(offsetIndex)
+		p.Y += indexOffsetY
+		ta.SetOffsetY(p.Y)
 	}
 
 	return m
@@ -95,57 +114,86 @@ func (ta *TextArea) CalcChildsBounds() {
 	ta.updateScroller()
 }
 
-func (ta *TextArea) StrHeight() int {
-	h := ta.drawer.MeasurementFullY().Y
-	min := ta.LineHeight()
-	if h < min {
-		h = min
-	}
-	return h
-}
-
 func (ta *TextArea) Paint() {
+	// nothing to do
+	if ta.Bounds.Dx() == 0 {
+		// TODO: improve possible boxlayout requesting a paint with zero at init
+		//debug.PrintStack()
+		return
+	}
+
 	bounds := ta.Bounds
+
 	pal := ta.Theme.Palette()
 
 	// fill background
 	imageutil.FillRectangle(ta.ui.Image(), &bounds, pal.Normal.Bg)
+	ta.paintFlashLineBg()
 
-	d := ta.drawer
+	d := ta.Drawer
 	d.CursorIndex = &ta.cursorIndex
 	d.Offset = ta.offset
 	d.Fg = pal.Normal.Fg
-	d.WrapLineOpt = ta.getDrawWrapLineOpt()
-	d.ColorizeOpt = ta.getDrawCommentsOpt()
-	d.SelectionOpt = ta.getDrawSelectionOpt()
-	d.FlashSelectionOpt = ta.getDrawFlashSelectionOpt()
-	d.HighlightWordOpt = ta.getDrawHighlightWordOpt()
+	d.SelectionOpt = ta.selectionOpt()
+	d.FlashSelectionOpt = ta.flashSelectionOpt()
+	d.HighlightWordOpt = ta.highlightWordOpt()
 
 	d.Draw(ta.ui.Image(), &bounds)
-
-	ta.paintFlashLine()
 }
 
-func (ta *TextArea) getDrawCommentsOpt() *loopers.ColorizeOpt {
-	if ta.CommentStr == "" && ta.CommentStrEnclosed == [2]string{} {
+func (ta *TextArea) annotationsOpt() *loopers.AnnotationsOpt {
+	opt := ta.Drawer.Args.AnnotationsOpt // reuse drawer instance to avoid recalc
+	if opt == nil {
 		return nil
 	}
-	return &loopers.ColorizeOpt{
-		Comment: loopers.ColorizeCommentOpt{
-			Line:     ta.CommentStr,
-			Enclosed: ta.CommentStrEnclosed,
-			Fg:       GetTextAreaCommentsFg(),
-		},
-	}
+	fg, bg := UITheme.AnnotationsColors()
+	opt.Fg = fg
+	opt.Bg = bg
+	return opt
 }
-func (ta *TextArea) getDrawWrapLineOpt() *loopers.WrapLineOpt {
-	fgbg := NoSelectionColors(ta.Theme)
-	return &loopers.WrapLineOpt{
-		Fg: fgbg.Fg,
-		Bg: fgbg.Bg,
-	}
+func (ta *TextArea) SetAnnotationsOrderedEntries(entries []*loopers.AnnotationsEntry) {
+	// create new instance on drawer to use new entries
+	ta.Drawer.Args.AnnotationsOpt = &loopers.AnnotationsOpt{OrderedEntries: entries}
 }
-func (ta *TextArea) getDrawHighlightWordOpt() *loopers.HighlightWordOpt {
+
+func (ta *TextArea) colorizeOpt() *loopers.ColorizeOpt {
+	// don't colorize if the comments are not set
+	if ta.commentStr == "" && ta.commentStrEnclosed == [2]string{} {
+		return nil
+	}
+
+	opt := ta.Drawer.Args.ColorizeOpt // reuse drawer instance to avoid recalc
+	if opt == nil {
+		opt = &loopers.ColorizeOpt{}
+	}
+	opt.Comment.Fg = UITheme.GetTextAreaCommentsFg()
+	return opt
+}
+
+func (ta *TextArea) SetCommentStrings(cstr string, cstre [2]string) {
+	ta.commentStr = cstr
+	ta.commentStrEnclosed = cstre
+	// create new instance to use the new settings
+	ta.Drawer.Args.ColorizeOpt = &loopers.ColorizeOpt{}
+	ta.Drawer.Args.ColorizeOpt.Comment.Line = ta.commentStr
+	ta.Drawer.Args.ColorizeOpt.Comment.Enclosed = ta.commentStrEnclosed
+}
+func (ta *TextArea) CommentString() string {
+	return ta.commentStr
+}
+
+func (ta *TextArea) wrapLineOpt() *loopers.WrapLineOpt {
+	fg, bg := UITheme.NoSelectionColors(ta.Theme)
+	opt := ta.Drawer.Args.WrapLineOpt // reuse drawer instance to avoid recalc
+	if opt == nil {
+		opt = &loopers.WrapLineOpt{}
+	}
+	opt.Fg = fg
+	opt.Bg = bg
+	return opt
+}
+
+func (ta *TextArea) highlightWordOpt() *loopers.HighlightWordOpt {
 	if !ta.HighlightCursorWord {
 		return nil
 	}
@@ -161,7 +209,7 @@ func (ta *TextArea) getDrawHighlightWordOpt() *loopers.HighlightWordOpt {
 		Bg:    pal.Highlight.Bg,
 	}
 }
-func (ta *TextArea) getDrawSelectionOpt() *loopers.SelectionOpt {
+func (ta *TextArea) selectionOpt() *loopers.SelectionOpt {
 	if ta.SelectionOn() {
 		pal := ta.Theme.Palette()
 		return &loopers.SelectionOpt{
@@ -174,7 +222,7 @@ func (ta *TextArea) getDrawSelectionOpt() *loopers.SelectionOpt {
 	return nil
 }
 
-func (ta *TextArea) paintFlashLine() {
+func (ta *TextArea) paintFlashLineBg() {
 	if !ta.flashLine.on {
 		return
 	}
@@ -190,10 +238,11 @@ func (ta *TextArea) paintFlashLine() {
 	}
 
 	// rectangle to paint
+	y1 := ta.flashLine.p1.Y - ta.OffsetY()
+	y2 := ta.flashLine.p2.Y - ta.OffsetY()
 	r := ta.Bounds
-	r.Min.Y += ta.flashLine.p.Y - ta.OffsetY()
-	r.Max.Y = r.Min.Y + ta.LineHeight()
-	//r.Min.X += ta.flashLine.p.X // start flash from p.X
+	r.Min.Y += y1
+	r.Max.Y = r.Min.Y + (y2 - y1) + ta.LineHeight()
 	r = r.Intersect(ta.Bounds)
 
 	// tint percentage
@@ -211,12 +260,12 @@ func (ta *TextArea) paintFlashLine() {
 	}
 
 	// need to keep painting while flashing
-	ta.ui.RunOnUIThread(func() {
+	ta.ui.RunOnUIGoRoutine(func() {
 		ta.MarkNeedsPaint()
 	})
 }
 
-func (ta *TextArea) getDrawFlashSelectionOpt() *loopers.FlashSelectionOpt {
+func (ta *TextArea) flashSelectionOpt() *loopers.FlashSelectionOpt {
 	if !ta.flashIndex.on {
 		return nil
 	}
@@ -243,7 +292,7 @@ func (ta *TextArea) getDrawFlashSelectionOpt() *loopers.FlashSelectionOpt {
 	}
 
 	// need to keep painting while flashing
-	ta.ui.RunOnUIThread(func() {
+	ta.ui.RunOnUIGoRoutine(func() {
 		ta.MarkNeedsPaint()
 	})
 
@@ -252,17 +301,40 @@ func (ta *TextArea) getDrawFlashSelectionOpt() *loopers.FlashSelectionOpt {
 
 // Safe to use concurrently. Handles flashing the line independently of the number of runes that it contain, even if zero.
 func (ta *TextArea) FlashIndexLine(index int) {
-	ta.ui.RunOnUIThread(func() {
+	ta.ui.RunOnUIGoRoutine(func() {
+		// start/end line indexes
+		i0, i1 := 0, 0
+		al := 0
+		if index < len(ta.Str()) {
+			i0 = tautil.LineStartIndex(ta.Str(), index)
+			u, nl := tautil.LineEndIndexNextIndex(ta.Str(), index)
+			if nl {
+				u--
+				// include newline index to flash annotations if present (they stay on newline index) but don't include the next line for flash (not added to "l").
+				al = 1
+			}
+			i1 = u
+		}
+
+		// flash index (accurate runes)
+		ta.flashIndex.on = true
+		ta.flashIndex.start = time.Now()
+		ta.flashIndex.index = i0
+		ta.flashIndex.len = i1 - i0 + al
+
+		// flash line bg
 		ta.flashLine.on = true
-		ta.flashLine.start = time.Now()
-		ta.flashLine.p = ta.drawer.GetPoint(index)
+		ta.flashLine.start = ta.flashIndex.start
+		ta.flashLine.p1 = ta.Drawer.GetPoint(i0)
+		ta.flashLine.p2 = ta.Drawer.GetPoint(i1)
+
 		ta.MarkNeedsPaint()
 	})
 }
 
 // Safe to use concurrently. Handles segments that span over more then one line.
 func (ta *TextArea) FlashIndexLen(index, len int) {
-	ta.ui.RunOnUIThread(func() {
+	ta.ui.RunOnUIGoRoutine(func() {
 		ta.flashIndex.on = true
 		ta.flashIndex.start = time.Now()
 		ta.flashIndex.index = index
@@ -284,6 +356,7 @@ func (ta *TextArea) setStr(s string) {
 		return
 	}
 	ta.str = s
+	ta.Drawer.Args.Str = ta.str
 
 	// ensure valid indexes
 	ta.SetCursorIndex(ta.CursorIndex())
@@ -295,6 +368,7 @@ func (ta *TextArea) setStr(s string) {
 
 		// should trigger a call to ta.CalcChildsBounds
 		ta.FlexibleParent.CalcChildsBounds()
+		ta.FlexibleParent.Embed().MarkNeedsPaint()
 
 		// Keep pointer inside if it was in before.
 		// Need to test if it was in before to avoid warping on all changes.
@@ -305,9 +379,8 @@ func (ta *TextArea) setStr(s string) {
 		}
 	} else {
 		ta.CalcChildsBounds()
+		ta.MarkNeedsPaint()
 	}
-
-	ta.MarkNeedsPaint()
 
 	ev := &TextAreaSetStrEvent{ta}
 	ta.EvReg.RunCallbacks(TextAreaSetStrEventId, ev)
@@ -321,7 +394,7 @@ func (ta *TextArea) SetStrClear(str string, clearPosition, clearUndoQ bool) {
 		ta.SetOffsetY(0)
 	}
 	if clearUndoQ {
-		ta.history.Clear()
+		ta.History.Clear()
 		ta.setStr(str)
 	} else {
 		// replace string with edit to allow undo
@@ -361,8 +434,8 @@ func (ta *TextArea) EditCloseAfterSetCursor() {
 	c1 := ta.editOpenCursor
 	c2 := ta.CursorIndex()
 	ta.edit.SetOpenCloseCursors(c1, c2)
-	ta.history.PushEdit(ta.edit)
-	tahistory.TryToMergeLastTwoEdits(ta.history)
+	ta.History.PushEdit(ta.edit)
+	tahistory.TryToMergeLastTwoEdits(ta.History)
 
 	u := ta.editStr
 	cleanup()
@@ -370,7 +443,7 @@ func (ta *TextArea) EditCloseAfterSetCursor() {
 }
 
 func (ta *TextArea) undo() {
-	s, i, ok := ta.history.Undo(ta.Str())
+	s, i, ok := ta.History.Undo(ta.Str())
 	if !ok {
 		return
 	}
@@ -379,7 +452,7 @@ func (ta *TextArea) undo() {
 	ta.SetSelectionOff()
 }
 func (ta *TextArea) redo() {
-	s, i, ok := ta.history.Redo(ta.Str())
+	s, i, ok := ta.History.Redo(ta.Str())
 	if !ok {
 		return
 	}
@@ -456,14 +529,15 @@ func (ta *TextArea) SetOffsetY(v int) {
 	ta.updateScroller()
 }
 func (ta *TextArea) _setOffset(o image.Point) {
+	// must have a scroller to change the offset
+	if ta.scroller == nil {
+		return
+	}
 	o = imageutil.MaxPoint(o, image.Point{0, 0})
-	o = imageutil.MinPoint(o, ta.drawer.MeasurementFullY())
+	o = imageutil.MinPoint(o, ta.Drawer.MeasurementFullY())
 	if o != ta.offset {
-		// must have a scroller to change the offset
-		if ta.scroller != nil {
-			ta.offset = o
-			ta.MarkNeedsPaint()
-		}
+		ta.offset = o
+		ta.MarkNeedsPaint()
 	}
 }
 
@@ -474,10 +548,10 @@ func (ta *TextArea) updateScroller() {
 }
 
 func (ta *TextArea) OffsetIndex() int {
-	return ta.drawer.GetIndex(&ta.offset)
+	return ta.Drawer.GetIndex(&ta.offset)
 }
 func (ta *TextArea) SetOffsetIndex(i int) {
-	p := ta.drawer.GetPoint(i)
+	p := ta.Drawer.GetPoint(i)
 	ta.SetOffsetY(p.Y)
 }
 
@@ -489,7 +563,7 @@ func (ta *TextArea) MakeIndexVisible(index int) {
 	y1 := y0 + ta.Bounds.Dy()
 
 	// is all visible
-	a0 := ta.drawer.GetPoint(index).Y
+	a0 := ta.Drawer.GetPoint(index).Y
 	a1 := a0 + ta.LineHeight()
 	if a0 >= y0 && a1 <= y1 {
 		return
@@ -518,7 +592,7 @@ func (ta *TextArea) IndexIsVisible(index int) bool {
 	y1 := y0 + ta.Bounds.Dy()
 
 	// is all visible
-	a0 := ta.drawer.GetPoint(index).Y
+	a0 := ta.Drawer.GetPoint(index).Y
 	a1 := a0 + ta.LineHeight()
 	if a0 >= y0 && a1 <= y1 {
 		return true
@@ -527,11 +601,13 @@ func (ta *TextArea) IndexIsVisible(index int) bool {
 }
 
 func (ta *TextArea) MakeIndexVisibleAtCenter(index int) {
-	// set at half bounds
-	p0 := ta.drawer.GetPoint(index).Y
-	half := (ta.Bounds.Dy() - ta.LineHeight()) / 2
-	offsetY := p0 - half
-	ta.SetOffsetY(offsetY)
+	//// set at half bounds
+	//p0 := ta.Drawer.GetPoint(index).Y
+	//half := (ta.Bounds.Dy() - ta.LineHeight()) / 2
+	//offsetY := p0 - half
+	//ta.SetOffsetY(offsetY)
+
+	ta.MakeIndexVisible(index)
 }
 
 func (ta *TextArea) GetCPPaste(i event.CopyPasteIndex) (string, error) {
@@ -542,14 +618,14 @@ func (ta *TextArea) SetCPCopy(i event.CopyPasteIndex, v string) error {
 }
 
 func (ta *TextArea) LineHeight() int {
-	return ta.drawer.LineHeight()
+	return ta.Drawer.LineHeight()
 }
 
 func (ta *TextArea) GetPoint(i int) image.Point {
-	return ta.drawer.GetPoint(i)
+	return ta.Drawer.GetPoint(i)
 }
 func (ta *TextArea) GetIndex(p *image.Point) int {
-	return ta.drawer.GetIndex(p)
+	return ta.Drawer.GetIndex(p)
 }
 
 func (ta *TextArea) IndexPoint(i int) image.Point {
@@ -568,6 +644,21 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	case *event.KeyDown:
 		ta.onKeyDown(ev)
 	case *event.MouseDown:
+
+		// annotations
+		switch ev.Button {
+		case event.ButtonWheelUp, event.ButtonWheelDown:
+			if ev.Modifiers.HasAny(event.ModControl) {
+				if ta.annotationMouseDown(ev, true) {
+					return true
+				}
+			}
+		default:
+			if ta.annotationMouseDown(ev, false) {
+				return true
+			}
+		}
+
 		switch ev.Button {
 		case event.ButtonRight:
 			ta.Cursor = widget.PointerCursor
@@ -640,6 +731,25 @@ func (ta *TextArea) onMouseTripleClick(ev *event.MouseTripleClick) bool {
 	case event.ButtonLeft:
 		tautil.MoveCursorToPoint(ta, &ev.Point, false)
 		tautil.SelectLine(ta)
+		return true
+	}
+	return false
+}
+
+func (ta *TextArea) annotationMouseDown(ev *event.MouseDown, force bool) bool {
+	// annotations index
+	p2 := ev.Point.Sub(ta.Bounds.Min)
+	p2.Y += ta.OffsetY()
+	ai, aio, ok := ta.Drawer.GetAnnotationsIndex(&p2)
+
+	// still send event with index -1
+	if !ok && force {
+		ai, aio, ok = -1, -1, true
+	}
+
+	if ok {
+		ev3 := &TextAreaAnnotationClickEvent{ta, ai, aio, ev.Button}
+		ta.EvReg.RunCallbacks(TextAreaAnnotationClickEventId, ev3)
 		return true
 	}
 	return false
@@ -814,24 +924,13 @@ func (ta *TextArea) onKeyDown2(ev *event.KeyDown) {
 }
 
 func (ta *TextArea) InsertStringAsync(str string) {
-	ta.ui.RunOnUIThread(func() {
+	ta.ui.RunOnUIGoRoutine(func() {
 		tautil.InsertString(ta, str)
 	})
 }
 
-func (ta *TextArea) History() *tahistory.History {
-	return ta.history
-}
-func (ta *TextArea) SetHistory(h *tahistory.History) {
-	ta.history = h
-}
-
 func (ta *TextArea) GetBounds() image.Rectangle {
 	return ta.Bounds
-}
-
-func (ta *TextArea) CommentString() string {
-	return ta.CommentStr
 }
 
 func (ta *TextArea) Error(err error) {
@@ -857,7 +956,7 @@ func (ta *TextArea) ScrollableSize() image.Point {
 	//y := ta.StrHeight() + extra
 	//return image.Point{ta.Bounds.Dx(), y}
 
-	m := ta.drawer.MeasurementFullY()
+	m := ta.Drawer.MeasurementFullY()
 	m.Y += extra
 	return m
 }
@@ -873,8 +972,9 @@ func (ta *TextArea) ScrollableScrollJump() int {
 }
 
 const (
-	TextAreaCmdEventId = iota
-	TextAreaSetStrEventId
+	TextAreaSetStrEventId = iota
+	TextAreaCmdEventId
+	TextAreaAnnotationClickEventId
 )
 
 type TextAreaCmdEvent struct {
@@ -883,4 +983,10 @@ type TextAreaCmdEvent struct {
 }
 type TextAreaSetStrEvent struct {
 	TextArea *TextArea
+}
+type TextAreaAnnotationClickEvent struct {
+	TextArea    *TextArea
+	Index       int
+	IndexOffset int
+	Button      event.MouseButton
 }

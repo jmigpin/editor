@@ -33,15 +33,14 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		b.PropagateTheme(b.orig)
 	}
 	restoreSwitchedColor := func() {
-		p := *b.orig.Palette()
-		p.Normal.Fg, p.Normal.Bg = p.Normal.Bg, p.Normal.Fg
-
-		// ensure a theme instance to hold the new pallete
+		// new theme to propagate
 		var t Theme
 		if b.orig != nil {
 			t = *b.orig
 		}
-
+		// switch colors
+		p := *t.Palette()
+		p.Normal.Fg, p.Normal.Bg = p.Normal.Bg, p.Normal.Fg
 		t.SetPalette(&p)
 		b.PropagateTheme(&t)
 	}

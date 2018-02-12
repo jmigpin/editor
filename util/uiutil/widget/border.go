@@ -1,7 +1,10 @@
 package widget
 
+import "image/color"
+
 type Border struct {
 	*Pad
+	fg color.Color
 }
 
 func NewBorder(ctx ImageContext, child Node) *Border {

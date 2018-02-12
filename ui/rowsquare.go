@@ -25,12 +25,11 @@ func (sq *RowSquare) Measure(hint image.Point) image.Point {
 }
 
 func (sq *RowSquare) Paint() {
-	b := sq.Bounds
 	img := sq.row.ui.Image()
 
 	// background
-	t := &DefaultUITheme
-	bg := NoSelectionColors(&t.ToolbarTheme).Bg
+	t := UITheme
+	_, bg := t.NoSelectionColors(&t.ToolbarTheme)
 	if sq.state.has(EditedRowState) {
 		bg = t.RowSquare.Edited
 	}
@@ -40,7 +39,7 @@ func (sq *RowSquare) Paint() {
 	if sq.state.has(ExecutingRowState) {
 		bg = t.RowSquare.Executing
 	}
-	imageutil.FillRectangle(img, &b, bg)
+	imageutil.FillRectangle(img, &sq.Bounds, bg)
 
 	// mini-squares
 	if sq.state.has(ActiveRowState) {
@@ -55,31 +54,43 @@ func (sq *RowSquare) Paint() {
 		r := sq.miniSq(2)
 		imageutil.FillRectangle(img, &r, t.RowSquare.Duplicate)
 	}
-	if sq.state.has(HighlightDuplicateRowState) {
+	if sq.state.has(DuplicateHighlightRowState) {
 		r := sq.miniSq(2)
-		imageutil.FillRectangle(img, &r, t.RowSquare.HighlightDuplicate)
+		imageutil.FillRectangle(img, &r, t.RowSquare.DuplicateHighlight)
+	}
+	if sq.state.has(AnnotationsRowState) {
+		r := sq.miniSq(3)
+		imageutil.FillRectangle(img, &r, t.RowSquare.Annotations)
+	}
+	if sq.state.has(AnnotationsEditedRowState) {
+		r := sq.miniSq(3)
+		imageutil.FillRectangle(img, &r, t.RowSquare.AnnotationsEdited)
 	}
 }
 func (sq *RowSquare) miniSq(i int) image.Rectangle {
+	// mini squares
 	// [0,1]
 	// [2,3]
-	sideX := sq.Size.X / 2
-	sideY := sq.Size.Y / 2
+
+	// mini square rectangle
+	maxXI, maxYI := 1, 1
+	sideX, sideY := sq.Size.X/(maxXI+1), sq.Size.Y/(maxYI+1)
+	x, y := i%2, i/2
 	r := image.Rect(0, 0, sideX, sideY)
-	x := i % 2
-	y := i / 2
-	r = r.Add(image.Point{x * sideX, y * sideY}).Add(sq.Bounds.Min)
-	r = r.Intersect(sq.Bounds)
+	r = r.Add(image.Point{x * sideX, y * sideY})
 
 	// avoid rounding errors
-	if x == 1 {
-		r.Max.X = sq.Bounds.Max.X
+	if x == maxXI {
+		r.Max.X = sq.Size.X
 	}
-	if y == 1 {
-		r.Max.Y = sq.Bounds.Max.Y
+	if y == maxYI {
+		r.Max.Y = sq.Size.Y
 	}
 
-	return r
+	// mini square position
+	r2 := r.Add(sq.Bounds.Min).Intersect(sq.Bounds)
+
+	return r2
 }
 
 func (sq *RowSquare) SetState(s RowState, v bool) {
@@ -100,11 +111,11 @@ func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) bool {
 	return true
 }
 
-type RowState uint8
+type RowState uint16
 
 func (m *RowState) add(u RowState)      { *m |= u }
 func (m *RowState) remove(u RowState)   { *m &^= u }
-func (m *RowState) has(u RowState) bool { return *m&u > 0 }
+func (m *RowState) has(u RowState) bool { return (*m)&u > 0 }
 func (m *RowState) set(u RowState, v bool) {
 	if v {
 		m.add(u)
@@ -120,5 +131,7 @@ const (
 	DiskChangesRowState
 	NotExistRowState
 	DuplicateRowState
-	HighlightDuplicateRowState
+	DuplicateHighlightRowState
+	AnnotationsRowState
+	AnnotationsEditedRowState
 )

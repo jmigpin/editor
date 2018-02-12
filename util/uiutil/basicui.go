@@ -86,11 +86,16 @@ func (ui *BasicUI) UpdateImageSize() {
 	}
 }
 
+func (ui *BasicUI) TimetoNextPaint() (time.Duration, time.Time) {
+	now := time.Now()
+	frameTime := time.Second / time.Duration(ui.DrawFrameRate)
+	return frameTime - now.Sub(ui.lastPaint), now
+}
+
 // This function should be called in the event loop after every event.
 func (ui *BasicUI) PaintIfTime() {
-	now := time.Now()
-	d := now.Sub(ui.lastPaint)
-	canPaint := d > (time.Second / time.Duration(ui.DrawFrameRate))
+	d, now := ui.TimetoNextPaint()
+	canPaint := d < 0
 	if canPaint {
 		painted := ui.paintIfNeeded()
 		if painted {
@@ -182,7 +187,7 @@ func (ui *BasicUI) SetCPCopy(i event.CopyPasteIndex, s string) error {
 	return ui.Win.SetCPCopy(i, s)
 }
 
-func (ui *BasicUI) RunOnUIThread(f func()) {
+func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
 	ui.events <- &UIRunFuncEvent{f}
 }
 
