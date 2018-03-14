@@ -134,17 +134,7 @@ func NewColumnState(ed Editorer, col *ui.Column) *ColumnState {
 	cstate := &ColumnState{
 		StartPercent: col.Cols.ColsLayout.RawStartPercent(col),
 	}
-
-	erows := ed.ERowers()
-outerFor:
 	for _, row := range col.Rows() {
-		// don't save special rows into sessions
-		for _, e := range erows {
-			if e.Row() == row && e.IsSpecialName() {
-				continue outerFor
-			}
-		}
-
 		rstate := NewRowState(row)
 		cstate.Rows = append(cstate.Rows, rstate)
 	}

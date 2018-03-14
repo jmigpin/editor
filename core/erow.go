@@ -335,7 +335,8 @@ func (erow *ERow) ReloadContent() error {
 }
 func (erow *ERow) loadContent(reload, clear bool) error {
 	if erow.IsSpecialName() {
-		return fmt.Errorf("can't load special name: %s", erow.Name())
+		//return fmt.Errorf("can't load special name: %s", erow.Name())
+		return nil
 	}
 
 	// if it has duplicates, load content from another row
