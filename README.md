@@ -6,6 +6,8 @@ Source code editor in pure Go.
 
 ![screenshot](./screenshot2.png)
 
+![screenshot](./screenshot3.png)
+
 - This is a know-what-you're-doing source code editor
 - As the editor is being developed, the rules of how the UI interacts will become more well defined.
 
@@ -19,6 +21,7 @@ Source code editor in pure Go.
 - Detects if files opened are changed outside of the editor.
 - Calls goimports if available when saving a .go file.
 - Clicking on `.go` files identifiers will jump to the identifier definition (Ex: a function definition).
+- Debugger utility for go programs.
 
 ### Installation and usage
 
@@ -83,8 +86,11 @@ The square-button shows the state of the row.
 
 #### Global key/button shortcuts
 
-- `f1`: toggle context float box (__experimental__)
-  - does auto-completion for `.go` files. (__experimental__)
+- `esc`:
+  - close context float box
+  - close debugging session
+- `f1`: toggle context float box 
+  - does auto-completion (suggestions) in `.go` files.
 
 #### Column key/button shortcuts
 
@@ -137,6 +143,7 @@ The square-button shows the state of the row.
 - `ctrl`+`shift`+`d`: uncomment lines
 - `buttonLeft`: move cursor to point
   - drag: selects text - works as copy making it available for paste (primary selection).
+  - over a debug annotation: print the shortened annotation string.
 - `buttonMiddle`: paste from primary
 - `buttonRight`: move cursor to point + text area cmd
 - `buttonWheelUp`: scroll up
@@ -144,6 +151,12 @@ The square-button shows the state of the row.
 - `buttonWheelUp` on scrollbar: page up
 - `buttonWheelDown` on scrollbar: page down
 - `shift`+`buttonLeft`: move cursor to point adding to selection
+- `ctrl`+`buttonWheelUp`: 
+  - on textarea: show previous debug step
+  - over a debug annotation: show same line previous annotation.
+- `ctrl`+`buttonWheelDown`: 
+  - on textarea: show next debug step
+  - over a debug annotation: show same line next annotation.
 
 ### Commands
 
@@ -183,6 +196,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `CopyFilePosition`: copy to clipboard the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument.
+- `GoDebug`: debugger utility for go programs.
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open a duplicate of that file.
 
 #### Textarea commands
