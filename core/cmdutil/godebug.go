@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug"
+	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/core/toolbardata"
 	"github.com/jmigpin/editor/ui/tautil"
 	"github.com/jmigpin/editor/util/drawutil/loopers"
+	"github.com/pkg/errors"
 )
 
 var noActiveRowErr = fmt.Errorf("no active row")
@@ -122,13 +124,9 @@ func (gcmd *goDebugCmd) runOrTest2(ctx context.Context, erow ERower, args []stri
 	// output cmd pid
 	erow.TextAreaAppendAsync(fmt.Sprintf("# pid %d\n", cmd.ServerCmd.Process.Pid))
 
-	// send requests
+	// send initial request
 	go func() {
 		if err := cmd.RequestFileSetPositions(); err != nil {
-			erow.TextAreaAppendAsync(err.Error())
-			return
-		}
-		if err := cmd.RequestStart(); err != nil {
 			erow.TextAreaAppendAsync(err.Error())
 			return
 		}
@@ -146,7 +144,7 @@ func (gcmd *goDebugCmd) runOrTest2(ctx context.Context, erow ERower, args []stri
 					gcmd.updateEditor(erow.Ed())
 					goto forEnd
 				}
-				gcmd.updateIndex(erow, msg)
+				gcmd.handleMsg(cmd, erow, msg)
 				if timeToUpdate == nil {
 					timeToUpdate = time.NewTimer(time.Second / 3).C
 				}
@@ -168,10 +166,22 @@ func (gcmd *goDebugCmd) resetDataIndex(ed Editorer) {
 	gcmd.updateEditor(ed)
 }
 
-func (gcmd *goDebugCmd) updateIndex(erow ERower, msg interface{}) {
+func (gcmd *goDebugCmd) handleMsg(cmd *godebug.Cmd, erow ERower, msg interface{}) {
 	if err := gcmd.di.IndexMsg(msg); err != nil {
-		erow.Ed().Error(err)
+		erow.TextAreaAppendAsync(err.Error())
+		return
 	}
+
+	// after receiving the filesdatamsg,  send a requeststart
+	switch msg.(type) {
+	case *debug.FilesDataMsg:
+		if err := cmd.RequestStart(); err != nil {
+			err2 := errors.Wrap(err, "request start")
+			erow.TextAreaAppendAsync(err2.Error())
+			return
+		}
+	}
+
 	// update current counter if it was at the last position
 	if gcmd.selCounter >= gcmd.di.Counter-2 {
 		gcmd.selCounter = gcmd.di.Counter - 1

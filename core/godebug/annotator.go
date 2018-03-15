@@ -1,7 +1,9 @@
 package godebug
 
 import (
+	"bytes"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -10,30 +12,43 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
+const debugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
+
 type Annotator struct {
-	FSet  *token.FileSet
+	FSet *token.FileSet
+
+	InsertedExitIn struct {
+		Main     bool
+		TestMain bool
+	}
+
 	fdata struct {
 		sync.Mutex
 		m     map[string]*debug.AnnotatorFileData // filename -> afd
 		index int                                 // counter for new files
 	}
-	simpleOut bool
-
 	debugPkgName   string
 	debugVarPrefix string
 
+	simpleOut     bool
 	improveAssign bool
+
+	testFilesPkgs map[string]string // dir -> package name
 }
 
 func NewAnnotator() *Annotator {
-	ann := &Annotator{}
-	ann.FSet = token.NewFileSet()
+	ann := &Annotator{
+		FSet:          token.NewFileSet(),
+		testFilesPkgs: make(map[string]string),
+	}
+
 	ann.fdata.m = make(map[string]*debug.AnnotatorFileData)
 
 	ann.debugPkgName = "d" + string(rune(931)) // uncommon  rune to avoid clashes
@@ -76,21 +91,10 @@ func (ann *Annotator) annotate(filename string, src interface{}, astFile *ast.Fi
 	afd, ok := ann.fdata.m[filename]
 	if !ok {
 		// filename content hash
-		// TODO: support other src types
-		h := sha1.New()
-		size := 0
-		if s, ok := src.(string); ok {
-			h.Write([]byte(s))
-			size = len(s)
-		} else {
-			b, err := ioutil.ReadFile(filename)
-			if err != nil {
-				return err
-			}
-			h.Write(b)
-			size = len(b)
+		size, hash, err := ann.srcSizeHash(filename, src)
+		if err != nil {
+			return err
 		}
-		hash := h.Sum(nil)
 
 		afd = &debug.AnnotatorFileData{
 			FileIndex: ann.fdata.index,
@@ -98,7 +102,6 @@ func (ann *Annotator) annotate(filename string, src interface{}, astFile *ast.Fi
 			FileHash:  hash,
 			FileSize:  size,
 		}
-
 		ann.fdata.m[filename] = afd
 		ann.fdata.index++
 	}
@@ -107,25 +110,51 @@ func (ann *Annotator) annotate(filename string, src interface{}, astFile *ast.Fi
 	sann := &SingleAnnotator{ann: ann, afd: afd}
 	sann.annotate(astFile)
 
+	if ann.simpleOut {
+		return nil
+	}
+
 	// n debug stmts inserted
 	afd.DebugLen = sann.debugIndex
 
-	if !ann.simpleOut && sann.insertedDebugStmt {
-		// TODO: insertExitInTestMain for tests?
-
-		sann.insertImport(astFile, "_", "godebugconfig")
+	// insert imports if debug stmts were inserted
+	if sann.insertedDebugStmt {
 		sann.insertImportDebug(astFile)
-		sann.insertExitInMain(astFile)
-		if sann.insertedReflectStmt {
-			sann.insertImport(astFile, "", "reflect")
+
+		// insert in all files to ensure inner init function runs
+		sann.insertImport(astFile, "_", "godebugconfig")
+
+		// insert exit in main/TestMain
+		em := sann.insertDebugExitInMain(astFile)
+		if !ann.InsertedExitIn.Main {
+			ann.InsertedExitIn.Main = em
 		}
+		etm := sann.insertDebugExitInTestMain(astFile)
+		if !ann.InsertedExitIn.TestMain {
+			ann.InsertedExitIn.TestMain = etm
+		}
+
+		// keep test files package names in case of need to build testmain files
+		ann.keepTestPackage(filename, astFile)
 	}
 
 	return nil
 }
 
+func (ann *Annotator) srcSizeHash(filename string, src interface{}) (int, []byte, error) {
+	b, err := ReadSource(filename, src)
+	if err != nil {
+		return 0, nil, err
+	}
+	h := sha1.New()
+	h.Write(b)
+	hash := h.Sum(nil)
+	size := len(b)
+	return size, hash, nil
+}
+
 func (ann *Annotator) ConfigSource() (string, string) {
-	// map data
+	// build map data
 	var u []string
 	for _, afd := range ann.fdata.m {
 		logger.Printf("configsource: included file %v", afd.Filename)
@@ -136,37 +165,75 @@ func (ann *Annotator) ConfigSource() (string, string) {
 		}
 
 		s := fmt.Sprintf("&debug.AnnotatorFileData{%v,%v,%q,%v,[]byte(%q)}",
-			//s := fmt.Sprintf("&godebug.AnnotatorFileData{%v,%v,%q,%v,%x}",
 			afd.FileIndex,
 			afd.DebugLen,
 			afd.Filename,
 			afd.FileSize,
 			string(afd.FileHash),
-			//afd.FileHash,
 		)
 		u = append(u, s+",")
-		//return true
-		//})
 	}
 	entriesStr := strings.Join(u, "\n")
 
 	// filename
 	pkgFilename := "godebugconfig/config.go"
 
-	// content
-	// "+build" line needs and empty line afterwards
+	// content: "+build" line needs and empty line afterwards
 	src := `// +build godebug
 
-package godebugconfig
-import "github.com/jmigpin/editor/core/godebug/debug"
-func init(){
-	debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
-` + entriesStr + `
-	}
-}
-`
+		package godebugconfig
+		import "` + debugPkgPath + `"
+		func init(){
+			debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
+				` + entriesStr + `
+			}
+		}
+	`
+
 	return src, pkgFilename
 }
+
+//------------
+
+func (ann *Annotator) keepTestPackage(filename string, astFile *ast.File) {
+	isTest := strings.HasSuffix(filename, "_test.go")
+	if isTest {
+		// keep one pkg name per dir
+		dir := filepath.Dir(filename)
+		ann.testFilesPkgs[dir] = astFile.Name.Name // pkg name
+	}
+}
+
+type TestMainSrc struct {
+	Dir string
+	Src string
+}
+
+func (ann *Annotator) TestMainSources() []*TestMainSrc {
+	u := []*TestMainSrc{}
+	for dir, pkgName := range ann.testFilesPkgs {
+		src := ann.testMainSource(pkgName)
+		v := &TestMainSrc{Dir: dir, Src: src}
+		u = append(u, v)
+	}
+	return u
+}
+
+func (ann *Annotator) testMainSource(pkgName string) string {
+	return `		
+		package ` + pkgName + `
+		import ` + ann.debugPkgName + ` "` + debugPkgPath + `"
+		import "testing"
+		import "os"
+		func TestMain(m *testing.M) {
+			code := m.Run()
+			` + ann.debugPkgName + `.Exit()
+			os.Exit(code)
+		}
+	`
+}
+
+//------------
 
 func (ann *Annotator) Print(w io.Writer, astFile *ast.File) error {
 	// print with source positions from original file
@@ -179,24 +246,14 @@ func (ann *Annotator) PrintSimple(w io.Writer, astFile *ast.File) error {
 	return cfg.Fprint(w, ann.FSet, astFile)
 }
 
-//func (ann *Annotator) TestMainSource() string {
-//	return `
-//		func TestMain(m *testing.M) {
-//			code := m.Run()
-//			os.Exit(code)
-//		}
-//	`
-//}
-
 //------------
 
 type SingleAnnotator struct {
-	ann                 *Annotator
-	afd                 *debug.AnnotatorFileData
-	debugIndex          int
-	debugVarNameIndex   int
-	insertedDebugStmt   bool
-	insertedReflectStmt bool
+	ann               *Annotator
+	afd               *debug.AnnotatorFileData
+	debugIndex        int
+	debugVarNameIndex int
+	insertedDebugStmt bool
 }
 
 func (sann *SingleAnnotator) annotate(root ast.Node) {
@@ -1230,8 +1287,7 @@ func (sann *SingleAnnotator) insertInStmts(stmt ast.Stmt, i int, stmts []ast.Stm
 //------------
 
 func (sann *SingleAnnotator) insertImportDebug(astFile *ast.File) {
-	path := "github.com/jmigpin/editor/core/godebug/debug"
-	sann.insertImport(astFile, sann.ann.debugPkgName, path)
+	sann.insertImport(astFile, sann.ann.debugPkgName, debugPkgPath)
 }
 
 func (sann *SingleAnnotator) insertImport(astFile *ast.File, name, path string) {
@@ -1267,8 +1323,16 @@ func (sann *SingleAnnotator) insertImport(astFile *ast.File, name, path string) 
 	astFile.Decls = append([]ast.Decl{decl}, astFile.Decls...)
 }
 
-func (sann *SingleAnnotator) insertExitInMain(astFile *ast.File) bool {
-	obj := astFile.Scope.Lookup("main")
+func (sann *SingleAnnotator) insertDebugExitInMain(astFile *ast.File) bool {
+	return sann.insertDebugExitInFunction(astFile, "main")
+}
+
+func (sann *SingleAnnotator) insertDebugExitInTestMain(astFile *ast.File) bool {
+	return sann.insertDebugExitInFunction(astFile, "TestMain")
+}
+
+func (sann *SingleAnnotator) insertDebugExitInFunction(astFile *ast.File, name string) bool {
+	obj := astFile.Scope.Lookup(name)
 	if obj == nil || obj.Kind != ast.Fun {
 		return false
 	}
@@ -1286,24 +1350,10 @@ func (sann *SingleAnnotator) insertExitInMain(astFile *ast.File) bool {
 			},
 		},
 	}
-
 	// insert
 	fd.Body.List = sann.insertInStmts(stmt1, 0, fd.Body.List)
 	return true
 }
-
-//------------
-
-//func (sann *SingleAnnotator) buildReflectTypeOfExpr(e ast.Expr) ast.Expr {
-//	sann.insertedReflectStmt = true
-//	return &ast.CallExpr{
-//		Fun: &ast.SelectorExpr{
-//			X:   ast.NewIdent("reflect"),
-//			Sel: ast.NewIdent("TypeOf"),
-//		},
-//		Args: []ast.Expr{e},
-//	}
-//}
 
 //------------
 
@@ -1524,4 +1574,31 @@ func mustBeDirect(e ast.Expr) bool {
 	}
 	//return sann.isDirect(e)
 	return false
+}
+
+//------------
+
+// taken from: $GOROOT/src/go/parser/interface.go:25:9
+func ReadSource(filename string, src interface{}) ([]byte, error) {
+	if src != nil {
+		switch s := src.(type) {
+		case string:
+			return []byte(s), nil
+		case []byte:
+			return s, nil
+		case *bytes.Buffer:
+			// is io.Reader, but src is already available in []byte form
+			if s != nil {
+				return s.Bytes(), nil
+			}
+		case io.Reader:
+			var buf bytes.Buffer
+			if _, err := io.Copy(&buf, s); err != nil {
+				return nil, err
+			}
+			return buf.Bytes(), nil
+		}
+		return nil, errors.New("invalid source")
+	}
+	return ioutil.ReadFile(filename)
 }

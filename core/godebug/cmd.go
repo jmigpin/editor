@@ -105,17 +105,26 @@ func (cmd *Cmd) startRun(ctx context.Context, flags *flag.FlagSet, args []string
 		os.Remove(fout)
 	}
 
-	// annotate filename
+	// annotate
 	if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
 		return err
 	}
-
-	// includes annotate dirs and config source at the end, must after all annotations
-	if err := cmd.startCommon(ctx, flags, args); err != nil {
+	if err := cmd.annotateDirs(ctx, flags); err != nil {
 		return err
 	}
 
+	// write config file after annotations
+	if err := cmd.writeConfigFileToTmpDir(); err != nil {
+		return err
+	}
+
+	// main exit
+	if !cmd.ann.InsertedExitIn.Main {
+		return fmt.Errorf("have not inserted debug exit in main()")
+	}
+
 	// build
+	cmd.setupTmpGoPath()
 	filenameOut, err := cmd.build(ctx, filenameAtTmp)
 	if err != nil {
 		return err
@@ -137,12 +146,25 @@ func (cmd *Cmd) startTest(ctx context.Context, flags *flag.FlagSet, args []strin
 		os.Remove(fout)
 	}
 
-	// includes annotate dirs
-	if err := cmd.startCommon(ctx, flags, args); err != nil {
+	// annotate
+	if err := cmd.annotateDirs(ctx, flags); err != nil {
 		return err
 	}
 
+	// write config file after annotations
+	if err := cmd.writeConfigFileToTmpDir(); err != nil {
+		return err
+	}
+
+	// testmain exit
+	if !cmd.ann.InsertedExitIn.TestMain {
+		if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
+			return err
+		}
+	}
+
 	// build test
+	cmd.setupTmpGoPath()
 	filenameOut, err := cmd.buildTest(ctx, filenameAtTmp)
 	if err != nil {
 		return err
@@ -151,31 +173,25 @@ func (cmd *Cmd) startTest(ctx context.Context, flags *flag.FlagSet, args []strin
 	return cmd.startServerClient(ctx, filenameOut, args)
 }
 
-func (cmd *Cmd) startCommon(ctx context.Context, flags *flag.FlagSet, args []string) error {
-	// TODO: use ctx
-
-	// annotate dirs
+func (cmd *Cmd) annotateDirs(ctx context.Context, flags *flag.FlagSet) error {
 	dirs := flagGet(flags, "dirs").([]string)
 	for _, d := range dirs {
-		// TODO: join dirs with working dir?
-
 		if err := cmd.annotateDir(d); err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	if err := cmd.writeConfigFileToTmpDir(); err != nil {
-		return err
-	}
-
+func (cmd *Cmd) setupTmpGoPath() {
 	// TODO: copy all packages to tmp dir?
 	// TODO: reuse tmp dir - check modtime
 	// add  tmpdir to gopath to use the files written to tmpdir
 	gopath := os.Getenv("GOPATH")
 	os.Setenv("GOPATH", cmd.tmpDir+":"+gopath)
-	cmd.tmpGoPath = true // flag to cleanup at the end
 
-	return nil
+	// flag to cleanup at the end
+	cmd.tmpGoPath = true
 }
 
 func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args []string) error {
@@ -383,7 +399,7 @@ func (cmd *Cmd) writeAstFileToTmpDir(astFile *ast.File) error {
 		return err
 	}
 
-	defer logger.Printf("writeastfiletotmpdir: %v", destFilename)
+	defer logger.Printf("write astfile to tmpdir: %v", destFilename)
 
 	// write file
 	f, err := os.Create(destFilename)
@@ -411,23 +427,25 @@ func (cmd *Cmd) writeConfigFileToTmpDir() error {
 	return ioutil.WriteFile(filenameAtTmp, []byte(src), os.ModePerm)
 }
 
-// TODO
-//func (cmd *Cmd) writeTestMainFileToTmpDir() error {
-//	// pkg config file
-//	filename := filepath.Join(cmd.WorkingDir, "godebugtestmain_test.go")
+func (cmd *Cmd) writeTestMainFilesToTmpDir() error {
+	u := cmd.ann.TestMainSources()
+	for i, tms := range u {
+		name := fmt.Sprintf("godebug_testmain%v_test.go", i)
+		filename := filepath.Join(tms.Dir, name)
 
-//	// content
-//	src, filename := cmd.ann.TestMainSource()
+		// create path directories in destination
+		filenameAtTmp := cmd.tmpDirBasedFilename(filename)
+		if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0770); err != nil {
+			return err
+		}
 
-//	// create path directories in destination
-//	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-//	if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0770); err != nil {
-//		return err
-//	}
-
-//	// write
-//	return ioutil.WriteFile(filenameAtTmp, []byte(src), os.ModePerm)
-//}
+		// write
+		if err := ioutil.WriteFile(filenameAtTmp, []byte(tms.Src), os.ModePerm); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func (cmd *Cmd) parseArgs() (*flag.FlagSet, []string, error) {
 	if len(cmd.args) == 0 {
