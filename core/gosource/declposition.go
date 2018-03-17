@@ -26,16 +26,6 @@ func declPosition2(conf *Config, filename string, src interface{}, index int) (a
 		return nil, err
 	}
 
-	//// DEBUG: find positions for tests
-	//ast.Inspect(astFile, func(node ast.Node) bool {
-	//	if node == nil {
-	//		return false
-	//	}
-	//	p := conf.FSet.Position(node.Pos())
-	//	log.Printf("%v %v %v", reflect.TypeOf(node), node, p.Offset)
-	//	return true
-	//})
-
 	// make package path importable and re-import (type check added astfile)
 	conf.MakeFilePkgImportable(filename)
 	_ = conf.ReImportImportables()

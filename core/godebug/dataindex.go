@@ -132,7 +132,7 @@ func (di *DataIndex) LineMsgsBetweenOffsets(filename string, si, ei int) []DIDeb
 		lm := version.LineMsg
 
 		o := lm.Offset
-		if o >= si && o < ei {
+		if o >= si && o <= ei {
 			u = append(u, debug)
 		}
 	}

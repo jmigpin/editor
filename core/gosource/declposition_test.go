@@ -1,7 +1,6 @@
 package gosource
 
 import (
-	"log"
 	"strings"
 	"testing"
 )
@@ -22,7 +21,32 @@ func testVisitSrc(t *testing.T, src interface{}, index int) {
 	testVisit(t, filename, src, index)
 }
 
-func TestVisit1(t *testing.T) {
+//------------
+
+func testDeclSrc(t *testing.T, src string, n int, expOffset int) {
+	t.Helper()
+	src2, index, err := SourceCursor("●", src, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filename := "t000/src.go"
+	posp, endp, err := DeclPosition(filename, src2, index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = posp, endp
+
+	t.Logf("result: offset %v", posp.Offset)
+	t.Logf("result: %v", posp)
+
+	if posp.Offset != expOffset {
+		t.Fatal()
+	}
+}
+
+//------------
+
+func TestDecl1(t *testing.T) {
 	src := ` 
 		package pack1
 		import(
@@ -30,14 +54,14 @@ func TestVisit1(t *testing.T) {
 			"time"
 		)
 		func func1() {
-			fmt.Println(time.Now())
+			fmt.●Println(time.●Now())
 		}
 	`
-	testVisitSrc(t, src, 75) // Println
-	testVisitSrc(t, src, 88) // Now
+	testDeclSrc(t, src, 0, 7600)
+	testDeclSrc(t, src, 1, 31788)
 }
 
-func TestVisit2(t *testing.T) {
+func TestDecl2(t *testing.T) {
 	src := ` 
 		package pack1
 		import(
@@ -47,13 +71,13 @@ func TestVisit2(t *testing.T) {
 			t time.Time
 		}
 		func (t1 *type1) func1(){
-			t1.t.String()
+			t1.t.S●tring()
 		}
 	`
-	testVisitSrc(t, src, 118) // String
+	testDeclSrc(t, src, 0, 13960)
 }
 
-func TestVisit3(t *testing.T) {
+func TestDecl3(t *testing.T) {
 	src := ` 
 		package pack1
 		import(
@@ -62,16 +86,16 @@ func TestVisit3(t *testing.T) {
 		)
 		func func1(){
 			var u interface{}
-			_,_=u.(*ast.ValueSpec)
-			p,_:=u.(*ttt.Package)
+			_,_=u.(*ast.●ValueSpec)
+			p,_:=u.(*ttt.●Package)
 			p.Complete()
 		}
 	`
-	testVisitSrc(t, src, 114) // ValueSpec
-	testVisitSrc(t, src, 141) // Package
+	//testDeclSrc(t, src, 0, 26395)
+	testDeclSrc(t, src, 1, 248)
 }
 
-func TestVisit4(t *testing.T) {
+func TestDecl4(t *testing.T) {
 	src := ` 
 		package pack1
 		import(
@@ -79,14 +103,14 @@ func TestVisit4(t *testing.T) {
 		)
 		func func1(){
 			var t *time.Time
-			t.GobDecode(nil)
+			t.●GobDecode(nil)
 		}
 	`
-	testVisitSrc(t, src, 83) // GobDecode
+	testDeclSrc(t, src, 0, 36040)
 }
 
-func TestVisit5(t *testing.T) {
-	src := ` 
+func TestDecl5(t *testing.T) {
+	src := `
 		package pack1
 		import(
 			"time"
@@ -95,13 +119,13 @@ func TestVisit5(t *testing.T) {
 			t time.Time
 		}
 		type type2 struct{
-			type1
+			ty●pe1
 		}
 	`
-	testVisitSrc(t, src, 106) // type1 inside type2
+	testDeclSrc(t, src, 0, 48)
 }
 
-func TestVisit6(t *testing.T) {
+func TestDecl6(t *testing.T) {
 	src := ` 
 		package pack1
 		import(
@@ -113,13 +137,13 @@ func TestVisit6(t *testing.T) {
 		func func1(){
 			var t1 type1
 			u:=t1.t
-			u.Year()
+			u.●Year()
 		}
 	`
-	testVisitSrc(t, src, 130) // Year
+	testDeclSrc(t, src, 0, 17137)
 }
 
-func TestVisit7(t *testing.T) {
+func TestDecl7(t *testing.T) {
 	src := ` 
 		package pack1
 		import(
@@ -128,44 +152,44 @@ func TestVisit7(t *testing.T) {
 		)
 		func func1(u interface{}){
 			switch u.(type){
-			case *ast.Field:
-			case *image.Rectangle:
+			case *ast.●Field:
+			case *image.●Rectangle:
 			}
 		}
 	`
-	testVisitSrc(t, src, 117) // Field
-	testVisitSrc(t, src, 139) // Rectangle
+	testDeclSrc(t, src, 0, 4449)
+	testDeclSrc(t, src, 1, 1999)
 }
 
-func TestVisit8(t *testing.T) {
+func TestDecl8(t *testing.T) {
 	src := ` 
 		package pack1
 		func func1(){
-			var u int
+			var u ●int
 			_ = u
 		}
 	`
-	testVisitSrc(t, src, 43) // int (basic type)
+	testDeclSrc(t, src, 0, 2254)
 }
 
-func TestVisit9(t *testing.T) {
-	src := ` 
+func TestDecl9(t *testing.T) {
+	src := `
 		package pack1
 		import(
 			ttt "go/types"
 		)
 		func func1(){
 			var u interface{}
-			p,ok:=u.(*ttt.Package)
+			p,●ok:=u.(*ttt.Package)
 			_=ok
-			p.Complete()
+			p.●Complete()
 		}
 	`
-	testVisitSrc(t, src, 118) // ok
-	testVisitSrc(t, src, 126) // Complete
+	testDeclSrc(t, src, 0, 91)
+	testDeclSrc(t, src, 1, 1395)
 }
 
-func TestVisit10(t *testing.T) {
+func TestDecl10(t *testing.T) {
 	src := `
 		package pack1
 		import(
@@ -176,42 +200,42 @@ func TestVisit10(t *testing.T) {
 		}
 		func func1(){
 			var t1 type1
-			y := t1.img().Bounds().Max.Y
+			y := t1.●img().●Bounds().●Max.●Y
 			_=y
 		}
 	`
-	testVisitSrc(t, src, 134) // img
-	testVisitSrc(t, src, 140) // Bounds
-	testVisitSrc(t, src, 149) // Max
-	testVisitSrc(t, src, 153) // Y
+	testDeclSrc(t, src, 0, 69)
+	testDeclSrc(t, src, 1, 1521)
+	testDeclSrc(t, src, 2, 2024)
+	testDeclSrc(t, src, 3, 310)
 }
 
-func TestVisit11(t *testing.T) {
+func TestDecl11(t *testing.T) {
 	src := `
 		package pack1
 		func func1(){
-			a,b:=false,0
+			a,b:=●false,0
 			_,_=a,b
 		}
 	`
-	testVisitSrc(t, src, 41) // false
+	testDeclSrc(t, src, 0, 593)
 }
 
-func TestVisit12(t *testing.T) {
+func TestDecl12(t *testing.T) {
 	src := `
 		package pack1
 		import "github.com/jmigpin/editor/util/uiutil/event"
 		func func1(ev interface{}){
 			switch evt:=ev.(type){
 			case *event.KeyDown:
-				_ = evt.Code
+				_ = evt.●Code
 			}
 		}
 	`
-	testVisitSrc(t, src, 164) // Code
+	testDeclSrc(t, src, 0, 1840)
 }
 
-func TestVisit13(t *testing.T) {
+func TestDecl13(t *testing.T) {
 	src := `
 		package pack1
 		import "image/draw"
@@ -224,15 +248,15 @@ func TestVisit13(t *testing.T) {
 		func func1(){
 			var t1 type1
 			img:=t1.Image()
-			img.Set(0,0,nil)
-			_=img.Bounds()
+			img.●Set(0,0,nil)
+			_=img.●Bounds()
 		}
 	`
-	testVisitSrc(t, src, 199) // img.Set
-	testVisitSrc(t, src, 221) // img.Bounds (inherited from image.Image in another pkg)
+	testDeclSrc(t, src, 0, 609)
+	testDeclSrc(t, src, 1, 1521)
 }
 
-func TestVisit14(t *testing.T) {
+func TestDecl14(t *testing.T) {
 	src := `
 		package pack1
 		type type1 struct{
@@ -241,16 +265,16 @@ func TestVisit14(t *testing.T) {
 		func func1(){
 			m:=make(map[type1]type1)
 			for k,v:=range m{
-				_=k.v
-				_=v.v
+				_=k.●v
+				_=v.●v
 			}
 		}
 	`
-	testVisitSrc(t, src, 124) // k.v
-	testVisitSrc(t, src, 134) // v.v
+	testDeclSrc(t, src, 0, 41)
+	testDeclSrc(t, src, 1, 41)
 }
 
-func TestVisit15(t *testing.T) {
+func TestDecl15(t *testing.T) {
 	src := `
 		package pack1
 		import "go/ast"
@@ -258,16 +282,16 @@ func TestVisit15(t *testing.T) {
 			v int
 		}
 		func (t1*type1)func1(node ast.Node){
-			if id, ok := node.(*ast.Ident); ok {
-				_=id.Pos()
+			if id, ok := node.(*ast.●Ident); ok {
+				_=id.●Pos()
 			}
 		}
 	`
-	testVisitSrc(t, src, 135) // ast.Ident
-	testVisitSrc(t, src, 157) // id.Pos
+	testDeclSrc(t, src, 0, 6430)
+	testDeclSrc(t, src, 1, 12060)
 }
 
-func TestVisit16(t *testing.T) {
+func TestDecl16(t *testing.T) {
 	src := `
 		package pack1
 		import (
@@ -278,14 +302,14 @@ func TestVisit16(t *testing.T) {
 			var info types.Info
 			s1, ok := info.Scopes[id]
 			if ok{
-				_ = s1.Innermost(id.Pos())
+				_ = s1.●Innermost(id.Pos())
 			}
 		}	
 	`
-	testVisitSrc(t, src, 162) // InnerMost
+	testDeclSrc(t, src, 0, 4502)
 }
 
-func TestVisit17(t *testing.T) {
+func TestDecl17(t *testing.T) {
 	src := `
 		package pack1
 		import (
@@ -299,16 +323,19 @@ func TestVisit17(t *testing.T) {
 			return token.NoPos
 		}
 		func func1(){
-			var t1 type1
-			_ = t1.Ident.Pos()
+			var ●t1 type1
+			_ = t1.●Ident.●Pos()
+			_ = t1.●Pos()
 		}	
 	`
-	testVisitSrc(t, src, 197) // Ident: ensure the position is ident instead of ast (:8:8)
-	testVisitSrc(t, src, 203) // Pos: t1 overrides Pos, but want to access ident.pos
+	testDeclSrc(t, src, 0, 178)
+	testDeclSrc(t, src, 1, 86)    // the position is ident instead of "go/ast" or ident at ast
+	testDeclSrc(t, src, 2, 12060) // Pos: t1 overrides Pos, but want to access ident.pos
+	testDeclSrc(t, src, 3, 113)
 }
 
-func TestVisit18(t *testing.T) {
-	src := ` 
+func TestDecl18(t *testing.T) {
+	src := `
 		package pack1
 		import(
 			"go/ast"
@@ -316,65 +343,57 @@ func TestVisit18(t *testing.T) {
 		func func1(u interface{}){
 			switch t:=u.(type){
 			case *ast.Field:
-				_=t.Pos()
+				_=t.●Pos()
 			}
 		}
 	`
-	testVisitSrc(t, src, 124) // Pos
+	testDeclSrc(t, src, 0, 4770)
 }
 
-func TestVisit19(t *testing.T) {
-	src := ` 
+func TestDecl19(t *testing.T) {
+	src := `
 		package pack1
 		type type1 struct{
 			v int
 		}
 		func func1(){
 			a:=&type1{}
-			_=a.v
+			_=a.●v
 		}
 	`
-	testVisitSrc(t, src, 90) // a.v
+	testDeclSrc(t, src, 0, 41)
 }
 
-func TestVisit20(t *testing.T) {
-	src := ` 
+func TestDecl20(t *testing.T) {
+	src := `
 		package pack1
 		func func1(){
-			var ccc,aaa,bbb int
-			_=aaa
+			var ccc,●aaa,bbb int
+			_=●aaa
 			_=bbb
 			_=ccc
 		}
 	`
-	testVisitSrc(t, src, 62) // aaa: just "aaa" without getting "aaa int"
+	testDeclSrc(t, src, 0, 44)
+	testDeclSrc(t, src, 1, 44)
 }
 
-func TestVisit21(t *testing.T) {
+func TestDecl21(t *testing.T) {
 	src := ` 
 		package pack1
 		import "go/ast"
 		func func1(){
 			var b[]*ast.Ident
-			_=b[0].Pos()
+			_=b[0].●Pos()
+			var c func() *ast.Ident	
+			_=c().●Pos()
 		}
 	`
-	testVisitSrc(t, src, 83) // Pos
+	testDeclSrc(t, src, 0, 12060)
+	testDeclSrc(t, src, 1, 12060)
 }
 
-func TestVisit22(t *testing.T) {
-	src := ` 
-		package pack1
-		import "go/ast"
-		func func1(){
-			var b func() *ast.Ident	
-			_=b().Pos()
-		}
-	`
-	testVisitSrc(t, src, 89) // Pos
-}
-
-func TestVisit23(t *testing.T) {
+func TestDecl23(t *testing.T) {
 	src := ` 
 		package pack1
 		import (
@@ -383,58 +402,58 @@ func TestVisit23(t *testing.T) {
 		)
 		func func1(){
 			var as *ast.AssignStmt
-			as.TokPos = token.NoPos			
+			as.●TokPos = token.NoPos			
 		}
 	`
-	testVisitSrc(t, src, 107) // as.Tok
+	testDeclSrc(t, src, 0, 18398)
 }
 
-func TestVisit24(t *testing.T) {
+func TestDecl24(t *testing.T) {
 	src := `
 		package pack1
 		import (
 			"go/ast"
 		)
 		func IsExported()bool{
-			return ast.IsExported("a")
+			return ast.●IsExported("a")
 		}
 	`
-	testVisitSrc(t, src, 84) // IsExported
+	testDeclSrc(t, src, 0, 16391)
 }
 
-func TestVisit25(t *testing.T) {
+func TestDecl25(t *testing.T) {
 	src := `
 		package pack1
 		import (
 			"testing"
 		)
 		func func1(t *testing.T){
-			_ = t.Name()
+			_ = t.●Name()
 		}
 	`
-	testVisitSrc(t, src, 82) // t.Name
+	testDeclSrc(t, src, 0, 17834)
 }
 
-func TestVisit26(t *testing.T) {
+func TestDecl26(t *testing.T) {
 	src := `
 		package pack1
 		import "go/ast"
-		func func1()(ast.Node, ast.Node, ast.Node){
-			return nil,nil,nil
+		func func1()(ast.Node, ast.Node){
+			return nil,nil
 		}
 		func func2(){
-			a,b,c:=func1()
-			_=a.Pos()
-			_=b.Pos()
-			_=c.Pos()
+			a,b:=func1()
+			_=●a.●Pos()
+			_=●b.●Pos()
 		}
 	`
-	testVisitSrc(t, src, 148) // a.Pos
-	testVisitSrc(t, src, 161) // b.Pos
-	testVisitSrc(t, src, 174) // c.Pos
+	testDeclSrc(t, src, 0, 112)
+	testDeclSrc(t, src, 1, 1231)
+	testDeclSrc(t, src, 2, 114)
+	testDeclSrc(t, src, 3, 1231)
 }
 
-func TestVisit27(t *testing.T) {
+func TestDecl27(t *testing.T) {
 	src := `
 		package pack1
 		import "go/ast"
@@ -444,60 +463,91 @@ func TestVisit27(t *testing.T) {
 				var n ast.Node = t.X
 				switch t2:=n.(type){
 				case *ast.FuncType:
-					if t2.Results!=nil{
+					if t2.●Results!=nil{
 					}
 				}
 			}
 		}
 	`
-	testVisitSrc(t, src, 205) // t2.Results
+	testDeclSrc(t, src, 0, 11177)
 }
 
-func TestVisit28(t *testing.T) {
+func TestDecl28(t *testing.T) {
 	src := `
 		package pack1
 		func func1(){			
 			var a=1
-			a=40			
+			●a=40			
 		}
 	`
-	testVisitSrc(t, src, 50) // a in a=40
+	testDeclSrc(t, src, 0, 43)
 }
 
-func TestVisit29(t *testing.T) {
+func TestDecl29(t *testing.T) {
 	src := `
 		package pack1
 		import "fmt"
 		func f1(){
-			fmt.P
+			●fmt.P
 		}
 	`
-	testVisitSrc(t, src, 48) // fmt
+	testDeclSrc(t, src, 0, 26) // needs to not fail on path error since P doesn't exist
 }
 
-func TestVisit30(t *testing.T) {
+func TestDecl30(t *testing.T) {
 	src := `
 		package pack1
 		import "fmt"
 		func f1(){
 			a:=[]int{}
-			for i:=0; len(a
+			for i:=0;●len(●a
 		}
 	`
-	testVisitSrc(t, src, 72) // len
-	testVisitSrc(t, src, 76) // a
+	testDeclSrc(t, src, 0, 5738)
+	testDeclSrc(t, src, 1, 48)
 }
 
-func TestVisitFile1(t *testing.T) {
+func TestDecl31(t *testing.T) {
+	src := `
+		package pack1
+		import "go/ast"
+		func f1(){
+			var n ast.Node
+			switch t:=n.(type){
+			case *ast.BadExpr:
+			case *ast.Call●Expr:
+				// TODO: some comment
+				for _,a:=range t.
+			case *ast.FieldList:
+			}	
+			return		
+		}
+	`
+	testDeclSrc(t, src, 0, 8954)
+}
+
+func TestDecl32(t *testing.T) {
+	src := `
+		package pack1
+		import "go/types"
+		func f1(){
+			var o1,o2 types.Object
+			for _, o := range []types.Object{o1,o2} {
+				o.S●tring()
+			}
+		}
+	`
+	testDeclSrc(t, src, 0, 1013)
+}
+
+//------------
+
+func TestDeclFile1(t *testing.T) {
 	filename := "image/image.go"
 	testVisit(t, filename, nil, 1530) // Rectangle: same package but another file
 }
 
-//// TEMPORARY TEST
-//func TestVisitFile2(t *testing.T) {
-//	filename := "github.com/jmigpin/editor/core/cmdutil/codecompletion.go"
-//	testVisit(t, filename, nil, 691)
-//}
+//------------
 
 func TestFullFilenameDirectory1(t *testing.T) {
 	if n := FullFilename("image/image.go"); !strings.HasSuffix(n, "src/image/image.go") {
@@ -516,13 +566,13 @@ func TestFullFilenameDirectory1(t *testing.T) {
 		t.Fatalf(n)
 	}
 
-	{
-		a, b, c, d := PkgFilenames("fmt", false)
-		log.Printf("%v %v %v %v", a, b, c, d)
-	}
+	//{
+	//	a, b, c, d := PkgFilenames("fmt", false)
+	//	log.Printf("%v %v %v %v", a, b, c, d)
+	//}
 
-	{
-		a, b, c, d := PkgFilenames("..", false)
-		log.Printf("%v %v %v %v", a, b, c, d)
-	}
+	//{
+	//	a, b, c, d := PkgFilenames("..", false)
+	//	log.Printf("%v %v %v %v", a, b, c, d)
+	//}
 }

@@ -1,22 +1,20 @@
 package godebug
 
 import (
-	"bytes"
 	"crypto/sha1"
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
 	"io"
-	"io/ioutil"
 	"log"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/core/gosource"
 )
 
 const debugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
@@ -142,7 +140,7 @@ func (ann *Annotator) annotate(filename string, src interface{}, astFile *ast.Fi
 }
 
 func (ann *Annotator) srcSizeHash(filename string, src interface{}) (int, []byte, error) {
-	b, err := ReadSource(filename, src)
+	b, err := gosource.ReadSource(filename, src)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -815,15 +813,28 @@ func (sann *SingleAnnotator) visitRangeStmt(ctx *saCtx, rs *ast.RangeStmt) {
 	sann.insert(ctx, 0, stmt1)
 	rs.X = id
 
+	// allow defining new vars of both key/value were not set
+	if (rs.Key == nil || isAnonIdent(rs.Key)) && (rs.Value == nil || isAnonIdent(rs.Value)) {
+		rs.Tok = token.DEFINE
+	}
+
+	// key
+	ctx3 := ctx
+	if rs.Tok == token.DEFINE {
+		ctx3 = ctx.WithValue("expr_anon_ptr", &rs.Key)
+	}
+	sann.visitNode(ctx3, rs.Key)
+
+	// value
+	ctx4 := ctx
+	if rs.Tok == token.DEFINE {
+		ctx4 = ctx.WithValue("expr_anon_ptr", &rs.Value)
+	}
+	sann.visitNode(ctx4, rs.Value)
+
 	// inner loop stmts for insertion
 	ctx2 := ctx.WithValue("stmts", &rs.Body.List)
 	ctx2 = sann.newStmtsIndexes(ctx2)
-
-	// key/value
-	ctx3 := ctx2.WithValue("expr_anon_ptr", &rs.Key)
-	sann.visitNode(ctx3, rs.Key)
-	ctx3 = ctx2.WithValue("expr_anon_ptr", &rs.Value)
-	sann.visitNode(ctx3, rs.Value)
 
 	w := ctx2.PopExprs()
 
@@ -871,7 +882,7 @@ func (sann *SingleAnnotator) visitAssignStmt(ctx *saCtx, as *ast.AssignStmt) {
 				as.Lhs[i] = id
 			} else {
 				// new assign stmt and remove from lhs/rhs
-				// ex: a,_=2,c -> d0:=c;a=2
+				// ex: a,_=2,c -> a=2;d0:=c // TODO: a,b,_=a,b,c
 				sann.visitNodeWithNewExprs(ctx, e)
 				stmt := sann.newAssign11(as.Lhs[i], as.Rhs[i])
 				sann.insert(ctx, 1, stmt)
@@ -950,14 +961,7 @@ func (sann *SingleAnnotator) visitReturnStmt(ctx *saCtx, rs *ast.ReturnStmt) {
 	}
 
 	// functype number of results to return
-	ftNResults := 0
-	for _, f := range ft.Results.List {
-		if f.Names == nil {
-			ftNResults++
-		} else {
-			ftNResults += len(f.Names)
-		}
-	}
+	ftNResults := ft.Results.NumFields()
 	if ftNResults == 0 {
 		return
 	}
@@ -1574,31 +1578,4 @@ func mustBeDirect(e ast.Expr) bool {
 	}
 	//return sann.isDirect(e)
 	return false
-}
-
-//------------
-
-// taken from: $GOROOT/src/go/parser/interface.go:25:9
-func ReadSource(filename string, src interface{}) ([]byte, error) {
-	if src != nil {
-		switch s := src.(type) {
-		case string:
-			return []byte(s), nil
-		case []byte:
-			return s, nil
-		case *bytes.Buffer:
-			// is io.Reader, but src is already available in []byte form
-			if s != nil {
-				return s.Bytes(), nil
-			}
-		case io.Reader:
-			var buf bytes.Buffer
-			if _, err := io.Copy(&buf, s); err != nil {
-				return nil, err
-			}
-			return buf.Bytes(), nil
-		}
-		return nil, errors.New("invalid source")
-	}
-	return ioutil.ReadFile(filename)
 }

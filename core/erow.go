@@ -277,7 +277,7 @@ func (erow *ERow) UpdateStateUI() {
 	hasAnnotations := false
 	hasAnnotationsEdited := false
 	if erow.IsRegular() {
-		di := cmdutil.GoDebugDataIndex()
+		di := cmdutil.DefaultGoDebugCmd.DataIndex()
 		if di != nil {
 			afd := di.AnnotatorFileData(erow.Filename())
 			if afd != nil {

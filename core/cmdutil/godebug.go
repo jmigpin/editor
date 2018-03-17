@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug"
@@ -34,16 +35,24 @@ func GoDebugArgs(ed Editorer, aERow ERower, args []string) {
 	}
 }
 
-func GoDebugDataIndex() *godebug.DataIndex {
-	return DefaultGoDebugCmd.di
-}
+//------------
 
 var DefaultGoDebugCmd goDebugCmd
 
+//------------
+
 type goDebugCmd struct {
-	di          *godebug.DataIndex
-	selCounter  int
-	runningERow ERower
+	di         *godebug.DataIndex
+	selCounter int
+
+	session struct {
+		erow ERower
+		ctx  context.Context
+	}
+}
+
+func (gcmd *goDebugCmd) DataIndex() *godebug.DataIndex {
+	return gcmd.di
 }
 
 func (gcmd *goDebugCmd) init(ed Editorer, aERow ERower, args []string) error {
@@ -62,11 +71,16 @@ func (gcmd *goDebugCmd) init(ed Editorer, aERow ERower, args []string) error {
 	case "find":
 		return gcmd.find(ed, aERow, args[1:])
 	case "clear":
-		// stop running erow
-		if gcmd.runningERow != nil {
-			gcmd.runningERow.StopExecState()
+		// stop session erow
+		if gcmd.session.erow != nil {
+			gcmd.session.erow.StopExecState()
+			gcmd.session.erow = nil
 		}
-
+		// wait for session to terminate
+		if gcmd.session.ctx != nil {
+			<-gcmd.session.ctx.Done()
+		}
+		// reset data and update editor
 		gcmd.resetDataIndex(ed)
 		return nil
 	default:
@@ -83,15 +97,26 @@ func (gcmd *goDebugCmd) runOrTest(erow ERower, args []string) error {
 	erow.Row().TextArea.SetStrClear("", true, true)
 
 	// keep row that is running the cmd for stopping with "clear" cmd
-	gcmd.runningERow = erow
+	gcmd.session.erow = erow
 
 	// exec
-	ctx := erow.StartExecState()
+	ctx := erow.StartExecState() // will cancel previous existent ctx
 	go func() {
+		// ensure only one cmd at a time runs
+		// wait for previous cmd context to stop
+		if gcmd.session.ctx != nil {
+			<-gcmd.session.ctx.Done()
+		}
+		// setup new session ctx
+		sctx, cancel := context.WithCancel(context.Background())
+		gcmd.session.ctx = sctx
+		defer cancel()
+
 		err := gcmd.runOrTest2(ctx, erow, args)
 		erow.ClearExecState(ctx, func() {
-			// clear running erow
-			gcmd.runningERow = nil
+			// clean up if it is not a new ctx
+			gcmd.session.erow = nil
+			gcmd.session.ctx = nil
 
 			if err != nil {
 				erow.TextAreaAppendAsync(err.Error())
@@ -133,7 +158,10 @@ func (gcmd *goDebugCmd) runOrTest2(ctx context.Context, erow ERower, args []stri
 	}()
 
 	// receive messages and update editor
+	var clientLoop sync.WaitGroup
+	clientLoop.Add(1)
 	go func() {
+		defer clientLoop.Done()
 		msgs := cmd.Client.Messages
 		var timeToUpdate <-chan time.Time
 		for {
@@ -157,6 +185,7 @@ func (gcmd *goDebugCmd) runOrTest2(ctx context.Context, erow ERower, args []stri
 	}()
 
 	// wait for the debug to end
+	clientLoop.Wait()
 	return cmd.Wait()
 }
 

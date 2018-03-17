@@ -13,7 +13,7 @@ Source code editor in pure Go.
 
 ### Features
 
-- Auto indentation of wrapped lines.
+- Auto-indentation of wrapped lines.
 - No code coloring (except comments).
 - Many TextArea utilities: undo/redo, replace, comment, ...
 - Start external processes from the toolbar with a click, capturing the output to a row. 
@@ -21,7 +21,8 @@ Source code editor in pure Go.
 - Detects if files opened are changed outside of the editor.
 - Calls goimports if available when saving a .go file.
 - Clicking on `.go` files identifiers will jump to the identifier definition (Ex: a function definition).
-- Debugger utility for go programs.
+- Auto-completion (suggestions) in `.go` files. (__experimental__)
+- Debugger utility for go programs. (__experimental__)
 
 ### Installation and usage
 
@@ -90,7 +91,7 @@ The square-button shows the state of the row.
   - close context float box
   - close debugging session
 - `f1`: toggle context float box 
-  - does auto-completion (suggestions) in `.go` files.
+  - does auto-completion in `.go` files.
 
 #### Column key/button shortcuts
 

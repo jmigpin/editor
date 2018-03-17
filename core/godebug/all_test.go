@@ -351,6 +351,10 @@ func TestCmdAnnotate1(t *testing.T) {
 		if Σ0 {
 		}`,
 
+		// "a.b!=c" should not be tested since "a" must not be nil
+		//`if a!=nil && a.b!=c {} else{ d=e }`,
+		//``,
+
 		// loops
 
 		"for i:=0; ; i++{}",
@@ -376,6 +380,18 @@ func TestCmdAnnotate1(t *testing.T) {
 		`Σ0 := f2()
 		for a, Σ1 := range Σ0 {
 		Σ.Line(0, 0, 23, Σ.IA(Σ.IL(Σ.IV(a), Σ.IV(Σ1)), Σ.IL(Σ.IV(len(Σ0)))))
+		}`,
+
+		"for _,_=range a {}",
+		`Σ0 := a
+		for Σ1, Σ2 := range Σ0 {
+		Σ.Line(0, 0, 23, Σ.IA(Σ.IL(Σ.IV(Σ1), Σ.IV(Σ2)), Σ.IL(Σ.IV(len(Σ0)))))
+		}`,
+
+		"for a,_=range a {}",
+		`Σ0 := a
+		for a, _ = range Σ0 {
+		Σ.Line(0, 0, 23, Σ.IA(Σ.IL(Σ.IV(a), Σ.IV(_)), Σ.IL(Σ.IV(len(Σ0)))))
 		}`,
 
 		// labeled stmt

@@ -289,7 +289,7 @@ func (conf *Config) PosTokenFile(pos token.Pos) (*token.File, error) {
 	return tf, nil
 }
 
-func (conf *Config) PosAstFileScope(pos token.Pos) (*types.Scope, error) {
+func (conf *Config) PosInnermostScope(pos token.Pos) (*types.Scope, error) {
 	astFile, err := conf.PosAstFile(pos)
 	if err != nil {
 		return nil, err
@@ -298,7 +298,11 @@ func (conf *Config) PosAstFileScope(pos token.Pos) (*types.Scope, error) {
 	if !ok {
 		return nil, fmt.Errorf("scope not found in info")
 	}
-	return scope, nil
+	s2 := scope.Innermost(pos)
+	if s2 == nil {
+		return nil, fmt.Errorf("innermost scope not found")
+	}
+	return s2, nil
 }
 
 func (conf *Config) PosPkgDir(pos token.Pos) (string, error) {
@@ -321,6 +325,8 @@ func (conf *Config) PosPkg(pos token.Pos) (*types.Package, error) {
 	}
 	return nil, fmt.Errorf("pkg not found for pos")
 }
+
+//------------
 
 func (conf *Config) BuiltinLookup(name string) (ast.Node, error) {
 	pkg, err := conf.importBuiltin()
@@ -346,6 +352,8 @@ func (conf *Config) importBuiltin() (*types.Package, error) {
 	}
 	return conf.ImportPath(path)
 }
+
+//------------
 
 type Builtin struct {
 	Name string
