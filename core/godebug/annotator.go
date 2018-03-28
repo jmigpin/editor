@@ -431,7 +431,7 @@ func (sann *SingleAnnotator) replaceExprPtrWithVar(ctx *saCtx, e ast.Expr) ast.E
 		// replace ptr
 		if nResults == 1 {
 			ep := v.(*ast.Expr)
-			if !isDirectExpr(*ep) { // dont replace direct expr: ex: "1*2"
+			if !isDirectExpr(*ep) { // don't replace direct expr: ex: "1*2"
 				*ep = ids[0]
 			}
 			return u[0]
@@ -1070,8 +1070,17 @@ func (sann *SingleAnnotator) visitBinaryExpr3(ctx *saCtx, be *ast.BinaryExpr) {
 }
 
 func (sann *SingleAnnotator) visitUnaryExpr(ctx *saCtx, ue *ast.UnaryExpr) {
-	sann.visitExpr(ctx, &ue.X)
-	x, ok := ctx.Pop1Expr()
+	ctx2 := ctx
+	switch ue.Op {
+	case token.AND:
+		// don't let replace expr or will get tmp var address
+		// ex: f1(a, &c[i]) -> d0:=c[i]; f1(a, &d0) // bad d0 address usage
+		ctx2 = ctx2.WithValue("expr_ptr", nil)
+		sann.visitNodeWithNewExprs(ctx2, ue.X)
+	default:
+		sann.visitExpr(ctx2, &ue.X)
+	}
+	x, ok := ctx2.Pop1Expr()
 	if !ok {
 		return
 	}

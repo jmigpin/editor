@@ -343,6 +343,13 @@ func TestCmdAnnotate1(t *testing.T) {
 		a += Σ2
 		Σ.Line(0, 0, 37, Σ.IA(Σ.IL(Σ.IV(a)), Σ4))`,
 
+		`a := &c[i]`,
+		`Σ0 := &c[i]
+		Σ1 := Σ.IU(Σ.IV(Σ0), 17, Σ.II(nil, nil, Σ.IV(i)))
+		Σ2 := Σ.IL(Σ1)
+		a := Σ0
+		Σ.Line(0, 0, 33, Σ.IA(Σ.IL(Σ.IV(a)), Σ2))`,
+
 		// type switch
 
 		"switch x.(type){}",
