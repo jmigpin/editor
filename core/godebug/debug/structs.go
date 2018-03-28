@@ -24,6 +24,7 @@ func init() {
 	gob.Register(&ItemParen{})
 	gob.Register(&ItemLiteral{})
 	gob.Register(&ItemBranch{})
+	gob.Register(&ItemAnon{})
 }
 
 type LineMsg struct {
@@ -61,8 +62,7 @@ func stringifyV(v V) string {
 		str = fmt.Sprintf("%q", t)
 
 	case fmt.Stringer, error:
-		doubleTilde := string(rune(8776))
-		str = fmt.Sprintf("%v(%q)", doubleTilde, t)
+		str = fmt.Sprintf("≈(%q)", t)
 
 	case float32, float64:
 		u := fmt.Sprintf("%f", t)
@@ -129,8 +129,9 @@ type ItemBinary struct {
 	X, Y   Item
 }
 type ItemUnary struct {
-	Op int
-	X  Item
+	Result Item
+	Op     int
+	X      Item
 }
 type ItemParen struct {
 	X Item
@@ -139,6 +140,7 @@ type ItemLiteral struct {
 	Fields *ItemList
 }
 type ItemBranch struct{}
+type ItemAnon struct{}
 
 //----------------
 
@@ -147,7 +149,7 @@ func IV(v V) Item {
 	return &ItemValue{Str: stringifyV(v)}
 }
 
-// ItemValue: string
+// ItemValue: raw string
 func IVs(s string) Item {
 	return &ItemValue{Str: s}
 }
@@ -185,12 +187,12 @@ func II2(result, expr, low, high, max Item) Item {
 
 // ItemBinary
 func IB(result Item, op int, x, y Item) Item {
-	return &ItemBinary{Op: op, X: x, Y: y, Result: result}
+	return &ItemBinary{Result: result, Op: op, X: x, Y: y}
 }
 
 // ItemUnary
-func IU(op int, x Item) Item {
-	return &ItemUnary{Op: op, X: x}
+func IU(result Item, op int, x Item) Item {
+	return &ItemUnary{Result: result, Op: op, X: x}
 }
 
 // ItemParen
@@ -206,4 +208,9 @@ func ILit(fields ...Item) Item {
 // ItemBranch
 func IBr() Item {
 	return &ItemBranch{}
+}
+
+// ItemAnon
+func IAn() Item {
+	return &ItemAnon{}
 }

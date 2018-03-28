@@ -20,13 +20,6 @@ func StringifyItemOffset(item debug.Item, offset int) string {
 	return is.OffsetValueString
 }
 
-//var theta = string(rune(952))
-//string(rune(8592))
-//var eff = string(rune(402))
-//string(rune(8801))
-var leftArrow = "←"
-var threeLines = "≡"
-
 type ItemStringifier struct {
 	Offset            int
 	OffsetValueString string
@@ -108,12 +101,14 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		_ = is.result(t.Result)
 		if showFunc {
 			is.Str += "λ"
+			//is.Str += "ƒ"
 			is.Str += "("
 			is.stringify(t.Args)
 			is.Str += ")"
 		}
 
 	case *debug.ItemUnary:
+		_ = is.result(t.Result)
 		is.Str += token.Token(t.Op).String()
 		is.stringify(t.X)
 
@@ -186,6 +181,9 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 
 	case *debug.ItemBranch:
 		is.Str += "←"
+
+	case *debug.ItemAnon:
+		is.Str += "_"
 
 	default:
 		is.Str += fmt.Sprintf("[[?: %v, %T]]", item, item)
