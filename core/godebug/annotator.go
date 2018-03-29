@@ -1591,6 +1591,8 @@ func isDirectExpr(e ast.Expr) bool {
 			token.AND_NOT: // &^
 			return isDirectExpr(t.X) && isDirectExpr(t.Y)
 		}
+	case *ast.UnaryExpr:
+		return isDirectExpr(t.X)
 	}
 	return false
 }
