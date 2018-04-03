@@ -362,6 +362,11 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.
 }
 
 func (cmd *Cmd) annotateDir(dir string) error {
+	// join dir with cmd.dir if not abs
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(cmd.Dir, dir)
+	}
+
 	// dir files
 	dir2, _, names, err := gosource.PkgFilenames(dir, true)
 	if err != nil {
