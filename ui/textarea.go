@@ -127,13 +127,13 @@ func (ta *TextArea) Paint() {
 	pal := ta.Theme.Palette()
 
 	// fill background
-	imageutil.FillRectangle(ta.ui.Image(), &bounds, pal.Normal.Bg)
+	imageutil.FillRectangle(ta.ui.Image(), &bounds, pal.Get("bg"))
 	ta.paintFlashLineBg()
 
 	d := ta.Drawer
 	d.CursorIndex = &ta.cursorIndex
 	d.Offset = ta.offset
-	d.Fg = pal.Normal.Fg
+	d.Fg = pal.Get("fg")
 	d.SelectionOpt = ta.selectionOpt()
 	d.FlashSelectionOpt = ta.flashSelectionOpt()
 	d.HighlightWordOpt = ta.highlightWordOpt()
@@ -146,9 +146,9 @@ func (ta *TextArea) annotationsOpt() *loopers.AnnotationsOpt {
 	if opt == nil {
 		return nil
 	}
-	fg, bg := UITheme.AnnotationsColors()
-	opt.Fg = fg
-	opt.Bg = bg
+	pal := ta.Theme.Palette()
+	opt.Fg = pal.Get("annotations_fg")
+	opt.Bg = pal.Get("annotations_bg")
 	return opt
 }
 func (ta *TextArea) SetAnnotationsOrderedEntries(entries []*loopers.AnnotationsEntry) {
@@ -205,16 +205,16 @@ func (ta *TextArea) highlightWordOpt() *loopers.HighlightWordOpt {
 	pal := ta.Theme.Palette()
 	return &loopers.HighlightWordOpt{
 		Index: ta.cursorIndex,
-		Fg:    pal.Highlight.Fg,
-		Bg:    pal.Highlight.Bg,
+		Fg:    pal.Get("highlight_fg"),
+		Bg:    pal.Get("highlight_bg"),
 	}
 }
 func (ta *TextArea) selectionOpt() *loopers.SelectionOpt {
 	if ta.SelectionOn() {
 		pal := ta.Theme.Palette()
 		return &loopers.SelectionOpt{
-			Fg:    pal.Selection.Fg,
-			Bg:    pal.Selection.Bg,
+			Fg:    pal.Get("selection_fg"),
+			Bg:    pal.Get("selection_bg"),
 			Start: ta.SelectionIndex(),
 			End:   ta.CursorIndex(),
 		}
@@ -288,7 +288,7 @@ func (ta *TextArea) flashSelectionOpt() *loopers.FlashSelectionOpt {
 		Perc:  perc,
 		Start: ta.flashIndex.index,
 		End:   ta.flashIndex.index + ta.flashIndex.len,
-		Bg:    ta.Theme.Palette().Normal.Bg,
+		Bg:    ta.Theme.Palette().Get("bg"),
 	}
 
 	// need to keep painting while flashing

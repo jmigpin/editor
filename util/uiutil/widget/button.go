@@ -39,14 +39,14 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 			t = *b.orig
 		}
 		// switch colors
-		p := *t.Palette()
-		p.Normal.Fg, p.Normal.Bg = p.Normal.Bg, p.Normal.Fg
-		t.SetPalette(&p)
+		p := t.PaletteCopy()
+		p["fg"], p["bg"] = p.Get("bg"), p.Get("fg")
+		t.SetPalette(p)
 		b.PropagateTheme(&t)
 	}
 	hoverShade := func() {
-		p := *b.orig.Palette()
-		p.Normal.Bg = imageutil.TintOrShade(p.Normal.Bg, 0.10)
+		p := b.orig.PaletteCopy()
+		p["bg"] = imageutil.TintOrShade(p.Get("bg"), 0.10)
 
 		// ensure a theme instance to hold the new pallete
 		var t Theme
@@ -54,7 +54,7 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 			t = *b.orig
 		}
 
-		t.SetPalette(&p)
+		t.SetPalette(p)
 		b.PropagateTheme(&t)
 	}
 

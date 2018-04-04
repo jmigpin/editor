@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	"github.com/jmigpin/editor/core/gosource"
-	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/loopers"
 )
 
@@ -67,10 +66,10 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 		index = res.StartIndex
 		str = res.Str
 		if len(res.Segments) > 0 {
-			fgbg := ui.UITheme.HighlightSegmentColors()
+			pal := ta.Theme.Palette()
 			hopt = &loopers.HighlightSegmentsOpt{
-				Fg:              fgbg.Fg,
-				Bg:              fgbg.Bg,
+				Fg:              pal.Get("segments_fg"),
+				Bg:              pal.Get("segments_bg"),
 				OrderedSegments: res.Segments,
 			}
 		}

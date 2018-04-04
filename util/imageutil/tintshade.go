@@ -53,3 +53,37 @@ func shade(c color.RGBA, v float64) color.Color {
 	c.B = uint8(v * float64(c.B))
 	return c
 }
+
+//----------
+
+func Valorize(c color.Color, v float64, auto bool) color.Color {
+	if v < -1 || v > 1 {
+		panic("!")
+	}
+	hsv := HSVModel.Convert(c).(HSV)
+
+	var u int = int(hsv.V)
+
+	//d := int(float64(hsv.V) * v)
+	d := int(255 * v)
+	if auto {
+		// auto decide to add or subtract
+		if hsv.V < 255/2 {
+			u += d
+		} else {
+			u -= d
+		}
+	} else {
+		u += d
+	}
+
+	if u > 255 {
+		hsv.V = 255
+	} else if u < 0 {
+		hsv.V = 0
+	} else {
+		hsv.V = uint8(u)
+	}
+	c2 := color.RGBAModel.Convert(hsv).(color.RGBA)
+	return c2
+}

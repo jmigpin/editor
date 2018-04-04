@@ -9,19 +9,34 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
+var (
+	White   color.Color = color.RGBA{255, 255, 255, 255}
+	Black   color.Color = color.RGBA{0, 0, 0, 255}
+	NoColor color.Color = color.RGBA{255, 255, 0, 255}
+)
+
+//----------
+
 // The nil-value is a valid receiver.
 type Theme struct {
 	font    ThemeFont
-	palette *Palette
+	palette Palette
 }
 
-func (t *Theme) Palette() *Palette {
+func (t *Theme) Palette() Palette {
 	if t == nil || t.palette == nil {
-		return &defaultPalette
+		return defaultPalette
 	}
 	return t.palette
 }
-func (t *Theme) SetPalette(p *Palette) {
+func (t *Theme) PaletteCopy() Palette {
+	pal := MakePalette()
+	for k, v := range t.Palette() {
+		pal[k] = v
+	}
+	return pal
+}
+func (t *Theme) SetPalette(p Palette) {
 	t.palette = p
 }
 
@@ -35,26 +50,29 @@ func (t *Theme) SetFont(tf ThemeFont) {
 	t.font = tf
 }
 
-type Palette struct {
-	Normal    FgBg // text, separators
-	Selection FgBg
-	Highlight FgBg
+//----------
+
+type Palette map[string]color.Color
+
+func MakePalette() Palette {
+	return make(Palette)
 }
-
-var (
-	White color.Color = color.RGBA{255, 255, 255, 255}
-	Black color.Color = color.RGBA{0, 0, 0, 255}
-)
-
-type FgBg struct {
-	Fg, Bg color.Color
+func (pal Palette) Get(name string) color.Color {
+	if v, ok := pal[name]; ok {
+		return v
+	}
+	return NoColor
+}
+func (pal Palette) GetFrom(pal2 Palette, name string) {
+	pal[name] = pal2[name]
 }
 
 var defaultPalette = Palette{
-	Normal:    FgBg{Black, White},
-	Selection: FgBg{Black, color.RGBA{0x90, 0xca, 0xf9, 0xff}}, // "blue 200"
-	Highlight: FgBg{Black, color.RGBA{0xff, 0xd5, 0x4f, 0xff}}, // "amber 300"
+	"fg": Black,
+	"bg": White,
 }
+
+//----------
 
 type ThemeFont interface {
 	Face(*ThemeFontOptions) font.Face

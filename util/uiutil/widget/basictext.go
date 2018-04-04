@@ -27,8 +27,8 @@ func (bt *BasicText) CalcChildsBounds() {
 	_ = bt.Measure(bt.Bounds.Size())
 }
 func (bt *BasicText) Paint() {
-	bg := bt.Theme.Palette().Normal.Bg
+	bg := bt.Theme.Palette().Get("bg")
 	imageutil.FillRectangle(bt.ctx.Image(), &bt.Bounds, bg)
-	bt.Drawer.Fg = bt.Theme.Palette().Normal.Fg
+	bt.Drawer.Fg = bt.Theme.Palette().Get("fg")
 	bt.Drawer.Draw(bt.ctx.Image(), &bt.Bounds)
 }
