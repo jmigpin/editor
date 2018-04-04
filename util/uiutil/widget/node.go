@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"reflect"
-	"sync"
 
 	"github.com/jmigpin/editor/util/imageutil"
 )
@@ -39,8 +38,7 @@ type EmbedNode struct {
 	parent  *EmbedNode
 
 	marks Marks
-	// TODO: remove locks, all node functions should then be called on the UIGoRoutine
-	marksLock sync.RWMutex // allow marks from non-paint goroutines
+	//marksLock sync.RWMutex // allow marks from non-paint goroutines
 }
 
 func (en *EmbedNode) Embed() *EmbedNode {
@@ -253,13 +251,13 @@ func (en *EmbedNode) HasChild(n Node) bool {
 }
 
 func (en *EmbedNode) hasMarks(m Marks) bool {
-	en.marksLock.RLock()
-	defer en.marksLock.RUnlock()
+	//en.marksLock.RLock()
+	//defer en.marksLock.RUnlock()
 	return en.marks.has(m)
 }
 func (en *EmbedNode) setMarks(m Marks, v bool) {
-	en.marksLock.Lock()
-	defer en.marksLock.Unlock()
+	//en.marksLock.Lock()
+	//defer en.marksLock.Unlock()
 	en.marks.set(m, v)
 }
 
@@ -279,8 +277,6 @@ func (en *EmbedNode) setNeedsPaint(v bool) {
 
 	// mark parents
 	if v {
-		//log.Printf("---needspaint %v", reflect.TypeOf(en.wrapper))
-
 		// set mark in parents
 		for pn := en.parent; pn != nil; pn = pn.parent {
 			pn.setMarks(ChildNeedsPaintMark, true)
@@ -373,13 +369,6 @@ func (en *EmbedNode) PaintChilds() {
 	})
 }
 
-func (en *EmbedNode) PropagateTheme(t *Theme) {
-	en.Theme = t
-	en.IterChilds(func(c Node) {
-		c.Embed().PropagateTheme(t)
-	})
-}
-
 //// unable to use at the moment: need to ensure top layer drawing order
 //func (en *EmbedNode) PaintChilds2() {
 //	var wg sync.WaitGroup
@@ -396,6 +385,15 @@ func (en *EmbedNode) PropagateTheme(t *Theme) {
 func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
 	return false
 }
+
+func (en *EmbedNode) PropagateTheme(t *Theme) {
+	en.Theme = t
+	en.IterChilds(func(c Node) {
+		c.Embed().PropagateTheme(t)
+	})
+}
+
+//----------
 
 type Marks uint16
 
@@ -421,6 +419,8 @@ const (
 	// For transparent widgets that cross 2 or more other widgets (ex: separatorHandle). Improves on detecting if others need paint and reduces the number of widgets that get painted. Child nodes can still be painted.
 	NotPaintableMark
 )
+
+//----------
 
 func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
 	if node.Embed().NeedsPaint() {
