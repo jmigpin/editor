@@ -138,6 +138,9 @@ func (conf *Config) ImportPath(path string) (*types.Package, error) {
 	pkg, ok := conf.Pkgs[path]
 	if !ok {
 		if _, ok := conf.importable[path]; ok {
+			// Ensure bad code with a cycle import doesn't go on endless loop. Have the map entry be present to force "ok=true" in "pkg, ok := conf.Pkgs[path]"
+			conf.Pkgs[path] = nil
+
 			var err error
 			pkg, err = conf.importPath2(path)
 			_ = err // ignore to continue

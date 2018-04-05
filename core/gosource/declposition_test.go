@@ -44,6 +44,19 @@ func testDeclSrc(t *testing.T, src string, n int, expOffset int) {
 	}
 }
 
+func testDeclSrcFail(t *testing.T, src string, n int, expOffset int, filename string) {
+	t.Helper()
+	src2, index, err := SourceCursor("●", src, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = DeclPosition(filename, src2, index)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+	t.Log(err)
+}
+
 //------------
 
 func TestDecl1(t *testing.T) {
@@ -538,6 +551,18 @@ func TestDecl32(t *testing.T) {
 		}
 	`
 	testDeclSrc(t, src, 0, 1013)
+}
+
+func TestDecl33_cycleImporter_endlessLoop(t *testing.T) {
+	src := `
+		package gosource
+		import "github.com/jmigpin/editor/core/gosource" // cycle importer
+		func f1(){
+			gosource.●DeclPosition // cycle 
+		}
+	`
+	filename := "github.com/jmigpin/editor/core/gosource/src.go"
+	testDeclSrcFail(t, src, 0, 1013, filename)
 }
 
 //------------
