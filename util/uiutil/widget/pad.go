@@ -46,7 +46,7 @@ func (p *Pad) CalcChildsBounds() {
 	})
 }
 func (p *Pad) Paint() {
-	p.paint(p.Theme.Palette().Get("bg"))
+	p.paint(p.TreeThemePaletteColor("bg"))
 }
 func (p *Pad) paint(c1 color.Color) {
 	b := p.Bounds

@@ -304,7 +304,7 @@ func (sb *ScrollBar) setPressPad(p *image.Point) {
 }
 
 func (sb *ScrollBar) Paint() {
-	c := sb.Theme.Palette().Get("bg")
+	c := sb.TreeThemePaletteColor("bg")
 	imageutil.FillRectangle(sb.ctx.Image(), &sb.Bounds, c)
 }
 
@@ -359,11 +359,11 @@ func (sh *ScrollHandle) Measure(hint image.Point) image.Point {
 	return image.Point{}
 }
 func (sh *ScrollHandle) Paint() {
-	c := sh.Theme.Palette().Get("normal")
+	c := sh.TreeThemePaletteColor("normal")
 	if sh.sb.clicking || sh.sb.dragging {
-		c = sh.Theme.Palette().Get("select")
+		c = sh.TreeThemePaletteColor("select")
 	} else if sh.inside {
-		c = sh.Theme.Palette().Get("highlight")
+		c = sh.TreeThemePaletteColor("highlight")
 	}
 	imageutil.FillRectangle(sh.ctx.Image(), &sh.Bounds, c)
 }

@@ -66,10 +66,9 @@ func UpdateContextFloatBox(ed Editorer, p image.Point) {
 		index = res.StartIndex
 		str = res.Str
 		if len(res.Segments) > 0 {
-			pal := ta.Theme.Palette()
 			hopt = &loopers.HighlightSegmentsOpt{
-				Fg:              pal.Get("segments_fg"),
-				Bg:              pal.Get("segments_bg"),
+				Fg:              ta.TreeThemePaletteColor("segments_fg"),
+				Bg:              ta.TreeThemePaletteColor("segments_bg"),
 				OrderedSegments: res.Segments,
 			}
 		}

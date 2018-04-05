@@ -21,7 +21,7 @@ func (r *Rectangle) Measure(hint image.Point) image.Point {
 	return r.Size
 }
 func (r *Rectangle) Paint() {
-	r.paint(r.Theme.Palette().Get("bg"))
+	r.paint(r.TreeThemePaletteColor("bg"))
 }
 func (r *Rectangle) paint(c color.Color) {
 	imageutil.FillRectangle(r.ctx.Image(), &r.Bounds, c)

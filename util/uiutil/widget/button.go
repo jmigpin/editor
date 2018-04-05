@@ -2,6 +2,7 @@ package widget
 
 import (
 	"image"
+	"image/color"
 
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -13,9 +14,14 @@ type Button struct {
 	Sticky  bool // stay down after click to behave like a menu button
 	OnClick func(*event.MouseClick)
 
-	orig   *Theme // original
-	down   bool
-	active bool
+	down    bool
+	sticked bool
+
+	orig struct { // original
+		th *Theme
+		//pal    Palette
+		fg, bg color.Color
+	}
 }
 
 func NewButton(ctx ImageContext) *Button {
@@ -25,56 +31,41 @@ func NewButton(ctx ImageContext) *Button {
 	return b
 }
 func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
-
 	keepColor := func() {
-		b.orig = b.Theme // can be nil
+		b.orig.th = b.Theme()
+		b.orig.fg = b.TreeThemePaletteColor("fg")
+		b.orig.bg = b.TreeThemePaletteColor("bg")
 	}
 	restoreColor := func() {
-		b.PropagateTheme(b.orig)
+		b.SetTheme(b.orig.th)
 	}
 	restoreSwitchedColor := func() {
-		// new theme to propagate
-		var t Theme
-		if b.orig != nil {
-			t = *b.orig
-		}
-		// switch colors
-		p := t.PaletteCopy()
-		p["fg"], p["bg"] = p.Get("bg"), p.Get("fg")
-		t.SetPalette(p)
-		b.PropagateTheme(&t)
+		t := b.orig.th.Copy()
+		t.Palette["fg"] = b.orig.bg
+		t.Palette["bg"] = b.orig.fg
+		b.SetTheme(t)
 	}
 	hoverShade := func() {
-		p := b.orig.PaletteCopy()
-		p["bg"] = imageutil.TintOrShade(p.Get("bg"), 0.10)
-
-		// ensure a theme instance to hold the new pallete
-		var t Theme
-		if b.orig != nil {
-			t = *b.orig
-		}
-
-		t.SetPalette(p)
-		b.PropagateTheme(&t)
+		t := b.orig.th.Copy()
+		t.Palette["bg"] = imageutil.TintOrShade(b.orig.bg, 0.10)
+		b.SetTheme(t)
 	}
 
 	switch t := ev0.(type) {
 	case *event.MouseEnter:
-		if !b.active {
+		if !b.sticked {
 			keepColor()
 			hoverShade()
 			b.MarkNeedsPaint()
 		}
 	case *event.MouseLeave:
-		if !b.active {
+		if !b.sticked {
 			restoreColor()
 			b.MarkNeedsPaint()
 		}
 
 	case *event.MouseDown:
-		if b.active {
-
-		} else {
+		if !b.sticked {
 			b.down = true
 			restoreSwitchedColor()
 			b.MarkNeedsPaint()
@@ -83,14 +74,14 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) bool {
 		if b.down {
 			b.down = false
 			if b.Sticky {
-				b.active = true
+				b.sticked = true
 			} else {
 				restoreColor()
 				hoverShade()
 				b.MarkNeedsPaint()
 			}
-		} else if b.active {
-			b.active = false
+		} else if b.sticked {
+			b.sticked = false
 			restoreColor()
 			hoverShade()
 			b.MarkNeedsPaint()

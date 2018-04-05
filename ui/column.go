@@ -26,7 +26,7 @@ func NewColumn(cols *Columns) *Column {
 	{
 		sep := widget.NewSeparator(col.ui)
 		sep.Size.X = SeparatorWidth
-		sep.PropagateTheme(&UITheme.TextAreaTheme)
+		sep.SetTheme(&UITheme.TextArea)
 		col.Append(sep)
 		col.SetChildFill(sep, false, true)
 
@@ -44,6 +44,7 @@ func NewColumn(cols *Columns) *Column {
 	// when where are no rows, or the first row is pushed aside
 	noRows := widget.NewBoxLayout()
 	col.noRows = noRows
+	col.SetTheme(&UITheme.EmptySpaceBg)
 	content.Append(col.noRows)
 	{
 		noRows.YAxis = true
@@ -55,6 +56,7 @@ func NewColumn(cols *Columns) *Column {
 		// ssBox content
 		{
 			col.colSquare = NewColumnSquare(col)
+			col.colSquare.SetTheme(&UITheme.Toolbar)
 			ssBox.Append(col.colSquare)
 
 			//TODO: fix bottom shadow for this case
@@ -72,8 +74,6 @@ func NewColumn(cols *Columns) *Column {
 		space2 := widget.NewRectangle(col.ui)
 		noRows.Append(space2)
 		noRows.SetChildFlex(space2, true, true)
-
-		noRows.PropagateTheme(&UITheme.NoRowColTheme)
 	}
 
 	// rows layout
@@ -126,9 +126,9 @@ func (col *Column) removeRow(row *Row) {
 }
 
 func (col *Column) CalcChildsBounds() {
-	t := &UITheme.ToolbarTheme
-	col.RowsLayout.MinimumChildSize = UITheme.RowMinimumHeight(t)
-	col.colSquare.Size = UITheme.RowSquareSize(t)
+	tf := col.TreeThemeFont()
+	col.RowsLayout.MinimumChildSize = UIThemeUtil.RowMinimumHeight(tf)
+	col.colSquare.Size = UIThemeUtil.RowSquareSize(tf)
 
 	col.BoxLayout.CalcChildsBounds()
 	col.sepHandle.CalcChildsBounds()

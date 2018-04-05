@@ -10,66 +10,92 @@ import (
 )
 
 var (
-	White   color.Color = color.RGBA{255, 255, 255, 255}
-	Black   color.Color = color.RGBA{0, 0, 0, 255}
-	NoColor color.Color = color.RGBA{255, 255, 0, 255}
+	White color.Color = color.RGBA{255, 255, 255, 255}
+	Black color.Color = color.RGBA{0, 0, 0, 255}
+
+	// used if a color name is not found
+	defaultThemeColor color.Color = color.RGBA{255, 255, 0, 255} // yellow
 )
 
 //----------
 
-// The nil-value is a valid receiver.
+// nil is a valid receiver.
 type Theme struct {
-	font    ThemeFont
-	palette Palette
+	Font    ThemeFont
+	Palette Palette // Note: EmbedNode.ThemePalette() checks if theme is nil
 }
 
-func (t *Theme) Palette() Palette {
-	if t == nil || t.palette == nil {
-		return defaultPalette
-	}
-	return t.palette
-}
-func (t *Theme) PaletteCopy() Palette {
-	pal := MakePalette()
-	for k, v := range t.Palette() {
-		pal[k] = v
-	}
-	return pal
-}
-func (t *Theme) SetPalette(p Palette) {
-	t.palette = p
+func (t *Theme) empty() bool {
+	return t == nil || (t.Font == nil && (t.Palette == nil || t.Palette.Empty()))
 }
 
-func (t *Theme) Font() ThemeFont {
-	if t == nil || t.font == nil {
-		return defaultThemeFont()
+func (t *Theme) Copy() *Theme {
+	if t == nil {
+		return &Theme{Palette: MakePalette()}
 	}
-	return t.font
-}
-func (t *Theme) SetFont(tf ThemeFont) {
-	t.font = tf
+	u := *t
+	u.Palette = t.Palette.Copy()
+	return &u
 }
 
 //----------
 
+// nil is a valid receiver.
 type Palette map[string]color.Color
 
 func MakePalette() Palette {
 	return make(Palette)
 }
-func (pal Palette) Get(name string) color.Color {
-	if v, ok := pal[name]; ok {
-		return v
+
+func (pal Palette) Empty() bool {
+	return pal == nil || len(pal) == 0
+}
+
+func (pal Palette) Copy() Palette {
+	pal2 := MakePalette()
+	for k, v := range pal {
+		pal2[k] = v
 	}
-	return NoColor
+	return pal2
 }
-func (pal Palette) GetFrom(pal2 Palette, name string) {
-	pal[name] = pal2[name]
-}
+
+//----------
 
 var defaultPalette = Palette{
 	"fg": Black,
 	"bg": White,
+}
+
+//----------
+
+func TreeThemePaletteColor(name string, en *EmbedNode) color.Color {
+	for n := en; n != nil; n = n.parent {
+		if n.theme != nil && n.theme.Palette != nil {
+			if c, ok := n.theme.Palette[name]; ok {
+				return c
+			}
+		}
+	}
+	if c, ok := defaultPalette[name]; ok {
+		return c
+	}
+	return defaultThemeColor
+}
+
+func TreeThemeFont(en *EmbedNode) ThemeFont {
+	for n := en; n != nil; n = n.parent {
+		if n.theme != nil && n.theme.Font != nil {
+			return n.theme.Font
+		}
+	}
+	return defaultThemeFont()
+}
+
+func ThemeFontOrDefault(t *Theme) ThemeFont {
+	if t != nil && t.Font != nil {
+		return t.Font
+	}
+	return defaultThemeFont()
 }
 
 //----------
@@ -89,6 +115,8 @@ const (
 	NormalTFOS ThemeFontOptionsSize = iota // default
 	SmallTFOS
 )
+
+//----------
 
 // Truetype theme font.
 type TTThemeFont struct {
@@ -131,13 +159,15 @@ func (tf *TTThemeFont) Clear() {
 	tf.faces = make(map[truetype.Options]font.Face)
 }
 
-var _defaultThemeFont ThemeFont
+//----------
+
+var _dft ThemeFont
 
 func defaultThemeFont() ThemeFont {
-	if _defaultThemeFont == nil {
-		_defaultThemeFont = goregularThemeFont()
+	if _dft == nil {
+		_dft = goregularThemeFont()
 	}
-	return _defaultThemeFont
+	return _dft
 }
 
 func goregularThemeFont() *TTThemeFont {

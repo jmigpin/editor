@@ -32,7 +32,7 @@ func NewRow(col *Column) *Row {
 	{
 		sep := widget.NewSeparator(row.ui)
 		sep.Size.Y = SeparatorWidth
-		sep.Theme = &UITheme.TextAreaTheme
+		sep.SetTheme(&UITheme.TextArea)
 		row.Append(sep)
 		row.SetChildFill(sep, true, false)
 
@@ -52,17 +52,17 @@ func NewRow(col *Column) *Row {
 	{
 		row.TextArea = NewTextArea(row.ui)
 		row.TextArea.HighlightCursorWord = true
-		row.TextArea.Theme = &UITheme.TextAreaTheme
+		row.TextArea.SetTheme(&UITheme.TextArea)
 
 		row.scrollArea = widget.NewScrollArea(row.ui, row.TextArea, true, false)
-		row.scrollArea.VSBar.PropagateTheme(&UITheme.ScrollBarTheme)
+		row.scrollArea.VSBar.SetTheme(&UITheme.Scrollbar)
 		row.scrollArea.LeftScroll = ScrollBarLeft
 
 		// toolbar/scrollarea separator
 		if !ShadowsOn {
 			sep := widget.NewSeparator(row.ui)
 			sep.Size.Y = SeparatorWidth
-			sep.Theme = &UITheme.TextAreaTheme
+			sep.SetTheme(&UITheme.TextArea)
 			row.Append(sep)
 			row.SetChildFill(sep, true, false)
 		}
@@ -99,7 +99,7 @@ func (row *Row) Close() {
 }
 
 func (row *Row) CalcChildsBounds() {
-	row.scrollArea.ScrollWidth = UITheme.GetScrollBarWidth(row.TextArea.Theme)
+	row.scrollArea.ScrollWidth = UIThemeUtil.GetScrollBarWidth(row.TextArea.TreeThemeFont())
 	row.BoxLayout.CalcChildsBounds()
 	row.sepHandle.CalcChildsBounds()
 }

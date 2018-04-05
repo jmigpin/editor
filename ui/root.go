@@ -72,7 +72,7 @@ func (root *Root) init() {
 		if !ShadowsOn {
 			sep := widget.NewSeparator(root.UI)
 			sep.Size.Y = SeparatorWidth
-			sep.Theme = &UITheme.ToolbarTheme
+			sep.SetTheme(&UITheme.Toolbar)
 			bgLayer.Append(sep)
 			bgLayer.SetChildFill(sep, true, false)
 		}

@@ -13,7 +13,7 @@ func WrapInShadowTop(ctx widget.ImageContext, child widget.Node) widget.Node {
 	if ShadowsOn {
 		s := widget.NewShadow(ctx, child)
 		s.MaxDiff = shadowMaxDiff
-		s.Top = UITheme.ShadowHeight()
+		s.Top = UIThemeUtil.ShadowHeight()
 
 		//s.Tint = true // TODO: darker colors
 
@@ -25,7 +25,7 @@ func WrapInShadowBottom(ctx widget.ImageContext, child widget.Node) widget.Node 
 	if ShadowsOn {
 		s := widget.NewShadow(ctx, child)
 		s.MaxDiff = shadowMaxDiff
-		s.Bottom = UITheme.ShadowHeight()
+		s.Bottom = UIThemeUtil.ShadowHeight()
 		return s
 	}
 	return child

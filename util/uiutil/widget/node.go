@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"image"
+	"image/color"
 	"reflect"
 
 	"github.com/jmigpin/editor/util/imageutil"
@@ -29,7 +30,7 @@ type Node interface {
 
 type EmbedNode struct {
 	Bounds image.Rectangle
-	Theme  *Theme
+	theme  *Theme // pointer to allow the instance be elsewhere and modified later
 	Cursor Cursor
 
 	wrapper Node
@@ -386,11 +387,71 @@ func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
 	return false
 }
 
-func (en *EmbedNode) PropagateTheme(t *Theme) {
-	en.Theme = t
-	en.IterChilds(func(c Node) {
-		c.Embed().PropagateTheme(t)
-	})
+//----------
+
+func (en *EmbedNode) SetTheme(t *Theme) {
+	en.theme = t
+}
+
+func (en *EmbedNode) Theme() *Theme {
+	return en.theme
+}
+
+func (en *EmbedNode) ThemePalette() Palette {
+	if en.theme == nil {
+		return nil
+	}
+	return en.theme.Palette
+}
+
+func (en *EmbedNode) SetThemePalette(p Palette) {
+	if en.theme == nil {
+		en.theme = &Theme{}
+	}
+	en.theme.Palette = p
+	en.cleanTheme()
+}
+
+func (en *EmbedNode) TreeThemePaletteColor(name string) color.Color {
+	return TreeThemePaletteColor(name, en)
+}
+
+func (en *EmbedNode) SetThemePaletteColor(name string, c color.Color) {
+	// delete color
+	if c == nil {
+		if en.theme != nil && en.theme.Palette != nil {
+			delete(en.theme.Palette, name)
+		}
+		en.cleanTheme()
+		return
+	}
+
+	// set color
+	if en.theme == nil {
+		en.theme = &Theme{}
+	}
+	if en.theme.Palette == nil {
+		en.theme.Palette = MakePalette()
+	}
+	en.theme.Palette[name] = c
+}
+
+func (en *EmbedNode) TreeThemeFont() ThemeFont {
+	return TreeThemeFont(en)
+}
+
+func (en *EmbedNode) SetThemeFont(f ThemeFont) {
+	if en.theme == nil {
+		en.theme = &Theme{}
+	}
+	en.theme.Font = f
+	en.cleanTheme()
+}
+
+func (en *EmbedNode) cleanTheme() {
+	if en.theme.empty() {
+		en.theme = nil
+	}
 }
 
 //----------

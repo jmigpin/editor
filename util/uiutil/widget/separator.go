@@ -8,5 +8,5 @@ func NewSeparator(ctx ImageContext) *Separator {
 	return &Separator{Rectangle: *NewRectangle(ctx)}
 }
 func (s *Separator) Paint() {
-	s.paint(s.Theme.Palette().Get("fg"))
+	s.paint(s.TreeThemePaletteColor("fg"))
 }

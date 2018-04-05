@@ -28,43 +28,48 @@ func (sq *RowSquare) Paint() {
 	img := sq.row.ui.Image()
 
 	// background
-	t := UITheme
-	_, bg := t.NoSelectionColors(&t.ToolbarTheme)
+	bg := sq.TreeThemePaletteColor("noselection_bg")
 	if sq.state.has(EditedRowState) {
-		bg = t.RowSquare.Edited
+		bg = sq.TreeThemePaletteColor("rs_edited")
 	}
 	if sq.state.has(NotExistRowState) {
-		bg = t.RowSquare.NotExist
+		bg = sq.TreeThemePaletteColor("rs_not_exist")
 	}
 	if sq.state.has(ExecutingRowState) {
-		bg = t.RowSquare.Executing
+		bg = sq.TreeThemePaletteColor("rs_executing")
 	}
 	imageutil.FillRectangle(img, &sq.Bounds, bg)
 
 	// mini-squares
 	if sq.state.has(ActiveRowState) {
 		r := sq.miniSq(0)
-		imageutil.FillRectangle(img, &r, t.RowSquare.Active)
+		c := sq.TreeThemePaletteColor("rs_active")
+		imageutil.FillRectangle(img, &r, c)
 	}
 	if sq.state.has(DiskChangesRowState) {
 		r := sq.miniSq(1)
-		imageutil.FillRectangle(img, &r, t.RowSquare.DiskChanges)
+		c := sq.TreeThemePaletteColor("rs_disk_changes")
+		imageutil.FillRectangle(img, &r, c)
 	}
 	if sq.state.has(DuplicateRowState) {
 		r := sq.miniSq(2)
-		imageutil.FillRectangle(img, &r, t.RowSquare.Duplicate)
+		c := sq.TreeThemePaletteColor("rs_duplicate")
+		imageutil.FillRectangle(img, &r, c)
 	}
 	if sq.state.has(DuplicateHighlightRowState) {
 		r := sq.miniSq(2)
-		imageutil.FillRectangle(img, &r, t.RowSquare.DuplicateHighlight)
+		c := sq.TreeThemePaletteColor("rs_duplicate_highlight")
+		imageutil.FillRectangle(img, &r, c)
 	}
 	if sq.state.has(AnnotationsRowState) {
 		r := sq.miniSq(3)
-		imageutil.FillRectangle(img, &r, t.RowSquare.Annotations)
+		c := sq.TreeThemePaletteColor("rs_annotations")
+		imageutil.FillRectangle(img, &r, c)
 	}
 	if sq.state.has(AnnotationsEditedRowState) {
 		r := sq.miniSq(3)
-		imageutil.FillRectangle(img, &r, t.RowSquare.AnnotationsEdited)
+		c := sq.TreeThemePaletteColor("rs_annotations_edited")
+		imageutil.FillRectangle(img, &r, c)
 	}
 }
 func (sq *RowSquare) miniSq(i int) image.Rectangle {

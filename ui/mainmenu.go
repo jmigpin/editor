@@ -17,7 +17,7 @@ type MainMenuButton struct {
 func NewMainMenuButton(ui *UI) *MainMenuButton {
 	m := &MainMenuButton{ui: ui}
 	m.Button = widget.NewButton(ui)
-	m.Button.PropagateTheme(&UITheme.ToolbarTheme)
+	m.Button.SetTheme(&UITheme.Toolbar)
 	m.Button.Label.Text.SetStr(string(rune(8801))) // 3 lines rune
 	m.Button.Label.Pad.Left = 5
 	m.Button.Label.Pad.Right = 5
@@ -52,10 +52,10 @@ func NewFloatMenu(m *MainMenuButton) *FloatMenu {
 	pad.Set(10)
 	border := widget.NewBorder(m.ui, pad)
 	border.Set(1)
-	border.PropagateTheme(&UITheme.ToolbarTheme)
 
 	container := WrapInShadowBottom(m.ui, border)
 	fm.FloatBox = widget.NewFloatBox(container)
+	fm.SetTheme(&UITheme.Toolbar)
 
 	fm.SetHidden(true)
 

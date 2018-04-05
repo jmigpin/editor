@@ -20,15 +20,15 @@ func (bt *BasicText) SetStr(str string) {
 	bt.Drawer.Args.Str = str
 }
 func (bt *BasicText) Measure(hint image.Point) image.Point {
-	bt.Drawer.Args.Face = bt.Theme.Font().Face(nil)
+	bt.Drawer.Args.Face = bt.TreeThemeFont().Face(nil)
 	return bt.Drawer.Measure(hint)
 }
 func (bt *BasicText) CalcChildsBounds() {
 	_ = bt.Measure(bt.Bounds.Size())
 }
 func (bt *BasicText) Paint() {
-	bg := bt.Theme.Palette().Get("bg")
+	bg := bt.TreeThemePaletteColor("bg")
 	imageutil.FillRectangle(bt.ctx.Image(), &bt.Bounds, bg)
-	bt.Drawer.Fg = bt.Theme.Palette().Get("fg")
+	bt.Drawer.Fg = bt.TreeThemePaletteColor("fg")
 	bt.Drawer.Draw(bt.ctx.Image(), &bt.Bounds)
 }

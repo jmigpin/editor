@@ -18,7 +18,7 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb := &ContextFloatBox{root: root}
 
 	cfb.Label = widget.NewLabel(root.UI)
-	cfb.Label.PropagateTheme(&UITheme.TextAreaTheme)
+	cfb.Label.SetTheme(&UITheme.TextArea)
 	cfb.Label.Text.SetStr("testing")
 	cfb.Label.Pad.Left = 5
 	cfb.Label.Pad.Right = 5

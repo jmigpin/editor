@@ -71,7 +71,7 @@ func NewTextArea(ui *UI) *TextArea {
 
 func (ta *TextArea) Measure(hint image.Point) image.Point {
 	d := ta.Drawer
-	d.Args.Face = ta.Theme.Font().Face(nil)
+	d.Args.Face = ta.TreeThemeFont().Face(nil)
 	d.Args.WrapLineOpt = ta.wrapLineOpt()
 	d.Args.ColorizeOpt = ta.colorizeOpt()
 	d.Args.AnnotationsOpt = ta.annotationsOpt()
@@ -124,16 +124,14 @@ func (ta *TextArea) Paint() {
 
 	bounds := ta.Bounds
 
-	pal := ta.Theme.Palette()
-
 	// fill background
-	imageutil.FillRectangle(ta.ui.Image(), &bounds, pal.Get("bg"))
+	imageutil.FillRectangle(ta.ui.Image(), &bounds, ta.TreeThemePaletteColor("bg"))
 	ta.paintFlashLineBg()
 
 	d := ta.Drawer
 	d.CursorIndex = &ta.cursorIndex
 	d.Offset = ta.offset
-	d.Fg = pal.Get("fg")
+	d.Fg = ta.TreeThemePaletteColor("fg")
 	d.SelectionOpt = ta.selectionOpt()
 	d.FlashSelectionOpt = ta.flashSelectionOpt()
 	d.HighlightWordOpt = ta.highlightWordOpt()
@@ -146,9 +144,8 @@ func (ta *TextArea) annotationsOpt() *loopers.AnnotationsOpt {
 	if opt == nil {
 		return nil
 	}
-	pal := ta.Theme.Palette()
-	opt.Fg = pal.Get("annotations_fg")
-	opt.Bg = pal.Get("annotations_bg")
+	opt.Fg = ta.TreeThemePaletteColor("annotations_fg")
+	opt.Bg = ta.TreeThemePaletteColor("annotations_bg")
 	return opt
 }
 func (ta *TextArea) SetAnnotationsOrderedEntries(entries []*loopers.AnnotationsEntry) {
@@ -166,7 +163,7 @@ func (ta *TextArea) colorizeOpt() *loopers.ColorizeOpt {
 	if opt == nil {
 		opt = &loopers.ColorizeOpt{}
 	}
-	opt.Comment.Fg = UITheme.GetTextAreaCommentsFg()
+	opt.Comment.Fg = UITheme.TextAreaCommentsFg()
 	return opt
 }
 
@@ -183,13 +180,12 @@ func (ta *TextArea) CommentString() string {
 }
 
 func (ta *TextArea) wrapLineOpt() *loopers.WrapLineOpt {
-	fg, bg := UITheme.NoSelectionColors(ta.Theme)
 	opt := ta.Drawer.Args.WrapLineOpt // reuse drawer instance to avoid recalc
 	if opt == nil {
 		opt = &loopers.WrapLineOpt{}
 	}
-	opt.Fg = fg
-	opt.Bg = bg
+	opt.Fg = ta.TreeThemePaletteColor("noselection_fg")
+	opt.Bg = ta.TreeThemePaletteColor("noselection_bg")
 	return opt
 }
 
@@ -202,19 +198,17 @@ func (ta *TextArea) highlightWordOpt() *loopers.HighlightWordOpt {
 		return nil
 	}
 
-	pal := ta.Theme.Palette()
 	return &loopers.HighlightWordOpt{
 		Index: ta.cursorIndex,
-		Fg:    pal.Get("highlight_fg"),
-		Bg:    pal.Get("highlight_bg"),
+		Fg:    ta.TreeThemePaletteColor("highlight_fg"),
+		Bg:    ta.TreeThemePaletteColor("highlight_bg"),
 	}
 }
 func (ta *TextArea) selectionOpt() *loopers.SelectionOpt {
 	if ta.SelectionOn() {
-		pal := ta.Theme.Palette()
 		return &loopers.SelectionOpt{
-			Fg:    pal.Get("selection_fg"),
-			Bg:    pal.Get("selection_bg"),
+			Fg:    ta.TreeThemePaletteColor("selection_fg"),
+			Bg:    ta.TreeThemePaletteColor("selection_bg"),
 			Start: ta.SelectionIndex(),
 			End:   ta.CursorIndex(),
 		}
@@ -288,7 +282,7 @@ func (ta *TextArea) flashSelectionOpt() *loopers.FlashSelectionOpt {
 		Perc:  perc,
 		Start: ta.flashIndex.index,
 		End:   ta.flashIndex.index + ta.flashIndex.len,
-		Bg:    ta.Theme.Palette().Get("bg"),
+		Bg:    ta.TreeThemePaletteColor("bg"),
 	}
 
 	// need to keep painting while flashing
