@@ -19,17 +19,11 @@ type Root struct {
 	colSepHandlesMark widget.Rectangle
 }
 
-func SetupRoot(ui *UI) {
-	root := &Root{UI: ui}
-	root.UI.Root = root // complete circle reference: ui<->root
-	root.UI.RootNode = root
-
-	// Embed nodes have their wrapper nodes set when they are appended to another node. The root node is not appended to any other node, therefore it needs to be set here.
-	root.SetWrapperForRootNode(root)
-
-	root.init()
+func NewRoot(ui *UI) *Root {
+	return &Root{UI: ui}
 }
-func (root *Root) init() {
+
+func (root *Root) Init() {
 	//  background layer
 	bgLayer := widget.NewBoxLayout()
 	bgLayer.YAxis = true

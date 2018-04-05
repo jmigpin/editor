@@ -13,17 +13,17 @@ type UI struct {
 }
 
 func NewUI(events chan<- interface{}, winName string) (*UI, error) {
-	bui, err := uiutil.NewBasicUI(events, winName)
+	ui := &UI{OnError: func(error) {}}
+	ui.Root = NewRoot(ui)
+
+	bui, err := uiutil.NewBasicUI(events, winName, ui.Root)
 	if err != nil {
 		return nil, err
 	}
+	ui.BasicUI = bui
 
-	ui := &UI{
-		BasicUI: bui,
-		OnError: func(error) {},
-	}
-
-	SetupRoot(ui)
+	// needs ui.BasicUI to be set
+	ui.Root.Init()
 
 	return ui, nil
 }

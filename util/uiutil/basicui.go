@@ -25,7 +25,7 @@ type BasicUI struct {
 	fontFace1 font.Face
 }
 
-func NewBasicUI(events chan<- interface{}, WinName string) (*BasicUI, error) {
+func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*BasicUI, error) {
 	win, err := driver.NewWindow()
 	if err != nil {
 		return nil, err
@@ -37,6 +37,10 @@ func NewBasicUI(events chan<- interface{}, WinName string) (*BasicUI, error) {
 		Win:           win,
 		events:        events,
 	}
+
+	// Embed nodes have their wrapper nodes set when they are appended to another node. The root node is not appended to any other node, therefore it needs to be set here.
+	ui.RootNode = root
+	root.Embed().SetWrapperForRootNode(root)
 
 	// slow UI without mouse move filter
 	//go ui.Win.EventLoop(events)
