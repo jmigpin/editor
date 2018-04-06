@@ -53,14 +53,13 @@ func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
 	return c
 }
 
+//----------
+
 type Callback struct {
 	F func(interface{})
 }
 
-type EventWrap struct {
-	EventId int
-	Event   interface{}
-}
+//----------
 
 type Regist struct {
 	evReg *Register
@@ -71,6 +70,8 @@ type Regist struct {
 func (reg *Regist) Unregister() {
 	reg.evReg.Remove(reg.id, reg.cb)
 }
+
+//----------
 
 type Unregister struct {
 	v []*Regist

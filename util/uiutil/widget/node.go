@@ -25,7 +25,7 @@ type Node interface {
 	Paint()
 	PaintChilds()
 
-	OnInputEvent(ev interface{}, p image.Point) bool
+	OnInputEvent(ev interface{}, p image.Point) bool // handled, true=stop
 }
 
 type EmbedNode struct {

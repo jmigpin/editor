@@ -1429,10 +1429,6 @@ func (sann *SingleAnnotator) debugCallExpr(fname string, u ...ast.Expr) ast.Expr
 	return &ast.CallExpr{Fun: se, Args: u}
 }
 
-func (sann *SingleAnnotator) debugIVsAnon() ast.Expr {
-	return sann.debugCallExpr("IVs", basicLitString("_"))
-}
-
 //------------
 
 type saCtx struct {
