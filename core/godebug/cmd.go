@@ -362,9 +362,15 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.
 }
 
 func (cmd *Cmd) annotateDir(dir string) error {
-	// join dir with cmd.dir if not abs
+	// if dir is not absolute, check if exists in cmd.dir
 	if !filepath.IsAbs(dir) {
-		dir = filepath.Join(cmd.Dir, dir)
+		t := filepath.Join(cmd.Dir, dir)
+		fi, err := os.Stat(t)
+		if err == nil {
+			if fi.IsDir() {
+				dir = t
+			}
+		}
 	}
 
 	// dir files
