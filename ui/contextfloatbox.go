@@ -22,7 +22,7 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb.Label.Text.SetStr("testing")
 	cfb.Label.Pad.Left = 5
 	cfb.Label.Pad.Right = 5
-	cfb.Label.Border.Set(1)
+	cfb.Label.Border.SetAll(1)
 
 	// TODO: scrollarea
 	//scrollArea := widget.NewScrollArea(l.UI, cfb.Label)

@@ -18,12 +18,20 @@ func NewPad(ctx ImageContext, child Node) *Pad {
 	p.Append(child)
 	return p
 }
-func (p *Pad) Set(v int) {
-	p.Top = v
-	p.Right = v
-	p.Bottom = v
-	p.Left = v
+
+func (p *Pad) Set(t, r, b, l int) {
+	p.Top = t
+	p.Right = r
+	p.Bottom = b
+	p.Left = l
 }
+func (p *Pad) Set2(v [4]int) {
+	p.Set(v[0], v[1], v[2], v[3])
+}
+func (p *Pad) SetAll(v int) {
+	p.Set(v, v, v, v)
+}
+
 func (p *Pad) Measure(hint image.Point) image.Point {
 	h := hint
 	h.X -= p.Right + p.Left

@@ -49,9 +49,9 @@ func NewFloatMenu(m *MainMenuButton) *FloatMenu {
 
 	fm.Toolbar = NewToolbar(m.ui, m.ui.Root)
 	pad := widget.NewPad(m.ui, fm.Toolbar)
-	pad.Set(10)
+	pad.SetAll(10)
 	border := widget.NewBorder(m.ui, pad)
-	border.Set(1)
+	border.SetAll(1)
 
 	container := WrapInShadowBottom(m.ui, border)
 	fm.FloatBox = widget.NewFloatBox(container)
