@@ -66,24 +66,100 @@ Usage of ./editor:
 
 ### Basic Layout
 
-The editor has a top toolbar and columns. Columns have rows. Rows have a square-button, a toolbar and a textarea.
+The editor has a top toolbar and columns. Columns have rows. Rows have a toolbar and a textarea.
 
-These toolbars are textareas where clicking on the text will run that text as a command.
+These row toolbars are also textareas where clicking on the text will run that text as a command. 
 
-The square-button shows the state of the row.
+The row toolbar has a square showing the state of the row.
 
-### Row square-button states
+### Toolbar usage examples
+
+Commands in toolbars are separated by "|" (not to be confused with the shell pipe). If a shell pipe is needed it should be escaped with a backslash.
+
+All commands implemented by the editor start with an Uppercase letter. Otherwise it tries to run an existent external program. 
+
+Examples:
+  - `~/tmp/subdir/file1.txt | ls`
+  Clicking at `ls` will run `ls` at `~/tmp/subdir`
+  - `~/tmp/subdir/file1.txt | ls -l \| grep fi`
+  Notice how "|" is escaped, allowing to run `ls -l | grep fi`
+  - `~/tmp/subdir/file1.txt`
+  Clicking at `file1.txt` opens a new row to edit the same file.
+  Clicking at `~/tmp` opens a new row located at that directory.
+  - `gorename -offset $edPosOffset -to abc`
+  Usage of external command with active row position as argument.
+  [gorename godoc](https://godoc.org/golang.org/x/tools/cmd/gorename), [go tools](https://github.com/golang/tools).
+  - `guru -scope fmt callers $edPosOffset`
+  Usage of external command with active row position as argument.
+  [guru godoc](https://godoc.org/golang.org/x/tools/cmd/guru), [go tools](https://github.com/golang/tools).
+  - `grep -niIR someword`
+  Grep results with line positions that are clickable.
+
+### Commands
+
+#### Top toolbar commands
+
+- `ListSessions`: lists saved sessions
+- `SaveSession <name>`: save session to ~/.editor_sessions.json
+- `DeleteSession <name>`: deletes the session from the sessions file
+- `NewColumn`: opens new column
+- `NewRow`: opens new empty row located at the active-row directory, or if there is none, the current directory. Useful to run commands in a directory.
+- `ReopenRow`: reopen a previously closed row
+- `SaveAllFiles`: saves all files
+- `ReloadAll`: reloads all filepaths
+- `ReloadAllFiles`: reloads all filepaths that are files
+- `ColorTheme`: cycles through available color themes.
+- `FontTheme`: cycles through available font themes.
+- `Exit`: exits the program
+
+#### Row toolbar commands
+
+These commands run on a row toolbar, or on the top toolbar with the active-row.
+
+- `Save`: save file
+- `Reload`: reload content
+- `CloseRow`: close row
+- `CloseColumn`: closes row column
+- `Find`: find string (ignores case)
+- `GotoLine <num>`: goes to line number
+- `Replace <old> <new>`: replaces old string with new, respects selections
+- `Stop`: stops current process (external cmd) running in the row
+- `ListDir`: lists directory
+  - `-sub`: lists directory and sub directories
+  - `-hidden`: lists directory including hidden
+- `MaximizeRow`: maximize row. Will push other rows up/down.
+- ~~`RowDirectory`: get the row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.~~ Just click on the row toolbar first part to access a specific directory.
+- ~~`DuplicateRow`: make row share the edit history with a new row that updates when changes are made.~~ Just click on the row toolbar filename to open a duplicate.
+- `CopyFilePosition`: copy to clipboard/primary the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
+- `ToggleRowHBar`: toggles row textarea horizontal scrollbar.
+- `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
+- `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
+- `GoDebug`: debugger utility for go programs.
+- toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open a duplicate of that file.
+
+#### Textarea commands
+
+- `OpenSession <name>`: opens previously saved session
+- `<url>`: opens url in preferred application.
+- `<filename(:number?)(:number?)>`: opens filename, possibly at line/column (usual output from compilers). Check common locations like `$GOROOT` and C include directories.
+- `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
+
+### Environment variables set available to external commands
+
+- `$edPosOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
+
+### Row states
 
 - background colors:
   - `blue`: row file has been edited.
   - `orange`: row file doesn't exist.
 - dot colors:
   - `black`: row currently active. There is only one active row.
-  - `red`: row file was edited outside (changed on disk) and doesn't match last known save. You can run `Reload` to get the disk version.
-  - `blue`: row is duplicated (2 or more). 
-  - `yellow`: there are other rows with same filename (2 or more). Color will change when the pointer is over one of the rows.
+  - `red`: row file was edited outside (changed on disk) and doesn't match last known save. Use `Reload` cmd to update.
+  - `blue`: there are other rows with the same filename (2 or more).
+  - `yellow`: there are other rows with the same filename (2 or more). Color will change when the pointer is over one of the rows.
 
-### key/button shortcuts
+### Key/button shortcuts
 
 #### Global key/button shortcuts
 
@@ -158,56 +234,6 @@ The square-button shows the state of the row.
 - `ctrl`+`buttonWheelDown`: 
   - on textarea: show next debug step
   - over a debug annotation: show same line next annotation.
-
-### Commands
-
-#### Layout toolbar commands (top toolbar)
-
-- `ListSessions`: lists saved sessions
-- `SaveSession <name>`: save session to ~/.editor_sessions.json
-- `DeleteSession <name>`: deletes the session from the sessions file
-- `NewColumn`: opens new column
-- `NewRow`: opens new empty row located at the active-row directory, or if there is none, the current directory. Useful to run commands in a directory.
-- `ReopenRow`: reopen a previously closed row
-- `SaveAllFiles`: saves all files
-- `ReloadAll`: reloads all filepaths
-- `ReloadAllFiles`: reloads all filepaths that are files
-- `ColorTheme`: cycles through available color themes.
-- `FontTheme`: cycles through available font themes.
-- `Exit`: exits the program
-
-#### Row toolbar commands
-
-These commands run on a row toolbar, or on the top toolbar with the active-row.
-
-- `Save`: save file
-- `Reload`: reload content
-- `CloseRow`: close row
-- `CloseColumn`: closes row column
-- `Find`: find string (ignores case)
-- `GotoLine <num>`: goes to line number
-- `Replace <old> <new>`: replaces old string with new, respects selections
-- `Stop`: stops current process (external cmd) running in the row
-- `ListDir`: lists directory
-- `ListDirSub`: lists directory and sub directories
-- `ListDirHidden`: lists directory including hidden
-- `MaximizeRow`: maximize row. Will push other rows up/down.
-- ~~`RowDirectory`: get the row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.~~ Just click on the row toolbar first part to access a specific directory.
-- `DuplicateRow`: make row share the edit history with a new row that updates when changes are made.
-- `CopyFilePosition`: copy to clipboard the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
-- `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
-- `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument.
-- `GoDebug`: debugger utility for go programs.
-- toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open a duplicate of that file.
-
-#### Textarea commands
-
-- `OpenSession <name>`: opens previously saved session
-- `<url>`: opens url in x-www-browser
-- `<directory>`: opens directory
-- `<filename:number?:number?>`: opens filename, possibly at line/column (usual output from compilers)
-- `<quoted-string>`: opens filepath if existent. Checks for common locations like `$GOROOT` and C include directories.
-- `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
 
 ### Notes
 

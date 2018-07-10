@@ -3,7 +3,7 @@ package copypaste
 import (
 	"bytes"
 	"encoding/binary"
-	"log"
+	"fmt"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -11,24 +11,14 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-// NOTES on other applications
-// chromium seems to send an abnormal number of selection requests (also target requests) just to finally settle on what it is being provided
-// thunar (or the underlying framework) seems to request immediatly the selection as soon as the selection owner is set - without explicit paste
-
 type Copy struct {
 	conn  *xgb.Conn
 	win   xproto.Window
 	reply chan *xproto.SelectionNotifyEvent
 
+	// Data to transfer
 	clipboardStr string
 	primaryStr   string
-}
-
-var CopyAtoms struct {
-	UTF8_STRING xproto.Atom
-	XSEL_DATA   xproto.Atom
-	CLIPBOARD   xproto.Atom
-	TARGETS     xproto.Atom
 }
 
 func NewCopy(conn *xgb.Conn, win xproto.Window) (*Copy, error) {
@@ -39,12 +29,14 @@ func NewCopy(conn *xgb.Conn, win xproto.Window) (*Copy, error) {
 	return c, nil
 }
 
+//----------
+
 func (c *Copy) Set(i event.CopyPasteIndex, str string) error {
 	switch i {
-	case event.PrimaryCPI:
+	case event.CPIPrimary:
 		c.primaryStr = str
 		return c.set(xproto.AtomPrimary)
-	case event.ClipboardCPI:
+	case event.CPIClipboard:
 		c.clipboardStr = str
 		return c.set(CopyAtoms.CLIPBOARD)
 	}
@@ -55,24 +47,43 @@ func (c *Copy) set(selection xproto.Atom) error {
 	return cookie.Check()
 }
 
+//----------
+
 // Another application is asking for the data
-func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) {
+func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<- interface{}) {
+	// DEBUG
+	//target, _ := xgbutil.GetAtomName(c.conn, ev.Target)
+	//sel, _ := xgbutil.GetAtomName(c.conn, ev.Selection)
+	//prop, _ := xgbutil.GetAtomName(c.conn, ev.Property)
+	//log.Printf("on selection request: %v %v %v", target, sel, prop)
+
 	switch ev.Target {
-	case CopyAtoms.UTF8_STRING:
-		c.transferUTF8String(ev)
-	case CopyAtoms.TARGETS:
-		c.transferTargets(ev)
 	default:
-		// debug
-		s, err := xgbutil.GetAtomName(c.conn, ev.Target)
-		if err != nil {
-			s = err.Error()
+		// a terminal requesting 437 (text/plain;charset=utf-8) (unable to get name)
+		fallthrough
+	case CopyAtoms.UTF8_STRING:
+		if err := c.transferBytes(ev); err != nil {
+			events <- err
 		}
-		// TODO: have msg go up as error with evreg
-		log.Printf("copy: ignored selection request: asking for type %v (%v)\n", ev.Target, s)
+	case CopyAtoms.TARGETS:
+		if err := c.transferTargets(ev); err != nil {
+			events <- err
+		}
+		//default:
+		//	// atom name
+		//	name, err := xgbutil.GetAtomName(c.conn, ev.Target)
+		//	if err != nil {
+		//		events <- errors.Wrap(err, "cpcopy selectionrequest atom name for target")
+		//	}
+		//	// debug
+		//	msg := fmt.Sprintf("cpcopy: ignoring external request for type %v (%v)\n", ev.Target, name)
+		//	events <- errors.New(msg)
 	}
 }
-func (c *Copy) transferUTF8String(ev *xproto.SelectionRequestEvent) {
+
+//----------
+
+func (c *Copy) transferBytes(ev *xproto.SelectionRequestEvent) error {
 	var b []byte
 	switch ev.Selection {
 	case xproto.AtomPrimary:
@@ -80,66 +91,84 @@ func (c *Copy) transferUTF8String(ev *xproto.SelectionRequestEvent) {
 	case CopyAtoms.CLIPBOARD:
 		b = []byte(c.clipboardStr)
 	default:
-		return
+		return fmt.Errorf("unhandled selection: %v", ev.Selection)
 	}
 
 	// change property on the requestor
-	xproto.ChangeProperty(
+	c1 := xproto.ChangePropertyChecked(
 		c.conn,
 		xproto.PropModeReplace,
 		ev.Requestor, // requestor window
 		ev.Property,  // property
-		ev.Target,    // type
-		8,            // format
+		ev.Target,
+		8, // format
 		uint32(len(b)),
 		b)
+	if err := c1.Check(); err != nil {
+		return err
+	}
+
 	// notify the server
 	sne := xproto.SelectionNotifyEvent{
 		Requestor: ev.Requestor,
 		Selection: ev.Selection,
-		Target:    ev.Target, // type
+		Target:    ev.Target,
 		Property:  ev.Property,
+		Time:      ev.Time,
 	}
-	buf := sne.Bytes()
-	_ = xproto.SendEvent(c.conn,
+	c2 := xproto.SendEventChecked(
+		c.conn,
 		false,
 		sne.Requestor,
 		xproto.EventMaskNoEvent,
-		string(buf))
+		string(sne.Bytes()))
+	return c2.Check()
 }
-func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) {
-	targets := []xproto.Atom{CopyAtoms.UTF8_STRING}
+
+//----------
+
+func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) error {
+	targets := []xproto.Atom{
+		CopyAtoms.UTF8_STRING,
+	}
 
 	tbuf := new(bytes.Buffer)
 	for _, t := range targets {
 		binary.Write(tbuf, binary.LittleEndian, t)
 	}
-	b := tbuf.Bytes()
 
 	// change property on the requestor
-	xproto.ChangeProperty(
+	c1 := xproto.ChangePropertyChecked(
 		c.conn,
 		xproto.PropModeReplace,
 		ev.Requestor, // requestor window
 		ev.Property,  // property
-		ev.Target,    // type
-		32,           // format
+		ev.Target,
+		32, // format
 		uint32(len(targets)),
-		b)
+		tbuf.Bytes())
+	if err := c1.Check(); err != nil {
+		return err
+	}
+
 	// notify the server
 	sne := xproto.SelectionNotifyEvent{
 		Requestor: ev.Requestor,
 		Selection: ev.Selection,
-		Target:    ev.Target, // type
+		Target:    ev.Target,
 		Property:  ev.Property,
+		Time:      ev.Time,
 	}
-	buf := sne.Bytes()
-	_ = xproto.SendEvent(c.conn,
+	c2 := xproto.SendEventChecked(
+		c.conn,
 		false,
 		sne.Requestor,
 		xproto.EventMaskNoEvent,
-		string(buf))
+		string(sne.Bytes()))
+	return c2.Check()
 }
+
+//----------
 
 // Another application now owns the selection.
 func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
@@ -150,3 +179,17 @@ func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
 		c.clipboardStr = ""
 	}
 }
+
+//----------
+
+var CopyAtoms struct {
+	UTF8_STRING xproto.Atom
+	XSEL_DATA   xproto.Atom
+	CLIPBOARD   xproto.Atom
+	TARGETS     xproto.Atom
+}
+
+//const (
+//	// TODO:
+//	PLAIN_UTF8 xproto.Atom = 437 // (text/plain;charset=utf-8)
+//)

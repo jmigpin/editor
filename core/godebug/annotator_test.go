@@ -3,14 +3,13 @@ package godebug
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 	"testing"
 )
 
 func init() {
-	log.SetFlags(log.Lshortfile)
+	//log.SetFlags(log.Lshortfile)
 }
 
 func testSourceResult(t *testing.T, src, res string, srcFn func(string) string, index int) {
@@ -45,7 +44,7 @@ func testSourceResult(t *testing.T, src, res string, srcFn func(string) string, 
 
 func testSourceResults(t *testing.T, src, res []string, srcFn func(string) string) {
 	t.Helper()
-	for i, _ := range src {
+	for i := range src {
 		testSourceResult(t, src[i], res[i], srcFn, i)
 	}
 }

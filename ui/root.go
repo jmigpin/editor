@@ -8,43 +8,29 @@ import (
 
 // User Interface root (top) node.
 type Root struct {
-	widget.MultiLayer
+	*widget.MultiLayer
 	UI              *UI
 	Toolbar         *Toolbar
 	MainMenuButton  *MainMenuButton
 	ContextFloatBox *ContextFloatBox
 	Cols            *Columns
-
-	rowSepHandlesMark widget.Rectangle
-	colSepHandlesMark widget.Rectangle
 }
 
 func NewRoot(ui *UI) *Root {
-	return &Root{UI: ui}
+	return &Root{MultiLayer: widget.NewMultiLayer(), UI: ui}
 }
 
 func (root *Root) Init() {
 	//  background layer
 	bgLayer := widget.NewBoxLayout()
 	bgLayer.YAxis = true
-	root.Append(bgLayer)
-
-	// column/row layer marks to be able to insert in a specific order
-	root.rowSepHandlesMark.SetHidden(true)
-	root.Append(&root.rowSepHandlesMark)
-	root.colSepHandlesMark.SetHidden(true)
-	root.Append(&root.colSepHandlesMark)
+	root.BgLayer.Append(bgLayer)
 
 	// context floatbox layer
-	root.ContextFloatBox = NewContextFloatBox(root)
-	root.Append(root.ContextFloatBox)
+	//root.ContextFloatBox = NewContextFloatBox(root)
+	//root.FloatLayer.Append(root.ContextFloatBox)
 
-	// main-menu-button floatmenu layer
-	mmb := NewMainMenuButton(root.UI)
-	root.MainMenuButton = mmb
-	root.Append(mmb.FloatMenu)
-
-	// setup background layer after other layers are set
+	// background layer
 	{
 		// top toolbar
 		{
@@ -52,24 +38,26 @@ func (root *Root) Init() {
 			bgLayer.Append(ttb)
 
 			// toolbar
-			root.Toolbar = NewToolbar(root.UI, bgLayer)
+			root.Toolbar = NewToolbar(root.UI)
 			ttb.Append(root.Toolbar)
 			ttb.SetChildFlex(root.Toolbar, true, false)
 
 			// main menu button
+			mmb := NewMainMenuButton(root)
 			mmb.Label.Border.Left = 1
 			ttb.Append(mmb)
 			ttb.SetChildFill(mmb, false, true)
+			root.MainMenuButton = mmb
 		}
 
-		// separator if there are no shadows
-		if !ShadowsOn {
-			sep := widget.NewSeparator(root.UI)
-			sep.Size.Y = SeparatorWidth
-			sep.SetTheme(&UITheme.Toolbar)
-			bgLayer.Append(sep)
-			bgLayer.SetChildFill(sep, true, false)
-		}
+		//// separator if there are no shadows
+		//if !ShadowsOn {
+		//	sep := widget.NewSeparator(root.UI)
+		//	sep.Size.Y = SeparatorWidth
+		//	sep.SetTheme(&UITheme.Toolbar)
+		//	bgLayer.Append(sep)
+		//	bgLayer.SetChildFill(sep, true, false)
+		//}
 
 		// columns
 		root.Cols = NewColumns(root)
@@ -77,18 +65,17 @@ func (root *Root) Init() {
 	}
 }
 
-func (l *Root) InsertRowSepHandle(n widget.Node) {
-	l.InsertBefore(n, &l.rowSepHandlesMark)
-}
-func (l *Root) InsertColSepHandle(n widget.Node) {
-	l.InsertBefore(n, &l.colSepHandlesMark)
+func (l *Root) OnChildMarked(child widget.Node, newMarks widget.Marks) {
+	l.MultiLayer.OnChildMarked(child, newMarks)
+	// dynamic toolbar
+	if l.Toolbar != nil && l.Toolbar.Marks.HasAny(widget.MarkNeedsLayout) {
+		l.BgLayer.MarkNeedsLayout()
+	}
 }
 
-func (l *Root) GoodColumnRowPlace() (*Column, *Row) {
+//----------
 
-	// TODO: accept optional row, or take into consideration active row
-	// TODO: don't go too far away, stay close (active row)
-	// TODO: belongs in Columns?
+func (l *Root) GoodRowPos() *RowPos {
 
 	var best struct {
 		r       *image.Rectangle
@@ -97,35 +84,55 @@ func (l *Root) GoodColumnRowPlace() (*Column, *Row) {
 		nextRow *Row
 	}
 
-	// allow to find a column at ui start when the area is 0
-	best.area = -1
+	// default position if nothing better is found
+	best.col = l.Cols.FirstChildColumn()
 
 	for _, c := range l.Cols.Columns() {
 		rows := c.Rows()
-		if len(rows) == 0 {
-			s := c.Bounds.Size()
-			a := s.X * s.Y
-			if a > best.area {
-				best.area = a
-				best.col = c
-				best.nextRow = nil
+
+		// space before first row
+		s := c.Bounds.Size()
+		if len(rows) > 0 {
+			s.Y = rows[0].Bounds.Min.Y - c.Bounds.Min.Y
+		}
+		a := s.X * s.Y
+		if a > best.area {
+			best.area = a
+			best.col = c
+			best.nextRow = nil
+			if len(rows) > 0 {
+				best.nextRow = rows[0]
 			}
-		} else {
-			for _, r := range rows {
-				s := r.Bounds.Size()
-				a := (s.X * s.Y)
+		}
 
-				// after insertion the space will be shared
-				a2 := a / 2
+		// space between rows
+		for _, r := range rows {
+			s := r.TextArea.Bounds.Size()
+			a := (s.X * s.Y)
 
-				if a2 > best.area {
-					best.area = a2
-					best.col = c
-					best.nextRow = r.NextRow()
-				}
+			// after insertion the space will be shared
+			a2 := a / 2
+
+			if a2 > best.area {
+				best.area = a2
+				best.col = c
+				best.nextRow = r.NextRow()
 			}
 		}
 	}
 
-	return best.col, best.nextRow
+	return NewRowPos(best.col, best.nextRow)
+}
+
+//----------
+
+type RowPos struct {
+	Column  *Column
+	NextRow *Row
+
+	// TODO: percent for rowslayout.spl
+}
+
+func NewRowPos(col *Column, nextRow *Row) *RowPos {
+	return &RowPos{col, nextRow}
 }

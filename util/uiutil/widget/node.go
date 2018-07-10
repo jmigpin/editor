@@ -2,185 +2,149 @@ package widget
 
 import (
 	"container/list"
-	"fmt"
 	"image"
 	"image/color"
-	"reflect"
+	"strings"
 
 	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type Node interface {
+	fullNode() // ensure that EmbNode can't be directly assigned to a Node
+
 	Embed() *EmbedNode
 
-	InsertBefore(n, mark Node)
+	InsertBefore(n Node, mark *EmbedNode)
 	Append(n ...Node)
-	Remove(Node)
-
-	// Node is an immediate child of this node, while the rectangle is the bounds of the original subchild node that requested the paint.
-	OnMarkChildNeedsPaint(Node, *image.Rectangle)
+	Remove(child Node)
 
 	Measure(hint image.Point) image.Point
-	CalcChildsBounds()
-	Paint()
-	PaintChilds()
 
-	OnInputEvent(ev interface{}, p image.Point) bool // handled, true=stop
+	LayoutMarked()
+	LayoutTree()
+	Layout() // set childs bounds, don't call childs layout
+	ChildsLayoutTree()
+
+	PaintMarked() image.Rectangle
+	PaintTree() bool
+	PaintBase() // pre-paint step, useful for widgets with a pre-paint stage
+	Paint()
+	ChildsPaintTree()
+
+	OnThemeChange()
+	OnChildMarked(child Node, newMarks Marks)
+	OnInputEvent(ev interface{}, p image.Point) event.Handle
 }
+
+//----------
+
+// Doesn't allow embed to be assigned to a Node directly, which prevents a range of programming mistakes. This is the node other widgets should inherit from.
+type ENode struct {
+	EmbedNode
+}
+
+func (ENode) fullNode() {}
+
+//----------
 
 type EmbedNode struct {
-	Bounds image.Rectangle
-	theme  *Theme // pointer to allow the instance be elsewhere and modified later
-	Cursor Cursor
+	Bounds  image.Rectangle
+	Cursor  Cursor
+	Marks   Marks
+	Wrapper Node
+	Parent  *EmbedNode
 
-	wrapper Node
-	childs  list.List
-	elem    *list.Element
-	parent  *EmbedNode
+	childs list.List
+	elem   *list.Element
 
-	marks Marks
-	//marksLock sync.RWMutex // allow marks from non-paint goroutines
+	theme Theme
 }
+
+//----------
 
 func (en *EmbedNode) Embed() *EmbedNode {
 	return en
 }
 
 // Only the root node should need to set the wrapper explicitly.
-func (en *EmbedNode) SetWrapperForRootNode(n Node) {
-	en.wrapper = n
+func (en *EmbedNode) SetWrapperForRoot(n Node) {
+	en.Wrapper = n
 }
 
-func (en *EmbedNode) Wrapper() Node {
-	return en.wrapper
-}
-
-// Returns the parent wrapping node if present.
-func (en *EmbedNode) Parent() Node {
-	if en.parent != nil {
-		w := en.parent.wrapper
-		if w == nil {
-			panic(fmt.Sprintf("parent node without wrapper: en.wrapper is %s", reflect.TypeOf(en.wrapper)))
-		}
-		return w
-	}
-	return nil
-}
+//----------
 
 // If a node wants its InsertBefore implementation to be used, the wrapper must be set.
 func (en *EmbedNode) Append(nodes ...Node) {
 	for _, n := range nodes {
-		if en.wrapper != nil {
-			en.wrapper.InsertBefore(n, nil)
+		if en.Wrapper != nil {
+			en.Wrapper.InsertBefore(n, nil)
 		} else {
 			en.InsertBefore(n, nil)
 		}
 	}
 }
 
-func (en *EmbedNode) InsertBefore(n, next Node) {
-	ne := n.Embed()
-	if ne == en {
+func (en *EmbedNode) InsertBefore(child Node, next *EmbedNode) {
+	childe := child.Embed()
+
+	if childe == en {
 		panic("inserting into itself")
+	}
+	if childe.Parent != nil {
+		panic("element already has a parent")
 	}
 
 	// insert in list and get element
 	var elem *list.Element
-	if next == nil || reflect.ValueOf(next).IsNil() {
-		elem = en.childs.PushBack(n)
+	if next == nil {
+		elem = en.childs.PushBack(childe)
 	} else {
-		nexte := next.Embed()
-		if nexte.parent != en {
+		// ensure next element is a child of this node
+		if next.Parent != en {
 			panic("next is not a child of this node")
 		}
-		elem = en.childs.InsertBefore(n, nexte.elem)
+
+		elem = en.childs.InsertBefore(childe, next.elem)
 	}
 	if elem == nil {
 		panic("element not inserted")
 	}
 
-	ne.elem = elem
-	ne.parent = en
-	ne.wrapper = n // auto set the wrapper
+	childe.elem = elem
+	childe.Parent = en
+	childe.Wrapper = child // auto set the wrapper
 
-	if en.Hidden() {
-		ne.setParentHidden(true)
-	}
+	en.MarkNeedsLayoutAndPaint()
+
+	childe.themeChangeCallback()
 }
+
+//----------
 
 func (en *EmbedNode) Remove(n Node) {
-	if !en.HasChild(n) {
+	ne := n.Embed()
+	if ne.Parent != en {
 		panic("not a child of this node")
 	}
-	ne := n.Embed()
 	en.childs.Remove(ne.elem)
 	ne.elem = nil
-	ne.parent = nil
-	ne.setParentHidden(false)
+	ne.Parent = nil
+
+	en.MarkNeedsLayoutAndPaint()
 }
 
-func (en *EmbedNode) FirstChild() Node {
-	return en.notHiddenOrNext(en.childs.Front())
-}
-func (en *EmbedNode) LastChild() Node {
-	return en.notHiddenOrPrev(en.childs.Back())
-}
-func (en *EmbedNode) Prev() Node {
-	return en.notHiddenOrPrev(en.elem.Prev())
-}
-func (en *EmbedNode) Next() Node {
-	return en.notHiddenOrNext(en.elem.Next())
-}
-
-func (en *EmbedNode) notHiddenOrPrev(e0 *list.Element) Node {
-	for e := e0; e != nil; e = e.Prev() {
-		n := e.Value.(Node)
-		if n.Embed().Hidden() {
-			continue
-		}
-		return n
-	}
-	return nil
-}
-func (en *EmbedNode) notHiddenOrNext(e0 *list.Element) Node {
-	for e := e0; e != nil; e = e.Next() {
-		n := e.Value.(Node)
-		if n.Embed().Hidden() {
-			continue
-		}
-		return n
-	}
-	return nil
-}
-
-func (en *EmbedNode) FirstChildInAll() Node {
-	return en.elemNode(en.childs.Front())
-}
-func (en *EmbedNode) LastChildInAll() Node {
-	return en.elemNode(en.childs.Back())
-}
-func (en *EmbedNode) PrevInAll() Node {
-	return en.elemNode(en.elem.Prev())
-}
-func (en *EmbedNode) NextInAll() Node {
-	return en.elemNode(en.elem.Next())
-}
-func (en *EmbedNode) elemNode(e *list.Element) Node {
-	if e == nil {
-		return nil
-	}
-	return e.Value.(Node)
-}
+//----------
 
 // Doesn't use Remove/Insert. So implementing nodes overriding those will not see their functions used.
-func (en *EmbedNode) Swap(n Node) {
-	ne := n.Embed()
-	if en.parent != ne.parent {
+func (en *EmbedNode) Swap(u Node) {
+	eu := u.Embed()
+	if en.Parent != eu.Parent {
 		panic("nodes don't have the same parent")
 	}
-	l := &en.parent.childs
+	l := &en.Parent.childs
 	e1 := en.elem
-	e2 := ne.elem
+	e2 := eu.elem
 	if e1.Next() == e2 {
 		l.MoveAfter(e1, e2)
 	} else if e2.Next() == e1 {
@@ -196,322 +160,443 @@ func (en *EmbedNode) Swap(n Node) {
 	}
 }
 
-// Current element can be safely removed from inside the loop.
-func (en *EmbedNode) IterChildsStop(fn func(Node) bool) {
-	var next *list.Element
-	for e := en.childs.Front(); e != nil; e = next {
-		n := e.Value.(Node)
-		next = e.Next()
-		if n.Embed().Hidden() {
-			continue
-		}
-		if !fn(n) {
-			break
-		}
-	}
-}
-
-// Current element can be safely removed from inside the loop.
-func (en *EmbedNode) IterChildsReverseStop(fn func(Node) bool) {
-	var prev *list.Element
-	for e := en.childs.Back(); e != nil; e = prev {
-		n := e.Value.(Node)
-		prev = e.Prev()
-		if n.Embed().Hidden() {
-			continue
-		}
-		if !fn(n) {
-			break
-		}
-	}
-}
-
-func (en *EmbedNode) IterChilds(fn func(Node)) {
-	en.IterChildsStop(func(n Node) bool {
-		fn(n)
-		return true
-	})
-}
-func (en *EmbedNode) IterChildsReverse(fn func(Node)) {
-	en.IterChildsReverseStop(func(n Node) bool {
-		fn(n)
-		return true
-	})
-}
+//----------
 
 func (en *EmbedNode) ChildsLen() int {
-	c := 0
-	en.IterChilds(func(Node) {
-		c++
+	return en.childs.Len()
+}
+
+//----------
+
+func elemEmbed(e *list.Element) *EmbedNode {
+	if e == nil {
+		return nil
+	}
+	return e.Value.(*EmbedNode)
+}
+func elemWrapper(e *list.Element) Node {
+	if e == nil {
+		return nil
+	}
+	return e.Value.(*EmbedNode).Wrapper
+}
+
+//----------
+
+func (en *EmbedNode) FirstChild() *EmbedNode {
+	return elemEmbed(en.childs.Front())
+}
+func (en *EmbedNode) LastChild() *EmbedNode {
+	return elemEmbed(en.childs.Back())
+}
+func (en *EmbedNode) NextSibling() *EmbedNode {
+	return elemEmbed(en.elem.Next())
+}
+func (en *EmbedNode) PrevSibling() *EmbedNode {
+	return elemEmbed(en.elem.Prev())
+}
+
+//----------
+
+func (en *EmbedNode) FirstChildWrapper() Node {
+	return elemWrapper(en.childs.Front())
+}
+func (en *EmbedNode) LastChildWrapper() Node {
+	return elemWrapper(en.childs.Back())
+}
+func (en *EmbedNode) NextSiblingWrapper() Node {
+	return elemWrapper(en.elem.Next())
+}
+func (en *EmbedNode) PrevSiblingWrapper() Node {
+	return elemWrapper(en.elem.Prev())
+}
+
+//----------
+
+func (en *EmbedNode) Iterate(f func(*EmbedNode) bool) {
+	for e := en.childs.Front(); e != nil; e = e.Next() {
+		if !f(elemEmbed(e)) {
+			break
+		}
+	}
+}
+func (en *EmbedNode) IterateReverse(f func(*EmbedNode) bool) {
+	for e := en.childs.Back(); e != nil; e = e.Prev() {
+		if !f(elemEmbed(e)) {
+			break
+		}
+	}
+}
+func (en *EmbedNode) IterateWrappers(f func(Node) bool) {
+	for e := en.childs.Front(); e != nil; e = e.Next() {
+		if !f(elemWrapper(e)) {
+			break
+		}
+	}
+}
+func (en *EmbedNode) IterateWrappersReverse(f func(Node) bool) {
+	for e := en.childs.Back(); e != nil; e = e.Prev() {
+		if !f(elemWrapper(e)) {
+			break
+		}
+	}
+}
+
+//----------
+
+func (en *EmbedNode) Iterate2(f func(*EmbedNode)) {
+	for e := en.childs.Front(); e != nil; e = e.Next() {
+		f(elemEmbed(e))
+	}
+}
+func (en *EmbedNode) IterateReverse2(f func(*EmbedNode)) {
+	for e := en.childs.Back(); e != nil; e = e.Prev() {
+		f(elemEmbed(e))
+	}
+}
+func (en *EmbedNode) IterateWrappers2(f func(Node)) {
+	for e := en.childs.Front(); e != nil; e = e.Next() {
+		f(elemWrapper(e))
+	}
+}
+func (en *EmbedNode) IterateWrappersReverse2(f func(Node)) {
+	for e := en.childs.Back(); e != nil; e = e.Prev() {
+		f(elemWrapper(e))
+	}
+}
+
+//----------
+
+func (en *EmbedNode) ChildsWrappers() []Node {
+	w := []Node{}
+	en.IterateWrappers2(func(c Node) {
+		w = append(w, c)
 	})
-	return c
+	return w
 }
 
-func (en *EmbedNode) HasChild(n Node) bool {
-	return en == n.Embed().parent
+//----------
+
+func (en *EmbedNode) MarkUp(m Marks) {
+	en.markUp(m, true)
 }
 
-func (en *EmbedNode) hasMarks(m Marks) bool {
-	//en.marksLock.RLock()
-	//defer en.marksLock.RUnlock()
-	return en.marks.has(m)
-}
-func (en *EmbedNode) setMarks(m Marks, v bool) {
-	//en.marksLock.Lock()
-	//defer en.marksLock.Unlock()
-	en.marks.set(m, v)
+func (en *EmbedNode) markUp(m Marks, makeCallback bool) {
+	old := en.Marks
+	en.Marks |= m
+	changed := en.Marks ^ old
+	if changed != 0 {
+		if en.Parent != nil {
+
+			// update marks to add to parent
+			u := changed
+			if u.HasAny(MarkNeedsPaint) {
+				u.Remove(MarkNeedsPaint)
+				u.Add(MarkChildNeedsPaint)
+			}
+			if u.HasAny(MarkNeedsLayout) {
+				u.Remove(MarkNeedsLayout)
+				u.Add(MarkChildNeedsLayout)
+			}
+
+			// mark parent
+			en.Parent.markUp(u, makeCallback)
+
+			if makeCallback && en.Parent.Wrapper != nil {
+				en.Parent.Wrapper.OnChildMarked(en.Wrapper, changed)
+			}
+		}
+	}
+
 }
 
-func (en *EmbedNode) NeedsPaint() bool {
-	return en.hasMarks(NeedsPaintMark)
+func (en *EmbedNode) OnChildMarked(child Node, newMarks Marks) {
+}
+
+//----------
+
+func (en *EmbedNode) MarkNeedsLayout() {
+	en.MarkUp(MarkNeedsLayout)
 }
 func (en *EmbedNode) MarkNeedsPaint() {
-	// Can't test if it already needs paint because setNeedsPaint is running a callback (OnMarkChildNeedsPaint) with the bounds of the marking rectangle, and the top root node would not get that callback.
-
-	en.setNeedsPaint(true)
+	en.MarkUp(MarkNeedsPaint)
 }
-func (en *EmbedNode) setNeedsPaint(v bool) {
-	if v && en.NotPaintable() {
-		return
-	}
-	en.setMarks(NeedsPaintMark, v)
-
-	// mark parents
-	if v {
-		// set mark in parents
-		for pn := en.parent; pn != nil; pn = pn.parent {
-			pn.setMarks(ChildNeedsPaintMark, true)
-		}
-
-		// run callbacks with this node rectangle argument
-		child := en
-		for pn := en.parent; pn != nil; pn = pn.parent {
-			pn.wrapper.OnMarkChildNeedsPaint(child.wrapper, &en.Bounds)
-			child = pn
-		}
-	}
+func (en *EmbedNode) MarkNeedsLayoutAndPaint() {
+	en.MarkUp(MarkNeedsLayout | MarkNeedsPaint)
 }
 
-func (en *EmbedNode) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
+//----------
+
+func (en *EmbedNode) TreeNeedsPaint() bool {
+	return en.Marks.HasAny(MarkNeedsPaint | MarkChildNeedsPaint)
 }
 
-func (en *EmbedNode) ChildNeedsPaint() bool {
-	return en.hasMarks(ChildNeedsPaintMark)
-}
-func (en *EmbedNode) unmarkChildNeedsPaint() {
-	en.setMarks(ChildNeedsPaintMark, false)
+func (en *EmbedNode) TreeNeedsLayout() bool {
+	return en.Marks.HasAny(MarkNeedsLayout | MarkChildNeedsLayout)
 }
 
-func (en *EmbedNode) Hidden() bool {
-	return en.hasMarks(HiddenMark | ParentHiddenMark)
-}
-func (en *EmbedNode) SetHidden(v bool) {
-	en.setMarks(HiddenMark, v)
-
-	// update childs, note that it could have a hidden parent
-	isHidden := en.Hidden()
-	for e := en.childs.Front(); e != nil; e = e.Next() {
-		ce := e.Value.(Node).Embed()
-		ce.setParentHidden(isHidden)
-	}
-}
-func (en *EmbedNode) setParentHidden(v bool) {
-	en.setMarks(ParentHiddenMark, v)
-
-	// update childs, note that this node itself could be hidden
-	isHidden := en.Hidden()
-	for e := en.childs.Front(); e != nil; e = e.Next() {
-		ce := e.Value.(Node).Embed()
-		ce.setParentHidden(isHidden)
-	}
-}
-
-func (en *EmbedNode) NotDraggable() bool {
-	return en.hasMarks(NotDraggableMark)
-}
-func (en *EmbedNode) SetNotDraggable(v bool) {
-	en.setMarks(NotDraggableMark, v)
-}
-func (en *EmbedNode) PointerInside() bool {
-	return en.hasMarks(PointerInsideMark)
-}
-func (en *EmbedNode) SetPointerInside(v bool) {
-	en.setMarks(PointerInsideMark, v)
-}
-func (en *EmbedNode) NotPaintable() bool {
-	return en.hasMarks(NotPaintableMark)
-}
-func (en *EmbedNode) SetNotPaintable(v bool) {
-	en.setMarks(NotPaintableMark, v)
-}
+//----------
 
 func (en *EmbedNode) Measure(hint image.Point) image.Point {
 	var max image.Point
-	en.IterChilds(func(c Node) {
+	en.IterateWrappers2(func(c Node) {
 		m := c.Measure(hint)
 		max = imageutil.MaxPoint(max, m)
 	})
 	return max
 }
 
-func (en *EmbedNode) CalcChildsBounds() {
-	en.IterChilds(func(c Node) {
-		c.Embed().Bounds = en.Bounds
-		c.CalcChildsBounds()
+//----------
+
+func (en *EmbedNode) LayoutMarked() {
+	if en.Marks.HasAny(MarkNeedsLayout) {
+		en.Wrapper.LayoutTree()
+	} else if en.Marks.HasAny(MarkChildNeedsLayout) {
+		en.Marks.Remove(MarkChildNeedsLayout)
+		en.IterateWrappers2(func(c Node) {
+			c.LayoutMarked()
+		})
+	}
+}
+
+//var depth int
+
+func (en *EmbedNode) LayoutTree() {
+	//fmt.Printf("%*s layouttree %T %v\n", depth*4, "", en.Wrapper, en.Bounds)
+	//depth++
+	//defer func() { depth-- }()
+
+	en.Marks.Remove(MarkNeedsLayout | MarkChildNeedsLayout)
+
+	// keep/set default bounds before layouting childs
+	cbm := map[*EmbedNode]image.Rectangle{}
+	en.Iterate2(func(c *EmbedNode) {
+		cbm[c] = c.Bounds
+		c.Bounds = en.Bounds // parent bounds
+
+		// set to empty if not visible
+		if c.Marks.HasAny(MarkForceZeroBounds) {
+			c.Bounds = image.Rectangle{}
+		}
 	})
+
+	en.Wrapper.Layout()
+	en.Wrapper.ChildsLayoutTree()
+
+	// auto detect if it needs paint if bounds change
+	en.Iterate2(func(c *EmbedNode) {
+		if cb, ok := cbm[c]; ok && c.Bounds != cb {
+			c.MarkNeedsPaint()
+		}
+	})
+}
+
+func (en *EmbedNode) Layout() {
+}
+
+func (en *EmbedNode) ChildsLayoutTree() {
+	en.IterateWrappers2(func(c Node) {
+		c.LayoutTree()
+	})
+}
+
+//----------
+
+func (en *EmbedNode) PaintMarked() image.Rectangle {
+	u := image.Rectangle{}
+
+	if en.Marks.HasAny(MarkNeedsPaint) {
+		if en.Wrapper.PaintTree() {
+			u = u.Union(en.Bounds)
+		}
+	} else if en.Marks.HasAny(MarkChildNeedsPaint) {
+		en.Marks.Remove(MarkChildNeedsPaint)
+		en.IterateWrappers2(func(c Node) {
+			r := c.PaintMarked()
+			u = u.Union(r)
+		})
+	}
+
+	return u
+}
+
+func (en *EmbedNode) PaintTree() bool {
+	en.Marks.Remove(MarkNeedsPaint | MarkChildNeedsPaint)
+
+	if en.Marks.HasAny(MarkNotPaintable | MarkForceZeroBounds) {
+		return false
+	}
+
+	en.Wrapper.PaintBase()
+	en.Wrapper.Paint()
+	en.Wrapper.ChildsPaintTree()
+	return true
+}
+
+func (en *EmbedNode) PaintBase() {
 }
 
 func (en *EmbedNode) Paint() {
 }
 
-func (en *EmbedNode) PaintChilds() {
-	en.IterChilds(func(child Node) {
-		_ = PaintTree(child)
+func (en *EmbedNode) ChildsPaintTree() {
+	en.IterateWrappers2(func(c Node) {
+		c.PaintTree()
 	})
-}
-
-//// unable to use at the moment: need to ensure top layer drawing order
-//func (en *EmbedNode) PaintChilds2() {
-//	var wg sync.WaitGroup
-//	wg.Add(en.ChildsLen())
-//	en.IterChilds(func(child Node) {
-//		go func(child Node) {
-//			defer wg.Done()
-//			_ = PaintTree(child)
-//		}(child)
-//	})
-//	wg.Wait()
-//}
-
-func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) bool {
-	return false
 }
 
 //----------
 
-func (en *EmbedNode) SetTheme(t *Theme) {
+func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) event.Handle {
+	return event.NotHandled
+}
+
+//----------
+
+func (en *EmbedNode) SetTheme(t Theme) {
+	defer en.themeChangeCallback()
+	defer en.MarkNeedsPaint()  // possible palette change/update
+	defer en.MarkNeedsLayout() // possible font change
+
 	en.theme = t
 }
 
 func (en *EmbedNode) Theme() *Theme {
-	return en.theme
+	return &en.theme
 }
 
+//----------
+
 func (en *EmbedNode) ThemePalette() Palette {
-	if en.theme == nil {
-		return nil
-	}
 	return en.theme.Palette
 }
 
 func (en *EmbedNode) SetThemePalette(p Palette) {
-	if en.theme == nil {
-		en.theme = &Theme{}
-	}
-	en.theme.Palette = p
-	en.cleanTheme()
-}
+	defer en.themeChangeCallback()
+	defer en.MarkNeedsPaint()
 
-func (en *EmbedNode) TreeThemePaletteColor(name string) color.Color {
-	return TreeThemePaletteColor(name, en)
+	en.theme.SetPalette(p)
 }
 
 func (en *EmbedNode) SetThemePaletteColor(name string, c color.Color) {
-	// delete color
-	if c == nil {
-		if en.theme != nil && en.theme.Palette != nil {
-			delete(en.theme.Palette, name)
-		}
-		en.cleanTheme()
-		return
-	}
+	defer en.themeChangeCallback()
+	defer en.MarkNeedsPaint()
 
-	// set color
-	if en.theme == nil {
-		en.theme = &Theme{}
+	en.theme.SetPaletteColor(name, c)
+}
+
+func (en *EmbedNode) SetThemePaletteNamePrefix(prefix string) {
+	defer en.themeChangeCallback()
+	defer en.MarkNeedsPaint()
+
+	en.theme.SetPaletteNamePrefix(prefix)
+}
+
+//----------
+
+func (en *EmbedNode) TreeThemePaletteColor(name string) color.Color {
+	if c, ok := en.treeThemePaletteColor2(name); ok {
+		return c
 	}
-	if en.theme.Palette == nil {
-		en.theme.Palette = MakePalette()
+	// last resort: a color that is not white/black to help debug
+	return cint(0xff0000)
+}
+
+func (en *EmbedNode) treeThemePaletteColor2(name string) (color.Color, bool) {
+	if !strings.HasPrefix(name, en.theme.PaletteNamePrefix) {
+		s := en.theme.PaletteNamePrefix + name
+		if c, ok := en.treeThemePaletteColor2(s); ok {
+			return c, true
+		}
 	}
-	en.theme.Palette[name] = c
+	if c, ok := en.theme.Palette[name]; ok {
+		return c, true
+	}
+	if en.Parent != nil {
+		if c, ok := en.Parent.treeThemePaletteColor2(name); ok {
+			return c, true
+		}
+	}
+	// at root tree (parent is nil) and not found, try default palette
+	if c, ok := DefaultPalette[name]; ok {
+		return c, true
+	}
+	return nil, false
+}
+
+//----------
+
+func (en *EmbedNode) SetThemeFont(f ThemeFont) {
+	defer en.themeChangeCallback()
+	defer en.MarkNeedsLayout()
+
+	en.theme.SetFont(f)
 }
 
 func (en *EmbedNode) TreeThemeFont() ThemeFont {
-	return TreeThemeFont(en)
+	for n := en; n != nil; n = n.Parent {
+		if n.theme.Font != nil {
+			return n.theme.Font
+		}
+	}
+	return DefaultThemeFont() // TODO: instance that gets updated?
 }
 
-func (en *EmbedNode) SetThemeFont(f ThemeFont) {
-	if en.theme == nil {
-		en.theme = &Theme{}
+//----------
+
+func (en *EmbedNode) themeChangeCallback() {
+	if en.Wrapper != nil {
+		en.Wrapper.OnThemeChange()
 	}
-	en.theme.Font = f
-	en.cleanTheme()
+	en.Iterate2(func(c *EmbedNode) {
+		c.themeChangeCallback()
+	})
 }
 
-func (en *EmbedNode) cleanTheme() {
-	if en.theme.empty() {
-		en.theme = nil
-	}
+func (en *EmbedNode) OnThemeChange() {
 }
 
 //----------
 
 type Marks uint16
 
-func (m *Marks) add(u Marks)      { *m |= u }
-func (m *Marks) remove(u Marks)   { *m &^= u }
-func (m *Marks) has(u Marks) bool { return *m&u > 0 }
-func (m *Marks) set(u Marks, v bool) {
-	if v {
-		m.add(u)
-	} else {
-		m.remove(u)
-	}
-}
+func (m *Marks) Add(u Marks)        { *m |= u }
+func (m *Marks) Remove(u Marks)     { *m &^= u }
+func (m Marks) Mask(u Marks) Marks  { return m & u }
+func (m Marks) HasAny(u Marks) bool { return m.Mask(u) > 0 }
 
-const (
-	NeedsPaintMark Marks = 1 << iota
-	ChildNeedsPaintMark
-	PointerInsideMark // mouseEnter/mouseLeave events
-	NotDraggableMark
-	HiddenMark
-	ParentHiddenMark
-
-	// For transparent widgets that cross 2 or more other widgets (ex: separatorHandle). Improves on detecting if others need paint and reduces the number of widgets that get painted. Child nodes can still be painted.
-	NotPaintableMark
-)
+//func (m *Marks) Modify(u Marks, v bool) {
+//	if v {
+//		m.Add(u)
+//	} else {
+//		m.Remove(u)
+//	}
+//}
+//func (m Marks) Changes(u Marks) Marks {
+//	old := m
+//	m |= u
+//	return m ^ old
+//}
 
 //----------
 
-func PaintIfNeeded(node Node, painted func(*image.Rectangle)) {
-	if node.Embed().NeedsPaint() {
-		if PaintTree(node) {
-			painted(&node.Embed().Bounds)
-		}
-	} else if node.Embed().ChildNeedsPaint() {
-		node.Embed().unmarkChildNeedsPaint()
-		node.Embed().IterChilds(func(child Node) {
-			PaintIfNeeded(child, painted)
-		})
-	}
-}
+const (
+	MarkNeedsPaint Marks = 1 << iota
+	MarkNeedsLayout
 
-//var paintDepth int
+	MarkChildNeedsPaint
+	MarkChildNeedsLayout
 
-func PaintTree(node Node) (painted bool) {
-	//paintDepth++
-	//defer func() { paintDepth-- }()
+	//MarkHidden
+	//MarkParentHidden
 
-	ne := node.Embed()
-	if ne.Hidden() {
-		return false
-	}
+	MarkPointerInside // mouseEnter/mouseLeave events
+	MarkNotDraggable  // won't emit mouseDrag events
 
-	//log.Printf("%*s%s", paintDepth, "", reflect.TypeOf(node))
+	MarkForceZeroBounds // sets bounds to zero (aka not visible)
 
-	ne.setNeedsPaint(false)
-	ne.unmarkChildNeedsPaint()
-	node.Paint()
-	node.PaintChilds()
-	return true
-}
+	MarkInBoundsHandlesEvent // helps with layer nodes keep events
+
+	// For transparent widgets that cross two or more other widgets (ex: a non visible separator handle). Improves on detecting if others need paint.
+	MarkNotPaintable
+)

@@ -191,7 +191,7 @@ func (ann *Annotator) ConfigSource() (string, string) {
 	return src, pkgFilename
 }
 
-//------------
+//----------
 
 func (ann *Annotator) keepTestPackage(filename string, astFile *ast.File) {
 	isTest := strings.HasSuffix(filename, "_test.go")
@@ -231,7 +231,7 @@ func (ann *Annotator) testMainSource(pkgName string) string {
 	`
 }
 
-//------------
+//----------
 
 func (ann *Annotator) Print(w io.Writer, astFile *ast.File) error {
 	// print with source positions from original file
@@ -244,7 +244,7 @@ func (ann *Annotator) PrintSimple(w io.Writer, astFile *ast.File) error {
 	return cfg.Fprint(w, ann.FSet, astFile)
 }
 
-//------------
+//----------
 
 type SingleAnnotator struct {
 	ann               *Annotator
@@ -372,7 +372,7 @@ func (sann *SingleAnnotator) visitNode(ctx *saCtx, node ast.Node) {
 	}
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) hasNodeArg(ctx *saCtx) bool {
 	v := ctx.Value("nodearg")
@@ -394,7 +394,7 @@ func (sann *SingleAnnotator) visitNodeArg(ctx *saCtx, e *ast.Expr) {
 	ctx.PushExprs(ctx2.PopExprs()...)
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) withNilResults(ctx *saCtx) *saCtx {
 	ctx = ctx.WithValue("expr_ptr", nil)
@@ -449,7 +449,7 @@ func (sann *SingleAnnotator) replaceExprPtrWithVar(ctx *saCtx, e ast.Expr) ast.E
 	return nilIdent()
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitNodeWithNewExprs(ctx *saCtx, node ast.Node) {
 	ctx2 := ctx.WithNewExprs()
@@ -488,7 +488,7 @@ func (sann *SingleAnnotator) visitStmts(ctx *saCtx, stmts *[]ast.Stmt) {
 	}
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) stmtsIndexes(ctx *saCtx) (_, _, _ *int) {
 	ni := ctx.Value("stmts_nindex").(*int)
@@ -507,7 +507,7 @@ func (sann *SingleAnnotator) newStmtsIndexes(ctx *saCtx) *saCtx {
 	return ctx
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitFuncDecl(ctx *saCtx, fd *ast.FuncDecl) {
 	if fd.Body == nil {
@@ -524,7 +524,7 @@ func (sann *SingleAnnotator) visitFuncDecl(ctx *saCtx, fd *ast.FuncDecl) {
 	sann.visitNode(ctx3, fd.Body)
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitFuncType(ctx *saCtx, ft *ast.FuncType) {
 	for _, f := range ft.Params.List {
@@ -542,7 +542,7 @@ func (sann *SingleAnnotator) visitMapType(ctx *saCtx, mt *ast.MapType) {
 	// nothing todo in this case: a:=make(map[string]string)
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitField(ctx *saCtx, f *ast.Field) {
 	for _, id := range f.Names {
@@ -550,7 +550,7 @@ func (sann *SingleAnnotator) visitField(ctx *saCtx, f *ast.Field) {
 	}
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitIdent(ctx *saCtx, id *ast.Ident) {
 	if isAnonIdent(id) {
@@ -563,7 +563,7 @@ func (sann *SingleAnnotator) visitIdent(ctx *saCtx, id *ast.Ident) {
 	ctx.PushExprs(ce)
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitBasicLit(ctx *saCtx, bl *ast.BasicLit) {
 	switch bl.Kind {
@@ -583,7 +583,7 @@ func (sann *SingleAnnotator) visitCompositeLit(ctx *saCtx, cl *ast.CompositeLit)
 
 	//pos := make([]token.Pos, len(cl.Elts))
 	for i, e := range cl.Elts {
-		_, e = i, e
+		_, _ = i, e
 
 		//pos[i] = e.Pos() // keep before visitnode or it might not be available after changes
 
@@ -643,7 +643,7 @@ func (sann *SingleAnnotator) visitFuncLit(ctx *saCtx, fl *ast.FuncLit) {
 	ctx0.PushExprs(e)
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitExprStmt(ctx *saCtx, es *ast.ExprStmt) {
 	sann.visitNode(ctx, es.X)
@@ -840,7 +840,7 @@ func (sann *SingleAnnotator) visitAssignStmt(ctx *saCtx, as *ast.AssignStmt) {
 	// 	v0:=debug(1, c, b)
 	// 	a, b, _  = 1, c, b
 
-	for i, _ := range as.Rhs {
+	for i := range as.Rhs {
 		ctx2 := ctx
 		if len(as.Rhs) == 1 {
 			ctx2 = ctx2.WithValue("expr_nresults", len(as.Lhs))
@@ -856,7 +856,7 @@ func (sann *SingleAnnotator) visitAssignStmt(ctx *saCtx, as *ast.AssignStmt) {
 	stmt2 := sann.newDefine11(rhsId, ce4)
 	sann.insert(ctx, 0, stmt2)
 
-	for i, _ := range as.Lhs {
+	for i := range as.Lhs {
 		// not setting "expr_ptr" (ex: "a[i]=b" would replace a[i] with a d0)
 		sann.visitNodeWithNewExprs(ctx, as.Lhs[i])
 	}
@@ -893,7 +893,7 @@ func (sann *SingleAnnotator) visitReturnStmt(ctx *saCtx, rs *ast.ReturnStmt) {
 			}
 		}
 	} else if len(rs.Results) == ftNResults {
-		for i, _ := range rs.Results {
+		for i := range rs.Results {
 			sann.visitExpr(ctx, &rs.Results[i])
 		}
 	} else if len(rs.Results) == 1 {
@@ -959,7 +959,7 @@ func (sann *SingleAnnotator) visitGoStmt(ctx *saCtx, gs *ast.GoStmt) {
 	sann.visitNode(ctx, gs.Call)
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitSelectorExpr(ctx *saCtx, se *ast.SelectorExpr) {
 	ce := sann.debugCallExpr("IV", se)
@@ -1126,7 +1126,7 @@ func (sann *SingleAnnotator) visitParenExpr(ctx *saCtx, pe *ast.ParenExpr) {
 	ctx.PushExprs(ce)
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) visitIndexExpr(ctx *saCtx, ie *ast.IndexExpr) {
 	ctx0 := ctx
@@ -1217,7 +1217,7 @@ func (sann *SingleAnnotator) visitCallExpr(ctx *saCtx, ce *ast.CallExpr) {
 		sann.visitExpr(ctx2, &ce.Fun)
 	}
 
-	for i, _ := range ce.Args {
+	for i := range ce.Args {
 		sann.visitExpr(ctx2, &ce.Args[i])
 	}
 	args := ctx.PopExprs()
@@ -1248,7 +1248,7 @@ func (sann *SingleAnnotator) visitWrappedStmt(ctx *saCtx, stmt ast.Stmt) bool {
 	return true
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) newVarName() string {
 	defer func() { sann.debugVarNameIndex++ }()
@@ -1282,7 +1282,7 @@ func (sann *SingleAnnotator) newIdentDefineInsert(ctx *saCtx, e ast.Expr) ast.Ex
 	return id
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) insert(ctx *saCtx, offset int, u ...ast.Stmt) {
 	v1 := ctx.Value("stmts")
@@ -1311,7 +1311,7 @@ func (sann *SingleAnnotator) insertInStmts(stmt ast.Stmt, i int, stmts []ast.Stm
 	return list
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) insertImportDebug(astFile *ast.File) {
 	sann.insertImport(astFile, sann.ann.debugPkgName, debugPkgPath)
@@ -1382,7 +1382,7 @@ func (sann *SingleAnnotator) insertDebugExitInFunction(astFile *ast.File, name s
 	return true
 }
 
-//------------
+//----------
 
 func (sann *SingleAnnotator) buildLineStmtWrap(pos token.Pos, wrapFuncName string, u ...ast.Expr) ast.Stmt {
 	switch len(u) {
@@ -1429,7 +1429,7 @@ func (sann *SingleAnnotator) debugCallExpr(fname string, u ...ast.Expr) ast.Expr
 	return &ast.CallExpr{Fun: se, Args: u}
 }
 
-//------------
+//----------
 
 type saCtx struct {
 	parent *saCtx
@@ -1457,7 +1457,7 @@ func (ctx *saCtx) ResetValue(name string, v interface{}) {
 	}
 }
 
-//------------
+//----------
 
 // Should be used if the function is popping, to prevent previous functions expressions to pop.
 func (ctx *saCtx) WithNewExprs() *saCtx {
@@ -1505,7 +1505,7 @@ func (ctx *saCtx) Pop1Expr() (ast.Expr, bool) {
 	return nil, false
 }
 
-//------------
+//----------
 
 func clearNilExprs(u []ast.Expr) []ast.Expr {
 	w := []ast.Expr{}

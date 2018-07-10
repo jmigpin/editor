@@ -6,108 +6,81 @@ import (
 	"github.com/jmigpin/editor/util/imageutil"
 )
 
-type Shadow struct {
-	EmbedNode
-	Top, Bottom int
-	MaxDiff     float64 // max value difference from the current color
-	Tint        bool
-
-	ctx ImageContext
+type TopShadow struct {
+	ENode
+	Height  int
+	MaxDiff float64
+	ctx     ImageContext
 }
 
-func NewShadow(ctx ImageContext, child Node) *Shadow {
-	s := &Shadow{ctx: ctx, MaxDiff: 0.30}
-	s.Append(child)
+func NewTopShadow(ctx ImageContext, content Node) *TopShadow {
+	s := &TopShadow{ctx: ctx, MaxDiff: 0.30, Height: 10}
+	s.Append(content)
 	return s
 }
-func (s *Shadow) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
-	// top
-	if s.Top > 0 {
-		r2 := s.Bounds
-		r2.Max.Y = r2.Min.Y + s.Top
-		if r2.Overlaps(*r) {
-			s.MarkNeedsPaint()
-		}
+
+func (s *TopShadow) OnChildMarked(child Node, newMarks Marks) {
+	if newMarks.HasAny(MarkNeedsLayout) {
+		s.MarkNeedsLayout()
 	}
-	// bottom
-	if s.Bottom > 0 {
-		r2 := s.Bounds
-		r2.Min.Y = r2.Max.Y - s.Bottom
-		if r2.Overlaps(*r) {
-			s.MarkNeedsPaint()
-		}
+	if newMarks.HasAny(MarkNeedsPaint | MarkChildNeedsPaint) {
+		s.MarkNeedsPaint()
 	}
 }
-func (s *Shadow) Measure(hint image.Point) image.Point {
-	if s.Bottom > 0 {
-		h := hint
-		h.Y -= s.Bottom
-		h = imageutil.MaxPoint(h, image.Point{0, 0})
-		m := s.EmbedNode.Measure(h)
-		m.Y += s.Bottom
-		m = imageutil.MinPoint(m, hint)
-		return m
-	}
 
-	return s.EmbedNode.Measure(hint)
-}
-
-func (s *Shadow) CalcChildsBounds() {
-	// reduce the child size and the lower part is where the shadow is drawn
-	if s.Bottom > 0 {
-		b := s.Bounds
-		b.Max.Y -= s.Bottom
-		b.Max = imageutil.MaxPoint(b.Max, image.Point{0, 0})
-		b = b.Intersect(s.Bounds)
-		child := s.FirstChildInAll()
-		child.Embed().Bounds = b
-		child.CalcChildsBounds()
-		return
-	}
-
-	// gives this node bounds to the childs (shadow is at the top)
-	s.EmbedNode.CalcChildsBounds()
-}
-
-func (s *Shadow) PaintChilds() {
+func (s *TopShadow) ChildsPaintTree() {
 	// childs are painted first at the top of Paint()
 }
-func (s *Shadow) Paint() {
-	s.EmbedNode.PaintChilds()
+func (s *TopShadow) Paint() {
+	s.ENode.ChildsPaintTree()
 
-	fn := imageutil.Shade
-	if s.Tint {
-		fn = imageutil.Tint
-	}
+	r := s.Bounds
+	r.Max.Y = r.Min.Y + s.Height
 
-	if s.Top > 0 {
-		b := s.Bounds
-		j := 0.0
-		img := s.ctx.Image()
-		maxY := b.Min.Y + s.Top
-		if maxY > b.Max.Y {
-			maxY = b.Max.Y
-		}
-		for y := b.Min.Y; y < maxY; y++ {
-			for x := b.Min.X; x < b.Max.X; x++ {
-				at := img.At(x, y)
-				c2 := fn(at, s.MaxDiff-j)
-				img.Set(x, y, c2)
-			}
-			j += s.MaxDiff / float64(s.Top)
-		}
-	}
-	if s.Bottom > 0 {
-		b := s.Bounds
-		j := 0.0
-		img := s.ctx.Image()
-		for y := b.Max.Y - s.Bottom; y < b.Max.Y; y++ {
-			for x := b.Min.X; x < b.Max.X; x++ {
-				at := img.At(x, y)
-				c2 := fn(at, s.MaxDiff-j)
-				img.Set(x, y, c2)
-			}
-			j += s.MaxDiff / float64(s.Bottom)
-		}
-	}
+	imageutil.PaintShadow(s.ctx.Image(), r, s.MaxDiff)
 }
+
+//----------
+
+type BottomShadow struct {
+	*BoxLayout
+	Height  int
+	MaxDiff float64
+	ctx     ImageContext
+	content Node
+}
+
+func NewBottomShadow(ctx ImageContext, content Node) *BottomShadow {
+	s := &BottomShadow{
+		ctx: ctx, MaxDiff: 0.30, Height: 10, content: content,
+	}
+
+	s.BoxLayout = NewBoxLayout()
+	s.YAxis = true
+
+	bsp := &BottomShadowPart{bs: s}
+
+	s.Append(content, bsp)
+	s.SetChildFlex(content, false, false)
+	s.SetChildFill(bsp, true, false)
+
+	return s
+}
+
+//----------
+
+type BottomShadowPart struct {
+	ENode
+	bs *BottomShadow
+}
+
+func (s *BottomShadowPart) Measure(hint image.Point) image.Point {
+	w := image.Point{0, s.bs.Height}
+	w = imageutil.MinPoint(w, hint)
+	return w
+}
+func (s *BottomShadowPart) Paint() {
+	imageutil.PaintShadow(s.bs.ctx.Image(), s.Bounds, s.bs.MaxDiff)
+}
+
+//----------

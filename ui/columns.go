@@ -7,31 +7,22 @@ import (
 )
 
 type Columns struct {
-	widget.EmbedNode
+	widget.ENode
+	ColsLayout *widget.SplBg // exported to access sp values
 	Root       *Root
-	ColsLayout *widget.StartPercentLayout // exported to access sp values
-
-	noCols widget.Node
 }
 
 func NewColumns(root *Root) *Columns {
 	cols := &Columns{Root: root}
 
 	// when where are no cols, or the first column is pushed aside
-	{
-		noCols0 := widget.NewRectangle(root.UI)
-		noCols0.SetTheme(&UITheme.EmptySpaceBg)
-		cols.noCols = WrapInShadowTop(root.UI, noCols0)
-		cols.Append(cols.noCols)
-	}
+	noCols0 := widget.NewRectangle(root.UI)
+	noCols0.SetThemePaletteNamePrefix("columns_nocols_")
+	noCols := WrapInTopShadowOrSeparator(root.UI, noCols0)
 
-	cols.ColsLayout = widget.NewStartPercentLayout()
-	cols.ColsLayout.MinimumChildSize = 15 // TODO
+	cols.ColsLayout = widget.NewSplBg(noCols)
+	cols.ColsLayout.Spl.MinimumChildSize = 15 // TODO
 	cols.Append(cols.ColsLayout)
-
-	// TODO: ensuring 1 column should be on the editor side?
-	// ensure 1 column
-	_ = cols.NewColumn()
 
 	return cols
 }
@@ -39,51 +30,30 @@ func NewColumns(root *Root) *Columns {
 func (cols *Columns) NewColumn() *Column {
 	col := NewColumn(cols)
 	cols.InsertColumnBefore(col, nil)
+
+	// ensure up-to-date values now (ex: bounds, drawer.getpoint)
+	cols.LayoutMarked()
+
 	return col
 }
-func (cols *Columns) InsertBefore(col, next widget.Node) {
+
+func (cols *Columns) InsertBefore(col widget.Node, next *widget.EmbedNode) {
 	panic("!")
 }
+
 func (cols *Columns) InsertColumnBefore(col, next *Column) {
-	cols.ColsLayout.InsertBefore(col, next)
-	cols.CalcChildsBounds()
-	cols.MarkNeedsPaint()
+	var nexte *widget.EmbedNode
+	if next != nil {
+		nexte = next.Embed()
+	}
+	cols.ColsLayout.Spl.InsertBefore(col, nexte)
 }
 
 func (cols *Columns) removeColumn(col *Column) {
-	cols.ColsLayout.Remove(col)
-	cols.CalcChildsBounds()
-	cols.MarkNeedsPaint()
-
-	// ensure one column
-	if cols.ColsLayout.ChildsLen() == 0 {
-		_ = cols.NewColumn()
-	}
+	cols.ColsLayout.Spl.Remove(col)
 }
 
-func (cols *Columns) CalcChildsBounds() {
-	cols.EmbedNode.CalcChildsBounds()
-
-	// redimension clear widget to match first row start
-	hasCols := cols.ColsLayout.ChildsLen() > 0
-	if hasCols {
-		x := cols.ColsLayout.FirstChild().Embed().Bounds.Min.X
-		cols.noCols.Embed().Bounds.Max.X = x
-		cols.noCols.CalcChildsBounds()
-	}
-}
-
-// Used by restore session.
-func (cols *Columns) CloseAllAndOpenN(n int) {
-	// close all columns
-	cols.ColsLayout.IterChilds(func(c widget.Node) {
-		c.(*Column).Close()
-	})
-	// n new columns (there is already one column ensured)
-	for i := 1; i < n; i++ {
-		_ = cols.NewColumn()
-	}
-}
+//----------
 
 func (cols *Columns) PointColumn(p *image.Point) (*Column, bool) {
 	for _, c := range cols.Columns() {
@@ -103,7 +73,7 @@ func (cols *Columns) PointColumnExtra(p *image.Point) (*Column, bool) {
 	// assume at least one column is present
 	if p.X < cols.FirstChildColumn().Embed().Bounds.Min.X {
 		return cols.FirstChildColumn(), true
-	} else if p.X > cols.LastChild().Embed().Bounds.Max.X {
+	} else if p.X > cols.LastChildColumn().Embed().Bounds.Max.X {
 		return cols.LastChildColumn(), true
 	} else {
 		for _, c := range cols.Columns() {
@@ -117,15 +87,17 @@ func (cols *Columns) PointColumnExtra(p *image.Point) (*Column, bool) {
 	return nil, false
 }
 
+//----------
+
 func (cols *Columns) FirstChildColumn() *Column {
-	u := cols.ColsLayout.FirstChild()
+	u := cols.ColsLayout.Spl.FirstChildWrapper()
 	if u == nil {
 		return nil
 	}
 	return u.(*Column)
 }
 func (cols *Columns) LastChildColumn() *Column {
-	u := cols.ColsLayout.LastChild()
+	u := cols.ColsLayout.Spl.LastChildWrapper()
 	if u == nil {
 		return nil
 	}
@@ -133,8 +105,8 @@ func (cols *Columns) LastChildColumn() *Column {
 }
 
 func (cols *Columns) Columns() []*Column {
-	u := make([]*Column, 0, cols.ColsLayout.ChildsLen())
-	cols.ColsLayout.IterChilds(func(c widget.Node) {
+	u := make([]*Column, 0, cols.ColsLayout.Spl.ChildsLen())
+	cols.ColsLayout.Spl.IterateWrappers2(func(c widget.Node) {
 		u = append(u, c.(*Column))
 	})
 	return u

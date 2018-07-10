@@ -3,85 +3,47 @@ package ui
 import (
 	"image"
 
+	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type Column struct {
 	*widget.BoxLayout
+	RowsLayout *widget.SplBg // exported to access sp values
 	Cols       *Columns
-	RowsLayout *widget.StartPercentLayout // exported to access sp values
+	EvReg      *evreg.Register
 
-	noRows    widget.Node
-	sepHandle ColSeparatorHandle
+	sep       *ColSeparator
 	colSquare *ColumnSquare
-
-	ui *UI
+	ui        *UI
 }
 
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols, ui: cols.Root.UI}
 	col.BoxLayout = widget.NewBoxLayout()
 
+	col.EvReg = evreg.NewRegister()
+
 	// separator
-	{
-		sep := widget.NewSeparator(col.ui)
-		sep.Size.X = SeparatorWidth
-		sep.SetTheme(&UITheme.TextArea)
-		col.Append(sep)
-		col.SetChildFill(sep, false, true)
-
-		col.sepHandle.Init(sep, col)
-		col.sepHandle.Left = 3
-		col.sepHandle.Right = 3
-		col.sepHandle.Cursor = widget.WEResizeCursor
-		col.Cols.Root.InsertColSepHandle(&col.sepHandle)
-	}
-
-	// content to contain norows and rowslayout
-	content := &widget.EmbedNode{}
-	col.Append(content)
+	col.sep = NewColSeparator(col)
+	col.Append(col.sep)
+	col.SetChildFill(col.sep, false, true)
 
 	// when where are no rows, or the first row is pushed aside
-	noRows := widget.NewBoxLayout()
-	col.noRows = noRows
-	col.SetTheme(&UITheme.EmptySpaceBg)
-	content.Append(col.noRows)
+	noRows0 := widget.NewFreeLayout()
+	noRows := WrapInTopShadowOrSeparator(cols.Root.UI, noRows0)
 	{
-		noRows.YAxis = true
-
-		// square+space box
-		ssBox := widget.NewBoxLayout()
-		noRows.Append(ssBox)
-
-		// ssBox content
-		{
-			col.colSquare = NewColumnSquare(col)
-			col.colSquare.SetTheme(&UITheme.Toolbar)
-			ssBox.Append(col.colSquare)
-
-			//TODO: fix bottom shadow for this case
-			// container := WrapInShadowBottom(col.ui, col.colSquare)
-			//ssBox.Append(container)
-
-			space0 := widget.NewRectangle(col.ui)
-			space := WrapInShadowTop(col.ui, space0)
-			ssBox.Append(space)
-			ssBox.SetChildFlex(space, true, false)
-			ssBox.SetChildFill(space, true, true)
-		}
-
-		// lower space
-		space2 := widget.NewRectangle(col.ui)
-		noRows.Append(space2)
-		noRows.SetChildFlex(space2, true, true)
+		noRows0.SetThemePaletteNamePrefix("column_norows_")
+		rect := widget.NewRectangle(col.ui)
+		rect.Size = image.Point{10000, 10000}
+		col.colSquare = NewColumnSquare(col)
+		noRows0.Append(rect, col.colSquare)
 	}
 
 	// rows layout
-	{
-		col.RowsLayout = widget.NewStartPercentLayout()
-		col.RowsLayout.YAxis = true
-		content.Append(col.RowsLayout)
-	}
+	col.RowsLayout = widget.NewSplBg(noRows)
+	col.RowsLayout.Spl.YAxis = true
+	col.Append(col.RowsLayout)
 
 	return col
 }
@@ -90,83 +52,88 @@ func (col *Column) Close() {
 	for _, r := range col.Rows() {
 		r.Close()
 	}
-	col.Cols.Root.Remove(&col.sepHandle)
 	col.Cols.removeColumn(col)
+	col.Cols = nil
+	col.sep.Close()
+	col.EvReg.RunCallbacks(ColumnCloseEventId, &ColumnCloseEvent{col})
 }
 
 func (col *Column) NewRowBefore(next *Row) *Row {
 	row := NewRow(col)
 	col.insertRowBefore(row, next)
+
+	// ensure up-to-date values now (ex: bounds, drawer.getpoint)
+	col.LayoutMarked()
+
 	return row
 }
 
 func (col *Column) insertRowBefore(row, next *Row) {
-	row.Col = col
-	col.RowsLayout.InsertBefore(row, next)
-
-	// improve insertion point beyond the half row done by StartPercentLayout
-	// set at half of the textarea
-	if row.Prev() != nil {
-		prevRow := row.Prev().(*Row)
-		colDy := col.Bounds.Dy()
-		prTADy := prevRow.TextArea.Bounds.Dy()
-		prEndY := prevRow.Bounds.Max.Y - col.Bounds.Min.Y
-		perc := (float64(prEndY) - float64(prTADy)/2) / float64(colDy)
-		col.RowsLayout.Resize(row, perc)
+	var nexte *widget.EmbedNode
+	if next != nil {
+		nexte = next.Embed()
 	}
 
-	col.CalcChildsBounds()
-	col.MarkNeedsPaint()
+	row.Col = col
+	col.RowsLayout.Spl.InsertBefore(row, nexte)
+
+	// improve insertion point beyond the half row done by StartPercentLayout. Set at a part of the textarea.
+	if row.PrevSibling() != nil {
+		prevRow := row.PrevSiblingWrapper().(*Row)
+		colDy := col.Bounds.Dy()
+		prTaDy := prevRow.TextArea.Bounds.Dy()
+		prEndY := prevRow.Bounds.Max.Y - col.Bounds.Min.Y
+		perc := (float64(prEndY) - float64(prTaDy)*2/3) / float64(colDy)
+		col.RowsLayout.Spl.Resize(row, perc)
+	}
 }
 
 func (col *Column) removeRow(row *Row) {
-	col.RowsLayout.Remove(row)
-	col.CalcChildsBounds()
-	col.MarkNeedsPaint()
+	col.RowsLayout.Spl.Remove(row)
 }
 
-func (col *Column) CalcChildsBounds() {
+func (col *Column) Layout() {
 	tf := col.TreeThemeFont()
-	col.RowsLayout.MinimumChildSize = UIThemeUtil.RowMinimumHeight(tf)
+	col.RowsLayout.Spl.MinimumChildSize = UIThemeUtil.RowMinimumHeight(tf)
 	col.colSquare.Size = UIThemeUtil.RowSquareSize(tf)
 
-	col.BoxLayout.CalcChildsBounds()
-	col.sepHandle.CalcChildsBounds()
-
-	// redimension norows widget to match first row start
-	hasRows := col.RowsLayout.ChildsLen() > 0
-	if hasRows {
-		y := col.RowsLayout.FirstChild().Embed().Bounds.Min.Y
-		col.noRows.Embed().Bounds.Max.Y = y
-		col.noRows.CalcChildsBounds()
-	}
+	col.BoxLayout.Layout()
 }
 
+//----------
+
 func (col *Column) FirstChildRow() *Row {
-	u := col.RowsLayout.FirstChild()
+	u := col.RowsLayout.Spl.FirstChildWrapper()
 	if u == nil {
 		return nil
 	}
 	return u.(*Row)
 }
 func (col *Column) LastChildRow() *Row {
-	u := col.RowsLayout.LastChild()
+	u := col.RowsLayout.Spl.LastChildWrapper()
 	if u == nil {
 		return nil
 	}
 	return u.(*Row)
 }
 
+//----------
+
 func (col *Column) Rows() []*Row {
-	u := make([]*Row, 0, col.RowsLayout.ChildsLen())
-	col.RowsLayout.IterChilds(func(c widget.Node) {
+	u := make([]*Row, 0, col.RowsLayout.Spl.ChildsLen())
+	col.RowsLayout.Spl.IterateWrappers2(func(c widget.Node) {
 		u = append(u, c.(*Row))
 	})
 	return u
 }
 
+//----------
+
 func (col *Column) PointNextRow(p *image.Point) (*Row, bool) {
 	for _, r := range col.Rows() {
+		if p.Y < r.Bounds.Min.Y {
+			return r, true
+		}
 		if p.In(r.Bounds) {
 			return r.NextRow(), true
 		}
@@ -201,18 +168,17 @@ func (col *Column) PointNextRowExtra(p *image.Point) (*Row, bool) {
 	return nil, false
 }
 
+//----------
+
 func (col *Column) resizeToPointWithSwap(p *image.Point) {
 	bounds := col.Cols.Root.Bounds
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
 
-	col.Cols.ColsLayout.ResizeWithMove(col, perc)
-
-	col.Cols.CalcChildsBounds()
-	col.Cols.MarkNeedsPaint()
+	col.Cols.ColsLayout.Spl.ResizeWithMove(col, perc)
 }
 
-func (col *Column) resizeHandleWithMoveJump(left bool, p *image.Point) {
+func (col *Column) resizeWithMoveJump(left bool, p *image.Point) {
 	jump := 20
 	if left {
 		jump *= -1
@@ -220,19 +186,29 @@ func (col *Column) resizeHandleWithMoveJump(left bool, p *image.Point) {
 
 	p2 := *p
 	p2.X += jump
-	col.resizeHandleWithMoveToPoint(&p2)
+	col.resizeWithMoveToPoint(&p2)
+
+	// layout for accurate col.bounds to warp pointer
+	col.Cols.ColsLayout.Spl.Layout()
 
 	p3 := image.Point{col.Bounds.Min.X, p.Y}
 	col.ui.WarpPointer(&p3)
 }
 
-func (col *Column) resizeHandleWithMoveToPoint(p *image.Point) {
+func (col *Column) resizeWithMoveToPoint(p *image.Point) {
 	bounds := col.Cols.Root.Bounds
 	dx := float64(bounds.Dx())
 	perc := float64(p.Sub(bounds.Min).X) / dx
 
-	col.Cols.ColsLayout.ResizeWithMove(col, perc)
+	col.Cols.ColsLayout.Spl.ResizeWithMove(col, perc)
+}
 
-	col.Cols.CalcChildsBounds()
-	col.Cols.MarkNeedsPaint()
+//----------
+
+const (
+	ColumnCloseEventId = iota
+)
+
+type ColumnCloseEvent struct {
+	Col *Column
 }

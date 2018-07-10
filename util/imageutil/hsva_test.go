@@ -2,13 +2,12 @@ package imageutil
 
 import (
 	"image/color"
-	"log"
 	"testing"
 )
 
 func init() {
 	//log.SetFlags(log.Llongfile)
-	log.SetFlags(0)
+	//log.SetFlags(0)
 }
 
 func cmpRgbaHsv(t *testing.T, i int, rgba color.RGBA, hsv HSV) {

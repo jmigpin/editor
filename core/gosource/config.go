@@ -192,7 +192,7 @@ func (conf *Config) PkgFilenames(path string) ([]string, error) {
 				}
 			}
 			// add extra names if not added yet
-			for name, _ := range m {
+			for name := range m {
 				if !seen[name] {
 					names = append(names, name)
 				}

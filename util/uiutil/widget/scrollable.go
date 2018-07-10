@@ -2,17 +2,15 @@ package widget
 
 import "image"
 
-// Ex: TextArea.
+// Used by ScrollArea.
 type Scrollable interface {
 	Node
-	SetScroller(Scroller)
+
+	SetScrollable(x, y bool)
 	SetScrollableOffset(image.Point)
+
+	ScrollableOffset() image.Point
 	ScrollableSize() image.Point
 	ScrollablePagingMargin() int
 	ScrollableScrollJump() int
-}
-
-// Ex: ScrollArea.
-type Scroller interface {
-	SetScrollerOffset(image.Point)
 }

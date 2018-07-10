@@ -2,132 +2,352 @@ package core
 
 import (
 	"fmt"
-	"image/color"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
-	"github.com/jmigpin/editor/core/cmdutil"
-	"github.com/jmigpin/editor/core/fileswatcher"
-	"github.com/jmigpin/editor/core/toolbardata"
+	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil"
-	"github.com/jmigpin/editor/util/drawutil/loopers"
+	"github.com/jmigpin/editor/util/drawutil/drawer3"
+	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"golang.org/x/image/font"
 )
 
 type Editor struct {
-	ui     *ui.UI
+	UI          *ui.UI
+	HomeVars    *HomeVars
+	Watcher     fswatcher.Watcher
+	RowReopener *RowReopener
+	ERowInfos   map[string]*ERowInfo
+
 	events chan interface{}
-	close  chan struct{}
-	erows  map[*ui.Row]*ERow
-	dndh   *cmdutil.DndHandler
 
-	homeVars  toolbardata.HomeVars
-	reopenRow *cmdutil.ReopenRow
+	dndh *DndHandler
 
-	fwatcher *fileswatcher.TargetWatcher
-	watch    map[string]int
+	// because closing events chan would receive later events on a closed channel
+	close chan struct{}
 }
 
 func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
-		events: make(chan interface{}, 32),
-		erows:  make(map[*ui.Row]*ERow),
-		close:  make(chan struct{}),
-		watch:  make(map[string]int),
+		events:    make(chan interface{}, 64),
+		close:     make(chan struct{}),
+		ERowInfos: map[string]*ERowInfo{},
 	}
+	ed.HomeVars = NewHomeVars()
+	ed.RowReopener = NewRowReopener(ed)
+	ed.dndh = NewDndHandler(ed)
 
-	loopers.WrapLineRune = rune(opt.WrapLineRune)
-	drawutil.TabWidth = opt.TabWidth
-	ui.ScrollBarLeft = opt.ScrollBarLeft
-	ui.ScrollBarWidth = opt.ScrollBarWidth
-
-	ui.ShadowsOn = opt.Shadows
-
-	ed.reopenRow = cmdutil.NewReopenRow(ed)
-
-	ed.setupTheme(opt)
-
-	var err error
-	ed.ui, err = ui.NewUI(ed.events, "Editor")
-	if err != nil {
+	if err := ed.init(opt); err != nil {
 		return nil, err
 	}
-	ed.ui.OnError = ed.Error
-
-	// drag and drop
-	ed.dndh = cmdutil.NewDndHandler(ed)
-
-	ed.setupLayoutToolbar()
-
-	ed.setupMenuToolbar()
-
-	// layout home vars
-	ed.homeVars.Append("~", os.Getenv("HOME"))
-	cmdutil.SetupLayoutHomeVars(ed)
-
-	// files watcher for visual feedback when files change
-	ed.fwatcher, err = fileswatcher.NewTargetWatcher(nil)
-	//ed.fwatcher, err = fileswatcher.NewTargetWatcher(log.Printf)
-	if err != nil {
-		return nil, err
-	}
-
-	ed.openInitialRows(opt)
 
 	ed.eventLoop() // blocks
 
 	return ed, nil
 }
 
-func (ed *Editor) setupLayoutToolbar() {
-	s := "Exit | ListSessions | NewColumn | NewRow | Reload | DuplicateRow | "
-	tb := ed.ui.Root.Toolbar
-	tb.SetStrClear(s, true, true)
-	// execute commands on layout toolbar
-	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
-		ToolbarCmdFromLayout(ed, tb.TextArea)
+//----------
+
+func (ed *Editor) init(opt *Options) error {
+	// fs watcher + targetwatcher
+	w, err := fswatcher.NewFsnWatcher()
+	if err != nil {
+		return err
+	}
+	*w.OpMask() = fswatcher.Create |
+		fswatcher.Remove |
+		fswatcher.Modify |
+		fswatcher.Rename
+	ed.Watcher = fswatcher.NewTargetWatcher(w)
+
+	ed.setupTheme(opt)
+
+	// user interface
+	ui0, err := ui.NewUI(ed.events, "Editor")
+	if err != nil {
+		return err
+	}
+	ui0.OnError = ed.Error
+	ed.UI = ui0
+
+	ed.setupRootToolbar()
+	ed.setupRootMenuToolbar()
+
+	// TODO: ensure it has the window measure
+	// enqueue setup initial rows to run after UI has window measure
+	ed.EnsureOneColumn()
+	ed.UI.RunOnUIGoRoutine(func() {
+		ed.setupInitialRows(opt)
+	})
+
+	return nil
+}
+
+//----------
+
+func (ed *Editor) Close() {
+	ed.Watcher.Close()
+	close(ed.close)
+}
+
+//----------
+
+func (ed *Editor) eventLoop() {
+	defer ed.UI.Close()
+
+	for {
+		select {
+		case <-ed.close:
+			goto forEnd
+
+		case ev := <-ed.events:
+			switch t := ev.(type) {
+			case error:
+				ed.Error(t)
+			case *event.WindowClose:
+				ed.Close()
+
+			case *event.DndPosition:
+				ed.dndh.OnPosition(t)
+			case *event.DndDrop:
+				ed.dndh.OnDrop(t)
+
+			default:
+				ed.UI.HandleEvent(ev)
+				//ed.runGlobalShortcuts(ev)
+			}
+
+		case ev, ok := <-ed.Watcher.Events():
+			if !ok {
+				ed.Close()
+				break
+			}
+			switch evt := ev.(type) {
+			case error:
+				ed.Error(evt)
+			case *fswatcher.Event:
+				ed.handleWatcherEvent(evt)
+
+				// force an event to check for pending layouts/paints
+				ed.UI.EnqueueNoOpEvent()
+			}
+		}
+	}
+forEnd:
+}
+
+//----------
+
+func (ed *Editor) Errorf(f string, a ...interface{}) {
+	ed.Error(fmt.Errorf(f, a...))
+}
+func (ed *Editor) Error(err error) {
+	ed.Messagef("error: %v", err.Error())
+}
+
+func (ed *Editor) Messagef(f string, a ...interface{}) {
+	// ensure newline
+	s := fmt.Sprintf(f, a...)
+	if !strings.HasSuffix(s, "\n") {
+		s = s + "\n"
+	}
+
+	ed.UI.RunOnUIGoRoutine(func() {
+		erow := ed.messagesERow()
+
+		// index to make visible, get before append
+		ta := erow.Row.TextArea
+		index := len(ta.Str())
+
+		erow.textAreaAppend(s)
+
+		erow.MakeRangeVisibleAndFlash(index, len(s))
 	})
 }
 
-func (ed *Editor) setupMenuToolbar() {
+//----------
+
+func (ed *Editor) messagesERow() *ERow {
+	erow, isNew := ed.ExistingOrNewERow("+Messages")
+	if isNew {
+		erow.ToolbarSetStrAfterNameClearHistory(" | Clear")
+	}
+	return erow
+}
+
+//----------
+
+// Used for: +messages, +sessions.
+func (ed *Editor) ExistingOrNewERow(name string) (_ *ERow, isnew bool) {
+	info := ed.ReadERowInfo(name)
+	if len(info.ERows) > 0 {
+		return info.ERows[0], false
+	}
+	rowPos := ed.GoodRowPos()
+	return NewERow(ed, info, rowPos), true
+}
+
+//----------
+
+func (ed *Editor) ReadERowInfo(name string) *ERowInfo {
+	info, ok := ed.ERowInfos[name]
+	if ok {
+		info.readFileInfo()
+		return info
+	}
+	return NewERowInfo(ed, name)
+}
+
+//----------
+
+func (ed *Editor) ERows() []*ERow {
+	w := []*ERow{}
+	for _, info := range ed.ERowInfos {
+		for _, e := range info.ERows {
+			w = append(w, e)
+		}
+	}
+	return w
+}
+
+//----------
+
+func (ed *Editor) GoodRowPos() *ui.RowPos {
+	return ed.UI.Root.GoodRowPos()
+}
+
+func (ed *Editor) ActiveERow() (*ERow, bool) {
+	for _, e := range ed.ERows() {
+		if e.Row.HasState(ui.RowStateActive) {
+			return e, true
+		}
+	}
+	return nil, false
+}
+
+//----------
+
+func (ed *Editor) setupRootToolbar() {
+	tb := ed.UI.Root.Toolbar
+	// cmd event
+	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+		RootToolbarCmd(ed, tb)
+	})
+	// set str
+	tb.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
+		ed.updateERowsToolbarsHomeVars()
+	})
+
+	s := "Exit | ListSessions | NewColumn | NewRow | Reload | "
+	tb.SetStrClearHistory(s)
+}
+
+//----------
+
+func (ed *Editor) setupRootMenuToolbar() {
 	s := `XdgOpenDir
 GotoLine | CopyFilePosition
-ReopenRow | MaximizeRow
+ReopenRow | MaximizeRow | ToggleRowHBar
 CloseColumn | CloseRow
-ListDir | ListDirHidden | ListDirSub 
+ListDir | ListDir -hidden | ListDir -sub
 Reload | ReloadAll | ReloadAllFiles | SaveAllFiles
 FontRunes | FontTheme | ColorTheme
+GoDebug | GoRename
 ListSessions
-GoDebug
-Exit | Stop`
-	tb := ed.ui.Root.MainMenuButton.FloatMenu.Toolbar
-	tb.SetStrClear(s, true, true)
+Exit | Stop | Clear`
+	tb := ed.UI.Root.MainMenuButton.Toolbar
+	tb.SetStrClearHistory(s)
+	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
-		ToolbarCmdFromLayout(ed, tb.TextArea)
+		RootToolbarCmd(ed, tb)
 	})
-
+	// set str
+	tb.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
+		ed.updateERowsToolbarsHomeVars()
+	})
 }
 
+//----------
+
+func (ed *Editor) updateERowsToolbarsHomeVars() {
+	tb1 := ed.UI.Root.Toolbar.Str()
+	tb2 := ed.UI.Root.MainMenuButton.Toolbar.Str()
+	ed.HomeVars.ParseToolbarVars(tb1, tb2)
+	for _, erow := range ed.ERows() {
+		erow.updateToolbarPart0()
+	}
+}
+
+//----------
+
+func (ed *Editor) setupInitialRows(opt *Options) {
+	if opt.SessionName != "" {
+		OpenSessionFromString(ed, opt.SessionName)
+		return
+	}
+
+	// cmd line filenames to open
+	if len(opt.Filenames) > 0 {
+		col := ed.UI.Root.Cols.FirstChildColumn()
+		for _, filename := range opt.Filenames {
+			// try to use absolute path
+			u, err := filepath.Abs(filename)
+			if err == nil {
+				filename = u
+			}
+
+			info := ed.ReadERowInfo(filename)
+			if len(info.ERows) == 0 {
+				rowPos := ui.NewRowPos(col, nil)
+				_, err := info.NewERow(rowPos)
+				if err != nil {
+					ed.Error(err)
+				}
+			}
+		}
+		return
+	}
+
+	// open current directory
+	dir, err := os.Getwd()
+	if err == nil {
+		// create a second column (one should exist already)
+		_ = ed.NewColumn()
+
+		// open directory
+		info := ed.ReadERowInfo(dir)
+		cols := ed.UI.Root.Cols
+		rowPos := ui.NewRowPos(cols.LastChildColumn(), nil)
+		_, err := info.NewERowCreateOnErr(rowPos)
+		if err != nil {
+			ed.Error(err)
+		}
+	}
+}
+
+//----------
+
 func (ed *Editor) setupTheme(opt *Options) {
+	drawer3.WrapLineRune = rune(opt.WrapLineRune)
+	drawutil.TabWidth = opt.TabWidth
+	ui.ScrollBarLeft = opt.ScrollBarLeft
+	ui.ScrollBarWidth = opt.ScrollBarWidth
+	ui.ShadowsOn = opt.Shadows
+
 	// color theme
 	if _, ok := ui.ColorThemeCycler.GetIndex(opt.ColorTheme); !ok {
 		fmt.Fprintf(os.Stderr, "unknown color theme: %v\n", opt.ColorTheme)
 		os.Exit(2)
 	}
-	ui.ColorThemeCycler.Set(opt.ColorTheme)
+	ui.ColorThemeCycler.CurName = opt.ColorTheme
 
 	// color comments
-	if opt.CommentsColor == 0 {
-		ui.TextAreaCommentsColor = nil
-	} else {
-		v := opt.CommentsColor & 0xffffff
-		r := uint8((v << 0) >> 16)
-		g := uint8((v << 8) >> 16)
-		b := uint8((v << 16) >> 16)
-		ui.TextAreaCommentsColor = color.RGBA{r, g, b, 255}
+	if opt.CommentsColor != 0 {
+		ui.TextAreaCommentsColor = imageutil.IntRGBA(opt.CommentsColor)
 	}
 
 	// font options
@@ -147,294 +367,66 @@ func (ed *Editor) setupTheme(opt *Options) {
 
 	// font theme
 	if _, ok := ui.FontThemeCycler.GetIndex(opt.Font); ok {
-		ui.FontThemeCycler.Set(opt.Font)
+		ui.FontThemeCycler.CurName = opt.Font
 	} else {
 		// font filename
 		err := ui.AddUserFont(opt.Font)
 		if err != nil {
-			// TODO: send error msg to "+messages"?
+			// can't send error to UI since it's not created yet
 			log.Print(err)
 
 			// could fail and abort, but instead continue with a known font
-			ui.FontThemeCycler.Set("regular")
+			ui.FontThemeCycler.CurName = "regular"
 		}
 	}
 }
 
-func (ed *Editor) runGlobalShortcuts(ev interface{}) {
-	wi, ok := ev.(*event.WindowInput)
-	if !ok {
-		return
-	}
-	p := wi.Point
-	switch t := wi.Event.(type) {
-	case *event.KeyDown:
-		switch {
-		case t.Code == event.KCodeF1:
-			cmdutil.ToggleContextFloatBox(ed, p)
-		case t.Code == event.KCodeEscape:
-			cmdutil.DisableContextFloatBox(ed)
-			cmdutil.GoDebugArgs(ed, nil, []string{"clear"})
+//----------
 
-		case t.Code == event.KCodeF3:
-			cmdutil.GoDebugArgs(ed, nil, []string{"find", "-all", "first"})
-		case t.Code == event.KCodeF4:
-			cmdutil.GoDebugArgs(ed, nil, []string{"find", "-all", "last"})
+func (ed *Editor) handleWatcherEvent(ev *fswatcher.Event) {
+	//log.Printf("fswatcher ev: %v", ev)
 
-		case t.Code == event.KCodeF5:
-			cmdutil.GoDebugArgs(ed, nil, []string{"find", "-all", "prev"})
-		case t.Code == event.KCodeF6:
-			cmdutil.GoDebugArgs(ed, nil, []string{"find", "-all", "next"})
-
-		case t.Code == event.KCodeF7:
-			aerow, _ := ed.ActiveERower()
-			cmdutil.GoDebugArgs(ed, aerow, []string{"find", "-line", "prev"})
-		case t.Code == event.KCodeF8:
-			aerow, _ := ed.ActiveERower()
-			cmdutil.GoDebugArgs(ed, aerow, []string{"find", "-line", "next"})
-
-		default:
-			cmdutil.UpdateContextFloatBox(ed, p)
-		}
-	case *event.MouseDown:
-		cmdutil.UpdateContextFloatBox(ed, p)
+	name := ev.JoinNames() // handle event target (join names)
+	info, ok := ed.ERowInfos[name]
+	if ok {
+		info.UpdateDiskEvent()
 	}
 }
 
-func (ed *Editor) openInitialRows(opt *Options) {
-	if opt.SessionName != "" {
-		cmdutil.OpenSessionFromString(ed, opt.SessionName)
-		return
-	}
+//----------
 
-	// cmd line filenames to open
-	if len(opt.Filenames) > 0 {
-		col := ed.ui.Root.Cols.FirstChildColumn()
-		for _, s := range opt.Filenames {
-			erows := ed.FindERowers(s)
-			if len(erows) == 0 {
-				erow := ed.NewERowerBeforeRow(s, col, nil) // position at end
-				err := erow.LoadContentClear()
-				if err != nil {
-					ed.Error(err)
-					continue
-				}
-			}
-		}
-		return
-	}
-
-	// start with 2 colums and a current directory row on 2nd column
-	cols := ed.ui.Root.Cols
-	_ = cols.NewColumn() // add second column
-	col := cols.LastChildColumn()
-	dir, err := os.Getwd()
-	if err == nil {
-		cmdutil.OpenDirectoryRow(ed, dir, col, nil)
+func (ed *Editor) EnsureOneColumn() {
+	if ed.UI.Root.Cols.ColsLayout.Spl.ChildsLen() == 0 {
+		_ = ed.NewColumn()
 	}
 }
 
-func (ed *Editor) Close() {
-	ed.fwatcher.Close()
-	close(ed.close)
-}
-func (ed *Editor) UI() *ui.UI {
-	return ed.ui
-}
-func (ed *Editor) HomeVars() *toolbardata.HomeVars {
-	return &ed.homeVars
-}
-
-// Order is not consistent.
-func (ed *Editor) ERowers() []cmdutil.ERower {
-	u := make([]cmdutil.ERower, 0, len(ed.erows))
-	for _, erow := range ed.erows {
-		u = append(u, erow)
-	}
-	return u
-}
-
-func (ed *Editor) NewERowerBeforeRow(tbStr string, col *ui.Column, nextRow *ui.Row) cmdutil.ERower {
-	row := col.NewRowBefore(nextRow)
-	return NewERow(ed, row, tbStr)
-}
-
-func (ed *Editor) RegisterERow(e *ERow) {
-	ed.erows[e.row] = e
-}
-func (ed *Editor) UnregisterERow(e *ERow) {
-	delete(ed.erows, e.row)
-}
-
-func (ed *Editor) FindERows(str string) []*ERow {
-	// find in col/row order to have consistent results order
-	var a []*ERow
-	for _, col := range ed.ui.Root.Cols.Columns() {
-		for _, row := range col.Rows() {
-			erow, ok := ed.erows[row]
-
-			// Row is not yet in the erow mapping due to creating a new erow. Could only happen in a concurrent scenario.
-			if !ok {
-				continue
-			}
-
-			// name covers special rows, filename covers abs path
-			if str == erow.Name() || str == erow.Filename() {
-				a = append(a, erow)
-			}
-		}
-	}
-	return a
-}
-
-func (ed *Editor) FindERowers(str string) []cmdutil.ERower {
-	u := ed.FindERows(str)
-	a := make([]cmdutil.ERower, 0, len(u))
-	for _, e := range u {
-		a = append(a, e)
-	}
-	return a
-}
-
-func (ed *Editor) Errorf(f string, a ...interface{}) {
-	ed.Error(fmt.Errorf(f, a...))
-}
-func (ed *Editor) Error(err error) {
-	ed.Messagef("error: %v", err.Error())
-}
-
-func (ed *Editor) Messagef(f string, a ...interface{}) {
-	ed.UI().RunOnUIGoRoutine(func() {
-		erow := ed.messagesERow()
-
-		// add newline
-		s := fmt.Sprintf(f, a...)
-		if !strings.HasSuffix(s, "\n") {
-			s = s + "\n"
-		}
-
-		// index to make visible, get before append
-		ta := erow.Row().TextArea
-		index := len(ta.Str()) + 1 // +1 for "\n" that is inserted above
-
-		erow.(*ERow).textAreaAppend(s)
-
-		// auto scroll to show the new message
-		ta.MakeIndexVisible(index)
-
-		erow.Flash() // TODO: need to flash since if too small, the content flash won't show
-		ta.FlashIndexLine(index)
+func (ed *Editor) NewColumn() *ui.Column {
+	col := ed.UI.Root.Cols.NewColumn()
+	// close
+	col.EvReg.Add(ui.ColumnCloseEventId, func(ev0 interface{}) {
+		ed.EnsureOneColumn()
 	})
-}
-func (ed *Editor) messagesERow() cmdutil.ERower {
-	rowName := "+Messages" // special name format
-	erows := ed.FindERowers(rowName)
-	if len(erows) > 0 {
-		return erows[0]
-	}
-	col, nextRow := ed.GoodColumnRowPlace()
-	return ed.NewERowerBeforeRow(rowName+" | Clear", col, nextRow)
+	return col
 }
 
-func (ed *Editor) IsSpecialName(s string) bool {
-	return len(s) > 0 && s[0] == '+'
-}
-
-// Used to run layout toolbar commands.
-func (ed *Editor) ActiveERower() (cmdutil.ERower, bool) {
-	for _, erow := range ed.erows {
-		if erow.row.HasState(ui.ActiveRowState) {
-			return erow, true
-		}
-	}
-	return nil, false
-}
-
-func (ed *Editor) GoodColumnRowPlace() (*ui.Column, *ui.Row) {
-	return ed.ui.Root.GoodColumnRowPlace()
-}
-
-func (ed *Editor) eventLoop() {
-	defer ed.ui.Close() // TODO: review
-
-	for {
-		select {
-		case <-ed.close:
-			goto forEnd
-
-		case ev := <-ed.events:
-			switch t := ev.(type) {
-			case error:
-				ed.Error(t)
-			case *event.WindowClose:
-				ed.Close() // TODO: review
-			case *event.DndPosition:
-				ed.dndh.OnPosition(t)
-			case *event.DndDrop:
-				ed.dndh.OnDrop(t)
-			default:
-				ed.ui.HandleEvent(ev)
-				ed.runGlobalShortcuts(ev)
-			}
-
-		case ev, ok := <-ed.fwatcher.Events:
-			if !ok {
-				break
-			}
-			switch ev2 := ev.(type) {
-			case error:
-				ed.Error(ev2)
-			case *fileswatcher.Event:
-				ed.handleWatcherEvent(ev2)
-			}
-		}
-
-		ed.ui.PaintIfTime()
-	}
-forEnd:
-}
-
-func (ed *Editor) handleWatcherEvent(ev *fileswatcher.Event) {
-	for _, erow := range ed.erows {
-		if erow.Filename() == ev.Name {
-			erow.UpdateStateAndDuplicates()
-		}
-	}
-}
-
-func (ed *Editor) IncreaseWatch(filename string) {
-	_, ok := ed.watch[filename]
-	if !ok {
-		ed.fwatcher.Add(filename)
-	}
-	ed.watch[filename]++
-}
-func (ed *Editor) DecreaseWatch(filename string) {
-	c, ok := ed.watch[filename]
-	if !ok {
-		return
-	}
-	c--
-	if c == 0 {
-		delete(ed.watch, filename)
-		ed.fwatcher.Remove(filename)
-	} else {
-		ed.watch[filename] = c
-	}
-}
+//----------
 
 type Options struct {
-	Font           string
-	FontSize       float64
-	FontHinting    string
-	DPI            float64
-	ScrollBarWidth int
-	ScrollBarLeft  bool
+	Font        string
+	FontSize    float64
+	FontHinting string
+	DPI         float64
+
+	TabWidth     int
+	WrapLineRune int
+
 	ColorTheme     string
 	CommentsColor  int
-	WrapLineRune   int
-	TabWidth       int
+	ScrollBarWidth int
+	ScrollBarLeft  bool
 	Shadows        bool
-	SessionName    string
-	Filenames      []string
+
+	SessionName string
+	Filenames   []string
 }

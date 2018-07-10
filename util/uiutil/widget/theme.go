@@ -2,107 +2,125 @@ package widget
 
 import (
 	"image/color"
+	"log"
 
 	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/imageutil"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
-var (
-	White color.Color = color.RGBA{255, 255, 255, 255}
-	Black color.Color = color.RGBA{0, 0, 0, 255}
+//----------
 
-	// used if a color name is not found
-	defaultThemeColor color.Color = color.RGBA{255, 255, 0, 255} // yellow
-)
+var DefaultPalette = Palette{
+	"text_cursor_fg":            nil, // present but nil uses the current fg
+	"text_fg":                   cint(0x0),
+	"text_bg":                   cint(0xffffff),
+	"text_selection_fg":         nil,
+	"text_selection_bg":         cint(0xeeee9e), // yellow
+	"text_colorize_string_fg":   cint(0x008b00), // green
+	"text_colorize_comments_fg": cint(0x757575), // grey 600
+	"text_highlightword_fg":     nil,
+	"text_highlightword_bg":     cint(0xc6ee9e), // green
+	"text_wrapline_fg":          cint(0x0),
+	"text_wrapline_bg":          cint(0xd8d8d8),
+	"text_parenthesis_fg":       cint(0x0),
+	"text_parenthesis_bg":       cint(0xc3c3c3),
+
+	"scrollbar_bg":        cint(0xf2f2f2),
+	"scrollhandle_normal": cint(0xb2b2b2),
+	"scrollhandle_hover":  cint(0x8e8e8e),
+	"scrollhandle_select": cint(0x5f5f5f),
+
+	"button_hover_fg":  nil,
+	"button_hover_bg":  cint(0xdddddd),
+	"button_down_fg":   nil,
+	"button_down_bg":   cint(0xaaaaaa),
+	"button_sticky_fg": cint(0xffffff),
+	"button_sticky_bg": cint(0x0),
+
+	"pad":    cint(0x8080ff), // helpful color to debug
+	"border": cint(0x00ff00), // helpful color to debug
+	"rect":   cint(0xff8000), // helpful color to debug
+}
 
 //----------
 
-// nil is a valid receiver.
 type Theme struct {
-	Font    ThemeFont
-	Palette Palette // Note: EmbedNode.ThemePalette() checks if theme is nil
+	Font              ThemeFont
+	Palette           Palette
+	PaletteNamePrefix string
 }
 
 func (t *Theme) empty() bool {
-	return t == nil || (t.Font == nil && (t.Palette == nil || t.Palette.Empty()))
+	return (t.Font == nil &&
+		(t.Palette == nil || t.Palette.Empty()) &&
+		t.PaletteNamePrefix == "")
 }
 
-func (t *Theme) Copy() *Theme {
-	if t == nil {
-		return &Theme{Palette: MakePalette()}
+func (t *Theme) Clear() {
+	if t.empty() {
+		*t = Theme{}
 	}
-	u := *t
-	u.Palette = t.Palette.Copy()
-	return &u
 }
 
 //----------
 
-// nil is a valid receiver.
-type Palette map[string]color.Color
-
-func MakePalette() Palette {
-	return make(Palette)
+// Can be set to nil to erase.
+func (t *Theme) SetFont(f ThemeFont) {
+	t.Font = f
+	t.Clear()
 }
+
+// Can be set to nil to erase.
+func (t *Theme) SetPalette(p Palette) {
+	t.Palette = p
+	t.Clear()
+}
+
+// Can be set to nil to erase.
+func (t *Theme) SetPaletteColor(name string, c color.Color) {
+	// delete color
+	if c == nil {
+		if t.Palette != nil {
+			delete(t.Palette, name)
+		}
+		t.Clear()
+		return
+	}
+
+	if t.Palette == nil {
+		t.Palette = Palette{}
+	}
+	t.Palette[name] = c
+}
+
+// Can be set to "" to erase.
+func (t *Theme) SetPaletteNamePrefix(prefix string) {
+	t.PaletteNamePrefix = prefix
+	t.Clear()
+}
+
+//----------
+
+type Palette map[string]color.Color
 
 func (pal Palette) Empty() bool {
 	return pal == nil || len(pal) == 0
 }
 
-func (pal Palette) Copy() Palette {
-	pal2 := MakePalette()
-	for k, v := range pal {
-		pal2[k] = v
+func (pal Palette) Merge(p2 Palette) {
+	for k, v := range p2 {
+		pal[k] = v
 	}
-	return pal2
-}
-
-//----------
-
-var defaultPalette = Palette{
-	"fg": Black,
-	"bg": White,
-}
-
-//----------
-
-func TreeThemePaletteColor(name string, en *EmbedNode) color.Color {
-	for n := en; n != nil; n = n.parent {
-		if n.theme != nil && n.theme.Palette != nil {
-			if c, ok := n.theme.Palette[name]; ok {
-				return c
-			}
-		}
-	}
-	if c, ok := defaultPalette[name]; ok {
-		return c
-	}
-	return defaultThemeColor
-}
-
-func TreeThemeFont(en *EmbedNode) ThemeFont {
-	for n := en; n != nil; n = n.parent {
-		if n.theme != nil && n.theme.Font != nil {
-			return n.theme.Font
-		}
-	}
-	return defaultThemeFont()
-}
-
-func ThemeFontOrDefault(t *Theme) ThemeFont {
-	if t != nil && t.Font != nil {
-		return t.Font
-	}
-	return defaultThemeFont()
 }
 
 //----------
 
 type ThemeFont interface {
 	Face(*ThemeFontOptions) font.Face
-	Clear() // clears internal faces
+	CloseFaces()
 }
 
 type ThemeFontOptions struct {
@@ -112,16 +130,16 @@ type ThemeFontOptions struct {
 type ThemeFontOptionsSize int
 
 const (
-	NormalTFOS ThemeFontOptionsSize = iota // default
-	SmallTFOS
+	TFOSNormal ThemeFontOptionsSize = iota // default
+	TFOSSmall
 )
 
 //----------
 
 // Truetype theme font.
 type TTThemeFont struct {
-	opt    *truetype.Options
 	ttfont *truetype.Font
+	opt    *truetype.Options
 	faces  map[truetype.Options]font.Face
 }
 
@@ -133,14 +151,15 @@ func NewTTThemeFont(ttf []byte, opt *truetype.Options) (*TTThemeFont, error) {
 	tf := &TTThemeFont{
 		opt:    opt,
 		ttfont: ttfont,
-		faces:  make(map[truetype.Options]font.Face),
+		faces:  map[truetype.Options]font.Face{},
 	}
 	return tf, nil
 }
+
 func (tf *TTThemeFont) Face(ffopt *ThemeFontOptions) font.Face {
 	opt2 := *tf.opt
 	if ffopt != nil {
-		if ffopt.Size == SmallTFOS {
+		if ffopt.Size == TFOSSmall {
 			opt2.Size *= float64(2) / 3
 		}
 	}
@@ -152,18 +171,21 @@ func (tf *TTThemeFont) Face(ffopt *ThemeFontOptions) font.Face {
 	return face
 }
 
-func (tf *TTThemeFont) Clear() {
+func (tf *TTThemeFont) CloseFaces() {
 	for _, f := range tf.faces {
-		_ = f.Close()
+		err := f.Close()
+		if err != nil {
+			log.Print(err)
+		}
 	}
-	tf.faces = make(map[truetype.Options]font.Face)
+	tf.faces = map[truetype.Options]font.Face{}
 }
 
 //----------
 
 var _dft ThemeFont
 
-func defaultThemeFont() ThemeFont {
+func DefaultThemeFont() ThemeFont {
 	if _dft == nil {
 		_dft = goregularThemeFont()
 	}
@@ -177,4 +199,10 @@ func goregularThemeFont() *TTThemeFont {
 		panic(err)
 	}
 	return tf
+}
+
+//----------
+
+func cint(c int) color.RGBA {
+	return imageutil.IntRGBA(c)
 }

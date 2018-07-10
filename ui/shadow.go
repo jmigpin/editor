@@ -9,24 +9,33 @@ var (
 	shadowMaxDiff = 0.25
 )
 
-func WrapInShadowTop(ctx widget.ImageContext, child widget.Node) widget.Node {
+func WrapInTopShadowOrSeparator(ctx widget.ImageContext, content widget.Node) widget.Node {
 	if ShadowsOn {
-		s := widget.NewShadow(ctx, child)
+		s := widget.NewTopShadow(ctx, content)
 		s.MaxDiff = shadowMaxDiff
-		s.Top = UIThemeUtil.ShadowHeight()
-
-		//s.Tint = true // TODO: darker colors
-
+		tf := content.Embed().TreeThemeFont()
+		s.Height = UIThemeUtil.ShadowHeight(tf)
 		return s
+	} else {
+		bl := widget.NewBoxLayout()
+		bl.YAxis = true
+		rect := widget.NewRectangle(ctx)
+		rect.SetThemePaletteNamePrefix("shadowsep_")
+		rect.Size.Y = separatorWidth
+		bl.Append(rect, content)
+		bl.SetChildFlex(content, true, true)
+		bl.SetChildFill(rect, true, true)
+		return bl
 	}
-	return child
 }
-func WrapInShadowBottom(ctx widget.ImageContext, child widget.Node) widget.Node {
-	if ShadowsOn {
-		s := widget.NewShadow(ctx, child)
-		s.MaxDiff = shadowMaxDiff
-		s.Bottom = UIThemeUtil.ShadowHeight()
-		return s
+
+func WrapInBottomShadowOrNone(ctx widget.ImageContext, content widget.Node) widget.Node {
+	if !ShadowsOn {
+		return content
 	}
-	return child
+	s := widget.NewBottomShadow(ctx, content)
+	s.MaxDiff = shadowMaxDiff
+	tf := content.Embed().TreeThemeFont()
+	s.Height = UIThemeUtil.ShadowHeight(tf)
+	return s
 }

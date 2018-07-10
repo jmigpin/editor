@@ -19,8 +19,6 @@ import (
 	"github.com/jmigpin/editor/core/gosource"
 )
 
-// TODO: add testmain and run on exit the server close?
-
 type Cmd struct {
 	Client    *Client
 	Dir       string // "" will use current dir
@@ -188,15 +186,14 @@ func (cmd *Cmd) setupTmpGoPath() {
 	// TODO: reuse tmp dir - check modtime
 	// add  tmpdir to gopath to use the files written to tmpdir
 	gopath := os.Getenv("GOPATH")
-	os.Setenv("GOPATH", cmd.tmpDir+":"+gopath)
+	u := strings.Join([]string{cmd.tmpDir, gopath}, ":")
+	os.Setenv("GOPATH", u)
 
 	// flag to cleanup at the end
 	cmd.tmpGoPath = true
 }
 
 func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args []string) error {
-	ctx2, cancelCtx := context.WithCancel(ctx)
-
 	// move filenameout to working dir
 	filenameWork := filepath.Join(cmd.getDir(), filepath.Base(filenameOut))
 	if err := os.Rename(filenameOut, filenameWork); err != nil {
@@ -206,11 +203,15 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 	// keep moved filename that will run in working dir for later cleanup
 	cmd.tmpBuiltFile = filenameWork
 
+	// server/client context to cancel the other when one of them ends
+	ctx2, cancelCtx := context.WithCancel(ctx)
+
 	// start server
 	filenameWork2 := normalizeFilenameForExec(filenameWork)
 	args = append([]string{filenameWork2}, args...)
 	cmd2, err := cmd.startCmd(ctx2, cmd.getDir(), args)
 	if err != nil {
+		cancelCtx()
 		return err
 	}
 	// keep to allow printing the cmd pid
@@ -233,7 +234,7 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 		cancelCtx()
 	}()
 
-	// client is done
+	// client done
 	cmd.done.Add(1)
 	go func() {
 		defer cmd.done.Done()

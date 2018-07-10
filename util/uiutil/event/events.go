@@ -2,58 +2,82 @@ package event
 
 import (
 	"image"
+	"unicode"
 )
+
+//----------
+
+type WindowClose struct{}
+type WindowExpose struct{}
+type WindowPutImageDone struct{}
+type WindowInput struct {
+	Point image.Point
+	Event interface{}
+}
+
+//----------
+
+type Handle bool
+
+const (
+	NotHandled Handle = false
+	Handled           = true
+)
+
+//----------
 
 type MouseEnter struct{}
 type MouseLeave struct{}
 
 type MouseDown struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseUp struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseMove struct {
-	Point     image.Point
-	Buttons   MouseButtons
-	Modifiers KeyModifiers
+	Point   image.Point
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 
 type MouseDragStart struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseDragEnd struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseDragMove struct {
-	Point     image.Point
-	Buttons   MouseButtons
-	Modifiers KeyModifiers
+	Point   image.Point
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 
 type MouseClick struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseDoubleClick struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseTripleClick struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
+
+//----------
 
 type MouseButton int32
 
@@ -82,94 +106,137 @@ func (mb MouseButtons) Is(b MouseButton) bool {
 	return int32(mb) == int32(b)
 }
 
-type KeyModifiers int32
-
-func (km KeyModifiers) HasAny(m KeyModifiers) bool {
-	return int32(km)&int32(m) > 0
-}
-func (km KeyModifiers) Is(m KeyModifiers) bool {
-	return int32(km) == int32(m)
-}
-
-const (
-	ModNone  KeyModifiers = iota
-	ModShift KeyModifiers = 1 << (iota - 1)
-	ModControl
-	ModAlt
-	ModMeta
-)
+//----------
 
 type KeyDown struct {
-	Point     image.Point
-	Code      KeyCode
-	Modifiers KeyModifiers
-	Rune      rune
+	Point  image.Point
+	KeySym KeySym
+	Mods   KeyModifiers
+	Rune   rune
+}
+
+func (kd *KeyDown) LowerRune() rune {
+	return unicode.ToLower(kd.Rune)
 }
 
 type KeyUp struct {
-	Point     image.Point
-	Code      KeyCode
-	Modifiers KeyModifiers
-	Rune      rune
+	Point  image.Point
+	KeySym KeySym
+	Mods   KeyModifiers
+	Rune   rune
 }
 
-type KeyCode int
+func (ku *KeyUp) LowerRune() rune {
+	return unicode.ToLower(ku.Rune)
+}
 
-// TODO: needs improvement
-// Other codes not defined here will be their first column key symbol (like 'a','b',..., but not 'A'), going from 0 upwards.
+//----------
+
+type KeyModifiers uint32
+
+func (km KeyModifiers) HasAny(m KeyModifiers) bool {
+	return km&m > 0
+}
+func (km KeyModifiers) Is(m KeyModifiers) bool {
+	return km == m
+}
+func (km KeyModifiers) ClearLocks() KeyModifiers {
+	w := []KeyModifiers{ModLock, ModNum}
+	u := km
+	for _, m := range w {
+		u &^= m
+	}
+	return u
+}
+
 const (
-	KCodeNone KeyCode = iota - 300 // just to cover to the last defined constant
-	KCodeBackspace
-	KCodeReturn
-	KCodeEscape
-	KCodeHome
-	KCodeLeft
-	KCodeUp
-	KCodeRight
-	KCodeDown
-	KCodePageUp
-	KCodePageDown
-	KCodeEnd
-	KCodeInsert
-	KCodeF1
-	KCodeF2
-	KCodeF3
-	KCodeF4
-	KCodeF5
-	KCodeF6
-	KCodeF7
-	KCodeF8
-	KCodeF9
-	KCodeF10
-	KCodeF11
-	KCodeF12
-	KCodeShiftL
-	KCodeShiftR
-	KCodeControlL
-	KCodeControlR
-	KCodeAltL
-	KCodeAltR
-	KCodeAltGr
-	KCodeSuperL // windows key
-	KCodeSuperR
-	KCodeDelete
-	KCodeTab
-
-	KCodeNumLock
-	KCodeCapsLock
-
-	KCodeVolumeUp
-	KCodeVolumeDown
-	KCodeMute
+	ModNone  KeyModifiers = 0
+	ModShift KeyModifiers = 1 << (iota - 1)
+	ModLock               // caps
+	ModCtrl
+	Mod1 // ~ alt
+	Mod2 // ~ num lock
+	Mod3
+	Mod4 // ~ windows key
+	Mod5 // ~ alt gr
 )
 
-type WindowClose struct{}
-type WindowExpose struct{}
-type WindowPutImageDone struct{}
-type WindowInput struct {
-	Point image.Point
-	Event interface{}
-}
+const (
+	ModAlt   = Mod1
+	ModNum   = Mod2
+	ModAltGr = Mod5
+)
+
+//----------
+
+type KeySym int
+
+const (
+	KSymNone      KeySym = 0
+	KSymBackspace KeySym = 256 + iota // let ascii codes keep their values
+	KSymReturn
+	KSymEscape
+	KSymHome
+	KSymLeft
+	KSymUp
+	KSymRight
+	KSymDown
+	KSymPageUp
+	KSymPageDown
+	KSymEnd
+	KSymInsert
+	KSymF1
+	KSymF2
+	KSymF3
+	KSymF4
+	KSymF5
+	KSymF6
+	KSymF7
+	KSymF8
+	KSymF9
+	KSymF10
+	KSymF11
+	KSymF12
+	KSymShiftL
+	KSymShiftR
+	KSymControlL
+	KSymControlR
+	KSymAltL
+	KSymAltR
+	KSymAltGr
+	KSymSuperL // windows key
+	KSymSuperR
+	KSymDelete
+	KSymTab
+	KSymTabLeft
+
+	KSymNumLock
+	KSymCapsLock
+	KSymShiftLock
+
+	KSymKeypadMultiply
+	KSymKeypadAdd
+	KSymKeypadSubtract
+	KSymKeypadDecimal
+	KSymKeypadDivide
+
+	KSymKeypad0
+	KSymKeypad1
+	KSymKeypad2
+	KSymKeypad3
+	KSymKeypad4
+	KSymKeypad5
+	KSymKeypad6
+	KSymKeypad7
+	KSymKeypad8
+	KSymKeypad9
+
+	KSymVolumeUp
+	KSymVolumeDown
+	KSymMute
+)
+
+//----------
 
 // drag and drop
 type DndPosition struct {
@@ -186,12 +253,12 @@ type DndDrop struct {
 type DndAction int
 
 const (
-	DenyDndA DndAction = iota
-	CopyDndA
-	MoveDndA
-	LinkDndA
-	AskDndA
-	PrivateDndA
+	DndADeny DndAction = iota
+	DndACopy
+	DndAMove
+	DndALink
+	DndAAsk
+	DndAPrivate
 )
 
 type DndType int
@@ -200,10 +267,11 @@ const (
 	TextURLListDndT DndType = iota
 )
 
-// copy/paste
+//----------
+
 type CopyPasteIndex int
 
 const (
-	PrimaryCPI CopyPasteIndex = iota
-	ClipboardCPI
+	CPIPrimary CopyPasteIndex = iota
+	CPIClipboard
 )

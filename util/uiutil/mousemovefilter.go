@@ -10,23 +10,43 @@ func MouseMoveFilterLoop(in <-chan interface{}, out chan<- interface{}, fps *int
 	var lastMoveEv interface{}
 	var ticker *time.Ticker
 	var timeToSend <-chan time.Time
+	var lastTimeSent time.Time
 
+	// DEBUG
 	//n := 0
+
 	keepMoveEv := func(ev interface{}) {
+		// DEBUG
 		//n++
+
+		frameDur := time.Second / time.Duration(*fps)
 		lastMoveEv = ev
 		if ticker == nil {
-			ticker = time.NewTicker(time.Second / time.Duration(*fps))
-			timeToSend = ticker.C
+			// Send event immediately if the frame duration already passed
+			now := time.Now()
+			if now.Sub(lastTimeSent) >= frameDur {
+				// DEBUG
+				//n--
+
+				lastTimeSent = now
+				out <- lastMoveEv
+			} else {
+				d := frameDur - now.Sub(lastTimeSent)
+				ticker = time.NewTicker(d)
+				timeToSend = ticker.C
+			}
 		}
 	}
 
 	sendMoveEv := func() {
+		// DEBUG
 		//log.Printf("kept %d times before sending", n)
 		//n = 0
+
 		ticker.Stop()
 		ticker = nil
 		timeToSend = nil
+		lastTimeSent = time.Now()
 		out <- lastMoveEv
 	}
 

@@ -9,7 +9,7 @@ import (
 )
 
 type ColumnSquare struct {
-	widget.EmbedNode
+	widget.ENode
 	Size image.Point
 	col  *Column
 }
@@ -24,13 +24,13 @@ func (sq *ColumnSquare) Measure(hint image.Point) image.Point {
 	return imageutil.MinPoint(sq.Size, hint)
 }
 func (sq *ColumnSquare) Paint() {
-	bg := sq.TreeThemePaletteColor("noselection_bg")
-	imageutil.FillRectangle(sq.col.ui.Image(), &sq.Bounds, bg)
+	c := sq.TreeThemePaletteColor("columnsquare")
+	imageutil.FillRectangle(sq.col.ui.Image(), &sq.Bounds, c)
 }
-func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) bool {
+func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) event.Handle {
 	switch ev.(type) {
 	case *event.MouseClick:
 		sq.col.Close()
 	}
-	return true
+	return event.Handled
 }

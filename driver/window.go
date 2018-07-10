@@ -23,6 +23,7 @@ type Window interface {
 	WarpPointer(*image.Point)
 
 	// copypaste
-	GetCPPaste(event.CopyPasteIndex) (string, error)
+	// paste func arg is called from another goroutine
+	GetCPPaste(event.CopyPasteIndex, func(string, error))
 	SetCPCopy(event.CopyPasteIndex, string) error
 }

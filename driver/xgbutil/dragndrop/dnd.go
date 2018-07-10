@@ -5,12 +5,12 @@ import (
 	"image"
 	"log"
 	"math"
-	"sync"
 	"time"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/driver/xgbutil"
+	"github.com/jmigpin/editor/util/miscutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/pkg/errors"
 )
@@ -20,14 +20,10 @@ import (
 
 // Drag and drop
 type Dnd struct {
-	conn  *xgb.Conn
-	win   xproto.Window
-	data  DndData
-	reply chan *xproto.SelectionNotifyEvent
-	reqs  struct {
-		sync.Mutex
-		waiting int
-	}
+	conn *xgb.Conn
+	win  xproto.Window
+	data DndData
+	sch  *miscutil.NBChan
 }
 
 func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
@@ -41,7 +37,10 @@ func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
 	if err := dnd.setupWindowProperty(); err != nil {
 		return nil, err
 	}
-	dnd.reply = make(chan *xproto.SelectionNotifyEvent)
+
+	//dnd.reply = make(chan *xproto.SelectionNotifyEvent)
+	dnd.sch = miscutil.NewNBChan()
+
 	return dnd, nil
 }
 
@@ -140,17 +139,17 @@ func (dnd *Dnd) positionReply(action event.DndAction) {
 	a := dnd.data.position.action
 	accept := true
 	switch action {
-	case event.DenyDndA:
+	case event.DndADeny:
 		accept = false
-	case event.CopyDndA:
+	case event.DndACopy:
 		a = DndAtoms.XdndActionCopy
-	case event.MoveDndA:
+	case event.DndAMove:
 		a = DndAtoms.XdndActionMove
-	case event.LinkDndA:
+	case event.DndALink:
 		a = DndAtoms.XdndActionLink
-	case event.AskDndA:
+	case event.DndAAsk:
 		a = DndAtoms.XdndActionAsk
-	case event.PrivateDndA:
+	case event.DndAPrivate:
 		a = DndAtoms.XdndActionPrivate
 	default:
 		log.Printf("unhandled dnd action %v", action)
@@ -192,30 +191,18 @@ func (dnd *Dnd) requestDropData(t event.DndType) ([]byte, error) {
 		return nil, fmt.Errorf("unhandled type: %v", t)
 	}
 
-	// init and defer cleanup of chan to receive data
-	dnd.reqs.Lock()
-	dnd.reqs.waiting++
-	dnd.reqs.Unlock()
+	dnd.sch.NewBufChan(1)
+	defer dnd.sch.NewBufChan(0)
 
 	dnd.requestData(t2)
 
-	timer := time.NewTimer(500 * time.Millisecond)
-	defer timer.Stop()
-
-	select {
-	case <-timer.C:
-		dnd.reqs.Lock()
-		defer dnd.reqs.Unlock()
-		if dnd.reqs.waiting == 0 {
-			// an event just got in and did "waiting--"
-			ev := <-dnd.reply
-			return dnd.extractData(ev)
-		}
-		dnd.reqs.waiting--
-		return nil, fmt.Errorf("dnd: request timeout")
-	case ev := <-dnd.reply: // waits for OnSelectionNotify
-		return dnd.extractData(ev)
+	v, err := dnd.sch.Receive(1000 * time.Millisecond)
+	if err != nil {
+		return nil, err
 	}
+	ev := v.(*xproto.SelectionNotifyEvent)
+
+	return dnd.extractData(ev)
 }
 
 // Called after a request for data.
@@ -228,13 +215,9 @@ func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 		return
 	}
 
-	dnd.reqs.Lock()
-	if dnd.reqs.waiting > 0 {
-		dnd.reqs.waiting--
-		dnd.reqs.Unlock() // unlock before sending event or could be locked down
-		dnd.reply <- ev
-	} else {
-		dnd.reqs.Unlock()
+	err := dnd.sch.Send(ev)
+	if err != nil {
+		log.Print(errors.Wrap(err, "onselectionnotify"))
 	}
 }
 

@@ -75,6 +75,19 @@ func (win *Window) initialize() error {
 	}
 	win.Window = window
 
+	// event mask
+	var evMask uint32 = 0 |
+		//xproto.EventMaskStructureNotify | // TODO
+		xproto.EventMaskExposure |
+		xproto.EventMaskPropertyChange |
+		//xproto.EventMaskPointerMotionHint |
+		//xproto.EventMaskButtonMotion |
+		xproto.EventMaskPointerMotion |
+		xproto.EventMaskButtonPress |
+		xproto.EventMaskButtonRelease |
+		xproto.EventMaskKeyPress |
+		xproto.EventMaskKeyRelease |
+		0
 	// mask/values order is defined by the protocol
 	mask := uint32(
 		//xproto.CwBackPixel |
@@ -82,15 +95,7 @@ func (win *Window) initialize() error {
 	)
 	values := []uint32{
 		//0xffffffff, // white pixel
-		//xproto.EventMaskStructureNotify |
-		xproto.EventMaskExposure |
-			//xproto.EventMaskPointerMotionHint |
-			//xproto.EventMaskButtonMotion |
-			xproto.EventMaskPointerMotion |
-			xproto.EventMaskButtonPress |
-			xproto.EventMaskButtonRelease |
-			xproto.EventMaskKeyPress |
-			xproto.EventMaskKeyRelease,
+		evMask,
 	}
 
 	_ = xproto.CreateWindow(
@@ -212,12 +217,17 @@ func (win *Window) EventLoop(events chan<- interface{}) {
 				win.Paste.OnSelectionNotify(&t)
 				win.Dnd.OnSelectionNotify(&t)
 			case xproto.SelectionRequestEvent:
-				win.Copy.OnSelectionRequest(&t)
+				win.Copy.OnSelectionRequest(&t, events)
 			case xproto.SelectionClearEvent:
 				win.Copy.OnSelectionClear(&t)
+
 			case xproto.ClientMessageEvent:
 				win.WMP.OnClientMessage(&t, events)
 				win.Dnd.OnClientMessage(&t, events)
+
+			case xproto.PropertyNotifyEvent:
+				win.Paste.OnPropertyNotify(&t)
+
 			default:
 				log.Printf("unhandled event: %#v", ev)
 			}
@@ -299,8 +309,8 @@ func (win *Window) QueryPointer() (*image.Point, error) {
 	return p, nil
 }
 
-func (win *Window) GetCPPaste(i event.CopyPasteIndex) (string, error) {
-	return win.Paste.Get(i)
+func (win *Window) GetCPPaste(i event.CopyPasteIndex, fn func(string, error)) {
+	win.Paste.Get(i, fn)
 }
 func (win *Window) SetCPCopy(i event.CopyPasteIndex, v string) error {
 	return win.Copy.Set(i, v)
@@ -328,7 +338,7 @@ func (win *Window) SetCursor(c widget.Cursor) {
 		sc(xcursor.Fleur)
 	case widget.PointerCursor:
 		sc(xcursor.Hand2)
-	case widget.TextCursor:
+	case widget.BeamCursor:
 		sc(xcursor.XTerm)
 	}
 }

@@ -1,12 +1,13 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"io/ioutil"
-	"time"
 
 	"github.com/golang/freetype/truetype"
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font"
@@ -16,88 +17,175 @@ import (
 )
 
 var (
-	FlashDuration             = 500 * time.Millisecond
 	ScrollBarLeft             = true
 	ScrollBarWidth        int = 0 // 0=based on a portion of the font size
-	SeparatorWidth            = 1
 	TextAreaCommentsColor color.Color
+)
+
+const (
+	separatorWidth = 1 // col/row separators width
 )
 
 //----------
 
-var UITheme *uiTheme
-var TTFontOptions truetype.Options
-
-func init() {
-	UITheme = NewUITheme()
-	regularThemeFont()
-	lightThemeColors()
-}
-
-//----------
-
-type uiTheme struct {
-	TextArea     widget.Theme
-	Toolbar      widget.Theme
-	Scrollbar    widget.Theme
-	RowSquare    widget.Theme
-	EmptySpaceBg widget.Theme
-}
-
-func NewUITheme() *uiTheme {
-	uit := &uiTheme{}
-	uit.RowSquare = *defaultRowSquareColors()
-	return uit
-}
-
-func (uit *uiTheme) TextAreaCommentsFg() color.Color {
+// Palette with user supplied color options that should override themes.
+func userPalette() widget.Palette {
+	pal := widget.Palette{}
 	if TextAreaCommentsColor != nil {
-		return TextAreaCommentsColor
+		pal["text_colorize_comments_fg"] = TextAreaCommentsColor
 	}
-	return uit.TextArea.Palette["comments_fg"]
+	return pal
 }
 
 //----------
 
-var UIThemeUtil uiThemeUtil
-
-type uiThemeUtil struct{}
-
-func (uitu *uiThemeUtil) RowMinimumHeight(tf widget.ThemeFont) int {
-	return uitu.FontFaceHeightInPixels(tf.Face(nil))
-}
-func (uitu *uiThemeUtil) RowSquareSize(tf widget.ThemeFont) image.Point {
-	lh := uitu.FontFaceHeightInPixels(tf.Face(nil))
-	w := int(float64(lh) * 3 / 4)
-	return image.Point{w, lh}
-}
-
-func (uitu *uiThemeUtil) FontFaceHeightInPixels(face font.Face) int {
-	m := face.Metrics()
-	return (m.Ascent + m.Descent).Ceil()
-}
-
-func (uitu *uiThemeUtil) GetScrollBarWidth(tf widget.ThemeFont) int {
-	if ScrollBarWidth != 0 {
-		return ScrollBarWidth
-	}
-	lh := uitu.FontFaceHeightInPixels(tf.Face(nil))
-	w := int(float64(lh) * 3 / 4)
-	return w
-}
-
-func (uitu *uiThemeUtil) ShadowHeight() int {
-	tf := widget.ThemeFontOrDefault(&UITheme.TextArea)
-	lh := uitu.FontFaceHeightInPixels(tf.Face(nil))
-	h := int(float64(lh) * 1 / 2)
-	return h
-}
-
-//----------
-
-func defaultRowSquareColors() *widget.Theme {
+func lightThemeColors(node widget.Node) {
 	pal := widget.Palette{
-		"rs_active":              widget.Black,
+		"text_cursor_fg":            cint(0x0),
+		"text_fg":                   cint(0x0),
+		"text_bg":                   cint(0xffffff),
+		"text_selection_fg":         nil,
+		"text_selection_bg":         cint(0xeeee9e), // yellow
+		"text_colorize_string_fg":   nil,
+		"text_colorize_comments_fg": cint(0x757575), // grey 600
+		"text_highlightword_fg":     nil,
+		"text_highlightword_bg":     cint(0xc6ee9e), // green
+		"text_wrapline_fg":          cint(0x0),
+		"text_wrapline_bg":          cint(0xd8d8d8),
+		"text_parenthesis_fg":       nil,
+		"text_parenthesis_bg":       cint(0xd8d8d8),
+
+		"toolbar_text_bg":          cint(0xecf0f1), // "clouds" grey
+		"toolbar_text_wrapline_bg": cint(0xccccd8),
+
+		"scrollbar_bg":        cint(0xf2f2f2),
+		"scrollhandle_normal": imageutil.Shade(cint(0xf2f2f2), 0.20),
+		"scrollhandle_hover":  imageutil.Shade(cint(0xf2f2f2), 0.30),
+		"scrollhandle_select": imageutil.Shade(cint(0xf2f2f2), 0.40),
+
+		"column_norows_rect":  cint(0xffffff),
+		"columns_nocols_rect": cint(0xffffff),
+		"colseparator_rect":   cint(0x0),
+		"rowseparator_rect":   cint(0x0),
+		"shadowsep_rect":      cint(0x0),
+
+		"columnsquare": cint(0xccccd8),
+		"rowsquare":    cint(0xccccd8),
+
+		"mm_text_bg":          cint(0xecf0f1),
+		"mm_button_hover_bg":  cint(0xcccccc),
+		"mm_button_down_bg":   cint(0xbbbbbb),
+		"mm_button_sticky_fg": cint(0xffffff),
+		"mm_button_sticky_bg": cint(0x0),
+		"mm_border":           cint(0x0),
+		"mm_content_pad":      cint(0xecf0f1),
+		"mm_content_border":   cint(0x0),
+	}
+
+	pal.Merge(rowSquarePalette())
+	pal.Merge(userPalette())
+	node.Embed().SetThemePalette(pal)
+}
+
+//----------
+
+func darkThemeColors(node widget.Node) {
+	pal := widget.Palette{
+		"text_cursor_fg":            cint(0xffffff),
+		"text_fg":                   cint(0xffffff),
+		"text_bg":                   cint(0x0),
+		"text_selection_fg":         cint(0xffffff),
+		"text_selection_bg":         cint(0xafa753), // yellow
+		"text_colorize_string_fg":   nil,
+		"text_colorize_comments_fg": cint(0xb8b8b8),
+		"text_highlightword_bg":     cint(0x58842d), // green
+		"text_wrapline_fg":          cint(0xffffff),
+		"text_wrapline_bg":          cint(0x595959),
+
+		"toolbar_text_fg":          cint(0xffffff),
+		"toolbar_text_bg":          cint(0x808080),
+		"toolbar_text_wrapline_bg": imageutil.Shade(cint(0x808080), 0.20),
+
+		"scrollbar_bg":        imageutil.Tint(cint(0x0), 0.20),
+		"scrollhandle_normal": imageutil.Tint(cint(0x0), 0.40),
+		"scrollhandle_hover":  imageutil.Tint(cint(0x0), 0.50),
+		"scrollhandle_select": imageutil.Tint(cint(0x0), 0.60),
+
+		"column_norows_rect":  imageutil.Tint(cint(0x0), 0.10),
+		"columns_nocols_rect": imageutil.Tint(cint(0x0), 0.10),
+		"colseparator_rect":   cint(0x0),
+		"rowseparator_rect":   cint(0x0),
+		"shadowsep_rect":      cint(0x0),
+
+		"columnsquare": imageutil.Shade(cint(0x808080), 0.20),
+		"rowsquare":    imageutil.Shade(cint(0x808080), 0.20),
+
+		"mm_text_bg":          cint(0x808080),
+		"mm_button_hover_bg":  imageutil.Tint(cint(0x808080), 0.10),
+		"mm_button_down_bg":   imageutil.Tint(cint(0x808080), 0.20),
+		"mm_button_sticky_bg": imageutil.Tint(cint(0x808080), 0.40),
+		"mm_border":           cint(0x0),
+		"mm_content_pad":      cint(0x808080),
+		"mm_content_border":   cint(0x0),
+	}
+
+	pal.Merge(rowSquarePalette())
+	pal.Merge(userPalette())
+	node.Embed().SetThemePalette(pal)
+}
+
+//----------
+
+func acmeThemeColors(node widget.Node) {
+	pal := widget.Palette{
+		"text_cursor_fg":            cint(0x0),
+		"text_fg":                   cint(0x0),
+		"text_bg":                   cint(0xffffea),
+		"text_selection_fg":         nil,
+		"text_selection_bg":         cint(0xeeee9e), // yellow
+		"text_colorize_string_fg":   nil,
+		"text_colorize_comments_fg": cint(0x757575), // grey 600
+		"text_highlightword_fg":     nil,
+		"text_highlightword_bg":     cint(0xc6ee9e), // green
+		"text_wrapline_fg":          cint(0x0),
+		"text_wrapline_bg":          cint(0xd8d8c6),
+
+		"toolbar_text_bg":          cint(0xeaffff),
+		"toolbar_text_wrapline_bg": cint(0xc6d8d8),
+
+		"scrollbar_bg":        cint(0xf2f2de),
+		"scrollhandle_normal": cint(0xc1c193),
+		"scrollhandle_hover":  cint(0xadad6f),
+		"scrollhandle_select": cint(0x99994c),
+
+		"column_norows_rect":  cint(0xffffff),
+		"columns_nocols_rect": cint(0xffffff),
+		"colseparator_rect":   cint(0x0),
+		"rowseparator_rect":   cint(0x0),
+		"shadowsep_rect":      cint(0x0),
+
+		"columnsquare": cint(0xc6d8d8),
+		"rowsquare":    cint(0xc6d8d8),
+
+		"mm_text_bg":          cint(0xeaffff),
+		"mm_button_hover_bg":  imageutil.Shade(cint(0xeaffff), 0.10),
+		"mm_button_down_bg":   imageutil.Shade(cint(0xeaffff), 0.20),
+		"mm_button_sticky_bg": imageutil.Shade(cint(0xeaffff), 0.40),
+		"mm_border":           cint(0x0),
+		"mm_content_pad":      cint(0xeaffff),
+		"mm_content_border":   cint(0x0),
+	}
+
+	pal.Merge(rowSquarePalette())
+	pal.Merge(userPalette())
+	node.Embed().SetThemePalette(pal)
+}
+
+//----------
+
+func rowSquarePalette() widget.Palette {
+	pal := widget.Palette{
+		"rs_active":              cint(0x0),
 		"rs_executing":           color.RGBA{15, 173, 0, 255},        // dark green
 		"rs_edited":              color.RGBA{0, 0, 255, 255},         // blue
 		"rs_disk_changes":        color.RGBA{255, 0, 0, 255},         // red
@@ -107,41 +195,7 @@ func defaultRowSquareColors() *widget.Theme {
 		"rs_annotations":         color.RGBA{0xd3, 0x54, 0x00, 0xff}, // pumpkin
 		"rs_annotations_edited":  color.RGBA{255, 255, 0, 255},       // yellow
 	}
-	return &widget.Theme{Palette: pal}
-}
-
-//----------
-
-type cycler struct {
-	index   string
-	entries []cycleEntry
-}
-
-type cycleEntry struct {
-	name string
-	fn   func()
-}
-
-func (c *cycler) GetIndex(name string) (int, bool) {
-	for i, e := range c.entries {
-		if e.name == name {
-			return i, true
-		}
-	}
-	return -1, false
-}
-func (c *cycler) Cycle() {
-	i := 0
-	if c.index != "" {
-		i, _ = c.GetIndex(c.index)
-		i = (i + 1) % len(c.entries)
-	}
-	c.Set(c.entries[i].name)
-}
-func (c *cycler) Set(name string) {
-	i, _ := c.GetIndex(name)
-	c.entries[i].fn()
-	c.index = name
+	return pal
 }
 
 //----------
@@ -156,144 +210,6 @@ var ColorThemeCycler cycler = cycler{
 
 //----------
 
-func lightThemeColors() {
-	textareaPal := widget.Palette{
-		"fg":           widget.Black,
-		"bg":           widget.White,
-		"selection_fg": nil,
-		"selection_bg": color.RGBA{238, 238, 158, 255},
-		"highlight_fg": nil,
-		"highlight_bg": color.RGBA{198, 238, 158, 255},
-		"comments_fg":  color.RGBA{0x75, 0x75, 0x75, 0xff}, // "grey 600"
-
-		// used in: square background, wrapline runes.
-		"noselection_fg": widget.Black,
-		"noselection_bg": imageutil.TintOrShade(widget.White, 0.15),
-
-		"annotations_fg": nil,
-		"annotations_bg": imageutil.TintOrShade(widget.White, 0.15),
-		"segments_fg":    widget.Black,
-		"segments_bg":    color.RGBA{158, 238, 238, 255}, // light blue
-	}
-	UITheme.TextArea.Palette = textareaPal
-
-	tbBg := color.RGBA{0xec, 0xf0, 0xf1, 0xff} // "clouds" grey
-	toolbarPal := widget.Palette{
-		"fg":             widget.Black,
-		"bg":             tbBg,
-		"selection_fg":   textareaPal["selection_fg"],
-		"selection_bg":   textareaPal["selection_bg"],
-		"noselection_fg": widget.Black,
-		"noselection_bg": imageutil.TintOrShade(tbBg, 0.15),
-	}
-	UITheme.Toolbar.Palette = toolbarPal
-
-	calcScrollBarTheme()
-
-	UITheme.EmptySpaceBg.Palette = widget.Palette{
-		"bg": widget.White,
-	}
-}
-
-func calcScrollBarTheme() {
-	c1 := UITheme.TextArea.Palette["bg"] // based on bg
-
-	pal := widget.MakePalette()
-	pal["bg"] = imageutil.TintOrShade(c1, 0.05)
-	pal["normal"] = imageutil.TintOrShade(c1, 0.30)
-	pal["select"] = imageutil.TintOrShade(pal["normal"], 0.40)
-	pal["highlight"] = imageutil.TintOrShade(pal["normal"], 0.20)
-	UITheme.Scrollbar.Palette = pal
-}
-
-//----------
-
-func darkThemeColors() {
-	textareaPal := widget.Palette{
-		"fg":             widget.White,
-		"bg":             widget.Black,
-		"selection_fg":   widget.Black,
-		"selection_bg":   color.RGBA{238, 238, 158, 255},
-		"highlight_fg":   widget.Black,
-		"highlight_bg":   color.RGBA{198, 238, 158, 255},
-		"comments_fg":    color.RGBA{0xb8, 0xb8, 0xb8, 0xff},
-		"noselection_fg": nil,
-		"noselection_bg": imageutil.TintOrShade(widget.Black, 0.35),
-		"annotations_fg": nil,
-		"annotations_bg": imageutil.TintOrShade(widget.Black, 0.35),
-		"segments_fg":    widget.Black,
-		"segments_bg":    color.RGBA{158, 238, 238, 255}, // light blue
-	}
-	UITheme.TextArea.Palette = textareaPal
-
-	toolbarPal := widget.Palette{
-		"fg":           widget.White,
-		"bg":           color.RGBA{0x80, 0x80, 0x80, 0xff},
-		"selection_fg": textareaPal["selection_fg"],
-		"selection_bg": textareaPal["selection_bg"],
-	}
-	toolbarPal["noselection_bg"] = imageutil.TintOrShade(toolbarPal["bg"], 0.35)
-	UITheme.Toolbar.Palette = toolbarPal
-
-	calcScrollBarTheme()
-
-	UITheme.EmptySpaceBg.Palette = widget.Palette{
-		"bg": imageutil.Shade(color.White, 0.30),
-	}
-}
-
-//----------
-
-func acmeThemeColors() {
-	taBg := color.RGBA{255, 255, 234, 255}
-	textareaPal := widget.Palette{
-		"fg":             widget.Black,
-		"bg":             taBg,
-		"selection_fg":   nil,
-		"selection_bg":   color.RGBA{238, 238, 158, 255},
-		"highlight_fg":   nil,
-		"highlight_bg":   color.RGBA{198, 238, 158, 255},     // analogous to selection bg
-		"comments_fg":    color.RGBA{0x75, 0x75, 0x75, 0xff}, // "grey 600"
-		"noselection_fg": widget.Black,
-		"noselection_bg": imageutil.TintOrShade(taBg, 0.15),
-		"annotations_fg": widget.Black,
-		"annotations_bg": imageutil.TintOrShade(taBg, 0.15),
-		"segments_fg":    widget.Black,
-		"segments_bg":    color.RGBA{158, 238, 238, 255}, // light blue
-	}
-	UITheme.TextArea.Palette = textareaPal
-
-	tbBg := color.RGBA{234, 255, 255, 255}
-	toolbarPal := widget.Palette{
-		"fg":             widget.Black,
-		"bg":             tbBg,
-		"selection_fg":   textareaPal["selection_fg"],
-		"selection_bg":   textareaPal["selection_bg"],
-		"noselection_fg": widget.Black,
-		"noselection_bg": imageutil.TintOrShade(tbBg, 0.15),
-	}
-	UITheme.Toolbar.Palette = toolbarPal
-
-	// scrollbar
-	{
-		pal := widget.MakePalette()
-		pal["bg"] = imageutil.Shade(textareaPal["bg"], 0.05)
-
-		darker := color.RGBA{153, 153, 76, 255}
-		pal["normal"] = imageutil.Tint(darker, 0.40)
-		pal["highlight"] = imageutil.Tint(darker, 0.20)
-		pal["select"] = darker
-
-		UITheme.Scrollbar.Palette = pal
-	}
-
-	UITheme.EmptySpaceBg.Palette = widget.Palette{
-		"bg": color.White,
-	}
-}
-
-//----------
-
 var FontThemeCycler cycler = cycler{
 	entries: []cycleEntry{
 		{"regular", regularThemeFont},
@@ -302,35 +218,47 @@ var FontThemeCycler cycler = cycler{
 	},
 }
 
-func regularThemeFont() {
-	loadThemeFont(goregular.TTF)
+//----------
+
+func regularThemeFont(node widget.Node) {
+	loadThemeFont(goregular.TTF, node)
 }
-func mediumThemeFont() {
-	loadThemeFont(gomedium.TTF)
+func mediumThemeFont(node widget.Node) {
+	loadThemeFont(gomedium.TTF, node)
 }
-func monoThemeFont() {
-	loadThemeFont(gomono.TTF)
+func monoThemeFont(node widget.Node) {
+	loadThemeFont(gomono.TTF, node)
 }
 
-func loadThemeFont(b []byte) {
-	themes := []*widget.Theme{
-		&UITheme.TextArea,
-		&UITheme.Toolbar,
-		&UITheme.EmptySpaceBg, // helps calculate square size
+//----------
+
+func AddUserFont(filename string) error {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
 	}
 
-	// clear previous fonts.
-	for _, t := range themes {
-		if t.Font != nil {
-			t.Font.Clear()
-		}
+	f := func(node widget.Node) {
+		loadThemeFont(b, node)
 	}
 
-	// load font
+	e := cycleEntry{filename, f}
+	FontThemeCycler.entries = append(FontThemeCycler.entries, e)
+	FontThemeCycler.CurName = filename
+	return nil
+}
+
+//----------
+
+var TTFontOptions truetype.Options
+
+func loadThemeFont(b []byte, node widget.Node) {
+	// close previous font faces, can be reused if requested it will just take longer to load
+	tf0 := node.Embed().TreeThemeFont()
+	tf0.CloseFaces()
+
 	tf := sureThemeFont(&TTFontOptions, b)
-	for _, t := range themes {
-		t.Font = tf
-	}
+	node.Embed().SetThemeFont(tf)
 }
 
 func sureThemeFont(opt *truetype.Options, b []byte) widget.ThemeFont {
@@ -341,21 +269,85 @@ func sureThemeFont(opt *truetype.Options, b []byte) widget.ThemeFont {
 	return tf
 }
 
-func AddUserFont(filename string) error {
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	userThemeFontBytes = b
-	name := filename
-	e := cycleEntry{name, userThemeFont}
-	FontThemeCycler.entries = append(FontThemeCycler.entries, e)
-	FontThemeCycler.Set(name)
-	return nil
+//----------
+
+type cycler struct {
+	CurName string
+	entries []cycleEntry
 }
 
-var userThemeFontBytes []byte
+func (c *cycler) GetIndex(name string) (int, bool) {
+	for i, e := range c.entries {
+		if e.name == name {
+			return i, true
+		}
+	}
+	return -1, false
+}
 
-func userThemeFont() {
-	loadThemeFont(userThemeFontBytes)
+func (c *cycler) Cycle(node widget.Node) {
+	i := 0
+	if c.CurName != "" {
+		k, ok := c.GetIndex(c.CurName)
+		if !ok {
+			panic(fmt.Sprintf("cycle name not found: %v", c.CurName))
+		}
+		i = (k + 1) % len(c.entries)
+	}
+	c.Set(c.entries[i].name, node)
+}
+
+func (c *cycler) Set(name string, node widget.Node) {
+	i, ok := c.GetIndex(name)
+	if !ok {
+		panic(fmt.Sprintf("cycle name not found: %v", name))
+	}
+	c.CurName = name
+	c.entries[i].fn(node)
+}
+
+type cycleEntry struct {
+	name string
+	fn   func(widget.Node)
+}
+
+//----------
+
+var UIThemeUtil uiThemeUtil
+
+type uiThemeUtil struct{}
+
+func (uitu *uiThemeUtil) RowMinimumHeight(tf widget.ThemeFont) int {
+	return uitu.LineHeight(tf.Face(nil))
+}
+func (uitu *uiThemeUtil) RowSquareSize(tf widget.ThemeFont) image.Point {
+	lh := uitu.LineHeight(tf.Face(nil))
+	w := int(float64(lh) * 3 / 4)
+	return image.Point{w, lh}
+}
+
+func (uitu *uiThemeUtil) LineHeight(face font.Face) int {
+	m := face.Metrics()
+	return drawutil.LineHeightInt(&m)
+}
+
+func (uitu *uiThemeUtil) GetScrollBarWidth(tf widget.ThemeFont) int {
+	if ScrollBarWidth != 0 {
+		return ScrollBarWidth
+	}
+	lh := uitu.LineHeight(tf.Face(nil))
+	w := int(float64(lh) * 3 / 4)
+	return w
+}
+
+func (uitu *uiThemeUtil) ShadowHeight(tf widget.ThemeFont) int {
+	lh := uitu.LineHeight(tf.Face(nil))
+	h := int(float64(lh) * 1 / 2)
+	return h
+}
+
+//----------
+
+func cint(c int) color.RGBA {
+	return imageutil.IntRGBA(c)
 }

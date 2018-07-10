@@ -3,223 +3,422 @@ package core
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
-	"github.com/jmigpin/editor/core/cmdutil"
-	"github.com/jmigpin/editor/core/toolbardata"
+	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
 )
 
-func ToolbarCmdFromLayout(ed *Editor, ta *ui.TextArea) {
-	td := toolbardata.NewToolbarData(ta.Str(), ed.HomeVars())
-	part, ok := td.GetPartAtIndex(ta.CursorIndex())
+func RootToolbarCmd(ed *Editor, tb *ui.Toolbar) {
+	tbdata := toolbarparser.Parse(tb.Str())
+	part, ok := tbdata.PartAtIndex(int(tb.TextCursor.Index()))
 	if !ok {
 		ed.Errorf("missing part at index")
 		return
 	}
-	runCommand(ed, part, nil)
+	if len(part.Args) == 0 {
+		ed.Errorf("part at index has no args")
+		return
+	}
+
+	toolbarCmd(ed, part, nil)
 }
 
-func ToolbarCmdFromRow(ed *Editor, erow *ERow) {
-	td := erow.ToolbarData()
-	ta := erow.Row().Toolbar
-	part, ok := td.GetPartAtIndex(ta.CursorIndex())
+//----------
+
+func RowToolbarCmd(erow *ERow) {
+	part, ok := erow.TbData.PartAtIndex(int(erow.Row.Toolbar.TextCursor.Index()))
 	if !ok {
-		ed.Errorf("missing part at index")
+		erow.Ed.Errorf("missing part at index")
+		return
+	}
+	if len(part.Args) == 0 {
+		erow.Ed.Errorf("part at index has no args")
 		return
 	}
 
-	if part == td.Parts[0] {
-		if !firstPartCmd(ed, part, erow) {
-			ed.Errorf("no cmd was run")
+	// first part cmd
+	if part == erow.TbData.Parts[0] {
+		if !rowFirstPartToolbarCmd(erow, part) {
+			erow.Ed.Errorf("no cmd was run")
 		}
 		return
 	}
 
-	runCommand(ed, part, erow)
+	toolbarCmd(erow.Ed, part, erow)
 }
 
-func firstPartCmd(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) bool {
-	if len(part.Args) == 0 {
-		return false
-	}
-
+func rowFirstPartToolbarCmd(erow *ERow, part *toolbarparser.Part) bool {
 	a0 := part.Args[0]
-	tb := erow.Row().Toolbar
-	ci := tb.CursorIndex()
+	ci := erow.Row.Toolbar.TextCursor.Index()
 
 	// cursor index beyond arg0
-	if ci > a0.E {
+	if ci > a0.End {
 		return false
 	}
 
 	// get path up to cursor index
-	str := a0.Str
-	i := strings.Index(str[ci:], string(filepath.Separator))
+	a0ci := ci - a0.Pos
+	filename := a0.Str()
+	i := strings.Index(filename[a0ci:], string(filepath.Separator))
 	if i >= 0 {
-		str = str[:ci+i]
+		filename = filename[:a0ci+i]
 	}
 
-	// decode str
-	td := toolbardata.NewToolbarData(str, erow.Ed().HomeVars())
-	str = td.DecodePart0Arg0()
+	// decode filename
+	filename = erow.Ed.HomeVars.Decode(filename)
 
-	// file info
-	_, err := os.Stat(str)
-	if err == nil {
-		// TODO: this is identical code to cmdutil.DuplicateRow, deprecate cmd?
+	// create new row
+	info := erow.Ed.ReadERowInfo(filename)
+	erow2, err := info.NewERow(erow.Row.PosBelow())
+	if err != nil {
+		erow.Ed.Error(err)
+		return true
+	}
 
-		// open row next to erow and load content
-		col := erow.Row().Col
-		next := erow.Row().NextRow()
-		erow2 := ed.NewERowerBeforeRow(str, col, next)
-		err := erow2.LoadContentClear()
-		if err != nil {
-			ed.Error(err)
-		}
-		erow2.Flash()
+	erow2.Flash()
 
-		// set same position if regular
-		if erow2.IsRegular() {
-			ta := erow.Row().TextArea
-			ta2 := erow2.Row().TextArea
-			ta2.SetCursorIndex(ta.CursorIndex())
-			ta2.MakeCursorVisible()
-		}
+	// set same offset if not dir
+	if erow2.Info.IsFileButNotDir() {
+		ta := erow.Row.TextArea
+		ta2 := erow2.Row.TextArea
+		ta2.TextCursor.SetIndex(ta.TextCursor.Index())
+		ta2.SetOffset(ta.Offset())
 	}
 
 	return true
 }
 
-func runCommand(ed *Editor, part *toolbardata.Part, erow cmdutil.ERower) {
-	if len(part.Args) < 1 {
-		return
-	}
+//----------
 
-	p0 := part.Args[0].Str
+// erow can be nil (ex: a root toolbar cmd)
+func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
+	arg0 := part.Args[0].UnquotedStr()
 
-	layoutOnlyCmd := func(fn func()) {
+	rootOnlyCmd := func(fn func()) {
 		if erow != nil {
-			ed.Errorf("%s: layout only command", p0)
+			ed.Errorf("%s:  root toolbar only command", arg0)
 			return
 		}
 		fn()
 	}
 
-	currentERow := func() cmdutil.ERower {
+	currentERow := func() *ERow {
 		if erow != nil {
 			return erow
 		}
-		e, ok := ed.ActiveERower()
+		e, ok := ed.ActiveERow()
 		if ok {
 			return e
 		}
 		return nil
 	}
 
-	erowCmd := func(fn func(cmdutil.ERower)) {
+	rowCmdErr := func(fn func(*ERow) error) {
 		e := currentERow()
 		if e == nil {
-			ed.Errorf("%s: no active row", p0)
+			ed.Errorf("%s: no active row", arg0)
 			return
 		}
-		fn(e)
+		if err := fn(e); err != nil {
+			ed.Errorf("%v: %v", arg0, err)
+		}
 	}
 
-	switch p0 {
+	rowCmd := func(fn func(*ERow)) {
+		rowCmdErr(func(e *ERow) error {
+			fn(e)
+			return nil
+		})
+	}
+
+	switch arg0 {
 	case "Exit":
-		layoutOnlyCmd(func() { ed.Close() })
+		rootOnlyCmd(func() { ed.Close() })
+
 	case "SaveSession":
-		layoutOnlyCmd(func() { cmdutil.SaveSession(ed, part) })
+		rootOnlyCmd(func() { SaveSession(ed, part) })
 	case "OpenSession":
-		layoutOnlyCmd(func() { cmdutil.OpenSession(ed, part) })
+		rootOnlyCmd(func() { OpenSession(ed, part) })
 	case "DeleteSession":
-		layoutOnlyCmd(func() { cmdutil.DeleteSession(ed, part) })
+		rootOnlyCmd(func() { DeleteSession(ed, part) })
 	case "ListSessions":
-		layoutOnlyCmd(func() { cmdutil.ListSessions(ed) })
+		rootOnlyCmd(func() { ListSessions(ed) })
+
 	case "NewColumn":
-		layoutOnlyCmd(func() { _ = ed.ui.Root.Cols.NewColumn() })
-	case "SaveAllFiles":
-		layoutOnlyCmd(func() { cmdutil.SaveRowsFiles(ed) })
-	case "ReloadAll":
-		layoutOnlyCmd(func() { cmdutil.ReloadRows(ed) })
-	case "ReloadAllFiles":
-		layoutOnlyCmd(func() { cmdutil.ReloadRowsFiles(ed) })
+		rootOnlyCmd(func() { ed.NewColumn() })
+	case "CloseColumn":
+		rowCmd(func(e *ERow) { e.Row.Col.Close() })
+
 	case "NewRow":
-		layoutOnlyCmd(func() { cmdutil.NewRow(ed) })
+		rootOnlyCmd(func() { NewRowCmd(ed) })
+	case "CloseRow":
+		rowCmd(func(e *ERow) { e.Row.Close() })
 	case "ReopenRow":
-		layoutOnlyCmd(func() { ed.reopenRow.Reopen() })
+		rootOnlyCmd(func() { ed.RowReopener.Reopen() })
+	case "MaximizeRow":
+		rowCmd(func(e *ERow) { e.Row.Maximize() })
 
-	case "ColorTheme":
-		_colorThemeCmd(ed)
-	case "FontTheme":
-		_fontThemeCmd(ed)
-	case "FontRunes":
-		_fontRunesCmd(ed)
-	case "FWStatus":
-		_fwStatusCmd(ed)
+	case "Save":
+		rowCmd(func(e *ERow) { SaveCmd(e.Info) })
+	case "SaveAllFiles":
+		rootOnlyCmd(func() { SaveAllFilesCmd(ed) })
 
-	// TODO: remove: deprecated since it can click on row filename section
-	case "RowDirectory":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.RowDirectory(ed, e) })
+	case "Reload":
+		rowCmd(func(e *ERow) { ReloadCmd(e) })
+	case "ReloadAllFiles":
+		rootOnlyCmd(func() { ReloadAllFilesCmd(ed) })
+	case "ReloadAll":
+		rootOnlyCmd(func() { ReloadAllCmd(ed) })
+
+	case "Stop":
+		rowCmd(func(e *ERow) { e.Exec.Stop() })
+
+	case "Clear":
+		rowCmd(func(e *ERow) { e.Row.TextArea.SetStrClearHistory("") })
+
+	case "Find":
+		rowCmdErr(func(e *ERow) error { return FindCmd(e, part) })
+	case "Replace":
+		rowCmdErr(func(e *ERow) error { return ReplaceCmd(e, part) })
+	case "GotoLine":
+		rowCmdErr(func(e *ERow) error { return GotoLineCmd(e, part) })
+	case "CopyFilePosition":
+		rowCmdErr(func(e *ERow) error { return CopyFilePositionCmd(ed, e) })
+	case "ToggleRowHBar":
+		rowCmdErr(func(e *ERow) error { return ToggleRowHBarCmd(ed, e) })
+
+	case "ListDir":
+		rowCmdErr(func(e *ERow) error { return ListDirCmd(e, part) })
 
 	case "XdgOpenDir":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.XdgOpenDirShortcut(ed, e) })
-	case "DuplicateRow":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.DuplicateRow(ed, e) })
-	case "MaximizeRow":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.MaximizeRow(ed, e) })
-	case "Save":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.SaveRowFile(e) })
-	case "Reload":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.ReloadRow(e) })
-	case "CloseRow":
-		erowCmd(func(e cmdutil.ERower) { e.Row().Close() })
-	case "CloseColumn":
-		erowCmd(func(e cmdutil.ERower) { e.Row().Col.Close() })
-	case "Clear":
-		erowCmd(func(e cmdutil.ERower) { e.Row().TextArea.SetStrClear("", true, false) })
-	case "Find":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.Find(e, part) })
-	case "GotoLine":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.GotoLine(e, part) })
-	case "Replace":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.Replace(e, part) })
-	case "Stop":
-		erowCmd(func(e cmdutil.ERower) { e.StopExecState() })
-	case "ListDir":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.ListDirEd(e, false, false) })
-	case "ListDirSub":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.ListDirEd(e, true, false) })
-	case "ListDirHidden":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.ListDirEd(e, false, true) })
-	case "CopyFilePosition":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.CopyFilePosition(ed, e) })
+		rowCmdErr(func(e *ERow) error { return XdgOpenDirCmd(e) })
 	case "GoRename":
-		erowCmd(func(e cmdutil.ERower) { cmdutil.GoRename(e, part) })
-
+		rowCmdErr(func(e *ERow) error { return GoRenameCmd(e, part) })
 	case "GoDebug":
-		//erowCmd(func(e cmdutil.ERower) { cmdutil.GoDebug(e, part) })
-		cmdutil.GoDebug(ed, currentERow(), part)
+		rowCmdErr(func(e *ERow) error { return GoDebugCmd(e, part) })
+
+	case "ColorTheme":
+		colorThemeCmd(ed)
+	case "FontTheme":
+		fontThemeCmd(ed)
+	case "FontRunes":
+		fontRunesCmd(ed)
 
 	default:
-		erowCmd(func(e cmdutil.ERower) { cmdutil.ExternalCmd(e, part) })
+		rowCmd(func(e *ERow) { ExternalCmd(e, part) })
 	}
 }
 
-func _colorThemeCmd(ed *Editor) {
-	ui.ColorThemeCycler.Cycle()
-	ed.ui.Root.CalcChildsBounds()
-	ed.ui.Root.MarkNeedsPaint()
-}
-func _fontThemeCmd(ed *Editor) {
-	ui.FontThemeCycler.Cycle()
-	ed.ui.Root.CalcChildsBounds()
-	ed.ui.Root.MarkNeedsPaint()
+//----------
+
+func NewRowCmd(ed *Editor) {
+	p, err := os.Getwd()
+	if err != nil {
+		ed.Error(err)
+		return
+	}
+
+	rowPos := ed.GoodRowPos()
+
+	aerow, ok := ed.ActiveERow()
+	if ok {
+		// stick with directory if exists, otherwise get base dir
+		p2 := aerow.Info.Name()
+		if aerow.Info.IsDir() {
+			p = p2
+		} else {
+			p = path.Dir(p2)
+		}
+
+		// position after active row
+		rowPos = aerow.Row.PosBelow()
+	}
+
+	info := ed.ReadERowInfo(p)
+
+	erow := NewERow(ed, info, rowPos)
+	erow.Flash()
 }
 
-func _fontRunesCmd(ed *Editor) {
+//----------
+
+func SaveCmd(info *ERowInfo) {
+	if err := info.SaveFile(); err != nil {
+		info.Ed.Error(err)
+	}
+}
+func SaveAllFilesCmd(ed *Editor) {
+	for _, info := range ed.ERowInfos {
+		if info.IsFileButNotDir() {
+			SaveCmd(info)
+		}
+	}
+}
+
+//----------
+
+func ReloadCmd(erow *ERow) {
+	erow.Reload()
+}
+func ReloadAllFilesCmd(ed *Editor) {
+	for _, info := range ed.ERowInfos {
+		if info.IsFileButNotDir() {
+			if err := info.ReloadFile(); err != nil {
+				ed.Error(err)
+			}
+		}
+	}
+}
+
+func ReloadAllCmd(ed *Editor) {
+	// reload all dirs erows
+	for _, info := range ed.ERowInfos {
+		if info.IsDir() {
+			for _, erow := range info.ERows {
+				erow.Reload()
+			}
+		}
+	}
+
+	ReloadAllFilesCmd(ed)
+}
+
+//----------
+
+func FindCmd(erow *ERow, part *toolbarparser.Part) error {
+	args := part.Args[1:]
+	if len(args) < 1 {
+		return fmt.Errorf("expecting argument")
+	}
+	var str string
+	if len(args) == 1 {
+		str = args[0].UnquotedStr()
+	} else {
+		// join args
+		a, b := args[0].Pos, args[len(args)-1].End
+		s := part.Data.Str[a:b]
+		str = strings.TrimSpace(s)
+	}
+
+	found, err := textutil.Find(erow.Row.TextArea.TextEdit, str)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("string not found: %q", str)
+	}
+	return nil
+}
+
+//----------
+
+func ReplaceCmd(erow *ERow, part *toolbarparser.Part) error {
+	args := part.Args[1:]
+	if len(args) != 2 {
+		return fmt.Errorf("expecting 2 arguments")
+	}
+
+	old, new := args[0].UnquotedStr(), args[1].UnquotedStr()
+
+	replaced, err := textutil.Replace(erow.Row.TextArea.TextEdit, old, new)
+	if err != nil {
+		return err
+	}
+	if !replaced {
+		return fmt.Errorf("string not replaced: %q", old)
+	}
+	return nil
+}
+
+//----------
+
+func CopyFilePositionCmd(ed *Editor, erow *ERow) error {
+	if !erow.Info.IsFileButNotDir() {
+		return fmt.Errorf("not a file")
+	}
+
+	ta := erow.Row.TextArea
+	ci := ta.TextCursor.Index()
+	line, col := parseutil.IndexLineColumn(ta.Str()[:ci])
+
+	s := fmt.Sprintf("%v:%v:%v", erow.Info.Name(), line, col)
+
+	ta.SetCPCopy(event.CPIPrimary, s)
+	ta.SetCPCopy(event.CPIClipboard, s)
+
+	return nil
+}
+
+//----------
+
+func GotoLineCmd(erow *ERow, part *toolbarparser.Part) error {
+	args := part.Args[1:]
+	if len(args) != 1 {
+		return fmt.Errorf("expecting 1 argument")
+	}
+
+	line0, err := strconv.ParseUint(args[0].Str(), 10, 64)
+	if err != nil {
+		return err
+	}
+	line := int(line0)
+
+	ta := erow.Row.TextArea
+	index := parseutil.LineColumnIndex(ta.Str(), line, 0)
+
+	// goto index
+	tc := ta.TextCursor
+	tc.SetSelectionOff()
+	tc.SetIndex(index)
+
+	erow.MakeIndexVisibleAndFlash(index)
+
+	return nil
+}
+
+//----------
+
+func XdgOpenDirCmd(erow *ERow) error {
+	if erow.Info.IsSpecial() {
+		return fmt.Errorf("can't run on special row")
+	}
+
+	dir := erow.Info.Dir()
+	c := exec.Command("xdg-open", dir)
+	if err := c.Start(); err != nil {
+		return err
+	}
+	go func() {
+		if err := c.Wait(); err != nil {
+			erow.Ed.Error(err)
+		}
+	}()
+
+	return nil
+}
+
+//----------
+
+func colorThemeCmd(ed *Editor) {
+	ui.ColorThemeCycler.Cycle(ed.UI.Root)
+	ed.UI.Root.MarkNeedsLayoutAndPaint()
+}
+func fontThemeCmd(ed *Editor) {
+	ui.FontThemeCycler.Cycle(ed.UI.Root)
+	ed.UI.Root.MarkNeedsLayoutAndPaint()
+}
+
+//----------
+
+func fontRunesCmd(ed *Editor) {
 	var u string
 	for i := 0; i < 15000; {
 		start := i
@@ -232,6 +431,10 @@ func _fontRunesCmd(ed *Editor) {
 	}
 	ed.Messagef("%s", u)
 }
-func _fwStatusCmd(ed *Editor) {
-	ed.Messagef("%s", ed.fwatcher.Status())
+
+//----------
+
+func ToggleRowHBarCmd(ed *Editor, erow *ERow) error {
+	erow.Row.ToggleTextAreaXBar()
+	return nil
 }
