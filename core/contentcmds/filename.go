@@ -31,8 +31,8 @@ func filename(erow *core.ERow, index int) (bool, error) {
 		}
 
 		// adjust to the found left index
-		index -= li
 		str = str[li:]
+		index -= li
 
 		if len(str) > max {
 			str = str[:max]
@@ -48,6 +48,11 @@ func filename(erow *core.ERow, index int) (bool, error) {
 
 	// consider middle path (index position) if line and column are not present
 	if considerMiddle && filePos.Line == 0 && filePos.Column == 0 {
+		// if filename detection is short, update index
+		if len(filePos.Filename) < index {
+			index = len(filePos.Filename)
+		}
+
 		i := strings.Index(filePos.Filename[index:], string(filepath.Separator))
 		if i >= 0 {
 			filePos.Filename = filePos.Filename[:index+i]

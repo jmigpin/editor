@@ -44,7 +44,7 @@ func TestParseFilePos3(t *testing.T) {
 
 func TestExpandLastIndexOfFilename1(t *testing.T) {
 	s := ": /a/b/c"
-	i := ExpandLastIndexOfFilename(s, 100)
+	i := ExpandLastIndexOfFilenameFmt(s, 100)
 	if !(i == 2) {
 		t.Fatalf("%v", i)
 	}
