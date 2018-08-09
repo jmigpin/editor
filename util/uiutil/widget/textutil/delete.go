@@ -15,7 +15,7 @@ func Delete(te *widget.TextEdit) error {
 		tc.SetSelectionOff()
 	} else {
 		a = tc.Index()
-		_, size, err := tc.RW().ReadLastRuneAt(a)
+		_, size, err := tc.RW().ReadRuneAt(a)
 		if err != nil {
 			return err
 		}
