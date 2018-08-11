@@ -5,9 +5,11 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-var runeKeyCodeMap = map[xproto.Keysym]event.KeySym{
+var xkeysymToEvKeySym = map[xproto.Keysym]event.KeySym{
 	xkISOLevel3Shift: event.KSymAltGr,
 	xkISOLeftTab:     event.KSymTabLeft,
+
+	xkSpace: event.KSymSpace,
 
 	xkBackSpace: event.KSymBackspace,
 	xkReturn:    event.KSymReturn,
@@ -48,6 +50,13 @@ var runeKeyCodeMap = map[xproto.Keysym]event.KeySym{
 	xkCapsLock:  event.KSymCapsLock,
 	xkShiftLock: event.KSymShiftLock,
 
+	xkGrave:       event.KSymGrave,
+	xkAcute:       event.KSymAcute,
+	xkCircumflex:  event.KSymCircumflex,
+	xkTilde:       event.KSymTilde,
+	xkPerispomeni: event.KSymPerispomeni,
+	xkMacron:      event.KSymMacron,
+
 	xkKeypadMultiply: event.KSymKeypadMultiply,
 	xkKeypadAdd:      event.KSymKeypadAdd,
 	xkKeypadSubtract: event.KSymKeypadSubtract,
@@ -69,7 +78,6 @@ var runeKeyCodeMap = map[xproto.Keysym]event.KeySym{
 	xf86xkAudioRaiseVolume: event.KSymVolumeUp,
 	xf86xkAudioMute:        event.KSymMute,
 
-	//xkISOLeftTab     : event.KSym,
 	//xkMultiKey  : event.KSym,
 	//xkMetaLeft:  event.KSym,
 	//xkMetaRight: event.KSym,
@@ -86,6 +94,8 @@ const (
 
 	xkISOLevel3Shift = 0xfe03 // alt gr?
 	xkISOLeftTab     = 0xfe20
+
+	xkSpace = 0x0020
 
 	xkBackSpace = 0xff08
 	xkReturn    = 0xff0d
@@ -129,10 +139,12 @@ const (
 	xkDelete    = 0xffff
 	xkTab       = 0xff09
 
-	xkGrave      = 0xfe50
-	xkAcute      = 0xfe51
-	xkCircumflex = 0xfe52
-	xkTilde      = 0xfe53
+	xkGrave       = 0xfe50
+	xkAcute       = 0xfe51
+	xkCircumflex  = 0xfe52
+	xkTilde       = 0xfe53
+	xkPerispomeni = 0xfe54
+	xkMacron      = 0xfe55
 
 	xf86xkAudioLowerVolume = 0x1008ff11
 	xf86xkAudioMute        = 0x1008ff12
@@ -176,4 +188,9 @@ const (
 	xkKeypad7 = 0xffb7
 	xkKeypad8 = 0xffb8
 	xkKeypad9 = 0xffb9
+
+	//xkA = 0x41
+	//xkZ = 0x5a
+	//xka = 0x61
+	//xkz = 0x7a
 )

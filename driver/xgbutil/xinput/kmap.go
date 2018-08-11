@@ -51,7 +51,7 @@ func (km *KMap) ReadTable() error {
 	km.reply = reply
 	km.si = si
 
-	// log.Printf(km.KeysymTable())
+	//log.Printf("%v", km.KeysymTable())
 
 	return nil
 }
@@ -189,15 +189,14 @@ func (km *KMap) keysym(keycode xproto.Keycode, m Modifiers) xproto.Keysym {
 //----------
 
 func (km *KMap) Lookup(keycode xproto.Keycode, mods Modifiers) (rune, event.KeySym) {
-	ks := km.keysym(keycode, mods)
-	//log.Printf("ks=%v", ks)
-	ru := keysymRune(ks)
-	code, ok := runeKeyCodeMap[ks]
+	xks := km.keysym(keycode, mods)
+	ks, ok := xkeysymToEvKeySym[xks]
 	if !ok {
 		// will keep ascii codes and others ('a', 'A', ...)
-		code = event.KeySym(ks)
+		ks = event.KeySym(xks)
 	}
-	return ru, code
+	ru := keysymRune(xks)
+	return ru, ks
 }
 
 //----------

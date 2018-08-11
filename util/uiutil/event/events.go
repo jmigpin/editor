@@ -172,8 +172,14 @@ const (
 type KeySym int
 
 const (
-	KSymNone      KeySym = 0
-	KSymBackspace KeySym = 256 + iota // let ascii codes keep their values
+	KSymNone KeySym = 0
+
+	// let ascii codes keep their values
+	KSym_dummy_ KeySym = 256 + iota
+
+	KSymSpace
+
+	KSymBackspace
 	KSymReturn
 	KSymEscape
 	KSymHome
@@ -214,6 +220,13 @@ const (
 	KSymCapsLock
 	KSymShiftLock
 
+	KSymGrave
+	KSymAcute
+	KSymCircumflex
+	KSymTilde
+	KSymPerispomeni
+	KSymMacron
+
 	KSymKeypadMultiply
 	KSymKeypadAdd
 	KSymKeypadSubtract
@@ -235,6 +248,89 @@ const (
 	KSymVolumeDown
 	KSymMute
 )
+
+//----------
+
+func ComposeAccents(ks *KeySym, ru *rune) (isLatch bool) {
+	accents := []rune{'`', '´', '^', '~', '¨', '°'} // order matters
+	aindex := -1
+	for i, aru := range accents {
+		if aru == *ru {
+			aindex = i
+			break
+		}
+	}
+
+	// latch key
+	if aindex >= 0 {
+		accentsData.ks = *ks
+		accentsData.ru = *ru
+		accentsData.aindex = aindex
+		return true
+	}
+
+	// latch key is present from previous stroke
+	if accentsData.ks != 0 {
+
+		// allow space to use the accent rune
+		if *ks == KSymSpace {
+			*ks = accentsData.ks
+			*ru = accentsData.ru
+			clearAccentsData()
+			return false
+		}
+
+		// follows order used in "accents" variable
+		m := map[rune][]rune{
+			'A': []rune{'À', 'Á', 'Â', 'Ã', 'Ä', 'Å'},
+			'a': []rune{'à', 'á', 'â', 'ã', 'ä', 'å'},
+
+			'E': []rune{'È', 'É', 'Ê', '_', 'Ë'},
+			'e': []rune{'è', 'é', 'ê', '_', 'ë'},
+
+			'I': []rune{'Ì', 'Í', 'Î', '_', 'Ï'},
+			'i': []rune{'ì', 'í', 'î', '_', 'ï'},
+
+			'O': []rune{'Ò', 'Ó', 'Ô', 'Õ', 'Ö'},
+			'o': []rune{'ò', 'ó', 'ô', 'õ', 'ö'},
+
+			'U': []rune{'Ù', 'Ú', 'Û', '_', 'Ü'},
+			'u': []rune{'ù', 'ú', 'û', '_', 'ü'},
+
+			'C': []rune{'_', 'Ć'},
+			'c': []rune{'_', 'ć'},
+
+			'N': []rune{'_', 'Ń', '_', 'Ñ'},
+			'n': []rune{'_', 'ń', '_', 'ñ'},
+
+			'J': []rune{'_', '_', 'Ĵ'},
+			'j': []rune{'_', '_', 'ĵ'},
+		}
+		if sru, ok := m[*ru]; ok {
+			if accentsData.aindex < len(sru) {
+				ru2 := sru[accentsData.aindex]
+				if ru2 != '_' {
+					*ru = ru2
+				}
+				clearAccentsData()
+			}
+		}
+	}
+
+	return false
+}
+
+var accentsData struct {
+	ks     KeySym
+	ru     rune
+	aindex int
+}
+
+func clearAccentsData() {
+	accentsData.ks = 0
+	accentsData.ru = 0
+	accentsData.aindex = 0
+}
 
 //----------
 
