@@ -3,6 +3,7 @@ package iout
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -34,32 +35,35 @@ func HasPrefix(rs Reader, i int, s []byte) bool {
 
 // Returns (-1, nil) if not found.
 func Index(r Reader, i, le int, sep []byte, toLower bool) (int, error) {
-	m := 32 * 1024 // chunk size
-	a, b := i, i+le
+	return index2(r, i, le, sep, toLower, 32*1024)
+}
+
+func index2(r Reader, i, le int, sep []byte, toLower bool, chunk int) (int, error) {
+	if chunk < len(sep) {
+		return -1, fmt.Errorf("chunk smaller then sep")
+	}
+
+	b := i + le
 	if b > r.Len() {
 		b = r.Len()
 	}
-	for {
-		if b-a > m {
-			i, err := index2(r, a, m, sep, toLower)
-			if err != nil || i >= 0 {
-				return i, err
-			}
 
-			// next chunk
-			w := m - len(sep)
-			if w < a {
-				w = a
-			}
-			a = w + 1 // without +1 was already tested
-			continue
+	for a := i; a < b; a += chunk - (len(sep) - 1) {
+		j := chunk
+		if j > b-a {
+			j = b - a
 		}
 
-		return index2(r, a, b-a, sep, toLower)
+		i, err := index3(r, a, j, sep, toLower)
+		if err != nil || i >= 0 {
+			return i, err
+		}
 	}
+
+	return -1, nil
 }
 
-func index2(r Reader, i, len int, sep []byte, toLower bool) (int, error) {
+func index3(r Reader, i, len int, sep []byte, toLower bool) (int, error) {
 	p, err := r.ReadNSliceAt(i, len)
 	if err != nil {
 		return 0, err
