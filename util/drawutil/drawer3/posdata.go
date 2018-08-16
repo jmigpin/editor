@@ -28,12 +28,12 @@ func (pd *PosData) Start(r *ExtRunner) {
 func (pd *PosData) Iterate(r *ExtRunner) {
 	if r.RR.RiClone() {
 		r.NextExt()
+		return
 	}
 	if pd.count%pd.jump == 0 {
 		pd.keep(r)
 	}
 	pd.count++
-
 	r.NextExt()
 }
 
