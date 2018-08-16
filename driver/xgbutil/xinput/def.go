@@ -50,12 +50,16 @@ var xkeysymToEvKeySym = map[xproto.Keysym]event.KeySym{
 	xkCapsLock:  event.KSymCapsLock,
 	xkShiftLock: event.KSymShiftLock,
 
-	xkGrave:       event.KSymGrave,
-	xkAcute:       event.KSymAcute,
-	xkCircumflex:  event.KSymCircumflex,
-	xkTilde:       event.KSymTilde,
-	xkPerispomeni: event.KSymPerispomeni,
-	xkMacron:      event.KSymMacron,
+	xkGrave:      event.KSymGrave,
+	xkAcute:      event.KSymAcute,
+	xkCircumflex: event.KSymCircumflex,
+	xkTilde:      event.KSymTilde,
+	xkMacron:     event.KSymMacron,
+	xkBreve:      event.KSymBreve,
+	xkDiaeresis:  event.KSymDiaresis,
+	xkAboveRing:  event.KSymRingAbove,
+	xkCaron:      event.KSymCaron,
+	xkCedilla:    event.KSymCedilla,
 
 	xkKeypadMultiply: event.KSymKeypadMultiply,
 	xkKeypadAdd:      event.KSymKeypadAdd,
@@ -139,12 +143,16 @@ const (
 	xkDelete    = 0xffff
 	xkTab       = 0xff09
 
-	xkGrave       = 0xfe50
-	xkAcute       = 0xfe51
-	xkCircumflex  = 0xfe52
-	xkTilde       = 0xfe53
-	xkPerispomeni = 0xfe54
-	xkMacron      = 0xfe55
+	xkGrave      = 0xfe50
+	xkAcute      = 0xfe51
+	xkCircumflex = 0xfe52
+	xkTilde      = 0xfe53
+	xkMacron     = 0xfe54
+	xkBreve      = 0xfe55
+	xkDiaeresis  = 0xfe57
+	xkAboveRing  = 0xfe58
+	xkCaron      = 0xfe5a
+	xkCedilla    = 0xfe5b
 
 	xf86xkAudioLowerVolume = 0x1008ff11
 	xf86xkAudioMute        = 0x1008ff12

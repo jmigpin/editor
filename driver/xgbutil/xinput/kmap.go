@@ -204,14 +204,27 @@ func (km *KMap) Lookup(keycode xproto.Keycode, mods Modifiers) (rune, event.KeyS
 func keysymRune(ks xproto.Keysym) rune {
 	// runes the keysym table is not providing directly
 	switch ks {
-	case xkTilde:
-		return '~'
-	case xkCircumflex:
-		return '^'
-	case xkAcute:
-		return '´'
 	case xkGrave:
 		return '`'
+	case xkAcute:
+		return '´'
+	case xkCircumflex:
+		return '^'
+	case xkTilde:
+		return '~'
+
+	case xkDiaeresis:
+		return '¨' // 0xa8
+	case xkMacron:
+		return '¯' // 0xaf
+	case xkCedilla:
+		return '¸' // 0xb8
+	case xkBreve:
+		return '˘' // 0x2d8
+	case xkAboveRing:
+		return '˚' // 0x2da
+	case xkCaron:
+		return 'ˇ' // 0x2c7
 
 	case xkKeypadDecimal:
 		return '.'

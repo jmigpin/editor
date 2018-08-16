@@ -40,7 +40,7 @@ func (ae *ApplyEvent) Apply(node Node, ev interface{}, p image.Point) {
 		// mouseup can cause a ui change, enter/leave needs to run
 		ae.mouseEnterLeave(node, p)
 	case *event.KeyDown:
-		isLatch := event.ComposeAccents(&evt.KeySym, &evt.Rune)
+		isLatch := event.ComposeDiacritic(&evt.KeySym, &evt.Rune)
 		if !isLatch {
 			ae.depthFirstEv(node, evt, p)
 		}

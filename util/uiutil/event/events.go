@@ -224,8 +224,12 @@ const (
 	KSymAcute
 	KSymCircumflex
 	KSymTilde
-	KSymPerispomeni
 	KSymMacron
+	KSymBreve
+	KSymDiaresis
+	KSymRingAbove
+	KSymCaron
+	KSymCedilla
 
 	KSymKeypadMultiply
 	KSymKeypadAdd
@@ -251,68 +255,94 @@ const (
 
 //----------
 
-func ComposeAccents(ks *KeySym, ru *rune) (isLatch bool) {
-	accents := []rune{'`', '´', '^', '~', '¨', '°'} // order matters
-	aindex := -1
-	for i, aru := range accents {
+func ComposeDiacritic(ks *KeySym, ru *rune) (isLatch bool) {
+	// order matters
+	diacritics := []rune{
+		'`', // grave
+		'´', // acute
+		'^', // circumflex
+		'~', // tilde
+		'¨', // diaeresis 0xa8
+		'˚', // ring above 0x2da
+
+		'¯', // macron 0xaf
+		'¸', // cedilla 0xb8
+		'˘', // breve 0x2d8
+		'ˇ', // caron 0x2c7
+	}
+
+	dindex := -1
+	for i, aru := range diacritics {
 		if aru == *ru {
-			aindex = i
+			dindex = i
 			break
 		}
 	}
 
 	// latch key
-	if aindex >= 0 {
-		accentsData.ks = *ks
-		accentsData.ru = *ru
-		accentsData.aindex = aindex
+	if dindex >= 0 {
+		diacriticsData.ks = *ks
+		diacriticsData.ru = *ru
+		diacriticsData.dindex = dindex
 		return true
 	}
 
 	// latch key is present from previous stroke
-	if accentsData.ks != 0 {
+	if diacriticsData.ks != 0 {
 
-		// allow space to use the accent rune
+		// allow space to use the diacritic rune
 		if *ks == KSymSpace {
-			*ks = accentsData.ks
-			*ru = accentsData.ru
-			clearAccentsData()
+			*ks = diacriticsData.ks
+			*ru = diacriticsData.ru
+			clearDiacriticsData()
 			return false
 		}
 
-		// follows order used in "accents" variable
+		// diacritis order matters
 		m := map[rune][]rune{
+			// vowels
 			'A': []rune{'À', 'Á', 'Â', 'Ã', 'Ä', 'Å'},
 			'a': []rune{'à', 'á', 'â', 'ã', 'ä', 'å'},
+			'E': []rune{'È', 'É', 'Ê', 'Ẽ', 'Ë', '_'},
+			'e': []rune{'è', 'é', 'ê', 'ẽ', 'ë', '_'},
+			'I': []rune{'Ì', 'Í', 'Î', 'Ĩ', 'Ï', '_'},
+			'i': []rune{'ì', 'í', 'î', 'ĩ', 'ï', '_'},
+			'O': []rune{'Ò', 'Ó', 'Ô', 'Õ', 'Ö', '_'},
+			'o': []rune{'ò', 'ó', 'ô', 'õ', 'ö', '_'},
+			'U': []rune{'Ù', 'Ú', 'Û', 'Ũ', 'Ü', 'Ů'},
+			'u': []rune{'ù', 'ú', 'û', 'ũ', 'ü', 'ů'},
 
-			'E': []rune{'È', 'É', 'Ê', '_', 'Ë'},
-			'e': []rune{'è', 'é', 'ê', '_', 'ë'},
-
-			'I': []rune{'Ì', 'Í', 'Î', '_', 'Ï'},
-			'i': []rune{'ì', 'í', 'î', '_', 'ï'},
-
-			'O': []rune{'Ò', 'Ó', 'Ô', 'Õ', 'Ö'},
-			'o': []rune{'ò', 'ó', 'ô', 'õ', 'ö'},
-
-			'U': []rune{'Ù', 'Ú', 'Û', '_', 'Ü'},
-			'u': []rune{'ù', 'ú', 'û', '_', 'ü'},
-
-			'C': []rune{'_', 'Ć'},
-			'c': []rune{'_', 'ć'},
-
-			'N': []rune{'_', 'Ń', '_', 'Ñ'},
-			'n': []rune{'_', 'ń', '_', 'ñ'},
-
-			'J': []rune{'_', '_', 'Ĵ'},
-			'j': []rune{'_', '_', 'ĵ'},
+			// other letters
+			'C': []rune{'_', 'Ć', 'Ĉ', '_', '_', '_'},
+			'c': []rune{'_', 'ć', 'ĉ', '_', '_', '_'},
+			'G': []rune{'_', '_', 'Ĝ', '_', '_', '_'},
+			'g': []rune{'_', '_', 'ĝ', '_', '_', '_'},
+			'H': []rune{'_', '_', 'Ĥ', '_', '_', '_'},
+			'h': []rune{'_', '_', 'ĥ', '_', '_', '_'},
+			'J': []rune{'_', '_', 'Ĵ', '_', '_', '_'},
+			'j': []rune{'_', '_', 'ĵ', '_', '_', '_'},
+			'L': []rune{'_', 'Ĺ', '_', '_', '_', '_'},
+			'l': []rune{'_', 'ĺ', '_', '_', '_', '_'},
+			'N': []rune{'_', 'Ń', '_', 'Ñ', '_', '_'},
+			'n': []rune{'_', 'ń', '_', 'ñ', '_', '_'},
+			'R': []rune{'_', 'Ŕ', '_', '_', '_', '_'},
+			'r': []rune{'_', 'ŕ', '_', '_', '_', '_'},
+			'S': []rune{'_', 'Ś', 'Ŝ', '_', '_', '_'},
+			's': []rune{'_', 'ś', 'ŝ', '_', '_', '_'},
+			'W': []rune{'_', '_', 'Ŵ', '_', '_', '_'},
+			'w': []rune{'_', '_', 'ŵ', '_', '_', '_'},
+			'Y': []rune{'_', 'Ý', 'Ŷ', '_', 'Ÿ', '_'},
+			'y': []rune{'_', 'ý', 'ŷ', '_', 'ÿ', '_'},
+			'Z': []rune{'_', 'Ź', '_', '_', '_', '_'},
+			'z': []rune{'_', 'ź', '_', '_', '_', '_'},
 		}
 		if sru, ok := m[*ru]; ok {
-			if accentsData.aindex < len(sru) {
-				ru2 := sru[accentsData.aindex]
+			if diacriticsData.dindex < len(sru) {
+				ru2 := sru[diacriticsData.dindex]
 				if ru2 != '_' {
 					*ru = ru2
 				}
-				clearAccentsData()
+				clearDiacriticsData()
 			}
 		}
 	}
@@ -320,16 +350,16 @@ func ComposeAccents(ks *KeySym, ru *rune) (isLatch bool) {
 	return false
 }
 
-var accentsData struct {
+var diacriticsData struct {
 	ks     KeySym
 	ru     rune
-	aindex int
+	dindex int
 }
 
-func clearAccentsData() {
-	accentsData.ks = 0
-	accentsData.ru = 0
-	accentsData.aindex = 0
+func clearDiacriticsData() {
+	diacriticsData.ks = 0
+	diacriticsData.ru = 0
+	diacriticsData.dindex = 0
 }
 
 //----------
