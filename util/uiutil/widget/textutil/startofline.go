@@ -17,7 +17,8 @@ func StartOfLine(te *widget.TextEdit, sel bool) error {
 	}
 
 	// stop at first non blank rune from the left
-	for j := 0; j < 500; j++ {
+	n := ci - i
+	for j := 0; j < n; j++ {
 		ru, _, err := tc.RW().ReadRuneAt(i + j)
 		if err != nil {
 			return err
