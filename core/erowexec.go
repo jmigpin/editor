@@ -14,6 +14,7 @@ type ERowExec struct {
 	mu     sync.Mutex
 	ctx    context.Context
 	cancel context.CancelFunc
+	runW   io.WriteCloser
 }
 
 func (eexec *ERowExec) Start() context.Context {
@@ -32,6 +33,7 @@ func (eexec *ERowExec) Start() context.Context {
 
 	// new context
 	eexec.ctx, eexec.cancel = context.WithCancel(context.Background())
+
 	return eexec.ctx
 }
 
@@ -66,8 +68,14 @@ func (eexec *ERowExec) Clear(ctx context.Context, fn func()) {
 func (eexec *ERowExec) clear2() {
 	// clear resources
 	eexec.cancel()
-	eexec.ctx = nil
 	eexec.cancel = nil
+	eexec.ctx = nil
+
+	// clear run resources
+	if eexec.runW != nil {
+		eexec.runW.Close()
+		eexec.runW = nil
+	}
 
 	// indicate the row is not running
 	eexec.erow.Ed.UI.RunOnUIGoRoutine(func() {
@@ -82,6 +90,10 @@ func (eexec *ERowExec) Run(fexec func(context.Context, io.Writer) error) {
 	go func() {
 		w := eexec.erow.TextAreaWriter()
 		defer w.Close()
+
+		// keep w to ensure early close on clear
+		eexec.runW = w
+
 		err := fexec(ctx, w)
 		eexec.erow.Exec.Clear(ctx, func() {
 			if err != nil {
