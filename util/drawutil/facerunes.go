@@ -8,7 +8,7 @@ import (
 )
 
 var TabWidth = 8
-var CarriageReturnRune = rune(8453) // "care of" symbol but using it for "carriage return"
+var CarriageReturnRune = '♪'
 
 // Special runes face
 type FaceRunes struct {
