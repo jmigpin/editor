@@ -164,10 +164,10 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 #### Global key/button shortcuts
 
 - `esc`:
-  - close context float box
+  - ~~close context float box~~
   - close debugging session
-- `f1`: toggle context float box 
-  - does auto-completion in `.go` files.
+- `f1`: ~~toggle context float box~~ (work in progress)
+  - ~~does auto-completion in `.go` files.~~
 
 #### Column key/button shortcuts
 
@@ -220,7 +220,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `ctrl`+`shift`+`d`: uncomment lines
 - `buttonLeft`: move cursor to point
   - drag: selects text - works as copy making it available for paste (primary selection).
-  - over a debug annotation: print the shortened annotation string.
+  - ~~over a debug annotation: print the shortened annotation string.~~
 - `buttonMiddle`: paste from primary
 - `buttonRight`: move cursor to point + text area cmd
 - `buttonWheelUp`: scroll up
@@ -229,11 +229,13 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `buttonWheelDown` on scrollbar: page down
 - `shift`+`buttonLeft`: move cursor to point adding to selection
 - `ctrl`+`buttonWheelUp`: 
-  - on textarea: show previous debug step
-  - over a debug annotation: show same line previous annotation.
+  - show previous debug step
+  - ~~on textarea: show previous debug step~~
+  - ~~over a debug annotation: show same line previous annotation~~
 - `ctrl`+`buttonWheelDown`: 
-  - on textarea: show next debug step
-  - over a debug annotation: show same line next annotation.
+  - show next debug step
+  - ~~on textarea: show next debug step~~
+  - ~~over a debug annotation: show same line next annotation~~
 
 ### Notes
 
