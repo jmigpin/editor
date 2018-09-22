@@ -79,13 +79,11 @@ func (wl *WrapLine) Iterate(r *ExtRunner) {
 
 func (wl *WrapLine) newline(r *ExtRunner) bool {
 	// wrap line rune advance
-	wlrAdv0, _ := r.D.Face().GlyphAdvance(WrapLineRune)
-	wlrAdv := mathutil.Intf2(wlrAdv0)
+	wlrAdv := r.RR.GlyphAdvance(WrapLineRune)
 
 	// wrap line margin-to-left-border minimum
 	margin := wlrAdv
-	wAdv0, _ := r.D.Face().GlyphAdvance('W')
-	wAdv := mathutil.Intf2(wAdv0)
+	wAdv := r.RR.GlyphAdvance('W')
 	margin = wlrAdv + 8*wAdv
 
 	// helper vars
@@ -97,6 +95,7 @@ func (wl *WrapLine) newline(r *ExtRunner) bool {
 
 	origRu := r.RR.Ru
 	r.RR.PushRiClone()
+	defer r.RR.PopRiClone()
 
 	// bg close to the border
 	wl.data.state = WLStateLine1Bg
@@ -146,7 +145,6 @@ func (wl *WrapLine) newline(r *ExtRunner) bool {
 
 	// original rune
 	wl.data.state = WLStateNormal
-	r.RR.PopRiClone()
 	r.RR.Ru = origRu
 	r.RR.Pen.X = startPenX + bgAdv
 	r.RR.Advance = runeAdv

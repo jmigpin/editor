@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 
+	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
@@ -57,6 +58,18 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			ev2 := &TextAreaCmdEvent{ta, i}
 			ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 			return event.Handled
+		case event.ButtonLeft:
+			// positional drawer annotations click
+			if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
+				if d.Annotations.On() {
+					i, o, ok := d.BoundsAnnotationsIndexOf(ev.Point)
+					if ok {
+						ev2 := &TextAreaAnnotationClickEvent{ta, i, o, ev.Button}
+						ta.EvReg.RunCallbacks(TextAreaAnnotationClickEventId, ev2)
+						return event.Handled
+					}
+				}
+			}
 		}
 
 	case *event.MouseDown:
@@ -105,29 +118,8 @@ type TextAreaSetStrEvent struct {
 	TextArea *TextArea
 }
 type TextAreaAnnotationClickEvent struct {
-	TextArea    *TextArea
-	Index       int
-	IndexOffset int
-	Button      event.MouseButton
+	TextArea        *TextArea
+	AnnotationIndex int
+	Offset          int
+	Button          event.MouseButton
 }
-
-//----------
-//----------
-//----------
-//----------
-//----------
-//----------
-
-//func (ta *TextArea) annotationsOpt() *loopers.AnnotationsOpt {
-//	opt := ta.Drawer.Args.AnnotationsOpt // reuse drawer instance to avoid recalc
-//	if opt == nil {
-//		return nil
-//	}
-//	opt.Fg = ta.TreeThemePaletteColor("annotations_fg")
-//	opt.Bg = ta.TreeThemePaletteColor("annotations_bg")
-//	return opt
-//}
-//func (ta *TextArea) SetAnnotationsOrderedEntries(entries []*loopers.AnnotationsEntry) {
-//	// create new instance on drawer to use new entries
-//	ta.Drawer.Args.AnnotationsOpt = &loopers.AnnotationsOpt{OrderedEntries: entries}
-//}

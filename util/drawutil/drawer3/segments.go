@@ -50,9 +50,8 @@ func (s *Segments) Iterate(r *ExtRunner) {
 			if ri < seg.Pos {
 				// have not reached this segment yet
 				break
-			}
-			if ri < seg.End {
-				// found: colorize
+			} else if ri < seg.End {
+				// colorize
 				if sg.Fg != nil {
 					s.cc.Fg = sg.Fg
 				}

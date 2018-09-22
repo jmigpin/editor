@@ -89,7 +89,7 @@ func (r *ExtRunner) NextExt() bool {
 	return !r.stop
 }
 
-// Called during iterate phase only.
+// Stops iterate. Called during iterate phase only.
 func (r *ExtRunner) Stop() {
 	r.stop = true
 }

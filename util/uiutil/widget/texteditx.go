@@ -513,6 +513,11 @@ func (te *TextEditX) OnThemeChange() {
 
 		d.ColorizeSyntax.Opt.String.Fg = pcol("text_colorize_string_fg")
 		d.ColorizeSyntax.Opt.Comment.Fg = pcol("text_colorize_comments_fg")
+
+		d.Annotations.Opt.Fg = pcol("text_annotations_fg")
+		d.Annotations.Opt.Bg = pcol("text_annotations_bg")
+		d.Annotations.Opt.Select.Fg = pcol("text_annotations_select_fg")
+		d.Annotations.Opt.Select.Bg = pcol("text_annotations_select_bg")
 	}
 }
 

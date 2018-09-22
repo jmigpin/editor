@@ -117,8 +117,10 @@ func (ed *Editor) eventLoop() {
 				ed.dndh.OnDrop(t)
 
 			default:
-				ed.UI.HandleEvent(ev)
-				//ed.runGlobalShortcuts(ev)
+				h := ed.handleGlobalShortcuts(ev)
+				if h == event.NotHandled {
+					ed.UI.HandleEvent(ev)
+				}
 			}
 
 		case ev, ok := <-ed.Watcher.Events():
@@ -408,6 +410,42 @@ func (ed *Editor) NewColumn() *ui.Column {
 		ed.EnsureOneColumn()
 	})
 	return col
+}
+
+//----------
+
+func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
+	//fmt.Printf("global shortcut %#v\n", ev)
+
+	switch t := ev.(type) {
+	case *event.WindowInput:
+		switch t2 := t.Event.(type) {
+		case *event.MouseDown:
+			switch t2.Button {
+			case event.ButtonWheelUp:
+				m := t2.Mods.ClearLocks()
+				if m.Is(event.ModCtrl) {
+					GoDebugPrev(ed)
+					return event.Handled
+				}
+			case event.ButtonWheelDown:
+				m := t2.Mods.ClearLocks()
+				if m.Is(event.ModCtrl) {
+					GoDebugNext(ed)
+					return event.Handled
+				}
+			}
+		case *event.KeyUp:
+			m := t2.Mods.ClearLocks()
+			if m.Is(event.ModNone) {
+				if t2.KeySym == event.KSymEscape {
+					GoDebugStop(ed)
+					return event.Handled
+				}
+			}
+		}
+	}
+	return event.NotHandled
 }
 
 //----------

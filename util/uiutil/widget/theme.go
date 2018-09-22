@@ -14,19 +14,23 @@ import (
 //----------
 
 var DefaultPalette = Palette{
-	"text_cursor_fg":            nil, // present but nil uses the current fg
-	"text_fg":                   cint(0x0),
-	"text_bg":                   cint(0xffffff),
-	"text_selection_fg":         nil,
-	"text_selection_bg":         cint(0xeeee9e), // yellow
-	"text_colorize_string_fg":   cint(0x008b00), // green
-	"text_colorize_comments_fg": cint(0x757575), // grey 600
-	"text_highlightword_fg":     nil,
-	"text_highlightword_bg":     cint(0xc6ee9e), // green
-	"text_wrapline_fg":          cint(0x0),
-	"text_wrapline_bg":          cint(0xd8d8d8),
-	"text_parenthesis_fg":       cint(0x0),
-	"text_parenthesis_bg":       cint(0xc3c3c3),
+	"text_cursor_fg":             nil, // present but nil uses the current fg
+	"text_fg":                    cint(0x0),
+	"text_bg":                    cint(0xffffff),
+	"text_selection_fg":          nil,
+	"text_selection_bg":          cint(0xeeee9e), // yellow
+	"text_colorize_string_fg":    cint(0x008b00), // green
+	"text_colorize_comments_fg":  cint(0x757575), // grey 600
+	"text_highlightword_fg":      nil,
+	"text_highlightword_bg":      cint(0xc6ee9e), // green
+	"text_wrapline_fg":           cint(0x0),
+	"text_wrapline_bg":           cint(0xd8d8d8),
+	"text_parenthesis_fg":        cint(0x0),
+	"text_parenthesis_bg":        cint(0xc3c3c3),
+	"text_annotations_fg":        cint(0x0),
+	"text_annotations_bg":        cint(0xb0e0ef),
+	"text_annotations_select_fg": cint(0x0),
+	"text_annotations_select_bg": cint(0xefc7b0),
 
 	"scrollbar_bg":        cint(0xf2f2f2),
 	"scrollhandle_normal": cint(0xb2b2b2),

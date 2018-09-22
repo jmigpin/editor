@@ -99,6 +99,11 @@ func (erow *ERow) initHandlers() {
 		ev := ev0.(*ui.TextAreaCmdEvent)
 		RunContentCmds(erow, ev.Index)
 	})
+	// textarea annotation clicks
+	row.TextArea.EvReg.Add(ui.TextAreaAnnotationClickEventId, func(ev0 interface{}) {
+		// TODO: print full annotation string
+		erow.Ed.Messagef("TODO: %#v\n", ev0)
+	})
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.RowInputEvent)

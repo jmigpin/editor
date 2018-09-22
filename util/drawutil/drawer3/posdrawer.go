@@ -16,6 +16,7 @@ type PosDrawer struct {
 	WrapLine       WrapLine
 	ColorizeSyntax ColorizeSyntax
 	Segments       Segments
+	Annotations    Annotations
 
 	mexts []Ext // measure extentions
 	dexts []Ext // draw extentions
@@ -28,6 +29,7 @@ type PosDrawer struct {
 	line     Line
 	wlinec   WrapLineColor
 	csyntaxc ColorizeSyntaxColor
+	annc     AnnotationsColor
 	cc       CurColors
 	bgf      BgFill
 	dru      DrawRune
@@ -46,6 +48,8 @@ func NewPosDrawer() *PosDrawer {
 	d.ColorizeSyntax.SetOn(false)
 	d.Segments = Segments1(&d.cc, d)
 	d.Segments.SetOn(false)
+	d.Annotations = Annotations1()
+	d.Annotations.SetOn(false)
 
 	// d.rr // no init
 	// d.cc // no init
@@ -54,6 +58,7 @@ func NewPosDrawer() *PosDrawer {
 	d.meas.SetOn(false)
 	d.csyntaxc = ColorizeSyntaxColor1(&d.ColorizeSyntax, &d.cc)
 	d.wlinec = WrapLineColor1(&d.WrapLine, &d.cc)
+	d.annc = AnnotationsColor1(&d.Annotations, &d.cc)
 	d.bgf = BgFill1(&d.cc)
 	d.dru = DrawRune1(&d.cc)
 
@@ -70,6 +75,7 @@ func NewPosDrawer() *PosDrawer {
 		&d.line,
 		&d.WrapLine,
 		&d.ColorizeSyntax,
+		&d.Annotations,
 	}
 	d.mexts = append(d.pexts, []Ext{
 		&d.pd,
@@ -81,6 +87,7 @@ func NewPosDrawer() *PosDrawer {
 		&d.csyntaxc,
 		&d.Segments,
 		&d.wlinec,
+		&d.annc,
 		&d.bgf,
 		&d.dru,
 		&d.Cursor,
@@ -212,6 +219,40 @@ func (d *PosDrawer) BoundsPointOf(index int) image.Point {
 func (d *PosDrawer) BoundsIndexOf(p image.Point) int {
 	p2 := p.Sub(d.Bounds().Min).Add(d.Offset())
 	return d.IndexOf(p2)
+}
+
+//----------
+
+func (d *PosDrawer) BoundsAnnotationsIndexOf(p image.Point) (int, int, bool) {
+	p2 := p.Sub(d.Bounds().Min).Add(d.Offset())
+	return d.annotationsIndexOf(p2)
+}
+
+func (d *PosDrawer) annotationsIndexOf(p image.Point) (int, int, bool) {
+	if !d.ready() {
+		return 0, 0, false
+	}
+
+	if !d.Annotations.On() {
+		return 0, 0, false
+	}
+
+	p2 := mathutil.PIntf2(p)
+	aiof := MakeAnnotationsIndexOf(&d.Annotations, p2)
+	exts2 := append(d.pexts, []Ext{&d.ee, &aiof}...)
+
+	postStart := func() {
+		d.pd.RestoreCloseToPoint(p2) // setups keepers exts
+	}
+
+	RunExts(d, &d.rr, exts2, postStart)
+
+	if aiof.entryIndex < 0 {
+		log.Printf("not found")
+		return 0, 0, false
+	}
+
+	return aiof.entryIndex, aiof.entryOffset, true
 }
 
 //----------

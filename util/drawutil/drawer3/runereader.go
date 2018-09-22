@@ -45,15 +45,15 @@ func (rr *RuneReader) Iterate(r *ExtRunner) {
 	if err != nil {
 		// run exts at last advanced position for draw/selecting
 		if err == io.EOF {
-			rr.iter2(r, 0, 0)
+			rr.Iterate2(r, 0, 0)
 		}
 		r.Stop()
 		return
 	}
-	rr.iter2(r, ru, size)
+	_ = rr.Iterate2(r, ru, size)
 }
 
-func (rr *RuneReader) iter2(r *ExtRunner, ru rune, size int) {
+func (rr *RuneReader) Iterate2(r *ExtRunner, ru rune, size int) bool {
 	rr.Ru = ru
 
 	// add/subtract kern with previous rune
@@ -62,22 +62,24 @@ func (rr *RuneReader) iter2(r *ExtRunner, ru rune, size int) {
 	rr.Pen.X += rr.Kern
 
 	// rune advance
-	adv, ok := rr.face.GlyphAdvance(rr.Ru)
-	if !ok {
-		adv = 0
+	rr.Advance = rr.GlyphAdvance(rr.Ru)
+
+	// tabulator
+	if rr.Ru == '\t' {
+		rr.Advance = rr.nextTabStopAdvance(rr.Pen.X, rr.Advance)
 	}
-	rr.Advance = mathutil.Intf2(adv)
 
 	// run other exts
-	rr.riClone = 0
 	if !r.NextExt() {
-		return
+		return false
 	}
 
 	// advance for next rune
 	rr.Ri += size
 	rr.PrevRu = rr.Ru
 	rr.Pen.X += rr.Advance
+
+	return true
 }
 
 //----------
@@ -124,6 +126,25 @@ func (rr *RuneReader) PopRiClone() {
 }
 func (rr *RuneReader) RiClone() bool {
 	return rr.riClone > 0
+}
+
+//----------
+
+func (rr *RuneReader) GlyphAdvance(ru rune) mathutil.Intf {
+	adv, ok := rr.face.GlyphAdvance(ru)
+	if !ok {
+		return 0
+	}
+	return mathutil.Intf2(adv)
+}
+
+//----------
+
+func (rr *RuneReader) nextTabStopAdvance(penx, tadv mathutil.Intf) mathutil.Intf {
+	x := penx + tadv
+	n := int(x / tadv)
+	nadv := mathutil.Intf(n) * tadv
+	return nadv - penx
 }
 
 //----------
