@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"strconv"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 )
@@ -30,11 +31,11 @@ func findShortcut2(erow *ERow) error {
 			return err
 		}
 		// don't use if selection has more then one line
-		if !bytes.ContainsRune(searchStr, '\n') {
+		if !bytes.ContainsRune(s, '\n') {
 			searchStr = s
 			// quote if it has spaces
 			if bytes.ContainsRune(searchStr, ' ') {
-				searchStr = []byte("\"" + string(searchStr) + "\"")
+				searchStr = []byte(strconv.Quote(string(searchStr)))
 			}
 		}
 	}
