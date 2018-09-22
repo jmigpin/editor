@@ -15,9 +15,8 @@ type Row struct {
 	Col      *Column
 	EvReg    *evreg.Register
 
-	scrollArea *widget.ScrollArea
-	sep        *widget.Rectangle
-	sepHandle  *RowSeparatorHandle
+	ScrollArea *widget.ScrollArea
+	sep        *RowSeparator
 	ui         *UI
 }
 
@@ -29,45 +28,27 @@ func NewRow(col *Column) *Row {
 	row.EvReg = evreg.NewRegister()
 
 	// row separator from other rows
-	{
-		sep := widget.NewSeparator(row.ui)
-		sep.Size.Y = SeparatorWidth
-		sep.SetTheme(&UITheme.TextArea)
-		row.Append(sep)
-		row.SetChildFill(sep, true, false)
-
-		row.sepHandle = NewRowSeparatorHandle(sep, row)
-		row.sepHandle.Top = 3
-		row.sepHandle.Bottom = 3
-		row.sepHandle.Cursor = widget.MoveCursor
-		row.Col.Cols.Root.InsertRowSepHandle(row.sepHandle)
-	}
+	row.sep = NewRowSeparator(row)
+	row.Append(row.sep)
+	row.SetChildFill(row.sep, true, false)
 
 	// toolbar
-	row.Toolbar = NewRowToolbar(row, NewToolbar(row.ui, row))
+	row.Toolbar = NewRowToolbar(row)
 	row.Append(row.Toolbar)
 	row.SetChildFlex(row.Toolbar, true, false)
 
 	// scrollarea with textarea
 	{
 		row.TextArea = NewTextArea(row.ui)
-		row.TextArea.HighlightCursorWord = true
-		row.TextArea.SetTheme(&UITheme.TextArea)
+		row.TextArea.EnableWrapLines(true)
+		row.TextArea.EnableHighlightCursorWord(true)
+		row.TextArea.EnableColorizeSyntax(true)
+		row.TextArea.EnableParenthesisMatch(true)
 
-		row.scrollArea = widget.NewScrollArea(row.ui, row.TextArea, true, false)
-		row.scrollArea.VSBar.SetTheme(&UITheme.Scrollbar)
-		row.scrollArea.LeftScroll = ScrollBarLeft
+		row.ScrollArea = widget.NewScrollArea(row.ui, row.TextArea, false, true)
+		row.ScrollArea.LeftScroll = ScrollBarLeft
 
-		// toolbar/scrollarea separator
-		if !ShadowsOn {
-			sep := widget.NewSeparator(row.ui)
-			sep.Size.Y = SeparatorWidth
-			sep.SetTheme(&UITheme.TextArea)
-			row.Append(sep)
-			row.SetChildFill(sep, true, false)
-		}
-
-		container := WrapInShadowTop(row.ui, row.scrollArea)
+		container := WrapInTopShadowOrSeparator(row.ui, row.ScrollArea)
 		row.Append(container)
 		row.SetChildFlex(container, true, true)
 	}
@@ -75,36 +56,52 @@ func NewRow(col *Column) *Row {
 	return row
 }
 
+//----------
+
+func (row *Row) Close() {
+	row.Col.removeRow(row)
+	row.Col = nil
+	row.sep.Close()
+	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
+}
+
+//----------
+
 func (row *Row) activate() {
-	if row.HasState(ActiveRowState) {
+	if row.HasState(RowStateActive) {
 		return
 	}
 	// deactivate previous active row
 	for _, c := range row.Col.Cols.Columns() {
 		for _, r := range c.Rows() {
 			if r != row {
-				r.SetState(ActiveRowState, false)
+				r.SetState(RowStateActive, false)
 			}
 		}
 	}
 	// activate this row
-	row.SetState(ActiveRowState, true)
+	row.SetState(RowStateActive, true)
 }
 
-func (row *Row) Close() {
-	row.Col.Cols.Root.Remove(row.sepHandle)
-	row.Col.removeRow(row)
-	row.Col = nil
-	row.EvReg.RunCallbacks(RowCloseEventId, &RowCloseEvent{row})
+//----------
+
+func (row *Row) OnChildMarked(child widget.Node, newMarks widget.Marks) {
+	// dynamic toolbar
+	if row.Toolbar != nil && row.Toolbar.Marks.HasAny(widget.MarkNeedsLayout) {
+		row.MarkNeedsLayout()
+	}
 }
 
-func (row *Row) CalcChildsBounds() {
-	row.scrollArea.ScrollWidth = UIThemeUtil.GetScrollBarWidth(row.TextArea.TreeThemeFont())
-	row.BoxLayout.CalcChildsBounds()
-	row.sepHandle.CalcChildsBounds()
+//----------
+
+func (row *Row) Layout() {
+	row.ScrollArea.ScrollWidth = UIThemeUtil.GetScrollBarWidth(row.TextArea.TreeThemeFont())
+	row.BoxLayout.Layout()
 }
 
-func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) bool {
+//----------
+
+func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) event.Handle {
 	switch ev0.(type) {
 	case *event.KeyDown:
 		row.activate()
@@ -115,16 +112,27 @@ func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) bool {
 	ev2 := &RowInputEvent{row, ev0}
 	row.EvReg.RunCallbacks(RowInputEventId, ev2)
 
-	return false
+	return event.NotHandled
 }
 
+//----------
+
 func (row *Row) NextRow() *Row {
-	u := row.Next()
+	u := row.NextSiblingWrapper()
 	if u == nil {
 		return nil
 	}
 	return u.(*Row)
 }
+
+//----------
+
+func (row *Row) Maximize() {
+	col := row.Col
+	col.RowsLayout.Spl.MaximizeNode(row)
+}
+
+//----------
 
 func (row *Row) resizeWithMoveToPoint(p *image.Point) {
 	col, ok := row.Col.Cols.PointColumnExtra(p)
@@ -146,18 +154,10 @@ func (row *Row) resizeWithMoveToPoint(p *image.Point) {
 	dy := float64(bounds.Dy())
 	perc := float64(p.Sub(bounds.Min).Y) / dy
 
-	row.Col.RowsLayout.ResizeWithMove(row, perc)
-
-	row.Col.CalcChildsBounds()
-	row.Col.MarkNeedsPaint()
+	row.Col.RowsLayout.Spl.ResizeWithMove(row, perc)
 }
 
-func (row *Row) Maximize() {
-	col := row.Col
-	col.RowsLayout.MaximizeNode(row)
-	col.CalcChildsBounds()
-	col.MarkNeedsPaint()
-}
+//----------
 
 func (row *Row) resizeWithPushJump(up bool, p *image.Point) {
 	jump := 40
@@ -171,56 +171,42 @@ func (row *Row) resizeWithPushJump(up bool, p *image.Point) {
 	p2.Y += jump
 	row.resizeWithPushToPoint(&p2)
 
-	// keep same pad since using it as well when moving from the square
+	// layout for accurate bounds, to warp pointer
+	row.Col.RowsLayout.Spl.Layout()
+
 	p3 := row.Bounds.Min.Add(pad)
+	p3.Y = row.Bounds.Min.Y // accurate y
 	row.ui.WarpPointer(&p3)
 }
+
 func (row *Row) resizeWithPushToPoint(p *image.Point) {
 	col := row.Col
 	dy := float64(col.Bounds.Dy())
 	perc := float64(p.Sub(col.Bounds.Min).Y) / dy
 
-	col.RowsLayout.ResizeWithPush(row, perc)
-
-	col.CalcChildsBounds()
-	col.MarkNeedsPaint()
+	//col.RowsLayout.Spl.ResizeWithPush(row, perc)
+	col.RowsLayout.Spl.SetPercentWithPush(row, perc)
 }
 
-func (row *Row) ResizeTextAreaIfVerySmall() {
-	col := row.Col
-	dy := float64(col.Bounds.Dy())
+//----------
+
+func (row *Row) EnsureTextAreaMinimumHeight() {
 	ta := row.TextArea
-	taMin := ta.LineHeight()
 
-	taDy := ta.Bounds.Dy()
-	if taDy > taMin {
+	taMin := ta.LineHeight() * 3
+	if ta.Bounds.Dy() >= taMin {
 		return
 	}
 
-	hint := image.Point{row.Bounds.Dx(), 1000000} // TODO: use column dy?
+	hint := image.Point{row.Bounds.Dx(), row.Col.Bounds.Dy()}
 	tbm := row.Toolbar.Measure(hint)
-	size := tbm.Y + taMin + 10 // pad to cover borders used // TODO: improve by getting toolbar+border size from a func?
+	minH := tbm.Y + taMin + 2 // pad to cover borders used
+	perc := float64(minH) / float64(row.Col.Bounds.Dy())
 
-	// push siblings down
-	perc := float64(row.Bounds.Min.Sub(col.Bounds.Min).Y+size) / dy
-	col.RowsLayout.ResizeWithPush(row, perc)
-
-	col.CalcChildsBounds()
-	col.MarkNeedsPaint()
-
-	// check if good already
-	taDy = ta.Bounds.Dy()
-	if taDy > taMin {
-		return
-	}
-
-	// push siblings up
-	perc = float64(row.Bounds.Max.Sub(col.Bounds.Min).Y-size) / dy
-	col.RowsLayout.ResizeWithPush(row, perc)
-
-	col.CalcChildsBounds()
-	col.MarkNeedsPaint()
+	row.Col.RowsLayout.Spl.SetSizePercentWithPush(row, perc)
 }
+
+//----------
 
 func (row *Row) SetState(s RowState, v bool) {
 	row.Toolbar.Square.SetState(s, v)
@@ -228,6 +214,29 @@ func (row *Row) SetState(s RowState, v bool) {
 func (row *Row) HasState(s RowState) bool {
 	return row.Toolbar.Square.HasState(s)
 }
+
+//----------
+
+func (row *Row) PosBelow() *RowPos {
+	return NewRowPos(row.Col, row.NextRow())
+}
+
+//----------
+
+func (row *Row) ToggleTextAreaXBar() {
+	enabled := row.IsTextAreaXBarEnabled()
+	row.EnableTextAreaXBar(!enabled)
+}
+
+func (row *Row) IsTextAreaXBarEnabled() bool {
+	return row.ScrollArea.XBar != nil
+}
+
+func (row *Row) EnableTextAreaXBar(v bool) {
+	row.ScrollArea.SetBars(v, true)
+}
+
+//----------
 
 const (
 	RowInputEventId = iota

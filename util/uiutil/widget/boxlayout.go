@@ -5,11 +5,11 @@ import (
 )
 
 type BoxLayout struct {
-	EmbedNode
+	ENode
 	YAxis bool
 
-	flex map[Node]XYAxisBoolPair // used in measuring+calcchilds, has priority over fill
-	fill map[Node]XYAxisBoolPair // used only in calcchilds
+	flex map[Node]XYAxisBoolPair // used in measure+layout, has priority over fill
+	fill map[Node]XYAxisBoolPair // used only in layout
 }
 
 func NewBoxLayout() *BoxLayout {
@@ -35,17 +35,15 @@ func (bl *BoxLayout) Measure(hint image.Point) image.Point {
 	return xya.Point(&max)
 }
 
-func (bl *BoxLayout) CalcChildsBounds() {
+func (bl *BoxLayout) Layout() {
 	bounds := bl.childsBounds(bl.Bounds.Size(), false)
 
 	// set bounds
-	bl.IterChilds(func(child Node) {
+	bl.IterateWrappers2(func(child Node) {
 		b := bounds[child]
 		r := b.Add(bl.Bounds.Min)
-
 		r3 := r.Intersect(bl.Bounds)
 		child.Embed().Bounds = r3
-		child.CalcChildsBounds()
 	})
 }
 
@@ -58,7 +56,7 @@ func (bl *BoxLayout) childsBounds(max image.Point, measure bool) map[Node]image.
 	nFlexX := 0
 	nFillX := 0
 	var lastFlexXNode, lastFillXNode Node
-	bl.IterChilds(func(child Node) {
+	bl.IterateWrappers2(func(child Node) {
 		bp := xya.BoolPair(bl.flex[child])
 		if bp.X {
 			nFlexX++
@@ -84,7 +82,7 @@ func (bl *BoxLayout) childsBounds(max image.Point, measure bool) map[Node]image.
 
 	// measure non-flexible childs first to get remaining space
 	available := max2
-	bl.IterChilds(func(child Node) {
+	bl.IterateWrappers2(func(child Node) {
 		bp := xya.BoolPair(bl.flex[child])
 		bp2 := xya.BoolPair(bl.fill[child])
 		if (!flexingX && !fillingX) || (flexingX && !bp.X) || (fillingX && !bp2.X) {
@@ -114,7 +112,7 @@ func (bl *BoxLayout) childsBounds(max image.Point, measure bool) map[Node]image.
 		}
 
 		// measure flexible childs
-		bl.IterChilds(func(child Node) {
+		bl.IterateWrappers2(func(child Node) {
 			bp := xya.BoolPair(bl.flex[child])
 			bp2 := xya.BoolPair(bl.fill[child])
 			if (flexingX && bp.X) || (fillingX && bp2.X) {
@@ -143,7 +141,7 @@ func (bl *BoxLayout) childsBounds(max image.Point, measure bool) map[Node]image.
 	// setup bounds
 	bounds := make(map[Node]image.Rectangle, bl.ChildsLen())
 	x := 0
-	bl.IterChilds(func(child Node) {
+	bl.IterateWrappers2(func(child Node) {
 		size := sizes[child]
 		r := image.Rect(x, 0, x+size.X, size.Y)
 		bounds[child] = xya.Rectangle(&r)

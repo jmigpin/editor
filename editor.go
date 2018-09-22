@@ -8,12 +8,14 @@ import (
 	"runtime/pprof"
 
 	"github.com/jmigpin/editor/core"
+	_ "github.com/jmigpin/editor/core/contentcmds"
 )
 
-func main() {
+func init() {
 	log.SetFlags(0)
-	//log.SetFlags(log.Llongfile)
+}
 
+func main() {
 	// flags
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
 	fontFlag := flag.String("font", "regular", "font: regular, medium, mono, or a filename")
@@ -41,19 +43,22 @@ func main() {
 	}
 
 	eopt := &core.Options{
-		Font:           *fontFlag,
-		FontSize:       *fontSizeFlag,
-		FontHinting:    *fontHintingFlag,
-		DPI:            *dpiFlag,
-		ScrollBarWidth: *scrollBarWidthFlag,
-		ScrollBarLeft:  *scrollBarLeftFlag,
+		Font:        *fontFlag,
+		FontSize:    *fontSizeFlag,
+		FontHinting: *fontHintingFlag,
+		DPI:         *dpiFlag,
+
+		TabWidth:     *tabWidthFlag,
+		WrapLineRune: *wrapLineRuneFlag,
+
 		ColorTheme:     *colorThemeFlag,
 		CommentsColor:  *commentsColorFlag,
-		WrapLineRune:   *wrapLineRuneFlag,
-		TabWidth:       *tabWidthFlag,
-		SessionName:    *sessionNameFlag,
+		ScrollBarWidth: *scrollBarWidthFlag,
+		ScrollBarLeft:  *scrollBarLeftFlag,
 		Shadows:        *shadowsFlag,
-		Filenames:      flag.Args(),
+
+		SessionName: *sessionNameFlag,
+		Filenames:   flag.Args(),
 	}
 	_, err := core.NewEditor(eopt)
 	if err != nil {

@@ -56,7 +56,7 @@ func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
 //----------
 
 type Callback struct {
-	F func(interface{})
+	F func(ev interface{})
 }
 
 //----------

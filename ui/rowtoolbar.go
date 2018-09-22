@@ -1,28 +1,42 @@
 package ui
 
+import (
+	"github.com/jmigpin/editor/util/drawutil/drawer3"
+)
+
 type RowToolbar struct {
 	*Toolbar
 	Square *RowSquare
 }
 
-func NewRowToolbar(row *Row, tb0 *Toolbar) *RowToolbar {
+func NewRowToolbar(row *Row) *RowToolbar {
+	tb0 := NewToolbar(row.ui)
+
 	tb := &RowToolbar{Toolbar: tb0}
 
 	tb.Square = NewRowSquare(row)
-	tb.Square.SetTheme(&UITheme.RowSquare)
-	tb.Toolbar.Append(tb.Square)
+	tb.Append(tb.Square)
 
 	return tb
 }
 
-func (tb *RowToolbar) CalcChildsBounds() {
-	// square size and bounds
-	tb.Square.Size = UIThemeUtil.RowSquareSize(tb.TreeThemeFont())
-	m := tb.Square.Measure(tb.Bounds.Size())
-	sb := tb.Bounds
-	sb.Max = sb.Min.Add(m)
-	tb.Square.Bounds = sb.Intersect(tb.Bounds)
+func (tb *RowToolbar) Layout() {
+	// TODO: should use freelayout instead to set the square position
 
-	// drawer FirstLineOffsetX
-	tb.Drawer.Args.FirstLineOffsetX = tb.Square.Size.X
+	// square
+	m := tb.Square.Measure(tb.Bounds.Size())
+	sqb := tb.Bounds
+	sqb.Max = sqb.Min.Add(m)
+	tb.Square.Bounds = sqb.Intersect(tb.Bounds)
+
+	tb.Toolbar.Layout()
+}
+
+func (tb *RowToolbar) OnThemeChange() {
+	tb.Toolbar.OnThemeChange()
+	tb.Square.Size = UIThemeUtil.RowSquareSize(tb.TreeThemeFont())
+
+	if d, ok := tb.Drawer.(*drawer3.PosDrawer); ok {
+		d.SetFirstLineOffsetX(tb.Square.Size.X)
+	}
 }

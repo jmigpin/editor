@@ -1,12 +1,11 @@
 package widget
 
 type Border struct {
-	*Pad
+	*Padder
 }
 
 func NewBorder(ctx ImageContext, child Node) *Border {
-	return &Border{Pad: NewPad(ctx, child)}
-}
-func (b *Border) Paint() {
-	b.paint(b.TreeThemePaletteColor("fg"))
+	b := &Border{Padder: NewPadder(ctx, child)}
+	b.Padder.colorName = "border"
+	return b
 }

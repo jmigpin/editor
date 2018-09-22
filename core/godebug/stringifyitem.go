@@ -100,8 +100,8 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		//showFunc := (t.Args != nil && len(t.Args.List) > 0) || t.Result == nil
 		_ = is.result(t.Result)
 		if showFunc {
-			is.Str += "λ"
-			//is.Str += "ƒ"
+			//is.Str += "λ"
+			is.Str += "ƒ"
 			is.Str += "("
 			is.stringify(t.Args)
 			is.Str += ")"

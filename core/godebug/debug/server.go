@@ -14,6 +14,8 @@ var logger = log.New(ioutil.Discard, "debug: ", 0)
 // contains all debug data and is populated at init by a generated config on compile
 var AnnotatorFilesData []*AnnotatorFileData
 
+//----------
+
 type Server struct {
 	ln      net.Listener
 	cconn   *ClientConn
@@ -68,6 +70,8 @@ func (srv *Server) closeClient() {
 	srv.running.Lock()
 }
 
+//----------
+
 func (srv *Server) acceptClientsLoop() {
 	for {
 		logger.Println("waiting for client")
@@ -103,6 +107,8 @@ func (srv *Server) acceptClientsLoop() {
 		}(srv.cconn)
 	}
 }
+
+//----------
 
 func (srv *Server) receiveClientMsgsLoop(cconn *ClientConn) {
 	for {
@@ -147,6 +153,8 @@ func (srv *Server) receiveClientMsgsLoop(cconn *ClientConn) {
 	}
 }
 
+//----------
+
 func (srv *Server) Send(v interface{}) {
 	// NOTE: send order is important, can't naively make this concurrent
 
@@ -159,7 +167,7 @@ func (srv *Server) Send(v interface{}) {
 	if err != nil {
 		logger.Print(err)
 		panic(err)
-		return
+		//return
 	}
 
 	// send
@@ -168,6 +176,8 @@ func (srv *Server) Send(v interface{}) {
 		srv.closeClient()
 	}
 }
+
+//----------
 
 type ClientConn struct {
 	conn net.Conn

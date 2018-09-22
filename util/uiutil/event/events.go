@@ -2,58 +2,82 @@ package event
 
 import (
 	"image"
+	"unicode"
 )
+
+//----------
+
+type WindowClose struct{}
+type WindowExpose struct{}
+type WindowPutImageDone struct{}
+type WindowInput struct {
+	Point image.Point
+	Event interface{}
+}
+
+//----------
+
+type Handle bool
+
+const (
+	NotHandled Handle = false
+	Handled           = true
+)
+
+//----------
 
 type MouseEnter struct{}
 type MouseLeave struct{}
 
 type MouseDown struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseUp struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseMove struct {
-	Point     image.Point
-	Buttons   MouseButtons
-	Modifiers KeyModifiers
+	Point   image.Point
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 
 type MouseDragStart struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseDragEnd struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseDragMove struct {
-	Point     image.Point
-	Buttons   MouseButtons
-	Modifiers KeyModifiers
+	Point   image.Point
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 
 type MouseClick struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseDoubleClick struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
 type MouseTripleClick struct {
-	Point     image.Point
-	Button    MouseButton
-	Modifiers KeyModifiers
+	Point  image.Point
+	Button MouseButton
+	Mods   KeyModifiers
 }
+
+//----------
 
 type MouseButton int32
 
@@ -82,94 +106,263 @@ func (mb MouseButtons) Is(b MouseButton) bool {
 	return int32(mb) == int32(b)
 }
 
-type KeyModifiers int32
-
-func (km KeyModifiers) HasAny(m KeyModifiers) bool {
-	return int32(km)&int32(m) > 0
-}
-func (km KeyModifiers) Is(m KeyModifiers) bool {
-	return int32(km) == int32(m)
-}
-
-const (
-	ModNone  KeyModifiers = iota
-	ModShift KeyModifiers = 1 << (iota - 1)
-	ModControl
-	ModAlt
-	ModMeta
-)
+//----------
 
 type KeyDown struct {
-	Point     image.Point
-	Code      KeyCode
-	Modifiers KeyModifiers
-	Rune      rune
+	Point  image.Point
+	KeySym KeySym
+	Mods   KeyModifiers
+	Rune   rune
+}
+
+func (kd *KeyDown) LowerRune() rune {
+	return unicode.ToLower(kd.Rune)
 }
 
 type KeyUp struct {
-	Point     image.Point
-	Code      KeyCode
-	Modifiers KeyModifiers
-	Rune      rune
+	Point  image.Point
+	KeySym KeySym
+	Mods   KeyModifiers
+	Rune   rune
 }
 
-type KeyCode int
+func (ku *KeyUp) LowerRune() rune {
+	return unicode.ToLower(ku.Rune)
+}
 
-// TODO: needs improvement
-// Other codes not defined here will be their first column key symbol (like 'a','b',..., but not 'A'), going from 0 upwards.
+//----------
+
+type KeyModifiers uint32
+
+func (km KeyModifiers) HasAny(m KeyModifiers) bool {
+	return km&m > 0
+}
+func (km KeyModifiers) Is(m KeyModifiers) bool {
+	return km == m
+}
+func (km KeyModifiers) ClearLocks() KeyModifiers {
+	w := []KeyModifiers{ModLock, ModNum}
+	u := km
+	for _, m := range w {
+		u &^= m
+	}
+	return u
+}
+
 const (
-	KCodeNone KeyCode = iota - 300 // just to cover to the last defined constant
-	KCodeBackspace
-	KCodeReturn
-	KCodeEscape
-	KCodeHome
-	KCodeLeft
-	KCodeUp
-	KCodeRight
-	KCodeDown
-	KCodePageUp
-	KCodePageDown
-	KCodeEnd
-	KCodeInsert
-	KCodeF1
-	KCodeF2
-	KCodeF3
-	KCodeF4
-	KCodeF5
-	KCodeF6
-	KCodeF7
-	KCodeF8
-	KCodeF9
-	KCodeF10
-	KCodeF11
-	KCodeF12
-	KCodeShiftL
-	KCodeShiftR
-	KCodeControlL
-	KCodeControlR
-	KCodeAltL
-	KCodeAltR
-	KCodeAltGr
-	KCodeSuperL // windows key
-	KCodeSuperR
-	KCodeDelete
-	KCodeTab
-
-	KCodeNumLock
-	KCodeCapsLock
-
-	KCodeVolumeUp
-	KCodeVolumeDown
-	KCodeMute
+	ModNone  KeyModifiers = 0
+	ModShift KeyModifiers = 1 << (iota - 1)
+	ModLock               // caps
+	ModCtrl
+	Mod1 // ~ alt
+	Mod2 // ~ num lock
+	Mod3
+	Mod4 // ~ windows key
+	Mod5 // ~ alt gr
 )
 
-type WindowClose struct{}
-type WindowExpose struct{}
-type WindowPutImageDone struct{}
-type WindowInput struct {
-	Point image.Point
-	Event interface{}
+const (
+	ModAlt   = Mod1
+	ModNum   = Mod2
+	ModAltGr = Mod5
+)
+
+//----------
+
+type KeySym int
+
+const (
+	KSymNone KeySym = 0
+
+	// let ascii codes keep their values
+	KSym_dummy_ KeySym = 256 + iota
+
+	KSymSpace
+
+	KSymBackspace
+	KSymReturn
+	KSymEscape
+	KSymHome
+	KSymLeft
+	KSymUp
+	KSymRight
+	KSymDown
+	KSymPageUp
+	KSymPageDown
+	KSymEnd
+	KSymInsert
+	KSymF1
+	KSymF2
+	KSymF3
+	KSymF4
+	KSymF5
+	KSymF6
+	KSymF7
+	KSymF8
+	KSymF9
+	KSymF10
+	KSymF11
+	KSymF12
+	KSymShiftL
+	KSymShiftR
+	KSymControlL
+	KSymControlR
+	KSymAltL
+	KSymAltR
+	KSymAltGr
+	KSymSuperL // windows key
+	KSymSuperR
+	KSymDelete
+	KSymTab
+	KSymTabLeft
+
+	KSymNumLock
+	KSymCapsLock
+	KSymShiftLock
+
+	KSymGrave
+	KSymAcute
+	KSymCircumflex
+	KSymTilde
+	KSymMacron
+	KSymBreve
+	KSymDiaresis
+	KSymRingAbove
+	KSymCaron
+	KSymCedilla
+
+	KSymKeypadMultiply
+	KSymKeypadAdd
+	KSymKeypadSubtract
+	KSymKeypadDecimal
+	KSymKeypadDivide
+
+	KSymKeypad0
+	KSymKeypad1
+	KSymKeypad2
+	KSymKeypad3
+	KSymKeypad4
+	KSymKeypad5
+	KSymKeypad6
+	KSymKeypad7
+	KSymKeypad8
+	KSymKeypad9
+
+	KSymVolumeUp
+	KSymVolumeDown
+	KSymMute
+)
+
+//----------
+
+func ComposeDiacritic(ks *KeySym, ru *rune) (isLatch bool) {
+	// order matters
+	diacritics := []rune{
+		'`', // grave
+		'´', // acute
+		'^', // circumflex
+		'~', // tilde
+		'¨', // diaeresis 0xa8
+		'˚', // ring above 0x2da
+
+		'¯', // macron 0xaf
+		'¸', // cedilla 0xb8
+		'˘', // breve 0x2d8
+		'ˇ', // caron 0x2c7
+	}
+
+	dindex := -1
+	for i, aru := range diacritics {
+		if aru == *ru {
+			dindex = i
+			break
+		}
+	}
+
+	// latch key
+	if dindex >= 0 {
+		diacriticsData.ks = *ks
+		diacriticsData.ru = *ru
+		diacriticsData.dindex = dindex
+		return true
+	}
+
+	// latch key is present from previous stroke
+	if diacriticsData.ks != 0 {
+
+		// allow space to use the diacritic rune
+		if *ks == KSymSpace {
+			*ks = diacriticsData.ks
+			*ru = diacriticsData.ru
+			clearDiacriticsData()
+			return false
+		}
+
+		// diacritis order matters
+		m := map[rune][]rune{
+			// vowels
+			'A': []rune{'À', 'Á', 'Â', 'Ã', 'Ä', 'Å'},
+			'a': []rune{'à', 'á', 'â', 'ã', 'ä', 'å'},
+			'E': []rune{'È', 'É', 'Ê', 'Ẽ', 'Ë', '_'},
+			'e': []rune{'è', 'é', 'ê', 'ẽ', 'ë', '_'},
+			'I': []rune{'Ì', 'Í', 'Î', 'Ĩ', 'Ï', '_'},
+			'i': []rune{'ì', 'í', 'î', 'ĩ', 'ï', '_'},
+			'O': []rune{'Ò', 'Ó', 'Ô', 'Õ', 'Ö', '_'},
+			'o': []rune{'ò', 'ó', 'ô', 'õ', 'ö', '_'},
+			'U': []rune{'Ù', 'Ú', 'Û', 'Ũ', 'Ü', 'Ů'},
+			'u': []rune{'ù', 'ú', 'û', 'ũ', 'ü', 'ů'},
+
+			// other letters
+			'C': []rune{'_', 'Ć', 'Ĉ', '_', '_', '_'},
+			'c': []rune{'_', 'ć', 'ĉ', '_', '_', '_'},
+			'G': []rune{'_', '_', 'Ĝ', '_', '_', '_'},
+			'g': []rune{'_', '_', 'ĝ', '_', '_', '_'},
+			'H': []rune{'_', '_', 'Ĥ', '_', '_', '_'},
+			'h': []rune{'_', '_', 'ĥ', '_', '_', '_'},
+			'J': []rune{'_', '_', 'Ĵ', '_', '_', '_'},
+			'j': []rune{'_', '_', 'ĵ', '_', '_', '_'},
+			'L': []rune{'_', 'Ĺ', '_', '_', '_', '_'},
+			'l': []rune{'_', 'ĺ', '_', '_', '_', '_'},
+			'N': []rune{'_', 'Ń', '_', 'Ñ', '_', '_'},
+			'n': []rune{'_', 'ń', '_', 'ñ', '_', '_'},
+			'R': []rune{'_', 'Ŕ', '_', '_', '_', '_'},
+			'r': []rune{'_', 'ŕ', '_', '_', '_', '_'},
+			'S': []rune{'_', 'Ś', 'Ŝ', '_', '_', '_'},
+			's': []rune{'_', 'ś', 'ŝ', '_', '_', '_'},
+			'W': []rune{'_', '_', 'Ŵ', '_', '_', '_'},
+			'w': []rune{'_', '_', 'ŵ', '_', '_', '_'},
+			'Y': []rune{'_', 'Ý', 'Ŷ', '_', 'Ÿ', '_'},
+			'y': []rune{'_', 'ý', 'ŷ', '_', 'ÿ', '_'},
+			'Z': []rune{'_', 'Ź', '_', '_', '_', '_'},
+			'z': []rune{'_', 'ź', '_', '_', '_', '_'},
+		}
+		if sru, ok := m[*ru]; ok {
+			if diacriticsData.dindex < len(sru) {
+				ru2 := sru[diacriticsData.dindex]
+				if ru2 != '_' {
+					*ru = ru2
+				}
+				clearDiacriticsData()
+			}
+		}
+	}
+
+	return false
 }
+
+var diacriticsData struct {
+	ks     KeySym
+	ru     rune
+	dindex int
+}
+
+func clearDiacriticsData() {
+	diacriticsData.ks = 0
+	diacriticsData.ru = 0
+	diacriticsData.dindex = 0
+}
+
+//----------
 
 // drag and drop
 type DndPosition struct {
@@ -186,12 +379,12 @@ type DndDrop struct {
 type DndAction int
 
 const (
-	DenyDndA DndAction = iota
-	CopyDndA
-	MoveDndA
-	LinkDndA
-	AskDndA
-	PrivateDndA
+	DndADeny DndAction = iota
+	DndACopy
+	DndAMove
+	DndALink
+	DndAAsk
+	DndAPrivate
 )
 
 type DndType int
@@ -200,10 +393,11 @@ const (
 	TextURLListDndT DndType = iota
 )
 
-// copy/paste
+//----------
+
 type CopyPasteIndex int
 
 const (
-	PrimaryCPI CopyPasteIndex = iota
-	ClipboardCPI
+	CPIPrimary CopyPasteIndex = iota
+	CPIClipboard
 )

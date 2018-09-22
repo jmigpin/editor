@@ -6,39 +6,149 @@ import (
 
 // First child is bottom layer.
 type MultiLayer struct {
-	EmbedNode
+	ENode
+
+	BgLayer        *BgLayer
+	SeparatorLayer *ENode
+	FloatLayer1    *FloatLayer
 }
 
-func (ml *MultiLayer) OnMarkChildNeedsPaint(child Node, r *image.Rectangle) {
-	// visit other layers to mark if they need paint
-	ml.IterChilds(func(c Node) {
-		if c == child {
-			return
+func NewMultiLayer() *MultiLayer {
+	ml := &MultiLayer{}
+
+	ml.BgLayer = &BgLayer{ml: ml}
+	ml.SeparatorLayer = &ENode{}
+	ml.FloatLayer1 = &FloatLayer{ml: ml}
+
+	// order matters
+	layers := []Node{
+		ml.BgLayer,
+		ml.SeparatorLayer,
+		ml.FloatLayer1,
+	}
+	for _, u := range layers {
+		if u == nil {
+			continue
 		}
-		ml.visitForNeedPaint(c, r)
-	})
+		ml.ENode.InsertBefore(u, nil)
+
+		// allow drag events to fall through to lower layers nodes
+		u.Embed().Marks.Add(MarkNotDraggable)
+	}
+
+	return ml
 }
 
-func (ml *MultiLayer) visitForNeedPaint(n Node, r *image.Rectangle) {
-	ne := n.Embed()
-	if ne.NeedsPaint() || ne.Hidden() || ne.NotPaintable() {
-		return
-	}
-	if !n.Embed().Bounds.Overlaps(*r) {
-		return
+func (ml *MultiLayer) InsertBefore(col Node, next *EmbedNode) {
+	panic("nodes should be inserted into one of the layers directly")
+}
+
+func (ml *MultiLayer) PaintMarked() image.Rectangle {
+	vnodes := ml.FloatLayer1.visibleNodes()
+	if len(vnodes) > 0 {
+		// mark floatlayer visible nodes as needingpaint when bg nodes are painted
+		for _, n := range vnodes {
+			if intersectingNodeNeedingPaintExists(ml.BgLayer, n.Embed().Bounds) {
+				n.Embed().MarkNeedsPaint()
+
+				// mark bglayer nodes as needing paint if intersecting with floatlayer visible nodes
+				ml.BgLayer.RectNeedsPaint(n.Embed().Bounds)
+			}
+		}
+
 	}
 
-	// if the childs union doesn't contain the rectangle, this node needs paint
-	var u image.Rectangle
-	n.Embed().IterChilds(func(c Node) {
-		u = u.Union(c.Embed().Bounds)
-	})
-	if !r.In(u) {
-		ne.MarkNeedsPaint() // highly recursive from here
-		return
-	}
+	return ml.ENode.PaintMarked()
+}
 
-	n.Embed().IterChilds(func(c Node) {
-		ml.visitForNeedPaint(c, r)
+//----------
+
+type BgLayer struct {
+	ENode
+	ml *MultiLayer
+}
+
+func (bgl *BgLayer) RectNeedsPaint(r image.Rectangle) {
+	markIntersectingNodesNotNeedingPaint(bgl, r)
+}
+
+//----------
+
+type FloatLayer struct {
+	ENode
+	ml *MultiLayer
+}
+
+func (fl *FloatLayer) OnChildMarked(child Node, newMarks Marks) {
+	if newMarks.HasAny(MarkNeedsLayout | MarkChildNeedsLayout) {
+		fl.MarkNeedsLayout()
+	}
+}
+
+func (fl *FloatLayer) Layout() {
+	nodes := fl.visibleNodes()
+	for _, n := range nodes {
+		n.Embed().MarkNeedsPaint()
+		fl.ml.BgLayer.RectNeedsPaint(n.Embed().Bounds)
+	}
+}
+
+func (fl *FloatLayer) visibleNodes() []Node {
+	return visibleChildNodes(fl)
+}
+
+//----------
+
+func visibleChildNodes(node Node) []Node {
+	z := []Node{}
+	node.Embed().IterateWrappers2(func(child Node) {
+		if !child.Embed().Marks.HasAny(MarkForceZeroBounds) {
+			z = append(z, child)
+		}
 	})
+	return z
+}
+
+//----------
+
+func intersectingNodeNeedingPaintExists(node Node, r image.Rectangle) bool {
+	found := false
+	node.Embed().IterateWrappers(func(child Node) bool {
+		ce := child.Embed()
+		if ce.Bounds.Overlaps(r) {
+			if ce.Marks.HasAny(MarkNeedsPaint) {
+				found = true
+			} else if ce.Marks.HasAny(MarkChildNeedsPaint) {
+				found = intersectingNodeNeedingPaintExists(child, r)
+			}
+		}
+		return !found // continue while not found
+	})
+	return found
+}
+
+//----------
+
+func markIntersectingNodesNotNeedingPaint(node Node, r image.Rectangle) image.Rectangle {
+	u := image.Rectangle{}
+	node.Embed().IterateWrappers2(func(child Node) {
+		ce := child.Embed()
+		if ce.Bounds.Overlaps(r) {
+			if !ce.Marks.HasAny(MarkNeedsPaint) {
+
+				// improve selection with subchilds
+				if r.In(ce.Bounds) {
+					w := markIntersectingNodesNotNeedingPaint(child, r)
+					u = u.Union(w)
+					if r.In(w) {
+						return
+					}
+				}
+
+				u = u.Union(ce.Bounds)
+				ce.MarkNeedsPaint()
+			}
+		}
+	})
+	return u
 }

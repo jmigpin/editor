@@ -22,13 +22,19 @@ func NewUI(events chan<- interface{}, winName string) (*UI, error) {
 	}
 	ui.BasicUI = bui
 
-	// needs ui.BasicUI to be set
+	// set theme before root init
+	c1 := &ColorThemeCycler
+	c1.Set(c1.CurName, ui.Root)
+	c2 := &FontThemeCycler
+	c2.Set(c2.CurName, ui.Root)
+
+	// build ui - needs ui.BasicUI to be set
 	ui.Root.Init()
 
 	return ui, nil
 }
 
-func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
+func (ui *UI) WarpPointerToRectanglePad(r image.Rectangle) {
 	p, err := ui.QueryPointer()
 	if err != nil {
 		return
@@ -48,7 +54,6 @@ func (ui *UI) WarpPointerToRectanglePad(r0 *image.Rectangle) {
 		}
 	}
 
-	r := *r0
 	set(&p.X, r.Min.X, r.Max.X)
 	set(&p.Y, r.Min.Y, r.Max.Y)
 

@@ -18,7 +18,6 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb := &ContextFloatBox{root: root}
 
 	cfb.Label = widget.NewLabel(root.UI)
-	cfb.Label.SetTheme(&UITheme.TextArea)
 	cfb.Label.Text.SetStr("testing")
 	cfb.Label.Pad.Left = 5
 	cfb.Label.Pad.Right = 5
@@ -31,20 +30,18 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	//border := widget.NewPad(root.UI, scrollArea)
 	//border.Set(1)
 
-	container := WrapInShadowBottom(root.UI, cfb.Label)
-	cfb.FloatBox = widget.NewFloatBox(container)
-
-	cfb.SetHidden(true)
+	container := WrapInBottomShadowOrNone(root.UI, cfb.Label)
+	cfb.FloatBox = widget.NewFloatBox(root.MultiLayer, container)
 
 	return cfb
 }
 
-func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) bool {
+func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Handle {
 	switch ev.(type) {
 	case *event.KeyUp,
 		*event.KeyDown:
 		// let lower layers get events
-		return false
+		return event.NotHandled
 	}
-	return true
+	return event.Handled
 }

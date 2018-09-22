@@ -4,61 +4,42 @@ import (
 	"image"
 )
 
-// Should be a child of a top layer (possibly MultiLayer). It relies on the parent bounds.
 type FloatBox struct {
-	EmbedNode
+	ENode
 	RefPoint image.Point
+	content  Node
+	ml       *MultiLayer
 }
 
-func NewFloatBox(child Node) *FloatBox {
-	fb := &FloatBox{}
+func NewFloatBox(ml *MultiLayer, content Node) *FloatBox {
+	fb := &FloatBox{content: content, ml: ml}
 	fb.Cursor = DefaultCursor
-	fb.Append(child)
+	fb.Append(content)
+	fb.Marks.Add(MarkNotDraggable | MarkInBoundsHandlesEvent)
+	ml.FloatLayer1.Append(fb)
 	return fb
 }
+
 func (fb *FloatBox) Measure(hint image.Point) image.Point {
-	// TODO: review
 	panic("calling measure on floatbox")
 }
 
-func (fb *FloatBox) CalcChildsBounds() {
-	// mark for paint nodes that the old bounds intersect
-	fb.MarkNeedsPaint()
+func (fb *FloatBox) Layout() {
+	// start with parent bounds to reduce to content bounds
+	//b := fb.Parent.Embed().Bounds
+	b := fb.Bounds
 
-	// start with the parent bounds
-	b := fb.Parent().Embed().Bounds
-
-	child := fb.FirstChildInAll()
-
-	// bounds bellow reference node
-	b2 := image.Rect(fb.RefPoint.X, fb.RefPoint.Y, fb.RefPoint.X+b.Dx(), fb.RefPoint.Y+b.Dy())
-
-	// measure child
-	m := child.Measure(b2.Size()).Add(b2.Min)
-	b3 := image.Rect(b2.Min.X, b2.Min.Y, m.X, m.Y)
-	if b3.Max.X > b.Max.X {
-		diff := image.Point{b3.Max.X - b.Max.X, 0}
-		b3 = b3.Sub(diff)
+	// calc bounds attached to the reference point
+	r := image.Rectangle{}
+	r = r.Add(fb.RefPoint)
+	m := fb.content.Measure(b.Size())
+	r.Max = r.Min.Add(m)
+	if r.Max.X > b.Max.X {
+		diffX := r.Max.X - b.Max.X
+		r = r.Sub(image.Point{diffX, 0})
 	}
-	b3 = b3.Intersect(b)
-	child.Embed().Bounds = b3
+	r = r.Intersect(b)
 
-	// set own bounds, same as the child
-	fb.Embed().Bounds = b3
-
-	child.CalcChildsBounds()
-}
-
-func (fb *FloatBox) ShowCalcMark(v bool) {
-	hide := !v
-	if hide {
-		if !fb.Hidden() {
-			fb.SetHidden(true)
-			fb.MarkNeedsPaint()
-		}
-	} else {
-		fb.SetHidden(false)
-		fb.Wrapper().CalcChildsBounds()
-		fb.MarkNeedsPaint()
-	}
+	fb.content.Embed().Bounds = r
+	fb.Bounds = r // reduce own bounds to contain events
 }

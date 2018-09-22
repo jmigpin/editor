@@ -8,7 +8,7 @@ import (
 	"unicode/utf8"
 )
 
-const EOF = -1
+const EOS = -1
 
 type String struct {
 	Start int
@@ -24,7 +24,7 @@ func NewString(input string) *String {
 
 func (sm *String) Next() rune {
 	if sm.Pos >= len(sm.Input) {
-		return EOF
+		return EOS
 	}
 	ru, w := utf8.DecodeRuneInString(sm.Input[sm.Pos:])
 	sm.Pos += w
@@ -38,7 +38,22 @@ func (sm *String) Peek() rune {
 	return u
 }
 
-func (sm *String) Accept(valid string) bool {
+func (sm *String) Advance() {
+	sm.Start = sm.Pos
+}
+
+//----------
+
+func (sm *String) AcceptRune(ru rune) bool {
+	pos := sm.Pos
+	if sm.Next() == ru {
+		return true
+	}
+	sm.Pos = pos
+	return false
+}
+
+func (sm *String) AcceptAny(valid string) bool {
 	pos := sm.Pos
 	if strings.ContainsRune(valid, sm.Next()) {
 		return true
@@ -47,7 +62,7 @@ func (sm *String) Accept(valid string) bool {
 	return false
 }
 
-func (sm *String) AcceptNeg(invalid string) bool {
+func (sm *String) AcceptAnyNeg(invalid string) bool {
 	pos := sm.Pos
 	if !strings.ContainsRune(invalid, sm.Next()) {
 		return true
@@ -78,30 +93,71 @@ func (sm *String) AcceptFn(fn func(rune) bool) bool {
 
 func (sm *String) AcceptLoop(valid string) bool {
 	v := false
-	for sm.Accept(valid) {
+	for sm.AcceptAny(valid) {
 		v = true
 	}
 	return v
 }
 
+// Note that the loop does not stop on EOF, only when fn returns false.
 func (sm *String) AcceptLoopFn(fn func(rune) bool) bool {
 	v := false
 	for sm.AcceptFn(fn) {
-		v = true
+		v = true // getting at least one will return true
 	}
 	return v
 }
+
+func (sm *String) AcceptN(n int) bool {
+	if sm.Pos+n > len(sm.Input) {
+		return false
+	}
+	sm.Pos += n
+	return true
+}
+
+func (sm *String) AcceptNRunes(n int) bool {
+	p := sm.Pos
+	_ = sm.AcceptLoopFn(func(ru rune) bool {
+		if ru == EOS {
+			return false
+		}
+		if n <= 0 {
+			return false
+		}
+		n--
+		return true
+	})
+	if n <= 0 {
+		return true
+	}
+	sm.Pos = p
+	return false
+}
+
+//----------
 
 func (sm *String) AcceptSpace() bool {
 	return sm.AcceptLoopFn(unicode.IsSpace)
 }
 
+func (sm *String) AcceptSpaceExceptNewline() bool {
+	return sm.AcceptLoopFn(func(ru rune) bool {
+		if ru == '\n' {
+			return false
+		}
+		return unicode.IsSpace(ru)
+	})
+}
+
+//----------
+
 func (sm *String) AcceptId() bool {
-	if !(sm.Accept("_") ||
+	if !(sm.AcceptAny("_") ||
 		sm.AcceptFn(unicode.IsLetter)) {
 		return false
 	}
-	for sm.Accept("_-") ||
+	for sm.AcceptAny("_-") ||
 		sm.AcceptLoopFn(unicode.IsLetter) ||
 		sm.AcceptLoopFn(unicode.IsDigit) {
 	}
@@ -111,7 +167,7 @@ func (sm *String) AcceptId() bool {
 func (sm *String) AcceptInt() bool {
 	p := sm.Pos
 	ok := false
-	_ = sm.Accept("+-")
+	_ = sm.AcceptAny("+-")
 	if sm.AcceptLoopFn(unicode.IsDigit) {
 		ok = true
 	}
@@ -125,17 +181,17 @@ func (sm *String) AcceptInt() bool {
 func (sm *String) AcceptFloat() bool {
 	p := sm.Pos
 	ok := false
-	_ = sm.Accept("+-")
+	_ = sm.AcceptAny("+-")
 	if sm.AcceptLoopFn(unicode.IsDigit) {
 		ok = true
 	}
-	if sm.Accept(".") {
+	if sm.AcceptAny(".") {
 		ok = true
 		_ = sm.AcceptLoopFn(unicode.IsDigit)
 	}
-	if sm.Accept("eE") {
+	if sm.AcceptAny("eE") {
 		ok = true
-		_ = sm.Accept("+-")
+		_ = sm.AcceptAny("+-")
 		_ = sm.AcceptLoopFn(unicode.IsDigit)
 	}
 	if !ok {
@@ -145,30 +201,86 @@ func (sm *String) AcceptFloat() bool {
 	return true
 }
 
-func (sm *String) AcceptToNewlineOrEOF() {
-	for {
-		ru := sm.Next()
-		if ru == '\n' || ru == EOF {
-			break
-		}
-	}
+func (sm *String) AcceptToNewlineOrEOS() bool {
+	return sm.AcceptLoopFn(func(ru rune) bool {
+		return ru != '\n' && ru != EOS
+	})
 }
 
-func (sm *String) AcceptN(n int) bool {
-	if sm.Pos+n > len(sm.Input) {
+//----------
+
+func (sm *String) AcceptQuote(quotes string, escapes string) bool {
+	pos := sm.Pos
+	ru := sm.Peek()
+	if sm.IsQuoteAccept(ru, quotes, escapes) {
+		return true
+	}
+	sm.Pos = pos
+	return false
+}
+
+//----------
+
+func (sm *String) IsQuoteAccept(quote rune, quotes string, escapes string) bool {
+	if !strings.ContainsRune(quotes, quote) {
 		return false
 	}
-	sm.Pos += n
+	p := sm.Pos
+	found := false
+	_ = sm.AcceptLoopFn(func(ru rune) bool {
+		if found {
+			return false
+		}
+		if sm.IsEscapeAccept(ru, "\\") {
+			return true
+		}
+		switch ru {
+		case EOS:
+			return false
+		case quote:
+			found = true // stop on next rune
+			return true
+		default:
+			return true
+		}
+	})
+	if found {
+		return true
+	}
+	sm.Pos = p
+	return false
+}
+
+func (sm *String) IsEscapeAccept(ru rune, escapes string) bool {
+	if escapes == "" {
+		return false
+	}
+	if !strings.ContainsRune(escapes, ru) {
+		return false
+	}
+	_ = sm.AcceptNRunes(1) // ignore result to allow EOS
 	return true
 }
 
-func (sm *String) Advance() {
-	sm.Start = sm.Pos
-}
+//----------
 
 func (sm *String) Value() string {
 	return sm.Input[sm.Start:sm.Pos]
 }
+
+func (sm *String) ValueUnquote(quoteRunes string) string {
+	s := sm.Value()
+	if len(s) >= 2 {
+		if s[0] == s[len(s)-1] {
+			if strings.ContainsRune(quoteRunes, rune(s[0])) {
+				return s[1 : len(s)-1]
+			}
+		}
+	}
+	return s
+}
+
+//----------
 
 func (sm *String) ValueInt() (int, error) {
 	return strconv.Atoi(sm.Value())
@@ -177,6 +289,8 @@ func (sm *String) ValueInt() (int, error) {
 func (sm *String) ValueFloat() (float64, error) {
 	return strconv.ParseFloat(sm.Value(), 64)
 }
+
+//----------
 
 func (sm *String) AcceptValueIntAdvance() (int, error) {
 	if !sm.AcceptInt() {
@@ -197,6 +311,8 @@ func (sm *String) AcceptSpaceAdvance() error {
 	sm.Advance()
 	return nil
 }
+
+//----------
 
 //func (sm *String) Item() *Item {
 //	item := &Item{0, sm.Start, sm.Pos, sm.Input[sm.Start:sm.Pos]}

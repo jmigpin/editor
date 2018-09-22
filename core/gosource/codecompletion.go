@@ -138,7 +138,7 @@ func (cc *CC2) candidatesInPos(pos token.Pos, src string) error {
 		return cc.candidatesInPrevPos(pos)
 	}
 
-	return fmt.Errorf("unable to get candidates in pos")
+	//return fmt.Errorf("unable to get candidates in pos")
 }
 
 func (cc *CC2) candidatesInPrevPos(pos token.Pos) error {

@@ -22,6 +22,8 @@ func NewXInput(conn *xgb.Conn) (*XInput, error) {
 	return xi, nil
 }
 
+//----------
+
 func (xi *XInput) ReadMapTable() {
 	err := xi.km.ReadTable()
 	if err != nil {
@@ -29,112 +31,151 @@ func (xi *XInput) ReadMapTable() {
 	}
 }
 
+//----------
+
 func (xi *XInput) KeyPress(ev *xproto.KeyPressEvent) *event.WindowInput {
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	keycode := xproto.Keycode(ev.Detail)
 	mods := Modifiers(ev.State)
-	ru, code := xi.km.Lookup(keycode, mods)
+	ru, ks := xi.km.Lookup(keycode, mods)
 	m2 := translateModifiersToEventKeyModifiers(mods)
-	ev2 := &event.KeyDown{*p, code, m2, ru}
+	ev2 := &event.KeyDown{*p, ks, m2, ru}
 	return &event.WindowInput{*p, ev2}
 }
 func (xi *XInput) KeyRelease(ev *xproto.KeyReleaseEvent) *event.WindowInput {
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	keycode := xproto.Keycode(ev.Detail)
 	mods := Modifiers(ev.State)
-	ru, code := xi.km.Lookup(keycode, mods)
+	ru, ks := xi.km.Lookup(keycode, mods)
 	m2 := translateModifiersToEventKeyModifiers(mods)
-	ev2 := &event.KeyUp{*p, code, m2, ru}
+	ev2 := &event.KeyUp{*p, ks, m2, ru}
 	return &event.WindowInput{*p, ev2}
 }
 
 func (xi *XInput) ButtonPress(ev *xproto.ButtonPressEvent) *event.WindowInput {
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
-	b := NewButton(xi.km, ev.Detail, ev.State)
-	b2 := translateButtonToEventButton(b.XButton)
-	m2 := translateModifiersToEventKeyModifiers(b.Mods)
+	b := xproto.Button(ev.Detail)
+	mods := Modifiers(ev.State)
+	b2 := translateButtonToEventButton(b)
+	m2 := translateModifiersToEventKeyModifiers(mods)
 	ev2 := &event.MouseDown{*p, b2, m2}
 	return &event.WindowInput{*p, ev2}
 }
 func (xi *XInput) ButtonRelease(ev *xproto.ButtonReleaseEvent) *event.WindowInput {
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
-	b := NewButton(xi.km, ev.Detail, ev.State)
-	b2 := translateButtonToEventButton(b.XButton)
-	m2 := translateModifiersToEventKeyModifiers(b.Mods)
+	b := xproto.Button(ev.Detail)
+	mods := Modifiers(ev.State)
+	b2 := translateButtonToEventButton(b)
+	m2 := translateModifiersToEventKeyModifiers(mods)
 	ev2 := &event.MouseUp{*p, b2, m2}
 	return &event.WindowInput{*p, ev2}
 }
+
 func (xi *XInput) MotionNotify(ev *xproto.MotionNotifyEvent) *event.WindowInput {
 	p := &image.Point{int(ev.EventX), int(ev.EventY)}
 	m := Modifiers(ev.State)
-	var b2 event.MouseButtons
-	if m.HasButton(1) {
-		b2 |= event.MouseButtons(event.ButtonLeft)
-	}
-	if m.HasButton(2) {
-		b2 |= event.MouseButtons(event.ButtonMiddle)
-	}
-	if m.HasButton(3) {
-		b2 |= event.MouseButtons(event.ButtonRight)
-	}
-	if m.HasButton(4) {
-		b2 |= event.MouseButtons(event.ButtonWheelUp)
-	}
-	if m.HasButton(5) {
-		b2 |= event.MouseButtons(event.ButtonWheelDown)
-	}
-	if m.HasButton(6) {
-		b2 |= event.MouseButtons(event.ButtonWheelLeft)
-	}
-	if m.HasButton(7) {
-		b2 |= event.MouseButtons(event.ButtonWheelRight)
-	}
-	if m.HasButton(8) {
-		b2 |= event.MouseButtons(event.ButtonBackward)
-	}
-	if m.HasButton(9) {
-		b2 |= event.MouseButtons(event.ButtonForward)
-	}
+	b2 := translateModifiersToEventMouseButtons(m)
 	m2 := translateModifiersToEventKeyModifiers(m)
 	ev2 := &event.MouseMove{*p, b2, m2}
 	return &event.WindowInput{*p, ev2}
 }
 
-func translateButtonToEventButton(b xproto.Button) event.MouseButton {
-	var b2 event.MouseButton
-	switch b {
+//----------
+
+type Modifiers uint32 // key and button mask
+
+func (m Modifiers) HasAny(v Modifiers) bool {
+	return m&v > 0
+}
+
+func (m Modifiers) Remove(u Modifiers) Modifiers {
+	return m &^ u
+}
+
+//----------
+
+func translateButtonToEventButton(xb xproto.Button) event.MouseButton {
+	var b event.MouseButton
+	switch xb {
 	case 1:
-		b2 = event.ButtonLeft
+		b = event.ButtonLeft
 	case 2:
-		b2 = event.ButtonMiddle
+		b = event.ButtonMiddle
 	case 3:
-		b2 = event.ButtonRight
+		b = event.ButtonRight
 	case 4:
-		b2 = event.ButtonWheelUp
+		b = event.ButtonWheelUp
 	case 5:
-		b2 = event.ButtonWheelDown
+		b = event.ButtonWheelDown
 	case 6:
-		b2 = event.ButtonWheelLeft
+		b = event.ButtonWheelLeft
 	case 7:
-		b2 = event.ButtonWheelRight
+		b = event.ButtonWheelRight
 	case 8:
-		b2 = event.ButtonBackward
+		b = event.ButtonBackward
 	case 9:
-		b2 = event.ButtonForward
+		b = event.ButtonForward
 	}
-	return b2
+	return b
+}
+
+func translateModifiersToEventMouseButtons(m Modifiers) event.MouseButtons {
+	var b event.MouseButtons
+	if m.HasAny(xproto.KeyButMaskButton1) {
+		b |= event.MouseButtons(event.ButtonLeft)
+	}
+	if m.HasAny(xproto.KeyButMaskButton2) {
+		b |= event.MouseButtons(event.ButtonMiddle)
+	}
+	if m.HasAny(xproto.KeyButMaskButton3) {
+		b |= event.MouseButtons(event.ButtonRight)
+	}
+	if m.HasAny(xproto.KeyButMaskButton4) {
+		b |= event.MouseButtons(event.ButtonWheelUp)
+	}
+	if m.HasAny(xproto.KeyButMaskButton5) {
+		b |= event.MouseButtons(event.ButtonWheelDown)
+	}
+	if m.HasAny(xproto.KeyButMaskButton5 << 1) {
+		b |= event.MouseButtons(event.ButtonWheelLeft)
+	}
+	if m.HasAny(xproto.KeyButMaskButton5 << 2) {
+		b |= event.MouseButtons(event.ButtonWheelRight)
+	}
+	if m.HasAny(xproto.KeyButMaskButton5 << 3) {
+		b |= event.MouseButtons(event.ButtonBackward)
+	}
+	if m.HasAny(xproto.KeyButMaskButton5 << 4) {
+		b |= event.MouseButtons(event.ButtonForward)
+	}
+	return b
 }
 
 func translateModifiersToEventKeyModifiers(u Modifiers) event.KeyModifiers {
 	var m event.KeyModifiers
-	if u.HasShift() {
+	if u.HasAny(xproto.KeyButMaskShift) {
 		m |= event.ModShift
 	}
-	if u.HasControl() {
-		m |= event.ModControl
+	if u.HasAny(xproto.KeyButMaskControl) {
+		m |= event.ModCtrl
 	}
-	if u.HasMod1() {
-		m |= event.ModAlt
+	if u.HasAny(xproto.KeyButMaskLock) {
+		m |= event.ModLock
+	}
+	if u.HasAny(xproto.KeyButMaskMod1) {
+		m |= event.Mod1
+	}
+	if u.HasAny(xproto.KeyButMaskMod2) {
+		m |= event.Mod2
+	}
+	if u.HasAny(xproto.KeyButMaskMod3) {
+		m |= event.Mod3
+	}
+	if u.HasAny(xproto.KeyButMaskMod4) {
+		m |= event.Mod4
+	}
+	if u.HasAny(xproto.KeyButMaskMod5) {
+		m |= event.Mod5
 	}
 	return m
 }

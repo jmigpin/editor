@@ -9,20 +9,20 @@ import (
 	"github.com/jmigpin/editor/driver"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
-	"golang.org/x/image/font"
+	"github.com/pkg/errors"
 )
 
 type BasicUI struct {
 	DrawFrameRate int // frames per second
 	RootNode      widget.Node
 	Win           driver.Window
+	ApplyEv       *widget.ApplyEvent
 
 	events          chan<- interface{}
+	pendingPaint    bool
 	lastPaint       time.Time
 	incompleteDraws int
 	curCursor       widget.Cursor
-
-	fontFace1 font.Face
 }
 
 func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*BasicUI, error) {
@@ -38,9 +38,11 @@ func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*B
 		events:        events,
 	}
 
+	ui.ApplyEv = widget.NewApplyEvent(ui)
+
 	// Embed nodes have their wrapper nodes set when they are appended to another node. The root node is not appended to any other node, therefore it needs to be set here.
 	ui.RootNode = root
-	root.Embed().SetWrapperForRootNode(root)
+	root.Embed().SetWrapperForRoot(root)
 
 	// slow UI without mouse move filter
 	//go ui.Win.EventLoop(events)
@@ -57,114 +59,138 @@ func (ui *BasicUI) Close() {
 	ui.Win.Close()
 }
 
+//----------
+
 func (ui *BasicUI) HandleEvent(ev interface{}) {
+	//// DEBUG
+	//log.Printf("basicui: %T", ev)
+
 	switch t := ev.(type) {
 	case *event.WindowExpose:
 		ui.UpdateImageSize()
 		ui.RootNode.Embed().MarkNeedsPaint()
 	case *event.WindowInput:
-		AIE.Apply(ui, ui.RootNode, t.Event, t.Point)
+		ui.ApplyEv.Apply(ui.RootNode, t.Event, t.Point)
 	case *event.WindowPutImageDone:
 		ui.onWindowPutImageDone()
 	case *UIRunFuncEvent:
 		t.Func()
+	case *UIPaintTime:
+		ui.paint()
 	case struct{}:
 		// no op
 	default:
 		log.Printf("unhandled event: %#v", ev)
 	}
+
+	ui.RootNode.LayoutMarked()
+	ui.schedulePaintMarked()
 }
+
+//----------
 
 func (ui *BasicUI) UpdateImageSize() {
 	err := ui.Win.UpdateImageSize()
 	if err != nil {
 		log.Println(err)
-	} else {
-		ib := ui.Win.Image().Bounds()
-		n := ui.RootNode
-		if !n.Embed().Bounds.Eq(ib) {
-			n.Embed().Bounds = ib
-			n.CalcChildsBounds()
-			n.Embed().MarkNeedsPaint()
-		}
+		return
+	}
+	ib := ui.Win.Image().Bounds()
+	en := ui.RootNode.Embed()
+	if !en.Bounds.Eq(ib) {
+		en.Bounds = ib
+		en.MarkNeedsLayout()
 	}
 }
 
-func (ui *BasicUI) TimetoNextPaint() (time.Duration, time.Time) {
-	now := time.Now()
-	frameTime := time.Second / time.Duration(ui.DrawFrameRate)
-	return frameTime - now.Sub(ui.lastPaint), now
-}
+//----------
 
-// This function should be called in the event loop after every event.
-func (ui *BasicUI) PaintIfTime() {
-	d, now := ui.TimetoNextPaint()
-	canPaint := d < 0
-	if canPaint {
-		painted := ui.paintIfNeeded()
-		if painted {
-			//log.Printf("time since last paint %v", time.Now().Sub(ui.lastPaint))
-			ui.lastPaint = now
-		}
-	} else {
-		// Didn't paint to avoid high fps.
-
-		if len(ui.events) == 0 {
-			// There are no events in the queue that will allow later to check if it is time to paint. Ensure there is one by sending a no-op event to have the loop iterate and call PaintIfTime.
-			ui.EnqueueNoOpEvent()
-		}
-	}
-}
-
-func (ui *BasicUI) paintIfNeeded() (painted bool) {
+func (ui *BasicUI) schedulePaintMarked() {
 	// Still painting something else, don't paint now. This function should be called again uppon the draw completion event.
 	if ui.incompleteDraws != 0 {
-		return false
+		return
 	}
 
-	var u []*image.Rectangle
-	widget.PaintIfNeeded(ui.RootNode, func(r *image.Rectangle) {
-		painted = true
-		u = append(u, r)
-	})
-
-	// TODO: review rectangle union performance vs paint rectangles.
-
-	// union the rectangles into one put
-	if len(u) > 0 {
-		var r2 image.Rectangle
-		for _, r := range u {
-			r2 = r2.Union(*r)
-		}
-		ui.putImage(&r2)
+	if ui.RootNode.Embed().TreeNeedsPaint() {
+		ui.schedulePaint()
 	}
-
-	return painted
 }
+func (ui *BasicUI) schedulePaint() {
+	if ui.pendingPaint {
+		return
+	}
+
+	ui.pendingPaint = true
+	go func() {
+		d := ui.durationToNextPaint(time.Now())
+		if d > 0 {
+			time.Sleep(d)
+		}
+		ui.events <- &UIPaintTime{}
+	}()
+}
+
+func (ui *BasicUI) durationToNextPaint(now time.Time) time.Duration {
+	frameDur := time.Second / time.Duration(ui.DrawFrameRate)
+	return frameDur - now.Sub(ui.lastPaint)
+}
+
+//----------
+
+func (ui *BasicUI) paint() {
+	//// DEBUG
+	//d := time.Now().Sub(ui.lastPaint)
+	//fmt.Printf("paint: fps %v\n", int(time.Second/d))
+
+	ui.pendingPaint = false
+	ui.lastPaint = time.Now()
+	ui.paintMarked()
+}
+
+func (ui *BasicUI) paintMarked() {
+	u := ui.RootNode.PaintMarked()
+	r := u.Intersect(ui.Win.Image().Bounds())
+	if !r.Empty() {
+		//log.Printf("putimage %v", r)
+		ui.putImage(&r)
+	}
+}
+
+//----------
 
 func (ui *BasicUI) putImage(r *image.Rectangle) {
 	err := ui.Win.PutImage(r)
 	if err != nil {
 		ui.events <- err
-	} else {
-		ui.incompleteDraws++
+		return
 	}
+	ui.incompleteDraws++
 }
 
 func (ui *BasicUI) onWindowPutImageDone() {
 	ui.incompleteDraws--
 }
 
+//----------
+
 func (ui *BasicUI) EnqueueNoOpEvent() {
 	ui.events <- struct{}{}
-}
-func (ui *BasicUI) RequestPaint() {
-	ui.EnqueueNoOpEvent()
 }
 
 func (ui *BasicUI) Image() draw.Image {
 	return ui.Win.Image()
 }
+
+func (ui *BasicUI) WarpPointer(p *image.Point) {
+	ui.Win.WarpPointer(p)
+	//AIE.SetWarpedPointUntilMouseMove(*p) // TODO******
+}
+
+func (ui *BasicUI) QueryPointer() (*image.Point, error) {
+	return ui.Win.QueryPointer()
+}
+
+//----------
 
 // Implements widget.CursorContext
 func (ui *BasicUI) SetCursor(c widget.Cursor) {
@@ -175,24 +201,31 @@ func (ui *BasicUI) SetCursor(c widget.Cursor) {
 	ui.Win.SetCursor(c)
 }
 
-func (ui *BasicUI) WarpPointer(p *image.Point) {
-	ui.Win.WarpPointer(p)
-	AIE.SetWarpedPointUntilMouseMove(*p)
+//----------
+
+func (ui *BasicUI) GetCPPaste(i event.CopyPasteIndex, fn func(string, bool)) {
+	ui.Win.GetCPPaste(i, func(s string, err error) {
+		if err != nil {
+			ui.events <- errors.Wrap(err, "cppaste")
+		}
+		fn(s, err == nil)
+	})
+}
+func (ui *BasicUI) SetCPCopy(i event.CopyPasteIndex, s string) {
+	if err := ui.Win.SetCPCopy(i, s); err != nil {
+		ui.events <- errors.Wrap(err, "cpcopy")
+	}
 }
 
-func (ui *BasicUI) QueryPointer() (*image.Point, error) {
-	return ui.Win.QueryPointer()
-}
-
-func (ui *BasicUI) GetCPPaste(i event.CopyPasteIndex) (string, error) {
-	return ui.Win.GetCPPaste(i)
-}
-func (ui *BasicUI) SetCPCopy(i event.CopyPasteIndex, s string) error {
-	return ui.Win.SetCPCopy(i, s)
-}
+//----------
 
 func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
 	ui.events <- &UIRunFuncEvent{f}
+}
+
+//----------
+
+type UIPaintTime struct {
 }
 
 type UIRunFuncEvent struct {

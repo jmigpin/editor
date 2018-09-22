@@ -2,13 +2,12 @@ package widget
 
 import (
 	"image"
-	"image/color"
 
 	"github.com/jmigpin/editor/util/imageutil"
 )
 
 type Rectangle struct {
-	EmbedNode
+	ENode
 	Size image.Point
 	ctx  ImageContext
 }
@@ -21,8 +20,6 @@ func (r *Rectangle) Measure(hint image.Point) image.Point {
 	return r.Size
 }
 func (r *Rectangle) Paint() {
-	r.paint(r.TreeThemePaletteColor("bg"))
-}
-func (r *Rectangle) paint(c color.Color) {
-	imageutil.FillRectangle(r.ctx.Image(), &r.Bounds, c)
+	bg := r.TreeThemePaletteColor("rect")
+	imageutil.FillRectangle(r.ctx.Image(), &r.Bounds, bg)
 }

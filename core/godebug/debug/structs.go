@@ -27,6 +27,8 @@ func init() {
 	gob.Register(&ItemAnon{})
 }
 
+//----------
+
 type LineMsg struct {
 	FileIndex  int
 	DebugIndex int
@@ -38,9 +40,6 @@ type FilesDataMsg struct {
 	Data []*AnnotatorFileData
 }
 
-type ReqFilesDataMsg struct{}
-type ReqStartMsg struct{}
-
 type AnnotatorFileData struct {
 	FileIndex int
 	DebugLen  int
@@ -49,7 +48,10 @@ type AnnotatorFileData struct {
 	FileHash  []byte
 }
 
-//----------------
+type ReqFilesDataMsg struct{}
+type ReqStartMsg struct{}
+
+//----------
 
 type V interface{}
 
@@ -94,7 +96,7 @@ func ReduceStr(str string, max int) string {
 	return str
 }
 
-//----------------
+//----------
 
 type Item interface{}
 type ItemValue struct {
@@ -142,7 +144,7 @@ type ItemLiteral struct {
 type ItemBranch struct{}
 type ItemAnon struct{}
 
-//----------------
+//----------
 
 // ItemValue
 func IV(v V) Item {
