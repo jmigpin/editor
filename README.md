@@ -128,13 +128,13 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
   - `-sub`: lists directory and sub directories
   - `-hidden`: lists directory including hidden
 - `MaximizeRow`: maximize row. Will push other rows up/down.
-- ~~`RowDirectory`: get the row directory and go to the row that has it, if it doesn't exist, create a new row with the directory listing under the active-row. Useful when editing a file and want to access the file directory content.~~ Just click on the row toolbar first part to access a specific directory.
-- ~~`DuplicateRow`: make row share the edit history with a new row that updates when changes are made.~~ Just click on the row toolbar filename to open a duplicate.
 - `CopyFilePosition`: copy to clipboard/primary the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
 - `ToggleRowHBar`: toggles row textarea horizontal scrollbar.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
-- `GoDebug`: debugger utility for go programs.
+- `GoDebug {run,test} <filename.go>`: debugger utility for go programs.
+  - `-dirs`: directories to include in the debug session.
+  - use `esc` key to stop the debug session.
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open a duplicate of that file.
 
 #### Textarea commands
@@ -165,7 +165,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 - `esc`:
   - ~~close context float box~~
-  - close debugging session
+  - stop debugging session
 - `f1`: ~~toggle context float box~~ (work in progress)
   - ~~does auto-completion in `.go` files.~~
 
