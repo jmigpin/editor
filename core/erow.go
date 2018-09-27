@@ -112,7 +112,9 @@ func (erow *ERow) initHandlers() {
 			mods := evt.Mods.ClearLocks()
 			switch {
 			case mods.Is(event.ModCtrl) && evt.LowerRune() == 's':
-				erow.Info.SaveFile()
+				if err := erow.Info.SaveFile(); err != nil {
+					erow.Ed.Error(err)
+				}
 			case mods.Is(event.ModCtrl) && evt.LowerRune() == 'f':
 				FindShortcut(erow)
 			}
