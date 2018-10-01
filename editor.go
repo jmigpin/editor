@@ -30,6 +30,7 @@ func main() {
 	tabWidthFlag := flag.Int("tabwidth", 8, "")
 	shadowsFlag := flag.Bool("shadows", true, "shadow effects on some elements")
 	sessionNameFlag := flag.String("sessionname", "", "open existing session")
+	useMultiKeyFlag := flag.Bool("usemultikey", false, "use multi-key to compose characters ([multi-key, ~, a]=ã, ...)")
 
 	flag.Parse()
 
@@ -59,6 +60,8 @@ func main() {
 
 		SessionName: *sessionNameFlag,
 		Filenames:   flag.Args(),
+
+		UseMultiKey: *useMultiKeyFlag,
 	}
 	_, err := core.NewEditor(eopt)
 	if err != nil {

@@ -64,7 +64,7 @@ func (ed *Editor) init(opt *Options) error {
 		fswatcher.Rename
 	ed.Watcher = fswatcher.NewTargetWatcher(w)
 
-	ed.setupTheme(opt)
+	ed.setupOptions(opt)
 
 	// user interface
 	ui0, err := ui.NewUI(ed.events, "Editor")
@@ -333,6 +333,12 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 
 //----------
 
+func (ed *Editor) setupOptions(opt *Options) {
+	ed.setupTheme(opt)
+
+	event.UseMultiKey = opt.UseMultiKey
+}
+
 func (ed *Editor) setupTheme(opt *Options) {
 	drawer3.WrapLineRune = rune(opt.WrapLineRune)
 	drawutil.TabWidth = opt.TabWidth
@@ -467,4 +473,6 @@ type Options struct {
 
 	SessionName string
 	Filenames   []string
+
+	UseMultiKey bool
 }

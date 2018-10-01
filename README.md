@@ -34,7 +34,6 @@ go build
 ```
 
 ```
-./editor --help
 Usage of ./editor:
   -colortheme string
     	available: light, dark, acme (default "light")
@@ -60,6 +59,8 @@ Usage of ./editor:
     	shadow effects on some elements (default true)
   -tabwidth int
     	 (default 8)
+  -usemultikey
+    	use multi-key to compose characters ([multi-key, ~, a]=ã, ...)
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8594)
 ```

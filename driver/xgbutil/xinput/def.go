@@ -82,10 +82,8 @@ var xkeysymToEvKeySym = map[xproto.Keysym]event.KeySym{
 	xf86xkAudioRaiseVolume: event.KSymVolumeUp,
 	xf86xkAudioMute:        event.KSymMute,
 
-	//xkMultiKey  : event.KSym,
-	//xkMetaLeft:  event.KSym,
-	//xkMetaRight: event.KSym,
-	//xkMenu      : event.KSym,
+	xkMultiKey: event.KSymMultiKey,
+	xkMenu:     event.KSymMenu,
 }
 
 //----------
@@ -104,7 +102,6 @@ const (
 	xkBackSpace = 0xff08
 	xkReturn    = 0xff0d
 	xkEscape    = 0xff1b
-	xkMultiKey  = 0xff20
 	xkHome      = 0xff50
 	xkLeft      = 0xff51
 	xkUp        = 0xff52
@@ -114,8 +111,6 @@ const (
 	xkPageDown  = 0xff56
 	xkEnd       = 0xff57
 	xkInsert    = 0xff63
-	xkMenu      = 0xff67
-	xkNumLock   = 0xff7f
 	xkF1        = 0xffbe
 	xkF2        = 0xffbf
 	xkF3        = 0xffc0
@@ -132,8 +127,6 @@ const (
 	xkShiftR    = 0xffe2
 	xkControlL  = 0xffe3
 	xkControlR  = 0xffe4
-	xkCapsLock  = 0xffe5
-	xkShiftLock = 0xffe6
 	xkMetaLeft  = 0xffe7
 	xkMetaRight = 0xffe8
 	xkAltL      = 0xffe9
@@ -142,6 +135,10 @@ const (
 	xkSuperR    = 0xffec
 	xkDelete    = 0xffff
 	xkTab       = 0xff09
+
+	xkNumLock   = 0xff7f
+	xkCapsLock  = 0xffe5
+	xkShiftLock = 0xffe6
 
 	xkGrave      = 0xfe50
 	xkAcute      = 0xfe51
@@ -196,6 +193,9 @@ const (
 	xkKeypad7 = 0xffb7
 	xkKeypad8 = 0xffb8
 	xkKeypad9 = 0xffb9
+
+	xkMultiKey = 0xff20
+	xkMenu     = 0xff67
 
 	//xkA = 0x41
 	//xkZ = 0x5a
