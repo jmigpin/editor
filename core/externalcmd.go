@@ -8,10 +8,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/util/osexecutil"
 )
 
 func ExternalCmd(erow *ERow, part *toolbarparser.Part) {
@@ -68,9 +68,9 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		cmd := exec.CommandContext(ctx, cargs[0], cargs[1:]...)
 		cmd.Dir = erow.Info.Name()
 		cmd.Env = env
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 		cmd.Stdout = w
 		cmd.Stderr = w
+		osexecutil.SetupExecCmdSysProcAttr(cmd)
 
 		// run command
 		err := cmd.Start()
@@ -82,7 +82,7 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		go func() {
 			select {
 			case <-ctx.Done():
-				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+				_ = osexecutil.KillExecCmd(cmd)
 			}
 		}()
 

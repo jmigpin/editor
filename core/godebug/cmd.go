@@ -13,10 +13,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/core/gosource"
+	"github.com/jmigpin/editor/util/osexecutil"
 )
 
 type Cmd struct {
@@ -342,9 +342,9 @@ func (cmd *Cmd) runCmd(ctx context.Context, dir string, args []string) error {
 func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.Cmd, error) {
 	cmd2 := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd2.Dir = dir
-	cmd2.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd2.Stdout = cmd.Stdout
 	cmd2.Stderr = cmd.Stderr
+	osexecutil.SetupExecCmdSysProcAttr(cmd2)
 
 	if err := cmd2.Start(); err != nil {
 		return nil, err
@@ -355,7 +355,7 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.
 	go func() {
 		select {
 		case <-ctx.Done():
-			_ = syscall.Kill(-cmd2.Process.Pid, syscall.SIGKILL)
+			_ = osexecutil.KillExecCmd(cmd2)
 		}
 	}()
 

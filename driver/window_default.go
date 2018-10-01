@@ -1,4 +1,4 @@
-// TODO: build flags, this is linux/unix
+// +build !windows
 
 package driver
 
