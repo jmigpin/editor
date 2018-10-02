@@ -95,9 +95,9 @@ Examples:
   [guru godoc](https://godoc.org/golang.org/x/tools/cmd/guru), [go tools](https://github.com/golang/tools).
   - `grep -niIR someword`
   Grep results with line positions that are clickable.
-  - xdg-open $edDir
+  - `xdg-open $edDir`
   Open favorite external application with active row directory.
-  - xterm 
+  - `xterm` 
   Open an xterm at the active row directory.
 
 ### Commands
