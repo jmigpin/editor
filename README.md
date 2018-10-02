@@ -95,6 +95,10 @@ Examples:
   [guru godoc](https://godoc.org/golang.org/x/tools/cmd/guru), [go tools](https://github.com/golang/tools).
   - `grep -niIR someword`
   Grep results with line positions that are clickable.
+  - xdg-open $edDir
+  Open favorite external application with active row directory.
+  - xterm 
+  Open an xterm at the active row directory.
 
 ### Commands
 
@@ -147,6 +151,8 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 ### Environment variables set available to external commands
 
+- `$edName`: row name. 
+- `$edDir`: row directory. 
 - `$edPosOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
 
 ### Row states

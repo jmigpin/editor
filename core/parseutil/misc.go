@@ -442,3 +442,28 @@ func WordIsolated(r iout.Reader, i, le int) bool {
 //	}
 //	return l, r
 //}
+
+//----------
+
+func DetectEnvVar(str, name string) bool {
+	vstr := "$" + name
+	i := strings.Index(str, vstr)
+	if i < 0 {
+		return false
+	}
+
+	e := i + len(vstr)
+	if e > len(str) {
+		return false
+	}
+
+	// validate rune after the name
+	ru, _ := utf8.DecodeRuneInString(str[e:])
+	if ru != utf8.RuneError {
+		if unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_' {
+			return false
+		}
+	}
+
+	return true
+}

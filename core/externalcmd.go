@@ -23,7 +23,8 @@ func ExternalCmdFromArgs(erow *ERow, cargs []string, fend func(error)) {
 	if erow.Info.IsFileButNotDir() {
 		externalCmdFileButNotDir(erow, cargs, fend)
 	} else if erow.Info.IsDir() {
-		externalCmdDir(erow, cargs, fend, nil)
+		env := populateEnvVars(erow, cargs)
+		externalCmdDir(erow, cargs, fend, env)
 	} else {
 		erow.Ed.Errorf("unable to run external cmd for erow: %v", erow.Info.Name())
 	}
@@ -39,17 +40,45 @@ func externalCmdFileButNotDir(erow *ERow, cargs []string, fend func(error)) {
 	rowPos := erow.Row.PosBelow()
 	erow2 := NewERow(erow.Ed, info, rowPos)
 
-	// position offset: <line:#offset>
-	offset := erow.Row.TextArea.TextCursor.Index()
-	posOffset := fmt.Sprintf("%v:#%v", erow.Info.Name(), offset)
-
-	// environment
-	env := append(
-		os.Environ(),
-		"edPosOffset="+posOffset,
-	)
+	env := populateEnvVars(erow, cargs)
 
 	externalCmdDir(erow2, cargs, fend, env)
+}
+
+//----------
+
+func populateEnvVars(erow *ERow, cargs []string) []string {
+
+	// funcs that populate env vars
+
+	getPosOffset := func() string {
+		if !erow.Info.IsFileButNotDir() {
+			return ""
+		}
+		offset := erow.Row.TextArea.TextCursor.Index()
+		posOffset := fmt.Sprintf("%v:#%v", erow.Info.Name(), offset)
+		return posOffset
+	}
+
+	// supported env vars
+	m := map[string]func() string{
+		"edPosOffset": getPosOffset,
+		"edName":      erow.Info.Name,
+		"edDir":       erow.Info.Dir,
+	}
+
+	// populate env vars if detected
+	env := os.Environ()
+	for k, v := range m {
+		for _, s := range cargs {
+			if parseutil.DetectEnvVar(s, k) {
+				env = append(env, k+"="+v())
+				break
+			}
+		}
+	}
+
+	return env
 }
 
 //----------

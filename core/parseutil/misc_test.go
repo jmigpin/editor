@@ -60,3 +60,23 @@ func TestWordAtIndex(t *testing.T) {
 		t.Fatalf("%v %v %v", w, i, err)
 	}
 }
+
+//----------
+
+func TestDetectVar(t *testing.T) {
+	str := "aaaa$b $cd $e"
+	if !DetectEnvVar(str, "b") {
+		t.Fatal()
+	}
+	if !DetectEnvVar(str, "cd") {
+		t.Fatal()
+	}
+	if !DetectEnvVar(str, "e") {
+		t.Fatal()
+	}
+
+	str2 := "$a"
+	if !DetectEnvVar(str2, "a") {
+		t.Fatal()
+	}
+}
