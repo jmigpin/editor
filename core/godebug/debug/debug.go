@@ -1,7 +1,7 @@
 package debug
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -27,7 +27,7 @@ func hotStartServer() {
 func startServer() {
 	srv, err := NewServer()
 	if err != nil {
-		log.Print(err)
+		fmt.Printf("godebug/debug: start server error: %v\n", err)
 		os.Exit(1)
 	}
 	server = srv
