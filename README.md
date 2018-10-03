@@ -77,7 +77,7 @@ The row toolbar has a square showing the state of the row.
 
 Commands in toolbars are separated by "|" (not to be confused with the shell pipe). If a shell pipe is needed it should be escaped with a backslash.
 
-All commands implemented by the editor start with an Uppercase letter. Otherwise it tries to run an existent external program. 
+All commands implemented by the editor start with an **Uppercase letter**. Otherwise it tries to run an existent external program. 
 
 Examples:
   - `~/tmp/subdir/file1.txt | ls`
@@ -235,12 +235,14 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `buttonWheelUp` on scrollbar: page up
 - `buttonWheelDown` on scrollbar: page down
 - `shift`+`buttonLeft`: move cursor to point adding to selection
+- `ctrl`+`buttonLeft`:
+  - `godebug`: select annotation 
 - `ctrl`+`buttonWheelUp`: 
-  - show previous debug step
+  - `godebug`: show previous debug step
   - ~~on textarea: show previous debug step~~
   - ~~over a debug annotation: show same line previous annotation~~
 - `ctrl`+`buttonWheelDown`: 
-  - show next debug step
+  - `godebug`: show next debug step
   - ~~on textarea: show next debug step~~
   - ~~over a debug annotation: show same line next annotation~~
 
