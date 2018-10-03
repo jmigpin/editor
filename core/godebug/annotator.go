@@ -179,13 +179,15 @@ func (ann *Annotator) ConfigSource() (string, string) {
 	// content: "+build" line needs and empty line afterwards
 	src := `// +build godebug
 
-		package godebugconfig
-		import "` + debugPkgPath + `"
-		func init(){
-			debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
-				` + entriesStr + `
-			}
-		}
+package godebugconfig
+import "` + debugPkgPath + `"
+func init(){
+	debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
+		` + entriesStr + `
+	}
+
+	debug.Start()
+}
 	`
 
 	return src, pkgFilename

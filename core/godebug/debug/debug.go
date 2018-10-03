@@ -7,12 +7,20 @@ import (
 )
 
 var server *Server
-var serverHotStartMu sync.Mutex
+var startServerMu sync.Mutex
 
-func Exit() {
-	// TODO: on panic wrap main with recover ?
-	if server != nil {
-		server.Close()
+// called by the generated config
+func Start() {
+	hotStartServer()
+}
+
+func hotStartServer() {
+	if server == nil {
+		startServerMu.Lock()
+		if server == nil {
+			startServer()
+		}
+		startServerMu.Unlock()
 	}
 }
 
@@ -25,15 +33,15 @@ func startServer() {
 	server = srv
 }
 
-func hotStartServer() {
-	if server == nil {
-		serverHotStartMu.Lock()
-		if server == nil {
-			startServer()
-		}
-		serverHotStartMu.Unlock()
+//----------
+
+func Exit() {
+	if server != nil {
+		server.Close()
 	}
 }
+
+//----------
 
 func Line(fileIndex, debugIndex, offset int, item Item) {
 	hotStartServer()
