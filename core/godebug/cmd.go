@@ -208,13 +208,13 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 	// start server
 	filenameWork2 := normalizeFilenameForExec(filenameWork)
 	args = append([]string{filenameWork2}, args...)
-	cmd2, err := cmd.startCmd(ctx2, cmd.getDir(), args)
+	serverCmd, err := cmd.startCmd(ctx2, cmd.getDir(), args)
 	if err != nil {
 		cancelCtx()
 		return err
 	}
 	// keep to allow printing the cmd pid
-	cmd.ServerCmd = cmd2
+	cmd.ServerCmd = serverCmd
 
 	// start client
 	client, err := NewClient(ctx2)
@@ -228,9 +228,10 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 	cmd.done.Add(1)
 	go func() {
 		defer cmd.done.Done()
-		err := cmd2.Wait() // wait for server to finish
-		cmd.doneErr = err
+		cmd.doneErr = serverCmd.Wait() // wait for server to finish
+		// stop client
 		cancelCtx()
+		cmd.Client.Close()
 	}()
 
 	// client done
@@ -238,6 +239,7 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 	go func() {
 		defer cmd.done.Done()
 		cmd.Client.Wait() // wait for client to finish
+		// stop server
 		cancelCtx()
 	}()
 
