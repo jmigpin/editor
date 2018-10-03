@@ -60,13 +60,16 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			return event.Handled
 		case event.ButtonLeft:
 			// positional drawer annotations click
-			if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
-				if d.Annotations.On() {
-					i, o, ok := d.BoundsAnnotationsIndexOf(ev.Point)
-					if ok {
-						ev2 := &TextAreaAnnotationClickEvent{ta, i, o, ev.Button}
-						ta.EvReg.RunCallbacks(TextAreaAnnotationClickEventId, ev2)
-						return event.Handled
+			m := ev.Mods.ClearLocks()
+			if m.Is(event.ModCtrl) {
+				if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
+					if d.Annotations.On() {
+						i, o, ok := d.BoundsAnnotationsIndexOf(ev.Point)
+						if ok {
+							ev2 := &TextAreaSelectAnnotationEvent{ta, i, o, ev.Button}
+							ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
+							return event.Handled
+						}
 					}
 				}
 			}
@@ -107,7 +110,7 @@ func (ta *TextArea) PointIndexInsideSelection(p image.Point) bool {
 const (
 	TextAreaSetStrEventId = iota
 	TextAreaCmdEventId
-	TextAreaAnnotationClickEventId
+	TextAreaSelectAnnotationEventId
 )
 
 type TextAreaCmdEvent struct {
@@ -117,7 +120,7 @@ type TextAreaCmdEvent struct {
 type TextAreaSetStrEvent struct {
 	TextArea *TextArea
 }
-type TextAreaAnnotationClickEvent struct {
+type TextAreaSelectAnnotationEvent struct {
 	TextArea        *TextArea
 	AnnotationIndex int
 	Offset          int

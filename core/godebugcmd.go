@@ -32,6 +32,10 @@ func GoDebugPrev(ed *Editor) {
 	godebugi.Prev(ed)
 }
 
+func GoDebugSelectAnnotation(erow *ERow, annIndex, offset int) {
+	godebugi.SelectAnnotation(erow, annIndex, offset)
+}
+
 //----------
 
 // Note: Unique instance because there is no easy solution to debug two (or more) programs that have common files.
@@ -96,7 +100,7 @@ func (gdi *GoDebugInstance) Next(ed *Editor) {
 		defer gdi.data.Unlock()
 		di := gdi.data.dataIndex
 		if di != nil {
-			if di.SelectedArrivalIndex < di.GlobalArrivalIndex {
+			if di.SelectedArrivalIndex < di.GlobalArrivalIndex-1 {
 				di.SelectedArrivalIndex++
 				return true
 			}
@@ -128,6 +132,34 @@ func (gdi *GoDebugInstance) Prev(ed *Editor) {
 	if needUpdate() {
 		gdi.updateUI()
 	}
+}
+
+//----------
+
+func (gdi *GoDebugInstance) SelectAnnotation(erow *ERow, annIndex, offset int) {
+	gdi.data.Lock()
+	defer gdi.data.Unlock()
+	di := gdi.data.dataIndex
+	if di == nil {
+		return
+	}
+
+	fi, ok := di.FilesIndex[erow.Info.Name()]
+	if !ok {
+		return
+	}
+
+	fmsgs := &di.FileMsgs[fi]
+
+	if annIndex < 0 || annIndex >= len(fmsgs.AnnEntriesLMIndex) {
+		return
+	}
+
+	k := fmsgs.AnnEntriesLMIndex[annIndex]
+	lm := fmsgs.LineMsgs[annIndex]
+	di.SelectedArrivalIndex = lm.Msgs[k].GlobalArrivalIndex
+
+	gdi.updateUI()
 }
 
 //----------
@@ -196,6 +228,7 @@ func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd
 	// TODO: timeout to receive file set positions?
 
 	// loop
+	const updatesPerSecond = 20
 	var updatec <-chan time.Time
 	for {
 		select {
@@ -210,7 +243,7 @@ func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd
 			}
 			gdi.handleMsg(msg, w, cmd)
 			if updatec == nil {
-				t := time.NewTimer(50 * time.Millisecond)
+				t := time.NewTimer(time.Second / updatesPerSecond)
 				updatec = t.C
 			}
 
@@ -287,13 +320,22 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 
 		di := gdi.data.dataIndex
 		fmsgs := &di.FileMsgs[findex]
-		fmsgs.UpdateAnnEntries(di.SelectedArrivalIndex)
+
+		// setup lock/unlock each erow annotations
+		for _, erow := range info.ERows {
+			ta := erow.Row.TextArea
+			if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
+				d.Annotations.Opt.EntriesMu.Lock()
+				d.Annotations.Opt.EntriesMu.Unlock()
+			}
+		}
+
+		// update annotations (safe after lock)
+		fmsgs.updateAnnEntries(di.SelectedArrivalIndex)
 
 		for _, erow := range info.ERows {
 			ta := erow.Row.TextArea
 			if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
-				// TODO: need to lock read/write textarea drawers access to fmsgs.AnnEntries
-				// TODO: already set as a pointer, so, need lock when editing
 				d.Annotations.SetOn(true)
 				d.Annotations.Opt.Select.Line = fmsgs.SelectedLine
 				d.Annotations.Opt.Entries = fmsgs.AnnEntries
@@ -342,10 +384,12 @@ func (di *GDDataIndex) IndexMsg(msg interface{}) error {
 			if afd.FileIndex > len(di.FileMsgs) {
 				return fmt.Errorf("bad file index at init: %v len=%v", afd.FileIndex, len(di.FileMsgs))
 			}
+			fmsgs := &di.FileMsgs[afd.FileIndex]
 			// init
-			di.FileMsgs[afd.FileIndex].LineMsgs = make([]GDLineMsgs, afd.DebugLen)
+			fmsgs.LineMsgs = make([]GDLineMsgs, afd.DebugLen)
 			// init annotations entries
-			di.FileMsgs[afd.FileIndex].AnnEntries = make([]*drawer3.Annotation, afd.DebugLen)
+			fmsgs.AnnEntries = make([]*drawer3.Annotation, afd.DebugLen)
+			fmsgs.AnnEntriesLMIndex = make([]int, afd.DebugLen)
 		}
 	case *debug.LineMsg:
 		// check index
@@ -389,12 +433,13 @@ type GDFileMsgs struct {
 	LineMsgs []GDLineMsgs
 
 	// current annotation entries to be shown with a file
-	AnnEntries []*drawer3.Annotation
+	AnnEntries        []*drawer3.Annotation
+	AnnEntriesLMIndex []int // line messages index
 
 	SelectedLine int
 }
 
-func (fmsgs *GDFileMsgs) UpdateAnnEntries(maxArrivalIndex int) {
+func (fmsgs *GDFileMsgs) updateAnnEntries(maxArrivalIndex int) {
 	fmsgs.SelectedLine = -1
 	for line, lm := range fmsgs.LineMsgs {
 		k := sort.Search(len(lm.Msgs), func(i int) bool {
@@ -413,6 +458,7 @@ func (fmsgs *GDFileMsgs) UpdateAnnEntries(maxArrivalIndex int) {
 				fmsgs.SelectedLine = line
 			}
 		}
+		fmsgs.AnnEntriesLMIndex[line] = k
 	}
 }
 
@@ -423,16 +469,16 @@ type GDLineMsgs struct {
 type GDLineMsg struct {
 	GlobalArrivalIndex int
 	LineMsg            *debug.LineMsg
-	ann                *drawer3.Annotation
+	cachedAnn          *drawer3.Annotation
 }
 
 func (lmsg *GDLineMsg) Annotation() *drawer3.Annotation {
 	// build annotation
-	if lmsg.ann == nil {
-		lmsg.ann = &drawer3.Annotation{
+	if lmsg.cachedAnn == nil {
+		lmsg.cachedAnn = &drawer3.Annotation{
 			Bytes:  []byte(godebug.StringifyItem(lmsg.LineMsg.Item)),
 			Offset: lmsg.LineMsg.Offset,
 		}
 	}
-	return lmsg.ann
+	return lmsg.cachedAnn
 }

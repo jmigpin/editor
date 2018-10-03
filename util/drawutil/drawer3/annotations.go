@@ -23,7 +23,7 @@ func Annotations1() Annotations {
 
 func (ann *Annotations) Start(r *ExtRunner) {
 	ann.data = AnnotationsData{}
-	ann.Opt.RLock()
+	ann.Opt.EntriesMu.RLock()
 }
 
 func (ann *Annotations) Iterate(r *ExtRunner) {
@@ -54,7 +54,7 @@ func (ann *Annotations) Iterate(r *ExtRunner) {
 }
 
 func (ann *Annotations) End(r *ExtRunner) {
-	ann.Opt.RUnlock()
+	ann.Opt.EntriesMu.RUnlock()
 }
 
 //----------
@@ -164,9 +164,10 @@ type AnnotationsData struct {
 //----------
 
 type AnnotationsOpt struct {
-	sync.RWMutex
-	Entries []*Annotation // ordered
-	Fg, Bg  color.Color
+	Entries   []*Annotation // ordered
+	EntriesMu sync.RWMutex  // allow external processes to lock for update
+
+	Fg, Bg color.Color
 
 	Select struct {
 		Line   int
