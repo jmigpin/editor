@@ -15,6 +15,7 @@ import (
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/core/gosource"
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 const debugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
@@ -59,10 +60,12 @@ func NewAnnotator() *Annotator {
 
 func (ann *Annotator) ParseAnnotate(filename string, src interface{}) (*ast.File, error) {
 	// parse
-	astFile, err := parser.ParseFile(ann.FSet, filename, src, parser.Mode(0))
+	mode := parser.ParseComments // to support cgo directives on imports
+	astFile, err := parser.ParseFile(ann.FSet, filename, src, mode)
 	if err != nil {
 		return nil, err
 	}
+
 	// annotate
 	if err := ann.annotate(filename, src, astFile); err != nil {
 		return nil, err
@@ -236,8 +239,18 @@ func (ann *Annotator) testMainSource(pkgName string) string {
 //----------
 
 func (ann *Annotator) Print(w io.Writer, astFile *ast.File) error {
+	// TODO: without tabwidth set, it won't output the source correctly
+
 	// print with source positions from original file
 	cfg := &printer.Config{Tabwidth: 4, Mode: printer.SourcePos}
+	return cfg.Fprint(w, ann.FSet, astFile)
+}
+
+func (ann *Annotator) Print2(w io.Writer, astFile *ast.File) error {
+	// TODO: without tabwidth set, it won't output the source correctly
+
+	// print with source positions from original file
+	cfg := &printer.Config{Mode: printer.SourcePos | printer.TabIndent}
 	return cfg.Fprint(w, ann.FSet, astFile)
 }
 
@@ -1320,36 +1333,7 @@ func (sann *SingleAnnotator) insertImportDebug(astFile *ast.File) {
 }
 
 func (sann *SingleAnnotator) insertImport(astFile *ast.File, name, path string) {
-	// pkg quoted path
-	qpath := fmt.Sprintf("%q", path)
-
-	// check if it is being imported already
-	for _, imp := range astFile.Imports {
-		if name != "" {
-			if imp.Name != nil && imp.Name.Name == name {
-				return
-			}
-		} else {
-			if imp.Path.Value == qpath {
-				return
-			}
-		}
-	}
-
-	// pkg name
-	var nameId *ast.Ident
-	if name != "" {
-		nameId = ast.NewIdent(name)
-	}
-
-	// import decl
-	imp := &ast.ImportSpec{
-		Name: nameId,
-		Path: &ast.BasicLit{Kind: token.STRING, Value: qpath},
-	}
-	decl := &ast.GenDecl{Tok: token.IMPORT, Specs: []ast.Spec{imp}}
-	// prepend to decls
-	astFile.Decls = append([]ast.Decl{decl}, astFile.Decls...)
+	astutil.AddNamedImport(sann.ann.FSet, astFile, name, path)
 }
 
 func (sann *SingleAnnotator) insertDebugExitInMain(astFile *ast.File) bool {

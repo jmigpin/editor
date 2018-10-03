@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
-	"go/printer"
 	"io"
 	"io/ioutil"
 	"os"
@@ -420,9 +419,7 @@ func (cmd *Cmd) writeAstFileToTmpDir(astFile *ast.File) error {
 	}
 	defer f.Close()
 
-	// TODO: without tabwidth set it won't output the source correctly
-	cfg := &printer.Config{Tabwidth: 4, Mode: printer.SourcePos | printer.TabIndent}
-	return cfg.Fprint(f, cmd.ann.FSet, astFile)
+	return cmd.ann.Print(f, astFile)
 }
 
 func (cmd *Cmd) writeConfigFileToTmpDir() error {
