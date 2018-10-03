@@ -8,6 +8,8 @@ import (
 	"sync"
 )
 
+var ServerAddress = ":8070" // localhost
+
 //var logger = log.New(os.Stdout, "debug: ", 0)
 var logger = log.New(ioutil.Discard, "debug: ", 0)
 
@@ -26,7 +28,7 @@ type Server struct {
 
 func NewServer() (*Server, error) {
 	logger.Print("listen")
-	ln, err := net.Listen("tcp", ":8070")
+	ln, err := net.Listen("tcp", ServerAddress)
 	if err != nil {
 		return nil, err
 	}

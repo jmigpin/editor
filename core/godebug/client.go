@@ -54,7 +54,7 @@ func (client *Client) connect(ctx context.Context) error {
 	for {
 		// connect
 		var dialer net.Dialer
-		conn0, err := dialer.DialContext(ctx, "tcp", ":8070")
+		conn0, err := dialer.DialContext(ctx, "tcp", debug.ServerAddress)
 		if err != nil {
 			// retry while the end time is not reached
 			if time.Now().Before(end) {
