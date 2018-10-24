@@ -76,7 +76,15 @@ func filename(erow *core.ERow, index int) (bool, error) {
 		rowPos = erow.Ed.GoodRowPos()
 	}
 
-	core.OpenERowFilePosVisibleOrNew(erow.Ed, filePos, rowPos)
+	conf := &core.OpenFileERowConfig{
+		FilePos:               filePos,
+		RowPos:                rowPos,
+		FlashRowsIfNotFlashed: true,
+		FlashVisibleOffsets:   true,
+		NewIfNotExistent:      true,
+		NewIfOffsetNotVisible: true,
+	}
+	core.OpenFileERow(erow.Ed, conf)
 
 	return true, nil
 }

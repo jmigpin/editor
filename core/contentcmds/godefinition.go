@@ -38,12 +38,16 @@ func goDefinition(erow *core.ERow, index int) (bool, error) {
 
 	// place the file under the calling row
 	rowPos := erow.Row.PosBelow()
-	// if calling erow is dir, place the file at a good place
-	if erow.Info.IsDir() {
-		rowPos = erow.Ed.GoodRowPos()
-	}
 
-	core.OpenERowFilePosVisibleOrNew(erow.Ed, filePos, rowPos)
+	conf := &core.OpenFileERowConfig{
+		FilePos:               filePos,
+		RowPos:                rowPos,
+		FlashRowsIfNotFlashed: true,
+		FlashVisibleOffsets:   true,
+		NewIfNotExistent:      true,
+		NewIfOffsetNotVisible: true,
+	}
+	core.OpenFileERow(erow.Ed, conf)
 
 	return true, nil
 }
