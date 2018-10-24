@@ -231,7 +231,10 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 		cmd.doneErr = serverCmd.Wait() // wait for server to finish
 		// stop client
 		cancelCtx()
-		cmd.Client.Close()
+		// TODO: unique id for client/server
+		// can't close client or it might not receive last msgs
+		// but need to close in case it failed to start it connects to a previous instance
+		//cmd.Client.Close()
 	}()
 
 	// client done

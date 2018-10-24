@@ -45,6 +45,8 @@ func NewEditor(opt *Options) (*Editor, error) {
 		return nil, err
 	}
 
+	GoDebugInit(ed)
+
 	ed.eventLoop() // blocks
 
 	return ed, nil
@@ -426,21 +428,6 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 	switch t := ev.(type) {
 	case *event.WindowInput:
 		switch t2 := t.Event.(type) {
-		case *event.MouseDown:
-			switch t2.Button {
-			case event.ButtonWheelUp:
-				m := t2.Mods.ClearLocks()
-				if m.Is(event.ModCtrl) {
-					GoDebugPrev(ed)
-					return event.Handled
-				}
-			case event.ButtonWheelDown:
-				m := t2.Mods.ClearLocks()
-				if m.Is(event.ModCtrl) {
-					GoDebugNext(ed)
-					return event.Handled
-				}
-			}
 		case *event.KeyUp:
 			m := t2.Mods.ClearLocks()
 			if m.Is(event.ModNone) {

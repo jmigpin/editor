@@ -248,7 +248,6 @@ func (d *PosDrawer) annotationsIndexOf(p image.Point) (int, int, bool) {
 	RunExts(d, &d.rr, exts2, postStart)
 
 	if aiof.entryIndex < 0 {
-		log.Printf("not found")
 		return 0, 0, false
 	}
 

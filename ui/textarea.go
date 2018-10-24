@@ -58,27 +58,38 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			ev2 := &TextAreaCmdEvent{ta, i}
 			ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
 			return event.Handled
-		case event.ButtonLeft:
-			// positional drawer annotations click
-			m := ev.Mods.ClearLocks()
-			if m.Is(event.ModCtrl) {
-				if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
-					if d.Annotations.On() {
-						i, o, ok := d.BoundsAnnotationsIndexOf(ev.Point)
-						if ok {
-							ev2 := &TextAreaSelectAnnotationEvent{ta, i, o, ev.Button}
-							ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
-							return event.Handled
-						}
-					}
-				}
-			}
 		}
-
 	case *event.MouseDown:
 		switch ev.Button {
 		case event.ButtonRight:
 			ta.Cursor = widget.PointerCursor
+		case event.ButtonLeft:
+			m := ev.Mods.ClearLocks()
+			if m.Is(event.ModCtrl) {
+				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrent) {
+					return event.Handled
+				}
+			}
+		case event.ButtonWheelUp:
+			m := ev.Mods.ClearLocks()
+			if m.Is(event.ModCtrl) {
+				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentPrev) {
+					return event.Handled
+				} else {
+					ta.selAnnPrevEv()
+					return event.Handled
+				}
+			}
+		case event.ButtonWheelDown:
+			m := ev.Mods.ClearLocks()
+			if m.Is(event.ModCtrl) {
+				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentNext) {
+					return event.Handled
+				} else {
+					ta.selAnnNextEv()
+					return event.Handled
+				}
+			}
 		}
 	case *event.MouseUp:
 		switch ev.Button {
@@ -92,6 +103,30 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 		}
 	}
 	return event.NotHandled
+}
+
+//----------
+
+func (ta *TextArea) selAnnCurEv(p image.Point, typ TASelAnnType) bool {
+	if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
+		if d.Annotations.On() {
+			i, o, ok := d.BoundsAnnotationsIndexOf(p)
+			if ok {
+				ev2 := &TextAreaSelectAnnotationEvent{ta, i, o, typ}
+				ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
+				return true
+			}
+		}
+	}
+	return false
+}
+func (ta *TextArea) selAnnPrevEv() {
+	ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, TASelAnnTypePrev}
+	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
+}
+func (ta *TextArea) selAnnNextEv() {
+	ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, TASelAnnTypeNext}
+	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
 }
 
 //----------
@@ -120,9 +155,24 @@ type TextAreaCmdEvent struct {
 type TextAreaSetStrEvent struct {
 	TextArea *TextArea
 }
+
+//----------
+
 type TextAreaSelectAnnotationEvent struct {
 	TextArea        *TextArea
 	AnnotationIndex int
-	Offset          int
-	Button          event.MouseButton
+	Offset          int // annotation string click offset
+	Type            TASelAnnType
 }
+
+type TASelAnnType int
+
+const (
+	TASelAnnTypeCurrent TASelAnnType = iota // make current
+	TASelAnnTypeCurrentPrev
+	TASelAnnTypeCurrentNext
+	TASelAnnTypePrev
+	TASelAnnTypeNext
+)
+
+//----------

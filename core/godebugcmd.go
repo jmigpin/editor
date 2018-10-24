@@ -10,10 +10,16 @@ import (
 
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/pkg/errors"
 )
+
+func GoDebugInit(ed *Editor) {
+	godebugi = NewGoDebugInstance(ed)
+}
 
 func GoDebugCmd(erow *ERow, part *toolbarparser.Part) error {
 	args := part.ArgsUnquoted()
@@ -21,26 +27,18 @@ func GoDebugCmd(erow *ERow, part *toolbarparser.Part) error {
 }
 
 func GoDebugStop(ed *Editor) {
-	godebugi.CancelAndClear(ed)
+	godebugi.CancelAndClear()
 }
 
-func GoDebugNext(ed *Editor) {
-	godebugi.Next(ed)
-}
-
-func GoDebugPrev(ed *Editor) {
-	godebugi.Prev(ed)
-}
-
-func GoDebugSelectAnnotation(erow *ERow, annIndex, offset int) {
-	godebugi.SelectAnnotation(erow, annIndex, offset)
+func GoDebugSelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) {
+	godebugi.SelectAnnotation(erow, annIndex, offset, typ)
 }
 
 //----------
 
 // Note: Unique instance because there is no easy solution to debug two (or more) programs that have common files.
 
-var godebugi = NewGoDebugInstance()
+var godebugi *GoDebugInstance
 
 //----------
 
@@ -54,8 +52,8 @@ type GoDebugInstance struct {
 	ready  chan struct{}
 }
 
-func NewGoDebugInstance() *GoDebugInstance {
-	gdi := &GoDebugInstance{}
+func NewGoDebugInstance(ed *Editor) *GoDebugInstance {
+	gdi := &GoDebugInstance{ed: ed}
 	gdi.cancel = func() {}
 	gdi.ready = make(chan struct{}, 1)
 	gdi.ready <- struct{}{}
@@ -63,8 +61,6 @@ func NewGoDebugInstance() *GoDebugInstance {
 }
 
 func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
-	gdi.ed = erow.Ed
-
 	switch args[1] {
 	case "run", "test":
 		return gdi.run(erow, args)
@@ -76,90 +72,142 @@ func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
 
 //----------
 
-func (gdi *GoDebugInstance) CancelAndClear(ed *Editor) {
-	gdi.ed = ed
-
+func (gdi *GoDebugInstance) CancelAndClear() {
 	gdi.data.Lock()
 	gdi.data.dataIndex = nil
 	gdi.data.Unlock()
-
 	gdi.cancel()
-
 	gdi.updateUI()
 }
 
 //----------
 
-func (gdi *GoDebugInstance) Next(ed *Editor) {
-	gdi.ed = ed
-
-	// TODO: find next with open erow
-
-	needUpdate := func() bool {
-		gdi.data.Lock()
-		defer gdi.data.Unlock()
-		di := gdi.data.dataIndex
-		if di != nil {
-			if di.SelectedArrivalIndex < di.GlobalArrivalIndex-1 {
-				di.SelectedArrivalIndex++
-				return true
-			}
-		}
-		return false
-	}
-
-	if needUpdate() {
-		gdi.updateUI()
-	}
-}
-
-func (gdi *GoDebugInstance) Prev(ed *Editor) {
-	gdi.ed = ed
-
-	needUpdate := func() bool {
-		gdi.data.Lock()
-		defer gdi.data.Unlock()
-		di := gdi.data.dataIndex
-		if di != nil {
-			if di.SelectedArrivalIndex > 0 {
-				di.SelectedArrivalIndex--
-				return true
-			}
-		}
-		return false
-	}
-
-	if needUpdate() {
-		gdi.updateUI()
-	}
-}
-
-//----------
-
-func (gdi *GoDebugInstance) SelectAnnotation(erow *ERow, annIndex, offset int) {
+func (gdi *GoDebugInstance) SelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) {
 	gdi.data.Lock()
-	defer gdi.data.Unlock()
+
 	di := gdi.data.dataIndex
 	if di == nil {
+		gdi.data.Unlock()
 		return
 	}
+
+	update := false
+	switch typ {
+	case ui.TASelAnnTypeCurrent,
+		ui.TASelAnnTypeCurrentPrev,
+		ui.TASelAnnTypeCurrentNext:
+		update = gdi.selectCurrent(erow, annIndex, offset, typ)
+	case ui.TASelAnnTypePrev:
+		update = gdi.selectPrev()
+	case ui.TASelAnnTypeNext:
+		update = gdi.selectNext()
+	}
+
+	gdi.data.Unlock()
+
+	if update {
+		gdi.updateUIShowLine(erow)
+	}
+}
+
+func (gdi *GoDebugInstance) selectCurrent(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) bool {
+	di := gdi.data.dataIndex
 
 	fi, ok := di.FilesIndex[erow.Info.Name()]
 	if !ok {
-		return
+		return false
 	}
 
 	fmsgs := &di.FileMsgs[fi]
 
 	if annIndex < 0 || annIndex >= len(fmsgs.AnnEntriesLMIndex) {
-		return
+		return false
 	}
 
-	k := fmsgs.AnnEntriesLMIndex[annIndex]
 	lm := fmsgs.LineMsgs[annIndex]
+	k := fmsgs.AnnEntriesLMIndex[annIndex]
+
+	// currently nothing is shown, use first
+	if k < 0 {
+		k = 0
+	}
+
+	// adjust k according to type
+	switch typ {
+	case ui.TASelAnnTypeCurrent: // use k, nothing todo
+	case ui.TASelAnnTypeCurrentPrev:
+		if k > 0 {
+			k--
+		}
+	case ui.TASelAnnTypeCurrentNext:
+		if k < len(lm.Msgs)-1 {
+			k++
+		}
+	}
+
+	// set selected index
 	di.SelectedArrivalIndex = lm.Msgs[k].GlobalArrivalIndex
 
-	gdi.updateUI()
+	return true
+}
+
+func (gdi *GoDebugInstance) selectNext() bool {
+	// TODO: find next with open erow
+
+	di := gdi.data.dataIndex
+	if di.SelectedArrivalIndex < di.GlobalArrivalIndex-1 {
+		di.SelectedArrivalIndex++
+		return true
+	}
+	return false
+}
+
+func (gdi *GoDebugInstance) selectPrev() bool {
+	// TODO: find next with open erow
+
+	di := gdi.data.dataIndex
+	if di.SelectedArrivalIndex > 0 {
+		di.SelectedArrivalIndex--
+		return true
+	}
+	return false
+}
+
+//----------
+
+func (gdi *GoDebugInstance) showSelectedLine(erow *ERow) {
+	di := gdi.data.dataIndex
+	for i := 0; i < len(di.FileMsgs); i++ {
+		fmsgs := &di.FileMsgs[i]
+		afd := di.Afds[i]
+
+		if fmsgs.SelectedLine >= 0 {
+			lm := fmsgs.LineMsgs[fmsgs.SelectedLine]
+			if len(lm.Msgs) == 0 {
+				continue
+			}
+
+			dlm := lm.Msgs[0].DLineMsg
+
+			// show line
+			rowPos := erow.Row.PosBelow()
+			fo := &parseutil.FileOffset{Filename: afd.Filename, Offset: dlm.Offset}
+			conf := &OpenFileERowConfig{
+				FileOffset:          fo,
+				RowPos:              rowPos,
+				FlashVisibleOffsets: true,
+				NewIfNotExistent:    true,
+			}
+			OpenFileERow(gdi.ed, conf)
+		}
+	}
+}
+
+//----------
+
+func (gdi *GoDebugInstance) CheckTextAreaContent(erow *ERow) {
+	// update godebug annotations if hash doesn't match
+	// TODO
 }
 
 //----------
@@ -286,11 +334,31 @@ func (gdi *GoDebugInstance) updateUI() {
 		gdi.data.RLock()
 		defer gdi.data.RUnlock()
 
-		// update all infos (if necessary)
-		for _, info := range gdi.ed.ERowInfos {
-			gdi.updateInfoUI(info)
-		}
+		gdi.updateUI3()
 	})
+}
+
+func (gdi *GoDebugInstance) updateUIShowLine(erow *ERow) {
+	gdi.ed.UI.RunOnUIGoRoutine(func() {
+		gdi.data.RLock()
+		defer gdi.data.RUnlock()
+
+		gdi.updateUI3()
+		gdi.showSelectedLine(erow)
+
+		// *************
+		// TODO: fix this, and the make index visible issue
+	})
+}
+
+func (gdi *GoDebugInstance) updateUI3() {
+	gdi.data.RLock()
+	defer gdi.data.RUnlock()
+
+	// update all infos (if necessary)
+	for _, info := range gdi.ed.ERowInfos {
+		gdi.updateInfoUI(info)
+	}
 }
 
 func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
@@ -315,6 +383,14 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 			info.UpdateAnnotationsRowState(false)
 			return
 		}
+
+		// TODO
+		//// check if edited
+		//afd, ok := di.Afds[findex]
+		//if !ok {
+		//	return
+		//}
+		//if erow.Info.
 
 		info.UpdateAnnotationsRowState(true)
 
@@ -347,12 +423,6 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 
 //----------
 
-func (gdi *GoDebugInstance) test(args []string) error {
-	return fmt.Errorf("todo")
-}
-
-//----------
-
 // GoDebug data Index
 type GDDataIndex struct {
 	FilesIndex           map[string]int
@@ -381,7 +451,7 @@ func (di *GDDataIndex) IndexMsg(msg interface{}) error {
 		di.FileMsgs = make([]GDFileMsgs, len(di.Afds))
 		for _, afd := range di.Afds {
 			// check index
-			if afd.FileIndex > len(di.FileMsgs) {
+			if afd.FileIndex >= len(di.FileMsgs) {
 				return fmt.Errorf("bad file index at init: %v len=%v", afd.FileIndex, len(di.FileMsgs))
 			}
 			fmsgs := &di.FileMsgs[afd.FileIndex]
@@ -403,7 +473,7 @@ func (di *GDDataIndex) IndexMsg(msg interface{}) error {
 			return fmt.Errorf("bad debug index: %v len=%v", t.DebugIndex, l2)
 		}
 		// line msg
-		lm := &GDLineMsg{GlobalArrivalIndex: di.GlobalArrivalIndex, LineMsg: t}
+		lm := &GDLineMsg{GlobalArrivalIndex: di.GlobalArrivalIndex, DLineMsg: t}
 		// index msg
 		w := &di.FileMsgs[t.FileIndex].LineMsgs[t.DebugIndex].Msgs
 		*w = append(*w, lm)
@@ -415,7 +485,7 @@ func (di *GDDataIndex) IndexMsg(msg interface{}) error {
 
 		di.GlobalArrivalIndex++
 
-		//// mark as having new data
+		//// TODO: mark as having new data
 		//di.FileMsgs[t.FileIndex].Updated = true
 
 	default:
@@ -450,35 +520,59 @@ func (fmsgs *GDFileMsgs) updateAnnEntries(maxArrivalIndex int) {
 		k--
 		if k < 0 {
 			fmsgs.AnnEntries[line] = nil
+			if len(lm.Msgs) > 0 {
+				fmsgs.AnnEntries[line] = lm.Msgs[0].emptyAnnotation()
+			}
 		} else {
-			fmsgs.AnnEntries[line] = lm.Msgs[k].Annotation()
+			fmsgs.AnnEntries[line] = lm.Msgs[k].annotation()
 
 			// selected line
 			if lm.Msgs[k].GlobalArrivalIndex == maxArrivalIndex {
 				fmsgs.SelectedLine = line
 			}
 		}
+
+		// keep selected k to know the msg entry when coming from a click on an annotation
 		fmsgs.AnnEntriesLMIndex[line] = k
 	}
 }
+
+//----------
 
 type GDLineMsgs struct {
 	Msgs []*GDLineMsg
 }
 
+//----------
+
 type GDLineMsg struct {
 	GlobalArrivalIndex int
-	LineMsg            *debug.LineMsg
+	DLineMsg           *debug.LineMsg
+	itemBytes          []byte
 	cachedAnn          *drawer3.Annotation
 }
 
-func (lmsg *GDLineMsg) Annotation() *drawer3.Annotation {
-	// build annotation
+func (lmsg *GDLineMsg) build() *drawer3.Annotation {
 	if lmsg.cachedAnn == nil {
-		lmsg.cachedAnn = &drawer3.Annotation{
-			Bytes:  []byte(godebug.StringifyItem(lmsg.LineMsg.Item)),
-			Offset: lmsg.LineMsg.Offset,
-		}
+		lmsg.cachedAnn = &drawer3.Annotation{Offset: lmsg.DLineMsg.Offset}
 	}
 	return lmsg.cachedAnn
+}
+
+func (lmsg *GDLineMsg) annotation() *drawer3.Annotation {
+	ann := lmsg.build()
+
+	// stringify item
+	if lmsg.itemBytes == nil {
+		lmsg.itemBytes = []byte(godebug.StringifyItem(lmsg.DLineMsg.Item))
+	}
+	ann.Bytes = lmsg.itemBytes
+
+	return ann
+}
+
+func (lmsg *GDLineMsg) emptyAnnotation() *drawer3.Annotation {
+	ann := lmsg.build()
+	ann.Bytes = []byte(" ")
+	return ann
 }

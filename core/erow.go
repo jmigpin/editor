@@ -91,8 +91,8 @@ func (erow *ERow) initHandlers() {
 
 		erow.Info.SetRowsStrFromMaster(erow)
 
-		// update godebug annotations if hash doesn't match
-		//cmdutil.DefaultGoDebugCmd.NakedUpdateERowAnnotations(erow)
+		// TODO: update godebug annotations if hash doesn't match
+		//GoDebugCheckTextAreaContent(erow)
 	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
@@ -102,7 +102,7 @@ func (erow *ERow) initHandlers() {
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaSelectAnnotationEvent)
-		GoDebugSelectAnnotation(erow, ev.AnnotationIndex, ev.Offset)
+		GoDebugSelectAnnotation(erow, ev.AnnotationIndex, ev.Offset, ev.Type)
 	})
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 interface{}) {

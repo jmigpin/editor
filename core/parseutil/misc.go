@@ -199,7 +199,7 @@ type FilePos struct {
 type FileOffset struct {
 	Filename string
 	Offset   int
-	Len      int
+	Len      int // length after offset for a range
 }
 
 //----------

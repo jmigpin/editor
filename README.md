@@ -238,13 +238,11 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `ctrl`+`buttonLeft`:
   - `godebug`: select annotation 
 - `ctrl`+`buttonWheelUp`: 
-  - `godebug`: show previous debug step
-  - ~~on textarea: show previous debug step~~
-  - ~~over a debug annotation: show same line previous annotation~~
+  - `godebug` on textarea: show previous debug step
+  - `godebug` over an annotation: show line previous annotation
 - `ctrl`+`buttonWheelDown`: 
-  - `godebug`: show next debug step
-  - ~~on textarea: show next debug step~~
-  - ~~over a debug annotation: show same line next annotation~~
+  - `godebug` on textarea: show next debug step
+  - `godebug` over an annotation: show line next annotation
 
 ### Notes
 
