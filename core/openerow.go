@@ -16,7 +16,7 @@ type OpenFileERowConfig struct {
 	NewIfOffsetNotVisible bool
 
 	FlashRowsIfNotFlashed bool
-	FlashVisibleOffsets   bool
+	FlashVisibleOffsets   bool // flashes rows if not flashed
 }
 
 func OpenFileERow(ed *Editor, conf *OpenFileERowConfig) {
@@ -116,13 +116,30 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	flashed := make(map[*ERow]bool)
 	offset := getOffset()
 	if offset >= 0 {
+		if len(info.ERows) == 0 {
+			return isNew, errors.New("missing erow to make offset visible")
+		}
+
+		// use newly created erow
 		erow := newERow
+
+		// use existing row with visible offset
 		if erow == nil {
-			if len(info.ERows) == 0 {
-				return isNew, errors.New("missing erow to make offset visible")
+			for _, e := range info.ERows {
+				if e.Row.TextArea.IsIndexVisible(offset) {
+					erow = e
+					break
+				}
 			}
+		}
+
+		// use first row in UI order
+		if erow == nil {
 			erow = info.ERowsInUIOrder()[0]
 		}
+
+		// setup chosen erow
+		erow.Row.EnsureTextAreaMinimumHeight()
 		erow.Row.TextArea.TextCursor.SetIndex(offset)
 		erow.Row.TextArea.MakeIndexVisible(offset)
 
