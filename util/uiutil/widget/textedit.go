@@ -121,10 +121,6 @@ func (te *TextEdit) MakeIndexVisible(index int) {
 }
 
 func (te *TextEdit) MakeRangeVisible(index, le int) {
-	//a0, a1 := te.indexOffsets(index, len)
-	//y, _ := te.yRangeVisibleOffset(a0, a1)
-	//te.SetOffsetY(y)
-
 	vr := te.VisibleRect()
 	ir := te.IndexLenRect(index, le)
 	o := te.indexRectOffset(ir, vr)
@@ -138,10 +134,6 @@ func (te *TextEdit) IsIndexVisible(index int) bool {
 }
 
 func (te *TextEdit) IsRangeVisible(index, le int) bool {
-	//a0, a1 := te.indexOffsets(index, 0)
-	//_, visible := te.yRangeVisibleOffset(a0, a1)
-	//return visible
-
 	vr := te.VisibleRect()
 	ir := te.IndexLenRect(index, le)
 	return ir.Overlaps(vr)
@@ -149,66 +141,7 @@ func (te *TextEdit) IsRangeVisible(index, le int) bool {
 
 //----------
 
-// TODO: rename indexPointYs
-func (te *TextEdit) indexOffsets(index int, len int) (int, int) {
-	index2 := index + len
-
-	// index top
-	a0 := te.Drawer.PointOf(index).Y
-
-	// index2 bottom
-	a1 := a0
-	if index != index2 {
-		a1 = te.Drawer.PointOf(index2).Y
-	}
-	a1 += te.LineHeight()
-
-	return a0, a1
-}
-
-//func (te *TextEdit) yRangeVisibleOffset(y0, y1 int) (int, bool) {
-//	v0 := te.Offset().Y       // view top
-//	v1 := v0 + te.Bounds.Dy() // view bottom
-
-//	//  all visible
-//	if v0 <= y0 && y1 <= v1 {
-//		return v0, true
-//	}
-
-//	// partially visible at top
-//	if y0 <= v0 && v0 <= y1 {
-//		return y0, true
-//	}
-//	// partially visible at bottom
-//	if y0 <= v1 && v1 <= y1 {
-//		// bigger then the view, set y0 at top
-//		if y1-y0 > v1-v0 {
-//			return y0, true
-//		}
-//		sy := te.Bounds.Dy()
-//		return y1 - sy, true
-//	}
-
-//	// bigger then the view, set y0 at top
-//	if y1-y0 > v1-v0 {
-//		return y0, false
-//	}
-
-//	// centered
-//	half := te.Bounds.Dy() / 2
-//	half2 := (y1 - y0) / 2
-//	u := y0 - half + half2
-//	if u < 0 {
-//		u = 0
-//	}
-//	return u, false
-//}
-
-//----------
-
 func (te *TextEdit) indexRectOffset(ir, vr image.Rectangle) image.Point {
-	//log.Printf("%v %v", ir, vr)
-
 	// all visible
 	if ir.In(vr) {
 		return vr.Min
@@ -234,23 +167,11 @@ func (te *TextEdit) indexRectOffset(ir, vr image.Rectangle) image.Point {
 		}
 	}
 
-	//// partially visible at the top
-	//if ir.Min.Y <= vr.Min.Y && vr.Min.Y <= ir.Max.Y {
-	//	return ir.Min
-	//}
-
-	//// partially visible at bottom
-	//if ir.Min.Y <= vr.Max.Y && vr.Max.Y <= ir.Max.Y {
-	//	ir.Max.Y = ir.Max.Y + te.Bounds.Dy()
-	//	return ir.Max
-	//}
-
 	// centered
 	bh := te.Bounds.Size().Div(2)
 	ih := ir.Size().Div(2)
-	w := ir.Min.Sub(bh.Add(ih))
-	w = imageutil.MaxPoint(w, image.Point{})
-	return w
+	w := ir.Min.Sub(bh).Add(ih)
+	return imageutil.MaxPoint(w, image.Point{})
 }
 
 //----------
@@ -268,10 +189,6 @@ func (te *TextEdit) IndexLenRect(index, le int) image.Rectangle {
 	}
 	a1.Y += te.LineHeight()
 
-	//var r image.Rectangle
-	//r = r.Add(a0)
-	//r.Max = r.Max.Add(a1.Sub(a0))
-	//return r
 	return image.Rectangle{Min: a0, Max: a1}
 }
 
