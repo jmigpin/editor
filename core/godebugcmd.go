@@ -83,12 +83,17 @@ func (gdi *GoDebugInstance) CancelAndClear() {
 //----------
 
 func (gdi *GoDebugInstance) SelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) {
-	gdi.data.Lock()
+	if gdi.updateSelectAnnotation(erow, annIndex, offset, typ) {
+		gdi.updateUIShowLine(erow)
+	}
+}
 
-	di := gdi.data.dataIndex
-	if di == nil {
-		gdi.data.Unlock()
-		return
+func (gdi *GoDebugInstance) updateSelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) bool {
+	gdi.data.Lock()
+	defer gdi.data.Unlock()
+
+	if gdi.data.dataIndex == nil {
+		return false
 	}
 
 	update := false
@@ -103,11 +108,7 @@ func (gdi *GoDebugInstance) SelectAnnotation(erow *ERow, annIndex, offset int, t
 		update = gdi.selectNext()
 	}
 
-	gdi.data.Unlock()
-
-	if update {
-		gdi.updateUIShowLine(erow)
-	}
+	return update
 }
 
 func (gdi *GoDebugInstance) selectCurrent(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) bool {
@@ -219,10 +220,11 @@ func (gdi *GoDebugInstance) run(erow *ERow, args []string) error {
 
 	erow.Row.TextArea.SetStrClearHistory("")
 
+	// start/end ready
+	<-gdi.ready
+	defer func() { gdi.ready <- struct{}{} }()
+
 	erow.Exec.Run(func(ctx context.Context, w io.Writer) error {
-		// start/end ready
-		<-gdi.ready
-		defer func() { gdi.ready <- struct{}{} }()
 
 		// start data index
 		gdi.data.Lock()
@@ -334,7 +336,7 @@ func (gdi *GoDebugInstance) updateUI() {
 		gdi.data.RLock()
 		defer gdi.data.RUnlock()
 
-		gdi.updateUI3()
+		gdi.updateUI2()
 	})
 }
 
@@ -343,18 +345,12 @@ func (gdi *GoDebugInstance) updateUIShowLine(erow *ERow) {
 		gdi.data.RLock()
 		defer gdi.data.RUnlock()
 
-		gdi.updateUI3()
+		gdi.updateUI2()
 		gdi.showSelectedLine(erow)
-
-		// *************
-		// TODO: fix this, and the make index visible issue
 	})
 }
 
-func (gdi *GoDebugInstance) updateUI3() {
-	gdi.data.RLock()
-	defer gdi.data.RUnlock()
-
+func (gdi *GoDebugInstance) updateUI2() {
 	// update all infos (if necessary)
 	for _, info := range gdi.ed.ERowInfos {
 		gdi.updateInfoUI(info)
