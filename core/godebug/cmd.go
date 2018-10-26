@@ -19,10 +19,11 @@ import (
 )
 
 type Cmd struct {
-	Client    *Client
-	Dir       string // "" will use current dir
-	Stdout    io.Writer
-	Stderr    io.Writer
+	Client *Client
+	Dir    string // "" will use current dir
+	Stdout io.Writer
+	Stderr io.Writer
+
 	ServerCmd *exec.Cmd // exported to allow access to cmd.process.pid
 
 	args    []string
@@ -50,17 +51,11 @@ func NewCmd(args []string, mainSrc interface{}) *Cmd {
 	return cmd
 }
 
-func (cmd *Cmd) getDir() string {
-	if cmd.Dir == "" {
-		if d, err := os.Getwd(); err == nil {
-			return d
-		}
-	}
-	return cmd.Dir
-}
+//------------
 
 func (cmd *Cmd) Start(ctx context.Context) error {
-	flags, args2, err := cmd.parseArgs()
+	// parse arguments
+	pflags, pargs, err := cmd.parseArgs()
 	if err != nil {
 		return err
 	}
@@ -72,113 +67,113 @@ func (cmd *Cmd) Start(ctx context.Context) error {
 	}
 	cmd.tmpDir = tmpDir
 
-	// print tmp dir if got work flag
-	work := flagGet(flags, "work").(bool)
+	// print tmp dir if work flag is present
+	work := flagGet(pflags, "work").(bool)
 	if work {
 		cmd.work = true
 		fmt.Fprintf(cmd.Stdout, "work: %v\n", cmd.tmpDir)
 	}
 
-	mode := flagGet(flags, "mode").(string)
+	// mode
+	mode := flagGet(pflags, "mode").(string)
 	switch mode {
-	case "run":
-		return cmd.startRun(ctx, flags, args2)
-	case "test":
-		return cmd.startTest(ctx, flags, args2)
+	case "run", "test":
+		testMode := mode == "test"
+		filename, err := cmd.initMode(ctx, pflags, testMode)
+		if err != nil {
+			return err
+		}
+		return cmd.startServerClient(ctx, filename, pargs)
+	default:
+		return fmt.Errorf("unexpected mode: %v", mode)
 	}
-	return nil
+
 }
 
-func (cmd *Cmd) startRun(ctx context.Context, flags *flag.FlagSet, args []string) error {
-	filename := flagGet(flags, "run.filename").(string)
+func (cmd *Cmd) Wait() error {
+	cmd.done.Wait()
+	return cmd.doneErr
+}
+
+//------------
+
+func (cmd *Cmd) initMode(ctx context.Context, flags *flag.FlagSet, testMode bool) (string, error) {
+	// filename
+	var filename string
+	if testMode {
+		filename = filepath.Join(cmd.getDir(), "pkgtest")
+	} else {
+		filename = flagGet(flags, "run.filename").(string)
+	}
+
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
 
 	// pre-build for better errors (result is ignored)
 	if cmd.mainSrc == nil {
-		fout, err := cmd.build(ctx, filename)
-		if err != nil {
-			return err
+		if testMode {
+			fout, err := cmd.buildTest(ctx, filename)
+			if err != nil {
+				return "", err
+			}
+			os.Remove(fout)
+		} else {
+			fout, err := cmd.build(ctx, filename)
+			if err != nil {
+				return "", err
+			}
+			os.Remove(fout)
 		}
-		os.Remove(fout)
 	}
 
 	// annotate
-	if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
-		return err
+	if !testMode {
+		if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
+			return "", err
+		}
 	}
 	if err := cmd.annotateDirs(ctx, flags); err != nil {
-		return err
+		return "", err
 	}
 
 	// write config file after annotations
 	if err := cmd.writeConfigFileToTmpDir(); err != nil {
-		return err
+		return "", err
 	}
 
-	// main exit
-	if !cmd.ann.InsertedExitIn.Main {
-		return fmt.Errorf("have not inserted debug exit in main()")
+	// main/testmain exit
+	if testMode {
+		if !cmd.ann.InsertedExitIn.TestMain {
+			if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
+				return "", err
+			}
+		}
+	} else {
+		if !cmd.ann.InsertedExitIn.Main {
+			return "", fmt.Errorf("have not inserted debug exit in main()")
+		}
 	}
 
 	// build
 	cmd.setupTmpGoPath()
-	filenameOut, err := cmd.build(ctx, filenameAtTmp)
-	if err != nil {
-		return err
+	if testMode {
+		return cmd.buildTest(ctx, filenameAtTmp)
+	} else {
+		return cmd.build(ctx, filenameAtTmp)
 	}
-
-	return cmd.startServerClient(ctx, filenameOut, args)
 }
 
-func (cmd *Cmd) startTest(ctx context.Context, flags *flag.FlagSet, args []string) error {
-	filename := filepath.Join(cmd.getDir(), "pkgtest")
-	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
+//------------
 
-	// pre-build for better errors (result is ignored)
-	if cmd.mainSrc == nil {
-		fout, err := cmd.buildTest(ctx, filename)
-		if err != nil {
-			return err
-		}
-		os.Remove(fout)
-	}
-
-	// annotate
-	if err := cmd.annotateDirs(ctx, flags); err != nil {
-		return err
-	}
-
-	// write config file after annotations
-	if err := cmd.writeConfigFileToTmpDir(); err != nil {
-		return err
-	}
-
-	// testmain exit
-	if !cmd.ann.InsertedExitIn.TestMain {
-		if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
-			return err
+func (cmd *Cmd) getDir() string {
+	if cmd.Dir == "" {
+		if d, err := os.Getwd(); err == nil {
+			return d
 		}
 	}
-
-	// build test
-	cmd.setupTmpGoPath()
-	filenameOut, err := cmd.buildTest(ctx, filenameAtTmp)
-	if err != nil {
-		return err
-	}
-
-	return cmd.startServerClient(ctx, filenameOut, args)
+	return cmd.Dir
 }
 
-func (cmd *Cmd) annotateDirs(ctx context.Context, flags *flag.FlagSet) error {
-	dirs := flagGet(flags, "dirs").([]string)
-	for _, d := range dirs {
-		if err := cmd.annotateDir(d); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+//------------
 
 func (cmd *Cmd) setupTmpGoPath() {
 	// TODO: copy all packages to tmp dir?
@@ -191,6 +186,8 @@ func (cmd *Cmd) setupTmpGoPath() {
 	// flag to cleanup at the end
 	cmd.tmpGoPath = true
 }
+
+//------------
 
 func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args []string) error {
 	// move filenameout to working dir
@@ -229,11 +226,11 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 	go func() {
 		defer cmd.done.Done()
 		cmd.doneErr = serverCmd.Wait() // wait for server to finish
-		// stop client
-		cancelCtx()
+		cancelCtx()                    // stop client
+
 		// TODO: unique id for client/server
-		// can't close client or it might not receive last msgs
-		// but need to close in case it failed to start it connects to a previous instance
+		// - can't close client or it might not receive last msgs
+		// - but need to close if it failed to start the server but the client connected to another (previous?) instance, in this case closing early prevents the client from receiveing the last msgs
 		//cmd.Client.Close()
 	}()
 
@@ -242,17 +239,13 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 	go func() {
 		defer cmd.done.Done()
 		cmd.Client.Wait() // wait for client to finish
-		// stop server
-		cancelCtx()
+		cancelCtx()       // stop server
 	}()
 
 	return nil
 }
 
-func (cmd *Cmd) Wait() error {
-	cmd.done.Wait()
-	return cmd.doneErr
-}
+//------------
 
 func (cmd *Cmd) RequestFileSetPositions() error {
 	msg := &debug.ReqFilesDataMsg{}
@@ -274,10 +267,14 @@ func (cmd *Cmd) RequestStart() error {
 	return err
 }
 
+//------------
+
 func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 	_, rest := gosource.ExtractSrcDir(filename)
 	return filepath.Join(cmd.tmpDir, "src", rest)
 }
+
+//------------
 
 func (cmd *Cmd) Cleanup() {
 	// always cleanup gopath
@@ -303,6 +300,8 @@ func (cmd *Cmd) Cleanup() {
 		_ = os.Remove(cmd.tmpBuiltFile)
 	}
 }
+
+//------------
 
 func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
 	filenameOut := replaceExt(filename, "_godebug")
@@ -331,26 +330,28 @@ func (cmd *Cmd) buildTest(ctx context.Context, filename string) (string, error) 
 	return filenameOut, err
 }
 
+//------------
+
 func (cmd *Cmd) runCmd(ctx context.Context, dir string, args []string) error {
 	// ctx with early cancel for startcmd to clear inner goroutine resource
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	cmd2, err := cmd.startCmd(ctx2, dir, args)
+	ecmd, err := cmd.startCmd(ctx2, dir, args)
 	if err != nil {
 		return err
 	}
-	return cmd2.Wait()
+	return ecmd.Wait()
 }
 
 func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.Cmd, error) {
-	cmd2 := exec.CommandContext(ctx, args[0], args[1:]...)
-	cmd2.Dir = dir
-	cmd2.Stdout = cmd.Stdout
-	cmd2.Stderr = cmd.Stderr
-	osexecutil.SetupExecCmdSysProcAttr(cmd2)
+	ecmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	ecmd.Dir = dir
+	ecmd.Stdout = cmd.Stdout
+	ecmd.Stderr = cmd.Stderr
+	osexecutil.SetupExecCmdSysProcAttr(ecmd)
 
-	if err := cmd2.Start(); err != nil {
+	if err := ecmd.Start(); err != nil {
 		return nil, err
 	}
 
@@ -359,11 +360,23 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.
 	go func() {
 		select {
 		case <-ctx.Done():
-			_ = osexecutil.KillExecCmd(cmd2)
+			_ = osexecutil.KillExecCmd(ecmd)
 		}
 	}()
 
-	return cmd2, nil
+	return ecmd, nil
+}
+
+//------------
+
+func (cmd *Cmd) annotateDirs(ctx context.Context, flags *flag.FlagSet) error {
+	dirs := flagGet(flags, "dirs").([]string)
+	for _, d := range dirs {
+		if err := cmd.annotateDir(d); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (cmd *Cmd) annotateDir(dir string) error {
@@ -400,6 +413,8 @@ func (cmd *Cmd) annotateFile(filename string, src interface{}) error {
 	}
 	return cmd.writeAstFileToTmpDir(astFile)
 }
+
+//------------
 
 func (cmd *Cmd) writeAstFileToTmpDir(astFile *ast.File) error {
 	// filename
@@ -460,6 +475,8 @@ func (cmd *Cmd) writeTestMainFilesToTmpDir() error {
 	}
 	return nil
 }
+
+//------------
 
 func (cmd *Cmd) parseArgs() (*flag.FlagSet, []string, error) {
 	if len(cmd.args) == 0 {
