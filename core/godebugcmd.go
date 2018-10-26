@@ -178,8 +178,8 @@ func (gdi *GoDebugInstance) selectPrev() bool {
 
 func (gdi *GoDebugInstance) showSelectedLine(erow *ERow) {
 	di := gdi.data.dataIndex
-	for i, fmsgs := range di.FileMsgs {
-		afd := di.Afds[i]
+	for _, afd := range di.Afds {
+		fmsgs := di.FileMsgs[afd.FileIndex]
 
 		if fmsgs.SelectedLine >= 0 {
 			lm := fmsgs.LineMsgs[fmsgs.SelectedLine]
@@ -187,11 +187,12 @@ func (gdi *GoDebugInstance) showSelectedLine(erow *ERow) {
 				continue
 			}
 
+			// file offset
 			dlm := lm.Msgs[0].DLineMsg
+			fo := &parseutil.FileOffset{Filename: afd.Filename, Offset: dlm.Offset}
 
 			// show line
 			rowPos := erow.Row.PosBelow()
-			fo := &parseutil.FileOffset{Filename: afd.Filename, Offset: dlm.Offset}
 			conf := &OpenFileERowConfig{
 				FileOffset:          fo,
 				RowPos:              rowPos,
