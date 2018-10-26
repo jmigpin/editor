@@ -49,14 +49,12 @@ type GoDebugInstance struct {
 		dataIndex *GDDataIndex
 	}
 	cancel context.CancelFunc
-	ready  chan struct{}
+	ready  sync.WaitGroup
 }
 
 func NewGoDebugInstance(ed *Editor) *GoDebugInstance {
 	gdi := &GoDebugInstance{ed: ed}
 	gdi.cancel = func() {}
-	gdi.ready = make(chan struct{}, 1)
-	gdi.ready <- struct{}{}
 	return gdi
 }
 
@@ -220,12 +218,13 @@ func (gdi *GoDebugInstance) run(erow *ERow, args []string) error {
 
 	erow.Row.TextArea.SetStrClearHistory("")
 
-	// start/end ready
-	<-gdi.ready
-	defer func() { gdi.ready <- struct{}{} }()
+	// only one instance at a time
+	gdi.CancelAndClear() // cancel previous
+	gdi.ready.Wait()     // wait for previous instance to finish
+	gdi.ready.Add(1)
+	defer gdi.ready.Done()
 
 	erow.Exec.Run(func(ctx context.Context, w io.Writer) error {
-
 		// start data index
 		gdi.data.Lock()
 		gdi.data.dataIndex = NewGDDataIndex()
