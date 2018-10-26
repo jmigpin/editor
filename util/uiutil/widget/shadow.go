@@ -36,6 +36,7 @@ func (s *TopShadow) Paint() {
 
 	r := s.Bounds
 	r.Max.Y = r.Min.Y + s.Height
+	r = r.Intersect(s.Bounds)
 
 	imageutil.PaintShadow(s.ctx.Image(), r, s.MaxDiff)
 }
