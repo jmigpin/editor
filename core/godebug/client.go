@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
@@ -17,20 +18,21 @@ var logger = log.New(ioutil.Discard, "godebug: ", 0)
 type Client struct {
 	Conn     net.Conn
 	Messages chan interface{}
-	done     chan struct{}
+	waitg    sync.WaitGroup
 }
 
 func NewClient(ctx context.Context) (*Client, error) {
 	client := &Client{
 		Messages: make(chan interface{}, 512),
-		done:     make(chan struct{}),
 	}
 	if err := client.connect(ctx); err != nil {
 		return nil, err
 	}
 
 	// receive msgs from server and send to channel
+	client.waitg.Add(1)
 	go func() {
+		defer client.waitg.Done()
 		client.receiveLoop()
 	}()
 
@@ -38,7 +40,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 }
 
 func (client *Client) Wait() {
-	<-client.done
+	client.waitg.Wait()
 }
 
 func (client *Client) Close() error {
@@ -77,6 +79,7 @@ func (client *Client) connect(ctx context.Context) error {
 }
 
 func (client *Client) receiveLoop() {
+	defer close(client.Messages)
 	for {
 		msg, err := debug.DecodeMessage(client.Conn)
 		if err != nil {
@@ -99,9 +102,4 @@ func (client *Client) receiveLoop() {
 		//logger.Printf("recv msg")
 		client.Messages <- msg
 	}
-
-	// no more msgs
-	close(client.Messages)
-
-	close(client.done)
 }

@@ -256,9 +256,6 @@ func (gdi *GoDebugInstance) run2(erow *ERow, args []string, ctx context.Context,
 		return err
 	}
 
-	// output cmd pid
-	fmt.Fprintf(w, "# pid %d\n", cmd.ServerCmd.Process.Pid)
-
 	// handle client msgs loop (blocking)
 	gdi.clientMsgsLoop(ctx, w, cmd)
 

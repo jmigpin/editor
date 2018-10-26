@@ -20,11 +20,10 @@ import (
 
 type Cmd struct {
 	Client *Client
+
 	Dir    string // "" will use current dir
 	Stdout io.Writer
 	Stderr io.Writer
-
-	ServerCmd *exec.Cmd // exported to allow access to cmd.process.pid
 
 	args    []string
 	mainSrc interface{}
@@ -34,8 +33,11 @@ type Cmd struct {
 	tmpBuiltFile string // file built and exec'd
 	tmpGoPath    bool
 
-	done    sync.WaitGroup
-	doneErr error
+	start struct {
+		cancel    context.CancelFunc
+		waitg     sync.WaitGroup
+		serverErr error
+	}
 
 	work bool // don't cleanup at the end
 }
@@ -90,9 +92,12 @@ func (cmd *Cmd) Start(ctx context.Context) error {
 
 }
 
+//------------
+
 func (cmd *Cmd) Wait() error {
-	cmd.done.Wait()
-	return cmd.doneErr
+	cmd.start.waitg.Wait()
+	cmd.start.cancel() // ensure resources are cleared
+	return cmd.start.serverErr
 }
 
 //------------
@@ -200,46 +205,43 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 	cmd.tmpBuiltFile = filenameWork
 
 	// server/client context to cancel the other when one of them ends
-	ctx2, cancelCtx := context.WithCancel(ctx)
+	ctx2, cancel := context.WithCancel(ctx)
+	cmd.start.cancel = cancel
 
 	// start server
 	filenameWork2 := normalizeFilenameForExec(filenameWork)
 	args = append([]string{filenameWork2}, args...)
 	serverCmd, err := cmd.startCmd(ctx2, cmd.getDir(), args)
 	if err != nil {
-		cancelCtx()
+		cmd.start.cancel() // cmd.Wait() won't be called, need to clear resources
 		return err
 	}
-	// keep to allow printing the cmd pid
-	cmd.ServerCmd = serverCmd
 
-	// start client
+	// output cmd pid
+	fmt.Fprintf(serverCmd.Stdout, "# pid %d\n", serverCmd.Process.Pid)
+
+	// start client (blocking connect)
 	client, err := NewClient(ctx2)
 	if err != nil {
-		cancelCtx()
+		cmd.start.cancel() // cmd.Wait() won't be called, need to clear resources
 		return err
 	}
 	cmd.Client = client
 
-	// server done
-	cmd.done.Add(1)
-	go func() {
-		defer cmd.done.Done()
-		cmd.doneErr = serverCmd.Wait() // wait for server to finish
-		cancelCtx()                    // stop client
+	// NOTE: from this point, cmd.Wait() clears resources from cmd.start.cancel
 
-		// TODO: unique id for client/server
-		// - can't close client or it might not receive last msgs
-		// - but need to close if it failed to start the server but the client connected to another (previous?) instance, in this case closing early prevents the client from receiveing the last msgs
-		//cmd.Client.Close()
+	// server done
+	cmd.start.waitg.Add(1)
+	go func() {
+		defer cmd.start.waitg.Done()
+		cmd.start.serverErr = serverCmd.Wait() // wait for server to finish
 	}()
 
 	// client done
-	cmd.done.Add(1)
+	cmd.start.waitg.Add(1)
 	go func() {
-		defer cmd.done.Done()
+		defer cmd.start.waitg.Done()
 		cmd.Client.Wait() // wait for client to finish
-		cancelCtx()       // stop server
 	}()
 
 	return nil
