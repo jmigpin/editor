@@ -31,6 +31,7 @@ type Annotator struct {
 	fdata struct {
 		sync.Mutex
 		m     map[string]*debug.AnnotatorFileData // filename -> afd
+		a     []*debug.AnnotatorFileData          // ordered
 		index int                                 // counter for new files
 	}
 	debugPkgName   string
@@ -104,6 +105,7 @@ func (ann *Annotator) annotate(filename string, src interface{}, astFile *ast.Fi
 			FileSize:  size,
 		}
 		ann.fdata.m[filename] = afd
+		ann.fdata.a = append(ann.fdata.a, afd) // keep order
 		ann.fdata.index++
 	}
 	ann.fdata.Unlock()
@@ -157,7 +159,7 @@ func (ann *Annotator) srcSizeHash(filename string, src interface{}) (int, []byte
 func (ann *Annotator) ConfigSource() (string, string) {
 	// build map data
 	var u []string
-	for _, afd := range ann.fdata.m {
+	for _, afd := range ann.fdata.a {
 		logger.Printf("configsource: included file %v", afd.Filename)
 
 		// sanity check
