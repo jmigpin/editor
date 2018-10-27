@@ -88,9 +88,9 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		panic("not a directory")
 	}
 
-	// cleanup row content
-	erow.Row.TextArea.SetStrClearHistory("")
-	erow.Row.TextArea.ClearPos()
+	//// cleanup row content
+	//erow.Row.TextArea.SetStrClearHistory("")
+	//erow.Row.TextArea.ClearPos()
 
 	fexec := func(ctx context.Context, w io.Writer) error {
 		// prepare cmd exec
@@ -122,6 +122,12 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 	}
 
 	erow.Exec.Run(func(ctx context.Context, w io.Writer) error {
+		// cleanup row content
+		erow.Ed.UI.RunOnUIGoRoutine(func() {
+			erow.Row.TextArea.SetStrClearHistory("")
+			erow.Row.TextArea.ClearPos()
+		})
+
 		err := fexec(ctx, w)
 		if fend != nil {
 			fend(err)
