@@ -14,15 +14,21 @@ type ERowExec struct {
 	mu     sync.Mutex
 	ctx    context.Context
 	cancel context.CancelFunc
-	runW   io.WriteCloser
+	w      io.WriteCloser
 }
 
-func (eexec *ERowExec) Start() context.Context {
+func NewERowExec(erow *ERow) *ERowExec {
+	return &ERowExec{erow: erow}
+}
+
+//----------
+
+func (eexec *ERowExec) Run(fexec func(context.Context, io.Writer) error) {
 	eexec.mu.Lock()
 	defer eexec.mu.Unlock()
 
-	// clear old context if exists
-	if eexec.ctx != nil {
+	// cancel old context if exists
+	if eexec.cancel != nil {
 		eexec.clear2()
 	}
 
@@ -32,50 +38,34 @@ func (eexec *ERowExec) Start() context.Context {
 	})
 
 	// new context
-	eexec.ctx, eexec.cancel = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	eexec.ctx, eexec.cancel = ctx, cancel
 
-	return eexec.ctx
-}
+	// writer
+	w := eexec.erow.TextAreaWriter()
+	eexec.w = w // keep w to ensure early close on clear
 
-func (eexec *ERowExec) Stop() {
-	eexec.mu.Lock()
-	defer eexec.mu.Unlock()
-	if eexec.cancel != nil {
-		eexec.cancel()
-	}
-}
+	go func() {
+		err := fexec(ctx, w)
 
-// Clears state if the ctx matches. Fn is called before clear if in context.
-func (eexec *ERowExec) Clear(ctx context.Context, fn func()) {
-	eexec.mu.Lock()
-	defer eexec.mu.Unlock()
+		eexec.mu.Lock()
+		defer eexec.mu.Unlock()
 
-	// stop current ctx if arg is nil
-	if ctx == nil {
-		ctx = eexec.ctx
-	}
-
-	if ctx == eexec.ctx {
-		// run function since still running in the requested context
-		if fn != nil {
-			fn()
+		// show error if the context matches, if it doesn't match then the previous instance was canceled already
+		if eexec.ctx == ctx {
+			if err != nil {
+				fmt.Fprintf(w, "# error: %v", err)
+			}
+			eexec.clear2()
 		}
-
-		eexec.clear2()
-	}
+	}()
 }
 
 func (eexec *ERowExec) clear2() {
 	// clear resources
 	eexec.cancel()
 	eexec.cancel = nil
-	eexec.ctx = nil
-
-	// clear run resources
-	if eexec.runW != nil {
-		eexec.runW.Close()
-		eexec.runW = nil
-	}
+	eexec.w.Close()
 
 	// indicate the row is not running
 	eexec.erow.Ed.UI.RunOnUIGoRoutine(func() {
@@ -85,20 +75,10 @@ func (eexec *ERowExec) clear2() {
 
 //----------
 
-func (eexec *ERowExec) Run(fexec func(context.Context, io.Writer) error) {
-	ctx := eexec.Start() // will cancel previous existent ctx
-	go func() {
-		w := eexec.erow.TextAreaWriter()
-		defer w.Close()
-
-		// keep w to ensure early close on clear
-		eexec.runW = w
-
-		err := fexec(ctx, w)
-		eexec.erow.Exec.Clear(ctx, func() {
-			if err != nil {
-				fmt.Fprintf(w, "# error: %v", err)
-			}
-		})
-	}()
+func (eexec *ERowExec) Stop() {
+	eexec.mu.Lock()
+	defer eexec.mu.Unlock()
+	if eexec.cancel != nil {
+		eexec.cancel()
+	}
 }

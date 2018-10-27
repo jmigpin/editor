@@ -20,7 +20,7 @@ type ERow struct {
 	Ed     *Editor
 	Row    *ui.Row
 	Info   *ERowInfo
-	Exec   ERowExec
+	Exec   *ERowExec
 	TbData toolbarparser.Data
 
 	highlightDuplicates           bool
@@ -34,7 +34,7 @@ func NewERow(ed *Editor, info *ERowInfo, rowPos *ui.RowPos) *ERow {
 	row := rowPos.Column.NewRowBefore(rowPos.NextRow)
 
 	erow := &ERow{Ed: ed, Row: row, Info: info}
-	erow.Exec.erow = erow
+	erow.Exec = NewERowExec(erow)
 
 	// TODO: join with updateToolbarPart0
 	s2 := ed.HomeVars.Encode(erow.Info.Name())
