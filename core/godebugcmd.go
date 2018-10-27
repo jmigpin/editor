@@ -49,7 +49,7 @@ type GoDebugInstance struct {
 		dataIndex *GDDataIndex
 	}
 	cancel context.CancelFunc
-	ready  sync.WaitGroup
+	ready  sync.Mutex
 }
 
 func NewGoDebugInstance(ed *Editor) *GoDebugInstance {
@@ -216,15 +216,17 @@ func (gdi *GoDebugInstance) run(erow *ERow, args []string) error {
 		return fmt.Errorf("not a directory")
 	}
 
-	erow.Row.TextArea.SetStrClearHistory("")
-
 	// only one instance at a time
-	gdi.CancelAndClear() // cancel previous
-	gdi.ready.Wait()     // wait for previous instance to finish
-	gdi.ready.Add(1)
-	defer gdi.ready.Done()
+	gdi.CancelAndClear() // cancel previous run
+	gdi.ready.Lock()     // wait for previous run to finish
+	defer gdi.ready.Unlock()
 
 	erow.Exec.Run(func(ctx context.Context, w io.Writer) error {
+		// cleanup row content
+		erow.Ed.UI.RunOnUIGoRoutine(func() {
+			erow.Row.TextArea.SetStrClearHistory("")
+		})
+
 		// start data index
 		gdi.data.Lock()
 		gdi.data.dataIndex = NewGDDataIndex()
@@ -232,8 +234,8 @@ func (gdi *GoDebugInstance) run(erow *ERow, args []string) error {
 
 		// keep ctx cancel to be able to stop if necessary
 		ctx2, cancel := context.WithCancel(ctx)
+		defer cancel() // can't defer gdi.cancel here (concurrency)
 		gdi.cancel = cancel
-		defer func() { gdi.cancel() }()
 
 		gdi.updateUI()
 
