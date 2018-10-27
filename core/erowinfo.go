@@ -367,26 +367,29 @@ func (info *ERowInfo) UpdateDiskEvent() {
 
 //----------
 
-func (info *ERowInfo) UpdateEditedRowState() {
-	if !info.IsFileButNotDir() {
-		return
-	}
-	edited := false
+func (info *ERowInfo) EqualToBytesHash(size int, hash []byte) bool {
 	if len(info.ERows) == 0 {
-		return
+		return false
 	}
 	erow0 := info.ERows[0]
 	b, err := erow0.Row.TextArea.Bytes()
 	if err != nil {
-		info.Ed.Error(err)
-		b = []byte{}
+		return false
 	}
-	if len(b) != info.savedHash.size {
-		edited = true
-	} else {
-		hash2 := bytesHash(b)
-		edited = !bytes.Equal(hash2, info.savedHash.hash)
+	if len(b) != size {
+		return false
 	}
+	hash2 := bytesHash(b)
+	return bytes.Equal(hash2, hash)
+}
+
+//----------
+
+func (info *ERowInfo) UpdateEditedRowState() {
+	if !info.IsFileButNotDir() {
+		return
+	}
+	edited := !info.EqualToBytesHash(info.savedHash.size, info.savedHash.hash)
 	info.updateRowState(ui.RowStateEdited, edited)
 }
 
@@ -466,6 +469,8 @@ func (info *ERowInfo) SetRowsStrFromMaster(erow *ERow) {
 
 	info.updateDuplicatesBytes(erow)
 	info.UpdateEditedRowState()
+
+	GoDebugUpdateUIERowInfo(info)
 }
 
 //----------

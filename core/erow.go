@@ -90,9 +90,6 @@ func (erow *ERow) initHandlers() {
 		}
 
 		erow.Info.SetRowsStrFromMaster(erow)
-
-		// TODO: update godebug annotations if hash doesn't match
-		//GoDebugCheckTextAreaContent(erow)
 	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {

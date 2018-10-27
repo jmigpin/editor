@@ -34,6 +34,10 @@ func GoDebugSelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnTy
 	godebugi.SelectAnnotation(erow, annIndex, offset, typ)
 }
 
+func GoDebugUpdateUIERowInfo(info *ERowInfo) {
+	godebugi.updateUIERowInfo(info)
+}
+
 //----------
 
 // Note: Unique instance because there is no easy solution to debug two (or more) programs that have common files.
@@ -348,6 +352,17 @@ func (gdi *GoDebugInstance) updateUIShowLine(erow *ERow) {
 	})
 }
 
+func (gdi *GoDebugInstance) updateUIERowInfo(info *ERowInfo) {
+	gdi.ed.UI.RunOnUIGoRoutine(func() {
+		gdi.data.RLock()
+		defer gdi.data.RUnlock()
+
+		gdi.updateInfoUI(info)
+	})
+}
+
+//----------
+
 func (gdi *GoDebugInstance) updateUI2() {
 	// update all infos (if necessary)
 	for _, info := range gdi.ed.ERowInfos {
@@ -359,8 +374,8 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 	di := gdi.data.dataIndex
 	clear := di == nil
 
-	if clear {
-		info.UpdateAnnotationsRowState(false)
+	// helper func
+	clearDrawerAnnotations := func() {
 		for _, erow := range info.ERows {
 			ta := erow.Row.TextArea
 			if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
@@ -371,22 +386,33 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 				}
 			}
 		}
+	}
+
+	if clear {
+		info.UpdateAnnotationsRowState(false)
+		info.UpdateAnnotationsEditedRowState(false)
+		clearDrawerAnnotations()
 	} else {
 		findex, ok := di.FilesIndex[info.Name()]
 		if !ok {
 			info.UpdateAnnotationsRowState(false)
+			info.UpdateAnnotationsEditedRowState(false)
 			return
 		}
 
-		// TODO
-		//// check if edited
-		//afd, ok := di.Afds[findex]
-		//if !ok {
-		//	return
-		//}
-		//if erow.Info.
-
 		info.UpdateAnnotationsRowState(true)
+
+		// check if content has changed
+		//afd := di.Afds[findex]
+		//if info.EqualToBytesHash(afd.FileSize, afd.FileHash) {
+		edited := info.ERows[0].Row.HasState(ui.RowStateEdited)
+		if edited {
+			info.UpdateAnnotationsEditedRowState(true)
+			clearDrawerAnnotations()
+			return
+		} else {
+			info.UpdateAnnotationsEditedRowState(false)
+		}
 
 		di := gdi.data.dataIndex
 		fmsgs := di.FileMsgs[findex]
