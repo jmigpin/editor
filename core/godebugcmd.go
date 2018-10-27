@@ -403,9 +403,10 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 		info.UpdateAnnotationsRowState(true)
 
 		// check if content has changed
-		//afd := di.Afds[findex]
-		//if info.EqualToBytesHash(afd.FileSize, afd.FileHash) {
-		edited := info.ERows[0].Row.HasState(ui.RowStateEdited)
+		// TODO: Slow, checking byteshash for each update it !edited
+		afd := di.Afds[findex]
+		edited := !info.EqualToBytesHash(afd.FileSize, afd.FileHash)
+		//edited := info.ERows[0].Row.HasState(ui.RowStateEdited)
 		if edited {
 			info.UpdateAnnotationsEditedRowState(true)
 			clearDrawerAnnotations()
