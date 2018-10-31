@@ -2,6 +2,7 @@ package shmimage
 
 import (
 	"image"
+	"reflect"
 	"unsafe"
 
 	"github.com/jmigpin/editor/util/imageutil"
@@ -10,7 +11,7 @@ import (
 type ShmImage struct {
 	img   *imageutil.BGRA
 	shmId uintptr
-	addr  unsafe.Pointer
+	addr  uintptr
 }
 
 func NewShmImage(r *image.Rectangle) (*ShmImage, error) {
@@ -20,8 +21,9 @@ func NewShmImage(r *image.Rectangle) (*ShmImage, error) {
 		return nil, err
 	}
 
-	// mask shared mem into a slice - gives go vet warning
-	buf := (*[1 << 30]byte)(addr)[:size:size]
+	// mask shared mem into a slice
+	h := reflect.SliceHeader{Data: addr, Len: size, Cap: size}
+	buf := *(*[]byte)(unsafe.Pointer(&h))
 
 	img := imageutil.NewBGRAFromBuffer(buf, r)
 	simg := &ShmImage{img: img, shmId: shmId, addr: addr}

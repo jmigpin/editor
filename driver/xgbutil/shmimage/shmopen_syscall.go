@@ -3,7 +3,6 @@ package shmimage
 import (
 	"fmt"
 	"syscall"
-	"unsafe"
 )
 
 // sample code from https://github.com/golang/exp/tree/master/shiny/driver/x11driver
@@ -15,20 +14,20 @@ const (
 	ipcRmID    = 0
 )
 
-func ShmOpen(size int) (shmid uintptr, addr unsafe.Pointer, err error) {
+func ShmOpen(size int) (shmid, addr uintptr, err error) {
 	shmid, _, errno0 := syscall.RawSyscall(syscall.SYS_SHMGET, ipcPrivate, uintptr(size), 0600)
 	if errno0 != 0 {
-		return 0, nil, fmt.Errorf("shmget: %v", errno0)
+		return 0, 0, fmt.Errorf("shmget: %v", errno0)
 	}
 	p, _, errno1 := syscall.RawSyscall(syscall.SYS_SHMAT, shmid, 0, 0)
 	if errno1 != 0 {
-		return 0, nil, fmt.Errorf("shmat: %v", errno1)
+		return 0, 0, fmt.Errorf("shmat: %v", errno1)
 	}
-	return shmid, unsafe.Pointer(p), nil
+	return shmid, p, nil
 }
 
-func ShmClose(shmid uintptr, addr unsafe.Pointer) error {
-	_, _, errno := syscall.RawSyscall(syscall.SYS_SHMDT, uintptr(addr), 0, 0)
+func ShmClose(shmid, addr uintptr) error {
+	_, _, errno := syscall.RawSyscall(syscall.SYS_SHMDT, addr, 0, 0)
 	_, _, errno2 := syscall.RawSyscall(syscall.SYS_SHMCTL, shmid, ipcRmID, 0)
 	if errno != 0 {
 		return fmt.Errorf("shmdt: %v", errno)
