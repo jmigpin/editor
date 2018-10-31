@@ -65,9 +65,9 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		}
 
 	case *debug.ItemLiteral:
-		is.Str += "τ("
+		is.Str += "τ{"
 		is.stringify(t.Fields)
-		is.Str += ")"
+		is.Str += "}"
 
 	case *debug.ItemAssign:
 		simplify := false
