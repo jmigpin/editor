@@ -3,6 +3,8 @@ package debug
 import (
 	"encoding/gob"
 	"fmt"
+
+	"github.com/jmigpin/editor/util/iout"
 )
 
 func init() {
@@ -61,10 +63,9 @@ func stringifyV(v V) string {
 	case nil:
 		return "nil"
 	case string:
-		str = fmt.Sprintf("%q", t)
-
+		str = ReducedSprintf("%q", t)
 	case fmt.Stringer, error:
-		str = fmt.Sprintf("≈(%q)", t)
+		str = ReducedSprintf("%q", t) // used to be ≈(%q)
 
 	case float32, float64:
 		u := fmt.Sprintf("%f", t)
@@ -82,10 +83,24 @@ func stringifyV(v V) string {
 		str = u[:len(u)-j]
 
 	default:
-		str = fmt.Sprintf("%v", v)
+		str = ReducedSprintf("%v", v)
 	}
 
-	return ReduceStr(str, 256)
+	return str
+}
+
+func ReducedSprintf(format string, a ...interface{}) string {
+	max := 150
+	w := iout.NewLimitedWriter(max)
+	_, err := fmt.Fprintf(w, format, a...)
+	s := string(w.Bytes())
+	if err != nil {
+		if s[0] != '"' { // keep existing quote if present
+			s = "\"" + s
+		}
+		s += "...\""
+	}
+	return s
 }
 
 func ReduceStr(str string, max int) string {
