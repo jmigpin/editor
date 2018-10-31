@@ -226,15 +226,16 @@ func (ann *Annotator) TestMainSources() []*TestMainSrc {
 
 func (ann *Annotator) testMainSource(pkgName string) string {
 	return `		
-		package ` + pkgName + `
-		import ` + ann.debugPkgName + ` "` + debugPkgPath + `"
-		import "testing"
-		import "os"
-		func TestMain(m *testing.M) {
-			code := m.Run()
-			` + ann.debugPkgName + `.Exit()
-			os.Exit(code)
-		}
+package ` + pkgName + `
+import ` + ann.debugPkgName + ` "` + debugPkgPath + `"
+import "testing"
+import "os"
+func TestMain(m *testing.M) {
+	var code int
+	defer func(){ os.Exit(code) }()
+	defer ` + ann.debugPkgName + `.Exit()
+	code = m.Run()
+}
 	`
 }
 
