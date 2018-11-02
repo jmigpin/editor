@@ -33,7 +33,10 @@ type Editor struct {
 
 func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
-		events:    make(chan interface{}, 64),
+
+		// TODO: (tmp fix) use dynamic events list
+		events: make(chan interface{}, 256),
+
 		close:     make(chan struct{}),
 		ERowInfos: map[string]*ERowInfo{},
 	}
