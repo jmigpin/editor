@@ -27,14 +27,15 @@ func NewSessions(filename string) (*Sessions, error) {
 		}
 		return nil, err
 	}
-	ss := Sessions{}
+	defer f.Close()
 	// decode
 	dec := json.NewDecoder(f)
-	err = dec.Decode(&ss)
+	ss := &Sessions{}
+	err = dec.Decode(ss)
 	if err != nil {
 		return nil, err
 	}
-	return &ss, err
+	return ss, err
 }
 func (ss *Sessions) save(filename string) error {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
