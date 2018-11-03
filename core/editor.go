@@ -12,6 +12,7 @@ import (
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/miscutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"golang.org/x/image/font"
 )
@@ -23,23 +24,19 @@ type Editor struct {
 	RowReopener *RowReopener
 	ERowInfos   map[string]*ERowInfo
 
-	events chan interface{}
+	eventsQ *miscutil.ChanQ // chanq solves fixed length chan possible lockup
+	close   chan struct{}
 
 	dndh *DndHandler
-
-	// because closing events chan would receive later events on a closed channel
-	close chan struct{}
 }
 
 func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
-
-		// TODO: (tmp fix) use dynamic events list
-		events: make(chan interface{}, 256),
-
 		close:     make(chan struct{}),
 		ERowInfos: map[string]*ERowInfo{},
 	}
+	ed.eventsQ = miscutil.NewChanQ(16, 16)
+
 	ed.HomeVars = NewHomeVars()
 	ed.RowReopener = NewRowReopener(ed)
 	ed.dndh = NewDndHandler(ed)
@@ -72,7 +69,7 @@ func (ed *Editor) init(opt *Options) error {
 	ed.setupOptions(opt)
 
 	// user interface
-	ui0, err := ui.NewUI(ed.events, "Editor")
+	ui0, err := ui.NewUI(ed.eventsQ.In(), "Editor")
 	if err != nil {
 		return err
 	}
@@ -109,7 +106,7 @@ func (ed *Editor) eventLoop() {
 		case <-ed.close:
 			goto forEnd
 
-		case ev := <-ed.events:
+		case ev := <-ed.eventsQ.Out():
 			switch t := ev.(type) {
 			case error:
 				ed.Error(t)
