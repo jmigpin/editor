@@ -21,7 +21,7 @@ Source code editor in pure Go.
 - Detects if files opened are changed outside of the editor.
 - Calls goimports if available when saving a .go file.
 - Clicking on `.go` files identifiers will jump to the identifier definition (Ex: a function definition).
-- Auto-completion (suggestions) in `.go` files. (__experimental__)
+- ~~Auto-completion (suggestions) in `.go` files. (__experimental__)~~ (__under-reconstruction__)
 - Debugger utility for go programs. (__experimental__)
 
 ### Installation and usage
