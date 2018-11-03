@@ -253,7 +253,14 @@ func (erow *ERow) TextAreaWriter() io.WriteCloser {
 	go func() {
 		erow.readLoopToTextArea(pr)
 	}()
-	return NewBufWriter(pw)
+
+	// terminal escape sequences filter
+	var wc io.WriteCloser = pw
+	if erow.Info.IsDir() {
+		wc = NewTerminalFilter(erow, wc)
+	}
+
+	return NewBufWriter(wc)
 }
 
 func (erow *ERow) readLoopToTextArea(reader io.Reader) {
