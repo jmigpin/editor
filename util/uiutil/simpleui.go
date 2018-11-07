@@ -1,58 +1,68 @@
 package uiutil
 
 import (
+	"sync"
+
+	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type SimpleUI struct {
 	*BasicUI
-	Root *widget.MultiLayer
 
-	Events chan interface{}
-	close  chan struct{}
+	EventsQ *chanutil.ChanQ
 
 	OnError func(error)
+	OnEvent func(ev interface{})
+	OnClose func()
+
+	closeOnce sync.Once
+	close     chan struct{}
 }
 
-func NewSimpleUI(winName string) (*SimpleUI, error) {
-	sui := &SimpleUI{}
-	sui.close = make(chan struct{})
-	sui.Events = make(chan interface{}, 64)
-	sui.OnError = func(error) {}
+func NewSimpleUI(winName string, root widget.Node) (*SimpleUI, error) {
+	sui := &SimpleUI{
+		close:   make(chan struct{}),
+		EventsQ: chanutil.NewChanQ(16, 16),
+		OnError: func(error) {},
+		OnClose: func() {},
+	}
 
-	sui.Root = widget.NewMultiLayer()
-
-	bui, err := NewBasicUI(sui.Events, winName, sui.Root)
+	bui, err := NewBasicUI(sui.EventsQ.In(), winName, root)
 	if err != nil {
 		return nil, err
 	}
 	sui.BasicUI = bui
 
+	sui.OnEvent = sui.BasicUI.HandleEvent
+
 	return sui, nil
 }
 
 func (sui *SimpleUI) Close() {
-	close(sui.close)
+	sui.closeOnce.Do(func() {
+		sui.OnClose()
+		close(sui.close)
+	})
 }
 
 func (sui *SimpleUI) EventLoop() {
 	defer sui.BasicUI.Close()
+	evQOut := sui.EventsQ.Out()
 	for {
 		select {
 		case <-sui.close:
-			goto forEnd
-		case ev := <-sui.Events:
+			return
+		case ev := <-evQOut:
 			switch t := ev.(type) {
 			case error:
 				sui.OnError(t)
 			case *event.WindowClose:
 				sui.Close()
 			default:
-				sui.BasicUI.HandleEvent(ev)
+				sui.OnEvent(ev)
 			}
-
 		}
 	}
-forEnd:
 }

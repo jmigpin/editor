@@ -9,7 +9,6 @@ import (
 
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/imageutil"
@@ -25,18 +24,13 @@ type Editor struct {
 	ERowInfos   map[string]*ERowInfo
 	Plugins     *Plugins
 
-	eventsQ *chanutil.ChanQ // chanq solves fixed length chan possible lockup
-	close   chan struct{}
-
 	dndh *DndHandler
 }
 
 func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
-		close:     make(chan struct{}),
 		ERowInfos: map[string]*ERowInfo{},
 	}
-	ed.eventsQ = chanutil.NewChanQ(16, 16)
 
 	ed.HomeVars = NewHomeVars()
 	ed.RowReopener = NewRowReopener(ed)
@@ -48,7 +42,8 @@ func NewEditor(opt *Options) (*Editor, error) {
 
 	GoDebugInit(ed)
 
-	ed.eventLoop() // blocks
+	go ed.fswatcherEventLoop()
+	ed.UI.EventLoop() // blocks
 
 	return ed, nil
 }
@@ -71,15 +66,18 @@ func (ed *Editor) init(opt *Options) error {
 	event.UseMultiKey = opt.UseMultiKey
 
 	// user interface
-	ui0, err := ui.NewUI(ed.eventsQ.In(), "Editor")
+	ui0, err := ui.NewUI("Editor")
 	if err != nil {
 		return err
 	}
-	ui0.OnError = ed.Error
 	ed.UI = ui0
+	ed.UI.OnError = ed.Error
+	ed.UI.OnEvent = ed.onUIEvent
 
+	// other setups
 	ed.setupRootToolbar()
 	ed.setupRootMenuToolbar()
+	ed.setupPlugins(opt)
 
 	// TODO: ensure it has the window measure
 	// enqueue setup initial rows to run after UI has window measure
@@ -88,64 +86,60 @@ func (ed *Editor) init(opt *Options) error {
 		ed.setupInitialRows(opt)
 	})
 
-	ed.setupPlugins(opt)
-
 	return nil
 }
 
 //----------
 
 func (ed *Editor) Close() {
-	ed.Watcher.Close()
-	close(ed.close)
+	ed.UI.Close()
 }
 
 //----------
 
-func (ed *Editor) eventLoop() {
-	defer ed.UI.Close()
+func (ed *Editor) onUIEvent(ev interface{}) {
+	switch t := ev.(type) {
+	case *event.DndPosition:
+		ed.dndh.OnPosition(t)
+	case *event.DndDrop:
+		ed.dndh.OnDrop(t)
+	default:
+		h := ed.handleGlobalShortcuts(ev)
+		if h == event.NotHandled {
+			ed.UI.HandleEvent(ev)
+		}
+	}
+}
 
+//----------
+
+func (ed *Editor) fswatcherEventLoop() {
 	for {
 		select {
-		case <-ed.close:
-			goto forEnd
-
-		case ev := <-ed.eventsQ.Out():
-			switch t := ev.(type) {
-			case error:
-				ed.Error(t)
-			case *event.WindowClose:
-				ed.Close()
-
-			case *event.DndPosition:
-				ed.dndh.OnPosition(t)
-			case *event.DndDrop:
-				ed.dndh.OnDrop(t)
-
-			default:
-				h := ed.handleGlobalShortcuts(ev)
-				if h == event.NotHandled {
-					ed.UI.HandleEvent(ev)
-				}
-			}
-
 		case ev, ok := <-ed.Watcher.Events():
 			if !ok {
 				ed.Close()
-				break
+				return
 			}
 			switch evt := ev.(type) {
 			case error:
 				ed.Error(evt)
 			case *fswatcher.Event:
 				ed.handleWatcherEvent(evt)
-
-				// force an event to check for pending layouts/paints
-				ed.UI.EnqueueNoOpEvent()
 			}
 		}
 	}
-forEnd:
+}
+
+func (ed *Editor) handleWatcherEvent(ev *fswatcher.Event) {
+	name := ev.JoinNames() // handle event target (join names)
+	info, ok := ed.ERowInfos[name]
+	if ok {
+		// TODO: forcing to run on ui goroutine should be done at a lower level
+		ed.UI.RunOnUIGoRoutine(func() {
+			info.UpdateDiskEvent()
+		})
+	}
 }
 
 //----------
@@ -400,18 +394,6 @@ func (ed *Editor) setupPlugins(opt *Options) {
 			continue
 		}
 		ed.Plugins.AddPath(path)
-	}
-}
-
-//----------
-
-func (ed *Editor) handleWatcherEvent(ev *fswatcher.Event) {
-	//log.Printf("fswatcher ev: %v", ev)
-
-	name := ev.JoinNames() // handle event target (join names)
-	info, ok := ed.ERowInfos[name]
-	if ok {
-		info.UpdateDiskEvent()
 	}
 }
 

@@ -62,9 +62,6 @@ func (ui *BasicUI) Close() {
 //----------
 
 func (ui *BasicUI) HandleEvent(ev interface{}) {
-	//// DEBUG
-	//log.Printf("basicui: %T", ev)
-
 	switch t := ev.(type) {
 	case *event.WindowExpose:
 		ui.UpdateImageSize()
@@ -80,7 +77,7 @@ func (ui *BasicUI) HandleEvent(ev interface{}) {
 	case struct{}:
 		// no op
 	default:
-		log.Printf("unhandled event: %#v", ev)
+		log.Printf("basicui: unhandled event: %#v", ev)
 	}
 
 	ui.RootNode.LayoutMarked()

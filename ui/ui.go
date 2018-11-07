@@ -7,20 +7,20 @@ import (
 )
 
 type UI struct {
-	*uiutil.BasicUI
-	Root    *Root
-	OnError func(error)
+	*uiutil.SimpleUI
+	Root *Root
 }
 
-func NewUI(events chan<- interface{}, winName string) (*UI, error) {
-	ui := &UI{OnError: func(error) {}}
+func NewUI(winName string) (*UI, error) {
+	ui := &UI{}
+
 	ui.Root = NewRoot(ui)
 
-	bui, err := uiutil.NewBasicUI(events, winName, ui.Root)
+	sui, err := uiutil.NewSimpleUI(winName, ui.Root)
 	if err != nil {
 		return nil, err
 	}
-	ui.BasicUI = bui
+	ui.SimpleUI = sui
 
 	// set theme before root init
 	c1 := &ColorThemeCycler
@@ -33,6 +33,8 @@ func NewUI(events chan<- interface{}, winName string) (*UI, error) {
 
 	return ui, nil
 }
+
+//----------
 
 func (ui *UI) WarpPointerToRectanglePad(r image.Rectangle) {
 	p, err := ui.QueryPointer()
