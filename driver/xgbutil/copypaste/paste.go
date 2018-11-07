@@ -10,7 +10,7 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/driver/xgbutil"
-	"github.com/jmigpin/editor/util/miscutil"
+	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/pkg/errors"
 )
@@ -18,8 +18,8 @@ import (
 type Paste struct {
 	conn *xgb.Conn
 	win  xproto.Window
-	sch  *miscutil.NBChan // selectionnotify
-	pch  *miscutil.NBChan // propertynotify
+	sch  *chanutil.NBChan // selectionnotify
+	pch  *chanutil.NBChan // propertynotify
 }
 
 func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
@@ -30,8 +30,8 @@ func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
 		conn: conn,
 		win:  win,
 	}
-	p.sch = miscutil.NewNBChan()
-	p.pch = miscutil.NewNBChan()
+	p.sch = chanutil.NewNBChan()
+	p.pch = chanutil.NewNBChan()
 	return p, nil
 }
 

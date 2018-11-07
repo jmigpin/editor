@@ -1,4 +1,4 @@
-package miscutil
+package chanutil
 
 import (
 	"container/list"

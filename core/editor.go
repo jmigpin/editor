@@ -9,10 +9,10 @@ import (
 
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/imageutil"
-	"github.com/jmigpin/editor/util/miscutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"golang.org/x/image/font"
 )
@@ -25,7 +25,7 @@ type Editor struct {
 	ERowInfos   map[string]*ERowInfo
 	Plugins     *Plugins
 
-	eventsQ *miscutil.ChanQ // chanq solves fixed length chan possible lockup
+	eventsQ *chanutil.ChanQ // chanq solves fixed length chan possible lockup
 	close   chan struct{}
 
 	dndh *DndHandler
@@ -36,7 +36,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 		close:     make(chan struct{}),
 		ERowInfos: map[string]*ERowInfo{},
 	}
-	ed.eventsQ = miscutil.NewChanQ(16, 16)
+	ed.eventsQ = chanutil.NewChanQ(16, 16)
 
 	ed.HomeVars = NewHomeVars()
 	ed.RowReopener = NewRowReopener(ed)

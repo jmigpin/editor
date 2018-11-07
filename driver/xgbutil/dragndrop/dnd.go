@@ -10,7 +10,7 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/driver/xgbutil"
-	"github.com/jmigpin/editor/util/miscutil"
+	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/pkg/errors"
 )
@@ -23,7 +23,7 @@ type Dnd struct {
 	conn *xgb.Conn
 	win  xproto.Window
 	data DndData
-	sch  *miscutil.NBChan
+	sch  *chanutil.NBChan
 }
 
 func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
@@ -39,7 +39,7 @@ func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
 	}
 
 	//dnd.reply = make(chan *xproto.SelectionNotifyEvent)
-	dnd.sch = miscutil.NewNBChan()
+	dnd.sch = chanutil.NewNBChan()
 
 	return dnd, nil
 }
