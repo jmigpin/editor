@@ -10,7 +10,7 @@ import (
 )
 
 // Detects compilers output file format <string(:int)?(:int)?>, and goes to line/column.
-func filename(erow *core.ERow, index int) (bool, error) {
+func OpenFilename(erow *core.ERow, index int) (bool, error) {
 	ta := erow.Row.TextArea
 
 	var str string

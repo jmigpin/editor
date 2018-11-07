@@ -11,7 +11,7 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 )
 
-func goDefinition(erow *core.ERow, index int) (bool, error) {
+func GoToDefinition(erow *core.ERow, index int) (bool, error) {
 	if erow.Info.IsDir() {
 		return false, nil
 	}
@@ -26,7 +26,15 @@ func goDefinition(erow *core.ERow, index int) (bool, error) {
 
 	// it's a go file, return true from here
 
-	out, err := goGuruDefinition(ctx, erow, index)
+	// go guru args
+	args := []string{"guru", "definition", fmt.Sprintf("%v:#%v", erow.Info.Name(), index)}
+
+	// godef args
+	//args := []string{"godef", "-f", erow.Info.Name(), "-o", fmt.Sprintf("%v", index)}
+
+	// execute external cmd
+	dir := filepath.Dir(erow.Info.Name())
+	out, err := core.ExecCmd(ctx, dir, args...)
 	if err != nil {
 		return true, err
 	}
@@ -49,11 +57,4 @@ func goDefinition(erow *core.ERow, index int) (bool, error) {
 	core.OpenFileERow(erow.Ed, conf)
 
 	return true, nil
-}
-
-func goGuruDefinition(ctx context.Context, erow *core.ERow, index int) ([]byte, error) {
-	dir := filepath.Dir(erow.Info.Name())
-	position := fmt.Sprintf("%v:#%v", erow.Info.Name(), index)
-	args := []string{"guru", "definition", position}
-	return core.ExecCmd(ctx, dir, args...)
 }

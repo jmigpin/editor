@@ -3,8 +3,9 @@ package contentcmds
 import "github.com/jmigpin/editor/core"
 
 func init() {
-	core.RegisterContentCmd(goDefinition)
-	core.RegisterContentCmd(filename)
-	core.RegisterContentCmd(openSession)
-	core.RegisterContentCmd(http)
+	// order matters
+	core.ContentCmds.Append("gotodefinition", GoToDefinition)
+	core.ContentCmds.Append("openfilename", OpenFilename)
+	core.ContentCmds.Append("opensession", OpenSession)
+	core.ContentCmds.Append("openurl", OpenURL)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 )
 
-func openSession(erow *core.ERow, index int) (bool, error) {
+func OpenSession(erow *core.ERow, index int) (bool, error) {
 	ta := erow.Row.TextArea
 
 	// cmd/sessionname runes

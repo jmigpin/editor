@@ -94,7 +94,7 @@ func (erow *ERow) initHandlers() {
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaCmdEvent)
-		RunContentCmds(erow, ev.Index)
+		runContentCmds(erow, ev.Index)
 	})
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev0 interface{}) {

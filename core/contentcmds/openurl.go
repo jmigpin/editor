@@ -10,8 +10,8 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 )
 
-// Opens http/https lines in preferred application.
-func http(erow *core.ERow, index int) (bool, error) {
+// Opens OpenURL/https lines in preferred application.
+func OpenURL(erow *core.ERow, index int) (bool, error) {
 	ta := erow.Row.TextArea
 
 	isHttpRune := func(ru rune) bool {
