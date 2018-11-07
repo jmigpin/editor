@@ -31,6 +31,7 @@ func main() {
 	shadowsFlag := flag.Bool("shadows", true, "shadow effects on some elements")
 	sessionNameFlag := flag.String("sessionname", "", "open existing session")
 	useMultiKeyFlag := flag.Bool("usemultikey", false, "use multi-key to compose characters ([multi-key, ~, a]=ã, ...)")
+	pluginsFlag := flag.String("plugins", "", "comma separated string of plugin filenames")
 
 	flag.Parse()
 
@@ -62,6 +63,8 @@ func main() {
 		Filenames:   flag.Args(),
 
 		UseMultiKey: *useMultiKeyFlag,
+
+		Plugins: *pluginsFlag,
 	}
 	_, err := core.NewEditor(eopt)
 	if err != nil {

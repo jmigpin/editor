@@ -23,6 +23,7 @@ type Editor struct {
 	Watcher     fswatcher.Watcher
 	RowReopener *RowReopener
 	ERowInfos   map[string]*ERowInfo
+	Plugins     *Plugins
 
 	eventsQ *miscutil.ChanQ // chanq solves fixed length chan possible lockup
 	close   chan struct{}
@@ -66,7 +67,8 @@ func (ed *Editor) init(opt *Options) error {
 		fswatcher.Rename
 	ed.Watcher = fswatcher.NewTargetWatcher(w)
 
-	ed.setupOptions(opt)
+	ed.setupTheme(opt)
+	event.UseMultiKey = opt.UseMultiKey
 
 	// user interface
 	ui0, err := ui.NewUI(ed.eventsQ.In(), "Editor")
@@ -85,6 +87,8 @@ func (ed *Editor) init(opt *Options) error {
 	ed.UI.RunOnUIGoRoutine(func() {
 		ed.setupInitialRows(opt)
 	})
+
+	ed.setupPlugins(opt)
 
 	return nil
 }
@@ -335,12 +339,6 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 
 //----------
 
-func (ed *Editor) setupOptions(opt *Options) {
-	ed.setupTheme(opt)
-
-	event.UseMultiKey = opt.UseMultiKey
-}
-
 func (ed *Editor) setupTheme(opt *Options) {
 	drawer3.WrapLineRune = rune(opt.WrapLineRune)
 	drawutil.TabWidth = opt.TabWidth
@@ -388,6 +386,20 @@ func (ed *Editor) setupTheme(opt *Options) {
 			// could fail and abort, but instead continue with a known font
 			ui.FontThemeCycler.CurName = "regular"
 		}
+	}
+}
+
+//----------
+
+func (ed *Editor) setupPlugins(opt *Options) {
+	ed.Plugins = NewPlugins(ed)
+	a := strings.Split(opt.Plugins, ",")
+	for _, s := range a {
+		path := strings.TrimSpace(s)
+		if len(path) == 0 {
+			continue
+		}
+		ed.Plugins.AddPath(path)
 	}
 }
 
@@ -462,4 +474,6 @@ type Options struct {
 	Filenames   []string
 
 	UseMultiKey bool
+
+	Plugins string
 }

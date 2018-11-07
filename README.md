@@ -11,7 +11,7 @@ Source code editor in pure Go.
 - This is a know-what-you're-doing source code editor
 - As the editor is being developed, the rules of how the UI interacts will become more well defined.
 
-### Features
+## Features
 
 - Auto-indentation of wrapped lines.
 - No code coloring (except comments).
@@ -23,8 +23,9 @@ Source code editor in pure Go.
 - Clicking on `.go` files identifiers will jump to the identifier definition (Ex: a function definition).
 - ~~Auto-completion (suggestions) in `.go` files. (__experimental__)~~ (__under-reconstruction__)
 - Debugger utility for go programs. (__experimental__)
+- Plugin support
 
-### Installation and usage
+## Installation and usage
 
 ```
 go get -u github.com/jmigpin/editor
@@ -49,6 +50,8 @@ Usage of ./editor:
     	font hinting: none, vertical, full (default "full")
   -fontsize float
     	 (default 12)
+  -plugins string
+    	comma separated string of plugin filenames
   -scrollbarleft
     	set scrollbars on the left side (default true)
   -scrollbarwidth int
@@ -65,7 +68,7 @@ Usage of ./editor:
     	code for wrap line rune, can be set to zero (default 8594)
 ```
 
-### Basic Layout
+## Basic Layout
 
 The editor has a top toolbar and columns. Columns have rows. Rows have a toolbar and a textarea.
 
@@ -73,7 +76,7 @@ These row toolbars are also textareas where clicking on the text will run that t
 
 The row toolbar has a square showing the state of the row.
 
-### Toolbar usage examples
+## Toolbar usage examples
 
 Commands in toolbars are separated by "|" (not to be confused with the shell pipe). If a shell pipe is needed it should be escaped with a backslash.
 
@@ -100,9 +103,9 @@ Examples:
   - `xterm` 
   Open an xterm at the active row directory.
 
-### Commands
+## Commands
 
-#### Top toolbar commands
+*Top toolbar commands*
 
 - `ListSessions`: lists saved sessions
 - `SaveSession <name>`: save session to ~/.editor_sessions.json
@@ -117,7 +120,7 @@ Examples:
 - `FontTheme`: cycles through available font themes.
 - `Exit`: exits the program
 
-#### Row toolbar commands
+*Row toolbar commands*
 
 These commands run on a row toolbar, or on the top toolbar with the active-row.
 
@@ -142,20 +145,20 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
   - use `esc` key to stop the debug session.
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open a duplicate of that file.
 
-#### Textarea commands
+*Textarea commands*
 
 - `OpenSession <name>`: opens previously saved session
 - `<url>`: opens url in preferred application.
 - `<filename(:number?)(:number?)>`: opens filename, possibly at line/column (usual output from compilers). Check common locations like `$GOROOT` and C include directories.
 - `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
 
-### Environment variables set available to external commands
+## Environment variables set available to external commands
 
 - `$edName`: row name. 
 - `$edDir`: row directory. 
 - `$edPosOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
 
-### Row states
+## Row states
 
 - background colors:
   - `blue`: row file has been edited.
@@ -166,9 +169,24 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
   - `blue`: there are other rows with the same filename (2 or more).
   - `yellow`: there are other rows with the same filename (2 or more). Color will change when the pointer is over one of the rows.
 
-### Key/button shortcuts
+## Plugins
 
-#### Global key/button shortcuts
+Plugins allow extra functionality to be added to the editor without changing the binary. 
+
+Examples plugins are located at: `./plugins`
+
+A plugin can be compiled with (will output a `*.so`):
+`go build -buildmode=plugin <filename.go>` 
+
+and used in the editor by using the `--plugins` option:
+`editor --plugins <plugin1.so>,<plugin2.so>`
+
+Functions that can be implemented by a plugin are:
+`func OnLoad(ed *core.Editor)`
+
+## Key/button shortcuts
+
+*Global key/button shortcuts*
 
 - `esc`:
   - ~~close context float box~~
@@ -176,13 +194,13 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `f1`: ~~toggle context float box~~ (work in progress)
   - ~~does auto-completion in `.go` files.~~
 
-#### Column key/button shortcuts
+*Column key/button shortcuts*
 
 - `buttonLeft`:
   - on left border: drag to move/resize
   - on square-button: close
 
-#### Row key/button shortcuts
+*Row key/button shortcuts*
 
 - `ctrl`+`s`: save file
 - `ctrl`+`f`: warp pointer to "Find" cmd in row toolbar
@@ -194,7 +212,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
   - `buttonWheelDown`: adjust row vertical position, pushing other rows down
 - Any button/key press: make row active to layout toolbar commands
 
-#### Textarea key/button shortcuts
+*Textarea key/button shortcuts*
 
 - `left`: move cursor left
 - `right`: move cursor right
@@ -244,7 +262,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
   - `godebug` on textarea: show next debug step
   - `godebug` over an annotation: show line next annotation
 
-### Notes
+## Notes
 
 - Uses X shared memory extension (MIT-SHM). 
 - MacOS might need to have XQuartz installed.
