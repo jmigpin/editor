@@ -171,18 +171,18 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 ## Plugins
 
-Plugins allow extra functionality to be added to the editor without changing the binary. 
-
-Examples plugins are located at: `./plugins`
+Plugins allow extra functionality to be added to the editor without changing the binary. Examples located at: `./plugins`.
 
 A plugin can be compiled with (will output a `*.so`):
-`go build -buildmode=plugin <filename.go>` 
+- `go build -buildmode=plugin <filename.go>` 
 
 and used in the editor by using the `--plugins` option:
-`editor --plugins <plugin1.so>,<plugin2.so>`
+- `editor --plugins <plugin1.so>,<plugin2.so>`
 
 Functions that can be implemented by a plugin are:
-`func OnLoad(ed *core.Editor)`
+- `func OnLoad(ed *core.Editor)`
+
+Note that plugins might need to be recompiled everytime there are changes in the libraries provided by the editor.
 
 ## Key/button shortcuts
 
