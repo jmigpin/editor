@@ -1,16 +1,14 @@
 package core
 
 import (
-	"bufio"
 	"errors"
 	"io"
 	"path/filepath"
-	"sync"
-	"time"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -260,7 +258,7 @@ func (erow *ERow) TextAreaWriter() io.WriteCloser {
 		wc = NewTerminalFilter(erow, wc)
 	}
 
-	return NewBufWriter(wc)
+	return iout.NewAutoBufWriter(wc)
 }
 
 func (erow *ERow) readLoopToTextArea(reader io.Reader) {
@@ -321,61 +319,5 @@ func (erow *ERow) setupTextAreaCommentString() {
 		ta.SetCommentStrings("#", [2]string{})
 	case ".go", ".c", ".cpp", ".h", ".hpp":
 		ta.SetCommentStrings("//", [2]string{"/*", "*/"})
-	}
-}
-
-//----------
-
-// Used by erow.TextAreaWriter. Safe to use concurrently.
-// Auto flushes after x time if the buffer doesn't get filled.
-type BufWriter struct {
-	mu    sync.Mutex
-	buf   *bufio.Writer
-	wc    io.WriteCloser
-	timer *time.Timer
-}
-
-func NewBufWriter(wc io.WriteCloser) *BufWriter {
-	buf := bufio.NewWriter(wc)
-	return &BufWriter{buf: buf, wc: wc}
-}
-
-// Implements io.Closer
-func (bw *BufWriter) Close() error {
-	bw.mu.Lock()
-	defer bw.mu.Unlock()
-	bw.clearTimer()
-	bw.buf.Flush()
-	return bw.wc.Close()
-}
-
-// Implements io.Writer
-func (bw *BufWriter) Write(p []byte) (int, error) {
-	bw.mu.Lock()
-	defer bw.mu.Unlock()
-	defer bw.autoFlush() // deferred to run after the write
-	return bw.buf.Write(p)
-}
-
-func (bw *BufWriter) autoFlush() {
-	if bw.buf.Buffered() == 0 {
-		bw.clearTimer()
-		return
-	}
-	if bw.timer == nil {
-		bw.timer = time.AfterFunc(50*time.Millisecond, bw.flushTime)
-	}
-}
-func (bw *BufWriter) flushTime() {
-	bw.mu.Lock()
-	defer bw.mu.Unlock()
-	bw.buf.Flush()
-	bw.clearTimer()
-}
-
-func (bw *BufWriter) clearTimer() {
-	if bw.timer != nil {
-		bw.timer.Stop()
-		bw.timer = nil
 	}
 }
