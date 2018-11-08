@@ -18,7 +18,7 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb := &ContextFloatBox{root: root}
 
 	cfb.Label = widget.NewLabel(root.UI)
-	cfb.Label.Text.SetStr("testing")
+	cfb.Label.Text.SetStr("todo...")
 	cfb.Label.Pad.Left = 5
 	cfb.Label.Pad.Right = 5
 	cfb.Label.Border.SetAll(1)
@@ -31,7 +31,9 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	//border.Set(1)
 
 	container := WrapInBottomShadowOrNone(root.UI, cfb.Label)
-	cfb.FloatBox = widget.NewFloatBox(root.MultiLayer, container)
+
+	cfb.FloatBox = widget.NewFloatBox(root.MultiLayer, root.MultiLayer.ContextLayer, container)
+	cfb.FloatBox.Hide()
 
 	return cfb
 }

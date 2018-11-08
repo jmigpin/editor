@@ -5,7 +5,7 @@ import (
 )
 
 type MainMenuButton struct {
-	*widget.FloatButton
+	*widget.FloatBoxButton
 	Toolbar *Toolbar
 }
 
@@ -15,10 +15,10 @@ func NewMainMenuButton(root *Root) *MainMenuButton {
 	// create here just to add to the floatbutton instantiation
 	content := &widget.ENode{}
 
-	mmb.FloatButton = widget.NewFloatButton(root.UI, root.MultiLayer, content)
-	mmb.FloatButton.Label.Text.SetStr(string(rune(8801))) // 3 lines rune
-	mmb.FloatButton.Label.Pad.Left = 5
-	mmb.FloatButton.Label.Pad.Right = 5
+	mmb.FloatBoxButton = widget.NewFloatBoxButton(root.UI, root.MultiLayer, root.MenuLayer, content)
+	mmb.FloatBoxButton.Label.Text.SetStr(string(rune(8801))) // 3 lines rune
+	mmb.FloatBoxButton.Label.Pad.Left = 5
+	mmb.FloatBoxButton.Label.Pad.Right = 5
 
 	// theme
 	mmb.SetThemePaletteNamePrefix("mm_")

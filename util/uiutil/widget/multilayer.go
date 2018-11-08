@@ -4,13 +4,16 @@ import (
 	"image"
 )
 
-// First child is bottom layer.
+// First/last child is the bottom/top layer.
 type MultiLayer struct {
 	ENode
 
 	BgLayer        *BgLayer
 	SeparatorLayer *ENode
-	FloatLayer1    *FloatLayer
+	ContextLayer   *FloatLayer
+	MenuLayer      *FloatLayer
+
+	layers []Node
 }
 
 func NewMultiLayer() *MultiLayer {
@@ -18,15 +21,17 @@ func NewMultiLayer() *MultiLayer {
 
 	ml.BgLayer = &BgLayer{ml: ml}
 	ml.SeparatorLayer = &ENode{}
-	ml.FloatLayer1 = &FloatLayer{ml: ml}
+	ml.ContextLayer = &FloatLayer{ml: ml}
+	ml.MenuLayer = &FloatLayer{ml: ml}
 
 	// order matters
-	layers := []Node{
+	ml.layers = []Node{
 		ml.BgLayer,
 		ml.SeparatorLayer,
-		ml.FloatLayer1,
+		ml.ContextLayer,
+		ml.MenuLayer,
 	}
-	for _, u := range layers {
+	for _, u := range ml.layers {
 		if u == nil {
 			continue
 		}
@@ -44,21 +49,32 @@ func (ml *MultiLayer) InsertBefore(col Node, next *EmbedNode) {
 }
 
 func (ml *MultiLayer) PaintMarked() image.Rectangle {
-	vnodes := ml.FloatLayer1.visibleNodes()
-	if len(vnodes) > 0 {
-		// mark floatlayer visible nodes as needingpaint when bg nodes are painted
-		for _, n := range vnodes {
-			if intersectingNodeNeedingPaintExists(ml.BgLayer, n.Embed().Bounds) {
-				n.Embed().MarkNeedsPaint()
-
-				// mark bglayer nodes as needing paint if intersecting with floatlayer visible nodes
-				ml.BgLayer.RectNeedsPaint(n.Embed().Bounds)
-			}
+	// mark float layer nodes before painting
+	for _, l := range ml.layers {
+		if fl, ok := l.(*FloatLayer); ok {
+			ml.markFloatLayerNodes(fl)
 		}
-
 	}
 
 	return ml.ENode.PaintMarked()
+}
+
+//----------
+
+func (ml *MultiLayer) markFloatLayerNodes(fl *FloatLayer) {
+	vnodes := fl.visibleNodes()
+	if len(vnodes) == 0 {
+		return
+	}
+	// mark floatlayer visible nodes as needingpaint when bg nodes are painted
+	for _, n := range vnodes {
+		if intersectingNodeNeedingPaintExists(ml.BgLayer, n.Embed().Bounds) {
+			n.Embed().MarkNeedsPaint()
+
+			// mark bglayer nodes as needing paint if intersecting with floatlayer visible nodes
+			ml.BgLayer.RectNeedsPaint(n.Embed().Bounds)
+		}
+	}
 }
 
 //----------

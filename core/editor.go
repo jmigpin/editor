@@ -422,17 +422,32 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 	switch t := ev.(type) {
 	case *event.WindowInput:
 		switch t2 := t.Event.(type) {
-		case *event.KeyUp:
+		case *event.KeyDown:
 			m := t2.Mods.ClearLocks()
 			if m.Is(event.ModNone) {
-				if t2.KeySym == event.KSymEscape {
+				switch t2.KeySym {
+				case event.KSymEscape:
 					GoDebugStop(ed)
+					return event.Handled
+				case event.KSymF1:
+					ed.toggleContextFloatBox()
 					return event.Handled
 				}
 			}
 		}
 	}
 	return event.NotHandled
+}
+
+//----------
+
+func (ed *Editor) toggleContextFloatBox() {
+	// TODO
+	ed.UI.Root.ContextFloatBox.Toggle()
+	ed.UI.EnqueueNoOpEvent()
+
+	// update refpoint
+	//fb.floatBox.RefPoint = image.Point{fb.Bounds.Min.X, fb.Bounds.Max.Y}
 }
 
 //----------

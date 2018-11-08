@@ -9,16 +9,44 @@ type FloatBox struct {
 	RefPoint image.Point
 	content  Node
 	ml       *MultiLayer
+	fl       *FloatLayer
 }
 
-func NewFloatBox(ml *MultiLayer, content Node) *FloatBox {
-	fb := &FloatBox{content: content, ml: ml}
+func NewFloatBox(ml *MultiLayer, fl *FloatLayer, content Node) *FloatBox {
+	fb := &FloatBox{content: content, ml: ml, fl: fl}
 	fb.Cursor = DefaultCursor
 	fb.Append(content)
 	fb.Marks.Add(MarkNotDraggable | MarkInBoundsHandlesEvent)
-	ml.FloatLayer1.Append(fb)
+	fl.Append(fb)
 	return fb
 }
+
+//----------
+
+func (fb *FloatBox) Visible() bool {
+	return !fb.Marks.HasAny(MarkForceZeroBounds)
+}
+
+func (fb *FloatBox) Hide() {
+	fb.ml.BgLayer.RectNeedsPaint(fb.Bounds)
+	fb.Marks.Add(MarkForceZeroBounds)
+	fb.MarkNeedsLayout()
+}
+
+func (fb *FloatBox) Show() {
+	fb.Marks.Remove(MarkForceZeroBounds)
+	fb.MarkNeedsLayoutAndPaint()
+}
+
+func (fb *FloatBox) Toggle() {
+	if !fb.Visible() {
+		fb.Show()
+	} else {
+		fb.Hide()
+	}
+}
+
+//----------
 
 func (fb *FloatBox) Measure(hint image.Point) image.Point {
 	panic("calling measure on floatbox")

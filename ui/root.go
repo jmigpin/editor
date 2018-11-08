@@ -26,10 +26,6 @@ func (root *Root) Init() {
 	bgLayer.YAxis = true
 	root.BgLayer.Append(bgLayer)
 
-	// context floatbox layer
-	//root.ContextFloatBox = NewContextFloatBox(root)
-	//root.FloatLayer.Append(root.ContextFloatBox)
-
 	// background layer
 	{
 		// top toolbar
@@ -50,19 +46,12 @@ func (root *Root) Init() {
 			root.MainMenuButton = mmb
 		}
 
-		//// separator if there are no shadows
-		//if !ShadowsOn {
-		//	sep := widget.NewSeparator(root.UI)
-		//	sep.Size.Y = SeparatorWidth
-		//	sep.SetTheme(&UITheme.Toolbar)
-		//	bgLayer.Append(sep)
-		//	bgLayer.SetChildFill(sep, true, false)
-		//}
-
 		// columns
 		root.Cols = NewColumns(root)
 		bgLayer.Append(root.Cols)
 	}
+
+	root.ContextFloatBox = NewContextFloatBox(root)
 }
 
 func (l *Root) OnChildMarked(child widget.Node, newMarks widget.Marks) {
