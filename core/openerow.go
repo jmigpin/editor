@@ -141,6 +141,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		// setup chosen erow
 		erow.Row.EnsureTextAreaMinimumHeight()
 		erow.Row.TextArea.TextCursor.SetIndex(offset)
+		erow.Row.TextArea.TextCursor.SetSelectionOff()
 		erow.Row.TextArea.MakeIndexVisible(offset)
 
 		// flash visible offsets
