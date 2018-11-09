@@ -109,14 +109,14 @@ func (ae *ApplyEvent) mouseEnter(node Node, p image.Point) event.Handle {
 
 	// execute on node
 	if h == event.NotHandled {
-		if !ne.Marks.HasAny(MarkPointerInside) {
-			ne.Marks.Add(MarkPointerInside)
+		if !ne.HasAnyMarks(MarkPointerInside) {
+			ne.AddMarks(MarkPointerInside)
 			ev2 := &event.MouseEnter{}
 			h = ae.runEv(node, ev2, p)
 		}
 	}
 
-	if ne.Marks.HasAny(MarkInBoundsHandlesEvent) {
+	if ne.HasAnyMarks(MarkInBoundsHandlesEvent) {
 		h = event.Handled
 	}
 
@@ -138,8 +138,8 @@ func (ae *ApplyEvent) mouseLeave(node Node, p image.Point) event.Handle {
 
 	// execute on node
 	if h == event.NotHandled {
-		if ne.Marks.HasAny(MarkPointerInside) && !p.In(ne.Bounds) {
-			ne.Marks.Remove(MarkPointerInside)
+		if ne.HasAnyMarks(MarkPointerInside) && !p.In(ne.Bounds) {
+			ne.RemoveMarks(MarkPointerInside)
 			ev2 := &event.MouseLeave{}
 			h = ae.runEv(node, ev2, p)
 		}
@@ -172,7 +172,7 @@ func (ae *ApplyEvent) findDragNode2(node Node, ev *event.MouseDown, p image.Poin
 
 	if !found {
 		// deepest node
-		canDrag := !node.Embed().Marks.HasAny(MarkNotDraggable)
+		canDrag := !node.Embed().HasAnyMarks(MarkNotDraggable)
 		if canDrag {
 			ae.drag.pressing = true
 			ae.drag.node = node
@@ -247,7 +247,7 @@ func (ae *ApplyEvent) depthFirstEv(node Node, ev interface{}, p image.Point) eve
 		h = ae.runEv(node, ev, p)
 	}
 
-	if node.Embed().Marks.HasAny(MarkInBoundsHandlesEvent) {
+	if node.Embed().HasAnyMarks(MarkInBoundsHandlesEvent) {
 		h = event.Handled
 	}
 

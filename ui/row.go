@@ -87,7 +87,7 @@ func (row *Row) activate() {
 
 func (row *Row) OnChildMarked(child widget.Node, newMarks widget.Marks) {
 	// dynamic toolbar
-	if row.Toolbar != nil && row.Toolbar.Marks.HasAny(widget.MarkNeedsLayout) {
+	if row.Toolbar != nil && row.Toolbar.HasAnyMarks(widget.MarkNeedsLayout) {
 		row.MarkNeedsLayout()
 	}
 }

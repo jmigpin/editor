@@ -57,7 +57,7 @@ func (root *Root) Init() {
 func (l *Root) OnChildMarked(child widget.Node, newMarks widget.Marks) {
 	l.MultiLayer.OnChildMarked(child, newMarks)
 	// dynamic toolbar
-	if l.Toolbar != nil && l.Toolbar.Marks.HasAny(widget.MarkNeedsLayout) {
+	if l.Toolbar != nil && l.Toolbar.HasAnyMarks(widget.MarkNeedsLayout) {
 		l.BgLayer.MarkNeedsLayout()
 	}
 }

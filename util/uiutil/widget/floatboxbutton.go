@@ -20,7 +20,7 @@ func NewFloatBoxButton(ctx ImageContext, ml *MultiLayer, fl *FloatLayer, content
 
 	// floatbox
 	fbb.floatBox = NewFloatBox(ml, fl, content)
-	fbb.floatBox.Marks.Add(MarkForceZeroBounds)
+	fbb.floatBox.Hide()
 
 	fbb.OnClick = func(*event.MouseClick) {
 		fbb.floatBox.Toggle()
@@ -42,7 +42,7 @@ func (fbb *FloatBoxButton) Layout() {
 	// update refpoint
 	fbb.floatBox.RefPoint = image.Point{fbb.Bounds.Min.X, fbb.Bounds.Max.Y}
 
-	if !fbb.floatBox.Marks.HasAny(MarkForceZeroBounds) {
+	if !fbb.floatBox.Visible() {
 		//fbb.floatBox.Layout()
 		fbb.floatBox.MarkNeedsLayout()
 	}

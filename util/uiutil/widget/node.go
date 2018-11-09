@@ -2,6 +2,7 @@ package widget
 
 import (
 	"container/list"
+	"fmt"
 	"image"
 	"image/color"
 	"strings"
@@ -51,10 +52,10 @@ func (ENode) fullNode() {}
 type EmbedNode struct {
 	Bounds  image.Rectangle
 	Cursor  Cursor
-	Marks   Marks
 	Wrapper Node
 	Parent  *EmbedNode
 
+	marks  Marks
 	childs list.List
 	elem   *list.Element
 
@@ -122,14 +123,14 @@ func (en *EmbedNode) InsertBefore(child Node, next *EmbedNode) {
 
 //----------
 
-func (en *EmbedNode) Remove(n Node) {
-	ne := n.Embed()
-	if ne.Parent != en {
+func (en *EmbedNode) Remove(child Node) {
+	childe := child.Embed()
+	if childe.Parent != en {
 		panic("not a child of this node")
 	}
-	en.childs.Remove(ne.elem)
-	ne.elem = nil
-	ne.Parent = nil
+	en.childs.Remove(childe.elem)
+	childe.elem = nil
+	childe.Parent = nil
 
 	en.MarkNeedsLayoutAndPaint()
 }
@@ -244,6 +245,8 @@ func (en *EmbedNode) IterateWrappersReverse(f func(Node) bool) {
 
 //----------
 
+// Iterate2 family functions: iterate all without break possibility.
+
 func (en *EmbedNode) Iterate2(f func(*EmbedNode)) {
 	for e := en.childs.Front(); e != nil; e = e.Next() {
 		f(elemEmbed(e))
@@ -277,37 +280,49 @@ func (en *EmbedNode) ChildsWrappers() []Node {
 
 //----------
 
-func (en *EmbedNode) MarkUp(m Marks) {
-	en.markUp(m, true)
+func (en *EmbedNode) HasAnyMarks(m Marks) bool {
+	return en.marks.HasAny(m)
 }
 
-func (en *EmbedNode) markUp(m Marks, makeCallback bool) {
-	old := en.Marks
-	en.Marks |= m
-	changed := en.Marks ^ old
-	if changed != 0 {
-		if en.Parent != nil {
+func (en *EmbedNode) AddMarks(m Marks) {
+	en.markUp(m, nil, 0)
+}
 
-			// update marks to add to parent
-			u := changed
-			if u.HasAny(MarkNeedsPaint) {
-				u.Remove(MarkNeedsPaint)
-				u.Add(MarkChildNeedsPaint)
-			}
-			if u.HasAny(MarkNeedsLayout) {
-				u.Remove(MarkNeedsLayout)
-				u.Add(MarkChildNeedsLayout)
-			}
+func (en *EmbedNode) RemoveMarks(m Marks) {
+	// direcly non-removable marks
+	u := MarkNeedsPaint | MarkNeedsLayout |
+		MarkChildNeedsPaint | MarkChildNeedsLayout
+	if m.HasAny(u) {
+		panic(fmt.Sprintf("mark not directly removable: %v", u))
+	}
+	en.marks.Remove(m)
+}
 
-			// mark parent
-			en.Parent.markUp(u, makeCallback)
+//----------
 
-			if makeCallback && en.Parent.Wrapper != nil {
-				en.Parent.Wrapper.OnChildMarked(en.Wrapper, changed)
-			}
-		}
+func (en *EmbedNode) markUp(m Marks, child Node, childChangedMarks Marks) {
+	old := en.marks
+	en.marks |= m
+	changed := en.marks ^ old
+
+	// this node is a parent, run callback as soon as it gets marked (now)
+	if child != nil && en.Wrapper != nil {
+		en.Wrapper.OnChildMarked(child, childChangedMarks)
 	}
 
+	if changed != 0 && en.Parent != nil {
+		// setup marks to add to parent
+		var u Marks
+		if changed.HasAny(MarkNeedsPaint | MarkChildNeedsPaint) {
+			u.Add(MarkChildNeedsPaint)
+		}
+		if changed.HasAny(MarkNeedsLayout | MarkChildNeedsLayout) {
+			u.Add(MarkChildNeedsLayout)
+		}
+
+		// mark parent
+		en.Parent.markUp(u, en.Wrapper, changed)
+	}
 }
 
 func (en *EmbedNode) OnChildMarked(child Node, newMarks Marks) {
@@ -316,23 +331,23 @@ func (en *EmbedNode) OnChildMarked(child Node, newMarks Marks) {
 //----------
 
 func (en *EmbedNode) MarkNeedsLayout() {
-	en.MarkUp(MarkNeedsLayout)
+	en.AddMarks(MarkNeedsLayout)
 }
 func (en *EmbedNode) MarkNeedsPaint() {
-	en.MarkUp(MarkNeedsPaint)
+	en.AddMarks(MarkNeedsPaint)
 }
 func (en *EmbedNode) MarkNeedsLayoutAndPaint() {
-	en.MarkUp(MarkNeedsLayout | MarkNeedsPaint)
+	en.AddMarks(MarkNeedsLayout | MarkNeedsPaint)
 }
 
 //----------
 
 func (en *EmbedNode) TreeNeedsPaint() bool {
-	return en.Marks.HasAny(MarkNeedsPaint | MarkChildNeedsPaint)
+	return en.HasAnyMarks(MarkNeedsPaint | MarkChildNeedsPaint)
 }
 
 func (en *EmbedNode) TreeNeedsLayout() bool {
-	return en.Marks.HasAny(MarkNeedsLayout | MarkChildNeedsLayout)
+	return en.HasAnyMarks(MarkNeedsLayout | MarkChildNeedsLayout)
 }
 
 //----------
@@ -349,10 +364,10 @@ func (en *EmbedNode) Measure(hint image.Point) image.Point {
 //----------
 
 func (en *EmbedNode) LayoutMarked() {
-	if en.Marks.HasAny(MarkNeedsLayout) {
+	if en.HasAnyMarks(MarkNeedsLayout) {
 		en.Wrapper.LayoutTree()
-	} else if en.Marks.HasAny(MarkChildNeedsLayout) {
-		en.Marks.Remove(MarkChildNeedsLayout)
+	} else if en.HasAnyMarks(MarkChildNeedsLayout) {
+		en.marks.Remove(MarkChildNeedsLayout)
 		en.IterateWrappers2(func(c Node) {
 			c.LayoutMarked()
 		})
@@ -366,7 +381,7 @@ func (en *EmbedNode) LayoutTree() {
 	//depth++
 	//defer func() { depth-- }()
 
-	en.Marks.Remove(MarkNeedsLayout | MarkChildNeedsLayout)
+	en.marks.Remove(MarkNeedsLayout | MarkChildNeedsLayout)
 
 	// keep/set default bounds before layouting childs
 	cbm := map[*EmbedNode]image.Rectangle{}
@@ -375,7 +390,7 @@ func (en *EmbedNode) LayoutTree() {
 		c.Bounds = en.Bounds // parent bounds
 
 		// set to empty if not visible
-		if c.Marks.HasAny(MarkForceZeroBounds) {
+		if c.HasAnyMarks(MarkForceZeroBounds) {
 			c.Bounds = image.Rectangle{}
 		}
 	})
@@ -404,26 +419,24 @@ func (en *EmbedNode) ChildsLayoutTree() {
 
 func (en *EmbedNode) PaintMarked() image.Rectangle {
 	u := image.Rectangle{}
-
-	if en.Marks.HasAny(MarkNeedsPaint) {
+	if en.HasAnyMarks(MarkNeedsPaint) {
 		if en.Wrapper.PaintTree() {
 			u = u.Union(en.Bounds)
 		}
-	} else if en.Marks.HasAny(MarkChildNeedsPaint) {
-		en.Marks.Remove(MarkChildNeedsPaint)
+	} else if en.HasAnyMarks(MarkChildNeedsPaint) {
+		en.marks.Remove(MarkChildNeedsPaint)
 		en.IterateWrappers2(func(c Node) {
 			r := c.PaintMarked()
 			u = u.Union(r)
 		})
 	}
-
 	return u
 }
 
 func (en *EmbedNode) PaintTree() bool {
-	en.Marks.Remove(MarkNeedsPaint | MarkChildNeedsPaint)
+	en.marks.Remove(MarkNeedsPaint | MarkChildNeedsPaint)
 
-	if en.Marks.HasAny(MarkNotPaintable | MarkForceZeroBounds) {
+	if en.HasAnyMarks(MarkNotPaintable | MarkForceZeroBounds) {
 		return false
 	}
 
@@ -586,9 +599,6 @@ const (
 
 	MarkChildNeedsPaint
 	MarkChildNeedsLayout
-
-	//MarkHidden
-	//MarkParentHidden
 
 	MarkPointerInside // mouseEnter/mouseLeave events
 	MarkNotDraggable  // won't emit mouseDrag events

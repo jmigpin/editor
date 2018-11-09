@@ -20,7 +20,7 @@ func NewScrollHandle(ctx ImageContext, sb *ScrollBar) *ScrollHandle {
 	sh := &ScrollHandle{ctx: ctx, sb: sb}
 
 	// the scrollbar handles the decision making, the handle only draws
-	sh.Marks.Add(MarkNotDraggable)
+	sh.AddMarks(MarkNotDraggable)
 
 	return sh
 }

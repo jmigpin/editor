@@ -9,9 +9,9 @@ import (
 
 type ContextFloatBox struct {
 	*widget.FloatBox
-	Label   *widget.Label
-	root    *Root
-	Enabled bool // used externally
+	Label *widget.Label
+	root  *Root
+	//Enabled bool // used externally
 }
 
 func NewContextFloatBox(root *Root) *ContextFloatBox {
@@ -37,6 +37,10 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 
 	return cfb
 }
+
+//----------
+
+//----------
 
 func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Handle {
 	switch ev.(type) {

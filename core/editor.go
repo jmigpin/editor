@@ -13,6 +13,7 @@ import (
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font"
 )
 
@@ -442,12 +443,49 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 //----------
 
 func (ed *Editor) toggleContextFloatBox() {
-	// TODO
+	// pointer position
+	p, err := ed.UI.QueryPointer()
+	if err != nil {
+		return
+	}
+
+	// get textarea associated with the pointer position
+	var visit func(node widget.Node) (ta *ui.TextArea)
+	visit = func(node widget.Node) (ta *ui.TextArea) {
+		if p.In(node.Embed().Bounds) {
+			if u, ok := node.(*ui.TextArea); ok {
+				return u
+			}
+			if u, ok := node.(*ui.Toolbar); ok {
+				return u.TextArea
+			}
+			if u, ok := node.(*ui.RowToolbar); ok {
+				return u.TextArea
+			}
+		}
+		node.Embed().IterateWrappersReverse(func(n widget.Node) bool {
+			u := visit(n)
+			if u != nil {
+				ta = u
+				return false
+			}
+			return true
+		})
+		return ta
+	}
+
+	ta := visit(ed.UI.Root)
+	if ta == nil {
+		log.Printf("failed to get ta")
+		return
+	}
+
 	ed.UI.Root.ContextFloatBox.Toggle()
 	ed.UI.EnqueueNoOpEvent()
 
 	// update refpoint
-	//fb.floatBox.RefPoint = image.Point{fb.Bounds.Min.X, fb.Bounds.Max.Y}
+	p2 := ta.GetPoint(ta.TextCursor.Index())
+	ed.UI.Root.ContextFloatBox.RefPoint = p2
 }
 
 //----------

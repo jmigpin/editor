@@ -16,7 +16,7 @@ func NewFloatBox(ml *MultiLayer, fl *FloatLayer, content Node) *FloatBox {
 	fb := &FloatBox{content: content, ml: ml, fl: fl}
 	fb.Cursor = DefaultCursor
 	fb.Append(content)
-	fb.Marks.Add(MarkNotDraggable | MarkInBoundsHandlesEvent)
+	fb.AddMarks(MarkNotDraggable | MarkInBoundsHandlesEvent)
 	fl.Append(fb)
 	return fb
 }
@@ -24,17 +24,17 @@ func NewFloatBox(ml *MultiLayer, fl *FloatLayer, content Node) *FloatBox {
 //----------
 
 func (fb *FloatBox) Visible() bool {
-	return !fb.Marks.HasAny(MarkForceZeroBounds)
+	return !fb.HasAnyMarks(MarkForceZeroBounds)
 }
 
 func (fb *FloatBox) Hide() {
-	fb.ml.BgLayer.RectNeedsPaint(fb.Bounds)
-	fb.Marks.Add(MarkForceZeroBounds)
-	fb.MarkNeedsLayout()
+	fb.ml.AddMarkRect(fb.Bounds)
+	fb.AddMarks(MarkForceZeroBounds)
+	fb.MarkNeedsLayoutAndPaint()
 }
 
 func (fb *FloatBox) Show() {
-	fb.Marks.Remove(MarkForceZeroBounds)
+	fb.RemoveMarks(MarkForceZeroBounds)
 	fb.MarkNeedsLayoutAndPaint()
 }
 

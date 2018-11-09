@@ -18,7 +18,7 @@ type SeparatorHandle struct {
 
 func NewSeparatorHandle(ref Node) *SeparatorHandle {
 	sh := &SeparatorHandle{ref: ref}
-	sh.Marks.Add(MarkNotPaintable)
+	sh.AddMarks(MarkNotPaintable)
 	return sh
 }
 
