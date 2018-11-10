@@ -11,8 +11,8 @@ type MultiLayer struct {
 
 	BgLayer        *BgLayer
 	SeparatorLayer *ENode
-	MenuLayer      *FloatLayer
 	ContextLayer   *FloatLayer
+	MenuLayer      *FloatLayer
 
 	rects list.List
 }
@@ -22,8 +22,8 @@ func NewMultiLayer() *MultiLayer {
 
 	ml.BgLayer = &BgLayer{ml: ml}
 	ml.SeparatorLayer = &ENode{}
-	ml.MenuLayer = &FloatLayer{ml: ml}
 	ml.ContextLayer = &FloatLayer{ml: ml}
+	ml.MenuLayer = &FloatLayer{ml: ml}
 
 	// order matters
 	ml.Append(

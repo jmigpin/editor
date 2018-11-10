@@ -19,7 +19,8 @@ func NewFloatBoxButton(ctx ImageContext, ml *MultiLayer, fl *FloatLayer, content
 	fbb := &FloatBoxButton{Button: b}
 
 	// floatbox
-	fbb.floatBox = NewFloatBox(ml, fl, content)
+	fbb.floatBox = NewFloatBox(ml, content)
+	fl.Append(fbb.floatBox)
 	fbb.floatBox.Hide()
 
 	fbb.OnClick = func(*event.MouseClick) {

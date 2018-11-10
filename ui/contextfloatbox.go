@@ -9,36 +9,46 @@ import (
 
 type ContextFloatBox struct {
 	*widget.FloatBox
-	Label *widget.Label
-	root  *Root
-	//Enabled bool // used externally
+
+	root     *Root
+	sa       *widget.ScrollArea
+	TextArea *TextArea
+
+	visibleOnAutoClose bool
 }
 
 func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb := &ContextFloatBox{root: root}
 
-	cfb.Label = widget.NewLabel(root.UI)
-	cfb.Label.Text.SetStr("todo...")
-	cfb.Label.Pad.Left = 5
-	cfb.Label.Pad.Right = 5
-	cfb.Label.Border.SetAll(1)
+	text := "todo...\ntodo...\ntodo..."
 
-	// TODO: scrollarea
-	//scrollArea := widget.NewScrollArea(l.UI, cfb.Label)
-	//scrollArea.LeftScroll = ScrollbarLeft
-	//scrollArea.ScrollWidth = ScrollbarWidth
-	//border := widget.NewPad(root.UI, scrollArea)
-	//border.Set(1)
+	cfb.TextArea = NewTextArea(root.UI)
+	cfb.TextArea.SetStr(text)
 
-	container := WrapInBottomShadowOrNone(root.UI, cfb.Label)
+	cfb.sa = widget.NewScrollArea(root.UI, cfb.TextArea, false, true)
+	cfb.sa.LeftScroll = ScrollBarLeft
 
-	cfb.FloatBox = widget.NewFloatBox(root.MultiLayer, root.MultiLayer.ContextLayer, container)
+	border := widget.NewBorder(root.UI, cfb.sa)
+	border.SetAll(1)
+
+	container := WrapInBottomShadowOrNone(root.UI, border)
+
+	cfb.FloatBox = widget.NewFloatBox(root.MultiLayer, container)
+	root.MultiLayer.ContextLayer.Append(cfb)
 	cfb.FloatBox.Hide()
+
+	cfb.SetThemePaletteNamePrefix("contextfloatbox_")
 
 	return cfb
 }
 
 //----------
+
+func (cfb *ContextFloatBox) Layout() {
+	sw := UIThemeUtil.GetScrollBarWidth(cfb.TextArea.TreeThemeFont())
+	cfb.sa.ScrollWidth = sw * 2 / 3
+	cfb.FloatBox.Layout()
+}
 
 //----------
 
@@ -50,4 +60,90 @@ func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Ha
 		return event.NotHandled
 	}
 	return event.Handled
+}
+
+//----------
+
+func (cfb *ContextFloatBox) AutoClose(ev interface{}, p image.Point) {
+	cfb.visibleOnAutoClose = cfb.Visible()
+	if cfb.Visible() && !p.In(cfb.Bounds) {
+		switch ev.(type) {
+		case *event.KeyDown,
+			*event.MouseDown:
+			cfb.Hide()
+			return
+		case *event.MouseMove:
+		default:
+			//fmt.Printf("%T\n", ev)
+		}
+	}
+}
+
+//----------
+
+func (cfb *ContextFloatBox) Toggle(contentFn func(*ContextFloatBox, *TextArea)) {
+	cfb.toggle2()
+	if !cfb.Visible() {
+		return
+	}
+
+	ta, ok := cfb.FindTextAreaUnderPointer()
+	if !ok {
+		cfb.Hide()
+		return
+	}
+
+	contentFn(cfb, ta)
+}
+
+func (cfb *ContextFloatBox) toggle2() {
+	visible := cfb.Visible() || cfb.visibleOnAutoClose
+	if !visible {
+		cfb.Show()
+	} else {
+		cfb.Hide()
+	}
+}
+
+//----------
+
+func (cfb *ContextFloatBox) SetRefPointToTextAreaCursor(ta *TextArea) {
+	p := ta.GetPoint(ta.TextCursor.Index())
+	p.Y += ta.LineHeight()
+	cfb.RefPoint = p
+}
+
+//----------
+
+func (cfb *ContextFloatBox) FindTextAreaUnderPointer() (*TextArea, bool) {
+	// pointer position
+	p, err := cfb.root.UI.QueryPointer()
+	if err != nil {
+		return nil, false
+	}
+	ta := cfb.visitToFindTA(*p, cfb.root)
+	return ta, ta != nil
+}
+
+func (cfb *ContextFloatBox) visitToFindTA(p image.Point, node widget.Node) (ta *TextArea) {
+	if p.In(node.Embed().Bounds) {
+		if u, ok := node.(*TextArea); ok {
+			return u
+		}
+		if u, ok := node.(*Toolbar); ok {
+			return u.TextArea
+		}
+		if u, ok := node.(*RowToolbar); ok {
+			return u.TextArea
+		}
+	}
+	node.Embed().IterateWrappersReverse(func(n widget.Node) bool {
+		u := cfb.visitToFindTA(p, n)
+		if u != nil {
+			ta = u
+			return false
+		}
+		return true
+	})
+	return ta
 }

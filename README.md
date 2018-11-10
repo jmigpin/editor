@@ -188,11 +188,9 @@ Note that plugins might need to be recompiled everytime there are changes in the
 
 *Global key/button shortcuts*
 
-- `esc`:
-  - ~~close context float box~~
-  - stop debugging session
-- `f1`: ~~toggle context float box~~ (work in progress)
-  - ~~does auto-completion in `.go` files.~~
+- `esc`: stop debugging session
+- `f1`: toggle context float box
+  - ~~does auto-completion in `.go` files.~~ (work-in-progress)
 
 *Column key/button shortcuts*
 

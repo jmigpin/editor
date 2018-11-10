@@ -3,9 +3,12 @@ package widget
 import "image"
 
 // Used by ScrollArea.
-type Scrollable interface {
+type ScrollableNode interface {
 	Node
+	Scrollable
+}
 
+type Scrollable interface {
 	SetScrollable(x, y bool)
 	SetScrollableOffset(image.Point)
 

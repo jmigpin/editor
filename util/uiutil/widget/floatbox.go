@@ -4,20 +4,19 @@ import (
 	"image"
 )
 
+// Should be a child of FloatLayer.
 type FloatBox struct {
 	ENode
 	RefPoint image.Point
 	content  Node
 	ml       *MultiLayer
-	fl       *FloatLayer
 }
 
-func NewFloatBox(ml *MultiLayer, fl *FloatLayer, content Node) *FloatBox {
-	fb := &FloatBox{content: content, ml: ml, fl: fl}
+func NewFloatBox(ml *MultiLayer, content Node) *FloatBox {
+	fb := &FloatBox{content: content, ml: ml}
 	fb.Cursor = DefaultCursor
 	fb.Append(content)
 	fb.AddMarks(MarkNotDraggable | MarkInBoundsHandlesEvent)
-	fl.Append(fb)
 	return fb
 }
 

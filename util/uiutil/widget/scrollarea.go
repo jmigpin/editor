@@ -14,11 +14,11 @@ type ScrollArea struct {
 	YBar        *ScrollBar
 	XBar        *ScrollBar
 
-	scrollable Scrollable
+	scrollable ScrollableNode
 	ctx        ImageContext
 }
 
-func NewScrollArea(ctx ImageContext, scrollable Scrollable, xbar, ybar bool) *ScrollArea {
+func NewScrollArea(ctx ImageContext, scrollable ScrollableNode, xbar, ybar bool) *ScrollArea {
 	sa := &ScrollArea{
 		ScrollWidth: 10,
 		LeftScroll:  true,

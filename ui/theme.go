@@ -80,6 +80,8 @@ func lightThemeColors(node widget.Node) {
 		"mm_border":           cint(0x0),
 		"mm_content_pad":      cint(0xecf0f1),
 		"mm_content_border":   cint(0x0),
+
+		"contextfloatbox_border": cint(0x0),
 	}
 
 	pal.Merge(rowSquarePalette())
@@ -127,6 +129,8 @@ func darkThemeColors(node widget.Node) {
 		"mm_border":           cint(0x0),
 		"mm_content_pad":      cint(0x808080),
 		"mm_content_border":   cint(0x0),
+
+		"contextfloatbox_border": cint(0xffffff),
 	}
 
 	pal.Merge(rowSquarePalette())
@@ -174,6 +178,8 @@ func acmeThemeColors(node widget.Node) {
 		"mm_border":           cint(0x0),
 		"mm_content_pad":      cint(0xeaffff),
 		"mm_content_border":   cint(0x0),
+
+		"contextfloatbox_border": cint(0x0),
 	}
 
 	pal.Merge(rowSquarePalette())

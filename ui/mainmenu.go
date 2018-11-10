@@ -12,7 +12,6 @@ type MainMenuButton struct {
 func NewMainMenuButton(root *Root) *MainMenuButton {
 	mmb := &MainMenuButton{}
 
-	// create here just to add to the floatbutton instantiation
 	content := &widget.ENode{}
 
 	mmb.FloatBoxButton = widget.NewFloatBoxButton(root.UI, root.MultiLayer, root.MenuLayer, content)
