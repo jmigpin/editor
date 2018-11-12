@@ -441,9 +441,8 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 
 //----------
 
-func (ed *Editor) contextFloatBoxContent(cfb *ui.ContextFloatBox, ta *ui.TextArea) {
-	cfb.SetRefPointToTextAreaCursor(ta)
-	//ed.UI.Root.ContextFloatBox.TextArea.SetStr(v)
+func (ed *Editor) contextFloatBoxContent() {
+	ed.Plugins.RunAutoComplete(ed.UI.Root.ContextFloatBox)
 }
 
 //----------

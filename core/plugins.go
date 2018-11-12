@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"plugin"
 
+	"github.com/jmigpin/editor/ui"
 	"github.com/pkg/errors"
 )
 
@@ -52,8 +53,34 @@ func (p *Plugins) runOnLoad(plug *Plug) {
 		p.ed.Error(err)
 		return
 	}
-	// run onload
+	// run symbol
 	f2(p.ed)
+}
+
+//----------
+
+func (p *Plugins) RunAutoComplete(cfb *ui.ContextFloatBox) {
+	for _, plug := range p.plugs {
+		p.runAutoCompletePlug(plug, cfb)
+	}
+}
+
+func (p *Plugins) runAutoCompletePlug(plug *Plug, cfb *ui.ContextFloatBox) {
+	// plugin should have this symbol
+	f, err := plug.Plugin.Lookup("AutoComplete")
+	if err != nil {
+		// silent error
+		return
+	}
+	// the symbol must implement this signature
+	f2, ok := f.(func(*Editor, *ui.ContextFloatBox))
+	if !ok {
+		err := fmt.Errorf("plugin: %v: bad func signature", plug.Path)
+		p.ed.Error(err)
+		return
+	}
+	// run symbol
+	f2(p.ed, cfb)
 }
 
 //----------

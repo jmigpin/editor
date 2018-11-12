@@ -81,28 +81,15 @@ func (cfb *ContextFloatBox) AutoClose(ev interface{}, p image.Point) {
 
 //----------
 
-func (cfb *ContextFloatBox) Toggle(contentFn func(*ContextFloatBox, *TextArea)) {
-	cfb.toggle2()
-	if !cfb.Visible() {
-		return
-	}
-
-	ta, ok := cfb.FindTextAreaUnderPointer()
-	if !ok {
-		cfb.Hide()
-		return
-	}
-
-	contentFn(cfb, ta)
-}
-
-func (cfb *ContextFloatBox) toggle2() {
+func (cfb *ContextFloatBox) Toggle(contentFn func()) {
 	visible := cfb.Visible() || cfb.visibleOnAutoClose
 	if !visible {
 		cfb.Show()
 	} else {
 		cfb.Hide()
+		return
 	}
+	contentFn()
 }
 
 //----------

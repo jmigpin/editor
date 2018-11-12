@@ -143,7 +143,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `GoDebug {run,test} <filename.go>`: debugger utility for go programs.
   - `-dirs`: directories to include in the debug session.
   - use `esc` key to stop the debug session.
-- toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row (possibly duplicate) with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open a duplicate of that file.
+- toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open another row to edit the same file.
 
 *Textarea commands*
 
@@ -179,8 +179,9 @@ A plugin can be compiled with (will output a `*.so`):
 and used in the editor by using the `--plugins` option:
 - `editor --plugins <plugin1.so>,<plugin2.so>`
 
-Functions that can be implemented by a plugin are:
+Functions that can be implemented by a plugin are (subject to changes - __work-in-progress__ ):
 - `func OnLoad(ed *core.Editor)`
+- `func AutoComplete(ed *core.Editor, cfb *ui.ContextFloatBox)`
 
 Note that plugins might need to be recompiled everytime there are changes in the libraries provided by the editor.
 

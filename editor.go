@@ -1,6 +1,10 @@
 // Source code editor in pure Go.
 package main
 
+// build plugins (use "--plugins=<p1.so>,..." option to use these)
+//go:generate go build -buildmode=plugin ./plugins/autocomplete.go
+//go:generate go build -buildmode=plugin ./plugins/gotodefinition.go
+
 import (
 	"flag"
 	"log"
