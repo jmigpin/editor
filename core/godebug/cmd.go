@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
+	"go/token"
 	"io"
 	"io/ioutil"
 	"os"
@@ -113,7 +114,7 @@ func (cmd *Cmd) initMode(ctx context.Context, flags *flag.FlagSet, testMode bool
 
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
 
-	// pre-build for better errors (result is ignored)
+	// pre-build without annotations for better errors (result is ignored)
 	if cmd.mainSrc == nil {
 		if testMode {
 			fout, err := cmd.buildTest(ctx, filename)
@@ -142,6 +143,11 @@ func (cmd *Cmd) initMode(ctx context.Context, flags *flag.FlagSet, testMode bool
 
 	// write config file after annotations
 	if err := cmd.writeConfigFileToTmpDir(); err != nil {
+		return "", err
+	}
+
+	// populate missing go files in parent directories
+	if err := cmd.populateParentDirectories(); err != nil {
 		return "", err
 	}
 
@@ -565,6 +571,86 @@ func (cmd *Cmd) parseArgs() (*flag.FlagSet, []string, error) {
 	}
 
 	return flags1, otherArgs, nil
+}
+
+//------------
+
+func (cmd *Cmd) populateParentDirectories() (err error) {
+	fmt.Println("pop par dirs")
+	dirs := map[string]bool{}
+	cmd.ann.FSet.Iterate(func(f *token.File) bool {
+		//fmt.Printf("-> %v\n", f.Name())
+
+		d := filepath.Dir(f.Name())
+		if _, ok := dirs[d]; !ok { // visit each dir only once
+			dirs[d] = true
+
+			pd := filepath.Dir(d) // parent dir
+			err = cmd.populateDir(pd)
+			if err != nil {
+				return false
+			}
+		}
+		return true
+	})
+	return err
+}
+
+func (cmd *Cmd) populateDir(dir string) error {
+	// visit only up to srcdir
+	srcDir, _ := gosource.ExtractSrcDir(dir)
+	if len(srcDir) <= 1 || strings.Index(dir, srcDir) < 0 {
+		return nil
+	}
+
+	// copy go files
+	//fmt.Printf("pop dir %v\n", dir)
+	filenames := dirGoFiles(dir)
+	for _, f := range filenames {
+		fAtTmp := cmd.tmpDirBasedFilename(f)
+		if err := copyFile(f, fAtTmp); err != nil {
+			return err
+		}
+	}
+
+	// visit parent dir
+	pd := filepath.Dir(dir)
+	return cmd.populateDir(pd)
+}
+
+//------------
+
+func copyFile(src, dst string) error {
+	//fmt.Printf("copied %v -> %v\n", src, dst)
+	//fmt.Printf("copying %v\n", filepath.Base(dst))
+
+	from, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer from.Close()
+	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer to.Close()
+	_, err = io.Copy(to, from)
+	return err
+}
+
+//------------
+
+func dirGoFiles(dir string) []string {
+	var a []string
+	fis, err := ioutil.ReadDir(dir)
+	if err == nil {
+		for _, fi := range fis {
+			if filepath.Ext(fi.Name()) == ".go" {
+				a = append(a, filepath.Join(dir, fi.Name()))
+			}
+		}
+	}
+	return a
 }
 
 //------------
