@@ -90,24 +90,24 @@ func MoveLineDown(te *widget.TextEdit) error {
 		return err
 	}
 
-	// remove newline to honor the line below
+	// remove newline
 	if !newline {
-		// remove newline from previous
+		// remove newline
 		s = s[:len(s)-1]
-		// prepend newline
-		s = append([]byte{'\n'}, s...)
+		// insert newline
+		if err := tc.RW().Insert(a2, []byte{'\n'}); err != nil {
+			return err
+		}
+		a2 += 1 // 1 is '\n' added to s before insertion
 	}
 
 	if err := tc.RW().Insert(a2, s); err != nil {
 		return err
 	}
 
-	if !newline {
-		a2 += 1 // 1 is '\n' added to s before insertion
-	}
-
 	if tc.SelectionOn() {
 		b2 := a2 + len(s)
+		// don't select newline
 		if newline {
 			_, size, err := tc.RW().ReadLastRuneAt(b2)
 			if err != nil {
