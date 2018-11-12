@@ -64,12 +64,12 @@ func MoveLineDown(te *widget.TextEdit) error {
 	tc.BeginEdit()
 	defer tc.EndEdit()
 
-	a, b, _, err := tc.LinesIndexes()
+	a, b, newline, err := tc.LinesIndexes()
 	if err != nil {
 		return err
 	}
 	// already at the last line
-	if b == tc.RW().Len() {
+	if !newline && b == tc.RW().Len() {
 		return nil
 	}
 
