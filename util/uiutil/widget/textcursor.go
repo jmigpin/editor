@@ -86,6 +86,7 @@ func (tc *TextCursor) SelectionOn() bool {
 
 func (tc *TextCursor) SetSelectionOff() {
 	if tc.state.selectionOn != false {
+		tc.state.selectionIndex = 0
 		tc.state.selectionOn = false
 		tc.te.MarkNeedsPaint()
 	}
