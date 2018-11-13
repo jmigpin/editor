@@ -531,6 +531,11 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 
 	if err := f.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			f.SetOutput(cmd.Stderr)
+			f.PrintDefaults()
+			return true, nil
+		}
 		return true, err
 	}
 
@@ -554,6 +559,11 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	verbose := f.Bool("v", false, "verbose")
 
 	if err := f.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			f.SetOutput(cmd.Stderr)
+			f.PrintDefaults()
+			return true, nil
+		}
 		return true, err
 	}
 
@@ -574,6 +584,22 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	}
 
 	return false, nil
+}
+
+func cmdUsage() string {
+	return `Usage:
+	GoDebug <command> [arguments]
+The commands are:
+	run		compile and run go program with debugging data
+	test		test packages compiled with debugging data
+Examples:
+	GoDebug run main.go
+	GoDebug run main.go -- progArg1 progArg2
+	GoDebug run --help
+	GoDebug run -dirs=./pkg1,./pkg2 main.go
+	GoDebug test
+	GoDebug test -run mytest
+`
 }
 
 //------------
@@ -687,17 +713,6 @@ func normalizeFilenameForExec(filename string) string {
 		return "./" + filename
 	}
 	return filename
-}
-
-//------------
-
-func cmdUsage() string {
-	return `Usage:
-	GoDebug <command> [arguments]
-The commands are:
-	run		compile and run go program with debugging data
-	test		test packages compiled with debugging data
-`
 }
 
 //------------

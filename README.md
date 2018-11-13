@@ -22,7 +22,8 @@ Source code editor in pure Go.
 - Calls goimports if available when saving a .go file.
 - Clicking on `.go` files identifiers will jump to the identifier definition (Ex: a function definition).
 - ~~Auto-completion (suggestions) in `.go` files. (__experimental__)~~ (__under-reconstruction__)
-- Debugger utility for go programs. (__experimental__)
+- Debug utility for go programs (`GoDebug` cmd). (__experimental__)
+  - allows to go back and forth in time to consult code lines.
 - Plugin support
 
 ## Installation and usage
@@ -141,7 +142,9 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
 - `GoDebug {run,test} <filename.go>`: debugger utility for go programs.
-  - `-dirs`: directories to include in the debug session.
+  - `-h`: help (show usage).
+  - `-dirs`: comma separated directories to include in the debug session.
+  - `-work`: print out temporary work dir, and don't cleanup (allows to see the generated code).
   - use `esc` key to stop the debug session.
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open another row to edit the same file.
 
