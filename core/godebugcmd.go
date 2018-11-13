@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -60,16 +61,6 @@ func NewGoDebugInstance(ed *Editor) *GoDebugInstance {
 	gdi := &GoDebugInstance{ed: ed}
 	gdi.cancel = func() {}
 	return gdi
-}
-
-func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
-	switch args[1] {
-	case "run", "test":
-		return gdi.run(erow, args)
-	default:
-		return fmt.Errorf("expecting {run,test}")
-		//return fmt.Errorf("expecting {run,test,find,stop}")
-	}
 }
 
 //----------
@@ -160,6 +151,7 @@ func (gdi *GoDebugInstance) selectNext() bool {
 	di := gdi.data.dataIndex
 	if di.SelectedArrivalIndex < di.GlobalArrivalIndex-1 {
 		di.SelectedArrivalIndex++
+		gdi.openArrivalIndexERow()
 		return true
 	}
 	return false
@@ -171,9 +163,27 @@ func (gdi *GoDebugInstance) selectPrev() bool {
 	di := gdi.data.dataIndex
 	if di.SelectedArrivalIndex > 0 {
 		di.SelectedArrivalIndex--
+		gdi.openArrivalIndexERow()
 		return true
 	}
 	return false
+}
+
+//----------
+
+func (gdi *GoDebugInstance) openArrivalIndexERow() {
+	di := gdi.data.dataIndex
+	filename, ok := di.selectedArrivalIndexFilename(di.SelectedArrivalIndex)
+	if !ok {
+		return
+	}
+	rowPos := gdi.ed.GoodRowPos()
+	conf := &OpenFileERowConfig{
+		FileOffset:       &parseutil.FileOffset{Filename: filename},
+		RowPos:           rowPos,
+		NewIfNotExistent: true,
+	}
+	OpenFileERow(gdi.ed, conf)
 }
 
 //----------
@@ -208,16 +218,17 @@ func (gdi *GoDebugInstance) showSelectedLine(erow *ERow) {
 
 //----------
 
-func (gdi *GoDebugInstance) CheckTextAreaContent(erow *ERow) {
-	// update godebug annotations if hash doesn't match
-	// TODO
-}
+func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
+	// create new erow if necessary
+	if erow.Info.IsFileButNotDir() {
+		dir := filepath.Dir(erow.Info.Name())
+		info := erow.Ed.ReadERowInfo(dir)
+		rowPos := erow.Row.PosBelow()
+		erow = NewERow(erow.Ed, info, rowPos)
+	}
 
-//----------
-
-func (gdi *GoDebugInstance) run(erow *ERow, args []string) error {
 	if !erow.Info.IsDir() {
-		return fmt.Errorf("not a directory")
+		return fmt.Errorf("can't run on this erow type")
 	}
 
 	// only one instance at a time
@@ -243,22 +254,26 @@ func (gdi *GoDebugInstance) run(erow *ERow, args []string) error {
 
 		gdi.updateUI()
 
-		return gdi.run2(erow, args, ctx2, w)
+		return gdi.start2(erow, args, ctx2, w)
 	})
 
 	return nil
 }
 
-func (gdi *GoDebugInstance) run2(erow *ERow, args []string, ctx context.Context, w io.Writer) error {
-	cmd := godebug.NewCmd(args[1:], nil)
+func (gdi *GoDebugInstance) start2(erow *ERow, args []string, ctx context.Context, w io.Writer) error {
+	cmd := godebug.NewCmd()
 	defer cmd.Cleanup()
 
 	cmd.Dir = erow.Info.Name()
 	cmd.Stdout = w
 	cmd.Stderr = w
 
-	if err := cmd.Start(ctx); err != nil {
+	done, err := cmd.Start(ctx, args[1:], nil)
+	if err != nil {
 		return err
+	}
+	if done {
+		return nil
 	}
 
 	// handle client msgs loop (blocking)
@@ -270,16 +285,6 @@ func (gdi *GoDebugInstance) run2(erow *ERow, args []string, ctx context.Context,
 //----------
 
 func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd *godebug.Cmd) {
-
-	// request file positions before entering loop
-	if err := cmd.RequestFileSetPositions(); err != nil {
-		fmt.Fprint(w, err)
-		return
-	}
-
-	// TODO: timeout to receive file set positions?
-
-	// loop
 	const updatesPerSecond = 20
 	var updatec <-chan time.Time
 	for {
@@ -309,17 +314,32 @@ func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd
 //----------
 
 func (gdi *GoDebugInstance) handleMsg(msg interface{}, w io.Writer, cmd *godebug.Cmd) {
-	if err := gdi.indexMsg(msg); err != nil {
-		fmt.Fprint(w, err)
-		return
-
-	}
-
-	// on receiving the filesdatamsg,  send a requeststart
-	if _, ok := msg.(*debug.FilesDataMsg); ok {
+	switch t := msg.(type) {
+	case string:
+		if t == "connected" {
+			// TODO: timeout to receive file set positions?
+			// request file positions
+			if err := cmd.RequestFileSetPositions(); err != nil {
+				err2 := errors.Wrap(err, "request file set positions")
+				fmt.Fprint(w, err2)
+			}
+		}
+	case *debug.FilesDataMsg:
+		// index data
+		if err := gdi.indexMsg(msg); err != nil {
+			fmt.Fprintln(w, err)
+			return
+		}
+		// on receiving the filesdatamsg,  send a requeststart
 		if err := cmd.RequestStart(); err != nil {
 			err2 := errors.Wrap(err, "request start")
 			fmt.Fprint(w, err2)
+			return
+		}
+	default:
+		// index data
+		if err := gdi.indexMsg(msg); err != nil {
+			fmt.Fprintln(w, err)
 			return
 		}
 	}
@@ -328,7 +348,7 @@ func (gdi *GoDebugInstance) handleMsg(msg interface{}, w io.Writer, cmd *godebug
 func (gdi *GoDebugInstance) indexMsg(msg interface{}) error {
 	gdi.data.Lock()
 	defer gdi.data.Unlock()
-	return gdi.data.dataIndex.IndexMsg(msg)
+	return gdi.data.dataIndex.indexMsg(msg)
 }
 
 //----------
@@ -397,6 +417,7 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 		if !ok {
 			info.UpdateAnnotationsRowState(false)
 			info.UpdateAnnotationsEditedRowState(false)
+			clearDrawerAnnotations()
 			return
 		}
 
@@ -459,7 +480,29 @@ func NewGDDataIndex() *GDDataIndex {
 	return di
 }
 
-func (di *GDDataIndex) IndexMsg(msg interface{}) error {
+//----------
+
+func (di *GDDataIndex) selectedArrivalIndexFilename(arrivalIndex int) (string, bool) {
+	for _, f := range di.FileMsgs {
+		for _, lm := range f.LineMsgs {
+			k := sort.Search(len(lm.Msgs), func(i int) bool {
+				u := lm.Msgs[i].GlobalArrivalIndex
+				return u > arrivalIndex
+			})
+			k--
+			if k >= 0 {
+				if lm.Msgs[k].GlobalArrivalIndex == arrivalIndex {
+					return di.Afds[k].Filename, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+//----------
+
+func (di *GDDataIndex) indexMsg(msg interface{}) error {
 	switch t := msg.(type) {
 	case *debug.FilesDataMsg:
 		di.Afds = t.Data
@@ -501,8 +544,8 @@ func (di *GDDataIndex) IndexMsg(msg interface{}) error {
 
 		di.GlobalArrivalIndex++
 
-		//// TODO: mark as having new data
-		//di.FileMsgs[t.FileIndex].Updated = true
+		// mark as having new data
+		//di.FileMsgs[t.FileIndex].NeedUpdate = true
 
 	default:
 		return fmt.Errorf("unexpected msg: %T", msg)
@@ -513,7 +556,7 @@ func (di *GDDataIndex) IndexMsg(msg interface{}) error {
 //----------
 
 type GDFileMsgs struct {
-	//Updated bool // performance
+	//NeedUpdate bool // performance
 
 	// all annotations received
 	LineMsgs []GDLineMsgs
@@ -527,6 +570,7 @@ type GDFileMsgs struct {
 
 func NewGDFileMsgs(afd *debug.AnnotatorFileData) *GDFileMsgs {
 	return &GDFileMsgs{
+		//NeedUpdate:        true,
 		SelectedLine:      -1,
 		LineMsgs:          make([]GDLineMsgs, afd.DebugLen),
 		AnnEntries:        make([]*drawer3.Annotation, afd.DebugLen),

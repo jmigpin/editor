@@ -31,6 +31,11 @@ func init() {
 
 //----------
 
+type ReqFilesDataMsg struct{}
+type ReqStartMsg struct{}
+
+//----------
+
 type LineMsg struct {
 	FileIndex  int
 	DebugIndex int
@@ -49,9 +54,6 @@ type AnnotatorFileData struct {
 	FileSize  int
 	FileHash  []byte
 }
-
-type ReqFilesDataMsg struct{}
-type ReqStartMsg struct{}
 
 //----------
 

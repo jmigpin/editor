@@ -26,9 +26,8 @@ type Cmd struct {
 	Stdout io.Writer
 	Stderr io.Writer
 
-	args    []string
-	mainSrc interface{}
 	ann     *Annotator
+	mainSrc interface{} // used for tests (at least)
 
 	tmpDir       string
 	tmpBuiltFile string // file built and exec'd
@@ -40,57 +39,67 @@ type Cmd struct {
 		serverErr error
 	}
 
-	work bool // don't cleanup at the end
+	flags struct {
+		mode struct {
+			run  bool
+			test bool
+		}
+		run struct {
+			filename string
+		}
+		test struct {
+		}
+		work      bool
+		dirs      []string
+		otherArgs []string
+	}
 }
 
-func NewCmd(args []string, mainSrc interface{}) *Cmd {
-	cmd := &Cmd{
-		args:    args,
-		mainSrc: mainSrc,
-		ann:     NewAnnotator(),
-		Stdout:  os.Stdout,
-		Stderr:  os.Stderr,
+func NewCmd() *Cmd {
+	return &Cmd{
+		ann:    NewAnnotator(),
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
 	}
-	return cmd
 }
 
 //------------
 
-func (cmd *Cmd) Start(ctx context.Context) error {
+func (cmd *Cmd) Start(ctx context.Context, args []string, mainSrc interface{}) (done bool, _ error) {
+	cmd.mainSrc = mainSrc
+
 	// parse arguments
-	pflags, pargs, err := cmd.parseArgs()
-	if err != nil {
-		return err
+	done, err := cmd.parseArgs(args)
+	if done || err != nil {
+		return done, err
 	}
 
 	// tmp dir for annotated files
 	tmpDir, err := ioutil.TempDir(os.TempDir(), "godebug")
 	if err != nil {
-		return err
+		return true, err
 	}
 	cmd.tmpDir = tmpDir
 
 	// print tmp dir if work flag is present
-	work := flagGet(pflags, "work").(bool)
-	if work {
-		cmd.work = true
+	if cmd.flags.work {
 		fmt.Fprintf(cmd.Stdout, "work: %v\n", cmd.tmpDir)
 	}
 
-	// mode
-	mode := flagGet(pflags, "mode").(string)
-	switch mode {
-	case "run", "test":
-		testMode := mode == "test"
-		filename, err := cmd.initMode(ctx, pflags, testMode)
+	// run
+	switch {
+	case cmd.flags.mode.run, cmd.flags.mode.test:
+		filename, err := cmd.initMode(ctx)
 		if err != nil {
-			return err
+			return true, err
 		}
-		return cmd.startServerClient(ctx, filename, pargs)
+		err = cmd.startServerClient(ctx, filename)
+		return false, err
 	default:
-		return fmt.Errorf("unexpected mode: %v", mode)
+		panic("!")
 	}
 
+	return false, nil
 }
 
 //------------
@@ -103,20 +112,27 @@ func (cmd *Cmd) Wait() error {
 
 //------------
 
-func (cmd *Cmd) initMode(ctx context.Context, flags *flag.FlagSet, testMode bool) (string, error) {
+func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 	// filename
 	var filename string
-	if testMode {
+	if cmd.flags.mode.test {
 		filename = filepath.Join(cmd.getDir(), "pkgtest")
 	} else {
-		filename = flagGet(flags, "run.filename").(string)
+		// base on workingdir
+		filename = cmd.flags.run.filename
+		if filename == "" {
+			return "", fmt.Errorf("missing filename arg")
+		}
+		if !filepath.IsAbs(filename) {
+			filename = filepath.Join(cmd.getDir(), filename)
+		}
 	}
 
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
 
 	// pre-build without annotations for better errors (result is ignored)
 	if cmd.mainSrc == nil {
-		if testMode {
+		if cmd.flags.mode.test {
 			fout, err := cmd.buildTest(ctx, filename)
 			if err != nil {
 				return "", err
@@ -132,12 +148,16 @@ func (cmd *Cmd) initMode(ctx context.Context, flags *flag.FlagSet, testMode bool
 	}
 
 	// annotate
-	if !testMode {
+	if !cmd.flags.mode.test {
 		if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
 			return "", err
 		}
 	}
-	if err := cmd.annotateDirs(ctx, flags); err != nil {
+	// annotate: auto include working dir in test mode
+	if cmd.flags.mode.test {
+		cmd.flags.dirs = append(cmd.flags.dirs, cmd.getDir())
+	}
+	if err := cmd.annotateDirs(ctx); err != nil {
 		return "", err
 	}
 
@@ -152,7 +172,7 @@ func (cmd *Cmd) initMode(ctx context.Context, flags *flag.FlagSet, testMode bool
 	}
 
 	// main/testmain exit
-	if testMode {
+	if cmd.flags.mode.test {
 		if !cmd.ann.InsertedExitIn.TestMain {
 			if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
 				return "", err
@@ -166,7 +186,7 @@ func (cmd *Cmd) initMode(ctx context.Context, flags *flag.FlagSet, testMode bool
 
 	// build
 	cmd.setupTmpGoPath()
-	if testMode {
+	if cmd.flags.mode.test {
 		return cmd.buildTest(ctx, filenameAtTmp)
 	} else {
 		return cmd.build(ctx, filenameAtTmp)
@@ -200,7 +220,7 @@ func (cmd *Cmd) setupTmpGoPath() {
 
 //------------
 
-func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args []string) error {
+func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string) error {
 	// move filenameout to working dir
 	filenameWork := filepath.Join(cmd.getDir(), filepath.Base(filenameOut))
 	if err := os.Rename(filenameOut, filenameWork); err != nil {
@@ -216,7 +236,7 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string, args 
 
 	// start server
 	filenameWork2 := normalizeFilenameForExec(filenameWork)
-	args = append([]string{filenameWork2}, args...)
+	args := append([]string{filenameWork2}, cmd.flags.otherArgs...)
 	serverCmd, err := cmd.startCmd(ctx2, cmd.getDir(), args)
 	if err != nil {
 		cmd.start.cancel() // cmd.Wait() won't be called, need to clear resources
@@ -295,7 +315,7 @@ func (cmd *Cmd) Cleanup() {
 	}
 
 	// don't cleanup
-	if cmd.work {
+	if cmd.flags.work {
 		return
 	}
 
@@ -377,9 +397,13 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.
 
 //------------
 
-func (cmd *Cmd) annotateDirs(ctx context.Context, flags *flag.FlagSet) error {
-	dirs := flagGet(flags, "dirs").([]string)
-	for _, d := range dirs {
+func (cmd *Cmd) annotateDirs(ctx context.Context) error {
+	seen := map[string]bool{}
+	for _, d := range cmd.flags.dirs {
+		if seen[d] {
+			continue
+		}
+		seen[d] = true
 		if err := cmd.annotateDir(d); err != nil {
 			return err
 		}
@@ -486,117 +510,109 @@ func (cmd *Cmd) writeTestMainFilesToTmpDir() error {
 
 //------------
 
-func (cmd *Cmd) parseArgs() (*flag.FlagSet, []string, error) {
-	if len(cmd.args) == 0 {
-		return nil, nil, fmt.Errorf("expecting first arg: {run,test}")
-	}
-
-	// this flagset is not parsed but only used to keep track of the flags
-	flags1 := &flag.FlagSet{}
-	_ = flags1.String("mode", "", "") // run, test
-	_ = flags1.String("run.filename", "", "")
-	_ = flags1.Bool("work", false, "")
-	var df stringsFlag
-	flags1.Var(&df, "dirs", "")
-
-	// flagset that gets parsed
-	flags2 := &flag.FlagSet{}
-
-	// common flags for all modes
-	_ = flags2.Bool("work", false, "print workdir and don't cleanup on exit")
-	_ = flags2.String("dirs", "", "comma-separated list of directories")
-
-	// mode flags
-	mode := cmd.args[0]
-	flags1.Set("mode", mode)
-	switch mode {
-	case "run":
-	case "test":
-		_ = flags2.String("run", "", "regexp to select test to run")
-		_ = flags2.Bool("v", false, "verbose output")
-	default:
-		return nil, nil, fmt.Errorf("unexpected mode {run,test}: %v", mode)
-	}
-
-	// parse without mode argument
-	if err := flags2.Parse(cmd.args[1:]); err != nil {
-		return nil, nil, err
-	}
-
-	// process flags2 into flags1
-
-	flags1.Set("work", fmt.Sprintf("%v", flagGet(flags2, "work").(bool)))
-
-	// dirs
-	dirs := flagGet(flags2, "dirs").(string)
-	// test.dirs: auto include workingdir in test mode
-	if mode == "test" {
-		dirs += "," + cmd.getDir()
-	}
-	if err := flags1.Set("dirs", dirs); err != nil {
-		return nil, nil, err
-	}
-
-	otherArgs := flags2.Args()
-
-	// run.filename
-	if mode == "run" {
-		if len(otherArgs) > 0 {
-			filename := otherArgs[0]
-			otherArgs = otherArgs[1:]
-
-			if cmd.mainSrc == nil {
-				// base on workingdir
-				if !filepath.IsAbs(filename) {
-					filename = filepath.Join(cmd.getDir(), filename)
-				}
-			}
-
-			flags1.Set("run.filename", filename)
+func (cmd *Cmd) parseArgs(args []string) (done bool, _ error) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "run":
+			cmd.flags.mode.run = true
+			return cmd.parseRunArgs(args[1:])
+		case "test":
+			cmd.flags.mode.test = true
+			return cmd.parseTestArgs(args[1:])
 		}
 	}
+	fmt.Fprint(cmd.Stderr, cmdUsage())
+	return true, nil
+}
 
-	if mode == "test" {
-		// test.run: set test run flag at other flags to pass to the test exec
-		s := flagGet(flags2, "run").(string)
-		if s != "" {
-			otherArgs = append([]string{"-test.run", s}, otherArgs...)
-		}
+func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
+	f := &flag.FlagSet{}
+	work := f.Bool("work", false, "print workdir and don't cleanup on exit")
+	dirs := f.String("dirs", "", "comma-separated list of directories")
 
-		// test.v
-		v := flagGet(flags2, "v").(bool)
-		if v {
-			otherArgs = append([]string{"-test.v"}, otherArgs...)
-		}
+	if err := f.Parse(args); err != nil {
+		return true, err
 	}
 
-	return flags1, otherArgs, nil
+	cmd.flags.work = *work
+	cmd.flags.dirs = splitCommaList(*dirs)
+	cmd.flags.otherArgs = f.Args()
+
+	if len(cmd.flags.otherArgs) > 0 {
+		cmd.flags.run.filename = cmd.flags.otherArgs[0]
+		cmd.flags.otherArgs = cmd.flags.otherArgs[1:]
+	}
+
+	return false, nil
+}
+
+func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
+	f := &flag.FlagSet{}
+	work := f.Bool("work", false, "print workdir and don't cleanup on exit")
+	dirs := f.String("dirs", "", "comma-separated list of directories")
+	run := f.String("run", "", "run test")
+	verbose := f.Bool("v", false, "verbose")
+
+	if err := f.Parse(args); err != nil {
+		return true, err
+	}
+
+	cmd.flags.work = *work
+	cmd.flags.dirs = splitCommaList(*dirs)
+	cmd.flags.otherArgs = f.Args()
+
+	// set test run flag at other flags to pass to the test exec
+	if *run != "" {
+		a := []string{"-test.run", *run}
+		cmd.flags.otherArgs = append(a, cmd.flags.otherArgs...)
+	}
+
+	// verbose
+	if *verbose {
+		a := []string{"-test.v"}
+		cmd.flags.otherArgs = append(a, cmd.flags.otherArgs...)
+	}
+
+	return false, nil
 }
 
 //------------
 
 func (cmd *Cmd) populateParentDirectories() (err error) {
-	fmt.Println("pop par dirs")
-	dirs := map[string]bool{}
+	// directories that contain annotated files, consider them visited (don't populate)
+	vis := map[string]bool{}
 	cmd.ann.FSet.Iterate(func(f *token.File) bool {
-		//fmt.Printf("-> %v\n", f.Name())
+		vis[f.Name()] = true
+		return true
+	})
 
+	// populate parent directories
+	cmd.ann.FSet.Iterate(func(f *token.File) bool {
 		d := filepath.Dir(f.Name())
-		if _, ok := dirs[d]; !ok { // visit each dir only once
-			dirs[d] = true
 
-			pd := filepath.Dir(d) // parent dir
-			err = cmd.populateDir(pd)
-			if err != nil {
-				return false
-			}
+		// visit once
+		if _, ok := vis[d]; ok {
+			return true
+		}
+		vis[d] = true
+
+		pd := filepath.Dir(d) // parent dir
+		err = cmd.populateDir(pd, vis)
+		if err != nil {
+			return false
 		}
 		return true
 	})
 	return err
 }
 
-func (cmd *Cmd) populateDir(dir string) error {
+func (cmd *Cmd) populateDir(dir string, vis map[string]bool) error {
+	// don't populate an already visited dir
+	if vis[dir] {
+		return nil
+	}
+	vis[dir] = true
+
 	// visit only up to srcdir
 	srcDir, _ := gosource.ExtractSrcDir(dir)
 	if len(srcDir) <= 1 || strings.Index(dir, srcDir) < 0 {
@@ -615,15 +631,12 @@ func (cmd *Cmd) populateDir(dir string) error {
 
 	// visit parent dir
 	pd := filepath.Dir(dir)
-	return cmd.populateDir(pd)
+	return cmd.populateDir(pd, vis)
 }
 
 //------------
 
 func copyFile(src, dst string) error {
-	//fmt.Printf("copied %v -> %v\n", src, dst)
-	//fmt.Printf("copying %v\n", filepath.Base(dst))
-
 	from, err := os.Open(src)
 	if err != nil {
 		return err
@@ -676,29 +689,21 @@ func normalizeFilenameForExec(filename string) string {
 	return filename
 }
 
-func flagGet(flags *flag.FlagSet, name string) interface{} {
-	f := flags.Lookup(name)
-	return f.Value.(flag.Getter).Get()
+//------------
+
+func cmdUsage() string {
+	return `Usage:
+	GoDebug <command> [arguments]
+The commands are:
+	run		compile and run go program with debugging data
+	test		test packages compiled with debugging data
+`
 }
 
 //------------
 
-type stringsFlag []string
-
-func (f *stringsFlag) String() string {
-	return fmt.Sprint(*f)
-}
-func (f *stringsFlag) Get() interface{} {
-	var u []string = *f
-	return u
-}
-func (f *stringsFlag) Set(value string) error {
-	if len(*f) > 0 {
-		return fmt.Errorf("flag already set: newvalue=%v", value)
-	}
-
-	// split into slice
-	a := strings.Split(value, ",")
+func splitCommaList(val string) []string {
+	a := strings.Split(val, ",")
 	seen := make(map[string]bool)
 	u := []string{}
 	for _, s := range a {
@@ -715,7 +720,5 @@ func (f *stringsFlag) Set(value string) error {
 
 		u = append(u, s)
 	}
-	*f = u
-
-	return nil
+	return u
 }

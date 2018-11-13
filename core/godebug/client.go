@@ -29,6 +29,8 @@ func NewClient(ctx context.Context) (*Client, error) {
 		return nil, err
 	}
 
+	client.Messages <- "connected"
+
 	// receive msgs from server and send to channel
 	client.waitg.Add(1)
 	go func() {
@@ -99,7 +101,6 @@ func (client *Client) receiveLoop() {
 			continue
 		}
 
-		//logger.Printf("recv msg")
 		client.Messages <- msg
 	}
 }

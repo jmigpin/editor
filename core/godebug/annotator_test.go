@@ -19,7 +19,6 @@ func testSourceResult(t *testing.T, src, res string, srcFn func(string) string, 
 	res2 := filterSrc(srcFn(res))
 
 	ann := NewAnnotator()
-	ann.improveAssign = false
 	ann.debugPkgName = string(rune(931))
 	ann.debugVarPrefix = ann.debugPkgName
 	ann.simpleOut = true

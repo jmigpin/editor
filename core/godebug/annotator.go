@@ -37,8 +37,7 @@ type Annotator struct {
 	debugPkgName   string
 	debugVarPrefix string
 
-	simpleOut     bool
-	improveAssign bool
+	simpleOut bool
 
 	testFilesPkgs map[string]string // dir -> package name
 }
@@ -53,8 +52,6 @@ func NewAnnotator() *Annotator {
 
 	ann.debugPkgName = "d" + string(rune(931)) // uncommon  rune to avoid clashes
 	ann.debugVarPrefix = ann.debugPkgName      // will have integer appended
-
-	ann.improveAssign = true
 
 	return ann
 }

@@ -30,11 +30,12 @@ func TestCmdStart1(t *testing.T) {
 	`
 	filename := "test/src.go"
 
-	cmd := NewCmd([]string{"run", filename}, src)
+	cmd := NewCmd()
 	defer cmd.Cleanup()
 
 	ctx := context.Background()
-	if err := cmd.Start(ctx); err != nil {
+	args := []string{"run", filename}
+	if _, err := cmd.Start(ctx, args, src); err != nil {
 		t.Fatal(err)
 	}
 
@@ -91,12 +92,12 @@ func TestCmdStart2(t *testing.T) {
 	`
 	filename := "test/src.go"
 
-	args := []string{"run", filename}
-	cmd := NewCmd(args, src)
+	cmd := NewCmd()
 	defer cmd.Cleanup()
 
 	ctx := context.Background()
-	if err := cmd.Start(ctx); err != nil {
+	args := []string{"run", filename}
+	if _, err := cmd.Start(ctx, args, src); err != nil {
 		t.Fatal(err)
 	}
 
@@ -148,13 +149,13 @@ func TestCmdStart3(t *testing.T) {
 		filename,
 	}
 
-	cmd := NewCmd(args, nil)
+	cmd := NewCmd()
 	defer cmd.Cleanup()
 
 	cmd.Dir = proj
 
 	ctx := context.Background()
-	if err := cmd.Start(ctx); err != nil {
+	if _, err := cmd.Start(ctx, args, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -194,12 +195,55 @@ func TestCmdTest1(t *testing.T) {
 		"test", "-run", "HSV1",
 	}
 
-	cmd := NewCmd(args, nil)
+	cmd := NewCmd()
 	defer cmd.Cleanup()
 
 	cmd.Dir = proj
 	ctx := context.Background()
-	if err := cmd.Start(ctx); err != nil {
+	if _, err := cmd.Start(ctx, args, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		if err := cmd.RequestFileSetPositions(); err != nil {
+			t.Fatal(err)
+		}
+		if err := cmd.RequestStart(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	go func() {
+		for msg := range cmd.Client.Messages {
+			//fmt.Printf("recv msg: %v\n", msg)
+			switch t := msg.(type) {
+			case *debug.LineMsg:
+				fmt.Printf("%v\n", StringifyItem(t.Item))
+			default:
+				fmt.Printf("recv msg: %v\n", msg)
+			}
+		}
+	}()
+
+	if err := cmd.Wait(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCmdTest2(t *testing.T) {
+	proj := "./../../util/uiutil/widget/textutil"
+
+	args := []string{
+		"test",
+		//"test", "-run", "HSV1",
+	}
+
+	cmd := NewCmd()
+	defer cmd.Cleanup()
+
+	cmd.Dir = proj
+	ctx := context.Background()
+	if _, err := cmd.Start(ctx, args, nil); err != nil {
 		t.Fatal(err)
 	}
 
