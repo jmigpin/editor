@@ -483,7 +483,7 @@ func NewGDDataIndex() *GDDataIndex {
 //----------
 
 func (di *GDDataIndex) selectedArrivalIndexFilename(arrivalIndex int) (string, bool) {
-	for _, f := range di.Files {
+	for i, f := range di.Files {
 		for _, lm := range f.Lines {
 			k := sort.Search(len(lm.Msgs), func(i int) bool {
 				u := lm.Msgs[i].GlobalArrivalIndex
@@ -492,7 +492,7 @@ func (di *GDDataIndex) selectedArrivalIndexFilename(arrivalIndex int) (string, b
 			k--
 			if k >= 0 {
 				if lm.Msgs[k].GlobalArrivalIndex == arrivalIndex {
-					return di.Afds[k].Filename, true
+					return di.Afds[i].Filename, true
 				}
 			}
 		}
