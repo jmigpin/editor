@@ -1,7 +1,9 @@
 package driver
 
-import "errors"
+// commented: check xgbutil/shmimage/shmopen_syscall_windows.go
 
-func NewWindow() (Window, error) {
-	return nil, errors.New("todo: windows implementation")
-}
+//import "errors"
+
+//func NewWindow() (Window, error) {
+//	return nil, errors.New("todo: windows implementation")
+//}
