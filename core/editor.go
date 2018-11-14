@@ -219,8 +219,10 @@ func (ed *Editor) ERows() []*ERow {
 //----------
 
 func (ed *Editor) GoodRowPos() *ui.RowPos {
-	return ed.UI.Root.GoodRowPos()
+	return ed.UI.GoodRowPos()
 }
+
+//----------
 
 func (ed *Editor) ActiveERow() (*ERow, bool) {
 	for _, e := range ed.ERows() {

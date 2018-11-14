@@ -61,10 +61,7 @@ func (col *Column) Close() {
 func (col *Column) NewRowBefore(next *Row) *Row {
 	row := NewRow(col)
 	col.insertRowBefore(row, next)
-
-	// ensure up-to-date values now (ex: bounds, drawer.getpoint)
-	col.LayoutMarked()
-
+	col.ui.ResizeRowToGoodSize(row)
 	return row
 }
 
@@ -77,15 +74,8 @@ func (col *Column) insertRowBefore(row, next *Row) {
 	row.Col = col
 	col.RowsLayout.Spl.InsertBefore(row, nexte)
 
-	// improve insertion point beyond the half row done by StartPercentLayout. Set at a part of the textarea.
-	if row.PrevSibling() != nil {
-		prevRow := row.PrevSiblingWrapper().(*Row)
-		colDy := col.Bounds.Dy()
-		prTaDy := prevRow.TextArea.Bounds.Dy()
-		prEndY := prevRow.Bounds.Max.Y - col.Bounds.Min.Y
-		perc := (float64(prEndY) - float64(prTaDy)*2/3) / float64(colDy)
-		col.RowsLayout.Spl.Resize(row, perc)
-	}
+	// ensure up-to-date values now (ex: bounds, drawer.getpoint)
+	col.LayoutMarked()
 }
 
 func (col *Column) removeRow(row *Row) {

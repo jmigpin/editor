@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"image"
-
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -60,68 +58,4 @@ func (l *Root) OnChildMarked(child widget.Node, newMarks widget.Marks) {
 	if l.Toolbar != nil && l.Toolbar.HasAnyMarks(widget.MarkNeedsLayout) {
 		l.BgLayer.MarkNeedsLayout()
 	}
-}
-
-//----------
-
-func (l *Root) GoodRowPos() *RowPos {
-
-	var best struct {
-		r       *image.Rectangle
-		area    int
-		col     *Column
-		nextRow *Row
-	}
-
-	// default position if nothing better is found
-	best.col = l.Cols.FirstChildColumn()
-
-	for _, c := range l.Cols.Columns() {
-		rows := c.Rows()
-
-		// space before first row
-		s := c.Bounds.Size()
-		if len(rows) > 0 {
-			s.Y = rows[0].Bounds.Min.Y - c.Bounds.Min.Y
-		}
-		a := s.X * s.Y
-		if a > best.area {
-			best.area = a
-			best.col = c
-			best.nextRow = nil
-			if len(rows) > 0 {
-				best.nextRow = rows[0]
-			}
-		}
-
-		// space between rows
-		for _, r := range rows {
-			s := r.TextArea.Bounds.Size()
-			a := (s.X * s.Y)
-
-			// after insertion the space will be shared
-			a2 := a / 2
-
-			if a2 > best.area {
-				best.area = a2
-				best.col = c
-				best.nextRow = r.NextRow()
-			}
-		}
-	}
-
-	return NewRowPos(best.col, best.nextRow)
-}
-
-//----------
-
-type RowPos struct {
-	Column  *Column
-	NextRow *Row
-
-	// TODO: percent for rowslayout.spl
-}
-
-func NewRowPos(col *Column, nextRow *Row) *RowPos {
-	return &RowPos{col, nextRow}
 }

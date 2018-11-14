@@ -184,7 +184,6 @@ func (row *Row) resizeWithPushToPoint(p *image.Point) {
 	dy := float64(col.Bounds.Dy())
 	perc := float64(p.Sub(col.Bounds.Min).Y) / dy
 
-	//col.RowsLayout.Spl.ResizeWithPush(row, perc)
 	col.RowsLayout.Spl.SetPercentWithPush(row, perc)
 }
 
