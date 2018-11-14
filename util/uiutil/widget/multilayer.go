@@ -63,7 +63,7 @@ func (ml *MultiLayer) AddMarkRect(r image.Rectangle) {
 func (ml *MultiLayer) markAddedRects() {
 	for elem := ml.rects.Front(); elem != nil; elem = elem.Next() {
 		r := elem.Value.(*image.Rectangle)
-		ml.markRect(nil, r)
+		ml.markRect(nil, *r)
 	}
 	ml.rects = list.List{}
 }
@@ -82,30 +82,28 @@ func (ml *MultiLayer) markVisibleNodes(fl *FloatLayer) {
 	vnodes := fl.visibleNodes()
 	for _, n := range vnodes {
 		ne := n.Embed()
-		if ml.rectNeedsPaint(fl, &ne.Bounds) {
+		if ml.rectNeedsPaint(ne.Bounds) {
 			ne.MarkNeedsPaint()
-			ml.markRect(fl, &ne.Bounds)
+			ml.markRect(fl, ne.Bounds)
 		}
 	}
 }
 
 //----------
 
-func (ml *MultiLayer) rectNeedsPaint(callLayer Node, r *image.Rectangle) bool {
+func (ml *MultiLayer) rectNeedsPaint(r image.Rectangle) bool {
 	found := false
 	ml.IterateWrappers(func(layer Node) bool {
-		if layer != callLayer { // performance
-			found = intersectingNodeNeedingPaintExists(layer, *r)
-		}
+		found = intersectingNodeNeedingPaintExists(layer, r)
 		return !found // continue if not found
 	})
 	return found
 }
 
-func (ml *MultiLayer) markRect(callLayer Node, r *image.Rectangle) {
+func (ml *MultiLayer) markRect(callLayer Node, r image.Rectangle) {
 	ml.IterateWrappers2(func(layer Node) {
 		if layer != callLayer { // performance
-			markIntersectingNodesNotNeedingPaint(layer, *r)
+			markIntersectingNodesNotNeedingPaint(layer, r)
 		}
 	})
 }
@@ -125,9 +123,14 @@ type FloatLayer struct {
 }
 
 func (fl *FloatLayer) OnChildMarked(child Node, newMarks Marks) {
+	// force float layer to recalc childs bounds to avoid childs having to consult the floatlayer bounds
 	if newMarks.HasAny(MarkNeedsLayout | MarkChildNeedsLayout) {
 		fl.MarkNeedsLayout()
 	}
+	//if newMarks.HasAny(MarkNeedsPaint | MarkChildNeedsPaint) {
+	//	log.Printf("float needs paint: %p", fl)
+	//	child.Embed().MarkNeedsPaint()
+	//}
 }
 
 func (fl *FloatLayer) visibleNodes() []Node {
