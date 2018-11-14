@@ -306,11 +306,11 @@ func (en *EmbedNode) markUp(m Marks, child Node, childChangedMarks Marks) {
 	changed := en.marks ^ old
 
 	// this node is a parent, run callback as soon as it gets marked (now)
-	if child != nil && en.Wrapper != nil {
+	if en.Wrapper != nil && child != nil && childChangedMarks != 0 {
 		en.Wrapper.OnChildMarked(child, childChangedMarks)
 	}
 
-	if changed != 0 && en.Parent != nil {
+	if en.Parent != nil && changed != 0 {
 		// setup marks to add to parent
 		var u Marks
 		if changed.HasAny(MarkNeedsPaint | MarkChildNeedsPaint) {
