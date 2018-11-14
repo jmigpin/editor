@@ -61,7 +61,6 @@ func (col *Column) Close() {
 func (col *Column) NewRowBefore(next *Row) *Row {
 	row := NewRow(col)
 	col.insertRowBefore(row, next)
-	col.ui.ResizeRowToGoodSize(row)
 	return row
 }
 
@@ -73,6 +72,9 @@ func (col *Column) insertRowBefore(row, next *Row) {
 
 	row.Col = col
 	col.RowsLayout.Spl.InsertBefore(row, nexte)
+
+	// resizing before laying out (previous row still has the old bounds)
+	col.ui.resizeRowToGoodSize(row)
 
 	// ensure up-to-date values now (ex: bounds, drawer.getpoint)
 	col.LayoutMarked()

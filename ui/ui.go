@@ -64,61 +64,22 @@ func (ui *UI) WarpPointerToRectanglePad(r image.Rectangle) {
 
 //----------
 
-func (ui *UI) ResizeRowToGoodSize(row *Row) {
-	if !row.Col.ui.ResizeRowBasedOnPrevRowCursorPosition(row) {
-		row.Col.ui.ResizeRowBasedOnPrevRowTextAreaSize(row)
-	}
-	// ensure up-to-date values now (ex: bounds, drawer.getpoint)
-	row.Col.LayoutMarked()
-}
-
-func (ui *UI) ResizeRowBasedOnPrevRowTextAreaSize(row *Row) {
+func (ui *UI) resizeRowToGoodSize(row *Row) {
 	if row.PrevSibling() == nil {
 		return
 	}
 	prevRow := row.PrevSiblingWrapper().(*Row)
+	b := ui.rowInsertionBounds(prevRow)
 	col := row.Col
 	colDy := col.Bounds.Dy()
-
-	// percent removed from prevrow
-	//prTaDy := prevRow.TextArea.Bounds.Dy()
-	//prEndY := prevRow.Bounds.Max.Y - col.Bounds.Min.Y
-	//perc := (float64(prEndY) - float64(prTaDy)*2/3) / float64(colDy)
-	//col.RowsLayout.Spl.Resize(row, perc)
-
-	// percent of prevrow+row
-	taDy := prevRow.TextArea.Bounds.Dy() + row.Bounds.Dy()
-	endY := row.Bounds.Max.Y
-	perc := (float64(endY-col.Bounds.Min.Y) - float64(taDy)*2/3) / float64(colDy)
+	perc := float64(b.Min.Y-col.Bounds.Min.Y) / float64(colDy)
 	col.RowsLayout.Spl.Resize(row, perc)
-}
-
-func (ui *UI) ResizeRowBasedOnPrevRowCursorPosition(row *Row) bool {
-	if row.PrevSibling() == nil {
-		return false
-	}
-	prevRow := row.PrevSiblingWrapper().(*Row)
-	col := row.Col
-	colDy := col.Bounds.Dy()
-	lh := row.TextArea.LineHeight()
-
-	ci := prevRow.TextArea.TextCursor.Index()
-	p := prevRow.TextArea.GetPoint(ci)
-	if p.Y < prevRow.TextArea.Bounds.Min.Y || p.Y+lh > row.Bounds.Max.Y-(row.Toolbar.Bounds.Dy()+lh) {
-		return false
-	}
-
-	perc := float64(p.Y+lh-col.Bounds.Min.Y) / float64(colDy)
-	col.RowsLayout.Spl.Resize(row, perc)
-
-	return true
 }
 
 //----------
 
 func (ui *UI) GoodRowPos() *RowPos {
 	var best struct {
-		r       *image.Rectangle
 		area    int
 		col     *Column
 		nextRow *Row
@@ -147,14 +108,11 @@ func (ui *UI) GoodRowPos() *RowPos {
 
 		// space between rows
 		for _, r := range rows {
-			s := r.TextArea.Bounds.Size()
-			a := (s.X * s.Y)
-
-			// after insertion the space will be shared
-			a2 := a / 2
-
-			if a2 > best.area {
-				best.area = a2
+			b := ui.rowInsertionBounds(r)
+			s := b.Size()
+			a := s.X * s.Y
+			if a > best.area {
+				best.area = a
 				best.col = c
 				best.nextRow = r.NextRow()
 			}
@@ -162,6 +120,48 @@ func (ui *UI) GoodRowPos() *RowPos {
 	}
 
 	return NewRowPos(best.col, best.nextRow)
+}
+
+//----------
+
+func (ui *UI) rowInsertionBounds(prevRow *Row) image.Rectangle {
+	ta := prevRow.TextArea
+	if r2, ok := ui.boundsAfterVisibleCursor(ta); ok {
+		return *r2
+	} else if r3, ok := ui.boundsOfTwoThirds(ta); ok {
+		return *r3
+	} else {
+		b := prevRow.Bounds
+		b.Max = b.Max.Sub(b.Size().Div(2)) // half size from StartPercentLayout
+		return b
+	}
+}
+
+func (ui *UI) boundsAfterVisibleCursor(ta *TextArea) (*image.Rectangle, bool) {
+	ci := ta.TextCursor.Index()
+	if !ta.IsIndexVisible(ci) {
+		return nil, false
+	}
+	p := ta.GetPoint(ci)
+	lh := ta.LineHeight()
+	r := ta.Bounds
+	r.Min.Y = p.Y + lh
+	r = ta.Bounds.Intersect(r)
+	if r.Dy() < lh*2 {
+		return nil, false
+	}
+	return &r, true
+}
+
+func (ui *UI) boundsOfTwoThirds(ta *TextArea) (*image.Rectangle, bool) {
+	lh := ta.LineHeight()
+	if ta.Bounds.Size().Y < lh {
+		return nil, false
+	}
+	b := ta.Bounds
+	b.Min.Y = b.Max.Y - (ta.Bounds.Dy() * 2 / 3)
+	r := ta.Bounds.Intersect(b)
+	return &r, true
 }
 
 //----------
