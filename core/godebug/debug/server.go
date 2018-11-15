@@ -5,16 +5,33 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
+	"path/filepath"
+	"runtime"
 	"sync"
 )
-
-var ServerAddress = ":8070" // localhost
 
 //var logger = log.New(os.Stdout, "debug: ", 0)
 var logger = log.New(ioutil.Discard, "debug: ", 0)
 
 // contains all debug data and is populated at init by a generated config on compile
 var AnnotatorFilesData []*AnnotatorFileData
+
+//----------
+
+var ServerNetwork string
+var ServerAddress string
+
+func init() {
+	switch runtime.GOOS {
+	case "linux":
+		ServerNetwork = "unix"
+		ServerAddress = filepath.Join(os.TempDir(), "editor_godebug.sock")
+	default:
+		ServerNetwork = "tcp"
+		ServerAddress = "127.0.0.1:30071"
+	}
+}
 
 //----------
 
@@ -28,7 +45,7 @@ type Server struct {
 
 func NewServer() (*Server, error) {
 	logger.Print("listen")
-	ln, err := net.Listen("tcp", ServerAddress)
+	ln, err := net.Listen(ServerNetwork, ServerAddress)
 	if err != nil {
 		return nil, err
 	}
