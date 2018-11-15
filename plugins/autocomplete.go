@@ -1,7 +1,18 @@
+/*
+Build with:
+$ go build -buildmode=plugin autocomplete.go
+Start gocode
+*/
+
 package main
 
 import (
+	"bytes"
+	"context"
+	"fmt"
 	"path"
+	"path/filepath"
+	"time"
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/ui"
@@ -31,29 +42,49 @@ func AutoComplete(ed *core.Editor, cfb *ui.ContextFloatBox) {
 
 func autoCompleteERow(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core.ERow) bool {
 	if erow.Info.IsFileButNotDir() && path.Ext(erow.Info.Name()) == ".go" {
-		return autoCompleteERowGolang(ed, cfb, erow)
+		autoCompleteERowGolang(ed, cfb, erow)
+		return true
 	}
 	return false
 }
 
 //----------
 
-func autoCompleteERowGolang(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core.ERow) bool {
-	//cfg := &packages.Config{
-	//	Dir: erow.Info.Dir(),
-	//}
-	//patts := []string{"file=" + erow.Info.Name()}
-	//pkgs, err := packages.Load(cfg, patts...)
-	//if err != nil {
-	//	ed.Error(err)
-	//	return true
-	//}
-	//_ = pkgs
-	//fmt.Printf("%v\n", pkgs)
+func autoCompleteERowGolang(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core.ERow) {
+	// timeout for the cmd to run
+	timeout := 8000 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// gocode args
+	filename := erow.Info.Name()
+	offset := erow.Row.TextArea.TextCursor.Index()
+	args := []string{"gocode", "autocomplete", fmt.Sprintf("%v", offset)}
+
+	// textarea bytes
+	bin, err := erow.Row.TextArea.Bytes()
+	if err != nil {
+		ed.Error(err)
+		return
+	}
+	in := bytes.NewBuffer(bin)
+
+	// execute external cmd
+	dir := filepath.Dir(filename)
+	bout, err := core.ExecCmdStdin(ctx, dir, in, args...)
+	if err != nil {
+		ed.Error(err)
+		return
+	}
+
+	//// decode json
+	//out := bytes.NewBuffer(bout)
+	//dec := json.NewDecoder(out)
+	//log.Println(string(bout))
 
 	cfb.SetRefPointToTextAreaCursor(erow.Row.TextArea)
-	cfb.TextArea.SetStr("golang: (todo: work-in-progress)")
-	return true
+	cfb.TextArea.SetStr(string(bout))
+	cfb.TextArea.ClearPos()
 }
 
 //----------
