@@ -2,6 +2,8 @@ package widget
 
 import (
 	"image"
+
+	"github.com/jmigpin/editor/util/imageutil"
 )
 
 // Should be a child of FloatLayer.
@@ -10,6 +12,7 @@ type FloatBox struct {
 	RefPoint image.Point
 	content  Node
 	ml       *MultiLayer
+	MaxSize  image.Point
 }
 
 func NewFloatBox(ml *MultiLayer, content Node) *FloatBox {
@@ -52,14 +55,18 @@ func (fb *FloatBox) Measure(hint image.Point) image.Point {
 }
 
 func (fb *FloatBox) Layout() {
-	// start with parent bounds to reduce to content bounds
-	//b := fb.Parent.Embed().Bounds
 	b := fb.Bounds
+
+	m := fb.content.Measure(b.Size())
+
+	// max size option
+	if fb.MaxSize != image.ZP {
+		m = imageutil.MinPoint(m, fb.MaxSize)
+	}
 
 	// calc bounds attached to the reference point
 	r := image.Rectangle{}
 	r = r.Add(fb.RefPoint)
-	m := fb.content.Measure(b.Size())
 	r.Max = r.Min.Add(m)
 	if r.Max.X > b.Max.X {
 		diffX := r.Max.X - b.Max.X
