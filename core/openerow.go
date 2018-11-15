@@ -12,6 +12,7 @@ type OpenFileERowConfig struct {
 
 	RowPos *ui.RowPos
 
+	CancelIfExistent      bool
 	NewIfNotExistent      bool
 	NewIfOffsetNotVisible bool
 
@@ -37,6 +38,11 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	}
 
 	info := ed.ReadERowInfo(filename)
+
+	// do nothing if existent
+	if conf.CancelIfExistent && len(info.ERows) > 0 {
+		return false, nil
+	}
 
 	createNew := false
 

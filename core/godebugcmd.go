@@ -146,8 +146,6 @@ func (gdi *GoDebugInstance) selectCurrent(erow *ERow, annIndex, offset int, typ 
 }
 
 func (gdi *GoDebugInstance) selectNext() bool {
-	// TODO: find next with open erow
-
 	di := gdi.data.dataIndex
 	if di.SelectedArrivalIndex < di.GlobalArrivalIndex-1 {
 		di.SelectedArrivalIndex++
@@ -158,8 +156,6 @@ func (gdi *GoDebugInstance) selectNext() bool {
 }
 
 func (gdi *GoDebugInstance) selectPrev() bool {
-	// TODO: find next with open erow
-
 	di := gdi.data.dataIndex
 	if di.SelectedArrivalIndex > 0 {
 		di.SelectedArrivalIndex--
@@ -177,10 +173,12 @@ func (gdi *GoDebugInstance) openArrivalIndexERow() {
 	if !ok {
 		return
 	}
+
 	rowPos := gdi.ed.GoodRowPos()
 	conf := &OpenFileERowConfig{
 		FileOffset:       &parseutil.FileOffset{Filename: filename},
 		RowPos:           rowPos,
+		CancelIfExistent: true,
 		NewIfNotExistent: true,
 	}
 	OpenFileERow(gdi.ed, conf)
