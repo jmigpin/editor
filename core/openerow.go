@@ -148,7 +148,11 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		erow.Row.EnsureTextAreaMinimumHeight()
 		erow.Row.TextArea.TextCursor.SetIndex(offset)
 		erow.Row.TextArea.TextCursor.SetSelectionOff()
-		erow.Row.TextArea.MakeIndexVisible(offset)
+		if newERow != nil {
+			erow.Row.TextArea.MakeRangeCentered(offset, 0)
+		} else {
+			erow.Row.TextArea.MakeIndexVisible(offset)
+		}
 
 		// flash visible offsets
 		if conf.FlashVisibleOffsets {

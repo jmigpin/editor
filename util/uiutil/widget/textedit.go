@@ -127,6 +127,12 @@ func (te *TextEdit) MakeRangeVisible(index, le int) {
 	te.SetOffset(o)
 }
 
+func (te *TextEdit) MakeRangeCentered(index, le int) {
+	ir := te.IndexLenRect(index, le)
+	o := te.centeredIndexRectOffset(ir)
+	te.SetOffset(o)
+}
+
 //----------
 
 func (te *TextEdit) IsIndexVisible(index int) bool {
@@ -167,7 +173,10 @@ func (te *TextEdit) indexRectOffset(ir, vr image.Rectangle) image.Point {
 		}
 	}
 
-	// centered
+	return te.centeredIndexRectOffset(ir)
+}
+
+func (te *TextEdit) centeredIndexRectOffset(ir image.Rectangle) image.Point {
 	bh := te.Bounds.Size().Div(2)
 	ih := ir.Size().Div(2)
 	w := ir.Min.Sub(bh).Add(ih)
