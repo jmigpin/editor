@@ -23,9 +23,10 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	text := "todo...\ntodo...\ntodo..."
 
 	cfb.TextArea = NewTextArea(root.UI)
+	//cfb.TextArea.EnableWrapLines(true)
 	cfb.TextArea.SetStr(text)
 
-	cfb.sa = widget.NewScrollArea(root.UI, cfb.TextArea, false, true)
+	cfb.sa = widget.NewScrollArea(root.UI, cfb.TextArea, true, true)
 	cfb.sa.LeftScroll = ScrollBarLeft
 
 	border := widget.NewBorder(root.UI, cfb.sa)
@@ -34,6 +35,7 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	container := WrapInBottomShadowOrNone(root.UI, border)
 
 	cfb.FloatBox = widget.NewFloatBox(root.MultiLayer, container)
+	cfb.FloatBox.MaxSize = image.Point{550, 100000}
 	root.MultiLayer.ContextLayer.Append(cfb)
 	cfb.FloatBox.Hide()
 
