@@ -555,6 +555,15 @@ func TestCmdAnnotate1(t *testing.T) {
 		a := map[string]string{"a": Σ0}
 		Σ.Line(0, 0, 52, Σ.IA(Σ.IL(Σ.IV(a)), Σ1))`,
 
+		// types (from new())
+
+		`tbuf := new(bytes.Buffer)`,
+		`Σ0 := new(bytes.Buffer)
+		Σ1 := Σ.IC(Σ.IV(Σ0))
+		Σ2 := Σ.IL(Σ1)
+		tbuf := Σ0
+		Σ.Line(0, 0, 48, Σ.IA(Σ.IL(Σ.IV(tbuf)), Σ2))`,
+
 		// defer
 
 		`defer f1(a,b)`,

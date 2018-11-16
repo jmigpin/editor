@@ -1206,14 +1206,7 @@ func (sann *SingleAnnotator) visitSliceExpr(ctx *saCtx, se *ast.SliceExpr) {
 }
 
 func (sann *SingleAnnotator) visitCallExpr(ctx *saCtx, ce *ast.CallExpr) {
-	//// don't annotate these
-	//if id, ok := ce.Fun.(*ast.Ident); ok {
-	//	switch id.Name {
-	//	}
-	//}
-
-	// TODO: review - where is this happening
-	// don't annotate debug pkg stmts
+	// don't annotate debug pkg stmts (statements inserted at the top for inline function args)
 	if se, ok := ce.Fun.(*ast.SelectorExpr); ok {
 		if id, ok := se.X.(*ast.Ident); ok {
 			if id.Name == sann.ann.debugPkgName {
@@ -1232,8 +1225,19 @@ func (sann *SingleAnnotator) visitCallExpr(ctx *saCtx, ce *ast.CallExpr) {
 		sann.visitExpr(ctx2, &ce.Fun)
 	}
 
-	for i := range ce.Args {
-		sann.visitExpr(ctx2, &ce.Args[i])
+	// don't annotate args for these
+	doArgs := true
+	if id, ok := ce.Fun.(*ast.Ident); ok {
+		switch id.Name {
+		case "new":
+			doArgs = false
+		}
+	}
+
+	if doArgs {
+		for i := range ce.Args {
+			sann.visitExpr(ctx2, &ce.Args[i])
+		}
 	}
 	args := ctx.PopExprs()
 
