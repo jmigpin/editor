@@ -9,6 +9,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/driver/xgbutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/pkg/errors"
 )
 
 type Copy struct {
@@ -38,7 +39,7 @@ func (c *Copy) Set(i event.CopyPasteIndex, str string) error {
 		return c.set(xproto.AtomPrimary)
 	case event.CPIClipboard:
 		c.clipboardStr = str
-		return c.set(CopyAtoms.CLIPBOARD)
+		return c.set(CopyAtoms.Clipboard)
 	}
 	panic("unhandled index")
 }
@@ -51,34 +52,43 @@ func (c *Copy) set(selection xproto.Atom) error {
 
 // Another application is asking for the data
 func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<- interface{}) {
-	// DEBUG
+	//// DEBUG
 	//target, _ := xgbutil.GetAtomName(c.conn, ev.Target)
 	//sel, _ := xgbutil.GetAtomName(c.conn, ev.Selection)
 	//prop, _ := xgbutil.GetAtomName(c.conn, ev.Property)
 	//log.Printf("on selection request: %v %v %v", target, sel, prop)
 
 	switch ev.Target {
-	default:
-		// a terminal requesting 437 (text/plain;charset=utf-8) (unable to get name)
-		fallthrough
-	case CopyAtoms.UTF8_STRING:
+	case CopyAtoms.Utf8String,
+		CopyAtoms.Text,
+		CopyAtoms.TextPlain,
+		CopyAtoms.TextPlainCharsetUtf8:
 		if err := c.transferBytes(ev); err != nil {
 			events <- err
 		}
-	case CopyAtoms.TARGETS:
+	case CopyAtoms.Targets:
 		if err := c.transferTargets(ev); err != nil {
 			events <- err
 		}
-		//default:
-		//	// atom name
-		//	name, err := xgbutil.GetAtomName(c.conn, ev.Target)
-		//	if err != nil {
-		//		events <- errors.Wrap(err, "cpcopy selectionrequest atom name for target")
-		//	}
-		//	// debug
-		//	msg := fmt.Sprintf("cpcopy: ignoring external request for type %v (%v)\n", ev.Target, name)
-		//	events <- errors.New(msg)
+	default:
+		c.debugRequest(ev, events)
+		// try to transfer bytes anyway
+		if err := c.transferBytes(ev); err != nil {
+			events <- err
+		}
+
 	}
+}
+
+func (c *Copy) debugRequest(ev *xproto.SelectionRequestEvent, events chan<- interface{}) {
+	// atom name
+	name, err := xgbutil.GetAtomName(c.conn, ev.Target)
+	if err != nil {
+		events <- errors.Wrap(err, "cpcopy selectionrequest atom name for target")
+	}
+	// debug
+	msg := fmt.Sprintf("cpcopy: non-standard external request for type %v %q\n", ev.Target, name)
+	events <- errors.New(msg)
 }
 
 //----------
@@ -88,7 +98,7 @@ func (c *Copy) transferBytes(ev *xproto.SelectionRequestEvent) error {
 	switch ev.Selection {
 	case xproto.AtomPrimary:
 		b = []byte(c.primaryStr)
-	case CopyAtoms.CLIPBOARD:
+	case CopyAtoms.Clipboard:
 		b = []byte(c.clipboardStr)
 	default:
 		return fmt.Errorf("unhandled selection: %v", ev.Selection)
@@ -129,7 +139,10 @@ func (c *Copy) transferBytes(ev *xproto.SelectionRequestEvent) error {
 
 func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) error {
 	targets := []xproto.Atom{
-		CopyAtoms.UTF8_STRING,
+		CopyAtoms.Utf8String,
+		CopyAtoms.Text,
+		CopyAtoms.TextPlain,
+		CopyAtoms.TextPlainCharsetUtf8,
 	}
 
 	tbuf := new(bytes.Buffer)
@@ -175,7 +188,7 @@ func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
 	switch ev.Selection {
 	case xproto.AtomPrimary:
 		c.primaryStr = ""
-	case CopyAtoms.CLIPBOARD:
+	case CopyAtoms.Clipboard:
 		c.clipboardStr = ""
 	}
 }
@@ -183,13 +196,12 @@ func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
 //----------
 
 var CopyAtoms struct {
-	UTF8_STRING xproto.Atom
-	XSEL_DATA   xproto.Atom
-	CLIPBOARD   xproto.Atom
-	TARGETS     xproto.Atom
-}
+	XSelData  xproto.Atom `loadAtoms:"XSEL_DATA"`
+	Clipboard xproto.Atom `loadAtoms:"CLIPBOARD"`
+	Targets   xproto.Atom `loadAtoms:"TARGETS"`
 
-//const (
-//	// TODO:
-//	PLAIN_UTF8 xproto.Atom = 437 // (text/plain;charset=utf-8)
-//)
+	Utf8String           xproto.Atom `loadAtoms:"UTF8_STRING"`
+	Text                 xproto.Atom `loadAtoms:"TEXT"`
+	TextPlain            xproto.Atom `loadAtoms:"text/plain"`
+	TextPlainCharsetUtf8 xproto.Atom `loadAtoms:"text/plain;charset=utf-8"`
+}

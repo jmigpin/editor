@@ -49,7 +49,7 @@ func (p *Paste) get2(index event.CopyPasteIndex) (string, error) {
 	case event.CPIPrimary:
 		return p.request(xproto.AtomPrimary)
 	case event.CPIClipboard:
-		return p.request(PasteAtoms.CLIPBOARD)
+		return p.request(PasteAtoms.Clipboard)
 	default:
 		return "", fmt.Errorf("unhandled index")
 	}
@@ -84,8 +84,8 @@ func (p *Paste) requestData(selection xproto.Atom) {
 		p.conn,
 		p.win,
 		selection,
-		PasteAtoms.UTF8_STRING, // target/type
-		PasteAtoms.XSEL_DATA,   // property
+		PasteAtoms.Utf8String, // target/type
+		PasteAtoms.XSelData,   // property
 		xproto.TimeCurrentTime)
 }
 
@@ -94,7 +94,7 @@ func (p *Paste) requestData(selection xproto.Atom) {
 func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 	// not a a paste event
 	switch ev.Property {
-	case xproto.AtomNone, PasteAtoms.XSEL_DATA:
+	case xproto.AtomNone, PasteAtoms.XSelData:
 	default:
 		return
 	}
@@ -110,7 +110,7 @@ func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 func (p *Paste) OnPropertyNotify(ev *xproto.PropertyNotifyEvent) {
 	// not a a paste event
 	switch ev.Atom {
-	case PasteAtoms.XSEL_DATA: // property used on requestData()
+	case PasteAtoms.XSelData: // property used on requestData()
 	default:
 		return
 	}
@@ -130,8 +130,8 @@ func (p *Paste) extractData(ev *xproto.SelectionNotifyEvent) (string, error) {
 	case xproto.AtomNone:
 		// nothing to paste (no owner exists)
 		return "", nil
-	case PasteAtoms.XSEL_DATA:
-		if ev.Target != PasteAtoms.UTF8_STRING {
+	case PasteAtoms.XSelData:
+		if ev.Target != PasteAtoms.Utf8String {
 			s, _ := xgbutil.GetAtomName(p.conn, ev.Target)
 			return "", fmt.Errorf("paste: unexpected type: %v %v", ev.Target, s)
 		}
@@ -158,7 +158,7 @@ func (p *Paste) extractData3(ev *xproto.SelectionNotifyEvent) (string, error) {
 			return "", err
 		}
 
-		if reply.Type == PasteAtoms.UTF8_STRING {
+		if reply.Type == PasteAtoms.Utf8String {
 			str := string(reply.Value)
 			w = append(w, str)
 
@@ -174,7 +174,7 @@ func (p *Paste) extractData3(ev *xproto.SelectionNotifyEvent) (string, error) {
 
 		// incr mode
 		// https://tronche.com/gui/x/icccm/sec-2.html#s-2.7.2
-		if reply.Type == PasteAtoms.INCR {
+		if reply.Type == PasteAtoms.Incr {
 			incrMode = true
 			xproto.DeleteProperty(p.conn, ev.Requestor, ev.Property)
 			continue
@@ -207,9 +207,8 @@ func (p *Paste) waitForPropertyNewValue(ev *xproto.SelectionNotifyEvent) error {
 //----------
 
 var PasteAtoms struct {
-	UTF8_STRING xproto.Atom
-	XSEL_DATA   xproto.Atom
-	CLIPBOARD   xproto.Atom
-	INCR        xproto.Atom
-	//TARGETS     xproto.Atom
+	Utf8String xproto.Atom `loadAtoms:"UTF8_STRING"`
+	XSelData   xproto.Atom `loadAtoms:"XSEL_DATA"`
+	Clipboard  xproto.Atom `loadAtoms:"CLIPBOARD"`
+	Incr       xproto.Atom `loadAtoms:"INCR"`
 }
