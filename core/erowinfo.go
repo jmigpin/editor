@@ -276,6 +276,10 @@ func (info *ERowInfo) SaveFile() error {
 		return nil
 	}
 
+	if !info.IsFileButNotDir() {
+		return fmt.Errorf("not a file: %s", info.Name())
+	}
+
 	// read from one of the erows
 	erow0 := info.ERows[0]
 	b, err := erow0.Row.TextArea.Bytes()
@@ -283,38 +287,25 @@ func (info *ERowInfo) SaveFile() error {
 		return err
 	}
 
-	// save
-	b2, _, err := info.saveFile(b)
-	if err != nil {
-		return err
-	}
-
-	// update all erows
-	info.SetRowsBytes(b2)
-
-	return nil
-}
-
-func (info *ERowInfo) saveFile(b []byte) (_ []byte, changes bool, _ error) {
-	if !info.IsFileButNotDir() {
-		return nil, false, fmt.Errorf("not a file: %s", info.Name())
-	}
-
-	// run go imports for go content, updates content string
+	// run go imports for go content, updates content
 	if filepath.Ext(info.Name()) == ".go" {
 		u, err := runGoImports(b, filepath.Dir(info.Name()))
 		// ignore errors, can catch them when compiling
 		if err == nil {
-			changes = true
 			b = u
 		}
 	}
 
-	err := info.saveFsFile(b)
+	// save
+	err = info.saveFsFile(b)
 	if err != nil {
-		return nil, changes, err
+		return err
 	}
-	return b, changes, nil
+
+	// update all erows (including row saved states)
+	info.SetRowsBytes(b)
+
+	return nil
 }
 
 //----------
