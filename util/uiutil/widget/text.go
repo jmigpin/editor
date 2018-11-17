@@ -49,6 +49,10 @@ func NewText(ctx ImageContext) *Text {
 
 //----------
 
+func (t *Text) Len() int {
+	return t.brw.Len()
+}
+
 // Result might not be a copy, so changes to the slice might affect the text data.
 func (t *Text) Bytes() ([]byte, error) {
 	return t.brw.ReadNSliceAt(0, t.brw.Len())
@@ -81,16 +85,15 @@ func (t *Text) SetStr(str string) error {
 
 //----------
 
-// Called on write operations to trw, and and textcursor.EndEdit.
 func (t *Text) changes() {
 	t.Drawer.SetNeedMeasure(true)
 	t.MarkNeedsLayoutAndPaint()
 
-	// TODO: move this to somewhere else
-	// because it will layout now, it needs to set the exts options
+	// TODO: move this to somewhere else.
+	// Because it will layout now, it needs to set the exts options
 	if d, ok := t.Drawer.(*drawer3.PosDrawer); ok {
 		max := 75 * 1024
-		v := t.brw.Len() < max
+		v := t.Len() < max
 		if !v {
 			d.WrapLine.SetOn(v)
 			d.ColorizeSyntax.SetOn(v)

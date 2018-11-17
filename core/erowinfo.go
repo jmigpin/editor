@@ -372,11 +372,11 @@ func (info *ERowInfo) EqualToBytesHash(size int, hash []byte) bool {
 		return false
 	}
 	erow0 := info.ERows[0]
-	b, err := erow0.Row.TextArea.Bytes()
-	if err != nil {
+	if erow0.Row.TextArea.Len() != size {
 		return false
 	}
-	if len(b) != size {
+	b, err := erow0.Row.TextArea.Bytes()
+	if err != nil {
 		return false
 	}
 	hash2 := bytesHash(b)
