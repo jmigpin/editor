@@ -135,17 +135,12 @@ func (te *TextEditX) startFlash(index, len int, line bool) {
 }
 
 func (te *TextEditX) lineIndexes(index int) (int, int) {
-	// TODO: need review "al"
-
 	i0, i1 := 0, 0
-	//al := 0
-	if index < len(te.Str()) {
+	if index <= len(te.Str()) {
 		i0 = parseutil.LineStartIndex(te.Str(), index)
 		u, nl := parseutil.LineEndIndexNextIndex(te.Str(), index)
 		if nl {
 			u--
-			// include newline index to flash annotations if present (they stay on newline index) but don't include the next line for flash (not added to "l").
-			//al = 1 // TODO
 		}
 		i1 = u
 	}
