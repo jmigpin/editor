@@ -5,6 +5,7 @@ import (
 	"image/draw"
 	"log"
 	"runtime"
+	"sync"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
@@ -28,7 +29,8 @@ type Window struct {
 	Screen *xproto.ScreenInfo
 	GCtx   xproto.Gcontext
 
-	done chan struct{}
+	//done      chan struct{}
+	closeOnce sync.Once
 
 	Paste        *copypaste.Paste
 	Copy         *copypaste.Copy
@@ -51,12 +53,11 @@ func NewWindow() (*Window, error) {
 	}
 	win := &Window{
 		Conn: conn,
-		done: make(chan struct{}, 1),
+		//done: make(chan struct{}, 1),
 	}
 	if err := win.initialize(); err != nil {
 		return nil, errors.Wrap(err, "win init")
 	}
-
 	return win, nil
 }
 func (win *Window) initialize() error {
@@ -172,22 +173,26 @@ func (win *Window) initialize() error {
 }
 
 func (win *Window) Close() {
-	err := win.ShmImageWrap.Close()
-	if err != nil {
-		log.Println(err)
-	}
-	win.Conn.Close()
+	win.closeOnce.Do(func() {
+		err := win.ShmImageWrap.Close()
+		if err != nil {
+			log.Print("%v", err)
+		}
+		win.Conn.Close()
 
-	// xgb is not exiting cleanly otherwise this should not block
-	// <-win.done
+		// xgb is not exiting cleanly otherwise this should not block
+		// <-win.done
+	})
 }
 
 func (win *Window) EventLoop(events chan<- interface{}) {
+	//defer func() { win.done <- struct{}{} }()
+
 	for {
 		ev, xerr := win.Conn.WaitForEvent()
 		if ev == nil && xerr == nil {
 			events <- &event.WindowClose{}
-			goto forEnd
+			return
 		}
 		if xerr != nil {
 			events <- error(xerr)
@@ -233,9 +238,6 @@ func (win *Window) EventLoop(events chan<- interface{}) {
 			}
 		}
 	}
-forEnd:
-
-	win.done <- struct{}{}
 }
 
 func (win *Window) SetWindowName(str string) {
