@@ -20,11 +20,12 @@ Source code editor in pure Go.
 - Drag and drop files/directories to the editor.
 - Detects if files opened are changed outside of the editor.
 - Calls goimports if available when saving a .go file.
-- Clicking on `.go` files identifiers will jump to the identifier definition (Ex: a function definition).
-- ~~Auto-completion (suggestions) in `.go` files. (__experimental__)~~ (__under-reconstruction__)
+- Clicking on `.go` files identifiers will jump to the identifier definition (uses go guru).
 - Debug utility for go programs (`GoDebug` cmd). (__experimental__)
   - allows to go back and forth in time to consult code lines.
 - Plugin support
+  - `gotodefinition`: plugin that shows how to override the textarea click action.
+  - `autocomplete` (suggestions) plugin for `.go` files (uses gocode).
 
 ## Installation and usage
 
