@@ -1,6 +1,7 @@
 package contentcmds
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path"
@@ -27,14 +28,34 @@ func GoToDefinition(erow *core.ERow, index int) (bool, error) {
 	// it's a go file, return true from here
 
 	// go guru args
-	args := []string{"guru", "definition", fmt.Sprintf("%v:#%v", erow.Info.Name(), index)}
+	pos := fmt.Sprintf("%v:#%v", erow.Info.Name(), index)
+	args := []string{"guru", "-modified", "definition", pos}
 
-	// godef args
-	//args := []string{"godef", "-f", erow.Info.Name(), "-o", fmt.Sprintf("%v", index)}
+	// use stdin
+	in := &bytes.Buffer{}
+
+	// guru format: filename
+	s := fmt.Sprintf("%v\n", erow.Info.Name())
+	_, err := in.Write([]byte(s))
+	if err != nil {
+		return true, err
+	}
+	// guru format: filesize
+	s = fmt.Sprintf("%v\n", erow.Row.TextArea.Len())
+	_, err = in.Write([]byte(s))
+	if err != nil {
+		return true, err
+	}
+	// guru format: content
+	bin, err := erow.Row.TextArea.Bytes()
+	_, err = in.Write(bin)
+	if err != nil {
+		return true, err
+	}
 
 	// execute external cmd
 	dir := filepath.Dir(erow.Info.Name())
-	out, err := core.ExecCmd(ctx, dir, args...)
+	out, err := core.ExecCmdStdin(ctx, dir, in, args...)
 	if err != nil {
 		return true, err
 	}
