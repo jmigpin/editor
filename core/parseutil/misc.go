@@ -155,7 +155,7 @@ func LineColumnIndex(str string, line, column int) int {
 	column--
 
 	// rune index of line/column
-	index := 0
+	index := -1
 	l, c := 0, 0
 	for ri, ru := range str {
 		if l == line {
