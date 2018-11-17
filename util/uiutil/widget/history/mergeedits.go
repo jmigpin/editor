@@ -2,34 +2,62 @@ package history
 
 import (
 	"bytes"
+	"container/list"
 	"unicode"
 
 	"github.com/jmigpin/editor/util/iout"
 )
 
 func TryToMergeLastTwoEdits(h *History) {
-	if h.cur == nil {
+	tce, ok := LastTwoEdits(h)
+	if !ok {
 		return
+	}
+	if insertConsecutiveLetters(tce.Ed1, tce.Ed2) ||
+		consecutiveSpaces(tce.Ed1, tce.Ed2) {
+		MergeTwoEdits(h, tce)
+	}
+}
+
+func MergeLastTwoEdits(h *History) {
+	tce, ok := LastTwoEdits(h)
+	if !ok {
+		return
+	}
+	MergeTwoEdits(h, tce)
+}
+
+//----------
+
+func MergeTwoEdits(h *History, tce *TwoConsecutiveEdits) {
+	// merge ed2 into ed1
+	tce.Ed1.list.PushBackList(&tce.Ed2.list)
+	tce.Ed1.PostState = tce.Ed2.PostState
+
+	// remove ed2
+	h.l.Remove(*tce.Elem2)
+	*tce.Elem2 = *tce.Elem1 // elem2 usually points to h.cur
+}
+
+//----------
+
+type TwoConsecutiveEdits struct {
+	Ed1, Ed2     *Edit
+	Elem1, Elem2 **list.Element
+}
+
+func LastTwoEdits(h *History) (*TwoConsecutiveEdits, bool) {
+	if h.cur == nil {
+		return nil, false
 	}
 	prev := h.cur.Prev()
 	if prev == nil {
-		return
+		return nil, false
 	}
 	ed1 := prev.Value.(*Edit)  // oldest
 	ed2 := h.cur.Value.(*Edit) // recent
-
-	if false ||
-		insertConsecutiveLetters(ed1, ed2) ||
-		consecutiveSpaces(ed1, ed2) {
-
-		// merge ed2 into ed1
-		ed1.list.PushBackList(&ed2.list)
-		ed1.PostState = ed2.PostState
-
-		// remove ed2 (h.cur)
-		h.l.Remove(h.cur)
-		h.cur = prev
-	}
+	tce := &TwoConsecutiveEdits{ed1, ed2, &prev, &h.cur}
+	return tce, true
 }
 
 //----------
