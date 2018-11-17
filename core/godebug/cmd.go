@@ -605,25 +605,21 @@ Examples:
 //------------
 
 func (cmd *Cmd) populateParentDirectories() (err error) {
-	// directories that contain annotated files, consider them visited (don't populate)
-	vis := map[string]bool{}
+	// don't populate directories that contain annotated files
+	noPop := map[string]bool{}
 	cmd.ann.FSet.Iterate(func(f *token.File) bool {
-		vis[f.Name()] = true
+		d := filepath.Dir(f.Name())
+		noPop[d] = true
 		return true
 	})
 
 	// populate parent directories
+	vis := map[string]bool{}
 	cmd.ann.FSet.Iterate(func(f *token.File) bool {
 		d := filepath.Dir(f.Name())
-
-		// visit once
-		if _, ok := vis[d]; ok {
-			return true
-		}
-		vis[d] = true
-
-		pd := filepath.Dir(d) // parent dir
-		err = cmd.populateDir(pd, vis)
+		// visit parent dir
+		pd := filepath.Dir(d)
+		err = cmd.populateDir(pd, vis, noPop)
 		if err != nil {
 			return false
 		}
@@ -632,9 +628,9 @@ func (cmd *Cmd) populateParentDirectories() (err error) {
 	return err
 }
 
-func (cmd *Cmd) populateDir(dir string, vis map[string]bool) error {
+func (cmd *Cmd) populateDir(dir string, vis, noPop map[string]bool) error {
 	// don't populate an already visited dir
-	if vis[dir] {
+	if _, ok := vis[dir]; ok {
 		return nil
 	}
 	vis[dir] = true
@@ -645,19 +641,20 @@ func (cmd *Cmd) populateDir(dir string, vis map[string]bool) error {
 		return nil
 	}
 
-	// copy go files
-	//fmt.Printf("pop dir %v\n", dir)
-	filenames := dirGoFiles(dir)
-	for _, f := range filenames {
-		fAtTmp := cmd.tmpDirBasedFilename(f)
-		if err := copyFile(f, fAtTmp); err != nil {
-			return err
+	// populate: copy go files
+	if _, ok := noPop[dir]; !ok {
+		filenames := dirGoFiles(dir)
+		for _, f := range filenames {
+			fAtTmp := cmd.tmpDirBasedFilename(f)
+			if err := copyFile(f, fAtTmp); err != nil {
+				return err
+			}
 		}
 	}
 
 	// visit parent dir
 	pd := filepath.Dir(dir)
-	return cmd.populateDir(pd, vis)
+	return cmd.populateDir(pd, vis, noPop)
 }
 
 //------------

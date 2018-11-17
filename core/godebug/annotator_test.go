@@ -700,6 +700,22 @@ func TestCmdAnnotate3(t *testing.T) {
 	testSourceResults(t, src, res, srcFunc)
 }
 
+//func TestCmdAnnotate4(t *testing.T) {
+//	srcFunc := func(s string) string {
+//		return `package p1
+//		func f0() {
+//			` + s + `
+//		}
+//		`
+//	}
+//	srcRes := []string{
+//		``,
+//		``,
+//	}
+//	src, res := splitSrcRes(srcRes)
+//	testSourceResults(t, src, res, srcFunc)
+//}
+
 //------------
 
 func TestCmdConfig1(t *testing.T) {
