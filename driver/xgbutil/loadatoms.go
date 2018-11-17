@@ -9,6 +9,7 @@ import (
 )
 
 // "st" should be a pointer to a struct with xproto.Atom fields.
+// Tags can be used with: `loadAtoms:"atomname"`
 func LoadAtoms(conn *xgb.Conn, st interface{}) error {
 	// request atoms
 	// use reflection to get atoms names
@@ -23,7 +24,7 @@ func LoadAtoms(conn *xgb.Conn, st interface{}) error {
 			name = tagStr
 		}
 		// request value
-		cookie := xproto.InternAtom(conn, false, uint16(len(name)), name)
+		cookie := xproto.InternAtom(conn, true, uint16(len(name)), name)
 		cookies = append(cookies, cookie)
 	}
 	// get atoms
