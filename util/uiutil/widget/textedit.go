@@ -30,7 +30,7 @@ func (te *TextEdit) SetBytes(b []byte) error {
 	tc := te.TextCursor
 	var err error
 	tc.Edit(func() {
-		err = iout.DeleteInsert(tc.RW(), 0, tc.RW().Len(), b)
+		err = iout.DeleteInsertIfNotEqual(tc.RW(), 0, tc.RW().Len(), b)
 	})
 	return err
 }
@@ -39,7 +39,7 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 	tc := te.TextCursor
 	var err error
 	tc.Edit(func() {
-		err = iout.DeleteInsert(tc.RW(), 0, tc.RW().Len(), b)
+		err = iout.DeleteInsertIfNotEqual(tc.RW(), 0, tc.RW().Len(), b)
 		// keep position in history record
 		te.ClearPos()
 	})

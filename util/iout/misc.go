@@ -11,11 +11,26 @@ var ErrLimitReached = errors.New("limit reached")
 
 //----------
 
-func DeleteInsert(w Writer, a, len int, p []byte) error {
-	if err := w.Delete(a, len); err != nil {
+func DeleteInsert(w Writer, a, alen int, p []byte) error {
+	if err := w.Delete(a, alen); err != nil {
 		return err
 	}
 	return w.Insert(a, p)
+}
+
+// Check if changes will be made (Ex: could avoid triggering keeping a history step)
+func DeleteInsertIfNotEqual(rw ReadWriter, a, alen int, p []byte) error {
+	if alen == len(p) {
+		b, err := rw.ReadNSliceAt(a, alen)
+		if err != nil {
+			return err
+		}
+		if bytes.Equal(b, p) {
+			return nil
+		}
+	}
+
+	return DeleteInsert(rw, a, alen, p)
 }
 
 //----------
