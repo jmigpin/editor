@@ -8,8 +8,11 @@ Source code editor in pure Go.
 
 ![screenshot](./screenshot3.png)
 
+## About
+
 - This is a know-what-you're-doing source code editor
 - As the editor is being developed, the rules of how the UI interacts will become more well defined.
+- Primarily developed and tested in Linux. Works in MacOS through XQuartz. Should work in Windows using something equivalent to Xming (needs a workaround for the mit-shm extension).
 
 ## Features
 
@@ -265,10 +268,19 @@ Note that plugins might need to be recompiled everytime there are changes in the
   - `godebug` on textarea: show next debug step
   - `godebug` over an annotation: show line next annotation
 
+## Row placement algorithm
+
+When a new row is created, it is placed either below the current row (measuring available space), or in a "good position".
+
+The "good position" measures the available space between all rows, and uses the position with the most space.
+
+The measuring of space is done as follows:
+1) if the cursor is visible, measure space after visible cursor to the end of the textarea and use it if not smaller than two lines in height, otherwise use 2)
+2) about 2/3 of the textarea
+
 ## Notes
 
-- Uses X shared memory extension (MIT-SHM). 
-- MacOS might need to have XQuartz installed.
+- Uses X shared memory extension (MIT-SHM).
 - Notable projects that inspired many features:
   - Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU 
   - Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
