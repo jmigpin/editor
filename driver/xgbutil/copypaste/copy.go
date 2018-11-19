@@ -24,7 +24,7 @@ type Copy struct {
 
 func NewCopy(conn *xgb.Conn, win xproto.Window) (*Copy, error) {
 	c := &Copy{conn: conn, win: win}
-	if err := xgbutil.LoadAtoms(conn, &CopyAtoms); err != nil {
+	if err := xgbutil.LoadAtoms(conn, &CopyAtoms, false); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -62,7 +62,8 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<
 	case CopyAtoms.Utf8String,
 		CopyAtoms.Text,
 		CopyAtoms.TextPlain,
-		CopyAtoms.TextPlainCharsetUtf8:
+		CopyAtoms.TextPlainCharsetUtf8,
+		CopyAtoms.GtkTextBufferContents:
 		if err := c.transferBytes(ev); err != nil {
 			events <- err
 		}
@@ -76,7 +77,6 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<
 		if err := c.transferBytes(ev); err != nil {
 			events <- err
 		}
-
 	}
 }
 
@@ -154,10 +154,10 @@ func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) error {
 	c1 := xproto.ChangePropertyChecked(
 		c.conn,
 		xproto.PropModeReplace,
-		ev.Requestor, // requestor window
-		ev.Property,  // property
-		ev.Target,
-		32, // format
+		ev.Requestor,    // requestor window
+		ev.Property,     // property
+		xproto.AtomAtom, // (would not work in some cases with ev.Target)
+		32,              // format
 		uint32(len(targets)),
 		tbuf.Bytes())
 	if err := c1.Check(); err != nil {
@@ -204,4 +204,6 @@ var CopyAtoms struct {
 	Text                 xproto.Atom `loadAtoms:"TEXT"`
 	TextPlain            xproto.Atom `loadAtoms:"text/plain"`
 	TextPlainCharsetUtf8 xproto.Atom `loadAtoms:"text/plain;charset=utf-8"`
+
+	GtkTextBufferContents xproto.Atom `loadAtoms:"GTK_TEXT_BUFFER_CONTENTS"`
 }
