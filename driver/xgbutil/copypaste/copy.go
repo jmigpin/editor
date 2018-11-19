@@ -139,6 +139,7 @@ func (c *Copy) transferBytes(ev *xproto.SelectionRequestEvent) error {
 
 func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) error {
 	targets := []xproto.Atom{
+		CopyAtoms.Targets,
 		CopyAtoms.Utf8String,
 		CopyAtoms.Text,
 		CopyAtoms.TextPlain,
