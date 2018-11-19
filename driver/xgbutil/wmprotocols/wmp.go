@@ -18,7 +18,7 @@ type WMP struct {
 }
 
 func NewWMP(conn *xgb.Conn, win xproto.Window) (*WMP, error) {
-	if err := xgbutil.LoadAtoms(conn, &atoms); err != nil {
+	if err := xgbutil.LoadAtoms(conn, &atoms, false); err != nil {
 		return nil, err
 	}
 	wmp := &WMP{conn: conn, win: win}

@@ -112,7 +112,7 @@ func (win *Window) initialize() error {
 
 	_ = xproto.MapWindow(win.Conn, window)
 
-	if err := xgbutil.LoadAtoms(win.Conn, &Atoms); err != nil {
+	if err := xgbutil.LoadAtoms(win.Conn, &Atoms, false); err != nil {
 		return err
 	}
 

@@ -27,10 +27,10 @@ type Dnd struct {
 }
 
 func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
-	if err := xgbutil.LoadAtoms(conn, &DndAtoms); err != nil {
+	if err := xgbutil.LoadAtoms(conn, &DndAtoms, false); err != nil {
 		return nil, err
 	}
-	if err := xgbutil.LoadAtoms(conn, &DropTypeAtoms); err != nil {
+	if err := xgbutil.LoadAtoms(conn, &DropTypeAtoms, false); err != nil {
 		return nil, err
 	}
 	dnd := &Dnd{conn: conn, win: win}

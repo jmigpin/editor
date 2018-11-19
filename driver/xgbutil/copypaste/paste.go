@@ -23,7 +23,7 @@ type Paste struct {
 }
 
 func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
-	if err := xgbutil.LoadAtoms(conn, &PasteAtoms); err != nil {
+	if err := xgbutil.LoadAtoms(conn, &PasteAtoms, false); err != nil {
 		return nil, err
 	}
 	p := &Paste{
