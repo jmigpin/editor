@@ -66,8 +66,9 @@ func NewPosDrawer() *PosDrawer {
 		&d.rr,
 		&d.WrapLine,
 		&d.ColorizeSyntax,
+		&d.Annotations,
 	}
-	d.pd = PosData1(10, keepers)
+	d.pd = PosData1(256, keepers)
 	d.pd.SetOn(false)
 
 	d.pexts = []Ext{
