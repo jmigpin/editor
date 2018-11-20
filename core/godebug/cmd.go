@@ -51,6 +51,7 @@ type Cmd struct {
 		}
 		work      bool
 		dirs      []string
+		files     []string
 		otherArgs []string
 	}
 }
@@ -75,7 +76,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string, mainSrc interface{}) (
 	}
 
 	// tmp dir for annotated files
-	tmpDir, err := ioutil.TempDir(os.TempDir(), "godebug")
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "editor_godebug")
 	if err != nil {
 		return true, err
 	}
@@ -128,8 +129,6 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 		}
 	}
 
-	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-
 	// pre-build without annotations for better errors (result is ignored)
 	if cmd.mainSrc == nil {
 		if cmd.flags.mode.test {
@@ -147,12 +146,24 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 		}
 	}
 
-	// annotate
+	// annotate: main file
 	if !cmd.flags.mode.test {
 		if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
 			return "", err
 		}
 	}
+
+	// annotate: files option
+	for _, filename := range cmd.flags.files {
+		// base on working dir
+		if !filepath.IsAbs(filename) {
+			filename = filepath.Join(cmd.getDir(), filename)
+		}
+		if err := cmd.annotateFile(filename, nil); err != nil {
+			return "", err
+		}
+	}
+
 	// annotate: auto include working dir in test mode
 	if cmd.flags.mode.test {
 		cmd.flags.dirs = append(cmd.flags.dirs, cmd.getDir())
@@ -186,6 +197,7 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 
 	// build
 	cmd.setupTmpGoPath()
+	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
 	if cmd.flags.mode.test {
 		return cmd.buildTest(ctx, filenameAtTmp)
 	} else {
@@ -529,6 +541,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
 	work := f.Bool("work", false, "print workdir and don't cleanup on exit")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
+	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -541,6 +554,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 
 	cmd.flags.work = *work
 	cmd.flags.dirs = splitCommaList(*dirs)
+	cmd.flags.files = splitCommaList(*files)
 	cmd.flags.otherArgs = f.Args()
 
 	if len(cmd.flags.otherArgs) > 0 {
@@ -555,6 +569,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
 	work := f.Bool("work", false, "print workdir and don't cleanup on exit")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
+	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 	run := f.String("run", "", "run test")
 	verbose := f.Bool("v", false, "verbose")
 
@@ -569,6 +584,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 
 	cmd.flags.work = *work
 	cmd.flags.dirs = splitCommaList(*dirs)
+	cmd.flags.files = splitCommaList(*files)
 	cmd.flags.otherArgs = f.Args()
 
 	// set test run flag at other flags to pass to the test exec
@@ -605,10 +621,10 @@ Examples:
 //------------
 
 func (cmd *Cmd) populateParentDirectories() (err error) {
-	// don't populate directories that contain annotated files
+	// don't populate annotated files
 	noPop := map[string]bool{}
 	cmd.ann.FSet.Iterate(func(f *token.File) bool {
-		d := filepath.Dir(f.Name())
+		d := f.Name()
 		noPop[d] = true
 		return true
 	})
@@ -617,9 +633,7 @@ func (cmd *Cmd) populateParentDirectories() (err error) {
 	vis := map[string]bool{}
 	cmd.ann.FSet.Iterate(func(f *token.File) bool {
 		d := filepath.Dir(f.Name())
-		// visit parent dir
-		pd := filepath.Dir(d)
-		err = cmd.populateDir(pd, vis, noPop)
+		err = cmd.populateDir(d, vis, noPop)
 		if err != nil {
 			return false
 		}
@@ -642,13 +656,14 @@ func (cmd *Cmd) populateDir(dir string, vis, noPop map[string]bool) error {
 	}
 
 	// populate: copy go files
-	if _, ok := noPop[dir]; !ok {
-		filenames := dirGoFiles(dir)
-		for _, f := range filenames {
-			fAtTmp := cmd.tmpDirBasedFilename(f)
-			if err := copyFile(f, fAtTmp); err != nil {
-				return err
-			}
+	filenames := dirGoFiles(dir)
+	for _, f := range filenames {
+		if _, ok := noPop[f]; ok {
+			continue
+		}
+		fAtTmp := cmd.tmpDirBasedFilename(f)
+		if err := copyFile(f, fAtTmp); err != nil {
+			return err
 		}
 	}
 
