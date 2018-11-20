@@ -43,6 +43,7 @@ func (ann *Annotations) Iterate(r *ExtRunner) {
 			break
 		}
 		ann.data.indexesToAdd = append(ann.data.indexesToAdd, ann.data.index)
+
 	}
 
 	// add annotations after newline
@@ -74,7 +75,6 @@ func (ann *Annotations) insertAnnotations(r *ExtRunner) {
 
 	// helper functions to iterate annotations runes
 	iterRuneClone := func(ru rune) bool {
-		r.RR.Ri = origRR.Ri
 		return r.RR.Iterate2(r, ru, len(string(ru)))
 	}
 	iterString := func(s string) bool {
@@ -89,6 +89,7 @@ func (ann *Annotations) insertAnnotations(r *ExtRunner) {
 	iterAnnotationString := func(index int, s string) bool {
 		ann.state = AnnStateOn
 		ann.stateOnEntryIndex = index
+		ann.entryOffset = 0
 		defer func() { ann.state = AnnStateNormal }()
 		return iterString(s)
 	}
@@ -96,14 +97,12 @@ func (ann *Annotations) insertAnnotations(r *ExtRunner) {
 	// separator between content and annotation
 	{
 		// fixed minimum or a space string
-		//min := r.RR.GlyphAdvance('W') * 17
 		min := r.RR.GlyphAdvance('\t') * 7
 		if r.RR.Pen.X < min {
 			r.RR.Pen.X = min
-		} else {
-			if !iterString("   \t") {
-				return
-			}
+		}
+		if !iterString("   \t") {
+			return
 		}
 	}
 
@@ -239,6 +238,7 @@ func (aiof *AnnotationsIndexOf) Start(r *ExtRunner) {
 }
 
 func (aiof *AnnotationsIndexOf) Iterate(r *ExtRunner) {
+
 	// must be inside state "on"
 	if aiof.ann.state != AnnStateOn {
 		r.NextExt()
