@@ -47,7 +47,7 @@ func (p *Paste) Get(index event.CopyPasteIndex, fn func(string, error)) {
 func (p *Paste) get2(index event.CopyPasteIndex) (string, error) {
 	switch index {
 	case event.CPIPrimary:
-		return p.request(xproto.AtomPrimary)
+		return p.request(PasteAtoms.Primary)
 	case event.CPIClipboard:
 		return p.request(PasteAtoms.Clipboard)
 	default:
@@ -207,8 +207,10 @@ func (p *Paste) waitForPropertyNewValue(ev *xproto.SelectionNotifyEvent) error {
 //----------
 
 var PasteAtoms struct {
+	Primary   xproto.Atom `loadAtoms:"PRIMARY"`
+	Clipboard xproto.Atom `loadAtoms:"CLIPBOARD"`
+	XSelData  xproto.Atom `loadAtoms:"XSEL_DATA"`
+	Incr      xproto.Atom `loadAtoms:"INCR"`
+
 	Utf8String xproto.Atom `loadAtoms:"UTF8_STRING"`
-	XSelData   xproto.Atom `loadAtoms:"XSEL_DATA"`
-	Clipboard  xproto.Atom `loadAtoms:"CLIPBOARD"`
-	Incr       xproto.Atom `loadAtoms:"INCR"`
 }

@@ -36,7 +36,7 @@ func (c *Copy) Set(i event.CopyPasteIndex, str string) error {
 	switch i {
 	case event.CPIPrimary:
 		c.primaryStr = str
-		return c.set(xproto.AtomPrimary)
+		return c.set(CopyAtoms.Primary)
 	case event.CPIClipboard:
 		c.clipboardStr = str
 		return c.set(CopyAtoms.Clipboard)
@@ -96,7 +96,7 @@ func (c *Copy) debugRequest(ev *xproto.SelectionRequestEvent, events chan<- inte
 func (c *Copy) transferBytes(ev *xproto.SelectionRequestEvent) error {
 	var b []byte
 	switch ev.Selection {
-	case xproto.AtomPrimary:
+	case CopyAtoms.Primary:
 		b = []byte(c.primaryStr)
 	case CopyAtoms.Clipboard:
 		b = []byte(c.clipboardStr)
@@ -137,6 +137,8 @@ func (c *Copy) transferBytes(ev *xproto.SelectionRequestEvent) error {
 
 //----------
 
+// testing: $ xclip -o -target TARGETS -selection primary
+
 func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) error {
 	targets := []xproto.Atom{
 		CopyAtoms.Targets,
@@ -155,10 +157,10 @@ func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) error {
 	c1 := xproto.ChangePropertyChecked(
 		c.conn,
 		xproto.PropModeReplace,
-		ev.Requestor,    // requestor window
-		ev.Property,     // property
-		xproto.AtomAtom, // (would not work in some cases with ev.Target)
-		32,              // format
+		ev.Requestor,   // requestor window
+		ev.Property,    // property
+		CopyAtoms.Atom, // (would not work in some cases with ev.Target)
+		32,             // format
 		uint32(len(targets)),
 		tbuf.Bytes())
 	if err := c1.Check(); err != nil {
@@ -187,7 +189,7 @@ func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) error {
 // Another application now owns the selection.
 func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
 	switch ev.Selection {
-	case xproto.AtomPrimary:
+	case CopyAtoms.Primary:
 		c.primaryStr = ""
 	case CopyAtoms.Clipboard:
 		c.clipboardStr = ""
@@ -197,14 +199,14 @@ func (c *Copy) OnSelectionClear(ev *xproto.SelectionClearEvent) {
 //----------
 
 var CopyAtoms struct {
-	XSelData  xproto.Atom `loadAtoms:"XSEL_DATA"`
+	Atom      xproto.Atom `loadAtoms:"ATOM"`
+	Primary   xproto.Atom `loadAtoms:"PRIMARY"`
 	Clipboard xproto.Atom `loadAtoms:"CLIPBOARD"`
 	Targets   xproto.Atom `loadAtoms:"TARGETS"`
 
-	Utf8String           xproto.Atom `loadAtoms:"UTF8_STRING"`
-	Text                 xproto.Atom `loadAtoms:"TEXT"`
-	TextPlain            xproto.Atom `loadAtoms:"text/plain"`
-	TextPlainCharsetUtf8 xproto.Atom `loadAtoms:"text/plain;charset=utf-8"`
-
+	Utf8String            xproto.Atom `loadAtoms:"UTF8_STRING"`
+	Text                  xproto.Atom `loadAtoms:"TEXT"`
+	TextPlain             xproto.Atom `loadAtoms:"text/plain"`
+	TextPlainCharsetUtf8  xproto.Atom `loadAtoms:"text/plain;charset=utf-8"`
 	GtkTextBufferContents xproto.Atom `loadAtoms:"GTK_TEXT_BUFFER_CONTENTS"`
 }
