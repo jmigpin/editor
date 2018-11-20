@@ -178,12 +178,17 @@ func (ann *Annotator) ConfigSource() (string, string) {
 	// filename
 	pkgFilename := "godebugconfig/config.go"
 
-	// content: "+build" line needs and empty line afterwards
+	// Allow multiple editors to run debug sessions at the same time.
+	debug.SetupServerNetAddr()
+
+	// content: "+build" line needs to be followed by an empty line
 	src := `// +build godebug
 
 package godebugconfig
 import "` + debugPkgPath + `"
 func init(){
+	debug.ServerNetwork="` + debug.ServerNetwork + `"
+	debug.ServerAddress="` + debug.ServerAddress + `"
 	debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
 		` + entriesStr + `
 	}
