@@ -575,6 +575,12 @@ func TestCmdAnnotate1(t *testing.T) {
 		`Σ0 := Σ.IC(nil, Σ.ILit(), Σ.IV(3))
 		Σ.Line(0, 2, 61, Σ0)
 		defer func(a int) bool { Σ.Line(0, 0, 29, Σ.IV(a)); Σ.Line(0, 1, 46, Σ.IV(true)); return true }(3)`,
+
+		// value spec
+
+		`var v1,v2 int = 1, 2`,
+		`Σ.Line(0, 0, 43, Σ.IL(Σ.IV(1), Σ.IV(2)))
+		var v1, v2 int = 1, 2`,
 	}
 
 	src, res := splitSrcRes(srcRes)
@@ -700,21 +706,21 @@ func TestCmdAnnotate3(t *testing.T) {
 	testSourceResults(t, src, res, srcFunc)
 }
 
-//func TestCmdAnnotate4(t *testing.T) {
-//	srcFunc := func(s string) string {
-//		return `package p1
-//		func f0() {
-//			` + s + `
-//		}
-//		`
-//	}
-//	srcRes := []string{
-//		``,
-//		``,
-//	}
-//	src, res := splitSrcRes(srcRes)
-//	testSourceResults(t, src, res, srcFunc)
-//}
+func TestCmdAnnotate4(t *testing.T) {
+	srcFunc := func(s string) string {
+		return `package p1
+		func f0() {
+			` + s + `
+		}
+		`
+	}
+	srcRes := []string{
+		`var v1 interface{} = &ast.Ident{Name: "some_id"}`,
+		``,
+	}
+	src, res := splitSrcRes(srcRes)
+	testSourceResults(t, src, res, srcFunc)
+}
 
 //------------
 

@@ -293,26 +293,19 @@ func (sann *SingleAnnotator) visitNode(ctx *saCtx, node ast.Node) {
 		}
 
 	case *ast.DeclStmt:
+		//ctx2 := ctx.WithValue("decl_stmt", true)
 		sann.visitNode(ctx, t.Decl)
 
 	case *ast.GenDecl:
-		//switch t.Tok {
-		//case token.VAR:
-		//	for _, s := range t.Specs {
-		//		sann.visitNode(ctx, s)
-		//	}
-		//}
+		switch t.Tok {
+		case token.VAR:
+			for _, s := range t.Specs {
+				sann.visitNode(ctx, s)
+			}
+		}
 
-	//case *ast.ValueSpec:
-	//// TODO: from a top gendecl? build init func?
-	//if ctx.Value("stmts") == nil {
-	//	return
-	//}
-	//// TODO: "var c, d, t uint32 = 1, 2, f1()": handle f1
-	//for i, v := range t.Values {
-	//	ctx2 := ctx.WithValue("pos", t.Names[i].Pos())
-	//	sann.visitNode(ctx2, v)
-	//}
+	case *ast.ValueSpec:
+		sann.visitValueSpec(ctx, t)
 
 	case *ast.FuncDecl:
 		sann.visitFuncDecl(ctx, t)
@@ -852,6 +845,22 @@ func (sann *SingleAnnotator) visitRangeStmt(ctx *saCtx, rs *ast.RangeStmt) {
 		ctx3 := ctx.WithValue("stmts_startindex", *ni)
 		sann.visitNode(ctx3, rs.Body)
 	}
+}
+
+func (sann *SingleAnnotator) visitValueSpec(ctx *saCtx, vs *ast.ValueSpec) {
+	// must be inside a stmt
+	if ctx.Value("stmts") == nil {
+		// can't deal with handling f1 in "var a, b int = 1, f1()"
+		return
+	}
+
+	for _, e := range vs.Values {
+		sann.visitExpr(ctx, &e)
+	}
+	vexprs := ctx.PopExprs()
+
+	ce1 := sann.debugCallExpr("IL", vexprs...)
+	ctx.PushExprs(ce1)
 }
 
 func (sann *SingleAnnotator) visitAssignStmt(ctx *saCtx, as *ast.AssignStmt) {
