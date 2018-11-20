@@ -51,6 +51,12 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 	case *event.MouseClick:
 		switch ev.Button {
 		case event.ButtonRight:
+			m := ev.Mods.ClearLocks()
+			if m.Is(event.ModCtrl) {
+				if ta.selAnnCurEv(ev.Point, TASelAnnTypePrint) {
+					return event.Handled
+				}
+			}
 			if !ta.PointIndexInsideSelection(ev.Point) {
 				textutil.MoveCursorToPoint(ta.TextEdit, &ev.Point, false)
 			}
@@ -173,6 +179,7 @@ const (
 	TASelAnnTypeCurrentNext
 	TASelAnnTypePrev
 	TASelAnnTypeNext
+	TASelAnnTypePrint
 )
 
 //----------

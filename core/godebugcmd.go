@@ -99,26 +99,19 @@ func (gdi *GoDebugInstance) updateSelectAnnotation(erow *ERow, annIndex, offset 
 		update = gdi.selectPrev()
 	case ui.TASelAnnTypeNext:
 		update = gdi.selectNext()
+	case ui.TASelAnnTypePrint:
+		gdi.printIndex(erow, annIndex, offset)
 	}
 
 	return update
 }
 
 func (gdi *GoDebugInstance) selectCurrent(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) bool {
-	di := gdi.data.dataIndex
-
-	fi, ok := di.FilesIndex[erow.Info.Name()]
+	file, line, ok := gdi.currentAnnotationFileLine(erow, annIndex)
 	if !ok {
 		return false
 	}
 
-	file := di.Files[fi]
-
-	if annIndex < 0 || annIndex >= len(file.AnnEntriesLMIndex) {
-		return false
-	}
-
-	lm := file.Lines[annIndex]
 	k := file.AnnEntriesLMIndex[annIndex]
 
 	// currently nothing is shown, use first
@@ -134,13 +127,14 @@ func (gdi *GoDebugInstance) selectCurrent(erow *ERow, annIndex, offset int, typ 
 			k--
 		}
 	case ui.TASelAnnTypeCurrentNext:
-		if k < len(lm.Msgs)-1 {
+		if k < len(line.Msgs)-1 {
 			k++
 		}
 	}
 
 	// set selected index
-	di.SelectedArrivalIndex = lm.Msgs[k].GlobalArrivalIndex
+	di := gdi.data.dataIndex
+	di.SelectedArrivalIndex = line.Msgs[k].GlobalArrivalIndex
 
 	return true
 }
@@ -163,6 +157,48 @@ func (gdi *GoDebugInstance) selectPrev() bool {
 		return true
 	}
 	return false
+}
+
+//----------
+
+func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
+	file, line, ok := gdi.currentAnnotationFileLine(erow, annIndex)
+	if !ok {
+		return
+	}
+
+	// current msg index at line
+	k := file.AnnEntriesLMIndex[annIndex]
+	if k < 0 { // currently nothing is shown
+		return
+	}
+
+	// msg
+	msg := line.Msgs[k]
+
+	// output
+	s := godebug.StringifyItemOffset(msg.DLine.Item, offset)
+	if s == "" {
+		s = "error: not at a value index"
+	}
+	gdi.ed.Messagef("annotation: %v\n", s)
+}
+
+//----------
+
+func (gdi *GoDebugInstance) currentAnnotationFileLine(erow *ERow, annIndex int) (*GDFileMsgs, *GDLineMsgs, bool) {
+	// file
+	di := gdi.data.dataIndex
+	fi, ok := di.FilesIndex[erow.Info.Name()]
+	if !ok {
+		return nil, nil, false
+	}
+	file := di.Files[fi]
+	if annIndex < 0 || annIndex >= len(file.AnnEntriesLMIndex) {
+		return nil, nil, false
+	}
+	// line
+	return file, &file.Lines[annIndex], true
 }
 
 //----------
