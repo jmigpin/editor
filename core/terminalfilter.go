@@ -30,6 +30,7 @@ func (w *TerminalFilter) Close() error {
 }
 
 func (w *TerminalFilter) Write(p []byte) (n int, err error) {
+	w.escaped = 0
 	p2 := w.filterSequences(p)
 	n, err = w.w.Write(p2)
 	n += w.escaped
