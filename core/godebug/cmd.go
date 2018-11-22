@@ -16,6 +16,7 @@ import (
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/core/gosource"
+	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/osexecutil"
 )
 
@@ -307,11 +308,7 @@ func (cmd *Cmd) environ() []string {
 	gopath = append(gopath, cmd.tmpDir)
 
 	// add already defined gopath
-	gopath = append(gopath, os.Getenv("GOPATH"))
-
-	// add default gopath since it doesn't get set if the gopath is set with something else
-	defaultGoPath := filepath.Join(os.Getenv("HOME"), "go")
-	gopath = append(gopath, defaultGoPath)
+	gopath = append(gopath, goutil.GoPath()...)
 
 	// build env
 	s := "GOPATH=" + strings.Join(gopath, ":")

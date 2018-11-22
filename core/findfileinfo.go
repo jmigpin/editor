@@ -3,7 +3,9 @@ package core
 import (
 	"os"
 	"path"
-	"path/filepath"
+	"runtime"
+
+	"github.com/jmigpin/editor/util/goutil"
 )
 
 // Checks in GOROOT/GOPATH,  and some C include dirs.
@@ -28,8 +30,8 @@ func FindFileInfo(name, dir string) (string, os.FileInfo, bool) {
 
 	// go paths
 	{
-		a := []string{os.Getenv("GOROOT")}
-		a = append(a, filepath.SplitList(os.Getenv("GOPATH"))...)
+		a := []string{runtime.GOROOT()}
+		a = append(a, goutil.GoPath()...)
 		for _, d := range a {
 			u := path.Join(d, "src", name)
 			fi, err := os.Stat(u)
