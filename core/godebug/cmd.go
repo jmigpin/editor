@@ -31,7 +31,6 @@ type Cmd struct {
 
 	tmpDir       string
 	tmpBuiltFile string // file built and exec'd
-	tmpGoPath    bool
 
 	start struct {
 		cancel    context.CancelFunc
@@ -196,7 +195,6 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 	}
 
 	// build
-	cmd.setupTmpGoPath()
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
 	if cmd.flags.mode.test {
 		return cmd.buildTest(ctx, filenameAtTmp)
@@ -214,20 +212,6 @@ func (cmd *Cmd) getDir() string {
 		}
 	}
 	return cmd.Dir
-}
-
-//------------
-
-func (cmd *Cmd) setupTmpGoPath() {
-	// TODO: copy all packages to tmp dir?
-	// TODO: reuse tmp dir - check modtime
-	// add  tmpdir to gopath to use the files written to tmpdir
-	gopath := os.Getenv("GOPATH")
-	u := strings.Join([]string{cmd.tmpDir, gopath}, ":")
-	os.Setenv("GOPATH", u)
-
-	// flag to cleanup at the end
-	cmd.tmpGoPath = true
 }
 
 //------------
@@ -316,16 +300,29 @@ func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 
 //------------
 
-func (cmd *Cmd) Cleanup() {
-	// always cleanup gopath
-	if cmd.tmpGoPath {
-		gopath := os.Getenv("GOPATH")
-		s := cmd.tmpDir + ":"
-		if strings.HasPrefix(gopath, s) {
-			os.Setenv("GOPATH", gopath[len(s):])
-		}
-	}
+func (cmd *Cmd) environ() []string {
+	gopath := []string{}
 
+	// add tmpdir to gopath to allow the compiler to give priority to the annotated files
+	gopath = append(gopath, cmd.tmpDir)
+
+	// add already defined gopath
+	gopath = append(gopath, os.Getenv("GOPATH"))
+
+	// add default gopath since it doesn't get set if the gopath is set with something else
+	defaultGoPath := filepath.Join(os.Getenv("HOME"), "go")
+	gopath = append(gopath, defaultGoPath)
+
+	// build env
+	s := "GOPATH=" + strings.Join(gopath, ":")
+	env := os.Environ()
+	env = append(env, s)
+	return env
+}
+
+//------------
+
+func (cmd *Cmd) Cleanup() {
 	// don't cleanup
 	if cmd.flags.work {
 		return
@@ -386,6 +383,7 @@ func (cmd *Cmd) runCmd(ctx context.Context, dir string, args []string) error {
 
 func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.Cmd, error) {
 	ecmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	ecmd.Env = cmd.environ()
 	ecmd.Dir = dir
 	ecmd.Stdout = cmd.Stdout
 	ecmd.Stderr = cmd.Stderr
