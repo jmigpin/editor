@@ -42,7 +42,7 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 
 	case *debug.ItemValue:
 		start := len(is.Str)
-		is.Str += debug.ReduceStr(t.Str, 20)
+		is.Str += debug.ReducedSprintf(20, "%s", t.Str)
 		end := len(is.Str)
 		if is.Offset >= start && is.Offset < end {
 			is.OffsetValueString = t.Str

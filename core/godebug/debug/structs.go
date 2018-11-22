@@ -3,8 +3,6 @@ package debug
 import (
 	"encoding/gob"
 	"fmt"
-
-	"github.com/jmigpin/editor/util/iout"
 )
 
 func init() {
@@ -60,14 +58,15 @@ type AnnotatorFileData struct {
 type V interface{}
 
 func stringifyV(v V) string {
+	const max = 150
 	str := ""
 	switch t := v.(type) {
 	case nil:
 		return "nil"
 	case string:
-		str = ReducedSprintf("%q", t)
+		str = ReducedSprintf(max, "%q", t)
 	case fmt.Stringer, error:
-		str = ReducedSprintf("%q", t) // used to be ≈(%q)
+		str = ReducedSprintf(max, "%q", t) // used to be ≈(%q)
 
 	case float32, float64:
 		u := fmt.Sprintf("%f", t)
@@ -85,32 +84,23 @@ func stringifyV(v V) string {
 		str = u[:len(u)-j]
 
 	default:
-		str = ReducedSprintf("%v", v)
+		str = ReducedSprintf(max, "%v", v)
 	}
 
 	return str
 }
 
-func ReducedSprintf(format string, a ...interface{}) string {
-	max := 150
-	w := iout.NewLimitedWriter(max)
+func ReducedSprintf(max int, format string, a ...interface{}) string {
+	w := NewLimitedWriter(max)
 	_, err := fmt.Fprintf(w, format, a...)
 	s := string(w.Bytes())
 	if err != nil {
 		if s[0] != '"' { // keep existing quote if present
 			s = "\"" + s
 		}
-		s += "...\""
+		s += "...\"" // "◦◦◦"
 	}
 	return s
-}
-
-func ReduceStr(str string, max int) string {
-	if len(str) > max {
-		h := max / 2
-		str = str[:h] + "◦◦◦" + str[len(str)-h:]
-	}
-	return str
 }
 
 //----------
