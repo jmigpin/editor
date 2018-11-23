@@ -181,10 +181,8 @@ func (ann *Annotator) ConfigSource() (string, string) {
 	// Allow multiple editors to run debug sessions at the same time.
 	debug.SetupServerNetAddr()
 
-	// content: "+build" line needs to be followed by an empty line
-	src := `// +build godebug
-
-package godebugconfig
+	// content
+	src := `package godebugconfig
 import "` + debugPkgPath + `"
 func init(){
 	debug.ServerNetwork="` + debug.ServerNetwork + `"

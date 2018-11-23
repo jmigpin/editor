@@ -53,6 +53,7 @@ type Cmd struct {
 		dirs      []string
 		files     []string
 		otherArgs []string
+		runArgs   []string
 	}
 }
 
@@ -168,6 +169,8 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 	if cmd.flags.mode.test {
 		cmd.flags.dirs = append(cmd.flags.dirs, cmd.getDir())
 	}
+
+	// annotate: directories
 	if err := cmd.annotateDirs(ctx); err != nil {
 		return "", err
 	}
@@ -231,10 +234,17 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string) error
 	ctx2, cancel := context.WithCancel(ctx)
 	cmd.start.cancel = cancel
 
-	// start server
+	// arguments
 	filenameWork2 := normalizeFilenameForExec(filenameWork)
-	args := append([]string{filenameWork2}, cmd.flags.otherArgs...)
-	serverCmd, err := cmd.startCmd(ctx2, cmd.getDir(), args)
+	args := []string{filenameWork2}
+	if cmd.flags.mode.test {
+		args = append(args, cmd.flags.runArgs...)
+	} else {
+		args = append(args, cmd.flags.otherArgs...)
+	}
+
+	// start server
+	serverCmd, err := cmd.startCmd(ctx2, cmd.getDir(), args, nil)
 	if err != nil {
 		cmd.start.cancel() // cmd.Wait() won't be called, need to clear resources
 		return err
@@ -341,46 +351,50 @@ func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
 	filenameOut := replaceExt(filename, "_godebug")
 	args := []string{
 		"go", "build",
-		"-tags", "godebug",
 		"-o", filenameOut,
 		filename,
 	}
 	dir := filepath.Dir(filenameOut)
-	err := cmd.runCmd(ctx, dir, args)
+	err := cmd.runCmd(ctx, dir, args, cmd.environ())
 	return filenameOut, err
 }
 
 func (cmd *Cmd) buildTest(ctx context.Context, filename string) (string, error) {
-	filenameOut := replaceExt(filename, "_godebug_test")
+	filenameOut := replaceExt(filename, "_godebug")
 	args := []string{
 		"go", "test",
-		"-tags", "godebug",
 		"-c", // compile binary but don't run
 		// "-toolexec", "", // don't run asm // TODO: faster dummy pre-builts?
 		"-o", filenameOut,
 	}
+
+	// append otherargs in test mode
+	args = append(args, cmd.flags.otherArgs...)
+
 	dir := filepath.Dir(filenameOut)
-	err := cmd.runCmd(ctx, dir, args)
+	err := cmd.runCmd(ctx, dir, args, cmd.environ())
 	return filenameOut, err
 }
 
 //------------
 
-func (cmd *Cmd) runCmd(ctx context.Context, dir string, args []string) error {
+func (cmd *Cmd) runCmd(ctx context.Context, dir string, args, env []string) error {
 	// ctx with early cancel for startcmd to clear inner goroutine resource
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	ecmd, err := cmd.startCmd(ctx2, dir, args)
+	ecmd, err := cmd.startCmd(ctx2, dir, args, env)
 	if err != nil {
 		return err
 	}
 	return ecmd.Wait()
 }
 
-func (cmd *Cmd) startCmd(ctx context.Context, dir string, args []string) (*exec.Cmd, error) {
-	ecmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	ecmd.Env = cmd.environ()
+func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*exec.Cmd, error) {
+	cargs := []string{"sh", "-c", strings.Join(args, " ")}
+	ecmd := exec.CommandContext(ctx, cargs[0], cargs[1:]...)
+
+	ecmd.Env = env
 	ecmd.Dir = dir
 	ecmd.Stdout = cmd.Stdout
 	ecmd.Stderr = cmd.Stderr
@@ -585,13 +599,13 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	// set test run flag at other flags to pass to the test exec
 	if *run != "" {
 		a := []string{"-test.run", *run}
-		cmd.flags.otherArgs = append(a, cmd.flags.otherArgs...)
+		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
 	}
 
 	// verbose
 	if *verbose {
 		a := []string{"-test.v"}
-		cmd.flags.otherArgs = append(a, cmd.flags.otherArgs...)
+		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
 	}
 
 	return false, nil
