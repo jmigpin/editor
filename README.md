@@ -150,6 +150,8 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
   - `-dirs`: comma separated directories to include in the debug session.
   - `-work`: print out temporary work dir, and don't cleanup (allows to see the generated code).
   - use `esc` key to stop the debug session.
+  - Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.
+    - `debug.SetSend(bool)`
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open another row to edit the same file.
 
 *Textarea commands*

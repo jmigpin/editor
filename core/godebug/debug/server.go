@@ -49,8 +49,7 @@ type Server struct {
 	ln      net.Listener
 	cconn   *ClientConn
 	running sync.RWMutex
-
-	wg sync.WaitGroup
+	wg      sync.WaitGroup
 }
 
 func NewServer() (*Server, error) {

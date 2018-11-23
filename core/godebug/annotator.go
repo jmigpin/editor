@@ -191,7 +191,7 @@ func init(){
 		` + entriesStr + `
 	}
 
-	debug.Start()
+	debug.StartServer()
 }
 	`
 
@@ -233,7 +233,7 @@ import "os"
 func TestMain(m *testing.M) {
 	var code int
 	defer func(){ os.Exit(code) }()
-	defer ` + ann.debugPkgName + `.Exit()
+	defer ` + ann.debugPkgName + `.ExitServer()
 	code = m.Run()
 }
 	`
@@ -1375,7 +1375,7 @@ func (sann *SingleAnnotator) insertDebugExitInFunction(astFile *ast.File, name s
 		Call: &ast.CallExpr{
 			Fun: &ast.SelectorExpr{
 				X:   ast.NewIdent(sann.ann.debugPkgName),
-				Sel: ast.NewIdent("Exit"),
+				Sel: ast.NewIdent("ExitServer"),
 			},
 		},
 	}
