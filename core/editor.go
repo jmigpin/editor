@@ -77,14 +77,24 @@ func (ed *Editor) init(opt *Options) error {
 	// other setups
 	ed.setupRootToolbar()
 	ed.setupRootMenuToolbar()
-	ed.setupPlugins(opt)
 
 	// TODO: ensure it has the window measure
-	// enqueue setup initial rows to run after UI has window measure
 	ed.EnsureOneColumn()
-	ed.UI.RunOnUIGoRoutine(func() {
-		ed.setupInitialRows(opt)
-	})
+
+	// setup plugins
+	setupInitialRows := true
+	err = ed.setupPlugins(opt)
+	if err != nil {
+		ed.Error(err)
+		setupInitialRows = false
+	}
+
+	if setupInitialRows {
+		// enqueue setup initial rows to run after UI has window measure
+		ed.UI.RunOnUIGoRoutine(func() {
+			ed.setupInitialRows(opt)
+		})
+	}
 
 	return nil
 }
@@ -387,16 +397,16 @@ func (ed *Editor) setupTheme(opt *Options) {
 
 //----------
 
-func (ed *Editor) setupPlugins(opt *Options) {
+func (ed *Editor) setupPlugins(opt *Options) error {
 	ed.Plugins = NewPlugins(ed)
 	a := strings.Split(opt.Plugins, ",")
 	for _, s := range a {
-		path := strings.TrimSpace(s)
-		if len(path) == 0 {
-			continue
+		err := ed.Plugins.AddPath(s)
+		if err != nil {
+			return err
 		}
-		ed.Plugins.AddPath(path)
 	}
+	return nil
 }
 
 //----------

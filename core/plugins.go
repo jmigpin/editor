@@ -18,43 +18,39 @@ func NewPlugins(ed *Editor) *Plugins {
 	return &Plugins{ed: ed, added: map[string]bool{}}
 }
 
-func (p *Plugins) AddPath(path string) {
+func (p *Plugins) AddPath(path string) error {
 	if p.added[path] {
-		return
+		return nil
 	}
 	p.added[path] = true
 
 	oplugin, err := plugin.Open(path)
 	if err != nil {
-		err2 := errors.Wrap(err, fmt.Sprintf("plugin: %v", path))
-		p.ed.Error(err2)
-		return
+		return errors.Wrap(err, fmt.Sprintf("plugin: %v", path))
 	}
 
 	plug := &Plug{Plugin: oplugin, Path: path}
 	p.plugs = append(p.plugs, plug)
 
-	p.runOnLoad(plug)
+	return p.runOnLoad(plug)
 }
 
 //----------
 
-func (p *Plugins) runOnLoad(plug *Plug) {
+func (p *Plugins) runOnLoad(plug *Plug) error {
 	// plugin should have this symbol
 	f, err := plug.Plugin.Lookup("OnLoad")
 	if err != nil {
-		// silent error
-		return
+		return nil // ok if plugin doesn't implement this symbol
 	}
 	// the symbol must implement this signature
 	f2, ok := f.(func(*Editor))
 	if !ok {
-		err := fmt.Errorf("plugin: %v: bad func signature", plug.Path)
-		p.ed.Error(err)
-		return
+		return fmt.Errorf("plugin: %v: bad func signature", plug.Path)
 	}
 	// run symbol
 	f2(p.ed)
+	return nil
 }
 
 //----------
