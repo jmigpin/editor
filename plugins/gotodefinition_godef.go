@@ -1,15 +1,16 @@
 /*
 Build with:
-$ go build -buildmode=plugin gotodefinition.go
+$ go build -buildmode=plugin gotodefinition_godef.go
 */
 
 package main
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/jmigpin/editor/core"
@@ -19,7 +20,7 @@ import (
 func OnLoad(ed *core.Editor) {
 	// default contentcmds at: github.com/jmigpin/editor/core/contentcmds/init.go
 	core.ContentCmds.Remove("gotodefinition") // remove default
-	core.ContentCmds.Prepend("my_gotodefinition", goToDefinition)
+	core.ContentCmds.Prepend("gotodefinition_godef", goToDefinition)
 }
 
 func goToDefinition(erow *core.ERow, index int) (handled bool, err error) {
@@ -37,16 +38,19 @@ func goToDefinition(erow *core.ERow, index int) (handled bool, err error) {
 
 	// it's a go file, return true from here
 
-	// go guru args
-	//position := fmt.Sprintf("%v:#%v", erow.Info.Name(), index)
-	//args := []string{"guru", "definition", position}
-
 	// godef args
-	args := []string{"godef", "-f", erow.Info.Name(), "-o", fmt.Sprintf("%v", index)}
+	args := []string{"godef", "-i", "-f", erow.Info.Name(), "-o", strconv.Itoa(index)}
+
+	// godef can read from stdin: use textarea bytes
+	bin, err := erow.Row.TextArea.Bytes()
+	if err != nil {
+		return true, err
+	}
+	in := bytes.NewBuffer(bin)
 
 	// execute external cmd
 	dir := filepath.Dir(erow.Info.Name())
-	out, err := core.ExecCmd(ctx, dir, args...)
+	out, err := core.ExecCmdStdin(ctx, dir, in, args...)
 	if err != nil {
 		return true, err
 	}

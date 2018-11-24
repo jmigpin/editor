@@ -1,7 +1,6 @@
 /*
 Build with:
-$ go build -buildmode=plugin autocomplete.go
-Start gocode
+$ go build -buildmode=plugin autocomplete_gocode.go
 */
 
 package main
@@ -61,7 +60,7 @@ func autoCompleteERowGolang(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core
 	offset := erow.Row.TextArea.TextCursor.Index()
 	args := []string{"gocode", "autocomplete", fmt.Sprintf("%v", offset)}
 
-	// textarea bytes
+	// gocode can read from stdin: use textarea bytes
 	bin, err := erow.Row.TextArea.Bytes()
 	if err != nil {
 		ed.Error(err)
@@ -76,11 +75,6 @@ func autoCompleteERowGolang(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core
 		ed.Error(err)
 		return
 	}
-
-	//// decode json
-	//out := bytes.NewBuffer(bout)
-	//dec := json.NewDecoder(out)
-	//log.Println(string(bout))
 
 	cfb.SetRefPointToTextAreaCursor(erow.Row.TextArea)
 	cfb.TextArea.SetStr(string(bout))

@@ -27,8 +27,7 @@ Source code editor in pure Go.
 - Debug utility for go programs (`GoDebug` cmd). (__experimental__)
   - allows to go back and forth in time to consult code lines.
 - Plugin support
-  - `gotodefinition`: plugin that shows how to override the textarea click action.
-  - `autocomplete` (suggestions) plugin for `.go` files (uses gocode).
+  - examples such as `gotodefinition` and `autocomplete` [below](#plugins).
 
 ## Installation and usage
 
@@ -180,7 +179,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 ## Plugins
 
-Plugins allow extra functionality to be added to the editor without changing the binary. Examples located at: `./plugins`.
+Plugins allow extra functionality to be added to the editor without changing the binary. 
 
 A plugin can be compiled with (will output a `*.so`):
 - `go build -buildmode=plugin <filename.go>` 
@@ -193,6 +192,10 @@ Functions that can be implemented by a plugin are (subject to changes - __work-i
 - `func AutoComplete(ed *core.Editor, cfb *ui.ContextFloatBox)`
 
 Note that plugins might need to be recompiled everytime there are changes in the libraries provided by the editor.
+
+Plugins located at: `./plugins`.
+- `gotodefinition_godef.go`: plugin that shows how to override the textarea click action and use godef.
+- `autocomplete_gocode.go`: plugin that shows a context wih suggestions for `.go` files (uses gocode).
 
 ## Key/button shortcuts
 
