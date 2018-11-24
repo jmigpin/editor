@@ -2,8 +2,8 @@
 package main
 
 // build plugins (use "--plugins=<p1.so>,..." option to use these)
-//go:generate go build -buildmode=plugin ./plugins/autocomplete.go
-//go:generate go build -buildmode=plugin ./plugins/gotodefinition.go
+//go:generate go build -buildmode=plugin ./plugins/autocomplete_gocode.go
+//go:generate go build -buildmode=plugin ./plugins/gotodefinition_godef.go
 
 import (
 	"flag"
