@@ -401,6 +401,10 @@ func (ed *Editor) setupPlugins(opt *Options) error {
 	ed.Plugins = NewPlugins(ed)
 	a := strings.Split(opt.Plugins, ",")
 	for _, s := range a {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
 		err := ed.Plugins.AddPath(s)
 		if err != nil {
 			return err
