@@ -213,7 +213,14 @@ func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 		fontRunesCmd(ed)
 
 	default:
-		rowCmd(func(e *ERow) { ExternalCmd(e, part) })
+		// have a plugin handle the cmd
+		e := currentERow() // could be nil
+		handled := ed.Plugins.RunToolbarCmd(e, part)
+
+		// run external cmd
+		if !handled {
+			rowCmd(func(e *ERow) { ExternalCmd(e, part) })
+		}
 	}
 }
 

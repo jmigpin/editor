@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"plugin"
 
+	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/pkg/errors"
 )
@@ -65,8 +66,7 @@ func (p *Plugins) runAutoCompletePlug(plug *Plug, cfb *ui.ContextFloatBox) {
 	// plugin should have this symbol
 	f, err := plug.Plugin.Lookup("AutoComplete")
 	if err != nil {
-		// silent error
-		return
+		return // ok if plugin doesn't implement this symbol
 	}
 	// the symbol must implement this signature
 	f2, ok := f.(func(*Editor, *ui.ContextFloatBox))
@@ -77,6 +77,36 @@ func (p *Plugins) runAutoCompletePlug(plug *Plug, cfb *ui.ContextFloatBox) {
 	}
 	// run symbol
 	f2(p.ed, cfb)
+}
+
+//----------
+
+func (p *Plugins) RunToolbarCmd(erow *ERow, part *toolbarparser.Part) bool {
+	for _, plug := range p.plugs {
+		handled := p.runToolbarCmdPlug(plug, erow, part)
+		if handled {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Plugins) runToolbarCmdPlug(plug *Plug, erow *ERow, part *toolbarparser.Part) bool {
+	// plugin should have this symbol
+	f, err := plug.Plugin.Lookup("ToolbarCmd")
+	if err != nil {
+		// no error: ok if plugin doesn't implement this symbol
+		return false // false: doesn't implemente the required cmd
+	}
+	// the symbol must implement this signature
+	f2, ok := f.(func(*Editor, *ERow, *toolbarparser.Part) bool)
+	if !ok {
+		err := fmt.Errorf("plugin: %v: bad func signature", plug.Path)
+		p.ed.Error(err)
+		return false // false: doesn't implement the required cmd
+	}
+	// run symbol
+	return f2(p.ed, erow, part)
 }
 
 //----------

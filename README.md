@@ -190,12 +190,13 @@ and used in the editor by using the `--plugins` option:
 Functions that can be implemented by a plugin are (subject to changes - __work-in-progress__ ):
 - `func OnLoad(ed *core.Editor)`
 - `func AutoComplete(ed *core.Editor, cfb *ui.ContextFloatBox)`
+- `func ToolbarCmd(ed *core.Editor, erow *core.ERow, part *toolbarparser.Part) bool`
 
 Note that plugins might need to be recompiled everytime there are changes in the libraries provided by the editor.
 
 Plugins located at: `./plugins`.
 - `gotodefinition_godef.go`: plugin that shows how to override the textarea click action and use godef.
-- `autocomplete_gocode.go`: plugin that shows a context wih suggestions for `.go` files (uses gocode).
+- `autocomplete_gocode.go`: plugin that shows a context with suggestions for `.go` files (uses gocode).
 
 ## Key/button shortcuts
 
@@ -203,7 +204,7 @@ Plugins located at: `./plugins`.
 
 - `esc`: stop debugging session
 - `f1`: toggle context float box
-  - ~~does auto-completion in `.go` files.~~ (work-in-progress)
+  - triggers call to plugins that implement `AutoComplete`
 
 *Column key/button shortcuts*
 
