@@ -27,7 +27,7 @@ type Cmd struct {
 	Stdout io.Writer
 	Stderr io.Writer
 
-	ann     *Annotator
+	ann     *AnnotatorSet
 	mainSrc interface{} // used for tests (at least)
 
 	tmpDir       string
@@ -59,7 +59,7 @@ type Cmd struct {
 
 func NewCmd() *Cmd {
 	return &Cmd{
-		ann:    NewAnnotator(),
+		ann:    NewAnnotatorSet(),
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
@@ -74,6 +74,11 @@ func (cmd *Cmd) Start(ctx context.Context, args []string, mainSrc interface{}) (
 	done, err := cmd.parseArgs(args)
 	if done || err != nil {
 		return done, err
+	}
+
+	// absolute dir
+	if u, err := filepath.Abs(cmd.Dir); err == nil {
+		cmd.Dir = u
 	}
 
 	// tmp dir for annotated files
@@ -117,16 +122,17 @@ func (cmd *Cmd) Wait() error {
 func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 	// filename
 	var filename string
+
 	if cmd.flags.mode.test {
-		filename = filepath.Join(cmd.getDir(), "pkgtest")
+		filename = filepath.Join(cmd.Dir, "pkgtest")
 	} else {
-		// base on workingdir
 		filename = cmd.flags.run.filename
 		if filename == "" {
 			return "", fmt.Errorf("missing filename arg")
 		}
+		// base on workingdir
 		if !filepath.IsAbs(filename) {
-			filename = filepath.Join(cmd.getDir(), filename)
+			filename = filepath.Join(cmd.Dir, filename)
 		}
 	}
 
@@ -156,10 +162,6 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 
 	// annotate: files option
 	for _, filename := range cmd.flags.files {
-		// base on working dir
-		if !filepath.IsAbs(filename) {
-			filename = filepath.Join(cmd.getDir(), filename)
-		}
 		if err := cmd.annotateFile(filename, nil); err != nil {
 			return "", err
 		}
@@ -167,7 +169,7 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 
 	// annotate: auto include working dir in test mode
 	if cmd.flags.mode.test {
-		cmd.flags.dirs = append(cmd.flags.dirs, cmd.getDir())
+		cmd.flags.dirs = append(cmd.flags.dirs, cmd.Dir)
 	}
 
 	// annotate: directories
@@ -198,8 +200,14 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 		}
 	}
 
-	// build
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
+
+	// create parent dirs
+	if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0755); err != nil {
+		return "", err
+	}
+
+	// build
 	if cmd.flags.mode.test {
 		return cmd.buildTest(ctx, filenameAtTmp)
 	} else {
@@ -209,20 +217,9 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 
 //------------
 
-func (cmd *Cmd) getDir() string {
-	if cmd.Dir == "" {
-		if d, err := os.Getwd(); err == nil {
-			return d
-		}
-	}
-	return cmd.Dir
-}
-
-//------------
-
 func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string) error {
 	// move filenameout to working dir
-	filenameWork := filepath.Join(cmd.getDir(), filepath.Base(filenameOut))
+	filenameWork := filepath.Join(cmd.Dir, filepath.Base(filenameOut))
 	if err := os.Rename(filenameOut, filenameWork); err != nil {
 		return err
 	}
@@ -244,7 +241,7 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string) error
 	}
 
 	// start server
-	serverCmd, err := cmd.startCmd(ctx2, cmd.getDir(), args, nil)
+	serverCmd, err := cmd.startCmd(ctx2, cmd.Dir, args, nil)
 	if err != nil {
 		cmd.start.cancel() // cmd.Wait() won't be called, need to clear resources
 		return err
@@ -305,7 +302,7 @@ func (cmd *Cmd) RequestStart() error {
 //------------
 
 func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
-	_, rest := gosource.ExtractSrcDir(filename)
+	_, rest := goutil.ExtractSrcDir(filename)
 	return filepath.Join(cmd.tmpDir, "src", rest)
 }
 
@@ -435,6 +432,7 @@ func (cmd *Cmd) annotateDirs(ctx context.Context) error {
 func (cmd *Cmd) annotateDir(dir string) error {
 	// if dir is not absolute, check if exists in cmd.dir
 	if !filepath.IsAbs(dir) {
+		//fmt.Printf("** %v + %v\n", cmd.Dir, dir)
 		t := filepath.Join(cmd.Dir, dir)
 		fi, err := os.Stat(t)
 		if err == nil {
@@ -460,7 +458,7 @@ func (cmd *Cmd) annotateDir(dir string) error {
 }
 
 func (cmd *Cmd) annotateFile(filename string, src interface{}) error {
-	astFile, err := cmd.ann.ParseAnnotate(filename, src)
+	astFile, err := cmd.ann.AnnotateFile(filename, src)
 	if err != nil {
 		return err
 	}
@@ -659,7 +657,7 @@ func (cmd *Cmd) populateDir(dir string, vis, noPop map[string]bool) error {
 	vis[dir] = true
 
 	// visit only up to srcdir
-	srcDir, _ := gosource.ExtractSrcDir(dir)
+	srcDir, _ := goutil.ExtractSrcDir(dir)
 	if len(srcDir) <= 1 || strings.Index(dir, srcDir) < 0 {
 		return nil
 	}

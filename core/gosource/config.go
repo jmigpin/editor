@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/jmigpin/editor/util/goutil"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
@@ -228,7 +229,7 @@ func (conf *Config) ReImportImportables() []error {
 
 func (conf *Config) MakeFilePkgImportable(filename string) {
 	fullFilename := FullFilename(filename)
-	_, pkgFilename := ExtractSrcDir(fullFilename)
+	_, pkgFilename := goutil.ExtractSrcDir(fullFilename)
 	pkgPath := filepath.Dir(pkgFilename)
 	conf.MakeImportable(pkgPath)
 }
@@ -314,7 +315,7 @@ func (conf *Config) PosPkgDir(pos token.Pos) (string, error) {
 		return "", err
 	}
 	dir := filepath.Dir(tf.Name())
-	_, pkgDir := ExtractSrcDir(dir)
+	_, pkgDir := goutil.ExtractSrcDir(dir)
 	return pkgDir, nil
 }
 

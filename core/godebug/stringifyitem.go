@@ -65,47 +65,29 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		}
 
 	case *debug.ItemLiteral:
-		is.Str += "τ{"
+		is.Str += "{" // others used: τ, s // ex: A{a:1}, []byte{1,2}
 		is.stringify(t.Fields)
 		is.Str += "}"
 
 	case *debug.ItemAssign:
-		simplify := false
+		is.stringify(t.Lhs)
+		is.Str += " :≡ "
+		is.stringify(t.Rhs)
 
-		//if is.depth == 1 {
-		//	if len(t.Rhs.List) == 1 {
-		//		switch t.Rhs.List[0].(type) {
-		//		case *debug.ItemCall,
-		//			*debug.ItemBinary,
-		//			*debug.ItemIndex,
-		//			*debug.ItemIndex2,
-		//			*debug.ItemValue:
-		//			simplify = true
-		//		}
-		//	}
-		//}
-
-		if simplify {
-			is.depth -= 2
-			is.stringify(t.Rhs)
-			is.depth += 2
-		} else {
-			is.stringify(t.Lhs)
-			is.Str += " :≡ "
-			is.stringify(t.Rhs)
-		}
+	case *debug.ItemSend:
+		is.stringify(t.Chan)
+		is.Str += " <- "
+		is.stringify(t.Value)
 
 	case *debug.ItemCall:
-		showFunc := true
-		//showFunc := (t.Args != nil && len(t.Args.List) > 0) || t.Result == nil
 		_ = is.result(t.Result)
-		if showFunc {
-			//is.Str += "λ"
-			is.Str += "ƒ"
-			is.Str += "("
-			is.stringify(t.Args)
-			is.Str += ")"
+		if t.Entering {
+			is.Str += "->"
 		}
+		is.Str += t.Name // others used: λ,ƒ
+		is.Str += "("
+		is.stringify(t.Args)
+		is.Str += ")"
 
 	case *debug.ItemUnary:
 		_ = is.result(t.Result)
@@ -113,21 +95,7 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.stringify(t.X)
 
 	case *debug.ItemBinary:
-		// show result
-		showRes := true
-		//showRes := false
-		//if t.Result != nil {
-		//	tok := token.Token(t.Op)
-		//	switch tok {
-		//	case token.MUL, token.ADD, token.SUB, token.QUO, token.REM:
-		//		showRes = true
-		//	}
-		//}
-
-		if showRes {
-			showRes = is.result(t.Result)
-		}
-
+		showRes := is.result(t.Result)
 		if showRes {
 			is.Str += "("
 		}
@@ -162,17 +130,22 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		if t.Low != nil {
 			is.stringify(t.Low)
 		}
-		if t.High != nil || t.Max != nil {
-			is.Str += ":"
-		}
+		is.Str += ":"
 		if t.High != nil {
 			is.stringify(t.High)
 		}
-		if t.Max != nil {
+		if t.Slice3 {
 			is.Str += ":"
+		}
+		if t.Max != nil {
 			is.stringify(t.Max)
 		}
 		is.Str += "]"
+
+	case *debug.ItemKeyValue:
+		is.stringify(t.Key)
+		is.Str += ":"
+		is.stringify(t.Value)
 
 	case *debug.ItemParen:
 		is.Str += "("
@@ -180,26 +153,36 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.Str += ")"
 
 	case *debug.ItemBranch:
-		is.Str += "←"
+		is.Str += "->" // other runes: ←
 
 	case *debug.ItemAnon:
 		is.Str += "_"
 
 	default:
-		is.Str += fmt.Sprintf("[[?: %v, %T]]", item, item)
+		is.Str += fmt.Sprintf("(TODO: %v, %T)", item, item)
 		log.Printf("todo: stringifyItem")
 	}
 }
 
 func (is *ItemStringifier) result(result debug.Item) bool {
-	//isFirst := is.depth == 1
 	if result != nil {
+
+		isList := false
+		if _, ok := result.(*debug.ItemList); ok {
+			isList = true
+		}
+		if isList {
+			is.Str += "("
+		}
+
 		is.stringify(result)
-		//if isFirst {
-		//	is.Str += " " + leftArrow + " "
-		//} else {
+
+		if isList {
+			is.Str += ")"
+		}
+
 		is.Str += "≡"
-		//}
+
 		return true
 	}
 	return false

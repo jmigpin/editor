@@ -1,18 +1,15 @@
 package gosource
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/build"
 	"go/token"
-	"io"
-	"io/ioutil"
 	"path/filepath"
-	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jmigpin/editor/util/goutil"
 )
 
 func FullFilename(filename string) string {
@@ -45,7 +42,7 @@ func PkgFilenames(dir string, testFiles bool) (string, string, []string, error) 
 	pkgDir := dir
 	srcDir := "."
 	if filepath.IsAbs(dir) {
-		srcDir, pkgDir = ExtractSrcDir(dir)
+		srcDir, pkgDir = goutil.ExtractSrcDir(dir)
 	}
 	// pkg dir
 	bpkg, err := build.Import(pkgDir, srcDir, 0)
@@ -64,7 +61,7 @@ func PkgName(path string) (string, error) {
 	pkgDir := path
 	srcDir := "."
 	if filepath.IsAbs(pkgDir) {
-		srcDir, pkgDir = ExtractSrcDir(pkgDir)
+		srcDir, pkgDir = goutil.ExtractSrcDir(pkgDir)
 	}
 	// pkg dir
 	bpkg, err := build.Import(pkgDir, srcDir, 0)
@@ -74,18 +71,23 @@ func PkgName(path string) (string, error) {
 	return bpkg.Name, nil
 }
 
-func ExtractSrcDir(filename string) (string, string) {
-	srcDir := ""
-	for _, d := range build.Default.SrcDirs() {
-		d += "/"
-		if strings.HasPrefix(filename, d) {
-			srcDir = filename[:len(d)]
-			filename = filename[len(d):]
-			return srcDir, filename
-		}
-	}
-	return srcDir, filename
-}
+//func ExtractSrcDir(filename string) (string, string) {
+//	u, err := filepath.Abs(filename)
+//	if err == nil {
+//		filename = u
+//	}
+
+//	srcDir := ""
+//	for _, d := range build.Default.SrcDirs() {
+//		d += "/"
+//		if strings.HasPrefix(filename, d) {
+//			srcDir = filename[:len(d)]
+//			filename = filename[len(d):]
+//			return srcDir, filename
+//		}
+//	}
+//	return srcDir, filename
+//}
 
 //------------
 
@@ -126,33 +128,33 @@ func TokPositionStr(str string, pos token.Position) (string, error) {
 
 //------------
 
-// Allows a src string to have multiple cursor strings to simulate cursor position. Used in testing.
-func SourceCursor(cursorStr, src string, n int) (string, int, error) {
-	// cursor positions
-	pos := []int{}
-	k := 0
-	for {
-		j := strings.Index(src[k:], cursorStr)
-		if j < 0 {
-			break
-		}
-		k += j
-		pos = append(pos, k)
-		k++
-	}
+//// Allows a src string to have multiple cursor strings to simulate cursor position. Used in testing.
+//func SourceCursor(cursorStr, src string, n int) (string, int, error) {
+//	// cursor positions
+//	pos := []int{}
+//	k := 0
+//	for {
+//		j := strings.Index(src[k:], cursorStr)
+//		if j < 0 {
+//			break
+//		}
+//		k += j
+//		pos = append(pos, k)
+//		k++
+//	}
 
-	// nth position
-	if n >= len(pos) {
-		return "", 0, fmt.Errorf("nth index not found: n=%v, len=%v", n, len(pos))
-	}
-	index := pos[n]
+//	// nth position
+//	if n >= len(pos) {
+//		return "", 0, fmt.Errorf("nth index not found: n=%v, len=%v", n, len(pos))
+//	}
+//	index := pos[n]
 
-	// remove cursors
-	index -= n * len(cursorStr)
-	src2 := strings.Replace(src, cursorStr, "", -1)
+//	// remove cursors
+//	index -= n * len(cursorStr)
+//	src2 := strings.Replace(src, cursorStr, "", -1)
 
-	return src2, index, nil
-}
+//	return src2, index, nil
+//}
 
 //------------
 
@@ -185,27 +187,27 @@ func BackTrackSpaceInsertSemicolon(str string, index int) (int, string) {
 
 //------------
 
-// taken from: go/parser/interface.go:25:9
-func ReadSource(filename string, src interface{}) ([]byte, error) {
-	if src != nil {
-		switch s := src.(type) {
-		case string:
-			return []byte(s), nil
-		case []byte:
-			return s, nil
-		case *bytes.Buffer:
-			// is io.Reader, but src is already available in []byte form
-			if s != nil {
-				return s.Bytes(), nil
-			}
-		case io.Reader:
-			var buf bytes.Buffer
-			if _, err := io.Copy(&buf, s); err != nil {
-				return nil, err
-			}
-			return buf.Bytes(), nil
-		}
-		return nil, errors.New("invalid source")
-	}
-	return ioutil.ReadFile(filename)
-}
+//// taken from: go/parser/interface.go:25:9
+//func ReadSource(filename string, src interface{}) ([]byte, error) {
+//	if src != nil {
+//		switch s := src.(type) {
+//		case string:
+//			return []byte(s), nil
+//		case []byte:
+//			return s, nil
+//		case *bytes.Buffer:
+//			// is io.Reader, but src is already available in []byte form
+//			if s != nil {
+//				return s.Bytes(), nil
+//			}
+//		case io.Reader:
+//			var buf bytes.Buffer
+//			if _, err := io.Copy(&buf, s); err != nil {
+//				return nil, err
+//			}
+//			return buf.Bytes(), nil
+//		}
+//		return nil, errors.New("invalid source")
+//	}
+//	return ioutil.ReadFile(filename)
+//}

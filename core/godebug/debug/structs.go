@@ -16,9 +16,11 @@ func init() {
 	gob.Register(&ItemList{})
 	gob.Register(&ItemList2{})
 	gob.Register(&ItemAssign{})
+	gob.Register(&ItemSend{})
 	gob.Register(&ItemCall{})
 	gob.Register(&ItemIndex{})
 	gob.Register(&ItemIndex2{})
+	gob.Register(&ItemKeyValue{})
 	gob.Register(&ItemBinary{})
 	gob.Register(&ItemUnary{})
 	gob.Register(&ItemParen{})
@@ -109,18 +111,23 @@ type Item interface{}
 type ItemValue struct {
 	Str string
 }
-type ItemList struct {
+type ItemList struct { // separated by ","
 	List []Item
 }
-type ItemList2 struct {
+type ItemList2 struct { // separated by ";"
 	List []Item
 }
 type ItemAssign struct {
 	Lhs, Rhs *ItemList
 }
+type ItemSend struct {
+	Chan, Value Item
+}
 type ItemCall struct {
-	Result Item
-	Args   *ItemList
+	Result   Item
+	Args     *ItemList
+	Name     string
+	Entering bool
 }
 type ItemIndex struct {
 	Result Item
@@ -131,6 +138,11 @@ type ItemIndex2 struct {
 	Result         Item
 	Expr           Item
 	Low, High, Max Item
+	Slice3         bool // 2 colons present
+}
+type ItemKeyValue struct {
+	Key   Item
+	Value Item
 }
 type ItemBinary struct {
 	Result Item
@@ -168,6 +180,17 @@ func IVt(v V) Item {
 	return &ItemValue{Str: fmt.Sprintf("%T", v)}
 }
 
+// ItemValue: len
+func IVl(v V) Item {
+	return &ItemValue{Str: fmt.Sprintf("%v=len()", v)}
+}
+
+// ItemValue: before entering function
+//func IVf(name string) Item {
+//	str := fmt.Sprintf("->%s(...)", name)
+//	return &ItemValue{Str: str}
+//}
+
 // ItemList ("," and ";")
 func IL(u ...Item) *ItemList {
 	return &ItemList{List: u}
@@ -181,17 +204,32 @@ func IA(lhs, rhs *ItemList) Item {
 	return &ItemAssign{Lhs: lhs, Rhs: rhs}
 }
 
+// ItemSend
+func IS(ch, value Item) Item {
+	return &ItemSend{Chan: ch, Value: value}
+}
+
 // ItemCall
-func IC(result Item, args ...Item) Item {
-	return &ItemCall{Result: result, Args: IL(args...)}
+func IC(name string, result Item, args ...Item) Item {
+	return &ItemCall{Name: name, Result: result, Args: IL(args...)}
+}
+
+// ItemCall: entering
+func ICe(name string, args ...Item) Item {
+	return &ItemCall{Name: name, Entering: true, Args: IL(args...)}
 }
 
 // ItemIndex
 func II(result, expr, index Item) Item {
 	return &ItemIndex{Result: result, Expr: expr, Index: index}
 }
-func II2(result, expr, low, high, max Item) Item {
-	return &ItemIndex2{Result: result, Expr: expr, Low: low, High: high, Max: max}
+func II2(result, expr, low, high, max Item, slice3 bool) Item {
+	return &ItemIndex2{Result: result, Expr: expr, Low: low, High: high, Max: max, Slice3: slice3}
+}
+
+// ItemKeyValue
+func KV(key, value Item) Item {
+	return &ItemKeyValue{Key: key, Value: value}
 }
 
 // ItemBinary

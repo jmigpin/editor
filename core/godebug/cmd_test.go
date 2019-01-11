@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
-func TestCmdStart1(t *testing.T) {
+func TestCmd1(t *testing.T) {
 	src := `
 		package main
 		import "fmt"
@@ -29,43 +28,12 @@ func TestCmdStart1(t *testing.T) {
 		}
 	`
 	filename := "test/src.go"
-
-	cmd := NewCmd()
-	defer cmd.Cleanup()
-
-	ctx := context.Background()
 	args := []string{"run", filename}
-	if _, err := cmd.Start(ctx, args, src); err != nil {
-		t.Fatal(err)
-	}
 
-	go func() {
-		if err := cmd.RequestFileSetPositions(); err != nil {
-			t.Fatal(err)
-		}
-		if err := cmd.RequestStart(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	go func() {
-		for msg := range cmd.Client.Messages {
-			switch t := msg.(type) {
-			case *debug.LineMsg:
-				fmt.Printf("%v\n", StringifyItem(t.Item))
-			default:
-				fmt.Printf("recv msg: %v\n", msg)
-				//spew.Dump(msg)
-			}
-		}
-	}()
-
-	if err := cmd.Wait(); err != nil {
-		t.Fatal(err)
-	}
+	doCmd(t, "", src, args)
 }
 
-func TestCmdStart2(t *testing.T) {
+func TestCmd2(t *testing.T) {
 	src := `
 		package main
 		import "fmt"
@@ -90,13 +58,79 @@ func TestCmdStart2(t *testing.T) {
 			_=f2()
 		}
 	`
-	filename := "test/src.go"
 
+	filename := "test/src.go"
+	args := []string{"run", filename}
+
+	doCmd(t, "", src, args)
+}
+
+func TestCmd3(t *testing.T) {
+	wd, _ := os.Getwd()
+	proj := filepath.Join(wd, "./../../")
+	filename := proj + "/editor.go"
+	args := []string{
+		"run",
+		"-dirs=core",
+		filename,
+	}
+	doCmd(t, proj, nil, args)
+}
+
+//func TestCmd4(t *testing.T) {
+//	src := `
+//		package main
+//		import "go/ast"
+//		func f1() *ast.Ident{
+//			id:=&ast.Ident{}
+//			return id
+//		}
+//		func main(){
+//			_=f1()
+//		}
+//	`
+
+//	filename := "test/src.go"
+//	args := []string{"run", filename}
+
+//	doCmd(t, "", src, args)
+//}
+
+//------------
+
+func TestCmdFile1(t *testing.T) {
+	proj := "./../../util/imageutil"
+	args := []string{"test", "-run", "HSV1"}
+	doCmd(t, proj, nil, args)
+}
+
+func TestCmdFile2(t *testing.T) {
+	proj := "./../../util/imageutil"
+	args := []string{"test", "-run", "HSV1"}
+	doCmd(t, proj, nil, args)
+}
+
+func TestCmdFile3(t *testing.T) {
+	proj := "./../../util/uiutil/widget/textutil"
+	args := []string{"test"}
+	doCmd(t, proj, nil, args)
+}
+
+func TestCmdFile4(t *testing.T) {
+	proj := "./../.."
+	args := []string{"run", "-dirs=driver/xgbutil/xwindow", "editor.go"}
+	doCmd(t, proj, nil, args)
+}
+
+//------------
+
+func doCmd(t *testing.T, dir string, src interface{}, args []string) {
 	cmd := NewCmd()
 	defer cmd.Cleanup()
 
+	cmd.Dir = dir
+
 	ctx := context.Background()
-	args := []string{"run", filename}
 	if _, err := cmd.Start(ctx, args, src); err != nil {
 		t.Fatal(err)
 	}
@@ -116,152 +150,6 @@ func TestCmdStart2(t *testing.T) {
 			case *debug.LineMsg:
 				fmt.Printf("%v\n", StringifyItem(t.Item))
 				//spew.Dump(msg)
-			default:
-				fmt.Printf("recv msg: %v\n", msg)
-			}
-		}
-	}()
-
-	if err := cmd.Wait(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestCmdStart3(t *testing.T) {
-	wd, _ := os.Getwd()
-	proj := filepath.Join(wd, "./../../")
-	//proj := "./../../"
-
-	filename := proj + "/editor.go"
-	args := []string{
-		"run",
-
-		//"-dirs=" +
-		//	proj +
-		//	"," + proj + "/core" +
-		//	"," + proj + "/ui",
-
-		"-dirs=" + strings.Join([]string{
-			"core",
-			"ui",
-		}, ","),
-
-		filename,
-	}
-
-	cmd := NewCmd()
-	defer cmd.Cleanup()
-
-	cmd.Dir = proj
-
-	ctx := context.Background()
-	if _, err := cmd.Start(ctx, args, nil); err != nil {
-		t.Fatal(err)
-	}
-
-	go func() {
-		if err := cmd.RequestFileSetPositions(); err != nil {
-			t.Fatal(err)
-		}
-		if err := cmd.RequestStart(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	nMsgs := 0
-	go func() {
-		for msg := range cmd.Client.Messages {
-			nMsgs++
-			fmt.Printf("recv msg: %v\n", msg)
-			//spew.Dump(msg)
-		}
-	}()
-
-	if err := cmd.Wait(); err != nil {
-		t.Fatal(err)
-	}
-
-	if nMsgs == 0 {
-		t.Fatalf("nmsgs=%v", nMsgs)
-	}
-}
-
-//------------
-
-func TestCmdTest1(t *testing.T) {
-	proj := "./../../util/imageutil"
-
-	args := []string{
-		"test", "-run", "HSV1",
-	}
-
-	cmd := NewCmd()
-	defer cmd.Cleanup()
-
-	cmd.Dir = proj
-	ctx := context.Background()
-	if _, err := cmd.Start(ctx, args, nil); err != nil {
-		t.Fatal(err)
-	}
-
-	go func() {
-		if err := cmd.RequestFileSetPositions(); err != nil {
-			t.Fatal(err)
-		}
-		if err := cmd.RequestStart(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	go func() {
-		for msg := range cmd.Client.Messages {
-			//fmt.Printf("recv msg: %v\n", msg)
-			switch t := msg.(type) {
-			case *debug.LineMsg:
-				fmt.Printf("%v\n", StringifyItem(t.Item))
-			default:
-				fmt.Printf("recv msg: %v\n", msg)
-			}
-		}
-	}()
-
-	if err := cmd.Wait(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestCmdTest2(t *testing.T) {
-	proj := "./../../util/uiutil/widget/textutil"
-
-	args := []string{
-		"test",
-		//"test", "-run", "HSV1",
-	}
-
-	cmd := NewCmd()
-	defer cmd.Cleanup()
-
-	cmd.Dir = proj
-	ctx := context.Background()
-	if _, err := cmd.Start(ctx, args, nil); err != nil {
-		t.Fatal(err)
-	}
-
-	go func() {
-		if err := cmd.RequestFileSetPositions(); err != nil {
-			t.Fatal(err)
-		}
-		if err := cmd.RequestStart(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	go func() {
-		for msg := range cmd.Client.Messages {
-			//fmt.Printf("recv msg: %v\n", msg)
-			switch t := msg.(type) {
-			case *debug.LineMsg:
-				fmt.Printf("%v\n", StringifyItem(t.Item))
 			default:
 				fmt.Printf("recv msg: %v\n", msg)
 			}

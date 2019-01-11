@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jmigpin/editor/util/goutil"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
@@ -72,7 +73,7 @@ func (cc *CC2) run(filename string, src interface{}, index int) (*CCResult, erro
 	//cc.conf.ParserMode = parser.ParseComments
 
 	// insert semicolon to improve code completion
-	b, err := ReadSource(filename, src)
+	b, err := goutil.ReadSource(filename, src)
 	if err != nil {
 		return nil, err
 	}
