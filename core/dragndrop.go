@@ -86,11 +86,14 @@ func (h *DndHandler) columnAtPoint(p *image.Point) (*ui.Column, bool) {
 }
 
 func (h *DndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*url.URL) {
-	for _, u := range urls {
-		if u.Scheme == "file" {
-			h.handleDroppedURL(col, p, u)
+	// ensure running on a goroutine since the drop2 was running on a goroutine to unblock the mainloop
+	h.ed.UI.RunOnUIGoRoutine(func() {
+		for _, u := range urls {
+			if u.Scheme == "file" {
+				h.handleDroppedURL(col, p, u)
+			}
 		}
-	}
+	})
 }
 func (h *DndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL) {
 	next, ok := col.PointNextRow(p)
