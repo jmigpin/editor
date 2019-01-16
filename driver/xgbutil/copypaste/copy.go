@@ -72,7 +72,9 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<
 			events <- err
 		}
 	default:
-		c.debugRequest(ev, events)
+		// DEBUG
+		//c.debugRequest(ev, events)
+
 		// try to transfer bytes anyway
 		if err := c.transferBytes(ev); err != nil {
 			events <- err
