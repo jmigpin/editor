@@ -38,7 +38,7 @@ func (s *TopShadow) Paint() {
 	r.Max.Y = r.Min.Y + s.Height
 	r = r.Intersect(s.Bounds)
 
-	imageutil.PaintShadow(s.ctx.Image(), r, s.MaxDiff)
+	imageutil.PaintShadow(s.ctx.Image(), r, s.Height, s.MaxDiff)
 }
 
 //----------
@@ -81,7 +81,7 @@ func (s *BottomShadowPart) Measure(hint image.Point) image.Point {
 	return w
 }
 func (s *BottomShadowPart) Paint() {
-	imageutil.PaintShadow(s.bs.ctx.Image(), s.Bounds, s.bs.MaxDiff)
+	imageutil.PaintShadow(s.bs.ctx.Image(), s.Bounds, s.bs.Height, s.bs.MaxDiff)
 }
 
 //----------

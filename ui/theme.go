@@ -348,7 +348,7 @@ func (uitu *uiThemeUtil) GetScrollBarWidth(tf widget.ThemeFont) int {
 
 func (uitu *uiThemeUtil) ShadowHeight(tf widget.ThemeFont) int {
 	lh := uitu.LineHeight(tf.Face(nil))
-	h := int(float64(lh) * 1 / 2)
+	h := int(float64(lh) * 2 / 5)
 	return h
 }
 

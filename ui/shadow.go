@@ -13,9 +13,8 @@ func WrapInTopShadowOrSeparator(ctx widget.ImageContext, content widget.Node) wi
 	if ShadowsOn {
 		s := widget.NewTopShadow(ctx, content)
 		s.MaxDiff = shadowMaxDiff
-		tf := content.Embed().TreeThemeFont()
-		s.Height = UIThemeUtil.ShadowHeight(tf)
-		return s
+		s2 := &topShadow2{s}
+		return s2
 	} else {
 		bl := widget.NewBoxLayout()
 		bl.YAxis = true
@@ -29,13 +28,36 @@ func WrapInTopShadowOrSeparator(ctx widget.ImageContext, content widget.Node) wi
 	}
 }
 
+//----------
+
 func WrapInBottomShadowOrNone(ctx widget.ImageContext, content widget.Node) widget.Node {
 	if !ShadowsOn {
 		return content
 	}
 	s := widget.NewBottomShadow(ctx, content)
 	s.MaxDiff = shadowMaxDiff
-	tf := content.Embed().TreeThemeFont()
-	s.Height = UIThemeUtil.ShadowHeight(tf)
-	return s
+	s2 := &bottomShadow2{s}
+	return s2
+}
+
+//----------
+
+type topShadow2 struct {
+	*widget.TopShadow
+}
+
+func (s *topShadow2) OnThemeChange() {
+	tf := s.FirstChild().Embed().TreeThemeFont()
+	s.TopShadow.Height = UIThemeUtil.ShadowHeight(tf)
+}
+
+//----------
+
+type bottomShadow2 struct {
+	*widget.BottomShadow
+}
+
+func (s *bottomShadow2) OnThemeChange() {
+	tf := s.FirstChild().Embed().TreeThemeFont()
+	s.BottomShadow.Height = UIThemeUtil.ShadowHeight(tf)
 }
