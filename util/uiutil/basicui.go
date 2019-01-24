@@ -63,7 +63,7 @@ func (ui *BasicUI) Close() {
 
 func (ui *BasicUI) HandleEvent(ev interface{}) {
 	switch t := ev.(type) {
-	case *event.WindowExpose:
+	case *event.WindowExpose, *UIReviewSize:
 		ui.UpdateImageSize()
 		ui.RootNode.Embed().MarkNeedsPaint()
 	case *event.WindowInput:
@@ -87,6 +87,12 @@ func (ui *BasicUI) HandleEvent(ev interface{}) {
 //----------
 
 func (ui *BasicUI) UpdateImageSize() {
+	// don't update size if still drawing, enqueue event to try again later
+	if ui.incompleteDraws != 0 {
+		ui.events <- &UIReviewSize{}
+		return
+	}
+
 	err := ui.Win.UpdateImageSize()
 	if err != nil {
 		log.Println(err)
@@ -222,8 +228,9 @@ func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
 
 //----------
 
-type UIPaintTime struct {
-}
+type UIReviewSize struct{}
+
+type UIPaintTime struct{}
 
 type UIRunFuncEvent struct {
 	Func func()
