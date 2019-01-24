@@ -1,6 +1,7 @@
 package godebug
 
 import (
+	"errors"
 	"fmt"
 	"go/token"
 	"log"
@@ -13,12 +14,22 @@ func StringifyItem(item debug.Item) string {
 	is.stringify(item)
 	return is.Str
 }
-
-func StringifyItemOffset(item debug.Item, offset int) string {
+func StringifyItemFull(item debug.Item) string {
+	is := ItemStringifier{Offset: -2}
+	is.stringify(item)
+	return is.Str
+}
+func StringifyItemOffset(item debug.Item, offset int) (string, error) {
 	is := ItemStringifier{Offset: offset}
 	is.stringify(item)
-	return is.OffsetValueString
+	s := is.OffsetValueString
+	if s == "" {
+		return "", errors.New("not at a value index")
+	}
+	return s, nil
 }
+
+//----------
 
 type ItemStringifier struct {
 	Offset            int
@@ -34,18 +45,23 @@ func (is *ItemStringifier) stringify(item debug.Item) {
 }
 
 func (is *ItemStringifier) stringify2(item debug.Item) {
-	// NOTE: the string append is done sequentially to allow to detect where the strings are positioned to correctly set "OffsetValueString"
+	// NOTE: the string append is done sequentially to allow to detect where the strings are positioned to correctly set "OffsetValueString" if trying to obtain the offset string
 
 	//log.Printf("stringifyitem: %T", item)
 
 	switch t := item.(type) {
 
 	case *debug.ItemValue:
-		start := len(is.Str)
-		is.Str += debug.ReducedSprintf(20, "%s", t.Str)
-		end := len(is.Str)
-		if is.Offset >= start && is.Offset < end {
-			is.OffsetValueString = t.Str
+		if is.Offset == -2 {
+			log.Printf("adding: %s", t.Str)
+			is.Str += t.Str
+		} else {
+			start := len(is.Str)
+			is.Str += debug.ReducedSprintf(20, "%s", t.Str)
+			end := len(is.Str)
+			if is.Offset >= start && is.Offset < end {
+				is.OffsetValueString = t.Str
+			}
 		}
 
 	case *debug.ItemList:
@@ -65,13 +81,13 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		}
 
 	case *debug.ItemLiteral:
-		is.Str += "{" // others used: τ, s // ex: A{a:1}, []byte{1,2}
+		is.Str += "{" // other runes: τ, s // ex: A{a:1}, []byte{1,2}
 		is.stringify(t.Fields)
 		is.Str += "}"
 
 	case *debug.ItemAssign:
 		is.stringify(t.Lhs)
-		is.Str += " :≡ "
+		is.Str += " := " // other runes: ≡
 		is.stringify(t.Rhs)
 
 	case *debug.ItemSend:
@@ -84,7 +100,7 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		if t.Entering {
 			is.Str += "->"
 		}
-		is.Str += t.Name // others used: λ,ƒ
+		is.Str += t.Name // other runes: λ,ƒ
 		is.Str += "("
 		is.stringify(t.Args)
 		is.Str += ")"
@@ -181,7 +197,7 @@ func (is *ItemStringifier) result(result debug.Item) bool {
 			is.Str += ")"
 		}
 
-		is.Str += "≡"
+		is.Str += "=" // other runes: ≡
 
 		return true
 	}

@@ -177,11 +177,9 @@ func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
 	msg := line.Msgs[k]
 
 	// output
-	s := godebug.StringifyItemOffset(msg.DLine.Item, offset)
-	if s == "" {
-		s = "error: not at a value index"
-	}
-	gdi.ed.Messagef("annotation: %v\n", s)
+	//s,err := godebug.StringifyItemOffset(msg.DLine.Item, offset) // inner item
+	s := godebug.StringifyItemFull(msg.DLine.Item) // full item
+	gdi.ed.Messagef("annotation:\n%v\n", s)
 }
 
 //----------

@@ -161,8 +161,11 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 	}
 
 	// annotate: files option
-	for _, filename := range cmd.flags.files {
-		if err := cmd.annotateFile(filename, nil); err != nil {
+	for _, f := range cmd.flags.files {
+		if !filepath.IsAbs(f) { // TODO: call func to solve filename
+			f = filepath.Join(cmd.Dir, f)
+		}
+		if err := cmd.annotateFile(f, nil); err != nil {
 			return "", err
 		}
 	}
@@ -616,12 +619,14 @@ The commands are:
 	run		compile and run go program with debugging data
 	test		test packages compiled with debugging data
 Examples:
-	GoDebug run main.go
-	GoDebug run main.go -- progArg1 progArg2
-	GoDebug run --help
-	GoDebug run -dirs=./pkg1,./pkg2 main.go
+	GoDebug -help
+	GoDebug run -help
+	GoDebug run main.go -arg1 -arg2
+	GoDebug run -dirs=dir1,dir2 -files=f1.go,f2.go main.go -arg1 -arg2
+	GoDebug test -help
 	GoDebug test
 	GoDebug test -run mytest
+	
 `
 }
 
