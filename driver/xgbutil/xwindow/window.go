@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 	"log"
+	"os"
 	"runtime"
 	"sync"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/jmigpin/editor/driver/xgbutil"
 	"github.com/jmigpin/editor/driver/xgbutil/copypaste"
 	"github.com/jmigpin/editor/driver/xgbutil/dragndrop"
-	"github.com/jmigpin/editor/driver/xgbutil/shmimage"
 	"github.com/jmigpin/editor/driver/xgbutil/wmprotocols"
 	"github.com/jmigpin/editor/driver/xgbutil/xcursors"
 	"github.com/jmigpin/editor/driver/xgbutil/xinput"
@@ -29,31 +29,35 @@ type Window struct {
 	Screen *xproto.ScreenInfo
 	GCtx   xproto.Gcontext
 
-	//done      chan struct{}
 	closeOnce sync.Once
 
-	Paste        *copypaste.Paste
-	Copy         *copypaste.Copy
-	Cursors      *xcursors.Cursors
-	XInput       *xinput.XInput
-	WMP          *wmprotocols.WMP
-	Dnd          *dragndrop.Dnd
-	ShmImageWrap *shmimage.ShmImageWrap
+	Paste   *copypaste.Paste
+	Copy    *copypaste.Copy
+	Cursors *xcursors.Cursors
+	XInput  *xinput.XInput
+	WMP     *wmprotocols.WMP
+	Dnd     *dragndrop.Dnd
+
+	Img WindowImage
 }
 
 func NewWindow() (*Window, error) {
-	conn, err := xgb.NewConn()
-	if err != nil {
-		if runtime.GOOS == "darwin" {
-			msg := err.Error() + ": macOS might need XQuartz installed"
-			err = errors.WithMessage(err, msg)
+	display := os.Getenv("DISPLAY")
+	if display == "" {
+		switch runtime.GOOS {
+		case "windows":
+			display = "127.0.0.1:0.0"
 		}
+	}
+
+	conn, err := xgb.NewConnDisplay(display)
+	if err != nil {
 		err2 := errors.Wrap(err, "x conn")
 		return nil, err2
 	}
+
 	win := &Window{
 		Conn: conn,
-		//done: make(chan struct{}, 1),
 	}
 	if err := win.initialize(); err != nil {
 		return nil, errors.Wrap(err, "win init")
@@ -62,9 +66,6 @@ func NewWindow() (*Window, error) {
 }
 func (win *Window) initialize() error {
 	// Disable xgb logger that prints to stderr
-	// Prevents error msg on clean exit when testing in race mode
-	// "XGB: xgb.go:526: Invalid event/error type: <nil>"
-	// this is an issue with xgb not exiting cleanly on conn.close
 	//xgb.Logger = log.New(ioutil.Discard, "", 0)
 
 	si := xproto.Setup(win.Conn)
@@ -90,14 +91,8 @@ func (win *Window) initialize() error {
 		xproto.EventMaskKeyRelease |
 		0
 	// mask/values order is defined by the protocol
-	mask := uint32(
-		//xproto.CwBackPixel |
-		xproto.CwEventMask,
-	)
-	values := []uint32{
-		//0xffffffff, // white pixel
-		evMask,
-	}
+	mask := uint32(xproto.CwEventMask)
+	values := []uint32{evMask}
 
 	_ = xproto.CreateWindow(
 		win.Conn,
@@ -122,10 +117,13 @@ func (win *Window) initialize() error {
 		return err
 	}
 	win.GCtx = gCtx
-	drawable := xproto.Drawable(win.Window)
-	var gmask uint32
-	var gvalues []uint32
-	_ = xproto.CreateGC(win.Conn, win.GCtx, drawable, gmask, gvalues)
+
+	gmask := uint32(0)
+	gvalues := []uint32{}
+	c2 := xproto.CreateGCChecked(win.Conn, win.GCtx, xproto.Drawable(win.Window), gmask, gvalues)
+	if err := c2.Check(); err != nil {
+		return err
+	}
 
 	xi, err := xinput.NewXInput(win.Conn)
 	if err != nil {
@@ -157,11 +155,11 @@ func (win *Window) initialize() error {
 	}
 	win.Cursors = c
 
-	shmImageWrap, err := shmimage.NewShmImageWrap(win.Conn, drawable, win.Screen.RootDepth)
+	img, err := NewWindowImage(win)
 	if err != nil {
 		return err
 	}
-	win.ShmImageWrap = shmImageWrap
+	win.Img = img
 
 	wmp, err := wmprotocols.NewWMP(win.Conn, win.Window)
 	if err != nil {
@@ -174,19 +172,19 @@ func (win *Window) initialize() error {
 
 func (win *Window) Close() {
 	win.closeOnce.Do(func() {
-		err := win.ShmImageWrap.Close()
+		err := win.Img.Close()
 		if err != nil {
 			log.Print("%v", err)
 		}
 		win.Conn.Close()
-
-		// xgb is not exiting cleanly otherwise this should not block
-		// <-win.done
 	})
 }
 
 func (win *Window) EventLoop(events chan<- interface{}) {
-	//defer func() { win.done <- struct{}{} }()
+	// init pwi if used, needed to send the "done" event
+	if pwi, ok := win.Img.(*PixWImg); ok {
+		pwi.events = events
+	}
 
 	for {
 		ev, xerr := win.Conn.WaitForEvent()
@@ -260,10 +258,10 @@ func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
 }
 
 func (win *Window) Image() draw.Image {
-	return win.ShmImageWrap.Image()
+	return win.Img.Image()
 }
 func (win *Window) PutImage(rect *image.Rectangle) error {
-	return win.ShmImageWrap.PutImage(win.GCtx, rect)
+	return win.Img.PutImage(rect)
 }
 func (win *Window) UpdateImageSize() error {
 	geom, err := win.GetGeometry()
@@ -275,7 +273,7 @@ func (win *Window) UpdateImageSize() error {
 	r := image.Rect(0, 0, w, h)
 	ib := win.Image().Bounds()
 	if !r.Eq(ib) {
-		err := win.ShmImageWrap.NewImage(&r)
+		err := win.Img.Resize(&r)
 		if err != nil {
 			return err
 		}
@@ -344,6 +342,8 @@ func (win *Window) SetCursor(c widget.Cursor) {
 		sc(xcursor.XTerm)
 	}
 }
+
+//----------
 
 var Atoms struct {
 	NetWMName  xproto.Atom `loadAtoms:"_NET_WM_NAME"`
