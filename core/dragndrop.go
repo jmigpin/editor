@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"image"
 	"net/url"
 	"strings"
@@ -89,9 +90,7 @@ func (h *DndHandler) handleDroppedURLs(col *ui.Column, p *image.Point, urls []*u
 	// ensure running on a goroutine since the drop2 was running on a goroutine to unblock the mainloop
 	h.ed.UI.RunOnUIGoRoutine(func() {
 		for _, u := range urls {
-			if u.Scheme == "file" {
-				h.handleDroppedURL(col, p, u)
-			}
+			h.handleDroppedURL(col, p, u)
 		}
 	})
 }
@@ -101,7 +100,13 @@ func (h *DndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL
 		next = nil
 	}
 	rowPos := ui.NewRowPos(col, next)
-	info := h.ed.ReadERowInfo(u.Path)
+
+	name := fmt.Sprintf("%s", u)
+	if u.Scheme == "file" {
+		name = u.Path
+	}
+
+	info := h.ed.ReadERowInfo(name)
 	_, err := info.NewERow(rowPos)
 	if err != nil {
 		h.ed.Error(err)

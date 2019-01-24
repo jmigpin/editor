@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -189,7 +188,7 @@ func (info *ERowInfo) NewERow(rowPos *ui.RowPos) (*ERow, error) {
 	case info.IsFileButNotDir():
 		return info.NewFileERow(rowPos)
 	default:
-		return nil, errors.New("unexpected erow type")
+		return nil, fmt.Errorf("unhandled erow type: %v", info.name)
 	}
 }
 
