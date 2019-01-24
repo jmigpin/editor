@@ -12,7 +12,8 @@ Source code editor in pure Go.
 
 - This is a know-what-you're-doing source code editor
 - As the editor is being developed, the rules of how the UI interacts will become more well defined.
-- Primarily developed and tested in Linux. Works in MacOS through XQuartz. Should work in MSWindows using an xserver for windows (just needs a tiny bit of work/testing to allocate memory for the mit-shm extension).
+- Primarily developed and tested in Linux. 
+- Works in MS Windows and MacOS through an X server.
 
 ## Features
 
