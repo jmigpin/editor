@@ -40,8 +40,10 @@ type Cmd struct {
 
 	flags struct {
 		mode struct {
-			run  bool
-			test bool
+			run     bool
+			test    bool
+			build   bool
+			connect bool
 		}
 		run struct {
 			filename string
@@ -390,7 +392,7 @@ func (cmd *Cmd) runCmd(ctx context.Context, dir string, args, env []string) erro
 }
 
 func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*exec.Cmd, error) {
-	cargs := []string{"sh", "-c", strings.Join(args, " ")}
+	cargs := osexecutil.ShellRunArgs(args...)
 	ecmd := exec.CommandContext(ctx, cargs[0], cargs[1:]...)
 
 	ecmd.Env = env
@@ -540,6 +542,12 @@ func (cmd *Cmd) parseArgs(args []string) (done bool, _ error) {
 		case "test":
 			cmd.flags.mode.test = true
 			return cmd.parseTestArgs(args[1:])
+		case "build":
+			cmd.flags.mode.build = true
+			return cmd.parseBuildArgs(args[1:])
+		case "connect":
+			cmd.flags.mode.connect = true
+			return cmd.parseConnectArgs(args[1:])
 		}
 	}
 	fmt.Fprint(cmd.Stderr, cmdUsage())
@@ -611,12 +619,22 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	return false, nil
 }
 
+func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
+	return done, fmt.Errorf("todo")
+}
+
+func (cmd *Cmd) parseConnectArgs(args []string) (done bool, _ error) {
+	return done, fmt.Errorf("todo")
+}
+
 func cmdUsage() string {
 	return `Usage:
 	GoDebug <command> [arguments]
 The commands are:
-	run		compile and run go program with debugging data
-	test		test packages compiled with debugging data
+	run		build and run go program with debug data
+	test		test packages compiled with debug data
+	build 	TODO: build binary with debug data (allows remote debug)
+	connect	TODO: connect to a binary built with debug data (allows remote debug)
 Examples:
 	GoDebug -help
 	GoDebug run -help
@@ -625,7 +643,6 @@ Examples:
 	GoDebug test -help
 	GoDebug test
 	GoDebug test -run mytest
-	
 `
 }
 

@@ -4,6 +4,7 @@ package osexecutil
 
 import (
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
@@ -13,4 +14,11 @@ func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
 
 func KillExecCmd(cmd *exec.Cmd) error {
 	return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+}
+
+//----------
+
+func ShellRunArgs(args ...string) []string {
+	//return args
+	return []string{"sh", "-c", strings.Join(args, " ")}
 }

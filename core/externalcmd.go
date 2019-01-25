@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
@@ -158,18 +157,18 @@ func cmdPartArgs(part *toolbarparser.Part) []string {
 //----------
 
 func shellCmdPartArgs(part *toolbarparser.Part) []string {
-	str := shellCmdPartArgsStr(part)
-	return []string{"sh", "-c", str}
+	u := shellCmdPartArgsStr(part)
+	return osexecutil.ShellRunArgs(u...)
 }
 
-func shellCmdPartArgsStr(part *toolbarparser.Part) string {
+func shellCmdPartArgsStr(part *toolbarparser.Part) []string {
 	var u []string
 	for _, a := range part.Args {
 		s := a.Str()
 		s = parseutil.UnescapeRunes(s, "|")
 		u = append(u, s)
 	}
-	return strings.Join(u, " ")
+	return u
 }
 
 //----------
