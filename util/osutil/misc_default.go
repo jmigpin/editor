@@ -3,10 +3,15 @@
 package osutil
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
 )
+
+//----------
+
+var FilenameEscapeRunes = " :%?<>()\\"
 
 //----------
 
@@ -23,4 +28,17 @@ func KillExecCmd(cmd *exec.Cmd) error {
 func ShellRunArgs(args ...string) []string {
 	//return args
 	return []string{"sh", "-c", strings.Join(args, " ")}
+}
+
+//----------
+
+func GoExec() string {
+	return "go"
+}
+
+//----------
+
+func HomeEnvVar() string {
+	return os.Getenv("HOME")
+
 }

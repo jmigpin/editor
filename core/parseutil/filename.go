@@ -2,22 +2,12 @@ package parseutil
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 	"unicode"
 
+	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/statemach"
 )
-
-var FilenameEscapeRunes string
-
-func init() {
-	if runtime.GOOS == "windows" {
-		FilenameEscapeRunes = " %?<>()^"
-	} else {
-		FilenameEscapeRunes = " :%?<>()\\"
-	}
-}
 
 //----------
 
@@ -31,7 +21,7 @@ func isFilenameRune(ru rune) bool {
 func EscapeFilename(str string) string {
 	w := []rune{}
 	for _, ru := range str {
-		if strings.ContainsRune(FilenameEscapeRunes, ru) {
+		if strings.ContainsRune(osutil.FilenameEscapeRunes, ru) {
 			w = append(w, EscapeRune)
 		}
 		w = append(w, ru)
@@ -62,7 +52,7 @@ func ExpandLastIndexOfFilenameFmt(str string, max int) int {
 	esc := false
 	w := []rune{}
 	isOk := func(ru rune) bool {
-		if !esc && strings.ContainsRune(FilenameEscapeRunes, ru) {
+		if !esc && strings.ContainsRune(osutil.FilenameEscapeRunes, ru) {
 			esc = true
 			w = append(w, ru)
 			return true

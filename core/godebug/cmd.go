@@ -351,7 +351,7 @@ func (cmd *Cmd) Cleanup() {
 func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
 	filenameOut := replaceExt(filename, "_godebug")
 	args := []string{
-		"go", "build",
+		osutil.GoExec(), "build",
 		"-o", filenameOut,
 		filename,
 	}
@@ -363,7 +363,7 @@ func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
 func (cmd *Cmd) buildTest(ctx context.Context, filename string) (string, error) {
 	filenameOut := replaceExt(filename, "_godebug")
 	args := []string{
-		"go", "test",
+		osutil.GoExec(), "test",
 		"-c", // compile binary but don't run
 		// "-toolexec", "", // don't run asm // TODO: faster dummy pre-builts?
 		"-o", filenameOut,

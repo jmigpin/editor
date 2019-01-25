@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func GoPath() []string {
@@ -19,7 +21,7 @@ func GoPath() []string {
 		add(filepath.SplitList(gopath)...)
 	} else {
 		// from go/build/build.go:270:3
-		add(filepath.Join(os.Getenv("HOME"), "go"))
+		add(filepath.Join(osutil.HomeEnvVar(), osutil.GoExec()))
 	}
 
 	return a

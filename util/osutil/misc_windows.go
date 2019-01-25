@@ -4,9 +4,13 @@ package osutil
 
 import (
 	"errors"
+	"os"
 	"os/exec"
-	"strings"
 )
+
+//----------
+
+var FilenameEscapeRunes = " %?<>()^"
 
 //----------
 
@@ -20,6 +24,18 @@ func KillExecCmd(cmd *exec.Cmd) error {
 //----------
 
 func ShellRunArgs(args ...string) []string {
-	//return args
-	return []string{"bash", "-exec", strings.Join(args, " ")}
+	return args
+	//return []string{"bash", "-exec", strings.Join(args, " ")}
+}
+
+//----------
+
+func GoExec() string {
+	return "go.exe"
+}
+
+//----------
+
+func HomeEnvVar() string {
+	return os.Getenv("USERPROFILE")
 }

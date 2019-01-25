@@ -1,9 +1,8 @@
 package core
 
 import (
-	"os"
-
 	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 type HomeVars struct {
@@ -26,7 +25,7 @@ func (hv *HomeVars) ParseToolbarVars(strs ...string) {
 	}
 
 	// add env home var
-	h := os.Getenv("HOME")
+	h := osutil.HomeEnvVar()
 	if h != "" {
 		hv.m["~"] = h
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 type Sessions struct {
@@ -52,7 +53,7 @@ func (ss *Sessions) save(filename string) error {
 //----------
 
 func sessionsFilename() string {
-	home := os.Getenv("HOME")
+	home := osutil.HomeEnvVar()
 	return filepath.Join(home, ".editor_sessions.json")
 }
 
