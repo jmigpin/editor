@@ -3,6 +3,7 @@ package debug
 import (
 	"encoding/gob"
 	"fmt"
+	"unicode"
 )
 
 func init() {
@@ -65,6 +66,12 @@ func stringifyV(v V) string {
 	switch t := v.(type) {
 	case nil:
 		return "nil"
+	case rune:
+		if unicode.IsGraphic(t) {
+			str = fmt.Sprintf("(%q=%d)", t, t)
+		} else {
+			str = fmt.Sprintf("%v", t)
+		}
 	case string:
 		str = ReducedSprintf(max, "%q", t)
 	case fmt.Stringer, error:
