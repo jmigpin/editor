@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -53,7 +53,7 @@ func (ss *Sessions) save(filename string) error {
 
 func sessionsFilename() string {
 	home := os.Getenv("HOME")
-	return path.Join(home, ".editor_sessions.json")
+	return filepath.Join(home, ".editor_sessions.json")
 }
 
 //----------

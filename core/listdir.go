@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -52,15 +52,16 @@ func ListDirERow(erow *ERow, filepath string, tree, hidden bool) {
 
 func ListDirContext(ctx context.Context, w io.Writer, filepath string, tree, hidden bool) error {
 	// "../" at the top
-	if _, err := w.Write([]byte("../\n")); err != nil {
+	u := ".." + string(os.PathSeparator)
+	if _, err := w.Write([]byte(u + "\n")); err != nil {
 		return err
 	}
 
 	return listDirContext(ctx, w, filepath, "", tree, hidden)
 }
 
-func listDirContext(ctx context.Context, w io.Writer, filepath, addedFilepath string, tree, hidden bool) error {
-	fp2 := path.Join(filepath, addedFilepath)
+func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath string, tree, hidden bool) error {
+	fp2 := filepath.Join(fpath, addedFilepath)
 
 	out := func(s string) bool {
 		_, err := w.Write([]byte(s))
@@ -99,9 +100,9 @@ func listDirContext(ctx context.Context, w io.Writer, filepath, addedFilepath st
 			continue
 		}
 
-		name2 := path.Join(addedFilepath, name)
+		name2 := filepath.Join(addedFilepath, name)
 		if fi.IsDir() {
-			name2 += "/"
+			name2 += string(os.PathSeparator)
 		}
 		s := parseutil.EscapeFilename(name2) + "\n"
 		if !out(s) {
@@ -109,8 +110,8 @@ func listDirContext(ctx context.Context, w io.Writer, filepath, addedFilepath st
 		}
 
 		if fi.IsDir() && tree {
-			afp := path.Join(addedFilepath, name)
-			err := listDirContext(ctx, w, filepath, afp, tree, hidden)
+			afp := filepath.Join(addedFilepath, name)
+			err := listDirContext(ctx, w, fpath, afp, tree, hidden)
 			if err != nil {
 				return err
 			}

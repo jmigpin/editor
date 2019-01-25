@@ -2,13 +2,13 @@ package fswatcher
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 )
 
-func init() {
-	//log.SetFlags(0)
-}
+//func init() {
+//log.SetFlags(0)
+//}
 
 func TestTargetWatcher1(t *testing.T) {
 	tmpDir := tmpDir()
@@ -18,10 +18,10 @@ func TestTargetWatcher1(t *testing.T) {
 	defer w.Close()
 
 	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
-	file1 := path.Join(dir4, "file1.txt")
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
+	file1 := filepath.Join(dir4, "file1.txt")
 
 	mustAdd(t, w, dir4)
 	mustMkdirAll(t, dir4)
@@ -54,11 +54,11 @@ func TestTargetWatcher2(t *testing.T) {
 	defer w.Close()
 
 	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
-	file1 := path.Join(dir4, "file1.txt")
-	file2 := path.Join(dir4, "file2.txt")
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
+	file1 := filepath.Join(dir4, "file1.txt")
+	file2 := filepath.Join(dir4, "file2.txt")
 
 	mustAdd(t, w, file2)
 	mustMkdirAll(t, dir4)
@@ -91,10 +91,10 @@ func TestTargetWatcher3(t *testing.T) {
 	defer w.Close()
 
 	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
-	file1 := path.Join(dir4, "file1.txt")
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
+	file1 := filepath.Join(dir4, "file1.txt")
 
 	mustAdd(t, w, file1)
 	mustMkdirAll(t, dir4)
@@ -111,40 +111,41 @@ func TestTargetWatcher3(t *testing.T) {
 	})
 }
 
-func TestTargetWatcher4(t *testing.T) {
-	tmpDir := tmpDir()
-	defer os.RemoveAll(tmpDir)
+// TODO
+//func TestTargetWatcher4(t *testing.T) {
+//	tmpDir := tmpDir()
+//	defer os.RemoveAll(tmpDir)
 
-	w := NewTargetWatcher(mustNew(t))
-	defer w.Close()
+//	w := NewTargetWatcher(mustNew(t))
+//	defer w.Close()
 
-	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
-	file1 := path.Join(dir4, "file1.txt")
-	file2 := path.Join(dir4, "file2.txt")
+//	dir := tmpDir
+//	dir2 := filepath.Join(dir, "dir2")
+//	dir3 := filepath.Join(dir2, "dir3")
+//	dir4 := filepath.Join(dir3, "dir4")
+//	file1 := filepath.Join(dir4, "file1.txt")
+//	file2 := filepath.Join(dir4, "file2.txt")
 
-	dir3_ := path.Join(dir2, "dir3_")
-	//dir4_ := path.Join(dir3_, "dir4")
-	//file1_ := path.Join(dir4_, "file1.txt")
+//	dir3_ := filepath.Join(dir2, "dir3_")
+//	//dir4_ := filepath.Join(dir3_, "dir4")
+//	//file1_ := filepath.Join(dir4_, "file1.txt")
 
-	mustMkdirAll(t, dir4)
-	mustCreateFile(t, file1)
-	mustCreateFile(t, file2)
-	mustAdd(t, w, file1)
-	mustAdd(t, w, file2)
-	mustRenameFile(t, dir3, dir3_)
-	//mustWriteFile(t, file1_)
+//	mustMkdirAll(t, dir4)
+//	mustCreateFile(t, file1)
+//	mustCreateFile(t, file2)
+//	mustAdd(t, w, file1)
+//	mustAdd(t, w, file2)
+//	mustRenameFile(t, dir3, dir3_)
+//	//mustWriteFile(t, file1_)
 
-	// TODO
-	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file1 && ev.Op.HasAny(Create)
-	})
+//	// TODO
+//	readEvent(t, w, true, func(ev *Event) bool {
+//		return ev.Name == file1 && ev.Op.HasAny(Create)
+//	})
 
-	//mustWriteFile(t, file1)
+//	//mustWriteFile(t, file1)
 
-	//readEvent(t, w, true, func(ev *Event) bool {
-	//	return ev.Name == file1 && ev.Op.HasAny(Modify)
-	//})
-}
+//	//readEvent(t, w, true, func(ev *Event) bool {
+//	//	return ev.Name == file1 && ev.Op.HasAny(Modify)
+//	//})
+//}

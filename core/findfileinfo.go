@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 
 	"github.com/jmigpin/editor/util/goutil"
@@ -21,7 +22,7 @@ func FindFileInfo(name, dir string) (string, os.FileInfo, bool) {
 
 	// join with dir
 	{
-		u := path.Join(dir, name)
+		u := filepath.Join(dir, name)
 		fi, err := os.Stat(u)
 		if err == nil {
 			return u, fi, true
@@ -33,7 +34,7 @@ func FindFileInfo(name, dir string) (string, os.FileInfo, bool) {
 		a := []string{runtime.GOROOT()}
 		a = append(a, goutil.GoPath()...)
 		for _, d := range a {
-			u := path.Join(d, "src", name)
+			u := filepath.Join(d, "src", name)
 			fi, err := os.Stat(u)
 			if err == nil {
 				return u, fi, true
@@ -47,7 +48,7 @@ func FindFileInfo(name, dir string) (string, os.FileInfo, bool) {
 			"/usr/include",
 		}
 		for _, d := range a {
-			u := path.Join(d, name)
+			u := filepath.Join(d, name)
 			fi, err := os.Stat(u)
 			if err == nil {
 				return u, fi, true

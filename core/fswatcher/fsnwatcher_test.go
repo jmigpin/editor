@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -130,9 +130,9 @@ func TestFsWatcher1(t *testing.T) {
 	defer w.Close()
 
 	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
 
 	mustAdd(t, w, dir)
 	mustMkdirAll(t, dir4)
@@ -151,11 +151,11 @@ func TestFsWatcher2(t *testing.T) {
 	*w.OpMask() = Create | Remove | Modify | Rename
 
 	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
-	file1 := path.Join(dir4, "file1.txt")
-	file2 := path.Join(dir4, "file2.txt")
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
+	file1 := filepath.Join(dir4, "file1.txt")
+	file2 := filepath.Join(dir4, "file2.txt")
 
 	mustMkdirAll(t, dir4)
 	mustCreateFile(t, file1)
@@ -194,10 +194,10 @@ func TestFsWatcher3(t *testing.T) {
 	*w.OpMask() = Create | Remove | Modify | Rename
 
 	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
-	file1 := path.Join(dir4, "file1.txt")
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
+	file1 := filepath.Join(dir4, "file1.txt")
 
 	mustMkdirAll(t, dir4)
 	mustCreateFile(t, file1)
@@ -232,11 +232,11 @@ func TestFsWatcher4(t *testing.T) {
 	*w.OpMask() = Create | Remove | Modify | Rename
 
 	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
-	file1 := path.Join(dir4, "file1.txt")
-	file2 := path.Join(dir4, "file2.txt")
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
+	file1 := filepath.Join(dir4, "file1.txt")
+	file2 := filepath.Join(dir4, "file2.txt")
 
 	mustMkdirAll(t, dir4)
 	mustCreateFile(t, file1)
@@ -274,11 +274,11 @@ func TestFsWatcher5(t *testing.T) {
 	*w.OpMask() = Create | Remove | Modify | Rename
 
 	dir := tmpDir
-	dir2 := path.Join(dir, "dir2")
-	dir3 := path.Join(dir2, "dir3")
-	dir4 := path.Join(dir3, "dir4")
-	file1 := path.Join(dir4, "file1.txt")
-	file2 := path.Join(dir4, "file2.txt")
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
+	file1 := filepath.Join(dir4, "file1.txt")
+	file2 := filepath.Join(dir4, "file2.txt")
 
 	mustMkdirAll(t, dir4)
 	mustCreateFile(t, file1)
