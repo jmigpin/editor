@@ -1,17 +1,11 @@
 package debug
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net"
-	"os"
-	"path/filepath"
-	"runtime"
 	"sync"
-	"time"
 )
 
 //var logger = log.New(os.Stdout, "debug: ", 0)
@@ -24,24 +18,6 @@ var AnnotatorFilesData []*AnnotatorFileData
 
 var ServerNetwork string
 var ServerAddress string
-
-func SetupServerNetAddr() {
-	// Allows multiple editors to run debug sessions at the same time.
-	seed := time.Now().UnixNano() + int64(os.Getpid())
-	ra := rand.New(rand.NewSource(seed))
-	r := ra.Intn(10000)
-
-	switch runtime.GOOS {
-	case "linux":
-		ServerNetwork = "unix"
-		p := "editor_godebug.sock" + fmt.Sprintf("%v", r)
-		ServerAddress = filepath.Join(os.TempDir(), p)
-	default:
-		ServerNetwork = "tcp"
-		p := fmt.Sprintf("%v", 30071+r)
-		ServerAddress = "127.0.0.1:" + p
-	}
-}
 
 //----------
 

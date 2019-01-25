@@ -178,9 +178,6 @@ func (annset *AnnotatorSet) Print(w io.Writer, astFile *ast.File) error {
 //----------
 
 func (annset *AnnotatorSet) ConfigSource() (string, string) {
-	// Allow multiple editors to run debug sessions at the same time.
-	debug.SetupServerNetAddr()
-
 	// content
 	entriesStr := annset.buildConfigSourceEntries()
 	src := `package godebugconfig

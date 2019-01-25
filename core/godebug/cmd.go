@@ -8,11 +8,14 @@ import (
 	"go/token"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/goutil"
@@ -45,14 +48,12 @@ type Cmd struct {
 			build   bool
 			connect bool
 		}
-		run struct {
-			filename string
-		}
-		test struct {
-		}
+		filename  string
 		work      bool
 		dirs      []string
 		files     []string
+		address   string   // build/connect
+		env       []string // build
 		otherArgs []string
 		runArgs   []string
 	}
@@ -94,17 +95,26 @@ func (cmd *Cmd) Start(ctx context.Context, args []string, mainSrc interface{}) (
 		fmt.Fprintf(cmd.Stdout, "work: %v\n", cmd.tmpDir)
 	}
 
-	// run
-	switch {
-	case cmd.flags.mode.run, cmd.flags.mode.test:
-		filename, err := cmd.initMode(ctx)
+	m := &cmd.flags.mode
+
+	if m.run || m.test || m.build {
+		setupServerNetAddr(cmd.flags.address)
+		err := cmd.initMode(ctx)
 		if err != nil {
 			return true, err
 		}
-		err = cmd.startServerClient(ctx, filename)
+	}
+	if m.build {
+		fmt.Fprintf(cmd.Stdout, "build: %v (builtin address: %v, %v)",
+			cmd.tmpBuiltFile,
+			debug.ServerNetwork,
+			debug.ServerAddress,
+		)
+		return true, err
+	}
+	if m.run || m.test || m.connect {
+		err = cmd.startServerClient(ctx)
 		return false, err
-	default:
-		panic("!")
 	}
 
 	return false, nil
@@ -120,16 +130,15 @@ func (cmd *Cmd) Wait() error {
 
 //------------
 
-func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
+func (cmd *Cmd) initMode(ctx context.Context) error {
 	// filename
 	var filename string
-
 	if cmd.flags.mode.test {
 		filename = filepath.Join(cmd.Dir, "pkgtest")
 	} else {
-		filename = cmd.flags.run.filename
+		filename = cmd.flags.filename
 		if filename == "" {
-			return "", fmt.Errorf("missing filename arg")
+			return fmt.Errorf("missing filename arg")
 		}
 		// base on workingdir
 		if !filepath.IsAbs(filename) {
@@ -142,13 +151,13 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 		if cmd.flags.mode.test {
 			fout, err := cmd.buildTest(ctx, filename)
 			if err != nil {
-				return "", err
+				return err
 			}
 			os.Remove(fout)
 		} else {
 			fout, err := cmd.build(ctx, filename)
 			if err != nil {
-				return "", err
+				return err
 			}
 			os.Remove(fout)
 		}
@@ -157,7 +166,7 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 	// annotate: main file
 	if !cmd.flags.mode.test {
 		if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
-			return "", err
+			return err
 		}
 	}
 
@@ -167,7 +176,7 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 			f = filepath.Join(cmd.Dir, f)
 		}
 		if err := cmd.annotateFile(f, nil); err != nil {
-			return "", err
+			return err
 		}
 	}
 
@@ -178,29 +187,29 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 
 	// annotate: directories
 	if err := cmd.annotateDirs(ctx); err != nil {
-		return "", err
+		return err
 	}
 
 	// write config file after annotations
 	if err := cmd.writeConfigFileToTmpDir(); err != nil {
-		return "", err
+		return err
 	}
 
 	// populate missing go files in parent directories
 	if err := cmd.populateParentDirectories(); err != nil {
-		return "", err
+		return err
 	}
 
 	// main/testmain exit
 	if cmd.flags.mode.test {
 		if !cmd.ann.InsertedExitIn.TestMain {
 			if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
-				return "", err
+				return err
 			}
 		}
 	} else {
 		if !cmd.ann.InsertedExitIn.Main {
-			return "", fmt.Errorf("have not inserted debug exit in main()")
+			return fmt.Errorf("have not inserted debug exit in main()")
 		}
 	}
 
@@ -208,21 +217,23 @@ func (cmd *Cmd) initMode(ctx context.Context) (string, error) {
 
 	// create parent dirs
 	if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0755); err != nil {
-		return "", err
+		return err
 	}
 
 	// build
+	var f2 string
+	var err2 error
 	if cmd.flags.mode.test {
-		return cmd.buildTest(ctx, filenameAtTmp)
+		f2, err2 = cmd.buildTest(ctx, filenameAtTmp)
 	} else {
-		return cmd.build(ctx, filenameAtTmp)
+		f2, err2 = cmd.build(ctx, filenameAtTmp)
 	}
-}
+	if err2 != nil {
+		return err2
+	}
+	filenameOut := f2
 
-//------------
-
-func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string) error {
-	// move filenameout to working dir
+	// move filename to working dir
 	filenameWork := filepath.Join(cmd.Dir, filepath.Base(filenameOut))
 	if err := os.Rename(filenameOut, filenameWork); err != nil {
 		return err
@@ -230,6 +241,14 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string) error
 
 	// keep moved filename that will run in working dir for later cleanup
 	cmd.tmpBuiltFile = filenameWork
+
+	return nil
+}
+
+//------------
+
+func (cmd *Cmd) startServerClient(ctx context.Context) error {
+	filenameWork := cmd.tmpBuiltFile
 
 	// server/client context to cancel the other when one of them ends
 	ctx2, cancel := context.WithCancel(ctx)
@@ -245,31 +264,48 @@ func (cmd *Cmd) startServerClient(ctx context.Context, filenameOut string) error
 	}
 
 	// start server
-	serverCmd, err := cmd.startCmd(ctx2, cmd.Dir, args, nil)
-	if err != nil {
-		cmd.start.cancel() // cmd.Wait() won't be called, need to clear resources
-		return err
+	var serverCmd *exec.Cmd
+	if !cmd.flags.mode.connect {
+		u, err := cmd.startCmd(ctx2, cmd.Dir, args, nil)
+		if err != nil {
+			// cmd.Wait() won't be called, need to clear resources
+			cmd.start.cancel()
+			return err
+		}
+		serverCmd = u
+
+		// output cmd pid
+		fmt.Fprintf(cmd.Stdout, "# pid %d\n", serverCmd.Process.Pid)
 	}
 
-	// output cmd pid
-	fmt.Fprintf(serverCmd.Stdout, "# pid %d\n", serverCmd.Process.Pid)
-
+	// setup address to connect to
+	if cmd.flags.mode.connect && cmd.flags.address != "" {
+		debug.ServerNetwork = "tcp"
+		debug.ServerAddress = cmd.flags.address
+		fmt.Fprintf(cmd.Stdout, "# connect: %s:%s\n",
+			debug.ServerNetwork,
+			debug.ServerAddress)
+	}
 	// start client (blocking connect)
 	client, err := NewClient(ctx2)
 	if err != nil {
-		cmd.start.cancel() // cmd.Wait() won't be called, need to clear resources
+		// cmd.Wait() won't be called, need to clear resources
+		cmd.start.cancel()
 		return err
 	}
 	cmd.Client = client
 
-	// NOTE: from this point, cmd.Wait() clears resources from cmd.start.cancel
+	// from this point, cmd.Wait() clears resources from cmd.start.cancel
 
 	// server done
-	cmd.start.waitg.Add(1)
-	go func() {
-		defer cmd.start.waitg.Done()
-		cmd.start.serverErr = serverCmd.Wait() // wait for server to finish
-	}()
+	if serverCmd != nil {
+		cmd.start.waitg.Add(1)
+		go func() {
+			defer cmd.start.waitg.Done()
+			// wait for server to finish
+			cmd.start.serverErr = serverCmd.Wait()
+		}()
+	}
 
 	// client done
 	cmd.start.waitg.Add(1)
@@ -313,18 +349,22 @@ func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 //------------
 
 func (cmd *Cmd) environ() []string {
-	gopath := []string{}
+	env := os.Environ()
 
 	// add tmpdir to gopath to allow the compiler to give priority to the annotated files
+	gopath := []string{}
 	gopath = append(gopath, cmd.tmpDir)
-
 	// add already defined gopath
 	gopath = append(gopath, goutil.GoPath()...)
-
-	// build env
-	s := "GOPATH=" + strings.Join(gopath, ":")
-	env := os.Environ()
+	// build gopath string
+	s := "GOPATH=" + strings.Join(gopath, string(os.PathListSeparator))
 	env = append(env, s)
+
+	// add cmd line env vars
+	for _, s := range cmd.flags.env {
+		env = append(env, s)
+	}
+
 	return env
 }
 
@@ -337,11 +377,9 @@ func (cmd *Cmd) Cleanup() {
 	}
 
 	if cmd.tmpDir != "" {
-		defer func() { cmd.tmpDir = "" }()
 		_ = os.RemoveAll(cmd.tmpDir)
 	}
-	if cmd.tmpBuiltFile != "" {
-		defer func() { cmd.tmpBuiltFile = "" }()
+	if cmd.tmpBuiltFile != "" && !cmd.flags.mode.build {
 		_ = os.Remove(cmd.tmpBuiltFile)
 	}
 }
@@ -575,7 +613,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	cmd.flags.otherArgs = f.Args()
 
 	if len(cmd.flags.otherArgs) > 0 {
-		cmd.flags.run.filename = cmd.flags.otherArgs[0]
+		cmd.flags.filename = cmd.flags.otherArgs[0]
 		cmd.flags.otherArgs = cmd.flags.otherArgs[1:]
 	}
 
@@ -620,12 +658,55 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 }
 
 func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
-	return done, fmt.Errorf("todo")
+	f := &flag.FlagSet{}
+	work := f.Bool("work", false, "print workdir and don't cleanup on exit")
+	dirs := f.String("dirs", "", "comma-separated list of directories")
+	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
+	addr := f.String("addr", "", "address to serve from, built into the binary")
+	env := f.String("env", "", "set env variables for build, separated by comma (ex: \"GOOS=linux,...\"'")
+
+	if err := f.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			f.SetOutput(cmd.Stderr)
+			f.PrintDefaults()
+			return true, nil
+		}
+		return true, err
+	}
+
+	cmd.flags.work = *work
+	cmd.flags.dirs = splitCommaList(*dirs)
+	cmd.flags.files = splitCommaList(*files)
+	cmd.flags.address = *addr
+	cmd.flags.env = strings.Split(*env, ",")
+	cmd.flags.otherArgs = f.Args()
+	if len(cmd.flags.otherArgs) > 0 {
+		cmd.flags.filename = cmd.flags.otherArgs[0]
+		cmd.flags.otherArgs = cmd.flags.otherArgs[1:]
+	}
+
+	return false, nil
 }
 
 func (cmd *Cmd) parseConnectArgs(args []string) (done bool, _ error) {
-	return done, fmt.Errorf("todo")
+	f := &flag.FlagSet{}
+	addr := f.String("addr", "", "address to connect to, built into the binary")
+
+	if err := f.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			f.SetOutput(cmd.Stderr)
+			f.PrintDefaults()
+			return true, nil
+		}
+		return true, err
+	}
+
+	cmd.flags.address = *addr
+
+	return false, nil
 }
+
+//------------
 
 func cmdUsage() string {
 	return `Usage:
@@ -633,8 +714,8 @@ func cmdUsage() string {
 The commands are:
 	run		build and run go program with debug data
 	test		test packages compiled with debug data
-	build 	TODO: build binary with debug data (allows remote debug)
-	connect	TODO: connect to a binary built with debug data (allows remote debug)
+	build 	build binary with debug data (allows remote debug)
+	connect	connect to a binary built with debug data (allows remote debug)
 Examples:
 	GoDebug -help
 	GoDebug run -help
@@ -643,6 +724,8 @@ Examples:
 	GoDebug test -help
 	GoDebug test
 	GoDebug test -run mytest
+	GoDebug build -addr=:8080 main.go
+	GoDebug connect -addr=:8080
 `
 }
 
@@ -776,4 +859,31 @@ func splitCommaList(val string) []string {
 		u = append(u, s)
 	}
 	return u
+}
+
+//------------
+
+func setupServerNetAddr(addr string) {
+	if addr != "" {
+		debug.ServerNetwork = "tcp"
+		debug.ServerAddress = addr
+		return
+	}
+
+	// generate address: allows multiple editors to run debug sessions at the same time.
+
+	seed := time.Now().UnixNano() + int64(os.Getpid())
+	ra := rand.New(rand.NewSource(seed))
+	r := ra.Intn(10000)
+
+	switch runtime.GOOS {
+	case "linux":
+		debug.ServerNetwork = "unix"
+		p := "editor_godebug.sock" + fmt.Sprintf("%v", r)
+		debug.ServerAddress = filepath.Join(os.TempDir(), p)
+	default:
+		debug.ServerNetwork = "tcp"
+		p := fmt.Sprintf("%v", 30071+r)
+		debug.ServerAddress = "127.0.0.1:" + p
+	}
 }
