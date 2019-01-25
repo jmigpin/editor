@@ -15,7 +15,6 @@ import (
 	"sync"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
-	"github.com/jmigpin/editor/core/gosource"
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/osexecutil"
 )
@@ -446,7 +445,7 @@ func (cmd *Cmd) annotateDir(dir string) error {
 	}
 
 	// dir files
-	dir2, _, names, err := gosource.PkgFilenames(dir, true)
+	dir2, _, names, err := goutil.PkgFilenames(dir, true)
 	if err != nil {
 		return err
 	}

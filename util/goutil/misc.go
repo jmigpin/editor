@@ -45,3 +45,24 @@ func ExtractSrcDir(filename string) (string, string) {
 	}
 	return srcDir, filename
 }
+
+//----------
+
+func PkgFilenames(dir string, testFiles bool) (string, string, []string, error) {
+	// transform into pkg dir
+	pkgDir := dir
+	srcDir := "."
+	if filepath.IsAbs(dir) {
+		srcDir, pkgDir = ExtractSrcDir(dir)
+	}
+	// pkg dir
+	bpkg, err := build.Import(pkgDir, srcDir, 0)
+	if err != nil {
+		return dir, pkgDir, nil, err
+	}
+	a := append(bpkg.GoFiles, bpkg.CgoFiles...)
+	if testFiles {
+		a = append(a, bpkg.TestGoFiles...)
+	}
+	return bpkg.Dir, pkgDir, a, nil
+}
