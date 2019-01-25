@@ -1,6 +1,6 @@
 // +build windows
 
-package osexecutil
+package osutil
 
 import (
 	"errors"
@@ -8,8 +8,9 @@ import (
 	"strings"
 )
 
+//----------
+
 func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
-	// todo
 }
 
 func KillExecCmd(cmd *exec.Cmd) error {

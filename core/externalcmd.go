@@ -10,7 +10,7 @@ import (
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
-	"github.com/jmigpin/editor/util/osexecutil"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func ExternalCmd(erow *ERow, part *toolbarparser.Part) {
@@ -98,7 +98,7 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		cmd.Env = env
 		cmd.Stdout = w
 		cmd.Stderr = w
-		osexecutil.SetupExecCmdSysProcAttr(cmd)
+		osutil.SetupExecCmdSysProcAttr(cmd)
 
 		// run command
 		err := cmd.Start()
@@ -110,7 +110,7 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		go func() {
 			select {
 			case <-ctx.Done():
-				_ = osexecutil.KillExecCmd(cmd)
+				_ = osutil.KillExecCmd(cmd)
 			}
 		}()
 
@@ -158,7 +158,7 @@ func cmdPartArgs(part *toolbarparser.Part) []string {
 
 func shellCmdPartArgs(part *toolbarparser.Part) []string {
 	u := shellCmdPartArgsStr(part)
-	return osexecutil.ShellRunArgs(u...)
+	return osutil.ShellRunArgs(u...)
 }
 
 func shellCmdPartArgsStr(part *toolbarparser.Part) []string {

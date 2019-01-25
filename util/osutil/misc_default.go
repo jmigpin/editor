@@ -1,12 +1,14 @@
 // +build !windows
 
-package osexecutil
+package osutil
 
 import (
 	"os/exec"
 	"strings"
 	"syscall"
 )
+
+//----------
 
 func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

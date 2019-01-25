@@ -16,7 +16,7 @@ import (
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/goutil"
-	"github.com/jmigpin/editor/util/osexecutil"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 type Cmd struct {
@@ -392,14 +392,14 @@ func (cmd *Cmd) runCmd(ctx context.Context, dir string, args, env []string) erro
 }
 
 func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*exec.Cmd, error) {
-	cargs := osexecutil.ShellRunArgs(args...)
+	cargs := osutil.ShellRunArgs(args...)
 	ecmd := exec.CommandContext(ctx, cargs[0], cargs[1:]...)
 
 	ecmd.Env = env
 	ecmd.Dir = dir
 	ecmd.Stdout = cmd.Stdout
 	ecmd.Stderr = cmd.Stderr
-	osexecutil.SetupExecCmdSysProcAttr(ecmd)
+	osutil.SetupExecCmdSysProcAttr(ecmd)
 
 	if err := ecmd.Start(); err != nil {
 		return nil, err
@@ -410,7 +410,7 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 	go func() {
 		select {
 		case <-ctx.Done():
-			_ = osexecutil.KillExecCmd(ecmd)
+			_ = osutil.KillExecCmd(ecmd)
 		}
 	}()
 
