@@ -231,7 +231,7 @@ func (sm *String) IsQuoteAccept(quote rune, quotes string, escapes string) bool 
 		if found {
 			return false
 		}
-		if sm.IsEscapeAccept(ru, "\\") {
+		if sm.IsEscapeAccept(ru, escapes) {
 			return true
 		}
 		switch ru {
