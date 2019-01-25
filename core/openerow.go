@@ -7,10 +7,8 @@ import (
 )
 
 type OpenFileERowConfig struct {
-	FilePos    *parseutil.FilePos
-	FileOffset *parseutil.FileOffset
-
-	RowPos *ui.RowPos
+	FilePos *parseutil.FilePos
+	RowPos  *ui.RowPos
 
 	CancelIfExistent      bool
 	NewIfNotExistent      bool
@@ -29,9 +27,7 @@ func OpenFileERow(ed *Editor, conf *OpenFileERowConfig) {
 func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	// filename
 	var filename string
-	if conf.FileOffset != nil {
-		filename = conf.FileOffset.Filename
-	} else if conf.FilePos != nil {
+	if conf.FilePos != nil {
 		filename = conf.FilePos.Filename
 	} else {
 		return false, errors.New("missing filename")
@@ -65,13 +61,13 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	// helper func: get offset
 	getOffset := func() int {
 		if conf.FilePos != nil {
+			if conf.FilePos.HasOffset() {
+				return conf.FilePos.Offset
+			}
 			if len(info.ERows) > 0 {
 				str := info.ERows[0].Row.TextArea.Str()
 				return cacheLineColumnIndex(str)
 			}
-		}
-		if conf.FileOffset != nil {
-			return conf.FileOffset.Offset
 		}
 		return -1
 	}
@@ -157,11 +153,12 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		// flash visible offsets
 		if conf.FlashVisibleOffsets {
 			o, l := 0, 0
-			if conf.FileOffset != nil {
-				o, l = conf.FileOffset.Offset, conf.FileOffset.Len
-			}
 			if conf.FilePos != nil {
-				o = offset
+				if conf.FilePos.HasOffset() {
+					o, l = conf.FilePos.Offset, conf.FilePos.Len
+				} else {
+					o = offset
+				}
 			}
 
 			for _, e := range info.ERows {

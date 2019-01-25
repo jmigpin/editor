@@ -210,7 +210,7 @@ func (gdi *GoDebugInstance) openArrivalIndexERow() {
 
 	rowPos := gdi.ed.GoodRowPos()
 	conf := &OpenFileERowConfig{
-		FileOffset:       &parseutil.FileOffset{Filename: filename},
+		FilePos:          &parseutil.FilePos{Filename: filename},
 		RowPos:           rowPos,
 		CancelIfExistent: true,
 		NewIfNotExistent: true,
@@ -233,12 +233,12 @@ func (gdi *GoDebugInstance) showSelectedLine(erow *ERow) {
 
 			// file offset
 			dlm := lm.Msgs[0].DLine
-			fo := &parseutil.FileOffset{Filename: afd.Filename, Offset: dlm.Offset}
+			fo := &parseutil.FilePos{Filename: afd.Filename, Offset: dlm.Offset}
 
 			// show line
 			rowPos := erow.Row.PosBelow()
 			conf := &OpenFileERowConfig{
-				FileOffset:          fo,
+				FilePos:             fo,
 				RowPos:              rowPos,
 				FlashVisibleOffsets: true,
 				NewIfNotExistent:    true,

@@ -84,16 +84,14 @@ func ExpandLastIndexOfFilenameFmt(str string, max int) int {
 
 //----------
 
-// TODO: unify into one struct
-
 type FilePos struct {
 	Filename     string
+	Offset, Len  int // length after offset for a range
 	Line, Column int // bigger than zero to be considered
 }
-type FileOffset struct {
-	Filename string
-	Offset   int
-	Len      int // length after offset for a range
+
+func (fp *FilePos) HasOffset() bool {
+	return fp.Line == 0
 }
 
 //----------
