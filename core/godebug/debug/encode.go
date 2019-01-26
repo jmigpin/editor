@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"log"
 )
 
 func EncodeMessage(msg interface{}) ([]byte, error) {
@@ -35,22 +36,33 @@ func EncodeMessage(msg interface{}) ([]byte, error) {
 }
 
 func DecodeMessage(reader io.Reader) (interface{}, error) {
+
+	readN := func(b []byte, m int) error {
+		for i := 0; i < m; {
+			n, err := reader.Read(b[i:])
+			if err != nil && n == 0 {
+				return err
+			}
+			i += n
+			if i != m {
+				err := fmt.Errorf("expected to read %v but got %v", m, i)
+				log.Printf("error: %v", err)
+			}
+		}
+		return nil
+	}
+
 	// read size
 	sizeBuf := make([]byte, 4)
-	n, err := reader.Read(sizeBuf)
-	if err != nil && !(err == io.EOF && n > 0) {
+	if err := readN(sizeBuf, 4); err != nil {
 		return nil, err
 	}
-	l := binary.BigEndian.Uint32(sizeBuf)
+	l := int(binary.BigEndian.Uint32(sizeBuf))
 
 	// read msg
 	msgBuf := make([]byte, l)
-	n, err = reader.Read(msgBuf)
-	if err != nil && !(err == io.EOF && n > 0) {
+	if err := readN(msgBuf, l); err != nil {
 		return nil, err
-	}
-	if n != len(msgBuf) {
-		return nil, fmt.Errorf("expected to read %v but got %v", len(msgBuf), n)
 	}
 
 	// decode msg
