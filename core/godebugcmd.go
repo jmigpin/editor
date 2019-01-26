@@ -330,7 +330,9 @@ func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd
 				gdi.updateUI()
 				return
 			}
-			gdi.handleMsg(msg, w, cmd)
+			if err := gdi.handleMsg(msg, cmd); err != nil {
+				fmt.Fprintln(w, err)
+			}
 			if updatec == nil {
 				t := time.NewTimer(time.Second / updatesPerSecond)
 				updatec = t.C
@@ -345,36 +347,36 @@ func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd
 
 //----------
 
-func (gdi *GoDebugInstance) handleMsg(msg interface{}, w io.Writer, cmd *godebug.Cmd) {
+func (gdi *GoDebugInstance) handleMsg(msg interface{}, cmd *godebug.Cmd) error {
 	switch t := msg.(type) {
+	case error:
+		return t
 	case string:
 		if t == "connected" {
-			// TODO: timeout to receive file set positions?
+			// TODO: timeout to receive filesetpositions?
 			// request file positions
 			if err := cmd.RequestFileSetPositions(); err != nil {
-				err2 := errors.Wrap(err, "request file set positions")
-				fmt.Fprint(w, err2)
+				return errors.Wrap(err, "request file set positions")
 			}
+		} else {
+			return fmt.Errorf("unhandled string: %v", t)
 		}
 	case *debug.FilesDataMsg:
 		// index data
 		if err := gdi.indexMsg(msg); err != nil {
-			fmt.Fprintln(w, err)
-			return
+			return err
 		}
 		// on receiving the filesdatamsg,  send a requeststart
 		if err := cmd.RequestStart(); err != nil {
-			err2 := errors.Wrap(err, "request start")
-			fmt.Fprint(w, err2)
-			return
+			return errors.Wrap(err, "request start")
 		}
 	default:
 		// index data
 		if err := gdi.indexMsg(msg); err != nil {
-			fmt.Fprintln(w, err)
-			return
+			return err
 		}
 	}
+	return nil
 }
 
 func (gdi *GoDebugInstance) indexMsg(msg interface{}) error {

@@ -22,7 +22,6 @@ type AnnotatorSet struct {
 	FSet           *token.FileSet
 	debugPkgName   string
 	debugVarPrefix string
-	//simpleOut      bool
 	testFilesPkgs  map[string]string // map[dir]pkgname
 	InsertedExitIn struct {
 		Main     bool
@@ -202,8 +201,6 @@ func (annset *AnnotatorSet) buildConfigSourceEntries() string {
 	// build map data
 	var u []string
 	for _, afd := range annset.fdata.a {
-		logger.Printf("configsource: included file %v", afd.Filename)
-
 		// sanity check
 		if afd.FileIndex >= len(annset.fdata.m) {
 			panic(fmt.Sprintf("file index doesn't fit map len: %v vs %v", afd.FileIndex, len(annset.fdata.m)))

@@ -53,7 +53,6 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 
 	case *debug.ItemValue:
 		if is.Offset == -2 {
-			log.Printf("adding: %s", t.Str)
 			is.Str += t.Str
 		} else {
 			start := len(is.Str)

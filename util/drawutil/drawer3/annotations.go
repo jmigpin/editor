@@ -33,6 +33,7 @@ func (ann *Annotations) Iterate(r *ExtRunner) {
 	}
 
 	// indexes to add
+	// NOTE: must be true: i<j => entry[i].Offset <= entry[j].Offset
 	entries := ann.Opt.Entries
 	for ; ann.data.index < len(entries); ann.data.index++ {
 		e := entries[ann.data.index]
@@ -43,7 +44,6 @@ func (ann *Annotations) Iterate(r *ExtRunner) {
 			break
 		}
 		ann.data.indexesToAdd = append(ann.data.indexesToAdd, ann.data.index)
-
 	}
 
 	// add annotations after newline

@@ -39,18 +39,14 @@ func (di *DataIndex) AnnotatorFileData(filename string) *debug.AnnotatorFileData
 func (di *DataIndex) IndexMsg(msg interface{}) error {
 	switch t := msg.(type) {
 	case *debug.FilesDataMsg:
-		logger.Printf("filesdatamsg: %v files", len(t.Data))
-
 		// index files data by filename
 		di.afds = make(map[string]*debug.AnnotatorFileData)
 		for _, afd := range t.Data {
-			logger.Printf("filename: %v", afd.Filename)
 			di.afds[afd.Filename] = afd
 		}
 		// initialize files index
 		di.index = make([]DIFile, len(di.afds))
 		for _, afd := range di.afds {
-			logger.Printf("file %v: %v debugs", afd.FileIndex, afd.DebugLen)
 			di.index[afd.FileIndex] = make([]DIDebug, afd.DebugLen)
 		}
 	case *debug.LineMsg:

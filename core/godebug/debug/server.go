@@ -131,6 +131,8 @@ func (srv *Server) receiveClientMsgsLoop(cconn *ClientConn) {
 				break
 			}
 
+			// always print if the error reaches here
+			log.Print(err)
 			continue
 		}
 
@@ -151,8 +153,8 @@ func (srv *Server) receiveClientMsgsLoop(cconn *ClientConn) {
 			logger.Print("running unlocked")
 			srv.running.Unlock()
 		default:
-			logger.Printf("todo: unexpected msg type")
-			//spew.Dump(t)
+			// always print if there is a new msg type
+			log.Printf("todo: unexpected msg type")
 		}
 	}
 }
@@ -169,9 +171,7 @@ func (srv *Server) Send(v interface{}) {
 	// encode msg
 	encoded, err := EncodeMessage(v)
 	if err != nil {
-		logger.Print(err)
 		panic(err)
-		//return
 	}
 
 	// send

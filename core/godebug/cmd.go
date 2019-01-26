@@ -523,8 +523,6 @@ func (cmd *Cmd) writeAstFileToTmpDir(astFile *ast.File) error {
 		return err
 	}
 
-	defer logger.Printf("write astfile to tmpdir: %v", destFilename)
-
 	// write file
 	f, err := os.Create(destFilename)
 	if err != nil {

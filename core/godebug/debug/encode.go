@@ -20,7 +20,7 @@ func EncodeMessage(msg interface{}) ([]byte, error) {
 
 	// encode v
 	enc := gob.NewEncoder(&bbuf)
-	if err := enc.Encode(&msg); err != nil {
+	if err := enc.Encode(&msg); err != nil { // decoder uses &interface{}
 		return nil, err
 	}
 

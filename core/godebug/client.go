@@ -3,17 +3,12 @@ package godebug
 import (
 	"context"
 	"io"
-	"io/ioutil"
-	"log"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
-
-//var logger = log.New(os.Stdout, "godebug: ", log.Lshortfile)
-var logger = log.New(ioutil.Discard, "godebug: ", 0)
 
 type Client struct {
 	Conn     net.Conn
@@ -85,8 +80,6 @@ func (client *Client) receiveLoop() {
 	for {
 		msg, err := debug.DecodeMessage(client.Conn)
 		if err != nil {
-			logger.Print(err)
-
 			// unable to read (server was probably closed)
 			if operr, ok := err.(*net.OpError); ok {
 				if operr.Op == "read" {
@@ -98,6 +91,7 @@ func (client *Client) receiveLoop() {
 				break
 			}
 
+			client.Messages <- err
 			continue
 		}
 
