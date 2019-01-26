@@ -399,7 +399,7 @@ func (ann *Annotator) visitDeferCallStmt(ctx *Ctx, cep **ast.CallExpr) {
 		args2 := make([]ast.Expr, len(ce.Args))
 		copy(args2, ce.Args)
 		ids := ann.assignToNewIdents(ctx, len(ce.Args), args2...)
-		for i, _ := range ce.Args {
+		for i := range ce.Args {
 			ce.Args[i] = ids[i]
 		}
 	}

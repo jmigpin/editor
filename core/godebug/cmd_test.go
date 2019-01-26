@@ -126,8 +126,10 @@ func TestCmdFile4(t *testing.T) {
 
 func doCmd(t *testing.T, dir string, src interface{}, args []string) {
 	log.Printf("DISABLED")
-	return
+	//doCmd2(t, dir, src, args)
+}
 
+func doCmd2(t *testing.T, dir string, src interface{}, args []string) {
 	cmd := NewCmd()
 	defer cmd.Cleanup()
 
