@@ -2,6 +2,7 @@ package debug
 
 import (
 	"fmt"
+	"strconv"
 	"unicode"
 )
 
@@ -17,30 +18,17 @@ func stringifyV(v V) string {
 		} else {
 			str = fmt.Sprintf("%v", t)
 		}
-	case string:
+	case string, error:
 		str = ReducedSprintf(max, "%q", t)
-	case fmt.Stringer, error:
-		str = ReducedSprintf(max, "%q", t) // used to be ≈(%q)
-
-	case float32, float64:
-		u := fmt.Sprintf("%f", t)
-
-		// reduce trailing zeros
-		j := 0
-		for i := len(u) - 1; i >= 0; i-- {
-			if u[i] == '0' {
-				j++
-				continue
-			}
-			break
-		}
-
-		str = u[:len(u)-j]
-
+	case fmt.Stringer:
+		str = ReducedSprintf(max, "%q", t.String())
+	case float32:
+		str = strconv.FormatFloat(float64(t), 'f', -1, 32)
+	case float64:
+		str = strconv.FormatFloat(t, 'f', -1, 64)
 	default:
 		str = ReducedSprintf(max, "%v", v)
 	}
-
 	return str
 }
 

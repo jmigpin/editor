@@ -3,6 +3,7 @@ package godebug
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,24 +78,23 @@ func TestCmd3(t *testing.T) {
 	doCmd(t, proj, nil, args)
 }
 
-//func TestCmd4(t *testing.T) {
-//	src := `
-//		package main
-//		import "go/ast"
-//		func f1() *ast.Ident{
-//			id:=&ast.Ident{}
-//			return id
-//		}
-//		func main(){
-//			_=f1()
-//		}
-//	`
+func TestCmd4(t *testing.T) {
+	src := `
+		package main
+		func main(){
+			u:=float64(100)
+			for i:=0; i<10; i++{
+				u/=3
+				_=u
+			}
+		}
+	`
 
-//	filename := "test/src.go"
-//	args := []string{"run", filename}
+	filename := "test/src.go"
+	args := []string{"run", filename}
 
-//	doCmd(t, "", src, args)
-//}
+	doCmd(t, "", src, args)
+}
 
 //------------
 
@@ -125,6 +125,9 @@ func TestCmdFile4(t *testing.T) {
 //------------
 
 func doCmd(t *testing.T, dir string, src interface{}, args []string) {
+	log.Printf("DISABLED")
+	return
+
 	cmd := NewCmd()
 	defer cmd.Cleanup()
 
