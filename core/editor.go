@@ -51,16 +51,12 @@ func NewEditor(opt *Options) (*Editor, error) {
 //----------
 
 func (ed *Editor) init(opt *Options) error {
-	// fs watcher + targetwatcher
+	// fs watcher + gwatcher
 	w, err := fswatcher.NewFsnWatcher()
 	if err != nil {
 		return err
 	}
-	*w.OpMask() = fswatcher.Create |
-		fswatcher.Remove |
-		fswatcher.Modify |
-		fswatcher.Rename
-	ed.Watcher = fswatcher.NewTargetWatcher(w)
+	ed.Watcher = fswatcher.NewGWatcher(w)
 
 	ed.setupTheme(opt)
 	event.UseMultiKey = opt.UseMultiKey
