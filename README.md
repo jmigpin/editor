@@ -145,13 +145,22 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `ToggleRowHBar`: toggles row textarea horizontal scrollbar.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
-- `GoDebug {run,test} <filename.go>`: debugger utility for go programs.
+- `GoDebug <command> [arguments]`: debugger utility for go programs.
   - `-h`: help (show usage).
   - `-dirs`: comma separated directories to include in the debug session.
-  - `-work`: print out temporary work dir, and don't cleanup (allows to see the generated code).
+  - `-files`: comma separated files to include in the debug session (allows avoiding big directories).
+  - `-work`: print out temporary work dir and don't cleanup (allows to see the generated code).
   - use `esc` key to stop the debug session.
   - Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.
     - `debug.SetSend(bool)`
+  - When debugging, take care of functions that implement fmt.Stringer that get called. Consider the example:
+    ```
+	type binary int
+	func (b binary) String() string{
+		return fmt.Sprintf("%b", b) // godebug will enter into endless loop
+	}
+    ```
+    When trying to print the value of `b` for debugging, the argument of `Sprintf`, it will call again `func (b binary) String()`, and enter into a loop.
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open another row to edit the same file.
 
 *Textarea commands*
