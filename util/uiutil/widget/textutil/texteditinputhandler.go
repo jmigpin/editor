@@ -99,6 +99,7 @@ func (eh *TextEditInputHandler) onMouseTripleClick(ev *event.MouseTripleClick) e
 
 func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 	te := eh.tex.TextEdit
+	mcl := ev.Mods.ClearLocks()
 
 	makeCursorVisible := func() {
 		te.MakeIndexVisible(te.TextCursor.Index())
@@ -124,11 +125,11 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		defer makeCursorVisible() // adjust adjacent lines just one line instead of centralizing
 
 		switch {
-		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModShift):
+		case mcl.Is(event.ModCtrl | event.ModShift):
 			MoveCursorJumpRight(te, true)
-		case ev.Mods.ClearLocks().Is(event.ModCtrl):
+		case mcl.Is(event.ModCtrl):
 			MoveCursorJumpRight(te, false)
-		case ev.Mods.ClearLocks().Is(event.ModShift):
+		case mcl.Is(event.ModShift):
 			MoveCursorRight(te, true)
 		default:
 			MoveCursorRight(te, false)
@@ -138,11 +139,11 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		defer makeCursorVisible()
 
 		switch {
-		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModShift):
+		case mcl.Is(event.ModCtrl | event.ModShift):
 			MoveCursorJumpLeft(te, true)
-		case ev.Mods.ClearLocks().Is(event.ModCtrl):
+		case mcl.Is(event.ModCtrl):
 			MoveCursorJumpLeft(te, false)
-		case ev.Mods.ClearLocks().Is(event.ModShift):
+		case mcl.Is(event.ModShift):
 			MoveCursorLeft(te, true)
 		default:
 			MoveCursorLeft(te, false)
@@ -152,9 +153,9 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		defer makeCursorVisible()
 
 		switch {
-		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModAlt):
+		case mcl.Is(event.ModCtrl | event.ModAlt):
 			MoveLineUp(te)
-		case ev.Mods.ClearLocks().HasAny(event.ModShift):
+		case mcl.HasAny(event.ModShift):
 			MoveCursorUp(te, true)
 		default:
 			MoveCursorUp(te, false)
@@ -164,22 +165,22 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		defer makeCursorVisible()
 
 		switch {
-		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModShift | event.ModAlt):
+		case mcl.Is(event.ModCtrl | event.ModShift | event.ModAlt):
 			DuplicateLines(te)
-		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModAlt):
+		case mcl.Is(event.ModCtrl | event.ModAlt):
 			MoveLineDown(te)
-		case ev.Mods.ClearLocks().HasAny(event.ModShift):
+		case mcl.HasAny(event.ModShift):
 			MoveCursorDown(te, true)
 		default:
 			MoveCursorDown(te, false)
 		}
 	case event.KSymHome:
 		switch {
-		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModShift):
+		case mcl.Is(event.ModCtrl | event.ModShift):
 			StartOfString(te, true)
-		case ev.Mods.ClearLocks().Is(event.ModCtrl):
+		case mcl.Is(event.ModCtrl):
 			StartOfString(te, false)
-		case ev.Mods.ClearLocks().Is(event.ModShift):
+		case mcl.Is(event.ModShift):
 			StartOfLine(te, true)
 		default:
 			StartOfLine(te, false)
@@ -187,11 +188,11 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		makeCursorVisible()
 	case event.KSymEnd:
 		switch {
-		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModShift):
+		case mcl.Is(event.ModCtrl | event.ModShift):
 			EndOfString(te, true)
-		case ev.Mods.ClearLocks().Is(event.ModCtrl):
+		case mcl.Is(event.ModCtrl):
 			EndOfString(te, false)
-		case ev.Mods.ClearLocks().Is(event.ModShift):
+		case mcl.Is(event.ModShift):
 			EndOfLine(te, true)
 		default:
 			EndOfLine(te, false)
@@ -212,7 +213,7 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		switch {
 
 		// using KSymTabLeft case, this still needed?
-		case ev.Mods.ClearLocks().Is(event.ModShift):
+		case mcl.Is(event.ModShift):
 			TabLeft(te)
 
 		default:
@@ -229,12 +230,12 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 			// do nothing
 		case !unicode.IsPrint(ev.Rune):
 			// do nothing
-		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModShift):
+		case mcl.Is(event.ModCtrl | event.ModShift):
 			switch ev.LowerRune() {
 			case 'd':
 				Uncomment(eh.tex)
 			}
-		case ev.Mods.ClearLocks().Is(event.ModCtrl):
+		case mcl.Is(event.ModCtrl):
 			switch ev.LowerRune() {
 			case 'd':
 				Comment(eh.tex)

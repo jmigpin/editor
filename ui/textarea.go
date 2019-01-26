@@ -82,7 +82,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentPrev) {
 					return event.Handled
 				} else {
-					ta.selAnnPrevEv()
+					ta.selAnnEv(TASelAnnTypePrev)
 					return event.Handled
 				}
 			}
@@ -92,7 +92,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentNext) {
 					return event.Handled
 				} else {
-					ta.selAnnNextEv()
+					ta.selAnnEv(TASelAnnTypeNext)
 					return event.Handled
 				}
 			}
@@ -106,6 +106,18 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 		switch ev.Button {
 		case event.ButtonRight:
 			ta.Cursor = widget.NoneCursor
+		}
+	case *event.KeyDown:
+		m := ev.Mods.ClearLocks()
+		if m.Is(event.ModCtrl) {
+			switch ev.KeySym {
+			case event.KSymF5:
+				ta.selAnnEv(TASelAnnTypeLast)
+				return event.Handled
+			case event.KSymF9:
+				ta.selAnnEv(TASelAnnTypeClear)
+				return event.Handled
+			}
 		}
 	}
 	return event.NotHandled
@@ -126,12 +138,8 @@ func (ta *TextArea) selAnnCurEv(p image.Point, typ TASelAnnType) bool {
 	}
 	return false
 }
-func (ta *TextArea) selAnnPrevEv() {
-	ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, TASelAnnTypePrev}
-	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
-}
-func (ta *TextArea) selAnnNextEv() {
-	ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, TASelAnnTypeNext}
+func (ta *TextArea) selAnnEv(typ TASelAnnType) {
+	ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, typ}
 	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
 }
 
@@ -179,6 +187,8 @@ const (
 	TASelAnnTypeCurrentNext
 	TASelAnnTypePrev
 	TASelAnnTypeNext
+	TASelAnnTypeLast
+	TASelAnnTypeClear
 	TASelAnnTypePrint
 )
 

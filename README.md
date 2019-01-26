@@ -284,6 +284,10 @@ Plugins located at: `./plugins`.
 - `ctrl`+`buttonWheelDown`: 
   - `godebug` on textarea: show next debug step
   - `godebug` over an annotation: show line next annotation
+- `ctrl`+`f5`: 
+  - `godebug` on textarea: show last debug step
+- `ctrl`+`f9`: 
+  - `godebug` on textarea: clear debug messages (continues debugging)
 
 ## Row placement algorithm
 

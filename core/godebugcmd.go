@@ -99,6 +99,11 @@ func (gdi *GoDebugInstance) updateSelectAnnotation(erow *ERow, annIndex, offset 
 		update = gdi.selectPrev()
 	case ui.TASelAnnTypeNext:
 		update = gdi.selectNext()
+	case ui.TASelAnnTypeLast:
+		update = gdi.selectLast()
+	case ui.TASelAnnTypeClear:
+		update = true
+		gdi.data.dataIndex.reset()
 	case ui.TASelAnnTypePrint:
 		gdi.printIndex(erow, annIndex, offset)
 	}
@@ -153,6 +158,16 @@ func (gdi *GoDebugInstance) selectPrev() bool {
 	di := gdi.data.dataIndex
 	if di.SelectedArrivalIndex > 0 {
 		di.SelectedArrivalIndex--
+		gdi.openArrivalIndexERow()
+		return true
+	}
+	return false
+}
+
+func (gdi *GoDebugInstance) selectLast() bool {
+	di := gdi.data.dataIndex
+	if di.SelectedArrivalIndex != di.GlobalArrivalIndex-1 {
+		di.SelectedArrivalIndex = di.GlobalArrivalIndex - 1
 		gdi.openArrivalIndexERow()
 		return true
 	}
@@ -331,7 +346,7 @@ func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd
 				return
 			}
 			if err := gdi.handleMsg(msg, cmd); err != nil {
-				fmt.Fprintln(w, err)
+				fmt.Fprintf(w, "error: %v\n", err)
 			}
 			if updatec == nil {
 				t := time.NewTimer(time.Second / updatesPerSecond)
@@ -514,6 +529,14 @@ func NewGDDataIndex() *GDDataIndex {
 	return di
 }
 
+func (di *GDDataIndex) reset() {
+	di.GlobalArrivalIndex = 0
+	di.SelectedArrivalIndex = 0
+	for _, f := range di.Files {
+		f.reset()
+	}
+}
+
 //----------
 
 func (di *GDDataIndex) selectedArrivalIndexFilename(arrivalIndex int) (string, bool) {
@@ -590,7 +613,7 @@ func (di *GDDataIndex) indexMsg(msg interface{}) error {
 //----------
 
 type GDFileMsgs struct {
-	//HasNewData bool // performance
+	n int // n debug entries (debuglen)
 
 	// all annotations received
 	Lines []GDLineMsgs
@@ -600,15 +623,24 @@ type GDFileMsgs struct {
 	AnnEntriesLMIndex []int // line messages index
 
 	SelectedLine int
+	//HasNewData bool // performance
+
 }
 
 func NewGDFileMsgs(afd *debug.AnnotatorFileData) *GDFileMsgs {
-	return &GDFileMsgs{
-		//HasNewData:        true,
+	file := &GDFileMsgs{n: afd.DebugLen}
+	file.reset()
+	return file
+}
+
+func (file *GDFileMsgs) reset() {
+	n := file.n // keep old value
+	*file = GDFileMsgs{
+		n:                 n,
 		SelectedLine:      -1,
-		Lines:             make([]GDLineMsgs, afd.DebugLen),
-		AnnEntries:        make([]*drawer3.Annotation, afd.DebugLen),
-		AnnEntriesLMIndex: make([]int, afd.DebugLen),
+		Lines:             make([]GDLineMsgs, n),
+		AnnEntries:        make([]*drawer3.Annotation, n),
+		AnnEntriesLMIndex: make([]int, n),
 	}
 }
 

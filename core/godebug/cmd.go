@@ -282,7 +282,7 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 	if cmd.flags.mode.connect && cmd.flags.address != "" {
 		debug.ServerNetwork = "tcp"
 		debug.ServerAddress = cmd.flags.address
-		fmt.Fprintf(cmd.Stdout, "# connect: %s:%s\n",
+		fmt.Fprintf(cmd.Stdout, "# connect: %s, %s\n",
 			debug.ServerNetwork,
 			debug.ServerAddress)
 	}
