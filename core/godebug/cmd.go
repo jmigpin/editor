@@ -371,6 +371,11 @@ func (cmd *Cmd) environ() []string {
 //------------
 
 func (cmd *Cmd) Cleanup() {
+	// cleanup unix socket in case of bad stop
+	if debug.ServerNetwork == "unix" {
+		_ = os.Remove(debug.ServerAddress)
+	}
+
 	// don't cleanup
 	if cmd.flags.work {
 		return
