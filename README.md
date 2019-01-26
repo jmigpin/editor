@@ -297,7 +297,6 @@ The measuring of space is done as follows:
 
 ## Notes
 
-- Uses X shared memory extension (MIT-SHM).
 - Notable projects that inspired many features:
   - Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU 
   - Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
