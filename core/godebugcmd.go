@@ -257,7 +257,7 @@ func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
 	gdi.ready.Lock()     // wait for previous run to finish
 	defer gdi.ready.Unlock()
 
-	erow.Exec.Run(func(ctx context.Context, w io.Writer) error {
+	erow.Exec.Start(func(ctx context.Context, w io.Writer) error {
 		// cleanup row content
 		erow.Ed.UI.RunOnUIGoRoutine(func() {
 			erow.Row.TextArea.SetStrClearHistory("")

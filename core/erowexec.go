@@ -23,7 +23,7 @@ func NewERowExec(erow *ERow) *ERowExec {
 
 //----------
 
-func (eexec *ERowExec) Run(fexec func(context.Context, io.Writer) error) {
+func (eexec *ERowExec) Start(fexec func(context.Context, io.Writer) error) {
 	eexec.mu.Lock()
 	defer eexec.mu.Unlock()
 

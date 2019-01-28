@@ -120,7 +120,7 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		return cmd.Wait()
 	}
 
-	erow.Exec.Run(func(ctx context.Context, w io.Writer) error {
+	erow.Exec.Start(func(ctx context.Context, w io.Writer) error {
 		// cleanup row content
 		erow.Ed.UI.RunOnUIGoRoutine(func() {
 			erow.Row.TextArea.SetStrClearHistory("")

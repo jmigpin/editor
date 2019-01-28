@@ -43,7 +43,7 @@ func ListDirERow(erow *ERow, filepath string, tree, hidden bool) {
 	erow.Row.TextArea.SetStrClearHistory("")
 	erow.Row.TextArea.ClearPos()
 
-	erow.Exec.Run(func(ctx context.Context, w io.Writer) error {
+	erow.Exec.Start(func(ctx context.Context, w io.Writer) error {
 		return ListDirContext(ctx, w, erow.Info.Name(), tree, hidden)
 	})
 }
