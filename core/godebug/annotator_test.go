@@ -1485,6 +1485,31 @@ func TestAnnotator95(t *testing.T) {
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
+func TestAnnotator96(t *testing.T) {
+	inout := []string{
+		`a[b]=true
+		fn(func(){a[b]=true})`,
+		`Σ0 := Σ.IV(true)
+	        a[b] = true
+	        Σ1 := Σ.IV(b)
+	        Σ2 := Σ.IV(a[b])
+	        Σ.Line(0, 0, 32, Σ.IA(Σ.IL(Σ.II(Σ2, nil, Σ1)), Σ.IL(Σ0)))
+	        Σ3 := func() {
+	        Σ4 := Σ.IV(true)
+	        a[b] = true
+	        Σ5 := Σ.IV(b)
+	        Σ6 := Σ.IV(a[b])
+	        Σ.Line(0, 1, 52, Σ.IA(Σ.IL(Σ.II(Σ6, nil, Σ5)), Σ.IL(Σ4)))
+	        }
+	        Σ7 := Σ.IV(Σ3)
+	        Σ.Line(0, 2, 53, Σ.ICe("fn", Σ7))
+	        Σ8 := Σ.IC("fn", nil, Σ7)
+	        fn(Σ3)
+	        Σ.Line(0, 2, 54, Σ8)`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
 func TestAnnotator_(t *testing.T) {
 	inout := []string{
 		``,

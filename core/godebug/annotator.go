@@ -803,6 +803,8 @@ func (ann *Annotator) visitBasicLit(ctx *Ctx, bl *ast.BasicLit) {
 }
 
 func (ann *Annotator) visitFuncLit(ctx *Ctx, fl *ast.FuncLit) {
+	ctx = ctx.valuesReset()
+
 	id := ann.assignToNewIdent(ctx, fl)
 	ctx.replaceExpr(id)
 

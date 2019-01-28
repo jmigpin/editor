@@ -313,3 +313,15 @@ func (ctx *Ctx) firstArgIsType() bool {
 	u := v.(bool)
 	return u
 }
+
+//----------
+
+func (ctx *Ctx) valuesReset() *Ctx {
+	ctx = ctx.WithValue("nresults", nil)
+	ctx = ctx.WithValue("call_expr_debug_index", nil)
+	ctx = ctx.WithValue("static_debug_index", nil)
+	ctx = ctx.WithValue("result_in_var", nil)
+	ctx = ctx.WithValue("assign_stmt_ignore_lhs", nil)
+	ctx = ctx.WithValue("first_arg_is_type", nil)
+	return ctx
+}
