@@ -72,8 +72,8 @@ func (siw *ShmImageWrap) Image() *imageutil.BGRA {
 func (siw *ShmImageWrap) PutImage(gctx xproto.Gcontext, r *image.Rectangle) error {
 	img := siw.simg.img
 	b := img.Bounds()
-	//c := shm.PutImageChecked(
-	_ = shm.PutImage(
+	//_ = shm.PutImage(
+	c := shm.PutImageChecked(
 		siw.conn,
 		siw.drawable,
 		gctx,
@@ -85,6 +85,6 @@ func (siw *ShmImageWrap) PutImage(gctx xproto.Gcontext, r *image.Rectangle) erro
 		1, // send shm.CompletionEvent when done
 		siw.segId,
 		0) // offset
-	//return c.Check()
-	return nil
+	return c.Check()
+	//return nil
 }
