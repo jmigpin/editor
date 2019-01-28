@@ -56,9 +56,7 @@ func NewWindow() (*Window, error) {
 		return nil, err2
 	}
 
-	win := &Window{
-		Conn: conn,
-	}
+	win := &Window{Conn: conn}
 	if err := win.initialize(); err != nil {
 		return nil, errors.Wrap(err, "win init")
 	}

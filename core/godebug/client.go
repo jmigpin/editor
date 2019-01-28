@@ -42,7 +42,6 @@ func (client *Client) Wait() {
 
 func (client *Client) Close() error {
 	return client.Conn.Close()
-	return nil
 }
 
 func (client *Client) connect(ctx context.Context) error {
