@@ -311,13 +311,17 @@ func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd
 	for {
 		select {
 		case <-ctx.Done():
-			gdi.updateUI()
+			// final ui update
+			if updatec != nil {
+				gdi.updateUI()
+			}
 			return
 		case msg, ok := <-cmd.Client.Messages:
-			//fmt.Fprintf(w, "client msg %#v\n", msg)
 			if !ok {
 				// last msg (end of program), final ui update
-				gdi.updateUI()
+				if updatec != nil {
+					gdi.updateUI()
+				}
 				return
 			}
 			if err := gdi.handleMsg(msg, cmd); err != nil {
@@ -467,6 +471,7 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 		for _, erow := range info.ERows {
 			ta := erow.Row.TextArea
 			if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
+				//d.Annotations.SetOn(false) // force update by setting false first // TODO
 				d.Annotations.SetOn(true)
 				d.Annotations.Opt.Select.Line = file.SelectedLine
 				d.Annotations.Opt.Entries = file.AnnEntries
