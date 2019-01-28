@@ -128,13 +128,17 @@ func (gdi *GoDebugInstance) selectCurrent(erow *ERow, annIndex, offset int, typ 
 	switch typ {
 	case ui.TASelAnnTypeCurrent: // use k, nothing todo
 	case ui.TASelAnnTypeCurrentPrev:
-		if k > 0 {
-			k--
+		if k == 0 {
+			return false
 		}
+		k--
 	case ui.TASelAnnTypeCurrentNext:
-		if k < len(line.Msgs)-1 {
-			k++
+		if k >= len(line.Msgs)-1 {
+			return false
 		}
+		k++
+	default:
+		panic(fmt.Sprintf("unexpected type: %v", typ))
 	}
 
 	// set selected index
@@ -166,12 +170,12 @@ func (gdi *GoDebugInstance) selectPrev() bool {
 
 func (gdi *GoDebugInstance) selectLast() bool {
 	di := gdi.data.dataIndex
-	if di.SelectedArrivalIndex != di.GlobalArrivalIndex-1 {
+	if di.SelectedArrivalIndex < di.GlobalArrivalIndex-1 {
 		di.SelectedArrivalIndex = di.GlobalArrivalIndex - 1
-		gdi.openArrivalIndexERow()
-		return true
 	}
-	return false
+	// show always
+	gdi.openArrivalIndexERow()
+	return true
 }
 
 //----------
