@@ -380,6 +380,9 @@ func GotoLineCmd(erow *ERow, part *toolbarparser.Part) error {
 
 	ta := erow.Row.TextArea
 	index := parseutil.LineColumnIndex(ta.Str(), line, 0)
+	if index < 0 {
+		return fmt.Errorf("line not found: %v", line)
+	}
 
 	// goto index
 	tc := ta.TextCursor
