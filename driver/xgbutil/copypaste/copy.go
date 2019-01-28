@@ -1,5 +1,7 @@
 package copypaste
 
+// https://tronche.com/gui/x/icccm/
+
 import (
 	"bytes"
 	"encoding/binary"
@@ -44,8 +46,23 @@ func (c *Copy) Set(i event.CopyPasteIndex, str string) error {
 	panic("unhandled index")
 }
 func (c *Copy) set(selection xproto.Atom) error {
-	cookie := xproto.SetSelectionOwnerChecked(c.conn, c.win, selection, 0)
-	return cookie.Check()
+	t := xproto.Timestamp(xproto.TimeCurrentTime)
+	c1 := xproto.SetSelectionOwnerChecked(c.conn, c.win, selection, t)
+	if err := c1.Check(); err != nil {
+		return err
+	}
+
+	//// ensure the owner was set
+	//c2 := xproto.GetSelectionOwner(c.conn, selection)
+	//r, err := c2.Reply()
+	//if err != nil {
+	//	return err
+	//}
+	//if r.Owner != c.win {
+	//	return fmt.Errorf("unable to get selection ownership")
+	//}
+
+	return nil
 }
 
 //----------
@@ -59,11 +76,11 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<
 	//log.Printf("on selection request: %v %v %v", target, sel, prop)
 
 	switch ev.Target {
-	case CopyAtoms.Utf8String,
+	case CopyAtoms.String,
+		CopyAtoms.Utf8String,
 		CopyAtoms.Text,
 		CopyAtoms.TextPlain,
-		CopyAtoms.TextPlainCharsetUtf8,
-		CopyAtoms.GtkTextBufferContents:
+		CopyAtoms.TextPlainCharsetUtf8:
 		if err := c.transferBytes(ev); err != nil {
 			events <- err
 		}
@@ -144,6 +161,7 @@ func (c *Copy) transferBytes(ev *xproto.SelectionRequestEvent) error {
 func (c *Copy) transferTargets(ev *xproto.SelectionRequestEvent) error {
 	targets := []xproto.Atom{
 		CopyAtoms.Targets,
+		CopyAtoms.String,
 		CopyAtoms.Utf8String,
 		CopyAtoms.Text,
 		CopyAtoms.TextPlain,
@@ -206,9 +224,9 @@ var CopyAtoms struct {
 	Clipboard xproto.Atom `loadAtoms:"CLIPBOARD"`
 	Targets   xproto.Atom `loadAtoms:"TARGETS"`
 
-	Utf8String            xproto.Atom `loadAtoms:"UTF8_STRING"`
-	Text                  xproto.Atom `loadAtoms:"TEXT"`
-	TextPlain             xproto.Atom `loadAtoms:"text/plain"`
-	TextPlainCharsetUtf8  xproto.Atom `loadAtoms:"text/plain;charset=utf-8"`
-	GtkTextBufferContents xproto.Atom `loadAtoms:"GTK_TEXT_BUFFER_CONTENTS"`
+	Utf8String           xproto.Atom `loadAtoms:"UTF8_STRING"`
+	String               xproto.Atom `loadAtoms:"STRING"`
+	Text                 xproto.Atom `loadAtoms:"TEXT"`
+	TextPlain            xproto.Atom `loadAtoms:"text/plain"`
+	TextPlainCharsetUtf8 xproto.Atom `loadAtoms:"text/plain;charset=utf-8"`
 }
