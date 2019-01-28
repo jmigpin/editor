@@ -13,22 +13,35 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-// Editor Row file Info.
+// TODO: become an interface, with file/dir/special implementations.
+
+// Editor Row Info.
 type ERowInfo struct {
 	ERows []*ERow
 
 	Ed *Editor
 
-	name  string // special name, or filename
+	name  string // filename, or special name
 	fi    os.FileInfo
 	fiErr error
 
-	savedHash struct { // saved (known) filesystem hash
+	// savedHash keeps the hash known even if the file gets deleted and reappears later
+	savedHash struct {
 		size int
 		hash []byte
 	}
-	fsHash struct { // filesystem hash
+
+	// filesystem hash (reflects changes by other programs)
+	fsHash struct {
+		//size    int
+		hash    []byte
 		modTime time.Time
+	}
+
+	// not always up to date, used if the hash is being requested without the contents being changed
+	editedHash struct {
+		updated bool
+		size    int
 		hash    []byte
 	}
 }
@@ -104,6 +117,34 @@ func (info *ERowInfo) Dir() string {
 
 //----------
 
+func (info *ERowInfo) editedHashNeedsUpdate() {
+	info.editedHash.updated = false
+}
+
+func (info *ERowInfo) updateEditedHash() {
+	if len(info.ERows) == 0 {
+		return
+	}
+	if info.editedHash.updated {
+		return
+	}
+	// read from one of the erows
+	erow0 := info.ERows[0]
+	b, err := erow0.Row.TextArea.Bytes()
+	if err != nil {
+		return
+	}
+	info.setEditedHash(bytesHash(b), len(b))
+}
+
+//----------
+
+func (info *ERowInfo) setEditedHash(hash []byte, size int) {
+	info.editedHash.size = size
+	info.editedHash.hash = hash
+	info.editedHash.updated = true
+}
+
 func (info *ERowInfo) setSavedHash(hash []byte, size int) {
 	info.savedHash.size = size
 	info.savedHash.hash = hash
@@ -114,8 +155,9 @@ func (info *ERowInfo) setFsHash(hash []byte) {
 	if info.fi == nil {
 		return
 	}
-	info.fsHash.modTime = info.fi.ModTime()
+	//info.fsHash.size = int(info.fi.Size()) // TODO: downgrading if 32bit system
 	info.fsHash.hash = hash
+	info.fsHash.modTime = info.fi.ModTime()
 	info.UpdateFsDifferRowState()
 }
 
@@ -316,8 +358,8 @@ func (info *ERowInfo) readFsFile() ([]byte, error) {
 	}
 
 	// update data
-	h := bytesHash(b)
 	info.readFileInfo() // get new modtime
+	h := bytesHash(b)
 	info.setFsHash(h)
 
 	return b, err
@@ -365,12 +407,9 @@ func (info *ERowInfo) EqualToBytesHash(size int, hash []byte) bool {
 	if erow0.Row.TextArea.Len() != size {
 		return false
 	}
-	b, err := erow0.Row.TextArea.Bytes()
-	if err != nil {
-		return false
-	}
-	hash2 := bytesHash(b)
-	return bytes.Equal(hash2, hash)
+
+	info.updateEditedHash()
+	return bytes.Equal(hash, info.editedHash.hash)
 }
 
 //----------
@@ -379,6 +418,7 @@ func (info *ERowInfo) UpdateEditedRowState() {
 	if !info.IsFileButNotDir() {
 		return
 	}
+	info.editedHashNeedsUpdate()
 	edited := !info.EqualToBytesHash(info.savedHash.size, info.savedHash.hash)
 	info.updateRowState(ui.RowStateEdited, edited)
 }
