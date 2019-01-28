@@ -41,9 +41,7 @@ func (client *Client) Wait() {
 }
 
 func (client *Client) Close() error {
-	if client.Conn != nil {
-		return client.Conn.Close()
-	}
+	return client.Conn.Close()
 	return nil
 }
 
@@ -71,6 +69,13 @@ func (client *Client) connect(ctx context.Context) error {
 
 		// connected
 		client.Conn = conn0
+
+		// close client if context gets canceled
+		go func() {
+			<-ctx.Done()
+			_ = client.Close()
+		}()
+
 		return nil
 	}
 }
