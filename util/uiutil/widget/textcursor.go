@@ -98,11 +98,15 @@ func (tc *TextCursor) SelectionIndex() int {
 
 func (tc *TextCursor) SetSelection(si, ci int) {
 	tc.SetIndex(ci)
-	if tc.state.selectionIndex != si {
-		tc.state.selectionIndex = si
-		tc.te.MarkNeedsPaint()
+	if ci == si {
+		tc.SetSelectionOff()
+	} else {
+		tc.state.selectionOn = true
+		if tc.state.selectionIndex != si {
+			tc.state.selectionIndex = si
+			tc.te.MarkNeedsPaint()
+		}
 	}
-	tc.state.selectionOn = ci != si
 }
 
 func (tc *TextCursor) SetSelectionUpdate(on bool, ci int) {
