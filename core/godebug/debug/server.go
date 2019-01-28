@@ -22,29 +22,42 @@ var ServerAddress string
 //----------
 
 type Server struct {
-	ln      net.Listener
-	cconn   *ClientConn
+	ln    net.Listener
+	cconn net.Conn // only one client at a time
+
 	running sync.RWMutex
-	wg      sync.WaitGroup
+
+	lnWg, cWg, slWg sync.WaitGroup
+	slch            chan interface{} // sending loop channel
 }
 
 func NewServer() (*Server, error) {
 	logger.Print("listen")
+
+	// start listening
 	ln, err := net.Listen(ServerNetwork, ServerAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	srv := &Server{ln: ln}
+	srv.slch = make(chan interface{}, 10)
 
-	// start locked (no client)
+	// start locked (not running, no client)
 	srv.running.Lock()
 
 	// accept connections
-	srv.wg.Add(1)
+	srv.lnWg.Add(1)
 	go func() {
-		defer srv.wg.Done()
+		defer srv.lnWg.Done()
 		srv.acceptClientsLoop()
+	}()
+
+	// sending loop
+	srv.slWg.Add(1)
+	go func() {
+		defer srv.slWg.Done()
+		srv.sendingLoop()
 	}()
 
 	return srv, nil
@@ -53,25 +66,31 @@ func NewServer() (*Server, error) {
 func (srv *Server) Close() {
 	logger.Println("closing server")
 
+	// close sending loop before stoping client
+	close(srv.slch)
+	srv.slWg.Wait()
+
+	// close client before stoping listener
 	srv.closeClient()
+	srv.cWg.Wait()
 
 	// close listener
 	_ = srv.ln.Close()
-
-	// wait for the listener to be closed, as well as the client receive loop
-	srv.wg.Wait()
+	srv.lnWg.Wait()
 }
 
 func (srv *Server) closeClient() {
 	if srv.cconn == nil {
 		return
 	}
-	err := srv.cconn.conn.Close()
+
+	srv.running.Lock() // stop running
+
+	err := srv.cconn.Close()
 	if err != nil {
 		logger.Print(err)
 	}
 	srv.cconn = nil
-	srv.running.Lock()
 }
 
 //----------
@@ -101,22 +120,22 @@ func (srv *Server) acceptClientsLoop() {
 		srv.closeClient()
 
 		// keep client connection
-		srv.cconn = NewClientConn(conn)
+		srv.cconn = conn
 
 		// receive messages from client
-		srv.wg.Add(1)
-		go func(cconn *ClientConn) {
-			defer srv.wg.Done()
-			srv.receiveClientMsgsLoop(cconn)
-		}(srv.cconn)
+		srv.cWg.Add(1)
+		go func() {
+			defer srv.cWg.Done()
+			srv.receiveClientMsgsLoop()
+		}()
 	}
 }
 
 //----------
 
-func (srv *Server) receiveClientMsgsLoop(cconn *ClientConn) {
+func (srv *Server) receiveClientMsgsLoop() {
 	for {
-		msg, err := DecodeMessage(cconn.conn)
+		msg, err := DecodeMessage(srv.cconn)
 		if err != nil {
 			logger.Print(err)
 
@@ -133,7 +152,7 @@ func (srv *Server) receiveClientMsgsLoop(cconn *ClientConn) {
 
 			// always print if the error reaches here
 			log.Print(err)
-			continue
+			return
 		}
 
 		// handle msg
@@ -141,17 +160,10 @@ func (srv *Server) receiveClientMsgsLoop(cconn *ClientConn) {
 		case *ReqFilesDataMsg:
 			logger.Print("sending files data")
 			msg := &FilesDataMsg{Data: AnnotatorFilesData}
-			encoded, err := EncodeMessage(msg)
-			if err != nil {
-				logger.Print(err)
-				break
-			}
-			if _, err := cconn.conn.Write(encoded); err != nil {
-				logger.Print(err)
-			}
+			srv.send3(msg)
 		case *ReqStartMsg:
 			logger.Print("running unlocked")
-			srv.running.Unlock()
+			srv.running.Unlock() // start running
 		default:
 			// always print if there is a new msg type
 			log.Printf("todo: unexpected msg type")
@@ -161,32 +173,38 @@ func (srv *Server) receiveClientMsgsLoop(cconn *ClientConn) {
 
 //----------
 
-func (srv *Server) Send(v interface{}) {
-	// NOTE: send order is important, can't naively make this concurrent
+func (srv *Server) sendingLoop() {
+	for {
+		v, ok := <-srv.slch
+		if !ok {
+			break
+		}
+		srv.send2(v)
+	}
+}
 
-	// wait for start
-	srv.running.RLock()
-	srv.running.RUnlock()
+func (srv *Server) send2(v interface{}) {
 
-	// encode msg
+	srv.send3(v)
+}
+
+func (srv *Server) send3(v interface{}) {
 	encoded, err := EncodeMessage(v)
 	if err != nil {
 		panic(err)
 	}
-
-	// send
-	if _, err := srv.cconn.conn.Write(encoded); err != nil {
+	if _, err := srv.cconn.Write(encoded); err != nil {
 		logger.Print(err)
-		srv.closeClient()
 	}
 }
 
 //----------
 
-type ClientConn struct {
-	conn net.Conn
-}
+func (srv *Server) Send(v interface{}) {
+	// wait for start/running
+	srv.running.RLock()
+	defer srv.running.RUnlock()
 
-func NewClientConn(conn net.Conn) *ClientConn {
-	return &ClientConn{conn: conn}
+	// send order is important
+	srv.slch <- v
 }
