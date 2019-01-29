@@ -15,7 +15,7 @@ func OpenSession(erow *core.ERow, index int) (bool, error) {
 	nameRune := func(ru rune) bool {
 		return unicode.IsLetter(ru) ||
 			unicode.IsDigit(ru) ||
-			strings.ContainsRune("_\\-\\.", ru)
+			strings.ContainsRune("_-.", ru)
 	}
 
 	// match cmd
