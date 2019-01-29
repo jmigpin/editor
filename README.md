@@ -253,6 +253,8 @@ Plugins located at: `./plugins`.
 - basic mouse navigation
 	- `buttonLeft`: move cursor to point
 		- drag: selects text - works as copy making it available for paste (primary selection).
+		- double-click: selects word
+		- triple-click: selects line
 	- `shift`+`buttonLeft`: move cursor to point adding to selection
 	- `buttonRight`: move cursor to point + text area cmd
 	- `buttonWheelUp`: scroll up
