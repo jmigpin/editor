@@ -85,28 +85,28 @@ The row toolbar has a square showing the state of the row.
 
 Commands in toolbars are separated by "|" (not to be confused with the shell pipe). If a shell pipe is needed it should be escaped with a backslash.
 
-All commands implemented by the editor start with an **Uppercase letter**. Otherwise it tries to run an existent external program. 
+All internal commands start with an **Uppercase letter**. Otherwise it tries to run an existent external program. 
 
 Examples:
-  - `~/tmp/subdir/file1.txt | ls`
-  Clicking at `ls` will run `ls` at `~/tmp/subdir`
-  - `~/tmp/subdir/file1.txt | ls -l \| grep fi`
-  Notice how "|" is escaped, allowing to run `ls -l | grep fi`
-  - `~/tmp/subdir/file1.txt`
-  Clicking at `file1.txt` opens a new row to edit the same file.
-  Clicking at `~/tmp` opens a new row located at that directory.
-  - `gorename -offset $edPosOffset -to abc`
-  Usage of external command with active row position as argument.
-  [gorename godoc](https://godoc.org/golang.org/x/tools/cmd/gorename), [go tools](https://github.com/golang/tools).
-  - `guru -scope fmt callers $edPosOffset`
-  Usage of external command with active row position as argument.
-  [guru godoc](https://godoc.org/golang.org/x/tools/cmd/guru), [go tools](https://github.com/golang/tools).
-  - `grep -niIR someword`
-  Grep results with line positions that are clickable.
-  - `xdg-open $edDir`
-  Open favorite external application with active row directory.
-  - `xterm` 
-  Open an xterm at the active row directory.
+- `~/tmp/subdir/file1.txt | ls`
+Clicking at `ls` will run `ls` at `~/tmp/subdir`
+- `~/tmp/subdir/file1.txt | ls -l \| grep fi`
+Notice how "|" is escaped, allowing to run `ls -l | grep fi`
+- `~/tmp/subdir/file1.txt`
+Clicking at `file1.txt` opens a new row to edit the same file.
+Clicking at `~/tmp` opens a new row located at that directory.
+- `gorename -offset $edPosOffset -to abc`
+Usage of external command with active row position as argument.
+[gorename godoc](https://godoc.org/golang.org/x/tools/cmd/gorename), [go tools](https://github.com/golang/tools).
+- `guru -scope fmt callers $edPosOffset`
+Usage of external command with active row position as argument.
+[guru godoc](https://godoc.org/golang.org/x/tools/cmd/guru), [go tools](https://github.com/golang/tools).
+- `grep -niIR someword`
+Grep results with line positions that are clickable.
+- `xdg-open $edDir`
+Open favorite external application with active row directory.
+- `xterm`
+Open an xterm at the active row directory.
 
 ## Commands
 
@@ -138,29 +138,31 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `Replace <old> <new>`: replaces old string with new, respects selections
 - `Stop`: stops current process (external cmd) running in the row
 - `ListDir`: lists directory
-  - `-sub`: lists directory and sub directories
-  - `-hidden`: lists directory including hidden
+	- `-sub`: lists directory and sub directories
+	- `-hidden`: lists directory including hidden
 - `MaximizeRow`: maximize row. Will push other rows up/down.
 - `CopyFilePosition`: copy to clipboard/primary the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
 - `ToggleRowHBar`: toggles row textarea horizontal scrollbar.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
 - `GoDebug <command> [arguments]`: debugger utility for go programs.
-  - `-h`: help (show usage).
-  - `-dirs`: comma separated directories to include in the debug session.
-  - `-files`: comma separated files to include in the debug session (allows avoiding big directories).
-  - `-work`: print out temporary work dir and don't cleanup (allows to see the generated code).
-  - use `esc` key to stop the debug session.
-  - Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.
-    - `debug.SetSend(bool)`
-  - When debugging, take care of functions that implement fmt.Stringer that get called. Consider the example:
-    ```
-	type binary int
-	func (b binary) String() string{
-		return fmt.Sprintf("%b", b) // godebug will enter into endless loop
-	}
-    ```
-    When trying to print the value of `b` for debugging, the argument of `Sprintf`, it will call again `func (b binary) String()`, and enter into a loop.
+	- `-h`: help (show usage).
+	- `-dirs`: comma separated directories to include in the debug session.
+	- `-files`: comma separated files to include in the debug session (allows avoiding big directories).
+	- `-work`: print out temporary work dir and don't cleanup (allows to see the generated code).
+	- notes
+		- use `esc` key to stop the debug session.
+		- supports remote debugging (check help usage).
+		- Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.
+			- `debug.SetSend(bool)`
+		- When debugging, take care of functions that implement fmt.Stringer that get called. Consider the example:
+			```
+			type binary int
+			func (b binary) String() string{
+			return fmt.Sprintf("%b", b) // godebug will enter into endless loop
+			}
+			```
+			When trying to print the value of `b` for debugging, the argument of `Sprintf`, it will call again `func (b binary) String()`, and enter into a loop.
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open another row to edit the same file.
 
 *Textarea commands*
@@ -179,13 +181,13 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 ## Row states
 
 - background colors:
-  - `blue`: row file has been edited.
-  - `orange`: row file doesn't exist.
+	- `blue`: row file has been edited.
+	- `orange`: row file doesn't exist.
 - dot colors:
-  - `black`: row currently active. There is only one active row.
-  - `red`: row file was edited outside (changed on disk) and doesn't match last known save. Use `Reload` cmd to update.
-  - `blue`: there are other rows with the same filename (2 or more).
-  - `yellow`: there are other rows with the same filename (2 or more). Color will change when the pointer is over one of the rows.
+	- `black`: row currently active. There is only one active row.
+	- `red`: row file was edited outside (changed on disk) and doesn't match last known save. Use `Reload` cmd to update.
+	- `blue`: there are other rows with the same filename (2 or more).
+	- `yellow`: there are other rows with the same filename (2 or more). Color will change when the pointer is over one of the rows.
 
 ## Plugins
 
@@ -214,13 +216,13 @@ Plugins located at: `./plugins`.
 
 - `esc`: stop debugging session
 - `f1`: toggle context float box
-  - triggers call to plugins that implement `AutoComplete`
+	- triggers call to plugins that implement `AutoComplete`
 
 *Column key/button shortcuts*
 
 - `buttonLeft`:
-  - on left border: drag to move/resize
-  - on square-button: close
+	- on left border: drag to move/resize
+	- on square-button: close
 
 *Row key/button shortcuts*
 
@@ -228,66 +230,70 @@ Plugins located at: `./plugins`.
 - `ctrl`+`f`: warp pointer to "Find" cmd in row toolbar
 - `buttonLeft` on square-button: close row
 - on top border:
-  - `buttonLeft`: drag to move/resize row
-  - `buttonMiddle`: close row
-  - `buttonWheelUp`: adjust row vertical position, pushing other rows up
-  - `buttonWheelDown`: adjust row vertical position, pushing other rows down
+	- `buttonLeft`: drag to move/resize row
+	- `buttonMiddle`: close row
+	- `buttonWheelUp`: adjust row vertical position, pushing other rows up
+	- `buttonWheelDown`: adjust row vertical position, pushing other rows down
 - Any button/key press: make row active to layout toolbar commands
 
 *Textarea key/button shortcuts*
-
-- `left`: move cursor left
-- `right`: move cursor right
-- `up`: move cursor up
-- `down`: move cursor down
-- `home`: start of line
-- `end`: end of line
-- `delete`: delete current rune
-- `backspace`: delete previous rune
-- `pageUp`: page up
-- `pageDown`: page down
-- `tab` (if selection is on): insert tab at beginning of lines
-- `shift`+`left`: move cursor left adding to selection
-- `shift`+`right`: move cursor right adding to selection
-- `shift`+`up`: move cursor up adding to selection
-- `shift`+`down`: move cursor down adding to selection
-- `shift`+`home`: start of string adding to selection
-- `shift`+`end`: end of string adding to selection
-- `shift`+`tab`: remove tab from beginning of line
-- `ctrl`+`a`: select all
-- `ctrl`+`c`: copy to clipboard
-- `ctrl`+`d`: comment lines
-- `ctrl`+`k`: remove lines
-- `ctrl`+`v`: paste from clipboard
-- `ctrl`+`x`: cut
-- `ctrl`+`z`: undo
-- `ctrl`+`alt`+`down`: move line down
-- `ctrl`+`alt`+`shift`+`down`: duplicate lines
-- `ctrl`+`shift`+`z`: redo
-- `ctrl`+`shift`+`d`: uncomment lines
-- `buttonLeft`: move cursor to point
-  - drag: selects text - works as copy making it available for paste (primary selection).
-- `buttonMiddle`: paste from primary
-- `buttonRight`: move cursor to point + text area cmd
-- `buttonWheelUp`: scroll up
-- `buttonWheelDown`: scroll down
-- `buttonWheelUp` on scrollbar: page up
-- `buttonWheelDown` on scrollbar: page down
-- `shift`+`buttonLeft`: move cursor to point adding to selection
-- `ctrl`+`buttonLeft`:
-  - `godebug`: select annotation 
-- `ctrl`+`buttonRight`:
-  - `godebug` over an annotation: print the annotation value.
-- `ctrl`+`buttonWheelUp`: 
-  - `godebug` on textarea: show previous debug step
-  - `godebug` over an annotation: show line previous annotation
-- `ctrl`+`buttonWheelDown`: 
-  - `godebug` on textarea: show next debug step
-  - `godebug` over an annotation: show line next annotation
-- `ctrl`+`f5`: 
-  - `godebug` on textarea: show last debug step
-- `ctrl`+`f9`: 
-  - `godebug` on textarea: clear debug messages (continues debugging)
+- basic keyboard navigation
+	- `left`: move cursor left
+	- `right`: move cursor right
+	- `up`: move cursor up
+	- `down`: move cursor down
+	- `home`: start of line
+	- `end`: end of line
+	- `delete`: delete current rune
+	- `backspace`: delete previous rune
+	- `pageUp`: page up
+	- `pageDown`: page down
+- basic mouse navigation
+	- `buttonLeft`: move cursor to point
+		- drag: selects text - works as copy making it available for paste (primary selection).
+	- `shift`+`buttonLeft`: move cursor to point adding to selection
+	- `buttonRight`: move cursor to point + text area cmd
+	- `buttonWheelUp`: scroll up
+	- `buttonWheelDown`: scroll down
+	- `buttonWheelUp` on scrollbar: page up
+	- `buttonWheelDown` on scrollbar: page down
+- selection
+	- `shift`+`left`: move cursor left adding to selection
+	- `shift`+`right`: move cursor right adding to selection
+	- `shift`+`up`: move cursor up adding to selection
+	- `shift`+`down`: move cursor down adding to selection
+	- `shift`+`home`: start of string adding to selection
+	- `shift`+`end`: end of string adding to selection
+	- `ctrl`+`a`: select all
+- copy/paste
+	- `ctrl`+`c`: copy to clipboard
+	- `ctrl`+`v`: paste from clipboard
+	- `ctrl`+`x`: cut
+	- `buttonMiddle`: paste from primary
+- undo/redo
+	- `ctrl`+`z`: undo
+	- `ctrl`+`shift`+`z`: redo
+- utils
+	- `tab` (if selection is on): insert tab at beginning of lines
+	- `shift`+`tab`: remove tab from beginning of lines
+	- `ctrl`+`k`: remove lines
+	- `ctrl`+`alt`+`down`: move line down
+	- `ctrl`+`alt`+`shift`+`down`: duplicate lines
+	- `ctrl`+`d`: comment lines
+	- `ctrl`+`shift`+`d`: uncomment lines
+- godebug
+	- `ctrl`+`buttonLeft`: select annotation
+	- `ctrl`+`buttonRight`: over an annotation: print the annotation value.
+	- `ctrl`+`buttonWheelUp`:
+		- on textarea: show previous debug step
+		- over an annotation: show line previous annotation
+	- `ctrl`+`buttonWheelDown`:
+		- on textarea: show next debug step
+		- over an annotation: show line next annotation
+	- `ctrl`+`f5`:
+		- on textarea: show last debug step
+	- `ctrl`+`f9`:
+		- on textarea: clear debug messages (continues debugging)
 
 ## Row placement algorithm
 
@@ -302,6 +308,6 @@ The measuring of space is done as follows:
 ## Notes
 
 - Notable projects that inspired many features:
-  - Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU 
-  - Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
+	- Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU 
+	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
