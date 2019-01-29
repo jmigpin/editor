@@ -22,84 +22,60 @@ var ServerAddress string
 //----------
 
 type Server struct {
-	ln    net.Listener
-	cconn net.Conn // only one client at a time
-
-	running sync.RWMutex
-
-	lnWg, cWg, slWg sync.WaitGroup
-	slch            chan interface{} // sending loop channel
+	ln     net.Listener
+	lnwait sync.WaitGroup
+	client struct {
+		sync.RWMutex
+		conn *CConn
+	}
+	sendReady sync.RWMutex
 }
 
 func NewServer() (*Server, error) {
-	logger.Print("listen")
-
 	// start listening
+	logger.Print("listen")
 	ln, err := net.Listen(ServerNetwork, ServerAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	srv := &Server{ln: ln}
-	srv.slch = make(chan interface{}, 10)
-
-	// start locked (not running, no client)
-	srv.running.Lock()
+	srv.sendReady.Lock() // not ready to send (no client yet)
 
 	// accept connections
-	srv.lnWg.Add(1)
+	srv.lnwait.Add(1)
 	go func() {
-		defer srv.lnWg.Done()
+		defer srv.lnwait.Done()
 		srv.acceptClientsLoop()
-	}()
-
-	// sending loop
-	srv.slWg.Add(1)
-	go func() {
-		defer srv.slWg.Done()
-		srv.sendingLoop()
 	}()
 
 	return srv, nil
 }
 
+//----------
+
 func (srv *Server) Close() {
 	logger.Println("closing server")
 
-	// close sending loop before stoping client
-	close(srv.slch)
-	srv.slWg.Wait()
-
-	// close client before stoping listener
-	srv.closeClient()
-	srv.cWg.Wait()
-
 	// close listener
 	_ = srv.ln.Close()
-	srv.lnWg.Wait()
-}
+	srv.lnwait.Wait()
 
-func (srv *Server) closeClient() {
-	if srv.cconn == nil {
-		return
+	// close client
+	srv.client.Lock()
+	if srv.client.conn != nil {
+		srv.client.conn.Close()
+		srv.client.conn = nil
 	}
-
-	srv.running.Lock() // stop running
-
-	err := srv.cconn.Close()
-	if err != nil {
-		logger.Print(err)
-	}
-	srv.cconn = nil
+	srv.client.Unlock()
 }
 
 //----------
 
 func (srv *Server) acceptClientsLoop() {
 	for {
-		logger.Println("waiting for client")
-
 		// accept client
+		logger.Println("waiting for client")
 		conn, err := srv.ln.Accept()
 		if err != nil {
 			logger.Print(err)
@@ -107,38 +83,97 @@ func (srv *Server) acceptClientsLoop() {
 			// unable to accept (ex: server was closed)
 			if operr, ok := err.(*net.OpError); ok {
 				if operr.Op == "accept" {
-					break
+					return
 				}
 			}
 
 			continue
 		}
-
 		logger.Println("got client")
 
-		// if there was a client, close connection
-		srv.closeClient()
-
-		// keep client connection
-		srv.cconn = conn
-
-		// receive messages from client
-		srv.cWg.Add(1)
-		go func() {
-			defer srv.cWg.Done()
-			srv.receiveClientMsgsLoop()
-		}()
+		// start client
+		srv.client.Lock()
+		if srv.client.conn != nil {
+			srv.client.conn.Close() // close previous connection
+		}
+		srv.client.conn = NewCCon(srv, conn)
+		srv.client.Unlock()
 	}
 }
 
 //----------
 
-func (srv *Server) receiveClientMsgsLoop() {
-	for {
-		msg, err := DecodeMessage(srv.cconn)
-		if err != nil {
-			logger.Print(err)
+func (srv *Server) Send(v interface{}) {
+	// locks if client is not ready to send
+	srv.sendReady.RLock()
+	defer srv.sendReady.RUnlock()
 
+	srv.client.conn.Send(v)
+}
+
+//----------
+
+// Client connection.
+type CConn struct {
+	srv          *Server
+	conn         net.Conn
+	rwait, swait sync.WaitGroup
+	sendch       chan interface{} // sending loop channel
+	reqStart     struct {
+		sync.Mutex
+		start   chan struct{}
+		started bool
+		closed  bool
+	}
+}
+
+func NewCCon(srv *Server, nconn net.Conn) *CConn {
+	conn := &CConn{srv: srv, conn: nconn}
+	conn.sendch = make(chan interface{}, 25)
+	conn.reqStart.start = make(chan struct{})
+
+	// receive messages
+	conn.rwait.Add(1)
+	go func() {
+		defer conn.rwait.Done()
+		conn.receiveMsgsLoop()
+	}()
+
+	// send msgs
+	conn.swait.Add(1)
+	go func() {
+		defer conn.swait.Done()
+		conn.sendMsgsLoop()
+	}()
+
+	return conn
+}
+
+func (conn *CConn) Close() {
+	conn.reqStart.Lock()
+	if conn.reqStart.started {
+		// not sendready anymore
+		conn.srv.sendReady.Lock()
+	}
+	conn.reqStart.closed = true
+	conn.reqStart.Unlock()
+
+	// close send msgs: can't close receive msgs first (closes client)
+	close(conn.reqStart.start) // ok even if it didn't start
+	close(conn.sendch)
+	conn.swait.Wait()
+
+	// close receive msgs
+	_ = conn.conn.Close()
+	conn.rwait.Wait()
+}
+
+//----------
+
+func (conn *CConn) receiveMsgsLoop() {
+	for {
+		msg, err := DecodeMessage(conn.conn)
+		if err != nil {
 			// unable to read (server was probably closed)
 			if operr, ok := err.(*net.OpError); ok {
 				if operr.Op == "read" {
@@ -160,10 +195,18 @@ func (srv *Server) receiveClientMsgsLoop() {
 		case *ReqFilesDataMsg:
 			logger.Print("sending files data")
 			msg := &FilesDataMsg{Data: AnnotatorFilesData}
-			srv.send3(msg)
+			if err := conn.send2(msg); err != nil {
+				log.Println(err)
+			}
 		case *ReqStartMsg:
-			logger.Print("running unlocked")
-			srv.running.Unlock() // start running
+			logger.Print("reqstart")
+			conn.reqStart.Lock()
+			if !conn.reqStart.started && !conn.reqStart.closed {
+				conn.reqStart.start <- struct{}{}
+				conn.reqStart.started = true
+				conn.srv.sendReady.Unlock()
+			}
+			conn.reqStart.Unlock()
 		default:
 			// always print if there is a new msg type
 			log.Printf("todo: unexpected msg type")
@@ -173,38 +216,37 @@ func (srv *Server) receiveClientMsgsLoop() {
 
 //----------
 
-func (srv *Server) sendingLoop() {
+func (conn *CConn) sendMsgsLoop() {
+	// wait for reqstart, or the client won't have the index data
+	_, ok := <-conn.reqStart.start
+	if !ok {
+		return
+	}
+
 	for {
-		v, ok := <-srv.slch
+		v, ok := <-conn.sendch
 		if !ok {
 			break
 		}
-		srv.send2(v)
+		if err := conn.send2(v); err != nil {
+			log.Println(err)
+		}
 	}
 }
 
-func (srv *Server) send2(v interface{}) {
-
-	srv.send3(v)
-}
-
-func (srv *Server) send3(v interface{}) {
+func (conn *CConn) send2(v interface{}) error {
 	encoded, err := EncodeMessage(v)
 	if err != nil {
 		panic(err)
 	}
-	if _, err := srv.cconn.Write(encoded); err != nil {
-		logger.Print(err)
+	if _, err := conn.conn.Write(encoded); err != nil {
+		return err
 	}
+	return nil
 }
 
 //----------
 
-func (srv *Server) Send(v interface{}) {
-	// wait for start/running
-	srv.running.RLock()
-	defer srv.running.RUnlock()
-
-	// send order is important
-	srv.slch <- v
+func (conn *CConn) Send(v interface{}) {
+	conn.sendch <- v
 }
