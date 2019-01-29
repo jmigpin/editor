@@ -339,6 +339,11 @@ func (cmd *Cmd) RequestStart() error {
 //------------
 
 func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
+	v := filepath.VolumeName(filename)
+	if len(v) > 0 {
+		filename = filename[len(v):]
+	}
+
 	_, rest := goutil.ExtractSrcDir(filename)
 	return filepath.Join(cmd.tmpDir, "src", rest)
 }
