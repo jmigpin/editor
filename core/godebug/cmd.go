@@ -393,8 +393,12 @@ func (cmd *Cmd) Cleanup() {
 
 //------------
 
+func (cmd *Cmd) execName(name string) string {
+	return replaceExt(name, osutil.ExecName("_godebug"))
+}
+
 func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
-	filenameOut := replaceExt(filename, "_godebug")
+	filenameOut := cmd.execName(filename)
 	args := []string{
 		osutil.GoExec(), "build",
 		"-o", filenameOut,
@@ -406,7 +410,7 @@ func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
 }
 
 func (cmd *Cmd) buildTest(ctx context.Context, filename string) (string, error) {
-	filenameOut := replaceExt(filename, "_godebug")
+	filenameOut := cmd.execName(filename)
 	args := []string{
 		osutil.GoExec(), "test",
 		"-c", // compile binary but don't run
