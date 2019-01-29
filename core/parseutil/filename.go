@@ -105,7 +105,7 @@ func ParseFilePos(str string) (*FilePos, error) {
 	if !ok {
 		return nil, fmt.Errorf("expecting filename")
 	}
-	fp := &FilePos{Filename: filename}
+	fp := &FilePos{Filename: filename, Offset: -1}
 
 	// ":"
 	if !s.AcceptAny(":") {
