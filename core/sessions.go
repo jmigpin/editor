@@ -63,9 +63,6 @@ type Session struct {
 	Name      string
 	RootTbStr string
 	Columns   []*ColumnState
-
-	// DEPRECATED: backward compatible
-	//LayoutTbStr string
 }
 
 func NewSessionFromEditor(ed *Editor) *Session {
@@ -84,11 +81,6 @@ func (s *Session) restore(ed *Editor) {
 	// layout toolbar
 	tbStr := s.RootTbStr
 
-	//// DEPRECATED: backward compatible
-	//if s.LayoutTbStr != "" {
-	//	tbStr = s.LayoutTbStr
-	//}
-
 	ed.UI.Root.Toolbar.SetStrClearHistory(tbStr)
 
 	// close all current columns
@@ -106,11 +98,6 @@ func (s *Session) restore(ed *Editor) {
 	uicolumns := uicols.Columns()
 	for i, c := range s.Columns {
 		sp := c.StartPercent
-
-		//// backward compatible
-		//if i > 0 && s.Columns[i-1].EndPercent != 0 {
-		//	sp = s.Columns[i-1].EndPercent
-		//}
 
 		uicols.ColsLayout.Spl.SetRawStartPercent(uicolumns[i], sp)
 	}
@@ -132,11 +119,6 @@ func (s *Session) restore(ed *Editor) {
 				// setup row size
 				sp := rs.StartPercent
 
-				//// backward compatible
-				//if j > 0 && c.Rows[j-1].EndPercent != 0 {
-				//	sp = c.Rows[j-1].EndPercent
-				//}
-
 				uicol.RowsLayout.Spl.SetRawStartPercent(erow.Row, sp)
 			}
 		}
@@ -153,9 +135,6 @@ func (s *Session) restore(ed *Editor) {
 type ColumnState struct {
 	StartPercent float64
 	Rows         []*RowState
-
-	// DEPRECATED: backward compatible
-	//EndPercent   float64
 }
 
 func NewColumnState(ed *Editor, col *ui.Column) *ColumnState {
@@ -178,9 +157,6 @@ type RowState struct {
 	TaCursorIndex int
 	TaOffsetIndex int
 	StartPercent  float64
-
-	// DEPRECATED: backward compatible
-	//EndPercent    float64
 }
 
 func NewRowState(row *ui.Row) *RowState {
