@@ -152,7 +152,9 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- `-work`: print out temporary work dir and don't cleanup (allows to see the generated code).
 	- notes
 		- use `esc` key to stop the debug session.
-		- supports remote debugging (check help usage).
+		- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
+		- Supports remote debugging (check help usage).
+			- A client can connect/disconnect any number of times, but there can be only one client at a time.
 		- Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.
 			- `debug.SetSend(bool)`
 		- When debugging, take care of functions that implement fmt.Stringer that get called. Consider the example:
