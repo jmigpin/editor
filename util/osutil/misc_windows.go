@@ -10,7 +10,10 @@ import (
 
 //----------
 
-var FilenameEscapeRunes = " %?<>()^"
+const EscapeRune = '^'
+const EscapeRunes = string(EscapeRune)
+
+const FilenameEscapeRunes = " %?<>()^"
 
 //----------
 

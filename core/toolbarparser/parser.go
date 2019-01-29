@@ -5,6 +5,7 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/statemach"
 )
 
@@ -90,10 +91,10 @@ func (p *Parser) parseArg() (*Arg, bool) {
 		if unicode.IsSpace(ru) {
 			return false
 		}
-		if p.sm.IsQuoteAccept(ru, parseutil.QuoteRunes, parseutil.EscapeRunes) {
+		if p.sm.IsQuoteAccept(ru, parseutil.QuoteRunes, osutil.EscapeRunes) {
 			return true
 		}
-		if p.sm.IsEscapeAccept(ru, parseutil.EscapeRunes) {
+		if p.sm.IsEscapeAccept(ru, osutil.EscapeRunes) {
 			return true
 		}
 		return true

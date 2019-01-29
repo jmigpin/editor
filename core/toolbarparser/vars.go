@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/statemach"
 )
 
@@ -54,7 +55,7 @@ func ParseVar(str string) (*Var, error) {
 
 	// value
 	var value string
-	if sm.AcceptQuote(parseutil.QuoteRunes, "\\") {
+	if sm.AcceptQuote(parseutil.QuoteRunes, osutil.EscapeRunes) {
 		value = sm.ValueUnquote(parseutil.QuoteRunes)
 		if len(value) == 0 {
 			return nil, errors.New("empty quoted value")

@@ -3,29 +3,15 @@ package parseutil
 import (
 	"errors"
 	"io"
-	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 const QuoteRunes = "\"'`"
-
-//----------
-
-var EscapeRune rune
-var EscapeRunes string
-
-func init() {
-	if runtime.GOOS == "windows" {
-		EscapeRune = '^'
-	} else {
-		EscapeRune = '\\'
-	}
-	EscapeRunes = string(EscapeRune)
-}
 
 //----------
 
@@ -170,7 +156,7 @@ func UnescapeString(str string) string {
 	w := []rune{}
 	esc := false
 	for _, ru := range str {
-		if !esc && strings.ContainsRune(EscapeRunes, ru) {
+		if !esc && strings.ContainsRune(osutil.EscapeRunes, ru) {
 			esc = true
 			continue
 		}
@@ -185,7 +171,7 @@ func UnescapeRunes(str, escapable string) string {
 	w := []rune{}
 	esc := false
 	for _, ru := range str {
-		if !esc && strings.ContainsRune(EscapeRunes, ru) {
+		if !esc && strings.ContainsRune(osutil.EscapeRunes, ru) {
 			esc = true
 			continue
 		}
@@ -194,7 +180,7 @@ func UnescapeRunes(str, escapable string) string {
 
 			// re-add escape rune if not one of the escapable runes
 			if !strings.ContainsRune(escapable, ru) {
-				w = append(w, EscapeRune)
+				w = append(w, osutil.EscapeRune)
 			}
 		}
 		w = append(w, ru)

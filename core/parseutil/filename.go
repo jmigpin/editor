@@ -22,7 +22,7 @@ func EscapeFilename(str string) string {
 	w := []rune{}
 	for _, ru := range str {
 		if strings.ContainsRune(osutil.FilenameEscapeRunes, ru) {
-			w = append(w, EscapeRune)
+			w = append(w, osutil.EscapeRune)
 		}
 		w = append(w, ru)
 	}
@@ -33,7 +33,7 @@ func EscapeFilename(str string) string {
 
 func AcceptAdvanceFilename(s *statemach.String) (string, bool) {
 	r := s.AcceptLoopFn(func(ru rune) bool {
-		if s.IsEscapeAccept(ru, EscapeRunes) {
+		if s.IsEscapeAccept(ru, osutil.EscapeRunes) {
 			return true
 		}
 		return isFilenameRune(ru)
@@ -61,7 +61,7 @@ func ExpandLastIndexOfFilenameFmt(str string, max int) int {
 			// allow expanding ':' without escaping
 			isColon := w[len(w)-1] == ':'
 
-			if ru == EscapeRune || isColon {
+			if ru == osutil.EscapeRune || isColon {
 				esc = false
 				w = []rune{}
 				return true

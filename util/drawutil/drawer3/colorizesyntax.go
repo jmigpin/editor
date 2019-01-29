@@ -82,7 +82,7 @@ func (cs *ColorizeSyntax) preState(r *ExtRunner) {
 		}
 	case CSSString:
 		// escape rune inside string
-		if r.RR.Ru == '\\' {
+		if r.RR.Ru == '\\' { // not os-specific escape rune
 			cs.data.state = CSSStringEscape
 			cs.data.index = r.RR.Ri + len(string(r.RR.Ru))
 		}
