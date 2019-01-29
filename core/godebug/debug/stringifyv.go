@@ -19,9 +19,11 @@ func stringifyV(v V) string {
 			str = fmt.Sprintf("%v", t)
 		}
 	case string, error:
-		str = ReducedSprintf(max, "%q", t)
+		//str = ReducedSprintf(max, "%q", t)
+		str = ReducedSprintf(max, "%s", t)
 	case fmt.Stringer:
-		str = ReducedSprintf(max, "%q", t.String())
+		//str = ReducedSprintf(max, "%q", t.String())
+		str = ReducedSprintf(max, "%s", t)
 	case float32:
 		str = strconv.FormatFloat(float64(t), 'f', -1, 32)
 	case float64:
@@ -37,10 +39,12 @@ func ReducedSprintf(max int, format string, a ...interface{}) string {
 	_, err := fmt.Fprintf(w, format, a...)
 	s := string(w.Bytes())
 	if err != nil {
-		if s[0] != '"' { // keep existing quote if present
-			s = "\"" + s
-		}
-		s += "...\"" // "◦◦◦"
+		//const q = '"'
+		//if rune(s[0]) != q { // keep existing quote if present
+		//	s = string(q) + s
+		//}
+		//s += "..." + string(q)
+		s += "..."
 	}
 	return s
 }
