@@ -15,6 +15,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func OnLoad(ed *core.Editor) {
@@ -39,7 +40,7 @@ func goToDefinition(erow *core.ERow, index int) (handled bool, err error) {
 	// it's a go file, return true from here
 
 	// godef args
-	args := []string{"godef", "-i", "-f", erow.Info.Name(), "-o", strconv.Itoa(index)}
+	args := []string{osutil.ExecName("godef"), "-i", "-f", erow.Info.Name(), "-o", strconv.Itoa(index)}
 
 	// godef can read from stdin: use textarea bytes
 	bin, err := erow.Row.TextArea.Bytes()

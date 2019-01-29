@@ -21,7 +21,7 @@ func GoPath() []string {
 		add(filepath.SplitList(gopath)...)
 	} else {
 		// from go/build/build.go:270:3
-		add(filepath.Join(osutil.HomeEnvVar(), osutil.GoExec()))
+		add(filepath.Join(osutil.HomeEnvVar(), "go"))
 	}
 
 	return a
@@ -30,12 +30,6 @@ func GoPath() []string {
 //----------
 
 func ExtractSrcDir(filename string) (string, string) {
-	// TODO: can't do this here since abs will use current dir
-	//u, err := filepath.Abs(filename)
-	//if err == nil {
-	//	filename = u
-	//}
-
 	srcDir := ""
 	for _, d := range build.Default.SrcDirs() {
 		d += "/"

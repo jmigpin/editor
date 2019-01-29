@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 // TODO: become an interface, with file/dir/special implementations.
@@ -537,5 +538,5 @@ func runGoImports(s []byte, dir string) ([]byte, error) {
 	defer cancel()
 
 	r := bytes.NewReader(s)
-	return ExecCmdStdin(ctx, dir, r, "goimports")
+	return ExecCmdStdin(ctx, dir, r, osutil.ExecName("goimports"))
 }

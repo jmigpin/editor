@@ -15,6 +15,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -58,7 +59,7 @@ func autoCompleteERowGolang(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core
 	// gocode args
 	filename := erow.Info.Name()
 	offset := erow.Row.TextArea.TextCursor.Index()
-	args := []string{"gocode", "autocomplete", fmt.Sprintf("%v", offset)}
+	args := []string{osutil.ExecName("gocode"), "autocomplete", fmt.Sprintf("%v", offset)}
 
 	// gocode can read from stdin: use textarea bytes
 	bin, err := erow.Row.TextArea.Bytes()

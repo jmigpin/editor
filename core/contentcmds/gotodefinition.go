@@ -10,6 +10,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func GoToDefinition(erow *core.ERow, index int) (bool, error) {
@@ -29,7 +30,7 @@ func GoToDefinition(erow *core.ERow, index int) (bool, error) {
 
 	// go guru args
 	pos := fmt.Sprintf("%v:#%v", erow.Info.Name(), index)
-	args := []string{"guru", "-modified", "definition", pos}
+	args := []string{osutil.ExecName("guru"), "-modified", "definition", pos}
 
 	// use stdin
 	in := &bytes.Buffer{}
