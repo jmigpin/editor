@@ -159,6 +159,9 @@ func (erow *ERow) parseToolbar() {
 	ename := erow.Ed.HomeVars.Encode(erow.Info.Name())
 	arg0, ok := data.Part0Arg0()
 	if !ok {
+		erow.Row.Toolbar.TextHistory.Undo()
+		erow.Row.Toolbar.TextHistory.ClearForward()
+		erow.Ed.Errorf("unable to get toolbar name")
 		return
 	}
 	ename2 := arg0.UnquotedStr()
