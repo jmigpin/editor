@@ -1,8 +1,6 @@
 package fswatcher
 
 import (
-	"path/filepath"
-
 	fsnotify "github.com/fsnotify/fsnotify"
 )
 
@@ -62,27 +60,16 @@ func (w *FsnWatcher) eventLoop() {
 			if !ok {
 				return
 			}
-
-			//log.Printf("got err %v", err)
-
 			w.events <- err
 
 		case ev, ok := <-w.w.Events:
 			if !ok {
 				return
 			}
-
-			//log.Printf("fsnotify ev %v", ev)
-
 			name := ev.Name
-			subName := ""
-
 			var op Op
 			if ev.Op&fsnotify.Create > 0 {
 				op.Add(Create)
-				// make event name dir, with subname file
-				n, sn := filepath.Split(name)
-				name, subName = filepath.Clean(n), sn
 			}
 			if ev.Op&fsnotify.Write > 0 {
 				op.Add(Modify)
@@ -99,7 +86,7 @@ func (w *FsnWatcher) eventLoop() {
 
 			op2 := op & w.opMask
 			if op2 > 0 {
-				w.events <- &Event{Op: op, Name: name, SubName: subName}
+				w.events <- &Event{Op: op, Name: name}
 			} else {
 				//log.Printf("not sending event: %v", ev)
 			}

@@ -57,18 +57,19 @@ func mustWriteFile(t *testing.T, name string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	data := []byte(fmt.Sprintf("%v", rand.Int()))
-
 	n, err := f.Write(data)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if n < len(data) {
 		t.Fatal("short write")
-	}
-	if err := f.Close(); err != nil {
-		t.Fatal(err)
 	}
 }
 

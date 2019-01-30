@@ -1,9 +1,5 @@
 package fswatcher
 
-import (
-	"path/filepath"
-)
-
 type Watcher interface {
 	Add(name string) error
 	Remove(name string) error
@@ -15,13 +11,8 @@ type Watcher interface {
 //----------
 
 type Event struct {
-	Op      Op
-	Name    string
-	SubName string
-}
-
-func (ev *Event) JoinNames() string {
-	return filepath.Join(ev.Name, ev.SubName)
+	Op   Op
+	Name string
 }
 
 //----------

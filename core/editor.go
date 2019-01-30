@@ -138,10 +138,8 @@ func (ed *Editor) fswatcherEventLoop() {
 }
 
 func (ed *Editor) handleWatcherEvent(ev *fswatcher.Event) {
-	name := ev.JoinNames() // handle event target (join names)
-	info, ok := ed.ERowInfos[name]
+	info, ok := ed.ERowInfos[ev.Name]
 	if ok {
-		// TODO: forcing to run on ui goroutine should be done at a lower level
 		ed.UI.RunOnUIGoRoutine(func() {
 			info.UpdateDiskEvent()
 		})

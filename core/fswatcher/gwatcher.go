@@ -1,8 +1,10 @@
 package fswatcher
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -62,7 +64,7 @@ func (gw *GWatcher) eventLoop() {
 	}
 }
 func (gw *GWatcher) handleEv(ev *Event) {
-	u := ev.JoinNames()
+	u := ev.Name
 	switch ev.Op {
 	case Create, Remove, Rename:
 		_ = gw.review(u)
@@ -112,9 +114,9 @@ func (gw *GWatcher) Remove(name string) error {
 				p := n.path()
 				_ = gw.w.Remove(p)
 			}
-			if len(n.childs) == 0 {
-				n.delete()
-			}
+		}
+		if len(n.childs) == 0 {
+			n.delete()
 		}
 	})
 
@@ -172,7 +174,14 @@ func (gw *GWatcher) modify(name string) error {
 //----------
 
 func (gw *GWatcher) split(name string) []string {
-	return strings.Split(name, string(os.PathSeparator))
+	u := strings.Split(name, string(os.PathSeparator))
+	w := []string{}
+	for _, k := range u {
+		if strings.TrimSpace(k) != "" {
+			w = append(w, k)
+		}
+	}
+	return w
 }
 
 func (gw *GWatcher) normalize(name *string) error {
@@ -212,12 +221,16 @@ func (n *Node) delete() {
 
 //----------
 
-func (n *Node) visit(v []string, create, visSubChilds bool, fn func(*Node)) {
-	fn(n)
+func (n *Node) visit(v []string, create, visSubChilds, depthFirst bool, fn func(*Node)) {
+	if depthFirst {
+		defer fn(n)
+	} else {
+		fn(n)
+	}
 	if len(v) == 0 {
 		if visSubChilds {
 			for _, c := range n.childs {
-				c.visit(nil, create, visSubChilds, fn)
+				c.visit(nil, create, visSubChilds, depthFirst, fn)
 			}
 		}
 		return
@@ -233,22 +246,22 @@ func (n *Node) visit(v []string, create, visSubChilds bool, fn func(*Node)) {
 	if create && len(v) == 1 {
 		c.target = true
 	}
-	c.visit(v[1:], create, visSubChilds, fn)
+	c.visit(v[1:], create, visSubChilds, depthFirst, fn)
 }
 
 //----------
 
 func (n *Node) add(v []string, fn func(*Node)) {
-	n.visit(v, true, false, fn)
+	n.visit(v, true, false, false, fn)
 }
 func (n *Node) review(v []string, fn func(*Node)) {
-	n.visit(v, false, true, fn)
+	n.visit(v, false, true, false, fn)
 }
 func (n *Node) remove(v []string, fn func(*Node)) {
-	n.visit(v, false, false, fn)
+	n.visit(v, false, false, true, fn)
 }
 func (n *Node) modify(v []string, fn func(*Node)) {
-	n.visit(v, false, false, fn)
+	n.visit(v, false, false, false, fn)
 }
 
 //----------
@@ -258,4 +271,27 @@ func (n *Node) path() string {
 		return n.name
 	}
 	return filepath.Join(n.parent.path(), n.name)
+}
+
+//----------
+
+func (n *Node) SprintFlatTree() string {
+	s := fmt.Sprintf("{%s:", n.name)
+
+	// sort childs map keys
+	keys := []string{}
+	for k := range n.childs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for i, k := range keys {
+		cn := n.childs[k]
+		if i > 0 {
+			s += ","
+		}
+		s += cn.SprintFlatTree()
+	}
+	s += "}"
+	return s
 }

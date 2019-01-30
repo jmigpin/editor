@@ -40,6 +40,13 @@ func TestGWatcher1(t *testing.T) {
 	readEvent(t, w, true, func(ev *Event) bool {
 		return ev.Name == file1 && ev.Op.HasAny(Create)
 	})
+
+	mustRemoveWatch(t, w, file1)
+
+	s := w.root.n.SprintFlatTree()
+	if s != "{/:}" {
+		t.Fatalf(s)
+	}
 }
 
 func TestGWatcher2(t *testing.T) {
@@ -77,6 +84,13 @@ func TestGWatcher2(t *testing.T) {
 	readEvent(t, w, true, func(ev *Event) bool {
 		return ev.Name == file2 && ev.Op.HasAny(Create|Rename)
 	})
+
+	mustRemoveWatch(t, w, file2)
+
+	s := w.root.n.SprintFlatTree()
+	if s != "{/:}" {
+		t.Fatalf(s)
+	}
 }
 
 func TestGWatcher3(t *testing.T) {
@@ -105,6 +119,17 @@ func TestGWatcher3(t *testing.T) {
 	readEvent(t, w, true, func(ev *Event) bool {
 		return ev.Name == file1 && ev.Op.HasAny(Modify)
 	})
+	// second modify event (truncate/close?)
+	readEvent(t, w, false, func(ev *Event) bool {
+		return ev.Name == file1 && ev.Op.HasAny(Modify)
+	})
+
+	mustRemoveWatch(t, w, file1)
+
+	s := w.root.n.SprintFlatTree()
+	if s != "{/:}" {
+		t.Fatalf(s)
+	}
 }
 
 func TestGWatcher4(t *testing.T) {
@@ -149,6 +174,14 @@ func TestGWatcher4(t *testing.T) {
 		return (ev.Name == file1 || ev.Name == file2) &&
 			ev.Op.HasAny(Create)
 	})
+
+	mustRemoveWatch(t, w, file1)
+	mustRemoveWatch(t, w, file2)
+
+	s := w.root.n.SprintFlatTree()
+	if s != "{/:}" {
+		t.Fatalf(s)
+	}
 }
 
 func TestGWatcher5(t *testing.T) {
@@ -184,4 +217,36 @@ func TestGWatcher5(t *testing.T) {
 	readEvent(t, w, true, func(ev *Event) bool {
 		return ev.Name == file1 && ev.Op.HasAny(Create)
 	})
+
+	mustRemoveWatch(t, w, file1)
+
+	s := w.root.n.SprintFlatTree()
+	if s != "{/:}" {
+		t.Fatalf(s)
+	}
+}
+
+func TestGWatcher6(t *testing.T) {
+	tmpDir := tmpDir()
+	defer os.RemoveAll(tmpDir)
+
+	w := NewGWatcher(mustNewFsnWatcher(t))
+	defer w.Close()
+
+	dir := tmpDir
+	dir2 := filepath.Join(dir, "dir2")
+	dir3 := filepath.Join(dir2, "dir3")
+	dir4 := filepath.Join(dir3, "dir4")
+	file1 := filepath.Join(dir4, "file1.txt")
+
+	mustMkdirAll(t, dir4)
+	mustCreateFile(t, file1)
+
+	mustAddWatch(t, w, file1)
+	mustRemoveWatch(t, w, file1)
+
+	s := w.root.n.SprintFlatTree()
+	if s != "{/:}" {
+		t.Fatalf(s)
+	}
 }

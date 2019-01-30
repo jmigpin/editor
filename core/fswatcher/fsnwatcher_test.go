@@ -35,7 +35,7 @@ func TestFsWatcher1(t *testing.T) {
 	mustMkdirAll(t, dir4)
 
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.JoinNames() == dir2 && ev.Op.HasAny(Create)
+		return ev.Name == dir2 && ev.Op.HasAny(Create)
 	})
 }
 
@@ -65,10 +65,10 @@ func TestFsWatcher2(t *testing.T) {
 
 	// two equal events, one from dir4, one from file1
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.JoinNames() == file1 && ev.Op.HasAny(Remove)
+		return ev.Name == file1 && ev.Op.HasAny(Remove)
 	})
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.JoinNames() == file1 && ev.Op.HasAny(Remove)
+		return ev.Name == file1 && ev.Op.HasAny(Remove)
 	})
 
 	mustRemoveAll(t, dir4)
@@ -78,7 +78,7 @@ func TestFsWatcher2(t *testing.T) {
 		return ev.Name == file2 && ev.Op.HasAny(Remove)
 	})
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.JoinNames() == file2 && ev.Op.HasAny(Remove)
+		return ev.Name == file2 && ev.Op.HasAny(Remove)
 	})
 }
 
@@ -186,10 +186,10 @@ func TestFsWatcher5(t *testing.T) {
 	mustRenameFile(t, file1, file2)
 
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.JoinNames() == file1 && ev.Op.HasAny(Rename)
+		return ev.Name == file1 && ev.Op.HasAny(Rename)
 	})
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.JoinNames() == file2 && ev.Op.HasAny(Create)
+		return ev.Name == file2 && ev.Op.HasAny(Create)
 	})
 	readEvent(t, w, true, func(ev *Event) bool {
 		return ev.Name == file1 && ev.Op.HasAny(Rename)
