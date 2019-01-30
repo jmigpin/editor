@@ -1,9 +1,5 @@
 package ui
 
-import (
-	"github.com/jmigpin/editor/util/drawutil/drawer3"
-)
-
 type RowToolbar struct {
 	*Toolbar
 	Square *RowSquare
@@ -35,8 +31,5 @@ func (tb *RowToolbar) Layout() {
 func (tb *RowToolbar) OnThemeChange() {
 	tb.Toolbar.OnThemeChange()
 	tb.Square.Size = UIThemeUtil.RowSquareSize(tb.TreeThemeFont())
-
-	if d, ok := tb.Drawer.(*drawer3.PosDrawer); ok {
-		d.SetFirstLineOffsetX(tb.Square.Size.X)
-	}
+	tb.Drawer.SetFirstLineOffsetX(tb.Square.Size.X)
 }
