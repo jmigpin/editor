@@ -1,7 +1,7 @@
 package toolbarparser
 
 import (
-	"strings"
+	"strconv"
 	"unicode"
 
 	"github.com/jmigpin/editor/core/parseutil"
@@ -161,14 +161,12 @@ type Node struct {
 func (node *Node) Str() string {
 	return node.Data.Str[node.Pos:node.End]
 }
+
 func (node *Node) UnquotedStr() string {
 	s := node.Str()
-	if len(s) >= 2 {
-		if s[0] == s[len(s)-1] {
-			if strings.ContainsRune(parseutil.QuoteRunes, rune(s[0])) {
-				return s[1 : len(s)-1]
-			}
-		}
+	s2, err := strconv.Unquote(s)
+	if err != nil {
+		return s
 	}
-	return s
+	return s2
 }

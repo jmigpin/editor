@@ -73,7 +73,7 @@ func TestParseParts7(t *testing.T) {
 }
 
 func TestParseParts8(t *testing.T) {
-	s := "\"a\"|'b'|`c\nd`"
+	s := "\"a\"|'b'|`c\nd`|\"e\\\"\""
 	d := Parse(s)
 
 	{
@@ -94,6 +94,13 @@ func TestParseParts8(t *testing.T) {
 		s1 := d.Parts[2].Args[0].Str()
 		s2 := d.Parts[2].Args[0].UnquotedStr()
 		if !(s1 == "`c\nd`" && s2 == "c\nd") {
+			t.Fatal(spew.Sdump(d.Parts[2]))
+		}
+	}
+	{
+		s1 := d.Parts[3].Args[0].Str()
+		s2 := d.Parts[3].Args[0].UnquotedStr()
+		if !(s1 == "\"e\\\"\"" && s2 == "e\"") {
 			t.Fatal(spew.Sdump(d.Parts[2]))
 		}
 	}
