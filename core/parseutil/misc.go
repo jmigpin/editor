@@ -1,13 +1,10 @@
 package parseutil
 
 import (
-	"errors"
-	"io"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -186,64 +183,6 @@ func UnescapeRunes(str, escapable string) string {
 		w = append(w, ru)
 	}
 	return string(w)
-}
-
-//----------
-
-func IsWordRune(ru rune) bool {
-	return unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_'
-}
-
-//----------
-
-func WordAtIndex(r iout.Reader, index, max int) ([]byte, int, error) {
-	ErrWordNotFound := errors.New("word not found")
-
-	// right side
-	i1, _, err := iout.IndexFunc(r, index, max, false, IsWordRune)
-	if err != nil {
-		if err == io.EOF {
-			i1 = r.Len()
-		} else {
-			return nil, 0, err
-		}
-	}
-	if i1 == index { // don't match word at index
-		return nil, 0, ErrWordNotFound
-	}
-
-	// left side
-	i0, size, err := iout.LastIndexFunc(r, index, max, false, IsWordRune)
-	if err != nil {
-		if err == io.EOF {
-			i0 = 0
-		} else {
-			return nil, 0, err
-		}
-	} else {
-		i0 += size
-	}
-
-	s, err := r.ReadNAt(i0, i1-i0)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return s, i0, nil
-}
-
-func WordIsolated(r iout.Reader, i, le int) bool {
-	// previous rune can't be a word rune
-	ru, _, err := r.ReadLastRuneAt(i)
-	if err == nil && IsWordRune(ru) {
-		return false
-	}
-	// next rune can't be a word rune
-	ru, _, err = r.ReadRuneAt(i + le)
-	if err == nil && IsWordRune(ru) {
-		return false
-	}
-	return true
 }
 
 //----------

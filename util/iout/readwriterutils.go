@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"unicode"
 )
 
 var ErrLimitReached = errors.New("limit reached")
@@ -171,4 +172,58 @@ func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
 		return 0, 0, false, err
 	}
 	return ls, le, newline, nil
+}
+
+//----------
+
+func IsWordRune(ru rune) bool {
+	return unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_'
+}
+
+func WordAtIndex(r Reader, index, max int) ([]byte, int, error) {
+	// right side
+	i1, _, err := IndexFunc(r, index, max, false, IsWordRune)
+	if err != nil {
+		if err == io.EOF {
+			i1 = r.Len()
+		} else {
+			return nil, 0, err
+		}
+	}
+	if i1 == index { // don't match word at index
+		return nil, 0, errors.New("word not found")
+	}
+
+	// left side
+	i0, size, err := LastIndexFunc(r, index, max, false, IsWordRune)
+	if err != nil {
+		if err == io.EOF {
+			i0 = 0
+		} else {
+			return nil, 0, err
+		}
+	} else {
+		i0 += size
+	}
+
+	s, err := r.ReadNAt(i0, i1-i0)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return s, i0, nil
+}
+
+func WordIsolated(r Reader, i, le int) bool {
+	// previous rune can't be a word rune
+	ru, _, err := r.ReadLastRuneAt(i)
+	if err == nil && IsWordRune(ru) {
+		return false
+	}
+	// next rune can't be a word rune
+	ru, _, err = r.ReadRuneAt(i + le)
+	if err == nil && IsWordRune(ru) {
+		return false
+	}
+	return true
 }
