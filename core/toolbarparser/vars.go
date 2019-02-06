@@ -3,6 +3,7 @@ package toolbarparser
 import (
 	"errors"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/jmigpin/editor/core/parseutil"
@@ -56,12 +57,13 @@ func ParseVar(str string) (*Var, error) {
 	// value
 	var value string
 	if sm.AcceptQuote(parseutil.QuoteRunes, osutil.EscapeRunes) {
-		value = sm.ValueUnquote(parseutil.QuoteRunes)
-		if len(value) == 0 {
-			return nil, errors.New("empty quoted value")
-		}
-		value = sm.Value()
+		v := sm.Value()
 		sm.Advance()
+		s, err := strconv.Unquote(v)
+		if err != nil {
+			return nil, err
+		}
+		value = s
 	} else {
 		u, ok := parseutil.AcceptAdvanceFilename(sm)
 		if !ok {

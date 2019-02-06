@@ -72,6 +72,9 @@ func (sm *String) AcceptAnyNeg(invalid string) bool {
 }
 
 func (sm *String) AcceptSequence(s string) bool {
+	if s == "" {
+		return false
+	}
 	p := sm.Pos
 	for _, ru := range s {
 		if ru != sm.Next() {
@@ -99,7 +102,7 @@ func (sm *String) AcceptLoop(valid string) bool {
 	return v
 }
 
-// Note that the loop does not stop on EOF, only when fn returns false.
+// Note that the loop does not stop on EOS, only when fn returns false.
 func (sm *String) AcceptLoopFn(fn func(rune) bool) bool {
 	v := false
 	for sm.AcceptFn(fn) {
@@ -211,7 +214,7 @@ func (sm *String) AcceptToNewlineOrEOS() bool {
 
 func (sm *String) AcceptQuote(quotes string, escapes string) bool {
 	pos := sm.Pos
-	ru := sm.Peek()
+	ru := sm.Next()
 	if sm.IsQuoteAccept(ru, quotes, escapes) {
 		return true
 	}
@@ -266,18 +269,6 @@ func (sm *String) IsEscapeAccept(ru rune, escapes string) bool {
 
 func (sm *String) Value() string {
 	return sm.Input[sm.Start:sm.Pos]
-}
-
-func (sm *String) ValueUnquote(quoteRunes string) string {
-	s := sm.Value()
-	if len(s) >= 2 {
-		if s[0] == s[len(s)-1] {
-			if strings.ContainsRune(quoteRunes, rune(s[0])) {
-				return s[1 : len(s)-1]
-			}
-		}
-	}
-	return s
 }
 
 //----------
