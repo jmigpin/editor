@@ -1,7 +1,6 @@
 package godebug
 
 import (
-	"errors"
 	"fmt"
 	"go/token"
 	"log"
@@ -19,29 +18,35 @@ func StringifyItemFull(item debug.Item) string {
 	is.stringify(item)
 	return is.Str
 }
-func StringifyItemOffset(item debug.Item, offset int) (string, error) {
+func StringifyItemOffset(item debug.Item, offset int) string {
 	is := ItemStringifier{Offset: offset}
 	is.stringify(item)
-	s := is.OffsetValueString
-	if s == "" {
-		return "", errors.New("not at a value index")
-	}
-	return s, nil
+	return is.OffsetValueString
 }
 
 //----------
 
 type ItemStringifier struct {
+	Str string
+
 	Offset            int
 	OffsetValueString string
-	Str               string
-	depth             int
 }
 
 func (is *ItemStringifier) stringify(item debug.Item) {
-	is.depth++
+	// capture value
+	start := len(is.Str)
+	defer func() {
+		end := len(is.Str)
+		if is.Offset >= start && is.Offset < end {
+			s := is.Str[start:end]
+			if is.OffsetValueString == "" || len(s) < len(is.OffsetValueString) {
+				is.OffsetValueString = s
+			}
+		}
+	}()
+
 	is.stringify2(item)
-	is.depth--
 }
 
 func (is *ItemStringifier) stringify2(item debug.Item) {
@@ -55,12 +60,7 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		if is.Offset == -2 {
 			is.Str += t.Str
 		} else {
-			start := len(is.Str)
 			is.Str += debug.ReducedSprintf(20, "%s", t.Str)
-			end := len(is.Str)
-			if is.Offset >= start && is.Offset < end {
-				is.OffsetValueString = t.Str
-			}
 		}
 
 	case *debug.ItemList:
