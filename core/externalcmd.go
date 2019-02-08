@@ -87,10 +87,6 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		panic("not a directory")
 	}
 
-	//// cleanup row content
-	//erow.Row.TextArea.SetStrClearHistory("")
-	//erow.Row.TextArea.ClearPos()
-
 	fexec := func(ctx context.Context, w io.Writer) error {
 		// prepare cmd exec
 		cmd := exec.CommandContext(ctx, cargs[0], cargs[1:]...)
