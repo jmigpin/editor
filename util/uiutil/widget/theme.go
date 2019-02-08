@@ -20,7 +20,9 @@ var DefaultPalette = Palette{
 	"text_selection_fg":          nil,
 	"text_selection_bg":          cint(0xeeee9e), // yellow
 	"text_colorize_string_fg":    cint(0x008b00), // green
+	"text_colorize_string_bg":    nil,
 	"text_colorize_comments_fg":  cint(0x757575), // grey 600
+	"text_colorize_comments_bg":  nil,
 	"text_highlightword_fg":      nil,
 	"text_highlightword_bg":      cint(0xc6ee9e), // green
 	"text_wrapline_fg":           cint(0x0),
