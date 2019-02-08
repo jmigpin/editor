@@ -135,9 +135,11 @@ func LastIndexFunc(r Reader, i, len int, truth bool, f func(rune) bool) (index, 
 
 //----------
 
+var LineIndexMax = 2500
+
 func LineStartIndex(r Reader, i int) (int, error) {
 	newlinef := func(ru rune) bool { return ru == '\n' }
-	k, size, err := LastIndexFunc(r, i, 2000, true, newlinef)
+	k, size, err := LastIndexFunc(r, i, LineIndexMax, true, newlinef)
 	if err != nil {
 		if err == io.EOF {
 			return 0, nil
@@ -150,7 +152,7 @@ func LineStartIndex(r Reader, i int) (int, error) {
 
 func LineEndIndex(r Reader, i int) (_ int, newline bool, _ error) {
 	newlinef := func(ru rune) bool { return ru == '\n' }
-	k, size, err := IndexFunc(r, i, 2000, true, newlinef)
+	k, size, err := IndexFunc(r, i, LineIndexMax, true, newlinef)
 	if err != nil {
 		if err == io.EOF {
 			return r.Len(), false, nil
