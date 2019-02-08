@@ -125,9 +125,13 @@ func (te *TextEdit) MakeRangeVisible(index, le int) {
 	ir := te.IndexLenRect(index, le)
 	o := te.indexRectOffset(ir, vr)
 	te.SetOffset(o)
+
+	//te.SetRuneOffset(index)
 }
 
 func (te *TextEdit) MakeRangeCentered(index, le int) {
+	//te.SetRuneOffset(index)
+
 	ir := te.IndexLenRect(index, le)
 	o := te.centeredIndexRectOffset(ir)
 	te.SetOffset(o)

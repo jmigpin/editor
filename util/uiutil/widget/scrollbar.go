@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -39,15 +40,9 @@ func NewScrollBar(ctx ImageContext, sa *ScrollArea) *ScrollBar {
 //----------
 
 func (sb *ScrollBar) scrollToPoint(p *image.Point) {
-	o := sb.positionPercent
-	if sb.Horizontal {
-		px := float64(p.Sub(sb.pressPad).Sub(sb.Bounds.Min).X)
-		o = px / float64(sb.Bounds.Dx())
-	} else {
-		py := float64(p.Sub(sb.pressPad).Sub(sb.Bounds.Min).Y)
-		o = py / float64(sb.Bounds.Dy())
-	}
-	sb.scrollOffsetPercent(o)
+	py := float64(sb.yaxis(p.Sub(sb.pressPad).Sub(sb.Bounds.Min)))
+	o := py / float64(sb.yaxis(sb.Bounds.Size()))
+	sb.scrollToPositionPercent(o)
 }
 
 //----------
@@ -55,30 +50,23 @@ func (sb *ScrollBar) scrollToPoint(p *image.Point) {
 func (sb *ScrollBar) scrollPage(up bool) {
 	size := sb.sa.scrollable.ScrollableSize()
 	marginv := sb.sa.scrollable.ScrollablePagingMargin()
-	margin := float64(marginv) / float64(size.Y) // TODO
+	margin := float64(marginv) / float64(size.Y) // always Y
 	v := sb.sizePercent - margin
-
-	// deal with small spaces
-	if v < 0 {
-		v = 0.001
-	}
-
+	v = mathutil.LimitFloat64(v, 0.001, v) // deal with small spaces
 	sb.scrollAmount(v, up)
 }
 
 func (sb *ScrollBar) scrollJump(up bool) {
 	size := sb.sa.scrollable.ScrollableSize()
 	jumpv := sb.sa.scrollable.ScrollableScrollJump()
-	jump := float64(jumpv) / float64(size.Y) // TODO
+	jump := float64(jumpv) / float64(size.Y) // always Y
 	v := jump
 
 	// deal with small spaces
 	const j = 4
 	if sb.sizePercent < jump*j {
 		v = sb.sizePercent / j
-		if v < 0 {
-			v = 0.001
-		}
+		v = mathutil.LimitFloat64(v, 0.001, v)
 	}
 
 	sb.scrollAmount(v, up)
@@ -89,50 +77,63 @@ func (sb *ScrollBar) scrollAmount(amountPerc float64, up bool) {
 		amountPerc = -amountPerc
 	}
 	o := sb.positionPercent + amountPerc
-	sb.scrollOffsetPercent(o)
+	sb.scrollToPositionPercent(o)
 }
 
 //----------
 
-func (sb *ScrollBar) scrollOffsetPercent(offsetPerc float64) {
-	size := 1.0
-	vsize := sb.sizePercent
-	sb.calcPositionAndSize(size, vsize, offsetPerc)
-
-	// scroll scrollable
-	{
-		size := sb.sa.scrollable.ScrollableSize()
-		offset := sb.sa.scrollable.ScrollableOffset()
-		if sb.Horizontal {
-			offset.X = int(sb.positionPercent * float64(size.X))
-		} else {
-			offset.Y = int(sb.positionPercent * float64(size.Y))
-		}
-		sb.sa.scrollable.SetScrollableOffset(offset)
-	}
+func (sb *ScrollBar) scrollToPositionPercent(offsetPerc float64) {
+	size := sb.sa.scrollable.ScrollableSize()
+	offset := sb.sa.scrollable.ScrollableOffset()
+	offsetPerc = mathutil.LimitFloat64(offsetPerc, 0, 1)
+	*sb.yaxisPtr(&offset) = int(offsetPerc * float64(sb.yaxis(size)))
+	sb.sa.scrollable.SetScrollableOffset(offset)
 }
 
 //----------
 
-func (sb *ScrollBar) calcPositionAndSize(size, viewSize, offset float64) {
-	pp := 0.0
-	sp := 1.0
-	if size > viewSize {
-		dh := size - viewSize
-		if offset < 0 {
-			offset = 0
-		} else if offset > dh {
-			offset = dh
-		}
-		pp = offset / size
-		sp = viewSize / size
-		if sp > 1 {
-			sp = 1
-		}
-	}
+func (sb *ScrollBar) calcPositionAndSize() {
+	pos := sb.sa.scrollable.ScrollableOffset()
+	size := sb.sa.scrollable.ScrollableSize()
+	vsize := sb.sa.scrollable.ScrollableViewSize()
+
+	posy := float64(sb.yaxis(pos))
+	sizey := float64(sb.yaxis(size))
+	vsizey := float64(sb.yaxis(vsize))
+
+	sizey = mathutil.LimitFloat64(sizey, 0.0001, sizey)
+
+	pp := posy / sizey
+	sp := vsizey / sizey
+
+	sp = mathutil.LimitFloat64(sp, 0, 1)
+	pp = mathutil.LimitFloat64(pp, 0, 1)
+
 	sb.sizePercent = sp
 	sb.positionPercent = pp
 }
+
+//----------
+
+//func (sb *ScrollBar) calcPositionAndSize_(size, viewSize, offset float64) {
+//	pp := 0.0
+//	sp := 1.0
+//	if size > viewSize {
+//		dh := size - viewSize
+//		if offset < 0 {
+//			offset = 0
+//		} else if offset > dh {
+//			offset = dh
+//		}
+//		pp = offset / size
+//		sp = viewSize / size
+//		if sp > 1 {
+//			sp = 1
+//		}
+//	}
+//	sb.sizePercent = sp
+//	sb.positionPercent = pp
+//}
 
 //----------
 
@@ -151,36 +152,25 @@ func (sb *ScrollBar) Layout() {
 	bsize := sb.Bounds.Size()
 	r := sb.Bounds
 
-	d := bsize.Y
-	if sb.Horizontal {
-		d = bsize.X
-	}
+	d := sb.yaxis(bsize)
 
-	size := sb.sa.scrollable.ScrollableSize()
-	vsize := sb.sa.scrollable.Embed().Bounds.Size() // view size
-	offset := sb.sa.scrollable.ScrollableOffset()
-	if sb.Horizontal {
-		sb.calcPositionAndSize(float64(size.X), float64(vsize.X), float64(offset.X))
-	} else {
-		sb.calcPositionAndSize(float64(size.Y), float64(vsize.Y), float64(offset.Y))
-	}
+	//size := sb.sa.scrollable.ScrollableSize()
+	//vsize := sb.sa.scrollable.ScrollableViewSize()
+	//offset := sb.sa.scrollable.ScrollableOffset()
+	//sy := sb.yaxis(size)
+	//vsy := sb.yaxis(vsize)
+	//oy := sb.yaxis(offset)
+	//sb.calcPositionAndSize(float64(sy), float64(vsy), float64(oy))
 
-	pp := int(math.Ceil(float64(d) * sb.positionPercent))
-	sp := int(math.Ceil(float64(d) * sb.sizePercent))
+	sb.calcPositionAndSize()
 
-	// minimum bar size (stay visible)
-	minSize := 4
-	if sp < minSize {
-		sp = minSize
-	}
+	p := int(math.Ceil(float64(d) * sb.positionPercent))
+	s := int(math.Ceil(float64(d) * sb.sizePercent))
 
-	if sb.Horizontal {
-		r.Min.X += pp
-		r.Max.X = r.Min.X + sp
-	} else {
-		r.Min.Y += pp
-		r.Max.Y = r.Min.Y + sp
-	}
+	s = mathutil.LimitInt(s, 4, s) // minimum bar size (stay visible)
+
+	*sb.yaxisPtr(&r.Min) += p
+	*sb.yaxisPtr(&r.Max) = sb.yaxis(r.Min) + s
 	r = r.Intersect(sb.Bounds)
 
 	sb.Handle.Bounds = r
@@ -242,5 +232,22 @@ func (sb *ScrollBar) setPressPad(p *image.Point) {
 		// set position in the middle of the bar
 		sb.pressPad.X = b.Dx() / 2
 		sb.pressPad.Y = b.Dy() / 2
+	}
+}
+
+//----------
+
+func (sb *ScrollBar) yaxis(p image.Point) int {
+	if sb.Horizontal {
+		return p.X
+	} else {
+		return p.Y
+	}
+}
+func (sb *ScrollBar) yaxisPtr(p *image.Point) *int {
+	if sb.Horizontal {
+		return &p.X
+	} else {
+		return &p.Y
 	}
 }

@@ -44,7 +44,6 @@ func (eh *TextEditInputHandler) handleInputEvent2(ev0 interface{}, p image.Point
 	case *event.MouseDragMove:
 		if ev.Buttons.Has(event.ButtonLeft) {
 			MoveCursorToPoint(te, &ev.Point, true)
-			// TODO: make cursor visible?
 		}
 	case *event.MouseDragEnd:
 		switch ev.Button {

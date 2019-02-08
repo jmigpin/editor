@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/iout"
 )
@@ -15,10 +16,7 @@ import (
 type TextEditX struct {
 	*TextEdit
 
-	comment struct {
-		line     string
-		enclosed [2]string
-	}
+	commentLineStr string // Used in comment/uncomment lines
 
 	flash struct {
 		start time.Time
@@ -43,7 +41,6 @@ func NewTextEditX(ctx ImageContext, cctx ClipboardContext) *TextEditX {
 
 	if d, ok := te.Text.Drawer.(*drawer3.PosDrawer); ok {
 		d.Cursor.SetOn(true)
-
 		// segment groups:
 		//	0=selection (always on)
 		//	1=word
@@ -51,6 +48,17 @@ func NewTextEditX(ctx ImageContext, cctx ClipboardContext) *TextEditX {
 		//	3=flash
 		d.Segments.SetOn(true)
 		d.Segments.Opt.SetupNGroups(4)
+	}
+
+	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.Cursor.On = true
+		d.Opt.Colorize.Groups = []*drawer4.ColorizeGroup{
+			&d.Opt.SyntaxHighlight.Group,
+			&d.Opt.WordHighlight.Group,
+			&d.Opt.ParenthesisHighlight.Group,
+			&drawer4.ColorizeGroup{}, // 3=selection
+			&drawer4.ColorizeGroup{}, // 4=flash
+		}
 	}
 
 	return te
@@ -75,24 +83,43 @@ func (te *TextEditX) Paint() {
 //----------
 
 func (te *TextEditX) updateSelectionOpt() {
-	d, ok := te.Drawer.(*drawer3.PosDrawer)
-	if !ok {
-		return
+	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
+		if !d.Segments.On() {
+			return
+		}
+		sg := d.Segments.Opt.Groups[0]
+		if te.TextCursor.SelectionOn() {
+			sg.On = true
+			s, e := te.TextCursor.SelectionIndexes()
+			seg := &drawer3.Segment{s, e}
+			sg.Segs = []*drawer3.Segment{seg}
+		} else {
+			sg.On = false
+			sg.Segs = nil
+		}
 	}
-
-	if !d.Segments.On() {
-		return
-	}
-
-	sg := d.Segments.Opt.Groups[0]
-	if te.TextCursor.SelectionOn() {
-		sg.On = true
-		s, e := te.TextCursor.SelectionIndexes()
-		seg := &drawer3.Segment{s, e}
-		sg.Segs = []*drawer3.Segment{seg}
-	} else {
-		sg.On = false
-		sg.Segs = nil
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		g := d.Opt.Colorize.Groups[3]
+		if te.TextCursor.SelectionOn() {
+			// colors
+			pcol := te.TreeThemePaletteColor
+			fg := pcol("text_selection_fg")
+			bg := pcol("text_selection_bg")
+			// colorize ops
+			s, e := te.TextCursor.SelectionIndexes()
+			g.Ops = []*drawer4.ColorizeOp{
+				&drawer4.ColorizeOp{Offset: s, Fg: fg, Bg: bg},
+				&drawer4.ColorizeOp{Offset: e},
+			}
+			// don't draw other colorizations
+			d.Opt.WordHighlight.Group.Off = true
+			d.Opt.ParenthesisHighlight.Group.Off = true
+		} else {
+			g.Ops = nil
+			// draw other colorizations
+			d.Opt.WordHighlight.Group.Off = false
+			d.Opt.ParenthesisHighlight.Group.Off = false
+		}
 	}
 }
 
@@ -197,11 +224,15 @@ func (te *TextEditX) paintFlashLineBg() {
 }
 
 func (te *TextEditX) updateFlashOpt() {
-	d, ok := te.Drawer.(*drawer3.PosDrawer)
-	if !ok {
-		return
+	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
+		te.updateFlashOpt3(d)
 	}
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		te.updateFlashOpt4(d)
+	}
+}
 
+func (te *TextEditX) updateFlashOpt3(d *drawer3.PosDrawer) {
 	if !d.Segments.On() {
 		return
 	}
@@ -238,6 +269,36 @@ func (te *TextEditX) updateFlashOpt() {
 	}
 }
 
+func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
+	g := d.Opt.Colorize.Groups[4]
+	if !te.flash.index.on {
+		g.Ops = nil
+		return
+	}
+
+	// tint percentage
+	t := te.flash.now.Sub(te.flash.start)
+	perc := 1.0 - (float64(t) / float64(te.flash.dur))
+
+	// process color function
+	bg3 := te.TreeThemePaletteColor("text_bg")
+	pc := func(fg, bg color.Color) (_, _ color.Color) {
+		fg2 := imageutil.TintOrShade(fg, perc)
+		if bg == nil {
+			bg = bg3
+		}
+		bg2 := imageutil.TintOrShade(bg, perc)
+		return fg2, bg2
+	}
+
+	s := te.flash.index.index
+	e := s + te.flash.index.len
+	g.Ops = []*drawer4.ColorizeOp{
+		&drawer4.ColorizeOp{Offset: s, ProcColor: pc},
+		&drawer4.ColorizeOp{Offset: e},
+	}
+}
+
 //----------
 
 func (te *TextEditX) EnableParenthesisMatch(v bool) {
@@ -245,15 +306,19 @@ func (te *TextEditX) EnableParenthesisMatch(v bool) {
 		sg := d.Segments.Opt.Groups[2]
 		sg.On = v
 	}
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.ParenthesisHighlight.On = v
+	}
 
 }
 
 func (te *TextEditX) updateParenthesisOpt() {
-	d, ok := te.Drawer.(*drawer3.PosDrawer)
-	if !ok {
-		return
+	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
+		te.updateParenthesisOpt3(d)
 	}
+}
 
+func (te *TextEditX) updateParenthesisOpt3(d *drawer3.PosDrawer) {
 	if !d.Segments.On() {
 		return
 	}
@@ -400,15 +465,22 @@ func (te *TextEditX) EnableHighlightCursorWord(v bool) {
 		sg := d.Segments.Opt.Groups[1]
 		sg.On = v
 	}
-
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.WordHighlight.On = v
+		if !v {
+			g := d.Opt.Colorize.Groups[1]
+			g.Ops = nil
+		}
+	}
 }
 
 func (te *TextEditX) updateHighlightWordOpt() {
-	d, ok := te.Drawer.(*drawer3.PosDrawer)
-	if !ok {
-		return
+	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
+		te.updateHighlightWordOpt3(d)
 	}
+}
 
+func (te *TextEditX) updateHighlightWordOpt3(d *drawer3.PosDrawer) {
 	sg := d.Segments.Opt.Groups[1]
 	sg.Segs = nil
 	if !sg.On {
@@ -421,7 +493,7 @@ func (te *TextEditX) updateHighlightWordOpt() {
 		return
 	}
 
-	word, _, err := parseutil.WordAtIndex(tc.RW(), tc.Index(), 100)
+	word, _, err := iout.WordAtIndex(tc.RW(), tc.Index(), 100)
 	if err != nil {
 		return
 	}
@@ -450,7 +522,7 @@ func (te *TextEditX) updateHighlightWordOpt() {
 		}
 
 		// isolated word
-		if parseutil.WordIsolated(tc.RW(), j, len(word)) {
+		if iout.WordIsolated(tc.RW(), j, len(word)) {
 			seg := &drawer3.Segment{j, j + len(word)}
 			sg.Segs = append(sg.Segs, seg)
 		}
@@ -462,20 +534,22 @@ func (te *TextEditX) updateHighlightWordOpt() {
 //----------
 
 func (te *TextEditX) SetCommentStrings(line string, enclosed [2]string) {
-	te.comment.line = line
-	te.comment.enclosed = enclosed
-	te.updateColorizeOptComment()
-}
+	te.commentLineStr = line // keep for comment/uncomment lines shortcut
 
-func (te *TextEditX) updateColorizeOptComment() {
 	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
-		d.ColorizeSyntax.Opt.Comment.Line = te.comment.line
-		d.ColorizeSyntax.Opt.Comment.Enclosed = te.comment.enclosed
+		d.ColorizeSyntax.Opt.Comment.Line = line
+		d.ColorizeSyntax.Opt.Comment.Enclosed = enclosed
+	}
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		opt := &d.Opt.SyntaxHighlight
+		opt.Comment.Line.S = line
+		opt.Comment.Enclosed.S = enclosed[0]
+		opt.Comment.Enclosed.E = enclosed[1]
 	}
 }
 
 func (te *TextEditX) CommentLineSymbol() string {
-	return te.comment.line
+	return te.commentLineStr
 }
 
 //----------
@@ -483,9 +557,9 @@ func (te *TextEditX) CommentLineSymbol() string {
 func (te *TextEditX) OnThemeChange() {
 	te.Text.OnThemeChange()
 
-	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
-		pcol := te.TreeThemePaletteColor
+	pcol := te.TreeThemePaletteColor
 
+	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
 		d.Cursor.Opt.Fg = pcol("text_cursor_fg")
 
 		// selection
@@ -513,6 +587,35 @@ func (te *TextEditX) OnThemeChange() {
 		d.Annotations.Opt.Bg = pcol("text_annotations_bg")
 		d.Annotations.Opt.Select.Fg = pcol("text_annotations_select_fg")
 		d.Annotations.Opt.Select.Bg = pcol("text_annotations_select_bg")
+	}
+
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.Cursor.Fg = pcol("text_cursor_fg")
+		d.Opt.LineWrap.Fg = pcol("text_wrapline_fg")
+		d.Opt.LineWrap.Bg = pcol("text_wrapline_bg")
+
+		// annotations
+		d.Opt.Annotations.Fg = pcol("text_annotations_fg")
+		d.Opt.Annotations.Bg = pcol("text_annotations_bg")
+		d.Opt.Annotations.Selected.Fg = pcol("text_annotations_select_fg")
+		d.Opt.Annotations.Selected.Bg = pcol("text_annotations_select_bg")
+
+		// word highlight
+		d.Opt.WordHighlight.Fg = pcol("text_highlightword_fg")
+		d.Opt.WordHighlight.Bg = pcol("text_highlightword_bg")
+
+		// parenthesis highlight
+		d.Opt.ParenthesisHighlight.Fg = pcol("text_parenthesis_fg")
+		d.Opt.ParenthesisHighlight.Bg = pcol("text_parenthesis_bg")
+
+		// syntax highlight
+		opt := &d.Opt.SyntaxHighlight
+		opt.Comment.Line.Fg = pcol("text_colorize_comments_fg")
+		opt.Comment.Line.Bg = pcol("text_colorize_comments_bg")
+		opt.Comment.Enclosed.Fg = pcol("text_colorize_comments_fg")
+		opt.Comment.Enclosed.Bg = pcol("text_colorize_comments_bg")
+		opt.String.Fg = pcol("text_colorize_string_fg")
+		opt.String.Bg = pcol("text_colorize_string_bg")
 	}
 }
 

@@ -36,6 +36,7 @@ func main() {
 	sessionNameFlag := flag.String("sessionname", "", "open existing session")
 	useMultiKeyFlag := flag.Bool("usemultikey", false, "use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)")
 	pluginsFlag := flag.String("plugins", "", "comma separated string of plugin filenames")
+	drawer4Flag := flag.Bool("drawer4", false, "use new drawer (testing)")
 
 	flag.Parse()
 
@@ -69,6 +70,8 @@ func main() {
 		UseMultiKey: *useMultiKeyFlag,
 
 		Plugins: *pluginsFlag,
+
+		Drawer4: *drawer4Flag,
 	}
 	_, err := core.NewEditor(eopt)
 	if err != nil {

@@ -5,9 +5,12 @@ import (
 	"image/color"
 
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/iout"
 )
+
+var TextUserDrawer4 bool = false
 
 type Text struct {
 	ENode
@@ -26,14 +29,18 @@ type Text struct {
 
 func NewText(ctx ImageContext) *Text {
 	t := &Text{ctx: ctx}
+	t.TextScroll.Text = t
+
+	if TextUserDrawer4 {
+		t.Drawer = drawer4.New()
+	} else {
+		t.Drawer = drawer3.NewPosDrawer()
+	}
 
 	t.brw = iout.NewRW(nil)
 	//t.trw = &tRW{ReadWriter: t.brw, t: t}
-
-	t.TextScroll.Text = t
-
-	t.Drawer = drawer3.NewPosDrawer()
 	t.Drawer.SetReader(t.brw)
+
 	return t
 }
 
@@ -111,6 +118,14 @@ func (t *Text) changes() {
 
 //----------
 
+// implements Scrollable interface.
+func (t *Text) SetScrollable(x, y bool) {
+	t.scrollable.x = x
+	t.scrollable.y = y
+}
+
+//----------
+
 func (t *Text) Offset() image.Point {
 	return t.Drawer.Offset()
 }
@@ -137,11 +152,43 @@ func (t *Text) SetOffsetY(y int) {
 	t.SetOffset(o)
 }
 
-// implements Scrollable interface.
-func (t *Text) SetScrollable(x, y bool) {
-	t.scrollable.x = x
-	t.scrollable.y = y
-}
+//----------
+
+//func (t *Text) ResetOffsetY() {
+//	if d, ok := t.Drawer.(*drawer3.PosDrawer); ok {
+//		o := d.Offset()
+//		o.Y = 0
+//		if o != d.Offset() {
+//			d.SetOffset(o)
+//			t.MarkNeedsLayoutAndPaint()
+//		}
+//	}
+//	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
+//		if d.RuneOffset() != 0 {
+//			d.SetRuneOffset(0)
+//			t.MarkNeedsLayoutAndPaint()
+//		}
+//	}
+//}
+
+//func (t *Text) RuneOffset() int {
+//	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
+//		return d.RuneOffset()
+//	}
+//	return 0
+//}
+
+//func (t *Text) SetRuneOffset(v int) {
+//	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
+//		if t.scrollable.y {
+//			o := d.RuneOffset()
+//			if v != o {
+//				d.SetRuneOffset(v)
+//				t.MarkNeedsLayoutAndPaint()
+//			}
+//		}
+//	}
+//}
 
 //----------
 

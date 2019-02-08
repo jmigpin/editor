@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
@@ -44,6 +45,9 @@ func NewRow(col *Column) *Row {
 		row.TextArea.EnableHighlightCursorWord(true)
 		row.TextArea.EnableColorizeSyntax(true)
 		row.TextArea.EnableParenthesisMatch(true)
+		if d, ok := row.TextArea.Drawer.(*drawer4.Drawer); ok {
+			d.Opt.RuneOffset.On = true
+		}
 
 		row.ScrollArea = widget.NewScrollArea(row.ui, row.TextArea, false, true)
 		row.ScrollArea.LeftScroll = ScrollBarLeft

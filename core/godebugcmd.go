@@ -15,6 +15,7 @@ import (
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/pkg/errors"
 )
 
@@ -196,7 +197,7 @@ func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
 	msg := line.Msgs[k]
 
 	// output
-	//s,err := godebug.StringifyItemOffset(msg.DLine.Item, offset) // inner item
+	//s := godebug.StringifyItemOffset(msg.DLine.Item, offset) // inner item
 	s := godebug.StringifyItemFull(msg.DLine.Item) // full item
 	gdi.ed.Messagef("annotation:\n%v\n", s)
 }
@@ -477,6 +478,12 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 				d.Annotations.Opt.Entries = file.AnnEntries
 				ta.MarkNeedsLayoutAndPaint()
 			}
+			if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+				d.Opt.Annotations.On = true
+				d.Opt.Annotations.Entries = file.AnnEntries
+				d.Opt.Annotations.Selected.EntryIndex = file.SelectedLine
+				ta.MarkNeedsLayoutAndPaint()
+			}
 		}
 	}
 }
@@ -490,6 +497,11 @@ func (gdi *GoDebugInstance) clearDrawerAnn(info *ERowInfo) {
 				d.Annotations.Opt.Entries = nil
 				ta.MarkNeedsLayoutAndPaint()
 			}
+		}
+		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+			d.Opt.Annotations.On = false
+			d.Opt.Annotations.Entries = nil
+			ta.MarkNeedsLayoutAndPaint()
 		}
 	}
 }

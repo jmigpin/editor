@@ -15,6 +15,7 @@ type Drawer interface {
 
 	Face() font.Face
 	SetFace(font.Face)
+	LineHeight() int
 
 	Offset() image.Point
 	SetOffset(image.Point)
@@ -28,8 +29,6 @@ type Drawer interface {
 
 	FirstLineOffsetX() int
 	SetFirstLineOffsetX(x int)
-
-	LineHeight() int
 
 	// document position
 	PointOf(index int) image.Point

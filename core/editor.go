@@ -13,6 +13,7 @@ import (
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font"
 )
 
@@ -60,6 +61,7 @@ func (ed *Editor) init(opt *Options) error {
 
 	ed.setupTheme(opt)
 	event.UseMultiKey = opt.UseMultiKey
+	widget.TextUserDrawer4 = opt.Drawer4
 
 	// user interface
 	ui0, err := ui.NewUI("Editor")
@@ -478,4 +480,6 @@ type Options struct {
 	UseMultiKey bool
 
 	Plugins string
+
+	Drawer4 bool
 }

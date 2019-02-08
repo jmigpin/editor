@@ -2,6 +2,7 @@ package widget
 
 import (
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/iout"
 )
 
@@ -74,6 +75,9 @@ func (tc *TextCursor) SetIndex(index int) {
 
 		if d, ok := tc.te.Drawer.(*drawer3.PosDrawer); ok {
 			d.Cursor.Opt.Index = tc.state.index
+		}
+		if d, ok := tc.te.Drawer.(*drawer4.Drawer); ok {
+			d.SetCursorIndex(tc.state.index)
 		}
 
 		tc.te.MarkNeedsPaint()
