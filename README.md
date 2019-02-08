@@ -156,7 +156,16 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 		- Supports remote debugging (check help usage).
 			- A client can connect/disconnect any number of times, but there can be only one client at a time.
 		- Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.
-			- `debug.SetSend(bool)`
+			- `debug.SetSend(bool)`, example:
+			```
+			func fn(){
+				debug.SetSend(false) // stop sending to speed up loop
+				defer debug.SetSend(true) // reactivate
+				for i:=0; i<10000; i++{
+					...
+				}
+			}
+			```
 		- When debugging, take care of functions that implement fmt.Stringer that get called. Consider the example:
 			```
 			type binary int
@@ -209,7 +218,7 @@ Functions that can be implemented by a plugin are (subject to changes - __work-i
 Note that plugins might need to be recompiled everytime there are changes in the libraries provided by the editor.
 
 Plugins located at: `./plugins`.
-- `gotodefinition_godef.go`: plugin that shows how to override the textarea click action and use godef.
+- `gotodefinition_godef.go`: plugin that shows how to override the textarea click action and use godef instead of the default.
 - `autocomplete_gocode.go`: plugin that shows a context with suggestions for `.go` files (uses gocode).
 
 ## Key/button shortcuts
