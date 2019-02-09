@@ -5,7 +5,7 @@ import (
 	"io"
 	"unicode"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -33,18 +33,18 @@ func Comment(tex *widget.TextEditX) error {
 	ii := max
 	for i := a; i < b; {
 		// find insertion index
-		j, _, err := iout.IndexFunc(tc.RW(), i, max, false, isSpaceExceptNewline)
+		j, _, err := iorw.IndexFunc(tc.RW(), i, max, false, isSpaceExceptNewline)
 		if err != nil {
 			if err == io.EOF {
 				j = tc.RW().Len()
-			} else if err == iout.ErrLimitReached {
+			} else if err == iorw.ErrLimitReached {
 				j = i + max
 			} else {
 				return err
 			}
 		}
 
-		u, _, err := iout.LineEndIndex(tc.RW(), j)
+		u, _, err := iorw.LineEndIndex(tc.RW(), j)
 		if err != nil {
 			return err
 		}
@@ -60,7 +60,7 @@ func Comment(tex *widget.TextEditX) error {
 	// insert comment
 	lines := 0
 	for i := a; i < b; {
-		u, _, err := iout.LineEndIndex(tc.RW(), i)
+		u, _, err := iorw.LineEndIndex(tc.RW(), i)
 		if err != nil {
 			return err
 		}
@@ -126,14 +126,14 @@ func Uncomment(tex *widget.TextEditX) error {
 	ci := tc.Index()
 	for i := a; i < b; {
 		// first non space rune (possible multiline jump)
-		j, _, err := iout.IndexFunc(tc.RW(), i, max, false, unicode.IsSpace)
+		j, _, err := iorw.IndexFunc(tc.RW(), i, max, false, unicode.IsSpace)
 		if err != nil {
 			break
 		}
 		i = j
 
 		// remove comment runes
-		if iout.HasPrefix(tc.RW(), i, cstrb) {
+		if iorw.HasPrefix(tc.RW(), i, cstrb) {
 			lines++
 			if err := tc.RW().Delete(i, len(cstrb)); err != nil {
 				return err
@@ -150,7 +150,7 @@ func Uncomment(tex *widget.TextEditX) error {
 		}
 
 		// go to end of line
-		u, _, err := iout.LineEndIndex(tc.RW(), i)
+		u, _, err := iorw.LineEndIndex(tc.RW(), i)
 		if err != nil {
 			return err
 		}

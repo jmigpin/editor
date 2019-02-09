@@ -1,4 +1,4 @@
-package iout
+package iorw
 
 type UndoRedo struct {
 	Insert bool // otherwise is a delete

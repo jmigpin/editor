@@ -5,13 +5,13 @@ import (
 	"image/color"
 	"image/draw"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"golang.org/x/image/font"
 )
 
 type Drawer interface {
-	Reader() iout.Reader
-	SetReader(iout.Reader)
+	Reader() iorw.Reader
+	SetReader(iorw.Reader)
 
 	Face() font.Face
 	SetFace(font.Face)

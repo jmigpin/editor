@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/jmigpin/editor/util/drawutil"
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 	"golang.org/x/image/font"
 )
@@ -23,7 +23,7 @@ type RuneReader struct {
 
 	face    font.Face
 	metrics font.Metrics
-	reader  iout.Reader
+	reader  iorw.Reader
 
 	riClone int
 }

@@ -4,7 +4,7 @@ import (
 	"image"
 	"log"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget/history"
 )
@@ -61,7 +61,7 @@ func (th *TextHistory) EndEdit() {
 
 //----------
 
-func (th *TextHistory) Append(ur *iout.UndoRedo) {
+func (th *TextHistory) Append(ur *iorw.UndoRedo) {
 	th.edit.Append(ur)
 }
 

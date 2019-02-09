@@ -4,13 +4,13 @@ import (
 	"image"
 
 	"github.com/jmigpin/editor/util/drawutil"
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"golang.org/x/image/font"
 )
 
 type DrawerCommon struct {
 	offset           image.Point
-	reader           iout.Reader
+	reader           iorw.Reader
 	face             font.Face
 	needMeasure      bool
 	bounds           image.Rectangle
@@ -24,10 +24,10 @@ func (d *DrawerCommon) SetOffset(o image.Point) {
 	d.offset = o
 }
 
-func (d *DrawerCommon) Reader() iout.Reader {
+func (d *DrawerCommon) Reader() iorw.Reader {
 	return d.reader
 }
-func (d *DrawerCommon) SetReader(r iout.Reader) {
+func (d *DrawerCommon) SetReader(r iorw.Reader) {
 	if r != d.reader {
 		d.reader = r
 		d.needMeasure = true

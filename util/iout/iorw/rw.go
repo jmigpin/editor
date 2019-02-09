@@ -1,4 +1,4 @@
-package iout
+package iorw
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 )
 
+// TODO: rename BytesReadWriter or BytesRW
 type RW struct {
 	buf []byte
 }

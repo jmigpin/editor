@@ -4,7 +4,7 @@ import (
 	"io"
 	"unicode"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -14,17 +14,17 @@ func AutoIndent(te *widget.TextEdit) error {
 	defer tc.EndEdit()
 
 	ci := tc.Index()
-	i, err := iout.LineStartIndex(tc.RW(), ci)
+	i, err := iorw.LineStartIndex(tc.RW(), ci)
 	if err != nil {
 		return err
 	}
 
-	j, _, err := iout.IndexFunc(tc.RW(), i, ci-i, false, unicode.IsSpace)
+	j, _, err := iorw.IndexFunc(tc.RW(), i, ci-i, false, unicode.IsSpace)
 	if err != nil {
 		if err == io.EOF {
 			// full line of spaces, indent to ci
 			j = ci
-		} else if err == iout.ErrLimitReached {
+		} else if err == iorw.ErrLimitReached {
 			// all spaces up to ci
 			j = ci
 		} else {

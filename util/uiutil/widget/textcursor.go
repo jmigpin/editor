@@ -3,14 +3,14 @@ package widget
 import (
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 type TextCursor struct {
 	te      *TextEdit
 	state   TextCursorState
 	editing bool
-	tcrw    iout.ReadWriter
+	tcrw    iorw.ReadWriter
 }
 
 func NewTextCursor(te *TextEdit) *TextCursor {
@@ -21,7 +21,7 @@ func NewTextCursor(te *TextEdit) *TextCursor {
 
 //------------
 
-func (tc *TextCursor) RW() iout.ReadWriter {
+func (tc *TextCursor) RW() iorw.ReadWriter {
 	return tc.tcrw
 }
 
@@ -155,7 +155,7 @@ func (tc *TextCursor) LinesIndexes() (int, int, bool, error) {
 		a = tc.Index()
 		b = a
 	}
-	return iout.LinesIndexes(tc.RW(), a, b)
+	return iorw.LinesIndexes(tc.RW(), a, b)
 }
 
 //----------
@@ -170,14 +170,14 @@ type TextCursorState struct {
 
 // Keeps history UndoRedo on write operations.
 type tcRW struct {
-	iout.ReadWriter
+	iorw.ReadWriter
 	tc *TextCursor
 }
 
 func (rw *tcRW) Insert(i int, p []byte) error {
 	rw.tc.panicIfNotEditing()
 
-	ur, err := iout.InsertUndoRedo(rw.ReadWriter, i, p)
+	ur, err := iorw.InsertUndoRedo(rw.ReadWriter, i, p)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (rw *tcRW) Insert(i int, p []byte) error {
 func (rw *tcRW) Delete(i, len int) error {
 	rw.tc.panicIfNotEditing()
 
-	ur, err := iout.DeleteUndoRedo(rw.ReadWriter, i, len)
+	ur, err := iorw.DeleteUndoRedo(rw.ReadWriter, i, len)
 	if err != nil {
 		return err
 	}

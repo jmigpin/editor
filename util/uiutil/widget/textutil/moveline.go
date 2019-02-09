@@ -1,7 +1,7 @@
 package textutil
 
 import (
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -28,7 +28,7 @@ func MoveLineUp(te *widget.TextEdit) error {
 		return err
 	}
 
-	a2, err := iout.LineStartIndex(tc.RW(), a-1) // start of previous line, -1 is size of '\n'
+	a2, err := iorw.LineStartIndex(tc.RW(), a-1) // start of previous line, -1 is size of '\n'
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func MoveLineDown(te *widget.TextEdit) error {
 	}
 
 	// line end of the line below
-	a2, newline, err := iout.LineEndIndex(tc.RW(), a)
+	a2, newline, err := iorw.LineEndIndex(tc.RW(), a)
 	if err != nil {
 		return err
 	}

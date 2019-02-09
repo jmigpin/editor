@@ -1,15 +1,13 @@
 package widget
 
 import (
-	"image"
 	"image/color"
 	"time"
 
-	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 // textedit with extensions
@@ -23,8 +21,8 @@ type TextEditX struct {
 		now   time.Time
 		dur   time.Duration
 		line  struct {
-			on     bool
-			p1, p2 image.Point
+			on bool
+			//p1, p2 image.Point
 		}
 		index struct {
 			on    bool
@@ -74,9 +72,9 @@ func (te *TextEditX) PaintBase() {
 
 func (te *TextEditX) Paint() {
 	te.updateSelectionOpt()
-	te.updateHighlightWordOpt()
+	//te.updateHighlightWordOpt()
 	te.updateFlashOpt()
-	te.updateParenthesisOpt()
+	//te.updateParenthesisOpt()
 	te.TextEdit.Paint()
 }
 
@@ -140,9 +138,16 @@ func (te *TextEditX) startFlash(index, len int, line bool) {
 		te.flash.dur = 500 * time.Millisecond
 
 		if line {
+			// recalc index/len
 			i0, i1 := te.lineIndexes(index)
 			index = i0
 			len = i1 - index
+
+			te.flash.line.on = true
+			// need at least len 1 or the colorize op will be canceled
+			if len == 0 {
+				len = 1
+			}
 		}
 
 		// flash index (accurate runes)
@@ -150,28 +155,43 @@ func (te *TextEditX) startFlash(index, len int, line bool) {
 		te.flash.index.index = index
 		te.flash.index.len = len
 
-		// flash line bg
-		if line {
-			te.flash.line.on = true
-			te.flash.line.p1 = te.Drawer.PointOf(index)
-			te.flash.line.p2 = te.Drawer.PointOf(index + len)
-		}
+		//// flash line bg
+		//if line {
+		//	te.flash.line.on = true
+		//	//te.flash.line.p1 = te.Drawer.PointOf(index)
+		//	//te.flash.line.p2 = te.Drawer.PointOf(index + len)
+		//}
 
 		te.MarkNeedsPaint()
 	})
 }
 
-func (te *TextEditX) lineIndexes(index int) (int, int) {
-	i0, i1 := 0, 0
-	if index <= len(te.Str()) {
-		i0 = parseutil.LineStartIndex(te.Str(), index)
-		u, nl := parseutil.LineEndIndexNextIndex(te.Str(), index)
-		if nl {
-			u--
-		}
-		i1 = u
+//func (te *TextEditX) lineIndexes(index int) (int, int) {
+//	i0, i1 := 0, 0
+//	if index <= len(te.Str()) {
+//		i0 = parseutil.LineStartIndex(te.Str(), index)
+//		u, nl := parseutil.LineEndIndexNextIndex(te.Str(), index)
+//		if nl {
+//			u--
+//		}
+//		i1 = u
+//	}
+//	return i0, i1
+//}
+
+func (te *TextEditX) lineIndexes(offset int) (int, int) {
+	lsi, err := iorw.LineStartIndex(te.Drawer.Reader(), offset)
+	if err != nil {
+		return 0, 0
 	}
-	return i0, i1
+	lei, nl, err := iorw.LineEndIndex(te.Drawer.Reader(), offset)
+	if err != nil {
+		return 0, 0
+	}
+	if nl {
+		lei--
+	}
+	return lsi, lei
 }
 
 //----------
@@ -200,74 +220,74 @@ func (te *TextEditX) paintFlashLineBg() {
 		return
 	}
 
-	// rectangle to paint
-	y1 := te.flash.line.p1.Y - te.Offset().Y
-	y2 := te.flash.line.p2.Y - te.Offset().Y
-	r := te.Bounds
-	r.Min.Y += y1
-	r.Max.Y = r.Min.Y + (y2 - y1) + te.LineHeight()
-	r = r.Intersect(te.Bounds)
+	//	// rectangle to paint
+	//	y1 := te.flash.line.p1.Y - te.Offset().Y
+	//	y2 := te.flash.line.p2.Y - te.Offset().Y
+	//	r := te.Bounds
+	//	r.Min.Y += y1
+	//	r.Max.Y = r.Min.Y + (y2 - y1) + te.LineHeight()
+	//	r = r.Intersect(te.Bounds)
 
-	// tint percentage
-	t := te.flash.now.Sub(te.flash.start)
-	perc := 1.0 - (float64(t) / float64(te.flash.dur))
+	//	// tint percentage
+	//	t := te.flash.now.Sub(te.flash.start)
+	//	perc := 1.0 - (float64(t) / float64(te.flash.dur))
 
-	// paint
-	img := te.ctx.Image()
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		for x := r.Min.X; x < r.Max.X; x++ {
-			c := img.At(x, y)
-			c2 := imageutil.TintOrShade(c, perc)
-			img.Set(x, y, c2)
-		}
-	}
+	//	// paint
+	//	img := te.ctx.Image()
+	//	for y := r.Min.Y; y < r.Max.Y; y++ {
+	//		for x := r.Min.X; x < r.Max.X; x++ {
+	//			c := img.At(x, y)
+	//			c2 := imageutil.TintOrShade(c, perc)
+	//			img.Set(x, y, c2)
+	//		}
+	//	}
 }
 
 func (te *TextEditX) updateFlashOpt() {
-	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
-		te.updateFlashOpt3(d)
-	}
+	//if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
+	//	te.updateFlashOpt3(d)
+	//}
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
 		te.updateFlashOpt4(d)
 	}
 }
 
-func (te *TextEditX) updateFlashOpt3(d *drawer3.PosDrawer) {
-	if !d.Segments.On() {
-		return
-	}
+//func (te *TextEditX) updateFlashOpt3(d *drawer3.PosDrawer) {
+//	if !d.Segments.On() {
+//		return
+//	}
 
-	sg := d.Segments.Opt.Groups[3]
-	if !te.flash.index.on {
-		sg.On = false
-		sg.Segs = nil
-		return
-	}
+//	sg := d.Segments.Opt.Groups[3]
+//	if !te.flash.index.on {
+//		sg.On = false
+//		sg.Segs = nil
+//		return
+//	}
 
-	sg.On = true
-	sg.Segs = []*drawer3.Segment{
-		{
-			Pos: te.flash.index.index,
-			End: te.flash.index.index + te.flash.index.len,
-		},
-	}
+//	sg.On = true
+//	sg.Segs = []*drawer3.Segment{
+//		{
+//			Pos: te.flash.index.index,
+//			End: te.flash.index.index + te.flash.index.len,
+//		},
+//	}
 
-	// tint percentage
-	t := te.flash.now.Sub(te.flash.start)
-	perc := 1.0 - (float64(t) / float64(te.flash.dur))
+//	// tint percentage
+//	t := te.flash.now.Sub(te.flash.start)
+//	perc := 1.0 - (float64(t) / float64(te.flash.dur))
 
-	bg3 := te.TreeThemePaletteColor("text_bg")
+//	bg3 := te.TreeThemePaletteColor("text_bg")
 
-	// set process color function
-	sg.ProcColor = func(fg, bg color.Color) (_, _ color.Color) {
-		fg2 := imageutil.TintOrShade(fg, perc)
-		if bg == nil {
-			bg = bg3
-		}
-		bg2 := imageutil.TintOrShade(bg, perc)
-		return fg2, bg2
-	}
-}
+//	// set process color function
+//	sg.ProcColor = func(fg, bg color.Color) (_, _ color.Color) {
+//		fg2 := imageutil.TintOrShade(fg, perc)
+//		if bg == nil {
+//			bg = bg3
+//		}
+//		bg2 := imageutil.TintOrShade(bg, perc)
+//		return fg2, bg2
+//	}
+//}
 
 func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
 	g := d.Opt.Colorize.Groups[4]
@@ -293,8 +313,9 @@ func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
 
 	s := te.flash.index.index
 	e := s + te.flash.index.len
+	line := te.flash.line.on
 	g.Ops = []*drawer4.ColorizeOp{
-		&drawer4.ColorizeOp{Offset: s, ProcColor: pc},
+		&drawer4.ColorizeOp{Offset: s, ProcColor: pc, Line: line},
 		&drawer4.ColorizeOp{Offset: e},
 	}
 }
@@ -312,135 +333,135 @@ func (te *TextEditX) EnableParenthesisMatch(v bool) {
 
 }
 
-func (te *TextEditX) updateParenthesisOpt() {
-	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
-		te.updateParenthesisOpt3(d)
-	}
-}
+//func (te *TextEditX) updateParenthesisOpt() {
+//	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
+//		te.updateParenthesisOpt3(d)
+//	}
+//}
 
-func (te *TextEditX) updateParenthesisOpt3(d *drawer3.PosDrawer) {
-	if !d.Segments.On() {
-		return
-	}
+//func (te *TextEditX) updateParenthesisOpt3(d *drawer3.PosDrawer) {
+//	if !d.Segments.On() {
+//		return
+//	}
 
-	sg := d.Segments.Opt.Groups[2]
-	sg.Segs = nil // might find segments or not, always start with nil
-	if !sg.On {
-		return
-	}
+//	sg := d.Segments.Opt.Groups[2]
+//	sg.Segs = nil // might find segments or not, always start with nil
+//	if !sg.On {
+//		return
+//	}
 
-	tc := te.TextCursor
+//	tc := te.TextCursor
 
-	// read current rune
-	ci := tc.Index()
-	cru, _, err := tc.RW().ReadRuneAt(ci)
-	if err != nil {
-		return
-	}
+//	// read current rune
+//	ci := tc.Index()
+//	cru, _, err := tc.RW().ReadRuneAt(ci)
+//	if err != nil {
+//		return
+//	}
 
-	// find parenthesis type
-	pars := []rune{
-		'{', '}',
-		'(', ')',
-		'[', ']',
-	}
-	var pi int
-	for ; pi < len(pars); pi++ {
-		if pars[pi] == cru {
-			break
-		}
-	}
-	if pi >= len(pars) {
-		return
-	}
+//	// find parenthesis type
+//	pars := []rune{
+//		'{', '}',
+//		'(', ')',
+//		'[', ']',
+//	}
+//	var pi int
+//	for ; pi < len(pars); pi++ {
+//		if pars[pi] == cru {
+//			break
+//		}
+//	}
+//	if pi >= len(pars) {
+//		return
+//	}
 
-	// assign open/close parenthesis
-	var open, close rune
-	isOpen := pi%2 == 0
-	if isOpen {
-		open, close = pars[pi], pars[pi+1]
-	} else {
-		open, close = pars[pi-1], pars[pi]
-	}
+//	// assign open/close parenthesis
+//	var open, close rune
+//	isOpen := pi%2 == 0
+//	if isOpen {
+//		open, close = pars[pi], pars[pi+1]
+//	} else {
+//		open, close = pars[pi-1], pars[pi]
+//	}
 
-	if isOpen {
-		te.findParenthesisClose(ci, cru, open, close, sg)
-	} else {
-		te.findParenthesisOpen(ci, cru, open, close, sg)
-	}
-}
+//	if isOpen {
+//		te.findParenthesisClose(ci, cru, open, close, sg)
+//	} else {
+//		te.findParenthesisOpen(ci, cru, open, close, sg)
+//	}
+//}
 
-func (te *TextEditX) findParenthesisClose(ci int, cru, open, close rune, sg *drawer3.SegGroup) {
-	tc := te.TextCursor
-	earlyExitIndex := te.visibleBottomIndex()
+//func (te *TextEditX) findParenthesisClose(ci int, cru, open, close rune, sg *drawer3.SegGroup) {
+//	tc := te.TextCursor
+//	earlyExitIndex := te.visibleBottomIndex()
 
-	seg1 := &drawer3.Segment{ci, ci + len(string(open))}
-	sg.Segs = append(sg.Segs, seg1)
+//	seg1 := &drawer3.Segment{ci, ci + len(string(open))}
+//	sg.Segs = append(sg.Segs, seg1)
 
-	c := 0                     // match count
-	i := ci + len(string(cru)) // start searching on next rune
-	for {
-		if i >= earlyExitIndex {
-			return
-		}
+//	c := 0                     // match count
+//	i := ci + len(string(cru)) // start searching on next rune
+//	for {
+//		if i >= earlyExitIndex {
+//			return
+//		}
 
-		ru, size, err := tc.RW().ReadRuneAt(i)
-		if err != nil {
-			return
-		}
+//		ru, size, err := tc.RW().ReadRuneAt(i)
+//		if err != nil {
+//			return
+//		}
 
-		if ru == open {
-			c++
-		}
-		if ru == close {
-			if c > 0 {
-				c--
-			} else {
-				seg2 := &drawer3.Segment{i, i + len(string(close))}
-				sg.Segs = append(sg.Segs, seg2)
-				return
-			}
-		}
+//		if ru == open {
+//			c++
+//		}
+//		if ru == close {
+//			if c > 0 {
+//				c--
+//			} else {
+//				seg2 := &drawer3.Segment{i, i + len(string(close))}
+//				sg.Segs = append(sg.Segs, seg2)
+//				return
+//			}
+//		}
 
-		i += size
-	}
-}
+//		i += size
+//	}
+//}
 
-func (te *TextEditX) findParenthesisOpen(ci int, cru, open, close rune, sg *drawer3.SegGroup) {
-	tc := te.TextCursor
-	earlyExitIndex := te.visibleTopIndex()
+//func (te *TextEditX) findParenthesisOpen(ci int, cru, open, close rune, sg *drawer3.SegGroup) {
+//	tc := te.TextCursor
+//	earlyExitIndex := te.visibleTopIndex()
 
-	seg2 := &drawer3.Segment{ci, ci + len(string(close))}
-	sg.Segs = append(sg.Segs, seg2)
+//	seg2 := &drawer3.Segment{ci, ci + len(string(close))}
+//	sg.Segs = append(sg.Segs, seg2)
 
-	c := 0 // match count
-	for i := ci; ; {
-		if i < earlyExitIndex {
-			return
-		}
+//	c := 0 // match count
+//	for i := ci; ; {
+//		if i < earlyExitIndex {
+//			return
+//		}
 
-		ru, size, err := tc.RW().ReadLastRuneAt(i)
-		if err != nil {
-			return
-		}
-		i -= size
+//		ru, size, err := tc.RW().ReadLastRuneAt(i)
+//		if err != nil {
+//			return
+//		}
+//		i -= size
 
-		if ru == close {
-			c++
-		}
-		if ru == open {
-			if c > 0 {
-				c--
-			} else {
-				seg1 := &drawer3.Segment{i, i + len(string(open))}
-				// prepend
-				sg.Segs = append([]*drawer3.Segment{seg1}, sg.Segs...)
-				return
-			}
-		}
+//		if ru == close {
+//			c++
+//		}
+//		if ru == open {
+//			if c > 0 {
+//				c--
+//			} else {
+//				seg1 := &drawer3.Segment{i, i + len(string(open))}
+//				// prepend
+//				sg.Segs = append([]*drawer3.Segment{seg1}, sg.Segs...)
+//				return
+//			}
+//		}
 
-	}
-}
+//	}
+//}
 
 //----------
 
@@ -474,62 +495,62 @@ func (te *TextEditX) EnableHighlightCursorWord(v bool) {
 	}
 }
 
-func (te *TextEditX) updateHighlightWordOpt() {
-	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
-		te.updateHighlightWordOpt3(d)
-	}
-}
+//func (te *TextEditX) updateHighlightWordOpt() {
+//	if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
+//		te.updateHighlightWordOpt3(d)
+//	}
+//}
 
-func (te *TextEditX) updateHighlightWordOpt3(d *drawer3.PosDrawer) {
-	sg := d.Segments.Opt.Groups[1]
-	sg.Segs = nil
-	if !sg.On {
-		return
-	}
+//func (te *TextEditX) updateHighlightWordOpt3(d *drawer3.PosDrawer) {
+//	sg := d.Segments.Opt.Groups[1]
+//	sg.Segs = nil
+//	if !sg.On {
+//		return
+//	}
 
-	tc := te.TextCursor
+//	tc := te.TextCursor
 
-	if tc.SelectionOn() {
-		return
-	}
+//	if tc.SelectionOn() {
+//		return
+//	}
 
-	word, _, err := iout.WordAtIndex(tc.RW(), tc.Index(), 100)
-	if err != nil {
-		return
-	}
+//	word, _, err := iorw.WordAtIndex(tc.RW(), tc.Index(), 100)
+//	if err != nil {
+//		return
+//	}
 
-	// indexes of visible text
-	a, b := te.visibleTopIndex(), te.visibleBottomIndex()
-	a -= len(word)
-	b += len(word)
-	if a < 0 {
-		a = 0
-	}
-	l := tc.RW().Len()
-	if b > l {
-		b = l
-	}
+//	// indexes of visible text
+//	a, b := te.visibleTopIndex(), te.visibleBottomIndex()
+//	a -= len(word)
+//	b += len(word)
+//	if a < 0 {
+//		a = 0
+//	}
+//	l := tc.RW().Len()
+//	if b > l {
+//		b = l
+//	}
 
-	// search segments
-	for i := a; i < b; {
-		// find word
-		j, err := iout.Index(tc.RW(), i, b-i, word, false)
-		if err != nil {
-			return
-		}
-		if j < 0 {
-			break
-		}
+//	// search segments
+//	for i := a; i < b; {
+//		// find word
+//		j, err := iorw.Index(tc.RW(), i, b-i, word, false)
+//		if err != nil {
+//			return
+//		}
+//		if j < 0 {
+//			break
+//		}
 
-		// isolated word
-		if iout.WordIsolated(tc.RW(), j, len(word)) {
-			seg := &drawer3.Segment{j, j + len(word)}
-			sg.Segs = append(sg.Segs, seg)
-		}
+//		// isolated word
+//		if iorw.WordIsolated(tc.RW(), j, len(word)) {
+//			seg := &drawer3.Segment{j, j + len(word)}
+//			sg.Segs = append(sg.Segs, seg)
+//		}
 
-		i = j + len(word)
-	}
-}
+//		i = j + len(word)
+//	}
+//}
 
 //----------
 
@@ -621,14 +642,14 @@ func (te *TextEditX) OnThemeChange() {
 
 //----------
 
-func (te *TextEditX) visibleTopIndex() int {
-	return te.Drawer.IndexOf(te.Offset())
-}
-func (te *TextEditX) visibleBottomIndex() int {
-	// TODO: needs improvement for lines with big X
+//func (te *TextEditX) visibleTopIndex() int {
+//	return te.Drawer.IndexOf(te.Offset())
+//}
+//func (te *TextEditX) visibleBottomIndex() int {
+//	// TODO: needs improvement for lines with big X
 
-	// first rune of line after last visible line
-	y := te.Offset().Y + te.Bounds.Size().Y + te.LineHeight()
+//	// first rune of line after last visible line
+//	y := te.Offset().Y + te.Bounds.Size().Y + te.LineHeight()
 
-	return te.Drawer.IndexOf(image.Point{0, y})
-}
+//	return te.Drawer.IndexOf(image.Point{0, y})
+//}

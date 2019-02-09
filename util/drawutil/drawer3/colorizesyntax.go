@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"unicode"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 type ColorizeSyntax struct {
@@ -71,7 +71,7 @@ func (cs *ColorizeSyntax) preState(r *ExtRunner) {
 	case CSSCommentEnclosed:
 		if r.RR.Ri >= cs.data.index {
 			prefix := []byte(cs.Opt.Comment.Enclosed[1])
-			if iout.HasPrefix(r.RR.reader, r.RR.Ri, prefix) {
+			if iorw.HasPrefix(r.RR.reader, r.RR.Ri, prefix) {
 				cs.data.state = CSSCommentEnclosedClosing
 				cs.data.index = r.RR.Ri + len(prefix)
 			}
@@ -96,7 +96,7 @@ func (cs *ColorizeSyntax) preState(r *ExtRunner) {
 func (cs *ColorizeSyntax) commentLine(r *ExtRunner) {
 	if r.RR.Ru == cs.cline[0] {
 		s := []byte(string(cs.cline))
-		if iout.HasPrefix(r.RR.reader, r.RR.Ri, s) {
+		if iorw.HasPrefix(r.RR.reader, r.RR.Ri, s) {
 			cs.data.state = CSSCommentLine
 		}
 	}
@@ -104,7 +104,7 @@ func (cs *ColorizeSyntax) commentLine(r *ExtRunner) {
 func (cs *ColorizeSyntax) commentEnc0(r *ExtRunner) {
 	if r.RR.Ru == cs.cenc0[0] {
 		s := []byte(string(cs.cenc0))
-		if iout.HasPrefix(r.RR.reader, r.RR.Ri, s) {
+		if iorw.HasPrefix(r.RR.reader, r.RR.Ri, s) {
 			cs.data.state = CSSCommentEnclosed
 			cs.data.index = r.RR.Ri + len(s)
 		}

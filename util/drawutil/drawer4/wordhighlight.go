@@ -1,10 +1,10 @@
 package drawer4
 
 import (
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
-func updateWordHighlightWord(d *Drawer) {
+func updateWordHighlightWord(d *Drawer, max int) {
 	d.Opt.WordHighlight.word = nil
 
 	if !d.Opt.WordHighlight.On {
@@ -19,8 +19,7 @@ func updateWordHighlightWord(d *Drawer) {
 
 	// find word
 	ci := d.Opt.Cursor.index
-	n := d.runeOffsetViewLen()
-	word, _, err := iout.WordAtIndex(d.reader, ci, n)
+	word, _, err := iorw.WordAtIndex(d.reader, ci, max)
 	if err != nil {
 		return
 	}
@@ -41,8 +40,7 @@ func WordHighlightOps(d *Drawer) []*ColorizeOp {
 	}
 
 	// offsets to search
-	o := d.Opt.RuneOffset.offset
-	n := d.runeOffsetViewLen()
+	o, n := d.runeOffsetViewLen()
 	a, b := o, o+n
 	a -= len(word)
 	b += len(word)
@@ -58,7 +56,7 @@ func WordHighlightOps(d *Drawer) []*ColorizeOp {
 	var ops []*ColorizeOp
 	for i := a; i < b; {
 		// find word
-		j, err := iout.Index(d.reader, i, b-i, word, false)
+		j, err := iorw.Index(d.reader, i, b-i, word, false)
 		if err != nil {
 			return nil
 		}
@@ -67,7 +65,7 @@ func WordHighlightOps(d *Drawer) []*ColorizeOp {
 		}
 
 		// isolated word
-		if iout.WordIsolated(d.reader, j, len(word)) {
+		if iorw.WordIsolated(d.reader, j, len(word)) {
 			op1 := &ColorizeOp{
 				Offset: j,
 				Fg:     d.Opt.WordHighlight.Fg,

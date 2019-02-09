@@ -3,7 +3,7 @@ package textutil
 import (
 	"bytes"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -33,7 +33,7 @@ func find2(tc *widget.TextCursor, s []byte) (int, error) {
 	l := tc.RW().Len()
 
 	// index to end
-	i, err := iout.Index(tc.RW(), ci, l, s, true)
+	i, err := iorw.Index(tc.RW(), ci, l, s, true)
 	if err != nil || i >= 0 {
 		return i, err
 	}
@@ -43,5 +43,5 @@ func find2(tc *widget.TextCursor, s []byte) (int, error) {
 	if w > l {
 		w = l
 	}
-	return iout.Index(tc.RW(), 0, w, s, true)
+	return iorw.Index(tc.RW(), 0, w, s, true)
 }

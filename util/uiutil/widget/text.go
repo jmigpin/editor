@@ -7,10 +7,8 @@ import (
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
-
-var TextUserDrawer4 bool = false
 
 type Text struct {
 	ENode
@@ -23,21 +21,17 @@ type Text struct {
 	ctx        ImageContext
 	fg, bg     color.Color
 
-	brw iout.ReadWriter // base rw
-	//trw iout.ReadWriter // text rw (calls changes)
+	brw iorw.ReadWriter // base rw
+	//trw iorw.ReadWriter // text rw (calls changes)
 }
 
 func NewText(ctx ImageContext) *Text {
 	t := &Text{ctx: ctx}
 	t.TextScroll.Text = t
 
-	if TextUserDrawer4 {
-		t.Drawer = drawer4.New()
-	} else {
-		t.Drawer = drawer3.NewPosDrawer()
-	}
+	t.Drawer = drawer4.New()
 
-	t.brw = iout.NewRW(nil)
+	t.brw = iorw.NewRW(nil)
 	//t.trw = &tRW{ReadWriter: t.brw, t: t}
 	t.Drawer.SetReader(t.brw)
 
@@ -46,11 +40,11 @@ func NewText(ctx ImageContext) *Text {
 
 //----------
 
-//func (t *Text) BaseRW() iout.ReadWriter {
+//func (t *Text) BaseRW() iorw.ReadWriter {
 //	return t.brw
 //}
 
-//func (t *Text) RW() iout.ReadWriter {
+//func (t *Text) RW() iorw.ReadWriter {
 //	return t.trw
 //}
 
@@ -126,69 +120,82 @@ func (t *Text) SetScrollable(x, y bool) {
 
 //----------
 
-func (t *Text) Offset() image.Point {
-	return t.Drawer.Offset()
-}
+//func (t *Text) Offset() image.Point {
+//	return t.Drawer.Offset()
+//}
 
-func (t *Text) SetOffset(o image.Point) {
-	// set only if scrollable
-	u := image.Point{}
-	if t.scrollable.x {
-		u.X = o.X
-	}
-	if t.scrollable.y {
-		u.Y = o.Y
-	}
+//func (t *Text) SetOffset(o image.Point) {
+//	// set only if scrollable
+//	u := image.Point{}
+//	if t.scrollable.x {
+//		u.X = o.X
+//	}
+//	if t.scrollable.y {
+//		u.Y = o.Y
+//	}
 
-	if u != t.Drawer.Offset() {
-		t.Drawer.SetOffset(u)
-		t.MarkNeedsLayoutAndPaint()
-	}
-}
+//	if u != t.Drawer.Offset() {
+//		t.Drawer.SetOffset(u)
+//		t.MarkNeedsLayoutAndPaint()
+//	}
+//}
 
-func (t *Text) SetOffsetY(y int) {
-	o := t.Offset()
-	o.Y = y
-	t.SetOffset(o)
-}
+//func (t *Text) SetOffsetY(y int) {
+//	o := t.Offset()
+//	o.Y = y
+//	t.SetOffset(o)
+//}
 
 //----------
 
-//func (t *Text) ResetOffsetY() {
-//	if d, ok := t.Drawer.(*drawer3.PosDrawer); ok {
-//		o := d.Offset()
-//		o.Y = 0
-//		if o != d.Offset() {
-//			d.SetOffset(o)
-//			t.MarkNeedsLayoutAndPaint()
-//		}
-//	}
-//	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
-//		if d.RuneOffset() != 0 {
-//			d.SetRuneOffset(0)
-//			t.MarkNeedsLayoutAndPaint()
-//		}
-//	}
-//}
+func (t *Text) RuneOffset() int {
+	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
+		return d.RuneOffset()
+	}
+	return 0
+}
 
-//func (t *Text) RuneOffset() int {
-//	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
-//		return d.RuneOffset()
-//	}
-//	return 0
-//}
+func (t *Text) SetRuneOffset(o int) {
+	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
+		if t.scrollable.y {
+			u := d.RuneOffset()
+			if o != u {
 
-//func (t *Text) SetRuneOffset(v int) {
-//	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
-//		if t.scrollable.y {
-//			o := d.RuneOffset()
-//			if v != o {
-//				d.SetRuneOffset(v)
-//				t.MarkNeedsLayoutAndPaint()
-//			}
-//		}
-//	}
-//}
+				// TODO: use linestart here?
+
+				d.SetRuneOffset(o)
+				t.MarkNeedsLayoutAndPaint()
+			}
+		}
+	}
+}
+
+func (t *Text) MakeRangeVisible(offset, length int) {
+	if t.IsRangeVisible(offset, length) {
+		return
+	}
+
+	// TODO: length
+	lsi, err := iorw.LineStartIndex(t.Drawer.Reader(), offset)
+	if err != nil {
+		return
+	}
+
+	t.SetRuneOffset(lsi) // TODO: should not be used directly or it won't
+}
+func (t *Text) MakeRangeCentered(offset, length int) {
+	// TODO: length
+	//t.SetRuneOffset(offset)
+	t.MakeRangeVisible(offset, length)
+}
+
+// TODO: rename to RangeVisible
+func (t *Text) IsRangeVisible(offset, length int) bool {
+	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
+		return d.RangeVisible(offset, length)
+	}
+	return false
+}
 
 //----------
 
@@ -249,7 +256,7 @@ func (t *Text) OnThemeChange() {
 
 //// Auto calls t.changes() on write operations.
 //type tRW struct {
-//	iout.ReadWriter
+//	iorw.ReadWriter
 //	t *Text
 //}
 

@@ -1,7 +1,7 @@
 package textutil
 
 import (
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
@@ -18,13 +18,13 @@ func SelectWord(te *widget.TextEdit) error {
 
 	var index int
 	var word []byte
-	if !iout.IsWordRune(ru) {
+	if !iorw.IsWordRune(ru) {
 		// select just the index rune
 		index = ci
 		word = []byte(string(ru))
 	} else {
 		// select word at index
-		w, i, err := iout.WordAtIndex(tc.RW(), ci, 100)
+		w, i, err := iorw.WordAtIndex(tc.RW(), ci, 100)
 		if err != nil {
 			return err
 		}

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer3"
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 	"golang.org/x/image/font"
 )
@@ -18,7 +18,7 @@ import (
 */
 
 type Drawer struct {
-	reader iout.Reader
+	reader iorw.Reader
 
 	face             font.Face
 	metrics          font.Metrics
@@ -152,6 +152,7 @@ type State struct {
 	curColors struct {
 		startFg color.Color
 		fg, bg  color.Color
+		lineBg  color.Color
 	}
 	bgFill struct{}
 	cursor struct {
@@ -217,8 +218,8 @@ func New() *Drawer {
 
 //----------
 
-func (d *Drawer) SetReader(r iout.Reader) { d.reader = r }
-func (d *Drawer) Reader() iout.Reader     { return d.reader }
+func (d *Drawer) SetReader(r iorw.Reader) { d.reader = r }
+func (d *Drawer) Reader() iorw.Reader     { return d.reader }
 
 func (d *Drawer) Offset() image.Point     { return d.offset }
 func (d *Drawer) SetOffset(o image.Point) { /*d.offset = o*/ }
@@ -281,7 +282,7 @@ func (d *Drawer) SetRuneOffset(v int) { d.Opt.RuneOffset.offset = v }
 func (d *Drawer) SetCursorIndex(v int) {
 	d.Opt.Cursor.index = v
 	// TODO: on paste, the cursor index might not changed, but these need to be updated
-	updateWordHighlightWord(d)
+	updateWordHighlightWord(d, 250)     // max distance*2 to find word
 	updateParenthesisHighlight(d, 5000) // max distance to find close
 }
 
@@ -488,22 +489,23 @@ func (d *Drawer) iterStop() {
 
 //----------
 
+// TODO: rename and return only int
 func (d *Drawer) ScrollableViewSize() image.Point {
 	if d.Opt.RuneOffset.On {
-		y := d.runeOffsetViewLen()
-		return image.Point{1, y}
+		_, n := d.runeOffsetViewLen()
+		return image.Point{1, n}
 	}
 	return d.bounds.Size()
 }
 
 //----------
 
-func (d *Drawer) runeOffsetViewLen() int {
+func (d *Drawer) runeOffsetViewLen() (int, int) {
 	if !d.ready() {
-		return 0
+		return 0, 0
 	}
 	if !d.Opt.RuneOffset.On {
-		return 0
+		return 0, 0
 	}
 	d.st = State{}
 	iters := []Iterator{
@@ -515,8 +517,38 @@ func (d *Drawer) runeOffsetViewLen() int {
 		&d.iters.earlyExit,
 	}
 	d.loopInit(iters)
+	startRi := d.st.runeR.ri
 	d.loop()
-	return d.st.runeR.ri - d.Opt.RuneOffset.offset
+	return startRi, d.st.runeR.ri - startRi
+}
+
+//----------
+
+func (d *Drawer) RangeVisible(offset, length int) bool {
+	o, n := d.runeOffsetViewLen()
+	a1, b1 := offset, offset+length
+	a2, b2 := o, o+n
+	// intersection
+	if a1 < a2 {
+		a1 = a2
+	}
+	if b1 > b2 {
+		b1 = b2
+	}
+	// not using ">=" allows length to be zero (case of empty lines)
+	empty := a1 > b1
+	return !empty
+}
+
+func (d *Drawer) MakeRangeVisible(offset, length int) {
+
+	//d.textBounds(offset, length)
+
+	//lsi, err := iorw.LineStartIndex(d.reader, offset)
+	//if err != nil {
+	//	return
+	//}
+
 }
 
 //----------

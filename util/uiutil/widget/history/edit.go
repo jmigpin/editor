@@ -3,7 +3,7 @@ package history
 import (
 	"container/list"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 type Edit struct {
@@ -12,15 +12,15 @@ type Edit struct {
 	PostState interface{}
 }
 
-func (edit *Edit) Append(data *iout.UndoRedo) {
+func (edit *Edit) Append(data *iorw.UndoRedo) {
 	edit.list.PushBack(data)
 }
 
-func (edit *Edit) Entries() []*iout.UndoRedo {
-	w := make([]*iout.UndoRedo, edit.list.Len())
+func (edit *Edit) Entries() []*iorw.UndoRedo {
+	w := make([]*iorw.UndoRedo, edit.list.Len())
 	i := 0
 	for e := edit.list.Front(); e != nil; e = e.Next() {
-		ur := e.Value.(*iout.UndoRedo)
+		ur := e.Value.(*iorw.UndoRedo)
 		w[i] = ur
 		i++
 	}
@@ -29,7 +29,7 @@ func (edit *Edit) Entries() []*iout.UndoRedo {
 
 func (edit *Edit) Empty() bool {
 	for e := edit.list.Front(); e != nil; e = e.Next() {
-		ur := e.Value.(*iout.UndoRedo)
+		ur := e.Value.(*iorw.UndoRedo)
 		if len(ur.S) > 0 {
 			return false
 		}
@@ -37,10 +37,10 @@ func (edit *Edit) Empty() bool {
 	return true
 }
 
-func (edit *Edit) ApplyUndoRedo(w iout.Writer, redo bool, restore func(interface{})) error {
+func (edit *Edit) ApplyUndoRedo(w iorw.Writer, redo bool, restore func(interface{})) error {
 	if redo {
 		for e := edit.list.Front(); e != nil; e = e.Next() {
-			ur := e.Value.(*iout.UndoRedo)
+			ur := e.Value.(*iorw.UndoRedo)
 			if err := ur.Apply(w, redo); err != nil {
 				return err
 			}
@@ -48,7 +48,7 @@ func (edit *Edit) ApplyUndoRedo(w iout.Writer, redo bool, restore func(interface
 		restore(edit.PostState)
 	} else {
 		for e := edit.list.Back(); e != nil; e = e.Prev() {
-			ur := e.Value.(*iout.UndoRedo)
+			ur := e.Value.(*iorw.UndoRedo)
 			if err := ur.Apply(w, redo); err != nil {
 				return err
 			}

@@ -1,7 +1,7 @@
 package textutil
 
 import (
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -37,7 +37,7 @@ func replace2(tc *widget.TextCursor, oldb, newb []byte, a, b int) (int, bool, er
 	ci := tc.Index()
 	replaced := false
 	for a < b {
-		i, err := iout.Index(tc.RW(), a, b-a, oldb, false)
+		i, err := iorw.Index(tc.RW(), a, b-a, oldb, false)
 		if err != nil {
 			return ci, replaced, err
 		}

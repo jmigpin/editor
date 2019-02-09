@@ -5,7 +5,7 @@ import (
 	"container/list"
 	"unicode"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 func TryToMergeLastTwoEdits(h *History) {
@@ -126,22 +126,22 @@ func consecutiveSpaces(ed1, ed2 *Edit) bool {
 
 //----------
 
-func urIsLetterInsert(ur *iout.UndoRedo) bool {
+func urIsLetterInsert(ur *iorw.UndoRedo) bool {
 	r := []rune(string(ur.S))
 	// not-insert is the undo of an "insert"
 	return !ur.Insert && len(r) == 1 && unicode.IsLetter(r[0])
 }
 
-func urIsSpace(ur *iout.UndoRedo) bool {
+func urIsSpace(ur *iorw.UndoRedo) bool {
 	// can be insert or delete
 	return len(bytes.TrimSpace(ur.S)) == 0
 }
 
-func urConsecutive(ur1, ur2 *iout.UndoRedo) bool {
+func urConsecutive(ur1, ur2 *iorw.UndoRedo) bool {
 	return ur1.Index+len(ur1.S) == ur2.Index
 }
 
-func urConsecutiveEitherSide(ur1, ur2 *iout.UndoRedo) bool {
+func urConsecutiveEitherSide(ur1, ur2 *iorw.UndoRedo) bool {
 	return ur1.Index+len(ur1.S) == ur2.Index || // moved to the right
 		ur1.Index == ur2.Index+len(ur2.S) || // moved to the left
 		ur1.Index == ur2.Index // stayed in place
