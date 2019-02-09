@@ -109,7 +109,13 @@ func LineEndIndexNextIndex(str string, index int) (_ int, hasNewline bool) {
 
 func LineColumnIndex(str string, line, column int) int {
 	line--
+	if line < 0 {
+		return -1
+	}
 	column--
+	if column < 0 {
+		column = 0
+	}
 
 	// rune index of line/column
 	index := -1
