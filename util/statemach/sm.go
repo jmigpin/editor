@@ -9,8 +9,8 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
-//const EOS = -1
-const Err = -1
+const eos = -1
+const readErr = -2
 
 type SM struct {
 	Start int
@@ -24,11 +24,11 @@ func NewSM(r iorw.Reader) *SM {
 
 func (sm *SM) Next() rune {
 	if sm.Pos >= sm.r.Len() {
-		return EOS
+		return eos
 	}
 	ru, w, err := sm.r.ReadRuneAt(sm.Pos)
 	if err != nil {
-		return Err
+		return readErr
 	}
 	sm.Pos += w
 	return ru
@@ -55,6 +55,13 @@ func (sm *SM) AcceptRune(ru rune) bool {
 	sm.Pos = pos
 	return false
 }
+
+// The end value can be obtained with next() or peek().
+func (sm *SM) AcceptEnd() bool {
+	return sm.AcceptRune(eos) || sm.AcceptRune(readErr)
+}
+
+//----------
 
 func (sm *SM) AcceptAny(valid string) bool {
 	pos := sm.Pos
@@ -105,13 +112,17 @@ func (sm *SM) AcceptLoop(valid string) bool {
 	return v
 }
 
-// Note that the loop does not stop on EOS, only when fn returns false.
 func (sm *SM) AcceptLoopFn(fn func(rune) bool) bool {
 	v := false
-	for sm.AcceptFn(fn) {
-		v = true // getting at least one will return true
+	for !sm.AcceptEnd() {
+		if sm.AcceptFn(fn) {
+			v = true // getting at least one will return true
+			continue
+		}
+		break
 	}
 	return v
+
 }
 
 func (sm *SM) AcceptN(n int) bool {
@@ -125,9 +136,6 @@ func (sm *SM) AcceptN(n int) bool {
 func (sm *SM) AcceptNRunes(n int) bool {
 	p := sm.Pos
 	_ = sm.AcceptLoopFn(func(ru rune) bool {
-		if ru == EOS {
-			return false
-		}
 		if n <= 0 {
 			return false
 		}
@@ -207,57 +215,45 @@ func (sm *SM) AcceptFloat() bool {
 	return true
 }
 
-func (sm *SM) AcceptToNewlineOrEOS() bool {
-	return sm.AcceptLoopFn(func(ru rune) bool {
-		return ru != '\n' && ru != EOS
-	})
-}
-
 //----------
 
-func (sm *SM) AcceptQuote(quotes string, escapes string) bool {
+func (sm *SM) AcceptQuoteLoop(quotes string, escapes string) bool {
 	pos := sm.Pos
 	ru := sm.Next()
-	if sm.IsQuoteAccept(ru, quotes, escapes) {
+	if sm.AcceptQuoteLoop2(ru, quotes, escapes) {
 		return true
 	}
 	sm.Pos = pos
 	return false
 }
 
-//----------
-
-func (sm *SM) IsQuoteAccept(quote rune, quotes string, escapes string) bool {
+func (sm *SM) AcceptQuoteLoop2(quote rune, quotes string, escapes string) bool {
 	if !strings.ContainsRune(quotes, quote) {
 		return false
 	}
 	p := sm.Pos
 	found := false
 	_ = sm.AcceptLoopFn(func(ru rune) bool {
-		if found {
+		if sm.AcceptEscape2(ru, escapes) {
+			return true
+		}
+		if ru == quote {
+			found = true
 			return false
 		}
-		if sm.IsEscapeAccept(ru, escapes) {
-			return true
-		}
-		switch ru {
-		case EOS:
-			return false
-		case quote:
-			found = true // stop on next rune
-			return true
-		default:
-			return true
-		}
+		return true
 	})
 	if found {
+		_ = sm.AcceptNRunes(1) // read end quote
 		return true
 	}
 	sm.Pos = p
 	return false
 }
 
-func (sm *SM) IsEscapeAccept(ru rune, escapes string) bool {
+//----------
+
+func (sm *SM) AcceptEscape2(ru rune, escapes string) bool {
 	if escapes == "" {
 		return false
 	}
@@ -266,6 +262,14 @@ func (sm *SM) IsEscapeAccept(ru rune, escapes string) bool {
 	}
 	_ = sm.AcceptNRunes(1) // ignore result to allow EOS
 	return true
+}
+
+//----------
+
+func (sm *SM) AcceptToNewlineOrEnd() {
+	_ = sm.AcceptLoopFn(func(ru rune) bool {
+		return ru != '\n'
+	})
 }
 
 //----------
