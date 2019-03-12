@@ -19,7 +19,7 @@ func MoveLineUp(te *widget.TextEdit) error {
 		return nil
 	}
 
-	s, err := tc.RW().ReadNAt(a, b-a)
+	s, err := tc.RW().ReadNCopyAt(a, b-a)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func MoveLineDown(te *widget.TextEdit) error {
 	}
 
 	// keep copy of the moving line
-	s, err := tc.RW().ReadNAt(a, b-a)
+	s, err := tc.RW().ReadNCopyAt(a, b-a)
 	if err != nil {
 		return err
 	}

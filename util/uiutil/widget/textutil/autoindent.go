@@ -33,7 +33,7 @@ func AutoIndent(te *widget.TextEdit) error {
 	}
 
 	// string to insert
-	s, err := tc.RW().ReadNAt(i, j-i)
+	s, err := tc.RW().ReadNCopyAt(i, j-i)
 	if err != nil {
 		return err
 	}

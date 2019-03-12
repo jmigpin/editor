@@ -409,7 +409,7 @@ func TestAll1(t *testing.T) {
 			t.Fatal(err)
 		}
 		// content
-		s, err := tc.RW().ReadNAt(0, tc.RW().Len())
+		s, err := tc.RW().ReadNCopyAt(0, tc.RW().Len())
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -16,7 +16,7 @@ func Cut(te *widget.TextEdit) error {
 	defer tc.EndEdit()
 
 	a, b := tc.SelectionIndexes()
-	s, err := tc.RW().ReadNAt(a, b-a)
+	s, err := tc.RW().ReadNCopyAt(a, b-a)
 	if err != nil {
 		return err
 	}

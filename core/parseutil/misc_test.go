@@ -3,7 +3,7 @@ package parseutil
 import (
 	"testing"
 
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 func TestParseFilePos1(t *testing.T) {
@@ -54,8 +54,8 @@ func TestExpandLastIndexOfFilename1(t *testing.T) {
 
 func TestWordAtIndex(t *testing.T) {
 	s := "abc f"
-	rw := iout.NewRW([]byte(s))
-	w, i, err := WordAtIndex(rw, 3, 100)
+	rw := iorw.NewBytesReadWriter([]byte(s))
+	w, i, err := iorw.WordAtIndex(rw, 3, 100)
 	if err == nil {
 		t.Fatalf("%v %v %v", w, i, err)
 	}

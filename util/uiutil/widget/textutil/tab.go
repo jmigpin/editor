@@ -59,7 +59,7 @@ func TabLeft(te *widget.TextEdit) error {
 	// remove from lines start
 	altered := false
 	for i := a; i < b; {
-		s, err := tc.RW().ReadNAt(i, 1)
+		s, err := tc.RW().ReadNCopyAt(i, 1)
 		if err != nil {
 			return err
 		}

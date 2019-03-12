@@ -66,7 +66,7 @@ func Comment(tex *widget.TextEditX) error {
 		}
 
 		// ignore empty lines
-		s, err := tc.RW().ReadNAt(i, u-i)
+		s, err := tc.RW().ReadNCopyAt(i, u-i)
 		if err != nil {
 			return err
 		}
