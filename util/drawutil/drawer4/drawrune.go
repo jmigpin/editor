@@ -7,7 +7,6 @@ import (
 
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/imageutil"
-	"github.com/jmigpin/editor/util/mathutil"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -19,7 +18,9 @@ func (dr *DrawRune) Init() {}
 
 func (dr *DrawRune) Iter() {
 	dr.draw()
-	_ = dr.d.iterNext()
+	if !dr.d.iterNext() {
+		return
+	}
 }
 
 func (dr *DrawRune) End() {}
@@ -29,9 +30,7 @@ func (dr *DrawRune) End() {}
 func (dr *DrawRune) draw() {
 	st := &dr.d.st.drawR
 
-	offset := mathutil.PIntf2(dr.d.Offset())
-	pos := dr.d.Bounds().Min
-	pen := dr.d.iters.runeR.offsetPenPoint(offset, pos)
+	pen := dr.d.iters.runeR.penBoundsRect().Min
 
 	// draw now
 	//dr.draw2(pen, dr.d.st.runeR.ru, dr.d.st.curColors.fg)

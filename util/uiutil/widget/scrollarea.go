@@ -68,7 +68,7 @@ func (sa *ScrollArea) scrollJumpUp()   { sa.scrollJump(true) }
 func (sa *ScrollArea) scrollJumpDown() { sa.scrollJump(false) }
 func (sa *ScrollArea) scrollJump(up bool) {
 	if sa.YBar != nil {
-		sa.YBar.scrollJump(up)
+		sa.YBar.scrollWheel(up)
 	}
 }
 

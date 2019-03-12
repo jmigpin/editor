@@ -4,19 +4,24 @@ type Measure struct {
 	d *Drawer
 }
 
-func (m *Measure) Init() {}
+func (m *Measure) Init() {
+	pb := m.d.iters.runeR.penBounds()
+	m.d.st.measure.penMax = pb.Max
+}
 
 func (m *Measure) Iter() {
-	if !m.d.iters.runeR.isRiExtra() {
+	if m.d.iters.runeR.isNormal() {
 		penXAdv := m.d.st.runeR.pen.X + m.d.st.runeR.advance
 		if penXAdv > m.d.st.measure.penMax.X {
 			m.d.st.measure.penMax.X = penXAdv
 		}
 	}
-	_ = m.d.iterNext()
+	if !m.d.iterNext() {
+		return
+	}
 }
 
 func (m *Measure) End() {
-	// has at least one line height, but x could be zero (penbounds empty)
-	m.d.st.measure.penMax.Y = m.d.st.runeR.pen.Y + m.d.lineHeight
+	pb := m.d.iters.runeR.penBounds()
+	m.d.st.measure.penMax.Y = pb.Max.Y
 }

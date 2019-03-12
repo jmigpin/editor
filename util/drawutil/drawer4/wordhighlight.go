@@ -4,9 +4,7 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
-func updateWordHighlightWord(d *Drawer, max int) {
-	d.Opt.WordHighlight.word = nil
-
+func updateWordHighlightWord(d *Drawer) {
 	if !d.Opt.WordHighlight.On {
 		return
 	}
@@ -17,30 +15,41 @@ func updateWordHighlightWord(d *Drawer, max int) {
 		return
 	}
 
+	if d.opt.wordH.updatedWord {
+		return
+	}
+	d.opt.wordH.updatedWord = true
+
 	// find word
-	ci := d.Opt.Cursor.index
-	word, _, err := iorw.WordAtIndex(d.reader, ci, max)
+	d.opt.wordH.word = nil
+	ci := d.opt.cursor.offset
+	word, _, err := iorw.WordAtIndex(d.reader, ci, 250)
 	if err != nil {
 		return
 	}
-	d.Opt.WordHighlight.word = word
+	d.opt.wordH.word = word
 }
 
 //----------
 
 func updateWordHighlightOps(d *Drawer) {
+	if d.opt.wordH.updatedOps {
+		return
+	}
+	d.opt.wordH.updatedOps = true
+
 	opt := &d.Opt.WordHighlight
 	opt.Group.Ops = WordHighlightOps(d)
 }
 
 func WordHighlightOps(d *Drawer) []*ColorizeOp {
-	word := d.Opt.WordHighlight.word
+	word := d.opt.wordH.word
 	if word == nil {
 		return nil
 	}
 
 	// offsets to search
-	o, n := d.runeOffsetViewLen()
+	o, n, _, _ := d.visibleLen()
 	a, b := o, o+n
 	a -= len(word)
 	b += len(word)
@@ -51,6 +60,8 @@ func WordHighlightOps(d *Drawer) []*ColorizeOp {
 	if b > l {
 		b = l
 	}
+
+	// TODO: implement wordindex()
 
 	// search
 	var ops []*ColorizeOp

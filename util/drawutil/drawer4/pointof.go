@@ -7,13 +7,15 @@ type PointOf struct {
 func (po *PointOf) Init() {}
 
 func (po *PointOf) Iter() {
-	if !po.d.iters.runeR.isRiExtra() {
+	if po.d.iters.runeR.isNormal() {
 		if po.d.st.runeR.ri >= po.d.st.pointOf.index {
 			po.d.iterStop()
 			return
 		}
 	}
-	_ = po.d.iterNext()
+	if !po.d.iterNext() {
+		return
+	}
 }
 
 func (po *PointOf) End() {

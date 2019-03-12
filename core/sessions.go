@@ -164,7 +164,7 @@ func NewRowState(row *ui.Row) *RowState {
 		TbStr:         row.Toolbar.Str(),
 		TbCursorIndex: row.Toolbar.TextCursor.Index(),
 		TaCursorIndex: row.TextArea.TextCursor.Index(),
-		TaOffsetIndex: row.TextArea.OffsetIndex(),
+		TaOffsetIndex: row.TextArea.RuneOffset(),
 	}
 
 	// check row.col in case the row has been removed from columns (reopenrow?)
@@ -208,7 +208,7 @@ func (state *RowState) OpenERow(ed *Editor, rowPos *ui.RowPos) (*ERow, bool, err
 func (state *RowState) RestorePos(erow *ERow) {
 	erow.Row.Toolbar.TextCursor.SetIndex(state.TbCursorIndex)
 	erow.Row.TextArea.TextCursor.SetIndex(state.TaCursorIndex)
-	erow.Row.TextArea.SetOffsetIndex(state.TaOffsetIndex)
+	erow.Row.TextArea.SetRuneOffset(state.TaOffsetIndex)
 }
 
 //----------

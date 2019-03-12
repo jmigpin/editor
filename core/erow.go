@@ -7,7 +7,6 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
@@ -76,12 +75,6 @@ func (erow *ERow) initHandlers() {
 	// textarea set str
 	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
 		//ev := ev0.(*ui.TextAreaSetStrEvent)
-
-		// TODO: setup this somewhere else
-		// update xbar
-		if d, ok := erow.Row.TextArea.Drawer.(*drawer3.PosDrawer); ok {
-			erow.Row.EnableTextAreaXBar(!d.WrapLine.On())
-		}
 
 		if erow.disableTextAreaSetStrCallback {
 			return

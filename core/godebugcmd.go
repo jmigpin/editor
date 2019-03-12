@@ -14,7 +14,6 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/pkg/errors"
 )
@@ -199,7 +198,7 @@ func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
 	// output
 	//s := godebug.StringifyItemOffset(msg.DLine.Item, offset) // inner item
 	s := godebug.StringifyItemFull(msg.DLine.Item) // full item
-	gdi.ed.Messagef("annotation:\n%v\n", s)
+	gdi.ed.Messagef("annotation:\n\t%v\n", s)
 }
 
 //----------
@@ -471,13 +470,6 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 
 		for _, erow := range info.ERows {
 			ta := erow.Row.TextArea
-			if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
-				//d.Annotations.SetOn(false) // force update by setting false first // TODO
-				d.Annotations.SetOn(true)
-				d.Annotations.Opt.Select.Line = file.SelectedLine
-				d.Annotations.Opt.Entries = file.AnnEntries
-				ta.MarkNeedsLayoutAndPaint()
-			}
 			if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 				d.Opt.Annotations.On = true
 				d.Opt.Annotations.Entries = file.AnnEntries
@@ -491,13 +483,6 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 func (gdi *GoDebugInstance) clearDrawerAnn(info *ERowInfo) {
 	for _, erow := range info.ERows {
 		ta := erow.Row.TextArea
-		if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
-			if d.Annotations.On() {
-				d.Annotations.SetOn(false)
-				d.Annotations.Opt.Entries = nil
-				ta.MarkNeedsLayoutAndPaint()
-			}
-		}
 		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 			d.Opt.Annotations.On = false
 			d.Opt.Annotations.Entries = nil
@@ -642,7 +627,7 @@ type GDFileMsgs struct {
 	Lines []GDLineMsgs
 
 	// current annotation entries to be shown with a file
-	AnnEntries        []*drawer3.Annotation
+	AnnEntries        []*drawer4.Annotation
 	AnnEntriesLMIndex []int // line messages index
 
 	SelectedLine int
@@ -654,7 +639,7 @@ func NewGDFileMsgs(n int) *GDFileMsgs {
 	return &GDFileMsgs{
 		SelectedLine:      -1,
 		Lines:             make([]GDLineMsgs, n),
-		AnnEntries:        make([]*drawer3.Annotation, n),
+		AnnEntries:        make([]*drawer4.Annotation, n),
 		AnnEntriesLMIndex: make([]int, n),
 	}
 }
@@ -702,17 +687,17 @@ type GDLineMsg struct {
 	GlobalArrivalIndex int
 	DLine              *debug.LineMsg
 	itemBytes          []byte
-	cachedAnn          *drawer3.Annotation
+	cachedAnn          *drawer4.Annotation
 }
 
-func (msg *GDLineMsg) build() *drawer3.Annotation {
+func (msg *GDLineMsg) build() *drawer4.Annotation {
 	if msg.cachedAnn == nil {
-		msg.cachedAnn = &drawer3.Annotation{Offset: msg.DLine.Offset}
+		msg.cachedAnn = &drawer4.Annotation{Offset: msg.DLine.Offset}
 	}
 	return msg.cachedAnn
 }
 
-func (msg *GDLineMsg) annotation() *drawer3.Annotation {
+func (msg *GDLineMsg) annotation() *drawer4.Annotation {
 	ann := msg.build()
 
 	// stringify item
@@ -724,7 +709,7 @@ func (msg *GDLineMsg) annotation() *drawer3.Annotation {
 	return ann
 }
 
-func (msg *GDLineMsg) emptyAnnotation() *drawer3.Annotation {
+func (msg *GDLineMsg) emptyAnnotation() *drawer4.Annotation {
 	ann := msg.build()
 	ann.Bytes = []byte(" ")
 	return ann

@@ -21,6 +21,10 @@ func (x Intf) Mul(y Intf) Intf {
 	return Intf(a.Mul(b))
 }
 
+func (x Intf) String() string {
+	return fixed.Int52_12(x).String()
+}
+
 //----------
 
 type PointIntf struct {

@@ -1,16 +1,18 @@
 package widget
 
-import "image"
+import (
+	"image"
+)
 
 type Scrollable interface {
 	SetScrollable(x, y bool)
-	SetScrollableOffset(image.Point)
 
-	ScrollableOffset() image.Point
-	ScrollableSize() image.Point
-	ScrollableViewSize() image.Point
-	ScrollablePagingMargin() int // TODO: up arg
-	ScrollableScrollJump() int   // TODO: up arg
+	ScrollOffset() image.Point
+	SetScrollOffset(image.Point)
+	ScrollSize() image.Point
+	ScrollViewSize() image.Point
+	ScrollPageSizeY(up bool) int
+	ScrollWheelSizeY(up bool) int
 }
 
 // Used by ScrollArea.

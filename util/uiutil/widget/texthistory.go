@@ -18,7 +18,7 @@ type TextHistory struct {
 
 func NewTextHistory(es *TextEdit) *TextHistory {
 	th := &TextHistory{
-		hist: history.NewHistory(128),
+		hist: history.NewHistory(200),
 		te:   es,
 	}
 	return th
@@ -112,7 +112,7 @@ func (th *TextHistory) undoRedo(redo bool) error {
 		th.restoreCursorState(data) // makes index visible (triggers paint)
 	}
 
-	defer th.te.changes()
+	defer th.te.contentChanged()
 	return edit.ApplyUndoRedo(th.te.brw, redo, restore)
 }
 

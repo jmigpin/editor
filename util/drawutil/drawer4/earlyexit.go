@@ -6,16 +6,17 @@ type EarlyExit struct {
 	d *Drawer
 }
 
-func (ee *EarlyExit) Init() {
-	ee.d.st.earlyExit.maxY = mathutil.Intf1(ee.d.Offset().Y + ee.d.Bounds().Dy())
-}
+func (ee *EarlyExit) Init() {}
 
 func (ee *EarlyExit) Iter() {
-	if ee.d.st.runeR.pen.Y >= ee.d.st.earlyExit.maxY {
+	maxY := mathutil.Intf1(ee.d.bounds.Max.Y)
+	if ee.d.st.runeR.pen.Y >= maxY {
 		ee.d.iterStop()
 		return
 	}
-	_ = ee.d.iterNext()
+	if !ee.d.iterNext() {
+		return
+	}
 }
 
 func (ee *EarlyExit) End() {}

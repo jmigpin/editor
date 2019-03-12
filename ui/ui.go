@@ -139,7 +139,7 @@ func (ui *UI) rowInsertionBounds(prevRow *Row) image.Rectangle {
 
 func (ui *UI) boundsAfterVisibleCursor(ta *TextArea) (*image.Rectangle, bool) {
 	ci := ta.TextCursor.Index()
-	if !ta.IsIndexVisible(ci) {
+	if !ta.IndexVisible(ci) {
 		return nil, false
 	}
 	p := ta.GetPoint(ci)

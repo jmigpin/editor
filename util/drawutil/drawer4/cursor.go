@@ -5,7 +5,6 @@ import (
 	"image/color"
 
 	"github.com/jmigpin/editor/util/imageutil"
-	"github.com/jmigpin/editor/util/mathutil"
 )
 
 type Cursor struct {
@@ -15,14 +14,18 @@ type Cursor struct {
 func (c *Cursor) Init() {}
 
 func (c *Cursor) Iter() {
-	if !c.d.iters.runeR.isRiExtra() && c.d.Opt.Cursor.On {
-		c.iter2()
+	if c.d.Opt.Cursor.On {
+		if c.d.iters.runeR.isNormal() {
+			c.iter2()
+		}
 	}
-	_ = c.d.iterNext()
+	if !c.d.iterNext() {
+		return
+	}
 }
 
 func (c *Cursor) iter2() {
-	if c.d.st.runeR.ri == c.d.Opt.Cursor.index {
+	if c.d.st.runeR.ri == c.d.opt.cursor.offset {
 		c.draw()
 	}
 	// delayed draw
@@ -38,9 +41,7 @@ func (c *Cursor) End() {}
 
 func (c *Cursor) draw() {
 	// pen bounds
-	offset := mathutil.PIntf2(c.d.Offset())
-	pos := c.d.Bounds().Min
-	penb := c.d.iters.runeR.offsetPenBoundsRect(offset, pos)
+	penb := c.d.iters.runeR.penBoundsRect()
 
 	// color
 	col := c.d.Opt.Cursor.Fg

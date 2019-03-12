@@ -489,7 +489,7 @@ func (info *ERowInfo) SetRowsStrFromMaster(erow *ERow) {
 		return
 	}
 
-	// disable callback recursion
+	// disable/enable callback recursion
 	disableCB := func(v bool) {
 		for _, e := range info.ERows {
 			e.disableTextAreaSetStrCallback = v

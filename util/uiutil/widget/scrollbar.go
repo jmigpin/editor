@@ -48,29 +48,20 @@ func (sb *ScrollBar) scrollToPoint(p *image.Point) {
 //----------
 
 func (sb *ScrollBar) scrollPage(up bool) {
-	size := sb.sa.scrollable.ScrollableSize()
-	marginv := sb.sa.scrollable.ScrollablePagingMargin()
-	margin := float64(marginv) / float64(size.Y) // always Y
-	v := sb.sizePercent - margin
-	v = mathutil.LimitFloat64(v, 0.001, v) // deal with small spaces
-	sb.scrollAmount(v, up)
+	o := sb.sa.scrollable.ScrollOffset()
+	sy := sb.sa.scrollable.ScrollPageSizeY(up)
+	o = o.Add(image.Point{0, sy})
+	sb.sa.scrollable.SetScrollOffset(o)
 }
 
-func (sb *ScrollBar) scrollJump(up bool) {
-	size := sb.sa.scrollable.ScrollableSize()
-	jumpv := sb.sa.scrollable.ScrollableScrollJump()
-	jump := float64(jumpv) / float64(size.Y) // always Y
-	v := jump
-
-	// deal with small spaces
-	const j = 4
-	if sb.sizePercent < jump*j {
-		v = sb.sizePercent / j
-		v = mathutil.LimitFloat64(v, 0.001, v)
-	}
-
-	sb.scrollAmount(v, up)
+func (sb *ScrollBar) scrollWheel(up bool) {
+	o := sb.sa.scrollable.ScrollOffset()
+	sy := sb.sa.scrollable.ScrollWheelSizeY(up)
+	o = o.Add(image.Point{0, sy})
+	sb.sa.scrollable.SetScrollOffset(o)
 }
+
+//----------
 
 func (sb *ScrollBar) scrollAmount(amountPerc float64, up bool) {
 	if up {
@@ -83,19 +74,19 @@ func (sb *ScrollBar) scrollAmount(amountPerc float64, up bool) {
 //----------
 
 func (sb *ScrollBar) scrollToPositionPercent(offsetPerc float64) {
-	size := sb.sa.scrollable.ScrollableSize()
-	offset := sb.sa.scrollable.ScrollableOffset()
+	size := sb.sa.scrollable.ScrollSize()
+	offset := sb.sa.scrollable.ScrollOffset()
 	offsetPerc = mathutil.LimitFloat64(offsetPerc, 0, 1)
-	*sb.yaxisPtr(&offset) = int(offsetPerc * float64(sb.yaxis(size)))
-	sb.sa.scrollable.SetScrollableOffset(offset)
+	*sb.yaxisPtr(&offset) = int(offsetPerc*float64(sb.yaxis(size)) + 0.5)
+	sb.sa.scrollable.SetScrollOffset(offset)
 }
 
 //----------
 
 func (sb *ScrollBar) calcPositionAndSize() {
-	pos := sb.sa.scrollable.ScrollableOffset()
-	size := sb.sa.scrollable.ScrollableSize()
-	vsize := sb.sa.scrollable.ScrollableViewSize()
+	pos := sb.sa.scrollable.ScrollOffset()
+	size := sb.sa.scrollable.ScrollSize()
+	vsize := sb.sa.scrollable.ScrollViewSize()
 
 	posy := float64(sb.yaxis(pos))
 	sizey := float64(sb.yaxis(size))
@@ -115,28 +106,6 @@ func (sb *ScrollBar) calcPositionAndSize() {
 
 //----------
 
-//func (sb *ScrollBar) calcPositionAndSize_(size, viewSize, offset float64) {
-//	pp := 0.0
-//	sp := 1.0
-//	if size > viewSize {
-//		dh := size - viewSize
-//		if offset < 0 {
-//			offset = 0
-//		} else if offset > dh {
-//			offset = dh
-//		}
-//		pp = offset / size
-//		sp = viewSize / size
-//		if sp > 1 {
-//			sp = 1
-//		}
-//	}
-//	sb.sizePercent = sp
-//	sb.positionPercent = pp
-//}
-
-//----------
-
 func (sb *ScrollBar) OnChildMarked(child Node, newMarks Marks) {
 	// paint scrollbar background if the handle is getting painted
 	if child == sb.Handle {
@@ -153,14 +122,6 @@ func (sb *ScrollBar) Layout() {
 	r := sb.Bounds
 
 	d := sb.yaxis(bsize)
-
-	//size := sb.sa.scrollable.ScrollableSize()
-	//vsize := sb.sa.scrollable.ScrollableViewSize()
-	//offset := sb.sa.scrollable.ScrollableOffset()
-	//sy := sb.yaxis(size)
-	//vsy := sb.yaxis(vsize)
-	//oy := sb.yaxis(offset)
-	//sb.calcPositionAndSize(float64(sy), float64(vsy), float64(oy))
 
 	sb.calcPositionAndSize()
 

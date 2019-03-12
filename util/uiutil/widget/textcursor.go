@@ -1,7 +1,6 @@
 package widget
 
 import (
-	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
@@ -10,7 +9,7 @@ type TextCursor struct {
 	te      *TextEdit
 	state   TextCursorState
 	editing bool
-	tcrw    iorw.ReadWriter
+	tcrw    *tcRW
 }
 
 func NewTextCursor(te *TextEdit) *TextCursor {
@@ -43,7 +42,7 @@ func (tc *TextCursor) BeginEdit() {
 func (tc *TextCursor) EndEdit() {
 	tc.panicIfNotEditing()
 
-	defer tc.te.changes()
+	defer tc.te.contentChanged()
 
 	tc.te.TextHistory.EndEdit()
 	tc.editing = false
@@ -73,11 +72,8 @@ func (tc *TextCursor) SetIndex(index int) {
 	if tc.state.index != index {
 		tc.state.index = index
 
-		if d, ok := tc.te.Drawer.(*drawer3.PosDrawer); ok {
-			d.Cursor.Opt.Index = tc.state.index
-		}
 		if d, ok := tc.te.Drawer.(*drawer4.Drawer); ok {
-			d.SetCursorIndex(tc.state.index)
+			d.SetCursorOffset(tc.state.index)
 		}
 
 		tc.te.MarkNeedsPaint()
@@ -142,7 +138,7 @@ func (tc *TextCursor) SelectionIndexes() (int, int) {
 
 func (tc *TextCursor) Selection() ([]byte, error) {
 	a, b := tc.SelectionIndexes()
-	return tc.RW().ReadNAt(a, b-a)
+	return tc.RW().ReadNCopyAt(a, b-a)
 }
 
 //----------

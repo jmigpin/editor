@@ -7,22 +7,31 @@ type Annotations struct {
 func (ann *Annotations) Init() {}
 
 func (ann *Annotations) Iter() {
-	if ann.d.Opt.Annotations.On && !ann.d.iters.runeR.isRiExtra() {
-		ann.iter2()
+	if ann.d.Opt.Annotations.On {
+		if ann.d.iters.runeR.isNormal() {
+			ann.iter2()
+		}
 	}
-	_ = ann.d.iterNext()
+	if !ann.d.iterNext() {
+		return
+	}
 }
 
 func (ann *Annotations) iter2() {
 	entries := ann.d.Opt.Annotations.Entries // ordered by offset
 	i := &ann.d.st.annotations.cei
 	q := &ann.d.st.annotations.indexQ
-	// get annotations to be added
+	// keep track of annotations to be added
 	for ; *i < len(entries); *i++ {
 		e := entries[*i]
 		if e == nil {
 			continue
 		}
+		// already passed the annotation
+		if ann.d.st.runeR.ri > e.Offset {
+			continue
+		}
+		// next annotation is far away
 		if ann.d.st.runeR.ri < e.Offset {
 			break
 		}
@@ -60,14 +69,15 @@ func (ann *Annotations) insertAnnotations2() {
 			return
 		}
 
-		min := ann.d.iters.runeR.glyphAdvance(' ') * 55 // 56=(8 * 7)
-		space := ann.d.iters.runeR.glyphAdvance(' ') * 5
+		space := ann.d.iters.runeR.glyphAdvance(' ')
+		min := space * (8 * 10)
+		margin := space * 5
 		maxX := ann.d.iters.runeR.maxX()
 		if pen.X < min {
 			pen.X = min
 		}
-		if pen.X > maxX-space {
-			pen.X = maxX - space
+		if pen.X > maxX-margin {
+			pen.X = maxX - margin
 		}
 		if pen.X < startX {
 			pen.X = startX
@@ -119,10 +129,10 @@ func (ann *Annotations) insertAnnotationString(s string, eindex int) bool {
 
 //----------
 
-//type Annotation struct {
-//	Offset int
-//	Bytes  []byte
-//}
+type Annotation struct {
+	Offset int
+	Bytes  []byte
+}
 
 //----------
 

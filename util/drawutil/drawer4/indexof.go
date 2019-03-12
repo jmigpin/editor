@@ -9,10 +9,12 @@ func (io *IndexOf) Init() {
 }
 
 func (io *IndexOf) Iter() {
-	if !io.d.iters.runeR.isRiExtra() {
+	if io.d.iters.runeR.isNormal() {
 		io.iter2()
 	}
-	_ = io.d.iterNext()
+	if !io.d.iterNext() {
+		return
+	}
 }
 
 func (io *IndexOf) iter2() {

@@ -12,7 +12,9 @@ func (c *Colorize) Init() {
 
 func (c *Colorize) Iter() {
 	c.colorize()
-	_ = c.d.iterNext()
+	if !c.d.iterNext() {
+		return
+	}
 }
 
 func (c *Colorize) End() {}
@@ -25,32 +27,38 @@ func (c *Colorize) colorize() {
 		if g == nil || g.Off {
 			continue
 		}
+		var w *ColorizeOp
 		i := &c.d.st.colorize.indexes[k]
-		var op *ColorizeOp
-		for ; *i < len(g.Ops); *i++ {
-			op2 := g.Ops[*i]
-			if ri >= op2.Offset {
-				op = op2
-			} else if ri < op2.Offset {
-				// next offset passes the ri, went too far
-				if *i > 0 {
-					*i--
-				}
+		for k := *i; k < len(g.Ops); k++ {
+			op := g.Ops[k]
+			if ri >= op.Offset {
+				w = op
+				*i = k
+			} else if ri < op.Offset {
 				break
 			}
 		}
-		if op != nil {
-			// colorize
-			if op.Fg != nil {
-				c.d.st.curColors.fg = op.Fg
-			}
-			if op.Bg != nil {
-				c.d.st.curColors.bg = op.Bg
-			}
-			if op.ProcColor != nil {
-				st := &c.d.st.curColors
-				st.fg, st.bg = op.ProcColor(st.fg, st.bg)
-			}
+		if w != nil {
+			c.applyOp(w)
+		}
+	}
+}
+
+func (c *Colorize) applyOp(op *ColorizeOp) {
+	if op.Fg != nil {
+		c.d.st.curColors.fg = op.Fg
+	}
+	if op.Bg != nil {
+		c.d.st.curColors.bg = op.Bg
+	}
+	if op.ProcColor != nil {
+		st := &c.d.st.curColors
+		st.fg, st.bg = op.ProcColor(st.fg, st.bg)
+	}
+	if op.Line {
+		// run only once or will paint over runes
+		if op.Offset == c.d.st.runeR.ri {
+			c.d.st.curColors.lineBg = c.d.st.curColors.bg
 		}
 	}
 }
@@ -64,6 +72,7 @@ type ColorizeGroup struct {
 
 type ColorizeOp struct {
 	Offset    int
+	Line      bool
 	Fg, Bg    color.Color
 	ProcColor func(fg, bg color.Color) (fg2, bg2 color.Color)
 }

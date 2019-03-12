@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/jmigpin/editor/util/drawutil/drawer3"
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
@@ -14,39 +14,29 @@ type Text struct {
 	ENode
 	TextScroll
 
-	Drawer   drawer3.Drawer
-	OnSetStr func() // TODO: rename
+	Drawer   drawutil.Drawer
+	OnSetStr func()
 
 	scrollable struct{ x, y bool }
 	ctx        ImageContext
-	fg, bg     color.Color
+	bg         color.Color
 
 	brw iorw.ReadWriter // base rw
-	//trw iorw.ReadWriter // text rw (calls changes)
 }
 
 func NewText(ctx ImageContext) *Text {
 	t := &Text{ctx: ctx}
-	t.TextScroll.Text = t
 
 	t.Drawer = drawer4.New()
 
-	t.brw = iorw.NewRW(nil)
-	//t.trw = &tRW{ReadWriter: t.brw, t: t}
+	t.TextScroll.Text = t
+	t.TextScroll.Drawer = t.Drawer
+
+	t.brw = iorw.NewBytesReadWriter(nil)
 	t.Drawer.SetReader(t.brw)
 
 	return t
 }
-
-//----------
-
-//func (t *Text) BaseRW() iorw.ReadWriter {
-//	return t.brw
-//}
-
-//func (t *Text) RW() iorw.ReadWriter {
-//	return t.trw
-//}
 
 //----------
 
@@ -65,7 +55,7 @@ func (t *Text) SetBytes(b []byte) error {
 	}
 
 	// run changes only once for delete+insert
-	defer t.changes()
+	defer t.contentChanged()
 
 	return t.brw.Insert(0, b)
 }
@@ -86,24 +76,11 @@ func (t *Text) SetStr(str string) error {
 
 //----------
 
-func (t *Text) changes() {
-	t.Drawer.SetNeedMeasure(true)
+func (t *Text) contentChanged() {
+	t.Drawer.ContentChanged()
+
+	// content changing can influence the layout in the case of dynamic sized textareas (needs layout). Also in the case of scrollareas that need to recalc scrollbars.
 	t.MarkNeedsLayoutAndPaint()
-
-	// TODO: move this to somewhere else.
-	// Because it will layout now, it needs to set the exts options
-	if d, ok := t.Drawer.(*drawer3.PosDrawer); ok {
-		max := 75 * 1024
-		v := t.Len() < max
-		if !v {
-			d.WrapLine.SetOn(v)
-			d.ColorizeSyntax.SetOn(v)
-			//d.Segments.SetOn(v)
-		}
-	}
-
-	// make possible measurements available immediately
-	t.Layout()
 
 	if t.OnSetStr != nil {
 		t.OnSetStr()
@@ -120,89 +97,45 @@ func (t *Text) SetScrollable(x, y bool) {
 
 //----------
 
-//func (t *Text) Offset() image.Point {
-//	return t.Drawer.Offset()
-//}
-
-//func (t *Text) SetOffset(o image.Point) {
-//	// set only if scrollable
-//	u := image.Point{}
-//	if t.scrollable.x {
-//		u.X = o.X
-//	}
-//	if t.scrollable.y {
-//		u.Y = o.Y
-//	}
-
-//	if u != t.Drawer.Offset() {
-//		t.Drawer.SetOffset(u)
-//		t.MarkNeedsLayoutAndPaint()
-//	}
-//}
-
-//func (t *Text) SetOffsetY(y int) {
-//	o := t.Offset()
-//	o.Y = y
-//	t.SetOffset(o)
-//}
-
-//----------
-
 func (t *Text) RuneOffset() int {
-	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
-		return d.RuneOffset()
-	}
-	return 0
+	return t.Drawer.RuneOffset()
 }
 
-func (t *Text) SetRuneOffset(o int) {
-	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
-		if t.scrollable.y {
-			u := d.RuneOffset()
-			if o != u {
-
-				// TODO: use linestart here?
-
-				d.SetRuneOffset(o)
-				t.MarkNeedsLayoutAndPaint()
-			}
-		}
+func (t *Text) SetRuneOffset(v int) {
+	if t.scrollable.y && t.Drawer.RuneOffset() != v {
+		t.Drawer.SetRuneOffset(v)
+		t.MarkNeedsLayoutAndPaint()
 	}
-}
-
-func (t *Text) MakeRangeVisible(offset, length int) {
-	if t.IsRangeVisible(offset, length) {
-		return
-	}
-
-	// TODO: length
-	lsi, err := iorw.LineStartIndex(t.Drawer.Reader(), offset)
-	if err != nil {
-		return
-	}
-
-	t.SetRuneOffset(lsi) // TODO: should not be used directly or it won't
-}
-func (t *Text) MakeRangeCentered(offset, length int) {
-	// TODO: length
-	//t.SetRuneOffset(offset)
-	t.MakeRangeVisible(offset, length)
-}
-
-// TODO: rename to RangeVisible
-func (t *Text) IsRangeVisible(offset, length int) bool {
-	if d, ok := t.Drawer.(*drawer4.Drawer); ok {
-		return d.RangeVisible(offset, length)
-	}
-	return false
 }
 
 //----------
 
-func (t *Text) FullMeasurement() image.Point {
-	t.Drawer.SetBounds(t.Bounds)
-	return t.Drawer.Measure()
+func (t *Text) IndexVisible(offset int) bool {
+	return t.Drawer.RangeVisible(offset, 0)
 }
+func (t *Text) MakeIndexVisible(offset int) {
+	t.MakeRangeVisible(offset, 0)
+}
+func (t *Text) MakeRangeVisible(offset, n int) {
+	o := t.Drawer.RangeVisibleOffset(offset, n)
+	t.SetRuneOffset(o)
+}
+
+//func (t *Text) MakeRangeVisibleCentered(offset, n int) {
+//	o := t.Drawer.RangeVisibleOffsetCentered(offset, n)
+//	t.SetRuneOffset(o)
+//}
+
+//----------
+
+func (t *Text) GetPoint(i int) image.Point {
+	return t.Drawer.PointOf(i)
+}
+func (t *Text) GetIndex(p image.Point) int {
+	return t.Drawer.IndexOf(p)
+}
+
+//----------
 
 func (t *Text) LineHeight() int {
 	return t.Drawer.LineHeight()
@@ -211,7 +144,9 @@ func (t *Text) LineHeight() int {
 //----------
 
 func (t *Text) Measure(hint image.Point) image.Point {
-	t.Drawer.SetBoundsSize(hint)
+	b := t.Bounds
+	b.Max = b.Min.Add(hint)
+	t.Drawer.SetBounds(b)
 	m := t.Drawer.Measure()
 	return imageutil.MinPoint(m, hint)
 }
@@ -219,9 +154,8 @@ func (t *Text) Measure(hint image.Point) image.Point {
 //----------
 
 func (t *Text) Layout() {
-	t.Drawer.SetBounds(t.Bounds)
-	if t.Drawer.NeedMeasure() {
-		_ = t.Drawer.Measure()
+	if t.Bounds != t.Drawer.Bounds() {
+		t.Drawer.SetBounds(t.Bounds)
 		t.MarkNeedsPaint()
 	}
 }
@@ -232,48 +166,22 @@ func (t *Text) PaintBase() {
 	imageutil.FillRectangle(t.ctx.Image(), &t.Bounds, t.bg)
 }
 func (t *Text) Paint() {
-	t.Drawer.SetBounds(t.Bounds)
-	t.Drawer.Draw(t.ctx.Image(), t.fg)
+	t.Drawer.Draw(t.ctx.Image())
 }
 
 //----------
 
 func (t *Text) OnThemeChange() {
-	t.fg = t.TreeThemePaletteColor("text_fg")
+	fg := t.TreeThemePaletteColor("text_fg")
+	t.Drawer.SetFg(fg)
+
 	t.bg = t.TreeThemePaletteColor("text_bg")
 
 	f := t.TreeThemeFont().Face(nil)
-	t.Drawer.SetFace(f)
-
-	if t.Drawer.NeedMeasure() {
+	if f != t.Drawer.Face() {
+		t.Drawer.SetFace(f)
 		t.MarkNeedsLayoutAndPaint()
 	} else {
 		t.MarkNeedsPaint()
 	}
 }
-
-//----------
-
-//// Auto calls t.changes() on write operations.
-//type tRW struct {
-//	iorw.ReadWriter
-//	t *Text
-//}
-
-//func (rw *tRW) Insert(i int, p []byte) error {
-//	err := rw.ReadWriter.Insert(i, p)
-//	if err != nil {
-//		return err
-//	}
-//	rw.t.changes()
-//	return nil
-//}
-
-//func (rw *tRW) Delete(i, len int) error {
-//	err := rw.ReadWriter.Delete(i, len)
-//	if err != nil {
-//		return err
-//	}
-//	rw.t.changes()
-//	return nil
-//}

@@ -7,8 +7,7 @@ import (
 type History struct {
 	l       *list.List
 	cur     *list.Element // last edit, nil if list is empty
-	maxSize int           // max elements in list
-	//maxDataSize int // TODO
+	maxSize int           // max elements in list // TODO: max data size
 }
 
 func NewHistory(maxSize int) *History {

@@ -3,7 +3,6 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/util/drawutil/drawer3"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -127,19 +126,9 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 //----------
 
 func (ta *TextArea) selAnnCurEv(p image.Point, typ TASelAnnType) bool {
-	if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
-		if d.Annotations.On() {
-			i, o, ok := d.BoundsAnnotationsIndexOf(p)
-			if ok {
-				ev2 := &TextAreaSelectAnnotationEvent{ta, i, o, typ}
-				ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
-				return true
-			}
-		}
-	}
 	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 		if d.Opt.Annotations.On {
-			i, o, ok := d.BoundsAnnotationsIndexOf(p)
+			i, o, ok := d.AnnotationsIndexOf(p)
 			if ok {
 				ev2 := &TextAreaSelectAnnotationEvent{ta, i, o, typ}
 				ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)

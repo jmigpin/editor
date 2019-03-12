@@ -33,7 +33,7 @@ func EscapeFilename(str string) string {
 
 func AcceptAdvanceFilename(s *statemach.String) (string, bool) {
 	r := s.AcceptLoopFn(func(ru rune) bool {
-		if s.IsEscapeAccept(ru, osutil.EscapeRunes) {
+		if s.AcceptEscape2(ru, osutil.EscapeRunes) {
 			return true
 		}
 		return isFilenameRune(ru)

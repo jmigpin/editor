@@ -89,7 +89,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 				if offset >= 0 {
 					visible := false
 					for _, e := range info.ERows {
-						if e.Row.TextArea.IsIndexVisible(offset) {
+						if e.Row.TextArea.IndexVisible(offset) {
 							visible = true
 							break
 						}
@@ -128,7 +128,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		// use existing row with visible offset
 		if erow == nil {
 			for _, e := range info.ERows {
-				if e.Row.TextArea.IsIndexVisible(offset) {
+				if e.Row.TextArea.IndexVisible(offset) {
 					erow = e
 					break
 				}
@@ -144,11 +144,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		erow.Row.EnsureTextAreaMinimumHeight()
 		erow.Row.TextArea.TextCursor.SetIndex(offset)
 		erow.Row.TextArea.TextCursor.SetSelectionOff()
-		if newERow != nil {
-			erow.Row.TextArea.MakeRangeCentered(offset, 0)
-		} else {
-			erow.Row.TextArea.MakeIndexVisible(offset)
-		}
+		erow.Row.TextArea.MakeIndexVisible(offset)
 
 		// flash visible offsets
 		if conf.FlashVisibleOffsets {
@@ -162,7 +158,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 			}
 
 			for _, e := range info.ERows {
-				if e.Row.TextArea.IsIndexVisible(offset) {
+				if e.Row.TextArea.IndexVisible(offset) {
 					e.MakeRangeVisibleAndFlash(o, l)
 					flashed[e] = true
 				}

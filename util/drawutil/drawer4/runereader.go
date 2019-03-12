@@ -12,11 +12,16 @@ type RuneReader struct {
 }
 
 func (rr *RuneReader) Init() {
-	st := &rr.d.st.runeR
-	st.pen.X = rr.startX()
+	rr.d.st.runeR.pen = rr.startingPen()
+	rr.d.st.runeR.startRi = -1
 }
 
 func (rr *RuneReader) Iter() {
+	// initialize start ri
+	if rr.d.st.runeR.startRi == -1 {
+		rr.d.st.runeR.startRi = rr.d.st.runeR.ri
+	}
+
 	ru, size, err := rr.d.reader.ReadRuneAt(rr.d.st.runeR.ri)
 	if err != nil {
 		// run last advanced position (draw/delayeddraw/selecting)
@@ -32,6 +37,10 @@ func (rr *RuneReader) Iter() {
 func (rr *RuneReader) End() {}
 
 //----------
+
+func (rr *RuneReader) eof() bool {
+	return rr.isNormal() && rr.d.st.runeR.ru == 0
+}
 
 func (rr *RuneReader) iter2(ru rune, size int) bool {
 	st := &rr.d.st.runeR
@@ -65,8 +74,9 @@ func (rr *RuneReader) iter2(ru rune, size int) bool {
 //----------
 
 func (rr *RuneReader) insertExtraString(s string) bool {
-	rr.pushRiExtra()
-	defer rr.popRiExtra()
+	rr.pushExtra()
+	defer rr.popExtra()
+
 	for _, ru := range s {
 		if !rr.iter2(ru, len(string(ru))) {
 			return false
@@ -77,14 +87,17 @@ func (rr *RuneReader) insertExtraString(s string) bool {
 
 //----------
 
-func (rr *RuneReader) pushRiExtra() {
-	rr.d.st.runeR.riExtra++
+func (rr *RuneReader) pushExtra() {
+	rr.d.st.runeR.extra++
 }
-func (rr *RuneReader) popRiExtra() {
-	rr.d.st.runeR.riExtra--
+func (rr *RuneReader) popExtra() {
+	rr.d.st.runeR.extra--
 }
-func (rr *RuneReader) isRiExtra() bool {
-	return rr.d.st.runeR.riExtra > 0
+func (rr *RuneReader) isExtra() bool {
+	return rr.d.st.runeR.extra > 0
+}
+func (rr *RuneReader) isNormal() bool {
+	return !rr.isExtra()
 }
 
 //----------
@@ -98,16 +111,17 @@ func (rr *RuneReader) glyphAdvance(ru rune) mathutil.Intf {
 }
 
 func (rr *RuneReader) nextTabStopAdvance(penx, tadv mathutil.Intf) mathutil.Intf {
-	x := penx + tadv
+	px := penx - rr.startingPen().X
+	x := px + tadv
 	n := int(x / tadv)
 	nadv := mathutil.Intf(n) * tadv
-	return nadv - penx
+	return nadv - px
 }
 
 //----------
 
 func (rr *RuneReader) penBounds() mathutil.RectangleIntf {
-	st := rr.d.st.runeR
+	st := &rr.d.st.runeR
 	minX, minY := st.pen.X, st.pen.Y
 	maxX, maxY := minX+st.advance, minY+rr.d.lineHeight
 	min := mathutil.PointIntf{minX, minY}
@@ -115,39 +129,34 @@ func (rr *RuneReader) penBounds() mathutil.RectangleIntf {
 	return mathutil.RectangleIntf{min, max}
 }
 
-func (rr *RuneReader) offsetPenBoundsRect(offset mathutil.PointIntf, pos image.Point) image.Rectangle {
+func (rr *RuneReader) penBoundsRect() image.Rectangle {
 	pb := rr.penBounds()
-	r := pb.Sub(offset)
-
 	// expand min (use floor), and max (use ceil)
-	rminX := r.Min.X.Floor()
-	rminY := r.Min.Y.Floor()
-	rmaxX := r.Max.X.Ceil()
-	rmaxY := r.Max.Y.Ceil()
-
-	r2 := image.Rect(rminX, rminY, rmaxX, rmaxY)
-
-	return r2.Add(pos)
-}
-
-func (rr *RuneReader) offsetPenPoint(offset mathutil.PointIntf, pos image.Point) image.Point {
-	p := rr.d.st.runeR.pen.Sub(offset)
-	// pen is upper left corner, use floor
-	p2 := image.Point{p.X.Floor(), p.Y.Floor()}
-	return p2.Add(pos)
+	return pb.ToRectFloorCeil()
 }
 
 //----------
 
-func (rr *RuneReader) startX() mathutil.Intf {
-	v := rr.d.startOffsetX
+func (rr *RuneReader) startingPen() mathutil.PointIntf {
+	p := rr.d.bounds.Min
+	p.X += rr.d.Opt.RuneReader.StartOffsetX
 	if rr.d.st.runeR.ri == 0 {
-		v += rr.d.firstLineOffsetX
+		p.X += rr.d.firstLineOffsetX
 	}
-	return mathutil.Intf1(v)
+	return mathutil.PIntf2(p)
 }
 
 func (rr *RuneReader) maxX() mathutil.Intf {
-	v := rr.d.Offset().X + rr.d.Bounds().Dx()
-	return mathutil.Intf1(v)
+	return mathutil.Intf1(rr.d.bounds.Max.X)
 }
+
+//----------
+
+type runeType int
+
+const (
+	rtNormal runeType = iota
+	rtBackground
+	rtInserted
+	//rtAnnotation
+)

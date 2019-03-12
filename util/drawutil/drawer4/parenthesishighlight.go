@@ -1,8 +1,13 @@
 package drawer4
 
-func updateParenthesisHighlight(d *Drawer, maxDist int) {
+func updateParenthesisHighlight(d *Drawer) {
+	if d.opt.parenthesisH.updated {
+		return
+	}
+	d.opt.parenthesisH.updated = true
+
 	opt := &d.Opt.ParenthesisHighlight
-	opt.Group.Ops = ParenthesisHighlightOps(d, maxDist)
+	opt.Group.Ops = ParenthesisHighlightOps(d, 5000)
 }
 
 //----------
@@ -16,7 +21,7 @@ func ParenthesisHighlightOps(d *Drawer, maxDist int) []*ColorizeOp {
 	}
 
 	// read current rune
-	ci := d.Opt.Cursor.index
+	ci := d.opt.cursor.offset
 	cru, _, err := d.reader.ReadRuneAt(ci)
 	if err != nil {
 		return nil

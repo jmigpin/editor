@@ -47,6 +47,7 @@ func NewRow(col *Column) *Row {
 		row.TextArea.EnableParenthesisMatch(true)
 		if d, ok := row.TextArea.Drawer.(*drawer4.Drawer); ok {
 			d.Opt.RuneOffset.On = true
+			d.Opt.RuneReader.StartOffsetX = 2 // covers cursor pixel
 		}
 
 		row.ScrollArea = widget.NewScrollArea(row.ui, row.TextArea, false, true)

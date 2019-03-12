@@ -21,7 +21,7 @@ func Find(te *widget.TextEdit, str string) (bool, error) {
 		return false, err
 	}
 	if i >= 0 {
-		tc.SetSelection(i, i+len(str))
+		tc.SetSelection(i, i+len(str)) // cursor at end to allow searching next
 		te.MakeIndexVisible(i)
 		return true, nil
 	}

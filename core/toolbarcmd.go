@@ -90,7 +90,7 @@ func rowFirstPartToolbarCmd(erow *ERow, part *toolbarparser.Part) bool {
 		ta := erow.Row.TextArea
 		ta2 := erow2.Row.TextArea
 		ta2.TextCursor.SetIndex(ta.TextCursor.Index())
-		ta2.SetOffset(ta.Offset())
+		ta2.SetRuneOffset(ta.RuneOffset())
 	}
 
 	return true
@@ -322,6 +322,12 @@ func FindCmd(erow *ERow, part *toolbarparser.Part) error {
 	if !found {
 		return fmt.Errorf("string not found: %q", str)
 	}
+
+	// flash
+	tc := erow.Row.TextArea.TextCursor
+	a, b := tc.SelectionIndexes()
+	erow.MakeRangeVisibleAndFlash(a, b-a)
+
 	return nil
 }
 

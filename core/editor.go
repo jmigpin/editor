@@ -10,7 +10,7 @@ import (
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil"
-	"github.com/jmigpin/editor/util/drawutil/drawer3"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"golang.org/x/image/font"
@@ -340,7 +340,7 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 //----------
 
 func (ed *Editor) setupTheme(opt *Options) {
-	drawer3.WrapLineRune = rune(opt.WrapLineRune)
+	drawer4.WrapLineRune = rune(opt.WrapLineRune)
 	drawutil.TabWidth = opt.TabWidth
 	ui.ScrollBarLeft = opt.ScrollBarLeft
 	ui.ScrollBarWidth = opt.ScrollBarWidth

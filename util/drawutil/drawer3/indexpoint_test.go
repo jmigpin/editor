@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/jmigpin/editor/util/drawutil"
-	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 func Test1(t *testing.T) {
@@ -18,7 +18,7 @@ func Test1(t *testing.T) {
 	d := NewPosDrawer()
 	d.WrapLine.SetOn(true)
 
-	r := iout.NewRW([]byte(s))
+	r := iorw.NewBytesReadWriter([]byte(s))
 
 	face := drawutil.GetTestFace()
 	d.SetFace(face)

@@ -2,8 +2,6 @@ package widget
 
 import (
 	"image"
-
-	"github.com/jmigpin/editor/util/drawutil/drawer4"
 )
 
 type TextScroll struct {
@@ -11,57 +9,31 @@ type TextScroll struct {
 }
 
 //----------
-
 // Implement widget.Scrollable
 
-func (ts *TextScroll) ScrollableOffset() image.Point {
-	if d, ok := ts.Drawer.(*drawer4.Drawer); ok {
-		return image.Point{1, d.RuneOffset()}
+func (ts *TextScroll) ScrollOffset() image.Point {
+	return ts.Drawer.ScrollOffset()
+}
+
+func (ts *TextScroll) SetScrollOffset(o image.Point) {
+	if ts.Drawer.ScrollOffset() != o {
+		ts.Drawer.SetScrollOffset(o)
+		ts.MarkNeedsLayoutAndPaint()
 	}
-
-	return ts.Offset()
 }
 
-func (ts *TextScroll) SetScrollableOffset(o image.Point) {
-	if d, ok := ts.Drawer.(*drawer4.Drawer); ok {
-		if d.Opt.RuneOffset.On {
-			d.SetRuneOffset(o.Y)
-			// TODO: check if it differs
-			ts.MarkNeedsLayoutAndPaint()
-			return
-		}
-	}
-
-	ts.SetOffset(o)
+func (ts *TextScroll) ScrollSize() image.Point {
+	return ts.Drawer.ScrollSize()
 }
 
-func (ts *TextScroll) ScrollableSize() image.Point {
-	if _, ok := ts.Drawer.(*drawer4.Drawer); ok {
-		return ts.FullMeasurement()
-	}
-
-	//	// extra height allows to scroll past the str height
-	//	visible := 2 * ts.LineHeight() // keep n lines visible at the end
-	//	extra := ts.Embed().Bounds.Dy() - visible
-
-	//	m := ts.FullMeasurement()
-	//	m.Y += extra
-	//	return m
-
-	return ts.FullMeasurement()
+func (ts *TextScroll) ScrollViewSize() image.Point {
+	return ts.Drawer.ScrollViewSize()
 }
 
-func (ts *TextScroll) ScrollableViewSize() image.Point {
-	if d, ok := ts.Drawer.(*drawer4.Drawer); ok {
-		return d.ScrollableViewSize()
-	}
-	return ts.Bounds.Size()
+func (ts *TextScroll) ScrollPageSizeY(up bool) int {
+	return ts.Drawer.ScrollPageSizeY(up)
 }
 
-func (ts *TextScroll) ScrollablePagingMargin() int {
-	return ts.LineHeight() * 1
-}
-
-func (ts *TextScroll) ScrollableScrollJump() int {
-	return ts.LineHeight() * 4
+func (ts *TextScroll) ScrollWheelSizeY(up bool) int {
+	return ts.Drawer.ScrollWheelSizeY(up)
 }
