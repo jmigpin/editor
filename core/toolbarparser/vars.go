@@ -56,7 +56,7 @@ func ParseVar(str string) (*Var, error) {
 
 	// value
 	var value string
-	if sm.AcceptQuote(parseutil.QuoteRunes, osutil.EscapeRunes) {
+	if sm.AcceptQuoteLoop(parseutil.QuoteRunes, osutil.EscapeRunes) {
 		v := sm.Value()
 		sm.Advance()
 		s, err := strconv.Unquote(v)

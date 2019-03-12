@@ -35,7 +35,7 @@ func (p *Parser) parseParts() []*Part {
 			p.sm.Advance()
 			continue
 		}
-		if p.sm.AcceptRune(statemach.EOS) {
+		if p.sm.AcceptEnd() {
 			break
 		}
 	}
@@ -84,19 +84,14 @@ func (p *Parser) parseArg() (*Arg, bool) {
 	}()
 
 	acc := p.sm.AcceptLoopFn(func(ru rune) bool {
-		switch ru {
-		case statemach.EOS, '|':
+		if ru == '|' {
 			return false
 		}
 		if unicode.IsSpace(ru) {
 			return false
 		}
-		if p.sm.IsQuoteAccept(ru, parseutil.QuoteRunes, osutil.EscapeRunes) {
-			return true
-		}
-		if p.sm.IsEscapeAccept(ru, osutil.EscapeRunes) {
-			return true
-		}
+		_ = p.sm.AcceptQuoteLoop2(ru, parseutil.QuoteRunes, osutil.EscapeRunes)
+		_ = p.sm.AcceptEscape2(ru, osutil.EscapeRunes)
 		return true
 	})
 	if !acc {
