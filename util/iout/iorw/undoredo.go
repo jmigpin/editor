@@ -27,7 +27,7 @@ func InsertUndoRedo(w Writer, i int, p []byte) (*UndoRedo, error) {
 }
 
 func DeleteUndoRedo(rw ReadWriter, i, len int) (*UndoRedo, error) {
-	s, err := rw.ReadNAt(i, len)
+	s, err := rw.ReadNCopyAt(i, len)
 	if err != nil {
 		return nil, err
 	}

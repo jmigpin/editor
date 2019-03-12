@@ -7,22 +7,21 @@ import (
 	"unicode/utf8"
 )
 
-// TODO: rename BytesReadWriter or BytesRW
-type RW struct {
+type BytesReadWriter struct {
 	buf []byte
 }
 
-func NewRW(b []byte) *RW {
-	return &RW{buf: b}
+func NewBytesReadWriter(b []byte) *BytesReadWriter {
+	return &BytesReadWriter{buf: b}
 }
 
-func (rw *RW) Len() int {
+func (rw *BytesReadWriter) Len() int {
 	return len(rw.buf)
 }
 
 //----------
 
-func (rw *RW) ReadRuneAt(i int) (ru rune, size int, err error) {
+func (rw *BytesReadWriter) ReadRuneAt(i int) (ru rune, size int, err error) {
 	if i < 0 || i > len(rw.buf) {
 		return 0, 0, errors.New("bad index")
 	}
@@ -33,7 +32,7 @@ func (rw *RW) ReadRuneAt(i int) (ru rune, size int, err error) {
 	return ru, size, nil
 }
 
-func (rw *RW) ReadLastRuneAt(i int) (ru rune, size int, err error) {
+func (rw *BytesReadWriter) ReadLastRuneAt(i int) (ru rune, size int, err error) {
 	if i < 0 || i > len(rw.buf) {
 		return 0, 0, errors.New("bad index")
 	}
@@ -46,22 +45,17 @@ func (rw *RW) ReadLastRuneAt(i int) (ru rune, size int, err error) {
 
 //----------
 
-func (rw *RW) ReadNAt(i, n int) ([]byte, error) {
-	if n < 0 {
-		return nil, fmt.Errorf("bad n: %v", n)
+func (rw *BytesReadWriter) ReadNCopyAt(i, n int) ([]byte, error) {
+	b, err := rw.ReadNSliceAt(i, n)
+	if err != nil {
+		return nil, err
 	}
-	if i < 0 || i > len(rw.buf) {
-		return nil, errors.New("bad index")
-	}
-	if i+n > len(rw.buf) {
-		return nil, io.EOF
-	}
-	w := make([]byte, n)
-	copy(w, rw.buf[i:i+n])
+	w := make([]byte, len(b))
+	copy(w, b)
 	return w, nil
 }
 
-func (rw *RW) ReadNSliceAt(i, n int) ([]byte, error) {
+func (rw *BytesReadWriter) ReadNSliceAt(i, n int) ([]byte, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("bad n: %v", n)
 	}
@@ -74,27 +68,9 @@ func (rw *RW) ReadNSliceAt(i, n int) ([]byte, error) {
 	return rw.buf[i : i+n], nil
 }
 
-//func (rw *RW) ReadAtMost(i, n int) ([]byte, error) {
-//	if n < 0 {
-//		return nil, fmt.Errorf("bad n: %v", n)
-//	}
-//	if i < 0 || i > len(rw.buf) {
-//		return nil, errors.New("bad index")
-//	}
-//	b := rw.buf[i:]
-//	if len(b) < n {
-//		n = len(b)
-//	}
-//	w := make([]byte, n)
-//	copy(w, b[:n])
-//	return w, nil
-//}
-
 //----------
 
-//----------
-
-func (rw *RW) Insert(i int, p []byte) error {
+func (rw *BytesReadWriter) Insert(i int, p []byte) error {
 	if i < 0 || i > len(rw.buf) {
 		return fmt.Errorf("bad index: %v", i)
 	}
@@ -115,7 +91,7 @@ func (rw *RW) Insert(i int, p []byte) error {
 	return nil
 }
 
-func (rw *RW) Delete(i, le int) error {
+func (rw *BytesReadWriter) Delete(i, le int) error {
 	if i < 0 || i+le > len(rw.buf) {
 		return fmt.Errorf("bad index: %v", i)
 	}
@@ -142,24 +118,3 @@ func (rw *RW) Delete(i, le int) error {
 	}
 	return nil
 }
-
-//----------
-
-//func (rw *RW) Overwrite(i, le int, p []byte) error {
-//	if i < 0 || i+le > len(rw.buf) {
-//		return errors.New("bad index")
-//	}
-//	lp := len(p)
-//	if le < lp {
-//		copy(rw.buf[i:], p[:le]) // overwrite
-//		return rw.Insert(i+le, p[le:])
-//	} else {
-//		// delete
-//		if err := rw.Delete(i+lp, le-lp); err != nil {
-//			return err
-//		}
-//		// overwrite
-//		copy(rw.buf[i:], p)
-//		return nil
-//	}
-//}

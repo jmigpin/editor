@@ -7,7 +7,7 @@ import (
 
 func TestRW1(t *testing.T) {
 	s := "0123"
-	rw := NewRW([]byte(s))
+	rw := NewBytesReadWriter([]byte(s))
 
 	type ins struct {
 		i int
@@ -73,7 +73,7 @@ func TestIndex1(t *testing.T) {
 	}
 	s += "abc"
 
-	rw := NewRW([]byte(s))
+	rw := NewBytesReadWriter([]byte(s))
 
 	i, err := Index(rw, 4, rw.Len(), []byte("abc"), true)
 	if err != nil {
@@ -84,7 +84,7 @@ func TestIndex1(t *testing.T) {
 
 func TestIndex2(t *testing.T) {
 	s := "012345678"
-	rw := NewRW([]byte(s))
+	rw := NewBytesReadWriter([]byte(s))
 	i, err := index2(rw, 0, rw.Len(), []byte("345"), true, 4)
 	if err != nil {
 		t.Fatal(err)

@@ -107,7 +107,7 @@ func IndexFunc(r Reader, i, len int, truth bool, f func(rune) bool) (index, size
 			return 0, 0, err
 		}
 		if i+size > max {
-			return 0, 0, ErrLimitReached
+			return i, size, ErrLimitReached
 		}
 		if f(ru) == truth {
 			return i, size, nil
@@ -125,7 +125,7 @@ func LastIndexFunc(r Reader, i, len int, truth bool, f func(rune) bool) (index, 
 		}
 		i -= size
 		if i < min {
-			return 0, 0, ErrLimitReached
+			return i, size, ErrLimitReached
 		}
 		if f(ru) == truth {
 			return i, size, nil
@@ -135,31 +135,35 @@ func LastIndexFunc(r Reader, i, len int, truth bool, f func(rune) bool) (index, 
 
 //----------
 
-var LineIndexMax = 2500
-
 func LineStartIndex(r Reader, i int) (int, error) {
-	newlinef := func(ru rune) bool { return ru == '\n' }
-	k, size, err := LastIndexFunc(r, i, LineIndexMax, true, newlinef)
-	if err != nil {
-		if err == io.EOF {
-			return 0, nil
-		}
-		return 0, err
+	k, size, err := NewLineLastIndex(r, i)
+	if err == io.EOF {
+		return 0, nil
 	}
-
-	return k + size, nil
+	return k + size, err
 }
 
-func LineEndIndex(r Reader, i int) (_ int, newline bool, _ error) {
-	newlinef := func(ru rune) bool { return ru == '\n' }
-	k, size, err := IndexFunc(r, i, LineIndexMax, true, newlinef)
-	if err != nil {
-		if err == io.EOF {
-			return r.Len(), false, nil
-		}
-		return 0, false, err
+func LineEndIndex(r Reader, i int) (int, bool, error) {
+	k, size, err := NewLineIndex(r, i)
+	if err == io.EOF {
+		return r.Len(), false, nil
 	}
-	return k + size, true, nil // true=newline
+	isNewLine := err == nil
+	return k + size, isNewLine, err
+}
+
+//----------
+
+var NewLineIndexMax = 2500
+
+func NewLineIndex(r Reader, i int) (int, int, error) {
+	newlinef := func(ru rune) bool { return ru == '\n' }
+	return IndexFunc(r, i, NewLineIndexMax, true, newlinef)
+}
+
+func NewLineLastIndex(r Reader, i int) (int, int, error) {
+	newlinef := func(ru rune) bool { return ru == '\n' }
+	return LastIndexFunc(r, i, NewLineIndexMax, true, newlinef)
 }
 
 //----------
@@ -208,7 +212,7 @@ func WordAtIndex(r Reader, index, max int) ([]byte, int, error) {
 		i0 += size
 	}
 
-	s, err := r.ReadNAt(i0, i1-i0)
+	s, err := r.ReadNCopyAt(i0, i1-i0)
 	if err != nil {
 		return nil, 0, err
 	}
