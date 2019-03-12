@@ -84,6 +84,11 @@ func (ann *Annotator) visitDeclFromFile(ctx *Ctx, decl ast.Decl) {
 }
 
 func (ann *Annotator) visitFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
+	// don't annotate String functions to avoid endless loops recursion
+	if fd.Name.Name == "String" {
+		return
+	}
+
 	// create new blockstmt to contain args debug stmts
 	pos := fd.Type.End()
 	bs := &ast.BlockStmt{List: []ast.Stmt{}}
