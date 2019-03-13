@@ -80,4 +80,4 @@ func (in *Indent) indent() bool {
 	return in.d.iters.runeR.insertExtraString(s)
 }
 
-var WrapLineRune = rune(8594) // positioned at the start of wrapped line (left)
+var WrapLineRune = rune('←') // positioned at the start of wrapped line (left)
