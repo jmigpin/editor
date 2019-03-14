@@ -42,19 +42,19 @@ func TestNLinesStartIndex1(t *testing.T) {
 	d.SetReader(r)
 	pos := r.Len()
 	d.SetRuneOffset(pos)
-	w := d.lineStartIndex(pos, 0)
+	w := d.iters.lineStart.lineStartIndex(pos, 0)
 	if w != 8 {
 		t.Fatal()
 	}
-	w = d.lineStartIndex(pos, 1)
+	w = d.iters.lineStart.lineStartIndex(pos, 1)
 	if w != 4 {
 		t.Fatal()
 	}
-	w = d.lineStartIndex(pos, 2)
+	w = d.iters.lineStart.lineStartIndex(pos, 2)
 	if w != 0 {
 		t.Fatal()
 	}
-	w = d.lineStartIndex(pos, 100)
+	w = d.iters.lineStart.lineStartIndex(pos, 100)
 	if w != 0 {
 		t.Fatal()
 	}
@@ -151,7 +151,7 @@ func TestImg06Scroll1(t *testing.T) {
 	r := iorw.NewBytesReadWriter([]byte(s))
 	d.SetReader(r)
 
-	sy := d.scrollWheelYDown(3)
+	sy := d.scrollSizeYDown(3)
 	d.SetScrollOffset(image.Point{0, sy})
 
 	d.Draw(img)
@@ -165,10 +165,10 @@ func TestImg07Scroll2(t *testing.T) {
 	r := iorw.NewBytesReadWriter([]byte(s))
 	d.SetReader(r)
 
-	sy := d.scrollWheelYDown(1)
+	sy := d.scrollSizeYDown(1)
 	d.SetRuneOffset(sy)
 
-	sy = d.scrollWheelYDown(1) // 2nd line
+	sy = d.scrollSizeYDown(1) // 2nd line
 	d.SetRuneOffset(sy)
 
 	d.Draw(img)
@@ -184,10 +184,10 @@ func TestImg08Scroll3(t *testing.T) {
 
 	d.SetRuneOffset(10)
 
-	sy := d.scrollWheelYUp(1)
+	sy := d.scrollSizeYUp(1)
 	d.SetRuneOffset(sy)
 
-	sy = d.scrollWheelYUp(1) // 2nd line
+	sy = d.scrollSizeYUp(1) // 2nd line
 	d.SetRuneOffset(sy)
 
 	d.Draw(img)
@@ -236,6 +236,32 @@ func TestImg11Visible(t *testing.T) {
 	cmpResult(t, img, "img11")
 }
 
+func TestImg12Cursor(t *testing.T) {
+	d, img := newTestDrawer()
+
+	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
+	r := iorw.NewBytesReadWriter([]byte(s))
+	d.SetReader(r)
+
+	d.Opt.Cursor.On = true
+	d.Opt.RuneOffset.On = true
+	//d.smoothScroll = true
+
+	c := 17
+	d.SetRuneOffset(c)
+	d.SetCursorOffset(c)
+
+	p := d.LocalPointOf(c)
+	p.Y -= d.LineHeight() - 1
+	k := d.LocalIndexOf(p)
+
+	d.SetRuneOffset(k)
+	d.SetCursorOffset(k)
+
+	d.Draw(img)
+	cmpResult(t, img, "img12")
+}
+
 //----------
 
 func newTestDrawer() (*Drawer, draw.Image) {
@@ -246,11 +272,14 @@ func newTestDrawer() (*Drawer, draw.Image) {
 func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 	face := newTestFace()
 	d := New()
-	d.smoothScroll = false
 	d.SetFace(face)
 	d.SetBounds(rect)
 	d.SetFg(color.Black)
+
+	d.smoothScroll = false
+	d.Opt.RuneOffset.On = true
 	d.Opt.LineWrap.Bg = colornames.Red
+
 	img := image.NewRGBA(rect)
 	return d, img
 }
