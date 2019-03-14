@@ -244,7 +244,7 @@ func TestImg12Cursor(t *testing.T) {
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
-	d.Opt.RuneOffset.On = true
+	//d.Opt.RuneOffset.On = true
 	//d.smoothScroll = true
 
 	c := 17
@@ -260,6 +260,27 @@ func TestImg12Cursor(t *testing.T) {
 
 	d.Draw(img)
 	cmpResult(t, img, "img12")
+}
+
+func TestImg13Cursor(t *testing.T) {
+	d, img := newTestDrawer()
+
+	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
+	r := iorw.NewBytesReadWriter([]byte(s))
+	d.SetReader(r)
+
+	d.Opt.Cursor.On = true
+
+	c := r.Len()
+	d.SetRuneOffset(c - 3)
+	d.SetCursorOffset(c)
+
+	// range visible when offset was eof was causing draw at bottom
+	u := d.RangeVisibleOffset(c, 1)
+	d.SetRuneOffset(u)
+
+	d.Draw(img)
+	cmpResult(t, img, "img13")
 }
 
 //----------

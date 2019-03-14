@@ -26,20 +26,21 @@ func (fr *FaceRunes) Glyph(dot fixed.Point26_6, ru rune) (
 	advance fixed.Int26_6,
 	ok bool,
 ) {
+	if ru < 0 { // -1=eof
+		return image.ZR, nil, image.ZP, 0, false
+	}
 	switch ru {
 	case '\t', '\n':
-		zero := image.Rect(0, 0, 0, 0)
-		dr := zero
-		mask := image.NewAlpha(zero)
-		maskp = image.Point{}
-		adv, ok := fr.GlyphAdvance(ru)
-		return dr, mask, maskp, adv, ok
+		return image.ZR, nil, image.ZP, 0, false
 	case '\r':
 		ru = CarriageReturnRune
 	}
 	return fr.Face.Glyph(dot, ru)
 }
 func (fr *FaceRunes) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
+	if ru < 0 { // -1=eof
+		return fixed.Int26_6(0), false
+	}
 	switch ru {
 	case '\t':
 		adv, ok := fr.Face.GlyphAdvance(' ')

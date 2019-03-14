@@ -64,11 +64,40 @@ type RectangleIntf struct {
 	Min, Max PointIntf
 }
 
+func RIntf(r image.Rectangle) RectangleIntf {
+	min := PIntf2(r.Min)
+	max := PIntf2(r.Max)
+	return RectangleIntf{min, max}
+}
+
 func (r RectangleIntf) Add(p PointIntf) RectangleIntf {
 	return RectangleIntf{r.Min.Add(p), r.Max.Add(p)}
 }
 func (r RectangleIntf) Sub(p PointIntf) RectangleIntf {
 	return RectangleIntf{r.Min.Sub(p), r.Max.Sub(p)}
+}
+
+func (r RectangleIntf) Intersect(s RectangleIntf) RectangleIntf {
+	if r.Min.X < s.Min.X {
+		r.Min.X = s.Min.X
+	}
+	if r.Min.Y < s.Min.Y {
+		r.Min.Y = s.Min.Y
+	}
+	if r.Max.X > s.Max.X {
+		r.Max.X = s.Max.X
+	}
+	if r.Max.Y > s.Max.Y {
+		r.Max.Y = s.Max.Y
+	}
+	if r.Empty() {
+		return RectangleIntf{}
+	}
+	return r
+}
+
+func (r RectangleIntf) Empty() bool {
+	return r.Min.X >= r.Max.X || r.Min.Y >= r.Max.Y
 }
 
 func (r RectangleIntf) ToRectFloorCeil() image.Rectangle {

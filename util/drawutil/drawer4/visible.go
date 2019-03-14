@@ -57,6 +57,12 @@ func header1Visibility(d *Drawer, offset int) (image.Rectangle, Visibility) {
 		return zr, notVisible
 	}
 	pr := pb.ToRectFloorCeil()
+
+	// allow intersection of empty x in penbounds (case of eof)
+	if pr.Dx() == 0 {
+		pr.Max.X = pr.Min.X + 1
+	}
+
 	ir := d.bounds.Intersect(pr)
 	if ir.Empty() {
 		if pr.Min.Y < d.bounds.Min.Y {

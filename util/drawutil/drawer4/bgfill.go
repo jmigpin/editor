@@ -13,8 +13,8 @@ func (bgf *BgFill) Init() {}
 func (bgf *BgFill) Iter() {
 	st := &bgf.d.st.curColors
 
-	// allow to skip draw with rune 0
-	skip := bgf.d.st.runeR.ru == 0
+	// skip draw
+	skip := bgf.d.st.runeR.ru <= 0
 
 	if !skip {
 		if st.lineBg != nil {

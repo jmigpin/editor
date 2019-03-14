@@ -50,8 +50,8 @@ func (dr *DrawRune) draw() {
 }
 
 func (dr *DrawRune) draw2(pen image.Point, ru rune, fg color.Color) {
-	// allow to skip draw with rune 0
-	if ru == 0 {
+	// skip draw
+	if ru <= 0 {
 		return
 	}
 
