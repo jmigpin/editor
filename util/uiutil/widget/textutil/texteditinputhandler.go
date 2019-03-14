@@ -120,9 +120,6 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		event.KSymSuperL: // windows key
 		// ignore these
 	case event.KSymRight:
-		makeCursorVisible()       // make a partially visible cursor visible
-		defer makeCursorVisible() // adjust adjacent lines just one line instead of centralizing
-
 		switch {
 		case mcl.Is(event.ModCtrl | event.ModShift):
 			MoveCursorJumpRight(te, true)
@@ -133,10 +130,8 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		default:
 			MoveCursorRight(te, false)
 		}
-	case event.KSymLeft:
 		makeCursorVisible()
-		defer makeCursorVisible()
-
+	case event.KSymLeft:
 		switch {
 		case mcl.Is(event.ModCtrl | event.ModShift):
 			MoveCursorJumpLeft(te, true)
@@ -147,10 +142,8 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		default:
 			MoveCursorLeft(te, false)
 		}
-	case event.KSymUp:
 		makeCursorVisible()
-		defer makeCursorVisible()
-
+	case event.KSymUp:
 		switch {
 		case mcl.Is(event.ModCtrl | event.ModAlt):
 			MoveLineUp(te)
@@ -159,10 +152,8 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		default:
 			MoveCursorUp(te, false)
 		}
-	case event.KSymDown:
 		makeCursorVisible()
-		defer makeCursorVisible()
-
+	case event.KSymDown:
 		switch {
 		case mcl.Is(event.ModCtrl | event.ModShift | event.ModAlt):
 			DuplicateLines(te)
@@ -173,6 +164,7 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		default:
 			MoveCursorDown(te, false)
 		}
+		makeCursorVisible()
 	case event.KSymHome:
 		switch {
 		case mcl.Is(event.ModCtrl | event.ModShift):

@@ -26,8 +26,8 @@ type Drawer interface {
 	RuneOffset() int
 	SetRuneOffset(int)
 
-	PointOf(index int) image.Point
-	IndexOf(image.Point) int
+	LocalPointOf(index int) image.Point
+	LocalIndexOf(image.Point) int
 
 	Measure() image.Point
 	Draw(img draw.Image)
@@ -35,6 +35,9 @@ type Drawer interface {
 	// specialized: covers editor row button margin
 	FirstLineOffsetX() int
 	SetFirstLineOffsetX(x int)
+
+	// cursor
+	SetCursorOffset(int)
 
 	// scrollable utils
 	ScrollOffset() image.Point
@@ -47,5 +50,4 @@ type Drawer interface {
 	// visibility utils
 	RangeVisible(offset, n int) bool
 	RangeVisibleOffset(offset, n int) int
-	RangeVisibleOffsetCentered(offset, n int) int
 }

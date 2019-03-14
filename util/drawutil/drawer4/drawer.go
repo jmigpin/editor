@@ -29,8 +29,9 @@ type Drawer struct {
 		measure            Measure    // end
 		drawR              DrawRune
 		line               Line
-		lineWrap           LineWrap // init, insert
-		indent             Indent   // insert
+		lineWrap           LineWrap  // init, insert
+		lineStart          LineStart // init
+		indent             Indent    // insert
 		earlyExit          EarlyExit
 		curColors          CurColors
 		bgFill             BgFill
@@ -157,11 +158,19 @@ type State struct {
 		preLineWrap  bool
 		postLineWrap bool // post line wrap
 	}
+	lineStart struct {
+		offset     int
+		nLinesUp   int
+		q          []int
+		ri         int
+		uppedLines int
+	}
 	indent struct {
 		notStartingSpaces bool
 		indent            mathutil.Intf
 	}
 	earlyExit struct {
+		extraLine bool
 	}
 	curColors struct {
 		fg, bg color.Color
@@ -215,6 +224,7 @@ func New() *Drawer {
 	d.iters.drawR.d = d
 	d.iters.line.d = d
 	d.iters.lineWrap.d = d
+	d.iters.lineStart.d = d
 	d.iters.indent.d = d
 	d.iters.earlyExit.d = d
 	d.iters.curColors.d = d
@@ -363,7 +373,6 @@ func (d *Drawer) Draw(img draw.Image) {
 	updateParenthesisHighlight(d)
 
 	d.st = State{}
-	d.st.drawR.img = img
 	iters := []Iterator{
 		&d.iters.runeR,
 		&d.iters.curColors,
@@ -378,13 +387,14 @@ func (d *Drawer) Draw(img draw.Image) {
 		&d.iters.cursor,
 	}
 	d.loopInit(iters)
-	d.header0(iters)
+	d.header0()
+	d.st.drawR.img = img
 	d.loop()
 }
 
 //----------
 
-func (d *Drawer) PointOf(index int) image.Point {
+func (d *Drawer) LocalPointOf(index int) image.Point {
 	if !d.ready() {
 		return image.Point{}
 	}
@@ -399,14 +409,14 @@ func (d *Drawer) PointOf(index int) image.Point {
 		&d.iters.pointOf,
 	}
 	d.loopInit(iters)
-	d.header0(iters)
+	d.header1()
 	d.loop()
 	return d.st.pointOf.p
 }
 
 //----------
 
-func (d *Drawer) IndexOf(p image.Point) int {
+func (d *Drawer) LocalIndexOf(p image.Point) int {
 	if !d.ready() {
 		return 0
 	}
@@ -417,10 +427,11 @@ func (d *Drawer) IndexOf(p image.Point) int {
 		&d.iters.line,
 		&d.iters.lineWrap,
 		&d.iters.indent,
+		&d.iters.earlyExit,
 		&d.iters.indexOf,
 	}
 	d.loopInit(iters)
-	d.header0(iters)
+	d.header1()
 	d.loop()
 	return d.st.indexOf.index
 }
@@ -442,7 +453,7 @@ func (d *Drawer) AnnotationsIndexOf(p image.Point) (int, int, bool) {
 		&d.iters.annotationsIndexOf,
 	}
 	d.loopInit(iters)
-	d.header0(iters)
+	d.header0()
 	d.loop()
 
 	st := &d.st.annotationsIndexOf
@@ -502,7 +513,7 @@ func (d *Drawer) visibleLen() (int, int, int, int) {
 	d.st = State{}
 	iters := append(d.sIters(), &d.iters.earlyExit)
 	d.loopInit(iters)
-	d.header0(iters)
+	d.header0()
 	startRi := d.st.runeR.ri
 	d.loop()
 
@@ -571,114 +582,59 @@ func (d *Drawer) boundsNLines() int {
 
 func (d *Drawer) scrollSizeY(nlines int, up bool) int {
 	if up {
-		o := d.scrollWheelYUp(nlines)
+		o := d.scrollSizeYUp(nlines)
 		return -(d.opt.runeO.offset - o)
 	} else {
-		o := d.scrollWheelYDown(nlines)
+		o := d.scrollSizeYDown(nlines)
 		return o - d.opt.runeO.offset
 	}
 }
 
 //----------
 
-func (d *Drawer) scrollWheelYUp(nlines int) int {
+func (d *Drawer) scrollSizeYUp(nlines int) int {
 	return d.wlineStartIndex(true, d.opt.runeO.offset, nlines)
 }
-func (d *Drawer) scrollWheelYDown(nlines int) int {
+func (d *Drawer) scrollSizeYDown(nlines int) int {
 	return d.wlineStartIndexDown(d.opt.runeO.offset, nlines)
 }
 
 //----------
 
 func (d *Drawer) RangeVisible(offset, length int) bool {
-	_, v1 := d.offsetVisibility(offset)
-	_, v2 := d.offsetVisibility(offset + length)
-	return v1+v2 > 0
-}
-
-// 0=not, 1=partial, 2=full
-func (d *Drawer) offsetVisibility(offset int) (image.Rectangle, int) {
-	pb, ok := d.visiblePenBounds(offset)
-	// not visible
-	if !ok {
-		return image.Rectangle{}, 0
-	}
-	pr := pb.ToRectFloorCeil()
-	ir := d.bounds.Intersect(pr)
-	if ir.Empty() {
-		return image.Rectangle{}, 0
-	}
-	// partially visible
-	if ir != pr {
-		return pr, 1
-	}
-	// fully visible
-	return pr, 2
-}
-
-func (d *Drawer) visiblePenBounds(offset int) (mathutil.RectangleIntf, bool) {
-	d.st = State{}
-	fnIter := FnIter{}
-	iters := append(d.sIters(), &d.iters.earlyExit, &fnIter)
-	d.loopInit(iters)
-	d.header0(iters)
-
-	found := false
-	pen := mathutil.RectangleIntf{}
-	fnIter.fn = func() {
-		if d.iters.runeR.isNormal() {
-			if d.st.runeR.ri >= offset {
-				if d.st.runeR.ri == offset {
-					found = true
-					pen = d.iters.runeR.penBounds()
-				}
-				d.iterStop()
-				return
-			}
-		}
-		if !d.iterNext() {
-			return
+	_, v1 := header1Visibility(d, offset)
+	_, v2 := header1Visibility(d, offset+length)
+	for _, v := range []Visibility{v1, v2} {
+		switch v {
+		case fullyVisible, topPartVisible, bottomPartVisible:
+			return true
 		}
 	}
-
-	d.loop()
-
-	return pen, found
+	return false
 }
 
 //----------
 
 func (d *Drawer) RangeVisibleOffset(offset, length int) int {
-	pr1, v1 := d.offsetVisibility(offset)
-	_, v2 := d.offsetVisibility(offset + length)
-	// not visible
-	if v1+v2 == 0 {
-		// centered
-		return d.RangeVisibleOffsetCentered(offset, length)
+	_, v1 := header1Visibility(d, offset)
+	//_, v2 := header1Visibility(d, offset+length)
+	switch v1 {
+	case fullyVisible:
+		return d.opt.runeO.offset // do nothing
+	case notVisible:
+		return d.visibleAtCenter(offset, length)
+	case topPartVisible, topNotVisible:
+		return d.visibleAtTop(offset)
+	case bottomPartVisible, bottomNotVisible:
+		return d.visibleAtBottom(offset, length)
 	}
-	// fully visible
-	if v1+v2 == 4 {
-		// do nothing
-		return d.opt.runeO.offset
-	}
-	// partial: top
-	top := false
-	if v1 == 0 {
-		// v2 is partial, align to top
-		top = true
-	} else if v1 == 1 {
-		u := d.bounds
-		u.Max.Y = u.Min.Y + 1
-		if !u.Intersect(pr1).Empty() {
-			// v1 is partial at top
-			top = true
-		}
-	}
-	if top {
-		return d.wlineStartIndex(true, offset, 0)
-	}
-	// partial: bottom
-	// detect nlines
+	return d.visibleAtCenter(offset, length)
+}
+
+func (d *Drawer) visibleAtTop(offset int) int {
+	return d.wlineStartIndex(true, offset, 0)
+}
+func (d *Drawer) visibleAtBottom(offset, length int) int {
 	nlines := d.rangeNLines(offset, length)
 	bnlines := d.boundsNLines()
 	u := bnlines - nlines
@@ -688,10 +644,27 @@ func (d *Drawer) RangeVisibleOffset(offset, length int) int {
 	return d.wlineStartIndex(true, offset, u)
 }
 
+func (d *Drawer) visibleAtCenter(offset, length int) int {
+	// detect nlines
+	nlines := d.rangeNLines(offset, length)
+
+	// centered
+	bnlines := d.boundsNLines()
+	if nlines >= bnlines {
+		nlines = 0 // top
+	} else {
+		nlines = (bnlines - nlines) / 2
+	}
+
+	return d.wlineStartIndex(true, offset, nlines)
+}
+
+//----------
+
 func (d *Drawer) rangeNLines(offset, length int) int {
 	pr1, pr2, ok := d.wlineRangePenBounds(offset, length)
 	if ok {
-		u := int((pr2.Min.Y-pr1.Min.Y)/d.lineHeight) + 1
+		u := ((pr2.Min.Y - pr1.Min.Y) / d.lineHeight).Floor() + 1
 		if u > 1 {
 			return u
 		}
@@ -703,7 +676,7 @@ func (d *Drawer) rangeNLines(offset, length int) int {
 func (d *Drawer) wlineRangePenBounds(offset, length int) (_, _ mathutil.RectangleIntf, _ bool) {
 	var pr1, pr2 mathutil.RectangleIntf
 	var ok1, ok2 bool
-	d.sLoopWLineStart(true, offset, 0,
+	d.wlineStartLoopFn(true, offset, 0,
 		func() {
 			ok1 = true
 			pr1 = d.iters.runeR.penBounds()
@@ -724,27 +697,10 @@ func (d *Drawer) wlineRangePenBounds(offset, length int) (_, _ mathutil.Rectangl
 
 //----------
 
-func (d *Drawer) RangeVisibleOffsetCentered(offset, length int) int {
-	// detect nlines
-	nlines := d.rangeNLines(offset, length)
-
-	// centered
-	bnlines := d.boundsNLines()
-	if nlines >= bnlines {
-		nlines = 0 // top
-	} else {
-		nlines = (bnlines - nlines) / 2
-	}
-
-	return d.wlineStartIndex(true, offset, nlines)
-}
-
-//----------
-
 func (d *Drawer) wlineStartIndexDown(offset, nlinesDown int) int {
 	count := 0
 	startRi := 0
-	d.sLoopWLineStart(true, offset, 0,
+	d.wlineStartLoopFn(true, offset, 0,
 		func() {
 			startRi = d.st.runeR.ri
 			if nlinesDown == 0 {
@@ -752,8 +708,8 @@ func (d *Drawer) wlineStartIndexDown(offset, nlinesDown int) int {
 			}
 		},
 		func() {
-			if d.st.runeR.ri != startRi { // bypass ri at line start
-				if d.st.line.lineStart || d.st.lineWrap.postLineWrap {
+			if d.st.line.lineStart || d.st.lineWrap.postLineWrap {
+				if d.st.runeR.ri != startRi { // bypass ri at line start
 					count++
 					if count >= nlinesDown {
 						d.iterStop()
@@ -770,11 +726,21 @@ func (d *Drawer) wlineStartIndexDown(offset, nlinesDown int) int {
 
 //----------
 
-func (d *Drawer) header0(origIters []Iterator) {
-	d.header(origIters, d.opt.runeO.offset)
+func (d *Drawer) header0() {
+	_ = d.header(d.opt.runeO.offset, 0)
 }
 
-func (d *Drawer) header(origIters []Iterator, offset int) {
+func (d *Drawer) header1() {
+	d.st.earlyExit.extraLine = true       // extra line at bottom
+	ul := d.header(d.opt.runeO.offset, 1) // extra line at top
+	if ul > 0 {
+		d.st.runeR.pen.Y -= d.lineHeight * mathutil.Intf(ul)
+	}
+}
+
+//----------
+
+func (d *Drawer) header(offset, nLinesUp int) int {
 	// smooth scrolling
 	adjustPenY := mathutil.Intf(0)
 	if d.Opt.RuneOffset.On && d.smoothScroll {
@@ -783,11 +749,11 @@ func (d *Drawer) header(origIters []Iterator, offset int) {
 
 	// iterate to the wline start
 	st1 := d.st // keep initialized state to refer to pen difference
-	d.wlineStartState(false, offset, 0)
+	uppedLines := d.wlineStartState(false, offset, nLinesUp)
 	adjustPenY += d.st.runeR.pen.Y - st1.runeR.pen.Y
 	d.st.runeR.pen.Y -= adjustPenY
 
-	d.loopv.iters = origIters // restore original iterators
+	return uppedLines
 }
 
 func (d *Drawer) smoothScrolling(offset int) mathutil.Intf {
@@ -807,12 +773,12 @@ func (d *Drawer) smoothScrolling(offset int) mathutil.Intf {
 
 func (d *Drawer) wlineStartEnd(offset int) (int, int) {
 	s, e := 0, 0
-	d.sLoopWLineStart(true, offset, 0,
+	d.wlineStartLoopFn(true, offset, 0,
 		func() {
 			s = d.st.runeR.ri
 		},
 		func() {
-			// since the line will eventually wrap (finite screen size) there is not need for early exit testing
+			// the line will eventually wrap (finite screen size), no earlyexit testing
 			if d.st.line.lineStart || d.st.lineWrap.postLineWrap {
 				if d.st.runeR.ri > offset {
 					e = d.st.runeR.ri
@@ -832,77 +798,50 @@ func (d *Drawer) wlineStartEnd(offset int) (int, int) {
 
 //----------
 
-//func (d *Drawer) sLoopHeader(offset int, fnInit func(), fn func()) {
-//	d.sLoop(true,
-//		func() {
-//			d.header(d.loopv.iters, offset)
-//			fnInit()
-//		},
-//		fn)
-//}
+func (d *Drawer) wlineStartLoopFn(clearState bool, offset, nLinesUp int, fnInit func(), fn func()) {
+	// keep/restore iters
+	iters := d.loopv.iters
+	defer func() { d.loopv.iters = iters }()
 
-func (d *Drawer) sLoopWLineStart(init bool, offset, nlinesUp int, fnInit func(), fn func()) {
-	d.wlineStartState(init, offset, nlinesUp)
-	d.sLoop(false, fnInit, fn)
+	fnIter := FnIter{fn: fn}
+	d.loopv.iters = append(d.sIters(), &fnIter)
+	d.wlineStartState(clearState, offset, nLinesUp)
+	fnInit()
+	d.loop()
 }
 
 //----------
 
 // Leaves the state at line start
-func (d *Drawer) wlineStartState(init bool, offset, nlinesUp int) {
-	cp := d.st // keep copy of initialized state
-	k := d.sLoopWLineStartIndex(init, offset, nlinesUp)
+func (d *Drawer) wlineStartState(clearState bool, offset, nLinesUp int) int {
+	// keep/restore iters
+	iters := d.loopv.iters
+	defer func() { d.loopv.iters = iters }()
+
+	// find start (state will reach offset)
+	cp := d.st // keep state
+	k := d.wlineStartIndex(clearState, offset, nLinesUp)
+	uppedLines := d.st.lineStart.uppedLines
+
 	// leave state at line start instead of offset
 	d.st = cp // restore state
-	_ = d.sLoopWLineStartIndex(init, k, 0)
+	_ = d.wlineStartIndex(clearState, k, 0)
+
+	return uppedLines
 }
 
 //----------
 
-func (d *Drawer) wlineStartIndex(init bool, offset, nlinesUp int) int {
-	return d.sLoopWLineStartIndex(init, offset, nlinesUp)
-}
-
-// Leaves the state at offset
-func (d *Drawer) sLoopWLineStartIndex(init bool, offset, nlinesUp int) int {
-	q := []int{}
-	d.sLoopLineStart(init, offset, nlinesUp,
-		func() {
-			// worst case line start, ok if it is pushed twice into the q
-			q = append(q, d.st.runeR.ri)
-		},
-		func() {
-			if d.st.line.lineStart || d.st.lineWrap.postLineWrap {
-				q = append(q, d.st.runeR.ri)
-			}
-			if !d.st.lineWrap.preLineWrap { // don't stop before lineStart
-				if d.st.runeR.ri >= offset {
-					d.iterStop()
-					return
-				}
-			}
-			if !d.iterNext() {
-				return
-			}
-		})
-	// count lines back
-	if nlinesUp >= len(q) {
-		nlinesUp = len(q) - 1
+func (d *Drawer) wlineStartIndex(clearState bool, offset, nLinesUp int) int {
+	if clearState {
+		d.st = State{}
 	}
-	return q[len(q)-1-nlinesUp]
-}
-
-//----------
-
-func (d *Drawer) sLoopLineStart(init bool, offset, nlinesUp int, fnInit func(), fn func()) {
-	d.sLoop(init,
-		func() {
-			// start iterating at the start of the content line
-			d.st.runeR.ri = d.lineStartIndex(offset, nlinesUp)
-
-			fnInit()
-		},
-		fn)
+	d.st.lineStart.offset = offset
+	d.st.lineStart.nLinesUp = nLinesUp
+	iters := append(d.sIters(), &d.iters.lineStart)
+	d.loopInit(iters)
+	d.loop()
+	return d.st.lineStart.ri
 }
 
 //----------
@@ -915,55 +854,6 @@ func (d *Drawer) sIters() []Iterator {
 		&d.iters.lineWrap,
 		&d.iters.indent,
 	}
-}
-
-// structure iterators loop
-func (d *Drawer) sLoop(init bool, fnInit func(), fn func()) {
-	if init {
-		d.st = State{}
-	}
-	fnIter := FnIter{fn: fn}
-	iters := append(d.sIters(), &fnIter)
-	if init {
-		d.loopInit(iters)
-	} else {
-		d.loopv.iters = iters
-	}
-	fnInit()
-	d.loop()
-}
-
-//----------
-
-func (d *Drawer) lineStartIndex(offset, nlinesUp int) int {
-	w := d.linesStartIndexes(offset, nlinesUp)
-
-	// read error case
-	if len(w) == 0 {
-		return offset
-	}
-
-	if nlinesUp >= len(w) {
-		nlinesUp = len(w) - 1
-	}
-	return w[nlinesUp]
-}
-
-func (d *Drawer) linesStartIndexes(offset, nlinesUp int) []int {
-	w := []int{}
-	for i := 0; i <= nlinesUp; i++ {
-		k, err := iorw.LineStartIndex(d.reader, offset)
-		if err != nil {
-			if err == iorw.ErrLimitReached {
-				// consider the limit as the line start
-				w = append(w, k)
-			}
-			break
-		}
-		w = append(w, k)
-		offset = k - 1
-	}
-	return w
 }
 
 //----------

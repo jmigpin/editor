@@ -121,18 +121,13 @@ func (t *Text) MakeRangeVisible(offset, n int) {
 	t.SetRuneOffset(o)
 }
 
-//func (t *Text) MakeRangeVisibleCentered(offset, n int) {
-//	o := t.Drawer.RangeVisibleOffsetCentered(offset, n)
-//	t.SetRuneOffset(o)
-//}
-
 //----------
 
 func (t *Text) GetPoint(i int) image.Point {
-	return t.Drawer.PointOf(i)
+	return t.Drawer.LocalPointOf(i)
 }
 func (t *Text) GetIndex(p image.Point) int {
-	return t.Drawer.IndexOf(p)
+	return t.Drawer.LocalIndexOf(p)
 }
 
 //----------
