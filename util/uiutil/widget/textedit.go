@@ -132,15 +132,15 @@ func (te *TextEdit) UpdateWriteOp(u *RWWriteOpCb) {
 	te.SetRuneOffset(ro + v2)
 }
 
-func (te *TextEdit) editValue(typ WriteOpCbType, s, e, e2, o int) int {
+func (te *TextEdit) editValue(typ iorw.WriterOp, s, e, e2, o int) int {
 	v := 0
 	if s < o {
 		k := mathutil.Smallest(e, o)
 		v = k - s
-		if typ == DeleteWriteOp {
+		if typ == iorw.DeleteWOp {
 			v = -v
 		}
-		if typ == OverwriteWriteOp {
+		if typ == iorw.OverwriteWOp {
 			v = -v
 			k := mathutil.Smallest(e2, o)
 			v += k - s
@@ -161,7 +161,7 @@ func (rw *writeOpCbRW) Insert(i int, p []byte) error {
 	if err := rw.ReadWriter.Insert(i, p); err != nil {
 		return err
 	}
-	u := &RWWriteOpCb{InsertWriteOp, i, len(p), 0}
+	u := &RWWriteOpCb{iorw.InsertWOp, i, len(p), 0}
 	rw.te.writeOpCallback(u)
 	return nil
 }
@@ -170,7 +170,7 @@ func (rw *writeOpCbRW) Delete(i, length int) error {
 	if err := rw.ReadWriter.Delete(i, length); err != nil {
 		return err
 	}
-	u := &RWWriteOpCb{DeleteWriteOp, i, length, 0}
+	u := &RWWriteOpCb{iorw.DeleteWOp, i, length, 0}
 	rw.te.writeOpCallback(u)
 	return nil
 }
@@ -179,23 +179,15 @@ func (rw *writeOpCbRW) Overwrite(i, length int, p []byte) error {
 	if err := rw.ReadWriter.Overwrite(i, length, p); err != nil {
 		return err
 	}
-	u := &RWWriteOpCb{OverwriteWriteOp, i, length, len(p)}
+	u := &RWWriteOpCb{iorw.OverwriteWOp, i, length, len(p)}
 	rw.te.writeOpCallback(u)
 	return nil
 }
 
 //----------
 
-type WriteOpCbType int
-
-const (
-	InsertWriteOp WriteOpCbType = iota
-	DeleteWriteOp
-	OverwriteWriteOp
-)
-
 type RWWriteOpCb struct {
-	Type    WriteOpCbType
+	Type    iorw.WriterOp
 	Index   int
 	Length1 int
 	Length2 int
