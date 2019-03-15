@@ -192,7 +192,7 @@ func (rw *writeOpHistoryRW) Delete(i, len int) error {
 func (rw *writeOpHistoryRW) Overwrite(i, length int, p []byte) error {
 	rw.tc.panicIfNotEditing()
 
-	ur1, ur2, err := iorw.OverwriteUndoRedo(rw.ReadWriter, i, length, p)
+	ur, err := iorw.OverwriteUndoRedo(rw.ReadWriter, i, length, p)
 	if err != nil {
 		return err
 	}
@@ -209,8 +209,7 @@ func (rw *writeOpHistoryRW) Overwrite(i, length int, p []byte) error {
 	}
 	// only add to history if the result is not equal
 	if !isEqual {
-		rw.tc.te.TextHistory.Append(ur1)
-		rw.tc.te.TextHistory.Append(ur2)
+		rw.tc.te.TextHistory.Append(ur)
 	}
 
 	return nil

@@ -1,17 +1,29 @@
 package iorw
 
 type UndoRedo struct {
-	Insert bool // otherwise is a delete
-	Index  int
-	B      []byte
+	Type  WriterOp
+	Index int
+	B     []byte // insert/delete
+	B2    []byte // overwrite insert
 }
 
 func (ur *UndoRedo) Apply(w Writer, redo bool) error {
-	if (ur.Insert && !redo) || (!ur.Insert && redo) {
-		return w.Insert(ur.Index, ur.B)
-	} else {
-		return w.Delete(ur.Index, len(ur.B))
+	switch ur.Type {
+	case InsertWOp, DeleteWOp:
+		insert := ur.Type == InsertWOp
+		if (insert && !redo) || (!insert && redo) {
+			return w.Insert(ur.Index, ur.B)
+		} else {
+			return w.Delete(ur.Index, len(ur.B))
+		}
+	case OverwriteWOp:
+		if !redo {
+			return w.Overwrite(ur.Index, len(ur.B), ur.B2)
+		} else {
+			return w.Overwrite(ur.Index, len(ur.B2), ur.B)
+		}
 	}
+	panic("unexpected op")
 }
 
 //----------
@@ -22,7 +34,7 @@ func InsertUndoRedo(w Writer, i int, p []byte) (*UndoRedo, error) {
 	}
 	b := make([]byte, len(p))
 	copy(b, p)
-	ur := &UndoRedo{Insert: false, Index: i, B: b}
+	ur := &UndoRedo{Type: DeleteWOp, Index: i, B: b}
 	return ur, nil
 }
 
@@ -36,25 +48,24 @@ func DeleteUndoRedo(rw ReadWriter, i, len int) (*UndoRedo, error) {
 		return nil, err
 	}
 
-	ur := &UndoRedo{Insert: true, Index: i, B: b}
+	ur := &UndoRedo{Type: InsertWOp, Index: i, B: b}
 	return ur, nil
 }
 
-func OverwriteUndoRedo(rw ReadWriter, i, length int, p []byte) (_, _ *UndoRedo, _ error) {
+func OverwriteUndoRedo(rw ReadWriter, i, length int, p []byte) (*UndoRedo, error) {
 	// copy delete
 	b1, err := rw.ReadNCopyAt(i, length)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	// copy insert
 	b2 := make([]byte, len(p))
 	copy(b2, p)
 	// overwrite
 	if err := rw.Overwrite(i, length, p); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	// delete/insert undoredo
-	ur1 := &UndoRedo{Insert: true, Index: i, B: b1}
-	ur2 := &UndoRedo{Insert: false, Index: i, B: b2}
-	return ur1, ur2, nil
+	ur := &UndoRedo{Type: OverwriteWOp, Index: i, B: b2, B2: b1}
+	return ur, nil
 }

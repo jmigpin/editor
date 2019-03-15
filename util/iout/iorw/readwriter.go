@@ -21,3 +21,14 @@ type Writer interface {
 	Delete(i, length int) error
 	Overwrite(i, length int, p []byte) error
 }
+
+//----------
+
+// used to determine the write operation (undoredo and others)
+type WriterOp int
+
+const (
+	InsertWOp WriterOp = iota
+	DeleteWOp
+	OverwriteWOp
+)

@@ -128,8 +128,8 @@ func consecutiveSpaces(ed1, ed2 *Edit) bool {
 
 func urIsLetterInsert(ur *iorw.UndoRedo) bool {
 	r := []rune(string(ur.B))
-	// not-insert is the undo of an "insert"
-	return !ur.Insert && len(r) == 1 && unicode.IsLetter(r[0])
+	// deletewop is the undo of an insertwop
+	return ur.Type == iorw.DeleteWOp && len(r) == 1 && unicode.IsLetter(r[0])
 }
 
 func urIsSpace(ur *iorw.UndoRedo) bool {
