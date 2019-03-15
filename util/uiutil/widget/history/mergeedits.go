@@ -127,22 +127,22 @@ func consecutiveSpaces(ed1, ed2 *Edit) bool {
 //----------
 
 func urIsLetterInsert(ur *iorw.UndoRedo) bool {
-	r := []rune(string(ur.S))
+	r := []rune(string(ur.B))
 	// not-insert is the undo of an "insert"
 	return !ur.Insert && len(r) == 1 && unicode.IsLetter(r[0])
 }
 
 func urIsSpace(ur *iorw.UndoRedo) bool {
 	// can be insert or delete
-	return len(bytes.TrimSpace(ur.S)) == 0
+	return len(bytes.TrimSpace(ur.B)) == 0
 }
 
 func urConsecutive(ur1, ur2 *iorw.UndoRedo) bool {
-	return ur1.Index+len(ur1.S) == ur2.Index
+	return ur1.Index+len(ur1.B) == ur2.Index
 }
 
 func urConsecutiveEitherSide(ur1, ur2 *iorw.UndoRedo) bool {
-	return ur1.Index+len(ur1.S) == ur2.Index || // moved to the right
-		ur1.Index == ur2.Index+len(ur2.S) || // moved to the left
+	return ur1.Index+len(ur1.B) == ur2.Index || // moved to the right
+		ur1.Index == ur2.Index+len(ur2.B) || // moved to the left
 		ur1.Index == ur2.Index // stayed in place
 }

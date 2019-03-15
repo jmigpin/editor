@@ -30,7 +30,7 @@ func (edit *Edit) Entries() []*iorw.UndoRedo {
 func (edit *Edit) Empty() bool {
 	for e := edit.list.Front(); e != nil; e = e.Next() {
 		ur := e.Value.(*iorw.UndoRedo)
-		if len(ur.S) > 0 {
+		if len(ur.B) > 0 {
 			return false
 		}
 	}
