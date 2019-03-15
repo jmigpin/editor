@@ -16,3 +16,16 @@ func LimitInt(v int, min, max int) int {
 	}
 	return v
 }
+
+func Smallest(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+func Biggest(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
