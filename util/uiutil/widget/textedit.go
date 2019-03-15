@@ -70,18 +70,10 @@ func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 	return te.Text.SetBytes(b) // bypasses history // TODO***
 }
 
-func (te *TextEdit) AppendBytesClearHistory(b []byte, maxSize int) error {
+func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 	te.TextHistory.clear()
 	rw := te.crw // bypasses history
 
-	l := rw.Len() + len(b)
-	if l > maxSize {
-		if err := rw.Delete(0, l-maxSize); err != nil {
-			return err
-		}
-	}
-
-	// run changes only once for delete+insert
 	defer te.contentChanged()
 
 	return rw.Insert(rw.Len(), b)
@@ -101,8 +93,8 @@ func (te *TextEdit) SetStrClearHistory(str string) error {
 	return te.SetBytesClearHistory([]byte(str))
 }
 
-func (te *TextEdit) AppendStrClearHistory(str string, maxSize int) error {
-	return te.AppendBytesClearHistory([]byte(str), maxSize)
+func (te *TextEdit) AppendStrClearHistory(str string) error {
+	return te.AppendBytesClearHistory([]byte(str))
 }
 
 //----------

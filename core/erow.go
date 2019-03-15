@@ -242,12 +242,8 @@ func (erow *ERow) TextAreaAppendAsync(str string) <-chan struct{} {
 }
 
 func (erow *ERow) textAreaAppend(str string) {
-	// TODO: unlimited output? some xterms have more or less 64k limit. Bigger limits will slow down the ui since it will be calculating the new string content. This will be improved once the textarea drawer supports append/cutTop operations.
-
-	maxSize := 64 * 1024
-
 	ta := erow.Row.TextArea
-	if err := ta.AppendStrClearHistory(str, maxSize); err != nil {
+	if err := ta.AppendStrClearHistory(str); err != nil {
 		erow.Ed.Error(err)
 	}
 }
