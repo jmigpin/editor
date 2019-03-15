@@ -91,6 +91,7 @@ func (sb *ScrollBar) calcPositionAndSize() {
 	var pp, sp float64
 
 	sizey0 := sb.yaxis(size)
+
 	if sizey0 == 0 {
 		pp = 0
 		sp = 1
@@ -102,11 +103,11 @@ func (sb *ScrollBar) calcPositionAndSize() {
 		sp = vsizey / sizey
 	}
 
-	sp = mathutil.LimitFloat64(sp, 0, 1)
 	pp = mathutil.LimitFloat64(pp, 0, 1)
+	sp = mathutil.LimitFloat64(pp+sp, 0, 1) // add pp
 
-	sb.sizePercent = sp
 	sb.positionPercent = pp
+	sb.sizePercent = sp
 }
 
 //----------
@@ -125,18 +126,17 @@ func (sb *ScrollBar) OnChildMarked(child Node, newMarks Marks) {
 func (sb *ScrollBar) Layout() {
 	bsize := sb.Bounds.Size()
 	r := sb.Bounds
-
 	d := sb.yaxis(bsize)
 
 	sb.calcPositionAndSize()
 
-	p := int(math.Ceil(float64(d) * sb.positionPercent))
+	min := 5 // minimum bar size (stay visible)
+	p := int(math.Ceil(float64(d-min) * sb.positionPercent))
 	s := int(math.Ceil(float64(d) * sb.sizePercent))
+	s = mathutil.Biggest(s, p+min)
 
-	s = mathutil.LimitInt(s, 4, s) // minimum bar size (stay visible)
-
-	*sb.yaxisPtr(&r.Min) += p
-	*sb.yaxisPtr(&r.Max) = sb.yaxis(r.Min) + s
+	*sb.yaxisPtr(&r.Min) = sb.yaxis(sb.Bounds.Min) + p
+	*sb.yaxisPtr(&r.Max) = sb.yaxis(sb.Bounds.Min) + s
 	r = r.Intersect(sb.Bounds)
 
 	sb.Handle.Bounds = r
