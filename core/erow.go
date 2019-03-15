@@ -82,6 +82,19 @@ func (erow *ERow) initHandlers() {
 
 		erow.Info.SetRowsStrFromMaster(erow)
 	})
+	// textarea edit
+	row.TextArea.EvReg.Add(ui.TextAreaEditEventId, func(ev0 interface{}) {
+		ev := ev0.(*ui.TextAreaWriteOpEvent)
+		// update duplicate edits to keep offset/cursor in position
+		if erow.Info.IsFileButNotDir() {
+			for _, e := range erow.Info.ERows {
+				if e == erow {
+					continue
+				}
+				e.Row.TextArea.UpdateWriteOp(ev.WriteOp)
+			}
+		}
+	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaCmdEvent)

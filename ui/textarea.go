@@ -24,6 +24,7 @@ func NewTextArea(ui *UI) *TextArea {
 	ta.TextEditInputHandler = textutil.NewTextEditInputHandler(ta.TextEditX)
 
 	ta.OnSetStr = ta.onSetStr
+	ta.OnWriteOp = ta.onWriteOp
 	ta.EvReg = evreg.NewRegister()
 
 	return ta
@@ -34,6 +35,11 @@ func NewTextArea(ui *UI) *TextArea {
 func (ta *TextArea) onSetStr() {
 	ev := &TextAreaSetStrEvent{ta}
 	ta.EvReg.RunCallbacks(TextAreaSetStrEventId, ev)
+}
+
+func (ta *TextArea) onWriteOp(u *widget.RWWriteOpCb) {
+	ev := &TextAreaWriteOpEvent{ta, u}
+	ta.EvReg.RunCallbacks(TextAreaEditEventId, ev)
 }
 
 //----------
@@ -158,6 +164,7 @@ func (ta *TextArea) PointIndexInsideSelection(p image.Point) bool {
 
 const (
 	TextAreaSetStrEventId = iota
+	TextAreaEditEventId
 	TextAreaCmdEventId
 	TextAreaSelectAnnotationEventId
 )
@@ -168,6 +175,10 @@ type TextAreaCmdEvent struct {
 }
 type TextAreaSetStrEvent struct {
 	TextArea *TextArea
+}
+type TextAreaWriteOpEvent struct {
+	TextArea *TextArea
+	WriteOp  *widget.RWWriteOpCb
 }
 
 //----------

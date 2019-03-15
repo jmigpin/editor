@@ -21,7 +21,7 @@ type Text struct {
 	ctx        ImageContext
 	bg         color.Color
 
-	brw iorw.ReadWriter // base rw
+	rw iorw.ReadWriter
 }
 
 func NewText(ctx ImageContext) *Text {
@@ -32,32 +32,37 @@ func NewText(ctx ImageContext) *Text {
 	t.TextScroll.Text = t
 	t.TextScroll.Drawer = t.Drawer
 
-	t.brw = iorw.NewBytesReadWriter(nil)
-	t.Drawer.SetReader(t.brw)
+	rw := iorw.NewBytesReadWriter(nil)
+	t.SetRW(rw)
 
 	return t
 }
 
 //----------
 
+func (t *Text) SetRW(rw iorw.ReadWriter) {
+	t.rw = rw
+	t.Drawer.SetReader(rw)
+}
+
 func (t *Text) Len() int {
-	return t.brw.Len()
+	return t.rw.Len()
 }
 
 // Result might not be a copy, so changes to the slice might affect the text data.
 func (t *Text) Bytes() ([]byte, error) {
-	return t.brw.ReadNSliceAt(0, t.brw.Len())
+	return t.rw.ReadNSliceAt(0, t.rw.Len())
 }
 
 func (t *Text) SetBytes(b []byte) error {
-	if err := t.brw.Delete(0, t.brw.Len()); err != nil {
+	if err := t.rw.Delete(0, t.rw.Len()); err != nil {
 		return err
 	}
 
 	// run changes only once for delete+insert
 	defer t.contentChanged()
 
-	return t.brw.Insert(0, b)
+	return t.rw.Insert(0, b)
 }
 
 //----------

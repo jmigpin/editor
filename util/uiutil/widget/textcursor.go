@@ -1,6 +1,8 @@
 package widget
 
 import (
+	"bytes"
+
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
@@ -8,19 +10,19 @@ type TextCursor struct {
 	te      *TextEdit
 	state   TextCursorState
 	editing bool
-	tcrw    *tcRW
+	hrw     iorw.ReadWriter
 }
 
 func NewTextCursor(te *TextEdit) *TextCursor {
 	tc := &TextCursor{te: te}
-	tc.tcrw = &tcRW{ReadWriter: te.brw, tc: tc}
 	return tc
 }
 
 //------------
 
+// ReadWriter with history capabilities.
 func (tc *TextCursor) RW() iorw.ReadWriter {
-	return tc.tcrw
+	return tc.hrw
 }
 
 //----------
@@ -160,12 +162,12 @@ type TextCursorState struct {
 //----------
 
 // Keeps history UndoRedo on write operations.
-type tcRW struct {
+type writeOpHistoryRW struct {
 	iorw.ReadWriter
 	tc *TextCursor
 }
 
-func (rw *tcRW) Insert(i int, p []byte) error {
+func (rw *writeOpHistoryRW) Insert(i int, p []byte) error {
 	rw.tc.panicIfNotEditing()
 
 	ur, err := iorw.InsertUndoRedo(rw.ReadWriter, i, p)
@@ -176,7 +178,7 @@ func (rw *tcRW) Insert(i int, p []byte) error {
 	return nil
 }
 
-func (rw *tcRW) Delete(i, len int) error {
+func (rw *writeOpHistoryRW) Delete(i, len int) error {
 	rw.tc.panicIfNotEditing()
 
 	ur, err := iorw.DeleteUndoRedo(rw.ReadWriter, i, len)
@@ -184,5 +186,32 @@ func (rw *tcRW) Delete(i, len int) error {
 		return err
 	}
 	rw.tc.te.TextHistory.Append(ur)
+	return nil
+}
+
+func (rw *writeOpHistoryRW) Overwrite(i, length int, p []byte) error {
+	rw.tc.panicIfNotEditing()
+
+	ur1, ur2, err := iorw.OverwriteUndoRedo(rw.ReadWriter, i, length, p)
+	if err != nil {
+		return err
+	}
+
+	// check if the result will be equal
+	isEqual := false
+	if length == len(p) {
+		b, err := rw.ReadNSliceAt(i, length)
+		if err == nil {
+			if bytes.Equal(b, p) {
+				isEqual = true
+			}
+		}
+	}
+	// only add to history if the result is not equal
+	if !isEqual {
+		rw.tc.te.TextHistory.Append(ur1)
+		rw.tc.te.TextHistory.Append(ur2)
+	}
+
 	return nil
 }

@@ -56,6 +56,7 @@ func (th *TextHistory) EndEdit() {
 	defer cleanup()
 
 	th.edit.PostState = th.cursorState()
+
 	th.hist.Append(th.edit)
 }
 
@@ -108,12 +109,12 @@ func (th *TextHistory) undoRedo(redo bool) error {
 		return nil
 	}
 
+	defer th.te.contentChanged()
+
 	restore := func(data interface{}) {
 		th.restoreCursorState(data) // makes index visible (triggers paint)
 	}
-
-	defer th.te.contentChanged()
-	return edit.ApplyUndoRedo(th.te.brw, redo, restore)
+	return edit.ApplyUndoRedo(th.te.crw, redo, restore)
 }
 
 //----------

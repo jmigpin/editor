@@ -2,6 +2,7 @@ package widget
 
 import (
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/mathutil"
 )
 
 type TextEdit struct {
@@ -10,6 +11,9 @@ type TextEdit struct {
 
 	TextCursor  *TextCursor
 	TextHistory *TextHistory
+	OnWriteOp   func(*RWWriteOpCb)
+
+	crw iorw.ReadWriter // write op callback rw: OnWriteOp(...)
 }
 
 func NewTextEdit(ctx ImageContext, cctx ClipboardContext) *TextEdit {
@@ -17,7 +21,22 @@ func NewTextEdit(ctx ImageContext, cctx ClipboardContext) *TextEdit {
 	te := &TextEdit{Text: t, ClipboardContext: cctx}
 	te.TextCursor = NewTextCursor(te)
 	te.TextHistory = NewTextHistory(te)
+	te.SetRW(te.Text.rw)
 	return te
+}
+
+//----------
+
+func (te *TextEdit) SetRW(rw iorw.ReadWriter) {
+	te.Text.SetRW(rw)
+	te.crw = &writeOpCbRW{rw, te}
+	te.TextCursor.hrw = &writeOpHistoryRW{te.crw, te.TextCursor}
+}
+
+func (te *TextEdit) writeOpCallback(u *RWWriteOpCb) {
+	if te.OnWriteOp != nil {
+		te.OnWriteOp(u)
+	}
 }
 
 //----------
@@ -26,7 +45,9 @@ func (te *TextEdit) SetBytes(b []byte) error {
 	tc := te.TextCursor
 	var err error
 	tc.Edit(func() {
-		err = iorw.DeleteInsertIfNotEqual(tc.RW(), 0, tc.RW().Len(), b)
+		//err = iorw.DeleteInsertIfNotEqual(tc.RW(), 0, tc.RW().Len(), b)
+		rw := tc.RW()
+		err = rw.Overwrite(0, rw.Len(), b)
 	})
 	return err
 }
@@ -35,7 +56,9 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 	tc := te.TextCursor
 	var err error
 	tc.Edit(func() {
-		err = iorw.DeleteInsertIfNotEqual(tc.RW(), 0, tc.RW().Len(), b)
+		//err = iorw.DeleteInsertIfNotEqual(tc.RW(), 0, tc.RW().Len(), b)
+		rw := tc.RW()
+		err = rw.Overwrite(0, rw.Len(), b)
 		// keep position in history record
 		te.ClearPos()
 	})
@@ -44,12 +67,12 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 
 func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 	te.TextHistory.clear()
-	return te.Text.SetBytes(b) // bypasses history
+	return te.Text.SetBytes(b) // bypasses history // TODO***
 }
 
 func (te *TextEdit) AppendBytesClearHistory(b []byte, maxSize int) error {
 	te.TextHistory.clear()
-	rw := te.brw // bypasses history
+	rw := te.crw // bypasses history
 
 	l := rw.Len() + len(b)
 	if l > maxSize {
@@ -93,63 +116,97 @@ func (te *TextEdit) ClearPos() {
 //----------
 
 func (te *TextEdit) UpdateDuplicate(dup *TextEdit) {
-	// share readwriter
-	dup.brw = te.brw
-	dup.TextCursor.tcrw.ReadWriter = dup.brw
-	dup.Drawer.SetReader(dup.brw)
-
-	// share history
-	dup.TextHistory.Use(te.TextHistory)
-
+	dup.SetRW(te.Text.rw)               // share readwriter
+	dup.TextHistory.Use(te.TextHistory) // share history
 	dup.contentChanged()
 }
 
-//func (te *TextEdit) UpdateDuplicate_(dup *TextEdit) {
-//	// keep offset/cursor/selection position for restoration
-//	//ip := dup.GetPoint(dup.TextCursor.Index())
-//	//ip = ip.Add(image.Point{2, 2})
-//	//op := dup.GetPoint(dup.RuneOffset())
-//	//op = op.Add(image.Point{2, 2})
+//----------
 
-//	// keep offset/cursor/selection position for restoration
-//	//oy := dup.Offset().Y
-//	//ip := dup.GetPoint(dup.TextCursor.Index())
-//	//var sip image.Point
-//	//if dup.TextCursor.SelectionOn() {
-//	//	sip = dup.GetPoint(dup.TextCursor.SelectionIndex())
-//	//}
+func (te *TextEdit) UpdateWriteOp(u *RWWriteOpCb) {
+	//return //**************************
 
-//	// update content and share history
-//	dup.TextHistory.New(0)
-//	b, err := te.Bytes()
-//	if err != nil {
-//		log.Print(err)
-//		return
-//	}
-//	dup.SetBytes(b)
-//	dup.TextHistory.Use(te.TextHistory)
+	tc := te.TextCursor
+	tci := tc.Index()
+	ro := te.RuneOffset()
+	s := u.Index
+	e := s + u.Length1
+	e2 := s + u.Length2
 
-//	// restore offset/cursor/selection position
-//	//i := dup.GetIndex(ip)
-//	//dup.TextCursor.SetIndex(i)
-//	//dup.TextCursor.SetSelectionOff()
-//	//i2 := dup.GetIndex(op)
-//	//dup.SetRuneOffset(i2)
+	// update cursor position
+	v1 := te.editValue(u.Type, s, e, e2, tci)
+	tc.SetIndex(tci + v1)
 
-//	// restore offset/cursor/selection position
-//	//	dup.SetOffsetY(oy)
-//	//i := dup.GetIndex(ip)
-//	//	if dup.TextCursor.SelectionOn() {
-//	//		si := dup.GetIndex(sip)
+	// update offset position
+	v2 := te.editValue(u.Type, s, e, e2, ro)
+	te.SetRuneOffset(ro + v2)
+}
 
-//	//		// commented: selection can change and result is incorrect
-//	//		//dup.TextCursor.SetSelection(si, i)
+func (te *TextEdit) editValue(typ WriteOpCbType, s, e, e2, o int) int {
+	v := 0
+	if s < o {
+		k := mathutil.Smallest(e, o)
+		v = k - s
+		if typ == DeleteWriteOp {
+			v = -v
+		}
+		if typ == OverwriteWriteOp {
+			v = -v
+			k := mathutil.Smallest(e2, o)
+			v += k - s
+		}
+	}
+	return v
+}
 
-//	//		// set selection off if the selection index changes
-//	//		if si != dup.TextCursor.SelectionIndex() {
-//	//			dup.TextCursor.SetSelectionOff()
-//	//		}
-//	//	} else {
-//	//		dup.TextCursor.SetIndex(i)
-//	//	}
-//}
+//----------
+
+// Runs callback on write operations.
+type writeOpCbRW struct {
+	iorw.ReadWriter
+	te *TextEdit
+}
+
+func (rw *writeOpCbRW) Insert(i int, p []byte) error {
+	if err := rw.ReadWriter.Insert(i, p); err != nil {
+		return err
+	}
+	u := &RWWriteOpCb{InsertWriteOp, i, len(p), 0}
+	rw.te.writeOpCallback(u)
+	return nil
+}
+
+func (rw *writeOpCbRW) Delete(i, length int) error {
+	if err := rw.ReadWriter.Delete(i, length); err != nil {
+		return err
+	}
+	u := &RWWriteOpCb{DeleteWriteOp, i, length, 0}
+	rw.te.writeOpCallback(u)
+	return nil
+}
+
+func (rw *writeOpCbRW) Overwrite(i, length int, p []byte) error {
+	if err := rw.ReadWriter.Overwrite(i, length, p); err != nil {
+		return err
+	}
+	u := &RWWriteOpCb{OverwriteWriteOp, i, length, len(p)}
+	rw.te.writeOpCallback(u)
+	return nil
+}
+
+//----------
+
+type WriteOpCbType int
+
+const (
+	InsertWriteOp WriteOpCbType = iota
+	DeleteWriteOp
+	OverwriteWriteOp
+)
+
+type RWWriteOpCb struct {
+	Type    WriteOpCbType
+	Index   int
+	Length1 int
+	Length2 int
+}
