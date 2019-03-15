@@ -33,6 +33,8 @@ func (te *TextEdit) SetRW(rw iorw.ReadWriter) {
 	te.TextCursor.hrw = &writeOpHistoryRW{te.crw, te.TextCursor}
 }
 
+//----------
+
 func (te *TextEdit) writeOpCallback(u *RWWriteOpCb) {
 	if te.OnWriteOp != nil {
 		te.OnWriteOp(u)
@@ -71,10 +73,11 @@ func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 	te.TextHistory.clear()
 	rw := te.crw // bypasses history
-
-	defer te.contentChanged()
-
-	return rw.Insert(rw.Len(), b)
+	if err := rw.Insert(rw.Len(), b); err != nil {
+		return err
+	}
+	te.contentChanged()
+	return nil
 }
 
 //----------
@@ -114,8 +117,6 @@ func (te *TextEdit) UpdateDuplicate(dup *TextEdit) {
 //----------
 
 func (te *TextEdit) UpdateWriteOp(u *RWWriteOpCb) {
-	//return //**************************
-
 	tc := te.TextCursor
 	tci := tc.Index()
 	ro := te.RuneOffset()

@@ -55,14 +55,11 @@ func (t *Text) Bytes() ([]byte, error) {
 }
 
 func (t *Text) SetBytes(b []byte) error {
-	if err := t.rw.Delete(0, t.rw.Len()); err != nil {
+	if err := t.rw.Overwrite(0, t.rw.Len(), b); err != nil {
 		return err
 	}
-
-	// run changes only once for delete+insert
-	defer t.contentChanged()
-
-	return t.rw.Insert(0, b)
+	t.contentChanged()
+	return nil
 }
 
 //----------
