@@ -18,5 +18,6 @@ type Reader interface {
 
 type Writer interface {
 	Insert(i int, p []byte) error
-	Delete(i, len int) error
+	Delete(i, length int) error
+	Overwrite(i, length int, p []byte) error
 }

@@ -75,19 +75,11 @@ func (rw *BytesReadWriter) Insert(i int, p []byte) error {
 		return fmt.Errorf("bad index: %v", i)
 	}
 
-	n := len(rw.buf) + len(p)
-	if n > cap(rw.buf) {
-		// grow capacity
-		w := make([]byte, n, n+64)
-		copy(w, rw.buf[:i])
-		copy(w[i+len(p):], rw.buf[i:])
-		copy(w[i:], p)
-		rw.buf = w
-	} else {
-		rw.buf = rw.buf[0:n]
-		copy(rw.buf[i+len(p):], rw.buf[i:])
-		copy(rw.buf[i:], p)
-	}
+	l := len(rw.buf)
+	rw.buf = append(rw.buf, p...)        // just to increase capacity
+	copy(rw.buf[i+len(p):], rw.buf[i:l]) // shift data to the right
+	copy(rw.buf[i:], p)                  // insert p
+
 	return nil
 }
 
@@ -106,15 +98,15 @@ func (rw *BytesReadWriter) Delete(i, le int) error {
 	rw.buf = rw.buf[:len(rw.buf)-le]
 
 	// reduce capacity if too small, to release mem
-	if len(rw.buf) > 2*1024 && len(rw.buf)*2 < cap(rw.buf) {
-		if len(rw.buf) == 0 {
-			// don't do anything, probably followed by an insert
-		} else {
-			n := len(rw.buf)
-			w := make([]byte, n, n+64)
-			copy(w, rw.buf)
-			rw.buf = w
-		}
+	if len(rw.buf) > 1024 && len(rw.buf)*3 < cap(rw.buf) {
+		rw.buf = append([]byte{}, rw.buf...)
 	}
 	return nil
+}
+
+func (rw *BytesReadWriter) Overwrite(i, length int, p []byte) error {
+	if err := rw.Delete(0, length); err != nil {
+		return err
+	}
+	return rw.Insert(i, p)
 }
