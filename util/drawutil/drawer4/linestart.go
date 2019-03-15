@@ -62,6 +62,11 @@ func (ls *LineStart) lineStartIndex(offset, nLinesUp int) int {
 }
 
 func (ls *LineStart) linesStartIndexes(offset, nLinesUp int) []int {
+	// ensure offset is within max bound
+	if offset > ls.d.reader.Len() {
+		offset = ls.d.reader.Len()
+	}
+
 	w := []int{}
 	for i := 0; i <= nLinesUp; i++ {
 		k, err := iorw.LineStartIndex(ls.d.reader, offset)

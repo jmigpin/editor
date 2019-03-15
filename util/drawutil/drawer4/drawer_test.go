@@ -27,7 +27,7 @@ func TestEmpty(t *testing.T) {
 	d.SetReader(r)
 
 	w := d.wlineStartIndex(true, 10, 0)
-	if w != 10 {
+	if w != 0 {
 		t.Fatal()
 	}
 }
@@ -281,6 +281,27 @@ func TestImg13Cursor(t *testing.T) {
 
 	d.Draw(img)
 	cmpResult(t, img, "img13")
+}
+
+func TestImg14Cursor(t *testing.T) {
+	d, img := newTestDrawer()
+
+	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
+	r := iorw.NewBytesReadWriter([]byte(s))
+	d.SetReader(r)
+
+	d.Opt.Cursor.On = true
+
+	c := r.Len()
+	d.SetRuneOffset(c)
+
+	l := 8
+	r.Delete(r.Len()-l, l)
+	//b, _ := r.ReadNSliceAt(0, r.Len())
+	//fmt.Printf("%v\n", string(b))
+
+	d.Draw(img)
+	cmpResult(t, img, "img14")
 }
 
 //----------
