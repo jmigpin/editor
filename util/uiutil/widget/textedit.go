@@ -66,16 +66,21 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 }
 
 func (te *TextEdit) SetBytesClearHistory(b []byte) error {
+	rw := te.crw // bypass history
+	if err := rw.Overwrite(0, rw.Len(), b); err != nil {
+		return err
+	}
 	te.TextHistory.clear()
-	return te.Text.SetBytes(b) // bypasses history // TODO***
+	te.contentChanged()
+	return nil
 }
 
 func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
-	te.TextHistory.clear()
-	rw := te.crw // bypasses history
+	rw := te.crw // bypass history
 	if err := rw.Insert(rw.Len(), b); err != nil {
 		return err
 	}
+	te.TextHistory.clear()
 	te.contentChanged()
 	return nil
 }
