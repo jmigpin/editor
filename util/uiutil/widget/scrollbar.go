@@ -88,14 +88,19 @@ func (sb *ScrollBar) calcPositionAndSize() {
 	size := sb.sa.scrollable.ScrollSize()
 	vsize := sb.sa.scrollable.ScrollViewSize()
 
-	posy := float64(sb.yaxis(pos))
-	sizey := float64(sb.yaxis(size))
-	vsizey := float64(sb.yaxis(vsize))
+	var pp, sp float64
 
-	sizey = mathutil.LimitFloat64(sizey, 0.0001, sizey)
-
-	pp := posy / sizey
-	sp := vsizey / sizey
+	sizey0 := sb.yaxis(size)
+	if sizey0 == 0 {
+		pp = 0
+		sp = 1
+	} else {
+		posy := float64(sb.yaxis(pos))
+		sizey := float64(sizey0)
+		vsizey := float64(sb.yaxis(vsize))
+		pp = posy / sizey
+		sp = vsizey / sizey
+	}
 
 	sp = mathutil.LimitFloat64(sp, 0, 1)
 	pp = mathutil.LimitFloat64(pp, 0, 1)
