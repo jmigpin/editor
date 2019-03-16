@@ -130,6 +130,8 @@ func (sa *ScrollArea) Layout() {
 
 	// scrollable bounds
 	sa.scrollable.Embed().Bounds = b.Intersect(sa.Bounds)
+	// ensure scrollable layout is done before the scrollbar since it might be calculated before the scrollable due to child order. The scrollable needs to be aware of its updated bounds to correctly return the viewsize.
+	sa.scrollable.Layout()
 }
 
 //----------
