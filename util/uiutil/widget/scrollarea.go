@@ -144,6 +144,11 @@ func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handle 
 			sa.scrollPageUp()
 		case event.KSymPageDown:
 			sa.scrollPageDown()
+		default:
+			// allow scrollable to receive keydown input
+			if !p.In(sa.scrollable.Embed().Bounds) {
+				sa.scrollable.OnInputEvent(ev0, p)
+			}
 		}
 	case *event.MouseDown:
 		// scrolling with the wheel on the content area
