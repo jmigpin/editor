@@ -26,7 +26,7 @@ func (rr *RuneReader) Iter() {
 	if err != nil {
 		// run last advanced position (draw/delayeddraw/selecting)
 		if err == io.EOF {
-			_ = rr.iter2(-1, 0)
+			_ = rr.iter2(eofRune, 0)
 		}
 		rr.d.iterStop()
 		return

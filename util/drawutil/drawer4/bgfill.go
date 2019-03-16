@@ -11,29 +11,31 @@ type BgFill struct {
 func (bgf *BgFill) Init() {}
 
 func (bgf *BgFill) Iter() {
-	st := &bgf.d.st.curColors
-
-	// skip draw
-	skip := bgf.d.st.runeR.ru <= 0
-
-	if !skip {
-		if st.lineBg != nil {
-			r := bgf.d.iters.runeR.penBoundsRect()
-			b := bgf.d.bounds
-			r.Min.X = b.Min.X
-			r.Max.X = b.Max.X
-			r = r.Intersect(b)
-			imageutil.FillRectangle(bgf.d.st.drawR.img, &r, st.lineBg)
-		}
-		if st.bg != nil {
-			r := bgf.d.iters.runeR.penBoundsRect()
-			r = r.Intersect(bgf.d.bounds)
-			imageutil.FillRectangle(bgf.d.st.drawR.img, &r, st.bg)
-		}
-	}
-
+	bgf.iter2()
 	if !bgf.d.iterNext() {
 		return
 	}
 }
+func (bgf *BgFill) iter2() {
+	// skip draw
+	if bgf.d.st.runeR.ru < 0 {
+		return
+	}
+
+	st := &bgf.d.st.curColors
+	if st.lineBg != nil {
+		r := bgf.d.iters.runeR.penBoundsRect()
+		b := bgf.d.bounds
+		r.Min.X = b.Min.X
+		r.Max.X = b.Max.X
+		r = r.Intersect(b)
+		imageutil.FillRectangle(bgf.d.st.drawR.img, &r, st.lineBg)
+	}
+	if st.bg != nil {
+		r := bgf.d.iters.runeR.penBoundsRect()
+		r = r.Intersect(bgf.d.bounds)
+		imageutil.FillRectangle(bgf.d.st.drawR.img, &r, st.bg)
+	}
+}
+
 func (bgf *BgFill) End() {}

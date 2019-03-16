@@ -69,7 +69,7 @@ func (lw *LineWrap) preLineWrap() bool {
 func (lw *LineWrap) postLineWrap() bool {
 	// don't draw this extra rune
 	rr := lw.d.st.runeR
-	lw.d.st.runeR.ru = 0 // don't draw rune
+	lw.d.st.runeR.ru = noDrawRune
 	defer func() { lw.d.st.runeR = rr }()
 
 	// linestart flag

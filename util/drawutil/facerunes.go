@@ -9,6 +9,7 @@ import (
 
 var TabWidth = 8
 var CarriageReturnRune = '♪'
+var NullRune = '◦'
 
 // Special runes face
 type FaceRunes struct {
@@ -34,6 +35,8 @@ func (fr *FaceRunes) Glyph(dot fixed.Point26_6, ru rune) (
 		return image.ZR, nil, image.ZP, 0, false
 	case '\r':
 		ru = CarriageReturnRune
+	case 0:
+		ru = NullRune
 	}
 	return fr.Face.Glyph(dot, ru)
 }
@@ -50,6 +53,8 @@ func (fr *FaceRunes) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
 		return a / 2, ok
 	case '\r':
 		ru = CarriageReturnRune
+	case 0:
+		ru = NullRune
 	}
 	return fr.Face.GlyphAdvance(ru)
 }

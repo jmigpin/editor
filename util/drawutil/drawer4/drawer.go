@@ -12,6 +12,11 @@ import (
 	"golang.org/x/image/font"
 )
 
+const (
+	eofRune    = -1
+	noDrawRune = -2
+)
+
 type Drawer struct {
 	reader iorw.Reader
 
