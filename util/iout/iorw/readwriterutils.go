@@ -159,7 +159,7 @@ func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
 //----------
 
 func IsWordRune(ru rune) bool {
-	return unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_'
+	return unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_' || ru == 0
 }
 
 func WordAtIndex(r Reader, index, max int) ([]byte, int, error) {
