@@ -316,13 +316,14 @@ func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 //----------
 
 func (erow *ERow) setupTextAreaCommentString() {
+	// TODO: multiple comment types
 	ta := erow.Row.TextArea
 	switch filepath.Ext(erow.Info.Name()) {
-	default:
-		fallthrough
-	case "", ".sh", ".conf", ".list", ".txt":
+	case "", ".sh", ".conf", ".list", ".txt", ".ledger":
 		ta.SetCommentStrings("#", [2]string{})
 	case ".go", ".c", ".cpp", ".h", ".hpp":
 		ta.SetCommentStrings("//", [2]string{"/*", "*/"})
+	default:
+		// no coloring
 	}
 }
