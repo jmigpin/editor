@@ -297,11 +297,36 @@ func TestImg14Cursor(t *testing.T) {
 
 	l := 8
 	r.Delete(r.Len()-l, l)
-	//b, _ := r.ReadNSliceAt(0, r.Len())
-	//fmt.Printf("%v\n", string(b))
 
 	d.Draw(img)
 	cmpResult(t, img, "img14")
+}
+
+func TestImg15Visible(t *testing.T) {
+	d, img := newTestDrawer()
+
+	s := "11111\n22222\n33333"
+	r := iorw.NewBytesReadWriter([]byte(s))
+	d.SetReader(r)
+
+	d.Opt.Cursor.On = true
+	d.Opt.RuneOffset.On = true
+	d.smoothScroll = true
+
+	c := r.Len()
+	d.SetRuneOffset(c)
+
+	r.Delete(0, r.Len())
+	b, _ := r.ReadNSliceAt(0, r.Len())
+	_ = string(b)
+
+	o := d.RangeVisibleOffset(0, 0)
+	d.SetRuneOffset(o)
+
+	r.Insert(0, []byte("44444\n"))
+
+	d.Draw(img)
+	cmpResult(t, img, "img15")
 }
 
 //----------

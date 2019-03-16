@@ -620,7 +620,7 @@ func (d *Drawer) RangeVisibleOffset(offset, length int) int {
 	//_, v2 := header1Visibility(d, offset+length)
 	switch v1 {
 	case fullyVisible:
-		return d.opt.runeO.offset // do nothing
+		return mathutil.Smallest(d.opt.runeO.offset, d.reader.Len())
 	case notVisible:
 		return d.visibleAtCenter(offset, length)
 	case topPartVisible, topNotVisible:
