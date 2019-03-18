@@ -432,10 +432,9 @@ func (info *ERowInfo) UpdateFsDifferRowState() {
 	if !info.IsFileButNotDir() {
 		return
 	}
-	differ := false
 	h1 := info.fsHash.hash
 	h2 := info.savedHash.hash
-	differ = !bytes.Equal(h1, h2)
+	differ := !bytes.Equal(h1, h2)
 	info.updateRowState(ui.RowStateFsDiffer, differ)
 }
 

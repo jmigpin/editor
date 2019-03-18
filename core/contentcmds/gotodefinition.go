@@ -49,6 +49,9 @@ func GoToDefinition(erow *core.ERow, index int) (bool, error) {
 	}
 	// guru format: content
 	bin, err := erow.Row.TextArea.Bytes()
+	if err != nil {
+		return true, err
+	}
 	_, err = in.Write(bin)
 	if err != nil {
 		return true, err
