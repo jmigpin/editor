@@ -192,8 +192,6 @@ func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 		rowCmdErr(func(e *ERow) error { return GotoLineCmd(e, part) })
 	case "CopyFilePosition":
 		rowCmdErr(func(e *ERow) error { return CopyFilePositionCmd(ed, e) })
-	case "ToggleRowHBar":
-		rowCmdErr(func(e *ERow) error { return ToggleRowHBarCmd(ed, e) })
 
 	case "ListDir":
 		rowCmdErr(func(e *ERow) error { return ListDirCmd(e, part) })
@@ -446,11 +444,4 @@ func fontRunesCmd(ed *Editor) {
 		u += fmt.Sprintf("%d: %s\n", start, w)
 	}
 	ed.Messagef("%s", u)
-}
-
-//----------
-
-func ToggleRowHBarCmd(ed *Editor, erow *ERow) error {
-	erow.Row.ToggleTextAreaXBar()
-	return nil
 }

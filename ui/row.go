@@ -227,21 +227,6 @@ func (row *Row) PosBelow() *RowPos {
 
 //----------
 
-func (row *Row) ToggleTextAreaXBar() {
-	enabled := row.IsTextAreaXBarEnabled()
-	row.EnableTextAreaXBar(!enabled)
-}
-
-func (row *Row) IsTextAreaXBarEnabled() bool {
-	return row.ScrollArea.XBar != nil
-}
-
-func (row *Row) EnableTextAreaXBar(v bool) {
-	row.ScrollArea.SetBars(v, true)
-}
-
-//----------
-
 const (
 	RowInputEventId = iota
 	RowCloseEventId
