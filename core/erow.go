@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
@@ -316,13 +317,28 @@ func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 //----------
 
 func (erow *ERow) setupTextAreaCommentString() {
-	// TODO: multiple comment types
 	ta := erow.Row.TextArea
-	switch filepath.Ext(erow.Info.Name()) {
-	case "", ".sh", ".conf", ".list", ".txt", ".ledger":
+	ext := filepath.Ext(erow.Info.Name())
+	switch strings.ToLower(ext) {
+	case "", // no file extension (includes directories and special rows)
+		".sh",
+		".conf", ".list",
+		".py", // python
+		".pl", // perl
+		".txt":
 		ta.SetCommentStrings("#", [2]string{})
-	case ".go", ".c", ".cpp", ".h", ".hpp":
+	case ".go",
+		".c", ".h",
+		".cpp", ".hpp", ".cxx", ".hxx", // c++
+		".java",
+		".js": // javascript
 		ta.SetCommentStrings("//", [2]string{"/*", "*/"})
+	case ".ledger":
+		ta.SetCommentStrings(";", [2]string{})
+	case ".pro": // prolog
+		ta.SetCommentStrings("%", [2]string{})
+	case ".html", ".xml":
+		ta.SetCommentStrings("", [2]string{"<!--", "-->"})
 	default:
 		// no coloring
 	}
