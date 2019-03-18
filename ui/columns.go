@@ -69,7 +69,7 @@ func (cols *Columns) PointColumnExtra(p *image.Point) (*Column, bool) {
 		return col, true
 	}
 
-	// detect outside of limits, throught X coord
+	// detect outside of limits through X coord
 	// assume at least one column is present
 	if p.X < cols.FirstChildColumn().Embed().Bounds.Min.X {
 		return cols.FirstChildColumn(), true

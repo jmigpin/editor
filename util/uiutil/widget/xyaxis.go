@@ -3,7 +3,7 @@ package widget
 import "image"
 
 // Allows calculations to be done X oriented, and have it translated to Y axis.
-// Usefull for layouts that want to layout elements in a vertical or horizontal direction depending on a flag.
+// Useful for layouts that want to layout elements in a vertical or horizontal direction depending on a flag.
 type XYAxis struct {
 	YAxis bool
 }
