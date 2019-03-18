@@ -39,14 +39,6 @@ func NewScrollBar(ctx ImageContext, sa *ScrollArea) *ScrollBar {
 
 //----------
 
-func (sb *ScrollBar) scrollToPoint(p *image.Point) {
-	py := float64(sb.yaxis(p.Sub(sb.pressPad).Sub(sb.Bounds.Min)))
-	o := py / float64(sb.yaxis(sb.Bounds.Size()))
-	sb.scrollToPositionPercent(o)
-}
-
-//----------
-
 func (sb *ScrollBar) scrollPage(up bool) {
 	o := sb.sa.scrollable.ScrollOffset()
 	sy := sb.sa.scrollable.ScrollPageSizeY(up)
@@ -63,15 +55,21 @@ func (sb *ScrollBar) scrollWheel(up bool) {
 
 //----------
 
-func (sb *ScrollBar) scrollAmount(amountPerc float64, up bool) {
-	if up {
-		amountPerc = -amountPerc
-	}
-	o := sb.positionPercent + amountPerc
-	sb.scrollToPositionPercent(o)
+func (sb *ScrollBar) yBoundsSizePad() (int, int, int) {
+	min := 5
+	d := sb.yaxis(sb.Bounds.Size())
+	dpad := mathutil.Biggest(d-min, 0)
+	return d, dpad, min
 }
 
 //----------
+
+func (sb *ScrollBar) scrollToPoint(p *image.Point) {
+	py := float64(sb.yaxis(p.Sub(sb.pressPad).Sub(sb.Bounds.Min)))
+	_, dpad, _ := sb.yBoundsSizePad()
+	o := py / float64(dpad)
+	sb.scrollToPositionPercent(o)
+}
 
 func (sb *ScrollBar) scrollToPositionPercent(offsetPerc float64) {
 	size := sb.sa.scrollable.ScrollSize()
@@ -124,16 +122,14 @@ func (sb *ScrollBar) OnChildMarked(child Node, newMarks Marks) {
 //----------
 
 func (sb *ScrollBar) Layout() {
-	bsize := sb.Bounds.Size()
 	r := sb.Bounds
-	d := sb.yaxis(bsize)
+	d, dpad, min := sb.yBoundsSizePad()
 
 	sb.calcPositionAndSize()
 
-	min := 5 // minimum bar size (stay visible)
-	p := int(math.Ceil(float64(d-min) * sb.positionPercent))
+	p := int(math.Ceil(float64(dpad) * sb.positionPercent))
 	s := int(math.Ceil(float64(d) * sb.sizePercent))
-	s = mathutil.Biggest(s, p+min)
+	s = mathutil.Biggest(s, p+min) // minimum bar size (stay visible)
 
 	*sb.yaxisPtr(&r.Min) = sb.yaxis(sb.Bounds.Min) + p
 	*sb.yaxisPtr(&r.Max) = sb.yaxis(sb.Bounds.Min) + s
