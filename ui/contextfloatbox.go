@@ -20,10 +20,9 @@ type ContextFloatBox struct {
 func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb := &ContextFloatBox{root: root}
 
-	text := "todo...\ntodo...\ntodo..."
+	text := ""
 
 	cfb.TextArea = NewTextArea(root.UI)
-	//cfb.TextArea.EnableWrapLines(true)
 	cfb.TextArea.SetStr(text)
 
 	cfb.sa = widget.NewScrollArea(root.UI, cfb.TextArea, true, true)

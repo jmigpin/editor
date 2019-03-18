@@ -9,7 +9,6 @@ func NewToolbar(ui *UI) *Toolbar {
 	tb := &Toolbar{}
 	tb.TextArea = NewTextArea(ui)
 	tb.SetThemePaletteNamePrefix("toolbar_")
-	tb.EnableWrapLines(true)
 
 	tb.EvReg.Add(TextAreaSetStrEventId, tb.onTaSetStr)
 	return tb

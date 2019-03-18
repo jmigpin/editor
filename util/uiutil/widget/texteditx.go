@@ -211,15 +211,6 @@ func (te *TextEditX) EnableParenthesisMatch(v bool) {
 
 //----------
 
-func (te *TextEditX) EnableWrapLines(v bool) {
-	// TODO
-	//if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-	//	d.WrapLine.SetOn(v)
-	//}
-}
-
-//----------
-
 func (te *TextEditX) EnableColorizeSyntax(v bool) {
 	// TODO
 	//if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {

@@ -41,7 +41,6 @@ func NewRow(col *Column) *Row {
 	// scrollarea with textarea
 	{
 		row.TextArea = NewTextArea(row.ui)
-		row.TextArea.EnableWrapLines(true)
 		row.TextArea.EnableHighlightCursorWord(true)
 		row.TextArea.EnableColorizeSyntax(true)
 		row.TextArea.EnableParenthesisMatch(true)
