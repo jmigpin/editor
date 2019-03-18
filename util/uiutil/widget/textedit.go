@@ -59,12 +59,12 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 	tc.Edit(func() {
 		rw := tc.RW()
 		err = rw.Overwrite(0, rw.Len(), b)
-		// keep position in history record
-		te.ClearPos()
+		te.ClearPos() // position will be kept in history record
 	})
 	return err
 }
 
+// Keeps position (useful for file save)
 func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 	rw := te.crw // bypass history
 	if err := rw.Overwrite(0, rw.Len(), b); err != nil {
@@ -122,18 +122,24 @@ func (te *TextEdit) UpdateDuplicate(dup *TextEdit) {
 //----------
 
 func (te *TextEdit) UpdateWriteOp(u *RWWriteOpCb) {
-	tc := te.TextCursor
-	tci := tc.Index()
-	ro := te.RuneOffset()
 	s := u.Index
 	e := s + u.Length1
 	e2 := s + u.Length2
 
-	// update cursor position
+	// update cursor/selection position
+	tc := te.TextCursor
+	tci := tc.Index()
 	v1 := te.editValue(u.Type, s, e, e2, tci)
-	tc.SetIndex(tci + v1)
+	if !tc.SelectionOn() {
+		tc.SetIndex(tci + v1)
+	} else {
+		si := tc.SelectionIndex()
+		v3 := te.editValue(u.Type, s, e, e2, si)
+		tc.SetSelection(si+v3, tci+v1)
+	}
 
 	// update offset position
+	ro := te.RuneOffset()
 	v2 := te.editValue(u.Type, s, e, e2, ro)
 	te.SetRuneOffset(ro + v2)
 }
