@@ -41,8 +41,8 @@ func NewTextEditX(ctx ImageContext, cctx ClipboardContext) *TextEditX {
 			&d.Opt.SyntaxHighlight.Group,
 			&d.Opt.WordHighlight.Group,
 			&d.Opt.ParenthesisHighlight.Group,
-			&drawer4.ColorizeGroup{}, // 3=selection
-			&drawer4.ColorizeGroup{}, // 4=flash
+			{}, // 3=selection
+			{}, // 4=flash
 		}
 	}
 
@@ -75,8 +75,8 @@ func (te *TextEditX) updateSelectionOpt() {
 			// colorize ops
 			s, e := te.TextCursor.SelectionIndexes()
 			g.Ops = []*drawer4.ColorizeOp{
-				&drawer4.ColorizeOp{Offset: s, Fg: fg, Bg: bg},
-				&drawer4.ColorizeOp{Offset: e},
+				{Offset: s, Fg: fg, Bg: bg},
+				{Offset: e},
 			}
 			// don't draw other colorizations
 			d.Opt.WordHighlight.Group.Off = true
@@ -196,8 +196,8 @@ func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
 	e := s + te.flash.index.len
 	line := te.flash.line.on
 	g.Ops = []*drawer4.ColorizeOp{
-		&drawer4.ColorizeOp{Offset: s, ProcColor: pc, Line: line},
-		&drawer4.ColorizeOp{Offset: e},
+		{Offset: s, ProcColor: pc, Line: line},
+		{Offset: e},
 	}
 }
 
