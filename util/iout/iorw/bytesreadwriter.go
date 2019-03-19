@@ -83,7 +83,17 @@ func (rw *BytesReadWriter) Insert(i int, p []byte) error {
 	return nil
 }
 
+//----------
+
 func (rw *BytesReadWriter) Delete(i, le int) error {
+	if err := rw.delete2(i, le); err != nil {
+		return err
+	}
+	rw.reduceCap()
+	return nil
+}
+
+func (rw *BytesReadWriter) delete2(i, le int) error {
 	if i < 0 || i+le > len(rw.buf) {
 		return fmt.Errorf("bad index: %v", i)
 	}
@@ -97,16 +107,25 @@ func (rw *BytesReadWriter) Delete(i, le int) error {
 	copy(rw.buf[i:], rw.buf[i+le:])
 	rw.buf = rw.buf[:len(rw.buf)-le]
 
-	// reduce capacity if too small, to release mem
-	if len(rw.buf) > 1024 && len(rw.buf)*3 < cap(rw.buf) {
-		rw.buf = append([]byte{}, rw.buf...)
-	}
 	return nil
 }
 
+// Reduce capacity if too small, to release mem
+func (rw *BytesReadWriter) reduceCap() {
+	if len(rw.buf) > 1024 && len(rw.buf)*3 < cap(rw.buf) {
+		rw.buf = append([]byte{}, rw.buf...)
+	}
+}
+
+//----------
+
 func (rw *BytesReadWriter) Overwrite(i, length int, p []byte) error {
-	if err := rw.Delete(0, length); err != nil {
+	if err := rw.delete2(0, length); err != nil {
 		return err
 	}
-	return rw.Insert(i, p)
+	if err := rw.Insert(i, p); err != nil {
+		return err
+	}
+	rw.reduceCap()
+	return nil
 }
