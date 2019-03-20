@@ -2,6 +2,7 @@ package toolbarparser
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -37,13 +38,66 @@ type Var struct {
 
 func ParseVar(str string) (*Var, error) {
 	sm := statemach.NewString(str)
+	ru := sm.Peek()
+	switch ru {
+	case '~':
+		return parseVar1(sm)
+	case '$':
+		return parseVar2(sm)
+	}
+	return nil, fmt.Errorf("unexpected rune: %v", ru)
+}
 
+//----------
+
+func parseVar1(sm *statemach.String) (*Var, error) {
 	// name
 	if !sm.AcceptAny("~") {
 		return nil, errors.New("expecting ~")
 	}
 	if !sm.AcceptInt() {
 		return nil, errors.New("expecting int")
+	}
+	name := sm.Value()
+	sm.Advance()
+
+	// assign
+	if !sm.AcceptAny("=") {
+		return nil, errors.New("expecting =")
+	}
+	sm.Advance()
+
+	// value
+	var value string
+	if sm.AcceptQuoteLoop(parseutil.QuoteRunes, osutil.EscapeRunes) {
+		v := sm.Value()
+		sm.Advance()
+		s, err := strconv.Unquote(v)
+		if err != nil {
+			return nil, err
+		}
+		value = s
+	} else {
+		u, ok := parseutil.AcceptAdvanceFilename(sm)
+		if !ok {
+			return nil, errors.New("unable to get value")
+		}
+		value = u
+	}
+
+	v := &Var{Name: name, Value: value}
+	return v, nil
+}
+
+//----------
+
+func parseVar2(sm *statemach.String) (*Var, error) {
+	// name
+	if !sm.AcceptAny("$") {
+		return nil, errors.New("expecting $")
+	}
+	if !sm.AcceptId() {
+		return nil, errors.New("expecting id")
 	}
 	name := sm.Value()
 	sm.Advance()

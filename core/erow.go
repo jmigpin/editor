@@ -180,6 +180,34 @@ func (erow *ERow) parseToolbar() {
 	}
 
 	erow.TbData = *data
+
+	erow.parseToolbarVars()
+}
+
+//----------
+
+func (erow *ERow) parseToolbarVars() {
+	vmap := toolbarparser.ParseVars(&erow.TbData)
+	// font
+	clear := true
+	if v, ok := vmap["$font"]; ok {
+		err := erow.setVarFontTheme(v)
+		if err == nil {
+			clear = false
+		}
+	}
+	if clear {
+		erow.Row.TextArea.SetThemeFont(nil)
+	}
+}
+
+func (erow *ERow) setVarFontTheme(s string) error {
+	tf, err := ui.ThemeFont(s)
+	if err != nil {
+		return err
+	}
+	erow.Row.TextArea.SetThemeFont(tf)
+	return nil
 }
 
 //----------

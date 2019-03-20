@@ -110,6 +110,8 @@ Grep results with line positions that are clickable.
 Open favorite external application with active row directory.
 - `xterm`
 Open an xterm at the active row directory.
+- `$font=mono`
+Use monospaced font in this row textarea (see more at [internal variables](#internal variables)).
 
 ## Commands
 
@@ -185,6 +187,11 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `<url>`: opens url in preferred application.
 - `<filename(:number?)(:number?)>`: opens filename, possibly at line/column (usual output from compilers). Check common locations like `$GOROOT` and C include directories.
 - `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
+
+## Internal variables
+
+- `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
+- `$font=<name>`: sets the row textarea font when set on the row toolbar. Useful when using a non-proportional font in the editor but for a particular program output a monospaced font is desired. Ex.: `$font=mono`.
 
 ## Environment variables set available to external commands
 

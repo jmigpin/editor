@@ -227,27 +227,28 @@ var FontThemeCycler cycler = cycler{
 //----------
 
 func regularThemeFont(node widget.Node) {
-	loadThemeFont(goregular.TTF, node)
+	loadThemeFont("regular", node)
 }
 func mediumThemeFont(node widget.Node) {
-	loadThemeFont(gomedium.TTF, node)
+	loadThemeFont("medium", node)
 }
 func monoThemeFont(node widget.Node) {
-	loadThemeFont(gomono.TTF, node)
+	loadThemeFont("mono", node)
 }
 
 //----------
 
 func AddUserFont(filename string) error {
-	b, err := ioutil.ReadFile(filename)
+	// test now if it will load when needed
+	_, err := ThemeFont(filename)
 	if err != nil {
 		return err
 	}
 
+	// prepare callback and add to font cycler
 	f := func(node widget.Node) {
-		loadThemeFont(b, node)
+		_ = loadThemeFont(filename, node)
 	}
-
 	e := cycleEntry{filename, f}
 	FontThemeCycler.entries = append(FontThemeCycler.entries, e)
 	FontThemeCycler.CurName = filename
@@ -256,23 +257,55 @@ func AddUserFont(filename string) error {
 
 //----------
 
-var TTFontOptions truetype.Options
-
-func loadThemeFont(b []byte, node widget.Node) {
-	// close previous font faces, can be reused if requested it will just take longer to load
+func loadThemeFont(name string, node widget.Node) error {
+	// close previous font faces
 	tf0 := node.Embed().TreeThemeFont()
 	tf0.CloseFaces()
 
-	tf := sureThemeFont(&TTFontOptions, b)
+	tf, err := ThemeFont(name)
+	if err != nil {
+		return err
+	}
 	node.Embed().SetThemeFont(tf)
+	return nil
 }
 
-func sureThemeFont(opt *truetype.Options, b []byte) widget.ThemeFont {
-	tf, err := widget.NewTTThemeFont(b, opt)
+//----------
+
+var TTFontOptions truetype.Options
+
+func ThemeFont(name string) (widget.ThemeFont, error) {
+	fb, err := fontBytes(name)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return tf
+	return widget.NewTTThemeFont(fb, &TTFontOptions)
+}
+
+//----------
+
+var fontBytesCache = map[string][]byte{}
+
+func fontBytes(name string) ([]byte, error) {
+	switch name {
+	case "regular":
+		return goregular.TTF, nil
+	case "medium":
+		return gomedium.TTF, nil
+	case "mono":
+		return gomono.TTF, nil
+	default:
+		// TODO: should clear if last instance is closed
+		if b, ok := fontBytesCache[name]; ok {
+			return b, nil
+		}
+		b, err := ioutil.ReadFile(name)
+		if err != nil {
+			return nil, err
+		}
+		fontBytesCache[name] = b
+		return b, nil
+	}
 }
 
 //----------

@@ -17,6 +17,19 @@ func TestParseVar1(t *testing.T) {
 
 //----------
 
+func TestParseVar2(t *testing.T) {
+	s1 := "$abc=0123"
+	v, err := ParseVar(s1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(v.Name == "$abc" && v.Value == "0123") {
+		t.Fatal(v)
+	}
+}
+
+//----------
+
 func testMap() VarMap {
 	return VarMap{
 		"~":  "/a/b/c",
