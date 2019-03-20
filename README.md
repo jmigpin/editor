@@ -20,15 +20,18 @@ Source code editor in pure Go.
 - Auto-indentation of wrapped lines.
 - No code coloring (except comments).
 - Many TextArea utilities: undo/redo, replace, comment, ...
+- Handles big files.
 - Start external processes from the toolbar with a click, capturing the output to a row. 
 - Drag and drop files/directories to the editor.
-- Detects if files opened are changed outside of the editor.
-- Calls goimports if available when saving a .go file.
-- Clicking on `.go` files identifiers will jump to the identifier definition (uses go guru).
-- Debug utility for go programs (`GoDebug` cmd). (__experimental__)
-  - allows to go back and forth in time to consult code lines.
+- Detects if files opened are changed outside the editor.
 - Plugin support
-  - examples such as `gotodefinition` and `autocomplete` [below](#plugins).
+	- examples such as `gotodefinition` and `autocomplete` [below](#plugins).
+- Golang specific:
+	- Calls goimports if available when saving a .go file.
+	- Clicking on `.go` files identifiers will jump to the identifier definition (uses go guru).
+	- Debug utility for go programs (`GoDebug` cmd). (__experimental__)
+		- allows to go back and forth in time to consult code values.
+
 
 ## Installation and usage
 
@@ -68,9 +71,9 @@ Usage of ./editor:
   -tabwidth int
     	 (default 8)
   -usemultikey
-    	use multi-key to compose characters ([multi-key, ~, a]=ã, ...)
+    	use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)
   -wraplinerune int
-    	code for wrap line rune, can be set to zero (default 8594)
+    	code for wrap line rune, can be set to zero (default 8592)
 ```
 
 ## Basic Layout
