@@ -111,7 +111,7 @@ Open favorite external application with active row directory.
 - `xterm`
 Open an xterm at the active row directory.
 - `$font=mono`
-Use monospaced font in this row textarea (see more at [internal variables](#internal variables)).
+Use monospaced font in this row textarea (see more at [internal variables](#internal-variables)).
 
 ## Commands
 
