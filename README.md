@@ -191,7 +191,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 ## Internal variables
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
-- `$font=<name>`: sets the row textarea font when set on the row toolbar. Useful when using a non-proportional font in the editor but for a particular program output a monospaced font is desired. Ex.: `$font=mono`.
+- `$font=<name>`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
 
 ## Environment variables set available to external commands
 
