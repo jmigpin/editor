@@ -146,8 +146,9 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- `-sub`: lists directory and sub directories
 	- `-hidden`: lists directory including hidden
 - `MaximizeRow`: maximize row. Will push other rows up/down.
-- `CopyFilePosition`: copy to clipboard/primary the cursor file position in the format "file:line:col". Useful to paste a clickable text with the file position.
-- `ToggleRowHBar`: toggles row textarea horizontal scrollbar.
+- `CopyFilePosition`: output the cursor file position in the format "file:line:col". Useful to get a clickable text with the file position.
+- `RuneCodes`: output rune codes of the current row text selection.
+- `FontRunes`: output the current font runes.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
 - `GoDebug <command> [arguments]`: debugger utility for go programs.

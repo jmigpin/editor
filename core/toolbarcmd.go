@@ -12,7 +12,6 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
 )
 
@@ -191,7 +190,9 @@ func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 	case "GotoLine":
 		rowCmdErr(func(e *ERow) error { return GotoLineCmd(e, part) })
 	case "CopyFilePosition":
-		rowCmdErr(func(e *ERow) error { return CopyFilePositionCmd(ed, e) })
+		rowCmdErr(func(e *ERow) error { return CopyFilePositionCmd(e) })
+	case "RuneCodes":
+		rowCmdErr(func(e *ERow) error { return RuneCodesCmd(e) })
 
 	case "ListDir":
 		rowCmdErr(func(e *ERow) error { return ListDirCmd(e, part) })
@@ -351,7 +352,7 @@ func ReplaceCmd(erow *ERow, part *toolbarparser.Part) error {
 
 //----------
 
-func CopyFilePositionCmd(ed *Editor, erow *ERow) error {
+func CopyFilePositionCmd(erow *ERow) error {
 	if !erow.Info.IsFileButNotDir() {
 		return fmt.Errorf("not a file")
 	}
@@ -360,10 +361,34 @@ func CopyFilePositionCmd(ed *Editor, erow *ERow) error {
 	ci := ta.TextCursor.Index()
 	line, col := parseutil.IndexLineColumn(ta.Str()[:ci])
 
-	s := fmt.Sprintf("%v:%v:%v", erow.Info.Name(), line, col)
+	s := fmt.Sprintf("copyfileposition:\n\t%v:%v:%v", erow.Info.Name(), line, col)
+	erow.Ed.Messagef(s)
 
-	ta.SetCPCopy(event.CPIPrimary, s)
-	ta.SetCPCopy(event.CPIClipboard, s)
+	return nil
+}
+
+//----------
+
+func RuneCodesCmd(erow *ERow) error {
+	if !erow.Info.IsFileButNotDir() {
+		return fmt.Errorf("not a file")
+	}
+
+	ta := erow.Row.TextArea
+	tc := ta.TextCursor
+	if !tc.SelectionOn() {
+		return fmt.Errorf("no text selected")
+	}
+	b, err := tc.Selection()
+	if err != nil {
+		return err
+	}
+
+	s := "runecodes:\n"
+	for i, ru := range string(b) {
+		s += fmt.Sprintf("\t%v: %c, %v\n", i, ru, int(ru))
+	}
+	erow.Ed.Messagef(s)
 
 	return nil
 }

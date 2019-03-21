@@ -258,7 +258,7 @@ func (ed *Editor) setupRootToolbar() {
 
 func (ed *Editor) setupRootMenuToolbar() {
 	s := `XdgOpenDir
-GotoLine | CopyFilePosition
+GotoLine | CopyFilePosition | RuneCodes
 ReopenRow | MaximizeRow
 CloseColumn | CloseRow
 ListDir | ListDir -hidden | ListDir -sub
