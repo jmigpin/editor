@@ -370,10 +370,6 @@ func CopyFilePositionCmd(erow *ERow) error {
 //----------
 
 func RuneCodesCmd(erow *ERow) error {
-	if !erow.Info.IsFileButNotDir() {
-		return fmt.Errorf("not a file")
-	}
-
 	ta := erow.Row.TextArea
 	tc := ta.TextCursor
 	if !tc.SelectionOn() {
