@@ -250,10 +250,20 @@ func (d *Drawer) SetReader(r iorw.Reader) { d.reader = r }
 
 func (d *Drawer) Reader() iorw.Reader { return d.reader }
 
-var limitedReaderPadding = 2500
+//----------
+
+var limitedReaderPadding = 3000
 
 func (d *Drawer) limitedReaderPad(offset int) iorw.Reader {
 	return iorw.NewLimitedReader(d.reader, offset, offset, limitedReaderPadding)
+}
+
+func (d *Drawer) limitedReaderPadSpace(offset int) iorw.Reader {
+	// adjust the padding to avoid immediate flicker for x chars for the case of long lines
+	u := offset - limitedReaderPadding
+	diff := 1000 - (u % 1000)
+	pad := limitedReaderPadding - diff
+	return iorw.NewLimitedReader(d.reader, offset, offset, pad)
 }
 
 //----------
@@ -835,7 +845,9 @@ func (d *Drawer) wlineStartState(clearState bool, offset, nLinesUp int) int {
 	defer func() { d.loopv.iters = iters }()
 
 	// set limited reading here to have common limits on the next two calls
-	rd := d.limitedReaderPad(offset)
+	//var rd iorw.Reader
+	//rd := d.limitedReaderPad(offset)
+	rd := d.limitedReaderPadSpace(offset)
 
 	// find start (state will reach offset)
 	cp := d.st // keep state
