@@ -81,7 +81,6 @@ func findShortcut2(erow *ERow) error {
 				return err
 			}
 			tc.SetSelection(a, a+len(searchStr))
-			tatc.SetSelectionOff() // deselect to allow to search full text
 		}
 	} else {
 		// insert find cmd
@@ -96,7 +95,6 @@ func findShortcut2(erow *ERow) error {
 				return err
 			}
 			tc.SetSelection(a, a+len(searchStr))
-			tatc.SetSelectionOff() // deselect to allow to search full text
 		} else {
 			tc.SetSelectionOff()
 			tc.SetIndex(a + len(searchStr))
