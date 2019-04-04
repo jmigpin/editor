@@ -50,7 +50,7 @@ var godebugi *GoDebugInstance
 type GoDebugInstance struct {
 	ed   *Editor
 	data struct {
-		sync.RWMutex
+		mu        sync.RWMutex
 		dataIndex *GDDataIndex
 	}
 	cancel context.CancelFunc
@@ -65,12 +65,43 @@ func NewGoDebugInstance(ed *Editor) *GoDebugInstance {
 
 //----------
 
+func (gdi *GoDebugInstance) dataLock() bool {
+	gdi.data.mu.Lock()
+	if gdi.data.dataIndex == nil {
+		gdi.data.mu.Unlock()
+		return false
+	}
+	return true
+}
+
+func (gdi *GoDebugInstance) dataUnlock() {
+	gdi.data.mu.Unlock()
+}
+
+func (gdi *GoDebugInstance) dataRLock() bool {
+	gdi.data.mu.RLock()
+	if gdi.data.dataIndex == nil {
+		gdi.data.mu.RUnlock()
+		return false
+	}
+	return true
+}
+
+func (gdi *GoDebugInstance) dataRUnlock() {
+	gdi.data.mu.RUnlock()
+}
+
+//----------
+
 func (gdi *GoDebugInstance) CancelAndClear() {
-	gdi.data.Lock()
+	if !gdi.dataLock() {
+		return
+	}
 	gdi.data.dataIndex = nil
-	gdi.data.Unlock()
+	gdi.clearInfosUI()
+	gdi.dataUnlock()
+
 	gdi.cancel()
-	gdi.updateUI()
 }
 
 //----------
@@ -82,12 +113,10 @@ func (gdi *GoDebugInstance) SelectAnnotation(erow *ERow, annIndex, offset int, t
 }
 
 func (gdi *GoDebugInstance) updateSelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) bool {
-	gdi.data.Lock()
-	defer gdi.data.Unlock()
-
-	if gdi.data.dataIndex == nil {
+	if !gdi.dataLock() {
 		return false
 	}
+	defer gdi.dataUnlock()
 
 	update := false
 	switch typ {
@@ -254,19 +283,21 @@ func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
 
 	// only one instance at a time
 	gdi.CancelAndClear() // cancel previous run
-	gdi.ready.Lock()     // wait for previous run to finish
-	defer gdi.ready.Unlock()
 
 	erow.Exec.Start(func(ctx context.Context, w io.Writer) error {
+		// wait for previous run to finish
+		gdi.ready.Lock()
+		defer gdi.ready.Unlock()
+
 		// cleanup row content
 		erow.Ed.UI.RunOnUIGoRoutine(func() {
 			erow.Row.TextArea.SetStrClearHistory("")
 		})
 
 		// start data index
-		gdi.data.Lock()
+		gdi.data.mu.Lock()
 		gdi.data.dataIndex = NewGDDataIndex()
-		gdi.data.Unlock()
+		gdi.data.mu.Unlock()
 
 		// keep ctx cancel to be able to stop if necessary
 		ctx2, cancel := context.WithCancel(ctx)
@@ -372,14 +403,20 @@ func (gdi *GoDebugInstance) handleMsg(msg interface{}, cmd *godebug.Cmd) error {
 }
 
 func (gdi *GoDebugInstance) handleFilesDataMsg(msg *debug.FilesDataMsg) error {
-	gdi.data.Lock()
-	defer gdi.data.Unlock()
+	if !gdi.dataLock() {
+		return fmt.Errorf("dataindex is nil")
+	}
+	defer gdi.dataUnlock()
+
 	return gdi.data.dataIndex.handleFilesDataMsg(msg)
 }
 
 func (gdi *GoDebugInstance) handleLineMsg(msg *debug.LineMsg) error {
-	gdi.data.Lock()
-	defer gdi.data.Unlock()
+	if !gdi.dataLock() {
+		return fmt.Errorf("dataindex is nil")
+	}
+	defer gdi.dataUnlock()
+
 	return gdi.data.dataIndex.handleLineMsg(msg)
 }
 
@@ -387,8 +424,10 @@ func (gdi *GoDebugInstance) handleLineMsg(msg *debug.LineMsg) error {
 
 func (gdi *GoDebugInstance) updateUI() {
 	gdi.ed.UI.RunOnUIGoRoutine(func() {
-		gdi.data.RLock()
-		defer gdi.data.RUnlock()
+		if !gdi.dataRLock() {
+			return
+		}
+		defer gdi.dataRUnlock()
 
 		gdi.updateUI2()
 	})
@@ -396,8 +435,10 @@ func (gdi *GoDebugInstance) updateUI() {
 
 func (gdi *GoDebugInstance) updateUIShowLine(erow *ERow) {
 	gdi.ed.UI.RunOnUIGoRoutine(func() {
-		gdi.data.RLock()
-		defer gdi.data.RUnlock()
+		if !gdi.dataRLock() {
+			return
+		}
+		defer gdi.dataRUnlock()
 
 		gdi.updateUI2()
 		gdi.showSelectedLine(erow)
@@ -406,8 +447,10 @@ func (gdi *GoDebugInstance) updateUIShowLine(erow *ERow) {
 
 func (gdi *GoDebugInstance) updateUIERowInfo(info *ERowInfo) {
 	gdi.ed.UI.RunOnUIGoRoutine(func() {
-		gdi.data.RLock()
-		defer gdi.data.RUnlock()
+		if !gdi.dataRLock() {
+			return
+		}
+		defer gdi.dataRUnlock()
 
 		gdi.updateInfoUI(info)
 	})
@@ -415,8 +458,22 @@ func (gdi *GoDebugInstance) updateUIERowInfo(info *ERowInfo) {
 
 //----------
 
+func (gdi *GoDebugInstance) clearInfosUI() {
+	for _, info := range gdi.ed.ERowInfos {
+		gdi.clearInfoUI(info)
+	}
+}
+
+func (gdi *GoDebugInstance) clearInfoUI(info *ERowInfo) {
+	info.UpdateAnnotationsRowState(false)
+	info.UpdateAnnotationsEditedRowState(false)
+	gdi.clearDrawerAnn(info)
+}
+
+//----------
+
 func (gdi *GoDebugInstance) updateUI2() {
-	// update all infos (if necessary)
+	// update all infos
 	for _, info := range gdi.ed.ERowInfos {
 		gdi.updateInfoUI(info)
 	}
@@ -424,58 +481,41 @@ func (gdi *GoDebugInstance) updateUI2() {
 
 func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 	di := gdi.data.dataIndex
-	clear := di == nil
 
-	if clear {
+	findex, ok := di.FilesIndex[info.Name()]
+	if !ok {
 		info.UpdateAnnotationsRowState(false)
 		info.UpdateAnnotationsEditedRowState(false)
 		gdi.clearDrawerAnn(info)
-	} else {
-		findex, ok := di.FilesIndex[info.Name()]
-		if !ok {
-			info.UpdateAnnotationsRowState(false)
-			info.UpdateAnnotationsEditedRowState(false)
-			gdi.clearDrawerAnn(info)
-			return
-		}
+		return
+	}
 
-		info.UpdateAnnotationsRowState(true)
+	info.UpdateAnnotationsRowState(true)
 
-		file := di.Files[findex]
-		file.prepareForUpdate() // resets selected line
+	file := di.Files[findex]
+	file.prepareForUpdate() // resets selected line
 
-		// check if content has changed
-		afd := di.Afds[findex]
-		edited := !info.EqualToBytesHash(afd.FileSize, afd.FileHash)
-		if edited {
-			info.UpdateAnnotationsEditedRowState(true)
-			gdi.clearDrawerAnn(info)
-			return
-		}
+	// check if content has changed
+	afd := di.Afds[findex]
+	edited := !info.EqualToBytesHash(afd.FileSize, afd.FileHash)
+	if edited {
+		info.UpdateAnnotationsEditedRowState(true)
+		gdi.clearDrawerAnn(info)
+		return
+	}
 
-		info.UpdateAnnotationsEditedRowState(false)
+	info.UpdateAnnotationsEditedRowState(false)
 
-		// Not necessary if inside UIGoRoutine
-		//// setup lock/unlock each erow annotations
-		//for _, erow := range info.ERows {
-		//	ta := erow.Row.TextArea
-		//	if d, ok := ta.Drawer.(*drawer3.PosDrawer); ok {
-		//		d.Annotations.Opt.EntriesMu.Lock()
-		//		defer d.Annotations.Opt.EntriesMu.Unlock()
-		//	}
-		//}
+	// update annotations (safe after lock)
+	file.updateAnnEntries(di.SelectedArrivalIndex)
 
-		// update annotations (safe after lock)
-		file.updateAnnEntries(di.SelectedArrivalIndex)
-
-		for _, erow := range info.ERows {
-			ta := erow.Row.TextArea
-			if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-				d.Opt.Annotations.On = true
-				d.Opt.Annotations.Entries = file.AnnEntries
-				d.Opt.Annotations.Selected.EntryIndex = file.SelectedLine
-				ta.MarkNeedsLayoutAndPaint()
-			}
+	for _, erow := range info.ERows {
+		ta := erow.Row.TextArea
+		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+			d.Opt.Annotations.On = true
+			d.Opt.Annotations.Entries = file.AnnEntries
+			d.Opt.Annotations.Selected.EntryIndex = file.SelectedLine
+			ta.MarkNeedsLayoutAndPaint()
 		}
 	}
 }
