@@ -47,6 +47,12 @@ func (sm *SM) Advance() {
 
 //----------
 
+func (sm *SM) Empty() bool {
+	return sm.Pos == sm.Start
+}
+
+//----------
+
 func (sm *SM) AcceptRune(ru rune) bool {
 	pos := sm.Pos
 	if sm.Next() == ru {
