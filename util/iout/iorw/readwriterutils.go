@@ -35,22 +35,30 @@ func IndexCtx(ctx context.Context, r Reader, i int, sep []byte, toLower bool) (i
 }
 
 func indexCtx2(ctx context.Context, r Reader, i int, sep []byte, toLower bool, chunk int) (int, error) {
+	// TODO: ignore accents?
+
 	if chunk < len(sep) {
 		return -1, fmt.Errorf("chunk smaller then sep")
 	}
 
+	// ignore case
+	if toLower {
+		sep = ToLowerAsciiCopy(sep) // copy
+	}
+
 	b := r.Len()
-	for a := i; a < b; a += chunk - (len(sep) - 1) {
+	for k := i; k < b; k += chunk - (len(sep) - 1) {
 		c := chunk
-		if c > b-a {
-			c = b - a
+		if c > b-k {
+			c = b - k
 		}
 
-		i, err := indexCtx3(r, a, c, sep, toLower)
-		if err != nil || i >= 0 {
-			return i, err
+		j, err := indexCtx3(r, k, c, sep, toLower)
+		if err != nil || j >= 0 {
+			return j, err
 		}
 
+		// check context cancelation
 		if err := ctx.Err(); err != nil {
 			return 0, err
 		}
@@ -65,10 +73,9 @@ func indexCtx3(r Reader, i, length int, sep []byte, toLower bool) (int, error) {
 		return 0, err
 	}
 
-	// TODO: ignore accents?
 	// ignore case
 	if toLower {
-		p = bytes.ToLower(p)
+		p = ToLowerAsciiCopy(p) // copy
 	}
 
 	j := bytes.Index(p, sep)
@@ -76,6 +83,23 @@ func indexCtx3(r Reader, i, length int, sep []byte, toLower bool) (int, error) {
 		return i + j, nil
 	}
 	return -1, nil
+}
+
+// Lower case at byte level without expanding in size the resulting byte slice.
+func ToLowerAsciiCopy(p []byte) []byte {
+	// bytes.ToLower expands the size of the returning slice.
+	//return bytes.ToLower(p) // copy
+
+	u := make([]byte, len(p))
+	for i := 0; i < len(p); i++ {
+		c := p[i]
+		if 'A' <= c && c <= 'Z' {
+			u[i] = c + ('a' - 'A')
+		} else {
+			u[i] = c
+		}
+	}
+	return u
 }
 
 //----------

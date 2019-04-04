@@ -3,6 +3,8 @@ package iorw
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
@@ -67,6 +69,8 @@ func TestRW1(t *testing.T) {
 	}
 }
 
+//----------
+
 func TestIndex1(t *testing.T) {
 	s := "0123456789"
 	for i := 0; i < 32*1024; i++ {
@@ -94,3 +98,31 @@ func TestIndex2(t *testing.T) {
 		t.Fatal("not found")
 	}
 }
+
+func TestIndex3(t *testing.T) {
+	// NOT ACTIVE
+	return
+
+	fname := "/var/lib/ispell/american-huge.hash"
+	b, err := ioutil.ReadFile(fname)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rw := NewBytesReadWriter(b)
+	sep := []byte("SKEr")
+	for i := 0; i < rw.Len(); {
+		k, err := Index(rw, i, sep, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if k < 0 {
+			break
+		}
+		b2, err := rw.ReadNSliceAt(k, len(sep)+5)
+		fmt.Printf("found: %v, %v, %v\n", k, err, string(b2))
+		i = k + len(sep)
+	}
+}
+
+//----------
