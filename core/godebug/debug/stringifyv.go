@@ -3,7 +3,6 @@ package debug
 import (
 	"fmt"
 	"strconv"
-	"unicode"
 )
 
 func stringifyV(v V) string {
@@ -13,11 +12,7 @@ func stringifyV(v V) string {
 	case nil:
 		return "nil"
 	case rune:
-		if unicode.IsGraphic(t) {
-			str = fmt.Sprintf("(%q=%d)", t, t)
-		} else {
-			str = fmt.Sprintf("%v", t)
-		}
+		str = fmt.Sprintf("(%q, %d)", t, t)
 	case string, error:
 		//str = ReducedSprintf(max, "%q", t)
 		str = ReducedSprintf(max, "%s", t)
