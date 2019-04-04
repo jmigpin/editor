@@ -169,6 +169,7 @@ type State struct {
 		q          []int
 		ri         int
 		uppedLines int
+		reader     iorw.Reader // limited reader
 	}
 	indent struct {
 		notStartingSpaces bool
@@ -246,7 +247,17 @@ func New() *Drawer {
 //----------
 
 func (d *Drawer) SetReader(r iorw.Reader) { d.reader = r }
-func (d *Drawer) Reader() iorw.Reader     { return d.reader }
+
+func (d *Drawer) Reader() iorw.Reader { return d.reader }
+
+var limitedReaderPadding = 2500
+
+func (d *Drawer) limitedReaderPad(offset int) iorw.Reader {
+	return iorw.NewLimitedReader(d.reader, offset, offset, limitedReaderPadding)
+}
+
+//----------
+
 func (d *Drawer) ContentChanged() {
 	d.opt.measure.updated = false
 	d.opt.syntaxH.updated = false
@@ -598,7 +609,7 @@ func (d *Drawer) scrollSizeY(nlines int, up bool) int {
 //----------
 
 func (d *Drawer) scrollSizeYUp(nlines int) int {
-	return d.wlineStartIndex(true, d.opt.runeO.offset, nlines)
+	return d.wlineStartIndex(true, d.opt.runeO.offset, nlines, nil)
 }
 func (d *Drawer) scrollSizeYDown(nlines int) int {
 	return d.wlineStartIndexDown(d.opt.runeO.offset, nlines)
@@ -637,7 +648,7 @@ func (d *Drawer) RangeVisibleOffset(offset, length int) int {
 }
 
 func (d *Drawer) visibleAtTop(offset int) int {
-	return d.wlineStartIndex(true, offset, 0)
+	return d.wlineStartIndex(true, offset, 0, nil)
 }
 func (d *Drawer) visibleAtBottom(offset, length int) int {
 	nlines := d.rangeNLines(offset, length)
@@ -646,7 +657,7 @@ func (d *Drawer) visibleAtBottom(offset, length int) int {
 	if u < 0 {
 		u = 0
 	}
-	return d.wlineStartIndex(true, offset, u)
+	return d.wlineStartIndex(true, offset, u, nil)
 }
 
 func (d *Drawer) visibleAtCenter(offset, length int) int {
@@ -661,7 +672,7 @@ func (d *Drawer) visibleAtCenter(offset, length int) int {
 		nlines = (bnlines - nlines) / 2
 	}
 
-	return d.wlineStartIndex(true, offset, nlines)
+	return d.wlineStartIndex(true, offset, nlines, nil)
 }
 
 //----------
@@ -823,26 +834,30 @@ func (d *Drawer) wlineStartState(clearState bool, offset, nLinesUp int) int {
 	iters := d.loopv.iters
 	defer func() { d.loopv.iters = iters }()
 
+	// set limited reading here to have common limits on the next two calls
+	rd := d.limitedReaderPad(offset)
+
 	// find start (state will reach offset)
 	cp := d.st // keep state
-	k := d.wlineStartIndex(clearState, offset, nLinesUp)
+	k := d.wlineStartIndex(clearState, offset, nLinesUp, rd)
 	uppedLines := d.st.lineStart.uppedLines
 
 	// leave state at line start instead of offset
 	d.st = cp // restore state
-	_ = d.wlineStartIndex(clearState, k, 0)
+	_ = d.wlineStartIndex(clearState, k, 0, rd)
 
 	return uppedLines
 }
 
 //----------
 
-func (d *Drawer) wlineStartIndex(clearState bool, offset, nLinesUp int) int {
+func (d *Drawer) wlineStartIndex(clearState bool, offset, nLinesUp int, rd iorw.Reader) int {
 	if clearState {
 		d.st = State{}
 	}
 	d.st.lineStart.offset = offset
 	d.st.lineStart.nLinesUp = nLinesUp
+	d.st.lineStart.reader = rd
 	iters := append(d.sIters(), &d.iters.lineStart)
 	d.loopInit(iters)
 	d.loop()

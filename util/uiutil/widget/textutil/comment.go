@@ -33,7 +33,8 @@ func Comment(tex *widget.TextEditX) error {
 	ii := max
 	for i := a; i < b; {
 		// find insertion index
-		j, _, err := iorw.IndexFunc(tc.RW(), i, max, false, isSpaceExceptNewline)
+		rd := iorw.NewLimitedReaderLen(tc.RW(), i, max)
+		j, _, err := iorw.IndexFunc(rd, i, false, isSpaceExceptNewline)
 		if err != nil {
 			if err == io.EOF {
 				j = tc.RW().Len()
@@ -44,7 +45,7 @@ func Comment(tex *widget.TextEditX) error {
 			}
 		}
 
-		u, _, err := iorw.LineEndIndex(tc.RW(), j)
+		u, _, err := tex.LineEndIndex(j)
 		if err != nil {
 			return err
 		}
@@ -60,7 +61,7 @@ func Comment(tex *widget.TextEditX) error {
 	// insert comment
 	lines := 0
 	for i := a; i < b; {
-		u, _, err := iorw.LineEndIndex(tc.RW(), i)
+		u, _, err := tex.LineEndIndex(i)
 		if err != nil {
 			return err
 		}
@@ -121,12 +122,11 @@ func Uncomment(tex *widget.TextEditX) error {
 	}
 
 	// remove comments
-	max := 1000
 	lines := 0
 	ci := tc.Index()
 	for i := a; i < b; {
 		// first non space rune (possible multiline jump)
-		j, _, err := iorw.IndexFunc(tc.RW(), i, max, false, unicode.IsSpace)
+		j, _, err := tex.IndexFunc(i, false, unicode.IsSpace)
 		if err != nil {
 			break
 		}
@@ -150,7 +150,7 @@ func Uncomment(tex *widget.TextEditX) error {
 		}
 
 		// go to end of line
-		u, _, err := iorw.LineEndIndex(tc.RW(), i)
+		u, _, err := tex.LineEndIndex(i)
 		if err != nil {
 			return err
 		}

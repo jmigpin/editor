@@ -113,6 +113,43 @@ func (te *TextEdit) ClearPos() {
 
 //----------
 
+var limitedReaderPadding = 2500
+
+func (te *TextEdit) LimitedReaderPad(offset int) iorw.Reader {
+	return te.LimitedReaderPad2(offset, offset)
+}
+
+func (te *TextEdit) LimitedReaderPad2(min, max int) iorw.Reader {
+	return iorw.NewLimitedReader(te.rw, min, max, limitedReaderPadding)
+}
+
+//----------
+
+func (te *TextEdit) LinesIndexes(min, max int) (int, int, bool, error) {
+	rd := te.LimitedReaderPad2(min, max)
+	return iorw.LinesIndexes(rd, min, max)
+}
+
+func (te *TextEdit) LineStartIndex(offset int) (int, error) {
+	rd := te.LimitedReaderPad(offset)
+	return iorw.LineStartIndex(rd, offset)
+}
+func (te *TextEdit) LineEndIndex(offset int) (int, bool, error) {
+	rd := te.LimitedReaderPad(offset)
+	return iorw.LineEndIndex(rd, offset)
+}
+
+func (te *TextEdit) IndexFunc(offset int, truth bool, f func(rune) bool) (index, size int, err error) {
+	rd := te.LimitedReaderPad(offset)
+	return iorw.IndexFunc(rd, offset, truth, f)
+}
+func (te *TextEdit) LastIndexFunc(offset int, truth bool, f func(rune) bool) (index, size int, err error) {
+	rd := te.LimitedReaderPad(offset)
+	return iorw.LastIndexFunc(rd, offset, truth, f)
+}
+
+//----------
+
 func (te *TextEdit) UpdateDuplicate(dup *TextEdit) {
 	dup.SetRW(te.Text.rw)               // share readwriter
 	dup.TextHistory.Use(te.TextHistory) // share history

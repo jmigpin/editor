@@ -2,46 +2,51 @@ package textutil
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
-func Find(te *widget.TextEdit, str string) (bool, error) {
+func Find(ctx context.Context, te *widget.TextEdit, str string) (bool, error) {
 	if str == "" {
 		return false, nil
 	}
 
 	// ignore case
-	strb := bytes.ToLower([]byte(str))
+	lowb := bytes.ToLower([]byte(str))
 
 	tc := te.TextCursor
-	i, err := find2(tc, strb)
-	if err != nil {
+	i, err := find2(ctx, tc, lowb) // ignores case
+	if err != nil || i < 0 {
 		return false, err
 	}
-	if i >= 0 {
-		tc.SetSelection(i, i+len(str)) // cursor at end to allow searching next
-		te.MakeIndexVisible(i)
-		return true, nil
-	}
-	return false, nil
+	tc.SetSelection(i, i+len(lowb)) // cursor at end to allow searching next
+	return true, nil
 }
 
-func find2(tc *widget.TextCursor, s []byte) (int, error) {
+func find2(ctx context.Context, tc *widget.TextCursor, b []byte) (int, error) {
 	ci := tc.Index()
 	l := tc.RW().Len()
 
 	// index to end
-	i, err := iorw.Index(tc.RW(), ci, l, s, true)
+	i, err := iorw.IndexCtx(ctx, tc.RW(), ci, b, true)
 	if err != nil || i >= 0 {
 		return i, err
 	}
 
 	// start to index
-	w := ci + len(s) - 1
-	if w > l {
-		w = l
+	e := ci + len(b) - 1
+	if e > l {
+		e = l
 	}
-	return iorw.Index(tc.RW(), 0, w, s, true)
+	rd := iorw.NewLimitedReaderLen(tc.RW(), 0, e)
+	k, err := iorw.IndexCtx(ctx, rd, 0, b, true)
+	if err != nil {
+		if err == iorw.ErrLimitReached {
+			return -1, nil
+		}
+		return -1, err
+	}
+	return k, nil
 }

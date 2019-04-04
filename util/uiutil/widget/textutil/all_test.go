@@ -1,6 +1,7 @@
 package textutil
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -176,7 +177,8 @@ func TestAll1(t *testing.T) {
 				st:  state{s: "01234\nabc"},
 				est: state{s: "01234\nabc", si: 6, ci: 8, son: true},
 				f: func(tex *widget.TextEditX) error {
-					_, err := Find(tex.TextEdit, "ab")
+					ctx := context.Background()
+					_, err := Find(ctx, tex.TextEdit, "ab")
 					return err
 				},
 			})
@@ -186,7 +188,8 @@ func TestAll1(t *testing.T) {
 				st:  state{s: "01234\nabc", ci: 7},
 				est: state{s: "01234\nabc", si: 6, ci: 8, son: true},
 				f: func(tex *widget.TextEditX) error {
-					_, err := Find(tex.TextEdit, "ab")
+					ctx := context.Background()
+					_, err := Find(ctx, tex.TextEdit, "ab")
 					return err
 				},
 			})
@@ -398,6 +401,10 @@ func TestAll1(t *testing.T) {
 		tex := widget.NewTextEditX(nil, &cctx{})
 		tex.Text.SetStr(w.st.s)
 		tc := tex.TextCursor
+
+		//f := tex.TreeThemeFont().Face(nil)
+		//tex.Drawer.SetFace(f)
+
 		if w.st.son {
 			tc.SetSelection(w.st.si, w.st.ci)
 		} else {

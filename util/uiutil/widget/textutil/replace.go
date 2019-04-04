@@ -25,7 +25,7 @@ func Replace(te *widget.TextEdit, old, new string) (bool, error) {
 		b = tc.RW().Len()
 	}
 
-	ci, replaced, err := replace2(tc, oldb, newb, a, b)
+	ci, replaced, err := replace2(te, oldb, newb, a, b)
 	if err == nil {
 		tc.SetIndex(ci)
 	}
@@ -33,11 +33,14 @@ func Replace(te *widget.TextEdit, old, new string) (bool, error) {
 	return replaced, err
 }
 
-func replace2(tc *widget.TextCursor, oldb, newb []byte, a, b int) (int, bool, error) {
+func replace2(te *widget.TextEdit, oldb, newb []byte, a, b int) (int, bool, error) {
+	tc := te.TextCursor
+
 	ci := tc.Index()
 	replaced := false
 	for a < b {
-		i, err := iorw.Index(tc.RW(), a, b-a, oldb, false)
+		rd := iorw.NewLimitedReaderLen(tc.RW(), a, b-a)
+		i, err := iorw.Index(rd, a, oldb, false)
 		if err != nil {
 			return ci, replaced, err
 		}

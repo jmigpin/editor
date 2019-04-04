@@ -2,21 +2,20 @@ package iorw
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"unicode"
 )
 
-var ErrLimitReached = errors.New("limit reached")
-
 //----------
 
-func HasPrefix(rs Reader, i int, s []byte) bool {
+func HasPrefix(r Reader, i int, s []byte) bool {
 	if len(s) == 0 {
 		return true
 	}
-	b, err := rs.ReadNSliceAt(i, len(s))
+	b, err := r.ReadNSliceAt(i, len(s))
 	if err != nil {
 		return false
 	}
@@ -25,42 +24,48 @@ func HasPrefix(rs Reader, i int, s []byte) bool {
 
 //----------
 
-// Returns (-1, nil) if not found.
-func Index(r Reader, i, le int, sep []byte, toLower bool) (int, error) {
-	return index2(r, i, le, sep, toLower, 32*1024)
+func Index(r Reader, i int, sep []byte, toLower bool) (int, error) {
+	ctx := context.Background()
+	return IndexCtx(ctx, r, i, sep, toLower)
 }
 
-func index2(r Reader, i, le int, sep []byte, toLower bool, chunk int) (int, error) {
+// Returns (-1, nil) if not found.
+func IndexCtx(ctx context.Context, r Reader, i int, sep []byte, toLower bool) (int, error) {
+	return indexCtx2(ctx, r, i, sep, toLower, 32*1024)
+}
+
+func indexCtx2(ctx context.Context, r Reader, i int, sep []byte, toLower bool, chunk int) (int, error) {
 	if chunk < len(sep) {
 		return -1, fmt.Errorf("chunk smaller then sep")
 	}
 
-	b := i + le
-	if b > r.Len() {
-		b = r.Len()
-	}
-
+	b := r.Len()
 	for a := i; a < b; a += chunk - (len(sep) - 1) {
-		j := chunk
-		if j > b-a {
-			j = b - a
+		c := chunk
+		if c > b-a {
+			c = b - a
 		}
 
-		i, err := index3(r, a, j, sep, toLower)
+		i, err := indexCtx3(r, a, c, sep, toLower)
 		if err != nil || i >= 0 {
 			return i, err
+		}
+
+		if err := ctx.Err(); err != nil {
+			return 0, err
 		}
 	}
 
 	return -1, nil
 }
 
-func index3(r Reader, i, len int, sep []byte, toLower bool) (int, error) {
-	p, err := r.ReadNSliceAt(i, len)
+func indexCtx3(r Reader, i, length int, sep []byte, toLower bool) (int, error) {
+	p, err := r.ReadNSliceAt(i, length)
 	if err != nil {
 		return 0, err
 	}
 
+	// TODO: ignore accents?
 	// ignore case
 	if toLower {
 		p = bytes.ToLower(p)
@@ -75,15 +80,11 @@ func index3(r Reader, i, len int, sep []byte, toLower bool) (int, error) {
 
 //----------
 
-func IndexFunc(r Reader, i, len int, truth bool, f func(rune) bool) (index, size int, err error) {
-	max := i + len
+func IndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int, err error) {
 	for {
 		ru, size, err := r.ReadRuneAt(i)
 		if err != nil {
-			return 0, 0, err
-		}
-		if i+size > max {
-			return i, size, ErrLimitReached
+			return i, 0, err
 		}
 		if f(ru) == truth {
 			return i, size, nil
@@ -92,17 +93,13 @@ func IndexFunc(r Reader, i, len int, truth bool, f func(rune) bool) (index, size
 	}
 }
 
-func LastIndexFunc(r Reader, i, len int, truth bool, f func(rune) bool) (index, size int, err error) {
-	min := i - len
+func LastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int, err error) {
 	for {
 		ru, size, err := r.ReadLastRuneAt(i)
 		if err != nil {
-			return 0, 0, err
+			return i, 0, err
 		}
 		i -= size
-		if i < min {
-			return i, size, ErrLimitReached
-		}
 		if f(ru) == truth {
 			return i, size, nil
 		}
@@ -130,16 +127,14 @@ func LineEndIndex(r Reader, i int) (int, bool, error) {
 
 //----------
 
-var NewLineIndexMax = 2500
-
 func NewLineIndex(r Reader, i int) (int, int, error) {
 	newlinef := func(ru rune) bool { return ru == '\n' }
-	return IndexFunc(r, i, NewLineIndexMax, true, newlinef)
+	return IndexFunc(r, i, true, newlinef)
 }
 
 func NewLineLastIndex(r Reader, i int) (int, int, error) {
 	newlinef := func(ru rune) bool { return ru == '\n' }
-	return LastIndexFunc(r, i, NewLineIndexMax, true, newlinef)
+	return LastIndexFunc(r, i, true, newlinef)
 }
 
 //----------
@@ -162,9 +157,9 @@ func IsWordRune(ru rune) bool {
 	return unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_' || ru == 0
 }
 
-func WordAtIndex(r Reader, index, max int) ([]byte, int, error) {
+func WordAtIndex(r Reader, index int) ([]byte, int, error) {
 	// right side
-	i1, _, err := IndexFunc(r, index, max, false, IsWordRune)
+	i1, _, err := IndexFunc(r, index, false, IsWordRune)
 	if err != nil {
 		if err == io.EOF {
 			i1 = r.Len()
@@ -177,7 +172,7 @@ func WordAtIndex(r Reader, index, max int) ([]byte, int, error) {
 	}
 
 	// left side
-	i0, size, err := LastIndexFunc(r, index, max, false, IsWordRune)
+	i0, size, err := LastIndexFunc(r, index, false, IsWordRune)
 	if err != nil {
 		if err == io.EOF {
 			i0 = 0

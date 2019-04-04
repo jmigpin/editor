@@ -3,7 +3,6 @@ package textutil
 import (
 	"bytes"
 
-	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -29,7 +28,7 @@ func TabRight(te *widget.TextEdit) error {
 		}
 		b += 1 // size of \t
 
-		u, _, err := iorw.LineEndIndex(tc.RW(), i)
+		u, _, err := te.LineEndIndex(i)
 		if err != nil {
 			return err
 		}
@@ -71,7 +70,7 @@ func TabLeft(te *widget.TextEdit) error {
 			b -= 1 // 1 is length of '\t' or ' '
 		}
 
-		u, _, err := iorw.LineEndIndex(tc.RW(), i)
+		u, _, err := te.LineEndIndex(i)
 		if err != nil {
 			return err
 		}

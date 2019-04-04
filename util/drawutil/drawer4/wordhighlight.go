@@ -23,7 +23,8 @@ func updateWordHighlightWord(d *Drawer) {
 	// find word
 	d.opt.wordH.word = nil
 	ci := d.opt.cursor.offset
-	word, _, err := iorw.WordAtIndex(d.reader, ci, 250)
+	rd := iorw.NewLimitedReader(d.reader, ci, ci, 250)
+	word, _, err := iorw.WordAtIndex(rd, ci)
 	if err != nil {
 		return
 	}
@@ -61,13 +62,12 @@ func WordHighlightOps(d *Drawer) []*ColorizeOp {
 		b = l
 	}
 
-	// TODO: implement wordindex()
-
 	// search
 	var ops []*ColorizeOp
 	for i := a; i < b; {
 		// find word
-		j, err := iorw.Index(d.reader, i, b-i, word, false)
+		rd := iorw.NewLimitedReaderLen(d.reader, i, b-i)
+		j, err := iorw.Index(rd, i, word, false)
 		if err != nil {
 			return nil
 		}

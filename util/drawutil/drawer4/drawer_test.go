@@ -1,6 +1,7 @@
 package drawer4
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
@@ -26,7 +27,7 @@ func TestEmpty(t *testing.T) {
 	r := iorw.NewBytesReadWriter([]byte(s))
 	d.SetReader(r)
 
-	w := d.wlineStartIndex(true, 10, 0)
+	w := d.wlineStartIndex(true, 10, 0, nil)
 	if w != 0 {
 		t.Fatal()
 	}
@@ -327,6 +328,33 @@ func TestImg15Visible(t *testing.T) {
 
 	d.Draw(img)
 	cmpResult(t, img, "img15")
+}
+
+func TestImg16Select(t *testing.T) {
+	rect := image.Rect(0, 0, 100, 100)
+	d, img := newTestDrawerRect(rect)
+
+	tmp := limitedReaderPadding
+	defer func() { limitedReaderPadding = tmp }()
+	limitedReaderPadding = 3
+
+	s := ""
+	for i := 0; i < 10; i++ {
+		s += fmt.Sprintf("%v", i%10)
+	}
+
+	r := iorw.NewBytesReadWriter([]byte(s))
+	d.SetReader(r)
+
+	d.Opt.Cursor.On = true
+	d.Opt.RuneOffset.On = true
+	//d.smoothScroll = true
+
+	d.SetRuneOffset(7)
+	d.SetCursorOffset(7)
+
+	d.Draw(img)
+	cmpResult(t, img, "img16")
 }
 
 //----------

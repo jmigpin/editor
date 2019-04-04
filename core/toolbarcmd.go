@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -314,7 +315,8 @@ func FindCmd(erow *ERow, part *toolbarparser.Part) error {
 		str = strings.TrimSpace(s)
 	}
 
-	found, err := textutil.Find(erow.Row.TextArea.TextEdit, str)
+	ctx := context.Background() // TODO: internal cmds context
+	found, err := textutil.Find(ctx, erow.Row.TextArea.TextEdit, str)
 	if err != nil {
 		return err
 	}

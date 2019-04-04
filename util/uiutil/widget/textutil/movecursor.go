@@ -4,7 +4,6 @@ import (
 	"image"
 	"io"
 
-	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
@@ -74,7 +73,7 @@ func MoveCursorDown(es *widget.TextEdit, sel bool) {
 
 func MoveCursorJumpLeft(te *widget.TextEdit, sel bool) error {
 	tc := te.TextCursor
-	i, err := jumpLeftIndex(tc)
+	i, err := jumpLeftIndex(te)
 	if err != nil {
 		return err
 	}
@@ -83,7 +82,7 @@ func MoveCursorJumpLeft(te *widget.TextEdit, sel bool) error {
 }
 func MoveCursorJumpRight(te *widget.TextEdit, sel bool) error {
 	tc := te.TextCursor
-	i, err := jumpRightIndex(tc)
+	i, err := jumpRightIndex(te)
 	if err != nil {
 		return err
 	}
@@ -93,8 +92,9 @@ func MoveCursorJumpRight(te *widget.TextEdit, sel bool) error {
 
 //----------
 
-func jumpLeftIndex(tc *widget.TextCursor) (int, error) {
-	i, size, err := iorw.LastIndexFunc(tc.RW(), tc.Index(), 1000, true, edgeOfNextWordOrNewline())
+func jumpLeftIndex(te *widget.TextEdit) (int, error) {
+	tc := te.TextCursor
+	i, size, err := te.LastIndexFunc(tc.Index(), true, edgeOfNextWordOrNewline())
 	if err != nil {
 		if err == io.EOF {
 			i = 0
@@ -105,8 +105,9 @@ func jumpLeftIndex(tc *widget.TextCursor) (int, error) {
 	return i + size, nil
 }
 
-func jumpRightIndex(tc *widget.TextCursor) (int, error) {
-	i, _, err := iorw.IndexFunc(tc.RW(), tc.Index(), 1000, true, edgeOfNextWordOrNewline())
+func jumpRightIndex(te *widget.TextEdit) (int, error) {
+	tc := te.TextCursor
+	i, _, err := te.IndexFunc(tc.Index(), true, edgeOfNextWordOrNewline())
 	if err != nil {
 		if err == io.EOF {
 			i = tc.RW().Len()

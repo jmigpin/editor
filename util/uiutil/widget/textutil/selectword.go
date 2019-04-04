@@ -24,7 +24,8 @@ func SelectWord(te *widget.TextEdit) error {
 		word = []byte(string(ru))
 	} else {
 		// select word at index
-		w, i, err := iorw.WordAtIndex(tc.RW(), ci, 100)
+		rd := te.LimitedReaderPad(ci)
+		w, i, err := iorw.WordAtIndex(rd, ci)
 		if err != nil {
 			return err
 		}

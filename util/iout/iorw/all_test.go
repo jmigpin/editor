@@ -2,6 +2,7 @@ package iorw
 
 import (
 	"bytes"
+	"context"
 	"testing"
 )
 
@@ -75,7 +76,7 @@ func TestIndex1(t *testing.T) {
 
 	rw := NewBytesReadWriter([]byte(s))
 
-	i, err := Index(rw, 4, rw.Len(), []byte("abc"), true)
+	i, err := Index(rw, 4, []byte("abc"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +86,7 @@ func TestIndex1(t *testing.T) {
 func TestIndex2(t *testing.T) {
 	s := "012345678"
 	rw := NewBytesReadWriter([]byte(s))
-	i, err := index2(rw, 0, rw.Len(), []byte("345"), true, 4)
+	i, err := indexCtx2(context.Background(), rw, 0, []byte("345"), true, 4)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -148,7 +148,7 @@ func (tc *TextCursor) LinesIndexes() (int, int, bool, error) {
 		a = tc.Index()
 		b = a
 	}
-	return iorw.LinesIndexes(tc.RW(), a, b)
+	return tc.te.LinesIndexes(a, b)
 }
 
 //----------

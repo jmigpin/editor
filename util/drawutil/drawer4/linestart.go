@@ -9,6 +9,8 @@ type LineStart struct {
 func (ls *LineStart) Init() {
 	st := &ls.d.st.lineStart
 	// content line start
+	ls.d.st.lineStart.q = nil
+	ls.d.st.lineStart.uppedLines = 0
 	ls.d.st.runeR.ri = ls.lineStartIndex(st.offset, st.nLinesUp)
 }
 
@@ -62,14 +64,20 @@ func (ls *LineStart) lineStartIndex(offset, nLinesUp int) int {
 }
 
 func (ls *LineStart) linesStartIndexes(offset, nLinesUp int) []int {
+	// reader
+	rd := ls.d.st.lineStart.reader
+	if rd == nil {
+		rd = ls.d.limitedReaderPad(offset)
+	}
+
 	// ensure offset is within max bound
-	if offset > ls.d.reader.Len() {
-		offset = ls.d.reader.Len()
+	if offset > rd.Len() {
+		offset = rd.Len()
 	}
 
 	w := []int{}
 	for i := 0; i <= nLinesUp; i++ {
-		k, err := iorw.LineStartIndex(ls.d.reader, offset)
+		k, err := iorw.LineStartIndex(rd, offset)
 		if err != nil {
 			if err == iorw.ErrLimitReached {
 				// consider the limit as the line start

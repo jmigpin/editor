@@ -6,7 +6,6 @@ import (
 
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
-	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 // textedit with extensions
@@ -108,7 +107,7 @@ func (te *TextEditX) startFlash(index, len int, line bool) {
 
 		if line {
 			// recalc index/len
-			i0, i1 := te.lineIndexes(index)
+			i0, i1 := te.flashLineIndexes(index)
 			index = i0
 			len = i1 - index
 
@@ -128,19 +127,15 @@ func (te *TextEditX) startFlash(index, len int, line bool) {
 	})
 }
 
-func (te *TextEditX) lineIndexes(offset int) (int, int) {
-	lsi, err := iorw.LineStartIndex(te.Drawer.Reader(), offset)
+func (te *TextEditX) flashLineIndexes(offset int) (int, int) {
+	s, e, newline, err := te.LinesIndexes(offset, offset)
 	if err != nil {
 		return 0, 0
 	}
-	lei, nl, err := iorw.LineEndIndex(te.Drawer.Reader(), offset)
-	if err != nil {
-		return 0, 0
+	if newline {
+		e--
 	}
-	if nl {
-		lei--
-	}
-	return lsi, lei
+	return s, e
 }
 
 //----------

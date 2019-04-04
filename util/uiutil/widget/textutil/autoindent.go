@@ -14,12 +14,13 @@ func AutoIndent(te *widget.TextEdit) error {
 	defer tc.EndEdit()
 
 	ci := tc.Index()
-	i, err := iorw.LineStartIndex(tc.RW(), ci)
+	i, err := te.LineStartIndex(ci)
 	if err != nil {
 		return err
 	}
 
-	j, _, err := iorw.IndexFunc(tc.RW(), i, ci-i, false, unicode.IsSpace)
+	rd := iorw.NewLimitedReaderLen(tc.RW(), i, ci-i)
+	j, _, err := iorw.IndexFunc(rd, i, false, unicode.IsSpace)
 	if err != nil {
 		if err == io.EOF {
 			// full line of spaces, indent to ci

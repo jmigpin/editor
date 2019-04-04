@@ -3,7 +3,6 @@ package textutil
 import (
 	"unicode"
 
-	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -11,7 +10,7 @@ func StartOfLine(te *widget.TextEdit, sel bool) error {
 	tc := te.TextCursor
 
 	ci := tc.Index()
-	i, err := iorw.LineStartIndex(tc.RW(), ci)
+	i, err := te.LineStartIndex(ci)
 	if err != nil {
 		return err
 	}

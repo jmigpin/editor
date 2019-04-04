@@ -41,7 +41,7 @@ func (sh *SyntaxHighlight) do(distBack int) []*ColorizeOp {
 		o = 0
 	}
 	n += distBack
-	r := iorw.NewLimitedReader(sh.d.reader, o, n)
+	r := iorw.NewLimitedReaderLen(sh.d.reader, o, n)
 
 	sh.sm = statemach.NewSM(r)
 	sh.sm.Pos = o

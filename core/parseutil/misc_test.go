@@ -55,7 +55,7 @@ func TestExpandLastIndexOfFilename1(t *testing.T) {
 func TestWordAtIndex(t *testing.T) {
 	s := "abc f"
 	rw := iorw.NewBytesReadWriter([]byte(s))
-	w, i, err := iorw.WordAtIndex(rw, 3, 100)
+	w, i, err := iorw.WordAtIndex(rw, 3)
 	if err == nil {
 		t.Fatalf("%v %v %v", w, i, err)
 	}
