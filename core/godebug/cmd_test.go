@@ -125,6 +125,7 @@ func TestCmdFile4(t *testing.T) {
 //------------
 
 func doCmd(t *testing.T, dir string, src interface{}, args []string) {
+	log.SetFlags(log.Lshortfile)
 	log.Printf("DISABLED")
 	//doCmd2(t, dir, src, args)
 }

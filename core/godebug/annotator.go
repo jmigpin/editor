@@ -1189,6 +1189,8 @@ func isDirectExpr(e ast.Expr) bool {
 		}
 	case *ast.BasicLit:
 		switch t.Kind {
+		case token.CHAR: // 'c' can be assigned to {byte,rune,...}
+			return true
 		case token.INT, token.FLOAT:
 			return true
 		}

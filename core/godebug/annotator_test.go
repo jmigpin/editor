@@ -1510,6 +1510,20 @@ func TestAnnotator96(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
+func TestAnnotator97(t *testing.T) {
+	inout := []string{
+		`p = 'a' - 'A'`, // mismatched types byte and rune
+		`Σ0 := Σ.IV('a')
+	        Σ1 := Σ.IV('A')
+	        Σ2 := Σ.IV('a' - 'A')
+	        Σ3 := Σ.IB(Σ2, 13, Σ0, Σ1)
+	        p = 'a' - 'A'
+	        Σ4 := Σ.IV(p)
+	        Σ.Line(0, 0, 36, Σ.IA(Σ.IL(Σ4), Σ.IL(Σ3)))`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
 func TestAnnotator_(t *testing.T) {
 	inout := []string{
 		``,
