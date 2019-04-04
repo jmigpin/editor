@@ -167,9 +167,10 @@ func (ed *Editor) Messagef(f string, a ...interface{}) {
 
 		// index to make visible, get before append
 		ta := erow.Row.TextArea
-		index := len(ta.Str())
+		index := ta.Len()
 
-		erow.textAreaAppend(s)
+		// append bytes
+		erow.TextAreaAppendBytes([]byte(s))
 
 		erow.MakeRangeVisibleAndFlash(index, len(s))
 	})

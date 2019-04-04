@@ -8,7 +8,6 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -261,47 +260,69 @@ func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
 
 //----------
 
-func (erow *ERow) TextAreaAppendAsync(str string) <-chan struct{} {
+func (erow *ERow) TextAreaAppendBytesAsync(p []byte) <-chan struct{} {
 	comm := make(chan struct{})
 	erow.Ed.UI.RunOnUIGoRoutine(func() {
-		erow.textAreaAppend(str)
+		erow.TextAreaAppendBytes(p)
 		close(comm)
 	})
 	return comm
 }
 
-func (erow *ERow) textAreaAppend(str string) {
+func (erow *ERow) TextAreaAppendBytes(p []byte) {
 	ta := erow.Row.TextArea
-	if err := ta.AppendStrClearHistory(str); err != nil {
+	if err := ta.AppendBytesClearHistory(p); err != nil {
 		erow.Ed.Error(err)
 	}
 }
 
 //----------
 
+//// Caller is responsible for closing the writer at the end.
+//func (erow *ERow) TextAreaWriter() io.WriteCloser {
+//	pr, pw := io.Pipe()
+//	go func() {
+//		erow.readLoopToTextArea(pr)
+//	}()
+//	return pw
+
+//	// terminal escape sequences filter
+//	var wc io.WriteCloser = pw
+//	if erow.Info.IsDir() {
+//		wc = NewTerminalFilter(erow, wc)
+//	}
+
+//	// outputs at an interval to see the output (not just at newline)
+//	return iout.NewAutoBufWriter(wc)
+//}
+
 // Caller is responsible for closing the writer at the end.
 func (erow *ERow) TextAreaWriter() io.WriteCloser {
-	pr, pw := io.Pipe()
+	prc, pwc := io.Pipe()
 	go func() {
-		erow.readLoopToTextArea(pr)
+		// terminal escape sequences filter
+		var rc io.ReadCloser = prc
+		if erow.Info.IsDir() {
+			rc = NewTerminalFilterReader(erow, rc)
+		}
+
+		erow.readLoopToTextArea(rc)
 	}()
 
-	// terminal escape sequences filter
-	var wc io.WriteCloser = pw
-	if erow.Info.IsDir() {
-		wc = NewTerminalFilter(erow, wc)
-	}
-
-	return iout.NewAutoBufWriter(wc)
+	return pwc
 }
 
-func (erow *ERow) readLoopToTextArea(reader io.Reader) {
+func (erow *ERow) readLoopToTextArea(rd io.Reader) {
 	var buf [4 * 1024]byte
 	for {
-		n, err := reader.Read(buf[:])
+		n, err := rd.Read(buf[:])
 		if n > 0 {
-			str := string(buf[:n])
-			c := erow.TextAreaAppendAsync(str)
+			// make copy to append async
+			b := make([]byte, n)
+			copy(b, buf[:n])
+
+			// append async
+			c := erow.TextAreaAppendBytesAsync(b)
 
 			// Wait for the ui to have handled the content. This prevents a tight loop program from leaving the UI unresponsive.
 			<-c

@@ -99,10 +99,6 @@ func (te *TextEdit) SetStrClearHistory(str string) error {
 	return te.SetBytesClearHistory([]byte(str))
 }
 
-func (te *TextEdit) AppendStrClearHistory(str string) error {
-	return te.AppendBytesClearHistory([]byte(str))
-}
-
 //----------
 
 func (te *TextEdit) ClearPos() {
