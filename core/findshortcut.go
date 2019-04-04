@@ -24,9 +24,9 @@ func FindShortcut(erow *ERow) {
 func findShortcut2(erow *ERow) error {
 	// check if there is a selection in the textarea
 	searchStr := []byte{}
-	tc0 := erow.Row.TextArea.TextCursor
-	if tc0.SelectionOn() {
-		s, err := tc0.Selection()
+	tatc := erow.Row.TextArea.TextCursor
+	if tatc.SelectionOn() {
+		s, err := tatc.Selection()
 		if err != nil {
 			return err
 		}
@@ -81,6 +81,7 @@ func findShortcut2(erow *ERow) error {
 				return err
 			}
 			tc.SetSelection(a, a+len(searchStr))
+			tatc.SetSelectionOff() // deselect to allow to search full text
 		}
 	} else {
 		// insert find cmd
@@ -95,6 +96,7 @@ func findShortcut2(erow *ERow) error {
 				return err
 			}
 			tc.SetSelection(a, a+len(searchStr))
+			tatc.SetSelectionOff() // deselect to allow to search full text
 		} else {
 			tc.SetSelectionOff()
 			tc.SetIndex(a + len(searchStr))
