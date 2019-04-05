@@ -8,6 +8,7 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -303,7 +304,8 @@ func (erow *ERow) TextAreaWriter() io.WriteCloser {
 		erow.readLoopToTextArea(rc)
 	}()
 
-	return pwc
+	// buffered writer to minimize the number of writes to the textarea
+	return iout.NewAutoBufWriter(pwc)
 }
 
 func (erow *ERow) readLoopToTextArea(rd io.Reader) {
