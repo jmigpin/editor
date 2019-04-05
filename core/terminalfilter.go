@@ -13,7 +13,6 @@ import (
 // Maintains state through different write calls.
 type TerminalFilter struct {
 	erow *ERow
-	w    io.WriteCloser
 	rd   io.ReadCloser
 
 	src   []byte
@@ -39,13 +38,7 @@ type tfCSI2 struct {
 
 //----------
 
-func NewTerminalFilter(erow *ERow, w io.WriteCloser) *TerminalFilter {
-	tf := &TerminalFilter{erow: erow, w: w}
-	tf.stf = tf.parseEscape
-	return tf
-}
-
-func NewTerminalFilterReader(erow *ERow, rd io.ReadCloser) *TerminalFilter {
+func NewTerminalFilter(erow *ERow, rd io.ReadCloser) *TerminalFilter {
 	tf := &TerminalFilter{erow: erow, rd: rd}
 	tf.stf = tf.parseEscape
 	return tf
@@ -54,19 +47,7 @@ func NewTerminalFilterReader(erow *ERow, rd io.ReadCloser) *TerminalFilter {
 //----------
 
 func (tf *TerminalFilter) Close() error {
-	if tf.rd != nil {
-		return tf.rd.Close()
-	}
-	return tf.w.Close()
-}
-
-//----------
-
-func (tf *TerminalFilter) Write(p []byte) (n int, err error) {
-	p2 := tf.filter(p)
-	n, err = tf.w.Write(p2)
-	u := len(p) - (len(p2) - n) // after filtering, report only the bytes not written
-	return u, err
+	return tf.rd.Close()
 }
 
 //----------

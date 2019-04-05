@@ -22,6 +22,8 @@ type ERow struct {
 
 	highlightDuplicates           bool
 	disableTextAreaSetStrCallback bool
+
+	termFilter bool
 }
 
 //----------
@@ -187,7 +189,8 @@ func (erow *ERow) parseToolbar() {
 
 func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
-	// font
+
+	// $font
 	clear := true
 	if v, ok := vmap["$font"]; ok {
 		err := erow.setVarFontTheme(v)
@@ -197,6 +200,14 @@ func (erow *ERow) parseToolbarVars() {
 	}
 	if clear {
 		erow.Row.TextArea.SetThemeFont(nil)
+	}
+
+	// $termFilter
+	erow.termFilter = false
+	if v, ok := vmap["$termFilter"]; ok {
+		if v == "" || strings.ToLower(v) == "true" {
+			erow.termFilter = true
+		}
 	}
 }
 
@@ -278,32 +289,15 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 
 //----------
 
-//// Caller is responsible for closing the writer at the end.
-//func (erow *ERow) TextAreaWriter() io.WriteCloser {
-//	pr, pw := io.Pipe()
-//	go func() {
-//		erow.readLoopToTextArea(pr)
-//	}()
-//	return pw
-
-//	// terminal escape sequences filter
-//	var wc io.WriteCloser = pw
-//	if erow.Info.IsDir() {
-//		wc = NewTerminalFilter(erow, wc)
-//	}
-
-//	// outputs at an interval to see the output (not just at newline)
-//	return iout.NewAutoBufWriter(wc)
-//}
-
 // Caller is responsible for closing the writer at the end.
 func (erow *ERow) TextAreaWriter() io.WriteCloser {
 	prc, pwc := io.Pipe()
 	go func() {
-		// terminal escape sequences filter
 		var rc io.ReadCloser = prc
-		if erow.Info.IsDir() {
-			rc = NewTerminalFilterReader(erow, rc)
+
+		// terminal filter (escape sequences)
+		if erow.termFilter && erow.Info.IsDir() {
+			rc = NewTerminalFilter(erow, rc)
 		}
 
 		erow.readLoopToTextArea(rc)

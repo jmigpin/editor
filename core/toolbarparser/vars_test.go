@@ -28,6 +28,17 @@ func TestParseVar2(t *testing.T) {
 	}
 }
 
+func TestParseVar3(t *testing.T) {
+	s1 := "$abc"
+	v, err := ParseVar(s1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(v.Name == "$abc" && v.Value == "") {
+		t.Fatal(v)
+	}
+}
+
 //----------
 
 func testMap() VarMap {

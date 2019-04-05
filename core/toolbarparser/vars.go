@@ -104,6 +104,12 @@ func parseVar2(sm *statemach.String) (*Var, error) {
 
 	// assign
 	if !sm.AcceptAny("=") {
+		// allow form "$name" without assign (booleans)
+		_ = sm.AcceptSpace()
+		if sm.AcceptEnd() {
+			return &Var{Name: name}, nil
+		}
+
 		return nil, errors.New("expecting =")
 	}
 	sm.Advance()
