@@ -1,21 +1,22 @@
 package drawer4
 
 func updateParenthesisHighlight(d *Drawer) {
+	if !d.Opt.ParenthesisHighlight.On {
+		d.Opt.ParenthesisHighlight.Group.Ops = nil
+		return
+	}
+
 	if d.opt.parenthesisH.updated {
 		return
 	}
 	d.opt.parenthesisH.updated = true
 
-	opt := &d.Opt.ParenthesisHighlight
-	opt.Group.Ops = ParenthesisHighlightOps(d, 5000)
+	d.Opt.ParenthesisHighlight.Group.Ops = parenthesisHOps(d, 5000)
 }
 
 //----------
 
-func ParenthesisHighlightOps(d *Drawer, maxDist int) []*ColorizeOp {
-	if !d.Opt.ParenthesisHighlight.On {
-		return nil
-	}
+func parenthesisHOps(d *Drawer, maxDist int) []*ColorizeOp {
 	if !d.Opt.Cursor.On {
 		return nil
 	}

@@ -6,18 +6,19 @@ import (
 )
 
 func updateSyntaxHighlightOps(d *Drawer) {
+	if !d.Opt.SyntaxHighlight.On {
+		d.Opt.SyntaxHighlight.Group.Ops = nil
+		return
+	}
+
 	if d.opt.syntaxH.updated {
 		return
 	}
 	d.opt.syntaxH.updated = true
 
-	opt := &d.Opt.SyntaxHighlight
-	opt.Group.Ops = SyntaxHighlightOps(d, 5000) // max distance back
-}
-
-func SyntaxHighlightOps(d *Drawer, distBack int) []*ColorizeOp {
+	maxDistBack := 5000
 	sh := &SyntaxHighlight{d: d}
-	return sh.do(distBack)
+	d.Opt.SyntaxHighlight.Group.Ops = sh.do(maxDistBack)
 }
 
 //----------
@@ -29,10 +30,6 @@ type SyntaxHighlight struct {
 }
 
 func (sh *SyntaxHighlight) do(distBack int) []*ColorizeOp {
-	if !sh.d.Opt.RuneOffset.On {
-		return nil
-	}
-
 	// limit reading to be able to handle big content
 	o, n, _, _ := sh.d.visibleLen()
 	o -= distBack

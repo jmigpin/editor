@@ -11,9 +11,6 @@ func updateWordHighlightWord(d *Drawer) {
 	if !d.Opt.Cursor.On {
 		return
 	}
-	if !d.Opt.RuneOffset.On {
-		return
-	}
 
 	if d.opt.wordH.updatedWord {
 		return
@@ -34,16 +31,20 @@ func updateWordHighlightWord(d *Drawer) {
 //----------
 
 func updateWordHighlightOps(d *Drawer) {
+	if !d.Opt.WordHighlight.On {
+		d.Opt.WordHighlight.Group.Ops = nil
+		return
+	}
+
 	if d.opt.wordH.updatedOps {
 		return
 	}
 	d.opt.wordH.updatedOps = true
 
-	opt := &d.Opt.WordHighlight
-	opt.Group.Ops = WordHighlightOps(d)
+	d.Opt.WordHighlight.Group.Ops = wordHOps(d)
 }
 
-func WordHighlightOps(d *Drawer) []*ColorizeOp {
+func wordHOps(d *Drawer) []*ColorizeOp {
 	word := d.opt.wordH.word
 	if word == nil {
 		return nil

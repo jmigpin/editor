@@ -41,11 +41,11 @@ func NewRow(col *Column) *Row {
 	// scrollarea with textarea
 	{
 		row.TextArea = NewTextArea(row.ui)
-		row.TextArea.EnableHighlightCursorWord(true)
-		row.TextArea.EnableColorizeSyntax(true)
+		row.TextArea.EnableCursorWordHighlight(true)
+		row.TextArea.EnableSyntaxHighlight(true)
 		row.TextArea.EnableParenthesisMatch(true)
 		if d, ok := row.TextArea.Drawer.(*drawer4.Drawer); ok {
-			d.Opt.RuneOffset.On = true
+			d.Opt.QuickMeasure = true
 			d.Opt.RuneReader.StartOffsetX = 2 // covers cursor pixel
 		}
 

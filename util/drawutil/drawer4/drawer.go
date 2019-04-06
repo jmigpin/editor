@@ -83,11 +83,9 @@ type Drawer struct {
 
 	// external options
 	Opt struct {
-		RuneReader struct {
+		QuickMeasure bool // just return the bounds size
+		RuneReader   struct {
 			StartOffsetX int
-		}
-		RuneOffset struct {
-			On bool
 		}
 		LineWrap struct {
 			Fg, Bg color.Color
@@ -119,6 +117,7 @@ type Drawer struct {
 			Group  ColorizeGroup
 		}
 		SyntaxHighlight struct {
+			On      bool
 			Comment struct {
 				Line struct {
 					S      string
@@ -366,13 +365,14 @@ func (d *Drawer) Measure() image.Point {
 }
 
 func (d *Drawer) measure2() image.Point {
-	if d.Opt.RuneOffset.On {
+	if d.Opt.QuickMeasure {
 		return d.bounds.Size()
 	}
-	return d.measurePixels()
+	return d.measureContent()
 }
 
-func (d *Drawer) measurePixels() image.Point {
+// Full content measure in pixels. To be used only for small content.
+func (d *Drawer) measureContent() image.Point {
 	d.st = State{}
 	iters := []Iterator{
 		&d.iters.runeR,
@@ -769,7 +769,7 @@ func (d *Drawer) header1() {
 func (d *Drawer) header(offset, nLinesUp int) int {
 	// smooth scrolling
 	adjustPenY := mathutil.Intf(0)
-	if d.Opt.RuneOffset.On && d.smoothScroll {
+	if d.smoothScroll {
 		adjustPenY += d.smoothScrolling(offset)
 	}
 

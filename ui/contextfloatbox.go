@@ -20,12 +20,12 @@ type ContextFloatBox struct {
 func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb := &ContextFloatBox{root: root}
 
-	text := ""
+	text := "No content provided."
 
 	cfb.TextArea = NewTextArea(root.UI)
 	cfb.TextArea.SetStr(text)
 
-	cfb.sa = widget.NewScrollArea(root.UI, cfb.TextArea, true, true)
+	cfb.sa = widget.NewScrollArea(root.UI, cfb.TextArea, false, true)
 	cfb.sa.LeftScroll = ScrollBarLeft
 
 	border := widget.NewBorder(root.UI, cfb.sa)

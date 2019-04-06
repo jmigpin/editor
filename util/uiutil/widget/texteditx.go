@@ -36,6 +36,8 @@ func NewTextEditX(ctx ImageContext, cctx ClipboardContext) *TextEditX {
 
 	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
 		d.Opt.Cursor.On = true
+
+		// setup colorize order
 		d.Opt.Colorize.Groups = []*drawer4.ColorizeGroup{
 			&d.Opt.SyntaxHighlight.Group,
 			&d.Opt.WordHighlight.Group,
@@ -206,22 +208,17 @@ func (te *TextEditX) EnableParenthesisMatch(v bool) {
 
 //----------
 
-func (te *TextEditX) EnableColorizeSyntax(v bool) {
-	// TODO
-	//if d, ok := te.Drawer.(*drawer3.PosDrawer); ok {
-	//	d.ColorizeSyntax.SetOn(v)
-	//}
+func (te *TextEditX) EnableSyntaxHighlight(v bool) {
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.SyntaxHighlight.On = v
+	}
 }
 
 //----------
 
-func (te *TextEditX) EnableHighlightCursorWord(v bool) {
+func (te *TextEditX) EnableCursorWordHighlight(v bool) {
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
 		d.Opt.WordHighlight.On = v
-		if !v {
-			g := d.Opt.Colorize.Groups[1]
-			g.Ops = nil
-		}
 	}
 }
 
