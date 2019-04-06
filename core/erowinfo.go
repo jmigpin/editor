@@ -231,7 +231,7 @@ func (info *ERowInfo) NewERow(rowPos *ui.RowPos) (*ERow, error) {
 	case info.IsFileButNotDir():
 		return info.NewFileERow(rowPos)
 	default:
-		return nil, fmt.Errorf("unhandled erow type: %v", info.name)
+		return nil, fmt.Errorf("unable to open erow: %v", info.name)
 	}
 }
 
