@@ -138,7 +138,9 @@ func (tf *TerminalFilter) parseEscape() bool {
 		tf.stf = tf.parseC1
 	case 14, 15: //shift out/in
 		tf.advanceStart() // filtered
-	case 13: // carriage return
+	case 13: // carriage return '\r'
+		tf.advanceStart() // filtered
+	case 8: // backspace '\b'
 		tf.advanceStart() // filtered
 	default:
 		tf.append(b)
