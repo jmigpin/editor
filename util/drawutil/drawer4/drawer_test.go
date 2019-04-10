@@ -245,8 +245,6 @@ func TestImg12Cursor(t *testing.T) {
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
-	//d.Opt.RuneOffset.On = true
-	//d.smoothScroll = true
 
 	c := 17
 	d.SetRuneOffset(c)
@@ -311,8 +309,6 @@ func TestImg15Visible(t *testing.T) {
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
-	d.Opt.RuneOffset.On = true
-	d.smoothScroll = true
 
 	c := r.Len()
 	d.SetRuneOffset(c)
@@ -347,8 +343,6 @@ func TestImg16Select(t *testing.T) {
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
-	d.Opt.RuneOffset.On = true
-	//d.smoothScroll = true
 
 	d.SetRuneOffset(7)
 	d.SetCursorOffset(7)
@@ -372,7 +366,6 @@ func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 	d.SetFg(color.Black)
 
 	d.smoothScroll = false
-	d.Opt.RuneOffset.On = true
 	d.Opt.LineWrap.Bg = colornames.Red
 
 	img := image.NewRGBA(rect)

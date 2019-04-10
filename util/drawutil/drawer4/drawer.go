@@ -259,9 +259,13 @@ func (d *Drawer) limitedReaderPad(offset int) iorw.Reader {
 
 func (d *Drawer) limitedReaderPadSpace(offset int) iorw.Reader {
 	// adjust the padding to avoid immediate flicker for x chars for the case of long lines
-	u := offset - limitedReaderPadding
-	diff := 1000 - (u % 1000)
-	pad := limitedReaderPadding - diff
+	max := 1000
+	pad := limitedReaderPadding // in tests it could be a small num
+	if limitedReaderPadding >= max {
+		u := offset - limitedReaderPadding
+		diff := max - (u % max)
+		pad = limitedReaderPadding - diff
+	}
 	return iorw.NewLimitedReader(d.reader, offset, offset, pad)
 }
 
