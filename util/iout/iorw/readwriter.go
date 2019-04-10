@@ -13,7 +13,9 @@ type Reader interface {
 	ReadNCopyAt(i, n int) ([]byte, error)
 	ReadNSliceAt(i, n int) ([]byte, error) // []byte might not be a copy
 
-	Len() int
+	// length min/max
+	Min() int
+	Max() int
 }
 
 type Writer interface {

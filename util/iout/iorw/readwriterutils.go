@@ -46,7 +46,7 @@ func indexCtx2(ctx context.Context, r Reader, i int, sep []byte, toLower bool, c
 		sep = ToLowerAsciiCopy(sep) // copy
 	}
 
-	b := r.Len()
+	b := r.Max()
 	for k := i; k < b; k += chunk - (len(sep) - 1) {
 		c := chunk
 		if c > b-k {
@@ -132,6 +132,23 @@ func LastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size 
 
 //----------
 
+// Returns index where truth was found.
+func ExpandIndexFunc(r Reader, i int, truth bool, f func(rune) bool) int {
+	j, _, _ := IndexFunc(r, i, truth, f)
+	return j // found, or last known index before an err
+}
+
+// Returns last index before truth was found.
+func ExpandLastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) int {
+	j, size, err := LastIndexFunc(r, i, truth, f)
+	if err != nil {
+		return j // last known index before an err
+	}
+	return j + size
+}
+
+//----------
+
 func LineStartIndex(r Reader, i int) (int, error) {
 	k, size, err := NewLineLastIndex(r, i)
 	if err == io.EOF {
@@ -143,7 +160,7 @@ func LineStartIndex(r Reader, i int) (int, error) {
 func LineEndIndex(r Reader, i int) (int, bool, error) {
 	k, size, err := NewLineIndex(r, i)
 	if err == io.EOF {
-		return r.Len(), false, nil
+		return r.Max(), false, nil
 	}
 	isNewLine := err == nil
 	return k + size, isNewLine, err
@@ -186,7 +203,7 @@ func WordAtIndex(r Reader, index int) ([]byte, int, error) {
 	i1, _, err := IndexFunc(r, index, false, IsWordRune)
 	if err != nil {
 		if err == io.EOF {
-			i1 = r.Len()
+			i1 = r.Max()
 		} else {
 			return nil, 0, err
 		}
@@ -199,7 +216,7 @@ func WordAtIndex(r Reader, index int) ([]byte, int, error) {
 	i0, size, err := LastIndexFunc(r, index, false, IsWordRune)
 	if err != nil {
 		if err == io.EOF {
-			i0 = 0
+			i0 = r.Min()
 		} else {
 			return nil, 0, err
 		}

@@ -21,8 +21,8 @@ func Replace(te *widget.TextEdit, old, new string) (bool, error) {
 	if tc.SelectionOn() {
 		a, b = tc.SelectionIndexes()
 	} else {
-		a = 0
-		b = tc.RW().Len()
+		a = tc.RW().Min()
+		b = tc.RW().Max()
 	}
 
 	ci, replaced, err := replace2(te, oldb, newb, a, b)

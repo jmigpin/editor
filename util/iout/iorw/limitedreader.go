@@ -15,8 +15,11 @@ type LimitedReader struct {
 }
 
 func NewLimitedReader(r Reader, min, max, pad int) *LimitedReader {
-	if min > max || pad < 0 {
-		panic("min>max || pad<0")
+	if min > max {
+		panic("min>max")
+	}
+	if pad < 0 {
+		panic("pad<0")
 	}
 	return &LimitedReader{Reader: r, min: min - pad, max: max + pad}
 }
@@ -27,8 +30,11 @@ func NewLimitedReaderLen(r Reader, offset, n int) *LimitedReader {
 
 //----------
 
-func (r *LimitedReader) Len() int {
-	return mathutil.Smallest(r.max, r.Reader.Len())
+func (r *LimitedReader) Min() int {
+	return mathutil.Biggest(r.min, r.Reader.Min())
+}
+func (r *LimitedReader) Max() int {
+	return mathutil.Smallest(r.max, r.Reader.Max())
 }
 
 //----------

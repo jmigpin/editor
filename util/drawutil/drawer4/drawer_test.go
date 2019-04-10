@@ -41,7 +41,7 @@ func TestNLinesStartIndex1(t *testing.T) {
 	s := "111\n222\n333"
 	r := iorw.NewBytesReadWriter([]byte(s))
 	d.SetReader(r)
-	pos := r.Len()
+	pos := r.Max()
 	d.SetRuneOffset(pos)
 	w := d.iters.lineStart.lineStartIndex(pos, 0)
 	if w != 8 {
@@ -202,7 +202,7 @@ func TestImg09Visible(t *testing.T) {
 	r := iorw.NewBytesReadWriter([]byte(s))
 	d.SetReader(r)
 
-	o := d.RangeVisibleOffset(r.Len(), 0)
+	o := d.RangeVisibleOffset(r.Max(), 0)
 	d.SetRuneOffset(o)
 
 	d.Draw(img)
@@ -270,7 +270,7 @@ func TestImg13Cursor(t *testing.T) {
 
 	d.Opt.Cursor.On = true
 
-	c := r.Len()
+	c := r.Max()
 	d.SetRuneOffset(c - 3)
 	d.SetCursorOffset(c)
 
@@ -291,11 +291,11 @@ func TestImg14Cursor(t *testing.T) {
 
 	d.Opt.Cursor.On = true
 
-	c := r.Len()
+	c := r.Max()
 	d.SetRuneOffset(c)
 
 	l := 8
-	r.Delete(r.Len()-l, l)
+	r.Delete(r.Max()-l, l)
 
 	d.Draw(img)
 	cmpResult(t, img, "img14")
@@ -310,17 +310,17 @@ func TestImg15Visible(t *testing.T) {
 
 	d.Opt.Cursor.On = true
 
-	c := r.Len()
+	c := r.Max()
 	d.SetRuneOffset(c)
 
-	r.Delete(0, r.Len())
-	b, _ := r.ReadNSliceAt(0, r.Len())
+	r.Delete(r.Min(), r.Max())
+	b, _ := r.ReadNSliceAt(r.Min(), r.Max())
 	_ = string(b)
 
 	o := d.RangeVisibleOffset(0, 0)
 	d.SetRuneOffset(o)
 
-	r.Insert(0, []byte("44444\n"))
+	r.Insert(r.Min(), []byte("44444\n"))
 
 	d.Draw(img)
 	cmpResult(t, img, "img15")

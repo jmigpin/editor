@@ -71,8 +71,8 @@ func (ls *LineStart) linesStartIndexes(offset, nLinesUp int) []int {
 	}
 
 	// ensure offset is within max bound
-	if offset > rd.Len() {
-		offset = rd.Len()
+	if offset > rd.Max() {
+		offset = rd.Max()
 	}
 
 	w := []int{}

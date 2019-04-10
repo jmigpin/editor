@@ -46,16 +46,16 @@ func (t *Text) SetRW(rw iorw.ReadWriter) {
 }
 
 func (t *Text) Len() int {
-	return t.rw.Len()
+	return t.rw.Max() - t.rw.Min()
 }
 
 // Result might not be a copy, so changes to the slice might affect the text data.
 func (t *Text) Bytes() ([]byte, error) {
-	return t.rw.ReadNSliceAt(0, t.rw.Len())
+	return t.rw.ReadNSliceAt(t.rw.Min(), t.rw.Max())
 }
 
 func (t *Text) SetBytes(b []byte) error {
-	if err := t.rw.Overwrite(0, t.rw.Len(), b); err != nil {
+	if err := t.rw.Overwrite(t.rw.Min(), t.rw.Max(), b); err != nil {
 		return err
 	}
 	t.contentChanged()

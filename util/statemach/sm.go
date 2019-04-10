@@ -23,7 +23,7 @@ func NewSM(r iorw.Reader) *SM {
 }
 
 func (sm *SM) Next() rune {
-	if sm.Pos >= sm.r.Len() {
+	if sm.Pos >= sm.r.Max() {
 		return eos
 	}
 	ru, w, err := sm.r.ReadRuneAt(sm.Pos)
@@ -132,7 +132,7 @@ func (sm *SM) AcceptLoopFn(fn func(rune) bool) bool {
 }
 
 func (sm *SM) AcceptN(n int) bool {
-	if sm.Pos+n > sm.r.Len() {
+	if sm.Pos+n > sm.r.Max() {
 		return false
 	}
 	sm.Pos += n
@@ -331,27 +331,27 @@ func (sm *SM) AcceptSpaceAdvance() error {
 func (sm *SM) Errorf(f string, args ...interface{}) error {
 	// just n in each direction for error string
 	pad := 30
-	i0 := 0
-	if sm.Pos-pad > i0 {
-		i0 = sm.Pos - pad
+	i0 := sm.Pos - pad
+	if i0 < sm.r.Min() {
+		i0 = sm.r.Min()
 	}
-	i1 := sm.r.Len()
-	if sm.Pos+pad < i0 {
-		i0 = sm.Pos + pad
+	i1 := sm.Pos + pad
+	if i1 > sm.r.Max() {
+		i1 = sm.r.Max()
 	}
 
 	// context string with position indicator
-	b1, err := sm.r.ReadNSliceAt(i0, i1)
+	b1, err := sm.r.ReadNSliceAt(i0, i1-i0)
 	if err != nil {
 		return err
 	}
 	s1 := string(b1)
 	p := sm.Pos - i0
-	ctx := s1[:p] + "***" + s1[p:]
-	if i0 > 0 {
+	ctx := s1[:p] + "¶" + s1[p:]
+	if i0 > sm.r.Min() {
 		ctx = "..." + ctx
 	}
-	if i1 < sm.r.Len() {
+	if i1 < sm.r.Max() {
 		ctx = ctx + "..."
 	}
 

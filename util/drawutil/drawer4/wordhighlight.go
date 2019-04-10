@@ -55,12 +55,15 @@ func wordHOps(d *Drawer) []*ColorizeOp {
 	a, b := o, o+n
 	a -= len(word)
 	b += len(word)
-	if a < 0 {
-		a = 0
+
+	// limits
+	a0 := d.reader.Min()
+	if a < a0 {
+		a = a0
 	}
-	l := d.reader.Len()
-	if b > l {
-		b = l
+	b0 := d.reader.Max()
+	if b > b0 {
+		b = b0
 	}
 
 	// search

@@ -3,9 +3,8 @@ package iorw
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"io/ioutil"
 	"testing"
+	"unicode"
 )
 
 func TestRW1(t *testing.T) {
@@ -99,30 +98,51 @@ func TestIndex2(t *testing.T) {
 	}
 }
 
-func TestIndex3(t *testing.T) {
-	// NOT ACTIVE
-	return
+func TestLastIndex1(t *testing.T) {
+	s := "a\n0123\nb"
+	rw := NewBytesReadWriter([]byte(s))
 
-	fname := "/var/lib/ispell/american-huge.hash"
-	b, err := ioutil.ReadFile(fname)
+	fn := func(ru rune) bool {
+		return ru == '\n'
+	}
+
+	i, _, err := LastIndexFunc(rw, 6, true, fn)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	rw := NewBytesReadWriter(b)
-	sep := []byte("SKEr")
-	for i := 0; i < rw.Len(); {
-		k, err := Index(rw, i, sep, true)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if k < 0 {
-			break
-		}
-		b2, err := rw.ReadNSliceAt(k, len(sep)+5)
-		fmt.Printf("found: %v, %v, %v\n", k, err, string(b2))
-		i = k + len(sep)
+	if i != 1 {
+		t.Fatal(i)
 	}
 }
 
-//----------
+func TestExpandIndex1(t *testing.T) {
+	s := "a 234 b"
+	rw := NewBytesReadWriter([]byte(s))
+	i := ExpandIndexFunc(rw, 3, true, unicode.IsSpace)
+	if i != 5 {
+		t.Fatal(i)
+	}
+	i = ExpandIndexFunc(rw, i+1, true, unicode.IsSpace)
+	if i != 7 {
+		t.Fatal(i)
+	}
+}
+
+func TestExpandLastIndex1(t *testing.T) {
+	s := "a 234 b"
+	rw := NewBytesReadWriter([]byte(s))
+	i := ExpandLastIndexFunc(rw, 3, true, unicode.IsSpace)
+	if i != 2 {
+		t.Fatal(i)
+	}
+	// repeat from same position
+	i = ExpandLastIndexFunc(rw, i, true, unicode.IsSpace)
+	if i != 2 {
+		t.Fatal(i)
+	}
+
+	i = ExpandLastIndexFunc(rw, i-1, true, unicode.IsSpace)
+	if i != 0 {
+		t.Fatal(i)
+	}
+}

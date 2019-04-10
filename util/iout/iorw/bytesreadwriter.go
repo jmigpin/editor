@@ -15,7 +15,10 @@ func NewBytesReadWriter(b []byte) *BytesReadWriter {
 	return &BytesReadWriter{buf: b}
 }
 
-func (rw *BytesReadWriter) Len() int {
+func (rw *BytesReadWriter) Min() int {
+	return 0
+}
+func (rw *BytesReadWriter) Max() int {
 	return len(rw.buf)
 }
 

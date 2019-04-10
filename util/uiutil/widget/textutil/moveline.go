@@ -14,7 +14,7 @@ func MoveLineUp(te *widget.TextEdit) error {
 		return err
 	}
 	// already at the first line
-	if a == 0 {
+	if a <= tc.RW().Min() {
 		return nil
 	}
 
@@ -68,7 +68,7 @@ func MoveLineDown(te *widget.TextEdit) error {
 		return err
 	}
 	// already at the last line
-	if !newline && b == tc.RW().Len() {
+	if !newline && b >= tc.RW().Max() {
 		return nil
 	}
 

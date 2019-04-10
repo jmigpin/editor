@@ -37,7 +37,7 @@ func Comment(tex *widget.TextEditX) error {
 		j, _, err := iorw.IndexFunc(rd, i, false, isSpaceExceptNewline)
 		if err != nil {
 			if err == io.EOF {
-				j = tc.RW().Len()
+				j = tc.RW().Max()
 			} else if err == iorw.ErrLimitReached {
 				j = i + max
 			} else {

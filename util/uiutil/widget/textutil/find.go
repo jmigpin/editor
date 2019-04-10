@@ -27,7 +27,7 @@ func Find(ctx context.Context, te *widget.TextEdit, str string) (bool, error) {
 
 func find2(ctx context.Context, tc *widget.TextCursor, b []byte) (int, error) {
 	ci := tc.Index()
-	l := tc.RW().Len()
+	l := tc.RW().Max()
 
 	// index to end
 	i, err := iorw.IndexCtx(ctx, tc.RW(), ci, b, true)

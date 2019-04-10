@@ -84,7 +84,7 @@ func findShortcut2(erow *ERow) error {
 		}
 	} else {
 		// insert find cmd
-		tbl := tb.TextCursor.RW().Len()
+		tbl := tb.TextCursor.RW().Max()
 		find := " | Find "
 		if err := tc.RW().Insert(tbl, []byte(find)); err != nil {
 			return err

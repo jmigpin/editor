@@ -97,7 +97,7 @@ func jumpLeftIndex(te *widget.TextEdit) (int, error) {
 	i, size, err := te.LastIndexFunc(tc.Index(), true, edgeOfNextWordOrNewline())
 	if err != nil {
 		if err == io.EOF {
-			i = 0
+			i = tc.RW().Min()
 		} else {
 			return 0, err
 		}
@@ -110,7 +110,7 @@ func jumpRightIndex(te *widget.TextEdit) (int, error) {
 	i, _, err := te.IndexFunc(tc.Index(), true, edgeOfNextWordOrNewline())
 	if err != nil {
 		if err == io.EOF {
-			i = tc.RW().Len()
+			i = tc.RW().Max()
 		} else {
 			return 0, err
 		}

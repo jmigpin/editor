@@ -567,7 +567,7 @@ func (d *Drawer) SetScrollOffset(o image.Point) {
 }
 
 func (d *Drawer) ScrollSize() image.Point {
-	return image.Point{0, d.reader.Len()}
+	return image.Point{0, d.reader.Max() - d.reader.Min()}
 }
 
 func (d *Drawer) ScrollViewSize() image.Point {
@@ -650,7 +650,7 @@ func (d *Drawer) RangeVisibleOffset(offset, length int) int {
 	//_, v2 := header1Visibility(d, offset+length)
 	switch v1 {
 	case fullyVisible:
-		return mathutil.Smallest(d.opt.runeO.offset, d.reader.Len())
+		return mathutil.Smallest(d.opt.runeO.offset, d.reader.Max())
 	case notVisible:
 		return d.visibleAtCenter(offset, length)
 	case topPartVisible, topNotVisible:
