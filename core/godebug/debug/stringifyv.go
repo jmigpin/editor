@@ -12,7 +12,11 @@ func stringifyV(v V) string {
 	case nil:
 		return "nil"
 	case rune:
-		str = fmt.Sprintf("(%q, %d)", t, t)
+		if t < 0 {
+			str = fmt.Sprintf("%d", t)
+		} else {
+			str = fmt.Sprintf("(%q,%d)", t, t)
+		}
 	case string, error:
 		//str = ReducedSprintf(max, "%q", t)
 		str = ReducedSprintf(max, "%s", t)
