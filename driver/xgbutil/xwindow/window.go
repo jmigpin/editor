@@ -172,7 +172,7 @@ func (win *Window) Close() {
 	win.closeOnce.Do(func() {
 		err := win.Img.Close()
 		if err != nil {
-			log.Print("%v", err)
+			log.Printf("%v", err)
 		}
 		win.Conn.Close()
 	})
