@@ -31,6 +31,7 @@ func main() {
 	scrollBarLeftFlag := flag.Bool("scrollbarleft", true, "set scrollbars on the left side")
 	colorThemeFlag := flag.String("colortheme", "light", "available: light, dark, acme")
 	commentsColorFlag := flag.Int("commentscolor", 0, "Colorize comments. Can be set to zero to use a percentage of the font color. Ex: 0=auto, 1=Black, 0xff0000=red.")
+	stringsColorFlag := flag.Int("stringscolor", 0, "Colorize strings. Can be set to zero to not colorize. Ex: 0xff0000=red.")
 	wrapLineRuneFlag := flag.Int("wraplinerune", int('←'), "code for wrap line rune, can be set to zero")
 	tabWidthFlag := flag.Int("tabwidth", 8, "")
 	shadowsFlag := flag.Bool("shadows", true, "shadow effects on some elements")
@@ -60,6 +61,7 @@ func main() {
 
 		ColorTheme:     *colorThemeFlag,
 		CommentsColor:  *commentsColorFlag,
+		StringsColor:   *stringsColorFlag,
 		ScrollBarWidth: *scrollBarWidthFlag,
 		ScrollBarLeft:  *scrollBarLeftFlag,
 		Shadows:        *shadowsFlag,

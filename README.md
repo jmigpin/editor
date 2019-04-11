@@ -18,7 +18,7 @@ Source code editor in pure Go.
 ## Features
 
 - Auto-indentation of wrapped lines.
-- No code coloring (except comments).
+- No code coloring (except comments and strings).
 - Many TextArea utilities: undo/redo, replace, comment, ...
 - Handles big files.
 - Start external processes from the toolbar with a click, capturing the output to a row. 
@@ -68,6 +68,8 @@ Usage of ./editor:
     	open existing session
   -shadows
     	shadow effects on some elements (default true)
+  -stringscolor int
+    	Colorize strings. Can be set to zero to not colorize. Ex: 0xff0000=red.
   -tabwidth int
     	 (default 8)
   -usemultikey

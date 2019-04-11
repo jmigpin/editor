@@ -20,6 +20,7 @@ var (
 	ScrollBarLeft             = true
 	ScrollBarWidth        int = 0 // 0=based on a portion of the font size
 	TextAreaCommentsColor color.Color
+	TextAreaStringsColor  color.Color
 )
 
 const (
@@ -33,6 +34,9 @@ func userPalette() widget.Palette {
 	pal := widget.Palette{}
 	if TextAreaCommentsColor != nil {
 		pal["text_colorize_comments_fg"] = TextAreaCommentsColor
+	}
+	if TextAreaStringsColor != nil {
+		pal["text_colorize_string_fg"] = TextAreaStringsColor
 	}
 	return pal
 }

@@ -359,6 +359,11 @@ func (ed *Editor) setupTheme(opt *Options) {
 		ui.TextAreaCommentsColor = imageutil.IntRGBA(opt.CommentsColor)
 	}
 
+	// color strings
+	if opt.StringsColor != 0 {
+		ui.TextAreaStringsColor = imageutil.IntRGBA(opt.StringsColor)
+	}
+
 	// font options
 	ui.TTFontOptions.Size = opt.FontSize
 	ui.TTFontOptions.DPI = opt.DPI
@@ -469,6 +474,7 @@ type Options struct {
 
 	ColorTheme     string
 	CommentsColor  int
+	StringsColor   int
 	ScrollBarWidth int
 	ScrollBarLeft  bool
 	Shadows        bool
