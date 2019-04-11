@@ -146,3 +146,14 @@ func TestExpandLastIndex1(t *testing.T) {
 		t.Fatal(i)
 	}
 }
+
+//----------
+
+func TestWordAtIndex(t *testing.T) {
+	s := "abc f"
+	rw := NewBytesReadWriter([]byte(s))
+	w, i, err := WordAtIndex(rw, 3)
+	if err == nil {
+		t.Fatalf("%v %v %v", w, i, err)
+	}
+}
