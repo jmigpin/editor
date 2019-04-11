@@ -16,30 +16,45 @@ import (
 	_ "github.com/jmigpin/editor/core/contentcmds"
 )
 
-func init() {
-	log.SetFlags(0)
-}
-
 func main() {
+	opt := &core.Options{}
+
 	// flags
+	flag.StringVar(&opt.Font, "font", "regular",
+		"font: regular, medium, mono, or a filename")
+	flag.Float64Var(&opt.FontSize, "fontsize", 12, "")
+	flag.StringVar(&opt.FontHinting, "fonthinting", "full",
+		"font hinting: none, vertical, full")
+	flag.Float64Var(&opt.DPI, "dpi", 72, "monitor dots per inch")
+
+	flag.IntVar(&opt.TabWidth, "tabwidth", 8, "")
+	flag.IntVar(&opt.WrapLineRune, "wraplinerune", int('←'),
+		"code for wrap line rune, can be set to zero")
+
+	flag.StringVar(&opt.ColorTheme, "colortheme", "light",
+		"available: light, dark, acme")
+	flag.IntVar(&opt.CommentsColor, "commentscolor", 0,
+		"Colorize comments. Can be set to zero to use a percentage of the font color. Ex: 0=auto, 1=Black, 0xff0000=red.")
+	flag.IntVar(&opt.StringsColor, "stringscolor", 0,
+		"Colorize strings. Can be set to zero to not colorize. Ex: 0xff0000=red.")
+	flag.IntVar(&opt.ScrollBarWidth, "scrollbarwidth", 0,
+		"Textarea scrollbar width in pixels. A value of 0 takes 3/4 of the font size.")
+	flag.BoolVar(&opt.ScrollBarLeft, "scrollbarleft", true,
+		"set scrollbars on the left side")
+	flag.BoolVar(&opt.Shadows, "shadows", true, "shadow effects on some elements")
+
+	flag.StringVar(&opt.SessionName, "sessionname", "", "open existing session")
+
+	flag.BoolVar(&opt.UseMultiKey, "usemultikey", false,
+		"use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)")
+
+	flag.StringVar(&opt.Plugins, "plugins", "",
+		"comma separated string of plugin filenames")
+
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
-	fontFlag := flag.String("font", "regular", "font: regular, medium, mono, or a filename")
-	fontSizeFlag := flag.Float64("fontsize", 12, "")
-	fontHintingFlag := flag.String("fonthinting", "full", "font hinting: none, vertical, full")
-	dpiFlag := flag.Float64("dpi", 72, "monitor dots per inch")
-	scrollBarWidthFlag := flag.Int("scrollbarwidth", 0, "Textarea scrollbar width in pixels. A value of 0 takes 3/4 of the font size.")
-	scrollBarLeftFlag := flag.Bool("scrollbarleft", true, "set scrollbars on the left side")
-	colorThemeFlag := flag.String("colortheme", "light", "available: light, dark, acme")
-	commentsColorFlag := flag.Int("commentscolor", 0, "Colorize comments. Can be set to zero to use a percentage of the font color. Ex: 0=auto, 1=Black, 0xff0000=red.")
-	stringsColorFlag := flag.Int("stringscolor", 0, "Colorize strings. Can be set to zero to not colorize. Ex: 0xff0000=red.")
-	wrapLineRuneFlag := flag.Int("wraplinerune", int('←'), "code for wrap line rune, can be set to zero")
-	tabWidthFlag := flag.Int("tabwidth", 8, "")
-	shadowsFlag := flag.Bool("shadows", true, "shadow effects on some elements")
-	sessionNameFlag := flag.String("sessionname", "", "open existing session")
-	useMultiKeyFlag := flag.Bool("usemultikey", false, "use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)")
-	pluginsFlag := flag.String("plugins", "", "comma separated string of plugin filenames")
 
 	flag.Parse()
+	opt.Filenames = flag.Args()
 
 	if *cpuProfileFlag != "" {
 		f, err := os.Create(*cpuProfileFlag)
@@ -50,30 +65,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	eopt := &core.Options{
-		Font:        *fontFlag,
-		FontSize:    *fontSizeFlag,
-		FontHinting: *fontHintingFlag,
-		DPI:         *dpiFlag,
-
-		TabWidth:     *tabWidthFlag,
-		WrapLineRune: *wrapLineRuneFlag,
-
-		ColorTheme:     *colorThemeFlag,
-		CommentsColor:  *commentsColorFlag,
-		StringsColor:   *stringsColorFlag,
-		ScrollBarWidth: *scrollBarWidthFlag,
-		ScrollBarLeft:  *scrollBarLeftFlag,
-		Shadows:        *shadowsFlag,
-
-		SessionName: *sessionNameFlag,
-		Filenames:   flag.Args(),
-
-		UseMultiKey: *useMultiKeyFlag,
-
-		Plugins: *pluginsFlag,
-	}
-	_, err := core.NewEditor(eopt)
+	_, err := core.NewEditor(opt)
 	if err != nil {
 		log.Fatal(err)
 	}
