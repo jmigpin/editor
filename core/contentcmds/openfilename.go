@@ -2,62 +2,52 @@ package contentcmds
 
 import (
 	"fmt"
-	"path/filepath"
+	"os"
 	"strings"
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 // Detects compilers output file format <string(:int)?(:int)?>, and goes to line/column.
 func OpenFilename(erow *core.ERow, index int) (bool, error) {
 	ta := erow.Row.TextArea
-
-	var str string
+	var rd iorw.Reader
 	considerMiddle := false
 	if ta.TextCursor.SelectionOn() {
-		s, err := ta.TextCursor.Selection()
-		if err != nil {
-			return false, err
-		}
-		str = string(s)
+		// consider only the selection
+		a, b := ta.TextCursor.SelectionIndexes()
+		rd = iorw.NewLimitedReader(ta.TextCursor.RW(), a, b, 0)
 	} else {
 		considerMiddle = true
-		max := 500
-		str = ta.Str()
-		li := parseutil.ExpandLastIndexOfFilenameFmt(str[:index], max)
-		if li < 0 {
-			return false, fmt.Errorf("failed to expand filename to the left")
-		}
-
-		// adjust to the found left index
-		str = str[li:]
-		index -= li
-
-		if len(str) > max {
-			str = str[:max]
-		}
+		// limit reading
+		rw := ta.TextCursor.RW()
+		rd = iorw.NewLimitedReader(rw, rw.Min(), rw.Max(), 1000)
 	}
 
-	filePos, err := parseutil.ParseFilePos(str)
+	res, err := parseutil.ParseResource(rd, index)
 	if err != nil {
 		return false, err
 	}
 
-	// detected it's a filename, return true from here
+	filePos := parseutil.NewFilePosFromResource(res)
 
-	// consider middle path (index position) if line and column are not present
+	// consider middle path (index position) if line/col are not present
 	if considerMiddle && filePos.Line == 0 && filePos.Column == 0 {
-		// if filename detection is short, update index
-		if len(filePos.Filename) < index {
-			index = len(filePos.Filename)
+		k := index - res.ExpandedMin
+		// index was beyond filename (/a/b/c.txt:1^:2)
+		if k > len(filePos.Filename) {
+			k = len(filePos.Filename)
 		}
-
-		i := strings.Index(filePos.Filename[index:], string(filepath.Separator))
+		// cut filename
+		i := strings.Index(filePos.Filename[k:], string(os.PathSeparator))
 		if i >= 0 {
-			filePos.Filename = filePos.Filename[:index+i]
+			filePos.Filename = filePos.Filename[:k+i]
 		}
 	}
+
+	// detected it's a filename, return true from here
 
 	// unescape filename
 	filePos.Filename = parseutil.UnescapeString(filePos.Filename)
