@@ -118,6 +118,18 @@ func TestParseResource17(t *testing.T) {
 	testParseResourceLineCol(t, s, 0, 0, 0)
 }
 
+func TestAddEscapes(t *testing.T) {
+	s := "a \\b"
+	s2 := AddEscapes(s, '\\', " \\")
+	if s2 != "a\\ \\\\b" {
+		t.Fatal()
+	}
+	s3 := RemoveEscapes(s2, '\\')
+	if s3 != s {
+		t.Fatal()
+	}
+}
+
 //----------
 
 func TestExpand1(t *testing.T) {

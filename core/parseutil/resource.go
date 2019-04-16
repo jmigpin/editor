@@ -111,7 +111,7 @@ func (p *ResParser) path() bool {
 
 		// filter
 		s = RemoveEscapes(s, p.escape)
-		s = CleanPathSepSequences(s, p.pathSep)
+		s = CleanMultiplePathSeps(s, p.pathSep)
 		p.res.Path = s
 
 		p.sc.Advance()
@@ -167,10 +167,10 @@ func (p *ResParser) lineCol() bool {
 
 //----------
 
-func AddEscapes(str string, escape rune, escapeSyms string) string {
+func AddEscapes(str string, escape rune, escapeRunes string) string {
 	w := []rune{}
 	for _, ru := range str {
-		if strings.ContainsRune(escapeSyms, ru) {
+		if strings.ContainsRune(escapeRunes, ru) {
 			w = append(w, escape)
 		}
 		w = append(w, ru)
@@ -197,7 +197,7 @@ func RemoveEscapes(str string, escape rune) string {
 
 //----------
 
-func CleanPathSepSequences(str string, sep rune) string {
+func CleanMultiplePathSeps(str string, sep rune) string {
 	w := []rune{}
 	added := false
 	for _, ru := range str {
