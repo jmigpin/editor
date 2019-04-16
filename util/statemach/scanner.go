@@ -138,7 +138,7 @@ func (sc *Scanner) Errorf(f string, args ...interface{}) error {
 	}
 
 	msg := fmt.Sprintf(f, args...)
-	return fmt.Errorf("%s: pos=%v [%v]", msg, sc.Pos, ctx)
+	return fmt.Errorf("%s: pos=%v %q", msg, sc.Pos, ctx)
 }
 
 //----------
@@ -257,6 +257,24 @@ func (p *Matcher) SpacesExceptNewline() bool {
 	})
 }
 
+func (p *Matcher) ExceptUnescapedSpaces(escape rune) bool {
+	pos := p.sc.Pos
+	notSpace := func(ru rune) bool { return !unicode.IsSpace(ru) }
+	for {
+		if p.End() {
+			break
+		}
+		if p.Escape(escape) {
+			continue
+		}
+		if p.Fn(notSpace) {
+			continue
+		}
+		break
+	}
+	return p.sc.Pos != pos
+}
+
 func (p *Matcher) ToNewlineOrEnd() {
 	_ = p.FnLoop(func(ru rune) bool {
 		return ru != '\n'
@@ -265,21 +283,17 @@ func (p *Matcher) ToNewlineOrEnd() {
 
 //----------
 
-func (p *Matcher) Quoted(validQuotes string, escape rune) bool {
+func (p *Matcher) Quoted(validQuotes string, escape rune, breakOnNewline bool, maxLen int) bool {
 	ru := p.sc.PeekRune()
 	if strings.ContainsRune(validQuotes, ru) {
-		if p.Quote(ru, escape) {
+		if p.Quote(ru, escape, breakOnNewline, maxLen) {
 			return true
 		}
 	}
 	return false
 }
 
-func (p *Matcher) Quote(quote rune, escape rune) bool {
-	return p.Quote2(quote, escape, false, -1)
-}
-
-func (p *Matcher) Quote2(quote rune, escape rune, breakOnNewline bool, maxLen int) bool {
+func (p *Matcher) Quote(quote rune, escape rune, breakOnNewline bool, maxLen int) bool {
 	return p.sc.RewindOnFalse(func() bool {
 		if !p.Rune(quote) {
 			return false

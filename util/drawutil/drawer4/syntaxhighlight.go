@@ -80,8 +80,8 @@ func (sh *SyntaxHighlight) normal() {
 			_ = sh.sc.ReadRune()
 		}
 		sh.sc.Advance()
-	case sh.sc.Match.Quote2('"', '\\', true, 500) ||
-		sh.sc.Match.Quote2('\'', '\\', true, 4):
+	case sh.sc.Match.Quote('"', '\\', true, 500) ||
+		sh.sc.Match.Quote('\'', '\\', true, 4):
 		op1 := &ColorizeOp{
 			Offset: sh.sc.Start,
 			Fg:     opt.String.Fg,

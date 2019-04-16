@@ -60,7 +60,7 @@ func TestScanQuote1(t *testing.T) {
 	r := iorw.NewBytesReadWriter([]byte(s))
 
 	sc := NewScanner(r)
-	if !sc.Match.Quote('"', '\\') {
+	if !sc.Match.Quote('"', '\\', false, 1000) {
 		t.Fatal()
 	}
 	s2 := sc.Value()
@@ -71,7 +71,7 @@ func TestScanQuote1(t *testing.T) {
 	// reset for 2nd test
 	sc.Start = 0
 	sc.Pos = 0
-	if !sc.Match.Quote('"', '\\') {
+	if !sc.Match.Quote('"', '\\', false, 1000) {
 		t.Fatal()
 	}
 	s3 := sc.Value()
@@ -84,7 +84,7 @@ func TestScanQuote2(t *testing.T) {
 	s := `"aa`
 	r := iorw.NewBytesReadWriter([]byte(s))
 	sc := NewScanner(r)
-	if sc.Match.Quote('"', '\\') {
+	if sc.Match.Quote('"', '\\', false, 1000) {
 		t.Fatal()
 	}
 	if sc.Pos != 0 {
