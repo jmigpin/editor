@@ -271,6 +271,7 @@ func ListSessions(ed *Editor) {
 
 	// concat opensession lines
 	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, "sessions: %d\n", len(u))
 	for _, sname := range u {
 		fmt.Fprintf(buf, "OpenSession %v\n", sname)
 	}

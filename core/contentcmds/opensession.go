@@ -5,34 +5,84 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/core"
-	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/statemach"
 )
 
 func OpenSession(erow *core.ERow, index int) (bool, error) {
 	ta := erow.Row.TextArea
 
-	// cmd/sessionname runes
-	nameRune := func(ru rune) bool {
-		return unicode.IsLetter(ru) ||
-			unicode.IsDigit(ru) ||
-			strings.ContainsRune("_-.", ru)
-	}
+	// limit reading
+	rw := ta.TextCursor.RW()
+	rd := iorw.NewLimitedReader(rw, index, index, 1000)
 
-	// match cmd
-	cmd := "OpenSession"
-	cmdSpace := cmd + " "
-	k := parseutil.ExpandLastIndexFunc(ta.Str()[:index], 50, false, nameRune)
-	str := ta.Str()[k:]
-	if !strings.HasPrefix(str, cmdSpace) {
+	sname, err := sessionName(rd, index)
+	if err != nil {
 		return false, nil
 	}
-
-	// match session name
-	str2 := str[len(cmdSpace):]
-	u := parseutil.ExpandIndexFunc(str2, 50, false, nameRune)
-	sname := str2[:u]
 
 	core.OpenSessionFromString(erow.Ed, sname)
 
 	return true, nil
+}
+
+func sessionName(rd iorw.Reader, index int) (string, error) {
+	sc := statemach.NewScanner(rd)
+	sc.SetStartPos(index)
+
+	// index at: "OpenSe|ssion sessionname"
+	sc.Reverse = true
+	_ = sc.Match.FnLoop(sessionNameRune)
+	sc.Reverse = false
+
+	// index at: "|OpenSession sessionname"
+	sname, err := readCmdSessionName(sc)
+	if err == nil {
+		// found
+		return sname, nil
+	}
+
+	// index at: "OpenSession |sessionname"
+	sc.Reverse = true
+	if !sc.Match.Rune(' ') {
+		return "", sc.Errorf("space")
+	}
+	_ = sc.Match.FnLoop(sessionNameRune)
+	sc.Reverse = false
+
+	// index at: "|OpenSession sessionname"
+	sname, err = readCmdSessionName(sc)
+	if err == nil {
+		// found
+		return sname, nil
+	}
+
+	return "", sc.Errorf("not found")
+}
+
+func readCmdSessionName(sc *statemach.Scanner) (string, error) {
+	var err error
+	ok := sc.RewindOnFalse(func() bool {
+		cmd := "OpenSession"
+		if !sc.Match.Sequence(cmd + " ") {
+			err = sc.Errorf("cmd")
+			return false
+		}
+		sc.Advance()
+		if !sc.Match.FnLoop(sessionNameRune) {
+			err = sc.Errorf("sessionname")
+			return false
+		}
+		return true
+	})
+	if !ok {
+		return "", err
+	}
+	return sc.Value(), nil
+}
+
+func sessionNameRune(ru rune) bool {
+	return unicode.IsLetter(ru) ||
+		unicode.IsDigit(ru) ||
+		strings.ContainsRune("_-.", ru)
 }
