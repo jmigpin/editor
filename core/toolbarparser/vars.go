@@ -1,13 +1,13 @@
 package toolbarparser
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/statemach"
 )
@@ -17,10 +17,10 @@ import (
 func ParseVars(data *Data) VarMap {
 	m := VarMap{}
 	for _, part := range data.Parts {
-		if len(part.Args) == 0 {
+		if len(part.Args) != 1 { // must have 1 arg
 			continue
 		}
-		str := part.Args[0].Str()
+		str := part.Args[0].Str() // parse first arg only
 		v, err := ParseVar(str)
 		if err != nil {
 			continue
@@ -37,103 +37,106 @@ type Var struct {
 }
 
 func ParseVar(str string) (*Var, error) {
-	sm := statemach.NewString(str)
-	ru := sm.Peek()
+	rd := iorw.NewBytesReadWriter([]byte(str))
+	sc := statemach.NewScanner(rd)
+	ru := sc.PeekRune()
 	switch ru {
 	case '~':
-		return parseVar1(sm)
+		return parseTildeVar(sc)
 	case '$':
-		return parseVar2(sm)
+		return parseDollarVar(sc)
 	}
 	return nil, fmt.Errorf("unexpected rune: %v", ru)
 }
 
 //----------
 
-func parseVar1(sm *statemach.String) (*Var, error) {
+func parseTildeVar(sc *statemach.Scanner) (*Var, error) {
 	// name
-	if !sm.AcceptAny("~") {
-		return nil, errors.New("expecting ~")
+	if !sc.Match.Sequence("~") {
+		return nil, sc.Errorf("name")
 	}
-	if !sm.AcceptInt() {
-		return nil, errors.New("expecting int")
+	if !sc.Match.Int() {
+		return nil, sc.Errorf("name")
 	}
-	name := sm.Value()
-	sm.Advance()
-
-	// assign
-	if !sm.AcceptAny("=") {
-		return nil, errors.New("expecting =")
+	name := sc.Value()
+	sc.Advance()
+	// assign (must have)
+	if !sc.Match.Any("=") {
+		return nil, sc.Errorf("assign")
 	}
-	sm.Advance()
-
-	// value
-	var value string
-	if sm.AcceptQuoteLoop(parseutil.QuoteRunes, osutil.EscapeRunes) {
-		v := sm.Value()
-		sm.Advance()
-		s, err := strconv.Unquote(v)
-		if err != nil {
-			return nil, err
-		}
-		value = s
-	} else {
-		u, ok := parseutil.AcceptAdvanceFilename(sm)
-		if !ok {
-			return nil, errors.New("unable to get value")
-		}
-		value = u
+	sc.Advance()
+	// value (must have)
+	v, err := parseVarValue(sc, false)
+	if err != nil {
+		return nil, err
+	}
+	// end
+	_ = sc.Match.Spaces()
+	if !sc.Match.End() {
+		return nil, sc.Errorf("not at end")
 	}
 
-	v := &Var{Name: name, Value: value}
-	return v, nil
+	w := &Var{Name: name, Value: v}
+	return w, nil
 }
 
 //----------
 
-func parseVar2(sm *statemach.String) (*Var, error) {
+func parseDollarVar(sc *statemach.Scanner) (*Var, error) {
 	// name
-	if !sm.AcceptAny("$") {
-		return nil, errors.New("expecting $")
+	if !sc.Match.Sequence("$") {
+		return nil, sc.Errorf("name")
 	}
-	if !sm.AcceptId() {
-		return nil, errors.New("expecting id")
+	if !sc.Match.Id() {
+		return nil, sc.Errorf("name")
 	}
-	name := sm.Value()
-	sm.Advance()
+	name := sc.Value()
+	sc.Advance()
 
-	// assign
-	if !sm.AcceptAny("=") {
-		// allow form "$name" without assign (booleans)
-		_ = sm.AcceptSpace()
-		if sm.AcceptEnd() {
-			return &Var{Name: name}, nil
-		}
+	w := &Var{Name: name}
 
-		return nil, errors.New("expecting =")
+	// assign (optional)
+	if !sc.Match.Any("=") {
+		return w, nil
 	}
-	sm.Advance()
+	sc.Advance()
+	// value (optional)
+	value, err := parseVarValue(sc, true)
+	if err != nil {
+		return nil, err
+	}
+	w.Value = value
+	// end
+	_ = sc.Match.Spaces()
+	if !sc.Match.End() {
+		return nil, sc.Errorf("not at end")
+	}
 
-	// value
-	var value string
-	if sm.AcceptQuoteLoop(parseutil.QuoteRunes, osutil.EscapeRunes) {
-		v := sm.Value()
-		sm.Advance()
-		s, err := strconv.Unquote(v)
+	return w, nil
+}
+
+//----------
+
+func parseVarValue(sc *statemach.Scanner, allowEmpty bool) (string, error) {
+	if sc.Match.Quoted("\"'", osutil.EscapeRune, true, 1000) {
+		v := sc.Value()
+		sc.Advance()
+		u, err := strconv.Unquote(v)
 		if err != nil {
-			return nil, err
+			return "", sc.Errorf("unquote: %v", err)
 		}
-		value = s
+		return u, nil
 	} else {
-		u, ok := parseutil.AcceptAdvanceFilename(sm)
-		if !ok {
-			return nil, errors.New("unable to get value")
+		if !sc.Match.ExceptUnescapedSpaces(osutil.EscapeRune) {
+			if !allowEmpty {
+				return "", sc.Errorf("value")
+			}
 		}
-		value = u
+		v := sc.Value()
+		sc.Advance()
+		return v, nil
 	}
-
-	v := &Var{Name: name, Value: value}
-	return v, nil
 }
 
 //----------
@@ -171,7 +174,7 @@ func encodeVars(f string, m VarMap) string {
 //----------
 
 func DecodeVars(f string, m VarMap) string {
-	return parseutil.UnescapeString(decodeVars(f, m))
+	return parseutil.RemoveEscapes(decodeVars(f, m), osutil.EscapeRune)
 }
 func decodeVars(f string, m VarMap) string {
 	f = filepath.Clean(f)

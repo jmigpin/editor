@@ -135,3 +135,59 @@ func TestParseParts11(t *testing.T) {
 		t.Fatal(spew.Sdump(d))
 	}
 }
+
+func TestParseParts12(t *testing.T) {
+	s := `aa"bbb|"ccc`
+	d := Parse(s)
+	if !(len(d.Parts) == 1 &&
+		len(d.Parts[0].Args) == 1) {
+		t.Fatal(spew.Sdump(d))
+	}
+}
+
+func TestParseParts13(t *testing.T) {
+	s := `aa"bbb|ccc`
+	d := Parse(s)
+	if !(len(d.Parts) == 2 &&
+		len(d.Parts[0].Args) == 1 &&
+		len(d.Parts[1].Args) == 1) {
+		t.Fatal(spew.Sdump(d))
+	}
+}
+
+func TestParseParts14(t *testing.T) {
+	s := `a\ b|c`
+	d := Parse(s)
+	if !(len(d.Parts) == 2 &&
+		len(d.Parts[0].Args) == 1 &&
+		len(d.Parts[1].Args) == 1) {
+		t.Fatal(spew.Sdump(d))
+	}
+}
+
+func TestParseParts15(t *testing.T) {
+	s := "aa\"bbb\n|\"ccc" // double quote doesn't accept newline
+	d := Parse(s)
+	if !(len(d.Parts) == 3 &&
+		len(d.Parts[0].Args) == 1 &&
+		len(d.Parts[1].Args) == 0 &&
+		len(d.Parts[2].Args) == 1) {
+		t.Fatal(spew.Sdump(d))
+	}
+}
+
+func TestParseParts16(t *testing.T) {
+	s := "a\\ aa\\|aa|bb"
+	d := Parse(s)
+	if len(d.Parts) != 2 {
+		t.Fatal()
+	}
+	str1 := d.Parts[0].Str()
+	if str1 != "a\\ aa\\|aa" {
+		t.Fatal()
+	}
+	str2 := d.Parts[1].Str()
+	if str2 != "bb" {
+		t.Fatal()
+	}
+}

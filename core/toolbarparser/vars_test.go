@@ -15,6 +15,14 @@ func TestParseVar1(t *testing.T) {
 	}
 }
 
+func TestParseVar1_2(t *testing.T) {
+	s1 := "~1" // value can't be empty
+	_, err := ParseVar(s1)
+	if err == nil {
+		t.Fatal(err)
+	}
+}
+
 //----------
 
 func TestParseVar2(t *testing.T) {
