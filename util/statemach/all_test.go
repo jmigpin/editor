@@ -41,7 +41,7 @@ func TestScan2(t *testing.T) {
 	}
 
 	// revert direction
-	sc.RevertReadDirection()
+	sc.Reverse = true
 	if !sc.Match.Sequence(":aaa") {
 		t.Fatal()
 	}
@@ -105,7 +105,7 @@ func TestEscape2(t *testing.T) {
 	s := `a\\\\ `
 	r := iorw.NewBytesReadWriter([]byte(s))
 	sc := NewScanner(r)
-	sc.RevertReadDirection()
+	sc.Reverse = true
 	sc.Pos = r.Max()
 	if sc.Match.Escape('\\') || sc.Pos != 6 {
 		t.Fatal(sc.Pos)
@@ -115,7 +115,7 @@ func TestEscape3(t *testing.T) {
 	s := `a\\\ `
 	r := iorw.NewBytesReadWriter([]byte(s))
 	sc := NewScanner(r)
-	sc.RevertReadDirection()
+	sc.Reverse = true
 	sc.Pos = r.Max()
 	if !sc.Match.Escape('\\') || sc.Pos != 3 {
 		t.Fatal(sc.Pos)
@@ -125,7 +125,7 @@ func TestEscape4(t *testing.T) {
 	s := `\\\ `
 	r := iorw.NewBytesReadWriter([]byte(s))
 	sc := NewScanner(r)
-	sc.RevertReadDirection()
+	sc.Reverse = true
 	sc.Pos = r.Max()
 	if !sc.Match.Escape('\\') || sc.Pos != 2 {
 		t.Fatal(sc.Pos)
