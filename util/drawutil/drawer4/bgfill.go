@@ -19,7 +19,11 @@ func (bgf *BgFill) Iter() {
 func (bgf *BgFill) iter2() {
 	// skip draw
 	if bgf.d.st.runeR.ru < 0 {
-		return
+		if bgf.d.st.runeR.ru == eofRune {
+			// allow painting line at eof position
+		} else {
+			return
+		}
 	}
 
 	st := &bgf.d.st.curColors
