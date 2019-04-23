@@ -1,50 +1,45 @@
 package parseutil
 
-import (
-	"strings"
-	"unicode"
+//----------
 
-	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/statemach"
-)
+//func isFilenameRune(ru rune) bool {
+//	return unicode.IsLetter(ru) || unicode.IsDigit(ru) ||
+//		strings.ContainsRune(`_/~\-\.\\^ `, ru)
+//}
 
 //----------
 
-func isFilenameRune(ru rune) bool {
-	return unicode.IsLetter(ru) || unicode.IsDigit(ru) ||
-		strings.ContainsRune(`_/~\-\.\\^ `, ru)
-}
+// TODO: CLEAR****
+
+//func EscapeFilename(str string) string {
+//	return AddEscapes(str, osutil.EscapeRune, osutil.FilenameEscapeRunes)
+
+//	//	w := []rune{}
+//	//	for _, ru := range str {
+//	//		if strings.ContainsRune(osutil.FilenameEscapeRunes, ru) {
+//	//			w = append(w, osutil.EscapeRune)
+//	//		}
+//	//		w = append(w, ru)
+//	//	}
+//	//	return string(w)
+//}
 
 //----------
 
-func EscapeFilename(str string) string {
-	w := []rune{}
-	for _, ru := range str {
-		if strings.ContainsRune(osutil.FilenameEscapeRunes, ru) {
-			w = append(w, osutil.EscapeRune)
-		}
-		w = append(w, ru)
-	}
-	return string(w)
-}
-
-//----------
-
-func AcceptAdvanceFilename(s *statemach.String) (string, bool) {
-	r := s.AcceptLoopFn(func(ru rune) bool {
-		if s.AcceptEscape2(ru, osutil.EscapeRunes) {
-			return true
-		}
-		return isFilenameRune(ru)
-	})
-	if !r {
-		return "", false
-	}
-	filename := s.Value()
-	s.Advance()
-	return filename, true
-}
+//func AcceptAdvanceFilename(s *statemach.String) (string, bool) {
+//	r := s.AcceptLoopFn(func(ru rune) bool {
+//		if s.AcceptEscape2(ru, osutil.EscapeRunes) {
+//			return true
+//		}
+//		return isFilenameRune(ru)
+//	})
+//	if !r {
+//		return "", false
+//	}
+//	filename := s.Value()
+//	s.Advance()
+//	return filename, true
+//}
 
 //----------
 
@@ -84,36 +79,36 @@ func AcceptAdvanceFilename(s *statemach.String) (string, bool) {
 
 //----------
 
-type FilePos struct {
-	Filename     string
-	Offset, Len  int // length after offset for a range
-	Line, Column int // bigger than zero to be considered
-}
+//type FilePos struct {
+//	Filename     string
+//	Offset, Len  int // length after offset for a range
+//	Line, Column int // bigger than zero to be considered
+//}
 
-func (fp *FilePos) HasOffset() bool {
-	return fp.Line == 0
-}
+//func (fp *FilePos) HasOffset() bool {
+//	return fp.Line == 0
+//}
 
-//----------
+////----------
 
-// Parse fmt: <filename:line?:col?>. Accepts escapes but doesn't unescape.
-func ParseFilePos(str string) (*FilePos, error) {
-	rw := iorw.NewBytesReadWriter([]byte(str))
-	res, err := ParseResource(rw, 0)
-	if err != nil {
-		return nil, err
-	}
-	return NewFilePosFromResource(res), nil
-}
+//// Parse fmt: <filename:line?:col?>. Accepts escapes but doesn't unescape.
+//func ParseFilePos(str string) (*FilePos, error) {
+//	rw := iorw.NewBytesReadWriter([]byte(str))
+//	res, err := ParseResource(rw, 0)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return NewFilePosFromResource(res), nil
+//}
 
-func NewFilePosFromResource(res *Resource) *FilePos {
-	return &FilePos{
-		Offset:   -1,
-		Filename: res.RawPath,
-		Line:     res.Line,
-		Column:   res.Column,
-	}
-}
+//func NewFilePosFromResource(res *Resource) *FilePos {
+//	return &FilePos{
+//		Offset:   -1,
+//		Filename: res.RawPath,
+//		Line:     res.Line,
+//		Column:   res.Column,
+//	}
+//}
 
 //func ParseFilePos_(str string) (*FilePos, error) {
 //	s := statemach.NewString(str)

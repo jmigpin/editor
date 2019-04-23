@@ -10,6 +10,8 @@ import (
 	"github.com/jmigpin/editor/util/statemach"
 )
 
+// parsed formats:
+// 	<filename:line?:col?>
 type Resource struct {
 	Path         string
 	RawPath      string
@@ -18,15 +20,10 @@ type Resource struct {
 	ExpandedMin, ExpandedMax int
 }
 
-func ParseResourceStr(str string, index int) (*Resource, error) {
-	rw := iorw.NewBytesReadWriter([]byte(str))
-	return ParseResource(rw, index)
-}
-
 func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
 	escape := osutil.EscapeRune
 
-	l, r := ExpandResourceIndexes(rd, index, escape)
+	l, r := ExpandIndexesEscape(rd, index, false, isResourceRune, escape)
 
 	res := &Resource{ExpandedMin: l, ExpandedMax: r}
 
@@ -37,18 +34,6 @@ func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
 		return nil, err
 	}
 	return res, nil
-}
-
-//----------
-
-func ExpandResourceIndexes(rd iorw.Reader, index int, escape rune) (int, int) {
-	// ensure the index is not in the middle of an escape
-	index = ImproveExpandIndexEscape(rd, index, escape)
-
-	fn := isResourceRuneNoSpace
-	l := ExpandLastIndexEscape(rd, index, false, fn, escape)
-	r := ExpandIndexEscape(rd, index, false, fn, escape)
-	return l, r
 }
 
 //----------
@@ -122,7 +107,7 @@ func (p *ResParser) path() bool {
 
 func (p *ResParser) pathItem() bool {
 	return p.sc.RewindOnFalse(func() bool {
-		isPathItemRune := isPathItemRuneFn(p.escape)
+		isPathItemRune := isPathItemRuneFn(p.escape, p.pathSep)
 		for p.sc.Match.Escape(p.escape) ||
 			p.sc.Match.Fn(isPathItemRune) {
 		}
@@ -167,36 +152,6 @@ func (p *ResParser) lineCol() bool {
 
 //----------
 
-func AddEscapes(str string, escape rune, escapeRunes string) string {
-	w := []rune{}
-	for _, ru := range str {
-		if strings.ContainsRune(escapeRunes, ru) {
-			w = append(w, escape)
-		}
-		w = append(w, ru)
-	}
-	return string(w)
-}
-
-func RemoveEscapes(str string, escape rune) string {
-	w := []rune{}
-	esc := false
-	for _, ru := range str {
-		if !esc {
-			if ru == escape {
-				esc = true
-				continue
-			}
-		} else {
-			esc = false
-		}
-		w = append(w, ru)
-	}
-	return string(w)
-}
-
-//----------
-
 func CleanMultiplePathSeps(str string, sep rune) string {
 	w := []rune{}
 	added := false
@@ -216,85 +171,57 @@ func CleanMultiplePathSeps(str string, sep rune) string {
 
 //----------
 
-func isResourceRuneNoSpace(ru rune) bool {
-	// not present: {space} must be escaped
+var ExtraRunes = `_-~.%@&?=#` + `\\^` + `/` + ` ` + `()[]{}<>` + `:`
+
+var ResourceExtraRunes = RunesExcept(ExtraRunes, ""+
+	" "+ // space must be escaped
+	"()[]<>"+ // usually used around filenames in various outputs
+	"")
+
+var PathItemExtraRunes = RunesExcept(ExtraRunes, ""+
+	" "+ // space must be escaped
+	"()[]<>"+ // usually used around filenames in various outputs
+	":"+ // line/column
+	"")
+
+//----------
+
+func isResourceRune(ru rune) bool {
 	return unicode.IsLetter(ru) || unicode.IsDigit(ru) ||
-		strings.ContainsRune(`\\`+`_-/~.%^@:&?=#`, ru)
+		strings.ContainsRune(ResourceExtraRunes, ru)
 }
 
-func isPathItemRuneFn(escape rune) func(ru rune) bool {
-	// not present (must be escaped)
-	//	space (word sep)
-	//	: (line/col)
-	//  	()[]<> (usually used around filenames in various outputs)
-	// 	\ and ^ (possible escape runes)
-	extra := string(extraNonEscapeRunes(escape))
+func isPathItemRuneFn(escape, pathSep rune) func(ru rune) bool {
+	// must be escaped:
+	// 	escape: must be escaped
+	// 	pathSeparator: not part of path item
+	runes := RunesExcept(PathItemExtraRunes, string(escape)+string(pathSep))
+
+	// return function
 	return func(ru rune) bool {
 		return unicode.IsLetter(ru) || unicode.IsDigit(ru) ||
-			strings.ContainsRune(`_-/~.%@&?=#`+extra, ru)
+			strings.ContainsRune(runes, ru)
 	}
 }
 
-func extraNonEscapeRunes(escape rune) []rune {
-	possibleEscapes := "\\^" // possible escape runes
-	w := []rune{}
-	for _, ru := range possibleEscapes {
-		if ru != escape {
-			w = append(w, ru)
-		}
-	}
-	return w
+func EscapeFilename(str string) string {
+	// windows note: if ':' is escaped, then it might have problems parsing compiler output lines with line/col. This way the volume name (ex: "C://") needs an escape (ex: "C^://") and parsing <filename:line:col> works.
+
+	escape := osutil.EscapeRune
+	mustBeEscaped := " ()[]<>:" + string(escape)
+	return AddEscapes(str, escape, mustBeEscaped)
 }
 
 //----------
 
-func ImproveExpandIndexEscape(r iorw.Reader, i int, escape rune) int {
-	sc := statemach.NewScanner(r)
-	sc.Pos = i
-	sc.RevertReadDirection()
-	for {
-		if sc.Match.End() {
-			break
+func RunesExcept(runes, except string) string {
+	drop := func(ru rune) rune {
+		if strings.ContainsRune(except, ru) {
+			return -1
 		}
-		if sc.Match.Rune(escape) {
-			continue
-		}
-		break
+		return ru
 	}
-	return sc.Pos
-}
-
-//----------
-
-func ExpandIndexEscape(r iorw.Reader, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc := statemach.NewScanner(r)
-	sc.Pos = i
-	return expandEscape(sc, truth, fn, escape)
-}
-
-func ExpandLastIndexEscape(r iorw.Reader, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc := statemach.NewScanner(r)
-	sc.Pos = i
-	sc.RevertReadDirection()
-	return expandEscape(sc, truth, fn, escape)
-}
-
-func expandEscape(sc *statemach.Scanner, truth bool, fn func(rune) bool, escape rune) int {
-	for {
-		if sc.Match.End() {
-			break
-		}
-		if sc.Match.Escape(escape) {
-			continue
-		}
-		u := sc.Pos
-		ru := sc.ReadRune()
-		if fn(ru) == truth {
-			sc.Pos = u
-			break
-		}
-	}
-	return sc.Pos
+	return strings.Map(drop, runes)
 }
 
 //----------
