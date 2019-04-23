@@ -274,6 +274,7 @@ func (d *Drawer) limitedReaderPadSpace(offset int) iorw.Reader {
 func (d *Drawer) ContentChanged() {
 	d.opt.measure.updated = false
 	d.opt.syntaxH.updated = false
+	d.opt.wordH.updatedWord = false
 	d.opt.wordH.updatedOps = false
 	d.opt.parenthesisH.updated = false
 }
