@@ -8,33 +8,42 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
-// Opens OpenURL/https lines in preferred application.
+// Opens url lines in preferred application.
 func OpenURL(erow *core.ERow, index int) (bool, error) {
 	ta := erow.Row.TextArea
 
 	isHttpRune := func(ru rune) bool {
-		return unicode.IsLetter(ru) ||
-			unicode.IsDigit(ru) ||
-			strings.ContainsRune("_\\-\\.\\\\/~&:#@", ru)
+		extra := parseutil.RunesExcept(parseutil.ExtraRunes, " []()<>")
+		return unicode.IsLetter(ru) || unicode.IsDigit(ru) ||
+			strings.ContainsRune(extra, ru)
 	}
 
-	max := 250
-	str := ta.Str()
-	ri := parseutil.ExpandIndexFunc(str[index:], max, false, isHttpRune) + index
-	li := parseutil.ExpandLastIndexFunc(str[:index], max, false, isHttpRune)
-	str = str[li:ri]
+	rd := iorw.NewLimitedReader(ta.TextCursor.RW(), index, index, 1000)
+	l, r := parseutil.ExpandIndexesEscape(rd, index, false, isHttpRune, osutil.EscapeRune)
+
+	b, err := rd.ReadNSliceAt(l, r-l)
+	if err != nil {
+		return false, nil
+	}
+	str := string(b)
 
 	u, err := url.Parse(str)
 	if err != nil {
 		return false, nil
 	}
-	if !(u.Scheme == "http" || u.Scheme == "https") {
+	if u.Scheme == "" {
 		return false, nil
 	}
 
-	c := exec.Command("xdg-open", u.String())
+	ustr := u.String()
+	args := []string{"xdg-open", ustr}
+	erow.Ed.Messagef("openurl:\n\t%v", strings.Join(args, " "))
+
+	c := exec.Command(args[0], args[1:]...)
 	if err := c.Start(); err != nil {
 		return true, err
 	}
