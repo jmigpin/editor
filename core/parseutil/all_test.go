@@ -201,19 +201,17 @@ func TestIndexLineColumn2(t *testing.T) {
 	}
 }
 
-//----------
-
-//func TestLineColumnIndex1(t *testing.T) {
-//	s := "123\n123\n123"
-//	rw := iorw.NewBytesReadWriter([]byte(s))
-//	l, c, err := LineColumnIndex(rw, rw.Max())
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//	if l != 3 || c != 4 {
-//		t.Fatal(l, c)
-//	}
-//}
+func TestLineColumnIndex1(t *testing.T) {
+	s := "123\n123\n123"
+	rw := iorw.NewBytesReadWriter([]byte(s))
+	i, err := LineColumnIndex(rw, 3, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i != 8 { // beginning of line
+		t.Fatal(i, rw.Max())
+	}
+}
 
 //----------
 

@@ -153,9 +153,11 @@ func LineColumnIndex(rd iorw.Reader, line, column int) (int, error) {
 	ri := 0
 	for {
 		if l == line {
-			index = ri
+			index = lStart // keep line start in case it is a bad col
+
 			c := ri - lStart
 			if c >= column {
+				index = ri // keep line/col
 				break
 			}
 		} else if l > line {
@@ -164,6 +166,10 @@ func LineColumnIndex(rd iorw.Reader, line, column int) (int, error) {
 
 		ru, size, err := rd.ReadRuneAt(ri)
 		if err != nil {
+			// be tolerant about the column
+			if index >= 0 {
+				return index, nil
+			}
 			return 0, err
 		}
 		ri += size
