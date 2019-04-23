@@ -8,6 +8,7 @@ import (
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 // Detects compilers output file format <string(:int)?(:int)?>, and goes to line/column.
@@ -23,7 +24,7 @@ func OpenFilename(erow *core.ERow, index int) (bool, error) {
 		considerMiddle = true
 		// limit reading
 		rw := ta.TextCursor.RW()
-		rd = iorw.NewLimitedReader(rw, rw.Min(), rw.Max(), 1000)
+		rd = iorw.NewLimitedReader(rw, index, index, 1000)
 	}
 
 	res, err := parseutil.ParseResource(rd, index)
@@ -49,8 +50,8 @@ func OpenFilename(erow *core.ERow, index int) (bool, error) {
 
 	// detected it's a filename, return true from here
 
-	// unescape filename
-	filePos.Filename = parseutil.UnescapeString(filePos.Filename)
+	// remove escapes
+	filePos.Filename = parseutil.RemoveEscapes(filePos.Filename, osutil.EscapeRune)
 
 	// find full filename
 	filename, fi, ok := core.FindFileInfo(filePos.Filename, erow.Info.Dir())
