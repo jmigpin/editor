@@ -96,6 +96,13 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		cmd.Stderr = w
 		osutil.SetupExecCmdSysProcAttr(cmd)
 
+		// TODO: pty tests
+		//f, err := pty.Start(cmd)
+		//if err != nil {
+		//	return err
+		//}
+		//cmd.Stdin = f
+
 		// run command
 		err := cmd.Start()
 		if err != nil {
@@ -110,6 +117,7 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 			}
 		}()
 
+		// TODO: ensure first output is pid with altered writer
 		// output pid
 		fmt.Fprintf(w, "# pid %d\n", cmd.Process.Pid)
 
@@ -161,7 +169,7 @@ func shellCmdPartArgsStr(part *toolbarparser.Part) []string {
 	var u []string
 	for _, a := range part.Args {
 		s := a.Str()
-		s = parseutil.UnescapeRunes(s, "|")
+		s = parseutil.RemoveEscapesEscapable(s, osutil.EscapeRune, "|")
 		u = append(u, s)
 	}
 	return u
