@@ -33,11 +33,7 @@ func (sh *SyntaxHighlight) do(distBack int) []*ColorizeOp {
 	// limit reading to be able to handle big content
 	o, n, _, _ := sh.d.visibleLen()
 	min, max := o, o+n
-	min -= distBack
-	if min < sh.d.reader.Min() {
-		min = sh.d.reader.Min()
-	}
-	r := iorw.NewLimitedReader(sh.d.reader, min, max, 0)
+	r := iorw.NewLimitedReader(sh.d.reader, min-distBack, max, 0)
 
 	sh.sc = statemach.NewScanner(r)
 	sh.sc.Advance()
@@ -82,6 +78,10 @@ func (sh *SyntaxHighlight) normal() {
 		sh.sc.Advance()
 	case sh.sc.Match.Quote('"', '\\', true, 500) ||
 		sh.sc.Match.Quote('\'', '\\', true, 4):
+
+		// unable to support multiline comments (Ex: Go backquotes) since the whole file is not parsed, just a section.
+		// Also, in the case of Go backquotes, probably only .go files should support them.
+
 		op1 := &ColorizeOp{
 			Offset: sh.sc.Start,
 			Fg:     opt.String.Fg,
