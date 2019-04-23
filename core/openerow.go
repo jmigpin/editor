@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/pkg/errors"
 )
 
@@ -45,7 +46,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	// helper func: cache for LineColumnIndex
 	lciVal := 0
 	lciDone := false
-	cacheLineColumnIndex := func(str string) int {
+	cacheLineColumnIndex := func(rd iorw.Reader) int {
 		if lciDone {
 			return lciVal
 		}
@@ -53,7 +54,12 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		if conf.FilePos.Line == 0 { // missing line/col, should be ">=1"
 			lciVal = -1
 		} else {
-			lciVal = parseutil.LineColumnIndex(str, conf.FilePos.Line, conf.FilePos.Column)
+			u, err := parseutil.LineColumnIndex(rd, conf.FilePos.Line, conf.FilePos.Column)
+			if err != nil {
+				lciVal = -1
+			} else {
+				lciVal = u
+			}
 		}
 		return lciVal
 	}
@@ -65,8 +71,8 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 				return conf.FilePos.Offset
 			}
 			if len(info.ERows) > 0 {
-				str := info.ERows[0].Row.TextArea.Str()
-				return cacheLineColumnIndex(str)
+				ta := info.ERows[0].Row.TextArea
+				return cacheLineColumnIndex(ta.TextCursor.RW())
 			}
 		}
 		return -1

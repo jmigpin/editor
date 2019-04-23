@@ -361,7 +361,11 @@ func CopyFilePositionCmd(erow *ERow) error {
 
 	ta := erow.Row.TextArea
 	ci := ta.TextCursor.Index()
-	line, col := parseutil.IndexLineColumn(ta.Str()[:ci])
+	rd := ta.TextCursor.RW()
+	line, col, err := parseutil.IndexLineColumn(rd, ci)
+	if err != nil {
+		return err
+	}
 
 	s := fmt.Sprintf("copyfileposition:\n\t%v:%v:%v", erow.Info.Name(), line, col)
 	erow.Ed.Messagef(s)
@@ -406,9 +410,9 @@ func GotoLineCmd(erow *ERow, part *toolbarparser.Part) error {
 	line := int(line0)
 
 	ta := erow.Row.TextArea
-	index := parseutil.LineColumnIndex(ta.Str(), line, 0)
-	if index < 0 {
-		return fmt.Errorf("line not found: %v", line)
+	index, err := parseutil.LineColumnIndex(ta.TextCursor.RW(), line, 0)
+	if err != nil {
+		return err
 	}
 
 	// goto index
