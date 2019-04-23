@@ -11,9 +11,6 @@ import (
 //----------
 
 const EscapeRune = '^'
-const EscapeRunes = string(EscapeRune)
-
-const FilenameEscapeRunes = " %?<>()^"
 
 //----------
 
