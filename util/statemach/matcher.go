@@ -173,6 +173,7 @@ func (m *Matcher) Quote(quote rune, escape rune, breakOnNewline bool, maxLen int
 		if !m.Rune(quote) {
 			return false
 		}
+		start := m.sc.Pos
 		for {
 			if m.End() {
 				break
@@ -192,7 +193,7 @@ func (m *Matcher) Quote(quote rune, escape rune, breakOnNewline bool, maxLen int
 			}
 
 			if maxLen > 0 {
-				d := m.sc.Pos - m.sc.Start
+				d := m.sc.Pos - start
 				if d < 0 {
 					d = -d
 				}
