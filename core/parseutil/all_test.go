@@ -119,16 +119,11 @@ func TestParseResource17(t *testing.T) {
 	testParseResourceLineCol(t, s, 0, 0, 0)
 }
 
-func TestAddEscapes(t *testing.T) {
-	s := "a \\b"
-	s2 := AddEscapes(s, '\\', " \\")
-	if s2 != "a\\ \\\\b" {
-		t.Fatal()
-	}
-	s3 := RemoveEscapes(s2, '\\')
-	if s3 != s {
-		t.Fatal()
-	}
+func TestParseResource18(t *testing.T) {
+	s := "aa file:///a/b/c.txt bb"
+	testParseResourcePath(t, s, 3, "/a/b/c.txt")
+	testParseResourcePath(t, s, 10, "/a/b/c.txt")
+	testParseResourcePath(t, s, 15, "/a/b/c.txt")
 }
 
 //----------
@@ -234,3 +229,15 @@ func TestDetectVar(t *testing.T) {
 }
 
 //----------
+
+func TestAddEscapes(t *testing.T) {
+	s := "a \\b"
+	s2 := AddEscapes(s, '\\', " \\")
+	if s2 != "a\\ \\\\b" {
+		t.Fatal()
+	}
+	s3 := RemoveEscapes(s2, '\\')
+	if s3 != s {
+		t.Fatal()
+	}
+}

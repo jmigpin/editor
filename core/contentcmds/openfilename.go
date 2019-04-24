@@ -2,7 +2,6 @@ package contentcmds
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/jmigpin/editor/core"
@@ -37,14 +36,20 @@ func OpenFilename(erow *core.ERow, index int) (bool, error) {
 	// consider middle path (index position) if line/col are not present
 	if considerMiddle && filePos.Line == 0 && filePos.Column == 0 {
 		k := index - res.ExpandedMin
-		// index was beyond filename (/a/b/c.txt:1^:2)
-		if k > len(filePos.Filename) {
-			k = len(filePos.Filename)
-		}
-		// cut filename
-		i := strings.Index(filePos.Filename[k:], string(os.PathSeparator))
-		if i >= 0 {
-			filePos.Filename = filePos.Filename[:k+i]
+		if k <= 0 {
+			// don't consider middle for these cases
+			// k<0: index was before filename (fil^e:///a/b/c.txt)
+			// k=0: index at filename start (empty string) (file://^/a/b/c.txt)
+		} else {
+			// index was beyond filename (/a/b/c.txt:1^:2)
+			if k > len(filePos.Filename) {
+				k = len(filePos.Filename)
+			}
+			// cut filename
+			i := strings.Index(filePos.Filename[k:], string(res.PathSep))
+			if i >= 0 {
+				filePos.Filename = filePos.Filename[:k+i]
+			}
 		}
 	}
 

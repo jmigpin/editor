@@ -18,6 +18,7 @@ type Resource struct {
 	Line, Column int
 
 	ExpandedMin, ExpandedMax int
+	PathSep                  rune
 }
 
 func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
@@ -25,9 +26,10 @@ func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
 
 	l, r := ExpandIndexesEscape(rd, index, false, isResourceRune, escape)
 
-	res := &Resource{ExpandedMin: l, ExpandedMax: r}
+	res := &Resource{ExpandedMin: l, ExpandedMax: r, PathSep: os.PathSeparator}
 
-	p := &ResParser{res: res, escape: escape, pathSep: os.PathSeparator}
+	p := &ResParser{res: res, escape: escape}
+
 	rd2 := iorw.NewLimitedReader(rd, l, r, 0)
 	err := p.start(rd2)
 	if err != nil {
@@ -39,44 +41,42 @@ func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
 //----------
 
 type ResParser struct {
-	sc  *statemach.Scanner
-	st  func() bool // state
-	err error
-
-	escape  rune
-	pathSep rune
+	sc     *statemach.Scanner
+	escape rune
 
 	res *Resource
 }
 
 func (p *ResParser) start(r iorw.Reader) error {
 	p.sc = statemach.NewScanner(r)
-	// state loop
-	p.st = p.pathHeader
-	for {
-		if p.st == nil || !p.st() {
-			break
-		}
+
+	// allow file uri prefix with empty host
+	if p.sc.Match.Sequence("file://") && p.sc.PeekRune() == '/' {
+		p.res.PathSep = '/' // ensure forward slash as path separator
+		p.res.ExpandedMin = p.sc.Pos
+		p.sc.Advance()
 	}
-	return p.err
+
+	if !p.pathHeader() {
+		return p.sc.Errorf("path")
+	}
+	return nil
 }
 
 //----------
 
 func (p *ResParser) pathHeader() bool {
 	if !p.path() {
-		p.err = p.sc.Errorf("path")
 		return false
 	}
 	_ = p.lineCol()
-	p.st = nil
 	return true
 }
 
 func (p *ResParser) path() bool {
 	ok := p.sc.RewindOnFalse(func() bool {
 		_ = p.pathItem() // optional
-		pathSepFn := func(ru rune) bool { return ru == p.pathSep }
+		pathSepFn := func(ru rune) bool { return ru == p.res.PathSep }
 		for {
 			if p.sc.Match.End() {
 				break
@@ -96,7 +96,7 @@ func (p *ResParser) path() bool {
 
 		// filter
 		s = RemoveEscapes(s, p.escape)
-		s = CleanMultiplePathSeps(s, p.pathSep)
+		s = CleanMultiplePathSeps(s, p.res.PathSep)
 		p.res.Path = s
 
 		p.sc.Advance()
@@ -107,7 +107,7 @@ func (p *ResParser) path() bool {
 
 func (p *ResParser) pathItem() bool {
 	return p.sc.RewindOnFalse(func() bool {
-		isPathItemRune := isPathItemRuneFn(p.escape, p.pathSep)
+		isPathItemRune := isPathItemRuneFn(p.escape, p.res.PathSep)
 		for p.sc.Match.Escape(p.escape) ||
 			p.sc.Match.Fn(isPathItemRune) {
 		}
