@@ -16,9 +16,9 @@ func updateSyntaxHighlightOps(d *Drawer) {
 	}
 	d.opt.syntaxH.updated = true
 
-	maxDistBack := 5000
+	pad := 2500
 	sh := &SyntaxHighlight{d: d}
-	d.Opt.SyntaxHighlight.Group.Ops = sh.do(maxDistBack)
+	d.Opt.SyntaxHighlight.Group.Ops = sh.do(pad)
 }
 
 //----------
@@ -29,21 +29,21 @@ type SyntaxHighlight struct {
 	ops []*ColorizeOp
 }
 
-func (sh *SyntaxHighlight) do(distBack int) []*ColorizeOp {
+func (sh *SyntaxHighlight) do(pad int) []*ColorizeOp {
 	// limit reading to be able to handle big content
 	o, n, _, _ := sh.d.visibleLen()
 	min, max := o, o+n
-	r := iorw.NewLimitedReader(sh.d.reader, min-distBack, max, 0)
+	r := iorw.NewLimitedReader(sh.d.reader, min, max, pad)
 
 	sh.sc = statemach.NewScanner(r)
 	sh.sc.Advance()
 
 	for !sh.sc.Match.End() {
-		sh.normal()
+		sh.normal(pad)
 	}
 	return sh.ops
 }
-func (sh *SyntaxHighlight) normal() {
+func (sh *SyntaxHighlight) normal(pad int) {
 	opt := &sh.d.Opt.SyntaxHighlight
 	switch {
 	case sh.sc.Match.Sequence(opt.Comment.Line.S):
@@ -76,7 +76,7 @@ func (sh *SyntaxHighlight) normal() {
 			_ = sh.sc.ReadRune()
 		}
 		sh.sc.Advance()
-	case sh.sc.Match.Quote('"', '\\', true, 500) ||
+	case sh.sc.Match.Quote('"', '\\', true, pad) ||
 		sh.sc.Match.Quote('\'', '\\', true, 4):
 
 		// unable to support multiline comments (Ex: Go backquotes) since the whole file is not parsed, just a section.
