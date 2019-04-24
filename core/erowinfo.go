@@ -67,11 +67,18 @@ func (info *ERowInfo) readFileInfo() {
 
 	fi, err := os.Stat(info.name)
 	if err != nil {
-		// keep old fi to allow file/dir detection
+		// keep old info.fi to allow file/dir detection
 		info.fiErr = err
 		return
 	}
-	info.fi, info.fiErr = fi, err
+	info.fi = fi
+	info.fiErr = nil
+
+	// don't open devices, ioutil.readfile can hang the editor
+	if info.fi.Mode()&os.ModeDevice > 0 {
+		info.fi = nil
+		info.fiErr = fmt.Errorf("file is a device")
+	}
 }
 
 //----------
@@ -231,7 +238,11 @@ func (info *ERowInfo) NewERow(rowPos *ui.RowPos) (*ERow, error) {
 	case info.IsFileButNotDir():
 		return info.NewFileERow(rowPos)
 	default:
-		return nil, fmt.Errorf("unable to open erow: %v", info.name)
+		err := fmt.Errorf("unable to open erow: %v", info.name)
+		if info.fiErr != nil {
+			err = fmt.Errorf("%v: %v", err, info.fiErr)
+		}
+		return nil, err
 	}
 }
 
