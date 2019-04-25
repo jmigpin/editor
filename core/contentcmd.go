@@ -52,7 +52,7 @@ func runContentCmds(erow *ERow, index int) {
 		handled, err := cc.Fn(erow, index)
 		if handled {
 			if err != nil {
-				s := fmt.Sprintf("content cmd %q: %v", cc.Name, err)
+				s := fmt.Sprintf("%v: %v", cc.Name, err)
 				errs = append(errs, s)
 			} else {
 				// stop on first handled without error
@@ -65,5 +65,5 @@ func runContentCmds(erow *ERow, index int) {
 	if len(u) > 0 {
 		u = "\n\t" + u
 	}
-	erow.Ed.Errorf("no content cmd run successfully%v", u)
+	erow.Ed.Errorf("no content cmd ran successfully%v", u)
 }
