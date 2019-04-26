@@ -1,6 +1,8 @@
 package contentcmds
 
 import (
+	"bytes"
+	"fmt"
 	"net/url"
 	"os/exec"
 	"strings"
@@ -41,14 +43,21 @@ func OpenURL(erow *core.ERow, index int) (bool, error) {
 
 	ustr := u.String()
 	args := []string{"xdg-open", ustr}
-	erow.Ed.Messagef("openurl:\n\t%v", strings.Join(args, " "))
+	cmd := exec.Command(args[0], args[1:]...)
 
-	c := exec.Command(args[0], args[1:]...)
-	if err := c.Start(); err != nil {
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Start(); err != nil {
 		return true, err
 	}
+
+	erow.Ed.Messagef("openurl:\n\t%v", strings.Join(args, " "))
+
 	go func() {
-		if err := c.Wait(); err != nil {
+		if err := cmd.Wait(); err != nil {
+			err = fmt.Errorf("%v: %v", err, out.String())
 			erow.Ed.Error(err)
 		}
 	}()
