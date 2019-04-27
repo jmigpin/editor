@@ -545,6 +545,12 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 		}
 	case *ast.SelectorExpr:
 		fname = t.Sel.Name
+		// stop annotating (this call is still annotated)
+		if t.Sel.Name == "NoAnnotations" {
+			if p, ok := t.X.(*ast.Ident); ok && p.Name == "debug" {
+				ctx.setUpperNoAnnotationsTrue()
+			}
+		}
 	case *ast.FuncLit:
 		pos := ce.Fun.End()
 		e := ann.visitExpr(ctx, &ce.Fun)
@@ -879,6 +885,7 @@ func (ann *Annotator) visitField(ctx *Ctx, field *ast.Field) []ast.Expr {
 //----------
 
 func (ann *Annotator) visitStmtList(ctx *Ctx, list *[]ast.Stmt) {
+	ctx = ctx.withNoAnnotationsFalse()
 	ctx2, iter := ctx.withStmtIter(list)
 
 	for iter.index < len(*list) {
@@ -896,6 +903,10 @@ func (ann *Annotator) visitStmtList(ctx *Ctx, list *[]ast.Stmt) {
 
 		iter.index += 1 + iter.step
 		iter.step = 0
+
+		if ctx.noAnnotations() {
+			break
+		}
 	}
 }
 

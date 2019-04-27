@@ -163,25 +163,27 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 		- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
 		- Supports remote debugging (check help usage).
 			- A client can connect/disconnect any number of times, but there can be only one client at a time.
-		- Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.
-			- `debug.SetSend(bool)`, example:
+		- ~~Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.~~
+			- ~~`debug.SetSend(bool)`~~
+		- Function that stops annotations for the current code block. Helpful to bypass loops that would become too slow with debug messages being sent.
+			- `debug.NoAnnotations()`, example:
 			```
 			func fn(){
-				debug.SetSend(false) // stop sending to speed up loop
-				defer debug.SetSend(true) // reactivate
-				for i:=0; i<10000; i++{
-					...
+				a:=0 // annotated
+				if a==0{
+					a++ // annotated
+					debug.NoAnnotations()
+					a+=2 // *not* annotaded
+					a+=3 // *not* annotaded
+					for i:=0; i<10000;i++{
+						// *not* annotated
+					}
 				}
+				println(a) // annotated, not part of the disabled block
 			}
 			```
-		- When debugging, take care of functions that implement fmt.Stringer that get called. Consider the example:
-			```
-			type binary int
-			func (b binary) String() string{
-			return fmt.Sprintf("%b", b) // godebug will enter into endless loop
-			}
-			```
-			When trying to print the value of `b` for debugging, the argument of `Sprintf`, it will call again `func (b binary) String()`, and enter into a loop.
+		- ~~When debugging, take care of functions that implement fmt.Stringer that get called.~~
+		- `String` methods are not annotated.
 - toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open another row to edit the same file.
 
 *Textarea commands*

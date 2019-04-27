@@ -244,6 +244,7 @@ func (ctx *Ctx) resultInVar() bool {
 }
 
 //----------
+
 func (ctx *Ctx) withFuncType(ft *ast.FuncType) *Ctx {
 	return ctx.WithValue("func_type", ft)
 }
@@ -324,4 +325,24 @@ func (ctx *Ctx) valuesReset() *Ctx {
 	ctx = ctx.WithValue("assign_stmt_ignore_lhs", nil)
 	ctx = ctx.WithValue("first_arg_is_type", nil)
 	return ctx
+}
+
+//----------
+
+func (ctx *Ctx) withNoAnnotationsFalse() *Ctx {
+	return ctx.WithValue("no_annotations", false)
+}
+
+func (ctx *Ctx) setUpperNoAnnotationsTrue() {
+	_, ctx2 := ctx.Value("no_annotations")
+	ctx2.SetValue("no_annotations", true)
+}
+
+func (ctx *Ctx) noAnnotations() bool {
+	v, _ := ctx.Value("no_annotations")
+	if v == nil {
+		return false
+	}
+	u := v.(bool)
+	return u
 }

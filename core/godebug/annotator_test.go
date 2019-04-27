@@ -1524,6 +1524,19 @@ func TestAnnotator97(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
+func TestAnnotator98(t *testing.T) {
+	inout := []string{
+		`debug.NoAnnotations()
+		a = 1+1`,
+		`Σ.Line(0, 0, 43, Σ.ICe("NoAnnotations"))
+	        Σ0 := Σ.IC("NoAnnotations", nil)
+	        debug.NoAnnotations()
+	        Σ.Line(0, 0, 44, Σ0)
+	        a = 1 + 1`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
 func TestAnnotator_(t *testing.T) {
 	inout := []string{
 		``,
