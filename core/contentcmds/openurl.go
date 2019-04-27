@@ -37,7 +37,11 @@ func OpenURL(erow *core.ERow, index int) (bool, error) {
 	if err != nil {
 		return false, nil
 	}
-	if u.Scheme == "" {
+
+	switch u.Scheme {
+	case "http", "https", "ftp", "mailto":
+		// ok
+	default:
 		return false, nil
 	}
 
