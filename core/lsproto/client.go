@@ -130,7 +130,7 @@ func (cli *Client) ShutdownRequest() error {
 func (cli *Client) ExitNotification() error {
 	// https://microsoft.github.io/language-server-protocol/specification#exit
 
-	err := cli.Call("@exit", nil, nil)
+	err := cli.Call("noreply:exit", nil, nil)
 	return err
 }
 
@@ -144,7 +144,7 @@ func (cli *Client) TextDocumentDidOpen(filename, text string, version int) error
 	opt.TextDocument.LanguageId = cli.Language
 	opt.TextDocument.Version = version
 	opt.TextDocument.Text = text
-	err := cli.Call("@textDocument/didOpen", &opt, nil)
+	err := cli.Call("noreply:textDocument/didOpen", &opt, nil)
 	return err
 }
 
@@ -153,7 +153,7 @@ func (cli *Client) TextDocumentDidClose(filename string) error {
 
 	opt := &DidCloseTextDocumentParams{}
 	opt.TextDocument.Uri = addFileScheme(filename)
-	err := cli.Call("@textDocument/didClose", &opt, nil)
+	err := cli.Call("noreply:textDocument/didClose", &opt, nil)
 	return err
 }
 
@@ -182,7 +182,7 @@ func (cli *Client) TextDocumentDidChange(filename, text string, version int) err
 			Text: text,
 		},
 	}
-	return cli.Call("@textDocument/didChange", &opt, nil)
+	return cli.Call("noreply:textDocument/didChange", &opt, nil)
 }
 
 //----------

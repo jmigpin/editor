@@ -41,8 +41,9 @@ func (c *JsonCodec) Close() error {
 //----------
 
 func noreplyMethod(method string) (string, bool) {
-	if method[0] == '@' {
-		return method[1:], true
+	prefix := "noreply:"
+	if strings.HasPrefix(method, prefix) {
+		return method[len(prefix):], true
 	}
 	return method, false
 }
