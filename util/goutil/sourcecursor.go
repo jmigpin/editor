@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Allows a src string to have multiple cursor strings to simulate cursor position. Used in testing. Useful cursor runes: "●".
+// Allows a src string to have multiple cursor strings to simulate cursor position. Used in testing. Useful cursor runes: "●". First n position is zero.
 func SourceCursor(cursorStr, src string, n int) (string, int, error) {
 	// cursor positions
 	pos := []int{}

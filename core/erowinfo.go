@@ -15,6 +15,7 @@ import (
 )
 
 // TODO: become an interface, with file/dir/special implementations.
+// TODO: centralized iorw reader/writer in info
 
 // Editor Row Info.
 type ERowInfo struct {
