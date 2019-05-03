@@ -13,7 +13,7 @@ import (
 	"github.com/jmigpin/editor/util/osutil"
 )
 
-func GoToDefinition(erow *core.ERow, index int) (bool, error) {
+func GoToDefinitionGolang(erow *core.ERow, index int) (bool, error) {
 	if erow.Info.IsDir() {
 		return false, nil
 	}
