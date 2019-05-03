@@ -88,6 +88,7 @@ type Drawer struct {
 			StartOffsetX int
 		}
 		LineWrap struct {
+			On     bool
 			Fg, Bg color.Color
 		}
 		Cursor struct {
@@ -221,6 +222,7 @@ func (st State) Dump() {
 
 func New() *Drawer {
 	d := &Drawer{}
+	d.Opt.LineWrap.On = true
 	d.smoothScroll = true
 
 	// iterators

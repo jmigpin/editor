@@ -9,7 +9,7 @@ func (lw *LineWrap) Init() {
 }
 
 func (lw *LineWrap) Iter() {
-	if lw.d.iters.runeR.isNormal() {
+	if lw.d.Opt.LineWrap.On && lw.d.iters.runeR.isNormal() {
 		// pen.x>startpen.x forces at least one rune on line start
 		stR := &lw.d.st.runeR
 		penXAdv := stR.pen.X + stR.advance
