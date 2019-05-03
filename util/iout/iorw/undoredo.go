@@ -38,13 +38,13 @@ func InsertUndoRedo(w Writer, i int, p []byte) (*UndoRedo, error) {
 	return ur, nil
 }
 
-func DeleteUndoRedo(rw ReadWriter, i, len int) (*UndoRedo, error) {
-	b, err := rw.ReadNCopyAt(i, len)
+func DeleteUndoRedo(rw ReadWriter, i, n int) (*UndoRedo, error) {
+	b, err := rw.ReadNCopyAt(i, n)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := rw.Delete(i, len); err != nil {
+	if err := rw.Delete(i, n); err != nil {
 		return nil, err
 	}
 

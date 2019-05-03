@@ -18,6 +18,11 @@ type Reader interface {
 	Max() int
 }
 
+// min/max length
+func MMLen(rd Reader) int {
+	return rd.Max() - rd.Min()
+}
+
 // Returns a slice (not a copy).
 func ReadFullSlice(rd Reader) ([]byte, error) {
 	min, max := rd.Min(), rd.Max()
@@ -28,8 +33,8 @@ func ReadFullSlice(rd Reader) ([]byte, error) {
 
 type Writer interface {
 	Insert(i int, p []byte) error
-	Delete(i, length int) error
-	Overwrite(i, length int, p []byte) error
+	Delete(i, n int) error
+	Overwrite(i, n int, p []byte) error
 }
 
 //----------
