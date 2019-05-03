@@ -13,7 +13,7 @@ func TestParseResource1(t *testing.T) {
 
 func TestParseResource2(t *testing.T) {
 	s := "AAA /a/b/c%20c.txt AAA"
-	testParseResourcePath(t, s, 9, "/a/b/c%20c.txt")
+	testParseResourcePath(t, s, 9, "/a/b/c c.txt")
 }
 
 func TestParseResource3(t *testing.T) {
@@ -124,6 +124,21 @@ func TestParseResource18(t *testing.T) {
 	testParseResourcePath(t, s, 3, "/a/b/c.txt")
 	testParseResourcePath(t, s, 10, "/a/b/c.txt")
 	testParseResourcePath(t, s, 15, "/a/b/c.txt")
+}
+
+func TestParseResource19(t *testing.T) {
+	s := "aa &{file:///a/b/c.txt}"
+	testParseResourcePath(t, s, 15, "/a/b/c.txt")
+}
+
+func TestParseResource20(t *testing.T) {
+	s := "aa &{file:///a/b/c%2b%2b.txt}"
+	testParseResourcePath(t, s, 15, "/a/b/c++.txt")
+}
+
+func TestParseResource21(t *testing.T) {
+	s := "-arg=/a/b/c.txt"
+	testParseResourcePath(t, s, 8, "/a/b/c.txt")
 }
 
 //----------

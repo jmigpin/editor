@@ -12,6 +12,9 @@ import (
 
 // parsed formats:
 // 	<filename:line?:col?>
+// 	file://<filename:line?:col?>
+// 	// TODO: <filename:#offset>
+// 	// TODO: ranges?
 type Resource struct {
 	Path         string
 	RawPath      string
@@ -19,6 +22,7 @@ type Resource struct {
 
 	ExpandedMin, ExpandedMax int
 	PathSep                  rune
+	Escape                   rune
 }
 
 func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
@@ -26,9 +30,14 @@ func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
 
 	l, r := ExpandIndexesEscape(rd, index, false, isResourceRune, escape)
 
-	res := &Resource{ExpandedMin: l, ExpandedMax: r, PathSep: os.PathSeparator}
+	res := &Resource{
+		ExpandedMin: l,
+		ExpandedMax: r,
+		PathSep:     os.PathSeparator,
+		Escape:      escape,
+	}
 
-	p := &ResParser{res: res, escape: escape}
+	p := &ResParser{res: res}
 
 	rd2 := iorw.NewLimitedReader(rd, l, r, 0)
 	err := p.start(rd2)
@@ -41,8 +50,7 @@ func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
 //----------
 
 type ResParser struct {
-	sc     *statemach.Scanner
-	escape rune
+	sc *statemach.Scanner
 
 	res *Resource
 }
@@ -94,10 +102,8 @@ func (p *ResParser) path() bool {
 		s := p.sc.Value()
 		p.res.RawPath = s
 
-		// filter
-		s = RemoveEscapes(s, p.escape)
-		s = CleanMultiplePathSeps(s, p.res.PathSep)
-		p.res.Path = s
+		// unescaped path
+		p.res.Path = RemoveFilenameEscapes(s, p.res.Escape, p.res.PathSep)
 
 		p.sc.Advance()
 		return true
@@ -107,8 +113,8 @@ func (p *ResParser) path() bool {
 
 func (p *ResParser) pathItem() bool {
 	return p.sc.RewindOnFalse(func() bool {
-		isPathItemRune := isPathItemRuneFn(p.escape, p.res.PathSep)
-		for p.sc.Match.Escape(p.escape) ||
+		isPathItemRune := isPathItemRuneFn(p.res.Escape, p.res.PathSep)
+		for p.sc.Match.Escape(p.res.Escape) ||
 			p.sc.Match.Fn(isPathItemRune) {
 		}
 		return !p.sc.Empty()
@@ -171,18 +177,20 @@ func CleanMultiplePathSeps(str string, sep rune) string {
 
 //----------
 
-var ExtraRunes = `_-~.%@&?=#` + `\\^` + `/` + ` ` + `()[]{}<>` + `:`
+var ExtraRunes = "_-~.%@&?=#" + "()[]{}<>" + "\\^" + "/" + " " + ":"
 
-var ResourceExtraRunes = RunesExcept(ExtraRunes, ""+
-	" "+ // space must be escaped
-	"()[]<>"+ // usually used around filenames in various outputs
-	"")
+var ResourceExtraRunes = RunesExcept(ExtraRunes, excludeResourceRunes)
 
-var PathItemExtraRunes = RunesExcept(ExtraRunes, ""+
-	" "+ // space must be escaped
-	"()[]<>"+ // usually used around filenames in various outputs
-	":"+ // line/column
-	"")
+var PathItemExtraRunes = RunesExcept(ExtraRunes, excludeResourceRunes+
+	":") // line/column
+
+var excludeResourceRunes = "" +
+	" " + // word separator
+	"=" + // usually around filenames (ex: -arg=/a/b.txt)
+	"{}()[]<>" // usually used around filenames in various outputs
+
+// escaped when outputing filenames
+var escapedInFilenames = excludeResourceRunes + ":"
 
 //----------
 
@@ -208,7 +216,7 @@ func EscapeFilename(str string) string {
 	// windows note: if ':' is escaped, then it might have problems parsing compiler output lines with line/col. This way the volume name (ex: "C://") needs an escape (ex: "C^://") and parsing <filename:line:col> works.
 
 	escape := osutil.EscapeRune
-	mustBeEscaped := " ()[]<>:" + string(escape)
+	mustBeEscaped := escapedInFilenames + string(escape)
 	return AddEscapes(str, escape, mustBeEscaped)
 }
 

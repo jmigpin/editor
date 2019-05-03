@@ -2,6 +2,7 @@ package parseutil
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -61,6 +62,17 @@ func RemoveEscapesEscapable(str string, escape rune, escapable string) string {
 		w = append(w, ru)
 	}
 	return string(w)
+}
+
+//----------
+
+func RemoveFilenameEscapes(f string, escape, pathSep rune) string {
+	f = RemoveEscapes(f, escape)
+	f = CleanMultiplePathSeps(f, pathSep)
+	if u, err := url.PathUnescape(f); err == nil {
+		f = u
+	}
+	return f
 }
 
 //----------
@@ -135,6 +147,7 @@ func ImproveExpandIndexEscape(r iorw.Reader, i int, escape rune) int {
 
 //----------
 
+// Line/col args are one-based.
 func LineColumnIndex(rd iorw.Reader, line, column int) (int, error) {
 	// must have a good line
 	if line <= 0 {
@@ -184,6 +197,7 @@ func LineColumnIndex(rd iorw.Reader, line, column int) (int, error) {
 	return index, nil
 }
 
+// Returned line/col values are one-based.
 func IndexLineColumn(rd iorw.Reader, index int) (int, int, error) {
 	line, lineStart := 0, 0
 	ri := 0

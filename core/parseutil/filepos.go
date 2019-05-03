@@ -1,6 +1,8 @@
 package parseutil
 
-import "github.com/jmigpin/editor/util/iout/iorw"
+import (
+	"github.com/jmigpin/editor/util/iout/iorw"
+)
 
 type FilePos struct {
 	Filename     string
