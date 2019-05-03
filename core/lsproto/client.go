@@ -34,7 +34,7 @@ func NewClientTCP(addr string) (*Client, error) {
 func NewClientIO(conn io.ReadWriteCloser) *Client {
 	cli := &Client{synct: map[string]int{}}
 	cli.conn = conn
-	cc := NewClientCodec(conn)
+	cc := NewJsonCodec(conn)
 	cc.OnNotificationMessage = cli.onNotificationMessage
 	cli.rcli = rpc.NewClientWithCodec(cc)
 	return cli

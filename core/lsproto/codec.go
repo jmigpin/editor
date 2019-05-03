@@ -25,7 +25,7 @@ type JsonCodec struct {
 	readData readData
 }
 
-func NewClientCodec(conn io.ReadWriteCloser) *JsonCodec {
+func NewJsonCodec(conn io.ReadWriteCloser) *JsonCodec {
 	c := &JsonCodec{rwc: conn}
 	c.responses = make(chan interface{}, 1)
 	go c.readLoop()
