@@ -51,11 +51,11 @@ func (t *Text) Len() int {
 
 // Result might not be a copy, so changes to the slice might affect the text data.
 func (t *Text) Bytes() ([]byte, error) {
-	return t.rw.ReadNSliceAt(t.rw.Min(), t.rw.Max())
+	return iorw.ReadFullSlice(t.rw)
 }
 
 func (t *Text) SetBytes(b []byte) error {
-	if err := t.rw.Overwrite(t.rw.Min(), t.rw.Max(), b); err != nil {
+	if err := t.rw.Overwrite(t.rw.Min(), iorw.MMLen(t.rw), b); err != nil {
 		return err
 	}
 	t.contentChanged()

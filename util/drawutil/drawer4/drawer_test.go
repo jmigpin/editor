@@ -313,8 +313,8 @@ func TestImg15Visible(t *testing.T) {
 	c := r.Max()
 	d.SetRuneOffset(c)
 
-	r.Delete(r.Min(), r.Max())
-	b, _ := r.ReadNSliceAt(r.Min(), r.Max())
+	r.Delete(r.Min(), iorw.MMLen(r))
+	b, _ := r.ReadNSliceAt(r.Min(), iorw.MMLen(r))
 	_ = string(b)
 
 	o := d.RangeVisibleOffset(0, 0)

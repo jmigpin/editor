@@ -48,7 +48,7 @@ func (te *TextEdit) SetBytes(b []byte) error {
 	var err error
 	tc.Edit(func() {
 		rw := tc.RW()
-		err = rw.Overwrite(rw.Min(), rw.Max(), b)
+		err = rw.Overwrite(rw.Min(), iorw.MMLen(rw), b)
 	})
 	return err
 }
@@ -58,7 +58,7 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 	var err error
 	tc.Edit(func() {
 		rw := tc.RW()
-		err = rw.Overwrite(rw.Min(), rw.Max(), b)
+		err = rw.Overwrite(rw.Min(), iorw.MMLen(rw), b)
 		te.ClearPos() // position will be kept in history record
 	})
 	return err
@@ -67,7 +67,7 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 // Keeps position (useful for file save)
 func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 	rw := te.crw // bypass history
-	if err := rw.Overwrite(rw.Min(), rw.Max(), b); err != nil {
+	if err := rw.Overwrite(rw.Min(), iorw.MMLen(rw), b); err != nil {
 		return err
 	}
 	te.TextHistory.clear()
