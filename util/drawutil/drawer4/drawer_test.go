@@ -24,7 +24,7 @@ func TestEmpty(t *testing.T) {
 	d.SetBounds(image.Rect(0, 0, 100, 100))
 
 	s := ""
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	w := d.wlineStartIndex(true, 10, 0, nil)
@@ -39,7 +39,7 @@ func TestNLinesStartIndex1(t *testing.T) {
 	d.SetBounds(image.Rect(0, 0, 100, 100))
 
 	s := "111\n222\n333"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 	pos := r.Max()
 	d.SetRuneOffset(pos)
@@ -67,7 +67,7 @@ func TestImg01(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Draw(img)
@@ -78,7 +78,7 @@ func TestImg01bDrawFullLineAtEndOfLineOffset(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.SetRuneOffset(5)
@@ -91,7 +91,7 @@ func TestImg02WrapLine(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "1111111\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Draw(img)
@@ -102,7 +102,7 @@ func TestImg03Ident(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  1111111\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Draw(img)
@@ -113,7 +113,7 @@ func TestImg04Offset1(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  1111111\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 	d.SetRuneOffset(6)
 
@@ -125,7 +125,7 @@ func TestImg04bOffset2(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  1111111\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 	d.SetRuneOffset(8)
 
@@ -138,7 +138,7 @@ func TestImg05RunePerLine(t *testing.T) {
 	d, img := newTestDrawerRect(rect)
 
 	s := "WWW"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Draw(img)
@@ -149,7 +149,7 @@ func TestImg06Scroll1(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  1111111\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	sy := d.scrollSizeYDown(3)
@@ -163,7 +163,7 @@ func TestImg07Scroll2(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  1111221\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	sy := d.scrollSizeYDown(1)
@@ -180,7 +180,7 @@ func TestImg08Scroll3(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  1111221\n22222\n33333\n44444"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.SetRuneOffset(10)
@@ -199,7 +199,7 @@ func TestImg09Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	o := d.RangeVisibleOffset(r.Max(), 0)
@@ -213,7 +213,7 @@ func TestImg10Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	o := d.RangeVisibleOffset(19, 4) // line with 4's
@@ -227,7 +227,7 @@ func TestImg11Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	o := d.RangeVisibleOffset(19, 7) // line with 4's
@@ -241,7 +241,7 @@ func TestImg12Cursor(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
@@ -265,7 +265,7 @@ func TestImg13Cursor(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
@@ -286,7 +286,7 @@ func TestImg14Cursor(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
@@ -305,7 +305,7 @@ func TestImg15Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333"
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
@@ -339,7 +339,7 @@ func TestImg16Select(t *testing.T) {
 		s += fmt.Sprintf("%v", i%10)
 	}
 
-	r := iorw.NewBytesReadWriter([]byte(s))
+	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true

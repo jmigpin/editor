@@ -8,9 +8,9 @@ import (
 
 func TestOpenSession1(t *testing.T) {
 	s := "aa OpenSession bb cc"
-	rw := iorw.NewBytesReadWriter([]byte(s))
+	rd := iorw.NewStringReader(s)
 	for i := 0; i < 10; i++ {
-		sn, err := sessionName(rw, 17-i)
+		sn, err := sessionName(rd, 17-i)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -165,7 +165,7 @@ func (cli *Client) TextDocumentDidChange(filename, text string, version int) err
 	opt.TextDocument.Version = version
 
 	// text end line/column
-	rd := iorw.NewBytesReadWriter([]byte(text))
+	rd := iorw.NewStringReader(text)
 	pos, err := OffsetToPosition(rd, len(text))
 	if err != nil {
 		return err

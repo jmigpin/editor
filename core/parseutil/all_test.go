@@ -106,8 +106,8 @@ func TestParseResource15(t *testing.T) {
 
 func TestParseResource16(t *testing.T) {
 	s := ""
-	rw := iorw.NewBytesReadWriter([]byte(s))
-	_, err := ParseResource(rw, 0)
+	rd := iorw.NewStringReader(s)
+	_, err := ParseResource(rd, 0)
 	if err == nil {
 		t.Fatal("able to parse empty string")
 	}
@@ -145,8 +145,8 @@ func TestParseResource21(t *testing.T) {
 
 func testParseResourcePath(t *testing.T, str string, index int, estr string) {
 	t.Helper()
-	rw := iorw.NewBytesReadWriter([]byte(str))
-	u, err := ParseResource(rw, index)
+	rd := iorw.NewStringReader(str)
+	u, err := ParseResource(rd, index)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,8 +157,8 @@ func testParseResourcePath(t *testing.T, str string, index int, estr string) {
 
 func testParseResourceLineCol(t *testing.T, str string, index int, eline, ecol int) {
 	t.Helper()
-	rw := iorw.NewBytesReadWriter([]byte(str))
-	u, err := ParseResource(rw, index)
+	rd := iorw.NewStringReader(str)
+	u, err := ParseResource(rd, index)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,8 +171,8 @@ func testParseResourceLineCol(t *testing.T, str string, index int, eline, ecol i
 
 func TestExpand1(t *testing.T) {
 	s := ": /a/b/c"
-	rw := iorw.NewBytesReadWriter([]byte(s))
-	l, _ := ExpandIndexesEscape(rw, rw.Max(), false, isResourceRune, '\\')
+	rd := iorw.NewStringReader(s)
+	l, _ := ExpandIndexesEscape(rd, rd.Max(), false, isResourceRune, '\\')
 	if l != 2 {
 		t.Fatalf("%v", l)
 	}
@@ -182,38 +182,38 @@ func TestExpand1(t *testing.T) {
 
 func TestIndexLineColumn1(t *testing.T) {
 	s := "123\n123\n123"
-	rw := iorw.NewBytesReadWriter([]byte(s))
-	l, c, err := IndexLineColumn(rw, 0)
+	rd := iorw.NewStringReader(s)
+	l, c, err := IndexLineColumn(rd, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	i, err := LineColumnIndex(rw, l, c)
+	i, err := LineColumnIndex(rd, l, c)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if i != 0 {
-		t.Fatal(i, rw.Max())
+		t.Fatal(i, rd.Max())
 	}
 }
 func TestIndexLineColumn2(t *testing.T) {
 	s := "123\n123\n123"
-	rw := iorw.NewBytesReadWriter([]byte(s))
-	l, c, err := IndexLineColumn(rw, rw.Max())
+	rd := iorw.NewStringReader(s)
+	l, c, err := IndexLineColumn(rd, rd.Max())
 	if err != nil {
 		t.Fatal(err)
 	}
-	i, err := LineColumnIndex(rw, l, c)
+	i, err := LineColumnIndex(rd, l, c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if i != rw.Max() {
-		t.Fatal(i, rw.Max())
+	if i != rd.Max() {
+		t.Fatal(i, rd.Max())
 	}
 }
 
 func TestLineColumnIndex1(t *testing.T) {
 	s := "123\n123\n123"
-	rw := iorw.NewBytesReadWriter([]byte(s))
+	rw := iorw.NewStringReader(s)
 	i, err := LineColumnIndex(rw, 3, 10)
 	if err != nil {
 		t.Fatal(err)

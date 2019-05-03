@@ -106,14 +106,14 @@ func TestManCompletionF3(t *testing.T) {
 //----------
 
 func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
-	rw := iorw.NewBytesReadWriter([]byte(src))
+	rd := iorw.NewStringReader(src)
 
 	man := newTestManager(t)
 	defer man.Close()
 
 	// repeat (syncs text a 2nd time)
 	for i := 0; i < 2; i++ {
-		f, rang, err := man.TextDocumentDefinition(filename, rw, offset)
+		f, rang, err := man.TextDocumentDefinition(filename, rd, offset)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -125,7 +125,7 @@ func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 
 func testFileLineColCompletion(t *testing.T, loc string) {
 	// parse location
-	rd := iorw.NewBytesReadWriter([]byte(loc))
+	rd := iorw.NewStringReader(loc)
 	res, err := parseutil.ParseResource(rd, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -147,18 +147,13 @@ func testFileLineColCompletion(t *testing.T, loc string) {
 }
 
 func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
-	rw := iorw.NewBytesReadWriter([]byte(src))
+	rd := iorw.NewStringReader(src)
 
 	// start manager
 	man := newTestManager(t)
 	defer man.Close()
 
-	//// sync file (optional)
-	//if err := man.SyncText(filename, rw); err != nil {
-	//	t.Fatal(err)
-	//}
-
-	comp, err := man.TextDocumentCompletion(filename, rw, offset)
+	comp, err := man.TextDocumentCompletion(filename, rd, offset)
 	if err != nil {
 		t.Fatal(err)
 	}

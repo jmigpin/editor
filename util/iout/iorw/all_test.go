@@ -9,7 +9,7 @@ import (
 
 func TestRW1(t *testing.T) {
 	s := "0123"
-	rw := NewBytesReadWriter([]byte(s))
+	rw := NewStringReader(s)
 
 	type ins struct {
 		i int
@@ -77,7 +77,7 @@ func TestIndex1(t *testing.T) {
 	}
 	s += "abc"
 
-	rw := NewBytesReadWriter([]byte(s))
+	rw := NewStringReader(s)
 
 	i, err := Index(rw, 4, []byte("abc"), true)
 	if err != nil {
@@ -88,7 +88,7 @@ func TestIndex1(t *testing.T) {
 
 func TestIndex2(t *testing.T) {
 	s := "012345678"
-	rw := NewBytesReadWriter([]byte(s))
+	rw := NewStringReader(s)
 	i, err := indexCtx2(context.Background(), rw, 0, []byte("345"), true, 4)
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +100,7 @@ func TestIndex2(t *testing.T) {
 
 func TestLastIndex1(t *testing.T) {
 	s := "a\n0123\nb"
-	rw := NewBytesReadWriter([]byte(s))
+	rw := NewStringReader(s)
 
 	fn := func(ru rune) bool {
 		return ru == '\n'
@@ -117,7 +117,7 @@ func TestLastIndex1(t *testing.T) {
 
 func TestExpandIndex1(t *testing.T) {
 	s := "a 234 b"
-	rw := NewBytesReadWriter([]byte(s))
+	rw := NewStringReader(s)
 	i := ExpandIndexFunc(rw, 3, true, unicode.IsSpace)
 	if i != 5 {
 		t.Fatal(i)
@@ -130,7 +130,7 @@ func TestExpandIndex1(t *testing.T) {
 
 func TestExpandLastIndex1(t *testing.T) {
 	s := "a 234 b"
-	rw := NewBytesReadWriter([]byte(s))
+	rw := NewStringReader(s)
 	i := ExpandLastIndexFunc(rw, 3, true, unicode.IsSpace)
 	if i != 2 {
 		t.Fatal(i)
@@ -151,7 +151,7 @@ func TestExpandLastIndex1(t *testing.T) {
 
 func TestWordAtIndex(t *testing.T) {
 	s := "abc f"
-	rw := NewBytesReadWriter([]byte(s))
+	rw := NewStringReader(s)
 	w, i, err := WordAtIndex(rw, 3)
 	if err == nil {
 		t.Fatalf("%v %v %v", w, i, err)

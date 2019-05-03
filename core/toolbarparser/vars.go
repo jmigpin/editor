@@ -37,7 +37,7 @@ type Var struct {
 }
 
 func ParseVar(str string) (*Var, error) {
-	rd := iorw.NewBytesReadWriter([]byte(str))
+	rd := iorw.NewStringReader(str)
 	sc := statemach.NewScanner(rd)
 	ru := sc.PeekRune()
 	switch ru {

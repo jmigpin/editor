@@ -21,7 +21,7 @@ func Parse(str string) *Data {
 	p := &Parser{}
 	p.data = &Data{Str: str}
 
-	rd := iorw.NewBytesReadWriter([]byte(str))
+	rd := iorw.NewStringReader(str)
 	p.sc = statemach.NewScanner(rd)
 
 	if err := p.start(); err != nil {
