@@ -131,6 +131,8 @@ func (man *Manager) autoStartClientServer(reg *Registration) (*Client, error) {
 	switch reg.Network {
 	case "tcp":
 		return man.autoStartClientServerTCP(reg)
+	case "tcpclient":
+		return man.autoStartClientTCP(reg)
 	case "stdio":
 		return man.autoStartClientServerStdio(reg)
 	default:
@@ -146,11 +148,11 @@ func (man *Manager) autoStartClientServerTCP(reg *Registration) (*Client, error)
 	}
 
 	// client (with connect retries)
-	retry := 10 * time.Second
-	sleep := 10 * time.Millisecond
+	retry := 5 * time.Second
+	sleep := 200 * time.Millisecond
 	ctx := context.Background()
 	var cli *Client
-	err = chanutil.RetryTimeout(ctx, retry, sleep, "clisrvwrap", func() error {
+	err = chanutil.RetryTimeout(ctx, retry, sleep, "client server tcp", func() error {
 		cli0, err := NewClientTCP(addr)
 		if err != nil {
 			return err
@@ -171,6 +173,34 @@ func (man *Manager) autoStartClientServerTCP(reg *Registration) (*Client, error)
 
 	// keep instance in register
 	reg.ri.ri = &RegistrationInstance{sw: sw, cli: cli}
+
+	return cli, err
+}
+
+func (man *Manager) autoStartClientTCP(reg *Registration) (*Client, error) {
+	addr := reg.Cmd
+
+	// client (with connect retries)
+	retry := 5 * time.Second
+	sleep := 200 * time.Millisecond
+	ctx := context.Background()
+	var cli *Client
+	err := chanutil.RetryTimeout(ctx, retry, sleep, "client tcp", func() error {
+		cli0, err := NewClientTCP(addr)
+		if err != nil {
+			return err
+		}
+		cli = cli0
+		return nil
+	})
+
+	// client connect error
+	if err != nil {
+		return nil, err
+	}
+
+	// keep instance in register
+	reg.ri.ri = &RegistrationInstance{cli: cli}
 
 	return cli, err
 }

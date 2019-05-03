@@ -148,6 +148,7 @@ func RegistrationExamples() string {
 	u := []string{
 		GoplsRegistrationStr,
 		CLangRegistrationStr,
+		"c,.c,tcpclient,127.0.0.1:9000",
 	}
 	return strings.Join(u, "\n")
 }

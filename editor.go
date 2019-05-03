@@ -40,7 +40,7 @@ func main() {
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
 
 	flag.Var(&opt.LSProtos, "lsproto", "Language-server-protocol register options. Can be specified multiple times.\n"+
-		"Format: language,extensions,network{tcp,stdio},cmd,optional{stderr}\n"+
+		"Format: language,extensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}\n"+
 		"Examples:\n"+lsproto.RegistrationExamples())
 
 	flag.Parse()

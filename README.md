@@ -63,10 +63,11 @@ Usage of ./editor:
     	 (default 12)
   -lsproto value
     	Language-server-protocol register options. Can be specified multiple times.
-    	Format: language,extensions,network{tcp,stdio},cmd,optional{stderr}
+    	Format: language,extensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}
     	Examples:
     	go,.go,tcp,"gopls serve -listen={{.Addr}}"
     	c++,".c .h .cpp .hpp",stdio,clangd
+    	c,.c,tcpclient,127.0.0.1:9000
   -plugins string
     	comma separated string of plugin filenames
   -scrollbarleft

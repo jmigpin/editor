@@ -25,3 +25,16 @@ func TestParseRegistration2(t *testing.T) {
 		t.Fatal(s2)
 	}
 }
+
+func TestParseRegistration3(t *testing.T) {
+	s := "c,.c,tcpclient,127.0.0.1:9000"
+	reg, err := ParseRegistration(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(reg)
+	s2 := RegistrationString(reg)
+	if s2 != "c,.c,tcpclient,127.0.0.1:9000" {
+		t.Fatal(s2)
+	}
+}
