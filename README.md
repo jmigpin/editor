@@ -204,6 +204,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `$edName`: row name. 
 - `$edDir`: row directory. 
 - `$edPosOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
+- `$edLine`: line from active row cursor. Ex: "12".
 
 ## Row states
 

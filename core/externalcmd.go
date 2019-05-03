@@ -59,11 +59,24 @@ func populateEnvVars(erow *ERow, cargs []string) []string {
 		return posOffset
 	}
 
+	getLine := func() string {
+		if !erow.Info.IsFileButNotDir() {
+			return ""
+		}
+		tc := erow.Row.TextArea.TextCursor
+		l, _, err := parseutil.IndexLineColumn(tc.RW(), tc.Index())
+		if err != nil {
+			return ""
+		}
+		return fmt.Sprintf("%v", l)
+	}
+
 	// supported env vars
 	m := map[string]func() string{
-		"edPosOffset": getPosOffset,
-		"edName":      erow.Info.Name,
-		"edDir":       erow.Info.Dir,
+		"edName":      erow.Info.Name, // filename
+		"edDir":       erow.Info.Dir,  // directory
+		"edPosOffset": getPosOffset,   // filename + offset
+		"edLine":      getLine,        // line only
 	}
 
 	// populate env vars if detected
@@ -110,8 +123,11 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 		}
 
 		// ensure kill to child processes on context cancel
+		done := make(chan interface{})
+		defer close(done)
 		go func() {
 			select {
+			case <-done: // ensure no goroutine leaks
 			case <-ctx.Done():
 				_ = osutil.KillExecCmd(cmd)
 			}
