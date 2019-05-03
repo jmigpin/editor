@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
@@ -24,6 +25,10 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 
 	cfb.TextArea = NewTextArea(root.UI)
 	cfb.TextArea.SetStr(text)
+	if d, ok := cfb.TextArea.Drawer.(*drawer4.Drawer); ok {
+		//d.Opt.LineWrap.On = false
+		d.Opt.RuneReader.StartOffsetX = 2 // covers cursor pixel
+	}
 
 	cfb.sa = widget.NewScrollArea(root.UI, cfb.TextArea, false, true)
 	cfb.sa.LeftScroll = ScrollBarLeft
@@ -47,7 +52,7 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 
 func (cfb *ContextFloatBox) Layout() {
 	sw := UIThemeUtil.GetScrollBarWidth(cfb.TextArea.TreeThemeFont())
-	cfb.sa.ScrollWidth = sw * 2 / 3
+	cfb.sa.ScrollWidth = sw //* 2 / 3
 	cfb.FloatBox.Layout()
 }
 
@@ -99,6 +104,10 @@ func (cfb *ContextFloatBox) SetRefPointToTextAreaCursor(ta *TextArea) {
 	p := ta.GetPoint(ta.TextCursor.Index())
 	p.Y += ta.LineHeight()
 	cfb.RefPoint = p
+	// compensate scrollwidth for a better position
+	if cfb.sa.LeftScroll {
+		cfb.RefPoint.X -= cfb.sa.ScrollWidth
+	}
 }
 
 //----------
