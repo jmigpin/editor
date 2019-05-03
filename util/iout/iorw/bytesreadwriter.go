@@ -132,3 +132,9 @@ func (rw *BytesReadWriter) Overwrite(i, length int, p []byte) error {
 	rw.reduceCap()
 	return nil
 }
+
+//----------
+
+func NewStringReader(s string) Reader {
+	return &BytesReadWriter{buf: []byte(s)}
+}

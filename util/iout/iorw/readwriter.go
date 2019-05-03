@@ -18,6 +18,14 @@ type Reader interface {
 	Max() int
 }
 
+// Returns a slice (not a copy).
+func ReadFullSlice(rd Reader) ([]byte, error) {
+	min, max := rd.Min(), rd.Max()
+	return rd.ReadNSliceAt(min, max-min)
+}
+
+//----------
+
 type Writer interface {
 	Insert(i int, p []byte) error
 	Delete(i, length int) error
