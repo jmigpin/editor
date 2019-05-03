@@ -8,17 +8,19 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/chanutil"
 )
 
 type Client struct {
 	Conn     net.Conn
 	Messages chan interface{}
 	waitg    sync.WaitGroup
+	done     chan interface{}
 }
 
 func NewClient(ctx context.Context) (*Client, error) {
 	client := &Client{
-		Messages: make(chan interface{}, 512),
+		Messages: make(chan interface{}, 512), // TODO: group server msgs
 	}
 	if err := client.connect(ctx); err != nil {
 		return nil, err
@@ -41,42 +43,34 @@ func (client *Client) Wait() {
 }
 
 func (client *Client) Close() error {
+	close(client.done) // on close, ensure no goroutine leaks
 	return client.Conn.Close()
 }
 
 func (client *Client) connect(ctx context.Context) error {
-	// connect to server with retries during a period
-	end := time.Now().Add(5 * time.Second)
-	for {
-		// connect
-		var dialer net.Dialer
-		conn0, err := dialer.DialContext(ctx, debug.ServerNetwork, debug.ServerAddress)
-		if err != nil {
-			// retry while the end time is not reached
-			if time.Now().Before(end) {
-				timer := time.NewTimer(250 * time.Millisecond)
-				select {
-				case <-timer.C:
-					continue
-				case <-ctx.Done():
-					return ctx.Err()
-				}
-			}
+	client.done = make(chan interface{})
 
+	retry := 5 * time.Second
+	sleep := 200 * time.Millisecond
+	err := chanutil.RetryTimeout(ctx, retry, sleep, "connect", func() error {
+		var dialer net.Dialer
+		conn, err := dialer.DialContext(ctx, debug.ServerNetwork, debug.ServerAddress)
+		if err != nil {
 			return err
 		}
+		client.Conn = conn
 
-		// connected
-		client.Conn = conn0
-
-		// close client if context gets canceled
+		// on context cancel, ensure client close
 		go func() {
-			<-ctx.Done()
-			_ = client.Close()
+			select {
+			case <-client.done: // ensure no goroutine leaks
+			case <-ctx.Done():
+				_ = client.Close()
+			}
 		}()
-
 		return nil
-	}
+	})
+	return err
 }
 
 func (client *Client) receiveLoop() {
