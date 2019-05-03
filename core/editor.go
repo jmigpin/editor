@@ -8,11 +8,13 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/core/fswatcher"
+	"github.com/jmigpin/editor/core/lsproto"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font"
 )
 
@@ -22,6 +24,7 @@ type Editor struct {
 	Watcher     fswatcher.Watcher
 	RowReopener *RowReopener
 	ERowInfos   map[string]*ERowInfo
+	LSProtoMan  *lsproto.Manager
 	Plugins     *Plugins
 
 	dndh *DndHandler
@@ -77,6 +80,12 @@ func (ed *Editor) init(opt *Options) error {
 	// TODO: ensure it has the window measure
 	ed.EnsureOneColumn()
 
+	// language server protocol manager
+	ed.LSProtoMan = lsproto.NewManager()
+	for _, reg := range opt.LSProtos.regs {
+		ed.LSProtoMan.Register(reg)
+	}
+
 	// setup plugins
 	setupInitialRows := true
 	err = ed.setupPlugins(opt)
@@ -98,6 +107,7 @@ func (ed *Editor) init(opt *Options) error {
 //----------
 
 func (ed *Editor) Close() {
+	ed.LSProtoMan.Close()
 	ed.UI.Close()
 }
 
@@ -458,7 +468,81 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 //----------
 
 func (ed *Editor) contextFloatBoxContent() {
+	cfb := ed.UI.Root.ContextFloatBox
+	ta, ok := cfb.FindTextAreaUnderPointer()
+	if !ok {
+		cfb.Hide()
+		return
+	}
+	erow, ok := ed.NodeERow(ta)
+	if !ok {
+		cfb.Hide()
+		return
+	}
+
+	cfb.SetRefPointToTextAreaCursor(ta)
+	cfb.TextArea.ClearPos()
+	//cfb.TextArea.SetStr("...") // commented: shows initial default msg
+
+	// TODO: contexts
+
+	// handled by a plugin
 	ed.Plugins.RunAutoComplete(ed.UI.Root.ContextFloatBox)
+
+	// handled by lsproto (only on textarea, not on toolbars)
+	if ta == erow.Row.TextArea {
+		_, err := ed.LSProtoMan.FileRegistration(erow.Info.Name())
+		if err == nil {
+			// TODO: possibility of rare race conditions
+			go ed.lsprotoManAutoComplete(ta, erow)
+			return
+		}
+	}
+}
+
+//----------
+
+func (ed *Editor) lsprotoManAutoComplete(ta *ui.TextArea, erow *ERow) {
+	cfb := ed.UI.Root.ContextFloatBox
+
+	// TODO: contexts
+
+	show := func(s string) {
+		ed.UI.RunOnUIGoRoutine(func() {
+			cfb.SetRefPointToTextAreaCursor(ta)
+			cfb.TextArea.ClearPos()
+			cfb.TextArea.SetStr(s)
+			// ensure it is shown if it takes too long
+			cfb.Show()
+		})
+	}
+
+	tc := erow.Row.TextArea.TextCursor
+	comp, err := ed.LSProtoMan.TextDocumentCompletion(erow.Info.Name(), tc.RW(), tc.Index())
+	if err != nil {
+		show(fmt.Sprintf("error: %v", err))
+		return
+	}
+	if len(comp) == 0 {
+		show("0 results")
+	} else {
+		show(strings.Join(comp, "\n"))
+	}
+}
+
+//----------
+
+func (ed *Editor) NodeERow(node widget.Node) (*ERow, bool) {
+	for p := node.Embed().Parent; p != nil; p = p.Parent {
+		if r, ok := p.Wrapper.(*ui.Row); ok {
+			for _, erow := range ed.ERows() {
+				if r == erow.Row {
+					return erow, true
+				}
+			}
+		}
+	}
+	return nil, false
 }
 
 //----------
@@ -485,4 +569,39 @@ type Options struct {
 	UseMultiKey bool
 
 	Plugins string
+
+	LSProtos RegistrationsOpt
 }
+
+//----------
+
+// implements flag.Value interface
+type RegistrationsOpt struct {
+	regs []*lsproto.Registration
+}
+
+func (ro *RegistrationsOpt) Set(s string) error {
+	reg, err := lsproto.ParseRegistration(s)
+	if err != nil {
+		return err
+	}
+	ro.regs = append(ro.regs, reg)
+	return nil
+}
+
+func (ro *RegistrationsOpt) MustSet(s string) {
+	if err := ro.Set(s); err != nil {
+		panic(err)
+	}
+}
+
+func (ro *RegistrationsOpt) String() string {
+	u := []string{}
+	for _, reg := range ro.regs {
+		s := lsproto.RegistrationString(reg)
+		u = append(u, s)
+	}
+	return fmt.Sprintf("%v", strings.Join(u, "\n"))
+}
+
+//----------

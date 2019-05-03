@@ -14,6 +14,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	_ "github.com/jmigpin/editor/core/contentcmds"
+	"github.com/jmigpin/editor/core/lsproto"
 )
 
 func main() {
@@ -37,6 +38,10 @@ func main() {
 	flag.StringVar(&opt.Plugins, "plugins", "", "comma separated string of plugin filenames")
 
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
+
+	flag.Var(&opt.LSProtos, "lsproto", "Language-server-protocol register options. Can be specified multiple times.\n"+
+		"Format: language,extensions,network{tcp,stdio},cmd,optional{stderr}\n"+
+		"Examples:\n"+lsproto.RegistrationExamples())
 
 	flag.Parse()
 	opt.Filenames = flag.Args()

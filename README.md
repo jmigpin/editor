@@ -31,7 +31,10 @@ Source code editor in pure Go.
 	- Clicking on `.go` files identifiers will jump to the identifier definition (uses go guru).
 	- Debug utility for go programs (`GoDebug` cmd). (__experimental__)
 		- allows to go back and forth in time to consult code values.
-
+- Language Server Protocol:
+	- `-lsproto` cmd line option (__work-in-progress__)
+	- basic support for gotodefinition and completion
+	- mostly being tested with `clangd` and `gopls`
 
 ## Installation and usage
 
@@ -58,6 +61,12 @@ Usage of ./editor:
     	font hinting: none, vertical, full (default "full")
   -fontsize float
     	 (default 12)
+  -lsproto value
+    	Language-server-protocol register options. Can be specified multiple times.
+    	Format: language,extensions,network{tcp,stdio},cmd,optional{stderr}
+    	Examples:
+    	go,.go,tcp,"gopls serve -listen={{.Addr}}"
+    	c++,".c .h .cpp .hpp",stdio,clangd
   -plugins string
     	comma separated string of plugin filenames
   -scrollbarleft
