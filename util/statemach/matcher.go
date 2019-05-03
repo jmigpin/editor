@@ -29,6 +29,9 @@ func (m *Matcher) Any(valid string) bool {
 
 func (m *Matcher) Except(invalid string) bool {
 	return m.sc.RewindOnFalse(func() bool {
+		if m.End() {
+			return false
+		}
 		return !strings.ContainsRune(invalid, m.sc.ReadRune())
 	})
 }
