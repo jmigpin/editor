@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/statemach"
@@ -15,11 +16,16 @@ import (
 //----------
 
 type Registration struct {
+	// registration options
 	Language string
 	Exts     []string
 	Cmd      string
 	Network  string   // {stdio, tcp(runs text/template on cmd)}
 	Optional []string // optional extra fields
+
+	// other options (internal)
+	asyncErrors chan<- error
+	//onConnErrAsync func()
 
 	ri struct {
 		sync.Mutex
@@ -36,6 +42,34 @@ func (reg *Registration) HasOptional(s string) bool {
 	return false
 }
 
+func (reg *Registration) CloseInstanceLocked() error {
+	reg.ri.Lock()
+	defer reg.ri.Unlock()
+	return reg.CloseInstanceUnlocked()
+}
+
+func (reg *Registration) CloseInstanceUnlocked() error {
+	if reg.ri.ri != nil {
+		ri := reg.ri.ri
+		reg.ri.ri = nil
+		err := ri.Close()
+		if err != nil {
+			err = fmt.Errorf("closeinstance(%v): %v", reg.Language, err)
+		}
+		return err
+	}
+	return nil
+}
+
+func (reg *Registration) onConnErrAsync(err error) {
+	me := iout.MultiError{}
+	me.Add(err)
+	if err := reg.CloseInstanceLocked(); err != nil {
+		me.Add(err)
+	}
+	reg.asyncErrors <- fmt.Errorf("lsproto(%s): %v", reg.Language, me.Result())
+}
+
 //----------
 
 type RegistrationInstance struct {
@@ -44,21 +78,18 @@ type RegistrationInstance struct {
 }
 
 func (inst *RegistrationInstance) Close() error {
-	errs := []string{}
+	me := &iout.MultiError{}
 	if inst.cli != nil {
 		if err := inst.cli.Close(); err != nil {
-			errs = append(errs, fmt.Sprintf("client: %v", err))
+			me.Add(fmt.Errorf("client: %v", err))
 		}
 	}
 	if inst.sw != nil {
-		if err := inst.sw.CloseWait(); err != nil {
-			errs = append(errs, fmt.Sprintf("serverwrap: %v", err))
+		if err := inst.sw.Close(); err != nil {
+			me.Add(fmt.Errorf("serverwrap: %v", err))
 		}
 	}
-	if len(errs) == 0 {
-		return nil
-	}
-	return fmt.Errorf("register close (%d err): %v", len(errs), strings.Join(errs, "; "))
+	return me.Result()
 }
 
 //----------

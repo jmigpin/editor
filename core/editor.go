@@ -80,8 +80,15 @@ func (ed *Editor) init(opt *Options) error {
 	// TODO: ensure it has the window measure
 	ed.EnsureOneColumn()
 
+	// loop to handle lsp async errors
+	lspAsyncErrors := make(chan error, 4)
+	go func() {
+		for {
+			ed.Error(<-lspAsyncErrors)
+		}
+	}()
 	// language server protocol manager
-	ed.LSProtoMan = lsproto.NewManager()
+	ed.LSProtoMan = lsproto.NewManager(lspAsyncErrors)
 	for _, reg := range opt.LSProtos.regs {
 		ed.LSProtoMan.Register(reg)
 	}

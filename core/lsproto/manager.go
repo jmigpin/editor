@@ -4,28 +4,32 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/jmigpin/editor/util/chanutil"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 type Manager struct {
-	Regs []*Registration
+	Regs        []*Registration
+	asyncErrors chan<- error
 }
 
-func NewManager() *Manager {
-	return &Manager{}
+func NewManager(asyncErrors chan<- error) *Manager {
+	if asyncErrors == nil {
+		panic("asyncerrors is nil")
+	}
+	return &Manager{asyncErrors: asyncErrors}
 }
 
 //----------
 
 func (man *Manager) Register(reg *Registration) {
+	reg.asyncErrors = man.asyncErrors // setup for all registrations
 	man.Regs = append(man.Regs, reg)
 }
 
@@ -53,31 +57,11 @@ func (man *Manager) FileRegistration(filename string) (*Registration, error) {
 //----------
 
 func (man *Manager) Close() error {
-	errs := []string{}
+	me := &iout.MultiError{}
 	for _, reg := range man.Regs {
-		err := man.closeRegistration(reg)
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
+		me.Add(reg.CloseInstanceLocked())
 	}
-	if len(errs) == 0 {
-		return nil
-	}
-	return fmt.Errorf("man close (%d err): %v", len(errs), strings.Join(errs, ", "))
-}
-
-func (man *Manager) closeRegistration(reg *Registration) error {
-	reg.ri.Lock()
-	defer reg.ri.Unlock()
-	return man.closeRegistration2(reg)
-}
-func (man *Manager) closeRegistration2(reg *Registration) error {
-	if reg.ri.ri != nil {
-		ri := reg.ri.ri
-		reg.ri.ri = nil
-		return ri.Close()
-	}
-	return nil
+	return me.Result()
 }
 
 //----------
@@ -96,31 +80,19 @@ func (man *Manager) autoStartReg(reg *Registration) (*Client, error) {
 	defer reg.ri.Unlock()
 
 	if reg.ri.ri != nil {
-		if reg.ri.ri.cli.hasReadErr {
-			// client instance has read error
-			if err := man.closeRegistration2(reg); err != nil {
-				log.Printf("%v", err)
-			}
-		} else {
-			// still good
-			return reg.ri.ri.cli, nil
-		}
+		return reg.ri.ri.cli, nil
 	}
 
 	// new client/server
 	cli, err := man.autoStartClientServer(reg)
 	if err != nil {
-		return nil, err
+		// ensure instance is closed if can't get a client
+		err2 := reg.CloseInstanceUnlocked()
+		return nil, iout.MultiErrors(err, err2)
 	}
-
-	// set language param
-	cli.Language = reg.Language
 
 	// initialize
 	if err := cli.Initialize("/"); err != nil {
-		if err := man.closeRegistration2(reg); err != nil {
-			log.Printf("register close err (early close due to initialize err): %v", err)
-		}
 		return nil, err
 	}
 
@@ -141,40 +113,36 @@ func (man *Manager) autoStartClientServer(reg *Registration) (*Client, error) {
 }
 
 func (man *Manager) autoStartClientServerTCP(reg *Registration) (*Client, error) {
+
 	// server wrap
-	sw, addr, err := NewServerWrapTCP(reg.Cmd)
+	sw, addr, err := NewServerWrapTCP(reg.Cmd, reg)
 	if err != nil {
 		return nil, err
 	}
 
+	// keep instance in the registration
+	reg.ri.ri = &RegistrationInstance{sw: sw}
+
 	// client (with connect retries)
-	retry := 5 * time.Second
-	sleep := 200 * time.Millisecond
+	retry := 3 * time.Second
+	sleep := 250 * time.Millisecond
 	ctx := context.Background()
-	var cli *Client
-	err = chanutil.RetryTimeout(ctx, retry, sleep, "client server tcp", func() error {
-		cli0, err := NewClientTCP(addr)
+	err = chanutil.RetryTimeout(ctx, retry, sleep, "clientservertcp", func() error {
+		cli0, err := NewClientTCP(addr, reg)
 		if err != nil {
 			return err
 		}
-		cli = cli0
+		reg.ri.ri.cli = cli0
 		return nil
 	})
 
 	// client connect error
 	if err != nil {
-		// close the already started sw
-		if err := sw.CloseWait(); err != nil {
-			log.Printf("sw close err (early close due to cli err): %v", err)
-		}
-
-		return nil, err
+		err2 := reg.CloseInstanceUnlocked()
+		return nil, iout.MultiErrors(err, err2)
 	}
 
-	// keep instance in register
-	reg.ri.ri = &RegistrationInstance{sw: sw, cli: cli}
-
-	return cli, err
+	return reg.ri.ri.cli, nil
 }
 
 func (man *Manager) autoStartClientTCP(reg *Registration) (*Client, error) {
@@ -185,8 +153,8 @@ func (man *Manager) autoStartClientTCP(reg *Registration) (*Client, error) {
 	sleep := 200 * time.Millisecond
 	ctx := context.Background()
 	var cli *Client
-	err := chanutil.RetryTimeout(ctx, retry, sleep, "client tcp", func() error {
-		cli0, err := NewClientTCP(addr)
+	err := chanutil.RetryTimeout(ctx, retry, sleep, "clienttcp", func() error {
+		cli0, err := NewClientTCP(addr, reg)
 		if err != nil {
 			return err
 		}
@@ -212,13 +180,13 @@ func (man *Manager) autoStartClientServerStdio(reg *Registration) (*Client, erro
 	}
 
 	// server wrap
-	sw, rwc, err := NewServerWrapIO(reg.Cmd, stderr)
+	sw, rwc, err := NewServerWrapIO(reg.Cmd, stderr, reg)
 	if err != nil {
 		return nil, err
 	}
 
 	// client
-	cli := NewClientIO(rwc)
+	cli := NewClientIO(rwc, reg)
 
 	// keep instance in register
 	reg.ri.ri = &RegistrationInstance{sw: sw, cli: cli}

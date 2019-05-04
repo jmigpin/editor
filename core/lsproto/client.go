@@ -10,29 +10,28 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/util/chanutil"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 type Client struct {
-	Language string
-
-	synct      map[string]int
-	hasReadErr bool
-
-	rcli *rpc.Client
-	conn io.ReadWriteCloser
+	rcli      *rpc.Client
+	conn      io.ReadWriteCloser
+	fversions map[string]int
+	reg       *Registration
 }
 
-func NewClientTCP(addr string) (*Client, error) {
+func NewClientTCP(addr string, reg *Registration) (*Client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	return NewClientIO(conn), nil
+	cli := NewClientIO(conn, reg)
+	return cli, nil
 }
 
-func NewClientIO(conn io.ReadWriteCloser) *Client {
-	cli := &Client{synct: map[string]int{}}
+func NewClientIO(conn io.ReadWriteCloser, reg *Registration) *Client {
+	cli := &Client{reg: reg, fversions: map[string]int{}}
 	cli.conn = conn
 	cc := NewJsonCodec(conn)
 	cc.OnNotificationMessage = cli.onNotificationMessage
@@ -43,58 +42,39 @@ func NewClientIO(conn io.ReadWriteCloser) *Client {
 //----------
 
 func (cli *Client) Close() error {
-	if err := cli.ShutdownRequest(); err != nil {
-		return err
-	}
-	return cli.ExitNotification()
+	me := iout.MultiError{}
+	me.Add(cli.ShutdownRequest())
+	me.Add(cli.ExitNotification())
+	me.Add(cli.conn.Close())
+	return me.Result()
 }
 
 //----------
 
 // Ensures server callback or a timeout error will surface.
 func (cli *Client) Call(method string, args, reply interface{}) error {
-	timeout := 4 * time.Second
-
-	//// read/write deadlines
-	//t := time.Now().Add(timeout)
-	//if err := cli.conn.SetReadDeadline(t); err != nil {
-	//	return err
-	//}
-	//if err := cli.conn.SetWriteDeadline(t); err != nil {
-	//	return err
-	//}
-	//defer func() { cli.conn.SetWriteDeadline(time.Time{}) }()
-	//defer func() { cli.conn.SetReadDeadline(time.Time{}) }()
-
-	if cli.hasReadErr {
-		return fmt.Errorf("has read err")
+	lspResp := &Response{}
+	fn := func() error {
+		return cli.rcli.Call(method, args, lspResp)
+	}
+	err := chanutil.CallTimeout(context.Background(), 8*time.Second, method, cli.reg.asyncErrors, fn)
+	if err != nil {
+		go cli.reg.onConnErrAsync(err)
+		return err
 	}
 
-	ctx := context.Background()
-	return chanutil.CallTimeout(ctx, timeout, method, func() error {
-		// call
-		lspResp := &Response{}
-		err := cli.rcli.Call(method, args, lspResp)
-		if err != nil {
-			cli.hasReadErr = true
-			return err
-		}
+	// not expecting a reply
+	if _, ok := noreplyMethod(method); ok {
+		return nil
+	}
 
-		// not expecting a reply
-		if _, ok := noreplyMethod(method); ok {
-			return nil
-		}
+	// func error (soft error)
+	if lspResp.Error != nil {
+		return lspResp.Error
+	}
 
-		// func error (soft error)
-		if lspResp.Error != nil {
-			return lspResp.Error
-		}
-
-		//log.Printf("call %v: result=%v", method, string(lspResp.Result))
-
-		// decode result
-		return decodeJsonRaw(lspResp.Result, reply)
-	})
+	// decode result
+	return decodeJsonRaw(lspResp.Result, reply)
 }
 
 //----------
@@ -141,7 +121,7 @@ func (cli *Client) TextDocumentDidOpen(filename, text string, version int) error
 
 	opt := &DidOpenTextDocumentParams{}
 	opt.TextDocument.Uri = addFileScheme(filename)
-	opt.TextDocument.LanguageId = cli.Language
+	opt.TextDocument.LanguageId = cli.reg.Language
 	opt.TextDocument.Version = version
 	opt.TextDocument.Text = text
 	err := cli.Call("noreply:textDocument/didOpen", &opt, nil)
@@ -240,13 +220,13 @@ func (cli *Client) TextDocumentCompletion(filename string, pos Position) ([]stri
 //----------
 
 func (cli *Client) SyncText(filename string, b []byte) error {
-	v, ok := cli.synct[filename]
+	v, ok := cli.fversions[filename]
 	if !ok {
 		v = 1
 	} else {
 		v++
 	}
-	cli.synct[filename] = v
+	cli.fversions[filename] = v
 
 	//if v == 1 {
 	err := cli.TextDocumentDidOpen(filename, string(b), v)
