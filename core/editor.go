@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -521,6 +522,8 @@ func (ed *Editor) lsprotoManAutoComplete(ta *ui.TextArea, erow *ERow) {
 	cfb := ed.UI.Root.ContextFloatBox
 
 	// TODO: contexts
+	// TODO: allow cancel on escape?
+	ctx := context.Background()
 
 	show := func(s string) {
 		ed.UI.RunOnUIGoRoutine(func() {
@@ -533,7 +536,7 @@ func (ed *Editor) lsprotoManAutoComplete(ta *ui.TextArea, erow *ERow) {
 	}
 
 	tc := erow.Row.TextArea.TextCursor
-	comp, err := ed.LSProtoMan.TextDocumentCompletion(erow.Info.Name(), tc.RW(), tc.Index())
+	comp, err := ed.LSProtoMan.TextDocumentCompletion(ctx, erow.Info.Name(), tc.RW(), tc.Index())
 	if err != nil {
 		show(fmt.Sprintf("error: %v", err))
 		return

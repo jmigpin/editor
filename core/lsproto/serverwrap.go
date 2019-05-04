@@ -27,7 +27,7 @@ type ServerWrap struct {
 
 //----------
 
-func NewServerWrapTCP(cmdTmpl string, reg *Registration) (*ServerWrap, string, error) {
+func NewServerWrapTCP(ctx context.Context, cmdTmpl string, reg *Registration) (*ServerWrap, string, error) {
 	// random port to allow multiple editors to have multiple server wraps
 	port := randPort()
 	// template vars
@@ -37,14 +37,14 @@ func NewServerWrapTCP(cmdTmpl string, reg *Registration) (*ServerWrap, string, e
 	if err != nil {
 		return nil, "", err
 	}
-	sw, err := newServerWrapCommon(cmd, reg, nil)
+	sw, err := newServerWrapCommon(ctx, cmd, reg, nil)
 	if err != nil {
 		return nil, "", err
 	}
 	return sw, addr, nil
 }
 
-func NewServerWrapIO(cmd string, stderr io.Writer, reg *Registration) (*ServerWrap, io.ReadWriteCloser, error) {
+func NewServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, reg *Registration) (*ServerWrap, io.ReadWriteCloser, error) {
 
 	preStartFn := func(sw *ServerWrap) error {
 		// in/out/err pipes
@@ -67,7 +67,7 @@ func NewServerWrapIO(cmd string, stderr io.Writer, reg *Registration) (*ServerWr
 		return nil
 	}
 
-	sw, err := newServerWrapCommon(cmd, reg, preStartFn)
+	sw, err := newServerWrapCommon(ctx, cmd, reg, preStartFn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -76,12 +76,11 @@ func NewServerWrapIO(cmd string, stderr io.Writer, reg *Registration) (*ServerWr
 
 //----------
 
-func newServerWrapCommon(cmd string, reg *Registration, preStartFn func(sw *ServerWrap) error) (*ServerWrap, error) {
+func newServerWrapCommon(ctx0 context.Context, cmd string, reg *Registration, preStartFn func(sw *ServerWrap) error) (*ServerWrap, error) {
 	sw := &ServerWrap{reg: reg}
 
-	// context
-	bg := context.Background()
-	ctx, cancel := context.WithCancel(bg)
+	// context with cancel
+	ctx, cancel := context.WithCancel(ctx0)
 	sw.cancel = cancel
 
 	// early ctx cleanup

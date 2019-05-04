@@ -1,6 +1,7 @@
 package contentcmds
 
 import (
+	"context"
 	"io/ioutil"
 
 	"github.com/jmigpin/editor/core"
@@ -15,6 +16,7 @@ func GoToDefinitionLSProto(erow *core.ERow, index int) (bool, error) {
 	}
 
 	// TODO: contexts, a new click could cancel this
+	ctx := context.Background()
 
 	ed := erow.Ed
 	tc := erow.Row.TextArea.TextCursor
@@ -26,7 +28,7 @@ func GoToDefinitionLSProto(erow *core.ERow, index int) (bool, error) {
 		return false, nil
 	}
 
-	filename, rang, err := ed.LSProtoMan.TextDocumentDefinition(erow.Info.Name(), rw, index)
+	filename, rang, err := ed.LSProtoMan.TextDocumentDefinition(ctx, erow.Info.Name(), rw, index)
 	if err != nil {
 		return true, err
 	}

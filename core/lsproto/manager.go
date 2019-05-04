@@ -66,16 +66,16 @@ func (man *Manager) Close() error {
 
 //----------
 
-func (man *Manager) autoStart(filename string) (*Client, *Registration, error) {
+func (man *Manager) autoStart(ctx context.Context, filename string) (*Client, *Registration, error) {
 	reg, err := man.FileRegistration(filename)
 	if err != nil {
 		return nil, nil, err
 	}
-	cli, err := man.autoStartReg(reg)
+	cli, err := man.autoStartReg(ctx, reg)
 	return cli, reg, err
 }
 
-func (man *Manager) autoStartReg(reg *Registration) (*Client, error) {
+func (man *Manager) autoStartReg(ctx context.Context, reg *Registration) (*Client, error) {
 	reg.ri.Lock()
 	defer reg.ri.Unlock()
 
@@ -84,7 +84,7 @@ func (man *Manager) autoStartReg(reg *Registration) (*Client, error) {
 	}
 
 	// new client/server
-	cli, err := man.autoStartClientServer(reg)
+	cli, err := man.autoStartClientServer(ctx, reg)
 	if err != nil {
 		// ensure instance is closed if can't get a client
 		err2 := reg.CloseInstanceUnlocked()
@@ -92,30 +92,30 @@ func (man *Manager) autoStartReg(reg *Registration) (*Client, error) {
 	}
 
 	// initialize
-	if err := cli.Initialize("/"); err != nil {
+	if err := cli.Initialize(ctx, "/"); err != nil {
 		return nil, err
 	}
 
 	return cli, nil
 }
 
-func (man *Manager) autoStartClientServer(reg *Registration) (*Client, error) {
+func (man *Manager) autoStartClientServer(ctx context.Context, reg *Registration) (*Client, error) {
 	switch reg.Network {
 	case "tcp":
-		return man.autoStartClientServerTCP(reg)
+		return man.autoStartClientServerTCP(ctx, reg)
 	case "tcpclient":
-		return man.autoStartClientTCP(reg)
+		return man.autoStartClientTCP(ctx, reg)
 	case "stdio":
-		return man.autoStartClientServerStdio(reg)
+		return man.autoStartClientServerStdio(ctx, reg)
 	default:
 		return nil, fmt.Errorf("unexpected network: %v", reg.Network)
 	}
 }
 
-func (man *Manager) autoStartClientServerTCP(reg *Registration) (*Client, error) {
+func (man *Manager) autoStartClientServerTCP(ctx context.Context, reg *Registration) (*Client, error) {
 
 	// server wrap
-	sw, addr, err := NewServerWrapTCP(reg.Cmd, reg)
+	sw, addr, err := NewServerWrapTCP(ctx, reg.Cmd, reg)
 	if err != nil {
 		return nil, err
 	}
@@ -126,9 +126,8 @@ func (man *Manager) autoStartClientServerTCP(reg *Registration) (*Client, error)
 	// client (with connect retries)
 	retry := 3 * time.Second
 	sleep := 250 * time.Millisecond
-	ctx := context.Background()
 	err = chanutil.RetryTimeout(ctx, retry, sleep, "clientservertcp", func() error {
-		cli0, err := NewClientTCP(addr, reg)
+		cli0, err := NewClientTCP(ctx, addr, reg)
 		if err != nil {
 			return err
 		}
@@ -145,16 +144,15 @@ func (man *Manager) autoStartClientServerTCP(reg *Registration) (*Client, error)
 	return reg.ri.ri.cli, nil
 }
 
-func (man *Manager) autoStartClientTCP(reg *Registration) (*Client, error) {
+func (man *Manager) autoStartClientTCP(ctx context.Context, reg *Registration) (*Client, error) {
 	addr := reg.Cmd
 
 	// client (with connect retries)
 	retry := 5 * time.Second
 	sleep := 200 * time.Millisecond
-	ctx := context.Background()
 	var cli *Client
 	err := chanutil.RetryTimeout(ctx, retry, sleep, "clienttcp", func() error {
-		cli0, err := NewClientTCP(addr, reg)
+		cli0, err := NewClientTCP(ctx, addr, reg)
 		if err != nil {
 			return err
 		}
@@ -173,14 +171,14 @@ func (man *Manager) autoStartClientTCP(reg *Registration) (*Client, error) {
 	return cli, err
 }
 
-func (man *Manager) autoStartClientServerStdio(reg *Registration) (*Client, error) {
+func (man *Manager) autoStartClientServerStdio(ctx context.Context, reg *Registration) (*Client, error) {
 	var stderr io.Writer
 	if reg.HasOptional("stderr") {
 		stderr = os.Stderr
 	}
 
 	// server wrap
-	sw, rwc, err := NewServerWrapIO(reg.Cmd, stderr, reg)
+	sw, rwc, err := NewServerWrapIO(ctx, reg.Cmd, stderr, reg)
 	if err != nil {
 		return nil, err
 	}
@@ -208,15 +206,15 @@ func (man *Manager) autoStartClientServerStdio(reg *Registration) (*Client, erro
 //	return man.regSyncText(reg, filename, b)
 //}
 
-func (man *Manager) regSyncText(reg *Registration, filename string, b []byte) error {
-	err := reg.ri.ri.cli.SyncText(filename, b)
+func (man *Manager) regSyncText(ctx context.Context, reg *Registration, filename string, b []byte) error {
+	err := reg.ri.ri.cli.SyncText(ctx, filename, b)
 	return err
 }
 
 //----------
 
-func (man *Manager) TextDocumentDefinition(filename string, rd iorw.Reader, offset int) (string, *Range, error) {
-	cli, reg, err := man.autoStart(filename)
+func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string, rd iorw.Reader, offset int) (string, *Range, error) {
+	cli, reg, err := man.autoStart(ctx, filename)
 	if err != nil {
 		return "", nil, err
 	}
@@ -226,7 +224,7 @@ func (man *Manager) TextDocumentDefinition(filename string, rd iorw.Reader, offs
 		return "", nil, err
 	}
 
-	if err := man.regSyncText(reg, filename, b); err != nil {
+	if err := man.regSyncText(ctx, reg, filename, b); err != nil {
 		return "", nil, err
 	}
 
@@ -235,7 +233,7 @@ func (man *Manager) TextDocumentDefinition(filename string, rd iorw.Reader, offs
 		return "", nil, err
 	}
 
-	loc, err := cli.TextDocumentDefinition(filename, pos)
+	loc, err := cli.TextDocumentDefinition(ctx, filename, pos)
 	if err != nil {
 		return "", nil, err
 	}
@@ -251,8 +249,8 @@ func (man *Manager) TextDocumentDefinition(filename string, rd iorw.Reader, offs
 
 //----------
 
-func (man *Manager) TextDocumentCompletion(filename string, rd iorw.Reader, offset int) ([]string, error) {
-	cli, reg, err := man.autoStart(filename)
+func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string, rd iorw.Reader, offset int) ([]string, error) {
+	cli, reg, err := man.autoStart(ctx, filename)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +260,7 @@ func (man *Manager) TextDocumentCompletion(filename string, rd iorw.Reader, offs
 		return nil, err
 	}
 
-	if err := man.regSyncText(reg, filename, b); err != nil {
+	if err := man.regSyncText(ctx, reg, filename, b); err != nil {
 		return nil, err
 	}
 
@@ -271,6 +269,6 @@ func (man *Manager) TextDocumentCompletion(filename string, rd iorw.Reader, offs
 		return nil, err
 	}
 
-	comp, err := cli.TextDocumentCompletion(filename, pos)
+	comp, err := cli.TextDocumentCompletion(ctx, filename, pos)
 	return comp, err
 }

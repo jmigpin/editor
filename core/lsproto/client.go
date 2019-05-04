@@ -16,13 +16,14 @@ import (
 
 type Client struct {
 	rcli      *rpc.Client
-	conn      io.ReadWriteCloser
+	rwc       io.ReadWriteCloser
 	fversions map[string]int
 	reg       *Registration
 }
 
-func NewClientTCP(addr string, reg *Registration) (*Client, error) {
-	conn, err := net.Dial("tcp", addr)
+func NewClientTCP(ctx context.Context, addr string, reg *Registration) (*Client, error) {
+	dialer := net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -30,10 +31,10 @@ func NewClientTCP(addr string, reg *Registration) (*Client, error) {
 	return cli, nil
 }
 
-func NewClientIO(conn io.ReadWriteCloser, reg *Registration) *Client {
+func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
 	cli := &Client{reg: reg, fversions: map[string]int{}}
-	cli.conn = conn
-	cc := NewJsonCodec(conn, reg.asyncErrors)
+	cli.rwc = rwc
+	cc := NewJsonCodec(rwc, reg.asyncErrors)
 	cc.OnNotificationMessage = cli.onNotificationMessage
 	cli.rcli = rpc.NewClientWithCodec(cc)
 	return cli
@@ -45,23 +46,23 @@ func (cli *Client) Close() error {
 	me := iout.MultiError{}
 	me.Add(cli.ShutdownRequest())
 	me.Add(cli.ExitNotification())
-	me.Add(cli.conn.Close())
+	me.Add(cli.rwc.Close())
 	return me.Result()
 }
 
 //----------
 
 // Ensures server callback or a timeout error will surface.
-func (cli *Client) Call(method string, args, reply interface{}) error {
-	return cli.CallTimeout(5*time.Second, method, args, reply)
+func (cli *Client) Call(ctx context.Context, method string, args, reply interface{}) error {
+	return cli.CallTimeout(ctx, 5*time.Second, method, args, reply)
 }
 
-func (cli *Client) CallTimeout(timeout time.Duration, method string, args, reply interface{}) error {
+func (cli *Client) CallTimeout(ctx context.Context, timeout time.Duration, method string, args, reply interface{}) error {
 	lspResp := &Response{}
 	fn := func() error {
 		return cli.rcli.Call(method, args, lspResp)
 	}
-	err := chanutil.CallTimeout(context.Background(), timeout, method, cli.reg.asyncErrors, fn)
+	err := chanutil.CallTimeout(ctx, timeout, method, cli.reg.asyncErrors, fn)
 	if err != nil {
 		go cli.reg.onConnErrAsync(err)
 		return err
@@ -89,7 +90,7 @@ func (cli *Client) onNotificationMessage(msg *NotificationMessage) {
 
 //----------
 
-func (cli *Client) Initialize(dir string) error {
+func (cli *Client) Initialize(ctx context.Context, dir string) error {
 	opt := &InitializeParams{}
 	opt.RootUri = addFileScheme(dir)
 	//opt.Capabilities.TextDocument.PublishDiagnostics = &PublishDiagnostics{
@@ -97,7 +98,7 @@ func (cli *Client) Initialize(dir string) error {
 	//}
 
 	var capabilities interface{}
-	err := cli.Call("initialize", &opt, &capabilities)
+	err := cli.Call(ctx, "initialize", &opt, &capabilities)
 	logJson("initialize <--: ", capabilities)
 	return err
 }
@@ -109,20 +110,22 @@ func (cli *Client) ShutdownRequest() error {
 
 	// TODO: gopls is not sending reply for shutdown, clangd does
 
-	err := cli.CallTimeout(200*time.Millisecond, "shutdown", nil, nil)
+	ctx := context.Background()
+	err := cli.CallTimeout(ctx, 200*time.Millisecond, "shutdown", nil, nil)
 	return err
 }
 
 func (cli *Client) ExitNotification() error {
 	// https://microsoft.github.io/language-server-protocol/specification#exit
 
-	err := cli.CallTimeout(200*time.Millisecond, "noreply:exit", nil, nil)
+	ctx := context.Background()
+	err := cli.CallTimeout(ctx, 200*time.Millisecond, "noreply:exit", nil, nil)
 	return err
 }
 
 //----------
 
-func (cli *Client) TextDocumentDidOpen(filename, text string, version int) error {
+func (cli *Client) TextDocumentDidOpen(ctx context.Context, filename, text string, version int) error {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didOpen
 
 	opt := &DidOpenTextDocumentParams{}
@@ -130,20 +133,20 @@ func (cli *Client) TextDocumentDidOpen(filename, text string, version int) error
 	opt.TextDocument.LanguageId = cli.reg.Language
 	opt.TextDocument.Version = version
 	opt.TextDocument.Text = text
-	err := cli.Call("noreply:textDocument/didOpen", &opt, nil)
+	err := cli.Call(ctx, "noreply:textDocument/didOpen", &opt, nil)
 	return err
 }
 
-func (cli *Client) TextDocumentDidClose(filename string) error {
+func (cli *Client) TextDocumentDidClose(ctx context.Context, filename string) error {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didClose
 
 	opt := &DidCloseTextDocumentParams{}
 	opt.TextDocument.Uri = addFileScheme(filename)
-	err := cli.Call("noreply:textDocument/didClose", &opt, nil)
+	err := cli.Call(ctx, "noreply:textDocument/didClose", &opt, nil)
 	return err
 }
 
-func (cli *Client) TextDocumentDidChange(filename, text string, version int) error {
+func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text string, version int) error {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didChange
 
 	opt := &DidChangeTextDocumentParams{}
@@ -168,12 +171,12 @@ func (cli *Client) TextDocumentDidChange(filename, text string, version int) err
 			Text: text,
 		},
 	}
-	return cli.Call("noreply:textDocument/didChange", &opt, nil)
+	return cli.Call(ctx, "noreply:textDocument/didChange", &opt, nil)
 }
 
 //----------
 
-func (cli *Client) TextDocumentDefinition(filename string, pos Position) (*Location, error) {
+func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, pos Position) (*Location, error) {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_definition
 
 	opt := &TextDocumentPositionParams{}
@@ -181,7 +184,7 @@ func (cli *Client) TextDocumentDefinition(filename string, pos Position) (*Locat
 	opt.Position = pos
 
 	result := []*Location{}
-	err := cli.Call("textDocument/definition", &opt, &result)
+	err := cli.Call(ctx, "textDocument/definition", &opt, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +196,7 @@ func (cli *Client) TextDocumentDefinition(filename string, pos Position) (*Locat
 
 //----------
 
-func (cli *Client) TextDocumentCompletion(filename string, pos Position) ([]string, error) {
+func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, pos Position) ([]string, error) {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_completion
 
 	opt := &CompletionParams{}
@@ -202,7 +205,7 @@ func (cli *Client) TextDocumentCompletion(filename string, pos Position) ([]stri
 	opt.Position = pos
 
 	result := CompletionList{}
-	err := cli.Call("textDocument/completion", &opt, &result)
+	err := cli.Call(ctx, "textDocument/completion", &opt, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +228,7 @@ func (cli *Client) TextDocumentCompletion(filename string, pos Position) ([]stri
 
 //----------
 
-func (cli *Client) SyncText(filename string, b []byte) error {
+func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) error {
 	v, ok := cli.fversions[filename]
 	if !ok {
 		v = 1
@@ -235,7 +238,7 @@ func (cli *Client) SyncText(filename string, b []byte) error {
 	cli.fversions[filename] = v
 
 	//if v == 1 {
-	err := cli.TextDocumentDidOpen(filename, string(b), v)
+	err := cli.TextDocumentDidOpen(ctx, filename, string(b), v)
 	if err != nil {
 		return err
 	}
