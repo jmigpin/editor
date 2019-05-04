@@ -43,6 +43,8 @@ func NewEditor(opt *Options) (*Editor, error) {
 		return nil, err
 	}
 
+	ed.initLSProto(opt)
+
 	GoDebugInit(ed)
 
 	go ed.fswatcherEventLoop()
@@ -80,19 +82,6 @@ func (ed *Editor) init(opt *Options) error {
 	// TODO: ensure it has the window measure
 	ed.EnsureOneColumn()
 
-	// loop to handle lsp async errors
-	lspAsyncErrors := make(chan error, 4)
-	go func() {
-		for {
-			ed.Error(<-lspAsyncErrors)
-		}
-	}()
-	// language server protocol manager
-	ed.LSProtoMan = lsproto.NewManager(lspAsyncErrors)
-	for _, reg := range opt.LSProtos.regs {
-		ed.LSProtoMan.Register(reg)
-	}
-
 	// setup plugins
 	setupInitialRows := true
 	err = ed.setupPlugins(opt)
@@ -109,6 +98,25 @@ func (ed *Editor) init(opt *Options) error {
 	}
 
 	return nil
+}
+
+func (ed *Editor) initLSProto(opt *Options) {
+	// loop to handle lsp async errors
+	asyncErrors := make(chan error, 4)
+	go func() { // leaks, closing asyncErrors would allow panic due to send on closed channel
+		for {
+			err, ok := <-asyncErrors
+			if !ok {
+				break
+			}
+			ed.Error(err)
+		}
+	}()
+	// language server protocol manager
+	ed.LSProtoMan = lsproto.NewManager(asyncErrors)
+	for _, reg := range opt.LSProtos.regs {
+		ed.LSProtoMan.Register(reg)
+	}
 }
 
 //----------

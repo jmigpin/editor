@@ -16,21 +16,18 @@ import (
 //----------
 
 type Registration struct {
-	// registration options
 	Language string
 	Exts     []string
 	Cmd      string
 	Network  string   // {stdio, tcp(runs text/template on cmd)}
 	Optional []string // optional extra fields
 
-	// other options (internal)
-	asyncErrors chan<- error
-	//onConnErrAsync func()
-
 	ri struct {
 		sync.Mutex
 		ri *RegistrationInstance
 	}
+
+	asyncErrors chan<- error
 }
 
 func (reg *Registration) HasOptional(s string) bool {

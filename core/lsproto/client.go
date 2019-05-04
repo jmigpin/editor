@@ -33,7 +33,7 @@ func NewClientTCP(addr string, reg *Registration) (*Client, error) {
 func NewClientIO(conn io.ReadWriteCloser, reg *Registration) *Client {
 	cli := &Client{reg: reg, fversions: map[string]int{}}
 	cli.conn = conn
-	cc := NewJsonCodec(conn)
+	cc := NewJsonCodec(conn, reg.asyncErrors)
 	cc.OnNotificationMessage = cli.onNotificationMessage
 	cli.rcli = rpc.NewClientWithCodec(cc)
 	return cli
@@ -53,11 +53,15 @@ func (cli *Client) Close() error {
 
 // Ensures server callback or a timeout error will surface.
 func (cli *Client) Call(method string, args, reply interface{}) error {
+	return cli.CallTimeout(8*time.Second, method, args, reply)
+}
+
+func (cli *Client) CallTimeout(timeout time.Duration, method string, args, reply interface{}) error {
 	lspResp := &Response{}
 	fn := func() error {
 		return cli.rcli.Call(method, args, lspResp)
 	}
-	err := chanutil.CallTimeout(context.Background(), 8*time.Second, method, cli.reg.asyncErrors, fn)
+	err := chanutil.CallTimeout(context.Background(), timeout, method, cli.reg.asyncErrors, fn)
 	if err != nil {
 		go cli.reg.onConnErrAsync(err)
 		return err
@@ -103,14 +107,16 @@ func (cli *Client) Initialize(dir string) error {
 func (cli *Client) ShutdownRequest() error {
 	// https://microsoft.github.io/language-server-protocol/specification#shutdown
 
-	err := cli.Call("shutdown", nil, nil)
+	// TODO: gopls is not sending reply for shutdown, clangd does
+
+	err := cli.CallTimeout(200*time.Millisecond, "shutdown", nil, nil)
 	return err
 }
 
 func (cli *Client) ExitNotification() error {
 	// https://microsoft.github.io/language-server-protocol/specification#exit
 
-	err := cli.Call("noreply:exit", nil, nil)
+	err := cli.CallTimeout(200*time.Millisecond, "noreply:exit", nil, nil)
 	return err
 }
 

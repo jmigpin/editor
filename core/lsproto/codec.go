@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"math"
 	"net/rpc"
 	"strconv"
 	"strings"
@@ -23,10 +23,12 @@ type JsonCodec struct {
 
 	// used by read response header/body
 	readData readData
+
+	asyncErrors chan<- error
 }
 
-func NewJsonCodec(conn io.ReadWriteCloser) *JsonCodec {
-	c := &JsonCodec{rwc: conn}
+func NewJsonCodec(rwc io.ReadWriteCloser, asyncErrors chan<- error) *JsonCodec {
+	c := &JsonCodec{rwc: rwc, asyncErrors: asyncErrors}
 	c.responses = make(chan interface{}, 1)
 	go c.readLoop()
 	return c
@@ -53,7 +55,7 @@ func noreplyMethod(method string) (string, bool) {
 func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 	method := req.ServiceMethod
 
-	// methods prefixed with "@" will be considered as not expecting a reply
+	// internal: methods with a noreply prefix don't expect a reply. This was done throught the method name to be able to use net/rpc. This is not part of the lsp protocol.
 	noreply := false
 	if m, ok := noreplyMethod(method); ok {
 		noreply = true
@@ -66,6 +68,8 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 		Method:  method,
 		Params:  data,
 	}
+	logPrintf("write req -->: %v(%v)", msg.Method, msg.Id)
+
 	b, err := encodeJson(msg)
 	if err != nil {
 		return err
@@ -76,10 +80,6 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 	buf := make([]byte, len(h)+len(b))
 	copy(buf, []byte(h))  // header
 	copy(buf[len(h):], b) // body
-
-	// DEBUG
-	logger.Printf("write req -->: %v(%v)", msg.Method, msg.Id)
-	//logJson(msg)
 
 	_, err = c.rwc.Write(buf)
 
@@ -98,18 +98,18 @@ func (c *JsonCodec) readLoop() {
 	for {
 		cl, err := c.readHeaders() // content-length header
 		if err != nil {
+			logPrintf("read resp <--:\n%v\n", err)
 			c.responses <- err
 			break
 		}
 		b, err := c.readContent(cl)
 		if err != nil {
+			logPrintf("read resp <--:\n%v\n", err)
 			c.responses <- err
 			break
 		}
 
-		// DEBUG
-		//logger.Printf("response bytes:\n%s\n", string(b))
-
+		logPrintf("read resp <--:\n%v\n", string(b))
 		c.responses <- b
 	}
 }
@@ -138,12 +138,15 @@ func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 		if err := decodeJson(rd, lspResp); err != nil {
 			// an error here will break the client loop, be tolerant
 			c.readData = readData{noReply: true}
-			log.Printf("decode json error: %v", err)
+			c.asyncErrors <- fmt.Errorf("jsoncodec: decode: %v", err)
 			return nil
 		}
 		c.readData.lspResp = lspResp
 		// msg id (needed for the rpc to run the reply to the caller)
-		if !lspResp.isServerPush() {
+		if lspResp.isServerPush() {
+			// no seq, zero is first msg, need to use maxuint64
+			resp.Seq = math.MaxUint64
+		} else {
 			resp.Seq = uint64(lspResp.Id)
 		}
 		return nil
@@ -160,9 +163,8 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 
 	// server push callback (no id)
 	if c.readData.lspResp.isServerPush() {
-		// data should be nil
 		if reply != nil {
-			panic(fmt.Sprintf("server push with reply expecting data: %v", reply))
+			c.asyncErrors <- fmt.Errorf("jsoncodec: server push with reply expecting data: %v", reply)
 		}
 		// run callback
 		nm := c.readData.lspResp.NotificationMessage

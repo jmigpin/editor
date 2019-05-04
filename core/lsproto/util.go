@@ -17,22 +17,29 @@ import (
 
 //----------
 
-var logger = initLogger()
+var logger0 = initLogger()
 
 func initLogger() *log.Logger {
 	//return log.New(os.Stdout, "", log.Lshortfile)
 	return log.New(ioutil.Discard, "", log.Lshortfile)
 }
 
+func logPrintf(f string, args ...interface{}) {
+	if logger0.Writer() == ioutil.Discard {
+		return
+	}
+	logger0.Printf(f, args)
+}
+
 func logJson(prefix string, v interface{}) {
-	if logger.Writer() == ioutil.Discard {
+	if logger0.Writer() == ioutil.Discard {
 		return
 	}
 	b, err := json.MarshalIndent(v, "", "\t")
 	if err != nil {
 		panic(err)
 	}
-	logger.Output(2, fmt.Sprintf("%v%v", prefix, string(b)))
+	logger0.Output(2, fmt.Sprintf("%v%v", prefix, string(b)))
 }
 
 //----------

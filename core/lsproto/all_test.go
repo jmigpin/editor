@@ -14,7 +14,7 @@ import (
 
 //----------
 
-func testSource1() string {
+func testGoSource1() string {
 	return `
 		package lsproto
 		import "log"
@@ -24,23 +24,23 @@ func testSource1() string {
 	`
 }
 
-func TestManSrc1Definition(t *testing.T) {
+func TestManGoSrc1Definition(t *testing.T) {
 	// TODO: fails sometimes: gopls seems to be dependent on internal parsing some data to be able to make a decision to answer a query, even though the text was send first
 
-	offset, src := sourceCursor(t, testSource1(), 0)
+	offset, src := sourceCursor(t, testGoSource1(), 0)
 	filename := "src.go"
 	testSrcDefinition(t, filename, offset, src)
 }
 
-func TestManSrc1Completion(t *testing.T) {
-	offset, src := sourceCursor(t, testSource1(), 0)
+func TestManGoSrc1Completion(t *testing.T) {
+	offset, src := sourceCursor(t, testGoSource1(), 0)
 	filename := "src.go"
 	testSrcCompletion(t, filename, offset, src)
 }
 
 //----------
 
-func testSource2() string {
+func testGoSource2() string {
 	// NOTE: uses pkg main outside gopath (currently failing)
 	return `
 		package main
@@ -51,21 +51,21 @@ func testSource2() string {
 	`
 }
 
-func TestManSrc2Definition(t *testing.T) {
-	offset, src := sourceCursor(t, testSource2(), 0)
+func TestManGoSrc2Definition(t *testing.T) {
+	offset, src := sourceCursor(t, testGoSource2(), 0)
 	filename := "src.go"
 	testSrcDefinition(t, filename, offset, src)
 }
 
-func TestManSrc2Completion(t *testing.T) {
-	offset, src := sourceCursor(t, testSource2(), 0)
+func TestManGoSrc2Completion(t *testing.T) {
+	offset, src := sourceCursor(t, testGoSource2(), 0)
 	filename := "src.go"
 	testSrcDefinition(t, filename, offset, src)
 }
 
 //----------
 
-func testSource3() string {
+func testCSource1() string {
 	return `
 		#include <iostream>
 		using namespace std;
@@ -76,28 +76,28 @@ func testSource3() string {
 	`
 }
 
-func TestManSrc3Definition(t *testing.T) {
-	offset, src := sourceCursor(t, testSource3(), 0)
+func TestManCSrc1Definition(t *testing.T) {
+	offset, src := sourceCursor(t, testCSource1(), 0)
 	filename := "src.cpp"
 	testSrcDefinition(t, filename, offset, src)
 }
-func TestManSrc3Completion(t *testing.T) {
-	offset, src := sourceCursor(t, testSource3(), 0)
+func TestManCSrc1Completion(t *testing.T) {
+	offset, src := sourceCursor(t, testCSource1(), 0)
 	filename := "src.cpp"
 	testSrcCompletion(t, filename, offset, src)
 }
 
 //----------
 
-func TestManCompletionF1(t *testing.T) {
+func TestManGoCompletionF1(t *testing.T) {
 	s := "/home/jorge/lib/golang_packages/src/github.com/BurntSushi/xgb/xproto/xproto.go:140:23"
 	testFileLineColCompletion(t, s)
 }
-func TestManCompletionF2(t *testing.T) {
+func TestManGoCompletionF2(t *testing.T) {
 	s := "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/lsproto/client.go:167:14"
 	testFileLineColCompletion(t, s)
 }
-func TestManCompletionF3(t *testing.T) {
+func TestManGoCompletionF3(t *testing.T) {
 	// NOTE: uses pkg main outside gopath (currently failing)
 	s := "/home/jorge/tmp/test2.go:28:17"
 	testFileLineColCompletion(t, s)
@@ -106,6 +106,8 @@ func TestManCompletionF3(t *testing.T) {
 //----------
 
 func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
+	t.Helper()
+
 	rd := iorw.NewStringReader(src)
 
 	man := newTestManager(t)
@@ -169,7 +171,19 @@ func newTestManager(t *testing.T) *Manager {
 	if testing.Verbose() {
 		logger = log.New(os.Stdout, "", log.Lshortfile)
 	}
-	man := NewManager()
+
+	//var wg sync.WaitGroup
+	asyncErrors := make(chan error, 10000)
+	go func() {
+		for {
+			err, ok := <-asyncErrors
+			if !ok {
+				break
+			}
+			t.Logf("asyncerr: %v", err)
+		}
+	}()
+	man := NewManager(asyncErrors)
 
 	// registrations
 	u := []string{
