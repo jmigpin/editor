@@ -53,7 +53,7 @@ func (cli *Client) Close() error {
 
 // Ensures server callback or a timeout error will surface.
 func (cli *Client) Call(method string, args, reply interface{}) error {
-	return cli.CallTimeout(8*time.Second, method, args, reply)
+	return cli.CallTimeout(5*time.Second, method, args, reply)
 }
 
 func (cli *Client) CallTimeout(timeout time.Duration, method string, args, reply interface{}) error {
