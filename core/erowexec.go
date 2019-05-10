@@ -38,7 +38,7 @@ func (eexec *ERowExec) Start(fexec func(context.Context, io.Writer) error) {
 	})
 
 	// new context
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(eexec.erow.ctx)
 	eexec.ctx, eexec.cancel = ctx, cancel
 
 	// writer

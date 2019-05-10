@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"io"
 	"path/filepath"
@@ -25,6 +26,9 @@ type ERow struct {
 	disableTextAreaSetStrCallback bool
 
 	termFilter bool
+
+	ctx       context.Context // erow general context
+	ctxCancel context.CancelFunc
 }
 
 //----------
@@ -43,6 +47,9 @@ func NewERow(ed *Editor, info *ERowInfo, rowPos *ui.RowPos) *ERow {
 	erow.initHandlers()
 	erow.parseToolbar() // after handlers are set
 	erow.setupTextAreaCommentString()
+
+	ctx0 := context.Background()
+	erow.ctx, erow.ctxCancel = context.WithCancel(ctx0)
 
 	return erow
 }
@@ -101,7 +108,7 @@ func (erow *ERow) initHandlers() {
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaCmdEvent)
-		runContentCmds(erow, ev.Index)
+		runContentCmds(erow.ctx, erow, ev.Index)
 	})
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev0 interface{}) {
@@ -132,6 +139,8 @@ func (erow *ERow) initHandlers() {
 	})
 	// close
 	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
+		erow.ctxCancel() // cancel general context
+
 		// ensure execution (if any) is stopped
 		erow.Exec.Stop()
 
