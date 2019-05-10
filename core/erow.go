@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
@@ -107,8 +108,12 @@ func (erow *ERow) initHandlers() {
 	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
+		// TODO: content cancel on esc?
+		ctx, cancel := context.WithTimeout(erow.ctx, 10*time.Second)
+		defer cancel()
+
 		ev := ev0.(*ui.TextAreaCmdEvent)
-		runContentCmds(erow.ctx, erow, ev.Index)
+		runContentCmds(ctx, erow, ev.Index)
 	})
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev0 interface{}) {
