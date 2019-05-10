@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/core/lsproto"
@@ -29,12 +30,14 @@ type Editor struct {
 	Plugins     *Plugins
 
 	dndh *DndHandler
+	ifbw *InfoFloatBoxWrap
 }
 
 func NewEditor(opt *Options) (*Editor, error) {
 	ed := &Editor{
 		ERowInfos: map[string]*ERowInfo{},
 	}
+	ed.ifbw = NewInfoFloatBox(ed)
 
 	ed.HomeVars = NewHomeVars()
 	ed.RowReopener = NewRowReopener(ed)
@@ -102,19 +105,8 @@ func (ed *Editor) init(opt *Options) error {
 }
 
 func (ed *Editor) initLSProto(opt *Options) {
-	// loop to handle lsp async errors
-	asyncErrors := make(chan error, 4)
-	go func() { // leaks, closing asyncErrors would allow panic due to send on closed channel
-		for {
-			err, ok := <-asyncErrors
-			if !ok {
-				break
-			}
-			ed.Error(err)
-		}
-	}()
 	// language server protocol manager
-	ed.LSProtoMan = lsproto.NewManager(asyncErrors)
+	ed.LSProtoMan = lsproto.NewManager(ed.Error)
 	for _, reg := range opt.LSProtos.regs {
 		ed.LSProtoMan.Register(reg)
 	}
@@ -472,7 +464,7 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 					GoDebugStop(ed)
 					return event.Handled
 				case event.KSymF1:
-					ed.UI.Root.ContextFloatBox.Toggle(ed.contextFloatBoxContent)
+					ed.toggleInfoFloatBox()
 					return event.Handled
 				}
 			}
@@ -483,8 +475,19 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 
 //----------
 
-func (ed *Editor) contextFloatBoxContent() {
-	cfb := ed.UI.Root.ContextFloatBox
+func (ed *Editor) toggleInfoFloatBox() {
+	// cancel previous run
+	ed.ifbw.Cancel()
+
+	cfb := ed.ifbw.ui()
+
+	// toggle
+	cfb.Toggle()
+	if !cfb.Visible() {
+		return
+	}
+
+	// find ta/erow under pointer
 	ta, ok := cfb.FindTextAreaUnderPointer()
 	if !ok {
 		cfb.Hide()
@@ -496,56 +499,82 @@ func (ed *Editor) contextFloatBoxContent() {
 		return
 	}
 
+	// ui position
 	cfb.SetRefPointToTextAreaCursor(ta)
 	cfb.TextArea.ClearPos()
-	//cfb.TextArea.SetStr("...") // commented: shows initial default msg
-
-	// TODO: contexts
-
-	// handled by a plugin
-	ed.Plugins.RunAutoComplete(ed.UI.Root.ContextFloatBox)
-
-	// handled by lsproto (only on textarea, not on toolbars)
-	if ta == erow.Row.TextArea {
-		_, err := ed.LSProtoMan.FileRegistration(erow.Info.Name())
-		if err == nil {
-			// TODO: possibility of rare race conditions
-			go ed.lsprotoManAutoComplete(ta, erow)
-			return
-		}
-	}
-}
-
-//----------
-
-func (ed *Editor) lsprotoManAutoComplete(ta *ui.TextArea, erow *ERow) {
-	cfb := ed.UI.Root.ContextFloatBox
-
-	// TODO: contexts
-	// TODO: allow cancel on escape?
-	ctx := context.Background()
+	cfb.TextArea.SetStr("Loading...")
+	cfb.Show()
 
 	show := func(s string) {
 		ed.UI.RunOnUIGoRoutine(func() {
-			cfb.SetRefPointToTextAreaCursor(ta)
 			cfb.TextArea.ClearPos()
-			cfb.TextArea.SetStr(s)
-			// ensure it is shown if it takes too long
-			cfb.Show()
+			cfb.SetStr(s)
 		})
 	}
 
+	go func() {
+
+		// context based on erow context
+		ctx := ed.ifbw.NewCtx(erow.ctx)
+
+		// timeout to complete request
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		// pluging autocomplete
+		cfb.TextArea.SetStr("Loading plugin...")
+		cfb.Show()
+		err, handled := ed.Plugins.RunAutoComplete(ctx, cfb)
+		if handled {
+			if err != nil {
+				ed.Error(err)
+			}
+			show("")
+			return
+		}
+
+		// handled by lsproto (only on textarea, not on toolbars)
+		if ta == erow.Row.TextArea {
+			// handle filename
+			reg, err := ed.LSProtoMan.FileRegistration(erow.Info.Name())
+			if err == nil {
+				// handled
+				v := fmt.Sprintf("Loading lsproto(%v)...", reg.Language)
+				cfb.TextArea.SetStr(v)
+				cfb.Show()
+
+				// lsproto autocomplete
+				s, err, handled := ed.lsprotoManAutoComplete(ctx, ta, erow)
+				if handled {
+					if err != nil {
+						ed.Error(err)
+						show("")
+						return
+					}
+					show(s)
+					return
+				}
+			}
+
+		}
+
+		show("")
+	}()
+}
+
+func (ed *Editor) lsprotoManAutoComplete(ctx context.Context, ta *ui.TextArea, erow *ERow) (_ string, _ error, handled bool) {
 	tc := erow.Row.TextArea.TextCursor
 	comp, err := ed.LSProtoMan.TextDocumentCompletion(ctx, erow.Info.Name(), tc.RW(), tc.Index())
 	if err != nil {
-		show(fmt.Sprintf("error: %v", err))
-		return
+		return "", err, true
 	}
+	s := ""
 	if len(comp) == 0 {
-		show("0 results")
+		s = "0 results"
 	} else {
-		show(strings.Join(comp, "\n"))
+		s = strings.Join(comp, "\n")
 	}
+	return s, nil, true
 }
 
 //----------
@@ -561,6 +590,32 @@ func (ed *Editor) NodeERow(node widget.Node) (*ERow, bool) {
 		}
 	}
 	return nil, false
+}
+
+//----------
+
+type InfoFloatBoxWrap struct {
+	ed   *Editor
+	ctx  context.Context
+	canc context.CancelFunc
+}
+
+func NewInfoFloatBox(ed *Editor) *InfoFloatBoxWrap {
+	return &InfoFloatBoxWrap{ed: ed}
+}
+func (ifbw *InfoFloatBoxWrap) NewCtx(ctx context.Context) context.Context {
+	ifbw.Cancel() // cancel previous
+	ifbw.ctx, ifbw.canc = context.WithCancel(ctx)
+	return ifbw.ctx
+}
+func (ifbw *InfoFloatBoxWrap) Cancel() {
+	if ifbw.canc != nil {
+		ifbw.canc()
+		ifbw.canc = nil
+	}
+}
+func (ifbw *InfoFloatBoxWrap) ui() *ui.ContextFloatBox {
+	return ifbw.ed.UI.Root.ContextFloatBox
 }
 
 //----------
