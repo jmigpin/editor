@@ -8,14 +8,13 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
-	"github.com/jmigpin/editor/util/chanutil"
+	"github.com/jmigpin/editor/util/ctxutil"
 )
 
 type Client struct {
 	Conn     net.Conn
 	Messages chan interface{}
 	waitg    sync.WaitGroup
-	done     chan interface{}
 }
 
 func NewClient(ctx context.Context) (*Client, error) {
@@ -43,34 +42,33 @@ func (client *Client) Wait() {
 }
 
 func (client *Client) Close() error {
-	close(client.done) // on close, ensure no goroutine leaks
-	return client.Conn.Close()
+	//close(client.done) // on close, ensure no goroutine leaks
+	if client.Conn != nil {
+		return client.Conn.Close()
+
+	}
+	return nil
 }
 
-func (client *Client) connect(ctx context.Context) error {
-	client.done = make(chan interface{})
+func (client *Client) connect(ctx0 context.Context) error {
+	// impose timeout to connect
+	ctx, cancel := context.WithTimeout(ctx0, 5*time.Second)
+	defer cancel()
 
-	retry := 5 * time.Second
-	sleep := 200 * time.Millisecond
-	err := chanutil.RetryTimeout(ctx, retry, sleep, "connect", func() error {
+	fn := func() error {
 		var dialer net.Dialer
 		conn, err := dialer.DialContext(ctx, debug.ServerNetwork, debug.ServerAddress)
 		if err != nil {
 			return err
 		}
 		client.Conn = conn
-
-		// on context cancel, ensure client close
-		go func() {
-			select {
-			case <-client.done: // ensure no goroutine leaks
-			case <-ctx.Done():
-				_ = client.Close()
-			}
-		}()
 		return nil
-	})
-	return err
+	}
+	lateFn := func(err error) {
+		client.Close()
+	}
+	sleep := 200 * time.Millisecond
+	return ctxutil.Retry(ctx, sleep, "connect", fn, lateFn)
 }
 
 func (client *Client) receiveLoop() {
