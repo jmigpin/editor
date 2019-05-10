@@ -22,21 +22,20 @@ func AutoComplete(ed *core.Editor, cfb *ui.ContextFloatBox) (_ error, handled bo
 	ta, ok := cfb.FindTextAreaUnderPointer()
 	if !ok {
 		cfb.Hide()
-		return
+		return nil, false
 	}
 
 	erow, ok := ed.NodeERow(ta)
 	if ok {
 		ok = autoCompleteERow(ed, cfb, erow)
 		if ok {
-			return
+			return nil, true
 		}
 	}
 
 	cfb.SetRefPointToTextAreaCursor(ta)
 	cfb.TextArea.SetStr("no results")
-	return
-
+	return nil, true
 }
 
 func autoCompleteERow(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core.ERow) bool {
