@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
@@ -12,7 +13,7 @@ type ContentCmd struct {
 	Fn   ContentCmdFn
 }
 
-type ContentCmdFn func(erow *ERow, index int) (handled bool, _ error)
+type ContentCmdFn func(ctx context.Context, erow *ERow, index int) (_ error, handled bool)
 
 //----------
 
@@ -46,10 +47,10 @@ func (ccs *ContentCmdSlice) Remove(name string) (removed bool) {
 
 //----------
 
-func runContentCmds(erow *ERow, index int) {
+func runContentCmds(ctx context.Context, erow *ERow, index int) {
 	errs := []string{}
 	for _, cc := range ContentCmds {
-		handled, err := cc.Fn(erow, index)
+		err, handled := cc.Fn(ctx, erow, index)
 		if handled {
 			if err != nil {
 				s := fmt.Sprintf("%v: %v", cc.Name, err)

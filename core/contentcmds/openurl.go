@@ -2,6 +2,7 @@ package contentcmds
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/url"
 	"os/exec"
@@ -15,7 +16,7 @@ import (
 )
 
 // Opens url lines in preferred application.
-func OpenURL(erow *core.ERow, index int) (bool, error) {
+func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	ta := erow.Row.TextArea
 
 	isHttpRune := func(ru rune) bool {
@@ -29,32 +30,34 @@ func OpenURL(erow *core.ERow, index int) (bool, error) {
 
 	b, err := rd.ReadNSliceAt(l, r-l)
 	if err != nil {
-		return false, nil
+		return err, false // not handled
 	}
 	str := string(b)
 
 	u, err := url.Parse(str)
 	if err != nil {
-		return false, nil
+		return err, false
 	}
 
 	switch u.Scheme {
 	case "http", "https", "ftp", "mailto":
 		// ok
 	default:
-		return false, nil
+		err := fmt.Errorf("unsupported scheme: %v", u.Scheme)
+		return err, false
 	}
 
 	ustr := u.String()
 	args := []string{"xdg-open", ustr}
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 
 	var out bytes.Buffer
+	// stdin is nil
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 
 	if err := cmd.Start(); err != nil {
-		return true, err
+		return err, true
 	}
 
 	erow.Ed.Messagef("openurl:\n\t%v", strings.Join(args, " "))
@@ -66,5 +69,5 @@ func OpenURL(erow *core.ERow, index int) (bool, error) {
 		}
 	}()
 
-	return true, nil
+	return nil, true
 }

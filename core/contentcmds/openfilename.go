@@ -1,6 +1,7 @@
 package contentcmds
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -10,7 +11,7 @@ import (
 )
 
 // Detects compilers output file format <string(:int)?(:int)?>, and goes to line/column.
-func OpenFilename(erow *core.ERow, index int) (bool, error) {
+func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	ta := erow.Row.TextArea
 	var rd iorw.Reader
 	considerMiddle := false
@@ -27,7 +28,7 @@ func OpenFilename(erow *core.ERow, index int) (bool, error) {
 
 	res, err := parseutil.ParseResource(rd, index)
 	if err != nil {
-		return false, err
+		return err, false
 	}
 
 	filePos := parseutil.NewFilePosFromResource(res)
@@ -60,7 +61,8 @@ func OpenFilename(erow *core.ERow, index int) (bool, error) {
 	// find full filename
 	filename, fi, ok := core.FindFileInfo(filePos.Filename, erow.Info.Dir())
 	if !ok {
-		return true, fmt.Errorf("fileinfo not found: %v", filePos.Filename)
+		err := fmt.Errorf("fileinfo not found: %v", filePos.Filename)
+		return err, true
 	}
 	filePos.Filename = filename
 
@@ -80,5 +82,5 @@ func OpenFilename(erow *core.ERow, index int) (bool, error) {
 	}
 	core.OpenFileERow(erow.Ed, conf)
 
-	return true, nil
+	return nil, true
 }

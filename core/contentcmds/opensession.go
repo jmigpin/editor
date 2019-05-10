@@ -1,6 +1,7 @@
 package contentcmds
 
 import (
+	"context"
 	"strings"
 	"unicode"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/jmigpin/editor/util/statemach"
 )
 
-func OpenSession(erow *core.ERow, index int) (bool, error) {
+func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	ta := erow.Row.TextArea
 
 	// limit reading
@@ -18,12 +19,12 @@ func OpenSession(erow *core.ERow, index int) (bool, error) {
 
 	sname, err := sessionName(rd, index)
 	if err != nil {
-		return false, nil
+		return nil, false
 	}
 
 	core.OpenSessionFromString(erow.Ed, sname)
 
-	return true, nil
+	return nil, true
 }
 
 func sessionName(rd iorw.Reader, index int) (string, error) {

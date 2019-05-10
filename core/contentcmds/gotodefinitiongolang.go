@@ -13,17 +13,17 @@ import (
 	"github.com/jmigpin/editor/util/osutil"
 )
 
-func GoToDefinitionGolang(erow *core.ERow, index int) (bool, error) {
+func GoToDefinitionGolang(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	if erow.Info.IsDir() {
-		return false, nil
+		return nil, false
 	}
 	if path.Ext(erow.Info.Name()) != ".go" {
-		return false, nil
+		return nil, false
 	}
 
 	// timeout for the cmd to run
-	timeout := 8000 * time.Millisecond
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	timeout := 8 * time.Second
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// it's a go file, return true from here
@@ -39,34 +39,34 @@ func GoToDefinitionGolang(erow *core.ERow, index int) (bool, error) {
 	s := fmt.Sprintf("%v\n", erow.Info.Name())
 	_, err := in.Write([]byte(s))
 	if err != nil {
-		return true, err
+		return err, true
 	}
 	// guru format: filesize
 	s = fmt.Sprintf("%v\n", erow.Row.TextArea.Len())
 	_, err = in.Write([]byte(s))
 	if err != nil {
-		return true, err
+		return err, true
 	}
 	// guru format: content
 	bin, err := erow.Row.TextArea.Bytes()
 	if err != nil {
-		return true, err
+		return err, true
 	}
 	_, err = in.Write(bin)
 	if err != nil {
-		return true, err
+		return err, true
 	}
 
 	// execute external cmd
 	dir := filepath.Dir(erow.Info.Name())
 	out, err := core.ExecCmdStdin(ctx, dir, in, args...)
 	if err != nil {
-		return true, err
+		return err, true
 	}
 
 	filePos, err := parseutil.ParseFilePos(string(out))
 	if err != nil {
-		return true, err
+		return err, true
 	}
 
 	// place the file under the calling row
@@ -81,5 +81,5 @@ func GoToDefinitionGolang(erow *core.ERow, index int) (bool, error) {
 	}
 	core.OpenFileERow(erow.Ed, conf)
 
-	return true, nil
+	return nil, true
 }

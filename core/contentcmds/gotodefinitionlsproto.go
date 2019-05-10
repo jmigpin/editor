@@ -3,6 +3,7 @@ package contentcmds
 import (
 	"context"
 	"io/ioutil"
+	"time"
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/core/lsproto"
@@ -10,13 +11,15 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
-func GoToDefinitionLSProto(erow *core.ERow, index int) (bool, error) {
+func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	if erow.Info.IsDir() {
-		return false, nil
+		return nil, false
 	}
 
-	// TODO: contexts, a new click could cancel this
-	ctx := context.Background()
+	// timeout for the cmd to run
+	timeout := 8 * time.Second
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	ed := erow.Ed
 	tc := erow.Row.TextArea.TextCursor
@@ -25,12 +28,12 @@ func GoToDefinitionLSProto(erow *core.ERow, index int) (bool, error) {
 	// must have a registration that handles the filename
 	_, err := ed.LSProtoMan.FileRegistration(erow.Info.Name())
 	if err != nil {
-		return false, nil
+		return nil, false
 	}
 
 	filename, rang, err := ed.LSProtoMan.TextDocumentDefinition(ctx, erow.Info.Name(), rw, index)
 	if err != nil {
-		return true, err
+		return err, true
 	}
 
 	// content reader
@@ -44,7 +47,7 @@ func GoToDefinitionLSProto(erow *core.ERow, index int) (bool, error) {
 		// read file
 		b, err := ioutil.ReadFile(filename)
 		if err != nil {
-			return true, err
+			return err, true
 		}
 		rd = iorw.NewBytesReadWriter(b)
 	}
@@ -52,7 +55,7 @@ func GoToDefinitionLSProto(erow *core.ERow, index int) (bool, error) {
 	// translate range
 	offset, length, err := lsproto.RangeToOffsetLen(rd, rang)
 	if err != nil {
-		return true, err
+		return err, true
 	}
 
 	// build filepos
@@ -74,5 +77,5 @@ func GoToDefinitionLSProto(erow *core.ERow, index int) (bool, error) {
 	}
 	core.OpenFileERow(erow.Ed, conf)
 
-	return true, nil
+	return nil, true
 }
