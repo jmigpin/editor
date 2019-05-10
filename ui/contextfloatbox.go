@@ -21,10 +21,8 @@ type ContextFloatBox struct {
 func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb := &ContextFloatBox{root: root}
 
-	text := "No content provided."
-
 	cfb.TextArea = NewTextArea(root.UI)
-	cfb.TextArea.SetStr(text)
+	cfb.SetStr("")
 	if d, ok := cfb.TextArea.Drawer.(*drawer4.Drawer); ok {
 		//d.Opt.LineWrap.On = false
 		d.Opt.RuneReader.StartOffsetX = 2 // covers cursor pixel
@@ -46,6 +44,15 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb.SetThemePaletteNamePrefix("contextfloatbox_")
 
 	return cfb
+}
+
+//----------
+
+func (cfb *ContextFloatBox) SetStr(s string) {
+	if s == "" {
+		s = "No content provided."
+	}
+	cfb.TextArea.SetStr(s)
 }
 
 //----------
@@ -87,15 +94,13 @@ func (cfb *ContextFloatBox) AutoClose(ev interface{}, p image.Point) {
 
 //----------
 
-func (cfb *ContextFloatBox) Toggle(contentFn func()) {
+func (cfb *ContextFloatBox) Toggle() {
 	visible := cfb.Visible() || cfb.visibleOnAutoClose
 	if !visible {
 		cfb.Show()
 	} else {
 		cfb.Hide()
-		return
 	}
-	contentFn()
 }
 
 //----------
