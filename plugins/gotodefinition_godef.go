@@ -24,17 +24,17 @@ func OnLoad(ed *core.Editor) {
 	core.ContentCmds.Prepend("gotodefinition_godef", goToDefinition)
 }
 
-func goToDefinition(erow *core.ERow, index int) (handled bool, err error) {
+func goToDefinition(ctx0 context.Context, erow *core.ERow, index int) (err error, handled bool) {
 	if erow.Info.IsDir() {
-		return false, nil
+		return nil, false
 	}
 	if path.Ext(erow.Info.Name()) != ".go" {
-		return false, nil
+		return nil, false
 	}
 
 	// timeout for the cmd to run
 	timeout := 8000 * time.Millisecond
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(ctx0, timeout)
 	defer cancel()
 
 	// it's a go file, return true from here
@@ -45,7 +45,7 @@ func goToDefinition(erow *core.ERow, index int) (handled bool, err error) {
 	// godef can read from stdin: use textarea bytes
 	bin, err := erow.Row.TextArea.Bytes()
 	if err != nil {
-		return true, err
+		return err, true
 	}
 	in := bytes.NewBuffer(bin)
 
@@ -53,13 +53,13 @@ func goToDefinition(erow *core.ERow, index int) (handled bool, err error) {
 	dir := filepath.Dir(erow.Info.Name())
 	out, err := core.ExecCmdStdin(ctx, dir, in, args...)
 	if err != nil {
-		return true, err
+		return err, true
 	}
 
 	// parse external cmd output
 	filePos, err := parseutil.ParseFilePos(string(out))
 	if err != nil {
-		return true, err
+		return err, true
 	}
 
 	// place under the calling row
@@ -74,5 +74,5 @@ func goToDefinition(erow *core.ERow, index int) (handled bool, err error) {
 	}
 	core.OpenFileERow(erow.Ed, conf)
 
-	return true, nil
+	return nil, true
 }

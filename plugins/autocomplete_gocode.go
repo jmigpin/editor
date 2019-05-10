@@ -16,17 +16,16 @@ import (
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
-func AutoComplete(ed *core.Editor, cfb *ui.ContextFloatBox) {
+func AutoComplete(ed *core.Editor, cfb *ui.ContextFloatBox) (_ error, handled bool) {
 	ta, ok := cfb.FindTextAreaUnderPointer()
 	if !ok {
 		cfb.Hide()
 		return
 	}
 
-	erow, ok := findERow(ed, ta)
+	erow, ok := ed.NodeERow(ta)
 	if ok {
 		ok = autoCompleteERow(ed, cfb, erow)
 		if ok {
@@ -80,19 +79,4 @@ func autoCompleteERowGolang(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core
 	cfb.SetRefPointToTextAreaCursor(erow.Row.TextArea)
 	cfb.TextArea.SetStr(string(bout))
 	cfb.TextArea.ClearPos()
-}
-
-//----------
-
-func findERow(ed *core.Editor, node widget.Node) (*core.ERow, bool) {
-	for p := node.Embed().Parent; p != nil; p = p.Parent {
-		if r, ok := p.Wrapper.(*ui.Row); ok {
-			for _, erow := range ed.ERows() {
-				if r == erow.Row {
-					return erow, true
-				}
-			}
-		}
-	}
-	return nil, false
 }

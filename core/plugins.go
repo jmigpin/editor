@@ -1,11 +1,13 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"plugin"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/pkg/errors"
 )
 
@@ -56,27 +58,33 @@ func (p *Plugins) runOnLoad(plug *Plug) error {
 
 //----------
 
-func (p *Plugins) RunAutoComplete(cfb *ui.ContextFloatBox) {
+// Runs all plugins until it finds one that returns handled=true and has no errors.
+func (p *Plugins) RunAutoComplete(ctx context.Context, cfb *ui.ContextFloatBox) (_ error, handled bool) {
+	me := iout.MultiError{}
 	for _, plug := range p.plugs {
-		p.runAutoCompletePlug(plug, cfb)
+		err, handled := p.runAutoCompletePlug(ctx, plug, cfb)
+		if handled {
+			return err, true
+		}
+		me.Add(err)
 	}
+	return me.Result(), false
 }
 
-func (p *Plugins) runAutoCompletePlug(plug *Plug, cfb *ui.ContextFloatBox) {
+func (p *Plugins) runAutoCompletePlug(ctx context.Context, plug *Plug, cfb *ui.ContextFloatBox) (_ error, handled bool) {
 	// plugin should have this symbol
-	f, err := plug.Plugin.Lookup("AutoComplete")
+	fn1, err := plug.Plugin.Lookup("AutoComplete")
 	if err != nil {
-		return // ok if plugin doesn't implement this symbol
+		return nil, false // ok if plugin doesn't implement this symbol
 	}
 	// the symbol must implement this signature
-	f2, ok := f.(func(*Editor, *ui.ContextFloatBox))
+	fn2, ok := fn1.(func(context.Context, *Editor, *ui.ContextFloatBox) (_ error, handled bool))
 	if !ok {
 		err := fmt.Errorf("plugin: %v: bad func signature", plug.Path)
-		p.ed.Error(err)
-		return
+		return err, false
 	}
 	// run symbol
-	f2(p.ed, cfb)
+	return fn2(ctx, p.ed, cfb)
 }
 
 //----------
