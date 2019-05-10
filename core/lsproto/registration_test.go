@@ -38,3 +38,5 @@ func TestParseRegistration3(t *testing.T) {
 		t.Fatal(s2)
 	}
 }
+
+//----------

@@ -1,12 +1,17 @@
 package lsproto
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
@@ -22,12 +27,15 @@ type Registration struct {
 	Network  string   // {stdio, tcp(runs text/template on cmd)}
 	Optional []string // optional extra fields
 
-	ri struct {
-		sync.Mutex
-		ri *RegistrationInstance
-	}
+	man *Manager
 
-	asyncErrors chan<- error
+	cs struct { //client/server
+		sync.Mutex
+		cli *Client
+		sw  *ServerWrap
+
+		cancel context.CancelFunc
+	}
 }
 
 func (reg *Registration) HasOptional(s string) bool {
@@ -39,54 +47,153 @@ func (reg *Registration) HasOptional(s string) bool {
 	return false
 }
 
-func (reg *Registration) CloseInstanceLocked() error {
-	reg.ri.Lock()
-	defer reg.ri.Unlock()
-	return reg.CloseInstanceUnlocked()
-}
-
-func (reg *Registration) CloseInstanceUnlocked() error {
-	if reg.ri.ri != nil {
-		ri := reg.ri.ri
-		reg.ri.ri = nil
-		err := ri.Close()
-		if err != nil {
-			err = fmt.Errorf("closeinstance(%v): %v", reg.Language, err)
-		}
-		return err
-	}
-	return nil
-}
-
 func (reg *Registration) onConnErrAsync(err error) {
 	me := iout.MultiError{}
 	me.Add(err)
-	if err := reg.CloseInstanceLocked(); err != nil {
+	if err := reg.CloseCSLocked(); err != nil {
 		me.Add(err)
 	}
-	reg.asyncErrors <- fmt.Errorf("lsproto(%s): %v", reg.Language, me.Result())
+	err = fmt.Errorf("lsproto(%s): %v", reg.Language, me.Result())
+	reg.man.errorAsync(err)
 }
 
 //----------
 
-type RegistrationInstance struct {
-	cli *Client
-	sw  *ServerWrap
+func (reg *Registration) CloseCSLocked() error {
+	reg.cs.Lock()
+	defer reg.cs.Unlock()
+	return reg.CloseCSUnlocked()
 }
 
-func (inst *RegistrationInstance) Close() error {
+func (reg *Registration) CloseCSUnlocked() error {
+	if reg.cs.cancel != nil {
+		reg.cs.cancel()
+	}
+
 	me := &iout.MultiError{}
-	if inst.cli != nil {
-		if err := inst.cli.Close(); err != nil {
+	if reg.cs.cli != nil {
+		if err := reg.cs.cli.Close(); err != nil {
 			me.Add(fmt.Errorf("client: %v", err))
 		}
 	}
-	if inst.sw != nil {
-		if err := inst.sw.Close(); err != nil {
+	if reg.cs.sw != nil {
+		if err := reg.cs.sw.Close(); err != nil {
 			me.Add(fmt.Errorf("serverwrap: %v", err))
 		}
 	}
-	return me.Result()
+	err := me.Result()
+	if err != nil {
+		err = fmt.Errorf("closecs(%v): %v", reg.Language, err)
+	}
+
+	reg.cs.cli = nil
+	reg.cs.sw = nil
+
+	return err
+}
+
+//----------
+
+func (reg *Registration) connClientServer(ctx context.Context) (*Client, error) {
+	reg.cs.Lock()
+	defer reg.cs.Unlock()
+
+	if reg.cs.cli != nil {
+		return reg.cs.cli, nil
+	}
+
+	// independent context for client/server
+	ctx0 := context.Background()
+	ctx2, cancel := context.WithCancel(ctx0)
+	reg.cs.cancel = cancel
+
+	// new client/server
+	err := reg.connClientServer2(ctx2)
+	if err != nil {
+		return nil, err
+	}
+
+	// initialize
+	if err := reg.cs.cli.Initialize(ctx, "/"); err != nil {
+		return nil, err
+	}
+
+	return reg.cs.cli, nil
+}
+
+func (reg *Registration) connClientServer2(ctx context.Context) error {
+	switch reg.Network {
+	case "tcp":
+		return reg.connClientServerTCP(ctx)
+	case "tcpclient":
+		return reg.connClientTCP(ctx, reg.Cmd)
+	case "stdio":
+		return reg.connClientServerStdio(ctx)
+	default:
+		return fmt.Errorf("unexpected network: %v", reg.Network)
+	}
+}
+
+//----------
+
+func (reg *Registration) connClientServerTCP(ctx context.Context) error {
+	// server wrap
+	sw, addr, err := NewServerWrapTCP(ctx, reg.Cmd, reg)
+	if err != nil {
+		return err
+	}
+	reg.cs.sw = sw
+	// client
+	return reg.connClientTCP(ctx, addr)
+}
+
+//----------
+
+func (reg *Registration) connClientTCP(ctx context.Context, addr string) error {
+	// client connect with retries
+	var cli *Client
+	fn := func() error {
+		cli0, err := NewClientTCP(ctx, addr, reg)
+		if err != nil {
+			return err
+		}
+		cli = cli0
+		return nil
+	}
+	lateFn := func(err error) {
+		err2 := reg.CloseCSLocked()
+		reg.man.errorAsync(iout.MultiErrors(err, err2))
+	}
+	sleep := 250 * time.Millisecond
+	err := ctxutil.Retry(ctx, sleep, "clienttcp", fn, lateFn)
+	if err != nil {
+		err2 := reg.CloseCSUnlocked()
+		return iout.MultiErrors(err, err2)
+	}
+	reg.cs.cli = cli
+	return nil
+}
+
+//----------
+
+func (reg *Registration) connClientServerStdio(ctx context.Context) error {
+	var stderr io.Writer
+	if reg.HasOptional("stderr") {
+		stderr = os.Stderr
+	}
+
+	// server wrap
+	sw, rwc, err := NewServerWrapIO(ctx, reg.Cmd, stderr, reg)
+	if err != nil {
+		return err
+	}
+	reg.cs.sw = sw
+
+	// client
+	cli := NewClientIO(rwc, reg)
+	reg.cs.cli = cli
+
+	return nil
 }
 
 //----------

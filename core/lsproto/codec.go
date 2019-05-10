@@ -23,12 +23,10 @@ type JsonCodec struct {
 
 	// used by read response header/body
 	readData readData
-
-	asyncErrors chan<- error
 }
 
-func NewJsonCodec(rwc io.ReadWriteCloser, asyncErrors chan<- error) *JsonCodec {
-	c := &JsonCodec{rwc: rwc, asyncErrors: asyncErrors}
+func NewJsonCodec(rwc io.ReadWriteCloser) *JsonCodec {
+	c := &JsonCodec{rwc: rwc}
 	c.responses = make(chan interface{}, 1)
 	go c.readLoop()
 	return c
@@ -136,16 +134,15 @@ func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 		lspResp := &Response{}
 		rd := bytes.NewReader(t)
 		if err := decodeJson(rd, lspResp); err != nil {
-			// an error here will break the client loop, be tolerant
 			c.readData = readData{noReply: true}
-			c.asyncErrors <- fmt.Errorf("jsoncodec: decode: %v", err)
-			return nil
+			// returning error breaks the client loop
+			return fmt.Errorf("jsoncodec: decode: %v", err)
 		}
 		c.readData.lspResp = lspResp
 		// msg id (needed for the rpc to run the reply to the caller)
 		if lspResp.isServerPush() {
 			// no seq, zero is first msg, need to use maxuint64
-			resp.Seq = math.MaxUint64
+			resp.Seq = math.MaxInt64 // can't print math.MaxUint64 const
 		} else {
 			resp.Seq = uint64(lspResp.Id)
 		}
@@ -164,7 +161,7 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 	// server push callback (no id)
 	if c.readData.lspResp.isServerPush() {
 		if reply != nil {
-			c.asyncErrors <- fmt.Errorf("jsoncodec: server push with reply expecting data: %v", reply)
+			return fmt.Errorf("jsoncodec: server push with reply expecting data: %v", reply)
 		}
 		// run callback
 		nm := c.readData.lspResp.NotificationMessage

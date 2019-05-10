@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/iout"
 )
 
@@ -145,10 +144,14 @@ func (sw *ServerWrap) Close() error {
 	}
 
 	if sw.Cmd != nil {
-		// cmd.wait can be slow to return, use timeout
-		timeout := 200 * time.Millisecond
-		err := chanutil.CallTimeout(context.Background(), timeout, "sw close", sw.reg.asyncErrors, sw.Cmd.Wait)
-		me.Add(err)
+		me.Add(sw.Cmd.Wait())
+
+		//// cmd.wait can be slow to return, use timeout
+		//timeout := 200 * time.Millisecond
+		//ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		//defer cancel()
+		//err := ctxutil.Call(ctx, "serverwrapclose", sw.Cmd.Wait, nil)
+		//me.Add(err)
 	}
 
 	return me.Result()

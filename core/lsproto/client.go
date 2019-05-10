@@ -9,16 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmigpin/editor/util/chanutil"
+	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 type Client struct {
-	rcli      *rpc.Client
-	rwc       io.ReadWriteCloser
-	fversions map[string]int
-	reg       *Registration
+	rcli       *rpc.Client
+	rwc        io.ReadWriteCloser
+	fversions  map[string]int
+	reg        *Registration
+	hasConnErr bool
 }
 
 func NewClientTCP(ctx context.Context, addr string, reg *Registration) (*Client, error) {
@@ -34,7 +35,7 @@ func NewClientTCP(ctx context.Context, addr string, reg *Registration) (*Client,
 func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
 	cli := &Client{reg: reg, fversions: map[string]int{}}
 	cli.rwc = rwc
-	cc := NewJsonCodec(rwc, reg.asyncErrors)
+	cc := NewJsonCodec(rwc)
 	cc.OnNotificationMessage = cli.onNotificationMessage
 	cli.rcli = rpc.NewClientWithCodec(cc)
 	return cli
@@ -44,26 +45,30 @@ func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
 
 func (cli *Client) Close() error {
 	me := iout.MultiError{}
-	me.Add(cli.ShutdownRequest())
-	me.Add(cli.ExitNotification())
-	me.Add(cli.rwc.Close())
+	if !cli.hasConnErr {
+		me.Add(cli.ShutdownRequest())
+		me.Add(cli.ExitNotification())
+	}
+	if cli.rwc != nil {
+		me.Add(cli.rwc.Close())
+	}
 	return me.Result()
 }
 
 //----------
 
-// Ensures server callback or a timeout error will surface.
 func (cli *Client) Call(ctx context.Context, method string, args, reply interface{}) error {
-	return cli.CallTimeout(ctx, 5*time.Second, method, args, reply)
-}
-
-func (cli *Client) CallTimeout(ctx context.Context, timeout time.Duration, method string, args, reply interface{}) error {
 	lspResp := &Response{}
 	fn := func() error {
 		return cli.rcli.Call(method, args, lspResp)
 	}
-	err := chanutil.CallTimeout(ctx, timeout, method, cli.reg.asyncErrors, fn)
+	lateFn := func(err error) {
+		cli.reg.onConnErrAsync(err)
+	}
+	err := ctxutil.Call(ctx, method, fn, lateFn)
 	if err != nil {
+		// hard error (conn or parse error)
+		cli.hasConnErr = true
 		go cli.reg.onConnErrAsync(err)
 		return err
 	}
@@ -73,7 +78,7 @@ func (cli *Client) CallTimeout(ctx context.Context, timeout time.Duration, metho
 		return nil
 	}
 
-	// func error (soft error)
+	// soft error (rpc data with error content)
 	if lspResp.Error != nil {
 		return lspResp.Error
 	}
@@ -110,16 +115,22 @@ func (cli *Client) ShutdownRequest() error {
 
 	// TODO: gopls is not sending reply for shutdown, clangd does
 
-	ctx := context.Background()
-	err := cli.CallTimeout(ctx, 200*time.Millisecond, "shutdown", nil, nil)
+	// best effort, impose timeout
+	ctx2, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	err := cli.Call(ctx2, "shutdown", nil, nil)
 	return err
 }
 
 func (cli *Client) ExitNotification() error {
 	// https://microsoft.github.io/language-server-protocol/specification#exit
 
-	ctx := context.Background()
-	err := cli.CallTimeout(ctx, 200*time.Millisecond, "noreply:exit", nil, nil)
+	// best effort, impose timeout
+	ctx2, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	err := cli.Call(ctx2, "noreply:exit", nil, nil)
 	return err
 }
 

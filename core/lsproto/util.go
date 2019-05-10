@@ -28,7 +28,7 @@ func logPrintf(f string, args ...interface{}) {
 	if logger0.Writer() == ioutil.Discard {
 		return
 	}
-	logger0.Printf(f, args)
+	logger0.Printf(f, args...)
 }
 
 func logJson(prefix string, v interface{}) {

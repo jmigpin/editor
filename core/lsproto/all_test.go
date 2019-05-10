@@ -1,9 +1,8 @@
 package lsproto
 
 import (
+	"context"
 	"io/ioutil"
-	"log"
-	"os"
 	"strings"
 	"testing"
 
@@ -114,8 +113,9 @@ func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 	defer man.Close()
 
 	// repeat (syncs text a 2nd time)
+	ctx := context.Background()
 	for i := 0; i < 2; i++ {
-		f, rang, err := man.TextDocumentDefinition(filename, rd, offset)
+		f, rang, err := man.TextDocumentDefinition(ctx, filename, rd, offset)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -126,13 +126,7 @@ func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 //----------
 
 func testFileLineColCompletion(t *testing.T, loc string) {
-	// parse location
-	rd := iorw.NewStringReader(loc)
-	res, err := parseutil.ParseResource(rd, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	filename, l, c := res.Path, res.Line, res.Column
+	filename, l, c := parseLocation(t, loc)
 
 	// read file to get offset
 	b, err := ioutil.ReadFile(filename)
@@ -155,7 +149,8 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 	man := newTestManager(t)
 	defer man.Close()
 
-	comp, err := man.TextDocumentCompletion(filename, rd, offset)
+	ctx := context.Background()
+	comp, err := man.TextDocumentCompletion(ctx, filename, rd, offset)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,9 +163,9 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 //----------
 
 func newTestManager(t *testing.T) *Manager {
-	if testing.Verbose() {
-		logger = log.New(os.Stdout, "", log.Lshortfile)
-	}
+	//if testing.Verbose() {
+	//	logger = log.New(os.Stdout, "", log.Lshortfile)
+	//}
 
 	//var wg sync.WaitGroup
 	asyncErrors := make(chan error, 10000)
@@ -207,6 +202,28 @@ func sourceCursor(t *testing.T, src string, nth int) (int, string) {
 		t.Fatal(err)
 	}
 	return index, src2
+}
+
+func parseLocation(t *testing.T, loc string) (string, int, int) {
+	rd := iorw.NewStringReader(loc)
+	res, err := parseutil.ParseResource(rd, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res.Path, res.Line, res.Column
+}
+
+func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.Reader, int) {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rw := iorw.NewBytesReadWriter(b)
+	offset, err := parseutil.LineColumnIndex(rw, line, col)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rw, offset
 }
 
 //----------
