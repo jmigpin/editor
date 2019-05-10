@@ -3,75 +3,74 @@ package ctxutil
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 )
 
-// Returns fn result or return early on ctx cancel. If fn does not return in time, lateFn will run at the end of fn (async). Timed errors will be sent if asyncErrors!=nil.
-func Call(ctx context.Context, prefix string, asyncErrors chan<- error, fn func() error, lateFn func(error)) error {
+// Allows fn to return early on ctx cancel. If fn does not return in time, lateFn will run at the end of fn (async).
+func Call(ctx context.Context, prefix string, fn func() error, lateFn func(error)) error {
 	buildErr := func(e error) error {
 		return fmt.Errorf("%v: %v", prefix, e)
 	}
 
-	// keep track if fn ever returns
-	fnDone := make(chan interface{})
-	if asyncErrors != nil {
-		go waitForDone(prefix, fnDone, asyncErrors)
+	type data struct {
+		sync.Mutex
+		exited   bool
+		returned bool
+		err      error
 	}
+	var d data
 
 	// run fn in go routine
-	ch := make(chan error, 1)
+	ctx2, cancel := context.WithCancel(ctx)
+	id := addCall(prefix)
 	go func() {
-		defer close(fnDone)
+		defer doneCall(id)
+
 		err := fn() // goroutine leaks if fn never returns
-		select {
-		case <-ctx.Done():
-			// too late, send error async
-			//asyncErrors <- buildErr(err)
+		if err != nil {
+			err = buildErr(err)
+		}
+
+		d.Lock()
+		defer func() {
+			d.returned = true
+			cancel()
+			d.Unlock()
+		}()
+
+		if d.exited {
 			if lateFn != nil {
-				lateFn(buildErr(err))
+				lateFn(err)
+			} else {
+				// err is lost
 			}
-		default: // don't block select
-			ch <- err // won't block due to size 1 in chan
+		} else {
+			d.err = err
 		}
 	}()
 
-	select {
-	case err := <-ch:
-		return buildErr(err)
-	case <-ctx.Done():
-		return buildErr(ctx.Err())
-	}
-}
+	<-ctx2.Done()
+	d.Lock()
+	defer func() {
+		d.exited = true
+		d.Unlock()
+	}()
 
-func waitForDone(prefix string, done <-chan interface{}, asyncErrors chan<- error) {
-	start := time.Now()
-	t := time.NewTicker(10 * time.Second) // send err every x secs
-	defer t.Stop()
-	sentErr := false
-	for {
-		select {
-		case <-t.C:
-			sentErr = true
-			d := time.Now().Sub(start)
-			asyncErrors <- fmt.Errorf("%v: waiting for fn: %v", prefix, d)
-		case <-done:
-			// send error if it had sent errors before
-			if sentErr {
-				d := time.Now().Sub(start)
-				asyncErrors <- fmt.Errorf("%v: fn returned: %v", prefix, d)
-			}
-
-			return
-		}
+	if d.returned {
+		return d.err
 	}
+
+	return buildErr(ctx2.Err())
 }
 
 //----------
 
-func Retry(ctx context.Context, sleep time.Duration, prefix string, asyncErrors chan<- error, fn func() error, lateFn func(error)) error {
+func Retry(ctx context.Context, sleep time.Duration, prefix string, fn func() error, lateFn func(error)) error {
 	var err error
 	for {
-		err = Call(ctx, prefix, asyncErrors, fn, lateFn)
+		err = Call(ctx, prefix, fn, lateFn)
 		if err == nil {
 			return err
 		}
@@ -84,29 +83,39 @@ func Retry(ctx context.Context, sleep time.Duration, prefix string, asyncErrors 
 	}
 }
 
-//func Retry(ctx context.Context, sleep time.Duration, prefix string, fn func() error) error {
-//	buildErr := func(e error) error {
-//		return fmt.Errorf("%v: %v", prefix, e)
-//	}
+//----------
 
-//	var err error
-//	for {
-//		ch := make(chan error, 1) // size 1 to avoid goroutine leak
-//		go func() {
-//			ch <- fn() // able to exit at the end with chan size 1
-//		}()
+type cdata struct {
+	t time.Time
+	s string
+}
 
-//		select {
-//		case err = <-ch:
-//			if err == nil {
-//				return nil
-//			}
-//			// sleep before next retry
-//			time.Sleep(sleep)
-//		case <-ctx.Done():
-//			// include previous set error if any
-//			err2 := me.MultiErrors(err, ctx.Err())
-//			return buildErr(err2)
-//		}
-//	}
-//}
+var cmu sync.Mutex
+var callm = map[int]*cdata{}
+var ci = 0
+
+func addCall(s string) int {
+	cmu.Lock()
+	defer cmu.Unlock()
+	ci++
+	callm[ci] = &cdata{s: s, t: time.Now()}
+	return ci
+}
+
+func doneCall(v int) {
+	cmu.Lock()
+	defer cmu.Unlock()
+	delete(callm, v)
+}
+
+func CallsState() string {
+	cmu.Lock()
+	defer cmu.Unlock()
+	u := []string{}
+	now := time.Now()
+	for _, d := range callm {
+		s := fmt.Sprintf("%v: %v ago", d.s, now.Sub(d.t))
+		u = append(u, s)
+	}
+	return fmt.Sprintf("%v entries\n%v\n", len(u), strings.Join(u, "\n"))
+}
