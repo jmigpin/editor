@@ -160,3 +160,22 @@ func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string,
 	comp, err := cli.TextDocumentCompletion(ctx, filename, pos)
 	return comp, err
 }
+
+//----------
+
+func (man *Manager) DidSave(ctx context.Context, filename string, text []byte) error {
+	// no error if there is no registration
+	_, err := man.FileRegistration(filename)
+	if err != nil {
+		return nil
+	}
+	return man.TextDocumentDidSave(ctx, filename, text)
+}
+
+func (man *Manager) TextDocumentDidSave(ctx context.Context, filename string, text []byte) error {
+	cli, _, err := man.autoStart(ctx, filename)
+	if err != nil {
+		return err
+	}
+	return cli.TextDocumentDidSave(ctx, filename, text)
+}

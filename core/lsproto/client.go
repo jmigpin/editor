@@ -185,6 +185,16 @@ func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text str
 	return cli.Call(ctx, "noreply:textDocument/didChange", &opt, nil)
 }
 
+func (cli *Client) TextDocumentDidSave(ctx context.Context, filename string, text []byte) error {
+	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didSave
+
+	opt := &DidSaveTextDocumentParams{}
+	opt.TextDocument.Uri = addFileScheme(filename)
+	opt.Text = string(text) // NOTE: has omitempty
+
+	return cli.Call(ctx, "noreply:textDocument/didSave", &opt, nil)
+}
+
 //----------
 
 func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, pos Position) (*Location, error) {

@@ -359,6 +359,17 @@ func (info *ERowInfo) SaveFile() error {
 	// update all erows (including row saved states)
 	info.SetRowsBytes(b)
 
+	//// warn lsproto of file save
+	//go func() {
+	//	ctx0 := context.Background()
+	//	ctx, cancel := context.WithTimeout(ctx0, 2000*time.Millisecond)
+	//	defer cancel()
+	//	err := info.Ed.LSProtoMan.DidSave(ctx, info.Name(), nil)
+	//	if err != nil {
+	//		info.Ed.Error(err)
+	//	}
+	//}()
+
 	return nil
 }
 

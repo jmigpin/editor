@@ -124,6 +124,10 @@ type DidChangeTextDocumentParams struct {
 	TextDocument   VersionedTextDocumentIdentifier   `json:"textDocument,omitempty"`
 	ContentChanges []*TextDocumentContentChangeEvent `json:"contentChanges,omitempty"`
 }
+type DidSaveTextDocumentParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Text         string                 `json:"text,omitempty"`
+}
 type VersionedTextDocumentIdentifier struct {
 	TextDocumentIdentifier
 	Version int `json:"version"`
