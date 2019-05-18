@@ -14,8 +14,6 @@ type ContextFloatBox struct {
 	root     *Root
 	sa       *widget.ScrollArea
 	TextArea *TextArea
-
-	visibleOnAutoClose bool
 }
 
 func NewContextFloatBox(root *Root) *ContextFloatBox {
@@ -78,7 +76,6 @@ func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Ha
 //----------
 
 func (cfb *ContextFloatBox) AutoClose(ev interface{}, p image.Point) {
-	cfb.visibleOnAutoClose = cfb.Visible()
 	if cfb.Visible() && !p.In(cfb.Bounds) {
 		switch ev.(type) {
 		case *event.KeyDown,
@@ -95,7 +92,7 @@ func (cfb *ContextFloatBox) AutoClose(ev interface{}, p image.Point) {
 //----------
 
 func (cfb *ContextFloatBox) Toggle() {
-	visible := cfb.Visible() || cfb.visibleOnAutoClose
+	visible := cfb.Visible()
 	if !visible {
 		cfb.Show()
 	} else {

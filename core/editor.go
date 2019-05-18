@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/core/lsproto"
@@ -453,7 +452,7 @@ func (ed *Editor) NewColumn() *ui.Column {
 func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 	switch t := ev.(type) {
 	case *event.WindowInput:
-		ed.UI.Root.ContextFloatBox.AutoClose(t.Event, t.Point)
+		autoCloseInfo := true
 
 		switch t2 := t.Event.(type) {
 		case *event.KeyDown:
@@ -463,12 +462,19 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 				case event.KSymEscape:
 					GoDebugStop(ed)
 					ed.cancelERowsContentCmds()
+					autoCloseInfo = false
+					ed.cancelInfoFloatBox()
 					return event.Handled
 				case event.KSymF1:
+					autoCloseInfo = false
 					ed.toggleInfoFloatBox()
 					return event.Handled
 				}
 			}
+		}
+
+		if autoCloseInfo {
+			ed.UI.Root.ContextFloatBox.AutoClose(t.Event, t.Point)
 		}
 	}
 	return event.NotHandled
@@ -484,17 +490,23 @@ func (ed *Editor) cancelERowsContentCmds() {
 
 //----------
 
-func (ed *Editor) toggleInfoFloatBox() {
-	// cancel previous run
+func (ed *Editor) cancelInfoFloatBox() {
 	ed.ifbw.Cancel()
-
 	cfb := ed.ifbw.ui()
+	cfb.Hide()
+}
+
+func (ed *Editor) toggleInfoFloatBox() {
+	ed.ifbw.Cancel() // cancel previous run
 
 	// toggle
+	cfb := ed.ifbw.ui()
 	cfb.Toggle()
 	if !cfb.Visible() {
 		return
 	}
+
+	// showInfoFloatBox
 
 	// find ta/erow under pointer
 	ta, ok := cfb.FindTextAreaUnderPointer()
@@ -508,37 +520,38 @@ func (ed *Editor) toggleInfoFloatBox() {
 		return
 	}
 
-	// ui position
-	cfb.SetRefPointToTextAreaCursor(ta)
-	cfb.TextArea.ClearPos()
-	cfb.TextArea.SetStr("Loading...")
-	cfb.Show()
-
+	// show util
 	show := func(s string) {
+		cfb.TextArea.ClearPos()
+		cfb.SetStr(s)
+		cfb.Show()
+	}
+	showAsync := func(s string) {
 		ed.UI.RunOnUIGoRoutine(func() {
-			cfb.TextArea.ClearPos()
-			cfb.SetStr(s)
+			if cfb.Visible() {
+				show(s)
+			}
 		})
 	}
 
-	go func() {
+	// initial ui feedback at position
+	cfb.SetRefPointToTextAreaCursor(ta)
+	show("Loading...")
+
+	ed.RunAsyncBusyCursor(cfb, func() {
+		// there is no timeout to complete since the context can be canceled manually
 
 		// context based on erow context
 		ctx := ed.ifbw.NewCtx(erow.ctx)
 
-		// timeout to complete request
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
-		// pluging autocomplete
-		cfb.TextArea.SetStr("Loading plugin...")
-		cfb.Show()
+		// plugin autocomplete
+		showAsync("Loading plugin...")
 		err, handled := ed.Plugins.RunAutoComplete(ctx, cfb)
 		if handled {
 			if err != nil {
 				ed.Error(err)
 			}
-			show("")
+			showAsync("")
 			return
 		}
 
@@ -549,26 +562,25 @@ func (ed *Editor) toggleInfoFloatBox() {
 			if err == nil {
 				// handled
 				v := fmt.Sprintf("Loading lsproto(%v)...", reg.Language)
-				cfb.TextArea.SetStr(v)
-				cfb.Show()
+				showAsync(v)
 
 				// lsproto autocomplete
 				s, err, handled := ed.lsprotoManAutoComplete(ctx, ta, erow)
 				if handled {
 					if err != nil {
 						ed.Error(err)
-						show("")
+						showAsync("")
 						return
 					}
-					show(s)
+					showAsync(s)
 					return
 				}
 			}
 
 		}
 
-		show("")
-	}()
+		showAsync("")
+	})
 }
 
 func (ed *Editor) lsprotoManAutoComplete(ctx context.Context, ta *ui.TextArea, erow *ERow) (_ string, _ error, handled bool) {
@@ -599,6 +611,19 @@ func (ed *Editor) NodeERow(node widget.Node) (*ERow, bool) {
 		}
 	}
 	return nil, false
+}
+
+//----------
+
+func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func()) {
+	en := node.Embed()
+	en.Cursor = widget.WaitCursor
+	ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
+	go func() {
+		fn()
+		en.Cursor = widget.NoneCursor
+		ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
+	}()
 }
 
 //----------
