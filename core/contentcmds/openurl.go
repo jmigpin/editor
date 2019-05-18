@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os/exec"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/jmigpin/editor/core"
@@ -39,6 +40,7 @@ func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 		return err, false
 	}
 
+	// accepted schemes
 	switch u.Scheme {
 	case "http", "https", "ftp", "mailto":
 		// ok
@@ -47,12 +49,16 @@ func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 		return err, false
 	}
 
+	// cmd timeout
+	ctx2, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	// cmd
 	ustr := u.String()
 	args := []string{"xdg-open", ustr}
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx2, args[0], args[1:]...)
 
 	var out bytes.Buffer
-	// stdin is nil
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 
@@ -62,12 +68,9 @@ func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 
 	erow.Ed.Messagef("openurl:\n\t%v", strings.Join(args, " "))
 
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			err = fmt.Errorf("%v: %v", err, out.String())
-			erow.Ed.Error(err)
-		}
-	}()
-
-	return nil, true
+	err = cmd.Wait()
+	if err != nil {
+		err = fmt.Errorf("%v: %v", err, out.String())
+	}
+	return err, true
 }

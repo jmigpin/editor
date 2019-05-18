@@ -69,17 +69,19 @@ func GoToDefinitionGolang(ctx context.Context, erow *core.ERow, index int) (erro
 		return err, true
 	}
 
-	// place the file under the calling row
-	rowPos := erow.Row.PosBelow()
+	erow.Ed.UI.RunOnUIGoRoutine(func() {
+		// place the file under the calling row
+		rowPos := erow.Row.PosBelow() // needs ui goroutine
 
-	conf := &core.OpenFileERowConfig{
-		FilePos:               filePos,
-		RowPos:                rowPos,
-		FlashVisibleOffsets:   true,
-		NewIfNotExistent:      true,
-		NewIfOffsetNotVisible: true,
-	}
-	core.OpenFileERow(erow.Ed, conf)
+		conf := &core.OpenFileERowConfig{
+			FilePos:               filePos,
+			RowPos:                rowPos,
+			FlashVisibleOffsets:   true,
+			NewIfNotExistent:      true,
+			NewIfOffsetNotVisible: true,
+		}
+		core.OpenFileERow(erow.Ed, conf) // needs ui goroutine
+	})
 
 	return nil, true
 }

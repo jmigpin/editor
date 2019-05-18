@@ -66,21 +66,24 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 	}
 	filePos.Filename = filename
 
-	// place new under the calling row
-	rowPos := erow.Row.PosBelow()
-	// if calling erow is dir, and new is not dir, place at a good place
-	if erow.Info.IsDir() && !fi.IsDir() {
-		rowPos = erow.Ed.GoodRowPos()
-	}
+	erow.Ed.UI.RunOnUIGoRoutine(func() {
+		// place new under the calling row
+		rowPos := erow.Row.PosBelow() // needs ui goroutine
 
-	conf := &core.OpenFileERowConfig{
-		FilePos:               filePos,
-		RowPos:                rowPos,
-		FlashVisibleOffsets:   true,
-		NewIfNotExistent:      true,
-		NewIfOffsetNotVisible: true,
-	}
-	core.OpenFileERow(erow.Ed, conf)
+		// if calling erow is dir, and new is not dir, place at a good place
+		if erow.Info.IsDir() && !fi.IsDir() {
+			rowPos = erow.Ed.GoodRowPos() // needs ui goroutine
+		}
+
+		conf := &core.OpenFileERowConfig{
+			FilePos:               filePos,
+			RowPos:                rowPos,
+			FlashVisibleOffsets:   true,
+			NewIfNotExistent:      true,
+			NewIfOffsetNotVisible: true,
+		}
+		core.OpenFileERow(erow.Ed, conf) // needs ui goroutine
+	})
 
 	return nil, true
 }

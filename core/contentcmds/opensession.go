@@ -22,7 +22,9 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 		return nil, false
 	}
 
-	core.OpenSessionFromString(erow.Ed, sname)
+	erow.Ed.UI.RunOnUIGoRoutine(func() {
+		core.OpenSessionFromString(erow.Ed, sname)
+	})
 
 	return nil, true
 }
