@@ -462,6 +462,7 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 				switch t2.KeySym {
 				case event.KSymEscape:
 					GoDebugStop(ed)
+					ed.cancelERowsContentCmds()
 					return event.Handled
 				case event.KSymF1:
 					ed.toggleInfoFloatBox()
@@ -471,6 +472,14 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 		}
 	}
 	return event.NotHandled
+}
+
+//----------
+
+func (ed *Editor) cancelERowsContentCmds() {
+	for _, erow := range ed.ERows() {
+		erow.CancelContentCmd()
+	}
 }
 
 //----------
