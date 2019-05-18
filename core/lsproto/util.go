@@ -7,8 +7,10 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"unicode/utf16"
 
 	"github.com/jmigpin/editor/core/parseutil"
@@ -17,11 +19,20 @@ import (
 
 //----------
 
-var logger0 = initLogger()
+var logger0 *log.Logger
 
-func initLogger() *log.Logger {
-	//return log.New(os.Stdout, "", log.Lshortfile)
-	return log.New(ioutil.Discard, "", log.Lshortfile)
+func init() {
+	initLogger()
+}
+
+func initLogger() {
+	var w io.Writer
+	if testing.Verbose() {
+		w = os.Stdout
+	} else {
+		w = ioutil.Discard
+	}
+	logger0 = log.New(w, "", log.Lshortfile)
 }
 
 func logPrintf(f string, args ...interface{}) {

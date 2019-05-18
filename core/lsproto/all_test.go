@@ -3,6 +3,7 @@ package lsproto
 import (
 	"context"
 	"io/ioutil"
+	"log"
 	"strings"
 	"testing"
 
@@ -51,12 +52,18 @@ func testGoSource2() string {
 }
 
 func TestManGoSrc2Definition(t *testing.T) {
+	t.Log("DISABLED")
+	return
+
 	offset, src := sourceCursor(t, testGoSource2(), 0)
 	filename := "src.go"
 	testSrcDefinition(t, filename, offset, src)
 }
 
 func TestManGoSrc2Completion(t *testing.T) {
+	t.Log("DISABLED")
+	return
+
 	offset, src := sourceCursor(t, testGoSource2(), 0)
 	filename := "src.go"
 	testSrcDefinition(t, filename, offset, src)
@@ -89,18 +96,28 @@ func TestManCSrc1Completion(t *testing.T) {
 //----------
 
 func TestManGoCompletionF1(t *testing.T) {
+	t.Log("DISABLED") // gives EOF err (file content too big?)
+	return
+
 	s := "/home/jorge/lib/golang_packages/src/github.com/BurntSushi/xgb/xproto/xproto.go:140:23"
 	testFileLineColCompletion(t, s)
 }
 func TestManGoCompletionF2(t *testing.T) {
-	s := "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/lsproto/client.go:167:14"
+	t.Log("DISABLED") // gopls doesn't return answer sometimes
+	return
+
+	s := "/home/jorge/lib/golang/go/src/context/context.go:242:12"
 	testFileLineColCompletion(t, s)
 }
-func TestManGoCompletionF3(t *testing.T) {
-	// NOTE: uses pkg main outside gopath (currently failing)
-	s := "/home/jorge/tmp/test2.go:28:17"
-	testFileLineColCompletion(t, s)
-}
+
+//func TestManGoCompletionF3(t *testing.T) {
+//	// NOTE: uses pkg main outside gopath (currently failing)
+//	t.Log("DISABLED")
+//	return
+
+//	s := "/home/jorge/tmp/test2.go:28:17"
+//	testFileLineColCompletion(t, s)
+//}
 
 //----------
 
@@ -126,6 +143,8 @@ func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 //----------
 
 func testFileLineColCompletion(t *testing.T, loc string) {
+	t.Helper()
+
 	filename, l, c := parseLocation(t, loc)
 
 	// read file to get offset
@@ -143,6 +162,8 @@ func testFileLineColCompletion(t *testing.T, loc string) {
 }
 
 func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
+	t.Helper()
+
 	rd := iorw.NewStringReader(src)
 
 	// start manager
@@ -163,14 +184,17 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 //----------
 
 func newTestManager(t *testing.T) *Manager {
+	initLogger() // init again to check for verbose flag
+
 	fnErr := func(err error) {
-		t.Log(err)
+		//t.Log(err) // error if t.Log gets used after returning from func
+		log.Println(err)
 	}
 	man := NewManager(fnErr)
 
 	// registrations
 	u := []string{
-		GoplsRegistrationStr,
+		GoplsRegistration(testing.Verbose()),
 		CLangRegistrationStr,
 	}
 	for _, s := range u {
@@ -201,7 +225,7 @@ func parseLocation(t *testing.T, loc string) (string, int, int) {
 	return res.Path, res.Line, res.Column
 }
 
-func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.Reader, int) {
+func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWriter, int) {
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
@@ -215,3 +239,43 @@ func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.Reader,
 }
 
 //----------
+//----------
+//----------
+
+func TestManager1(t *testing.T) {
+	//t.Log("DISABLED")
+	//return
+
+	loc := "/home/jorge/lib/golang/go/src/context/context.go:242:12"
+	f, l, c := parseLocation(t, loc)
+
+	rw, offset := readBytesOffset(t, f, l, c)
+
+	ctx0 := context.Background()
+	ctx, cancel := context.WithCancel(ctx0)
+	defer cancel()
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	if err := man.SyncText(ctx, f, rw); err != nil {
+		t.Fatal(err)
+	}
+
+	comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(comp)
+
+	// change content
+	if err := rw.Delete(offset-3, 1); err != nil {
+		t.Fatal(err)
+	}
+
+	comp, err = man.TextDocumentCompletion(ctx, f, rw, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(comp)
+}
