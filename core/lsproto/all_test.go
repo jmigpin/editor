@@ -163,22 +163,10 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 //----------
 
 func newTestManager(t *testing.T) *Manager {
-	//if testing.Verbose() {
-	//	logger = log.New(os.Stdout, "", log.Lshortfile)
-	//}
-
-	//var wg sync.WaitGroup
-	asyncErrors := make(chan error, 10000)
-	go func() {
-		for {
-			err, ok := <-asyncErrors
-			if !ok {
-				break
-			}
-			t.Logf("asyncerr: %v", err)
-		}
-	}()
-	man := NewManager(asyncErrors)
+	fnErr := func(err error) {
+		t.Log(err)
+	}
+	man := NewManager(fnErr)
 
 	// registrations
 	u := []string{

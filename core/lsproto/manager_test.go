@@ -16,7 +16,7 @@ func TestManager1(t *testing.T) {
 	ctx, cancel := context.WithCancel(ctx0)
 	defer cancel()
 
-	man := newTestManager2(t)
+	man := newTestManager(t)
 
 	_, err := man.TextDocumentCompletion(ctx, f, rd, offset)
 	if err != nil {
@@ -26,34 +26,34 @@ func TestManager1(t *testing.T) {
 
 //----------
 
-func newTestManager2(t *testing.T) *Manager {
-	//if testing.Verbose() {
-	//	logger = log.New(os.Stdout, "", log.Lshortfile)
-	//}
+//func newTestManager2(t *testing.T) *Manager {
+//	//if testing.Verbose() {
+//	//	logger = log.New(os.Stdout, "", log.Lshortfile)
+//	//}
 
-	//var wg sync.WaitGroup
-	asyncErrors := make(chan error, 10000)
-	go func() {
-		for {
-			err, ok := <-asyncErrors
-			if !ok {
-				break
-			}
-			t.Logf("asyncerr: %v", err)
-		}
-	}()
-	man := NewManager(asyncErrors)
+//	//var wg sync.WaitGroup
+//	asyncErrors := make(chan error, 10000)
+//	go func() {
+//		for {
+//			err, ok := <-asyncErrors
+//			if !ok {
+//				break
+//			}
+//			t.Logf("asyncerr: %v", err)
+//		}
+//	}()
+//	man := NewManager(asyncErrors)
 
-	// registrations
-	u := []string{
-		GoplsRegistrationStr,
-		CLangRegistrationStr,
-	}
-	for _, s := range u {
-		if err := man.RegisterStr(s); err != nil {
-			panic(err)
-		}
-	}
+//	// registrations
+//	u := []string{
+//		GoplsRegistrationStr,
+//		CLangRegistrationStr,
+//	}
+//	for _, s := range u {
+//		if err := man.RegisterStr(s); err != nil {
+//			panic(err)
+//		}
+//	}
 
-	return man
-}
+//	return man
+//}
