@@ -12,6 +12,7 @@ import (
 	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/pkg/errors"
 )
 
 type Client struct {
@@ -45,10 +46,14 @@ func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
 
 func (cli *Client) Close() error {
 	me := iout.MultiError{}
+
 	if !cli.hasConnErr {
 		me.Add(cli.ShutdownRequest())
+	}
+	if !cli.hasConnErr {
 		me.Add(cli.ExitNotification())
 	}
+
 	if cli.rwc != nil {
 		me.Add(cli.rwc.Close())
 	}
@@ -63,12 +68,17 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 		return cli.rcli.Call(method, args, lspResp)
 	}
 	lateFn := func(err error) {
+		err = errors.Wrap(err, "call late")
 		cli.reg.onConnErrAsync(err)
 	}
 	err := ctxutil.Call(ctx, method, fn, lateFn)
 	if err != nil {
 		// hard error (conn or parse error)
 		cli.hasConnErr = true
+
+		// improve msg
+		err := errors.Wrap(err, "call")
+
 		go cli.reg.onConnErrAsync(err)
 		return err
 	}
@@ -113,7 +123,9 @@ func (cli *Client) Initialize(ctx context.Context, dir string) error {
 func (cli *Client) ShutdownRequest() error {
 	// https://microsoft.github.io/language-server-protocol/specification#shutdown
 
-	// TODO: gopls is not sending reply for shutdown, clangd does
+	// TODO: shutdown request should expect a reply
+	// * clangd is sending a reply (ok)
+	// * gopls is not sending a reply (NOT OK)
 
 	// best effort, impose timeout
 	ctx2, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -264,7 +276,7 @@ func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) erro
 		return err
 	}
 	//} else {
-	//	err := cli.TextDocumentDidChange(filename, string(b), v)
+	//	err := cli.TextDocumentDidChange(ctx, filename, string(b), v)
 	//	if err != nil {
 	//		return err
 	//	}

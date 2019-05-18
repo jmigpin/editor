@@ -83,7 +83,7 @@ func (reg *Registration) CloseCSUnlocked() error {
 	}
 	err := me.Result()
 	if err != nil {
-		err = fmt.Errorf("closecs(%v): %v", reg.Language, err)
+		err = fmt.Errorf("closeclient/server(%v): %v", reg.Language, err)
 	}
 
 	reg.cs.cli = nil
@@ -293,10 +293,16 @@ func RegistrationExamples() string {
 // golang.org/x/tools/internal/jsonrpc2
 // https://github.com/golang/tools/tree/master/internal/lsp
 // https://github.com/golang/tools/tree/master/internal/jsonrpc2
-var GoplsRegistrationStr = func() string {
-	c := osutil.ExecName("gopls") + " serve -listen={{.Addr}}"
+var GoplsRegistrationStr = GoplsRegistration(false)
+
+func GoplsRegistration(trace bool) string {
+	cmdStr := ""
+	if trace {
+		cmdStr = " -v -rpc.trace"
+	}
+	c := osutil.ExecName("gopls") + cmdStr + " serve -listen={{.Addr}}"
 	return fmt.Sprintf("go,.go,tcp,%q", c)
-}()
+}
 
 var CLangRegistrationStr = func() string {
 	c := osutil.ExecName("clangd")

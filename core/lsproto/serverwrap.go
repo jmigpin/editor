@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"strings"
+	"testing"
 	"text/template"
 	"time"
 
@@ -36,7 +37,18 @@ func NewServerWrapTCP(ctx context.Context, cmdTmpl string, reg *Registration) (*
 	if err != nil {
 		return nil, "", err
 	}
-	sw, err := newServerWrapCommon(ctx, cmd, reg, nil)
+
+	preStartFn := func(sw *ServerWrap) error {
+		// TODO: use a func arg
+		// allows reading lsp server output (ex: gopls)
+		if testing.Verbose() {
+			sw.Cmd.Stdout = os.Stdout
+			sw.Cmd.Stderr = os.Stderr
+		}
+		return nil
+	}
+
+	sw, err := newServerWrapCommon(ctx, cmd, reg, preStartFn)
 	if err != nil {
 		return nil, "", err
 	}

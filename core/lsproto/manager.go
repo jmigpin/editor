@@ -80,17 +80,17 @@ func (man *Manager) autoStart(ctx context.Context, filename string) (*Client, *R
 
 //----------
 
-//func (man *Manager) SyncText(filename string, rd iorw.Reader) error {
-//	_, reg, err := man.autoStart(filename)
-//	if err != nil {
-//		return err
-//	}
-//	b, err := iorw.ReadFullSlice(rd)
-//	if err != nil {
-//		return err
-//	}
-//	return man.regSyncText(reg, filename, b)
-//}
+func (man *Manager) SyncText(ctx context.Context, filename string, rd iorw.Reader) error {
+	_, reg, err := man.autoStart(ctx, filename)
+	if err != nil {
+		return err
+	}
+	b, err := iorw.ReadFullSlice(rd)
+	if err != nil {
+		return err
+	}
+	return man.regSyncText(ctx, reg, filename, b)
+}
 
 func (man *Manager) regSyncText(ctx context.Context, reg *Registration, filename string, b []byte) error {
 	err := reg.cs.cli.SyncText(ctx, filename, b)
