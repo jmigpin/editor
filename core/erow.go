@@ -11,6 +11,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 //----------
@@ -110,8 +111,10 @@ func (erow *ERow) initHandlers() {
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaCmdEvent)
-		ctx := erow.newContentCmdCtx()
-		go runContentCmds(ctx, erow, ev.Index)
+		erow.asyncBusyCursor(row, func() { // set row cursor
+			ctx := erow.newContentCmdCtx()
+			runContentCmds(ctx, erow, ev.Index)
+		})
 	})
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev0 interface{}) {
@@ -414,4 +417,17 @@ func (erow *ERow) CancelContentCmd() {
 	if erow.contentCmdCancel != nil {
 		erow.contentCmdCancel()
 	}
+}
+
+//----------
+
+func (erow *ERow) asyncBusyCursor(node widget.Node, fn func()) {
+	en := node.Embed()
+	en.Cursor = widget.WaitCursor
+	erow.Ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
+	go func() {
+		fn()
+		en.Cursor = widget.NoneCursor
+		erow.Ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
+	}()
 }

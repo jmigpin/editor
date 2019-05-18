@@ -26,6 +26,7 @@ func (ae *ApplyEvent) Apply(node Node, ev interface{}, p image.Point) {
 	ae.mouseEnterLeave(node, p)
 
 	switch evt := ev.(type) {
+	case nil: // allow running the rest of the function without an event
 	case *event.MouseDown:
 		ae.depthFirstEv(node, evt, p)
 		ae.findDragNode(node, evt, p)

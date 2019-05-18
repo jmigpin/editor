@@ -226,6 +226,15 @@ func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
 	ui.events <- &UIRunFuncEvent{f}
 }
 
+// Allows triggering a run of applyevent (ex: useful for cursor update).
+func (ui *BasicUI) QueueEmptyWindowInputEvent() {
+	p, err := ui.QueryPointer()
+	if err != nil {
+		return
+	}
+	ui.events <- &event.WindowInput{Point: *p}
+}
+
 //----------
 
 type UIReviewSize struct{}
