@@ -338,6 +338,8 @@ func (win *Window) SetCursor(c widget.Cursor) {
 		sc(xcursor.Hand2)
 	case widget.BeamCursor:
 		sc(xcursor.XTerm)
+	case widget.WaitCursor:
+		sc(xcursor.Watch)
 	}
 }
 
