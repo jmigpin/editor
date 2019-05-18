@@ -6,7 +6,6 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
@@ -30,6 +29,8 @@ type ERow struct {
 
 	ctx       context.Context // erow general context
 	ctxCancel context.CancelFunc
+
+	contentCmdCancel context.CancelFunc
 }
 
 //----------
@@ -49,7 +50,7 @@ func NewERow(ed *Editor, info *ERowInfo, rowPos *ui.RowPos) *ERow {
 	erow.parseToolbar() // after handlers are set
 	erow.setupTextAreaCommentString()
 
-	ctx0 := context.Background()
+	ctx0 := context.Background() // TODO: editor ctx
 	erow.ctx, erow.ctxCancel = context.WithCancel(ctx0)
 
 	return erow
@@ -108,12 +109,9 @@ func (erow *ERow) initHandlers() {
 	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
-		// TODO: content cancel on esc?
-		ctx, cancel := context.WithTimeout(erow.ctx, 10*time.Second)
-		defer cancel()
-
 		ev := ev0.(*ui.TextAreaCmdEvent)
-		runContentCmds(ctx, erow, ev.Index)
+		ctx := erow.newContentCmdCtx()
+		go runContentCmds(ctx, erow, ev.Index)
 	})
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev0 interface{}) {
@@ -400,5 +398,20 @@ func (erow *ERow) setupTextAreaCommentString() {
 		ta.SetCommentStrings("", [2]string{"<!--", "-->"})
 	default:
 		// no coloring
+	}
+}
+
+//----------
+
+func (erow *ERow) newContentCmdCtx() context.Context {
+	erow.CancelContentCmd()
+	ctx, cancel := context.WithCancel(erow.ctx)
+	erow.contentCmdCancel = cancel
+	return ctx
+}
+
+func (erow *ERow) CancelContentCmd() {
+	if erow.contentCmdCancel != nil {
+		erow.contentCmdCancel()
 	}
 }
