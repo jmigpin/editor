@@ -53,8 +53,12 @@ func (reg *Registration) onConnErrAsync(err error) {
 	if err := reg.CloseCSLocked(); err != nil {
 		me.Add(err)
 	}
-	err = fmt.Errorf("lsproto(%s): %v", reg.Language, me.Result())
+	err = reg.WrapError(me.Result())
 	reg.man.errorAsync(err)
+}
+
+func (reg *Registration) WrapError(err error) error {
+	return fmt.Errorf("lsproto(%s): %v", reg.Language, err)
 }
 
 //----------

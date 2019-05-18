@@ -90,7 +90,7 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 
 	// soft error (rpc data with error content)
 	if lspResp.Error != nil {
-		return lspResp.Error
+		return cli.reg.WrapError(lspResp.Error)
 	}
 
 	// decode result
