@@ -25,6 +25,7 @@ type Editor struct {
 	Watcher     fswatcher.Watcher
 	RowReopener *RowReopener
 	ERowInfos   map[string]*ERowInfo
+	GoDebug     *GoDebugInstance
 	LSProtoMan  *lsproto.Manager
 	Plugins     *Plugins
 
@@ -41,14 +42,13 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.HomeVars = NewHomeVars()
 	ed.RowReopener = NewRowReopener(ed)
 	ed.dndh = NewDndHandler(ed)
+	ed.GoDebug = NewGoDebugInstance(ed)
 
 	if err := ed.init(opt); err != nil {
 		return nil, err
 	}
 
 	ed.initLSProto(opt)
-
-	GoDebugInit(ed)
 
 	go ed.fswatcherEventLoop()
 	ed.UI.EventLoop() // blocks
@@ -460,7 +460,7 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 			if m.Is(event.ModNone) {
 				switch t2.KeySym {
 				case event.KSymEscape:
-					GoDebugStop(ed)
+					ed.GoDebug.CancelAndClear()
 					ed.cancelERowsContentCmds()
 					autoCloseInfo = false
 					ed.cancelInfoFloatBox()

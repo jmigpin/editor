@@ -118,7 +118,7 @@ func (erow *ERow) initHandlers() {
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaSelectAnnotationEvent)
-		GoDebugSelectAnnotation(erow, ev.AnnotationIndex, ev.Offset, ev.Type)
+		erow.Ed.GoDebug.SelectAnnotation(erow, ev.AnnotationIndex, ev.Offset, ev.Type)
 	})
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 interface{}) {

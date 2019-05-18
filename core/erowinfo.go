@@ -523,7 +523,7 @@ func (info *ERowInfo) SetRowsStrFromMaster(erow *ERow) {
 	info.updateDuplicatesBytes(erow)
 	info.UpdateEditedRowState()
 
-	GoDebugUpdateUIERowInfo(info)
+	info.Ed.GoDebug.UpdateUIERowInfo(info)
 }
 
 //----------

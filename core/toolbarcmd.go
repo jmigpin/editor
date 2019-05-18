@@ -203,7 +203,10 @@ func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 	case "GoRename":
 		rowCmdErr(func(e *ERow) error { return GoRenameCmd(e, part) })
 	case "GoDebug":
-		rowCmdErr(func(e *ERow) error { return GoDebugCmd(e, part) })
+		rowCmdErr(func(e *ERow) error {
+			args := part.ArgsUnquoted()
+			return ed.GoDebug.Start(e, args)
+		})
 
 	case "ColorTheme":
 		colorThemeCmd(ed)

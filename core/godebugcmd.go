@@ -12,40 +12,12 @@ import (
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/core/parseutil"
-	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/pkg/errors"
 )
 
-func GoDebugInit(ed *Editor) {
-	godebugi = NewGoDebugInstance(ed)
-}
-
-func GoDebugCmd(erow *ERow, part *toolbarparser.Part) error {
-	args := part.ArgsUnquoted()
-	return godebugi.Start(erow, args)
-}
-
-func GoDebugStop(ed *Editor) {
-	godebugi.CancelAndClear()
-}
-
-func GoDebugSelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) {
-	godebugi.SelectAnnotation(erow, annIndex, offset, typ)
-}
-
-func GoDebugUpdateUIERowInfo(info *ERowInfo) {
-	godebugi.updateUIERowInfo(info)
-}
-
-//----------
-
-// Note: Unique instance because there is no easy solution to debug two (or more) programs that have common files.
-
-var godebugi *GoDebugInstance
-
-//----------
+// Note: Should have a unique instance because there is no easy solution to debug two (or more) programs that have common files in the same editor
 
 type GoDebugInstance struct {
 	ed   *Editor
@@ -445,7 +417,7 @@ func (gdi *GoDebugInstance) updateUIShowLine(erow *ERow) {
 	})
 }
 
-func (gdi *GoDebugInstance) updateUIERowInfo(info *ERowInfo) {
+func (gdi *GoDebugInstance) UpdateUIERowInfo(info *ERowInfo) {
 	gdi.ed.UI.RunOnUIGoRoutine(func() {
 		if !gdi.dataRLock() {
 			return
