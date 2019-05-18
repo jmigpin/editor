@@ -9,7 +9,7 @@ import (
 
 func TestRW1(t *testing.T) {
 	s := "0123"
-	rw := NewStringReader(s)
+	rw := NewBytesReadWriter([]byte(s))
 
 	type ins struct {
 		i int

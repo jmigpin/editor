@@ -286,16 +286,16 @@ func TestImg14Cursor(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewStringReader(s)
-	d.SetReader(r)
+	rw := iorw.NewBytesReadWriter([]byte(s))
+	d.SetReader(rw)
 
 	d.Opt.Cursor.On = true
 
-	c := r.Max()
+	c := rw.Max()
 	d.SetRuneOffset(c)
 
 	l := 8
-	r.Delete(r.Max()-l, l)
+	rw.Delete(rw.Max()-l, l)
 
 	d.Draw(img)
 	cmpResult(t, img, "img14")
@@ -305,22 +305,22 @@ func TestImg15Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333"
-	r := iorw.NewStringReader(s)
-	d.SetReader(r)
+	rw := iorw.NewBytesReadWriter([]byte(s))
+	d.SetReader(rw)
 
 	d.Opt.Cursor.On = true
 
-	c := r.Max()
+	c := rw.Max()
 	d.SetRuneOffset(c)
 
-	r.Delete(r.Min(), iorw.MMLen(r))
-	b, _ := r.ReadNSliceAt(r.Min(), iorw.MMLen(r))
+	rw.Delete(rw.Min(), iorw.MMLen(rw))
+	b, _ := rw.ReadNSliceAt(rw.Min(), iorw.MMLen(rw))
 	_ = string(b)
 
 	o := d.RangeVisibleOffset(0, 0)
 	d.SetRuneOffset(o)
 
-	r.Insert(r.Min(), []byte("44444\n"))
+	rw.Insert(rw.Min(), []byte("44444\n"))
 
 	d.Draw(img)
 	cmpResult(t, img, "img15")
