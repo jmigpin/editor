@@ -16,15 +16,14 @@ import (
 )
 
 type Client struct {
-	rcli       *rpc.Client
-	rwc        io.ReadWriteCloser
-	fversions  map[string]int
-	reg        *Registration
-	hasConnErr bool
+	rcli      *rpc.Client
+	rwc       io.ReadWriteCloser
+	fversions map[string]int
+	reg       *Registration
 }
 
 func NewClientTCP(ctx context.Context, addr string, reg *Registration) (*Client, error) {
-	dialer := net.Dialer{}
+	dialer := net.Dialer{Timeout: 5 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
@@ -35,10 +34,16 @@ func NewClientTCP(ctx context.Context, addr string, reg *Registration) (*Client,
 
 func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
 	cli := &Client{reg: reg, fversions: map[string]int{}}
+
 	cli.rwc = rwc
+
 	cc := NewJsonCodec(rwc)
+	cc.OnIOReadError = cli.reg.onIOReadError
 	cc.OnNotificationMessage = cli.onNotificationMessage
+
 	cli.rcli = rpc.NewClientWithCodec(cc)
+
+	reg.cs.mc.Add(cli) // multiclose
 	return cli
 }
 
@@ -46,40 +51,64 @@ func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
 
 func (cli *Client) Close() error {
 	me := iout.MultiError{}
-	if !cli.hasConnErr {
-		me.Add(cli.ShutdownRequest())
-	}
-	if !cli.hasConnErr {
-		me.Add(cli.ExitNotification())
+
+	// best effort, ignore errors
+	_ = cli.ShutdownRequest()
+	_ = cli.ExitNotification()
+	//me.Add(cli.ShutdownRequest())
+	//me.Add(cli.ExitNotification())
+
+	if cli.rcli != nil {
+		// possibly also calls codec.close (which in turn calls rwc.close)
+		me.Add(cli.rcli.Close())
 	}
 	if cli.rwc != nil {
-		me.Add(cli.rcli.Close()) // will also close rwc
 		me.Add(cli.rwc.Close())
 	}
+
+	me.Add(cli.reg.cs.mc.CloseRest(cli)) // multiclose
+
 	return me.Result()
 }
 
 //----------
 
 func (cli *Client) Call(ctx context.Context, method string, args, reply interface{}) error {
+
+	// TEMPORARY: all calls must complete under X time
+	// TODO: ensure timeout (at least for now while developing)
+	//ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	//go func() {
+	//	<-ctx2.Done()
+	//	if ctx2.Err() != nil {
+	//		err := cli.Close()
+	//		if err != nil {
+	//			err2 := errors.Wrap(err, "call timeout")
+	//			err3 := cli.reg.WrapError(err2)
+	//			cli.reg.man.errorAsync(err3)
+	//		}
+	//	}
+	//}()
+	//ctx = ctx2
+
 	lspResp := &Response{}
 	fn := func() error {
 		return cli.rcli.Call(method, args, lspResp)
 	}
 	lateFn := func(err error) {
-		err = errors.Wrap(err, "call late")
-		cli.reg.onConnErrAsync(err)
+		//defer cancel() // clear resources
+
+		if err != nil {
+			err2 := errors.Wrap(err, "call late")
+			err3 := cli.reg.WrapError(err2)
+			cli.reg.man.errorAsync(err3)
+		}
 	}
 	err := ctxutil.Call(ctx, method, fn, lateFn)
 	if err != nil {
-		// hard error (conn or parse error)
-		cli.hasConnErr = true
-
-		// improve msg
-		err := errors.Wrap(err, "call")
-
-		go cli.reg.onConnErrAsync(err)
-		return err
+		err2 := errors.Wrap(err, "call")
+		err3 := cli.reg.WrapError(err2)
+		return err3
 	}
 
 	// not expecting a reply
@@ -99,7 +128,7 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 //----------
 
 func (cli *Client) onNotificationMessage(msg *NotificationMessage) {
-	logJson("notification <--: ", msg)
+	//logJson("notification <--: ", msg)
 }
 
 //----------
@@ -113,7 +142,7 @@ func (cli *Client) Initialize(ctx context.Context, dir string) error {
 
 	var capabilities interface{}
 	err := cli.Call(ctx, "initialize", &opt, &capabilities)
-	logJson("initialize <--: ", capabilities)
+	//logJson("initialize <--: ", capabilities)
 	return err
 }
 
@@ -269,21 +298,22 @@ func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) erro
 	if !ok {
 		v = 1
 	} else {
-		// TODO
-		v++ // comment to use always same version
+		v++
 	}
 	cli.fversions[filename] = v
 
-	if v == 1 {
-		err := cli.TextDocumentDidOpen(ctx, filename, string(b), v)
-		if err != nil {
-			return err
-		}
-	} else {
-		err := cli.TextDocumentDidChange(ctx, filename, string(b), v)
-		if err != nil {
-			return err
-		}
+	// TODO: clangd doesn't work well with didchange (works with sending always a didopen)
+
+	//if v == 1 {
+	err := cli.TextDocumentDidOpen(ctx, filename, string(b), v)
+	if err != nil {
+		return err
 	}
+	//} else {
+	//	err := cli.TextDocumentDidChange(ctx, filename, string(b), v)
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 	return nil
 }

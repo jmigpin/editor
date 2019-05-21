@@ -34,6 +34,7 @@ type Registration struct {
 		cli        *Client
 		sw         *ServerWrap
 		connCancel context.CancelFunc
+		mc         *iout.MultiClose
 	}
 }
 
@@ -46,48 +47,34 @@ func (reg *Registration) HasOptional(s string) bool {
 	return false
 }
 
-func (reg *Registration) onConnErrAsync(err error) {
-	me := iout.MultiError{}
-	me.Add(err)
-	if err := reg.CloseCSLocked(); err != nil {
-		me.Add(err)
-	}
-	err = reg.WrapError(me.Result())
-	reg.man.errorAsync(err)
-}
-
 func (reg *Registration) WrapError(err error) error {
 	return fmt.Errorf("lsproto(%s): %v", reg.Language, err)
 }
 
 //----------
 
-func (reg *Registration) CloseCSLocked() error {
-	reg.cs.Lock()
-	defer reg.cs.Unlock()
-	return reg.CloseCSUnlocked()
+func (reg *Registration) onIOReadError(err error) {
+	me := iout.MultiError{}
+	me.Add(err)
+	me.Add(reg.Close())
+	err2 := me.Result()
+	if err2 != nil {
+		reg.man.errorAsync(reg.WrapError(err2))
+	}
 }
 
-func (reg *Registration) CloseCSUnlocked() error {
-	me := &iout.MultiError{}
-	if reg.cs.cli != nil {
-		if err := reg.cs.cli.Close(); err != nil {
-			me.Add(fmt.Errorf("client: %v", err))
-		}
-	}
+//----------
 
-	if reg.cs.sw != nil {
-		if err := reg.cs.sw.Close(); err != nil {
-			me.Add(fmt.Errorf("serverwrap: %v", err))
-		}
-	}
-	err := me.Result()
-	if err != nil {
-		err = fmt.Errorf("closeclient/server(%v): %v", reg.Language, err)
-	}
+func (reg *Registration) Close() error {
+	reg.cs.Lock()
+	defer reg.cs.Unlock()
 
-	reg.cs.cli = nil
-	reg.cs.sw = nil
+	var me iout.MultiError
+
+	// multiclose
+	if reg.cs.mc != nil {
+		me.Add(reg.cs.mc.CloseRest(reg))
+	}
 
 	// Clears cancel resources
 	// The client might need to send a close msg to the server. Canceling before doing that will give misleading errors. It's ok to cancel at close time after calling client/server close since the main objective of connCancel is to be able to cancel at connection time.
@@ -95,12 +82,16 @@ func (reg *Registration) CloseCSUnlocked() error {
 		reg.cs.connCancel()
 	}
 
-	return err
+	// need to nullify to detect if a new instance is needed
+	reg.cs.cli = nil
+	reg.cs.sw = nil
+
+	return me.Result()
 }
 
 //----------
 
-func (reg *Registration) connClientServer(ctx context.Context) (*Client, error) {
+func (reg *Registration) StartClientServer(ctx context.Context) (*Client, error) {
 	reg.cs.Lock()
 	defer reg.cs.Unlock()
 
@@ -108,13 +99,17 @@ func (reg *Registration) connClientServer(ctx context.Context) (*Client, error) 
 		return reg.cs.cli, nil
 	}
 
+	// setup multiclose
+	reg.cs.mc = iout.NewMultiClose()
+	reg.cs.mc.Add(reg)
+
 	// independent context for client/server
 	ctx0 := context.Background()
 	ctx2, cancel := context.WithCancel(ctx0)
 	reg.cs.connCancel = cancel
 
 	// new client/server
-	err := reg.connClientServer2(ctx2)
+	err := reg.connectClientServer(ctx2)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +122,7 @@ func (reg *Registration) connClientServer(ctx context.Context) (*Client, error) 
 	return reg.cs.cli, nil
 }
 
-func (reg *Registration) connClientServer2(ctx context.Context) error {
+func (reg *Registration) connectClientServer(ctx context.Context) error {
 	switch reg.Network {
 	case "tcp":
 		return reg.connClientServerTCP(ctx)
@@ -167,13 +162,14 @@ func (reg *Registration) connClientTCP(ctx context.Context, addr string) error {
 		return nil
 	}
 	lateFn := func(err error) {
-		err2 := reg.CloseCSLocked()
-		reg.man.errorAsync(iout.MultiErrors(err, err2))
+		err2 := reg.Close()
+		err3 := iout.MultiErrors(err, err2)
+		reg.man.errorAsync(err3)
 	}
 	sleep := 250 * time.Millisecond
 	err := ctxutil.Retry(ctx, sleep, "clienttcp", fn, lateFn)
 	if err != nil {
-		err2 := reg.CloseCSUnlocked()
+		err2 := reg.Close()
 		return iout.MultiErrors(err, err2)
 	}
 	reg.cs.cli = cli

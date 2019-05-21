@@ -31,6 +31,7 @@ func initLogger() {
 		w = os.Stdout
 	} else {
 		w = ioutil.Discard
+		//w = os.Stdout
 	}
 	logger0 = log.New(w, "", log.Lshortfile)
 }
@@ -39,7 +40,7 @@ func logPrintf(f string, args ...interface{}) {
 	if logger0.Writer() == ioutil.Discard {
 		return
 	}
-	logger0.Printf(f, args...)
+	logger0.Output(2, fmt.Sprintf(f, args...))
 }
 
 func logJson(prefix string, v interface{}) {

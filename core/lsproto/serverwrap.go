@@ -22,7 +22,7 @@ type ServerWrap struct {
 	cancel context.CancelFunc
 	reg    *Registration
 
-	rwc *rwc
+	rwc *rwc // can be nil
 }
 
 //----------
@@ -89,6 +89,7 @@ func NewServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, reg *Reg
 
 func newServerWrapCommon(ctx0 context.Context, cmd string, reg *Registration, preStartFn func(sw *ServerWrap) error) (*ServerWrap, error) {
 	sw := &ServerWrap{reg: reg}
+	sw.reg.cs.mc.Add(sw)
 
 	// context with cancel
 	ctx, cancel := context.WithCancel(ctx0)
@@ -148,17 +149,14 @@ func cmdTemplate(cmdTmpl, addr string) (string, error) {
 
 func (sw *ServerWrap) Close() error {
 	sw.cancel() // cleanup context resource (cancels cmd)
-
 	me := iout.MultiError{}
-
 	if sw.rwc != nil {
 		me.Add(sw.rwc.Close())
 	}
-
 	if sw.Cmd != nil {
 		me.Add(sw.Cmd.Wait())
 	}
-
+	me.Add(sw.reg.cs.mc.CloseRest(sw)) // multiclose
 	return me.Result()
 }
 

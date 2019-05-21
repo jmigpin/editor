@@ -8,6 +8,7 @@ import (
 	"net/rpc"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -17,17 +18,23 @@ import (
 // Implements rpc.ClientCodec
 type JsonCodec struct {
 	OnNotificationMessage func(*NotificationMessage)
+	OnIOReadError         func(error) // callback that allows immediate action on err
 
-	rwc       io.ReadWriteCloser
-	responses chan interface{}
+	rwc           io.ReadWriteCloser
+	responses     chan interface{}
+	simulatedResp chan interface{}
 
 	// used by read response header/body
 	readData readData
+
+	mu      sync.Mutex
+	closing bool
 }
 
 func NewJsonCodec(rwc io.ReadWriteCloser) *JsonCodec {
 	c := &JsonCodec{rwc: rwc}
 	c.responses = make(chan interface{}, 1)
+	c.simulatedResp = make(chan interface{}, 1)
 	go c.readLoop()
 	return c
 }
@@ -35,7 +42,16 @@ func NewJsonCodec(rwc io.ReadWriteCloser) *JsonCodec {
 //----------
 
 func (c *JsonCodec) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.closing = true
 	return c.rwc.Close()
+}
+
+func (c *JsonCodec) isClosing() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.closing
 }
 
 //----------
@@ -81,14 +97,14 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 
 	_, err = c.rwc.Write(buf)
 	if err != nil {
-		return errors.Wrap(err, "codec: write req")
+		return err
 	}
 
 	// simulate a response (noreply) with the seq if there is no err writing the msg
 	if noreply {
-		c.responses <- req.Seq
+		// can't use c.responses or it could be writing to a closed channel
+		c.simulatedResp <- req.Seq
 	}
-
 	return nil
 }
 
@@ -99,18 +115,24 @@ func (c *JsonCodec) readLoop() {
 	for {
 		cl, err := c.readHeaders() // content-length header
 		if err != nil {
-			logPrintf("read resp <--:\n%v\n", err)
+			if c.isClosing() {
+				break
+			}
+			logPrintf("read resp err <--:\n%v\n", err)
 			c.responses <- err
 			break
 		}
 		b, err := c.readContent(cl)
 		if err != nil {
-			logPrintf("read resp <--:\n%v\n", err)
+			if c.isClosing() {
+				break
+			}
+			logPrintf("read resp err <--:\n%v\n", err)
 			c.responses <- err
 			break
 		}
 
-		logPrintf("read resp <--:\n%v\n", string(b))
+		logPrintf("read resp <--:\n%s\n", b)
 		c.responses <- b
 	}
 }
@@ -120,14 +142,25 @@ func (c *JsonCodec) readLoop() {
 func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 	c.readData = readData{} // reset
 
-	v, ok := <-c.responses
-	if !ok {
-		return fmt.Errorf("responses chan closed")
+	var v interface{}
+	select {
+	case u, ok := <-c.responses:
+		if !ok {
+			return fmt.Errorf("responses chan closed")
+		}
+		v = u
+	case u, _ := <-c.simulatedResp:
+		v = u
 	}
 
 	switch t := v.(type) {
 	case error:
-		return t
+		// read error: there is no corresponding call
+		// only way to make this known
+		if c.OnIOReadError != nil {
+			go c.OnIOReadError(t)
+		}
+		return t // nothing will handle this return
 	case uint64: // request id that expects noreply
 		c.readData = readData{noReply: true}
 		resp.Seq = t

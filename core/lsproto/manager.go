@@ -62,7 +62,7 @@ func (man *Manager) FileRegistration(filename string) (*Registration, error) {
 func (man *Manager) Close() error {
 	me := &iout.MultiError{}
 	for _, reg := range man.Regs {
-		me.Add(reg.CloseCSLocked())
+		me.Add(reg.Close())
 	}
 	return me.Result()
 }
@@ -74,7 +74,7 @@ func (man *Manager) autoStart(ctx context.Context, filename string) (*Client, *R
 	if err != nil {
 		return nil, nil, err
 	}
-	cli, err := reg.connClientServer(ctx)
+	cli, err := reg.StartClientServer(ctx)
 	return cli, reg, err
 }
 
@@ -114,10 +114,9 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 	}
 	_ = reg
 
-	//// TODO
-	//if err := man.regSyncReader(ctx, reg, filename, rd); err != nil {
-	//	return "", nil, err
-	//}
+	if err := man.regSyncReader(ctx, reg, filename, rd); err != nil {
+		return "", nil, err
+	}
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
@@ -129,7 +128,7 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 		return "", nil, err
 	}
 
-	// filename
+	// target filename
 	filename2 := trimFileScheme(loc.Uri)
 	if u, err := url.PathUnescape(filename2); err == nil {
 		filename2 = u
@@ -147,10 +146,9 @@ func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string,
 	}
 	_ = reg
 
-	//// TODO
-	//if err := man.regSyncReader(ctx, reg, filename, rd); err != nil {
-	//	return nil, err
-	//}
+	if err := man.regSyncReader(ctx, reg, filename, rd); err != nil {
+		return nil, err
+	}
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {

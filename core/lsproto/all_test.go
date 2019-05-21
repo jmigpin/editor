@@ -52,7 +52,7 @@ func testGoSource2() string {
 }
 
 func TestManGoSrc2Definition(t *testing.T) {
-	t.Log("DISABLED") // fails due to pkg main
+	t.Log("DISABLED") // TODO: currently fails due to pkg main
 	return
 
 	offset, src := sourceCursor(t, testGoSource2(), 0)
@@ -61,7 +61,7 @@ func TestManGoSrc2Definition(t *testing.T) {
 }
 
 func TestManGoSrc2Completion(t *testing.T) {
-	t.Log("DISABLED") // fails due to pkg main
+	t.Log("DISABLED") // TODO: currently fails due to pkg main
 	return
 
 	offset, src := sourceCursor(t, testGoSource2(), 0)
@@ -103,21 +103,12 @@ func TestManGoCompletionF1(t *testing.T) {
 	testFileLineColCompletion(t, s)
 }
 func TestManGoCompletionF2(t *testing.T) {
-	t.Log("DISABLED") // gopls doesn't return answer sometimes
-	return
+	//t.Log("DISABLED") // gopls doesn't return answer sometimes
+	//return
 
 	s := "/home/jorge/lib/golang/go/src/context/context.go:242:12"
 	testFileLineColCompletion(t, s)
 }
-
-//func TestManGoCompletionF3(t *testing.T) {
-//	// NOTE: uses pkg main outside gopath (currently failing)
-//	t.Log("DISABLED")
-//	return
-
-//	s := "/home/jorge/tmp/test2.go:28:17"
-//	testFileLineColCompletion(t, s)
-//}
 
 //----------
 
@@ -203,13 +194,14 @@ func newTestManager(t *testing.T) *Manager {
 
 	fnErr := func(err error) {
 		//t.Log(err) // error if t.Log gets used after returning from func
-		//log.Println(err)
+		logPrintf("man async error: %v", err)
 	}
 	man := NewManager(fnErr)
 
 	// registrations
 	u := []string{
-		GoplsRegistration(testing.Verbose()),
+		//GoplsRegistration(testing.Verbose()),
+		GoplsRegistration(false),
 		CLangRegistrationStr,
 	}
 	for _, s := range u {
@@ -287,9 +279,10 @@ func TestManager1(t *testing.T) {
 	}
 
 	// change content
-	if err := rw.Delete(offset-3, 1); err != nil {
+	if err := rw.Insert(offset-11, []byte("\n\n\n")); err != nil {
 		t.Fatal(err)
 	}
+	offset += 33 // 3 newlines
 
 	// pre sync text
 	if err := man.SyncText(ctx, f, rw); err != nil {
@@ -300,7 +293,7 @@ func TestManager1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comp) > 0 {
+	if len(comp) == 0 {
 		t.Fatal(comp)
 	}
 }
@@ -335,9 +328,10 @@ func TestManager2(t *testing.T) {
 	}
 
 	// change content
-	if err := rw.Delete(offset-3, 3); err != nil {
+	if err := rw.Insert(offset-37, []byte("\n\n\n")); err != nil {
 		t.Fatal(err)
 	}
+	offset += 3 // 3 newlines
 
 	// pre sync text
 	if err := man.SyncText(ctx, f, rw); err != nil {
@@ -348,7 +342,7 @@ func TestManager2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comp) > 0 {
+	if len(comp) == 0 {
 		t.Fatal(comp)
 	}
 }
