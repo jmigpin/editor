@@ -1,5 +1,7 @@
 package drawer4
 
+import "github.com/jmigpin/editor/util/mathutil"
+
 type Annotations struct {
 	d *Drawer
 }
@@ -70,7 +72,8 @@ func (ann *Annotations) insertAnnotations2() {
 		}
 
 		space := ann.d.iters.runeR.glyphAdvance(' ')
-		min := space * (8 * 10)
+		boundsMinX := mathutil.Intf1(ann.d.bounds.Min.X)
+		min := boundsMinX + space*(8*10)
 		margin := space * 5
 		maxX := ann.d.iters.runeR.maxX()
 		if pen.X < min {
