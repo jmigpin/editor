@@ -157,13 +157,6 @@ func (sw *ServerWrap) Close() error {
 
 	if sw.Cmd != nil {
 		me.Add(sw.Cmd.Wait())
-
-		//// cmd.wait can be slow to return, use timeout
-		//timeout := 200 * time.Millisecond
-		//ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		//defer cancel()
-		//err := ctxutil.Call(ctx, "serverwrapclose", sw.Cmd.Wait, nil)
-		//me.Add(err)
 	}
 
 	return me.Result()

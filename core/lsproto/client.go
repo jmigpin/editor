@@ -46,15 +46,14 @@ func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
 
 func (cli *Client) Close() error {
 	me := iout.MultiError{}
-
 	if !cli.hasConnErr {
 		me.Add(cli.ShutdownRequest())
 	}
 	if !cli.hasConnErr {
 		me.Add(cli.ExitNotification())
 	}
-
 	if cli.rwc != nil {
+		me.Add(cli.rcli.Close()) // will also close rwc
 		me.Add(cli.rwc.Close())
 	}
 	return me.Result()
@@ -128,10 +127,12 @@ func (cli *Client) ShutdownRequest() error {
 	// * gopls is not sending a reply (NOT OK)
 
 	// best effort, impose timeout
-	ctx2, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx := context.Background()
+	ctx2, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 	defer cancel()
+	ctx = ctx2
 
-	err := cli.Call(ctx2, "shutdown", nil, nil)
+	err := cli.Call(ctx, "shutdown", nil, nil)
 	return err
 }
 
@@ -139,10 +140,12 @@ func (cli *Client) ExitNotification() error {
 	// https://microsoft.github.io/language-server-protocol/specification#exit
 
 	// best effort, impose timeout
-	ctx2, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx := context.Background()
+	ctx2, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 	defer cancel()
+	ctx = ctx2
 
-	err := cli.Call(ctx2, "noreply:exit", nil, nil)
+	err := cli.Call(ctx, "noreply:exit", nil, nil)
 	return err
 }
 
@@ -266,20 +269,21 @@ func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) erro
 	if !ok {
 		v = 1
 	} else {
-		v++
+		// TODO
+		v++ // comment to use always same version
 	}
 	cli.fversions[filename] = v
 
-	//if v == 1 {
-	err := cli.TextDocumentDidOpen(ctx, filename, string(b), v)
-	if err != nil {
-		return err
+	if v == 1 {
+		err := cli.TextDocumentDidOpen(ctx, filename, string(b), v)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := cli.TextDocumentDidChange(ctx, filename, string(b), v)
+		if err != nil {
+			return err
+		}
 	}
-	//} else {
-	//	err := cli.TextDocumentDidChange(ctx, filename, string(b), v)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
 	return nil
 }

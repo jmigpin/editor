@@ -31,10 +31,9 @@ type Registration struct {
 
 	cs struct { //client/server
 		sync.Mutex
-		cli *Client
-		sw  *ServerWrap
-
-		cancel context.CancelFunc
+		cli        *Client
+		sw         *ServerWrap
+		connCancel context.CancelFunc
 	}
 }
 
@@ -70,16 +69,13 @@ func (reg *Registration) CloseCSLocked() error {
 }
 
 func (reg *Registration) CloseCSUnlocked() error {
-	if reg.cs.cancel != nil {
-		reg.cs.cancel()
-	}
-
 	me := &iout.MultiError{}
 	if reg.cs.cli != nil {
 		if err := reg.cs.cli.Close(); err != nil {
 			me.Add(fmt.Errorf("client: %v", err))
 		}
 	}
+
 	if reg.cs.sw != nil {
 		if err := reg.cs.sw.Close(); err != nil {
 			me.Add(fmt.Errorf("serverwrap: %v", err))
@@ -92,6 +88,12 @@ func (reg *Registration) CloseCSUnlocked() error {
 
 	reg.cs.cli = nil
 	reg.cs.sw = nil
+
+	// Clears cancel resources
+	// The client might need to send a close msg to the server. Canceling before doing that will give misleading errors. It's ok to cancel at close time after calling client/server close since the main objective of connCancel is to be able to cancel at connection time.
+	if reg.cs.connCancel != nil {
+		reg.cs.connCancel()
+	}
 
 	return err
 }
@@ -109,7 +111,7 @@ func (reg *Registration) connClientServer(ctx context.Context) (*Client, error) 
 	// independent context for client/server
 	ctx0 := context.Background()
 	ctx2, cancel := context.WithCancel(ctx0)
-	reg.cs.cancel = cancel
+	reg.cs.connCancel = cancel
 
 	// new client/server
 	err := reg.connClientServer2(ctx2)

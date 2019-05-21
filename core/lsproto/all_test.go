@@ -3,9 +3,9 @@ package lsproto
 import (
 	"context"
 	"io/ioutil"
-	"log"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/goutil"
@@ -52,7 +52,7 @@ func testGoSource2() string {
 }
 
 func TestManGoSrc2Definition(t *testing.T) {
-	t.Log("DISABLED")
+	t.Log("DISABLED") // fails due to pkg main
 	return
 
 	offset, src := sourceCursor(t, testGoSource2(), 0)
@@ -61,7 +61,7 @@ func TestManGoSrc2Definition(t *testing.T) {
 }
 
 func TestManGoSrc2Completion(t *testing.T) {
-	t.Log("DISABLED")
+	t.Log("DISABLED") // fails due to pkg main
 	return
 
 	offset, src := sourceCursor(t, testGoSource2(), 0)
@@ -126,18 +126,24 @@ func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 
 	rd := iorw.NewStringReader(src)
 
+	ctx := context.Background()
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	ctx = ctx2
+
 	man := newTestManager(t)
 	defer man.Close()
 
-	// repeat (syncs text a 2nd time)
-	ctx := context.Background()
-	for i := 0; i < 2; i++ {
-		f, rang, err := man.TextDocumentDefinition(ctx, filename, rd, offset)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("%v %v", f, rang)
+	// pre-sync even thought completion might re-sync again
+	if err := man.SyncText(ctx, filename, rd); err != nil {
+		t.Fatal(err)
 	}
+
+	f, rang, err := man.TextDocumentDefinition(ctx, filename, rd, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%v %v", f, rang)
 }
 
 //----------
@@ -166,11 +172,20 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 
 	rd := iorw.NewStringReader(src)
 
+	ctx := context.Background()
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	ctx = ctx2
+
 	// start manager
 	man := newTestManager(t)
 	defer man.Close()
 
-	ctx := context.Background()
+	// pre-sync even thought completion might re-sync again
+	if err := man.SyncText(ctx, filename, rd); err != nil {
+		t.Fatal(err)
+	}
+
 	comp, err := man.TextDocumentCompletion(ctx, filename, rd, offset)
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +203,7 @@ func newTestManager(t *testing.T) *Manager {
 
 	fnErr := func(err error) {
 		//t.Log(err) // error if t.Log gets used after returning from func
-		log.Println(err)
+		//log.Println(err)
 	}
 	man := NewManager(fnErr)
 
@@ -258,6 +273,7 @@ func TestManager1(t *testing.T) {
 	man := newTestManager(t)
 	defer man.Close()
 
+	// pre sync text
 	if err := man.SyncText(ctx, f, rw); err != nil {
 		t.Fatal(err)
 	}
@@ -266,10 +282,17 @@ func TestManager1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(comp)
+	if len(comp) == 0 {
+		t.Fatal(comp)
+	}
 
 	// change content
 	if err := rw.Delete(offset-3, 1); err != nil {
+		t.Fatal(err)
+	}
+
+	// pre sync text
+	if err := man.SyncText(ctx, f, rw); err != nil {
 		t.Fatal(err)
 	}
 
@@ -277,5 +300,55 @@ func TestManager1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(comp)
+	if len(comp) > 0 {
+		t.Fatal(comp)
+	}
+}
+
+func TestManager2(t *testing.T) {
+	//t.Log("DISABLED")
+	//return
+
+	loc := "/usr/include/X11/Xcursor/Xcursor.h:307:25"
+	f, l, c := parseLocation(t, loc)
+
+	rw, offset := readBytesOffset(t, f, l, c)
+
+	ctx0 := context.Background()
+	ctx, cancel := context.WithCancel(ctx0)
+	defer cancel()
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	// pre sync text
+	if err := man.SyncText(ctx, f, rw); err != nil {
+		t.Fatal(err)
+	}
+
+	comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(comp) == 0 {
+		t.Fatal(comp)
+	}
+
+	// change content
+	if err := rw.Delete(offset-3, 3); err != nil {
+		t.Fatal(err)
+	}
+
+	// pre sync text
+	if err := man.SyncText(ctx, f, rw); err != nil {
+		t.Fatal(err)
+	}
+
+	comp, err = man.TextDocumentCompletion(ctx, f, rw, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(comp) > 0 {
+		t.Fatal(comp)
+	}
 }

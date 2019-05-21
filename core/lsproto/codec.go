@@ -80,13 +80,16 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 	copy(buf[len(h):], b) // body
 
 	_, err = c.rwc.Write(buf)
+	if err != nil {
+		return errors.Wrap(err, "codec: write req")
+	}
 
 	// simulate a response (noreply) with the seq if there is no err writing the msg
-	if noreply && err == nil {
+	if noreply {
 		c.responses <- req.Seq
 	}
 
-	return errors.Wrap(err, "codec: write req")
+	return nil
 }
 
 //----------

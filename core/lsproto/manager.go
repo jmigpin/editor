@@ -97,6 +97,14 @@ func (man *Manager) regSyncText(ctx context.Context, reg *Registration, filename
 	return err
 }
 
+func (man *Manager) regSyncReader(ctx context.Context, reg *Registration, filename string, rd iorw.Reader) error {
+	b, err := iorw.ReadFullSlice(rd)
+	if err != nil {
+		return err
+	}
+	return reg.cs.cli.SyncText(ctx, filename, b)
+}
+
 //----------
 
 func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string, rd iorw.Reader, offset int) (string, *Range, error) {
@@ -106,14 +114,10 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 	}
 	_ = reg
 
-	//	b, err := iorw.ReadFullSlice(rd)
-	//	if err != nil {
-	//		return "", nil, err
-	//	}
-
-	//	if err := man.regSyncText(ctx, reg, filename, b); err != nil {
-	//		return "", nil, err
-	//	}
+	//// TODO
+	//if err := man.regSyncReader(ctx, reg, filename, rd); err != nil {
+	//	return "", nil, err
+	//}
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
@@ -143,14 +147,10 @@ func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string,
 	}
 	_ = reg
 
-	//	b, err := iorw.ReadFullSlice(rd)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-
-	//	if err := man.regSyncText(ctx, reg, filename, b); err != nil {
-	//		return nil, err
-	//	}
+	//// TODO
+	//if err := man.regSyncReader(ctx, reg, filename, rd); err != nil {
+	//	return nil, err
+	//}
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
