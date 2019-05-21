@@ -162,6 +162,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `RuneCodes`: output rune codes of the current row text selection.
 - `FontRunes`: output the current font runes.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
+- `LSProtoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
 - `GoDebug <command> [arguments]`: debugger utility for go programs.
 	- `-h`: help (show usage).

@@ -13,6 +13,7 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
 )
 
@@ -214,6 +215,10 @@ func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 		fontThemeCmd(ed)
 	case "FontRunes":
 		fontRunesCmd(ed)
+	case "LSProtoCloseAll":
+		lsprotoCloseAllCmd(ed)
+	case "CtxutilCallsState":
+		ctxutilCallsStateCmd(ed)
 
 	default:
 		// have a plugin handle the cmd
@@ -474,4 +479,20 @@ func fontRunesCmd(ed *Editor) {
 		u += fmt.Sprintf("%d: %s\n", start, w)
 	}
 	ed.Messagef("%s", u)
+}
+
+//----------
+
+func ctxutilCallsStateCmd(ed *Editor) {
+	s := ctxutil.CallsState()
+	ed.Messagef("%s", s)
+}
+
+//----------
+
+func lsprotoCloseAllCmd(ed *Editor) {
+	err := ed.LSProtoMan.Close()
+	if err != nil {
+		ed.Error(err)
+	}
 }
