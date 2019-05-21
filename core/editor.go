@@ -475,6 +475,9 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 
 		if autoCloseInfo {
 			ed.UI.Root.ContextFloatBox.AutoClose(t.Event, t.Point)
+			if !ed.ifbw.ui().Visible() {
+				ed.cancelInfoFloatBox()
+			}
 		}
 	}
 	return event.NotHandled
