@@ -13,7 +13,6 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/uiutil/widget"
 	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
 )
 
@@ -108,7 +107,7 @@ func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 			ed.Errorf("%s:  root toolbar only command", arg0)
 			return
 		}
-		ed.RunAsyncBusyCursor(ed.UI.Root.Toolbar, fn)
+		fn()
 	}
 
 	currentERow := func() *ERow {
@@ -128,11 +127,9 @@ func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 			ed.Errorf("%s: no active row", arg0)
 			return
 		}
-		ed.RunAsyncBusyCursor(e.Row.Toolbar, func() {
-			if err := fn(e); err != nil {
-				ed.Errorf("%v: %v", arg0, err)
-			}
-		})
+		if err := fn(e); err != nil {
+			ed.Errorf("%v: %v", arg0, err)
+		}
 	}
 
 	rowCmd := func(fn func(*ERow)) {
@@ -219,25 +216,14 @@ func toolbarCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 		fontRunesCmd(ed)
 
 	default:
+		// have a plugin handle the cmd
 		e := currentERow() // could be nil
+		handled := ed.Plugins.RunToolbarCmd(e, part)
 
-		// busy cursor node
-		var bcn widget.Node
-		if e != nil {
-			bcn = e.Row.Toolbar
-		} else {
-			bcn = ed.UI.Root.Toolbar
+		// run external cmd
+		if !handled {
+			rowCmd(func(e *ERow) { ExternalCmd(e, part) })
 		}
-
-		ed.RunAsyncBusyCursor(bcn, func() {
-			// have a plugin handle the cmd
-			handled := ed.Plugins.RunToolbarCmd(e, part)
-
-			// run external cmd
-			if !handled {
-				rowCmd(func(e *ERow) { ExternalCmd(e, part) })
-			}
-		})
 	}
 }
 
