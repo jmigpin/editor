@@ -24,11 +24,11 @@ func Call(ctx context.Context, prefix string, fn func() error, lateFn func(error
 
 	// run fn in go routine
 	ctx2, cancel := context.WithCancel(ctx)
-	id := addCall(prefix)
+	id := addCall(prefix) // keep track of fn()
 	go func() {
-		defer doneCall(id)
+		defer doneCall(id) // keep track of fn()
 
-		err := fn() // goroutine leaks if fn never returns
+		err := fn()
 		if err != nil {
 			err = buildErr(err)
 		}
@@ -52,17 +52,18 @@ func Call(ctx context.Context, prefix string, fn func() error, lateFn func(error
 	}()
 
 	<-ctx2.Done()
+
 	d.Lock()
 	defer func() {
 		d.exited = true
 		d.Unlock()
 	}()
-
 	if d.returned {
 		return d.err
+	} else {
+		// context was canceled and fn has not returned yet
+		return buildErr(ctx2.Err())
 	}
-
-	return buildErr(ctx2.Err())
 }
 
 //----------
@@ -71,12 +72,14 @@ func Retry(ctx context.Context, sleep time.Duration, prefix string, fn func() er
 	var err error
 	for {
 		err = Call(ctx, prefix, fn, lateFn)
-		if err == nil {
-			return err
+		if err != nil {
+			//  keep retrying
+		} else {
+			return nil // done
 		}
 		select {
 		case <-ctx.Done():
-			return err
+			return err // err is non-nil
 		default: // non-blocking select
 			time.Sleep(sleep) // sleep before next retry
 		}
