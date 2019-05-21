@@ -306,12 +306,14 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 
 // Caller is responsible for closing the writer at the end.
 func (erow *ERow) TextAreaWriter() io.WriteCloser {
+	// terminal filter (escape sequences) (before goroutine to avoid data race)
+	termFilter := erow.termFilter && erow.Info.IsDir()
+
 	prc, pwc := io.Pipe()
 	go func() {
 		var rc io.ReadCloser = prc
 
-		// terminal filter (escape sequences)
-		if erow.termFilter && erow.Info.IsDir() {
+		if termFilter {
 			rc = NewTerminalFilter(erow, rc)
 		}
 
