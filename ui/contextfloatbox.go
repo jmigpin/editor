@@ -20,7 +20,7 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	cfb := &ContextFloatBox{root: root}
 
 	cfb.TextArea = NewTextArea(root.UI)
-	cfb.SetStr("")
+	cfb.SetStrClearHistory("")
 	if d, ok := cfb.TextArea.Drawer.(*drawer4.Drawer); ok {
 		//d.Opt.LineWrap.On = false
 		d.Opt.RuneReader.StartOffsetX = 2 // covers cursor pixel
@@ -46,11 +46,11 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 
 //----------
 
-func (cfb *ContextFloatBox) SetStr(s string) {
+func (cfb *ContextFloatBox) SetStrClearHistory(s string) {
 	if s == "" {
 		s = "No content provided."
 	}
-	cfb.TextArea.SetStr(s)
+	cfb.TextArea.SetStrClearHistory(s)
 }
 
 //----------

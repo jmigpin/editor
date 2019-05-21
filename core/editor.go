@@ -523,7 +523,7 @@ func (ed *Editor) toggleInfoFloatBox() {
 	// show util
 	show := func(s string) {
 		cfb.TextArea.ClearPos()
-		cfb.SetStr(s)
+		cfb.SetStrClearHistory(s)
 		cfb.Show()
 	}
 	showAsync := func(s string) {
