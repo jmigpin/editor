@@ -46,6 +46,8 @@ func FindFileInfo(name, dir string) (string, os.FileInfo, bool) {
 	{
 		a := []string{
 			"/usr/include",
+			"/usr/include/x86_64-linux-gnu",
+			"/usr/local/include",
 		}
 		for _, d := range a {
 			u := filepath.Join(d, name)
