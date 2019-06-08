@@ -18,7 +18,7 @@ import (
 	"github.com/jmigpin/editor/util/osutil"
 )
 
-func AutoComplete(ed *core.Editor, cfb *ui.ContextFloatBox) (_ error, handled bool) {
+func AutoComplete(ctx context.Context, ed *core.Editor, cfb *ui.ContextFloatBox) (_ error, handled bool) {
 	ta, ok := cfb.FindTextAreaUnderPointer()
 	if !ok {
 		cfb.Hide()

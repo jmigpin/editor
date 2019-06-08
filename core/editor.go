@@ -554,7 +554,6 @@ func (ed *Editor) toggleInfoFloatBox() {
 			if err != nil {
 				ed.Error(err)
 			}
-			showAsync("")
 			return
 		}
 

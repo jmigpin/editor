@@ -42,14 +42,15 @@ func (p *Plugins) AddPath(path string) error {
 
 func (p *Plugins) runOnLoad(plug *Plug) error {
 	// plugin should have this symbol
-	f, err := plug.Plugin.Lookup("OnLoad")
+	fname := "OnLoad"
+	f, err := plug.Plugin.Lookup(fname)
 	if err != nil {
 		return nil // ok if plugin doesn't implement this symbol
 	}
 	// the symbol must implement this signature
 	f2, ok := f.(func(*Editor))
 	if !ok {
-		return fmt.Errorf("plugin: %v: bad func signature", plug.Path)
+		return p.badFuncSigErr(plug.Path, fname)
 	}
 	// run symbol
 	f2(p.ed)
@@ -73,15 +74,19 @@ func (p *Plugins) RunAutoComplete(ctx context.Context, cfb *ui.ContextFloatBox) 
 
 func (p *Plugins) runAutoCompletePlug(ctx context.Context, plug *Plug, cfb *ui.ContextFloatBox) (_ error, handled bool) {
 	// plugin should have this symbol
-	fn1, err := plug.Plugin.Lookup("AutoComplete")
+	fname := "AutoComplete"
+	fn1, err := plug.Plugin.Lookup(fname)
 	if err != nil {
 		return nil, false // ok if plugin doesn't implement this symbol
 	}
 	// the symbol must implement this signature
 	fn2, ok := fn1.(func(context.Context, *Editor, *ui.ContextFloatBox) (_ error, handled bool))
 	if !ok {
-		err := fmt.Errorf("plugin: %v: bad func signature", plug.Path)
-		return err, false
+		// report error
+		err := p.badFuncSigErr(plug.Path, fname)
+		p.ed.Error(err)
+
+		return nil, false // ok if plugin doesn't implement the sig
 	}
 	// run symbol
 	return fn2(ctx, p.ed, cfb)
@@ -101,20 +106,29 @@ func (p *Plugins) RunToolbarCmd(erow *ERow, part *toolbarparser.Part) bool {
 
 func (p *Plugins) runToolbarCmdPlug(plug *Plug, erow *ERow, part *toolbarparser.Part) bool {
 	// plugin should have this symbol
-	f, err := plug.Plugin.Lookup("ToolbarCmd")
+	fname := "ToolbarCmd"
+	f, err := plug.Plugin.Lookup(fname)
 	if err != nil {
 		// no error: ok if plugin doesn't implement this symbol
-		return false // false: doesn't implemente the required cmd
+		return false
 	}
 	// the symbol must implement this signature
 	f2, ok := f.(func(*Editor, *ERow, *toolbarparser.Part) bool)
 	if !ok {
-		err := fmt.Errorf("plugin: %v: bad func signature", plug.Path)
+		// report error
+		err := p.badFuncSigErr(plug.Path, fname)
 		p.ed.Error(err)
-		return false // false: doesn't implement the required cmd
+
+		return false // doesn't implement the required sig
 	}
 	// run symbol
 	return f2(p.ed, erow, part)
+}
+
+//----------
+
+func (p *Plugins) badFuncSigErr(path, name string) error {
+	return fmt.Errorf("plugins: bad func signature: %v, %v", path, name)
 }
 
 //----------
