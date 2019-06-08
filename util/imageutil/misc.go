@@ -34,7 +34,7 @@ func DrawUniform(dst draw.Image, r *image.Rectangle, c color.Color, op draw.Op) 
 
 //----------
 
-func DrawCopy(dst, src draw.Image, r *image.Rectangle) {
+func DrawCopy(dst draw.Image, src image.Image, r *image.Rectangle) {
 	draw.Draw(dst, *r, src, image.Point{}, draw.Src)
 }
 
