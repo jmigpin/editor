@@ -177,7 +177,7 @@ func CleanMultiplePathSeps(str string, sep rune) string {
 
 //----------
 
-var ExtraRunes = "_-~.%@&?=#" + "()[]{}<>" + "\\^" + "/" + " " + ":"
+var ExtraRunes = "_-~.%@&?=#+" + "()[]{}<>" + "\\^" + "/" + " " + ":"
 
 var ResourceExtraRunes = RunesExcept(ExtraRunes, excludeResourceRunes)
 
