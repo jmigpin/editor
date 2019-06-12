@@ -14,7 +14,7 @@ type SimpleUI struct {
 	EventsQ *chanutil.ChanQ
 
 	OnError func(error)
-	OnEvent func(ev interface{})
+	OnEvent func(ev interface{}) // has a default set on new
 	OnClose func()
 
 	closeOnce sync.Once

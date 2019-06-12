@@ -28,7 +28,7 @@ func NewWindowImage(win *Window) (WindowImage, error) {
 	// image using shared memory (better performance)
 	img, err := NewShmWImg(win)
 	if err != nil {
-		fmt.Printf("warning: unable to use shm: %v", err)
+		fmt.Printf("warning: unable to use shm: %v\n", err)
 	} else {
 		return img, nil
 	}

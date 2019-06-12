@@ -49,6 +49,7 @@ func main() {
 	if *cpuProfileFlag != "" {
 		f, err := os.Create(*cpuProfileFlag)
 		if err != nil {
+			log.SetFlags(log.Lshortfile)
 			log.Fatal(err)
 		}
 		pprof.StartCPUProfile(f)
@@ -57,6 +58,7 @@ func main() {
 
 	_, err := core.NewEditor(opt)
 	if err != nil {
+		log.SetFlags(log.Lshortfile)
 		log.Fatal(err)
 	}
 }

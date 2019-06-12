@@ -217,7 +217,7 @@ func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text str
 
 	// changes
 	opt.ContentChanges = []*TextDocumentContentChangeEvent{
-		&TextDocumentContentChangeEvent{
+		{
 			Range: Range{
 				Start: Position{0, 0},
 				End:   pos,
