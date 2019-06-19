@@ -379,8 +379,16 @@ func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 
 func (erow *ERow) setupTextAreaCommentString() {
 	ta := erow.Row.TextArea
-	ext := filepath.Ext(erow.Info.Name())
-	switch strings.ToLower(ext) {
+
+	// ignore "." on files starting with "."
+	name := filepath.Base(erow.Info.Name())
+	if len(name) >= 1 && name[0] == '.' {
+		name = name[1:]
+	}
+	// name extension
+	ext := strings.ToLower(filepath.Ext(name))
+
+	switch ext {
 	case "", // no file extension (includes directories and special rows)
 		".sh",
 		".conf", ".list",
