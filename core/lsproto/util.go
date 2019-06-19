@@ -26,12 +26,9 @@ func init() {
 }
 
 func initLogger() {
-	var w io.Writer
+	w := ioutil.Discard
 	if testing.Verbose() {
 		w = os.Stdout
-	} else {
-		w = ioutil.Discard
-		//w = os.Stdout
 	}
 	logger0 = log.New(w, "", log.Lshortfile)
 }

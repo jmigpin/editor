@@ -25,8 +25,6 @@ func testGoSource1() string {
 }
 
 func TestManGoSrc1Definition(t *testing.T) {
-	// TODO: fails sometimes: gopls seems to be dependent on internal parsing some data to be able to make a decision to answer a query, even though the text was send first
-
 	offset, src := sourceCursor(t, testGoSource1(), 0)
 	filename := "src.go"
 	testSrcDefinition(t, filename, offset, src)
@@ -41,7 +39,6 @@ func TestManGoSrc1Completion(t *testing.T) {
 //----------
 
 func testGoSource2() string {
-	// NOTE: uses pkg main outside gopath (currently failing)
 	return `
 		package main
 		import "log"
@@ -52,18 +49,12 @@ func testGoSource2() string {
 }
 
 func TestManGoSrc2Definition(t *testing.T) {
-	t.Log("DISABLED") // TODO: currently fails due to pkg main
-	return
-
 	offset, src := sourceCursor(t, testGoSource2(), 0)
 	filename := "src.go"
 	testSrcDefinition(t, filename, offset, src)
 }
 
 func TestManGoSrc2Completion(t *testing.T) {
-	t.Log("DISABLED") // TODO: currently fails due to pkg main
-	return
-
 	offset, src := sourceCursor(t, testGoSource2(), 0)
 	filename := "src.go"
 	testSrcDefinition(t, filename, offset, src)
@@ -96,16 +87,10 @@ func TestManCSrc1Completion(t *testing.T) {
 //----------
 
 func TestManGoCompletionF1(t *testing.T) {
-	t.Log("DISABLED") // gives EOF err (file content too big?)
-	return
-
 	s := "/home/jorge/lib/golang_packages/src/github.com/BurntSushi/xgb/xproto/xproto.go:140:23"
 	testFileLineColCompletion(t, s)
 }
 func TestManGoCompletionF2(t *testing.T) {
-	//t.Log("DISABLED") // gopls doesn't return answer sometimes
-	//return
-
 	s := "/home/jorge/lib/golang/go/src/context/context.go:242:12"
 	testFileLineColCompletion(t, s)
 }
@@ -200,8 +185,7 @@ func newTestManager(t *testing.T) *Manager {
 
 	// registrations
 	u := []string{
-		//GoplsRegistration(testing.Verbose()),
-		GoplsRegistration(false),
+		GoplsRegistration(testing.Verbose()),
 		CLangRegistrationStr,
 	}
 	for _, s := range u {
@@ -250,9 +234,6 @@ func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWri
 //----------
 
 func TestManager1(t *testing.T) {
-	//t.Log("DISABLED")
-	//return
-
 	loc := "/home/jorge/lib/golang/go/src/context/context.go:242:12"
 	f, l, c := parseLocation(t, loc)
 
@@ -293,15 +274,12 @@ func TestManager1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comp) == 0 {
+	if len(comp) != 0 {
 		t.Fatal(comp)
 	}
 }
 
 func TestManager2(t *testing.T) {
-	//t.Log("DISABLED")
-	//return
-
 	loc := "/usr/include/X11/Xcursor/Xcursor.h:307:25"
 	f, l, c := parseLocation(t, loc)
 
