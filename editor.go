@@ -5,6 +5,7 @@ package main
 //go:generate go build -buildmode=plugin ./plugins/autocomplete_gocode.go
 //go:generate go build -buildmode=plugin ./plugins/gotodefinition_godef.go
 //go:generate go build -buildmode=plugin ./plugins/rownames.go
+//go:generate go build -buildmode=plugin ./plugins/eevents.go
 
 import (
 	"flag"

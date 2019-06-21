@@ -10,6 +10,16 @@ func NewRegister() *Register {
 	reg := &Register{m: make(map[int]*list.List)}
 	return reg
 }
+
+//----------
+
+// Remove is done via *Regist.Unregister.
+func (reg *Register) Add(evId int, fn func(interface{})) *Regist {
+	return reg.AddCallback(evId, &Callback{fn})
+}
+
+//----------
+
 func (reg *Register) AddCallback(evId int, cb *Callback) *Regist {
 	l, ok := reg.m[evId]
 	if !ok {
@@ -19,10 +29,8 @@ func (reg *Register) AddCallback(evId int, cb *Callback) *Regist {
 	l.PushBack(cb)
 	return &Regist{reg, evId, cb}
 }
-func (reg *Register) Add(evId int, fn func(interface{})) *Regist {
-	return reg.AddCallback(evId, &Callback{fn})
-}
-func (reg *Register) Remove(evId int, cb *Callback) {
+
+func (reg *Register) RemoveCallback(evId int, cb *Callback) {
 	l, ok := reg.m[evId]
 	if !ok {
 		return
@@ -38,6 +46,8 @@ func (reg *Register) Remove(evId int, cb *Callback) {
 		}
 	}
 }
+
+//----------
 
 func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
 	l, ok := reg.m[evId]
@@ -68,11 +78,12 @@ type Regist struct {
 }
 
 func (reg *Regist) Unregister() {
-	reg.evReg.Remove(reg.id, reg.cb)
+	reg.evReg.RemoveCallback(reg.id, reg.cb)
 }
 
 //----------
 
+// Utility to unregister big number of regists.
 type Unregister struct {
 	v []*Regist
 }

@@ -232,22 +232,36 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 Plugins allow extra functionality to be added to the editor without changing the binary. 
 
-A plugin can be compiled with (will output a `*.so`):
-- `go build -buildmode=plugin <filename.go>` 
-
-and used in the editor by using the `--plugins` option:
-- `editor --plugins <plugin1.so>,<plugin2.so>`
+A plugin can be compiled and run with (will output a `*.so`):
+```
+go build -buildmode=plugin plugin1.go
+go build -buildmode=plugin plugin2.go
+editor --plugins plugin1.so,plugin2.so
+```
 
 Functions that can be implemented by a plugin are (subject to changes - __work-in-progress__ ):
-- `func OnLoad(ed *core.Editor)`
-- `func AutoComplete(ctx context.Context, ed *core.Editor, cfb *ui.ContextFloatBox) (err error, handled bool)`: `error` is only considered if `handled` is true
-- `func ToolbarCmd(ed *core.Editor, erow *core.ERow, part *toolbarparser.Part) bool`
+```
+func OnLoad(ed *core.Editor)
+func AutoComplete(ctx context.Context, ed *core.Editor, cfb *ui.ContextFloatBox) (err error, handled bool) // error` is only considered if `handled` is true
+func ToolbarCmd(ed *core.Editor, erow *core.ERow, part *toolbarparser.Part) bool
+```
 
 Note that plugins might need to be recompiled everytime there are changes in the libraries provided by the editor.
+
+Editor events currently implemented (subject to changes - __work-in-progress__ ):
+```
+PostNewERowEEventId // on erow creation
+PostFileSaveEEventId // after a file is saved
+PreRowCloseEEventId // before a row is closed
+RowStateChangeEEventId // on row state change (duplicate rows also emit).
+
+```
 
 Plugins located at: `./plugins`.
 - `gotodefinition_godef.go`: plugin that shows how to override the textarea click action and use godef instead of the default.
 - `autocomplete_gocode.go`: plugin that shows a context with suggestions for `.go` files (uses gocode).
+- `rownames.go`: example plugin that shows how to access row names.
+- `eevents.go`: example plugin on how to access editor events.
 
 ## Key/button shortcuts
 

@@ -359,6 +359,10 @@ func (info *ERowInfo) SaveFile() error {
 	// update all erows (including row saved states)
 	info.SetRowsBytes(b)
 
+	// editor events
+	ev := &PostFileSaveEEvent{Info: info}
+	info.Ed.EEvents.emit(PostFileSaveEEventId, ev)
+
 	//// warn lsproto of file save
 	//go func() {
 	//	ctx0 := context.Background()
@@ -490,7 +494,13 @@ func (info *ERowInfo) UpdateAnnotationsEditedRowState(v bool) {
 
 func (info *ERowInfo) updateRowState(state ui.RowState, v bool) {
 	for _, erow := range info.ERows {
+		oldState := erow.Row.HasState(state)
 		erow.Row.SetState(state, v)
+		if oldState != v {
+			// editor events
+			ev := &RowStateChangeEEvent{ERow: erow}
+			erow.Ed.EEvents.emit(RowStateChangeEEventId, ev)
+		}
 	}
 }
 

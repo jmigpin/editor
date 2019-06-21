@@ -28,6 +28,7 @@ type Editor struct {
 	GoDebug     *GoDebugInstance
 	LSProtoMan  *lsproto.Manager
 	Plugins     *Plugins
+	EEvents     *EEvents
 
 	dndh *DndHandler
 	ifbw *InfoFloatBoxWrap
@@ -43,6 +44,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.RowReopener = NewRowReopener(ed)
 	ed.dndh = NewDndHandler(ed)
 	ed.GoDebug = NewGoDebugInstance(ed)
+	ed.EEvents = NewEEvents()
 
 	if err := ed.init(opt); err != nil {
 		return nil, err

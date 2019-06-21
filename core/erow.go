@@ -53,6 +53,10 @@ func NewERow(ed *Editor, info *ERowInfo, rowPos *ui.RowPos) *ERow {
 	ctx0 := context.Background() // TODO: editor ctx
 	erow.ctx, erow.ctxCancel = context.WithCancel(ctx0)
 
+	// editor events
+	ev := &PostNewERowEEvent{ERow: erow}
+	erow.Ed.EEvents.emit(PostNewERowEEventId, ev)
+
 	return erow
 }
 
@@ -144,7 +148,12 @@ func (erow *ERow) initHandlers() {
 	})
 	// close
 	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
-		erow.ctxCancel() // cancel general context
+		// editor events
+		ev := &PreRowCloseEEvent{ERow: erow}
+		erow.Ed.EEvents.emit(PreRowCloseEEventId, ev)
+
+		// cancel general context
+		erow.ctxCancel()
 
 		// ensure execution (if any) is stopped
 		erow.Exec.Stop()
