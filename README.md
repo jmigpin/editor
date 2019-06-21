@@ -240,7 +240,7 @@ and used in the editor by using the `--plugins` option:
 
 Functions that can be implemented by a plugin are (subject to changes - __work-in-progress__ ):
 - `func OnLoad(ed *core.Editor)`
-- `func AutoComplete(ctx context.Context, ed *core.Editor, cfb *ui.ContextFloatBox) (err error, handled bool)`
+- `func AutoComplete(ctx context.Context, ed *core.Editor, cfb *ui.ContextFloatBox) (err error, handled bool)`: `error` is only considered if `handled` is true
 - `func ToolbarCmd(ed *core.Editor, erow *core.ERow, part *toolbarparser.Part) bool`
 
 Note that plugins might need to be recompiled everytime there are changes in the libraries provided by the editor.
