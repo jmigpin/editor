@@ -232,6 +232,10 @@ func (info *ERowInfo) ERowsInUIOrder() []*ERow {
 func (info *ERowInfo) NewERow(rowPos *ui.RowPos) (*ERow, error) {
 	switch {
 	case info.IsSpecial():
+		// there can be only one instance of a special row
+		if len(info.ERows) > 0 {
+			return nil, fmt.Errorf("special row already exists: %v", info.Name())
+		}
 		erow := NewERow(info.Ed, info, rowPos)
 		return erow, nil
 	case info.IsDir():
