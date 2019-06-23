@@ -502,7 +502,7 @@ func (info *ERowInfo) updateRowState(state ui.RowState, v bool) {
 		erow.Row.SetState(state, v)
 		if oldState != v {
 			// editor events
-			ev := &RowStateChangeEEvent{ERow: erow}
+			ev := &RowStateChangeEEvent{ERow: erow, State: state, Value: v}
 			erow.Ed.EEvents.emit(RowStateChangeEEventId, ev)
 		}
 	}

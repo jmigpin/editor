@@ -1,6 +1,8 @@
 package main
 
 import (
+	"path/filepath"
+
 	"github.com/jmigpin/editor/core"
 )
 
@@ -25,5 +27,7 @@ func (h *Handler) onEvent1(ev interface{}) {
 	h.ed.Messagef("handler1: %T\n", ev)
 }
 func (h *Handler) onEvent2(ev interface{}) {
-	h.ed.Messagef("handler2: %T\n", ev)
+	e := ev.(*core.RowStateChangeEEvent)
+	name := filepath.Base(e.ERow.Info.Name())
+	h.ed.Messagef("handler2: %T, %v, %v, %v\n", ev, name, e.State, e.Value)
 }
