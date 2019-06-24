@@ -71,24 +71,6 @@ func (row *Row) Close() {
 
 //----------
 
-func (row *Row) activate() {
-	if row.HasState(RowStateActive) {
-		return
-	}
-	// deactivate previous active row
-	for _, c := range row.Col.Cols.Columns() {
-		for _, r := range c.Rows() {
-			if r != row {
-				r.SetState(RowStateActive, false)
-			}
-		}
-	}
-	// activate this row
-	row.SetState(RowStateActive, true)
-}
-
-//----------
-
 func (row *Row) OnChildMarked(child widget.Node, newMarks widget.Marks) {
 	// dynamic toolbar
 	if row.Toolbar != nil && row.Toolbar.HasAnyMarks(widget.MarkNeedsLayout) {
@@ -106,16 +88,8 @@ func (row *Row) Layout() {
 //----------
 
 func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) event.Handle {
-	switch ev0.(type) {
-	case *event.KeyDown:
-		row.activate()
-	case *event.MouseDown:
-		row.activate()
-	}
-
 	ev2 := &RowInputEvent{row, ev0}
 	row.EvReg.RunCallbacks(RowInputEventId, ev2)
-
 	return event.NotHandled
 }
 

@@ -452,11 +452,11 @@ func (info *ERowInfo) UpdateEditedRowState() {
 	}
 	info.editedHashNeedsUpdate()
 	edited := !info.EqualToBytesHash(info.savedHash.size, info.savedHash.hash)
-	info.updateRowState(ui.RowStateEdited, edited)
+	info.updateRowsStates(ui.RowStateEdited, edited)
 }
 
 func (info *ERowInfo) UpdateExistsRowState() {
-	info.updateRowState(ui.RowStateNotExist, info.IsNotExist())
+	info.updateRowsStates(ui.RowStateNotExist, info.IsNotExist())
 }
 
 func (info *ERowInfo) UpdateFsDifferRowState() {
@@ -466,12 +466,12 @@ func (info *ERowInfo) UpdateFsDifferRowState() {
 	h1 := info.fsHash.hash
 	h2 := info.savedHash.hash
 	differ := !bytes.Equal(h1, h2)
-	info.updateRowState(ui.RowStateFsDiffer, differ)
+	info.updateRowsStates(ui.RowStateFsDiffer, differ)
 }
 
 func (info *ERowInfo) UpdateDuplicateRowState() {
 	hasDups := len(info.ERows) >= 2
-	info.updateRowState(ui.RowStateDuplicate, hasDups)
+	info.updateRowsStates(ui.RowStateDuplicate, hasDups)
 }
 
 func (info *ERowInfo) UpdateDuplicateHighlightRowState() {
@@ -483,28 +483,45 @@ func (info *ERowInfo) UpdateDuplicateHighlightRowState() {
 		}
 	}
 	hasDups := len(info.ERows) >= 2
-	info.updateRowState(ui.RowStateDuplicateHighlight, hasDups && on)
+	info.updateRowsStates(ui.RowStateDuplicateHighlight, hasDups && on)
 }
 
 func (info *ERowInfo) UpdateAnnotationsRowState(v bool) {
-	info.updateRowState(ui.RowStateAnnotations, v)
+	info.updateRowsStates(ui.RowStateAnnotations, v)
 }
 
 func (info *ERowInfo) UpdateAnnotationsEditedRowState(v bool) {
-	info.updateRowState(ui.RowStateAnnotationsEdited, v)
+	info.updateRowsStates(ui.RowStateAnnotationsEdited, v)
+}
+
+func (info *ERowInfo) UpdateActiveRowState(erow *ERow) {
+	// disable first the previous active row
+	for _, er := range info.Ed.ERows() {
+		if er != erow {
+			info.updateRowState(er, ui.RowStateActive, false)
+		}
+	}
+	// activate row
+	info.updateRowState(erow, ui.RowStateActive, true)
 }
 
 //----------
 
-func (info *ERowInfo) updateRowState(state ui.RowState, v bool) {
+func (info *ERowInfo) updateRowsStates(state ui.RowState, v bool) {
+	// update this info rows state
 	for _, erow := range info.ERows {
-		oldState := erow.Row.HasState(state)
+		info.updateRowState(erow, state, v)
+	}
+}
+
+func (info *ERowInfo) updateRowState(erow *ERow, state ui.RowState, v bool) {
+	oldState := erow.Row.HasState(state)
+	if oldState != v {
 		erow.Row.SetState(state, v)
-		if oldState != v {
-			// editor events
-			ev := &RowStateChangeEEvent{ERow: erow, State: state, Value: v}
-			erow.Ed.EEvents.emit(RowStateChangeEEventId, ev)
-		}
+
+		// editor events
+		ev := &RowStateChangeEEvent{ERow: erow, State: state, Value: v}
+		erow.Ed.EEvents.emit(RowStateChangeEEventId, ev)
 	}
 }
 

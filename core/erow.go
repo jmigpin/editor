@@ -129,6 +129,9 @@ func (erow *ERow) initHandlers() {
 		ev := ev0.(*ui.RowInputEvent)
 		switch evt := ev.Event.(type) {
 		case *event.KeyDown:
+			// activate row
+			erow.Info.UpdateActiveRowState(erow)
+			// shortcuts
 			mods := evt.Mods.ClearLocks()
 			switch {
 			case mods.Is(event.ModCtrl) && evt.LowerRune() == 's':
@@ -138,6 +141,8 @@ func (erow *ERow) initHandlers() {
 			case mods.Is(event.ModCtrl) && evt.LowerRune() == 'f':
 				FindShortcut(erow)
 			}
+		case *event.MouseDown:
+			erow.Info.UpdateActiveRowState(erow)
 		case *event.MouseEnter:
 			erow.highlightDuplicates = true
 			erow.Info.UpdateDuplicateHighlightRowState()
