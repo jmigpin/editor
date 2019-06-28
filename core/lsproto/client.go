@@ -298,7 +298,8 @@ func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) erro
 	if !ok {
 		v = 1
 	} else {
-		v++
+		// Commented: don't increase version, just update. Possibly prevents the server from keeping multiple versions, wasting memory.
+		//v++
 	}
 	cli.fversions[filename] = v
 
