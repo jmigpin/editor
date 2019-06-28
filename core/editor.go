@@ -277,15 +277,22 @@ func (ed *Editor) setupRootToolbar() {
 //----------
 
 func (ed *Editor) setupRootMenuToolbar() {
-	s := `XdgOpenDir
-GotoLine | CopyFilePosition | RuneCodes
-ReopenRow | MaximizeRow
-CloseColumn | CloseRow
+	s := `CopyFilePosition
+ColorTheme
+CtxutilCallsState
+FontRunes | FontTheme 
+GoDebug 
+GoRename
+GotoLine 
+MaximizeRow
 ListDir | ListDir -hidden | ListDir -sub
-Reload | ReloadAll | ReloadAllFiles | SaveAllFiles
-FontRunes | FontTheme | ColorTheme
-GoDebug | GoRename
 ListSessions
+LSProtoCloseAll
+Reload | ReloadAll | ReloadAllFiles 
+ReopenRow 
+RuneCodes
+SaveAllFiles
+XdgOpenDir
 Exit | Stop | Clear`
 	tb := ed.UI.Root.MainMenuButton.Toolbar
 	tb.SetStrClearHistory(s)
