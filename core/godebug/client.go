@@ -19,7 +19,7 @@ type Client struct {
 
 func NewClient(ctx context.Context) (*Client, error) {
 	client := &Client{
-		Messages: make(chan interface{}, 512), // TODO: group server msgs
+		Messages: make(chan interface{}, 128),
 	}
 	if err := client.connect(ctx); err != nil {
 		return nil, err

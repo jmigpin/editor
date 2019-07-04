@@ -11,6 +11,7 @@ func init() {
 	gob.Register(&FilesDataMsg{})
 	gob.Register(&ReqStartMsg{})
 	gob.Register(&LineMsg{})
+	gob.Register([]*LineMsg{})
 
 	gob.Register(&ItemValue{})
 	gob.Register(&ItemList{})

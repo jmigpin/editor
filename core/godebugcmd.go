@@ -17,6 +17,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const updatesPerSecond = 15
+
+//----------
+
 // Note: Should have a unique instance because there is no easy solution to debug two (or more) programs that have common files in the same editor
 
 type GoDebugInstance struct {
@@ -309,22 +313,22 @@ func (gdi *GoDebugInstance) start2(erow *ERow, args []string, ctx context.Contex
 //----------
 
 func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd *godebug.Cmd) {
-	const updatesPerSecond = 20
-	var updatec <-chan time.Time
+	var updatec <-chan time.Time // update channel
+	updateUI := func() {
+		if updatec != nil {
+			updatec = nil
+			gdi.updateUI()
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
-			// final ui update
-			if updatec != nil {
-				gdi.updateUI()
-			}
+			updateUI() // final ui update
 			return
 		case msg, ok := <-cmd.Client.Messages:
 			if !ok {
-				// last msg (end of program), final ui update
-				if updatec != nil {
-					gdi.updateUI()
-				}
+				updateUI() // last msg (end of program), final ui update
 				return
 			}
 			if err := gdi.handleMsg(msg, cmd); err != nil {
@@ -334,10 +338,8 @@ func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd
 				t := time.NewTimer(time.Second / updatesPerSecond)
 				updatec = t.C
 			}
-
 		case <-updatec:
-			updatec = nil
-			gdi.updateUI()
+			updateUI()
 		}
 	}
 }
@@ -368,6 +370,8 @@ func (gdi *GoDebugInstance) handleMsg(msg interface{}, cmd *godebug.Cmd) error {
 		}
 	case *debug.LineMsg:
 		return gdi.handleLineMsg(t)
+	case []*debug.LineMsg:
+		return gdi.handleLineMsgs(t)
 	default:
 		return fmt.Errorf("unexpected msg: %T", msg)
 	}
@@ -390,6 +394,21 @@ func (gdi *GoDebugInstance) handleLineMsg(msg *debug.LineMsg) error {
 	defer gdi.dataUnlock()
 
 	return gdi.data.dataIndex.handleLineMsg(msg)
+}
+
+func (gdi *GoDebugInstance) handleLineMsgs(msgs []*debug.LineMsg) error {
+	if !gdi.dataLock() {
+		return fmt.Errorf("dataindex is nil")
+	}
+	defer gdi.dataUnlock()
+
+	for _, msg := range msgs {
+		err := gdi.data.dataIndex.handleLineMsg(msg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 //----------

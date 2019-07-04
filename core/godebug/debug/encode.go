@@ -37,31 +37,33 @@ func EncodeMessage(msg interface{}) ([]byte, error) {
 
 func DecodeMessage(reader io.Reader) (interface{}, error) {
 
-	readN := func(b []byte, m int) error {
-		for i := 0; i < m; {
+	readN := func(b []byte) error {
+		m := len(b)
+		i := 0
+		for i < m {
 			n, err := reader.Read(b[i:])
 			if err != nil && n == 0 {
 				return err
 			}
 			i += n
-			if i != m {
-				err := fmt.Errorf("expected to read %v but got %v", m, i)
-				log.Printf("error: %v", err)
-			}
+		}
+		if i != m {
+			err := fmt.Errorf("expected to read %v but got %v", m, i)
+			log.Printf("error: %v", err)
 		}
 		return nil
 	}
 
 	// read size
 	sizeBuf := make([]byte, 4)
-	if err := readN(sizeBuf, 4); err != nil {
+	if err := readN(sizeBuf); err != nil {
 		return nil, err
 	}
 	l := int(binary.BigEndian.Uint32(sizeBuf))
 
 	// read msg
 	msgBuf := make([]byte, l)
-	if err := readN(msgBuf, l); err != nil {
+	if err := readN(msgBuf); err != nil {
 		return nil, err
 	}
 
