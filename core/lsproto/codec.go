@@ -213,7 +213,17 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 		return nil
 	}
 
-	return fmt.Errorf("reply data not assigned")
+	// error
+	if reply == nil {
+		//return fmt.Errorf("jsoncodec: reply has no handler?")
+
+		//err := fmt.Errorf("jsoncodec: reply has no handler?")
+		//fmt.Fprintf(os.Stderr, "error: %v\n", err)
+
+		// TODO: gopls: replies to some msgs that area not expecting a reply. Returning an error will stop the connection. Don't stop due to this (return nil).
+		return nil
+	}
+	return fmt.Errorf("jsoncodec: reply data not assigned: %v", reply)
 }
 
 //----------
