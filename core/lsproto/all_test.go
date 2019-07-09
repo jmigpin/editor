@@ -111,9 +111,9 @@ func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 	defer man.Close()
 
 	// pre-sync even thought completion might re-sync again
-	if err := man.SyncText(ctx, filename, rd); err != nil {
-		t.Fatal(err)
-	}
+	//if err := man.SyncText(ctx, filename, rd); err != nil {
+	//	t.Fatal(err)
+	//}
 
 	f, rang, err := man.TextDocumentDefinition(ctx, filename, rd, offset)
 	if err != nil {
@@ -158,9 +158,9 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 	defer man.Close()
 
 	// pre-sync even thought completion might re-sync again
-	if err := man.SyncText(ctx, filename, rd); err != nil {
-		t.Fatal(err)
-	}
+	//if err := man.SyncText(ctx, filename, rd); err != nil {
+	//	t.Fatal(err)
+	//}
 
 	comp, err := man.TextDocumentCompletion(ctx, filename, rd, offset)
 	if err != nil {
@@ -247,9 +247,9 @@ func TestManager1(t *testing.T) {
 	defer man.Close()
 
 	// pre sync text
-	if err := man.SyncText(ctx, f, rw); err != nil {
-		t.Fatal(err)
-	}
+	//if err := man.SyncText(ctx, f, rw); err != nil {
+	//	t.Fatal(err)
+	//}
 
 	comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
 	if err != nil {
@@ -266,9 +266,9 @@ func TestManager1(t *testing.T) {
 	offset += 33 // 3 newlines
 
 	// pre sync text
-	if err := man.SyncText(ctx, f, rw); err != nil {
-		t.Fatal(err)
-	}
+	//if err := man.SyncText(ctx, f, rw); err != nil {
+	//	t.Fatal(err)
+	//}
 
 	comp, err = man.TextDocumentCompletion(ctx, f, rw, offset)
 	if err != nil {
@@ -293,9 +293,9 @@ func TestManager2(t *testing.T) {
 	defer man.Close()
 
 	// pre sync text
-	if err := man.SyncText(ctx, f, rw); err != nil {
-		t.Fatal(err)
-	}
+	//if err := man.SyncText(ctx, f, rw); err != nil {
+	//	t.Fatal(err)
+	//}
 
 	comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
 	if err != nil {
@@ -312,9 +312,9 @@ func TestManager2(t *testing.T) {
 	offset += 3 // 3 newlines
 
 	// pre sync text
-	if err := man.SyncText(ctx, f, rw); err != nil {
-		t.Fatal(err)
-	}
+	//if err := man.SyncText(ctx, f, rw); err != nil {
+	//	t.Fatal(err)
+	//}
 
 	comp, err = man.TextDocumentCompletion(ctx, f, rw, offset)
 	if err != nil {

@@ -293,7 +293,41 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 
 //----------
 
-func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) error {
+//func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) error {
+//	v, ok := cli.fversions[filename]
+//	if !ok {
+//		v = 1
+//	} else {
+//		v++
+//	}
+//	cli.fversions[filename] = v
+
+//	// close before opening. Keeps open/close balanced since not using "didchange", while needing to update the src.
+//	if v > 1 {
+//		err := cli.TextDocumentDidClose(ctx, filename)
+//		if err != nil {
+//			return err
+//		}
+//	}
+//	// send latest version of the document
+//	err := cli.TextDocumentDidOpen(ctx, filename, string(b), v)
+//	if err != nil {
+//		return err
+//	}
+
+//	// TODO: clangd doesn't work well with didchange (works with sending always a didopen)
+//	//} else {
+//	//	err := cli.TextDocumentDidChange(ctx, filename, string(b), v)
+//	//	if err != nil {
+//	//		return err
+//	//	}
+//	//}
+//	return nil
+//}
+
+//----------
+
+func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename string, b []byte) error {
 	v, ok := cli.fversions[filename]
 	if !ok {
 		v = 1
@@ -301,26 +335,5 @@ func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) erro
 		v++
 	}
 	cli.fversions[filename] = v
-
-	// close before opening. Keeps open/close balanced since not using "didchange", while needing to update the src.
-	if v > 1 {
-		err := cli.TextDocumentDidClose(ctx, filename)
-		if err != nil {
-			return err
-		}
-	}
-	// send latest version of the document
-	err := cli.TextDocumentDidOpen(ctx, filename, string(b), v)
-	if err != nil {
-		return err
-	}
-
-	// TODO: clangd doesn't work well with didchange (works with sending always a didopen)
-	//} else {
-	//	err := cli.TextDocumentDidChange(ctx, filename, string(b), v)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
-	return nil
+	return cli.TextDocumentDidOpen(ctx, filename, string(b), v)
 }
