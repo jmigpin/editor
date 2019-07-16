@@ -123,7 +123,7 @@ func (rw *BytesReadWriter) reduceCap() {
 //----------
 
 func (rw *BytesReadWriter) Overwrite(i, n int, p []byte) error {
-	if err := rw.delete2(0, n); err != nil {
+	if err := rw.delete2(i, n); err != nil {
 		return err
 	}
 	if err := rw.Insert(i, p); err != nil {
