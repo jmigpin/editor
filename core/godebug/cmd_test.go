@@ -2,8 +2,7 @@ package godebug
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,10 +27,7 @@ func TestCmd1(t *testing.T) {
 			time.Sleep(10*time.Millisecond)
 		}
 	`
-	filename := "test/src.go"
-	args := []string{"run", filename}
-
-	doCmd(t, "", src, args)
+	doCmdSrc(t, src, false)
 }
 
 func TestCmd2(t *testing.T) {
@@ -59,26 +55,10 @@ func TestCmd2(t *testing.T) {
 			_=f2()
 		}
 	`
-
-	filename := "test/src.go"
-	args := []string{"run", filename}
-
-	doCmd(t, "", src, args)
+	doCmdSrc(t, src, false)
 }
 
 func TestCmd3(t *testing.T) {
-	wd, _ := os.Getwd()
-	proj := filepath.Join(wd, "./../../")
-	filename := proj + "/editor.go"
-	args := []string{
-		"run",
-		"-dirs=core",
-		filename,
-	}
-	doCmd(t, proj, nil, args)
-}
-
-func TestCmd4(t *testing.T) {
 	src := `
 		package main
 		func main(){
@@ -89,55 +69,64 @@ func TestCmd4(t *testing.T) {
 			}
 		}
 	`
+	doCmdSrc(t, src, false)
+}
 
-	filename := "test/src.go"
-	args := []string{"run", filename}
-
-	doCmd(t, "", src, args)
+func TestCmd4(t *testing.T) {
+	src := `
+		package main
+		import "testing"
+		import "github.com/jmigpin/editor/core/godebug/debug"
+		func Test001(t*testing.T){
+			debug.NoAnnotations()
+			println("on testcmd4")
+			for i:=0; i<2;i++{
+				debug.AnnotateBlock()
+				println("i=",i)
+			}
+		}
+	`
+	doCmdSrc(t, src, true)
 }
 
 //------------
 
-func TestCmdFile1(t *testing.T) {
-	proj := "./../../util/imageutil"
-	args := []string{"test", "-run", "HSV1"}
-	doCmd(t, proj, nil, args)
-}
-
-func TestCmdFile2(t *testing.T) {
-	proj := "./../../util/imageutil"
-	args := []string{"test", "-run", "HSV1"}
-	doCmd(t, proj, nil, args)
-}
-
-func TestCmdFile3(t *testing.T) {
-	proj := "./../../util/uiutil/widget/textutil"
-	args := []string{"test"}
-	doCmd(t, proj, nil, args)
-}
-
-func TestCmdFile4(t *testing.T) {
-	proj := "./../.."
-	args := []string{"run", "-dirs=driver/xgbutil/xwindow", "editor.go"}
-	doCmd(t, proj, nil, args)
-}
+// Launches the editor itself.
+//func TestCmd5(t *testing.T) {
+//	filename := "./../../editor.go"
+//	args := []string{
+//		"run",
+//		"-dirs=../../core",
+//		filename,
+//	}
+//	doCmd(t, "", args)
+//}
 
 //------------
 
-func doCmd(t *testing.T, dir string, src interface{}, args []string) {
-	log.SetFlags(log.Lshortfile)
-	t.Logf("DISABLED")
-	//doCmd2(t, dir, src, args)
+func doCmdSrc(t *testing.T, src string, tests bool) {
+	filename := "main.go"
+	if tests {
+		filename = "main_test.go"
+	}
+	tmpFile, tmpDir := createTmpFileFromSrc(t, filename, src)
+	defer os.RemoveAll(tmpDir)
+	args := []string{"run", tmpFile}
+	if tests {
+		args = []string{"test"} // no file
+		//args = []string{"test", "-work"} // no file
+	}
+	doCmd(t, tmpDir, args)
 }
 
-func doCmd2(t *testing.T, dir string, src interface{}, args []string) {
+func doCmd(t *testing.T, dir string, args []string) {
 	cmd := NewCmd()
 	defer cmd.Cleanup()
 
 	cmd.Dir = dir
 
 	ctx := context.Background()
-	if _, err := cmd.Start(ctx, args, src); err != nil {
+	if _, err := cmd.Start(ctx, args); err != nil {
 		t.Fatal(err)
 	}
 
@@ -152,12 +141,15 @@ func doCmd2(t *testing.T, dir string, src interface{}, args []string) {
 
 	go func() {
 		for msg := range cmd.Client.Messages {
-			switch t := msg.(type) {
+			switch mt := msg.(type) {
 			case *debug.LineMsg:
-				fmt.Printf("%v\n", StringifyItem(t.Item))
-				//spew.Dump(msg)
+				t.Logf("line msg: %v\n", StringifyItem(mt.Item))
+			case []*debug.LineMsg:
+				for _, m := range mt {
+					t.Logf("line msg: %v\n", StringifyItem(m.Item))
+				}
 			default:
-				fmt.Printf("recv msg: %v\n", msg)
+				t.Logf("recv msg: %T %v\n", msg, msg)
 			}
 		}
 	}()
@@ -165,4 +157,28 @@ func doCmd2(t *testing.T, dir string, src interface{}, args []string) {
 	if err := cmd.Wait(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+//------------
+
+func createTmpFileFromSrc(t *testing.T, filename, src string) (string, string) {
+	tmpDir := createTmpDir(t)
+	tmpFile := createTmpFile(t, tmpDir, filename, src)
+	return tmpFile, tmpDir
+}
+
+func createTmpDir(t *testing.T) string {
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "godebug_tests")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tmpDir
+}
+
+func createTmpFile(t *testing.T, dir, filename, src string) string {
+	f := filepath.Join(dir, filename)
+	if err := ioutil.WriteFile(f, []byte(src), 0660); err != nil {
+		t.Fatal(err)
+	}
+	return f
 }

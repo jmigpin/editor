@@ -4,15 +4,16 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"go/ast"
+	"go/parser"
 	"go/printer"
 	"go/token"
 	"io"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
-	"github.com/jmigpin/editor/util/goutil"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
@@ -46,25 +47,28 @@ func NewAnnotatorSet() *AnnotatorSet {
 	return annset
 }
 
-func (annset *AnnotatorSet) AnnotateFile(filename string, src interface{}) (*ast.File, error) {
-	srcb, err := goutil.ReadSource(filename, src)
+//----------
+
+func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, typ AnnotationType) error {
+	filename, err := AstFileFilename(astFile, annset.FSet)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	// TODO: slows down performance, extra file read
+	srcb, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
 	}
 
 	afd := annset.annotatorFileData(filename, srcb)
 
-	ann := &Annotator{
-		debugPkgName:   annset.debugPkgName,
-		debugVarPrefix: annset.debugVarPrefix,
-		fileIndex:      afd.FileIndex,
-		fset:           annset.FSet,
-	}
+	ann := NewAnnotator(annset.FSet)
+	ann.debugPkgName = annset.debugPkgName
+	ann.debugVarPrefix = annset.debugVarPrefix
+	ann.fileIndex = afd.FileIndex
 
-	astFile, err := ann.ParseAnnotateFile(filename, srcb)
-	if err != nil {
-		return nil, err
-	}
+	ann.AnnotateAstFile(astFile, typ)
 
 	// n debug stmts inserted
 	afd.DebugLen = ann.debugIndex
@@ -92,8 +96,59 @@ func (annset *AnnotatorSet) AnnotateFile(filename string, src interface{}) (*ast
 		annset.keepTestPackage(filename, astFile)
 	}
 
-	return astFile, nil
+	return nil
 }
+
+//----------
+
+//func (annset *AnnotatorSet) AnnotateFile(filename string, src interface{}) (*ast.File, error) {
+//	srcb, err := goutil.ReadSource(filename, src)
+//	if err != nil {
+//		return nil, err
+//	}
+
+//	afd := annset.annotatorFileData(filename, srcb)
+
+//	ann := &Annotator{
+//		debugPkgName:   annset.debugPkgName,
+//		debugVarPrefix: annset.debugVarPrefix,
+//		fileIndex:      afd.FileIndex,
+//		fset:           annset.FSet,
+//	}
+
+//	astFile, err := ann.ParseAnnotateFile(filename, srcb)
+//	if err != nil {
+//		return nil, err
+//	}
+
+//	// n debug stmts inserted
+//	afd.DebugLen = ann.debugIndex
+
+//	// insert imports if debug stmts were inserted
+//	if ann.builtDebugLineStmt {
+//		annset.insertImportDebug(astFile)
+
+//		// insert in all files to ensure inner init function runs
+//		annset.insertImport(astFile, "_", "godebugconfig")
+
+//		// insert exit in main
+//		ok := annset.insertDebugExitInFunction(astFile, "main")
+//		if !annset.InsertedExitIn.Main {
+//			annset.InsertedExitIn.Main = ok
+//		}
+
+//		// insert exit in testmain
+//		ok = annset.insertDebugExitInFunction(astFile, "TestMain")
+//		if !annset.InsertedExitIn.TestMain {
+//			annset.InsertedExitIn.TestMain = ok
+//		}
+
+//		// keep test files package names in case of need to build testmain files
+//		annset.keepTestPackage(filename, astFile)
+//	}
+
+//	return astFile, nil
+//}
 
 //----------
 
@@ -269,4 +324,31 @@ func sourceHash(b []byte) []byte {
 type TestMainSrc struct {
 	Dir string
 	Src string
+}
+
+//----------
+
+// Src can be nil.
+func ParseAnnotateFileSrc(ann *Annotator, filename string, src interface{}, typ AnnotationType) (*ast.File, error) {
+	mode := parser.ParseComments // to support cgo directives on imports
+	astFile, err := parser.ParseFile(ann.fset, filename, src, mode)
+	if err != nil {
+		return nil, err
+	}
+	ann.AnnotateAstFile(astFile, typ)
+	return astFile, nil
+}
+
+// Src can be nil.
+func ParseAnnotateFileSrcForAnnSet(annset *AnnotatorSet, filename string, src interface{}) (*ast.File, error) {
+	mode := parser.ParseComments // to support cgo directives on imports
+	astFile, err := parser.ParseFile(annset.FSet, filename, src, mode)
+	if err != nil {
+		return nil, err
+	}
+	err = annset.AnnotateAstFile(astFile, AnnotationTypeFile)
+	if err != nil {
+		return nil, err
+	}
+	return astFile, nil
 }

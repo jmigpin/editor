@@ -41,7 +41,7 @@ func NewServerWrapTCP(ctx context.Context, cmdTmpl string, reg *Registration) (*
 	preStartFn := func(sw *ServerWrap) error {
 		// TODO: use a func arg
 		// allows reading lsp server output (ex: gopls)
-		if testing.Verbose() {
+		if testing.Verbose() { // NOTE: test.* options will show on cmd line
 			sw.Cmd.Stdout = os.Stdout
 			sw.Cmd.Stderr = os.Stderr
 		}

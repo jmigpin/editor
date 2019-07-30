@@ -3,7 +3,6 @@ package godebug
 import (
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/printer"
 	"go/token"
 	"io"
@@ -22,46 +21,38 @@ type Annotator struct {
 	builtDebugLineStmt bool
 }
 
-func NewAnnotator() *Annotator {
-	ann := &Annotator{}
+func NewAnnotator(fset *token.FileSet) *Annotator {
+	ann := &Annotator{fset: fset}
 	ann.debugPkgName = string('Σ')
 	ann.debugVarPrefix = string('Σ')
 	return ann
 }
 
-func (ann *Annotator) ParseAnnotateFile(filename string, src interface{}) (*ast.File, error) {
-	mode := parser.ParseComments // to support cgo directives on imports
-	astFile, err := parser.ParseFile(ann.fset, filename, src, mode)
-	if err != nil {
-		return nil, err
-	}
+//----------
 
+func (ann *Annotator) AnnotateAstFile(astFile *ast.File, typ AnnotationType) {
 	// don't annotate these packages
 	switch astFile.Name.Name {
 	case "godebugconfig", "debug":
-		return astFile, nil
+		return
 	}
 
-	ann.annotate(astFile)
+	ctx := &Ctx{}
 
-	return astFile, nil
-}
+	if typ == AnnotationTypeBlock {
+		ctx = ctx.withNoAnnotations(true)
+	} else {
+		ctx = ctx.withNoAnnotations(false)
+	}
 
-func (ann *Annotator) PrintSimple(w io.Writer, astFile *ast.File) error {
-	cfg := &printer.Config{Mode: printer.RawFormat}
-	return cfg.Fprint(w, ann.fset, astFile)
+	ann.visitFile(ctx, astFile)
 }
 
 //----------
 
-func (ann *Annotator) annotate(node ast.Node) {
-	ctx := &Ctx{}
-	switch t := node.(type) {
-	case *ast.File:
-		ann.visitFile(ctx, t)
-	default:
-		spew.Dump("node", t)
-	}
+func (ann *Annotator) PrintSimple(w io.Writer, astFile *ast.File) error {
+	cfg := &printer.Config{Mode: printer.RawFormat}
+	return cfg.Fprint(w, ann.fset, astFile)
 }
 
 //----------
@@ -228,7 +219,6 @@ func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
 				is2.Init = nil
 			}
 			ann.visitBlockStmt(ctx, bs2)
-			return
 		case *ast.BlockStmt:
 			// else
 			ann.visitBlockStmt(ctx, t)
@@ -545,12 +535,16 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 		}
 	case *ast.SelectorExpr:
 		fname = t.Sel.Name
-		// stop annotating (this call is still annotated)
-		if t.Sel.Name == "NoAnnotations" {
-			if p, ok := t.X.(*ast.Ident); ok && p.Name == "debug" {
-				ctx.setUpperNoAnnotationsTrue()
-			}
-		}
+		//if p, ok := t.X.(*ast.Ident); ok && p.Name == "debug" {
+		//	switch t.Sel.Name {
+		//	case "NoAnnotations":
+		//		// stop annotating (this call is still annotated)
+		//		ctx.setUpperNoAnnotations(true)
+		//		return
+		//	case "AnnotateBlock":
+		//		ctx.setUpperNoAnnotations(false)
+		//	}
+		//}
 	case *ast.FuncLit:
 		pos := ce.Fun.End()
 		e := ann.visitExpr(ctx, &ce.Fun)
@@ -885,11 +879,16 @@ func (ann *Annotator) visitField(ctx *Ctx, field *ast.Field) []ast.Expr {
 //----------
 
 func (ann *Annotator) visitStmtList(ctx *Ctx, list *[]ast.Stmt) {
-	ctx = ctx.withNoAnnotationsFalse()
 	ctx2, iter := ctx.withStmtIter(list)
 
 	for iter.index < len(*list) {
 		stmt := (*list)[iter.index]
+
+		// on/off annotation stmts
+		on, ok := ann.annotationsOn(stmt)
+		if ok {
+			ctx2 = ctx2.withNoAnnotations(!on)
+		}
 
 		// stmts defaults
 		ctx3 := ctx2
@@ -903,14 +902,55 @@ func (ann *Annotator) visitStmtList(ctx *Ctx, list *[]ast.Stmt) {
 
 		iter.index += 1 + iter.step
 		iter.step = 0
-
-		if ctx.noAnnotations() {
-			break
-		}
 	}
 }
 
 func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
+	if ctx.noAnnotations() {
+		switch t := stmt.(type) {
+		case *ast.ExprStmt:
+		case *ast.AssignStmt:
+		case *ast.TypeSwitchStmt:
+			ann.visitBlockStmt(ctx, t.Body)
+		case *ast.SwitchStmt:
+			ann.visitBlockStmt(ctx, t.Body)
+		case *ast.IfStmt:
+			ann.visitBlockStmt(ctx, t.Body)
+			if t.Else != nil {
+				ann.visitStmt(ctx, t.Else)
+			}
+
+		case *ast.ForStmt:
+			ann.visitBlockStmt(ctx, t.Body)
+		case *ast.RangeStmt:
+			ann.visitBlockStmt(ctx, t.Body)
+		case *ast.LabeledStmt:
+			if t.Stmt != nil {
+				ann.visitStmt(ctx, t.Stmt)
+			}
+		case *ast.ReturnStmt:
+		case *ast.DeferStmt:
+		case *ast.DeclStmt:
+		case *ast.BranchStmt:
+		case *ast.IncDecStmt:
+		case *ast.SendStmt:
+		case *ast.GoStmt:
+		case *ast.SelectStmt:
+			ann.visitBlockStmt(ctx, t.Body)
+		case *ast.BlockStmt:
+			ann.visitBlockStmt(ctx, t)
+
+		case *ast.CaseClause:
+			ann.visitStmtList(ctx, &t.Body)
+		case *ast.CommClause:
+			ann.visitStmtList(ctx, &t.Body)
+
+		default:
+			fmt.Printf("visitstmt: noannotations: %v\n", t)
+		}
+		return
+	}
+
 	ctx = ctx.withNewExprs()
 	ctx = ctx.withNResults(0)
 	ctx = ctx.withNoStaticDebugIndex()
@@ -958,7 +998,7 @@ func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
 		ann.visitCommClause(ctx, t)
 
 	default:
-		spew.Dump("stmt", t)
+		fmt.Printf("visitstmt: %v\n", t)
 	}
 }
 
@@ -1154,6 +1194,26 @@ func (ann *Annotator) newAssignStmt11(lhs, rhs ast.Expr) *ast.AssignStmt {
 }
 func (ann *Annotator) newAssignStmt(lhs, rhs []ast.Expr) *ast.AssignStmt {
 	return &ast.AssignStmt{Tok: token.DEFINE, Lhs: lhs, Rhs: rhs}
+}
+
+//----------
+
+func (ann *Annotator) annotationsOn(stmt ast.Stmt) (bool, bool) {
+	if es, ok := stmt.(*ast.ExprStmt); ok {
+		if ce, ok := es.X.(*ast.CallExpr); ok {
+			if se, ok := ce.Fun.(*ast.SelectorExpr); ok {
+				if id, ok := se.X.(*ast.Ident); ok && id.Name == "debug" {
+					switch se.Sel.Name {
+					case "NoAnnotations":
+						return false, true // turn off
+					case "AnnotateBlock":
+						return true, true // turn on
+					}
+				}
+			}
+		}
+	}
+	return false, false // do nothing
 }
 
 //----------

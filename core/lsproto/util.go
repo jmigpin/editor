@@ -27,7 +27,7 @@ func init() {
 
 func initLogger() {
 	w := ioutil.Discard
-	if testing.Verbose() {
+	if testing.Verbose() { // NOTE: test.* options will show on cmd line
 		w = os.Stdout
 	}
 	logger0 = log.New(w, "", log.Lshortfile)

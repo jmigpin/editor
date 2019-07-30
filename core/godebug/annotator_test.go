@@ -3,6 +3,8 @@ package godebug
 import (
 	"bytes"
 	"fmt"
+	"go/parser"
+	"go/printer"
 	"go/token"
 	"strings"
 	"testing"
@@ -1528,11 +1530,43 @@ func TestAnnotator98(t *testing.T) {
 	inout := []string{
 		`debug.NoAnnotations()
 		a = 1+1`,
-		`Σ.Line(0, 0, 43, Σ.ICe("NoAnnotations"))
-	        Σ0 := Σ.IC("NoAnnotations", nil)
-	        debug.NoAnnotations()
-	        Σ.Line(0, 0, 44, Σ0)
+		//`Σ.Line(0, 0, 43, Σ.ICe("NoAnnotations"))
+		//       Σ0 := Σ.IC("NoAnnotations", nil)
+		//       debug.NoAnnotations()
+		//       Σ.Line(0, 0, 44, Σ0)
+		//       a = 1 + 1`,
+		`debug.NoAnnotations()
 	        a = 1 + 1`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
+func TestAnnotator99(t *testing.T) {
+	inout := []string{
+		`a:=1
+		debug.NoAnnotations()
+		for {
+			a:=2
+			debug.AnnotateBlock()
+			a=3
+		}
+		`,
+		`Σ0 := Σ.IV(1)
+	        a := 1
+	        Σ1 := Σ.IV(a)
+	        Σ.Line(0, 0, 27, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
+	        debug.NoAnnotations()
+	        for {
+	        a := 2
+	        Σ.Line(0, 1, 81, Σ.ICe("AnnotateBlock"))
+	        Σ2 := Σ.IC("AnnotateBlock", nil)
+	        debug.AnnotateBlock()
+	        Σ.Line(0, 1, 82, Σ2)
+	        Σ3 := Σ.IV(3)
+	        a = 3
+	        Σ4 := Σ.IV(a)
+	        Σ.Line(0, 2, 86, Σ.IA(Σ.IL(Σ4), Σ.IL(Σ3)))
+	        }`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -1549,18 +1583,22 @@ func TestAnnotator_(t *testing.T) {
 //----------
 //----------
 
-func testAnnotator1(t *testing.T, in, out string, fn func(s string) string) {
+func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 	t.Helper()
 
-	in = trimLineSpaces(fn(in))
-	out = trimLineSpaces(fn(out))
+	in := trimLineSpaces(fn(in0))
+	out := trimLineSpaces(fn(out0))
+	typ := AnnotationTypeFile
 
-	ann := NewAnnotator()
-	ann.debugPkgName = string('Σ')
-	ann.debugVarPrefix = ann.debugPkgName
-	ann.fset = token.NewFileSet()
+	//// temporary: simple noannotations tests to help implement
+	//out = trimLineSpaces(parseAndStringify(t, fn(in0)))
+	//typ = AnnotationTypeBlock
 
-	astFile, err := ann.ParseAnnotateFile("test/src.go", in)
+	ann := NewAnnotator(token.NewFileSet())
+	ann.debugPkgName = string('Σ')   // expected by tests
+	ann.debugVarPrefix = string('Σ') // expected by tests
+
+	astFile, err := ParseAnnotateFileSrc(ann, "test/src.go", in, typ)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1573,6 +1611,23 @@ func testAnnotator1(t *testing.T, in, out string, fn func(s string) string) {
 		u := fmt.Sprintf("\n*in:\n%s\n*expecting:\n%s\n*got:\n%s", in, out, res)
 		t.Fatalf(u)
 	}
+}
+
+//----------
+
+func parseAndStringify(t *testing.T, src string) string {
+	mode := parser.ParseComments // to support cgo directives on imports
+	fset := token.NewFileSet()
+	astFile, err := parser.ParseFile(fset, "a.go", src, mode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := bytes.NewBuffer(nil)
+	cfg := &printer.Config{Mode: printer.RawFormat}
+	if err := cfg.Fprint(buf, fset, astFile); err != nil {
+		t.Fatal(err)
+	}
+	return buf.String()
 }
 
 //----------
@@ -1628,8 +1683,8 @@ func _TestAnnotatorSet1(t *testing.T) {
 	annset := NewAnnotatorSet()
 
 	// annotate srcs
-	_, _ = annset.AnnotateFile("test/src1.go", src1)
-	_, _ = annset.AnnotateFile("test/src2.go", src2)
+	_, _ = ParseAnnotateFileSrcForAnnSet(annset, "test/src1.go", src1)
+	_, _ = ParseAnnotateFileSrcForAnnSet(annset, "test/src2.go", src2)
 
 	// annotate config
 	src, _ := annset.ConfigSource()

@@ -54,4 +54,7 @@ func Line(fileIndex, debugIndex, offset int, item Item) {
 //----------
 
 // no-op operation used for source detection by the annotator
-func NoAnnotations() {}
+func NoAnnotations()   {}
+func AnnotateBlock()   {}
+func AnnotateFile()    {}
+func AnnotatePackage() {}

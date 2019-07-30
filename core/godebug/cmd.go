@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
-	"go/token"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -29,8 +28,7 @@ type Cmd struct {
 	Stdout io.Writer
 	Stderr io.Writer
 
-	ann     *AnnotatorSet
-	mainSrc interface{} // used for tests (at least)
+	annset *AnnotatorSet
 
 	tmpDir       string
 	tmpBuiltFile string // file built and exec'd
@@ -48,6 +46,7 @@ type Cmd struct {
 			build   bool
 			connect bool
 		}
+		verbose   bool
 		filename  string
 		work      bool
 		dirs      []string
@@ -61,7 +60,7 @@ type Cmd struct {
 
 func NewCmd() *Cmd {
 	return &Cmd{
-		ann:    NewAnnotatorSet(),
+		annset: NewAnnotatorSet(),
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
@@ -69,9 +68,7 @@ func NewCmd() *Cmd {
 
 //------------
 
-func (cmd *Cmd) Start(ctx context.Context, args []string, mainSrc interface{}) (done bool, _ error) {
-	cmd.mainSrc = mainSrc
-
+func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 	// parse arguments
 	done, err := cmd.parseArgs(args)
 	if done || err != nil {
@@ -99,11 +96,14 @@ func (cmd *Cmd) Start(ctx context.Context, args []string, mainSrc interface{}) (
 
 	if m.run || m.test || m.build {
 		setupServerNetAddr(cmd.flags.address)
-		err := cmd.initMode(ctx)
+		//err := cmd.initMode(ctx)
+		err := cmd.initAndAnnotate(ctx)
 		if err != nil {
 			return true, err
 		}
 	}
+
+	// just building: inform the address used in the binary
 	if m.build {
 		fmt.Fprintf(cmd.Stdout, "build: %v (builtin address: %v, %v)",
 			cmd.tmpBuiltFile,
@@ -112,6 +112,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string, mainSrc interface{}) (
 		)
 		return true, err
 	}
+
 	if m.run || m.test || m.connect {
 		err = cmd.startServerClient(ctx)
 		return false, err
@@ -130,64 +131,49 @@ func (cmd *Cmd) Wait() error {
 
 //------------
 
-func (cmd *Cmd) initMode(ctx context.Context) error {
-	// filename
-	var filename string
-	if cmd.flags.mode.test {
-		filename = filepath.Join(cmd.Dir, "pkgtest")
-	} else {
-		filename = cmd.flags.filename
-		if filename == "" {
-			return fmt.Errorf("missing filename arg")
-		}
-		// base on workingdir
-		if !filepath.IsAbs(filename) {
-			filename = filepath.Join(cmd.Dir, filename)
-		}
+func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
+	// TODO: pass flags to files (run, etc) to detect in programspkgs which files are used in the build process and avoid including all files of the pkgs in test mode
+
+	files := NewFiles(cmd.annset.FSet)
+	files.Dir = cmd.Dir
+
+	files.Add(cmd.flags.files...)
+	files.Add(cmd.flags.dirs...)
+
+	mainFilename := cmd.flags.filename
+	notes, err := files.Do(ctx, &mainFilename, cmd.flags.mode.test)
+	if err != nil {
+		return err
 	}
 
 	// pre-build without annotations for better errors (result is ignored)
-	if cmd.mainSrc == nil {
-		if cmd.flags.mode.test {
-			fout, err := cmd.buildTest(ctx, filename)
-			if err != nil {
-				return err
-			}
-			os.Remove(fout)
-		} else {
-			fout, err := cmd.build(ctx, filename)
-			if err != nil {
-				return err
-			}
-			os.Remove(fout)
-		}
-	}
-
-	// annotate: main file
-	if !cmd.flags.mode.test {
-		if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
-			return err
-		}
-	}
-
-	// annotate: files option
-	for _, f := range cmd.flags.files {
-		if !filepath.IsAbs(f) { // TODO: call func to solve filename
-			f = filepath.Join(cmd.Dir, f)
-		}
-		if err := cmd.annotateFile(f, nil); err != nil {
-			return err
-		}
-	}
-
-	// annotate: auto include working dir in test mode
-	if cmd.flags.mode.test {
-		cmd.flags.dirs = append(cmd.flags.dirs, cmd.Dir)
-	}
-
-	// annotate: directories
-	if err := cmd.annotateDirs(ctx); err != nil {
+	if err := cmd.preBuild(ctx, mainFilename, cmd.flags.mode.test); err != nil {
 		return err
+	}
+
+	// verbose
+	if cmd.flags.verbose {
+		for _, note := range notes {
+			// name to output
+			d, name := filepath.Split(note.Filename)
+			if len(d) > 0 {
+				_, d2 := filepath.Split(d[:len(d)-1])
+				name = filepath.Join(d2, name)
+			}
+
+			s1 := fmt.Sprintf("%v", note.Type)
+			if note.JustCopy {
+				s1 = "(copy)"
+			}
+			fmt.Fprintf(cmd.Stdout, "%v %v %v\n", name, s1, note.DebugSrc)
+		}
+	}
+
+	// annotate
+	for _, note := range notes {
+		if err := cmd.annotateFileNote(note); err != nil {
+			return err
+		}
 	}
 
 	// write config file after annotations
@@ -195,24 +181,24 @@ func (cmd *Cmd) initMode(ctx context.Context) error {
 		return err
 	}
 
-	// populate missing go files in parent directories
-	if err := cmd.populateParentDirectories(); err != nil {
-		return err
-	}
-
-	// main/testmain exit
-	if cmd.flags.mode.test {
-		if !cmd.ann.InsertedExitIn.TestMain {
-			if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
-				return err
-			}
-		}
-	} else {
-		if !cmd.ann.InsertedExitIn.Main {
-			return fmt.Errorf("have not inserted debug exit in main()")
+	// create testmain file
+	// TODO: test file dir package was added in files
+	if cmd.flags.mode.test && !cmd.annset.InsertedExitIn.TestMain {
+		if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
+			return err
 		}
 	}
 
+	// main must have exit inserted
+	if !cmd.flags.mode.test && !cmd.annset.InsertedExitIn.Main {
+		return fmt.Errorf("have not inserted debug exit in main()")
+	}
+
+	return cmd.doBuild(ctx, mainFilename, cmd.flags.mode.test)
+}
+
+func (cmd *Cmd) doBuild(ctx context.Context, mainFilename string, tests bool) error {
+	filename := cmd.filenameForBuild(mainFilename, tests)
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
 
 	// create parent dirs
@@ -221,21 +207,14 @@ func (cmd *Cmd) initMode(ctx context.Context) error {
 	}
 
 	// build
-	var f2 string
-	var err2 error
-	if cmd.flags.mode.test {
-		f2, err2 = cmd.buildTest(ctx, filenameAtTmp)
-	} else {
-		f2, err2 = cmd.build(ctx, filenameAtTmp)
+	filenameAtTmpOut, err := cmd.runBuildCmd(ctx, filenameAtTmp, tests)
+	if err != nil {
+		return err
 	}
-	if err2 != nil {
-		return err2
-	}
-	filenameOut := f2
 
 	// move filename to working dir
-	filenameWork := filepath.Join(cmd.Dir, filepath.Base(filenameOut))
-	if err := os.Rename(filenameOut, filenameWork); err != nil {
+	filenameWork := filepath.Join(cmd.Dir, filepath.Base(filenameAtTmpOut))
+	if err := os.Rename(filenameAtTmpOut, filenameWork); err != nil {
 		return err
 	}
 
@@ -244,6 +223,159 @@ func (cmd *Cmd) initMode(ctx context.Context) error {
 
 	return nil
 }
+
+func (cmd *Cmd) filenameForBuild(mainFilename string, tests bool) string {
+	if tests {
+		// final filename will include extension replacement with "_godebug"
+		return filepath.Join(cmd.Dir, "pkgtest")
+	}
+	return mainFilename
+}
+
+// pre-build without annotations for better errors (result is ignored)
+func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) error {
+	filename := cmd.filenameForBuild(mainFilename, tests)
+	filenameOut, err := cmd.runBuildCmd(ctx, filename, tests)
+	if err != nil {
+		return err
+	}
+	os.Remove(filenameOut)
+	return nil
+}
+
+func (cmd *Cmd) annotateFileNote(note *FileNote) error {
+	if note.JustCopy {
+		fname := note.Filename
+		fnameAtTmp := cmd.tmpDirBasedFilename(fname)
+		if err := mkdirAllCopyFile(fname, fnameAtTmp); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	err := cmd.annset.AnnotateAstFile(note.AstFile, note.Type)
+	if err != nil {
+		return err
+	}
+	return cmd.writeAstFileToTmpDir(note.AstFile)
+}
+
+//------------
+
+//func (cmd *Cmd) initMode(ctx context.Context) error {
+//	// filename
+//	var filename string
+//	if cmd.flags.mode.test {
+//		filename = filepath.Join(cmd.Dir, "editor_godebug_test")
+//	} else {
+//		filename = cmd.flags.filename
+//		if filename == "" {
+//			return fmt.Errorf("missing filename arg")
+//		}
+//		// base on workingdir
+//		if !filepath.IsAbs(filename) {
+//			filename = filepath.Join(cmd.Dir, filename)
+//		}
+//	}
+
+//	// pre-build without annotations for better errors (result is ignored)
+//	if cmd.mainSrc == nil {
+//		if cmd.flags.mode.test {
+//			fout, err := cmd.buildTest(ctx, filename)
+//			if err != nil {
+//				return err
+//			}
+//			os.Remove(fout)
+//		} else {
+//			fout, err := cmd.build(ctx, filename)
+//			if err != nil {
+//				return err
+//			}
+//			os.Remove(fout)
+//		}
+//	}
+
+//	// annotate: main file
+//	if !cmd.flags.mode.test {
+//		if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
+//			return err
+//		}
+//	}
+
+//	// annotate: files option
+//	for _, f := range cmd.flags.files {
+//		if !filepath.IsAbs(f) { // TODO: call func to solve filename
+//			f = filepath.Join(cmd.Dir, f)
+//		}
+//		if err := cmd.annotateFile(f, nil); err != nil {
+//			return err
+//		}
+//	}
+
+//	// annotate: auto include working dir in test mode
+//	if cmd.flags.mode.test {
+//		cmd.flags.dirs = append(cmd.flags.dirs, cmd.Dir)
+//	}
+
+//	// annotate: directories
+//	if err := cmd.annotateDirs(ctx); err != nil {
+//		return err
+//	}
+
+//	// write config file after annotations
+//	if err := cmd.writeConfigFileToTmpDir(); err != nil {
+//		return err
+//	}
+
+//	// populate missing go files in parent directories
+//	if err := cmd.populateParentDirectories(); err != nil {
+//		return err
+//	}
+
+//	// main/testmain exit
+//	if cmd.flags.mode.test {
+//		if !cmd.ann.InsertedExitIn.TestMain {
+//			if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
+//				return err
+//			}
+//		}
+//	} else {
+//		if !cmd.ann.InsertedExitIn.Main {
+//			return fmt.Errorf("have not inserted debug exit in main()")
+//		}
+//	}
+
+//	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
+
+//	// create parent dirs
+//	if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0755); err != nil {
+//		return err
+//	}
+
+//	// build
+//	var f2 string
+//	var err2 error
+//	if cmd.flags.mode.test {
+//		f2, err2 = cmd.buildTest(ctx, filenameAtTmp)
+//	} else {
+//		f2, err2 = cmd.build(ctx, filenameAtTmp)
+//	}
+//	if err2 != nil {
+//		return err2
+//	}
+//	filenameOut := f2
+
+//	// move filename to working dir
+//	filenameWork := filepath.Join(cmd.Dir, filepath.Base(filenameOut))
+//	if err := os.Rename(filenameOut, filenameWork); err != nil {
+//		return err
+//	}
+
+//	// keep moved filename that will run in working dir for later cleanup
+//	cmd.tmpBuiltFile = filenameWork
+
+//	return nil
+//}
 
 //------------
 
@@ -393,37 +525,67 @@ func (cmd *Cmd) Cleanup() {
 
 //------------
 
-func (cmd *Cmd) execName(name string) string {
-	return replaceExt(name, osutil.ExecName("_godebug"))
-}
-
-func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
+func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (string, error) {
 	filenameOut := cmd.execName(filename)
-	args := []string{
-		osutil.GoExec(), "build",
-		"-o", filenameOut,
-		filename,
-	}
-	dir := filepath.Dir(filenameOut)
-	err := cmd.runCmd(ctx, dir, args, cmd.environ())
-	return filenameOut, err
-}
 
-func (cmd *Cmd) buildTest(ctx context.Context, filename string) (string, error) {
-	filenameOut := cmd.execName(filename)
-	args := []string{
-		osutil.GoExec(), "test",
-		"-c", // compile binary but don't run
-		// "-toolexec", "", // don't run asm // TODO: faster dummy pre-builts?
-		"-o", filenameOut,
+	args := []string{}
+	if tests {
+		args = []string{
+			osutil.GoExec(), "test",
+			"-c", // compile binary but don't run
+			// TODO: faster dummy pre-builts?
+			// "-toolexec", "", // don't run asm?
+			"-o", filenameOut,
+		}
+	} else {
+		args = []string{
+			osutil.GoExec(), "build",
+			"-o", filenameOut,
+			filename,
+		}
 	}
 
 	// append otherargs in test mode
-	args = append(args, cmd.flags.otherArgs...)
+	if tests {
+		args = append(args, cmd.flags.otherArgs...)
+	}
 
 	dir := filepath.Dir(filenameOut)
 	err := cmd.runCmd(ctx, dir, args, cmd.environ())
 	return filenameOut, err
+}
+
+//func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
+//	filenameOut := cmd.execName(filename)
+//	args := []string{
+//		osutil.GoExec(), "build",
+//		"-o", filenameOut,
+//		filename,
+//	}
+//	dir := filepath.Dir(filenameOut)
+//	err := cmd.runCmd(ctx, dir, args, cmd.environ())
+//	return filenameOut, err
+//}
+
+//func (cmd *Cmd) buildTest(ctx context.Context, filename string) (string, error) {
+//	filenameOut := cmd.execName(filename)
+//	args := []string{
+//		osutil.GoExec(), "test",
+//		"-c", // compile binary but don't run
+//		// "-toolexec", "", // don't run asm // TODO: faster dummy pre-builts?
+//		"-o", filenameOut,
+//	}
+
+//	// append otherargs in test mode
+//	args = append(args, cmd.flags.otherArgs...)
+
+//	dir := filepath.Dir(filenameOut)
+//	err := cmd.runCmd(ctx, dir, args, cmd.environ())
+//	return filenameOut, err
+//}
+
+func (cmd *Cmd) execName(name string) string {
+	return replaceExt(name, osutil.ExecName("_godebug"))
 }
 
 //------------
@@ -468,61 +630,61 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 
 //------------
 
-func (cmd *Cmd) annotateDirs(ctx context.Context) error {
-	seen := map[string]bool{}
-	for _, d := range cmd.flags.dirs {
-		if seen[d] {
-			continue
-		}
-		seen[d] = true
-		if err := cmd.annotateDir(d); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+//func (cmd *Cmd) annotateDirs(ctx context.Context) error {
+//	seen := map[string]bool{}
+//	for _, d := range cmd.flags.dirs {
+//		if seen[d] {
+//			continue
+//		}
+//		seen[d] = true
+//		if err := cmd.annotateDir(d); err != nil {
+//			return err
+//		}
+//	}
+//	return nil
+//}
 
-func (cmd *Cmd) annotateDir(dir string) error {
-	// if dir is not absolute, check if exists in cmd.dir
-	if !filepath.IsAbs(dir) {
-		//fmt.Printf("** %v + %v\n", cmd.Dir, dir)
-		t := filepath.Join(cmd.Dir, dir)
-		fi, err := os.Stat(t)
-		if err == nil {
-			if fi.IsDir() {
-				dir = t
-			}
-		}
-	}
+//func (cmd *Cmd) annotateDir(dir string) error {
+//	// if dir is not absolute, check if exists in cmd.dir
+//	if !filepath.IsAbs(dir) {
+//		//fmt.Printf("** %v + %v\n", cmd.Dir, dir)
+//		t := filepath.Join(cmd.Dir, dir)
+//		fi, err := os.Stat(t)
+//		if err == nil {
+//			if fi.IsDir() {
+//				dir = t
+//			}
+//		}
+//	}
 
-	// dir files
-	dir2, _, names, err := goutil.PkgFilenames(dir, true)
-	if err != nil {
-		return err
-	}
-	// annotate files
-	for _, name := range names {
-		filename := filepath.Join(dir2, name)
-		if err := cmd.annotateFile(filename, nil); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+//	// dir files
+//	dir2, _, names, err := goutil.PkgFilenames(dir, true)
+//	if err != nil {
+//		return err
+//	}
+//	// annotate files
+//	for _, name := range names {
+//		filename := filepath.Join(dir2, name)
+//		if err := cmd.annotateFile(filename, nil); err != nil {
+//			return err
+//		}
+//	}
+//	return nil
+//}
 
-func (cmd *Cmd) annotateFile(filename string, src interface{}) error {
-	astFile, err := cmd.ann.AnnotateFile(filename, src)
-	if err != nil {
-		return err
-	}
-	return cmd.writeAstFileToTmpDir(astFile)
-}
+//func (cmd *Cmd) annotateFile(filename string, src interface{}) error {
+//	astFile, err := cmd.ann.AnnotateFile(filename, src)
+//	if err != nil {
+//		return err
+//	}
+//	return cmd.writeAstFileToTmpDir(astFile)
+//}
 
 //------------
 
 func (cmd *Cmd) writeAstFileToTmpDir(astFile *ast.File) error {
 	// filename
-	tokFile := cmd.ann.FSet.File(astFile.Package)
+	tokFile := cmd.annset.FSet.File(astFile.Package)
 	if tokFile == nil {
 		return fmt.Errorf("unable to get pos token file")
 	}
@@ -541,39 +703,22 @@ func (cmd *Cmd) writeAstFileToTmpDir(astFile *ast.File) error {
 	}
 	defer f.Close()
 
-	return cmd.ann.Print(f, astFile)
+	return cmd.annset.Print(f, astFile)
 }
 
 func (cmd *Cmd) writeConfigFileToTmpDir() error {
-	// content
-	src, filename := cmd.ann.ConfigSource()
-
-	// create path directories in destination
+	src, filename := cmd.annset.ConfigSource()
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-	if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0770); err != nil {
-		return err
-	}
-
-	// write
-	return ioutil.WriteFile(filenameAtTmp, []byte(src), os.ModePerm)
+	return mkdirAllWriteFile(filenameAtTmp, []byte(src))
 }
 
 func (cmd *Cmd) writeTestMainFilesToTmpDir() error {
-	u := cmd.ann.TestMainSources()
+	u := cmd.annset.TestMainSources()
 	for i, tms := range u {
 		name := fmt.Sprintf("godebug_testmain%v_test.go", i)
 		filename := filepath.Join(tms.Dir, name)
-
-		// create path directories in destination
 		filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-		if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0770); err != nil {
-			return err
-		}
-
-		// write
-		if err := ioutil.WriteFile(filenameAtTmp, []byte(tms.Src), os.ModePerm); err != nil {
-			return err
-		}
+		return mkdirAllWriteFile(filenameAtTmp, []byte(tms.Src))
 	}
 	return nil
 }
@@ -603,7 +748,8 @@ func (cmd *Cmd) parseArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
-	work := f.Bool("work", false, "print workdir and don't cleanup on exit")
+	f.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
+	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 
@@ -616,7 +762,6 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 		return true, err
 	}
 
-	cmd.flags.work = *work
 	cmd.flags.dirs = splitCommaList(*dirs)
 	cmd.flags.files = splitCommaList(*files)
 	cmd.flags.otherArgs = f.Args()
@@ -631,11 +776,12 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
-	work := f.Bool("work", false, "print workdir and don't cleanup on exit")
+	f.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
+	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 	run := f.String("run", "", "run test")
-	verbose := f.Bool("v", false, "verbose")
+	verboseTests := f.Bool("v", false, "verbose tests")
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -646,7 +792,6 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 		return true, err
 	}
 
-	cmd.flags.work = *work
 	cmd.flags.dirs = splitCommaList(*dirs)
 	cmd.flags.files = splitCommaList(*files)
 	cmd.flags.otherArgs = f.Args()
@@ -657,8 +802,8 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
 	}
 
-	// verbose
-	if *verbose {
+	// verbose tests
+	if *verboseTests {
 		a := []string{"-test.v"}
 		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
 	}
@@ -668,7 +813,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
-	work := f.Bool("work", false, "print workdir and don't cleanup on exit")
+	f.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 	addr := f.String("addr", "", "address to serve from, built into the binary")
@@ -683,7 +828,6 @@ func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 		return true, err
 	}
 
-	cmd.flags.work = *work
 	cmd.flags.dirs = splitCommaList(*dirs)
 	cmd.flags.files = splitCommaList(*files)
 	cmd.flags.address = *addr
@@ -721,10 +865,10 @@ func cmdUsage() string {
 	return `Usage:
 	GoDebug <command> [arguments]
 The commands are:
-	run		build and run go program with debug data
-	test		test packages compiled with debug data
-	build 	build binary with debug data (allows remote debug)
-	connect	connect to a binary built with debug data (allows remote debug)
+	run		build and run program with godebug data
+	test		test packages compiled with godebug data
+	build 	build binary with godebug data (allows remote debug)
+	connect	connect to a binary built with godebug data (allows remote debug)
 Examples:
 	GoDebug -help
 	GoDebug run -help
@@ -740,59 +884,73 @@ Examples:
 
 //------------
 
-func (cmd *Cmd) populateParentDirectories() (err error) {
-	// don't populate annotated files
-	noPop := map[string]bool{}
-	cmd.ann.FSet.Iterate(func(f *token.File) bool {
-		d := f.Name()
-		noPop[d] = true
-		return true
-	})
+//func (cmd *Cmd) populateParentDirectories() (err error) {
+//	// don't populate annotated files
+//	noPop := map[string]bool{}
+//	cmd.ann.FSet.Iterate(func(f *token.File) bool {
+//		d := f.Name()
+//		noPop[d] = true
+//		return true
+//	})
 
-	// populate parent directories
-	vis := map[string]bool{}
-	cmd.ann.FSet.Iterate(func(f *token.File) bool {
-		d := filepath.Dir(f.Name())
-		err = cmd.populateDir(d, vis, noPop)
-		if err != nil {
-			return false
-		}
-		return true
-	})
-	return err
-}
+//	// populate parent directories
+//	vis := map[string]bool{}
+//	cmd.ann.FSet.Iterate(func(f *token.File) bool {
+//		d := filepath.Dir(f.Name())
+//		err = cmd.populateDir(d, vis, noPop)
+//		if err != nil {
+//			return false
+//		}
+//		return true
+//	})
+//	return err
+//}
 
-func (cmd *Cmd) populateDir(dir string, vis, noPop map[string]bool) error {
-	// don't populate an already visited dir
-	if _, ok := vis[dir]; ok {
-		return nil
-	}
-	vis[dir] = true
+//func (cmd *Cmd) populateDir(dir string, vis, noPop map[string]bool) error {
+//	// don't populate an already visited dir
+//	if _, ok := vis[dir]; ok {
+//		return nil
+//	}
+//	vis[dir] = true
 
-	// visit only up to srcdir
-	srcDir, _ := goutil.ExtractSrcDir(dir)
-	if len(srcDir) <= 1 || strings.Index(dir, srcDir) < 0 {
-		return nil
-	}
+//	// visit only up to srcdir
+//	srcDir, _ := goutil.ExtractSrcDir(dir)
+//	if len(srcDir) <= 1 || strings.Index(dir, srcDir) < 0 {
+//		return nil
+//	}
 
-	// populate: copy go files
-	filenames := dirGoFiles(dir)
-	for _, f := range filenames {
-		if _, ok := noPop[f]; ok {
-			continue
-		}
-		fAtTmp := cmd.tmpDirBasedFilename(f)
-		if err := copyFile(f, fAtTmp); err != nil {
-			return err
-		}
-	}
+//	// populate: copy go files
+//	filenames := dirGoFiles(dir)
+//	for _, f := range filenames {
+//		if _, ok := noPop[f]; ok {
+//			continue
+//		}
+//		fAtTmp := cmd.tmpDirBasedFilename(f)
+//		if err := copyFile(f, fAtTmp); err != nil {
+//			return err
+//		}
+//	}
 
-	// visit parent dir
-	pd := filepath.Dir(dir)
-	return cmd.populateDir(pd, vis, noPop)
-}
+//	// visit parent dir
+//	pd := filepath.Dir(dir)
+//	return cmd.populateDir(pd, vis, noPop)
+//}
 
 //------------
+
+func mkdirAllWriteFile(filename string, src []byte) error {
+	if err := os.MkdirAll(filepath.Dir(filename), 0770); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filename, []byte(src), 0660)
+}
+
+func mkdirAllCopyFile(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0770); err != nil {
+		return err
+	}
+	return copyFile(src, dst)
+}
 
 func copyFile(src, dst string) error {
 	from, err := os.Open(src)
@@ -800,7 +958,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer from.Close()
-	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0666)
+	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0660)
 	if err != nil {
 		return err
 	}
@@ -811,18 +969,18 @@ func copyFile(src, dst string) error {
 
 //------------
 
-func dirGoFiles(dir string) []string {
-	var a []string
-	fis, err := ioutil.ReadDir(dir)
-	if err == nil {
-		for _, fi := range fis {
-			if filepath.Ext(fi.Name()) == ".go" {
-				a = append(a, filepath.Join(dir, fi.Name()))
-			}
-		}
-	}
-	return a
-}
+//func dirGoFiles(dir string) []string {
+//	var a []string
+//	fis, err := ioutil.ReadDir(dir)
+//	if err == nil {
+//		for _, fi := range fis {
+//			if filepath.Ext(fi.Name()) == ".go" {
+//				a = append(a, filepath.Join(dir, fi.Name()))
+//			}
+//		}
+//	}
+//	return a
+//}
 
 //------------
 
@@ -841,9 +999,12 @@ func normalizeFilenameForExec(filename string) string {
 	if filepath.IsAbs(filename) {
 		return filename
 	}
+
+	// TODO: review
 	if !strings.HasPrefix(filename, "./") {
 		return "./" + filename
 	}
+
 	return filename
 }
 

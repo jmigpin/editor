@@ -254,6 +254,7 @@ func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
 	}
 
 	if !erow.Info.IsDir() {
+		// TODO: erow type should have a run cmd func that transfers this
 		return fmt.Errorf("can't run on this erow type")
 	}
 
@@ -296,7 +297,7 @@ func (gdi *GoDebugInstance) start2(erow *ERow, args []string, ctx context.Contex
 	cmd.Stdout = w
 	cmd.Stderr = w
 
-	done, err := cmd.Start(ctx, args[1:], nil)
+	done, err := cmd.Start(ctx, args[1:])
 	if err != nil {
 		return err
 	}

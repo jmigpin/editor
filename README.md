@@ -164,28 +164,31 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `LSProtoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
-- `GoDebug <command> [arguments]`: debugger utility for go programs.
-	- `-h`: help (show usage).
-	- `-dirs`: comma separated directories to include in the debug session.
-	- `-files`: comma separated files to include in the debug session (allows avoiding big directories).
-	- `-work`: print out temporary work dir and don't cleanup (allows to see the generated code).
-	- notes
-		- use `esc` key to stop the debug session.
-		- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
-		- Supports remote debugging (check help usage).
-			- A client can connect/disconnect any number of times, but there can be only one client at a time.
-		- ~~Function that allows to control sending debug messages to the editor. Helpful to bypass programs tight loops that would take too long with debug messages being sent.~~
-			- ~~`debug.SetSend(bool)`~~
-		- Function that stops annotations for the current code block. Helpful to bypass loops that would become too slow with debug messages being sent.
-			- `debug.NoAnnotations()`, example:
+- `GoDebug <command> [arguments]`: debugger utility for go programs. 
+	- brief cmd line arguments notes:
+		- `-h`: help (show usage).
+		- `-work`: print out temporary work dir and don't cleanup (allows to see the generated code).
+	- Annotate files
+		- By default, the current directory will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, but it is also possible to annotate by calling one of the following functions in the code.
+			```
+			debug.AnnotateBlock()
+			debug.AnnotateFile()
+			debug.AnnotatePackage()
+			```
+			The annotator will detect these calls and annotate the block/file/package.
+			To disable annotating for the current code block, call:
+			```
+			debug.NoAnnotations()
+			```
+		 	This is helpful to bypass loops that would become too slow with debug messages being sent. Example:
 			```
 			func fn(){
 				a:=0 // annotated
 				if a==0{
 					a++ // annotated
 					debug.NoAnnotations()
-					a+=2 // *not* annotaded
-					a+=3 // *not* annotaded
+					a+=2 // *not* annotated
+					a+=3 // *not* annotated
 					for i:=0; i<10000;i++{
 						// *not* annotated
 					}
@@ -193,9 +196,16 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 				println(a) // annotated, not part of the disabled block
 			}
 			```
-		- ~~When debugging, take care of functions that implement fmt.Stringer that get called.~~
-		- `String` methods are not annotated.
-- toolbar first part (usually the row filename): clicking on a section of the path of the filename will open a new row with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open another row to edit the same file.
+	- Notes:
+		- use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
+		- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
+		- Supports remote debugging (check help usage).
+			- A client can connect/disconnect any number of times, but there can be only one client at a time.
+		- `String` methods are not annotated to avoid endless loops (the annotation would recursively call the String method again).
+
+*Row name at the toolbar (usually the filename)*
+
+- Clicking on a section of the path of the filename will open a new row with that content. Ex: if a row filename is "/a/b/c.txt" clicking on "/a" will open a new row with that directory listing, while clicking on "/a/b/c.txt" will open another row to edit the same file.
 
 *Textarea commands*
 
@@ -267,9 +277,12 @@ Plugins located at: `./plugins`.
 
 *Global key/button shortcuts*
 
-- `esc`: stop debugging session
+- `esc`:
+	- stop debugging session
+	- close context float box
 - `f1`: toggle context float box
 	- triggers call to plugins that implement `AutoComplete`
+	- `esc`: close context float box
 
 *Column key/button shortcuts*
 
@@ -349,6 +362,7 @@ Plugins located at: `./plugins`.
 		- on textarea: show last debug step
 	- `ctrl`+`f9`:
 		- on textarea: clear debug messages (continues debugging)
+	- `esc`: stop the debug session.
 
 ## Row placement algorithm
 
