@@ -1571,6 +1571,18 @@ func TestAnnotator99(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
+func TestAnnotator100(t *testing.T) {
+	inout := []string{
+		`a = b
+		/*aaa*/`,
+		`Σ0 := Σ.IV(b)
+	        a = b
+	        Σ1 := Σ.IV(a)
+	        Σ.Line(0, 0, 28, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
 func TestAnnotator_(t *testing.T) {
 	inout := []string{
 		``,

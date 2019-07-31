@@ -177,8 +177,7 @@ func (annset *AnnotatorSet) insertDebugExitInFunction(astFile *ast.File, name st
 	//fd.Body.List = sann.insertInStmts(stmt1, 0, fd.Body.List)
 	done := false
 	pre := func(c *astutil.Cursor) bool {
-		if !done && c.Index() >= 0 {
-			// insert as first stmt (previous sibling of a node with
+		if !done && c.Index() >= 0 { // insert as first stmt
 			c.InsertBefore(stmt1)
 			done = true
 		}

@@ -46,6 +46,28 @@ func (ann *Annotator) AnnotateAstFile(astFile *ast.File, typ AnnotationType) {
 	}
 
 	ann.visitFile(ctx, astFile)
+
+	// ensure comments are not in between stmts in the middle of declarations (solves test100)
+	// Other comments stay in place since they might be needed (build comments, "c" package comments, ...)
+	ann.removeInnerFuncComments(astFile)
+}
+
+//----------
+
+func (ann *Annotator) removeInnerFuncComments(astFile *ast.File) {
+	for _, d := range astFile.Decls {
+		if fd, ok := d.(*ast.FuncDecl); ok {
+			// filter
+			u := []*ast.CommentGroup{}
+			for _, cg := range astFile.Comments {
+				in := cg.Pos() >= fd.Pos() && cg.Pos() < fd.End()
+				if !in {
+					u = append(u, cg)
+				}
+			}
+			astFile.Comments = u
+		}
+	}
 }
 
 //----------
@@ -919,7 +941,6 @@ func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
 			if t.Else != nil {
 				ann.visitStmt(ctx, t.Else)
 			}
-
 		case *ast.ForStmt:
 			ann.visitBlockStmt(ctx, t.Body)
 		case *ast.RangeStmt:
@@ -939,12 +960,10 @@ func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
 			ann.visitBlockStmt(ctx, t.Body)
 		case *ast.BlockStmt:
 			ann.visitBlockStmt(ctx, t)
-
 		case *ast.CaseClause:
 			ann.visitStmtList(ctx, &t.Body)
 		case *ast.CommClause:
 			ann.visitStmtList(ctx, &t.Body)
-
 		default:
 			fmt.Printf("visitstmt: noannotations: %v\n", t)
 		}
@@ -1099,19 +1118,12 @@ func (ann *Annotator) getResultExpr(ctx *Ctx, e ast.Expr) ast.Expr {
 		return ann.assignToNewIdent(ctx, ce)
 	}
 
-	// nres == 1
-	//if isDirectExpr(e) {
-	// never put the result in a variable if it is a direct expr
-	//} else
 	if ctx.resultInVar() {
 		// putting the result in a variable is never inserted after
 		ctx = ctx.withInsertStmtAfter(false)
 		e = ann.assignToNewIdent(ctx, e)
 		ctx.replaceExpr(e)
 	}
-	//else {
-	// do nothing
-	//}
 
 	ce := ann.newDebugCallExpr("IV", e)
 	return ann.assignToNewIdent(ctx, ce)
@@ -1198,6 +1210,7 @@ func (ann *Annotator) newAssignStmt(lhs, rhs []ast.Expr) *ast.AssignStmt {
 
 //----------
 
+// Returns on/off, ok.
 func (ann *Annotator) annotationsOn(stmt ast.Stmt) (bool, bool) {
 	if es, ok := stmt.(*ast.ExprStmt); ok {
 		if ce, ok := es.X.(*ast.CallExpr); ok {
