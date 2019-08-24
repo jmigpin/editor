@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,29 +18,24 @@ import (
 
 //----------
 
-var logger0 *log.Logger
+var logger0 = log.New(os.Stdout, "", log.Lshortfile)
 
-func init() {
-	initLogger()
-}
+func logOn() bool {
+	//return true
 
-func initLogger() {
-	w := ioutil.Discard
-	if testing.Verbose() { // NOTE: test.* options will show on cmd line
-		w = os.Stdout
-	}
-	logger0 = log.New(w, "", log.Lshortfile)
+	// NOTE: go1.13rc1 doesn't allow using testing.verbose before flag parsing. Implies that test.* flags are not added to prog flags anymore.
+	return testing.Verbose()
 }
 
 func logPrintf(f string, args ...interface{}) {
-	if logger0.Writer() == ioutil.Discard {
+	if !logOn() {
 		return
 	}
 	logger0.Output(2, fmt.Sprintf(f, args...))
 }
 
 func logJson(prefix string, v interface{}) {
-	if logger0.Writer() == ioutil.Discard {
+	if !logOn() {
 		return
 	}
 	b, err := json.MarshalIndent(v, "", "\t")

@@ -3,6 +3,8 @@ package lsproto
 import (
 	"context"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -175,8 +177,6 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 //----------
 
 func newTestManager(t *testing.T) *Manager {
-	initLogger() // init again to check for verbose flag
-
 	fnErr := func(err error) {
 		//t.Log(err) // error if t.Log gets used after returning from func
 		logPrintf("man async error: %v", err)
@@ -230,11 +230,10 @@ func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWri
 }
 
 //----------
-//----------
-//----------
 
 func TestManager1(t *testing.T) {
-	loc := "/home/jorge/lib/golang/go/src/context/context.go:242:12"
+	goRoot := os.Getenv("GOROOT")
+	loc := filepath.Join(goRoot, "src/context/context.go:242:12")
 	f, l, c := parseLocation(t, loc)
 
 	rw, offset := readBytesOffset(t, f, l, c)
@@ -323,4 +322,26 @@ func TestManager2(t *testing.T) {
 	if len(comp) == 0 {
 		t.Fatal(comp)
 	}
+}
+
+func TestManager3(t *testing.T) {
+	// simple helloworld dir module outside the gopath
+	// TODO: create this ondemand in the tmp dir
+	loc := "/home/jorge/tmp/go_tests/hw/hello_test.go:7:13"
+	f, l, c := parseLocation(t, loc)
+
+	rw, offset := readBytesOffset(t, f, l, c)
+
+	ctx0 := context.Background()
+	ctx, cancel := context.WithCancel(ctx0)
+	defer cancel()
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	a, b, err := man.TextDocumentDefinition(ctx, f, rw, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(a, b)
 }
