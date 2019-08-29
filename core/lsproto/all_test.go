@@ -185,7 +185,7 @@ func newTestManager(t *testing.T) *Manager {
 
 	// registrations
 	u := []string{
-		GoplsRegistration(testing.Verbose()),
+		GoplsRegistration(logTestVerbose()),
 		CLangRegistrationStr,
 	}
 	for _, s := range u {

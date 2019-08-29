@@ -3,13 +3,13 @@ package lsproto
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"unicode/utf16"
 
 	"github.com/jmigpin/editor/core/parseutil"
@@ -20,22 +20,20 @@ import (
 
 var logger0 = log.New(os.Stdout, "", log.Lshortfile)
 
-func logOn() bool {
-	//return true
-
-	// NOTE: go1.13rc1 doesn't allow using testing.verbose before flag parsing. Implies that test.* flags are not added to prog flags anymore.
-	return testing.Verbose()
+func logTestVerbose() bool {
+	f := flag.Lookup("test.v")
+	return f != nil && f.Value.String() == "true"
 }
 
 func logPrintf(f string, args ...interface{}) {
-	if !logOn() {
+	if !logTestVerbose() {
 		return
 	}
 	logger0.Output(2, fmt.Sprintf(f, args...))
 }
 
 func logJson(prefix string, v interface{}) {
-	if !logOn() {
+	if !logTestVerbose() {
 		return
 	}
 	b, err := json.MarshalIndent(v, "", "\t")

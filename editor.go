@@ -19,10 +19,6 @@ import (
 )
 
 func main() {
-	// reset global flag var to prevent testing options from showing up if the testing package is imported (ex: using testing.Verbose())
-	// TODO: probably not needed after go1.13 release, testing flags won't be added.
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-
 	opt := &core.Options{}
 
 	// flags
