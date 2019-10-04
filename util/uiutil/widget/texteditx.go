@@ -1,9 +1,11 @@
 package widget
 
 import (
+	"fmt"
 	"image/color"
 	"time"
 
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
 )
@@ -224,14 +226,32 @@ func (te *TextEditX) EnableCursorWordHighlight(v bool) {
 
 //----------
 
-func (te *TextEditX) SetCommentStrings(line string, enclosed [2]string) {
-	te.commentLineStr = line // keep for comment/uncomment lines shortcut
+func (te *TextEditX) SetCommentStrings(a ...interface{}) {
+	cs := []*drawutil.SyntaxHighlightComment{}
+	firstLine := true
+	for _, v := range a {
+		switch t := v.(type) {
+		case string:
+			// line comment
+			c := &drawutil.SyntaxHighlightComment{IsLine: true, S: t}
+			cs = append(cs, c)
+			// keep first definition for shortcut comment insertion
+			if firstLine {
+				firstLine = false
+				te.commentLineStr = t
+			}
+		case [2]string:
+			// multiline comment
+			c := &drawutil.SyntaxHighlightComment{S: t[0], E: t[1]}
+			cs = append(cs, c)
+		default:
+			panic(fmt.Sprintf("unexpected type: %v", t))
+		}
+	}
 
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
 		opt := &d.Opt.SyntaxHighlight
-		opt.Comment.Line.S = line
-		opt.Comment.Enclosed.S = enclosed[0]
-		opt.Comment.Enclosed.E = enclosed[1]
+		opt.Comment.Defs = cs
 	}
 }
 
@@ -267,10 +287,8 @@ func (te *TextEditX) OnThemeChange() {
 
 		// syntax highlight
 		opt := &d.Opt.SyntaxHighlight
-		opt.Comment.Line.Fg = pcol("text_colorize_comments_fg")
-		opt.Comment.Line.Bg = pcol("text_colorize_comments_bg")
-		opt.Comment.Enclosed.Fg = pcol("text_colorize_comments_fg")
-		opt.Comment.Enclosed.Bg = pcol("text_colorize_comments_bg")
+		opt.Comment.Fg = pcol("text_colorize_comments_fg")
+		opt.Comment.Bg = pcol("text_colorize_comments_bg")
 		opt.String.Fg = pcol("text_colorize_string_fg")
 		opt.String.Bg = pcol("text_colorize_string_bg")
 	}

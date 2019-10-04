@@ -48,7 +48,7 @@ func NewERow(ed *Editor, info *ERowInfo, rowPos *ui.RowPos) *ERow {
 
 	erow.initHandlers()
 	erow.parseToolbar() // after handlers are set
-	erow.setupTextAreaCommentString()
+	erow.setupTextAreaSyntaxHighlight()
 
 	ctx0 := context.Background() // TODO: editor ctx
 	erow.ctx, erow.ctxCancel = context.WithCancel(ctx0)
@@ -391,39 +391,59 @@ func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 
 //----------
 
-func (erow *ERow) setupTextAreaCommentString() {
+func (erow *ERow) setupTextAreaSyntaxHighlight() {
 	ta := erow.Row.TextArea
+
+	// util funcs
+	setComments := func(a ...interface{}) {
+		ta.EnableSyntaxHighlight(true) // ensure syntax highlight is on
+		ta.SetCommentStrings(a...)
+	}
 
 	// ignore "." on files starting with "."
 	name := filepath.Base(erow.Info.Name())
 	if len(name) >= 1 && name[0] == '.' {
 		name = name[1:]
 	}
+
+	// specific names
+	switch name {
+	case "bashrc":
+		setComments("#")
+		return
+	case "go.mod":
+		setComments("//")
+		return
+	}
+
 	// name extension
 	ext := strings.ToLower(filepath.Ext(name))
-
 	switch ext {
-	case "", // no file extension (includes directories and special rows)
-		".sh",
+	case ".sh",
 		".conf", ".list",
 		".py", // python
-		".pl", // perl
-		".txt":
-		ta.SetCommentStrings("#", [2]string{})
+		".pl": // perl
+		setComments("#")
 	case ".go",
 		".c", ".h",
 		".cpp", ".hpp", ".cxx", ".hxx", // c++
 		".java",
 		".js": // javascript
-		ta.SetCommentStrings("//", [2]string{"/*", "*/"})
+		setComments("//", [2]string{"/*", "*/"})
 	case ".ledger":
-		ta.SetCommentStrings(";", [2]string{})
+		setComments(";", "//")
 	case ".pro": // prolog
-		ta.SetCommentStrings("%", [2]string{})
-	case ".html", ".xml":
-		ta.SetCommentStrings("", [2]string{"<!--", "-->"})
-	default:
-		// no coloring
+		setComments("%", [2]string{"/*", "*/"})
+	case ".html", ".xml", ".svg":
+		setComments([2]string{"<!--", "-->"})
+	case ".json": // no comments to setup
+		ta.EnableSyntaxHighlight(true)
+	case ".txt":
+		setComments("#") // useful (but not correct)
+	case "": // no file extension (includes directories and special rows)
+		setComments("#") // useful (but not correct)
+	default: // all other file extensions
+		ta.EnableSyntaxHighlight(true)
 	}
 }
 

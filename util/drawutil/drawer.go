@@ -51,3 +51,10 @@ type Drawer interface {
 	RangeVisible(offset, n int) bool
 	RangeVisibleOffset(offset, n int) int
 }
+
+//----------
+
+type SyntaxHighlightComment struct {
+	S, E   string // {start,end} sequence
+	IsLine bool   // single line comment (end argument is ignored)
+}

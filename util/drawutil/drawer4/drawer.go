@@ -120,14 +120,8 @@ type Drawer struct {
 		SyntaxHighlight struct {
 			On      bool
 			Comment struct {
-				Line struct {
-					S      string
-					Fg, Bg color.Color
-				}
-				Enclosed struct {
-					S, E   string
-					Fg, Bg color.Color
-				}
+				Defs   []*drawutil.SyntaxHighlightComment
+				Fg, Bg color.Color
 			}
 			String struct {
 				Fg, Bg color.Color
