@@ -141,6 +141,11 @@ func TestParseResource21(t *testing.T) {
 	testParseResourcePath(t, s, 8, "/a/b/c.txt")
 }
 
+func TestParseResource22(t *testing.T) {
+	s := "/a/b/!u!w.txt"
+	testParseResourcePath(t, s, 5, "/a/b/!u!w.txt")
+}
+
 //----------
 
 func testParseResourcePath(t *testing.T, str string, index int, estr string) {
