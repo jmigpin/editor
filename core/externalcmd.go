@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
@@ -135,7 +136,8 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 
 		// TODO: ensure first output is pid with altered writer
 		// output pid
-		fmt.Fprintf(w, "# pid %d\n", cmd.Process.Pid)
+		cargsStr := strings.Join(cargs, " ")
+		fmt.Fprintf(w, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
 
 		return cmd.Wait()
 	}
