@@ -88,6 +88,19 @@ Usage of ./editor:
     	code for wrap line rune, can be set to zero (default 8592)
 ```
 
+Since the editor has no configuration file, it is suggested you use it within a script with your preferences (example `editor.sh`):
+```
+#!/bin/sh
+exec ~/code/jmigpin/editor/editor \
+--dpi=143 \
+--fontsize=9 \
+--commentscolor=0x008b00 \
+--stringscolor=0x8b3100 \
+--lsproto=go,.go,tcp,"gopls serve -listen={{.Addr}}" \
+--lsproto=c++,".c .h .cpp .hpp",stdio,clangd,stderr \
+"$@"
+```
+
 ## Basic Layout
 
 The editor has a top toolbar and columns. Columns have rows. Rows have a toolbar and a textarea.
