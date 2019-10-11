@@ -262,123 +262,6 @@ func (cmd *Cmd) annotateFileNote(note *FileNote) error {
 
 //------------
 
-//func (cmd *Cmd) initMode(ctx context.Context) error {
-//	// filename
-//	var filename string
-//	if cmd.flags.mode.test {
-//		filename = filepath.Join(cmd.Dir, "editor_godebug_test")
-//	} else {
-//		filename = cmd.flags.filename
-//		if filename == "" {
-//			return fmt.Errorf("missing filename arg")
-//		}
-//		// base on workingdir
-//		if !filepath.IsAbs(filename) {
-//			filename = filepath.Join(cmd.Dir, filename)
-//		}
-//	}
-
-//	// pre-build without annotations for better errors (result is ignored)
-//	if cmd.mainSrc == nil {
-//		if cmd.flags.mode.test {
-//			fout, err := cmd.buildTest(ctx, filename)
-//			if err != nil {
-//				return err
-//			}
-//			os.Remove(fout)
-//		} else {
-//			fout, err := cmd.build(ctx, filename)
-//			if err != nil {
-//				return err
-//			}
-//			os.Remove(fout)
-//		}
-//	}
-
-//	// annotate: main file
-//	if !cmd.flags.mode.test {
-//		if err := cmd.annotateFile(filename, cmd.mainSrc); err != nil {
-//			return err
-//		}
-//	}
-
-//	// annotate: files option
-//	for _, f := range cmd.flags.files {
-//		if !filepath.IsAbs(f) { // TODO: call func to solve filename
-//			f = filepath.Join(cmd.Dir, f)
-//		}
-//		if err := cmd.annotateFile(f, nil); err != nil {
-//			return err
-//		}
-//	}
-
-//	// annotate: auto include working dir in test mode
-//	if cmd.flags.mode.test {
-//		cmd.flags.dirs = append(cmd.flags.dirs, cmd.Dir)
-//	}
-
-//	// annotate: directories
-//	if err := cmd.annotateDirs(ctx); err != nil {
-//		return err
-//	}
-
-//	// write config file after annotations
-//	if err := cmd.writeConfigFileToTmpDir(); err != nil {
-//		return err
-//	}
-
-//	// populate missing go files in parent directories
-//	if err := cmd.populateParentDirectories(); err != nil {
-//		return err
-//	}
-
-//	// main/testmain exit
-//	if cmd.flags.mode.test {
-//		if !cmd.ann.InsertedExitIn.TestMain {
-//			if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
-//				return err
-//			}
-//		}
-//	} else {
-//		if !cmd.ann.InsertedExitIn.Main {
-//			return fmt.Errorf("have not inserted debug exit in main()")
-//		}
-//	}
-
-//	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-
-//	// create parent dirs
-//	if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0755); err != nil {
-//		return err
-//	}
-
-//	// build
-//	var f2 string
-//	var err2 error
-//	if cmd.flags.mode.test {
-//		f2, err2 = cmd.buildTest(ctx, filenameAtTmp)
-//	} else {
-//		f2, err2 = cmd.build(ctx, filenameAtTmp)
-//	}
-//	if err2 != nil {
-//		return err2
-//	}
-//	filenameOut := f2
-
-//	// move filename to working dir
-//	filenameWork := filepath.Join(cmd.Dir, filepath.Base(filenameOut))
-//	if err := os.Rename(filenameOut, filenameWork); err != nil {
-//		return err
-//	}
-
-//	// keep moved filename that will run in working dir for later cleanup
-//	cmd.tmpBuiltFile = filenameWork
-
-//	return nil
-//}
-
-//------------
-
 func (cmd *Cmd) startServerClient(ctx context.Context) error {
 	filenameWork := cmd.tmpBuiltFile
 
@@ -555,35 +438,6 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 	return filenameOut, err
 }
 
-//func (cmd *Cmd) build(ctx context.Context, filename string) (string, error) {
-//	filenameOut := cmd.execName(filename)
-//	args := []string{
-//		osutil.GoExec(), "build",
-//		"-o", filenameOut,
-//		filename,
-//	}
-//	dir := filepath.Dir(filenameOut)
-//	err := cmd.runCmd(ctx, dir, args, cmd.environ())
-//	return filenameOut, err
-//}
-
-//func (cmd *Cmd) buildTest(ctx context.Context, filename string) (string, error) {
-//	filenameOut := cmd.execName(filename)
-//	args := []string{
-//		osutil.GoExec(), "test",
-//		"-c", // compile binary but don't run
-//		// "-toolexec", "", // don't run asm // TODO: faster dummy pre-builts?
-//		"-o", filenameOut,
-//	}
-
-//	// append otherargs in test mode
-//	args = append(args, cmd.flags.otherArgs...)
-
-//	dir := filepath.Dir(filenameOut)
-//	err := cmd.runCmd(ctx, dir, args, cmd.environ())
-//	return filenameOut, err
-//}
-
 func (cmd *Cmd) execName(name string) string {
 	return replaceExt(name, osutil.ExecName("_godebug"))
 }
@@ -627,58 +481,6 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 
 	return ecmd, nil
 }
-
-//------------
-
-//func (cmd *Cmd) annotateDirs(ctx context.Context) error {
-//	seen := map[string]bool{}
-//	for _, d := range cmd.flags.dirs {
-//		if seen[d] {
-//			continue
-//		}
-//		seen[d] = true
-//		if err := cmd.annotateDir(d); err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}
-
-//func (cmd *Cmd) annotateDir(dir string) error {
-//	// if dir is not absolute, check if exists in cmd.dir
-//	if !filepath.IsAbs(dir) {
-//		//fmt.Printf("** %v + %v\n", cmd.Dir, dir)
-//		t := filepath.Join(cmd.Dir, dir)
-//		fi, err := os.Stat(t)
-//		if err == nil {
-//			if fi.IsDir() {
-//				dir = t
-//			}
-//		}
-//	}
-
-//	// dir files
-//	dir2, _, names, err := goutil.PkgFilenames(dir, true)
-//	if err != nil {
-//		return err
-//	}
-//	// annotate files
-//	for _, name := range names {
-//		filename := filepath.Join(dir2, name)
-//		if err := cmd.annotateFile(filename, nil); err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}
-
-//func (cmd *Cmd) annotateFile(filename string, src interface{}) error {
-//	astFile, err := cmd.ann.AnnotateFile(filename, src)
-//	if err != nil {
-//		return err
-//	}
-//	return cmd.writeAstFileToTmpDir(astFile)
-//}
 
 //------------
 
@@ -884,60 +686,6 @@ Examples:
 
 //------------
 
-//func (cmd *Cmd) populateParentDirectories() (err error) {
-//	// don't populate annotated files
-//	noPop := map[string]bool{}
-//	cmd.ann.FSet.Iterate(func(f *token.File) bool {
-//		d := f.Name()
-//		noPop[d] = true
-//		return true
-//	})
-
-//	// populate parent directories
-//	vis := map[string]bool{}
-//	cmd.ann.FSet.Iterate(func(f *token.File) bool {
-//		d := filepath.Dir(f.Name())
-//		err = cmd.populateDir(d, vis, noPop)
-//		if err != nil {
-//			return false
-//		}
-//		return true
-//	})
-//	return err
-//}
-
-//func (cmd *Cmd) populateDir(dir string, vis, noPop map[string]bool) error {
-//	// don't populate an already visited dir
-//	if _, ok := vis[dir]; ok {
-//		return nil
-//	}
-//	vis[dir] = true
-
-//	// visit only up to srcdir
-//	srcDir, _ := goutil.ExtractSrcDir(dir)
-//	if len(srcDir) <= 1 || strings.Index(dir, srcDir) < 0 {
-//		return nil
-//	}
-
-//	// populate: copy go files
-//	filenames := dirGoFiles(dir)
-//	for _, f := range filenames {
-//		if _, ok := noPop[f]; ok {
-//			continue
-//		}
-//		fAtTmp := cmd.tmpDirBasedFilename(f)
-//		if err := copyFile(f, fAtTmp); err != nil {
-//			return err
-//		}
-//	}
-
-//	// visit parent dir
-//	pd := filepath.Dir(dir)
-//	return cmd.populateDir(pd, vis, noPop)
-//}
-
-//------------
-
 func mkdirAllWriteFile(filename string, src []byte) error {
 	if err := os.MkdirAll(filepath.Dir(filename), 0770); err != nil {
 		return err
@@ -966,21 +714,6 @@ func copyFile(src, dst string) error {
 	_, err = io.Copy(to, from)
 	return err
 }
-
-//------------
-
-//func dirGoFiles(dir string) []string {
-//	var a []string
-//	fis, err := ioutil.ReadDir(dir)
-//	if err == nil {
-//		for _, fi := range fis {
-//			if filepath.Ext(fi.Name()) == ".go" {
-//				a = append(a, filepath.Join(dir, fi.Name()))
-//			}
-//		}
-//	}
-//	return a
-//}
 
 //------------
 
