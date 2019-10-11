@@ -4,7 +4,6 @@ package osutil
 
 import (
 	"errors"
-	"os"
 	"os/exec"
 )
 
@@ -35,10 +34,4 @@ func GoExec() string {
 }
 func ExecName(name string) string {
 	return name + ".exe"
-}
-
-//----------
-
-func HomeEnvVar() string {
-	return os.Getenv("USERPROFILE")
 }
