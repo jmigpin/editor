@@ -81,7 +81,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 	}
 
 	// tmp dir for annotated files
-	tmpDir, err := ioutil.TempDir(os.TempDir(), "editor_godebug")
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "editor_godebug_tmp")
 	if err != nil {
 		return true, err
 	}
@@ -367,22 +367,27 @@ func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 
 func (cmd *Cmd) environ() []string {
 	env := os.Environ()
-
-	// add tmpdir to gopath to allow the compiler to give priority to the annotated files
-	gopath := []string{}
-	gopath = append(gopath, cmd.tmpDir)
-	// add already defined gopath
-	gopath = append(gopath, goutil.GoPath()...)
-	// build gopath string
-	s := "GOPATH=" + strings.Join(gopath, string(os.PathListSeparator))
-	env = append(env, s)
-
+	// gopath
+	env = append(env, cmd.environGoPath())
 	// add cmd line env vars
 	for _, s := range cmd.flags.env {
 		env = append(env, s)
 	}
-
 	return env
+}
+
+func (cmd *Cmd) environGoPath() string {
+	gopath := []string{}
+	// Add a fixed gopath directory in a temporary location for caching downloaded modules packages for godebug.
+	// This solves downloading modules every time a godebug session is started since the default directory for downloading is the first directory defined in the GOPATH env.
+	cacheTmpDir := filepath.Join(os.TempDir(), "editor_godebug_cache")
+	gopath = append(gopath, cacheTmpDir)
+	// add tmpdir to gopath to allow the compiler to give priority to the annotated files
+	gopath = append(gopath, cmd.tmpDir)
+	// add already defined gopath
+	gopath = append(gopath, goutil.GoPath()...)
+	// build gopath string
+	return "GOPATH=" + strings.Join(gopath, string(os.PathListSeparator))
 }
 
 //------------
