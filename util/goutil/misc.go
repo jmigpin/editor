@@ -32,7 +32,7 @@ func GoPath() []string {
 func ExtractSrcDir(filename string) (string, string) {
 	srcDir := ""
 	for _, d := range build.Default.SrcDirs() {
-		d += "/"
+		d += string(filepath.Separator)
 		if strings.HasPrefix(filename, d) {
 			srcDir = filename[:len(d)]
 			filename = filename[len(d):]
