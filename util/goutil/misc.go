@@ -11,19 +11,15 @@ import (
 
 func GoPath() []string {
 	// TODO: use go/build defaultgopath if it becomes public
-
 	a := []string{}
-
 	add := func(b ...string) { a = append(a, b...) }
-
 	gopath := os.Getenv("GOPATH")
 	if gopath != "" {
 		add(filepath.SplitList(gopath)...)
 	} else {
-		// from go/build/build.go:270:3
+		// from go/build/build.go:274
 		add(filepath.Join(osutil.HomeEnvVar(), "go"))
 	}
-
 	return a
 }
 
@@ -40,25 +36,4 @@ func ExtractSrcDir(filename string) (string, string) {
 		}
 	}
 	return srcDir, filename
-}
-
-//----------
-
-func PkgFilenames(dir string, testFiles bool) (string, string, []string, error) {
-	// transform into pkg dir
-	pkgDir := dir
-	srcDir := "."
-	if filepath.IsAbs(dir) {
-		srcDir, pkgDir = ExtractSrcDir(dir)
-	}
-	// pkg dir
-	bpkg, err := build.Import(pkgDir, srcDir, 0)
-	if err != nil {
-		return dir, pkgDir, nil, err
-	}
-	a := append(bpkg.GoFiles, bpkg.CgoFiles...)
-	if testFiles {
-		a = append(a, bpkg.TestGoFiles...)
-	}
-	return bpkg.Dir, pkgDir, a, nil
 }
