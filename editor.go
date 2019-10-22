@@ -2,10 +2,10 @@
 package main
 
 // build plugins (use "--plugins=<p1.so>,..." option to use these)
-//go:generate go build -buildmode=plugin ./plugins/autocomplete_gocode.go
-//go:generate go build -buildmode=plugin ./plugins/gotodefinition_godef.go
-//go:generate go build -buildmode=plugin ./plugins/rownames.go
-//go:generate go build -buildmode=plugin ./plugins/eevents.go
+//go:generate go build -buildmode=plugin ./plugins/autocomplete_gocode/autocomplete_gocode.go
+//go:generate go build -buildmode=plugin ./plugins/gotodefinition_godef/gotodefinition_godef.go
+//go:generate go build -buildmode=plugin ./plugins/rownames/rownames.go
+//go:generate go build -buildmode=plugin ./plugins/eevents/eevents.go
 
 import (
 	"flag"
