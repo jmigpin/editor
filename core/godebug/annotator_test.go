@@ -1699,7 +1699,7 @@ func _TestAnnotatorSet1(t *testing.T) {
 	_, _ = ParseAnnotateFileSrcForAnnSet(annset, "test/src2.go", src2)
 
 	// annotate config
-	src, _ := annset.ConfigSource()
+	src := annset.ConfigContent()
 	fmt.Printf("%v", src)
 }
 

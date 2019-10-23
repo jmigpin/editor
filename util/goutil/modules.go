@@ -53,9 +53,24 @@ func ReadGoMod(ctx context.Context, dir string) (*GoMod, error) {
 }
 
 func GoModReplace(ctx context.Context, dir, old, new string) error {
-	args := []string{"go", "mod", "edit", "-replace=" + old + "=" + new}
-	_, err := runGoModCmd(ctx, dir, "replace", args)
-	return err
+	// TODO: has problems writing "new" with "@version" (dir name) it will add the string with a space instead of "@" and later go.mod has a parse error
+	//args := []string{"go", "mod", "edit", "-replace", old + "=" + new}
+	//fmt.Printf("replaceargs: %v\n", args)
+	//_, err := runGoModCmd(ctx, dir, "replace", args)
+	//return err
+
+	// simple append to the file since using "go mod edit" can fail
+	filename := filepath.Join(dir, "go.mod")
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	u := "replace " + old + " => " + new
+	if _, err := f.WriteString("\n" + u + "\n"); err != nil {
+		return err
+	}
+	return nil
 }
 
 func GoModRequire(ctx context.Context, dir, path string) error {

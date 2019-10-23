@@ -1,7 +1,10 @@
 package goutil
 
 import (
+	"fmt"
+	"go/ast"
 	"go/build"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,4 +39,17 @@ func ExtractSrcDir(filename string) (string, string) {
 		}
 	}
 	return srcDir, filename
+}
+
+//----------
+
+func AstFileFilename(astFile *ast.File, fset *token.FileSet) (string, error) {
+	if astFile == nil {
+		panic("!")
+	}
+	tfile := fset.File(astFile.Package)
+	if tfile == nil {
+		return "", fmt.Errorf("not found")
+	}
+	return tfile.Name(), nil
 }

@@ -13,17 +13,25 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/jmigpin/editor/core/godebug/debug"
-	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/osutil"
 	"golang.org/x/tools/go/packages"
 )
 
+// Finds the set of files that need to be annotated/copied.
 type Files struct {
 	Dir string
 
-	fset      *token.FileSet
-	filenames map[string]struct{}
-	notes     map[string]*FileNote
+	filenames     map[string]struct{} // filenames to solve
+	progFilenames map[string]struct{} // program filenames (loaded)
+	annFilenames  map[string]struct{} // to annotate
+	copyFilenames map[string]struct{} // to copy
+	modFilenames  map[string]struct{} // go.mod's
+	annTypes      map[string]AnnotationType
+
+	fset  *token.FileSet
+	cache struct {
+		fullAstFile map[string]*ast.File
+	}
 }
 
 func NewFiles(fset *token.FileSet) *Files {
@@ -31,7 +39,12 @@ func NewFiles(fset *token.FileSet) *Files {
 
 	files := &Files{fset: fset}
 	files.filenames = map[string]struct{}{}
-	files.notes = map[string]*FileNote{}
+	files.progFilenames = map[string]struct{}{}
+	files.annFilenames = map[string]struct{}{}
+	files.copyFilenames = map[string]struct{}{}
+	files.modFilenames = map[string]struct{}{}
+	files.annTypes = map[string]AnnotationType{}
+	files.cache.fullAstFile = map[string]*ast.File{}
 
 	return files
 }
@@ -59,15 +72,18 @@ func (files *Files) absFilename(filename string) string {
 
 //----------
 
-func (files *Files) Do(ctx context.Context, mainFilename *string, tests bool) ([]*FileNote, error) {
-	debug.AnnotateFile()
-	if !tests && *mainFilename != "" {
-		*mainFilename = files.absFilename(*mainFilename)
-
-		// always add to avoid confusion (run godebug and not show anything)
-		files.Add(*mainFilename) // direct add for annotation
+func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noModules bool) error {
+	if !filepath.IsAbs(mainFilename) {
+		return fmt.Errorf("filename not absolute: %v", mainFilename)
 	}
 
+	// add mainfilename
+	if !tests && mainFilename != "" {
+		// always add to avoid confusion (run godebug and not show anything)
+		files.Add(mainFilename) // direct add for annotation
+	}
+
+	// add tests directory
 	if tests && files.Dir != "" {
 		files.Add(files.Dir) // direct add for annotation
 	}
@@ -77,158 +93,107 @@ func (files *Files) Do(ctx context.Context, mainFilename *string, tests bool) ([
 		packages.NeedDeps |
 		packages.NeedImports |
 		packages.NeedName | // name and pkgpath
-		packages.NeedFiles
-	//tmpFset := token.NewFileSet()
-	pkgs, err := ProgramPackages(ctx, loadMode, files.Dir, *mainFilename, tests, files.fset)
-	if err != nil {
-		return nil, err
-	}
-
-	// filenames that import the debug pkg
-	filenamesImp, err := files.filenamesImportingDebugPkg(pkgs)
-	if err != nil {
-		return nil, err
-	}
-
-	// all filenames
-	allFilenames := map[string]struct{}{}
-	packages.Visit(pkgs, nil, func(pkg *packages.Package) {
-		for _, fname := range pkgGoFiles(pkg) {
-			allFilenames[fname] = struct{}{}
-		}
-	})
-
-	// type of annotation in the files that import the debug pkg
-	mode := parser.ParseComments // full mode
-	for _, filename := range filenamesImp {
-		astFile, err := parser.ParseFile(files.fset, filename, nil, mode)
-		if err != nil {
-			return nil, err
-		}
-		typ, ok := AstFileAnnotationType(astFile)
-		if !ok {
-			continue
-		}
-		if typ >= AnnotationTypeBlock {
-			note := &FileNote{Filename: filename, Type: typ, AstFile: astFile}
-			note.DebugSrc = "src annotated"
-			if err := files.addFileNote(note); err != nil {
-				return nil, err
-			}
-		}
-		// add directory containing package
-		if typ == AnnotationTypePackage {
-			dir := filepath.Dir(filename)
-			err := files.addDir(ctx, dir, tests, allFilenames)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// handle added filenames (that can include directories)
-	for fname, _ := range files.filenames {
-		fi, err := os.Stat(fname)
-		if err != nil {
-			return nil, err
-		}
-		// directories
-		if fi.IsDir() {
-			err := files.addDir(ctx, fname, tests, allFilenames)
-			if err != nil {
-				return nil, err
-			}
-		} else { // regular files
-			// must exist in all filenames that belong to the program
-			if _, ok := allFilenames[fname]; !ok {
-				continue
-			}
-
-			note := &FileNote{Filename: fname, Type: AnnotationTypeFile}
-			note.DebugSrc = "add file (direct)"
-			if err := files.addFileNote(note); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// find parent directories that need to be populated to satisfy hierarchy since golang will set parent directories (of working dir) as empty pkgs if not populated
-	// TODO: this might not be needed with go modules?
-	if err := PopulateParentPkgDirs(ctx, files, tests); err != nil {
-		return nil, err
-	}
-
-	// group file notes
-	u := []string{}
-	for k, _ := range files.notes {
-		u = append(u, k)
-	}
-	sort.Strings(u)
-	notes := []*FileNote{}
-	for _, k := range u {
-		note := files.notes[k]
-		notes = append(notes, note)
-	}
-
-	return notes, nil
-}
-
-//----------
-
-func (files *Files) addFileNote(note *FileNote) error {
-	n, ok := files.notes[note.Filename]
-
-	// don't add if it has the same or inferior type
-	if ok && note.Type <= n.Type {
-		return nil
-	}
-
-	files.notes[note.Filename] = note
-
-	// add full astfile on demand
-	if !note.JustCopy && note.AstFile == nil {
-		mode := parser.ParseComments // full mode
-		astFile, err := parser.ParseFile(files.fset, note.Filename, nil, mode)
-		if err != nil {
-			return err
-		}
-		note.AstFile = astFile
-	}
-	return nil
-}
-
-func (files *Files) addDir(ctx context.Context, dir string, tests bool, allFilenames map[string]struct{}) error {
-	fnames, err := PkgFilenames(ctx, dir, tests)
+		packages.NeedFiles |
+		0
+	pkgs, err := ProgramPackages(ctx, loadMode, files.Dir, mainFilename, tests, files.fset)
 	if err != nil {
 		return err
 	}
-	for _, fname := range fnames {
-		// must exist in all filenames that belong to the program
-		if _, ok := allFilenames[fname]; !ok {
-			continue
-		}
 
-		note := &FileNote{Filename: fname, Type: AnnotationTypeFile}
-		note.DebugSrc = "add dir (direct or pkg annotation)"
-		if err := files.addFileNote(note); err != nil {
+	files.populateProgFilenamesMap(pkgs)
+
+	if err := files.addFilesImportingDebugPkg(pkgs); err != nil {
+		return err
+	}
+
+	if err := files.solveFilenames(); err != nil {
+		return err
+	}
+
+	files.findGoMods()
+	files.findFilesToCopy(noModules)
+
+	//spew.Dump(files.progFilenames)
+	//spew.Dump(files.modFilenames)
+	//spew.Dump(files.annFilenames)
+	//spew.Dump(files.copyFilenames)
+
+	return nil
+}
+
+func (files *Files) verbose(cmd *Cmd) {
+	cmd.Printf("annotate:\n")
+	files.verboseMap(cmd, files.annFilenames)
+	cmd.Printf("copy:\n")
+	files.verboseMap(cmd, files.copyFilenames)
+	cmd.Printf("modules:\n")
+	files.verboseMap(cmd, files.modFilenames)
+}
+func (files *Files) verboseMap(cmd *Cmd, m map[string]struct{}) {
+	sl := []string{}
+	for k := range m {
+		k = filepath.Base(k)
+		sl = append(sl, k)
+	}
+	sort.Strings(sl)
+	for _, s := range sl {
+		cmd.Printf("\t%v\n", s)
+	}
+}
+
+//----------
+
+func (files *Files) populateProgFilenamesMap(pkgs []*packages.Package) {
+	// goroot ending with fileseparator
+	// needed to not include these directories because it can't be annotated (will not be able to include a "replace" directive in go.mod
+	goRoot := os.Getenv("GOROOT")
+
+	// all filenames in the program (except goroot)
+	packages.Visit(pkgs, nil, func(pkg *packages.Package) {
+		for _, fname := range pkg.GoFiles {
+			if osutil.FilepathHasDirPrefix(fname, goRoot) {
+				continue
+			}
+
+			//fmt.Printf("progfile: %v\n", fname)
+			files.progFilenames[fname] = struct{}{}
+		}
+	})
+}
+
+//----------
+
+func (files *Files) addFilesImportingDebugPkg(pkgs []*packages.Package) error {
+	filenamesImp, err := files.filenamesImportingDebugPkg(pkgs)
+	if err != nil {
+		return err
+	}
+	// type of annotation in the files that import the debug pkg
+	for _, filename := range filenamesImp {
+		astFile, err := files.fullAstFile(filename)
+		if err != nil {
 			return err
+		}
+		typ := AstFileAnnotationType(astFile)
+		if typ.Annotated() {
+			files.keepAnnFilename(filename, typ)
+			// add directory containing package
+			if typ == AnnotationTypePackage {
+				dir := filepath.Dir(filename)
+				files.Add(dir)
+			}
 		}
 	}
 	return nil
 }
 
-//----------
-
 func (files *Files) filenamesImportingDebugPkg(pkgs []*packages.Package) ([]string, error) {
 	debugPkgPath := "github.com/jmigpin/editor/core/godebug/debug"
-
 	pkgsImp := PackagesImportingPkgPath(pkgs, debugPkgPath)
-
 	mode := parser.ImportsOnly // fast mode
-
 	u := []string{}
 	for _, pkg := range pkgsImp {
-		for _, filename := range pkgGoFiles(pkg) {
+		for _, filename := range pkg.GoFiles {
 			astFile, err := parser.ParseFile(files.fset, filename, nil, mode)
 			if err != nil {
 				return nil, err
@@ -242,23 +207,154 @@ func (files *Files) filenamesImportingDebugPkg(pkgs []*packages.Package) ([]stri
 }
 
 //----------
-//----------
-//----------
 
-type FileNote struct {
-	Filename string
-	JustCopy bool // true: ignore type and astfile, just copy (no annotation)
-	Type     AnnotationType
-	AstFile  *ast.File
+func (files *Files) solveFilenames() error {
+	for fname, _ := range files.filenames {
+		fi, err := os.Stat(fname)
+		if err != nil {
+			return err
+		}
+		if fi.IsDir() {
+			// add all dir program files
+			dir := fname
+			for k := range files.progFilenames {
+				// dir program file
+				if osutil.FilepathHasDirPrefix(k, dir) {
+					files.solveDirectoryFile(dir, k)
+				}
+			}
+		}
+		// must be a program file
+		_, ok := files.progFilenames[fname]
+		if ok {
+			files.keepAnnFilename(fname, AnnotationTypeFile)
+		}
+	}
+	return nil
+}
 
-	DebugSrc string
+func (files *Files) solveDirectoryFile(dir, filename string) {
+	// in subdirectory
+	rest := osutil.FilepathSplitAt(filename, len(dir))
+	inSubDir := strings.Index(rest, string(filepath.Separator)) >= 0
+
+	if !inSubDir {
+		files.keepAnnFilename(filename, AnnotationTypeFile)
+	}
 }
 
 //----------
-//----------
+
+func (files *Files) keepAnnFilename(filename string, typ AnnotationType) {
+	files.annFilenames[filename] = struct{}{}
+	t, ok := files.annTypes[filename]
+	if !ok || typ > t { // update if higher
+		files.annTypes[filename] = typ
+	}
+}
+
 //----------
 
-func AstFileAnnotationType(file *ast.File) (AnnotationType, bool) {
+func (files *Files) findGoMods() {
+	// assumes a go.mod will share the dir with an annotated file
+	seen := map[string]bool{}
+	for k := range files.annFilenames {
+		dir := filepath.Dir(k)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		fi, err := os.Stat(dir)
+		if err == nil && fi.IsDir() {
+			u := filepath.Join(dir, "go.mod")
+			fi2, err := os.Stat(u)
+			if err == nil && fi2.Mode().IsRegular() {
+				files.modFilenames[u] = struct{}{}
+			}
+		}
+	}
+}
+
+//----------
+
+func (files *Files) fullAstFile(filename string) (*ast.File, error) {
+	astFile, ok := files.cache.fullAstFile[filename]
+	if ok {
+		return astFile, nil
+	}
+	mode := parser.ParseComments // full mode
+	astFile, err := parser.ParseFile(files.fset, filename, nil, mode)
+	if err != nil {
+		return nil, err
+	}
+	files.cache.fullAstFile[filename] = astFile
+	return astFile, nil
+}
+
+//----------
+
+func (files *Files) findFilesToCopy(noModules bool) {
+	if noModules {
+		files.findParentDirsOfAnnotated()
+	} else {
+		files.findModulesFiles()
+	}
+}
+
+//----------
+
+func (files *Files) findModulesFiles() {
+	for fn1 := range files.modFilenames {
+		dir1 := filepath.Dir(fn1)
+		for fn2 := range files.progFilenames {
+			if osutil.FilepathHasDirPrefix(fn2, dir1) {
+				// inside dir tree of the mod file
+
+				if _, ok := files.annFilenames[fn2]; !ok { // not annotated
+					files.copyFilenames[fn2] = struct{}{}
+				}
+			}
+		}
+	}
+}
+
+//----------
+
+func (files *Files) findParentDirsOfAnnotated() {
+	// populate parent directories of annotated files
+	for fn1 := range files.annFilenames {
+		for fn2 := range files.progFilenames {
+			if fn1 == fn2 { // annotated files are not for copy-only
+				continue
+			}
+			dir2 := filepath.Dir(fn2)
+			if osutil.FilepathHasDirPrefix(fn1, dir2) {
+				files.copyFilenames[fn2] = struct{}{}
+			}
+		}
+	}
+}
+
+//----------
+
+type AnnotationType int
+
+func (t AnnotationType) Annotated() bool {
+	return t >= AnnotationTypeBlock
+}
+
+const (
+	// Order matters, last is the bigger set
+	AnnotationTypeNone AnnotationType = iota
+	//AnnotationTypeNoAnnotations                // used by annotator to stop annotating
+	AnnotationTypeBlock
+	AnnotationTypeFile
+	AnnotationTypePackage // last to be able to stop early
+)
+
+//----------
+
+func AstFileAnnotationType(file *ast.File) AnnotationType {
 	stop := false
 	typ := AnnotationTypeNone
 	var vis VisitorFn
@@ -272,8 +368,8 @@ func AstFileAnnotationType(file *ast.File) (AnnotationType, bool) {
 					if id.Name == "debug" {
 						u := AnnotationTypeNone
 						switch se.Sel.Name {
-						case "NoAnnotations":
-							u = AnnotationTypeNoAnnotations
+						//case "NoAnnotations":
+						//u = AnnotationTypeNoAnnotations
 						case "AnnotateBlock":
 							u = AnnotationTypeBlock
 						case "AnnotateFile":
@@ -292,36 +388,13 @@ func AstFileAnnotationType(file *ast.File) (AnnotationType, bool) {
 		return vis
 	}
 	ast.Walk(vis, file)
-	return typ, typ != AnnotationTypeNone
+	return typ
 }
-
-//----------
-
-type AnnotationType int
-
-const (
-	AnnotationTypeNone AnnotationType = iota
-	AnnotationTypeNoAnnotations
-	AnnotationTypeBlock
-	AnnotationTypeFile
-	AnnotationTypePackage // last to be able to stop early
-)
-
-//----------
 
 type VisitorFn func(ast.Node) ast.Visitor
 
 func (x VisitorFn) Visit(node ast.Node) ast.Visitor {
 	return x(node)
-}
-
-//----------
-//----------
-//----------
-
-func pkgGoFiles(pkg *packages.Package) []string {
-	return pkg.GoFiles
-	//return pkg.CompiledGoFiles
 }
 
 //----------
@@ -339,7 +412,7 @@ func PkgFilenames(ctx context.Context, dir string, tests bool) ([]string, error)
 	}
 	files := []string{}
 	for _, pkg := range pkgs {
-		files = append(files, pkgGoFiles(pkg)...)
+		files = append(files, pkg.GoFiles...)
 	}
 	return files, nil
 }
@@ -355,7 +428,7 @@ func ProgramPackages(ctx context.Context, mode packages.LoadMode, dir, filename 
 		Mode:    mode,
 	}
 	pattern := ""
-	if filename != "" {
+	if !tests && filename != "" {
 		pattern = "file=" + filename
 	}
 	pkgs, err := packages.Load(cfg, pattern)
@@ -427,79 +500,3 @@ func FileImportsPkgPath(file *ast.File, pkgPath string) bool {
 	}
 	return false
 }
-
-//----------
-
-func AstFileFilename(astFile *ast.File, fset *token.FileSet) (string, error) {
-	if astFile == nil {
-		panic("!")
-	}
-	tfile := fset.File(astFile.Package)
-	if tfile == nil {
-		return "", fmt.Errorf("not found")
-	}
-	return tfile.Name(), nil
-}
-
-//----------
-
-func PopulateParentPkgDirs(ctx context.Context, files *Files, tests bool) error {
-	// don't copy annotated files
-	noCopy := map[string]struct{}{}
-	for _, v := range files.notes {
-		if v.Type > 0 {
-			noCopy[v.Filename] = struct{}{}
-		}
-	}
-	// populate parent directories
-	vis := map[string]struct{}{}
-	for _, v := range files.notes {
-		if v.Type > 0 {
-			dir := filepath.Dir(v.Filename)
-			err := populateDir(ctx, files, tests, dir, vis, noCopy)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func populateDir(ctx context.Context, files *Files, tests bool, dir string, vis map[string]struct{}, noCopy map[string]struct{}) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	// don't populate an already visited dir
-	if _, ok := vis[dir]; ok {
-		return nil
-	}
-	vis[dir] = struct{}{}
-
-	// visit only up to srcdir
-	// TODO: based this somehow on packages.*?
-	srcDir, _ := goutil.ExtractSrcDir(dir)
-	if len(srcDir) <= 1 || strings.Index(dir, srcDir) < 0 {
-		return nil
-	}
-
-	// filenote to populate dir (files that need to be copied)
-	filenames, err := PkgFilenames(ctx, dir, tests)
-	if err != nil {
-		return err
-	}
-	for _, fname := range filenames {
-		if _, ok := noCopy[fname]; ok {
-			continue
-		}
-		note := &FileNote{Filename: fname, JustCopy: true}
-		note.DebugSrc = "populate dir (just copy)"
-		files.addFileNote(note)
-	}
-
-	// visit parent dir
-	pdir := filepath.Dir(dir)
-	return populateDir(ctx, files, tests, pdir, vis, noCopy)
-}
-
-//----------

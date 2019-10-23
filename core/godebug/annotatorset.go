@@ -14,10 +14,14 @@ import (
 	"sync"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/goutil"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
 const debugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
+const GoDebugConfigPkgPath = "example.com/godebugconfig"
+
+//----------
 
 type AnnotatorSet struct {
 	FSet           *token.FileSet
@@ -50,7 +54,7 @@ func NewAnnotatorSet() *AnnotatorSet {
 //----------
 
 func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, typ AnnotationType) error {
-	filename, err := AstFileFilename(astFile, annset.FSet)
+	filename, err := goutil.AstFileFilename(astFile, annset.FSet)
 	if err != nil {
 		return err
 	}
@@ -78,7 +82,7 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, typ AnnotationTyp
 		annset.insertImportDebug(astFile)
 
 		// insert in all files to ensure inner init function runs
-		annset.insertImport(astFile, "_", "godebugconfig")
+		annset.insertImport(astFile, "_", GoDebugConfigPkgPath)
 
 		// insert exit in main
 		ok := annset.insertDebugExitInFunction(astFile, "main")
@@ -98,57 +102,6 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, typ AnnotationTyp
 
 	return nil
 }
-
-//----------
-
-//func (annset *AnnotatorSet) AnnotateFile(filename string, src interface{}) (*ast.File, error) {
-//	srcb, err := goutil.ReadSource(filename, src)
-//	if err != nil {
-//		return nil, err
-//	}
-
-//	afd := annset.annotatorFileData(filename, srcb)
-
-//	ann := &Annotator{
-//		debugPkgName:   annset.debugPkgName,
-//		debugVarPrefix: annset.debugVarPrefix,
-//		fileIndex:      afd.FileIndex,
-//		fset:           annset.FSet,
-//	}
-
-//	astFile, err := ann.ParseAnnotateFile(filename, srcb)
-//	if err != nil {
-//		return nil, err
-//	}
-
-//	// n debug stmts inserted
-//	afd.DebugLen = ann.debugIndex
-
-//	// insert imports if debug stmts were inserted
-//	if ann.builtDebugLineStmt {
-//		annset.insertImportDebug(astFile)
-
-//		// insert in all files to ensure inner init function runs
-//		annset.insertImport(astFile, "_", "godebugconfig")
-
-//		// insert exit in main
-//		ok := annset.insertDebugExitInFunction(astFile, "main")
-//		if !annset.InsertedExitIn.Main {
-//			annset.InsertedExitIn.Main = ok
-//		}
-
-//		// insert exit in testmain
-//		ok = annset.insertDebugExitInFunction(astFile, "TestMain")
-//		if !annset.InsertedExitIn.TestMain {
-//			annset.InsertedExitIn.TestMain = ok
-//		}
-
-//		// keep test files package names in case of need to build testmain files
-//		annset.keepTestPackage(filename, astFile)
-//	}
-
-//	return astFile, nil
-//}
 
 //----------
 
@@ -230,9 +183,8 @@ func (annset *AnnotatorSet) Print(w io.Writer, astFile *ast.File) error {
 
 //----------
 
-func (annset *AnnotatorSet) ConfigSource() (string, string) {
-	// content
-	entriesStr := annset.buildConfigSourceEntries()
+func (annset *AnnotatorSet) ConfigContent() string {
+	entriesStr := annset.buildConfigContentEntries()
 	src := `package godebugconfig
 import "` + debugPkgPath + `"
 func init(){
@@ -241,17 +193,13 @@ func init(){
 	debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
 		` + entriesStr + `
 	}
-
 	debug.StartServer()
 }
 	`
-
-	pkgFilename := "godebugconfig/config.go"
-
-	return src, pkgFilename
+	return src
 }
 
-func (annset *AnnotatorSet) buildConfigSourceEntries() string {
+func (annset *AnnotatorSet) buildConfigContentEntries() string {
 	// build map data
 	var u []string
 	for _, afd := range annset.fdata.a {
@@ -270,6 +218,12 @@ func (annset *AnnotatorSet) buildConfigSourceEntries() string {
 		u = append(u, s+",")
 	}
 	return strings.Join(u, "\n")
+}
+
+//----------
+
+func (annset *AnnotatorSet) ConfigGoModuleSource() string {
+	return `module godebugconfig\n`
 }
 
 //----------
@@ -350,4 +304,11 @@ func ParseAnnotateFileSrcForAnnSet(annset *AnnotatorSet, filename string, src in
 		return nil, err
 	}
 	return astFile, nil
+}
+
+//----------
+
+func GoDebugConfigFilepathName(name string) string {
+	p := filepath.FromSlash(GoDebugConfigPkgPath)
+	return filepath.Join(p, name)
 }

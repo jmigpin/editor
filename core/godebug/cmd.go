@@ -1,6 +1,7 @@
 package godebug
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -22,7 +23,8 @@ import (
 )
 
 type Cmd struct {
-	Client *Client
+	Client    *Client
+	NoModules bool // not in go.mod modules
 
 	Dir    string // "" will use current dir
 	Stdout io.Writer
@@ -59,11 +61,21 @@ type Cmd struct {
 }
 
 func NewCmd() *Cmd {
-	return &Cmd{
+	cmd := &Cmd{
 		annset: NewAnnotatorSet(),
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+	if os.Getenv("GO111MODULE") == "off" {
+		cmd.NoModules = true
+	}
+	return cmd
+}
+
+//------------
+
+func (cmd *Cmd) Printf(format string, a ...interface{}) (int, error) {
+	return fmt.Fprintf(cmd.Stdout, format, a...)
 }
 
 //------------
@@ -80,12 +92,33 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 		cmd.Dir = u
 	}
 
-	// tmp dir for annotated files
-	tmpDir, err := ioutil.TempDir(os.TempDir(), "editor_godebug_tmp")
-	if err != nil {
-		return true, err
+	if cmd.flags.verbose {
+		cmd.Printf("nomodules=%v\n", cmd.NoModules)
 	}
-	cmd.tmpDir = tmpDir
+
+	// tmp dir for building
+	if cmd.NoModules {
+		d := "editor_godebug_gopath_work"
+		tmpDir, err := ioutil.TempDir(os.TempDir(), d)
+		if err != nil {
+			return true, err
+		}
+		cmd.tmpDir = tmpDir
+	} else {
+		d := "editor_godebug_mod_work"
+
+		// The fixed directory will improve the file sync performance since modules require the whole directory to be there (not like gopath)
+		// TODO: will have problems running more then one debug session in different editor sessions
+		//d += "_"+md5.Sum([]byte(cmd.Dir))
+
+		//cmd.tmpDir = filepath.Join(os.TempDir(), d)
+
+		tmpDir, err := ioutil.TempDir(os.TempDir(), d)
+		if err != nil {
+			return true, err
+		}
+		cmd.tmpDir = tmpDir
+	}
 
 	// print tmp dir if work flag is present
 	if cmd.flags.work {
@@ -96,7 +129,6 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 
 	if m.run || m.test || m.build {
 		setupServerNetAddr(cmd.flags.address)
-		//err := cmd.initMode(ctx)
 		err := cmd.initAndAnnotate(ctx)
 		if err != nil {
 			return true, err
@@ -132,16 +164,15 @@ func (cmd *Cmd) Wait() error {
 //------------
 
 func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
-	// TODO: pass flags to files (run, etc) to detect in programspkgs which files are used in the build process and avoid including all files of the pkgs in test mode
-
 	files := NewFiles(cmd.annset.FSet)
 	files.Dir = cmd.Dir
 
 	files.Add(cmd.flags.files...)
 	files.Add(cmd.flags.dirs...)
 
-	mainFilename := cmd.flags.filename
-	notes, err := files.Do(ctx, &mainFilename, cmd.flags.mode.test)
+	mainFilename := files.absFilename(cmd.flags.filename)
+
+	err := files.Do(ctx, mainFilename, cmd.flags.mode.test, cmd.NoModules)
 	if err != nil {
 		return err
 	}
@@ -151,38 +182,46 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 		return err
 	}
 
-	// verbose
 	if cmd.flags.verbose {
-		for _, note := range notes {
-			// name to output
-			d, name := filepath.Split(note.Filename)
-			if len(d) > 0 {
-				_, d2 := filepath.Split(d[:len(d)-1])
-				name = filepath.Join(d2, name)
-			}
+		files.verbose(cmd)
+	}
 
-			s1 := fmt.Sprintf("%v", note.Type)
-			if note.JustCopy {
-				s1 = "(copy)"
-			}
-			fmt.Fprintf(cmd.Stdout, "%v %v %v\n", name, s1, note.DebugSrc)
+	// copy
+	for filename := range files.copyFilenames {
+		dst := cmd.tmpDirBasedFilename(filename)
+		if err := mkdirAllCopyFileSync(filename, dst); err != nil {
+			return err
+		}
+	}
+	for filename := range files.modFilenames {
+		dst := cmd.tmpDirBasedFilename(filename)
+		if err := mkdirAllCopyFileSync(filename, dst); err != nil {
+			return err
 		}
 	}
 
 	// annotate
-	for _, note := range notes {
-		if err := cmd.annotateFileNote(note); err != nil {
+	for filename := range files.annFilenames {
+		dst := cmd.tmpDirBasedFilename(filename)
+		typ := files.annTypes[filename]
+		astFile, err := files.fullAstFile(filename)
+		if err != nil {
+			return err
+		}
+		if err := cmd.annset.AnnotateAstFile(astFile, typ); err != nil {
+			return err
+		}
+		if err := cmd.mkdirAllWriteAstFile(dst, astFile); err != nil {
 			return err
 		}
 	}
 
 	// write config file after annotations
-	if err := cmd.writeConfigFileToTmpDir(); err != nil {
+	if err := cmd.writeGoDebugConfigFilesToTmpDir(); err != nil {
 		return err
 	}
 
 	// create testmain file
-	// TODO: test file dir package was added in files
 	if cmd.flags.mode.test && !cmd.annset.InsertedExitIn.TestMain {
 		if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
 			return err
@@ -192,6 +231,12 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 	// main must have exit inserted
 	if !cmd.flags.mode.test && !cmd.annset.InsertedExitIn.Main {
 		return fmt.Errorf("have not inserted debug exit in main()")
+	}
+
+	if !cmd.NoModules {
+		if err := SetupGoMods(ctx, cmd, files, mainFilename, cmd.flags.mode.test); err != nil {
+			return err
+		}
 	}
 
 	return cmd.doBuild(ctx, mainFilename, cmd.flags.mode.test)
@@ -241,23 +286,6 @@ func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) e
 	}
 	os.Remove(filenameOut)
 	return nil
-}
-
-func (cmd *Cmd) annotateFileNote(note *FileNote) error {
-	if note.JustCopy {
-		fname := note.Filename
-		fnameAtTmp := cmd.tmpDirBasedFilename(fname)
-		if err := mkdirAllCopyFile(fname, fnameAtTmp); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	err := cmd.annset.AnnotateAstFile(note.AstFile, note.Type)
-	if err != nil {
-		return err
-	}
-	return cmd.writeAstFileToTmpDir(note.AstFile)
 }
 
 //------------
@@ -354,21 +382,27 @@ func (cmd *Cmd) RequestStart() error {
 //------------
 
 func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
+	// remove volume name
 	v := filepath.VolumeName(filename)
 	if len(v) > 0 {
 		filename = filename[len(v):]
 	}
-
-	_, rest := goutil.ExtractSrcDir(filename)
-	return filepath.Join(cmd.tmpDir, "src", rest)
+	if cmd.NoModules {
+		// trim filename when inside a src dir
+		_, rest := goutil.ExtractSrcDir(filename)
+		return filepath.Join(cmd.tmpDir, "src", rest)
+	}
+	return filepath.Join(cmd.tmpDir, filename)
 }
 
 //------------
 
 func (cmd *Cmd) environ() []string {
 	env := os.Environ()
-	// gopath
-	env = append(env, cmd.environGoPath())
+	if cmd.NoModules {
+		// gopath
+		env = append(env, cmd.environGoPath())
+	}
 	// add cmd line env vars
 	for _, s := range cmd.flags.env {
 		env = append(env, s)
@@ -377,17 +411,23 @@ func (cmd *Cmd) environ() []string {
 }
 
 func (cmd *Cmd) environGoPath() string {
-	gopath := []string{}
+	if !cmd.NoModules {
+		panic("must be in nomodules mode")
+	}
+
+	goPath := []string{}
 	// Add a fixed gopath directory in a temporary location for caching downloaded modules packages for godebug.
 	// This solves downloading modules every time a godebug session is started since the default directory for downloading is the first directory defined in the GOPATH env.
-	cacheTmpDir := filepath.Join(os.TempDir(), "editor_godebug_cache")
-	gopath = append(gopath, cacheTmpDir)
+	cacheTmpDir := filepath.Join(os.TempDir(), "editor_godebug_gopath_cache")
+	goPath = append(goPath, cacheTmpDir)
+
 	// add tmpdir to gopath to allow the compiler to give priority to the annotated files
-	gopath = append(gopath, cmd.tmpDir)
+	goPath = append(goPath, cmd.tmpDir)
+
 	// add already defined gopath
-	gopath = append(gopath, goutil.GoPath()...)
+	goPath = append(goPath, goutil.GoPath()...)
 	// build gopath string
-	return "GOPATH=" + strings.Join(gopath, string(os.PathListSeparator))
+	return "GOPATH=" + strings.Join(goPath, string(os.PathListSeparator))
 }
 
 //------------
@@ -403,6 +443,7 @@ func (cmd *Cmd) Cleanup() {
 		return
 	}
 
+	//if cmd.tmpDir != "" && cmd.NoModules {
 	if cmd.tmpDir != "" {
 		_ = os.RemoveAll(cmd.tmpDir)
 	}
@@ -439,7 +480,13 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 	}
 
 	dir := filepath.Dir(filenameOut)
+	if cmd.flags.verbose {
+		cmd.Printf("runBuildCmd: dir=%v\n", dir)
+	}
 	err := cmd.runCmd(ctx, dir, args, cmd.environ())
+	if err != nil {
+		err = fmt.Errorf("runBuildCmd: %v", err)
+	}
 	return filenameOut, err
 }
 
@@ -489,34 +536,34 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 
 //------------
 
-func (cmd *Cmd) writeAstFileToTmpDir(astFile *ast.File) error {
-	// filename
-	tokFile := cmd.annset.FSet.File(astFile.Package)
-	if tokFile == nil {
-		return fmt.Errorf("unable to get pos token file")
-	}
-	filename := tokFile.Name()
-
-	// create path directories in destination
-	destFilename := cmd.tmpDirBasedFilename(filename)
-	if err := os.MkdirAll(filepath.Dir(destFilename), 0770); err != nil {
+func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
+	buf := &bytes.Buffer{}
+	if err := cmd.annset.Print(buf, astFile); err != nil {
 		return err
 	}
-
-	// write file
-	f, err := os.Create(destFilename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return cmd.annset.Print(f, astFile)
+	return mkdirAllWriteFile(filename, buf.Bytes())
 }
 
-func (cmd *Cmd) writeConfigFileToTmpDir() error {
-	src, filename := cmd.annset.ConfigSource()
+//------------
+
+func (cmd *Cmd) writeGoDebugConfigFilesToTmpDir() error {
+	// godebugconfig pkg: config.go
+	filename := GoDebugConfigFilepathName("config.go")
+	src := cmd.annset.ConfigContent()
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-	return mkdirAllWriteFile(filenameAtTmp, []byte(src))
+	if err := mkdirAllWriteFile(filenameAtTmp, []byte(src)); err != nil {
+		return err
+	}
+	if !cmd.NoModules {
+		// godebugconfig pkg: go.mod
+		filename2 := GoDebugConfigFilepathName("go.mod")
+		src2 := cmd.annset.ConfigGoModuleSource()
+		filenameAtTmp2 := cmd.tmpDirBasedFilename(filename2)
+		if err := mkdirAllWriteFile(filenameAtTmp2, []byte(src2)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (cmd *Cmd) writeTestMainFilesToTmpDir() error {
@@ -559,6 +606,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
+	env := f.String("env", "", "set env variables, separated by comma (ex: \"GOOS=linux,...\"'")
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -571,6 +619,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 
 	cmd.flags.dirs = splitCommaList(*dirs)
 	cmd.flags.files = splitCommaList(*files)
+	cmd.flags.env = strings.Split(*env, ",")
 	cmd.flags.otherArgs = f.Args()
 
 	if len(cmd.flags.otherArgs) > 0 {
@@ -589,6 +638,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 	run := f.String("run", "", "run test")
 	verboseTests := f.Bool("v", false, "verbose tests")
+	env := f.String("env", "", "set env variables, separated by comma (ex: \"GOOS=linux,...\"'")
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -601,6 +651,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 
 	cmd.flags.dirs = splitCommaList(*dirs)
 	cmd.flags.files = splitCommaList(*files)
+	cmd.flags.env = strings.Split(*env, ",")
 	cmd.flags.otherArgs = f.Args()
 
 	// set test run flag at other flags to pass to the test exec
@@ -609,7 +660,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
 	}
 
-	// verbose tests
+	// verbose
 	if *verboseTests {
 		a := []string{"-test.v"}
 		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
@@ -621,10 +672,11 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
 	f.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
+	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 	addr := f.String("addr", "", "address to serve from, built into the binary")
-	env := f.String("env", "", "set env variables for build, separated by comma (ex: \"GOOS=linux,...\"'")
+	env := f.String("env", "", "set env variables, separated by comma (ex: \"GOOS=linux,...\"'")
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -711,13 +763,40 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer from.Close()
-	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0660)
+	to, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
 	defer to.Close()
 	_, err = io.Copy(to, from)
 	return err
+}
+
+//------------
+
+func mkdirAllCopyFileSync(src, dst string) error {
+	// must exist in src
+	info1, err := os.Stat(src)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("not found in src: %v", src)
+	}
+
+	// already exists in dest with same modification time
+	info2, err := os.Stat(dst)
+	if !os.IsNotExist(err) {
+		// compare modification time in src
+		if info2.ModTime().Equal(info1.ModTime()) {
+			return nil
+		}
+	}
+
+	if err := mkdirAllCopyFile(src, dst); err != nil {
+		return err
+	}
+
+	// set modtime equal to src to avoid copy next time
+	t := info1.ModTime().Local()
+	return os.Chtimes(dst, t, t)
 }
 
 //------------
