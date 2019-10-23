@@ -438,15 +438,14 @@ func (cmd *Cmd) Cleanup() {
 		_ = os.Remove(debug.ServerAddress)
 	}
 
-	// don't cleanup
 	if cmd.flags.work {
-		return
+		// don't cleanup work dir
+	} else {
+		if cmd.tmpDir != "" {
+			_ = os.RemoveAll(cmd.tmpDir)
+		}
 	}
 
-	//if cmd.tmpDir != "" && cmd.NoModules {
-	if cmd.tmpDir != "" {
-		_ = os.RemoveAll(cmd.tmpDir)
-	}
 	if cmd.tmpBuiltFile != "" && !cmd.flags.mode.build {
 		_ = os.Remove(cmd.tmpBuiltFile)
 	}
