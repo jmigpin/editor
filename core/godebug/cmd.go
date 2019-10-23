@@ -557,7 +557,7 @@ func (cmd *Cmd) writeGoDebugConfigFilesToTmpDir() error {
 	if !cmd.NoModules {
 		// godebugconfig pkg: go.mod
 		filename2 := GoDebugConfigFilepathName("go.mod")
-		src2 := cmd.annset.ConfigGoModuleSource()
+		src2 := cmd.annset.ConfigGoModuleContent()
 		filenameAtTmp2 := cmd.tmpDirBasedFilename(filename2)
 		if err := mkdirAllWriteFile(filenameAtTmp2, []byte(src2)); err != nil {
 			return err

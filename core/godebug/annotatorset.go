@@ -222,8 +222,8 @@ func (annset *AnnotatorSet) buildConfigContentEntries() string {
 
 //----------
 
-func (annset *AnnotatorSet) ConfigGoModuleSource() string {
-	return `module godebugconfig\n`
+func (annset *AnnotatorSet) ConfigGoModuleContent() string {
+	return "module godebugconfig\n"
 }
 
 //----------
