@@ -21,12 +21,13 @@ import (
 type Files struct {
 	Dir string
 
-	filenames     map[string]struct{} // filenames to solve
-	progFilenames map[string]struct{} // program filenames (loaded)
-	annFilenames  map[string]struct{} // to annotate
-	copyFilenames map[string]struct{} // to copy
-	modFilenames  map[string]struct{} // go.mod's
-	annTypes      map[string]AnnotationType
+	filenames       map[string]struct{} // filenames to solve
+	progFilenames   map[string]struct{} // program filenames (loaded)
+	progDirPkgPaths map[string]string   // prog dir pkg path
+	annFilenames    map[string]struct{} // to annotate
+	copyFilenames   map[string]struct{} // to copy
+	modFilenames    map[string]struct{} // go.mod's
+	annTypes        map[string]AnnotationType
 
 	fset  *token.FileSet
 	cache struct {
@@ -40,6 +41,7 @@ func NewFiles(fset *token.FileSet) *Files {
 	files := &Files{fset: fset}
 	files.filenames = map[string]struct{}{}
 	files.progFilenames = map[string]struct{}{}
+	files.progDirPkgPaths = map[string]string{}
 	files.annFilenames = map[string]struct{}{}
 	files.copyFilenames = map[string]struct{}{}
 	files.modFilenames = map[string]struct{}{}
@@ -83,6 +85,7 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noM
 		files.Add(mainFilename) // direct add for annotation
 	}
 
+	// TODO: add only test files, not whole directory
 	// add tests directory
 	if tests && files.Dir != "" {
 		files.Add(files.Dir) // direct add for annotation
@@ -113,15 +116,12 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noM
 	files.findGoMods()
 	files.findFilesToCopy(noModules)
 
-	//spew.Dump(files.progFilenames)
-	//spew.Dump(files.modFilenames)
-	//spew.Dump(files.annFilenames)
-	//spew.Dump(files.copyFilenames)
-
 	return nil
 }
 
 func (files *Files) verbose(cmd *Cmd) {
+	cmd.Printf("program:\n")
+	files.verboseMap(cmd, files.progFilenames)
 	cmd.Printf("annotate:\n")
 	files.verboseMap(cmd, files.annFilenames)
 	cmd.Printf("copy:\n")
@@ -150,15 +150,35 @@ func (files *Files) populateProgFilenamesMap(pkgs []*packages.Package) {
 
 	// all filenames in the program (except goroot)
 	packages.Visit(pkgs, nil, func(pkg *packages.Package) {
+
 		for _, fname := range pkg.GoFiles {
 			if osutil.FilepathHasDirPrefix(fname, goRoot) {
 				continue
 			}
 
 			//fmt.Printf("progfile: %v\n", fname)
+
 			files.progFilenames[fname] = struct{}{}
+
+			// map pkg path
+			dir := filepath.Dir(fname)
+			files.progDirPkgPaths[dir] = pkg.PkgPath
 		}
 	})
+}
+
+//----------
+
+func (files *Files) pkgPathDir(filename string) (string, bool) {
+	if p, ok := files.progDirPkgPaths[filename]; ok {
+		return p, true
+	}
+	d := filepath.Dir(filename)
+	if p, ok := files.progDirPkgPaths[d]; ok {
+		u := filepath.Join(p, filepath.Base(filename))
+		return u, true
+	}
+	return "", false
 }
 
 //----------
@@ -256,20 +276,27 @@ func (files *Files) keepAnnFilename(filename string, typ AnnotationType) {
 //----------
 
 func (files *Files) findGoMods() {
-	// assumes a go.mod will share the dir with an annotated file
+	// searches annotated files parent directories
 	seen := map[string]bool{}
 	for k := range files.annFilenames {
-		dir := filepath.Dir(k)
-		if seen[k] {
-			continue
-		}
-		seen[k] = true
-		fi, err := os.Stat(dir)
-		if err == nil && fi.IsDir() {
-			u := filepath.Join(dir, "go.mod")
-			fi2, err := os.Stat(u)
-			if err == nil && fi2.Mode().IsRegular() {
-				files.modFilenames[u] = struct{}{}
+		dir := k
+		for {
+			dir = filepath.Dir(dir) // parent dir
+
+			if seen[dir] {
+				break
+			}
+			seen[dir] = true
+
+			// check if dir has go.mod
+			fi, err := os.Stat(dir)
+			if err == nil && fi.IsDir() {
+				u := filepath.Join(dir, "go.mod")
+				fi2, err := os.Stat(u)
+				if err == nil && fi2.Mode().IsRegular() {
+					files.modFilenames[u] = struct{}{}
+					break // break inner loop
+				}
 			}
 		}
 	}

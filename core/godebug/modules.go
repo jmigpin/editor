@@ -7,6 +7,10 @@ import (
 	"github.com/jmigpin/editor/util/goutil"
 )
 
+// use specific version to reduce go tools trying to "finding" it
+// TODO: this must be updated on "core/godebug" changes (chicken-and-egg problem)
+const GoDebugEditorVersion = "v0.0.0-20191023063035-c692faa0d213"
+
 func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files, mainFilename string, tests bool) error {
 	dir := filepath.Dir(mainFilename)
 	if tests {
@@ -15,42 +19,34 @@ func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files, mainFilename strin
 
 	// no go.mod defined (probably small simple file)
 	if len(files.modFilenames) == 0 {
+		// create go.mod file at tmp
 		dirAtTmp := cmd.tmpDirBasedFilename(dir)
-
-		// create mod file at tmp
-		mod := "example.com/main"
-		if err := goutil.GoModCreate(dirAtTmp, mod); err != nil {
+		content := "module example.com/main\n"
+		if err := goutil.GoModCreateContent(dirAtTmp, content); err != nil {
 			return err
 		}
 
-		// add to go.mod the godebugconfig location
-		if err := replaceGodebugconfigPkgInGoMod(ctx, cmd, dirAtTmp); err != nil {
+		if err := setupGoMod(ctx, cmd, files, dir); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	// update main go.mod (mainFilename)
+	// updating all found go.mods, only the main one will be used
 	for filename := range files.modFilenames {
-		// find main go.mod
+		// update go.mod
 		dir2 := filepath.Dir(filename)
-		if dir2 == dir {
-			if err := setupGoMod(ctx, cmd, files, filename); err != nil {
-				return err
-			}
-			// update only the main go.mod
-			break
+		if err := setupGoMod(ctx, cmd, files, dir2); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, filename string) error {
-	dir := filepath.Dir(filename)
-
+func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, dir string) error {
 	// add to go.mod the godebugconfig location
 	dirAtTmp := cmd.tmpDirBasedFilename(dir)
-	if err := replaceGodebugconfigPkgInGoMod(ctx, cmd, dirAtTmp); err != nil {
+	if err := setupGodebugGoMod(ctx, cmd, dirAtTmp); err != nil {
 		return err
 	}
 
@@ -78,7 +74,7 @@ func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, filename string) er
 	// update/add "replaces" for the other mod files (annotated pkgs)
 	for filename2 := range files.modFilenames {
 		dir2 := filepath.Dir(filename2)
-		if dir2 == dir { // same file
+		if dir2 == dir { // same dir (same go mod file)
 			continue
 		}
 		dirAtTmp2 := cmd.tmpDirBasedFilename(dir2)
@@ -102,8 +98,22 @@ func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, filename string) er
 	return nil
 }
 
-func replaceGodebugconfigPkgInGoMod(ctx context.Context, cmd *Cmd, dirAtTmp string) error {
-	gdcPkgPath := "example.com/godebugconfig"
-	gdcDir := filepath.Join(cmd.tmpDir, gdcPkgPath)
-	return goutil.GoModReplace(ctx, dirAtTmp, gdcPkgPath, gdcDir)
+func setupGodebugGoMod(ctx context.Context, cmd *Cmd, dir string) error {
+	// require editor (avoids the go tooling "finding latest")
+	path1 := "github.com/jmigpin/editor@" + GoDebugEditorVersion
+	if err := goutil.GoModRequire(ctx, dir, path1); err != nil {
+		return err
+	}
+	// require godebugconfig
+	path2 := GoDebugConfigPkgPath + "@v0.0.0"
+	if err := goutil.GoModRequire(ctx, dir, path2); err != nil {
+		return err
+	}
+	// replace godebugconfig (point to tmp dir)
+	oldPath := GoDebugConfigPkgPath
+	newPath := filepath.Join(cmd.tmpDir, GoDebugConfigPkgPath)
+	if err := goutil.GoModReplace(ctx, dir, oldPath, newPath); err != nil {
+		return err
+	}
+	return nil
 }

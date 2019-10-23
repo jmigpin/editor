@@ -126,17 +126,8 @@ func (annset *AnnotatorSet) insertDebugExitInFunction(astFile *ast.File, name st
 		},
 	}
 
-	// insert
-	//fd.Body.List = sann.insertInStmts(stmt1, 0, fd.Body.List)
-	done := false
-	pre := func(c *astutil.Cursor) bool {
-		if !done && c.Index() >= 0 { // insert as first stmt
-			c.InsertBefore(stmt1)
-			done = true
-		}
-		return !done
-	}
-	astutil.Apply(fd.Body, pre, nil)
+	// insert as first stmt
+	fd.Body.List = append([]ast.Stmt{stmt1}, fd.Body.List...)
 
 	return true
 }
@@ -223,7 +214,7 @@ func (annset *AnnotatorSet) buildConfigContentEntries() string {
 //----------
 
 func (annset *AnnotatorSet) ConfigGoModuleContent() string {
-	return "module godebugconfig\n"
+	return "module " + GoDebugConfigPkgPath + "\n"
 }
 
 //----------

@@ -31,6 +31,7 @@ type Cmd struct {
 	Stderr io.Writer
 
 	annset *AnnotatorSet
+	//files  *Files
 
 	tmpDir       string
 	tmpBuiltFile string // file built and exec'd
@@ -111,7 +112,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 		// TODO: will have problems running more then one debug session in different editor sessions
 		//d += "_"+md5.Sum([]byte(cmd.Dir))
 
-		//cmd.tmpDir = filepath.Join(os.TempDir(), d)
+		//tmpDir := filepath.Join(os.TempDir(), d)
 
 		tmpDir, err := ioutil.TempDir(os.TempDir(), d)
 		if err != nil {
@@ -166,6 +167,8 @@ func (cmd *Cmd) Wait() error {
 func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 	files := NewFiles(cmd.annset.FSet)
 	files.Dir = cmd.Dir
+
+	//cmd.files = files // TODO
 
 	files.Add(cmd.flags.files...)
 	files.Add(cmd.flags.dirs...)
@@ -291,15 +294,13 @@ func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) e
 //------------
 
 func (cmd *Cmd) startServerClient(ctx context.Context) error {
-	filenameWork := cmd.tmpBuiltFile
-
 	// server/client context to cancel the other when one of them ends
 	ctx2, cancel := context.WithCancel(ctx)
 	cmd.start.cancel = cancel
 
-	// arguments
-	filenameWork2 := normalizeFilenameForExec(filenameWork)
-	args := []string{filenameWork2}
+	// arguments (TODO: review normalize...)
+	w := normalizeFilenameForExec(cmd.tmpBuiltFile)
+	args := []string{w}
 	if cmd.flags.mode.test {
 		args = append(args, cmd.flags.runArgs...)
 	} else {
@@ -387,21 +388,48 @@ func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 	if len(v) > 0 {
 		filename = filename[len(v):]
 	}
+
 	if cmd.NoModules {
 		// trim filename when inside a src dir
-		_, rest := goutil.ExtractSrcDir(filename)
-		return filepath.Join(cmd.tmpDir, "src", rest)
+		//_, rest := goutil.ExtractSrcDir(filename)
+		rhs := trimAtFirstSrcDir(filename)
+		return filepath.Join(cmd.tmpDir, "src", rhs)
 	}
+
+	//// based on pkg path (TODO: not the same as module path)
+	//u, ok := cmd.files.pkgPathDir(filename)
+	//if ok {
+	//	return filepath.Join(cmd.tmpDir, u)
+	//}
+
+	// just replicate on tmp dir
 	return filepath.Join(cmd.tmpDir, filename)
+}
+
+func trimAtFirstSrcDir(filename string) string {
+	v := filename
+	w := []string{}
+	for {
+		base := filepath.Base(v)
+		if base == "src" {
+			return filepath.Join(w...) // trimmed
+		}
+		w = append([]string{base}, w...)
+		v = filepath.Dir(v)
+		if v == "/" || v == "." {
+			break
+		}
+	}
+	return filename
 }
 
 //------------
 
 func (cmd *Cmd) environ() []string {
 	env := os.Environ()
-	if cmd.NoModules {
-		// gopath
-		env = append(env, cmd.environGoPath())
+	// gopath
+	if s, ok := cmd.environGoPath(); ok {
+		env = append(env, s)
 	}
 	// add cmd line env vars
 	for _, s := range cmd.flags.env {
@@ -410,14 +438,18 @@ func (cmd *Cmd) environ() []string {
 	return env
 }
 
-func (cmd *Cmd) environGoPath() string {
+func (cmd *Cmd) environGoPath() (string, bool) {
 	if !cmd.NoModules {
-		panic("must be in nomodules mode")
+		return "", false
 	}
 
 	goPath := []string{}
-	// Add a fixed gopath directory in a temporary location for caching downloaded modules packages for godebug.
-	// This solves downloading modules every time a godebug session is started since the default directory for downloading is the first directory defined in the GOPATH env.
+
+	// Add a fixed gopath tmp directory for pkgs cache.
+	// Helps reduce downloading pkgs on a godebug session.
+	// The the default download dir seems to be the first gopath dir.
+	// If it is a tmp dir, it will download everytime.
+	// On the other hand, the added tmp dir needs to have higher priority then the rest of the gopath, hence this "cache" dir.
 	cacheTmpDir := filepath.Join(os.TempDir(), "editor_godebug_gopath_cache")
 	goPath = append(goPath, cacheTmpDir)
 
@@ -427,7 +459,8 @@ func (cmd *Cmd) environGoPath() string {
 	// add already defined gopath
 	goPath = append(goPath, goutil.GoPath()...)
 	// build gopath string
-	return "GOPATH=" + strings.Join(goPath, string(os.PathListSeparator))
+	s := "GOPATH=" + goutil.JoinPathLists(goPath...)
+	return s, true
 }
 
 //------------
@@ -435,19 +468,29 @@ func (cmd *Cmd) environGoPath() string {
 func (cmd *Cmd) Cleanup() {
 	// cleanup unix socket in case of bad stop
 	if debug.ServerNetwork == "unix" {
-		_ = os.Remove(debug.ServerAddress)
+		if err := os.Remove(debug.ServerAddress); err != nil {
+			if !os.IsNotExist(err) {
+				cmd.Printf("cleanup err: %v\n", err)
+			}
+		}
 	}
 
 	if cmd.flags.work {
 		// don't cleanup work dir
 	} else {
 		if cmd.tmpDir != "" {
-			_ = os.RemoveAll(cmd.tmpDir)
+			if err := os.RemoveAll(cmd.tmpDir); err != nil {
+				cmd.Printf("cleanup err: %v\n", err)
+			}
 		}
 	}
 
 	if cmd.tmpBuiltFile != "" && !cmd.flags.mode.build {
-		_ = os.Remove(cmd.tmpBuiltFile)
+		if err := os.Remove(cmd.tmpBuiltFile); err != nil {
+			if !os.IsNotExist(err) {
+				cmd.Printf("cleanup err: %v\n", err)
+			}
+		}
 	}
 }
 
