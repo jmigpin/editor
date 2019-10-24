@@ -13,6 +13,12 @@ import (
 	"github.com/jmigpin/editor/util/goutil"
 )
 
+func init() {
+	SimplifyStringifyItem = false
+}
+
+//----------
+
 func TestCmd_src1(t *testing.T) {
 	src := `
 		package main
@@ -31,7 +37,7 @@ func TestCmd_src1(t *testing.T) {
 		}
 	`
 	msgs := doCmdSrc(t, src, false, false)
-	if !hasStringIn("Sleep(10ms=(10 * 1ms))", msgs) {
+	if !hasStringIn(`Sleep("10ms"=(10 * "1ms"))`, msgs) {
 		t.Fatal()
 	}
 }
@@ -62,7 +68,7 @@ func TestCmd_src2(t *testing.T) {
 		}
 	`
 	msgs := doCmdSrc(t, src, false, false)
-	if !hasStringIn("_ := 20 []=f2()", msgs) {
+	if !hasStringIn(`_ := "20 []"=f2()`, msgs) {
 		t.Fatal()
 	}
 }
@@ -106,20 +112,30 @@ func TestCmd_src4(t *testing.T) {
 //------------
 
 func TestCmd_simplifyStringify1(t *testing.T) {
+	SimplifyStringifyItem = true
+	defer func() { SimplifyStringifyItem = false }()
+
 	src := `
 		package main
 		func f3(int) int { return 1 }
 		func f2(int) int { return 1 }
 		func f1(int) int { return 1 }
+		func f0() []int{return []int{1,2,3}}
 		func main(){
 			a := f1(f2(f3(0)))
+			_ = "_"
+			b := "abc"
+			c := f0()
+			d := []string{"a","b","c"}
 			_=a
+			_=b
+			_=c
+			_=d
 		}
 	`
-	//SimplifyStringifyItem = true
 	msgs := doCmdSrc(t, src, false, false)
-	//if !hasStringIn("1 := f1()", msgs) {
-	if !hasStringIn("1 := 1=f1(1=f2(1=f3(0)))", msgs) {
+	// "1 := 1=f1(1=f2(1=f3(0)))" // remove duplicated result
+	if !hasStringIn("1 := f1(1=f2(1=f3(0)))", msgs) {
 		t.Fatal()
 	}
 }
@@ -141,7 +157,7 @@ func TestCmd_goMod5(t *testing.T) {
 	if hasStringIn("F1", msgs) { // must not be annotated
 		t.Fatal(msgs)
 	}
-	if !hasStringIn("F2F1=(F2 + F1=F1())", msgs) { // must be annotated
+	if !hasStringIn(`"F2F1"=("F2" + "F1"=F1())`, msgs) { // must be annotated
 		t.Fatal(msgs)
 	}
 }
@@ -211,10 +227,10 @@ func TestCmd_goMod6(t *testing.T) {
 	//cmd := []string{"run", "-verbose", "-work", "main.go"}
 	msgs := doCmd(t, dir1, cmd)
 
-	if hasStringIn("F1", msgs) { // must not be annotated
+	if hasStringIn(`"F1"`, msgs) { // must not be annotated
 		t.Fatal(msgs)
 	}
-	if !hasStringIn("F2", msgs) { // must be annotated
+	if !hasStringIn(`"F2"`, msgs) { // must be annotated
 		t.Fatal(msgs)
 	}
 }
@@ -282,10 +298,10 @@ func TestCmd_goMod7_test(t *testing.T) {
 	//cmd := []string{"test", "-verbose", "-work"}
 	msgs := doCmd(t, dir1, cmd)
 
-	if hasStringIn("F1", msgs) { // must not be annotated
+	if hasStringIn(`"F1"`, msgs) { // must not be annotated
 		t.Fatal(msgs)
 	}
-	if !hasStringIn("F2", msgs) { // must be annotated
+	if !hasStringIn(`"F2"`, msgs) { // must be annotated
 		t.Fatal(msgs)
 	}
 }
@@ -349,10 +365,10 @@ func TestCmd_goPath1(t *testing.T) {
 	//cmd := []string{"run", "-verbose", "-work", "main.go"}
 	msgs := doCmd2(t, dir, cmd, true, tmpDir)
 
-	if hasStringIn("sub1", msgs) { // not annotated
+	if hasStringIn(`"sub1"`, msgs) { // not annotated
 		t.Fatal(msgs)
 	}
-	if !hasStringIn("sub2", msgs) { // annotated
+	if !hasStringIn(`"sub2"`, msgs) { // annotated
 		t.Fatal(msgs)
 	}
 }
@@ -440,12 +456,12 @@ func TestCmd_simple2_empty(t *testing.T) {}
 
 //------------
 
-//func TestCmd_simple2(t *testing.T) {
+//func TestCmd_simple3(t *testing.T) {
 //	tmpDir := createTmpDir(t)
 //	defer os.RemoveAll(tmpDir)
 //	t.Logf("tmpDir: %v\n", tmpDir)
 
-//	createFilesForTestCmd_simple2(t, tmpDir)
+//	createFilesForTestCmd_simple3(t, tmpDir)
 
 //	dir := filepath.Join(tmpDir, "dir1")
 //	cmd := []string{"run", "main.go"}
@@ -457,7 +473,7 @@ func TestCmd_simple2_empty(t *testing.T) {}
 //	}
 //}
 
-//func createFilesForTestCmd_simple2(t *testing.T, tmpDir string) {
+//func createFilesForTestCmd_simple3(t *testing.T, tmpDir string) {
 //	mainMainGo := `
 //		package main
 //		import "time"
@@ -546,7 +562,7 @@ func doCmd2(t *testing.T, dir string, args []string, noModules bool, goPathDir s
 					add(StringifyItem(m.Item))
 				}
 			default:
-				add(fmt.Sprintf("%T %v", msg, msg))
+				add(fmt.Sprintf("(%T)%v", msg, msg))
 			}
 		}
 	}()

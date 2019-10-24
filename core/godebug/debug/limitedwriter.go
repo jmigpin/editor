@@ -17,7 +17,7 @@ func NewLimitedWriter(size int) *LimitedWriter {
 func (w *LimitedWriter) Write(p []byte) (n int, err error) {
 	if w.size < len(p) {
 		p = p[:w.size]
-		err = fmt.Errorf("limit reached")
+		err = LimitReachedErr
 	}
 	n, err2 := w.buf.Write(p)
 	if err2 != nil {
@@ -30,3 +30,5 @@ func (w *LimitedWriter) Write(p []byte) (n int, err error) {
 func (w *LimitedWriter) Bytes() []byte {
 	return w.buf.Bytes()
 }
+
+var LimitReachedErr = fmt.Errorf("limit reached")

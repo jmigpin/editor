@@ -3,48 +3,65 @@ package godebug
 import (
 	"fmt"
 	"go/token"
-	"log"
+	"strings"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
+var SimplifyStringifyItem = true
+
 func StringifyItem(item debug.Item) string {
-	is := ItemStringifier{Offset: -1}
+	is := ItemStringifier{}
 	is.stringify(item)
 	return is.Str
 }
 func StringifyItemFull(item debug.Item) string {
-	is := ItemStringifier{Offset: -2}
+	is := ItemStringifier{FullStr: true}
 	is.stringify(item)
 	return is.Str
 }
-func StringifyItemOffset(item debug.Item, offset int) string {
-	is := ItemStringifier{Offset: offset}
-	is.stringify(item)
-	return is.OffsetValueString
-}
+
+// TODO: only option that required is.Str to be updated in order
+//func StringifyItemOffset(item debug.Item, offset int) string {
+//	is := ItemStringifier{Offset: offset}
+//	is.stringify(item)
+//	return is.OffsetValueString
+//}
 
 //----------
 
 type ItemStringifier struct {
-	Str string
+	Str            string
+	FullStr        bool
+	SimplifyResult string
 
-	Offset            int
-	OffsetValueString string
+	//Offset            int
+	//OffsetValueString string
 }
 
+//----------
+
+func (is *ItemStringifier) captureStringify(item debug.Item) (start, end int, s string) {
+	start = len(is.Str)
+	is.stringify(item)
+	end = len(is.Str)
+	return start, end, is.Str[start:end]
+}
+
+//----------
+
 func (is *ItemStringifier) stringify(item debug.Item) {
-	// capture value
-	start := len(is.Str)
-	defer func() {
-		end := len(is.Str)
-		if is.Offset >= start && is.Offset < end {
-			s := is.Str[start:end]
-			if is.OffsetValueString == "" || len(s) < len(is.OffsetValueString) {
-				is.OffsetValueString = s
-			}
-		}
-	}()
+	//// capture value
+	//start := len(is.Str)
+	//defer func() {
+	//	end := len(is.Str)
+	//	if is.Offset >= start && is.Offset < end {
+	//		s := is.Str[start:end]
+	//		if is.OffsetValueString == "" || len(s) < len(is.OffsetValueString) {
+	//			is.OffsetValueString = s
+	//		}
+	//	}
+	//}()
 
 	is.stringify2(item)
 }
@@ -57,13 +74,16 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 	switch t := item.(type) {
 
 	case *debug.ItemValue:
-		if is.Offset == -2 {
+		if is.FullStr {
 			is.Str += t.Str
 		} else {
 			is.Str += debug.ReducedSprintf(20, "%s", t.Str)
 		}
 
-	case *debug.ItemList:
+	case *debug.ItemList: // ex: func args list
+		//if len(t.List) == 0 {
+		//	is.Str += "<>" // TODO: improve
+		//}
 		for i, e := range t.List {
 			if i > 0 {
 				is.Str += ", "
@@ -72,6 +92,9 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		}
 
 	case *debug.ItemList2:
+		//if len(t.List) == 0 {
+		//	is.Str += "<>" // TODO: improve
+		//}
 		for i, e := range t.List {
 			if i > 0 {
 				is.Str += "; "
@@ -85,9 +108,13 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.Str += "}"
 
 	case *debug.ItemAssign:
-		is.stringify(t.Lhs)
-		is.Str += " := " // other runes: ≡
-		is.stringify(t.Rhs)
+		if SimplifyStringifyItem {
+			is.simplifyItemAssign(t)
+		} else {
+			is.stringify(t.Lhs)
+			is.Str += " := " // other runes: ≡
+			is.stringify(t.Rhs)
+		}
 
 	case *debug.ItemSend:
 		is.stringify(t.Chan)
@@ -174,14 +201,12 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.Str += "_"
 
 	default:
-		is.Str += fmt.Sprintf("(TODO: %v, %T)", item, item)
-		log.Printf("todo: stringifyItem")
+		is.Str += fmt.Sprintf("[TODO:(%T)%v]", item, item)
 	}
 }
 
 func (is *ItemStringifier) result(result debug.Item) bool {
 	if result != nil {
-
 		isList := false
 		if _, ok := result.(*debug.ItemList); ok {
 			isList = true
@@ -201,4 +226,29 @@ func (is *ItemStringifier) result(result debug.Item) bool {
 		return true
 	}
 	return false
+}
+
+//----------
+
+func (is *ItemStringifier) simplifyItemAssign(t *debug.ItemAssign) {
+	s1, e1, str1 := is.captureStringify(t.Lhs)
+	is.Str += " := "
+	s2, e2, str2 := is.captureStringify(t.Rhs)
+	_, _, _, _ = s1, e1, s2, e2
+
+	// remove repeated results
+	w := []string{str1 + "=", "(" + str1 + ")="}
+	for _, s := range w {
+		if strings.HasPrefix(str2, s) {
+			is.Str = is.Str[:s2] + is.Str[s2+len(s):]
+			return
+		}
+	}
+
+	// also removes ":="
+	s := str1
+	if strings.HasPrefix(str2, s) {
+		is.Str = is.Str[:e1] + is.Str[s2+len(s):]
+		return
+	}
 }
