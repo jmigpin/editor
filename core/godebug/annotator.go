@@ -835,8 +835,31 @@ func (ann *Annotator) visitFuncLit(ctx *Ctx, fl *ast.FuncLit) {
 	id := ann.assignToNewIdent(ctx, fl)
 	ctx.replaceExpr(id)
 
+	// create new blockstmt to contain args debug stmts
+	pos := fl.Type.End()
+	bs := &ast.BlockStmt{List: []ast.Stmt{}}
+
+	hasParams := len(fl.Type.Params.List) > 0
+	if hasParams {
+		// visit parameters
+		ctx3, _ := ctx.withStmtIter(&bs.List)
+		exprs := ann.visitFieldList(ctx3, fl.Type.Params)
+
+		// debug line
+		ce := ann.newDebugCallExpr("IL", exprs...)
+		stmt2 := ann.newDebugLineStmt(ctx3, pos, ce)
+		ctx3.insertInStmtList(stmt2)
+	}
+
+	// visit body
 	ctx2 := ctx.withFuncType(fl.Type)
 	ann.visitBlockStmt(ctx2, fl.Body)
+
+	if hasParams {
+		// insert blockstmt at the top of the body
+		ctx4, _ := ctx.withStmtIter(&fl.Body.List)
+		ctx4.insertInStmtListBefore(bs) // index 0
+	}
 
 	ce := ann.newDebugCallExpr("IV", id)
 	id2 := ann.assignToNewIdent(ctx, ce)
@@ -890,6 +913,12 @@ func (ann *Annotator) visitFieldList(ctx *Ctx, fl *ast.FieldList) []ast.Expr {
 func (ann *Annotator) visitField(ctx *Ctx, field *ast.Field) []ast.Expr {
 	ctx2 := ctx.withNewExprs()
 	exprs := []ast.Expr{}
+
+	// set field name if it has no names (otherwise it won't output)
+	if len(field.Names) == 0 {
+		field.Names = append(field.Names, ann.newIdent())
+	}
+
 	for _, id := range field.Names {
 		ann.visitIdent(ctx2, id)
 		w := ctx2.popExprs()
