@@ -9,7 +9,7 @@ import (
 
 // use specific version to reduce go tools trying to "finding" it
 // TODO: this must be updated on "core/godebug" changes (chicken-and-egg problem)
-//const GoDebugEditorVersion = "v0.0.0-20191024011628-7c988409a6cd"
+const GoDebugEditorVersion = "v0.0.0-20191024050423-e055b53589a3"
 
 func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files, mainFilename string, tests bool) error {
 	dir := filepath.Dir(mainFilename)
@@ -99,12 +99,12 @@ func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, dir string) error {
 }
 
 func setupGodebugGoMod(ctx context.Context, cmd *Cmd, dir string) error {
-	//// require editor (avoids the go tooling "finding latest")
-	////path1 := "github.com/jmigpin/editor@v0.0.0-x"
-	//path1 := "github.com/jmigpin/editor@" + GoDebugEditorVersion
-	//if err := goutil.GoModRequire(ctx, dir, path1); err != nil {
-	//	return err
-	//}
+	// require editor (avoids the go tooling "finding latest")
+	//path1 := "github.com/jmigpin/editor@v0.0.0-x"
+	path1 := "github.com/jmigpin/editor@" + GoDebugEditorVersion
+	if err := goutil.GoModRequire(ctx, dir, path1); err != nil {
+		return err
+	}
 
 	//// LOCAL DEVELOPMENT: editor pkg location
 	//oldPath2 := "github.com/jmigpin/editor"
