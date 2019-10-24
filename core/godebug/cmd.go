@@ -445,15 +445,7 @@ func (cmd *Cmd) environGoPath() (string, bool) {
 
 	goPath := []string{}
 
-	// Add a fixed gopath tmp directory for pkgs cache.
-	// Helps reduce downloading pkgs on a godebug session.
-	// The the default download dir seems to be the first gopath dir.
-	// If it is a tmp dir, it will download everytime.
-	// On the other hand, the added tmp dir needs to have higher priority then the rest of the gopath, hence this "cache" dir.
-	cacheTmpDir := filepath.Join(os.TempDir(), "editor_godebug_gopath_cache")
-	goPath = append(goPath, cacheTmpDir)
-
-	// add tmpdir to gopath to allow the compiler to give priority to the annotated files
+	// add tmpdir to gopath to give priority to the annotated files
 	goPath = append(goPath, cmd.tmpDir)
 
 	// add already defined gopath
