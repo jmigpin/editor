@@ -9,7 +9,7 @@ import (
 
 // use specific version to reduce go tools trying to "finding" it
 // TODO: this must be updated on "core/godebug" changes (chicken-and-egg problem)
-const GoDebugEditorVersion = "v0.0.0-20191023063035-c692faa0d213"
+//const GoDebugEditorVersion = "v0.0.0-20191024011628-7c988409a6cd"
 
 func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files, mainFilename string, tests bool) error {
 	dir := filepath.Dir(mainFilename)
@@ -99,11 +99,20 @@ func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, dir string) error {
 }
 
 func setupGodebugGoMod(ctx context.Context, cmd *Cmd, dir string) error {
-	// require editor (avoids the go tooling "finding latest")
-	path1 := "github.com/jmigpin/editor@" + GoDebugEditorVersion
-	if err := goutil.GoModRequire(ctx, dir, path1); err != nil {
-		return err
-	}
+	//// require editor (avoids the go tooling "finding latest")
+	////path1 := "github.com/jmigpin/editor@v0.0.0-x"
+	//path1 := "github.com/jmigpin/editor@" + GoDebugEditorVersion
+	//if err := goutil.GoModRequire(ctx, dir, path1); err != nil {
+	//	return err
+	//}
+
+	//// LOCAL DEVELOPMENT: editor pkg location
+	//oldPath2 := "github.com/jmigpin/editor"
+	//newPath2 := "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor"
+	//if err := goutil.GoModReplace(ctx, dir, oldPath2, newPath2); err != nil {
+	//	return err
+	//}
+
 	// require godebugconfig
 	path2 := GoDebugConfigPkgPath + "@v0.0.0"
 	if err := goutil.GoModRequire(ctx, dir, path2); err != nil {
