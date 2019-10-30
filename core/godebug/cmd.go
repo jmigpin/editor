@@ -175,7 +175,7 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 
 	mainFilename := files.absFilename(cmd.flags.filename)
 
-	err := files.Do(ctx, mainFilename, cmd.flags.mode.test, cmd.NoModules)
+	err := files.Do(ctx, mainFilename, cmd.flags.mode.test, cmd.NoModules, cmd.environ())
 	if err != nil {
 		return err
 	}
@@ -640,7 +640,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
-	env := f.String("env", "", "set env variables, separated by comma (ex: \"GOOS=linux,...\"'")
+	env := f.String("env", "", envVarUsage())
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -653,7 +653,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 
 	cmd.flags.dirs = splitCommaList(*dirs)
 	cmd.flags.files = splitCommaList(*files)
-	cmd.flags.env = strings.Split(*env, ",")
+	cmd.flags.env = filepath.SplitList(*env)
 	cmd.flags.otherArgs = f.Args()
 
 	if len(cmd.flags.otherArgs) > 0 {
@@ -672,7 +672,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 	run := f.String("run", "", "run test")
 	verboseTests := f.Bool("v", false, "verbose tests")
-	env := f.String("env", "", "set env variables, separated by comma (ex: \"GOOS=linux,...\"'")
+	env := f.String("env", "", envVarUsage())
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -685,7 +685,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 
 	cmd.flags.dirs = splitCommaList(*dirs)
 	cmd.flags.files = splitCommaList(*files)
-	cmd.flags.env = strings.Split(*env, ",")
+	cmd.flags.env = filepath.SplitList(*env)
 	cmd.flags.otherArgs = f.Args()
 
 	// set test run flag at other flags to pass to the test exec
@@ -710,7 +710,7 @@ func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 	addr := f.String("addr", "", "address to serve from, built into the binary")
-	env := f.String("env", "", "set env variables, separated by comma (ex: \"GOOS=linux,...\"'")
+	env := f.String("env", "", envVarUsage())
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -724,7 +724,7 @@ func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 	cmd.flags.dirs = splitCommaList(*dirs)
 	cmd.flags.files = splitCommaList(*files)
 	cmd.flags.address = *addr
-	cmd.flags.env = strings.Split(*env, ",")
+	cmd.flags.env = filepath.SplitList(*env)
 	cmd.flags.otherArgs = f.Args()
 	if len(cmd.flags.otherArgs) > 0 {
 		cmd.flags.filename = cmd.flags.otherArgs[0]
@@ -750,6 +750,12 @@ func (cmd *Cmd) parseConnectArgs(args []string) (done bool, _ error) {
 	cmd.flags.address = *addr
 
 	return false, nil
+}
+
+//------------
+
+func envVarUsage() string {
+	return fmt.Sprintf("set env variables (ex: \"GOOS=os%c...\"'", filepath.ListSeparator)
 }
 
 //------------

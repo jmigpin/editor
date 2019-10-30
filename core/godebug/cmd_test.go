@@ -456,38 +456,37 @@ func TestCmd_simple2_empty(t *testing.T) {}
 
 //------------
 
-//func TestCmd_simple3(t *testing.T) {
-//	tmpDir := createTmpDir(t)
-//	defer os.RemoveAll(tmpDir)
-//	t.Logf("tmpDir: %v\n", tmpDir)
+func TestCmd_simple3(t *testing.T) {
+	tmpDir := createTmpDir(t)
+	defer os.RemoveAll(tmpDir)
+	t.Logf("tmpDir: %v\n", tmpDir)
 
-//	createFilesForTestCmd_simple3(t, tmpDir)
+	createFilesForTestCmd_simple3(t, tmpDir)
 
-//	dir := filepath.Join(tmpDir, "dir1")
-//	cmd := []string{"run", "main.go"}
-//	//cmd := []string{"run", "-verbose", "-work", "main.go"}
-//	msgs := doCmd2(t, dir, cmd, false, tmpDir)
+	cmd := []string{"run", "dir1/main.go"} // give location to run
+	//cmd := []string{"run", "-verbose", "-work", "dir1/main.go"}
+	msgs := doCmd2(t, tmpDir, cmd, false, "")
 
-//	if !hasStringIn("2 := 2", msgs) { // annotated
-//		t.Fatal(msgs)
-//	}
-//}
+	if !hasStringIn(`_ := "1s"`, msgs) { // annotated
+		t.Fatal(msgs)
+	}
+}
 
-//func createFilesForTestCmd_simple3(t *testing.T, tmpDir string) {
-//	mainMainGo := `
-//		package main
-//		import "time"
-//		func main() {
-//			time.Sleep(time.Second)
-//		}
-//	`
-//	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
-//}
+func createFilesForTestCmd_simple3(t *testing.T, tmpDir string) {
+	mainMainGo := `
+		package main
+		import "time"
+		func main() {
+			_=time.Second
+		}
+	`
+	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
+}
 
 //------------
 
 // Launches the editor itself.
-//func TestCmd2_editor(t *testing.T) {
+//func TestCmd_editor(t *testing.T) {
 //	filename := "./../../editor.go"
 //	args := []string{
 //		"run",
@@ -529,8 +528,12 @@ func doCmd2(t *testing.T, dir string, args []string, noModules bool, goPathDir s
 	}
 
 	ctx := context.Background()
-	if _, err := cmd.Start(ctx, args); err != nil {
+	done, err := cmd.Start(ctx, args)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if done { // ex: "build", "-help"
+		return nil
 	}
 
 	go func() {

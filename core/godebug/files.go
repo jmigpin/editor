@@ -74,7 +74,7 @@ func (files *Files) absFilename(filename string) string {
 
 //----------
 
-func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noModules bool) error {
+func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noModules bool, env []string) error {
 	if !filepath.IsAbs(mainFilename) {
 		return fmt.Errorf("filename not absolute: %v", mainFilename)
 	}
@@ -98,7 +98,8 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noM
 		packages.NeedName | // name and pkgpath
 		packages.NeedFiles |
 		0
-	pkgs, err := ProgramPackages(ctx, loadMode, files.Dir, mainFilename, tests, files.fset)
+
+	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, mainFilename, tests, env)
 	if err != nil {
 		return err
 	}
@@ -446,13 +447,14 @@ func PkgFilenames(ctx context.Context, dir string, tests bool) ([]string, error)
 
 //----------
 
-func ProgramPackages(ctx context.Context, mode packages.LoadMode, dir, filename string, tests bool, fset *token.FileSet) ([]*packages.Package, error) {
+func ProgramPackages(ctx context.Context, fset *token.FileSet, mode packages.LoadMode, dir, filename string, tests bool, env []string) ([]*packages.Package, error) {
 	cfg := &packages.Config{
 		Context: ctx,
 		Fset:    fset,
 		Tests:   tests,
 		Dir:     dir,
 		Mode:    mode,
+		Env:     env,
 	}
 	pattern := ""
 	if !tests && filename != "" {
