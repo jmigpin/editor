@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +51,8 @@ type Cmd struct {
 		verbose   bool
 		filename  string
 		work      bool
+		output    string // ex: -o filename
+		toolExec  string // ex: "wine" will run "wine args..."
 		dirs      []string
 		files     []string
 		address   string   // build/connect
@@ -262,6 +263,14 @@ func (cmd *Cmd) doBuild(ctx context.Context, mainFilename string, tests bool) er
 
 	// move filename to working dir
 	filenameWork := filepath.Join(cmd.Dir, filepath.Base(filenameAtTmpOut))
+	// move filename to output option
+	if cmd.flags.output != "" {
+		o := cmd.flags.output
+		if !filepath.IsAbs(o) {
+			o = filepath.Join(cmd.Dir, o)
+		}
+		filenameWork = o
+	}
 	if err := os.Rename(filenameAtTmpOut, filenameWork); err != nil {
 		return err
 	}
@@ -284,10 +293,10 @@ func (cmd *Cmd) filenameForBuild(mainFilename string, tests bool) string {
 func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) error {
 	filename := cmd.filenameForBuild(mainFilename, tests)
 	filenameOut, err := cmd.runBuildCmd(ctx, filename, tests)
+	defer os.Remove(filenameOut) // ensure removal even on error
 	if err != nil {
 		return err
 	}
-	os.Remove(filenameOut)
 	return nil
 }
 
@@ -305,6 +314,11 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 		args = append(args, cmd.flags.runArgs...)
 	} else {
 		args = append(args, cmd.flags.otherArgs...)
+	}
+
+	// toolexec
+	if cmd.flags.toolExec != "" {
+		args = append([]string{cmd.flags.toolExec}, args...)
 	}
 
 	// start server
@@ -640,6 +654,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
+	f.StringVar(&cmd.flags.toolExec, "toolexec", "", "execute cmd, useful to run a tool with the output file (ex: wine outputfilename")
 	env := f.String("env", "", envVarUsage())
 
 	if err := f.Parse(args); err != nil {
@@ -707,6 +722,7 @@ func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
 	f.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
 	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
+	f.StringVar(&cmd.flags.output, "o", "", "output filename (default: ${filename}_godebug")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
 	addr := f.String("addr", "", "address to serve from, built into the binary")
@@ -903,7 +919,9 @@ func setupServerNetAddr(addr string) {
 	ra := rand.New(rand.NewSource(seed))
 	r := ra.Intn(10000)
 
-	switch runtime.GOOS {
+	// depend on the desired "target" (can't use runtime.GOOS)
+	goOs := os.Getenv("GOOS")
+	switch goOs {
 	case "linux":
 		debug.ServerNetwork = "unix"
 		p := "editor_godebug.sock" + fmt.Sprintf("%v", r)
