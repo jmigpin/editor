@@ -368,6 +368,15 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 		defer cmd.start.waitg.Done()
 		cmd.Client.Wait() // wait for client to finish
 	}()
+	// ensure client stops on context cancel (only for connect mode)
+	if cmd.flags.mode.connect {
+		go func() {
+			select {
+			case <-ctx.Done():
+				_ = cmd.Client.Close()
+			}
+		}()
+	}
 
 	return nil
 }
