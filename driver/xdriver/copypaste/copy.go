@@ -9,7 +9,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/driver/xgbutil"
+	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/pkg/errors"
 )
@@ -26,7 +26,7 @@ type Copy struct {
 
 func NewCopy(conn *xgb.Conn, win xproto.Window) (*Copy, error) {
 	c := &Copy{conn: conn, win: win}
-	if err := xgbutil.LoadAtoms(conn, &CopyAtoms, false); err != nil {
+	if err := xutil.LoadAtoms(conn, &CopyAtoms, false); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -101,7 +101,7 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<
 
 func (c *Copy) debugRequest(ev *xproto.SelectionRequestEvent, events chan<- interface{}) {
 	// atom name
-	name, err := xgbutil.GetAtomName(c.conn, ev.Target)
+	name, err := xutil.GetAtomName(c.conn, ev.Target)
 	if err != nil {
 		events <- errors.Wrap(err, "cpcopy selectionrequest atom name for target")
 	}

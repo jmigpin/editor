@@ -6,7 +6,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/driver/xgbutil"
+	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -18,7 +18,7 @@ type WMP struct {
 }
 
 func NewWMP(conn *xgb.Conn, win xproto.Window) (*WMP, error) {
-	if err := xgbutil.LoadAtoms(conn, &atoms, false); err != nil {
+	if err := xutil.LoadAtoms(conn, &atoms, false); err != nil {
 		return nil, err
 	}
 	wmp := &WMP{conn: conn, win: win}

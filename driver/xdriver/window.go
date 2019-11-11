@@ -1,4 +1,4 @@
-package xwindow
+package xdriver
 
 import (
 	"image"
@@ -12,12 +12,13 @@ import (
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xcursor"
-	"github.com/jmigpin/editor/driver/xgbutil"
-	"github.com/jmigpin/editor/driver/xgbutil/copypaste"
-	"github.com/jmigpin/editor/driver/xgbutil/dragndrop"
-	"github.com/jmigpin/editor/driver/xgbutil/wmprotocols"
-	"github.com/jmigpin/editor/driver/xgbutil/xcursors"
-	"github.com/jmigpin/editor/driver/xgbutil/xinput"
+	"github.com/jmigpin/editor/driver/xdriver/copypaste"
+	"github.com/jmigpin/editor/driver/xdriver/dragndrop"
+	"github.com/jmigpin/editor/driver/xdriver/wimage"
+	"github.com/jmigpin/editor/driver/xdriver/wmprotocols"
+	"github.com/jmigpin/editor/driver/xdriver/xcursors"
+	"github.com/jmigpin/editor/driver/xdriver/xinput"
+	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"github.com/pkg/errors"
@@ -35,10 +36,10 @@ type Window struct {
 	Copy    *copypaste.Copy
 	Cursors *xcursors.Cursors
 	XInput  *xinput.XInput
-	WMP     *wmprotocols.WMP
+	Wmp     *wmprotocols.WMP
 	Dnd     *dragndrop.Dnd
 
-	Img WindowImage
+	WImg wimage.WImage
 }
 
 func NewWindow() (*Window, error) {
@@ -105,7 +106,7 @@ func (win *Window) initialize() error {
 
 	_ = xproto.MapWindow(win.Conn, window)
 
-	if err := xgbutil.LoadAtoms(win.Conn, &Atoms, false); err != nil {
+	if err := xutil.LoadAtoms(win.Conn, &Atoms, false); err != nil {
 		return err
 	}
 
@@ -153,37 +154,34 @@ func (win *Window) initialize() error {
 	}
 	win.Cursors = c
 
-	img, err := NewWindowImage(win)
+	opt := &wimage.Options{win.Conn, win.Window, win.Screen, win.GCtx}
+	img, err := wimage.NewWImage(opt)
 	if err != nil {
 		return err
 	}
-	win.Img = img
+	win.WImg = img
 
 	wmp, err := wmprotocols.NewWMP(win.Conn, win.Window)
 	if err != nil {
 		return err
 	}
-	win.WMP = wmp
+	win.Wmp = wmp
 
 	return nil
 }
 
-func (win *Window) Close() {
+func (win *Window) Close() error {
 	win.closeOnce.Do(func() {
-		err := win.Img.Close()
+		err := win.WImg.Close()
 		if err != nil {
 			log.Printf("%v", err)
 		}
 		win.Conn.Close()
 	})
+	return nil
 }
 
 func (win *Window) EventLoop(events chan<- interface{}) {
-	// init pwi if used, needed to send the "done" event
-	if pwi, ok := win.Img.(*PixWImg); ok {
-		pwi.events = events
-	}
-
 	for {
 		ev, xerr := win.Conn.WaitForEvent()
 		if ev == nil && xerr == nil {
@@ -196,7 +194,8 @@ func (win *Window) EventLoop(events chan<- interface{}) {
 		if ev != nil {
 			switch t := ev.(type) {
 			case xproto.ExposeEvent:
-				events <- &event.WindowExpose{}
+				r := image.Rect(0, 0, int(t.Width), int(t.Height))
+				events <- &event.WindowExpose{Rect: r}
 			case shm.CompletionEvent:
 				events <- &event.WindowPutImageDone{}
 
@@ -223,7 +222,7 @@ func (win *Window) EventLoop(events chan<- interface{}) {
 				win.Copy.OnSelectionClear(&t)
 
 			case xproto.ClientMessageEvent:
-				win.WMP.OnClientMessage(&t, events)
+				win.Wmp.OnClientMessage(&t, events)
 				win.Dnd.OnClientMessage(&t, events)
 
 			case xproto.PropertyNotifyEvent:
@@ -256,22 +255,15 @@ func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
 }
 
 func (win *Window) Image() draw.Image {
-	return win.Img.Image()
+	return win.WImg.Image()
 }
-func (win *Window) PutImage(rect *image.Rectangle) error {
-	return win.Img.PutImage(rect)
+func (win *Window) PutImage(rect image.Rectangle) (bool, error) {
+	return win.WImg.PutImage(rect)
 }
-func (win *Window) UpdateImageSize() error {
-	geom, err := win.GetGeometry()
-	if err != nil {
-		return err
-	}
-	w, h := int(geom.Width), int(geom.Height)
-
-	r := image.Rect(0, 0, w, h)
+func (win *Window) ResizeImage(r image.Rectangle) error {
 	ib := win.Image().Bounds()
 	if !r.Eq(ib) {
-		err := win.Img.Resize(&r)
+		err := win.WImg.Resize(r)
 		if err != nil {
 			return err
 		}

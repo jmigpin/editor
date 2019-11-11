@@ -1,4 +1,4 @@
-package shmimage
+package wimage
 
 import "errors"
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/driver/xgbutil"
+	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/pkg/errors"
@@ -23,7 +23,7 @@ type Paste struct {
 }
 
 func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
-	if err := xgbutil.LoadAtoms(conn, &PasteAtoms, false); err != nil {
+	if err := xutil.LoadAtoms(conn, &PasteAtoms, false); err != nil {
 		return nil, err
 	}
 	p := &Paste{
@@ -132,7 +132,7 @@ func (p *Paste) extractData(ev *xproto.SelectionNotifyEvent) (string, error) {
 		return "", nil
 	case PasteAtoms.XSelData:
 		if ev.Target != PasteAtoms.Utf8String {
-			s, _ := xgbutil.GetAtomName(p.conn, ev.Target)
+			s, _ := xutil.GetAtomName(p.conn, ev.Target)
 			return "", fmt.Errorf("paste: unexpected type: %v %v", ev.Target, s)
 		}
 		return p.extractData3(ev)

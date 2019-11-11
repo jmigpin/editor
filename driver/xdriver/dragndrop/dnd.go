@@ -9,7 +9,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/driver/xgbutil"
+	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/pkg/errors"
@@ -27,10 +27,10 @@ type Dnd struct {
 }
 
 func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
-	if err := xgbutil.LoadAtoms(conn, &DndAtoms, false); err != nil {
+	if err := xutil.LoadAtoms(conn, &DndAtoms, false); err != nil {
 		return nil, err
 	}
-	if err := xgbutil.LoadAtoms(conn, &DropTypeAtoms, false); err != nil {
+	if err := xutil.LoadAtoms(conn, &DropTypeAtoms, false); err != nil {
 		return nil, err
 	}
 	dnd := &Dnd{conn: conn, win: win}
@@ -92,7 +92,7 @@ func (dnd *Dnd) onEnter(data []uint32) {
 	// DEBUG
 	if dnd.data.enter.moreThan3DataTypes {
 		log.Printf("TODO: dnd enter more than 3 data types")
-		xgbutil.PrintAtomsNames(dnd.conn, dnd.data.enter.types)
+		xutil.PrintAtomsNames(dnd.conn, dnd.data.enter.types...)
 	}
 
 	// translate types

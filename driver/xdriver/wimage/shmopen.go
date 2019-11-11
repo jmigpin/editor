@@ -1,14 +1,11 @@
 // +build !windows
 
-package shmimage
+package wimage
 
 import (
 	"fmt"
 	"syscall"
 )
-
-// sample code from https://github.com/golang/exp/tree/master/shiny/driver/x11driver
-// the difference here is that the shmclose is detaching and removing, instead of removing in shmopen
 
 // These constants are from /usr/include/linux/ipc.h
 const (

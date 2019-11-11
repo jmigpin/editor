@@ -1,4 +1,4 @@
-package xgbutil
+package xutil
 
 import (
 	"fmt"
@@ -41,6 +41,8 @@ func LoadAtoms(conn *xgb.Conn, st interface{}, onlyIfExists bool) error {
 	return nil
 }
 
+//----------
+
 func GetAtomName(conn *xgb.Conn, atom xproto.Atom) (string, error) {
 	cookie := xproto.GetAtomName(conn, atom)
 	r, err := cookie.Reply()
@@ -50,7 +52,7 @@ func GetAtomName(conn *xgb.Conn, atom xproto.Atom) (string, error) {
 	return r.Name, nil
 }
 
-func PrintAtomsNames(conn *xgb.Conn, atoms []xproto.Atom) {
+func PrintAtomsNames(conn *xgb.Conn, atoms ...xproto.Atom) {
 	for _, a := range atoms {
 		name, err := GetAtomName(conn, a)
 		if err != nil {
