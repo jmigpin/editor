@@ -8,8 +8,11 @@ import (
 //----------
 
 type WindowClose struct{}
-type WindowExpose struct{}
+type WindowExpose struct{ Rect image.Rectangle }
+type WindowResize struct{ Rect image.Rectangle }
+
 type WindowPutImageDone struct{}
+
 type WindowInput struct {
 	Point image.Point
 	Event interface{}

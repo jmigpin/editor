@@ -11,12 +11,13 @@ import (
 type Window interface {
 	EventLoop(events chan<- interface{}) // should emit events from uiutil/event
 
-	Close()
+	Close() error
 	SetWindowName(string)
 
 	Image() draw.Image
-	PutImage(*image.Rectangle) error
-	UpdateImageSize() error
+	// if not completed, need to wait for event.WaitPutImageDone
+	PutImage(image.Rectangle) (completed bool, _ error)
+	ResizeImage(image.Rectangle) error
 
 	SetCursor(widget.Cursor)
 	QueryPointer() (*image.Point, error)

@@ -63,8 +63,11 @@ func (ui *BasicUI) Close() {
 
 func (ui *BasicUI) HandleEvent(ev interface{}) {
 	switch t := ev.(type) {
-	case *event.WindowExpose, *UIReviewSize:
-		ui.UpdateImageSize()
+	case *event.WindowExpose:
+		ui.UpdateImageSize(t.Rect)
+		ui.RootNode.Embed().MarkNeedsPaint()
+	case *UIReviewSize:
+		ui.UpdateImageSize(t.Rect)
 		ui.RootNode.Embed().MarkNeedsPaint()
 	case *event.WindowInput:
 		ui.ApplyEv.Apply(ui.RootNode, t.Event, t.Point)
@@ -86,14 +89,14 @@ func (ui *BasicUI) HandleEvent(ev interface{}) {
 
 //----------
 
-func (ui *BasicUI) UpdateImageSize() {
+func (ui *BasicUI) UpdateImageSize(r image.Rectangle) {
 	// don't update size if still drawing, enqueue event to try again later
 	if ui.incompleteDraws != 0 {
-		ui.events <- &UIReviewSize{}
+		ui.events <- &UIReviewSize{Rect: r}
 		return
 	}
 
-	err := ui.Win.UpdateImageSize()
+	err := ui.Win.ResizeImage(r)
 	if err != nil {
 		log.Println(err)
 		return
@@ -162,12 +165,14 @@ func (ui *BasicUI) paintMarked() {
 //----------
 
 func (ui *BasicUI) putImage(r *image.Rectangle) {
-	err := ui.Win.PutImage(r)
+	completed, err := ui.Win.PutImage(*r)
 	if err != nil {
 		ui.events <- err
 		return
 	}
-	ui.incompleteDraws++
+	if !completed {
+		ui.incompleteDraws++
+	}
 }
 
 func (ui *BasicUI) onWindowPutImageDone() {
@@ -237,7 +242,7 @@ func (ui *BasicUI) QueueEmptyWindowInputEvent() {
 
 //----------
 
-type UIReviewSize struct{}
+type UIReviewSize struct{ Rect image.Rectangle }
 
 type UIPaintTime struct{}
 
