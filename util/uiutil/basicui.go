@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/driver"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
@@ -26,6 +27,7 @@ type BasicUI struct {
 }
 
 func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*BasicUI, error) {
+	debug.AnnotateFile()
 	win, err := driver.NewWindow()
 	if err != nil {
 		return nil, err
@@ -63,12 +65,16 @@ func (ui *BasicUI) Close() {
 
 func (ui *BasicUI) HandleEvent(ev interface{}) {
 	switch t := ev.(type) {
-	case *event.WindowExpose:
+	case *event.WindowResize:
 		ui.UpdateImageSize(t.Rect)
 		ui.RootNode.Embed().MarkNeedsPaint()
 	case *UIReviewSize:
 		ui.UpdateImageSize(t.Rect)
 		ui.RootNode.Embed().MarkNeedsPaint()
+
+	case *event.WindowExpose:
+		ui.RootNode.Embed().MarkNeedsPaint()
+
 	case *event.WindowInput:
 		ui.ApplyEv.Apply(ui.RootNode, t.Event, t.Point)
 	case *event.WindowPutImageDone:
