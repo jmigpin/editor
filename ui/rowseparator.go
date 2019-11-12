@@ -17,7 +17,7 @@ func NewRowSeparator(row *Row) *RowSeparator {
 	sep.Size.Y = separatorWidth
 	sep.Handle.Top = 3
 	sep.Handle.Bottom = 3
-	sep.Handle.Cursor = widget.MoveCursor
+	sep.Handle.Cursor = event.MoveCursor
 
 	rsep := &RowSeparator{Separator: sep, row: row}
 	rsep.SetThemePaletteNamePrefix("rowseparator_")

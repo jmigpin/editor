@@ -20,7 +20,6 @@ import (
 	"github.com/jmigpin/editor/driver/xdriver/xinput"
 	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
-	"github.com/jmigpin/editor/util/uiutil/widget"
 	"github.com/pkg/errors"
 )
 
@@ -78,7 +77,7 @@ func (win *Window) initialize() error {
 
 	// event mask
 	var evMask uint32 = 0 |
-		//xproto.EventMaskStructureNotify | // TODO
+		xproto.EventMaskStructureNotify |
 		xproto.EventMaskExposure |
 		xproto.EventMaskPropertyChange |
 		//xproto.EventMaskPointerMotionHint |
@@ -193,13 +192,22 @@ func (win *Window) EventLoop(events chan<- interface{}) {
 		}
 		if ev != nil {
 			switch t := ev.(type) {
-			case xproto.ExposeEvent:
-				r := image.Rect(0, 0, int(t.Width), int(t.Height))
+			case xproto.ConfigureNotifyEvent: // window structure (position,size,...)
+				//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
+				w, h := int(t.Width), int(t.Height)
+				r := image.Rect(0, 0, w, h)
+				events <- &event.WindowResize{Rect: r}
+			case xproto.ExposeEvent: // region needs paint
+				//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
+				w, h := int(t.Width), int(t.Height)
+				r := image.Rect(0, 0, w, h)
 				events <- &event.WindowExpose{Rect: r}
+			case xproto.MapNotifyEvent: // window mapped (created)
+
 			case shm.CompletionEvent:
 				events <- &event.WindowPutImageDone{}
 
-			case xproto.MappingNotifyEvent:
+			case xproto.MappingNotifyEvent: // keyboard mapping
 				win.XInput.ReadMapTable()
 
 			case xproto.KeyPressEvent:
@@ -306,7 +314,7 @@ func (win *Window) SetCPCopy(i event.CopyPasteIndex, v string) error {
 	return win.Copy.Set(i, v)
 }
 
-func (win *Window) SetCursor(c widget.Cursor) {
+func (win *Window) SetCursor(c event.Cursor) {
 	sc := func(c2 xcursors.Cursor) {
 		err := win.Cursors.SetCursor(c2)
 		if err != nil {
@@ -314,23 +322,23 @@ func (win *Window) SetCursor(c widget.Cursor) {
 		}
 	}
 	switch c {
-	case widget.NoneCursor:
+	case event.NoneCursor:
 		sc(xcursors.XCNone)
-	case widget.DefaultCursor:
+	case event.DefaultCursor:
 		sc(xcursors.XCNone)
-	case widget.NSResizeCursor:
+	case event.NSResizeCursor:
 		sc(xcursor.SBVDoubleArrow)
-	case widget.WEResizeCursor:
+	case event.WEResizeCursor:
 		sc(xcursor.SBHDoubleArrow)
-	case widget.CloseCursor:
+	case event.CloseCursor:
 		sc(xcursor.XCursor)
-	case widget.MoveCursor:
+	case event.MoveCursor:
 		sc(xcursor.Fleur)
-	case widget.PointerCursor:
+	case event.PointerCursor:
 		sc(xcursor.Hand2)
-	case widget.BeamCursor:
+	case event.BeamCursor:
 		sc(xcursor.XTerm)
-	case widget.WaitCursor:
+	case event.WaitCursor:
 		sc(xcursor.Watch)
 	}
 }

@@ -17,7 +17,7 @@ type RowSquare struct {
 
 func NewRowSquare(row *Row) *RowSquare {
 	sq := &RowSquare{row: row, Size: image.Point{5, 5}}
-	sq.Cursor = widget.CloseCursor
+	sq.Cursor = event.CloseCursor
 	return sq
 }
 func (sq *RowSquare) Measure(hint image.Point) image.Point {

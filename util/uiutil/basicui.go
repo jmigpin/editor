@@ -23,7 +23,7 @@ type BasicUI struct {
 	pendingPaint    bool
 	lastPaint       time.Time
 	incompleteDraws int
-	curCursor       widget.Cursor
+	curCursor       event.Cursor
 }
 
 func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*BasicUI, error) {
@@ -207,7 +207,7 @@ func (ui *BasicUI) QueryPointer() (*image.Point, error) {
 //----------
 
 // Implements widget.CursorContext
-func (ui *BasicUI) SetCursor(c widget.Cursor) {
+func (ui *BasicUI) SetCursor(c event.Cursor) {
 	if ui.curCursor == c {
 		return
 	}

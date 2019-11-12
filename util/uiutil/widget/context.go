@@ -11,7 +11,7 @@ type ImageContext interface {
 }
 
 type CursorContext interface {
-	SetCursor(Cursor)
+	SetCursor(event.Cursor)
 }
 
 type ClipboardContext interface {

@@ -16,7 +16,7 @@ type ColumnSquare struct {
 
 func NewColumnSquare(col *Column) *ColumnSquare {
 	sq := &ColumnSquare{col: col, Size: image.Point{5, 5}}
-	sq.Cursor = widget.CloseCursor
+	sq.Cursor = event.CloseCursor
 	return sq
 }
 

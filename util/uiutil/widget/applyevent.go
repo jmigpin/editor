@@ -56,7 +56,7 @@ func (ae *ApplyEvent) Apply(node Node, ev interface{}, p image.Point) {
 //----------
 
 func (ae *ApplyEvent) setCursor(node Node, p image.Point) {
-	var c Cursor
+	var c event.Cursor
 	if ae.drag.pressing {
 		c = ae.drag.node.Embed().Cursor
 	} else {
@@ -65,12 +65,12 @@ func (ae *ApplyEvent) setCursor(node Node, p image.Point) {
 	ae.cctx.SetCursor(c)
 }
 
-func (ae *ApplyEvent) treeCursor(node Node, p image.Point) Cursor {
+func (ae *ApplyEvent) treeCursor(node Node, p image.Point) event.Cursor {
 	ne := node.Embed()
 	if !p.In(ne.Bounds) {
 		return 0
 	}
-	var c Cursor
+	var c event.Cursor
 	ne.IterateWrappersReverse(func(child Node) bool {
 		c = ae.treeCursor(child, p)
 		return c == 0 // continue while no cursor was set

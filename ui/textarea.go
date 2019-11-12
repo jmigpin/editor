@@ -74,7 +74,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 	case *event.MouseDown:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.Cursor = widget.PointerCursor
+			ta.Cursor = event.PointerCursor
 		case event.ButtonLeft:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
@@ -106,12 +106,12 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 	case *event.MouseUp:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.Cursor = widget.NoneCursor
+			ta.Cursor = event.NoneCursor
 		}
 	case *event.MouseDragStart:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.Cursor = widget.NoneCursor
+			ta.Cursor = event.NoneCursor
 		}
 	case *event.KeyDown:
 		m := ev.Mods.ClearLocks()

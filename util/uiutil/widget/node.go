@@ -51,7 +51,7 @@ func (ENode) fullNode() {}
 
 type EmbedNode struct {
 	Bounds  image.Rectangle
-	Cursor  Cursor
+	Cursor  event.Cursor
 	Wrapper Node
 	Parent  *EmbedNode
 

@@ -4,6 +4,7 @@ import (
 	"image"
 
 	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 // Should be a child of FloatLayer.
@@ -17,7 +18,7 @@ type FloatBox struct {
 
 func NewFloatBox(ml *MultiLayer, content Node) *FloatBox {
 	fb := &FloatBox{content: content, ml: ml}
-	fb.Cursor = DefaultCursor
+	fb.Cursor = event.DefaultCursor
 	fb.Append(content)
 	fb.AddMarks(MarkNotDraggable | MarkInBoundsHandlesEvent)
 	return fb

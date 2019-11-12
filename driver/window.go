@@ -5,7 +5,6 @@ import (
 	"image/draw"
 
 	"github.com/jmigpin/editor/util/uiutil/event"
-	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type Window interface {
@@ -19,7 +18,7 @@ type Window interface {
 	PutImage(image.Rectangle) (completed bool, _ error)
 	ResizeImage(image.Rectangle) error
 
-	SetCursor(widget.Cursor)
+	SetCursor(event.Cursor)
 	QueryPointer() (*image.Point, error)
 	WarpPointer(*image.Point)
 

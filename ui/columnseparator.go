@@ -17,7 +17,7 @@ func NewColSeparator(col *Column) *ColSeparator {
 	sep.Size.X = separatorWidth
 	sep.Handle.Left = 3
 	sep.Handle.Right = 3
-	sep.Handle.Cursor = widget.WEResizeCursor
+	sep.Handle.Cursor = event.WEResizeCursor
 
 	csep := &ColSeparator{Separator: sep, col: col}
 	csep.SetThemePaletteNamePrefix("colseparator_")

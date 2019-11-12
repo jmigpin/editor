@@ -1,4 +1,4 @@
-package widget
+package event
 
 type Cursor int
 
