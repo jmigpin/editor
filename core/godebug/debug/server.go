@@ -31,7 +31,7 @@ type Server struct {
 	lnwait sync.WaitGroup
 	client struct {
 		sync.RWMutex
-		conn *CConn
+		cconn *CConn
 	}
 	sendReady sync.RWMutex
 }
@@ -68,9 +68,9 @@ func (srv *Server) Close() {
 	// close client
 	logger.Println("closing client")
 	srv.client.Lock()
-	if srv.client.conn != nil {
-		srv.client.conn.Close()
-		srv.client.conn = nil
+	if srv.client.cconn != nil {
+		srv.client.cconn.Close()
+		srv.client.cconn = nil
 	}
 	srv.client.Unlock()
 
@@ -101,10 +101,10 @@ func (srv *Server) acceptClientsLoop() {
 
 		// start client
 		srv.client.Lock()
-		if srv.client.conn != nil {
-			srv.client.conn.Close() // close previous connection
+		if srv.client.cconn != nil {
+			srv.client.cconn.Close() // close previous connection
 		}
-		srv.client.conn = NewCCon(srv, conn)
+		srv.client.cconn = NewCCon(srv, conn)
 		srv.client.Unlock()
 	}
 }
@@ -116,7 +116,7 @@ func (srv *Server) Send(v *LineMsg) {
 	srv.sendReady.RLock()
 	defer srv.sendReady.RUnlock()
 
-	srv.client.conn.Send(v)
+	srv.client.cconn.Send(v)
 }
 
 //----------
@@ -135,52 +135,52 @@ type CConn struct {
 	}
 }
 
-func NewCCon(srv *Server, nconn net.Conn) *CConn {
-	conn := &CConn{srv: srv, conn: nconn}
-	conn.sendch = make(chan *LineMsg, sendQSize)
-	conn.reqStart.start = make(chan struct{})
+func NewCCon(srv *Server, conn net.Conn) *CConn {
+	cconn := &CConn{srv: srv, conn: conn}
+	cconn.sendch = make(chan *LineMsg, sendQSize)
+	cconn.reqStart.start = make(chan struct{})
 
 	// receive messages
-	conn.rwait.Add(1)
+	cconn.rwait.Add(1)
 	go func() {
-		defer conn.rwait.Done()
-		conn.receiveMsgsLoop()
+		defer cconn.rwait.Done()
+		cconn.receiveMsgsLoop()
 	}()
 
 	// send msgs
-	conn.swait.Add(1)
+	cconn.swait.Add(1)
 	go func() {
-		defer conn.swait.Done()
-		conn.sendMsgsLoop()
+		defer cconn.swait.Done()
+		cconn.sendMsgsLoop()
 	}()
 
-	return conn
+	return cconn
 }
 
-func (conn *CConn) Close() {
-	conn.reqStart.Lock()
-	if conn.reqStart.started {
+func (cconn *CConn) Close() {
+	cconn.reqStart.Lock()
+	if cconn.reqStart.started {
 		// not sendready anymore
-		conn.srv.sendReady.Lock()
+		cconn.srv.sendReady.Lock()
 	}
-	conn.reqStart.closed = true
-	conn.reqStart.Unlock()
+	cconn.reqStart.closed = true
+	cconn.reqStart.Unlock()
 
 	// close send msgs: can't close receive msgs first (closes client)
-	close(conn.reqStart.start) // ok even if it didn't start
-	close(conn.sendch)
-	conn.swait.Wait()
+	close(cconn.reqStart.start) // ok even if it didn't start
+	close(cconn.sendch)
+	cconn.swait.Wait()
 
 	// close receive msgs
-	_ = conn.conn.Close()
-	conn.rwait.Wait()
+	_ = cconn.conn.Close()
+	cconn.rwait.Wait()
 }
 
 //----------
 
-func (conn *CConn) receiveMsgsLoop() {
+func (cconn *CConn) receiveMsgsLoop() {
 	for {
-		msg, err := DecodeMessage(conn.conn)
+		msg, err := DecodeMessage(cconn.conn)
 		if err != nil {
 			// unable to read (server was probably closed)
 			if operr, ok := err.(*net.OpError); ok {
@@ -203,18 +203,18 @@ func (conn *CConn) receiveMsgsLoop() {
 		case *ReqFilesDataMsg:
 			logger.Print("sending files data")
 			msg := &FilesDataMsg{Data: AnnotatorFilesData}
-			if err := conn.send2(msg); err != nil {
+			if err := cconn.send2(msg); err != nil {
 				log.Println(err)
 			}
 		case *ReqStartMsg:
 			logger.Print("reqstart")
-			conn.reqStart.Lock()
-			if !conn.reqStart.started && !conn.reqStart.closed {
-				conn.reqStart.start <- struct{}{}
-				conn.reqStart.started = true
-				conn.srv.sendReady.Unlock()
+			cconn.reqStart.Lock()
+			if !cconn.reqStart.started && !cconn.reqStart.closed {
+				cconn.reqStart.start <- struct{}{}
+				cconn.reqStart.started = true
+				cconn.srv.sendReady.Unlock()
 			}
-			conn.reqStart.Unlock()
+			cconn.reqStart.Unlock()
 		default:
 			// always print if there is a new msg type
 			log.Printf("todo: unexpected msg type")
@@ -224,9 +224,9 @@ func (conn *CConn) receiveMsgsLoop() {
 
 //----------
 
-func (conn *CConn) sendMsgsLoop() {
+func (cconn *CConn) sendMsgsLoop() {
 	// wait for reqstart, or the client won't have the index data
-	_, ok := <-conn.reqStart.start
+	_, ok := <-cconn.reqStart.start
 	if !ok {
 		return
 	}
@@ -249,7 +249,7 @@ func (conn *CConn) sendMsgsLoop() {
 	msgs := []*LineMsg{}
 	sendMsgs := func() {
 		if len(msgs) > 0 {
-			if err := conn.send2(msgs); err != nil {
+			if err := cconn.send2(msgs); err != nil {
 				log.Println(err)
 			}
 			msgs = nil
@@ -257,7 +257,7 @@ func (conn *CConn) sendMsgsLoop() {
 	}
 	for {
 		select {
-		case v, ok := <-conn.sendch:
+		case v, ok := <-cconn.sendch:
 			if !ok {
 				goto loopEnd
 			}
@@ -282,12 +282,12 @@ loopEnd:
 	sendMsgs()
 }
 
-func (conn *CConn) send2(v interface{}) error {
+func (cconn *CConn) send2(v interface{}) error {
 	encoded, err := EncodeMessage(v)
 	if err != nil {
 		panic(err)
 	}
-	n, err := conn.conn.Write(encoded)
+	n, err := cconn.conn.Write(encoded)
 	if err != nil {
 		return err
 	}
@@ -299,6 +299,6 @@ func (conn *CConn) send2(v interface{}) error {
 
 //----------
 
-func (conn *CConn) Send(v *LineMsg) {
-	conn.sendch <- v
+func (cconn *CConn) Send(v *LineMsg) {
+	cconn.sendch <- v
 }

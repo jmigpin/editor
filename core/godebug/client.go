@@ -42,10 +42,8 @@ func (client *Client) Wait() {
 }
 
 func (client *Client) Close() error {
-	//close(client.done) // on close, ensure no goroutine leaks
 	if client.Conn != nil {
 		return client.Conn.Close()
-
 	}
 	return nil
 }
