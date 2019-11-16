@@ -593,6 +593,20 @@ func TestAnnotator40(t *testing.T) {
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
+func TestAnnotator40a(t *testing.T) {
+	inout := []string{
+		`switch f1(u) {}`,
+		`Σ0 := Σ.IV(u)
+	        Σ.Line(0, 0, 34, Σ.ICe("f1", Σ0))
+	        Σ1 := f1(u)
+	        Σ2 := Σ.IV(Σ1)
+	        Σ3 := Σ.IC("f1", Σ2, Σ0)
+	        Σ.Line(0, 0, 35, Σ3)
+	        switch Σ1 {
+	        }`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
 func TestAnnotator41(t *testing.T) {
 	inout := []string{
 		`if a {}`,

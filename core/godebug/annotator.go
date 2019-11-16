@@ -200,7 +200,14 @@ func (ann *Annotator) visitSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) {
 
 	if ss.Tag != nil {
 		pos := ss.Tag.End() // replacements could make position 0
-		ctx2 := ctx.withResultInVar()
+
+		ctx2 := ctx
+		if _, ok := ss.Tag.(*ast.CallExpr); ok {
+			// special callexpr case: switch handles only 1 result
+			ctx2 = ctx2.withNResults(1)
+		}
+		ctx2 = ctx2.withResultInVar()
+
 		e := ann.visitExpr(ctx2, &ss.Tag)
 		stmt2 := ann.newDebugLineStmt(ctx, pos, e)
 		ctx.insertInStmtListBefore(stmt2)
