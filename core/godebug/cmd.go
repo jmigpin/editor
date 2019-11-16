@@ -523,17 +523,19 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 			// "-toolexec", "", // don't run asm?
 			"-o", filenameOut,
 		}
+		args = append(args, cmd.flags.otherArgs...)
 	} else {
 		args = []string{
 			osutil.GoExec(), "build",
 			"-o", filenameOut,
-			filename,
 		}
-	}
-
-	// append otherargs in test mode
-	if tests {
-		args = append(args, cmd.flags.otherArgs...)
+		// insert otherargs before filename last arg: allows all "go build" to be used after the filename
+		// TODO: accept -gobuild.* args?
+		if cmd.flags.mode.build {
+			args = append(args, cmd.flags.otherArgs...)
+		}
+		// filename is last arg
+		args = append(args, filename)
 	}
 
 	dir := filepath.Dir(filenameOut)

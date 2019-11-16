@@ -485,6 +485,30 @@ func createFilesForTestCmd_simple3(t *testing.T, tmpDir string) {
 
 //------------
 
+func TestCmd_simple4(t *testing.T) {
+	tmpDir := createTmpDir(t)
+	defer os.RemoveAll(tmpDir)
+	t.Logf("tmpDir: %v\n", tmpDir)
+
+	createFilesForTestCmd_simple4(t, tmpDir)
+
+	cmd := []string{"build", "dir1/main.go", "-tags=aaa"} // some arg after the filename
+	msgs := doCmd2(t, tmpDir, cmd, false, "")
+	_ = msgs // ok - just be able to build
+}
+
+func createFilesForTestCmd_simple4(t *testing.T, tmpDir string) {
+	mainMainGo := `
+		package main
+		func main() {
+			_=1
+		}
+	`
+	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
+}
+
+//------------
+
 // Launches the editor itself.
 //func TestCmd_editor(t *testing.T) {
 //	filename := "./../../editor.go"
