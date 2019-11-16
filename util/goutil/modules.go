@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
+
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 //----------
@@ -83,7 +84,7 @@ func GoModRequire(ctx context.Context, dir, path string) error {
 }
 
 func runGoModCmd(ctx context.Context, dir, errStr string, args []string) ([]byte, error) {
-	ecmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	ecmd := osutil.ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
 	ecmd.Dir = dir
 	out, err := ecmd.CombinedOutput()
 	if err != nil {

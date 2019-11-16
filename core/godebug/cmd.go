@@ -569,13 +569,12 @@ func (cmd *Cmd) runCmd(ctx context.Context, dir string, args, env []string) erro
 
 func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*exec.Cmd, error) {
 	cargs := osutil.ShellRunArgs(args...)
-	ecmd := exec.CommandContext(ctx, cargs[0], cargs[1:]...)
+	ecmd := osutil.ExecCmdCtxWithAttr(ctx, cargs[0], cargs[1:]...)
 
 	ecmd.Env = env
 	ecmd.Dir = dir
 	ecmd.Stdout = cmd.Stdout
 	ecmd.Stderr = cmd.Stderr
-	osutil.SetupExecCmdSysProcAttr(ecmd)
 
 	if err := ecmd.Start(); err != nil {
 		return nil, err

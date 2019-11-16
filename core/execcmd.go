@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"unicode"
+
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func ExecCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
@@ -15,7 +17,7 @@ func ExecCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
 }
 
 func ExecCmdStdin(ctx context.Context, dir string, in io.Reader, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := osutil.ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
 	cmd.Dir = dir
 	cmd.Stdin = in
 	b, err := cmd.CombinedOutput()

@@ -5,6 +5,7 @@ package osutil
 import (
 	"errors"
 	"os/exec"
+	"syscall"
 )
 
 //----------
@@ -14,6 +15,7 @@ const EscapeRune = '^'
 //----------
 
 func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 }
 
 func KillExecCmd(cmd *exec.Cmd) error {

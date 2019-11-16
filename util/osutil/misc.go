@@ -1,7 +1,9 @@
 package osutil
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -37,4 +39,12 @@ func FilepathSplitAt(s string, n int) string {
 		}
 	}
 	return s[n:]
+}
+
+//----------
+
+func ExecCmdCtxWithAttr(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	SetupExecCmdSysProcAttr(cmd)
+	return cmd
 }

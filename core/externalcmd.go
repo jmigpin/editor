@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -103,12 +102,11 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 
 	fexec := func(ctx context.Context, w io.Writer) error {
 		// prepare cmd exec
-		cmd := exec.CommandContext(ctx, cargs[0], cargs[1:]...)
+		cmd := osutil.ExecCmdCtxWithAttr(ctx, cargs[0], cargs[1:]...)
 		cmd.Dir = erow.Info.Name()
 		cmd.Env = env
 		cmd.Stdout = w
 		cmd.Stderr = w
-		osutil.SetupExecCmdSysProcAttr(cmd)
 
 		// TODO: pty tests
 		//f, err := pty.Start(cmd)

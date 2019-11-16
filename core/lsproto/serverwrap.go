@@ -14,6 +14,7 @@ import (
 	"os/exec"
 
 	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 type ServerWrap struct {
@@ -103,7 +104,7 @@ func newServerWrapCommon(ctx0 context.Context, cmd string, reg *Registration, pr
 
 	// cmd
 	args := strings.Split(cmd, " ") // TODO: escapes
-	sw.Cmd = exec.CommandContext(ctx, args[0], args[1:]...)
+	sw.Cmd = osutil.ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
 
 	if preStartFn != nil {
 		if err := preStartFn(sw); err != nil {

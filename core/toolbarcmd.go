@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/ctxutil"
+	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
 )
 
@@ -441,7 +441,8 @@ func XdgOpenDirCmd(erow *ERow) error {
 	}
 
 	dir := erow.Info.Dir()
-	c := exec.Command("xdg-open", dir)
+	ctx := context.Background() // TODO
+	c := osutil.ExecCmdCtxWithAttr(ctx, "xdg-open", dir)
 	if err := c.Start(); err != nil {
 		return err
 	}
