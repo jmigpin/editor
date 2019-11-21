@@ -19,11 +19,15 @@ func init() {
 	gob.Register(&ItemAssign{})
 	gob.Register(&ItemSend{})
 	gob.Register(&ItemCall{})
+	gob.Register(&ItemCallEnter{})
 	gob.Register(&ItemIndex{})
 	gob.Register(&ItemIndex2{})
 	gob.Register(&ItemKeyValue{})
+	gob.Register(&ItemSelector{})
+	gob.Register(&ItemTypeAssert{})
 	gob.Register(&ItemBinary{})
 	gob.Register(&ItemUnary{})
+	gob.Register(&ItemUnaryEnter{})
 	gob.Register(&ItemParen{})
 	gob.Register(&ItemLiteral{})
 	gob.Register(&ItemBranch{})
@@ -58,8 +62,8 @@ type AnnotatorFileData struct {
 
 //----------
 
-type V interface{}
-type Item interface{}
+type Item interface {
+}
 type ItemValue struct {
 	Str string
 }
@@ -76,10 +80,13 @@ type ItemSend struct {
 	Chan, Value Item
 }
 type ItemCall struct {
-	Result   Item
-	Args     *ItemList
-	Name     string
-	Entering bool
+	Name   string
+	Args   *ItemList
+	Result Item
+}
+type ItemCallEnter struct {
+	Name string
+	Args *ItemList
 }
 type ItemIndex struct {
 	Result Item
@@ -96,6 +103,14 @@ type ItemKeyValue struct {
 	Key   Item
 	Value Item
 }
+type ItemSelector struct {
+	X   Item
+	Sel Item
+}
+type ItemTypeAssert struct {
+	X    Item
+	Type Item
+}
 type ItemBinary struct {
 	Result Item
 	Op     int
@@ -105,6 +120,10 @@ type ItemUnary struct {
 	Result Item
 	Op     int
 	X      Item
+}
+type ItemUnaryEnter struct {
+	Op int
+	X  Item
 }
 type ItemParen struct {
 	X Item
@@ -116,6 +135,8 @@ type ItemBranch struct{}
 type ItemAnon struct{}
 
 //----------
+
+type V interface{}
 
 // ItemValue
 func IV(v V) Item {
@@ -160,9 +181,9 @@ func IC(name string, result Item, args ...Item) Item {
 	return &ItemCall{Name: name, Result: result, Args: IL(args...)}
 }
 
-// ItemCall: entering
+// ItemCall: enter
 func ICe(name string, args ...Item) Item {
-	return &ItemCall{Name: name, Entering: true, Args: IL(args...)}
+	return &ItemCallEnter{Name: name, Args: IL(args...)}
 }
 
 // ItemIndex
@@ -174,8 +195,18 @@ func II2(result, expr, low, high, max Item, slice3 bool) Item {
 }
 
 // ItemKeyValue
-func KV(key, value Item) Item {
+func IKV(key, value Item) Item {
 	return &ItemKeyValue{Key: key, Value: value}
+}
+
+// ItemSelector
+func ISel(x, sel Item) Item {
+	return &ItemSelector{X: x, Sel: sel}
+}
+
+// ItemTypeAssert
+func ITA(x, t Item) Item {
+	return &ItemTypeAssert{X: x, Type: t}
 }
 
 // ItemBinary
@@ -186,6 +217,11 @@ func IB(result Item, op int, x, y Item) Item {
 // ItemUnary
 func IU(result Item, op int, x Item) Item {
 	return &ItemUnary{Result: result, Op: op, X: x}
+}
+
+// ItemUnary: enter
+func IUe(op int, x Item) Item {
+	return &ItemUnaryEnter{Op: op, X: x}
 }
 
 // ItemParen

@@ -1,9 +1,9 @@
+// +build windows,!xproto
+
 package driver
 
-// commented: check xgbutil/shmimage/shmopen_syscall_windows.go
+import "github.com/jmigpin/editor/driver/windriver"
 
-//import "errors"
-
-//func NewWindow() (Window, error) {
-//	return nil, errors.New("todo: windows implementation")
-//}
+func NewWindow() (Window, error) {
+	return windriver.NewWindow()
+}

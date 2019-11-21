@@ -45,6 +45,7 @@ func (ann *Annotator) AnnotateAstFile(astFile *ast.File, typ AnnotationType) {
 		ctx = ctx.withNoAnnotations(false)
 	}
 
+	//ann.nodeStk = nil
 	ann.visitFile(ctx, astFile)
 
 	// ensure comments are not in between stmts in the middle of declarations (solves test100)
@@ -555,30 +556,35 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	// also: first arg is type in case of new/make functions
 	ctx2 := ctx
 	fname := "f"
+	isPanic := false
 	switch t := ce.Fun.(type) {
 	case *ast.Ident:
 		fname = t.Name
-		switch fname {
+		switch t.Name {
+		case "panic": // TODO: could be "a.panic"?
+			isPanic = true
 		case "new", "make":
 			ctx2 = ctx2.withFirstArgIsType()
 		}
 	case *ast.SelectorExpr:
 		fname = t.Sel.Name
-		//if p, ok := t.X.(*ast.Ident); ok && p.Name == "debug" {
-		//	switch t.Sel.Name {
-		//	case "NoAnnotations":
-		//		// stop annotating (this call is still annotated)
-		//		ctx.setUpperNoAnnotations(true)
-		//		return
-		//	case "AnnotateBlock":
-		//		ctx.setUpperNoAnnotations(false)
-		//	}
-		//}
+		if _, ok := t.X.(*ast.Ident); ok {
+			// simplify if it is an ident (no visit)
+		} else {
+			// visit X and show stepping out
+			ctx3 := ctx2.withNResults(1)
+			pos := ce.Fun.End()
+			x := ann.visitExpr(ctx3, &t.X)
+			stmt := ann.newDebugLineStmt(ctx, pos, x)
+			ctx.insertInStmtList(stmt)
+		}
 	case *ast.FuncLit:
 		pos := ce.Fun.End()
 		e := ann.visitExpr(ctx, &ce.Fun)
 		stmt := ann.newDebugLineStmt(ctx, pos, e)
 		ctx.insertInStmtList(stmt)
+	case *ast.InterfaceType:
+		fname = "interface{}"
 	}
 	fnamee := basicLitStringQ(fname)
 
@@ -594,7 +600,8 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	stmt := ann.newDebugLineStmt(ctx3, ce.Rparen, ce4)
 	ctx.insertInStmtList(stmt)
 
-	if fname == "panic" {
+	// avoid "line unreachable" compiler errors
+	if isPanic {
 		// nil arg: newDebugLineStmt will generate an emptyStmt
 		ctx.pushExprs(nil)
 		return
@@ -690,14 +697,25 @@ func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
 
 	// X expression
 	ctx2 := ctx
-	switch ue.Op {
-	case token.AND:
-		// Ex: f1(&c[i]) -> d0:=c[i]; f1(&d0) // d0 wrong address
-		ctx2 = ctx.withNoResultInVar()
-	}
+	ctx2 = ctx2.withInsertStmtAfter(false)
 	ctx2 = ctx2.withNResults(1)
+	if ue.Op == token.AND {
+		// Ex: f1(&c[i]) -> d0:=c[i]; f1(&d0) // d0 wrong address
+		ctx2 = ctx2.withNoResultInVar()
+	}
 	x := ann.visitExpr(ctx2, &ue.X)
 
+	// show entering
+	if ue.Op == token.ARROW {
+		pos := ue.End()
+		opbl := basicLitInt(int(ue.Op))
+		ce4 := ann.newDebugCallExpr("IUe", opbl, x)
+		ctx3 := ctx2.setupCallExprDebugIndex(ann)
+		stmt := ann.newDebugLineStmt(ctx3, pos, ce4)
+		ctx2.insertInStmtList(stmt)
+	}
+
+	// result
 	ctx3 := ctx
 	direct := isDirectExpr(ue)
 	if direct {
@@ -714,7 +732,18 @@ func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
 }
 
 func (ann *Annotator) visitSelectorExpr(ctx *Ctx, se *ast.SelectorExpr) {
-	ce := ann.newDebugCallExpr("IV", se)
+	// simplify if it is just an ident
+	if _, ok := se.X.(*ast.Ident); ok {
+		ce := ann.newDebugCallExpr("IV", se)
+		id := ann.assignToNewIdent(ctx, ce)
+		ctx.pushExprs(id)
+		return
+	}
+
+	ctx2 := ctx.withInsertStmtAfter(false)
+	x := ann.visitExpr(ctx2, &se.X)
+	ce2 := ann.newDebugCallExpr("IV", se) // selector value
+	ce := ann.newDebugCallExpr("ISel", x, ce2)
 	id := ann.assignToNewIdent(ctx, ce)
 	ctx.pushExprs(id)
 }
@@ -787,13 +816,35 @@ func (ann *Annotator) visitKeyValueExpr(ctx *Ctx, kv *ast.KeyValueExpr) {
 
 	v := ann.visitExpr(ctx, &kv.Value)
 
-	ce := ann.newDebugCallExpr("KV", k, v)
+	ce := ann.newDebugCallExpr("IKV", k, v)
 	ctx.pushExprs(ce)
 }
 
 func (ann *Annotator) visitTypeAssertExpr(ctx *Ctx, tae *ast.TypeAssertExpr) {
-	ce := ann.newDebugCallExpr("IVt", tae.X)
-	ctx.pushExprs(ce)
+	// don't show type assertion for "X.(sometype)", just visit the expr
+	if tae.Type != nil {
+		ctx2 := ctx.withNResults(1)
+		x := ann.visitExpr(ctx2, &tae.X)
+		ctx.pushExprs(x)
+		return
+	}
+	// from here it is of type "switch X.(type)"
+
+	// simplify if it is just an ident
+	if _, ok := tae.X.(*ast.Ident); ok {
+		ce := ann.newDebugCallExpr("IVt", tae.X)
+		ctx.pushExprs(ce)
+		return
+	}
+
+	ctx2 := ctx
+	ctx2 = ctx2.withResultInVar()
+	ctx2 = ctx2.withNResults(1)
+	x := ann.visitExpr(ctx2, &tae.X)
+	ce1 := ann.newDebugCallExpr("IVt", tae.X)
+
+	ce2 := ann.newDebugCallExpr("ITA", x, ce1)
+	ctx.pushExprs(ce2)
 }
 
 func (ann *Annotator) visitParenExpr(ctx *Ctx, pe *ast.ParenExpr) {
@@ -919,13 +970,13 @@ func (ann *Annotator) visitFieldList(ctx *Ctx, fl *ast.FieldList) []ast.Expr {
 
 func (ann *Annotator) visitField(ctx *Ctx, field *ast.Field) []ast.Expr {
 	ctx2 := ctx.withNewExprs()
-	exprs := []ast.Expr{}
 
 	// set field name if it has no names (otherwise it won't output)
 	if len(field.Names) == 0 {
 		field.Names = append(field.Names, ann.newIdent())
 	}
 
+	exprs := []ast.Expr{}
 	for _, id := range field.Names {
 		ann.visitIdent(ctx2, id)
 		w := ctx2.popExprs()
@@ -965,52 +1016,17 @@ func (ann *Annotator) visitStmtList(ctx *Ctx, list *[]ast.Stmt) {
 
 func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
 	if ctx.noAnnotations() {
-		switch t := stmt.(type) {
-		case *ast.ExprStmt:
-		case *ast.AssignStmt:
-		case *ast.TypeSwitchStmt:
-			ann.visitBlockStmt(ctx, t.Body)
-		case *ast.SwitchStmt:
-			ann.visitBlockStmt(ctx, t.Body)
-		case *ast.IfStmt:
-			ann.visitBlockStmt(ctx, t.Body)
-			if t.Else != nil {
-				ann.visitStmt(ctx, t.Else)
-			}
-		case *ast.ForStmt:
-			ann.visitBlockStmt(ctx, t.Body)
-		case *ast.RangeStmt:
-			ann.visitBlockStmt(ctx, t.Body)
-		case *ast.LabeledStmt:
-			if t.Stmt != nil {
-				ann.visitStmt(ctx, t.Stmt)
-			}
-		case *ast.ReturnStmt:
-		case *ast.DeferStmt:
-		case *ast.DeclStmt:
-		case *ast.BranchStmt:
-		case *ast.IncDecStmt:
-		case *ast.SendStmt:
-		case *ast.GoStmt:
-		case *ast.SelectStmt:
-			ann.visitBlockStmt(ctx, t.Body)
-		case *ast.BlockStmt:
-			ann.visitBlockStmt(ctx, t)
-		case *ast.CaseClause:
-			ann.visitStmtList(ctx, &t.Body)
-		case *ast.CommClause:
-			ann.visitStmtList(ctx, &t.Body)
-		default:
-			fmt.Printf("visitstmt: noannotations: %v\n", t)
-		}
-		return
+		ann.visitStmt3NoAnnotations(ctx, stmt)
+	} else {
+		ann.visitStmt2(ctx, stmt)
 	}
+}
 
+func (ann *Annotator) visitStmt2(ctx *Ctx, stmt ast.Stmt) {
 	ctx = ctx.withNewExprs()
 	ctx = ctx.withNResults(0)
 	ctx = ctx.withNoStaticDebugIndex()
 	ctx = ctx.withCallExprDebugIndex()
-
 	switch t := stmt.(type) {
 	case *ast.ExprStmt:
 		ann.visitExprStmt(ctx, t)
@@ -1046,14 +1062,53 @@ func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
 		ann.visitSelectStmt(ctx, t)
 	case *ast.BlockStmt:
 		ann.visitBlockStmt(ctx, t)
-
 	case *ast.CaseClause:
 		ann.visitCaseClause(ctx, t)
 	case *ast.CommClause:
 		ann.visitCommClause(ctx, t)
-
 	default:
 		fmt.Printf("visitstmt: %v\n", t)
+	}
+}
+
+func (ann *Annotator) visitStmt3NoAnnotations(ctx *Ctx, stmt ast.Stmt) {
+	switch t := stmt.(type) {
+	case *ast.ExprStmt:
+	case *ast.AssignStmt:
+	case *ast.TypeSwitchStmt:
+		ann.visitBlockStmt(ctx, t.Body)
+	case *ast.SwitchStmt:
+		ann.visitBlockStmt(ctx, t.Body)
+	case *ast.IfStmt:
+		ann.visitBlockStmt(ctx, t.Body)
+		if t.Else != nil {
+			ann.visitStmt(ctx, t.Else)
+		}
+	case *ast.ForStmt:
+		ann.visitBlockStmt(ctx, t.Body)
+	case *ast.RangeStmt:
+		ann.visitBlockStmt(ctx, t.Body)
+	case *ast.LabeledStmt:
+		if t.Stmt != nil {
+			ann.visitStmt(ctx, t.Stmt)
+		}
+	case *ast.ReturnStmt:
+	case *ast.DeferStmt:
+	case *ast.DeclStmt:
+	case *ast.BranchStmt:
+	case *ast.IncDecStmt:
+	case *ast.SendStmt:
+	case *ast.GoStmt:
+	case *ast.SelectStmt:
+		ann.visitBlockStmt(ctx, t.Body)
+	case *ast.BlockStmt:
+		ann.visitBlockStmt(ctx, t)
+	case *ast.CaseClause:
+		ann.visitStmtList(ctx, &t.Body)
+	case *ast.CommClause:
+		ann.visitStmtList(ctx, &t.Body)
+	default:
+		fmt.Printf("visitstmt: noannotations: %v\n", t)
 	}
 }
 
@@ -1078,8 +1133,6 @@ func (ann *Annotator) visitExprList(ctx *Ctx, list *[]ast.Expr) []ast.Expr {
 }
 
 func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
-	//fmt.Printf("visitExpr: %T\n", *exprPtr)
-
 	ctx = ctx.withNewExprs()
 	ctx = ctx.withExprPtr(exprPtr)
 
@@ -1104,20 +1157,16 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 		ann.visitParenExpr(ctx, t)
 	case *ast.StarExpr:
 		ann.visitStarExpr(ctx, t)
-
 	case *ast.BasicLit:
 		ann.visitBasicLit(ctx, t)
 	case *ast.FuncLit:
 		ann.visitFuncLit(ctx, t)
 	case *ast.CompositeLit:
 		ann.visitCompositeLit(ctx, t)
-
 	case *ast.Ident:
 		ann.visitIdent(ctx, t)
-
-		//	case *ast.ArrayType:
-		//		ann.visitArrayType(ctx, t)
-
+	//	case *ast.ArrayType:
+	//		ann.visitArrayType(ctx, t)
 	default:
 		spew.Dump("expr", t)
 		//panic("!")

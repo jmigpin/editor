@@ -102,11 +102,6 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 			is.stringify(e)
 		}
 
-	case *debug.ItemLiteral:
-		is.Str += "{" // other runes: τ, s // ex: A{a:1}, []byte{1,2}
-		is.stringify(t.Fields)
-		is.Str += "}"
-
 	case *debug.ItemAssign:
 		if SimplifyStringifyItem {
 			is.simplifyItemAssign(t)
@@ -123,30 +118,17 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 
 	case *debug.ItemCall:
 		_ = is.result(t.Result)
-		if t.Entering {
-			is.Str += "->"
-		}
 		is.Str += t.Name // other runes: λ,ƒ
 		is.Str += "("
 		is.stringify(t.Args)
 		is.Str += ")"
 
-	case *debug.ItemUnary:
-		_ = is.result(t.Result)
-		is.Str += token.Token(t.Op).String()
-		is.stringify(t.X)
-
-	case *debug.ItemBinary:
-		showRes := is.result(t.Result)
-		if showRes {
-			is.Str += "("
-		}
-		is.stringify(t.X)
-		is.Str += " " + token.Token(t.Op).String() + " "
-		is.stringify(t.Y)
-		if showRes {
-			is.Str += ")"
-		}
+	case *debug.ItemCallEnter:
+		is.Str += "=> "
+		is.Str += t.Name
+		is.Str += "("
+		is.stringify(t.Args)
+		is.Str += ")"
 
 	case *debug.ItemIndex:
 		_ = is.result(t.Result)
@@ -189,13 +171,52 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.Str += ":"
 		is.stringify(t.Value)
 
+	case *debug.ItemSelector:
+		is.Str += "("
+		is.stringify(t.X)
+		is.Str += ")."
+		is.stringify(t.Sel)
+
+	case *debug.ItemTypeAssert:
+		is.stringify(t.Type)
+		is.Str += "=type("
+		is.stringify(t.X)
+		is.Str += ")"
+
+	case *debug.ItemBinary:
+		showRes := is.result(t.Result)
+		if showRes {
+			is.Str += "("
+		}
+		is.stringify(t.X)
+		is.Str += " " + token.Token(t.Op).String() + " "
+		is.stringify(t.Y)
+		if showRes {
+			is.Str += ")"
+		}
+
+	case *debug.ItemUnary:
+		_ = is.result(t.Result)
+		is.Str += token.Token(t.Op).String()
+		is.stringify(t.X)
+
+	case *debug.ItemUnaryEnter:
+		is.Str += "=> "
+		is.Str += token.Token(t.Op).String()
+		is.stringify(t.X)
+
 	case *debug.ItemParen:
 		is.Str += "("
 		is.stringify(t.X)
 		is.Str += ")"
 
+	case *debug.ItemLiteral:
+		is.Str += "{" // other runes: τ, s // ex: A{a:1}, []byte{1,2}
+		is.stringify(t.Fields)
+		is.Str += "}"
+
 	case *debug.ItemBranch:
-		is.Str += "->" // other runes: ←
+		is.Str += "=>" // other runes: ←
 
 	case *debug.ItemAnon:
 		is.Str += "_"

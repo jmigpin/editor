@@ -106,12 +106,12 @@ func setupGodebugGoMod(ctx context.Context, cmd *Cmd, dir string) error {
 		return err
 	}
 
-	//// LOCAL DEVELOPMENT: editor pkg location
-	//oldPath2 := "github.com/jmigpin/editor"
-	//newPath2 := "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor"
-	//if err := goutil.GoModReplace(ctx, dir, oldPath2, newPath2); err != nil {
-	//	return err
-	//}
+	// LOCAL DEVELOPMENT: editor pkg location
+	oldPath2 := "github.com/jmigpin/editor"
+	newPath2 := "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor"
+	if err := goutil.GoModReplace(ctx, dir, oldPath2, newPath2); err != nil {
+		return err
+	}
 
 	// require godebugconfig
 	path2 := GoDebugConfigPkgPath + "@v0.0.0"

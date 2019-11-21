@@ -353,10 +353,10 @@ func (ctx *Ctx) withNoAnnotations(v bool) *Ctx {
 	return ctx.WithValue("no_annotations", v)
 }
 
-func (ctx *Ctx) setUpperNoAnnotations(v bool) {
-	_, ctx2 := ctx.Value("no_annotations")
-	ctx2.SetValue("no_annotations", v)
-}
+//func (ctx *Ctx) setUpperNoAnnotations(v bool) {
+//	_, ctx2 := ctx.Value("no_annotations")
+//	ctx2.SetValue("no_annotations", v)
+//}
 
 func (ctx *Ctx) noAnnotations() bool {
 	v, _ := ctx.Value("no_annotations")
