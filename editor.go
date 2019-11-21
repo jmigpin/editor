@@ -47,11 +47,13 @@ func main() {
 	flag.Parse()
 	opt.Filenames = flag.Args()
 
+	log.SetFlags(log.Lshortfile)
+
 	if *cpuProfileFlag != "" {
 		f, err := os.Create(*cpuProfileFlag)
 		if err != nil {
-			log.SetFlags(log.Lshortfile)
-			log.Fatal(err)
+			log.Println(err)
+			return
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
@@ -59,7 +61,7 @@ func main() {
 
 	_, err := core.NewEditor(opt)
 	if err != nil {
-		log.SetFlags(log.Lshortfile)
-		log.Fatal(err)
+		log.Println(err) // fatal() (os.exit) won't allow godebug to complete
+		return
 	}
 }
