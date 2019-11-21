@@ -80,14 +80,14 @@ func (wi *PixmapWImage) Image() draw.Image {
 	return wi.img
 }
 
-func (wi *PixmapWImage) PutImage(r image.Rectangle) (bool, error) {
+func (wi *PixmapWImage) PutImage(r image.Rectangle) error {
 	// X max data length = (2^16) * 4 = 262144, need to send it in chunks
 
 	putImgReqSize := 28 // TODO: link to header size
 	maxReqSize := (1 << 16) * 4
 	maxSize := (maxReqSize - putImgReqSize) / 4
 	if r.Dx() > maxSize {
-		return false, fmt.Errorf("pixmapwimage: dx>max, %v>%v", r.Dx(), maxSize)
+		return fmt.Errorf("pixmapwimage: dx>max, %v>%v", r.Dx(), maxSize)
 	}
 
 	xsize := r.Dx()
@@ -136,6 +136,9 @@ func (wi *PixmapWImage) PutImage(r image.Rectangle) (bool, error) {
 	}
 	wg.Wait()
 
-	// because all data was copied, it has completed (return true), no completion event will be emitted at a later stage
-	return true, nil
+	return nil
+}
+
+func (wi *PixmapWImage) PutImageCompleted() {
+	panic("pixmapwimage: not expecting async put image completed")
 }

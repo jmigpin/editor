@@ -10,21 +10,11 @@ import (
 type WindowClose struct{}
 type WindowResize struct{ Rect image.Rectangle }
 type WindowExpose struct{ Rect image.Rectangle } // empty = full area
-type WindowPutImageDone struct{}
 
 type WindowInput struct {
 	Point image.Point
 	Event interface{}
 }
-
-//----------
-
-type Handle bool
-
-const (
-	NotHandled Handle = false
-	Handled           = true
-)
 
 //----------
 
@@ -106,6 +96,7 @@ func (ku *KeyUp) LowerRune() rune {
 //----------
 
 // drag and drop
+
 type DndPosition struct {
 	Point image.Point
 	Types []DndType
@@ -141,4 +132,13 @@ type CopyPasteIndex int
 const (
 	CPIPrimary CopyPasteIndex = iota
 	CPIClipboard
+)
+
+//----------
+
+type Handle bool
+
+const (
+	NotHandled Handle = false
+	Handled           = true
 )

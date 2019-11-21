@@ -12,7 +12,8 @@ import (
 // Window image for drawing.
 type WImage interface {
 	Image() draw.Image
-	PutImage(image.Rectangle) (completed bool, _ error)
+	PutImage(image.Rectangle) error
+	PutImageCompleted()
 	Resize(image.Rectangle) error
 	Close() error
 }

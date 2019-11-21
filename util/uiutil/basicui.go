@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/driver"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
@@ -19,15 +18,15 @@ type BasicUI struct {
 	Win           driver.Window
 	ApplyEv       *widget.ApplyEvent
 
-	events          chan<- interface{}
-	pendingPaint    bool
-	lastPaint       time.Time
-	incompleteDraws int
-	curCursor       event.Cursor
+	events    chan<- interface{}
+	curCursor event.Cursor
+
+	lastPaintStart time.Time
+	lastPaintEnd   time.Time
+	pendingPaint   bool
 }
 
 func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*BasicUI, error) {
-	debug.AnnotateFile()
 	win, err := driver.NewWindow()
 	if err != nil {
 		return nil, err
@@ -46,12 +45,14 @@ func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*B
 	ui.RootNode = root
 	root.Embed().SetWrapperForRoot(root)
 
-	// slow UI without mouse move filter
-	//go ui.Win.EventLoop(events)
-
 	// start window event loop with mousemove event filter
 	events2 := make(chan interface{}, cap(events))
-	go ui.Win.EventLoop(events2)
+	go func() {
+		for {
+			//events <- ui.Win.NextEvent() // slow UI without mouse filter
+			events2 <- ui.Win.NextEvent()
+		}
+	}()
 	go MouseMoveFilterLoop(events2, events, &ui.DrawFrameRate)
 
 	return ui, nil
@@ -67,24 +68,19 @@ func (ui *BasicUI) HandleEvent(ev interface{}) {
 	switch t := ev.(type) {
 	case *event.WindowResize:
 		ui.UpdateImageSize(t.Rect)
-		ui.RootNode.Embed().MarkNeedsPaint()
 	case *UIReviewSize:
 		ui.UpdateImageSize(t.Rect)
-		ui.RootNode.Embed().MarkNeedsPaint()
-
 	case *event.WindowExpose:
 		ui.RootNode.Embed().MarkNeedsPaint()
-
 	case *event.WindowInput:
 		ui.ApplyEv.Apply(ui.RootNode, t.Event, t.Point)
-	case *event.WindowPutImageDone:
-		ui.onWindowPutImageDone()
 	case *UIRunFuncEvent:
 		t.Func()
 	case *UIPaintTime:
+		// paint being done in sync until it ends
 		ui.paint()
 	case struct{}:
-		// no op
+		// no op, allow layout/schedule funcs to run
 	default:
 		log.Printf("basicui: unhandled event: %#v", ev)
 	}
@@ -96,11 +92,12 @@ func (ui *BasicUI) HandleEvent(ev interface{}) {
 //----------
 
 func (ui *BasicUI) UpdateImageSize(r image.Rectangle) {
+	// TODO: if the paint becomes async or double-buffered, need to track draws
 	// don't update size if still drawing, enqueue event to try again later
-	if ui.incompleteDraws != 0 {
-		ui.events <- &UIReviewSize{Rect: r}
-		return
-	}
+	//if ui.incompleteDraws != 0 {
+	//	ui.events <- &UIReviewSize{Rect: r}
+	//	return
+	//}
 
 	err := ui.Win.ResizeImage(r)
 	if err != nil {
@@ -112,17 +109,13 @@ func (ui *BasicUI) UpdateImageSize(r image.Rectangle) {
 	if !en.Bounds.Eq(ib) {
 		en.Bounds = ib
 		en.MarkNeedsLayout()
+		en.MarkNeedsPaint()
 	}
 }
 
 //----------
 
 func (ui *BasicUI) schedulePaintMarked() {
-	// Still painting something else, don't paint now. This function should be called again uppon the draw completion event.
-	if ui.incompleteDraws != 0 {
-		return
-	}
-
 	if ui.RootNode.Embed().TreeNeedsPaint() {
 		ui.schedulePaint()
 	}
@@ -131,7 +124,6 @@ func (ui *BasicUI) schedulePaint() {
 	if ui.pendingPaint {
 		return
 	}
-
 	ui.pendingPaint = true
 	go func() {
 		d := ui.durationToNextPaint(time.Now())
@@ -144,18 +136,14 @@ func (ui *BasicUI) schedulePaint() {
 
 func (ui *BasicUI) durationToNextPaint(now time.Time) time.Duration {
 	frameDur := time.Second / time.Duration(ui.DrawFrameRate)
-	return frameDur - now.Sub(ui.lastPaint)
+	d := now.Sub(ui.lastPaintStart)
+	return frameDur - d
 }
 
 //----------
 
 func (ui *BasicUI) paint() {
-	//// DEBUG
-	//d := time.Now().Sub(ui.lastPaint)
-	//fmt.Printf("paint: fps %v\n", int(time.Second/d))
-
 	ui.pendingPaint = false
-	ui.lastPaint = time.Now()
 	ui.paintMarked()
 }
 
@@ -163,7 +151,6 @@ func (ui *BasicUI) paintMarked() {
 	u := ui.RootNode.PaintMarked()
 	r := u.Intersect(ui.Win.Image().Bounds())
 	if !r.Empty() {
-		//log.Printf("putimage %v", r)
 		ui.putImage(&r)
 	}
 }
@@ -171,18 +158,16 @@ func (ui *BasicUI) paintMarked() {
 //----------
 
 func (ui *BasicUI) putImage(r *image.Rectangle) {
-	completed, err := ui.Win.PutImage(*r)
-	if err != nil {
+	ui.lastPaintStart = time.Now()
+	if err := ui.Win.PutImage(*r); err != nil {
 		ui.events <- err
-		return
 	}
-	if !completed {
-		ui.incompleteDraws++
-	}
-}
 
-func (ui *BasicUI) onWindowPutImageDone() {
-	ui.incompleteDraws--
+	//// DEBUG: print fps
+	//now := time.Now()
+	//d := now.Sub(ui.lastPaintEnd)
+	//ui.lastPaintEnd = now
+	//fmt.Printf("paint: fps %v\n", int(time.Second/d))
 }
 
 //----------

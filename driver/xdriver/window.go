@@ -39,6 +39,8 @@ type Window struct {
 	Dnd     *dragndrop.Dnd
 
 	WImg wimage.WImage
+
+	events chan interface{}
 }
 
 func NewWindow() (*Window, error) {
@@ -56,10 +58,17 @@ func NewWindow() (*Window, error) {
 		return nil, err2
 	}
 
-	win := &Window{Conn: conn}
+	win := &Window{
+		Conn:   conn,
+		events: make(chan interface{}, 8),
+	}
+
 	if err := win.initialize(); err != nil {
 		return nil, errors.Wrap(err, "win init")
 	}
+
+	go win.eventLoop()
+
 	return win, nil
 }
 func (win *Window) initialize() error {
@@ -180,65 +189,74 @@ func (win *Window) Close() error {
 	return nil
 }
 
-func (win *Window) EventLoop(events chan<- interface{}) {
+func (win *Window) NextEvent() interface{} {
+	return <-win.events
+}
+
+func (win *Window) eventLoop() {
 	for {
-		ev, xerr := win.Conn.WaitForEvent()
-		if ev == nil && xerr == nil {
-			events <- &event.WindowClose{}
-			return
-		}
-		if xerr != nil {
-			events <- error(xerr)
-		}
-		if ev != nil {
-			switch t := ev.(type) {
-			case xproto.ConfigureNotifyEvent: // window structure (position,size,...)
-				//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
-				w, h := int(t.Width), int(t.Height)
-				r := image.Rect(0, 0, w, h)
-				events <- &event.WindowResize{Rect: r}
-			case xproto.ExposeEvent: // region needs paint
-				//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
-				w, h := int(t.Width), int(t.Height)
-				r := image.Rect(0, 0, w, h)
-				events <- &event.WindowExpose{Rect: r}
-			case xproto.MapNotifyEvent: // window mapped (created)
+		win.handleEvent(win.events)
+	}
+}
 
-			case shm.CompletionEvent:
-				events <- &event.WindowPutImageDone{}
+func (win *Window) handleEvent(events chan interface{}) {
+	ev, xerr := win.Conn.WaitForEvent()
+	if ev == nil && xerr == nil {
+		events <- &event.WindowClose{}
+		return
+	}
+	if xerr != nil {
+		events <- error(xerr)
+	}
+	if ev != nil {
+		switch t := ev.(type) {
+		case xproto.ConfigureNotifyEvent: // window structure (position,size,...)
+			//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
+			w, h := int(t.Width), int(t.Height)
+			r := image.Rect(0, 0, w, h)
+			events <- &event.WindowResize{Rect: r}
+		case xproto.ExposeEvent: // region needs paint
+			//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
+			w, h := int(t.Width), int(t.Height)
+			r := image.Rect(0, 0, w, h)
+			events <- &event.WindowExpose{Rect: r}
+		case xproto.MapNotifyEvent: // window mapped (created)
 
-			case xproto.MappingNotifyEvent: // keyboard mapping
-				win.XInput.ReadMapTable()
+		case shm.CompletionEvent:
+			//events <- &event.WindowPutImageDone{}
+			win.WImg.PutImageCompleted()
 
-			case xproto.KeyPressEvent:
-				events <- win.XInput.KeyPress(&t)
-			case xproto.KeyReleaseEvent:
-				events <- win.XInput.KeyRelease(&t)
-			case xproto.ButtonPressEvent:
-				events <- win.XInput.ButtonPress(&t)
-			case xproto.ButtonReleaseEvent:
-				events <- win.XInput.ButtonRelease(&t)
-			case xproto.MotionNotifyEvent:
-				events <- win.XInput.MotionNotify(&t)
+		case xproto.MappingNotifyEvent: // keyboard mapping
+			win.XInput.ReadMapTable()
 
-			case xproto.SelectionNotifyEvent:
-				win.Paste.OnSelectionNotify(&t)
-				win.Dnd.OnSelectionNotify(&t)
-			case xproto.SelectionRequestEvent:
-				win.Copy.OnSelectionRequest(&t, events)
-			case xproto.SelectionClearEvent:
-				win.Copy.OnSelectionClear(&t)
+		case xproto.KeyPressEvent:
+			events <- win.XInput.KeyPress(&t)
+		case xproto.KeyReleaseEvent:
+			events <- win.XInput.KeyRelease(&t)
+		case xproto.ButtonPressEvent:
+			events <- win.XInput.ButtonPress(&t)
+		case xproto.ButtonReleaseEvent:
+			events <- win.XInput.ButtonRelease(&t)
+		case xproto.MotionNotifyEvent:
+			events <- win.XInput.MotionNotify(&t)
 
-			case xproto.ClientMessageEvent:
-				win.Wmp.OnClientMessage(&t, events)
-				win.Dnd.OnClientMessage(&t, events)
+		case xproto.SelectionNotifyEvent:
+			win.Paste.OnSelectionNotify(&t)
+			win.Dnd.OnSelectionNotify(&t)
+		case xproto.SelectionRequestEvent:
+			win.Copy.OnSelectionRequest(&t, events)
+		case xproto.SelectionClearEvent:
+			win.Copy.OnSelectionClear(&t)
 
-			case xproto.PropertyNotifyEvent:
-				win.Paste.OnPropertyNotify(&t)
+		case xproto.ClientMessageEvent:
+			win.Wmp.OnClientMessage(&t, events)
+			win.Dnd.OnClientMessage(&t, events)
 
-			default:
-				log.Printf("unhandled event: %#v", ev)
-			}
+		case xproto.PropertyNotifyEvent:
+			win.Paste.OnPropertyNotify(&t)
+
+		default:
+			log.Printf("unhandled event: %#v", ev)
 		}
 	}
 }
@@ -256,16 +274,16 @@ func (win *Window) SetWindowName(str string) {
 		b)
 }
 
-func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
-	drawable := xproto.Drawable(win.Window)
-	cookie := xproto.GetGeometry(win.Conn, drawable)
-	return cookie.Reply()
-}
+//func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
+//	drawable := xproto.Drawable(win.Window)
+//	cookie := xproto.GetGeometry(win.Conn, drawable)
+//	return cookie.Reply()
+//}
 
 func (win *Window) Image() draw.Image {
 	return win.WImg.Image()
 }
-func (win *Window) PutImage(rect image.Rectangle) (bool, error) {
+func (win *Window) PutImage(rect image.Rectangle) error {
 	return win.WImg.PutImage(rect)
 }
 func (win *Window) ResizeImage(r image.Rectangle) error {

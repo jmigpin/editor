@@ -190,73 +190,12 @@ func (km *KMap) keysym(keycode xproto.Keycode, m Modifiers) xproto.Keysym {
 
 func (km *KMap) Lookup(keycode xproto.Keycode, mods Modifiers) (rune, event.KeySym) {
 	xks := km.keysym(keycode, mods)
-	ks, ok := xkeysymToEvKeySym[xks]
-	if !ok {
-		// will keep ascii codes and others ('a', 'A', ...)
-		ks = event.KeySym(xks)
-	}
-	ru := keysymRune(xks)
+
+	// defaults if not defined
+	ks := event.KeySym(xks)
+	ru := rune(ks) // takes ascii codes by default
+
+	ks2 := xkeysymToEventKeySym(xks)
+	ks, ru = event.KeySymRune(ks, ks2, ru)
 	return ru, ks
-}
-
-//----------
-
-func keysymRune(ks xproto.Keysym) rune {
-	// runes the keysym table is not providing directly
-	switch ks {
-	case xkGrave:
-		return '`'
-	case xkAcute:
-		return '´'
-	case xkCircumflex:
-		return '^'
-	case xkTilde:
-		return '~'
-
-	case xkDiaeresis:
-		return '¨' // 0xa8
-	case xkMacron:
-		return '¯' // 0xaf
-	case xkCedilla:
-		return '¸' // 0xb8
-	case xkBreve:
-		return '˘' // 0x2d8
-	case xkAboveRing:
-		return '˚' // 0x2da
-	case xkCaron:
-		return 'ˇ' // 0x2c7
-
-	case xkKeypadDecimal:
-		return '.'
-	case xkKeypadAdd:
-		return '+'
-	case xkKeypadSubtract:
-		return '-'
-	case xkKeypadMultiply:
-		return '*'
-	case xkKeypadDivide:
-		return '/'
-
-	case xkKeypad0:
-		return '0'
-	case xkKeypad1:
-		return '1'
-	case xkKeypad2:
-		return '2'
-	case xkKeypad3:
-		return '3'
-	case xkKeypad4:
-		return '4'
-	case xkKeypad5:
-		return '5'
-	case xkKeypad6:
-		return '6'
-	case xkKeypad7:
-		return '7'
-	case xkKeypad8:
-		return '8'
-	case xkKeypad9:
-		return '9'
-	}
-	return rune(ks)
 }

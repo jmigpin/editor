@@ -10,9 +10,10 @@ import (
 )
 
 type ShmWImage struct {
-	opt     *Options
-	segId   shm.Seg
-	imgWrap *ShmImgWrap
+	opt          *Options
+	segId        shm.Seg
+	imgWrap      *ShmImgWrap
+	putCompleted chan struct{}
 }
 
 func NewShmWImage(opt *Options) (*ShmWImage, error) {
@@ -21,7 +22,7 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 		return nil, err
 	}
 
-	wi := &ShmWImage{opt: opt}
+	wi := &ShmWImage{opt: opt, putCompleted: make(chan struct{}, 1)}
 
 	// server segment id
 	segId, err := shm.NewSegId(wi.opt.Conn)
@@ -74,7 +75,7 @@ func (wi *ShmWImage) Image() draw.Image {
 	return wi.imgWrap.Img
 }
 
-func (wi *ShmWImage) PutImage(r image.Rectangle) (bool, error) {
+func (wi *ShmWImage) PutImage(r image.Rectangle) error {
 	gctx := wi.opt.GCtx
 	img := wi.imgWrap.Img
 	drawable := xproto.Drawable(wi.opt.Window)
@@ -92,5 +93,13 @@ func (wi *ShmWImage) PutImage(r image.Rectangle) (bool, error) {
 		1, // send shm.CompletionEvent when done
 		wi.segId,
 		0) // offset
-	return false, nil
+
+	// wait for shm.CompletionEvent that should call PutImageCompleted()
+	<-wi.putCompleted
+
+	return nil
+}
+
+func (wi *ShmWImage) PutImageCompleted() {
+	wi.putCompleted <- struct{}{}
 }

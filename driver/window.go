@@ -8,14 +8,14 @@ import (
 )
 
 type Window interface {
-	EventLoop(events chan<- interface{}) // should emit events from uiutil/event
+	NextEvent() interface{} // emits errors and events (util/uiutil/event)
+	//AppendEvent(ev interface{})
 
 	Close() error
 	SetWindowName(string)
 
 	Image() draw.Image
-	// if not completed, need to wait for event.WaitPutImageDone
-	PutImage(image.Rectangle) (completed bool, _ error)
+	PutImage(image.Rectangle) error
 	ResizeImage(image.Rectangle) error
 
 	SetCursor(event.Cursor)
