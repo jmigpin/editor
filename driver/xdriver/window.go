@@ -210,7 +210,7 @@ func (win *Window) handleEvent(events chan interface{}) {
 	}
 	if ev != nil {
 		switch t := ev.(type) {
-		case xproto.ConfigureNotifyEvent: // window structure (position,size,...)
+		case xproto.ConfigureNotifyEvent: // structure (position,size,...)
 			//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
 			w, h := int(t.Width), int(t.Height)
 			r := image.Rect(0, 0, w, h)
@@ -221,11 +221,10 @@ func (win *Window) handleEvent(events chan interface{}) {
 			r := image.Rect(0, 0, w, h)
 			events <- &event.WindowExpose{Rect: r}
 		case xproto.MapNotifyEvent: // window mapped (created)
+		case xproto.ReparentNotifyEvent: // window rerooted
 
 		case shm.CompletionEvent:
-			//events <- &event.WindowPutImageDone{}
 			win.WImg.PutImageCompleted()
-
 		case xproto.MappingNotifyEvent: // keyboard mapping
 			win.XInput.ReadMapTable()
 
