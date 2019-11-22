@@ -30,7 +30,6 @@ type Cmd struct {
 	Stderr io.Writer
 
 	annset *AnnotatorSet
-	//files  *Files
 
 	tmpDir       string
 	tmpBuiltFile string // file built and exec'd
@@ -166,10 +165,8 @@ func (cmd *Cmd) Wait() error {
 //------------
 
 func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
-	files := NewFiles(cmd.annset.FSet)
+	files := NewFiles(cmd.annset.FSet) // not in cmd.* to allow early GC
 	files.Dir = cmd.Dir
-
-	//cmd.files = files // TODO
 
 	files.Add(cmd.flags.files...)
 	files.Add(cmd.flags.dirs...)
@@ -458,6 +455,11 @@ func (cmd *Cmd) environ() []string {
 	for _, s := range cmd.flags.env {
 		env = append(env, s)
 	}
+
+	env = append(env,
+		"GOPROXY=direct",
+		"GOSUMDB=off",
+	)
 	return env
 }
 

@@ -556,6 +556,22 @@ func createFilesForTestCmd_simple4(t *testing.T, tmpDir string) {
 
 //------------
 
+func TestEnv(t *testing.T) {
+	cmd := NewCmd()
+	defer cmd.Cleanup()
+
+	ctx := context.Background()
+	dir := ""
+	args := []string{"go", "env"}
+	// output to os.stdout/os.stderr if not set
+	err := cmd.runCmd(ctx, dir, args, cmd.environ())
+	if err != nil {
+		t.Logf("err: %v", err)
+	}
+}
+
+//------------
+
 // Launches the editor itself.
 //func TestCmd_editor(t *testing.T) {
 //	filename := "./../../editor.go"
