@@ -6,17 +6,12 @@ import (
 )
 
 func stringifyV(v V) string {
+	// Note: rune is an alias for int32, can't "case rune:"
 	const max = 150
 	str := ""
 	switch t := v.(type) {
 	case nil:
 		return "nil"
-	case rune:
-		if t < 0 {
-			str = fmt.Sprintf("%d", t)
-		} else {
-			str = fmt.Sprintf("(%q,%d)", t, t)
-		}
 	case string:
 		str = ReducedSprintf(max, "%q", t)
 	case []string:
