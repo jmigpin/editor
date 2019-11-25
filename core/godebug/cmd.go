@@ -138,7 +138,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 
 	// just building: inform the address used in the binary
 	if m.build {
-		fmt.Fprintf(cmd.Stdout, "build: %v (builtin address: %v, %v)",
+		fmt.Fprintf(cmd.Stdout, "build: %v (builtin address: %v, %v)\n",
 			cmd.tmpBuiltFile,
 			debug.ServerNetwork,
 			debug.ServerAddress,

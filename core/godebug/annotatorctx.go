@@ -28,6 +28,27 @@ func (ctx *Ctx) SetValue(vname string, value interface{}) {
 
 //----------
 
+//func (ctx *Ctx) SetUpperValue(vname string, v interface{}) {
+//	_, ctx2 := ctx.Value(vname)
+//	ctx2.SetValue(vname, v)
+//}
+
+//----------
+
+func (ctx *Ctx) WithBool(name string, v bool) *Ctx {
+	return ctx.WithValue(name, v)
+}
+func (ctx *Ctx) ValueBool(name string) bool {
+	v, _ := ctx.Value(name)
+	if v == nil {
+		return false
+	}
+	u := v.(bool)
+	return u
+}
+
+//----------
+
 type StmtIter struct {
 	list        *[]ast.Stmt
 	index, step int
@@ -49,10 +70,6 @@ func (ctx *Ctx) stmtIter() (*StmtIter, bool) {
 }
 
 func (ctx *Ctx) replaceStmt(stmt ast.Stmt) {
-	if ctx.noAnnotations() {
-		return
-	}
-
 	iter, ok := ctx.stmtIter()
 	if !ok {
 		return
@@ -71,10 +88,6 @@ func (ctx *Ctx) insertInStmtList(stmt ast.Stmt) {
 }
 
 func (ctx *Ctx) insertInStmtListBefore(stmt ast.Stmt) {
-	if ctx.noAnnotations() {
-		return
-	}
-
 	iter, ok := ctx.stmtIter()
 	if !ok {
 		return
@@ -86,10 +99,6 @@ func (ctx *Ctx) insertInStmtListBefore(stmt ast.Stmt) {
 	iter.index++
 }
 func (ctx *Ctx) insertInStmtListAfter(stmt ast.Stmt) {
-	if ctx.noAnnotations() {
-		return
-	}
-
 	iter, ok := ctx.stmtIter()
 	if !ok {
 		return
@@ -106,15 +115,10 @@ func (ctx *Ctx) insertInStmtListAfter(stmt ast.Stmt) {
 //----------
 
 func (ctx *Ctx) withInsertStmtAfter(after bool) *Ctx {
-	return ctx.WithValue("insert_in_stmt_list_after", after)
+	return ctx.WithBool("insert_in_stmt_list_after", after)
 }
 func (ctx *Ctx) insertAfterStmt() bool {
-	v, _ := ctx.Value("insert_in_stmt_list_after")
-	if v == nil {
-		return false
-	}
-	u := v.(bool)
-	return u
+	return ctx.ValueBool("insert_in_stmt_list_after")
 }
 
 //----------
@@ -148,10 +152,6 @@ func (ctx *Ctx) withExprPtr(exprPtr *ast.Expr) *Ctx {
 //----------
 
 func (ctx *Ctx) replaceExpr(expr ast.Expr) {
-	if ctx.noAnnotations() {
-		return
-	}
-
 	v, _ := ctx.Value("expr_ptr")
 	if v == nil {
 		return
@@ -161,10 +161,6 @@ func (ctx *Ctx) replaceExpr(expr ast.Expr) {
 }
 
 func (ctx *Ctx) replaceExprs(exprs []ast.Expr) {
-	if ctx.noAnnotations() {
-		return
-	}
-
 	iter, ok := ctx.exprIter()
 	if !ok {
 		return
@@ -248,19 +244,11 @@ func (ctx *Ctx) staticDebugIndex() (int, bool) {
 
 //----------
 
-func (ctx *Ctx) withResultInVar() *Ctx {
-	return ctx.WithValue("result_in_var", true)
-}
-func (ctx *Ctx) withNoResultInVar() *Ctx {
-	return ctx.WithValue("result_in_var", nil)
+func (ctx *Ctx) withResultInVar(in bool) *Ctx {
+	return ctx.WithBool("result_in_var", in)
 }
 func (ctx *Ctx) resultInVar() bool {
-	v, _ := ctx.Value("result_in_var")
-	if v == nil {
-		return false
-	}
-	u := v.(bool)
-	return u
+	return ctx.ValueBool("result_in_var")
 }
 
 //----------
@@ -323,16 +311,10 @@ func (ctx *Ctx) popExprs() []ast.Expr {
 //----------
 
 func (ctx *Ctx) withFirstArgIsType() *Ctx {
-	return ctx.WithValue("first_arg_is_type", true)
+	return ctx.WithBool("first_arg_is_type", true)
 }
-
 func (ctx *Ctx) firstArgIsType() bool {
-	v, _ := ctx.Value("first_arg_is_type")
-	if v == nil {
-		return false
-	}
-	u := v.(bool)
-	return u
+	return ctx.ValueBool("first_arg_is_type")
 }
 
 //----------
@@ -350,21 +332,10 @@ func (ctx *Ctx) valuesReset() *Ctx {
 //----------
 
 func (ctx *Ctx) withNoAnnotations(v bool) *Ctx {
-	return ctx.WithValue("no_annotations", v)
+	return ctx.WithBool("no_annotations", v)
 }
-
-//func (ctx *Ctx) setUpperNoAnnotations(v bool) {
-//	_, ctx2 := ctx.Value("no_annotations")
-//	ctx2.SetValue("no_annotations", v)
-//}
-
 func (ctx *Ctx) noAnnotations() bool {
-	v, _ := ctx.Value("no_annotations")
-	if v == nil {
-		return false
-	}
-	u := v.(bool)
-	return u
+	return ctx.ValueBool("no_annotations")
 }
 
 //----------

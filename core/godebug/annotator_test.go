@@ -1747,14 +1747,39 @@ func TestAnnotator101(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
-// TODO
-//func TestAnnotator102(t *testing.T) {
-//	inout := []string{
-//		`c=f().a.b`,
-//		``,
-//	}
-//	testAnnotator1(t, inout[0], inout[1], srcFunc1)
-//}
+func TestAnnotator102(t *testing.T) {
+	inout := []string{
+		`d=a.b.c()`, // should have msgs on same debug index (selector expr)
+		`Σ.Line(0, 0, 31, Σ.ICe("c"))
+	        Σ0 := a.b.c()
+	        Σ1 := Σ.IV(Σ0)
+	        Σ2 := Σ.IC("c", Σ1)
+	        d = Σ0
+	        Σ3 := Σ.IV(d)
+	        Σ.Line(0, 0, 32, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ2)))`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
+func TestAnnotator103(t *testing.T) {
+	inout := []string{
+		`e=a.b().c.d()`,
+		`Σ.Line(0, 0, 29, Σ.ICe("b"))
+	        Σ0 := a.b()
+	        Σ1 := Σ.IV(Σ0)
+	        Σ2 := Σ.IC("b", Σ1)
+	        Σ3 := Σ.ISel(Σ2, Σ.IV(Σ0.c))
+	        Σ.Line(0, 0, 34, Σ3)
+	        Σ.Line(0, 0, 35, Σ.ICe("d"))
+	        Σ4 := Σ0.c.d()
+	        Σ5 := Σ.IV(Σ4)
+	        Σ6 := Σ.IC("d", Σ5)
+	        e = Σ4
+	        Σ7 := Σ.IV(e)
+	        Σ.Line(0, 0, 36, Σ.IA(Σ.IL(Σ7), Σ.IL(Σ6)))`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
 
 func TestAnnotator_(t *testing.T) {
 	inout := []string{

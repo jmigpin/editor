@@ -109,53 +109,6 @@ func TestCmd_src4(t *testing.T) {
 	}
 }
 
-// This is a useful test for development
-func TestCmd_srcDev(t *testing.T) {
-	src := `
-		package main
-		//import "time"
-		//import "fmt"
-		import "image"
-		//func f1() time.Time { return time.Now() }
-		var p = image.Point{1,1}
-		var ch = make(chan image.Point,1)
-		func f2() *image.Point { return &p }
-		func f3() interface{} { return &p }
-		func main(){
-			ch<-image.Point{1,1}
-			//_=<-ch
-			
-			c,ok:=(interface{}(<-ch)).(image.Point)
-			_=c
-			_=ok
-			
-			//switch (interface{}(<-ch)).(type){}
-			
-			//var f5 = func()chan image.Point{return a}
-			//v:=(<-f5()).X 
-			//_=v
-		
-			//_=p.String()
-		
-			//f2().X += 1 // ("(1,1)").2 := 1
-			//p.X = 11
-		
-			//f:=1.2
-			//x := interface{}(f)
-			//_=x
-		
-			//x:=interface{}(int(1))
-			//switch x.(type){}
-			
-			//switch f3().(type){}
-			
-			//fmt.Printf("%v\n", f1().Day())
-		}
-	`
-	msgs := doCmdSrc(t, src, false, false)
-	_ = msgs
-}
-
 //------------
 
 func TestCmd_simplifyStringify1(t *testing.T) {
@@ -497,7 +450,9 @@ func TestCmd_simple2(t *testing.T) {
 	args := []string{
 		"test", "-run", "TestCmd_simple2_empty",
 	}
-	doCmd(t, "", args)
+	msgs := doCmd(t, "", args) // WARNING: runs in this directory (not simple..)
+	_ = msgs
+	//spew.Dump(msgs)
 }
 func TestCmd_simple2_empty(t *testing.T) {}
 
@@ -556,19 +511,47 @@ func createFilesForTestCmd_simple4(t *testing.T, tmpDir string) {
 
 //------------
 
-func TestEnv(t *testing.T) {
-	cmd := NewCmd()
-	defer cmd.Cleanup()
-
-	ctx := context.Background()
-	dir := ""
-	args := []string{"go", "env"}
-	// output to os.stdout/os.stderr if not set
-	err := cmd.runCmd(ctx, dir, args, cmd.environ())
-	if err != nil {
-		t.Logf("err: %v", err)
-	}
+// Development test
+func TestCmd_srcDev(t *testing.T) {
+	src := `
+		package main
+		import "image"
+		type A struct{ p image.Point }
+		var p = image.Point{1,1}
+		var ch = make(chan image.Point,1)
+		func f2() *image.Point { return &p }
+		func f3() interface{} { return &p }
+		func main(){
+			a:=A{}
+			b:=a.p.String()
+			_ = b
+		
+			//ch<-image.Point{1,1}
+			////_=<-ch
+			
+			//c,ok:=(interface{}(<-ch)).(image.Point)
+			//_=c
+			//_=ok
+		}
+	`
+	msgs := doCmdSrc(t, src, false, false)
+	_ = msgs
 }
+
+// Development test
+//func TestEnv(t *testing.T) {
+//	cmd := NewCmd()
+//	defer cmd.Cleanup()
+
+//	ctx := context.Background()
+//	dir := ""
+//	args := []string{"go", "env"}
+//	// output to os.stdout/os.stderr if not set
+//	err := cmd.runCmd(ctx, dir, args, cmd.environ())
+//	if err != nil {
+//		t.Logf("err: %v", err)
+//	}
+//}
 
 //------------
 

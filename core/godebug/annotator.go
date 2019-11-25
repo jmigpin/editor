@@ -157,7 +157,7 @@ func (ann *Annotator) visitAssignStmt(ctx *Ctx, as *ast.AssignStmt) {
 	} else {
 		ctx3 = ctx3.withNResults(len(as.Lhs))
 	}
-	ctx3 = ctx3.withResultInVar()
+	ctx3 = ctx3.withResultInVar(true)
 	rhs := ann.visitExprList(ctx3, &as.Rhs)
 
 	if ctx.assignStmtIgnoreLhs() {
@@ -207,7 +207,7 @@ func (ann *Annotator) visitSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) {
 			// special callexpr case: switch handles only 1 result
 			ctx2 = ctx2.withNResults(1)
 		}
-		ctx2 = ctx2.withResultInVar()
+		ctx2 = ctx2.withResultInVar(true)
 
 		e := ann.visitExpr(ctx2, &ss.Tag)
 		stmt2 := ann.newDebugLineStmt(ctx, pos, e)
@@ -229,7 +229,7 @@ func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
 
 	// condition
 	pos := is.Cond.End() // replacements could make position 0
-	ctx2 := ctx.withNResults(1).withResultInVar()
+	ctx2 := ctx.withNResults(1).withResultInVar(true)
 	e := ann.visitExpr(ctx2, &is.Cond)
 	stmt2 := ann.newDebugLineStmt(ctx, pos, e)
 	ctx.insertInStmtListBefore(stmt2)
@@ -406,7 +406,7 @@ func (ann *Annotator) visitReturnStmt(ctx *Ctx, rs *ast.ReturnStmt) {
 	if len(rs.Results) > 1 { // ex: return 1, f(1), 1
 		n = 1
 	}
-	ctx2 := ctx.withNResults(n).withResultInVar()
+	ctx2 := ctx.withNResults(n).withResultInVar(true)
 	exprs := ann.visitExprList(ctx2, &rs.Results)
 
 	ce := ann.newDebugCallExpr("IL", exprs...)
@@ -481,7 +481,7 @@ func (ann *Annotator) visitIncDecStmt(ctx *Ctx, ids *ast.IncDecStmt) {
 func (ann *Annotator) visitSendStmt(ctx *Ctx, ss *ast.SendStmt) {
 	pos := ss.End()
 
-	ctx2 := ctx.withNResults(1).withResultInVar()
+	ctx2 := ctx.withNResults(1).withResultInVar(true)
 	val := ann.visitExpr(ctx2, &ss.Value)
 
 	ctx3 := ctx.withInsertStmtAfter(true)
@@ -568,11 +568,10 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 		}
 	case *ast.SelectorExpr:
 		fname = t.Sel.Name
-		if _, ok := t.X.(*ast.Ident); ok {
-			// simplify if it is an ident (no visit)
-		} else {
-			// visit X and show stepping out
+		if !isSelectorIdents(t) { // check if there will be a debug step
+			// visit X on its own debug step (same debug index)
 			ctx3 := ctx2.withNResults(1)
+			ctx3 = ctx3.setupCallExprDebugIndex(ann)
 			pos := ce.Fun.End()
 			x := ann.visitExpr(ctx3, &t.X)
 			stmt := ann.newDebugLineStmt(ctx, pos, x)
@@ -590,7 +589,7 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 
 	// visit args
 	ctx2 = ctx2.withNResults(1)
-	ctx2 = ctx2.withResultInVar()
+	ctx2 = ctx2.withResultInVar(true)
 	args := ann.visitExprList(ctx2, &ce.Args)
 
 	// insert before calling the function (shows stepping in)
@@ -607,7 +606,7 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 		return
 	}
 
-	ctx4 := ctx.withResultInVar()
+	ctx4 := ctx.withResultInVar(true)
 	result := ann.getResultExpr(ctx4, ce)
 
 	// args after exiting func
@@ -635,11 +634,7 @@ func (ann *Annotator) visitBinaryExpr2(ctx *Ctx, be *ast.BinaryExpr) {
 	y := ann.visitExpr(ctx, &be.Y)
 
 	ctx2 := ctx
-	if direct {
-		ctx2 = ctx2.withNoResultInVar()
-	} else {
-		ctx2 = ctx2.withResultInVar()
-	}
+	ctx2 = ctx2.withResultInVar(!direct)
 	result := ann.getResultExpr(ctx2, be)
 
 	opbl := basicLitInt(int(be.Op))
@@ -701,7 +696,7 @@ func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
 	ctx2 = ctx2.withNResults(1)
 	if ue.Op == token.AND {
 		// Ex: f1(&c[i]) -> d0:=c[i]; f1(&d0) // d0 wrong address
-		ctx2 = ctx2.withNoResultInVar()
+		ctx2 = ctx2.withResultInVar(false)
 	}
 	x := ann.visitExpr(ctx2, &ue.X)
 
@@ -718,11 +713,7 @@ func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
 	// result
 	ctx3 := ctx
 	direct := isDirectExpr(ue)
-	if direct {
-		ctx3 = ctx3.withNoResultInVar()
-	} else {
-		ctx3 = ctx3.withResultInVar()
-	}
+	ctx3 = ctx3.withResultInVar(!direct)
 	result := ann.getResultExpr(ctx3, ue)
 
 	opbl := basicLitInt(int(ue.Op))
@@ -732,8 +723,8 @@ func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
 }
 
 func (ann *Annotator) visitSelectorExpr(ctx *Ctx, se *ast.SelectorExpr) {
-	// simplify if it is just an ident
-	if _, ok := se.X.(*ast.Ident); ok {
+	// simplify if the tree is just made of idents
+	if isSelectorIdents(se) {
 		ce := ann.newDebugCallExpr("IV", se)
 		id := ann.assignToNewIdent(ctx, ce)
 		ctx.pushExprs(id)
@@ -762,7 +753,7 @@ func (ann *Annotator) visitIndexExpr(ctx *Ctx, ie *ast.IndexExpr) {
 	}
 
 	// Index expr
-	ctx2 := ctx.withResultInVar()
+	ctx2 := ctx.withResultInVar(true)
 	ctx2 = ctx2.withNResults(1) // a = b[f()] // f() returns 1 result
 	ix := ann.visitExpr(ctx2, &ie.Index)
 
@@ -838,7 +829,7 @@ func (ann *Annotator) visitTypeAssertExpr(ctx *Ctx, tae *ast.TypeAssertExpr) {
 	}
 
 	ctx2 := ctx
-	ctx2 = ctx2.withResultInVar()
+	ctx2 = ctx2.withResultInVar(true)
 	ctx2 = ctx2.withNResults(1)
 	x := ann.visitExpr(ctx2, &tae.X)
 	ce1 := ann.newDebugCallExpr("IVt", tae.X)
@@ -859,7 +850,7 @@ func (ann *Annotator) visitStarExpr(ctx *Ctx, se *ast.StarExpr) {
 
 	x := ann.visitExpr(ctx, &se.X)
 
-	ctx3 := ctx.withNoResultInVar()
+	ctx3 := ctx.withResultInVar(false)
 	result := ann.getResultExpr(ctx3, se)
 
 	opbl := basicLitInt(int(token.MUL))
@@ -1165,7 +1156,7 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 		ann.visitCompositeLit(ctx, t)
 	case *ast.Ident:
 		ann.visitIdent(ctx, t)
-	//	case *ast.ArrayType:
+	//	case *ast.ArrayType: // TODO: [...]
 	//		ann.visitArrayType(ctx, t)
 	default:
 		spew.Dump("expr", t)
@@ -1177,7 +1168,8 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 		return exprs[0]
 	}
 
-	spew.Dump("visitExpr: len=", len(exprs))
+	fmt.Printf("visitExpr: %T len=%v\n", *exprPtr, len(exprs))
+	spew.Dump(*exprPtr)
 	return nilIdent()
 	//return ann.newDebugCallExpr("IV", nilIdent())
 }
@@ -1392,4 +1384,21 @@ func isDirectExpr(e ast.Expr) bool {
 		}
 	}
 	return false
+}
+
+//----------
+
+func isSelectorIdents(e ast.Expr) bool {
+	se, ok := e.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	switch t := se.X.(type) {
+	case *ast.Ident:
+		return true
+	case *ast.SelectorExpr:
+		return isSelectorIdents(t)
+	default:
+		return false
+	}
 }
