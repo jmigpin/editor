@@ -16,15 +16,15 @@ func NewTextEditInputHandler(tex *widget.TextEditX) *TextEditInputHandler {
 	return &TextEditInputHandler{tex: tex}
 }
 
-func (eh *TextEditInputHandler) OnInputEvent(ev interface{}, p image.Point) event.Handle {
+func (eh *TextEditInputHandler) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	h := eh.tex.TextHistory.HandleInputEvent(ev, p) // undo/redo shortcuts
-	if h == event.NotHandled {
+	if h == event.HFalse {
 		h = eh.handleInputEvent2(ev, p)
 	}
 	return h
 }
 
-func (eh *TextEditInputHandler) handleInputEvent2(ev0 interface{}, p image.Point) event.Handle {
+func (eh *TextEditInputHandler) handleInputEvent2(ev0 interface{}, p image.Point) event.Handled {
 	te := eh.tex.TextEdit
 
 	switch ev := ev0.(type) {
@@ -58,40 +58,40 @@ func (eh *TextEditInputHandler) handleInputEvent2(ev0 interface{}, p image.Point
 	case *event.MouseTripleClick:
 		return eh.onMouseTripleClick(ev)
 	}
-	return event.NotHandled
+	return event.HFalse
 }
 
 //----------
 
-func (eh *TextEditInputHandler) onMouseClick(ev *event.MouseClick) event.Handle {
+func (eh *TextEditInputHandler) onMouseClick(ev *event.MouseClick) event.Handled {
 	te := eh.tex.TextEdit
 	switch ev.Button {
 	case event.ButtonMiddle:
 		MoveCursorToPoint(te, &ev.Point, false)
 		Paste(te, event.CPIPrimary)
-		return event.Handled
+		return event.HTrue
 	}
-	return event.NotHandled
+	return event.HFalse
 }
-func (eh *TextEditInputHandler) onMouseDoubleClick(ev *event.MouseDoubleClick) event.Handle {
+func (eh *TextEditInputHandler) onMouseDoubleClick(ev *event.MouseDoubleClick) event.Handled {
 	te := eh.tex.TextEdit
 	switch ev.Button {
 	case event.ButtonLeft:
 		MoveCursorToPoint(te, &ev.Point, false)
 		SelectWord(te)
-		return event.Handled
+		return event.HTrue
 	}
-	return event.NotHandled
+	return event.HFalse
 }
-func (eh *TextEditInputHandler) onMouseTripleClick(ev *event.MouseTripleClick) event.Handle {
+func (eh *TextEditInputHandler) onMouseTripleClick(ev *event.MouseTripleClick) event.Handled {
 	te := eh.tex.TextEdit
 	switch ev.Button {
 	case event.ButtonLeft:
 		MoveCursorToPoint(te, &ev.Point, false)
 		SelectLine(te)
-		return event.Handled
+		return event.HTrue
 	}
-	return event.NotHandled
+	return event.HFalse
 }
 
 //----------

@@ -35,7 +35,7 @@ type Node interface {
 
 	OnThemeChange()
 	OnChildMarked(child Node, newMarks Marks)
-	OnInputEvent(ev interface{}, p image.Point) event.Handle
+	OnInputEvent(ev interface{}, p image.Point) event.Handled
 }
 
 //----------
@@ -460,8 +460,8 @@ func (en *EmbedNode) ChildsPaintTree() {
 
 //----------
 
-func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) event.Handle {
-	return event.NotHandled
+func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) event.Handled {
+	return event.HFalse
 }
 
 //----------

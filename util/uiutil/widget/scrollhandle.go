@@ -37,7 +37,7 @@ func (sh *ScrollHandle) Paint() {
 	imageutil.FillRectangle(sh.ctx.Image(), &sh.Bounds, c)
 }
 
-func (sh *ScrollHandle) OnInputEvent(ev interface{}, p image.Point) event.Handle {
+func (sh *ScrollHandle) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	switch ev.(type) {
 	case *event.MouseEnter:
 		sh.inside = true
@@ -46,5 +46,5 @@ func (sh *ScrollHandle) OnInputEvent(ev interface{}, p image.Point) event.Handle
 		sh.inside = false
 		sh.MarkNeedsPaint()
 	}
-	return event.NotHandled
+	return event.HFalse
 }

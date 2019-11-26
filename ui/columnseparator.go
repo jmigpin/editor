@@ -23,7 +23,7 @@ func NewColSeparator(col *Column) *ColSeparator {
 	csep.SetThemePaletteNamePrefix("colseparator_")
 	return csep
 }
-func (sh *ColSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handle {
+func (sh *ColSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	if sh.Handle.Dragging {
 		sh.col.resizeWithMoveToPoint(&p)
 	}
@@ -36,5 +36,5 @@ func (sh *ColSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handl
 			sh.col.resizeWithMoveJump(false, &p)
 		}
 	}
-	return event.Handled // no other widget will get the event
+	return event.HTrue // no other widget will get the event
 }

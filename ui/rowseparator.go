@@ -23,7 +23,7 @@ func NewRowSeparator(row *Row) *RowSeparator {
 	rsep.SetThemePaletteNamePrefix("rowseparator_")
 	return rsep
 }
-func (sh *RowSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handle {
+func (sh *RowSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	if sh.Handle.Dragging {
 		sh.row.resizeWithMoveToPoint(&p)
 	}
@@ -41,5 +41,5 @@ func (sh *RowSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handl
 			sh.row.Close()
 		}
 	}
-	return event.Handled //no other widget will get the event
+	return event.HTrue //no other widget will get the event
 }

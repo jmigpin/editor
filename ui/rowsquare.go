@@ -108,12 +108,12 @@ func (sq *RowSquare) SetState(s RowState, v bool) {
 func (sq *RowSquare) HasState(s RowState) bool {
 	return sq.state.has(s)
 }
-func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) event.Handle {
+func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	switch ev.(type) {
 	case *event.MouseClick:
 		sq.row.Close()
 	}
-	return event.Handled
+	return event.HTrue
 }
 
 //----------

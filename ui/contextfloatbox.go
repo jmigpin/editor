@@ -63,14 +63,14 @@ func (cfb *ContextFloatBox) Layout() {
 
 //----------
 
-func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Handle {
+func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	switch ev.(type) {
 	case *event.KeyUp,
 		*event.KeyDown:
 		// let lower layers get events
-		return event.NotHandled
+		return event.HFalse
 	}
-	return event.Handled
+	return event.HTrue
 }
 
 //----------

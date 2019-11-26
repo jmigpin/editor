@@ -119,7 +119,7 @@ func (th *TextHistory) undoRedo(redo bool) error {
 
 //----------
 
-func (th *TextHistory) HandleInputEvent(ev0 interface{}, p image.Point) event.Handle {
+func (th *TextHistory) HandleInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	switch ev := ev0.(type) {
 	case *event.KeyDown:
 		switch {
@@ -130,7 +130,7 @@ func (th *TextHistory) HandleInputEvent(ev0 interface{}, p image.Point) event.Ha
 				if err := th.Redo(); err != nil {
 					log.Print(err)
 				}
-				return event.Handled
+				return event.HTrue
 			}
 		case ev.Mods.ClearLocks().Is(event.ModCtrl):
 			switch ev.LowerRune() {
@@ -139,9 +139,9 @@ func (th *TextHistory) HandleInputEvent(ev0 interface{}, p image.Point) event.Ha
 				if err := th.Undo(); err != nil {
 					log.Print(err)
 				}
-				return event.Handled
+				return event.HTrue
 			}
 		}
 	}
-	return event.NotHandled
+	return event.HFalse
 }

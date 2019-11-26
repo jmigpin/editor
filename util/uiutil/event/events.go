@@ -136,9 +136,9 @@ const (
 
 //----------
 
-type Handle bool
+type Handled bool
 
 const (
-	NotHandled Handle = false
-	Handled           = true
+	HFalse Handled = false
+	HTrue          = true
 )

@@ -145,7 +145,7 @@ func (sb *ScrollBar) Paint() {
 
 //----------
 
-func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) event.Handle {
+func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	switch evt := ev.(type) {
 	case *event.MouseDown:
 		switch evt.Button {
@@ -181,7 +181,7 @@ func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) event.Handle {
 		sb.scrollToPoint(&evt.Point)
 		sb.MarkNeedsPaint() // in case it didn't move
 	}
-	return event.NotHandled
+	return event.HFalse
 }
 
 func (sb *ScrollBar) setPressPad(p *image.Point) {

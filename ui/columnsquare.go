@@ -27,10 +27,10 @@ func (sq *ColumnSquare) Paint() {
 	c := sq.TreeThemePaletteColor("columnsquare")
 	imageutil.FillRectangle(sq.col.ui.Image(), &sq.Bounds, c)
 }
-func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) event.Handle {
+func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	switch ev.(type) {
 	case *event.MouseClick:
 		sq.col.Close()
 	}
-	return event.Handled
+	return event.HTrue
 }

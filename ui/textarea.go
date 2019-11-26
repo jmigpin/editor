@@ -44,15 +44,15 @@ func (ta *TextArea) onWriteOp(u *widget.RWWriteOpCb) {
 
 //----------
 
-func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handle {
+func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	h := ta.TextEditInputHandler.OnInputEvent(ev0, p)
-	if h == event.NotHandled {
+	if h == event.HFalse {
 		h = ta.handleInputEvent2(ev0, p)
 	}
 	return h
 }
 
-func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Handle {
+func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Handled {
 	switch ev := ev0.(type) {
 	case *event.MouseClick:
 		switch ev.Button {
@@ -60,7 +60,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypePrint) {
-					return event.Handled
+					return event.HTrue
 				}
 			}
 			if !ta.PointIndexInsideSelection(ev.Point) {
@@ -69,7 +69,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			i := ta.GetIndex(ev.Point)
 			ev2 := &TextAreaCmdEvent{ta, i}
 			ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
-			return event.Handled
+			return event.HTrue
 		}
 	case *event.MouseDown:
 		switch ev.Button {
@@ -79,27 +79,27 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrent) {
-					return event.Handled
+					return event.HTrue
 				}
 			}
 		case event.ButtonWheelUp:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentPrev) {
-					return event.Handled
+					return event.HTrue
 				} else {
 					ta.selAnnEv(TASelAnnTypePrev)
-					return event.Handled
+					return event.HTrue
 				}
 			}
 		case event.ButtonWheelDown:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentNext) {
-					return event.Handled
+					return event.HTrue
 				} else {
 					ta.selAnnEv(TASelAnnTypeNext)
-					return event.Handled
+					return event.HTrue
 				}
 			}
 		}
@@ -119,14 +119,14 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			switch ev.KeySym {
 			case event.KSymF5:
 				ta.selAnnEv(TASelAnnTypeLast)
-				return event.Handled
+				return event.HTrue
 			case event.KSymF9:
 				ta.selAnnEv(TASelAnnTypeClear)
-				return event.Handled
+				return event.HTrue
 			}
 		}
 	}
-	return event.NotHandled
+	return event.HFalse
 }
 
 //----------

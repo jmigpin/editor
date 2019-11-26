@@ -93,23 +93,23 @@ func (ae *ApplyEvent) mouseEnterLeave(node Node, p image.Point) {
 
 //----------
 
-func (ae *ApplyEvent) mouseEnter(node Node, p image.Point) event.Handle {
+func (ae *ApplyEvent) mouseEnter(node Node, p image.Point) event.Handled {
 	ne := node.Embed()
 
 	if !p.In(ne.Bounds) {
-		return event.NotHandled
+		return event.HFalse
 	}
 
 	// execute on childs
-	h := event.NotHandled
+	h := event.HFalse
 	// later childs are drawn over previous ones, run loop backwards
 	ne.IterateWrappersReverse(func(c Node) bool {
 		h = ae.mouseEnter(c, p)
-		return h == event.NotHandled // continue while not handled
+		return h == event.HFalse // continue while not handled
 	})
 
 	// execute on node
-	if h == event.NotHandled {
+	if h == event.HFalse {
 		if !ne.HasAnyMarks(MarkPointerInside) {
 			ne.AddMarks(MarkPointerInside)
 			ev2 := &event.MouseEnter{}
@@ -118,7 +118,7 @@ func (ae *ApplyEvent) mouseEnter(node Node, p image.Point) event.Handle {
 	}
 
 	if ne.HasAnyMarks(MarkInBoundsHandlesEvent) {
-		h = event.Handled
+		h = event.HTrue
 	}
 
 	return h
@@ -126,19 +126,19 @@ func (ae *ApplyEvent) mouseEnter(node Node, p image.Point) event.Handle {
 
 //----------
 
-func (ae *ApplyEvent) mouseLeave(node Node, p image.Point) event.Handle {
+func (ae *ApplyEvent) mouseLeave(node Node, p image.Point) event.Handled {
 	ne := node.Embed()
 
 	// execute on childs
-	h := event.NotHandled
+	h := event.HFalse
 	// later childs are drawn over previous ones, run loop backwards
 	ne.IterateWrappersReverse(func(c Node) bool {
 		h = ae.mouseLeave(c, p)
-		return h == event.NotHandled // continue while not handled
+		return h == event.HFalse // continue while not handled
 	})
 
 	// execute on node
-	if h == event.NotHandled {
+	if h == event.HFalse {
 		if ne.HasAnyMarks(MarkPointerInside) && !p.In(ne.Bounds) {
 			ne.RemoveMarks(MarkPointerInside)
 			ev2 := &event.MouseLeave{}
@@ -230,26 +230,26 @@ func (ae *ApplyEvent) dragEnd(ev *event.MouseUp, p image.Point) {
 
 //----------
 
-func (ae *ApplyEvent) depthFirstEv(node Node, ev interface{}, p image.Point) event.Handle {
+func (ae *ApplyEvent) depthFirstEv(node Node, ev interface{}, p image.Point) event.Handled {
 	if !p.In(node.Embed().Bounds) {
-		return event.NotHandled
+		return event.HFalse
 	}
 
 	// execute on childs
-	h := event.NotHandled
+	h := event.HFalse
 	// later childs are drawn over previous ones, run loop backwards
 	node.Embed().IterateWrappersReverse(func(c Node) bool {
 		h = ae.depthFirstEv(c, ev, p)
-		return h == event.NotHandled // continue while not handled
+		return h == event.HFalse // continue while not handled
 	})
 
 	// execute on node
-	if h == event.NotHandled {
+	if h == event.HFalse {
 		h = ae.runEv(node, ev, p)
 	}
 
 	if node.Embed().HasAnyMarks(MarkInBoundsHandlesEvent) {
-		h = event.Handled
+		h = event.HTrue
 	}
 
 	return h
@@ -257,7 +257,7 @@ func (ae *ApplyEvent) depthFirstEv(node Node, ev interface{}, p image.Point) eve
 
 //----------
 
-func (ae *ApplyEvent) runEv(node Node, ev interface{}, p image.Point) event.Handle {
+func (ae *ApplyEvent) runEv(node Node, ev interface{}, p image.Point) event.Handled {
 	return node.OnInputEvent(ev, p)
 }
 

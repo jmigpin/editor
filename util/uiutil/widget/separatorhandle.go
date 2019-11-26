@@ -42,7 +42,7 @@ func (sh *SeparatorHandle) Layout() {
 	sh.Bounds = b
 }
 
-func (sh *SeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) event.Handle {
+func (sh *SeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	switch ev := ev0.(type) {
 	case *event.MouseDown:
 		switch ev.Button {
