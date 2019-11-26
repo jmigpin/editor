@@ -7,10 +7,11 @@ import (
 	"github.com/jmigpin/editor/util/goutil"
 )
 
-// use specific version to reduce go tools trying to "finding" it
-// TODO: this must be updated on "core/godebug" changes (chicken-and-egg problem)
-//const GoDebugEditorVersion = "v0.0.0-20191024050423-e055b53589a3"
-const GoDebugEditorVersion = "v0.0.0-20191121222606-7a5c469ff857"
+// TODO: fix this chicken-and-egg problem
+// This var must be updated on changes to "core/godebug/debug".
+// A program annotated with godebug depends on that pkg to compile.
+// Also, use specific version to reduce go tools trying to "finding" it.
+const GoDebugEditorVersion = "v0.0.0-20191125213526-6aed9f6e4de9"
 
 func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files, mainFilename string, tests bool) error {
 	dir := filepath.Dir(mainFilename)
