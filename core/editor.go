@@ -639,12 +639,16 @@ func (ed *Editor) NodeERow(node widget.Node) (*ERow, bool) {
 
 func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func()) {
 	en := node.Embed()
-	en.Cursor = event.WaitCursor
-	ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
+	ed.UI.RunOnUIGoRoutine(func() {
+		en.Cursor = event.WaitCursor
+		ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
+	})
 	go func() {
 		fn()
-		en.Cursor = event.NoneCursor
-		ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
+		ed.UI.RunOnUIGoRoutine(func() {
+			en.Cursor = event.NoneCursor
+			ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
+		})
 	}()
 }
 
