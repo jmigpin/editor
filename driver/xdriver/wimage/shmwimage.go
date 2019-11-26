@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 
+	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/pkg/errors"
@@ -17,9 +18,13 @@ type ShmWImage struct {
 }
 
 func NewShmWImage(opt *Options) (*ShmWImage, error) {
-	// init shared memory extension
-	if err := shm.Init(opt.Conn); err != nil {
-		return nil, err
+	//// init shared memory extension
+	//if err := shm.Init(opt.Conn); err != nil {
+	//	return nil, err
+	//}
+	// get error from early init
+	if initErr != nil {
+		return nil, initErr
 	}
 
 	wi := &ShmWImage{opt: opt, putCompleted: make(chan struct{}, 1)}
@@ -102,4 +107,13 @@ func (wi *ShmWImage) PutImage(r image.Rectangle) error {
 
 func (wi *ShmWImage) PutImageCompleted() {
 	wi.putCompleted <- struct{}{}
+}
+
+//----------
+
+var initErr error
+
+// initialize early to avoid concurrent map read/write (XGB library issue)
+func Init(conn *xgb.Conn) {
+	initErr = shm.Init(conn)
 }

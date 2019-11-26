@@ -7,7 +7,6 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/driver/xdriver/xutil"
-	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 // https://tronche.com/gui/x/icccm/sec-4.html#s-4.2.8.1
@@ -41,21 +40,22 @@ func (wmp *WMP) setupWindowProperty() error {
 		data)
 	return cookie.Check()
 }
-func (wmp *WMP) OnClientMessage(ev *xproto.ClientMessageEvent, events chan<- interface{}) {
+func (wmp *WMP) OnClientMessage(ev *xproto.ClientMessageEvent) (deleteWindow bool) {
 	if ev.Type != atoms.WM_PROTOCOLS {
-		return
+		return false
 	}
 	if ev.Format != 32 {
 		log.Printf("ev format not 32: %+v", ev)
-		return
+		return false
 	}
 	data := ev.Data.Data32
 	for _, e := range data {
 		atom := xproto.Atom(e)
 		if atom == atoms.WM_DELETE_WINDOW {
-			events <- &event.WindowClose{}
+			return true
 		}
 	}
+	return false
 }
 
 var atoms struct {

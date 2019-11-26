@@ -7,7 +7,7 @@ import (
 )
 
 type UI struct {
-	*uiutil.SimpleUI
+	*uiutil.BasicUI
 	Root *Root
 }
 
@@ -16,11 +16,11 @@ func NewUI(winName string) (*UI, error) {
 
 	ui.Root = NewRoot(ui)
 
-	sui, err := uiutil.NewSimpleUI(winName, ui.Root)
+	bui, err := uiutil.NewBasicUI(winName, ui.Root)
 	if err != nil {
 		return nil, err
 	}
-	ui.SimpleUI = sui
+	ui.BasicUI = bui
 
 	// set theme before root init
 	c1 := &ColorThemeCycler

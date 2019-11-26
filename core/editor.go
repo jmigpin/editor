@@ -53,7 +53,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.initLSProto(opt)
 
 	go ed.fswatcherEventLoop()
-	ed.UI.EventLoop() // blocks
+	ed.uiEventLoop() // blocks
 
 	return ed, nil
 }
@@ -77,8 +77,6 @@ func (ed *Editor) init(opt *Options) error {
 		return err
 	}
 	ed.UI = ui0
-	ed.UI.OnError = ed.Error
-	ed.UI.OnEvent = ed.onUIEvent
 
 	// other setups
 	ed.setupRootToolbar()
@@ -117,22 +115,35 @@ func (ed *Editor) initLSProto(opt *Options) {
 
 func (ed *Editor) Close() {
 	ed.LSProtoMan.Close()
-	ed.UI.Close()
+	ed.UI.AppendEvent(&editorClose{})
 }
 
 //----------
 
-func (ed *Editor) onUIEvent(ev interface{}) {
-	switch t := ev.(type) {
-	case *event.DndPosition:
-		ed.dndh.OnPosition(t)
-	case *event.DndDrop:
-		ed.dndh.OnDrop(t)
-	default:
-		h := ed.handleGlobalShortcuts(ev)
-		if h == event.NotHandled {
-			ed.UI.HandleEvent(ev)
+func (ed *Editor) uiEventLoop() {
+	//defer ed.UI.Close() // don't close for clean exit
+	for {
+		ev := ed.UI.NextEvent()
+		switch t := ev.(type) {
+		case error:
+			log.Println(t) // in case there is no window yet
+			ed.Error(t)
+		case *editorClose:
+			return
+		case *event.WindowClose:
+			return
+		case *event.DndPosition:
+			ed.dndh.OnPosition(t)
+		case *event.DndDrop:
+			ed.dndh.OnDrop(t)
+		default:
+			if !ed.handleGlobalShortcuts(ev) {
+				if !ed.UI.HandleEvent(ev) {
+					log.Printf("uievloop: unhandled event: %#v", ev)
+				}
+			}
 		}
+		ed.UI.LayoutMarkedAndSchedulePaint()
 	}
 }
 
@@ -458,7 +469,7 @@ func (ed *Editor) NewColumn() *ui.Column {
 
 //----------
 
-func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
+func (ed *Editor) handleGlobalShortcuts(ev interface{}) (handled bool) {
 	switch t := ev.(type) {
 	case *event.WindowInput:
 		autoCloseInfo := true
@@ -473,11 +484,11 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 					ed.cancelERowsContentCmds()
 					autoCloseInfo = false
 					ed.cancelInfoFloatBox()
-					return event.Handled
+					return true
 				case event.KSymF1:
 					autoCloseInfo = false
 					ed.toggleInfoFloatBox()
-					return event.Handled
+					return true
 				}
 			}
 		}
@@ -489,7 +500,7 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) event.Handle {
 			}
 		}
 	}
-	return event.NotHandled
+	return false
 }
 
 //----------
@@ -723,3 +734,5 @@ func (ro *RegistrationsOpt) String() string {
 }
 
 //----------
+
+type editorClose struct{}

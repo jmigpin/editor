@@ -4,9 +4,12 @@ import (
 	"image"
 	"image/draw"
 	"log"
+	"sync"
 	"time"
 
+	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/driver"
+	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"github.com/pkg/errors"
@@ -18,15 +21,16 @@ type BasicUI struct {
 	Win           driver.Window
 	ApplyEv       *widget.ApplyEvent
 
-	events    chan<- interface{}
-	curCursor event.Cursor
-
+	curCursor      event.Cursor
 	lastPaintStart time.Time
 	lastPaintEnd   time.Time
 	pendingPaint   bool
+
+	eventsQ   *chanutil.ChanQ // linked list queue (flexible unlimited length)
+	closeOnce sync.Once
 }
 
-func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*BasicUI, error) {
+func NewBasicUI(WinName string, root widget.Node) (*BasicUI, error) {
 	win, err := driver.NewWindow()
 	if err != nil {
 		return nil, err
@@ -36,40 +40,78 @@ func NewBasicUI(events chan<- interface{}, WinName string, root widget.Node) (*B
 	ui := &BasicUI{
 		DrawFrameRate: 37,
 		Win:           win,
-		events:        events,
 	}
-
+	ui.eventsQ = chanutil.NewChanQ(16, 16)
 	ui.ApplyEv = widget.NewApplyEvent(ui)
 
 	// Embed nodes have their wrapper nodes set when they are appended to another node. The root node is not appended to any other node, therefore it needs to be set here.
 	ui.RootNode = root
 	root.Embed().SetWrapperForRoot(root)
 
-	// start window event loop with mousemove event filter
-	events2 := make(chan interface{}, cap(events))
-	go func() {
-		for {
-			//events <- ui.Win.NextEvent() // slow UI without mouse filter
-			events2 <- ui.Win.NextEvent()
-		}
-	}()
-	go MouseMoveFilterLoop(events2, events, &ui.DrawFrameRate)
+	go ui.eventLoop()
 
 	return ui, nil
 }
 
 func (ui *BasicUI) Close() {
-	ui.Win.Close()
+	ui.closeOnce.Do(func() {
+		if err := ui.Win.Close(); err != nil {
+			log.Println(err)
+		}
+	})
 }
 
 //----------
 
-func (ui *BasicUI) HandleEvent(ev interface{}) {
+func (ui *BasicUI) eventLoop() {
+	evQIn := ui.eventsQ.In() // will output events to ui.eventsQ.Out()
+
+	// filter mouvemove events (reduces high fps mouse move events)
+	evBridge := make(chan interface{}, cap(evQIn))
+	go func() {
+		for {
+			//evQIn <- ui.Win.NextEvent() // slow UI without mouse filter
+			evBridge <- ui.Win.NextEvent()
+		}
+	}()
+	go MouseMoveFilterLoop(evBridge, evQIn, &ui.DrawFrameRate)
+}
+
+//----------
+
+// How to use NextEvent():
+//
+//func SampleEventLoop() {
+//	defer ui.Close()
+//	for {
+//		ev := ui.NextEvent()
+//		switch t := ev.(type) {
+//		case error:
+//			fmt.Println(err)
+//		case *event.WindowClose:
+//			return
+//		default:
+//			ui.HandleEvent(ev)
+//		}
+//		ui.LayoutMarkedAndSchedulePaint()
+//	}
+//}
+func (ui *BasicUI) NextEvent() interface{} {
+	return <-ui.eventsQ.Out()
+}
+
+//----------
+
+func (ui *BasicUI) AppendEvent(ev interface{}) {
+	ui.eventsQ.In() <- ev
+}
+
+//----------
+
+func (ui *BasicUI) HandleEvent(ev interface{}) (handled bool) {
 	switch t := ev.(type) {
 	case *event.WindowResize:
-		ui.UpdateImageSize(t.Rect)
-	case *UIReviewSize:
-		ui.UpdateImageSize(t.Rect)
+		ui.resizeImage(t.Rect)
 	case *event.WindowExpose:
 		ui.RootNode.Embed().MarkNeedsPaint()
 	case *event.WindowInput:
@@ -82,28 +124,25 @@ func (ui *BasicUI) HandleEvent(ev interface{}) {
 	case struct{}:
 		// no op, allow layout/schedule funcs to run
 	default:
-		log.Printf("basicui: unhandled event: %#v", ev)
+		return false
 	}
+	return true
+}
 
+func (ui *BasicUI) LayoutMarkedAndSchedulePaint() {
 	ui.RootNode.LayoutMarked()
 	ui.schedulePaintMarked()
 }
 
 //----------
 
-func (ui *BasicUI) UpdateImageSize(r image.Rectangle) {
-	// TODO: if the paint becomes async or double-buffered, need to track draws
-	// don't update size if still drawing, enqueue event to try again later
-	//if ui.incompleteDraws != 0 {
-	//	ui.events <- &UIReviewSize{Rect: r}
-	//	return
-	//}
-
+func (ui *BasicUI) resizeImage(r image.Rectangle) {
 	err := ui.Win.ResizeImage(r)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+
 	ib := ui.Win.Image().Bounds()
 	en := ui.RootNode.Embed()
 	if !en.Bounds.Eq(ib) {
@@ -130,7 +169,7 @@ func (ui *BasicUI) schedulePaint() {
 		if d > 0 {
 			time.Sleep(d)
 		}
-		ui.events <- &UIPaintTime{}
+		ui.AppendEvent(&UIPaintTime{})
 	}()
 }
 
@@ -160,7 +199,7 @@ func (ui *BasicUI) paintMarked() {
 func (ui *BasicUI) putImage(r *image.Rectangle) {
 	ui.lastPaintStart = time.Now()
 	if err := ui.Win.PutImage(*r); err != nil {
-		ui.events <- err
+		ui.AppendEvent(err)
 	}
 
 	//// DEBUG: print fps
@@ -173,7 +212,8 @@ func (ui *BasicUI) putImage(r *image.Rectangle) {
 //----------
 
 func (ui *BasicUI) EnqueueNoOpEvent() {
-	ui.events <- struct{}{}
+	debug.AnnotateFile()
+	ui.AppendEvent(struct{}{})
 }
 
 func (ui *BasicUI) Image() draw.Image {
@@ -205,21 +245,21 @@ func (ui *BasicUI) SetCursor(c event.Cursor) {
 func (ui *BasicUI) GetCPPaste(i event.CopyPasteIndex, fn func(string, bool)) {
 	ui.Win.GetCPPaste(i, func(s string, err error) {
 		if err != nil {
-			ui.events <- errors.Wrap(err, "cppaste")
+			ui.AppendEvent(errors.Wrap(err, "cppaste"))
 		}
 		fn(s, err == nil)
 	})
 }
 func (ui *BasicUI) SetCPCopy(i event.CopyPasteIndex, s string) {
 	if err := ui.Win.SetCPCopy(i, s); err != nil {
-		ui.events <- errors.Wrap(err, "cpcopy")
+		ui.AppendEvent(errors.Wrap(err, "cpcopy"))
 	}
 }
 
 //----------
 
 func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
-	ui.events <- &UIRunFuncEvent{f}
+	ui.AppendEvent(&UIRunFuncEvent{f})
 }
 
 // Allows triggering a run of applyevent (ex: useful for cursor update).
@@ -228,12 +268,10 @@ func (ui *BasicUI) QueueEmptyWindowInputEvent() {
 	if err != nil {
 		return
 	}
-	ui.events <- &event.WindowInput{Point: *p}
+	ui.AppendEvent(&event.WindowInput{Point: *p})
 }
 
 //----------
-
-type UIReviewSize struct{ Rect image.Rectangle }
 
 type UIPaintTime struct{}
 

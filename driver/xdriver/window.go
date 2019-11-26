@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"sync"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
@@ -29,8 +28,6 @@ type Window struct {
 	Screen *xproto.ScreenInfo
 	GCtx   xproto.Gcontext
 
-	closeOnce sync.Once
-
 	Paste   *copypaste.Paste
 	Copy    *copypaste.Copy
 	Cursors *xcursors.Cursors
@@ -40,7 +37,8 @@ type Window struct {
 
 	WImg wimage.WImage
 
-	events chan interface{}
+	events     chan interface{}
+	evLoopDone chan struct{}
 }
 
 func NewWindow() (*Window, error) {
@@ -57,6 +55,8 @@ func NewWindow() (*Window, error) {
 		err2 := errors.Wrap(err, "x conn")
 		return nil, err2
 	}
+	// initialize extensions early to avoid concurrent map read/write (XGB issue)
+	wimage.Init(conn)
 
 	win := &Window{
 		Conn:   conn,
@@ -179,13 +179,9 @@ func (win *Window) initialize() error {
 }
 
 func (win *Window) Close() error {
-	win.closeOnce.Do(func() {
-		err := win.WImg.Close()
-		if err != nil {
-			log.Printf("%v", err)
-		}
-		win.Conn.Close()
-	})
+	_ = win.WImg.Close()
+	win.Conn.Close() // conn.WaitForEvent() will return with (nil,nil)
+	<-win.evLoopDone
 	return nil
 }
 
@@ -194,16 +190,22 @@ func (win *Window) NextEvent() interface{} {
 }
 
 func (win *Window) eventLoop() {
+	win.evLoopDone = make(chan struct{}, 1)
+	defer func() { win.evLoopDone <- struct{}{} }()
+
 	for {
-		win.handleEvent(win.events)
+		ok := win.handleEvent(win.events)
+		if !ok {
+			break
+		}
 	}
 }
 
-func (win *Window) handleEvent(events chan interface{}) {
+func (win *Window) handleEvent(events chan interface{}) bool {
 	ev, xerr := win.Conn.WaitForEvent()
 	if ev == nil && xerr == nil {
 		events <- &event.WindowClose{}
-		return
+		return false
 	}
 	if xerr != nil {
 		events <- error(xerr)
@@ -248,8 +250,12 @@ func (win *Window) handleEvent(events chan interface{}) {
 			win.Copy.OnSelectionClear(&t)
 
 		case xproto.ClientMessageEvent:
-			win.Wmp.OnClientMessage(&t, events)
-			win.Dnd.OnClientMessage(&t, events)
+			deleteWindow := win.Wmp.OnClientMessage(&t)
+			if deleteWindow {
+				events <- &event.WindowClose{}
+				return false
+			}
+			win.Dnd.OnClientMessage(&t, events) // TODO
 
 		case xproto.PropertyNotifyEvent:
 			win.Paste.OnPropertyNotify(&t)
@@ -258,6 +264,7 @@ func (win *Window) handleEvent(events chan interface{}) {
 			log.Printf("unhandled event: %#v", ev)
 		}
 	}
+	return true
 }
 
 func (win *Window) SetWindowName(str string) {
