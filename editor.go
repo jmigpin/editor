@@ -34,6 +34,7 @@ func main() {
 	flag.IntVar(&opt.ScrollBarWidth, "scrollbarwidth", 0, "Textarea scrollbar width in pixels. A value of 0 takes 3/4 of the font size.")
 	flag.BoolVar(&opt.ScrollBarLeft, "scrollbarleft", true, "set scrollbars on the left side")
 	flag.BoolVar(&opt.Shadows, "shadows", true, "shadow effects on some elements")
+	flag.StringVar(&opt.SessionName, "sn", "", "open existing session")
 	flag.StringVar(&opt.SessionName, "sessionname", "", "open existing session")
 	flag.BoolVar(&opt.UseMultiKey, "usemultikey", false, "use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)")
 	flag.StringVar(&opt.Plugins, "plugins", "", "comma separated string of plugin filenames")
