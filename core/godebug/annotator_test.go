@@ -1673,15 +1673,9 @@ func TestAnnotator97(t *testing.T) {
 
 func TestAnnotator98(t *testing.T) {
 	inout := []string{
-		`debug.NoAnnotations()
+		`//godebug:annotateoff
 		a = 1+1`,
-		//`Σ.Line(0, 0, 43, Σ.ICe("NoAnnotations"))
-		//       Σ0 := Σ.IC("NoAnnotations", nil)
-		//       debug.NoAnnotations()
-		//       Σ.Line(0, 0, 44, Σ0)
-		//       a = 1 + 1`,
-		`debug.NoAnnotations()
-	        a = 1 + 1`,
+		`a = 1 + 1`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -1689,10 +1683,10 @@ func TestAnnotator98(t *testing.T) {
 func TestAnnotator99(t *testing.T) {
 	inout := []string{
 		`a:=1
-		debug.NoAnnotations()
+		//godebug:annotateoff
 		for {
 			a:=2
-			debug.AnnotateBlock()
+			//godebug:annotateblock
 			a=3
 		}
 		`,
@@ -1700,17 +1694,12 @@ func TestAnnotator99(t *testing.T) {
 	        a := 1
 	        Σ1 := Σ.IV(a)
 	        Σ.Line(0, 0, 27, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
-	        debug.NoAnnotations()
 	        for {
 	        a := 2
-	        Σ.Line(0, 1, 81, Σ.ICe("AnnotateBlock"))
-	        Σ2 := Σ.IC("AnnotateBlock", nil)
-	        debug.AnnotateBlock()
-	        Σ.Line(0, 1, 82, Σ2)
-	        Σ3 := Σ.IV(3)
+	        Σ2 := Σ.IV(3)
 	        a = 3
-	        Σ4 := Σ.IV(a)
-	        Σ.Line(0, 2, 86, Σ.IA(Σ.IL(Σ4), Σ.IL(Σ3)))
+	        Σ3 := Σ.IV(a)
+	        Σ.Line(0, 1, 88, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ2)))
 	        }`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)

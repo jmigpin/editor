@@ -1,37 +1,39 @@
 package debug
 
 import (
-	"encoding/gob"
 	"fmt"
 )
 
 func init() {
 	// register structs to be able to encode/decode from interface{}
-	gob.Register(&ReqFilesDataMsg{})
-	gob.Register(&FilesDataMsg{})
-	gob.Register(&ReqStartMsg{})
-	gob.Register(&LineMsg{})
-	gob.Register([]*LineMsg{})
 
-	gob.Register(&ItemValue{})
-	gob.Register(&ItemList{})
-	gob.Register(&ItemList2{})
-	gob.Register(&ItemAssign{})
-	gob.Register(&ItemSend{})
-	gob.Register(&ItemCall{})
-	gob.Register(&ItemCallEnter{})
-	gob.Register(&ItemIndex{})
-	gob.Register(&ItemIndex2{})
-	gob.Register(&ItemKeyValue{})
-	gob.Register(&ItemSelector{})
-	gob.Register(&ItemTypeAssert{})
-	gob.Register(&ItemBinary{})
-	gob.Register(&ItemUnary{})
-	gob.Register(&ItemUnaryEnter{})
-	gob.Register(&ItemParen{})
-	gob.Register(&ItemLiteral{})
-	gob.Register(&ItemBranch{})
-	gob.Register(&ItemAnon{})
+	reg := RegisterStructure
+
+	reg(&ReqFilesDataMsg{})
+	reg(&FilesDataMsg{})
+	reg(&ReqStartMsg{})
+	reg(&LineMsg{})
+	reg([]*LineMsg{})
+
+	reg(&ItemValue{})
+	reg(&ItemList{})
+	reg(&ItemList2{})
+	reg(&ItemAssign{})
+	reg(&ItemSend{})
+	reg(&ItemCall{})
+	reg(&ItemCallEnter{})
+	reg(&ItemIndex{})
+	reg(&ItemIndex2{})
+	reg(&ItemKeyValue{})
+	reg(&ItemSelector{})
+	reg(&ItemTypeAssert{})
+	reg(&ItemBinary{})
+	reg(&ItemUnary{})
+	reg(&ItemUnaryEnter{})
+	reg(&ItemParen{})
+	reg(&ItemLiteral{})
+	reg(&ItemBranch{})
+	reg(&ItemAnon{})
 }
 
 //----------

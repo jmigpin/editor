@@ -607,20 +607,32 @@ func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 //------------
 
 func (cmd *Cmd) writeGoDebugConfigFilesToTmpDir() error {
-	// godebugconfig pkg: config.go
-	filename := GoDebugConfigFilepathName("config.go")
-	src := cmd.annset.ConfigContent()
-	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-	if err := mkdirAllWriteFile(filenameAtTmp, []byte(src)); err != nil {
-		return err
+	{
+		// godebugconfig pkg: config.go
+		filename := filepath.Join(GoDebugConfigFilepath, "config.go")
+		src := cmd.annset.ConfigContent()
+		filenameAtTmp := cmd.tmpDirBasedFilename(filename)
+		if err := mkdirAllWriteFile(filenameAtTmp, []byte(src)); err != nil {
+			return err
+		}
 	}
 	if !cmd.NoModules {
 		// godebugconfig pkg: go.mod
-		filename2 := GoDebugConfigFilepathName("go.mod")
-		src2 := cmd.annset.ConfigGoModuleContent()
-		filenameAtTmp2 := cmd.tmpDirBasedFilename(filename2)
-		if err := mkdirAllWriteFile(filenameAtTmp2, []byte(src2)); err != nil {
+		filename := filepath.Join(GoDebugConfigFilepath, "go.mod")
+		src := cmd.annset.ConfigGoModuleContent()
+		filenameAtTmp2 := cmd.tmpDirBasedFilename(filename)
+		if err := mkdirAllWriteFile(filenameAtTmp2, []byte(src)); err != nil {
 			return err
+		}
+	}
+	{
+		// debug pkg (pack into a file and add to godebugconfig pkg)
+		for _, fp := range DebugFilePacks() {
+			filename := filepath.Join(DebugFilepath, fp.Name)
+			filenameAtTmp := cmd.tmpDirBasedFilename(filename)
+			if err := mkdirAllWriteFile(filenameAtTmp, []byte(fp.Data)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

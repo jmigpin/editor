@@ -94,11 +94,10 @@ func TestCmd_src4(t *testing.T) {
 	src := `
 		package main
 		import "testing"
-		import "github.com/jmigpin/editor/core/godebug/debug"
 		func Test001(t*testing.T){
-			debug.NoAnnotations()
+			//godebug.annotateoff
 			for i:=0; i<2;i++{
-				debug.AnnotateBlock()
+				//godebug.annotateblock
 				_=i
 			}
 		}
@@ -150,8 +149,12 @@ func TestCmd_goMod5(t *testing.T) {
 	createFilesForTestCmd_goMod5(t, tmpDir)
 
 	dir1 := filepath.Join(tmpDir, "main")
-	cmd := []string{"run", "main.go"}
-	//cmd := []string{"run", "-verbose", "-work", "main.go"}
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"main.go",
+	}
 	msgs := doCmd(t, dir1, cmd)
 
 	if hasStringIn("F1", msgs) { // must not be annotated
@@ -194,9 +197,8 @@ func createFilesForTestCmd_goMod5(t *testing.T, tmpDir string) {
 	pkg2F2Go := `
 		package pkg2
 		import "example.com/pkg1"
-		import "github.com/jmigpin/editor/core/godebug/debug"
 		func F2() string {
-			debug.AnnotateBlock()
+			//godebug:annotateblock
 			return "F2"+pkg1.F1()
 		}
 	`
@@ -220,11 +222,15 @@ func TestCmd_goMod6(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	t.Logf("tmpDir: %v\n", tmpDir)
 
-	createFilesForTest_gomod6(t, tmpDir)
+	createFilesForTest_goMod6(t, tmpDir)
 
 	dir1 := filepath.Join(tmpDir, "main")
-	cmd := []string{"run", "main.go"}
-	//cmd := []string{"run", "-verbose", "-work", "main.go"}
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"main.go",
+	}
 	msgs := doCmd(t, dir1, cmd)
 
 	if hasStringIn(`"F1"`, msgs) { // must not be annotated
@@ -235,7 +241,7 @@ func TestCmd_goMod6(t *testing.T) {
 	}
 }
 
-func createFilesForTest_gomod6(t *testing.T, tmpDir string) {
+func createFilesForTest_goMod6(t *testing.T, tmpDir string) {
 	// not in gopath
 	// has go.mod
 	// pkg1 is in relative dir, not annotated
@@ -266,9 +272,8 @@ func createFilesForTest_gomod6(t *testing.T, tmpDir string) {
 	`
 	pkg2F2Go := `
 		package pkg2
-		import "github.com/jmigpin/editor/core/godebug/debug"
 		func F2() string {
-			debug.AnnotateBlock()
+			//godebug:annotateblock
 			return "F2"
 		}
 	`
@@ -294,8 +299,11 @@ func TestCmd_goMod7_test(t *testing.T) {
 	createFilesForTestCmd_gomod7_test(t, tmpDir)
 
 	dir1 := filepath.Join(tmpDir, "main")
-	cmd := []string{"test"}
-	//cmd := []string{"test", "-verbose", "-work"}
+	cmd := []string{
+		"test",
+		//"-verbose",
+		//"-work",
+	}
 	msgs := doCmd(t, dir1, cmd)
 
 	if hasStringIn(`"F1"`, msgs) { // must not be annotated
@@ -333,9 +341,8 @@ func createFilesForTestCmd_gomod7_test(t *testing.T, tmpDir string) {
 	`
 	pkg2F2Go := `
 		package pkg2
-		import "github.com/jmigpin/editor/core/godebug/debug"
 		func F2() string {
-			debug.AnnotateBlock()
+			//godebug:annotateblock
 			return "F2"
 		}
 	`
@@ -361,8 +368,11 @@ func TestCmd_goPath1(t *testing.T) {
 	createFilesForTestCmd_goPath1(t, tmpDir)
 
 	dir := filepath.Join(tmpDir, "src/main")
-	cmd := []string{"run", "main.go"}
-	//cmd := []string{"run", "-verbose", "-work", "main.go"}
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"main.go"}
 	msgs := doCmd2(t, dir, cmd, true, tmpDir)
 
 	if hasStringIn(`"sub1"`, msgs) { // not annotated
@@ -393,9 +403,8 @@ func createFilesForTestCmd_goPath1(t *testing.T, tmpDir string) {
 	`
 	mainSub1Sub2Sub2Go := `
 		package sub2
-		import "github.com/jmigpin/editor/core/godebug/debug"
 		func Sub2() string {
-			debug.AnnotateBlock()
+			//godebug:annotateblock
 			return "sub2"
 		}
 	`
@@ -421,8 +430,12 @@ func TestCmd_simple1(t *testing.T) {
 	createFilesForTestCmd_simple1(t, tmpDir)
 
 	dir := filepath.Join(tmpDir, "dir1")
-	cmd := []string{"run", "main.go"}
-	//cmd := []string{"run", "-verbose", "-work", "main.go"}
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"main.go",
+	}
 	msgs := doCmd(t, dir, cmd)
 
 	if !hasStringIn("2 := 2", msgs) { // annotated
@@ -433,11 +446,10 @@ func TestCmd_simple1(t *testing.T) {
 func createFilesForTestCmd_simple1(t *testing.T, tmpDir string) {
 	mainMainGo := `
 		package main
-		import "github.com/jmigpin/editor/core/godebug/debug"
 		func main() {
 			a:=1
 			b:=2
-			debug.NoAnnotations()
+			//godebug:annotateoff
 			_=a+b
 		}
 	`
@@ -446,15 +458,15 @@ func createFilesForTestCmd_simple1(t *testing.T, tmpDir string) {
 
 //------------
 
-func TestCmd_simple2(t *testing.T) {
-	args := []string{
-		"test", "-run", "TestCmd_simple2_empty",
-	}
-	msgs := doCmd(t, "", args) // WARNING: runs in this directory (not simple..)
-	_ = msgs
-	//spew.Dump(msgs)
-}
-func TestCmd_simple2_empty(t *testing.T) {}
+//func TestCmd_simple2(t *testing.T) {
+//	args := []string{
+//		"test", "-run", "TestCmd_simple2_empty",
+//	}
+//	msgs := doCmd(t, "", args) // WARNING: runs in this directory (not simple..)
+//	_ = msgs
+//	//spew.Dump(msgs)
+//}
+//func TestCmd_simple2_empty(t *testing.T) {}
 
 //------------
 
@@ -465,8 +477,12 @@ func TestCmd_simple3(t *testing.T) {
 
 	createFilesForTestCmd_simple3(t, tmpDir)
 
-	cmd := []string{"run", "dir1/main.go"} // give location to run
-	//cmd := []string{"run", "-verbose", "-work", "dir1/main.go"}
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"dir1/main.go", // give location to run
+	}
 	msgs := doCmd2(t, tmpDir, cmd, false, "")
 
 	if !hasStringIn(`_ := "1s"`, msgs) { // annotated
@@ -511,6 +527,42 @@ func createFilesForTestCmd_simple4(t *testing.T, tmpDir string) {
 
 //------------
 
+func BenchmarkCmd1(b *testing.B) {
+	// just searching for something odd, these tests envolve too much OS ops to be meaningful
+
+	// N=def, parseFile==nil: 911875496: ns/op
+	// N=10, parseFile==nil: 947289189 ns/op
+	// N=15, parseFile==nil: 951260274 ns/op
+
+	// N=def, parseFile!=nil: 917934864 ns/op
+	// N=10, parseFile!=nil: 909638580 ns/op
+	// N=15, parseFile!=nil: 924818313 ns/op
+
+	b.N = 10
+	for n := 0; n < b.N; n++ {
+		bCmd1(b)
+	}
+}
+
+func bCmd1(b *testing.B) {
+	src := `
+		package main
+		import "image"
+		type A struct{ p image.Point }
+		func main(){
+			a:=A{}
+			b:=a.p.String()
+			_ = b
+		}
+	`
+	t := &testing.T{}
+	_ = doCmdSrc(t, src, false, false)
+}
+
+//------------
+//------------
+//------------
+
 // Development test
 func TestCmd_srcDev(t *testing.T) {
 	src := `
@@ -553,22 +605,28 @@ func TestCmd_srcDev(t *testing.T) {
 //	}
 //}
 
-//------------
-
-// Launches the editor itself.
+//// Launches the editor itself.
 //func TestCmd_editor(t *testing.T) {
+//	// NOTES:
+//	// editor self compiled by godebug
+//	// 1. runs editor/.../debug.init at its init
+//	// 2. runs example/.../godebugconfig/debug.init at init to send msgs (prob)
+//	// (SOLVED - using go.mod to point to unique pkg)
+
 //	filename := "./../../editor.go"
 //	args := []string{
 //		"run",
-//		//"-verbose", "-work",
+//		//"-verbose",
+//		//"-work",
+//		//"-dirs=../../core",
 //		//"-dirs=../../core,../../core/contentcmds",
-//		"-dirs=../../core",
-//		//"-dirs=",
 //		filename,
 //	}
 //	doCmd(t, "", args)
 //}
 
+//------------
+//------------
 //------------
 
 func doCmd(t *testing.T, dir string, args []string) []string {

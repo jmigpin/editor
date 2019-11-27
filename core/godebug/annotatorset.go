@@ -18,8 +18,11 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-const debugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
-const GoDebugConfigPkgPath = "example.com/godebugconfig"
+const DebugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
+const GoDebugConfigPkgPath = "github.com/jmigpin/editor/core/godebug/godebugconfig"
+
+var DebugFilepath = filepath.FromSlash(DebugPkgPath)
+var GoDebugConfigFilepath = filepath.FromSlash(GoDebugConfigPkgPath)
 
 //----------
 
@@ -135,7 +138,7 @@ func (annset *AnnotatorSet) insertDebugExitInFunction(astFile *ast.File, name st
 //----------
 
 func (annset *AnnotatorSet) insertImportDebug(astFile *ast.File) {
-	annset.insertImport(astFile, annset.debugPkgName, debugPkgPath)
+	annset.insertImport(astFile, annset.debugPkgName, DebugPkgPath)
 }
 
 func (annset *AnnotatorSet) insertImport(astFile *ast.File, name, path string) {
@@ -177,7 +180,7 @@ func (annset *AnnotatorSet) Print(w io.Writer, astFile *ast.File) error {
 func (annset *AnnotatorSet) ConfigContent() string {
 	entriesStr := annset.buildConfigContentEntries()
 	src := `package godebugconfig
-import "` + debugPkgPath + `"
+import "` + DebugPkgPath + `"
 func init(){
 	debug.ServerNetwork="` + debug.ServerNetwork + `"
 	debug.ServerAddress="` + debug.ServerAddress + `"
@@ -232,7 +235,7 @@ func (annset *AnnotatorSet) TestMainSources() []*TestMainSrc {
 func (annset *AnnotatorSet) testMainSource(pkgName string) string {
 	return `		
 package ` + pkgName + `
-import ` + annset.debugPkgName + ` "` + debugPkgPath + `"
+import ` + annset.debugPkgName + ` "` + DebugPkgPath + `"
 import "testing"
 import "os"
 func TestMain(m *testing.M) {
@@ -298,8 +301,3 @@ func ParseAnnotateFileSrcForAnnSet(annset *AnnotatorSet, filename string, src in
 }
 
 //----------
-
-func GoDebugConfigFilepathName(name string) string {
-	p := filepath.FromSlash(GoDebugConfigPkgPath)
-	return filepath.Join(p, name)
-}

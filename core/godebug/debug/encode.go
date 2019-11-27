@@ -9,6 +9,12 @@ import (
 	"log"
 )
 
+func RegisterStructure(v interface{}) {
+	gob.Register(v)
+}
+
+//----------
+
 func EncodeMessage(msg interface{}) ([]byte, error) {
 	// message buffer
 	var bbuf bytes.Buffer
@@ -36,7 +42,6 @@ func EncodeMessage(msg interface{}) ([]byte, error) {
 }
 
 func DecodeMessage(reader io.Reader) (interface{}, error) {
-
 	readN := func(b []byte) error {
 		m := len(b)
 		i := 0
@@ -77,3 +82,27 @@ func DecodeMessage(reader io.Reader) (interface{}, error) {
 
 	return msg, nil
 }
+
+//----------
+
+// TODO: document why this simplified version doesn't work (hangs)
+
+//func EncodeMessage(msg interface{}) ([]byte, error) {
+//	var buf bytes.Buffer
+//	enc := gob.NewEncoder(&buf)
+//	if err := enc.Encode(&msg); err != nil {
+//		return nil, err
+//	}
+//	return buf.Bytes(), nil
+//}
+
+//func DecodeMessage(reader io.Reader) (interface{}, error) {
+//	dec := gob.NewDecoder(reader)
+//	var msg interface{}
+//	if err := dec.Decode(&msg); err != nil {
+//		return nil, err
+//	}
+//	return msg, nil
+//}
+
+//----------

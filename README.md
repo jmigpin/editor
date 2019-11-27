@@ -182,16 +182,16 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 		- `-h`: help (show usage).
 		- `-work`: print out temporary work dir and don't cleanup (allows to see the generated code).
 	- Annotate files
-		- By default, the current directory will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, but it is also possible to annotate by calling one of the following functions in the code.
+		- By default, the current directory will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, but it is also possible to annotate by inserting one of the following comments in the code (notice the lack of space):
 			```
-			debug.AnnotateBlock()
-			debug.AnnotateFile()
-			debug.AnnotatePackage()
+			//godebug:annotateblock
+			//godebug:annotatefile
+			//godebug:annotatepackage
 			```
-			The annotator will detect these calls and annotate the block/file/package.
-			To disable annotating for the current code block, call:
+			The annotator will detect these comments and annotate the block/file/package.
+			To disable annotating for the current code block, insert:
 			```
-			debug.NoAnnotations()
+			//godebug:annotateoff
 			```
 		 	This is helpful to bypass loops that would become too slow with debug messages being sent. Example:
 			```
@@ -199,7 +199,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 				a:=0 // annotated
 				if a==0{
 					a++ // annotated
-					debug.NoAnnotations()
+					//godebug:annotateoff
 					a+=2 // *not* annotated
 					a+=3 // *not* annotated
 					for i:=0; i<10000;i++{

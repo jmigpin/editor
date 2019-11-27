@@ -7,12 +7,6 @@ import (
 	"github.com/jmigpin/editor/util/goutil"
 )
 
-// TODO: fix this chicken-and-egg problem
-// This var must be updated on changes to "core/godebug/debug".
-// A program annotated with godebug depends on that pkg to compile.
-// Also, use specific version to reduce go tools trying to "finding" it.
-const GoDebugEditorVersion = "v0.0.0-20191125213526-6aed9f6e4de9"
-
 func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files, mainFilename string, tests bool) error {
 	dir := filepath.Dir(mainFilename)
 	if tests {
@@ -101,30 +95,35 @@ func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, dir string) error {
 }
 
 func setupGodebugGoMod(ctx context.Context, cmd *Cmd, dir string) error {
-	// require editor (avoids the go tooling "finding latest")
-	//path1 := "github.com/jmigpin/editor@v0.0.0-x"
-	path1 := "github.com/jmigpin/editor@" + GoDebugEditorVersion
-	if err := goutil.GoModRequire(ctx, dir, path1); err != nil {
-		return err
+	{
+		// require godebugconfig
+		path2 := GoDebugConfigPkgPath + "@v0.0.0"
+		if err := goutil.GoModRequire(ctx, dir, path2); err != nil {
+			return err
+		}
 	}
-
-	//// LOCAL DEVELOPMENT: editor pkg location
-	//oldPath2 := "github.com/jmigpin/editor"
-	//newPath2 := "/home/jorge/projects/golangcode/src/github.com/jmigpin/editor"
-	//if err := goutil.GoModReplace(ctx, dir, oldPath2, newPath2); err != nil {
-	//	return err
-	//}
-
-	// require godebugconfig
-	path2 := GoDebugConfigPkgPath + "@v0.0.0"
-	if err := goutil.GoModRequire(ctx, dir, path2); err != nil {
-		return err
+	{
+		// replace godebugconfig (point to tmp dir)
+		oldPath := GoDebugConfigPkgPath
+		newPath := filepath.Join(cmd.tmpDir, GoDebugConfigPkgPath)
+		if err := goutil.GoModReplace(ctx, dir, oldPath, newPath); err != nil {
+			return err
+		}
 	}
-	// replace godebugconfig (point to tmp dir)
-	oldPath := GoDebugConfigPkgPath
-	newPath := filepath.Join(cmd.tmpDir, GoDebugConfigPkgPath)
-	if err := goutil.GoModReplace(ctx, dir, oldPath, newPath); err != nil {
-		return err
+	{
+		// replace debug (point to tmp dir)
+		oldPath := DebugPkgPath
+		newPath := filepath.Join(cmd.tmpDir, DebugPkgPath)
+		// create go.mod file at tmp
+		dirAtTmp := cmd.tmpDirBasedFilename(DebugPkgPath)
+		content := "module " + DebugPkgPath + "\n"
+		if err := goutil.GoModCreateContent(dirAtTmp, content); err != nil {
+			return err
+		}
+		// replace
+		if err := goutil.GoModReplace(ctx, dir, oldPath, newPath); err != nil {
+			return err
+		}
 	}
 	return nil
 }

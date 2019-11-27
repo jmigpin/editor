@@ -7,13 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/driver"
 	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"github.com/pkg/errors"
 )
+
+//godebug:annotatefile
 
 type BasicUI struct {
 	DrawFrameRate int // frames per second
@@ -212,7 +213,6 @@ func (ui *BasicUI) putImage(r *image.Rectangle) {
 //----------
 
 func (ui *BasicUI) EnqueueNoOpEvent() {
-	debug.AnnotateFile()
 	ui.AppendEvent(struct{}{})
 }
 

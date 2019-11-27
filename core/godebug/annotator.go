@@ -19,6 +19,10 @@ type Annotator struct {
 
 	debugIndex         int
 	builtDebugLineStmt bool
+
+	cmts struct { // comments
+		cmap ast.CommentMap
+	}
 }
 
 func NewAnnotator(fset *token.FileSet) *Annotator {
@@ -39,13 +43,15 @@ func (ann *Annotator) AnnotateAstFile(astFile *ast.File, typ AnnotationType) {
 
 	ctx := &Ctx{}
 
+	// initial annotations options (on block, don't annotate at start)
 	if typ == AnnotationTypeBlock {
 		ctx = ctx.withNoAnnotations(true)
-	} else {
-		ctx = ctx.withNoAnnotations(false)
 	}
 
-	//ann.nodeStk = nil
+	// setup comments map (nodes with comments, annotationsOn(...))
+	ann.initCommentsMap(astFile)
+	defer ann.clearCommentsMap()
+
 	ann.visitFile(ctx, astFile)
 
 	// ensure comments are not in between stmts in the middle of declarations (solves test100)
@@ -1287,23 +1293,34 @@ func (ann *Annotator) newAssignStmt(lhs, rhs []ast.Expr) *ast.AssignStmt {
 
 //----------
 
+func (ann *Annotator) initCommentsMap(astFile *ast.File) {
+	ann.cmts.cmap = ast.NewCommentMap(ann.fset, astFile, astFile.Comments)
+}
+func (ann *Annotator) clearCommentsMap() {
+	ann.cmts.cmap = nil
+}
+
 // Returns on/off, ok.
-func (ann *Annotator) annotationsOn(stmt ast.Stmt) (bool, bool) {
-	if es, ok := stmt.(*ast.ExprStmt); ok {
-		if ce, ok := es.X.(*ast.CallExpr); ok {
-			if se, ok := ce.Fun.(*ast.SelectorExpr); ok {
-				if id, ok := se.X.(*ast.Ident); ok && id.Name == "debug" {
-					switch se.Sel.Name {
-					case "NoAnnotations":
-						return false, true // turn off
-					case "AnnotateBlock":
-						return true, true // turn on
-					}
+func (ann *Annotator) annotationsOn(n ast.Node) (bool, bool) {
+	cgs, ok := ann.cmts.cmap[n]
+	if ok {
+		for _, cg := range cgs {
+			for i := 0; i < len(cg.List); i++ {
+				c := cg.List[i]
+				typ, err := AnnotationTypeInComment(c.Text)
+				if err != nil {
+					continue
+				}
+				switch typ {
+				case AnnotationTypeOff:
+					return false, true
+				case AnnotationTypeBlock:
+					return true, true
 				}
 			}
 		}
 	}
-	return false, false // do nothing
+	return false, false
 }
 
 //----------

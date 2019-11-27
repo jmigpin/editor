@@ -99,14 +99,21 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noM
 		packages.NeedFiles |
 		0
 
-	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, mainFilename, tests, env)
+	parseFile := func(fset *token.FileSet, filename string, src []byte) (*ast.File, error) {
+		return files.fullAstFile(filename)
+	}
+
+	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, mainFilename, tests, env, parseFile)
 	if err != nil {
 		return err
 	}
-
 	files.populateProgFilenamesMap(pkgs)
 
-	if err := files.addFilesImportingDebugPkg(pkgs); err != nil {
+	//if err := files.addFilesImportingDebugPkg(pkgs); err != nil {
+	//	return err
+	//}
+
+	if err := files.addFilesWithDebugComment(pkgs); err != nil {
 		return err
 	}
 
@@ -184,48 +191,71 @@ func (files *Files) pkgPathDir(filename string) (string, bool) {
 
 //----------
 
-func (files *Files) addFilesImportingDebugPkg(pkgs []*packages.Package) error {
-	filenamesImp, err := files.filenamesImportingDebugPkg(pkgs)
-	if err != nil {
-		return err
-	}
-	// type of annotation in the files that import the debug pkg
-	for _, filename := range filenamesImp {
+func (files *Files) addFilesWithDebugComment(pkgs []*packages.Package) error {
+	for filename, _ := range files.progFilenames {
 		astFile, err := files.fullAstFile(filename)
 		if err != nil {
 			return err
 		}
-		typ := AstFileAnnotationType(astFile)
-		if typ.Annotated() {
-			files.keepAnnFilename(filename, typ)
-			// add directory containing package
-			if typ == AnnotationTypePackage {
-				dir := filepath.Dir(filename)
-				files.Add(dir)
+		for _, cg := range astFile.Comments {
+			for _, c := range cg.List {
+				typ, err := AnnotationTypeInCommentErrPos(files.fset, c)
+				if err != nil {
+					return err
+				}
+				if typ.Annotated() {
+					files.keepAnnFilename(filename, typ)
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func (files *Files) filenamesImportingDebugPkg(pkgs []*packages.Package) ([]string, error) {
-	debugPkgPath := "github.com/jmigpin/editor/core/godebug/debug"
-	pkgsImp := PackagesImportingPkgPath(pkgs, debugPkgPath)
-	mode := parser.ImportsOnly // fast mode
-	u := []string{}
-	for _, pkg := range pkgsImp {
-		for _, filename := range pkg.GoFiles {
-			astFile, err := parser.ParseFile(files.fset, filename, nil, mode)
-			if err != nil {
-				return nil, err
-			}
-			if FileImportsPkgPath(astFile, debugPkgPath) {
-				u = append(u, filename)
-			}
-		}
-	}
-	return u, nil
-}
+//----------
+
+//func (files *Files) addFilesImportingDebugPkg(pkgs []*packages.Package) error {
+//	filenamesImp, err := files.filenamesImportingDebugPkg(pkgs)
+//	if err != nil {
+//		return err
+//	}
+//	// type of annotation in the files that import the debug pkg
+//	for _, filename := range filenamesImp {
+//		astFile, err := files.fullAstFile(filename)
+//		if err != nil {
+//			return err
+//		}
+//		typ := AstFileAnnotationType(astFile)
+//		if typ.Annotated() {
+//			files.keepAnnFilename(filename, typ)
+//			// add directory containing package
+//			if typ == AnnotationTypePackage {
+//				dir := filepath.Dir(filename)
+//				files.Add(dir)
+//			}
+//		}
+//	}
+//	return nil
+//}
+
+//func (files *Files) filenamesImportingDebugPkg(pkgs []*packages.Package) ([]string, error) {
+//	debugPkgPath := "github.com/jmigpin/editor/core/godebug/debug"
+//	pkgsImp := PackagesImportingPkgPath(pkgs, debugPkgPath)
+//	mode := parser.ImportsOnly // fast mode
+//	u := []string{}
+//	for _, pkg := range pkgsImp {
+//		for _, filename := range pkg.GoFiles {
+//			astFile, err := parser.ParseFile(files.fset, filename, nil, mode)
+//			if err != nil {
+//				return nil, err
+//			}
+//			if FileImportsPkgPath(astFile, debugPkgPath) {
+//				u = append(u, filename)
+//			}
+//		}
+//	}
+//	return u, nil
+//}
 
 //----------
 
@@ -374,7 +404,7 @@ func (t AnnotationType) Annotated() bool {
 const (
 	// Order matters, last is the bigger set
 	AnnotationTypeNone AnnotationType = iota
-	//AnnotationTypeNoAnnotations                // used by annotator to stop annotating
+	AnnotationTypeOff
 	AnnotationTypeBlock
 	AnnotationTypeFile
 	AnnotationTypePackage // last to be able to stop early
@@ -382,79 +412,92 @@ const (
 
 //----------
 
-func AstFileAnnotationType(file *ast.File) AnnotationType {
-	stop := false
-	typ := AnnotationTypeNone
-	var vis VisitorFn
-	vis = func(node ast.Node) ast.Visitor {
-		if stop {
-			return nil
-		}
-		if ce, ok := node.(*ast.CallExpr); ok {
-			if se, ok := ce.Fun.(*ast.SelectorExpr); ok {
-				if id, ok := se.X.(*ast.Ident); ok {
-					if id.Name == "debug" {
-						u := AnnotationTypeNone
-						switch se.Sel.Name {
-						//case "NoAnnotations":
-						//u = AnnotationTypeNoAnnotations
-						case "AnnotateBlock":
-							u = AnnotationTypeBlock
-						case "AnnotateFile":
-							u = AnnotationTypeFile
-						case "AnnotatePackage":
-							u = AnnotationTypePackage
-							stop = true // no higher level
-						}
-						if typ < u {
-							typ = u
-						}
-					}
-				}
-			}
-		}
-		return vis
-	}
-	ast.Walk(vis, file)
-	return typ
-}
+//func AstFileAnnotationType(file *ast.File) AnnotationType {
+//	stop := false
+//	typ := AnnotationTypeNone
+//	var vis VisitorFn
+//	vis = func(node ast.Node) ast.Visitor {
+//		if stop {
+//			return nil
+//		}
+//		if ce, ok := node.(*ast.CallExpr); ok {
+//			if se, ok := ce.Fun.(*ast.SelectorExpr); ok {
+//				if id, ok := se.X.(*ast.Ident); ok {
+//					if id.Name == "debug" {
+//						u := AnnotationTypeNone
+//						switch se.Sel.Name {
+//						//case "NoAnnotations":
+//						//u = AnnotationTypeNoAnnotations
+//						case "AnnotateBlock":
+//							u = AnnotationTypeBlock
+//						case "AnnotateFile":
+//							u = AnnotationTypeFile
+//						case "AnnotatePackage":
+//							u = AnnotationTypePackage
+//							stop = true // no higher level
+//						}
+//						if typ < u {
+//							typ = u
+//						}
+//					}
+//				}
+//			}
+//		}
+//		return vis
+//	}
+//	ast.Walk(vis, file)
+//	return typ
+//}
 
-type VisitorFn func(ast.Node) ast.Visitor
+//type VisitorFn func(ast.Node) ast.Visitor
 
-func (x VisitorFn) Visit(node ast.Node) ast.Visitor {
-	return x(node)
-}
-
-//----------
-
-func PkgFilenames(ctx context.Context, dir string, tests bool) ([]string, error) {
-	cfg := &packages.Config{
-		Context: ctx,
-		Dir:     dir,
-		Mode:    packages.NeedFiles,
-		Tests:   tests,
-	}
-	pkgs, err := packages.Load(cfg, "")
-	if err != nil {
-		return nil, err
-	}
-	files := []string{}
-	for _, pkg := range pkgs {
-		files = append(files, pkg.GoFiles...)
-	}
-	return files, nil
-}
+//func (x VisitorFn) Visit(node ast.Node) ast.Visitor {
+//	return x(node)
+//}
 
 //----------
 
-func ProgramPackages(ctx context.Context, fset *token.FileSet, mode packages.LoadMode, dir, filename string, tests bool, env []string) ([]*packages.Package, error) {
+//func PkgFilenames(ctx context.Context, dir string, tests bool) ([]string, error) {
+//	cfg := &packages.Config{
+//		Context: ctx,
+//		Dir:     dir,
+//		Mode:    packages.NeedFiles,
+//		Tests:   tests,
+//	}
+//	pkgs, err := packages.Load(cfg, "")
+//	if err != nil {
+//		return nil, err
+//	}
+//	files := []string{}
+//	for _, pkg := range pkgs {
+//		files = append(files, pkg.GoFiles...)
+//	}
+//	return files, nil
+//}
+
+//----------
+
+func ProgramPackages(
+	ctx context.Context,
+	fset *token.FileSet,
+	mode packages.LoadMode,
+	dir, filename string,
+	tests bool,
+	env []string,
+	parseFile func(
+		fset *token.FileSet,
+		filename string, src []byte,
+	) (*ast.File, error),
+) ([]*packages.Package, error) {
+
 	cfg := &packages.Config{
-		Context: ctx,
-		Fset:    fset,
-		Tests:   tests,
-		Dir:     dir,
-		Mode:    mode,
-		Env:     env,
+		Context:   ctx,
+		Fset:      fset,
+		Tests:     tests,
+		Dir:       dir,
+		Mode:      mode,
+		Env:       env,
+		ParseFile: parseFile,
 	}
 	pattern := ""
 	if !tests && filename != "" {
@@ -464,6 +507,7 @@ func ProgramPackages(ctx context.Context, fset *token.FileSet, mode packages.Loa
 	if err != nil {
 		return nil, err
 	}
+
 	// errors: join errors into one error (check packages.PrintErrors(pkgs))
 	errStrs := []string{}
 	packages.Visit(pkgs, nil, func(pkg *packages.Package) {
@@ -480,52 +524,85 @@ func ProgramPackages(ctx context.Context, fset *token.FileSet, mode packages.Loa
 
 //----------
 
-func PackagesImportingPkgPath(pkgs []*packages.Package, pkgPath string) []*packages.Package {
-	pkgsImporting := []*packages.Package{}
-	visited := map[*packages.Package]bool{}
-	var visit func(parent, pkg *packages.Package)
-	visit = func(parent, pkg *packages.Package) {
-		// don't mark pkgPath as visited or it won't work
-		if pkg.PkgPath != pkgPath {
-			// mark visited
-			if visited[pkg] {
-				return
-			}
-			visited[pkg] = true
-		}
-		if parent != nil && pkg.PkgPath == pkgPath {
-			pkgsImporting = append(pkgsImporting, parent)
-		}
-		for _, pkg2 := range pkg.Imports {
-			visit(pkg, pkg2)
-		}
-	}
-	for _, pkg := range pkgs {
-		visit(nil, pkg)
-	}
-	return pkgsImporting
-}
+//func PackagesImportingPkgPath(pkgs []*packages.Package, pkgPath string) []*packages.Package {
+//	pkgsImporting := []*packages.Package{}
+//	visited := map[*packages.Package]bool{}
+//	var visit func(parent, pkg *packages.Package)
+//	visit = func(parent, pkg *packages.Package) {
+//		// don't mark pkgPath as visited or it won't work
+//		if pkg.PkgPath != pkgPath {
+//			// mark visited
+//			if visited[pkg] {
+//				return
+//			}
+//			visited[pkg] = true
+//		}
+//		if parent != nil && pkg.PkgPath == pkgPath {
+//			pkgsImporting = append(pkgsImporting, parent)
+//		}
+//		for _, pkg2 := range pkg.Imports {
+//			visit(pkg, pkg2)
+//		}
+//	}
+//	for _, pkg := range pkgs {
+//		visit(nil, pkg)
+//	}
+//	return pkgsImporting
+//}
 
 //----------
 
-func FileImportsPkgPath(file *ast.File, pkgPath string) bool {
-	for _, decl := range file.Decls {
-		switch t := decl.(type) {
-		case *ast.GenDecl:
-			for _, spec := range t.Specs {
-				switch t2 := spec.(type) {
-				case *ast.ImportSpec:
-					s := t2.Path.Value
-					if len(s) > 2 {
-						s = s[1 : len(s)-1]
-						if s == pkgPath {
-							return true
-						}
-					}
+//func FileImportsPkgPath(file *ast.File, pkgPath string) bool {
+//	for _, decl := range file.Decls {
+//		switch t := decl.(type) {
+//		case *ast.GenDecl:
+//			for _, spec := range t.Specs {
+//				switch t2 := spec.(type) {
+//				case *ast.ImportSpec:
+//					s := t2.Path.Value
+//					if len(s) > 2 {
+//						s = s[1 : len(s)-1]
+//						if s == pkgPath {
+//							return true
+//						}
+//					}
 
-				}
-			}
+//				}
+//			}
+//		}
+//	}
+//	return false
+//}
+
+//----------
+
+func AnnotationTypeInCommentErrPos(fset *token.FileSet, c *ast.Comment) (AnnotationType, error) {
+	typ, err := AnnotationTypeInComment(c.Text)
+	if err != nil {
+		// improve error
+		p := fset.Position(c.Pos())
+		err = fmt.Errorf("%v: %v", err, p)
+	}
+	return typ, err
+}
+
+func AnnotationTypeInComment(s string) (AnnotationType, error) {
+	prefix := "//godebug:"
+	if strings.HasPrefix(s, prefix) {
+		u := s[len(prefix):]
+		switch u {
+		case "annotateoff":
+			return AnnotationTypeOff, nil
+		case "annotateblock":
+			return AnnotationTypeBlock, nil
+		case "annotatefile":
+			return AnnotationTypeFile, nil
+		case "annotatepackage":
+			return AnnotationTypePackage, nil
+		default:
+			err := fmt.Errorf("godebug: unexpected type: %q", u)
+			return AnnotationTypeNone, err
 		}
 	}
-	return false
+	return AnnotationTypeNone, nil
 }

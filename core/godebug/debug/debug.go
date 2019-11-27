@@ -53,8 +53,10 @@ func Line(fileIndex, debugIndex, offset int, item Item) {
 
 //----------
 
+// DEPRECATED: use the "//godebug:annotate*" comments
+
 // no-op operation used for source detection by the annotator
-func NoAnnotations()   {}
-func AnnotateBlock()   {}
-func AnnotateFile()    {}
-func AnnotatePackage() {}
+//func NoAnnotations()   {}
+//func AnnotateBlock()   {}
+//func AnnotateFile()    {}
+//func AnnotatePackage() {}

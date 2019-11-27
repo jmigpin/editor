@@ -9,16 +9,15 @@ import (
 	"time"
 )
 
-// contains all debug data and is populated at init by a generated config on compile
-var AnnotatorFilesData []*AnnotatorFileData
+// Vars populated at init by godebugconfig pkg (generated at compile).
+var AnnotatorFilesData []*AnnotatorFileData // all debug data
+var ServerNetwork string
+var ServerAddress string
 
 //----------
 
 //var logger = log.New(os.Stdout, "debug: ", 0)
 var logger = log.New(ioutil.Discard, "debug: ", 0)
-
-var ServerNetwork string
-var ServerAddress string
 
 const chunkSendRate = 15  // per second
 const sendNowNMsgs = 2048 // don't wait for send rate, send now (memory)
@@ -199,7 +198,7 @@ func (cconn *CConn) receiveMsgsLoop() {
 		}
 
 		// handle msg
-		switch msg.(type) {
+		switch t := msg.(type) {
 		case *ReqFilesDataMsg:
 			logger.Print("sending files data")
 			msg := &FilesDataMsg{Data: AnnotatorFilesData}
@@ -217,7 +216,7 @@ func (cconn *CConn) receiveMsgsLoop() {
 			cconn.reqStart.Unlock()
 		default:
 			// always print if there is a new msg type
-			log.Printf("todo: unexpected msg type")
+			log.Printf("todo: unexpected msg type: %T", t)
 		}
 	}
 }
