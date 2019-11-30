@@ -141,12 +141,57 @@ func TestCmd_simplifyStringify1(t *testing.T) {
 
 //------------
 
-func TestCmd_goMod5(t *testing.T) {
+func TestCmd_goMod1(t *testing.T) {
 	tmpDir := createTmpDir(t)
 	defer os.RemoveAll(tmpDir)
 	t.Logf("tmpDir: %v\n", tmpDir)
 
-	createFilesForTestCmd_goMod5(t, tmpDir)
+	// not in gopath
+	// has go.mod
+	// pkg1 is in relative dir, not annotated
+	// pkg2 is in relative dir, annotated, depends on pkg1
+
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../pkg1
+		replace example.com/pkg2 => ../pkg2
+	`
+	mainMainGo := `
+		package main
+		import "example.com/pkg1"
+		import "example.com/pkg2"
+		func main() {
+			_=pkg1.F1()
+			_=pkg2.F2()
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1F1Go := `
+		package pkg1
+		func F1() string {
+			return "F1"
+		}
+	`
+	pkg2GoMod := `
+		module example.com/pkg2
+		replace example.com/pkg1 => ../pkg1
+	`
+	pkg2F2Go := `
+		package pkg2
+		import "example.com/pkg1"
+		func F2() string {
+			//godebug:annotateblock
+			return "F2"+pkg1.F1()
+		}
+	`
+	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
+	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
+	createTmpFileFromSrc(t, tmpDir, "pkg2/go.mod", pkg2GoMod)
+	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
 
 	dir1 := filepath.Join(tmpDir, "main")
 	cmd := []string{
@@ -165,12 +210,21 @@ func TestCmd_goMod5(t *testing.T) {
 	}
 }
 
-func createFilesForTestCmd_goMod5(t *testing.T, tmpDir string) {
+func TestCmd_goMod2(t *testing.T) {
+	tmpDir := createTmpDir(t)
+	defer os.RemoveAll(tmpDir)
+	t.Logf("tmpDir: %v\n", tmpDir)
+
 	// not in gopath
 	// has go.mod
 	// pkg1 is in relative dir, not annotated
-	// pkg2 is in relative dir, annotated, depends on pkg1
+	// pkg2 is in abs dir, annotated
 
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../pkg1
+		replace example.com/pkg2 => ` + filepath.Join(tmpDir, "pkg2") + `
+	`
 	mainMainGo := `
 		package main
 		import "example.com/pkg1"
@@ -180,10 +234,8 @@ func createFilesForTestCmd_goMod5(t *testing.T, tmpDir string) {
 			_=pkg2.F2()
 		}
 	`
-	mainGoMod := `
-		module main
-		replace example.com/pkg1 => ../pkg1
-		replace example.com/pkg2 => ../pkg2
+	pkg1GoMod := `
+		module example.com/pkg1
 	`
 	pkg1F1Go := `
 		package pkg1
@@ -191,38 +243,22 @@ func createFilesForTestCmd_goMod5(t *testing.T, tmpDir string) {
 			return "F1"
 		}
 	`
-	pkg1GoMod := `
-		module example.com/pkg1
+	pkg2GoMod := `
+		module example.com/pkg2
 	`
 	pkg2F2Go := `
 		package pkg2
-		import "example.com/pkg1"
 		func F2() string {
 			//godebug:annotateblock
-			return "F2"+pkg1.F1()
+			return "F2"
 		}
 	`
-	pkg2GoMod := `
-		module example.com/pkg2
-		replace example.com/pkg1 => ../pkg1
-	`
-
-	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
 	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
+	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
 	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
 	createTmpFileFromSrc(t, tmpDir, "pkg2/go.mod", pkg2GoMod)
-}
-
-//------------
-
-func TestCmd_goMod6(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
-
-	createFilesForTest_goMod6(t, tmpDir)
+	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
 
 	dir1 := filepath.Join(tmpDir, "main")
 	cmd := []string{
@@ -241,126 +277,7 @@ func TestCmd_goMod6(t *testing.T) {
 	}
 }
 
-func createFilesForTest_goMod6(t *testing.T, tmpDir string) {
-	// not in gopath
-	// has go.mod
-	// pkg1 is in relative dir, not annotated
-	// pkg2 is in abs dir, annotated
-
-	mainMainGo := `
-		package main
-		import "example.com/pkg1"
-		import "example.com/pkg2"
-		func main() {
-			_=pkg1.F1()
-			_=pkg2.F2()
-		}
-	`
-	mainGoMod := `
-		module main
-		replace example.com/pkg1 => ../pkg1
-		replace example.com/pkg2 => ` + filepath.Join(tmpDir, "pkg2") + `
-	`
-	pkg1F1Go := `
-		package pkg1
-		func F1() string {
-			return "F1"
-		}
-	`
-	pkg1GoMod := `
-		module example.com/pkg1
-	`
-	pkg2F2Go := `
-		package pkg2
-		func F2() string {
-			//godebug:annotateblock
-			return "F2"
-		}
-	`
-	pkg2GoMod := `
-		module example.com/pkg2
-	`
-
-	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
-	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/go.mod", pkg2GoMod)
-}
-
-//------------
-
-func TestCmd_goMod7_test(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
-
-	createFilesForTestCmd_gomod7_test(t, tmpDir)
-
-	dir1 := filepath.Join(tmpDir, "main")
-	cmd := []string{
-		"test",
-		//"-verbose",
-		//"-work",
-	}
-	msgs := doCmd(t, dir1, cmd)
-
-	if hasStringIn(`"F1"`, msgs) { // must not be annotated
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"F2"`, msgs) { // must be annotated
-		t.Fatal(msgs)
-	}
-}
-
-func createFilesForTestCmd_gomod7_test(t *testing.T, tmpDir string) {
-	mainMainTestsGo := `
-		package main
-		import "testing"
-		import "example.com/pkg1"
-		import "example.com/pkg2"
-		func Test01(t*testing.T) {
-			_=pkg1.F1()
-			_=pkg2.F2()
-		}
-	`
-	mainGoMod := `
-		module example.com/main
-		replace example.com/pkg1 => ../pkg1
-		replace example.com/pkg2 => ../pkg2
-	`
-	pkg1F1Go := `
-		package pkg1
-		func F1() string {
-			return "F1"
-		}
-	`
-	pkg1GoMod := `
-		module example.com/pkg1
-	`
-	pkg2F2Go := `
-		package pkg2
-		func F2() string {
-			//godebug:annotateblock
-			return "F2"
-		}
-	`
-	pkg2GoMod := `
-		module example.com/pkg2
-	`
-
-	createTmpFileFromSrc(t, tmpDir, "main/main_test.go", mainMainTestsGo)
-	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/go.mod", pkg2GoMod)
-}
-
-//------------
-
-func TestCmd_goMod8(t *testing.T) {
+func TestCmd_goMod3(t *testing.T) {
 	tmpDir := createTmpDir(t)
 	defer os.RemoveAll(tmpDir)
 	t.Logf("tmpDir: %v\n", tmpDir)
@@ -408,9 +325,7 @@ func TestCmd_goMod8(t *testing.T) {
 	}
 }
 
-//------------
-
-func TestCmd_goMod9(t *testing.T) {
+func TestCmd_goMod4(t *testing.T) {
 	tmpDir := createTmpDir(t)
 	defer os.RemoveAll(tmpDir)
 	t.Logf("tmpDir: %v\n", tmpDir)
@@ -466,30 +381,76 @@ func TestCmd_goMod9(t *testing.T) {
 
 //------------
 
+func TestCmd_goMod5_test(t *testing.T) {
+	tmpDir := createTmpDir(t)
+	defer os.RemoveAll(tmpDir)
+	t.Logf("tmpDir: %v\n", tmpDir)
+
+	mainGoMod := `
+		module example.com/main
+		replace example.com/pkg1 => ../pkg1
+		replace example.com/pkg2 => ../pkg2
+	`
+	mainMainTestsGo := `
+		package main
+		import "testing"
+		import "example.com/pkg1"
+		import "example.com/pkg2"
+		func Test01(t*testing.T) {
+			_=pkg1.F1()
+			_=pkg2.F2()
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1F1Go := `
+		package pkg1
+		func F1() string {
+			return "F1"
+		}
+	`
+	pkg2GoMod := `
+		module example.com/pkg2
+	`
+	pkg2F2Go := `
+		package pkg2
+		func F2() string {
+			//godebug:annotateblock
+			return "F2"
+		}
+	`
+
+	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
+	createTmpFileFromSrc(t, tmpDir, "main/main_test.go", mainMainTestsGo)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
+	createTmpFileFromSrc(t, tmpDir, "pkg2/go.mod", pkg2GoMod)
+	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
+
+	dir1 := filepath.Join(tmpDir, "main")
+	cmd := []string{
+		"test",
+		//"-verbose",
+		//"-work",
+	}
+	msgs := doCmd(t, dir1, cmd)
+
+	if hasStringIn(`"F1"`, msgs) { // must not be annotated
+		t.Fatal(msgs)
+	}
+	if !hasStringIn(`"F2"`, msgs) { // must be annotated
+		t.Fatal(msgs)
+	}
+}
+
+//------------
+
 func TestCmd_goPath1(t *testing.T) {
 	tmpDir := createTmpDir(t)
 	defer os.RemoveAll(tmpDir)
 	t.Logf("tmpDir: %v\n", tmpDir)
 
-	createFilesForTestCmd_goPath1(t, tmpDir)
-
-	dir := filepath.Join(tmpDir, "src/main")
-	cmd := []string{
-		"run",
-		//"-verbose",
-		//"-work",
-		"main.go"}
-	msgs := doCmd2(t, dir, cmd, true, tmpDir)
-
-	if hasStringIn(`"sub1"`, msgs) { // not annotated
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"sub2"`, msgs) { // annotated
-		t.Fatal(msgs)
-	}
-}
-
-func createFilesForTestCmd_goPath1(t *testing.T, tmpDir string) {
 	mainMainGo := `
 		package main
 		import "main/sub1"
@@ -524,6 +485,21 @@ func createFilesForTestCmd_goPath1(t *testing.T, tmpDir string) {
 	createTmpFileFromSrc(t, tmpDir, "src/main/sub1/sub1.go", mainSub1Sub1Go)
 	createTmpFileFromSrc(t, tmpDir, "src/main/sub1/sub2/sub2.go", mainSub1Sub2Sub2Go)
 	createTmpFileFromSrc(t, tmpDir, "src/main/sub3/sub3.go", mainSub3Sub3Go)
+
+	dir := filepath.Join(tmpDir, "src/main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"main.go"}
+	msgs := doCmd2(t, dir, cmd, true, tmpDir)
+
+	if hasStringIn(`"sub1"`, msgs) { // not annotated
+		t.Fatal(msgs)
+	}
+	if !hasStringIn(`"sub2"`, msgs) { // annotated
+		t.Fatal(msgs)
+	}
 }
 
 //----------
@@ -533,7 +509,16 @@ func TestCmd_simple1(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	t.Logf("tmpDir: %v\n", tmpDir)
 
-	createFilesForTestCmd_simple1(t, tmpDir)
+	mainMainGo := `
+		package main
+		func main() {
+			a:=1
+			b:=2
+			//godebug:annotateoff
+			_=a+b
+		}
+	`
+	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
 
 	dir := filepath.Join(tmpDir, "dir1")
 	cmd := []string{
@@ -549,54 +534,11 @@ func TestCmd_simple1(t *testing.T) {
 	}
 }
 
-func createFilesForTestCmd_simple1(t *testing.T, tmpDir string) {
-	mainMainGo := `
-		package main
-		func main() {
-			a:=1
-			b:=2
-			//godebug:annotateoff
-			_=a+b
-		}
-	`
-	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
-}
-
-//------------
-
-//func TestCmd_simple2(t *testing.T) {
-//	args := []string{
-//		"test", "-run", "TestCmd_simple2_empty",
-//	}
-//	msgs := doCmd(t, "", args) // WARNING: runs in this directory (not simple..)
-//	_ = msgs
-//	//spew.Dump(msgs)
-//}
-//func TestCmd_simple2_empty(t *testing.T) {}
-
-//------------
-
-func TestCmd_simple3(t *testing.T) {
+func TestCmd_simple2(t *testing.T) {
 	tmpDir := createTmpDir(t)
 	defer os.RemoveAll(tmpDir)
 	t.Logf("tmpDir: %v\n", tmpDir)
 
-	createFilesForTestCmd_simple3(t, tmpDir)
-
-	cmd := []string{
-		"run",
-		//"-verbose",
-		//"-work",
-		"dir1/main.go", // give location to run
-	}
-	msgs := doCmd2(t, tmpDir, cmd, false, "")
-
-	if !hasStringIn(`_ := "1s"`, msgs) { // annotated
-		t.Fatal(msgs)
-	}
-}
-
-func createFilesForTestCmd_simple3(t *testing.T, tmpDir string) {
 	mainMainGo := `
 		package main
 		import "time"
@@ -605,23 +547,25 @@ func createFilesForTestCmd_simple3(t *testing.T, tmpDir string) {
 		}
 	`
 	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
+
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"dir1/main.go", // give location to run
+	}
+	msgs := doCmd(t, tmpDir, cmd)
+
+	if !hasStringIn(`_ := "1s"`, msgs) { // annotated
+		t.Fatal(msgs)
+	}
 }
 
-//------------
-
-func TestCmd_simple4(t *testing.T) {
+func TestCmd_simple3(t *testing.T) {
 	tmpDir := createTmpDir(t)
 	defer os.RemoveAll(tmpDir)
 	t.Logf("tmpDir: %v\n", tmpDir)
 
-	createFilesForTestCmd_simple4(t, tmpDir)
-
-	cmd := []string{"build", "dir1/main.go", "-tags=aaa"} // some arg after the filename
-	msgs := doCmd2(t, tmpDir, cmd, false, "")
-	_ = msgs // ok - just be able to build
-}
-
-func createFilesForTestCmd_simple4(t *testing.T, tmpDir string) {
 	mainMainGo := `
 		package main
 		func main() {
@@ -629,42 +573,10 @@ func createFilesForTestCmd_simple4(t *testing.T, tmpDir string) {
 		}
 	`
 	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
-}
 
-//------------
-
-func BenchmarkCmd1(b *testing.B) {
-	// just searching for something odd, these tests envolve too much OS ops to be meaningful
-
-	// N=def, parseFile==nil: 911875496: ns/op
-	// N=10, parseFile==nil: 947289189 ns/op
-	// N=15, parseFile==nil: 951260274 ns/op
-
-	// N=def, parseFile!=nil: 917934864 ns/op
-	// N=10, parseFile!=nil: 909638580 ns/op
-	// N=15, parseFile!=nil: 924818313 ns/op
-
-	// N=10, parseFile!=nil: 857348146 ns/op
-
-	b.N = 10
-	for n := 0; n < b.N; n++ {
-		bCmd1(b)
-	}
-}
-
-func bCmd1(b *testing.B) {
-	src := `
-		package main
-		import "image"
-		type A struct{ p image.Point }
-		func main(){
-			a:=A{}
-			b:=a.p.String()
-			_ = b
-		}
-	`
-	t := &testing.T{}
-	_ = doCmdSrc(t, src, false, false)
+	cmd := []string{"build", "dir1/main.go", "-tags=aaa"} // some arg after the filename
+	msgs := doCmd2(t, tmpDir, cmd, false, "")
+	_ = msgs // ok - just be able to build
 }
 
 //------------
@@ -732,6 +644,52 @@ func TestCmd_srcDev(t *testing.T) {
 //	}
 //	doCmd(t, "", args)
 //}
+
+//func TestCmd_testInOwnDir(t *testing.T) {
+//	args := []string{
+//		"test", "-run", "TestCmd_simple2_empty",
+//	}
+//	msgs := doCmd(t, "", args) // WARNING: runs in this directory
+//	_ = msgs
+//	//spew.Dump(msgs)
+//}
+//func TestCmd_simple2_empty(t *testing.T) {}
+
+//------------
+
+func BenchmarkCmd1(b *testing.B) {
+	// just searching for something odd, these tests envolve too much OS ops to be meaningful
+
+	// N=def, parseFile==nil: 911875496: ns/op
+	// N=10, parseFile==nil: 947289189 ns/op
+	// N=15, parseFile==nil: 951260274 ns/op
+
+	// N=def, parseFile!=nil: 917934864 ns/op
+	// N=10, parseFile!=nil: 909638580 ns/op
+	// N=15, parseFile!=nil: 924818313 ns/op
+
+	// N=10, parseFile!=nil: 857348146 ns/op
+
+	b.N = 10
+	for n := 0; n < b.N; n++ {
+		bCmd1(b)
+	}
+}
+
+func bCmd1(b *testing.B) {
+	src := `
+		package main
+		import "image"
+		type A struct{ p image.Point }
+		func main(){
+			a:=A{}
+			b:=a.p.String()
+			_ = b
+		}
+	`
+	t := &testing.T{}
+	_ = doCmdSrc(t, src, false, false)
+}
 
 //------------
 //------------
