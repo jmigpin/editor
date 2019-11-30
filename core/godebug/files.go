@@ -205,6 +205,10 @@ func (files *Files) addFilesWithDebugComment(pkgs []*packages.Package) error {
 				}
 				if typ.Annotated() {
 					files.keepAnnFilename(filename, typ)
+					if typ == AnnotationTypePackage {
+						dir := filepath.Dir(filename)
+						files.Add(dir)
+					}
 				}
 			}
 		}
