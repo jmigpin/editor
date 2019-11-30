@@ -1771,6 +1771,38 @@ func TestAnnotator103(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
+func TestAnnotator104(t *testing.T) {
+	inout := []string{
+		`//godebug:annotateoff
+		if ok := f(u); ok {}`,
+		`if ok := f(u); ok {
+        	}`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
+func TestAnnotator105(t *testing.T) {
+	inout := []string{
+		`
+		//godebug:annotateoff
+		if ok := a; ok {
+		}else if ok2:=b;ok2{
+		}else if ok3:=c;ok3{
+			//godebug:annotateblock
+			c=1
+		}`,
+		`if ok := a; ok {
+	        } else if ok2 := b; ok2 {
+	        } else if ok3 := c; ok3 {
+	        Σ0 := Σ.IV(1)
+	        c = 1
+	        Σ1 := Σ.IV(c)
+	        Σ.Line(0, 0, 131, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
+	        }`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
 func TestAnnotator_(t *testing.T) {
 	inout := []string{
 		``,

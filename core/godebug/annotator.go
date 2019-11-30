@@ -197,10 +197,8 @@ func (ann *Annotator) visitTypeSwitchStmt(ctx *Ctx, tss *ast.TypeSwitchStmt) {
 }
 
 func (ann *Annotator) visitSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) {
-	if ss.Init != nil {
-		bs := ann.wrapInBlockStmt(ctx, ss)
-		bs.List = append([]ast.Stmt{ss.Init}, bs.List...)
-		ss.Init = nil
+	if ss.Init != nil && !ctx.noAnnotations() {
+		bs := ann.wrapInBlockStmt(ctx, ss, nil)
 		ann.visitBlockStmt(ctx, bs)
 		return
 	}
@@ -224,11 +222,9 @@ func (ann *Annotator) visitSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) {
 }
 
 func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
-	if is.Init != nil {
+	if is.Init != nil && !ctx.noAnnotations() {
 		// wrap in block stmt to have init variables valid only in block
-		bs := ann.wrapInBlockStmt(ctx, is)
-		bs.List = append([]ast.Stmt{is.Init}, bs.List...)
-		is.Init = nil
+		bs := ann.wrapInBlockStmt(ctx, is, nil)
 		ann.visitBlockStmt(ctx, bs)
 		return
 	}
@@ -242,25 +238,19 @@ func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
 
 	ann.visitBlockStmt(ctx, is.Body)
 
-	if is.Else != nil {
-		switch t := is.Else.(type) {
-		case *ast.IfStmt:
-			// "else if"
-			is2 := t
-			// wrap in block stmt to have init variables valid only in block
-			bs2 := &ast.BlockStmt{List: []ast.Stmt{is2}}
-			is.Else = bs2 // replace
-			if is2.Init != nil {
-				bs2.List = append([]ast.Stmt{is2.Init}, bs2.List...)
-				is2.Init = nil
-			}
-			ann.visitBlockStmt(ctx, bs2)
-		case *ast.BlockStmt:
-			// else
-			ann.visitBlockStmt(ctx, t)
-		default:
-			spew.Dump("todo: visitIfStmt: ", t)
+	switch t := is.Else.(type) {
+	case nil: // nothing to do
+	case *ast.IfStmt: // "else if ..."
+		if ctx.noAnnotations() {
+			ann.visitStmt(ctx, t)
+		} else {
+			bs := ann.wrapInBlockStmt(ctx, t, &is.Else)
+			ann.visitBlockStmt(ctx, bs)
 		}
+	case *ast.BlockStmt: // "else ..."
+		ann.visitBlockStmt(ctx, t)
+	default:
+		spew.Dump("todo: visitIfStmt: else: ", t)
 	}
 }
 
@@ -547,9 +537,28 @@ func (ann *Annotator) visitSpec(ctx *Ctx, spec ast.Spec) {
 
 //----------
 
-func (ann *Annotator) wrapInBlockStmt(ctx *Ctx, stmt ast.Stmt) *ast.BlockStmt {
+func (ann *Annotator) wrapInBlockStmt(ctx *Ctx, stmt ast.Stmt, directStmt *ast.Stmt) *ast.BlockStmt {
 	bs := &ast.BlockStmt{List: []ast.Stmt{stmt}}
-	ctx.replaceStmt(bs)
+	if directStmt != nil {
+		*directStmt = bs
+	} else {
+		ctx.replaceStmt(bs)
+	}
+	// add init stmts to top of the block stmt list
+	switch t := stmt.(type) {
+	case *ast.IfStmt:
+		if t.Init != nil {
+			bs.List = append([]ast.Stmt{t.Init}, bs.List...)
+			t.Init = nil
+		}
+	case *ast.SwitchStmt:
+		if t.Init != nil {
+			bs.List = append([]ast.Stmt{t.Init}, bs.List...)
+			t.Init = nil
+		}
+	default:
+		panic("todo")
+	}
 	return bs
 }
 

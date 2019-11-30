@@ -69,7 +69,7 @@ func (ctx *Ctx) stmtIter() (*StmtIter, bool) {
 	return si, true
 }
 
-func (ctx *Ctx) replaceStmt(stmt ast.Stmt) {
+func (ctx *Ctx) replaceStmt(stmt ast.Stmt) { // TODO: rename replaceInStmtList
 	if ctx.noAnnotations() {
 		return
 	}

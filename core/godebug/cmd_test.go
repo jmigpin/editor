@@ -593,10 +593,16 @@ func TestCmd_srcDev(t *testing.T) {
 		var ch = make(chan image.Point,1)
 		func f2() *image.Point { return &p }
 		func f3() interface{} { return &p }
+		func f4(p*image.Point) bool { return true }
 		func main(){
-			a:=A{}
-			b:=a.p.String()
-			_ = b
+			u := f2()
+			if ok := f4(u); ok {
+			
+			}
+		
+			//a:=A{}
+			//b:=a.p.String()
+			//_ = b
 		
 			//ch<-image.Point{1,1}
 			////_=<-ch
