@@ -123,12 +123,13 @@ func isKeypad(ks xproto.Keysym) bool {
 // xproto.Keysym is the encoding of a symbol on the cap of a key.
 // A list of keysyms is associated with each keycode.
 
-func (km *KMap) keysym(keycode xproto.Keycode, m Modifiers) xproto.Keysym {
-	hasShift := m.HasAny(xproto.KeyButMaskShift)
-	hasCaps := m.HasAny(xproto.KeyButMaskLock)
-	hasCtrl := m.HasAny(xproto.KeyButMaskControl)
-	hasNum := m.HasAny(xproto.KeyButMaskMod2)
-	hasAltGr := m.HasAny(xproto.KeyButMaskMod5)
+func (km *KMap) keysym(keycode xproto.Keycode, m uint16) xproto.Keysym {
+	bitIsSet := func(v uint16) bool { return m&v > 0 }
+	hasShift := bitIsSet(xproto.KeyButMaskShift)
+	hasCaps := bitIsSet(xproto.KeyButMaskLock)
+	hasCtrl := bitIsSet(xproto.KeyButMaskControl)
+	hasNum := bitIsSet(xproto.KeyButMaskMod2)
+	hasAltGr := bitIsSet(xproto.KeyButMaskMod5)
 
 	krow := km.keysymRow(keycode)
 
@@ -188,14 +189,8 @@ func (km *KMap) keysym(keycode xproto.Keycode, m Modifiers) xproto.Keysym {
 
 //----------
 
-func (km *KMap) Lookup(keycode xproto.Keycode, mods Modifiers) (rune, event.KeySym) {
-	xks := km.keysym(keycode, mods)
-
-	// defaults if not defined
-	ks := event.KeySym(xks)
-	ru := rune(ks) // takes ascii codes by default
-
-	ks2 := xkeysymToEventKeySym(xks)
-	ks, ru = event.KeySymRune(ks, ks2, ru)
+func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (rune, event.KeySym) {
+	xks := km.keysym(keycode, kmods) // scancode to virtualkey
+	ks, ru := event.KeySymRune(int(xks), xkeysymToEventKeySym)
 	return ru, ks
 }

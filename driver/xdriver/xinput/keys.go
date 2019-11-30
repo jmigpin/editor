@@ -6,7 +6,7 @@ import (
 )
 
 // Constants from /usr/include/X11/keysymdef.h
-func xkeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
+func xkeysymToEventKeySym(xk int) event.KeySym {
 	switch xk {
 	case 0x0030:
 		return event.KSym0
@@ -230,4 +230,81 @@ func xkeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
 		return event.KSymMenu
 	}
 	return event.KSymNone
+}
+
+//----------
+
+func translateModifiersToEventKeyModifiers(v uint16) event.KeyModifiers {
+	type pair struct {
+		a uint16
+		b event.KeyModifiers
+	}
+	pairs := []pair{
+		{xproto.KeyButMaskShift, event.ModShift},
+		{xproto.KeyButMaskControl, event.ModCtrl},
+		{xproto.KeyButMaskLock, event.ModLock},
+		{xproto.KeyButMaskMod1, event.Mod1},
+		{xproto.KeyButMaskMod2, event.Mod2},
+		{xproto.KeyButMaskMod3, event.Mod3},
+		{xproto.KeyButMaskMod4, event.Mod4},
+		{xproto.KeyButMaskMod5, event.Mod5},
+	}
+	var w event.KeyModifiers
+	for _, p := range pairs {
+		if v&p.a > 0 {
+			w |= p.b
+		}
+	}
+	return w
+}
+
+func translateModifiersToEventMouseButtons(v uint16) event.MouseButtons {
+	type pair struct {
+		a uint16
+		b event.MouseButton
+	}
+	pairs := []pair{
+		{xproto.KeyButMaskButton1, event.ButtonLeft},
+		{xproto.KeyButMaskButton2, event.ButtonMiddle},
+		{xproto.KeyButMaskButton3, event.ButtonRight},
+		{xproto.KeyButMaskButton4, event.ButtonWheelUp},
+		{xproto.KeyButMaskButton5, event.ButtonWheelDown},
+		{xproto.KeyButMaskButton5 << 1, event.ButtonWheelLeft},
+		{xproto.KeyButMaskButton5 << 2, event.ButtonWheelRight},
+		{xproto.KeyButMaskButton5 << 3, event.ButtonBackward},
+		// event sends uint16 (no support for forward?)
+		//{xproto.KeyButMaskButton5 << 4, event.ButtonForward},
+	}
+	var w event.MouseButtons
+	for _, p := range pairs {
+		if v&p.a > 0 {
+			w |= event.MouseButtons(p.b)
+		}
+	}
+	return w
+}
+
+func translateButtonToEventButton(xb xproto.Button) event.MouseButton {
+	var b event.MouseButton
+	switch xb {
+	case 1:
+		b = event.ButtonLeft
+	case 2:
+		b = event.ButtonMiddle
+	case 3:
+		b = event.ButtonRight
+	case 4:
+		b = event.ButtonWheelUp
+	case 5:
+		b = event.ButtonWheelDown
+	case 6:
+		b = event.ButtonWheelLeft
+	case 7:
+		b = event.ButtonWheelRight
+	case 8:
+		b = event.ButtonBackward
+	case 9:
+		b = event.ButtonForward
+	}
+	return b
 }

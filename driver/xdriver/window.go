@@ -228,7 +228,9 @@ func (win *Window) handleEvent(events chan interface{}) bool {
 		case shm.CompletionEvent:
 			win.WImg.PutImageCompleted()
 		case xproto.MappingNotifyEvent: // keyboard mapping
-			win.XInput.ReadMapTable()
+			if err := win.XInput.ReadMapTable(); err != nil {
+				events <- err
+			}
 
 		case xproto.KeyPressEvent:
 			events <- win.XInput.KeyPress(&t)
@@ -245,7 +247,7 @@ func (win *Window) handleEvent(events chan interface{}) bool {
 			win.Paste.OnSelectionNotify(&t)
 			win.Dnd.OnSelectionNotify(&t)
 		case xproto.SelectionRequestEvent:
-			win.Copy.OnSelectionRequest(&t, events)
+			win.Copy.OnSelectionRequest(&t, events) // TODO
 		case xproto.SelectionClearEvent:
 			win.Copy.OnSelectionClear(&t)
 
