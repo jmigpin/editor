@@ -96,8 +96,6 @@ func (eh *TextEditInputHandler) onMouseTripleClick(ev *event.MouseTripleClick) e
 
 //----------
 
-//godebug:annotatefile
-
 func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 	te := eh.tex.TextEdit
 	mcl := ev.Mods.ClearLocks()

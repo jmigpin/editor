@@ -152,8 +152,6 @@ const (
 
 //----------
 
-//godebug:annotatefile
-
 func KeySymRune(vkey int, vKeyToKeySym func(int) KeySym) (KeySym, rune) {
 	// default direct translation (covers some ascii values)
 	ks := KeySym(vkey)

@@ -14,8 +14,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-//godebug:annotatefile
-
 type BasicUI struct {
 	DrawFrameRate int // frames per second
 	RootNode      widget.Node
