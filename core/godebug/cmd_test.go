@@ -360,6 +360,112 @@ func createFilesForTestCmd_gomod7_test(t *testing.T, tmpDir string) {
 
 //------------
 
+func TestCmd_goMod8(t *testing.T) {
+	tmpDir := createTmpDir(t)
+	defer os.RemoveAll(tmpDir)
+	t.Logf("tmpDir: %v\n", tmpDir)
+
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../pkg1
+	`
+	mainMainGo := `
+		package main
+		import "example.com/pkg1"
+		func main() {
+			_=pkg1.F1a()
+			_=pkg1.F1b("arg-from-main")
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1F1Go := `
+		package pkg1
+		func F1a() string {
+			//godebug:annotateblock
+			return "F1a"
+		}
+		func F1b(a string) string {
+			return "F1b"
+		}
+	`
+	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
+	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
+
+	dir := filepath.Join(tmpDir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	// should not be annotated: pkg with only one godebug annotate block inside another func
+	if hasStringIn(`"arg-from-main"`, msgs) {
+		t.Fatal(msgs)
+	}
+}
+
+//------------
+
+func TestCmd_goMod9(t *testing.T) {
+	tmpDir := createTmpDir(t)
+	defer os.RemoveAll(tmpDir)
+	t.Logf("tmpDir: %v\n", tmpDir)
+
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../pkg1
+	`
+	mainMainGo := `
+		package main
+		import "example.com/pkg1"
+		func main() {
+			_=pkg1.F1a()
+			_=pkg1.F1b()
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1F1aGo := `
+		package pkg1
+		func F1a() string {
+			//godebug:annotatepackage
+			return "F1a"
+		}
+	`
+	pkg1F1bGo := `
+		package pkg1
+		func F1b() string {
+			return "F1b"
+		}
+	`
+	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
+	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/f1a.go", pkg1F1aGo)
+	createTmpFileFromSrc(t, tmpDir, "pkg1/f1b.go", pkg1F1bGo)
+
+	dir := filepath.Join(tmpDir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	if !hasStringIn(`"F1a"`, msgs) {
+		t.Fatal(msgs)
+	}
+	if !hasStringIn(`"F1b"`, msgs) {
+		t.Fatal(msgs)
+	}
+}
+
+//------------
+
 func TestCmd_goPath1(t *testing.T) {
 	tmpDir := createTmpDir(t)
 	defer os.RemoveAll(tmpDir)
@@ -537,6 +643,8 @@ func BenchmarkCmd1(b *testing.B) {
 	// N=def, parseFile!=nil: 917934864 ns/op
 	// N=10, parseFile!=nil: 909638580 ns/op
 	// N=15, parseFile!=nil: 924818313 ns/op
+
+	// N=10, parseFile!=nil: 857348146 ns/op
 
 	b.N = 10
 	for n := 0; n < b.N; n++ {

@@ -4,7 +4,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/printer"
 	"go/token"
 	"io"
@@ -61,14 +60,15 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, typ AnnotationTyp
 	if err != nil {
 		return err
 	}
-
-	// TODO: slows down performance, extra file read
-	srcb, err := ioutil.ReadFile(filename)
+	src, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
 	}
+	return annset.AnnotateAstFile2(astFile, typ, filename, src)
+}
 
-	afd := annset.annotatorFileData(filename, srcb)
+func (annset *AnnotatorSet) AnnotateAstFile2(astFile *ast.File, typ AnnotationType, filename string, src []byte) error {
+	afd := annset.annotatorFileData(filename, src)
 
 	ann := NewAnnotator(annset.FSet)
 	ann.debugPkgName = annset.debugPkgName
@@ -271,33 +271,6 @@ func sourceHash(b []byte) []byte {
 type TestMainSrc struct {
 	Dir string
 	Src string
-}
-
-//----------
-
-// Src can be nil.
-func ParseAnnotateFileSrc(ann *Annotator, filename string, src interface{}, typ AnnotationType) (*ast.File, error) {
-	mode := parser.ParseComments // to support cgo directives on imports
-	astFile, err := parser.ParseFile(ann.fset, filename, src, mode)
-	if err != nil {
-		return nil, err
-	}
-	ann.AnnotateAstFile(astFile, typ)
-	return astFile, nil
-}
-
-// Src can be nil.
-func ParseAnnotateFileSrcForAnnSet(annset *AnnotatorSet, filename string, src interface{}) (*ast.File, error) {
-	mode := parser.ParseComments // to support cgo directives on imports
-	astFile, err := parser.ParseFile(annset.FSet, filename, src, mode)
-	if err != nil {
-		return nil, err
-	}
-	err = annset.AnnotateAstFile(astFile, AnnotationTypeFile)
-	if err != nil {
-		return nil, err
-	}
-	return astFile, nil
 }
 
 //----------

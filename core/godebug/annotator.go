@@ -970,7 +970,7 @@ func (ann *Annotator) visitField(ctx *Ctx, field *ast.Field) []ast.Expr {
 
 	// set field name if it has no names (otherwise it won't output)
 	if len(field.Names) == 0 {
-		field.Names = append(field.Names, ann.newIdent())
+		field.Names = append(field.Names, ann.newIdent(ctx))
 	}
 
 	exprs := []ast.Expr{}
@@ -1012,11 +1012,11 @@ func (ann *Annotator) visitStmtList(ctx *Ctx, list *[]ast.Stmt) {
 }
 
 func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
-	if ctx.noAnnotations() {
-		ann.visitStmt3NoAnnotations(ctx, stmt)
-	} else {
-		ann.visitStmt2(ctx, stmt)
-	}
+	//if ctx.noAnnotations() {
+	//	ann.visitStmt3NoAnnotations(ctx, stmt)
+	//} else {
+	ann.visitStmt2(ctx, stmt)
+	//}
 }
 
 func (ann *Annotator) visitStmt2(ctx *Ctx, stmt ast.Stmt) {
@@ -1068,46 +1068,46 @@ func (ann *Annotator) visitStmt2(ctx *Ctx, stmt ast.Stmt) {
 	}
 }
 
-func (ann *Annotator) visitStmt3NoAnnotations(ctx *Ctx, stmt ast.Stmt) {
-	switch t := stmt.(type) {
-	case *ast.ExprStmt:
-	case *ast.AssignStmt:
-	case *ast.TypeSwitchStmt:
-		ann.visitBlockStmt(ctx, t.Body)
-	case *ast.SwitchStmt:
-		ann.visitBlockStmt(ctx, t.Body)
-	case *ast.IfStmt:
-		ann.visitBlockStmt(ctx, t.Body)
-		if t.Else != nil {
-			ann.visitStmt(ctx, t.Else)
-		}
-	case *ast.ForStmt:
-		ann.visitBlockStmt(ctx, t.Body)
-	case *ast.RangeStmt:
-		ann.visitBlockStmt(ctx, t.Body)
-	case *ast.LabeledStmt:
-		if t.Stmt != nil {
-			ann.visitStmt(ctx, t.Stmt)
-		}
-	case *ast.ReturnStmt:
-	case *ast.DeferStmt:
-	case *ast.DeclStmt:
-	case *ast.BranchStmt:
-	case *ast.IncDecStmt:
-	case *ast.SendStmt:
-	case *ast.GoStmt:
-	case *ast.SelectStmt:
-		ann.visitBlockStmt(ctx, t.Body)
-	case *ast.BlockStmt:
-		ann.visitBlockStmt(ctx, t)
-	case *ast.CaseClause:
-		ann.visitStmtList(ctx, &t.Body)
-	case *ast.CommClause:
-		ann.visitStmtList(ctx, &t.Body)
-	default:
-		fmt.Printf("visitstmt: noannotations: %v\n", t)
-	}
-}
+//func (ann *Annotator) visitStmt3NoAnnotations(ctx *Ctx, stmt ast.Stmt) {
+//	switch t := stmt.(type) {
+//	case *ast.ExprStmt:
+//	case *ast.AssignStmt:
+//	case *ast.TypeSwitchStmt:
+//		ann.visitBlockStmt(ctx, t.Body)
+//	case *ast.SwitchStmt:
+//		ann.visitBlockStmt(ctx, t.Body)
+//	case *ast.IfStmt:
+//		ann.visitBlockStmt(ctx, t.Body)
+//		if t.Else != nil {
+//			ann.visitStmt(ctx, t.Else)
+//		}
+//	case *ast.ForStmt:
+//		ann.visitBlockStmt(ctx, t.Body)
+//	case *ast.RangeStmt:
+//		ann.visitBlockStmt(ctx, t.Body)
+//	case *ast.LabeledStmt:
+//		if t.Stmt != nil {
+//			ann.visitStmt(ctx, t.Stmt)
+//		}
+//	case *ast.ReturnStmt:
+//	case *ast.DeferStmt:
+//	case *ast.DeclStmt:
+//	case *ast.BranchStmt:
+//	case *ast.IncDecStmt:
+//	case *ast.SendStmt:
+//	case *ast.GoStmt:
+//	case *ast.SelectStmt:
+//		ann.visitBlockStmt(ctx, t.Body)
+//	case *ast.BlockStmt:
+//		ann.visitBlockStmt(ctx, t)
+//	case *ast.CaseClause:
+//		ann.visitStmtList(ctx, &t.Body)
+//	case *ast.CommClause:
+//		ann.visitStmtList(ctx, &t.Body)
+//	default:
+//		fmt.Printf("visitstmt: noannotations: %v\n", t)
+//	}
+//}
 
 func (ann *Annotator) visitExprList(ctx *Ctx, list *[]ast.Expr) []ast.Expr {
 	var exprs []ast.Expr
@@ -1222,7 +1222,7 @@ func (ann *Annotator) assignToNewIdent(ctx *Ctx, e ast.Expr) ast.Expr {
 func (ann *Annotator) assignToNewIdents(ctx *Ctx, nids int, exprs ...ast.Expr) []ast.Expr {
 	ids := []ast.Expr{}
 	for i := 0; i < nids; i++ {
-		ids = append(ids, ann.newIdent())
+		ids = append(ids, ann.newIdent(ctx))
 	}
 	stmt := ann.newAssignStmt(ids, exprs)
 	ctx.insertInStmtList(stmt)
@@ -1240,6 +1240,10 @@ func (ann *Annotator) newDebugCallExpr(fname string, u ...ast.Expr) *ast.CallExp
 }
 
 func (ann *Annotator) newDebugLineStmt(ctx *Ctx, pos token.Pos, e ast.Expr) ast.Stmt {
+	if ctx.noAnnotations() {
+		return &ast.EmptyStmt{}
+	}
+
 	if e == nil {
 		return &ast.EmptyStmt{}
 	}
@@ -1276,12 +1280,16 @@ func (ann *Annotator) newDebugLineStmt(ctx *Ctx, pos token.Pos, e ast.Expr) ast.
 
 //----------
 
-func (ann *Annotator) newIdent() *ast.Ident {
-	return &ast.Ident{Name: ann.newVarName()}
+func (ann *Annotator) newIdent(ctx *Ctx) *ast.Ident {
+	return &ast.Ident{Name: ann.newVarName(ctx)}
 }
-func (ann *Annotator) newVarName() string {
-	defer func() { ann.debugVarNameIndex++ }()
-	return fmt.Sprintf(ann.debugVarPrefix+"%d", ann.debugVarNameIndex)
+func (ann *Annotator) newVarName(ctx *Ctx) string {
+	if ctx.noAnnotations() {
+		return ""
+	}
+	s := fmt.Sprintf(ann.debugVarPrefix+"%d", ann.debugVarNameIndex)
+	ann.debugVarNameIndex++
+	return s
 }
 
 func (ann *Annotator) newAssignStmt11(lhs, rhs ast.Expr) *ast.AssignStmt {
