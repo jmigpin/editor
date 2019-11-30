@@ -17,40 +17,77 @@ func NewApp(ev interface{}) *App {
 
 type AppClose struct{}
 type AppPutImage struct{ Rect image.Rectangle }
-type AppPutImageReply struct{ Error error }
 type AppResizeImage struct{ Rect image.Rectangle }
 type AppSetCursor struct{ Cursor Cursor }
 type AppQueryPointer struct{}
-type AppQueryPointerReply struct {
-	Point image.Point
-	Error error
-}
 type AppWarpPointer struct{}
 type AppGetPaste struct{}
 type AppSetCopy struct{}
 
 //----------
 
-type EventPoster interface {
-	PostEvent(ev interface{})
+type PostEventer interface {
+	PostEvent(ev interface{}) error
 }
 
-func PutImage(ep EventPoster, r image.Rectangle) error {
+func PutImage(ep PostEventer, r image.Rectangle) error {
 	app := NewApp(&AppPutImage{Rect: r})
-	ep.PostEvent(app)
-	reply := (<-app.Reply).(*AppPutImageReply)
-	return reply.Error
+	if err := ep.PostEvent(app); err != nil {
+		return err
+	}
+	res := <-app.Reply
+	switch t := res.(type) {
+	case nil:
+		return nil
+	case error:
+		return t
+	default:
+		panic(res)
+	}
 }
 
-func QueryPointer(ep EventPoster) (image.Point, error) {
+func QueryPointer(ep PostEventer) (image.Point, error) {
 	app := NewApp(&AppQueryPointer{})
-	ep.PostEvent(app)
-	reply := (<-app.Reply).(*AppQueryPointerReply)
-	return reply.Point, reply.Error
+	if err := ep.PostEvent(app); err != nil {
+		return image.ZP, err
+	}
+	res := <-app.Reply
+	switch t := res.(type) {
+	case error:
+		return image.ZP, t
+	case image.Point:
+		return t, nil
+	default:
+		panic(res)
+	}
 }
 
-func SetCursor(ep EventPoster, c Cursor) {
+func SetCursor(ep PostEventer, c Cursor) error {
 	app := NewApp(&AppSetCursor{c})
-	ep.PostEvent(app)
-	<-app.Reply
+	if err := ep.PostEvent(app); err != nil {
+		return err
+	}
+	res := <-app.Reply
+	switch t := res.(type) {
+	case nil:
+		return nil
+	case error:
+		return t
+	default:
+		panic(res)
+	}
+}
+
+func Close(ep PostEventer) error {
+	app := NewApp(&AppClose{})
+	if err := ep.PostEvent(app); err != nil {
+		return err
+	}
+	res := <-app.Reply
+	switch res.(type) {
+	case nil:
+		return nil
+	default:
+		panic(res)
+	}
 }
