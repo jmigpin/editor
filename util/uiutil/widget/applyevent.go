@@ -202,7 +202,7 @@ func (ae *ApplyEvent) dragStartMove(ev *event.MouseMove, p image.Point) {
 	}
 	if !ae.drag.start {
 		ae.drag.start = true
-		ev2 := &event.MouseDragStart{p, ae.drag.button, ev.Mods}
+		ev2 := &event.MouseDragStart{p, ae.drag.button, ev.Buttons, ev.Mods}
 		ae.runEv(ae.drag.node, ev2, p)
 	} else {
 		ev2 := &event.MouseDragMove{p, ev.Buttons, ev.Mods}
@@ -221,7 +221,7 @@ func (ae *ApplyEvent) dragEnd(ev *event.MouseUp, p image.Point) {
 	}
 
 	if ae.drag.on {
-		ev2 := &event.MouseDragEnd{p, ev.Button, ev.Mods}
+		ev2 := &event.MouseDragEnd{p, ev.Button, ev.Buttons, ev.Mods}
 		ae.runEv(ae.drag.node, ev2, p)
 	}
 
@@ -315,15 +315,15 @@ func (ae *ApplyEvent) multipleClickMouseUp(node Node, ev *event.MouseUp, p image
 	}
 
 	// always run a click
-	ev2 := &event.MouseClick{p, ev.Button, ev.Mods}
+	ev2 := &event.MouseClick{p, ev.Button, ev.Buttons, ev.Mods}
 	ae.depthFirstEv(node, ev2, p)
 
 	switch mc.action {
 	case 1:
-		ev2 := &event.MouseDoubleClick{p, ev.Button, ev.Mods}
+		ev2 := &event.MouseDoubleClick{p, ev.Button, ev.Buttons, ev.Mods}
 		ae.depthFirstEv(node, ev2, p)
 	case 2:
-		ev2 := &event.MouseTripleClick{p, ev.Button, ev.Mods}
+		ev2 := &event.MouseTripleClick{p, ev.Button, ev.Buttons, ev.Mods}
 		ae.depthFirstEv(node, ev2, p)
 	}
 }

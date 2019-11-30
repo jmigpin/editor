@@ -22,14 +22,16 @@ type MouseEnter struct{}
 type MouseLeave struct{}
 
 type MouseDown struct {
-	Point  image.Point
-	Button MouseButton
-	Mods   KeyModifiers
+	Point   image.Point
+	Button  MouseButton
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 type MouseUp struct {
-	Point  image.Point
-	Button MouseButton
-	Mods   KeyModifiers
+	Point   image.Point
+	Button  MouseButton
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 type MouseMove struct {
 	Point   image.Point
@@ -38,14 +40,16 @@ type MouseMove struct {
 }
 
 type MouseDragStart struct {
-	Point  image.Point
-	Button MouseButton
-	Mods   KeyModifiers
+	Point   image.Point
+	Button  MouseButton
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 type MouseDragEnd struct {
-	Point  image.Point
-	Button MouseButton
-	Mods   KeyModifiers
+	Point   image.Point
+	Button  MouseButton
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 type MouseDragMove struct {
 	Point   image.Point
@@ -54,28 +58,32 @@ type MouseDragMove struct {
 }
 
 type MouseClick struct {
-	Point  image.Point
-	Button MouseButton
-	Mods   KeyModifiers
+	Point   image.Point
+	Button  MouseButton
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 type MouseDoubleClick struct {
-	Point  image.Point
-	Button MouseButton
-	Mods   KeyModifiers
+	Point   image.Point
+	Button  MouseButton
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 type MouseTripleClick struct {
-	Point  image.Point
-	Button MouseButton
-	Mods   KeyModifiers
+	Point   image.Point
+	Button  MouseButton
+	Buttons MouseButtons
+	Mods    KeyModifiers
 }
 
 //----------
 
 type KeyDown struct {
-	Point  image.Point
-	KeySym KeySym
-	Mods   KeyModifiers
-	Rune   rune
+	Point   image.Point
+	KeySym  KeySym
+	Mods    KeyModifiers
+	Buttons MouseButtons
+	Rune    rune
 }
 
 func (kd *KeyDown) LowerRune() rune {
@@ -83,10 +91,11 @@ func (kd *KeyDown) LowerRune() rune {
 }
 
 type KeyUp struct {
-	Point  image.Point
-	KeySym KeySym
-	Mods   KeyModifiers
-	Rune   rune
+	Point   image.Point
+	KeySym  KeySym
+	Mods    KeyModifiers
+	Buttons MouseButtons
+	Rune    rune
 }
 
 func (ku *KeyUp) LowerRune() rune {

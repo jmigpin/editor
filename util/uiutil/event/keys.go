@@ -3,7 +3,10 @@ package event
 type KeySym int
 
 const (
-	KSymNone KeySym = 0
+	KSymNone KeySym = iota
+
+	// let ascii codes keep their values (adding 256 ensures gap)
+	KSym_dummy_ KeySym = 256 + iota
 
 	KSym0
 	KSym1
@@ -42,9 +45,6 @@ const (
 	KSymX
 	KSymY
 	KSymZ
-
-	// let ascii codes keep their values (adding 256 ensures gap)
-	KSym_dummy_ KeySym = 256 + iota
 
 	KSymSpace
 	KSymExclam      // !
@@ -152,14 +152,21 @@ const (
 
 //----------
 
-func KeySymRune(ks, ks2 KeySym, ru rune) (KeySym, rune) {
-	if ks2 != KSymNone {
+//godebug:annotatefile
+
+func KeySymRune(vkey int, vKeyToKeySym func(int) KeySym) (KeySym, rune) {
+	// default direct translation (covers some ascii values)
+	ks := KeySym(vkey)
+	ru := rune(ks)
+
+	// actual translation
+	if ks2 := vKeyToKeySym(vkey); ks2 != KSymNone {
 		ks = ks2
-		ru2 := keySymRune2(ks2)
-		if ru2 != 0 {
-			ru = ru2
-		}
 	}
+	if ru2 := keySymRune2(ks); ru2 != 0 {
+		ru = ru2
+	}
+
 	return ks, ru
 }
 
@@ -223,7 +230,7 @@ func keySymRune2(ks KeySym) rune {
 
 //----------
 
-type KeyModifiers uint32
+type KeyModifiers uint16
 
 func (km KeyModifiers) HasAny(m KeyModifiers) bool {
 	return km&m > 0
@@ -241,6 +248,7 @@ func (km KeyModifiers) ClearLocks() KeyModifiers {
 }
 
 const (
+	// TODO: rename to KMod
 	ModNone  KeyModifiers = 0
 	ModShift KeyModifiers = 1 << (iota - 1)
 	ModLock               // caps
@@ -251,7 +259,6 @@ const (
 	Mod4 // ~ windows key
 	Mod5 // ~ alt gr
 )
-
 const (
 	ModAlt   = Mod1
 	ModNum   = Mod2
@@ -259,3 +266,32 @@ const (
 )
 
 //----------
+
+type MouseButton uint16
+
+const (
+	ButtonNone MouseButton = 0
+	ButtonLeft MouseButton = 1 << (iota - 1)
+	ButtonMiddle
+	ButtonRight
+	ButtonWheelUp
+	ButtonWheelDown
+	ButtonWheelLeft
+	ButtonWheelRight
+	ButtonBackward
+	ButtonForward
+)
+
+//----------
+
+type MouseButtons uint16
+
+func (mb MouseButtons) Has(b MouseButton) bool {
+	return mb&MouseButtons(b) > 0
+}
+func (mb MouseButtons) HasAny(bs MouseButtons) bool {
+	return mb&bs > 0
+}
+func (mb MouseButtons) Is(b MouseButton) bool {
+	return mb == MouseButtons(b)
+}
