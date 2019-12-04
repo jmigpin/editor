@@ -1,5 +1,7 @@
 package uiutil
 
+//godebug:annotatefile
+
 import (
 	"image"
 	"image/draw"
@@ -218,12 +220,12 @@ func (ui *BasicUI) Image() draw.Image {
 	return ui.Win.Image()
 }
 
-func (ui *BasicUI) WarpPointer(p *image.Point) {
+func (ui *BasicUI) WarpPointer(p image.Point) {
 	ui.Win.WarpPointer(p)
 	//AIE.SetWarpedPointUntilMouseMove(*p) // TODO******
 }
 
-func (ui *BasicUI) QueryPointer() (*image.Point, error) {
+func (ui *BasicUI) QueryPointer() (image.Point, error) {
 	return ui.Win.QueryPointer()
 }
 
@@ -266,7 +268,7 @@ func (ui *BasicUI) QueueEmptyWindowInputEvent() {
 	if err != nil {
 		return
 	}
-	ui.AppendEvent(&event.WindowInput{Point: *p})
+	ui.AppendEvent(&event.WindowInput{Point: p})
 }
 
 //----------

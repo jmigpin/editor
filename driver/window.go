@@ -19,8 +19,8 @@ type Window interface {
 	ResizeImage(image.Rectangle) error
 
 	SetCursor(event.Cursor)
-	QueryPointer() (*image.Point, error)
-	WarpPointer(*image.Point)
+	QueryPointer() (image.Point, error)
+	WarpPointer(image.Point)
 
 	// copypaste
 	// paste func arg is called from another goroutine

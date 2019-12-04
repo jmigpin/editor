@@ -305,7 +305,7 @@ func (win *Window) ResizeImage(r image.Rectangle) error {
 	return nil
 }
 
-func (win *Window) WarpPointer(p *image.Point) {
+func (win *Window) WarpPointer(p image.Point) {
 	// warp pointer only if the window has input focus
 	cookie := xproto.GetInputFocus(win.Conn)
 	reply, err := cookie.Reply()
@@ -323,13 +323,14 @@ func (win *Window) WarpPointer(p *image.Point) {
 		0, 0, 0, 0,
 		int16(p.X), int16(p.Y))
 }
-func (win *Window) QueryPointer() (*image.Point, error) {
+
+func (win *Window) QueryPointer() (image.Point, error) {
 	cookie := xproto.QueryPointer(win.Conn, win.Window)
 	r, err := cookie.Reply()
 	if err != nil {
-		return nil, err
+		return image.ZP, err
 	}
-	p := &image.Point{int(r.WinX), int(r.WinY)}
+	p := image.Point{int(r.WinX), int(r.WinY)}
 	return p, nil
 }
 

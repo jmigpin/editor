@@ -18,7 +18,7 @@ func FindShortcut(erow *ERow) {
 	tb := erow.Row.Toolbar
 	p := tb.GetPoint(tb.TextCursor.Index())
 	p.Y += tb.LineHeight() * 3 / 4 // center of rune
-	erow.Ed.UI.WarpPointer(&p)
+	erow.Ed.UI.WarpPointer(p)
 }
 
 func findShortcut2(erow *ERow) error {

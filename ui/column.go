@@ -184,7 +184,7 @@ func (col *Column) resizeWithMoveJump(left bool, p *image.Point) {
 	col.Cols.ColsLayout.Spl.Layout()
 
 	p3 := image.Point{col.Bounds.Min.X, p.Y}
-	col.ui.WarpPointer(&p3)
+	col.ui.WarpPointer(p3)
 }
 
 func (col *Column) resizeWithMoveToPoint(p *image.Point) {

@@ -120,7 +120,7 @@ func (cfb *ContextFloatBox) FindTextAreaUnderPointer() (*TextArea, bool) {
 	if err != nil {
 		return nil, false
 	}
-	ta := cfb.visitToFindTA(*p, cfb.root)
+	ta := cfb.visitToFindTA(p, cfb.root)
 	return ta, ta != nil
 }
 

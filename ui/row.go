@@ -153,7 +153,7 @@ func (row *Row) resizeWithPushJump(up bool, p *image.Point) {
 
 	p3 := row.Bounds.Min.Add(pad)
 	p3.Y = row.Bounds.Min.Y // accurate y
-	row.ui.WarpPointer(&p3)
+	row.ui.WarpPointer(p3)
 }
 
 func (row *Row) resizeWithPushToPoint(p *image.Point) {
