@@ -124,8 +124,8 @@ func (th *TextHistory) HandleInputEvent(ev0 interface{}, p image.Point) event.Ha
 	case *event.KeyDown:
 		switch {
 		case ev.Mods.ClearLocks().Is(event.ModCtrl | event.ModShift):
-			switch ev.LowerRune() {
-			case 'z':
+			switch ev.KeySym {
+			case event.KSymZ:
 				// TODO: error context
 				if err := th.Redo(); err != nil {
 					log.Print(err)
@@ -133,8 +133,8 @@ func (th *TextHistory) HandleInputEvent(ev0 interface{}, p image.Point) event.Ha
 				return event.HTrue
 			}
 		case ev.Mods.ClearLocks().Is(event.ModCtrl):
-			switch ev.LowerRune() {
-			case 'z':
+			switch ev.KeySym {
+			case event.KSymZ:
 				// TODO: error context
 				if err := th.Undo(); err != nil {
 					log.Print(err)

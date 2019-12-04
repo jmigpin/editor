@@ -31,7 +31,7 @@ func (xi *XInput) ReadMapTable() error {
 
 func (xi *XInput) KeyPress(ev *xproto.KeyPressEvent) *event.WindowInput {
 	p := image.Point{int(ev.EventX), int(ev.EventY)}
-	ru, ks := xi.km.Lookup(ev.Detail, ev.State)
+	ks, ru := xi.km.Lookup(ev.Detail, ev.State)
 	m := translateModifiersToEventKeyModifiers(ev.State)
 	bs := translateModifiersToEventMouseButtons(ev.State)
 	ev2 := &event.KeyDown{p, ks, m, bs, ru}
@@ -39,7 +39,7 @@ func (xi *XInput) KeyPress(ev *xproto.KeyPressEvent) *event.WindowInput {
 }
 func (xi *XInput) KeyRelease(ev *xproto.KeyReleaseEvent) *event.WindowInput {
 	p := image.Point{int(ev.EventX), int(ev.EventY)}
-	ru, ks := xi.km.Lookup(ev.Detail, ev.State)
+	ks, ru := xi.km.Lookup(ev.Detail, ev.State)
 	m := translateModifiersToEventKeyModifiers(ev.State)
 	bs := translateModifiersToEventMouseButtons(ev.State)
 	ev2 := &event.KeyUp{p, ks, m, bs, ru}

@@ -6,83 +6,83 @@ import (
 )
 
 // Constants from /usr/include/X11/keysymdef.h
-func xkeysymToEventKeySym(xk int) event.KeySym {
+func translateXKeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
 	switch xk {
-	case 0x0030:
+	case 0x30:
 		return event.KSym0
-	case 0x0031:
+	case 0x31:
 		return event.KSym1
-	case 0x0032:
+	case 0x32:
 		return event.KSym2
-	case 0x0033:
+	case 0x33:
 		return event.KSym3
-	case 0x0034:
+	case 0x34:
 		return event.KSym4
-	case 0x0035:
+	case 0x35:
 		return event.KSym5
-	case 0x0036:
+	case 0x36:
 		return event.KSym6
-	case 0x0037:
+	case 0x37:
 		return event.KSym7
-	case 0x0038:
+	case 0x38:
 		return event.KSym8
-	case 0x0039:
+	case 0x39:
 		return event.KSym9
 
-	case 0x0041:
+	case 0x41, 0x61:
 		return event.KSymA
-	case 0x0042:
+	case 0x42, 0x62:
 		return event.KSymB
-	case 0x0043:
+	case 0x43, 0x63:
 		return event.KSymC
-	case 0x0044:
+	case 0x44, 0x64:
 		return event.KSymD
-	case 0x0045:
+	case 0x45, 0x65:
 		return event.KSymE
-	case 0x0046:
+	case 0x46, 0x66:
 		return event.KSymF
-	case 0x0047:
+	case 0x47, 0x67:
 		return event.KSymG
-	case 0x0048:
+	case 0x48, 0x68:
 		return event.KSymH
-	case 0x0049:
+	case 0x49, 0x69:
 		return event.KSymI
-	case 0x004a:
+	case 0x4a, 0x6a:
 		return event.KSymJ
-	case 0x004b:
+	case 0x4b, 0x6b:
 		return event.KSymK
-	case 0x004c:
+	case 0x4c, 0x6c:
 		return event.KSymL
-	case 0x004d:
+	case 0x4d, 0x6d:
 		return event.KSymM
-	case 0x004e:
+	case 0x4e, 0x6e:
 		return event.KSymN
-	case 0x004f:
+	case 0x4f, 0x6f:
 		return event.KSymO
-	case 0x0050:
+	case 0x50, 0x70:
 		return event.KSymP
-	case 0x0051:
+	case 0x51, 0x71:
 		return event.KSymQ
-	case 0x0052:
+	case 0x52, 0x72:
 		return event.KSymR
-	case 0x0053:
+	case 0x53, 0x73:
 		return event.KSymS
-	case 0x0054:
+	case 0x54, 0x74:
 		return event.KSymT
-	case 0x0055:
+	case 0x55, 0x75:
 		return event.KSymU
-	case 0x0056:
+	case 0x56, 0x76:
 		return event.KSymV
-	case 0x0057:
+	case 0x57, 0x77:
 		return event.KSymW
-	case 0x0058:
+	case 0x58, 0x78:
 		return event.KSymX
-	case 0x0059:
+	case 0x59, 0x79:
 		return event.KSymY
-	case 0x005a:
+	case 0x5a, 0x7a:
 		return event.KSymZ
 
-	case 0x0020:
+	case 0x20:
 		return event.KSymSpace
 	case 0xff08:
 		return event.KSymBackspace
@@ -139,6 +139,57 @@ func xkeysymToEventKeySym(xk int) event.KeySym {
 		return event.KSymCapsLock
 	case 0xffe6:
 		return event.KSymShiftLock
+
+	case 0x21:
+		return event.KSymExclam
+	case 0x22:
+		return event.KSymDoubleQuote
+	case 0x23:
+		return event.KSymNumberSign
+	case 0x24:
+		return event.KSymDollar
+	case 0x25:
+		return event.KSymPercent
+	case 0x26:
+		return event.KSymAmpersand
+	case 0x27:
+		return event.KSymApostrophe
+	case 0x28:
+		return event.KSymParentL
+	case 0x29:
+		return event.KSymParentR
+	case 0x2a:
+		return event.KSymAsterisk
+	case 0x2b:
+		return event.KSymPlus
+	case 0x2c:
+		return event.KSymComma
+	case 0x2d:
+		return event.KSymMinus
+	case 0x2e:
+		return event.KSymPeriod
+	case 0x2f:
+		return event.KSymSlash
+	case 0x5c:
+		return event.KSymBackSlash
+	case 0x3a:
+		return event.KSymColon
+	case 0x3b:
+		return event.KSymSemicolon
+	case 0x3c:
+		return event.KSymLess
+	case 0x3d:
+		return event.KSymEqual
+	case 0x3e:
+		return event.KSymGreater
+	case 0x3f:
+		return event.KSymQuestion
+	case 0x40:
+		return event.KSymAt
+	case 0x5b:
+		return event.KSymBracketL
+	case 0x5d:
+		return event.KSymBracketR
 
 	case 0xfe50:
 		return event.KSymGrave
@@ -230,6 +281,75 @@ func xkeysymToEventKeySym(xk int) event.KeySym {
 		return event.KSymMenu
 	}
 	return event.KSymNone
+}
+
+//----------
+
+func keySymsRune(xks xproto.Keysym, eks event.KeySym) rune {
+	ru := rune(xks) // default direct translation (covers some ascii values)
+	ru2 := eventKeySymRune(eks)
+	if ru2 != 0 {
+		ru = ru2
+	}
+	return ru
+}
+
+func eventKeySymRune(eks event.KeySym) rune {
+	switch eks {
+	case event.KSymGrave:
+		return '`'
+	case event.KSymAcute:
+		return '´'
+	case event.KSymCircumflex:
+		return '^'
+	case event.KSymTilde:
+		return '~'
+	case event.KSymCedilla:
+		return '¸' // 0xb8
+	case event.KSymBreve:
+		return '˘' // 0x2d8
+	case event.KSymCaron:
+		return 'ˇ' // 0x2c7
+	case event.KSymDiaresis:
+		return '¨' // 0xa8
+	case event.KSymRingAbove:
+		return '˚' // 0x2da
+	case event.KSymMacron:
+		return '¯' // 0xaf
+
+	case event.KSymKeypad0:
+		return '0'
+	case event.KSymKeypad1:
+		return '1'
+	case event.KSymKeypad2:
+		return '2'
+	case event.KSymKeypad3:
+		return '3'
+	case event.KSymKeypad4:
+		return '4'
+	case event.KSymKeypad5:
+		return '5'
+	case event.KSymKeypad6:
+		return '6'
+	case event.KSymKeypad7:
+		return '7'
+	case event.KSymKeypad8:
+		return '8'
+	case event.KSymKeypad9:
+		return '9'
+
+	case event.KSymKeypadMultiply:
+		return '*'
+	case event.KSymKeypadAdd:
+		return '+'
+	case event.KSymKeypadSubtract:
+		return '-'
+	case event.KSymKeypadDecimal:
+		return '.'
+	case event.KSymKeypadDivide:
+		return '/'
+	}
+	return rune(0)
 }
 
 //----------

@@ -1,9 +1,11 @@
 package event
 
+//go:generate stringer -type KeySym -output zkeys.go
+
 type KeySym int
 
 const (
-	KSymNone KeySym = iota
+	KSymNone KeySym = 0
 
 	// let ascii codes keep their values (adding 256 ensures gap)
 	KSym_dummy_ KeySym = 256 + iota
@@ -47,32 +49,6 @@ const (
 	KSymZ
 
 	KSymSpace
-	KSymExclam      // !
-	KSymDoubleQuote // "
-	KSymNumberSign  // #
-	KSymDollar      // $
-	KSymPercent     // %
-	KSymAmpersand   // &
-	//KSymApostrophe  // ' // TODO
-	//KSymQuoteRight  // ´ // TODO
-	KSymParentL   // (
-	KSymParentR   // )
-	KSymAsterisk  // *
-	KSymPlus      // +
-	KSymComma     // ,
-	KSymMinus     // -
-	KSymPeriod    // .
-	KSymSlash     // /
-	KSymColon     // :
-	KSymSemicolon // ;
-	KSymLess      // <
-	KSymEqual     // =
-	KSymGreater   // >
-	KSymQuestion  // ?
-	KSymAt        // @
-	kSymBracketL  // [
-	kSymBracketR  // ]
-
 	KSymBackspace
 	KSymReturn
 	KSymEscape
@@ -99,8 +75,34 @@ const (
 	KSymTabLeft
 
 	KSymNumLock
-	KSymCapsLock
-	KSymShiftLock
+	KSymCapsLock  // only capitalizes letters
+	KSymShiftLock // prints all keys secondary symbols
+
+	KSymExclam      // !
+	KSymDoubleQuote // "
+	KSymNumberSign  // #
+	KSymDollar      // $
+	KSymPercent     // %
+	KSymAmpersand   // &
+	KSymApostrophe  // '
+	KSymParentL     // (
+	KSymParentR     // )
+	KSymAsterisk    // *
+	KSymPlus        // +
+	KSymComma       // ,
+	KSymMinus       // -
+	KSymPeriod      // .
+	KSymSlash       // /
+	KSymBackSlash   // \
+	KSymColon       // :
+	KSymSemicolon   // ;
+	KSymLess        // <
+	KSymEqual       // =
+	KSymGreater     // >
+	KSymQuestion    // ?
+	KSymAt          // @
+	KSymBracketL    // [
+	KSymBracketR    // ]
 
 	KSymGrave      // `
 	KSymAcute      // ´
@@ -152,82 +154,6 @@ const (
 
 //----------
 
-func KeySymRune(vkey int, vKeyToKeySym func(int) KeySym) (KeySym, rune) {
-	// default direct translation (covers some ascii values)
-	ks := KeySym(vkey)
-	ru := rune(ks)
-
-	// actual translation
-	if ks2 := vKeyToKeySym(vkey); ks2 != KSymNone {
-		ks = ks2
-	}
-	if ru2 := keySymRune2(ks); ru2 != 0 {
-		ru = ru2
-	}
-
-	return ks, ru
-}
-
-func keySymRune2(ks KeySym) rune {
-	switch ks {
-	case KSymGrave:
-		return '`'
-	case KSymAcute:
-		return '´'
-	case KSymCircumflex:
-		return '^'
-	case KSymTilde:
-		return '~'
-	case KSymCedilla:
-		return '¸' // 0xb8
-	case KSymBreve:
-		return '˘' // 0x2d8
-	case KSymCaron:
-		return 'ˇ' // 0x2c7
-	case KSymDiaresis:
-		return '¨' // 0xa8
-	case KSymRingAbove:
-		return '˚' // 0x2da
-	case KSymMacron:
-		return '¯' // 0xaf
-
-	case KSymKeypad0:
-		return '0'
-	case KSymKeypad1:
-		return '1'
-	case KSymKeypad2:
-		return '2'
-	case KSymKeypad3:
-		return '3'
-	case KSymKeypad4:
-		return '4'
-	case KSymKeypad5:
-		return '5'
-	case KSymKeypad6:
-		return '6'
-	case KSymKeypad7:
-		return '7'
-	case KSymKeypad8:
-		return '8'
-	case KSymKeypad9:
-		return '9'
-
-	case KSymKeypadMultiply:
-		return '*'
-	case KSymKeypadAdd:
-		return '+'
-	case KSymKeypadSubtract:
-		return '-'
-	case KSymKeypadDecimal:
-		return '.'
-	case KSymKeypadDivide:
-		return '/'
-	}
-	return rune(0)
-}
-
-//----------
-
 type KeyModifiers uint16
 
 func (km KeyModifiers) HasAny(m KeyModifiers) bool {
@@ -249,7 +175,7 @@ const (
 	// TODO: rename to KMod
 	ModNone  KeyModifiers = 0
 	ModShift KeyModifiers = 1 << (iota - 1)
-	ModLock               // caps
+	ModLock               // caps // TODO: rename ModCapsLock
 	ModCtrl
 	Mod1 // ~ alt
 	Mod2 // ~ num lock
@@ -258,8 +184,8 @@ const (
 	Mod5 // ~ alt gr
 )
 const (
+	ModNum   = Mod2 // TODO: rename ModNumLock
 	ModAlt   = Mod1
-	ModNum   = Mod2
 	ModAltGr = Mod5
 )
 
@@ -276,8 +202,8 @@ const (
 	ButtonWheelDown
 	ButtonWheelLeft
 	ButtonWheelRight
-	ButtonBackward
-	ButtonForward
+	ButtonBackward // TODO: rename X1?
+	ButtonForward  // TODO: rename X2?
 )
 
 //----------

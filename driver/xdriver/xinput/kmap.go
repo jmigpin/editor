@@ -66,25 +66,25 @@ func (km *KMap) KeysymTable() string {
 	for y := 0; y*width < len(table); y++ {
 		var u []string
 		for x := 0; x < width; x++ {
-			u = append(u, fmt.Sprintf("%c", rune(table[y*width+x])))
+			xks := table[y*width+x]
+			evs := translateXKeysymToEventKeySym(xks)
+			s2 := fmt.Sprintf("%v", evs)
+			if evs == event.KSymNone {
+				s2 = "-"
+			}
+			u = append(u, fmt.Sprintf("(%c,%v)", rune(xks), s2))
 		}
-		o += fmt.Sprintf("%v: %v\n", y*width, strings.Join(u, ", "))
+		kc := xproto.Keycode(y) + km.si.MinKeycode
+		o += fmt.Sprintf("kc=%v: %v\n", kc, strings.Join(u, ", "))
 	}
 	return o
 }
 
 //----------
 
-func (km *KMap) colKeysym(keycode xproto.Keycode, column int) xproto.Keysym {
-	x := column
-	y := int(keycode - km.si.MinKeycode)
-	width := int(km.reply.KeysymsPerKeycode) // usually ~7
-	return km.reply.Keysyms[y*width+x]
-}
-
 func (km *KMap) keysymRow(keycode xproto.Keycode) []xproto.Keysym {
 	y := int(keycode - km.si.MinKeycode)
-	width := int(km.reply.KeysymsPerKeycode)
+	width := int(km.reply.KeysymsPerKeycode) // usually ~7
 	return km.reply.Keysyms[y*width : y*width+width]
 }
 
@@ -123,19 +123,13 @@ func isKeypad(ks xproto.Keysym) bool {
 // xproto.Keysym is the encoding of a symbol on the cap of a key.
 // A list of keysyms is associated with each keycode.
 
-func (km *KMap) keysym(keycode xproto.Keycode, m uint16) xproto.Keysym {
+func (km *KMap) keysym(krow []xproto.Keysym, m uint16) xproto.Keysym {
 	bitIsSet := func(v uint16) bool { return m&v > 0 }
 	hasShift := bitIsSet(xproto.KeyButMaskShift)
 	hasCaps := bitIsSet(xproto.KeyButMaskLock)
 	hasCtrl := bitIsSet(xproto.KeyButMaskControl)
 	hasNum := bitIsSet(xproto.KeyButMaskMod2)
 	hasAltGr := bitIsSet(xproto.KeyButMaskMod5)
-
-	krow := km.keysymRow(keycode)
-
-	//// DEBUG
-	//log.Printf("kc=%v %b, m=%v %b", keycode, keycode, m, m)
-	//km.printKeysyms(keycode)
 
 	// keysym group
 	group := 0
@@ -168,8 +162,6 @@ func (km *KMap) keysym(keycode xproto.Keycode, m uint16) xproto.Keysym {
 		}
 	}
 
-	//log.Printf("iskeypad=%v", isKeypad(ks2))
-
 	r1 := rune(ks1)
 	hasLower := unicode.IsLower(unicode.ToLower(r1))
 
@@ -189,8 +181,12 @@ func (km *KMap) keysym(keycode xproto.Keycode, m uint16) xproto.Keysym {
 
 //----------
 
-func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (rune, event.KeySym) {
-	xks := km.keysym(keycode, kmods) // scancode to virtualkey
-	ks, ru := event.KeySymRune(int(xks), xkeysymToEventKeySym)
-	return ru, ks
+func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (event.KeySym, rune) {
+	// keysym
+	ksRow := km.keysymRow(keycode)            // keycode to keysyms
+	xks := km.keysym(ksRow, kmods)            // keysyms to keysym
+	eks := translateXKeysymToEventKeySym(xks) // keysym to event.keysym
+	// rune
+	ru := keySymsRune(xks, eks)
+	return eks, ru
 }

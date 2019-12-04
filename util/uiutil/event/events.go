@@ -2,7 +2,6 @@ package event
 
 import (
 	"image"
-	"unicode"
 )
 
 //----------
@@ -86,20 +85,12 @@ type KeyDown struct {
 	Rune    rune
 }
 
-func (kd *KeyDown) LowerRune() rune {
-	return unicode.ToLower(kd.Rune)
-}
-
 type KeyUp struct {
 	Point   image.Point
 	KeySym  KeySym
 	Mods    KeyModifiers
 	Buttons MouseButtons
 	Rune    rune
-}
-
-func (ku *KeyUp) LowerRune() rune {
-	return unicode.ToLower(ku.Rune)
 }
 
 //----------

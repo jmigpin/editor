@@ -222,23 +222,23 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		case !unicode.IsPrint(ev.Rune):
 			// do nothing
 		case mcl.Is(event.ModCtrl | event.ModShift):
-			switch ev.LowerRune() {
-			case 'd':
+			switch ev.KeySym {
+			case event.KSymD:
 				Uncomment(eh.tex)
 			}
 		case mcl.Is(event.ModCtrl):
-			switch ev.LowerRune() {
-			case 'd':
+			switch ev.KeySym {
+			case event.KSymD:
 				Comment(eh.tex)
-			case 'c':
+			case event.KSymC:
 				Copy(te)
-			case 'x':
+			case event.KSymX:
 				Cut(te)
-			case 'v':
+			case event.KSymV:
 				Paste(te, event.CPIClipboard)
-			case 'k':
+			case event.KSymK:
 				RemoveLines(te)
-			case 'a':
+			case event.KSymA:
 				SelectAll(te)
 			}
 		default:

@@ -134,11 +134,11 @@ func (erow *ERow) initHandlers() {
 			// shortcuts
 			mods := evt.Mods.ClearLocks()
 			switch {
-			case mods.Is(event.ModCtrl) && evt.LowerRune() == 's':
+			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymS:
 				if err := erow.Info.SaveFile(); err != nil {
 					erow.Ed.Error(err)
 				}
-			case mods.Is(event.ModCtrl) && evt.LowerRune() == 'f':
+			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
 				FindShortcut(erow)
 			}
 		case *event.MouseDown:
