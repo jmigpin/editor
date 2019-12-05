@@ -709,6 +709,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
 	dirs := f.String("dirs", "", "comma-separated list of directories")
 	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
+	f.StringVar(&cmd.flags.toolExec, "toolexec", "", "execute cmd, useful to run a tool with the output file (ex: wine outputfilename")
 	run := f.String("run", "", "run test")
 	verboseTests := f.Bool("v", false, "verbose tests")
 	env := f.String("env", "", envVarUsage())
