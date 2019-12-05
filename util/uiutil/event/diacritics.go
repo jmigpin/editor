@@ -38,7 +38,7 @@ func ComposeDiacritic(ks *KeySym, ru *rune) (isLatch bool) {
 	}
 
 	// latch key
-	if dindex >= 0 {
+	if dindex >= 0 && *ks != diacriticsData.ks {
 		diacriticsData.ks = *ks
 		diacriticsData.ru = *ru
 		diacriticsData.dindex = dindex
@@ -48,8 +48,8 @@ func ComposeDiacritic(ks *KeySym, ru *rune) (isLatch bool) {
 	// latch key is present from previous stroke
 	if diacriticsData.ks != 0 {
 
-		// allow space to use the diacritic rune
-		if *ks == KSymSpace {
+		// allow same keysym (or space) to use the diacritic rune
+		if *ks == diacriticsData.ks || *ks == KSymSpace {
 			*ks = diacriticsData.ks
 			*ru = diacriticsData.ru
 			diacriticsData.clear()
