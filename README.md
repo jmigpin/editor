@@ -46,6 +46,12 @@ go build
 ```
 
 ```
+# windows compilation alternatives
+go build -ldflags -H=windowsgui 	# native, hides the console window
+go build -tags=xproto 	# needs an xserver to run
+```
+
+```
 Usage of ./editor:
   -colortheme string
     	available: light, dark, acme (default "light")
