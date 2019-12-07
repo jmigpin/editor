@@ -1,7 +1,5 @@
 package uiutil
 
-//godebug:annotatefile
-
 import (
 	"image"
 	"image/draw"
