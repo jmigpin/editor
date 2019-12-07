@@ -217,10 +217,6 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 		makeCursorVisible()
 	default:
 		switch {
-		case ev.KeySym >= event.KSymF1 && ev.KeySym <= event.KSymF12:
-			// do nothing
-		case !unicode.IsPrint(ev.Rune):
-			// do nothing
 		case mcl.Is(event.ModCtrl | event.ModShift):
 			switch ev.KeySym {
 			case event.KSymD:
@@ -241,6 +237,10 @@ func (eh *TextEditInputHandler) onKeyDown(ev *event.KeyDown) {
 			case event.KSymA:
 				SelectAll(te)
 			}
+		case ev.KeySym >= event.KSymF1 && ev.KeySym <= event.KSymF12:
+			// do nothing
+		case !unicode.IsPrint(ev.Rune):
+			// do nothing
 		default:
 			InsertString(te, string(ev.Rune))
 			makeCursorVisible()
