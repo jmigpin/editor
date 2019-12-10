@@ -28,9 +28,12 @@ func (sq *ColumnSquare) Paint() {
 	imageutil.FillRectangle(sq.col.ui.Image(), &sq.Bounds, c)
 }
 func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
-	switch ev.(type) {
+	switch t := ev.(type) {
 	case *event.MouseClick:
-		sq.col.Close()
+		switch t.Button {
+		case event.ButtonLeft, event.ButtonMiddle, event.ButtonRight:
+			sq.col.Close()
+		}
 	}
 	return event.HTrue
 }

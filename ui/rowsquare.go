@@ -109,9 +109,12 @@ func (sq *RowSquare) HasState(s RowState) bool {
 	return sq.state.has(s)
 }
 func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
-	switch ev.(type) {
+	switch t := ev.(type) {
 	case *event.MouseClick:
-		sq.row.Close()
+		switch t.Button {
+		case event.ButtonLeft, event.ButtonMiddle, event.ButtonRight:
+			sq.row.Close()
+		}
 	}
 	return event.HTrue
 }
