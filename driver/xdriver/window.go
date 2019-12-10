@@ -247,7 +247,9 @@ func (win *Window) handleEvent(events chan interface{}) bool {
 			win.Paste.OnSelectionNotify(&t)
 			win.Dnd.OnSelectionNotify(&t)
 		case xproto.SelectionRequestEvent:
-			win.Copy.OnSelectionRequest(&t, events) // TODO
+			if err := win.Copy.OnSelectionRequest(&t); err != nil {
+				events <- err
+			}
 		case xproto.SelectionClearEvent:
 			win.Copy.OnSelectionClear(&t)
 
@@ -257,7 +259,13 @@ func (win *Window) handleEvent(events chan interface{}) bool {
 				events <- &event.WindowClose{}
 				return false
 			}
-			win.Dnd.OnClientMessage(&t, events) // TODO
+			if ev2, err, ok := win.Dnd.OnClientMessage(&t); ok {
+				if err != nil {
+					events <- err
+				} else {
+					events <- ev2
+				}
+			}
 
 		case xproto.PropertyNotifyEvent:
 			win.Paste.OnPropertyNotify(&t)

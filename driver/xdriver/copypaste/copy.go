@@ -6,12 +6,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
-	"github.com/pkg/errors"
 )
 
 type Copy struct {
@@ -68,7 +68,7 @@ func (c *Copy) set(selection xproto.Atom) error {
 //----------
 
 // Another application is asking for the data
-func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<- interface{}) {
+func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) error {
 	//// DEBUG
 	//target, _ := xgbutil.GetAtomName(c.conn, ev.Target)
 	//sel, _ := xgbutil.GetAtomName(c.conn, ev.Selection)
@@ -82,32 +82,32 @@ func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent, events chan<
 		CopyAtoms.TextPlain,
 		CopyAtoms.TextPlainCharsetUtf8:
 		if err := c.transferBytes(ev); err != nil {
-			events <- err
+			return err
 		}
 	case CopyAtoms.Targets:
 		if err := c.transferTargets(ev); err != nil {
-			events <- err
+			return err
 		}
 	default:
 		// DEBUG
-		//c.debugRequest(ev, events)
+		//c.debugRequest(ev)
 
 		// try to transfer bytes anyway
 		if err := c.transferBytes(ev); err != nil {
-			events <- err
+			return err
 		}
 	}
+	return nil
 }
 
-func (c *Copy) debugRequest(ev *xproto.SelectionRequestEvent, events chan<- interface{}) {
+func (c *Copy) debugRequest(ev *xproto.SelectionRequestEvent) {
 	// atom name
 	name, err := xutil.GetAtomName(c.conn, ev.Target)
 	if err != nil {
-		events <- errors.Wrap(err, "cpcopy selectionrequest atom name for target")
+		log.Printf("cpcopy selectionrequest atom name for target: %w", err)
 	}
 	// debug
-	msg := fmt.Sprintf("cpcopy: non-standard external request for type %v %q\n", ev.Target, name)
-	events <- errors.New(msg)
+	log.Printf("cpcopy: non-standard external request for type %v %q\n", ev.Target, name)
 }
 
 //----------

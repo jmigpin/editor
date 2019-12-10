@@ -59,10 +59,11 @@ func (dnd *Dnd) setupWindowProperty() error {
 	return cookie.Check()
 }
 
-func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent, events chan<- interface{}) {
+// Error could be nil.
+func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent) (ev_ interface{}, _ error, ok bool) {
 	if ev.Format != 32 {
-		log.Printf("dnd event: data format is not 32: %d", ev.Format)
-		return
+		err := fmt.Errorf("dnd event: data format is not 32: %d", ev.Format)
+		return nil, err, true
 	}
 	data := ev.Data.Data32
 	switch ev.Type {
@@ -71,13 +72,16 @@ func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent, events chan<- int
 		dnd.onEnter(data)
 	case DndAtoms.XdndPosition:
 		// after the enter event, it follows many position events
-		dnd.onPosition(data, events)
+		ev2, err := dnd.onPosition(data)
+		return ev2, err, true
 	case DndAtoms.XdndDrop:
 		// drag released
-		dnd.onDrop(data, events)
+		ev2, err := dnd.onDrop(data)
+		return ev2, err, true
 	case DndAtoms.XdndLeave:
 		dnd.clearData()
 	}
+	return nil, nil, false
 }
 func (dnd *Dnd) onEnter(data []uint32) {
 	dnd.data.hasEnter = true
@@ -105,34 +109,31 @@ func (dnd *Dnd) onEnter(data []uint32) {
 	}
 	dnd.data.enter.eventTypes = u
 }
-func (dnd *Dnd) onPosition(data []uint32, events chan<- interface{}) {
+func (dnd *Dnd) onPosition(data []uint32) (ev interface{}, _ error) {
 	// must have had a dnd enter event before
 	if !dnd.data.hasEnter {
-		events <- fmt.Errorf("missing dnd enter event")
-		return
+		return nil, fmt.Errorf("missing dnd enter event")
 	}
 
 	// position event window must be the same as the enter event
 	win := xproto.Window(data[0])
 	if win != dnd.data.enter.win {
-		events <- fmt.Errorf("bad dnd window: %v (expecting %v)", win, dnd.data.enter.win)
-		return
+		return nil, fmt.Errorf("bad dnd window: %v (expecting %v)", win, dnd.data.enter.win)
 	}
 
 	// point
 	screenPoint := image.Point{int(data[2] >> 16), int(data[2] & 0xffff)}
 	p, err := dnd.screenToWindowPoint(screenPoint)
 	if err != nil {
-		events <- errors.Wrap(err, "unable to pass screen to window point")
-		return
+		return nil, errors.Wrap(err, "unable to pass screen to window point")
 	}
 
 	dnd.data.hasPosition = true
 	dnd.data.position.point = p
 	dnd.data.position.action = xproto.Atom(data[4])
 
-	ev := &event.DndPosition{p, dnd.data.enter.eventTypes, dnd.positionReply}
-	events <- ev
+	ev = &event.DndPosition{p, dnd.data.enter.eventTypes, dnd.positionReply}
+	return ev, nil
 }
 
 func (dnd *Dnd) positionReply(action event.DndAction) {
@@ -157,25 +158,23 @@ func (dnd *Dnd) positionReply(action event.DndAction) {
 	dnd.sendStatus(dnd.data.enter.win, a, accept)
 }
 
-func (dnd *Dnd) onDrop(data []uint32, events chan<- interface{}) {
+func (dnd *Dnd) onDrop(data []uint32) (ev interface{}, _ error) {
 	// must have had a dnd position event before
 	if !dnd.data.hasPosition {
-		events <- fmt.Errorf("missing dnd position event")
-		return
+		return nil, fmt.Errorf("missing dnd position event")
 	}
 
 	// drop event window must be the same as the enter event
 	win := xproto.Window(data[0])
 	if win != dnd.data.enter.win {
-		events <- fmt.Errorf("bad dnd window: %v (expecting %v)", win, dnd.data.enter.win)
-		return
+		return nil, fmt.Errorf("bad dnd window: %v (expecting %v)", win, dnd.data.enter.win)
 	}
 
 	dnd.data.hasDrop = true
 	dnd.data.drop.timestamp = xproto.Timestamp(data[2])
 
-	ev := &event.DndDrop{dnd.data.position.point, dnd.replyAcceptDrop, dnd.requestDropData}
-	events <- ev
+	ev = &event.DndDrop{dnd.data.position.point, dnd.replyAcceptDrop, dnd.requestDropData}
+	return ev, nil
 }
 func (dnd *Dnd) replyAcceptDrop(v bool) {
 	dnd.sendFinished(dnd.data.enter.win, dnd.data.position.action, v)
