@@ -1,9 +1,21 @@
 package iorw
 
+import "io"
+
 type ReadWriter interface {
 	Reader
 	Writer
 }
+
+//----------
+
+type Writer interface {
+	Insert(i int, p []byte) error
+	Delete(i, n int) error
+	Overwrite(i, n int, p []byte) error
+}
+
+//----------
 
 type Reader interface {
 	ReadRuneAt(i int) (ru rune, size int, err error)
@@ -13,10 +25,11 @@ type Reader interface {
 	ReadNCopyAt(i, n int) ([]byte, error)
 	ReadNSliceAt(i, n int) ([]byte, error) // []byte might not be a copy
 
-	// length min/max
 	Min() int
 	Max() int
 }
+
+//----------
 
 // min/max length
 func MMLen(rd Reader) int {
@@ -31,19 +44,29 @@ func ReadFullSlice(rd Reader) ([]byte, error) {
 
 //----------
 
-type Writer interface {
-	Insert(i int, p []byte) error
-	Delete(i, n int) error
-	Overwrite(i, n int, p []byte) error
+// Iterate over n+1 runes, with the last rune being eofRune(-1).
+func ReaderIter(r Reader, fn func(i int, ru rune) bool) error {
+	o := r.Min()
+	n := r.Max() - r.Min()
+	for i := o; ; {
+		if i >= o+n {
+			_ = fn(i, EndRune)
+			return nil
+		}
+		ru, size, err := r.ReadRuneAt(i)
+		if err != nil {
+			if err == io.EOF {
+				_ = fn(i, EndRune)
+				return nil
+			}
+			return err
+		}
+		if !fn(i, ru) {
+			break
+		}
+		i += size
+	}
+	return nil
 }
 
-//----------
-
-// used to determine the write operation (undoredo and others)
-type WriterOp int
-
-const (
-	InsertWOp WriterOp = iota
-	DeleteWOp
-	OverwriteWOp
-)
+const EndRune = -1

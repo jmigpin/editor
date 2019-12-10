@@ -69,3 +69,13 @@ func OverwriteUndoRedo(rw ReadWriter, i, length int, p []byte) (*UndoRedo, error
 	ur := &UndoRedo{Type: OverwriteWOp, Index: i, B: b2, B2: b1}
 	return ur, nil
 }
+
+//----------
+
+type WriterOp int
+
+const (
+	InsertWOp WriterOp = iota
+	DeleteWOp
+	OverwriteWOp
+)
