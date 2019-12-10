@@ -60,6 +60,17 @@ func (img *BGRA) RGBAImageWithCorrectedColor(c color.Color) (*image.RGBA, color.
 	return &img.RGBA, c2
 }
 
+//----------
+
+func ToBGRAColor(c color.Color) color.RGBA {
+	c2, ok := c.(color.RGBA)
+	if !ok {
+		c2 = convertToRGBAColor(c)
+	}
+	c2.R, c2.B = c2.B, c2.R // convert to BGR
+	return c2
+}
+
 func convertToRGBAColor(c color.Color) color.RGBA {
 	r, g, b, a := c.RGBA()
 	return color.RGBA{
