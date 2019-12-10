@@ -205,7 +205,7 @@ func (ae *ApplyEvent) dragStartMove(ev *event.MouseMove, p image.Point) {
 		ev2 := &event.MouseDragStart{p, ae.drag.button, ev.Buttons, ev.Mods}
 		ae.runEv(ae.drag.node, ev2, p)
 	} else {
-		ev2 := &event.MouseDragMove{p, ev.Buttons, ev.Mods}
+		ev2 := &event.MouseDragMove{p, ae.drag.point, ev.Buttons, ev.Mods}
 		ae.runEv(ae.drag.node, ev2, p)
 	}
 }
@@ -221,7 +221,7 @@ func (ae *ApplyEvent) dragEnd(ev *event.MouseUp, p image.Point) {
 	}
 
 	if ae.drag.on {
-		ev2 := &event.MouseDragEnd{p, ev.Button, ev.Buttons, ev.Mods}
+		ev2 := &event.MouseDragEnd{p, ae.drag.point, ev.Button, ev.Buttons, ev.Mods}
 		ae.runEv(ae.drag.node, ev2, p)
 	}
 

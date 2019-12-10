@@ -46,12 +46,14 @@ type MouseDragStart struct {
 }
 type MouseDragEnd struct {
 	Point   image.Point
+	Start   image.Point
 	Button  MouseButton
 	Buttons MouseButtons
 	Mods    KeyModifiers
 }
 type MouseDragMove struct {
 	Point   image.Point
+	Start   image.Point
 	Buttons MouseButtons
 	Mods    KeyModifiers
 }
