@@ -42,6 +42,11 @@ func ReadFullSlice(rd Reader) ([]byte, error) {
 	return rd.ReadNSliceAt(min, max-min)
 }
 
+func SetString(rw ReadWriter, s string) error {
+	min, max := rw.Min(), rw.Max()
+	return rw.Overwrite(min, max-min, []byte(s))
+}
+
 //----------
 
 // Iterate over n+1 runes, with the last rune being eofRune(-1).
