@@ -381,6 +381,11 @@ func (ann *Annotator) visitReturnStmt(ctx *Ctx, rs *ast.ReturnStmt) {
 	// functype number of results to return
 	ftNResults := ft.Results.NumFields()
 	if ftNResults == 0 {
+		// show debug step
+		ce := ann.newDebugCallExpr("ISt")
+		stmt := ann.newDebugLineStmt(ctx, rs.End(), ce)
+		ctx2 := ctx.withInsertStmtAfter(false) // always before
+		ctx2.insertInStmtList(stmt)
 		return
 	}
 
@@ -500,12 +505,31 @@ func (ann *Annotator) visitSelectStmt(ctx *Ctx, ss *ast.SelectStmt) {
 //----------
 
 func (ann *Annotator) visitCaseClause(ctx *Ctx, cc *ast.CaseClause) {
+	// debug step showing the case was entered
+	// create first to keep debug index
+	ce := ann.newDebugCallExpr("ISt")
+	stmt := ann.newDebugLineStmt(ctx, cc.Colon, ce)
+
+	// visit body
 	ann.visitStmtList(ctx, &cc.Body)
+
+	// insert debug step into body
+	ctx2, _ := ctx.withStmtIter(&cc.Body)
+	ctx2.insertInStmtList(stmt)
 }
 
 func (ann *Annotator) visitCommClause(ctx *Ctx, cc *ast.CommClause) {
-	// TODO: cc.Comm stmt ?
+	// debug step showing the case was entered
+	// create first to keep debug index
+	ce := ann.newDebugCallExpr("ISt")
+	stmt := ann.newDebugLineStmt(ctx, cc.Colon, ce)
+
+	// visit body
 	ann.visitStmtList(ctx, &cc.Body)
+
+	// insert debug step into body
+	ctx2, _ := ctx.withStmtIter(&cc.Body)
+	ctx2.insertInStmtList(stmt)
 }
 
 //----------

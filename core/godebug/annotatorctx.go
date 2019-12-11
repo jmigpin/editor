@@ -49,6 +49,11 @@ func (ctx *Ctx) ValueBool(name string) bool {
 
 //----------
 
+// On avoiding visiting inserted debug stmts:
+// - Create the debug stmts on a blockstmt (will keep debug index)
+// - visit the stmt list (will not visit the blockstmt - not inserted)
+// - insert the created blockstmt at the top
+
 type StmtIter struct {
 	list        *[]ast.Stmt
 	index, step int
@@ -68,6 +73,8 @@ func (ctx *Ctx) stmtIter() (*StmtIter, bool) {
 	si := v.(*StmtIter)
 	return si, true
 }
+
+//----------
 
 func (ctx *Ctx) replaceStmt(stmt ast.Stmt) { // TODO: rename replaceInStmtList
 	if ctx.noAnnotations() {

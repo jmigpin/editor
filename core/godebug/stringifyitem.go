@@ -217,6 +217,8 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 
 	case *debug.ItemBranch:
 		is.Str += "=>" // other runes: ←
+	case *debug.ItemStep:
+		is.Str += "=>"
 
 	case *debug.ItemAnon:
 		is.Str += "_"

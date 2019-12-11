@@ -33,6 +33,7 @@ func init() {
 	reg(&ItemParen{})
 	reg(&ItemLiteral{})
 	reg(&ItemBranch{})
+	reg(&ItemStep{})
 	reg(&ItemAnon{})
 }
 
@@ -134,6 +135,7 @@ type ItemLiteral struct {
 	Fields *ItemList
 }
 type ItemBranch struct{}
+type ItemStep struct{}
 type ItemAnon struct{}
 
 //----------
@@ -239,6 +241,11 @@ func ILit(fields ...Item) Item {
 // ItemBranch
 func IBr() Item {
 	return &ItemBranch{}
+}
+
+// ItemStep
+func ISt() Item {
+	return &ItemStep{}
 }
 
 // ItemAnon
