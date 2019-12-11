@@ -96,20 +96,12 @@ func (win *Window) ostInitialize() error {
 	win.instance = instance
 	//win.instance = windows.Handle(0)
 
-	// cursor for the window class
-	win.cursors.currentId = _IDC_ARROW
-	cursorH, err := win.loadCursor(win.cursors.currentId)
-	if err != nil {
-		return err
-	}
-
 	// window class registration
 	win.className = UTF16PtrFromString("editorClass")
 	wce := _WndClassExW{
 		LpszClassName: win.className,
 		LpfnWndProc:   windows.NewCallback(win.wndProcCallback),
 		HInstance:     win.instance,
-		HCursor:       cursorH,
 		HbrBackground: _COLOR_WINDOW + 1,
 		Style:         _CS_HREDRAW | _CS_VREDRAW,
 	}
@@ -138,6 +130,11 @@ func (win *Window) ostInitialize() error {
 
 	_ = _ShowWindow(win.hwnd, _SW_SHOWDEFAULT)
 	_ = _UpdateWindow(win.hwnd)
+
+	// cursor: don't set cursor at class struct to avoid auto-restoration
+	if err := win.ostSetCursor(event.NoneCursor); err != nil {
+		return err
+	}
 
 	return nil
 }
