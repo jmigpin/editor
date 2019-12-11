@@ -301,8 +301,8 @@ func (win *Window) handleMsg(msg *_Msg) uintptr {
 		}
 		// TODO: necessary?
 		// send two events to simulate down/up
-		win.events <- win.mouseButton(msg, b, true)
 		win.events <- win.mouseButton(msg, b, false)
+		win.events <- win.mouseButton(msg, b, true)
 
 	case _WM_APP:
 		id := int(msg.WParam)
