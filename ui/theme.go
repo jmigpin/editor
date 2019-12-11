@@ -166,7 +166,7 @@ func acmeThemeColors(node widget.Node) {
 		"scrollhandle_hover":  cint(0xadad6f),
 		"scrollhandle_select": cint(0x99994c),
 
-		"column_norows_rect":  cint(0xffffff),
+		"column_norows_rect":  cint(0xffffea),
 		"columns_nocols_rect": cint(0xffffff),
 		"colseparator_rect":   cint(0x0),
 		"rowseparator_rect":   cint(0x0),
