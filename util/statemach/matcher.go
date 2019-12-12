@@ -335,6 +335,15 @@ func (m *Matcher) IntValueAdvance() (int, error) {
 	return v, nil
 }
 
+func (m *Matcher) FloatValueAdvance() (float64, error) {
+	v, err := m.FloatValue()
+	if err != nil {
+		return 0, err
+	}
+	m.sc.Advance()
+	return v, nil
+}
+
 //----------
 
 func (m *Matcher) SpacesAdvance() error {

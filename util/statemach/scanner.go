@@ -126,7 +126,7 @@ func (sc *Scanner) Errorf(f string, args ...interface{}) error {
 	if a > sc.R.Min() {
 		ctx = "..." + ctx
 	}
-	if b < sc.R.Max() {
+	if b < sc.R.Max()-1 {
 		ctx = ctx + "..."
 	}
 
