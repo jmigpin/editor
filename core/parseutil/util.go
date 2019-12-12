@@ -8,7 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/statemach"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 //----------
@@ -87,13 +87,13 @@ func ExpandIndexesEscape(rd iorw.Reader, index int, truth bool, fn func(rune) bo
 }
 
 func ExpandIndexEscape(r iorw.Reader, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc := statemach.NewScanner(r)
+	sc := scanutil.NewScanner(r)
 	sc.Pos = i
 	return expandEscape(sc, truth, fn, escape)
 }
 
 func ExpandLastIndexEscape(r iorw.Reader, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc := statemach.NewScanner(r)
+	sc := scanutil.NewScanner(r)
 	sc.Pos = i
 
 	// read direction
@@ -104,7 +104,7 @@ func ExpandLastIndexEscape(r iorw.Reader, i int, truth bool, fn func(rune) bool,
 	return expandEscape(sc, truth, fn, escape)
 }
 
-func expandEscape(sc *statemach.Scanner, truth bool, fn func(rune) bool, escape rune) int {
+func expandEscape(sc *scanutil.Scanner, truth bool, fn func(rune) bool, escape rune) int {
 	for {
 		if sc.Match.End() {
 			break
@@ -125,7 +125,7 @@ func expandEscape(sc *statemach.Scanner, truth bool, fn func(rune) bool, escape 
 //----------
 
 func ImproveExpandIndexEscape(r iorw.Reader, i int, escape rune) int {
-	sc := statemach.NewScanner(r)
+	sc := scanutil.NewScanner(r)
 	sc.Pos = i
 
 	// read direction

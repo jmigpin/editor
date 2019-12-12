@@ -9,7 +9,7 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/statemach"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 //----------
@@ -38,7 +38,7 @@ type Var struct {
 
 func ParseVar(str string) (*Var, error) {
 	rd := iorw.NewStringReader(str)
-	sc := statemach.NewScanner(rd)
+	sc := scanutil.NewScanner(rd)
 	ru := sc.PeekRune()
 	switch ru {
 	case '~':
@@ -51,7 +51,7 @@ func ParseVar(str string) (*Var, error) {
 
 //----------
 
-func parseTildeVar(sc *statemach.Scanner) (*Var, error) {
+func parseTildeVar(sc *scanutil.Scanner) (*Var, error) {
 	// name
 	if !sc.Match.Sequence("~") {
 		return nil, sc.Errorf("name")
@@ -83,7 +83,7 @@ func parseTildeVar(sc *statemach.Scanner) (*Var, error) {
 
 //----------
 
-func parseDollarVar(sc *statemach.Scanner) (*Var, error) {
+func parseDollarVar(sc *scanutil.Scanner) (*Var, error) {
 	// name
 	if !sc.Match.Sequence("$") {
 		return nil, sc.Errorf("name")
@@ -118,7 +118,7 @@ func parseDollarVar(sc *statemach.Scanner) (*Var, error) {
 
 //----------
 
-func parseVarValue(sc *statemach.Scanner, allowEmpty bool) (string, error) {
+func parseVarValue(sc *scanutil.Scanner, allowEmpty bool) (string, error) {
 	if sc.Match.Quoted("\"'", osutil.EscapeRune, true, 1000) {
 		v := sc.Value()
 		sc.Advance()

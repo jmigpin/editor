@@ -3,7 +3,7 @@ package drawer4
 import (
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/statemach"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 func updateSyntaxHighlightOps(d *Drawer) {
@@ -26,7 +26,7 @@ func updateSyntaxHighlightOps(d *Drawer) {
 
 type SyntaxHighlight struct {
 	d   *Drawer
-	sc  *statemach.Scanner
+	sc  *scanutil.Scanner
 	ops []*ColorizeOp
 }
 
@@ -36,7 +36,7 @@ func (sh *SyntaxHighlight) do(pad int) []*ColorizeOp {
 	min, max := o, o+n
 	r := iorw.NewLimitedReader(sh.d.reader, min, max, pad)
 
-	sh.sc = statemach.NewScanner(r)
+	sh.sc = scanutil.NewScanner(r)
 	sh.sc.Advance()
 
 	for !sh.sc.Match.End() {

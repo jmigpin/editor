@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/statemach"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) {
@@ -30,7 +30,7 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 }
 
 func sessionName(rd iorw.Reader, index int) (string, error) {
-	sc := statemach.NewScanner(rd)
+	sc := scanutil.NewScanner(rd)
 	sc.SetStartPos(index)
 
 	// index at: "OpenSe|ssion sessionname"
@@ -63,7 +63,7 @@ func sessionName(rd iorw.Reader, index int) (string, error) {
 	return "", sc.Errorf("not found")
 }
 
-func readCmdSessionName(sc *statemach.Scanner) (string, error) {
+func readCmdSessionName(sc *scanutil.Scanner) (string, error) {
 	var err error
 	ok := sc.RewindOnFalse(func() bool {
 		cmd := "OpenSession"

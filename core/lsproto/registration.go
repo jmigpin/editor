@@ -15,7 +15,7 @@ import (
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/statemach"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 //----------
@@ -202,7 +202,7 @@ func (reg *Registration) connClientServerStdio(ctx context.Context) error {
 
 func ParseRegistration(s string) (*Registration, error) {
 	rd := iorw.NewStringReader(s)
-	sc := statemach.NewScanner(rd)
+	sc := scanutil.NewScanner(rd)
 
 	fields := []string{}
 	for i := 0; ; i++ {

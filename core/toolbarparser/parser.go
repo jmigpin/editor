@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/statemach"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 //----------
@@ -22,7 +22,7 @@ func Parse(str string) *Data {
 	p.data = &Data{Str: str}
 
 	rd := iorw.NewStringReader(str)
-	p.sc = statemach.NewScanner(rd)
+	p.sc = scanutil.NewScanner(rd)
 
 	if err := p.start(); err != nil {
 		log.Print(err)
@@ -50,7 +50,7 @@ func (d *Data) Part0Arg0() (*Arg, bool) {
 
 type Parser struct {
 	data *Data
-	sc   *statemach.Scanner
+	sc   *scanutil.Scanner
 }
 
 func (p *Parser) start() error {

@@ -1,4 +1,4 @@
-package statemach
+package scanutil
 
 import (
 	"testing"

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/statemach"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 // parsed formats:
@@ -50,13 +50,13 @@ func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
 //----------
 
 type ResParser struct {
-	sc *statemach.Scanner
+	sc *scanutil.Scanner
 
 	res *Resource
 }
 
 func (p *ResParser) start(r iorw.Reader) error {
-	p.sc = statemach.NewScanner(r)
+	p.sc = scanutil.NewScanner(r)
 
 	// allow file uri prefix with empty host
 	if p.sc.Match.Sequence("file://") && p.sc.PeekRune() == '/' {
