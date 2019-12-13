@@ -901,17 +901,6 @@ func (ann *Annotator) visitStarExpr(ctx *Ctx, se *ast.StarExpr) {
 //----------
 
 func (ann *Annotator) visitBasicLit(ctx *Ctx, bl *ast.BasicLit) {
-	switch bl.Kind {
-	case token.STRING:
-		ctx2 := ctx.withInsertStmtAfter(false) // a["s"]=1 -> d0:="s";a[d0]=1
-		id := ann.assignToNewIdent(ctx2, bl)
-		ctx.replaceExpr(id)
-		ce := ann.newDebugCallExpr("IV", id)
-		id2 := ann.assignToNewIdent(ctx2, ce)
-		ctx.pushExprs(id2)
-		return
-	}
-
 	ce := ann.newDebugCallExpr("IV", bl)
 	id := ann.assignToNewIdent(ctx, ce)
 	ctx.pushExprs(id)
@@ -1407,23 +1396,21 @@ func isDirectExpr(e ast.Expr) bool {
 			return isDirectExpr(t.X)
 		}
 	case *ast.BasicLit:
-		switch t.Kind {
-		case token.CHAR: // 'c' can be assigned to {byte,rune,...}
-			return true
-		case token.INT, token.FLOAT:
-			return true
-		}
-	case *ast.Ident, *ast.SelectorExpr:
-		//switch t.Name {
-		//case "nil": // always true
-		//	return true
-		//}
+		// This fails for all basic literals
+		// type A int
+		// a:=A(1)
+		// b:=1
+		// if a==b {} // type mismatch A!=int
 
+		// Could pass context "not-direct-from-here" for the values of "==" but then there could be other cases missing
+		return true
+	case *ast.Ident:
 		// if "a" is const, it would be type int if assigned to a tmp var
 		// ex: var a int32 = 0 | a
 		// ex: f(1+a) with f=func(int32)
-
 		return true
+	case *ast.SelectorExpr:
+		return true // TODO: document why
 	case *ast.BinaryExpr:
 		// ex: var a float =1*2 // (1*2) gives type int if assigned to a tmp var
 		switch t.Op {
