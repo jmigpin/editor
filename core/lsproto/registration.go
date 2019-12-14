@@ -66,9 +66,18 @@ func (reg *Registration) onIOReadError(err error) {
 //----------
 
 func (reg *Registration) Close() error {
+	// TODO: calling it as well on close2 when it is called directly
+	// fixes deadlock if it is unable to connect to the server
+	if reg.cs.connCancel != nil {
+		reg.cs.connCancel()
+	}
+
 	reg.cs.Lock()
 	defer reg.cs.Unlock()
+	return reg.close2()
+}
 
+func (reg *Registration) close2() error {
 	var me iout.MultiError
 
 	// multiclose
@@ -123,6 +132,10 @@ func (reg *Registration) StartClientServer(ctx context.Context) (*Client, error)
 }
 
 func (reg *Registration) connectClientServer(ctx context.Context) error {
+	// enforce max timeout to connect to a server
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	switch reg.Network {
 	case "tcp":
 		return reg.connClientServerTCP(ctx)
@@ -162,14 +175,14 @@ func (reg *Registration) connClientTCP(ctx context.Context, addr string) error {
 		return nil
 	}
 	lateFn := func(err error) {
-		err2 := reg.Close()
+		err2 := reg.close2()
 		err3 := iout.MultiErrors(err, err2)
 		reg.man.errorAsync(err3)
 	}
 	sleep := 250 * time.Millisecond
 	err := ctxutil.Retry(ctx, sleep, "clienttcp", fn, lateFn)
 	if err != nil {
-		err2 := reg.Close()
+		err2 := reg.close2()
 		return iout.MultiErrors(err, err2)
 	}
 	reg.cs.cli = cli
