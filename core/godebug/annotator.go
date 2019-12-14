@@ -456,14 +456,40 @@ func (ann *Annotator) visitDeferCallStmt(ctx *Ctx, cep **ast.CallExpr) {
 }
 
 func (ann *Annotator) visitDeclStmt(ctx *Ctx, ds *ast.DeclStmt) {
-	// decl: const, type, var
-
 	if gd, ok := ds.Decl.(*ast.GenDecl); ok {
-		// gendecl: const, type, var, import
-
+		// transform this decl into several individual decls to allow inserting stmts between the declarations
+		if len(gd.Specs) >= 2 {
+			ann.splitGenDeclStmt(ctx, gd)
+		}
 		for _, s := range gd.Specs {
 			ann.visitSpec(ctx, s)
 		}
+	}
+}
+
+func (ann *Annotator) splitGenDeclStmt(ctx *Ctx, gd *ast.GenDecl) {
+	// make this decl single spec (will be copied below)
+	gd.Lparen = 0
+	gd.Rparen = 0
+
+	switch gd.Tok {
+	case token.CONST, token.VAR:
+		// make new statements from the 2nd beyond
+		for i := 1; i < len(gd.Specs); i++ {
+			s := gd.Specs[i]
+			// build stmt
+			gd2 := *gd
+			gd2.Specs = []ast.Spec{s}
+			stmt := &ast.DeclStmt{&gd2}
+
+			ctx.insertInStmtListAfter(stmt)
+		}
+		// reset counter to have the other specs be visited
+		if iter, ok := ctx.stmtIter(); ok {
+			iter.step -= len(gd.Specs) - 1
+		}
+		// make this decl single spec
+		gd.Specs = gd.Specs[:1]
 	}
 }
 

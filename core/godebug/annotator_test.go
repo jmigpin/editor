@@ -1945,6 +1945,24 @@ func TestAnnotator107(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
+func TestAnnotator108(t *testing.T) {
+	inout := []string{
+		`var(
+			a=1
+			b=a
+		)`,
+		`Σ0 := Σ.IV(1)
+	        var a = 1
+	        Σ1 := Σ.IV(a)
+	        Σ.Line(0, 0, 31, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
+	        Σ2 := Σ.IV(a)
+	        var b = a
+	        Σ3 := Σ.IV(b)
+	        Σ.Line(0, 1, 35, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ2)))`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
 func TestAnnotator_(t *testing.T) {
 	inout := []string{
 		``,
