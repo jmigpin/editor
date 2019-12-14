@@ -200,10 +200,10 @@ func (ctx *Ctx) replaceExprs(exprs []ast.Expr) {
 //----------
 
 func (ctx *Ctx) withNResults(n int) *Ctx {
-	return ctx.WithValue("nresults", n)
+	return ctx.WithValue("n_results", n)
 }
 func (ctx *Ctx) nResults() int {
-	v, _ := ctx.Value("nresults")
+	v, _ := ctx.Value("n_results")
 	if v == nil {
 		return 0
 	}
@@ -346,18 +346,6 @@ func (ctx *Ctx) firstArgIsType() bool {
 
 //----------
 
-func (ctx *Ctx) valuesReset() *Ctx {
-	ctx = ctx.WithValue("nresults", nil)
-	ctx = ctx.WithValue("call_expr_debug_index", nil)
-	ctx = ctx.WithValue("static_debug_index", nil)
-	ctx = ctx.WithValue("result_in_var", nil)
-	ctx = ctx.WithValue("assign_stmt_ignore_lhs", nil)
-	ctx = ctx.WithValue("first_arg_is_type", nil)
-	return ctx
-}
-
-//----------
-
 func (ctx *Ctx) withNoAnnotations(v bool) *Ctx {
 	return ctx.WithBool("no_annotations", v)
 }
@@ -366,3 +354,38 @@ func (ctx *Ctx) noAnnotations() bool {
 }
 
 //----------
+
+func (ctx *Ctx) withLabeledStmt(stmt ast.Stmt) *Ctx {
+	return ctx.WithValue("labeled_stmt", stmt)
+}
+func (ctx *Ctx) labeledStmt() (*ast.LabeledStmt, bool) {
+	v, _ := ctx.Value("labeled_stmt")
+	if v == nil {
+		return nil, false
+	}
+	u := v.(*ast.LabeledStmt)
+	return u, true
+}
+
+//----------
+
+func (ctx *Ctx) valuesReset() *Ctx {
+	ctx = ctx.WithValue("n_results", nil)
+	ctx = ctx.WithValue("call_expr_debug_index", nil)
+	ctx = ctx.WithValue("static_debug_index", nil)
+	ctx = ctx.WithValue("result_in_var", nil)
+	ctx = ctx.WithValue("assign_stmt_ignore_lhs", nil)
+	ctx = ctx.WithValue("first_arg_is_type", nil)
+	ctx = ctx.WithValue("labeled_stmt", nil)
+
+	// Not reset:
+	// 	no_annotations
+	// 	exprs
+	// 	expr_ptr
+	// 	expr_iter
+	// 	stmt_iter
+	// 	insert_in_stmt_list_after
+	// 	func_type
+
+	return ctx
+}

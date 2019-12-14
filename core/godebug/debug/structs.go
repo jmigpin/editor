@@ -35,6 +35,7 @@ func init() {
 	reg(&ItemBranch{})
 	reg(&ItemStep{})
 	reg(&ItemAnon{})
+	reg(&ItemLabel{})
 }
 
 //----------
@@ -137,6 +138,7 @@ type ItemLiteral struct {
 type ItemBranch struct{}
 type ItemStep struct{}
 type ItemAnon struct{}
+type ItemLabel struct{}
 
 //----------
 
@@ -251,4 +253,9 @@ func ISt() Item {
 // ItemAnon
 func IAn() Item {
 	return &ItemAnon{}
+}
+
+// ItemLabel
+func ILa() Item {
+	return &ItemLabel{}
 }

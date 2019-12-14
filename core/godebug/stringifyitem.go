@@ -223,10 +223,15 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 	case *debug.ItemAnon:
 		is.Str += "_"
 
+	case *debug.ItemLabel:
+		is.Str += "LABEL: next debug line is not updated on goto's"
+
 	default:
 		is.Str += fmt.Sprintf("[TODO:(%T)%v]", item, item)
 	}
 }
+
+//----------
 
 func (is *ItemStringifier) result(result debug.Item) bool {
 	if result != nil {

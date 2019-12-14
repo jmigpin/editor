@@ -839,30 +839,42 @@ func TestAnnotator49(t *testing.T) {
 func TestAnnotator50(t *testing.T) {
 	inout := []string{
 		`for i:=0; ; i++{}`,
-		`for i := 0; ; i++ {
-		}`,
+		`{
+	        Σ0 := Σ.IV(0)
+	        i := 0
+	        Σ1 := Σ.IV(i)
+	        Σ.Line(0, 0, 31, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
+	        for ; ; i++ {
+	        }
+	        }`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 func TestAnnotator51(t *testing.T) {
 	inout := []string{
 		`for i:=0; i<10; i++{a=1}`,
-		`for i := 0; ; i++ {
+		`{
+	        Σ0 := Σ.IV(0)
+	        i := 0
+	        Σ1 := Σ.IV(i)
+	        Σ.Line(0, 0, 31, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
+	        for ; ; i++ {
 	        {
-	        Σ0 := Σ.IV(i)
-	        Σ1 := Σ.IV(10)
-	        Σ2 := i < 10
-	        Σ3 := Σ.IV(Σ2)
-	        Σ4 := Σ.IB(Σ3, 40, Σ0, Σ1)
-	        Σ.Line(0, 0, 37, Σ4)
-	        if !Σ2 {
+	        Σ2 := Σ.IV(i)
+	        Σ3 := Σ.IV(10)
+	        Σ4 := i < 10
+	        Σ5 := Σ.IV(Σ4)
+	        Σ6 := Σ.IB(Σ5, 40, Σ2, Σ3)
+	        Σ.Line(0, 1, 37, Σ6)
+	        if !Σ4 {
 	        break
 	        }
 	        }
-	        Σ5 := Σ.IV(1)
+	        Σ7 := Σ.IV(1)
 	        a = 1
-	        Σ6 := Σ.IV(a)
-	        Σ.Line(0, 1, 46, Σ.IA(Σ.IL(Σ6), Σ.IL(Σ5)))
+	        Σ8 := Σ.IV(a)
+	        Σ.Line(0, 2, 46, Σ.IA(Σ.IL(Σ8), Σ.IL(Σ7)))
+	        }
 	        }`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
@@ -940,18 +952,89 @@ func TestAnnotator55(t *testing.T) {
 func TestAnnotator56(t *testing.T) {
 	inout := []string{
 		`label1:
-		label2:
-		_=1`,
-		`label1:
-	        ;
-	        label2:
-	        ;
-	        Σ0 := Σ.IV(1)
-	        _ = 1
-	        Σ.Line(0, 0, 42, Σ.IA(Σ.IL(Σ.IAn()), Σ.IL(Σ0)))`,
+		a++
+		goto label1`,
+		`Σ.Line(0, 0, 23, Σ.ILa())
+	        Σ0 := Σ.IV(a)
+	        label1:
+	        a++
+	        Σ1 := Σ.IV(a)
+	        Σ.Line(0, 1, 34, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
+	        Σ.Line(0, 2, 35, Σ.IBr())
+	        goto label1`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
+func TestAnnotator56a(t *testing.T) {
+	inout := []string{
+		`label1:
+		for i:=f();i<2;i++{break label1}`,
+		`Σ.Line(0, 0, 23, Σ.ILa())
+	        {
+	        Σ.Line(0, 1, 40, Σ.ICe("f"))
+	        Σ0 := f()
+	        Σ1 := Σ.IV(Σ0)
+	        Σ2 := Σ.IC("f", Σ1)
+	        i := Σ0
+	        Σ3 := Σ.IV(i)
+	        Σ.Line(0, 1, 41, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ2)))
+	        Σ.Line(0, 2, 23, Σ.ILa())
+	        label1:
+	        for ; ; i++ {
+	        {
+	        Σ4 := Σ.IV(i)
+	        Σ5 := Σ.IV(2)
+	        Σ6 := i < 2
+	        Σ7 := Σ.IV(Σ6)
+	        Σ8 := Σ.IB(Σ7, 40, Σ4, Σ5)
+	        Σ.Line(0, 3, 45, Σ8)
+	        if !Σ6 {
+	        break
+	        }
+	        }
+	        Σ.Line(0, 4, 50, Σ.IBr())
+	        break label1
+	        }
+	        }`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+func TestAnnotator56b(t *testing.T) {
+	inout := []string{
+		`label1:
+		switch a:=f();a {}`,
+		`Σ.Line(0, 0, 23, Σ.ILa())
+	        {
+	        Σ.Line(0, 1, 43, Σ.ICe("f"))
+	        Σ0 := f()
+	        Σ1 := Σ.IV(Σ0)
+	        Σ2 := Σ.IC("f", Σ1)
+	        a := Σ0
+	        Σ3 := Σ.IV(a)
+	        Σ.Line(0, 1, 44, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ2)))
+	        Σ.Line(0, 2, 23, Σ.ILa())
+	        Σ4 := Σ.IV(a)
+	        Σ.Line(0, 3, 46, Σ4)
+	        label1:
+	        switch a {
+	        }
+	        }`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+func TestAnnotator56c(t *testing.T) {
+	inout := []string{
+		`label1:
+		switch x.(type){}`,
+		`Σ.Line(0, 0, 23, Σ.ILa())
+	        Σ.Line(0, 1, 46, Σ.IVt(x))
+	        label1:
+	        switch x.(type) {
+	        }`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
 func TestAnnotator57(t *testing.T) {
 	inout := []string{
 		`a,b:=1, func(a int)int{return 3}`,

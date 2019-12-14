@@ -187,10 +187,14 @@ func (ann *Annotator) visitAssignStmt(ctx *Ctx, as *ast.AssignStmt) {
 }
 
 func (ann *Annotator) visitTypeSwitchStmt(ctx *Ctx, tss *ast.TypeSwitchStmt) {
-	// TODO: init stmt
-	//ann.visitStmt(ctx, tss.Init)
+	if tss.Init != nil && !ctx.noAnnotations() {
+		// wrap in block stmt to have init variables valid only in block
+		bs := ann.wrapInitInBlockStmt(ctx, tss, nil)
+		ann.visitBlockStmt(ctx, bs)
+		return
+	}
 
-	ctx2 := ctx.withAssignStmtIgnoreLhs()
+	ctx2 := ctx.withAssignStmtIgnoreLhs() // don't debug lhs
 	ann.visitStmt(ctx2, tss.Assign)
 
 	ann.visitBlockStmt(ctx, tss.Body)
@@ -198,7 +202,7 @@ func (ann *Annotator) visitTypeSwitchStmt(ctx *Ctx, tss *ast.TypeSwitchStmt) {
 
 func (ann *Annotator) visitSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) {
 	if ss.Init != nil && !ctx.noAnnotations() {
-		bs := ann.wrapInBlockStmt(ctx, ss, nil)
+		bs := ann.wrapInitInBlockStmt(ctx, ss, nil)
 		ann.visitBlockStmt(ctx, bs)
 		return
 	}
@@ -224,7 +228,7 @@ func (ann *Annotator) visitSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) {
 func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
 	if is.Init != nil && !ctx.noAnnotations() {
 		// wrap in block stmt to have init variables valid only in block
-		bs := ann.wrapInBlockStmt(ctx, is, nil)
+		bs := ann.wrapInitInBlockStmt(ctx, is, nil)
 		ann.visitBlockStmt(ctx, bs)
 		return
 	}
@@ -242,9 +246,9 @@ func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
 	case nil: // nothing to do
 	case *ast.IfStmt: // "else if ..."
 		if ctx.noAnnotations() {
-			ann.visitStmt(ctx, t)
+			ann.visitStmt(ctx, t) // init won't be annotated, just visit
 		} else {
-			bs := ann.wrapInBlockStmt(ctx, t, &is.Else)
+			bs := ann.wrapInitInBlockStmt(ctx, t, &is.Else)
 			ann.visitBlockStmt(ctx, bs)
 		}
 	case *ast.BlockStmt: // "else ..."
@@ -255,6 +259,13 @@ func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
 }
 
 func (ann *Annotator) visitForStmt(ctx *Ctx, fs *ast.ForStmt) {
+	if fs.Init != nil && !ctx.noAnnotations() {
+		// wrap in block stmt to have init variables valid only in block
+		bs := ann.wrapInitInBlockStmt(ctx, fs, nil)
+		ann.visitBlockStmt(ctx, bs)
+		return
+	}
+
 	if fs.Cond != nil {
 		pos := fs.Cond.End()
 
@@ -351,24 +362,25 @@ func (ann *Annotator) visitRangeStmt(ctx *Ctx, rs *ast.RangeStmt) {
 }
 
 func (ann *Annotator) visitLabeledStmt(ctx *Ctx, ls *ast.LabeledStmt) {
-	if ls.Stmt == nil {
-		return
-	}
+	// Problem:
+	// -	label1: ; // inserting empty stmt breaks compilation
+	// 	for { break label1 } // compile error: invalide break label
+	// -	using block stmts won't work
+	// 	label1:
+	// 	{ for { break label1} } // compile error
+	// No way to insert debug stmts between the label and the stmt.
+	// Just make a debug step with "label" where a warning can be shown.
+	//
+	// Ex: in the case of the ast.forstmt, the init variables need to be enclosed in a blockstmt such that they are only valid in that block. Since the label is linked to the forstmt, it is not possible to insert debug lines for the init.
+	// unless the label itself is inside a new block!!
 
-	// handle non-empty stmts
-	if _, ok := ls.Stmt.(*ast.EmptyStmt); !ok {
-		// create blockstmt to keep the visit stmts
-		bs := &ast.BlockStmt{List: []ast.Stmt{ls.Stmt}}
-		ctx3, _ := ctx.withStmtIter(&bs.List) // index at 0
-		ann.visitStmt(ctx3, ls.Stmt)
+	ce := ann.newDebugCallExpr("ILa")
+	stmt := ann.newDebugLineStmt(ctx, ls.Pos(), ce)
+	ctx.insertInStmtListBefore(stmt)
 
-		// assign empty stmt
-		ls.Stmt = &ast.EmptyStmt{}
-
-		// insert created stmts
-		for _, s := range bs.List {
-			ctx.insertInStmtListAfter(s)
-		}
+	if ls.Stmt != nil {
+		ctx = ctx.withLabeledStmt(ls)
+		ann.visitStmt(ctx, ls.Stmt)
 	}
 }
 
@@ -384,8 +396,7 @@ func (ann *Annotator) visitReturnStmt(ctx *Ctx, rs *ast.ReturnStmt) {
 		// show debug step
 		ce := ann.newDebugCallExpr("ISt")
 		stmt := ann.newDebugLineStmt(ctx, rs.End(), ce)
-		ctx2 := ctx.withInsertStmtAfter(false) // always before
-		ctx2.insertInStmtList(stmt)
+		ctx.insertInStmtListBefore(stmt)
 		return
 	}
 
@@ -561,11 +572,15 @@ func (ann *Annotator) visitSpec(ctx *Ctx, spec ast.Spec) {
 
 //----------
 
-func (ann *Annotator) wrapInBlockStmt(ctx *Ctx, stmt ast.Stmt, directStmt *ast.Stmt) *ast.BlockStmt {
+func (ann *Annotator) wrapInitInBlockStmt(ctx *Ctx, stmt ast.Stmt, directStmt *ast.Stmt) *ast.BlockStmt {
 	bs := &ast.BlockStmt{List: []ast.Stmt{stmt}}
 	if directStmt != nil {
 		*directStmt = bs
 	} else {
+		// keep the labeled stmt attached to its stmt
+		if ls, ok := ctx.labeledStmt(); ok && ls.Stmt == stmt {
+			bs = &ast.BlockStmt{List: []ast.Stmt{ls}}
+		}
 		ctx.replaceStmt(bs)
 	}
 	// add init stmts to top of the block stmt list
@@ -575,7 +590,17 @@ func (ann *Annotator) wrapInBlockStmt(ctx *Ctx, stmt ast.Stmt, directStmt *ast.S
 			bs.List = append([]ast.Stmt{t.Init}, bs.List...)
 			t.Init = nil
 		}
+	case *ast.ForStmt:
+		if t.Init != nil {
+			bs.List = append([]ast.Stmt{t.Init}, bs.List...)
+			t.Init = nil
+		}
 	case *ast.SwitchStmt:
+		if t.Init != nil {
+			bs.List = append([]ast.Stmt{t.Init}, bs.List...)
+			t.Init = nil
+		}
+	case *ast.TypeSwitchStmt:
 		if t.Init != nil {
 			bs.List = append([]ast.Stmt{t.Init}, bs.List...)
 			t.Init = nil
@@ -1085,8 +1110,10 @@ func (ann *Annotator) visitStmt2(ctx *Ctx, stmt ast.Stmt) {
 		ann.visitCaseClause(ctx, t)
 	case *ast.CommClause:
 		ann.visitCommClause(ctx, t)
+	case nil: // do nothing
+	case *ast.EmptyStmt: // do nothing
 	default:
-		fmt.Printf("visitstmt: %v\n", t)
+		fmt.Printf("visitstmt: %#v\n", t)
 	}
 }
 
