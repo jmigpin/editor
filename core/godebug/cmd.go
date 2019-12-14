@@ -1,5 +1,7 @@
 package godebug
 
+//godebug:annotatefile
+
 import (
 	"bytes"
 	"context"
@@ -12,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -942,18 +945,21 @@ func setupServerNetAddr(addr string) {
 
 	seed := time.Now().UnixNano() + int64(os.Getpid())
 	ra := rand.New(rand.NewSource(seed))
-	r := ra.Intn(10000)
+	min, max := 27000, 65535
+	port := min + ra.Intn(max-min)
 
 	// depend on the desired "target" (can't use runtime.GOOS)
 	goOs := os.Getenv("GOOS")
+	if goOs == "" {
+		goOs = runtime.GOOS
+	}
 	switch goOs {
 	case "linux":
 		debug.ServerNetwork = "unix"
-		p := "editor_godebug.sock" + fmt.Sprintf("%v", r)
+		p := "editor_godebug.sock" + fmt.Sprintf("%v", port)
 		debug.ServerAddress = filepath.Join(os.TempDir(), p)
 	default:
 		debug.ServerNetwork = "tcp"
-		p := fmt.Sprintf("%v", 30071+r)
-		debug.ServerAddress = "127.0.0.1:" + p
+		debug.ServerAddress = fmt.Sprintf("127.0.0.1:%v", port)
 	}
 }
