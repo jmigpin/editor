@@ -26,7 +26,7 @@ type Reader interface {
 	ReadNSliceAt(i, n int) ([]byte, error) // []byte might not be a copy
 
 	Min() int
-	Max() int
+	Max() int // not inclusive
 }
 
 //----------

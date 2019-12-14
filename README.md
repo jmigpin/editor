@@ -100,6 +100,7 @@ Since the editor has no configuration file, it is suggested you use it within a 
 exec ~/code/jmigpin/editor/editor \
 --dpi=143 \
 --fontsize=9 \
+--colortheme=acme \
 --commentscolor=0x008b00 \
 --stringscolor=0x8b3100 \
 --lsproto=go,.go,tcp,"gopls serve -listen={{.Addr}}" \

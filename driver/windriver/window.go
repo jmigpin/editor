@@ -16,8 +16,6 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-////godebug:annotatepackage
-
 // Function preceded by "ost" run in the "operating-system-thread".
 type Window struct {
 	className   *uint16
