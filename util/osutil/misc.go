@@ -1,7 +1,9 @@
 package osutil
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,4 +49,22 @@ func ExecCmdCtxWithAttr(ctx context.Context, name string, args ...string) *exec.
 	cmd := exec.CommandContext(ctx, name, args...)
 	SetupExecCmdSysProcAttr(cmd)
 	return cmd
+}
+
+func ExecCmdRunOutputs(ecmd *exec.Cmd) (sout []byte, serr []byte, _ error) {
+	if ecmd.Stdout != nil {
+		return nil, nil, fmt.Errorf("stdout already set")
+	}
+	if ecmd.Stderr != nil {
+		return nil, nil, fmt.Errorf("stderr already set")
+	}
+
+	var stdoutBuf bytes.Buffer
+	var stderrBuf bytes.Buffer
+
+	ecmd.Stdout = &stdoutBuf
+	ecmd.Stderr = &stderrBuf
+
+	err := ecmd.Run()
+	return stdoutBuf.Bytes(), stderrBuf.Bytes(), err
 }

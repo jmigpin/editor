@@ -1,13 +1,11 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os/exec"
 	"strings"
-	"unicode"
 
 	"github.com/jmigpin/editor/util/osutil"
 )
@@ -17,15 +15,14 @@ func ExecCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
 }
 
 func ExecCmdStdin(ctx context.Context, dir string, in io.Reader, args ...string) ([]byte, error) {
-	cmd := osutil.ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
-	cmd.Dir = dir
-	cmd.Stdin = in
-	b, err := cmd.CombinedOutput()
+	ecmd := osutil.ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
+	ecmd.Dir = dir
+	ecmd.Stdin = in
+	sout, serr, err := osutil.ExecCmdRunOutputs(ecmd)
 	if err != nil {
-		w := bytes.TrimRightFunc(b, unicode.IsSpace)
-		return nil, fmt.Errorf("%v: %v: %v", args[0], err, string(w))
+		return nil, fmt.Errorf("%v: err=(%v), stderr=(%v), stdout=(%v)", args[0], err, string(serr), string(sout))
 	}
-	return b, nil
+	return sout, nil
 }
 
 func HasExecErrNotFound(err error) bool {
