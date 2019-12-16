@@ -1,9 +1,9 @@
 package godebug
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func init() {
@@ -142,9 +143,9 @@ func TestCmd_simplifyStringify1(t *testing.T) {
 //------------
 
 func TestCmd_goMod1(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	// not in gopath
 	// has go.mod
@@ -186,14 +187,14 @@ func TestCmd_goMod1(t *testing.T) {
 			return "F2"+pkg1.F1()
 		}
 	`
-	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
-	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/go.mod", pkg2GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", pkg1F1Go)
+	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", pkg2GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", pkg2F2Go)
 
-	dir1 := filepath.Join(tmpDir, "main")
+	dir1 := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
 		//"-verbose",
@@ -211,9 +212,9 @@ func TestCmd_goMod1(t *testing.T) {
 }
 
 func TestCmd_goMod2(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	// not in gopath
 	// has go.mod
@@ -223,7 +224,7 @@ func TestCmd_goMod2(t *testing.T) {
 	mainGoMod := `
 		module main
 		replace example.com/pkg1 => ../pkg1
-		replace example.com/pkg2 => ` + filepath.Join(tmpDir, "pkg2") + `
+		replace example.com/pkg2 => ` + filepath.Join(tf.Dir, "pkg2") + `
 	`
 	mainMainGo := `
 		package main
@@ -253,14 +254,14 @@ func TestCmd_goMod2(t *testing.T) {
 			return "F2"
 		}
 	`
-	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
-	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/go.mod", pkg2GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", pkg1F1Go)
+	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", pkg2GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", pkg2F2Go)
 
-	dir1 := filepath.Join(tmpDir, "main")
+	dir1 := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
 		//"-verbose",
@@ -278,9 +279,9 @@ func TestCmd_goMod2(t *testing.T) {
 }
 
 func TestCmd_goMod3(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainGoMod := `
 		module main
@@ -307,12 +308,12 @@ func TestCmd_goMod3(t *testing.T) {
 			return "F1b"
 		}
 	`
-	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
-	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", pkg1F1Go)
 
-	dir := filepath.Join(tmpDir, "main")
+	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
 		//"-verbose",
@@ -326,9 +327,9 @@ func TestCmd_goMod3(t *testing.T) {
 }
 
 func TestCmd_goMod4(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainGoMod := `
 		module main
@@ -358,13 +359,13 @@ func TestCmd_goMod4(t *testing.T) {
 			return "F1b"
 		}
 	`
-	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
-	createTmpFileFromSrc(t, tmpDir, "main/main.go", mainMainGo)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1a.go", pkg1F1aGo)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1b.go", pkg1F1bGo)
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1a.go", pkg1F1aGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1b.go", pkg1F1bGo)
 
-	dir := filepath.Join(tmpDir, "main")
+	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
 		//"-verbose",
@@ -382,9 +383,9 @@ func TestCmd_goMod4(t *testing.T) {
 //------------
 
 func TestCmd_goMod5_test(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainGoMod := `
 		module example.com/main
@@ -421,14 +422,14 @@ func TestCmd_goMod5_test(t *testing.T) {
 		}
 	`
 
-	createTmpFileFromSrc(t, tmpDir, "main/go.mod", mainGoMod)
-	createTmpFileFromSrc(t, tmpDir, "main/main_test.go", mainMainTestsGo)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/go.mod", pkg1GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg1/f1.go", pkg1F1Go)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/go.mod", pkg2GoMod)
-	createTmpFileFromSrc(t, tmpDir, "pkg2/f2.go", pkg2F2Go)
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main_test.go", mainMainTestsGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", pkg1F1Go)
+	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", pkg2GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", pkg2F2Go)
 
-	dir1 := filepath.Join(tmpDir, "main")
+	dir1 := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"test",
 		//"-verbose",
@@ -447,9 +448,9 @@ func TestCmd_goMod5_test(t *testing.T) {
 //------------
 
 func TestCmd_goPath1(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainMainGo := `
 		package main
@@ -481,18 +482,18 @@ func TestCmd_goPath1(t *testing.T) {
 			return "sub3"
 		}
 	`
-	createTmpFileFromSrc(t, tmpDir, "src/main/main.go", mainMainGo)
-	createTmpFileFromSrc(t, tmpDir, "src/main/sub1/sub1.go", mainSub1Sub1Go)
-	createTmpFileFromSrc(t, tmpDir, "src/main/sub1/sub2/sub2.go", mainSub1Sub2Sub2Go)
-	createTmpFileFromSrc(t, tmpDir, "src/main/sub3/sub3.go", mainSub3Sub3Go)
+	tf.WriteFileInTmp2OrPanic("src/main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("src/main/sub1/sub1.go", mainSub1Sub1Go)
+	tf.WriteFileInTmp2OrPanic("src/main/sub1/sub2/sub2.go", mainSub1Sub2Sub2Go)
+	tf.WriteFileInTmp2OrPanic("src/main/sub3/sub3.go", mainSub3Sub3Go)
 
-	dir := filepath.Join(tmpDir, "src/main")
+	dir := filepath.Join(tf.Dir, "src/main")
 	cmd := []string{
 		"run",
 		//"-verbose",
 		//"-work",
 		"main.go"}
-	msgs := doCmd2(t, dir, cmd, true, tmpDir)
+	msgs := doCmd2(t, dir, cmd, true, tf.Dir)
 
 	if hasStringIn(`"sub1"`, msgs) { // not annotated
 		t.Fatal(msgs)
@@ -505,9 +506,9 @@ func TestCmd_goPath1(t *testing.T) {
 //----------
 
 func TestCmd_simple1(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainMainGo := `
 		package main
@@ -518,9 +519,9 @@ func TestCmd_simple1(t *testing.T) {
 			_=a+b
 		}
 	`
-	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", mainMainGo)
 
-	dir := filepath.Join(tmpDir, "dir1")
+	dir := filepath.Join(tf.Dir, "dir1")
 	cmd := []string{
 		"run",
 		//"-verbose",
@@ -535,9 +536,9 @@ func TestCmd_simple1(t *testing.T) {
 }
 
 func TestCmd_simple2(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainMainGo := `
 		package main
@@ -546,7 +547,7 @@ func TestCmd_simple2(t *testing.T) {
 			_=time.Second
 		}
 	`
-	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", mainMainGo)
 
 	cmd := []string{
 		"run",
@@ -554,7 +555,7 @@ func TestCmd_simple2(t *testing.T) {
 		//"-work",
 		"dir1/main.go", // give location to run
 	}
-	msgs := doCmd(t, tmpDir, cmd)
+	msgs := doCmd(t, tf.Dir, cmd)
 
 	if !hasStringIn(`_ := "1s"`, msgs) { // annotated
 		t.Fatal(msgs)
@@ -562,9 +563,9 @@ func TestCmd_simple2(t *testing.T) {
 }
 
 func TestCmd_simple3(t *testing.T) {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainMainGo := `
 		package main
@@ -572,10 +573,10 @@ func TestCmd_simple3(t *testing.T) {
 			_=1
 		}
 	`
-	createTmpFileFromSrc(t, tmpDir, "dir1/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", mainMainGo)
 
 	cmd := []string{"build", "dir1/main.go", "-tags=aaa"} // some arg after the filename
-	msgs := doCmd2(t, tmpDir, cmd, false, "")
+	msgs := doCmd2(t, tf.Dir, cmd, false, "")
 	_ = msgs // ok - just be able to build
 }
 
@@ -594,22 +595,13 @@ func TestCmd_srcDev(t *testing.T) {
 		func f2() *image.Point { return &p }
 		func f3() interface{} { return &p }
 		func f4(p*image.Point) bool { return true }
+		func f5() int { return 1 }
 		func main(){
-			u := f2()
-			if ok := f4(u); ok {
-			
-			}
-		
-			//a:=A{}
-			//b:=a.p.String()
-			//_ = b
-		
-			//ch<-image.Point{1,1}
-			////_=<-ch
-			
-			//c,ok:=(interface{}(<-ch)).(image.Point)
-			//_=c
-			//_=ok
+			var(
+				a=1
+				b=a
+			)
+			_=b
 		}
 	`
 	msgs := doCmdSrc(t, src, false, false)
@@ -714,6 +706,10 @@ func doCmd2(t *testing.T, dir string, args []string, noModules bool, goPathDir s
 	cmd.Dir = dir
 	cmd.NoModules = noModules
 
+	// hide msgs (pid, build, work dir ...)
+	soutBuf := &bytes.Buffer{}
+	cmd.Stdout = soutBuf
+
 	if noModules && goPathDir != "" {
 		// ensure the directory (possibly just created on tmp) is in gopath for tests to be able to find non-annotated files not copied to the tmp dir
 
@@ -782,47 +778,33 @@ func doCmd2(t *testing.T, dir string, args []string, noModules bool, goPathDir s
 //------------
 
 func doCmdSrc(t *testing.T, src string, tests bool, noModules bool) []string {
-	tmpDir := createTmpDir(t)
-	defer os.RemoveAll(tmpDir)
-	t.Logf("tmpDir: %v\n", tmpDir)
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	filename := "main.go"
 	if tests {
 		filename = "main_test.go"
 	}
 
-	createTmpFileFromSrc(t, tmpDir, filename, src)
+	tf.WriteFileInTmp2OrPanic(filename, src)
 
-	args := []string{"run", filename}
+	args := []string{
+		"run",
+		//"-work",
+		filename,
+	}
 	if tests {
 		args = []string{"test"} // no file
 	}
 	//args = append(args, "-verbose", "-work")
-	return doCmd2(t, tmpDir, args, noModules, tmpDir)
+	return doCmd2(t, tf.Dir, args, noModules, tf.Dir)
 }
 
 //------------
 
-func createTmpFileFromSrc(t *testing.T, tmpDir, filename, src string) string {
-	fname := filepath.Join(tmpDir, filename)
-	baseDir := filepath.Dir(fname)
-	if err := os.MkdirAll(baseDir, 0700); err != nil {
-		t.Fatal(t)
-	}
-	if err := ioutil.WriteFile(fname, []byte(src), 0660); err != nil {
-		t.Fatal(err)
-	}
-	return fname
-}
-
-//------------
-
-func createTmpDir(t *testing.T) string {
-	tmpDir, err := ioutil.TempDir(os.TempDir(), "editor_godebug_tests")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return tmpDir
+func newTmpFiles() *osutil.TmpFiles {
+	return osutil.NewTmpFiles("editor_godebug_tests")
 }
 
 //------------
