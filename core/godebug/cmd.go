@@ -71,9 +71,6 @@ func NewCmd() *Cmd {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
-	if os.Getenv("GO111MODULE") == "off" {
-		cmd.NoModules = true
-	}
 	return cmd
 }
 
@@ -90,6 +87,11 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 	done, err := cmd.parseArgs(args)
 	if done || err != nil {
 		return done, err
+	}
+
+	// setup nomodules
+	if cmd.noModulesOption() {
+		cmd.NoModules = true
 	}
 
 	// absolute dir
@@ -452,19 +454,20 @@ func trimAtFirstSrcDir(filename string) string {
 
 func (cmd *Cmd) environ() []string {
 	env := os.Environ()
-	// gopath
-	if s, ok := cmd.environGoPath(); ok {
-		env = append(env, s)
-	}
 	// add cmd line env vars
 	for _, s := range cmd.flags.env {
 		env = append(env, s)
 	}
+	// gopath (after cmd line env vars)
+	if s, ok := cmd.environGoPath(); ok {
+		env = append(env, s)
+	}
 
-	env = append(env,
-		"GOPROXY=direct",
-		"GOSUMDB=off",
-	)
+	//env = append(env,
+	//"GOPROXY=off",
+	//"GOPROXY=direct",
+	//"GOSUMDB=off",
+	//)
 	return env
 }
 
@@ -478,11 +481,33 @@ func (cmd *Cmd) environGoPath() (string, bool) {
 	// add tmpdir to gopath to give priority to the annotated files
 	goPath = append(goPath, cmd.tmpDir)
 
+	// add cmd line env vars
+	prefix := "GOPATH="
+	for _, s := range cmd.flags.env {
+		if strings.HasPrefix(s, prefix) {
+			a := filepath.SplitList(s[len(prefix):])
+			goPath = append(goPath, a...)
+		}
+	}
+
 	// add already defined gopath
 	goPath = append(goPath, goutil.GoPath()...)
 	// build gopath string
 	s := "GOPATH=" + goutil.JoinPathLists(goPath...)
 	return s, true
+}
+
+//------------
+
+func (cmd *Cmd) noModulesOption() bool {
+	// cmd line env flag
+	for _, s := range cmd.flags.env {
+		if s == "GO111MODULE=off" {
+			return true
+		}
+	}
+	// environment
+	return os.Getenv("GO111MODULE") == "off"
 }
 
 //------------
@@ -679,6 +704,7 @@ func (cmd *Cmd) parseArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
+	f.SetOutput(cmd.Stderr)
 	cmd.dirsFlag(f)
 	cmd.filesFlag(f)
 	cmd.workFlag(f)
@@ -689,8 +715,6 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			//f.SetOutput(cmd.Stderr)
-			//f.PrintDefaults()
 			return true, nil
 		}
 		return true, err
@@ -708,6 +732,7 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
+	f.SetOutput(cmd.Stderr)
 	cmd.dirsFlag(f)
 	cmd.filesFlag(f)
 	cmd.workFlag(f)
@@ -720,8 +745,6 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			//f.SetOutput(cmd.Stderr)
-			//f.PrintDefaults()
 			return true, nil
 		}
 		return true, err
@@ -746,6 +769,7 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
+	f.SetOutput(cmd.Stderr)
 	cmd.dirsFlag(f)
 	cmd.filesFlag(f)
 	cmd.workFlag(f)
@@ -757,8 +781,6 @@ func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			//f.SetOutput(cmd.Stderr)
-			//f.PrintDefaults()
 			return true, nil
 		}
 		return true, err
@@ -776,6 +798,7 @@ func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseConnectArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
+	f.SetOutput(cmd.Stderr)
 	addr := f.String("addr", "", "address to connect to, built into the binary")
 	cmd.toolExecFlag(f)
 
@@ -795,9 +818,6 @@ func (cmd *Cmd) parseConnectArgs(args []string) (done bool, _ error) {
 
 //------------
 
-//func (cmd *Cmd) envFlag(fs *flag.FlagSet) {
-//	fs.StringVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
-//}
 func (cmd *Cmd) workFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
 }

@@ -1,7 +1,6 @@
 package godebug
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -491,7 +490,7 @@ func TestCmd_goPath1(t *testing.T) {
 	cmd := []string{
 		"run",
 		//"-verbose",
-		//"-work",
+		"-work",
 		"main.go"}
 	msgs := doCmd2(t, dir, cmd, true, tf.Dir)
 
@@ -499,6 +498,55 @@ func TestCmd_goPath1(t *testing.T) {
 		t.Fatal(msgs)
 	}
 	if !hasStringIn(`"sub2"`, msgs) { // annotated
+		t.Fatal(msgs)
+	}
+}
+
+func TestCmd_goPath2(t *testing.T) {
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	mainMainGo := `
+		package main
+		import "pkg1"
+		func main() {
+			_=1
+			_=pkg1.Sub1()
+		}
+	`
+	pkg1Sub1Go := `
+		package pkg1
+		func Sub1() string {
+			//godebug:annotateblock
+			return "sub1"
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("aaa/src/main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("src/pkg1/sub1.go", pkg1Sub1Go)
+
+	envs := []string{
+		"GO111MODULE=off",
+		"GOPATH=" + tf.Dir,
+	}
+
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"-env=" + goutil.JoinPathLists(envs...),
+		"main.go",
+	}
+
+	dir := filepath.Join(tf.Dir, "aaa/src/main")
+
+	// nomodules=false, but forcing gopath with cmd line -env option
+	msgs := doCmd2(t, dir, cmd, false, "")
+
+	if !hasStringIn(`_ := 1`, msgs) {
+		t.Fatal(msgs)
+	}
+	if !hasStringIn(`"sub1"`, msgs) {
 		t.Fatal(msgs)
 	}
 }
@@ -589,7 +637,7 @@ func TestCmd_srcDev(t *testing.T) {
 	src := `
 		package main
 		import "image"
-		import "math"
+		//import "math"
 		type A struct{ p image.Point }
 		var p = image.Point{1,1}
 		var ch = make(chan image.Point,1)
@@ -598,9 +646,10 @@ func TestCmd_srcDev(t *testing.T) {
 		func f4(p*image.Point) bool { return true }
 		func f5() int { return 1 }
 		func main(){
-			a:=uint64(0)
-			a=math.MaxUint64
-			_=a
+			_=1
+			//a:=uint64(0)
+			//a=math.MaxUint64
+			//_=a
 		}
 	`
 	msgs := doCmdSrc(t, src, false, false)
@@ -706,8 +755,8 @@ func doCmd2(t *testing.T, dir string, args []string, noModules bool, goPathDir s
 	cmd.NoModules = noModules
 
 	// hide msgs (pid, build, work dir ...)
-	soutBuf := &bytes.Buffer{}
-	cmd.Stdout = soutBuf
+	//soutBuf := &bytes.Buffer{}
+	//cmd.Stdout = soutBuf
 
 	if noModules && goPathDir != "" {
 		// ensure the directory (possibly just created on tmp) is in gopath for tests to be able to find non-annotated files not copied to the tmp dir
