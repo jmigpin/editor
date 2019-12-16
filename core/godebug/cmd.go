@@ -59,6 +59,7 @@ type Cmd struct {
 		files     []string
 		address   string   // build/connect
 		env       []string // build
+		syncSend  bool
 		otherArgs []string
 		runArgs   []string
 	}
@@ -132,6 +133,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 	m := &cmd.flags.mode
 
 	if m.run || m.test || m.build {
+		debug.SyncSend = cmd.flags.syncSend
 		setupServerNetAddr(cmd.flags.address)
 		err := cmd.initAndAnnotate(ctx)
 		if err != nil {
@@ -677,25 +679,23 @@ func (cmd *Cmd) parseArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
-	f.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
-	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
-	dirs := f.String("dirs", "", "comma-separated list of directories")
-	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
-	f.StringVar(&cmd.flags.toolExec, "toolexec", "", "execute cmd, useful to run a tool with the output file (ex: wine outputfilename")
-	env := f.String("env", "", envVarUsage())
+	cmd.dirsFlag(f)
+	cmd.filesFlag(f)
+	cmd.workFlag(f)
+	cmd.verboseFlag(f)
+	cmd.toolExecFlag(f)
+	cmd.syncSendFlag(f)
+	cmd.envFlag(f)
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			f.SetOutput(cmd.Stderr)
-			f.PrintDefaults()
+			//f.SetOutput(cmd.Stderr)
+			//f.PrintDefaults()
 			return true, nil
 		}
 		return true, err
 	}
 
-	cmd.flags.dirs = splitCommaList(*dirs)
-	cmd.flags.files = splitCommaList(*files)
-	cmd.flags.env = filepath.SplitList(*env)
 	cmd.flags.otherArgs = f.Args()
 
 	if len(cmd.flags.otherArgs) > 0 {
@@ -708,27 +708,25 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
-	f.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
-	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
-	dirs := f.String("dirs", "", "comma-separated list of directories")
-	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
-	f.StringVar(&cmd.flags.toolExec, "toolexec", "", "execute cmd, useful to run a tool with the output file (ex: wine outputfilename")
+	cmd.dirsFlag(f)
+	cmd.filesFlag(f)
+	cmd.workFlag(f)
+	cmd.verboseFlag(f)
+	cmd.toolExecFlag(f)
+	cmd.syncSendFlag(f)
+	cmd.envFlag(f)
 	run := f.String("run", "", "run test")
 	verboseTests := f.Bool("v", false, "verbose tests")
-	env := f.String("env", "", envVarUsage())
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			f.SetOutput(cmd.Stderr)
-			f.PrintDefaults()
+			//f.SetOutput(cmd.Stderr)
+			//f.PrintDefaults()
 			return true, nil
 		}
 		return true, err
 	}
 
-	cmd.flags.dirs = splitCommaList(*dirs)
-	cmd.flags.files = splitCommaList(*files)
-	cmd.flags.env = filepath.SplitList(*env)
 	cmd.flags.otherArgs = f.Args()
 
 	// set test run flag at other flags to pass to the test exec
@@ -748,27 +746,25 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 
 func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
-	f.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
-	f.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
-	f.StringVar(&cmd.flags.output, "o", "", "output filename (default: ${filename}_godebug")
-	dirs := f.String("dirs", "", "comma-separated list of directories")
-	files := f.String("files", "", "comma-separated list of files to avoid annotating big directories")
+	cmd.dirsFlag(f)
+	cmd.filesFlag(f)
+	cmd.workFlag(f)
+	cmd.verboseFlag(f)
+	cmd.syncSendFlag(f)
+	cmd.envFlag(f)
 	addr := f.String("addr", "", "address to serve from, built into the binary")
-	env := f.String("env", "", envVarUsage())
+	f.StringVar(&cmd.flags.output, "o", "", "output filename (default: ${filename}_godebug")
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			f.SetOutput(cmd.Stderr)
-			f.PrintDefaults()
+			//f.SetOutput(cmd.Stderr)
+			//f.PrintDefaults()
 			return true, nil
 		}
 		return true, err
 	}
 
-	cmd.flags.dirs = splitCommaList(*dirs)
-	cmd.flags.files = splitCommaList(*files)
 	cmd.flags.address = *addr
-	cmd.flags.env = filepath.SplitList(*env)
 	cmd.flags.otherArgs = f.Args()
 	if len(cmd.flags.otherArgs) > 0 {
 		cmd.flags.filename = cmd.flags.otherArgs[0]
@@ -781,6 +777,7 @@ func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 func (cmd *Cmd) parseConnectArgs(args []string) (done bool, _ error) {
 	f := &flag.FlagSet{}
 	addr := f.String("addr", "", "address to connect to, built into the binary")
+	cmd.toolExecFlag(f)
 
 	if err := f.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -798,9 +795,55 @@ func (cmd *Cmd) parseConnectArgs(args []string) (done bool, _ error) {
 
 //------------
 
-func envVarUsage() string {
-	return fmt.Sprintf("set env variables (ex: \"GOOS=os%c...\"'", filepath.ListSeparator)
+//func (cmd *Cmd) envFlag(fs *flag.FlagSet) {
+//	fs.StringVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
+//}
+func (cmd *Cmd) workFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
 }
+func (cmd *Cmd) verboseFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
+}
+func (cmd *Cmd) syncSendFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&cmd.flags.syncSend, "syncsend", false, "Don't send msgs in chunks (slow). Useful to get msgs before a crash.")
+}
+func (cmd *Cmd) toolExecFlag(fs *flag.FlagSet) {
+	fs.StringVar(&cmd.flags.toolExec, "toolexec", "", "execute cmd, useful to run a tool with the output file (ex: wine outputfilename")
+}
+func (cmd *Cmd) dirsFlag(fs *flag.FlagSet) {
+	fn := func(s string) error {
+		cmd.flags.dirs = splitCommaList(s)
+		return nil
+	}
+	rf := &runFnFlag{fn}
+	fs.Var(rf, "dirs", "comma-separated `string` of directories to annotate")
+}
+func (cmd *Cmd) filesFlag(fs *flag.FlagSet) {
+	fn := func(s string) error {
+		cmd.flags.files = splitCommaList(s)
+		return nil
+	}
+	rf := &runFnFlag{fn}
+	fs.Var(rf, "files", "comma-separated `string` of files to annotate")
+}
+func (cmd *Cmd) envFlag(fs *flag.FlagSet) {
+	fn := func(s string) error {
+		cmd.flags.env = filepath.SplitList(s)
+		return nil
+	}
+	rf := &runFnFlag{fn}
+	usage := fmt.Sprintf("`string` with env variables (ex: \"GOOS=os%c...\"'", filepath.ListSeparator)
+	fs.Var(rf, "env", usage)
+}
+
+//------------
+
+type runFnFlag struct {
+	fn func(string) error
+}
+
+func (v runFnFlag) String() string     { return "" }
+func (v runFnFlag) Set(s string) error { return v.fn(s) }
 
 //------------
 
@@ -913,7 +956,6 @@ func normalizeFilenameForExec(filename string) string {
 
 func splitCommaList(val string) []string {
 	a := strings.Split(val, ",")
-	seen := make(map[string]bool)
 	u := []string{}
 	for _, s := range a {
 		// don't add empty strings
@@ -921,11 +963,6 @@ func splitCommaList(val string) []string {
 		if s == "" {
 			continue
 		}
-		// don't add repeats
-		if seen[s] {
-			continue
-		}
-		seen[s] = true
 
 		u = append(u, s)
 	}

@@ -179,17 +179,24 @@ func (annset *AnnotatorSet) Print(w io.Writer, astFile *ast.File) error {
 
 func (annset *AnnotatorSet) ConfigContent() string {
 	entriesStr := annset.buildConfigContentEntries()
+
+	syncSendStr := "false"
+	if debug.SyncSend {
+		syncSendStr = "true"
+	}
+
 	src := `package godebugconfig
 import "` + DebugPkgPath + `"
 func init(){
-	debug.ServerNetwork="` + debug.ServerNetwork + `"
-	debug.ServerAddress="` + debug.ServerAddress + `"
+	debug.ServerNetwork = "` + debug.ServerNetwork + `"
+	debug.ServerAddress = "` + debug.ServerAddress + `"
+	debug.SyncSend = ` + syncSendStr + `
 	debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
 		` + entriesStr + `
 	}
 	debug.StartServer()
 }
-	`
+`
 	return src
 }
 

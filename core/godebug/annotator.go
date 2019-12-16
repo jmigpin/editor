@@ -649,6 +649,14 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	isPanic := false
 	switch t := ce.Fun.(type) {
 	case *ast.Ident:
+		// fixes uint64(math.MaxUint64) issue where assigning the big const to a var would give a compiler error (consts are assigned to int by default)
+		// TODO: int64(f())
+		//if avoidCallExpr(t.Name) {
+		//	ce := ann.newDebugCallExpr("IBy")
+		//	ctx.pushExprs(ce)
+		//	return
+		//}
+
 		fname = t.Name
 		switch t.Name {
 		case "panic": // TODO: could be "a.panic"?
@@ -692,7 +700,7 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	// avoid "line unreachable" compiler errors
 	if isPanic {
 		// nil arg: newDebugLineStmt will generate an emptyStmt
-		ctx.pushExprs(nil)
+		ctx.pushExprs(emptyExpr())
 		return
 	}
 
@@ -837,7 +845,7 @@ func (ann *Annotator) visitIndexExpr(ctx *Ctx, ie *ast.IndexExpr) {
 	var x ast.Expr
 	switch ie.X.(type) {
 	case *ast.Ident, *ast.SelectorExpr:
-		x = nilIdent() // direct nil
+		x = nilIdent()
 	default:
 		x = ann.visitExpr(ctx, &ie.X)
 	}
@@ -865,11 +873,10 @@ func (ann *Annotator) visitSliceExpr(ctx *Ctx, se *ast.SliceExpr) {
 	var ix []ast.Expr
 	for _, e := range []*ast.Expr{&se.Low, &se.High, &se.Max} {
 		var r ast.Expr
-		if *e != nil {
+		if *e == nil {
+			r = nilIdent()
+		} else {
 			r = ann.visitExpr(ctx, e)
-		}
-		if r == nil {
-			r = nilIdent() // direct nil
 		}
 		ix = append(ix, r)
 	}
@@ -1039,8 +1046,6 @@ func (ann *Annotator) visitFieldList(ctx *Ctx, fl *ast.FieldList) []ast.Expr {
 }
 
 func (ann *Annotator) visitField(ctx *Ctx, field *ast.Field) []ast.Expr {
-	ctx2 := ctx.withNewExprs()
-
 	// set field name if it has no names (otherwise it won't output)
 	if len(field.Names) == 0 {
 		field.Names = append(field.Names, ann.newIdent(ctx))
@@ -1048,6 +1053,7 @@ func (ann *Annotator) visitField(ctx *Ctx, field *ast.Field) []ast.Expr {
 
 	exprs := []ast.Expr{}
 	for _, id := range field.Names {
+		ctx2 := ctx.withNewExprs()
 		ann.visitIdent(ctx2, id)
 		w := ctx2.popExprs()
 		exprs = append(exprs, w...)
@@ -1240,8 +1246,7 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 	//	case *ast.ArrayType: // TODO: [...]
 	//		ann.visitArrayType(ctx, t)
 	default:
-		spew.Dump("expr", t)
-		//panic("!")
+		spew.Dump("todo: expr", t)
 	}
 
 	exprs := ctx.popExprs()
@@ -1249,10 +1254,10 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 		return exprs[0]
 	}
 
+	//return ann.newDebugCallExpr("IVs", "todo: %T", *exprPtr)
 	fmt.Printf("visitExpr: %T len=%v\n", *exprPtr, len(exprs))
 	spew.Dump(*exprPtr)
 	return nilIdent()
-	//return ann.newDebugCallExpr("IV", nilIdent())
 }
 
 //----------
@@ -1319,11 +1324,9 @@ func (ann *Annotator) newDebugLineStmt(ctx *Ctx, pos token.Pos, e ast.Expr) ast.
 		return &ast.EmptyStmt{}
 	}
 
-	if e == nil {
+	if e == emptyExpr() {
 		return &ast.EmptyStmt{}
 	}
-
-	ann.builtDebugLineStmt = true
 
 	// debug index
 	ctx2 := ctx.callExprDebugIndex()
@@ -1350,6 +1353,8 @@ func (ann *Annotator) newDebugLineStmt(ctx *Ctx, pos token.Pos, e ast.Expr) ast.
 		Sel: ast.NewIdent("Line"),
 	}
 	es := &ast.ExprStmt{X: &ast.CallExpr{Fun: se, Args: args}}
+
+	ann.builtDebugLineStmt = true
 	return es
 }
 
@@ -1408,12 +1413,9 @@ func (ann *Annotator) annotationsOn(n ast.Node) (bool, bool) {
 
 //----------
 
-var _nilIdent = &ast.Ident{Name: "nil"}
-
 func nilIdent() *ast.Ident {
-	return _nilIdent
+	return &ast.Ident{Name: "nil"}
 }
-
 func anonIdent() *ast.Ident {
 	return &ast.Ident{Name: "_"}
 }
@@ -1421,6 +1423,12 @@ func isAnonIdent(e ast.Expr) bool {
 	id, ok := e.(*ast.Ident)
 	return ok && id.Name == "_"
 }
+
+//----------
+
+var _emptyExpr = &ast.Ident{Name: "*emptyExpr*"}
+
+func emptyExpr() ast.Expr { return _emptyExpr }
 
 //----------
 
@@ -1500,3 +1508,22 @@ func isSelectorIdents(e ast.Expr) bool {
 		return false
 	}
 }
+
+//----------
+
+// TODO
+//func avoidCallExpr(name string) bool {
+//	// fixes
+//	switch name {
+//	case "bool",
+//		"int", "int8", "int16", "int32", "int64",
+//		"uint", "uint8", "uint16", "uint32", "uint64",
+//		"uintptr",
+//		"float32", "float64",
+//		"complex64", "complex128",
+//		"string",
+//		"rune", "byte":
+//		return true
+//	}
+//	return false
+//}

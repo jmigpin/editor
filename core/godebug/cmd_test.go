@@ -589,6 +589,7 @@ func TestCmd_srcDev(t *testing.T) {
 	src := `
 		package main
 		import "image"
+		import "math"
 		type A struct{ p image.Point }
 		var p = image.Point{1,1}
 		var ch = make(chan image.Point,1)
@@ -597,11 +598,9 @@ func TestCmd_srcDev(t *testing.T) {
 		func f4(p*image.Point) bool { return true }
 		func f5() int { return 1 }
 		func main(){
-			var(
-				a=1
-				b=a
-			)
-			_=b
+			a:=uint64(0)
+			a=math.MaxUint64
+			_=a
 		}
 	`
 	msgs := doCmdSrc(t, src, false, false)
@@ -790,14 +789,20 @@ func doCmdSrc(t *testing.T, src string, tests bool, noModules bool) []string {
 	tf.WriteFileInTmp2OrPanic(filename, src)
 
 	args := []string{
+		//"run", "-h",
 		"run",
+		//"-verbose",
 		//"-work",
 		filename,
 	}
 	if tests {
-		args = []string{"test"} // no file
+		args = []string{
+			"test",
+			//"-verbose",
+			//"-work",
+			// no filename
+		}
 	}
-	//args = append(args, "-verbose", "-work")
 	return doCmd2(t, tf.Dir, args, noModules, tf.Dir)
 }
 

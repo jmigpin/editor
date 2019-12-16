@@ -13,15 +13,16 @@ import (
 var AnnotatorFilesData []*AnnotatorFileData // all debug data
 var ServerNetwork string
 var ServerAddress string
+var SyncSend bool // don't send in chunks (usefull to get msgs before crash)
 
 //----------
 
 //var logger = log.New(os.Stdout, "debug: ", 0)
 var logger = log.New(ioutil.Discard, "debug: ", 0)
 
-const chunkSendRate = 15  // per second
-const sendNowNMsgs = 2048 // don't wait for send rate, send now (memory)
-const sendQSize = 512     // msgs queueing to be sent
+const chunkSendRate = 15       // per second
+const chunkSendNowNMsgs = 2048 // don't wait for send rate, send now (memory)
+const chunkSendQSize = 512     // msgs queueing to be sent
 
 //----------
 
@@ -136,8 +137,13 @@ type CConn struct {
 
 func NewCCon(srv *Server, conn net.Conn) *CConn {
 	cconn := &CConn{srv: srv, conn: conn}
-	cconn.sendch = make(chan *LineMsg, sendQSize)
 	cconn.reqStart.start = make(chan struct{})
+
+	qsize := chunkSendQSize
+	if SyncSend {
+		qsize = 0
+	}
+	cconn.sendch = make(chan *LineMsg, qsize)
 
 	// receive messages
 	cconn.rwait.Add(1)
@@ -230,19 +236,26 @@ func (cconn *CConn) sendMsgsLoop() {
 		return
 	}
 
-	//// commented: simple iterative send (slow)
-	//for {
-	//	v, ok := <-conn.sendch
-	//	if !ok {
-	//		break
-	//	}
-	//	if err := conn.send2(v); err != nil {
-	//		log.Println(err)
-	//	}
-	//}
-	//return
+	if SyncSend {
+		cconn.syncSendLoop()
+	} else {
+		cconn.chunkSendLoop()
+	}
+}
 
-	// send in chunks (better performance)
+func (cconn *CConn) syncSendLoop() {
+	for {
+		v, ok := <-cconn.sendch
+		if !ok {
+			break
+		}
+		if err := cconn.send2(v); err != nil {
+			log.Println(err)
+		}
+	}
+}
+
+func (cconn *CConn) chunkSendLoop() {
 	scheduled := false
 	timeToSend := make(chan bool)
 	msgs := []*LineMsg{}
@@ -254,14 +267,15 @@ func (cconn *CConn) sendMsgsLoop() {
 			msgs = nil
 		}
 	}
+loop1:
 	for {
 		select {
 		case v, ok := <-cconn.sendch:
 			if !ok {
-				goto loopEnd
+				break loop1
 			}
 			msgs = append(msgs, v)
-			if len(msgs) >= sendNowNMsgs {
+			if len(msgs) >= chunkSendNowNMsgs {
 				sendMsgs()
 			} else if !scheduled {
 				scheduled = true
@@ -276,7 +290,6 @@ func (cconn *CConn) sendMsgsLoop() {
 			sendMsgs()
 		}
 	}
-loopEnd:
 	// send last messages if any
 	sendMsgs()
 }

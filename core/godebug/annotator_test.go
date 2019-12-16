@@ -1963,6 +1963,15 @@ func TestAnnotator108(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
+// TODO
+//func TestAnnotator109(t *testing.T) {
+//	inout := []string{
+//		`a:=uint64(math.MaxUint64)`,
+//		``,
+//	}
+//	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+//}
+
 func TestAnnotator_(t *testing.T) {
 	inout := []string{
 		``,
