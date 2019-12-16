@@ -192,7 +192,7 @@ func (files *Files) pkgPathDir(filename string) (string, bool) {
 //----------
 
 func (files *Files) addFilesWithDebugComment(pkgs []*packages.Package) error {
-	for filename, _ := range files.progFilenames {
+	for filename := range files.progFilenames {
 		astFile, err := files.fullAstFile(filename)
 		if err != nil {
 			return err
@@ -264,7 +264,7 @@ func (files *Files) addFilesWithDebugComment(pkgs []*packages.Package) error {
 //----------
 
 func (files *Files) solveFilenames() error {
-	for fname, _ := range files.filenames {
+	for fname := range files.filenames {
 		fi, err := os.Stat(fname)
 		if err != nil {
 			return err
