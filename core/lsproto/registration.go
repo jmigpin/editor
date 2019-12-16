@@ -124,7 +124,8 @@ func (reg *Registration) StartClientServer(ctx context.Context) (*Client, error)
 	}
 
 	// initialize
-	if err := reg.cs.cli.Initialize(ctx, "/"); err != nil {
+	rootDir := osutil.HomeEnvVar()
+	if err := reg.cs.cli.Initialize(ctx, rootDir); err != nil {
 		return nil, err
 	}
 
@@ -132,10 +133,6 @@ func (reg *Registration) StartClientServer(ctx context.Context) (*Client, error)
 }
 
 func (reg *Registration) connectClientServer(ctx context.Context) error {
-	// enforce max timeout to connect to a server
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
 	switch reg.Network {
 	case "tcp":
 		return reg.connClientServerTCP(ctx)
@@ -303,11 +300,6 @@ func RegistrationExamples() string {
 	return strings.Join(u, "\n")
 }
 
-// golang.org/x/tools/cmd/gopls
-// golang.org/x/tools/internal/lsp
-// golang.org/x/tools/internal/jsonrpc2
-// https://github.com/golang/tools/tree/master/internal/lsp
-// https://github.com/golang/tools/tree/master/internal/jsonrpc2
 var GoplsRegistrationStr = GoplsRegistration(false)
 
 func GoplsRegistration(trace bool) string {

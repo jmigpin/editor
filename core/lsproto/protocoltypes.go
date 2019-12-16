@@ -61,17 +61,34 @@ func (e *ResponseError) Error() string {
 //----------
 
 type InitializeParams struct {
-	RootUri      string              `json:"rootUri,omitempty"`
-	Capabilities *ClientCapabilities `json:"capabilities,omitempty"`
+	RootUri          string              `json:"rootUri,omitempty"`
+	Capabilities     *ClientCapabilities `json:"capabilities,omitempty"`
+	WorkspaceFolders []*WorkspaceFolder  `json:"workspaceFolders,omitempty"`
 }
+
+type InitializedParams struct {
+	None bool `json:"none"`
+}
+
 type ClientCapabilities struct {
 	TextDocument *TextDocumentClientCapabilities `json:"textDocument,omitempty"`
+	Workspace    *WorkspaceClientCapabilities    `json:"workspace,omitempty"`
 }
+
 type TextDocumentClientCapabilities struct {
 	PublishDiagnostics *PublishDiagnostics `json:"publishDiagnostics,omitempty"`
 }
 type PublishDiagnostics struct {
 	RelatedInformation bool `json:"relatedInformation"`
+}
+
+type WorkspaceClientCapabilities struct {
+	WorkspaceFolders bool `json:"workspaceFolders"`
+}
+
+type WorkspaceFolder struct {
+	Uri  string `json:"uri"`
+	Name string `json:"name"`
 }
 
 type TextDocumentPositionParams struct {

@@ -7,14 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
-
-//----------
 
 func testGoSource1() string {
 	return `
@@ -105,9 +102,9 @@ func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 	rd := iorw.NewStringReader(src)
 
 	ctx := context.Background()
-	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	ctx = ctx2
+	//ctx2, cancel := context.WithTimeout(ctx, 20*time.Second)
+	//defer cancel()
+	//ctx = ctx2
 
 	man := newTestManager(t)
 	defer man.Close()
@@ -151,9 +148,9 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 	rd := iorw.NewStringReader(src)
 
 	ctx := context.Background()
-	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	ctx = ctx2
+	//ctx2, cancel := context.WithTimeout(ctx, 20*time.Second)
+	//defer cancel()
+	//ctx = ctx2
 
 	// start manager
 	man := newTestManager(t)
@@ -179,7 +176,7 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 func newTestManager(t *testing.T) *Manager {
 	fnErr := func(err error) {
 		//t.Log(err) // error if t.Log gets used after returning from func
-		logPrintf("man async error: %v", err)
+		logPrintf("test: manager async error: %v", err)
 	}
 	man := NewManager(fnErr)
 
@@ -324,24 +321,24 @@ func TestManager2(t *testing.T) {
 	}
 }
 
-func TestManager3(t *testing.T) {
-	// simple helloworld dir module outside the gopath
-	// TODO: create this ondemand in the tmp dir
-	loc := "/home/jorge/tmp/go_tests/hw/hello_test.go:7:13"
-	f, l, c := parseLocation(t, loc)
+//func TestManager3(t *testing.T) {
+//	// simple helloworld dir module outside the gopath
+//	// TODO: create this ondemand in the tmp dir
+//	loc := "/home/jorge/tmp/go_tests/hw/hello_test.go:7:13"
+//	f, l, c := parseLocation(t, loc)
 
-	rw, offset := readBytesOffset(t, f, l, c)
+//	rw, offset := readBytesOffset(t, f, l, c)
 
-	ctx0 := context.Background()
-	ctx, cancel := context.WithCancel(ctx0)
-	defer cancel()
+//	ctx0 := context.Background()
+//	ctx, cancel := context.WithCancel(ctx0)
+//	defer cancel()
 
-	man := newTestManager(t)
-	defer man.Close()
+//	man := newTestManager(t)
+//	defer man.Close()
 
-	a, b, err := man.TextDocumentDefinition(ctx, f, rw, offset)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(a, b)
-}
+//	a, b, err := man.TextDocumentDefinition(ctx, f, rw, offset)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	t.Log(a, b)
+//}

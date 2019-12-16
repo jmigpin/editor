@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 )
 
@@ -17,8 +18,9 @@ import (
 
 // Implements rpc.ClientCodec
 type JsonCodec struct {
-	OnNotificationMessage func(*NotificationMessage)
-	OnIOReadError         func(error) // callback that allows immediate action on err
+	OnNotificationMessage   func(*NotificationMessage)
+	OnIOReadError           func(error) // callback that allows immediate action on err
+	OnUnexpectedServerReply func(error)
 
 	rwc           io.ReadWriteCloser
 	responses     chan interface{}
@@ -37,6 +39,20 @@ func NewJsonCodec(rwc io.ReadWriteCloser) *JsonCodec {
 	c.simulatedResp = make(chan interface{}, 1)
 	go c.readLoop()
 	return c
+}
+
+//----------
+
+func (c *JsonCodec) ioReadErr(err error) {
+	if c.OnIOReadError != nil {
+		go c.OnIOReadError(err)
+	}
+}
+
+func (c *JsonCodec) unexpectedServerReply(err error) {
+	if c.OnUnexpectedServerReply != nil {
+		c.OnUnexpectedServerReply(err)
+	}
 }
 
 //----------
@@ -118,7 +134,7 @@ func (c *JsonCodec) readLoop() {
 			if c.isClosing() {
 				break
 			}
-			logPrintf("read resp err <--:\n%v\n", err)
+			logPrintf("read resp err1 <--: %v\n", err)
 			c.responses <- err
 			break
 		}
@@ -127,7 +143,7 @@ func (c *JsonCodec) readLoop() {
 			if c.isClosing() {
 				break
 			}
-			logPrintf("read resp err <--:\n%v\n", err)
+			logPrintf("read resp err2 <--: %v\n", err)
 			c.responses <- err
 			break
 		}
@@ -139,8 +155,10 @@ func (c *JsonCodec) readLoop() {
 
 //----------
 
+// Sets response.Seq to have ReadResponseBody be called with the correct reply variable. i
 func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
-	c.readData = readData{} // reset
+	c.readData = readData{}          // reset
+	resp.Seq = uint64(math.MaxInt64) // set to non-existent sequence
 
 	var v interface{}
 	select {
@@ -157,9 +175,7 @@ func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 	case error:
 		// read error: there is no corresponding call
 		// only way to make this known
-		if c.OnIOReadError != nil {
-			go c.OnIOReadError(t)
-		}
+		c.ioReadErr(t)
 		return t // nothing will handle this return
 	case uint64: // request id that expects noreply
 		c.readData = readData{noReply: true}
@@ -171,15 +187,14 @@ func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 		rd := bytes.NewReader(t)
 		if err := decodeJson(rd, lspResp); err != nil {
 			c.readData = readData{noReply: true}
-			// returning error breaks the client loop
-			return fmt.Errorf("jsoncodec: decode: %v", err)
+			err := fmt.Errorf("jsoncodec: decode: %v", err)
+			c.ioReadErr(err)
+			// not setting response.Set will break the rpc loop
+			return nil
 		}
 		c.readData.lspResp = lspResp
 		// msg id (needed for the rpc to run the reply to the caller)
-		if lspResp.isServerPush() {
-			// no seq, zero is first msg, need to use maxuint64
-			resp.Seq = math.MaxInt64 // can't print math.MaxUint64 const
-		} else {
+		if !lspResp.isServerPush() {
 			resp.Seq = uint64(lspResp.Id)
 		}
 		return nil
@@ -215,12 +230,14 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 
 	// error
 	if reply == nil {
-		//return fmt.Errorf("jsoncodec: reply has no handler?")
-
-		//err := fmt.Errorf("jsoncodec: reply has no handler?")
-		//fmt.Fprintf(os.Stderr, "error: %v\n", err)
-
-		// TODO: gopls: replies to some msgs that area not expecting a reply. Returning an error will stop the connection. Don't stop due to this (return nil).
+		// TODO: gopls is sending these...
+		// server returned a reply that was supposed to have no reply
+		fn := c.OnUnexpectedServerReply
+		if fn != nil {
+			err := fmt.Errorf("jsoncodec: server msg without handler: %s", spew.Sdump(c.readData))
+			fn(err)
+		}
+		// Returning an error would stop the connection.
 		return nil
 	}
 	return fmt.Errorf("jsoncodec: reply data not assigned: %v", reply)
@@ -230,25 +247,34 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 
 func (c *JsonCodec) readHeaders() (int, error) {
 	var length int
+	var headersSize int
 	for {
 		// read line
 		var line string
 		for {
-			p := make([]byte, 1)
-			_, err := c.rwc.Read(p)
+			b := make([]byte, 1)
+			_, err := io.ReadFull(c.rwc, b)
 			if err != nil {
 				return 0, err
 			}
-			line += string(p)
-			if p[0] == '\n' {
+
+			if b[0] == '\n' { // end of header line
 				break
 			}
 			if len(line) > 1024 {
 				return 0, errors.New("header line too long")
 			}
+
+			line += string(b)
+			headersSize += len(b)
 		}
+
+		if headersSize > 10*1024 {
+			return 0, errors.New("headers too long")
+		}
+
+		// header finished (empty line)
 		line = strings.TrimSpace(line)
-		// header finished
 		if line == "" {
 			break
 		}
@@ -280,10 +306,7 @@ func (c *JsonCodec) readHeaders() (int, error) {
 func (c *JsonCodec) readContent(length int) ([]byte, error) {
 	b := make([]byte, length)
 	_, err := io.ReadFull(c.rwc, b)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return b, err
 }
 
 //----------

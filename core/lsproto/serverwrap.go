@@ -84,8 +84,6 @@ func NewServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, reg *Reg
 	return sw, sw.rwc, nil
 }
 
-//----------
-
 func newServerWrapCommon(ctx0 context.Context, cmd string, reg *Registration, preStartFn func(sw *ServerWrap) error) (*ServerWrap, error) {
 	sw := &ServerWrap{reg: reg}
 	sw.reg.cs.mc.Add(sw)
@@ -122,30 +120,6 @@ func newServerWrapCommon(ctx0 context.Context, cmd string, reg *Registration, pr
 
 //----------
 
-func randPort() int {
-	seed := time.Now().UnixNano() + int64(os.Getpid())
-	ra := rand.New(rand.NewSource(seed))
-	port := 27000 + ra.Intn(1000)
-	return port
-}
-
-func cmdTemplate(cmdTmpl, addr string) (string, error) {
-	// build template
-	tmpl, err := template.New("").Parse(cmdTmpl)
-	if err != nil {
-		return "", err
-	}
-	// fill template
-	var data = struct{ Addr string }{addr}
-	var out bytes.Buffer
-	if err := tmpl.Execute(&out, data); err != nil {
-		return "", err
-	}
-	return out.String(), nil
-}
-
-//----------
-
 func (sw *ServerWrap) Close() error {
 	sw.cancel() // cleanup context resource (cancels cmd)
 	me := iout.MultiError{}
@@ -171,4 +145,29 @@ func (rwc *rwc) Close() error {
 	me.Add(rwc.ReadCloser.Close())
 	me.Add(rwc.WriteCloser.Close())
 	return me.Result()
+}
+
+//----------
+
+func randPort() int {
+	seed := time.Now().UnixNano() + int64(os.Getpid())
+	ra := rand.New(rand.NewSource(seed))
+	min, max := 9000, 65535 // TODO: ask for available port
+	port := min + ra.Intn(max-min)
+	return port
+}
+
+func cmdTemplate(cmdTmpl, addr string) (string, error) {
+	// build template
+	tmpl, err := template.New("").Parse(cmdTmpl)
+	if err != nil {
+		return "", err
+	}
+	// fill template
+	var data = struct{ Addr string }{addr}
+	var out bytes.Buffer
+	if err := tmpl.Execute(&out, data); err != nil {
+		return "", err
+	}
+	return out.String(), nil
 }

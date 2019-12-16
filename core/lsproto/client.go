@@ -40,6 +40,7 @@ func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
 	cc := NewJsonCodec(rwc)
 	cc.OnIOReadError = cli.reg.onIOReadError
 	cc.OnNotificationMessage = cli.onNotificationMessage
+	//cc.OnUnexpectedServerReply = cli.reg.man.errorAsync // ignore
 
 	cli.rcli = rpc.NewClientWithCodec(cc)
 
@@ -77,7 +78,7 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 
 	// TEMPORARY: all calls must complete under X time
 	// TODO: ensure timeout (at least for now while developing)
-	//ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	//ctx2, cancel := context.WithTimeout(ctx, 30*time.Second)
 	//go func() {
 	//	<-ctx2.Done()
 	//	if ctx2.Err() != nil {
@@ -136,14 +137,30 @@ func (cli *Client) onNotificationMessage(msg *NotificationMessage) {
 func (cli *Client) Initialize(ctx context.Context, dir string) error {
 	opt := &InitializeParams{}
 	opt.RootUri = addFileScheme(dir)
-	//opt.Capabilities.TextDocument.PublishDiagnostics = &PublishDiagnostics{
-	//	RelatedInformation: false,
-	//}
+	opt.Capabilities = &ClientCapabilities{
+		//Workspace: &WorkspaceClientCapabilities{
+		//	WorkspaceFolders: true,
+		//},
+		//TextDocument: &TextDocumentClientCapabilities{
+		//	PublishDiagnostics: &PublishDiagnostics{
+		//		RelatedInformation: false,
+		//	},
+		//},
+	}
 
+	logJson("opt -->: ", opt)
 	var capabilities interface{}
 	err := cli.Call(ctx, "initialize", &opt, &capabilities)
-	//logJson("initialize <--: ", capabilities)
-	return err
+	if err != nil {
+		return err
+	}
+	logJson("initialize <--: ", capabilities)
+
+	// send "initialized"
+	// note: without this, "gopls" gives "no views"
+	opt2 := &InitializedParams{}
+	err2 := cli.Call(ctx, "noreply:initialized", &opt2, nil)
+	return err2
 }
 
 //----------
@@ -157,7 +174,7 @@ func (cli *Client) ShutdownRequest() error {
 
 	// best effort, impose timeout
 	ctx := context.Background()
-	ctx2, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+	ctx2, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 	defer cancel()
 	ctx = ctx2
 
@@ -168,12 +185,7 @@ func (cli *Client) ShutdownRequest() error {
 func (cli *Client) ExitNotification() error {
 	// https://microsoft.github.io/language-server-protocol/specification#exit
 
-	// best effort, impose timeout
 	ctx := context.Background()
-	ctx2, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-	defer cancel()
-	ctx = ctx2
-
 	err := cli.Call(ctx, "noreply:exit", nil, nil)
 	return err
 }
@@ -337,3 +349,5 @@ func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename stri
 	cli.fversions[filename] = v
 	return cli.TextDocumentDidOpen(ctx, filename, string(b), v)
 }
+
+//----------
