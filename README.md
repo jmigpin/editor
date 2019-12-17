@@ -217,7 +217,6 @@ Examples:
 	GoDebug test -run mytest
 	GoDebug build -addr=:8080 main.go
 	GoDebug connect -addr=:8080
-
 ```
 
 - Annotate files
@@ -248,12 +247,22 @@ Examples:
 			println(a) // annotated, not part of the disabled block
 		}
 		```
+- Limitations:
+	- `String` methods are not annotated to avoid endless loops (the annotation would recursively call the String method again).
+	- Go supports multi-value function assignment. These statements are annotated but give a compilation error later:
+		```
+		func myfunc1() (int,int) { return 1, 2}
+		func myfunc2(a int, b int) {}
+		...
+		myfunc2(myfunc1()) // myfunc1 returns 2 arguments (compilation err)
+		```
+		The annotator assumes myfunc1 returns 1 value. For this to be solved the annotator would have to become substantially slower with type analysis.
+
 - Notes:
-	- use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
 	- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
+	- use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
 	- Supports remote debugging (check help usage).
 		- A client can connect/disconnect any number of times, but there can be only one client at a time.
-	- `String` methods are not annotated to avoid endless loops (the annotation would recursively call the String method again).
 	- Example usage of setting the env var in a godebug session:
 		```
 		GoDebug run -env=GO111MODULE=off main.go
