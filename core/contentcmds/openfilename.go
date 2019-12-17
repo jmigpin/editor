@@ -58,6 +58,9 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 	// remove escapes
 	filePos.Filename = parseutil.RemoveFilenameEscapes(filePos.Filename, res.Escape, res.PathSep)
 
+	// decode home vars
+	filePos.Filename = erow.Ed.HomeVars.Decode(filePos.Filename)
+
 	// find full filename
 	filename, fi, ok := core.FindFileInfo(filePos.Filename, erow.Info.Dir())
 	if !ok {
