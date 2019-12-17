@@ -184,44 +184,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `LSProtoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
-- `GoDebug <command> [arguments]`: debugger utility for go programs. 
-	- brief cmd line arguments notes:
-		- `-h`: help (show usage).
-		- `-work`: print out temporary work dir and don't cleanup (allows to see the generated code).
-	- Annotate files
-		- By default, the current directory will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, but it is also possible to annotate by inserting one of the following comments in the code (notice the lack of space):
-			```
-			//godebug:annotateblock
-			//godebug:annotatefile
-			//godebug:annotatepackage
-			```
-			The annotator will detect these comments and annotate the block/file/package.
-			To disable annotating for the current code block, insert:
-			```
-			//godebug:annotateoff
-			```
-		 	This is helpful to bypass loops that would become too slow with debug messages being sent. Example:
-			```
-			func fn(){
-				a:=0 // annotated
-				if a==0{
-					a++ // annotated
-					//godebug:annotateoff
-					a+=2 // *not* annotated
-					a+=3 // *not* annotated
-					for i:=0; i<10000;i++{
-						// *not* annotated
-					}
-				}
-				println(a) // annotated, not part of the disabled block
-			}
-			```
-	- Notes:
-		- use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
-		- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
-		- Supports remote debugging (check help usage).
-			- A client can connect/disconnect any number of times, but there can be only one client at a time.
-		- `String` methods are not annotated to avoid endless loops (the annotation would recursively call the String method again).
+- `GoDebug <command> [arguments]`: debugger utility for go programs (more at [commands: godebug](#commands:-godebug)
 
 *Row name at the toolbar (usually the filename)*
 
@@ -233,6 +196,68 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `<url>`: opens url in preferred application.
 - `<filename(:number?)(:number?)>`: opens filename, possibly at line/column (usual output from compilers). Check common locations like `$GOROOT` and C include directories.
 - `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
+
+## Commands: GoDebug
+
+```
+Usage:
+	GoDebug <command> [arguments]
+The commands are:
+	run		build and run program with godebug data
+	test		test packages compiled with godebug data
+	build 	build binary with godebug data (allows remote debug)
+	connect	connect to a binary built with godebug data (allows remote debug)
+Examples:
+	GoDebug -help
+	GoDebug run -help
+	GoDebug run main.go -arg1 -arg2
+	GoDebug run -dirs=dir1,dir2 -files=f1.go,f2.go main.go -arg1 -arg2
+	GoDebug test -help
+	GoDebug test
+	GoDebug test -run mytest
+	GoDebug build -addr=:8080 main.go
+	GoDebug connect -addr=:8080
+
+```
+
+- Annotate files
+	- By default, the current directory will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, but it is also possible to annotate by inserting one of the following comments in the code (notice the lack of space):
+		```
+		//godebug:annotateblock
+		//godebug:annotatefile
+		//godebug:annotatepackage
+		```
+		The annotator will detect these comments and annotate the block/file/package.
+		To disable annotating for the current code block, insert:
+		```
+		//godebug:annotateoff
+		```
+		This is helpful to bypass loops that would become too slow with debug messages being sent. Example:
+		```
+		func fn(){
+			a:=0 // annotated
+			if a==0{
+				a++ // annotated
+				//godebug:annotateoff
+				a+=2 // *not* annotated
+				a+=3 // *not* annotated
+				for i:=0; i<10000;i++{
+					// *not* annotated
+				}
+			}
+			println(a) // annotated, not part of the disabled block
+		}
+		```
+- Notes:
+	- use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
+	- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
+	- Supports remote debugging (check help usage).
+		- A client can connect/disconnect any number of times, but there can be only one client at a time.
+	- `String` methods are not annotated to avoid endless loops (the annotation would recursively call the String method again).
+	- Example usage of setting the env var in a godebug session:
+		```
+		GoDebug run -env=GO111MODULE=off main.go
+		```
 
 ## Internal variables
 
