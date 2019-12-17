@@ -323,15 +323,17 @@ func (files *Files) findGoMods() {
 			}
 			seen[dir] = true
 
-			// check if dir has go.mod
+			// early break if not a dir
 			fi, err := os.Stat(dir)
-			if err == nil && fi.IsDir() {
-				u := filepath.Join(dir, "go.mod")
-				fi2, err := os.Stat(u)
-				if err == nil && fi2.Mode().IsRegular() {
-					files.modFilenames[u] = struct{}{}
-					break // break inner loop
-				}
+			if err != nil || !fi.IsDir() {
+				break // break inner loop
+			}
+			// check if dir has go.mod
+			u := filepath.Join(dir, "go.mod")
+			fi2, err := os.Stat(u)
+			if err == nil && fi2.Mode().IsRegular() {
+				files.modFilenames[u] = struct{}{}
+				break // break inner loop
 			}
 		}
 	}

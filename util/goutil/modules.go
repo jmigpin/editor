@@ -107,3 +107,22 @@ func GoModCreateContent(dir string, content string) error {
 	}
 	return nil
 }
+
+//----------
+
+func FindGoMod(dir string) (string, bool) {
+	for {
+		goMod := filepath.Join(dir, "go.mod")
+		_, err := os.Stat(goMod)
+		if err == nil {
+			return goMod, true
+		}
+		// parent dir
+		oldDir := dir
+		dir = filepath.Dir(dir)
+		isRoot := oldDir == dir
+		if isRoot {
+			return "", false
+		}
+	}
+}

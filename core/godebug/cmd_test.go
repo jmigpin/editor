@@ -490,7 +490,7 @@ func TestCmd_goPath1(t *testing.T) {
 	cmd := []string{
 		"run",
 		//"-verbose",
-		"-work",
+		//"-work",
 		"main.go"}
 	msgs := doCmd2(t, dir, cmd, true, tf.Dir)
 
@@ -527,6 +527,55 @@ func TestCmd_goPath2(t *testing.T) {
 
 	envs := []string{
 		"GO111MODULE=off",
+		"GOPATH=" + tf.Dir,
+	}
+
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"-env=" + goutil.JoinPathLists(envs...),
+		"main.go",
+	}
+
+	dir := filepath.Join(tf.Dir, "aaa/src/main")
+
+	// nomodules=false, but forcing gopath with cmd line -env option
+	msgs := doCmd2(t, dir, cmd, false, "")
+
+	if !hasStringIn(`_ := 1`, msgs) {
+		t.Fatal(msgs)
+	}
+	if !hasStringIn(`"sub1"`, msgs) {
+		t.Fatal(msgs)
+	}
+}
+
+func TestCmd_goPath3(t *testing.T) {
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	mainMainGo := `
+		package main
+		import "pkg1"
+		func main() {
+			_=1
+			_=pkg1.Sub1()
+		}
+	`
+	pkg1Sub1Go := `
+		package pkg1
+		func Sub1() string {
+			//godebug:annotateblock
+			return "sub1"
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("aaa/src/main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("src/pkg1/sub1.go", pkg1Sub1Go)
+
+	envs := []string{
+		//"GO111MODULE=off", // commented: will be auto-detected
 		"GOPATH=" + tf.Dir,
 	}
 

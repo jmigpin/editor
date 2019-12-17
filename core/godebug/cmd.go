@@ -89,14 +89,14 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 		return done, err
 	}
 
-	// setup nomodules
-	if cmd.noModulesOption() {
-		cmd.NoModules = true
-	}
-
 	// absolute dir
 	if u, err := filepath.Abs(cmd.Dir); err == nil {
 		cmd.Dir = u
+	}
+
+	// setup nomodules
+	if !cmd.NoModules && cmd.detectNoModules() {
+		cmd.NoModules = true
 	}
 
 	if cmd.flags.verbose {
@@ -499,7 +499,7 @@ func (cmd *Cmd) environGoPath() (string, bool) {
 
 //------------
 
-func (cmd *Cmd) noModulesOption() bool {
+func (cmd *Cmd) detectNoModules() bool {
 	// cmd line env flag
 	for _, s := range cmd.flags.env {
 		if s == "GO111MODULE=off" {
@@ -507,7 +507,15 @@ func (cmd *Cmd) noModulesOption() bool {
 		}
 	}
 	// environment
-	return os.Getenv("GO111MODULE") == "off"
+	v := os.Getenv("GO111MODULE")
+	if v == "off" {
+		return true
+	}
+	// auto: if it can't find a go.mod, it is off
+	if _, ok := goutil.FindGoMod(cmd.Dir); !ok {
+		return true
+	}
+	return false
 }
 
 //------------
