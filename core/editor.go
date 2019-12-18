@@ -580,10 +580,10 @@ func (ed *Editor) toggleInfoFloatBox() {
 		// handled by lsproto (only on textarea, not on toolbars)
 		if ta == erow.Row.TextArea {
 			// handle filename
-			reg, err := ed.LSProtoMan.FileRegistration(erow.Info.Name())
+			lang, err := ed.LSProtoMan.LangManager(erow.Info.Name())
 			if err == nil {
 				// handled
-				v := fmt.Sprintf("Loading lsproto(%v)...", reg.Language)
+				v := fmt.Sprintf("Loading lsproto(%v)...", lang.Reg.Language)
 				showAsync(v)
 
 				// lsproto autocomplete
@@ -714,7 +714,7 @@ type RegistrationsOpt struct {
 }
 
 func (ro *RegistrationsOpt) Set(s string) error {
-	reg, err := lsproto.ParseRegistration(s)
+	reg, err := lsproto.NewRegistration(s)
 	if err != nil {
 		return err
 	}

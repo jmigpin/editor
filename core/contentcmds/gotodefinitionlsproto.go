@@ -26,7 +26,7 @@ func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (err
 	rw := tc.RW()
 
 	// must have a registration that handles the filename
-	_, err := ed.LSProtoMan.FileRegistration(erow.Info.Name())
+	_, err := ed.LSProtoMan.LangManager(erow.Info.Name())
 	if err != nil {
 		return nil, false
 	}

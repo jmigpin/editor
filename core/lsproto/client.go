@@ -16,41 +16,58 @@ import (
 )
 
 type Client struct {
-	rcli      *rpc.Client
-	rwc       io.ReadWriteCloser
+	rcli *rpc.Client
+	rwc  io.ReadWriteCloser
+	li   *LangInstance
+
 	fversions map[string]int
-	reg       *Registration
 }
 
-func NewClientTCP(ctx context.Context, addr string, reg *Registration) (*Client, error) {
+//----------
+
+func NewClientTCP(ctx context.Context, addr string, li *LangInstance) (*Client, error) {
 	dialer := net.Dialer{Timeout: 5 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	cli := NewClientIO(conn, reg)
+	cli := NewClientIO(conn, li)
 	return cli, nil
 }
 
-func NewClientIO(rwc io.ReadWriteCloser, reg *Registration) *Client {
-	cli := &Client{reg: reg, fversions: map[string]int{}}
+//----------
+
+func NewClientIO(rwc io.ReadWriteCloser, li *LangInstance) *Client {
+	cli := &Client{li: li, fversions: map[string]int{}}
 
 	cli.rwc = rwc
 
 	cc := NewJsonCodec(rwc)
-	cc.OnIOReadError = cli.reg.onIOReadError
+	cc.OnIOReadError = cli.onIOReadError
 	cc.OnNotificationMessage = cli.onNotificationMessage
-	//cc.OnUnexpectedServerReply = cli.reg.man.errorAsync // ignore
+	//cc.OnUnexpectedServerReply = // ignored
+	go cc.ReadLoop()
 
 	cli.rcli = rpc.NewClientWithCodec(cc)
 
-	reg.cs.mc.Add(cli) // multiclose
+	//reg.cs.mc.Add(cli) // multiclose
 	return cli
 }
 
 //----------
 
-func (cli *Client) Close() error {
+func (cli *Client) onIOReadError(err error) {
+	_ = cli.li.lang.Close()
+	cli.li.lang.man.errorAsync(err)
+}
+
+//----------
+
+func (cli *Client) closeFromLangInstance() error {
+	if cli == nil {
+		return nil
+	}
+
 	me := iout.MultiError{}
 
 	// best effort, ignore errors
@@ -59,15 +76,11 @@ func (cli *Client) Close() error {
 	//me.Add(cli.ShutdownRequest())
 	//me.Add(cli.ExitNotification())
 
-	if cli.rcli != nil {
-		// possibly also calls codec.close (which in turn calls rwc.close)
-		me.Add(cli.rcli.Close())
-	}
-	if cli.rwc != nil {
-		me.Add(cli.rwc.Close())
-	}
-
-	me.Add(cli.reg.cs.mc.CloseRest(cli)) // multiclose
+	// possibly calls codec.close (which in turn calls rwc.close)
+	me.Add(cli.rcli.Close())
+	//if cli.rwc != nil {
+	//	me.Add(cli.rwc.Close())
+	//}
 
 	return me.Result()
 }
@@ -75,41 +88,21 @@ func (cli *Client) Close() error {
 //----------
 
 func (cli *Client) Call(ctx context.Context, method string, args, reply interface{}) error {
-
-	// TEMPORARY: all calls must complete under X time
-	// TODO: ensure timeout (at least for now while developing)
-	//ctx2, cancel := context.WithTimeout(ctx, 30*time.Second)
-	//go func() {
-	//	<-ctx2.Done()
-	//	if ctx2.Err() != nil {
-	//		err := cli.Close()
-	//		if err != nil {
-	//			err2 := errors.Wrap(err, "call timeout")
-	//			err3 := cli.reg.WrapError(err2)
-	//			cli.reg.man.errorAsync(err3)
-	//		}
-	//	}
-	//}()
-	//ctx = ctx2
-
 	lspResp := &Response{}
 	fn := func() error {
 		return cli.rcli.Call(method, args, lspResp)
 	}
 	lateFn := func(err error) {
-		//defer cancel() // clear resources
-
 		if err != nil {
-			err2 := errors.Wrap(err, "call late")
-			err3 := cli.reg.WrapError(err2)
-			cli.reg.man.errorAsync(err3)
+			err = errors.Wrap(err, "call late")
+			err = cli.li.lang.WrapError(err)
+			cli.li.lang.man.errorAsync(err)
 		}
 	}
 	err := ctxutil.Call(ctx, method, fn, lateFn)
 	if err != nil {
-		err2 := errors.Wrap(err, "call")
-		err3 := cli.reg.WrapError(err2)
-		return err3
+		err = errors.Wrap(err, "call")
+		return cli.li.lang.WrapError(err)
 	}
 
 	// not expecting a reply
@@ -119,7 +112,7 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 
 	// soft error (rpc data with error content)
 	if lspResp.Error != nil {
-		return cli.reg.WrapError(lspResp.Error)
+		return cli.li.lang.WrapError(lspResp.Error)
 	}
 
 	// decode result
@@ -197,7 +190,7 @@ func (cli *Client) TextDocumentDidOpen(ctx context.Context, filename, text strin
 
 	opt := &DidOpenTextDocumentParams{}
 	opt.TextDocument.Uri = addFileScheme(filename)
-	opt.TextDocument.LanguageId = cli.reg.Language
+	opt.TextDocument.LanguageId = cli.li.lang.Reg.Language
 	opt.TextDocument.Version = version
 	opt.TextDocument.Text = text
 	err := cli.Call(ctx, "noreply:textDocument/didOpen", &opt, nil)
@@ -351,3 +344,12 @@ func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename stri
 }
 
 //----------
+
+//func (cli *Client) WorkspaceDidChangeWorkspaceFolders(ctx context.Context, added, removed []*WorkspaceFolder) error {
+//	opt := &DidChangeWorkspaceFoldersParams{}
+//	opt.Event = &WorkspaceFoldersChangeEvent{}
+//	opt.Event.Added = added
+//	opt.Event.Removed = removed
+//	err := cli.Call(ctx, "noreply:workspace/didChangeWorkspaceFolders", &opt, nil)
+//	return err
+//}

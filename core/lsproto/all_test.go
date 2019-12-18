@@ -39,7 +39,7 @@ func TestManGoSrc1Completion(t *testing.T) {
 
 func testGoSource2() string {
 	return `
-		package main
+		package lsproto
 		import "log"
 		func main(){
 			log.P●rintf("aaa")
@@ -186,7 +186,11 @@ func newTestManager(t *testing.T) *Manager {
 		CLangRegistrationStr,
 	}
 	for _, s := range u {
-		if err := man.RegisterStr(s); err != nil {
+		reg, err := NewRegistration(s)
+		if err != nil {
+			panic(err)
+		}
+		if err := man.Register(reg); err != nil {
 			panic(err)
 		}
 	}
@@ -228,7 +232,7 @@ func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWri
 
 //----------
 
-func TestManager1(t *testing.T) {
+func TestManagerGo1(t *testing.T) {
 	goRoot := os.Getenv("GOROOT")
 	loc := filepath.Join(goRoot, "src/context/context.go:242:12")
 	f, l, c := parseLocation(t, loc)
@@ -275,7 +279,37 @@ func TestManager1(t *testing.T) {
 	}
 }
 
-func TestManager2(t *testing.T) {
+func TestManagerGo2(t *testing.T) {
+	goRoot := filepath.Join(os.Getenv("GOROOT"), "src")
+	loc := filepath.Join(goRoot, "context/context.go:242:12")
+	f, l, c := parseLocation(t, loc)
+
+	rw, offset := readBytesOffset(t, f, l, c)
+
+	ctx0 := context.Background()
+	ctx, cancel := context.WithCancel(ctx0)
+	defer cancel()
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	// ensure the lsp server runs
+	comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(comp) == 0 {
+		t.Fatal(comp)
+	}
+
+	// test closing
+	if err := man.Close(); err != nil {
+		t.Logf("man close err: %v", err)
+	}
+	//time.Sleep(1 * time.Second)
+}
+
+func TestManagerC1(t *testing.T) {
 	loc := "/usr/include/X11/Xcursor/Xcursor.h:307:25"
 	f, l, c := parseLocation(t, loc)
 
@@ -320,25 +354,3 @@ func TestManager2(t *testing.T) {
 		t.Fatal(comp)
 	}
 }
-
-//func TestManager3(t *testing.T) {
-//	// simple helloworld dir module outside the gopath
-//	// TODO: create this ondemand in the tmp dir
-//	loc := "/home/jorge/tmp/go_tests/hw/hello_test.go:7:13"
-//	f, l, c := parseLocation(t, loc)
-
-//	rw, offset := readBytesOffset(t, f, l, c)
-
-//	ctx0 := context.Background()
-//	ctx, cancel := context.WithCancel(ctx0)
-//	defer cancel()
-
-//	man := newTestManager(t)
-//	defer man.Close()
-
-//	a, b, err := man.TextDocumentDefinition(ctx, f, rw, offset)
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//	t.Log(a, b)
-//}

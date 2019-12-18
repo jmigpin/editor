@@ -155,6 +155,14 @@ type TextDocumentContentChangeEvent struct {
 	Text        string `json:"text,omitempty"`
 }
 
+//type DidChangeWorkspaceFoldersParams struct {
+//	Event *WorkspaceFoldersChangeEvent `json:"event,omitempty"`
+//}
+//type WorkspaceFoldersChangeEvent struct {
+//	Added   []*WorkspaceFolder `json:"added"`
+//	Removed []*WorkspaceFolder `json:"removed"`
+//}
+
 //----------
 
 type Position struct {

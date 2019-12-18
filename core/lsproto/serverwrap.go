@@ -20,14 +20,12 @@ import (
 type ServerWrap struct {
 	Cmd    *exec.Cmd
 	cancel context.CancelFunc
-	reg    *Registration
-
-	rwc *rwc // can be nil
+	rwc    *rwc // just for IO mode (can be nil)
 }
 
 //----------
 
-func NewServerWrapTCP(ctx context.Context, cmdTmpl string, reg *Registration) (*ServerWrap, string, error) {
+func NewServerWrapTCP(ctx context.Context, cmdTmpl string, li *LangInstance) (*ServerWrap, string, error) {
 	// random port to allow multiple editors to have multiple server wraps
 	port := randPort()
 	// template vars
@@ -39,7 +37,7 @@ func NewServerWrapTCP(ctx context.Context, cmdTmpl string, reg *Registration) (*
 	}
 
 	preStartFn := func(sw *ServerWrap) error {
-		// allows reading lsp server output (ex: gopls)
+		// allows reading lsp server output
 		if logTestVerbose() {
 			sw.Cmd.Stdout = os.Stdout
 			sw.Cmd.Stderr = os.Stderr
@@ -47,14 +45,16 @@ func NewServerWrapTCP(ctx context.Context, cmdTmpl string, reg *Registration) (*
 		return nil
 	}
 
-	sw, err := newServerWrapCommon(ctx, cmd, reg, preStartFn)
+	sw, err := newServerWrapCommon(ctx, cmd, li, preStartFn)
 	if err != nil {
 		return nil, "", err
 	}
 	return sw, addr, nil
 }
 
-func NewServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, reg *Registration) (*ServerWrap, io.ReadWriteCloser, error) {
+//----------
+
+func NewServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, li *LangInstance) (*ServerWrap, io.ReadWriteCloser, error) {
 
 	preStartFn := func(sw *ServerWrap) error {
 		// in/out/err pipes
@@ -77,21 +77,21 @@ func NewServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, reg *Reg
 		return nil
 	}
 
-	sw, err := newServerWrapCommon(ctx, cmd, reg, preStartFn)
+	sw, err := newServerWrapCommon(ctx, cmd, li, preStartFn)
 	if err != nil {
 		return nil, nil, err
 	}
 	return sw, sw.rwc, nil
 }
 
-func newServerWrapCommon(ctx0 context.Context, cmd string, reg *Registration, preStartFn func(sw *ServerWrap) error) (*ServerWrap, error) {
-	sw := &ServerWrap{reg: reg}
-	sw.reg.cs.mc.Add(sw)
+//----------
 
-	// context with cancel
+func newServerWrapCommon(ctx0 context.Context, cmd string, li *LangInstance, preStartFn func(sw *ServerWrap) error) (*ServerWrap, error) {
+	sw := &ServerWrap{}
+
+	// context with cancel for the preStartFn error case
 	ctx, cancel := context.WithCancel(ctx0)
 	sw.cancel = cancel
-
 	// early ctx cleanup
 	startOk := false
 	defer func() {
@@ -120,8 +120,14 @@ func newServerWrapCommon(ctx0 context.Context, cmd string, reg *Registration, pr
 
 //----------
 
-func (sw *ServerWrap) Close() error {
-	sw.cancel() // cleanup context resource (cancels cmd)
+func (sw *ServerWrap) closeFromLangInstance() error {
+	if sw == nil {
+		return nil
+	}
+
+	// stop cmd (also cleanups context resources)
+	sw.cancel()
+
 	me := iout.MultiError{}
 	if sw.rwc != nil {
 		me.Add(sw.rwc.Close())
@@ -129,7 +135,6 @@ func (sw *ServerWrap) Close() error {
 	if sw.Cmd != nil {
 		me.Add(sw.Cmd.Wait())
 	}
-	me.Add(sw.reg.cs.mc.CloseRest(sw)) // multiclose
 	return me.Result()
 }
 

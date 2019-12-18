@@ -19,25 +19,26 @@ import (
 // Implements rpc.ClientCodec
 type JsonCodec struct {
 	OnNotificationMessage   func(*NotificationMessage)
-	OnIOReadError           func(error) // callback that allows immediate action on err
+	OnIOReadError           func(error)
 	OnUnexpectedServerReply func(error)
 
 	rwc           io.ReadWriteCloser
 	responses     chan interface{}
 	simulatedResp chan interface{}
 
-	// used by read response header/body
-	readData readData
+	readData readData // used by read response header/body
 
-	mu      sync.Mutex
-	closing bool
+	mu struct {
+		sync.Mutex
+		done bool
+	}
 }
 
+// Needs a call to ReadLoop() to start reading.
 func NewJsonCodec(rwc io.ReadWriteCloser) *JsonCodec {
 	c := &JsonCodec{rwc: rwc}
 	c.responses = make(chan interface{}, 1)
 	c.simulatedResp = make(chan interface{}, 1)
-	go c.readLoop()
 	return c
 }
 
@@ -53,31 +54,6 @@ func (c *JsonCodec) unexpectedServerReply(err error) {
 	if c.OnUnexpectedServerReply != nil {
 		c.OnUnexpectedServerReply(err)
 	}
-}
-
-//----------
-
-func (c *JsonCodec) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.closing = true
-	return c.rwc.Close()
-}
-
-func (c *JsonCodec) isClosing() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.closing
-}
-
-//----------
-
-func noreplyMethod(method string) (string, bool) {
-	prefix := "noreply:"
-	if strings.HasPrefix(method, prefix) {
-		return method[len(prefix):], true
-	}
-	return method, false
 }
 
 //----------
@@ -126,28 +102,18 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 
 //----------
 
-func (c *JsonCodec) readLoop() {
+func (c *JsonCodec) ReadLoop() {
 	defer func() { close(c.responses) }()
 	for {
-		cl, err := c.readHeaders() // content-length header
+		b, err := c.read()
+		if c.isDone() {
+			break // no error if done
+		}
 		if err != nil {
-			if c.isClosing() {
-				break
-			}
-			logPrintf("read resp err1 <--: %v\n", err)
+			logPrintf("read resp err <--: %v\n", err)
 			c.responses <- err
 			break
 		}
-		b, err := c.readContent(cl)
-		if err != nil {
-			if c.isClosing() {
-				break
-			}
-			logPrintf("read resp err2 <--: %v\n", err)
-			c.responses <- err
-			break
-		}
-
 		logPrintf("read resp <--:\n%s\n", b)
 		c.responses <- b
 	}
@@ -245,7 +211,15 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 
 //----------
 
-func (c *JsonCodec) readHeaders() (int, error) {
+func (c *JsonCodec) read() ([]byte, error) {
+	cl, err := c.readContentLengthHeader() // content length
+	if err != nil {
+		return nil, err
+	}
+	return c.readContent(cl)
+}
+
+func (c *JsonCodec) readContentLengthHeader() (int, error) {
 	var length int
 	var headersSize int
 	for {
@@ -311,9 +285,32 @@ func (c *JsonCodec) readContent(length int) ([]byte, error) {
 
 //----------
 
+func (c *JsonCodec) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.mu.done = true
+	return c.rwc.Close()
+}
+
+func (c *JsonCodec) isDone() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.mu.done
+}
+
+//----------
+
 type readData struct {
 	noReply bool
 	lspResp *Response
 }
 
 //----------
+
+func noreplyMethod(method string) (string, bool) {
+	prefix := "noreply:"
+	if strings.HasPrefix(method, prefix) {
+		return method[len(prefix):], true
+	}
+	return method, false
+}

@@ -4,7 +4,7 @@ import "testing"
 
 func TestParseRegistration1(t *testing.T) {
 	s := "go,.go,tcp,goexec"
-	reg, err := ParseRegistration(s)
+	reg, err := NewRegistration(s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +16,7 @@ func TestParseRegistration1(t *testing.T) {
 
 func TestParseRegistration2(t *testing.T) {
 	s := "c/c++,.c .h .hpp,tcp,\"cexec opt1\""
-	reg, err := ParseRegistration(s)
+	reg, err := NewRegistration(s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestParseRegistration2(t *testing.T) {
 
 func TestParseRegistration3(t *testing.T) {
 	s := "c,.c,tcpclient,127.0.0.1:9000"
-	reg, err := ParseRegistration(s)
+	reg, err := NewRegistration(s)
 	if err != nil {
 		t.Fatal(err)
 	}
