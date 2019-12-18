@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"net/rpc"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,6 +23,9 @@ type Client struct {
 	li   *LangInstance
 
 	fversions map[string]int
+	folders   []*WorkspaceFolder
+
+	supportsWorkspaceUpdate bool
 }
 
 //----------
@@ -45,12 +50,11 @@ func NewClientIO(rwc io.ReadWriteCloser, li *LangInstance) *Client {
 	cc := NewJsonCodec(rwc)
 	cc.OnIOReadError = cli.onIOReadError
 	cc.OnNotificationMessage = cli.onNotificationMessage
-	//cc.OnUnexpectedServerReply = // ignored
+	cc.OnUnexpectedServerReply = cli.onUnexpectedServerReply
 	go cc.ReadLoop()
 
 	cli.rcli = rpc.NewClientWithCodec(cc)
 
-	//reg.cs.mc.Add(cli) // multiclose
 	return cli
 }
 
@@ -58,7 +62,7 @@ func NewClientIO(rwc io.ReadWriteCloser, li *LangInstance) *Client {
 
 func (cli *Client) onIOReadError(err error) {
 	_ = cli.li.lang.Close()
-	cli.li.lang.man.errorAsync(err)
+	cli.li.lang.ErrorAsync(err)
 }
 
 //----------
@@ -95,8 +99,7 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 	lateFn := func(err error) {
 		if err != nil {
 			err = errors.Wrap(err, "call late")
-			err = cli.li.lang.WrapError(err)
-			cli.li.lang.man.errorAsync(err)
+			cli.li.lang.ErrorAsync(err)
 		}
 	}
 	err := ctxutil.Call(ctx, method, fn, lateFn)
@@ -122,14 +125,48 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 //----------
 
 func (cli *Client) onNotificationMessage(msg *NotificationMessage) {
+	// Msgs like:
+	// - a notification was sent to the srv, not expecting a reply, but it receives one because it was an error (has id)
+	// {"error":{"code":-32601,"message":"method not found"},"id":2,"jsonrpc":"2.0"}
+
 	//logJson("notification <--: ", msg)
+}
+
+func (cli *Client) onUnexpectedServerReply(resp *Response) {
+	if resp.Error != nil {
+		// json-rpc error codes: https://www.jsonrpc.org/specification
+		report := false
+		switch resp.Error.Code {
+		case -32601: // method not found
+			report = true
+		case -32602: // invalid params
+			report = true
+			//case -32603: // internal error
+			//report = true
+		}
+		if report {
+			err := fmt.Errorf("id=%v, code=%v, msg=%q", resp.Id, resp.Error.Code, resp.Error.Message)
+			cli.li.lang.ErrorAsync(err)
+		}
+	}
 }
 
 //----------
 
-func (cli *Client) Initialize(ctx context.Context, dir string) error {
-	opt := &InitializeParams{}
-	opt.RootUri = addFileScheme(dir)
+// Filename is the file that triggered the server to be started.
+func (cli *Client) Initialize(ctx context.Context, filename string) error {
+	//rootDir := "/" // (gopls: slow)
+	//rootDir := "" // (gopls: fails with "rootUri=null")
+	//rootDir := osutil.HomeEnvVar() // (gopls: slow)
+	//rootDir := filepath.Dir(filename)
+	// Use a non-existent dir and send an updateworkspacefolder on each request later. Attempt to prevent the lsp server to start looking at the user disk.
+	rootDir := filepath.Join(os.TempDir(), "some-non-existent-dir---")
+
+	opt := &InitializeParams{RootUri: nil}
+	if rootDir != "" {
+		s := addFileScheme(rootDir)
+		opt.RootUri = &s
+	}
 	opt.Capabilities = &ClientCapabilities{
 		//Workspace: &WorkspaceClientCapabilities{
 		//	WorkspaceFolders: true,
@@ -142,15 +179,23 @@ func (cli *Client) Initialize(ctx context.Context, dir string) error {
 	}
 
 	logJson("opt -->: ", opt)
-	var capabilities interface{}
-	err := cli.Call(ctx, "initialize", &opt, &capabilities)
+	var serverCapabilities interface{}
+	err := cli.Call(ctx, "initialize", &opt, &serverCapabilities)
 	if err != nil {
 		return err
 	}
-	logJson("initialize <--: ", capabilities)
+	logJson("initialize <--: ", serverCapabilities)
 
-	// send "initialized"
-	// note: without this, "gopls" gives "no views"
+	// keep track of some capabilities
+	path := "capabilities.workspace.workspaceFolders.supported"
+	v, err := JsonGetPath(serverCapabilities, path)
+	if err == nil {
+		if b, ok := v.(bool); ok && b == true {
+			cli.supportsWorkspaceUpdate = true
+		}
+	}
+
+	// send "initialized" (gopls: "no views" error without this)
 	opt2 := &InitializedParams{}
 	err2 := cli.Call(ctx, "noreply:initialized", &opt2, nil)
 	return err2
@@ -298,6 +343,40 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 
 //----------
 
+func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename string, b []byte) error {
+	v, ok := cli.fversions[filename]
+	if !ok {
+		v = 1
+	} else {
+		v++
+	}
+	cli.fversions[filename] = v
+	return cli.TextDocumentDidOpen(ctx, filename, string(b), v)
+}
+
+//----------
+
+func (cli *Client) WorkspaceDidChangeWorkspaceFolders(ctx context.Context, added, removed []*WorkspaceFolder) error {
+	opt := &DidChangeWorkspaceFoldersParams{}
+	opt.Event = &WorkspaceFoldersChangeEvent{}
+	opt.Event.Added = added
+	opt.Event.Removed = removed
+	err := cli.Call(ctx, "noreply:workspace/didChangeWorkspaceFolders", &opt, nil)
+	return err
+}
+
+func (cli *Client) UpdateWorkspaceFolder(ctx context.Context, dir string) error {
+	if !cli.supportsWorkspaceUpdate {
+		return nil
+	}
+
+	removed := cli.folders
+	cli.folders = []*WorkspaceFolder{{Uri: addFileScheme(dir)}}
+	return cli.WorkspaceDidChangeWorkspaceFolders(ctx, cli.folders, removed)
+}
+
+//----------
+
 //func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) error {
 //	v, ok := cli.fversions[filename]
 //	if !ok {
@@ -332,24 +411,23 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 
 //----------
 
-func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename string, b []byte) error {
-	v, ok := cli.fversions[filename]
-	if !ok {
-		v = 1
-	} else {
-		v++
-	}
-	cli.fversions[filename] = v
-	return cli.TextDocumentDidOpen(ctx, filename, string(b), v)
+func JsonGetPath(v interface{}, path string) (interface{}, error) {
+	args := strings.Split(path, ".")
+	return jsonGetPath2(v, args)
 }
 
-//----------
-
-//func (cli *Client) WorkspaceDidChangeWorkspaceFolders(ctx context.Context, added, removed []*WorkspaceFolder) error {
-//	opt := &DidChangeWorkspaceFoldersParams{}
-//	opt.Event = &WorkspaceFoldersChangeEvent{}
-//	opt.Event.Added = added
-//	opt.Event.Removed = removed
-//	err := cli.Call(ctx, "noreply:workspace/didChangeWorkspaceFolders", &opt, nil)
-//	return err
-//}
+// TODO: incomplete
+func jsonGetPath2(v interface{}, args []string) (interface{}, error) {
+	switch t := v.(type) {
+	case map[string]interface{}:
+		if len(args) > 0 {
+			a := args[0]
+			if v, ok := t[a]; ok {
+				return jsonGetPath2(v, args[1:])
+			}
+		}
+	case bool, int, float32, float64:
+		return t, nil
+	}
+	return nil, fmt.Errorf("not found: %v", args[0])
+}

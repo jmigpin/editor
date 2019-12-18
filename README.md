@@ -31,7 +31,7 @@ Source code editor in pure Go.
 	- Clicking on `.go` files identifiers will jump to the identifier definition (uses `guru` and/or `gopls query` if installed).
 	- Debug utility for go programs (`GoDebug` cmd). (__experimental__)
 		- allows to go back and forth in time to consult code values.
-- Language Server Protocol:
+- Language Server Protocol (code analysis):
 	- `-lsproto` cmd line option (__work-in-progress__)
 	- basic support for gotodefinition and completion
 	- mostly being tested with `clangd` and `gopls`
@@ -73,7 +73,7 @@ Usage of ./editor:
     	Examples:
     	go,.go,tcp,"gopls serve -listen={{.Addr}}"
     	c++,".c .h .cpp .hpp",stdio,clangd
-    	c,.c,tcpclient,127.0.0.1:9000
+    	python,.py,tcpclient,127.0.0.1:9000
   -plugins string
     	comma separated string of plugin filenames
   -scrollbarleft
@@ -84,6 +84,8 @@ Usage of ./editor:
     	open existing session
   -shadows
     	shadow effects on some elements (default true)
+  -sn string
+    	open existing session
   -stringscolor int
     	Colorize strings. Can be set to zero to not colorize. Ex: 0xff0000=red.
   -tabwidth int

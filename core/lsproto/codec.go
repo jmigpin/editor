@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 )
 
@@ -20,7 +19,7 @@ import (
 type JsonCodec struct {
 	OnNotificationMessage   func(*NotificationMessage)
 	OnIOReadError           func(error)
-	OnUnexpectedServerReply func(error)
+	OnUnexpectedServerReply func(*Response)
 
 	rwc           io.ReadWriteCloser
 	responses     chan interface{}
@@ -50,9 +49,9 @@ func (c *JsonCodec) ioReadErr(err error) {
 	}
 }
 
-func (c *JsonCodec) unexpectedServerReply(err error) {
+func (c *JsonCodec) unexpectedServerReply(resp *Response) {
 	if c.OnUnexpectedServerReply != nil {
-		c.OnUnexpectedServerReply(err)
+		c.OnUnexpectedServerReply(resp)
 	}
 }
 
@@ -196,12 +195,12 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 
 	// error
 	if reply == nil {
-		// TODO: gopls is sending these...
-		// server returned a reply that was supposed to have no reply
+		// Server returned a reply that was supposed to have no reply.
+		// Can happen if a "noreply:" func was called and the msg id was already thrown away because it was a notification (no reply was expected). A server can reply with an error in the case of not supporting that function. Or reply if it does support, but internaly it returns a msg saying that the function did not reply a value. This is a LSP protocol design fault.
 		fn := c.OnUnexpectedServerReply
 		if fn != nil {
-			err := fmt.Errorf("jsoncodec: server msg without handler: %s", spew.Sdump(c.readData))
-			fn(err)
+			//err := fmt.Errorf("jsoncodec: server msg without handler: %s", spew.Sdump(c.readData))
+			fn(c.readData.lspResp)
 		}
 		// Returning an error would stop the connection.
 		return nil

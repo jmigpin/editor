@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -38,19 +37,19 @@ func (li *LangInstance) client(ctx context.Context, filename string) (*Client, e
 		return li.mu.cli, nil
 	}
 	// start new client/server
-	if err := li.startClientServer(ctx, filename); err != nil {
+	if err := li.startClientServer(ctx); err != nil {
+		err = li.lang.WrapError(err)
 		return nil, err
 	}
 	// initialize client
-	//rootDir := osutil.HomeEnvVar()
-	rootDir := filepath.Dir(filename)
-	if err := li.mu.cli.Initialize(ctx, rootDir); err != nil {
+	if err := li.mu.cli.Initialize(ctx, filename); err != nil {
+		_ = li.lang.Close()
 		return nil, err
 	}
 	return li.mu.cli, nil
 }
 
-func (li *LangInstance) startClientServer(ctx context.Context, filename string) error {
+func (li *LangInstance) startClientServer(ctx context.Context) error {
 	// independent context for client/server conn
 	connCtx, cancel := context.WithCancel(context.Background())
 	li.mu.connCancel = cancel
@@ -100,7 +99,7 @@ func (li *LangInstance) connClientTCP(reqCtx, connCtx context.Context, addr stri
 	lateFn := func(err error) {
 		if err != nil {
 			err = errors.Wrap(err, "call late")
-			li.lang.man.errorAsync(err)
+			li.lang.ErrorAsync(err)
 			_ = li.lang.Close()
 		}
 	}

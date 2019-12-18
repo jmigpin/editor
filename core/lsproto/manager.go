@@ -10,26 +10,20 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
+//godebug:annotatepackage
+
 // Notes:
 // - Manager manages LangManagers
-// - LangManger has a Registration and handles a LangInstance
+// - LangManager has a Registration and handles a LangInstance
 // - Client handles client connection to the lsp server
 // - ServerWrap, if used, runs the lsp server process
 type Manager struct {
-	langs []*LangManager
-	errFn func(error)
+	langs      []*LangManager
+	asyncErrFn func(error) // called by LangManager
 }
 
-func NewManager(errFn func(error)) *Manager {
-	return &Manager{errFn: errFn}
-}
-
-//----------
-
-func (man *Manager) errorAsync(err error) {
-	if man.errFn != nil && err != nil {
-		man.errFn(err)
-	}
+func NewManager(asyncErrFn func(error)) *Manager {
+	return &Manager{asyncErrFn: asyncErrFn}
 }
 
 //----------
@@ -62,9 +56,6 @@ func (man *Manager) langInstanceClient(ctx context.Context, filename string) (*C
 	}
 	li := lang.instance()
 	cli, err := li.client(ctx, filename)
-	if err != nil {
-		err = lang.WrapError(err)
-	}
 	return cli, li, err
 }
 
@@ -73,6 +64,11 @@ func (man *Manager) langInstanceClient(ctx context.Context, filename string) (*C
 func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string, rd iorw.Reader, offset int) (string, *Range, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
+		return "", nil, err
+	}
+
+	dir := filepath.Dir(filename)
+	if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
 		return "", nil, err
 	}
 
@@ -105,6 +101,11 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string, rd iorw.Reader, offset int) ([]string, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
+		return nil, err
+	}
+
+	dir := filepath.Dir(filename)
+	if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
 		return nil, err
 	}
 

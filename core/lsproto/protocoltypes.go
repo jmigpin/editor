@@ -61,7 +61,7 @@ func (e *ResponseError) Error() string {
 //----------
 
 type InitializeParams struct {
-	RootUri          string              `json:"rootUri,omitempty"`
+	RootUri          *string             `json:"rootUri"`
 	Capabilities     *ClientCapabilities `json:"capabilities,omitempty"`
 	WorkspaceFolders []*WorkspaceFolder  `json:"workspaceFolders,omitempty"`
 }
@@ -155,13 +155,13 @@ type TextDocumentContentChangeEvent struct {
 	Text        string `json:"text,omitempty"`
 }
 
-//type DidChangeWorkspaceFoldersParams struct {
-//	Event *WorkspaceFoldersChangeEvent `json:"event,omitempty"`
-//}
-//type WorkspaceFoldersChangeEvent struct {
-//	Added   []*WorkspaceFolder `json:"added"`
-//	Removed []*WorkspaceFolder `json:"removed"`
-//}
+type DidChangeWorkspaceFoldersParams struct {
+	Event *WorkspaceFoldersChangeEvent `json:"event,omitempty"`
+}
+type WorkspaceFoldersChangeEvent struct {
+	Added   []*WorkspaceFolder `json:"added"`
+	Removed []*WorkspaceFolder `json:"removed"`
+}
 
 //----------
 

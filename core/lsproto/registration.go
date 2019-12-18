@@ -125,14 +125,12 @@ func RegistrationString(reg *Registration) string {
 
 func RegistrationExamples() string {
 	u := []string{
-		GoplsRegistrationStr,
-		CLangRegistrationStr,
-		"c,.c,tcpclient,127.0.0.1:9000",
+		GoplsRegistration(false),
+		CLangRegistration(false),
+		"python,.py,tcpclient,127.0.0.1:9000",
 	}
 	return strings.Join(u, "\n")
 }
-
-var GoplsRegistrationStr = GoplsRegistration(false)
 
 func GoplsRegistration(trace bool) string {
 	cmdStr := ""
@@ -143,8 +141,12 @@ func GoplsRegistration(trace bool) string {
 	return fmt.Sprintf("go,.go,tcp,%q", c)
 }
 
-var CLangRegistrationStr = func() string {
-	c := osutil.ExecName("clangd")
-	e := ".c .h .cpp .hpp"
-	return fmt.Sprintf("c++,%q,stdio,%s", e, c) //+ ",stderr"
-}()
+func CLangRegistration(stderrOutput bool) string {
+	ext := ".c .h .cpp .hpp"
+	cmd := osutil.ExecName("clangd")
+	errOut := ""
+	if stderrOutput {
+		errOut = ",stderr"
+	}
+	return fmt.Sprintf("c++,%q,stdio,%s%s", ext, cmd, errOut)
+}

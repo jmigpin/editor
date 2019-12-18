@@ -5,7 +5,6 @@ import (
 	"sync"
 )
 
-//godebug:annotatepackage
 type LangManager struct {
 	Reg *Registration // accessed from editor
 	man *Manager
@@ -38,6 +37,14 @@ func (lang *LangManager) Close() error {
 	return nil
 }
 
+//----------
+
+func (lang *LangManager) ErrorAsync(err error) {
+	if lang.man.asyncErrFn != nil {
+		err = lang.WrapError(err)
+		lang.man.asyncErrFn(err)
+	}
+}
 func (lang *LangManager) WrapError(err error) error {
 	return fmt.Errorf("lsproto(%s): %v", lang.Reg.Language, err)
 }

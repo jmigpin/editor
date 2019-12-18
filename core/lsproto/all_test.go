@@ -183,7 +183,7 @@ func newTestManager(t *testing.T) *Manager {
 	// registrations
 	u := []string{
 		GoplsRegistration(logTestVerbose()),
-		CLangRegistrationStr,
+		CLangRegistration(logTestVerbose()),
 	}
 	for _, s := range u {
 		reg, err := NewRegistration(s)
@@ -306,8 +306,47 @@ func TestManagerGo2(t *testing.T) {
 	if err := man.Close(); err != nil {
 		t.Logf("man close err: %v", err)
 	}
-	//time.Sleep(1 * time.Second)
 }
+
+func TestManagerGo3(t *testing.T) {
+	ctx0 := context.Background()
+	ctx, cancel := context.WithCancel(ctx0)
+	defer cancel()
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	// loc1
+	{
+		goRoot := filepath.Join(os.Getenv("GOROOT"), "src")
+		loc1 := filepath.Join(goRoot, "context/context.go:242:12")
+		f, l, c := parseLocation(t, loc1)
+		rw, offset := readBytesOffset(t, f, l, c)
+		comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(comp) == 0 {
+			t.Fatal(comp)
+		}
+	}
+
+	// loc2
+	{
+		loc2 := "/home/jorge/lib/golang_packages/src/golang.org/x/image/vector/vector.go:115:14"
+		f, l, c := parseLocation(t, loc2)
+		rw, offset := readBytesOffset(t, f, l, c)
+		comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(comp) == 0 {
+			t.Fatal(comp)
+		}
+	}
+}
+
+//----------
 
 func TestManagerC1(t *testing.T) {
 	loc := "/usr/include/X11/Xcursor/Xcursor.h:307:25"
