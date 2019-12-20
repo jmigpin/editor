@@ -3,10 +3,12 @@ package iout
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 type MultiError struct {
 	errors []error
+	addMu  sync.Mutex
 }
 
 // Returns an error (MultiError) or nil if the errors added were all nil.
@@ -26,9 +28,12 @@ func (me *MultiError) Result() error {
 	return me
 }
 
+// Can be used concurrently.
 func (me *MultiError) Add(err error) {
 	if err != nil {
+		me.addMu.Lock()
 		me.errors = append(me.errors, err)
+		me.addMu.Unlock()
 	}
 }
 
