@@ -180,13 +180,44 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 
 	mainFilename := files.absFilename(cmd.flags.filename)
 
-	err := files.Do(ctx, mainFilename, cmd.flags.mode.test, cmd.NoModules, cmd.environ())
-	if err != nil {
-		return err
-	}
+	ctx2, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var wg sync.WaitGroup
 
 	// pre-build without annotations for better errors (result is ignored)
-	if err := cmd.preBuild(ctx, mainFilename, cmd.flags.mode.test); err != nil {
+	wg.Add(1)
+	var preBuildErr error
+	go func() {
+		defer wg.Done()
+		if err := cmd.preBuild(ctx2, mainFilename, cmd.flags.mode.test); err != nil {
+			preBuildErr = err
+			cancel() // early cancel
+		}
+	}()
+
+	// continue with init and annotate
+	wg.Add(1)
+	var err2 error
+	go func() {
+		defer wg.Done()
+		if err := cmd.initAndAnnotate2(ctx2, files, mainFilename); err != nil {
+			err2 = err
+		}
+	}()
+
+	wg.Wait()
+
+	// send only the prebuild error if it happens
+	if preBuildErr != nil {
+		return preBuildErr
+	}
+	return err2
+}
+
+func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename string) error {
+	err := files.Do(ctx, mainFilename, cmd.flags.mode.test, cmd.NoModules, cmd.environ())
+	if err != nil {
 		return err
 	}
 
