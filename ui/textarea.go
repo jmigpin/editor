@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"unicode"
 
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
@@ -39,15 +40,15 @@ func (ta *TextArea) onSetStr() {
 
 func (ta *TextArea) onWriteOp(u *widget.RWWriteOpCb) {
 	ev := &TextAreaWriteOpEvent{ta, u}
-	ta.EvReg.RunCallbacks(TextAreaEditEventId, ev)
+	ta.EvReg.RunCallbacks(TextAreaWriteOpEventId, ev)
 }
 
 //----------
 
 func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
-	h := ta.TextEditInputHandler.OnInputEvent(ev0, p)
+	h := ta.handleInputEvent2(ev0, p) // editor shortcuts first
 	if h == event.HFalse {
-		h = ta.handleInputEvent2(ev0, p)
+		h = ta.TextEditInputHandler.OnInputEvent(ev0, p)
 	}
 	return h
 }
@@ -115,7 +116,8 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 		}
 	case *event.KeyDown:
 		m := ev.Mods.ClearLocks()
-		if m.Is(event.ModCtrl) {
+		switch {
+		case m.Is(event.ModCtrl):
 			switch ev.KeySym {
 			case event.KSymF5:
 				ta.selAnnEv(TASelAnnTypeLast)
@@ -123,6 +125,11 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			case event.KSymF9:
 				ta.selAnnEv(TASelAnnTypeClear)
 				return event.HTrue
+			}
+		case m.Is(event.ModNone):
+			switch ev.KeySym {
+			case event.KSymTab:
+				return ta.inlineCompleteEv()
 			}
 		}
 	}
@@ -151,6 +158,29 @@ func (ta *TextArea) selAnnEv(typ TASelAnnType) {
 
 //----------
 
+func (ta *TextArea) inlineCompleteEv() event.Handled {
+	if ta.TextCursor.SelectionOn() {
+		return event.HFalse
+	}
+
+	// previous rune should not be a space
+	offset := ta.TextCursor.Index()
+	rw := ta.TextCursor.RW()
+	ru, _, err := rw.ReadRuneAt(offset - 1)
+	if err != nil {
+		return event.HFalse
+	}
+	if unicode.IsSpace(ru) {
+		return event.HFalse
+	}
+
+	ev2 := &TextAreaInlineCompleteEvent{ta, offset, false}
+	ta.EvReg.RunCallbacks(TextAreaInlineCompleteEventId, ev2)
+	return ev2.Handled
+}
+
+//----------
+
 func (ta *TextArea) PointIndexInsideSelection(p image.Point) bool {
 	if ta.TextCursor.SelectionOn() {
 		i := ta.GetIndex(p)
@@ -164,21 +194,24 @@ func (ta *TextArea) PointIndexInsideSelection(p image.Point) bool {
 
 const (
 	TextAreaSetStrEventId = iota
-	TextAreaEditEventId
+	TextAreaWriteOpEventId
 	TextAreaCmdEventId
 	TextAreaSelectAnnotationEventId
+	TextAreaInlineCompleteEventId
 )
 
-type TextAreaCmdEvent struct {
-	TextArea *TextArea
-	Index    int
-}
+//----------
+
 type TextAreaSetStrEvent struct {
 	TextArea *TextArea
 }
 type TextAreaWriteOpEvent struct {
 	TextArea *TextArea
 	WriteOp  *widget.RWWriteOpCb
+}
+type TextAreaCmdEvent struct {
+	TextArea *TextArea
+	Index    int
 }
 
 //----------
@@ -204,3 +237,10 @@ const (
 )
 
 //----------
+
+type TextAreaInlineCompleteEvent struct {
+	TextArea *TextArea
+	Offset   int
+
+	Handled event.Handled // allow callbacks to set value
+}

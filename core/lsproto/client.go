@@ -223,6 +223,7 @@ func (cli *Client) ShutdownRequest() error {
 func (cli *Client) ExitNotification() error {
 	// https://microsoft.github.io/language-server-protocol/specification#exit
 
+	// no ctx timeout needed, it's not expecting a reply
 	ctx := context.Background()
 	err := cli.Call(ctx, "noreply:exit", nil, nil)
 	return err
@@ -311,7 +312,7 @@ func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, 
 
 //----------
 
-func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, pos Position) ([]string, error) {
+func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, pos Position) (*CompletionList, error) {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_completion
 
 	opt := &CompletionParams{}
@@ -326,19 +327,12 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 	}
 	//logJson(result)
 
-	res := []string{}
-	for _, ci := range result.Items {
-		u := []string{}
-		if ci.Deprecated {
-			u = append(u, "*deprecated*")
-		}
-		u = append(u, ci.Label)
-		if ci.Detail != "" {
-			u = append(u, ci.Detail)
-		}
-		res = append(res, strings.Join(u, " "))
-	}
-	return res, nil
+	//// trim labels (clangd: has some entries prefixed with space)
+	//for _, item := range result.Items {
+	//	item.Label = strings.TrimSpace(item.Label)
+	//}
+
+	return &result, nil
 }
 
 //----------

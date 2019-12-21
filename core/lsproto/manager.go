@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
@@ -46,7 +47,7 @@ func (man *Manager) LangManager(filename string) (*LangManager, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("no lsproto registration for file ext: %q", ext)
+	return nil, fmt.Errorf("no lsproto for file ext: %q", ext)
 }
 
 func (man *Manager) langInstanceClient(ctx context.Context, filename string) (*Client, *LangInstance, error) {
@@ -98,7 +99,7 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 
 //----------
 
-func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string, rd iorw.Reader, offset int) ([]string, error) {
+func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string, rd iorw.Reader, offset int) (*CompletionList, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
 		return nil, err
@@ -119,8 +120,37 @@ func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string,
 		return nil, err
 	}
 
-	comp, err := cli.TextDocumentCompletion(ctx, filename, pos)
-	return comp, err
+	return cli.TextDocumentCompletion(ctx, filename, pos)
+}
+
+func (man *Manager) TextDocumentCompletionDetailStrings(ctx context.Context, filename string, rd iorw.Reader, offset int) ([]string, error) {
+	compList, err := man.TextDocumentCompletion(ctx, filename, rd, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	res := []string{}
+	for _, ci := range compList.Items {
+		u := []string{}
+		if ci.Deprecated {
+			u = append(u, "*deprecated*")
+		}
+		u = append(u, ci.Label)
+		if ci.Detail != "" {
+			u = append(u, ci.Detail)
+		}
+		res = append(res, strings.Join(u, " "))
+	}
+
+	//// add documentation if there is only 1 result
+	//if len(compList.Items) == 1 {
+	//	doc := compList.Items[0].Documentation
+	//	if doc != "" {
+	//		res[0] += "\n\n" + doc
+	//	}
+	//}
+
+	return res, nil
 }
 
 //----------

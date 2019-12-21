@@ -8,6 +8,8 @@ Source code editor in pure Go.
 
 ![screenshot](./screenshot3.png)
 
+![screenshot](./screenshot4.png)
+
 ## About
 
 - This is a know-what-you're-doing source code editor
@@ -29,12 +31,14 @@ Source code editor in pure Go.
 - Golang specific:
 	- Calls goimports if available when saving a .go file.
 	- Clicking on `.go` files identifiers will jump to the identifier definition (uses `guru` and/or `gopls query` if installed).
-	- Debug utility for go programs (`GoDebug` cmd). (__experimental__)
+	- Debug utility for go programs (`GoDebug` cmd).
 		- allows to go back and forth in time to consult code values.
-- Language Server Protocol (code analysis):
-	- `-lsproto` cmd line option (__work-in-progress__)
+- Language Server Protocol (LSP) (code analysis):
+	- `-lsproto` cmd line option
 	- basic support for gotodefinition and completion
 	- mostly being tested with `clangd` and `gopls`
+- Inline complete
+	- code completion by hitting the `tab` key (uses LSP).
 
 ## Installation and usage
 
@@ -72,6 +76,7 @@ Usage of ./editor:
     	Format: language,extensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}
     	Examples:
     	go,.go,tcp,"gopls serve -listen={{.Addr}}"
+    	go,.go,stdio,"gopls serve"
     	c++,".c .h .cpp .hpp",stdio,clangd
     	python,.py,tcpclient,127.0.0.1:9000
   -plugins string
@@ -419,6 +424,9 @@ Plugins located at: `./plugins`.
 	- `ctrl`+`f9`:
 		- on textarea: clear debug messages (continues debugging)
 	- `esc`: stop the debug session.
+- inline complete
+	- `tab`: inline code completion for file extensions registered with LSP.
+		- if the previous rune is not a space, it runs code completion. To force `tab` insertion, a `mod-key`+`tab` can be pressed (ex: `ctrl`, `alt`, ...).
 
 ## Row placement algorithm
 

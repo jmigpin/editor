@@ -161,14 +161,14 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 	//	t.Fatal(err)
 	//}
 
-	comp, err := man.TextDocumentCompletion(ctx, filename, rd, offset)
+	comps, err := man.TextDocumentCompletionDetailStrings(ctx, filename, rd, offset)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !(len(comp) >= 1) {
-		t.Fatal(comp)
+	if !(len(comps) >= 1) {
+		t.Fatal(comps)
 	}
-	t.Logf("%v", strings.Join(comp, "\n"))
+	t.Logf("%v\n", strings.Join(comps, "\n"))
 }
 
 //----------
@@ -182,8 +182,8 @@ func newTestManager(t *testing.T) *Manager {
 
 	// registrations
 	u := []string{
-		GoplsRegistration(logTestVerbose()),
-		CLangRegistration(logTestVerbose()),
+		goplsRegistration(logTestVerbose(), false, false),
+		cLangRegistration(logTestVerbose()),
 	}
 	for _, s := range u {
 		reg, err := NewRegistration(s)
@@ -251,12 +251,12 @@ func TestManagerGo1(t *testing.T) {
 	//	t.Fatal(err)
 	//}
 
-	comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+	comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comp) == 0 {
-		t.Fatal(comp)
+	if len(comps) == 0 {
+		t.Fatal(comps)
 	}
 
 	// change content
@@ -270,12 +270,12 @@ func TestManagerGo1(t *testing.T) {
 	//	t.Fatal(err)
 	//}
 
-	comp, err = man.TextDocumentCompletion(ctx, f, rw, offset)
+	comps, err = man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comp) != 0 {
-		t.Fatal(comp)
+	if len(comps) != 0 {
+		t.Fatal(comps)
 	}
 }
 
@@ -294,12 +294,12 @@ func TestManagerGo2(t *testing.T) {
 	defer man.Close()
 
 	// ensure the lsp server runs
-	comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+	comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comp) == 0 {
-		t.Fatal(comp)
+	if len(comps) == 0 {
+		t.Fatal(comps)
 	}
 
 	// test closing
@@ -322,12 +322,12 @@ func TestManagerGo3(t *testing.T) {
 		loc1 := filepath.Join(goRoot, "context/context.go:242:12")
 		f, l, c := parseLocation(t, loc1)
 		rw, offset := readBytesOffset(t, f, l, c)
-		comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+		comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(comp) == 0 {
-			t.Fatal(comp)
+		if len(comps) == 0 {
+			t.Fatal(comps)
 		}
 	}
 
@@ -336,12 +336,12 @@ func TestManagerGo3(t *testing.T) {
 		loc2 := "/home/jorge/lib/golang_packages/src/golang.org/x/image/vector/vector.go:115:14"
 		f, l, c := parseLocation(t, loc2)
 		rw, offset := readBytesOffset(t, f, l, c)
-		comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+		comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(comp) == 0 {
-			t.Fatal(comp)
+		if len(comps) == 0 {
+			t.Fatal(comps)
 		}
 	}
 }
@@ -366,12 +366,12 @@ func TestManagerC1(t *testing.T) {
 	//	t.Fatal(err)
 	//}
 
-	comp, err := man.TextDocumentCompletion(ctx, f, rw, offset)
+	comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comp) == 0 {
-		t.Fatal(comp)
+	if len(comps) == 0 {
+		t.Fatal(comps)
 	}
 
 	// change content
@@ -385,11 +385,11 @@ func TestManagerC1(t *testing.T) {
 	//	t.Fatal(err)
 	//}
 
-	comp, err = man.TextDocumentCompletion(ctx, f, rw, offset)
+	comps, err = man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comp) == 0 {
-		t.Fatal(comp)
+	if len(comps) == 0 {
+		t.Fatal(comps)
 	}
 }

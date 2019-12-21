@@ -245,6 +245,10 @@ func (gdi *GoDebugInstance) openArrivalIndexERow() {
 //----------
 
 func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
+	// warn other annotators about starting a godebug session
+	ta := erow.Row.TextArea
+	_ = gdi.ed.CanModifyAnnotations(EdAnnReqGoDebug, ta, "starting_session")
+
 	// create new erow if necessary
 	if erow.Info.IsFileButNotDir() {
 		dir := filepath.Dir(erow.Info.Name())
@@ -502,25 +506,19 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 	file.updateAnnEntries(di.SelectedArrivalIndex)
 
 	for _, erow := range info.ERows {
-		ta := erow.Row.TextArea
-		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-			d.Opt.Annotations.On = true
-			d.Opt.Annotations.Entries = file.AnnEntries
-			d.Opt.Annotations.Selected.EntryIndex = file.SelectedLine
-			ta.MarkNeedsLayoutAndPaint()
-		}
+		gdi.setAnnotations(erow, true, file.SelectedLine, file.AnnEntries)
 	}
 }
 
 func (gdi *GoDebugInstance) clearDrawerAnn(info *ERowInfo) {
 	for _, erow := range info.ERows {
-		ta := erow.Row.TextArea
-		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-			d.Opt.Annotations.On = false
-			d.Opt.Annotations.Entries = nil
-			ta.MarkNeedsLayoutAndPaint()
-		}
+		gdi.setAnnotations(erow, false, 0, nil)
 	}
+}
+
+func (gdi *GoDebugInstance) setAnnotations(erow *ERow, on bool, selIndex int, entries []*drawer4.Annotation) {
+	ta := erow.Row.TextArea
+	gdi.ed.SetAnnotations(EdAnnReqGoDebug, ta, on, selIndex, entries)
 }
 
 //----------

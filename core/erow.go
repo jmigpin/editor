@@ -99,7 +99,7 @@ func (erow *ERow) initHandlers() {
 		erow.Info.SetRowsStrFromMaster(erow)
 	})
 	// textarea edit
-	row.TextArea.EvReg.Add(ui.TextAreaEditEventId, func(ev0 interface{}) {
+	row.TextArea.EvReg.Add(ui.TextAreaWriteOpEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaWriteOpEvent)
 		// update duplicate edits to keep offset/cursor in position
 		if erow.Info.IsFileButNotDir() {
@@ -124,8 +124,17 @@ func (erow *ERow) initHandlers() {
 		ev := ev0.(*ui.TextAreaSelectAnnotationEvent)
 		erow.Ed.GoDebug.SelectAnnotation(erow, ev.AnnotationIndex, ev.Offset, ev.Type)
 	})
+	// textarea inlinecomplete
+	row.TextArea.EvReg.Add(ui.TextAreaInlineCompleteEventId, func(ev0 interface{}) {
+		ev := ev0.(*ui.TextAreaInlineCompleteEvent)
+		handled := erow.Ed.InlineComplete.Complete(erow, ev)
+		// Allow the input event (`tab` key press) to function normally if the inlinecomplete is not being handled (ex: no lsproto server is registered for this filename extension)
+		ev.Handled = event.Handled(handled)
+	})
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 interface{}) {
+		erow.Ed.InlineComplete.CancelOnCursorChange()
+
 		ev := ev0.(*ui.RowInputEvent)
 		switch evt := ev.Event.(type) {
 		case *event.KeyDown:

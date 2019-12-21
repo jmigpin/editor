@@ -20,15 +20,16 @@ import (
 )
 
 type Editor struct {
-	UI          *ui.UI
-	HomeVars    *HomeVars
-	Watcher     fswatcher.Watcher
-	RowReopener *RowReopener
-	ERowInfos   map[string]*ERowInfo
-	GoDebug     *GoDebugInstance
-	LSProtoMan  *lsproto.Manager
-	Plugins     *Plugins
-	EEvents     *EEvents
+	UI             *ui.UI
+	HomeVars       *HomeVars
+	Watcher        fswatcher.Watcher
+	RowReopener    *RowReopener
+	ERowInfos      map[string]*ERowInfo
+	GoDebug        *GoDebugInstance
+	LSProtoMan     *lsproto.Manager
+	InlineComplete *InlineComplete
+	Plugins        *Plugins
+	EEvents        *EEvents // used by plugins
 
 	dndh *DndHandler
 	ifbw *InfoFloatBoxWrap
@@ -44,6 +45,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.RowReopener = NewRowReopener(ed)
 	ed.dndh = NewDndHandler(ed)
 	ed.GoDebug = NewGoDebugInstance(ed)
+	ed.InlineComplete = NewInlineComplete(ed)
 	ed.EEvents = NewEEvents()
 
 	if err := ed.init(opt); err != nil {
@@ -481,6 +483,7 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) (handled bool) {
 				switch t2.KeySym {
 				case event.KSymEscape:
 					ed.GoDebug.CancelAndClear()
+					ed.InlineComplete.CancelAndClear()
 					ed.cancelERowsContentCmds()
 					autoCloseInfo = false
 					ed.cancelInfoFloatBox()
@@ -577,47 +580,52 @@ func (ed *Editor) toggleInfoFloatBox() {
 			return
 		}
 
-		// handled by lsproto (only on textarea, not on toolbars)
-		if ta == erow.Row.TextArea {
-			// handle filename
-			lang, err := ed.LSProtoMan.LangManager(erow.Info.Name())
-			if err == nil {
-				// handled
-				v := fmt.Sprintf("Loading lsproto(%v)...", lang.Reg.Language)
-				showAsync(v)
-
-				// lsproto autocomplete
-				s, err, handled := ed.lsprotoManAutoComplete(ctx, ta, erow)
-				if handled {
-					if err != nil {
-						ed.Error(err)
-						showAsync("")
-						return
-					}
-					showAsync(s)
-					return
-				}
+		// lsproto autocomplete
+		filename := ""
+		switch ta {
+		case erow.Row.TextArea:
+			if erow.Info.IsDir() {
+				filename = ".editor_directory"
+			} else {
+				filename = erow.Info.Name()
 			}
-
+		case erow.Row.Toolbar.TextArea:
+			filename = ".editor_toolbar"
+		default:
+			showAsync("")
+			return
 		}
-
-		showAsync("")
+		// handle filename
+		lang, err := ed.LSProtoMan.LangManager(filename)
+		if err != nil {
+			showAsync(err.Error()) // err:"no registration for..."
+			return
+		}
+		// ui feedback while loading
+		v := fmt.Sprintf("Loading lsproto(%v)...", lang.Reg.Language)
+		showAsync(v)
+		// lsproto autocomplete
+		s, err := ed.lsprotoManAutoComplete(ctx, ta, erow)
+		if err != nil {
+			ed.Error(err)
+			showAsync("")
+			return
+		}
+		showAsync(s)
 	})
 }
 
-func (ed *Editor) lsprotoManAutoComplete(ctx context.Context, ta *ui.TextArea, erow *ERow) (_ string, _ error, handled bool) {
+func (ed *Editor) lsprotoManAutoComplete(ctx context.Context, ta *ui.TextArea, erow *ERow) (string, error) {
 	tc := erow.Row.TextArea.TextCursor
-	comp, err := ed.LSProtoMan.TextDocumentCompletion(ctx, erow.Info.Name(), tc.RW(), tc.Index())
+	comps, err := ed.LSProtoMan.TextDocumentCompletionDetailStrings(ctx, erow.Info.Name(), tc.RW(), tc.Index())
 	if err != nil {
-		return "", err, true
+		return "", err
 	}
-	s := ""
-	if len(comp) == 0 {
-		s = "0 results"
-	} else {
-		s = strings.Join(comp, "\n")
+	s := "0 results"
+	if len(comps) > 0 {
+		s = strings.Join(comps, "\n")
 	}
-	return s, nil, true
+	return s, nil
 }
 
 //----------
@@ -651,6 +659,57 @@ func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func()) {
 		})
 	}()
 }
+
+//----------
+
+func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on bool, selIndex int, entries []*drawer4.Annotation) {
+	if !ed.CanModifyAnnotations(req, ta, "") {
+		return
+	}
+
+	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.Annotations.On = on
+		d.Opt.Annotations.Selected.EntryIndex = selIndex
+		d.Opt.Annotations.Entries = entries
+		ta.MarkNeedsLayoutAndPaint()
+	}
+
+	// restore godebug annotations
+	if req == EdAnnReqInlineComplete && !on {
+		// find erow info from textarea
+		for _, erow := range ed.ERows() {
+			if erow.Row.TextArea == ta {
+				ed.GoDebug.UpdateUIERowInfo(erow.Info)
+			}
+		}
+	}
+}
+
+//godebug:annotatefile
+func (ed *Editor) CanModifyAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, option string) bool {
+	switch req {
+	case EdAnnReqGoDebug:
+		if option == "starting_session" {
+			ed.InlineComplete.CancelAndClear()
+			return true
+		}
+		if ed.InlineComplete.IsOn(ta) {
+			return false
+		}
+		return true
+	case EdAnnReqInlineComplete:
+		return true
+	default:
+		panic(req)
+	}
+}
+
+type EdAnnotationsRequester int
+
+const (
+	EdAnnReqGoDebug EdAnnotationsRequester = iota
+	EdAnnReqInlineComplete
+)
 
 //----------
 
