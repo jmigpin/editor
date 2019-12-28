@@ -9,7 +9,7 @@ import (
 //----------
 
 type ContentCmd struct {
-	Name string // just descriptive for err msgs and removing is wanted
+	Name string // for removal and error msgs
 	Fn   ContentCmdFn
 }
 
@@ -17,22 +17,19 @@ type ContentCmdFn func(ctx context.Context, erow *ERow, index int) (_ error, han
 
 //----------
 
-var ContentCmds ContentCmdSlice
+type contentCmds []*ContentCmd
 
-// internal cmds added via init() from "contentcmds" pkg
-type ContentCmdSlice []*ContentCmd
-
-func (ccs *ContentCmdSlice) Append(name string, fn ContentCmdFn) {
+func (ccs *contentCmds) Append(name string, fn ContentCmdFn) {
 	cc := &ContentCmd{name, fn}
 	*ccs = append(*ccs, cc)
 }
 
-func (ccs *ContentCmdSlice) Prepend(name string, fn ContentCmdFn) {
+func (ccs *contentCmds) Prepend(name string, fn ContentCmdFn) {
 	cc := &ContentCmd{name, fn}
 	*ccs = append([]*ContentCmd{cc}, *ccs...)
 }
 
-func (ccs *ContentCmdSlice) Remove(name string) (removed bool) {
+func (ccs *contentCmds) Remove(name string) (removed bool) {
 	var a []*ContentCmd
 	for _, cc := range *ccs {
 		if cc.Name == name {
@@ -46,6 +43,9 @@ func (ccs *ContentCmdSlice) Remove(name string) (removed bool) {
 }
 
 //----------
+
+// cmds added via init() from "contentcmds" pkg
+var ContentCmds contentCmds
 
 func runContentCmds(ctx context.Context, erow *ERow, index int) {
 	errs := []string{}
