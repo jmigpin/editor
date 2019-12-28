@@ -46,5 +46,5 @@ func (lang *LangManager) ErrorAsync(err error) {
 	}
 }
 func (lang *LangManager) WrapError(err error) error {
-	return fmt.Errorf("lsproto(%s): %v", lang.Reg.Language, err)
+	return fmt.Errorf("lsproto(%s): %w", lang.Reg.Language, err)
 }

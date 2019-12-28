@@ -12,7 +12,6 @@ import (
 	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
-	"github.com/pkg/errors"
 )
 
 type Paste struct {
@@ -101,7 +100,7 @@ func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 
 	err := p.sch.Send(ev)
 	if err != nil {
-		log.Print(errors.Wrap(err, "onselectionnotify"))
+		log.Print(fmt.Errorf("onselectionnotify: %w", err))
 	}
 }
 

@@ -14,7 +14,6 @@ import (
 	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/pkg/errors"
 )
 
 type Client struct {
@@ -98,13 +97,13 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 	}
 	lateFn := func(err error) {
 		if err != nil {
-			err = errors.Wrap(err, "call late")
+			err = fmt.Errorf("call late: %w", err)
 			cli.li.lang.ErrorAsync(err)
 		}
 	}
 	err := ctxutil.Call(ctx, method, fn, lateFn)
 	if err != nil {
-		err = errors.Wrap(err, "call")
+		err = fmt.Errorf("call: %w", err)
 		return cli.li.lang.WrapError(err)
 	}
 

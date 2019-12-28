@@ -1,6 +1,7 @@
 package uiutil
 
 import (
+	"fmt"
 	"image"
 	"image/draw"
 	"log"
@@ -11,7 +12,6 @@ import (
 	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
-	"github.com/pkg/errors"
 )
 
 type BasicUI struct {
@@ -243,14 +243,14 @@ func (ui *BasicUI) SetCursor(c event.Cursor) {
 func (ui *BasicUI) GetCPPaste(i event.CopyPasteIndex, fn func(string, bool)) {
 	ui.Win.GetCPPaste(i, func(s string, err error) {
 		if err != nil {
-			ui.AppendEvent(errors.Wrap(err, "cppaste"))
+			ui.AppendEvent(fmt.Errorf("cppaste: %w", err))
 		}
 		fn(s, err == nil)
 	})
 }
 func (ui *BasicUI) SetCPCopy(i event.CopyPasteIndex, s string) {
 	if err := ui.Win.SetCPCopy(i, s); err != nil {
-		ui.AppendEvent(errors.Wrap(err, "cpcopy"))
+		ui.AppendEvent(fmt.Errorf("cpcopy: %w", err))
 	}
 }
 

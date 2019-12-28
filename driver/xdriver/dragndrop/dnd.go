@@ -12,7 +12,6 @@ import (
 	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
-	"github.com/pkg/errors"
 )
 
 // protocol: https://www.acc.umu.se/~vatten/XDND.html
@@ -125,7 +124,7 @@ func (dnd *Dnd) onPosition(data []uint32) (ev interface{}, _ error) {
 	screenPoint := image.Point{int(data[2] >> 16), int(data[2] & 0xffff)}
 	p, err := dnd.screenToWindowPoint(screenPoint)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to pass screen to window point")
+		return nil, fmt.Errorf("unable to pass screen to window point: %w", err)
 	}
 
 	dnd.data.hasPosition = true
@@ -216,7 +215,7 @@ func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 
 	err := dnd.sch.Send(ev)
 	if err != nil {
-		log.Print(errors.Wrap(err, "onselectionnotify"))
+		log.Print(fmt.Errorf("onselectionnotify: %w", err))
 	}
 }
 

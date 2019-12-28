@@ -14,7 +14,6 @@ import (
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
-	"github.com/pkg/errors"
 )
 
 const updatesPerSecond = 15
@@ -360,7 +359,7 @@ func (gdi *GoDebugInstance) handleMsg(msg interface{}, cmd *godebug.Cmd) error {
 			// TODO: timeout to receive filesetpositions?
 			// request file positions
 			if err := cmd.RequestFileSetPositions(); err != nil {
-				return errors.Wrap(err, "request file set positions")
+				return fmt.Errorf("request file set positions: %w", err)
 			}
 		} else {
 			return fmt.Errorf("unhandled string: %v", t)
@@ -371,7 +370,7 @@ func (gdi *GoDebugInstance) handleMsg(msg interface{}, cmd *godebug.Cmd) error {
 		}
 		// on receiving the filesdatamsg, send a requeststart
 		if err := cmd.RequestStart(); err != nil {
-			return errors.Wrap(err, "request start")
+			return fmt.Errorf("request start: %w", err)
 		}
 	case *debug.LineMsg:
 		return gdi.handleLineMsg(t)

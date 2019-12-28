@@ -10,7 +10,6 @@ import (
 
 	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
-	"github.com/pkg/errors"
 )
 
 type LangInstance struct {
@@ -98,7 +97,7 @@ func (li *LangInstance) connClientTCP(reqCtx, connCtx context.Context, addr stri
 	}
 	lateFn := func(err error) {
 		if err != nil {
-			err = errors.Wrap(err, "call late")
+			err = fmt.Errorf("call late: %w", err)
 			li.lang.ErrorAsync(err)
 			_ = li.lang.Close()
 		}

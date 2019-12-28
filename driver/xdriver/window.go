@@ -1,6 +1,7 @@
 package xdriver
 
 import (
+	"fmt"
 	"image"
 	"image/draw"
 	"log"
@@ -19,7 +20,6 @@ import (
 	"github.com/jmigpin/editor/driver/xdriver/xinput"
 	"github.com/jmigpin/editor/driver/xdriver/xutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
-	"github.com/pkg/errors"
 )
 
 type Window struct {
@@ -52,8 +52,7 @@ func NewWindow() (*Window, error) {
 
 	conn, err := xgb.NewConnDisplay(display)
 	if err != nil {
-		err2 := errors.Wrap(err, "x conn")
-		return nil, err2
+		return nil, fmt.Errorf("x conn: %w", err)
 	}
 	// initialize extensions early to avoid concurrent map read/write (XGB issue)
 	wimage.Init(conn)
@@ -64,7 +63,7 @@ func NewWindow() (*Window, error) {
 	}
 
 	if err := win.initialize(); err != nil {
-		return nil, errors.Wrap(err, "win init")
+		return nil, fmt.Errorf("win init: %w", err)
 	}
 
 	go win.eventLoop()

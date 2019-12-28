@@ -8,7 +8,6 @@ import (
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/iout"
-	"github.com/pkg/errors"
 )
 
 type Plugins struct {
@@ -29,7 +28,7 @@ func (p *Plugins) AddPath(path string) error {
 
 	oplugin, err := plugin.Open(path)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("plugin: %v", path))
+		return fmt.Errorf("plugin: %v: %w", path, err)
 	}
 
 	plug := &Plug{Plugin: oplugin, Path: path}

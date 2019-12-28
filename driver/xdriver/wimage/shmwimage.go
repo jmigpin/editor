@@ -1,13 +1,13 @@
 package wimage
 
 import (
+	"fmt"
 	"image"
 	"image/draw"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/pkg/errors"
 )
 
 type ShmWImage struct {
@@ -70,7 +70,7 @@ func (wi *ShmWImage) Resize(r image.Rectangle) error {
 	shmId := uint32(wi.imgWrap.shmId)
 	cookie := shm.AttachChecked(wi.opt.Conn, wi.segId, shmId, readOnly)
 	if err := cookie.Check(); err != nil {
-		return errors.Wrap(err, "shmwimage.resize.attach")
+		return fmt.Errorf("shmwimage.resize.attach: %w", err)
 	}
 
 	return nil
