@@ -12,7 +12,7 @@ func Paste(te *widget.TextEdit, i event.CopyPasteIndex) {
 		if ok {
 			te.RunOnUIGoRoutine(func() {
 				if err := InsertString(te, str); err != nil {
-					log.Println("textutil.paste: %v", err)
+					log.Printf("textutil.paste: %w", err)
 				}
 			})
 		}

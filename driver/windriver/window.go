@@ -25,7 +25,6 @@ type Window struct {
 
 	img draw.Image
 	bmH windows.Handle // bitmap handle
-	bm  *_Bitmap
 
 	events    chan interface{}
 	evLoopEnd chan struct{}

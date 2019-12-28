@@ -13,14 +13,6 @@ import (
 
 //----------
 
-var (
-	kernel32 = windows.NewLazyDLL("kernel32.dll")
-	user32   = windows.NewLazyDLL("user32.dll")
-	gdi32    = windows.NewLazyDLL("gdi32.dll")
-)
-
-//----------
-
 const (
 	_CW_USEDEFAULT = 0x80000000 - 0x100000000
 
