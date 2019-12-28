@@ -15,7 +15,7 @@ Source code editor in pure Go.
 - This is a know-what-you're-doing source code editor
 - As the editor is being developed, the rules of how the UI interacts will become more well defined.
 - Primarily developed and tested in Linux. 
-- Works in MS Windows and MacOS through an X server.
+- Works in MS Windows (native or xserver) and MacOS (xserver).
 
 ## Features
 
