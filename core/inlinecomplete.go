@@ -118,7 +118,10 @@ func (ic *InlineComplete) completions(ctx context.Context, filename string, ta *
 	}
 	res := []string{}
 	for _, ci := range compList.Items {
-		res = append(res, ci.Label)
+		// trim labels (clangd: has some entries prefixed with space)
+		label := strings.TrimSpace(ci.Label)
+
+		res = append(res, label)
 	}
 	return res, nil
 }

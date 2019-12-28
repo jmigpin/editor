@@ -326,12 +326,6 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 		return nil, err
 	}
 	//logJson(result)
-
-	//// trim labels (clangd: has some entries prefixed with space)
-	//for _, item := range result.Items {
-	//	item.Label = strings.TrimSpace(item.Label)
-	//}
-
 	return &result, nil
 }
 
