@@ -86,7 +86,7 @@ func (erow *ERow) initHandlers() {
 	})
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
-		RowToolbarCmd(erow)
+		InternalCmdFromRowTb(erow)
 	})
 	// textarea set str
 	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {

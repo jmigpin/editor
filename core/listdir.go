@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,33 +9,7 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/core/parseutil"
-	"github.com/jmigpin/editor/core/toolbarparser"
 )
-
-func ListDirCmd(erow *ERow, part *toolbarparser.Part) error {
-	if !erow.Info.IsDir() {
-		return fmt.Errorf("not a directory")
-	}
-
-	tree, hidden := false, false
-
-	args := part.Args[1:]
-	for _, a := range args {
-		s := a.UnquotedStr()
-		switch s {
-		case "-sub":
-			tree = true
-		case "-hidden":
-			hidden = true
-		}
-	}
-
-	ListDirERow(erow, erow.Info.Name(), tree, hidden)
-
-	return nil
-}
-
-//----------
 
 func ListDirERow(erow *ERow, filepath string, tree, hidden bool) {
 	// clear

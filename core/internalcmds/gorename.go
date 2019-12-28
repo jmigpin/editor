@@ -1,13 +1,16 @@
-package core
+package internalcmds
 
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/ui"
 )
 
-func GoRenameCmd(erow *ERow, part *toolbarparser.Part) error {
+func GoRename(args0 *core.InternalCmdArgs) error {
+	erow := args0.ERow
+	part := args0.Part
+
 	if !erow.Info.IsFileButNotDir() {
 		return fmt.Errorf("not a file")
 	}
@@ -40,12 +43,12 @@ func GoRenameCmd(erow *ERow, part *toolbarparser.Part) error {
 	reloadOnNoErr := func(err error) {
 		if err == nil {
 			erow.Ed.UI.RunOnUIGoRoutine(func() {
-				ReloadCmd(erow)
+				erow.Reload()
 			})
 		}
 	}
 
-	ExternalCmdFromArgs(erow, cargs, reloadOnNoErr)
+	core.ExternalCmdFromArgs(erow, cargs, reloadOnNoErr)
 
 	return nil
 }

@@ -276,7 +276,7 @@ func (ed *Editor) setupRootToolbar() {
 	tb := ed.UI.Root.Toolbar
 	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
-		RootToolbarCmd(ed, tb)
+		InternalCmdFromRootTb(ed, tb)
 	})
 	// set str
 	tb.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
@@ -311,7 +311,7 @@ Exit | Stop | Clear`
 	tb.SetStrClearHistory(s)
 	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
-		RootToolbarCmd(ed, tb)
+		InternalCmdFromRootTb(ed, tb)
 	})
 	// set str
 	tb.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {

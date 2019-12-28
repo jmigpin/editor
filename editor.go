@@ -8,8 +8,11 @@ import (
 	"runtime/pprof"
 
 	"github.com/jmigpin/editor/core"
-	_ "github.com/jmigpin/editor/core/contentcmds"
 	"github.com/jmigpin/editor/core/lsproto"
+
+	// imports that can't be imported from core (cyclic import)
+	_ "github.com/jmigpin/editor/core/contentcmds"
+	_ "github.com/jmigpin/editor/core/internalcmds"
 )
 
 func main() {
