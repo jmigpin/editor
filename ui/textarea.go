@@ -14,7 +14,8 @@ import (
 type TextArea struct {
 	*widget.TextEditX
 	*textutil.TextEditInputHandler
-	EvReg *evreg.Register
+	EvReg                       *evreg.Register
+	SupportClickInsideSelection bool
 
 	ui *UI
 }
@@ -64,7 +65,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 					return event.HTrue
 				}
 			}
-			if !ta.PointIndexInsideSelection(ev.Point) {
+			if !ta.SupportClickInsideSelection || !ta.PointIndexInsideSelection(ev.Point) {
 				textutil.MoveCursorToPoint(ta.TextEdit, &ev.Point, false)
 			}
 			i := ta.GetIndex(ev.Point)
