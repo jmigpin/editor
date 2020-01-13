@@ -202,6 +202,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `OpenSession <name>`: opens previously saved session
 - `<url>`: opens url in preferred application.
 - `<filename(:number?)(:number?)>`: opens filename, possibly at line/column (usual output from compilers). Check common locations like `$GOROOT` and C include directories.
+	- If text is selected, only the selection will be considered as the filename to open.
 - `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
 
 ## Commands: GoDebug
