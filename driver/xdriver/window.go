@@ -43,6 +43,9 @@ type Window struct {
 
 func NewWindow() (*Window, error) {
 	display := os.Getenv("DISPLAY")
+
+	// help get a display target
+	origDisplay := display
 	if display == "" {
 		switch runtime.GOOS {
 		case "windows":
@@ -52,7 +55,11 @@ func NewWindow() (*Window, error) {
 
 	conn, err := xgb.NewConnDisplay(display)
 	if err != nil {
-		return nil, fmt.Errorf("x conn: %w", err)
+		// improve error with hint
+		if origDisplay == "" {
+			err = fmt.Errorf("%w (Hint: is x11 running?)", err)
+		}
+		return nil, fmt.Errorf("x11 conn: %w", err)
 	}
 	// initialize extensions early to avoid concurrent map read/write (XGB issue)
 	wimage.Init(conn)
