@@ -28,6 +28,11 @@ func main2() error {
 	filenames := []string{}
 	data := []string{}
 	for _, fi := range fis {
+		// don't add test files to pack
+		if strings.HasSuffix(fi.Name(), "_test.go") {
+			continue
+		}
+
 		filename := filepath.Join(dir, fi.Name())
 		b, err := ioutil.ReadFile(filename)
 		if err != nil {
