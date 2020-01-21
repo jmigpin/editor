@@ -536,6 +536,11 @@ func (ann *Annotator) visitGoStmt(ctx *Ctx, gs *ast.GoStmt) {
 }
 
 func (ann *Annotator) visitSelectStmt(ctx *Ctx, ss *ast.SelectStmt) {
+	// debug step to show it is waiting on the select statement
+	ce := ann.newDebugCallExpr("ISt")
+	stmt := ann.newDebugLineStmt(ctx, ss.Pos(), ce)
+	ctx.insertInStmtListBefore(stmt)
+
 	ann.visitBlockStmt(ctx, ss.Body)
 }
 
