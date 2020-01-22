@@ -104,8 +104,8 @@ func (ann *Annotator) visitDeclFromFile(ctx *Ctx, decl ast.Decl) {
 }
 
 func (ann *Annotator) visitFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
-	// don't annotate String functions to avoid endless loops recursion
-	if fd.Recv != nil && fd.Name.Name == "String" {
+	// don't annotate String() functions to avoid endless loops recursion
+	if fd.Recv != nil && fd.Name.Name == "String" && len(fd.Type.Params.List) == 0 {
 		return
 	}
 
@@ -113,7 +113,8 @@ func (ann *Annotator) visitFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
 	pos := fd.Type.End()
 	bs := &ast.BlockStmt{List: []ast.Stmt{}}
 
-	hasParams := len(fd.Type.Params.List) > 0
+	// body can be nil (external func decls, only the header declared)
+	hasParams := len(fd.Type.Params.List) > 0 && fd.Body != nil
 	if hasParams {
 		// visit parameters
 		ctx3, _ := ctx.withStmtIter(&bs.List)
