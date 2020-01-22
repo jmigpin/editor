@@ -204,16 +204,42 @@ func (files *Files) addFilesWithDebugComment(pkgs []*packages.Package) error {
 					return err
 				}
 				if typ.Annotated() {
-					files.keepAnnFilename(filename, typ)
-					if typ == AnnotationTypePackage {
-						dir := filepath.Dir(filename)
-						files.Add(dir)
+					done := files.keepAnnotationFile(filename, typ)
+					if done {
+						return nil
 					}
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func (files *Files) keepAnnotationFile(filename string, typ AnnotationType) bool {
+	files.keepAnnFilename(filename, typ)
+	switch typ {
+	case AnnotationTypePackage:
+		dir := filepath.Dir(filename)
+		files.Add(dir)
+	case AnnotationTypeModule:
+		goMod, ok := files.findGoMod2(filename)
+		if ok {
+			dir2 := filepath.Dir(goMod) + string(filepath.Separator)
+			// files under the gomod directory
+			for filename := range files.progFilenames {
+				if strings.HasPrefix(filename, dir2) {
+					files.keepAnnFilename(filename, typ)
+				}
+			}
+		}
+	}
+	// TODO: not working (issues with external func decls)
+	//case AnnotationTypeAll:
+	//	for filename := range files.progFilenames {
+	//		files.keepAnnFilename(filename, typ)
+	//	}
+	//	return true
+	return false
 }
 
 //----------
@@ -312,31 +338,43 @@ func (files *Files) keepAnnFilename(filename string, typ AnnotationType) {
 
 func (files *Files) findGoMods() {
 	// searches annotated files parent directories
-	seen := map[string]bool{}
+	seen := map[string]struct{}{}
 	for k := range files.annFilenames {
 		dir := k
-		for {
-			dir = filepath.Dir(dir) // parent dir
-
-			if seen[dir] {
-				break
-			}
-			seen[dir] = true
-
-			// early break if not a dir
-			fi, err := os.Stat(dir)
-			if err != nil || !fi.IsDir() {
-				break // break inner loop
-			}
-			// check if dir has go.mod
-			u := filepath.Join(dir, "go.mod")
-			fi2, err := os.Stat(u)
-			if err == nil && fi2.Mode().IsRegular() {
-				files.modFilenames[u] = struct{}{}
-				break // break inner loop
-			}
+		u, ok := files.findGoMod(dir, &seen)
+		if ok {
+			files.modFilenames[u] = struct{}{}
 		}
 	}
+}
+
+func (files *Files) findGoMod(dir string, seen *map[string]struct{}) (string, bool) {
+	for {
+		dir = filepath.Dir(dir) // parent dir
+
+		if _, ok := (*seen)[dir]; ok {
+			break
+		}
+		(*seen)[dir] = struct{}{}
+
+		// early break if not a dir
+		fi, err := os.Stat(dir)
+		if err != nil || !fi.IsDir() {
+			break
+		}
+		// check if dir has go.mod
+		u := filepath.Join(dir, "go.mod")
+		fi2, err := os.Stat(u)
+		if err == nil && fi2.Mode().IsRegular() {
+			return u, true // just the first one
+		}
+	}
+	return "", false
+}
+
+func (files *Files) findGoMod2(dir string) (string, bool) {
+	seen := map[string]struct{}{}
+	return files.findGoMod(dir, &seen)
 }
 
 //----------
@@ -413,7 +451,8 @@ const (
 	AnnotationTypeOff
 	AnnotationTypeBlock
 	AnnotationTypeFile
-	AnnotationTypePackage // last to be able to stop early
+	AnnotationTypePackage
+	AnnotationTypeModule
 )
 
 //----------
@@ -605,8 +644,10 @@ func AnnotationTypeInComment(s string) (AnnotationType, error) {
 			return AnnotationTypeFile, nil
 		case "annotatepackage":
 			return AnnotationTypePackage, nil
+		case "annotatemodule":
+			return AnnotationTypeModule, nil
 		default:
-			err := fmt.Errorf("godebug: unexpected type: %q", u)
+			err := fmt.Errorf("godebug: unexpected annotate type: %q", u)
 			return AnnotationTypeNone, err
 		}
 	}

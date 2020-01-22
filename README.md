@@ -233,8 +233,10 @@ Examples:
 		//godebug:annotateblock
 		//godebug:annotatefile
 		//godebug:annotatepackage
+		//godebug:annotatemodule
 		```
-		The annotator will detect these comments and annotate the block/file/package.
+		The annotator will detect these comments and annotate the block/file/package/module.
+		Higher level `//godebug:*` comments will override lower ones.
 		To disable annotating for the current code block, insert:
 		```
 		//godebug:annotateoff
