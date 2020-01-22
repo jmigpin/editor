@@ -1495,12 +1495,13 @@ func TestAnnotator84(t *testing.T) {
 		case a,ok:=<-c:
 			_=a
 		}`,
-		`select {
+		`Σ.Line(0, 0, 23, Σ.ISt())
+	        select {
 	        case a, ok := <-c:
-	        Σ.Line(0, 0, 46, Σ.ISt())
+	        Σ.Line(0, 1, 46, Σ.ISt())
 	        Σ0 := Σ.IV(a)
 	        _ = a
-	        Σ.Line(0, 1, 51, Σ.IA(Σ.IL(Σ.IAn()), Σ.IL(Σ0)))
+	        Σ.Line(0, 2, 51, Σ.IA(Σ.IL(Σ.IAn()), Σ.IL(Σ0)))
 	        }`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
@@ -1514,16 +1515,17 @@ func TestAnnotator84a(t *testing.T) {
 		case <-c:
 			return
 		}`,
-		`select {
+		`Σ.Line(0, 0, 23, Σ.ISt())
+	        select {
 	        case a := <-c:
-	        Σ.Line(0, 0, 43, Σ.ISt())
+	        Σ.Line(0, 1, 43, Σ.ISt())
 	        case <-b:
-	        Σ.Line(0, 1, 53, Σ.ISt())
-	        Σ.Line(0, 2, 55, Σ.IBr())
+	        Σ.Line(0, 2, 53, Σ.ISt())
+	        Σ.Line(0, 3, 55, Σ.IBr())
 	        break
 	        case <-c:
-	        Σ.Line(0, 3, 69, Σ.ISt())
-	        Σ.Line(0, 4, 77, Σ.ISt())
+	        Σ.Line(0, 4, 69, Σ.ISt())
+	        Σ.Line(0, 5, 77, Σ.ISt())
 	        return
 	        }`,
 	}
