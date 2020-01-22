@@ -10,6 +10,8 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
+//godebug:annotatefile
+
 type ShmWImage struct {
 	opt          *Options
 	segId        shm.Seg
@@ -27,7 +29,8 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 		return nil, initErr
 	}
 
-	wi := &ShmWImage{opt: opt, putCompleted: make(chan struct{}, 1)}
+	wi := &ShmWImage{opt: opt}
+	wi.putCompleted = make(chan struct{}, 2) // 2=complete+close
 
 	// server segment id
 	segId, err := shm.NewSegId(wi.opt.Conn)
@@ -45,6 +48,10 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 	return wi, nil
 }
 func (wi *ShmWImage) Close() error {
+	// unblocks waiting for putimagecompleted
+	// can't close wi.putCompleted because this is not the sender (would panic if an attempt to send happens later)
+	wi.PutImageCompleted()
+
 	return wi.imgWrap.Close()
 }
 
@@ -86,7 +93,7 @@ func (wi *ShmWImage) PutImage(r image.Rectangle) error {
 	drawable := xproto.Drawable(wi.opt.Window)
 	depth := wi.opt.ScreenInfo.RootDepth
 	b := img.Bounds()
-	_ = shm.PutImage(
+	c1 := shm.PutImageChecked(
 		wi.opt.Conn,
 		drawable,
 		gctx,
@@ -98,6 +105,10 @@ func (wi *ShmWImage) PutImage(r image.Rectangle) error {
 		1, // send shm.CompletionEvent when done
 		wi.segId,
 		0) // offset
+	err := c1.Check()
+	if err != nil {
+		return err
+	}
 
 	// wait for shm.CompletionEvent that should call PutImageCompleted()
 	<-wi.putCompleted

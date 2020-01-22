@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"sync"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
@@ -37,8 +38,8 @@ type Window struct {
 
 	WImg wimage.WImage
 
-	events     chan interface{}
-	evLoopDone chan struct{}
+	events    chan interface{}
+	closeOnce sync.Once
 }
 
 func NewWindow() (*Window, error) {
@@ -61,6 +62,7 @@ func NewWindow() (*Window, error) {
 		}
 		return nil, fmt.Errorf("x11 conn: %w", err)
 	}
+
 	// initialize extensions early to avoid concurrent map read/write (XGB issue)
 	wimage.Init(conn)
 
@@ -70,6 +72,7 @@ func NewWindow() (*Window, error) {
 	}
 
 	if err := win.initialize(); err != nil {
+		_ = win.Close() // best effort to close since it was opened
 		return nil, fmt.Errorf("win init: %w", err)
 	}
 
@@ -185,9 +188,13 @@ func (win *Window) initialize() error {
 }
 
 func (win *Window) Close() error {
-	_ = win.WImg.Close()
-	win.Conn.Close() // conn.WaitForEvent() will return with (nil,nil)
-	<-win.evLoopDone
+	win.closeOnce.Do(func() {
+		if win.WImg != nil { // might not be instantiated if failing at init
+			// closing before the connection to prevent errors like "sending on a closed channel" from xgb
+			_ = win.WImg.Close()
+		}
+		win.Conn.Close() // conn.WaitForEvent() will return with (nil,nil)
+	})
 	return nil
 }
 
@@ -196,8 +203,13 @@ func (win *Window) NextEvent() interface{} {
 }
 
 func (win *Window) eventLoop() {
-	win.evLoopDone = make(chan struct{}, 1)
-	defer func() { win.evLoopDone <- struct{}{} }()
+	// TODO: improve (maybe only option is window2 interface)
+	// unblocks waiting for wimg.putimagecompleted
+	defer func() {
+		if u, ok := win.WImg.(*wimage.ShmWImage); ok {
+			u.PutImageCompleted()
+		}
+	}()
 
 	for {
 		ok := win.handleEvent(win.events)
