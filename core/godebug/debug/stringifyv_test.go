@@ -74,8 +74,12 @@ func TestStringifySlice2(t *testing.T) {
 
 	type S2 struct{ b bool }
 	b := []*S1{&S1{1, 2, S2{true}}, &S1{3, 4, &S2{false}}}
-	//runTest1(t, b, "[&{1 2 S2{true}} &{3 4 &S2{false}}]")
-	runTest1(t, b, "@[&{1 2 S2{true}} &{3 4 0x.*}]")
+	runTest1(t, b, "@\\[&{1 2 S2{true}} &{3 4 0x.*]")
+	runTest2(t, b, "[&{1 2 S2{true}} &{3 4 &S2{false}}]", 50, 10)
+
+	c := []*S1{&S1{c: &S1{c: &S2{true}}}}
+	runTest1(t, c, "@\\[&{0 0 0x.*}]")
+	runTest2(t, c, "[&{0 0 &S1{0 0 &S2{true}}}]", 50, 10)
 }
 
 func TestStringifyArray(t *testing.T) {
@@ -111,6 +115,29 @@ func TestStringifyUnsafePointer(t *testing.T) {
 	runTest1(t, b, "@0x.*")
 }
 
+func TestStringifyBytes(t *testing.T) {
+	a := []byte("abc")
+	runTest1(t, a, "[97 98 99]")
+
+	a2 := []byte{}
+	runTest1(t, a2, "[]")
+
+	b := []byte{1, 2, 3, 'a'}
+	runTest1(t, b, "[1 2 3 97]")
+	runTest2(t, b, "[1 2 ...]", 2, 3)
+
+	type S1 struct {
+		a []byte
+	}
+	c := &S1{[]byte{1, 2, 3}}
+	runTest1(t, c, "&S1{[1 2 3]}")
+
+	//d := []byte{1, 2, 3}
+	//println(d)
+	//fmt.Printf("%v\n", d)
+	//fmt.Printf("%s\n", d)
+}
+
 //----------
 
 func TestSliceCut(t *testing.T) {
@@ -129,15 +156,24 @@ func TestSliceCut(t *testing.T) {
 
 func runTest1(t *testing.T, v interface{}, out string) {
 	t.Helper()
+	runTest2(t, v, out, 0, 0)
+}
+func runTest2(t *testing.T, v interface{}, out string, max, maxPtrDepth int) {
+	t.Helper()
 
-	s2 := stringifyV2(v)
+	s2 := ""
+	if max == 0 && maxPtrDepth == 0 {
+		s2 = stringifyV2(v) // use production values
+	} else {
+		p := NewPrint(max, maxPtrDepth)
+		s2 = string(p.Do(v))
+	}
 
 	// support regular expression match if starting with @
 	res := false
 	if out[0] == '@' {
 		out = out[1:]
-		//m, err := regexp.MatchString("^"+out+"$", s2)
-		m, err := regexp.MatchString(out, s2)
+		m, err := regexp.MatchString("^"+out+"$", s2)
 		if err != nil {
 			panic(err)
 		}

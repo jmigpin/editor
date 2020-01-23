@@ -97,9 +97,8 @@ func limitFormat(max int, s string) string {
 //----------
 
 func stringifyV2(v interface{}) string {
-	p := &Print{Max: 150}
-	p.Do(v)
-	return string(p.Out)
+	p := NewPrint(150, 3)
+	return string(p.Do(v))
 }
 
 //----------
@@ -107,12 +106,19 @@ func stringifyV2(v interface{}) string {
 type Print struct {
 	Max int // not a strict max, it helps decide to reduce ouput
 	Out []byte
+
+	maxPtrDepth int
 }
 
-func (p *Print) Do(v interface{}) {
+func NewPrint(max, maxPtrDepth int) *Print {
+	return &Print{Max: max, maxPtrDepth: maxPtrDepth}
+}
+
+func (p *Print) Do(v interface{}) []byte {
 	ctx := &Ctx{}
 	ctx = ctx.WithInInterface(0)
 	p.do(ctx, v, 0)
+	return p.Out
 }
 
 func (p *Print) do(ctx *Ctx, v interface{}, depth int) {
@@ -134,7 +140,7 @@ func (p *Print) do(ctx *Ctx, v interface{}, depth int) {
 	case string:
 		p.appendStrQuoted(p.limitStr(t))
 	case []byte:
-		p.appendBytes(p.limitBytes(t))
+		p.doBytes(t)
 	case uintptr:
 		if t == 0 {
 			p.do(ctx, nil, depth)
@@ -171,17 +177,11 @@ func (p *Print) doValue(ctx *Ctx, v reflect.Value, depth int) {
 	case reflect.Ptr:
 		p.doPointer(ctx, v, depth)
 	case reflect.Struct:
-		p.appendStr("{")
 		p.doStruct(ctx, v, depth)
-		p.appendStr("}")
 	case reflect.Map:
-		p.appendStr("map[")
 		p.doMap(ctx, v, depth)
-		p.appendStr("]")
 	case reflect.Slice, reflect.Array:
-		p.appendStr("[")
 		p.doSlice(ctx, v, depth)
-		p.appendStr("]")
 	case reflect.Interface:
 		p.doInterface(ctx, v, depth)
 	case reflect.Chan,
@@ -197,7 +197,7 @@ func (p *Print) doValue(ctx *Ctx, v reflect.Value, depth int) {
 //----------
 
 func (p *Print) doPointer(ctx *Ctx, v reflect.Value, depth int) {
-	if depth >= 3 || v.Pointer() == 0 {
+	if depth >= p.maxPtrDepth || v.Pointer() == 0 {
 		p.do(ctx, v.Pointer(), depth)
 		return
 	}
@@ -219,7 +219,8 @@ func (p *Print) doPointer(ctx *Ctx, v reflect.Value, depth int) {
 }
 
 func (p *Print) doStruct(ctx *Ctx, v reflect.Value, depth int) {
-	//ctx = ctx.WithInStruct(depth + 1)
+	p.appendStr("{")
+	defer p.appendStr("}")
 	vt := v.Type()
 	for i := 0; i < vt.NumField(); i++ {
 		f := v.Field(i)
@@ -235,6 +236,8 @@ func (p *Print) doStruct(ctx *Ctx, v reflect.Value, depth int) {
 }
 
 func (p *Print) doMap(ctx *Ctx, v reflect.Value, depth int) {
+	p.appendStr("map[")
+	defer p.appendStr("]")
 	iter := v.MapRange()
 	for i := 0; iter.Next(); i++ {
 		if i > 0 {
@@ -251,6 +254,8 @@ func (p *Print) doMap(ctx *Ctx, v reflect.Value, depth int) {
 }
 
 func (p *Print) doSlice(ctx *Ctx, v reflect.Value, depth int) {
+	p.appendStr("[")
+	defer p.appendStr("]")
 	for i := 0; i < v.Len(); i++ {
 		u := v.Index(i)
 		if i > 0 {
@@ -279,26 +284,59 @@ func (p *Print) doInterface(ctx *Ctx, v reflect.Value, depth int) {
 	p.doValue(ctx, e, depth+1)
 }
 
+func (p *Print) doBytes(v []byte) {
+	u := p.limitBytes(v)
+	p.appendStr("[")
+	for i, v := range u {
+		if i > 0 {
+			p.appendStr(" ")
+		}
+		p.appendStr(strconv.FormatUint(uint64(v), 10))
+	}
+	sliced := len(v) != len(u)
+	if sliced {
+		p.appendStr(" ...")
+	}
+	p.appendStr("]")
+}
+
 //----------
 
 func (p *Print) maxedOut() bool {
 	return p.Max-len(p.Out) <= 0
 }
 
-func (p *Print) limitStr(s string) string {
+func (p *Print) currentMax() int {
 	max := p.Max - len(p.Out)
 	if max < 0 {
 		max = 0
 	}
-	if len(s) > 0 && len(s) > max {
-		return s[:max] + "..."
+	return max
+}
+
+//----------
+
+func (p *Print) limitStr(s string) string {
+	if len(s) > 0 {
+		max := p.currentMax()
+		if len(s) > max {
+			return s[:max] + "..."
+		}
 	}
 	return s
 }
 
-func (p *Print) limitBytes(s []byte) []byte {
-	return []byte(p.limitStr(string(s)))
+func (p *Print) limitBytes(b []byte) []byte {
+	if len(b) > 0 {
+		max := p.currentMax()
+		if len(b) > max {
+			return b[:max]
+		}
+	}
+	return b
 }
+
+//----------
 
 func (p *Print) appendStrQuoted(s string) {
 	p.appendStr(strconv.Quote(s))
