@@ -40,7 +40,7 @@ func (wmp *WMP) setupWindowProperty() error {
 		data)
 	return cookie.Check()
 }
-func (wmp *WMP) OnClientMessage(ev *xproto.ClientMessageEvent) (deleteWindow bool) {
+func (wmp *WMP) OnClientMessageDeleteWindow(ev *xproto.ClientMessageEvent) (deleteWindow bool) {
 	if ev.Type != atoms.WM_PROTOCOLS {
 		return false
 	}

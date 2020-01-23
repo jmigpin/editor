@@ -34,12 +34,12 @@ func NewCopy(conn *xgb.Conn, win xproto.Window) (*Copy, error) {
 
 //----------
 
-func (c *Copy) Set(i event.CopyPasteIndex, str string) error {
+func (c *Copy) Set(i event.ClipboardIndex, str string) error {
 	switch i {
-	case event.CPIPrimary:
+	case event.CIPrimary:
 		c.primaryStr = str
 		return c.set(CopyAtoms.Primary)
-	case event.CPIClipboard:
+	case event.CIClipboard:
 		c.clipboardStr = str
 		return c.set(CopyAtoms.Clipboard)
 	}

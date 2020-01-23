@@ -4,6 +4,8 @@ import (
 	"image"
 )
 
+type Event interface{}
+
 //----------
 
 type WindowClose struct{}
@@ -12,7 +14,7 @@ type WindowExpose struct{ Rect image.Rectangle } // empty = full area
 
 type WindowInput struct {
 	Point image.Point
-	Event interface{}
+	Event Event
 }
 
 //----------
@@ -129,11 +131,19 @@ const (
 
 //----------
 
+type ClipboardIndex int
+
+const (
+	CIPrimary ClipboardIndex = iota
+	CIClipboard
+)
+
+// Deprecated: in favor of ClipboardIndex
 type CopyPasteIndex int
 
 const (
-	CPIPrimary CopyPasteIndex = iota
-	CPIClipboard
+	CPIPrimary   = CopyPasteIndex(CIPrimary)
+	CPIClipboard = CopyPasteIndex(CIClipboard)
 )
 
 //----------

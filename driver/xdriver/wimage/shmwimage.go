@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"time"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/jmigpin/editor/util/chanutil"
 )
-
-//godebug:annotatefile
 
 type ShmWImage struct {
 	opt          *Options
 	segId        shm.Seg
 	imgWrap      *ShmImgWrap
-	putCompleted chan struct{}
+	putCompleted *chanutil.NBChan
 }
 
 func NewShmWImage(opt *Options) (*ShmWImage, error) {
@@ -30,7 +30,7 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 	}
 
 	wi := &ShmWImage{opt: opt}
-	wi.putCompleted = make(chan struct{}, 2) // 2=complete+close
+	wi.putCompleted = chanutil.NewNBChan2(1, "shm putcompleted")
 
 	// server segment id
 	segId, err := shm.NewSegId(wi.opt.Conn)
@@ -48,10 +48,6 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 	return wi, nil
 }
 func (wi *ShmWImage) Close() error {
-	// unblocks waiting for putimagecompleted
-	// can't close wi.putCompleted because this is not the sender (would panic if an attempt to send happens later)
-	wi.PutImageCompleted()
-
 	return wi.imgWrap.Close()
 }
 
@@ -111,13 +107,13 @@ func (wi *ShmWImage) PutImage(r image.Rectangle) error {
 	}
 
 	// wait for shm.CompletionEvent that should call PutImageCompleted()
-	<-wi.putCompleted
-
-	return nil
+	// Returns early if the server fails to send the msg (failsafe)
+	_, err = wi.putCompleted.Receive(250 * time.Millisecond)
+	return err
 }
 
 func (wi *ShmWImage) PutImageCompleted() {
-	wi.putCompleted <- struct{}{}
+	_ = wi.putCompleted.Send(struct{}{})
 }
 
 //----------

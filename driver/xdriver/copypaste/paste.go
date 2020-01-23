@@ -36,18 +36,11 @@ func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
 
 //----------
 
-func (p *Paste) Get(index event.CopyPasteIndex, fn func(string, error)) {
-	go func() {
-		s, err := p.get2(index)
-		fn(s, err)
-	}()
-}
-
-func (p *Paste) get2(index event.CopyPasteIndex) (string, error) {
+func (p *Paste) Get(index event.ClipboardIndex) (string, error) {
 	switch index {
-	case event.CPIPrimary:
+	case event.CIPrimary:
 		return p.request(PasteAtoms.Primary)
-	case event.CPIClipboard:
+	case event.CIClipboard:
 		return p.request(PasteAtoms.Clipboard)
 	default:
 		return "", fmt.Errorf("unhandled index")
@@ -60,10 +53,10 @@ func (p *Paste) request(selection xproto.Atom) (string, error) {
 	// TODO: handle timestamps to force only one paste at a time?
 
 	p.sch.NewBufChan(1)
-	defer p.sch.NewBufChan(0)
+	defer p.sch.SetBufChanToZero()
 
 	p.pch.NewBufChan(8)
-	defer p.pch.NewBufChan(0)
+	defer p.pch.SetBufChanToZero()
 
 	p.requestData(selection)
 

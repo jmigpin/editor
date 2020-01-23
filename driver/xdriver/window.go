@@ -1,6 +1,7 @@
 package xdriver
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -38,11 +39,14 @@ type Window struct {
 
 	WImg wimage.WImage
 
-	events    chan interface{}
-	closeOnce sync.Once
+	close struct {
+		sync.RWMutex
+		closing bool
+		closed  bool
+	}
 }
 
-func NewWindow() (*Window, error) {
+func NewWindow2() (*Window, error) {
 	display := os.Getenv("DISPLAY")
 
 	// help get a display target
@@ -66,20 +70,16 @@ func NewWindow() (*Window, error) {
 	// initialize extensions early to avoid concurrent map read/write (XGB issue)
 	wimage.Init(conn)
 
-	win := &Window{
-		Conn:   conn,
-		events: make(chan interface{}, 8),
-	}
+	win := &Window{Conn: conn}
 
 	if err := win.initialize(); err != nil {
 		_ = win.Close() // best effort to close since it was opened
 		return nil, fmt.Errorf("win init: %w", err)
 	}
 
-	go win.eventLoop()
-
 	return win, nil
 }
+
 func (win *Window) initialize() error {
 	// Disable xgb logger that prints to stderr
 	//xgb.Logger = log.New(ioutil.Discard, "", 0)
@@ -187,141 +187,211 @@ func (win *Window) initialize() error {
 	return nil
 }
 
-func (win *Window) Close() error {
-	win.closeOnce.Do(func() {
-		if win.WImg != nil { // might not be instantiated if failing at init
-			// closing before the connection to prevent errors like "sending on a closed channel" from xgb
-			_ = win.WImg.Close()
-		}
+//----------
+
+func (win *Window) Close() (rerr error) {
+	win.close.Lock()
+	defer win.close.Unlock()
+
+	// TODO: closing the image may get memory errors from ongoing draws
+	// If a request is called outside the UI loop, using the image will give errors
+	//rerr = win.WImg.Close()
+
+	if !win.close.closed {
 		win.Conn.Close() // conn.WaitForEvent() will return with (nil,nil)
-	})
+		win.close.closed = true
+	}
+
 	return nil
 }
 
-func (win *Window) NextEvent() interface{} {
-	return <-win.events
+func (win *Window) closeReqFromWindow() error {
+	win.close.Lock()
+	defer win.close.Unlock()
+	win.close.closing = true // no more requests allowed, speeds up closing
+	return nil
 }
 
-func (win *Window) eventLoop() {
-	// TODO: improve (maybe only option is window2 interface)
-	// unblocks waiting for wimg.putimagecompleted
-	defer func() {
-		if u, ok := win.WImg.(*wimage.ShmWImage); ok {
-			u.PutImageCompleted()
-		}
-	}()
+func (win *Window) connClosedPossiblyFromServer() {
+	win.close.Lock()
+	defer win.close.Unlock()
+	win.close.closed = true
+}
+
+//----------
+
+func (win *Window) NextEvent() (event.Event, bool) {
+	win.close.RLock()
+	ok := !win.close.closed
+	win.close.RUnlock()
+	if !ok {
+		return nil, false
+	}
 
 	for {
-		ok := win.handleEvent(win.events)
-		if !ok {
-			break
+		ev := win.nextEvent2()
+		// ev can be nil when the event was consumed internally
+		if ev == nil {
+			continue
 		}
+		return ev, true
 	}
 }
 
-func (win *Window) handleEvent(events chan interface{}) bool {
+func (win *Window) nextEvent2() interface{} {
 	ev, xerr := win.Conn.WaitForEvent()
-	if ev == nil && xerr == nil {
-		events <- &event.WindowClose{}
-		return false
-	}
-	if xerr != nil {
-		events <- error(xerr)
-	}
-	if ev != nil {
-		switch t := ev.(type) {
-		case xproto.ConfigureNotifyEvent: // structure (position,size,...)
-			//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
-			w, h := int(t.Width), int(t.Height)
-			r := image.Rect(0, 0, w, h)
-			events <- &event.WindowResize{Rect: r}
-		case xproto.ExposeEvent: // region needs paint
-			//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
-			w, h := int(t.Width), int(t.Height)
-			r := image.Rect(0, 0, w, h)
-			events <- &event.WindowExpose{Rect: r}
-		case xproto.MapNotifyEvent: // window mapped (created)
-		case xproto.ReparentNotifyEvent: // window rerooted
-
-		case shm.CompletionEvent:
-			win.WImg.PutImageCompleted()
-		case xproto.MappingNotifyEvent: // keyboard mapping
-			if err := win.XInput.ReadMapTable(); err != nil {
-				events <- err
-			}
-
-		case xproto.KeyPressEvent:
-			events <- win.XInput.KeyPress(&t)
-		case xproto.KeyReleaseEvent:
-			events <- win.XInput.KeyRelease(&t)
-		case xproto.ButtonPressEvent:
-			events <- win.XInput.ButtonPress(&t)
-		case xproto.ButtonReleaseEvent:
-			events <- win.XInput.ButtonRelease(&t)
-		case xproto.MotionNotifyEvent:
-			events <- win.XInput.MotionNotify(&t)
-
-		case xproto.SelectionNotifyEvent:
-			win.Paste.OnSelectionNotify(&t)
-			win.Dnd.OnSelectionNotify(&t)
-		case xproto.SelectionRequestEvent:
-			if err := win.Copy.OnSelectionRequest(&t); err != nil {
-				events <- err
-			}
-		case xproto.SelectionClearEvent:
-			win.Copy.OnSelectionClear(&t)
-
-		case xproto.ClientMessageEvent:
-			deleteWindow := win.Wmp.OnClientMessage(&t)
-			if deleteWindow {
-				events <- &event.WindowClose{}
-				return false
-			}
-			if ev2, err, ok := win.Dnd.OnClientMessage(&t); ok {
-				if err != nil {
-					events <- err
-				} else {
-					events <- ev2
-				}
-			}
-
-		case xproto.PropertyNotifyEvent:
-			win.Paste.OnPropertyNotify(&t)
-
-		default:
-			log.Printf("unhandled event: %#v", ev)
+	if ev == nil {
+		if xerr != nil {
+			return error(xerr)
 		}
+		// connection closed: ev==nil && xerr==nil
+		win.connClosedPossiblyFromServer()
+		return &event.WindowClose{}
 	}
-	return true
+
+	switch t := ev.(type) {
+	case xproto.ConfigureNotifyEvent: // structure (position,size,...)
+		//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
+		w, h := int(t.Width), int(t.Height)
+		r := image.Rect(0, 0, w, h)
+		return &event.WindowResize{Rect: r}
+	case xproto.ExposeEvent: // region needs paint
+		//x, y := int(t.X), int(t.Y) // commented: must use (0,0)
+		w, h := int(t.Width), int(t.Height)
+		r := image.Rect(0, 0, w, h)
+		return &event.WindowExpose{Rect: r}
+	case xproto.MapNotifyEvent: // window mapped (created)
+	case xproto.ReparentNotifyEvent: // window rerooted
+	case xproto.MappingNotifyEvent: // keyboard mapping
+		if err := win.XInput.ReadMapTable(); err != nil {
+			return err
+		}
+
+	case xproto.KeyPressEvent:
+		return win.XInput.KeyPress(&t)
+	case xproto.KeyReleaseEvent:
+		return win.XInput.KeyRelease(&t)
+	case xproto.ButtonPressEvent:
+		return win.XInput.ButtonPress(&t)
+	case xproto.ButtonReleaseEvent:
+		return win.XInput.ButtonRelease(&t)
+	case xproto.MotionNotifyEvent:
+		return win.XInput.MotionNotify(&t)
+
+	case xproto.SelectionNotifyEvent:
+		win.Paste.OnSelectionNotify(&t)
+		win.Dnd.OnSelectionNotify(&t)
+	case xproto.SelectionRequestEvent:
+		if err := win.Copy.OnSelectionRequest(&t); err != nil {
+			return err
+		}
+	case xproto.SelectionClearEvent:
+		win.Copy.OnSelectionClear(&t)
+
+	case xproto.ClientMessageEvent:
+		delWin := win.Wmp.OnClientMessageDeleteWindow(&t)
+		if delWin {
+			// TODO: won't allow applications to ignore a close request
+			// speedup close (won't accept more requests)
+			win.closeReqFromWindow()
+
+			return &event.WindowClose{}
+		}
+		if ev2, err, ok := win.Dnd.OnClientMessage(&t); ok {
+			if err != nil {
+				return err
+			} else {
+				return ev2
+			}
+		}
+
+	case xproto.PropertyNotifyEvent:
+		win.Paste.OnPropertyNotify(&t)
+
+	case shm.CompletionEvent:
+		win.WImg.PutImageCompleted()
+
+	default:
+		log.Printf("unhandled event: %#v", ev)
+	}
+	return nil
 }
 
-func (win *Window) SetWindowName(str string) {
-	b := []byte(str)
-	_ = xproto.ChangeProperty(
+//----------
+
+func (win *Window) Request(req event.Request) error {
+	// requests that need write lock
+	switch req.(type) {
+	case *event.ReqClose:
+		return win.Close()
+	}
+
+	win.close.RLock()
+	defer win.close.RUnlock()
+	if win.close.closing || win.close.closed {
+		return errors.New("window closing/closed")
+	}
+
+	switch r := req.(type) {
+	case *event.ReqWindowSetName:
+		return win.setWindowName(r.Name)
+	case *event.ReqImage:
+		r.ReplyImg = win.image()
+		return nil
+	case *event.ReqImagePut:
+		return win.WImg.PutImage(r.Rect)
+	case *event.ReqImageResize:
+		return win.resizeImage(r.Rect)
+	case *event.ReqCursorSet:
+		return win.setCursor(r.Cursor)
+	case *event.ReqPointerQuery:
+		p, err := win.queryPointer()
+		r.ReplyP = p
+		return err
+	case *event.ReqPointerWarp:
+		return win.warpPointer(r.P)
+	case *event.ReqClipboardDataGet:
+		s, err := win.Paste.Get(r.Index)
+		r.ReplyS = s
+		return err
+	case *event.ReqClipboardDataSet:
+		return win.Copy.Set(r.Index, r.Str)
+	default:
+		return fmt.Errorf("todo: %T", r)
+	}
+}
+
+//----------
+
+func (win *Window) setWindowName(str string) error {
+	c1 := xproto.ChangePropertyChecked(
 		win.Conn,
 		xproto.PropModeReplace,
 		win.Window,       // requestor window
 		Atoms.NetWMName,  // property
 		Atoms.Utf8String, // target
 		8,                // format
-		uint32(len(b)),
-		b)
+		uint32(len(str)),
+		[]byte(str))
+	return c1.Check()
 }
 
-//func (win *Window) GetGeometry() (*xproto.GetGeometryReply, error) {
+//----------
+
+//func (win *Window) getGeometry() (*xproto.GetGeometryReply, error) {
 //	drawable := xproto.Drawable(win.Window)
 //	cookie := xproto.GetGeometry(win.Conn, drawable)
 //	return cookie.Reply()
 //}
 
-func (win *Window) Image() draw.Image {
+//----------
+
+func (win *Window) image() draw.Image {
 	return win.WImg.Image()
 }
-func (win *Window) PutImage(rect image.Rectangle) error {
-	return win.WImg.PutImage(rect)
-}
-func (win *Window) ResizeImage(r image.Rectangle) error {
-	ib := win.Image().Bounds()
+
+func (win *Window) resizeImage(r image.Rectangle) error {
+	ib := win.image().Bounds()
 	if !r.Eq(ib) {
 		err := win.WImg.Resize(r)
 		if err != nil {
@@ -331,26 +401,28 @@ func (win *Window) ResizeImage(r image.Rectangle) error {
 	return nil
 }
 
-func (win *Window) WarpPointer(p image.Point) {
+//----------
+
+func (win *Window) warpPointer(p image.Point) error {
 	// warp pointer only if the window has input focus
 	cookie := xproto.GetInputFocus(win.Conn)
 	reply, err := cookie.Reply()
 	if err != nil {
-		log.Print(err)
-		return
+		return err
 	}
 	if reply.Focus != win.Window {
-		return
+		return fmt.Errorf("window not focused")
 	}
-	_ = xproto.WarpPointer(
+	c2 := xproto.WarpPointerChecked(
 		win.Conn,
 		xproto.WindowNone,
 		win.Window,
 		0, 0, 0, 0,
 		int16(p.X), int16(p.Y))
+	return c2.Check()
 }
 
-func (win *Window) QueryPointer() (image.Point, error) {
+func (win *Window) queryPointer() (image.Point, error) {
 	cookie := xproto.QueryPointer(win.Conn, win.Window)
 	r, err := cookie.Reply()
 	if err != nil {
@@ -360,19 +432,11 @@ func (win *Window) QueryPointer() (image.Point, error) {
 	return p, nil
 }
 
-func (win *Window) GetCPPaste(i event.CopyPasteIndex, fn func(string, error)) {
-	win.Paste.Get(i, fn)
-}
-func (win *Window) SetCPCopy(i event.CopyPasteIndex, v string) error {
-	return win.Copy.Set(i, v)
-}
+//----------
 
-func (win *Window) SetCursor(c event.Cursor) {
+func (win *Window) setCursor(c event.Cursor) (rerr error) {
 	sc := func(c2 xcursors.Cursor) {
-		err := win.Cursors.SetCursor(c2)
-		if err != nil {
-			log.Print(err)
-		}
+		rerr = win.Cursors.SetCursor(c2)
 	}
 	switch c {
 	case event.NoneCursor:
@@ -394,6 +458,7 @@ func (win *Window) SetCursor(c event.Cursor) {
 	case event.WaitCursor:
 		sc(xcursor.Watch)
 	}
+	return
 }
 
 //----------

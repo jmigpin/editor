@@ -190,7 +190,7 @@ func (dnd *Dnd) requestDropData(t event.DndType) ([]byte, error) {
 	}
 
 	dnd.sch.NewBufChan(1)
-	defer dnd.sch.NewBufChan(0)
+	defer dnd.sch.SetBufChanToZero()
 
 	dnd.requestData(t2)
 
