@@ -467,6 +467,7 @@ func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 func trimAtFirstSrcDir(filename string) string {
 	v := filename
 	w := []string{}
+	vol := filepath.VolumeName(v)
 	for {
 		base := filepath.Base(v)
 		if base == "src" {
@@ -474,7 +475,9 @@ func trimAtFirstSrcDir(filename string) string {
 		}
 		w = append([]string{base}, w...)
 		v = filepath.Dir(v)
-		if v == "/" || v == "." {
+		if v == string(filepath.Separator) ||
+			v == "." ||
+			v == vol {
 			break
 		}
 	}
