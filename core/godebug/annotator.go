@@ -793,6 +793,7 @@ func (ann *Annotator) visitBinaryExpr3(ctx *Ctx, be *ast.BinaryExpr) {
 }
 
 func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
+	pos := ue.End()
 
 	// X expression
 	ctx2 := ctx
@@ -806,7 +807,6 @@ func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
 
 	// show entering
 	if ue.Op == token.ARROW {
-		pos := ue.End()
 		opbl := basicLitInt(int(ue.Op))
 		ce4 := ann.newDebugCallExpr("IUe", opbl, x)
 		ctx3 := ctx2.setupCallExprDebugIndex(ann)

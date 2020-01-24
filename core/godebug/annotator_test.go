@@ -1965,8 +1965,25 @@ func TestAnnotator108(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
+func TestAnnotator109(t *testing.T) {
+	inout := []string{
+		`return <-fn()`,
+		`Σ.Line(0, 0, 39, Σ.ICe("fn"))
+	        Σ0 := fn()
+	        Σ1 := Σ.IV(Σ0)
+	        Σ2 := Σ.IC("fn", Σ1)
+	        Σ.Line(0, 0, 40, Σ.IUe(36, Σ2))
+	        Σ3 := <-Σ0
+	        Σ4 := Σ.IV(Σ3)
+	        Σ5 := Σ.IU(Σ4, 36, Σ2)
+	        Σ.Line(0, 0, 40, Σ.IL(Σ5))
+	        return Σ3`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc4)
+}
+
 // TODO
-//func TestAnnotator109(t *testing.T) {
+//func TestAnnotator_(t *testing.T) {
 //	inout := []string{
 //		`a:=uint64(math.MaxUint64)`,
 //		``,
@@ -2052,6 +2069,13 @@ func srcFunc2(s string) string {
 func srcFunc3(s string) string {
 	return `package p1
 		func f0(a, b int, c bool) {
+			` + s + `
+		}`
+}
+
+func srcFunc4(s string) string {
+	return `package p1
+		func f0() int {
 			` + s + `
 		}`
 }
