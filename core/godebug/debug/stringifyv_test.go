@@ -46,8 +46,10 @@ func TestStringifyPtr3(t *testing.T) {
 
 func TestStringifyUintptr(t *testing.T) {
 	type Handle uintptr
-	var u Handle
-	runTest1(t, u, "nil")
+	a := Handle(0)
+	runTest1(t, a, "0x0")
+	b := Handle(1)
+	runTest1(t, b, "0x1")
 }
 
 func TestStringifyMap(t *testing.T) {
@@ -113,6 +115,12 @@ func TestStringifyInterface(t *testing.T) {
 func TestStringifyChan(t *testing.T) {
 	a := make(chan int)
 	runTest1(t, a, "@0x.*")
+	var b chan int
+	runTest1(t, &b, "&0x0")
+	var c *chan int
+	runTest1(t, c, "nil")
+	var d *chan int
+	runTest1(t, &d, "&nil")
 }
 
 func TestStringifyUnsafePointer(t *testing.T) {

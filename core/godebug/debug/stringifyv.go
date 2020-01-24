@@ -142,12 +142,7 @@ func (p *Print) do(ctx *Ctx, v interface{}, depth int) {
 	case []byte:
 		p.doBytes(t)
 	case uintptr:
-		if t == 0 {
-			p.do(ctx, nil, depth)
-			return
-		}
 		p.appendStr(fmt.Sprintf("%#x", t))
-
 	case error:
 		p.appendStrQuoted(p.limitStr(t.Error())) // TODO: big output
 	case fmt.Stringer:
@@ -199,6 +194,10 @@ func (p *Print) doValue(ctx *Ctx, v reflect.Value, depth int) {
 //----------
 
 func (p *Print) doPointer(ctx *Ctx, v reflect.Value, depth int) {
+	if v.IsNil() {
+		p.do(ctx, nil, depth)
+		return
+	}
 	if depth >= p.maxPtrDepth || v.Pointer() == 0 {
 		p.do(ctx, v.Pointer(), depth)
 		return
