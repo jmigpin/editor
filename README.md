@@ -51,7 +51,7 @@ go build
 
 ```
 # windows compilation alternatives
-go build	# shows one console window (will be hidden), but cmds won't popup consoles
+go build	# shows one console window (will be hidden, but makes a flash)
 go build -ldflags -H=windowsgui 	# hides the console window, but cmds will popup consoles
 go build -tags=xproto 	# (not native, needs an x11 server to run)
 ```
