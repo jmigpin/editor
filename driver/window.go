@@ -36,6 +36,15 @@ type Window interface {
 	SetCPCopy(event.CopyPasteIndex, string) error
 }
 
+// Deprecated: use NewWindow2
+func NewWindow() (Window, error) {
+	w2, err := NewWindow2()
+	if err != nil {
+		return nil, err
+	}
+	return NewW2Window(w2), nil
+}
+
 //----------
 
 // Maintain Window interface with Window2 based implementation.

@@ -46,6 +46,7 @@ const (
 	//_IDI_APPLICATION = 32512
 
 	_SW_SHOWDEFAULT = 10
+	_SW_HIDE        = 0
 	_SW_SHOW        = 5
 
 	// redraw window
@@ -555,6 +556,9 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _GlobalLock(h windows.Handle) (ptr uintptr, err error) = kernel32.GlobalLock
 //sys _GlobalUnlock(h windows.Handle) (ok bool) = kernel32.GlobalUnlock
 //sys _GlobalAlloc(uFlags uint32, dwBytes uintptr) (h windows.Handle, err error) = kernel32.GlobalAlloc
+//sys _GetConsoleWindow() (cH windows.Handle) = kernel32.GetConsoleWindow
+//sys _GetWindowThreadProcessId(hwnd windows.Handle, pid *uint32) (threadId uint32) = kernel32.GetWindowThreadProcessId
+//sys _GetCurrentProcessId() (pid uint32)  = kernel32.GetCurrentProcessId
 
 //sys _LoadImageW(hInstance windows.Handle, name uintptr, typ uint32, cx int32, cy int32, fuLoad uint32) (imgH windows.Handle, err error) = user32.LoadImageW
 //sys _LoadCursorW(hInstance windows.Handle, name uint32) (cursorH windows.Handle, err error) = user32.LoadCursorW
@@ -592,6 +596,7 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _SetClipboardData(uFormat uint32, h windows.Handle) (dataH windows.Handle, err error) = user32.SetClipboardData
 //sys _GetClipboardData(uFormat uint32) (dataH windows.Handle, err error) = user32.GetClipboardData
 //sys _EmptyClipboard() (ok bool) = user32.EmptyClipboard
+//sys _ShowWindowAsync(hwnd windows.Handle, nCmdShow int) (ok bool) = user32.ShowWindowAsync
 
 //sys _SelectObject(hdc windows.Handle, obj windows.Handle) (prevObjH windows.Handle, err error) = gdi32.SelectObject
 //sys _CreateBitmap(w int32, h int32, planes uint32, bitCount uint32, bits uintptr) (bmH windows.Handle, err error) = gdi32.CreateBitmap

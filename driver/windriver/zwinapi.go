@@ -41,57 +41,61 @@ var (
 	moduser32   = windows.NewLazySystemDLL("user32.dll")
 	modgdi32    = windows.NewLazySystemDLL("gdi32.dll")
 
-	procGetModuleHandleW       = modkernel32.NewProc("GetModuleHandleW")
-	procGlobalLock             = modkernel32.NewProc("GlobalLock")
-	procGlobalUnlock           = modkernel32.NewProc("GlobalUnlock")
-	procGlobalAlloc            = modkernel32.NewProc("GlobalAlloc")
-	procLoadImageW             = moduser32.NewProc("LoadImageW")
-	procLoadCursorW            = moduser32.NewProc("LoadCursorW")
-	procRegisterClassExW       = moduser32.NewProc("RegisterClassExW")
-	procCreateWindowExW        = moduser32.NewProc("CreateWindowExW")
-	procPostMessageW           = moduser32.NewProc("PostMessageW")
-	procGetMessageW            = moduser32.NewProc("GetMessageW")
-	procTranslateAccelerator   = moduser32.NewProc("TranslateAccelerator")
-	procTranslateMessage       = moduser32.NewProc("TranslateMessage")
-	procDispatchMessageW       = moduser32.NewProc("DispatchMessageW")
-	procDefWindowProcW         = moduser32.NewProc("DefWindowProcW")
-	procGetWindowRect          = moduser32.NewProc("GetWindowRect")
-	procSetCursor              = moduser32.NewProc("SetCursor")
-	procDestroyWindow          = moduser32.NewProc("DestroyWindow")
-	procPostQuitMessage        = moduser32.NewProc("PostQuitMessage")
-	procGetCursorPos           = moduser32.NewProc("GetCursorPos")
-	procValidateRect           = moduser32.NewProc("ValidateRect")
-	procInvalidateRect         = moduser32.NewProc("InvalidateRect")
-	procBeginPaint             = moduser32.NewProc("BeginPaint")
-	procEndPaint               = moduser32.NewProc("EndPaint")
-	procUpdateWindow           = moduser32.NewProc("UpdateWindow")
-	procRedrawWindow           = moduser32.NewProc("RedrawWindow")
-	procShowWindow             = moduser32.NewProc("ShowWindow")
-	procGetDC                  = moduser32.NewProc("GetDC")
-	procReleaseDC              = moduser32.NewProc("ReleaseDC")
-	procMapVirtualKeyW         = moduser32.NewProc("MapVirtualKeyW")
-	procToUnicode              = moduser32.NewProc("ToUnicode")
-	procGetKeyboardState       = moduser32.NewProc("GetKeyboardState")
-	procGetKeyState            = moduser32.NewProc("GetKeyState")
-	procSetCursorPos           = moduser32.NewProc("SetCursorPos")
-	procMapWindowPoints        = moduser32.NewProc("MapWindowPoints")
-	procClientToScreen         = moduser32.NewProc("ClientToScreen")
-	procOpenClipboard          = moduser32.NewProc("OpenClipboard")
-	procCloseClipboard         = moduser32.NewProc("CloseClipboard")
-	procSetClipboardData       = moduser32.NewProc("SetClipboardData")
-	procGetClipboardData       = moduser32.NewProc("GetClipboardData")
-	procEmptyClipboard         = moduser32.NewProc("EmptyClipboard")
-	procSelectObject           = modgdi32.NewProc("SelectObject")
-	procCreateBitmap           = modgdi32.NewProc("CreateBitmap")
-	procCreateCompatibleBitmap = modgdi32.NewProc("CreateCompatibleBitmap")
-	procDeleteObject           = modgdi32.NewProc("DeleteObject")
-	procCreateCompatibleDC     = modgdi32.NewProc("CreateCompatibleDC")
-	procDeleteDC               = modgdi32.NewProc("DeleteDC")
-	procBitBlt                 = modgdi32.NewProc("BitBlt")
-	procSetPixel               = modgdi32.NewProc("SetPixel")
-	procCreateBitmapIndirect   = modgdi32.NewProc("CreateBitmapIndirect")
-	procGetObject              = modgdi32.NewProc("GetObject")
-	procCreateDIBSection       = modgdi32.NewProc("CreateDIBSection")
+	procGetModuleHandleW         = modkernel32.NewProc("GetModuleHandleW")
+	procGlobalLock               = modkernel32.NewProc("GlobalLock")
+	procGlobalUnlock             = modkernel32.NewProc("GlobalUnlock")
+	procGlobalAlloc              = modkernel32.NewProc("GlobalAlloc")
+	procGetConsoleWindow         = modkernel32.NewProc("GetConsoleWindow")
+	procGetWindowThreadProcessId = modkernel32.NewProc("GetWindowThreadProcessId")
+	procGetCurrentProcessId      = modkernel32.NewProc("GetCurrentProcessId")
+	procLoadImageW               = moduser32.NewProc("LoadImageW")
+	procLoadCursorW              = moduser32.NewProc("LoadCursorW")
+	procRegisterClassExW         = moduser32.NewProc("RegisterClassExW")
+	procCreateWindowExW          = moduser32.NewProc("CreateWindowExW")
+	procPostMessageW             = moduser32.NewProc("PostMessageW")
+	procGetMessageW              = moduser32.NewProc("GetMessageW")
+	procTranslateAccelerator     = moduser32.NewProc("TranslateAccelerator")
+	procTranslateMessage         = moduser32.NewProc("TranslateMessage")
+	procDispatchMessageW         = moduser32.NewProc("DispatchMessageW")
+	procDefWindowProcW           = moduser32.NewProc("DefWindowProcW")
+	procGetWindowRect            = moduser32.NewProc("GetWindowRect")
+	procSetCursor                = moduser32.NewProc("SetCursor")
+	procDestroyWindow            = moduser32.NewProc("DestroyWindow")
+	procPostQuitMessage          = moduser32.NewProc("PostQuitMessage")
+	procGetCursorPos             = moduser32.NewProc("GetCursorPos")
+	procValidateRect             = moduser32.NewProc("ValidateRect")
+	procInvalidateRect           = moduser32.NewProc("InvalidateRect")
+	procBeginPaint               = moduser32.NewProc("BeginPaint")
+	procEndPaint                 = moduser32.NewProc("EndPaint")
+	procUpdateWindow             = moduser32.NewProc("UpdateWindow")
+	procRedrawWindow             = moduser32.NewProc("RedrawWindow")
+	procShowWindow               = moduser32.NewProc("ShowWindow")
+	procGetDC                    = moduser32.NewProc("GetDC")
+	procReleaseDC                = moduser32.NewProc("ReleaseDC")
+	procMapVirtualKeyW           = moduser32.NewProc("MapVirtualKeyW")
+	procToUnicode                = moduser32.NewProc("ToUnicode")
+	procGetKeyboardState         = moduser32.NewProc("GetKeyboardState")
+	procGetKeyState              = moduser32.NewProc("GetKeyState")
+	procSetCursorPos             = moduser32.NewProc("SetCursorPos")
+	procMapWindowPoints          = moduser32.NewProc("MapWindowPoints")
+	procClientToScreen           = moduser32.NewProc("ClientToScreen")
+	procOpenClipboard            = moduser32.NewProc("OpenClipboard")
+	procCloseClipboard           = moduser32.NewProc("CloseClipboard")
+	procSetClipboardData         = moduser32.NewProc("SetClipboardData")
+	procGetClipboardData         = moduser32.NewProc("GetClipboardData")
+	procEmptyClipboard           = moduser32.NewProc("EmptyClipboard")
+	procShowWindowAsync          = moduser32.NewProc("ShowWindowAsync")
+	procSelectObject             = modgdi32.NewProc("SelectObject")
+	procCreateBitmap             = modgdi32.NewProc("CreateBitmap")
+	procCreateCompatibleBitmap   = modgdi32.NewProc("CreateCompatibleBitmap")
+	procDeleteObject             = modgdi32.NewProc("DeleteObject")
+	procCreateCompatibleDC       = modgdi32.NewProc("CreateCompatibleDC")
+	procDeleteDC                 = modgdi32.NewProc("DeleteDC")
+	procBitBlt                   = modgdi32.NewProc("BitBlt")
+	procSetPixel                 = modgdi32.NewProc("SetPixel")
+	procCreateBitmapIndirect     = modgdi32.NewProc("CreateBitmapIndirect")
+	procGetObject                = modgdi32.NewProc("GetObject")
+	procCreateDIBSection         = modgdi32.NewProc("CreateDIBSection")
 )
 
 func _GetModuleHandleW(name *uint16) (modH windows.Handle, err error) {
@@ -136,6 +140,24 @@ func _GlobalAlloc(uFlags uint32, dwBytes uintptr) (h windows.Handle, err error) 
 			err = syscall.EINVAL
 		}
 	}
+	return
+}
+
+func _GetConsoleWindow() (cH windows.Handle) {
+	r0, _, _ := syscall.Syscall(procGetConsoleWindow.Addr(), 0, 0, 0, 0)
+	cH = windows.Handle(r0)
+	return
+}
+
+func _GetWindowThreadProcessId(hwnd windows.Handle, pid *uint32) (threadId uint32) {
+	r0, _, _ := syscall.Syscall(procGetWindowThreadProcessId.Addr(), 2, uintptr(hwnd), uintptr(unsafe.Pointer(pid)), 0)
+	threadId = uint32(r0)
+	return
+}
+
+func _GetCurrentProcessId() (pid uint32) {
+	r0, _, _ := syscall.Syscall(procGetCurrentProcessId.Addr(), 0, 0, 0, 0)
+	pid = uint32(r0)
 	return
 }
 
@@ -419,6 +441,12 @@ func _GetClipboardData(uFormat uint32) (dataH windows.Handle, err error) {
 
 func _EmptyClipboard() (ok bool) {
 	r0, _, _ := syscall.Syscall(procEmptyClipboard.Addr(), 0, 0, 0, 0)
+	ok = r0 != 0
+	return
+}
+
+func _ShowWindowAsync(hwnd windows.Handle, nCmdShow int) (ok bool) {
+	r0, _, _ := syscall.Syscall(procShowWindowAsync.Addr(), 2, uintptr(hwnd), uintptr(nCmdShow), 0)
 	ok = r0 != 0
 	return
 }

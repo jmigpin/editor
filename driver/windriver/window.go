@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
-	"log"
 	"reflect"
 	"runtime"
 	"sync"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 
+	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
@@ -26,8 +27,7 @@ type Window struct {
 	img draw.Image
 	bmH windows.Handle // bitmap handle
 
-	events    chan interface{}
-	evLoopEnd chan struct{}
+	events chan interface{}
 
 	postEv struct {
 		sync.Mutex
@@ -41,10 +41,9 @@ type Window struct {
 	}
 }
 
-func NewWindow() (*Window, error) {
+func NewWindow2() (*Window, error) {
 	win := &Window{
-		events:    make(chan interface{}, 8),
-		evLoopEnd: make(chan struct{}),
+		events: make(chan interface{}, 8),
 	}
 	win.cursors.cache = map[int]windows.Handle{}
 	win.postEv.m = map[int]interface{}{}
@@ -69,6 +68,8 @@ func (win *Window) initAndSetupLoop() error {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
+		hideConsole()
+
 		if err := win.ostInitialize(); err != nil {
 			initErr <- err
 			return
@@ -81,8 +82,6 @@ func (win *Window) initAndSetupLoop() error {
 
 	return <-initErr
 }
-
-//----------
 
 func (win *Window) ostInitialize() error {
 	// handle containing the window procedure for the class.
@@ -138,73 +137,59 @@ func (win *Window) ostInitialize() error {
 
 //----------
 
-func (win *Window) NextEvent() interface{} {
-	return <-win.events
-}
-
-//----------
-
-func (win *Window) PostEvent(ev interface{}) error {
-	win.postEv.Lock()
-	defer win.postEv.Unlock()
-	id := win.postEv.id
-	win.postEv.m[id] = ev
-	if !_PostMessageW(win.hwnd, uint32(_WM_APP), uintptr(id), 0) {
-		delete(win.postEv.m, id)
-		return fmt.Errorf("postevent: failed to post")
-	}
-	win.postEv.id++
-	return nil
-}
-
-func (win *Window) getPostEventData(id int) (interface{}, error) {
-	win.postEv.Lock()
-	defer win.postEv.Unlock()
-	ev, ok := win.postEv.m[id]
-	if !ok {
-		return nil, fmt.Errorf("postevent map: id not found: %v", id)
-	}
-	delete(win.postEv.m, id)
-	return ev, nil
-}
-
-//----------
-
 // Called from OS thread.
 func (win *Window) ostMsgLoop() {
-	defer func() {
-		close(win.evLoopEnd)
-	}()
+	// ensure it is instantiated (avoid garbage collection when going throught windows functions that would make go's gc collect the variable)
+	msg := _Msg{}
 
-	msg := _Msg{} // ensure it is instantiated during the loop
 	for {
-		res, err := _GetMessageW(&msg, win.hwnd, 0, 0) // wait for next msg
+		ok, err := win.nextMsg(&msg)
 		if err != nil {
-			if err2 := windows.GetLastError(); err2 != nil { // improve error
-				err = fmt.Errorf("%v: %v", err, err2)
-			}
 			win.events <- err
+		}
+		if !ok {
 			break
 		}
-		quit := res == 0
-		if quit {
-			break
-		}
-
-		// not used: virtual keys are translated ondemand (keydown/keyup)
-		//_ = _TranslateMessage(&msg)
-
-		// dispatch to hwnd.class.LpfnWndProc (runs win.wndProcCallback)
-		_ = _DispatchMessageW(&msg)
-
-		// call directly instead of dispatch? getting cpu spin
-		//win.handleMsg(&msg)
+		win.handleMsg(&msg)
 	}
+}
+
+func (win *Window) nextMsg(msg *_Msg) (ok bool, _ error) {
+	*msg = _Msg{} // reset to zero
+
+	res, err := _GetMessageW(msg, win.hwnd, 0, 0) // wait for next msg
+	if err != nil {
+		// improve error
+		if err2 := windows.GetLastError(); err2 != nil {
+			err = fmt.Errorf("%v: %v", err, err2)
+		}
+		return false, err
+	}
+	quit := res == 0
+	if quit {
+		return false, nil
+	}
+	return true, nil
 }
 
 //----------
 
-// Called by dispatchMessage and via WndClassExW.
+func (win *Window) NextEvent() (event.Event, bool) {
+	ev, ok := <-win.events
+	return ev, ok
+}
+
+//----------
+
+func (win *Window) handleMsg(msg *_Msg) {
+	// not used: virtual keys are translated ondemand (keydown/keyup)
+	//_ = _TranslateMessage(msg)
+
+	// dispatch to hwnd.class.LpfnWndProc (runs win.wndProcCallback)
+	_ = _DispatchMessageW(msg)
+}
+
+// Called by _DispatchMessageW() and via WndClassExW.
 func (win *Window) wndProcCallback(hwnd windows.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	m := &_Msg{
 		HWnd:   hwnd,
@@ -212,16 +197,10 @@ func (win *Window) wndProcCallback(hwnd windows.Handle, msg uint32, wParam, lPar
 		WParam: wParam,
 		LParam: lParam,
 	}
-	return win.handleMsg(m)
+	return win.handleMsg2(m)
 }
 
-//----------
-
-func (win *Window) handleMsg(msg *_Msg) uintptr {
-	defh := func() uintptr {
-		return _DefWindowProcW(msg.HWnd, msg.Msg, msg.WParam, msg.LParam)
-	}
-
+func (win *Window) handleMsg2(msg *_Msg) uintptr {
 	switch _wm(msg.Msg) {
 	case _WM_CREATE:
 		createW := (*_CreateW)(unsafe.Pointer(msg.LParam))
@@ -255,9 +234,8 @@ func (win *Window) handleMsg(msg *_Msg) uintptr {
 
 	case _WM_CLOSE: // window close button
 		win.events <- &event.WindowClose{}
-	case _WM_DESTROY:
+	case _WM_DESTROY: // possibly app request to close
 		_PostQuitMessage(0)
-
 	case _WM_SYSCOMMAND:
 		c := int(msg.WParam)
 		switch c {
@@ -300,65 +278,102 @@ func (win *Window) handleMsg(msg *_Msg) uintptr {
 
 	case _WM_APP:
 		id := int(msg.WParam)
-		data, err := win.getPostEventData(id)
-		if err != nil {
-			win.events <- err
-			break
-		}
-		app := data.(*appMsg)
-		app.Reply <- win.handleAppEvent(msg, app)
+		win.handleAppMsg(id, msg)
 	}
 
-	return defh()
+	return defaultMsgHandler(msg)
 }
 
 //----------
 
-func (win *Window) handleAppEvent(msg *_Msg, app *appMsg) interface{} {
-	switch t := app.Event.(type) {
-	case *appClose:
-		if !_DestroyWindow(msg.HWnd) {
+func (win *Window) handleAppMsg(id int, msg *_Msg) {
+	req, appData, err := win.readAppMsgReq(id)
+	if err != nil {
+		win.events <- err
+		return
+	}
+	err = win.handleRequest(req, msg)
+	_ = appData.Ch.Send(err)
+}
+
+func (win *Window) handleRequest(req event.Request, msg *_Msg) error {
+	switch r := req.(type) {
+	case *event.ReqClose:
+		if !_DestroyWindow(msg.HWnd) { // sends _WM_DESTROY
 			return fmt.Errorf("destroywindow: false")
 		}
-		return nil // TODO: handle app reply at wm_quit msg?
-
-	case *appResizeImage:
-		return win.ostResizeImage(t.r)
-	case *appPutImage:
-		return win.ostPaintImg(t.r)
-
-	case *appSetCursor:
-		return win.ostSetCursor(t.Cursor)
-	case *appQueryPointer:
+		return nil
+	case *event.ReqWindowSetName:
+		// TODO
+		return nil
+	// Disabled: handled at Request() without roundtrip
+	//case *event.ReqImage:
+	//	r.ReplyImg = win.img
+	//	return nil
+	case *event.ReqImagePut:
+		return win.ostPaintImg(r.Rect)
+	case *event.ReqImageResize:
+		return win.ostResizeImage(r.Rect)
+	case *event.ReqCursorSet:
+		return win.ostSetCursor(r.Cursor)
+	case *event.ReqPointerQuery:
 		p, err := win.ostQueryPointer()
-		if err != nil {
+		r.ReplyP = p
+		return err
+	case *event.ReqPointerWarp:
+		return win.ostWarpPointer(r.P)
+	case *event.ReqClipboardDataGet:
+		if r.Index == event.CIClipboard {
+			s, err := win.ostGetClipboardData()
+			r.ReplyS = s
 			return err
 		}
-		return p
-	case *appWarpPointer:
-		return win.ostWarpPointer(t.p)
-
-	case *appSetClipboardData:
-		return win.ostSetClipboardData(t.s)
-	case *appGetClipboardData:
-		s, err := win.ostGetClipboardData()
-		if err != nil {
-			return err
+		return nil
+	case *event.ReqClipboardDataSet:
+		if r.Index == event.CIClipboard {
+			return win.ostSetClipboardData(r.Str)
 		}
-		return s
+		return nil
 	default:
-		panic("todo: app event type")
+		panic(fmt.Sprintf("todo: %T", req))
 	}
 }
 
 //----------
 
-func (win *Window) getWindowRectangle() (image.Rectangle, error) {
-	r := _Rect{}
-	if !_GetWindowRect(win.hwnd, &r) {
-		return image.ZR, fmt.Errorf("getwindowrect: false")
+func (win *Window) Request(req event.Request) error {
+	// handle now without the appmsg roundtrip (performance)
+	switch r := req.(type) {
+	case *event.ReqImage:
+		r.ReplyImg = win.img
+		return nil
 	}
-	return r.ToImageRectangle(), nil
+
+	return win.runAppMsgReq(req)
+}
+
+func (win *Window) runAppMsgReq(req event.Request) error {
+	appData := NewAppData(req)
+	if err := win.postAppMsg(appData); err != nil {
+		return err
+	}
+	reqErrV, err := appData.Ch.Receive(500 * time.Millisecond)
+	if err != nil {
+		return err
+	}
+	if reqErr, ok := reqErrV.(error); ok {
+		return reqErr
+	}
+	return nil
+}
+
+func (win *Window) readAppMsgReq(id int) (event.Request, *AppData, error) {
+	data, err := win.getAppMsgData(id)
+	if err != nil {
+		return nil, nil, err
+	}
+	appData := data.(*AppData)
+	return appData.Value.(event.Request), appData, nil
 }
 
 //----------
@@ -498,6 +513,28 @@ func (win *Window) paintImgWithBitmap(r image.Rectangle) error {
 	return nil
 }
 
+//----------
+
+func (win *Window) buildBitmap(size image.Point) (bmH windows.Handle, bits *byte, _ error) {
+	bmi := _BitmapInfo{
+		BmiHeader: _BitmapInfoHeader{
+			BiSize:        uint32(unsafe.Sizeof(_BitmapInfoHeader{})),
+			BiWidth:       int32(size.X),
+			BiHeight:      -int32(size.Y), // negative to invert y
+			BiPlanes:      1,
+			BiBitCount:    32,
+			BiCompression: _BI_RGB,
+			BiSizeImage:   uint32(size.X * size.Y * 4),
+		},
+	}
+
+	bmH, err := _CreateDIBSection(0, &bmi, _DIB_RGB_COLORS, &bits, 0, 0)
+	if err != nil {
+		return 0, nil, err
+	}
+	return bmH, bits, nil
+}
+
 //func (win *Window) buildBitmap_() (bm windows.Handle, _ error) {
 //	// image data
 //	r := win.img.Bounds()
@@ -537,61 +574,15 @@ func (win *Window) paintImgWithBitmap(r image.Rectangle) error {
 //	return bm, err
 //}
 
-func (win *Window) buildBitmap(size image.Point) (bmH windows.Handle, bits *byte, _ error) {
-	bmi := _BitmapInfo{
-		BmiHeader: _BitmapInfoHeader{
-			BiSize:        uint32(unsafe.Sizeof(_BitmapInfoHeader{})),
-			BiWidth:       int32(size.X),
-			BiHeight:      -int32(size.Y), // negative to invert y
-			BiPlanes:      1,
-			BiBitCount:    32,
-			BiCompression: _BI_RGB,
-			BiSizeImage:   uint32(size.X * size.Y * 4),
-		},
-	}
-
-	bmH, err := _CreateDIBSection(0, &bmi, _DIB_RGB_COLORS, &bits, 0, 0)
-	if err != nil {
-		return 0, nil, err
-	}
-	return bmH, bits, nil
-}
-
 //----------
-
-func (win *Window) Image() draw.Image {
-	//godebug:annotateoff
-	return win.img
-}
-
-//----------
-
-func (win *Window) ResizeImage(r image.Rectangle) error {
-	app := newAppMsg(&appResizeImage{r})
-	if err := win.PostEvent(app); err != nil {
-		return err
-	}
-	return appCheckError(<-app.Reply)
-}
 
 func (win *Window) ostResizeImage(r image.Rectangle) error {
-	//win.img = imageutil.NewBGRA(&r)
-
-	//bmH, err := win.buildBitmap()
-	//if err != nil {
-	//	return err
-	//}
-	//if win.bmH != 0 {
-	//	_DeleteObject(win.bmH)
-	//}
-	//win.bmH = bmH
-
 	bmH, bits, err := win.buildBitmap(r.Size())
 	if err != nil {
 		return err
 	}
 	if win.bmH != 0 {
-		_DeleteObject(win.bmH)
+		_DeleteObject(win.bmH) // delete old
 	}
 	win.bmH = bmH
 
@@ -603,29 +594,6 @@ func (win *Window) ostResizeImage(r image.Rectangle) error {
 	win.img = imageutil.NewBGRAFromBuffer(buf, &r)
 
 	return nil
-}
-
-//----------
-
-func (win *Window) PutImage(r image.Rectangle) error {
-	app := newAppMsg(&appPutImage{r})
-	if err := win.PostEvent(app); err != nil {
-		return err
-	}
-	return appCheckError(<-app.Reply)
-}
-
-//----------
-
-func (win *Window) SetCursor(c event.Cursor) {
-	app := newAppMsg(&appSetCursor{c})
-	if err := win.PostEvent(app); err != nil {
-		log.Println(err)
-		return
-	}
-	if err := appCheckError(<-app.Reply); err != nil {
-		log.Println(err)
-	}
 }
 
 //----------
@@ -710,81 +678,12 @@ func (win *Window) loadCursor2(c int) (windows.Handle, error) {
 
 //----------
 
-func (win *Window) QueryPointer() (image.Point, error) {
-	app := newAppMsg(&appQueryPointer{})
-	if err := win.PostEvent(app); err != nil {
-		return image.ZP, err
-	}
-	res := <-app.Reply
-	switch t := res.(type) {
-	case image.Point:
-		return t, nil
-	case error:
-		return image.ZP, nil
-	default:
-		panic(res)
-	}
-}
-
 func (win *Window) ostQueryPointer() (image.Point, error) {
 	csp, err := win.cursorScreenPos()
 	if err != nil {
 		return image.ZP, err
 	}
 	return win.screenToWindowPoint(csp)
-}
-
-//----------
-
-func (win *Window) cursorScreenPos() (image.Point, error) {
-	cp := _Point{}
-	if !_GetCursorPos(&cp) {
-		return image.ZP, fmt.Errorf("getcursorpos: false")
-	}
-	return cp.ToImagePoint(), nil
-}
-
-//----------
-
-func (win *Window) screenToWindowPoint(sp image.Point) (image.Point, error) {
-	wsp, err := win.windowScreenPos()
-	if err != nil {
-		return image.ZP, err
-	}
-	return sp.Sub(wsp), nil
-}
-
-func (win *Window) windowScreenPos() (image.Point, error) {
-	// NOTE: returns window area (need client area)
-	//wr := _Rect{}
-	//if !_GetWindowRect(win.hwnd, &wr) {
-	//	return image.ZP, fmt.Errorf("getwindowrect: false")
-	//}
-	//return wr.ToImageRectangle().Min, nil
-
-	// NOTE: works, but apparently has issues on right-to-left systems...
-	//p := _Point{0, 0}
-	//if !_ClientToScreen(win.hwnd, &p) {
-	//	return image.ZP, fmt.Errorf("clienttoscreen: false")
-	//}
-	//return p.ToImagePoint(), nil
-
-	p := _Point{0, 0}
-	_ = _MapWindowPoints(win.hwnd, 0, &p, 1)
-	return p.ToImagePoint(), nil
-}
-
-//----------
-
-func (win *Window) WarpPointer(p image.Point) {
-	app := newAppMsg(&appWarpPointer{p: p})
-	if err := win.PostEvent(app); err != nil {
-		log.Println(err)
-		return
-	}
-	if err := appCheckError(<-app.Reply); err != nil {
-		log.Println(err)
-	}
 }
 
 func (win *Window) ostWarpPointer(p image.Point) error {
@@ -801,24 +700,6 @@ func (win *Window) ostWarpPointer(p image.Point) error {
 
 //----------
 
-func (win *Window) GetCPPaste(idx event.CopyPasteIndex, fn func(string, error)) {
-	if idx == event.CPIClipboard {
-		app := newAppMsg(&appGetClipboardData{})
-		if err := win.PostEvent(app); err != nil {
-			fn("", err)
-			return
-		}
-		res := <-app.Reply
-		switch t := res.(type) {
-		case string:
-			fn(t, nil)
-		case error:
-			fn("", t)
-		default:
-			panic(res)
-		}
-	}
-}
 func (win *Window) ostGetClipboardData() (string, error) {
 	if !_OpenClipboard(0) {
 		return "", fmt.Errorf("openclipboard: false")
@@ -853,17 +734,6 @@ func (win *Window) ostGetClipboardData() (string, error) {
 }
 
 //----------
-
-func (win *Window) SetCPCopy(idx event.CopyPasteIndex, s string) error {
-	if idx == event.CPIClipboard {
-		app := newAppMsg(&appSetClipboardData{s: s})
-		if err := win.PostEvent(app); err != nil {
-			return err
-		}
-		return appCheckError(<-app.Reply)
-	}
-	return nil
-}
 
 func (win *Window) ostSetClipboardData(s string) error {
 	if !_OpenClipboard(0) {
@@ -904,57 +774,93 @@ func (win *Window) ostSetClipboardData(s string) error {
 
 //----------
 
-func (win *Window) SetWindowName(str string) {
-	// TODO
+func (win *Window) cursorScreenPos() (image.Point, error) {
+	cp := _Point{}
+	if !_GetCursorPos(&cp) {
+		return image.ZP, fmt.Errorf("getcursorpos: false")
+	}
+	return cp.ToImagePoint(), nil
 }
+
+func (win *Window) screenToWindowPoint(sp image.Point) (image.Point, error) {
+	wsp, err := win.windowScreenPos()
+	if err != nil {
+		return image.ZP, err
+	}
+	return sp.Sub(wsp), nil
+}
+
+func (win *Window) windowScreenPos() (image.Point, error) {
+	// NOTE: returns window area (need client area)
+	//wr := _Rect{}
+	//if !_GetWindowRect(win.hwnd, &wr) {
+	//	return image.ZP, fmt.Errorf("getwindowrect: false")
+	//}
+	//return wr.ToImageRectangle().Min, nil
+
+	// NOTE: works, but apparently has issues on right-to-left systems...
+	//p := _Point{0, 0}
+	//if !_ClientToScreen(win.hwnd, &p) {
+	//	return image.ZP, fmt.Errorf("clienttoscreen: false")
+	//}
+	//return p.ToImagePoint(), nil
+
+	p := _Point{0, 0}
+	_ = _MapWindowPoints(win.hwnd, 0, &p, 1)
+	return p.ToImagePoint(), nil
+}
+
+//func (win *Window) getWindowRectangle() (image.Rectangle, error) {
+//	r := _Rect{}
+//	if !_GetWindowRect(win.hwnd, &r) {
+//		return image.ZR, fmt.Errorf("getwindowrect: false")
+//	}
+//	return r.ToImageRectangle(), nil
+//}
 
 //----------
 
-// Called from app.
-func (win *Window) Close() error {
-	app := newAppMsg(&appClose{})
-	if err := win.PostEvent(app); err != nil {
-		return err
+func (win *Window) postAppMsg(v interface{}) error {
+	win.postEv.Lock()
+	defer win.postEv.Unlock()
+	id := win.postEv.id
+	win.postEv.m[id] = v
+	if !_PostMessageW(win.hwnd, uint32(_WM_APP), uintptr(id), 0) {
+		delete(win.postEv.m, id)
+		return fmt.Errorf("postevent: failed to post")
 	}
-	if err := appCheckError(<-app.Reply); err != nil {
-		return err
-	}
-	<-win.evLoopEnd
+	win.postEv.id++
 	return nil
 }
 
+func (win *Window) getAppMsgData(id int) (interface{}, error) {
+	win.postEv.Lock()
+	defer win.postEv.Unlock()
+	v, ok := win.postEv.m[id]
+	if !ok {
+		return nil, fmt.Errorf("postevent map: id not found: %v", id)
+	}
+	delete(win.postEv.m, id)
+	return v, nil
+}
+
 //----------
 
-// Messages sent to the ost loop (operating system thread).
-
-type appMsg struct {
-	Event interface{}
-	Reply chan interface{}
+type AppData struct {
+	Ch    *chanutil.NBChan
+	Value interface{}
 }
 
-func newAppMsg(ev interface{}) *appMsg {
-	return &appMsg{Event: ev, Reply: make(chan interface{}, 1)}
+func NewAppData(v interface{}) *AppData {
+	logStr := fmt.Sprintf("win appdata: %T", v)
+	return &AppData{chanutil.NewNBChan2(0, logStr), v}
 }
 
-func appCheckError(res interface{}) error {
-	switch t := res.(type) {
-	case nil:
-		return nil
-	case error:
-		return t
-	default:
-		panic(res)
-	}
-}
+//----------
 
-type appClose struct{}
-type appPutImage struct{ r image.Rectangle }
-type appResizeImage struct{ r image.Rectangle }
-type appSetCursor struct{ Cursor event.Cursor }
-type appQueryPointer struct{}
-type appWarpPointer struct{ p image.Point }
-type appGetClipboardData struct{}
-type appSetClipboardData struct{ s string }
+func defaultMsgHandler(msg *_Msg) uintptr {
+	return _DefWindowProcW(msg.HWnd, msg.Msg, msg.WParam, msg.LParam)
+}
 
 //----------
 
@@ -976,3 +882,18 @@ func vkeyRune(vkey uint32, kstate *[256]byte) (rune, bool) {
 }
 
 //----------
+
+func hideConsole() {
+	// compiling with "-ldflags -H=windowsgui" will hide the console but then other cmds will popup consoles.
+	// compiling without the flag opens 1 console and other cmds will use this console. This function hides that only console.
+
+	console := _GetConsoleWindow()
+	if console == 0 {
+		return // no console attached
+	}
+	//pid := uint32(0)
+	//_ = _GetWindowThreadProcessId(console, &pid) // TODO: hangs?
+	//if _GetCurrentProcessId() == pid {
+	_ = _ShowWindowAsync(console, _SW_HIDE)
+	//}
+}
