@@ -28,7 +28,7 @@ func TestStringifyPtr2(t *testing.T) {
 	runTest1(t, &a, "&St1{0 0}")
 }
 
-func TestStringifyPtr(t *testing.T) {
+func TestStringifyPtr3(t *testing.T) {
 	type St1 struct {
 		a int
 		B int
@@ -42,6 +42,12 @@ func TestStringifyPtr(t *testing.T) {
 	v3 := &v2
 	//runTest1(t, &v3, "@0x.*")
 	runTest1(t, &v3, "&&&St1{2 3}")
+}
+
+func TestStringifyUintptr(t *testing.T) {
+	type Handle uintptr
+	var u Handle
+	runTest1(t, u, "nil")
 }
 
 func TestStringifyMap(t *testing.T) {

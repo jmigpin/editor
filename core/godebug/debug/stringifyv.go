@@ -188,8 +188,10 @@ func (p *Print) doValue(ctx *Ctx, v reflect.Value, depth int) {
 		reflect.Func,
 		reflect.UnsafePointer:
 		p.do(ctx, v.Pointer(), depth)
+	case reflect.Uintptr:
+		p.do(ctx, uintptr(v.Uint()), depth)
 	default:
-		s := fmt.Sprintf("(todo:%v)", v.Type().String())
+		s := fmt.Sprintf("(todo:%v,%v)", v.Kind(), v.Type().String())
 		p.appendStr(s)
 	}
 }
