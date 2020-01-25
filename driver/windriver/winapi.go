@@ -557,7 +557,6 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _GlobalUnlock(h windows.Handle) (ok bool) = kernel32.GlobalUnlock
 //sys _GlobalAlloc(uFlags uint32, dwBytes uintptr) (h windows.Handle, err error) = kernel32.GlobalAlloc
 //sys _GetConsoleWindow() (cH windows.Handle) = kernel32.GetConsoleWindow
-//sys _GetWindowThreadProcessId(hwnd windows.Handle, pid *uint32) (threadId uint32) = kernel32.GetWindowThreadProcessId
 //sys _GetCurrentProcessId() (pid uint32)  = kernel32.GetCurrentProcessId
 
 //sys _LoadImageW(hInstance windows.Handle, name uintptr, typ uint32, cx int32, cy int32, fuLoad uint32) (imgH windows.Handle, err error) = user32.LoadImageW
@@ -582,6 +581,7 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _UpdateWindow(hwnd windows.Handle) (ok bool) = user32.UpdateWindow
 //sys _RedrawWindow(hwnd windows.Handle, r *_Rect, region windows.Handle, flags uint) (ok bool) = user32.RedrawWindow
 //sys _ShowWindow(hwnd windows.Handle, nCmdShow int) (ok bool) = user32.ShowWindow
+//sys _ShowWindowAsync(hwnd windows.Handle, nCmdShow int) (ok bool) = user32.ShowWindowAsync
 //sys _GetDC(hwnd windows.Handle) (dcH windows.Handle, err error) = user32.GetDC
 //sys _ReleaseDC(hwnd windows.Handle, dc windows.Handle) (ok bool) = user32.ReleaseDC
 //sys _MapVirtualKeyW(uCode uint32, uMapType uint32) (code uint32) = user32.MapVirtualKeyW
@@ -596,7 +596,7 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _SetClipboardData(uFormat uint32, h windows.Handle) (dataH windows.Handle, err error) = user32.SetClipboardData
 //sys _GetClipboardData(uFormat uint32) (dataH windows.Handle, err error) = user32.GetClipboardData
 //sys _EmptyClipboard() (ok bool) = user32.EmptyClipboard
-//sys _ShowWindowAsync(hwnd windows.Handle, nCmdShow int) (ok bool) = user32.ShowWindowAsync
+//sys _GetWindowThreadProcessId(hwnd windows.Handle, pid *uint32) (threadId uint32) = user32.GetWindowThreadProcessId
 
 //sys _SelectObject(hdc windows.Handle, obj windows.Handle) (prevObjH windows.Handle, err error) = gdi32.SelectObject
 //sys _CreateBitmap(w int32, h int32, planes uint32, bitCount uint32, bits uintptr) (bmH windows.Handle, err error) = gdi32.CreateBitmap
@@ -610,3 +610,5 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _CreateBitmapIndirect(bm *_Bitmap) (bmH windows.Handle, err error) = gdi32.CreateBitmapIndirect
 //sys _GetObject(h windows.Handle, c int32, v uintptr) (n int) = gdi32.GetObject
 //sys	_CreateDIBSection(dc syscall.Handle, bmi *_BitmapInfo, usage uint32, bits **byte, section syscall.Handle, offset uint32) (bmH windows.Handle, err error) = gdi32.CreateDIBSection
+
+//sys _RegisterDragDrop(hwnd windows.Handle, pDropTarget windows.Handle) (resH windows.Handle) = ole32.RegisterDragDrop

@@ -17,7 +17,7 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-// Function preceded by "ost" run in the "operating-system-thread".
+// Functions preceded by "ost" run in the "operating-system-thread".
 type Window struct {
 	className   *uint16
 	windowTitle *uint16
@@ -68,8 +68,6 @@ func (win *Window) initAndSetupLoop() error {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
-		hideConsole()
-
 		if err := win.ostInitialize(); err != nil {
 			initErr <- err
 			return
@@ -84,13 +82,14 @@ func (win *Window) initAndSetupLoop() error {
 }
 
 func (win *Window) ostInitialize() error {
+	_ = hideConsole()
+
 	// handle containing the window procedure for the class.
 	instance, err := _GetModuleHandleW(nil)
 	if err != nil {
 		return fmt.Errorf("getmodulehandle: %v", err)
 	}
 	win.instance = instance
-	//win.instance = windows.Handle(0)
 
 	// window class registration
 	win.className = UTF16PtrFromString("editorClass")
@@ -124,13 +123,16 @@ func (win *Window) ostInitialize() error {
 	}
 	win.hwnd = hwnd
 
-	_ = _ShowWindow(win.hwnd, _SW_SHOWDEFAULT)
-	_ = _UpdateWindow(win.hwnd)
+	_ = _ShowWindowAsync(win.hwnd, _SW_SHOWDEFAULT)
+	//_ = _UpdateWindow(win.hwnd)
 
 	// cursor: don't set cursor at class struct to avoid auto-restoration
 	if err := win.ostSetCursor(event.NoneCursor); err != nil {
 		return err
 	}
+
+	// register drag and drop
+	//_ = _RegisterDragDrop(win.hwnd, 0)
 
 	return nil
 }
@@ -883,17 +885,18 @@ func vkeyRune(vkey uint32, kstate *[256]byte) (rune, bool) {
 
 //----------
 
-func hideConsole() {
-	// compiling with "-ldflags -H=windowsgui" will hide the console but then other cmds will popup consoles.
-	// compiling without the flag opens 1 console and other cmds will use this console. This function hides that only console.
+func hideConsole() bool {
+	// Note: compiling with "-ldflags -H=windowsgui" will hide the console but then other launched cmds will popup consoles.
 
 	console := _GetConsoleWindow()
 	if console == 0 {
-		return // no console attached
+		return false // no console attached
 	}
-	//pid := uint32(0)
-	//_ = _GetWindowThreadProcessId(console, &pid) // TODO: hangs?
-	//if _GetCurrentProcessId() == pid {
-	_ = _ShowWindowAsync(console, _SW_HIDE)
-	//}
+
+	pid := uint32(0)                             // process id
+	_ = _GetWindowThreadProcessId(console, &pid) // returns thread id
+	if pid == _GetCurrentProcessId() {
+		return _ShowWindowAsync(console, _SW_HIDE)
+	}
+	return false
 }

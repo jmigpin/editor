@@ -40,13 +40,13 @@ var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 	moduser32   = windows.NewLazySystemDLL("user32.dll")
 	modgdi32    = windows.NewLazySystemDLL("gdi32.dll")
+	modole32    = windows.NewLazySystemDLL("ole32.dll")
 
 	procGetModuleHandleW         = modkernel32.NewProc("GetModuleHandleW")
 	procGlobalLock               = modkernel32.NewProc("GlobalLock")
 	procGlobalUnlock             = modkernel32.NewProc("GlobalUnlock")
 	procGlobalAlloc              = modkernel32.NewProc("GlobalAlloc")
 	procGetConsoleWindow         = modkernel32.NewProc("GetConsoleWindow")
-	procGetWindowThreadProcessId = modkernel32.NewProc("GetWindowThreadProcessId")
 	procGetCurrentProcessId      = modkernel32.NewProc("GetCurrentProcessId")
 	procLoadImageW               = moduser32.NewProc("LoadImageW")
 	procLoadCursorW              = moduser32.NewProc("LoadCursorW")
@@ -70,6 +70,7 @@ var (
 	procUpdateWindow             = moduser32.NewProc("UpdateWindow")
 	procRedrawWindow             = moduser32.NewProc("RedrawWindow")
 	procShowWindow               = moduser32.NewProc("ShowWindow")
+	procShowWindowAsync          = moduser32.NewProc("ShowWindowAsync")
 	procGetDC                    = moduser32.NewProc("GetDC")
 	procReleaseDC                = moduser32.NewProc("ReleaseDC")
 	procMapVirtualKeyW           = moduser32.NewProc("MapVirtualKeyW")
@@ -84,7 +85,7 @@ var (
 	procSetClipboardData         = moduser32.NewProc("SetClipboardData")
 	procGetClipboardData         = moduser32.NewProc("GetClipboardData")
 	procEmptyClipboard           = moduser32.NewProc("EmptyClipboard")
-	procShowWindowAsync          = moduser32.NewProc("ShowWindowAsync")
+	procGetWindowThreadProcessId = moduser32.NewProc("GetWindowThreadProcessId")
 	procSelectObject             = modgdi32.NewProc("SelectObject")
 	procCreateBitmap             = modgdi32.NewProc("CreateBitmap")
 	procCreateCompatibleBitmap   = modgdi32.NewProc("CreateCompatibleBitmap")
@@ -96,6 +97,7 @@ var (
 	procCreateBitmapIndirect     = modgdi32.NewProc("CreateBitmapIndirect")
 	procGetObject                = modgdi32.NewProc("GetObject")
 	procCreateDIBSection         = modgdi32.NewProc("CreateDIBSection")
+	procRegisterDragDrop         = modole32.NewProc("RegisterDragDrop")
 )
 
 func _GetModuleHandleW(name *uint16) (modH windows.Handle, err error) {
@@ -146,12 +148,6 @@ func _GlobalAlloc(uFlags uint32, dwBytes uintptr) (h windows.Handle, err error) 
 func _GetConsoleWindow() (cH windows.Handle) {
 	r0, _, _ := syscall.Syscall(procGetConsoleWindow.Addr(), 0, 0, 0, 0)
 	cH = windows.Handle(r0)
-	return
-}
-
-func _GetWindowThreadProcessId(hwnd windows.Handle, pid *uint32) (threadId uint32) {
-	r0, _, _ := syscall.Syscall(procGetWindowThreadProcessId.Addr(), 2, uintptr(hwnd), uintptr(unsafe.Pointer(pid)), 0)
-	threadId = uint32(r0)
 	return
 }
 
@@ -340,6 +336,12 @@ func _ShowWindow(hwnd windows.Handle, nCmdShow int) (ok bool) {
 	return
 }
 
+func _ShowWindowAsync(hwnd windows.Handle, nCmdShow int) (ok bool) {
+	r0, _, _ := syscall.Syscall(procShowWindowAsync.Addr(), 2, uintptr(hwnd), uintptr(nCmdShow), 0)
+	ok = r0 != 0
+	return
+}
+
 func _GetDC(hwnd windows.Handle) (dcH windows.Handle, err error) {
 	r0, _, e1 := syscall.Syscall(procGetDC.Addr(), 1, uintptr(hwnd), 0, 0)
 	dcH = windows.Handle(r0)
@@ -445,9 +447,9 @@ func _EmptyClipboard() (ok bool) {
 	return
 }
 
-func _ShowWindowAsync(hwnd windows.Handle, nCmdShow int) (ok bool) {
-	r0, _, _ := syscall.Syscall(procShowWindowAsync.Addr(), 2, uintptr(hwnd), uintptr(nCmdShow), 0)
-	ok = r0 != 0
+func _GetWindowThreadProcessId(hwnd windows.Handle, pid *uint32) (threadId uint32) {
+	r0, _, _ := syscall.Syscall(procGetWindowThreadProcessId.Addr(), 2, uintptr(hwnd), uintptr(unsafe.Pointer(pid)), 0)
+	threadId = uint32(r0)
 	return
 }
 
@@ -563,5 +565,11 @@ func _CreateDIBSection(dc syscall.Handle, bmi *_BitmapInfo, usage uint32, bits *
 			err = syscall.EINVAL
 		}
 	}
+	return
+}
+
+func _RegisterDragDrop(hwnd windows.Handle, pDropTarget windows.Handle) (resH windows.Handle) {
+	r0, _, _ := syscall.Syscall(procRegisterDragDrop.Addr(), 2, uintptr(hwnd), uintptr(pDropTarget), 0)
+	resH = windows.Handle(r0)
 	return
 }
