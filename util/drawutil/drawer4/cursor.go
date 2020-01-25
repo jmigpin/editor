@@ -61,27 +61,36 @@ func (c *Cursor) draw2(dr image.Rectangle, col color.Color) {
 	img := c.d.st.drawR.img
 	bounds := c.d.Bounds()
 
-	// upper square
-	r1 := dr
-	r1.Min.X -= 1
-	r1.Max.X = r1.Min.X + 3
-	r1.Max.Y = r1.Min.Y + 3
-	r1 = r1.Intersect(bounds)
-	imageutil.FillRectangle(img, &r1, col)
-
-	// lower square
-	r2 := dr
-	r2.Min.X -= 1
-	r2.Max.X = r2.Min.X + 3
-	r2.Min.Y = r2.Max.Y - 3
-	r2 = r2.Intersect(bounds)
-	imageutil.FillRectangle(img, &r2, col)
+	vbw := 1 // default vertical bar width
 
 	// vertical bar
 	r3 := dr
-	r3.Max.X = r3.Min.X + 1
+	r3.Min.X -= vbw / 2
+	r3.Max.X = r3.Min.X + vbw
 	r3 = r3.Intersect(bounds)
 	imageutil.FillRectangle(img, &r3, col)
+
+	// squares width
+	aw := vbw // added width
+	if c.d.Opt.Cursor.AddedWidth > 0 {
+		aw = c.d.Opt.Cursor.AddedWidth
+	}
+	w := vbw + aw*2 // width
+
+	// upper square
+	r1 := r3
+	r1.Min.X -= aw
+	r1.Max.X += aw
+	r1.Max.Y = r1.Min.Y + w
+	r1 = r1.Intersect(bounds)
+	imageutil.FillRectangle(img, &r1, col)
+	// lower square
+	r2 := r3
+	r2.Min.X -= aw
+	r2.Max.X += aw
+	r2.Min.Y = r2.Max.Y - w
+	r2 = r2.Intersect(bounds)
+	imageutil.FillRectangle(img, &r2, col)
 }
 
 //----------

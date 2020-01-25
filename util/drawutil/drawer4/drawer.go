@@ -92,8 +92,9 @@ type Drawer struct {
 			Fg, Bg color.Color
 		}
 		Cursor struct {
-			On bool
-			Fg color.Color
+			On         bool
+			Fg         color.Color
+			AddedWidth int
 		}
 		Colorize struct {
 			Groups []*ColorizeGroup

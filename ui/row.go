@@ -45,8 +45,7 @@ func NewRow(col *Column) *Row {
 		row.TextArea.EnableCursorWordHighlight(true)
 		row.TextArea.EnableParenthesisMatch(true)
 		if d, ok := row.TextArea.Drawer.(*drawer4.Drawer); ok {
-			d.Opt.QuickMeasure = true
-			d.Opt.RuneReader.StartOffsetX = 2 // covers cursor pixel
+			d.Opt.QuickMeasure = true // performance
 		}
 
 		row.ScrollArea = widget.NewScrollArea(row.ui, row.TextArea, false, true)

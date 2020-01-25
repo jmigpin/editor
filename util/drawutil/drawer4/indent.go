@@ -50,14 +50,23 @@ func (in *Indent) End() {}
 func (in *Indent) indent() bool {
 	// set ident
 	pen := &in.d.st.runeR.pen
-	startX := in.d.iters.runeR.startingPen().X
 	pen.X = in.d.st.indent.indent
+	// left padding
+	pad := in.d.iters.runeR.glyphAdvance('\t')
+	startX := in.d.iters.runeR.startingPen().X
+	if pen.X == 0 {
+		pen.X = startX + pad
+	} else {
+		pen.X += pad
+	}
+	// margin on the right
 	maxX := in.d.iters.runeR.maxX()
 	space := in.d.iters.runeR.glyphAdvance(' ')
 	margin := space * 5
 	if pen.X > maxX-margin {
 		pen.X = maxX - margin
 	}
+	// margin on the left
 	if pen.X < startX {
 		pen.X = startX
 	}
@@ -67,8 +76,12 @@ func (in *Indent) indent() bool {
 	cc := in.d.st.curColors
 	// restore state
 	defer func() {
+		// TODO: adds startoffsetx after the wraplinerune (loses some hability to identify if there is a space present)
+		//sox := mathutil.Intf1(in.d.Opt.RuneReader.StartOffsetX)
+		//penX := in.d.st.runeR.pen.X + sox // use the indented penX
+
 		penX := in.d.st.runeR.pen.X // use the indented penX
-		in.d.st.runeR = rr
+		in.d.st.runeR = rr          // restore
 		in.d.st.runeR.pen.X = penX
 		in.d.st.curColors = cc
 	}()
