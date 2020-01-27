@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,13 +46,32 @@ func FilepathSplitAt(s string, n int) string {
 
 //----------
 
+func RunExecCmdCtxWithAttrAndGetOutputs(ctx context.Context, dir string, in io.Reader, args ...string) ([]byte, error) {
+	ecmd := ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
+	ecmd.Dir = dir
+	ecmd.Stdin = in
+	bout, berr, err := RunExecCmdAndGetOutputs(ecmd)
+	if err != nil {
+		serr := strings.TrimSpace(string(berr))
+		if serr != "" {
+			serr = fmt.Sprintf(", stderr(%v)", serr)
+		}
+		sout := strings.TrimSpace(string(bout))
+		if sout != "" {
+			sout = fmt.Sprintf(", stdout(%v)", sout)
+		}
+		return nil, fmt.Errorf("%v: %v%v%v", args[0], err, serr, sout)
+	}
+	return bout, nil
+}
+
 func ExecCmdCtxWithAttr(ctx context.Context, name string, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, name, args...)
 	SetupExecCmdSysProcAttr(cmd)
 	return cmd
 }
 
-func ExecCmdRunOutputs(ecmd *exec.Cmd) (sout []byte, serr []byte, _ error) {
+func RunExecCmdAndGetOutputs(ecmd *exec.Cmd) (sout []byte, serr []byte, _ error) {
 	if ecmd.Stdout != nil {
 		return nil, nil, fmt.Errorf("stdout already set")
 	}

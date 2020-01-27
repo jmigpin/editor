@@ -66,13 +66,11 @@ func GoModRequire(ctx context.Context, dir, path string) error {
 }
 
 func runGoModCmd(ctx context.Context, dir, errStr string, args []string) ([]byte, error) {
-	ecmd := osutil.ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
-	ecmd.Dir = dir
-	sout, serr, err := osutil.ExecCmdRunOutputs(ecmd)
+	bout, err := osutil.RunExecCmdCtxWithAttrAndGetOutputs(ctx, dir, nil, args...)
 	if err != nil {
-		return nil, fmt.Errorf("goutil.gomod(%v): err=(%v), stderr=(%v), stdout=(%v)", errStr, err, string(serr), string(sout))
+		return nil, fmt.Errorf("goutil.gomod(%v): %v", errStr, err)
 	}
-	return sout, nil
+	return bout, nil
 }
 
 //----------
