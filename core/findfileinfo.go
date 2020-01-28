@@ -2,7 +2,6 @@ package core
 
 import (
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 
@@ -12,7 +11,7 @@ import (
 // Checks in GOROOT/GOPATH,  and some C include dirs.
 func FindFileInfo(name, dir string) (string, os.FileInfo, bool) {
 	// absolute path
-	if path.IsAbs(name) {
+	if filepath.IsAbs(name) {
 		fi, err := os.Stat(name)
 		if err == nil {
 			return name, fi, true
