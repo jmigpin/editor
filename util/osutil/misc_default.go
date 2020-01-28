@@ -30,9 +30,6 @@ func ShellRunArgs(args ...string) []string {
 
 //----------
 
-func GoExec() string {
-	return ExecName("go")
-}
 func ExecName(name string) string {
 	return name
 }
