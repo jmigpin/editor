@@ -99,47 +99,6 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 	if !erow.Info.IsDir() {
 		panic("not a directory")
 	}
-
-	fexec := func(ctx context.Context, w io.Writer) error {
-		// prepare cmd exec
-		cmd := osutil.ExecCmdCtxWithAttr(ctx, cargs[0], cargs[1:]...)
-		cmd.Dir = erow.Info.Name()
-		cmd.Env = env
-		cmd.Stdout = w
-		cmd.Stderr = w
-
-		// TODO: pty tests
-		//f, err := pty.Start(cmd)
-		//if err != nil {
-		//	return err
-		//}
-		//cmd.Stdin = f
-
-		// run command
-		err := cmd.Start()
-		if err != nil {
-			return err
-		}
-
-		// ensure kill to child processes on context cancel
-		done := make(chan interface{})
-		defer close(done)
-		go func() {
-			select {
-			case <-done: // ensure no goroutine leaks
-			case <-ctx.Done():
-				_ = osutil.KillExecCmd(cmd)
-			}
-		}()
-
-		// TODO: ensure first output is pid with altered writer
-		// output pid
-		cargsStr := strings.Join(cargs, " ")
-		fmt.Fprintf(w, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
-
-		return cmd.Wait()
-	}
-
 	erow.Exec.Start(func(ctx context.Context, w io.Writer) error {
 		// cleanup row content
 		erow.Ed.UI.RunOnUIGoRoutine(func() {
@@ -147,12 +106,51 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 			erow.Row.TextArea.ClearPos()
 		})
 
-		err := fexec(ctx, w)
+		err := externalCmdDir2(erow, cargs, env, ctx, w)
 		if fend != nil {
 			fend(err)
 		}
 		return err
 	})
+}
+
+func externalCmdDir2(erow *ERow, cargs []string, env []string, ctx context.Context, w io.Writer) error {
+	// prepare cmd exec
+	cmd := osutil.ExecCmdCtxWithAttr(ctx, cargs[0], cargs[1:]...)
+	cmd.Dir = erow.Info.Name()
+	cmd.Env = env
+	cmd.Stdout = w
+	cmd.Stderr = w
+
+	// TODO: pty tests
+	//f, err := pty.Start(cmd)
+	//if err != nil {
+	//	return err
+	//}
+	//cmd.Stdin = f
+
+	// run command
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+
+	// ensure kill to child processes on function exit (failsafe)
+	go func() {
+		select {
+		case <-ctx.Done():
+			if err := osutil.KillExecCmd(cmd); err != nil {
+				fmt.Fprintf(w, "# error: kill: %v\n", err)
+			}
+		}
+	}()
+
+	// TODO: ensure first output is pid with altered writer
+	// output pid
+	cargsStr := strings.Join(cargs, " ")
+	fmt.Fprintf(w, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
+
+	return cmd.Wait()
 }
 
 //----------

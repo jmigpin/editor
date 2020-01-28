@@ -10,11 +10,13 @@ import (
 )
 
 type ERowExec struct {
-	erow   *ERow
-	mu     sync.Mutex
-	ctx    context.Context
-	cancel context.CancelFunc
-	w      io.WriteCloser
+	erow *ERow
+	mu   struct {
+		sync.Mutex
+		ctx    context.Context
+		cancel context.CancelFunc
+		w      io.WriteCloser
+	}
 }
 
 func NewERowExec(erow *ERow) *ERowExec {
@@ -28,8 +30,8 @@ func (eexec *ERowExec) Start(fexec func(context.Context, io.Writer) error) {
 	defer eexec.mu.Unlock()
 
 	// cancel old context if exists
-	if eexec.cancel != nil {
-		eexec.clear2()
+	if eexec.mu.cancel != nil {
+		eexec.clear()
 	}
 
 	// indicate the row is running
@@ -39,33 +41,35 @@ func (eexec *ERowExec) Start(fexec func(context.Context, io.Writer) error) {
 
 	// new context
 	ctx, cancel := context.WithCancel(eexec.erow.ctx)
-	eexec.ctx, eexec.cancel = ctx, cancel
+	eexec.mu.ctx, eexec.mu.cancel = ctx, cancel
 
 	// writer
-	w := eexec.erow.TextAreaWriter()
-	eexec.w = w // keep w to ensure early close on clear
+	w := eexec.erow.TextAreaWriter() // needs to be closed in the end
+	eexec.mu.w = w                   // keep w to ensure early close on clear
 
 	go func() {
 		err := fexec(ctx, w)
+		cancel() // done (failsafe)
 
 		eexec.mu.Lock()
 		defer eexec.mu.Unlock()
 
 		// show error if the context matches, if it doesn't match then the previous instance was canceled already
-		if eexec.ctx == ctx {
+		if eexec.mu.ctx == ctx {
 			if err != nil {
 				fmt.Fprintf(w, "# error: %v", err)
 			}
-			eexec.clear2()
+			eexec.clear()
 		}
 	}()
 }
 
-func (eexec *ERowExec) clear2() {
+func (eexec *ERowExec) clear() {
 	// clear resources
-	eexec.cancel()
-	eexec.cancel = nil
-	eexec.w.Close()
+	eexec.mu.cancel()
+	eexec.mu.cancel = nil
+	eexec.mu.w.Close()
+	eexec.mu.w = nil
 
 	// indicate the row is not running
 	eexec.erow.Ed.UI.RunOnUIGoRoutine(func() {
@@ -78,7 +82,7 @@ func (eexec *ERowExec) clear2() {
 func (eexec *ERowExec) Stop() {
 	eexec.mu.Lock()
 	defer eexec.mu.Unlock()
-	if eexec.cancel != nil {
-		eexec.cancel()
+	if eexec.mu.cancel != nil {
+		eexec.mu.cancel()
 	}
 }

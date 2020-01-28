@@ -74,8 +74,11 @@ func NewCmd() *Cmd {
 
 //------------
 
+func (cmd *Cmd) Error(err error) {
+	cmd.Printf("error: %v\n", err)
+}
 func (cmd *Cmd) Printf(format string, a ...interface{}) (int, error) {
-	return fmt.Fprintf(cmd.Stdout, format, a...)
+	return fmt.Fprintf(cmd.Stdout, "# "+format, a...)
 }
 
 //------------
@@ -127,7 +130,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 
 	// print tmp dir if work flag is present
 	if cmd.flags.work {
-		fmt.Fprintf(cmd.Stdout, "work: %v\n", cmd.tmpDir)
+		cmd.Printf("work: %v\n", cmd.tmpDir)
 	}
 
 	m := &cmd.flags.mode
@@ -143,7 +146,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 
 	// just building: inform the address used in the binary
 	if m.build {
-		fmt.Fprintf(cmd.Stdout, "build: %v (builtin address: %v, %v)\n",
+		cmd.Printf("build: %v (builtin address: %v, %v)\n",
 			cmd.tmpBuiltFile,
 			debug.ServerNetwork,
 			debug.ServerAddress,
@@ -366,7 +369,7 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 		serverCmd = u
 
 		// output cmd pid
-		fmt.Fprintf(cmd.Stdout, "# pid %d\n", serverCmd.Process.Pid)
+		cmd.Printf("pid %d\n", serverCmd.Process.Pid)
 	}
 
 	// setup address to connect to
@@ -653,7 +656,9 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 	go func() {
 		select {
 		case <-ctx.Done():
-			_ = osutil.KillExecCmd(ecmd)
+			if err := osutil.KillExecCmd(ecmd); err != nil {
+				cmd.Error(fmt.Errorf("kill: %v", err))
+			}
 		}
 	}()
 
