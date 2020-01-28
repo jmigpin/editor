@@ -22,6 +22,7 @@ func TestReadLastUntilStart(t *testing.T) {
 	}
 	w := []result{
 		{in{"aa)bbb", 6}, out{3, "bbb", true}},
+		{in{"abc", 3}, out{0, "abc", true}},
 		{in{"", 0}, out{0, "", false}},
 		{in{"  ", 2}, out{0, "", false}},
 		{in{".", 1}, out{0, "", false}},
@@ -35,7 +36,7 @@ func TestReadLastUntilStart(t *testing.T) {
 	}
 }
 
-func TestFilterPrefixed(t *testing.T) {
+func TestFilterPrefixedAndExpand(t *testing.T) {
 	type in struct {
 		comps  []string
 		prefix string
@@ -117,6 +118,14 @@ func TestInsertComplete(t *testing.T) {
 		{
 			in{[]string{"abc"}, "abc", 1},
 			out{3, true, []string{"abc"}, "abc"},
+		},
+		{
+			in{[]string{"u", "abcd", "abc"}, "a", 1},
+			out{3, true, []string{"abcd", "abc"}, "abc"},
+		},
+		{
+			in{[]string{"abcd", "abc"}, "abe", 1},
+			out{3, true, []string{"abcd", "abc"}, "abce"},
 		},
 	}
 	for _, u := range w {

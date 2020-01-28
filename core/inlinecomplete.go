@@ -197,17 +197,14 @@ func insertComplete(comps []string, rw iorw.ReadWriter, index int) (newIndex int
 	if len(comps2) == 0 {
 		return 0, false, comps, nil
 	}
+	comps = comps2
 
 	if canComplete {
 		// original string
-		b, err := rw.ReadNSliceAt(start, index-start)
-		if err != nil {
-			return 0, false, nil, err
-		}
-		origStr := string(b)
+		origStr := prefix
 
 		// string to insert
-		n := index - start
+		n := len(origStr)
 		insStr := comps[0][:n+expand]
 
 		// try to expand the index to the existing text
@@ -229,11 +226,11 @@ func insertComplete(comps []string, rw iorw.ReadWriter, index int) (newIndex int
 				return 0, false, nil, err
 			}
 			newIndex = start + len(insStr)
-			return newIndex, true, comps2, nil
+			return newIndex, true, comps, nil
 		}
 	}
 
-	return 0, false, comps2, nil
+	return 0, false, comps, nil
 }
 
 //----------
@@ -250,23 +247,21 @@ func filterPrefixedAndExpand(comps []string, prefix string) (expand int, canComp
 	}
 	// find possible expansions if all matches have common extra runes
 	if len(res) == 1 {
+		// special case to allow overwriting string casing "aaa"->"aAa"
 		canComplete = true
 		expand = len(res[0]) - len(prefix)
-	} else if len(res) > 0 {
+	} else if len(res) >= 1 {
 	loop1:
-		for j := 0; j < len(res[0]); j++ {
-			if len(res[0]) > j {
-				for i := 1; i < len(res); i++ {
-					if len(res[i]) <= j || res[i][j] != res[0][j] {
-						break loop1
-					}
+		for j := 0; j < len(res[0]); j++ { // test up to first result length
+			// break on any result that fails to expand
+			for i := 1; i < len(res); i++ {
+				if !(j < len(res[i]) && res[i][j] == res[0][j]) {
+					break loop1
 				}
 			}
 			if j >= len(prefix) {
-				if j == len(prefix) {
-					canComplete = true
-				}
 				expand++
+				canComplete = true
 			}
 		}
 	}
@@ -291,12 +286,8 @@ func readLastUntilStart(rd iorw.Reader, index int) (int, string, bool) {
 			unicode.IsNumber(ru) ||
 			unicode.IsDigit(ru)
 	})
-	if !ok {
+	if !ok || sc.Empty() {
 		return 0, "", false
 	}
-	b, err := rd.ReadNSliceAt(sc.Pos, sc.Start-sc.Pos)
-	if err != nil {
-		return 0, "", false
-	}
-	return sc.Pos, string(b), true
+	return sc.Pos, sc.Value(), true
 }
