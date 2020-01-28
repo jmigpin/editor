@@ -75,6 +75,25 @@ func (m *Matcher) FnLoop(fn func(rune) bool) bool {
 	return v
 }
 
+// Must all return true.
+func (m *Matcher) FnOrder(fns ...func() bool) bool {
+	index := func(i int) int {
+		if m.sc.Reverse {
+			return len(fns) - 1 - i
+		}
+		return i
+	}
+	return m.sc.RewindOnFalse(func() bool {
+		for i := 0; i < len(fns); i++ {
+			fn := fns[index(i)]
+			if !fn() {
+				return false
+			}
+		}
+		return true
+	})
+}
+
 //----------
 
 func (m *Matcher) NRunes(n int) bool {
@@ -268,19 +287,19 @@ func (m *Matcher) Id() bool {
 }
 
 func (m *Matcher) Int() bool {
-	if m.sc.Reverse {
-		panic("can't parse in reverse")
-	}
-
-	return m.sc.RewindOnFalse(func() bool {
-		_ = m.Any("+-")
-		return m.FnLoop(unicode.IsDigit)
-	})
+	return m.FnOrder(
+		func() bool {
+			_ = m.Any("+-")
+			return true
+		},
+		func() bool {
+			return m.FnLoop(unicode.IsDigit)
+		})
 }
 
 func (m *Matcher) Float() bool {
 	if m.sc.Reverse {
-		panic("can't parse in reverse")
+		panic("can't parse in reverse") // TODO
 	}
 
 	return m.sc.RewindOnFalse(func() bool {

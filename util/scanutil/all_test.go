@@ -140,6 +140,17 @@ func TestInt1(t *testing.T) {
 		t.Fatal(sc.Errorf(""))
 	}
 }
+func TestInt2(t *testing.T) {
+	s := `-123`
+	r := iorw.NewStringReader(s)
+	sc := NewScanner(r)
+	sc.Reverse = true
+	sc.SetStartPos(len(s))
+	if !sc.Match.Int() || sc.Value() != "-123" {
+		t.Fatal(sc.Errorf(""))
+	}
+}
+
 func TestFloat1(t *testing.T) {
 	s := `.23`
 	r := iorw.NewStringReader(s)
