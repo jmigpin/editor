@@ -140,7 +140,8 @@ func externalCmdDir2(erow *ERow, cargs []string, env []string, ctx context.Conte
 		select {
 		case <-ctx.Done():
 			if err := osutil.KillExecCmd(cmd); err != nil {
-				fmt.Fprintf(w, "# error: kill: %v\n", err)
+				// commented: avoid over verbose errors before the full output comes out
+				//fmt.Fprintf(w, "# error: kill: %v\n", err)
 			}
 		}
 	}()

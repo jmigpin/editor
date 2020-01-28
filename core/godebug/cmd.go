@@ -657,7 +657,8 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 		select {
 		case <-ctx.Done():
 			if err := osutil.KillExecCmd(ecmd); err != nil {
-				cmd.Error(fmt.Errorf("kill: %v", err))
+				// commented: avoid over verbose errors before the full output comes out
+				//cmd.Error(fmt.Errorf("kill: %v", err))
 			}
 		}
 	}()
