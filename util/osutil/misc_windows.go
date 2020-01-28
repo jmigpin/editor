@@ -3,7 +3,6 @@
 package osutil
 
 import (
-	"errors"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -23,7 +22,12 @@ func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
 }
 
 func KillExecCmd(cmd *exec.Cmd) error {
-	return errors.New("todo: windows implementation")
+	return cmd.Process.Kill()
+
+	// TODO: child/groups processes?
+	//pid := fmt.Sprintf("%v", cmd.Process.Pid)
+	//c := exec.Command("taskkill", "/T", "/F", "/PID", pid)
+	//return c.Run()
 }
 
 //----------

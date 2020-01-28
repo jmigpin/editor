@@ -19,6 +19,7 @@ func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
 }
 
 func KillExecCmd(cmd *exec.Cmd) error {
+	// negative pid (but !=-1) sends signals to the process group
 	return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 }
 
