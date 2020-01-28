@@ -146,6 +146,40 @@ func TestParseResource22(t *testing.T) {
 	testParseResourcePath(t, s, 5, "/a/b/!u!w.txt")
 }
 
+func TestParseResource23(t *testing.T) {
+	sep0 := PathSeparator
+	esc0 := Escape
+	pv0 := ParseVolume
+	defer func() {
+		PathSeparator = sep0
+		Escape = esc0
+		ParseVolume = pv0
+	}()
+	PathSeparator = '\\'
+	Escape = '^'
+	ParseVolume = true
+
+	s := "c:\\a\\b.txt:3"
+	testParseResourcePath(t, s, len(s), "c:\\a\\b.txt")
+}
+
+func TestParseResource24(t *testing.T) {
+	sep0 := PathSeparator
+	esc0 := Escape
+	pv0 := ParseVolume
+	defer func() {
+		PathSeparator = sep0
+		Escape = esc0
+		ParseVolume = pv0
+	}()
+	PathSeparator = '\\'
+	Escape = '^'
+	ParseVolume = true
+
+	s := "c:/a/b.txt:3"
+	testParseResourcePath(t, s, len(s), "c:/a/b.txt")
+}
+
 //----------
 
 func testParseResourcePath(t *testing.T, str string, index int, estr string) {
@@ -173,15 +207,17 @@ func testParseResourceLineCol(t *testing.T, str string, index int, eline, ecol i
 }
 
 //----------
+//----------
+//----------
 
-func TestExpand1(t *testing.T) {
-	s := ": /a/b/c"
-	rd := iorw.NewStringReader(s)
-	l, _ := ExpandIndexesEscape(rd, rd.Max(), false, isResourceRune, '\\')
-	if l != 2 {
-		t.Fatalf("%v", l)
-	}
-}
+//func TestExpand1(t *testing.T) {
+//s := ": /a/b/c"
+//rd := iorw.NewStringReader(s)
+//l, _ := ExpandIndexesEscape(rd, rd.Max(), false, isResourceRune, '\\')
+//if l != 2 {
+//	t.Fatalf("%v", l)
+//}
+//}
 
 //----------
 

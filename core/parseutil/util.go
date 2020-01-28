@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/scanutil"
 )
 
@@ -66,6 +67,12 @@ func RemoveEscapesEscapable(str string, escape rune, escapable string) string {
 
 //----------
 
+func EscapeFilename(str string) string {
+	escape := osutil.EscapeRune
+	mustBeEscaped := escapedInFilenames + string(escape)
+	return AddEscapes(str, escape, mustBeEscaped)
+}
+
 func RemoveFilenameEscapes(f string, escape, pathSep rune) string {
 	f = RemoveEscapes(f, escape)
 	f = CleanMultiplePathSeps(f, pathSep)
@@ -73,6 +80,25 @@ func RemoveFilenameEscapes(f string, escape, pathSep rune) string {
 		f = u
 	}
 	return f
+}
+
+//----------
+
+func CleanMultiplePathSeps(str string, sep rune) string {
+	w := []rune{}
+	added := false
+	for _, ru := range str {
+		if ru == sep {
+			if !added {
+				added = true
+				w = append(w, ru)
+			}
+		} else {
+			added = false
+			w = append(w, ru)
+		}
+	}
+	return string(w)
 }
 
 //----------
@@ -219,7 +245,6 @@ func IndexLineColumn(rd iorw.Reader, index int) (int, int, error) {
 
 //----------
 
-// TODO: review
 func DetectEnvVar(str, name string) bool {
 	vstr := "$" + name
 	i := strings.Index(str, vstr)
@@ -241,4 +266,16 @@ func DetectEnvVar(str, name string) bool {
 	}
 
 	return true
+}
+
+//----------
+
+func RunesExcept(runes, except string) string {
+	drop := func(ru rune) rune {
+		if strings.ContainsRune(except, ru) {
+			return -1
+		}
+		return ru
+	}
+	return strings.Map(drop, runes)
 }

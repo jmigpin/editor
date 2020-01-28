@@ -2,6 +2,7 @@ package parseutil
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"unicode"
 
@@ -10,11 +11,34 @@ import (
 	"github.com/jmigpin/editor/util/scanutil"
 )
 
+var PathSeparator rune = rune(os.PathSeparator)
+var Escape rune = rune(osutil.EscapeRune)
+var ParseVolume bool = runtime.GOOS == "windows"
+
+//----------
+
+var ExtraRunes = "_-~.%@&?!=#+:^" + "(){}[]<>" + "\\/" + " "
+
+var excludeResourceRunes = "" +
+	" " + // word separator
+	"=" + // usually around filenames (ex: -arg=/a/b.txt)
+	"(){}[]<>" // usually used around filenames in various outputs
+
+var ResourceExtraRunes = RunesExcept(ExtraRunes, excludeResourceRunes)
+
+var PathExtraRunes = RunesExcept(ExtraRunes, excludeResourceRunes+
+	":") // line/column
+
+// escaped when outputing filenames
+var escapedInFilenames = excludeResourceRunes +
+	":" // note: in windows will give "C^:/"
+
+//----------
+
 // parsed formats:
 // 	<filename:line?:col?>
-// 	file://<filename:line?:col?>
-// 	// TODO: <filename:#offset>
-// 	// TODO: ranges?
+// 	<filename:#offset> # TODO
+// 	file://<filename:line?:col?> # filename should be absolute starting with "/"
 type Resource struct {
 	Path         string
 	RawPath      string
@@ -23,213 +47,202 @@ type Resource struct {
 	ExpandedMin, ExpandedMax int
 	PathSep                  rune
 	Escape                   rune
+	ParseVolume              bool
 }
 
 func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
-	escape := osutil.EscapeRune
+	return ParseResource2(rd, index, PathSeparator, Escape, ParseVolume)
+}
 
-	l, r := ExpandIndexesEscape(rd, index, false, isResourceRune, escape)
-
+func ParseResource2(rd iorw.Reader, index int, sep, esc rune, parseVolume bool) (*Resource, error) {
 	res := &Resource{
-		ExpandedMin: l,
-		ExpandedMax: r,
-		PathSep:     os.PathSeparator,
-		Escape:      escape,
+		PathSep:     sep,
+		Escape:      esc,
+		ParseVolume: parseVolume,
 	}
 
-	p := &ResParser{res: res}
-
-	rd2 := iorw.NewLimitedReader(rd, l, r, 0)
-	err := p.start(rd2)
-	if err != nil {
+	rp := &ResParser2{res: res}
+	if err := rp.parse(rd, index); err != nil {
 		return nil, err
 	}
+
 	return res, nil
 }
 
 //----------
 
-type ResParser struct {
-	sc *scanutil.Scanner
-
+type ResParser2 struct {
 	res *Resource
+	sc  *scanutil.Scanner
 }
 
-func (p *ResParser) start(r iorw.Reader) error {
-	p.sc = scanutil.NewScanner(r)
+func (rp *ResParser2) parse(rd iorw.Reader, index int) error {
+	// ensure the index is not in the middle of an escape
+	index = ImproveExpandIndexEscape(rd, index, rp.res.Escape)
 
-	// allow file uri prefix with empty host
-	if p.sc.Match.Sequence("file://") && p.sc.PeekRune() == '/' {
-		p.res.PathSep = '/' // ensure forward slash as path separator
-		p.res.ExpandedMin = p.sc.Pos
-		p.sc.Advance()
-	}
-
-	if !p.pathHeader() {
-		return p.sc.Errorf("path")
+	index = rp.expandLeft(rd, index)
+	if !rp.parse2(rd, index) {
+		return rp.sc.Errorf("path")
 	}
 	return nil
 }
 
-//----------
+func (rp *ResParser2) expandLeft(rd iorw.Reader, index int) int {
+	rp.sc = scanutil.NewScanner(rd)
+	rp.sc.SetStartPos(index)
+	rp.sc.Reverse = true // to the left
+	// worst case scenario left expansion
+	_, _ = rp.integer() // column
+	_ = rp.colon()
+	_, _ = rp.integer() // line
+	_ = rp.colon()
+	_, _ = rp.path()
+	_ = rp.prePath()
+	return rp.sc.Pos
+}
 
-func (p *ResParser) pathHeader() bool {
-	if !p.path() {
+func (rp *ResParser2) parse2(rd iorw.Reader, index int) bool {
+	rd2 := iorw.NewLimitedReader(rd, index, index+2000, 0)
+
+	rp.sc = scanutil.NewScanner(rd2)
+	rp.sc.SetStartPos(index)
+
+	// pre path
+	pp := rp.prePath()
+
+	// path
+	s, ok := rp.path()
+	if !ok {
 		return false
 	}
-	_ = p.lineCol()
+	s = pp + s
+	rp.res.RawPath = s
+	rp.res.Path = RemoveFilenameEscapes(s, rp.res.Escape, rp.res.PathSep)
+
+	// line/column
+	if rp.colon() {
+		v, ok := rp.integer()
+		if ok {
+			rp.res.Line = v
+			if rp.colon() {
+				v, ok := rp.integer()
+				if ok {
+					rp.res.Column = v
+				}
+			}
+		}
+	}
+
+	rp.res.ExpandedMin = index
+	rp.res.ExpandedMax = rp.sc.Pos
+
 	return true
 }
 
-func (p *ResParser) path() bool {
-	ok := p.sc.RewindOnFalse(func() bool {
-		_ = p.pathItem() // optional
-		pathSepFn := func(ru rune) bool { return ru == p.res.PathSep }
-		for {
-			if p.sc.Match.End() {
-				break
-			}
-			if !p.sc.Match.FnLoop(pathSepFn) { // any number of pathsep
-				break
-			}
-			if !p.pathItem() {
-				break
-			}
-		}
-		return !p.sc.Empty()
-	})
-	if ok {
-		s := p.sc.Value()
-		p.res.RawPath = s
+//----------
 
-		// unescaped path
-		p.res.Path = RemoveFilenameEscapes(s, p.res.Escape, p.res.PathSep)
-
-		p.sc.Advance()
+func (rp *ResParser2) colon() bool {
+	if rp.sc.Match.Rune(':') {
+		rp.sc.Advance()
 		return true
 	}
 	return false
 }
 
-func (p *ResParser) pathItem() bool {
-	return p.sc.RewindOnFalse(func() bool {
-		isPathItemRune := isPathItemRuneFn(p.res.Escape, p.res.PathSep)
-		for p.sc.Match.Escape(p.res.Escape) ||
-			p.sc.Match.Fn(isPathItemRune) {
+func (rp *ResParser2) path() (string, bool) {
+	ok := rp.sc.RewindOnFalse(func() bool {
+		for {
+			if rp.sc.Match.Escape(rp.res.Escape) {
+				continue
+			}
+			if rp.sc.Match.Fn(func(ru rune) bool {
+				return ru == rp.res.PathSep ||
+					unicode.IsLetter(ru) || unicode.IsDigit(ru) ||
+					strings.ContainsRune(PathExtraRunes, ru)
+			}) {
+				continue
+			}
+			break
 		}
-		return !p.sc.Empty()
+		return !rp.sc.Empty()
 	})
+	if !ok {
+		return "", false
+	}
+	s := rp.sc.Value()
+	rp.sc.Advance()
+	return s, true
 }
 
-//----------
-
-func (p *ResParser) lineCol() bool {
-	return p.sc.RewindOnFalse(func() bool {
-		// line sep
-		if !p.sc.Match.Rune(':') {
-			return false
-		}
-		p.sc.Advance()
-		// line
-		v, err := p.sc.Match.IntValueAdvance()
+func (rp *ResParser2) integer() (res int, ok bool) {
+	_ = rp.sc.RewindOnFalse(func() bool {
+		v, err := rp.sc.Match.IntValueAdvance()
 		if err != nil {
 			return false
 		}
-		p.res.Line = v
-
-		_ = p.sc.RewindOnFalse(func() bool {
-			// column sep
-			if !p.sc.Match.Rune(':') {
-				return false
-			}
-			p.sc.Advance()
-			// column
-			v, err = p.sc.Match.IntValueAdvance()
-			if err != nil {
-				return false
-			}
-			p.res.Column = v
-			return true
-		})
-
+		res = v
+		ok = true
 		return true
 	})
+	return
 }
 
 //----------
 
-func CleanMultiplePathSeps(str string, sep rune) string {
-	w := []rune{}
-	added := false
-	for _, ru := range str {
-		if ru == sep {
-			if !added {
-				added = true
-				w = append(w, ru)
+func (rp *ResParser2) prePath() string {
+	// ignore/moveforward "file://" prefix
+	_, ok := rp.filePrefix()
+	if ok {
+		rp.res.ExpandedMin = rp.sc.Pos
+	}
+	return rp.volume()
+}
+
+func (rp *ResParser2) filePrefix() (string, bool) {
+	ok := rp.sc.RewindOnFalse(func() bool {
+		return rp.sc.Match.Sequence("file://") && rp.sc.PeekRune() == '/'
+	})
+	if !ok {
+		return "", false
+	}
+	rp.res.ExpandedMin = rp.sc.Pos
+	s := rp.sc.Value()
+	rp.sc.Advance()
+	return s, true
+}
+
+func (rp *ResParser2) volume() string {
+	if !rp.res.ParseVolume {
+		return ""
+	}
+	ok := rp.sc.Match.FnOrder(
+		func() bool {
+			if !rp.sc.Reverse {
+				rp.sc.Reverse = true
+				defer func() { rp.sc.Reverse = false }()
 			}
-		} else {
-			added = false
-			w = append(w, ru)
-		}
+			return !unicode.IsLetter(rp.sc.PeekRune())
+		},
+		func() bool {
+			return rp.sc.Match.Fn(unicode.IsLetter)
+		},
+		func() bool {
+			return rp.sc.Match.Rune(':')
+		},
+		func() bool {
+			if rp.sc.Reverse {
+				rp.sc.Reverse = false
+				defer func() { rp.sc.Reverse = true }()
+			}
+			ru := rp.sc.PeekRune()
+			//return ru == rp.res.PathSep
+			return ru == '/' || ru == '\\' // peek either slash
+		},
+	)
+	if !ok {
+		return ""
 	}
-	return string(w)
+	s := rp.sc.Value()
+	rp.sc.Advance()
+	return s
 }
-
-//----------
-
-var ExtraRunes = "_-~.%@&?!=#+" + "()[]{}<>" + "\\^" + "/" + " " + ":"
-
-var ResourceExtraRunes = RunesExcept(ExtraRunes, excludeResourceRunes)
-
-var PathItemExtraRunes = RunesExcept(ExtraRunes, excludeResourceRunes+
-	":") // line/column
-
-var excludeResourceRunes = "" +
-	" " + // word separator
-	"=" + // usually around filenames (ex: -arg=/a/b.txt)
-	"{}()[]<>" // usually used around filenames in various outputs
-
-// escaped when outputing filenames
-var escapedInFilenames = excludeResourceRunes + ":"
-
-//----------
-
-func isResourceRune(ru rune) bool {
-	return unicode.IsLetter(ru) || unicode.IsDigit(ru) ||
-		strings.ContainsRune(ResourceExtraRunes, ru)
-}
-
-func isPathItemRuneFn(escape, pathSep rune) func(ru rune) bool {
-	// must be escaped:
-	// 	escape: must be escaped
-	// 	pathSeparator: not part of path item
-	runes := RunesExcept(PathItemExtraRunes, string(escape)+string(pathSep))
-
-	// return function
-	return func(ru rune) bool {
-		return unicode.IsLetter(ru) || unicode.IsDigit(ru) ||
-			strings.ContainsRune(runes, ru)
-	}
-}
-
-func EscapeFilename(str string) string {
-	// windows note: if ':' is escaped, then it might have problems parsing compiler output lines with line/col. This way the volume name (ex: "C://") needs an escape (ex: "C^://") and parsing <filename:line:col> works.
-
-	escape := osutil.EscapeRune
-	mustBeEscaped := escapedInFilenames + string(escape)
-	return AddEscapes(str, escape, mustBeEscaped)
-}
-
-//----------
-
-func RunesExcept(runes, except string) string {
-	drop := func(ru rune) rune {
-		if strings.ContainsRune(except, ru) {
-			return -1
-		}
-		return ru
-	}
-	return strings.Map(drop, runes)
-}
-
-//----------
