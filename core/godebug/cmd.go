@@ -1,7 +1,5 @@
 package godebug
 
-//godebug:annotatefile
-
 import (
 	"bytes"
 	"context"
@@ -497,11 +495,11 @@ func (cmd *Cmd) environ() []string {
 		env = append(env, s)
 	}
 
-	//env = append(env,
-	//"GOPROXY=off",
-	//"GOPROXY=direct",
-	//"GOSUMDB=off",
-	//)
+	env = append(env,
+		//"GOPROXY=direct",
+		//"GOPROXY=off",
+		"GOSUMDB=off",
+	)
 	return env
 }
 
@@ -586,12 +584,12 @@ func (cmd *Cmd) Cleanup() {
 //------------
 
 func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (string, error) {
-	filenameOut := cmd.execName(filename)
+	filenameOut := replaceExt(filename, osutil.ExecName("_godebug"))
 
 	args := []string{}
 	if tests {
 		args = []string{
-			osutil.GoExec(), "test",
+			osutil.ExecName("go"), "test",
 			"-c", // compile binary but don't run
 			// TODO: faster dummy pre-builts?
 			// "-toolexec", "", // don't run asm?
@@ -600,7 +598,7 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 		args = append(args, cmd.flags.otherArgs...)
 	} else {
 		args = []string{
-			osutil.GoExec(), "build",
+			osutil.ExecName("go"), "build",
 			"-o", filenameOut,
 		}
 		// insert otherargs before filename last arg: allows all "go build" to be used after the filename
@@ -621,10 +619,6 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 		err = fmt.Errorf("runBuildCmd: %v", err)
 	}
 	return filenameOut, err
-}
-
-func (cmd *Cmd) execName(name string) string {
-	return replaceExt(name, osutil.ExecName("_godebug"))
 }
 
 //------------
@@ -1047,7 +1041,7 @@ func setupServerNetAddr(addr string) {
 	min, max := 27000, 65535
 	port := min + ra.Intn(max-min)
 
-	// depend on the desired "target" (can't use runtime.GOOS)
+	// depend on the desired "target" (can't always use runtime.GOOS)
 	goOs := os.Getenv("GOOS")
 	if goOs == "" {
 		goOs = runtime.GOOS
