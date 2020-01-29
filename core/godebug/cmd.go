@@ -137,7 +137,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 
 	if m.run || m.test || m.build {
 		debug.SyncSend = cmd.flags.syncSend
-		setupServerNetAddr(cmd.flags.address)
+		cmd.setupServerNetAddr()
 		err := cmd.initAndAnnotate(ctx)
 		if err != nil {
 			return true, err
@@ -489,60 +489,43 @@ func trimAtFirstSrcDir(filename string) string {
 
 func (cmd *Cmd) environ() []string {
 	env := os.Environ()
-	// add cmd line env vars
-	for _, s := range cmd.flags.env {
-		env = append(env, s)
-	}
-	// gopath (after cmd line env vars)
-	if s, ok := cmd.environGoPath(); ok {
-		env = append(env, s)
-	}
 
-	env = append(env,
+	env = osutil.SetEnvs(env, []string{
 		//"GOPROXY=direct",
 		//"GOPROXY=off",
 		"GOSUMDB=off",
-	)
+	})
+
+	env = osutil.SetEnvs(env, cmd.flags.env)
+
+	if s, ok := cmd.goPathStr(); ok {
+		env = osutil.SetEnv(env, "GOPATH", s)
+	}
+
 	return env
 }
 
-func (cmd *Cmd) environGoPath() (string, bool) {
+func (cmd *Cmd) goPathStr() (string, bool) {
 	if !cmd.NoModules {
 		return "", false
 	}
-
-	goPath := []string{}
-
+	u := []string{}
 	// add tmpdir to gopath to give priority to the annotated files
-	goPath = append(goPath, cmd.tmpDir)
-
-	// add cmd line env vars
-	prefix := "GOPATH="
-	for _, s := range cmd.flags.env {
-		if strings.HasPrefix(s, prefix) {
-			a := filepath.SplitList(s[len(prefix):])
-			goPath = append(goPath, a...)
-		}
-	}
-
+	u = append(u, cmd.tmpDir)
 	// add already defined gopath
-	goPath = append(goPath, goutil.GoPath()...)
-	// build gopath string
-	s := "GOPATH=" + goutil.JoinPathLists(goPath...)
-	return s, true
+	u = append(u, goutil.GoPath()...)
+	// add gopath from flags
+	if s := osutil.GetEnv(cmd.flags.env, "GOPATH"); s != "" {
+		u = append(u, s)
+	}
+	return goutil.JoinPathLists(u...), true
 }
 
 //------------
 
 func (cmd *Cmd) detectNoModules() bool {
-	// cmd line env flag
-	for _, s := range cmd.flags.env {
-		if s == "GO111MODULE=off" {
-			return true
-		}
-	}
-	// environment
-	v := os.Getenv("GO111MODULE")
+	env := cmd.environ()
+	v := osutil.GetEnv(env, "GO111MODULE")
 	if v == "off" {
 		return true
 	}
@@ -900,6 +883,18 @@ func (cmd *Cmd) envFlag(fs *flag.FlagSet) {
 
 //------------
 
+func (cmd *Cmd) setupServerNetAddr() {
+	// find OS target
+	goOs := osutil.GetEnv(cmd.environ(), "GOOS")
+	if goOs == "" {
+		goOs = runtime.GOOS
+	}
+
+	setupServerNetAddr(cmd.flags.address, goOs)
+}
+
+//------------
+
 type runFnFlag struct {
 	fn func(string) error
 }
@@ -1033,7 +1028,7 @@ func splitCommaList(val string) []string {
 
 //------------
 
-func setupServerNetAddr(addr string) {
+func setupServerNetAddr(addr string, goOs string) {
 	if addr != "" {
 		debug.ServerNetwork = "tcp"
 		debug.ServerAddress = addr
@@ -1047,11 +1042,6 @@ func setupServerNetAddr(addr string) {
 	min, max := 27000, 65535
 	port := min + ra.Intn(max-min)
 
-	// depend on the desired "target" (can't always use runtime.GOOS)
-	goOs := os.Getenv("GOOS")
-	if goOs == "" {
-		goOs = runtime.GOOS
-	}
 	switch goOs {
 	case "linux":
 		debug.ServerNetwork = "unix"
