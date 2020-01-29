@@ -27,7 +27,7 @@ func hotStartServer() {
 func startServer() {
 	srv, err := NewServer()
 	if err != nil {
-		fmt.Printf("godebug/debug: start server error: %v\n", err)
+		fmt.Printf("error: godebug/debug: start server: %v\n", err)
 		os.Exit(1)
 	}
 	server = srv
