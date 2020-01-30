@@ -17,24 +17,25 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
+//godebug:annotatepackage
+
 // Functions preceded by "ost" run in the "operating-system-thread".
 type Window struct {
-	className   *uint16
-	windowTitle *uint16
-	hwnd        windows.Handle
-	instance    windows.Handle
+	className *uint16
+	hwnd      windows.Handle
+	instance  windows.Handle
 
 	img draw.Image
 	bmH windows.Handle // bitmap handle
 
 	events chan interface{}
+	dndMan *DndMan
 
-	postEv struct {
+	postM struct {
 		sync.Mutex
 		id int
 		m  map[int]interface{}
 	}
-
 	cursors struct {
 		currentId int
 		cache     map[int]windows.Handle
@@ -46,7 +47,8 @@ func NewWindow2() (*Window, error) {
 		events: make(chan interface{}, 8),
 	}
 	win.cursors.cache = map[int]windows.Handle{}
-	win.postEv.m = map[int]interface{}{}
+	win.postM.m = map[int]interface{}{}
+	win.dndMan = NewDndMan()
 
 	// initial size
 	win.ostResizeImage(image.Rect(0, 0, 1, 1))
@@ -106,11 +108,10 @@ func (win *Window) ostInitialize() error {
 	}
 
 	// create window
-	win.windowTitle = UTF16PtrFromString("Editor")
 	hwnd, err := _CreateWindowExW(
 		0,
 		win.className,
-		win.windowTitle,
+		nil, // window title
 		_WS_OVERLAPPEDWINDOW,
 		_CW_USEDEFAULT, _CW_USEDEFAULT, // x,y
 		// TODO: failing, giving bad rectangle with a fixed integer
@@ -131,8 +132,9 @@ func (win *Window) ostInitialize() error {
 		return err
 	}
 
-	// register drag and drop
-	//_ = _RegisterDragDrop(win.hwnd, 0)
+	if err := win.startDragDrop(); err != nil {
+		fmt.Printf("error: dragdrop: %v\n", err)
+	}
 
 	return nil
 }
@@ -205,14 +207,22 @@ func (win *Window) wndProcCallback(hwnd windows.Handle, msg uint32, wParam, lPar
 func (win *Window) handleMsg2(msg *_Msg) uintptr {
 	switch _wm(msg.Msg) {
 	case _WM_CREATE:
-		createW := (*_CreateW)(unsafe.Pointer(msg.LParam))
-		w, h := int(createW.CX), int(createW.CY)
+		csw := (*_CreateStructW)(unsafe.Pointer(msg.LParam))
+		w, h := int(csw.CX), int(csw.CY)
 		r := image.Rect(0, 0, w, h)
 		win.events <- &event.WindowResize{Rect: r}
 	case _WM_SIZE:
 		w, h := unpackLowHigh(uint32(msg.LParam))
 		r := image.Rect(0, 0, w, h)
 		win.events <- &event.WindowResize{Rect: r}
+
+	// TODO: issues with window size (cut a little on side, frame size?)
+	//case _WM_WINDOWPOSCHANGED:
+	//	wp := (*_WindowPos)(unsafe.Pointer(msg.LParam))
+	//	w, h := int(wp.CX), int(wp.CY)
+	//	r := image.Rect(0, 0, w, h)
+	//	win.events <- &event.WindowResize{Rect: r}
+	//	return 0 // return zero if processed
 
 	case _WM_PAINT:
 		// validate region or it keeps sending msgs(?)
@@ -278,6 +288,16 @@ func (win *Window) handleMsg2(msg *_Msg) uintptr {
 		win.events <- win.mouseButton(msg, b, false)
 		win.events <- win.mouseButton(msg, b, true)
 
+	case _WM_DROPFILES:
+		hDrop := msg.WParam
+		ev, ok, err := win.dndMan.HandleDrop(hDrop)
+		if err != nil {
+			win.events <- err
+		} else if ok {
+			win.events <- ev
+		}
+		return 0 // return 0 if processed
+
 	case _WM_APP:
 		id := int(msg.WParam)
 		win.handleAppMsg(id, msg)
@@ -301,13 +321,9 @@ func (win *Window) handleAppMsg(id int, msg *_Msg) {
 func (win *Window) handleRequest(req event.Request, msg *_Msg) error {
 	switch r := req.(type) {
 	case *event.ReqClose:
-		if !_DestroyWindow(msg.HWnd) { // sends _WM_DESTROY
-			return fmt.Errorf("destroywindow: false")
-		}
-		return nil
+		return win.ostClose()
 	case *event.ReqWindowSetName:
-		// TODO
-		return nil
+		return win.ostSetWindowName(r.Name)
 	// Disabled: handled at Request() without roundtrip
 	//case *event.ReqImage:
 	//	r.ReplyImg = win.img
@@ -822,28 +838,60 @@ func (win *Window) windowScreenPos() (image.Point, error) {
 
 //----------
 
+func (win *Window) ostSetWindowName(s string) error {
+	u := UTF16PtrFromString(s)
+	ok := _SetWindowTextW(win.hwnd, u)
+	if !ok {
+		return fmt.Errorf("SetWindowTextW failed")
+	}
+	return nil
+}
+
+//----------
+
 func (win *Window) postAppMsg(v interface{}) error {
-	win.postEv.Lock()
-	defer win.postEv.Unlock()
-	id := win.postEv.id
-	win.postEv.m[id] = v
+	win.postM.Lock()
+	defer win.postM.Unlock()
+	id := win.postM.id
+	win.postM.m[id] = v
 	if !_PostMessageW(win.hwnd, uint32(_WM_APP), uintptr(id), 0) {
-		delete(win.postEv.m, id)
+		delete(win.postM.m, id)
 		return fmt.Errorf("postevent: failed to post")
 	}
-	win.postEv.id++
+	win.postM.id++
 	return nil
 }
 
 func (win *Window) getAppMsgData(id int) (interface{}, error) {
-	win.postEv.Lock()
-	defer win.postEv.Unlock()
-	v, ok := win.postEv.m[id]
+	win.postM.Lock()
+	defer win.postM.Unlock()
+	v, ok := win.postM.m[id]
 	if !ok {
 		return nil, fmt.Errorf("postevent map: id not found: %v", id)
 	}
-	delete(win.postEv.m, id)
+	delete(win.postM.m, id)
 	return v, nil
+}
+
+//----------
+
+func (win *Window) ostClose() error {
+	defer win.stopDragDrop()
+	if !_DestroyWindow(win.hwnd) { // sends _WM_DESTROY
+		return fmt.Errorf("destroywindow: false")
+	}
+	return nil
+}
+
+//----------
+
+func (win *Window) startDragDrop() error {
+	_DragAcceptFiles(win.hwnd, true)
+	return nil
+}
+
+func (win *Window) stopDragDrop() {
+	_DragAcceptFiles(win.hwnd, false)
 }
 
 //----------

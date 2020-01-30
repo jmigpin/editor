@@ -40,7 +40,7 @@ var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 	moduser32   = windows.NewLazySystemDLL("user32.dll")
 	modgdi32    = windows.NewLazySystemDLL("gdi32.dll")
-	modole32    = windows.NewLazySystemDLL("ole32.dll")
+	modshell32  = windows.NewLazySystemDLL("shell32.dll")
 
 	procGetModuleHandleW         = modkernel32.NewProc("GetModuleHandleW")
 	procGlobalLock               = modkernel32.NewProc("GlobalLock")
@@ -86,6 +86,7 @@ var (
 	procGetClipboardData         = moduser32.NewProc("GetClipboardData")
 	procEmptyClipboard           = moduser32.NewProc("EmptyClipboard")
 	procGetWindowThreadProcessId = moduser32.NewProc("GetWindowThreadProcessId")
+	procSetWindowTextW           = moduser32.NewProc("SetWindowTextW")
 	procSelectObject             = modgdi32.NewProc("SelectObject")
 	procCreateBitmap             = modgdi32.NewProc("CreateBitmap")
 	procCreateCompatibleBitmap   = modgdi32.NewProc("CreateCompatibleBitmap")
@@ -97,7 +98,10 @@ var (
 	procCreateBitmapIndirect     = modgdi32.NewProc("CreateBitmapIndirect")
 	procGetObject                = modgdi32.NewProc("GetObject")
 	procCreateDIBSection         = modgdi32.NewProc("CreateDIBSection")
-	procRegisterDragDrop         = modole32.NewProc("RegisterDragDrop")
+	procDragAcceptFiles          = modshell32.NewProc("DragAcceptFiles")
+	procDragQueryPoint           = modshell32.NewProc("DragQueryPoint")
+	procDragQueryFileW           = modshell32.NewProc("DragQueryFileW")
+	procDragFinish               = modshell32.NewProc("DragFinish")
 )
 
 func _GetModuleHandleW(name *uint16) (modH windows.Handle, err error) {
@@ -453,6 +457,12 @@ func _GetWindowThreadProcessId(hwnd windows.Handle, pid *uint32) (threadId uint3
 	return
 }
 
+func _SetWindowTextW(hwnd windows.Handle, lpString *uint16) (res bool) {
+	r0, _, _ := syscall.Syscall(procSetWindowTextW.Addr(), 2, uintptr(hwnd), uintptr(unsafe.Pointer(lpString)), 0)
+	res = r0 != 0
+	return
+}
+
 func _SelectObject(hdc windows.Handle, obj windows.Handle) (prevObjH windows.Handle, err error) {
 	r0, _, e1 := syscall.Syscall(procSelectObject.Addr(), 2, uintptr(hdc), uintptr(obj), 0)
 	prevObjH = windows.Handle(r0)
@@ -568,8 +578,30 @@ func _CreateDIBSection(dc syscall.Handle, bmi *_BitmapInfo, usage uint32, bits *
 	return
 }
 
-func _RegisterDragDrop(hwnd windows.Handle, pDropTarget windows.Handle) (resH windows.Handle) {
-	r0, _, _ := syscall.Syscall(procRegisterDragDrop.Addr(), 2, uintptr(hwnd), uintptr(pDropTarget), 0)
-	resH = windows.Handle(r0)
+func _DragAcceptFiles(hwnd windows.Handle, fAccept bool) {
+	var _p0 uint32
+	if fAccept {
+		_p0 = 1
+	} else {
+		_p0 = 0
+	}
+	syscall.Syscall(procDragAcceptFiles.Addr(), 2, uintptr(hwnd), uintptr(_p0), 0)
+	return
+}
+
+func _DragQueryPoint(hDrop uintptr, ppt *_Point) (res bool) {
+	r0, _, _ := syscall.Syscall(procDragQueryPoint.Addr(), 2, uintptr(hDrop), uintptr(unsafe.Pointer(ppt)), 0)
+	res = r0 != 0
+	return
+}
+
+func _DragQueryFileW(hDrop uintptr, iFile uint32, lpszFile *uint16, cch uint32) (res uint32) {
+	r0, _, _ := syscall.Syscall6(procDragQueryFileW.Addr(), 4, uintptr(hDrop), uintptr(iFile), uintptr(unsafe.Pointer(lpszFile)), uintptr(cch), 0, 0)
+	res = uint32(r0)
+	return
+}
+
+func _DragFinish(hDrop uintptr) {
+	syscall.Syscall(procDragFinish.Addr(), 1, uintptr(hDrop), 0, 0)
 	return
 }

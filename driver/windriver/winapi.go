@@ -1,6 +1,6 @@
 package windriver
 
-//go:generate ./genwm.sh
+//go:generate stringer -tags=windows -type=_wm -output zwm.go
 //go:generate go run golang.org/x/sys/windows/mkwinsyscall -output zwinapi.go winapi.go
 
 import (
@@ -71,6 +71,13 @@ const (
 
 	// globalalloc()
 	_GMEM_MOVEABLE = 2
+
+	// error related
+	// https://docs.microsoft.com/en-us/windows/win32/seccrypto/common-hresult-values
+	_S_OK          = 0x0
+	_E_OUTOFMEMORY = 0x8007000e
+	_E_NOINTERFACE = 0x80004002 // No such interface supported
+	_E_POINTER     = 0x80004003 // 	Pointer that is not valid
 )
 
 const (
@@ -408,7 +415,7 @@ type _Msg struct {
 	LPrivate uint32
 }
 
-type _CreateW struct {
+type _CreateStructW struct {
 	LpCreateParams uintptr
 	HInstance      windows.Handle
 	HMenu          windows.Handle
@@ -421,6 +428,16 @@ type _CreateW struct {
 	LpszName       *uint16
 	LpszClass      *uint16
 	DwExStyle      uint32
+}
+
+type _WindowPos struct {
+	HWndInsertAfter uintptr
+	HWnd            uintptr
+	X               int32
+	Y               int32
+	CX              int32 // h
+	CY              int32 // w
+	Flags           uint32
 }
 
 type _MinMaxInfo struct {
@@ -535,7 +552,7 @@ func packLowHigh(l, h uint16) uint32 {
 func UTF16PtrFromString(s string) *uint16 {
 	ptr, err := windows.UTF16PtrFromString(s)
 	if err != nil {
-		log.Println(err)
+		log.Printf("error: windows UTF16PtrFromString: %v", err)
 	}
 	return ptr
 }
@@ -546,7 +563,8 @@ func UTF16PtrFromString(s string) *uint16 {
 // int -> int32
 // uint -> uint32
 // lpcstr -> *uint8(?)
-// lpcwstr -> *uint16
+// lpcwstr -> *uint16 // string of 16-bit unicode characters
+// lpwstr -> *uint16 // string of 16-bit unicode characters
 // short -> uint16
 // word -> uint16
 // dword -> uint32
@@ -597,6 +615,7 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _GetClipboardData(uFormat uint32) (dataH windows.Handle, err error) = user32.GetClipboardData
 //sys _EmptyClipboard() (ok bool) = user32.EmptyClipboard
 //sys _GetWindowThreadProcessId(hwnd windows.Handle, pid *uint32) (threadId uint32) = user32.GetWindowThreadProcessId
+//sys _SetWindowTextW(hwnd windows.Handle, lpString *uint16) (res bool) = user32.SetWindowTextW
 
 //sys _SelectObject(hdc windows.Handle, obj windows.Handle) (prevObjH windows.Handle, err error) = gdi32.SelectObject
 //sys _CreateBitmap(w int32, h int32, planes uint32, bitCount uint32, bits uintptr) (bmH windows.Handle, err error) = gdi32.CreateBitmap
@@ -611,4 +630,12 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _GetObject(h windows.Handle, c int32, v uintptr) (n int) = gdi32.GetObject
 //sys	_CreateDIBSection(dc syscall.Handle, bmi *_BitmapInfo, usage uint32, bits **byte, section syscall.Handle, offset uint32) (bmH windows.Handle, err error) = gdi32.CreateDIBSection
 
-//sys _RegisterDragDrop(hwnd windows.Handle, pDropTarget windows.Handle) (resH windows.Handle) = ole32.RegisterDragDrop
+//sys _DragAcceptFiles(hwnd windows.Handle, fAccept bool) = shell32.DragAcceptFiles
+//sys _DragQueryPoint(hDrop uintptr, ppt *_Point) (res bool) = shell32.DragQueryPoint
+//sys _DragQueryFileW(hDrop uintptr, iFile uint32, lpszFile *uint16, cch uint32)(res uint32) = shell32.DragQueryFileW
+//sys _DragFinish(hDrop uintptr) = shell32.DragFinish
+
+// NOT USED
+////sys _OleInitialize(pvReserved uintptr) (hRes uintptr) = ole32.OleInitialize
+////sys _RegisterDragDrop(hwnd windows.Handle, pDropTarget **_IDropTarget) (resH uintptr) = ole32.RegisterDragDrop
+////sys _CoLockObjectExternal(pUnk uintptr, fLock bool, fLastUnlockReleases bool) (hres uintptr) = ole32.CoLockObjectExternal
