@@ -113,7 +113,7 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noM
 	//	return err
 	//}
 
-	if err := files.addFilesWithDebugComment(pkgs); err != nil {
+	if err := files.addFilesWithDebugComment(ctx, pkgs); err != nil {
 		return err
 	}
 
@@ -191,8 +191,13 @@ func (files *Files) pkgPathDir(filename string) (string, bool) {
 
 //----------
 
-func (files *Files) addFilesWithDebugComment(pkgs []*packages.Package) error {
+func (files *Files) addFilesWithDebugComment(ctx context.Context, pkgs []*packages.Package) error {
 	for filename := range files.progFilenames {
+		// early stop
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		astFile, err := files.fullAstFile(filename)
 		if err != nil {
 			return err

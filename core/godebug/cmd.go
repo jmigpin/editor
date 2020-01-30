@@ -242,6 +242,11 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename
 
 	// annotate
 	for filename := range files.annFilenames {
+		// early stop
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		dst := cmd.tmpDirBasedFilename(filename)
 		typ := files.annTypes[filename]
 		astFile, err := files.fullAstFile(filename)
