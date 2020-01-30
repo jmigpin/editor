@@ -126,7 +126,7 @@ const (
 type DndType int
 
 const (
-	TextURLListDndT DndType = iota
+	TextURLListDndT DndType = iota // a list separated by '\n'
 )
 
 //----------

@@ -12,8 +12,6 @@ import (
 	"github.com/jmigpin/editor/util/scanutil"
 )
 
-//godebug:annotatefile
-
 type InlineComplete struct {
 	ed *Editor
 
