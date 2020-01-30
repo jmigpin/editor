@@ -21,23 +21,19 @@ func parenthesisHOps(d *Drawer, maxDist int) []*ColorizeOp {
 		return nil
 	}
 
-	// read current rune
-	ci := d.opt.cursor.offset
-	cru, _, err := d.reader.ReadRuneAt(ci)
-	if err != nil {
-		return nil
-	}
-
-	// find parenthesis type
 	pairs := []rune{'{', '}', '(', ')', '[', ']'}
-	var pi int
-	for ; pi < len(pairs); pi++ {
-		if pairs[pi] == cru {
-			break
+	ci := d.opt.cursor.offset
+	pi, ok := parenthesisFindPair(d, pairs, ci)
+	if !ok {
+		// try match the previous parenthesis
+		ci--
+		if ci < 0 {
+			return nil
 		}
-	}
-	if pi >= len(pairs) {
-		return nil
+		pi, ok = parenthesisFindPair(d, pairs, ci)
+		if !ok {
+			return nil
+		}
 	}
 
 	// assign open/close parenthesis
@@ -112,4 +108,21 @@ func parenthesisHOps(d *Drawer, maxDist int) []*ColorizeOp {
 	}
 
 	return ops
+}
+
+func parenthesisFindPair(d *Drawer, pairs []rune, ci int) (int, bool) {
+	// read current rune
+	cru, _, err := d.reader.ReadRuneAt(ci)
+	if err != nil {
+		return 0, false
+	}
+
+	// find parenthesis type
+	var pi int
+	for ; pi < len(pairs); pi++ {
+		if pairs[pi] == cru {
+			break
+		}
+	}
+	return pi, pi < len(pairs)
 }
