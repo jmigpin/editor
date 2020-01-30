@@ -142,7 +142,7 @@ func NewColumnState(ed *Editor, col *ui.Column) *ColumnState {
 		StartPercent: col.Cols.ColsLayout.Spl.RawStartPercent(col),
 	}
 	for _, row := range col.Rows() {
-		rstate := NewRowState(row)
+		rstate := NewRowState(ed, row)
 		cstate.Rows = append(cstate.Rows, rstate)
 	}
 	return cstate
@@ -159,9 +159,19 @@ type RowState struct {
 	StartPercent  float64
 }
 
-func NewRowState(row *ui.Row) *RowState {
+func NewRowState(ed *Editor, row *ui.Row) *RowState {
+	// get toolbar string with the name decoded
+	tbStr := row.Toolbar.Str()
+	data := toolbarparser.Parse(tbStr)
+	arg0, ok := data.Part0Arg0()
+	if ok {
+		arg0Str := arg0.Str()
+		name := ed.HomeVars.Decode(arg0Str)
+		tbStr = name + tbStr[len(arg0Str):]
+	}
+
 	rs := &RowState{
-		TbStr:         row.Toolbar.Str(),
+		TbStr:         tbStr,
 		TbCursorIndex: row.Toolbar.TextCursor.Index(),
 		TaCursorIndex: row.TextArea.TextCursor.Index(),
 		TaOffsetIndex: row.TextArea.RuneOffset(),
