@@ -74,13 +74,13 @@ func (ann *Annotations) insertAnnotations2() {
 		space := ann.d.iters.runeR.glyphAdvance(' ')
 		boundsMinX := mathutil.Intf1(ann.d.bounds.Min.X)
 		min := boundsMinX + space*(8*10)
-		margin := space * 5
-		maxX := ann.d.iters.runeR.maxX()
+		margin := space * 10
+		max := ann.d.iters.runeR.maxX() - margin
 		if pen.X < min {
 			pen.X = min
 		}
-		if pen.X > maxX-margin {
-			pen.X = maxX - margin
+		if pen.X > max {
+			pen.X = max
 		}
 		if pen.X < startX {
 			pen.X = startX
