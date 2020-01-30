@@ -123,7 +123,8 @@ func (ed *Editor) Close() {
 //----------
 
 func (ed *Editor) uiEventLoop() {
-	//defer ed.UI.Close() // don't close for clean exit
+	defer ed.UI.Close()
+
 	for {
 		ev := ed.UI.NextEvent()
 		switch t := ev.(type) {
@@ -184,7 +185,7 @@ func (ed *Editor) Errorf(f string, a ...interface{}) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
-	ed.Messagef("error: %v", err.Error())
+	ed.Messagef("error: %v", err)
 }
 
 func (ed *Editor) Messagef(f string, a ...interface{}) {
@@ -299,7 +300,7 @@ GoRename
 GotoLine 
 MaximizeRow
 ListDir | ListDir -hidden | ListDir -sub
-ListSessions
+ListSessions | OpenSession | DeleteSession
 LSProtoCloseAll
 Reload | ReloadAll | ReloadAllFiles 
 ReopenRow 
@@ -685,7 +686,6 @@ func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on
 	}
 }
 
-//godebug:annotatefile
 func (ed *Editor) CanModifyAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, option string) bool {
 	switch req {
 	case EdAnnReqGoDebug:
