@@ -55,7 +55,7 @@ func EncodeHomeVar(filename string, m HomeVarMap) string {
 	return parseutil.EscapeFilename(v)
 }
 func encodeHomeVar2(f string, m HomeVarMap) string {
-	f = filepath.Clean(f)
+	f = osutil.FilepathClean(f)
 
 	best := ""
 	for k, v := range m {
@@ -88,7 +88,7 @@ func DecodeHomeVar(filename string, m HomeVarMap) string {
 	return parseutil.RemoveEscapes(v, osutil.EscapeRune)
 }
 func decodeHomeVar2(f string, m HomeVarMap) string {
-	f = filepath.Clean(f)
+	f = osutil.FilepathClean(f)
 
 	// split on first separator
 	i := strings.IndexFunc(f, func(ru rune) bool {

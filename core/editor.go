@@ -234,12 +234,7 @@ func (ed *Editor) ExistingOrNewERow(name string) (_ *ERow, isnew bool) {
 //----------
 
 func (ed *Editor) ReadERowInfo(name string) *ERowInfo {
-	info, ok := ed.ERowInfos[name]
-	if ok {
-		info.readFileInfo()
-		return info
-	}
-	return NewERowInfo(ed, name)
+	return ReadERowInfo(ed, name)
 }
 
 //----------

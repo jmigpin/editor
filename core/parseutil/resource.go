@@ -194,6 +194,7 @@ func (rp *ResParser2) prePath() string {
 	_, ok := rp.filePrefix()
 	if ok {
 		rp.res.ExpandedMin = rp.sc.Pos
+		rp.res.PathSep = '/' // enforce this path seperator
 	}
 	return rp.volume()
 }

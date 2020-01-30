@@ -48,9 +48,16 @@ type ERowInfo struct {
 	}
 }
 
-// Not to be created directly. Only the editor instance will check if another info already exists.
-func NewERowInfo(ed *Editor, name string) *ERowInfo {
-	info := &ERowInfo{Ed: ed, name: name}
+func ReadERowInfo(ed *Editor, name string) *ERowInfo {
+	name = osutil.FilepathClean(name)
+
+	// try to update the instance already used (readfileinfo)
+	info, ok := ed.ERowInfos[name]
+	if !ok {
+		// create new, but don't register with ed.ERowInfos
+		info = &ERowInfo{Ed: ed, name: name}
+	}
+
 	info.readFileInfo()
 	return info
 }

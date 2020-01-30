@@ -44,6 +44,19 @@ func FilepathSplitAt(s string, n int) string {
 	return s[n:]
 }
 
+func FilepathClean(s string) string {
+	s = filepath.Clean(s)
+
+	// solve "C:\" vs "c:\"
+	vol := filepath.VolumeName(s)
+	if len(vol) > 0 {
+		vol = strings.ToUpper(vol)
+		s = vol + s[len(vol):]
+	}
+
+	return s
+}
+
 //----------
 
 func RunExecCmdCtxWithAttrAndGetOutputs(ctx context.Context, dir string, in io.Reader, args ...string) ([]byte, error) {

@@ -3,7 +3,6 @@ package contentcmds
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/jmigpin/editor/core"
@@ -58,9 +57,6 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 
 	// remove escapes
 	filePos.Filename = parseutil.RemoveFilenameEscapes(filePos.Filename, res.Escape, res.PathSep)
-
-	// ensure OS path separator
-	filePos.Filename = filepath.Clean(filePos.Filename)
 
 	// decode home vars
 	filePos.Filename = erow.Ed.HomeVars.Decode(filePos.Filename)
