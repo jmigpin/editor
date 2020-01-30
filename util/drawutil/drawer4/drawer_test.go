@@ -368,6 +368,8 @@ func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 	d.smoothScroll = false
 	d.Opt.LineWrap.Bg = colornames.Red
 
+	NoPaddedIndentedLines = true
+
 	img := image.NewRGBA(rect)
 	return d, img
 }

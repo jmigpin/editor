@@ -4,6 +4,8 @@ import (
 	"unicode"
 )
 
+var NoPaddedIndentedLines bool
+
 type Indent struct {
 	d *Drawer
 }
@@ -53,6 +55,9 @@ func (in *Indent) indent() bool {
 	pen.X = in.d.st.indent.indent
 	// left padding
 	pad := in.d.iters.runeR.glyphAdvance('\t')
+	if NoPaddedIndentedLines {
+		pad = 0
+	}
 	startX := in.d.iters.runeR.startingPen().X
 	if pen.X == 0 {
 		pen.X = startX + pad
