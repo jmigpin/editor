@@ -64,7 +64,7 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 	// find full filename
 	filename, fi, ok := core.FindFileInfo(filePos.Filename, erow.Info.Dir())
 	if !ok {
-		err := fmt.Errorf("fileinfo not found: %v", filePos.Filename)
+		err := fmt.Errorf("fileinfo not found: %q", filePos.Filename)
 		return err, true
 	}
 	filePos.Filename = filename

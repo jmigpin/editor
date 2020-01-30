@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -210,7 +211,7 @@ func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
 func (gdi *GoDebugInstance) currentAnnotationFileLine(erow *ERow, annIndex int) (*GDFileMsgs, *GDLineMsgs, bool) {
 	// file
 	di := gdi.data.dataIndex
-	fi, ok := di.FilesIndex[erow.Info.Name()]
+	fi, ok := di.FilesIndex(erow.Info.Name())
 	if !ok {
 		return nil, nil, false
 	}
@@ -276,7 +277,7 @@ func (gdi *GoDebugInstance) Start(erow *ERow, args []string) error {
 
 		// start data index
 		gdi.data.mu.Lock()
-		gdi.data.dataIndex = NewGDDataIndex()
+		gdi.data.dataIndex = NewGDDataIndex(gdi.ed)
 		gdi.data.mu.Unlock()
 
 		// keep ctx cancel to be able to stop if necessary
@@ -454,7 +455,7 @@ func (gdi *GoDebugInstance) UpdateUIERowInfo(info *ERowInfo) {
 //----------
 
 func (gdi *GoDebugInstance) clearInfosUI() {
-	for _, info := range gdi.ed.ERowInfos {
+	for _, info := range gdi.ed.ERowInfos() {
 		gdi.clearInfoUI(info)
 	}
 }
@@ -469,7 +470,7 @@ func (gdi *GoDebugInstance) clearInfoUI(info *ERowInfo) {
 
 func (gdi *GoDebugInstance) updateUI2() {
 	// update all infos
-	for _, info := range gdi.ed.ERowInfos {
+	for _, info := range gdi.ed.ERowInfos() {
 		gdi.updateInfoUI(info)
 	}
 }
@@ -477,7 +478,7 @@ func (gdi *GoDebugInstance) updateUI2() {
 func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 	di := gdi.data.dataIndex
 
-	findex, ok := di.FilesIndex[info.Name()]
+	findex, ok := di.FilesIndex(info.Name())
 	if !ok {
 		info.UpdateAnnotationsRowState(false)
 		info.UpdateAnnotationsEditedRowState(false)
@@ -554,7 +555,9 @@ func (gdi *GoDebugInstance) showSelectedLine(erow *ERow) {
 
 // GoDebug data Index
 type GDDataIndex struct {
-	FilesIndex           map[string]int
+	ed          *Editor
+	filesIndexM map[string]int
+
 	GlobalArrivalIndex   int
 	SelectedArrivalIndex int
 
@@ -562,10 +565,22 @@ type GDDataIndex struct {
 	Files []*GDFileMsgs              // file index -> file msgs
 }
 
-func NewGDDataIndex() *GDDataIndex {
-	di := &GDDataIndex{}
-	di.FilesIndex = map[string]int{}
+func NewGDDataIndex(ed *Editor) *GDDataIndex {
+	di := &GDDataIndex{ed: ed}
+	di.filesIndexM = map[string]int{}
 	return di
+}
+
+func (di *GDDataIndex) FilesIndex(name string) (int, bool) {
+	name = di.FilesIndexKey(name)
+	v, ok := di.filesIndexM[name]
+	return v, ok
+}
+func (di *GDDataIndex) FilesIndexKey(name string) string {
+	if di.ed.FsCaseInsensitive {
+		name = strings.ToLower(name)
+	}
+	return name
 }
 
 func (di *GDDataIndex) clearMsgs() {
@@ -603,9 +618,10 @@ func (di *GDDataIndex) selectedArrivalIndexFilename(arrivalIndex int) (string, b
 func (di *GDDataIndex) handleFilesDataMsg(fdm *debug.FilesDataMsg) error {
 	di.Afds = fdm.Data
 	// index filenames
-	di.FilesIndex = map[string]int{}
+	di.filesIndexM = map[string]int{}
 	for _, afd := range di.Afds {
-		di.FilesIndex[afd.Filename] = afd.FileIndex
+		name := di.FilesIndexKey(afd.Filename)
+		di.filesIndexM[name] = afd.FileIndex
 	}
 	// init index
 	di.Files = make([]*GDFileMsgs, len(di.Afds))

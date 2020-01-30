@@ -6,14 +6,14 @@ import (
 )
 
 type HomeVars struct {
-	m toolbarparser.HomeVarMap
+	hvm *toolbarparser.HomeVarMap
 }
 
 func NewHomeVars() *HomeVars {
 	return &HomeVars{}
 }
 
-func (hv *HomeVars) ParseToolbarVars(strs ...string) {
+func (hv *HomeVars) ParseToolbarVars(strs []string, caseInsensitive bool) {
 	// merge strings maps
 	m := toolbarparser.VarMap{}
 	for _, str := range strs {
@@ -30,15 +30,15 @@ func (hv *HomeVars) ParseToolbarVars(strs ...string) {
 		m["~"] = h
 	}
 
-	hv.m = toolbarparser.FilterHomeVars(m)
+	hv.hvm = toolbarparser.NewHomeVarMap(m, caseInsensitive)
 }
 
 //----------
 
 func (hv *HomeVars) Encode(filename string) string {
-	return toolbarparser.EncodeHomeVar(filename, hv.m)
+	return hv.hvm.Encode(filename)
 }
 
 func (hv *HomeVars) Decode(filename string) string {
-	return toolbarparser.DecodeHomeVar(filename, hv.m)
+	return hv.hvm.Decode(filename)
 }

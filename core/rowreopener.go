@@ -15,7 +15,7 @@ func NewRowReopener(ed *Editor) *RowReopener {
 	return &RowReopener{ed: ed}
 }
 func (rr *RowReopener) Add(row *ui.Row) {
-	rstate := NewRowState(row)
+	rstate := NewRowState(rr.ed, row)
 
 	rr.q.PushBack(rstate)
 

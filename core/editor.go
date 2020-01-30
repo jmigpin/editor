@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/jmigpin/editor/core/fswatcher"
@@ -20,26 +21,30 @@ import (
 )
 
 type Editor struct {
-	UI             *ui.UI
-	HomeVars       *HomeVars
-	Watcher        fswatcher.Watcher
-	RowReopener    *RowReopener
-	ERowInfos      map[string]*ERowInfo
-	GoDebug        *GoDebugInstance
-	LSProtoMan     *lsproto.Manager
-	InlineComplete *InlineComplete
-	Plugins        *Plugins
-	EEvents        *EEvents // used by plugins
+	UI                *ui.UI
+	HomeVars          *HomeVars
+	Watcher           fswatcher.Watcher
+	RowReopener       *RowReopener
+	GoDebug           *GoDebugInstance
+	LSProtoMan        *lsproto.Manager
+	InlineComplete    *InlineComplete
+	Plugins           *Plugins
+	EEvents           *EEvents // editor events (used by plugins)
+	FsCaseInsensitive bool     // filesystem
 
 	dndh *DndHandler
 	ifbw *InfoFloatBoxWrap
+
+	erowInfos map[string]*ERowInfo // use ed.ERowInfo*() to access
 }
 
 func NewEditor(opt *Options) (*Editor, error) {
-	ed := &Editor{
-		ERowInfos: map[string]*ERowInfo{},
-	}
+	ed := &Editor{}
+	ed.erowInfos = map[string]*ERowInfo{}
 	ed.ifbw = NewInfoFloatBox(ed)
+
+	// TODO: osx can have a case insensitive filesystem
+	ed.FsCaseInsensitive = runtime.GOOS == "windows"
 
 	ed.HomeVars = NewHomeVars()
 	ed.RowReopener = NewRowReopener(ed)
@@ -171,7 +176,7 @@ func (ed *Editor) fswatcherEventLoop() {
 }
 
 func (ed *Editor) handleWatcherEvent(ev *fswatcher.Event) {
-	info, ok := ed.ERowInfos[ev.Name]
+	info, ok := ed.ERowInfo(ev.Name)
 	if ok {
 		ed.UI.RunOnUIGoRoutine(func() {
 			info.UpdateDiskEvent()
@@ -237,11 +242,42 @@ func (ed *Editor) ReadERowInfo(name string) *ERowInfo {
 	return ReadERowInfo(ed, name)
 }
 
+func (ed *Editor) ERowInfo(name string) (*ERowInfo, bool) {
+	k := ed.ERowInfoKey(name)
+	info, ok := ed.erowInfos[k]
+	return info, ok
+}
+
+func (ed *Editor) ERowInfos() []*ERowInfo {
+	u := make([]*ERowInfo, 0, len(ed.erowInfos))
+	for _, v := range ed.erowInfos { // TODO: not stable
+		u = append(u, v)
+	}
+	return u
+}
+
+func (ed *Editor) ERowInfoKey(name string) string {
+	if ed.FsCaseInsensitive {
+		return strings.ToLower(name)
+	}
+	return name
+}
+
+func (ed *Editor) SetERowInfo(name string, info *ERowInfo) {
+	k := ed.ERowInfoKey(name)
+	ed.erowInfos[k] = info
+}
+
+func (ed *Editor) DeleteERowInfo(name string) {
+	k := ed.ERowInfoKey(name)
+	delete(ed.erowInfos, k)
+}
+
 //----------
 
 func (ed *Editor) ERows() []*ERow {
 	w := []*ERow{}
-	for _, info := range ed.ERowInfos {
+	for _, info := range ed.ERowInfos() {
 		for _, e := range info.ERows {
 			w = append(w, e)
 		}
@@ -320,7 +356,7 @@ Exit | Stop | Clear`
 func (ed *Editor) updateERowsToolbarsHomeVars() {
 	tb1 := ed.UI.Root.Toolbar.Str()
 	tb2 := ed.UI.Root.MainMenuButton.Toolbar.Str()
-	ed.HomeVars.ParseToolbarVars(tb1, tb2)
+	ed.HomeVars.ParseToolbarVars([]string{tb1, tb2}, ed.FsCaseInsensitive)
 	for _, erow := range ed.ERows() {
 		erow.updateToolbarPart0()
 	}

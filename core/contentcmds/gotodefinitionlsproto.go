@@ -38,7 +38,7 @@ func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (err
 
 	// content reader
 	var rd iorw.Reader
-	info, ok := ed.ERowInfos[filename]
+	info, ok := ed.ERowInfo(filename)
 	if ok && len(info.ERows) > 0 {
 		// file is in memory already
 		erow2 := info.ERows[0]

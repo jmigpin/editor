@@ -70,7 +70,7 @@ func Save(args *core.InternalCmdArgs) error {
 }
 func SaveAllFiles(args *core.InternalCmdArgs) error {
 	var me iout.MultiError
-	for _, info := range args.Ed.ERowInfos {
+	for _, info := range args.Ed.ERowInfos() {
 		if info.IsFileButNotDir() {
 			me.Add(info.SaveFile())
 		}
@@ -86,7 +86,7 @@ func Reload(args *core.InternalCmdArgs) error {
 }
 func ReloadAllFiles(args *core.InternalCmdArgs) error {
 	var me iout.MultiError
-	for _, info := range args.Ed.ERowInfos {
+	for _, info := range args.Ed.ERowInfos() {
 		if info.IsFileButNotDir() {
 			me.Add(info.ReloadFile())
 		}
@@ -95,7 +95,7 @@ func ReloadAllFiles(args *core.InternalCmdArgs) error {
 }
 func ReloadAll(args *core.InternalCmdArgs) error {
 	// reload all dirs erows
-	for _, info := range args.Ed.ERowInfos {
+	for _, info := range args.Ed.ERowInfos() {
 		if info.IsDir() {
 			for _, erow := range info.ERows {
 				erow.Reload() // TODO: handle error here

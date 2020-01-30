@@ -21,7 +21,7 @@ func ToolbarCmd(ed *core.Editor, erow *core.ERow, part *toolbarparser.Part) bool
 
 func rowNames(ed *core.Editor) {
 	u := []string{}
-	for _, info := range ed.ERowInfos {
+	for _, info := range ed.ERowInfos() {
 		u = append(u, info.Name())
 	}
 	sort.Strings(u)

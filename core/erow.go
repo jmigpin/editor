@@ -66,7 +66,7 @@ func (erow *ERow) initHandlers() {
 	row := erow.Row
 
 	// register with the editor
-	erow.Ed.ERowInfos[erow.Info.Name()] = erow.Info
+	erow.Ed.SetERowInfo(erow.Info.Name(), erow.Info)
 	erow.Info.AddERow(erow)
 
 	// update row state
@@ -175,7 +175,7 @@ func (erow *ERow) initHandlers() {
 		// unregister from editor
 		erow.Info.RemoveERow(erow)
 		if len(erow.Info.ERows) == 0 {
-			delete(erow.Ed.ERowInfos, erow.Info.Name())
+			erow.Ed.DeleteERowInfo(erow.Info.Name())
 		}
 
 		// update row state

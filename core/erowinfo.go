@@ -51,10 +51,10 @@ type ERowInfo struct {
 func ReadERowInfo(ed *Editor, name string) *ERowInfo {
 	name = osutil.FilepathClean(name)
 
-	// try to update the instance already used (readfileinfo)
-	info, ok := ed.ERowInfos[name]
+	// try to update the instance already used
+	info, ok := ed.ERowInfo(name)
 	if !ok {
-		// create new, but don't register with ed.ERowInfos
+		// create new, but don't register
 		info = &ERowInfo{Ed: ed, name: name}
 	}
 
@@ -81,6 +81,12 @@ func (info *ERowInfo) readFileInfo() {
 	}
 	info.fi = fi
 	info.fiErr = nil
+
+	// ensure name
+	if info.Ed.FsCaseInsensitive {
+		n := fi.Name()
+		info.name = info.name[:len(info.name)-len(n)] + n
+	}
 
 	// don't open devices, ioutil.readfile can hang the editor
 	if info.fi.Mode()&os.ModeDevice > 0 {

@@ -13,13 +13,22 @@ import (
 	"github.com/jmigpin/editor/util/scanutil"
 )
 
-type VarMap map[string]string // name -> value
+type VarMap map[string]string // name -> value (more then one type: "~","$", ...)
 
 //----------
 
-type HomeVarMap VarMap
+type HomeVarMap struct {
+	vm              VarMap
+	caseInsensitive bool
+}
 
-func FilterHomeVars(vm VarMap) HomeVarMap {
+func NewHomeVarMap(vm VarMap, caseInsensitive bool) *HomeVarMap {
+	m := &HomeVarMap{caseInsensitive: caseInsensitive}
+	m.filter(vm)
+	return m
+}
+
+func (m *HomeVarMap) filter(vm VarMap) {
 	// filter home var keys
 	keys := []string{}
 	for k, _ := range vm {
@@ -30,46 +39,55 @@ func FilterHomeVars(vm VarMap) HomeVarMap {
 	// sort to have priority when two variables have the same value
 	sort.Strings(keys)
 	// filter
-	vm2 := HomeVarMap{}
+	m.vm = VarMap{}
 	seen := map[string]bool{}
 	for _, k := range keys {
 		v := vm[k]
 
-		// verify that decoding the value doesn't exist already
-		v = DecodeHomeVar(v, vm2)
+		k = m.caseFilter(k)
+		v = m.caseFilter(v)
+
+		// verify that decoding the value doesn't exist already (uses up to date m.vm)
+		v = m.Decode(v)
 
 		if seen[v] {
 			continue // other key has this value already
 		}
 		seen[v] = true
 
-		vm2[k] = v
+		m.vm[k] = v // keep decoded var (performance)
 	}
-	return vm2
+}
+
+func (m *HomeVarMap) caseFilter(s string) string {
+	if m.caseInsensitive {
+		return strings.ToLower(s)
+	}
+	return s
 }
 
 //----------
 
-func EncodeHomeVar(filename string, m HomeVarMap) string {
-	v := encodeHomeVar2(filename, m)
+func (m *HomeVarMap) Encode(filename string) string {
+	filename = osutil.FilepathClean(filename)
+	v := m.encode2(filename)
 	return parseutil.EscapeFilename(v)
 }
-func encodeHomeVar2(f string, m HomeVarMap) string {
-	f = osutil.FilepathClean(f)
-
+func (m *HomeVarMap) encode2(f string) string {
+	ff := m.caseFilter(f)
 	best := ""
-	for k, v := range m {
-		v2 := DecodeHomeVar(v, m)
+	for k, v := range m.vm {
+		//v = m.decode(v) // not needed if values kept decoded
 
 		// exact match
-		if f == v2 {
+		if f == v {
 			return k
 		}
 
 		// (var + separator) prefix match (best is shortest len)
-		v3 := v2 + string(filepath.Separator)
-		if strings.HasPrefix(f, v3) {
-			s := filepath.Join(k, f[len(v2):])
+		v3 := v + string(filepath.Separator)
+		if strings.HasPrefix(ff, v3) {
+			s := filepath.Join(k, f[len(v):])
 			if best == "" || len(s) < len(best) {
 				best = s
 			}
@@ -83,26 +101,27 @@ func encodeHomeVar2(f string, m HomeVarMap) string {
 
 //----------
 
-func DecodeHomeVar(filename string, m HomeVarMap) string {
-	v := decodeHomeVar2(filename, m)
-	return parseutil.RemoveEscapes(v, osutil.EscapeRune)
-}
-func decodeHomeVar2(f string, m HomeVarMap) string {
+func (m *HomeVarMap) Decode(f string) string {
+	// input can be from varmap (user input)
+	f = parseutil.RemoveEscapes(f, osutil.EscapeRune)
 	f = osutil.FilepathClean(f)
-
+	return m.decode2(f)
+}
+func (m *HomeVarMap) decode2(f string) string {
 	// split on first separator
 	i := strings.IndexFunc(f, func(ru rune) bool {
 		return ru == filepath.Separator
 	})
-	s0, s1 := f, ""
+	ff := m.caseFilter(f)
+	s0, s1 := ff, ""
 	if i > 0 {
-		s0, s1 = f[:i], f[i:]
+		s0, s1 = ff[:i], f[i:]
 	}
 
-	v, ok := m[s0]
+	v, ok := m.vm[s0]
 	if ok {
-		v2 := DecodeHomeVar(v, m)
-		return filepath.Join(append([]string{v2}, s1)...)
+		v2 := m.decode2(v)
+		return filepath.Join(v2, s1)
 	}
 
 	return f
