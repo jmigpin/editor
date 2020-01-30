@@ -4,7 +4,6 @@ package osutil
 
 import (
 	"os/exec"
-	"strings"
 	"syscall"
 )
 
@@ -33,7 +32,7 @@ func KillExecCmd(cmd *exec.Cmd) error {
 //----------
 
 func ShellRunArgs(args ...string) []string {
-	return []string{"powershell", "-c", strings.Join(args, " ")}
+	return append([]string{"cmd", "/C"}, args...)
 }
 
 //----------
