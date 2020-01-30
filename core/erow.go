@@ -214,7 +214,7 @@ func (erow *ERow) parseToolbar() {
 	if ename2 != ename {
 		erow.Row.Toolbar.TextHistory.Undo()
 		erow.Row.Toolbar.TextHistory.ClearForward()
-		erow.Ed.Errorf("can't change toolbar name")
+		erow.Ed.Errorf("can't change toolbar name: %q -> %q", ename, ename2)
 		return
 	}
 

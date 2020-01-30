@@ -49,34 +49,71 @@ func TestParseVar3(t *testing.T) {
 
 //----------
 
-func testMap() VarMap {
-	return VarMap{
+func TestEncode1(t *testing.T) {
+	m := VarMap{
 		"~":  "/a/b/c",
 		"~0": "~/d/e/",
 		"~1": "~0/f",
 	}
-}
-
-func TestEncode1(t *testing.T) {
-	em := testMap()
+	em := FilterHomeVars(m)
 	s1 := "/a/b/c/d/e/f/g.txt"
 	s2 := "~1/g.txt"
-	r1 := EncodeVars(s1, em)
+	r1 := EncodeHomeVar(s1, em)
 	if r1 != s2 {
 		t.Fatal(r1)
 	}
-	r2 := DecodeVars(r1, em)
+	r2 := DecodeHomeVar(r1, em)
 	if r2 != s1 {
 		t.Fatal(r2)
 	}
 }
 
 func TestDecode1(t *testing.T) {
-	em := testMap()
+	m := VarMap{
+		"~":  "/a/b/c",
+		"~0": "~/d/e/",
+		"~1": "~0/f",
+	}
+	em := FilterHomeVars(m)
 	s1 := "/a/b/c/d/e/f/g.txt"
 	s2 := "~0/f/g.txt"
-	r2 := DecodeVars(s2, em)
+	r2 := DecodeHomeVar(s2, em)
 	if r2 != s1 {
 		t.Fatal(r2)
+	}
+}
+
+//----------
+
+func TestEncDec1(t *testing.T) {
+	m := VarMap{
+		"~":  "/a/b", // same value as ~1
+		"~1": "/a/b",
+		"~0": "~/c/d",
+	}
+	em := FilterHomeVars(m)
+	s1 := "/a/b"
+	for i := 0; i < 1000; i++ {
+		r1 := EncodeHomeVar(s1, em)
+		if r1 != "~" {
+			t.Fatalf("i=%v, s1=%v, r1=%v", i, s1, r1)
+		}
+	}
+}
+
+func TestEncDec2(t *testing.T) {
+	m := VarMap{
+		"~":  "/a/b",
+		"~1": "~/c",
+		"~2": "/a/b/c", // same as "~" +"~1"
+	}
+	em := FilterHomeVars(m)
+	s1 := "/a/b/c/d.txt"
+	s2 := "~1/d.txt"
+	for i := 0; i < 1000; i++ {
+		r1 := EncodeHomeVar(s1, em)
+		if r1 != s2 {
+			t.Fatalf("i=%v, s1=%v, r1=%v", i, r1, s2)
+		}
 	}
 }

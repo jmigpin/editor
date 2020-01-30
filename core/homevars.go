@@ -6,7 +6,7 @@ import (
 )
 
 type HomeVars struct {
-	m toolbarparser.VarMap
+	m toolbarparser.HomeVarMap
 }
 
 func NewHomeVars() *HomeVars {
@@ -14,29 +14,31 @@ func NewHomeVars() *HomeVars {
 }
 
 func (hv *HomeVars) ParseToolbarVars(strs ...string) {
-	hv.m = toolbarparser.VarMap{}
+	// merge strings maps
+	m := toolbarparser.VarMap{}
 	for _, str := range strs {
 		data := toolbarparser.Parse(str)
-		m := toolbarparser.ParseVars(data)
+		m2 := toolbarparser.ParseVars(data)
 		// merge
-		for k, v := range m {
-			hv.m[k] = v
+		for k, v := range m2 {
+			m[k] = v
 		}
 	}
-
-	// add env home var
+	// add env home var at the end to enforce value
 	h := osutil.HomeEnvVar()
 	if h != "" {
-		hv.m["~"] = h
+		m["~"] = h
 	}
+
+	hv.m = toolbarparser.FilterHomeVars(m)
 }
 
 //----------
 
 func (hv *HomeVars) Encode(filename string) string {
-	return toolbarparser.EncodeVars(filename, hv.m)
+	return toolbarparser.EncodeHomeVar(filename, hv.m)
 }
 
 func (hv *HomeVars) Decode(filename string) string {
-	return toolbarparser.DecodeVars(filename, hv.m)
+	return toolbarparser.DecodeHomeVar(filename, hv.m)
 }

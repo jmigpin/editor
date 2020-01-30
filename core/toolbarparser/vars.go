@@ -3,6 +3,7 @@ package toolbarparser
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,101 @@ import (
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/scanutil"
 )
+
+type VarMap map[string]string // name -> value
+
+//----------
+
+type HomeVarMap VarMap
+
+func FilterHomeVars(vm VarMap) HomeVarMap {
+	// filter home var keys
+	keys := []string{}
+	for k, _ := range vm {
+		if strings.HasPrefix(k, "~") {
+			keys = append(keys, k)
+		}
+	}
+	// sort to have priority when two variables have the same value
+	sort.Strings(keys)
+	// filter
+	vm2 := HomeVarMap{}
+	seen := map[string]bool{}
+	for _, k := range keys {
+		v := vm[k]
+
+		// verify that decoding the value doesn't exist already
+		v = DecodeHomeVar(v, vm2)
+
+		if seen[v] {
+			continue // other key has this value already
+		}
+		seen[v] = true
+
+		vm2[k] = v
+	}
+	return vm2
+}
+
+//----------
+
+func EncodeHomeVar(filename string, m HomeVarMap) string {
+	v := encodeHomeVar2(filename, m)
+	return parseutil.EscapeFilename(v)
+}
+func encodeHomeVar2(f string, m HomeVarMap) string {
+	f = filepath.Clean(f)
+
+	best := ""
+	for k, v := range m {
+		v2 := DecodeHomeVar(v, m)
+
+		// exact match
+		if f == v2 {
+			return k
+		}
+
+		// (var + separator) prefix match (best is shortest len)
+		v3 := v2 + string(filepath.Separator)
+		if strings.HasPrefix(f, v3) {
+			s := filepath.Join(k, f[len(v2):])
+			if best == "" || len(s) < len(best) {
+				best = s
+			}
+		}
+	}
+	if best != "" {
+		return best
+	}
+	return f
+}
+
+//----------
+
+func DecodeHomeVar(filename string, m HomeVarMap) string {
+	v := decodeHomeVar2(filename, m)
+	return parseutil.RemoveEscapes(v, osutil.EscapeRune)
+}
+func decodeHomeVar2(f string, m HomeVarMap) string {
+	f = filepath.Clean(f)
+
+	// split on first separator
+	i := strings.IndexFunc(f, func(ru rune) bool {
+		return ru == filepath.Separator
+	})
+	s0, s1 := f, ""
+	if i > 0 {
+		s0, s1 = f[:i], f[i:]
+	}
+
+	v, ok := m[s0]
+	if ok {
+		v2 := DecodeHomeVar(v, m)
+		return filepath.Join(append([]string{v2}, s1)...)
+	}
+
+	return f
+}
 
 //----------
 
@@ -137,62 +233,4 @@ func parseVarValue(sc *scanutil.Scanner, allowEmpty bool) (string, error) {
 		sc.Advance()
 		return v, nil
 	}
-}
-
-//----------
-
-type VarMap map[string]string // name -> value
-
-func EncodeVars(filename string, m VarMap) string {
-	return parseutil.EscapeFilename(encodeVars(filename, m))
-}
-func encodeVars(f string, m VarMap) string {
-	best := ""
-	for k, v := range m {
-		v2 := DecodeVars(v, m)
-
-		// exact match
-		if f == v2 {
-			return k
-		}
-
-		// (var + separator) prefix match (best is shortest len)
-		v3 := v2 + string(filepath.Separator)
-		if strings.HasPrefix(f, v3) {
-			s := filepath.Join(k, f[len(v2):])
-			if best == "" || len(s) < len(best) {
-				best = s
-			}
-		}
-	}
-	if best != "" {
-		return best
-	}
-	return f
-}
-
-//----------
-
-func DecodeVars(f string, m VarMap) string {
-	return parseutil.RemoveEscapes(decodeVars(f, m), osutil.EscapeRune)
-}
-func decodeVars(f string, m VarMap) string {
-	f = filepath.Clean(f)
-
-	// split on first separator
-	i := strings.IndexFunc(f, func(ru rune) bool {
-		return ru == filepath.Separator
-	})
-	s0, s1 := f, ""
-	if i > 0 {
-		s0, s1 = f[:i], f[i:]
-	}
-
-	v, ok := m[s0]
-	if ok {
-		v2 := DecodeVars(v, m)
-		return filepath.Join(append([]string{v2}, s1)...)
-	}
-
-	return f
 }
