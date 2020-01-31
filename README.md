@@ -265,10 +265,24 @@ Examples:
 		func myfunc1() (int,int) { return 1, 2}
 		func myfunc2(a int, b int) {}
 		...
-		myfunc2(myfunc1()) // myfunc1 returns 2 arguments (compilation err)
+		myfunc2(myfunc1()) // assumes myfunc1 returns 1 arg (compilation err)
 		```
 		The annotator assumes myfunc1 returns 1 value. For this to be solved the annotator would have to become substantially slower with type analysis.
-
+	- Constants bigger then `int` get the `int` type when assigned to an `interface{}` https://golang.org/ref/spec#Constants. 
+		Consider the following code that compiles and runs:
+		```
+		a:=uint64(0)
+		a=math.MaxUint64
+		```
+		But, the following gives a compile error:
+		```
+		var a interface{}
+		a=math.MaxUint64
+		// compilation err: constant 18446744073709551615 overflows int
+		```
+		When the code is annotated, there are debug functions that have `interface{}` arguments. So if an argument is a `const` bigger then `int`, it won't work. 
+		A solution is to use `//godebug:annotateoff` before the offending line.
+		For this to be solved, the types need to be analysed but that would become substantially slower (compiles are not cached).
 - Notes:
 	- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
 	- use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
