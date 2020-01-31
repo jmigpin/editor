@@ -90,7 +90,7 @@ func TestImg01bDrawFullLineAtEndOfLineOffset(t *testing.T) {
 func TestImg02WrapLine(t *testing.T) {
 	d, img := newTestDrawer()
 
-	s := "1111111\n22222\n33333\n44444"
+	s := "111111111\n22222\n33333\n44444"
 	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
@@ -101,7 +101,7 @@ func TestImg02WrapLine(t *testing.T) {
 func TestImg03Ident(t *testing.T) {
 	d, img := newTestDrawer()
 
-	s := "  1111111\n22222\n33333\n44444"
+	s := "  11111111111\n22222\n33333\n44444"
 	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
@@ -112,10 +112,10 @@ func TestImg03Ident(t *testing.T) {
 func TestImg04Offset1(t *testing.T) {
 	d, img := newTestDrawer()
 
-	s := "  1111111\n22222\n33333\n44444"
+	s := "  111111111111\n22222\n33333\n44444"
 	r := iorw.NewStringReader(s)
 	d.SetReader(r)
-	d.SetRuneOffset(6)
+	d.SetRuneOffset(8)
 
 	d.Draw(img)
 	cmpResult(t, img, "img04")
@@ -148,11 +148,11 @@ func TestImg05RunePerLine(t *testing.T) {
 func TestImg06Scroll1(t *testing.T) {
 	d, img := newTestDrawer()
 
-	s := "  1111111\n22222\n33333\n44444"
+	s := "111111\n22222\n33333\n44444"
 	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
-	sy := d.scrollSizeYDown(3)
+	sy := d.scrollSizeYDown(2)
 	d.SetScrollOffset(image.Point{0, sy})
 
 	d.Draw(img)
@@ -162,7 +162,7 @@ func TestImg06Scroll1(t *testing.T) {
 func TestImg07Scroll2(t *testing.T) {
 	d, img := newTestDrawer()
 
-	s := "  1111221\n22222\n33333\n44444"
+	s := "  11111111111\n22222\n33333\n44444"
 	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
@@ -179,11 +179,11 @@ func TestImg07Scroll2(t *testing.T) {
 func TestImg08Scroll3(t *testing.T) {
 	d, img := newTestDrawer()
 
-	s := "  1111221\n22222\n33333\n44444"
+	s := "  11111111111\n22222\n33333\n44444"
 	r := iorw.NewStringReader(s)
 	d.SetReader(r)
 
-	d.SetRuneOffset(10)
+	d.SetRuneOffset(15)
 
 	sy := d.scrollSizeYUp(1)
 	d.SetRuneOffset(sy)
@@ -354,7 +354,7 @@ func TestImg16Select(t *testing.T) {
 //----------
 
 func newTestDrawer() (*Drawer, draw.Image) {
-	rect := image.Rect(0, 0, 50, 70)
+	rect := image.Rect(0, 0, 70, 70)
 	return newTestDrawerRect(rect)
 }
 

@@ -15,9 +15,11 @@ func (in *Indent) Init() {}
 func (in *Indent) Iter() {
 	if in.d.iters.runeR.isNormal() {
 		// keep track of indentation for wrapped lines
-		if in.d.iters.runeR.isNormal() {
-			penXAdv := in.d.st.runeR.pen.X + in.d.st.runeR.advance
-			if !in.d.st.indent.notStartingSpaces {
+		penXAdv := in.d.st.runeR.pen.X + in.d.st.runeR.advance
+		if !in.d.st.indent.notStartingSpaces {
+			if in.d.iters.lineWrap.wrapping() {
+				in.d.st.indent.notStartingSpaces = true
+			} else {
 				if unicode.IsSpace(in.d.st.runeR.ru) {
 					in.d.st.indent.indent = penXAdv
 				} else {
@@ -65,11 +67,11 @@ func (in *Indent) indent() bool {
 		pen.X += pad
 	}
 	// margin on the right
-	maxX := in.d.iters.runeR.maxX()
 	space := in.d.iters.runeR.glyphAdvance(' ')
-	margin := space * 5
-	if pen.X > maxX-margin {
-		pen.X = maxX - margin
+	margin := space * 10
+	maxX := in.d.iters.runeR.maxX() - margin
+	if pen.X > maxX {
+		pen.X = maxX
 	}
 	// margin on the left
 	if pen.X < startX {
