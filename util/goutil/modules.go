@@ -53,7 +53,6 @@ func ReadGoMod(ctx context.Context, dir string, env []string) (*GoMod, error) {
 
 //----------
 
-//godebug:annotatepackage
 func GoModInit(ctx context.Context, dir, modPath string, env []string) error {
 	args := []string{"go", "mod", "init"}
 	if modPath != "" {
