@@ -1,6 +1,7 @@
 package debug
 
 import (
+	"image"
 	"regexp"
 	"testing"
 	"unsafe"
@@ -150,6 +151,19 @@ func TestStringifyBytes(t *testing.T) {
 	//println(d)
 	//fmt.Printf("%v\n", d)
 	//fmt.Printf("%s\n", d)
+}
+
+func TestStringifyNilReceiver(t *testing.T) {
+	var p *image.Point
+	runTest1(t, p, "nil")
+
+	a := uintptr(0)
+	var b *image.Point = (*image.Point)(unsafe.Pointer(a))
+	runTest1(t, b, "nil")
+
+	a = uintptr(1)
+	b = (*image.Point)(unsafe.Pointer(a))
+	runTest1(t, b, "(PANIC:String())")
 }
 
 //----------
