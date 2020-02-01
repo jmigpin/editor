@@ -429,7 +429,8 @@ Plugins located at: `./plugins`.
 	- `tab` (if selection is on): insert tab at beginning of lines
 	- `shift`+`tab`: remove tab from beginning of lines
 	- `ctrl`+`k`: remove lines
-	- `ctrl`+`alt`+`down`: move line down
+	- `ctrl`+`alt`+`up`: move line(s) up
+	- `ctrl`+`alt`+`down`: move line(s) down
 	- `ctrl`+`alt`+`shift`+`down`: duplicate lines
 	- `ctrl`+`d`: comment lines
 	- `ctrl`+`shift`+`d`: uncomment lines
