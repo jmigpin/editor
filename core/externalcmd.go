@@ -116,7 +116,7 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 
 func externalCmdDir2(erow *ERow, cargs []string, env []string, ctx context.Context, w io.Writer) error {
 	// prepare cmd exec
-	cmd := osutil.ExecCmdCtxWithAttr(ctx, cargs[0], cargs[1:]...)
+	cmd := osutil.ExecCmdCtxWithAttr(ctx, cargs)
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = env
 	cmd.Stdout = w

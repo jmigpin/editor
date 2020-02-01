@@ -50,10 +50,24 @@ func FilepathClean(s string) string {
 
 //----------
 
-func RunExecCmdCtxWithAttrAndGetOutputs(ctx context.Context, dir string, in io.Reader, args ...string) ([]byte, error) {
-	ecmd := ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
+func RunExecCmdCtxWithAttrAndGetOutputs(ctx context.Context, dir string, in io.Reader, args []string, env []string) ([]byte, error) {
+	ecmd := ExecCmdCtxWithAttr(ctx, args)
 	ecmd.Dir = dir
 	ecmd.Stdin = in
+	ecmd.Env = env
+	return RunExecCmdAndGetStdout(ecmd)
+}
+
+func ExecCmdCtxWithAttr(ctx context.Context, args []string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	SetupExecCmdSysProcAttr(cmd)
+	return cmd
+}
+
+//----------
+
+// Adds stderr to err if it happens.
+func RunExecCmdAndGetStdout(ecmd *exec.Cmd) ([]byte, error) {
 	bout, berr, err := RunExecCmdAndGetOutputs(ecmd)
 	if err != nil {
 		serr := strings.TrimSpace(string(berr))
@@ -64,15 +78,9 @@ func RunExecCmdCtxWithAttrAndGetOutputs(ctx context.Context, dir string, in io.R
 		if sout != "" {
 			sout = fmt.Sprintf(", stdout(%v)", sout)
 		}
-		return nil, fmt.Errorf("%v: %v%v%v", args[0], err, serr, sout)
+		return nil, fmt.Errorf("%v: %v%v%v", ecmd.Path, err, serr, sout)
 	}
 	return bout, nil
-}
-
-func ExecCmdCtxWithAttr(ctx context.Context, name string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, name, args...)
-	SetupExecCmdSysProcAttr(cmd)
-	return cmd
 }
 
 func RunExecCmdAndGetOutputs(ecmd *exec.Cmd) (sout []byte, serr []byte, _ error) {

@@ -12,5 +12,5 @@ func ExecCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
 }
 
 func ExecCmdStdin(ctx context.Context, dir string, in io.Reader, args ...string) ([]byte, error) {
-	return osutil.RunExecCmdCtxWithAttrAndGetOutputs(ctx, dir, in, args...)
+	return osutil.RunExecCmdCtxWithAttrAndGetOutputs(ctx, dir, in, args, nil)
 }

@@ -1,7 +1,6 @@
 package internalcmds
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/jmigpin/editor/core"
@@ -129,9 +128,8 @@ func XdgOpenDir(args *core.InternalCmdArgs) error {
 		return fmt.Errorf("can't run on special row")
 	}
 
-	dir := erow.Info.Dir()
-	ctx := context.Background() // TODO
-	c := osutil.ExecCmdCtxWithAttr(ctx, "xdg-open", dir)
+	a := []string{"xdg-open", erow.Info.Dir()}
+	c := osutil.ExecCmdCtxWithAttr(args.Ctx, a)
 	if err := c.Start(); err != nil {
 		return err
 	}
@@ -141,7 +139,6 @@ func XdgOpenDir(args *core.InternalCmdArgs) error {
 		}
 	}()
 
-	return nil
 	return nil
 }
 

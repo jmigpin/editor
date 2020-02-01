@@ -102,7 +102,7 @@ func newServerWrapCommon(ctx0 context.Context, cmd string, li *LangInstance, pre
 
 	// cmd
 	args := strings.Split(cmd, " ") // TODO: escapes
-	sw.Cmd = osutil.ExecCmdCtxWithAttr(ctx, args[0], args[1:]...)
+	sw.Cmd = osutil.ExecCmdCtxWithAttr(ctx, args)
 
 	if preStartFn != nil {
 		if err := preStartFn(sw); err != nil {

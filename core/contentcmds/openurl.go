@@ -55,7 +55,7 @@ func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	// cmd
 	ustr := u.String()
 	args := []string{"xdg-open", ustr}
-	cmd := osutil.ExecCmdCtxWithAttr(ctx2, args[0], args[1:]...)
+	cmd := osutil.ExecCmdCtxWithAttr(ctx2, args)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
