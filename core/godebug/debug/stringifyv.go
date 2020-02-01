@@ -144,9 +144,11 @@ func (p *Print) do(ctx *Ctx, v interface{}, depth int) {
 	case uintptr:
 		p.appendStr(fmt.Sprintf("%#x", t))
 	case error:
-		p.appendStrQuoted(p.limitStr(t.Error())) // TODO: big output
+		s := fmt.Sprintf("%v", t) // handles nil case // TODO: big output
+		p.appendStrQuoted(p.limitStr(s))
 	case fmt.Stringer:
-		p.appendStrQuoted(p.limitStr(t.String())) // TODO: big output
+		s := fmt.Sprintf("%v", t) // handles nil case // TODO: big output
+		p.appendStrQuoted(p.limitStr(s))
 	default:
 		p.doValue(ctx, reflect.ValueOf(v), depth)
 	}
