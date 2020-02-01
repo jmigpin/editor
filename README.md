@@ -138,10 +138,10 @@ Notice how "|" is escaped, allowing to run `ls -l | grep fi`
 - `~/tmp/subdir/file1.txt`
 Clicking at `file1.txt` opens a new row to edit the same file.
 Clicking at `~/tmp` opens a new row located at that directory.
-- `gorename -offset $edPosOffset -to abc`
+- `gorename -offset $edFileOffset -to abc`
 Usage of external command with active row position as argument.
 [gorename godoc](https://godoc.org/golang.org/x/tools/cmd/gorename), [go tools](https://github.com/golang/tools).
-- `guru -scope fmt callers $edPosOffset`
+- `guru -scope fmt callers $edFileOffset`
 Usage of external command with active row position as argument.
 [guru godoc](https://godoc.org/golang.org/x/tools/cmd/guru), [go tools](https://github.com/golang/tools).
 - `grep -niIR someword`
@@ -238,7 +238,7 @@ Examples:
 		//godebug:annotatemodule
 		```
 		The annotator will detect these comments and annotate the block/file/package/module.
-		A pkg pack can be given to annotatepackage, but beware that pkgs located in $GOROOT are not annotated. Example:
+		A pkg path can be given to annotatepackage, but beware that pkgs located in $GOROOT are not annotated. Example:
 		```
 		//godebug:annotatepackage:golang.org/x/tools/godoc/util
 		```
@@ -308,7 +308,7 @@ Examples:
 
 - `$edName`: row name. 
 - `$edDir`: row directory. 
-- `$edPosOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
+- `$edFileOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
 - `$edLine`: line from active row cursor. Ex: "12".
 
 ## Row states

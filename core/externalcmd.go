@@ -47,39 +47,25 @@ func externalCmdFileButNotDir(erow *ERow, cargs []string, fend func(error)) {
 //----------
 
 func populateEnvVars(erow *ERow, cargs []string) []string {
+	// Can't use os.Expand() to replace (and show the values in cargs) since the idea is for the variable to be available in scripting if wanted.
 
-	// funcs that populate env vars
-
-	getPosOffset := func() string {
-		if !erow.Info.IsFileButNotDir() {
-			return ""
-		}
-		offset := erow.Row.TextArea.TextCursor.Index()
-		posOffset := fmt.Sprintf("%v:#%v", erow.Info.Name(), offset)
-		return posOffset
-	}
-
-	getLine := func() string {
-		if !erow.Info.IsFileButNotDir() {
-			return ""
-		}
-		tc := erow.Row.TextArea.TextCursor
-		l, _, err := parseutil.IndexLineColumn(tc.RW(), tc.Index())
-		if err != nil {
-			return ""
-		}
-		return fmt.Sprintf("%v", l)
-	}
-
-	// supported env vars
+	// supported environ vars
 	m := map[string]func() string{
-		"edName":      erow.Info.Name, // filename
-		"edDir":       erow.Info.Dir,  // directory
-		"edPosOffset": getPosOffset,   // filename + offset
-		"edLine":      getLine,        // line only
-	}
+		"edName": erow.Info.Name, // filename
+		"edDir":  erow.Info.Dir,  // directory
+		"edFileOffset": func() string { // filename + offset "filename:#123"
+			return cmdVar_getFileOffset(erow)
+		},
+		"edLine": func() string { // line only
+			return cmdVar_getLine(erow)
+		},
 
-	// populate env vars if detected
+		// Deprecated: use $edFileOffset (just renamed)
+		"edPosOffset": func() string { // filename + offset "filename:#123"
+			return cmdVar_getFileOffset(erow)
+		},
+	}
+	// populate env vars only if detected
 	env := os.Environ()
 	for k, v := range m {
 		for _, s := range cargs {
@@ -89,8 +75,28 @@ func populateEnvVars(erow *ERow, cargs []string) []string {
 			}
 		}
 	}
-
 	return env
+}
+
+func cmdVar_getFileOffset(erow *ERow) string {
+	if !erow.Info.IsFileButNotDir() {
+		return ""
+	}
+	offset := erow.Row.TextArea.TextCursor.Index()
+	posOffset := fmt.Sprintf("%v:#%v", erow.Info.Name(), offset)
+	return posOffset
+}
+
+func cmdVar_getLine(erow *ERow) string {
+	if !erow.Info.IsFileButNotDir() {
+		return ""
+	}
+	tc := erow.Row.TextArea.TextCursor
+	l, _, err := parseutil.IndexLineColumn(tc.RW(), tc.Index())
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%v", l)
 }
 
 //----------
