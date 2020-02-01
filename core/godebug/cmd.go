@@ -23,17 +23,16 @@ import (
 )
 
 type Cmd struct {
-	Client    *Client
-	NoModules bool // not in go.mod modules
-
+	Client *Client
 	Dir    string // "" will use current dir
 	Stdout io.Writer
 	Stderr io.Writer
 
-	annset *AnnotatorSet
-
 	tmpDir       string
-	tmpBuiltFile string // file built and exec'd
+	tmpBuiltFile string   // file built and exec'd
+	env          []string // set at start
+	annset       *AnnotatorSet
+	noModules    bool // go.mod's
 
 	start struct {
 		cancel    context.CancelFunc
@@ -95,38 +94,20 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 		cmd.Dir = u
 	}
 
-	// setup nomodules
-	if !cmd.NoModules && cmd.detectNoModules() {
-		cmd.NoModules = true
-	}
-
+	cmd.noModules = cmd.detectNoModules()
 	if cmd.flags.verbose {
-		cmd.Printf("nomodules=%v\n", cmd.NoModules)
+		cmd.Printf("nomodules=%v\n", cmd.noModules)
 	}
 
-	// tmp dir for building
-	if cmd.NoModules {
-		d := "editor_godebug_gopath_work"
-		tmpDir, err := ioutil.TempDir(os.TempDir(), d)
-		if err != nil {
-			return true, err
-		}
-		cmd.tmpDir = tmpDir
-	} else {
-		d := "editor_godebug_mod_work"
-
-		// The fixed directory will improve the file sync performance since modules require the whole directory to be there (not like gopath)
-		// TODO: will have problems running more then one debug session in different editor sessions
-		//d += "_"+md5.Sum([]byte(cmd.Dir))
-
-		//tmpDir := filepath.Join(os.TempDir(), d)
-
-		tmpDir, err := ioutil.TempDir(os.TempDir(), d)
-		if err != nil {
-			return true, err
-		}
-		cmd.tmpDir = tmpDir
+	// depends on: noModules
+	tmpDir, err := cmd.setupTmpDir()
+	if err != nil {
+		return true, err
 	}
+	cmd.tmpDir = tmpDir
+
+	// depends on: noModules, tmpDir
+	cmd.env = cmd.detectEnviron()
 
 	// print tmp dir if work flag is present
 	if cmd.flags.work {
@@ -173,7 +154,8 @@ func (cmd *Cmd) Wait() error {
 //------------
 
 func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
-	files := NewFiles(cmd.annset.FSet) // not in cmd.* to allow early GC
+	// "files" not in cmd.* to allow early GC
+	files := NewFiles(cmd.annset.FSet, cmd.noModules)
 	files.Dir = cmd.Dir
 
 	files.Add(cmd.flags.files...)
@@ -181,43 +163,67 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 
 	mainFilename := files.absFilename(cmd.flags.filename)
 
-	ctx2, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	var wg sync.WaitGroup
-
-	// pre-build without annotations for better errors (result is ignored)
-	wg.Add(1)
-	var preBuildErr error
-	go func() {
-		defer wg.Done()
-		if err := cmd.preBuild(ctx2, mainFilename, cmd.flags.mode.test); err != nil {
-			preBuildErr = err
-			cancel() // early cancel
-		}
-	}()
-
-	// continue with init and annotate
-	wg.Add(1)
-	var err2 error
-	go func() {
-		defer wg.Done()
-		if err := cmd.initAndAnnotate2(ctx2, files, mainFilename); err != nil {
-			err2 = err
-		}
-	}()
-
-	wg.Wait()
-
-	// send only the prebuild error if it happens
-	if preBuildErr != nil {
-		return preBuildErr
+	// pre-build without annotations for better errors (result ignored)
+	// done in sync (first pre-build, then annotate) in order to have the "go build" update go.mod's if necessary.
+	if err := cmd.preBuild(ctx, mainFilename, cmd.flags.mode.test); err != nil {
+		return err
 	}
-	return err2
+
+	// TODO: force disable fetching since pre-build was successfull.
+	//cmd.env = cmd.disableGoFetch(cmd.env)
+
+	return cmd.initAndAnnotate2(ctx, files, mainFilename)
 }
 
+//func (cmd *Cmd) initAndAnnotate___concurrent(ctx context.Context) error {
+//	files := NewFiles(cmd.annset.FSet) // not in cmd.* to allow early GC
+//	files.Dir = cmd.Dir
+
+//	files.Add(cmd.flags.files...)
+//	files.Add(cmd.flags.dirs...)
+
+//	mainFilename := files.absFilename(cmd.flags.filename)
+
+//	ctx2, cancel := context.WithCancel(ctx)
+//	defer cancel()
+
+//	var wg sync.WaitGroup
+
+//	// TODO: if the pre-build is changing the go.mod, then the annotate phase won't have the final go.mod available (also gives some warnings)
+//	// pre-build without annotations for better errors (result is ignored)
+//	wg.Add(1)
+//	var preBuildErr error
+//	go func() {
+//		defer wg.Done()
+//		if err := cmd.preBuild(ctx2, mainFilename, cmd.flags.mode.test); err != nil {
+//			preBuildErr = err
+//			cancel() // early cancel
+//		}
+//	}()
+
+//	// continue with init and annotate
+//	wg.Add(1)
+//	var err2 error
+//	go func() {
+//		defer wg.Done()
+//		if err := cmd.initAndAnnotate2(ctx2, files, mainFilename); err != nil {
+//			err2 = err
+//		}
+//	}()
+
+//	wg.Wait()
+
+//	// send only the prebuild error if it happens
+//	if preBuildErr != nil {
+//		return preBuildErr
+//	}
+//	return err2
+//}
+
+//------------
+
 func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename string) error {
-	err := files.Do(ctx, mainFilename, cmd.flags.mode.test, cmd.NoModules, cmd.environ())
+	err := files.Do(ctx, mainFilename, cmd.flags.mode.test, cmd.env)
 	if err != nil {
 		return err
 	}
@@ -262,7 +268,7 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename
 	}
 
 	// write config file after annotations
-	if err := cmd.writeGoDebugConfigFilesToTmpDir(); err != nil {
+	if err := cmd.writeGoDebugConfigFilesToTmpDir(ctx, files); err != nil {
 		return err
 	}
 
@@ -278,8 +284,8 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename
 		return fmt.Errorf("have not inserted debug exit in main()")
 	}
 
-	if !cmd.NoModules {
-		if err := SetupGoMods(ctx, cmd, files, mainFilename, cmd.flags.mode.test); err != nil {
+	if !cmd.noModules {
+		if err := SetupGoMods(ctx, cmd, files); err != nil {
 			return err
 		}
 	}
@@ -330,7 +336,6 @@ func (cmd *Cmd) filenameForBuild(mainFilename string, tests bool) string {
 	return mainFilename
 }
 
-// pre-build without annotations for better errors (result is ignored)
 func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) error {
 	filename := cmd.filenameForBuild(mainFilename, tests)
 	filenameOut, err := cmd.runBuildCmd(ctx, filename, tests)
@@ -453,56 +458,24 @@ func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 		filename = filename[len(v):]
 	}
 
-	if cmd.NoModules {
+	if cmd.noModules {
 		// trim filename when inside a src dir
-		//_, rest := goutil.ExtractSrcDir(filename)
 		rhs := trimAtFirstSrcDir(filename)
 		return filepath.Join(cmd.tmpDir, "src", rhs)
 	}
-
-	//// based on pkg path (TODO: not the same as module path)
-	//u, ok := cmd.files.pkgPathDir(filename)
-	//if ok {
-	//	return filepath.Join(cmd.tmpDir, u)
-	//}
 
 	// just replicate on tmp dir
 	return filepath.Join(cmd.tmpDir, filename)
 }
 
-func trimAtFirstSrcDir(filename string) string {
-	v := filename
-	w := []string{}
-	vol := filepath.VolumeName(v)
-	for {
-		base := filepath.Base(v)
-		if base == "src" {
-			return filepath.Join(w...) // trimmed
-		}
-		w = append([]string{base}, w...)
-		v = filepath.Dir(v)
-		if v == string(filepath.Separator) ||
-			v == "." ||
-			v == vol {
-			break
-		}
-	}
-	return filename
-}
-
 //------------
 
-func (cmd *Cmd) environ() []string {
+func (cmd *Cmd) detectEnviron() []string {
 	env := os.Environ()
-
-	env = osutil.SetEnvs(env, []string{
-		//"GOPROXY=direct",
-		//"GOPROXY=off",
-		"GOSUMDB=off",
-	})
 
 	env = osutil.SetEnvs(env, cmd.flags.env)
 
+	// after cmd.flags.env such that this result won't be overriden
 	if s, ok := cmd.goPathStr(); ok {
 		env = osutil.SetEnv(env, "GOPATH", s)
 	}
@@ -511,30 +484,56 @@ func (cmd *Cmd) environ() []string {
 }
 
 func (cmd *Cmd) goPathStr() (string, bool) {
-	if !cmd.NoModules {
-		return "", false
+	u := []string{} // first has priority
+
+	// add tmpdir for priority to the annotated files
+	if cmd.noModules {
+		u = append(u, cmd.tmpDir)
 	}
-	u := []string{}
-	// add tmpdir to gopath to give priority to the annotated files
-	u = append(u, cmd.tmpDir)
-	// add already defined gopath
-	u = append(u, goutil.GoPath()...)
-	// add gopath from flags
+
 	if s := osutil.GetEnv(cmd.flags.env, "GOPATH"); s != "" {
 		u = append(u, s)
 	}
+
+	// always include default gopath last (includes entry that might not be defined anywhere, needs to be set)
+	u = append(u, goutil.GoPath()...)
+
 	return goutil.JoinPathLists(u...), true
 }
+
+//func (cmd *Cmd) disableGoFetch(env []string) []string {
+//	// TODO: without this, windows is failing if there is no connection, but works if there is (checks local?)
+//	// TODO: with this, linux fails with packages not being loaded (doesn't check local?)
+
+//	return osutil.SetEnvs(cmd.env, []string{
+//		//"GOPROXY=direct",
+//		"GOPROXY=off", // don't use the net
+//		//"GOSUMDB=off",
+//	})
+//}
 
 //------------
 
 func (cmd *Cmd) detectNoModules() bool {
-	env := cmd.environ()
+	env := []string{}
+	env = osutil.SetEnvs(env, os.Environ())
+	env = osutil.SetEnvs(env, cmd.flags.env)
+
 	v := osutil.GetEnv(env, "GO111MODULE")
 	if v == "off" {
 		return true
 	}
-	// auto: if it can't find a go.mod, it is off
+	if v == "on" {
+		return false
+	}
+
+	// only used for tests, not for external use
+	v = osutil.GetEnv(env, "EDITOR_GODEBUG_NOMODULES")
+	if v == "true" {
+		return true
+	}
+
+	// auto: if it can't find a go.mod, it is noModules
 	if _, ok := goutil.FindGoMod(cmd.Dir); !ok {
 		return true
 	}
@@ -605,7 +604,7 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 	if cmd.flags.verbose {
 		cmd.Printf("runBuildCmd: dir=%v\n", dir)
 	}
-	err := cmd.runCmd(ctx, dir, args, cmd.environ())
+	err := cmd.runCmd(ctx, dir, args, cmd.env)
 	if err != nil {
 		err = fmt.Errorf("runBuildCmd: %v", err)
 	}
@@ -628,7 +627,7 @@ func (cmd *Cmd) runCmd(ctx context.Context, dir string, args, env []string) erro
 
 func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*exec.Cmd, error) {
 	cargs := osutil.ShellRunArgs(args...)
-	ecmd := osutil.ExecCmdCtxWithAttr(ctx, cargs[0], cargs[1:]...)
+	ecmd := osutil.ExecCmdCtxWithAttr(ctx, cargs)
 
 	ecmd.Env = env
 	ecmd.Dir = dir
@@ -656,6 +655,33 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 
 //------------
 
+func (cmd *Cmd) setupTmpDir() (string, error) {
+	if cmd.noModules {
+		d := "editor_godebug_gopath_work"
+		tmpDir, err := ioutil.TempDir(os.TempDir(), d)
+		if err != nil {
+			return "", err
+		}
+		return tmpDir, nil
+	}
+
+	d := "editor_godebug_mod_work"
+
+	// The fixed directory will improve the file sync performance since modules require the whole directory to be there (not like gopath)
+	// TODO: will have problems running more then one debug session in different editor sessions
+	//d += "_"+md5.Sum([]byte(cmd.Dir))
+
+	//tmpDir := filepath.Join(os.TempDir(), d)
+
+	tmpDir, err := ioutil.TempDir(os.TempDir(), d)
+	if err != nil {
+		return "", err
+	}
+	return tmpDir, nil
+}
+
+//------------
+
 func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 	buf := &bytes.Buffer{}
 	if err := cmd.annset.Print(buf, astFile); err != nil {
@@ -666,33 +692,36 @@ func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 
 //------------
 
-func (cmd *Cmd) writeGoDebugConfigFilesToTmpDir() error {
-	{
-		// godebugconfig pkg: config.go
-		filename := filepath.Join(GoDebugConfigFilepath, "config.go")
-		src := cmd.annset.ConfigContent()
+func (cmd *Cmd) writeGoDebugConfigFilesToTmpDir(ctx context.Context, files *Files) error {
+	// godebugconfig pkg: config.go
+	filename := files.GodebugconfigPkgFilename("config.go")
+	src := cmd.annset.ConfigContent()
+	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
+	if err := mkdirAllWriteFile(filenameAtTmp, []byte(src)); err != nil {
+		return err
+	}
+	// godebugconfig pkg: go.mod
+	if !cmd.noModules {
+		dir := files.GodebugconfigPkgFilename("")
+		dirAtTmp := cmd.tmpDirBasedFilename(dir)
+		if err := goutil.GoModInit(ctx, dirAtTmp, GodebugconfigPkgPath, cmd.env); err != nil {
+			return err
+		}
+	}
+	// debug pkg (pack into a file and add to godebugconfig pkg)
+	for _, fp := range DebugFilePacks() {
+		filename := files.DebugPkgFilename(fp.Name)
 		filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-		if err := mkdirAllWriteFile(filenameAtTmp, []byte(src)); err != nil {
+		if err := mkdirAllWriteFile(filenameAtTmp, []byte(fp.Data)); err != nil {
 			return err
 		}
 	}
-	if !cmd.NoModules {
-		// godebugconfig pkg: go.mod
-		filename := filepath.Join(GoDebugConfigFilepath, "go.mod")
-		src := cmd.annset.ConfigGoModuleContent()
-		filenameAtTmp2 := cmd.tmpDirBasedFilename(filename)
-		if err := mkdirAllWriteFile(filenameAtTmp2, []byte(src)); err != nil {
+	// debug pkg: go.mod
+	if !cmd.noModules {
+		dir := files.DebugPkgFilename("")
+		dirAtTmp := cmd.tmpDirBasedFilename(dir)
+		if err := goutil.GoModInit(ctx, dirAtTmp, DebugPkgPath, cmd.env); err != nil {
 			return err
-		}
-	}
-	{
-		// debug pkg (pack into a file and add to godebugconfig pkg)
-		for _, fp := range DebugFilePacks() {
-			filename := filepath.Join(DebugFilepath, fp.Name)
-			filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-			if err := mkdirAllWriteFile(filenameAtTmp, []byte(fp.Data)); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
@@ -890,7 +919,7 @@ func (cmd *Cmd) envFlag(fs *flag.FlagSet) {
 
 func (cmd *Cmd) setupServerNetAddr() {
 	// find OS target
-	goOs := osutil.GetEnv(cmd.environ(), "GOOS")
+	goOs := osutil.GetEnv(cmd.env, "GOOS")
 	if goOs == "" {
 		goOs = runtime.GOOS
 	}
@@ -898,6 +927,8 @@ func (cmd *Cmd) setupServerNetAddr() {
 	setupServerNetAddr(cmd.flags.address, goOs)
 }
 
+//------------
+//------------
 //------------
 
 type runFnFlag struct {
@@ -1056,4 +1087,25 @@ func setupServerNetAddr(addr string, goOs string) {
 		debug.ServerNetwork = "tcp"
 		debug.ServerAddress = fmt.Sprintf("127.0.0.1:%v", port)
 	}
+}
+
+//------------
+
+func trimAtFirstSrcDir(filename string) string {
+	v := filename
+	w := []string{}
+	for {
+		base := filepath.Base(v)
+		if base == "src" {
+			return filepath.Join(w...) // trimmed
+		}
+		w = append([]string{base}, w...)
+		oldv := v
+		v = filepath.Dir(v)
+		isRoot := oldv == v
+		if isRoot {
+			break
+		}
+	}
+	return filename
 }

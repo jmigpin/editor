@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
-	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -37,9 +37,7 @@ func TestCmd_src1(t *testing.T) {
 		}
 	`
 	msgs := doCmdSrc(t, src, false, false)
-	if !hasStringIn(`Sleep("10ms"=(10 * "1ms"))`, msgs) {
-		t.Fatal()
-	}
+	mustHaveString(t, msgs, `Sleep("10ms"=(10 * "1ms"))`)
 }
 
 func TestCmd_src2(t *testing.T) {
@@ -68,9 +66,7 @@ func TestCmd_src2(t *testing.T) {
 		}
 	`
 	msgs := doCmdSrc(t, src, false, false)
-	if !hasStringIn(`_ := "20 []"=f2()`, msgs) {
-		t.Fatal()
-	}
+	mustHaveString(t, msgs, `_ := "20 []"=f2()`)
 }
 
 func TestCmd_src3(t *testing.T) {
@@ -85,9 +81,7 @@ func TestCmd_src3(t *testing.T) {
 		}
 	`
 	msgs := doCmdSrc(t, src, false, false)
-	if !hasStringIn("false=(10 < 10)", msgs) {
-		t.Fatal()
-	}
+	mustHaveString(t, msgs, "false=(10 < 10)")
 }
 
 func TestCmd_src4(t *testing.T) {
@@ -103,8 +97,52 @@ func TestCmd_src4(t *testing.T) {
 		}
 	`
 	msgs := doCmdSrc(t, src, true, false)
-	if !hasStringIn("_ := 1", msgs) {
-		t.Fatal()
+	mustHaveString(t, msgs, "_ := 1")
+}
+
+func TestCmd_src5(t *testing.T) {
+	src := `
+		package main
+		func main() {
+			a:=1
+			b:=2
+			//godebug:annotateoff
+			_=a+b
+		}
+	`
+	msgs := doCmdSrc(t, src, false, false)
+	mustHaveString(t, msgs, "2 := 2")
+}
+
+func TestCmd_src6(t *testing.T) {
+	src := `
+		package main
+		func main() {
+			a:=1
+			b:=2
+			// has extra ':' at the end in annotation type not expecting it
+			//godebug:annotateblock:
+			_=a+b
+		}
+	`
+	_, err := doCmdSrc2(t, src, false, false)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+}
+
+func TestCmd_src7(t *testing.T) {
+	src := `
+		package main
+		//godebug:annotatepackage:not_used_here
+		func main() {
+			a:=1
+			_=a
+		}
+	`
+	_, err := doCmdSrc2(t, src, false, false)
+	if err == nil {
+		t.Fatal("expecting error")
 	}
 }
 
@@ -134,9 +172,7 @@ func TestCmd_simplifyStringify1(t *testing.T) {
 	`
 	msgs := doCmdSrc(t, src, false, false)
 	// "1 := 1=f1(1=f2(1=f3(0)))" // remove duplicated result
-	if !hasStringIn("1 := f1(1=f2(1=f3(0)))", msgs) {
-		t.Fatal()
-	}
+	mustHaveString(t, msgs, "1 := f1(1=f2(1=f3(0)))")
 }
 
 //------------
@@ -202,12 +238,8 @@ func TestCmd_goMod1(t *testing.T) {
 	}
 	msgs := doCmd(t, dir1, cmd)
 
-	if hasStringIn("F1", msgs) { // must not be annotated
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"F2F1"=("F2" + "F1"=F1())`, msgs) { // must be annotated
-		t.Fatal(msgs)
-	}
+	mustNotHaveString(t, msgs, "F1")
+	mustHaveString(t, msgs, `"F2F1"=("F2" + "F1"=F1())`)
 }
 
 func TestCmd_goMod2(t *testing.T) {
@@ -269,12 +301,8 @@ func TestCmd_goMod2(t *testing.T) {
 	}
 	msgs := doCmd(t, dir1, cmd)
 
-	if hasStringIn(`"F1"`, msgs) { // must not be annotated
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"F2"`, msgs) { // must be annotated
-		t.Fatal(msgs)
-	}
+	mustNotHaveString(t, msgs, `"F1"`)
+	mustHaveString(t, msgs, `"F2"`)
 }
 
 func TestCmd_goMod3(t *testing.T) {
@@ -320,9 +348,7 @@ func TestCmd_goMod3(t *testing.T) {
 	}
 	msgs := doCmd(t, dir, cmd)
 	// should not be annotated: pkg with only one godebug annotate block inside another func
-	if hasStringIn(`"arg-from-main"`, msgs) {
-		t.Fatal(msgs)
-	}
+	mustNotHaveString(t, msgs, `"arg-from-main"`)
 }
 
 func TestCmd_goMod4(t *testing.T) {
@@ -368,15 +394,12 @@ func TestCmd_goMod4(t *testing.T) {
 	cmd := []string{
 		"run",
 		//"-verbose",
+		//"-work",
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
-	if !hasStringIn(`"F1a"`, msgs) {
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"F1b"`, msgs) {
-		t.Fatal(msgs)
-	}
+	mustHaveString(t, msgs, `"F1a"`)
+	mustHaveString(t, msgs, `"F1b"`)
 }
 
 func TestCmd_goMod5_test(t *testing.T) {
@@ -434,12 +457,8 @@ func TestCmd_goMod5_test(t *testing.T) {
 	}
 	msgs := doCmd(t, dir1, cmd)
 
-	if hasStringIn(`"F1"`, msgs) { // must not be annotated
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"F2"`, msgs) { // must be annotated
-		t.Fatal(msgs)
-	}
+	mustNotHaveString(t, msgs, `"F1"`)
+	mustHaveString(t, msgs, `"F2"`)
 }
 
 func TestCmd_goMod6(t *testing.T) {
@@ -498,15 +517,176 @@ func TestCmd_goMod6(t *testing.T) {
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
-	if !hasStringIn(`"Fa"`, msgs) {
-		t.Fatal(msgs)
+	mustHaveString(t, msgs, `"Fa"`)
+	mustHaveString(t, msgs, `"Fb"`)
+	mustHaveString(t, msgs, `"Fc"`)
+}
+
+func TestCmd_goMod7(t *testing.T) {
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../pkg1
+	`
+	mainMainGo := `
+		package main
+		import "example.com/pkg1"
+		import "example.com/pkg1/sub1"
+		//godebug:annotatepackage:example.com/pkg1/sub1
+		func main() {
+			_=pkg1.Fa()
+			_=pkg1.Fb()
+			_=sub1.Fc()
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1FaGo := `
+		package pkg1
+		func Fa() string {
+			return "Fa"
+		}
+	`
+	pkg1FbGo := `
+		package pkg1
+		func Fb() string {
+			return "Fb"
+		}
+	`
+	sub1FcGo := `
+		package sub1
+		func Fc() string {
+			return "Fc"
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", pkg1FaGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", pkg1FbGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", sub1FcGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		"main.go",
 	}
-	if !hasStringIn(`"Fb"`, msgs) {
-		t.Fatal(msgs)
+	msgs := doCmd(t, dir, cmd)
+	mustNotHaveString(t, msgs, `"Fa"`)
+	mustNotHaveString(t, msgs, `"Fb"`)
+	mustHaveString(t, msgs, `"Fc"`)
+}
+
+func TestCmd_goMod8(t *testing.T) {
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	// An empty go.mod with just the module name, will make "go build" try to fetch from the web the dependencies.
+	// By using "go mod init", if there is no go.mod, it is created with the dependency (if already on the disk) and nothing is fetched from the web.
+	// setting GOPROXY=off fails, but not sure why:
+	// TODO: fails because go.mod is defined but doesn't declare the dependency location. Will fail with "cannot load...". It still fails without the go.mod but with GOPROXY=off.
+	// TODO: This is failing at pre-build?
+
+	mainGoMod := `
+		module main
+	`
+	mainMainGo := `
+		package main
+		import "github.com/BurntSushi/xgb"
+		//godebug:annotatepackage:github.com/BurntSushi/xgb
+		func main() {
+			_=xgb.Pad(1)
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"-env=GOPROXY=off",
+		"main.go",
 	}
-	if !hasStringIn(`"Fa"`, msgs) {
-		t.Fatal(msgs)
+	_, err := doCmd2(t, dir, cmd)
+	if err == nil {
+		t.Fatal("expecting error")
 	}
+}
+
+func TestCmd_goMod9(t *testing.T) {
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	// if the os env doesn't have GOPROXY=off, having no go.mod should fetch the dependencies from the web at pre-build.
+
+	mainMainGo := `
+		package main
+		import "github.com/BurntSushi/xgb"
+		import "golang.org/x/tools/godoc/util"
+		//godebug:annotatepackage:github.com/BurntSushi/xgb
+		//godebug:annotatepackage:golang.org/x/tools/godoc/util
+		func main() {
+			_=xgb.Pad(1)
+			_=util.IsText([]byte("001"))
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"-env=GO111MODULE=on", // force modules mode (no go.mod)
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
+	mustHaveString(t, msgs, `[48 48 49]`)
+}
+
+func TestCmd_goMod10(t *testing.T) {
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	mainMainGo := `
+		package main
+		import "github.com/BurntSushi/xgb"
+		import "golang.org/x/tools/godoc/util"
+		//godebug:annotatepackage:github.com/BurntSushi/xgb
+		//godebug:annotatepackage:golang.org/x/tools/godoc/util
+		func main() {
+			_=xgb.Pad(1)
+			_=util.IsText([]byte("001"))
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		// force modules mode (no go.mod)
+		"-env=GO111MODULE=on:GOPROXY=off",
+		"main.go",
+	}
+	_, err := doCmd2(t, dir, cmd)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+	//mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
+	//mustHaveString(t, msgs, `[48 48 49]`)
 }
 
 //------------
@@ -556,15 +736,12 @@ func TestCmd_goPath1(t *testing.T) {
 		"run",
 		//"-verbose",
 		//"-work",
+		"-env=GOPATH=" + tf.Dir,
 		"main.go"}
-	msgs := doCmd2(t, dir, cmd, true, tf.Dir)
+	msgs := doCmd(t, dir, cmd)
 
-	if hasStringIn(`"sub1"`, msgs) { // not annotated
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"sub2"`, msgs) { // annotated
-		t.Fatal(msgs)
-	}
+	mustNotHaveString(t, msgs, `"sub1"`)
+	mustHaveString(t, msgs, `"sub2"`)
 }
 
 func TestCmd_goPath2(t *testing.T) {
@@ -590,30 +767,20 @@ func TestCmd_goPath2(t *testing.T) {
 	tf.WriteFileInTmp2OrPanic("aaa/src/main/main.go", mainMainGo)
 	tf.WriteFileInTmp2OrPanic("src/pkg1/sub1.go", pkg1Sub1Go)
 
-	envs := []string{
-		"GO111MODULE=off",
-		"GOPATH=" + tf.Dir,
-	}
-
 	cmd := []string{
 		"run",
 		//"-verbose",
 		//"-work",
-		"-env=" + goutil.JoinPathLists(envs...),
+		"-env=GOPATH=" + tf.Dir,
 		"main.go",
 	}
 
 	dir := filepath.Join(tf.Dir, "aaa/src/main")
 
-	// nomodules=false, but forcing gopath with cmd line -env option
-	msgs := doCmd2(t, dir, cmd, false, "")
+	msgs := doCmd(t, dir, cmd)
 
-	if !hasStringIn(`_ := 1`, msgs) {
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"sub1"`, msgs) {
-		t.Fatal(msgs)
-	}
+	mustHaveString(t, msgs, `_ := 1`)
+	mustHaveString(t, msgs, `"sub1"`)
 }
 
 func TestCmd_goPath3(t *testing.T) {
@@ -621,48 +788,31 @@ func TestCmd_goPath3(t *testing.T) {
 	defer tf.RemoveAll()
 	t.Logf("tf.Dir: %v\n", tf.Dir)
 
+	// no go.mod, should run in nomodules mode (gopath) and succeed
+
 	mainMainGo := `
 		package main
-		import "pkg1"
+		import "github.com/BurntSushi/xgb"
+		import "golang.org/x/tools/godoc/util"
+		//godebug:annotatepackage:github.com/BurntSushi/xgb
+		//godebug:annotatepackage:golang.org/x/tools/godoc/util
 		func main() {
-			_=1
-			_=pkg1.Sub1()
+			_=xgb.Pad(1)
+			_=util.IsText([]byte("001"))
 		}
 	`
-	pkg1Sub1Go := `
-		package pkg1
-		func Sub1() string {
-			//godebug:annotateblock
-			return "sub1"
-		}
-	`
-	tf.WriteFileInTmp2OrPanic("aaa/src/main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("src/pkg1/sub1.go", pkg1Sub1Go)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
 
-	envs := []string{
-		//"GO111MODULE=off", // commented: will be auto-detected
-		"GOPATH=" + tf.Dir,
-	}
-
+	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
-		//"-verbose",
 		//"-work",
-		"-env=" + goutil.JoinPathLists(envs...),
+		//"-verbose",
 		"main.go",
 	}
-
-	dir := filepath.Join(tf.Dir, "aaa/src/main")
-
-	// nomodules=false, but forcing gopath with cmd line -env option
-	msgs := doCmd2(t, dir, cmd, false, "")
-
-	if !hasStringIn(`_ := 1`, msgs) {
-		t.Fatal(msgs)
-	}
-	if !hasStringIn(`"sub1"`, msgs) {
-		t.Fatal(msgs)
-	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
+	mustHaveString(t, msgs, `[48 48 49]`)
 }
 
 //----------
@@ -675,38 +825,7 @@ func TestCmd_simple1(t *testing.T) {
 	mainMainGo := `
 		package main
 		func main() {
-			a:=1
-			b:=2
-			//godebug:annotateoff
-			_=a+b
-		}
-	`
-	tf.WriteFileInTmp2OrPanic("dir1/main.go", mainMainGo)
-
-	dir := filepath.Join(tf.Dir, "dir1")
-	cmd := []string{
-		"run",
-		//"-verbose",
-		//"-work",
-		"main.go",
-	}
-	msgs := doCmd(t, dir, cmd)
-
-	if !hasStringIn("2 := 2", msgs) { // annotated
-		t.Fatal(msgs)
-	}
-}
-
-func TestCmd_simple2(t *testing.T) {
-	tf := newTmpFiles()
-	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
-
-	mainMainGo := `
-		package main
-		import "time"
-		func main() {
-			_=time.Second
+			_=1
 		}
 	`
 	tf.WriteFileInTmp2OrPanic("dir1/main.go", mainMainGo)
@@ -719,12 +838,10 @@ func TestCmd_simple2(t *testing.T) {
 	}
 	msgs := doCmd(t, tf.Dir, cmd)
 
-	if !hasStringIn(`_ := "1s"`, msgs) { // annotated
-		t.Fatal(msgs)
-	}
+	mustHaveString(t, msgs, `_ := 1`)
 }
 
-func TestCmd_simple3(t *testing.T) {
+func TestCmd_simple2(t *testing.T) {
 	tf := newTmpFiles()
 	defer tf.RemoveAll()
 	t.Logf("tf.Dir: %v\n", tf.Dir)
@@ -737,9 +854,15 @@ func TestCmd_simple3(t *testing.T) {
 	`
 	tf.WriteFileInTmp2OrPanic("dir1/main.go", mainMainGo)
 
-	cmd := []string{"build", "dir1/main.go", "-tags=aaa"} // some arg after the filename
-	msgs := doCmd2(t, tf.Dir, cmd, false, "")
-	_ = msgs // ok - just be able to build
+	cmd := []string{
+		"build",
+		"dir1/main.go",
+		"-tags=aaa",
+	} // some arg after the filename
+	_, err := doCmd2(t, tf.Dir, cmd)
+	if err != nil {
+		t.Fatal(err) // ok - just be able to build
+	}
 }
 
 //------------
@@ -856,42 +979,32 @@ func bCmd1(b *testing.B) {
 //------------
 
 func doCmd(t *testing.T, dir string, args []string) []string {
-	return doCmd2(t, dir, args, false, "")
+	t.Helper()
+	msgs, err := doCmd2(t, dir, args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return msgs
 }
 
-func doCmd2(t *testing.T, dir string, args []string, noModules bool, goPathDir string) []string {
+func doCmd2(t *testing.T, dir string, args []string) ([]string, error) {
 	t.Helper()
-
 	cmd := NewCmd()
 	defer cmd.Cleanup()
 
 	cmd.Dir = dir
-	cmd.NoModules = noModules
 
 	// hide msgs (pid, build, work dir ...)
 	//soutBuf := &bytes.Buffer{}
 	//cmd.Stdout = soutBuf
 
-	if noModules && goPathDir != "" {
-		// ensure the directory (possibly just created on tmp) is in gopath for tests to be able to find non-annotated files not copied to the tmp dir
-
-		goPath0 := os.Getenv("GOPATH")
-		defer os.Setenv("GOPATH", goPath0) // restore
-		w := append([]string{goPathDir}, goutil.GoPath()...)
-		p := goutil.JoinPathLists(w...)
-		os.Setenv("GOPATH", p)
-
-		//os.Setenv("GO111MODULE", "off")
-		//prependToGoPathAndUpdateGoBuildPkg(goPathDir)
-	}
-
 	ctx := context.Background()
 	done, err := cmd.Start(ctx, args)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	if done { // ex: "build", "-help"
-		return nil
+		return nil, nil
 	}
 
 	go func() {
@@ -928,18 +1041,25 @@ func doCmd2(t *testing.T, dir string, args []string, noModules bool, goPathDir s
 		}
 	}()
 
-	if err := cmd.Wait(); err != nil {
-		t.Fatal(err)
-	}
-
+	err = cmd.Wait()
 	wg.Wait()
-
-	return msgs
+	return msgs, err
 }
 
 //------------
 
 func doCmdSrc(t *testing.T, src string, tests bool, noModules bool) []string {
+	t.Helper()
+	msgs, err := doCmdSrc2(t, src, tests, noModules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return msgs
+}
+
+func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, error) {
+	t.Helper()
+
 	tf := newTmpFiles()
 	defer tf.RemoveAll()
 	t.Logf("tf.Dir: %v\n", tf.Dir)
@@ -952,8 +1072,8 @@ func doCmdSrc(t *testing.T, src string, tests bool, noModules bool) []string {
 	tf.WriteFileInTmp2OrPanic(filename, src)
 
 	args := []string{
-		//"run", "-h",
 		"run",
+		// "-h",
 		//"-verbose",
 		//"-work",
 		filename,
@@ -966,27 +1086,38 @@ func doCmdSrc(t *testing.T, src string, tests bool, noModules bool) []string {
 			// no filename
 		}
 	}
-	return doCmd2(t, tf.Dir, args, noModules, tf.Dir)
+
+	env := []string{}
+	if noModules {
+		env = append(env, "EDITOR_GODEBUG_NOMODULES=true")
+		//env = append(env, "GOPATH="+tf.Dir)
+		s := strings.Join(env, string(os.PathListSeparator))
+		args = append(args, "-env="+s)
+	}
+
+	return doCmd2(t, tf.Dir, args)
 }
 
 //------------
 
 func newTmpFiles() *osutil.TmpFiles {
-	return osutil.NewTmpFiles("editor_godebug_tests")
+	return osutil.NewTmpFiles("editor_godebug_tests_tmpfiles")
 }
 
 //------------
 
-//func prependToGoPathAndUpdateGoBuildPkg(dir string) {
-//	goPaths := append([]string{dir}, goutil.GoPath()...)
-//	goPath := strings.Join(goPaths, string(os.PathListSeparator))
-//	os.Setenv("GOPATH", goPath)
-//	// Update "build" path since it is set at init time.
-//	// This is then needed by: github.com/jmigpin/editor/util/goutil/misc.go:34
-//	build.Default.GOPATH = goPath
-//}
-
-//------------
+func mustHaveString(t *testing.T, u []string, s string) {
+	t.Helper()
+	if !hasStringIn(s, u) {
+		t.Fatalf("missing string: %v", s)
+	}
+}
+func mustNotHaveString(t *testing.T, u []string, s string) {
+	t.Helper()
+	if hasStringIn(s, u) {
+		t.Fatalf("contains string: %v", s)
+	}
+}
 
 func hasStringIn(s string, ss []string) bool {
 	for _, u := range ss {

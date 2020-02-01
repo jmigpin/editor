@@ -18,10 +18,7 @@ import (
 )
 
 const DebugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
-const GoDebugConfigPkgPath = "github.com/jmigpin/editor/core/godebug/godebugconfig"
-
-var DebugFilepath = filepath.FromSlash(DebugPkgPath)
-var GoDebugConfigFilepath = filepath.FromSlash(GoDebugConfigPkgPath)
+const GodebugconfigPkgPath = "github.com/jmigpin/editor/core/godebug/godebugconfig"
 
 //----------
 
@@ -85,7 +82,7 @@ func (annset *AnnotatorSet) AnnotateAstFile2(astFile *ast.File, typ AnnotationTy
 		annset.insertImportDebug(astFile)
 
 		// insert in all files to ensure inner init function runs
-		annset.insertImport(astFile, "_", GoDebugConfigPkgPath)
+		annset.insertImport(astFile, "_", GodebugconfigPkgPath)
 
 		// insert exit in main
 		ok := annset.insertDebugExitInFunction(astFile, "main")
@@ -223,9 +220,9 @@ func (annset *AnnotatorSet) buildConfigContentEntries() string {
 
 //----------
 
-func (annset *AnnotatorSet) ConfigGoModuleContent() string {
-	return "module " + GoDebugConfigPkgPath + "\n"
-}
+//func (annset *AnnotatorSet) ConfigGoModuleContent() string {
+//	return "module " + GodebugconfigPkgPath + "\n"
+//}
 
 //----------
 

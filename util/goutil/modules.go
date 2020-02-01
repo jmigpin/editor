@@ -38,11 +38,9 @@ type Replace struct {
 	New Module
 }
 
-//----------
-
-func ReadGoMod(ctx context.Context, dir string) (*GoMod, error) {
+func ReadGoMod(ctx context.Context, dir string, env []string) (*GoMod, error) {
 	args := []string{"go", "mod", "edit", "-json"}
-	out, err := runGoModCmd(ctx, dir, "read", args)
+	out, err := runGoModCmd(ctx, dir, args, env)
 	if err != nil {
 		return nil, err
 	}
@@ -53,39 +51,49 @@ func ReadGoMod(ctx context.Context, dir string) (*GoMod, error) {
 	return goMod, nil
 }
 
-func GoModReplace(ctx context.Context, dir, old, new string) error {
-	args := []string{"go", "mod", "edit", "-replace=" + old + "=" + new}
-	_, err := runGoModCmd(ctx, dir, "replace", args)
-	return err
-}
+//----------
 
-func GoModRequire(ctx context.Context, dir, path string) error {
-	args := []string{"go", "mod", "edit", "-require=" + path}
-	_, err := runGoModCmd(ctx, dir, "require", args)
-	return err
-}
-
-func runGoModCmd(ctx context.Context, dir, errStr string, args []string) ([]byte, error) {
-	bout, err := osutil.RunExecCmdCtxWithAttrAndGetOutputs(ctx, dir, nil, args...)
-	if err != nil {
-		return nil, fmt.Errorf("goutil.gomod(%v): %v", errStr, err)
+//godebug:annotatepackage
+func GoModInit(ctx context.Context, dir, modPath string, env []string) error {
+	args := []string{"go", "mod", "init"}
+	if modPath != "" {
+		args = append(args, modPath)
 	}
-	return bout, nil
+	_, err := runGoModCmd(ctx, dir, args, env)
+	return err
+}
+
+func GoModRequire(ctx context.Context, dir, path string, env []string) error {
+	args := []string{"go", "mod", "edit", "-require=" + path}
+	_, err := runGoModCmd(ctx, dir, args, env)
+	return err
+}
+
+func GoModTidy(ctx context.Context, dir string, env []string) error {
+	args := []string{"go", "mod", "tidy"}
+	_, err := runGoModCmd(ctx, dir, args, env)
+	return err
+}
+
+func GoModReplace(ctx context.Context, dir, old, new string, env []string) error {
+	//// TODO: fails when using directories that contain the version in the name. So it would not allow a downloaded module to be used (contains directories with '@' version in the name).
+	//args := []string{"go", "mod", "edit", "-replace=" + old + "=" + new}
+	//_, err := runGoModCmd(ctx, dir, args, env)
+	//return err
+
+	// TODO: "go mod edit -replace" has problems writing "new" with "@version" (dir name) it will add the string with a space instead of "@" and later go.mod has a parse error
+	// simple append to the file (TODO: check later go versions)
+	return goModReplaceUsingAppend(ctx, dir, old, new)
 }
 
 //----------
 
-func GoModCreateContent(dir string, content string) error {
-	filename := filepath.Join(dir, "go.mod")
-	f, err := os.Create(filename)
+func runGoModCmd(ctx context.Context, dir string, args []string, env []string) ([]byte, error) {
+	bout, err := osutil.RunExecCmdCtxWithAttrAndGetOutputs(ctx, dir, nil, args, env)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("runGoMod error: args=%v, dir=%v, err=%v", args, dir, err)
 	}
-	defer f.Close()
-	if _, err := fmt.Fprintf(f, content); err != nil {
-		return err
-	}
-	return nil
+	return bout, nil
 }
 
 //----------
@@ -105,4 +113,35 @@ func FindGoMod(dir string) (string, bool) {
 			return "", false
 		}
 	}
+}
+
+//----------
+
+//func GoModCreateContent(dir string, content string) error {
+//	filename := filepath.Join(dir, "go.mod")
+//	f, err := os.Create(filename)
+//	if err != nil {
+//		return err
+//	}
+//	defer f.Close()
+//	if _, err := fmt.Fprintf(f, content); err != nil {
+//		return err
+//	}
+//	return nil
+//}
+
+//----------
+
+func goModReplaceUsingAppend(ctx context.Context, dir, old, new string) error {
+	filename := filepath.Join(dir, "go.mod")
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	u := "replace " + old + " => " + new
+	if _, err := f.WriteString("\n" + u + "\n"); err != nil {
+		return err
+	}
+	return nil
 }

@@ -7,47 +7,61 @@ import (
 	"github.com/jmigpin/editor/util/goutil"
 )
 
-func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files, mainFilename string, tests bool) error {
-	dir := filepath.Dir(mainFilename)
-	if tests {
-		dir = mainFilename
-	}
-
-	// no go.mod defined (probably small simple file)
-	if len(files.modFilenames) == 0 {
+func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files) error {
+	// create go.mods on packages that have none
+	for f := range files.modMissings {
+		dir := filepath.Dir(f)
+		pkgPath, ok := files.progDirPkgPaths[dir]
+		if !ok {
+			continue
+		}
 		// create go.mod file at tmp
 		dirAtTmp := cmd.tmpDirBasedFilename(dir)
-		content := "module example.com/main\n"
-		if err := goutil.GoModCreateContent(dirAtTmp, content); err != nil {
+		if err := goutil.GoModInit(ctx, dirAtTmp, pkgPath, cmd.env); err != nil {
 			return err
 		}
 
-		if err := setupGoMod(ctx, cmd, files, dir); err != nil {
+		// setup local godebug dependencies before running "go tidy"
+		err := setupGodebugGoMod(ctx, cmd, dirAtTmp, files)
+		if err != nil {
 			return err
 		}
-		return nil
+
+		if err := goutil.GoModTidy(ctx, dirAtTmp, cmd.env); err != nil {
+			return err
+		}
 	}
 
+	// merge all mods filenames
+	mods := map[string]struct{}{}
+	merge := func(m map[string]struct{}) {
+		for k, v := range m {
+			mods[k] = v
+		}
+	}
+	merge(files.modMissings)
+	merge(files.modFilenames)
+
 	// updating all found go.mods, only the main one will be used
-	for filename := range files.modFilenames {
+	for filename := range mods {
 		// update go.mod
 		dir2 := filepath.Dir(filename)
-		if err := setupGoMod(ctx, cmd, files, dir2); err != nil {
+		if err := setupGoMod(ctx, cmd, mods, dir2, files); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, dir string) error {
-	// add to go.mod the godebugconfig location
+func setupGoMod(ctx context.Context, cmd *Cmd, mods map[string]struct{}, dir string, files *Files) error {
+	// update go.mod with godebug
 	dirAtTmp := cmd.tmpDirBasedFilename(dir)
-	if err := setupGodebugGoMod(ctx, cmd, dirAtTmp); err != nil {
+	if err := setupGodebugGoMod(ctx, cmd, dirAtTmp, files); err != nil {
 		return err
 	}
 
 	// read go.mod
-	goMod, err := goutil.ReadGoMod(ctx, dirAtTmp)
+	goMod, err := goutil.ReadGoMod(ctx, dirAtTmp, cmd.env)
 	if err != nil {
 		return err
 	}
@@ -60,31 +74,31 @@ func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, dir string) error {
 			if err != nil {
 				return err
 			}
-			if err := goutil.GoModReplace(ctx, dirAtTmp, rep.Old.Path, abs); err != nil {
+			if err := goutil.GoModReplace(ctx, dirAtTmp, rep.Old.Path, abs, cmd.env); err != nil {
 				return err
 			}
 		}
 
 	}
 
-	// update/add "replaces" for the other mod files (annotated pkgs)
-	for filename2 := range files.modFilenames {
-		dir2 := filepath.Dir(filename2)
-		if dir2 == dir { // same dir (same go mod file)
-			continue
-		}
-		dirAtTmp2 := cmd.tmpDirBasedFilename(dir2)
+	// add "replaces" for annotated modules
+	for _, req := range goMod.Require {
+		for filename2 := range mods {
+			dir2 := filepath.Dir(filename2)
+			if dir2 == dir { // same dir (same go mod file)
+				continue
+			}
+			dirAtTmp2 := cmd.tmpDirBasedFilename(dir2)
 
-		// read go.mod
-		goMod2, err := goutil.ReadGoMod(ctx, dirAtTmp2)
-		if err != nil {
-			return err
-		}
+			// read go.mod
+			goMod2, err := goutil.ReadGoMod(ctx, dirAtTmp2, cmd.env)
+			if err != nil {
+				return err
+			}
 
-		// if gomod depends on gomod2
-		for _, req := range goMod.Require {
+			// if gomod depends on gomod2
 			if req.Path == goMod2.Module.Path {
-				if err := goutil.GoModReplace(ctx, dirAtTmp, req.Path, dirAtTmp2); err != nil {
+				if err := goutil.GoModReplace(ctx, dirAtTmp, req.Path, dirAtTmp2, cmd.env); err != nil {
 					return err
 				}
 			}
@@ -94,36 +108,29 @@ func setupGoMod(ctx context.Context, cmd *Cmd, files *Files, dir string) error {
 	return nil
 }
 
-func setupGodebugGoMod(ctx context.Context, cmd *Cmd, dir string) error {
-	{
-		// require godebugconfig
-		path2 := GoDebugConfigPkgPath + "@v0.0.0"
-		if err := goutil.GoModRequire(ctx, dir, path2); err != nil {
-			return err
-		}
+func setupGodebugGoMod(ctx context.Context, cmd *Cmd, dir string, files *Files) error {
+	// require godebugconfig
+	p := GodebugconfigPkgPath + "@v0.0.0" // version needed
+	if err := goutil.GoModRequire(ctx, dir, p, cmd.env); err != nil {
+		return err
 	}
-	{
-		// replace godebugconfig (point to tmp dir)
-		oldPath := GoDebugConfigPkgPath
-		newPath := filepath.Join(cmd.tmpDir, GoDebugConfigPkgPath)
-		if err := goutil.GoModReplace(ctx, dir, oldPath, newPath); err != nil {
-			return err
-		}
+	// require debug
+	p = DebugPkgPath + "@v0.0.0" // version needed
+	if err := goutil.GoModRequire(ctx, dir, p, cmd.env); err != nil {
+		return err
 	}
-	{
-		// replace debug (point to tmp dir)
-		oldPath := DebugPkgPath
-		newPath := filepath.Join(cmd.tmpDir, DebugPkgPath)
-		// create go.mod file at tmp
-		dirAtTmp := cmd.tmpDirBasedFilename(DebugPkgPath)
-		content := "module " + DebugPkgPath + "\n"
-		if err := goutil.GoModCreateContent(dirAtTmp, content); err != nil {
-			return err
-		}
-		// replace
-		if err := goutil.GoModReplace(ctx, dir, oldPath, newPath); err != nil {
-			return err
-		}
+
+	// replace godebugconfig (point to tmp dir)
+	oldPath := GodebugconfigPkgPath
+	newPath := filepath.Join(cmd.tmpDir, files.GodebugconfigPkgFilename(""))
+	if err := goutil.GoModReplace(ctx, dir, oldPath, newPath, cmd.env); err != nil {
+		return err
+	}
+	// replace debug (point to tmp dir)
+	oldPath = DebugPkgPath
+	newPath = filepath.Join(cmd.tmpDir, files.DebugPkgFilename(""))
+	if err := goutil.GoModReplace(ctx, dir, oldPath, newPath, cmd.env); err != nil {
+		return err
 	}
 	return nil
 }

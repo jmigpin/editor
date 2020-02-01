@@ -7,12 +7,13 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/osutil"
 	"golang.org/x/tools/go/packages"
 )
@@ -23,31 +24,33 @@ type Files struct {
 
 	filenames       map[string]struct{} // filenames to solve
 	progFilenames   map[string]struct{} // program filenames (loaded)
-	progDirPkgPaths map[string]string   // prog dir pkg path
+	progDirPkgPaths map[string]string   // prog dir pkgPath
 	annFilenames    map[string]struct{} // to annotate
 	copyFilenames   map[string]struct{} // to copy
 	modFilenames    map[string]struct{} // go.mod's
+	modMissings     map[string]struct{} // go.mod's to be created
 	annTypes        map[string]AnnotationType
 
-	fset  *token.FileSet
-	cache struct {
+	fset      *token.FileSet
+	noModules bool
+	cache     struct {
 		fullAstFile map[string]*ast.File
 	}
 }
 
-func NewFiles(fset *token.FileSet) *Files {
-	spew.Config.DisableMethods = true
+func NewFiles(fset *token.FileSet, noModules bool) *Files {
+	//spew.Config.DisableMethods = true
 
-	files := &Files{fset: fset}
+	files := &Files{fset: fset, noModules: noModules}
 	files.filenames = map[string]struct{}{}
 	files.progFilenames = map[string]struct{}{}
 	files.progDirPkgPaths = map[string]string{}
 	files.annFilenames = map[string]struct{}{}
 	files.copyFilenames = map[string]struct{}{}
 	files.modFilenames = map[string]struct{}{}
+	files.modMissings = map[string]struct{}{}
 	files.annTypes = map[string]AnnotationType{}
 	files.cache.fullAstFile = map[string]*ast.File{}
-
 	return files
 }
 
@@ -74,7 +77,7 @@ func (files *Files) absFilename(filename string) string {
 
 //----------
 
-func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noModules bool, env []string) error {
+func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, env []string) error {
 	if !filepath.IsAbs(mainFilename) {
 		return fmt.Errorf("filename not absolute: %v", mainFilename)
 	}
@@ -109,20 +112,17 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, noM
 	}
 	files.populateProgFilenamesMap(pkgs)
 
-	//if err := files.addFilesImportingDebugPkg(pkgs); err != nil {
-	//	return err
-	//}
-
 	if err := files.addFilesWithDebugComment(ctx, pkgs); err != nil {
 		return err
 	}
-
 	if err := files.solveFilenames(); err != nil {
 		return err
 	}
+	if err := files.findGoMods(); err != nil {
+		return err
+	}
 
-	files.findGoMods()
-	files.findFilesToCopy(noModules)
+	files.findFilesToCopy(files.noModules)
 
 	return nil
 }
@@ -152,19 +152,19 @@ func (files *Files) verboseMap(cmd *Cmd, m map[string]struct{}) {
 //----------
 
 func (files *Files) populateProgFilenamesMap(pkgs []*packages.Package) {
-	// goroot ending with fileseparator
-	// needed to not include these directories because it can't be annotated (will not be able to include a "replace" directive in go.mod
+	// can't include these because they can't be annotated (will not be able to include a "replace" directive in go.mod)
 	goRoot := os.Getenv("GOROOT")
+	skip := []string{goRoot}
 
 	// all filenames in the program (except goroot)
 	packages.Visit(pkgs, nil, func(pkg *packages.Package) {
-
+	loop1:
 		for _, fname := range pkg.GoFiles {
-			if osutil.FilepathHasDirPrefix(fname, goRoot) {
-				continue
+			for _, u := range skip {
+				if osutil.FilepathHasDirPrefix(fname, u) {
+					continue loop1
+				}
 			}
-
-			//fmt.Printf("progfile: %v\n", fname)
 
 			files.progFilenames[fname] = struct{}{}
 
@@ -204,15 +204,13 @@ func (files *Files) addFilesWithDebugComment(ctx context.Context, pkgs []*packag
 		}
 		for _, cg := range astFile.Comments {
 			for _, c := range cg.List {
-				typ, err := AnnotationTypeInCommentErrPos(files.fset, c)
+				opt, err := AnnotationOptInComment(c)
+				if err != nil {
+					return PositionError(err, files.fset, c.Pos())
+				}
+				err = files.keepAnnotationOpt(filename, opt)
 				if err != nil {
 					return err
-				}
-				if typ.Annotated() {
-					done := files.keepAnnotationFile(filename, typ)
-					if done {
-						return nil
-					}
 				}
 			}
 		}
@@ -220,31 +218,51 @@ func (files *Files) addFilesWithDebugComment(ctx context.Context, pkgs []*packag
 	return nil
 }
 
-func (files *Files) keepAnnotationFile(filename string, typ AnnotationType) bool {
-	files.keepAnnFilename(filename, typ)
-	switch typ {
+func (files *Files) keepAnnotationOpt(filename string, opt *AnnotationOpt) error {
+	switch opt.Type {
+	case AnnotationTypeNone:
+	case AnnotationTypeOff:
+	case AnnotationTypeBlock:
+		files.keepAnnFilename(filename, opt.Type)
+	case AnnotationTypeFile:
+		files.keepAnnFilename(filename, opt.Type)
 	case AnnotationTypePackage:
-		dir := filepath.Dir(filename)
-		files.Add(dir)
+		if opt.Opt == "" {
+			files.keepAnnFilename(filename, opt.Type) // keep
+			dir := filepath.Dir(filename)
+			files.Add(dir) // add package dir
+		} else {
+			// filename is not added
+			ok := false
+			for dir, pkgPath := range files.progDirPkgPaths {
+				if pkgPath == opt.Opt {
+					ok = true
+					files.Add(dir) // add pkg dir
+				}
+			}
+			if !ok {
+				err := fmt.Errorf("pkg to annotate not used: %q", opt.Opt)
+				err = PositionError(err, files.fset, opt.Pos)
+				return err
+			}
+		}
 	case AnnotationTypeModule:
-		goMod, ok := files.findGoMod2(filename)
+		files.keepAnnFilename(filename, opt.Type)
+		dir := filepath.Dir(filename)
+		goMod, ok := goutil.FindGoMod(dir)
 		if ok {
 			dir2 := filepath.Dir(goMod) + string(filepath.Separator)
 			// files under the gomod directory
-			for filename := range files.progFilenames {
-				if strings.HasPrefix(filename, dir2) {
-					files.keepAnnFilename(filename, typ)
+			for f := range files.progFilenames {
+				if strings.HasPrefix(f, dir2) {
+					files.keepAnnFilename(f, opt.Type)
 				}
 			}
 		}
+	default:
+		log.Printf("todo: keepAnnotationOpt: %v", opt.Type)
 	}
-	// TODO: not working (issues with external func decls)
-	//case AnnotationTypeAll:
-	//	for filename := range files.progFilenames {
-	//		files.keepAnnFilename(filename, typ)
-	//	}
-	//	return true
-	return false
+	return nil
 }
 
 //----------
@@ -341,45 +359,24 @@ func (files *Files) keepAnnFilename(filename string, typ AnnotationType) {
 
 //----------
 
-func (files *Files) findGoMods() {
-	// searches annotated files parent directories
+func (files *Files) findGoMods() error {
+	// search (to be) annotated files dir for go.mod's
 	seen := map[string]struct{}{}
-	for k := range files.annFilenames {
-		dir := k
-		u, ok := files.findGoMod(dir, &seen)
+	for f := range files.annFilenames {
+		dir := filepath.Dir(f)
+		if _, ok := seen[dir]; ok {
+			continue
+		}
+		seen[dir] = struct{}{}
+		u, ok := goutil.FindGoMod(dir)
 		if ok {
 			files.modFilenames[u] = struct{}{}
+		} else {
+			w := filepath.Join(dir, "go.mod")
+			files.modMissings[w] = struct{}{}
 		}
 	}
-}
-
-func (files *Files) findGoMod(dir string, seen *map[string]struct{}) (string, bool) {
-	for {
-		dir = filepath.Dir(dir) // parent dir
-
-		if _, ok := (*seen)[dir]; ok {
-			break
-		}
-		(*seen)[dir] = struct{}{}
-
-		// early break if not a dir
-		fi, err := os.Stat(dir)
-		if err != nil || !fi.IsDir() {
-			break
-		}
-		// check if dir has go.mod
-		u := filepath.Join(dir, "go.mod")
-		fi2, err := os.Stat(u)
-		if err == nil && fi2.Mode().IsRegular() {
-			return u, true // just the first one
-		}
-	}
-	return "", false
-}
-
-func (files *Files) findGoMod2(dir string) (string, bool) {
-	seen := map[string]struct{}{}
-	return files.findGoMod(dir, &seen)
+	return nil
 }
 
 //----------
@@ -408,32 +405,28 @@ func (files *Files) findFilesToCopy(noModules bool) {
 	}
 }
 
-//----------
-
 func (files *Files) findModulesFiles() {
 	for fn1 := range files.modFilenames {
 		dir1 := filepath.Dir(fn1)
 		for fn2 := range files.progFilenames {
+			if !files.canCopyOnly(fn2) {
+				continue
+			}
+			// inside dir tree of a mod file
 			if osutil.FilepathHasDirPrefix(fn2, dir1) {
-				// inside dir tree of the mod file
-
-				if _, ok := files.annFilenames[fn2]; !ok { // not annotated
-					files.copyFilenames[fn2] = struct{}{}
-				}
+				files.copyFilenames[fn2] = struct{}{}
 			}
 		}
 	}
 }
 
-//----------
-
 func (files *Files) findParentDirsOfAnnotated() {
-	// populate parent directories of annotated files
 	for fn1 := range files.annFilenames {
 		for fn2 := range files.progFilenames {
-			if fn1 == fn2 { // annotated files are not for copy-only
+			if !files.canCopyOnly(fn2) {
 				continue
 			}
+			// parent directory of an annotated file
 			dir2 := filepath.Dir(fn2)
 			if osutil.FilepathHasDirPrefix(fn1, dir2) {
 				files.copyFilenames[fn2] = struct{}{}
@@ -442,13 +435,48 @@ func (files *Files) findParentDirsOfAnnotated() {
 	}
 }
 
+func (files *Files) canCopyOnly(filename string) bool {
+	// annotated files are not for copy-only
+	_, ok := files.annFilenames[filename]
+	if ok {
+		return false
+	}
+	// can't copy another version of the debug pkg
+	dir := filepath.Dir(filename)
+	pkgPath, ok := files.progDirPkgPaths[dir]
+	if ok {
+		return pkgPath != DebugPkgPath
+	}
+	return true
+}
+
+//----------
+
+func (files *Files) DebugPkgFilename(filename string) string {
+	fp := filepath.FromSlash(DebugPkgPath)
+
+	// cosmetic output, not necessary
+	if !files.noModules {
+		fp = filepath.FromSlash("godebug/debug")
+	}
+
+	return filepath.Join(fp, filename)
+}
+
+func (files *Files) GodebugconfigPkgFilename(filename string) string {
+	fp := filepath.FromSlash(GodebugconfigPkgPath)
+
+	// cosmetic output, not necessary
+	if !files.noModules {
+		fp = filepath.FromSlash("godebug/godebugconfig")
+	}
+
+	return filepath.Join(fp, filename)
+}
+
 //----------
 
 type AnnotationType int
-
-func (t AnnotationType) Annotated() bool {
-	return t >= AnnotationTypeBlock
-}
 
 const (
 	// Order matters, last is the bigger set
@@ -456,9 +484,18 @@ const (
 	AnnotationTypeOff
 	AnnotationTypeBlock
 	AnnotationTypeFile
-	AnnotationTypePackage
-	AnnotationTypeModule
+	AnnotationTypeImport  // annotates set of files (reads next src line)
+	AnnotationTypePackage // annotates set of files
+	AnnotationTypeModule  // annotates set of packages
 )
+
+//----------
+
+type AnnotationOpt struct {
+	Type AnnotationType
+	Opt  string
+	Pos  token.Pos
+}
 
 //----------
 
@@ -626,35 +663,65 @@ func ProgramPackages(
 
 //----------
 
-func AnnotationTypeInCommentErrPos(fset *token.FileSet, c *ast.Comment) (AnnotationType, error) {
-	typ, err := AnnotationTypeInComment(c.Text)
+func AnnotationOptInComment(c *ast.Comment) (*AnnotationOpt, error) {
+	typ, opt, err := AnnotationTypeInString(c.Text)
 	if err != nil {
-		// improve error
-		p := fset.Position(c.Pos())
-		err = fmt.Errorf("%v: %v", err, p)
+		return nil, err
 	}
-	return typ, err
+	return &AnnotationOpt{typ, opt, c.Pos()}, nil
 }
 
-func AnnotationTypeInComment(s string) (AnnotationType, error) {
+func AnnotationTypeInString(s string) (AnnotationType, string, error) {
 	prefix := "//godebug:"
-	if strings.HasPrefix(s, prefix) {
-		u := s[len(prefix):]
-		switch u {
-		case "annotateoff":
-			return AnnotationTypeOff, nil
-		case "annotateblock":
-			return AnnotationTypeBlock, nil
-		case "annotatefile":
-			return AnnotationTypeFile, nil
-		case "annotatepackage":
-			return AnnotationTypePackage, nil
-		case "annotatemodule":
-			return AnnotationTypeModule, nil
+	if !strings.HasPrefix(s, prefix) {
+		return AnnotationTypeNone, "", nil
+	}
+
+	// type and optional rest of the string
+	s2 := s[len(prefix):]
+	typ, opt, hasOpt := s2, "", false
+	i := strings.Index(typ, ":")
+	if i >= 0 {
+		hasOpt = true
+		typ, opt = typ[:i], typ[i+1:]
+	}
+	typ = strings.TrimSpace(typ)
+	opt = strings.TrimSpace(opt)
+
+	var at AnnotationType
+	switch typ {
+	case "annotateoff":
+		at = AnnotationTypeOff
+	case "annotateblock":
+		at = AnnotationTypeBlock
+	case "annotatefile":
+		at = AnnotationTypeFile
+	case "annotatepackage":
+		at = AnnotationTypePackage
+	case "annotateimport":
+		at = AnnotationTypeImport
+	case "annotatemodule":
+		at = AnnotationTypeModule
+	default:
+		err := fmt.Errorf("godebug: unexpected annotate type: %q", s2)
+		return AnnotationTypeNone, "", err
+	}
+
+	// ensure early error if opt is set
+	if hasOpt {
+		switch at {
+		case AnnotationTypePackage:
 		default:
-			err := fmt.Errorf("godebug: unexpected annotate type: %q", u)
-			return AnnotationTypeNone, err
+			return at, opt, fmt.Errorf("godebug: unexpected annotate string: %v", opt)
 		}
 	}
-	return AnnotationTypeNone, nil
+
+	return at, opt, nil
+}
+
+//----------
+
+func PositionError(err error, fset *token.FileSet, pos token.Pos) error {
+	p := fset.Position(pos)
+	return fmt.Errorf("%v: %w", p, err)
 }

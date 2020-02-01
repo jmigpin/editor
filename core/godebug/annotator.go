@@ -1401,7 +1401,7 @@ func (ann *Annotator) annotationsOn(n ast.Node) (bool, bool) {
 		for _, cg := range cgs {
 			for i := 0; i < len(cg.List); i++ {
 				c := cg.List[i]
-				typ, err := AnnotationTypeInComment(c.Text)
+				typ, _, err := AnnotationTypeInString(c.Text)
 				if err != nil {
 					continue
 				}

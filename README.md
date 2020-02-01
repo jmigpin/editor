@@ -234,9 +234,14 @@ Examples:
 		//godebug:annotateblock
 		//godebug:annotatefile
 		//godebug:annotatepackage
+		//godebug:annotatepackage:<pkg-path>   # annotate external pkg 
 		//godebug:annotatemodule
 		```
 		The annotator will detect these comments and annotate the block/file/package/module.
+		A pkg pack can be given to annotatepackage, but beware that pkgs located in $GOROOT are not annotated. Example:
+		```
+		//godebug:annotatepackage:golang.org/x/tools/godoc/util
+		```
 		Higher level `//godebug:*` comments will override lower ones.
 		To disable annotating for the current code block, insert:
 		```
