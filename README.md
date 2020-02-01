@@ -240,6 +240,7 @@ Examples:
 		//godebug:annotatemodule
 		```
 		The annotator will detect these comments and annotate the block/file/package/module.
+
 		A pkg path can be given to annotatepackage, but beware that pkgs located in $GOROOT are not annotated. Example:
 		```
 		//godebug:annotatepackage:golang.org/x/tools/godoc/util
@@ -291,13 +292,17 @@ Examples:
 		A solution is to use `//godebug:annotateoff` before the offending line.
 		For this to be solved, the types need to be analysed but that would become substantially slower (compiles are not cached).
 - Notes:
-	- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
-	- use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
-	- Supports remote debugging (check help usage).
+	- Use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
+	- Supports remote debugging (check help usage with `GoDebug -h`).
+		- The annotated executable pauses if a client is not connected. In other words, it stops sending debug messages until a client connects.
 		- A client can connect/disconnect any number of times, but there can be only one client at a time.
 	- Example usage of setting the env var in a godebug session:
 		```
 		GoDebug run -env=GO111MODULE=off main.go
+		```
+		The example below builds a binary for windows in another platform, for later remote debug:
+		```
+		GoDebug build -env=GOOS=windows -addr=:8080 main.go 
 		```
 
 ## Internal variables
