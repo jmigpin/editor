@@ -35,12 +35,6 @@ func NewAnnotator(fset *token.FileSet) *Annotator {
 //----------
 
 func (ann *Annotator) AnnotateAstFile(astFile *ast.File, typ AnnotationType) {
-	// don't annotate these packages
-	switch astFile.Name.Name {
-	case "godebugconfig", "debug":
-		return
-	}
-
 	ctx := &Ctx{}
 
 	// initial annotations options (on block, don't annotate at start)

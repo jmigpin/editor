@@ -136,11 +136,25 @@ func (files *Files) verbose(cmd *Cmd) {
 	files.verboseMap(cmd, files.copyFilenames)
 	cmd.Printf("modules:\n")
 	files.verboseMap(cmd, files.modFilenames)
+	cmd.Printf("modules missing:\n")
+	files.verboseMap(cmd, files.modMissings)
 }
 func (files *Files) verboseMap(cmd *Cmd, m map[string]struct{}) {
 	sl := []string{}
 	for k := range m {
-		k = filepath.Base(k)
+		// shorten k
+		sep := string(filepath.Separator)
+		j := strings.LastIndex(k, sep)
+		if j > 0 {
+			j = strings.LastIndex(k[:j], sep)
+			if j > 0 {
+				k = k[j:]
+				if len(k) > 0 && k[0] == sep[0] {
+					k = k[1:]
+				}
+			}
+		}
+
 		sl = append(sl, k)
 	}
 	sort.Strings(sl)
@@ -154,14 +168,19 @@ func (files *Files) verboseMap(cmd *Cmd, m map[string]struct{}) {
 func (files *Files) populateProgFilenamesMap(pkgs []*packages.Package) {
 	// can't include these because they can't be annotated (will not be able to include a "replace" directive in go.mod)
 	goRoot := os.Getenv("GOROOT")
-	skip := []string{goRoot}
+	godebugPkgs := []string{GodebugconfigPkgPath, DebugPkgPath}
 
 	// all filenames in the program (except goroot)
 	packages.Visit(pkgs, nil, func(pkg *packages.Package) {
 	loop1:
 		for _, fname := range pkg.GoFiles {
-			for _, u := range skip {
-				if osutil.FilepathHasDirPrefix(fname, u) {
+			// skip filepaths
+			if osutil.FilepathHasDirPrefix(fname, goRoot) {
+				continue
+			}
+			// skip pkgs
+			for _, p := range godebugPkgs {
+				if p == pkg.PkgPath {
 					continue loop1
 				}
 			}
@@ -246,6 +265,8 @@ func (files *Files) keepAnnotationOpt(filename string, opt *AnnotationOpt) error
 				return err
 			}
 		}
+	case AnnotationTypeImport:
+		// read next line, must be an import
 	case AnnotationTypeModule:
 		files.keepAnnFilename(filename, opt.Type)
 		dir := filepath.Dir(filename)
@@ -406,7 +427,8 @@ func (files *Files) findFilesToCopy(noModules bool) {
 }
 
 func (files *Files) findModulesFiles() {
-	for fn1 := range files.modFilenames {
+	// all mods, need to deal with directories of missing go.mod's
+	for fn1 := range files.modFilenamesAndMissing() {
 		dir1 := filepath.Dir(fn1)
 		for fn2 := range files.progFilenames {
 			if !files.canCopyOnly(fn2) {
@@ -441,12 +463,6 @@ func (files *Files) canCopyOnly(filename string) bool {
 	if ok {
 		return false
 	}
-	// can't copy another version of the debug pkg
-	dir := filepath.Dir(filename)
-	pkgPath, ok := files.progDirPkgPaths[dir]
-	if ok {
-		return pkgPath != DebugPkgPath
-	}
 	return true
 }
 
@@ -472,6 +488,19 @@ func (files *Files) GodebugconfigPkgFilename(filename string) string {
 	}
 
 	return filepath.Join(fp, filename)
+}
+
+//----------
+
+func (files *Files) modFilenamesAndMissing() map[string]struct{} {
+	mods := map[string]struct{}{}
+	w := []map[string]struct{}{files.modFilenames, files.modMissings}
+	for _, m := range w {
+		for k, v := range m {
+			mods[k] = v
+		}
+	}
+	return mods
 }
 
 //----------

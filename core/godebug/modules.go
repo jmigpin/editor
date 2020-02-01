@@ -32,17 +32,8 @@ func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files) error {
 		}
 	}
 
-	// merge all mods filenames
-	mods := map[string]struct{}{}
-	merge := func(m map[string]struct{}) {
-		for k, v := range m {
-			mods[k] = v
-		}
-	}
-	merge(files.modMissings)
-	merge(files.modFilenames)
-
 	// updating all found go.mods, only the main one will be used
+	mods := files.modFilenamesAndMissing()
 	for filename := range mods {
 		// update go.mod
 		dir2 := filepath.Dir(filename)

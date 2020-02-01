@@ -146,6 +146,21 @@ func TestCmd_src7(t *testing.T) {
 	}
 }
 
+//func TestCmd_src8(t *testing.T) {
+//	src := `
+//		package main
+//		//godebug:annotateimport
+//		import "golang.org/x/tools/godoc/util"
+//		func main() {
+//			_=util.IsText([]byte("001"))
+//		}
+//	`
+//	_, err := doCmdSrc2(t, src, false, false)
+//	if err == nil {
+//		t.Fatal("expecting error")
+//	}
+//}
+
 //------------
 
 func TestCmd_simplifyStringify1(t *testing.T) {
@@ -685,8 +700,49 @@ func TestCmd_goMod10(t *testing.T) {
 	if err == nil {
 		t.Fatal("expecting error")
 	}
-	//mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
-	//mustHaveString(t, msgs, `[48 48 49]`)
+}
+
+func TestCmd_goMod11(t *testing.T) {
+	tf := newTmpFiles()
+	defer tf.RemoveAll()
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	mainGoMod := `
+		module main
+		require (
+			github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802
+		)
+	`
+	mainMainGo := `
+		package main
+		import "github.com/BurntSushi/xgb"
+		import "github.com/BurntSushi/xgb/shm"
+		import "golang.org/x/tools/godoc/util"
+		//godebug:annotatepackage:github.com/BurntSushi/xgb
+		//godebug:annotatepackage:golang.org/x/tools/godoc/util
+		func main() {
+			_=xgb.Pad(1)
+			conn,err:=xgb.NewConnDisplay("")
+			defer conn.Close()
+			if err!=nil{
+				_=shm.Init(conn)
+			}
+			_=util.IsText([]byte("001"))
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
+	mustHaveString(t, msgs, `[48 48 49]`)
 }
 
 //------------
@@ -866,56 +922,34 @@ func TestCmd_simple2(t *testing.T) {
 }
 
 //------------
-//------------
-//------------
 
-// Development test
-func TestCmd_srcDev(t *testing.T) {
-	src := `
-		package main
-		import "image"
-		//import "math"
-		type A struct{ p image.Point }
-		var p = image.Point{1,1}
-		var ch = make(chan image.Point,1)
-		func f2() *image.Point { return &p }
-		func f3() interface{} { return &p }
-		func f4(p*image.Point) bool { return true }
-		func f5() int { return 1 }
-		func main(){
-			_=1
-			//a:=uint64(0)
-			//a=math.MaxUint64
-			//_=a
-		}
-	`
-	msgs := doCmdSrc(t, src, false, false)
-	_ = msgs
-}
-
-// Development test
-//func TestEnv(t *testing.T) {
-//	cmd := NewCmd()
-//	defer cmd.Cleanup()
-
-//	ctx := context.Background()
-//	dir := ""
-//	args := []string{"go", "env"}
-//	// output to os.stdout/os.stderr if not set
-//	err := cmd.runCmd(ctx, dir, args, cmd.environ())
-//	if err != nil {
-//		t.Logf("err: %v", err)
+//func TestCmd_empty(t *testing.T) {}
+//func TestCmd_testInOwnDir(t *testing.T) {
+//	args := []string{
+//		"test", "-run", "TestCmd_empty",
 //	}
+//	msgs := doCmd(t, "", args) // WARNING: runs in this directory
+//	_ = msgs
+//	//spew.Dump(msgs)
+//}
+
+//------------
+//------------
+//------------
+
+//// Development test
+//func TestCmd_srcDev(t *testing.T) {
+//	src := `
+//		package main
+//		func main(){
+//		}
+//	`
+//	msgs := doCmdSrc(t, src, false, false)
+//	_ = msgs
 //}
 
 //// Launches the editor itself.
 //func TestCmd_editor(t *testing.T) {
-//	// NOTES:
-//	// editor self compiled by godebug
-//	// 1. runs editor/.../debug.init at its init
-//	// 2. runs example/.../godebugconfig/debug.init at init to send msgs (prob)
-//	// (SOLVED - using go.mod to point to unique pkg)
-
 //	filename := "./../../editor.go"
 //	args := []string{
 //		"run",
@@ -927,16 +961,6 @@ func TestCmd_srcDev(t *testing.T) {
 //	}
 //	doCmd(t, "", args)
 //}
-
-//func TestCmd_testInOwnDir(t *testing.T) {
-//	args := []string{
-//		"test", "-run", "TestCmd_simple2_empty",
-//	}
-//	msgs := doCmd(t, "", args) // WARNING: runs in this directory
-//	_ = msgs
-//	//spew.Dump(msgs)
-//}
-//func TestCmd_simple2_empty(t *testing.T) {}
 
 //------------
 
@@ -952,6 +976,8 @@ func BenchmarkCmd1(b *testing.B) {
 	// N=15, parseFile!=nil: 924818313 ns/op
 
 	// N=10, parseFile!=nil: 857348146 ns/op
+
+	//BenchmarkCmd1-4   	      10	 863937070 ns/op
 
 	b.N = 10
 	for n := 0; n < b.N; n++ {
