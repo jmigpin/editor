@@ -144,11 +144,11 @@ func (p *Print) do(ctx *Ctx, v interface{}, depth int) {
 	case uintptr:
 		p.appendStr(fmt.Sprintf("%#x", t))
 	case error:
-		defer p.catchPanic(t, "Error")
+		defer p.catchPanic(ctx, t, "Error", depth)
 		s := t.Error() // TODO: big output
 		p.appendStrQuoted(p.limitStr(s))
 	case fmt.Stringer:
-		defer p.catchPanic(t, "String")
+		defer p.catchPanic(ctx, t, "String", depth)
 		s := t.String() // TODO: big output
 		p.appendStrQuoted(p.limitStr(s))
 	default:
@@ -172,7 +172,6 @@ func (p *Print) doValue(ctx *Ctx, v reflect.Value, depth int) {
 	case reflect.Complex64,
 		reflect.Complex128:
 		p.do(ctx, v.Complex(), depth)
-
 	case reflect.Ptr:
 		p.doPointer(ctx, v, depth)
 	case reflect.Struct:
@@ -307,13 +306,13 @@ func (p *Print) doBytes(v []byte) {
 
 //----------
 
-func (p *Print) catchPanic(v interface{}, method string) {
+func (p *Print) catchPanic(ctx *Ctx, v interface{}, method string, depth int) {
 	// ref: fmt/print.go:540
 	if err := recover(); err != nil {
 		// example: nil value receiver
 		u := reflect.ValueOf(v)
 		if u.Kind() == reflect.Ptr && u.IsNil() {
-			p.appendStr("nil")
+			p.do(ctx, nil, depth)
 			return
 		}
 		// TODO: err ignored
