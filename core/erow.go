@@ -445,6 +445,8 @@ func (erow *ERow) setupTextAreaSyntaxHighlight() {
 		setComments("%", [2]string{"/*", "*/"})
 	case ".html", ".xml", ".svg":
 		setComments([2]string{"<!--", "-->"})
+	case ".s", ".asm": // assembly
+		setComments("//")
 	case ".json": // no comments to setup
 		ta.EnableSyntaxHighlight(true)
 	case ".txt":
