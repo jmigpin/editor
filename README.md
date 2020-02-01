@@ -182,7 +182,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `GotoLine <num>`: goes to line number
 - `Replace <old> <new>`: replaces old string with new, respects selections
 - `Stop`: stops current process (external cmd) running in the row
-- `ListDir`: lists directory
+- `ListDir [-sub] [-hidden]`: lists directory
 	- `-sub`: lists directory and sub directories
 	- `-hidden`: lists directory including hidden
 - `MaximizeRow`: maximize row. Will push other rows up/down.
@@ -191,7 +191,9 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `FontRunes`: output the current font runes.
 - `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
 - `LSProtoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
-- `GoRename <new-name>`: calls `gorename` to rename the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
+- `GoRename [-all] <new-name>`: Renames the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
+	- default: calls `gopls` (limited scope in renaming, but faster).
+	- `-all`: calls `gorename` to rename across packages (slower).
 - `GoDebug <command> [arguments]`: debugger utility for go programs (more at [commands:godebug](#commands-godebug))
 
 *Row name at the toolbar (usually the filename)*

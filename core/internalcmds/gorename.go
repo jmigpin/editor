@@ -19,11 +19,19 @@ func GoRename(args0 *core.InternalCmdArgs) error {
 		return fmt.Errorf("row has edits, save first")
 	}
 
-	// new name argument "to"
 	args := part.Args[1:]
 	if len(args) < 1 {
 		return fmt.Errorf("expecting at least 1 argument")
 	}
+
+	// optional "-all" (only as first arg) for full rename (not an option on either gorename/gopls)
+	isF := false
+	if args[0].Str() == "-all" {
+		isF = true
+		args = args[1:]
+	}
+
+	// new name argument "to"
 	to := args[len(args)-1].UnquotedStr()
 
 	// allow other args
@@ -37,8 +45,13 @@ func GoRename(args0 *core.InternalCmdArgs) error {
 
 	// command
 	offsetStr := fmt.Sprintf("%v:#%v", erow.Info.Name(), offset)
-	cargs := []string{"gorename", "-offset", offsetStr, "-to", to}
-	cargs = append(cargs, otherArgs...)
+	cargs := []string{}
+	if isF {
+		cargs = []string{"gorename", "-offset", offsetStr, "-to", to}
+		cargs = append(cargs, otherArgs...)
+	} else {
+		cargs = append([]string{"gopls", "rename"}, append(otherArgs, []string{"-w", offsetStr, to}...)...)
+	}
 
 	reloadOnNoErr := func(err error) {
 		if err == nil {
