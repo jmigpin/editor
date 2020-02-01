@@ -1,7 +1,6 @@
 package debug
 
 import (
-	"image"
 	"regexp"
 	"testing"
 	"unsafe"
@@ -154,15 +153,15 @@ func TestStringifyBytes(t *testing.T) {
 }
 
 func TestStringifyNilReceiver(t *testing.T) {
-	var p *image.Point
+	var p *Dummy1
 	runTest1(t, p, "nil")
 
 	a := uintptr(0)
-	var b *image.Point = (*image.Point)(unsafe.Pointer(a))
+	var b *Dummy1 = (*Dummy1)(unsafe.Pointer(a))
 	runTest1(t, b, "nil")
 
 	a = uintptr(1)
-	b = (*image.Point)(unsafe.Pointer(a))
+	b = (*Dummy1)(unsafe.Pointer(a))
 	runTest1(t, b, "(PANIC:String())")
 }
 
@@ -215,3 +214,9 @@ func runTest2(t *testing.T, v interface{}, out string, max, maxPtrDepth int) {
 		t.Fatalf("got %q expecting %q (alt: %v)", s2, out, s)
 	}
 }
+
+//----------
+
+type Dummy1 struct{ s string }
+
+func (d *Dummy1) String() string { return d.s }
