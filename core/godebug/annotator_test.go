@@ -1982,14 +1982,37 @@ func TestAnnotator109(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc4)
 }
 
-// TODO
-//func TestAnnotator_(t *testing.T) {
-//	inout := []string{
-//		`a:=uint64(math.MaxUint64)`,
-//		``,
-//	}
-//	testAnnotator1(t, inout[0], inout[1], srcFunc1)
-//}
+func TestAnnotator110(t *testing.T) {
+	inout := []string{
+		`//godebug:annotateoff
+		for i:=0; i<2;i++{
+			_=i+3
+		}`,
+		` for i := 0; i < 2; i++ {
+	        _ = i + 3
+	        }`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
+func TestAnnotator111(t *testing.T) {
+	inout := []string{
+		`//godebug:annotateoff
+		for i:=0; i<2;i++{
+			//godebug:annotateblock
+			_=i+3
+		}`,
+		`for i := 0; i < 2; i++ {
+	        Σ0 := Σ.IV(i)
+	        Σ1 := Σ.IV(3)
+	        Σ2 := Σ.IV(i + 3)
+	        Σ3 := Σ.IB(Σ2, 12, Σ0, Σ1)
+	        _ = i + 3
+	        Σ.Line(0, 0, 93, Σ.IA(Σ.IL(Σ.IAn()), Σ.IL(Σ3)))
+	        }`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
 
 func TestAnnotator_(t *testing.T) {
 	inout := []string{

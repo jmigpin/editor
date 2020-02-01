@@ -240,11 +240,11 @@ func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
 	switch t := is.Else.(type) {
 	case nil: // nothing to do
 	case *ast.IfStmt: // "else if ..."
-		if ctx.noAnnotations() {
-			ann.visitStmt(ctx, t) // init won't be annotated, just visit
-		} else {
+		if !ctx.noAnnotations() {
 			bs := ann.wrapInitInBlockStmt(ctx, t, &is.Else)
 			ann.visitBlockStmt(ctx, bs)
+		} else {
+			ann.visitStmt(ctx, t) // init won't be annotated, just visit
 		}
 	case *ast.BlockStmt: // "else ..."
 		ann.visitBlockStmt(ctx, t)
@@ -261,7 +261,7 @@ func (ann *Annotator) visitForStmt(ctx *Ctx, fs *ast.ForStmt) {
 		return
 	}
 
-	if fs.Cond != nil {
+	if fs.Cond != nil && !ctx.noAnnotations() {
 		pos := fs.Cond.End()
 
 		// create ifstmt to break the loop
@@ -1091,14 +1091,6 @@ func (ann *Annotator) visitStmtList(ctx *Ctx, list *[]ast.Stmt) {
 }
 
 func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
-	//if ctx.noAnnotations() {
-	//	ann.visitStmt3NoAnnotations(ctx, stmt)
-	//} else {
-	ann.visitStmt2(ctx, stmt)
-	//}
-}
-
-func (ann *Annotator) visitStmt2(ctx *Ctx, stmt ast.Stmt) {
 	ctx = ctx.withNewExprs()
 	ctx = ctx.withNResults(0)
 	ctx = ctx.withNoStaticDebugIndex()
@@ -1148,47 +1140,6 @@ func (ann *Annotator) visitStmt2(ctx *Ctx, stmt ast.Stmt) {
 		fmt.Printf("visitstmt: %#v\n", t)
 	}
 }
-
-//func (ann *Annotator) visitStmt3NoAnnotations(ctx *Ctx, stmt ast.Stmt) {
-//	switch t := stmt.(type) {
-//	case *ast.ExprStmt:
-//	case *ast.AssignStmt:
-//	case *ast.TypeSwitchStmt:
-//		ann.visitBlockStmt(ctx, t.Body)
-//	case *ast.SwitchStmt:
-//		ann.visitBlockStmt(ctx, t.Body)
-//	case *ast.IfStmt:
-//		ann.visitBlockStmt(ctx, t.Body)
-//		if t.Else != nil {
-//			ann.visitStmt(ctx, t.Else)
-//		}
-//	case *ast.ForStmt:
-//		ann.visitBlockStmt(ctx, t.Body)
-//	case *ast.RangeStmt:
-//		ann.visitBlockStmt(ctx, t.Body)
-//	case *ast.LabeledStmt:
-//		if t.Stmt != nil {
-//			ann.visitStmt(ctx, t.Stmt)
-//		}
-//	case *ast.ReturnStmt:
-//	case *ast.DeferStmt:
-//	case *ast.DeclStmt:
-//	case *ast.BranchStmt:
-//	case *ast.IncDecStmt:
-//	case *ast.SendStmt:
-//	case *ast.GoStmt:
-//	case *ast.SelectStmt:
-//		ann.visitBlockStmt(ctx, t.Body)
-//	case *ast.BlockStmt:
-//		ann.visitBlockStmt(ctx, t)
-//	case *ast.CaseClause:
-//		ann.visitStmtList(ctx, &t.Body)
-//	case *ast.CommClause:
-//		ann.visitStmtList(ctx, &t.Body)
-//	default:
-//		fmt.Printf("visitstmt: noannotations: %v\n", t)
-//	}
-//}
 
 func (ann *Annotator) visitExprList(ctx *Ctx, list *[]ast.Expr) []ast.Expr {
 	var exprs []ast.Expr

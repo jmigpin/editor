@@ -89,11 +89,7 @@ func TestCmd_src4(t *testing.T) {
 		package main
 		import "testing"
 		func Test001(t*testing.T){
-			//godebug.annotateoff
-			for i:=0; i<2;i++{
-				//godebug.annotateblock
-				_=i
-			}
+			_=1
 		}
 	`
 	msgs := doCmdSrc(t, src, true, false)
@@ -112,6 +108,23 @@ func TestCmd_src5(t *testing.T) {
 	`
 	msgs := doCmdSrc(t, src, false, false)
 	mustHaveString(t, msgs, "2 := 2")
+	mustNotHaveString(t, msgs, "_ := 3=(1 + 2)")
+}
+
+func TestCmd_src5b(t *testing.T) {
+	src := `
+		package main
+		func main() {
+			//godebug:annotateoff
+			for i:=0; i<2;i++{
+				//godebug:annotateblock
+				_=i+3
+			}
+		}
+	`
+	msgs := doCmdSrc(t, src, false, false)
+	mustHaveString(t, msgs, "_ := 3=(0 + 3)")
+	mustNotHaveString(t, msgs, "true=(0 < 2)")
 }
 
 func TestCmd_src6(t *testing.T) {
