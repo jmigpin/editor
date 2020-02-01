@@ -27,21 +27,20 @@ func findFsFilename(f string) (string, error) {
 	if !filepath.IsAbs(f) {
 		return "", fmt.Errorf("filename not absolute")
 	}
-	names := []string{}
 	vol := filepath.VolumeName(f)
-loop:
+	names := []string{}
 	for {
 		fi, err := os.Stat(f)
 		if err != nil {
 			return "", err
 		}
 		names = append(names, fi.Name())
-		u := filepath.Dir(f)
-		switch u {
-		case vol, string(os.PathSeparator), ".":
-			break loop
+		oldf := f
+		f = filepath.Dir(f)
+		isRoot := oldf == f
+		if isRoot {
+			break
 		}
-		f = u
 	}
 	// reverse names
 	for i := 0; i < len(names)/2; i++ {
