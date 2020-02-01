@@ -19,6 +19,7 @@ func (in *Indent) Iter() {
 		if !in.d.st.indent.notStartingSpaces {
 			if in.d.iters.lineWrap.wrapping() {
 				in.d.st.indent.notStartingSpaces = true
+				in.d.st.indent.indent = 0 // ensure being able to view content
 			} else {
 				if unicode.IsSpace(in.d.st.runeR.ru) {
 					in.d.st.indent.indent = penXAdv
