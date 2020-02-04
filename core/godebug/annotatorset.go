@@ -1,19 +1,16 @@
 package godebug
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"go/ast"
 	"go/printer"
 	"go/token"
 	"io"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
-	"github.com/jmigpin/editor/util/goutil"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
@@ -31,7 +28,7 @@ type AnnotatorSet struct {
 		Main     bool
 		TestMain bool
 	}
-	fdata struct {
+	fdata struct { // TODO: rename afds
 		sync.Mutex
 		m     map[string]*debug.AnnotatorFileData // map[filename]afd
 		a     []*debug.AnnotatorFileData          // ordered
@@ -52,26 +49,19 @@ func NewAnnotatorSet() *AnnotatorSet {
 
 //----------
 
-func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, typ AnnotationType) error {
-	filename, err := goutil.AstFileFilename(astFile, annset.FSet)
+func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, filename string, files *Files) error {
+
+	afd, err := annset.annotatorFileData(filename, files)
 	if err != nil {
 		return err
 	}
-	src, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	return annset.AnnotateAstFile2(astFile, typ, filename, src)
-}
 
-func (annset *AnnotatorSet) AnnotateAstFile2(astFile *ast.File, typ AnnotationType, filename string, src []byte) error {
-	afd := annset.annotatorFileData(filename, src)
-
-	ann := NewAnnotator(annset.FSet)
+	ann := NewAnnotator(annset.FSet, files.NodeAnnType)
 	ann.debugPkgName = annset.debugPkgName
 	ann.debugVarPrefix = annset.debugVarPrefix
 	ann.fileIndex = afd.FileIndex
 
+	typ := files.annTypes[filename]
 	ann.AnnotateAstFile(astFile, typ)
 
 	// n debug stmts inserted
@@ -144,22 +134,32 @@ func (annset *AnnotatorSet) insertImport(astFile *ast.File, name, path string) {
 
 //----------
 
-func (annset *AnnotatorSet) annotatorFileData(filename string, src []byte) *debug.AnnotatorFileData {
+func (annset *AnnotatorSet) annotatorFileData(filename string, files *Files) (*debug.AnnotatorFileData, error) {
 	annset.fdata.Lock()
 	defer annset.fdata.Unlock()
+
 	afd, ok := annset.fdata.m[filename]
-	if !ok {
-		afd = &debug.AnnotatorFileData{
-			FileIndex: annset.fdata.index,
-			Filename:  filename,
-			FileHash:  sourceHash(src),
-			FileSize:  len(src),
-		}
-		annset.fdata.m[filename] = afd
-		annset.fdata.a = append(annset.fdata.a, afd) // keep order
-		annset.fdata.index++
+	if ok {
+		return afd, nil
 	}
-	return afd
+
+	// create new afd
+	fafd, ok := files.annFileData[filename]
+	if !ok {
+		return nil, fmt.Errorf("annset: annotatorfiledata: file not found: %v", filename)
+	}
+	afd = &debug.AnnotatorFileData{
+		FileIndex: annset.fdata.index,
+		Filename:  filename,
+		FileHash:  fafd.FileHash,
+		FileSize:  fafd.FileSize,
+	}
+	annset.fdata.m[filename] = afd
+
+	annset.fdata.a = append(annset.fdata.a, afd) // keep order
+	annset.fdata.index++
+
+	return afd, nil
 }
 
 //----------
@@ -260,14 +260,6 @@ func (annset *AnnotatorSet) keepTestPackage(filename string, astFile *ast.File) 
 		dir := filepath.Dir(filename)
 		annset.testFilesPkgs[dir] = astFile.Name.Name // pkg name
 	}
-}
-
-//----------
-
-func sourceHash(b []byte) []byte {
-	h := sha1.New()
-	h.Write(b)
-	return h.Sum(nil)
 }
 
 //----------

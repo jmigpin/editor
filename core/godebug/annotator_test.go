@@ -3,7 +3,6 @@ package godebug
 import (
 	"bytes"
 	"fmt"
-	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
@@ -2023,6 +2022,40 @@ func TestAnnotator_(t *testing.T) {
 }
 
 //----------
+
+func TestAnnConfigContent(t *testing.T) {
+	src1 := `
+		package pkg1
+		import "fmt"
+		func main(){a:=1}
+	`
+	src2 := `
+		package pkg1
+		import "fmt"
+		func main2(){b:=1}
+	`
+
+	srcs := []string{src1, src2}
+	files, names := newFilesFromSrcs(t, srcs...)
+	annset := NewAnnotatorSet()
+
+	for i := 0; i < len(srcs); i++ {
+		astFile, err := files.fullAstFile(names[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = annset.AnnotateAstFile(astFile, names[i], files)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// annotate config
+	src := annset.ConfigContent()
+	t.Logf("%v", src) // TODO: test output
+}
+
+//----------
 //----------
 //----------
 
@@ -2033,18 +2066,16 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 	out := trimLineSpaces(fn(out0))
 	typ := AnnotationTypeFile
 
-	//// temporary: simple noannotations tests to help implement
-	//out = trimLineSpaces(parseAndStringify(t, fn(in0)))
-	//typ = AnnotationTypeBlock
-
-	ann := NewAnnotator(token.NewFileSet())
-	ann.debugPkgName = string('Σ')   // expected by tests
-	ann.debugVarPrefix = string('Σ') // expected by tests
-
-	astFile, err := parseAnnotateFileSrc(ann, "test/src.go", in, typ)
+	files, names := newFilesFromSrcs(t, in)
+	astFile, err := files.fullAstFile(names[0])
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	ann := NewAnnotator(files.fset, files.NodeAnnType)
+	ann.debugPkgName = "Σ"   // expected by tests
+	ann.debugVarPrefix = "Σ" // expected by tests
+	ann.AnnotateAstFile(astFile, typ)
 
 	var buf bytes.Buffer
 	ann.PrintSimple(&buf, astFile)
@@ -2054,23 +2085,6 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 		u := fmt.Sprintf("\n*in:\n%s\n*expecting:\n%s\n*got:\n%s", in, out, res)
 		t.Fatalf(u)
 	}
-}
-
-//----------
-
-func parseAndStringify(t *testing.T, src string) string {
-	mode := parser.ParseComments // to support cgo directives on imports
-	fset := token.NewFileSet()
-	astFile, err := parser.ParseFile(fset, "a.go", src, mode)
-	if err != nil {
-		t.Fatal(err)
-	}
-	buf := bytes.NewBuffer(nil)
-	cfg := &printer.Config{Mode: printer.RawFormat}
-	if err := cfg.Fprint(buf, fset, astFile); err != nil {
-		t.Fatal(err)
-	}
-	return buf.String()
 }
 
 //----------
@@ -2105,6 +2119,23 @@ func srcFunc4(s string) string {
 
 //----------
 
+func parseAndStringify(t *testing.T, src string) string {
+	mode := parser.ParseComments // to support cgo directives on imports
+	fset := token.NewFileSet()
+	astFile, err := parser.ParseFile(fset, "a.go", src, mode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := bytes.NewBuffer(nil)
+	cfg := &printer.Config{Mode: printer.RawFormat}
+	if err := cfg.Fprint(buf, fset, astFile); err != nil {
+		t.Fatal(err)
+	}
+	return buf.String()
+}
+
+//----------
+
 func trimLineSpaces(str string) string {
 	a := strings.Split(str, "\n")
 	u := []string{}
@@ -2116,79 +2147,3 @@ func trimLineSpaces(str string) string {
 	}
 	return strings.Join(u, "\n")
 }
-
-//----------
-
-func _TestAnnConfigContent(t *testing.T) {
-	src1 := `
-		package pkg1
-		import "fmt"
-		func main(){a:=1}
-	`
-	src2 := `
-		package pkg1
-		import "fmt"
-		func main2(){b:=1}
-	`
-	annset := NewAnnotatorSet()
-
-	// annotate srcs
-	type in struct {
-		name string
-		src  string
-	}
-	ins := []in{
-		{"test/src1.go", src1},
-		{"test/src2.go", src2},
-	}
-	for _, v := range ins {
-		_, err := parseAnnotateFileSrcForAnnSet(annset, v.name, []byte(v.src))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// annotate config
-	src := annset.ConfigContent()
-	fmt.Printf("%v", src)
-}
-
-//func TestAnnotatorSet2(t *testing.T) {
-//annset := NewAnnotatorSet()
-
-//src1 := ""
-//_, _ = annset.AnnotateFile(src1, nil)
-
-// annotate config
-//src, _ := annset.ConfigSource()
-//fmt.Printf("%v", src)
-//}
-
-//----------
-
-// Src can be nil if the file exists.
-func parseAnnotateFileSrc(ann *Annotator, filename string, src interface{}, typ AnnotationType) (*ast.File, error) {
-	mode := parser.ParseComments // to support cgo directives on imports
-	astFile, err := parser.ParseFile(ann.fset, filename, src, mode)
-	if err != nil {
-		return nil, err
-	}
-	ann.AnnotateAstFile(astFile, typ)
-	return astFile, nil
-}
-
-// Src can be nil if the file exists.
-func parseAnnotateFileSrcForAnnSet(annset *AnnotatorSet, filename string, src []byte) (*ast.File, error) {
-	mode := parser.ParseComments // to support cgo directives on imports
-	astFile, err := parser.ParseFile(annset.FSet, filename, src, mode)
-	if err != nil {
-		return nil, err
-	}
-	err = annset.AnnotateAstFile2(astFile, AnnotationTypeFile, filename, src)
-	if err != nil {
-		return nil, err
-	}
-	return astFile, nil
-}
-
-//----------

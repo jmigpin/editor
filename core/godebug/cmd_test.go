@@ -17,6 +17,35 @@ func init() {
 	SimplifyStringifyItem = false
 }
 
+//------------
+
+func TestCmd_simplifyStringify1(t *testing.T) {
+	SimplifyStringifyItem = true
+	defer func() { SimplifyStringifyItem = false }()
+
+	src := `
+		package main
+		func f3(int) int { return 1 }
+		func f2(int) int { return 1 }
+		func f1(int) int { return 1 }
+		func f0() []int{return []int{1,2,3}}
+		func main(){
+			a := f1(f2(f3(0)))
+			_ = "_"
+			b := "abc"
+			c := f0()
+			d := []string{"a","b","c"}
+			_=a
+			_=b
+			_=c
+			_=d
+		}
+	`
+	msgs := doCmdSrc(t, src, false, false)
+	// "1 := 1=f1(1=f2(1=f3(0)))" // remove duplicated result
+	mustHaveString(t, msgs, "1 := f1(1=f2(1=f3(0)))")
+}
+
 //----------
 
 func TestCmd_src1(t *testing.T) {
@@ -159,56 +188,131 @@ func TestCmd_src7(t *testing.T) {
 	}
 }
 
-//func TestCmd_src8(t *testing.T) {
-//	src := `
-//		package main
-//		//godebug:annotateimport
-//		import "golang.org/x/tools/godoc/util"
-//		func main() {
-//			_=util.IsText([]byte("001"))
-//		}
-//	`
-//	_, err := doCmdSrc2(t, src, false, false)
-//	if err == nil {
-//		t.Fatal("expecting error")
-//	}
-//}
-
 //------------
 
-func TestCmd_simplifyStringify1(t *testing.T) {
-	SimplifyStringifyItem = true
-	defer func() { SimplifyStringifyItem = false }()
+func TestCmd_comments(t *testing.T) {
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
 
-	src := `
+	mainMainGo := `
 		package main
-		func f3(int) int { return 1 }
-		func f2(int) int { return 1 }
-		func f1(int) int { return 1 }
-		func f0() []int{return []int{1,2,3}}
-		func main(){
-			a := f1(f2(f3(0)))
-			_ = "_"
-			b := "abc"
-			c := f0()
-			d := []string{"a","b","c"}
+		//godebug:annotateimport
+		func main() {
+			a:=1
 			_=a
-			_=b
-			_=c
-			_=d
 		}
 	`
-	msgs := doCmdSrc(t, src, false, false)
-	// "1 := 1=f1(1=f2(1=f3(0)))" // remove duplicated result
-	mustHaveString(t, msgs, "1 := f1(1=f2(1=f3(0)))")
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		"main.go",
+	}
+	_, err := doCmd2(t, dir, cmd)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+	s := err.Error()
+	if !strings.HasSuffix(s, "not at an import spec") {
+		t.Fatalf("wrong error: %v", s)
+	}
+}
+
+func TestCmd_comments2(t *testing.T) {
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	// test single import line
+
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../w/example.com/pkg1
+	`
+	mainMainGo := `
+		package main
+		//godebug:annotateimport
+		import "example.com/pkg1"
+		func main() {
+			_=pkg1.Fa()
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1FaGo := `
+		package pkg1
+		func Fa() string {
+			return "Fa"
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	d := "w/example.com/"
+	tf.WriteFileInTmp2OrPanic(d+"pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic(d+"pkg1/fa.go", pkg1FaGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `"Fa"`)
+}
+
+func TestCmd_comments3(t *testing.T) {
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	// test multiple import line
+
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../w/example.com/pkg1
+	`
+	mainMainGo := `
+		package main
+		import (
+			//godebug:annotateimport
+			"example.com/pkg1"
+		)
+		func main() {
+			_=pkg1.Fa()
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1FaGo := `
+		package pkg1
+		func Fa() string {
+			return "Fa"
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	d := "w/example.com/"
+	tf.WriteFileInTmp2OrPanic(d+"pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic(d+"pkg1/fa.go", pkg1FaGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `"Fa"`)
 }
 
 //------------
 
 func TestCmd_goMod1(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	// not in gopath
 	// has go.mod
@@ -271,9 +375,8 @@ func TestCmd_goMod1(t *testing.T) {
 }
 
 func TestCmd_goMod2(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	// not in gopath
 	// has go.mod
@@ -334,9 +437,8 @@ func TestCmd_goMod2(t *testing.T) {
 }
 
 func TestCmd_goMod3(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainGoMod := `
 		module main
@@ -380,9 +482,8 @@ func TestCmd_goMod3(t *testing.T) {
 }
 
 func TestCmd_goMod4(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainGoMod := `
 		module main
@@ -431,9 +532,8 @@ func TestCmd_goMod4(t *testing.T) {
 }
 
 func TestCmd_goMod5_test(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainGoMod := `
 		module example.com/main
@@ -490,9 +590,8 @@ func TestCmd_goMod5_test(t *testing.T) {
 }
 
 func TestCmd_goMod6(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainGoMod := `
 		module main
@@ -551,9 +650,8 @@ func TestCmd_goMod6(t *testing.T) {
 }
 
 func TestCmd_goMod7(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainGoMod := `
 		module main
@@ -611,9 +709,8 @@ func TestCmd_goMod7(t *testing.T) {
 }
 
 func TestCmd_goMod8(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	// An empty go.mod with just the module name, will make "go build" try to fetch from the web the dependencies.
 	// By using "go mod init", if there is no go.mod, it is created with the dependency (if already on the disk) and nothing is fetched from the web.
@@ -650,9 +747,8 @@ func TestCmd_goMod8(t *testing.T) {
 }
 
 func TestCmd_goMod9(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	// if the os env doesn't have GOPROXY=off, having no go.mod should fetch the dependencies from the web at pre-build.
 
@@ -683,9 +779,10 @@ func TestCmd_goMod9(t *testing.T) {
 }
 
 func TestCmd_goMod10(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	// fails because GOPROXY=off won't fetch the module (no go.mod and outside of GOPATH)
 
 	mainMainGo := `
 		package main
@@ -716,15 +813,13 @@ func TestCmd_goMod10(t *testing.T) {
 }
 
 func TestCmd_goMod11(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
+
+	// passes because is outside of GOPATH, but has go.mod, so it fetches from the web
 
 	mainGoMod := `
 		module main
-		require (
-			github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802
-		)
 	`
 	mainMainGo := `
 		package main
@@ -758,12 +853,50 @@ func TestCmd_goMod11(t *testing.T) {
 	mustHaveString(t, msgs, `[48 48 49]`)
 }
 
+func TestCmd_goMod12(t *testing.T) {
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	// the mod dependency is on xgb, but the annotated package is shm
+	// the main go.mod is missing a pointer to the shm annotated package (needs to be added to the require, since it original xgb used to include shm already)
+
+	mainGoMod := `
+		module main
+	`
+	mainMainGo := `
+		package main
+		import "github.com/BurntSushi/xgb"
+		//godebug:annotateimport
+		import "github.com/BurntSushi/xgb/shm"
+		func main() {
+			_=xgb.Pad(1)
+			conn,err:=xgb.NewConnDisplay("")
+			defer conn.Close()
+			if err!=nil{
+				_=shm.Init(conn)
+			}
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustNotHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
+	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
+}
+
 //------------
 
 func TestCmd_goPath1(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainMainGo := `
 		package main
@@ -814,9 +947,8 @@ func TestCmd_goPath1(t *testing.T) {
 }
 
 func TestCmd_goPath2(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainMainGo := `
 		package main
@@ -853,43 +985,44 @@ func TestCmd_goPath2(t *testing.T) {
 }
 
 func TestCmd_goPath3(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
-	// no go.mod, should run in nomodules mode (gopath) and succeed
+	// no go.mod, should run in GOPATH mode and succeed
 
 	mainMainGo := `
 		package main
-		import "github.com/BurntSushi/xgb"
-		import "golang.org/x/tools/godoc/util"
-		//godebug:annotatepackage:github.com/BurntSushi/xgb
-		//godebug:annotatepackage:golang.org/x/tools/godoc/util
+		//godebug:annotateimport
+		import "example.com/pkg1"
 		func main() {
-			_=xgb.Pad(1)
-			_=util.IsText([]byte("001"))
+			_=pkg1.Fa()
+		}
+	`
+	pkg1FaGo := `
+		package pkg1
+		func Fa() string {
+			return "Fa"
 		}
 	`
 	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("w/src/example.com/pkg1/fa.go", pkg1FaGo)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
-		//"-work",
 		//"-verbose",
+		"-env=GOPATH=" + filepath.Join(tf.Dir, "w"),
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
-	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
-	mustHaveString(t, msgs, `[48 48 49]`)
+	mustHaveString(t, msgs, `"Fa"`)
 }
 
 //----------
 
 func TestCmd_simple1(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainMainGo := `
 		package main
@@ -911,9 +1044,8 @@ func TestCmd_simple1(t *testing.T) {
 }
 
 func TestCmd_simple2(t *testing.T) {
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	mainMainGo := `
 		package main
@@ -1099,9 +1231,8 @@ func doCmdSrc(t *testing.T, src string, tests bool, noModules bool) []string {
 func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, error) {
 	t.Helper()
 
-	tf := newTmpFiles()
+	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-	t.Logf("tf.Dir: %v\n", tf.Dir)
 
 	filename := "main.go"
 	if tests {
@@ -1110,28 +1241,32 @@ func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, 
 
 	tf.WriteFileInTmp2OrPanic(filename, src)
 
-	args := []string{
-		"run",
+	// environment
+	env := []string{}
+	if noModules {
+		//env = append(env, "EDITOR_GODEBUG_NOMODULES=true")
+		//env = append(env, "GOPATH="+tf.Dir)
+	} else {
+		//env = append(env, "GO111MODULE=off")
+	}
+	envArg := strings.Join(env, string(os.PathListSeparator))
+
+	args := []string{}
+	if tests {
+		args = append(args, "test")
+	} else {
+		args = append(args, "run")
+	}
+	args = append(args, []string{
 		// "-h",
 		//"-verbose",
 		//"-work",
-		filename,
+	}...)
+	if envArg != "" {
+		args = append(args, "-env="+envArg)
 	}
-	if tests {
-		args = []string{
-			"test",
-			//"-verbose",
-			//"-work",
-			// no filename
-		}
-	}
-
-	env := []string{}
-	if noModules {
-		env = append(env, "EDITOR_GODEBUG_NOMODULES=true")
-		//env = append(env, "GOPATH="+tf.Dir)
-		s := strings.Join(env, string(os.PathListSeparator))
-		args = append(args, "-env="+s)
+	if !tests {
+		args = append(args, filename)
 	}
 
 	return doCmd2(t, tf.Dir, args)
@@ -1139,8 +1274,11 @@ func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, 
 
 //------------
 
-func newTmpFiles() *osutil.TmpFiles {
-	return osutil.NewTmpFiles("editor_godebug_tests_tmpfiles")
+func newTmpFiles(t *testing.T) *osutil.TmpFiles {
+	t.Helper()
+	tf := osutil.NewTmpFiles("editor_godebug_tests_tmpfiles")
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+	return tf
 }
 
 //------------

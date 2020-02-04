@@ -163,7 +163,7 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 
 	mainFilename := files.absFilename(cmd.flags.filename)
 
-	// pre-build without annotations for better errors (result ignored)
+	// pre-build without annotations for better errors with original filenames(result ignored)
 	// done in sync (first pre-build, then annotate) in order to have the "go build" update go.mod's if necessary.
 	if err := cmd.preBuild(ctx, mainFilename, cmd.flags.mode.test); err != nil {
 		return err
@@ -254,12 +254,11 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename
 		}
 
 		dst := cmd.tmpDirBasedFilename(filename)
-		typ := files.annTypes[filename]
 		astFile, err := files.fullAstFile(filename)
 		if err != nil {
 			return err
 		}
-		if err := cmd.annset.AnnotateAstFile(astFile, typ); err != nil {
+		if err := cmd.annset.AnnotateAstFile(astFile, filename, files); err != nil {
 			return err
 		}
 		if err := cmd.mkdirAllWriteAstFile(dst, astFile); err != nil {
@@ -527,11 +526,11 @@ func (cmd *Cmd) detectNoModules() bool {
 		return false
 	}
 
-	// only used for tests, not for external use
-	v = osutil.GetEnv(env, "EDITOR_GODEBUG_NOMODULES")
-	if v == "true" {
-		return true
-	}
+	//// only used for tests, not for external use
+	//v = osutil.GetEnv(env, "EDITOR_GODEBUG_NOMODULES")
+	//if v == "true" {
+	//	return true
+	//}
 
 	// auto: if it can't find a go.mod, it is noModules
 	if _, ok := goutil.FindGoMod(cmd.Dir); !ok {

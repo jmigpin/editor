@@ -20,13 +20,12 @@ type Annotator struct {
 	debugIndex         int
 	builtDebugLineStmt bool
 
-	cmts struct { // comments
-		cmap ast.CommentMap
-	}
+	files         *Files
+	nodeAnnTypeFn func(ast.Node) AnnotationType
 }
 
-func NewAnnotator(fset *token.FileSet) *Annotator {
-	ann := &Annotator{fset: fset}
+func NewAnnotator(fset *token.FileSet, nodeAnnTypeFn func(ast.Node) AnnotationType) *Annotator {
+	ann := &Annotator{fset: fset, nodeAnnTypeFn: nodeAnnTypeFn}
 	ann.debugPkgName = string('Σ')
 	ann.debugVarPrefix = string('Σ')
 	return ann
@@ -37,38 +36,33 @@ func NewAnnotator(fset *token.FileSet) *Annotator {
 func (ann *Annotator) AnnotateAstFile(astFile *ast.File, typ AnnotationType) {
 	ctx := &Ctx{}
 
-	// initial annotations options (on block, don't annotate at start)
+	// if annotating only blocks, start with annotations off
 	if typ == AnnotationTypeBlock {
 		ctx = ctx.withNoAnnotations(true)
 	}
 
-	// setup comments map (nodes with comments, annotationsOn(...))
-	ann.initCommentsMap(astFile)
-	defer ann.clearCommentsMap()
-
 	ann.visitFile(ctx, astFile)
-
-	// ensure comments are not in between stmts in the middle of declarations (solves test100)
-	// Other comments stay in place since they might be needed (build comments, "c" package comments, ...)
 	ann.removeInnerFuncComments(astFile)
 }
 
 //----------
 
 func (ann *Annotator) removeInnerFuncComments(astFile *ast.File) {
+	// ensure comments are not in between stmts in the middle of declarations inside functions (solves test100)
+	// Other comments stay in place since they might be needed (build comments, "c" package comments, ...)
+	u := []*ast.CommentGroup{}
 	for _, d := range astFile.Decls {
 		if fd, ok := d.(*ast.FuncDecl); ok {
 			// filter
-			u := []*ast.CommentGroup{}
 			for _, cg := range astFile.Comments {
 				in := cg.Pos() >= fd.Pos() && cg.Pos() < fd.End()
-				if !in {
+				if !in { // not inside a func decl
 					u = append(u, cg)
 				}
 			}
-			astFile.Comments = u
 		}
 	}
+	astFile.Comments = u
 }
 
 //----------
@@ -1332,32 +1326,14 @@ func (ann *Annotator) newAssignStmt(lhs, rhs []ast.Expr) *ast.AssignStmt {
 
 //----------
 
-func (ann *Annotator) initCommentsMap(astFile *ast.File) {
-	ann.cmts.cmap = ast.NewCommentMap(ann.fset, astFile, astFile.Comments)
-}
-func (ann *Annotator) clearCommentsMap() {
-	ann.cmts.cmap = nil
-}
-
 // Returns on/off, ok.
 func (ann *Annotator) annotationsOn(n ast.Node) (bool, bool) {
-	cgs, ok := ann.cmts.cmap[n]
-	if ok {
-		for _, cg := range cgs {
-			for i := 0; i < len(cg.List); i++ {
-				c := cg.List[i]
-				typ, _, err := AnnotationTypeInString(c.Text)
-				if err != nil {
-					continue
-				}
-				switch typ {
-				case AnnotationTypeOff:
-					return false, true
-				case AnnotationTypeBlock:
-					return true, true
-				}
-			}
-		}
+	at := ann.nodeAnnTypeFn(n)
+	switch at {
+	case AnnotationTypeOff:
+		return false, true
+	case AnnotationTypeBlock:
+		return true, true
 	}
 	return false, false
 }

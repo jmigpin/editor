@@ -20,8 +20,7 @@ func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files) error {
 		if err := goutil.GoModInit(ctx, dirAtTmp, pkgPath, cmd.env); err != nil {
 			return err
 		}
-
-		// setup local godebug dependencies before running "go tidy"
+		// setup godebug dependencies
 		err := setupGodebugGoMod(ctx, cmd, dirAtTmp, files)
 		if err != nil {
 			return err
