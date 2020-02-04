@@ -42,20 +42,29 @@ Source code editor in pure Go.
 
 ## Installation and usage
 
+Get the latest development:
+```
+go get -u github.com/jmigpin/editor@master
+```
+Or get the last tagged release (older):
 ```
 go get -u github.com/jmigpin/editor
+```
+Build and run:
+```
 cd $GOPATH/src/github.com/jmigpin/editor
 go build 
 ./editor
 ```
 
+Windows platform compilation alternatives:
 ```
-# windows compilation alternatives
 go build	# shows one console window (will be hidden, but makes a flash)
 go build -ldflags -H=windowsgui 	# hides the console window, but cmds will popup consoles
 go build -tags=xproto 	# (not native, needs an x11 server to run)
 ```
 
+Usage:
 ```
 Usage of ./editor:
   -colortheme string
@@ -76,8 +85,8 @@ Usage of ./editor:
     	Language-server-protocol register options. Can be specified multiple times.
     	Format: language,extensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}
     	Examples:
-    	go,.go,tcp,"gopls serve -listen={{.Addr}}"
     	go,.go,stdio,"gopls serve"
+    	go,.go,tcp,"gopls serve -listen={{.Addr}}"
     	c++,".c .h .cpp .hpp",stdio,clangd
     	python,.py,tcpclient,127.0.0.1:9000
   -plugins string
@@ -102,7 +111,7 @@ Usage of ./editor:
     	code for wrap line rune, can be set to zero (default 8592)
 ```
 
-Since the editor has no configuration file, it is suggested you use it within a script with your preferences (example `editor.sh`):
+The editor has no configuration file. Use it within a script with your preferences (example `editor.sh`):
 ```
 #!/bin/sh
 exec ~/code/jmigpin/editor/editor \
@@ -111,7 +120,7 @@ exec ~/code/jmigpin/editor/editor \
 --colortheme=acme \
 --commentscolor=0x008b00 \
 --stringscolor=0x8b3100 \
---lsproto=go,.go,tcp,"gopls serve -listen={{.Addr}}" \
+--lsproto=go,.go,stdio,"gopls serve" \
 --lsproto=c++,".c .h .cpp .hpp",stdio,clangd,stderr \
 "$@"
 ```
@@ -235,8 +244,9 @@ Examples:
 		```
 		//godebug:annotateblock
 		//godebug:annotatefile
+		//godebug:annotateimport 		# use before an "import" line
 		//godebug:annotatepackage
-		//godebug:annotatepackage:<pkg-path>   # annotate external pkg 
+		//godebug:annotatepackage:<pkg-path>	# annotate external pkg 
 		//godebug:annotatemodule
 		```
 		The annotator will detect these comments and annotate the block/file/package/module.

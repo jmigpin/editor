@@ -125,8 +125,8 @@ func RegistrationString(reg *Registration) string {
 
 func RegistrationExamples() string {
 	u := []string{
-		goplsRegistration(false, false, true),
 		goplsRegistration(false, false, false),
+		goplsRegistration(false, false, true),
 		cLangRegistration(false),
 		"python,.py,tcpclient,127.0.0.1:9000",
 	}

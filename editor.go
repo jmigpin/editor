@@ -35,12 +35,8 @@ func main() {
 	flag.StringVar(&opt.SessionName, "sessionname", "", "open existing session")
 	flag.BoolVar(&opt.UseMultiKey, "usemultikey", false, "use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)")
 	flag.StringVar(&opt.Plugins, "plugins", "", "comma separated string of plugin filenames")
-
+	flag.Var(&opt.LSProtos, "lsproto", "Language-server-protocol register options. Can be specified multiple times.\nFormat: language,extensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}\nExamples:\n"+lsproto.RegistrationExamples())
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
-
-	flag.Var(&opt.LSProtos, "lsproto", "Language-server-protocol register options. Can be specified multiple times.\n"+
-		"Format: language,extensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}\n"+
-		"Examples:\n"+lsproto.RegistrationExamples())
 
 	flag.Parse()
 	opt.Filenames = flag.Args()
