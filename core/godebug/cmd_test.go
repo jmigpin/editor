@@ -708,6 +708,67 @@ func TestCmd_goMod7(t *testing.T) {
 	mustHaveString(t, msgs, `"Fc"`)
 }
 
+func TestCmd_goMod7b(t *testing.T) {
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	// test //godebug:annotatemodule:<pkg-path>
+
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../pkg1
+	`
+	mainMainGo := `
+		package main
+		import "example.com/pkg1"
+		import "example.com/pkg1/sub1"
+		//godebug:annotatemodule:example.com/pkg1/sub1
+		func main() {
+			_=pkg1.Fa()
+			_=pkg1.Fb()
+			_=sub1.Fc()
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1FaGo := `
+		package pkg1
+		func Fa() string {
+			return "Fa"
+		}
+	`
+	pkg1FbGo := `
+		package pkg1
+		func Fb() string {
+			return "Fb"
+		}
+	`
+	sub1FcGo := `
+		package sub1
+		func Fc() string {
+			return "Fc"
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", pkg1FaGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", pkg1FbGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", sub1FcGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `"Fa"`)
+	mustHaveString(t, msgs, `"Fb"`)
+	mustHaveString(t, msgs, `"Fc"`)
+}
+
 func TestCmd_goMod8(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
@@ -857,8 +918,7 @@ func TestCmd_goMod12(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	// the mod dependency is on xgb, but the annotated package is shm
-	// the main go.mod is missing a pointer to the shm annotated package (needs to be added to the require, since it original xgb used to include shm already)
+	// mod dependency is on xgb, but the annotated package is shm
 
 	mainGoMod := `
 		module main
@@ -889,6 +949,44 @@ func TestCmd_goMod12(t *testing.T) {
 	}
 	msgs := doCmd(t, dir, cmd)
 	mustNotHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
+	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
+}
+
+func TestCmd_goMod13(t *testing.T) {
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	// annotate full external module
+
+	mainGoMod := `
+		module main
+	`
+	mainMainGo := `
+		package main
+		import "github.com/BurntSushi/xgb"
+		import "github.com/BurntSushi/xgb/shm"
+		//godebug:annotatemodule:github.com/BurntSushi/xgb/shm
+		func main() {
+			_=xgb.Pad(1)
+			conn,err:=xgb.NewConnDisplay("")
+			defer conn.Close()
+			if err!=nil{
+				_=shm.Init(conn)
+			}
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
 	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
 }
 

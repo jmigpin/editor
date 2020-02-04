@@ -245,11 +245,10 @@ Examples:
 		//godebug:annotateblock
 		//godebug:annotatefile
 		//godebug:annotateimport 		# use before an "import" line
-		//godebug:annotatepackage
-		//godebug:annotatepackage:<pkg-path>	# annotate external pkg 
-		//godebug:annotatemodule
+		//godebug:annotatepackage[:<pkg-path>]	
+		//godebug:annotatemodule[:<pkg-path>]	# any pkg path inside mod will annotate all
 		```
-		The annotator will detect these comments and annotate the block/file/package/module.
+		The annotator will detect these comments and annotate accordingly.
 
 		A pkg path can be given to annotatepackage, but beware that pkgs located in $GOROOT are not annotated. Example:
 		```

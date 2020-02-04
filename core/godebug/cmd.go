@@ -29,10 +29,11 @@ type Cmd struct {
 	Stderr io.Writer
 
 	tmpDir       string
-	tmpBuiltFile string   // file built and exec'd
-	env          []string // set at start
-	annset       *AnnotatorSet
-	noModules    bool // go.mod's
+	tmpBuiltFile string // file built and exec'd
+	//tmpCleanup   bool
+	env       []string // set at start
+	annset    *AnnotatorSet
+	noModules bool // go.mod's
 
 	start struct {
 		cancel    context.CancelFunc
@@ -553,11 +554,11 @@ func (cmd *Cmd) Cleanup() {
 
 	if cmd.flags.work {
 		// don't cleanup work dir
-	} else {
-		if cmd.tmpDir != "" {
-			if err := os.RemoveAll(cmd.tmpDir); err != nil {
-				cmd.Printf("cleanup err: %v\n", err)
-			}
+		//} else if !cmd.tmpCleanup {
+		// don't cleanup work dir
+	} else if cmd.tmpDir != "" {
+		if err := os.RemoveAll(cmd.tmpDir); err != nil {
+			cmd.Printf("cleanup err: %v\n", err)
 		}
 	}
 
@@ -655,28 +656,19 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 //------------
 
 func (cmd *Cmd) setupTmpDir() (string, error) {
-	if cmd.noModules {
-		d := "editor_godebug_gopath_work"
-		tmpDir, err := ioutil.TempDir(os.TempDir(), d)
-		if err != nil {
-			return "", err
-		}
-		return tmpDir, nil
-	}
-
 	d := "editor_godebug_mod_work"
-
-	// The fixed directory will improve the file sync performance since modules require the whole directory to be there (not like gopath)
-	// TODO: will have problems running more then one debug session in different editor sessions
-	//d += "_"+md5.Sum([]byte(cmd.Dir))
-
-	//tmpDir := filepath.Join(os.TempDir(), d)
-
-	tmpDir, err := ioutil.TempDir(os.TempDir(), d)
-	if err != nil {
-		return "", err
+	if cmd.noModules {
+		d = "editor_godebug_gopath_work"
 	}
-	return tmpDir, nil
+	return ioutil.TempDir(os.TempDir(), d)
+
+	//// TODO
+	//// use a fixed directory to allow "go build" to use the cache
+	//// there is only one godebug session per editor (ok to use pid)
+	//pid := os.Getpid()
+	//d += fmt.Sprintf("_pid%v", pid)
+	//tmpDir := filepath.Join(os.TempDir(), d)
+	//return tmpDir, nil
 }
 
 //------------
