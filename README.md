@@ -244,9 +244,14 @@ Examples:
 		```
 		//godebug:annotateblock
 		//godebug:annotatefile
-		//godebug:annotateimport 		# use before an "import" line
-		//godebug:annotatepackage[:<pkg-path>]	
-		//godebug:annotatemodule[:<pkg-path>]	# any pkg path inside mod will annotate all
+		//godebug:annotatepackage
+		//godebug:annotatemodule
+		//godebug:annotateimport 	# use before an "import" line
+		
+		# or specify a target
+		//godebug:annotatefile:<file> 	# absolute or relative to the current
+		//godebug:annotatepackage:<pkg-path>
+		//godebug:annotatemodule:<pkg-path> 	# any pkg path inside will annotate all
 		```
 		The annotator will detect these comments and annotate accordingly.
 
