@@ -49,7 +49,6 @@ func (eexec *ERowExec) Start(fexec func(context.Context, io.Writer) error) {
 
 	go func() {
 		err := fexec(ctx, w)
-		cancel() // done (failsafe)
 
 		eexec.mu.Lock()
 		defer eexec.mu.Unlock()

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -125,19 +126,39 @@ func externalCmdDir2(erow *ERow, cargs []string, env []string, ctx context.Conte
 	cmd := osutil.ExecCmdCtxWithAttr(ctx, cargs)
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = env
-	cmd.Stdout = w
-	cmd.Stderr = w
 
-	// TODO: pty tests
-	//f, err := pty.Start(cmd)
-	//if err != nil {
-	//	return err
-	//}
-	//cmd.Stdin = f
+	// Commented: cmd.wait() could block if the pipe readers are not closed
+	//cmd.Stdout = w
+	//cmd.Stderr = w
+
+	// stdout/stderr pipes that will allow to directly be closed
+	opr, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	epr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	// ensure concurrent writer
+	if _, ok := w.(*iout.AutoBufWriter); !ok {
+		w = iout.NewSafeWriter(w)
+	}
+
+	// copy loop to writer
+	ch := make(chan struct{}, 2)
+	go func() {
+		io.Copy(w, opr)
+		ch <- struct{}{}
+	}()
+	go func() {
+		io.Copy(w, epr)
+		ch <- struct{}{}
+	}()
 
 	// run command
-	err := cmd.Start()
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		return err
 	}
 
@@ -145,6 +166,11 @@ func externalCmdDir2(erow *ERow, cargs []string, env []string, ctx context.Conte
 	go func() {
 		select {
 		case <-ctx.Done():
+			defer func() {
+				// force pipes close
+				opr.Close()
+				epr.Close()
+			}()
 			if err := osutil.KillExecCmd(cmd); err != nil {
 				// commented: avoid over verbose errors before the full output comes out
 				//fmt.Fprintf(w, "# error: kill: %v\n", err)
@@ -156,6 +182,10 @@ func externalCmdDir2(erow *ERow, cargs []string, env []string, ctx context.Conte
 	// output pid
 	cargsStr := strings.Join(cargs, " ")
 	fmt.Fprintf(w, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
+
+	// wait for pipes close before calling wait() to avoid endless block
+	<-ch
+	<-ch
 
 	return cmd.Wait()
 }
