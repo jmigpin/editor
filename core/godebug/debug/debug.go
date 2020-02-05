@@ -50,13 +50,3 @@ func Line(fileIndex, debugIndex, offset int, item Item) {
 	lmsg := &LineMsg{FileIndex: fileIndex, DebugIndex: debugIndex, Offset: offset, Item: item}
 	server.Send(lmsg)
 }
-
-//----------
-
-// DEPRECATED: use the "//godebug:annotate*" comments
-
-// no-op operation used for source detection by the annotator
-//func NoAnnotations()   {}
-//func AnnotateBlock()   {}
-//func AnnotateFile()    {}
-//func AnnotatePackage() {}
