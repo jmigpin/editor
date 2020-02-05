@@ -8,7 +8,7 @@ import (
 )
 
 func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files) error {
-	// create go.mods on packages that have none
+	// create missing go.mods
 	for f := range files.modMissings {
 		dir := filepath.Dir(f)
 		pkgPath, ok := files.progDirPkgPaths[dir]
@@ -20,18 +20,9 @@ func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files) error {
 		if err := goutil.GoModInit(ctx, dirAtTmp, pkgPath, cmd.env); err != nil {
 			return err
 		}
-		// setup godebug dependencies
-		err := setupGodebugGoMod(ctx, cmd, dirAtTmp, files)
-		if err != nil {
-			return err
-		}
-
-		if err := goutil.GoModTidy(ctx, dirAtTmp, cmd.env); err != nil {
-			return err
-		}
 	}
 
-	// updating all found go.mods, only the main one will be used
+	// update all found go.mods, only the main one will be used
 	mods := files.modFilenamesAndMissing()
 	for filename := range mods {
 		// update go.mod
@@ -44,13 +35,12 @@ func SetupGoMods(ctx context.Context, cmd *Cmd, files *Files) error {
 }
 
 func setupGoMod(ctx context.Context, cmd *Cmd, mods map[string]struct{}, dir string, files *Files) error {
-	// update go.mod with godebug
+	// add godebug dependencies
 	dirAtTmp := cmd.tmpDirBasedFilename(dir)
 	if err := setupGodebugGoMod(ctx, cmd, dirAtTmp, files); err != nil {
 		return err
 	}
 
-	// read go.mod
 	goMod, err := goutil.ReadGoMod(ctx, dirAtTmp, cmd.env)
 	if err != nil {
 		return err
@@ -70,31 +60,26 @@ func setupGoMod(ctx context.Context, cmd *Cmd, mods map[string]struct{}, dir str
 		}
 
 	}
-
-	// add "replaces" for annotated modules
-	for _, req := range goMod.Require {
-		for filename2 := range mods {
-			dir2 := filepath.Dir(filename2)
-			if dir2 == dir { // same dir (same go mod file)
-				continue
-			}
-			dirAtTmp2 := cmd.tmpDirBasedFilename(dir2)
-
-			// read go.mod
-			goMod2, err := goutil.ReadGoMod(ctx, dirAtTmp2, cmd.env)
+	// add "replaces" of all mods
+	for filename2 := range mods {
+		dir2 := filepath.Dir(filename2)
+		if dir2 == dir {
+			continue // itself
+		}
+		pkgPath, ok := files.progDirPkgPaths[dir2]
+		if !ok {
+			// get path from the go.mod file
+			goMod2, err := goutil.ReadGoMod(ctx, dir2, cmd.env)
 			if err != nil {
 				return err
 			}
-
-			// if gomod depends on gomod2
-			if req.Path == goMod2.Module.Path {
-				if err := goutil.GoModReplace(ctx, dirAtTmp, req.Path, dirAtTmp2, cmd.env); err != nil {
-					return err
-				}
-			}
+			pkgPath = goMod2.Module.Mod.Path
+		}
+		dirAtTmp2 := cmd.tmpDirBasedFilename(dir2)
+		if err := goutil.GoModReplace(ctx, dirAtTmp, pkgPath, dirAtTmp2, cmd.env); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
 

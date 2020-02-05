@@ -952,11 +952,11 @@ func TestCmd_goMod12(t *testing.T) {
 	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
 }
 
-func TestCmd_goMod13(t *testing.T) {
+func _TestCmd_goMod13(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	// annotate full external module
+	// annotate full external module (slow)
 
 	mainGoMod := `
 		module main
@@ -1262,6 +1262,7 @@ func doCmd2(t *testing.T, dir string, args []string) ([]string, error) {
 	defer cmd.Cleanup()
 
 	cmd.Dir = dir
+	cmd.NoPreBuild = true
 
 	// hide msgs (pid, build, work dir ...)
 	//soutBuf := &bytes.Buffer{}

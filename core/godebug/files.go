@@ -177,6 +177,7 @@ func (files *Files) verboseMap(cmd *Cmd, m map[string]struct{}) {
 func (files *Files) populateProgFilenamesMap(pkgs []*packages.Package) {
 	// can't include these because they can't be annotated (will not be able to include a "replace" directive in go.mod)
 	goRoot := os.Getenv("GOROOT")
+	goRoot = filepath.Clean(goRoot) + string(filepath.Separator)
 	godebugPkgs := []string{GodebugconfigPkgPath, DebugPkgPath}
 
 	// all filenames in the program (except goroot)
@@ -295,11 +296,11 @@ func (files *Files) handleAnnOpt(filename string, opt *AnnotationOpt) (bool, err
 		if opt.Opt != "" {
 			dir2, ok := files.pkgPathDir(opt.Opt)
 			if !ok {
-				return false, fmt.Errorf("no dir found for pkg path: %v", opt.Opt)
+				return false, fmt.Errorf("pkg path dir not found: %v", opt.Opt)
 			}
 			dir = dir2
 		}
-		goMod, _ := files.findGoMod(dir)
+		goMod, _ := files.findGoModOrMissing(dir)
 		// files under the gomod directory
 		dir2 := filepath.Dir(goMod) + string(filepath.Separator)
 		for f := range files.progFilenames {
@@ -419,7 +420,7 @@ func (files *Files) findGoMods() {
 			continue
 		}
 		seen[dir] = struct{}{}
-		u, found := files.findGoMod(dir)
+		u, found := files.findGoModOrMissing(dir)
 		if found {
 			files.modFilenames[u] = struct{}{}
 		} else {
@@ -443,7 +444,7 @@ func (files *Files) findGoMods() {
 	}
 }
 
-func (files *Files) findGoMod(dir string) (_ string, found bool) {
+func (files *Files) findGoModOrMissing(dir string) (_ string, found bool) {
 	u, ok := goutil.FindGoMod(dir)
 	if ok {
 		return u, true
@@ -455,7 +456,8 @@ func (files *Files) findGoMod(dir string) (_ string, found bool) {
 			dir = dir2
 		}
 	}
-	return filepath.Join(dir, "go.mod"), false
+	f := filepath.Join(dir, "go.mod")
+	return f, false
 }
 
 func (files *Files) modFilenamesAndMissing() map[string]struct{} {

@@ -30,10 +30,14 @@ type Cmd struct {
 
 	tmpDir       string
 	tmpBuiltFile string // file built and exec'd
-	//tmpCleanup   bool
+	tmpCleanup   bool
+	FixedTmpDir  bool // don't cleanup at the end to allow caching
+
 	env       []string // set at start
 	annset    *AnnotatorSet
 	noModules bool // go.mod's
+
+	NoPreBuild bool // useful for tests
 
 	start struct {
 		cancel    context.CancelFunc
@@ -166,8 +170,10 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 
 	// pre-build without annotations for better errors with original filenames(result ignored)
 	// done in sync (first pre-build, then annotate) in order to have the "go build" update go.mod's if necessary.
-	if err := cmd.preBuild(ctx, mainFilename, cmd.flags.mode.test); err != nil {
-		return err
+	if !cmd.NoPreBuild {
+		if err := cmd.preBuild(ctx, mainFilename, cmd.flags.mode.test); err != nil {
+			return err
+		}
 	}
 
 	// TODO: force disable fetching since pre-build was successfull.
