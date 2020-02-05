@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/osutil"
@@ -23,6 +24,7 @@ import (
 // Finds the set of files that need to be annotated/copied.
 type Files struct {
 	Dir string
+	//TmpDir string
 
 	filenames       map[string]struct{}       // filenames to solve
 	progFilenames   map[string]struct{}       // program filenames (loaded)
@@ -38,6 +40,7 @@ type Files struct {
 	fset      *token.FileSet
 	noModules bool
 	cache     struct {
+		sync.RWMutex
 		fullAstFile map[string]*ast.File
 		srcs        map[string][]byte // cleared at the end
 	}
@@ -97,8 +100,20 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, env
 	}
 
 	// add tests directory
-	if tests && files.Dir != "" {
-		files.Add(files.Dir)
+	if tests {
+		//files.Add(files.Dir)
+
+		// add only test files
+		fis, err := ioutil.ReadDir(files.Dir)
+		if err != nil {
+			return err
+		}
+		for _, fi := range fis {
+			w := filepath.Join(files.Dir, fi.Name())
+			if strings.HasSuffix(w, "_test.go") {
+				files.Add(w)
+			}
+		}
 	}
 
 	// all program packages
@@ -107,30 +122,34 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, env
 		packages.NeedImports |
 		packages.NeedName | // name and pkgpath
 		packages.NeedFiles |
+		// TODO: needed to have custom parsefile be used
+		//packages.NeedSyntax |
+		packages.NeedTypes |
 		0
-	parseFile := func(fset *token.FileSet, filename string, src []byte) (*ast.File, error) {
-		return files.fullAstFile2(filename, src)
-	}
-	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, mainFilename, tests, env, parseFile)
+	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, mainFilename, tests, env, files.parseFileFn())
 	if err != nil {
+		// programpackages parsesfiles concurrently, on ctx cancel it concats useless error, get just the ctx error here
+		if err2 := ctx.Err(); err2 != nil {
+			return err2
+		}
 		return err
 	}
 
 	files.populateProgFilenamesMap(pkgs)
-
 	if err := files.addCommentedFiles(ctx); err != nil {
 		return err
 	}
 	if err := files.solveFilenames(); err != nil {
 		return err
 	}
-
 	files.findGoMods()
 	files.findFilesToCopy(files.noModules)
-
 	if err := files.doAnnFilesHashes(); err != nil {
 		return err
 	}
+	//if err := files.reviewTmpDirCache(); err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -175,9 +194,11 @@ func (files *Files) verboseMap(cmd *Cmd, m map[string]struct{}) {
 //----------
 
 func (files *Files) populateProgFilenamesMap(pkgs []*packages.Package) {
-	// can't include these because they can't be annotated (will not be able to include a "replace" directive in go.mod)
+	// There is no "std" module for the std library, "replace" won't work
 	goRoot := os.Getenv("GOROOT")
 	goRoot = filepath.Clean(goRoot) + string(filepath.Separator)
+
+	// don't annotate a possible second duplicate module (self debug)
 	godebugPkgs := []string{GodebugconfigPkgPath, DebugPkgPath}
 
 	// all filenames in the program (except goroot)
@@ -272,6 +293,18 @@ func (files *Files) handleAnnOpt(filename string, opt *AnnotationOpt) (bool, err
 		files.addAnnFilename(filename, opt.Type)
 		return true, nil
 	case AnnotationTypeFile:
+		if opt.Opt != "" {
+			f := opt.Opt
+			if !filepath.IsAbs(f) {
+				d := filepath.Dir(filename)
+				f = filepath.Join(d, f)
+			}
+			_, ok := files.progFilenames[f]
+			if !ok {
+				return false, fmt.Errorf("file not found: %v", opt.Opt)
+			}
+			filename = f
+		}
 		files.addAnnFilename(filename, opt.Type)
 		return true, nil
 	case AnnotationTypeImport:
@@ -341,7 +374,7 @@ func (files *Files) annTypeImportPath(n ast.Node, opt *AnnotationOpt) (string, e
 func (files *Files) addPkgPath(pkgPath string, typ AnnotationType) error {
 	dir, ok := files.pkgPathDir(pkgPath)
 	if !ok {
-		return fmt.Errorf("pkg to annotate not used (or in GOROOT): %q", pkgPath)
+		return fmt.Errorf("pkg to annotate not loaded: %q", pkgPath)
 	}
 	return files.addAnnDir(dir, typ)
 }
@@ -426,21 +459,6 @@ func (files *Files) findGoMods() {
 		} else {
 			files.modMissings[u] = struct{}{}
 		}
-
-		//u, ok := goutil.FindGoMod(dir)
-		//if ok {
-		//	files.modFilenames[u] = struct{}{}
-		//} else {
-		//	// find where the go.mod location should be (lowest common denominator)
-		//	for u := range files.progFilenames {
-		//		dir2 := filepath.Dir(u)
-		//		if strings.HasPrefix(dir, dir2) {
-		//			dir = dir2
-		//		}
-		//	}
-		//	w := filepath.Join(dir, "go.mod")
-		//	files.modMissings[w] = struct{}{}
-		//}
 	}
 }
 
@@ -473,29 +491,45 @@ func (files *Files) modFilenamesAndMissing() map[string]struct{} {
 
 //----------
 
+func (files *Files) parseFileFn() func(fset *token.FileSet, filename string, src []byte) (*ast.File, error) {
+	return func(fset *token.FileSet, filename string, src []byte) (*ast.File, error) {
+		return files.fullAstFile2(filename, src)
+	}
+}
+
 func (files *Files) fullAstFile(filename string) (*ast.File, error) {
 	return files.fullAstFile2(filename, nil)
 }
 func (files *Files) fullAstFile2(filename string, src []byte) (*ast.File, error) {
+	files.cache.RLock()
+	if astFile, ok := files.cache.fullAstFile[filename]; ok {
+		files.cache.RUnlock()
+		return astFile, nil
+	}
+	files.cache.RUnlock()
+
+	// read src if not provided (need to be kept for later)
 	if src == nil {
-		if astFile, ok := files.cache.fullAstFile[filename]; ok {
-			return astFile, nil
-		}
 		src2, err := ioutil.ReadFile(filename)
 		if err != nil {
 			return nil, err
 		}
 		src = src2
 	}
-	// keep src in cache for later computations
-	files.cache.srcs[filename] = src
+
 	// parse ast
 	mode := parser.ParseComments // full mode
 	astFile, err := parser.ParseFile(files.fset, filename, src, mode)
 	if err != nil {
 		return nil, err
 	}
+
+	files.cache.Lock()
+	defer files.cache.Unlock()
+
 	files.cache.fullAstFile[filename] = astFile
+	files.cache.srcs[filename] = src // keep for hash computations
+
 	return astFile, nil
 }
 
@@ -617,6 +651,87 @@ func (files *Files) NodeAnnType(n ast.Node) AnnotationType {
 }
 
 //----------
+
+//func (files *Files) reviewTmpDirCache() error {
+//	// TODO: in one rune a package was annotated, but in another run, the package is not required to be annotated, but the annotated files are in the cache and going to be used
+//	// TODO: in progfilenames and annotated, if in cache could have been just copied?
+//	// TODO: in progfilenames and not annotated, if in cache could have been annotated?
+
+//	if files.TmpDir == "" {
+//		return nil
+//	}
+
+//	fileAtTmp := func(f string) string {
+//		return filepath.Join(files.TmpDir, f)
+//	}
+
+//	// cache version (allows to invalidate the cache for update reasons)
+//	version := "1"
+//	versionFile := fileAtTmp("version")
+//	cacheValid, create := false, false
+//	b, err := ioutil.ReadFile(versionFile)
+//	if os.IsNotExist(err) {
+//		create = true
+//	} else {
+//		v := string(b)
+//		if v == version {
+//			cacheValid = true
+//		}
+//	}
+//	if !cacheValid {
+//		os.RemoveAll(files.TmpDir)
+//	}
+//	if create {
+//		if err := iout.MkdirAllWriteFile(versionFile, []byte(version), 0660); err != nil {
+//			return err
+//		}
+//	}
+
+//	// merge maps keys (filenames to check)
+//	m := map[string]struct{}{}
+//	for k := range files.annFilenames {
+//		m[k] = struct{}{}
+//	}
+//	for k := range files.copyFilenames {
+//		m[k] = struct{}{}
+//	}
+//	for k := range files.modFilenames {
+//		m[k] = struct{}{}
+//	}
+//	for k := range files.modMissings {
+//		m[k] = struct{}{}
+//	}
+
+//	// compare cache files with original files
+//	for f1 := range m {
+//		// cached
+//		f2 := fileAtTmp(f1)
+//		fi2, err := os.Stat(f2)
+//		if err != nil {
+//			continue // cached file missing
+//		}
+//		// original
+//		fi1, err := os.Stat(f1)
+//		if err != nil {
+//			// original file missing (ex: a go.mod)
+//			_ = os.Remove(f2) // remove from cache
+//			continue
+//		}
+
+//		cacheIsOld := fi2.ModTime().Before(fi1.ModTime())
+//		if cacheIsOld {
+//			_ = os.Remove(f2)
+//			continue
+//		}
+
+//		delete(files.copyFilenames, f1)
+//		delete(files.annFilenames, f1)
+//		//fmt.Printf("using cached: %v\n", f1)
+//	}
+//	return nil
+//}
+
+//----------
 //----------
 //----------
 
@@ -679,6 +794,7 @@ func AnnotationTypeInString(s string) (AnnotationType, string, error) {
 	// ensure early error if opt is set on annotations not expecting it
 	if hasOpt {
 		switch at {
+		case AnnotationTypeFile:
 		case AnnotationTypePackage:
 		case AnnotationTypeModule:
 		default:

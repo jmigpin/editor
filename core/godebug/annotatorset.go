@@ -3,9 +3,7 @@ package godebug
 import (
 	"fmt"
 	"go/ast"
-	"go/printer"
 	"go/token"
-	"io"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -28,7 +26,7 @@ type AnnotatorSet struct {
 		Main     bool
 		TestMain bool
 	}
-	fdata struct { // TODO: rename afds
+	afds struct { // TODO: rename afds
 		sync.Mutex
 		m     map[string]*debug.AnnotatorFileData // map[filename]afd
 		a     []*debug.AnnotatorFileData          // ordered
@@ -41,7 +39,7 @@ func NewAnnotatorSet() *AnnotatorSet {
 		FSet:          token.NewFileSet(),
 		testFilesPkgs: make(map[string]string),
 	}
-	annset.fdata.m = make(map[string]*debug.AnnotatorFileData)
+	annset.afds.m = make(map[string]*debug.AnnotatorFileData)
 	annset.debugPkgName = "d" + string(rune(931)) // uncommon  rune to avoid clashes
 	annset.debugVarPrefix = annset.debugPkgName   // will have integer appended
 	return annset
@@ -135,10 +133,10 @@ func (annset *AnnotatorSet) insertImport(astFile *ast.File, name, path string) {
 //----------
 
 func (annset *AnnotatorSet) annotatorFileData(filename string, files *Files) (*debug.AnnotatorFileData, error) {
-	annset.fdata.Lock()
-	defer annset.fdata.Unlock()
+	annset.afds.Lock()
+	defer annset.afds.Unlock()
 
-	afd, ok := annset.fdata.m[filename]
+	afd, ok := annset.afds.m[filename]
 	if ok {
 		return afd, nil
 	}
@@ -149,27 +147,17 @@ func (annset *AnnotatorSet) annotatorFileData(filename string, files *Files) (*d
 		return nil, fmt.Errorf("annset: annotatorfiledata: file not found: %v", filename)
 	}
 	afd = &debug.AnnotatorFileData{
-		FileIndex: annset.fdata.index,
+		FileIndex: annset.afds.index,
 		Filename:  filename,
 		FileHash:  fafd.FileHash,
 		FileSize:  fafd.FileSize,
 	}
-	annset.fdata.m[filename] = afd
+	annset.afds.m[filename] = afd
 
-	annset.fdata.a = append(annset.fdata.a, afd) // keep order
-	annset.fdata.index++
+	annset.afds.a = append(annset.afds.a, afd) // keep order
+	annset.afds.index++
 
 	return afd, nil
-}
-
-//----------
-
-func (annset *AnnotatorSet) Print(w io.Writer, astFile *ast.File) error {
-	// TODO: without tabwidth set, it won't output the source correctly
-
-	// print with source positions from original file
-	cfg := &printer.Config{Tabwidth: 4, Mode: printer.SourcePos}
-	return cfg.Fprint(w, annset.FSet, astFile)
 }
 
 //----------
@@ -200,10 +188,10 @@ func init(){
 func (annset *AnnotatorSet) buildConfigContentEntries() string {
 	// build map data
 	var u []string
-	for _, afd := range annset.fdata.a {
+	for _, afd := range annset.afds.a {
 		// sanity check
-		if afd.FileIndex >= len(annset.fdata.m) {
-			panic(fmt.Sprintf("file index doesn't fit map len: %v vs %v", afd.FileIndex, len(annset.fdata.m)))
+		if afd.FileIndex >= len(annset.afds.m) {
+			panic(fmt.Sprintf("file index doesn't fit map len: %v vs %v", afd.FileIndex, len(annset.afds.m)))
 		}
 
 		s := fmt.Sprintf("&debug.AnnotatorFileData{%v,%v,%q,%v,[]byte(%q)}",

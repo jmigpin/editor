@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/osutil"
@@ -221,10 +222,10 @@ func TestCmd_comments(t *testing.T) {
 }
 
 func TestCmd_comments2(t *testing.T) {
+	// test single import line
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-
-	// test single import line
 
 	mainGoMod := `
 		module main
@@ -264,10 +265,10 @@ func TestCmd_comments2(t *testing.T) {
 }
 
 func TestCmd_comments3(t *testing.T) {
+	// test gendecl import line
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-
-	// test multiple import line
 
 	mainGoMod := `
 		module main
@@ -311,13 +312,13 @@ func TestCmd_comments3(t *testing.T) {
 //------------
 
 func TestCmd_goMod1(t *testing.T) {
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
 	// not in gopath
 	// has go.mod
 	// pkg1 is in relative dir, not annotated
 	// pkg2 is in relative dir, annotated, depends on pkg1
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
 
 	mainGoMod := `
 		module main
@@ -375,13 +376,13 @@ func TestCmd_goMod1(t *testing.T) {
 }
 
 func TestCmd_goMod2(t *testing.T) {
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
 	// not in gopath
 	// has go.mod
 	// pkg1 is in relative dir, not annotated
 	// pkg2 is in abs dir, annotated
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
 
 	mainGoMod := `
 		module main
@@ -437,6 +438,8 @@ func TestCmd_goMod2(t *testing.T) {
 }
 
 func TestCmd_goMod3(t *testing.T) {
+	// func call should not be annotated: pkg with only one godebug annotate block inside another func
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
@@ -477,7 +480,6 @@ func TestCmd_goMod3(t *testing.T) {
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
-	// should not be annotated: pkg with only one godebug annotate block inside another func
 	mustNotHaveString(t, msgs, `"arg-from-main"`)
 }
 
@@ -709,10 +711,10 @@ func TestCmd_goMod7(t *testing.T) {
 }
 
 func TestCmd_goMod7b(t *testing.T) {
+	// test //godebug:annotatemodule:<pkg-path>
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-
-	// test //godebug:annotatemodule:<pkg-path>
 
 	mainGoMod := `
 		module main
@@ -770,14 +772,14 @@ func TestCmd_goMod7b(t *testing.T) {
 }
 
 func TestCmd_goMod8(t *testing.T) {
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
 	// An empty go.mod with just the module name, will make "go build" try to fetch from the web the dependencies.
 	// By using "go mod init", if there is no go.mod, it is created with the dependency (if already on the disk) and nothing is fetched from the web.
 	// setting GOPROXY=off fails, but not sure why:
 	// TODO: fails because go.mod is defined but doesn't declare the dependency location. Will fail with "cannot load...". It still fails without the go.mod but with GOPROXY=off.
 	// TODO: This is failing at pre-build?
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
 
 	mainGoMod := `
 		module main
@@ -808,10 +810,10 @@ func TestCmd_goMod8(t *testing.T) {
 }
 
 func TestCmd_goMod9(t *testing.T) {
+	// if the os env doesn't have GOPROXY=off, having no go.mod should fetch the dependencies from the web at pre-build.
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-
-	// if the os env doesn't have GOPROXY=off, having no go.mod should fetch the dependencies from the web at pre-build.
 
 	mainMainGo := `
 		package main
@@ -840,10 +842,10 @@ func TestCmd_goMod9(t *testing.T) {
 }
 
 func TestCmd_goMod10(t *testing.T) {
+	// fails because GOPROXY=off won't fetch the module (no go.mod and outside of GOPATH)
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-
-	// fails because GOPROXY=off won't fetch the module (no go.mod and outside of GOPATH)
 
 	mainMainGo := `
 		package main
@@ -874,10 +876,10 @@ func TestCmd_goMod10(t *testing.T) {
 }
 
 func TestCmd_goMod11(t *testing.T) {
+	// passes because is outside of GOPATH, but has go.mod, so it fetches from the web
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-
-	// passes because is outside of GOPATH, but has go.mod, so it fetches from the web
 
 	mainGoMod := `
 		module main
@@ -915,10 +917,10 @@ func TestCmd_goMod11(t *testing.T) {
 }
 
 func TestCmd_goMod12(t *testing.T) {
+	// mod dependency is on xgb, but the annotated package is shm
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
-
-	// mod dependency is on xgb, but the annotated package is shm
 
 	mainGoMod := `
 		module main
@@ -953,10 +955,126 @@ func TestCmd_goMod12(t *testing.T) {
 }
 
 func _TestCmd_goMod13(t *testing.T) {
+	// annotate full external module (slow)
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
+	mainGoMod := `
+		module main
+	`
+	mainMainGo := `
+		package main
+		import "github.com/BurntSushi/xgb"
+		import "github.com/BurntSushi/xgb/shm"
+		//godebug:annotatemodule:github.com/BurntSushi/xgb/shm
+		func main() {
+			_=xgb.Pad(1)
+			conn,err:=xgb.NewConnDisplay("")
+			defer conn.Close()
+			if err!=nil{
+				_=shm.Init(conn)
+			}
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
+	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
+}
+
+func TestCmd_goMod14(t *testing.T) {
+	// test tmp cache re-use
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	mainGoMod := `
+		module main
+		replace example.com/pkg1 => ../pkg1
+	`
+	mainMainGo := `
+		package main
+		//godebug:annotatemodule:example.com/pkg1
+		import "example.com/pkg1"
+		import "example.com/pkg1/sub1"
+		func main() {
+			_=pkg1.Fa()
+			_=pkg1.Fb()
+			_=sub1.Fc()
+		}
+	`
+	pkg1GoMod := `
+		module example.com/pkg1
+	`
+	pkg1FaGo := `
+		package pkg1
+		func Fa() string {
+			return "Fa"
+		}
+	`
+	pkg1FbGo := `
+		package pkg1
+		func Fb() string {
+			return "Fb"
+		}
+	`
+	sub1FcGo := `
+		package sub1
+		func Fc() string {
+			return "Fc"
+		}
+	`
+	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
+	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", pkg1FaGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", pkg1FbGo)
+	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", sub1FcGo)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		"main.go",
+	}
+
+	s1 := time.Now()
+
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `"Fa"`)
+	mustHaveString(t, msgs, `"Fb"`)
+	mustHaveString(t, msgs, `"Fc"`)
+
+	s2 := time.Now()
+
+	// run again
+	msgs = doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `"Fa"`)
+	mustHaveString(t, msgs, `"Fb"`)
+	mustHaveString(t, msgs, `"Fc"`)
+
+	s3 := time.Now()
+
+	t1 := s2.Sub(s1)
+	t2 := s3.Sub(s2)
+	t.Logf("%v %v -> %v", t1, t2, t1-t2)
+}
+
+func _TestCmd_goMod15(t *testing.T) {
 	// annotate full external module (slow)
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
 
 	mainGoMod := `
 		module main
@@ -1263,6 +1381,8 @@ func doCmd2(t *testing.T, dir string, args []string) ([]string, error) {
 
 	cmd.Dir = dir
 	cmd.NoPreBuild = true
+	//cmd.FixedTmpDir = true
+	//cmd.FixedTmpDirPid = 1
 
 	// hide msgs (pid, build, work dir ...)
 	//soutBuf := &bytes.Buffer{}
@@ -1346,7 +1466,8 @@ func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, 
 		//env = append(env, "EDITOR_GODEBUG_NOMODULES=true")
 		//env = append(env, "GOPATH="+tf.Dir)
 	} else {
-		//env = append(env, "GO111MODULE=off")
+		// TODO: makes src4 fail?
+		//env = append(env, "GO111MODULE=on")
 	}
 	envArg := strings.Join(env, string(os.PathListSeparator))
 

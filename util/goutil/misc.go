@@ -3,9 +3,13 @@ package goutil
 import (
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/jmigpin/editor/util/osutil"
@@ -54,4 +58,40 @@ func AstFileFilename(astFile *ast.File, fset *token.FileSet) (string, error) {
 		return "", fmt.Errorf("not found")
 	}
 	return tfile.Name(), nil
+}
+
+//----------
+
+func PrintAstFile(w io.Writer, fset *token.FileSet, astFile *ast.File) error {
+	// TODO: without tabwidth set, it won't output the source correctly
+
+	// print with source positions from original file
+	cfg := &printer.Config{Tabwidth: 4, Mode: printer.SourcePos}
+	//cfg := &printer.Config{Mode: printer.RawFormat}
+	return cfg.Fprint(w, fset, astFile)
+}
+
+//----------
+
+// go test -cpuprofile cpu.prof -memprofile mem.prof
+// go tool pprof cpu.prof
+// view with a browser:
+// go tool pprof -http=:8000 cpu.prof
+
+var profFile *os.File
+
+func StartCPUProfile() error {
+	filename := "cpu.prof"
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	profFile = f
+	log.Printf("profile cpu: %v\n", filename)
+	return pprof.StartCPUProfile(f)
+}
+
+func StopCPUProfile() error {
+	pprof.StopCPUProfile()
+	return profFile.Close()
 }

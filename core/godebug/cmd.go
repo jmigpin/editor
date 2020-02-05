@@ -1,5 +1,7 @@
 package godebug
 
+//godebug:annotatefile
+
 import (
 	"bytes"
 	"context"
@@ -19,6 +21,7 @@ import (
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -30,8 +33,10 @@ type Cmd struct {
 
 	tmpDir       string
 	tmpBuiltFile string // file built and exec'd
-	tmpCleanup   bool
-	FixedTmpDir  bool // don't cleanup at the end to allow caching
+
+	//FixedTmpDir    bool // re-use tmp dir to allow caching
+	//FixedTmpDirPid int
+	//noTmpCleanup   bool
 
 	env       []string // set at start
 	annset    *AnnotatorSet
@@ -73,6 +78,10 @@ func NewCmd() *Cmd {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+
+	//cmd.FixedTmpDir = true
+	//cmd.FixedTmpDirPid = 2
+
 	return cmd
 }
 
@@ -162,6 +171,9 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 	// "files" not in cmd.* to allow early GC
 	files := NewFiles(cmd.annset.FSet, cmd.noModules)
 	files.Dir = cmd.Dir
+	//if cmd.FixedTmpDir {
+	//	files.TmpDir = cmd.tmpDir
+	//}
 
 	files.Add(cmd.flags.files...)
 	files.Add(cmd.flags.dirs...)
@@ -254,23 +266,8 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename
 	}
 
 	// annotate
-	for filename := range files.annFilenames {
-		// early stop
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		dst := cmd.tmpDirBasedFilename(filename)
-		astFile, err := files.fullAstFile(filename)
-		if err != nil {
-			return err
-		}
-		if err := cmd.annset.AnnotateAstFile(astFile, filename, files); err != nil {
-			return err
-		}
-		if err := cmd.mkdirAllWriteAstFile(dst, astFile); err != nil {
-			return err
-		}
+	if err := cmd.annotateFiles(ctx, files); err != nil {
+		return err
 	}
 
 	// write config file after annotations
@@ -560,8 +557,8 @@ func (cmd *Cmd) Cleanup() {
 
 	if cmd.flags.work {
 		// don't cleanup work dir
-		//} else if !cmd.tmpCleanup {
-		// don't cleanup work dir
+		//} else if cmd.noTmpCleanup {
+		//	// don't cleanup work dir
 	} else if cmd.tmpDir != "" {
 		if err := os.RemoveAll(cmd.tmpDir); err != nil {
 			cmd.Printf("cleanup err: %v\n", err)
@@ -661,27 +658,82 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*
 
 //------------
 
+func (cmd *Cmd) annotateFiles(ctx context.Context, files *Files) error {
+	var wg sync.WaitGroup
+	var err1 error
+	flow := make(chan struct{}, 5) // max concurrent
+	for filename := range files.annFilenames {
+		// early stop
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		wg.Add(1)
+		flow <- struct{}{}
+		go func(filename string) {
+			defer func() {
+				wg.Done()
+				<-flow
+			}()
+			err := cmd.annotateFile(ctx, files, filename)
+			if err1 == nil {
+				err1 = err // just keep first error
+			}
+		}(filename)
+	}
+	wg.Wait()
+	return err1
+}
+
+func (cmd *Cmd) annotateFile(ctx context.Context, files *Files, filename string) error {
+
+	dst := cmd.tmpDirBasedFilename(filename)
+	astFile, err := files.fullAstFile(filename)
+	if err != nil {
+		return err
+	}
+	if err := cmd.annset.AnnotateAstFile(astFile, filename, files); err != nil {
+		return err
+	}
+
+	// early stop
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	if err := cmd.mkdirAllWriteAstFile(dst, astFile); err != nil {
+		return err
+	}
+	return nil
+}
+
+//------------
+
 func (cmd *Cmd) setupTmpDir() (string, error) {
 	d := "editor_godebug_mod_work"
 	if cmd.noModules {
 		d = "editor_godebug_gopath_work"
 	}
+	//if cmd.FixedTmpDir {
+	//	// use a fixed directory to allow "go build" to use the cache
+	//	// there is only one godebug session per editor, so ok to use pid
+	//	cmd.noTmpCleanup = true
+	//	pid := os.Getpid()
+	//	if cmd.FixedTmpDirPid != 0 {
+	//		pid = cmd.FixedTmpDirPid
+	//	}
+	//	d += fmt.Sprintf("_pid%v", pid)
+	//	tmpDir := filepath.Join(os.TempDir(), d)
+	//	return tmpDir, nil
+	//}
 	return ioutil.TempDir(os.TempDir(), d)
-
-	//// TODO
-	//// use a fixed directory to allow "go build" to use the cache
-	//// there is only one godebug session per editor (ok to use pid)
-	//pid := os.Getpid()
-	//d += fmt.Sprintf("_pid%v", pid)
-	//tmpDir := filepath.Join(os.TempDir(), d)
-	//return tmpDir, nil
 }
 
 //------------
 
 func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 	buf := &bytes.Buffer{}
-	if err := cmd.annset.Print(buf, astFile); err != nil {
+	if err := goutil.PrintAstFile(buf, cmd.annset.FSet, astFile); err != nil {
 		return err
 	}
 	return mkdirAllWriteFile(filename, buf.Bytes())
@@ -961,59 +1013,18 @@ Examples:
 //------------
 
 func mkdirAllWriteFile(filename string, src []byte) error {
-	if err := os.MkdirAll(filepath.Dir(filename), 0770); err != nil {
-		return err
-	}
-	return ioutil.WriteFile(filename, []byte(src), 0660)
+	return iout.MkdirAllWriteFile(filename, src, 0660)
 }
 
 func mkdirAllCopyFile(src, dst string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0770); err != nil {
-		return err
-	}
-	return copyFile(src, dst)
+	return iout.MkdirAllCopyFile(src, dst, 0660)
+}
+func mkdirAllCopyFileSync(src, dst string) error {
+	return iout.MkdirAllCopyFileSync(src, dst, 0660)
 }
 
 func copyFile(src, dst string) error {
-	from, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer from.Close()
-	to, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer to.Close()
-	_, err = io.Copy(to, from)
-	return err
-}
-
-//------------
-
-func mkdirAllCopyFileSync(src, dst string) error {
-	// must exist in src
-	info1, err := os.Stat(src)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("not found in src: %v", src)
-	}
-
-	// already exists in dest with same modification time
-	info2, err := os.Stat(dst)
-	if !os.IsNotExist(err) {
-		// compare modification time in src
-		if info2.ModTime().Equal(info1.ModTime()) {
-			return nil
-		}
-	}
-
-	if err := mkdirAllCopyFile(src, dst); err != nil {
-		return err
-	}
-
-	// set modtime equal to src to avoid copy next time
-	t := info1.ModTime().Local()
-	return os.Chtimes(dst, t, t)
+	return iout.CopyFile(src, dst, 0660)
 }
 
 //------------
