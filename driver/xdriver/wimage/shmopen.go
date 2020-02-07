@@ -4,7 +4,7 @@ package wimage
 
 import (
 	"fmt"
-	"syscall"
+	"golang.org/x/sys/unix"
 )
 
 // These constants are from /usr/include/linux/ipc.h
@@ -14,11 +14,11 @@ const (
 )
 
 func ShmOpen(size int) (shmid, addr uintptr, err error) {
-	shmid, _, errno0 := syscall.RawSyscall(syscall.SYS_SHMGET, ipcPrivate, uintptr(size), 0600)
+	shmid, _, errno0 := unix.Syscall(unix.SYS_SHMGET, ipcPrivate, uintptr(size), 0600)
 	if errno0 != 0 {
 		return 0, 0, fmt.Errorf("shmget: %v", errno0)
 	}
-	p, _, errno1 := syscall.RawSyscall(syscall.SYS_SHMAT, shmid, 0, 0)
+	p, _, errno1 := unix.Syscall(unix.SYS_SHMAT, shmid, 0, 0)
 	if errno1 != 0 {
 		return 0, 0, fmt.Errorf("shmat: %v", errno1)
 	}
@@ -26,8 +26,8 @@ func ShmOpen(size int) (shmid, addr uintptr, err error) {
 }
 
 func ShmClose(shmid, addr uintptr) error {
-	_, _, errno := syscall.RawSyscall(syscall.SYS_SHMDT, addr, 0, 0)
-	_, _, errno2 := syscall.RawSyscall(syscall.SYS_SHMCTL, shmid, ipcRmID, 0)
+	_, _, errno := unix.Syscall(unix.SYS_SHMDT, addr, 0, 0)
+	_, _, errno2 := unix.Syscall(unix.SYS_SHMCTL, shmid, ipcRmID, 0)
 	if errno != 0 {
 		return fmt.Errorf("shmdt: %v", errno)
 	}
