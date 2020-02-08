@@ -51,12 +51,14 @@ func (ann *Annotator) removeInnerFuncComments(astFile *ast.File) {
 	// ensure comments are not in between stmts in the middle of declarations inside functions (solves test100)
 	// Other comments stay in place since they might be needed (build comments, "c" package comments, ...)
 	u := []*ast.CommentGroup{}
-	for _, d := range astFile.Decls {
-		if fd, ok := d.(*ast.FuncDecl); ok {
-			// filter
-			for _, cg := range astFile.Comments {
-				in := cg.Pos() >= fd.Pos() && cg.Pos() < fd.End()
-				if !in { // not inside a func decl
+	for _, cg := range astFile.Comments { // all comments
+		for _, d := range astFile.Decls {
+			if fd, ok := d.(*ast.FuncDecl); ok {
+				if fd.Pos() > cg.End() { // passed comment
+					break
+				}
+				inside := cg.Pos() >= fd.Pos() && cg.Pos() < fd.End()
+				if !inside {
 					u = append(u, cg)
 				}
 			}
