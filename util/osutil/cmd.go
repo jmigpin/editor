@@ -58,6 +58,8 @@ func (cmd *Cmd) start2() error {
 		cmd.PreOutputCallback()
 	}
 
+	cmd.enableEnsureStop(true)
+
 	go func() {
 		select {
 		case <-cmd.ctx.Done():

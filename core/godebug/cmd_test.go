@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/osutil"
@@ -1009,6 +1010,45 @@ func TestCmd_goMod14(t *testing.T) {
 	t.Log(err)
 }
 
+func TestCmd_goMod15(t *testing.T) {
+	// test ctx cancel
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		import "time"
+		import "fmt"
+		//godebug:annotatefile
+		func main() {
+			time.Sleep(10000*time.Second)
+			fmt.Printf("aaa")
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	start := time.Now()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(5 * time.Second)
+		cancel()
+		t.Logf("cancel: %v", time.Now().Sub(start))
+	}()
+	_, err := doCmd3(t, ctx, dir, cmd)
+	//if err == nil {
+	//	t.Fatal("expecting error")
+	//}
+	t.Log(err)
+	t.Logf("done: %v", time.Now().Sub(start))
+}
+
 //------------
 
 func TestCmd_goPath1(t *testing.T) {
@@ -1267,6 +1307,12 @@ func doCmd(t *testing.T, dir string, args []string) []string {
 
 func doCmd2(t *testing.T, dir string, args []string) ([]string, error) {
 	t.Helper()
+	ctx := context.Background()
+	return doCmd3(t, ctx, dir, args)
+}
+
+func doCmd3(t *testing.T, ctx context.Context, dir string, args []string) ([]string, error) {
+	t.Helper()
 	cmd := NewCmd()
 	defer cmd.Cleanup()
 
@@ -1279,7 +1325,6 @@ func doCmd2(t *testing.T, dir string, args []string) ([]string, error) {
 	//soutBuf := &bytes.Buffer{}
 	//cmd.Stdout = soutBuf
 
-	ctx := context.Background()
 	done, err := cmd.Start(ctx, args)
 	if err != nil {
 		return nil, err

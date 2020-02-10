@@ -27,6 +27,14 @@ func NewClient(ctx context.Context) (*Client, error) {
 
 	client.Messages <- "connected"
 
+	// ensure connection close on ctx cancel
+	go func() {
+		select {
+		case <-ctx.Done():
+			client.Conn.Close()
+		}
+	}()
+
 	// receive msgs from server and send to channel
 	client.waitg.Add(1)
 	go func() {

@@ -353,7 +353,7 @@ func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) e
 
 func (cmd *Cmd) startServerClient(ctx context.Context) error {
 	// server/client context to cancel the other when one of them ends
-	ctx2, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	cmd.start.cancel = cancel
 
 	// arguments (TODO: review normalize...)
@@ -376,7 +376,7 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 		cb := func(c *osutil.Cmd) {
 			cmd.Printf("pid %d\n", c.Cmd.Process.Pid)
 		}
-		c, err := cmd.startCmd(ctx2, cmd.Dir, args, nil, cb)
+		c, err := cmd.startCmd(ctx, cmd.Dir, args, nil, cb)
 		if err != nil {
 			// cmd.Wait() won't be called, need to clear resources
 			cmd.start.cancel()
@@ -391,7 +391,7 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 		debug.ServerAddress = cmd.flags.address
 	}
 	// start client (blocking connect)
-	client, err := NewClient(ctx2)
+	client, err := NewClient(ctx)
 	if err != nil {
 		// cmd.Wait() won't be called, need to clear resources
 		cmd.start.cancel()
