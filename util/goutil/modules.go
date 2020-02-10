@@ -71,7 +71,7 @@ func GoModReplace(ctx context.Context, dir, old, new string, env []string) error
 //----------
 
 func runGoModCmd(ctx context.Context, dir string, args []string, env []string) ([]byte, error) {
-	bout, err := osutil.RunExecCmdCtxWithAttrAndGetOutputs(ctx, dir, nil, args, env)
+	bout, err := osutil.RunCmdStdoutAndStderrInErr2(ctx, dir, args, env)
 	if err != nil {
 		return nil, fmt.Errorf("runGoMod error: args=%v, dir=%v, err=%v", args, dir, err)
 	}

@@ -10,7 +10,6 @@ import (
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/core/toolbarparser"
-	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -113,7 +112,7 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 			erow.Row.TextArea.ClearPos()
 		})
 
-		err := externalCmdDir2(erow, cargs, env, ctx, w)
+		err := externalCmdDir2(ctx, erow, cargs, env, w)
 		if fend != nil {
 			fend(err)
 		}
@@ -121,72 +120,22 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 	})
 }
 
-func externalCmdDir2(erow *ERow, cargs []string, env []string, ctx context.Context, w io.Writer) error {
-	// prepare cmd exec
-	cmd := osutil.ExecCmdCtxWithAttr(ctx, cargs)
+func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []string, w io.Writer) error {
+	cmd := osutil.NewCmd(ctx, cargs...)
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = env
+	cmd.Stdout = w
+	cmd.Stderr = w
 
-	// Commented: cmd.wait() could block if the pipe readers are not closed
-	//cmd.Stdout = w
-	//cmd.Stderr = w
-
-	// stdout/stderr pipes that will allow to directly be closed
-	opr, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	epr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
+	// output pid before any output
+	cmd.PreOutputCallback = func() {
+		cargsStr := strings.Join(cargs, " ")
+		fmt.Fprintf(w, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
 	}
 
-	// ensure concurrent writer
-	if _, ok := w.(*iout.AutoBufWriter); !ok {
-		w = iout.NewSafeWriter(w)
-	}
-
-	// copy loop to writer
-	ch := make(chan struct{}, 2)
-	go func() {
-		io.Copy(w, opr)
-		ch <- struct{}{}
-	}()
-	go func() {
-		io.Copy(w, epr)
-		ch <- struct{}{}
-	}()
-
-	// run command
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	// ensure kill to child processes on function exit (failsafe)
-	go func() {
-		select {
-		case <-ctx.Done():
-			defer func() {
-				// force pipes close
-				opr.Close()
-				epr.Close()
-			}()
-			if err := osutil.KillExecCmd(cmd); err != nil {
-				// commented: avoid over verbose errors before the full output comes out
-				//fmt.Fprintf(w, "# error: kill: %v\n", err)
-			}
-		}
-	}()
-
-	// TODO: ensure first output is pid with altered writer
-	// output pid
-	cargsStr := strings.Join(cargs, " ")
-	fmt.Fprintf(w, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
-
-	// wait for pipes close before calling wait() to avoid endless block
-	<-ch
-	<-ch
-
 	return cmd.Wait()
 }
 

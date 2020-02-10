@@ -1,8 +1,5 @@
 package main
 
-// Needs to run when there are changes on the ../debug pkg.
-//go:generate go run debugpack.go
-
 import (
 	"fmt"
 	"io/ioutil"
@@ -12,14 +9,14 @@ import (
 )
 
 // Pack debug package into a single file to be included by godebug.
-// This file is called from the godebug pkg with "go generate"
+// This file is called from the godebug pkg with "//go:generate"
 func main() {
 	if err := main2(); err != nil {
 		fmt.Println(err)
 	}
 }
 func main2() error {
-	dir := "../debug"
+	dir := "debug"
 	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
@@ -41,7 +38,7 @@ func main2() error {
 		filenames = append(filenames, fi.Name())
 		data = append(data, strconv.QuoteToASCII(string(b)))
 	}
-	if err := buildDataFile(filenames, data, "../zdebugpack.go"); err != nil {
+	if err := buildDataFile(filenames, data, "zdebugpack.go"); err != nil {
 		return err
 	}
 	return nil

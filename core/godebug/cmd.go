@@ -1,6 +1,7 @@
 package godebug
 
-//godebug:annotatefile
+// Needs to run when there are changes on the ./debug pkg
+//go:generate go run debugpack/debugpack.go
 
 import (
 	"bytes"
@@ -12,7 +13,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -371,18 +371,18 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 	}
 
 	// start server
-	var serverCmd *exec.Cmd
+	var serverCmd *osutil.Cmd
 	if !cmd.flags.mode.connect {
-		u, err := cmd.startCmd(ctx2, cmd.Dir, args, nil)
+		cb := func(c *osutil.Cmd) {
+			cmd.Printf("pid %d\n", c.Cmd.Process.Pid)
+		}
+		c, err := cmd.startCmd(ctx2, cmd.Dir, args, nil, cb)
 		if err != nil {
 			// cmd.Wait() won't be called, need to clear resources
 			cmd.start.cancel()
 			return err
 		}
-		serverCmd = u
-
-		// output cmd pid
-		cmd.Printf("pid %d\n", serverCmd.Process.Pid)
+		serverCmd = c
 	}
 
 	// setup address to connect to
@@ -530,12 +530,6 @@ func (cmd *Cmd) detectNoModules() bool {
 		return false
 	}
 
-	//// only used for tests, not for external use
-	//v = osutil.GetEnv(env, "EDITOR_GODEBUG_NOMODULES")
-	//if v == "true" {
-	//	return true
-	//}
-
 	// auto: if it can't find a go.mod, it is noModules
 	if _, ok := goutil.FindGoMod(cmd.Dir); !ok {
 		return true
@@ -577,39 +571,41 @@ func (cmd *Cmd) Cleanup() {
 //------------
 
 func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (string, error) {
+	// TODO: faster dummy pre-builts?
+	// "-toolexec", "", // don't run asm?
+
 	filenameOut := replaceExt(filename, osutil.ExecName("_godebug"))
+
+	bFlags := godebugBuildFlags(cmd.env)
 
 	args := []string{}
 	if tests {
 		args = []string{
 			osutil.ExecName("go"), "test",
 			"-c", // compile binary but don't run
-			// TODO: faster dummy pre-builts?
-			// "-toolexec", "", // don't run asm?
 			"-o", filenameOut,
 		}
-		args = append(args, cmd.flags.otherArgs...)
+		args = append(args, bFlags...)
+		args = append(args, cmd.flags.otherArgs...) // ex
 	} else {
 		args = []string{
 			osutil.ExecName("go"), "build",
 			"-o", filenameOut,
 		}
-		// insert otherargs before filename last arg: allows all "go build" to be used after the filename
-		// TODO: accept -gobuild.* args?
-		if cmd.flags.mode.build {
-			args = append(args, cmd.flags.otherArgs...)
-		}
-		// filename is last arg
-		args = append(args, filename)
+		//if cmd.flags.mode.build {
+		//	args = append(args, cmd.flags.otherArgs...)
+		//}
+		args = append(args, bFlags...)
+		args = append(args, filename) // last arg
 	}
 
-	dir := filepath.Dir(filenameOut)
 	if cmd.flags.verbose {
-		cmd.Printf("runBuildCmd: dir=%v\n", dir)
+		cmd.Printf("runBuildCmd:  %v\n", args)
 	}
+	dir := filepath.Dir(filenameOut)
 	err := cmd.runCmd(ctx, dir, args, cmd.env)
 	if err != nil {
-		err = fmt.Errorf("runBuildCmd: %v", err)
+		err = fmt.Errorf("runBuildCmd: %v:  %v", err, args)
 	}
 	return filenameOut, err
 }
@@ -617,43 +613,27 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 //------------
 
 func (cmd *Cmd) runCmd(ctx context.Context, dir string, args, env []string) error {
-	// ctx with early cancel for startcmd to clear inner goroutine resource
-	ctx2, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	ecmd, err := cmd.startCmd(ctx2, dir, args, env)
+	c, err := cmd.startCmd(ctx, dir, args, env, nil)
 	if err != nil {
 		return err
 	}
-	return ecmd.Wait()
+	return c.Wait()
 }
 
-func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string) (*exec.Cmd, error) {
+func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string, cb func(*osutil.Cmd)) (*osutil.Cmd, error) {
 	cargs := osutil.ShellRunArgs(args...)
-	ecmd := osutil.ExecCmdCtxWithAttr(ctx, cargs)
-
-	ecmd.Env = env
-	ecmd.Dir = dir
-	ecmd.Stdout = cmd.Stdout
-	ecmd.Stderr = cmd.Stderr
-
-	if err := ecmd.Start(); err != nil {
+	c := osutil.NewCmd(ctx, cargs...)
+	c.Stdout = cmd.Stdout
+	c.Stderr = cmd.Stderr
+	c.Env = env
+	c.Dir = dir
+	if cb != nil {
+		c.PreOutputCallback = func() { cb(c) }
+	}
+	if err := c.Start(); err != nil {
 		return nil, err
 	}
-
-	// ensure kill to child processes on context cancel
-	// the ctx must be cancelable, otherwise it might kill the process on start
-	go func() {
-		select {
-		case <-ctx.Done():
-			if err := osutil.KillExecCmd(ecmd); err != nil {
-				// commented: avoid over verbose errors before the full output comes out
-				//cmd.Error(fmt.Errorf("kill: %v", err))
-			}
-		}
-	}()
-
-	return ecmd, nil
+	return c, nil
 }
 
 //------------
@@ -936,7 +916,7 @@ func (cmd *Cmd) syncSendFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&cmd.flags.syncSend, "syncsend", false, "Don't send msgs in chunks (slow). Useful to get msgs before a crash.")
 }
 func (cmd *Cmd) toolExecFlag(fs *flag.FlagSet) {
-	fs.StringVar(&cmd.flags.toolExec, "toolexec", "", "execute cmd, useful to run a tool with the output file (ex: wine outputfilename")
+	fs.StringVar(&cmd.flags.toolExec, "toolexec", "", "execute cmd, useful to run a tool with the output file (ex: wine outputfilename)")
 }
 func (cmd *Cmd) dirsFlag(fs *flag.FlagSet) {
 	fn := func(s string) error {
@@ -960,6 +940,7 @@ func (cmd *Cmd) envFlag(fs *flag.FlagSet) {
 		return nil
 	}
 	rf := &runFnFlag{fn}
+	// The type in usage is the backquoted "string" (detected by flagset)
 	usage := fmt.Sprintf("`string` with env variables (ex: \"GOOS=os%c...\"'", filepath.ListSeparator)
 	fs.Var(rf, "env", usage)
 }
@@ -997,6 +978,8 @@ The commands are:
 	test		test packages compiled with godebug data
 	build 	build binary with godebug data (allows remote debug)
 	connect	connect to a binary built with godebug data (allows remote debug)
+Env variables:
+	GODEBUG_BUILD_FLAGS	comma separated flags for build
 Examples:
 	GoDebug -help
 	GoDebug run -help
@@ -1007,6 +990,7 @@ Examples:
 	GoDebug test -run mytest
 	GoDebug build -addr=:8080 main.go
 	GoDebug connect -addr=:8080
+	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
 `
 }
 
@@ -1116,4 +1100,14 @@ func trimAtFirstSrcDir(filename string) string {
 		}
 	}
 	return filename
+}
+
+//----------
+
+func godebugBuildFlags(env []string) []string {
+	bfs := osutil.GetEnv(env, "GODEBUG_BUILD_FLAGS")
+	if len(bfs) == 0 {
+		return nil
+	}
+	return strings.Split(bfs, ",")
 }

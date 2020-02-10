@@ -174,11 +174,11 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 //----------
 
 func newTestManager(t *testing.T) *Manager {
-	fnErr := func(err error) {
+	msgFn := func(s string) {
 		//t.Log(err) // error if t.Log gets used after returning from func
-		logPrintf("test: manager async error: %v", err)
+		logPrintf("test: manager async msg: %v", s)
 	}
-	man := NewManager(fnErr)
+	man := NewManager(msgFn)
 
 	// registrations
 	u := []string{

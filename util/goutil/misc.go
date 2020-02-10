@@ -66,8 +66,15 @@ func PrintAstFile(w io.Writer, fset *token.FileSet, astFile *ast.File) error {
 	// TODO: without tabwidth set, it won't output the source correctly
 
 	// print with source positions from original file
-	cfg := &printer.Config{Tabwidth: 4, Mode: printer.SourcePos}
-	//cfg := &printer.Config{Mode: printer.RawFormat}
+
+	// Fail: has struct fields without spaces "field int"->"fieldint"
+	//cfg := &printer.Config{Mode: printer.SourcePos | printer.TabIndent}
+
+	// Fail: has stmts split with comments in the middle
+	//cfg := &printer.Config{Mode: printer.SourcePos | printer.TabIndent | printer.UseSpaces}
+
+	cfg := &printer.Config{Mode: printer.SourcePos, Tabwidth: 4}
+
 	return cfg.Fprint(w, fset, astFile)
 }
 

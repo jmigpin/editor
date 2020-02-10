@@ -227,6 +227,8 @@ The commands are:
 	test		test packages compiled with godebug data
 	build 	build binary with godebug data (allows remote debug)
 	connect	connect to a binary built with godebug data (allows remote debug)
+Env variables:
+	GODEBUG_BUILD_FLAGS	comma separated flags for build
 Examples:
 	GoDebug -help
 	GoDebug run -help
@@ -237,6 +239,8 @@ Examples:
 	GoDebug test -run mytest
 	GoDebug build -addr=:8080 main.go
 	GoDebug connect -addr=:8080
+	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
+
 ```
 
 - Annotate files

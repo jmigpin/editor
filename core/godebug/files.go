@@ -18,6 +18,7 @@ import (
 
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/osutil"
+
 	"golang.org/x/tools/go/packages"
 )
 
@@ -101,9 +102,9 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, env
 
 	// add tests directory
 	if tests {
-		//files.Add(files.Dir)
+		//files.Add(files.Dir) // auto add the full directory (useful)
 
-		// add only test files
+		// add only test files (can always add an annotatepackage on the file)
 		fis, err := ioutil.ReadDir(files.Dir)
 		if err != nil {
 			return err
@@ -117,21 +118,8 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, env
 	}
 
 	// all program packages
-	loadMode := 0 |
-		packages.NeedDeps |
-		packages.NeedImports |
-		packages.NeedName | // name and pkgpath
-		packages.NeedFiles |
-		// TODO: needed to have custom parsefile be used
-		//packages.NeedSyntax |
-		packages.NeedTypes |
-		0
-	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, mainFilename, tests, env, files.parseFileFn())
+	pkgs, err := files.progPackages(ctx, mainFilename, tests, env)
 	if err != nil {
-		// programpackages parsesfiles concurrently, on ctx cancel it concats useless error, get just the ctx error here
-		if err2 := ctx.Err(); err2 != nil {
-			return err2
-		}
 		return err
 	}
 
@@ -301,7 +289,7 @@ func (files *Files) handleAnnOpt(filename string, opt *AnnotationOpt) (bool, err
 			}
 			_, ok := files.progFilenames[f]
 			if !ok {
-				return false, fmt.Errorf("file not found: %v", opt.Opt)
+				return false, fmt.Errorf("file not found in loaded program: %v", opt.Opt)
 			}
 			filename = f
 		}
@@ -329,7 +317,7 @@ func (files *Files) handleAnnOpt(filename string, opt *AnnotationOpt) (bool, err
 		if opt.Opt != "" {
 			dir2, ok := files.pkgPathDir(opt.Opt)
 			if !ok {
-				return false, fmt.Errorf("pkg path dir not found: %v", opt.Opt)
+				return false, fmt.Errorf("pkg path dir not found in loaded program: %v", opt.Opt)
 			}
 			dir = dir2
 		}
@@ -374,7 +362,7 @@ func (files *Files) annTypeImportPath(n ast.Node, opt *AnnotationOpt) (string, e
 func (files *Files) addPkgPath(pkgPath string, typ AnnotationType) error {
 	dir, ok := files.pkgPathDir(pkgPath)
 	if !ok {
-		return fmt.Errorf("pkg to annotate not loaded: %q", pkgPath)
+		return fmt.Errorf("pkg to annotate not found in loaded program: %q", pkgPath)
 	}
 	return files.addAnnDir(dir, typ)
 }
@@ -652,6 +640,26 @@ func (files *Files) NodeAnnType(n ast.Node) AnnotationType {
 
 //----------
 
+func (files *Files) progPackages(ctx context.Context, filename string, tests bool, env []string) ([]*packages.Package, error) {
+	loadMode := 0 |
+		packages.NeedDeps |
+		packages.NeedImports |
+		packages.NeedName | // name and pkgpath
+		packages.NeedFiles |
+		// TODO: needed to have custom parsefile be used
+		//packages.NeedSyntax |
+		packages.NeedTypes |
+		0
+	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, filename, tests, env, files.parseFileFn())
+	// programpackages parses files concurrently, on ctx cancel it concats useless repeated errors, get just one ctx error
+	if err2 := ctx.Err(); err2 != nil {
+		return nil, err2
+	}
+	return pkgs, err
+}
+
+//----------
+
 //func (files *Files) reviewTmpDirCache() error {
 //	// TODO: in one rune a package was annotated, but in another run, the package is not required to be annotated, but the annotated files are in the cache and going to be used
 //	// TODO: in progfilenames and annotated, if in cache could have been just copied?
@@ -833,13 +841,14 @@ func ProgramPackages(
 	parseFile func(fset *token.FileSet, filename string, src []byte) (*ast.File, error),
 ) ([]*packages.Package, error) {
 	cfg := &packages.Config{
-		Context:   ctx,
-		Fset:      fset,
-		Tests:     tests,
-		Dir:       dir,
-		Mode:      mode,
-		Env:       env,
-		ParseFile: parseFile,
+		Context:    ctx,
+		Fset:       fset,
+		Tests:      tests,
+		Dir:        dir,
+		Mode:       mode,
+		Env:        env,
+		BuildFlags: godebugBuildFlags(env),
+		ParseFile:  parseFile,
 	}
 	pattern := ""
 	if !tests && filename != "" {

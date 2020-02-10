@@ -129,7 +129,7 @@ func XdgOpenDir(args *core.InternalCmdArgs) error {
 	}
 
 	a := []string{"xdg-open", erow.Info.Dir()}
-	c := osutil.ExecCmdCtxWithAttr(args.Ctx, a)
+	c := osutil.NewCmd(args.Ctx, a...)
 	if err := c.Start(); err != nil {
 		return err
 	}

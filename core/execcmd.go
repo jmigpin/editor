@@ -8,9 +8,14 @@ import (
 )
 
 func ExecCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	return ExecCmdStdin(ctx, dir, nil, args...)
+	cmd := osutil.NewCmd(ctx, args...)
+	cmd.Dir = dir
+	return osutil.RunCmdStdoutAndStderrInErr(cmd)
 }
 
 func ExecCmdStdin(ctx context.Context, dir string, in io.Reader, args ...string) ([]byte, error) {
-	return osutil.RunExecCmdCtxWithAttrAndGetOutputs(ctx, dir, in, args, nil)
+	cmd := osutil.NewCmd(ctx, args...)
+	cmd.Dir = dir
+	cmd.Stdin = in
+	return osutil.RunCmdStdoutAndStderrInErr(cmd)
 }
