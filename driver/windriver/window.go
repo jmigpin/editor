@@ -375,7 +375,7 @@ func (win *Window) runAppMsgReq(req event.Request) error {
 	if err := win.postAppMsg(appData); err != nil {
 		return err
 	}
-	reqErrV, err := appData.Ch.Receive(500 * time.Millisecond)
+	reqErrV, err := appData.Ch.Receive(3 * time.Second)
 	if err != nil {
 		return err
 	}
