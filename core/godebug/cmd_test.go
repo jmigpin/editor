@@ -1324,12 +1324,8 @@ func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, 
 
 	// environment
 	env := []string{}
-	if noModules {
-		//env = append(env, "EDITOR_GODEBUG_NOMODULES=true")
-		//env = append(env, "GOPATH="+tf.Dir)
-	} else {
-		// TODO: makes src4 fail?
-		//env = append(env, "GO111MODULE=on")
+	if !noModules {
+		env = append(env, "GO111MODULE=on")
 	}
 	envArg := strings.Join(env, string(os.PathListSeparator))
 
