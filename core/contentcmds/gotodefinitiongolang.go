@@ -9,25 +9,54 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/core/lsproto"
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
+//godebug:annotatefile
+
 func GoToDefinitionGolang(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	if erow.Info.IsDir() {
 		return nil, false
 	}
+
+	// commented: "guru" doesn't work well with modules and  "gopls query" needs the file to be saved
+	//return guruOrGoplsQuery(ctx, erow, index)
+
+	// auto setup a gopls lsproto, the contentcmd gotodefinition_lsproto will then use it
+	autoSetupGoplsLSPproto(ctx, erow, index)
+
+	return nil, false
+}
+
+func autoSetupGoplsLSPproto(ctx context.Context, erow *core.ERow, index int) {
+	// auto register for ".go" files
+	_, err := erow.Ed.LSProtoMan.LangManager("a.go")
+	if err != nil { // no registration exists
+		s := "go,.go,stdio,\"gopls serve\""
+		reg, err := lsproto.NewRegistration(s)
+		if err != nil {
+			panic(err)
+		}
+		erow.Ed.LSProtoMan.Register(reg)
+	}
+}
+
+//----------
+
+func guruOrGoplsQuery(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	if path.Ext(erow.Info.Name()) != ".go" {
 		return nil, false
 	}
+
+	// it's a go file, return true from here
 
 	// timeout for the cmd to run
 	timeout := 8 * time.Second
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
-	// it's a go file, return true from here
 
 	// TODO: remove later since guru won't be updated to support modules.
 	err1 := goGuru(ctx, erow, index)
@@ -46,8 +75,9 @@ func GoToDefinitionGolang(ctx context.Context, erow *core.ERow, index int) (erro
 
 //----------
 
-// TODO: no way to send current buffer, needs file to be saved
 func goplsQuery(ctx context.Context, erow *core.ERow, index int) error {
+	// TODO: no way to send current buffer, needs file to be saved
+
 	// gopls query args
 	pos := fmt.Sprintf("%v:#%v", erow.Info.Name(), index)
 	args := []string{osutil.ExecName("gopls"), "query", "-emulate", "guru", "definition", pos}
