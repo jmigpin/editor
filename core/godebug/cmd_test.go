@@ -8,11 +8,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/osutil"
 )
+
+//godebug:annotatepackage
 
 func init() {
 	SimplifyStringifyItem = false
@@ -195,15 +196,14 @@ func TestCmd_comments(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainMainGo := `
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		//godebug:annotateimport
 		func main() {
 			a:=1
 			_=a
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -227,32 +227,28 @@ func TestCmd_comments2(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../w/example.com/pkg1
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		//godebug:annotateimport
 		import "example.com/pkg1"
 		func main() {
 			_=pkg1.Fa()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	d := "w/example.com/"
+	tf.WriteFileInTmp2OrPanic(d+"pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1FaGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic(d+"pkg1/fa.go", `
 		package pkg1
 		func Fa() string {
 			return "Fa"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	d := "w/example.com/"
-	tf.WriteFileInTmp2OrPanic(d+"pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic(d+"pkg1/fa.go", pkg1FaGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -270,11 +266,11 @@ func TestCmd_comments3(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../w/example.com/pkg1
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import (
 			//godebug:annotateimport
@@ -283,21 +279,17 @@ func TestCmd_comments3(t *testing.T) {
 		func main() {
 			_=pkg1.Fa()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	d := "w/example.com/"
+	tf.WriteFileInTmp2OrPanic(d+"pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1FaGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic(d+"pkg1/fa.go", `
 		package pkg1
 		func Fa() string {
 			return "Fa"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	d := "w/example.com/"
-	tf.WriteFileInTmp2OrPanic(d+"pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic(d+"pkg1/fa.go", pkg1FaGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -320,12 +312,12 @@ func TestCmd_goMod1(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../pkg1
 		replace example.com/pkg2 => ../pkg2
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "example.com/pkg1"
 		import "example.com/pkg2"
@@ -333,34 +325,28 @@ func TestCmd_goMod1(t *testing.T) {
 			_=pkg1.F1()
 			_=pkg2.F2()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1F1Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", `
 		package pkg1
 		func F1() string {
 			return "F1"
 		}
-	`
-	pkg2GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", `
 		module example.com/pkg2
 		replace example.com/pkg1 => ../pkg1
-	`
-	pkg2F2Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", `
 		package pkg2
 		import "example.com/pkg1"
 		func F2() string {
 			//godebug:annotateblock
 			return "F2"+pkg1.F1()
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", pkg1F1Go)
-	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", pkg2GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", pkg2F2Go)
+	`)
 
 	dir1 := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -384,12 +370,12 @@ func TestCmd_goMod2(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../pkg1
-		replace example.com/pkg2 => ` + filepath.Join(tf.Dir, "pkg2") + `
-	`
-	mainMainGo := `
+		replace example.com/pkg2 => `+filepath.Join(tf.Dir, "pkg2")+`
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "example.com/pkg1"
 		import "example.com/pkg2"
@@ -397,32 +383,26 @@ func TestCmd_goMod2(t *testing.T) {
 			_=pkg1.F1()
 			_=pkg2.F2()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1F1Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", `
 		package pkg1
 		func F1() string {
 			return "F1"
 		}
-	`
-	pkg2GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", `
 		module example.com/pkg2
-	`
-	pkg2F2Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", `
 		package pkg2
 		func F2() string {
 			//godebug:annotateblock
 			return "F2"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", pkg1F1Go)
-	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", pkg2GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", pkg2F2Go)
+	`)
 
 	dir1 := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -443,22 +423,22 @@ func TestCmd_goMod3(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../pkg1
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "example.com/pkg1"
 		func main() {
 			_=pkg1.F1a()
 			_=pkg1.F1b("arg-from-main")
 		}
-	`
-	pkg1GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1F1Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", `
 		package pkg1
 		func F1a() string {
 			//godebug:annotateblock
@@ -467,11 +447,7 @@ func TestCmd_goMod3(t *testing.T) {
 		func F1b(a string) string {
 			return "F1b"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", pkg1F1Go)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -487,39 +463,34 @@ func TestCmd_goMod4(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../pkg1
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "example.com/pkg1"
 		func main() {
 			_=pkg1.F1a()
 			_=pkg1.F1b()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1F1aGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1a.go", `
 		package pkg1
 		func F1a() string {
 			//godebug:annotatepackage
 			return "F1a"
 		}
-	`
-	pkg1F1bGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1b.go", `
 		package pkg1
 		func F1b() string {
 			return "F1b"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/f1a.go", pkg1F1aGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/f1b.go", pkg1F1bGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -537,12 +508,12 @@ func TestCmd_goMod5_test(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module example.com/main
 		replace example.com/pkg1 => ../pkg1
 		replace example.com/pkg2 => ../pkg2
-	`
-	mainMainTestsGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main_test.go", `
 		package main
 		import "testing"
 		import "example.com/pkg1"
@@ -551,33 +522,26 @@ func TestCmd_goMod5_test(t *testing.T) {
 			_=pkg1.F1()
 			_=pkg2.F2()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1F1Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", `
 		package pkg1
 		func F1() string {
 			return "F1"
 		}
-	`
-	pkg2GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", `
 		module example.com/pkg2
-	`
-	pkg2F2Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", `
 		package pkg2
 		func F2() string {
 			//godebug:annotateblock
 			return "F2"
 		}
-	`
-
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main_test.go", mainMainTestsGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", pkg1F1Go)
-	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", pkg2GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", pkg2F2Go)
+	`)
 
 	dir1 := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -595,11 +559,11 @@ func TestCmd_goMod6(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../pkg1
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "example.com/pkg1"
 		import "example.com/pkg1/sub1"
@@ -609,35 +573,29 @@ func TestCmd_goMod6(t *testing.T) {
 			_=pkg1.Fb()
 			_=sub1.Fc()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1FaGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
 		package pkg1
 		//godebug:annotatemodule
 		func Fa() string {
 			return "Fa"
 		}
-	`
-	pkg1FbGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", `
 		package pkg1
 		func Fb() string {
 			return "Fb"
 		}
-	`
-	sub1FcGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", `
 		package sub1
 		func Fc() string {
 			return "Fc"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", pkg1FaGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", pkg1FbGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", sub1FcGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -655,11 +613,11 @@ func TestCmd_goMod7(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../pkg1
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "example.com/pkg1"
 		import "example.com/pkg1/sub1"
@@ -669,38 +627,33 @@ func TestCmd_goMod7(t *testing.T) {
 			_=pkg1.Fb()
 			_=sub1.Fc()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1FaGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
 		package pkg1
 		func Fa() string {
 			return "Fa"
 		}
-	`
-	pkg1FbGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", `
 		package pkg1
 		func Fb() string {
 			return "Fb"
 		}
-	`
-	sub1FcGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", `
 		package sub1
 		func Fc() string {
 			return "Fc"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", pkg1FaGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", pkg1FbGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", sub1FcGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
+		//"-work",
 		//"-verbose",
 		"main.go",
 	}
@@ -716,11 +669,11 @@ func TestCmd_goMod7b(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
 		replace example.com/pkg1 => ../pkg1
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "example.com/pkg1"
 		import "example.com/pkg1/sub1"
@@ -730,34 +683,28 @@ func TestCmd_goMod7b(t *testing.T) {
 			_=pkg1.Fb()
 			_=sub1.Fc()
 		}
-	`
-	pkg1GoMod := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
-	`
-	pkg1FaGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
 		package pkg1
 		func Fa() string {
 			return "Fa"
 		}
-	`
-	pkg1FbGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", `
 		package pkg1
 		func Fb() string {
 			return "Fb"
 		}
-	`
-	sub1FcGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", `
 		package sub1
 		func Fc() string {
 			return "Fc"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", pkg1FaGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", pkg1FbGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", sub1FcGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -771,6 +718,57 @@ func TestCmd_goMod7b(t *testing.T) {
 	mustHaveString(t, msgs, `"Fc"`)
 }
 
+func TestCmd_goMod7c(t *testing.T) {
+	// test passing build args to compiler
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+		replace example.com/pkg1 => ../pkg1
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		//godebug:annotateimport
+		import "example.com/pkg1"
+		func main() {
+			_=pkg1.Fa()
+		}
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
+		module example.com/pkg1
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa_os1.go", `
+		// +build OS1
+		
+		package pkg1
+		func Fa() string {
+			return "Fa_os1"
+		}
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa_os2.go", `
+		// +build OS2
+
+		package pkg1
+		func Fa() string {
+			return "Fa_os2"
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"-env=GODEBUG_BUILD_FLAGS=-tags=OS2",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustNotHaveString(t, msgs, `"Fa_os1"`)
+	mustHaveString(t, msgs, `"Fa_os2"`)
+}
+
 func TestCmd_goMod8(t *testing.T) {
 	// An empty go.mod with just the module name, will make "go build" try to fetch from the web the dependencies.
 	// By using "go mod init", if there is no go.mod, it is created with the dependency (if already on the disk) and nothing is fetched from the web.
@@ -781,19 +779,17 @@ func TestCmd_goMod8(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "github.com/BurntSushi/xgb"
 		//godebug:annotatepackage:github.com/BurntSushi/xgb
 		func main() {
 			_=xgb.Pad(1)
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -815,7 +811,7 @@ func TestCmd_goMod9(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainMainGo := `
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "github.com/BurntSushi/xgb"
 		import "golang.org/x/tools/godoc/util"
@@ -825,8 +821,7 @@ func TestCmd_goMod9(t *testing.T) {
 			_=xgb.Pad(1)
 			_=util.IsText([]byte("001"))
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -847,7 +842,7 @@ func TestCmd_goMod10(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainMainGo := `
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "github.com/BurntSushi/xgb"
 		import "golang.org/x/tools/godoc/util"
@@ -857,8 +852,7 @@ func TestCmd_goMod10(t *testing.T) {
 			_=xgb.Pad(1)
 			_=util.IsText([]byte("001"))
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -881,10 +875,10 @@ func TestCmd_goMod11(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "github.com/BurntSushi/xgb"
 		import "github.com/BurntSushi/xgb/shm"
@@ -900,9 +894,7 @@ func TestCmd_goMod11(t *testing.T) {
 			}
 			_=util.IsText([]byte("001"))
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -922,10 +914,10 @@ func TestCmd_goMod12(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "github.com/BurntSushi/xgb"
 		//godebug:annotateimport
@@ -938,9 +930,7 @@ func TestCmd_goMod12(t *testing.T) {
 				_=shm.Init(conn)
 			}
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -960,10 +950,10 @@ func _TestCmd_goMod13(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainGoMod := `
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
-	`
-	mainMainGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		import "github.com/BurntSushi/xgb"
 		import "github.com/BurntSushi/xgb/shm"
@@ -976,125 +966,7 @@ func _TestCmd_goMod13(t *testing.T) {
 				_=shm.Init(conn)
 			}
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-
-	dir := filepath.Join(tf.Dir, "main")
-	cmd := []string{
-		"run",
-		//"-work",
-		//"-verbose",
-		"main.go",
-	}
-	msgs := doCmd(t, dir, cmd)
-	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
-	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
-}
-
-func TestCmd_goMod14(t *testing.T) {
-	// test tmp cache re-use
-
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
-	mainGoMod := `
-		module main
-		replace example.com/pkg1 => ../pkg1
-	`
-	mainMainGo := `
-		package main
-		//godebug:annotatemodule:example.com/pkg1
-		import "example.com/pkg1"
-		import "example.com/pkg1/sub1"
-		func main() {
-			_=pkg1.Fa()
-			_=pkg1.Fb()
-			_=sub1.Fc()
-		}
-	`
-	pkg1GoMod := `
-		module example.com/pkg1
-	`
-	pkg1FaGo := `
-		package pkg1
-		func Fa() string {
-			return "Fa"
-		}
-	`
-	pkg1FbGo := `
-		package pkg1
-		func Fb() string {
-			return "Fb"
-		}
-	`
-	sub1FcGo := `
-		package sub1
-		func Fc() string {
-			return "Fc"
-		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", pkg1GoMod)
-	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", pkg1FaGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/fb.go", pkg1FbGo)
-	tf.WriteFileInTmp2OrPanic("pkg1/sub1/fc.go", sub1FcGo)
-
-	dir := filepath.Join(tf.Dir, "main")
-	cmd := []string{
-		"run",
-		//"-verbose",
-		"main.go",
-	}
-
-	s1 := time.Now()
-
-	msgs := doCmd(t, dir, cmd)
-	mustHaveString(t, msgs, `"Fa"`)
-	mustHaveString(t, msgs, `"Fb"`)
-	mustHaveString(t, msgs, `"Fc"`)
-
-	s2 := time.Now()
-
-	// run again
-	msgs = doCmd(t, dir, cmd)
-	mustHaveString(t, msgs, `"Fa"`)
-	mustHaveString(t, msgs, `"Fb"`)
-	mustHaveString(t, msgs, `"Fc"`)
-
-	s3 := time.Now()
-
-	t1 := s2.Sub(s1)
-	t2 := s3.Sub(s2)
-	t.Logf("%v %v -> %v", t1, t2, t1-t2)
-}
-
-func _TestCmd_goMod15(t *testing.T) {
-	// annotate full external module (slow)
-
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
-	mainGoMod := `
-		module main
-	`
-	mainMainGo := `
-		package main
-		import "github.com/BurntSushi/xgb"
-		import "github.com/BurntSushi/xgb/shm"
-		//godebug:annotatemodule:github.com/BurntSushi/xgb/shm
-		func main() {
-			_=xgb.Pad(1)
-			conn,err:=xgb.NewConnDisplay("")
-			defer conn.Close()
-			if err!=nil{
-				_=shm.Init(conn)
-			}
-		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/go.mod", mainGoMod)
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -1114,7 +986,7 @@ func TestCmd_goPath1(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainMainGo := `
+	tf.WriteFileInTmp2OrPanic("src/main/main.go", `
 		package main
 		import "main/sub1"
 		import "main/sub1/sub2"
@@ -1124,30 +996,26 @@ func TestCmd_goPath1(t *testing.T) {
 			_=sub2.Sub2()
 			_=sub3.Sub3()
 		}
-	`
-	mainSub1Sub1Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("src/main/sub1/sub1.go", `
 		package sub1
 		func Sub1() string {
 			return "sub1"
 		}
-	`
-	mainSub1Sub2Sub2Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("src/main/sub1/sub2/sub2.go", `
 		package sub2
 		func Sub2() string {
 			//godebug:annotateblock
 			return "sub2"
 		}
-	`
-	mainSub3Sub3Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("src/main/sub3/sub3.go", `
 		package sub3
 		func Sub3() string {
 			return "sub3"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("src/main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("src/main/sub1/sub1.go", mainSub1Sub1Go)
-	tf.WriteFileInTmp2OrPanic("src/main/sub1/sub2/sub2.go", mainSub1Sub2Sub2Go)
-	tf.WriteFileInTmp2OrPanic("src/main/sub3/sub3.go", mainSub3Sub3Go)
+	`)
 
 	dir := filepath.Join(tf.Dir, "src/main")
 	cmd := []string{
@@ -1166,23 +1034,21 @@ func TestCmd_goPath2(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainMainGo := `
+	tf.WriteFileInTmp2OrPanic("aaa/src/main/main.go", `
 		package main
 		import "pkg1"
 		func main() {
 			_=1
 			_=pkg1.Sub1()
 		}
-	`
-	pkg1Sub1Go := `
+	`)
+	tf.WriteFileInTmp2OrPanic("src/pkg1/sub1.go", `
 		package pkg1
 		func Sub1() string {
 			//godebug:annotateblock
 			return "sub1"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("aaa/src/main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("src/pkg1/sub1.go", pkg1Sub1Go)
+	`)
 
 	cmd := []string{
 		"run",
@@ -1206,22 +1072,20 @@ func TestCmd_goPath3(t *testing.T) {
 
 	// no go.mod, should run in GOPATH mode and succeed
 
-	mainMainGo := `
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		//godebug:annotateimport
 		import "example.com/pkg1"
 		func main() {
 			_=pkg1.Fa()
 		}
-	`
-	pkg1FaGo := `
+	`)
+	tf.WriteFileInTmp2OrPanic("w/src/example.com/pkg1/fa.go", `
 		package pkg1
 		func Fa() string {
 			return "Fa"
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("main/main.go", mainMainGo)
-	tf.WriteFileInTmp2OrPanic("w/src/example.com/pkg1/fa.go", pkg1FaGo)
+	`)
 
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
@@ -1240,13 +1104,12 @@ func TestCmd_simple1(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainMainGo := `
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", `
 		package main
 		func main() {
 			_=1
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("dir1/main.go", mainMainGo)
+	`)
 
 	cmd := []string{
 		"run",
@@ -1263,13 +1126,12 @@ func TestCmd_simple2(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	mainMainGo := `
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", `
 		package main
 		func main() {
 			_=1
 		}
-	`
-	tf.WriteFileInTmp2OrPanic("dir1/main.go", mainMainGo)
+	`)
 
 	cmd := []string{
 		"build",
