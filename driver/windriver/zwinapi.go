@@ -565,7 +565,7 @@ func _GetObject(h windows.Handle, c int32, v uintptr) (n int) {
 	return
 }
 
-func _CreateDIBSection(dc syscall.Handle, bmi *_BitmapInfo, usage uint32, bits **byte, section syscall.Handle, offset uint32) (bmH windows.Handle, err error) {
+func _CreateDIBSection(dc windows.Handle, bmi *_BitmapInfo, usage uint32, bits **byte, section windows.Handle, offset uint32) (bmH windows.Handle, err error) {
 	r0, _, e1 := syscall.Syscall6(procCreateDIBSection.Addr(), 6, uintptr(dc), uintptr(unsafe.Pointer(bmi)), uintptr(usage), uintptr(unsafe.Pointer(bits)), uintptr(section), uintptr(offset))
 	bmH = windows.Handle(r0)
 	if bmH == 0 {

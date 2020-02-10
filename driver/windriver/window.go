@@ -934,7 +934,11 @@ func vkeyRune(vkey uint32, kstate *[256]byte) (rune, bool) {
 //----------
 
 func hideConsole() bool {
-	// Note: compiling with "-ldflags -H=windowsgui" will hide the console but then other launched cmds will popup consoles.
+	// build notes that affect the console state
+	// # shows one console window (will be hidden, but makes a flash)
+	// $ go build
+	// # hides the console window, but cmds will popup consoles
+	// $ go build -ldflags -H=windowsgui
 
 	console := _GetConsoleWindow()
 	if console == 0 {

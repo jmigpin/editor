@@ -628,7 +628,7 @@ func UTF16PtrFromString(s string) *uint16 {
 //sys _SetPixel(hdc windows.Handle, x int, y int, c _ColorRef) (colorSet int32, err error) [failretval==-1] = gdi32.SetPixel
 //sys _CreateBitmapIndirect(bm *_Bitmap) (bmH windows.Handle, err error) = gdi32.CreateBitmapIndirect
 //sys _GetObject(h windows.Handle, c int32, v uintptr) (n int) = gdi32.GetObject
-//sys	_CreateDIBSection(dc syscall.Handle, bmi *_BitmapInfo, usage uint32, bits **byte, section syscall.Handle, offset uint32) (bmH windows.Handle, err error) = gdi32.CreateDIBSection
+//sys	_CreateDIBSection(dc windows.Handle, bmi *_BitmapInfo, usage uint32, bits **byte, section windows.Handle, offset uint32) (bmH windows.Handle, err error) = gdi32.CreateDIBSection
 
 //sys _DragAcceptFiles(hwnd windows.Handle, fAccept bool) = shell32.DragAcceptFiles
 //sys _DragQueryPoint(hDrop uintptr, ppt *_Point) (res bool) = shell32.DragQueryPoint
