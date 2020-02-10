@@ -944,7 +944,7 @@ func TestCmd_goMod12(t *testing.T) {
 	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
 }
 
-func _TestCmd_goMod13(t *testing.T) {
+func TestCmd_goMod13(t *testing.T) {
 	// annotate full external module (slow)
 
 	tf := newTmpFiles(t)
@@ -978,6 +978,35 @@ func _TestCmd_goMod13(t *testing.T) {
 	msgs := doCmd(t, dir, cmd)
 	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
 	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
+}
+
+func TestCmd_goMod14(t *testing.T) {
+	// error when trying to annotate goroot package
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		//godebug:annotateimport
+		import "fmt"
+		func main() {
+			fmt.Printf("aaa")
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	_, err := doCmd2(t, dir, cmd)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+	t.Log(err)
 }
 
 //------------
@@ -1324,8 +1353,8 @@ func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, 
 
 	// environment
 	env := []string{}
-	if !noModules {
-		env = append(env, "GO111MODULE=on")
+	if noModules {
+		env = append(env, "GO111MODULE=off")
 	}
 	envArg := strings.Join(env, string(os.PathListSeparator))
 

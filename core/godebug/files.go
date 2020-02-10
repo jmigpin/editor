@@ -289,7 +289,7 @@ func (files *Files) handleAnnOpt(filename string, opt *AnnotationOpt) (bool, err
 			}
 			_, ok := files.progFilenames[f]
 			if !ok {
-				return false, fmt.Errorf("file not found in loaded program: %v", opt.Opt)
+				return false, fmt.Errorf("file not found in loaded program (or stdlib file): %v", opt.Opt)
 			}
 			filename = f
 		}
@@ -315,9 +315,9 @@ func (files *Files) handleAnnOpt(filename string, opt *AnnotationOpt) (bool, err
 	case AnnotationTypeModule:
 		dir := filepath.Dir(filename)
 		if opt.Opt != "" {
-			dir2, ok := files.pkgPathDir(opt.Opt)
-			if !ok {
-				return false, fmt.Errorf("pkg path dir not found in loaded program: %v", opt.Opt)
+			dir2, err := files.pkgPathDir(opt.Opt)
+			if err != nil {
+				return false, err
 			}
 			dir = dir2
 		}
@@ -331,7 +331,7 @@ func (files *Files) handleAnnOpt(filename string, opt *AnnotationOpt) (bool, err
 		}
 		return true, nil
 	default:
-		err := fmt.Errorf("todo: keepAnnotationOpt: %v", opt.Type)
+		err := fmt.Errorf("todo: handleAnnOpt: %v", opt.Type)
 		return false, err
 	}
 }
@@ -360,9 +360,9 @@ func (files *Files) annTypeImportPath(n ast.Node, opt *AnnotationOpt) (string, e
 }
 
 func (files *Files) addPkgPath(pkgPath string, typ AnnotationType) error {
-	dir, ok := files.pkgPathDir(pkgPath)
-	if !ok {
-		return fmt.Errorf("pkg to annotate not found in loaded program: %q", pkgPath)
+	dir, err := files.pkgPathDir(pkgPath)
+	if err != nil {
+		return err
 	}
 	return files.addAnnDir(dir, typ)
 }
@@ -619,13 +619,14 @@ func (files *Files) doAnnFilesHashes() error {
 
 //----------
 
-func (files *Files) pkgPathDir(pkgPath string) (string, bool) {
+func (files *Files) pkgPathDir(pkgPath string) (string, error) {
 	for dir, pkgPath2 := range files.progDirPkgPaths {
 		if pkgPath2 == pkgPath {
-			return dir, true
+			return dir, nil
 		}
 	}
-	return "", false
+	err := fmt.Errorf("pkg path not found in loaded program (or stdlib pkg): %v", pkgPath)
+	return "", err
 }
 
 //----------
