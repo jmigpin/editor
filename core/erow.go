@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
@@ -309,6 +310,7 @@ func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
 
 //----------
 
+// Deprecated: use textAreaAppendBytesUIWriter().
 func (erow *ERow) TextAreaAppendBytesAsync(p []byte) <-chan struct{} {
 	comm := make(chan struct{})
 	erow.Ed.UI.RunOnUIGoRoutine(func() {
@@ -325,6 +327,22 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 	}
 }
 
+// Blocks until it has appended the bytes in the UI goroutine.
+func (erow *ERow) textAreaAppendBytesUIWriter() io.Writer {
+	ta := erow.Row.TextArea
+	return iout.FnWriter(func(b []byte) (int, error) {
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		var err2 error
+		erow.Ed.UI.RunOnUIGoRoutine(func() {
+			defer wg.Done()
+			err2 = ta.AppendBytesClearHistory(b)
+		})
+		wg.Wait()
+		return len(b), err2
+	})
+}
+
 //----------
 
 // Caller is responsible for closing the writer at the end.
@@ -332,40 +350,20 @@ func (erow *ERow) TextAreaWriter() io.WriteCloser {
 	// terminal filter (escape sequences) (before goroutine to avoid data race)
 	termFilter := erow.termFilter && erow.Info.IsDir()
 
+	w := erow.textAreaAppendBytesUIWriter()
+
 	prc, pwc := io.Pipe()
 	go func() {
-		var rc io.ReadCloser = prc
-
+		var r io.Reader = prc
 		if termFilter {
-			rc = NewTerminalFilter(erow, rc)
+			r = NewTerminalFilter(erow, r)
 		}
-
-		erow.readLoopToTextArea(rc)
+		if _, err := io.Copy(w, r); err != nil {
+			prc.Close()
+		}
 	}()
-
-	// buffered writer to minimize the number of writes to the textarea
+	// wrap pwc for performance (buffered) with output visible (auto-flush)
 	return iout.NewAutoBufWriter(pwc)
-}
-
-func (erow *ERow) readLoopToTextArea(rd io.Reader) {
-	var buf [4 * 1024]byte
-	for {
-		n, err := rd.Read(buf[:])
-		if n > 0 {
-			// make copy to append async
-			b := make([]byte, n)
-			copy(b, buf[:n])
-
-			// append async
-			c := erow.TextAreaAppendBytesAsync(b)
-
-			// Wait for the ui to have handled the content. This prevents a tight loop program from leaving the UI unresponsive.
-			<-c
-		}
-		if err != nil {
-			break
-		}
-	}
 }
 
 //----------

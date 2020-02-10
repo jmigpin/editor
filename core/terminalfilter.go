@@ -13,7 +13,7 @@ import (
 // Maintains state through different write calls.
 type TerminalFilter struct {
 	erow *ERow
-	rd   io.ReadCloser
+	rd   io.Reader
 
 	src   []byte
 	srci  int
@@ -38,7 +38,7 @@ type tfCSI2 struct {
 
 //----------
 
-func NewTerminalFilter(erow *ERow, rd io.ReadCloser) *TerminalFilter {
+func NewTerminalFilter(erow *ERow, rd io.Reader) *TerminalFilter {
 	tf := &TerminalFilter{erow: erow, rd: rd}
 	tf.stf = tf.parseEscape
 	return tf
@@ -46,9 +46,9 @@ func NewTerminalFilter(erow *ERow, rd io.ReadCloser) *TerminalFilter {
 
 //----------
 
-func (tf *TerminalFilter) Close() error {
-	return tf.rd.Close()
-}
+//func (tf *TerminalFilter) Close() error {
+//	return tf.rd.Close()
+//}
 
 //----------
 
