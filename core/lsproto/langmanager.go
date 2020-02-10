@@ -32,7 +32,10 @@ func (lang *LangManager) Close() error {
 	defer lang.mu.Unlock()
 	if lang.mu.li != nil {
 		defer func() { lang.mu.li = nil }()
-		return lang.mu.li.closeFromLangManager()
+		err := lang.mu.li.closeFromLangManager()
+		if err != nil {
+			return lang.WrapError(err)
+		}
 	}
 	return nil
 }
@@ -40,11 +43,13 @@ func (lang *LangManager) Close() error {
 //----------
 
 func (lang *LangManager) ErrorAsync(err error) {
-	if lang.man.asyncErrFn != nil {
-		err = lang.WrapError(err)
-		lang.man.asyncErrFn(err)
-	}
+	lang.man.Error(lang.WrapError(err))
 }
+
 func (lang *LangManager) WrapError(err error) error {
 	return fmt.Errorf("lsproto(%s): %w", lang.Reg.Language, err)
+}
+
+func (lang *LangManager) WrapMsg(s string) string {
+	return fmt.Sprintf("lsproto(%s): %v", lang.Reg.Language, s)
 }

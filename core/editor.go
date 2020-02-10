@@ -112,7 +112,7 @@ func (ed *Editor) init(opt *Options) error {
 
 func (ed *Editor) initLSProto(opt *Options) {
 	// language server protocol manager
-	ed.LSProtoMan = lsproto.NewManager(ed.Error)
+	ed.LSProtoMan = lsproto.NewManager(ed.Message)
 	for _, reg := range opt.LSProtos.regs {
 		ed.LSProtoMan.Register(reg)
 	}
@@ -194,8 +194,11 @@ func (ed *Editor) Error(err error) {
 }
 
 func (ed *Editor) Messagef(f string, a ...interface{}) {
+	ed.Message(fmt.Sprintf(f, a...))
+}
+
+func (ed *Editor) Message(s string) {
 	// ensure newline
-	s := fmt.Sprintf(f, a...)
 	if !strings.HasSuffix(s, "\n") {
 		s = s + "\n"
 	}
@@ -207,7 +210,6 @@ func (ed *Editor) Messagef(f string, a ...interface{}) {
 		ta := erow.Row.TextArea
 		index := ta.Len()
 
-		// append bytes
 		erow.TextAreaAppendBytes([]byte(s))
 
 		erow.MakeRangeVisibleAndFlash(index, len(s))

@@ -17,12 +17,24 @@ import (
 // - Client handles client connection to the lsp server
 // - ServerWrap, if used, runs the lsp server process
 type Manager struct {
-	langs      []*LangManager
-	asyncErrFn func(error) // called by LangManager
+	langs []*LangManager
+	msgFn func(string)
 }
 
-func NewManager(asyncErrFn func(error)) *Manager {
-	return &Manager{asyncErrFn: asyncErrFn}
+func NewManager(msgFn func(string)) *Manager {
+	return &Manager{msgFn: msgFn}
+}
+
+//----------
+
+func (man *Manager) Error(err error) {
+	man.Message(fmt.Sprintf("error: %v", err))
+}
+
+func (man *Manager) Message(s string) {
+	if man.msgFn != nil {
+		man.msgFn(s)
+	}
 }
 
 //----------
@@ -203,7 +215,12 @@ func (man *Manager) didClose(ctx context.Context, cli *Client, filename string) 
 func (man *Manager) Close() error {
 	me := &iout.MultiError{}
 	for _, lang := range man.langs {
-		me.Add(lang.Close())
+		err := lang.Close()
+		if err != nil {
+			me.Add(err)
+		} else {
+			man.Message(lang.WrapMsg("closed"))
+		}
 	}
 	return me.Result()
 }
