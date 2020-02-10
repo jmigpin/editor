@@ -30,7 +30,7 @@ Source code editor in pure Go.
 	- examples such as `gotodefinition` and `autocomplete` [below](#plugins).
 - Golang specific:
 	- Calls goimports if available when saving a .go file.
-	- Clicking on `.go` files identifiers will jump to the identifier definition (uses `guru` and/or `gopls query` if installed).
+	- Clicking on `.go` files identifiers will jump to the identifier definition (needs `gopls`).
 	- Debug utility for go programs (`GoDebug` cmd).
 		- allows to go back and forth in time to consult code values.
 - Language Server Protocol (LSP) (code analysis):
