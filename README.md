@@ -198,7 +198,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `CopyFilePosition`: output the cursor file position in the format "file:line:col". Useful to get a clickable text with the file position.
 - `RuneCodes`: output rune codes of the current row text selection.
 - `FontRunes`: output the current font runes.
-- `XdgOpenDir`: calls `xdg-open` to open the row directory with the preferred external application (ex: a filemanager).
+- `OpenFilemanager`: open the row directory with the preferred external application (usually a filemanager).
 - `LSProtoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `GoRename [-all] <new-name>`: Renames the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
 	- default: calls `gopls` (limited scope in renaming, but faster).
