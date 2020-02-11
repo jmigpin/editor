@@ -40,7 +40,9 @@ func init() {
 	ic.Set(&core.InternalCmd{"RuneCodes", false, RuneCodes})
 	ic.Set(&core.InternalCmd{"FontRunes", false, FontRunes})
 
-	ic.Set(&core.InternalCmd{"XdgOpenDir", false, XdgOpenDir})
+	// Deprecated: in favor of "OpenFilemanager"
+	ic.Set(&core.InternalCmd{"XdgOpenDir", false, OpenFilemanager})
+	ic.Set(&core.InternalCmd{"OpenFilemanager", false, OpenFilemanager})
 
 	ic.Set(&core.InternalCmd{"ListDir", false, ListDir})
 

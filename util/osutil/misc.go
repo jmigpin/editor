@@ -4,7 +4,9 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -66,4 +68,36 @@ func RandomPort(simpleSeed, min, max int) int {
 	seed := time.Now().UnixNano() + int64(os.Getpid()+simpleSeed)
 	ra := rand.New(rand.NewSource(int64(seed)))
 	return min + ra.Intn(max-min)
+}
+
+//----------
+
+// doesn't wait for the cmd to end
+func OpenBrowser(url string) error {
+	switch runtime.GOOS {
+	case "windows":
+		c := exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		return c.Start()
+	case "darwin":
+		c := exec.Command("open", url)
+		return c.Start()
+	default:
+		c := exec.Command("xdg-open", url)
+		return c.Start()
+	}
+}
+
+// doesn't wait for the cmd to end
+func OpenFilemanager(filename string) error {
+	switch runtime.GOOS {
+	case "windows":
+		c := exec.Command("explorer", "/select", filename)
+		return c.Start()
+	case "darwin":
+		c := exec.Command("open", filename)
+		return c.Start()
+	default:
+		c := exec.Command("xdg-open", filename)
+		return c.Start()
+	}
 }

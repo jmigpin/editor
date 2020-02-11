@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/jmigpin/editor/core"
@@ -17,6 +16,8 @@ import (
 // Opens url lines in preferred application.
 func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	ta := erow.Row.TextArea
+
+	//TODO: handle "//http://www" (detect "http" start?)
 
 	isHttpRune := func(ru rune) bool {
 		extra := parseutil.RunesExcept(parseutil.ExtraRunes, " []()<>")
@@ -47,18 +48,10 @@ func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 		return err, false
 	}
 
-	// cmd timeout
-	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-
-	// cmd
 	ustr := u.String()
-	args := []string{"xdg-open", ustr}
-	cmd := osutil.NewCmd(ctx2, args...)
-	if b, err := osutil.RunCmdCombinedOutput(cmd); err != nil {
-		err = fmt.Errorf("%w: %v", err, string(b))
+	if err := osutil.OpenBrowser(ustr); err != nil {
 		return err, true
 	}
-	erow.Ed.Messagef("openurl:\n\t%v", strings.Join(args, " "))
+
 	return nil, true
 }

@@ -121,25 +121,14 @@ func Clear(args *core.InternalCmdArgs) error {
 
 //----------
 
-func XdgOpenDir(args *core.InternalCmdArgs) error {
+func OpenFilemanager(args *core.InternalCmdArgs) error {
 	erow := args.ERow
 
 	if erow.Info.IsSpecial() {
 		return fmt.Errorf("can't run on special row")
 	}
 
-	a := []string{"xdg-open", erow.Info.Dir()}
-	c := osutil.NewCmd(args.Ctx, a...)
-	if err := c.Start(); err != nil {
-		return err
-	}
-	go func() {
-		if err := c.Wait(); err != nil {
-			erow.Ed.Error(err)
-		}
-	}()
-
-	return nil
+	return osutil.OpenFilemanager(erow.Info.Dir())
 }
 
 //----------

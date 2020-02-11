@@ -335,11 +335,11 @@ MaximizeRow
 ListDir | ListDir -hidden | ListDir -sub
 ListSessions | OpenSession | DeleteSession
 LSProtoCloseAll
+OpenFilemanager
 Reload | ReloadAll | ReloadAllFiles 
 ReopenRow 
 RuneCodes
 SaveAllFiles
-XdgOpenDir
 Exit | Stop | Clear`
 	tb := ed.UI.Root.MainMenuButton.Toolbar
 	tb.SetStrClearHistory(s)
