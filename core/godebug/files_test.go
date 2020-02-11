@@ -20,7 +20,7 @@ func newFilesFromSrcs(t *testing.T, srcs ...string) (*Files, []string) {
 // setup workable files without calling "files.do()" such that the program is not loaded but the commented nodes in the src can be tested by using the files.NodeAnnType function.
 func newFilesFromSrcs2(srcs ...string) (*Files, []string, error) {
 	fset := token.NewFileSet()
-	files := NewFiles(fset, false)
+	files := NewFiles(fset, false, nil)
 	names := []string{}
 	for i, src := range srcs {
 		filename := fmt.Sprintf("test/src%v.go", i)

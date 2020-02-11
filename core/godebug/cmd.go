@@ -46,8 +46,7 @@ type Cmd struct {
 		network   string
 		address   string
 		cancel    context.CancelFunc
-		wait      sync.WaitGroup
-		serverErr error
+		serverCmd *osutil.Cmd // the annotated program
 	}
 
 	flags struct {
@@ -159,7 +158,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 
 func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 	// "files" not in cmd.* to allow early GC
-	files := NewFiles(cmd.annset.FSet, cmd.noModules)
+	files := NewFiles(cmd.annset.FSet, cmd.noModules, cmd.Stderr)
 	files.Dir = cmd.Dir
 	//if cmd.FixedTmpDir {
 	//	files.TmpDir = cmd.tmpDir
@@ -349,7 +348,6 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 	if err := cmd.startServerClient2(ctx); err != nil {
 		// cmd.Wait() won't be called, clear resources
 		cmd.start.cancel()
-		cmd.start.wait.Wait()
 	}
 	return nil
 }
@@ -378,13 +376,7 @@ func (cmd *Cmd) startServerClient2(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// setup waiting for server to end
-		cmd.start.wait.Add(1)
-		go func() {
-			defer cmd.start.wait.Done()
-			cmd.start.serverErr = c.Wait()
-			cmd.start.cancel()
-		}()
+		cmd.start.serverCmd = c
 	}
 
 	// start client (blocks until connected)
@@ -393,22 +385,14 @@ func (cmd *Cmd) startServerClient2(ctx context.Context) error {
 		return err
 	}
 	cmd.Client = client
-
-	// setup waiting for client to finish
-	cmd.start.wait.Add(1)
-	go func() {
-		defer cmd.start.wait.Done()
-		cmd.Client.Wait() // wait for client to finish
-		cmd.start.cancel()
-	}()
-
 	return nil
 }
 
 func (cmd *Cmd) Wait() error {
-	cmd.start.wait.Wait()
+	err := cmd.start.serverCmd.Wait()
+	cmd.Client.Wait()
 	cmd.start.cancel() // ensure resources are cleared
-	return cmd.start.serverErr
+	return err
 }
 
 //------------

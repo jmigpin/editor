@@ -2051,7 +2051,7 @@ func TestAnnConfigContent(t *testing.T) {
 	}
 
 	// annotate config
-	src := annset.ConfigContent()
+	src := annset.ConfigContent("test_network", "test_addr")
 	t.Logf("%v", src) // TODO: test output
 }
 

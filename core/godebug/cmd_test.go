@@ -1,6 +1,7 @@
 package godebug
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -185,9 +187,13 @@ func TestCmd_src7(t *testing.T) {
 			_=a
 		}
 	`
-	_, err := doCmdSrc2(t, src, false, false)
-	if err == nil {
-		t.Fatal("expecting error")
+	_, _, es, err := doCmdSrc3(t, src, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(strings.Index(es, "# warning") >= 0 &&
+		strings.Index(es, "not_used_here") >= 0) {
+		t.Fatal("missing warning")
 	}
 }
 
@@ -212,13 +218,14 @@ func TestCmd_comments(t *testing.T) {
 		//"-verbose",
 		"main.go",
 	}
-	_, err := doCmd2(t, dir, cmd)
-	if err == nil {
-		t.Fatal("expecting error")
+	ctx := context.Background()
+	_, _, es, err := doCmd3(ctx, t, dir, cmd)
+	if err != nil {
+		t.Fatal(err)
 	}
-	s := err.Error()
-	if !strings.HasSuffix(s, "not at an import spec") {
-		t.Fatalf("wrong error: %v", s)
+	if !(strings.Index(es, "# warning") >= 0 &&
+		strings.Index(es, "not at an import spec") >= 0) {
+		t.Fatal("missing warning")
 	}
 }
 
@@ -357,7 +364,6 @@ func TestCmd_goMod1(t *testing.T) {
 		"main.go",
 	}
 	msgs := doCmd(t, dir1, cmd)
-
 	mustNotHaveString(t, msgs, "F1")
 	mustHaveString(t, msgs, `"F2F1"=("F2" + "F1"=F1())`)
 }
@@ -413,7 +419,6 @@ func TestCmd_goMod2(t *testing.T) {
 		"main.go",
 	}
 	msgs := doCmd(t, dir1, cmd)
-
 	mustNotHaveString(t, msgs, `"F1"`)
 	mustHaveString(t, msgs, `"F2"`)
 }
@@ -551,7 +556,6 @@ func TestCmd_goMod5_test(t *testing.T) {
 		//"-work",
 	}
 	msgs := doCmd(t, dir1, cmd)
-
 	mustNotHaveString(t, msgs, `"F1"`)
 	mustHaveString(t, msgs, `"F2"`)
 }
@@ -1003,11 +1007,15 @@ func TestCmd_goMod14(t *testing.T) {
 		//"-verbose",
 		"main.go",
 	}
-	_, err := doCmd2(t, dir, cmd)
-	if err == nil {
-		t.Fatal("expecting error")
+	ctx := context.Background()
+	_, _, es, err := doCmd3(ctx, t, dir, cmd)
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Log(err)
+	if !(strings.Index(es, "# warning") >= 0 &&
+		strings.Index(es, "pkg path not found") >= 0) {
+		t.Fatal("missing warning")
+	}
 }
 
 func TestCmd_goMod15(t *testing.T) {
@@ -1041,7 +1049,7 @@ func TestCmd_goMod15(t *testing.T) {
 		cancel()
 		t.Logf("cancel: %v", time.Now().Sub(start))
 	}()
-	_, err := doCmd3(t, ctx, dir, cmd)
+	_, _, _, err := doCmd3(ctx, t, dir, cmd)
 	//if err == nil {
 	//	t.Fatal("expecting error")
 	//}
@@ -1094,7 +1102,6 @@ func TestCmd_goPath1(t *testing.T) {
 		"-env=GOPATH=" + tf.Dir,
 		"main.go"}
 	msgs := doCmd(t, dir, cmd)
-
 	mustNotHaveString(t, msgs, `"sub1"`)
 	mustHaveString(t, msgs, `"sub2"`)
 }
@@ -1128,9 +1135,7 @@ func TestCmd_goPath2(t *testing.T) {
 	}
 
 	dir := filepath.Join(tf.Dir, "aaa/src/main")
-
 	msgs := doCmd(t, dir, cmd)
-
 	mustHaveString(t, msgs, `_ := 1`)
 	mustHaveString(t, msgs, `"sub1"`)
 }
@@ -1187,7 +1192,6 @@ func TestCmd_simple1(t *testing.T) {
 		"dir1/main.go", // give location to run
 	}
 	msgs := doCmd(t, tf.Dir, cmd)
-
 	mustHaveString(t, msgs, `_ := 1`)
 }
 
@@ -1308,10 +1312,11 @@ func doCmd(t *testing.T, dir string, args []string) []string {
 func doCmd2(t *testing.T, dir string, args []string) ([]string, error) {
 	t.Helper()
 	ctx := context.Background()
-	return doCmd3(t, ctx, dir, args)
+	msgs, _, _, err := doCmd3(ctx, t, dir, args)
+	return msgs, err
 }
 
-func doCmd3(t *testing.T, ctx context.Context, dir string, args []string) ([]string, error) {
+func doCmd3(ctx context.Context, t *testing.T, dir string, args []string) ([]string, string, string, error) {
 	t.Helper()
 	cmd := NewCmd()
 	defer cmd.Cleanup()
@@ -1321,16 +1326,29 @@ func doCmd3(t *testing.T, ctx context.Context, dir string, args []string) ([]str
 	//cmd.FixedTmpDir = true
 	//cmd.FixedTmpDirPid = 1
 
-	// hide msgs (pid, build, work dir ...)
-	//soutBuf := &bytes.Buffer{}
-	//cmd.Stdout = soutBuf
+	// log and get output (pid, build, work dir, warnings...)
+	obuf := &bytes.Buffer{}
+	ebuf := &bytes.Buffer{}
+	ow := iout.FnWriter(func(p []byte) (int, error) {
+		t.Log(string(p))
+		return obuf.Write(p)
+	})
+	ew := iout.FnWriter(func(p []byte) (int, error) {
+		t.Log(string(p))
+		return ebuf.Write(p)
+	})
+	cmd.Stdout = ow
+	cmd.Stderr = ew
+	bs := func(buf *bytes.Buffer) string {
+		return string(buf.Bytes())
+	}
 
 	done, err := cmd.Start(ctx, args)
 	if err != nil {
-		return nil, err
+		return nil, bs(obuf), bs(ebuf), err
 	}
 	if done { // ex: "build", "-help"
-		return nil, nil
+		return nil, bs(obuf), bs(ebuf), nil
 	}
 
 	go func() {
@@ -1369,7 +1387,7 @@ func doCmd3(t *testing.T, ctx context.Context, dir string, args []string) ([]str
 
 	err = cmd.Wait()
 	wg.Wait()
-	return msgs, err
+	return msgs, bs(obuf), bs(ebuf), err
 }
 
 //------------
@@ -1384,6 +1402,12 @@ func doCmdSrc(t *testing.T, src string, tests bool, noModules bool) []string {
 }
 
 func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, error) {
+	t.Helper()
+	msgs, _, _, err := doCmdSrc3(t, src, tests, noModules)
+	return msgs, err
+}
+
+func doCmdSrc3(t *testing.T, src string, tests bool, noModules bool) ([]string, string, string, error) {
 	t.Helper()
 
 	tf := newTmpFiles(t)
@@ -1421,7 +1445,8 @@ func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, 
 		args = append(args, filename)
 	}
 
-	return doCmd2(t, tf.Dir, args)
+	ctx := context.Background()
+	return doCmd3(ctx, t, tf.Dir, args)
 }
 
 //------------

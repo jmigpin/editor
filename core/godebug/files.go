@@ -8,6 +8,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -40,6 +41,7 @@ type Files struct {
 
 	fset      *token.FileSet
 	noModules bool
+	stderr    io.Writer
 	cache     struct {
 		sync.RWMutex
 		fullAstFile map[string]*ast.File
@@ -47,10 +49,8 @@ type Files struct {
 	}
 }
 
-func NewFiles(fset *token.FileSet, noModules bool) *Files {
-	//spew.Config.DisableMethods = true
-
-	files := &Files{fset: fset, noModules: noModules}
+func NewFiles(fset *token.FileSet, noModules bool, stderr io.Writer) *Files {
+	files := &Files{fset: fset, noModules: noModules, stderr: stderr}
 	files.filenames = map[string]struct{}{}
 	files.progFilenames = map[string]struct{}{}
 	files.progDirPkgPaths = map[string]string{}
@@ -248,7 +248,8 @@ func (files *Files) addCommentedFile2(filename string, astFile *ast.File) error 
 			ok, err := files.handleAnnOpt(filename, opt)
 			if err != nil {
 				err = positionError(err, files.fset, c.Pos())
-				return err
+				//return err
+				files.warnErr(err)
 			}
 			if ok {
 				opts = append(opts, opt)
@@ -264,7 +265,8 @@ func (files *Files) addCommentedFile2(filename string, astFile *ast.File) error 
 			err := files.handleAnnTypeImport(n, opt)
 			if err != nil {
 				err = positionError(err, files.fset, opt.Comment.Pos())
-				return err
+				//return err
+				files.warnErr(err)
 			}
 		}
 	}
@@ -657,6 +659,14 @@ func (files *Files) progPackages(ctx context.Context, filename string, tests boo
 		return nil, err2
 	}
 	return pkgs, err
+}
+
+//----------
+
+func (files *Files) warnErr(err error) {
+	if files.stderr != nil {
+		fmt.Fprintf(files.stderr, "# warning: %v\n", err)
+	}
 }
 
 //----------
