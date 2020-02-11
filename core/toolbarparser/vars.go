@@ -31,7 +31,7 @@ func NewHomeVarMap(vm VarMap, caseInsensitive bool) *HomeVarMap {
 func (m *HomeVarMap) filter(vm VarMap) {
 	// filter home var keys
 	keys := []string{}
-	for k, _ := range vm {
+	for k := range vm {
 		if strings.HasPrefix(k, "~") {
 			keys = append(keys, k)
 		}

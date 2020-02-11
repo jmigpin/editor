@@ -62,7 +62,7 @@ func TestStringifySlice(t *testing.T) {
 		a int
 		B int
 	}
-	a := []*S1{&S1{1, 2}, &S1{3, 4}, &S1{5, 6}}
+	a := []*S1{{1, 2}, {3, 4}, {5, 6}}
 	runTest1(t, a, "[&{1 2} &{3 4} &{5 6}]")
 	runTest1(t, a[1:1], "[]")
 	runTest1(t, a[1:2], "[&{3 4}]")
@@ -77,15 +77,15 @@ func TestStringifySlice2(t *testing.T) {
 		B int
 		c interface{}
 	}
-	a := []*S1{&S1{1, 2, 10}, &S1{3, 4, true}}
+	a := []*S1{{1, 2, 10}, {3, 4, true}}
 	runTest1(t, a, "[&{1 2 10} &{3 4 true}]")
 
 	type S2 struct{ b bool }
-	b := []*S1{&S1{1, 2, S2{true}}, &S1{3, 4, &S2{false}}}
+	b := []*S1{{1, 2, S2{true}}, {3, 4, &S2{false}}}
 	runTest1(t, b, "@\\[&{1 2 S2{true}} &{3 4 0x.*]")
 	runTest2(t, b, "[&{1 2 S2{true}} &{3 4 &S2{false}}]", 50, 10)
 
-	c := []*S1{&S1{c: &S1{c: &S2{true}}}}
+	c := []*S1{{c: &S1{c: &S2{true}}}}
 	runTest1(t, c, "@\\[&{0 0 0x.*}]")
 	runTest2(t, c, "[&{0 0 &S1{0 0 &S2{true}}}]", 50, 10)
 }
@@ -95,7 +95,7 @@ func TestStringifyArray(t *testing.T) {
 		a int
 		B int
 	}
-	a := [...]*S1{&S1{1, 2}, &S1{3, 4}, &S1{5, 6}}
+	a := [...]*S1{{1, 2}, {3, 4}, {5, 6}}
 	runTest1(t, a, "[&{1 2} &{3 4} &{5 6}]")
 }
 

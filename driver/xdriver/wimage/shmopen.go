@@ -4,6 +4,7 @@ package wimage
 
 import (
 	"fmt"
+
 	"golang.org/x/sys/unix"
 )
 
