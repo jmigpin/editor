@@ -67,8 +67,8 @@ func (c *Cursor) draw2(dr image.Rectangle, col color.Color) {
 	r3 := dr
 	r3.Min.X -= vbw / 2
 	r3.Max.X = r3.Min.X + vbw
-	r3 = r3.Intersect(bounds)
-	imageutil.FillRectangle(img, &r3, col)
+	r4 := r3.Intersect(bounds)
+	imageutil.FillRectangle(img, &r4, col)
 
 	// squares width
 	aw := vbw // added width
