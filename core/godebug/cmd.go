@@ -389,7 +389,10 @@ func (cmd *Cmd) startServerClient2(ctx context.Context) error {
 }
 
 func (cmd *Cmd) Wait() error {
-	err := cmd.start.serverCmd.Wait()
+	var err error
+	if !cmd.flags.mode.connect {
+		err = cmd.start.serverCmd.Wait()
+	}
 	cmd.Client.Wait()
 	cmd.start.cancel() // ensure resources are cleared
 	return err
