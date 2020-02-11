@@ -47,7 +47,7 @@ func TestCmdRead2(t *testing.T) {
 	midT := 2 * time.Second
 	h := NewHanger(3 * time.Second)
 	//cmd.Stdin = h // hangs
-	cmd.SetupStdInOutErr(h, nil, nil) // hangs
+	cmd.SetupStdio(h, nil, nil) // hangs
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestCmdRead2Ctx(t *testing.T) {
 	midT := 2 * time.Second
 	h := NewHanger(3 * time.Second)
 	//cmd.Stdin = h // hangs
-	cmd.SetupStdInOutErr(h, nil, nil) // doesn't hang
+	cmd.SetupStdio(h, nil, nil) // doesn't hang
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestCmdWrite2(t *testing.T) {
 	midT := 2 * time.Second
 	h := NewHanger(3 * time.Second)
 	//cmd.Stdout = h // hangs
-	cmd.SetupStdInOutErr(nil, h, nil) // hangs
+	cmd.SetupStdio(nil, h, nil) // hangs
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestCmdWrite2Ctx(t *testing.T) {
 	cmd := NewCmd(ctx, "sh", "-c", "sleep 3; echo aaa")
 	h := NewHanger(4 * time.Second)
 	//cmd.Stdout = h // hangs
-	cmd.SetupStdInOutErr(nil, h, nil) // doesn't hang
+	cmd.SetupStdio(nil, h, nil) // doesn't hang
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestCmdPipe(t *testing.T) {
 		cmd := NewCmd(ctx, "echo", "aaa")
 		pr, pw := io.Pipe()
 		c := make(chan strErr)
-		cmd.SetupStdInOutErr(nil, pw, nil)
+		cmd.SetupStdio(nil, pw, nil)
 		go func() {
 			b, err := ioutil.ReadAll(pr)
 			c <- strErr{string(b), err}
