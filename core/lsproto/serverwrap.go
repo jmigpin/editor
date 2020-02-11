@@ -37,8 +37,9 @@ func NewServerWrapTCP(ctx context.Context, cmdTmpl string, li *LangInstance) (*S
 	preStartFn := func(sw *ServerWrap) error {
 		// allows reading lsp server output
 		if logTestVerbose() {
-			sw.Cmd.Stdout = os.Stdout
-			sw.Cmd.Stderr = os.Stderr
+			if err := sw.Cmd.SetupStdInOutErr(nil, os.Stdout, os.Stderr); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -57,10 +58,10 @@ func NewServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, li *Lang
 	preStartFn := func(sw *ServerWrap) error {
 		pr1, pw1 := io.Pipe()
 		pr2, pw2 := io.Pipe()
-		sw.Cmd.Stdin = pr1
-		sw.Cmd.Stdout = pw2
-		sw.Cmd.Stderr = stderr // can be nil
-		sw.rwc = &rwc{}        // keep for later close
+		if err := sw.Cmd.SetupStdInOutErr(pr1, pw2, stderr); err != nil {
+			return err
+		}
+		sw.rwc = &rwc{} // also keep for later close
 		sw.rwc.WriteCloser = pw1
 		sw.rwc.ReadCloser = pr2
 		return nil
@@ -83,7 +84,7 @@ func newServerWrapCommon(ctx context.Context, cmd string, li *LangInstance, preS
 
 	if preStartFn != nil {
 		if err := preStartFn(sw); err != nil {
-			sw.Cmd.CancelCtx() // start will not run, clear ctx
+			sw.Cmd.Cancel() // start will not run, clear ctx
 			return nil, err
 		}
 	}

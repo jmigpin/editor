@@ -1,7 +1,6 @@
 package contentcmds
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/url"
@@ -49,27 +48,17 @@ func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	}
 
 	// cmd timeout
-	ctx2, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	// cmd
 	ustr := u.String()
 	args := []string{"xdg-open", ustr}
 	cmd := osutil.NewCmd(ctx2, args...)
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Start(); err != nil {
+	if b, err := osutil.RunCmdCombinedOutput(cmd); err != nil {
+		err = fmt.Errorf("%w: %v", err, string(b))
 		return err, true
 	}
-
 	erow.Ed.Messagef("openurl:\n\t%v", strings.Join(args, " "))
-
-	err = cmd.Wait()
-	if err != nil {
-		err = fmt.Errorf("%v: %v", err, out.String())
-	}
-	return err, true
+	return nil, true
 }

@@ -46,7 +46,7 @@ type Cmd struct {
 
 	start struct {
 		cancel    context.CancelFunc
-		waitg     sync.WaitGroup
+		wait     sync.WaitGroup
 		serverErr error
 	}
 
@@ -155,14 +155,6 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 	}
 
 	return false, nil
-}
-
-//------------
-
-func (cmd *Cmd) Wait() error {
-	cmd.start.waitg.Wait()
-	cmd.start.cancel() // ensure resources are cleared
-	return cmd.start.serverErr
 }
 
 //------------
@@ -326,7 +318,7 @@ func (cmd *Cmd) doBuild(ctx context.Context, mainFilename string, tests bool) er
 	}
 
 	// keep moved filename that will run in working dir for later cleanup
-	cmd.tmpBuiltFile = filenameWork
+		cmd.tmpBuiltFile = filenameWork
 
 	return nil
 }
@@ -352,82 +344,80 @@ func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) e
 //------------
 
 func (cmd *Cmd) startServerClient(ctx context.Context) error {
-	// server/client context to cancel the other when one of them ends
-	ctx, cancel := context.WithCancel(ctx)
-	cmd.start.cancel = cancel
-
-	// arguments (TODO: review normalize...)
-	w := normalizeFilenameForExec(cmd.tmpBuiltFile)
-	args := []string{w}
-	if cmd.flags.mode.test {
-		args = append(args, cmd.flags.runArgs...)
-	} else {
-		args = append(args, cmd.flags.otherArgs...)
-	}
-
-	// toolexec
-	if cmd.flags.toolExec != "" {
-		args = append([]string{cmd.flags.toolExec}, args...)
-	}
-
-	// start server
-	var serverCmd *osutil.Cmd
-	if !cmd.flags.mode.connect {
-		cb := func(c *osutil.Cmd) {
-			cmd.Printf("pid %d\n", c.Cmd.Process.Pid)
-		}
-		c, err := cmd.startCmd(ctx, cmd.Dir, args, nil, cb)
-		if err != nil {
-			// cmd.Wait() won't be called, need to clear resources
-			cmd.start.cancel()
-			return err
-		}
-		serverCmd = c
-	}
-
-	// setup address to connect to
-	if cmd.flags.mode.connect && cmd.flags.address != "" {
-		debug.ServerNetwork = "tcp"
-		debug.ServerAddress = cmd.flags.address
-	}
-	// start client (blocking connect)
-	client, err := NewClient(ctx)
-	if err != nil {
-		// cmd.Wait() won't be called, need to clear resources
+ 	// server/client context to cancel the other when one of them ends
+ 	ctx, cancel := context.WithCancel(ctx)
+ 	cmd.start.cancel = cancel
+ 
+	if err := cmd.startServerClient2(ctx); err != nil {
+		// cmd.Wait() won't be called, clear resources
 		cmd.start.cancel()
-		return err
+		cmd.start.wait.Wait()
 	}
-	cmd.Client = client
+ 	   return nil
+}
 
-	// from this point, cmd.Wait() clears resources from cmd.start.cancel
-
-	// server done
-	if serverCmd != nil {
-		cmd.start.waitg.Add(1)
+func (cmd *Cmd) startServerClient2(ctx context.Context) error {
+ 	// arguments (TODO: review normalize...)
+ 	w := normalizeFilenameForExec(cmd.tmpBuiltFile)
+ 	args := []string{w}
+ 	if cmd.flags.mode.test {
+ 		args = append(args, cmd.flags.runArgs...)
+ 	} else {
+ 		args = append(args, cmd.flags.otherArgs...)
+ 	}
+ 
+ 	// toolexec
+ 	if cmd.flags.toolExec != "" {
+ 		args = append([]string{cmd.flags.toolExec}, args...)
+ 	}
+ 
+	// start server (run the annotated program)
+ 	if !cmd.flags.mode.connect {
+ 		cb := func(c *osutil.Cmd) {
+ 			cmd.Printf("pid %d\n", c.Cmd.Process.Pid)
+ 		}
+ 		c, err := cmd.startCmd(ctx, cmd.Dir, args, nil, cb)
+ 		if err != nil {
+ 			return err
+ 		}
+		// setup waiting for server to end
+		cmd.start.wait.Add(1)
 		go func() {
-			defer cmd.start.waitg.Done()
-			// wait for server to finish
-			cmd.start.serverErr = serverCmd.Wait()
+			defer cmd.start.wait.Done()
+			cmd.start.serverErr = c.Wait()
+			cmd.start.cancel()
 		}()
-	}
+ 	}
+ 
+ 	// TODO: don't use debug pkg directly here
+ 	// setup address to connect to
+ 	if cmd.flags.mode.connect && cmd.flags.address != "" {
+ 		debug.ServerNetwork = "tcp"
+ 		debug.ServerAddress = cmd.flags.address
+ 	}
 
-	// client done
-	cmd.start.waitg.Add(1)
-	go func() {
-		defer cmd.start.waitg.Done()
-		cmd.Client.Wait() // wait for client to finish
-	}()
-	// ensure client stops on context cancel (only for connect mode)
-	if cmd.flags.mode.connect {
-		go func() {
-			select {
-			case <-ctx.Done():
-				_ = cmd.Client.Close()
-			}
-		}()
-	}
-
-	return nil
+ 	// start client (blocks until connected)
+ 	client, err := NewClient(ctx)
+ 	if err != nil {
+ 		return err
+ 	}
+ 	cmd.Client = client
+ 
+	// setup waiting for client to finish
+	cmd.start.wait.Add(1)
+ 	go func() {
+		defer cmd.start.wait.Done()
+ 		cmd.Client.Wait() // wait for client to finish
+		cmd.start.cancel()
+ 	}()
+ 
+ 	return nil
+ }
+ 
+func (cmd *Cmd) Wait() error {
+	cmd.start.wait.Wait()
+	cmd.start.cancel() // ensure resources are cleared
+	return cmd.start.serverErr
 }
 
 //------------
@@ -605,7 +595,7 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 	dir := filepath.Dir(filenameOut)
 	err := cmd.runCmd(ctx, dir, args, cmd.env)
 	if err != nil {
-		err = fmt.Errorf("runBuildCmd: %v:  %v", err, args)
+		err = fmt.Errorf("runBuildCmd: %v", err)
 	}
 	return filenameOut, err
 }
@@ -623,10 +613,11 @@ func (cmd *Cmd) runCmd(ctx context.Context, dir string, args, env []string) erro
 func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string, cb func(*osutil.Cmd)) (*osutil.Cmd, error) {
 	cargs := osutil.ShellRunArgs(args...)
 	c := osutil.NewCmd(ctx, cargs...)
-	c.Stdout = cmd.Stdout
-	c.Stderr = cmd.Stderr
 	c.Env = env
 	c.Dir = dir
+	if err := c.SetupStdInOutErr(nil, cmd.Stdout, cmd.Stderr); err != nil {
+		return nil, err
+	}
 	if cb != nil {
 		c.PreOutputCallback = func() { cb(c) }
 	}

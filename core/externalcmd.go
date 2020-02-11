@@ -124,8 +124,9 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 	cmd := osutil.NewCmd(ctx, cargs...)
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = env
-	cmd.Stdout = w
-	cmd.Stderr = w
+	if err := cmd.SetupStdInOutErr(nil, w, w); err != nil {
+		return err
+	}
 
 	// output pid before any output
 	cmd.PreOutputCallback = func() {
