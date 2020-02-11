@@ -4,7 +4,10 @@ import "github.com/jmigpin/editor/core"
 
 func init() {
 	// order matters
-	core.ContentCmds.Append("gotodefinition", GoToDefinitionGolang)
+
+	// Disabled: commented here for future tests if needed
+	//core.ContentCmds.Append("gotodefinition", GoToDefinitionGolang)
+
 	core.ContentCmds.Append("gotodefinition_lsproto", GoToDefinitionLSProto)
 
 	// opensession runs before openfilename to avoid failing if a file with that name exists in the current directory

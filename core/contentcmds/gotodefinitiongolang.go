@@ -9,39 +9,18 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core"
-	"github.com/jmigpin/editor/core/lsproto"
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
-
-//godebug:annotatefile
 
 func GoToDefinitionGolang(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	if erow.Info.IsDir() {
 		return nil, false
 	}
 
-	// commented: "guru" doesn't work well with modules and  "gopls query" needs the file to be saved
-	//return guruOrGoplsQuery(ctx, erow, index)
-
-	// auto setup a gopls lsproto, the contentcmd gotodefinition_lsproto will then use it
-	autoSetupGoplsLSPproto(ctx, erow, index)
-
-	return nil, false
-}
-
-func autoSetupGoplsLSPproto(ctx context.Context, erow *core.ERow, index int) {
-	// auto register for ".go" files
-	_, err := erow.Ed.LSProtoMan.LangManager("a.go")
-	if err != nil { // no registration exists
-		s := "go,.go,stdio,\"gopls serve\""
-		reg, err := lsproto.NewRegistration(s)
-		if err != nil {
-			panic(err)
-		}
-		erow.Ed.LSProtoMan.Register(reg)
-	}
+	// "guru" doesn't work well with modules and  "gopls query" needs the file to be saved
+	return guruOrGoplsQuery(ctx, erow, index)
 }
 
 //----------

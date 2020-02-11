@@ -116,6 +116,17 @@ func (ed *Editor) initLSProto(opt *Options) {
 	for _, reg := range opt.LSProtos.regs {
 		ed.LSProtoMan.Register(reg)
 	}
+
+	// auto setup gopls if there is no handler for ".go" files
+	_, err := ed.LSProtoMan.LangManager("a.go")
+	if err != nil { // no registration exists
+		s := "go,.go,stdio,\"gopls serve\""
+		reg, err := lsproto.NewRegistration(s)
+		if err != nil {
+			panic(err)
+		}
+		ed.LSProtoMan.Register(reg)
+	}
 }
 
 //----------
