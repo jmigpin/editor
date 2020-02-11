@@ -129,21 +129,21 @@ func (cmd *Cmd) ensureStopNow() {
 
 //----------
 
-func (cmd *Cmd) SetupStdInOutErr(ir io.Reader, ow, ew io.Writer) error {
-	// setup only once
-	if cmd.setupCalled {
-		return fmt.Errorf("setup already called")
-	}
-	cmd.setupCalled = true
-
-	err := cmd.setupStdInOutErr2(ir, ow, ew)
+func (cmd *Cmd) SetupStdio(ir io.Reader, ow, ew io.Writer) error {
+	err := cmd.setupStdio2(ir, ow, ew)
 	if err != nil {
 		cmd.closeCopyClosers()
 	}
 	return err
 }
 
-func (cmd *Cmd) setupStdInOutErr2(ir io.Reader, ow, ew io.Writer) error {
+func (cmd *Cmd) setupStdio2(ir io.Reader, ow, ew io.Writer) error {
+	// setup only once (don't allow f(w, nil) and later f(nil, w)
+	if cmd.setupCalled {
+		return fmt.Errorf("setup already called")
+	}
+	cmd.setupCalled = true
+
 	// setup stdin
 	if ir != nil {
 		ipwc, err := cmd.StdinPipe()
@@ -169,13 +169,15 @@ func (cmd *Cmd) setupStdInOutErr2(ir io.Reader, ow, ew io.Writer) error {
 			io.Copy(ow, oprc)
 		})
 		// setup stderr if the same
-		if ew == ow {
-			cmd.Stderr = cmd.Stdout
+		//if ew == ow { // can panic
+		if interfaceEqual(ew, ow) {
+			cmd.Stderr = cmd.Stdout // set in StdoutPipe() call
+			return nil              // early exit, stderr set
 		}
 	}
 
-	// setup stderr (only if different from stdout)
-	if ew != nil && ew != ow {
+	// setup stderr
+	if ew != nil {
 		eprc, err := cmd.StderrPipe()
 		if err != nil {
 			return err
@@ -186,9 +188,18 @@ func (cmd *Cmd) setupStdInOutErr2(ir io.Reader, ow, ew io.Writer) error {
 			io.Copy(ew, eprc)
 		})
 	}
-
 	return nil
 }
+
+// from: os/exec/exec.go:218
+func interfaceEqual(a, b interface{}) bool {
+	defer func() {
+		recover()
+	}()
+	return a == b
+}
+
+//----------
 
 func (cmd *Cmd) runCopyFns() {
 	for _, fn := range cmd.copy.fns {
@@ -225,19 +236,19 @@ func (cmd *Cmd) closeCopyCloser(c io.Closer) {
 
 //----------
 
-func RunCmdCombinedOutput(cmd *Cmd) ([]byte, error) {
+func RunCmdCombinedOutput(cmd *Cmd, rd io.Reader) ([]byte, error) {
 	obuf := &bytes.Buffer{}
-	if err := cmd.SetupStdInOutErr(nil, obuf, obuf); err != nil {
+	if err := cmd.SetupStdio(rd, obuf, obuf); err != nil {
 		return nil, err
 	}
 	err := cmd.Run()
 	return obuf.Bytes(), err
 }
 
-func RunCmdOutputs(cmd *Cmd) (sout []byte, serr []byte, _ error) {
+func RunCmdOutputs(cmd *Cmd, rd io.Reader) (sout []byte, serr []byte, _ error) {
 	obuf := &bytes.Buffer{}
 	ebuf := &bytes.Buffer{}
-	if err := cmd.SetupStdInOutErr(nil, obuf, ebuf); err != nil {
+	if err := cmd.SetupStdio(rd, obuf, ebuf); err != nil {
 		return nil, nil, err
 	}
 	err := cmd.Run()
@@ -245,8 +256,8 @@ func RunCmdOutputs(cmd *Cmd) (sout []byte, serr []byte, _ error) {
 }
 
 // Adds stderr to err if it happens.
-func RunCmdStdoutAndStderrInErr(cmd *Cmd) ([]byte, error) {
-	bout, berr, err := RunCmdOutputs(cmd)
+func RunCmdStdoutAndStderrInErr(cmd *Cmd, rd io.Reader) ([]byte, error) {
+	bout, berr, err := RunCmdOutputs(cmd, rd)
 	if err != nil {
 		serr := strings.TrimSpace(string(berr))
 		if serr != "" {
@@ -255,13 +266,6 @@ func RunCmdStdoutAndStderrInErr(cmd *Cmd) ([]byte, error) {
 		return nil, err
 	}
 	return bout, nil
-}
-
-func RunCmdStdoutAndStderrInErr2(ctx context.Context, dir string, args []string, env []string) ([]byte, error) {
-	cmd := NewCmd(ctx, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	return RunCmdStdoutAndStderrInErr(cmd)
 }
 
 //----------

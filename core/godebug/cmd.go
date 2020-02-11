@@ -606,7 +606,7 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string, cb
 	c := osutil.NewCmd(ctx, cargs...)
 	c.Env = env
 	c.Dir = dir
-	if err := c.SetupStdInOutErr(nil, cmd.Stdout, cmd.Stderr); err != nil {
+	if err := c.SetupStdio(nil, cmd.Stdout, cmd.Stderr); err != nil {
 		return nil, err
 	}
 	if cb != nil {

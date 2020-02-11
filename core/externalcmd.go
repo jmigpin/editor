@@ -124,7 +124,7 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 	cmd := osutil.NewCmd(ctx, cargs...)
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = env
-	if err := cmd.SetupStdInOutErr(nil, w, w); err != nil {
+	if err := cmd.SetupStdio(nil, w, w); err != nil {
 		return err
 	}
 
