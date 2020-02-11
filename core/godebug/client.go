@@ -17,11 +17,11 @@ type Client struct {
 	waitg    sync.WaitGroup
 }
 
-func NewClient(ctx context.Context) (*Client, error) {
+func NewClient(ctx context.Context, network, addr string) (*Client, error) {
 	client := &Client{
 		Messages: make(chan interface{}, 128),
 	}
-	if err := client.connect(ctx); err != nil {
+	if err := client.connect(ctx, network, addr); err != nil {
 		return nil, err
 	}
 
@@ -56,14 +56,14 @@ func (client *Client) Close() error {
 	return nil
 }
 
-func (client *Client) connect(ctx0 context.Context) error {
+func (client *Client) connect(ctx context.Context, network, addr string) error {
 	// impose timeout to connect
-	ctx, cancel := context.WithTimeout(ctx0, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	fn := func() error {
 		var dialer net.Dialer
-		conn, err := dialer.DialContext(ctx, debug.ServerNetwork, debug.ServerAddress)
+		conn, err := dialer.DialContext(ctx, network, addr)
 		if err != nil {
 			return err
 		}

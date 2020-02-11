@@ -5,10 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"strings"
 	"text/template"
-	"time"
 
 	"os"
 
@@ -24,10 +22,15 @@ type ServerWrap struct {
 //----------
 
 func NewServerWrapTCP(ctx context.Context, cmdTmpl string, li *LangInstance) (*ServerWrap, string, error) {
-	// random port to allow multiple editors to have multiple server wraps
-	port := randPort()
+	// multiple editors can have multiple server wraps
+	//port, err := osutil.GetFreeTcpPort()
+	//if err != nil {
+	//	return nil, "", err
+	//}
+	port := osutil.RandomPort(3, 10000, 65000)
+
 	// template vars
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	addr := fmt.Sprintf("127.0.0.1:%v", port)
 
 	cmd, err := cmdTemplate(cmdTmpl, addr)
 	if err != nil {
@@ -126,14 +129,6 @@ func (rwc *rwc) Close() error {
 }
 
 //----------
-
-func randPort() int {
-	seed := time.Now().UnixNano() + int64(os.Getpid())
-	ra := rand.New(rand.NewSource(seed))
-	min, max := 9000, 65535 // TODO: ask for available port
-	port := min + ra.Intn(max-min)
-	return port
-}
 
 func cmdTemplate(cmdTmpl, addr string) (string, error) {
 	// build template

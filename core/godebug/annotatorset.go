@@ -162,7 +162,7 @@ func (annset *AnnotatorSet) annotatorFileData(filename string, files *Files) (*d
 
 //----------
 
-func (annset *AnnotatorSet) ConfigContent() string {
+func (annset *AnnotatorSet) ConfigContent(network, addr string) string {
 	entriesStr := annset.buildConfigContentEntries()
 
 	syncSendStr := "false"
@@ -173,8 +173,8 @@ func (annset *AnnotatorSet) ConfigContent() string {
 	src := `package godebugconfig
 import "` + DebugPkgPath + `"
 func init(){
-	debug.ServerNetwork = "` + debug.ServerNetwork + `"
-	debug.ServerAddress = "` + debug.ServerAddress + `"
+	debug.ServerNetwork = "` + network + `"
+	debug.ServerAddress = "` + addr + `"
 	debug.SyncSend = ` + syncSendStr + `
 	debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
 		` + entriesStr + `

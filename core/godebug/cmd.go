@@ -11,13 +11,11 @@ import (
 	"go/ast"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/goutil"
@@ -45,8 +43,10 @@ type Cmd struct {
 	NoPreBuild bool // useful for tests
 
 	start struct {
+		network   string
+		address   string
 		cancel    context.CancelFunc
-		wait     sync.WaitGroup
+		wait      sync.WaitGroup
 		serverErr error
 	}
 
@@ -128,11 +128,13 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 		cmd.Printf("work: %v\n", cmd.tmpDir)
 	}
 
-	m := &cmd.flags.mode
+	if err := cmd.setupNetworkAddress(); err != nil {
+		return true, err
+	}
 
+	m := &cmd.flags.mode
 	if m.run || m.test || m.build {
 		debug.SyncSend = cmd.flags.syncSend
-		cmd.setupServerNetAddr()
 		err := cmd.initAndAnnotate(ctx)
 		if err != nil {
 			return true, err
@@ -141,11 +143,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 
 	// just building: inform the address used in the binary
 	if m.build {
-		cmd.Printf("build: %v (builtin address: %v, %v)\n",
-			cmd.tmpBuiltFile,
-			debug.ServerNetwork,
-			debug.ServerAddress,
-		)
+		cmd.Printf("build: %v (builtin address: %v, %v)\n", cmd.tmpBuiltFile, cmd.start.network, cmd.start.address)
 		return true, err
 	}
 
@@ -318,7 +316,7 @@ func (cmd *Cmd) doBuild(ctx context.Context, mainFilename string, tests bool) er
 	}
 
 	// keep moved filename that will run in working dir for later cleanup
-		cmd.tmpBuiltFile = filenameWork
+	cmd.tmpBuiltFile = filenameWork
 
 	return nil
 }
@@ -344,42 +342,42 @@ func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) e
 //------------
 
 func (cmd *Cmd) startServerClient(ctx context.Context) error {
- 	// server/client context to cancel the other when one of them ends
- 	ctx, cancel := context.WithCancel(ctx)
- 	cmd.start.cancel = cancel
- 
+	// server/client context to cancel the other when one of them ends
+	ctx, cancel := context.WithCancel(ctx)
+	cmd.start.cancel = cancel
+
 	if err := cmd.startServerClient2(ctx); err != nil {
 		// cmd.Wait() won't be called, clear resources
 		cmd.start.cancel()
 		cmd.start.wait.Wait()
 	}
- 	   return nil
+	return nil
 }
 
 func (cmd *Cmd) startServerClient2(ctx context.Context) error {
- 	// arguments (TODO: review normalize...)
- 	w := normalizeFilenameForExec(cmd.tmpBuiltFile)
- 	args := []string{w}
- 	if cmd.flags.mode.test {
- 		args = append(args, cmd.flags.runArgs...)
- 	} else {
- 		args = append(args, cmd.flags.otherArgs...)
- 	}
- 
- 	// toolexec
- 	if cmd.flags.toolExec != "" {
- 		args = append([]string{cmd.flags.toolExec}, args...)
- 	}
- 
+	// arguments (TODO: review normalize...)
+	w := normalizeFilenameForExec(cmd.tmpBuiltFile)
+	args := []string{w}
+	if cmd.flags.mode.test {
+		args = append(args, cmd.flags.runArgs...)
+	} else {
+		args = append(args, cmd.flags.otherArgs...)
+	}
+
+	// toolexec
+	if cmd.flags.toolExec != "" {
+		args = append([]string{cmd.flags.toolExec}, args...)
+	}
+
 	// start server (run the annotated program)
- 	if !cmd.flags.mode.connect {
- 		cb := func(c *osutil.Cmd) {
- 			cmd.Printf("pid %d\n", c.Cmd.Process.Pid)
- 		}
- 		c, err := cmd.startCmd(ctx, cmd.Dir, args, nil, cb)
- 		if err != nil {
- 			return err
- 		}
+	if !cmd.flags.mode.connect {
+		cb := func(c *osutil.Cmd) {
+			cmd.Printf("pid %d\n", c.Cmd.Process.Pid)
+		}
+		c, err := cmd.startCmd(ctx, cmd.Dir, args, nil, cb)
+		if err != nil {
+			return err
+		}
 		// setup waiting for server to end
 		cmd.start.wait.Add(1)
 		go func() {
@@ -387,33 +385,26 @@ func (cmd *Cmd) startServerClient2(ctx context.Context) error {
 			cmd.start.serverErr = c.Wait()
 			cmd.start.cancel()
 		}()
- 	}
- 
- 	// TODO: don't use debug pkg directly here
- 	// setup address to connect to
- 	if cmd.flags.mode.connect && cmd.flags.address != "" {
- 		debug.ServerNetwork = "tcp"
- 		debug.ServerAddress = cmd.flags.address
- 	}
+	}
 
- 	// start client (blocks until connected)
- 	client, err := NewClient(ctx)
- 	if err != nil {
- 		return err
- 	}
- 	cmd.Client = client
- 
+	// start client (blocks until connected)
+	client, err := NewClient(ctx, cmd.start.network, cmd.start.address)
+	if err != nil {
+		return err
+	}
+	cmd.Client = client
+
 	// setup waiting for client to finish
 	cmd.start.wait.Add(1)
- 	go func() {
+	go func() {
 		defer cmd.start.wait.Done()
- 		cmd.Client.Wait() // wait for client to finish
+		cmd.Client.Wait() // wait for client to finish
 		cmd.start.cancel()
- 	}()
- 
- 	return nil
- }
- 
+	}()
+
+	return nil
+}
+
 func (cmd *Cmd) Wait() error {
 	cmd.start.wait.Wait()
 	cmd.start.cancel() // ensure resources are cleared
@@ -531,8 +522,8 @@ func (cmd *Cmd) detectNoModules() bool {
 
 func (cmd *Cmd) Cleanup() {
 	// cleanup unix socket in case of bad stop
-	if debug.ServerNetwork == "unix" {
-		if err := os.Remove(debug.ServerAddress); err != nil {
+	if cmd.start.network == "unix" {
+		if err := os.Remove(cmd.start.address); err != nil {
 			if !os.IsNotExist(err) {
 				cmd.Printf("cleanup err: %v\n", err)
 			}
@@ -715,7 +706,7 @@ func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 func (cmd *Cmd) writeGoDebugConfigFilesToTmpDir(ctx context.Context, files *Files) error {
 	// godebugconfig pkg: config.go
 	filename := files.GodebugconfigPkgFilename("config.go")
-	src := cmd.annset.ConfigContent()
+	src := cmd.annset.ConfigContent(cmd.start.network, cmd.start.address)
 	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
 	if err := mkdirAllWriteFile(filenameAtTmp, []byte(src)); err != nil {
 		return err
@@ -938,14 +929,37 @@ func (cmd *Cmd) envFlag(fs *flag.FlagSet) {
 
 //------------
 
-func (cmd *Cmd) setupServerNetAddr() {
+func (cmd *Cmd) setupNetworkAddress() error {
+	// can't consider using stdin/out since the program could use it
+
+	if cmd.flags.address != "" {
+		cmd.start.network = "tcp"
+		cmd.start.address = cmd.flags.address
+		return nil
+	}
+
 	// find OS target
 	goOs := osutil.GetEnv(cmd.env, "GOOS")
 	if goOs == "" {
 		goOs = runtime.GOOS
 	}
 
-	setupServerNetAddr(cmd.flags.address, goOs)
+	switch goOs {
+	case "linux":
+		cmd.start.network = "unix"
+		port := osutil.RandomPort(1, 10000, 65000)
+		p := "editor_godebug.sock" + fmt.Sprintf("%v", port)
+		cmd.start.address = filepath.Join(os.TempDir(), p)
+	default:
+		//port, err := osutil.GetFreeTcpPort()
+		//if err != nil {
+		//	return err
+		//}
+		port := osutil.RandomPort(2, 10000, 65000)
+		cmd.start.network = "tcp"
+		cmd.start.address = fmt.Sprintf("127.0.0.1:%v", port)
+	}
+	return nil
 }
 
 //------------
@@ -1043,33 +1057,6 @@ func splitCommaList(val string) []string {
 		u = append(u, s)
 	}
 	return u
-}
-
-//------------
-
-func setupServerNetAddr(addr string, goOs string) {
-	if addr != "" {
-		debug.ServerNetwork = "tcp"
-		debug.ServerAddress = addr
-		return
-	}
-
-	// generate address: allows multiple editors to run debug sessions at the same time.
-
-	seed := time.Now().UnixNano() + int64(os.Getpid())
-	ra := rand.New(rand.NewSource(seed))
-	min, max := 27000, 65535
-	port := min + ra.Intn(max-min)
-
-	switch goOs {
-	case "linux":
-		debug.ServerNetwork = "unix"
-		p := "editor_godebug.sock" + fmt.Sprintf("%v", port)
-		debug.ServerAddress = filepath.Join(os.TempDir(), p)
-	default:
-		debug.ServerNetwork = "tcp"
-		debug.ServerAddress = fmt.Sprintf("127.0.0.1:%v", port)
-	}
 }
 
 //------------

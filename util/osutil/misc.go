@@ -1,9 +1,12 @@
 package osutil
 
 import (
+	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func HomeEnvVar() string {
@@ -41,4 +44,26 @@ func FilepathSplitAt(s string, n int) string {
 
 func FilepathClean(s string) string {
 	return filepath.Clean(s)
+}
+
+//----------
+
+func GetFreeTcpPort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	p := l.Addr().(*net.TCPAddr).Port
+	return p, nil
+}
+
+func RandomPort(simpleSeed, min, max int) int {
+	seed := time.Now().UnixNano() + int64(os.Getpid()+simpleSeed)
+	ra := rand.New(rand.NewSource(int64(seed)))
+	return min + ra.Intn(max-min)
 }
