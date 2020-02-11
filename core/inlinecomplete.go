@@ -192,10 +192,10 @@ func insertComplete(comps []string, rw iorw.ReadWriter, index int) (newIndex int
 	}
 
 	expand, canComplete, comps2 := filterPrefixedAndExpand(comps, prefix)
-	if len(comps2) == 0 {
+	comps = comps2
+	if len(comps) == 0 {
 		return 0, false, comps, nil
 	}
-	comps = comps2
 
 	if canComplete {
 		// original string

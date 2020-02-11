@@ -127,6 +127,10 @@ func TestInsertComplete(t *testing.T) {
 			in{[]string{"abcd", "abc"}, "abe", 1},
 			out{3, true, []string{"abcd", "abc"}, "abce"},
 		},
+		{
+			in{[]string{"aaBbbCcc"}, "aaCc", 4},
+			out{0, false, nil, "aaCc"},
+		},
 	}
 	for _, u := range w {
 		rw := iorw.NewBytesReadWriter([]byte(u.in.text))
