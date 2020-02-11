@@ -10,13 +10,17 @@ import (
 	"sync"
 )
 
+//godebug:annotatefile
+//godebug:annotatepackage:github.com/jmigpin/editor/core
+//godebug:annotatepackage:github.com/jmigpin/editor/core/contentcmds
+
 type Cmd struct {
 	*exec.Cmd
+	ctx         context.Context
+	cancelCtx   context.CancelFunc
+	setupCalled bool
 
 	PreOutputCallback func()
-
-	ctx       context.Context
-	cancelCtx context.CancelFunc
 
 	NoEnsureStop bool
 	ensureStop   struct {
@@ -126,18 +130,22 @@ func (cmd *Cmd) ensureStopNow() {
 //----------
 
 func (cmd *Cmd) SetupStdInOutErr(ir io.Reader, ow, ew io.Writer) error {
+	// setup only once
+	if cmd.setupCalled {
+		return fmt.Errorf("setup already called")
+	}
+	cmd.setupCalled = true
+
 	err := cmd.setupStdInOutErr2(ir, ow, ew)
 	if err != nil {
 		cmd.closeCopyClosers()
 	}
 	return err
 }
+
 func (cmd *Cmd) setupStdInOutErr2(ir io.Reader, ow, ew io.Writer) error {
 	// setup stdin
 	if ir != nil {
-		if cmd.Stdin != nil {
-			return fmt.Errorf("stdin already set")
-		}
 		ipwc, err := cmd.StdinPipe()
 		if err != nil {
 			return err
@@ -151,9 +159,6 @@ func (cmd *Cmd) setupStdInOutErr2(ir io.Reader, ow, ew io.Writer) error {
 
 	// setup stdout
 	if ow != nil {
-		if cmd.Stdout != nil {
-			return fmt.Errorf("stdout already set")
-		}
 		oprc, err := cmd.StdoutPipe()
 		if err != nil {
 			return err
@@ -163,13 +168,14 @@ func (cmd *Cmd) setupStdInOutErr2(ir io.Reader, ow, ew io.Writer) error {
 			defer cmd.closeCopyCloser(oprc)
 			io.Copy(ow, oprc)
 		})
+		// setup stderr if the same
+		if ew == ow {
+			cmd.Stderr = cmd.Stdout
+		}
 	}
 
-	// setup stderr
-	if ew != nil {
-		if cmd.Stderr != nil {
-			return fmt.Errorf("stderr already set")
-		}
+	// setup stderr (only if different from stdout)
+	if ew != nil && ew != ow {
 		eprc, err := cmd.StderrPipe()
 		if err != nil {
 			return err
@@ -186,7 +192,10 @@ func (cmd *Cmd) setupStdInOutErr2(ir io.Reader, ow, ew io.Writer) error {
 
 func (cmd *Cmd) runCopyFns() {
 	for _, fn := range cmd.copy.fns {
-		go fn()
+		// go fn() // will call the same fn twice (loop var)
+		go func(fn2 func()) {
+			fn2()
+		}(fn)
 	}
 }
 
@@ -198,29 +207,25 @@ func (cmd *Cmd) closeCopyClosers() {
 	}
 }
 func (cmd *Cmd) addCopyCloser(c io.Closer) {
-	cmd.copy.closersWait.Add(1)
-	cmd.copy.closers[c] = &sync.Once{}
+	_, ok := cmd.copy.closers[c]
+	if !ok {
+		cmd.copy.closersWait.Add(1)
+		cmd.copy.closers[c] = &sync.Once{}
+	}
 }
 func (cmd *Cmd) closeCopyCloser(c io.Closer) {
 	once, ok := cmd.copy.closers[c]
-	if !ok {
-		panic("closer not added")
+	if ok {
+		once.Do(func() {
+			defer cmd.copy.closersWait.Done()
+			c.Close()
+		})
 	}
-	once.Do(func() {
-		defer cmd.copy.closersWait.Done()
-		c.Close()
-	})
 }
 
 //----------
 
 func RunCmdCombinedOutput(cmd *Cmd) ([]byte, error) {
-	if cmd.Stdout != nil {
-		return nil, fmt.Errorf("stdout already set")
-	}
-	if cmd.Stderr != nil {
-		return nil, fmt.Errorf("stderr already set")
-	}
 	obuf := &bytes.Buffer{}
 	if err := cmd.SetupStdInOutErr(nil, obuf, obuf); err != nil {
 		return nil, err
@@ -230,12 +235,6 @@ func RunCmdCombinedOutput(cmd *Cmd) ([]byte, error) {
 }
 
 func RunCmdOutputs(cmd *Cmd) (sout []byte, serr []byte, _ error) {
-	if cmd.Stdout != nil {
-		return nil, nil, fmt.Errorf("stdout already set")
-	}
-	if cmd.Stderr != nil {
-		return nil, nil, fmt.Errorf("stderr already set")
-	}
 	obuf := &bytes.Buffer{}
 	ebuf := &bytes.Buffer{}
 	if err := cmd.SetupStdInOutErr(nil, obuf, ebuf); err != nil {
