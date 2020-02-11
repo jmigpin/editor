@@ -91,7 +91,7 @@ func OpenBrowser(url string) error {
 func OpenFilemanager(filename string) error {
 	switch runtime.GOOS {
 	case "windows":
-		c := exec.Command("explorer", "/select", filename)
+		c := exec.Command("explorer", "/select,"+filename)
 		return c.Start()
 	case "darwin":
 		c := exec.Command("open", filename)
