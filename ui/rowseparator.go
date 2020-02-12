@@ -29,11 +29,14 @@ func (sh *RowSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handl
 	}
 	switch ev := ev0.(type) {
 	case *event.MouseDown:
-		switch ev.Button {
-		case event.ButtonWheelUp:
-			sh.row.resizeWithPushJump(true, &p)
-		case event.ButtonWheelDown:
-			sh.row.resizeWithPushJump(false, &p)
+		m := ev.Mods.ClearLocks()
+		if m.Is(event.ModNone) {
+			switch ev.Button {
+			case event.ButtonWheelUp:
+				sh.row.resizeWithPushJump(true, &p)
+			case event.ButtonWheelDown:
+				sh.row.resizeWithPushJump(false, &p)
+			}
 		}
 	case *event.MouseClick:
 		switch ev.Button {

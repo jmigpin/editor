@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"image"
+
+	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -12,10 +16,11 @@ type Root struct {
 	MainMenuButton  *MainMenuButton
 	ContextFloatBox *ContextFloatBox
 	Cols            *Columns
+	EvReg           *evreg.Register
 }
 
 func NewRoot(ui *UI) *Root {
-	return &Root{MultiLayer: widget.NewMultiLayer(), UI: ui}
+	return &Root{MultiLayer: widget.NewMultiLayer(), UI: ui, EvReg: evreg.NewRegister()}
 }
 
 func (root *Root) Init() {
@@ -59,3 +64,69 @@ func (l *Root) OnChildMarked(child widget.Node, newMarks widget.Marks) {
 		l.BgLayer.MarkNeedsLayout()
 	}
 }
+
+//----------
+
+func (l *Root) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
+	switch ev := ev0.(type) {
+	case *event.KeyDown:
+		m := ev.Mods.ClearLocks()
+		switch {
+		case m.Is(event.ModCtrl):
+			switch ev.KeySym {
+			case event.KSymF4:
+				l.selAnnEv(RootSelAnnTypeFirst)
+				return event.HTrue
+			case event.KSymF5:
+				l.selAnnEv(RootSelAnnTypeLast)
+				return event.HTrue
+			case event.KSymF9:
+				l.selAnnEv(RootSelAnnTypeClear)
+				return event.HTrue
+			}
+		}
+	case *event.MouseDown:
+		m := ev.Mods.ClearLocks()
+		switch {
+		case m.Is(event.ModCtrl):
+			switch ev.Button {
+			case event.ButtonWheelUp:
+				l.selAnnEv(RootSelAnnTypePrev)
+				return event.HTrue
+			case event.ButtonWheelDown:
+				l.selAnnEv(RootSelAnnTypeNext)
+				return event.HTrue
+			}
+		}
+	}
+	return event.HFalse
+}
+
+//----------
+
+func (l *Root) selAnnEv(typ RootSelectAnnotationType) {
+	ev2 := &RootSelectAnnotationEvent{typ}
+	l.EvReg.RunCallbacks(RootSelectAnnotationEventId, ev2)
+}
+
+//----------
+
+const (
+	RootSelectAnnotationEventId = iota
+)
+
+//----------
+
+type RootSelectAnnotationEvent struct {
+	Type RootSelectAnnotationType
+}
+
+type RootSelectAnnotationType int
+
+const (
+	RootSelAnnTypeFirst RootSelectAnnotationType = iota
+	RootSelAnnTypeLast
+	RootSelAnnTypePrev
+	RootSelAnnTypeNext
+	RootSelAnnTypeClear
+)

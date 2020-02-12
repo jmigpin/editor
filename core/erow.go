@@ -121,9 +121,9 @@ func (erow *ERow) initHandlers() {
 		})
 	})
 	// textarea select annotation
-	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev0 interface{}) {
-		ev := ev0.(*ui.TextAreaSelectAnnotationEvent)
-		erow.Ed.GoDebug.SelectAnnotation(erow, ev.AnnotationIndex, ev.Offset, ev.Type)
+	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev interface{}) {
+		ev2 := ev.(*ui.TextAreaSelectAnnotationEvent)
+		erow.Ed.GoDebug.SelectERowAnnotation(erow, ev2)
 	})
 	// textarea inlinecomplete
 	row.TextArea.EvReg.Add(ui.TextAreaInlineCompleteEventId, func(ev0 interface{}) {

@@ -84,10 +84,7 @@ func (ed *Editor) init(opt *Options) error {
 		return err
 	}
 	ed.UI = ui0
-
-	// other setups
-	ed.setupRootToolbar()
-	ed.setupRootMenuToolbar()
+	ed.setupUIRoot()
 
 	// TODO: ensure it has the window measure
 	ed.EnsureOneColumn()
@@ -145,7 +142,7 @@ func (ed *Editor) uiEventLoop() {
 		ev := ed.UI.NextEvent()
 		switch t := ev.(type) {
 		case error:
-			log.Println(t) // in case there is no window yet
+			log.Println(t) // in case there is no window yet (TODO: detect?)
 			ed.Error(t)
 		case *editorClose:
 			return
@@ -319,6 +316,18 @@ func (ed *Editor) ActiveERow() (*ERow, bool) {
 
 //----------
 
+func (ed *Editor) setupUIRoot() {
+	ed.setupRootToolbar()
+	ed.setupRootMenuToolbar()
+
+	// ui.root select annotation
+	ed.UI.Root.EvReg.Add(ui.RootSelectAnnotationEventId, func(ev interface{}) {
+		rowPos := ed.GoodRowPos()
+		ev2 := ev.(*ui.RootSelectAnnotationEvent)
+		ed.GoDebug.SelectAnnotation(rowPos, ev2)
+	})
+}
+
 func (ed *Editor) setupRootToolbar() {
 	tb := ed.UI.Root.Toolbar
 	// cmd event
@@ -333,8 +342,6 @@ func (ed *Editor) setupRootToolbar() {
 	s := "Exit | ListSessions | NewColumn | NewRow | Reload | "
 	tb.SetStrClearHistory(s)
 }
-
-//----------
 
 func (ed *Editor) setupRootMenuToolbar() {
 	s := `CopyFilePosition
@@ -526,7 +533,8 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) (handled bool) {
 		switch t2 := t.Event.(type) {
 		case *event.KeyDown:
 			m := t2.Mods.ClearLocks()
-			if m.Is(event.ModNone) {
+			switch {
+			case m.Is(event.ModNone):
 				switch t2.KeySym {
 				case event.KSymEscape:
 					ed.GoDebug.CancelAndClear()

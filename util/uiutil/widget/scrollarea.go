@@ -153,11 +153,14 @@ func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled
 	case *event.MouseDown:
 		// scrolling with the wheel on the content area
 		if p.In(sa.scrollable.Embed().Bounds) {
-			switch {
-			case evt.Button == event.ButtonWheelUp:
-				sa.scrollJumpUp()
-			case evt.Button == event.ButtonWheelDown:
-				sa.scrollJumpDown()
+			m := evt.Mods.ClearLocks()
+			if !m.HasAny(event.ModCtrl) {
+				switch {
+				case evt.Button == event.ButtonWheelUp:
+					sa.scrollJumpUp()
+				case evt.Button == event.ButtonWheelDown:
+					sa.scrollJumpDown()
+				}
 			}
 		}
 	}

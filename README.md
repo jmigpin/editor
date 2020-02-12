@@ -463,15 +463,17 @@ Plugins located at: `./plugins`.
 	- `ctrl`+`buttonLeft`: select annotation
 	- `ctrl`+`buttonRight`: over an annotation: print the annotation value.
 	- `ctrl`+`buttonWheelUp`:
-		- on textarea: show previous debug step
+		- show previous debug step
 		- over an annotation: show line previous annotation
 	- `ctrl`+`buttonWheelDown`:
-		- on textarea: show next debug step
+		- show next debug step
 		- over an annotation: show line next annotation
+	- `ctrl`+`f4`:
+		- show first debug step
 	- `ctrl`+`f5`:
-		- on textarea: show last debug step
+		- show last debug step
 	- `ctrl`+`f9`:
-		- on textarea: clear debug messages (continues debugging)
+		- clear debug messages (continues debugging)
 	- `esc`: stop the debug session.
 - inline complete
 	- `tab`: inline code completion for file extensions registered with LSP.

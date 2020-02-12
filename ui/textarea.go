@@ -89,9 +89,9 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentPrev) {
 					return event.HTrue
-				} else {
-					ta.selAnnEv(TASelAnnTypePrev)
-					return event.HTrue
+					//} else {
+					//	ta.selAnnEv(TASelAnnTypePrev)
+					//	return event.HTrue
 				}
 			}
 		case event.ButtonWheelDown:
@@ -99,9 +99,9 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentNext) {
 					return event.HTrue
-				} else {
-					ta.selAnnEv(TASelAnnTypeNext)
-					return event.HTrue
+					//} else {
+					//	ta.selAnnEv(TASelAnnTypeNext)
+					//	return event.HTrue
 				}
 			}
 		}
@@ -120,12 +120,12 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 		switch {
 		case m.Is(event.ModCtrl):
 			switch ev.KeySym {
-			case event.KSymF5:
-				ta.selAnnEv(TASelAnnTypeLast)
-				return event.HTrue
-			case event.KSymF9:
-				ta.selAnnEv(TASelAnnTypeClear)
-				return event.HTrue
+			//case event.KSymF5:
+			//ta.selAnnEv(TASelAnnTypeLast)
+			//return event.HTrue
+			//case event.KSymF9:
+			//ta.selAnnEv(TASelAnnTypeClear)
+			//return event.HTrue
 			}
 		case m.Is(event.ModNone):
 			switch ev.KeySym {
@@ -253,10 +253,10 @@ const (
 	TASelAnnTypeCurrent TASelAnnType = iota // make current
 	TASelAnnTypeCurrentPrev
 	TASelAnnTypeCurrentNext
-	TASelAnnTypePrev
-	TASelAnnTypeNext
-	TASelAnnTypeLast
-	TASelAnnTypeClear
+	//TASelAnnTypePrev
+	//TASelAnnTypeNext
+	//TASelAnnTypeLast
+	//TASelAnnTypeClear
 	TASelAnnTypePrint
 )
 

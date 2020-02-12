@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -82,38 +83,60 @@ func (gdi *GoDebugInstance) CancelAndClear() {
 
 //----------
 
-func (gdi *GoDebugInstance) SelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) {
-	if gdi.updateSelectAnnotation(erow, annIndex, offset, typ) {
-		gdi.updateUIShowLine(erow)
+func (gdi *GoDebugInstance) SelectERowAnnotation(erow *ERow, ev *ui.TextAreaSelectAnnotationEvent) {
+	if gdi.selectERowAnnotation2(erow, ev) {
+		gdi.updateUIShowLine(erow.Row.PosBelow())
 	}
 }
 
-func (gdi *GoDebugInstance) updateSelectAnnotation(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) bool {
+func (gdi *GoDebugInstance) selectERowAnnotation2(erow *ERow, ev *ui.TextAreaSelectAnnotationEvent) bool {
 	if !gdi.dataLock() {
 		return false
 	}
 	defer gdi.dataUnlock()
-
-	update := false
-	switch typ {
+	switch ev.Type {
 	case ui.TASelAnnTypeCurrent,
 		ui.TASelAnnTypeCurrentPrev,
 		ui.TASelAnnTypeCurrentNext:
-		update = gdi.selectCurrent(erow, annIndex, offset, typ)
-	case ui.TASelAnnTypePrev:
-		update = gdi.selectPrev()
-	case ui.TASelAnnTypeNext:
-		update = gdi.selectNext()
-	case ui.TASelAnnTypeLast:
-		update = gdi.selectLast()
-	case ui.TASelAnnTypeClear:
-		update = true
-		gdi.data.dataIndex.clearMsgs()
+		return gdi.selectCurrent(erow, ev.AnnotationIndex, ev.Offset, ev.Type)
 	case ui.TASelAnnTypePrint:
-		gdi.printIndex(erow, annIndex, offset)
+		gdi.printIndex(erow, ev.AnnotationIndex, ev.Offset)
+		return false
+	default:
+		log.Printf("todo: %#v", ev)
 	}
+	return false
+}
 
-	return update
+//----------
+
+func (gdi *GoDebugInstance) SelectAnnotation(rowPos *ui.RowPos, ev *ui.RootSelectAnnotationEvent) {
+	if gdi.selectAnnotation2(ev) {
+		gdi.updateUIShowLine(rowPos)
+	}
+}
+
+func (gdi *GoDebugInstance) selectAnnotation2(ev *ui.RootSelectAnnotationEvent) bool {
+	if !gdi.dataLock() {
+		return false
+	}
+	defer gdi.dataUnlock()
+	switch ev.Type {
+	case ui.RootSelAnnTypeFirst:
+		return gdi.selectFirst()
+	case ui.RootSelAnnTypeLast:
+		return gdi.selectLast()
+	case ui.RootSelAnnTypePrev:
+		return gdi.selectPrev()
+	case ui.RootSelAnnTypeNext:
+		return gdi.selectNext()
+	case ui.RootSelAnnTypeClear:
+		gdi.data.dataIndex.clearMsgs()
+		return true
+	default:
+		log.Printf("todo: %#v", ev)
+	}
+	return false
 }
 
 func (gdi *GoDebugInstance) selectCurrent(erow *ERow, annIndex, offset int, typ ui.TASelAnnType) bool {
@@ -171,6 +194,14 @@ func (gdi *GoDebugInstance) selectPrev() bool {
 		return true
 	}
 	return false
+}
+
+func (gdi *GoDebugInstance) selectFirst() bool {
+	di := gdi.data.dataIndex
+	di.SelectedArrivalIndex = 0
+	// show always
+	gdi.openArrivalIndexERow()
+	return true
 }
 
 func (gdi *GoDebugInstance) selectLast() bool {
@@ -429,7 +460,7 @@ func (gdi *GoDebugInstance) updateUI() {
 	})
 }
 
-func (gdi *GoDebugInstance) updateUIShowLine(erow *ERow) {
+func (gdi *GoDebugInstance) updateUIShowLine(rowPos *ui.RowPos) {
 	gdi.ed.UI.RunOnUIGoRoutine(func() {
 		if !gdi.dataRLock() {
 			return
@@ -437,7 +468,7 @@ func (gdi *GoDebugInstance) updateUIShowLine(erow *ERow) {
 		defer gdi.dataRUnlock()
 
 		gdi.updateUI2()
-		gdi.showSelectedLine(erow)
+		gdi.showSelectedLine(rowPos)
 	})
 }
 
@@ -523,7 +554,7 @@ func (gdi *GoDebugInstance) setAnnotations(erow *ERow, on bool, selIndex int, en
 
 //----------
 
-func (gdi *GoDebugInstance) showSelectedLine(erow *ERow) {
+func (gdi *GoDebugInstance) showSelectedLine(rowPos *ui.RowPos) {
 	di := gdi.data.dataIndex
 	for _, afd := range di.Afds {
 		file := di.Files[afd.FileIndex]
@@ -539,7 +570,6 @@ func (gdi *GoDebugInstance) showSelectedLine(erow *ERow) {
 			fo := &parseutil.FilePos{Filename: afd.Filename, Offset: dlm.Offset}
 
 			// show line
-			rowPos := erow.Row.PosBelow()
 			conf := &OpenFileERowConfig{
 				FilePos:             fo,
 				RowPos:              rowPos,
