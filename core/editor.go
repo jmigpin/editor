@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"unicode"
 
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/core/lsproto"
@@ -220,9 +221,9 @@ func (ed *Editor) Message(s string) {
 
 		erow.TextAreaAppendBytes([]byte(s))
 
-		// don't count newline at the end for closer bottom alignment
-		l := len(s) - 1
-		erow.MakeRangeVisibleAndFlash(index, l)
+		// don't count spaces at the end for closer bottom alignment
+		u := strings.TrimRightFunc(s, unicode.IsSpace)
+		erow.MakeRangeVisibleAndFlash(index, len(u))
 	})
 }
 
