@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -170,7 +171,8 @@ func (cmd *Cmd) setupStdio2(ir io.Reader, ow, ew io.Writer) error {
 		})
 		// setup stderr if the same
 		//if ew == ow { // can panic
-		if interfaceEqual(ew, ow) {
+		//if interfaceEqual(ew, ow) { // can panic
+		if reflect.DeepEqual(ew, ow) {
 			cmd.Stderr = cmd.Stdout // set in StdoutPipe() call
 			return nil              // early exit, stderr set
 		}
@@ -191,13 +193,13 @@ func (cmd *Cmd) setupStdio2(ir io.Reader, ow, ew io.Writer) error {
 	return nil
 }
 
-// from: os/exec/exec.go:218
-func interfaceEqual(a, b interface{}) bool {
-	defer func() {
-		recover()
-	}()
-	return a == b
-}
+//// from: os/exec/exec.go:218
+//func interfaceEqual(a, b interface{}) bool {
+//	defer func() {
+//		recover()
+//	}()
+//	return a == b
+//}
 
 //----------
 

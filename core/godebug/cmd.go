@@ -333,7 +333,7 @@ func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) e
 	filenameOut, err := cmd.runBuildCmd(ctx, filename, tests)
 	defer os.Remove(filenameOut) // ensure removal even on error
 	if err != nil {
-		return err
+		return fmt.Errorf("preBuild: %w", err)
 	}
 	return nil
 }
@@ -573,7 +573,7 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (s
 	dir := filepath.Dir(filenameOut)
 	err := cmd.runCmd(ctx, dir, args, cmd.env)
 	if err != nil {
-		err = fmt.Errorf("runBuildCmd: %v", err)
+		err = fmt.Errorf("runBuildCmd: %w", err)
 	}
 	return filenameOut, err
 }
