@@ -204,6 +204,11 @@ func (files *Files) populateProgFilenamesMap(pkgs []*packages.Package) {
 				}
 			}
 
+			// add self module (case of using as a library), done here to consult the pkgpaths (and not at findgomods time)
+			if strings.HasPrefix(pkg.PkgPath, SelfModPkgPath+"/") {
+				files.addGoMod(filepath.Dir(fname))
+			}
+
 			files.progFilenames[fname] = struct{}{}
 
 			// map pkg path
@@ -443,12 +448,16 @@ func (files *Files) findGoMods() {
 			continue
 		}
 		seen[dir] = struct{}{}
-		u, found := files.findGoModOrMissing(dir)
-		if found {
-			files.modFilenames[u] = struct{}{}
-		} else {
-			files.modMissings[u] = struct{}{}
-		}
+		files.addGoMod(dir)
+	}
+}
+
+func (files *Files) addGoMod(dir string) {
+	u, found := files.findGoModOrMissing(dir)
+	if found {
+		files.modFilenames[u] = struct{}{}
+	} else {
+		files.modMissings[u] = struct{}{}
 	}
 }
 

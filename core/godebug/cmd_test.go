@@ -1057,6 +1057,49 @@ func TestCmd_goMod15(t *testing.T) {
 	t.Logf("done: %v", time.Now().Sub(start))
 }
 
+func TestCmd_goMod16(t *testing.T) {
+	// using the editor as a library but annotating another module
+	// because the editor module is not annotated, no copy of the necessary modules were done, and so the "debug" package exists causing an ambiguous module
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+		replace example.com/pkg1 => ../pkg1
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		//godebug:annotateimport
+		import "example.com/pkg1"
+		func main() {
+			_=pkg1.Fa()
+		}
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
+		module example.com/pkg1
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
+		package pkg1
+		import "github.com/jmigpin/editor/util/goutil"
+		func Fa() string {
+			_=goutil.GoPath()
+			return "Fa"
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `"Fa"`)
+	mustHaveString(t, msgs, `=> GoPath()`)
+}
+
 //------------
 
 func TestCmd_goPath1(t *testing.T) {
@@ -1244,19 +1287,20 @@ func TestCmd_simple2(t *testing.T) {
 //	_ = msgs
 //}
 
-//// Launches the editor itself.
-//func TestCmd_editor(t *testing.T) {
-//	filename := "./../../editor.go"
-//	args := []string{
-//		"run",
-//		//"-verbose",
-//		//"-work",
-//		//"-dirs=../../core",
-//		//"-dirs=../../core,../../core/contentcmds",
-//		filename,
-//	}
-//	doCmd(t, "", args)
-//}
+// Launches the editor itself.
+func TestCmd_editor(t *testing.T) {
+	filename := "./../../editor.go"
+	args := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		//"-dirs=../../core",
+		//"-dirs=../../core,../../core/contentcmds",
+		filename,
+		"-sn=gui",
+	}
+	doCmd(t, "", args)
+}
 
 //------------
 

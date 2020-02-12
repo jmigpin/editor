@@ -12,8 +12,9 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-const DebugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
-const GodebugconfigPkgPath = "github.com/jmigpin/editor/core/godebug/godebugconfig"
+const SelfModPkgPath = "github.com/jmigpin/editor"
+const DebugPkgPath = SelfModPkgPath + "/core/godebug/debug"
+const GodebugconfigPkgPath = SelfModPkgPath + "/core/godebug/godebugconfig"
 
 //----------
 
