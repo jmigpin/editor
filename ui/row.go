@@ -182,6 +182,16 @@ func (row *Row) EnsureTextAreaMinimumHeight() {
 	row.Col.RowsLayout.Spl.SetSizePercentWithPush(row, perc)
 }
 
+func (row *Row) EnsureOneToolbarLineYVisible() {
+	minH := row.TextArea.LineHeight()
+	rowY := row.Bounds.Dy()
+	if rowY >= minH {
+		return
+	}
+	perc := float64(minH) / float64(row.Col.Bounds.Dy())
+	row.Col.RowsLayout.Spl.SetSizePercentWithPush(row, perc)
+}
+
 //----------
 
 func (row *Row) SetState(s RowState, v bool) {

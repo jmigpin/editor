@@ -384,14 +384,19 @@ func (erow *ERow) MakeIndexVisibleAndFlash(index int) {
 	erow.MakeRangeVisibleAndFlash(index, 0)
 }
 func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
-	erow.Row.EnsureTextAreaMinimumHeight()
+	// Commented: don't flicker row positions
+	//erow.Row.EnsureTextAreaMinimumHeight()
+	erow.Row.EnsureOneToolbarLineYVisible()
+
 	erow.Row.TextArea.MakeRangeVisible(index, len)
 	erow.Row.TextArea.FlashIndexLen(index, len)
 
-	// flash toolbar as last resort
-	//if !erow.Row.TextArea.IsRangeVisible(index, len) {
-	b := &erow.Row.TextArea.Bounds
-	if b.Dx() < 10 || b.Dy() < 10 { // TODO: use dpi instead of fixed pixels
+	// flash toolbar as last resort if less visible
+	ta := erow.Row.TextArea
+	b := &ta.Bounds
+	lh := ta.LineHeight()
+	min := int(float64(lh) * 1.5)
+	if b.Dy() < min {
 		erow.Flash()
 	}
 }
