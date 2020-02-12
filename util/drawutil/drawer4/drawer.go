@@ -602,8 +602,7 @@ func (d *Drawer) ScrollWheelSizeY(up bool) int {
 // integer lines
 func (d *Drawer) boundsNLines() int {
 	dy := mathutil.Intf1(d.bounds.Dy())
-	nlines := dy.Floor() / d.lineHeight.Floor()
-	return nlines
+	return int(dy / d.lineHeight)
 }
 
 //----------
@@ -629,62 +628,86 @@ func (d *Drawer) scrollSizeYDown(nlines int) int {
 
 //----------
 
+////godebug:annotatefile
+////godebug:annotatefile:visible.go
+
 func (d *Drawer) RangeVisible(offset, length int) bool {
-	_, v1 := header1Visibility(d, offset)
-	_, v2 := header1Visibility(d, offset+length)
-	for _, v := range []Visibility{v1, v2} {
-		switch v {
-		case fullyVisible, topPartVisible, bottomPartVisible:
-			return true
-		}
+	v1 := penVisibility(d, offset)
+	if v1.full || v1.partial {
+		return true
 	}
+	v2 := penVisibility(d, offset+length)
+	if v2.full || v2.partial {
+		return true
+	}
+	// v1 above and v2 below view is considered not visible (will align with v1 at top on RangeVisibleOffset(...))
 	return false
 }
 
-//----------
-
 func (d *Drawer) RangeVisibleOffset(offset, length int) int {
-	_, v1 := header1Visibility(d, offset)
-	//_, v2 := header1Visibility(d, offset+length)
-	switch v1 {
-	case fullyVisible:
+	rnlines := d.rangeNLines(offset, length)
+	bnlines := d.boundsNLines()
+	// extra lines beyond the lines ocuppied by the range
+	freeLines := bnlines - rnlines
+	if freeLines < 0 {
+		freeLines = 0
+	}
+
+	topLines := func(n int) int {
+		// top lines visible before the offset line
+		return d.wlineStartIndex(true, offset, n, nil)
+	}
+	alignTop := func() int {
+		return topLines(0)
+	}
+	alignBottom := func() int {
+		return topLines(freeLines)
+	}
+	alignCenter := func() int {
+		return topLines(freeLines / 2)
+	}
+	keepCurAlignment := func() int {
 		return mathutil.Smallest(d.opt.runeO.offset, d.reader.Max())
-	case notVisible:
-		return d.visibleAtCenter(offset, length)
-	case topPartVisible, topNotVisible:
-		return d.visibleAtTop(offset)
-	case bottomPartVisible, bottomNotVisible:
-		return d.visibleAtBottom(offset, length)
 	}
-	return d.visibleAtCenter(offset, length)
-}
 
-func (d *Drawer) visibleAtTop(offset int) int {
-	return d.wlineStartIndex(true, offset, 0, nil)
-}
-func (d *Drawer) visibleAtBottom(offset, length int) int {
-	nlines := d.rangeNLines(offset, length)
-	bnlines := d.boundsNLines()
-	u := bnlines - nlines
-	if u < 0 {
-		u = 0
-	}
-	return d.wlineStartIndex(true, offset, u, nil)
-}
-
-func (d *Drawer) visibleAtCenter(offset, length int) int {
-	// detect nlines
-	nlines := d.rangeNLines(offset, length)
-
-	// centered
-	bnlines := d.boundsNLines()
-	if nlines >= bnlines {
-		nlines = 0 // top
+	v1 := penVisibility(d, offset)
+	v2 := penVisibility(d, offset+length)
+	if v1.full {
+		if v2.full {
+			return keepCurAlignment()
+		} else if v2.partial {
+			if v2.top {
+				// panic (can't be: v1 is full)
+			} else {
+				return alignBottom()
+			}
+		} else if v2.not { // past bottom line
+			return alignBottom()
+		} else {
+			// panic
+		}
+	} else if v1.partial {
+		if v1.top {
+			return alignTop()
+		} else {
+			return alignBottom()
+		}
+	} else if v1.not {
+		if v2.full {
+			return alignTop()
+		} else if v2.partial {
+			return alignTop()
+		} else if v2.not {
+			return alignCenter()
+		} else {
+			// panic
+		}
 	} else {
-		nlines = (bnlines - nlines) / 2
+		// panic
 	}
 
-	return d.wlineStartIndex(true, offset, nlines, nil)
+	// should never get here
+	return alignCenter()
 }
 
 //----------
@@ -692,13 +715,13 @@ func (d *Drawer) visibleAtCenter(offset, length int) int {
 func (d *Drawer) rangeNLines(offset, length int) int {
 	pr1, pr2, ok := d.wlineRangePenBounds(offset, length)
 	if ok {
-		u := ((pr2.Min.Y - pr1.Min.Y) / d.lineHeight).Floor() + 1
-		if u > 1 {
+		w := pr2.Max.Y - pr1.Min.Y
+		u := int(w / d.lineHeight)
+		if u >= 1 {
 			return u
 		}
 	}
-
-	return 1
+	return 1 // always at least one line
 }
 
 func (d *Drawer) wlineRangePenBounds(offset, length int) (_, _ mathutil.RectangleIntf, _ bool) {

@@ -1,8 +1,6 @@
 package drawer4
 
 import (
-	"image"
-
 	"github.com/jmigpin/editor/util/mathutil"
 )
 
@@ -38,47 +36,35 @@ func header1PenBounds(d *Drawer, offset int) (mathutil.RectangleIntf, bool) {
 
 //----------
 
-type Visibility int
+type PenVisibility struct {
+	not     bool // not visible
+	full    bool // fully visible
+	partial bool // partially visible
+	top     bool // otherwise is bottom, valid in "full" and "partial"
+}
 
-const (
-	notVisible Visibility = iota
-	fullyVisible
-	topPartVisible
-	topNotVisible
-	bottomPartVisible
-	bottomNotVisible
-)
-
-func header1Visibility(d *Drawer, offset int) (image.Rectangle, Visibility) {
-	zr := image.Rectangle{}
+func penVisibility(d *Drawer, offset int) *PenVisibility {
+	v := &PenVisibility{}
 	pb, ok := header1PenBounds(d, offset)
-	// not visible
 	if !ok {
-		return zr, notVisible
-	}
-	pr := pb.ToRectFloorCeil()
-
-	// allow intersection of empty x in penbounds (case of eof)
-	if pr.Dx() == 0 {
-		pr.Max.X = pr.Min.X + 1
-	}
-
-	ir := d.bounds.Intersect(pr)
-	if ir.Empty() {
-		if pr.Min.Y < d.bounds.Min.Y {
-			return pr, topNotVisible
+		v.not = true
+	} else {
+		pr := pb.ToRectFloorCeil()
+		// allow intersection of empty x in penbounds (case of eof)
+		if pr.Dx() == 0 {
+			pr.Max.X = pr.Min.X + 1
+		}
+		ir := d.bounds.Intersect(pr)
+		if ir.Empty() {
+			v.not = true
+		} else if ir == pr {
+			v.full = true
 		} else {
-			return pr, bottomNotVisible
+			v.partial = true
+			if pr.Min.Y < d.bounds.Min.Y {
+				v.top = true
+			}
 		}
 	}
-	// partially visible
-	if ir != pr {
-		if pr.Min.Y < d.bounds.Min.Y {
-			return pr, topPartVisible
-		} else {
-			return pr, bottomPartVisible
-		}
-	}
-	// fully visible
-	return pr, fullyVisible
+	return v
 }

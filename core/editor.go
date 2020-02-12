@@ -223,7 +223,9 @@ func (ed *Editor) Message(s string) {
 
 		erow.TextAreaAppendBytes([]byte(s))
 
-		erow.MakeRangeVisibleAndFlash(index, len(s))
+		// don't count newline at the end for closer bottom alignment
+		l := len(s) - 1
+		erow.MakeRangeVisibleAndFlash(index, l)
 	})
 }
 
