@@ -22,6 +22,7 @@ func init() {
 	ic.Set(&core.InternalCmd{"ReopenRow", true, ReopenRow})
 	ic.Set(&core.InternalCmd{"MaximizeRow", false, MaximizeRow})
 
+	ic.Set(&core.InternalCmd{"NewFile", false, NewFile})
 	ic.Set(&core.InternalCmd{"Save", false, Save})
 	ic.Set(&core.InternalCmd{"SaveAllFiles", true, SaveAllFiles})
 

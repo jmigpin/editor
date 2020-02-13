@@ -352,15 +352,15 @@ FontRunes | FontTheme
 GoDebug 
 GoRename
 GotoLine 
-MaximizeRow
+NewColumn
+NewFile | SaveAllFiles
+NewRow | ReopenRow | MaximizeRow
 ListDir | ListDir -hidden | ListDir -sub
 ListSessions | OpenSession | DeleteSession
 LSProtoCloseAll
 OpenFilemanager
 Reload | ReloadAll | ReloadAllFiles 
-ReopenRow 
 RuneCodes
-SaveAllFiles
 Exit | Stop | Clear`
 	tb := ed.UI.Root.MainMenuButton.Toolbar
 	tb.SetStrClearHistory(s)

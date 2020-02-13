@@ -183,6 +183,7 @@ Use monospaced font in this row textarea (see more at [internal variables](#inte
 
 These commands run on a row toolbar, or on the top toolbar with the active-row.
 
+- `NewFile <name>`: create (and open) new file at the row directory. Fails it the file already exists.
 - `Save`: save file
 - `Reload`: reload content
 - `CloseRow`: close row
