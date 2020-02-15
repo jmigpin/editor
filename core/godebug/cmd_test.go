@@ -1287,20 +1287,20 @@ func TestCmd_simple2(t *testing.T) {
 //	_ = msgs
 //}
 
-// Launches the editor itself.
-func TestCmd_editor(t *testing.T) {
-	filename := "./../../editor.go"
-	args := []string{
-		"run",
-		//"-verbose",
-		//"-work",
-		//"-dirs=../../core",
-		//"-dirs=../../core,../../core/contentcmds",
-		filename,
-		"-sn=gui",
-	}
-	doCmd(t, "", args)
-}
+//// Launches the editor itself.
+//func TestCmd_editor(t *testing.T) {
+//	filename := "./../../editor.go"
+//	args := []string{
+//		"run",
+//		//"-verbose",
+//		//"-work",
+//		//"-dirs=../../core",
+//		//"-dirs=../../core,../../core/contentcmds",
+//		filename,
+//		"-sn=gui",
+//	}
+//	doCmd(t, "", args)
+//}
 
 //------------
 

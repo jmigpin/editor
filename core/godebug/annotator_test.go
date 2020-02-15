@@ -6,8 +6,9 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"strings"
 	"testing"
+
+	"github.com/jmigpin/editor/core/parseutil"
 )
 
 //----------
@@ -2062,8 +2063,8 @@ func TestAnnConfigContent(t *testing.T) {
 func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 	t.Helper()
 
-	in := trimLineSpaces(fn(in0))
-	out := trimLineSpaces(fn(out0))
+	in := parseutil.TrimLineSpaces(fn(in0))
+	out := parseutil.TrimLineSpaces(fn(out0))
 	typ := AnnotationTypeFile
 
 	files, names := newFilesFromSrcs(t, in)
@@ -2079,7 +2080,7 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 
 	var buf bytes.Buffer
 	ann.PrintSimple(&buf, astFile)
-	res := trimLineSpaces(buf.String())
+	res := parseutil.TrimLineSpaces(buf.String())
 
 	if res != out {
 		u := fmt.Sprintf("\n*in:\n%s\n*expecting:\n%s\n*got:\n%s", in, out, res)
@@ -2135,15 +2136,3 @@ func parseAndStringify(t *testing.T, src string) string {
 }
 
 //----------
-
-func trimLineSpaces(str string) string {
-	a := strings.Split(str, "\n")
-	u := []string{}
-	for _, s := range a {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			u = append(u, s)
-		}
-	}
-	return strings.Join(u, "\n")
-}

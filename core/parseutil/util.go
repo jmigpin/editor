@@ -3,6 +3,7 @@ package parseutil
 import (
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -278,4 +279,41 @@ func RunesExcept(runes, except string) string {
 		return ru
 	}
 	return strings.Map(drop, runes)
+}
+
+//----------
+
+// Useful to compare src code lines.
+func TrimLineSpaces(str string) string {
+	a := strings.Split(str, "\n")
+	u := []string{}
+	for _, s := range a {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			u = append(u, s)
+		}
+	}
+	return strings.Join(u, "\n")
+}
+
+//----------
+
+func UriToAbsFilename(uri string) (string, error) {
+	u, err := url.Parse(string(uri))
+	if err != nil {
+		return "", err
+	}
+	filename := u.Path // unescaped
+	if !filepath.IsAbs(filename) {
+		return "", fmt.Errorf("filename not absolute: %v", filename)
+	}
+	return filename, nil
+}
+
+func AbsFilenameToUrl(filename string) (string, error) {
+	if !filepath.IsAbs(filename) {
+		return "", fmt.Errorf("filename not absolute: %v", filename)
+	}
+	u := &url.URL{Scheme: "file", Path: filename}
+	return u.String(), nil // path is escaped
 }
