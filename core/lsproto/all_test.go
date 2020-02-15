@@ -119,12 +119,16 @@ func TestRenameGo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	filenames, err := PatchWorkspaceEdit(we)
+	wecs, err := WorkspaceEditChanges(we)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, f := range filenames {
-		b, err := ioutil.ReadFile(f)
+
+	if err := PatchWorkspaceEditChanges(wecs); err != nil {
+		t.Fatal(err)
+	}
+	for _, wec := range wecs {
+		b, err := ioutil.ReadFile(wec.Filename)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -175,12 +179,16 @@ func TestRenameC(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	filenames, err := PatchWorkspaceEdit(we)
+	wecs, err := WorkspaceEditChanges(we)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, f := range filenames {
-		b, err := ioutil.ReadFile(f)
+
+	if err := PatchWorkspaceEditChanges(wecs); err != nil {
+		t.Fatal(err)
+	}
+	for _, wec := range wecs {
+		b, err := ioutil.ReadFile(wec.Filename)
 		if err != nil {
 			t.Fatal(err)
 		}

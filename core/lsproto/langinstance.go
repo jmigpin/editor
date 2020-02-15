@@ -26,19 +26,10 @@ func NewLangInstance(ctx context.Context, lang *LangManager) (*LangInstance, err
 
 	if err := li.startAndInit(ctx2); err != nil {
 		cancel()
+		_ = li.Wait()
 		return nil, err
 	}
 	return li, nil
-}
-
-func (li *LangInstance) Wait() error {
-	defer li.cancelCtx()
-	var me iout.MultiError
-	if li.sw != nil { // sw might be nil: "tcpclient" option
-		me.Add(li.sw.Wait())
-	}
-	me.Add(li.cli.Wait())
-	return me.Result()
 }
 
 //----------
@@ -58,28 +49,11 @@ func (li *LangInstance) startAndInit(ctx context.Context) error {
 func (li *LangInstance) start(ctx context.Context) error {
 	switch li.lang.Reg.Network {
 	case "tcp":
-		cli, sw, err := li.startClientServerTCP(ctx)
-		if err != nil {
-			return err
-		}
-		li.cli = cli
-		li.sw = sw
-		return nil
+		return li.startClientServerTCP(ctx)
 	case "tcpclient":
-		cli, err := li.startClientTCP(ctx, li.lang.Reg.Cmd)
-		if err != nil {
-			return err
-		}
-		li.cli = cli
-		return nil
+		return li.startClientTCP(ctx, li.lang.Reg.Cmd)
 	case "stdio":
-		cli, sw, err := li.startClientServerStdio(ctx)
-		if err != nil {
-			return err
-		}
-		li.cli = cli
-		li.sw = sw
-		return nil
+		return li.startClientServerStdio(ctx)
 	default:
 		return fmt.Errorf("unexpected network: %v", li.lang.Reg.Network)
 	}
@@ -87,21 +61,18 @@ func (li *LangInstance) start(ctx context.Context) error {
 
 //----------
 
-func (li *LangInstance) startClientServerTCP(ctx context.Context) (*Client, *ServerWrap, error) {
+func (li *LangInstance) startClientServerTCP(ctx context.Context) error {
 	// server wrap
 	sw, addr, err := StartServerWrapTCP(ctx, li.lang.Reg.Cmd, li.lang.man.serverWrapW)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
+	li.sw = sw
 	// client
-	cli, err := li.startClientTCP(ctx, addr)
-	if err != nil {
-		return nil, nil, err
-	}
-	return cli, sw, nil
+	return li.startClientTCP(ctx, addr)
 }
 
-func (li *LangInstance) startClientTCP(ctx context.Context, addr string) (*Client, error) {
+func (li *LangInstance) startClientTCP(ctx context.Context, addr string) error {
 	// client connect with retries
 	var cli *Client
 	fn := func() error {
@@ -122,12 +93,13 @@ func (li *LangInstance) startClientTCP(ctx context.Context, addr string) (*Clien
 	retryPause := 300 * time.Millisecond
 	err := ctxutil.Retry(ctx, retryPause, "clienttcp", fn, lateFn)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return cli, err
+	li.cli = cli
+	return nil
 }
 
-func (li *LangInstance) startClientServerStdio(ctx context.Context) (*Client, *ServerWrap, error) {
+func (li *LangInstance) startClientServerStdio(ctx context.Context) error {
 	var stderr io.Writer
 	if li.lang.Reg.HasOptional("stderr") {
 		stderr = os.Stderr
@@ -135,11 +107,25 @@ func (li *LangInstance) startClientServerStdio(ctx context.Context) (*Client, *S
 	// server wrap
 	sw, rwc, err := StartServerWrapIO(ctx, li.lang.Reg.Cmd, stderr, li)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
+	li.sw = sw
 	// client
 	cli := NewClientIO(ctx, rwc, li)
-	return cli, sw, nil
+	li.cli = cli
+	return nil
 }
 
 //----------
+
+func (li *LangInstance) Wait() error {
+	defer li.cancelCtx()
+	var me iout.MultiError
+	if li.sw != nil { // might be nil: "tcpclient" option (or not started)
+		me.Add(li.sw.Wait())
+	}
+	if li.cli != nil { // might be nil: not started in case of sw start error
+		me.Add(li.cli.Wait())
+	}
+	return me.Result()
+}
