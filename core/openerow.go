@@ -16,8 +16,8 @@ type OpenFileERowConfig struct {
 	NewIfNotExistent      bool
 	NewIfOffsetNotVisible bool
 
-	FlashRowsIfNotFlashed bool
-	FlashVisibleOffsets   bool // flashes rows if not flashed
+	//FlashRowsIfNotFlashed bool
+	FlashVisibleOffsets bool // flashes rows if not visible
 }
 
 func OpenFileERow(ed *Editor, conf *OpenFileERowConfig) {
@@ -172,10 +172,17 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 				}
 			}
 		}
+
+		// no flashes were done (no index visible, small rows), flash target
+		if len(flashed) == 0 {
+			erow.Flash()
+			flashed[erow] = true
+		}
 	}
 
 	// flash rows if not flashed already
-	if conf.FlashRowsIfNotFlashed || (conf.FlashVisibleOffsets && offset < 0) {
+	//if conf.FlashRowsIfNotFlashed ||
+	if conf.FlashVisibleOffsets && offset < 0 {
 		for _, e := range info.ERows {
 			if !flashed[e] {
 				e.Flash()
