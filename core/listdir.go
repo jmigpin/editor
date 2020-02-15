@@ -12,11 +12,13 @@ import (
 )
 
 func ListDirERow(erow *ERow, filepath string, tree, hidden bool) {
-	// clear
-	erow.Row.TextArea.SetStrClearHistory("")
-	erow.Row.TextArea.ClearPos()
-
 	erow.Exec.Start(func(ctx context.Context, w io.Writer) error {
+		// clear row content
+		erow.Ed.UI.RunOnUIGoRoutine(func() {
+			erow.Row.TextArea.SetStrClearHistory("")
+			erow.Row.TextArea.ClearPos()
+		})
+
 		return ListDirContext(ctx, w, erow.Info.Name(), tree, hidden)
 	})
 }
