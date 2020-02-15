@@ -9,7 +9,8 @@ import (
 func NewFace(font *truetype.Font, opt *truetype.Options) font.Face {
 	face := truetype.NewFace(font, opt)
 	f2 := NewFaceRunes(face)
-	f3 := NewFaceCache(f2)
+	//f3 := NewFaceCache(f2)
+	f3 := NewFaceCacheL(f2)
 	return f3
 }
 
