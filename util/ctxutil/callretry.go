@@ -68,7 +68,7 @@ func Call(ctx context.Context, prefix string, fn func() error, lateFn func(error
 
 //----------
 
-func Retry(ctx context.Context, sleep time.Duration, prefix string, fn func() error, lateFn func(error)) error {
+func Retry(ctx context.Context, retryPause time.Duration, prefix string, fn func() error, lateFn func(error)) error {
 	var err error
 	for {
 		err = Call(ctx, prefix, fn, lateFn)
@@ -81,7 +81,7 @@ func Retry(ctx context.Context, sleep time.Duration, prefix string, fn func() er
 		case <-ctx.Done():
 			return err // err is non-nil
 		default: // non-blocking select
-			time.Sleep(sleep) // sleep before next retry
+			time.Sleep(retryPause) // sleep before next retry
 		}
 	}
 }

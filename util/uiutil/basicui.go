@@ -260,7 +260,7 @@ func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
 	ui.AppendEvent(&UIRunFuncEvent{f})
 }
 
-// Allows triggering a run of applyevent (ex: useful for cursor update).
+// Allows triggering a run of applyevent (ex: useful for cursor update, needs point or it won't work).
 func (ui *BasicUI) QueueEmptyWindowInputEvent() {
 	p, err := ui.QueryPointer()
 	if err != nil {

@@ -51,6 +51,7 @@ func (tf *TmpFiles) RemoveAll() error {
 
 //----------
 
+// Returns the filename
 func (tf *TmpFiles) MkdirInTmpOrPanic(path string) string {
 	s, err := tf.MkdirInTmp(path)
 	if err != nil {
@@ -59,6 +60,7 @@ func (tf *TmpFiles) MkdirInTmpOrPanic(path string) string {
 	return s
 }
 
+// Returns the filename
 func (tf *TmpFiles) WriteFileInTmpOrPanic(path string, src []byte) string {
 	s, err := tf.WriteFileInTmp(path, src)
 	if err != nil {
@@ -67,6 +69,7 @@ func (tf *TmpFiles) WriteFileInTmpOrPanic(path string, src []byte) string {
 	return s
 }
 
+// Returns the filename
 func (tf *TmpFiles) WriteFileInTmp2OrPanic(path string, src string) string {
 	return tf.WriteFileInTmpOrPanic(path, []byte(src))
 }
