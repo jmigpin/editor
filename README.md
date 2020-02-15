@@ -462,20 +462,17 @@ Plugins located at: `./plugins`.
 	- `ctrl`+`d`: comment lines
 	- `ctrl`+`shift`+`d`: uncomment lines
 - godebug
-	- `ctrl`+`buttonLeft`: select annotation
-	- `ctrl`+`buttonRight`: over an annotation: print the annotation value.
+	- `ctrl`+`buttonLeft`: select debug step
+	- `ctrl`+`buttonRight`: over a debug step: print the value.
 	- `ctrl`+`buttonWheelUp`:
 		- show previous debug step
-		- over an annotation: show line previous annotation
+		- over a debug step: show line previous debug step
 	- `ctrl`+`buttonWheelDown`:
 		- show next debug step
-		- over an annotation: show line next annotation
-	- `ctrl`+`f4`:
-		- show first debug step
-	- `ctrl`+`f5`:
-		- show last debug step
-	- `ctrl`+`f9`:
-		- clear debug messages (continues debugging)
+		- over a debug step: show line next debug step
+	- `ctrl`+`f4`: show first debug step
+	- `ctrl`+`f5`: show last debug step
+	- `ctrl`+`f9`: clear all debug steps (clears memory, continues debugging)
 	- `esc`: stop the debug session.
 - inline complete
 	- `tab`: inline code completion for file extensions registered with LSP.
