@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/util/ctxutil"
@@ -13,57 +12,74 @@ import (
 )
 
 type LangInstance struct {
-	lang *LangManager
-	mu   struct {
-		sync.Mutex
-		cli        *Client
-		sw         *ServerWrap
-		connCancel context.CancelFunc
-	}
+	lang      *LangManager
+	cli       *Client
+	sw        *ServerWrap // might be nil: "tcpclient" option
+	cancelCtx context.CancelFunc
 }
 
-func NewLangInstance(lang *LangManager) *LangInstance {
-	return &LangInstance{lang: lang}
+func NewLangInstance(ctx context.Context, lang *LangManager) (*LangInstance, error) {
+	li := &LangInstance{lang: lang}
+
+	ctx2, cancel := context.WithCancel(ctx)
+	li.cancelCtx = cancel
+
+	if err := li.startAndInit(ctx2); err != nil {
+		cancel()
+		return nil, err
+	}
+	return li, nil
+}
+
+func (li *LangInstance) Wait() error {
+	defer li.cancelCtx()
+	var me iout.MultiError
+	if li.sw != nil { // sw might be nil: "tcpclient" option
+		me.Add(li.sw.Wait())
+	}
+	me.Add(li.cli.Wait())
+	return me.Result()
 }
 
 //----------
 
-func (li *LangInstance) client(ctx context.Context, filename string) (*Client, error) {
-	li.mu.Lock()
-	defer li.mu.Unlock()
-	// client/server already setup
-	if li.mu.cli != nil {
-		return li.mu.cli, nil
-	}
+func (li *LangInstance) startAndInit(ctx context.Context) error {
 	// start new client/server
-	if err := li.startClientServer(ctx); err != nil {
-		err = li.lang.WrapError(err)
-		return nil, err
+	if err := li.start(ctx); err != nil {
+		return err
 	}
 	// initialize client
-	if err := li.mu.cli.Initialize(ctx, filename); err != nil {
-		_ = li.lang.Close()
-		return nil, err
+	if err := li.cli.Initialize(ctx); err != nil {
+		return err
 	}
-	return li.mu.cli, nil
+	return nil
 }
 
-func (li *LangInstance) startClientServer(ctx context.Context) error {
-	// independent context for client/server conn
-	connCtx, cancel := context.WithCancel(context.Background())
-	li.mu.connCancel = cancel
-	// new client/server
-	return li.connectClientServer(ctx, connCtx)
-}
-
-func (li *LangInstance) connectClientServer(reqCtx, connCtx context.Context) error {
+func (li *LangInstance) start(ctx context.Context) error {
 	switch li.lang.Reg.Network {
 	case "tcp":
-		return li.connClientServerTCP(reqCtx, connCtx)
+		cli, sw, err := li.startClientServerTCP(ctx)
+		if err != nil {
+			return err
+		}
+		li.cli = cli
+		li.sw = sw
+		return nil
 	case "tcpclient":
-		return li.connClientTCP(reqCtx, connCtx, li.lang.Reg.Cmd)
+		cli, err := li.startClientTCP(ctx, li.lang.Reg.Cmd)
+		if err != nil {
+			return err
+		}
+		li.cli = cli
+		return nil
 	case "stdio":
-		return li.connClientServerStdio(connCtx)
+		cli, sw, err := li.startClientServerStdio(ctx)
+		if err != nil {
+			return err
+		}
+		li.cli = cli
+		li.sw = sw
+		return nil
 	default:
 		return fmt.Errorf("unexpected network: %v", li.lang.Reg.Network)
 	}
@@ -71,24 +87,25 @@ func (li *LangInstance) connectClientServer(reqCtx, connCtx context.Context) err
 
 //----------
 
-func (li *LangInstance) connClientServerTCP(reqCtx, connCtx context.Context) error {
+func (li *LangInstance) startClientServerTCP(ctx context.Context) (*Client, *ServerWrap, error) {
 	// server wrap
-	sw, addr, err := NewServerWrapTCP(connCtx, li.lang.Reg.Cmd, li)
+	sw, addr, err := StartServerWrapTCP(ctx, li.lang.Reg.Cmd, li.lang.man.serverWrapW)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	li.mu.sw = sw
 	// client
-	return li.connClientTCP(reqCtx, connCtx, addr)
+	cli, err := li.startClientTCP(ctx, addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cli, sw, nil
 }
 
-//----------
-
-func (li *LangInstance) connClientTCP(reqCtx, connCtx context.Context, addr string) error {
+func (li *LangInstance) startClientTCP(ctx context.Context, addr string) (*Client, error) {
 	// client connect with retries
 	var cli *Client
 	fn := func() error {
-		cli0, err := NewClientTCP(connCtx, addr, li)
+		cli0, err := NewClientTCP(ctx, addr, li)
 		if err != nil {
 			return err
 		}
@@ -97,57 +114,32 @@ func (li *LangInstance) connClientTCP(reqCtx, connCtx context.Context, addr stri
 	}
 	lateFn := func(err error) {
 		if err != nil {
+			// no connection close, it was handled already on late error
 			err = fmt.Errorf("call late: %w", err)
-			li.lang.ErrorAsync(err)
-			_ = li.lang.Close()
+			li.lang.PrintWrapError(err)
 		}
 	}
-	sleep := 250 * time.Millisecond
-	err := ctxutil.Retry(reqCtx, sleep, "clienttcp", fn, lateFn)
+	retryPause := 300 * time.Millisecond
+	err := ctxutil.Retry(ctx, retryPause, "clienttcp", fn, lateFn)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	li.mu.cli = cli
-	return nil
+	return cli, err
 }
 
-//----------
-
-func (li *LangInstance) connClientServerStdio(ctx context.Context) error {
+func (li *LangInstance) startClientServerStdio(ctx context.Context) (*Client, *ServerWrap, error) {
 	var stderr io.Writer
 	if li.lang.Reg.HasOptional("stderr") {
 		stderr = os.Stderr
 	}
-
 	// server wrap
-	sw, rwc, err := NewServerWrapIO(ctx, li.lang.Reg.Cmd, stderr, li)
+	sw, rwc, err := StartServerWrapIO(ctx, li.lang.Reg.Cmd, stderr, li)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	li.mu.sw = sw
-
 	// client
-	cli := NewClientIO(rwc, li)
-	li.mu.cli = cli
-
-	return nil
+	cli := NewClientIO(ctx, rwc, li)
+	return cli, sw, nil
 }
 
 //----------
-
-func (li *LangInstance) closeFromLangManager() (err error) {
-	li.mu.Lock()
-	defer li.mu.Unlock()
-
-	var me iout.MultiError
-	me.Add(li.mu.cli.closeFromLangInstance())
-	me.Add(li.mu.sw.closeFromLangInstance())
-
-	// clear resources and force close
-	if li.mu.connCancel != nil {
-		li.mu.connCancel()
-	}
-
-	return me.Result()
-}

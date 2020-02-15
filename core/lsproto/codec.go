@@ -18,7 +18,6 @@ import (
 // Implements rpc.ClientCodec
 type JsonCodec struct {
 	OnNotificationMessage   func(*NotificationMessage)
-	OnIOReadError           func(error)
 	OnUnexpectedServerReply func(*Response)
 
 	rwc           io.ReadWriteCloser
@@ -29,30 +28,16 @@ type JsonCodec struct {
 
 	mu struct {
 		sync.Mutex
-		done bool
+		closed bool
 	}
 }
 
 // Needs a call to ReadLoop() to start reading.
 func NewJsonCodec(rwc io.ReadWriteCloser) *JsonCodec {
 	c := &JsonCodec{rwc: rwc}
-	c.responses = make(chan interface{}, 1)
-	c.simulatedResp = make(chan interface{}, 1)
+	c.responses = make(chan interface{}, 4)
+	c.simulatedResp = make(chan interface{}, 4)
 	return c
-}
-
-//----------
-
-func (c *JsonCodec) ioReadErr(err error) {
-	if c.OnIOReadError != nil {
-		go c.OnIOReadError(err)
-	}
-}
-
-func (c *JsonCodec) unexpectedServerReply(resp *Response) {
-	if c.OnUnexpectedServerReply != nil {
-		c.OnUnexpectedServerReply(resp)
-	}
 }
 
 //----------
@@ -93,27 +78,24 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 
 	// simulate a response (noreply) with the seq if there is no err writing the msg
 	if noreply {
-		// can't use c.responses or it could be writing to a closed channel
-		c.simulatedResp <- req.Seq
+		c.responses <- req.Seq
 	}
 	return nil
 }
 
 //----------
 
-func (c *JsonCodec) ReadLoop() {
-	defer func() { close(c.responses) }()
+func (c *JsonCodec) ReadLoop() error {
 	for {
 		b, err := c.read()
-		if c.isDone() {
-			break // no error if done
+		if c.isClosed() {
+			return nil // no error if done
 		}
 		if err != nil {
 			logPrintf("read resp err <--: %v\n", err)
-			c.responses <- err
-			break
+			return err
 		}
-		logPrintf("read resp <--:\n%s\n", b)
+		logPrintf("read resp <--: %s\n", b)
 		c.responses <- b
 	}
 }
@@ -125,23 +107,12 @@ func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 	c.readData = readData{}          // reset
 	resp.Seq = uint64(math.MaxInt64) // set to non-existent sequence
 
-	var v interface{}
-	select {
-	case u, ok := <-c.responses:
-		if !ok {
-			return fmt.Errorf("responses chan closed")
-		}
-		v = u
-	case u, _ := <-c.simulatedResp:
-		v = u
+	v, ok := <-c.responses
+	if !ok {
+		return fmt.Errorf("responses chan closed")
 	}
 
 	switch t := v.(type) {
-	case error:
-		// read error: there is no corresponding call
-		// only way to make this known
-		c.ioReadErr(t)
-		return t // nothing will handle this return
 	case uint64: // request id that expects noreply
 		c.readData = readData{noReply: true}
 		resp.Seq = t
@@ -151,13 +122,9 @@ func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 		lspResp := &Response{}
 		rd := bytes.NewReader(t)
 		if err := decodeJson(rd, lspResp); err != nil {
-			c.readData = readData{noReply: true}
-			err := fmt.Errorf("jsoncodec: decode: %v", err)
-			c.ioReadErr(err)
-			// not setting response.Set will break the rpc loop
-			return nil
+			return fmt.Errorf("jsoncodec: decode: %v", err)
 		}
-		c.readData.lspResp = lspResp
+		c.readData.resp = lspResp
 		// msg id (needed for the rpc to run the reply to the caller)
 		if !lspResp.isServerPush() {
 			resp.Seq = uint64(lspResp.Id)
@@ -175,12 +142,12 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 	}
 
 	// server push callback (no id)
-	if c.readData.lspResp.isServerPush() {
+	if c.readData.resp.isServerPush() {
 		if reply != nil {
 			return fmt.Errorf("jsoncodec: server push with reply expecting data: %v", reply)
 		}
 		// run callback
-		nm := c.readData.lspResp.NotificationMessage
+		nm := c.readData.resp.NotificationMessage
 		if c.OnNotificationMessage != nil {
 			c.OnNotificationMessage(&nm)
 		}
@@ -188,20 +155,17 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 	}
 
 	// assign data
-	if lspResp, ok := reply.(*Response); ok {
-		*lspResp = *c.readData.lspResp
+	if replyResp, ok := reply.(*Response); ok {
+		*replyResp = *c.readData.resp
 		return nil
 	}
 
 	// error
 	if reply == nil {
 		// Server returned a reply that was supposed to have no reply.
-		// Can happen if a "noreply:" func was called and the msg id was already thrown away because it was a notification (no reply was expected). A server can reply with an error in the case of not supporting that function. Or reply if it does support, but internaly it returns a msg saying that the function did not reply a value. This is a LSP protocol design fault.
-		fn := c.OnUnexpectedServerReply
-		if fn != nil {
-			//err := fmt.Errorf("jsoncodec: server msg without handler: %s", spew.Sdump(c.readData))
-			fn(c.readData.lspResp)
-		}
+		// Can happen if a "noreply:" func was called and the msg id was already thrown away because it was a notification (no reply was expected). A server can reply with an error in the case of not supporting that function. Or reply if it does support, but internaly it returns a msg saying that the function did not reply a value.
+		c.unexpectedServerReply(c.readData.resp)
+		//err := fmt.Errorf("jsoncodec: server msg without handler: %s", spew.Sdump(c.readData))
 		// Returning an error would stop the connection.
 		return nil
 	}
@@ -284,24 +248,35 @@ func (c *JsonCodec) readContent(length int) ([]byte, error) {
 
 //----------
 
+func (c *JsonCodec) unexpectedServerReply(resp *Response) {
+	if c.OnUnexpectedServerReply != nil {
+		c.OnUnexpectedServerReply(resp)
+	}
+}
+
+//----------
+
 func (c *JsonCodec) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.mu.done = true
-	return c.rwc.Close()
+	if !c.mu.closed {
+		c.mu.closed = true
+		return c.rwc.Close()
+	}
+	return nil
 }
 
-func (c *JsonCodec) isDone() bool {
+func (c *JsonCodec) isClosed() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.mu.done
+	return c.mu.closed
 }
 
 //----------
 
 type readData struct {
 	noReply bool
-	lspResp *Response
+	resp    *Response
 }
 
 //----------

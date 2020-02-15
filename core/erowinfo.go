@@ -459,6 +459,16 @@ func (info *ERowInfo) EqualToBytesHash(size int, hash []byte) bool {
 
 //----------
 
+func (info *ERowInfo) HasRowState(st ui.RowState) bool {
+	if len(info.ERows) == 0 {
+		return false
+	}
+	erow0 := info.ERows[0]
+	return erow0.Row.HasState(st)
+}
+
+//----------
+
 func (info *ERowInfo) UpdateEditedRowState() {
 	if !info.IsFileButNotDir() {
 		return

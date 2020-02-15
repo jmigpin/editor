@@ -3,13 +3,16 @@ package lsproto
 import (
 	"context"
 	"fmt"
-	"net/url"
+	"io"
 	"path/filepath"
 	"strings"
 
+	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
+
+//godebug:annotatepackage
 
 // Notes:
 // - Manager manages LangManagers
@@ -19,6 +22,8 @@ import (
 type Manager struct {
 	langs []*LangManager
 	msgFn func(string)
+
+	serverWrapW io.Writer // test purposes only
 }
 
 func NewManager(msgFn func(string)) *Manager {
@@ -65,9 +70,33 @@ func (man *Manager) langInstanceClient(ctx context.Context, filename string) (*C
 	if err != nil {
 		return nil, nil, err
 	}
-	li := lang.instance()
-	cli, err := li.client(ctx, filename)
-	return cli, li, err
+	li, err := lang.instance(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return li.cli, li, nil
+}
+
+//----------
+
+func (man *Manager) Close() error {
+	count := 0
+	me := &iout.MultiError{}
+	for _, lang := range man.langs {
+		err, ok := lang.Close()
+		if ok {
+			count++
+			if err != nil {
+				me.Add(err)
+			} else {
+				man.Message(lang.WrapMsg("closed"))
+			}
+		}
+	}
+	if count == 0 {
+		return fmt.Errorf("no instances are running")
+	}
+	return me.Result()
 }
 
 //----------
@@ -99,9 +128,9 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 	}
 
 	// target filename
-	filename2 := trimFileScheme(loc.Uri)
-	if u, err := url.PathUnescape(filename2); err == nil {
-		filename2 = u
+	filename2, err := parseutil.UriToAbsFilename(string(loc.Uri))
+	if err != nil {
+		return "", nil, err
 	}
 
 	return filename2, loc.Range, nil
@@ -212,15 +241,26 @@ func (man *Manager) didClose(ctx context.Context, cli *Client, filename string) 
 
 //----------
 
-func (man *Manager) Close() error {
-	me := &iout.MultiError{}
-	for _, lang := range man.langs {
-		err := lang.Close()
-		if err != nil {
-			me.Add(err)
-		} else {
-			man.Message(lang.WrapMsg("closed"))
-		}
+func (man *Manager) TextDocumentRename(ctx context.Context, filename string, rd iorw.Reader, offset int, newName string) (*WorkspaceEdit, error) {
+	cli, _, err := man.langInstanceClient(ctx, filename)
+	if err != nil {
+		return nil, err
 	}
-	return me.Result()
+
+	dir := filepath.Dir(filename)
+	if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
+		return nil, err
+	}
+
+	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
+		return nil, err
+	}
+	defer man.didClose(ctx, cli, filename)
+
+	pos, err := OffsetToPosition(rd, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.TextDocumentRename(ctx, filename, pos, newName)
 }

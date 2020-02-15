@@ -7,14 +7,16 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 //----------
 
 type InternalCmd struct {
 	Name       string
-	RootTbOnly bool
 	Fn         func(args *InternalCmdArgs) error
+	RootTbOnly bool
+	Detach     bool // allows running outside UI goroutine (care must be taken)
 }
 
 type InternalCmdArgs struct {
@@ -123,13 +125,7 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 func internalCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 	arg0 := part.Args[0].UnquotedStr()
 
-	rootOnlyCmd := func(fn func()) {
-		if erow != nil {
-			ed.Errorf("%s:  root toolbar only command", arg0)
-			return
-		}
-		fn()
-	}
+	// util functions
 
 	currentERow := func() *ERow {
 		if erow != nil {
@@ -141,23 +137,30 @@ func internalCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 		}
 		return nil
 	}
-
-	rowCmdErr := func(fn func(*ERow) error) {
+	run := func(detach bool, node widget.Node, fn func()) {
+		if detach {
+			ed.RunAsyncBusyCursor(node, func(done func()) {
+				defer done()
+				fn()
+			})
+		} else {
+			fn()
+		}
+	}
+	rowCmd := func(detach bool, fn func(*ERow)) {
 		e := currentERow()
 		if e == nil {
 			ed.Errorf("%s: no active row", arg0)
 			return
 		}
-		if err := fn(e); err != nil {
-			ed.Errorf("%v: %v", arg0, err)
-		}
-	}
 
-	rowCmd := func(fn func(*ERow)) {
-		rowCmdErr(func(e *ERow) error {
-			fn(e)
-			return nil
-		})
+		// feedback node on ui.Root if launched from root toolbar
+		node := widget.Node(e.Row)
+		if e != erow {
+			node = ed.UI.Root
+		}
+
+		run(detach, node, func() { fn(e) })
 	}
 
 	// internal cmds
@@ -166,16 +169,24 @@ func internalCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 		ctx := context.Background() // TODO: editor ctx
 		args := &InternalCmdArgs{ctx, ed, erow, part}
 		if cmd.RootTbOnly {
-			rootOnlyCmd(func() {
+			if erow != nil {
+				ed.Errorf("%s:  root toolbar only command", arg0)
+				return
+			}
+			run(cmd.Detach, ed.UI.Root, func() {
 				if err := cmd.Fn(args); err != nil {
 					ed.Errorf("%v: %v", arg0, err)
 				}
 			})
 		} else {
-			rowCmdErr(func(erow *ERow) error {
-				args.ERow = erow
-				args.Ctx = erow.ctx
-				return cmd.Fn(args)
+			rowCmd(cmd.Detach, func(e *ERow) {
+				ctx, cancel := e.newInternalCmdCtx()
+				defer cancel()
+				args.ERow = e
+				args.Ctx = ctx
+				if err := cmd.Fn(args); err != nil {
+					ed.Errorf("%v: %v", arg0, err)
+				}
 			})
 		}
 		return
@@ -189,5 +200,7 @@ func internalCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 	}
 
 	// run external cmd
-	rowCmd(func(e *ERow) { ExternalCmd(e, part) })
+	rowCmd(false, func(e *ERow) {
+		ExternalCmd(e, part) // will run async (detaches)
+	})
 }

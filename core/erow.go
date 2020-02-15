@@ -29,9 +29,13 @@ type ERow struct {
 	termFilter bool
 
 	ctx       context.Context // erow general context
-	ctxCancel context.CancelFunc
+	cancelCtx context.CancelFunc
 
-	contentCmdCancel context.CancelFunc
+	cmd struct {
+		sync.Mutex
+		cancelInternalCmd context.CancelFunc
+		cancelContentCmd  context.CancelFunc
+	}
 }
 
 //----------
@@ -52,7 +56,7 @@ func NewERow(ed *Editor, info *ERowInfo, rowPos *ui.RowPos) *ERow {
 	erow.setupTextAreaSyntaxHighlight()
 
 	ctx0 := context.Background() // TODO: editor ctx
-	erow.ctx, erow.ctxCancel = context.WithCancel(ctx0)
+	erow.ctx, erow.cancelCtx = context.WithCancel(ctx0)
 
 	// editor events
 	ev := &PostNewERowEEvent{ERow: erow}
@@ -115,10 +119,7 @@ func (erow *ERow) initHandlers() {
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
 		ev := ev0.(*ui.TextAreaCmdEvent)
-		erow.Ed.RunAsyncBusyCursor(row, func() { // set row cursor
-			ctx := erow.newContentCmdCtx()
-			runContentCmds(ctx, erow, ev.Index)
-		})
+		ContentCmdFromTextArea(erow, ev.Index)
 	})
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev interface{}) {
@@ -168,7 +169,7 @@ func (erow *ERow) initHandlers() {
 		erow.Ed.EEvents.emit(PreRowCloseEEventId, ev)
 
 		// cancel general context
-		erow.ctxCancel()
+		erow.cancelCtx()
 
 		// ensure execution (if any) is stopped
 		erow.Exec.Stop()
@@ -327,8 +328,8 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 	}
 }
 
-// Blocks until it has appended the bytes in the UI goroutine.
-func (erow *ERow) textAreaAppendBytesUIWriter() io.Writer {
+// UI Safe. Writer will block until it has appended in the UI goroutine.
+func (erow *ERow) TextAreaAppendBytesUIWriter() io.Writer {
 	ta := erow.Row.TextArea
 	return iout.FnWriter(func(b []byte) (int, error) {
 		wg := sync.WaitGroup{}
@@ -345,12 +346,12 @@ func (erow *ERow) textAreaAppendBytesUIWriter() io.Writer {
 
 //----------
 
-// Caller is responsible for closing the writer at the end.
+// UI Safe. Caller is responsible for closing the writer at the end.
 func (erow *ERow) TextAreaWriter() io.WriteCloser {
 	// terminal filter (escape sequences) (before goroutine to avoid data race)
 	termFilter := erow.termFilter && erow.Info.IsDir()
 
-	w := erow.textAreaAppendBytesUIWriter()
+	w := erow.TextAreaAppendBytesUIWriter()
 
 	prc, pwc := io.Pipe()
 	go func() {
@@ -368,6 +369,7 @@ func (erow *ERow) TextAreaWriter() io.WriteCloser {
 
 //----------
 
+// UI Safe
 func (erow *ERow) Flash() {
 	p, ok := erow.TbData.PartAtIndex(0)
 	if ok {
@@ -383,6 +385,7 @@ func (erow *ERow) Flash() {
 func (erow *ERow) MakeIndexVisibleAndFlash(index int) {
 	erow.MakeRangeVisibleAndFlash(index, 0)
 }
+
 func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 	// Commented: don't flicker row positions
 	//erow.Row.EnsureTextAreaMinimumHeight()
@@ -393,10 +396,9 @@ func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 
 	// flash toolbar as last resort if less visible
 	ta := erow.Row.TextArea
-	b := &ta.Bounds
 	lh := ta.LineHeight()
 	min := int(float64(lh) * 1.5)
-	if b.Dy() < min {
+	if ta.Bounds.Dy() < min {
 		erow.Flash()
 	}
 }
@@ -463,15 +465,43 @@ func (erow *ERow) setupTextAreaSyntaxHighlight() {
 
 //----------
 
-func (erow *ERow) newContentCmdCtx() context.Context {
-	erow.CancelContentCmd()
+func (erow *ERow) newContentCmdCtx() (context.Context, context.CancelFunc) {
+	erow.cmd.Lock()
+	defer erow.cmd.Unlock()
+	erow.cancelContentCmd2()
 	ctx, cancel := context.WithCancel(erow.ctx)
-	erow.contentCmdCancel = cancel
-	return ctx
+	erow.cmd.cancelContentCmd = cancel
+	return ctx, cancel
+}
+func (erow *ERow) CancelContentCmd() {
+	erow.cmd.Lock()
+	defer erow.cmd.Unlock()
+	erow.cancelContentCmd2()
+}
+func (erow *ERow) cancelContentCmd2() {
+	if erow.cmd.cancelContentCmd != nil {
+		erow.cmd.cancelContentCmd()
+	}
 }
 
-func (erow *ERow) CancelContentCmd() {
-	if erow.contentCmdCancel != nil {
-		erow.contentCmdCancel()
+//----------
+
+func (erow *ERow) newInternalCmdCtx() (context.Context, context.CancelFunc) {
+	erow.cmd.Lock()
+	defer erow.cmd.Unlock()
+	erow.cancelInternalCmd2()
+	ctx, cancel := context.WithCancel(erow.ctx)
+	erow.cmd.cancelInternalCmd = cancel
+	return ctx, cancel
+}
+
+func (erow *ERow) CancelInternalCmd() {
+	erow.cmd.Lock()
+	defer erow.cmd.Unlock()
+	erow.cancelInternalCmd2()
+}
+func (erow *ERow) cancelInternalCmd2() {
+	if erow.cmd.cancelInternalCmd != nil {
+		erow.cmd.cancelInternalCmd()
 	}
 }

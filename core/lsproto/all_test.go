@@ -1,68 +1,59 @@
 package lsproto
 
+//godebug:annotatepackage
+
 import (
 	"context"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
-func testGoSource1() string {
-	return `
+func TestGoSrc1(t *testing.T) {
+	src0 := `
 		package lsproto
 		import "log"
 		func main(){
 			log.●Printf("aaa")
 		}	
 	`
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcDefinition(t, "src.go", offset, src)
+	}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcCompletion(t, "src.go", offset, src)
+	}
 }
 
-func TestManGoSrc1Definition(t *testing.T) {
-	offset, src := sourceCursor(t, testGoSource1(), 0)
-	filename := "src.go"
-	testSrcDefinition(t, filename, offset, src)
-}
-
-func TestManGoSrc1Completion(t *testing.T) {
-	offset, src := sourceCursor(t, testGoSource1(), 0)
-	filename := "src.go"
-	testSrcCompletion(t, filename, offset, src)
-}
-
-//----------
-
-func testGoSource2() string {
-	return `
+func TestGoSrc2(t *testing.T) {
+	src0 := `
 		package lsproto
 		import "log"
 		func main(){
 			log.P●rintf("aaa")
 		}	
 	`
-}
-
-func TestManGoSrc2Definition(t *testing.T) {
-	offset, src := sourceCursor(t, testGoSource2(), 0)
-	filename := "src.go"
-	testSrcDefinition(t, filename, offset, src)
-}
-
-func TestManGoSrc2Completion(t *testing.T) {
-	offset, src := sourceCursor(t, testGoSource2(), 0)
-	filename := "src.go"
-	testSrcDefinition(t, filename, offset, src)
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcDefinition(t, "src.go", offset, src)
+	}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcCompletion(t, "src.go", offset, src)
+	}
 }
 
 //----------
 
-func testCSource1() string {
-	return `
+func TestCSrc1(t *testing.T) {
+	src0 := `
 		#include <iostream>
 		using namespace std;
 		int main() {
@@ -70,17 +61,14 @@ func testCSource1() string {
 			return 0;
 		}
 	`
-}
-
-func TestManCSrc1Definition(t *testing.T) {
-	offset, src := sourceCursor(t, testCSource1(), 0)
-	filename := "src.cpp"
-	testSrcDefinition(t, filename, offset, src)
-}
-func TestManCSrc1Completion(t *testing.T) {
-	offset, src := sourceCursor(t, testCSource1(), 0)
-	filename := "src.cpp"
-	testSrcCompletion(t, filename, offset, src)
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcDefinition(t, "src.cpp", offset, src)
+	}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcCompletion(t, "src.cpp", offset, src)
+	}
 }
 
 //----------
@@ -96,29 +84,161 @@ func TestManGoCompletionF2(t *testing.T) {
 
 //----------
 
+func TestRenameGo(t *testing.T) {
+	src0 := `
+		package main
+		func main() {
+			a●aa := 1
+			println(aaa)
+		}
+	`
+
+	exp := `
+		package main
+		func main() {
+			bbb := 1
+			println(bbb)
+		}
+	`
+	exp2 := parseutil.TrimLineSpaces(exp)
+
+	offset, src := sourceCursor(t, src0, 0)
+	rd := iorw.NewStringReader(src)
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	filename := tf.WriteFileInTmp2OrPanic("src.go", src)
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	ctx := context.Background()
+	we, err := man.TextDocumentRename(ctx, filename, rd, offset, "bbb")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	filenames, err := PatchWorkspaceEdit(we)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range filenames {
+		b, err := ioutil.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res2 := parseutil.TrimLineSpaces(string(b))
+		t.Log(res2)
+		if res2 != exp2 {
+			t.Fatal()
+		}
+	}
+}
+
+func TestRenameC(t *testing.T) {
+	src0 := `
+		#include <iostream>
+		using namespace std;
+		int main() {
+			int a●aa = 0;
+			cout<<" "<<a●aa;
+			return 0;
+		}
+	`
+
+	exp := `
+		#include <iostream>
+		using namespace std;
+		int main() {
+			int bbb = 0;
+			cout<<" "<<bbb;
+			return 0;
+		}
+	`
+	exp2 := parseutil.TrimLineSpaces(exp)
+
+	offset, src := sourceCursor(t, src0, 1)
+	rd := iorw.NewStringReader(src)
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	filename := tf.WriteFileInTmp2OrPanic("src.c", src)
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	ctx := context.Background()
+	we, err := man.TextDocumentRename(ctx, filename, rd, offset, "bbb")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	filenames, err := PatchWorkspaceEdit(we)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range filenames {
+		b, err := ioutil.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res2 := parseutil.TrimLineSpaces(string(b))
+		t.Log(res2)
+		if res2 != exp2 {
+			t.Fatal()
+		}
+	}
+}
+
+//----------
+//----------
+//----------
+
 func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 	t.Helper()
 
 	rd := iorw.NewStringReader(src)
 
-	ctx := context.Background()
-	//ctx2, cancel := context.WithTimeout(ctx, 20*time.Second)
-	//defer cancel()
-	//ctx = ctx2
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
 
 	man := newTestManager(t)
 	defer man.Close()
 
-	// pre-sync even thought completion might re-sync again
-	//if err := man.SyncText(ctx, filename, rd); err != nil {
-	//	t.Fatal(err)
-	//}
-
-	f, rang, err := man.TextDocumentDefinition(ctx, filename, rd, offset)
+	ctx := context.Background()
+	f, rang, err := man.TextDocumentDefinition(ctx, filename2, rd, offset)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%v %v", f, rang)
+}
+
+func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
+	t.Helper()
+
+	rd := iorw.NewStringReader(src)
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	ctx := context.Background()
+	comps, err := man.TextDocumentCompletionDetailStrings(ctx, filename2, rd, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(comps) >= 1) {
+		t.Fatal(comps)
+	}
+	t.Logf("%v\n", strings.Join(comps, "\n"))
 }
 
 //----------
@@ -140,62 +260,6 @@ func testFileLineColCompletion(t *testing.T, loc string) {
 	}
 
 	testSrcCompletion(t, filename, offset, string(b))
-}
-
-func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
-	t.Helper()
-
-	rd := iorw.NewStringReader(src)
-
-	ctx := context.Background()
-	//ctx2, cancel := context.WithTimeout(ctx, 20*time.Second)
-	//defer cancel()
-	//ctx = ctx2
-
-	// start manager
-	man := newTestManager(t)
-	defer man.Close()
-
-	// pre-sync even thought completion might re-sync again
-	//if err := man.SyncText(ctx, filename, rd); err != nil {
-	//	t.Fatal(err)
-	//}
-
-	comps, err := man.TextDocumentCompletionDetailStrings(ctx, filename, rd, offset)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !(len(comps) >= 1) {
-		t.Fatal(comps)
-	}
-	t.Logf("%v\n", strings.Join(comps, "\n"))
-}
-
-//----------
-
-func newTestManager(t *testing.T) *Manager {
-	msgFn := func(s string) {
-		//t.Log(err) // error if t.Log gets used after returning from func
-		logPrintf("test: manager async msg: %v", s)
-	}
-	man := NewManager(msgFn)
-
-	// registrations
-	u := []string{
-		goplsRegistration(logTestVerbose(), false, false),
-		cLangRegistration(logTestVerbose()),
-	}
-	for _, s := range u {
-		reg, err := NewRegistration(s)
-		if err != nil {
-			panic(err)
-		}
-		if err := man.Register(reg); err != nil {
-			panic(err)
-		}
-	}
-
-	return man
 }
 
 //----------
@@ -232,164 +296,9 @@ func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWri
 
 //----------
 
-func TestManagerGo1(t *testing.T) {
-	goRoot := os.Getenv("GOROOT")
-	loc := filepath.Join(goRoot, "src/context/context.go:242:12")
-	f, l, c := parseLocation(t, loc)
-
-	rw, offset := readBytesOffset(t, f, l, c)
-
-	ctx0 := context.Background()
-	ctx, cancel := context.WithCancel(ctx0)
-	defer cancel()
-
-	man := newTestManager(t)
-	defer man.Close()
-
-	// pre sync text
-	//if err := man.SyncText(ctx, f, rw); err != nil {
-	//	t.Fatal(err)
-	//}
-
-	comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(comps) == 0 {
-		t.Fatal(comps)
-	}
-
-	// change content
-	if err := rw.Insert(offset-11, []byte("\n\n\n")); err != nil {
-		t.Fatal(err)
-	}
-	offset += 33 // 3 newlines
-
-	// pre sync text
-	//if err := man.SyncText(ctx, f, rw); err != nil {
-	//	t.Fatal(err)
-	//}
-
-	comps, err = man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(comps) != 0 {
-		t.Fatal(comps)
-	}
-}
-
-func TestManagerGo2(t *testing.T) {
-	goRoot := filepath.Join(os.Getenv("GOROOT"), "src")
-	loc := filepath.Join(goRoot, "context/context.go:242:12")
-	f, l, c := parseLocation(t, loc)
-
-	rw, offset := readBytesOffset(t, f, l, c)
-
-	ctx0 := context.Background()
-	ctx, cancel := context.WithCancel(ctx0)
-	defer cancel()
-
-	man := newTestManager(t)
-	defer man.Close()
-
-	// ensure the lsp server runs
-	comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(comps) == 0 {
-		t.Fatal(comps)
-	}
-
-	// test closing
-	if err := man.Close(); err != nil {
-		t.Logf("man close err: %v", err)
-	}
-}
-
-func TestManagerGo3(t *testing.T) {
-	ctx0 := context.Background()
-	ctx, cancel := context.WithCancel(ctx0)
-	defer cancel()
-
-	man := newTestManager(t)
-	defer man.Close()
-
-	// loc1
-	{
-		goRoot := filepath.Join(os.Getenv("GOROOT"), "src")
-		loc1 := filepath.Join(goRoot, "context/context.go:242:12")
-		f, l, c := parseLocation(t, loc1)
-		rw, offset := readBytesOffset(t, f, l, c)
-		comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(comps) == 0 {
-			t.Fatal(comps)
-		}
-	}
-
-	// loc2
-	{
-		loc2 := "/home/jorge/lib/golang_packages/src/golang.org/x/image/vector/vector.go:115:14"
-		f, l, c := parseLocation(t, loc2)
-		rw, offset := readBytesOffset(t, f, l, c)
-		comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(comps) == 0 {
-			t.Fatal(comps)
-		}
-	}
-}
-
-//----------
-
-func TestManagerC1(t *testing.T) {
-	loc := "/usr/include/X11/Xcursor/Xcursor.h:307:25"
-	f, l, c := parseLocation(t, loc)
-
-	rw, offset := readBytesOffset(t, f, l, c)
-
-	ctx0 := context.Background()
-	ctx, cancel := context.WithCancel(ctx0)
-	defer cancel()
-
-	man := newTestManager(t)
-	defer man.Close()
-
-	// pre sync text
-	//if err := man.SyncText(ctx, f, rw); err != nil {
-	//	t.Fatal(err)
-	//}
-
-	comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(comps) == 0 {
-		t.Fatal(comps)
-	}
-
-	// change content
-	if err := rw.Insert(offset-37, []byte("\n\n\n")); err != nil {
-		t.Fatal(err)
-	}
-	offset += 3 // 3 newlines
-
-	// pre sync text
-	//if err := man.SyncText(ctx, f, rw); err != nil {
-	//	t.Fatal(err)
-	//}
-
-	comps, err = man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(comps) == 0 {
-		t.Fatal(comps)
-	}
+func newTmpFiles(t *testing.T) *osutil.TmpFiles {
+	t.Helper()
+	tf := osutil.NewTmpFiles("editor_lsproto_tests_tmpfiles")
+	t.Logf("tf.Dir: %v\n", tf.Dir)
+	return tf
 }

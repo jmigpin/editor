@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-//----------
-
 type ContentCmd struct {
 	Name string // for removal and error msgs
 	Fn   ContentCmdFn
@@ -44,7 +42,7 @@ func (ccs *contentCmds) Remove(name string) (removed bool) {
 
 //----------
 
-// cmds added via init() from "contentcmds" pkg
+// global cmds added via init() from "contentcmds" pkg
 var ContentCmds contentCmds
 
 func runContentCmds(ctx context.Context, erow *ERow, index int) {
@@ -67,4 +65,13 @@ func runContentCmds(ctx context.Context, erow *ERow, index int) {
 		u = "\n\t" + u
 	}
 	erow.Ed.Errorf("no content cmd ran successfully%v", u)
+}
+
+func ContentCmdFromTextArea(erow *ERow, index int) {
+	erow.Ed.RunAsyncBusyCursor(erow.Row, func(done func()) {
+		defer done()
+		ctx, cancel := erow.newContentCmdCtx()
+		defer cancel()
+		runContentCmds(ctx, erow, index)
+	})
 }

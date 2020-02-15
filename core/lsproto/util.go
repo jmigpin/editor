@@ -8,8 +8,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
-	"strings"
 	"unicode/utf16"
 
 	"github.com/jmigpin/editor/core/parseutil"
@@ -152,27 +150,3 @@ func RangeToOffsetLen(rd iorw.Reader, rang *Range) (int, int, error) {
 }
 
 //----------
-
-func trimFileScheme(s string) string {
-	prefix := "file://"
-	if strings.HasPrefix(s, prefix) {
-		return s[len(prefix):]
-	}
-	return s
-}
-
-func addFileScheme(s string) string {
-	prefix := "file://"
-	if !strings.HasPrefix(s, prefix) {
-		// make path absolute
-		if !filepath.IsAbs(s) {
-			u, err := filepath.Abs(s)
-			if err == nil {
-				s = u
-			}
-		}
-
-		return prefix + s
-	}
-	return s
-}

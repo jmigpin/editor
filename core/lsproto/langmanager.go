@@ -1,8 +1,11 @@
 package lsproto
 
 import (
+	"context"
 	"fmt"
 	"sync"
+
+	"github.com/jmigpin/editor/util/ctxutil"
 )
 
 type LangManager struct {
@@ -10,7 +13,8 @@ type LangManager struct {
 	man *Manager
 	mu  struct {
 		sync.Mutex
-		li *LangInstance
+		li             *LangInstance
+		cancelInstance context.CancelFunc
 	}
 }
 
@@ -18,31 +22,56 @@ func NewLangManager(man *Manager, reg *Registration) *LangManager {
 	return &LangManager{Reg: reg, man: man}
 }
 
-func (lang *LangManager) instance() *LangInstance {
+func (lang *LangManager) instance(reqCtx context.Context) (*LangInstance, error) {
 	lang.mu.Lock()
 	defer lang.mu.Unlock()
-	if lang.mu.li == nil {
-		lang.mu.li = NewLangInstance(lang)
+
+	if lang.mu.li != nil {
+		return lang.mu.li, nil
 	}
-	return lang.mu.li
+
+	// setup instance context // TODO: manager ctx
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// setup context to stop if the reqctx is done
+	clearWatching := ctxutil.WatchDone(ctx, cancel, reqCtx)
+	defer clearWatching()
+
+	li, err := NewLangInstance(ctx, lang)
+	if err != nil {
+		cancel()
+		err = lang.WrapError(err)
+		return nil, err
+	}
+
+	go func() {
+		defer cancel()
+		if err := li.Wait(); err != nil {
+			lang.PrintWrapError(err)
+		}
+	}()
+
+	lang.mu.li = li
+	lang.mu.cancelInstance = cancel
+
+	return li, nil
 }
 
-func (lang *LangManager) Close() error {
+// returns true if the instance was running
+func (lang *LangManager) Close() (error, bool) {
 	lang.mu.Lock()
 	defer lang.mu.Unlock()
 	if lang.mu.li != nil {
-		defer func() { lang.mu.li = nil }()
-		err := lang.mu.li.closeFromLangManager()
-		if err != nil {
-			return lang.WrapError(err)
-		}
+		lang.mu.cancelInstance()
+		lang.mu.li = nil
+		return nil, true
 	}
-	return nil
+	return nil, false
 }
 
 //----------
 
-func (lang *LangManager) ErrorAsync(err error) {
+func (lang *LangManager) PrintWrapError(err error) {
 	lang.man.Error(lang.WrapError(err))
 }
 

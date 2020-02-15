@@ -349,7 +349,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 ColorTheme
 CtxutilCallsState
 FontRunes | FontTheme 
-GoDebug 
+GoDebug
 GoRename
 GotoLine 
 NewColumn
@@ -357,7 +357,7 @@ NewFile | SaveAllFiles
 NewRow | ReopenRow | MaximizeRow
 ListDir | ListDir -hidden | ListDir -sub
 ListSessions | OpenSession | DeleteSession
-LSProtoCloseAll
+LsprotoRename | LsprotoCloseAll
 OpenFilemanager
 Reload | ReloadAll | ReloadAllFiles 
 RuneCodes
@@ -541,6 +541,7 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) (handled bool) {
 					ed.GoDebug.CancelAndClear()
 					ed.InlineComplete.CancelAndClear()
 					ed.cancelERowsContentCmds()
+					ed.cancelERowsInternalCmds()
 					autoCloseInfo = false
 					ed.cancelInfoFloatBox()
 					return true
@@ -567,6 +568,12 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) (handled bool) {
 func (ed *Editor) cancelERowsContentCmds() {
 	for _, erow := range ed.ERows() {
 		erow.CancelContentCmd()
+	}
+}
+
+func (ed *Editor) cancelERowsInternalCmds() {
+	for _, erow := range ed.ERows() {
+		erow.CancelInternalCmd()
 	}
 }
 
@@ -620,7 +627,9 @@ func (ed *Editor) toggleInfoFloatBox() {
 	cfb.SetRefPointToTextAreaCursor(ta)
 	show("Loading...")
 
-	ed.RunAsyncBusyCursor(cfb, func() {
+	ed.RunAsyncBusyCursor(cfb, func(done func()) {
+		defer done()
+
 		// there is no timeout to complete since the context can be canceled manually
 
 		// context based on erow context
@@ -701,19 +710,20 @@ func (ed *Editor) NodeERow(node widget.Node) (*ERow, bool) {
 
 //----------
 
-func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func()) {
-	en := node.Embed()
-	ed.UI.RunOnUIGoRoutine(func() {
-		en.Cursor = event.WaitCursor
-		ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
-	})
-	go func() {
-		fn()
+// Caller should call done function in the end.
+func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func(done func())) {
+	set := func(c event.Cursor) {
 		ed.UI.RunOnUIGoRoutine(func() {
-			en.Cursor = event.NoneCursor
+			node.Embed().Cursor = c
 			ed.UI.QueueEmptyWindowInputEvent() // updates cursor tree
 		})
-	}()
+	}
+	set(event.WaitCursor)
+	done := func() {
+		set(event.NoneCursor)
+	}
+	// launch go routine to allow the UI to update the cursor
+	go fn(done)
 }
 
 //----------

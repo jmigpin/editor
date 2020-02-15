@@ -61,7 +61,7 @@ func (e *ResponseError) Error() string {
 //----------
 
 type InitializeParams struct {
-	RootUri          *string             `json:"rootUri"`
+	RootUri          *DocumentUri        `json:"rootUri"`
 	Capabilities     *ClientCapabilities `json:"capabilities,omitempty"`
 	WorkspaceFolders []*WorkspaceFolder  `json:"workspaceFolders,omitempty"`
 }
@@ -87,8 +87,8 @@ type WorkspaceClientCapabilities struct {
 }
 
 type WorkspaceFolder struct {
-	Uri  string `json:"uri"`
-	Name string `json:"name"`
+	Uri  DocumentUri `json:"uri"`
+	Name string      `json:"name"`
 }
 
 type TextDocumentPositionParams struct {
@@ -96,11 +96,11 @@ type TextDocumentPositionParams struct {
 	Position     Position               `json:"position"`
 }
 type TextDocumentIdentifier struct {
-	Uri string `json:"uri"`
+	Uri DocumentUri `json:"uri"`
 }
 type Location struct {
-	Uri   string `json:"uri,omitempty"`
-	Range *Range `json:"range,omitempty"`
+	Uri   DocumentUri `json:"uri,omitempty"`
+	Range *Range      `json:"range,omitempty"`
 }
 type Range struct {
 	Start Position `json:"start"`
@@ -129,10 +129,10 @@ type DidOpenTextDocumentParams struct {
 	TextDocument TextDocumentItem `json:"textDocument"`
 }
 type TextDocumentItem struct {
-	Uri        string `json:"uri"`
-	LanguageId string `json:"languageId,omitempty"`
-	Version    int    `json:"version"`
-	Text       string `json:"text"`
+	Uri        DocumentUri `json:"uri"`
+	LanguageId string      `json:"languageId,omitempty"`
+	Version    int         `json:"version"`
+	Text       string      `json:"text"`
 }
 type DidCloseTextDocumentParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
@@ -147,7 +147,7 @@ type DidSaveTextDocumentParams struct {
 }
 type VersionedTextDocumentIdentifier struct {
 	TextDocumentIdentifier
-	Version int `json:"version"`
+	Version *int `json:"version"`
 }
 type TextDocumentContentChangeEvent struct {
 	Range       Range  `json:"range,omitempty"`
@@ -162,6 +162,27 @@ type WorkspaceFoldersChangeEvent struct {
 	Added   []*WorkspaceFolder `json:"added"`
 	Removed []*WorkspaceFolder `json:"removed"`
 }
+
+type RenameParams struct {
+	TextDocumentPositionParams
+	NewName string `json:"newName"`
+}
+
+type WorkspaceEdit struct {
+	Changes         map[DocumentUri][]*TextEdit `json:"changes,omitempty"`
+	DocumentChanges []*TextDocumentEdit         `json:"documentChanges,omitempty"`
+}
+
+type TextDocumentEdit struct {
+	TextDocument VersionedTextDocumentIdentifier `json:"textDocument"`
+	Edits        []*TextEdit                     `json:"edits"`
+}
+type TextEdit struct {
+	Range   Range  `json:"range"`
+	NewText string `json:"newText"`
+}
+
+type DocumentUri string
 
 //----------
 

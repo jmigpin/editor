@@ -15,7 +15,7 @@ func GoRename(args0 *core.InternalCmdArgs) error {
 		return fmt.Errorf("not a file")
 	}
 
-	if erow.Row.HasState(ui.RowStateEdited) {
+	if erow.Row.HasState(ui.RowStateEdited | ui.RowStateFsDiffer) {
 		return fmt.Errorf("row has edits, save first")
 	}
 
@@ -52,6 +52,8 @@ func GoRename(args0 *core.InternalCmdArgs) error {
 	} else {
 		cargs = append([]string{"gopls", "rename"}, append(otherArgs, []string{"-w", offsetStr, to}...)...)
 	}
+
+	// TODO: reload all changed files (check stdout)
 
 	reloadOnNoErr := func(err error) {
 		if err == nil {

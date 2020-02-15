@@ -46,7 +46,7 @@ Get the latest development:
 ```
 go get -u github.com/jmigpin/editor@master
 ```
-Or get the last tagged release (older):
+Or get the last tagged release (older) or if in GOPATH mode:
 ```
 go get -u github.com/jmigpin/editor
 ```
@@ -200,7 +200,8 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `RuneCodes`: output rune codes of the current row text selection.
 - `FontRunes`: output the current font runes.
 - `OpenFilemanager`: open the row directory with the preferred external application (usually a filemanager).
-- `LSProtoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
+- `LsprotoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
+- `LsprotoRename <new-name>`: Renames the identifiers under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - `GoRename [-all] <new-name>`: Renames the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
 	- default: calls `gopls` (limited scope in renaming, but faster).
 	- `-all`: calls `gorename` to rename across packages (slower).

@@ -9,8 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
@@ -18,13 +20,17 @@ import (
 
 type Client struct {
 	rcli *rpc.Client
-	rwc  io.ReadWriteCloser
-	li   *LangInstance
+	//rwc          io.ReadWriteCloser
+	li           *LangInstance
+	readLoopWait sync.WaitGroup
 
 	fversions map[string]int
 	folders   []*WorkspaceFolder
 
-	supportsWorkspaceUpdate bool
+	serverCapabilities struct {
+		workspaceFolders bool
+		rename           bool
+	}
 }
 
 //----------
@@ -35,57 +41,64 @@ func NewClientTCP(ctx context.Context, addr string, li *LangInstance) (*Client, 
 	if err != nil {
 		return nil, err
 	}
-	cli := NewClientIO(conn, li)
+	cli := NewClientIO(ctx, conn, li)
 	return cli, nil
 }
 
 //----------
 
-func NewClientIO(rwc io.ReadWriteCloser, li *LangInstance) *Client {
+func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) *Client {
 	cli := &Client{li: li, fversions: map[string]int{}}
 
-	cli.rwc = rwc
-
 	cc := NewJsonCodec(rwc)
-	cc.OnIOReadError = cli.onIOReadError
 	cc.OnNotificationMessage = cli.onNotificationMessage
 	cc.OnUnexpectedServerReply = cli.onUnexpectedServerReply
-	go cc.ReadLoop()
 
 	cli.rcli = rpc.NewClientWithCodec(cc)
+
+	// wait for the codec readloop
+	cli.readLoopWait.Add(1)
+	go func() {
+		defer cli.readLoopWait.Done()
+		if err := cc.ReadLoop(); err != nil {
+			cli.li.lang.PrintWrapError(err)
+			cli.li.cancelCtx()
+		}
+	}()
+
+	// close when ctx is done
+	go func() {
+		select {
+		case <-ctx.Done():
+			if err := cli.sendClose(); err != nil {
+				cli.li.lang.PrintWrapError(err)
+			}
+			if err := rwc.Close(); err != nil {
+				cli.li.lang.PrintWrapError(err)
+			}
+		}
+	}()
 
 	return cli
 }
 
 //----------
 
-func (cli *Client) onIOReadError(err error) {
-	_ = cli.li.lang.Close()
-	cli.li.lang.ErrorAsync(err)
+func (cli *Client) Wait() error {
+	cli.readLoopWait.Wait()
+	return nil
 }
 
-//----------
-
-func (cli *Client) closeFromLangInstance() error {
-	if cli == nil {
-		return nil
-	}
-
+func (cli *Client) sendClose() error {
 	me := iout.MultiError{}
-
-	// best effort, ignore errors
-	_ = cli.ShutdownRequest()
-	_ = cli.ExitNotification()
-	//me.Add(cli.ShutdownRequest())
-	//me.Add(cli.ExitNotification())
-
-	// possibly calls codec.close (which in turn calls rwc.close)
-	me.Add(cli.rcli.Close())
-	//if cli.rwc != nil {
-	//	me.Add(cli.rwc.Close())
-	//}
-
-	return me.Result()
+	if err := cli.ShutdownRequest(); err != nil {
+		me.Add(err)
+	} else {
+		me.Add(cli.ExitNotification())
+	}
+	// Commented: best effort, ignore errors
+	//return me.Result()
+	return nil
 }
 
 //----------
@@ -98,7 +111,7 @@ func (cli *Client) Call(ctx context.Context, method string, args, reply interfac
 	lateFn := func(err error) {
 		if err != nil {
 			err = fmt.Errorf("call late: %w", err)
-			cli.li.lang.ErrorAsync(err)
+			cli.li.lang.PrintWrapError(err)
 		}
 	}
 	err := ctxutil.Call(ctx, method, fn, lateFn)
@@ -144,28 +157,37 @@ func (cli *Client) onUnexpectedServerReply(resp *Response) {
 			//report = true
 		}
 		if report {
-			err := fmt.Errorf("id=%v, code=%v, msg=%q", resp.Id, resp.Error.Code, resp.Error.Message)
-			cli.li.lang.ErrorAsync(err)
+			err := fmt.Errorf("id=%v, code=%v, msg=%q, data=%v", resp.Id, resp.Error.Code, resp.Error.Message, resp.Error.Data)
+			cli.li.lang.PrintWrapError(err)
 		}
 	}
 }
 
 //----------
 
-// Filename is the file that triggered the server to be started.
-func (cli *Client) Initialize(ctx context.Context, filename string) error {
+func (cli *Client) Initialize(ctx context.Context) error {
+	opt := &InitializeParams{}
+
 	//rootDir := "/" // (gopls: slow)
 	//rootDir := "" // (gopls: fails with "rootUri=null")
 	//rootDir := osutil.HomeEnvVar() // (gopls: slow)
+	//rootDir := os.TempDir() // (gopls: slow)
 	//rootDir := filepath.Dir(filename)
 	// Use a non-existent dir and send an updateworkspacefolder on each request later. Attempt to prevent the lsp server to start looking at the user disk.
-	rootDir := filepath.Join(os.TempDir(), "some-non-existent-dir---")
+	rootDir := filepath.Join(os.TempDir(), "editor_lsproto_nonexistent_dir")
 
-	opt := &InitializeParams{RootUri: nil}
+	// TODO: test fast start with existing empty dir
+	//os.MkdirAll(rootDir, 0644)
+
 	if rootDir != "" {
-		s := addFileScheme(rootDir)
-		opt.RootUri = &s
+		s, err := parseutil.AbsFilenameToUrl(rootDir)
+		if err != nil {
+			return err
+		}
+		s2 := DocumentUri(s)
+		opt.RootUri = &s2
 	}
+
 	opt.Capabilities = &ClientCapabilities{
 		//Workspace: &WorkspaceClientCapabilities{
 		//	WorkspaceFolders: true,
@@ -179,25 +201,34 @@ func (cli *Client) Initialize(ctx context.Context, filename string) error {
 
 	logJson("opt -->: ", opt)
 	var serverCapabilities interface{}
-	err := cli.Call(ctx, "initialize", &opt, &serverCapabilities)
-	if err != nil {
+	if err := cli.Call(ctx, "initialize", &opt, &serverCapabilities); err != nil {
 		return err
 	}
 	logJson("initialize <--: ", serverCapabilities)
 
-	// keep track of some capabilities
-	path := "capabilities.workspace.workspaceFolders.supported"
-	v, err := JsonGetPath(serverCapabilities, path)
-	if err == nil {
-		if b, ok := v.(bool); ok && b == true {
-			cli.supportsWorkspaceUpdate = true
-		}
-	}
+	cli.readServerCapabilities(serverCapabilities)
 
 	// send "initialized" (gopls: "no views" error without this)
 	opt2 := &InitializedParams{}
-	err2 := cli.Call(ctx, "noreply:initialized", &opt2, nil)
-	return err2
+	return cli.Call(ctx, "noreply:initialized", &opt2, nil)
+}
+
+func (cli *Client) readServerCapabilities(caps interface{}) {
+	path := "capabilities.workspace.workspaceFolders.supported"
+	v, err := JsonGetPath(caps, path)
+	if err == nil {
+		if b, ok := v.(bool); ok && b == true {
+			cli.serverCapabilities.workspaceFolders = true
+		}
+	}
+
+	path = "capabilities.renameProvider"
+	v, err = JsonGetPath(caps, path)
+	if err == nil {
+		if b, ok := v.(bool); ok && b == true {
+			cli.serverCapabilities.rename = true
+		}
+	}
 }
 
 //----------
@@ -211,7 +242,7 @@ func (cli *Client) ShutdownRequest() error {
 
 	// best effort, impose timeout
 	ctx := context.Background()
-	ctx2, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	ctx2, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
 	defer cancel()
 	ctx = ctx2
 
@@ -234,29 +265,39 @@ func (cli *Client) TextDocumentDidOpen(ctx context.Context, filename, text strin
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didOpen
 
 	opt := &DidOpenTextDocumentParams{}
-	opt.TextDocument.Uri = addFileScheme(filename)
 	opt.TextDocument.LanguageId = cli.li.lang.Reg.Language
 	opt.TextDocument.Version = version
 	opt.TextDocument.Text = text
-	err := cli.Call(ctx, "noreply:textDocument/didOpen", &opt, nil)
-	return err
+	url, err := parseutil.AbsFilenameToUrl(filename)
+	if err != nil {
+		return err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
+	return cli.Call(ctx, "noreply:textDocument/didOpen", &opt, nil)
 }
 
 func (cli *Client) TextDocumentDidClose(ctx context.Context, filename string) error {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didClose
 
 	opt := &DidCloseTextDocumentParams{}
-	opt.TextDocument.Uri = addFileScheme(filename)
-	err := cli.Call(ctx, "noreply:textDocument/didClose", &opt, nil)
-	return err
+	url, err := parseutil.AbsFilenameToUrl(filename)
+	if err != nil {
+		return err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
+	return cli.Call(ctx, "noreply:textDocument/didClose", &opt, nil)
 }
 
 func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text string, version int) error {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didChange
 
 	opt := &DidChangeTextDocumentParams{}
-	opt.TextDocument.Uri = addFileScheme(filename)
-	opt.TextDocument.Version = version
+	opt.TextDocument.Version = &version
+	url, err := parseutil.AbsFilenameToUrl(filename)
+	if err != nil {
+		return err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
 
 	// text end line/column
 	rd := iorw.NewStringReader(text)
@@ -283,8 +324,12 @@ func (cli *Client) TextDocumentDidSave(ctx context.Context, filename string, tex
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didSave
 
 	opt := &DidSaveTextDocumentParams{}
-	opt.TextDocument.Uri = addFileScheme(filename)
-	opt.Text = string(text) // NOTE: has omitempty
+	opt.Text = string(text) // has omitempty
+	url, err := parseutil.AbsFilenameToUrl(filename)
+	if err != nil {
+		return err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
 
 	return cli.Call(ctx, "noreply:textDocument/didSave", &opt, nil)
 }
@@ -295,12 +340,15 @@ func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, 
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_definition
 
 	opt := &TextDocumentPositionParams{}
-	opt.TextDocument.Uri = addFileScheme(filename)
 	opt.Position = pos
+	url, err := parseutil.AbsFilenameToUrl(filename)
+	if err != nil {
+		return nil, err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
 
 	result := []*Location{}
-	err := cli.Call(ctx, "textDocument/definition", &opt, &result)
-	if err != nil {
+	if err := cli.Call(ctx, "textDocument/definition", &opt, &result); err != nil {
 		return nil, err
 	}
 	if len(result) == 0 {
@@ -315,13 +363,16 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_completion
 
 	opt := &CompletionParams{}
-	opt.TextDocument.Uri = addFileScheme(filename)
 	opt.Context.TriggerKind = 1 // invoked
 	opt.Position = pos
+	url, err := parseutil.AbsFilenameToUrl(filename)
+	if err != nil {
+		return nil, err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
 
 	result := CompletionList{}
-	err := cli.Call(ctx, "textDocument/completion", &opt, &result)
-	if err != nil {
+	if err := cli.Call(ctx, "textDocument/completion", &opt, &result); err != nil {
 		return nil, err
 	}
 	//logJson(result)
@@ -353,12 +404,18 @@ func (cli *Client) WorkspaceDidChangeWorkspaceFolders(ctx context.Context, added
 }
 
 func (cli *Client) UpdateWorkspaceFolder(ctx context.Context, dir string) error {
-	if !cli.supportsWorkspaceUpdate {
+	if !cli.serverCapabilities.workspaceFolders {
 		return nil
 	}
 
 	removed := cli.folders
-	cli.folders = []*WorkspaceFolder{{Uri: addFileScheme(dir)}}
+
+	url, err := parseutil.AbsFilenameToUrl(dir)
+	if err != nil {
+		return err
+	}
+	cli.folders = []*WorkspaceFolder{{Uri: DocumentUri(url)}}
+
 	return cli.WorkspaceDidChangeWorkspaceFolders(ctx, cli.folders, removed)
 }
 
@@ -395,6 +452,27 @@ func (cli *Client) UpdateWorkspaceFolder(ctx context.Context, dir string) error 
 //	//}
 //	return nil
 //}
+
+//----------
+
+func (cli *Client) TextDocumentRename(ctx context.Context, filename string, pos Position, newName string) (*WorkspaceEdit, error) {
+	//// Commented: try it anyway
+	//if !cli.serverCapabilities.rename {
+	//	return nil, fmt.Errorf("server did not advertize rename capability")
+	//}
+
+	opt := &RenameParams{}
+	opt.NewName = newName
+	opt.Position = pos
+	url, err := parseutil.AbsFilenameToUrl(filename)
+	if err != nil {
+		return nil, err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
+	result := WorkspaceEdit{}
+	err = cli.Call(ctx, "textDocument/rename", &opt, &result)
+	return &result, err
+}
 
 //----------
 
