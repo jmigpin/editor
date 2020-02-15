@@ -20,6 +20,7 @@ import (
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/osutil"
 
+	//godebug:annotateimport
 	"golang.org/x/tools/go/packages"
 )
 
@@ -89,15 +90,20 @@ func (files *Files) absFilename(filename string) string {
 
 //----------
 
-func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, env []string) error {
-	if !filepath.IsAbs(mainFilename) {
-		return fmt.Errorf("filename not absolute: %v", mainFilename)
+func (files *Files) Do(ctx context.Context, filenames []string, tests bool, env []string) error {
+	// dir/filenames must be absolute
+	if !filepath.IsAbs(files.Dir) {
+		return fmt.Errorf("dir is not absolute")
+	}
+	for _, f := range filenames {
+		if !filepath.IsAbs(f) {
+			return fmt.Errorf("file is not absolute")
+		}
 	}
 
-	// add mainfilename
-	if !tests && mainFilename != "" {
-		// add to avoid confusion (run godebug and not show anything)
-		files.Add(mainFilename)
+	// add to avoid confusion (run godebug and not show anything)
+	for _, f := range filenames {
+		files.Add(f)
 	}
 
 	// add tests directory
@@ -118,7 +124,7 @@ func (files *Files) Do(ctx context.Context, mainFilename string, tests bool, env
 	}
 
 	// all program packages
-	pkgs, err := files.progPackages(ctx, mainFilename, tests, env)
+	pkgs, err := files.progPackages(ctx, filenames, tests, env)
 	if err != nil {
 		return err
 	}
@@ -652,7 +658,7 @@ func (files *Files) NodeAnnType(n ast.Node) AnnotationType {
 
 //----------
 
-func (files *Files) progPackages(ctx context.Context, filename string, tests bool, env []string) ([]*packages.Package, error) {
+func (files *Files) progPackages(ctx context.Context, filenames []string, tests bool, env []string) ([]*packages.Package, error) {
 	loadMode := 0 |
 		packages.NeedDeps |
 		packages.NeedImports |
@@ -662,11 +668,13 @@ func (files *Files) progPackages(ctx context.Context, filename string, tests boo
 		//packages.NeedSyntax |
 		packages.NeedTypes |
 		0
-	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, filename, tests, env, files.parseFileFn())
+	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, filenames, tests, env, files.parseFileFn())
+
 	// programpackages parses files concurrently, on ctx cancel it concats useless repeated errors, get just one ctx error
 	if err2 := ctx.Err(); err2 != nil {
 		return nil, err2
 	}
+
 	return pkgs, err
 }
 
@@ -855,7 +863,8 @@ func ProgramPackages(
 	ctx context.Context,
 	fset *token.FileSet,
 	mode packages.LoadMode,
-	dir, filename string,
+	dir string,
+	filenames []string,
 	tests bool,
 	env []string,
 	parseFile func(fset *token.FileSet, filename string, src []byte) (*ast.File, error),
@@ -870,16 +879,20 @@ func ProgramPackages(
 		BuildFlags: godebugBuildFlags(env),
 		ParseFile:  parseFile,
 	}
-	pattern := ""
-	if !tests && filename != "" {
-		pattern = "file=" + filename
+
+	// build file patterns
+	patterns := []string{}
+	for _, f := range filenames {
+		p := "file=" + f
+		patterns = append(patterns, p)
 	}
-	pkgs, err := packages.Load(cfg, pattern)
+
+	pkgs, err := packages.Load(cfg, patterns...)
 	if err != nil {
 		return nil, err
 	}
 
-	// errors: join errors into one error (check packages.PrintErrors(pkgs))
+	// join errors into one error: golang.org/x/tools/go/packages/visit.go:46
 	errStrs := []string{}
 	packages.Visit(pkgs, nil, func(pkg *packages.Package) {
 		for _, err := range pkg.Errors {

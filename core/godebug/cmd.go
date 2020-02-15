@@ -27,7 +27,7 @@ import (
 
 type Cmd struct {
 	Client *Client
-	Dir    string // "" will use current dir
+	Dir    string
 	Stdout io.Writer
 	Stderr io.Writer
 
@@ -59,9 +59,9 @@ type Cmd struct {
 			connect bool
 		}
 		verbose   bool
-		filename  string
+		filenames []string
 		work      bool
-		output    string // ex: -o filename
+		output    string // ex: -o filename (build mode)
 		toolExec  string // ex: "wine" will run "wine args..."
 		dirs      []string
 		files     []string
@@ -98,17 +98,22 @@ func (cmd *Cmd) Printf(format string, a ...interface{}) (int, error) {
 //------------
 
 func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
-	// parse arguments
-	done, err := cmd.parseArgs(args)
-	if done || err != nil {
-		return done, err
+	// must have an absolute dir
+	if !filepath.IsAbs(cmd.Dir) {
+		return true, fmt.Errorf("cmd.dir not absolute")
 	}
 
-	// absolute dir
-	if u, err := filepath.Abs(cmd.Dir); err == nil {
-		cmd.Dir = u
+	if err := cmd.parseArgs(args); err != nil {
+		return true, err
 	}
+	if err := cmd.start2(ctx); err != nil {
+		return true, err
+	}
+	done = cmd.flags.mode.build // just building, wait() should not be called
+	return done, nil
+}
 
+func (cmd *Cmd) start2(ctx context.Context) error {
 	cmd.noModules = cmd.detectNoModules()
 	if cmd.flags.verbose {
 		cmd.Printf("nomodules=%v\n", cmd.noModules)
@@ -117,7 +122,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 	// depends on: noModules
 	tmpDir, err := cmd.setupTmpDir()
 	if err != nil {
-		return true, err
+		return err
 	}
 	cmd.tmpDir = tmpDir
 
@@ -130,30 +135,27 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 	}
 
 	if err := cmd.setupNetworkAddress(); err != nil {
-		return true, err
+		return err
 	}
 
 	m := &cmd.flags.mode
 	if m.run || m.test || m.build {
 		debug.SyncSend = cmd.flags.syncSend
-		err := cmd.initAndAnnotate(ctx)
-		if err != nil {
-			return true, err
+		if err := cmd.initAndAnnotate(ctx); err != nil {
+			return err
 		}
 	}
 
-	// just building: inform the address used in the binary
+	// inform the address used in the binary
 	if m.build {
 		cmd.Printf("build: %v (builtin address: %v, %v)\n", cmd.tmpBuiltFile, cmd.start.network, cmd.start.address)
-		return true, err
 	}
 
 	if m.run || m.test || m.connect {
-		err = cmd.startServerClient(ctx)
-		return false, err
+		return cmd.startServerClient(ctx)
 	}
 
-	return false, nil
+	return nil
 }
 
 //------------
@@ -162,19 +164,19 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 	// "files" not in cmd.* to allow early GC
 	files := NewFiles(cmd.annset.FSet, cmd.noModules, cmd.Stderr)
 	files.Dir = cmd.Dir
-	//if cmd.FixedTmpDir {
-	//	files.TmpDir = cmd.tmpDir
-	//}
 
 	files.Add(cmd.flags.files...)
 	files.Add(cmd.flags.dirs...)
 
-	mainFilename := files.absFilename(cmd.flags.filename)
+	// make flag filenames absolute based on files.dir
+	for i, f := range cmd.flags.filenames {
+		cmd.flags.filenames[i] = files.absFilename(f)
+	}
 
 	// pre-build without annotations for better errors with original filenames(result ignored)
 	// done in sync (first pre-build, then annotate) in order to have the "go build" update go.mod's if necessary.
 	if !cmd.NoPreBuild {
-		if err := cmd.preBuild(ctx, mainFilename, cmd.flags.mode.test); err != nil {
+		if err := cmd.preBuild(ctx); err != nil {
 			return err
 		}
 	}
@@ -182,7 +184,7 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 	// TODO: force disable fetching since pre-build was successfull.
 	//cmd.env = cmd.disableGoFetch(cmd.env)
 
-	return cmd.initAndAnnotate2(ctx, files, mainFilename)
+	return cmd.initAndAnnotate2(ctx, files)
 }
 
 //func (cmd *Cmd) initAndAnnotate___concurrent(ctx context.Context) error {
@@ -232,8 +234,8 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 
 //------------
 
-func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename string) error {
-	err := files.Do(ctx, mainFilename, cmd.flags.mode.test, cmd.env)
+func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
+	err := files.Do(ctx, cmd.flags.filenames, cmd.flags.mode.test, cmd.env)
 	if err != nil {
 		return err
 	}
@@ -284,60 +286,65 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files, mainFilename
 		}
 	}
 
-	return cmd.doBuild(ctx, mainFilename, cmd.flags.mode.test)
+	return cmd.doBuild(ctx)
 }
 
-func (cmd *Cmd) doBuild(ctx context.Context, mainFilename string, tests bool) error {
-	filename := cmd.filenameForBuild(mainFilename, tests)
-	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
+func (cmd *Cmd) doBuild(ctx context.Context) error {
+	dirAtTmp := cmd.tmpDirBasedFilename(cmd.Dir)
 
-	// create parent dirs
-	if err := os.MkdirAll(filepath.Dir(filenameAtTmp), 0755); err != nil {
-		return err
+	filenamesAtTmp := []string{}
+	for _, f := range cmd.flags.filenames {
+		u := cmd.tmpDirBasedFilename(f)
+		filenamesAtTmp = append(filenamesAtTmp, u)
 	}
 
 	// build
-	filenameAtTmpOut, err := cmd.runBuildCmd(ctx, filenameAtTmp, tests)
+	filenameOutAtTmp, err := cmd.runBuildCmd(ctx, dirAtTmp, filenamesAtTmp)
 	if err != nil {
 		return err
 	}
 
 	// move filename to working dir
-	filenameWork := filepath.Join(cmd.Dir, filepath.Base(filenameAtTmpOut))
+	filenameOut := filepath.Join(cmd.Dir, filepath.Base(filenameOutAtTmp))
 	// move filename to output option
 	if cmd.flags.output != "" {
 		o := cmd.flags.output
 		if !filepath.IsAbs(o) {
 			o = filepath.Join(cmd.Dir, o)
 		}
-		filenameWork = o
+		filenameOut = o
 	}
-	if err := os.Rename(filenameAtTmpOut, filenameWork); err != nil {
+	if err := os.Rename(filenameOutAtTmp, filenameOut); err != nil {
 		return err
 	}
 
 	// keep moved filename that will run in working dir for later cleanup
-	cmd.tmpBuiltFile = filenameWork
+	cmd.tmpBuiltFile = filenameOut
 
 	return nil
 }
 
-func (cmd *Cmd) filenameForBuild(mainFilename string, tests bool) string {
-	if tests {
-		// final filename will include extension replacement with "_godebug"
-		return filepath.Join(cmd.Dir, "pkgtest")
-	}
-	return mainFilename
-}
-
-func (cmd *Cmd) preBuild(ctx context.Context, mainFilename string, tests bool) error {
-	filename := cmd.filenameForBuild(mainFilename, tests)
-	filenameOut, err := cmd.runBuildCmd(ctx, filename, tests)
+func (cmd *Cmd) preBuild(ctx context.Context) error {
+	filenameOut, err := cmd.runBuildCmd(ctx, cmd.Dir, cmd.flags.filenames)
 	defer os.Remove(filenameOut) // ensure removal even on error
 	if err != nil {
 		return fmt.Errorf("preBuild: %w", err)
 	}
 	return nil
+}
+
+//------------
+
+func (cmd *Cmd) baseFilenameOut() string {
+	s := "godebug"
+	if cmd.flags.mode.test {
+		s = "test_godebug"
+	}
+	if len(cmd.flags.filenames) > 0 {
+		base := filepath.Base(cmd.flags.filenames[0])
+		s = replaceExt(base, "_"+s)
+	}
+	return osutil.ExecName(s)
 }
 
 //------------
@@ -348,17 +355,15 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 	cmd.start.cancel = cancel
 
 	if err := cmd.startServerClient2(ctx); err != nil {
-		// cmd.Wait() won't be called, clear resources
 		cmd.start.cancel()
+		_ = cmd.Wait()
 		return err
 	}
 	return nil
 }
 
 func (cmd *Cmd) startServerClient2(ctx context.Context) error {
-	// arguments (TODO: review normalize...)
-	w := normalizeFilenameForExec(cmd.tmpBuiltFile)
-	args := []string{w}
+	args := []string{cmd.tmpBuiltFile}
 	if cmd.flags.mode.test {
 		args = append(args, cmd.flags.runArgs...)
 	} else {
@@ -394,10 +399,12 @@ func (cmd *Cmd) startServerClient2(ctx context.Context) error {
 func (cmd *Cmd) Wait() error {
 	defer cmd.start.cancel() // ensure resources are cleared
 	var err error
-	if !cmd.flags.mode.connect {
+	if cmd.start.serverCmd != nil { // might be nil: connect mode
 		err = cmd.start.serverCmd.Wait()
 	}
-	cmd.Client.Wait()
+	if cmd.Client != nil { // might be nil if server failed to start
+		cmd.Client.Wait()
+	}
 	return err
 }
 
@@ -541,39 +548,37 @@ func (cmd *Cmd) Cleanup() {
 
 //------------
 
-func (cmd *Cmd) runBuildCmd(ctx context.Context, filename string, tests bool) (string, error) {
+func (cmd *Cmd) runBuildCmd(ctx context.Context, dir string, filenames []string) (string, error) {
 	// TODO: faster dummy pre-builts?
 	// "-toolexec", "", // don't run asm?
 
-	filenameOut := replaceExt(filename, osutil.ExecName("_godebug"))
+	filenameOut := filepath.Join(dir, cmd.baseFilenameOut())
 
 	bFlags := godebugBuildFlags(cmd.env)
 
 	args := []string{}
-	if tests {
+	if cmd.flags.mode.test {
 		args = []string{
 			osutil.ExecName("go"), "test",
 			"-c", // compile binary but don't run
 			"-o", filenameOut,
 		}
 		args = append(args, bFlags...)
-		args = append(args, cmd.flags.otherArgs...) // ex
+		args = append(args, filenames...)
+		args = append(args, cmd.flags.otherArgs...)
 	} else {
 		args = []string{
 			osutil.ExecName("go"), "build",
 			"-o", filenameOut,
 		}
-		//if cmd.flags.mode.build {
-		//	args = append(args, cmd.flags.otherArgs...)
-		//}
 		args = append(args, bFlags...)
-		args = append(args, filename) // last arg
+		args = append(args, filenames...)
+		args = append(args, cmd.flags.otherArgs...)
 	}
 
 	if cmd.flags.verbose {
 		cmd.Printf("runBuildCmd:  %v\n", args)
 	}
-	dir := filepath.Dir(filenameOut)
 	err := cmd.runCmd(ctx, dir, args, cmd.env)
 	if err != nil {
 		err = fmt.Errorf("runBuildCmd: %w", err)
@@ -741,29 +746,30 @@ func (cmd *Cmd) writeTestMainFilesToTmpDir() error {
 
 //------------
 
-func (cmd *Cmd) parseArgs(args []string) (done bool, _ error) {
+func (cmd *Cmd) parseArgs(args []string) error {
 	if len(args) > 0 {
+		name := "GoDebug " + args[0]
 		switch args[0] {
 		case "run":
 			cmd.flags.mode.run = true
-			return cmd.parseRunArgs(args[1:])
+			return cmd.parseRunArgs(name, args[1:])
 		case "test":
 			cmd.flags.mode.test = true
-			return cmd.parseTestArgs(args[1:])
+			return cmd.parseTestArgs(name, args[1:])
 		case "build":
 			cmd.flags.mode.build = true
-			return cmd.parseBuildArgs(args[1:])
+			return cmd.parseBuildArgs(name, args[1:])
 		case "connect":
 			cmd.flags.mode.connect = true
-			return cmd.parseConnectArgs(args[1:])
+			return cmd.parseConnectArgs(name, args[1:])
 		}
 	}
 	fmt.Fprint(cmd.Stderr, cmdUsage())
-	return true, nil
+	return flag.ErrHelp
 }
 
-func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
-	f := &flag.FlagSet{}
+func (cmd *Cmd) parseRunArgs(name string, args []string) error {
+	f := flag.NewFlagSet(name, flag.ContinueOnError)
 	f.SetOutput(cmd.Stderr)
 	cmd.dirsFlag(f)
 	cmd.filesFlag(f)
@@ -774,24 +780,16 @@ func (cmd *Cmd) parseRunArgs(args []string) (done bool, _ error) {
 	cmd.envFlag(f)
 
 	if err := f.Parse(args); err != nil {
-		if err == flag.ErrHelp {
-			return true, nil
-		}
-		return true, err
+		return err
 	}
 
-	cmd.flags.otherArgs = f.Args()
+	cmd.filenamesAndOtherArgs(f)
 
-	if len(cmd.flags.otherArgs) > 0 {
-		cmd.flags.filename = cmd.flags.otherArgs[0]
-		cmd.flags.otherArgs = cmd.flags.otherArgs[1:]
-	}
-
-	return false, nil
+	return nil
 }
 
-func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
-	f := &flag.FlagSet{}
+func (cmd *Cmd) parseTestArgs(name string, args []string) error {
+	f := flag.NewFlagSet(name, flag.ContinueOnError)
 	f.SetOutput(cmd.Stderr)
 	cmd.dirsFlag(f)
 	cmd.filesFlag(f)
@@ -804,31 +802,27 @@ func (cmd *Cmd) parseTestArgs(args []string) (done bool, _ error) {
 	verboseTests := f.Bool("v", false, "verbose tests")
 
 	if err := f.Parse(args); err != nil {
-		if err == flag.ErrHelp {
-			return true, nil
-		}
-		return true, err
+		return err
 	}
-
-	cmd.flags.otherArgs = f.Args()
 
 	// set test run flag at other flags to pass to the test exec
 	if *run != "" {
 		a := []string{"-test.run", *run}
 		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
 	}
-
 	// verbose
 	if *verboseTests {
 		a := []string{"-test.v"}
 		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
 	}
 
-	return false, nil
+	cmd.filenamesAndOtherArgs(f)
+
+	return nil
 }
 
-func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
-	f := &flag.FlagSet{}
+func (cmd *Cmd) parseBuildArgs(name string, args []string) error {
+	f := flag.NewFlagSet(name, flag.ContinueOnError)
 	f.SetOutput(cmd.Stderr)
 	cmd.dirsFlag(f)
 	cmd.filesFlag(f)
@@ -840,40 +834,49 @@ func (cmd *Cmd) parseBuildArgs(args []string) (done bool, _ error) {
 	f.StringVar(&cmd.flags.output, "o", "", "output filename (default: ${filename}_godebug")
 
 	if err := f.Parse(args); err != nil {
-		if err == flag.ErrHelp {
-			return true, nil
-		}
-		return true, err
+		return err
 	}
 
 	cmd.flags.address = *addr
-	cmd.flags.otherArgs = f.Args()
-	if len(cmd.flags.otherArgs) > 0 {
-		cmd.flags.filename = cmd.flags.otherArgs[0]
-		cmd.flags.otherArgs = cmd.flags.otherArgs[1:]
-	}
+	cmd.filenamesAndOtherArgs(f)
 
-	return false, nil
+	return nil
 }
 
-func (cmd *Cmd) parseConnectArgs(args []string) (done bool, _ error) {
-	f := &flag.FlagSet{}
+func (cmd *Cmd) parseConnectArgs(name string, args []string) error {
+	f := flag.NewFlagSet(name, flag.ContinueOnError)
 	f.SetOutput(cmd.Stderr)
 	addr := f.String("addr", "", "address to connect to, built into the binary")
 	cmd.toolExecFlag(f)
 
 	if err := f.Parse(args); err != nil {
-		if err == flag.ErrHelp {
-			f.SetOutput(cmd.Stderr)
-			f.PrintDefaults()
-			return true, nil
-		}
-		return true, err
+		return err
 	}
 
 	cmd.flags.address = *addr
 
-	return false, nil
+	return nil
+}
+
+//------------
+
+func (cmd *Cmd) filenamesAndOtherArgs(fs *flag.FlagSet) {
+	args := fs.Args()
+
+	// filenames
+	f := []string{}
+	for _, a := range args {
+		if strings.HasSuffix(a, ".go") {
+			f = append(f, a)
+			continue
+		}
+		break
+	}
+	cmd.flags.filenames = f
+
+	if len(args) > 0 {
+		cmd.flags.otherArgs = args[len(f):] // keep rest
+	}
 }
 
 //------------
@@ -1017,19 +1020,6 @@ func replaceExt(filename, ext string) string {
 	}
 	// add new extension
 	return tmp + ext
-}
-
-func normalizeFilenameForExec(filename string) string {
-	if filepath.IsAbs(filename) {
-		return filename
-	}
-
-	// TODO: review
-	if !strings.HasPrefix(filename, "./") {
-		return "./" + filename
-	}
-
-	return filename
 }
 
 //------------

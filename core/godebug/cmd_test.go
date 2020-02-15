@@ -1223,37 +1223,48 @@ func TestCmd_simple1(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("dir1/main.go", `
 		package main
+		import "io/ioutil"
 		func main() {
-			_=1
+			b,_:=ioutil.ReadFile("a.txt")
+			_=string(b)
 		}
 	`)
+	tf.WriteFileInTmp2OrPanic("a.txt", `aaa`)
 
 	cmd := []string{
 		"run",
 		//"-verbose",
 		//"-work",
-		"dir1/main.go", // give location to run
+		"dir1/main.go", // give location, but must run on dir
 	}
 	msgs := doCmd(t, tf.Dir, cmd)
-	mustHaveString(t, msgs, `_ := 1`)
+	mustHaveString(t, msgs, `_ := "aaa"=string([97 97 97])`)
 }
 
-func TestCmd_simple2(t *testing.T) {
+// TODO: packages.load not dealing with more then one file?
+func _TestCmd_simple2(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
 	tf.WriteFileInTmp2OrPanic("dir1/main.go", `
 		package main
 		func main() {
-			_=1
+			_=fn()
+		}
+	`)
+	tf.WriteFileInTmp2OrPanic("dir1/fn.go", `
+		package main
+		func fn() string {
+			return "1"
 		}
 	`)
 
 	cmd := []string{
 		"build",
 		"dir1/main.go",
-		"-tags=aaa",
-	} // some arg after the filename
+		"dir1/fn.go",
+		//"-v", // build arg after the filenames to include in build?
+	}
 	_, err := doCmd2(t, tf.Dir, cmd)
 	if err != nil {
 		t.Fatal(err) // ok - just be able to build
@@ -1374,11 +1385,13 @@ func doCmd3(ctx context.Context, t *testing.T, dir string, args []string) ([]str
 	obuf := &bytes.Buffer{}
 	ebuf := &bytes.Buffer{}
 	ow := iout.FnWriter(func(p []byte) (int, error) {
-		t.Log(string(p))
+		t.Helper()
+		t.Logf(string(p))
 		return obuf.Write(p)
 	})
 	ew := iout.FnWriter(func(p []byte) (int, error) {
-		t.Log(string(p))
+		t.Helper()
+		t.Logf(string(p))
 		return ebuf.Write(p)
 	})
 	cmd.Stdout = ow
