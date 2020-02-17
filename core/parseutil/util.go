@@ -298,10 +298,13 @@ func TrimLineSpaces(str string) string {
 
 //----------
 
-func UriToAbsFilename(uri string) (string, error) {
+func UrlToAbsFilename(uri string) (string, error) {
 	u, err := url.Parse(string(uri))
 	if err != nil {
 		return "", err
+	}
+	if u.Scheme != "file" {
+		return "", fmt.Errorf("expecting file scheme: %v", u.Scheme)
 	}
 	filename := u.Path // unescaped
 	if !filepath.IsAbs(filename) {

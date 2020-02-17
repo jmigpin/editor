@@ -128,7 +128,7 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 	}
 
 	// target filename
-	filename2, err := parseutil.UriToAbsFilename(string(loc.Uri))
+	filename2, err := parseutil.UrlToAbsFilename(string(loc.Uri))
 	if err != nil {
 		return "", nil, err
 	}

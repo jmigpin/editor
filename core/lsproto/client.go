@@ -166,6 +166,26 @@ func (cli *Client) onUnexpectedServerReply(resp *Response) {
 //----------
 
 func (cli *Client) Initialize(ctx context.Context) error {
+	opt, err := cli.initializeParams()
+	if err != nil {
+		return err
+	}
+	logJson("opt -->: ", opt)
+
+	var serverCapabilities interface{}
+	if err := cli.Call(ctx, "initialize", &opt, &serverCapabilities); err != nil {
+		return err
+	}
+	logJson("initialize <--: ", serverCapabilities)
+
+	cli.readServerCapabilities(serverCapabilities)
+
+	// send "initialized" (gopls: "no views" error without this)
+	opt2 := &InitializedParams{}
+	return cli.Call(ctx, "noreply:initialized", &opt2, nil)
+}
+
+func (cli *Client) initializeParams() (*InitializeParams, error) {
 	opt := &InitializeParams{}
 
 	//rootDir := "/" // (gopls: slow)
@@ -174,19 +194,20 @@ func (cli *Client) Initialize(ctx context.Context) error {
 	//rootDir := os.TempDir() // (gopls: slow)
 	//rootDir := filepath.Dir(filename)
 	// Use a non-existent dir and send an updateworkspacefolder on each request later. Attempt to prevent the lsp server to start looking at the user disk.
+
 	rootDir := filepath.Join(os.TempDir(), "editor_lsproto_nonexistent_dir")
-
-	// TODO: test fast start with existing empty dir
+	// TODO: test fast start with existing empty dir?
 	//os.MkdirAll(rootDir, 0644)
-
-	if rootDir != "" {
-		s, err := parseutil.AbsFilenameToUrl(rootDir)
-		if err != nil {
-			return err
-		}
-		s2 := DocumentUri(s)
-		opt.RootUri = &s2
+	rootDir2, err := parseutil.AbsFilenameToUrl(rootDir)
+	if err != nil {
+		return nil, err
 	}
+	rootDir3 := DocumentUri(rootDir2)
+
+	if rootDir3 != "" {
+		opt.RootUri = &rootDir3
+	}
+	//opt.WorkspaceFolders = []*WorkspaceFolder{{Uri: rootDir3}}
 
 	opt.Capabilities = &ClientCapabilities{
 		//Workspace: &WorkspaceClientCapabilities{
@@ -199,18 +220,7 @@ func (cli *Client) Initialize(ctx context.Context) error {
 		//},
 	}
 
-	logJson("opt -->: ", opt)
-	var serverCapabilities interface{}
-	if err := cli.Call(ctx, "initialize", &opt, &serverCapabilities); err != nil {
-		return err
-	}
-	logJson("initialize <--: ", serverCapabilities)
-
-	cli.readServerCapabilities(serverCapabilities)
-
-	// send "initialized" (gopls: "no views" error without this)
-	opt2 := &InitializedParams{}
-	return cli.Call(ctx, "noreply:initialized", &opt2, nil)
+	return opt, nil
 }
 
 func (cli *Client) readServerCapabilities(caps interface{}) {
