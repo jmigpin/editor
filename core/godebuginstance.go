@@ -102,6 +102,9 @@ func (gdi *GoDebugInstance) selectERowAnnotation2(erow *ERow, ev *ui.TextAreaSel
 	case ui.TASelAnnTypePrint:
 		gdi.printIndex(erow, ev.AnnotationIndex, ev.Offset)
 		return false
+	case ui.TASelAnnTypePrintAll:
+		gdi.printIndexAll(erow, ev.AnnotationIndex, ev.Offset)
+		return false
 	default:
 		log.Printf("todo: %#v", ev)
 	}
@@ -235,6 +238,28 @@ func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
 	//s := godebug.StringifyItemOffset(msg.DLine.Item, offset) // inner item
 	s := godebug.StringifyItemFull(msg.DLine.Item) // full item
 	gdi.ed.Messagef("annotation:\n\t%v\n", s)
+}
+
+func (gdi *GoDebugInstance) printIndexAll(erow *ERow, annIndex, offset int) {
+	file, line, ok := gdi.currentAnnotationFileLine(erow, annIndex)
+	if !ok {
+		return
+	}
+
+	// current msg index at line
+	k := file.AnnEntriesLMIndex[annIndex]
+	if k < 0 { // currently nothing is shown
+		return
+	}
+
+	// build output
+	sb := strings.Builder{}
+	msgs := line.Msgs[:k+1]
+	for _, msg := range msgs {
+		s := godebug.StringifyItemFull(msg.DLine.Item)
+		sb.WriteString(fmt.Sprintf("\t" + s + "\n"))
+	}
+	gdi.ed.Messagef("annotations (%d entries):\n%v\n", len(msgs), sb.String())
 }
 
 //----------

@@ -464,6 +464,7 @@ Plugins located at: `./plugins`.
 - godebug
 	- `ctrl`+`buttonLeft`: select debug step
 	- `ctrl`+`buttonRight`: over a debug step: print the value.
+	- `ctrl`+`buttonRight`+`shift`: over a debug step: print all previous values up to the debug step.
 	- `ctrl`+`buttonWheelUp`:
 		- show previous debug step
 		- over a debug step: show line previous debug step

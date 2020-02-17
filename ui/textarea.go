@@ -60,8 +60,13 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 		switch ev.Button {
 		case event.ButtonRight:
 			m := ev.Mods.ClearLocks()
-			if m.Is(event.ModCtrl) {
+			switch {
+			case m.Is(event.ModCtrl):
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypePrint) {
+					return event.HTrue
+				}
+			case m.Is(event.ModCtrl | event.ModShift):
+				if ta.selAnnCurEv(ev.Point, TASelAnnTypePrintAll) {
 					return event.HTrue
 				}
 			}
@@ -258,6 +263,7 @@ const (
 	//TASelAnnTypeLast
 	//TASelAnnTypeClear
 	TASelAnnTypePrint
+	TASelAnnTypePrintAll
 )
 
 //----------
