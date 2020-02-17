@@ -1271,6 +1271,34 @@ func _TestCmd_simple2(t *testing.T) {
 	}
 }
 
+func TestCmd_simple3(t *testing.T) {
+	// able to pass arguments to the built binary
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", `
+		package main
+		import "flag"
+		func main() {
+			v:=flag.String("somearg","b","usage")
+			flag.Parse()
+			_=*v
+		}
+	`)
+
+	cmd := []string{
+		"run",
+		"dir1/main.go",
+		"-somearg=a",
+	}
+	msgs, err := doCmd2(t, tf.Dir, cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustHaveString(t, msgs, `_ := "a"=*&"a"`)
+}
+
 //------------
 
 //func TestCmd_empty(t *testing.T) {}

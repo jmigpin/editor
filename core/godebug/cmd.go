@@ -58,18 +58,18 @@ type Cmd struct {
 			build   bool
 			connect bool
 		}
-		verbose   bool
-		filenames []string
-		work      bool
-		output    string // ex: -o filename (build mode)
-		toolExec  string // ex: "wine" will run "wine args..."
-		dirs      []string
-		files     []string
-		address   string   // build/connect
-		env       []string // build
-		syncSend  bool
-		otherArgs []string
-		runArgs   []string
+		verbose     bool
+		filenames   []string
+		work        bool
+		output      string // ex: -o filename (build mode)
+		toolExec    string // ex: "wine" will run "wine args..."
+		dirs        []string
+		files       []string
+		address     string   // build/connect
+		env         []string // build
+		syncSend    bool
+		otherArgs   []string
+		testRunArgs []string
 	}
 }
 
@@ -364,11 +364,8 @@ func (cmd *Cmd) startServerClient(ctx context.Context) error {
 
 func (cmd *Cmd) startServerClient2(ctx context.Context) error {
 	args := []string{cmd.tmpBuiltFile}
-	if cmd.flags.mode.test {
-		args = append(args, cmd.flags.runArgs...)
-	} else {
-		args = append(args, cmd.flags.otherArgs...)
-	}
+	args = append(args, cmd.flags.testRunArgs...)
+	args = append(args, cmd.flags.otherArgs...)
 
 	// toolexec
 	if cmd.flags.toolExec != "" {
@@ -554,7 +551,10 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, dir string, filenames []string)
 
 	filenameOut := filepath.Join(dir, cmd.baseFilenameOut())
 
-	bFlags := godebugBuildFlags(cmd.env)
+	preFilesArgs := godebugBuildFlags(cmd.env)
+	if cmd.flags.mode.test || cmd.flags.mode.build {
+		preFilesArgs = append(preFilesArgs, cmd.flags.otherArgs...)
+	}
 
 	args := []string{}
 	if cmd.flags.mode.test {
@@ -563,17 +563,15 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, dir string, filenames []string)
 			"-c", // compile binary but don't run
 			"-o", filenameOut,
 		}
-		args = append(args, bFlags...)
+		args = append(args, preFilesArgs...)
 		args = append(args, filenames...)
-		args = append(args, cmd.flags.otherArgs...)
 	} else {
 		args = []string{
 			osutil.ExecName("go"), "build",
 			"-o", filenameOut,
 		}
-		args = append(args, bFlags...)
+		args = append(args, preFilesArgs...)
 		args = append(args, filenames...)
-		args = append(args, cmd.flags.otherArgs...)
 	}
 
 	if cmd.flags.verbose {
@@ -808,12 +806,12 @@ func (cmd *Cmd) parseTestArgs(name string, args []string) error {
 	// set test run flag at other flags to pass to the test exec
 	if *run != "" {
 		a := []string{"-test.run", *run}
-		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
+		cmd.flags.testRunArgs = append(a, cmd.flags.testRunArgs...)
 	}
 	// verbose
 	if *verboseTests {
 		a := []string{"-test.v"}
-		cmd.flags.runArgs = append(a, cmd.flags.runArgs...)
+		cmd.flags.testRunArgs = append(a, cmd.flags.testRunArgs...)
 	}
 
 	cmd.filenamesAndOtherArgs(f)
