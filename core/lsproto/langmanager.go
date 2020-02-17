@@ -44,10 +44,17 @@ func (lang *LangManager) instance(reqCtx context.Context) (*LangInstance, error)
 		return nil, err
 	}
 
+	// handle server/client abnormal early exit
 	go func() {
 		defer cancel()
 		if err := li.Wait(); err != nil {
 			lang.PrintWrapError(err)
+		}
+		// ensure this instance is cleared
+		lang.mu.Lock()
+		defer lang.mu.Unlock()
+		if lang.mu.li == li {
+			lang.mu.li = nil
 		}
 	}()
 
