@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmigpin/editor/core"
-	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func CopyFilePosition(args0 *core.InternalCmdArgs) error {

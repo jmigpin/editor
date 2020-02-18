@@ -13,9 +13,9 @@ import (
 
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/core/godebug/debug"
-	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 const updatesPerSecond = 15

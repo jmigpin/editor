@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func ListDirERow(erow *ERow, filepath string, tree, hidden bool) {

@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core"
-	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func GoToDefinitionGolang(ctx context.Context, erow *core.ERow, index int) (error, bool) {

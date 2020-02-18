@@ -8,7 +8,7 @@ import (
 	"go/token"
 	"testing"
 
-	"github.com/jmigpin/editor/core/parseutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 //----------

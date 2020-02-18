@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"sort"
 
-	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type WorkspaceEditChange struct {

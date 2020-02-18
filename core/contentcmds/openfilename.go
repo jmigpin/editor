@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/core"
-	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 // Detects compilers output file format <string(:int)?(:int)?>, and goes to line/column.

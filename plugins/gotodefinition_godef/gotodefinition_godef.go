@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core"
-	"github.com/jmigpin/editor/core/parseutil"
 	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func OnLoad(ed *core.Editor) {
