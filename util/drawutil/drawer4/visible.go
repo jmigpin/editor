@@ -43,6 +43,7 @@ type PenVisibility struct {
 	top     bool // otherwise is bottom, valid in "full" and "partial"
 }
 
+//godebug:annotatefile
 func penVisibility(d *Drawer, offset int) *PenVisibility {
 	v := &PenVisibility{}
 	pb, ok := header1PenBounds(d, offset)
@@ -54,14 +55,20 @@ func penVisibility(d *Drawer, offset int) *PenVisibility {
 		if pr.Dx() == 0 {
 			pr.Max.X = pr.Min.X + 1
 		}
-		ir := d.bounds.Intersect(pr)
+
+		// consider previous/next lines (allows cursor up/down to move 1 line instead of jumping the view aligned to the center)
+		b := d.bounds // copy
+		b.Min.Y--
+		b.Max.Y--
+
+		ir := b.Intersect(pr)
 		if ir.Empty() {
 			v.not = true
 		} else if ir == pr {
 			v.full = true
 		} else {
 			v.partial = true
-			if pr.Min.Y < d.bounds.Min.Y {
+			if pr.Min.Y < b.Min.Y {
 				v.top = true
 			}
 		}

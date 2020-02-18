@@ -295,7 +295,7 @@ func (d *Drawer) LineHeight() int {
 	if d.face == nil {
 		return 0
 	}
-	return d.lineHeight.Floor() // already ceiled at linheight, use floor
+	return d.lineHeight.Floor() // already ceiled at lineheight, use floor
 }
 
 func (d *Drawer) SetFg(fg color.Color) { d.fg = fg }
