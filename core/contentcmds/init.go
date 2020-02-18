@@ -1,14 +1,16 @@
 package contentcmds
 
-import "github.com/jmigpin/editor/core"
+import (
+	"github.com/jmigpin/editor/core"
+)
 
 func init() {
 	// order matters
 
-	// Disabled: commented here for future tests if needed
-	//core.ContentCmds.Append("gotodefinition", GoToDefinitionGolang)
-
 	core.ContentCmds.Append("gotodefinition_lsproto", GoToDefinitionLSProto)
+
+	// "gopls query" might work where lsproto might fail (no views in session)
+	core.ContentCmds.Append("gotodefinition", GoToDefinitionGolang)
 
 	// opensession runs before openfilename to avoid failing if a file with that name exists in the current directory
 	core.ContentCmds.Append("opensession", OpenSession)
