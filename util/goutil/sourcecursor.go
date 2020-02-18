@@ -17,7 +17,7 @@ func SourceCursor(cursorStr, src string, n int) (string, int, error) {
 		}
 		k += j
 		pos = append(pos, k)
-		k++
+		k += len(cursorStr)
 	}
 
 	// nth position

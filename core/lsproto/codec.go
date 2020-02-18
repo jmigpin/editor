@@ -58,7 +58,7 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 		Method:  method,
 		Params:  data,
 	}
-	logPrintf("write req -->: %v(%v)", msg.Method, msg.Id)
+	//logPrintf("write req -->: %v(%v)", msg.Method, msg.Id)
 
 	b, err := encodeJson(msg)
 	if err != nil {
@@ -70,6 +70,8 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 	buf := make([]byte, len(h)+len(b))
 	copy(buf, []byte(h))  // header
 	copy(buf[len(h):], b) // body
+
+	logPrintf("write req -->: %s%s", h, string(b))
 
 	_, err = c.rwc.Write(buf)
 	if err != nil {

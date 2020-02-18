@@ -154,11 +154,11 @@ func goplsRegistration(trace bool, stderr bool, tcp bool) string {
 }
 
 func cLangRegistration(stderr bool) string {
-	ext := ".c .h .cpp .hpp"
+	ext := ".c .h .cpp .hpp .cc"
 	cmd := osutil.ExecName("clangd")
 	errOut := ""
 	if stderr {
 		errOut = ",stderr"
 	}
-	return fmt.Sprintf("c++,%q,stdio,%s%s", ext, cmd, errOut)
+	return fmt.Sprintf("cpp,%q,stdio,%s%s", ext, cmd, errOut)
 }

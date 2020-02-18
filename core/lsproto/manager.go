@@ -70,7 +70,7 @@ func (man *Manager) langInstanceClient(ctx context.Context, filename string) (*C
 	if err != nil {
 		return nil, nil, err
 	}
-	li, err := lang.instance(ctx)
+	li, err := lang.instance(ctx, filename)
 	if err != nil {
 		return nil, nil, err
 	}

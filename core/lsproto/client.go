@@ -2,6 +2,7 @@ package lsproto
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -19,8 +20,7 @@ import (
 )
 
 type Client struct {
-	rcli *rpc.Client
-	//rwc          io.ReadWriteCloser
+	rcli         *rpc.Client
 	li           *LangInstance
 	readLoopWait sync.WaitGroup
 
@@ -28,8 +28,11 @@ type Client struct {
 	folders   []*WorkspaceFolder
 
 	serverCapabilities struct {
-		workspaceFolders bool
-		rename           bool
+		workspace struct {
+			folders bool
+			symbol  bool
+		}
+		rename bool
 	}
 }
 
@@ -71,7 +74,8 @@ func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) 
 		select {
 		case <-ctx.Done():
 			if err := cli.sendClose(); err != nil {
-				cli.li.lang.PrintWrapError(err)
+				// Commented: best effort, ignore errors
+				//cli.li.lang.PrintWrapError(err)
 			}
 			if err := rwc.Close(); err != nil {
 				cli.li.lang.PrintWrapError(err)
@@ -96,9 +100,7 @@ func (cli *Client) sendClose() error {
 	} else {
 		me.Add(cli.ExitNotification())
 	}
-	// Commented: best effort, ignore errors
-	//return me.Result()
-	return nil
+	return me.Result()
 }
 
 //----------
@@ -173,7 +175,7 @@ func (cli *Client) Initialize(ctx context.Context) error {
 	logJson("opt -->: ", opt)
 
 	var serverCapabilities interface{}
-	if err := cli.Call(ctx, "initialize", &opt, &serverCapabilities); err != nil {
+	if err := cli.Call(ctx, "initialize", opt, &serverCapabilities); err != nil {
 		return err
 	}
 	logJson("initialize <--: ", serverCapabilities)
@@ -181,13 +183,45 @@ func (cli *Client) Initialize(ctx context.Context) error {
 	cli.readServerCapabilities(serverCapabilities)
 
 	// send "initialized" (gopls: "no views" error without this)
-	opt2 := &InitializedParams{}
+	opt2 := json.RawMessage("{}")
 	return cli.Call(ctx, "noreply:initialized", &opt2, nil)
 }
 
-func (cli *Client) initializeParams() (*InitializeParams, error) {
-	opt := &InitializeParams{}
+func (cli *Client) initializeParams() (json.RawMessage, error) {
+	rootUri, err := cli.rootUri()
+	if err != nil {
+		return nil, err
+	}
 
+	// workspace folders
+	cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
+	b, err := encodeJson(cli.folders)
+	if err != nil {
+		return nil, err
+	}
+	foldersStr := string(b)
+
+	// other capabilities
+	//"capabilities":{
+	//	"workspace":{
+	//		"configuration":true,
+	//		"workspaceFolders":true
+	//	},
+	//	"textDocument":{
+	//		"publishDiagnostics":{
+	//			"relatedInformation":true
+	//		}
+	//	}
+	//}
+
+	//"rootUri":"` + rootUri + `",
+	raw := json.RawMessage(`{
+		"workspaceFolders":` + foldersStr + `
+	}`)
+	return raw, nil
+}
+
+func (cli *Client) rootUri() (DocumentUri, error) {
 	//rootDir := "/" // (gopls: slow)
 	//rootDir := "" // (gopls: fails with "rootUri=null")
 	//rootDir := osutil.HomeEnvVar() // (gopls: slow)
@@ -195,32 +229,13 @@ func (cli *Client) initializeParams() (*InitializeParams, error) {
 	//rootDir := filepath.Dir(filename)
 	// Use a non-existent dir and send an updateworkspacefolder on each request later. Attempt to prevent the lsp server to start looking at the user disk.
 
-	rootDir := filepath.Join(os.TempDir(), "editor_lsproto_nonexistent_dir")
-	// TODO: test fast start with existing empty dir?
-	//os.MkdirAll(rootDir, 0644)
-	rootDir2, err := parseutil.AbsFilenameToUrl(rootDir)
+	dir := filepath.Join(os.TempDir(), "editor_lsproto_tmpdir") // nonexistent
+	//dir := filepath.Dir(cli.li.lang.InstanceReqFilename)
+	rootUrl, err := parseutil.AbsFilenameToUrl(dir)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	rootDir3 := DocumentUri(rootDir2)
-
-	if rootDir3 != "" {
-		opt.RootUri = &rootDir3
-	}
-	//opt.WorkspaceFolders = []*WorkspaceFolder{{Uri: rootDir3}}
-
-	opt.Capabilities = &ClientCapabilities{
-		//Workspace: &WorkspaceClientCapabilities{
-		//	WorkspaceFolders: true,
-		//},
-		//TextDocument: &TextDocumentClientCapabilities{
-		//	PublishDiagnostics: &PublishDiagnostics{
-		//		RelatedInformation: false,
-		//	},
-		//},
-	}
-
-	return opt, nil
+	return DocumentUri(rootUrl), nil
 }
 
 func (cli *Client) readServerCapabilities(caps interface{}) {
@@ -228,7 +243,15 @@ func (cli *Client) readServerCapabilities(caps interface{}) {
 	v, err := JsonGetPath(caps, path)
 	if err == nil {
 		if b, ok := v.(bool); ok && b == true {
-			cli.serverCapabilities.workspaceFolders = true
+			cli.serverCapabilities.workspace.folders = true
+		}
+	}
+
+	path = "capabilities.workspaceSymbolProvider"
+	v, err = JsonGetPath(caps, path)
+	if err == nil {
+		if b, ok := v.(bool); ok && b == true {
+			cli.serverCapabilities.workspace.symbol = true
 		}
 	}
 
@@ -413,21 +436,36 @@ func (cli *Client) WorkspaceDidChangeWorkspaceFolders(ctx context.Context, added
 	return err
 }
 
+//----------
+
 func (cli *Client) UpdateWorkspaceFolder(ctx context.Context, dir string) error {
-	if !cli.serverCapabilities.workspaceFolders {
+	if !cli.serverCapabilities.workspace.folders {
 		return nil
 	}
 
 	removed := cli.folders
-
 	url, err := parseutil.AbsFilenameToUrl(dir)
 	if err != nil {
 		return err
 	}
 	cli.folders = []*WorkspaceFolder{{Uri: DocumentUri(url)}}
-
 	return cli.WorkspaceDidChangeWorkspaceFolders(ctx, cli.folders, removed)
+
 }
+
+// TODO
+//return cli.WorkspaceDidChangeConfiguration(ctx, dir)
+//func (cli *Client) WorkspaceDidChangeConfiguration(ctx context.Context, dir string) error {
+//	url, err := parseutil.AbsFilenameToUrl(dir)
+//	if err != nil {
+//		return err
+//	}
+//	//"settings":{"rootUri":"` + url + `"}
+//	opt := json.RawMessage(`{
+//		"settings":{"workspaceFolders":[{"uri":"` + url + `"}]}
+//	}`)
+//	return cli.Call(ctx, "noreply:workspace/didChangeConfiguration", &opt, nil)
+//}
 
 //----------
 

@@ -60,32 +60,6 @@ func (e *ResponseError) Error() string {
 
 //----------
 
-type InitializeParams struct {
-	RootUri          *DocumentUri        `json:"rootUri"`
-	Capabilities     *ClientCapabilities `json:"capabilities,omitempty"`
-	WorkspaceFolders []*WorkspaceFolder  `json:"workspaceFolders,omitempty"`
-}
-
-type InitializedParams struct {
-	None bool `json:"none"`
-}
-
-type ClientCapabilities struct {
-	TextDocument *TextDocumentClientCapabilities `json:"textDocument,omitempty"`
-	Workspace    *WorkspaceClientCapabilities    `json:"workspace,omitempty"`
-}
-
-type TextDocumentClientCapabilities struct {
-	PublishDiagnostics *PublishDiagnostics `json:"publishDiagnostics,omitempty"`
-}
-type PublishDiagnostics struct {
-	RelatedInformation bool `json:"relatedInformation"`
-}
-
-type WorkspaceClientCapabilities struct {
-	WorkspaceFolders bool `json:"workspaceFolders"`
-}
-
 type WorkspaceFolder struct {
 	Uri  DocumentUri `json:"uri"`
 	Name string      `json:"name"`
@@ -182,13 +156,9 @@ type TextEdit struct {
 	NewText string `json:"newText"`
 }
 
-type DocumentUri string
-
-//----------
-
 type Position struct {
 	Line      int `json:"line"`      // zero based
 	Character int `json:"character"` // zero based
 }
 
-//----------
+type DocumentUri string
