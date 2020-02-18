@@ -174,16 +174,16 @@ func (gdi *GoDebugInstance) selectCurrent(erow *ERow, annIndex, offset int, typ 
 
 	// set selected index
 	di := gdi.data.dataIndex
-	di.SelectedArrivalIndex = line.Msgs[k].GlobalArrivalIndex
+	di.selected.arrivalIndex = line.Msgs[k].GlobalArrivalIndex
 
 	return true
 }
 
 func (gdi *GoDebugInstance) selectNext() bool {
 	di := gdi.data.dataIndex
-	if di.SelectedArrivalIndex < di.GlobalArrivalIndex-1 {
-		di.SelectedArrivalIndex++
-		gdi.openArrivalIndexERow()
+	if di.selected.arrivalIndex < di.lastArrivalIndex-1 {
+		di.selected.arrivalIndex++
+		//gdi.openArrivalIndexERow()
 		return true
 	}
 	return false
@@ -191,9 +191,9 @@ func (gdi *GoDebugInstance) selectNext() bool {
 
 func (gdi *GoDebugInstance) selectPrev() bool {
 	di := gdi.data.dataIndex
-	if di.SelectedArrivalIndex > 0 {
-		di.SelectedArrivalIndex--
-		gdi.openArrivalIndexERow()
+	if di.selected.arrivalIndex > 0 {
+		di.selected.arrivalIndex--
+		//gdi.openArrivalIndexERow()
 		return true
 	}
 	return false
@@ -201,19 +201,19 @@ func (gdi *GoDebugInstance) selectPrev() bool {
 
 func (gdi *GoDebugInstance) selectFirst() bool {
 	di := gdi.data.dataIndex
-	di.SelectedArrivalIndex = 0
+	di.selected.arrivalIndex = 0
 	// show always
-	gdi.openArrivalIndexERow()
+	//gdi.openArrivalIndexERow()
 	return true
 }
 
 func (gdi *GoDebugInstance) selectLast() bool {
 	di := gdi.data.dataIndex
-	if di.SelectedArrivalIndex < di.GlobalArrivalIndex-1 {
-		di.SelectedArrivalIndex = di.GlobalArrivalIndex - 1
+	if di.selected.arrivalIndex < di.lastArrivalIndex-1 {
+		di.selected.arrivalIndex = di.lastArrivalIndex - 1
 	}
 	// show always
-	gdi.openArrivalIndexERow()
+	//gdi.openArrivalIndexERow()
 	return true
 }
 
@@ -281,22 +281,22 @@ func (gdi *GoDebugInstance) currentAnnotationFileLine(erow *ERow, annIndex int) 
 
 //----------
 
-func (gdi *GoDebugInstance) openArrivalIndexERow() {
-	di := gdi.data.dataIndex
-	filename, ok := di.selectedArrivalIndexFilename(di.SelectedArrivalIndex)
-	if !ok {
-		return
-	}
+//func (gdi *GoDebugInstance) openArrivalIndexERow() {
+//	di := gdi.data.dataIndex
+//	filename, ok := di.selectedArrivalIndexFilename(di.selected.arrivalIndex)
+//	if !ok {
+//		return
+//	}
 
-	rowPos := gdi.ed.GoodRowPos()
-	conf := &OpenFileERowConfig{
-		FilePos:          &parseutil.FilePos{Filename: filename},
-		RowPos:           rowPos,
-		CancelIfExistent: true,
-		NewIfNotExistent: true,
-	}
-	OpenFileERow(gdi.ed, conf)
-}
+//	rowPos := gdi.ed.GoodRowPos()
+//	conf := &OpenFileERowConfig{
+//		FilePos:          &parseutil.FilePos{Filename: filename},
+//		RowPos:           rowPos,
+//		CancelIfExistent: true,
+//		NewIfNotExistent: true,
+//	}
+//	OpenFileERow(gdi.ed, conf)
+//}
 
 //----------
 
@@ -544,24 +544,30 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 	info.UpdateAnnotationsRowState(true)
 
 	file := di.Files[findex]
-	file.prepareForUpdate() // resets selected line
+
+	// update annotations (safe after lock)
+	selLine, _ := file.findSelectedAndUpdateAnnEntries(di.selected.arrivalIndex)
+	if selLine >= 0 {
+		di.selected.edited = false
+		di.selected.fileIndex = findex
+		di.selected.lineIndex = selLine
+	}
 
 	// check if content has changed
 	afd := di.Afds[findex]
 	edited := !info.EqualToBytesHash(afd.FileSize, afd.FileHash)
 	if edited {
+		if selLine >= 0 {
+			di.selected.edited = true
+		}
 		info.UpdateAnnotationsEditedRowState(true)
 		gdi.clearDrawerAnn(info)
 		return
 	}
-
 	info.UpdateAnnotationsEditedRowState(false)
 
-	// update annotations (safe after lock)
-	file.updateAnnEntries(di.SelectedArrivalIndex)
-
 	for _, erow := range info.ERows {
-		gdi.setAnnotations(erow, true, file.SelectedLine, file.AnnEntries)
+		gdi.setAnnotations(erow, true, selLine, file.AnnEntries)
 	}
 }
 
@@ -580,29 +586,35 @@ func (gdi *GoDebugInstance) setAnnotations(erow *ERow, on bool, selIndex int, en
 
 func (gdi *GoDebugInstance) showSelectedLine(rowPos *ui.RowPos) {
 	di := gdi.data.dataIndex
-	for _, afd := range di.Afds {
-		file := di.Files[afd.FileIndex]
-
-		if file.SelectedLine >= 0 {
-			lm := file.Lines[file.SelectedLine]
-			if len(lm.Msgs) == 0 {
-				continue
-			}
-
-			// file offset
-			dlm := lm.Msgs[0].DLine
-			fo := &parseutil.FilePos{Filename: afd.Filename, Offset: dlm.Offset}
-
-			// show line
-			conf := &OpenFileERowConfig{
-				FilePos:             fo,
-				RowPos:              rowPos,
-				FlashVisibleOffsets: true,
-				NewIfNotExistent:    true,
-			}
-			OpenFileERow(gdi.ed, conf)
-		}
+	line := di.selected.lineIndex
+	if line < 0 {
+		return
 	}
+
+	afd := di.Afds[di.selected.fileIndex]
+	file := di.Files[di.selected.fileIndex]
+	lm := file.Lines[line]
+	if len(lm.Msgs) == 0 {
+		return
+	}
+
+	if di.selected.edited {
+		gdi.ed.Errorf("selection at edited row: %v: step %v", afd.Filename, di.selected.arrivalIndex)
+		return
+	}
+
+	// file offset
+	dlm := lm.Msgs[0].DLine
+	fo := &parseutil.FilePos{Filename: afd.Filename, Offset: dlm.Offset}
+
+	// show line
+	conf := &OpenFileERowConfig{
+		FilePos:             fo,
+		RowPos:              rowPos,
+		FlashVisibleOffsets: true,
+		NewIfNotExistent:    true,
+	}
+	OpenFileERow(gdi.ed, conf)
 }
 
 //----------
@@ -612,8 +624,14 @@ type GDDataIndex struct {
 	ed          *Editor
 	filesIndexM map[string]int
 
-	GlobalArrivalIndex   int
-	SelectedArrivalIndex int
+	lastArrivalIndex int // last arrival index + 1
+	selected         struct {
+		arrivalIndex int
+
+		fileIndex int
+		lineIndex int
+		edited    bool
+	}
 
 	Afds  []*debug.AnnotatorFileData // file index -> file afd
 	Files []*GDFileMsgs              // file index -> file msgs
@@ -643,29 +661,29 @@ func (di *GDDataIndex) clearMsgs() {
 		u := NewGDFileMsgs(n)
 		*f = *u
 	}
-	di.GlobalArrivalIndex = 0
-	di.SelectedArrivalIndex = 0
+	di.lastArrivalIndex = 0
+	di.selected.arrivalIndex = 0
 }
 
 //----------
 
-func (di *GDDataIndex) selectedArrivalIndexFilename(arrivalIndex int) (string, bool) {
-	for i, f := range di.Files {
-		for _, lm := range f.Lines {
-			k := sort.Search(len(lm.Msgs), func(i int) bool {
-				u := lm.Msgs[i].GlobalArrivalIndex
-				return u > arrivalIndex
-			})
-			k--
-			if k >= 0 {
-				if lm.Msgs[k].GlobalArrivalIndex == arrivalIndex {
-					return di.Afds[i].Filename, true
-				}
-			}
-		}
-	}
-	return "", false
-}
+//func (di *GDDataIndex) selectedArrivalIndexFilename(arrivalIndex int) (string, bool) {
+//	for i, f := range di.Files {
+//		for _, lm := range f.Lines {
+//			k := sort.Search(len(lm.Msgs), func(i int) bool {
+//				u := lm.Msgs[i].GlobalArrivalIndex
+//				return u > arrivalIndex
+//			})
+//			k--
+//			if k >= 0 {
+//				if lm.Msgs[k].GlobalArrivalIndex == arrivalIndex {
+//					return di.Afds[i].Filename, true
+//				}
+//			}
+//		}
+//	}
+//	return "", false
+//}
 
 //----------
 
@@ -701,17 +719,17 @@ func (di *GDDataIndex) handleLineMsg(u *debug.LineMsg) error {
 		return fmt.Errorf("bad debug index: %v len=%v", u.DebugIndex, l2)
 	}
 	// line msg
-	lm := &GDLineMsg{GlobalArrivalIndex: di.GlobalArrivalIndex, DLine: u}
+	lm := &GDLineMsg{GlobalArrivalIndex: di.lastArrivalIndex, DLine: u}
 	// index msg
 	w := &di.Files[u.FileIndex].Lines[u.DebugIndex].Msgs
 	*w = append(*w, lm)
 
 	// auto update selected index if at last position
-	if di.SelectedArrivalIndex == di.GlobalArrivalIndex-1 {
-		di.SelectedArrivalIndex++
+	if di.selected.arrivalIndex == di.lastArrivalIndex-1 {
+		di.selected.arrivalIndex++
 	}
 
-	di.GlobalArrivalIndex++
+	di.lastArrivalIndex++
 
 	//// mark as having new data
 	//di.Files[t.FileIndex].HasNewData = true
@@ -729,29 +747,24 @@ type GDFileMsgs struct {
 	AnnEntries        []*drawer4.Annotation
 	AnnEntriesLMIndex []int // line messages index
 
-	SelectedLine int
-
 	//HasNewData bool // performance
 }
 
 func NewGDFileMsgs(n int) *GDFileMsgs {
 	return &GDFileMsgs{
-		SelectedLine:      -1,
 		Lines:             make([]GDLineMsgs, n),
 		AnnEntries:        make([]*drawer4.Annotation, n),
 		AnnEntriesLMIndex: make([]int, n),
 	}
 }
 
-func (file *GDFileMsgs) prepareForUpdate() {
-	file.SelectedLine = -1
-}
-
-func (file *GDFileMsgs) updateAnnEntries(maxArrivalIndex int) {
+func (file *GDFileMsgs) findSelectedAndUpdateAnnEntries(arrivalIndex int) (int, int) {
+	selLine := -1
+	selLineStep := 0
 	for line, lm := range file.Lines {
 		k := sort.Search(len(lm.Msgs), func(i int) bool {
 			u := lm.Msgs[i].GlobalArrivalIndex
-			return u > maxArrivalIndex
+			return u > arrivalIndex
 		})
 		// get less or equal then maxarrivalindex
 		k--
@@ -764,14 +777,16 @@ func (file *GDFileMsgs) updateAnnEntries(maxArrivalIndex int) {
 			file.AnnEntries[line] = lm.Msgs[k].annotation()
 
 			// selected line
-			if lm.Msgs[k].GlobalArrivalIndex == maxArrivalIndex {
-				file.SelectedLine = line
+			if lm.Msgs[k].GlobalArrivalIndex == arrivalIndex {
+				selLine = line
+				selLineStep = k
 			}
 		}
 
 		// keep selected k to know the msg entry when coming from a click on an annotation
 		file.AnnEntriesLMIndex[line] = k
 	}
+	return selLine, selLineStep
 }
 
 //----------
