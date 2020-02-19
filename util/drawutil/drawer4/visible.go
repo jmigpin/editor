@@ -59,7 +59,7 @@ func penVisibility(d *Drawer, offset int) *PenVisibility {
 		// consider previous/next lines (allows cursor up/down to move 1 line instead of jumping the view aligned to the center)
 		b := d.bounds // copy
 		b.Min.Y--
-		b.Max.Y--
+		b.Max.Y++
 
 		ir := b.Intersect(pr)
 		if ir.Empty() {
