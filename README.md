@@ -495,3 +495,20 @@ The measuring of space is done as follows:
 	- Oberon OS: https://www.youtube.com/watch?v=UTIJaKO0iqU 
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
+## Releases
+
+- 2020/02/19: v1.1.0 (133 commits)
+	- godebug: adds "//godebug:*" comment directives. Go modules support improved.
+	- inline `tab` complete
+	- windows: support case-insensitive filesystem
+	- windows: drag and drop improvements.
+	- many bug fixes and overall improvements on stability.
+- 2019/12/28: v1.0.0 (1049 commits)
+	- first tagged release
+	- drawer improvements (handle big files)
+	- fs watcher for changed files
+	- language server protocol (go to definition, completion, ...)
+	- plugins
+	- unix: drag and drop
+- 2016/10/11:
+	- development start
