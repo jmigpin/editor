@@ -743,7 +743,7 @@ type GDFileMsgs struct {
 
 	// current annotation entries to be shown with a file
 	AnnEntries        []*drawer4.Annotation
-	AnnEntriesLMIndex []int // line messages index
+	AnnEntriesLMIndex []int // line messages index: keep selected k to know the msg entry when coming from a click on an annotation
 
 	//HasNewData bool // performance
 }
@@ -763,28 +763,33 @@ func (file *GDFileMsgs) findSelectedAndUpdateAnnEntries(arrivalIndex int) (int, 
 	for line, lm := range file.LinesMsgs {
 		k := sort.Search(len(lm.lineMsgs), func(i int) bool {
 			u := lm.lineMsgs[i].arrivalIndex
-			return u > arrivalIndex
+			return u >= arrivalIndex
 		})
-		// get less or equal then maxarrivalindex
-		k--
-		if k < 0 {
-			file.AnnEntries[line] = nil
-			if len(lm.lineMsgs) > 0 {
-				file.AnnEntries[line] = lm.lineMsgs[0].emptyAnnotation()
-			}
+		foundK := false
+		eqK := false
+		if k < len(lm.lineMsgs) && lm.lineMsgs[k].arrivalIndex == arrivalIndex {
+			eqK = true
+			foundK = true
 		} else {
-			file.AnnEntries[line] = lm.lineMsgs[k].annotation()
+			k-- // current k is above arrivalIndex, want previous
+			foundK = k >= 0
+		}
 
-			// selected line
-			if lm.lineMsgs[k].arrivalIndex == arrivalIndex {
+		if foundK {
+			file.AnnEntries[line] = lm.lineMsgs[k].annotation()
+			file.AnnEntriesLMIndex[line] = k
+			if eqK {
 				found = true
 				selLine = line
 				selLineStep = k
 			}
+		} else {
+			file.AnnEntries[line] = nil
+			if len(lm.lineMsgs) > 0 {
+				file.AnnEntries[line] = lm.lineMsgs[0].emptyAnnotation()
+			}
+			file.AnnEntriesLMIndex[line] = -1
 		}
-
-		// keep selected k to know the msg entry when coming from a click on an annotation
-		file.AnnEntriesLMIndex[line] = k
 	}
 	return selLine, selLineStep, found
 }
@@ -800,31 +805,31 @@ type GDLineMsgs struct {
 type GDLineMsg struct {
 	arrivalIndex int
 	dbgLineMsg   *debug.LineMsg
-	itemBytes    []byte
-	cachedAnn    *drawer4.Annotation
+	cache        struct {
+		item []byte
+		ann  *drawer4.Annotation
+	}
 }
 
-func (msg *GDLineMsg) build() *drawer4.Annotation {
-	if msg.cachedAnn == nil {
-		msg.cachedAnn = &drawer4.Annotation{Offset: msg.dbgLineMsg.Offset}
+func (msg *GDLineMsg) ann() *drawer4.Annotation {
+	if msg.cache.ann == nil {
+		msg.cache.ann = &drawer4.Annotation{Offset: msg.dbgLineMsg.Offset}
 	}
-	return msg.cachedAnn
+	return msg.cache.ann
 }
 
 func (msg *GDLineMsg) annotation() *drawer4.Annotation {
-	ann := msg.build()
-
-	// stringify item
-	if msg.itemBytes == nil {
-		msg.itemBytes = []byte(godebug.StringifyItem(msg.dbgLineMsg.Item))
+	ann := msg.ann()
+	if msg.cache.item == nil {
+		s := godebug.StringifyItem(msg.dbgLineMsg.Item)
+		msg.cache.item = []byte(s)
 	}
-	ann.Bytes = msg.itemBytes
-
+	ann.Bytes = msg.cache.item
 	return ann
 }
 
 func (msg *GDLineMsg) emptyAnnotation() *drawer4.Annotation {
-	ann := msg.build()
+	ann := msg.ann()
 	ann.Bytes = []byte(" ")
 	return ann
 }
