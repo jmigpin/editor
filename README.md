@@ -87,7 +87,7 @@ Usage of ./editor:
     	Examples:
     	go,.go,stdio,"gopls serve"
     	go,.go,tcp,"gopls serve -listen={{.Addr}}"
-    	c++,".c .h .cpp .hpp",stdio,clangd
+    	cpp,".c .h .cpp .hpp .cc",stdio,clangd
     	python,.py,tcpclient,127.0.0.1:9000
   -plugins string
     	comma separated string of plugin filenames
@@ -114,14 +114,14 @@ Usage of ./editor:
 The editor has no configuration file. Use it within a script with your preferences (example `editor.sh`):
 ```
 #!/bin/sh
-exec ~/code/jmigpin/editor/editor \
+exec ~/path/editor \
 --dpi=143 \
 --fontsize=9 \
 --colortheme=acme \
 --commentscolor=0x008b00 \
 --stringscolor=0x8b3100 \
 --lsproto=go,.go,stdio,"gopls serve" \
---lsproto=c++,".c .h .cpp .hpp",stdio,clangd,stderr \
+--lsproto=cpp,".c .h .cpp .hpp .cc",stdio,clangd \
 "$@"
 ```
 
@@ -242,7 +242,6 @@ Examples:
 	GoDebug build -addr=:8080 main.go
 	GoDebug connect -addr=:8080
 	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
-
 ```
 
 - Annotate files
