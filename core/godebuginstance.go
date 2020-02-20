@@ -546,11 +546,12 @@ func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
 	file := di.Files[findex]
 
 	// update annotations (safe after lock)
-	selLine, _ := file.findSelectedAndUpdateAnnEntries(di.selected.arrivalIndex)
+	selLine, selLineStep := file.findSelectedAndUpdateAnnEntries(di.selected.arrivalIndex)
 	if selLine >= 0 {
 		di.selected.edited = false
 		di.selected.fileIndex = findex
 		di.selected.lineIndex = selLine
+		di.selected.lineStepIndex = selLineStep
 	}
 
 	// check if content has changed
@@ -604,7 +605,7 @@ func (gdi *GoDebugInstance) showSelectedLine(rowPos *ui.RowPos) {
 	}
 
 	// file offset
-	dlm := lm.Msgs[0].DLine
+	dlm := lm.Msgs[di.selected.lineStepIndex].DLine
 	fo := &parseutil.FilePos{Filename: afd.Filename, Offset: dlm.Offset}
 
 	// show line
@@ -628,9 +629,10 @@ type GDDataIndex struct {
 	selected         struct {
 		arrivalIndex int
 
-		fileIndex int
-		lineIndex int
-		edited    bool
+		fileIndex     int
+		lineIndex     int
+		lineStepIndex int
+		edited        bool
 	}
 
 	Afds  []*debug.AnnotatorFileData // file index -> file afd
@@ -761,6 +763,7 @@ func NewGDFileMsgs(n int) *GDFileMsgs {
 func (file *GDFileMsgs) findSelectedAndUpdateAnnEntries(arrivalIndex int) (int, int) {
 	selLine := -1
 	selLineStep := 0
+
 	for line, lm := range file.Lines {
 		k := sort.Search(len(lm.Msgs), func(i int) bool {
 			u := lm.Msgs[i].GlobalArrivalIndex

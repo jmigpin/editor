@@ -213,48 +213,12 @@ func (ctx *Ctx) nResults() int {
 
 //----------
 
-func (ctx *Ctx) withCallExprDebugIndex() *Ctx {
-	return ctx.WithValue("call_expr_debug_index", -1)
-}
-
-func (ctx *Ctx) setupCallExprDebugIndex(ann *Annotator) *Ctx {
-	v, ctx2 := ctx.Value("call_expr_debug_index")
-	if v == nil {
-		return ctx
-	}
-	u := v.(int)
-	if u == -2 {
-		return ctx
-	}
-	if u == -1 {
-		i := ann.debugIndex
-		ann.debugIndex++
-		ctx2.SetValue("call_expr_debug_index", i)
-		return ctx.withStaticDebugIndex(i)
-	}
-	return ctx.withStaticDebugIndex(u)
-}
-
-func (ctx *Ctx) callExprDebugIndex() *Ctx {
-	v, _ := ctx.Value("call_expr_debug_index")
-	if v == nil {
-		return ctx
-	}
-	u := v.(int)
-	if u < 0 {
-		return ctx
-	}
-	return ctx.withStaticDebugIndex(u)
-}
-
-//----------
-
 func (ctx *Ctx) withStaticDebugIndex(v int) *Ctx {
 	return ctx.WithValue("static_debug_index", v)
 }
 
 func (ctx *Ctx) withNoStaticDebugIndex() *Ctx {
-	return ctx.WithValue("static_debug_index", -1)
+	return ctx.WithValue("static_debug_index", nil)
 }
 
 func (ctx *Ctx) staticDebugIndex() (int, bool) {
@@ -263,10 +227,29 @@ func (ctx *Ctx) staticDebugIndex() (int, bool) {
 		return 0, false
 	}
 	u := v.(int)
-	if u < 0 {
-		return 0, false
-	}
 	return u, true
+}
+
+func (ctx *Ctx) setUpperStaticDebugIndex(v int) {
+	_, ctx2 := ctx.Value("static_debug_index")
+	if ctx2 != nil {
+		ctx2.SetValue("static_debug_index", v)
+	}
+}
+func (ctx *Ctx) setUpperStaticDebugIndexToNil() {
+	_, ctx2 := ctx.Value("static_debug_index")
+	if ctx2 != nil {
+		ctx2.SetValue("static_debug_index", nil)
+	}
+}
+
+//----------
+
+func (ctx *Ctx) withKeepDebugIndex() *Ctx {
+	return ctx.WithBool("keep_debug_index", true)
+}
+func (ctx *Ctx) keepDebugIndex() bool {
+	return ctx.ValueBool("keep_debug_index")
 }
 
 //----------
@@ -371,7 +354,6 @@ func (ctx *Ctx) labeledStmt() (*ast.LabeledStmt, bool) {
 
 func (ctx *Ctx) valuesReset() *Ctx {
 	ctx = ctx.WithValue("n_results", nil)
-	ctx = ctx.WithValue("call_expr_debug_index", nil)
 	ctx = ctx.WithValue("static_debug_index", nil)
 	ctx = ctx.WithValue("result_in_var", nil)
 	ctx = ctx.WithValue("assign_stmt_ignore_lhs", nil)

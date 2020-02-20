@@ -663,9 +663,8 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	case *ast.SelectorExpr:
 		fname = t.Sel.Name
 		if !isSelectorIdents(t) { // check if there will be a debug step
-			// visit X on its own debug step (same debug index)
+			// visit X on its own debug step
 			ctx3 := ctx2.withNResults(1)
-			ctx3 = ctx3.setupCallExprDebugIndex(ann)
 			pos := ce.Fun.End()
 			x := ann.visitExpr(ctx3, &t.X)
 			stmt := ann.newDebugLineStmt(ctx, pos, x)
@@ -689,7 +688,7 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	// insert before calling the function (shows stepping in)
 	args2 := append([]ast.Expr{fnamee}, args...)
 	ce4 := ann.newDebugCallExpr("ICe", args2...)
-	ctx3 := ctx.setupCallExprDebugIndex(ann)
+	ctx3 := ctx.withKeepDebugIndex()
 	stmt := ann.newDebugLineStmt(ctx3, ce.Rparen, ce4)
 	ctx.insertInStmtList(stmt)
 
@@ -799,7 +798,7 @@ func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
 	if ue.Op == token.ARROW {
 		opbl := basicLitInt(int(ue.Op))
 		ce4 := ann.newDebugCallExpr("IUe", opbl, x)
-		ctx3 := ctx2.setupCallExprDebugIndex(ann)
+		ctx3 := ctx.withKeepDebugIndex()
 		stmt := ann.newDebugLineStmt(ctx3, pos, ce4)
 		ctx2.insertInStmtList(stmt)
 	}
@@ -1089,8 +1088,7 @@ func (ann *Annotator) visitStmtList(ctx *Ctx, list *[]ast.Stmt) {
 func (ann *Annotator) visitStmt(ctx *Ctx, stmt ast.Stmt) {
 	ctx = ctx.withNewExprs()
 	ctx = ctx.withNResults(0)
-	ctx = ctx.withNoStaticDebugIndex()
-	ctx = ctx.withCallExprDebugIndex()
+	ctx = ctx.withNoStaticDebugIndex() // setup to be able to set upper
 	switch t := stmt.(type) {
 	case *ast.ExprStmt:
 		ann.visitExprStmt(ctx, t)
@@ -1275,14 +1273,15 @@ func (ann *Annotator) newDebugLineStmt(ctx *Ctx, pos token.Pos, e ast.Expr) ast.
 		return &ast.EmptyStmt{}
 	}
 
-	// debug index
-	ctx2 := ctx.callExprDebugIndex()
 	var di int
-	if i, ok := ctx2.staticDebugIndex(); ok {
+	if i, ok := ctx.staticDebugIndex(); ok {
 		di = i
 	} else {
 		di = ann.debugIndex
 		ann.debugIndex++
+	}
+	if ctx.keepDebugIndex() {
+		ctx.setUpperStaticDebugIndex(di)
 	}
 
 	position := ann.fset.Position(pos)

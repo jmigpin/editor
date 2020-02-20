@@ -131,6 +131,39 @@ func TestAnnotator7(t *testing.T) {
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
+func TestAnnotator7b(t *testing.T) {
+	inout := []string{
+		`a(b(),func(){d()})`,
+		`Σ.Line(0, 0, 27, Σ.ICe("b"))
+	        Σ0 := b()
+	        Σ1 := Σ.IV(Σ0)
+	        Σ2 := Σ.IC("b", Σ1)
+	        Σ3 := func() { Σ.Line(0, 1, 38, Σ.ICe("d")); Σ4 := Σ.IC("d", nil); d(); Σ.Line(0, 1, 39, Σ4) }
+	        Σ5 := Σ.IV(Σ3)
+	        Σ.Line(0, 0, 40, Σ.ICe("a", Σ2, Σ5))
+	        Σ6 := Σ.IC("a", nil, Σ2, Σ5)
+	        a(Σ0, Σ3)
+	        Σ.Line(0, 0, 41, Σ6)`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+func TestAnnotator7c(t *testing.T) {
+	inout := []string{
+		`a.b().c.d()`,
+		`Σ.Line(0, 0, 27, Σ.ICe("b"))
+	        Σ0 := a.b()
+	        Σ1 := Σ.IV(Σ0)
+	        Σ2 := Σ.IC("b", Σ1)
+	        Σ3 := Σ.ISel(Σ2, Σ.IV(Σ0.c))
+	        Σ.Line(0, 0, 32, Σ3)
+	        Σ.Line(0, 0, 33, Σ.ICe("d"))
+	        Σ4 := Σ.IC("d", nil)
+	        Σ0.c.d()
+	        Σ.Line(0, 0, 34, Σ4)`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc1)
+}
+
 func TestAnnotator8(t *testing.T) {
 	inout := []string{
 		`a:=1`,

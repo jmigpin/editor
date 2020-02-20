@@ -19,26 +19,48 @@ func (ann *Annotations) Iter() {
 	}
 }
 
+//godebug:annotatefile
 func (ann *Annotations) iter2() {
-	entries := ann.d.Opt.Annotations.Entries // ordered by offset
+	entries := ann.d.Opt.Annotations.Entries // *mostly* ordered by offset
 	i := &ann.d.st.annotations.cei
 	q := &ann.d.st.annotations.indexQ
-	// keep track of annotations to be added
-	for ; *i < len(entries); *i++ {
-		e := entries[*i]
+	// add annotations up to the first entry offset, only need to check next entries with offsets smaller then the first entry (ex: function literals with inner annotations that have higher entry index, but lower offsets).
+	var first *Annotation
+	for k := *i; k < len(entries); k++ {
+		e := entries[k]
 		if e == nil {
 			continue
 		}
-		// already passed the annotation
-		if ann.d.st.runeR.ri > e.Offset {
+		// past annotation
+		if e.Offset < ann.d.st.runeR.ri {
 			continue
 		}
-		// next annotation is far away
-		if ann.d.st.runeR.ri < e.Offset {
+
+		if first == nil {
+			first = e
+		}
+
+		// annotation match
+		if e.Offset == ann.d.st.runeR.ri {
+			*q = append(*q, k)
+			if k == *i { // handled next entry
+				*i++
+				first = nil
+				continue
+			}
+		}
+
+		// future annotation
+		// Commented to handle next entries with earlier offsets
+		//if e.Offset > ann.d.st.runeR.ri {
+		//break
+		//}
+		// future annotation after the first entry
+		if e.Offset > first.Offset {
 			break
 		}
-		*q = append(*q, *i)
 	}
+
 	// add annotations after newline
 	if len(*q) > 0 {
 		switch ann.d.st.runeR.ru {
