@@ -20,7 +20,7 @@ type Client struct {
 
 func NewClient(ctx context.Context, network, addr string) (*Client, error) {
 	client := &Client{
-		Messages: make(chan interface{}, 256),
+		Messages: make(chan interface{}, 128),
 	}
 	if err := client.connect(ctx, network, addr); err != nil {
 		return nil, fmt.Errorf("client connect: %w", err)
