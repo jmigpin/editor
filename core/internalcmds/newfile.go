@@ -20,7 +20,7 @@ func NewFile(args *core.InternalCmdArgs) error {
 	// directory
 	dir := erow.Info.Name()
 	if !erow.Info.IsDir() {
-		dir = filepath.Base(dir)
+		dir = filepath.Dir(dir)
 	}
 
 	filename := filepath.Join(dir, name)
