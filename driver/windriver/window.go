@@ -903,7 +903,7 @@ type AppData struct {
 
 func NewAppData(v interface{}) *AppData {
 	logStr := fmt.Sprintf("win appdata: %T", v)
-	return &AppData{chanutil.NewNBChan2(0, logStr), v}
+	return &AppData{chanutil.NewNBChan2(1, logStr), v}
 }
 
 //----------
