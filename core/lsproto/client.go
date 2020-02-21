@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/rpc"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -222,15 +221,9 @@ func (cli *Client) initializeParams() (json.RawMessage, error) {
 }
 
 func (cli *Client) rootUri() (DocumentUri, error) {
-	//rootDir := "/" // (gopls: slow)
-	//rootDir := "" // (gopls: fails with "rootUri=null")
-	//rootDir := osutil.HomeEnvVar() // (gopls: slow)
-	//rootDir := os.TempDir() // (gopls: slow)
-	//rootDir := filepath.Dir(filename)
-	// Use a non-existent dir and send an updateworkspacefolder on each request later. Attempt to prevent the lsp server to start looking at the user disk.
-
-	dir := filepath.Join(os.TempDir(), "editor_lsproto_tmpdir") // nonexistent
-	//dir := filepath.Dir(cli.li.lang.InstanceReqFilename)
+	// using a non-existent dir to prevent an lsp server to start scanning the user disk doesn't work well (ex: gopls gives "no views in the session" after the cache is gone)
+	// use initial request file
+	dir := filepath.Dir(cli.li.lang.InstanceReqFilename)
 	rootUrl, err := parseutil.AbsFilenameToUrl(dir)
 	if err != nil {
 		return "", err
