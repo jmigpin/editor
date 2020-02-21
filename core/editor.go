@@ -242,8 +242,8 @@ func (ed *Editor) messagesERow() *ERow {
 // Used for: +messages, +sessions.
 func (ed *Editor) ExistingOrNewERow(name string) (_ *ERow, isnew bool) {
 	info := ed.ReadERowInfo(name)
-	if len(info.ERows) > 0 {
-		return info.ERows[0], false
+	if erow0, ok := info.FirstERow(); ok {
+		return erow0, false
 	}
 	rowPos := ed.GoodRowPos()
 	return NewERow(ed, info, rowPos), true
@@ -252,7 +252,7 @@ func (ed *Editor) ExistingOrNewERow(name string) (_ *ERow, isnew bool) {
 //----------
 
 func (ed *Editor) ReadERowInfo(name string) *ERowInfo {
-	return ReadERowInfo(ed, name)
+	return readERowInfoOrNew(ed, name)
 }
 
 func (ed *Editor) ERowInfo(name string) (*ERowInfo, bool) {

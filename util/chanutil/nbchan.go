@@ -25,7 +25,7 @@ func NewNBChan2(n int, logS string) *NBChan {
 
 //----------
 
-// Non-blocking send now, or fails with error.
+// Send now if a receiver is watching, or fails (non-blocking) with error.
 func (ch *NBChan) Send(v interface{}) error {
 	select {
 	case ch.ch <- v:

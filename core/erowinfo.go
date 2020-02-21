@@ -19,9 +19,8 @@ import (
 
 // Editor Row Info.
 type ERowInfo struct {
-	ERows []*ERow
-
-	Ed *Editor
+	Ed    *Editor
+	ERows []*ERow // added order
 
 	name  string // filename, or special name
 	fi    os.FileInfo
@@ -48,16 +47,19 @@ type ERowInfo struct {
 	}
 }
 
-func ReadERowInfo(ed *Editor, name string) *ERowInfo {
+func readERowInfoOrNew(ed *Editor, name string) *ERowInfo {
 	name = osutil.FilepathClean(name)
 
 	// try to update the instance already used
 	info, ok := ed.ERowInfo(name)
-	if !ok {
-		// create new, but don't register
-		info = &ERowInfo{Ed: ed, name: name}
+	if ok {
+		info.readFileInfo()
+		return info
 	}
 
+	// new erow info
+	info = &ERowInfo{Ed: ed, name: name}
+	//info.RW = iorw.NewBytesReadWriter(nil)
 	info.readFileInfo()
 	return info
 }
@@ -144,14 +146,14 @@ func (info *ERowInfo) editedHashNeedsUpdate() {
 }
 
 func (info *ERowInfo) updateEditedHash() {
-	if len(info.ERows) == 0 {
-		return
-	}
 	if info.editedHash.updated {
 		return
 	}
 	// read from one of the erows
-	erow0 := info.ERows[0]
+	erow0, ok := info.FirstERow()
+	if !ok {
+		return
+	}
 	b, err := erow0.Row.TextArea.Bytes()
 	if err != nil {
 		return
@@ -240,6 +242,13 @@ func (info *ERowInfo) ERowsInUIOrder() []*ERow {
 	return w
 }
 
+func (info *ERowInfo) FirstERow() (*ERow, bool) {
+	if len(info.ERows) > 0 {
+		return info.ERows[0], true
+	}
+	return nil, false
+}
+
 //----------
 
 func (info *ERowInfo) NewERow(rowPos *ui.RowPos) (*ERow, error) {
@@ -296,15 +305,11 @@ func (info *ERowInfo) ReloadDir(erow *ERow) error {
 
 func (info *ERowInfo) NewFileERow(rowPos *ui.RowPos) (*ERow, error) {
 	// read content from existing row
-	if len(info.ERows) > 0 {
-		erow0 := info.ERows[0]
-
+	if erow0, ok := info.FirstERow(); ok {
 		// create erow first to get it updated
 		erow := NewERow(info.Ed, info, rowPos)
-
 		// update the new erow with content
 		info.SetRowsStrFromMaster(erow0)
-
 		return erow, nil
 	}
 
@@ -343,16 +348,15 @@ func (info *ERowInfo) ReloadFile() error {
 
 // Save file and update rows.
 func (info *ERowInfo) SaveFile() error {
-	if len(info.ERows) == 0 {
-		return nil
-	}
-
 	if !info.IsFileButNotDir() {
 		return fmt.Errorf("not a file: %s", info.Name())
 	}
 
 	// read from one of the erows
-	erow0 := info.ERows[0]
+	erow0, ok := info.FirstERow()
+	if !ok {
+		return nil
+	}
 	b, err := erow0.Row.TextArea.Bytes()
 	if err != nil {
 		return err
@@ -445,14 +449,13 @@ func (info *ERowInfo) UpdateDiskEvent() {
 //----------
 
 func (info *ERowInfo) EqualToBytesHash(size int, hash []byte) bool {
-	if len(info.ERows) == 0 {
+	erow0, ok := info.FirstERow()
+	if !ok {
 		return false
 	}
-	erow0 := info.ERows[0]
 	if erow0.Row.TextArea.Len() != size {
 		return false
 	}
-
 	info.updateEditedHash()
 	return bytes.Equal(hash, info.editedHash.hash)
 }
@@ -460,10 +463,10 @@ func (info *ERowInfo) EqualToBytesHash(size int, hash []byte) bool {
 //----------
 
 func (info *ERowInfo) HasRowState(st ui.RowState) bool {
-	if len(info.ERows) == 0 {
+	erow0, ok := info.FirstERow()
+	if !ok {
 		return false
 	}
-	erow0 := info.ERows[0]
 	return erow0.Row.HasState(st)
 }
 
@@ -554,8 +557,7 @@ func (info *ERowInfo) SetRowsBytes(b []byte) {
 	if !info.IsFileButNotDir() {
 		return
 	}
-	if len(info.ERows) > 0 {
-		erow0 := info.ERows[0]
+	if erow0, ok := info.FirstERow(); ok {
 		erow0.Row.TextArea.SetBytes(b) // will update other rows via callback
 	}
 }

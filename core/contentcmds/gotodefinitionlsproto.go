@@ -39,11 +39,13 @@ func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (err
 	// content reader
 	var rd iorw.Reader
 	info, ok := ed.ERowInfo(filename)
-	if ok && len(info.ERows) > 0 {
+	if ok {
 		// file is in memory already
-		erow2 := info.ERows[0]
-		rd = erow2.Row.TextArea.TextCursor.RW()
-	} else {
+		if erow0, ok := info.FirstERow(); ok {
+			rd = erow0.Row.TextArea.TextCursor.RW()
+		}
+	}
+	if rd == nil {
 		// read file
 		b, err := ioutil.ReadFile(filename)
 		if err != nil {

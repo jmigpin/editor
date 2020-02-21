@@ -71,8 +71,8 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 			if conf.FilePos.HasOffset() {
 				return conf.FilePos.Offset
 			}
-			if len(info.ERows) > 0 {
-				ta := info.ERows[0].Row.TextArea
+			if erow0, ok := info.FirstERow(); ok {
+				ta := erow0.Row.TextArea
 				return cacheLineColumnIndex(ta.TextCursor.RW())
 			}
 		}
