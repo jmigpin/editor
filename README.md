@@ -496,6 +496,10 @@ The measuring of space is done as follows:
 
 ## Releases
 
+- 2020/02/22: v1.1.1 (9 commits)
+	- lsproto: critial bug fix (#36).
+	- windows: critical bug fix (#37).
+	- other small bug fixes
 - 2020/02/19: v1.1.0 (133 commits)
 	- godebug: adds "//godebug:*" comment directives. Go modules support improved.
 	- inline `tab` complete
