@@ -11,11 +11,11 @@ import (
 // Same as FaceCache but with locks.
 type FaceCacheL struct {
 	font.Face
-	mu sync.RWMutex
-	gc     map[rune]*GlyphCache
-	gac    map[rune]*GlyphAdvanceCache
-	gbc    map[rune]*GlyphBoundsCache
-	kc     map[string]fixed.Int26_6 // kern cache
+	mu  sync.RWMutex
+	gc  map[rune]*GlyphCache
+	gac map[rune]*GlyphAdvanceCache
+	gbc map[rune]*GlyphBoundsCache
+	kc  map[string]fixed.Int26_6 // kern cache
 }
 
 func NewFaceCacheL(face font.Face) *FaceCacheL {
@@ -38,25 +38,12 @@ func (fc *FaceCacheL) Glyph(dot fixed.Point26_6, ru rune) (
 	fc.mu.RUnlock()
 	if !ok {
 		fc.mu.Lock()
-
-		var zeroDot fixed.Point26_6 // always use dot zero
-		dr, mask, maskp, adv, ok := fc.Face.Glyph(zeroDot, ru)
-
-		// avoid the truetype package cache (it's not giving the same mask everytime, probably needs cache parameter)
-		if ok {
-			mask = copyMask(mask)
-		}
-
-		gc = &GlyphCache{dr, mask, maskp, adv, ok}
+		gc = NewGlyphCache(fc.Face, ru)
 		fc.gc[ru] = gc
-
 		fc.mu.Unlock()
 	}
-
-	//p := image.Point{dot.X.Round(), dot.Y.Round()}
 	p := image.Point{dot.X.Floor(), dot.Y.Floor()}
 	dr2 := gc.dr.Add(p)
-
 	return dr2, gc.mask, gc.maskp, gc.advance, gc.ok
 }
 func (fc *FaceCacheL) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
@@ -65,8 +52,7 @@ func (fc *FaceCacheL) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
 	fc.mu.RUnlock()
 	if !ok {
 		fc.mu.Lock()
-		adv, ok := fc.Face.GlyphAdvance(ru) // only one can run at a time
-		gac = &GlyphAdvanceCache{adv, ok}
+		gac = NewGlyphAdvanceCache(fc.Face, ru)
 		fc.gac[ru] = gac
 		fc.mu.Unlock()
 	}
@@ -78,21 +64,20 @@ func (fc *FaceCacheL) GlyphBounds(ru rune) (bounds fixed.Rectangle26_6, advance 
 	fc.mu.RUnlock()
 	if !ok {
 		fc.mu.Lock()
-		bounds, adv, ok := fc.Face.GlyphBounds(ru)
-		gbc = &GlyphBoundsCache{bounds, adv, ok}
+		gbc = NewGlyphBoundsCache(fc.Face, ru)
 		fc.gbc[ru] = gbc
 		fc.mu.Unlock()
 	}
 	return gbc.bounds, gbc.advance, gbc.ok
 }
 func (fc *FaceCacheL) Kern(r0, r1 rune) fixed.Int26_6 {
-	i := string([]rune{r0, r1})
+	i := kernIndex(r0, r1)
 	fc.mu.RLock()
 	k, ok := fc.kc[i]
 	fc.mu.RUnlock()
 	if !ok {
 		fc.mu.Lock()
-		k = fc.Face.Kern(r0, r1) // only one can run at a time
+		k = NewKernCache(fc.Face, r0, r1)
 		fc.kc[i] = k
 		fc.mu.Unlock()
 	}

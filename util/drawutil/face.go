@@ -11,6 +11,7 @@ func NewFace(font *truetype.Font, opt *truetype.Options) font.Face {
 	f2 := NewFaceRunes(face)
 	//f3 := NewFaceCache(f2)
 	f3 := NewFaceCacheL(f2)
+	//f3 := NewFaceCacheL2(f2)
 	return f3
 }
 
