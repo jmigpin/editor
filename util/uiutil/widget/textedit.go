@@ -11,9 +11,9 @@ type TextEdit struct {
 
 	TextCursor  *TextCursor
 	TextHistory *TextHistory
-	OnWriteOp   func(*RWWriteOpCb)
+	OnWriteOp   func(*iorw.RWCallbackWriteOp)
 
-	crw iorw.ReadWriter // write op callback rw: OnWriteOp(...)
+	rwcb iorw.ReadWriter // rwcallback (write ops)
 }
 
 func NewTextEdit(ctx ImageContext, cctx ClipboardContext) *TextEdit {
@@ -29,13 +29,13 @@ func NewTextEdit(ctx ImageContext, cctx ClipboardContext) *TextEdit {
 
 func (te *TextEdit) SetRW(rw iorw.ReadWriter) {
 	te.Text.SetRW(rw)
-	te.crw = &writeOpCbRW{rw, te}
-	te.TextCursor.hrw = &writeOpHistoryRW{te.crw, te.TextCursor}
+	te.rwcb = &iorw.RWCallback{rw, te.writeOpCallback}
+	te.TextCursor.hrw = &writeOpHistoryRW{te.rwcb, te.TextCursor}
 }
 
 //----------
 
-func (te *TextEdit) writeOpCallback(u *RWWriteOpCb) {
+func (te *TextEdit) writeOpCallback(u *iorw.RWCallbackWriteOp) {
 	if te.OnWriteOp != nil {
 		te.OnWriteOp(u)
 	}
@@ -66,7 +66,7 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 
 // Keeps position (useful for file save)
 func (te *TextEdit) SetBytesClearHistory(b []byte) error {
-	rw := te.crw // bypass history
+	rw := te.rwcb // bypass history
 	if err := rw.Overwrite(rw.Min(), iorw.MMLen(rw), b); err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 }
 
 func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
-	rw := te.crw // bypass history
+	rw := te.rwcb // bypass history
 	if err := rw.Insert(rw.Max(), b); err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (te *TextEdit) UpdateDuplicate(dup *TextEdit) {
 
 //----------
 
-func (te *TextEdit) UpdateWriteOp(u *RWWriteOpCb) {
+func (te *TextEdit) UpdatePositionOnWriteOp(u *iorw.RWCallbackWriteOp) {
 	s := u.Index
 	e := s + u.Length1
 	e2 := s + u.Length2
@@ -182,58 +182,14 @@ func (te *TextEdit) editValue(typ iorw.WriterOp, s, e, e2, o int) int {
 	if s < o {
 		k := mathutil.Smallest(e, o)
 		v = k - s
-		if typ == iorw.DeleteWOp {
+		if typ == iorw.WopDelete {
 			v = -v
 		}
-		if typ == iorw.OverwriteWOp {
+		if typ == iorw.WopOverwrite {
 			v = -v
 			k := mathutil.Smallest(e2, o)
 			v += k - s
 		}
 	}
 	return v
-}
-
-//----------
-
-// Runs callback on write operations.
-type writeOpCbRW struct {
-	iorw.ReadWriter
-	te *TextEdit
-}
-
-func (rw *writeOpCbRW) Insert(i int, p []byte) error {
-	if err := rw.ReadWriter.Insert(i, p); err != nil {
-		return err
-	}
-	u := &RWWriteOpCb{iorw.InsertWOp, i, len(p), 0}
-	rw.te.writeOpCallback(u)
-	return nil
-}
-
-func (rw *writeOpCbRW) Delete(i, length int) error {
-	if err := rw.ReadWriter.Delete(i, length); err != nil {
-		return err
-	}
-	u := &RWWriteOpCb{iorw.DeleteWOp, i, length, 0}
-	rw.te.writeOpCallback(u)
-	return nil
-}
-
-func (rw *writeOpCbRW) Overwrite(i, length int, p []byte) error {
-	if err := rw.ReadWriter.Overwrite(i, length, p); err != nil {
-		return err
-	}
-	u := &RWWriteOpCb{iorw.OverwriteWOp, i, length, len(p)}
-	rw.te.writeOpCallback(u)
-	return nil
-}
-
-//----------
-
-type RWWriteOpCb struct {
-	Type    iorw.WriterOp
-	Index   int
-	Length1 int
-	Length2 int
 }

@@ -9,14 +9,14 @@ type UndoRedo struct {
 
 func (ur *UndoRedo) Apply(w Writer, redo bool) error {
 	switch ur.Type {
-	case InsertWOp, DeleteWOp:
-		insert := ur.Type == InsertWOp
+	case WopInsert, WopDelete:
+		insert := ur.Type == WopInsert
 		if (insert && !redo) || (!insert && redo) {
 			return w.Insert(ur.Index, ur.B)
 		} else {
 			return w.Delete(ur.Index, len(ur.B))
 		}
-	case OverwriteWOp:
+	case WopOverwrite:
 		if !redo {
 			return w.Overwrite(ur.Index, len(ur.B), ur.B2)
 		} else {
@@ -34,7 +34,7 @@ func InsertUndoRedo(w Writer, i int, p []byte) (*UndoRedo, error) {
 	}
 	b := make([]byte, len(p))
 	copy(b, p)
-	ur := &UndoRedo{Type: DeleteWOp, Index: i, B: b}
+	ur := &UndoRedo{Type: WopDelete, Index: i, B: b}
 	return ur, nil
 }
 
@@ -48,7 +48,7 @@ func DeleteUndoRedo(rw ReadWriter, i, n int) (*UndoRedo, error) {
 		return nil, err
 	}
 
-	ur := &UndoRedo{Type: InsertWOp, Index: i, B: b}
+	ur := &UndoRedo{Type: WopInsert, Index: i, B: b}
 	return ur, nil
 }
 
@@ -66,7 +66,7 @@ func OverwriteUndoRedo(rw ReadWriter, i, length int, p []byte) (*UndoRedo, error
 		return nil, err
 	}
 	// delete/insert undoredo
-	ur := &UndoRedo{Type: OverwriteWOp, Index: i, B: b2, B2: b1}
+	ur := &UndoRedo{Type: WopOverwrite, Index: i, B: b2, B2: b1}
 	return ur, nil
 }
 
@@ -75,7 +75,7 @@ func OverwriteUndoRedo(rw ReadWriter, i, length int, p []byte) (*UndoRedo, error
 type WriterOp int
 
 const (
-	InsertWOp WriterOp = iota
-	DeleteWOp
-	OverwriteWOp
+	WopInsert WriterOp = iota
+	WopDelete
+	WopOverwrite
 )

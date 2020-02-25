@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
@@ -39,7 +40,7 @@ func (ta *TextArea) onSetStr() {
 	ta.EvReg.RunCallbacks(TextAreaSetStrEventId, ev)
 }
 
-func (ta *TextArea) onWriteOp(u *widget.RWWriteOpCb) {
+func (ta *TextArea) onWriteOp(u *iorw.RWCallbackWriteOp) {
 	ev := &TextAreaWriteOpEvent{ta, u}
 	ta.EvReg.RunCallbacks(TextAreaWriteOpEventId, ev)
 }
@@ -221,7 +222,7 @@ type TextAreaSetStrEvent struct {
 }
 type TextAreaWriteOpEvent struct {
 	TextArea *TextArea
-	WriteOp  *widget.RWWriteOpCb
+	WriteOp  *iorw.RWCallbackWriteOp
 }
 type TextAreaCmdEvent struct {
 	TextArea *TextArea

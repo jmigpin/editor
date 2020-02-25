@@ -114,7 +114,7 @@ func (th *TextHistory) undoRedo(redo bool) error {
 	restore := func(data interface{}) {
 		th.restoreCursorState(data) // makes index visible (triggers paint)
 	}
-	return edit.ApplyUndoRedo(th.te.crw, redo, restore)
+	return edit.ApplyUndoRedo(th.te.rwcb, redo, restore)
 }
 
 //----------
