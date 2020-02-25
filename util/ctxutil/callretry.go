@@ -14,52 +14,47 @@ func Call(ctx context.Context, prefix string, fn func() error, lateFn func(error
 		return fmt.Errorf("%v: %v", prefix, e)
 	}
 
-	type data struct {
+	var d = struct {
 		sync.Mutex
-		exited   bool
-		returned bool
-		err      error
-	}
-	var d data
+		fn struct {
+			done bool
+			err  error
+		}
+		ctxDone bool
+	}{}
 
 	// run fn in go routine
 	ctx2, cancel := context.WithCancel(ctx)
 	id := addCall(prefix) // keep track of fn()
 	go func() {
 		defer doneCall(id) // keep track of fn()
+		defer cancel()
 
 		err := fn()
+
+		d.Lock()
+		defer d.Unlock()
+		d.fn.done = true
 		if err != nil {
 			err = buildErr(err)
 		}
-
-		d.Lock()
-		defer func() {
-			d.returned = true
-			cancel()
-			d.Unlock()
-		}()
-
-		if d.exited {
+		d.fn.err = err
+		if d.ctxDone {
 			if lateFn != nil {
 				lateFn(err)
 			} else {
 				// err is lost
 			}
-		} else {
-			d.err = err
 		}
 	}()
 
 	<-ctx2.Done()
 
 	d.Lock()
-	defer func() {
-		d.exited = true
-		d.Unlock()
-	}()
-	if d.returned {
-		return d.err
+	defer d.Unlock()
+	d.ctxDone = true
+	if d.fn.done {
+		return d.fn.err
 	} else {
 		// context was canceled and fn has not returned yet
 		return buildErr(ctx2.Err())
