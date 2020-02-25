@@ -20,6 +20,7 @@ type OpenFileERowConfig struct {
 	FlashVisibleOffsets bool // flashes rows if not visible
 }
 
+// TODO: make it UI safe? rename to openfileerowasync?
 func OpenFileERow(ed *Editor, conf *OpenFileERowConfig) {
 	if _, err := openFileERow2(ed, conf); err != nil {
 		ed.Error(err)

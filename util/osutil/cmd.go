@@ -11,10 +11,6 @@ import (
 	"sync"
 )
 
-//godebug:annotatefile
-//godebug:annotatepackage:github.com/jmigpin/editor/core
-//godebug:annotatepackage:github.com/jmigpin/editor/core/contentcmds
-
 type Cmd struct {
 	*exec.Cmd
 	ctx         context.Context

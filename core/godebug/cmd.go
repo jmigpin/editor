@@ -3,8 +3,6 @@ package godebug
 // Needs to run when there are changes on the ./debug pkg
 //go:generate go run debugpack/debugpack.go
 
-//godebug:annotatepackage
-
 import (
 	"bytes"
 	"context"

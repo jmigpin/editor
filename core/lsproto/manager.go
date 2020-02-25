@@ -12,8 +12,6 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-//godebug:annotatepackage
-
 // Notes:
 // - Manager manages LangManagers
 // - LangManager has a Registration and handles a LangInstance

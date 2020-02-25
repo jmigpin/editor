@@ -1,7 +1,5 @@
 package internalcmds
 
-//godebug:annotatefile
-
 import (
 	"fmt"
 
@@ -9,8 +7,6 @@ import (
 	"github.com/jmigpin/editor/core/lsproto"
 	"github.com/jmigpin/editor/ui"
 )
-
-//godebug:annotatefile
 
 func LSProtoRename(args0 *core.InternalCmdArgs) error {
 	erow := args0.ERow

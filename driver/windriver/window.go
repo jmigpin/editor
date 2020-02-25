@@ -17,8 +17,6 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-//godebug:annotatepackage
-
 // Functions preceded by "ost" run in the "operating-system-thread".
 type Window struct {
 	className *uint16
@@ -471,7 +469,6 @@ func (win *Window) paintImgWithSetPixel() error {
 	}
 	defer _ReleaseDC(win.hwnd, hdc)
 
-	//godebug:annotateoff
 	r := win.img.Bounds()
 	for x := r.Min.X; x < r.Max.X; x++ {
 		for y := r.Min.Y; y < r.Max.Y; y++ {
