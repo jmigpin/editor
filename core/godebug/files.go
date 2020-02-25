@@ -20,7 +20,6 @@ import (
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/osutil"
 
-	//godebug:annotateimport
 	"golang.org/x/tools/go/packages"
 )
 
@@ -668,7 +667,7 @@ func (files *Files) progPackages(ctx context.Context, filenames []string, tests 
 		//packages.NeedSyntax |
 		packages.NeedTypes |
 		0
-	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, filenames, tests, env, files.parseFileFn())
+	pkgs, err := ProgramPackages(ctx, files.fset, loadMode, files.Dir, filenames, tests, env, files.parseFileFn(), files.stderr)
 
 	// programpackages parses files concurrently, on ctx cancel it concats useless repeated errors, get just one ctx error
 	if err2 := ctx.Err(); err2 != nil {
@@ -868,6 +867,7 @@ func ProgramPackages(
 	tests bool,
 	env []string,
 	parseFile func(fset *token.FileSet, filename string, src []byte) (*ast.File, error),
+	stderr io.Writer,
 ) ([]*packages.Package, error) {
 	cfg := &packages.Config{
 		Context:    ctx,
@@ -878,6 +878,13 @@ func ProgramPackages(
 		Env:        env,
 		BuildFlags: godebugBuildFlags(env),
 		ParseFile:  parseFile,
+		Logf: func(format string, args ...interface{}) {
+			if stderr != nil {
+				// TODO: too much output, output on flag only
+				//s := fmt.Sprintf(format, args...)
+				//fmt.Fprintf(stderr, "# packages: %v\n", s)
+			}
+		},
 	}
 
 	// build file patterns
