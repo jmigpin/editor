@@ -15,6 +15,8 @@ func NewBytesReadWriter(b []byte) *BytesReadWriter {
 	return &BytesReadWriter{buf: b}
 }
 
+//----------
+
 func (rw *BytesReadWriter) Min() int {
 	return 0
 }
@@ -131,10 +133,4 @@ func (rw *BytesReadWriter) Overwrite(i, n int, p []byte) error {
 	}
 	rw.reduceCap()
 	return nil
-}
-
-//----------
-
-func NewStringReader(s string) Reader {
-	return &BytesReadWriter{buf: []byte(s)}
 }

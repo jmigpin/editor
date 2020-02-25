@@ -116,7 +116,7 @@ func (te *TextEdit) LimitedReaderPad(offset int) iorw.Reader {
 }
 
 func (te *TextEdit) LimitedReaderPad2(min, max int) iorw.Reader {
-	return iorw.NewLimitedReader(te.rw, min, max, limitedReaderPadding)
+	return iorw.NewLimitedReaderPad(te.rw, min, max, limitedReaderPadding)
 }
 
 //----------

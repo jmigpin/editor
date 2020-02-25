@@ -11,6 +11,53 @@ import (
 
 //----------
 
+func NewStringReader(s string) Reader {
+	return &BytesReadWriter{buf: []byte(s)}
+}
+
+//----------
+
+// min/max length
+func MMLen(rd Reader) int {
+	return rd.Max() - rd.Min()
+}
+
+// Returns a slice (not a copy).
+func ReadFullSlice(rd Reader) ([]byte, error) {
+	min, max := rd.Min(), rd.Max()
+	return rd.ReadNSliceAt(min, max-min)
+}
+
+func SetString(rw ReadWriter, s string) error {
+	min, max := rw.Min(), rw.Max()
+	return rw.Overwrite(min, max-min, []byte(s))
+}
+
+//----------
+
+// Iterate over n+1 runes, with the last rune being eofRune(-1).
+func ReaderIter(r Reader, fn func(i int, ru rune) bool) error {
+	for i := r.Min(); ; {
+		ru, size, err := r.ReadRuneAt(i)
+		if err != nil {
+			if err == io.EOF {
+				_ = fn(i, EndRune)
+				return nil
+			}
+			return err
+		}
+		if !fn(i, ru) {
+			break
+		}
+		i += size
+	}
+	return nil
+}
+
+const EndRune = -1
+
+//----------
+
 func HasPrefix(r Reader, i int, s []byte) bool {
 	if len(s) == 0 {
 		return true
@@ -104,10 +151,17 @@ func ToLowerAsciiCopy(p []byte) []byte {
 
 //----------
 
+// On error, returns best failing index.
 func IndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int, err error) {
 	for {
 		ru, size, err := r.ReadRuneAt(i)
 		if err != nil {
+			// improve invalid index
+			m := r.Max()
+			if i > m {
+				i = m
+			}
+
 			return i, 0, err
 		}
 		if f(ru) == truth {
@@ -117,10 +171,17 @@ func IndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int,
 	}
 }
 
+// On error, returns best failing index.
 func LastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int, err error) {
 	for {
 		ru, size, err := r.ReadLastRuneAt(i)
 		if err != nil {
+			// improve invalid index
+			m := r.Min()
+			if i < m {
+				i = m
+			}
+
 			return i, 0, err
 		}
 		i -= size
@@ -152,15 +213,16 @@ func ExpandLastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) int {
 func LineStartIndex(r Reader, i int) (int, error) {
 	k, size, err := NewLineLastIndex(r, i)
 	if err == io.EOF {
-		return 0, nil
+		return k, nil
 	}
 	return k + size, err
 }
 
+// index after '\n' (with isNewLine true), or max index
 func LineEndIndex(r Reader, i int) (int, bool, error) {
 	k, size, err := NewLineIndex(r, i)
 	if err == io.EOF {
-		return r.Max(), false, nil
+		return k, false, nil
 	}
 	isNewLine := err == nil
 	return k + size, isNewLine, err

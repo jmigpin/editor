@@ -20,7 +20,7 @@ func updateWordHighlightWord(d *Drawer) {
 	// find word
 	d.opt.wordH.word = nil
 	ci := d.opt.cursor.offset
-	rd := iorw.NewLimitedReader(d.reader, ci, ci, 250)
+	rd := iorw.NewLimitedReaderPad(d.reader, ci, ci, 250)
 	word, _, err := iorw.WordAtIndex(rd, ci)
 	if err != nil {
 		return
@@ -70,7 +70,7 @@ func wordHOps(d *Drawer) []*ColorizeOp {
 	var ops []*ColorizeOp
 	for i := a; i < b; {
 		// find word
-		rd := iorw.NewLimitedReaderLen(d.reader, i, b-i)
+		rd := iorw.NewLimitedReader(d.reader, i, b)
 		j, err := iorw.Index(rd, i, word, false)
 		if err != nil {
 			return nil

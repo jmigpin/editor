@@ -1,6 +1,8 @@
 package drawer4
 
-import "github.com/jmigpin/editor/util/iout/iorw"
+import (
+	"github.com/jmigpin/editor/util/iout/iorw"
+)
 
 type LineStart struct {
 	d *Drawer
@@ -79,10 +81,6 @@ func (ls *LineStart) linesStartIndexes(offset, nLinesUp int) []int {
 	for i := 0; i <= nLinesUp; i++ {
 		k, err := iorw.LineStartIndex(rd, offset)
 		if err != nil {
-			if err == iorw.ErrLimitReached {
-				// consider the limit as the line start
-				w = append(w, k)
-			}
 			break
 		}
 		w = append(w, k)

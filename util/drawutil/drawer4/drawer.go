@@ -251,7 +251,8 @@ func (d *Drawer) Reader() iorw.Reader { return d.reader }
 var limitedReaderPadding = 3000
 
 func (d *Drawer) limitedReaderPad(offset int) iorw.Reader {
-	return iorw.NewLimitedReader(d.reader, offset, offset, limitedReaderPadding)
+	pad := limitedReaderPadding
+	return iorw.NewLimitedReaderPad(d.reader, offset, offset, pad)
 }
 
 func (d *Drawer) limitedReaderPadSpace(offset int) iorw.Reader {
@@ -263,7 +264,7 @@ func (d *Drawer) limitedReaderPadSpace(offset int) iorw.Reader {
 		diff := max - (u % max)
 		pad = limitedReaderPadding - diff
 	}
-	return iorw.NewLimitedReader(d.reader, offset, offset, pad)
+	return iorw.NewLimitedReaderPad(d.reader, offset, offset, pad)
 }
 
 //----------
@@ -627,9 +628,6 @@ func (d *Drawer) scrollSizeYDown(nlines int) int {
 }
 
 //----------
-
-////godebug:annotatefile
-////godebug:annotatefile:visible.go
 
 func (d *Drawer) RangeVisible(offset, length int) bool {
 	v1 := penVisibility(d, offset)

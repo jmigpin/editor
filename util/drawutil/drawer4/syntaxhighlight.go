@@ -34,7 +34,7 @@ func (sh *SyntaxHighlight) do(pad int) []*ColorizeOp {
 	// limit reading to be able to handle big content
 	o, n, _, _ := sh.d.visibleLen()
 	min, max := o, o+n
-	r := iorw.NewLimitedReader(sh.d.reader, min, max, pad)
+	r := iorw.NewLimitedReaderPad(sh.d.reader, min, max, pad)
 
 	sh.sc = scanutil.NewScanner(r)
 	sh.sc.Advance()

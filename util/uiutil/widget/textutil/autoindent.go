@@ -19,15 +19,11 @@ func AutoIndent(te *widget.TextEdit) error {
 		return err
 	}
 
-	rd := iorw.NewLimitedReaderLen(tc.RW(), i, ci-i)
+	rd := iorw.NewLimitedReader(tc.RW(), i, ci)
 	j, _, err := iorw.IndexFunc(rd, i, false, unicode.IsSpace)
 	if err != nil {
 		if err == io.EOF {
-			// full line of spaces, indent to ci
-			j = ci
-		} else if err == iorw.ErrLimitReached {
-			// all spaces up to ci
-			j = ci
+			j = ci // all spaces up to ci
 		} else {
 			return err
 		}

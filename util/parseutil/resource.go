@@ -102,7 +102,7 @@ func (rp *ResParser2) expandLeft(rd iorw.Reader, index int) int {
 }
 
 func (rp *ResParser2) parse2(rd iorw.Reader, index int) bool {
-	rd2 := iorw.NewLimitedReader(rd, index, index+2000, 0)
+	rd2 := iorw.NewLimitedReader(rd, index, index+2000)
 
 	rp.sc = scanutil.NewScanner(rd2)
 	rp.sc.SetStartPos(index)

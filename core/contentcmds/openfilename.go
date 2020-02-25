@@ -18,12 +18,12 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 	if ta.TextCursor.SelectionOn() {
 		// consider only the selection
 		a, b := ta.TextCursor.SelectionIndexes()
-		rd = iorw.NewLimitedReader(ta.TextCursor.RW(), a, b, 0)
+		rd = iorw.NewLimitedReader(ta.TextCursor.RW(), a, b)
 	} else {
 		considerMiddle = true
 		// limit reading
 		rw := ta.TextCursor.RW()
-		rd = iorw.NewLimitedReader(rw, index, index, 1000)
+		rd = iorw.NewLimitedReaderPad(rw, index, index, 1000)
 	}
 
 	res, err := parseutil.ParseResource(rd, index)

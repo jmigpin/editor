@@ -39,7 +39,7 @@ func replace2(te *widget.TextEdit, oldb, newb []byte, a, b int) (int, bool, erro
 	ci := tc.Index()
 	replaced := false
 	for a < b {
-		rd := iorw.NewLimitedReaderLen(tc.RW(), a, b-a)
+		rd := iorw.NewLimitedReader(tc.RW(), a, b)
 		i, err := iorw.Index(rd, a, oldb, false)
 		if err != nil {
 			return ci, replaced, err

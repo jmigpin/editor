@@ -33,13 +33,11 @@ func Comment(tex *widget.TextEditX) error {
 	ii := max
 	for i := a; i < b; {
 		// find insertion index
-		rd := iorw.NewLimitedReaderLen(tc.RW(), i, max)
+		rd := iorw.NewLimitedReader(tc.RW(), i, i+max)
 		j, _, err := iorw.IndexFunc(rd, i, false, isSpaceExceptNewline)
 		if err != nil {
 			if err == io.EOF {
-				j = tc.RW().Max()
-			} else if err == iorw.ErrLimitReached {
-				j = i + max
+				// use j
 			} else {
 				return err
 			}

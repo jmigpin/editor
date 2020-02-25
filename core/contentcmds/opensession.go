@@ -15,7 +15,7 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 
 	// limit reading
 	rw := ta.TextCursor.RW()
-	rd := iorw.NewLimitedReader(rw, index, index, 1000)
+	rd := iorw.NewLimitedReaderPad(rw, index, index, 1000)
 
 	sname, err := sessionName(rd, index)
 	if err != nil {
