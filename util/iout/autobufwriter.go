@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// small amounts of output need to be flushed (not filling the buffer)
+const abwUpdatesPerSecond = 10
+
 // Flushes after x time if the buffer doesn't get filled. Safe to use concurrently.
 type AutoBufWriter struct {
 	wc io.WriteCloser
@@ -45,11 +48,11 @@ func (w *AutoBufWriter) Write(p []byte) (int, error) {
 
 func (w *AutoBufWriter) autoFlush() {
 	if w.mu.buf.Buffered() == 0 {
-		w.clearTimer()
 		return
 	}
 	if w.mu.timer == nil {
-		w.mu.timer = time.AfterFunc(50*time.Millisecond, w.flushTime)
+		t := time.Second / abwUpdatesPerSecond
+		w.mu.timer = time.AfterFunc(t, w.flushTime)
 	}
 }
 func (w *AutoBufWriter) flushTime() {
