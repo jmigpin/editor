@@ -38,6 +38,7 @@ func TestRW1(t *testing.T) {
 		&ow{0, 5, "abc", "abc"},
 		&ow{0, 1, "abcd", "abcdbc"},
 		&ow{3, 2, "000", "abc000c"},
+		&ins{7, "f", "abc000cf"},
 	}
 
 	for _, u := range tests {
@@ -156,5 +157,33 @@ func TestWordAtIndex(t *testing.T) {
 	w, i, err := WordAtIndex(rw, 3)
 	if err == nil {
 		t.Fatalf("%v %v %v", w, i, err)
+	}
+}
+
+//----------
+
+func TestLineStartIndex(t *testing.T) {
+	s := "0123456789"
+	rw := NewStringReader(s)
+	rw2 := NewLimitedReader(rw, 3, 5)
+	v, err := LineStartIndex(rw2, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != 3 {
+		t.Fatal(err)
+	}
+}
+
+func TestLineEndIndex(t *testing.T) {
+	s := "0123456789"
+	rw := NewStringReader(s)
+	rw2 := NewLimitedReader(rw, 3, 5)
+	v, newLine, err := LineEndIndex(rw2, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(v == 5 && newLine == false) {
+		t.Fatal(v, newLine)
 	}
 }

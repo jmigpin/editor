@@ -151,7 +151,7 @@ func ToLowerAsciiCopy(p []byte) []byte {
 
 //----------
 
-// On error, returns best failing index.
+// On error, returns best failing index. Use errors.Is(err, io.EOF) to handle limitedreaders.
 func IndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int, err error) {
 	for {
 		ru, size, err := r.ReadRuneAt(i)
@@ -171,7 +171,7 @@ func IndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int,
 	}
 }
 
-// On error, returns best failing index.
+// On error, returns best failing index. Use errors.Is(err, io.EOF) to handle limitedreaders.
 func LastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int, err error) {
 	for {
 		ru, size, err := r.ReadLastRuneAt(i)
@@ -212,7 +212,7 @@ func ExpandLastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) int {
 
 func LineStartIndex(r Reader, i int) (int, error) {
 	k, size, err := NewLineLastIndex(r, i)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return k, nil
 	}
 	return k + size, err
@@ -221,7 +221,7 @@ func LineStartIndex(r Reader, i int) (int, error) {
 // index after '\n' (with isNewLine true), or max index
 func LineEndIndex(r Reader, i int) (int, bool, error) {
 	k, size, err := NewLineIndex(r, i)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return k, false, nil
 	}
 	isNewLine := err == nil
@@ -241,7 +241,7 @@ func NewLineLastIndex(r Reader, i int) (int, int, error) {
 }
 
 //----------
-
+//godebug:annotatefile
 func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
 	ls, err := LineStartIndex(r, a)
 	if err != nil {
@@ -263,12 +263,8 @@ func IsWordRune(ru rune) bool {
 func WordAtIndex(r Reader, index int) ([]byte, int, error) {
 	// right side
 	i1, _, err := IndexFunc(r, index, false, IsWordRune)
-	if err != nil {
-		if err == io.EOF {
-			i1 = r.Max()
-		} else {
-			return nil, 0, err
-		}
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, 0, err
 	}
 	if i1 == index { // don't match word at index
 		return nil, 0, errors.New("word not found")
@@ -276,15 +272,10 @@ func WordAtIndex(r Reader, index int) ([]byte, int, error) {
 
 	// left side
 	i0, size, err := LastIndexFunc(r, index, false, IsWordRune)
-	if err != nil {
-		if err == io.EOF {
-			i0 = r.Min()
-		} else {
-			return nil, 0, err
-		}
-	} else {
-		i0 += size
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, 0, err
 	}
+	i0 += size
 
 	s, err := r.ReadNCopyAt(i0, i1-i0)
 	if err != nil {

@@ -1,8 +1,6 @@
 package iorw
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"unicode/utf8"
 )
@@ -27,8 +25,8 @@ func (rw *BytesReadWriter) Max() int {
 //----------
 
 func (rw *BytesReadWriter) ReadRuneAt(i int) (ru rune, size int, err error) {
-	if i < 0 || i > len(rw.buf) {
-		return 0, 0, errors.New("bad index")
+	if err := checkIndex(0, len(rw.buf), i); err != nil {
+		return 0, 0, err
 	}
 	ru, size = utf8.DecodeRune(rw.buf[i:])
 	if size == 0 {
@@ -38,8 +36,8 @@ func (rw *BytesReadWriter) ReadRuneAt(i int) (ru rune, size int, err error) {
 }
 
 func (rw *BytesReadWriter) ReadLastRuneAt(i int) (ru rune, size int, err error) {
-	if i < 0 || i > len(rw.buf) {
-		return 0, 0, errors.New("bad index")
+	if err := checkIndex(0, len(rw.buf), i); err != nil {
+		return 0, 0, err
 	}
 	ru, size = utf8.DecodeLastRune(rw.buf[:i])
 	if size == 0 {
@@ -61,14 +59,8 @@ func (rw *BytesReadWriter) ReadNCopyAt(i, n int) ([]byte, error) {
 }
 
 func (rw *BytesReadWriter) ReadNSliceAt(i, n int) ([]byte, error) {
-	if n < 0 {
-		return nil, fmt.Errorf("bad n: %v", n)
-	}
-	if i < 0 || i > len(rw.buf) {
-		return nil, errors.New("bad index")
-	}
-	if i+n > len(rw.buf) {
-		return nil, io.EOF
+	if err := checkIndexN(0, len(rw.buf), i, n); err != nil {
+		return nil, err
 	}
 	return rw.buf[i : i+n], nil
 }
@@ -76,15 +68,13 @@ func (rw *BytesReadWriter) ReadNSliceAt(i, n int) ([]byte, error) {
 //----------
 
 func (rw *BytesReadWriter) Insert(i int, p []byte) error {
-	if i < 0 || i > len(rw.buf) {
-		return fmt.Errorf("bad index: %v", i)
-	}
-
 	l := len(rw.buf)
+	if err := checkIndex(0, l, i); err != nil {
+		return err
+	}
 	rw.buf = append(rw.buf, p...)        // just to increase capacity
 	copy(rw.buf[i+len(p):], rw.buf[i:l]) // shift data to the right
 	copy(rw.buf[i:], p)                  // insert p
-
 	return nil
 }
 
@@ -99,19 +89,11 @@ func (rw *BytesReadWriter) Delete(i, n int) error {
 }
 
 func (rw *BytesReadWriter) delete2(i, n int) error {
-	if i < 0 || i+n > len(rw.buf) {
-		return fmt.Errorf("bad index: %v", i)
+	if err := checkIndexN(0, len(rw.buf), i, n); err != nil {
+		return err
 	}
-	if n == 0 {
-		return nil
-	}
-	if n < 0 {
-		return fmt.Errorf("bad len: %v", n)
-	}
-
 	copy(rw.buf[i:], rw.buf[i+n:])
 	rw.buf = rw.buf[:len(rw.buf)-n]
-
 	return nil
 }
 
@@ -132,5 +114,30 @@ func (rw *BytesReadWriter) Overwrite(i, n int, p []byte) error {
 		return err
 	}
 	rw.reduceCap()
+	return nil
+}
+
+//----------
+
+func checkIndex(min, max, i int) error {
+	if i < min {
+		return NewErrBadIndex("%v, min=%v", i, min)
+	}
+	if i > max { // allow max
+		return NewErrBadIndex("%v, max=%v", i, max)
+	}
+	return nil
+}
+
+func checkIndexN(min, max, i, n int) error {
+	if n < 0 {
+		return NewErrBadIndex("n=%v", n)
+	}
+	if i < min {
+		return NewErrBadIndex("%v, min=%v", i, min)
+	}
+	if i+n > max {
+		return NewErrBadIndex("i+n=%v, max=%v", i+n, max)
+	}
 	return nil
 }

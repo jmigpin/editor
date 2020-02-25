@@ -1,6 +1,7 @@
 package textutil
 
 import (
+	"errors"
 	"io"
 	"unicode"
 
@@ -22,7 +23,7 @@ func AutoIndent(te *widget.TextEdit) error {
 	rd := iorw.NewLimitedReader(tc.RW(), i, ci)
 	j, _, err := iorw.IndexFunc(rd, i, false, unicode.IsSpace)
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			j = ci // all spaces up to ci
 		} else {
 			return err

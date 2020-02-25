@@ -1,6 +1,7 @@
 package textutil
 
 import (
+	"errors"
 	"image"
 	"io"
 
@@ -95,12 +96,8 @@ func MoveCursorJumpRight(te *widget.TextEdit, sel bool) error {
 func jumpLeftIndex(te *widget.TextEdit) (int, error) {
 	tc := te.TextCursor
 	i, size, err := te.LastIndexFunc(tc.Index(), true, edgeOfNextWordOrNewline())
-	if err != nil {
-		if err == io.EOF {
-			i = tc.RW().Min()
-		} else {
-			return 0, err
-		}
+	if err != nil && !errors.Is(err, io.EOF) {
+		return 0, err
 	}
 	return i + size, nil
 }
@@ -108,12 +105,8 @@ func jumpLeftIndex(te *widget.TextEdit) (int, error) {
 func jumpRightIndex(te *widget.TextEdit) (int, error) {
 	tc := te.TextCursor
 	i, _, err := te.IndexFunc(tc.Index(), true, edgeOfNextWordOrNewline())
-	if err != nil {
-		if err == io.EOF {
-			i = tc.RW().Max()
-		} else {
-			return 0, err
-		}
+	if err != nil && !errors.Is(err, io.EOF) {
+		return 0, err
 	}
 	return i, nil
 }

@@ -3,6 +3,7 @@ package textutil
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
@@ -37,14 +38,10 @@ func find2(ctx context.Context, tc *widget.TextCursor, b []byte) (int, error) {
 
 	// start to index
 	e := ci + len(b) - 1
-	l := tc.RW().Max()
-	if e > l {
-		e = l
-	}
 	rd := iorw.NewLimitedReader(tc.RW(), 0, e)
 	k, err := iorw.IndexCtx(ctx, rd, 0, b, true)
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return -1, nil
 		}
 		return -1, err

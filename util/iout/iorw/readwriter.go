@@ -1,5 +1,10 @@
 package iorw
 
+import (
+	"fmt"
+	"io"
+)
+
 type ReadWriter interface {
 	Reader
 	Writer
@@ -28,4 +33,13 @@ type Reader interface {
 	// min>=0 && min<=max && max<=length
 	Min() int
 	Max() int
+}
+
+//----------
+
+var ErrBadIndex = fmt.Errorf("bad index: %w", io.EOF)
+
+func NewErrBadIndex(f string, args ...interface{}) error {
+	u := append([]interface{}{ErrBadIndex}, args...)
+	return fmt.Errorf("%w: "+f, u...)
 }

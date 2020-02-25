@@ -2,6 +2,7 @@ package textutil
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"unicode"
 
@@ -35,12 +36,8 @@ func Comment(tex *widget.TextEditX) error {
 		// find insertion index
 		rd := iorw.NewLimitedReader(tc.RW(), i, i+max)
 		j, _, err := iorw.IndexFunc(rd, i, false, isSpaceExceptNewline)
-		if err != nil {
-			if err == io.EOF {
-				// use j
-			} else {
-				return err
-			}
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
 		}
 
 		u, _, err := tex.LineEndIndex(j)

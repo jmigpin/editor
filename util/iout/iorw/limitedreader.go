@@ -1,12 +1,5 @@
 package iorw
 
-import (
-	"io"
-)
-
-//var ErrLimitReached = fmt.Printf("limit reached: %w", io.EOF)
-var errLimitReached = io.EOF
-
 // Limits reading while keeping the original offsets.
 type LimitedReader struct {
 	Reader
@@ -52,33 +45,29 @@ func (r *LimitedReader) Max() int {
 	return u
 }
 
-func (r *LimitedReader) indexInBounds(i int) bool {
-	return i >= r.Min() && i < r.Max()
-}
-
 //----------
 
 func (r *LimitedReader) ReadRuneAt(i int) (ru rune, size int, err error) {
-	if !r.indexInBounds(i) {
-		return 0, 0, errLimitReached
+	if err := checkIndex(r.Min(), r.Max(), i); err != nil {
+		return 0, 0, err
 	}
 	return r.Reader.ReadRuneAt(i)
 }
 func (r *LimitedReader) ReadLastRuneAt(i int) (ru rune, size int, err error) {
-	if !r.indexInBounds(i) {
-		return 0, 0, errLimitReached
+	if err := checkIndex(r.Min(), r.Max(), i); err != nil {
+		return 0, 0, err
 	}
 	return r.Reader.ReadLastRuneAt(i)
 }
 func (r *LimitedReader) ReadNCopyAt(i, n int) ([]byte, error) {
-	if !r.indexInBounds(i) {
-		return nil, errLimitReached
+	if err := checkIndexN(r.Min(), r.Max(), i, n); err != nil {
+		return nil, err
 	}
 	return r.Reader.ReadNCopyAt(i, n)
 }
 func (r *LimitedReader) ReadNSliceAt(i, n int) ([]byte, error) {
-	if !r.indexInBounds(i) {
-		return nil, errLimitReached
+	if err := checkIndexN(r.Min(), r.Max(), i, n); err != nil {
+		return nil, err
 	}
 	return r.Reader.ReadNSliceAt(i, n)
 }
