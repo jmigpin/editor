@@ -105,13 +105,7 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 	if !erow.Info.IsDir() {
 		panic("not a directory")
 	}
-	erow.Exec.Start(func(ctx context.Context, w io.Writer) error {
-		// cleanup row content
-		erow.Ed.UI.RunOnUIGoRoutine(func() {
-			erow.Row.TextArea.SetStrClearHistory("")
-			erow.Row.TextArea.ClearPos()
-		})
-
+	erow.Exec.RunAsync(func(ctx context.Context, w io.Writer) error {
 		err := externalCmdDir2(ctx, erow, cargs, env, w)
 		if fend != nil {
 			fend(err)

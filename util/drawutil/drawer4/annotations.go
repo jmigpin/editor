@@ -1,6 +1,9 @@
 package drawer4
 
-import "github.com/jmigpin/editor/util/mathutil"
+import (
+	"github.com/jmigpin/editor/util/mathutil"
+	"golang.org/x/image/colornames"
+)
 
 type Annotations struct {
 	d *Drawer
@@ -19,7 +22,6 @@ func (ann *Annotations) Iter() {
 	}
 }
 
-//godebug:annotatefile
 func (ann *Annotations) iter2() {
 	entries := ann.d.Opt.Annotations.Entries // *mostly* ordered by offset
 	i := &ann.d.st.annotations.cei
@@ -51,7 +53,7 @@ func (ann *Annotations) iter2() {
 		}
 
 		// future annotation
-		// Commented to handle next entries with earlier offsets
+		// Commented: need to handle next entries with earlier offsets
 		//if e.Offset > ann.d.st.runeR.ri {
 		//break
 		//}
@@ -89,9 +91,9 @@ func (ann *Annotations) insertAnnotations2() {
 		pen := &ann.d.st.runeR.pen
 		startX := pen.X + ann.d.st.runeR.advance
 
-		if !ann.d.iters.runeR.insertExtraString("   \t") {
-			return
-		}
+		//if !ann.d.iters.runeR.insertExtraString("   \t") {
+		//	return
+		//}
 
 		space := ann.d.iters.runeR.glyphAdvance(' ')
 		boundsMinX := mathutil.Intf1(ann.d.bounds.Min.X)
@@ -110,32 +112,45 @@ func (ann *Annotations) insertAnnotations2() {
 	}
 
 	// annotations
-	for i, index := range ann.d.st.annotations.indexQ {
-		// space separator between entries on the same line
-		if i > 0 {
-			if !ann.d.iters.runeR.insertExtraString(" ") {
-				return
-			}
-		}
-
+	c := 0
+	for _, index := range ann.d.st.annotations.indexQ {
 		entry := ann.d.Opt.Annotations.Entries[index]
 		if entry == nil {
 			continue
 		}
 
-		if !ann.insertAnnotationString(string(entry.Bytes), index) {
+		// space separator between entries on the same line
+		c++
+		if c >= 2 {
+			if !ann.d.iters.runeR.insertExtraString(" ") {
+				return
+			}
+		}
+
+		if !ann.insertAnnotationString(string(entry.Bytes), index, true) {
 			return
 		}
+
+		// entry.notes (used for arrival index)
+		opt := &ann.d.Opt.Annotations
+		fg, bg := opt.Fg, opt.Bg
+		restore := func() { opt.Fg, opt.Bg = fg, bg }
+		opt.Fg, opt.Bg = colornames.White, colornames.Black
+		if !ann.insertAnnotationString(string(entry.NotesBytes), index, false) {
+			restore()
+			return
+		}
+		restore()
 	}
 }
 
-func (ann *Annotations) insertAnnotationString(s string, eindex int) bool {
+func (ann *Annotations) insertAnnotationString(s string, eindex int, colorizeIfIndex bool) bool {
 	// keep color state
 	keep := ann.d.st.curColors
 	defer func() { ann.d.st.curColors = keep }()
 	// set colors
 	opt := &ann.d.Opt.Annotations
-	if eindex == opt.Selected.EntryIndex {
+	if colorizeIfIndex && eindex == opt.Selected.EntryIndex {
 		assignColor(&ann.d.st.curColors.fg, opt.Selected.Fg)
 		assignColor(&ann.d.st.curColors.bg, opt.Selected.Bg)
 	} else {
@@ -155,8 +170,9 @@ func (ann *Annotations) insertAnnotationString(s string, eindex int) bool {
 //----------
 
 type Annotation struct {
-	Offset int
-	Bytes  []byte
+	Offset     int
+	Bytes      []byte
+	NotesBytes []byte
 }
 
 //----------

@@ -9,79 +9,82 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
+////godebug:annotatefile
+
 type ERowExec struct {
 	erow *ERow
 	mu   struct {
 		sync.Mutex
-		ctx    context.Context
 		cancel context.CancelFunc
-		w      io.WriteCloser
+		fnWait sync.WaitGroup // added while locked
 	}
 }
 
 func NewERowExec(erow *ERow) *ERowExec {
-	return &ERowExec{erow: erow}
+	ee := &ERowExec{erow: erow}
+	ee.mu.cancel = func() {}
+	return ee
 }
 
 //----------
 
-func (eexec *ERowExec) Start(fexec func(context.Context, io.Writer) error) {
-	eexec.mu.Lock()
-	defer eexec.mu.Unlock()
+func (ee *ERowExec) RunAsync(fn func(context.Context, io.Writer) error) {
+	// Note: textarea w.close() (textareawriter) could lock if run() is not on own goroutine, if w.close waits for UI goroutine to finish and run() is currently occupying it (w.close called after a run(), no local locks involved, just that the UI goroutine is not getting released).
+	// Note: commented since the w.close() is currently not blocking the UI goroutine, just ensures it gets queued)
 
-	// cancel old context if exists
-	if eexec.mu.cancel != nil {
-		eexec.clear()
-	}
+	//	go ee.run(fn)
+	//}
 
-	// indicate the row is running
-	eexec.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		eexec.erow.Row.SetState(ui.RowStateExecuting, true)
-	})
+	//func (ee *ERowExec) run(fn func(context.Context, io.Writer) error) {
+
+	ee.mu.Lock()
+	defer ee.mu.Unlock()
+
+	// cancel and wait for previous if any
+	ee.mu.cancel()
+	ee.mu.fnWait.Wait()
 
 	// new context
-	ctx, cancel := context.WithCancel(eexec.erow.ctx)
-	eexec.mu.ctx, eexec.mu.cancel = ctx, cancel
+	ctx, cancel := context.WithCancel(ee.erow.ctx)
+	ee.mu.cancel = cancel
 
-	// writer
-	w := eexec.erow.TextAreaWriter() // needs to be closed in the end
-	eexec.mu.w = w                   // keep w to ensure early close on clear
+	w := ee.erow.TextAreaWriter() // needs to be closed in the end
 
+	ee.mu.fnWait.Add(1)
 	go func() {
-		err := fexec(ctx, w)
+		defer ee.mu.fnWait.Done()
 
-		eexec.mu.Lock()
-		defer eexec.mu.Unlock()
+		// indicate the row is running
+		ee.erow.Ed.UI.RunOnUIGoRoutine(func() {
+			ee.erow.Row.SetState(ui.RowStateExecuting, true)
+			ee.erow.Row.TextArea.SetStrClearHistory("")
+			ee.erow.Row.TextArea.ClearPos()
+		})
 
-		// show error if the context matches, if it doesn't match then the previous instance was canceled already
-		if eexec.mu.ctx == ctx {
-			if err != nil {
-				fmt.Fprintf(w, "# error: %v", err)
-			}
-			eexec.clear()
+		err := fn(ctx, w)
+		if err != nil {
+			fmt.Fprintf(w, "# error: %v\n", err)
 		}
+
+		// clear cancel resources
+		cancel()
+
+		if err := w.Close(); err != nil {
+			ee.erow.Ed.Error(err)
+		}
+
+		ee.erow.Ed.UI.RunOnUIGoRoutine(func() {
+			ee.erow.Row.SetState(ui.RowStateExecuting, false)
+		})
 	}()
 }
 
-func (eexec *ERowExec) clear() {
-	// clear resources
-	eexec.mu.cancel()
-	eexec.mu.cancel = nil
-	eexec.mu.w.Close()
-	eexec.mu.w = nil
-
-	// indicate the row is not running
-	eexec.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		eexec.erow.Row.SetState(ui.RowStateExecuting, false)
-	})
-}
-
 //----------
 
-func (eexec *ERowExec) Stop() {
-	eexec.mu.Lock()
-	defer eexec.mu.Unlock()
-	if eexec.mu.cancel != nil {
-		eexec.mu.cancel()
+func (ee *ERowExec) Stop() {
+	ee.mu.Lock()
+	defer ee.mu.Unlock()
+	if ee.mu.cancel != nil {
+		ee.mu.cancel()
 	}
 }

@@ -43,7 +43,6 @@ type PenVisibility struct {
 	top     bool // otherwise is bottom, valid in "full" and "partial"
 }
 
-//godebug:annotatefile
 func penVisibility(d *Drawer, offset int) *PenVisibility {
 	v := &PenVisibility{}
 	pb, ok := header1PenBounds(d, offset)

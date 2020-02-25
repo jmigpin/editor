@@ -38,8 +38,8 @@ func (lang *LangManager) instance(reqCtx context.Context, filename string) (*Lan
 	// setup instance context // TODO: manager ctx
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// setup context to stop if the reqctx is done
-	clearWatching := ctxutil.WatchDone(ctx, cancel, reqCtx)
+	// call cancel if reqCtx is done
+	clearWatching := ctxutil.WatchDone(cancel, reqCtx)
 	defer clearWatching()
 
 	li, err := NewLangInstance(ctx, lang)

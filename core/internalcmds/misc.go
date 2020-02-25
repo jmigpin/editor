@@ -135,7 +135,7 @@ func OpenFilemanager(args *core.InternalCmdArgs) error {
 
 func GoDebug(args *core.InternalCmdArgs) error {
 	args2 := args.Part.ArgsUnquoted()
-	return args.Ed.GoDebug.Start(args.ERow, args2)
+	return args.Ed.GoDebug.RunAsync(args.Ctx, args.ERow, args2)
 }
 
 //----------

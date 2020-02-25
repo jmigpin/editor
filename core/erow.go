@@ -112,7 +112,7 @@ func (erow *ERow) initHandlers() {
 				if e == erow {
 					continue
 				}
-				e.Row.TextArea.UpdateWriteOp(ev.WriteOp)
+				e.Row.TextArea.UpdatePositionOnWriteOp(ev.WriteOp)
 			}
 		}
 	})
@@ -328,19 +328,24 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 	}
 }
 
-// UI Safe. Writer will block until it has appended in the UI goroutine.
+// UI Safe. Writer will block until it has queued in the UI goroutine (the actual apppend bytes is done later in the UI goroutine, avoiding possible UI locks).
 func (erow *ERow) TextAreaAppendBytesUIWriter() io.Writer {
-	ta := erow.Row.TextArea
 	return iout.FnWriter(func(b []byte) (int, error) {
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-		var err2 error
+		l := len(b) // avoid data race: read length of b before goroutine
+
+		// TODO: use locked version of RW, and just issue an UI update request
+
+		//var wg sync.WaitGroup
+		//wg.Add(1)
 		erow.Ed.UI.RunOnUIGoRoutine(func() {
-			defer wg.Done()
-			err2 = ta.AppendBytesClearHistory(b)
+			//defer wg.Done()
+			err := erow.Row.TextArea.AppendBytesClearHistory(b)
+			if err != nil {
+				erow.Ed.Error(err)
+			}
 		})
-		wg.Wait()
-		return len(b), err2
+		//wg.Wait()
+		return l, nil
 	})
 }
 
@@ -348,23 +353,39 @@ func (erow *ERow) TextAreaAppendBytesUIWriter() io.Writer {
 
 // UI Safe. Caller is responsible for closing the writer at the end.
 func (erow *ERow) TextAreaWriter() io.WriteCloser {
-	// terminal filter (escape sequences) (before goroutine to avoid data race)
+	// terminal filter (escape sequences)
+	// avoid data race: assign before goroutine
 	termFilter := erow.termFilter && erow.Info.IsDir()
 
-	w := erow.TextAreaAppendBytesUIWriter()
-
 	prc, pwc := io.Pipe()
+	var copyLoop sync.WaitGroup
+	copyLoop.Add(1)
 	go func() {
+		defer copyLoop.Done()
 		var r io.Reader = prc
 		if termFilter {
 			r = NewTerminalFilter(erow, r)
 		}
+		w := erow.TextAreaAppendBytesUIWriter()
 		if _, err := io.Copy(w, r); err != nil {
 			prc.Close()
 		}
 	}()
 	// wrap pwc for performance (buffered) with output visible (auto-flush)
-	return iout.NewAutoBufWriter(pwc)
+	abw := iout.NewAutoBufWriter(pwc)
+	//return abw
+
+	// wait for the copy loop to finish on close
+	type waitWriteCloser struct {
+		io.Writer
+		io.Closer
+	}
+	closer := iout.FnCloser(func() error {
+		err := abw.Close()
+		copyLoop.Wait()
+		return err
+	})
+	return &waitWriteCloser{Writer: abw, Closer: closer}
 }
 
 //----------

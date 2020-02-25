@@ -26,7 +26,7 @@ type Editor struct {
 	HomeVars          *HomeVars
 	Watcher           fswatcher.Watcher
 	RowReopener       *RowReopener
-	GoDebug           *GoDebugInstance
+	GoDebug           *GoDebugManager
 	LSProtoMan        *lsproto.Manager
 	InlineComplete    *InlineComplete
 	Plugins           *Plugins
@@ -50,7 +50,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.HomeVars = NewHomeVars()
 	ed.RowReopener = NewRowReopener(ed)
 	ed.dndh = NewDndHandler(ed)
-	ed.GoDebug = NewGoDebugInstance(ed)
+	ed.GoDebug = NewGoDebugManager(ed)
 	ed.InlineComplete = NewInlineComplete(ed)
 	ed.EEvents = NewEEvents()
 
