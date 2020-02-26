@@ -48,73 +48,49 @@ func (rw *BytesReadWriter) ReadLastRuneAt(i int) (ru rune, size int, err error) 
 
 //----------
 
-func (rw *BytesReadWriter) ReadNCopyAt(i, n int) ([]byte, error) {
-	b, err := rw.ReadNSliceAt(i, n)
-	if err != nil {
-		return nil, err
-	}
-	w := make([]byte, len(b))
-	copy(w, b)
-	return w, nil
-}
-
-func (rw *BytesReadWriter) ReadNSliceAt(i, n int) ([]byte, error) {
+func (rw *BytesReadWriter) ReadNAtFast(i, n int) ([]byte, error) {
 	if err := checkIndexN(0, len(rw.buf), i, n); err != nil {
 		return nil, err
 	}
 	return rw.buf[i : i+n], nil
 }
 
-//----------
-
-func (rw *BytesReadWriter) Insert(i int, p []byte) error {
-	l := len(rw.buf)
-	if err := checkIndex(0, l, i); err != nil {
-		return err
+func (rw *BytesReadWriter) ReadNAtCopy(i, n int) ([]byte, error) {
+	b, err := rw.ReadNAtFast(i, n)
+	if err != nil {
+		return nil, err
 	}
-	rw.buf = append(rw.buf, p...)        // just to increase capacity
-	copy(rw.buf[i+len(p):], rw.buf[i:l]) // shift data to the right
-	copy(rw.buf[i:], p)                  // insert p
-	return nil
-}
-
-//----------
-
-func (rw *BytesReadWriter) Delete(i, n int) error {
-	if err := rw.delete2(i, n); err != nil {
-		return err
-	}
-	rw.reduceCap()
-	return nil
-}
-
-func (rw *BytesReadWriter) delete2(i, n int) error {
-	if err := checkIndexN(0, len(rw.buf), i, n); err != nil {
-		return err
-	}
-	copy(rw.buf[i:], rw.buf[i+n:])
-	rw.buf = rw.buf[:len(rw.buf)-n]
-	return nil
-}
-
-// Reduce capacity if too small, to release mem
-func (rw *BytesReadWriter) reduceCap() {
-	if len(rw.buf) > 1024 && len(rw.buf)*3 < cap(rw.buf) {
-		rw.buf = append([]byte{}, rw.buf...)
-	}
+	p := make([]byte, n)
+	copy(p, b)
+	return p, nil
 }
 
 //----------
 
 func (rw *BytesReadWriter) Overwrite(i, n int, p []byte) error {
-	if err := rw.delete2(i, n); err != nil {
+	if err := checkIndexN(0, len(rw.buf), i, n); err != nil {
 		return err
 	}
-	if err := rw.Insert(i, p); err != nil {
-		return err
-	}
-	rw.reduceCap()
+	// delete
+	copy(rw.buf[i:], rw.buf[i+n:])
+	rw.buf = rw.buf[:len(rw.buf)-n]
+	// insert
+	l := len(rw.buf)
+	rw.buf = append(rw.buf, p...)        // just to increase capacity
+	copy(rw.buf[i+len(p):], rw.buf[i:l]) // shift data to the right
+	copy(rw.buf[i:], p)                  // insert p
+
+	rw.buf = autoReduceCap(rw.buf)
 	return nil
+}
+
+//----------
+
+func autoReduceCap(p []byte) []byte {
+	if len(p) > 1024 && len(p) < 3*cap(p) {
+		return append([]byte{}, p...)
+	}
+	return p
 }
 
 //----------

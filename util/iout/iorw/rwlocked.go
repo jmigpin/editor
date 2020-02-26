@@ -13,18 +13,6 @@ func NewRWLocker(rw ReadWriter) *RWLocked {
 
 //----------
 
-func (rw *RWLocked) Insert(i int, p []byte) error {
-	rw.Lock()
-	defer rw.Unlock()
-	return rw.ReadWriter.Insert(i, p)
-}
-
-func (rw *RWLocked) Delete(i, n int) error {
-	rw.Lock()
-	defer rw.Unlock()
-	return rw.ReadWriter.Delete(i, n)
-}
-
 func (rw *RWLocked) Overwrite(i, n int, p []byte) error {
 	rw.Lock()
 	defer rw.Unlock()
@@ -45,16 +33,16 @@ func (rw *RWLocked) ReadLastRuneAt(i int) (ru rune, size int, err error) {
 	return rw.ReadWriter.ReadLastRuneAt(i)
 }
 
-func (rw *RWLocked) ReadNSliceAt(i, n int) ([]byte, error) {
+func (rw *RWLocked) ReadNAtFast(i, n int) ([]byte, error) {
 	rw.RLock()
 	defer rw.RUnlock()
-	return rw.ReadWriter.ReadNSliceAt(i, n)
+	return rw.ReadWriter.ReadNAtFast(i, n)
 }
 
-func (rw *RWLocked) ReadNCopyAt(i, n int) ([]byte, error) {
+func (rw *RWLocked) ReadNAtCopy(i, n int) ([]byte, error) {
 	rw.RLock()
 	defer rw.RUnlock()
-	return rw.ReadWriter.ReadNCopyAt(i, n)
+	return rw.ReadWriter.ReadNAtCopy(i, n)
 }
 
 func (rw *RWLocked) Min() int {

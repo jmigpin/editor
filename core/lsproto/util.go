@@ -65,7 +65,7 @@ func decodeJsonRaw(raw json.RawMessage, a interface{}) error {
 //----------
 
 func Utf16Column(rd iorw.Reader, lineStartOffset, utf8Col int) (int, error) {
-	b, err := rd.ReadNSliceAt(lineStartOffset, utf8Col)
+	b, err := rd.ReadNAtFast(lineStartOffset, utf8Col)
 	if err != nil {
 		return 0, err
 	}
@@ -80,7 +80,7 @@ func Utf8Column(rd iorw.Reader, lineStartOffset, utf16Col int) (int, error) {
 		n = rd.Max() - lineStartOffset
 	}
 
-	b, err := rd.ReadNSliceAt(lineStartOffset, n)
+	b, err := rd.ReadNAtFast(lineStartOffset, n)
 	if err != nil {
 		return 0, err
 	}

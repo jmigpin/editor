@@ -16,13 +16,13 @@ func Cut(te *widget.TextEdit) error {
 	defer tc.EndEdit()
 
 	a, b := tc.SelectionIndexes()
-	s, err := tc.RW().ReadNCopyAt(a, b-a)
+	s, err := tc.RW().ReadNAtCopy(a, b-a)
 	if err != nil {
 		return err
 	}
 	te.SetCPCopy(event.CPIClipboard, string(s))
 
-	if err := tc.RW().Delete(a, b-a); err != nil {
+	if err := tc.RW().Overwrite(a, b-a, nil); err != nil {
 		return err
 	}
 	tc.SetSelectionOff()

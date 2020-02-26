@@ -22,10 +22,10 @@ func MMLen(rd Reader) int {
 	return rd.Max() - rd.Min()
 }
 
-// Returns a slice (not a copy).
-func ReadFullSlice(rd Reader) ([]byte, error) {
+// Result might not be a copy.
+func ReadFullFast(rd Reader) ([]byte, error) {
 	min, max := rd.Min(), rd.Max()
-	return rd.ReadNSliceAt(min, max-min)
+	return rd.ReadNAtFast(min, max-min)
 }
 
 func SetString(rw ReadWriter, s string) error {
@@ -62,7 +62,7 @@ func HasPrefix(r Reader, i int, s []byte) bool {
 	if len(s) == 0 {
 		return true
 	}
-	b, err := r.ReadNSliceAt(i, len(s))
+	b, err := r.ReadNAtFast(i, len(s))
 	if err != nil {
 		return false
 	}
@@ -114,8 +114,8 @@ func indexCtx2(ctx context.Context, r Reader, i int, sep []byte, toLower bool, c
 	return -1, nil
 }
 
-func indexCtx3(r Reader, i, length int, sep []byte, toLower bool) (int, error) {
-	p, err := r.ReadNSliceAt(i, length)
+func indexCtx3(r Reader, i, n int, sep []byte, toLower bool) (int, error) {
+	p, err := r.ReadNAtFast(i, n)
 	if err != nil {
 		return 0, err
 	}
@@ -241,7 +241,7 @@ func NewLineLastIndex(r Reader, i int) (int, int, error) {
 }
 
 //----------
-//godebug:annotatefile
+
 func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
 	ls, err := LineStartIndex(r, a)
 	if err != nil {
@@ -256,6 +256,7 @@ func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
 
 //----------
 
+// Also used at: selectword, movecursorjump{left,right}
 func IsWordRune(ru rune) bool {
 	return unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_'
 }
@@ -277,12 +278,11 @@ func WordAtIndex(r Reader, index int) ([]byte, int, error) {
 	}
 	i0 += size
 
-	s, err := r.ReadNCopyAt(i0, i1-i0)
+	w, err := r.ReadNAtCopy(i0, i1-i0)
 	if err != nil {
 		return nil, 0, err
 	}
-
-	return s, i0, nil
+	return w, i0, nil
 }
 
 func WordIsolated(r Reader, i, le int) bool {

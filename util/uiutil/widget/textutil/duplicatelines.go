@@ -14,7 +14,7 @@ func DuplicateLines(te *widget.TextEdit) error {
 		return err
 	}
 
-	s, err := tc.RW().ReadNCopyAt(a, b-a)
+	s, err := tc.RW().ReadNAtCopy(a, b-a)
 	if err != nil {
 		return err
 	}
@@ -25,7 +25,7 @@ func DuplicateLines(te *widget.TextEdit) error {
 		c++
 	}
 
-	if err := tc.RW().Insert(b, s); err != nil {
+	if err := tc.RW().Overwrite(b, 0, s); err != nil {
 		return err
 	}
 

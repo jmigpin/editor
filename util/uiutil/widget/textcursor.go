@@ -135,7 +135,7 @@ func (tc *TextCursor) SelectionIndexes() (int, int) {
 
 func (tc *TextCursor) Selection() ([]byte, error) {
 	a, b := tc.SelectionIndexes()
-	return tc.RW().ReadNCopyAt(a, b-a)
+	return tc.RW().ReadNAtCopy(a, b-a)
 }
 
 //----------
@@ -167,40 +167,18 @@ type writeOpHistoryRW struct {
 	tc *TextCursor
 }
 
-func (rw *writeOpHistoryRW) Insert(i int, p []byte) error {
+func (rw *writeOpHistoryRW) Overwrite(i, n int, p []byte) error {
 	rw.tc.panicIfNotEditing()
 
-	ur, err := iorw.InsertUndoRedo(rw.ReadWriter, i, p)
-	if err != nil {
-		return err
-	}
-	rw.tc.te.TextHistory.Append(ur)
-	return nil
-}
-
-func (rw *writeOpHistoryRW) Delete(i, len int) error {
-	rw.tc.panicIfNotEditing()
-
-	ur, err := iorw.DeleteUndoRedo(rw.ReadWriter, i, len)
-	if err != nil {
-		return err
-	}
-	rw.tc.te.TextHistory.Append(ur)
-	return nil
-}
-
-func (rw *writeOpHistoryRW) Overwrite(i, length int, p []byte) error {
-	rw.tc.panicIfNotEditing()
-
-	ur, err := iorw.OverwriteUndoRedo(rw.ReadWriter, i, length, p)
+	ur, err := iorw.NewUndoRedoOverwrite(rw.ReadWriter, i, n, p)
 	if err != nil {
 		return err
 	}
 
 	// check if the result will be equal
 	isEqual := false
-	if length == len(p) {
-		b, err := rw.ReadNSliceAt(i, length)
+	if n == len(p) {
+		b, err := rw.ReadNAtFast(i, n)
 		if err == nil {
 			if bytes.Equal(b, p) {
 				isEqual = true

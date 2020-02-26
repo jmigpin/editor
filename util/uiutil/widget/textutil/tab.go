@@ -23,7 +23,7 @@ func TabRight(te *widget.TextEdit) error {
 
 	// insert at lines start
 	for i := a; i < b; {
-		if err := tc.RW().Insert(i, []byte{'\t'}); err != nil {
+		if err := tc.RW().Overwrite(i, 0, []byte{'\t'}); err != nil {
 			return err
 		}
 		b += 1 // size of \t
@@ -58,13 +58,13 @@ func TabLeft(te *widget.TextEdit) error {
 	// remove from lines start
 	altered := false
 	for i := a; i < b; {
-		s, err := tc.RW().ReadNCopyAt(i, 1)
+		s, err := tc.RW().ReadNAtCopy(i, 1)
 		if err != nil {
 			return err
 		}
 		if bytes.ContainsAny(s, "\t ") {
 			altered = true
-			if err := tc.RW().Delete(i, 1); err != nil {
+			if err := tc.RW().Overwrite(i, 1, nil); err != nil {
 				return err
 			}
 			b -= 1 // 1 is length of '\t' or ' '

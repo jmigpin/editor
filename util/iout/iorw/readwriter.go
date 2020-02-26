@@ -13,8 +13,8 @@ type ReadWriter interface {
 //----------
 
 type Writer interface {
-	Insert(i int, p []byte) error
-	Delete(i, n int) error
+	// insert: Overwrite(i, 0, p)
+	// delete: Overwrite(i, n, nil)
 	Overwrite(i, n int, p []byte) error
 }
 
@@ -25,10 +25,8 @@ type Reader interface {
 	ReadLastRuneAt(i int) (ru rune, size int, err error)
 
 	// there must be at least N bytes available or there will be an error
-	ReadNCopyAt(i, n int) ([]byte, error)
-	ReadNSliceAt(i, n int) ([]byte, error) // []byte might not be a copy
-	// TODO
-	//ReadNAt(i int, p []byte) error // allows allocation outside
+	ReadNAtFast(i, n int) ([]byte, error) // []byte might not be a copy
+	ReadNAtCopy(i, n int) ([]byte, error)
 
 	// min>=0 && min<=max && max<=length
 	Min() int

@@ -5,20 +5,20 @@ import (
 	"log"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw/rwundo"
 	"github.com/jmigpin/editor/util/uiutil/event"
-	"github.com/jmigpin/editor/util/uiutil/widget/history"
 )
 
 // Editable string history
 type TextHistory struct {
-	hist *history.History
+	hist *rwundo.History
 	te   *TextEdit
-	edit *history.Edit
+	edit *rwundo.Edit
 }
 
 func NewTextHistory(es *TextEdit) *TextHistory {
 	th := &TextHistory{
-		hist: history.NewHistory(200),
+		hist: rwundo.NewHistory(200),
 		te:   es,
 	}
 	return th
@@ -33,7 +33,7 @@ func (th *TextHistory) ClearForward() {
 	th.hist.ClearForward()
 }
 func (th *TextHistory) New(maxEntries int) {
-	th.hist = history.NewHistory(maxEntries)
+	th.hist = rwundo.NewHistory(maxEntries)
 }
 func (th *TextHistory) Use(th2 *TextHistory) {
 	th.hist = th2.hist
@@ -45,7 +45,7 @@ func (th *TextHistory) BeginEdit() {
 	if th.edit != nil {
 		panic("already editing")
 	}
-	th.edit = &history.Edit{}
+	th.edit = &rwundo.Edit{}
 	th.edit.PreState = th.cursorState()
 }
 

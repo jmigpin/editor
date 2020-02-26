@@ -207,7 +207,7 @@ func insertComplete(comps []string, rw iorw.ReadWriter, index int) (newIndex int
 
 		// try to expand the index to the existing text
 		for i := 0; i < expand; i++ {
-			b, err := rw.ReadNSliceAt(index+i, 1)
+			b, err := rw.ReadNAtFast(index+i, 1)
 			if err != nil {
 				break
 			}

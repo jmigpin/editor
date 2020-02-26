@@ -31,25 +31,22 @@ func AutoIndent(te *widget.TextEdit) error {
 	}
 
 	// string to insert
-	s, err := tc.RW().ReadNCopyAt(i, j-i)
+	s, err := tc.RW().ReadNAtCopy(i, j-i)
 	if err != nil {
 		return err
 	}
 	s2 := append([]byte{'\n'}, s...)
 
-	// remove selection
+	// selection to overwrite
+	n := 0
 	if tc.SelectionOn() {
 		a, b := tc.SelectionIndexes()
-		if err := tc.RW().Delete(a, b-a); err != nil {
-			return err
-		}
+		n = b - a
+		ci = a
 		tc.SetSelectionOff()
-		tc.SetIndex(a)
 	}
 
-	// insert
-	ci = tc.Index()
-	if err := tc.RW().Insert(ci, s2); err != nil {
+	if err := tc.RW().Overwrite(ci, n, s2); err != nil {
 		return err
 	}
 	tc.SetIndex(ci + len(s2))

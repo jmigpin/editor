@@ -8,46 +8,21 @@ type RWCallback struct {
 
 //----------
 
-func (rw *RWCallback) writeOpCallback(v *RWCallbackWriteOp) {
+func (rw *RWCallback) Overwrite(i, n int, p []byte) error {
+	if err := rw.ReadWriter.Overwrite(i, n, p); err != nil {
+		return err
+	}
+	u := &RWCallbackWriteOp{i, n, len(p)}
 	if rw.OnWrite != nil {
-		rw.OnWrite(v)
+		rw.OnWrite(u)
 	}
-}
-
-//----------
-
-func (rw *RWCallback) Insert(i int, p []byte) error {
-	if err := rw.ReadWriter.Insert(i, p); err != nil {
-		return err
-	}
-	u := &RWCallbackWriteOp{WopInsert, i, len(p), 0}
-	rw.writeOpCallback(u)
-	return nil
-}
-
-func (rw *RWCallback) Delete(i, length int) error {
-	if err := rw.ReadWriter.Delete(i, length); err != nil {
-		return err
-	}
-	u := &RWCallbackWriteOp{WopDelete, i, length, 0}
-	rw.writeOpCallback(u)
-	return nil
-}
-
-func (rw *RWCallback) Overwrite(i, length int, p []byte) error {
-	if err := rw.ReadWriter.Overwrite(i, length, p); err != nil {
-		return err
-	}
-	u := &RWCallbackWriteOp{WopOverwrite, i, length, len(p)}
-	rw.writeOpCallback(u)
 	return nil
 }
 
 //----------
 
 type RWCallbackWriteOp struct {
-	Type    WriterOp
-	Index   int
-	Length1 int
-	Length2 int
+	Index int
+	Dn    int // delete n
+	In    int // inserted n
 }

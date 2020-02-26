@@ -28,7 +28,7 @@ func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	rd := iorw.NewLimitedReaderPad(ta.TextCursor.RW(), index, index, 1000)
 	l, r := parseutil.ExpandIndexesEscape(rd, index, false, isHttpRune, osutil.EscapeRune)
 
-	b, err := rd.ReadNSliceAt(l, r-l)
+	b, err := rd.ReadNAtFast(l, r-l)
 	if err != nil {
 		return err, false // not handled
 	}

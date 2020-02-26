@@ -7,19 +7,17 @@ func InsertString(te *widget.TextEdit, s string) error {
 	tc.BeginEdit()
 	defer tc.EndEdit()
 
+	n := 0
+	ci := tc.Index()
 	if tc.SelectionOn() {
-		// remove selection
 		a, b := tc.SelectionIndexes()
-		if err := tc.RW().Delete(a, b-a); err != nil {
-			return err
-		}
+		n = b - a
+		ci = a
 		tc.SetSelectionOff()
-		tc.SetIndex(a)
 	}
-	// insert
-	if err := tc.RW().Insert(tc.Index(), []byte(s)); err != nil {
+	if err := tc.RW().Overwrite(ci, n, []byte(s)); err != nil {
 		return err
 	}
-	tc.SetIndex(tc.Index() + len(s))
+	tc.SetIndex(ci + len(s))
 	return nil
 }

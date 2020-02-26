@@ -62,7 +62,7 @@ func Comment(tex *widget.TextEditX) error {
 		}
 
 		// ignore empty lines
-		s, err := tc.RW().ReadNCopyAt(i, u-i)
+		s, err := tc.RW().ReadNAtCopy(i, u-i)
 		if err != nil {
 			return err
 		}
@@ -70,7 +70,7 @@ func Comment(tex *widget.TextEditX) error {
 
 		if !empty {
 			lines++
-			if err := tc.RW().Insert(i+ii, cstrb); err != nil {
+			if err := tc.RW().Overwrite(i+ii, 0, cstrb); err != nil {
 				return err
 			}
 			b += len(cstrb)
@@ -130,7 +130,7 @@ func Uncomment(tex *widget.TextEditX) error {
 		// remove comment runes
 		if iorw.HasPrefix(tc.RW(), i, cstrb) {
 			lines++
-			if err := tc.RW().Delete(i, len(cstrb)); err != nil {
+			if err := tc.RW().Overwrite(i, len(cstrb), nil); err != nil {
 				return err
 			}
 			b -= len(cstrb)

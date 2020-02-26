@@ -193,7 +193,7 @@ func (man *Manager) TextDocumentCompletionDetailStrings(ctx context.Context, fil
 //----------
 
 func (man *Manager) didOpenVersion(ctx context.Context, cli *Client, filename string, rd iorw.Reader) error {
-	b, err := iorw.ReadFullSlice(rd)
+	b, err := iorw.ReadFullFast(rd)
 	if err != nil {
 		return err
 	}

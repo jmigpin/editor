@@ -30,6 +30,7 @@ func NewTextEdit(ctx ImageContext, cctx ClipboardContext) *TextEdit {
 func (te *TextEdit) SetRW(rw iorw.ReadWriter) {
 	te.Text.SetRW(rw)
 	te.rwcb = &iorw.RWCallback{rw, te.writeOpCallback}
+	//te.TextCursor.SetRW(te.rwcb)
 	te.TextCursor.hrw = &writeOpHistoryRW{te.rwcb, te.TextCursor}
 }
 
@@ -77,7 +78,7 @@ func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 
 func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 	rw := te.rwcb // bypass history
-	if err := rw.Insert(rw.Max(), b); err != nil {
+	if err := rw.Overwrite(rw.Max(), 0, b); err != nil {
 		return err
 	}
 	te.TextHistory.clear()
@@ -156,40 +157,40 @@ func (te *TextEdit) UpdateDuplicate(dup *TextEdit) {
 
 func (te *TextEdit) UpdatePositionOnWriteOp(u *iorw.RWCallbackWriteOp) {
 	s := u.Index
-	e := s + u.Length1
-	e2 := s + u.Length2
+	e := s + u.Dn
+	e2 := s + u.In
 
 	// update cursor/selection position
 	tc := te.TextCursor
 	tci := tc.Index()
-	v1 := te.editValue(u.Type, s, e, e2, tci)
+	v1 := te.editValue(s, e, e2, tci)
 	if !tc.SelectionOn() {
 		tc.SetIndex(tci + v1)
 	} else {
 		si := tc.SelectionIndex()
-		v3 := te.editValue(u.Type, s, e, e2, si)
+		v3 := te.editValue(s, e, e2, si)
 		tc.SetSelection(si+v3, tci+v1)
 	}
 
 	// update offset position
 	ro := te.RuneOffset()
-	v2 := te.editValue(u.Type, s, e, e2, ro)
+	v2 := te.editValue(s, e, e2, ro)
 	te.SetRuneOffset(ro + v2)
 }
 
-func (te *TextEdit) editValue(typ iorw.WriterOp, s, e, e2, o int) int {
+func (te *TextEdit) editValue(s, e, e2, o int) int {
 	v := 0
 	if s < o {
 		k := mathutil.Smallest(e, o)
 		v = k - s
-		if typ == iorw.WopDelete {
-			v = -v
-		}
-		if typ == iorw.WopOverwrite {
-			v = -v
-			k := mathutil.Smallest(e2, o)
-			v += k - s
-		}
+		//if typ == iorw.WopDelete {
+		//	v = -v
+		//}
+		//if typ == iorw.WopOverwrite {
+		v = -v
+		k = mathutil.Smallest(e2, o)
+		v += k - s
+		//}
 	}
 	return v
 }

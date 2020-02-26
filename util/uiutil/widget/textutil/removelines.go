@@ -11,7 +11,7 @@ func RemoveLines(te *widget.TextEdit) error {
 	if err != nil {
 		return err
 	}
-	if err := tc.RW().Delete(a, b-a); err != nil {
+	if err := tc.RW().Overwrite(a, b-a, nil); err != nil {
 		return err
 	}
 	tc.SetSelectionOff()

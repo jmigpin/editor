@@ -61,7 +61,7 @@ func findShortcut2(erow *ERow) error {
 		a := part.Args[0].End
 		b := part.End
 		if a == b {
-			if err := tc.RW().Insert(a, []byte(" ")); err != nil {
+			if err := tc.RW().Overwrite(a, 0, []byte(" ")); err != nil {
 				return err
 			}
 			a++
@@ -74,10 +74,7 @@ func findShortcut2(erow *ERow) error {
 
 		// replace current find cmd string with search str
 		if len(searchStr) != 0 {
-			if err := tc.RW().Delete(a, b-a); err != nil {
-				return err
-			}
-			if err := tc.RW().Insert(a, searchStr); err != nil {
+			if err := tc.RW().Overwrite(a, b-a, searchStr); err != nil {
 				return err
 			}
 			tc.SetSelection(a, a+len(searchStr))
@@ -86,12 +83,12 @@ func findShortcut2(erow *ERow) error {
 		// insert find cmd
 		tbl := tb.TextCursor.RW().Max()
 		find := " | Find "
-		if err := tc.RW().Insert(tbl, []byte(find)); err != nil {
+		if err := tc.RW().Overwrite(tbl, 0, []byte(find)); err != nil {
 			return err
 		}
 		a := tbl + len(find)
 		if len(searchStr) != 0 {
-			if err := tc.RW().Insert(a, searchStr); err != nil {
+			if err := tc.RW().Overwrite(a, 0, searchStr); err != nil {
 				return err
 			}
 			tc.SetSelection(a, a+len(searchStr))

@@ -47,10 +47,7 @@ func replace2(te *widget.TextEdit, oldb, newb []byte, a, b int) (int, bool, erro
 		if i < 0 {
 			return ci, replaced, nil
 		}
-		if err := tc.RW().Delete(i, len(oldb)); err != nil {
-			return ci, replaced, err
-		}
-		if err := tc.RW().Insert(i, newb); err != nil {
+		if err := tc.RW().Overwrite(i, len(oldb), newb); err != nil {
 			return ci, replaced, err
 		}
 		replaced = true

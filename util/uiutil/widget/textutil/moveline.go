@@ -18,12 +18,12 @@ func MoveLineUp(te *widget.TextEdit) error {
 		return nil
 	}
 
-	s, err := tc.RW().ReadNCopyAt(a, b-a)
+	s, err := tc.RW().ReadNAtCopy(a, b-a)
 	if err != nil {
 		return err
 	}
 
-	if err := tc.RW().Delete(a, b-a); err != nil {
+	if err := tc.RW().Overwrite(a, b-a, nil); err != nil {
 		return err
 	}
 
@@ -34,13 +34,13 @@ func MoveLineUp(te *widget.TextEdit) error {
 
 	// remove newline to honor the moving line
 	if !newline {
-		if err := tc.RW().Delete(a-1, 1); err != nil {
+		if err := tc.RW().Overwrite(a-1, 1, nil); err != nil {
 			return err
 		}
 		s = append(s, '\n')
 	}
 
-	if err := tc.RW().Insert(a2, s); err != nil {
+	if err := tc.RW().Overwrite(a2, 0, s); err != nil {
 		return err
 	}
 
@@ -73,13 +73,13 @@ func MoveLineDown(te *widget.TextEdit) error {
 	}
 
 	// keep copy of the moving line
-	s, err := tc.RW().ReadNCopyAt(a, b-a)
+	s, err := tc.RW().ReadNAtCopy(a, b-a)
 	if err != nil {
 		return err
 	}
 
 	// delete moving line
-	if err := tc.RW().Delete(a, b-a); err != nil {
+	if err := tc.RW().Overwrite(a, b-a, nil); err != nil {
 		return err
 	}
 
@@ -94,13 +94,13 @@ func MoveLineDown(te *widget.TextEdit) error {
 		// remove newline
 		s = s[:len(s)-1]
 		// insert newline
-		if err := tc.RW().Insert(a2, []byte{'\n'}); err != nil {
+		if err := tc.RW().Overwrite(a2, 0, []byte{'\n'}); err != nil {
 			return err
 		}
 		a2 += 1 // 1 is '\n' added to s before insertion
 	}
 
-	if err := tc.RW().Insert(a2, s); err != nil {
+	if err := tc.RW().Overwrite(a2, 0, s); err != nil {
 		return err
 	}
 

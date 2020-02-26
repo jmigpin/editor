@@ -21,7 +21,7 @@ func Delete(te *widget.TextEdit) error {
 		}
 		b = a + size
 	}
-	if err := tc.RW().Delete(a, b-a); err != nil {
+	if err := tc.RW().Overwrite(a, b-a, nil); err != nil {
 		return err
 	}
 	tc.SetIndex(a)

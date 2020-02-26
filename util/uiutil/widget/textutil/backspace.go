@@ -22,7 +22,7 @@ func Backspace(te *widget.TextEdit) error {
 		}
 		a = b - size
 	}
-	if err := tc.RW().Delete(a, b-a); err != nil {
+	if err := tc.RW().Overwrite(a, b-a, nil); err != nil {
 		return err
 	}
 	tc.SetIndex(a)

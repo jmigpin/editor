@@ -93,7 +93,7 @@ func (sc *Scanner) Value() string {
 	if sc.Reverse {
 		start, pos = pos, start
 	}
-	b, err := sc.R.ReadNSliceAt(start, pos-start)
+	b, err := sc.R.ReadNAtFast(start, pos-start)
 	if err != nil {
 		return ""
 	}
@@ -115,7 +115,7 @@ func (sc *Scanner) Errorf(f string, args ...interface{}) error {
 	}
 
 	// context string
-	v, err := sc.R.ReadNSliceAt(a, b-a)
+	v, err := sc.R.ReadNAtFast(a, b-a)
 	if err != nil {
 		return err
 	}

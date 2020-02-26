@@ -51,7 +51,7 @@ func (t *Text) Len() int {
 
 // Result might not be a copy, so changes to the slice might affect the text data.
 func (t *Text) Bytes() ([]byte, error) {
-	return iorw.ReadFullSlice(t.rw)
+	return iorw.ReadFullFast(t.rw)
 }
 
 func (t *Text) SetBytes(b []byte) error {

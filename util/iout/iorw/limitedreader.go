@@ -59,15 +59,15 @@ func (r *LimitedReader) ReadLastRuneAt(i int) (ru rune, size int, err error) {
 	}
 	return r.Reader.ReadLastRuneAt(i)
 }
-func (r *LimitedReader) ReadNCopyAt(i, n int) ([]byte, error) {
+func (r *LimitedReader) ReadNAtFast(i, n int) ([]byte, error) {
 	if err := checkIndexN(r.Min(), r.Max(), i, n); err != nil {
 		return nil, err
 	}
-	return r.Reader.ReadNCopyAt(i, n)
+	return r.Reader.ReadNAtFast(i, n)
 }
-func (r *LimitedReader) ReadNSliceAt(i, n int) ([]byte, error) {
+func (r *LimitedReader) ReadNAtCopy(i, n int) ([]byte, error) {
 	if err := checkIndexN(r.Min(), r.Max(), i, n); err != nil {
 		return nil, err
 	}
-	return r.Reader.ReadNSliceAt(i, n)
+	return r.Reader.ReadNAtCopy(i, n)
 }
