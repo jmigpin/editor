@@ -82,7 +82,7 @@ func cmdVar_getFileOffset(erow *ERow) string {
 	if !erow.Info.IsFileButNotDir() {
 		return ""
 	}
-	offset := erow.Row.TextArea.TextCursor.Index()
+	offset := erow.Row.TextArea.CursorIndex()
 	posOffset := fmt.Sprintf("%v:#%v", erow.Info.Name(), offset)
 	return posOffset
 }
@@ -91,8 +91,8 @@ func cmdVar_getLine(erow *ERow) string {
 	if !erow.Info.IsFileButNotDir() {
 		return ""
 	}
-	tc := erow.Row.TextArea.TextCursor
-	l, _, err := parseutil.IndexLineColumn(tc.RW(), tc.Index())
+	ta := erow.Row.TextArea
+	l, _, err := parseutil.IndexLineColumn(ta.RW(), ta.CursorIndex())
 	if err != nil {
 		return ""
 	}

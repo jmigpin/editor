@@ -16,26 +16,22 @@ func FindShortcut(erow *ERow) {
 
 	// warp pointer to toolbar close to "Find " text cmd to be able to click for run
 	tb := erow.Row.Toolbar
-	p := tb.GetPoint(tb.TextCursor.Index())
+	p := tb.GetPoint(tb.CursorIndex())
 	p.Y += tb.LineHeight() * 3 / 4 // center of rune
 	erow.Ed.UI.WarpPointer(p)
 }
 
 func findShortcut2(erow *ERow) error {
 	// check if there is a selection in the textarea
-	searchStr := []byte{}
-	tatc := erow.Row.TextArea.TextCursor
-	if tatc.SelectionOn() {
-		s, err := tatc.Selection()
-		if err != nil {
-			return err
-		}
+	searchB := []byte{}
+	ta := erow.Row.TextArea
+	if b, ok := ta.EditCtx().Selection(); ok {
 		// don't use if selection has more then one line
-		if !bytes.ContainsRune(s, '\n') {
-			searchStr = s
+		if !bytes.ContainsRune(b, '\n') {
+			searchB = b
 			// quote if it has spaces
-			if bytes.ContainsRune(searchStr, ' ') {
-				searchStr = []byte(strconv.Quote(string(searchStr)))
+			if bytes.ContainsRune(searchB, ' ') {
+				searchB = []byte(strconv.Quote(string(searchB)))
 			}
 		}
 	}
@@ -52,49 +48,49 @@ func findShortcut2(erow *ERow) error {
 	}
 
 	tb := erow.Row.Toolbar
-	tc := erow.Row.Toolbar.TextCursor
-	tc.BeginEdit()
-	defer tc.EndEdit()
+	c := tb.Cursor()
+
+	tb.BeginUndoGroup()
+	defer tb.EndUndoGroup()
 
 	if found {
 		// select current find cmd string
 		a := part.Args[0].End
 		b := part.End
 		if a == b {
-			if err := tc.RW().Overwrite(a, 0, []byte(" ")); err != nil {
+			if err := tb.RW().Overwrite(a, 0, []byte(" ")); err != nil {
 				return err
 			}
 			a++
 			b++
-			tc.SetIndex(b)
+			c.SetIndex(b)
 		} else {
 			a++
-			tc.SetSelection(a, b)
+			c.SetSelection(a, b)
 		}
 
 		// replace current find cmd string with search str
-		if len(searchStr) != 0 {
-			if err := tc.RW().Overwrite(a, b-a, searchStr); err != nil {
+		if len(searchB) != 0 {
+			if err := tb.RW().Overwrite(a, b-a, searchB); err != nil {
 				return err
 			}
-			tc.SetSelection(a, a+len(searchStr))
+			c.SetSelection(a, a+len(searchB))
 		}
 	} else {
 		// insert find cmd
-		tbl := tb.TextCursor.RW().Max()
+		tbl := tb.RW().Max()
 		find := " | Find "
-		if err := tc.RW().Overwrite(tbl, 0, []byte(find)); err != nil {
+		if err := tb.RW().Overwrite(tbl, 0, []byte(find)); err != nil {
 			return err
 		}
 		a := tbl + len(find)
-		if len(searchStr) != 0 {
-			if err := tc.RW().Overwrite(a, 0, searchStr); err != nil {
+		if len(searchB) != 0 {
+			if err := tb.RW().Overwrite(a, 0, searchB); err != nil {
 				return err
 			}
-			tc.SetSelection(a, a+len(searchStr))
+			c.SetSelection(a, a+len(searchB))
 		} else {
-			tc.SetSelectionOff()
-			tc.SetIndex(a + len(searchStr))
+			c.SetIndexSelectionOff(a + len(searchB))
 		}
 	}
 	return nil

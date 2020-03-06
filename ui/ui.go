@@ -8,7 +8,8 @@ import (
 
 type UI struct {
 	*uiutil.BasicUI
-	Root *Root
+	Root    *Root
+	OnError func(error)
 }
 
 func NewUI(winName string) (*UI, error) {
@@ -138,7 +139,7 @@ func (ui *UI) rowInsertionBounds(prevRow *Row) image.Rectangle {
 }
 
 func (ui *UI) boundsAfterVisibleCursor(ta *TextArea) (*image.Rectangle, bool) {
-	ci := ta.TextCursor.Index()
+	ci := ta.CursorIndex()
 	if !ta.IndexVisible(ci) {
 		return nil, false
 	}
@@ -162,6 +163,14 @@ func (ui *UI) boundsOfTwoThirds(ta *TextArea) (*image.Rectangle, bool) {
 	b.Min.Y = b.Max.Y - (ta.Bounds.Dy() * 2 / 3)
 	r := ta.Bounds.Intersect(b)
 	return &r, true
+}
+
+//----------
+
+func (ui *UI) Error(err error) {
+	if ui.OnError != nil {
+		ui.OnError(err)
+	}
 }
 
 //----------

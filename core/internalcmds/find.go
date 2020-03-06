@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/core"
-	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
 func Find(args0 *core.InternalCmdArgs) error {
@@ -26,7 +26,7 @@ func Find(args0 *core.InternalCmdArgs) error {
 		str = strings.TrimSpace(s)
 	}
 
-	found, err := textutil.Find(args0.Ctx, erow.Row.TextArea.TextEdit, str)
+	found, err := rwedit.Find(args0.Ctx, erow.Row.TextArea.EditCtx(), str)
 	if err != nil {
 		return err
 	}
@@ -35,9 +35,10 @@ func Find(args0 *core.InternalCmdArgs) error {
 	}
 
 	// flash
-	tc := erow.Row.TextArea.TextCursor
-	a, b := tc.SelectionIndexes()
-	erow.MakeRangeVisibleAndFlash(a, b-a)
+	ta := erow.Row.TextArea
+	if a, b, ok := ta.Cursor().SelectionIndexes(); ok {
+		erow.MakeRangeVisibleAndFlash(a, b-a)
+	}
 
 	return nil
 }

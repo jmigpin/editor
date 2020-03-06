@@ -46,7 +46,7 @@ func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEven
 	ctx, cancel := context.WithCancel(erow.ctx)
 	ic.mu.cancel = cancel
 	ic.mu.ta = ta
-	ic.mu.index = ta.TextCursor.Index()
+	ic.mu.index = ta.CursorIndex()
 	ic.mu.Unlock()
 
 	go func() {
@@ -57,6 +57,9 @@ func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEven
 			ic.setAnnotations(ta, nil)
 			ic.ed.Error(err)
 		}
+		// TODO: not necessary in all cases
+		// ensure UI update
+		ic.ed.UI.EnqueueNoOpEvent()
 	}()
 	return true
 }
@@ -68,22 +71,10 @@ func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui
 	}
 
 	// insert complete
-	tc := ta.TextCursor
-	tc.BeginEdit()
-	newIndex, completed, comps2, err := insertComplete(comps, tc.RW(), tc.Index())
+	completed, comps, err := ic.insertComplete(comps, ta)
 	if err != nil {
-		tc.EndEdit()
 		return err
 	}
-	if newIndex != 0 {
-		tc.SetIndex(newIndex)
-		// update index for CancelOnCursorChange
-		ic.mu.Lock()
-		ic.mu.index = newIndex
-		ic.mu.Unlock()
-	}
-	tc.EndEdit()
-	comps = comps2
 
 	switch len(comps) {
 	case 0:
@@ -106,11 +97,27 @@ func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui
 	return nil
 }
 
+func (ic *InlineComplete) insertComplete(comps []string, ta *ui.TextArea) (completed bool, _ []string, _ error) {
+	ta.BeginUndoGroup()
+	defer ta.EndUndoGroup()
+	newIndex, completed, comps2, err := insertComplete(comps, ta.RW(), ta.CursorIndex())
+	if err != nil {
+		return completed, comps2, err
+	}
+	if newIndex != 0 {
+		ta.SetCursorIndex(newIndex)
+		// update index for CancelOnCursorChange
+		ic.mu.Lock()
+		ic.mu.index = newIndex
+		ic.mu.Unlock()
+	}
+	return completed, comps2, err
+}
+
 //----------
 
 func (ic *InlineComplete) completions(ctx context.Context, filename string, ta *ui.TextArea) ([]string, error) {
-	tc := ta.TextCursor
-	compList, err := ic.ed.LSProtoMan.TextDocumentCompletion(ctx, filename, tc.RW(), tc.Index())
+	compList, err := ic.ed.LSProtoMan.TextDocumentCompletion(ctx, filename, ta.RW(), ta.CursorIndex())
 	if err != nil {
 		return nil, err
 	}
@@ -127,12 +134,12 @@ func (ic *InlineComplete) completions(ctx context.Context, filename string, ta *
 //----------
 
 func (ic *InlineComplete) setAnnotationsMsg(ta *ui.TextArea, s string) {
-	tc := ta.TextCursor
-	offset := tc.Index()
+	offset := ta.CursorIndex()
 	entries := []*drawer4.Annotation{{offset, []byte(s), nil}}
 	ic.setAnnotations(ta, entries)
 }
 
+//godebug:annotatefile
 func (ic *InlineComplete) setAnnotations(ta *ui.TextArea, entries []*drawer4.Annotation) {
 	on := entries != nil && len(entries) > 0
 	ic.ed.SetAnnotations(EdAnnReqInlineComplete, ta, on, -1, entries)
@@ -176,7 +183,7 @@ func (ic *InlineComplete) CancelOnCursorChange() {
 	index := ic.mu.index
 	ic.mu.Unlock()
 	if ta != nil {
-		if index != ta.TextCursor.Index() {
+		if index != ta.CursorIndex() {
 			ic.setAnnotations(ta, nil)
 		}
 	}

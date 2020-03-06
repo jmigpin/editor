@@ -135,7 +135,7 @@ func TestInsertComplete(t *testing.T) {
 	for _, u := range w {
 		rw := iorw.NewBytesReadWriter([]byte(u.in.text))
 		newIndex, completed, comps, _ := insertComplete(u.in.comps, rw, u.in.index)
-		b, err := iorw.ReadFullSlice(rw)
+		b, err := iorw.ReadFullFast(rw)
 		if err != nil {
 			t.Fatal(err)
 		}

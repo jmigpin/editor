@@ -41,7 +41,7 @@ func (ic *internalCmds) Set(cmd *InternalCmd) {
 
 func InternalCmdFromRootTb(ed *Editor, tb *ui.Toolbar) {
 	tbdata := toolbarparser.Parse(tb.Str())
-	part, ok := tbdata.PartAtIndex(int(tb.TextCursor.Index()))
+	part, ok := tbdata.PartAtIndex(int(tb.CursorIndex()))
 	if !ok {
 		ed.Errorf("missing part at index")
 		return
@@ -57,7 +57,7 @@ func InternalCmdFromRootTb(ed *Editor, tb *ui.Toolbar) {
 //----------
 
 func InternalCmdFromRowTb(erow *ERow) {
-	part, ok := erow.TbData.PartAtIndex(int(erow.Row.Toolbar.TextCursor.Index()))
+	part, ok := erow.TbData.PartAtIndex(int(erow.Row.Toolbar.CursorIndex()))
 	if !ok {
 		erow.Ed.Errorf("missing part at index")
 		return
@@ -80,7 +80,7 @@ func InternalCmdFromRowTb(erow *ERow) {
 
 func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 	a0 := part.Args[0]
-	ci := erow.Row.Toolbar.TextCursor.Index()
+	ci := erow.Row.Toolbar.CursorIndex()
 
 	// cursor index beyond arg0
 	if ci > a0.End {
@@ -112,7 +112,7 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 	if erow2.Info.IsFileButNotDir() {
 		ta := erow.Row.TextArea
 		ta2 := erow2.Row.TextArea
-		ta2.TextCursor.SetIndex(ta.TextCursor.Index())
+		ta2.SetCursorIndex(ta.CursorIndex())
 		ta2.SetRuneOffset(ta.RuneOffset())
 	}
 

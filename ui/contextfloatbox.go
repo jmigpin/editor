@@ -98,7 +98,7 @@ func (cfb *ContextFloatBox) Toggle() {
 //----------
 
 func (cfb *ContextFloatBox) SetRefPointToTextAreaCursor(ta *TextArea) {
-	p := ta.GetPoint(ta.TextCursor.Index())
+	p := ta.GetPoint(ta.CursorIndex())
 	p.Y += ta.LineHeight()
 	cfb.RefPoint = p
 	// compensate scrollwidth for a better position

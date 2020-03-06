@@ -28,9 +28,8 @@ func LSProtoRename(args0 *core.InternalCmdArgs) error {
 	to := args[len(args)-1].UnquotedStr()
 
 	// id offset to rename "from"
-	tc := erow.Row.TextArea.TextCursor
-
-	we, err := args0.Ed.LSProtoMan.TextDocumentRename(args0.Ctx, erow.Info.Name(), tc.RW(), tc.Index(), to)
+	ta := erow.Row.TextArea
+	we, err := args0.Ed.LSProtoMan.TextDocumentRename(args0.Ctx, erow.Info.Name(), ta.RW(), ta.CursorIndex(), to)
 	if err != nil {
 		return err
 	}

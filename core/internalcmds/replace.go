@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmigpin/editor/core"
-	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
 func Replace(args0 *core.InternalCmdArgs) error {
@@ -18,7 +18,10 @@ func Replace(args0 *core.InternalCmdArgs) error {
 
 	old, new := args[0].UnquotedStr(), args[1].UnquotedStr()
 
-	replaced, err := textutil.Replace(erow.Row.TextArea.TextEdit, old, new)
+	ta := erow.Row.TextArea
+	ta.BeginUndoGroup()
+	defer ta.EndUndoGroup()
+	replaced, err := rwedit.Replace(ta.EditCtx(), old, new)
 	if err != nil {
 		return err
 	}

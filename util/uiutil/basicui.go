@@ -240,17 +240,19 @@ func (ui *BasicUI) SetCursor(c event.Cursor) {
 
 //----------
 
-func (ui *BasicUI) GetCPPaste(i event.CopyPasteIndex, fn func(string, bool)) {
-	ui.Win.GetCPPaste(i, func(s string, err error) {
+func (ui *BasicUI) GetClipboardData(i event.ClipboardIndex, fn func(string, error)) {
+	i2 := event.CopyPasteIndex(i)
+	ui.Win.GetCPPaste(i2, func(s string, err error) {
 		if err != nil {
-			ui.AppendEvent(fmt.Errorf("cppaste: %w", err))
+			ui.AppendEvent(fmt.Errorf("getclipboarddata: %w", err))
 		}
-		fn(s, err == nil)
+		fn(s, err)
 	})
 }
-func (ui *BasicUI) SetCPCopy(i event.CopyPasteIndex, s string) {
-	if err := ui.Win.SetCPCopy(i, s); err != nil {
-		ui.AppendEvent(fmt.Errorf("cpcopy: %w", err))
+func (ui *BasicUI) SetClipboardData(i event.ClipboardIndex, s string) {
+	i2 := event.CopyPasteIndex(i)
+	if err := ui.Win.SetCPCopy(i2, s); err != nil {
+		ui.AppendEvent(fmt.Errorf("setclipboarddata: %w", err))
 	}
 }
 

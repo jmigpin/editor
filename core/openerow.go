@@ -74,7 +74,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 			}
 			if erow0, ok := info.FirstERow(); ok {
 				ta := erow0.Row.TextArea
-				return cacheLineColumnIndex(ta.TextCursor.RW())
+				return cacheLineColumnIndex(ta.RW())
 			}
 		}
 		return -1
@@ -151,8 +151,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		// setup chosen erow
 		//erow.Row.EnsureTextAreaMinimumHeight()
 		erow.Row.EnsureOneToolbarLineYVisible()
-		erow.Row.TextArea.TextCursor.SetIndex(offset)
-		erow.Row.TextArea.TextCursor.SetSelectionOff()
+		erow.Row.TextArea.Cursor().SetIndexSelectionOff(offset)
 		erow.Row.TextArea.MakeIndexVisible(offset)
 
 		// flash visible offsets

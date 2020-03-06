@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -23,8 +25,9 @@ type ERow struct {
 	Exec   *ERowExec
 	TbData toolbarparser.Data
 
-	highlightDuplicates           bool
-	disableTextAreaSetStrCallback bool
+	highlightDuplicates bool
+
+	parsingToolbar bool // protect against write loop
 
 	termFilter bool
 
@@ -46,17 +49,15 @@ func NewERow(ed *Editor, info *ERowInfo, rowPos *ui.RowPos) *ERow {
 
 	erow := &ERow{Ed: ed, Row: row, Info: info}
 	erow.Exec = NewERowExec(erow)
-
-	// TODO: join with updateToolbarPart0
-	s2 := ed.HomeVars.Encode(erow.Info.Name())
-	erow.Row.Toolbar.SetStrClearHistory(s2)
-
-	erow.initHandlers()
-	erow.parseToolbar() // after handlers are set
-	erow.setupTextAreaSyntaxHighlight()
-
 	ctx0 := context.Background() // TODO: editor ctx
 	erow.ctx, erow.cancelCtx = context.WithCancel(ctx0)
+
+	erow.setupTextAreaSyntaxHighlight()
+
+	erow.initHandlers()
+
+	// init name; any string (len>0) will be replaced by the encoded name
+	erow.updateToolbarNameEncoding2("_")
 
 	// editor events
 	ev := &PostNewERowEEvent{ERow: erow}
@@ -85,36 +86,21 @@ func (erow *ERow) initHandlers() {
 		erow.Ed.Watcher.Add(erow.Info.Name())
 	}
 
-	// toolbar set str
-	row.Toolbar.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
-		erow.parseToolbar()
+	// toolbar on prewrite
+	row.Toolbar.RWEvReg.Add(iorw.RWEvIdPreWrite, func(ev0 interface{}) {
+		ev := ev0.(*iorw.RWEvPreWrite)
+		if err := erow.validateToolbarPreWrite(ev); err != nil {
+			ev.ReplyErr = err
+		}
 	})
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
 		InternalCmdFromRowTb(erow)
 	})
-	// textarea set str
-	row.TextArea.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
-		//ev := ev0.(*ui.TextAreaSetStrEvent)
-
-		if erow.disableTextAreaSetStrCallback {
-			return
-		}
-
-		erow.Info.SetRowsStrFromMaster(erow)
-	})
-	// textarea edit
-	row.TextArea.EvReg.Add(ui.TextAreaWriteOpEventId, func(ev0 interface{}) {
-		ev := ev0.(*ui.TextAreaWriteOpEvent)
-		// update duplicate edits to keep offset/cursor in position
-		if erow.Info.IsFileButNotDir() {
-			for _, e := range erow.Info.ERows {
-				if e == erow {
-					continue
-				}
-				e.Row.TextArea.UpdatePositionOnWriteOp(ev.WriteOp)
-			}
-		}
+	// textarea on write
+	row.TextArea.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 interface{}) {
+		ev := ev0.(*iorw.RWEvWrite)
+		erow.Info.HandleRWEvWrite(erow, ev)
 	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
@@ -131,7 +117,7 @@ func (erow *ERow) initHandlers() {
 		ev := ev0.(*ui.TextAreaInlineCompleteEvent)
 		handled := erow.Ed.InlineComplete.Complete(erow, ev)
 		// Allow the input event (`tab` key press) to function normally if the inlinecomplete is not being handled (ex: no lsproto server is registered for this filename extension)
-		ev.Handled = event.Handled(handled)
+		ev.ReplyHandled = event.Handled(handled)
 	})
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 interface{}) {
@@ -198,31 +184,83 @@ func (erow *ERow) initHandlers() {
 
 //----------
 
-func (erow *ERow) parseToolbar() {
-	str := erow.Row.Toolbar.Str()
+func (erow *ERow) encodedName() string {
+	return erow.Ed.HomeVars.Encode(erow.Info.Name())
+}
 
-	data := toolbarparser.Parse(str)
+//----------
 
-	// don't allow toolbar edit of the name
-	ename := erow.Ed.HomeVars.Encode(erow.Info.Name())
+func (erow *ERow) validateToolbarPreWrite(ev *iorw.RWEvPreWrite) error {
+	// current content (pre write) copy
+	b, err := iorw.ReadFullCopy(erow.Row.Toolbar.RW())
+	if err != nil {
+		return err
+	}
+
+	// simulate the write // TODO: how to guarantee the simulation is accurate and no rw filter exists.
+	rw := iorw.NewBytesReadWriter(b)
+	if err := rw.Overwrite(ev.Index, ev.N, ev.P); err != nil {
+		return err
+	}
+	b2, err := iorw.ReadFullFast(rw)
+	if err != nil {
+		return err
+	}
+	tbStr2 := string(b2)
+
+	// simulation name
+	data := toolbarparser.Parse(tbStr2)
 	arg0, ok := data.Part0Arg0()
 	if !ok {
-		erow.Row.Toolbar.TextHistory.Undo()
-		erow.Row.Toolbar.TextHistory.ClearForward()
-		erow.Ed.Errorf("unable to get toolbar name")
-		return
+		return fmt.Errorf("unable to get toolbar name")
 	}
-	ename2 := arg0.UnquotedStr()
-	if ename2 != ename {
-		erow.Row.Toolbar.TextHistory.Undo()
-		erow.Row.Toolbar.TextHistory.ClearForward()
-		erow.Ed.Errorf("can't change toolbar name: %q -> %q", ename, ename2)
-		return
+	simName := arg0.UnquotedStr()
+
+	// expected name
+	nameEnc := erow.encodedName()
+
+	if simName != nameEnc {
+		return fmt.Errorf("can't change toolbar name: %q -> %q", nameEnc, simName)
 	}
 
+	// valid data
 	erow.TbData = *data
-
 	erow.parseToolbarVars()
+
+	return nil
+}
+
+//----------
+
+func (erow *ERow) UpdateToolbarNameEncoding() {
+	str := erow.Row.Toolbar.Str()
+	erow.updateToolbarNameEncoding2(str)
+}
+
+func (erow *ERow) updateToolbarNameEncoding2(str string) {
+	data := toolbarparser.Parse(str)
+	arg0, ok := data.Part0Arg0()
+	if !ok {
+		return
+	}
+
+	// replace part0 arg0 with encoded name
+	ename := erow.encodedName()
+	str2 := ename + str[arg0.End:]
+	if str2 != str {
+		erow.Row.Toolbar.SetStrClearHistory(str2)
+	}
+}
+
+//----------
+
+func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
+	arg0, ok := erow.TbData.Part0Arg0()
+	if !ok {
+		return
+	}
+	str := erow.Row.Toolbar.Str()[:arg0.End] + s
+	erow.Row.Toolbar.SetStrClearHistory(str)
 }
 
 //----------
@@ -262,24 +300,6 @@ func (erow *ERow) setVarFontTheme(s string) error {
 
 //----------
 
-func (erow *ERow) updateToolbarPart0() {
-	str := erow.Row.Toolbar.Str()
-	data := toolbarparser.Parse(str)
-	arg0, ok := data.Part0Arg0()
-	if !ok {
-		return
-	}
-
-	// replace part0 arg0 with encoded name
-	ename := erow.Ed.HomeVars.Encode(erow.Info.Name())
-	str2 := ename + str[arg0.End:]
-	if str2 != str {
-		erow.Row.Toolbar.SetStrClearHistory(str2)
-	}
-}
-
-//----------
-
 func (erow *ERow) Reload() {
 	if err := erow.reload(); err != nil {
 		erow.Ed.Error(err)
@@ -295,18 +315,6 @@ func (erow *ERow) reload() error {
 	default:
 		return errors.New("unexpected type to reload")
 	}
-}
-
-//----------
-
-func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
-	arg, ok := erow.TbData.Part0Arg0()
-	if !ok {
-		return
-	}
-	i := arg.End
-	str := erow.Row.Toolbar.Str()[:i] + s
-	erow.Row.Toolbar.SetStrClearHistory(str)
 }
 
 //----------
@@ -331,21 +339,20 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 // UI Safe. Writer will block until it has queued in the UI goroutine (the actual apppend bytes is done later in the UI goroutine, avoiding possible UI locks).
 func (erow *ERow) TextAreaAppendBytesUIWriter() io.Writer {
 	return iout.FnWriter(func(b []byte) (int, error) {
-		l := len(b) // avoid data race: read length of b before goroutine
+		// can't sync.wait since it could lock the caller if inside a uigoroutine
 
-		// TODO: use locked version of RW, and just issue an UI update request
+		// make copy since the data will be used async in uigoroutine
+		b2 := make([]byte, len(b))
+		copy(b2, b)
 
-		//var wg sync.WaitGroup
-		//wg.Add(1)
 		erow.Ed.UI.RunOnUIGoRoutine(func() {
-			//defer wg.Done()
-			err := erow.Row.TextArea.AppendBytesClearHistory(b)
+			err := erow.Row.TextArea.AppendBytesClearHistory(b2)
 			if err != nil {
 				erow.Ed.Error(err)
 			}
 		})
-		//wg.Wait()
-		return l, nil
+
+		return len(b2), nil
 	})
 }
 

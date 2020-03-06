@@ -16,6 +16,7 @@ import (
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font"
@@ -85,6 +86,7 @@ func (ed *Editor) init(opt *Options) error {
 		return err
 	}
 	ed.UI = ui0
+	ed.UI.OnError = ed.Error
 	ed.setupUIRoot()
 
 	// TODO: ensure it has the window measure
@@ -335,8 +337,8 @@ func (ed *Editor) setupRootToolbar() {
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
 		InternalCmdFromRootTb(ed, tb)
 	})
-	// set str
-	tb.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
+	// on write
+	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 interface{}) {
 		ed.updateERowsToolbarsHomeVars()
 	})
 
@@ -368,8 +370,8 @@ Exit | Stop | Clear`
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
 		InternalCmdFromRootTb(ed, tb)
 	})
-	// set str
-	tb.EvReg.Add(ui.TextAreaSetStrEventId, func(ev0 interface{}) {
+	// on write
+	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 interface{}) {
 		ed.updateERowsToolbarsHomeVars()
 	})
 }
@@ -381,7 +383,7 @@ func (ed *Editor) updateERowsToolbarsHomeVars() {
 	tb2 := ed.UI.Root.MainMenuButton.Toolbar.Str()
 	ed.HomeVars.ParseToolbarVars([]string{tb1, tb2}, ed.FsCaseInsensitive)
 	for _, erow := range ed.ERows() {
-		erow.updateToolbarPart0()
+		erow.UpdateToolbarNameEncoding()
 	}
 }
 
@@ -681,8 +683,8 @@ func (ed *Editor) toggleInfoFloatBox() {
 }
 
 func (ed *Editor) lsprotoManAutoComplete(ctx context.Context, ta *ui.TextArea, erow *ERow) (string, error) {
-	tc := erow.Row.TextArea.TextCursor
-	comps, err := ed.LSProtoMan.TextDocumentCompletionDetailStrings(ctx, erow.Info.Name(), tc.RW(), tc.Index())
+	//ta := erow.Row.TextArea
+	comps, err := ed.LSProtoMan.TextDocumentCompletionDetailStrings(ctx, erow.Info.Name(), ta.RW(), ta.CursorIndex())
 	if err != nil {
 		return "", err
 	}

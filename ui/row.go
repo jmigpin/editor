@@ -14,7 +14,7 @@ type Row struct {
 	Toolbar  *RowToolbar
 	TextArea *TextArea
 	Col      *Column
-	EvReg    *evreg.Register
+	EvReg    evreg.Register
 
 	ScrollArea *widget.ScrollArea
 	sep        *RowSeparator
@@ -25,8 +25,6 @@ func NewRow(col *Column) *Row {
 	row := &Row{Col: col, ui: col.Cols.Root.UI}
 	row.BoxLayout = widget.NewBoxLayout()
 	row.YAxis = true
-
-	row.EvReg = evreg.NewRegister()
 
 	// row separator from other rows
 	row.sep = NewRowSeparator(row)

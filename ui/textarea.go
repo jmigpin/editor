@@ -6,16 +6,15 @@ import (
 
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
-	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
-	"github.com/jmigpin/editor/util/uiutil/widget/textutil"
 )
 
 type TextArea struct {
 	*widget.TextEditX
-	*textutil.TextEditInputHandler
-	EvReg                       *evreg.Register
+
+	EvReg                       evreg.Register
 	SupportClickInsideSelection bool
 
 	ui *UI
@@ -23,26 +22,8 @@ type TextArea struct {
 
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui}
-	ta.TextEditX = widget.NewTextEditX(ui, ui)
-	ta.TextEditInputHandler = textutil.NewTextEditInputHandler(ta.TextEditX)
-
-	ta.OnSetStr = ta.onSetStr
-	ta.OnWriteOp = ta.onWriteOp
-	ta.EvReg = evreg.NewRegister()
-
+	ta.TextEditX = widget.NewTextEditX(ui)
 	return ta
-}
-
-//----------
-
-func (ta *TextArea) onSetStr() {
-	ev := &TextAreaSetStrEvent{ta}
-	ta.EvReg.RunCallbacks(TextAreaSetStrEventId, ev)
-}
-
-func (ta *TextArea) onWriteOp(u *iorw.RWCallbackWriteOp) {
-	ev := &TextAreaWriteOpEvent{ta, u}
-	ta.EvReg.RunCallbacks(TextAreaWriteOpEventId, ev)
 }
 
 //----------
@@ -50,7 +31,8 @@ func (ta *TextArea) onWriteOp(u *iorw.RWCallbackWriteOp) {
 func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	h := ta.handleInputEvent2(ev0, p) // editor shortcuts first
 	if h == event.HFalse {
-		h = ta.TextEditInputHandler.OnInputEvent(ev0, p)
+		// ignore handled to allow ui.Row to get inputevents
+		_ = ta.TextEditX.OnInputEvent(ev0, p)
 	}
 	return h
 }
@@ -72,7 +54,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 				}
 			}
 			if !ta.SupportClickInsideSelection || !ta.PointIndexInsideSelection(ev.Point) {
-				textutil.MoveCursorToPoint(ta.TextEdit, &ev.Point, false)
+				rwedit.MoveCursorToPoint(ta.EditCtx(), ev.Point, false)
 			}
 			i := ta.GetIndex(ev.Point)
 			ev2 := &TextAreaCmdEvent{ta, i}
@@ -82,7 +64,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 	case *event.MouseDown:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.Cursor = event.PointerCursor
+			ta.ENode.Cursor = event.PointerCursor
 		case event.ButtonLeft:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
@@ -108,12 +90,12 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 	case *event.MouseUp:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.Cursor = event.NoneCursor
+			ta.ENode.Cursor = event.NoneCursor
 		}
 	case *event.MouseDragStart:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.Cursor = event.NoneCursor
+			ta.ENode.Cursor = event.NoneCursor
 		}
 	case *event.KeyDown:
 		m := ev.Mods.ClearLocks()
@@ -151,14 +133,13 @@ func (ta *TextArea) selAnnEv(typ TASelAnnType) {
 //----------
 
 func (ta *TextArea) inlineCompleteEv() event.Handled {
-	if ta.TextCursor.SelectionOn() {
+	c := ta.Cursor()
+	if c.HaveSelection() {
 		return event.HFalse
 	}
 
 	// previous rune should not be a space
-	offset := ta.TextCursor.Index()
-	rw := ta.TextCursor.RW()
-	ru, _, err := rw.ReadRuneAt(offset - 1)
+	ru, _, err := ta.RW().ReadRuneAt(c.Index() - 1)
 	if err != nil {
 		return event.HFalse
 	}
@@ -166,17 +147,17 @@ func (ta *TextArea) inlineCompleteEv() event.Handled {
 		return event.HFalse
 	}
 
-	ev2 := &TextAreaInlineCompleteEvent{ta, offset, false}
+	ev2 := &TextAreaInlineCompleteEvent{ta, c.Index(), false}
 	ta.EvReg.RunCallbacks(TextAreaInlineCompleteEventId, ev2)
-	return ev2.Handled
+	return ev2.ReplyHandled
 }
 
 //----------
 
 func (ta *TextArea) PointIndexInsideSelection(p image.Point) bool {
-	if ta.TextCursor.SelectionOn() {
+	c := ta.Cursor()
+	if s, e, ok := c.SelectionIndexes(); ok {
 		i := ta.GetIndex(p)
-		s, e := ta.TextCursor.SelectionIndexes()
 		return i >= s && i < e
 	}
 	return false
@@ -208,22 +189,13 @@ func (ta *TextArea) setDrawer4Opts() {
 //----------
 
 const (
-	TextAreaSetStrEventId = iota
-	TextAreaWriteOpEventId
-	TextAreaCmdEventId
+	TextAreaCmdEventId = iota
 	TextAreaSelectAnnotationEventId
 	TextAreaInlineCompleteEventId
 )
 
 //----------
 
-type TextAreaSetStrEvent struct {
-	TextArea *TextArea
-}
-type TextAreaWriteOpEvent struct {
-	TextArea *TextArea
-	WriteOp  *iorw.RWCallbackWriteOp
-}
 type TextAreaCmdEvent struct {
 	TextArea *TextArea
 	Index    int
@@ -254,5 +226,5 @@ type TextAreaInlineCompleteEvent struct {
 	TextArea *TextArea
 	Offset   int
 
-	Handled event.Handled // allow callbacks to set value
+	ReplyHandled event.Handled // allow callbacks to set value
 }

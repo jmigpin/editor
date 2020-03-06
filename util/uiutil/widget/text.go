@@ -14,8 +14,7 @@ type Text struct {
 	ENode
 	TextScroll
 
-	Drawer   drawutil.Drawer
-	OnSetStr func()
+	Drawer drawutil.Drawer
 
 	scrollable struct{ x, y bool }
 	ctx        ImageContext
@@ -55,7 +54,7 @@ func (t *Text) Bytes() ([]byte, error) {
 }
 
 func (t *Text) SetBytes(b []byte) error {
-	if err := t.rw.Overwrite(t.rw.Min(), iorw.MMLen(t.rw), b); err != nil {
+	if err := iorw.SetBytes(t.rw, b); err != nil {
 		return err
 	}
 	t.contentChanged()
@@ -83,10 +82,6 @@ func (t *Text) contentChanged() {
 
 	// content changing can influence the layout in the case of dynamic sized textareas (needs layout). Also in the case of scrollareas that need to recalc scrollbars.
 	t.MarkNeedsLayoutAndPaint()
-
-	if t.OnSetStr != nil {
-		t.OnSetStr()
-	}
 }
 
 //----------

@@ -11,8 +11,11 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
 )
+
+//godebug:annotatefile
 
 // TODO: become an interface, with file/dir/special implementations.
 // TODO: centralized iorw reader/writer in info
@@ -59,7 +62,6 @@ func readERowInfoOrNew(ed *Editor, name string) *ERowInfo {
 
 	// new erow info
 	info = &ERowInfo{Ed: ed, name: name}
-	//info.RW = iorw.NewBytesReadWriter(nil)
 	info.readFileInfo()
 	return info
 }
@@ -309,7 +311,7 @@ func (info *ERowInfo) NewFileERow(rowPos *ui.RowPos) (*ERow, error) {
 		// create erow first to get it updated
 		erow := NewERow(info.Ed, info, rowPos)
 		// update the new erow with content
-		info.SetRowsStrFromMaster(erow0)
+		info.setRWFromMaster(erow0)
 		return erow, nil
 	}
 
@@ -378,7 +380,10 @@ func (info *ERowInfo) SaveFile() error {
 	}
 
 	// update all erows (including row saved states)
-	info.SetRowsBytes(b)
+	//info.SetRowsBytes(b)
+	if erow0, ok := info.FirstERow(); ok {
+		erow0.Row.TextArea.SetBytesFromSave(b)
+	}
 
 	// editor events
 	ev := &PostFileSaveEEvent{Info: info}
@@ -558,38 +563,38 @@ func (info *ERowInfo) SetRowsBytes(b []byte) {
 		return
 	}
 	if erow0, ok := info.FirstERow(); ok {
-		erow0.Row.TextArea.SetBytes(b) // will update other rows via callback
+		// gets to duplicates via callback that in practice will only set pointers to share RW and History
+		erow0.Row.TextArea.SetBytes(b)
 	}
-}
-
-func (info *ERowInfo) SetRowsStrFromMaster(erow *ERow) {
-	if !info.IsFileButNotDir() {
-		return
-	}
-
-	// disable/enable callback recursion
-	disableCB := func(v bool) {
-		for _, e := range info.ERows {
-			e.disableTextAreaSetStrCallback = v
-		}
-	}
-	disableCB(true)
-	defer disableCB(false)
-
-	info.updateDuplicatesBytes(erow)
-	info.UpdateEditedRowState()
-
-	info.Ed.GoDebug.UpdateUIERowInfo(info)
 }
 
 //----------
 
-func (info *ERowInfo) updateDuplicatesBytes(erow *ERow) {
+func (info *ERowInfo) HandleRWEvWrite(erow *ERow, ev *iorw.RWEvWrite) {
+	if !info.IsFileButNotDir() {
+		return
+	}
+	info.setRWFromMaster(erow)
+	info.handleRWsWrite(erow, ev)
+}
+
+func (info *ERowInfo) setRWFromMaster(erow *ERow) {
 	for _, e := range info.ERows {
 		if e == erow {
 			continue
 		}
-		erow.Row.TextArea.UpdateDuplicate(e.Row.TextArea.TextEdit)
+		e.Row.TextArea.SetRWFromMaster(erow.Row.TextArea.TextEdit)
+	}
+	info.UpdateEditedRowState()
+	info.Ed.GoDebug.UpdateUIERowInfo(info)
+}
+
+func (info *ERowInfo) handleRWsWrite(erow *ERow, ev *iorw.RWEvWrite) {
+	for _, e := range info.ERows {
+		if e == erow {
+			continue
+		}
+		e.Row.TextArea.HandleRWWrite(ev)
 	}
 }
 

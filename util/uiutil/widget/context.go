@@ -6,17 +6,23 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
+type UIContext interface {
+	Error(error)
+
+	ImageContext
+	CursorContext
+	//	Image() draw.Image // TODO
+	//	SetCursor(event.Cursor) // TODO
+
+	RunOnUIGoRoutine(f func())
+	SetClipboardData(event.ClipboardIndex, string)
+	GetClipboardData(event.ClipboardIndex, func(string, error))
+}
+
 type ImageContext interface {
 	Image() draw.Image
 }
 
 type CursorContext interface {
 	SetCursor(event.Cursor)
-}
-
-type ClipboardContext interface {
-	GetCPPaste(i event.CopyPasteIndex, fn func(string, bool))
-	SetCPCopy(i event.CopyPasteIndex, v string)
-
-	RunOnUIGoRoutine(f func())
 }

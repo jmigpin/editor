@@ -16,11 +16,11 @@ type Root struct {
 	MainMenuButton  *MainMenuButton
 	ContextFloatBox *ContextFloatBox
 	Cols            *Columns
-	EvReg           *evreg.Register
+	EvReg           evreg.Register
 }
 
 func NewRoot(ui *UI) *Root {
-	return &Root{MultiLayer: widget.NewMultiLayer(), UI: ui, EvReg: evreg.NewRegister()}
+	return &Root{MultiLayer: widget.NewMultiLayer(), UI: ui}
 }
 
 func (root *Root) Init() {

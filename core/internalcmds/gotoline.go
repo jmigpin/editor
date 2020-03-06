@@ -24,15 +24,13 @@ func GotoLine(args0 *core.InternalCmdArgs) error {
 	line := int(line0)
 
 	ta := erow.Row.TextArea
-	index, err := parseutil.LineColumnIndex(ta.TextCursor.RW(), line, 0)
+	index, err := parseutil.LineColumnIndex(ta.RW(), line, 0)
 	if err != nil {
 		return err
 	}
 
 	// goto index
-	tc := ta.TextCursor
-	tc.SetSelectionOff()
-	tc.SetIndex(index)
+	ta.Cursor().SetIndexSelectionOff(index)
 
 	erow.MakeIndexVisibleAndFlash(index)
 

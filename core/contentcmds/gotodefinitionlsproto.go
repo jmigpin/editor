@@ -22,8 +22,8 @@ func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (err
 	defer cancel()
 
 	ed := erow.Ed
-	tc := erow.Row.TextArea.TextCursor
-	rw := tc.RW()
+	ta := erow.Row.TextArea
+	rw := ta.RW()
 
 	// must have a registration that handles the filename
 	_, err := ed.LSProtoMan.LangManager(erow.Info.Name())
@@ -42,7 +42,7 @@ func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (err
 	if ok {
 		// file is in memory already
 		if erow0, ok := info.FirstERow(); ok {
-			rd = erow0.Row.TextArea.TextCursor.RW()
+			rd = erow0.Row.TextArea.RW()
 		}
 	}
 	if rd == nil {

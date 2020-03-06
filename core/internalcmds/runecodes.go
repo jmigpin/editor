@@ -10,13 +10,9 @@ func RuneCodes(args *core.InternalCmdArgs) error {
 	erow := args.ERow
 
 	ta := erow.Row.TextArea
-	tc := ta.TextCursor
-	if !tc.SelectionOn() {
+	b, ok := ta.EditCtx().Selection()
+	if !ok {
 		return fmt.Errorf("no text selected")
-	}
-	b, err := tc.Selection()
-	if err != nil {
-		return err
 	}
 
 	s := "runecodes:\n"

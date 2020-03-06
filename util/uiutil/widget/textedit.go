@@ -1,89 +1,207 @@
 package widget
 
 import (
+	"image"
+
+	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/mathutil"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
+	"github.com/jmigpin/editor/util/iout/iorw/rwundo"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
+
+//godebug:annotatefile
 
 type TextEdit struct {
 	*Text
-	ClipboardContext
-
-	TextCursor  *TextCursor
-	TextHistory *TextHistory
-	OnWriteOp   func(*iorw.RWCallbackWriteOp)
-
-	rwcb iorw.ReadWriter // rwcallback (write ops)
+	uiCtx   UIContext
+	rwev    *iorw.RWEvents
+	rwu     *rwundo.RWUndo
+	ctx     *rwedit.Ctx     // ctx for rw editing utils (contains cursor)
+	RWEvReg *evreg.Register // the rwundo wraps the rwev, so on a write event callback the undo data is not commited yet. It is incorrect to try to undo inside a write callback. If a rwev wraps rwundo, undoing will not trigger the outer rwev events, otherwise undoing would register as another undo event (cycle).
 }
 
-func NewTextEdit(ctx ImageContext, cctx ClipboardContext) *TextEdit {
-	t := NewText(ctx)
-	te := &TextEdit{Text: t, ClipboardContext: cctx}
-	te.TextCursor = NewTextCursor(te)
-	te.TextHistory = NewTextHistory(te)
-	te.SetRW(te.Text.rw)
+func NewTextEdit(uiCtx UIContext) *TextEdit {
+	t := NewText(uiCtx)
+	te := &TextEdit{Text: t, uiCtx: uiCtx}
+
+	te.rwev = iorw.NewRWEvents(te.Text.rw)
+	te.RWEvReg = &te.rwev.EvReg
+	te.RWEvReg.Add(iorw.RWEvIdWriteChange, te.onWriteChange)
+
+	hist := rwundo.NewHistory(200)
+	te.rwu = rwundo.NewRWUndo(te.rwev, hist)
+
+	te.ctx = rwedit.NewCtx()
+	te.ctx.RW = te.rwu
+	te.ctx.C.OnChange = te.onCursorChange
+	te.ctx.Fns.Error = uiCtx.Error
+	te.ctx.Fns.GetPoint = te.GetPoint
+	te.ctx.Fns.GetIndex = te.GetIndex
+	te.ctx.Fns.LineHeight = te.LineHeight
+	te.ctx.Fns.LineCommentStr = func() string { return "" } // set by texteditx
+	te.ctx.Fns.MakeIndexVisible = te.MakeIndexVisible
+	te.ctx.Fns.Undo = te.Undo
+	te.ctx.Fns.Redo = te.Redo
+	te.ctx.Fns.SetClipboardData = te.uiCtx.SetClipboardData
+	te.ctx.Fns.GetClipboardData = func(i event.ClipboardIndex, fn func(string, error)) {
+		te.uiCtx.GetClipboardData(i, func(s string, err error) {
+			te.uiCtx.RunOnUIGoRoutine(func() {
+				fn(s, err)
+			})
+		})
+	}
+
 	return te
 }
 
 //----------
 
+func (te *TextEdit) RW() iorw.ReadWriter {
+	return te.ctx.RW
+}
+
 func (te *TextEdit) SetRW(rw iorw.ReadWriter) {
 	te.Text.SetRW(rw)
-	te.rwcb = &iorw.RWCallback{rw, te.writeOpCallback}
-	//te.TextCursor.SetRW(te.rwcb)
-	te.TextCursor.hrw = &writeOpHistoryRW{te.rwcb, te.TextCursor}
+	te.rwev.ReadWriter = rw
+}
+
+func (te *TextEdit) SetRWFromMaster(m *TextEdit) {
+	te.SetRW(m.Text.rw)
+	te.rwu.History = m.rwu.History
+}
+
+func (te *TextEdit) HandleRWWrite(ev *iorw.RWEvWrite) {
+	te.stableRuneOffset(ev)
+	te.stableCursor(ev)
+
+	te.contentChanged() // might not have changed
 }
 
 //----------
 
-func (te *TextEdit) writeOpCallback(u *iorw.RWCallbackWriteOp) {
-	if te.OnWriteOp != nil {
-		te.OnWriteOp(u)
+// Only called when the changes are done on this textedit
+func (te *TextEdit) onWriteChange(ev interface{}) {
+	te.contentChanged()
+}
+
+//----------
+
+func (te *TextEdit) EditCtx() *rwedit.Ctx {
+	return te.ctx
+}
+
+//----------
+
+func (te *TextEdit) onCursorChange() {
+	te.Drawer.SetCursorOffset(te.CursorIndex())
+	te.MarkNeedsPaint()
+}
+
+//----------
+
+func (te *TextEdit) Cursor() *rwedit.Cursor {
+	return te.ctx.C
+}
+
+func (te *TextEdit) CursorIndex() int {
+	return te.Cursor().Index()
+}
+
+func (te *TextEdit) SetCursorIndex(i int) {
+	te.Cursor().SetIndex(i)
+}
+
+//----------
+
+func (te *TextEdit) Undo() error { return te.undoRedo(false) }
+func (te *TextEdit) Redo() error { return te.undoRedo(true) }
+func (te *TextEdit) undoRedo(redo bool) error {
+	return te.rwu.UndoRedo(redo, func(cd rwedit.CursorData) {
+		te.ctx.C.SetData(cd) // restore cursor
+	})
+}
+
+func (te *TextEdit) ClearUndones() {
+	te.rwu.History.ClearUndones()
+}
+
+//----------
+
+func (te *TextEdit) BeginUndoGroup() {
+	d := te.ctx.C.Data()
+	te.rwu.History.BeginUndoGroup(&d)
+}
+
+func (te *TextEdit) EndUndoGroup() {
+	d := te.ctx.C.Data()
+	te.rwu.History.EndUndoGroup(&d)
+}
+
+// Useful when using save file that runs a code formatter (ex: go fmt) and want to avoid an undo step
+func (te *TextEdit) MergeLastUndo() {
+	te.rwu.History.MergeNDoneBack(2)
+}
+
+//----------
+
+func (te *TextEdit) OnInputEvent(ev interface{}, p image.Point) event.Handled {
+	te.BeginUndoGroup()
+	defer te.EndUndoGroup()
+
+	handled, err := rwedit.HandleInput(te.ctx, ev)
+	if err != nil {
+		te.uiCtx.Error(err)
 	}
+	return handled
 }
 
 //----------
 
 func (te *TextEdit) SetBytes(b []byte) error {
-	tc := te.TextCursor
-	var err error
-	tc.Edit(func() {
-		rw := tc.RW()
-		err = rw.Overwrite(rw.Min(), iorw.MMLen(rw), b)
-	})
-	return err
+	te.BeginUndoGroup()
+	defer te.EndUndoGroup()
+	defer func() {
+		// because after setbytes the possible selection might not be correct (ex: go fmt; variable renames with lsprotorename)
+		te.ctx.C.SetSelectionOff()
+	}()
+	return iorw.SetBytes(te.ctx.RW, b)
 }
 
 func (te *TextEdit) SetBytesClearPos(b []byte) error {
-	tc := te.TextCursor
-	var err error
-	tc.Edit(func() {
-		rw := tc.RW()
-		err = rw.Overwrite(rw.Min(), iorw.MMLen(rw), b)
-		te.ClearPos() // position will be kept in history record
-	})
+	te.BeginUndoGroup()
+	defer te.EndUndoGroup()
+	err := iorw.SetBytes(te.ctx.RW, b)
+	te.ClearPos() // keep position in undogroup (history record)
 	return err
 }
 
 // Keeps position (useful for file save)
 func (te *TextEdit) SetBytesClearHistory(b []byte) error {
-	rw := te.rwcb // bypass history
-	if err := rw.Overwrite(rw.Min(), iorw.MMLen(rw), b); err != nil {
+	te.rwu.History.Clear()
+	// bypasses history
+	if err := iorw.SetBytes(te.rwu.ReadWriter, b); err != nil {
 		return err
 	}
-	te.TextHistory.clear()
-	te.contentChanged()
 	return nil
 }
 
 func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
-	rw := te.rwcb // bypass history
+	te.rwu.History.Clear()
+	// bypasses history
+	rw := te.rwu.ReadWriter
 	if err := rw.Overwrite(rw.Max(), 0, b); err != nil {
 		return err
 	}
-	te.TextHistory.clear()
-	te.contentChanged()
 	return nil
+}
+
+// Merges the save undo step with the last undo. Useful to hide the extra step in undo history since it could be automatically done on save (ex: go fmt).
+func (te *TextEdit) SetBytesFromSave(b []byte) error {
+	if eq, err := iorw.REqual(te.rwu, b); err == nil && !eq {
+		defer te.rwu.History.MergeNDoneBack(2)
+	}
+	return te.SetBytes(b)
 }
 
 //----------
@@ -103,94 +221,25 @@ func (te *TextEdit) SetStrClearHistory(str string) error {
 //----------
 
 func (te *TextEdit) ClearPos() {
-	te.TextCursor.SetSelectionOff()
-	te.TextCursor.SetIndex(0)
+	te.ctx.C.SetIndexSelectionOff(0)
 	te.MakeIndexVisible(0)
 }
 
 //----------
 
-var limitedReaderPadding = 2500
-
-func (te *TextEdit) LimitedReaderPad(offset int) iorw.Reader {
-	return te.LimitedReaderPad2(offset, offset)
+func (te *TextEdit) stableRuneOffset(ev *iorw.RWEvWrite) {
+	// keep offset based scrolling stable
+	ro := StableOffsetScroll(te.RuneOffset(), ev.Index, ev.Dn, ev.In)
+	te.SetRuneOffset(ro)
 }
 
-func (te *TextEdit) LimitedReaderPad2(min, max int) iorw.Reader {
-	return iorw.NewLimitedReaderPad(te.rw, min, max, limitedReaderPadding)
-}
-
-//----------
-
-func (te *TextEdit) LinesIndexes(min, max int) (int, int, bool, error) {
-	rd := te.LimitedReaderPad2(min, max)
-	return iorw.LinesIndexes(rd, min, max)
-}
-
-func (te *TextEdit) LineStartIndex(offset int) (int, error) {
-	rd := te.LimitedReaderPad(offset)
-	return iorw.LineStartIndex(rd, offset)
-}
-func (te *TextEdit) LineEndIndex(offset int) (int, bool, error) {
-	rd := te.LimitedReaderPad(offset)
-	return iorw.LineEndIndex(rd, offset)
-}
-
-func (te *TextEdit) IndexFunc(offset int, truth bool, f func(rune) bool) (index, size int, err error) {
-	rd := te.LimitedReaderPad(offset)
-	return iorw.IndexFunc(rd, offset, truth, f)
-}
-func (te *TextEdit) LastIndexFunc(offset int, truth bool, f func(rune) bool) (index, size int, err error) {
-	rd := te.LimitedReaderPad(offset)
-	return iorw.LastIndexFunc(rd, offset, truth, f)
-}
-
-//----------
-
-func (te *TextEdit) UpdateDuplicate(dup *TextEdit) {
-	dup.SetRW(te.Text.rw)               // share readwriter
-	dup.TextHistory.Use(te.TextHistory) // share history
-	dup.contentChanged()
-}
-
-//----------
-
-func (te *TextEdit) UpdatePositionOnWriteOp(u *iorw.RWCallbackWriteOp) {
-	s := u.Index
-	e := s + u.Dn
-	e2 := s + u.In
-
-	// update cursor/selection position
-	tc := te.TextCursor
-	tci := tc.Index()
-	v1 := te.editValue(s, e, e2, tci)
-	if !tc.SelectionOn() {
-		tc.SetIndex(tci + v1)
+func (te *TextEdit) stableCursor(ev *iorw.RWEvWrite) {
+	c := te.Cursor()
+	ci := StableOffsetScroll(c.Index(), ev.Index, ev.Dn, ev.In)
+	if c.HaveSelection() {
+		si := StableOffsetScroll(c.SelectionIndex(), ev.Index, ev.Dn, ev.In)
+		c.SetSelection(si, ci)
 	} else {
-		si := tc.SelectionIndex()
-		v3 := te.editValue(s, e, e2, si)
-		tc.SetSelection(si+v3, tci+v1)
+		te.SetCursorIndex(ci)
 	}
-
-	// update offset position
-	ro := te.RuneOffset()
-	v2 := te.editValue(s, e, e2, ro)
-	te.SetRuneOffset(ro + v2)
-}
-
-func (te *TextEdit) editValue(s, e, e2, o int) int {
-	v := 0
-	if s < o {
-		k := mathutil.Smallest(e, o)
-		v = k - s
-		//if typ == iorw.WopDelete {
-		//	v = -v
-		//}
-		//if typ == iorw.WopOverwrite {
-		v = -v
-		k = mathutil.Smallest(e2, o)
-		v += k - s
-		//}
-	}
-	return v
 }

@@ -15,8 +15,8 @@ func CopyFilePosition(args0 *core.InternalCmdArgs) error {
 	}
 
 	ta := erow.Row.TextArea
-	ci := ta.TextCursor.Index()
-	rd := ta.TextCursor.RW()
+	ci := ta.CursorIndex()
+	rd := ta.RW()
 	line, col, err := parseutil.IndexLineColumn(rd, ci)
 	if err != nil {
 		return err

@@ -18,19 +18,41 @@ func NewStringReader(s string) Reader {
 //----------
 
 // min/max length
-func MMLen(rd Reader) int {
+func RLen(rd Reader) int {
 	return rd.Max() - rd.Min()
 }
+
+func REqual(rd Reader, b []byte) (bool, error) {
+	u, err := ReadFullFast(rd)
+	if err != nil {
+		return false, err
+	}
+	if len(u) != len(b) {
+		return false, nil
+	}
+	return bytes.Equal(u, b), nil
+}
+
+//----------
 
 // Result might not be a copy.
 func ReadFullFast(rd Reader) ([]byte, error) {
 	min, max := rd.Min(), rd.Max()
 	return rd.ReadNAtFast(min, max-min)
 }
+func ReadFullCopy(rd Reader) ([]byte, error) {
+	min, max := rd.Min(), rd.Max()
+	return rd.ReadNAtCopy(min, max-min)
+}
 
-func SetString(rw ReadWriter, s string) error {
+//----------
+
+func SetBytes(rw ReadWriter, b []byte) error {
 	min, max := rw.Min(), rw.Max()
-	return rw.Overwrite(min, max-min, []byte(s))
+	return rw.Overwrite(min, max-min, b)
+}
+func SetString(rw ReadWriter, s string) error {
+	return SetBytes(rw, []byte(s))
 }
 
 //----------

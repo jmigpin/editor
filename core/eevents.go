@@ -7,11 +7,11 @@ import (
 
 // Editor events.
 type EEvents struct {
-	reg *evreg.Register
+	reg evreg.Register
 }
 
 func NewEEvents() *EEvents {
-	return &EEvents{reg: evreg.NewRegister()}
+	return &EEvents{}
 }
 
 func (eevs *EEvents) emit(eid EEventId, ev interface{}) int {

@@ -8,6 +8,7 @@ import (
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 // textedit with extensions
@@ -31,9 +32,9 @@ type TextEditX struct {
 	}
 }
 
-func NewTextEditX(ctx ImageContext, cctx ClipboardContext) *TextEditX {
+func NewTextEditX(uiCtx UIContext) *TextEditX {
 	te := &TextEditX{
-		TextEdit: NewTextEdit(ctx, cctx),
+		TextEdit: NewTextEdit(uiCtx),
 	}
 
 	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
@@ -70,13 +71,13 @@ func (te *TextEditX) Paint() {
 func (te *TextEditX) updateSelectionOpt() {
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
 		g := d.Opt.Colorize.Groups[3]
-		if te.TextCursor.SelectionOn() {
+		c := te.Cursor()
+		if s, e, ok := c.SelectionIndexes(); ok {
 			// colors
 			pcol := te.TreeThemePaletteColor
 			fg := pcol("text_selection_fg")
 			bg := pcol("text_selection_bg")
 			// colorize ops
-			s, e := te.TextCursor.SelectionIndexes()
 			g.Ops = []*drawer4.ColorizeOp{
 				{Offset: s, Fg: fg, Bg: bg},
 				{Offset: e},
@@ -105,7 +106,7 @@ func (te *TextEditX) FlashIndexLen(index int, len int) {
 
 // Safe to use concurrently. If line is true then len is calculated.
 func (te *TextEditX) startFlash(index, len int, line bool) {
-	te.RunOnUIGoRoutine(func() {
+	te.uiCtx.RunOnUIGoRoutine(func() {
 		te.flash.start = time.Now()
 		te.flash.dur = 500 * time.Millisecond
 
@@ -132,7 +133,8 @@ func (te *TextEditX) startFlash(index, len int, line bool) {
 }
 
 func (te *TextEditX) flashLineIndexes(offset int) (int, int) {
-	s, e, newline, err := te.LinesIndexes(offset, offset)
+	rd := te.EditCtx().LocalReader(offset)
+	s, e, newline, err := iorw.LinesIndexes(rd, offset, offset)
 	if err != nil {
 		return 0, 0
 	}
@@ -157,7 +159,7 @@ func (te *TextEditX) iterateFlash() {
 		te.flash.index.on = false
 		te.flash.line.on = false
 	} else {
-		te.RunOnUIGoRoutine(func() {
+		te.uiCtx.RunOnUIGoRoutine(func() {
 			te.MarkNeedsPaint()
 		})
 	}
@@ -238,7 +240,7 @@ func (te *TextEditX) SetCommentStrings(a ...interface{}) {
 			// keep first definition for shortcut comment insertion
 			if firstLine {
 				firstLine = false
-				te.commentLineStr = t
+				te.ctx.Fns.LineCommentStr = func() string { return t }
 			}
 		case [2]string:
 			// multiline comment
@@ -253,10 +255,6 @@ func (te *TextEditX) SetCommentStrings(a ...interface{}) {
 		opt := &d.Opt.SyntaxHighlight
 		opt.Comment.Defs = cs
 	}
-}
-
-func (te *TextEditX) CommentLineSymbol() string {
-	return te.commentLineStr
 }
 
 //----------

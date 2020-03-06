@@ -11,7 +11,7 @@ type Column struct {
 	*widget.BoxLayout
 	RowsLayout *widget.SplBg // exported to access sp values
 	Cols       *Columns
-	EvReg      *evreg.Register
+	EvReg      evreg.Register
 
 	sep       *ColSeparator
 	colSquare *ColumnSquare
@@ -21,8 +21,6 @@ type Column struct {
 func NewColumn(cols *Columns) *Column {
 	col := &Column{Cols: cols, ui: cols.Root.UI}
 	col.BoxLayout = widget.NewBoxLayout()
-
-	col.EvReg = evreg.NewRegister()
 
 	// separator
 	col.sep = NewColSeparator(col)

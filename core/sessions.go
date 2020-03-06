@@ -46,7 +46,7 @@ func (ss *Sessions) save(filename string) error {
 	}
 	defer f.Close()
 	enc := json.NewEncoder(f)
-	enc.SetIndent("", "    ")
+	enc.SetIndent("", "\t")
 	return enc.Encode(&ss)
 }
 
@@ -172,8 +172,8 @@ func NewRowState(ed *Editor, row *ui.Row) *RowState {
 
 	rs := &RowState{
 		TbStr:         tbStr,
-		TbCursorIndex: row.Toolbar.TextCursor.Index(),
-		TaCursorIndex: row.TextArea.TextCursor.Index(),
+		TbCursorIndex: row.Toolbar.CursorIndex(),
+		TaCursorIndex: row.TextArea.CursorIndex(),
 		TaOffsetIndex: row.TextArea.RuneOffset(),
 	}
 
@@ -216,8 +216,8 @@ func (state *RowState) OpenERow(ed *Editor, rowPos *ui.RowPos) (*ERow, bool, err
 }
 
 func (state *RowState) RestorePos(erow *ERow) {
-	erow.Row.Toolbar.TextCursor.SetIndex(state.TbCursorIndex)
-	erow.Row.TextArea.TextCursor.SetIndex(state.TaCursorIndex)
+	erow.Row.Toolbar.SetCursorIndex(state.TbCursorIndex)
+	erow.Row.TextArea.SetCursorIndex(state.TaCursorIndex)
 	erow.Row.TextArea.SetRuneOffset(state.TaOffsetIndex)
 }
 

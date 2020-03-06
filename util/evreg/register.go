@@ -2,18 +2,14 @@ package evreg
 
 import "container/list"
 
+// The zero register is empty and ready for use.
 type Register struct {
 	m map[int]*list.List
 }
 
-func NewRegister() *Register {
-	reg := &Register{m: make(map[int]*list.List)}
-	return reg
-}
-
 //----------
 
-// Remove is done via *Regist.Unregister.
+// Remove is done via *Regist.Unregister().
 func (reg *Register) Add(evId int, fn func(interface{})) *Regist {
 	return reg.AddCallback(evId, &Callback{fn})
 }
@@ -21,6 +17,9 @@ func (reg *Register) Add(evId int, fn func(interface{})) *Regist {
 //----------
 
 func (reg *Register) AddCallback(evId int, cb *Callback) *Regist {
+	if reg.m == nil {
+		reg.m = map[int]*list.List{}
+	}
 	l, ok := reg.m[evId]
 	if !ok {
 		l = list.New()
@@ -31,25 +30,35 @@ func (reg *Register) AddCallback(evId int, cb *Callback) *Regist {
 }
 
 func (reg *Register) RemoveCallback(evId int, cb *Callback) {
+	if reg.m == nil {
+		return
+	}
 	l, ok := reg.m[evId]
 	if !ok {
 		return
 	}
+	// iterate to remove since the callback doesn't keep the element (allows callback to be added more then once, or at different evId's - this is probably a useless feature unless the *callback is being used to also be set in a map)
 	for e := l.Front(); e != nil; e = e.Next() {
 		cb2 := e.Value.(*Callback)
 		if cb2 == cb {
 			l.Remove(e)
 			if l.Len() == 0 {
 				delete(reg.m, evId)
+				break
 			}
-			break
+			// Commented: to continue to remove if added more then once
+			// break
 		}
 	}
 }
 
 //----------
 
+// Returns number of callbacks done.
 func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
+	if reg.m == nil {
+		return 0
+	}
 	l, ok := reg.m[evId]
 	if !ok {
 		return 0
@@ -61,6 +70,18 @@ func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
 		c++
 	}
 	return c
+}
+
+// Number of registered callbacks for an event id.
+func (reg *Register) NCallbacks(evId int) int {
+	if reg.m == nil {
+		return 0
+	}
+	l, ok := reg.m[evId]
+	if !ok {
+		return 0
+	}
+	return l.Len()
 }
 
 //----------

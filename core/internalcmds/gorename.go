@@ -41,7 +41,7 @@ func GoRename(args0 *core.InternalCmdArgs) error {
 	}
 
 	// id offset to rename "from"
-	offset := erow.Row.TextArea.TextCursor.Index()
+	offset := erow.Row.TextArea.CursorIndex()
 
 	// command
 	offsetStr := fmt.Sprintf("%v:#%v", erow.Info.Name(), offset)
