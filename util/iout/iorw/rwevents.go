@@ -1,8 +1,6 @@
 package iorw
 
 import (
-	"bytes"
-
 	"github.com/jmigpin/editor/util/evreg"
 )
 
@@ -26,6 +24,14 @@ func (rw *RWEvents) Overwrite(i, n int, p []byte) error {
 		return ev.ReplyErr
 	}
 
+	// write event 2 data (contains content changed flag)
+	changed := true
+	if rw.EvReg.NCallbacks(RWEvIdWrite2) > 0 {
+		if eq, err := REqual(rw, i, n, p); err == nil && eq {
+			changed = false
+		}
+	}
+
 	if err := rw.ReadWriter.Overwrite(i, n, p); err != nil {
 		return err
 	}
@@ -35,19 +41,9 @@ func (rw *RWEvents) Overwrite(i, n int, p []byte) error {
 	rw.EvReg.RunCallbacks(RWEvIdWrite, u)
 
 	// write event 2 (contains content changed flag)
-	if rw.EvReg.NCallbacks(RWEvIdWrite2) > 0 {
-		changed := true
-		if n == len(p) {
-			b, err := rw.ReadNAtFast(i, n)
-			if err == nil {
-				if bytes.Equal(b, p) {
-					changed = false
-				}
-			}
-		}
-		w := &RWEvWrite2{*u, changed}
-		rw.EvReg.RunCallbacks(RWEvIdWrite2, w)
-	}
+	w := &RWEvWrite2{*u, changed}
+	rw.EvReg.RunCallbacks(RWEvIdWrite2, w)
+
 	return nil
 }
 

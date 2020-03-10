@@ -22,15 +22,15 @@ func RLen(rd Reader) int {
 	return rd.Max() - rd.Min()
 }
 
-func REqual(rd Reader, b []byte) (bool, error) {
-	u, err := ReadFullFast(rd)
+func REqual(rd Reader, i, n int, p []byte) (bool, error) {
+	if n != len(p) {
+		return false, nil
+	}
+	b, err := rd.ReadNAtFast(i, n)
 	if err != nil {
 		return false, err
 	}
-	if len(u) != len(b) {
-		return false, nil
-	}
-	return bytes.Equal(u, b), nil
+	return bytes.Equal(b, p), nil
 }
 
 //----------

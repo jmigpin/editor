@@ -18,19 +18,22 @@ func NewRWUndo(rw iorw.ReadWriter, hist *History) *RWUndo {
 //----------
 
 func (rw *RWUndo) Overwrite(i, n int, p []byte) error {
+	// don't add to history if the result is equal
+	changed := true
+	if eq, err := iorw.REqual(rw, i, n, p); err == nil && eq {
+		changed = false
+	}
+
 	ur, err := NewUndoRedoOverwrite(rw.ReadWriter, i, n, p)
 	if err != nil {
 		return err
 	}
 
-	// don't add to history if the result is equal
-	if eq, err := iorw.REqual(rw, p); err == nil && eq {
-		return nil
+	if changed {
+		edits := &Edits{}
+		edits.Append(ur)
+		rw.History.Append(edits)
 	}
-
-	edits := &Edits{}
-	edits.Append(ur)
-	rw.History.Append(edits)
 	return nil
 }
 

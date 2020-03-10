@@ -203,7 +203,7 @@ func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 
 // Merges the save undo step with the last undo. Useful to hide the extra step in undo history since it could be automatically done on save (ex: go fmt).
 func (te *TextEdit) SetBytesFromSave(b []byte) error {
-	if eq, err := iorw.REqual(te.rwu, b); err == nil && !eq {
+	if eq, err := iorw.REqual(te.rwu, 0, te.rwu.Max(), b); err == nil && !eq {
 		defer te.rwu.History.MergeNDoneBack(2)
 	}
 	return te.SetBytes(b)
