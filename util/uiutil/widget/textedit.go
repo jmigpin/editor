@@ -27,7 +27,7 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 
 	te.rwev = iorw.NewRWEvents(te.Text.rw)
 	te.RWEvReg = &te.rwev.EvReg
-	te.RWEvReg.Add(iorw.RWEvIdWriteChange, te.onWriteChange)
+	te.RWEvReg.Add(iorw.RWEvIdWrite2, te.onWrite2)
 
 	hist := rwundo.NewHistory(200)
 	te.rwu = rwundo.NewRWUndo(te.rwev, hist)
@@ -71,18 +71,23 @@ func (te *TextEdit) SetRWFromMaster(m *TextEdit) {
 	te.rwu.History = m.rwu.History
 }
 
-func (te *TextEdit) HandleRWWrite(ev *iorw.RWEvWrite) {
-	te.stableRuneOffset(ev)
-	te.stableCursor(ev)
-
-	te.contentChanged() // might not have changed
-}
-
 //----------
 
-// Only called when the changes are done on this textedit
-func (te *TextEdit) onWriteChange(ev interface{}) {
-	te.contentChanged()
+// Called when the changes are done on this textedit
+func (te *TextEdit) onWrite2(ev interface{}) {
+	e := ev.(*iorw.RWEvWrite2)
+	if e.Changed {
+		te.contentChanged()
+	}
+}
+
+// Called when changes were made on another row
+func (te *TextEdit) HandleRWWrite2(ev *iorw.RWEvWrite2) {
+	te.stableRuneOffset(&ev.RWEvWrite)
+	te.stableCursor(&ev.RWEvWrite)
+	if ev.Changed {
+		te.contentChanged()
+	}
 }
 
 //----------

@@ -34,8 +34,8 @@ func (rw *RWEvents) Overwrite(i, n int, p []byte) error {
 	u := &RWEvWrite{i, n, len(p)}
 	rw.EvReg.RunCallbacks(RWEvIdWrite, u)
 
-	// write (content changed) event
-	if rw.EvReg.NCallbacks(RWEvIdWriteChange) > 0 {
+	// write event 2 (contains content changed flag)
+	if rw.EvReg.NCallbacks(RWEvIdWrite2) > 0 {
 		changed := true
 		if n == len(p) {
 			b, err := rw.ReadNAtFast(i, n)
@@ -45,10 +45,8 @@ func (rw *RWEvents) Overwrite(i, n int, p []byte) error {
 				}
 			}
 		}
-		if changed {
-			w := &RWEvWriteChange{*u}
-			rw.EvReg.RunCallbacks(RWEvIdWriteChange, w)
-		}
+		w := &RWEvWrite2{*u, changed}
+		rw.EvReg.RunCallbacks(RWEvIdWrite2, w)
 	}
 	return nil
 }
@@ -56,9 +54,9 @@ func (rw *RWEvents) Overwrite(i, n int, p []byte) error {
 //----------
 
 const (
-	RWEvIdWrite       = iota // ev=RWEvWrite
-	RWEvIdWriteChange        // ev=RWEvWriteChange
-	RWEvIdPreWrite           // ev=RWEvPreWrite
+	RWEvIdWrite    = iota // ev=RWEvWrite
+	RWEvIdWrite2          // ev=RWEvWrite2
+	RWEvIdPreWrite        // ev=RWEvPreWrite
 )
 
 //----------
@@ -69,8 +67,9 @@ type RWEvWrite struct {
 	In    int // n inserted bytes
 }
 
-type RWEvWriteChange struct {
+type RWEvWrite2 struct {
 	RWEvWrite
+	Changed bool
 }
 
 type RWEvPreWrite struct {

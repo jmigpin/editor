@@ -11,6 +11,7 @@ import (
 	"github.com/jmigpin/editor/driver"
 	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/mousefilter"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
@@ -18,7 +19,7 @@ type BasicUI struct {
 	DrawFrameRate int // frames per second
 	RootNode      widget.Node
 	Win           driver.Window
-	ApplyEv       *widget.ApplyEvent
+	applyEv       *widget.ApplyEvent
 
 	curCursor      event.Cursor
 	lastPaintStart time.Time
@@ -27,6 +28,10 @@ type BasicUI struct {
 
 	eventsQ   *chanutil.ChanQ // linked list queue (flexible unlimited length)
 	closeOnce sync.Once
+
+	movef  *mousefilter.MoveFilter
+	clickf *mousefilter.ClickFilter
+	dragf  *mousefilter.DragFilter
 }
 
 func NewBasicUI(WinName string, root widget.Node) (*BasicUI, error) {
@@ -40,8 +45,10 @@ func NewBasicUI(WinName string, root widget.Node) (*BasicUI, error) {
 		DrawFrameRate: 37,
 		Win:           win,
 	}
+
 	ui.eventsQ = chanutil.NewChanQ(16, 16)
-	ui.ApplyEv = widget.NewApplyEvent(ui)
+	ui.applyEv = widget.NewApplyEvent(ui)
+	ui.initMouseFilters()
 
 	// Embed nodes have their wrapper nodes set when they are appended to another node. The root node is not appended to any other node, therefore it needs to be set here.
 	ui.RootNode = root
@@ -51,6 +58,28 @@ func NewBasicUI(WinName string, root widget.Node) (*BasicUI, error) {
 
 	return ui, nil
 }
+
+func (ui *BasicUI) initMouseFilters() {
+	// move filter
+	isMouseMoveEv := func(ev interface{}) bool {
+		if wi, ok := ev.(*event.WindowInput); ok {
+			if _, ok := wi.Event.(*event.MouseMove); ok {
+				return true
+			}
+		}
+		return false
+	}
+	ui.movef = mousefilter.NewMoveFilter(ui.eventsQ.In(), ui.DrawFrameRate, isMouseMoveEv)
+
+	// click/drag filters
+	emitFn := func(ev interface{}, p image.Point) {
+		ui.handleWidgetEv(ev, p)
+	}
+	ui.clickf = mousefilter.NewClickFilter(emitFn)
+	ui.dragf = mousefilter.NewDragFilter(emitFn)
+}
+
+//----------
 
 func (ui *BasicUI) Close() {
 	ui.closeOnce.Do(func() {
@@ -63,17 +92,12 @@ func (ui *BasicUI) Close() {
 //----------
 
 func (ui *BasicUI) eventLoop() {
-	evQIn := ui.eventsQ.In() // will output events to ui.eventsQ.Out()
+	for {
+		//ui.eventsQ.In() <- ui.Win.NextEvent() // slow UI
 
-	// filter mouvemove events (reduces high fps mouse move events)
-	evBridge := make(chan interface{}, cap(evQIn))
-	go func() {
-		for {
-			//evQIn <- ui.Win.NextEvent() // slow UI without mouse filter
-			evBridge <- ui.Win.NextEvent()
-		}
-	}()
-	go MouseMoveFilterLoop(evBridge, evQIn, &ui.DrawFrameRate)
+		ev := ui.Win.NextEvent()
+		ui.movef.Filter(ev) // sends events to ui.eventsQ.In()
+	}
 }
 
 //----------
@@ -114,7 +138,7 @@ func (ui *BasicUI) HandleEvent(ev interface{}) (handled bool) {
 	case *event.WindowExpose:
 		ui.RootNode.Embed().MarkNeedsPaint()
 	case *event.WindowInput:
-		ui.ApplyEv.Apply(ui.RootNode, t.Event, t.Point)
+		ui.handleWindowInput(t)
 	case *UIRunFuncEvent:
 		t.Func()
 	case *UIPaintTime:
@@ -127,6 +151,17 @@ func (ui *BasicUI) HandleEvent(ev interface{}) (handled bool) {
 	}
 	return true
 }
+
+func (ui *BasicUI) handleWindowInput(wi *event.WindowInput) {
+	ui.handleWidgetEv(wi.Event, wi.Point)
+	ui.clickf.Filter(wi.Event) // emit events; set on initMouseFilters()
+	ui.dragf.Filter(wi.Event)  // emit events; set on initMouseFilters()
+}
+func (ui *BasicUI) handleWidgetEv(ev interface{}, p image.Point) {
+	ui.applyEv.Apply(ui.RootNode, ev, p)
+}
+
+//----------
 
 func (ui *BasicUI) LayoutMarkedAndSchedulePaint() {
 	ui.RootNode.LayoutMarked()

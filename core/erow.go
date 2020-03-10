@@ -98,9 +98,9 @@ func (erow *ERow) initHandlers() {
 		InternalCmdFromRowTb(erow)
 	})
 	// textarea on write
-	row.TextArea.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 interface{}) {
-		ev := ev0.(*iorw.RWEvWrite)
-		erow.Info.HandleRWEvWrite(erow, ev)
+	row.TextArea.RWEvReg.Add(iorw.RWEvIdWrite2, func(ev0 interface{}) {
+		ev := ev0.(*iorw.RWEvWrite2)
+		erow.Info.HandleRWEvWrite2(erow, ev)
 	})
 	// textarea content cmds
 	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {

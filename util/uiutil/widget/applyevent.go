@@ -2,44 +2,47 @@ package widget
 
 import (
 	"image"
-	"time"
 
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type ApplyEvent struct {
-	drag   AEDragState
-	mclick map[event.MouseButton]*AEMultipleClick
-
+	drag AEDragState
 	cctx CursorContext
 }
 
 func NewApplyEvent(cctx CursorContext) *ApplyEvent {
 	ae := &ApplyEvent{cctx: cctx}
-	ae.mclick = map[event.MouseButton]*AEMultipleClick{}
 	return ae
 }
 
 //----------
 
 func (ae *ApplyEvent) Apply(node Node, ev interface{}, p image.Point) {
-	ae.mouseEnterLeave(node, p)
+	if !ae.drag.dragging {
+		ae.mouseEnterLeave(node, p)
+	}
 
 	switch evt := ev.(type) {
 	case nil: // allow running the rest of the function without an event
 	case *event.MouseDown:
 		ae.depthFirstEv(node, evt, p)
-		ae.findDragNode(node, evt, p)
-		ae.multipleClickMouseDown(node, evt, p)
 	case *event.MouseMove:
 		ae.depthFirstEv(node, evt, p)
-		ae.dragStartMove(evt, p)
 	case *event.MouseUp:
 		ae.depthFirstEv(node, evt, p)
+	case *event.MouseDragStart:
+		ae.dragStart(node, evt, p)
+		if ae.drag.dragging {
+			ae.mouseEnterLeave(node, ae.drag.startEv.Point)
+		}
+	case *event.MouseDragMove:
+		ae.dragMove(evt, p)
+	case *event.MouseDragEnd:
 		ae.dragEnd(evt, p)
-		ae.multipleClickMouseUp(node, evt, p)
-		// mouseup can cause a ui change, enter/leave needs to run
-		ae.mouseEnterLeave(node, p)
+		if !ae.drag.dragging {
+			ae.mouseEnterLeave(node, p)
+		}
 	case *event.KeyDown:
 		isLatch := event.ComposeDiacritic(&evt.KeySym, &evt.Rune)
 		if !isLatch {
@@ -57,7 +60,7 @@ func (ae *ApplyEvent) Apply(node Node, ev interface{}, p image.Point) {
 
 func (ae *ApplyEvent) setCursor(node Node, p image.Point) {
 	var c event.Cursor
-	if ae.drag.pressing {
+	if ae.drag.dragging {
 		c = ae.drag.node.Embed().Cursor
 	} else {
 		c = ae.treeCursor(node, p)
@@ -84,10 +87,7 @@ func (ae *ApplyEvent) treeCursor(node Node, p image.Point) event.Cursor {
 //----------
 
 func (ae *ApplyEvent) mouseEnterLeave(node Node, p image.Point) {
-	if ae.drag.pressing {
-		return
-	}
-	ae.mouseLeave(node, p) // run leave first, then enter another node (correctness)
+	ae.mouseLeave(node, p) // run leave first
 	ae.mouseEnter(node, p)
 }
 
@@ -151,15 +151,16 @@ func (ae *ApplyEvent) mouseLeave(node Node, p image.Point) event.Handled {
 
 //----------
 
-func (ae *ApplyEvent) findDragNode(node Node, ev *event.MouseDown, p image.Point) {
-	if ae.drag.pressing {
+func (ae *ApplyEvent) dragStart(node Node, ev *event.MouseDragStart, p image.Point) {
+	if ae.drag.dragging {
 		return
 	}
+	p = ev.Point // use the starting point, not the current point
 	ae.findDragNode2(node, ev, p)
 }
 
 // Depth first, reverse order.
-func (ae *ApplyEvent) findDragNode2(node Node, ev *event.MouseDown, p image.Point) bool {
+func (ae *ApplyEvent) findDragNode2(node Node, ev *event.MouseDragStart, p image.Point) bool {
 	if !p.In(node.Embed().Bounds) {
 		return false
 	}
@@ -175,10 +176,10 @@ func (ae *ApplyEvent) findDragNode2(node Node, ev *event.MouseDown, p image.Poin
 		// deepest node
 		canDrag := !node.Embed().HasAnyMarks(MarkNotDraggable)
 		if canDrag {
-			ae.drag.pressing = true
+			ae.drag.dragging = true
+			ae.drag.startEv = ev
 			ae.drag.node = node
-			ae.drag.point = p
-			ae.drag.button = ev.Button
+			ae.runEv(ae.drag.node, ev, p)
 			return true
 		}
 	}
@@ -188,43 +189,23 @@ func (ae *ApplyEvent) findDragNode2(node Node, ev *event.MouseDown, p image.Poin
 
 //----------
 
-func (ae *ApplyEvent) dragStartMove(ev *event.MouseMove, p image.Point) {
-	if !ae.drag.pressing {
+func (ae *ApplyEvent) dragMove(ev *event.MouseDragMove, p image.Point) {
+	if !ae.drag.dragging {
 		return
 	}
-	if !ae.drag.on {
-		// still haven't move enough, try to detect again later
-		if !ae.detectMove(ae.drag.point, p) {
-			return
-		}
-		// dragging
-		ae.drag.on = true
-	}
-	if !ae.drag.start {
-		ae.drag.start = true
-		ev2 := &event.MouseDragStart{p, ae.drag.button, ev.Buttons, ev.Mods}
-		ae.runEv(ae.drag.node, ev2, p)
-	} else {
-		ev2 := &event.MouseDragMove{p, ae.drag.point, ev.Buttons, ev.Mods}
-		ae.runEv(ae.drag.node, ev2, p)
-	}
+	ae.runEv(ae.drag.node, ev, p)
 }
 
 //----------
 
-func (ae *ApplyEvent) dragEnd(ev *event.MouseUp, p image.Point) {
-	if !ae.drag.pressing {
+func (ae *ApplyEvent) dragEnd(ev *event.MouseDragEnd, p image.Point) {
+	if !ae.drag.dragging {
 		return
 	}
-	if ev.Button != ae.drag.button {
+	if ev.Button != ae.drag.startEv.Button {
 		return
 	}
-
-	if ae.drag.on {
-		ev2 := &event.MouseDragEnd{p, ae.drag.point, ev.Button, ev.Buttons, ev.Mods}
-		ae.runEv(ae.drag.node, ev2, p)
-	}
-
+	ae.runEv(ae.drag.node, ev, p)
 	ae.drag = AEDragState{}
 }
 
@@ -263,87 +244,8 @@ func (ae *ApplyEvent) runEv(node Node, ev interface{}, p image.Point) event.Hand
 
 //----------
 
-func (ai *ApplyEvent) detectMove(p0, p1 image.Point) bool {
-	sidePad := image.Point{3, 3}
-	var r image.Rectangle
-	r.Min = p0.Sub(sidePad)
-	r.Max = p0.Add(sidePad)
-	return !p1.In(r)
-}
-
-//----------
-
-func (ae *ApplyEvent) multipleClickMouseDown(node Node, ev *event.MouseDown, p image.Point) {
-	mc, ok := ae.mclick[ev.Button]
-	if !ok {
-		mc = &AEMultipleClick{}
-		ae.mclick[ev.Button] = mc
-	}
-	mc.prevDownPoint = mc.downPoint
-	mc.downPoint = p
-}
-
-//----------
-
-func (ae *ApplyEvent) multipleClickMouseUp(node Node, ev *event.MouseUp, p image.Point) {
-	mc, ok := ae.mclick[ev.Button]
-	if !ok {
-		return
-	}
-
-	// update time
-	upTime0 := mc.upTime
-	mc.upTime = time.Now()
-
-	// must be clicked within a margin
-	if ae.detectMove(mc.downPoint, p) {
-		mc.action = 0
-		return
-	}
-
-	// if it takes too much time, it gets back to single click
-	d := mc.upTime.Sub(upTime0)
-	if d > 400*time.Millisecond {
-		mc.action = 0
-	} else {
-		if ae.detectMove(mc.prevDownPoint, p) {
-			mc.action = 0
-		} else {
-			// single, double, triple
-			mc.action = (mc.action + 1) % 3
-		}
-	}
-
-	// always run a click
-	ev2 := &event.MouseClick{p, ev.Button, ev.Buttons, ev.Mods}
-	ae.depthFirstEv(node, ev2, p)
-
-	switch mc.action {
-	case 1:
-		ev2 := &event.MouseDoubleClick{p, ev.Button, ev.Buttons, ev.Mods}
-		ae.depthFirstEv(node, ev2, p)
-	case 2:
-		ev2 := &event.MouseTripleClick{p, ev.Button, ev.Buttons, ev.Mods}
-		ae.depthFirstEv(node, ev2, p)
-	}
-}
-
-//----------
-
 type AEDragState struct {
-	pressing bool
+	dragging bool
+	startEv  *event.MouseDragStart
 	node     Node
-	point    image.Point
-	button   event.MouseButton
-	on       bool
-	start    bool
-}
-
-//----------
-
-type AEMultipleClick struct {
-	upTime        time.Time
-	downPoint     image.Point
-	prevDownPoint image.Point
-	action        int // single, double, triple
 }

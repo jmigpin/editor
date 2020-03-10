@@ -570,12 +570,12 @@ func (info *ERowInfo) SetRowsBytes(b []byte) {
 
 //----------
 
-func (info *ERowInfo) HandleRWEvWrite(erow *ERow, ev *iorw.RWEvWrite) {
+func (info *ERowInfo) HandleRWEvWrite2(erow *ERow, ev *iorw.RWEvWrite2) {
 	if !info.IsFileButNotDir() {
 		return
 	}
 	info.setRWFromMaster(erow)
-	info.handleRWsWrite(erow, ev)
+	info.handleRWsWrite2(erow, ev)
 }
 
 func (info *ERowInfo) setRWFromMaster(erow *ERow) {
@@ -589,12 +589,12 @@ func (info *ERowInfo) setRWFromMaster(erow *ERow) {
 	info.Ed.GoDebug.UpdateUIERowInfo(info)
 }
 
-func (info *ERowInfo) handleRWsWrite(erow *ERow, ev *iorw.RWEvWrite) {
+func (info *ERowInfo) handleRWsWrite2(erow *ERow, ev *iorw.RWEvWrite2) {
 	for _, e := range info.ERows {
 		if e == erow {
 			continue
 		}
-		e.Row.TextArea.HandleRWWrite(ev)
+		e.Row.TextArea.HandleRWWrite2(ev)
 	}
 }
 
