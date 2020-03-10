@@ -19,19 +19,19 @@ type BasicUI struct {
 	DrawFrameRate int // frames per second
 	RootNode      widget.Node
 	Win           driver.Window
-	applyEv       *widget.ApplyEvent
 
-	curCursor      event.Cursor
-	lastPaintStart time.Time
-	lastPaintEnd   time.Time
-	pendingPaint   bool
+	curCursor event.Cursor
 
-	eventsQ   *chanutil.ChanQ // linked list queue (flexible unlimited length)
 	closeOnce sync.Once
 
-	movef  *mousefilter.MoveFilter
-	clickf *mousefilter.ClickFilter
-	dragf  *mousefilter.DragFilter
+	eventsQ *chanutil.ChanQ // linked list queue (unlimited length)
+	applyEv *widget.ApplyEvent
+	movef   *mousefilter.MoveFilter
+	clickf  *mousefilter.ClickFilter
+	dragf   *mousefilter.DragFilter
+
+	pendingPaint   bool
+	lastPaintStart time.Time
 }
 
 func NewBasicUI(WinName string, root widget.Node) (*BasicUI, error) {
@@ -142,7 +142,6 @@ func (ui *BasicUI) HandleEvent(ev interface{}) (handled bool) {
 	case *UIRunFuncEvent:
 		t.Func()
 	case *UIPaintTime:
-		// paint being done in sync until it ends
 		ui.paint()
 	case struct{}:
 		// no op, allow layout/schedule funcs to run
@@ -198,8 +197,9 @@ func (ui *BasicUI) schedulePaint() {
 		return
 	}
 	ui.pendingPaint = true
+	// schedule
 	go func() {
-		d := ui.durationToNextPaint(time.Now())
+		d := ui.durationToNextPaint()
 		if d > 0 {
 			time.Sleep(d)
 		}
@@ -207,7 +207,8 @@ func (ui *BasicUI) schedulePaint() {
 	}()
 }
 
-func (ui *BasicUI) durationToNextPaint(now time.Time) time.Duration {
+func (ui *BasicUI) durationToNextPaint() time.Duration {
+	now := time.Now()
 	frameDur := time.Second / time.Duration(ui.DrawFrameRate)
 	d := now.Sub(ui.lastPaintStart)
 	return frameDur - d
@@ -216,11 +217,17 @@ func (ui *BasicUI) durationToNextPaint(now time.Time) time.Duration {
 //----------
 
 func (ui *BasicUI) paint() {
-	ui.pendingPaint = false
+	// DEBUG: print fps
+	now := time.Now()
+	//d := now.Sub(ui.lastPaintStart)
+	//fmt.Printf("paint: fps %v\n", int(time.Second/d))
+	ui.lastPaintStart = now
+
 	ui.paintMarked()
 }
 
 func (ui *BasicUI) paintMarked() {
+	ui.pendingPaint = false
 	u := ui.RootNode.PaintMarked()
 	r := u.Intersect(ui.Win.Image().Bounds())
 	if !r.Empty() {
@@ -228,19 +235,10 @@ func (ui *BasicUI) paintMarked() {
 	}
 }
 
-//----------
-
 func (ui *BasicUI) putImage(r *image.Rectangle) {
-	ui.lastPaintStart = time.Now()
 	if err := ui.Win.PutImage(*r); err != nil {
 		ui.AppendEvent(err)
 	}
-
-	//// DEBUG: print fps
-	//now := time.Now()
-	//d := now.Sub(ui.lastPaintEnd)
-	//ui.lastPaintEnd = now
-	//fmt.Printf("paint: fps %v\n", int(time.Second/d))
 }
 
 //----------
