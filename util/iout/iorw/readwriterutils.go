@@ -17,7 +17,7 @@ func NewStringReader(s string) Reader {
 
 //----------
 
-// min/max length
+// min/max length. Note that max could be inclusive (limitedreader).
 func RLen(rd Reader) int {
 	return rd.Max() - rd.Min()
 }
@@ -232,38 +232,6 @@ func ExpandLastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) int {
 
 //----------
 
-func LineStartIndex(r Reader, i int) (int, error) {
-	k, size, err := NewLineLastIndex(r, i)
-	if errors.Is(err, io.EOF) {
-		return k, nil
-	}
-	return k + size, err
-}
-
-// index after '\n' (with isNewLine true), or max index
-func LineEndIndex(r Reader, i int) (int, bool, error) {
-	k, size, err := NewLineIndex(r, i)
-	if errors.Is(err, io.EOF) {
-		return k, false, nil
-	}
-	isNewLine := err == nil
-	return k + size, isNewLine, err
-}
-
-//----------
-
-func NewLineIndex(r Reader, i int) (int, int, error) {
-	newlinef := func(ru rune) bool { return ru == '\n' }
-	return IndexFunc(r, i, true, newlinef)
-}
-
-func NewLineLastIndex(r Reader, i int) (int, int, error) {
-	newlinef := func(ru rune) bool { return ru == '\n' }
-	return LastIndexFunc(r, i, true, newlinef)
-}
-
-//----------
-
 func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
 	ls, err := LineStartIndex(r, a)
 	if err != nil {
@@ -274,6 +242,36 @@ func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
 		return 0, 0, false, err
 	}
 	return ls, le, newline, nil
+}
+
+func LineStartIndex(r Reader, i int) (int, error) {
+	k, size, err := NewlineLastIndex(r, i)
+	if errors.Is(err, io.EOF) {
+		return k, nil
+	}
+	return k + size, err
+}
+
+// index after '\n' (with isNewLine true), or max index
+func LineEndIndex(r Reader, i int) (int, bool, error) {
+	k, size, err := NewlineIndex(r, i)
+	if errors.Is(err, io.EOF) {
+		return k, false, nil
+	}
+	isNewLine := err == nil
+	return k + size, isNewLine, err
+}
+
+//----------
+
+func NewlineIndex(r Reader, i int) (int, int, error) {
+	newlinef := func(ru rune) bool { return ru == '\n' }
+	return IndexFunc(r, i, true, newlinef)
+}
+
+func NewlineLastIndex(r Reader, i int) (int, int, error) {
+	newlinef := func(ru rune) bool { return ru == '\n' }
+	return LastIndexFunc(r, i, true, newlinef)
 }
 
 //----------
