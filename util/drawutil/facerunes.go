@@ -27,34 +27,60 @@ func (fr *FaceRunes) Glyph(dot fixed.Point26_6, ru rune) (
 	advance fixed.Int26_6,
 	ok bool,
 ) {
-	if ru < 0 { // -1=eof
-		return image.ZR, nil, image.ZP, 0, false
-	}
-	switch ru {
-	case '\t', '\n':
-		return image.ZR, nil, image.ZP, 0, false
-	case '\r':
-		ru = CarriageReturnRune
-	case 0:
-		ru = NullRune
+	ru2, adv, ok := fr.replace(ru)
+	if ok {
+		dr, mask, maskp, _, ok := fr.Face.Glyph(dot, ru2)
+		return dr, mask, maskp, adv, ok
 	}
 	return fr.Face.Glyph(dot, ru)
 }
-func (fr *FaceRunes) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
-	if ru < 0 { // -1=eof
-		return fixed.Int26_6(0), false
+
+func (fr *FaceRunes) GlyphBounds(ru rune) (bounds fixed.Rectangle26_6, advance fixed.Int26_6, ok bool) {
+	ru2, adv, ok := fr.replace(ru)
+	if ok {
+		bounds, _, ok := fr.Face.GlyphBounds(ru2)
+		return bounds, adv, ok
 	}
-	switch ru {
-	case '\t':
-		adv, ok := fr.Face.GlyphAdvance(' ')
-		return adv * fixed.Int26_6(TabWidth), ok
-	case '\n':
-		a, ok := fr.Face.GlyphAdvance(' ')
-		return a / 2, ok
-	case '\r':
-		ru = CarriageReturnRune
-	case 0:
-		ru = NullRune
+	return fr.Face.GlyphBounds(ru)
+}
+
+func (fr *FaceRunes) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
+	_, adv, ok := fr.replace(ru)
+	if ok {
+		return adv, ok
 	}
 	return fr.Face.GlyphAdvance(ru)
+}
+
+//----------
+
+func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
+	switch ru0 {
+	case '\t':
+		ru := ' '
+		adv, ok := fr.Face.GlyphAdvance(ru)
+		adv *= fixed.Int26_6(TabWidth)
+		return ru, adv, ok
+	case '\n':
+		ru := ' '
+		adv, ok := fr.Face.GlyphAdvance(ru)
+		adv /= 2
+		return ru, adv, ok
+	case '\r':
+		ru := CarriageReturnRune
+		adv, ok := fr.Face.GlyphAdvance(ru)
+		return ru, adv, ok
+	case 0:
+		ru := NullRune
+		adv, ok := fr.Face.GlyphAdvance(ru)
+		return ru, adv, ok
+
+		//case -1: // -1=eof
+		//	ru := ' '
+		//	adv, ok := fr.Face.GlyphAdvance(ru)
+		//	adv /= 2
+		//	return ru, adv, ok
+	}
+
+	return 0, 0, false
 }
