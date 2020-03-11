@@ -29,6 +29,16 @@ func Rect266MinFloorMaxCeil(r fixed.Rectangle26_6) image.Rectangle {
 	return image.Rectangle{min, max}
 }
 
+func Float32ToFixed266(v float32) fixed.Int26_6 {
+	return fixed.Int26_6(v * 64)
+}
+func Float64ToFixed266(v float64) fixed.Int26_6 {
+	return fixed.Int26_6(v * 64)
+}
+func Fixed266ToFloat64(v fixed.Int26_6) float64 {
+	return float64(v) / float64(64)
+}
+
 //----------
 
 // Differs from image.Rectangle.Inset in that it accepts x and y args.
@@ -48,4 +58,14 @@ func RectInset(r image.Rectangle, xn, yn int) image.Rectangle {
 		r.Max.Y -= yn
 	}
 	return r
+}
+
+//----------
+
+func Clip(r, s image.Rectangle) image.Rectangle {
+	u := r.Intersect(s)
+	if u.Empty() {
+		return image.Rectangle{r.Min, r.Min}
+	}
+	return u
 }
