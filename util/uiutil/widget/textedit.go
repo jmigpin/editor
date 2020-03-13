@@ -124,6 +124,7 @@ func (te *TextEdit) Redo() error { return te.undoRedo(true) }
 func (te *TextEdit) undoRedo(redo bool) error {
 	return te.rwu.UndoRedo(redo, func(cd rwedit.CursorData) {
 		te.ctx.C.SetData(cd) // restore cursor
+		te.MakeCursorVisible()
 	})
 }
 
@@ -141,11 +142,6 @@ func (te *TextEdit) BeginUndoGroup() {
 func (te *TextEdit) EndUndoGroup() {
 	d := te.ctx.C.Data()
 	te.rwu.History.EndUndoGroup(&d)
-}
-
-// Useful when using save file that runs a code formatter (ex: go fmt) and want to avoid an undo step
-func (te *TextEdit) MergeLastUndo() {
-	te.rwu.History.MergeNDoneBack(2)
 }
 
 //----------
@@ -201,14 +197,6 @@ func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 	return nil
 }
 
-// Merges the save undo step with the last undo. Useful to hide the extra step in undo history since it could be automatically done on save (ex: go fmt).
-func (te *TextEdit) SetBytesFromSave(b []byte) error {
-	if eq, err := iorw.REqual(te.rwu, 0, te.rwu.Max(), b); err == nil && !eq {
-		defer te.rwu.History.MergeNDoneBack(2)
-	}
-	return te.SetBytes(b)
-}
-
 //----------
 
 func (te *TextEdit) SetStr(str string) error {
@@ -228,6 +216,16 @@ func (te *TextEdit) SetStrClearHistory(str string) error {
 func (te *TextEdit) ClearPos() {
 	te.ctx.C.SetIndexSelectionOff(0)
 	te.MakeIndexVisible(0)
+}
+
+//----------
+
+func (te *TextEdit) MakeCursorVisible() {
+	if a, b, ok := te.ctx.C.SelectionIndexes(); ok {
+		te.MakeRangeVisible(a, b-a)
+	} else {
+		te.MakeIndexVisible(te.ctx.C.Index())
+	}
 }
 
 //----------

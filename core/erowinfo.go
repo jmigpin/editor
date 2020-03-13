@@ -380,10 +380,7 @@ func (info *ERowInfo) SaveFile() error {
 	}
 
 	// update all erows (including row saved states)
-	//info.SetRowsBytes(b)
-	if erow0, ok := info.FirstERow(); ok {
-		erow0.Row.TextArea.SetBytesFromSave(b)
-	}
+	info.SetRowsBytes(b)
 
 	// editor events
 	ev := &PostFileSaveEEvent{Info: info}
