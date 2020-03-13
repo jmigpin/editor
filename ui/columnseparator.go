@@ -24,10 +24,13 @@ func NewColSeparator(col *Column) *ColSeparator {
 	return csep
 }
 func (sh *ColSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
-	if sh.Handle.Dragging {
-		sh.col.resizeWithMoveToPoint(&p)
-	}
 	switch ev := ev0.(type) {
+	case *event.MouseDragMove:
+		switch {
+		case ev.Buttons.Is(event.ButtonLeft):
+			p.X += sh.Handle.DragPad.X
+			sh.col.resizeWithMoveToPoint(&p)
+		}
 	case *event.MouseDown:
 		switch ev.Button {
 		case event.ButtonWheelLeft:
@@ -36,5 +39,5 @@ func (sh *ColSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handl
 			sh.col.resizeWithMoveJump(false, &p)
 		}
 	}
-	return event.HTrue // no other widget will get the event
+	return true // no other widget will get the event
 }

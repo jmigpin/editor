@@ -11,9 +11,8 @@ import (
 type SeparatorHandle struct {
 	ENode
 	Top, Bottom, Left, Right int
-	Dragging                 bool
-
-	ref Node // reference node for calc bounds
+	DragPad                  image.Point
+	ref                      Node // reference node for calc bounds
 }
 
 func NewSeparatorHandle(ref Node) *SeparatorHandle {
@@ -44,25 +43,9 @@ func (sh *SeparatorHandle) Layout() {
 
 func (sh *SeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	switch ev := ev0.(type) {
-	case *event.MouseDown:
-		switch ev.Button {
-		case event.ButtonLeft:
-			sh.Dragging = true
-		}
-	case *event.MouseUp:
-		switch ev.Button {
-		case event.ButtonLeft:
-			if sh.Dragging {
-				sh.Dragging = false
-			}
-		}
-
-	// mouseup might not be triggered if moving too fast, but dragend will
-	case *event.MouseDragEnd:
-		if sh.Dragging {
-			sh.Dragging = false
-		}
+	case *event.MouseDragStart:
+		u := sh.ref.Embed().Bounds.Min
+		sh.DragPad = u.Sub(ev.Point2)
 	}
-
 	return sh.ref.Embed().Wrapper.OnInputEvent(ev0, p)
 }

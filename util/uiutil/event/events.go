@@ -41,21 +41,20 @@ type MouseMove struct {
 }
 
 type MouseDragStart struct {
-	Point   image.Point
+	Point   image.Point // starting (press) point (older then point2)
+	Point2  image.Point // current point (move detection) (newest point)
 	Button  MouseButton
 	Buttons MouseButtons
 	Mods    KeyModifiers
 }
 type MouseDragEnd struct {
 	Point   image.Point
-	Start   image.Point
 	Button  MouseButton
 	Buttons MouseButtons
 	Mods    KeyModifiers
 }
 type MouseDragMove struct {
 	Point   image.Point
-	Start   image.Point
 	Buttons MouseButtons
 	Mods    KeyModifiers
 }

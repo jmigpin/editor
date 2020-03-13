@@ -171,9 +171,12 @@ func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 		}
 
 	case *event.MouseDragStart:
+		// take over from down/move/up to allow dragging outside bounds
 		sb.clicking = false
+
 		sb.dragging = true
-		sb.scrollToPoint(&evt.Point)
+		sb.setPressPad(&evt.Point2)
+		sb.scrollToPoint(&evt.Point2)
 	case *event.MouseDragMove:
 		sb.scrollToPoint(&evt.Point)
 	case *event.MouseDragEnd:

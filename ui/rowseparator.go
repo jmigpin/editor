@@ -24,10 +24,13 @@ func NewRowSeparator(row *Row) *RowSeparator {
 	return rsep
 }
 func (sh *RowSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
-	if sh.Handle.Dragging {
-		sh.row.resizeWithMoveToPoint(&p)
-	}
 	switch ev := ev0.(type) {
+	case *event.MouseDragMove:
+		switch {
+		case ev.Buttons.Is(event.ButtonLeft):
+			p.Y += sh.Handle.DragPad.Y
+			sh.row.resizeWithMoveToPoint(&p)
+		}
 	case *event.MouseDown:
 		m := ev.Mods.ClearLocks()
 		if m.Is(event.ModNone) {
@@ -44,5 +47,5 @@ func (sh *RowSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handl
 			sh.row.Close()
 		}
 	}
-	return event.HTrue //no other widget will get the event
+	return true //no other widget will get the event
 }

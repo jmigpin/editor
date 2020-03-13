@@ -44,12 +44,11 @@ func (dragf *DragFilter) startOrMove(ev *event.MouseMove) {
 			dragf.dragging = true
 			b := dragf.pressEv.Button
 			start := dragf.pressEv.Point
-			ev2 := &event.MouseDragStart{start, b, ev.Buttons, ev.Mods}
-			dragf.emitEv(ev2, start) // ev.Point is not used
+			ev2 := &event.MouseDragStart{start, ev.Point, b, ev.Buttons, ev.Mods}
+			dragf.emitEv(ev2, start)
 		}
 	} else {
-		start := dragf.pressEv.Point
-		ev2 := &event.MouseDragMove{ev.Point, start, ev.Buttons, ev.Mods}
+		ev2 := &event.MouseDragMove{ev.Point, ev.Buttons, ev.Mods}
 		dragf.emitEv(ev2, ev.Point)
 	}
 }
@@ -57,8 +56,7 @@ func (dragf *DragFilter) startOrMove(ev *event.MouseMove) {
 func (dragf *DragFilter) end(ev *event.MouseUp) {
 	if dragf.pressEv != nil && ev.Button == dragf.pressEv.Button {
 		if dragf.dragging {
-			start := dragf.pressEv.Point
-			ev2 := &event.MouseDragEnd{ev.Point, start, ev.Button, ev.Buttons, ev.Mods}
+			ev2 := &event.MouseDragEnd{ev.Point, ev.Button, ev.Buttons, ev.Mods}
 			dragf.emitEv(ev2, ev.Point)
 		}
 		// reset
