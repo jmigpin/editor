@@ -2,7 +2,6 @@ package drawer4
 
 import (
 	"github.com/jmigpin/editor/util/mathutil"
-	"golang.org/x/image/colornames"
 )
 
 type Annotations struct {
@@ -132,15 +131,18 @@ func (ann *Annotations) insertAnnotations2() {
 		}
 
 		// entry.notes (used for arrival index)
-		opt := &ann.d.Opt.Annotations
-		fg, bg := opt.Fg, opt.Bg
-		restore := func() { opt.Fg, opt.Bg = fg, bg }
-		opt.Fg, opt.Bg = colornames.White, colornames.Black
-		if !ann.insertAnnotationString(string(entry.NotesBytes), index, false) {
-			restore()
-			return
-		}
-		restore()
+		//opt := &ann.d.Opt.Annotations
+		//fg, bg := opt.Fg, opt.Bg
+		//restore := func() { opt.Fg, opt.Bg = fg, bg }
+		//opt.Fg, opt.Bg = colornames.White, colornames.Black
+		//opt.Fg = colornames.Gray
+
+		//ns := string(entry.NotesBytes)
+		//if !ann.insertAnnotationString(ns, index, false) {
+		//	//restore()
+		//	return
+		//}
+		////restore()
 	}
 }
 
@@ -170,9 +172,9 @@ func (ann *Annotations) insertAnnotationString(s string, eindex int, colorizeIfI
 //----------
 
 type Annotation struct {
-	Offset     int
-	Bytes      []byte
-	NotesBytes []byte
+	Offset int
+	Bytes  []byte
+	//NotesBytes []byte
 }
 
 //----------

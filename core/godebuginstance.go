@@ -255,7 +255,7 @@ func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
 	}
 	// build output
 	s := godebug.StringifyItemFull(msg.dbgLineMsg.Item)
-	gdi.gdm.Printf("annotation:\n\t%v\n", s)
+	gdi.gdm.Printf("annotation: (→%d)\n\t%v\n", msg.arrivalIndex, s)
 }
 
 func (gdi *GoDebugInstance) printIndexAllPrevious(erow *ERow, annIndex, offset int) {
@@ -386,6 +386,8 @@ func (gdi *GoDebugInstance) updateUI2() {
 }
 
 func (gdi *GoDebugInstance) updateInfoUI(info *ERowInfo) {
+	// TODO: the info should be get with one locked call to the dataindex
+
 	// Note: the current selected debug line might not have an open erow (ex: when auto increased to match the lastarrivalindex).
 
 	// file belongs to the godebug session
@@ -920,14 +922,16 @@ func (msg *GDLineMsg) annotation() *drawer4.Annotation {
 		s := godebug.StringifyItem(msg.dbgLineMsg.Item)
 		msg.cache.item = []byte(s)
 	}
-	ann.Bytes = msg.cache.item
-	ann.NotesBytes = []byte(fmt.Sprintf("%d", msg.arrivalIndex))
+	//ann.Bytes = msg.cache.item
+	//ann.NotesBytes = []byte(fmt.Sprintf("%d", msg.arrivalIndex))
+	s1 := string(msg.cache.item)
+	ann.Bytes = []byte(fmt.Sprintf("%s (→%d)", s1, msg.arrivalIndex))
 	return ann
 }
 
 func (msg *GDLineMsg) emptyAnnotation() *drawer4.Annotation {
 	ann := msg.ann()
 	ann.Bytes = []byte(" ")
-	ann.NotesBytes = nil
+	//ann.NotesBytes = nil
 	return ann
 }
