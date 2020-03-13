@@ -45,7 +45,7 @@ func (dragf *DragFilter) startOrMove(ev *event.MouseMove) {
 			b := dragf.pressEv.Button
 			start := dragf.pressEv.Point
 			ev2 := &event.MouseDragStart{start, b, ev.Buttons, ev.Mods}
-			dragf.emitEv(ev2, ev.Point)
+			dragf.emitEv(ev2, start) // ev.Point is not used
 		}
 	} else {
 		start := dragf.pressEv.Point
