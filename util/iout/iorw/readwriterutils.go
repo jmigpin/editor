@@ -57,6 +57,12 @@ func SetString(rw ReadWriter, s string) error {
 
 //----------
 
+func Append(rw ReadWriter, b []byte) error {
+	return rw.Overwrite(rw.Max(), 0, b)
+}
+
+//----------
+
 // Iterate over n+1 runes, with the last rune being eofRune(-1).
 func ReaderIter(r Reader, fn func(i int, ru rune) bool) error {
 	for i := r.Min(); ; {
