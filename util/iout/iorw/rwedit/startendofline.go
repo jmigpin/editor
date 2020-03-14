@@ -28,7 +28,7 @@ func StartOfLine(ctx *Ctx, sel bool) error {
 		}
 	}
 
-	ctx.C.SetSelectionUpdate(sel, i)
+	ctx.C.UpdateSelection(sel, i)
 	return nil
 }
 
@@ -41,6 +41,6 @@ func EndOfLine(ctx *Ctx, sel bool) error {
 	if newline {
 		le--
 	}
-	ctx.C.SetSelectionUpdate(sel, le)
+	ctx.C.UpdateSelection(sel, le)
 	return nil
 }

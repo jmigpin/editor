@@ -29,23 +29,23 @@ func TestRWUndo1(t *testing.T) {
 		t.Fatal(exp, "got", s2)
 	}
 
-	rwu.Undo()
-	rwu.Undo()
+	rwu.undo()
+	rwu.undo()
 
 	s3 := gets()
 	if s3 != s1 {
 		t.Fatal(s1, "got", s3)
 	}
 
-	rwu.Redo()
-	rwu.Redo()
+	rwu.redo()
+	rwu.redo()
 
 	s4 := gets()
 	if s4 != s2 {
 		t.Fatal(s2, "got", s4)
 	}
 
-	rwu.Undo()
+	rwu.undo()
 
 	rwu.Overwrite(5, 4, []byte("***"))
 
@@ -55,16 +55,16 @@ func TestRWUndo1(t *testing.T) {
 		t.Fatal(exp2, "got", s5)
 	}
 
-	rwu.Redo()
-	rwu.Redo()
-	rwu.Redo()
+	rwu.redo()
+	rwu.redo()
+	rwu.redo()
 	s6 := gets()
 	if s6 != exp2 {
 		t.Fatal(exp2, "got", s6)
 	}
 
 	for i := 0; i < 10; i++ {
-		rwu.Undo()
+		rwu.undo()
 	}
 	s7 := gets()
 	if s7 != s1 {
@@ -93,7 +93,7 @@ func TestRWUndo2(t *testing.T) {
 		t.Fatal(exp2, "got", s2)
 	}
 
-	rwu.Undo()
+	rwu.undo()
 
 	exp3 := "0125678"
 	s3 := gets()
@@ -119,7 +119,7 @@ func TestRWUndo3(t *testing.T) {
 	rwu.Overwrite(4, 1, nil) // "012578"
 	rwu.History.EndUndoGroup(nil)
 
-	rwu.Undo()
+	rwu.undo()
 
 	exp2 := "01256789"
 	s2 := gets()
@@ -145,7 +145,7 @@ func TestRWUndo4(t *testing.T) {
 	rwu.Overwrite(4, 1, nil) // "012578"
 	rwu.History.EndUndoGroup(nil)
 
-	rwu.Undo()
+	rwu.undo()
 
 	exp2 := "0123456789"
 	s2 := gets()
@@ -169,9 +169,9 @@ func TestRWUndo5(t *testing.T) {
 	rwu.Overwrite(7, 1, nil) // "0125678"
 	rwu.Overwrite(4, 1, nil) // "012578"
 
-	rwu.Undo()
+	rwu.undo()
 	rwu.History.ClearUndones()
-	rwu.Redo()
+	rwu.redo()
 
 	exp2 := "0125678"
 	s2 := gets()
@@ -195,8 +195,8 @@ func TestRWUndo6(t *testing.T) {
 	rwu.Overwrite(7, 1, nil) // "0125678"
 	rwu.Overwrite(4, 1, nil) // "012578"
 
-	rwu.Undo()
-	rwu.Undo()
+	rwu.undo()
+	rwu.undo()
 
 	rwu.Overwrite(3, 2, []byte("-")) // "012-789"
 	rwu.Overwrite(5, 0, []byte("-")) // "012-7-89"
@@ -217,8 +217,8 @@ func TestRWUndo6(t *testing.T) {
 	//	t.Fatal(exp3, "got", s3)
 	//}
 
-	rwu.Undo()
-	rwu.Undo()
+	rwu.undo()
+	rwu.undo()
 
 	exp4 := "01256789"
 	s4 := gets()
@@ -226,7 +226,7 @@ func TestRWUndo6(t *testing.T) {
 		t.Fatal(exp4, "got", s4)
 	}
 
-	rwu.Undo()
+	rwu.undo()
 
 	s5 := gets()
 	if s5 != s1 {

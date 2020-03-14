@@ -34,7 +34,7 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 
 	te.ctx = rwedit.NewCtx()
 	te.ctx.RW = te.rwu
-	te.ctx.C.OnChange = te.onCursorChange
+	te.ctx.C = rwedit.NewTriggerCursor(te.onCursorChange)
 	te.ctx.Fns.Error = uiCtx.Error
 	te.ctx.Fns.GetPoint = te.GetPoint
 	te.ctx.Fns.GetIndex = te.GetIndex
@@ -105,7 +105,7 @@ func (te *TextEdit) onCursorChange() {
 
 //----------
 
-func (te *TextEdit) Cursor() *rwedit.Cursor {
+func (te *TextEdit) Cursor() rwedit.Cursor {
 	return te.ctx.C
 }
 
@@ -122,10 +122,15 @@ func (te *TextEdit) SetCursorIndex(i int) {
 func (te *TextEdit) Undo() error { return te.undoRedo(false) }
 func (te *TextEdit) Redo() error { return te.undoRedo(true) }
 func (te *TextEdit) undoRedo(redo bool) error {
-	return te.rwu.UndoRedo(redo, func(cd rwedit.CursorData) {
-		te.ctx.C.SetData(cd) // restore cursor
+	c, ok, err := te.rwu.UndoRedo(redo, false)
+	if err != nil {
+		return err
+	}
+	if ok {
+		te.ctx.C.Set(c) // restore cursor
 		te.MakeCursorVisible()
-	})
+	}
+	return nil
 }
 
 func (te *TextEdit) ClearUndones() {
@@ -135,13 +140,13 @@ func (te *TextEdit) ClearUndones() {
 //----------
 
 func (te *TextEdit) BeginUndoGroup() {
-	d := te.ctx.C.Data()
-	te.rwu.History.BeginUndoGroup(&d)
+	c := te.ctx.C.Get()
+	te.rwu.History.BeginUndoGroup(c)
 }
 
 func (te *TextEdit) EndUndoGroup() {
-	d := te.ctx.C.Data()
-	te.rwu.History.EndUndoGroup(&d)
+	c := te.ctx.C.Get()
+	te.rwu.History.EndUndoGroup(c)
 }
 
 //----------

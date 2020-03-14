@@ -16,7 +16,7 @@ type History struct {
 	ugroup struct { // undo group
 		sync.Mutex
 		ohlist *HList // original list
-		cd     *rwedit.CursorData
+		c      rwedit.SimpleCursor
 	}
 }
 
@@ -27,14 +27,15 @@ func NewHistory(maxLen int) *History {
 
 //----------
 
-func (h *History) Append(edits *Edits)  { h.hlist.Append(edits, h.maxLen) }
-func (h *History) Clear()               { h.hlist.Clear() }
-func (h *History) ClearUndones()        { h.hlist.ClearUndones() }
-func (h *History) MergeNDoneBack(n int) { h.hlist.MergeNDoneBack(n) }
+func (h *History) Append(edits *Edits) { h.hlist.Append(edits, h.maxLen) }
+func (h *History) Clear()              { h.hlist.Clear() }
+func (h *History) ClearUndones()       { h.hlist.ClearUndones() }
+
+//func (h *History) MergeNDoneBack(n int) { h.hlist.MergeNDoneBack(n) }
 
 //----------
 
-func (h *History) UndoRedo(redo bool) (*Edits, bool) {
+func (h *History) UndoRedo(redo, peek bool) (*Edits, bool) {
 	// the call to undo could be inside an undogroup, use the original list; usually this is ok since the only operations should be undo/redo, but if other write operations are done while on this undogroup, there could be undefined behaviour (programmer responsability)
 	h.ugroup.Lock()
 	defer h.ugroup.Unlock()
@@ -44,15 +45,15 @@ func (h *History) UndoRedo(redo bool) (*Edits, bool) {
 	}
 
 	if redo {
-		return hl.Redo()
+		return hl.Redo(peek)
 	} else {
-		return hl.Undo()
+		return hl.Undo(peek)
 	}
 }
 
 //----------
 
-func (h *History) BeginUndoGroup(cd *rwedit.CursorData) {
+func (h *History) BeginUndoGroup(c rwedit.SimpleCursor) {
 	h.ugroup.Lock()
 	defer h.ugroup.Unlock()
 	if h.ugroup.ohlist != nil {
@@ -64,10 +65,10 @@ func (h *History) BeginUndoGroup(cd *rwedit.CursorData) {
 	h.hlist = NewHList()
 
 	// keep cursordata
-	h.ugroup.cd = cd
+	h.ugroup.c = c
 }
 
-func (h *History) EndUndoGroup(cd *rwedit.CursorData) {
+func (h *History) EndUndoGroup(c rwedit.SimpleCursor) {
 	h.ugroup.Lock()
 	defer h.ugroup.Unlock()
 	if h.ugroup.ohlist == nil {
@@ -82,14 +83,10 @@ func (h *History) EndUndoGroup(cd *rwedit.CursorData) {
 	}
 
 	if h.hlist.list.Len() == 1 {
-		// overwrite undogroup cursors
+		// overwrite undogroup cursors - allows a setbytes to not end with the full content selected since it overwrites all
 		edits := h.hlist.list.Front().Value.(*Edits)
-		if h.ugroup.cd != nil {
-			edits.preCursor.SetData(*h.ugroup.cd)
-		}
-		if cd != nil {
-			edits.postCursor.SetData(*cd)
-		}
+		edits.preCursor = h.ugroup.c
+		edits.postCursor = c
 		// append undogroup elements to the original list
 		h.ugroup.ohlist.Append(edits, h.maxLen)
 	}
@@ -132,21 +129,25 @@ func (hl *HList) Append(edits *Edits, maxLen int) {
 
 //----------
 
-func (hl *HList) Undo() (*Edits, bool) {
+func (hl *HList) Undo(peek bool) (*Edits, bool) {
 	u := hl.DoneBack()
 	if u == nil {
 		return nil, false
 	}
-	hl.undone = u
-	return hl.undone.Value.(*Edits), true
+	if !peek {
+		hl.undone = u
+	}
+	return u.Value.(*Edits), true
 }
 
-func (hl *HList) Redo() (*Edits, bool) {
+func (hl *HList) Redo(peek bool) (*Edits, bool) {
 	u := hl.undone
 	if u == nil {
 		return nil, false
 	}
-	hl.undone = hl.undone.Next()
+	if !peek {
+		hl.undone = hl.undone.Next()
+	}
 	return u.Value.(*Edits), true
 }
 
@@ -200,13 +201,13 @@ func (hl *HList) mergeNextNotUndone(elem *list.Element) bool {
 	return true
 }
 
-func (hl *HList) MergeNDoneBack(n int) {
-	e := hl.DoneBack()
-	for ; n > 0 && e != nil; e = e.Prev() {
-		n--
-	}
-	hl.mergeToDoneBack(e)
-}
+//func (hl *HList) MergeNDoneBack(n int) {
+//	e := hl.DoneBack()
+//	for ; n > 0 && e != nil; e = e.Prev() {
+//		n--
+//	}
+//	hl.mergeToDoneBack(e)
+//}
 
 //----------
 

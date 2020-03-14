@@ -1,12 +1,24 @@
 package rwedit
 
-type Cursor struct {
-	d        CursorData
-	OnChange func()
+type Cursor interface {
+	Set(c SimpleCursor)
+	Get() SimpleCursor
+
+	Index() int
+	SetIndex(int)
+	SelectionIndex() int
+	SetSelection(si, ci int)
+	SetSelectionOff()
+	SetIndexSelectionOff(i int)
+	HaveSelection() bool
+	UpdateSelection(on bool, ci int)
+	SelectionIndexes() (int, int, bool)
+	SelectionIndexesUnsorted() (int, int, bool)
 }
 
-// Allows to avoid copying the cursor (*c=*c2), since it could lead to undesired OnChange() triggers; use c.Data()/c.SetData() and pass CursorData in args when possible.
-type CursorData struct {
+//----------
+
+type SimpleCursor struct {
 	index int
 	sel   struct { // selection
 		on    bool
@@ -14,45 +26,52 @@ type CursorData struct {
 	}
 }
 
+func (c *SimpleCursor) Set(c2 SimpleCursor) {
+	*c = c2
+}
+func (c *SimpleCursor) Get() SimpleCursor {
+	return *c
+}
+
 //----------
 
-func (c *Cursor) Index() int {
-	return c.d.index
+func (c *SimpleCursor) Index() int {
+	return c.index
 }
-func (c *Cursor) SetIndex(v int) {
-	d2 := c.d
-	c.d.index = v
-	c.changed(c.d != d2)
+func (c *SimpleCursor) SetIndex(i int) {
+	c.index = i
+}
+func (c *SimpleCursor) SelectionIndex() int {
+	return c.sel.index
+}
+func (c *SimpleCursor) SetSelection(si, ci int) { // start/finish
+	c.sel.on = true
+	c.sel.index = si
+	c.index = ci
+}
+func (c *SimpleCursor) SetSelectionOff() {
+	c.sel.on = false
+	c.sel.index = 0
+}
+func (c *SimpleCursor) SetIndexSelectionOff(i int) {
+	c.index = i
+	c.sel.on = false
+	c.sel.index = 0
 }
 
-func (c *Cursor) SelectionIndex() int {
-	return c.d.sel.index
+//----------
+
+func (c *SimpleCursor) HaveSelection() bool {
+	return c.sel.on && c.sel.index != c.index
 }
-func (c *Cursor) SetSelection(si, ci int) { // start/finish
-	d2 := c.d
-	c.d.sel.on = true
-	c.d.sel.index = si
-	c.d.index = ci
-	c.changed(c.d != d2)
-}
-func (c *Cursor) SetSelectionOff() {
-	d2 := c.d
-	c.d.sel.on = false
-	c.d.sel.index = 0
-	c.changed(c.d != d2)
-}
-func (c *Cursor) SetIndexSelectionOff(i int) {
-	d2 := c.d
-	c.d.index = i
-	c.d.sel.on = false
-	c.d.sel.index = 0
-	c.changed(c.d != d2)
-}
-func (c *Cursor) SetSelectionUpdate(on bool, ci int) {
+
+//----------
+
+func (c *SimpleCursor) UpdateSelection(on bool, ci int) {
 	if on {
-		si := c.d.sel.index
-		if !c.d.sel.on {
-			si = c.d.index
+		si := c.sel.index
+		if !c.sel.on {
+			si = c.index
 		}
 		c.SetSelection(si, ci)
 	} else {
@@ -62,50 +81,84 @@ func (c *Cursor) SetSelectionUpdate(on bool, ci int) {
 
 //----------
 
-func (c *Cursor) SetData(d CursorData) {
-	d2 := c.d
-	c.d = d
-	c.changed(c.d != d2)
-}
-func (c *Cursor) Data() CursorData {
-	return c.d
-}
-
-//----------
-
-func (c *Cursor) HaveSelection() bool {
-	return c.d.sel.on && c.d.sel.index != c.d.index
-}
-
-//----------
-
 // Values returned are sorted
-func (c *Cursor) SelectionIndexes() (int, int, bool) {
+func (c *SimpleCursor) SelectionIndexes() (int, int, bool) {
 	if !c.HaveSelection() {
 		return 0, 0, false
 	}
-	a, b := c.d.index, c.d.sel.index
+	a, b := c.index, c.sel.index
 	if a > b {
 		a, b = b, a
 	}
 	return a, b, true
 }
 
-func (c *Cursor) SelectionIndexesUnsorted() (int, int, bool) {
+func (c *SimpleCursor) SelectionIndexesUnsorted() (int, int, bool) {
 	if !c.HaveSelection() {
 		return 0, 0, false
 	}
-	return c.d.sel.index, c.d.index, true // start/finish (can be finish<start)
+	return c.sel.index, c.index, true // start/finish (can be finish<start)
 }
 
 //----------
 
-func (c *Cursor) changed(t bool) {
-	if t && c.OnChange != nil {
-		c.OnChange()
-	}
+type TriggerCursor struct {
+	*SimpleCursor
+	c        *SimpleCursor
+	onChange func()
 }
 
-func (c *Cursor) Equal(c2 *Cursor) bool {
-	return c.d == c2.d
+func NewTriggerCursor(onChange func()) *TriggerCursor {
+	tc := &TriggerCursor{onChange: onChange}
+	c := &SimpleCursor{}
+	tc.SimpleCursor = c
+	tc.c = c
+	return tc
+}
+
+//----------
+
+func (tc *TriggerCursor) Set(c SimpleCursor) {
+	tmp := tc.copy()
+	*tc.SimpleCursor = c
+	tc.changed(tmp)
+}
+func (tc *TriggerCursor) SetIndex(i int) {
+	tmp := tc.copy()
+	tc.c.SetIndex(i)
+	tc.changed(tmp)
+}
+func (tc *TriggerCursor) SetSelection(si, ci int) { // start/finish
+	tmp := tc.copy()
+	tc.c.SetSelection(si, ci)
+	tc.changed(tmp)
+}
+func (tc *TriggerCursor) SetSelectionOff() {
+	tmp := tc.copy()
+	tc.c.SetSelectionOff()
+	tc.changed(tmp)
+}
+func (tc *TriggerCursor) SetIndexSelectionOff(i int) {
+	tmp := tc.copy()
+	tc.c.SetIndexSelectionOff(i)
+	tc.changed(tmp)
+}
+func (tc *TriggerCursor) UpdateSelection(on bool, ci int) {
+	tmp := tc.copy()
+	tc.c.UpdateSelection(on, ci)
+	tc.changed(tmp)
+}
+
+//----------
+
+func (tc *TriggerCursor) copy() SimpleCursor {
+	return *tc.SimpleCursor
+}
+func (tc *TriggerCursor) changed(c SimpleCursor) {
+	if tc.onChange == nil {
+		return
+	}
+	if c != *tc.c {
+		tc.onChange()
+	}
 }

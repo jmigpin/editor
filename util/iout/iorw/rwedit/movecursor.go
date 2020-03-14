@@ -11,7 +11,7 @@ import (
 
 func MoveCursorToPoint(ctx *Ctx, p image.Point, sel bool) {
 	i := ctx.Fns.GetIndex(p)
-	ctx.C.SetSelectionUpdate(sel, i)
+	ctx.C.UpdateSelection(sel, i)
 	// set primary copy
 	if b, ok := ctx.Selection(); ok {
 		ctx.Fns.SetClipboardData(event.CIPrimary, string(b))
@@ -24,9 +24,12 @@ func MoveCursorLeft(ctx *Ctx, sel bool) error {
 	ci := ctx.C.Index()
 	_, size, err := ctx.RW.ReadLastRuneAt(ci)
 	if err != nil {
-		return err
+		if !errors.Is(err, io.EOF) {
+			return err
+		}
+		return nil
 	}
-	ctx.C.SetSelectionUpdate(sel, ci-size)
+	ctx.C.UpdateSelection(sel, ci-size)
 	return nil
 }
 
@@ -34,9 +37,12 @@ func MoveCursorRight(ctx *Ctx, sel bool) error {
 	ci := ctx.C.Index()
 	_, size, err := ctx.RW.ReadRuneAt(ci)
 	if err != nil {
-		return err
+		if !errors.Is(err, io.EOF) {
+			return err
+		}
+		return nil
 	}
-	ctx.C.SetSelectionUpdate(sel, ci+size)
+	ctx.C.UpdateSelection(sel, ci+size)
 	return nil
 }
 
@@ -46,14 +52,14 @@ func MoveCursorUp(ctx *Ctx, sel bool) {
 	p := ctx.Fns.GetPoint(ctx.C.Index())
 	p.Y -= ctx.Fns.LineHeight() - 1
 	i := ctx.Fns.GetIndex(p)
-	ctx.C.SetSelectionUpdate(sel, i)
+	ctx.C.UpdateSelection(sel, i)
 }
 
 func MoveCursorDown(ctx *Ctx, sel bool) {
 	p := ctx.Fns.GetPoint(ctx.C.Index())
 	p.Y += ctx.Fns.LineHeight() + 1
 	i := ctx.Fns.GetIndex(p)
-	ctx.C.SetSelectionUpdate(sel, i)
+	ctx.C.UpdateSelection(sel, i)
 }
 
 //----------
@@ -63,7 +69,7 @@ func MoveCursorJumpLeft(ctx *Ctx, sel bool) error {
 	if err != nil {
 		return err
 	}
-	ctx.C.SetSelectionUpdate(sel, i)
+	ctx.C.UpdateSelection(sel, i)
 	return nil
 }
 func MoveCursorJumpRight(ctx *Ctx, sel bool) error {
@@ -71,7 +77,7 @@ func MoveCursorJumpRight(ctx *Ctx, sel bool) error {
 	if err != nil {
 		return err
 	}
-	ctx.C.SetSelectionUpdate(sel, i)
+	ctx.C.UpdateSelection(sel, i)
 	return nil
 }
 

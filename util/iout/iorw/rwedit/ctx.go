@@ -12,12 +12,12 @@ import (
 
 type Ctx struct {
 	RW  iorw.ReadWriter
-	C   *Cursor
+	C   Cursor
 	Fns CtxFns
 }
 
 func NewCtx() *Ctx {
-	ctx := &Ctx{C: &Cursor{}, Fns: EmptyCtxFns()}
+	ctx := &Ctx{C: &SimpleCursor{}, Fns: EmptyCtxFns()}
 	return ctx
 }
 

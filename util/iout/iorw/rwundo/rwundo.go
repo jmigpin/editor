@@ -39,16 +39,25 @@ func (rw *RWUndo) Overwrite(i, n int, p []byte) error {
 
 //----------
 
-func (rw *RWUndo) Undo() error { return rw.UndoRedo(false, nil) }
-func (rw *RWUndo) Redo() error { return rw.UndoRedo(true, nil) }
-func (rw *RWUndo) UndoRedo(redo bool, restore func(rwedit.CursorData)) error {
-	edits, ok := rw.History.UndoRedo(redo)
+func (rw *RWUndo) UndoRedo(redo, peek bool) (rwedit.SimpleCursor, bool, error) {
+	edits, ok := rw.History.UndoRedo(redo, peek)
 	if !ok {
-		return nil
+		return rwedit.SimpleCursor{}, false, nil
 	}
-	if err := edits.WriteUndoRedo(redo, rw.ReadWriter, restore); err != nil {
+	c, err := edits.WriteUndoRedo(redo, rw.ReadWriter)
+	if err != nil {
 		// TODO: restore the undo/redo since it was not successful?
-		return err
+		return rwedit.SimpleCursor{}, false, err
 	}
-	return nil
+	return c, true, nil
+}
+
+//----------
+
+// used in tests
+func (rw *RWUndo) undo() (rwedit.SimpleCursor, bool, error) {
+	return rw.UndoRedo(false, false)
+}
+func (rw *RWUndo) redo() (rwedit.SimpleCursor, bool, error) {
+	return rw.UndoRedo(true, false)
 }

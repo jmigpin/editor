@@ -11,8 +11,8 @@ import (
 
 type Edits struct {
 	list       list.List
-	preCursor  rwedit.Cursor
-	postCursor rwedit.Cursor
+	preCursor  rwedit.SimpleCursor
+	postCursor rwedit.SimpleCursor
 }
 
 func (edits *Edits) Append(ur *UndoRedo) {
@@ -52,29 +52,24 @@ func (edits *Edits) MergeEdits(edits2 *Edits) {
 
 //----------
 
-func (edits *Edits) WriteUndoRedo(redo bool, w iorw.Writer, restore func(rwedit.CursorData)) error {
+func (edits *Edits) WriteUndoRedo(redo bool, w iorw.Writer) (rwedit.SimpleCursor, error) {
 	if redo {
 		for e := edits.list.Front(); e != nil; e = e.Next() {
 			ur := e.Value.(*UndoRedo)
 			if err := ur.Apply(redo, w); err != nil {
-				return err
+				return rwedit.SimpleCursor{}, err
 			}
 		}
-		if restore != nil {
-			restore(edits.postCursor.Data())
-		}
+		return edits.postCursor, nil
 	} else {
 		for e := edits.list.Back(); e != nil; e = e.Prev() {
 			ur := e.Value.(*UndoRedo)
 			if err := ur.Apply(redo, w); err != nil {
-				return err
+				return rwedit.SimpleCursor{}, err
 			}
 		}
-		if restore != nil {
-			restore(edits.preCursor.Data())
-		}
+		return edits.preCursor, nil
 	}
-	return nil
 }
 
 //----------
