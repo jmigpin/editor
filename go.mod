@@ -10,7 +10,6 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	golang.org/x/image v0.0.0-20191214001246-9130b4cfad52
 	golang.org/x/mod v0.2.0
-	golang.org/x/sys v0.0.0-20191224085550-c709ea063b76
-	golang.org/x/tools v0.0.0-20200212150539-ea181f53ac56
-	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
+	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527
+	golang.org/x/tools v0.0.0-20200313205530-4303120df7d8
 )
