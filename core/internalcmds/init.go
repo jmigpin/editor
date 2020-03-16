@@ -36,6 +36,7 @@ func init() {
 	ic.Set(&core.InternalCmd{"Find", Find, false, false})
 	ic.Set(&core.InternalCmd{"Replace", Replace, false, false})
 	ic.Set(&core.InternalCmd{"GotoLine", GotoLine, false, false})
+	ic.Set(&core.InternalCmd{"GoToLine", GotoLine, false, false})
 
 	ic.Set(&core.InternalCmd{"CopyFilePosition", CopyFilePosition, false, false})
 	ic.Set(&core.InternalCmd{"RuneCodes", RuneCodes, false, false})
