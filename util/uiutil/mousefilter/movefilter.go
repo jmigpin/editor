@@ -6,8 +6,8 @@ import (
 )
 
 type MoveFilter struct {
-	out      chan<- interface{}
 	fps      int
+	emitFn   func(interface{})
 	isMoveFn func(interface{}) bool
 
 	last struct {
@@ -18,8 +18,8 @@ type MoveFilter struct {
 	}
 }
 
-func NewMoveFilter(out chan<- interface{}, fps int, isMoveFn func(interface{}) bool) *MoveFilter {
-	return &MoveFilter{out: out, fps: fps, isMoveFn: isMoveFn}
+func NewMoveFilter(fps int, emitFn func(interface{}), isMoveFn func(interface{}) bool) *MoveFilter {
+	return &MoveFilter{fps: fps, emitFn: emitFn, isMoveFn: isMoveFn}
 }
 
 func (movef *MoveFilter) Filter(ev interface{}) {
@@ -27,7 +27,7 @@ func (movef *MoveFilter) Filter(ev interface{}) {
 		movef.keepMoveEv(ev)
 	} else {
 		movef.sendMoveEv()
-		movef.out <- ev
+		movef.emitFn(ev)
 	}
 }
 
@@ -43,7 +43,7 @@ func (movef *MoveFilter) keepMoveEv(moveEv interface{}) {
 		now := time.Now()
 		if now.Sub(movef.last.sent) >= frameDur {
 			movef.last.sent = now
-			movef.out <- moveEv
+			movef.emitFn(moveEv)
 		} else {
 			movef.last.moveEv = moveEv // set ev to send later
 			d := frameDur - now.Sub(movef.last.sent)
@@ -57,7 +57,7 @@ func (movef *MoveFilter) sendMoveEv() {
 	defer movef.last.Unlock()
 	if movef.last.moveEv != nil {
 		movef.last.sent = time.Now()
-		movef.out <- movef.last.moveEv
+		movef.emitFn(movef.last.moveEv)
 		movef.last.moveEv = nil
 	}
 	if movef.last.timer != nil {

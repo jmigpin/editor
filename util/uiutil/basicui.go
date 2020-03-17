@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/driver"
-	"github.com/jmigpin/editor/util/chanutil"
+	"github.com/jmigpin/editor/util/syncutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/mousefilter"
 	"github.com/jmigpin/editor/util/uiutil/widget"
@@ -24,7 +24,7 @@ type BasicUI struct {
 
 	closeOnce sync.Once
 
-	eventsQ *chanutil.ChanQ // linked list queue (unlimited length)
+	eventsQ *syncutil.SyncedQ // linked list queue (unlimited length)
 	applyEv *widget.ApplyEvent
 	movef   *mousefilter.MoveFilter
 	clickf  *mousefilter.ClickFilter
@@ -46,7 +46,7 @@ func NewBasicUI(WinName string, root widget.Node) (*BasicUI, error) {
 		Win:           win,
 	}
 
-	ui.eventsQ = chanutil.NewChanQ(16, 16)
+	ui.eventsQ = syncutil.NewSyncedQ()
 	ui.applyEv = widget.NewApplyEvent(ui)
 	ui.initMouseFilters()
 
@@ -69,7 +69,7 @@ func (ui *BasicUI) initMouseFilters() {
 		}
 		return false
 	}
-	ui.movef = mousefilter.NewMoveFilter(ui.eventsQ.In(), ui.DrawFrameRate, isMouseMoveEv)
+	ui.movef = mousefilter.NewMoveFilter(ui.DrawFrameRate, ui.eventsQ.PushBack, isMouseMoveEv)
 
 	// click/drag filters
 	emitFn := func(ev interface{}, p image.Point) {
@@ -93,7 +93,7 @@ func (ui *BasicUI) Close() {
 
 func (ui *BasicUI) eventLoop() {
 	for {
-		//ui.eventsQ.In() <- ui.Win.NextEvent() // slow UI
+		//ui.eventsQ.PushBack(ui.Win.NextEvent()) // slow UI
 
 		ev := ui.Win.NextEvent()
 		ui.movef.Filter(ev) // sends events to ui.eventsQ.In()
@@ -120,13 +120,13 @@ func (ui *BasicUI) eventLoop() {
 //	}
 //}
 func (ui *BasicUI) NextEvent() interface{} {
-	return <-ui.eventsQ.Out()
+	return ui.eventsQ.PopFront()
 }
 
 //----------
 
 func (ui *BasicUI) AppendEvent(ev interface{}) {
-	ui.eventsQ.In() <- ev
+	ui.eventsQ.PushBack(ev)
 }
 
 //----------
