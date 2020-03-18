@@ -10,7 +10,7 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/driver/xdriver/xutil"
-	"github.com/jmigpin/editor/util/chanutil"
+	"github.com/jmigpin/editor/util/syncutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -22,7 +22,7 @@ type Dnd struct {
 	conn *xgb.Conn
 	win  xproto.Window
 	data DndData
-	sch  *chanutil.NBChan
+	sgt  *syncutil.GetTimeout
 }
 
 func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
@@ -36,10 +36,7 @@ func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
 	if err := dnd.setupWindowProperty(); err != nil {
 		return nil, err
 	}
-
-	//dnd.reply = make(chan *xproto.SelectionNotifyEvent)
-	dnd.sch = chanutil.NewNBChan()
-
+	dnd.sgt = syncutil.NewGetTimeout()
 	return dnd, nil
 }
 
@@ -57,6 +54,8 @@ func (dnd *Dnd) setupWindowProperty() error {
 		data)
 	return cookie.Check()
 }
+
+//----------
 
 // Error could be nil.
 func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent) (ev_ interface{}, _ error, ok bool) {
@@ -82,6 +81,9 @@ func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent) (ev_ interface{},
 	}
 	return nil, nil, false
 }
+
+//----------
+
 func (dnd *Dnd) onEnter(data []uint32) {
 	dnd.data.hasEnter = true
 	dnd.data.enter.win = xproto.Window(data[0])
@@ -108,6 +110,9 @@ func (dnd *Dnd) onEnter(data []uint32) {
 	}
 	dnd.data.enter.eventTypes = u
 }
+
+//----------
+
 func (dnd *Dnd) onPosition(data []uint32) (ev interface{}, _ error) {
 	// must have had a dnd enter event before
 	if !dnd.data.hasEnter {
@@ -157,6 +162,8 @@ func (dnd *Dnd) positionReply(action event.DndAction) {
 	dnd.sendStatus(dnd.data.enter.win, a, accept)
 }
 
+//----------
+
 func (dnd *Dnd) onDrop(data []uint32) (ev interface{}, _ error) {
 	// must have had a dnd position event before
 	if !dnd.data.hasPosition {
@@ -189,12 +196,8 @@ func (dnd *Dnd) requestDropData(t event.DndType) ([]byte, error) {
 		return nil, fmt.Errorf("unhandled type: %v", t)
 	}
 
-	dnd.sch.NewBufChan(1)
-	defer dnd.sch.SetBufChanToZero()
-
-	dnd.requestData(t2)
-
-	v, err := dnd.sch.Receive(1000 * time.Millisecond)
+	ready := func() error { dnd.requestData(t2); return nil }
+	v, err := dnd.sgt.Get(1500*time.Millisecond, ready)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +205,8 @@ func (dnd *Dnd) requestDropData(t event.DndType) ([]byte, error) {
 
 	return dnd.extractData(ev)
 }
+
+//----------
 
 // Called after a request for data.
 func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
@@ -213,11 +218,13 @@ func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 		return
 	}
 
-	err := dnd.sch.Send(ev)
+	err := dnd.sgt.Set(ev)
 	if err != nil {
 		log.Print(fmt.Errorf("onselectionnotify: %w", err))
 	}
 }
+
+//----------
 
 func (dnd *Dnd) requestData(typ xproto.Atom) {
 	// will get selection-notify event
@@ -271,6 +278,8 @@ func (dnd *Dnd) sendStatus(win xproto.Window, action xproto.Atom, accept bool) {
 	dnd.sendClientMessage(cme)
 }
 
+//----------
+
 func (dnd *Dnd) sendClientMessage(cme *xproto.ClientMessageEvent) {
 	_ = xproto.SendEvent(
 		dnd.conn,
@@ -296,6 +305,8 @@ func (dnd *Dnd) clearData() {
 	dnd.data = DndData{}
 }
 
+//----------
+
 type DndData struct {
 	hasEnter    bool
 	hasPosition bool
@@ -314,6 +325,8 @@ type DndData struct {
 		timestamp xproto.Timestamp
 	}
 }
+
+//----------
 
 var DndAtoms struct {
 	XdndAware    xproto.Atom
@@ -335,6 +348,8 @@ var DndAtoms struct {
 
 	XdndSelection xproto.Atom
 }
+
+//----------
 
 var DropTypeAtoms struct {
 	TextURLList xproto.Atom `loadAtoms:"text/uri-list"` // technically, a URL

@@ -10,15 +10,15 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/jmigpin/editor/driver/xdriver/xutil"
-	"github.com/jmigpin/editor/util/chanutil"
+	"github.com/jmigpin/editor/util/syncutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type Paste struct {
 	conn *xgb.Conn
 	win  xproto.Window
-	sch  *chanutil.NBChan // selectionnotify
-	pch  *chanutil.NBChan // propertynotify
+	sgt  *syncutil.GetTimeout // selectionnotify
+	pgt  *syncutil.GetTimeout // propertynotify
 }
 
 func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
@@ -29,8 +29,8 @@ func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
 		conn: conn,
 		win:  win,
 	}
-	p.sch = chanutil.NewNBChan()
-	p.pch = chanutil.NewNBChan()
+	p.sgt = syncutil.NewGetTimeout()
+	p.pgt = syncutil.NewGetTimeout()
 	return p, nil
 }
 
@@ -52,15 +52,8 @@ func (p *Paste) Get(index event.ClipboardIndex) (string, error) {
 func (p *Paste) request(selection xproto.Atom) (string, error) {
 	// TODO: handle timestamps to force only one paste at a time?
 
-	p.sch.NewBufChan(1)
-	defer p.sch.SetBufChanToZero()
-
-	p.pch.NewBufChan(8)
-	defer p.pch.SetBufChanToZero()
-
-	p.requestData(selection)
-
-	v, err := p.sch.Receive(1000 * time.Millisecond)
+	ready := func() error { p.requestData(selection); return nil }
+	v, err := p.sgt.Get(1500*time.Millisecond, ready)
 	if err != nil {
 		return "", err
 	}
@@ -91,7 +84,7 @@ func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 		return
 	}
 
-	err := p.sch.Send(ev)
+	err := p.sgt.Set(ev)
 	if err != nil {
 		log.Print(fmt.Errorf("onselectionnotify: %w", err))
 	}
@@ -109,7 +102,7 @@ func (p *Paste) OnPropertyNotify(ev *xproto.PropertyNotifyEvent) {
 
 	//log.Printf("%#v", ev)
 
-	err := p.pch.Send(ev)
+	err := p.pgt.Set(ev)
 	if err != nil {
 		//log.Print(errors.Wrap(err, "onpropertynotify"))
 	}
@@ -185,7 +178,9 @@ func (p *Paste) extractData3(ev *xproto.SelectionNotifyEvent) (string, error) {
 
 func (p *Paste) waitForPropertyNewValue(ev *xproto.SelectionNotifyEvent) error {
 	for {
-		v, err := p.pch.Receive(1000 * time.Millisecond)
+		// TODO: review, should use ready func
+		ready := func() error { return nil }
+		v, err := p.pgt.Get(1000*time.Millisecond, ready)
 		if err != nil {
 			return err
 		}

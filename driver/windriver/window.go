@@ -12,8 +12,8 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/jmigpin/editor/util/chanutil"
 	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/syncutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -313,7 +313,7 @@ func (win *Window) handleAppMsg(id int, msg *_Msg) {
 		return
 	}
 	err = win.handleRequest(req, msg)
-	_ = appData.Ch.Send(err)
+	_ = appData.ReqErr.Set(err)
 }
 
 func (win *Window) handleRequest(req event.Request, msg *_Msg) error {
@@ -370,15 +370,17 @@ func (win *Window) Request(req event.Request) error {
 
 func (win *Window) runAppMsgReq(req event.Request) error {
 	appData := NewAppData(req)
-	if err := win.postAppMsg(appData); err != nil {
-		return err
+	ready := func() error {
+		return win.postAppMsg(appData)
 	}
-	reqErrV, err := appData.Ch.Receive(3 * time.Second)
+	reqErrV, err := appData.ReqErr.Get(3*time.Second, ready)
 	if err != nil {
+		err = fmt.Errorf("win appdata: %T, %w", req, err)
 		return err
 	}
-	if reqErr, ok := reqErrV.(error); ok {
-		return reqErr
+	if err, ok := reqErrV.(error); ok {
+		err = fmt.Errorf("win appdata: %T, %w", req, err)
+		return err
 	}
 	return nil
 }
@@ -894,13 +896,12 @@ func (win *Window) stopDragDrop() {
 //----------
 
 type AppData struct {
-	Ch    *chanutil.NBChan
-	Value interface{}
+	ReqErr *syncutil.GetTimeout
+	Value  interface{}
 }
 
 func NewAppData(v interface{}) *AppData {
-	logStr := fmt.Sprintf("win appdata: %T", v)
-	return &AppData{chanutil.NewNBChan2(1, logStr), v}
+	return &AppData{syncutil.NewGetTimeout(), v}
 }
 
 //----------

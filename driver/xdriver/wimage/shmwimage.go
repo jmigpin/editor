@@ -4,19 +4,20 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"log"
 	"time"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/util/chanutil"
+	"github.com/jmigpin/editor/util/syncutil"
 )
 
 type ShmWImage struct {
 	opt          *Options
 	segId        shm.Seg
 	imgWrap      *ShmImgWrap
-	putCompleted *chanutil.NBChan
+	putCompleted *syncutil.GetTimeout
 }
 
 func NewShmWImage(opt *Options) (*ShmWImage, error) {
@@ -30,7 +31,7 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 	}
 
 	wi := &ShmWImage{opt: opt}
-	wi.putCompleted = chanutil.NewNBChan2(1, "shm putcompleted")
+	wi.putCompleted = syncutil.NewGetTimeout()
 
 	// server segment id
 	segId, err := shm.NewSegId(wi.opt.Conn)
@@ -84,6 +85,19 @@ func (wi *ShmWImage) Image() draw.Image {
 }
 
 func (wi *ShmWImage) PutImage(r image.Rectangle) error {
+	ready := func() error {
+		return wi.putImage2(r)
+	}
+	// wait for shm.CompletionEvent that should call PutImageCompleted()
+	// Returns early if the server fails to send the msg (failsafe)
+	_, err := wi.putCompleted.Get(250*time.Millisecond, ready)
+	if err != nil {
+		err = fmt.Errorf("shm putCompleted: get, %w", err)
+	}
+	return err
+}
+
+func (wi *ShmWImage) putImage2(r image.Rectangle) error {
 	gctx := wi.opt.GCtx
 	img := wi.imgWrap.Img
 	drawable := xproto.Drawable(wi.opt.Window)
@@ -101,19 +115,15 @@ func (wi *ShmWImage) PutImage(r image.Rectangle) error {
 		1, // send shm.CompletionEvent when done
 		wi.segId,
 		0) // offset
-	err := c1.Check()
-	if err != nil {
-		return err
-	}
-
-	// wait for shm.CompletionEvent that should call PutImageCompleted()
-	// Returns early if the server fails to send the msg (failsafe)
-	_, err = wi.putCompleted.Receive(250 * time.Millisecond)
-	return err
+	return c1.Check()
 }
 
 func (wi *ShmWImage) PutImageCompleted() {
-	_ = wi.putCompleted.Send(struct{}{})
+	err := wi.putCompleted.Set(nil)
+	if err != nil {
+		err = fmt.Errorf("shm putCompleted: set, %w", err)
+		log.Println(err)
+	}
 }
 
 //----------
