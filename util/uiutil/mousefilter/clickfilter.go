@@ -106,11 +106,3 @@ const (
 	MClickActionDouble
 	MClickActionTriple
 )
-
-//----------
-
-func DetectMove(press, p image.Point) bool {
-	r := image.Rectangle{press, press}
-	r = r.Inset(-3) // negative (outset); padding to detect intention to move/drag
-	return !p.In(r)
-}

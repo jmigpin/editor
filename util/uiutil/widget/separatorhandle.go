@@ -4,6 +4,7 @@ import (
 	"image"
 
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/mousefilter"
 )
 
 // A transparent widget added to a top layer (usually multilayer) to facilitate dragging.
@@ -45,7 +46,7 @@ func (sh *SeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) event.Ha
 	switch ev := ev0.(type) {
 	case *event.MouseDragStart:
 		u := sh.ref.Embed().Bounds.Min
-		sh.DragPad = u.Sub(ev.Point2)
+		sh.DragPad = mousefilter.DetectMovePad(ev.Point2, ev.Point, u)
 	}
 	return sh.ref.Embed().Wrapper.OnInputEvent(ev0, p)
 }
