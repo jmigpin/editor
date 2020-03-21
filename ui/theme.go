@@ -7,10 +7,9 @@ import (
 	"io/ioutil"
 
 	"github.com/golang/freetype/truetype"
-	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/widget"
-	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gomedium"
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
@@ -244,7 +243,7 @@ func monoThemeFont(node widget.Node) {
 
 func AddUserFont(filename string) error {
 	// test now if it will load when needed
-	_, err := ThemeFont(filename)
+	_, err := ThemeFontFace(filename)
 	if err != nil {
 		return err
 	}
@@ -262,15 +261,15 @@ func AddUserFont(filename string) error {
 //----------
 
 func loadThemeFont(name string, node widget.Node) error {
-	// close previous font faces
-	tf0 := node.Embed().TreeThemeFont()
-	tf0.CloseFaces()
+	// close previous faces
+	ff0 := node.Embed().TreeThemeFontFace()
+	ff0.Font.ClearFacesCache()
 
-	tf, err := ThemeFont(name)
+	ff, err := ThemeFontFace(name)
 	if err != nil {
 		return err
 	}
-	node.Embed().SetThemeFont(tf)
+	node.Embed().SetThemeFontFace(ff)
 	return nil
 }
 
@@ -278,17 +277,17 @@ func loadThemeFont(name string, node widget.Node) error {
 
 var TTFontOptions truetype.Options
 
-func ThemeFont(name string) (widget.ThemeFont, error) {
-	fb, err := fontBytes(name)
+func ThemeFontFace(name string) (*fontutil.FontFace, error) {
+	b, err := fontBytes(name)
 	if err != nil {
 		return nil, err
 	}
-	return widget.NewTTThemeFont(fb, &TTFontOptions)
+	f, err := fontutil.FontsMan.Font(b)
+	if err != nil {
+		return nil, err
+	}
+	return f.FontFace(TTFontOptions), nil
 }
-
-//----------
-
-var fontBytesCache = map[string][]byte{}
 
 func fontBytes(name string) ([]byte, error) {
 	switch name {
@@ -299,16 +298,7 @@ func fontBytes(name string) ([]byte, error) {
 	case "mono":
 		return gomono.TTF, nil
 	default:
-		// TODO: should clear if last instance is closed
-		if b, ok := fontBytesCache[name]; ok {
-			return b, nil
-		}
-		b, err := ioutil.ReadFile(name)
-		if err != nil {
-			return nil, err
-		}
-		fontBytesCache[name] = b
-		return b, nil
+		return ioutil.ReadFile(name)
 	}
 }
 
@@ -360,37 +350,31 @@ var UIThemeUtil uiThemeUtil
 
 type uiThemeUtil struct{}
 
-func (uitu *uiThemeUtil) RowMinimumHeight(tf widget.ThemeFont) int {
-	return uitu.LineHeight(tf.Face(nil))
+func (uitu *uiThemeUtil) RowMinimumHeight(ff *fontutil.FontFace) int {
+	return ff.LineHeightInt()
 }
-func (uitu *uiThemeUtil) RowSquareSize(tf widget.ThemeFont) image.Point {
-	lh := uitu.LineHeight(tf.Face(nil))
-	w := int(float64(lh) * 3 / 4)
-	return image.Point{w, lh}
-}
-
-func (uitu *uiThemeUtil) LineHeight(face font.Face) int {
-	m := face.Metrics()
-	return drawutil.LineHeightInt(&m)
+func (uitu *uiThemeUtil) RowSquareSize(ff *fontutil.FontFace) image.Point {
+	lh := ff.LineHeightFloat()
+	w := int(lh * 3 / 4)
+	return image.Point{w, int(lh)}
 }
 
-func (uitu *uiThemeUtil) GetScrollBarWidth(tf widget.ThemeFont) int {
+func (uitu *uiThemeUtil) GetScrollBarWidth(ff *fontutil.FontFace) int {
 	if ScrollBarWidth != 0 {
 		return ScrollBarWidth
 	}
-	lh := uitu.LineHeight(tf.Face(nil))
-	w := int(float64(lh) * 3 / 4)
+	lh := ff.LineHeightFloat()
+	w := int(lh * 3 / 4)
 	return w
 }
 
-func (uitu *uiThemeUtil) ShadowHeight(tf widget.ThemeFont) int {
-	lh := uitu.LineHeight(tf.Face(nil))
-	h := int(float64(lh) * 2 / 5)
-	return h
+func (uitu *uiThemeUtil) ShadowHeight(ff *fontutil.FontFace) int {
+	lh := ff.LineHeightFloat()
+	return int(lh * 2 / 5)
 }
 
 //----------
 
 func cint(c int) color.RGBA {
-	return imageutil.IntRGBA(c)
+	return imageutil.RgbaFromInt(c)
 }

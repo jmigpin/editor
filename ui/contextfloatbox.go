@@ -51,8 +51,8 @@ func (cfb *ContextFloatBox) SetStrClearHistory(s string) {
 //----------
 
 func (cfb *ContextFloatBox) Layout() {
-	sw := UIThemeUtil.GetScrollBarWidth(cfb.TextArea.TreeThemeFont())
-	cfb.sa.ScrollWidth = sw //* 2 / 3
+	ff := cfb.TextArea.TreeThemeFontFace()
+	cfb.sa.ScrollWidth = UIThemeUtil.GetScrollBarWidth(ff)
 	cfb.FloatBox.Layout()
 }
 

@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"strings"
 
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
@@ -539,20 +540,20 @@ func (en *EmbedNode) treeThemePaletteColor2(name string) (color.Color, bool) {
 
 //----------
 
-func (en *EmbedNode) SetThemeFont(f ThemeFont) {
+func (en *EmbedNode) SetThemeFontFace(ff *fontutil.FontFace) {
 	defer en.themeChangeCallback()
 	defer en.MarkNeedsLayout()
 
-	en.theme.SetFont(f)
+	en.theme.SetFontFace(ff)
 }
 
-func (en *EmbedNode) TreeThemeFont() ThemeFont {
+func (en *EmbedNode) TreeThemeFontFace() *fontutil.FontFace {
 	for n := en; n != nil; n = n.Parent {
-		if n.theme.Font != nil {
-			return n.theme.Font
+		if n.theme.FontFace != nil {
+			return n.theme.FontFace
 		}
 	}
-	return DefaultThemeFont() // TODO: instance that gets updated?
+	return fontutil.DefaultFontFace()
 }
 
 //----------

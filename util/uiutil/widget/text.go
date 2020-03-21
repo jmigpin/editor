@@ -155,7 +155,7 @@ func (t *Text) Layout() {
 //----------
 
 func (t *Text) PaintBase() {
-	imageutil.FillRectangle(t.ctx.Image(), &t.Bounds, t.bg)
+	imageutil.FillRectangle(t.ctx.Image(), t.Bounds, t.bg)
 }
 func (t *Text) Paint() {
 	t.Drawer.Draw(t.ctx.Image())
@@ -169,9 +169,9 @@ func (t *Text) OnThemeChange() {
 
 	t.bg = t.TreeThemePaletteColor("text_bg")
 
-	f := t.TreeThemeFont().Face(nil)
-	if f != t.Drawer.Face() {
-		t.Drawer.SetFace(f)
+	ff := t.TreeThemeFontFace()
+	if ff != t.Drawer.FontFace() {
+		t.Drawer.SetFontFace(ff)
 		t.MarkNeedsLayoutAndPaint()
 	} else {
 		t.MarkNeedsPaint()

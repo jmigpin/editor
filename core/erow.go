@@ -277,7 +277,7 @@ func (erow *ERow) parseToolbarVars() {
 		}
 	}
 	if clear {
-		erow.Row.TextArea.SetThemeFont(nil)
+		erow.Row.TextArea.SetThemeFontFace(nil)
 	}
 
 	// $termFilter
@@ -290,11 +290,11 @@ func (erow *ERow) parseToolbarVars() {
 }
 
 func (erow *ERow) setVarFontTheme(s string) error {
-	tf, err := ui.ThemeFont(s)
+	ff, err := ui.ThemeFontFace(s)
 	if err != nil {
 		return err
 	}
-	erow.Row.TextArea.SetThemeFont(tf)
+	erow.Row.TextArea.SetThemeFontFace(ff)
 	return nil
 }
 

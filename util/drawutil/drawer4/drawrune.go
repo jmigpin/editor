@@ -5,9 +5,7 @@ import (
 	"image/color"
 	"image/draw"
 
-	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/imageutil"
-	"golang.org/x/image/math/fixed"
 )
 
 type DrawRune struct {
@@ -55,8 +53,8 @@ func (dr *DrawRune) draw2(pen image.Point, ru rune, fg color.Color) {
 		return
 	}
 
-	bline := fixed.Point26_6{X: 0, Y: drawutil.Baseline(&dr.d.metrics)}
-	gr, mask, maskp, _, ok := dr.d.face.Glyph(bline, ru)
+	bline := dr.d.fface.BaseLine()
+	gr, mask, maskp, _, ok := dr.d.fface.Face.Glyph(bline, ru)
 	if !ok {
 		return
 	}
@@ -72,7 +70,7 @@ func (dr *DrawRune) draw2(pen image.Point, ru rune, fg color.Color) {
 	}
 	gr = gr.Intersect(b)
 
-	imageutil.DrawUniformMask(dr.d.st.drawR.img, &gr, fg, mask, maskp, draw.Over)
+	imageutil.DrawUniformMask(dr.d.st.drawR.img, gr, fg, mask, maskp, draw.Over)
 }
 
 //----------

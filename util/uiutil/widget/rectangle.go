@@ -21,5 +21,5 @@ func (r *Rectangle) Measure(hint image.Point) image.Point {
 }
 func (r *Rectangle) Paint() {
 	bg := r.TreeThemePaletteColor("rect")
-	imageutil.FillRectangle(r.ctx.Image(), &r.Bounds, bg)
+	imageutil.FillRectangle(r.ctx.Image(), r.Bounds, bg)
 }

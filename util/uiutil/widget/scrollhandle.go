@@ -34,7 +34,7 @@ func (sh *ScrollHandle) Paint() {
 	} else {
 		c = sh.TreeThemePaletteColor("scrollhandle_normal")
 	}
-	imageutil.FillRectangle(sh.ctx.Image(), &sh.Bounds, c)
+	imageutil.FillRectangle(sh.ctx.Image(), sh.Bounds, c)
 }
 
 func (sh *ScrollHandle) OnInputEvent(ev interface{}, p image.Point) event.Handled {

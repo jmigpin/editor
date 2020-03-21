@@ -7,9 +7,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
-	"golang.org/x/image/font"
 )
 
 const (
@@ -20,8 +20,7 @@ const (
 type Drawer struct {
 	reader iorw.Reader
 
-	face             font.Face
-	metrics          font.Metrics
+	fface            *fontutil.FontFace
 	lineHeight       mathutil.Intf
 	offset           image.Point
 	bounds           image.Rectangle
@@ -279,24 +278,22 @@ func (d *Drawer) ContentChanged() {
 
 //----------
 
-func (d *Drawer) Face() font.Face { return d.face }
-func (d *Drawer) SetFace(f font.Face) {
-	if f == d.face {
+func (d *Drawer) FontFace() *fontutil.FontFace { return d.fface }
+func (d *Drawer) SetFontFace(ff *fontutil.FontFace) {
+	if ff == d.fface {
 		return
 	}
-	d.face = f
-	d.metrics = d.face.Metrics()
-	lh := drawutil.LineHeight(&d.metrics)
-	d.lineHeight = mathutil.Intf2(lh)
+	d.fface = ff
+	d.lineHeight = mathutil.Intf2(d.fface.LineHeight())
 
 	d.opt.measure.updated = false
 }
 
 func (d *Drawer) LineHeight() int {
-	if d.face == nil {
+	if d.fface == nil {
 		return 0
 	}
-	return d.lineHeight.Floor() // already ceiled at lineheight, use floor
+	return d.fface.LineHeightInt()
 }
 
 func (d *Drawer) SetFg(fg color.Color) { d.fg = fg }
@@ -350,7 +347,7 @@ func (d *Drawer) SetCursorOffset(v int) {
 //----------
 
 func (d *Drawer) ready() bool {
-	return !(d.face == nil || d.reader == nil || d.bounds == image.ZR)
+	return !(d.fface == nil || d.reader == nil || d.bounds == image.ZR)
 }
 
 //----------

@@ -28,19 +28,18 @@ func (img *BGRA) ColorModel() color.Model {
 }
 
 func (img *BGRA) Set(x, y int, c color.Color) {
-	//u := color.RGBAModel.Convert(c).(color.RGBA) // slow
-	u := convertToRGBAColor(c)
+	u := RgbaColor(c)
 	img.SetRGBA(x, y, u)
 }
 
 // Allows fast lane if detected.
 func (img *BGRA) SetRGBA(x, y int, c color.RGBA) {
-	c.R, c.B = c.B, c.R
+	c.R, c.B = c.B, c.R // flip to keep Bgra
 	img.RGBA.SetRGBA(x, y, c)
 }
 func (img *BGRA) At(x, y int) color.Color {
 	c := img.RGBA.RGBAAt(x, y)
-	c.R, c.B = c.B, c.R
+	c.R, c.B = c.B, c.R // flip to return Rgba
 	return c
 }
 
@@ -49,34 +48,10 @@ func (img *BGRA) SubImage(r image.Rectangle) draw.Image {
 	return &BGRA{*u}
 }
 
-// Allows using rgba image for other functions that rely on detection to use
-// faster draw lanes (ex: draw.Draw)
-func (img *BGRA) RGBAImageWithCorrectedColor(c color.Color) (*image.RGBA, color.Color) {
-	c2, ok := c.(color.RGBA)
-	if !ok {
-		c2 = convertToRGBAColor(c)
-	}
-	c2.R, c2.B = c2.B, c2.R // convert to BGR
-	return &img.RGBA, c2
-}
-
 //----------
 
-func ToBGRAColor(c color.Color) color.RGBA {
-	c2, ok := c.(color.RGBA)
-	if !ok {
-		c2 = convertToRGBAColor(c)
-	}
+func BgraColor(c color.Color) color.RGBA {
+	c2 := RgbaColor(c)
 	c2.R, c2.B = c2.B, c2.R // convert to BGR
 	return c2
-}
-
-func convertToRGBAColor(c color.Color) color.RGBA {
-	r, g, b, a := c.RGBA()
-	return color.RGBA{
-		uint8(r >> 8),
-		uint8(g >> 8),
-		uint8(b >> 8),
-		uint8(a >> 8),
-	}
 }

@@ -13,8 +13,8 @@ import (
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/core/lsproto"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -438,7 +438,7 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 
 func (ed *Editor) setupTheme(opt *Options) {
 	drawer4.WrapLineRune = rune(opt.WrapLineRune)
-	drawutil.TabWidth = opt.TabWidth
+	fontutil.TabWidth = opt.TabWidth
 	ui.ScrollBarLeft = opt.ScrollBarLeft
 	ui.ScrollBarWidth = opt.ScrollBarWidth
 	ui.ShadowsOn = opt.Shadows
@@ -452,12 +452,12 @@ func (ed *Editor) setupTheme(opt *Options) {
 
 	// color comments
 	if opt.CommentsColor != 0 {
-		ui.TextAreaCommentsColor = imageutil.IntRGBA(opt.CommentsColor)
+		ui.TextAreaCommentsColor = imageutil.RgbaFromInt(opt.CommentsColor)
 	}
 
 	// color strings
 	if opt.StringsColor != 0 {
-		ui.TextAreaStringsColor = imageutil.IntRGBA(opt.StringsColor)
+		ui.TextAreaStringsColor = imageutil.RgbaFromInt(opt.StringsColor)
 	}
 
 	// font options

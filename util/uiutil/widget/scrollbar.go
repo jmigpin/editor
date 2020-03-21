@@ -140,7 +140,7 @@ func (sb *ScrollBar) Layout() {
 
 func (sb *ScrollBar) Paint() {
 	c := sb.TreeThemePaletteColor("scrollbar_bg")
-	imageutil.FillRectangle(sb.ctx.Image(), &sb.Bounds, c)
+	imageutil.FillRectangle(sb.ctx.Image(), sb.Bounds, c)
 }
 
 //----------

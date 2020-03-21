@@ -25,7 +25,7 @@ func (sq *ColumnSquare) Measure(hint image.Point) image.Point {
 }
 func (sq *ColumnSquare) Paint() {
 	c := sq.TreeThemePaletteColor("columnsquare")
-	imageutil.FillRectangle(sq.col.ui.Image(), &sq.Bounds, c)
+	imageutil.FillRectangle(sq.col.ui.Image(), sq.Bounds, c)
 }
 func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	switch t := ev.(type) {

@@ -74,20 +74,20 @@ func (p *Padder) Paint() {
 	u := b
 	u.Max.Y = u.Min.Y + p.Top
 	u = u.Intersect(b)
-	imageutil.FillRectangle(p.ctx.Image(), &u, c1)
+	imageutil.FillRectangle(p.ctx.Image(), u, c1)
 	// bottom
 	u = b
 	u.Min.Y = u.Max.Y - p.Bottom
 	u = u.Intersect(b)
-	imageutil.FillRectangle(p.ctx.Image(), &u, c1)
+	imageutil.FillRectangle(p.ctx.Image(), u, c1)
 	// right
 	u = b
 	u.Min.X = u.Max.X - p.Right
 	u = u.Intersect(b)
-	imageutil.FillRectangle(p.ctx.Image(), &u, c1)
+	imageutil.FillRectangle(p.ctx.Image(), u, c1)
 	// left
 	u = b
 	u.Max.X = u.Min.X + p.Left
 	u = u.Intersect(b)
-	imageutil.FillRectangle(p.ctx.Image(), &u, c1)
+	imageutil.FillRectangle(p.ctx.Image(), u, c1)
 }

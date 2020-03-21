@@ -38,38 +38,38 @@ func (sq *RowSquare) Paint() {
 	if sq.state.hasAny(RowStateExecuting) {
 		bg = sq.TreeThemePaletteColor("rs_executing")
 	}
-	imageutil.FillRectangle(img, &sq.Bounds, bg)
+	imageutil.FillRectangle(img, sq.Bounds, bg)
 
 	// mini-squares
 	if sq.state.hasAny(RowStateActive) {
 		r := sq.miniSq(0)
 		c := sq.TreeThemePaletteColor("rs_active")
-		imageutil.FillRectangle(img, &r, c)
+		imageutil.FillRectangle(img, r, c)
 	}
 	if sq.state.hasAny(RowStateFsDiffer) {
 		r := sq.miniSq(1)
 		c := sq.TreeThemePaletteColor("rs_disk_changes")
-		imageutil.FillRectangle(img, &r, c)
+		imageutil.FillRectangle(img, r, c)
 	}
 	if sq.state.hasAny(RowStateDuplicate) {
 		r := sq.miniSq(2)
 		c := sq.TreeThemePaletteColor("rs_duplicate")
-		imageutil.FillRectangle(img, &r, c)
+		imageutil.FillRectangle(img, r, c)
 	}
 	if sq.state.hasAny(RowStateDuplicateHighlight) {
 		r := sq.miniSq(2)
 		c := sq.TreeThemePaletteColor("rs_duplicate_highlight")
-		imageutil.FillRectangle(img, &r, c)
+		imageutil.FillRectangle(img, r, c)
 	}
 	if sq.state.hasAny(RowStateAnnotations) {
 		r := sq.miniSq(3)
 		c := sq.TreeThemePaletteColor("rs_annotations")
-		imageutil.FillRectangle(img, &r, c)
+		imageutil.FillRectangle(img, r, c)
 	}
 	if sq.state.hasAny(RowStateAnnotationsEdited) {
 		r := sq.miniSq(3)
 		c := sq.TreeThemePaletteColor("rs_annotations_edited")
-		imageutil.FillRectangle(img, &r, c)
+		imageutil.FillRectangle(img, r, c)
 	}
 }
 func (sq *RowSquare) miniSq(i int) image.Rectangle {

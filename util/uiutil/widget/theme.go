@@ -2,13 +2,9 @@ package widget
 
 import (
 	"image/color"
-	"log"
 
-	"github.com/golang/freetype/truetype"
-	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 //----------
@@ -54,13 +50,13 @@ var DefaultPalette = Palette{
 //----------
 
 type Theme struct {
-	Font              ThemeFont
+	FontFace          *fontutil.FontFace
 	Palette           Palette
 	PaletteNamePrefix string
 }
 
 func (t *Theme) empty() bool {
-	return (t.Font == nil &&
+	return (t.FontFace == nil &&
 		(t.Palette == nil || t.Palette.Empty()) &&
 		t.PaletteNamePrefix == "")
 }
@@ -74,8 +70,8 @@ func (t *Theme) Clear() {
 //----------
 
 // Can be set to nil to erase.
-func (t *Theme) SetFont(f ThemeFont) {
-	t.Font = f
+func (t *Theme) SetFontFace(ff *fontutil.FontFace) {
+	t.FontFace = ff
 	t.Clear()
 }
 
@@ -124,91 +120,6 @@ func (pal Palette) Merge(p2 Palette) {
 
 //----------
 
-type ThemeFont interface {
-	Face(*ThemeFontOptions) font.Face
-	CloseFaces()
-}
-
-type ThemeFontOptions struct {
-	Size ThemeFontOptionsSize
-}
-
-type ThemeFontOptionsSize int
-
-const (
-	TFOSNormal ThemeFontOptionsSize = iota // default
-	TFOSSmall
-)
-
-//----------
-
-// Truetype theme font.
-type TTThemeFont struct {
-	ttfont *truetype.Font
-	opt    *truetype.Options
-	faces  map[truetype.Options]font.Face
-}
-
-func NewTTThemeFont(ttf []byte, opt *truetype.Options) (*TTThemeFont, error) {
-	ttfont, err := truetype.Parse(ttf)
-	if err != nil {
-		return nil, err
-	}
-	tf := &TTThemeFont{
-		opt:    opt,
-		ttfont: ttfont,
-		faces:  map[truetype.Options]font.Face{},
-	}
-	return tf, nil
-}
-
-func (tf *TTThemeFont) Face(ffopt *ThemeFontOptions) font.Face {
-	opt2 := *tf.opt
-	if ffopt != nil {
-		if ffopt.Size == TFOSSmall {
-			opt2.Size *= float64(2) / 3
-		}
-	}
-	face, ok := tf.faces[opt2]
-	if !ok {
-		face = drawutil.NewFace(tf.ttfont, &opt2)
-		tf.faces[opt2] = face
-	}
-	return face
-}
-
-func (tf *TTThemeFont) CloseFaces() {
-	for _, f := range tf.faces {
-		err := f.Close()
-		if err != nil {
-			log.Print(err)
-		}
-	}
-	tf.faces = map[truetype.Options]font.Face{}
-}
-
-//----------
-
-var _dft ThemeFont
-
-func DefaultThemeFont() ThemeFont {
-	if _dft == nil {
-		_dft = goregularThemeFont()
-	}
-	return _dft
-}
-
-func goregularThemeFont() *TTThemeFont {
-	opt := &truetype.Options{}
-	tf, err := NewTTThemeFont(goregular.TTF, opt)
-	if err != nil {
-		panic(err)
-	}
-	return tf
-}
-
-//----------
-
 func cint(c int) color.RGBA {
-	return imageutil.IntRGBA(c)
+	return imageutil.RgbaFromInt(c)
 }

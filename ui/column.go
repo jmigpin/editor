@@ -83,7 +83,7 @@ func (col *Column) removeRow(row *Row) {
 }
 
 func (col *Column) Layout() {
-	tf := col.TreeThemeFont()
+	tf := col.TreeThemeFontFace()
 	col.RowsLayout.Spl.MinimumChildSize = UIThemeUtil.RowMinimumHeight(tf)
 	col.colSquare.Size = UIThemeUtil.RowSquareSize(tf)
 
