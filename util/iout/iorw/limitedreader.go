@@ -1,5 +1,7 @@
 package iorw
 
+import "fmt"
+
 // Limits reading while keeping the original offsets.
 type LimitedReader struct {
 	Reader
@@ -13,7 +15,7 @@ func NewLimitedReader(r Reader, min, max int) *LimitedReader {
 		min = 0
 	}
 	if min > max {
-		panic("min>max")
+		panic(fmt.Sprintf("min>max: %v>%v", min, max))
 	}
 	return &LimitedReader{Reader: r, min: min, max: max}
 }
