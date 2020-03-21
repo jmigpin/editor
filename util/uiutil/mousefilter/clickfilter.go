@@ -26,6 +26,8 @@ func (clickf *ClickFilter) Filter(ev interface{}) {
 		clickf.down(t)
 	case *event.MouseUp:
 		clickf.up(t)
+	case *event.MouseMove:
+		clickf.move(t)
 	}
 }
 
@@ -81,6 +83,15 @@ func (clickf *ClickFilter) up(ev *event.MouseUp) {
 	case MClickActionTriple:
 		ev2 := &event.MouseTripleClick{ev.Point, ev.Button, ev.Buttons, ev.Mods}
 		clickf.emitEv(ev2, ev.Point)
+	}
+}
+
+func (clickf *ClickFilter) move(ev *event.MouseMove) {
+	for b, mc := range clickf.m {
+		// clear if moved outside move detection margins
+		if DetectMove(mc.downPoint, ev.Point) {
+			delete(clickf.m, b)
+		}
 	}
 }
 
