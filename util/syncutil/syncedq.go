@@ -37,3 +37,13 @@ func (sq *SyncedQ) PopFront() interface{} {
 	sq.q.Remove(e)
 	return v
 }
+
+func (sq *SyncedQ) PeekFront() (interface{}, bool) {
+	sq.Lock()
+	defer sq.Unlock()
+	if sq.q.Len() == 0 {
+		return nil, false
+	}
+	e := sq.q.Front()
+	return e.Value, true
+}
