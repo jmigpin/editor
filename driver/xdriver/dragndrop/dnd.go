@@ -22,7 +22,7 @@ type Dnd struct {
 	conn *xgb.Conn
 	win  xproto.Window
 	data DndData
-	sgt  *syncutil.GetTimeout
+	sw   *syncutil.WaitForSet
 }
 
 func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
@@ -36,7 +36,7 @@ func NewDnd(conn *xgb.Conn, win xproto.Window) (*Dnd, error) {
 	if err := dnd.setupWindowProperty(); err != nil {
 		return nil, err
 	}
-	dnd.sgt = syncutil.NewGetTimeout()
+	dnd.sw = syncutil.NewWaitForSet()
 	return dnd, nil
 }
 
@@ -196,8 +196,9 @@ func (dnd *Dnd) requestDropData(t event.DndType) ([]byte, error) {
 		return nil, fmt.Errorf("unhandled type: %v", t)
 	}
 
-	ready := func() error { dnd.requestData(t2); return nil }
-	v, err := dnd.sgt.Get(1500*time.Millisecond, ready)
+	dnd.sw.Start(1500 * time.Millisecond)
+	dnd.requestData(t2)
+	v, err := dnd.sw.WaitForSet()
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +219,7 @@ func (dnd *Dnd) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 		return
 	}
 
-	err := dnd.sgt.Set(ev)
+	err := dnd.sw.Set(ev)
 	if err != nil {
 		log.Print(fmt.Errorf("onselectionnotify: %w", err))
 	}

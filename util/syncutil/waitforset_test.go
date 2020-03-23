@@ -7,23 +7,21 @@ import (
 	"github.com/jmigpin/editor/util/chanutil"
 )
 
-func BenchmarkTimeout(b *testing.B) {
+func BenchmarkWaitForSet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		bTimeout(b)
+		waitForSet1(b)
 	}
 }
-func bTimeout(b *testing.B) {
+func waitForSet1(b *testing.B) {
 	for i := 0; i < 1000; i++ {
-		u := NewGetTimeout()
-		ready := make(chan bool, 1)
-		readyFn := func() error { ready <- true; return nil }
+		u := NewWaitForSet()
+		u.Start(50 * time.Millisecond)
 		go func() {
-			<-ready
 			if err := u.Set(i); err != nil {
 				b.Log(err)
 			}
 		}()
-		_, err := u.Get(50*time.Millisecond, readyFn)
+		_, err := u.WaitForSet()
 		if err != nil {
 			b.Log(err)
 		}

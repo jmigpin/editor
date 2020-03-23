@@ -17,8 +17,8 @@ import (
 type Paste struct {
 	conn *xgb.Conn
 	win  xproto.Window
-	sgt  *syncutil.GetTimeout // selectionnotify
-	pgt  *syncutil.GetTimeout // propertynotify
+	sw   *syncutil.WaitForSet // selectionnotify
+	pw   *syncutil.WaitForSet // propertynotify
 }
 
 func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
@@ -29,8 +29,8 @@ func NewPaste(conn *xgb.Conn, win xproto.Window) (*Paste, error) {
 		conn: conn,
 		win:  win,
 	}
-	p.sgt = syncutil.NewGetTimeout()
-	p.pgt = syncutil.NewGetTimeout()
+	p.sw = syncutil.NewWaitForSet()
+	p.pw = syncutil.NewWaitForSet()
 	return p, nil
 }
 
@@ -52,8 +52,9 @@ func (p *Paste) Get(index event.ClipboardIndex) (string, error) {
 func (p *Paste) request(selection xproto.Atom) (string, error) {
 	// TODO: handle timestamps to force only one paste at a time?
 
-	ready := func() error { p.requestData(selection); return nil }
-	v, err := p.sgt.Get(1500*time.Millisecond, ready)
+	p.sw.Start(1500 * time.Millisecond)
+	p.requestData(selection)
+	v, err := p.sw.WaitForSet()
 	if err != nil {
 		return "", err
 	}
@@ -84,7 +85,7 @@ func (p *Paste) OnSelectionNotify(ev *xproto.SelectionNotifyEvent) {
 		return
 	}
 
-	err := p.sgt.Set(ev)
+	err := p.sw.Set(ev)
 	if err != nil {
 		log.Print(fmt.Errorf("onselectionnotify: %w", err))
 	}
@@ -102,7 +103,7 @@ func (p *Paste) OnPropertyNotify(ev *xproto.PropertyNotifyEvent) {
 
 	//log.Printf("%#v", ev)
 
-	err := p.pgt.Set(ev)
+	err := p.pw.Set(ev)
 	if err != nil {
 		//log.Print(errors.Wrap(err, "onpropertynotify"))
 	}
@@ -178,9 +179,8 @@ func (p *Paste) extractData3(ev *xproto.SelectionNotifyEvent) (string, error) {
 
 func (p *Paste) waitForPropertyNewValue(ev *xproto.SelectionNotifyEvent) error {
 	for {
-		// TODO: review, should use ready func
-		ready := func() error { return nil }
-		v, err := p.pgt.Get(1000*time.Millisecond, ready)
+		p.pw.Start(1500 * time.Millisecond)
+		v, err := p.pw.WaitForSet()
 		if err != nil {
 			return err
 		}

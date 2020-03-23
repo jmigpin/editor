@@ -17,7 +17,7 @@ type ShmWImage struct {
 	opt          *Options
 	segId        shm.Seg
 	imgWrap      *ShmImgWrap
-	putCompleted *syncutil.GetTimeout
+	putCompleted *syncutil.WaitForSet
 }
 
 func NewShmWImage(opt *Options) (*ShmWImage, error) {
@@ -31,7 +31,7 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 	}
 
 	wi := &ShmWImage{opt: opt}
-	wi.putCompleted = syncutil.NewGetTimeout()
+	wi.putCompleted = syncutil.NewWaitForSet()
 
 	// server segment id
 	segId, err := shm.NewSegId(wi.opt.Conn)
@@ -85,12 +85,14 @@ func (wi *ShmWImage) Image() draw.Image {
 }
 
 func (wi *ShmWImage) PutImage(r image.Rectangle) error {
-	ready := func() error {
-		return wi.putImage2(r)
+	wi.putCompleted.Start(500 * time.Millisecond)
+	if err := wi.putImage2(r); err != nil {
+		wi.putCompleted.Cancel()
+		return err
 	}
 	// wait for shm.CompletionEvent that should call PutImageCompleted()
 	// Returns early if the server fails to send the msg (failsafe)
-	_, err := wi.putCompleted.Get(250*time.Millisecond, ready)
+	_, err := wi.putCompleted.WaitForSet()
 	if err != nil {
 		err = fmt.Errorf("shm putCompleted: get, %w", err)
 	}
