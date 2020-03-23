@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -264,7 +265,6 @@ func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
 }
 
 //----------
-
 func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
@@ -290,7 +290,22 @@ func (erow *ERow) parseToolbarVars() {
 }
 
 func (erow *ERow) setVarFontTheme(s string) error {
-	ff, err := ui.ThemeFontFace(s)
+	w := strings.SplitN(s, ",", 2)
+	name := w[0]
+
+	// font size arg
+	size := float64(0)
+	if len(w) > 1 {
+		v, err := strconv.ParseFloat(w[1], 64)
+		if err != nil {
+			// commented: ignore error
+			//return err
+		} else {
+			size = v
+		}
+	}
+
+	ff, err := ui.ThemeFontFace2(name, size)
 	if err != nil {
 		return err
 	}

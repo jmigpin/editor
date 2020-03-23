@@ -327,7 +327,7 @@ Examples:
 ## Internal variables
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
-- `$font=<name>`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
+- `$font=<name>[,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
 - `$termFilter`: when set on a row toolbar, filters terminal escape sequences. Currently only the `clear` escape sequence `esc[J` is interpreted to clear the textarea. Other escape sequences are removed from the output.
 
 ## Environment variables set available to external commands

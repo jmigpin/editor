@@ -278,6 +278,9 @@ func loadThemeFont(name string, node widget.Node) error {
 var TTFontOptions truetype.Options
 
 func ThemeFontFace(name string) (*fontutil.FontFace, error) {
+	return ThemeFontFace2(name, 0)
+}
+func ThemeFontFace2(name string, size float64) (*fontutil.FontFace, error) {
 	b, err := fontBytes(name)
 	if err != nil {
 		return nil, err
@@ -286,7 +289,11 @@ func ThemeFontFace(name string) (*fontutil.FontFace, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f.FontFace(TTFontOptions), nil
+	opt := TTFontOptions // copy
+	if size != 0 {
+		opt.Size = size
+	}
+	return f.FontFace(opt), nil
 }
 
 func fontBytes(name string) ([]byte, error) {
