@@ -25,13 +25,13 @@ type MouseLeave struct{}
 type MouseDown struct {
 	Point   image.Point
 	Button  MouseButton
-	Buttons MouseButtons
+	Buttons MouseButtons // contains Button
 	Mods    KeyModifiers
 }
 type MouseUp struct {
 	Point   image.Point
 	Button  MouseButton
-	Buttons MouseButtons
+	Buttons MouseButtons // contains Button
 	Mods    KeyModifiers
 }
 type MouseMove struct {
@@ -44,13 +44,13 @@ type MouseDragStart struct {
 	Point   image.Point // starting (press) point (older then point2)
 	Point2  image.Point // current point (move detection) (newest point)
 	Button  MouseButton
-	Buttons MouseButtons
+	Buttons MouseButtons // contains Button
 	Mods    KeyModifiers
 }
 type MouseDragEnd struct {
 	Point   image.Point
 	Button  MouseButton
-	Buttons MouseButtons
+	Buttons MouseButtons // contains Button
 	Mods    KeyModifiers
 }
 type MouseDragMove struct {
@@ -62,19 +62,19 @@ type MouseDragMove struct {
 type MouseClick struct {
 	Point   image.Point
 	Button  MouseButton
-	Buttons MouseButtons
+	Buttons MouseButtons // contains Button
 	Mods    KeyModifiers
 }
 type MouseDoubleClick struct {
 	Point   image.Point
 	Button  MouseButton
-	Buttons MouseButtons
+	Buttons MouseButtons // contains Button
 	Mods    KeyModifiers
 }
 type MouseTripleClick struct {
 	Point   image.Point
 	Button  MouseButton
-	Buttons MouseButtons
+	Buttons MouseButtons // contains Button
 	Mods    KeyModifiers
 }
 
