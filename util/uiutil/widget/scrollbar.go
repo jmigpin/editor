@@ -184,7 +184,7 @@ func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 		sb.scrollToPoint(&evt.Point)
 		sb.MarkNeedsPaint() // in case it didn't move
 	}
-	return event.HFalse
+	return false
 }
 
 func (sb *ScrollBar) setPressPad(p *image.Point) {

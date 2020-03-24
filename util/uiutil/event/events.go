@@ -148,8 +148,3 @@ const (
 //----------
 
 type Handled bool
-
-const (
-	HFalse Handled = false
-	HTrue          = true
-)

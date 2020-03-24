@@ -120,7 +120,7 @@ func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 			sq.row.Close()
 		}
 	}
-	return event.HTrue
+	return true
 }
 
 //----------

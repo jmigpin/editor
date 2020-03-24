@@ -97,19 +97,19 @@ func (ae *ApplyEvent) mouseEnter(node Node, p image.Point) event.Handled {
 	ne := node.Embed()
 
 	if !p.In(ne.Bounds) {
-		return event.HFalse
+		return false
 	}
 
 	// execute on childs
-	h := event.HFalse
+	h := event.Handled(false)
 	// later childs are drawn over previous ones, run loop backwards
 	ne.IterateWrappersReverse(func(c Node) bool {
 		h = ae.mouseEnter(c, p)
-		return h == event.HFalse // continue while not handled
+		return h == false // continue while not handled
 	})
 
 	// execute on node
-	if h == event.HFalse {
+	if !h {
 		if !ne.HasAnyMarks(MarkPointerInside) {
 			ne.AddMarks(MarkPointerInside)
 			ev2 := &event.MouseEnter{}
@@ -118,7 +118,7 @@ func (ae *ApplyEvent) mouseEnter(node Node, p image.Point) event.Handled {
 	}
 
 	if ne.HasAnyMarks(MarkInBoundsHandlesEvent) {
-		h = event.HTrue
+		h = true
 	}
 
 	return h
@@ -130,15 +130,15 @@ func (ae *ApplyEvent) mouseLeave(node Node, p image.Point) event.Handled {
 	ne := node.Embed()
 
 	// execute on childs
-	h := event.HFalse
+	h := event.Handled(false)
 	// later childs are drawn over previous ones, run loop backwards
 	ne.IterateWrappersReverse(func(c Node) bool {
 		h = ae.mouseLeave(c, p)
-		return h == event.HFalse // continue while not handled
+		return h == false // continue while not handled
 	})
 
 	// execute on node
-	if h == event.HFalse {
+	if !h {
 		if ne.HasAnyMarks(MarkPointerInside) && !p.In(ne.Bounds) {
 			ne.RemoveMarks(MarkPointerInside)
 			ev2 := &event.MouseLeave{}
@@ -213,24 +213,24 @@ func (ae *ApplyEvent) dragEnd(ev *event.MouseDragEnd, p image.Point) {
 
 func (ae *ApplyEvent) depthFirstEv(node Node, ev interface{}, p image.Point) event.Handled {
 	if !p.In(node.Embed().Bounds) {
-		return event.HFalse
+		return false
 	}
 
 	// execute on childs
-	h := event.HFalse
+	h := event.Handled(false)
 	// later childs are drawn over previous ones, run loop backwards
 	node.Embed().IterateWrappersReverse(func(c Node) bool {
 		h = ae.depthFirstEv(c, ev, p)
-		return h == event.HFalse // continue while not handled
+		return h == false // continue while not handled
 	})
 
 	// execute on node
-	if h == event.HFalse {
+	if !h {
 		h = ae.runEv(node, ev, p)
 	}
 
 	if node.Embed().HasAnyMarks(MarkInBoundsHandlesEvent) {
-		h = event.HTrue
+		h = true
 	}
 
 	return h

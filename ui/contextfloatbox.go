@@ -63,9 +63,9 @@ func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Ha
 	case *event.KeyUp,
 		*event.KeyDown:
 		// let lower layers get events
-		return event.HFalse
+		return false
 	}
-	return event.HTrue
+	return true
 }
 
 //----------

@@ -76,13 +76,13 @@ func (l *Root) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 			switch ev.KeySym {
 			case event.KSymF4:
 				l.selAnnEv(RootSelAnnTypeFirst)
-				return event.HTrue
+				return true
 			case event.KSymF5:
 				l.selAnnEv(RootSelAnnTypeLast)
-				return event.HTrue
+				return true
 			case event.KSymF9:
 				l.selAnnEv(RootSelAnnTypeClear)
-				return event.HTrue
+				return true
 			}
 		}
 	case *event.MouseDown:
@@ -92,14 +92,14 @@ func (l *Root) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 			switch ev.Button {
 			case event.ButtonWheelUp:
 				l.selAnnEv(RootSelAnnTypePrev)
-				return event.HTrue
+				return true
 			case event.ButtonWheelDown:
 				l.selAnnEv(RootSelAnnTypeNext)
-				return event.HTrue
+				return true
 			}
 		}
 	}
-	return event.HFalse
+	return false
 }
 
 //----------

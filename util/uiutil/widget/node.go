@@ -462,7 +462,7 @@ func (en *EmbedNode) ChildsPaintTree() {
 //----------
 
 func (en *EmbedNode) OnInputEvent(ev interface{}, p image.Point) event.Handled {
-	return event.HFalse
+	return false
 }
 
 //----------

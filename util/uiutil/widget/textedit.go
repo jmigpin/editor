@@ -18,7 +18,7 @@ type TextEdit struct {
 	rwev    *iorw.RWEvents
 	rwu     *rwundo.RWUndo
 	ctx     *rwedit.Ctx     // ctx for rw editing utils (contains cursor)
-	RWEvReg *evreg.Register // the rwundo wraps the rwev, so on a write event callback the undo data is not commited yet. It is incorrect to try to undo inside a write callback. If a rwev wraps rwundo, undoing will not trigger the outer rwev events, otherwise undoing would register as another undo event (cycle).
+	RWEvReg *evreg.Register // the rwundo wraps the rwev, so on a write event callback, the undo data is not commited yet. It is incorrect to try to undo inside a write callback. If a rwev wraps rwundo, undoing will not trigger the outer rwev events, otherwise undoing would register as another undo event (cycle).
 }
 
 func NewTextEdit(uiCtx UIContext) *TextEdit {

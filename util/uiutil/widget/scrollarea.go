@@ -164,5 +164,5 @@ func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled
 			}
 		}
 	}
-	return event.HFalse
+	return false
 }

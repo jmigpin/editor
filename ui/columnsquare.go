@@ -35,5 +35,5 @@ func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) event.Handle
 			sq.col.Close()
 		}
 	}
-	return event.HTrue
+	return true
 }

@@ -88,7 +88,7 @@ func (row *Row) Layout() {
 func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	ev2 := &RowInputEvent{row, ev0}
 	row.EvReg.RunCallbacks(RowInputEventId, ev2)
-	return event.HFalse
+	return false
 }
 
 //----------

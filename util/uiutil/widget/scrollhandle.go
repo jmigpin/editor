@@ -46,5 +46,5 @@ func (sh *ScrollHandle) OnInputEvent(ev interface{}, p image.Point) event.Handle
 		sh.inside = false
 		sh.MarkNeedsPaint()
 	}
-	return event.HFalse
+	return false
 }

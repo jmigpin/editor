@@ -80,5 +80,5 @@ func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 			b.OnClick(t)
 		}
 	}
-	return event.HFalse
+	return false
 }
