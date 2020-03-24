@@ -135,7 +135,7 @@ func (ic *InlineComplete) completions(ctx context.Context, filename string, ta *
 
 func (ic *InlineComplete) setAnnotationsMsg(ta *ui.TextArea, s string) {
 	offset := ta.CursorIndex()
-	entries := []*drawer4.Annotation{{offset, []byte(s)}}
+	entries := []*drawer4.Annotation{{Offset: offset, Bytes: []byte(s)}}
 	ic.setAnnotations(ta, entries)
 }
 

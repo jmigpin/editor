@@ -126,23 +126,16 @@ func (ann *Annotations) insertAnnotations2() {
 			}
 		}
 
-		if !ann.insertAnnotationString(string(entry.Bytes), index, true) {
+		s1 := string(entry.Bytes)
+		if !ann.insertAnnotationString(s1, index, true) {
 			return
 		}
 
 		// entry.notes (used for arrival index)
-		//opt := &ann.d.Opt.Annotations
-		//fg, bg := opt.Fg, opt.Bg
-		//restore := func() { opt.Fg, opt.Bg = fg, bg }
-		//opt.Fg, opt.Bg = colornames.White, colornames.Black
-		//opt.Fg = colornames.Gray
-
-		//ns := string(entry.NotesBytes)
-		//if !ann.insertAnnotationString(ns, index, false) {
-		//	//restore()
-		//	return
-		//}
-		////restore()
+		s2 := " " + string(entry.NotesBytes)
+		if !ann.d.iters.runeR.insertExtraString(s2) {
+			return
+		}
 	}
 }
 
@@ -172,9 +165,9 @@ func (ann *Annotations) insertAnnotationString(s string, eindex int, colorizeIfI
 //----------
 
 type Annotation struct {
-	Offset int
-	Bytes  []byte
-	//NotesBytes []byte
+	Offset     int
+	Bytes      []byte
+	NotesBytes []byte
 }
 
 //----------

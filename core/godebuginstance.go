@@ -255,7 +255,7 @@ func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
 	}
 	// build output
 	s := godebug.StringifyItemFull(msg.dbgLineMsg.Item)
-	gdi.gdm.Printf("annotation: (→%d)\n\t%v\n", msg.arrivalIndex, s)
+	gdi.gdm.Printf("annotation: #%d\n\t%v\n", msg.arrivalIndex, s)
 }
 
 func (gdi *GoDebugInstance) printIndexAllPrevious(erow *ERow, annIndex, offset int) {
@@ -587,7 +587,7 @@ func (di *GDDataIndex) _handleLineMsg(u *debug.LineMsg) error {
 		return fmt.Errorf("bad debug index: %v len=%v", u.DebugIndex, l2)
 	}
 	// line msg
-	di.lastArrivalIndex++
+	di.lastArrivalIndex++ // starts/clears to -1, so first n is 0
 	lm := &GDLineMsg{arrivalIndex: di.lastArrivalIndex, dbgLineMsg: u}
 	// index msg
 	w := &di.files[u.FileIndex].linesMsgs[u.DebugIndex].lineMsgs
@@ -813,6 +813,35 @@ func (di *GDDataIndex) isFileEdited(filename string) bool {
 
 //----------
 
+func (di *GDDataIndex) selectedArrivalIndexFilename() (string, bool) {
+	di.RLock()
+	defer di.RUnlock()
+
+	// TODO
+	//sel := &di.selected
+	//if sel.fileIndex >= len(di.files) {
+	//	return "", false
+	//}
+	//file := di.files[sel.fileIndex]
+	//if sel.lineIndex >= file.linesMsgs {
+	//	return "", false
+	//}
+	//lm := file.linesMsgs[sel.fileIndex]
+
+	arrivalIndex := di.selected.arrivalIndex
+	for findex, file := range di.files {
+		for _, lm := range file.linesMsgs {
+			_, eqK, _ := lm.findIndex(arrivalIndex)
+			if eqK {
+				return di.afds[findex].Filename, true
+			}
+		}
+	}
+	return "", false
+}
+
+//----------
+
 type GDFileMsgs struct {
 	linesMsgs []GDLineMsgs // [lineIndex] file annotations received
 
@@ -856,23 +885,6 @@ func (file *GDFileMsgs) _findSelectedAndUpdateAnnEntries(arrivalIndex int) (int,
 		}
 	}
 	return selLine, selLineStep, found
-}
-
-//----------
-
-func (di *GDDataIndex) selectedArrivalIndexFilename() (string, bool) {
-	di.RLock()
-	defer di.RUnlock()
-	arrivalIndex := di.selected.arrivalIndex
-	for findex, file := range di.files {
-		for _, lm := range file.linesMsgs {
-			_, eqK, _ := lm.findIndex(arrivalIndex)
-			if eqK {
-				return di.afds[findex].Filename, true
-			}
-		}
-	}
-	return "", false
 }
 
 //----------
@@ -922,16 +934,14 @@ func (msg *GDLineMsg) annotation() *drawer4.Annotation {
 		s := godebug.StringifyItem(msg.dbgLineMsg.Item)
 		msg.cache.item = []byte(s)
 	}
-	//ann.Bytes = msg.cache.item
-	//ann.NotesBytes = []byte(fmt.Sprintf("%d", msg.arrivalIndex))
-	s1 := string(msg.cache.item)
-	ann.Bytes = []byte(fmt.Sprintf("%s (→%d)", s1, msg.arrivalIndex))
+	ann.Bytes = msg.cache.item
+	ann.NotesBytes = []byte(fmt.Sprintf("#%d", msg.arrivalIndex))
 	return ann
 }
 
 func (msg *GDLineMsg) emptyAnnotation() *drawer4.Annotation {
 	ann := msg.ann()
 	ann.Bytes = []byte(" ")
-	//ann.NotesBytes = nil
+	ann.NotesBytes = nil
 	return ann
 }
