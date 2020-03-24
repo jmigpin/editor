@@ -1,8 +1,14 @@
 package core
 
 import (
+	"fmt"
+	"image"
 	"io"
+
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
+
+//godebug:annotatefile
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 // http://ascii-table.com/ansi-escape-sequences.php
@@ -13,117 +19,90 @@ import (
 // Maintains state through different write calls.
 type TerminalFilter struct {
 	erow *ERow
-	rd   io.Reader
+	w    io.Writer
 
-	src   []byte
-	srci  int
-	dst   []byte
-	stf   func() bool // state func
-	start int
+	p struct { // parser
+		src     []byte
+		i       int // src iterator
+		stateFn func() bool
+		res     []byte // result
+	}
 
-	csi  tfCSI
-	csi2 tfCSI2
-}
-
-type tfCSI struct {
-	param    []byte
-	intermid []byte
-	final    byte
-}
-
-type tfCSI2 struct {
-	header byte
-	value  byte
+	csi    tfCSI
+	csi2   tfCSI2
+	cursor image.Point
 }
 
 //----------
 
-func NewTerminalFilter(erow *ERow, rd io.Reader) *TerminalFilter {
-	tf := &TerminalFilter{erow: erow, rd: rd}
-	tf.stf = tf.parseEscape
+func NewTerminalFilter(erow *ERow, w io.Writer) *TerminalFilter {
+	tf := &TerminalFilter{erow: erow, w: w}
+	tf.p.stateFn = tf.parseEscape
 	return tf
 }
 
 //----------
 
-//func (tf *TerminalFilter) Close() error {
-//	return tf.rd.Close()
-//}
-
-//----------
-
-func (tf *TerminalFilter) Read(p []byte) (int, error) {
-	tmp := make([]byte, len(p))
-	n, err := tf.rd.Read(tmp)
-	if n > 0 {
-		pf := tf.filter(tmp[:n])
-
-		// ensure the filtered result is not bigger then the src
-		if len(pf) > len(p) {
-			panic("len pf > len p")
-		}
-
-		copy(p, pf)
-		return len(pf), nil
+func (tf *TerminalFilter) Write(p []byte) (int, error) {
+	pf := tf.filter(p)
+	n, err := tf.w.Write(pf)
+	if err != nil {
+		return 0, err
 	}
-	return n, err
+	if n != len(pf) {
+		return 0, fmt.Errorf("terminalfilter: partial write: %v, %v", n, len(pf))
+	}
+	return len(p), nil
 }
 
 //----------
 
 func (tf *TerminalFilter) filter(p []byte) []byte {
 	// reset data if previous write was exausted
-	if tf.start == len(tf.src) {
-		tf.src = nil
-		tf.srci = 0
-		tf.start = 0
+	if len(tf.p.src) == 0 {
+		tf.p.src = nil
+		tf.p.i = 0
 	}
 
 	// TODO: max buffer to reset state (case of CSI that has no limit)
 	// TODO: need to send if no other write is done?
-	tf.src = append(tf.src, p...)
+	tf.p.src = append(tf.p.src, p...)
 
 	// state loop
-	tf.dst = nil
+	tf.p.res = nil
 	for {
-		if !tf.stf() {
+		if !tf.p.stateFn() {
 			break
 		}
 	}
-	return tf.dst
+	return tf.p.res
 }
 
 //----------
 
 func (tf *TerminalFilter) nextByte() (byte, bool) {
-	if tf.srci >= len(tf.src) {
+	if tf.p.i >= len(tf.p.src) {
 		return 0, false
 	}
-	u := tf.src[tf.srci]
-	tf.srci++
+	u := tf.p.src[tf.p.i]
+	tf.p.i++
 	return u, true
 }
 
 //----------
 
-func (tf *TerminalFilter) append(b byte) {
-	tf.dst = append(tf.dst, b)
-	tf.advanceStart()
+func (tf *TerminalFilter) advance() {
+	tf.p.src = tf.p.src[tf.p.i:]
+	tf.p.i = 0
 }
 
-func (tf *TerminalFilter) appendFromStart() {
-	for i := tf.start; i < tf.srci; i++ {
-		tf.append(tf.src[i])
-	}
+func (tf *TerminalFilter) appendStr(s string) {
+	tf.p.res = append(tf.p.res, []byte(s)...)
 }
 
-func (tf *TerminalFilter) advanceToParseEscape() {
-	tf.stf = tf.parseEscape
-	tf.advanceStart()
-}
-
-func (tf *TerminalFilter) advanceStart() {
-	tf.start = tf.srci
+func (tf *TerminalFilter) appendAndAdvance() {
+	tf.p.res = append(tf.p.res, tf.p.src[:tf.p.i]...)
+	tf.advance()
 }
 
 //----------
@@ -135,15 +114,15 @@ func (tf *TerminalFilter) parseEscape() bool {
 	}
 	switch b {
 	case 27: // escape
-		tf.stf = tf.parseC1
+		tf.p.stateFn = tf.parseC1
 	case 14, 15: //shift out/in
-		tf.advanceStart() // filtered
+		tf.advance() // filtered
 	case 13: // carriage return '\r'
-		tf.advanceStart() // filtered
+		tf.advance() // filtered
 	case 8: // backspace '\b'
-		tf.advanceStart() // filtered
+		tf.advance() // filtered
 	default:
-		tf.append(b)
+		tf.appendAndAdvance()
 	}
 	return true
 }
@@ -156,18 +135,18 @@ func (tf *TerminalFilter) parseC1() bool {
 	switch b {
 	case '[':
 		tf.csi = tfCSI{} // reset data
-		tf.stf = tf.parseCSI
+		tf.p.stateFn = tf.parseCSI
 		return true
 	case ')', '(':
 		tf.csi2 = tfCSI2{header: b} // reset data
-		tf.stf = tf.parseCSI2
+		tf.p.stateFn = tf.parseCSI2
 		return true
 	default:
 		//if b >= 0x40 && b <= 0x5f {
 	}
 	// cancel
-	tf.appendFromStart()
-	tf.advanceToParseEscape()
+	tf.appendAndAdvance()
+	tf.p.stateFn = tf.parseEscape
 	return true
 }
 
@@ -189,8 +168,8 @@ func (tf *TerminalFilter) parseCSI() bool {
 		tf.interpretCSI()
 	default:
 		// cancel
-		tf.appendFromStart()
-		tf.advanceToParseEscape()
+		tf.appendAndAdvance()
+		tf.p.stateFn = tf.parseEscape
 	}
 	return true
 }
@@ -202,6 +181,7 @@ func (tf *TerminalFilter) interpretCSI() {
 	case "C": // Cursor forward
 	case "D": // Cursor back
 	case "H": // Cursor position
+
 	case "J": // Erase in Display
 		// TODO: if string(w.csi.param) == "3"
 
@@ -218,9 +198,10 @@ func (tf *TerminalFilter) interpretCSI() {
 	case "X", "G": // ?
 
 	default:
-		tf.appendFromStart()
+		tf.appendAndAdvance()
 	}
-	tf.advanceToParseEscape()
+	tf.advance()
+	tf.p.stateFn = tf.parseEscape
 }
 
 //----------
@@ -236,8 +217,8 @@ func (tf *TerminalFilter) parseCSI2() bool {
 		tf.interpretCSI2()
 	default:
 		// cancel
-		tf.appendFromStart()
-		tf.advanceToParseEscape()
+		tf.appendAndAdvance()
+		tf.p.stateFn = tf.parseEscape
 	}
 	return true
 }
@@ -247,5 +228,48 @@ func (tf *TerminalFilter) interpretCSI2() {
 	default:
 		// do nothing: don't output the sequence
 	}
-	tf.advanceToParseEscape()
+	tf.advance()
+	tf.p.stateFn = tf.parseEscape
+}
+
+//----------
+
+type tfCSI struct {
+	param    []byte
+	intermid []byte
+	final    byte
+}
+
+type tfCSI2 struct {
+	header byte
+	value  byte
+}
+
+//----------
+
+func InputToTerminalBytes(ev interface{}) ([]byte, bool) {
+	// $man console codes
+
+	switch t := ev.(type) {
+	case *event.KeyDown:
+		//[]byte(string(t.Rune))
+		//m := t.Mods
+		//if m.HasAny(event.ModCtrl) {
+		//	switch t.Rune {
+		//	case '1':
+		//	}
+		//}
+
+		switch t.KeySym {
+		case event.KSymF1:
+			w := append([]byte{27}, []byte("[[11~")...)
+			return w, true
+		case event.KSymF2:
+			//w := append([]byte{27}, []byte("[[12~")...)
+			w := []byte("\033[[12~")
+			//w := []byte("\033OQ")
+			return w, true
+		}
+	}
+	return nil, false
 }

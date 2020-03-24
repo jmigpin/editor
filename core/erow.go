@@ -12,6 +12,7 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -351,63 +352,146 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 	}
 }
 
+//----------
+
 // UI Safe. Writer will block until it has queued in the UI goroutine (the actual apppend bytes is done later in the UI goroutine, avoiding possible UI locks).
 func (erow *ERow) TextAreaAppendBytesUIWriter() io.Writer {
+	var d struct {
+		sync.Mutex
+		buf []byte
+	}
+
+	appendBytes := func() {
+		d.Lock()
+		defer d.Unlock()
+		defer func() { d.buf = nil }()
+		err := erow.Row.TextArea.AppendBytesClearHistory(d.buf)
+		if err != nil {
+			erow.Ed.Error(err)
+		}
+	}
+
 	return iout.FnWriter(func(b []byte) (int, error) {
 		// can't sync.wait since it could lock the caller if inside a uigoroutine
 
+		d.Lock()
+		callRun := len(d.buf) == 0 // need to add if first time appending
 		// make copy since the data will be used async in uigoroutine
-		b2 := make([]byte, len(b))
-		copy(b2, b)
+		d.buf = append(d.buf, b...)
+		d.Unlock()
 
-		erow.Ed.UI.RunOnUIGoRoutine(func() {
-			err := erow.Row.TextArea.AppendBytesClearHistory(b2)
-			if err != nil {
-				erow.Ed.Error(err)
-			}
-		})
-
-		return len(b2), nil
+		if callRun {
+			erow.Ed.UI.RunOnUIGoRoutine(appendBytes)
+		}
+		return len(b), nil
 	})
 }
 
 //----------
 
 // UI Safe. Caller is responsible for closing the writer at the end.
-func (erow *ERow) TextAreaWriter() io.WriteCloser {
-	// terminal filter (escape sequences)
-	// avoid data race: assign before goroutine
-	termFilter := erow.termFilter && erow.Info.IsDir()
+func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
+	wc := erow.textAreaWriteCloser()
+	rd := iout.FnReader(func(b []byte) (int, error) { return 0, io.EOF })
 
+	type iorwc struct {
+		io.Reader
+		io.Writer
+		io.Closer
+	}
+	rwc := io.ReadWriteCloser(&iorwc{rd, wc, wc})
+
+	termFilter := erow.termFilter && erow.Info.IsDir()
+	if termFilter {
+		rwc = erow.textAreaTerminalFilter(rwc)
+	}
+
+	return rwc
+}
+
+func (erow *ERow) textAreaWriteCloser() io.WriteCloser {
+	// setup output
 	prc, pwc := io.Pipe()
 	var copyLoop sync.WaitGroup
 	copyLoop.Add(1)
 	go func() {
 		defer copyLoop.Done()
-		var r io.Reader = prc
-		if termFilter {
-			r = NewTerminalFilter(erow, r)
-		}
 		w := erow.TextAreaAppendBytesUIWriter()
-		if _, err := io.Copy(w, r); err != nil {
+		if _, err := io.Copy(w, prc); err != nil {
 			prc.Close()
 		}
 	}()
-	// wrap pwc for performance (buffered) with output visible (auto-flush)
-	abw := iout.NewAutoBufWriter(pwc)
-	//return abw
+	// wrap pwc for timed output (auto-flush) and performance (buffered)
+	abWriter := iout.NewAutoBufWriter(pwc)
 
 	// wait for the copy loop to finish on close
-	type waitWriteCloser struct {
-		io.Writer
-		io.Closer
-	}
 	closer := iout.FnCloser(func() error {
-		err := abw.Close()
+		err := abWriter.Close()
 		copyLoop.Wait()
 		return err
 	})
-	return &waitWriteCloser{Writer: abw, Closer: closer}
+
+	type iowc struct {
+		io.Writer
+		io.Closer
+	}
+	return &iowc{abWriter, closer}
+}
+
+func (erow *ERow) textAreaTerminalFilter(rwc io.ReadWriteCloser) io.ReadWriteCloser {
+
+	var term struct {
+		ch   chan []byte
+		done chan struct{}
+		reg  *evreg.Regist
+	}
+	term.ch = make(chan []byte, 8)
+	term.done = make(chan struct{})
+
+	// util func to handle textarea events, sends to reader
+	inputFn := func(ev0 interface{}) {
+		ev := ev0.(*ui.TextAreaInputEvent)
+		switch t := ev.Event.(type) {
+		case *event.KeyDown:
+			b, ok := InputToTerminalBytes(t)
+			if ok {
+				term.ch <- b
+				ev.ReplyHandled = true
+			}
+		}
+	}
+
+	// register to listen textarea events
+	term.reg = erow.Row.TextArea.EvReg.Add(ui.TextAreaInputEventId, inputFn)
+
+	// reader replacement
+	reader := iout.FnReader(func(b []byte) (int, error) {
+		select {
+		case u := <-term.ch:
+			copy(b, u)
+			return len(u), nil
+		case <-term.done:
+			return 0, io.EOF
+		}
+	})
+
+	// filtered writer
+	writer := NewTerminalFilter(erow, rwc)
+
+	// wrap closer to clean up terminal event listener
+	closer := iout.FnCloser(func() error {
+		err := rwc.Close()
+		term.reg.Unregister()
+		close(term.done)
+		return err
+	})
+
+	type iorwc struct {
+		io.Reader
+		io.Writer
+		io.Closer
+	}
+	return &iorwc{reader, writer, closer}
 }
 
 //----------

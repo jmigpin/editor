@@ -149,7 +149,7 @@ func (gdi *GoDebugInstance) start2(ctx context.Context, erow *ERow, args []strin
 	}
 
 	gdi.erowExecWait.Add(1)
-	erow.Exec.RunAsync(func(erowCtx context.Context, w io.Writer) error {
+	erow.Exec.RunAsync(func(erowCtx context.Context, rw io.ReadWriter) error {
 		defer gdi.erowExecWait.Done()
 
 		// call cancel if ctx is done (allow cancel from godebugmanager)
@@ -158,7 +158,7 @@ func (gdi *GoDebugInstance) start2(ctx context.Context, erow *ERow, args []strin
 		clearWatching := ctxutil.WatchDone(cancel, ctx)
 		defer clearWatching()
 
-		return gdi.runCmd(erowCtx2, erow, args, w)
+		return gdi.runCmd(erowCtx2, erow, args, rw)
 	})
 
 	return nil

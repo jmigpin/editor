@@ -105,8 +105,8 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 	if !erow.Info.IsDir() {
 		panic("not a directory")
 	}
-	erow.Exec.RunAsync(func(ctx context.Context, w io.Writer) error {
-		err := externalCmdDir2(ctx, erow, cargs, env, w)
+	erow.Exec.RunAsync(func(ctx context.Context, rw io.ReadWriter) error {
+		err := externalCmdDir2(ctx, erow, cargs, env, rw)
 		if fend != nil {
 			fend(err)
 		}
@@ -114,18 +114,19 @@ func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) 
 	})
 }
 
-func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []string, w io.Writer) error {
+func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter) error {
 	cmd := osutil.NewCmd(ctx, cargs...)
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = env
-	if err := cmd.SetupStdio(nil, w, w); err != nil {
+
+	if err := cmd.SetupStdio(rw, rw, rw); err != nil {
 		return err
 	}
 
 	// output pid before any output
 	cmd.PreOutputCallback = func() {
 		cargsStr := strings.Join(cargs, " ")
-		fmt.Fprintf(w, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
+		fmt.Fprintf(rw, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
 	}
 
 	if err := cmd.Start(); err != nil {

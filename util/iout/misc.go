@@ -8,6 +8,14 @@ func (w FnWriter) Write(p []byte) (int, error) {
 
 //----------
 
+type FnReader func([]byte) (int, error)
+
+func (r FnReader) Read(p []byte) (int, error) {
+	return r(p)
+}
+
+//----------
+
 type FnCloser func() error
 
 func (c FnCloser) Close() error {

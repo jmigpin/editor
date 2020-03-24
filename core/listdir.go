@@ -12,8 +12,8 @@ import (
 )
 
 func ListDirERow(erow *ERow, filepath string, tree, hidden bool) {
-	erow.Exec.RunAsync(func(ctx context.Context, w io.Writer) error {
-		return ListDirContext(ctx, w, erow.Info.Name(), tree, hidden)
+	erow.Exec.RunAsync(func(ctx context.Context, rw io.ReadWriter) error {
+		return ListDirContext(ctx, rw, erow.Info.Name(), tree, hidden)
 	})
 }
 

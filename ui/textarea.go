@@ -29,11 +29,32 @@ func NewTextArea(ui *UI) *TextArea {
 //----------
 
 func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
-	h := ta.handleInputEvent2(ev0, p) // editor shortcuts first
-	if h == event.HFalse {
-		// ignore handled to allow ui.Row to get inputevents
-		_ = ta.TextEditX.OnInputEvent(ev0, p)
+	h := event.Handled(false)
+
+	// input events callbacks (terminal related)
+	if !h {
+		ev2 := &TextAreaInputEvent{TextArea: ta, Event: ev0}
+		ta.EvReg.RunCallbacks(TextAreaInputEventId, ev2)
+		h = ev2.ReplyHandled
 	}
+
+	// select annotation events
+	if !h {
+		h = ta.handleInputEvent2(ev0, p)
+		// consider handled to avoid root events to select global annotations
+		if h {
+			return true
+		}
+	}
+
+	if !h {
+		h = ta.TextEditX.OnInputEvent(ev0, p)
+		// don't consider handled to allow ui.Row to get inputevents
+		if h {
+			return false
+		}
+	}
+
 	return h
 }
 
@@ -46,11 +67,11 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			switch {
 			case m.Is(event.ModCtrl):
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypePrint) {
-					return event.HTrue
+					return true
 				}
 			case m.Is(event.ModCtrl | event.ModShift):
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypePrintAllPrevious) {
-					return event.HTrue
+					return true
 				}
 			}
 			if !ta.SupportClickInsideSelection || !ta.PointIndexInsideSelection(ev.Point) {
@@ -59,7 +80,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			i := ta.GetIndex(ev.Point)
 			ev2 := &TextAreaCmdEvent{ta, i}
 			ta.EvReg.RunCallbacks(TextAreaCmdEventId, ev2)
-			return event.HTrue
+			return true
 		}
 	case *event.MouseDown:
 		switch ev.Button {
@@ -69,21 +90,21 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrent) {
-					return event.HTrue
+					return true
 				}
 			}
 		case event.ButtonWheelUp:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentPrev) {
-					return event.HTrue
+					return true
 				}
 			}
 		case event.ButtonWheelDown:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
 				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentNext) {
-					return event.HTrue
+					return true
 				}
 			}
 		}
@@ -107,7 +128,7 @@ func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Hand
 			}
 		}
 	}
-	return event.HFalse
+	return false
 }
 
 //----------
@@ -135,16 +156,16 @@ func (ta *TextArea) selAnnEv(typ TASelAnnType) {
 func (ta *TextArea) inlineCompleteEv() event.Handled {
 	c := ta.Cursor()
 	if c.HaveSelection() {
-		return event.HFalse
+		return false
 	}
 
 	// previous rune should not be a space
 	ru, _, err := ta.RW().ReadRuneAt(c.Index() - 1)
 	if err != nil {
-		return event.HFalse
+		return false
 	}
 	if unicode.IsSpace(ru) {
-		return event.HFalse
+		return false
 	}
 
 	ev2 := &TextAreaInlineCompleteEvent{ta, c.Index(), false}
@@ -192,6 +213,7 @@ const (
 	TextAreaCmdEventId = iota
 	TextAreaSelectAnnotationEventId
 	TextAreaInlineCompleteEventId
+	TextAreaInputEventId
 )
 
 //----------
@@ -227,4 +249,12 @@ type TextAreaInlineCompleteEvent struct {
 	Offset   int
 
 	ReplyHandled event.Handled // allow callbacks to set value
+}
+
+//----------
+
+type TextAreaInputEvent struct {
+	TextArea     *TextArea
+	Event        interface{}
+	ReplyHandled event.Handled
 }

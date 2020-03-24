@@ -28,7 +28,7 @@ func NewERowExec(erow *ERow) *ERowExec {
 
 //----------
 
-func (ee *ERowExec) RunAsync(fn func(context.Context, io.Writer) error) {
+func (ee *ERowExec) RunAsync(fn func(context.Context, io.ReadWriter) error) {
 	// Note: textarea w.close() (textareawriter) could lock if run() is not on own goroutine, if w.close waits for UI goroutine to finish and run() is currently occupying it (w.close called after a run(), no local locks involved, just that the UI goroutine is not getting released).
 	// Note: commented since the w.close() is currently not blocking the UI goroutine, just ensures it gets queued)
 
@@ -48,7 +48,7 @@ func (ee *ERowExec) RunAsync(fn func(context.Context, io.Writer) error) {
 	ctx, cancel := context.WithCancel(ee.erow.ctx)
 	ee.mu.cancel = cancel
 
-	w := ee.erow.TextAreaWriter() // needs to be closed in the end
+	rwc := ee.erow.TextAreaReadWriteCloser()
 
 	ee.mu.fnWait.Add(1)
 	go func() {
@@ -61,15 +61,15 @@ func (ee *ERowExec) RunAsync(fn func(context.Context, io.Writer) error) {
 			ee.erow.Row.TextArea.ClearPos()
 		})
 
-		err := fn(ctx, w)
+		err := fn(ctx, rwc)
 		if err != nil {
-			fmt.Fprintf(w, "# error: %v\n", err)
+			fmt.Fprintf(rwc, "# error: %v\n", err)
 		}
 
 		// clear cancel resources
 		cancel()
 
-		if err := w.Close(); err != nil {
+		if err := rwc.Close(); err != nil {
 			ee.erow.Ed.Error(err)
 		}
 
