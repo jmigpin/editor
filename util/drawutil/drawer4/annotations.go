@@ -1,14 +1,19 @@
 package drawer4
 
 import (
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/mathutil"
 )
 
 type Annotations struct {
-	d *Drawer
+	d          *Drawer
+	notesFFace *fontutil.FontFace
 }
 
-func (ann *Annotations) Init() {}
+func (ann *Annotations) Init() {
+	size2 := ann.d.st.runeR.fface.Size * 0.70
+	ann.notesFFace = ann.d.st.runeR.fface.Font.FontFace2(size2)
+}
 
 func (ann *Annotations) Iter() {
 	if ann.d.Opt.Annotations.On {
@@ -90,7 +95,7 @@ func (ann *Annotations) insertAnnotations2() {
 		pen := &ann.d.st.runeR.pen
 		startX := pen.X + ann.d.st.runeR.advance
 
-		//if !ann.d.iters.runeR.insertExtraString("   \t") {
+		//if !ann.insertSeparatorString("\t") {
 		//	return
 		//}
 
@@ -121,7 +126,7 @@ func (ann *Annotations) insertAnnotations2() {
 		// space separator between entries on the same line
 		c++
 		if c >= 2 {
-			if !ann.d.iters.runeR.insertExtraString(" ") {
+			if !ann.insertSeparatorString(" ") {
 				return
 			}
 		}
@@ -132,15 +137,15 @@ func (ann *Annotations) insertAnnotations2() {
 		}
 
 		// entry.notes (used for arrival index)
-		s2 := " " + string(entry.NotesBytes)
-		if !ann.d.iters.runeR.insertExtraString(s2) {
+		s2 := string(entry.NotesBytes)
+		if !ann.insertNotesString(ann.notesFFace, s2) {
 			return
 		}
 	}
 }
 
 func (ann *Annotations) insertAnnotationString(s string, eindex int, colorizeIfIndex bool) bool {
-	// keep color state
+	// keep/restore color state
 	keep := ann.d.st.curColors
 	defer func() { ann.d.st.curColors = keep }()
 	// set colors
@@ -159,6 +164,32 @@ func (ann *Annotations) insertAnnotationString(s string, eindex int, colorizeIfI
 	ann.d.st.annotationsIndexOf.inside.soffset = ann.d.st.runeR.ri
 	defer func() { ann.d.st.annotationsIndexOf.inside.on = false }()
 
+	return ann.d.iters.runeR.insertExtraString(s)
+}
+
+func (ann *Annotations) insertNotesString(fface *fontutil.FontFace, s string) bool {
+	// keep/restore color state
+	keep := ann.d.st.curColors
+	defer func() { ann.d.st.curColors = keep }()
+	// set colors
+	ann.d.st.curColors.fg = ann.d.fg
+	ann.d.st.curColors.bg = nil
+
+	// keep/restore face
+	keepf := ann.d.st.runeR.fface
+	ann.d.st.runeR.fface = fface
+	defer func() { ann.d.st.runeR.fface = keepf }()
+
+	return ann.d.iters.runeR.insertExtraString(" " + s)
+}
+
+func (ann *Annotations) insertSeparatorString(s string) bool {
+	// keep/restore color state
+	keep := ann.d.st.curColors
+	defer func() { ann.d.st.curColors = keep }()
+	// set colors
+	ann.d.st.curColors.fg = ann.d.fg
+	ann.d.st.curColors.bg = nil
 	return ann.d.iters.runeR.insertExtraString(s)
 }
 

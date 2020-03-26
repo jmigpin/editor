@@ -141,6 +141,7 @@ type State struct {
 		kern, advance mathutil.Intf
 		extra         int
 		startRi       int
+		fface         *fontutil.FontFace
 	}
 	measure struct {
 		penMax mathutil.PointIntf

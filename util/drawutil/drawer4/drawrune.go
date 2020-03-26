@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"image/draw"
 
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 )
 
@@ -31,30 +32,31 @@ func (dr *DrawRune) draw() {
 	pen := dr.d.iters.runeR.penBoundsRect().Min
 
 	// draw now
-	//dr.draw2(pen, dr.d.st.runeR.ru, dr.d.st.curColors.fg)
+	//dr.draw2(dr.d.st.runeR.fface, pen, dr.d.st.runeR.ru, dr.d.st.curColors.fg)
 	//return
 
 	// delayed draw
 	if st.delay != nil {
-		dr.draw2(st.delay.pen, st.delay.ru, st.delay.fg)
+		dr.draw2(st.delay.fface, st.delay.pen, st.delay.ru, st.delay.fg)
 	}
 
 	// delay drawing by one rune to allow drawing the kern bg correctly. The last position is also drawn because the runereader emits a final ru=0 at the end
 	st.delay = &DrawRuneDelay{
-		pen: pen,
-		ru:  dr.d.st.runeR.ru,
-		fg:  dr.d.st.curColors.fg,
+		pen:   pen,
+		ru:    dr.d.st.runeR.ru,
+		fg:    dr.d.st.curColors.fg,
+		fface: dr.d.st.runeR.fface,
 	}
 }
 
-func (dr *DrawRune) draw2(pen image.Point, ru rune, fg color.Color) {
+func (dr *DrawRune) draw2(fface *fontutil.FontFace, pen image.Point, ru rune, fg color.Color) {
 	// skip draw
 	if ru < 0 {
 		return
 	}
 
-	bline := dr.d.fface.BaseLine()
-	gr, mask, maskp, _, ok := dr.d.fface.Face.Glyph(bline, ru)
+	bline := fface.BaseLine()
+	gr, mask, maskp, _, ok := fface.Face.Glyph(bline, ru)
 	if !ok {
 		return
 	}
@@ -76,7 +78,8 @@ func (dr *DrawRune) draw2(pen image.Point, ru rune, fg color.Color) {
 //----------
 
 type DrawRuneDelay struct {
-	pen image.Point
-	ru  rune
-	fg  color.Color
+	pen   image.Point
+	ru    rune
+	fg    color.Color
+	fface *fontutil.FontFace
 }
