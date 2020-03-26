@@ -94,7 +94,7 @@ func (f *Font) FontFace2(size float64) *FontFace {
 type FontFace struct {
 	Font       *Font
 	Face       font.Face
-	Size       float64 // in points
+	Size       float64 // in points, readonly
 	Metrics    *font.Metrics
 	lineHeight fixed.Int26_6
 }
@@ -108,10 +108,16 @@ func NewFontFace(font *Font, opt truetype.Options) *FontFace {
 	//face = NewFaceCacheL2(face)
 
 	ff := &FontFace{Font: font, Face: face}
-	ff.Size = opt.Size
 	m := face.Metrics()
 	ff.Metrics = &m
 	ff.lineHeight = ff.calcLineHeight()
+
+	ff.Size = opt.Size
+	if ff.Size == 0 {
+		// github.com/golang/freetype/truetype/face.go:26:2
+		ff.Size = 12
+	}
+
 	return ff
 }
 
