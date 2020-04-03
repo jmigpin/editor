@@ -47,8 +47,10 @@ func (c *Colorize) colorize() {
 func (c *Colorize) applyOp(op *ColorizeOp) {
 	if op.Fg != nil {
 		c.d.st.curColors.fg = op.Fg
+	} else if op.SetNil {
+		c.d.st.curColors.fg = c.d.fg // default drawer color
 	}
-	if op.Bg != nil {
+	if op.Bg != nil || op.SetNil {
 		c.d.st.curColors.bg = op.Bg
 	}
 	if op.ProcColor != nil {
@@ -72,7 +74,8 @@ type ColorizeGroup struct {
 
 type ColorizeOp struct {
 	Offset    int
-	Line      bool
 	Fg, Bg    color.Color
 	ProcColor func(fg, bg color.Color) (fg2, bg2 color.Color)
+	Line      bool
+	SetNil    bool
 }
