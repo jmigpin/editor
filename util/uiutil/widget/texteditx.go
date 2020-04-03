@@ -45,8 +45,9 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 			&d.Opt.SyntaxHighlight.Group,
 			&d.Opt.WordHighlight.Group,
 			&d.Opt.ParenthesisHighlight.Group,
-			{}, // 3=selection
-			{}, // 4=flash
+			{}, // 3=terminal
+			{}, // 4=selection
+			{}, // 5=flash
 		}
 	}
 
@@ -70,7 +71,7 @@ func (te *TextEditX) Paint() {
 
 func (te *TextEditX) updateSelectionOpt() {
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		g := d.Opt.Colorize.Groups[3]
+		g := d.Opt.Colorize.Groups[4]
 		c := te.Cursor()
 		if s, e, ok := c.SelectionIndexes(); ok {
 			// colors
@@ -172,7 +173,7 @@ func (te *TextEditX) updateFlashOpt() {
 }
 
 func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
-	g := d.Opt.Colorize.Groups[4]
+	g := d.Opt.Colorize.Groups[5]
 	if !te.flash.index.on {
 		g.Ops = nil
 		return
