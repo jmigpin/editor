@@ -8,7 +8,7 @@ func InsertString(ctx *Ctx, s string) error {
 		ci = a
 		ctx.C.SetSelectionOff()
 	}
-	if err := ctx.RW.Overwrite(ci, n, []byte(s)); err != nil {
+	if err := ctx.RW.OverwriteAt(ci, n, []byte(s)); err != nil {
 		return err
 	}
 	ctx.C.SetIndex(ci + len(s))

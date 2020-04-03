@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
@@ -160,7 +161,7 @@ func (ta *TextArea) inlineCompleteEv() event.Handled {
 	}
 
 	// previous rune should not be a space
-	ru, _, err := ta.RW().ReadRuneAt(c.Index() - 1)
+	ru, _, err := iorw.ReadRuneAt(ta.RW(), c.Index()-1)
 	if err != nil {
 		return false
 	}
@@ -189,6 +190,9 @@ func (ta *TextArea) PointIndexInsideSelection(p image.Point) bool {
 func (ta *TextArea) Layout() {
 	ta.TextEditX.Layout()
 	ta.setDrawer4Opts()
+
+	ev2 := &TextAreaLayoutEvent{TextArea: ta}
+	ta.EvReg.RunCallbacks(TextAreaLayoutEventId, ev2)
 }
 
 func (ta *TextArea) setDrawer4Opts() {
@@ -214,6 +218,7 @@ const (
 	TextAreaSelectAnnotationEventId
 	TextAreaInlineCompleteEventId
 	TextAreaInputEventId
+	TextAreaLayoutEventId
 )
 
 //----------
@@ -257,4 +262,10 @@ type TextAreaInputEvent struct {
 	TextArea     *TextArea
 	Event        interface{}
 	ReplyHandled event.Handled
+}
+
+//----------
+
+type TextAreaLayoutEvent struct {
+	TextArea *TextArea
 }

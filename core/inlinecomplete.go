@@ -191,7 +191,7 @@ func (ic *InlineComplete) CancelOnCursorChange() {
 
 //----------
 
-func insertComplete(comps []string, rw iorw.ReadWriter, index int) (newIndex int, completed bool, _ []string, _ error) {
+func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex int, completed bool, _ []string, _ error) {
 	// build prefix from start of string
 	start, prefix, ok := readLastUntilStart(rw, index)
 	if !ok {
@@ -214,7 +214,7 @@ func insertComplete(comps []string, rw iorw.ReadWriter, index int) (newIndex int
 
 		// try to expand the index to the existing text
 		for i := 0; i < expand; i++ {
-			b, err := rw.ReadNAtFast(index+i, 1)
+			b, err := rw.ReadFastAt(index+i, 1)
 			if err != nil {
 				break
 			}
@@ -226,7 +226,7 @@ func insertComplete(comps []string, rw iorw.ReadWriter, index int) (newIndex int
 
 		// insert completion
 		if insStr != origStr {
-			err := rw.Overwrite(start, n, []byte(insStr))
+			err := rw.OverwriteAt(start, n, []byte(insStr))
 			if err != nil {
 				return 0, false, nil, err
 			}
@@ -276,7 +276,7 @@ func filterPrefixedAndExpand(comps []string, prefix string) (expand int, canComp
 
 //----------
 
-func readLastUntilStart(rd iorw.Reader, index int) (int, string, bool) {
+func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
 	sc := scanutil.NewScanner(rd)
 	sc.Reverse = true
 	sc.SetStartPos(index)

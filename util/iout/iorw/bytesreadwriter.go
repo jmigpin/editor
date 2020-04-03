@@ -1,84 +1,77 @@
 package iorw
 
 import (
+	"fmt"
 	"io"
-	"unicode/utf8"
 )
 
-type BytesReadWriter struct {
+type BytesReadWriterAt struct {
 	buf []byte
 }
 
-func NewBytesReadWriter(b []byte) *BytesReadWriter {
-	return &BytesReadWriter{buf: b}
+func NewBytesReadWriterAt(b []byte) *BytesReadWriterAt {
+	return &BytesReadWriterAt{b}
 }
 
 //----------
 
-func (rw *BytesReadWriter) Min() int {
-	return 0
-}
-func (rw *BytesReadWriter) Max() int {
-	return len(rw.buf)
-}
-
-//----------
-
-func (rw *BytesReadWriter) ReadRuneAt(i int) (ru rune, size int, err error) {
-	if err := checkIndex(0, len(rw.buf), i); err != nil {
-		return 0, 0, err
+// Implement ReaderAt
+func (rw *BytesReadWriterAt) ReadFastAt(i, n int) ([]byte, error) {
+	if i < 0 {
+		return nil, fmt.Errorf("bad index: %v<0", i)
 	}
-	ru, size = utf8.DecodeRune(rw.buf[i:])
-	if size == 0 {
-		return 0, 0, io.EOF
+	if i > len(rw.buf) {
+		return nil, fmt.Errorf("bad index: %v>%v", i, len(rw.buf))
 	}
-	return ru, size, nil
-}
 
-func (rw *BytesReadWriter) ReadLastRuneAt(i int) (ru rune, size int, err error) {
-	if err := checkIndex(0, len(rw.buf), i); err != nil {
-		return 0, 0, err
+	// before "i==len" to allow reading an empty buffer (ex: readfull("") without err)
+	if n == 0 {
+		return nil, nil
 	}
-	ru, size = utf8.DecodeLastRune(rw.buf[:i])
-	if size == 0 {
-		return 0, 0, io.EOF
+	if n < 0 {
+		return nil, fmt.Errorf("bad arg: %v<0", n)
 	}
-	return ru, size, nil
-}
 
-//----------
-
-func (rw *BytesReadWriter) ReadNAtFast(i, n int) ([]byte, error) {
-	if err := checkIndexN(0, len(rw.buf), i, n); err != nil {
-		return nil, err
+	if i == len(rw.buf) {
+		return nil, io.EOF
 	}
+
+	// i>=0 && i<len && n>=0 -> n>=1
+	if i+n > len(rw.buf) {
+		n = len(rw.buf) - i
+	}
+
 	return rw.buf[i : i+n], nil
 }
 
-func (rw *BytesReadWriter) ReadNAtCopy(i, n int) ([]byte, error) {
-	b, err := rw.ReadNAtFast(i, n)
-	if err != nil {
-		return nil, err
-	}
-	p := make([]byte, n)
-	copy(p, b)
-	return p, nil
-}
+// Implement ReaderAt
+func (rw *BytesReadWriterAt) Min() int { return 0 }
+
+// Implement ReaderAt
+func (rw *BytesReadWriterAt) Max() int { return len(rw.buf) }
 
 //----------
 
-func (rw *BytesReadWriter) Overwrite(i, n int, p []byte) error {
-	if err := checkIndexN(0, len(rw.buf), i, n); err != nil {
-		return err
-	}
+// Implement WriterAt
+func (rw *BytesReadWriterAt) OverwriteAt(i, del int, p []byte) error {
 	// delete
-	copy(rw.buf[i:], rw.buf[i+n:])
-	rw.buf = rw.buf[:len(rw.buf)-n]
+	if i+del > len(rw.buf) {
+		return fmt.Errorf("iorw.OverwriteAt: del %v>%v", i+del, len(rw.buf))
+	}
+	copy(rw.buf[i:], rw.buf[i+del:])
+	rw.buf = rw.buf[:len(rw.buf)-del]
 	// insert
 	l := len(rw.buf)
-	rw.buf = append(rw.buf, p...)        // just to increase capacity
+	if l+len(p) <= cap(rw.buf) {
+		rw.buf = rw.buf[:l+len(p)] // increase length
+	} else {
+		rw.buf = append(rw.buf, p...) // increase capacity
+	}
 	copy(rw.buf[i+len(p):], rw.buf[i:l]) // shift data to the right
-	copy(rw.buf[i:], p)                  // insert p
+	n := copy(rw.buf[i:], p)
+	if n != len(p) {
+		return fmt.Errorf("iorw.OverwriteAt: failed full write: %v!=%v", n, len(p))
+	}
 
 	rw.buf = autoReduceCap(rw.buf)
 	return nil
@@ -91,29 +84,4 @@ func autoReduceCap(p []byte) []byte {
 		return append([]byte{}, p...)
 	}
 	return p
-}
-
-//----------
-
-func checkIndex(min, max, i int) error {
-	if i < min {
-		return NewErrBadIndex("%v, min=%v", i, min)
-	}
-	if i > max { // allow max
-		return NewErrBadIndex("%v, max=%v", i, max)
-	}
-	return nil
-}
-
-func checkIndexN(min, max, i, n int) error {
-	if n < 0 {
-		return NewErrBadIndex("n=%v", n)
-	}
-	if i < min {
-		return NewErrBadIndex("%v, min=%v", i, min)
-	}
-	if i+n > max {
-		return NewErrBadIndex("i+n=%v, max=%v", i+n, max)
-	}
-	return nil
 }

@@ -18,7 +18,7 @@ func (fp *FilePos) HasOffset() bool {
 
 // Parse fmt: <filename:line?:col?>. Accepts escapes but doesn't unescape.
 func ParseFilePos(str string) (*FilePos, error) {
-	rd := iorw.NewStringReader(str)
+	rd := iorw.NewStringReaderAt(str)
 	res, err := ParseResource(rd, 0)
 	if err != nil {
 		return nil, err

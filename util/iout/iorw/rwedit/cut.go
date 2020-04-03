@@ -10,13 +10,13 @@ func Cut(ctx *Ctx) error {
 		return nil
 	}
 
-	s, err := ctx.RW.ReadNAtCopy(a, b-a)
+	s, err := ctx.RW.ReadFastAt(a, b-a)
 	if err != nil {
 		return err
 	}
 	ctx.Fns.SetClipboardData(event.CIClipboard, string(s))
 
-	if err := ctx.RW.Overwrite(a, b-a, nil); err != nil {
+	if err := ctx.RW.OverwriteAt(a, b-a, nil); err != nil {
 		return err
 	}
 	ctx.C.SetSelectionOff()

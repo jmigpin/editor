@@ -1,5 +1,7 @@
 package toolbarparser
 
+//godebug:annotatefile
+
 import (
 	"fmt"
 	"path/filepath"
@@ -152,7 +154,7 @@ type Var struct {
 }
 
 func ParseVar(str string) (*Var, error) {
-	rd := iorw.NewStringReader(str)
+	rd := iorw.NewStringReaderAt(str)
 	sc := scanutil.NewScanner(rd)
 	ru := sc.PeekRune()
 	switch ru {

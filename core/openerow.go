@@ -48,7 +48,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	// helper func: cache for LineColumnIndex
 	lciVal := 0
 	lciDone := false
-	cacheLineColumnIndex := func(rd iorw.Reader) int {
+	cacheLineColumnIndex := func(rd iorw.ReaderAt) int {
 		if lciDone {
 			return lciVal
 		}

@@ -64,8 +64,8 @@ func decodeJsonRaw(raw json.RawMessage, a interface{}) error {
 
 //----------
 
-func Utf16Column(rd iorw.Reader, lineStartOffset, utf8Col int) (int, error) {
-	b, err := rd.ReadNAtFast(lineStartOffset, utf8Col)
+func Utf16Column(rd iorw.ReaderAt, lineStartOffset, utf8Col int) (int, error) {
+	b, err := rd.ReadFastAt(lineStartOffset, utf8Col)
 	if err != nil {
 		return 0, err
 	}
@@ -73,14 +73,14 @@ func Utf16Column(rd iorw.Reader, lineStartOffset, utf8Col int) (int, error) {
 }
 
 // Input and result is zero based.
-func Utf8Column(rd iorw.Reader, lineStartOffset, utf16Col int) (int, error) {
+func Utf8Column(rd iorw.ReaderAt, lineStartOffset, utf16Col int) (int, error) {
 	// ensure good limits
 	n := utf16Col * 2
 	if lineStartOffset+n > rd.Max() {
 		n = rd.Max() - lineStartOffset
 	}
 
-	b, err := rd.ReadNAtFast(lineStartOffset, n)
+	b, err := rd.ReadFastAt(lineStartOffset, n)
 	if err != nil {
 		return 0, err
 	}
@@ -96,7 +96,7 @@ func Utf8Column(rd iorw.Reader, lineStartOffset, utf16Col int) (int, error) {
 
 //----------
 
-func OffsetToPosition(rd iorw.Reader, offset int) (Position, error) {
+func OffsetToPosition(rd iorw.ReaderAt, offset int) (Position, error) {
 	l, c, err := parseutil.IndexLineColumn(rd, offset)
 	if err != nil {
 		return Position{}, err
@@ -113,7 +113,7 @@ func OffsetToPosition(rd iorw.Reader, offset int) (Position, error) {
 	return Position{Line: l, Character: c2}, nil
 }
 
-func RangeToOffsetLen(rd iorw.Reader, rang *Range) (int, int, error) {
+func RangeToOffsetLen(rd iorw.ReaderAt, rang *Range) (int, int, error) {
 	// one-based lines (range is zero based)
 	l1 := rang.Start.Line + 1
 	l2 := rang.End.Line + 1

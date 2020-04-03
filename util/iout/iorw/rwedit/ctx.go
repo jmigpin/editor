@@ -11,7 +11,7 @@ import (
 //godebug:annotatefile
 
 type Ctx struct {
-	RW  iorw.ReadWriter
+	RW  iorw.ReadWriterAt
 	C   Cursor
 	Fns CtxFns
 }
@@ -36,19 +36,19 @@ func (ctx *Ctx) Selection() ([]byte, bool) {
 	if !ok {
 		return nil, false
 	}
-	w, err := ctx.RW.ReadNAtCopy(a, b-a)
+	w, err := ctx.RW.ReadFastAt(a, b-a)
 	if err != nil {
 		return nil, false
 	}
-	return w, true
+	return iorw.MakeBytesCopy(w), true
 }
 
-func (ctx *Ctx) LocalReader(i int) iorw.Reader {
+func (ctx *Ctx) LocalReader(i int) iorw.ReaderAt {
 	return ctx.LocalReader2(i, i)
 }
-func (ctx *Ctx) LocalReader2(min, max int) iorw.Reader {
+func (ctx *Ctx) LocalReader2(min, max int) iorw.ReaderAt {
 	pad := 2500
-	return iorw.NewLimitedReaderPad(ctx.RW, min, max, pad)
+	return iorw.NewLimitedReaderAtPad(ctx.RW, min, max, pad)
 }
 
 //----------

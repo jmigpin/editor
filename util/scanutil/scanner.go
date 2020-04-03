@@ -12,13 +12,13 @@ const readErr = -2
 type Scanner struct {
 	Start int
 	Pos   int
-	R     iorw.Reader
+	R     iorw.ReaderAt
 	Match Matcher
 
 	Reverse bool // read direction
 }
 
-func NewScanner(r iorw.Reader) *Scanner {
+func NewScanner(r iorw.ReaderAt) *Scanner {
 	sc := &Scanner{R: r}
 	sc.Match = Matcher{sc: sc}
 	sc.SetStartPos(r.Min())
@@ -47,7 +47,7 @@ func (sc *Scanner) ReadRune() rune {
 		if sc.Pos <= sc.R.Min() {
 			return eos
 		}
-		ru, w, err := sc.R.ReadLastRuneAt(sc.Pos)
+		ru, w, err := iorw.ReadLastRuneAt(sc.R, sc.Pos)
 		if err != nil {
 			return readErr
 		}
@@ -58,7 +58,7 @@ func (sc *Scanner) ReadRune() rune {
 	if sc.Pos >= sc.R.Max() {
 		return eos
 	}
-	ru, w, err := sc.R.ReadRuneAt(sc.Pos)
+	ru, w, err := iorw.ReadRuneAt(sc.R, sc.Pos)
 	if err != nil {
 		return readErr
 	}
@@ -93,7 +93,7 @@ func (sc *Scanner) Value() string {
 	if sc.Reverse {
 		start, pos = pos, start
 	}
-	b, err := sc.R.ReadNAtFast(start, pos-start)
+	b, err := sc.R.ReadFastAt(start, pos-start)
 	if err != nil {
 		return ""
 	}
@@ -115,7 +115,7 @@ func (sc *Scanner) Errorf(f string, args ...interface{}) error {
 	}
 
 	// context string
-	v, err := sc.R.ReadNAtFast(a, b-a)
+	v, err := sc.R.ReadFastAt(a, b-a)
 	if err != nil {
 		return err
 	}

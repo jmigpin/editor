@@ -5,7 +5,7 @@ import (
 	"unicode"
 )
 
-//godebug:annotatefile
+////godebug:annotatefile
 
 func tryToMergeLastTwoEdits(hl *HList) {
 	editsL, elemsL := hl.NDoneBack(2)

@@ -1,15 +1,18 @@
 package rwedit
 
+import "github.com/jmigpin/editor/util/iout/iorw"
+
 func DuplicateLines(ctx *Ctx) error {
 	a, b, newline, err := ctx.CursorSelectionLinesIndexes()
 	if err != nil {
 		return err
 	}
 
-	s, err := ctx.RW.ReadNAtCopy(a, b-a)
+	s0, err := ctx.RW.ReadFastAt(a, b-a)
 	if err != nil {
 		return err
 	}
+	s := iorw.MakeBytesCopy(s0)
 
 	c := b
 	if !newline {
@@ -17,7 +20,7 @@ func DuplicateLines(ctx *Ctx) error {
 		c++
 	}
 
-	if err := ctx.RW.Overwrite(b, 0, s); err != nil {
+	if err := ctx.RW.OverwriteAt(b, 0, s); err != nil {
 		return err
 	}
 

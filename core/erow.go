@@ -12,11 +12,12 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
+
+//godebug:annotatefile
 
 //----------
 
@@ -28,8 +29,6 @@ type ERow struct {
 	TbData toolbarparser.Data
 
 	highlightDuplicates bool
-
-	parsingToolbar bool // protect against write loop
 
 	termFilter bool
 
@@ -199,12 +198,13 @@ func (erow *ERow) validateToolbarPreWrite(ev *iorw.RWEvPreWrite) error {
 		return err
 	}
 
-	// simulate the write // TODO: how to guarantee the simulation is accurate and no rw filter exists.
-	rw := iorw.NewBytesReadWriter(b)
-	if err := rw.Overwrite(ev.Index, ev.N, ev.P); err != nil {
+	// simulate the write
+	// TODO: how to guarantee the simulation is accurate and no rw filter exists.
+	rw := iorw.NewBytesReadWriterAt(b)
+	if err := rw.OverwriteAt(ev.Index, ev.N, ev.P); err != nil {
 		return err
 	}
-	b2, err := iorw.ReadFullFast(rw)
+	b2, err := iorw.ReadFastFull(rw)
 	if err != nil {
 		return err
 	}
@@ -283,9 +283,11 @@ func (erow *ERow) parseToolbarVars() {
 
 	// $termFilter
 	erow.termFilter = false
-	if v, ok := vmap["$termFilter"]; ok {
-		if v == "" || strings.ToLower(v) == "true" {
-			erow.termFilter = true
+	if erow.Info.IsDir() {
+		if v, ok := vmap["$termFilter"]; ok {
+			if v == "" || strings.ToLower(v) == "true" {
+				erow.termFilter = true
+			}
 		}
 	}
 }
@@ -335,15 +337,15 @@ func (erow *ERow) reload() error {
 
 //----------
 
-// Deprecated: use textAreaAppendBytesUIWriter().
-func (erow *ERow) TextAreaAppendBytesAsync(p []byte) <-chan struct{} {
-	comm := make(chan struct{})
-	erow.Ed.UI.RunOnUIGoRoutine(func() {
-		erow.TextAreaAppendBytes(p)
-		close(comm)
-	})
-	return comm
-}
+//// Deprecated: use textAreaAppendBytesUIWriter().
+//func (erow *ERow) TextAreaAppendBytesAsync(p []byte) <-chan struct{} {
+//	comm := make(chan struct{})
+//	erow.Ed.UI.RunOnUIGoRoutine(func() {
+//		erow.TextAreaAppendBytes(p)
+//		close(comm)
+//	})
+//	return comm
+//}
 
 func (erow *ERow) TextAreaAppendBytes(p []byte) {
 	ta := erow.Row.TextArea
@@ -354,46 +356,65 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 
 //----------
 
-// UI Safe. Writer will block until it has queued in the UI goroutine (the actual apppend bytes is done later in the UI goroutine, avoiding possible UI locks).
+// UI Safe. Adds request to the UI goroutine to append bytes, avoiding possible UI locks. The actual apppend is done later in the UI goroutine.
+//func (erow *ERow) TextAreaAppendBytesUIWriter__() io.Writer {
+//	var d struct {
+//		sync.Mutex
+//		buf []byte // TODO: this is working as unlimited buffer
+//	}
+
+//	appendBytes := func() {
+//		d.Lock()
+//		defer d.Unlock()
+//		defer func() { d.buf = nil }() // reset buffer
+//		err := erow.Row.TextArea.AppendBytesClearHistory(d.buf)
+//		if err != nil {
+//			erow.Ed.Error(err)
+//		}
+//	}
+
+//	return iout.FnWriter(func(b []byte) (int, error) {
+//		d.Lock()
+//		callRun := len(d.buf) == 0  // need to add if first time appending
+//		d.buf = append(d.buf, b...) // copy
+//		d.Unlock()
+
+//		if callRun {
+//			erow.Ed.UI.RunOnUIGoRoutine(appendBytes)
+//		}
+//		return len(b), nil
+//	})
+//}
+
 func (erow *ERow) TextAreaAppendBytesUIWriter() io.Writer {
-	var d struct {
-		sync.Mutex
-		buf []byte
-	}
-
-	appendBytes := func() {
-		d.Lock()
-		defer d.Unlock()
-		defer func() { d.buf = nil }()
-		err := erow.Row.TextArea.AppendBytesClearHistory(d.buf)
-		if err != nil {
-			erow.Ed.Error(err)
-		}
-	}
-
 	return iout.FnWriter(func(b []byte) (int, error) {
-		// can't sync.wait since it could lock the caller if inside a uigoroutine
-
-		d.Lock()
-		callRun := len(d.buf) == 0 // need to add if first time appending
-		// make copy since the data will be used async in uigoroutine
-		d.buf = append(d.buf, b...)
-		d.Unlock()
-
-		if callRun {
-			erow.Ed.UI.RunOnUIGoRoutine(appendBytes)
-		}
-		return len(b), nil
+		var err error
+		erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
+			err = erow.Row.TextArea.AppendBytesClearHistory(b)
+		})
+		return len(b), err
 	})
 }
 
+//func (erow *ERow) TextAreaWriteSeeker() io.WriteSeeker {
+//	return iout.FnWriter(func(b []byte) (int, error) {
+//		var err error
+//		erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
+//			err = erow.Row.TextArea.AppendBytesClearHistory(b)
+//		})
+//		return len(b), err
+//	})
+//}
+
 //----------
 
-// UI Safe. Caller is responsible for closing the writer at the end.
 func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
-	wc := erow.textAreaWriteCloser()
-	rd := iout.FnReader(func(b []byte) (int, error) { return 0, io.EOF })
+	w := erow.TextAreaAppendBytesUIWriter()
 
+	// wrap for performance (buffered), which needs timed output (auto-flush)
+	wc := iout.NewAutoBufWriter(w, 4096*3)
+
+	rd := iout.FnReader(func(b []byte) (int, error) { return 0, io.EOF })
 	type iorwc struct {
 		io.Reader
 		io.Writer
@@ -401,98 +422,47 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 	}
 	rwc := io.ReadWriteCloser(&iorwc{rd, wc, wc})
 
-	termFilter := erow.termFilter && erow.Info.IsDir()
-	if termFilter {
-		rwc = erow.textAreaTerminalFilter(rwc)
+	if erow.termFilter {
+		rwc = NewTerminalFilter(erow, rwc)
 	}
 
 	return rwc
 }
 
-func (erow *ERow) textAreaWriteCloser() io.WriteCloser {
-	// setup output
-	prc, pwc := io.Pipe()
-	var copyLoop sync.WaitGroup
-	copyLoop.Add(1)
-	go func() {
-		defer copyLoop.Done()
-		w := erow.TextAreaAppendBytesUIWriter()
-		if _, err := io.Copy(w, prc); err != nil {
-			prc.Close()
-		}
-	}()
-	// wrap pwc for timed output (auto-flush) and performance (buffered)
-	abWriter := iout.NewAutoBufWriter(pwc)
+//func (erow *ERow) textAreaWriteCloser() io.WriteCloser {
+//	//// setup output
+//	//prc, pwc := io.Pipe()
+//	//var copyLoop sync.WaitGroup
+//	//copyLoop.Add(1)
+//	//go func() {
+//	//	defer copyLoop.Done()
+//	//	w := erow.TextAreaAppendBytesUIWriter()
+//	//	if _, err := io.Copy(w, prc); err != nil {
+//	//		prc.Close()
+//	//	}
+//	//}()
 
-	// wait for the copy loop to finish on close
-	closer := iout.FnCloser(func() error {
-		err := abWriter.Close()
-		copyLoop.Wait()
-		return err
-	})
+//      //w:= pwc
+//	w := erow.TextAreaAppendBytesUIWriter()
 
-	type iowc struct {
-		io.Writer
-		io.Closer
-	}
-	return &iowc{abWriter, closer}
-}
+//	// wrap for performance (buffered), which needs timed output (auto-flush)
+//	abWriter := iout.NewAutoBufWriter(w, 4096*2)
 
-func (erow *ERow) textAreaTerminalFilter(rwc io.ReadWriteCloser) io.ReadWriteCloser {
+//	//// wait for the copy loop to finish on close
+//	//closer := iout.FnCloser(func() error {
+//	//	err := abWriter.Close()
+//	//	copyLoop.Wait()
+//	//	return err
+//	//})
 
-	var term struct {
-		ch   chan []byte
-		done chan struct{}
-		reg  *evreg.Regist
-	}
-	term.ch = make(chan []byte, 8)
-	term.done = make(chan struct{})
+//	//type iowc struct {
+//	//	io.Writer
+//	//	io.Closer
+//	//}
+//	//return &iowc{abWriter, closer}
 
-	// util func to handle textarea events, sends to reader
-	inputFn := func(ev0 interface{}) {
-		ev := ev0.(*ui.TextAreaInputEvent)
-		switch t := ev.Event.(type) {
-		case *event.KeyDown:
-			b, ok := InputToTerminalBytes(t)
-			if ok {
-				term.ch <- b
-				ev.ReplyHandled = true
-			}
-		}
-	}
-
-	// register to listen textarea events
-	term.reg = erow.Row.TextArea.EvReg.Add(ui.TextAreaInputEventId, inputFn)
-
-	// reader replacement
-	reader := iout.FnReader(func(b []byte) (int, error) {
-		select {
-		case u := <-term.ch:
-			copy(b, u)
-			return len(u), nil
-		case <-term.done:
-			return 0, io.EOF
-		}
-	})
-
-	// filtered writer
-	writer := NewTerminalFilter(erow, rwc)
-
-	// wrap closer to clean up terminal event listener
-	closer := iout.FnCloser(func() error {
-		err := rwc.Close()
-		term.reg.Unregister()
-		close(term.done)
-		return err
-	})
-
-	type iorwc struct {
-		io.Reader
-		io.Writer
-		io.Closer
-	}
-	return &iorwc{reader, writer, closer}
-}
+//	return abWriter
+//}
 
 //----------
 
@@ -516,6 +486,7 @@ func (erow *ERow) MakeIndexVisibleAndFlash(index int) {
 func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 	// Commented: don't flicker row positions
 	//erow.Row.EnsureTextAreaMinimumHeight()
+
 	erow.Row.EnsureOneToolbarLineYVisible()
 
 	erow.Row.TextArea.MakeRangeVisible(index, len)

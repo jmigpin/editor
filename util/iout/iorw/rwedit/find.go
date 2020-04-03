@@ -36,7 +36,7 @@ func find2(cctx context.Context, ctx *Ctx, b []byte) (int, error) {
 
 	// start to index
 	e := ci + len(b) - 1
-	rd := iorw.NewLimitedReader(ctx.RW, 0, e)
+	rd := iorw.NewLimitedReaderAt(ctx.RW, 0, e)
 	k, err := iorw.IndexCtx(cctx, rd, 0, b, true)
 	if err != nil {
 		if errors.Is(err, io.EOF) {

@@ -25,10 +25,10 @@ func OpenURL(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 			strings.ContainsRune(extra, ru)
 	}
 
-	rd := iorw.NewLimitedReaderPad(ta.RW(), index, index, 1000)
+	rd := iorw.NewLimitedReaderAtPad(ta.RW(), index, index, 1000)
 	l, r := parseutil.ExpandIndexesEscape(rd, index, false, isHttpRune, osutil.EscapeRune)
 
-	b, err := rd.ReadNAtFast(l, r-l)
+	b, err := rd.ReadFastAt(l, r-l)
 	if err != nil {
 		return err, false // not handled
 	}

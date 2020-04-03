@@ -326,7 +326,7 @@ func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text str
 	opt.TextDocument.Uri = DocumentUri(url)
 
 	// text end line/column
-	rd := iorw.NewStringReader(text)
+	rd := iorw.NewStringReaderAt(text)
 	pos, err := OffsetToPosition(rd, len(text))
 	if err != nil {
 		return err

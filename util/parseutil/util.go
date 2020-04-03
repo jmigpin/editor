@@ -104,7 +104,7 @@ func CleanMultiplePathSeps(str string, sep rune) string {
 
 //----------
 
-func ExpandIndexesEscape(rd iorw.Reader, index int, truth bool, fn func(rune) bool, escape rune) (int, int) {
+func ExpandIndexesEscape(rd iorw.ReaderAt, index int, truth bool, fn func(rune) bool, escape rune) (int, int) {
 	// ensure the index is not in the middle of an escape
 	index = ImproveExpandIndexEscape(rd, index, escape)
 
@@ -113,13 +113,13 @@ func ExpandIndexesEscape(rd iorw.Reader, index int, truth bool, fn func(rune) bo
 	return l, r
 }
 
-func ExpandIndexEscape(r iorw.Reader, i int, truth bool, fn func(rune) bool, escape rune) int {
+func ExpandIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) bool, escape rune) int {
 	sc := scanutil.NewScanner(r)
 	sc.Pos = i
 	return expandEscape(sc, truth, fn, escape)
 }
 
-func ExpandLastIndexEscape(r iorw.Reader, i int, truth bool, fn func(rune) bool, escape rune) int {
+func ExpandLastIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) bool, escape rune) int {
 	sc := scanutil.NewScanner(r)
 	sc.Pos = i
 
@@ -151,7 +151,7 @@ func expandEscape(sc *scanutil.Scanner, truth bool, fn func(rune) bool, escape r
 
 //----------
 
-func ImproveExpandIndexEscape(r iorw.Reader, i int, escape rune) int {
+func ImproveExpandIndexEscape(r iorw.ReaderAt, i int, escape rune) int {
 	sc := scanutil.NewScanner(r)
 	sc.Pos = i
 
@@ -175,7 +175,7 @@ func ImproveExpandIndexEscape(r iorw.Reader, i int, escape rune) int {
 //----------
 
 // Line/col args are one-based.
-func LineColumnIndex(rd iorw.Reader, line, column int) (int, error) {
+func LineColumnIndex(rd iorw.ReaderAt, line, column int) (int, error) {
 	// must have a good line
 	if line <= 0 {
 		return 0, fmt.Errorf("bad line: %v", line)
@@ -204,7 +204,7 @@ func LineColumnIndex(rd iorw.Reader, line, column int) (int, error) {
 			break
 		}
 
-		ru, size, err := rd.ReadRuneAt(ri)
+		ru, size, err := iorw.ReadRuneAt(rd, ri)
 		if err != nil {
 			// be tolerant about the column
 			if index >= 0 {
@@ -225,11 +225,11 @@ func LineColumnIndex(rd iorw.Reader, line, column int) (int, error) {
 }
 
 // Returned line/col values are one-based.
-func IndexLineColumn(rd iorw.Reader, index int) (int, int, error) {
+func IndexLineColumn(rd iorw.ReaderAt, index int) (int, int, error) {
 	line, lineStart := 0, 0
 	ri := 0
 	for ri < index {
-		ru, size, err := rd.ReadRuneAt(ri)
+		ru, size, err := iorw.ReadRuneAt(rd, ri)
 		if err != nil {
 			return 0, 0, err
 		}

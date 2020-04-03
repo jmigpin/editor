@@ -9,24 +9,27 @@ import (
 	"unicode"
 )
 
-//----------
+//godebug:annotatefile
 
-func NewStringReader(s string) Reader {
-	return &BytesReadWriter{buf: []byte(s)}
+func MakeBytesCopy(b []byte) []byte {
+	p := make([]byte, len(b), len(b))
+	copy(p, b)
+	return p
 }
 
 //----------
 
-// min/max length. Note that max could be inclusive (limitedreader).
-func RLen(rd Reader) int {
-	return rd.Max() - rd.Min()
+func NewStringReaderAt(s string) ReaderAt {
+	return NewBytesReadWriterAt([]byte(s))
 }
 
-func REqual(rd Reader, i, n int, p []byte) (bool, error) {
+//----------
+
+func REqual(r ReaderAt, i, n int, p []byte) (bool, error) {
 	if n != len(p) {
 		return false, nil
 	}
-	b, err := rd.ReadNAtFast(i, n)
+	b, err := r.ReadFastAt(i, n)
 	if err != nil {
 		return false, err
 	}
@@ -36,37 +39,40 @@ func REqual(rd Reader, i, n int, p []byte) (bool, error) {
 //----------
 
 // Result might not be a copy.
-func ReadFullFast(rd Reader) ([]byte, error) {
+func ReadFastFull(rd ReaderAt) ([]byte, error) {
 	min, max := rd.Min(), rd.Max()
-	return rd.ReadNAtFast(min, max-min)
+	return rd.ReadFastAt(min, max-min)
 }
-func ReadFullCopy(rd Reader) ([]byte, error) {
-	min, max := rd.Min(), rd.Max()
-	return rd.ReadNAtCopy(min, max-min)
+
+// Result might not be a copy.
+func ReadFullCopy(rd ReaderAt) ([]byte, error) {
+	b, err := ReadFastFull(rd)
+	if err != nil {
+		return nil, err
+	}
+	return MakeBytesCopy(b), nil
 }
 
 //----------
 
-func SetBytes(rw ReadWriter, b []byte) error {
-	min, max := rw.Min(), rw.Max()
-	return rw.Overwrite(min, max-min, b)
+func SetBytes(rw ReadWriterAt, b []byte) error {
+	return rw.OverwriteAt(rw.Min(), rw.Max(), b)
 }
-func SetString(rw ReadWriter, s string) error {
+func SetString(rw ReadWriterAt, s string) error {
 	return SetBytes(rw, []byte(s))
 }
-
-//----------
-
-func Append(rw ReadWriter, b []byte) error {
-	return rw.Overwrite(rw.Max(), 0, b)
+func Append(rw ReadWriterAt, b []byte) error {
+	return rw.OverwriteAt(rw.Max(), 0, b)
 }
 
 //----------
 
+const EndRune = -1
+
 // Iterate over n+1 runes, with the last rune being eofRune(-1).
-func ReaderIter(r Reader, fn func(i int, ru rune) bool) error {
+func ReaderIter(r ReaderAt, fn func(i int, ru rune) bool) error {
 	for i := r.Min(); ; {
-		ru, size, err := r.ReadRuneAt(i)
+		ru, size, err := ReadRuneAt(r, i)
 		if err != nil {
 			if err == io.EOF {
 				_ = fn(i, EndRune)
@@ -82,15 +88,13 @@ func ReaderIter(r Reader, fn func(i int, ru rune) bool) error {
 	return nil
 }
 
-const EndRune = -1
-
 //----------
 
-func HasPrefix(r Reader, i int, s []byte) bool {
+func HasPrefix(r ReaderAt, i int, s []byte) bool {
 	if len(s) == 0 {
 		return true
 	}
-	b, err := r.ReadNAtFast(i, len(s))
+	b, err := r.ReadFastAt(i, len(s))
 	if err != nil {
 		return false
 	}
@@ -99,18 +103,18 @@ func HasPrefix(r Reader, i int, s []byte) bool {
 
 //----------
 
-func Index(r Reader, i int, sep []byte, toLower bool) (int, error) {
+func Index(r ReaderAt, i int, sep []byte, toLower bool) (int, error) {
 	ctx := context.Background()
 	return IndexCtx(ctx, r, i, sep, toLower)
 }
 
 // Returns (-1, nil) if not found.
-func IndexCtx(ctx context.Context, r Reader, i int, sep []byte, toLower bool) (int, error) {
+func IndexCtx(ctx context.Context, r ReaderAt, i int, sep []byte, toLower bool) (int, error) {
 	return indexCtx2(ctx, r, i, sep, toLower, 32*1024)
 }
 
-func indexCtx2(ctx context.Context, r Reader, i int, sep []byte, toLower bool, chunk int) (int, error) {
-	// TODO: ignore accents?
+func indexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, toLower bool, chunk int) (int, error) {
+	// TODO: ignore accents? use strings (runes)
 
 	if chunk < len(sep) {
 		return -1, fmt.Errorf("chunk smaller then sep")
@@ -121,11 +125,11 @@ func indexCtx2(ctx context.Context, r Reader, i int, sep []byte, toLower bool, c
 		sep = ToLowerAsciiCopy(sep) // copy
 	}
 
-	b := r.Max()
-	for k := i; k < b; k += chunk - (len(sep) - 1) {
+	m := r.Max()
+	for k := i; k < m; k += chunk - (len(sep) - 1) {
 		c := chunk
-		if c > b-k {
-			c = b - k
+		if c > m-k {
+			c = m - k
 		}
 
 		j, err := indexCtx3(r, k, c, sep, toLower)
@@ -142,8 +146,8 @@ func indexCtx2(ctx context.Context, r Reader, i int, sep []byte, toLower bool, c
 	return -1, nil
 }
 
-func indexCtx3(r Reader, i, n int, sep []byte, toLower bool) (int, error) {
-	p, err := r.ReadNAtFast(i, n)
+func indexCtx3(r ReaderAt, i, n int, sep []byte, toLower bool) (int, error) {
+	p, err := r.ReadFastAt(i, n)
 	if err != nil {
 		return 0, err
 	}
@@ -180,9 +184,9 @@ func ToLowerAsciiCopy(p []byte) []byte {
 //----------
 
 // On error, returns best failing index. Use errors.Is(err, io.EOF) to handle limitedreaders.
-func IndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int, err error) {
+func RuneIndexFn(r ReaderAt, i int, truth bool, f func(rune) bool) (index, size int, err error) {
 	for {
-		ru, size, err := r.ReadRuneAt(i)
+		ru, size, err := ReadRuneAt(r, i)
 		if err != nil {
 			// improve invalid index
 			m := r.Max()
@@ -200,9 +204,9 @@ func IndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int,
 }
 
 // On error, returns best failing index. Use errors.Is(err, io.EOF) to handle limitedreaders.
-func LastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size int, err error) {
+func RuneLastIndexFn(r ReaderAt, i int, truth bool, f func(rune) bool) (index, size int, err error) {
 	for {
-		ru, size, err := r.ReadLastRuneAt(i)
+		ru, size, err := ReadLastRuneAt(r, i)
 		if err != nil {
 			// improve invalid index
 			m := r.Min()
@@ -221,15 +225,15 @@ func LastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) (index, size 
 
 //----------
 
-// Returns index where truth was found.
-func ExpandIndexFunc(r Reader, i int, truth bool, f func(rune) bool) int {
-	j, _, _ := IndexFunc(r, i, truth, f)
+//// Returns index where truth was found.
+func ExpandRuneIndexFn(r ReaderAt, i int, truth bool, f func(rune) bool) int {
+	j, _, _ := RuneIndexFn(r, i, truth, f)
 	return j // found, or last known index before an err
 }
 
 // Returns last index before truth was found.
-func ExpandLastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) int {
-	j, size, err := LastIndexFunc(r, i, truth, f)
+func ExpandRuneLastIndexFn(r ReaderAt, i int, truth bool, f func(rune) bool) int {
+	j, size, err := RuneLastIndexFn(r, i, truth, f)
 	if err != nil {
 		return j // last known index before an err
 	}
@@ -238,7 +242,7 @@ func ExpandLastIndexFunc(r Reader, i int, truth bool, f func(rune) bool) int {
 
 //----------
 
-func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
+func LinesIndexes(r ReaderAt, a, b int) (int, int, bool, error) {
 	ls, err := LineStartIndex(r, a)
 	if err != nil {
 		return 0, 0, false, err
@@ -250,7 +254,7 @@ func LinesIndexes(r Reader, a, b int) (int, int, bool, error) {
 	return ls, le, newline, nil
 }
 
-func LineStartIndex(r Reader, i int) (int, error) {
+func LineStartIndex(r ReaderAt, i int) (int, error) {
 	k, size, err := NewlineLastIndex(r, i)
 	if errors.Is(err, io.EOF) {
 		return k, nil
@@ -259,7 +263,7 @@ func LineStartIndex(r Reader, i int) (int, error) {
 }
 
 // index after '\n' (with isNewLine true), or max index
-func LineEndIndex(r Reader, i int) (int, bool, error) {
+func LineEndIndex(r ReaderAt, i int) (int, bool, error) {
 	k, size, err := NewlineIndex(r, i)
 	if errors.Is(err, io.EOF) {
 		return k, false, nil
@@ -270,14 +274,14 @@ func LineEndIndex(r Reader, i int) (int, bool, error) {
 
 //----------
 
-func NewlineIndex(r Reader, i int) (int, int, error) {
-	newlinef := func(ru rune) bool { return ru == '\n' }
-	return IndexFunc(r, i, true, newlinef)
+func isNewline(ru rune) bool { return ru == '\n' }
+
+func NewlineIndex(r ReaderAt, i int) (int, int, error) {
+	return RuneIndexFn(r, i, true, isNewline)
 }
 
-func NewlineLastIndex(r Reader, i int) (int, int, error) {
-	newlinef := func(ru rune) bool { return ru == '\n' }
-	return LastIndexFunc(r, i, true, newlinef)
+func NewlineLastIndex(r ReaderAt, i int) (int, int, error) {
+	return RuneLastIndexFn(r, i, true, isNewline)
 }
 
 //----------
@@ -287,9 +291,9 @@ func IsWordRune(ru rune) bool {
 	return unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_'
 }
 
-func WordAtIndex(r Reader, index int) ([]byte, int, error) {
+func WordAtIndex(r ReaderAt, index int) ([]byte, int, error) {
 	// right side
-	i1, _, err := IndexFunc(r, index, false, IsWordRune)
+	i1, _, err := RuneIndexFn(r, index, false, IsWordRune)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, 0, err
 	}
@@ -298,27 +302,27 @@ func WordAtIndex(r Reader, index int) ([]byte, int, error) {
 	}
 
 	// left side
-	i0, size, err := LastIndexFunc(r, index, false, IsWordRune)
+	i0, size, err := RuneLastIndexFn(r, index, false, IsWordRune)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, 0, err
 	}
 	i0 += size
 
-	w, err := r.ReadNAtCopy(i0, i1-i0)
+	w, err := r.ReadFastAt(i0, i1-i0)
 	if err != nil {
 		return nil, 0, err
 	}
-	return w, i0, nil
+	return MakeBytesCopy(w), i0, nil
 }
 
-func WordIsolated(r Reader, i, le int) bool {
+func WordIsolated(r ReaderAt, i, le int) bool {
 	// previous rune can't be a word rune
-	ru, _, err := r.ReadLastRuneAt(i)
+	ru, _, err := ReadLastRuneAt(r, i)
 	if err == nil && IsWordRune(ru) {
 		return false
 	}
 	// next rune can't be a word rune
-	ru, _, err = r.ReadRuneAt(i + le)
+	ru, _, err = ReadRuneAt(r, i+le)
 	if err == nil && IsWordRune(ru) {
 		return false
 	}

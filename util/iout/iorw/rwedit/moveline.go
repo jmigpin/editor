@@ -12,12 +12,13 @@ func MoveLineUp(ctx *Ctx) error {
 		return nil
 	}
 
-	s, err := ctx.RW.ReadNAtCopy(a, b-a)
+	s0, err := ctx.RW.ReadFastAt(a, b-a)
 	if err != nil {
 		return err
 	}
+	s := iorw.MakeBytesCopy(s0)
 
-	if err := ctx.RW.Overwrite(a, b-a, nil); err != nil {
+	if err := ctx.RW.OverwriteAt(a, b-a, nil); err != nil {
 		return err
 	}
 
@@ -29,19 +30,19 @@ func MoveLineUp(ctx *Ctx) error {
 
 	// remove newline to honor the moving line
 	if !newline {
-		if err := ctx.RW.Overwrite(a-1, 1, nil); err != nil {
+		if err := ctx.RW.OverwriteAt(a-1, 1, nil); err != nil {
 			return err
 		}
 		s = append(s, '\n')
 	}
 
-	if err := ctx.RW.Overwrite(a2, 0, s); err != nil {
+	if err := ctx.RW.OverwriteAt(a2, 0, s); err != nil {
 		return err
 	}
 
 	if ctx.C.HaveSelection() {
 		b2 := a2 + len(s)
-		_, size, err := ctx.RW.ReadLastRuneAt(b2)
+		_, size, err := iorw.ReadLastRuneAt(ctx.RW, b2)
 		if err != nil {
 			return nil
 		}
@@ -64,13 +65,14 @@ func MoveLineDown(ctx *Ctx) error {
 	}
 
 	// keep copy of the moving line
-	s, err := ctx.RW.ReadNAtCopy(a, b-a)
+	s0, err := ctx.RW.ReadFastAt(a, b-a)
 	if err != nil {
 		return err
 	}
+	s := iorw.MakeBytesCopy(s0)
 
 	// delete moving line
-	if err := ctx.RW.Overwrite(a, b-a, nil); err != nil {
+	if err := ctx.RW.OverwriteAt(a, b-a, nil); err != nil {
 		return err
 	}
 
@@ -86,13 +88,13 @@ func MoveLineDown(ctx *Ctx) error {
 		// remove newline
 		s = s[:len(s)-1]
 		// insert newline
-		if err := ctx.RW.Overwrite(a2, 0, []byte{'\n'}); err != nil {
+		if err := ctx.RW.OverwriteAt(a2, 0, []byte{'\n'}); err != nil {
 			return err
 		}
 		a2 += 1 // 1 is '\n' added to s before insertion
 	}
 
-	if err := ctx.RW.Overwrite(a2, 0, s); err != nil {
+	if err := ctx.RW.OverwriteAt(a2, 0, s); err != nil {
 		return err
 	}
 
@@ -100,7 +102,7 @@ func MoveLineDown(ctx *Ctx) error {
 		b2 := a2 + len(s)
 		// don't select newline
 		if newline {
-			_, size, err := ctx.RW.ReadLastRuneAt(b2)
+			_, size, err := iorw.ReadLastRuneAt(ctx.RW, b2)
 			if err != nil {
 				return nil
 			}

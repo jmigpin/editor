@@ -20,7 +20,7 @@ type Text struct {
 	ctx        ImageContext
 	bg         color.Color
 
-	rw iorw.ReadWriter
+	rw iorw.ReadWriterAt
 }
 
 func NewText(ctx ImageContext) *Text {
@@ -31,7 +31,7 @@ func NewText(ctx ImageContext) *Text {
 	t.TextScroll.Text = t
 	t.TextScroll.Drawer = t.Drawer
 
-	rw := iorw.NewBytesReadWriter(nil)
+	rw := iorw.NewBytesReadWriterAt(nil)
 	t.SetRW(rw)
 
 	return t
@@ -39,7 +39,11 @@ func NewText(ctx ImageContext) *Text {
 
 //----------
 
-func (t *Text) SetRW(rw iorw.ReadWriter) {
+func (t *Text) RW() iorw.ReadWriterAt {
+	return t.rw
+}
+
+func (t *Text) SetRW(rw iorw.ReadWriterAt) {
 	t.rw = rw
 	t.Drawer.SetReader(rw)
 }
@@ -50,7 +54,7 @@ func (t *Text) Len() int {
 
 // Result might not be a copy, so changes to the slice might affect the text data.
 func (t *Text) Bytes() ([]byte, error) {
-	return iorw.ReadFullFast(t.rw)
+	return iorw.ReadFastFull(t.rw)
 }
 
 func (t *Text) SetBytes(b []byte) error {

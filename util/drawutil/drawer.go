@@ -10,8 +10,8 @@ import (
 )
 
 type Drawer interface {
-	Reader() iorw.Reader
-	SetReader(iorw.Reader)
+	Reader() iorw.ReaderAt
+	SetReader(iorw.ReaderAt)
 	ContentChanged()
 
 	FontFace() *fontutil.FontFace

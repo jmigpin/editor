@@ -30,7 +30,7 @@ func replace2(ctx *Ctx, oldb, newb []byte, a, b int) (int, bool, error) {
 	ci := ctx.C.Index()
 	replaced := false
 	for a < b {
-		rd := iorw.NewLimitedReader(ctx.RW, a, b)
+		rd := iorw.NewLimitedReaderAt(ctx.RW, a, b)
 		i, err := iorw.Index(rd, a, oldb, false)
 		if err != nil {
 			return ci, replaced, err
@@ -38,7 +38,7 @@ func replace2(ctx *Ctx, oldb, newb []byte, a, b int) (int, bool, error) {
 		if i < 0 {
 			return ci, replaced, nil
 		}
-		if err := ctx.RW.Overwrite(i, len(oldb), newb); err != nil {
+		if err := ctx.RW.OverwriteAt(i, len(oldb), newb); err != nil {
 			return ci, replaced, err
 		}
 		replaced = true

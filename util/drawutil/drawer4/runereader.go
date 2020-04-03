@@ -4,6 +4,7 @@ import (
 	"image"
 	"io"
 
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 )
 
@@ -23,7 +24,7 @@ func (rr *RuneReader) Iter() {
 		rr.d.st.runeR.startRi = rr.d.st.runeR.ri
 	}
 
-	ru, size, err := rr.d.reader.ReadRuneAt(rr.d.st.runeR.ri)
+	ru, size, err := iorw.ReadRuneAt(rr.d.reader, rr.d.st.runeR.ri)
 	if err != nil {
 		// run last advanced position (draw/delayeddraw/selecting)
 		if err == io.EOF {

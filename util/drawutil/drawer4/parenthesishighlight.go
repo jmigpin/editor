@@ -1,5 +1,7 @@
 package drawer4
 
+import "github.com/jmigpin/editor/util/iout/iorw"
+
 func updateParenthesisHighlight(d *Drawer) {
 	if !d.Opt.ParenthesisHighlight.On {
 		d.Opt.ParenthesisHighlight.Group.Ops = nil
@@ -44,7 +46,7 @@ func parenthesisHOps(d *Drawer, maxDist int) []*ColorizeOp {
 		open, close = pairs[pi], pairs[pi+1]
 		ri := ci + len(string(open))
 		nextRune = func() (rune, int, error) {
-			ru, size, err := d.reader.ReadRuneAt(ri)
+			ru, size, err := iorw.ReadRuneAt(d.reader, ri)
 			if err != nil {
 				return 0, 0, err
 			}
@@ -56,7 +58,7 @@ func parenthesisHOps(d *Drawer, maxDist int) []*ColorizeOp {
 		open, close = pairs[pi], pairs[pi-1]
 		ri := ci
 		nextRune = func() (rune, int, error) {
-			ru, size, err := d.reader.ReadLastRuneAt(ri)
+			ru, size, err := iorw.ReadLastRuneAt(d.reader, ri)
 			if err != nil {
 				return 0, 0, err
 			}
@@ -112,7 +114,7 @@ func parenthesisHOps(d *Drawer, maxDist int) []*ColorizeOp {
 
 func parenthesisFindPair(d *Drawer, pairs []rune, ci int) (int, bool) {
 	// read current rune
-	cru, _, err := d.reader.ReadRuneAt(ci)
+	cru, _, err := iorw.ReadRuneAt(d.reader, ci)
 	if err != nil {
 		return 0, false
 	}

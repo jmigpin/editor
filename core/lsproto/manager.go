@@ -99,7 +99,7 @@ func (man *Manager) Close() error {
 
 //----------
 
-func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string, rd iorw.Reader, offset int) (string, *Range, error) {
+func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) (string, *Range, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
 		return "", nil, err
@@ -136,7 +136,7 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 
 //----------
 
-func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string, rd iorw.Reader, offset int) (*CompletionList, error) {
+func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) (*CompletionList, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
 		return nil, err
@@ -160,7 +160,7 @@ func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string,
 	return cli.TextDocumentCompletion(ctx, filename, pos)
 }
 
-func (man *Manager) TextDocumentCompletionDetailStrings(ctx context.Context, filename string, rd iorw.Reader, offset int) ([]string, error) {
+func (man *Manager) TextDocumentCompletionDetailStrings(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) ([]string, error) {
 	compList, err := man.TextDocumentCompletion(ctx, filename, rd, offset)
 	if err != nil {
 		return nil, err
@@ -192,8 +192,8 @@ func (man *Manager) TextDocumentCompletionDetailStrings(ctx context.Context, fil
 
 //----------
 
-func (man *Manager) didOpenVersion(ctx context.Context, cli *Client, filename string, rd iorw.Reader) error {
-	b, err := iorw.ReadFullFast(rd)
+func (man *Manager) didOpenVersion(ctx context.Context, cli *Client, filename string, rd iorw.ReaderAt) error {
+	b, err := iorw.ReadFastFull(rd)
 	if err != nil {
 		return err
 	}
@@ -239,7 +239,7 @@ func (man *Manager) didClose(ctx context.Context, cli *Client, filename string) 
 
 //----------
 
-func (man *Manager) TextDocumentRename(ctx context.Context, filename string, rd iorw.Reader, offset int, newName string) (*WorkspaceEdit, error) {
+func (man *Manager) TextDocumentRename(ctx context.Context, filename string, rd iorw.ReaderAt, offset int, newName string) (*WorkspaceEdit, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
 		return nil, err

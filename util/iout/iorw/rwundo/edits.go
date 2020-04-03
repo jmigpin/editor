@@ -7,7 +7,7 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
-//godebug:annotatefile
+////godebug:annotatefile
 
 type Edits struct {
 	list       list.List
@@ -52,7 +52,7 @@ func (edits *Edits) MergeEdits(edits2 *Edits) {
 
 //----------
 
-func (edits *Edits) WriteUndoRedo(redo bool, w iorw.Writer) (rwedit.SimpleCursor, error) {
+func (edits *Edits) WriteUndoRedo(redo bool, w iorw.WriterAt) (rwedit.SimpleCursor, error) {
 	if redo {
 		for e := edits.list.Front(); e != nil; e = e.Next() {
 			ur := e.Value.(*UndoRedo)

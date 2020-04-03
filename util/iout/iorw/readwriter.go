@@ -1,43 +1,23 @@
 package iorw
 
-import (
-	"fmt"
-	"io"
-)
-
-type ReadWriter interface {
-	Reader
-	Writer
+type ReadWriterAt interface {
+	ReaderAt
+	WriterAt
 }
 
-//----------
-
-type Writer interface {
-	// insert: Overwrite(i, 0, p)
-	// delete: Overwrite(i, n, nil)
-	Overwrite(i, n int, p []byte) error
-}
-
-//----------
-
-type Reader interface {
-	ReadRuneAt(i int) (ru rune, size int, err error)
-	ReadLastRuneAt(i int) (ru rune, size int, err error)
-
-	// there must be at least N bytes available or there will be an error
-	ReadNAtFast(i, n int) ([]byte, error) // []byte might not be a copy
-	ReadNAtCopy(i, n int) ([]byte, error)
-
-	// min>=0 && min<=max && max<=length
+type ReaderAt interface {
+	ReadFastAt(i, n int) ([]byte, error) // not a copy; might read less then n
+	// indexes: min>=0 && min<=max && max<=length
 	Min() int
 	Max() int
+
+	// note: read runes with
+	// iorw.ReadRuneAt(..)
+	// iorw.ReadLastRuneAt(..)
 }
 
-//----------
-
-var ErrBadIndex = fmt.Errorf("bad index: %w", io.EOF)
-
-func NewErrBadIndex(f string, args ...interface{}) error {
-	u := append([]interface{}{ErrBadIndex}, args...)
-	return fmt.Errorf("%w: "+f, u...)
+type WriterAt interface {
+	// insert: Overwrite(i, 0, p)
+	// delete: Overwrite(i, n, nil)
+	OverwriteAt(i, del int, p []byte) error // writes len(p)
 }

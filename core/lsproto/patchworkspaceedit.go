@@ -66,7 +66,7 @@ func PatchFileTextEdits(filename string, edits []*TextEdit) error {
 func PatchTextEdits(src []byte, edits []*TextEdit) ([]byte, error) {
 	sortTextEdits(edits)
 	res := bytes.Buffer{} // resulting patched src
-	rd := iorw.NewBytesReadWriter(src)
+	rd := iorw.NewBytesReadWriterAt(src)
 	start := 0
 	for _, e := range edits {
 		offset, n, err := RangeToOffsetLen(rd, &e.Range)

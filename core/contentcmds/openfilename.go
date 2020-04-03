@@ -13,15 +13,15 @@ import (
 // Detects compilers output file format <string(:int)?(:int)?>, and goes to line/column.
 func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool) {
 	ta := erow.Row.TextArea
-	var rd iorw.Reader
+	var rd iorw.ReaderAt
 	considerMiddle := false
 	if a, b, ok := ta.Cursor().SelectionIndexes(); ok {
 		// consider only the selection
-		rd = iorw.NewLimitedReader(ta.RW(), a, b)
+		rd = iorw.NewLimitedReaderAt(ta.RW(), a, b)
 	} else {
 		considerMiddle = true
 		// limit reading
-		rd = iorw.NewLimitedReaderPad(ta.RW(), index, index, 1000)
+		rd = iorw.NewLimitedReaderAtPad(ta.RW(), index, index, 1000)
 	}
 
 	res, err := parseutil.ParseResource(rd, index)

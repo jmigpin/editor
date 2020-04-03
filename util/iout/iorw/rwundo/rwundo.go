@@ -6,25 +6,25 @@ import (
 )
 
 type RWUndo struct {
-	iorw.ReadWriter
+	iorw.ReadWriterAt
 	History *History
 }
 
-func NewRWUndo(rw iorw.ReadWriter, hist *History) *RWUndo {
-	rwu := &RWUndo{ReadWriter: rw, History: hist}
+func NewRWUndo(rw iorw.ReadWriterAt, hist *History) *RWUndo {
+	rwu := &RWUndo{ReadWriterAt: rw, History: hist}
 	return rwu
 }
 
 //----------
 
-func (rw *RWUndo) Overwrite(i, n int, p []byte) error {
+func (rw *RWUndo) OverwriteAt(i, n int, p []byte) error {
 	// don't add to history if the result is equal
 	changed := true
 	if eq, err := iorw.REqual(rw, i, n, p); err == nil && eq {
 		changed = false
 	}
 
-	ur, err := NewUndoRedoOverwrite(rw.ReadWriter, i, n, p)
+	ur, err := NewUndoRedoOverwrite(rw.ReadWriterAt, i, n, p)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (rw *RWUndo) UndoRedo(redo, peek bool) (rwedit.SimpleCursor, bool, error) {
 	if !ok {
 		return rwedit.SimpleCursor{}, false, nil
 	}
-	c, err := edits.WriteUndoRedo(redo, rw.ReadWriter)
+	c, err := edits.WriteUndoRedo(redo, rw.ReadWriterAt)
 	if err != nil {
 		// TODO: restore the undo/redo since it was not successful?
 		return rwedit.SimpleCursor{}, false, err

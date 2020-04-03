@@ -8,7 +8,7 @@ import (
 func SelectWord(ctx *Ctx) error {
 	// index rune
 	ci := ctx.C.Index()
-	ru, _, err := ctx.RW.ReadRuneAt(ci)
+	ru, _, err := iorw.ReadRuneAt(ctx.RW, ci)
 	if err != nil {
 		return err
 	}

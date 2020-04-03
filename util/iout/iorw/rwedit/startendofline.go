@@ -18,7 +18,7 @@ func StartOfLine(ctx *Ctx, sel bool) error {
 	// stop at first non blank rune from the left
 	n := ci - i
 	for j := 0; j < n; j++ {
-		ru, _, err := ctx.RW.ReadRuneAt(i + j)
+		ru, _, err := iorw.ReadRuneAt(ctx.RW, i+j)
 		if err != nil {
 			return err
 		}

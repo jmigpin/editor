@@ -5,7 +5,7 @@ func RemoveLines(ctx *Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.RW.Overwrite(a, b-a, nil); err != nil {
+	if err := ctx.RW.OverwriteAt(a, b-a, nil); err != nil {
 		return err
 	}
 	ctx.C.SetSelectionOff()

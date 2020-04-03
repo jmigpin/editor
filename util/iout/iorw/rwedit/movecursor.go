@@ -22,7 +22,7 @@ func MoveCursorToPoint(ctx *Ctx, p image.Point, sel bool) {
 
 func MoveCursorLeft(ctx *Ctx, sel bool) error {
 	ci := ctx.C.Index()
-	_, size, err := ctx.RW.ReadLastRuneAt(ci)
+	_, size, err := iorw.ReadLastRuneAt(ctx.RW, ci)
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
 			return err
@@ -35,7 +35,7 @@ func MoveCursorLeft(ctx *Ctx, sel bool) error {
 
 func MoveCursorRight(ctx *Ctx, sel bool) error {
 	ci := ctx.C.Index()
-	_, size, err := ctx.RW.ReadRuneAt(ci)
+	_, size, err := iorw.ReadRuneAt(ctx.RW, ci)
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
 			return err
@@ -85,7 +85,7 @@ func MoveCursorJumpRight(ctx *Ctx, sel bool) error {
 
 func jumpLeftIndex(ctx *Ctx) (int, error) {
 	rd := ctx.LocalReader(ctx.C.Index())
-	i, size, err := iorw.LastIndexFunc(rd, ctx.C.Index(), true, edgeOfNextWordOrNewline())
+	i, size, err := iorw.RuneLastIndexFn(rd, ctx.C.Index(), true, edgeOfNextWordOrNewline())
 	if err != nil && !errors.Is(err, io.EOF) {
 		return 0, err
 	}
@@ -94,7 +94,7 @@ func jumpLeftIndex(ctx *Ctx) (int, error) {
 
 func jumpRightIndex(ctx *Ctx) (int, error) {
 	rd := ctx.LocalReader(ctx.C.Index())
-	i, _, err := iorw.IndexFunc(rd, ctx.C.Index(), true, edgeOfNextWordOrNewline())
+	i, _, err := iorw.RuneIndexFn(rd, ctx.C.Index(), true, edgeOfNextWordOrNewline())
 	if err != nil && !errors.Is(err, io.EOF) {
 		return 0, err
 	}

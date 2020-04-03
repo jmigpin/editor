@@ -8,7 +8,7 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
-//godebug:annotatefile
+////godebug:annotatefile
 
 type History struct {
 	maxLen int // max elements in list // TODO: max data size

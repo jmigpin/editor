@@ -41,7 +41,7 @@ func (reg *Registration) HasOptional(s string) bool {
 //----------
 
 func parseRegistration(s string) (*Registration, error) {
-	rd := iorw.NewStringReader(s)
+	rd := iorw.NewStringReaderAt(s)
 	sc := scanutil.NewScanner(rd)
 
 	fields := []string{}

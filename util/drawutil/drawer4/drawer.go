@@ -18,7 +18,7 @@ const (
 )
 
 type Drawer struct {
-	reader iorw.Reader
+	reader iorw.ReaderAt
 
 	fface            *fontutil.FontFace
 	lineHeight       mathutil.Intf
@@ -164,7 +164,7 @@ type State struct {
 		q          []int
 		ri         int
 		uppedLines int
-		reader     iorw.Reader // limited reader
+		reader     iorw.ReaderAt // limited reader
 	}
 	indent struct {
 		notStartingSpaces bool
@@ -242,20 +242,20 @@ func New() *Drawer {
 
 //----------
 
-func (d *Drawer) SetReader(r iorw.Reader) { d.reader = r }
+func (d *Drawer) SetReader(r iorw.ReaderAt) { d.reader = r }
 
-func (d *Drawer) Reader() iorw.Reader { return d.reader }
+func (d *Drawer) Reader() iorw.ReaderAt { return d.reader }
 
 //----------
 
 var limitedReaderPadding = 3000
 
-func (d *Drawer) limitedReaderPad(offset int) iorw.Reader {
+func (d *Drawer) limitedReaderPad(offset int) iorw.ReaderAt {
 	pad := limitedReaderPadding
-	return iorw.NewLimitedReaderPad(d.reader, offset, offset, pad)
+	return iorw.NewLimitedReaderAtPad(d.reader, offset, offset, pad)
 }
 
-func (d *Drawer) limitedReaderPadSpace(offset int) iorw.Reader {
+func (d *Drawer) limitedReaderPadSpace(offset int) iorw.ReaderAt {
 	// adjust the padding to avoid immediate flicker for x chars for the case of long lines
 	max := 1000
 	pad := limitedReaderPadding // in tests it could be a small num
@@ -264,7 +264,7 @@ func (d *Drawer) limitedReaderPadSpace(offset int) iorw.Reader {
 		diff := max - (u % max)
 		pad = limitedReaderPadding - diff
 	}
-	return iorw.NewLimitedReaderPad(d.reader, offset, offset, pad)
+	return iorw.NewLimitedReaderAtPad(d.reader, offset, offset, pad)
 }
 
 //----------
@@ -884,7 +884,7 @@ func (d *Drawer) wlineStartState(clearState bool, offset, nLinesUp int) int {
 
 //----------
 
-func (d *Drawer) wlineStartIndex(clearState bool, offset, nLinesUp int, rd iorw.Reader) int {
+func (d *Drawer) wlineStartIndex(clearState bool, offset, nLinesUp int, rd iorw.ReaderAt) int {
 	if clearState {
 		d.st = State{}
 	}

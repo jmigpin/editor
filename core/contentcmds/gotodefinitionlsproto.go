@@ -37,7 +37,7 @@ func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (err
 	}
 
 	// content reader
-	var rd iorw.Reader
+	var rd iorw.ReaderAt
 	info, ok := ed.ERowInfo(filename)
 	if ok {
 		// file is in memory already
@@ -51,7 +51,7 @@ func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (err
 		if err != nil {
 			return err, true
 		}
-		rd = iorw.NewBytesReadWriter(b)
+		rd = iorw.NewBytesReadWriterAt(b)
 	}
 
 	// translate range

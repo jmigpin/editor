@@ -57,13 +57,17 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 
 //----------
 
-func (te *TextEdit) RW() iorw.ReadWriter {
+func (te *TextEdit) RW() iorw.ReadWriterAt {
+	// TODO: returning rw with undo/events, differs from SetRW()
+
 	return te.ctx.RW
 }
 
-func (te *TextEdit) SetRW(rw iorw.ReadWriter) {
+func (te *TextEdit) SetRW(rw iorw.ReadWriterAt) {
+	// TODO: setting basic rw (bytes), differs from RW()
+
 	te.Text.SetRW(rw)
-	te.rwev.ReadWriter = rw
+	te.rwev.ReadWriterAt = rw
 }
 
 func (te *TextEdit) SetRWFromMaster(m *TextEdit) {
@@ -186,7 +190,7 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 	te.rwu.History.Clear()
 	// bypasses history
-	if err := iorw.SetBytes(te.rwu.ReadWriter, b); err != nil {
+	if err := iorw.SetBytes(te.rwu.ReadWriterAt, b); err != nil {
 		return err
 	}
 	return nil
@@ -195,12 +199,22 @@ func (te *TextEdit) SetBytesClearHistory(b []byte) error {
 func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 	te.rwu.History.Clear()
 	// bypasses history
-	rw := te.rwu.ReadWriter
-	if err := rw.Overwrite(rw.Max(), 0, b); err != nil {
+	rw := te.rwu.ReadWriterAt
+	if err := rw.OverwriteAt(rw.Max(), 0, b); err != nil {
 		return err
 	}
 	return nil
 }
+
+//func (te *TextEdit) WriteAtClearHistory(i int, b []byte) error {
+//	te.rwu.History.Clear()
+//	// bypasses history
+//	rw := te.rwu.ReadWriter
+//	if err := rw.Overwrite(i, 0, b); err != nil {
+//		return err
+//	}
+//	return nil
+//}
 
 //----------
 

@@ -14,7 +14,7 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 	ta := erow.Row.TextArea
 
 	// limit reading
-	rd := iorw.NewLimitedReaderPad(ta.RW(), index, index, 1000)
+	rd := iorw.NewLimitedReaderAtPad(ta.RW(), index, index, 1000)
 
 	sname, err := sessionName(rd, index)
 	if err != nil {
@@ -28,7 +28,7 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 	return nil, true
 }
 
-func sessionName(rd iorw.Reader, index int) (string, error) {
+func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 	sc := scanutil.NewScanner(rd)
 	sc.SetStartPos(index)
 

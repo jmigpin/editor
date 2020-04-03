@@ -6,17 +6,15 @@ import (
 
 // Runs callbacks on operations.
 type RWEvents struct {
-	ReadWriter
+	ReadWriterAt
 	EvReg evreg.Register
 }
 
-func NewRWEvents(rw ReadWriter) *RWEvents {
-	return &RWEvents{ReadWriter: rw}
+func NewRWEvents(rw ReadWriterAt) *RWEvents {
+	return &RWEvents{ReadWriterAt: rw}
 }
 
-//----------
-
-func (rw *RWEvents) Overwrite(i, n int, p []byte) error {
+func (rw *RWEvents) OverwriteAt(i, n int, p []byte) error {
 	// pre write event
 	ev := &RWEvPreWrite{i, n, p, nil}
 	rw.EvReg.RunCallbacks(RWEvIdPreWrite, ev)
@@ -32,7 +30,7 @@ func (rw *RWEvents) Overwrite(i, n int, p []byte) error {
 		}
 	}
 
-	if err := rw.ReadWriter.Overwrite(i, n, p); err != nil {
+	if err := rw.ReadWriterAt.OverwriteAt(i, n, p); err != nil {
 		return err
 	}
 

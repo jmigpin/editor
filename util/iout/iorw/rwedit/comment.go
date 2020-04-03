@@ -29,7 +29,7 @@ func Comment(ctx *Ctx) error {
 	for i := a; i < b; {
 		// find insertion index
 		rd := ctx.LocalReader(i)
-		j, _, err := iorw.IndexFunc(rd, i, false, isSpaceExceptNewline)
+		j, _, err := iorw.RuneIndexFn(rd, i, false, isSpaceExceptNewline)
 		if err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
@@ -58,7 +58,7 @@ func Comment(ctx *Ctx) error {
 		}
 
 		// ignore empty lines
-		s, err := ctx.RW.ReadNAtCopy(i, u-i)
+		s, err := ctx.RW.ReadFastAt(i, u-i)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func Comment(ctx *Ctx) error {
 
 		if !empty {
 			lines++
-			if err := ctx.RW.Overwrite(i+ii, 0, cstrb); err != nil {
+			if err := ctx.RW.OverwriteAt(i+ii, 0, cstrb); err != nil {
 				return err
 			}
 			b += len(cstrb)
@@ -114,7 +114,7 @@ func Uncomment(ctx *Ctx) error {
 	for i := a; i < b; {
 		// first non space rune (possible multiline jump)
 		rd := ctx.LocalReader(i)
-		j, _, err := iorw.IndexFunc(rd, i, false, unicode.IsSpace)
+		j, _, err := iorw.RuneIndexFn(rd, i, false, unicode.IsSpace)
 		if err != nil {
 			break
 		}
@@ -123,7 +123,7 @@ func Uncomment(ctx *Ctx) error {
 		// remove comment runes
 		if iorw.HasPrefix(ctx.RW, i, cstrb) {
 			lines++
-			if err := ctx.RW.Overwrite(i, len(cstrb), nil); err != nil {
+			if err := ctx.RW.OverwriteAt(i, len(cstrb), nil); err != nil {
 				return err
 			}
 			b -= len(cstrb)

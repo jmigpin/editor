@@ -11,14 +11,14 @@ import (
 func AutoIndent(ctx *Ctx) error {
 	ci := ctx.C.Index()
 
-	rd1 := iorw.NewLimitedReader(ctx.RW, ci-2000, ci)
+	rd1 := iorw.NewLimitedReaderAt(ctx.RW, ci-2000, ci)
 	i, err := iorw.LineStartIndex(rd1, ci)
 	if err != nil {
 		return err
 	}
 
-	rd := iorw.NewLimitedReader(ctx.RW, i, ci)
-	j, _, err := iorw.IndexFunc(rd, i, false, unicode.IsSpace)
+	rd := iorw.NewLimitedReaderAt(ctx.RW, i, ci)
+	j, _, err := iorw.RuneIndexFn(rd, i, false, unicode.IsSpace)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			j = ci // all spaces up to ci
@@ -28,7 +28,7 @@ func AutoIndent(ctx *Ctx) error {
 	}
 
 	// string to insert
-	s, err := ctx.RW.ReadNAtCopy(i, j-i)
+	s, err := ctx.RW.ReadFastAt(i, j-i)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func AutoIndent(ctx *Ctx) error {
 		ctx.C.SetSelectionOff()
 	}
 
-	if err := ctx.RW.Overwrite(ci, n, s2); err != nil {
+	if err := ctx.RW.OverwriteAt(ci, n, s2); err != nil {
 		return err
 	}
 	ctx.C.SetIndex(ci + len(s2))
