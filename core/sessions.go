@@ -195,7 +195,7 @@ func (state *RowState) OpenERow(ed *Editor, rowPos *ui.RowPos) (*ERow, bool, err
 	name := ed.HomeVars.Decode(arg0.Str())
 	info := ed.ReadERowInfo(name)
 
-	// create erow, event if it will have errors
+	// create erow, even if it will have errors
 	erow, err := info.NewERowCreateOnErr(rowPos)
 	if err != nil {
 		ed.Error(err)
