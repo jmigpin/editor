@@ -1,5 +1,7 @@
 package core
 
+////godebug:annotatefile
+
 import (
 	"context"
 	"fmt"
@@ -138,48 +140,15 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 //----------
 
 func cmdPartArgs(part *toolbarparser.Part) []string {
-	//if partContainsEscapedPipes(part) {
-	//	return shellCmdPartArgs(part)
-	//}
-	//return directCmdPartArgs(part)
-	return shellCmdPartArgs(part)
-}
-
-//func partContainsEscapedPipes(part *toolbarparser.Part) bool {
-//	for _, a := range part.Args {
-//		if a.UnquotedStr() == "\\|" {
-//			return true
-//		}
-//	}
-//	return false
-//}
-
-//----------
-
-func shellCmdPartArgs(part *toolbarparser.Part) []string {
-	u := shellCmdPartArgsStr(part)
-	return osutil.ShellRunArgs(u...)
-}
-
-func shellCmdPartArgsStr(part *toolbarparser.Part) []string {
 	var u []string
 	for _, a := range part.Args {
+		// TODO: auto add escapes for spaces in case of "some arg"?
+		//s := a.UnquotedStr()
 		s := a.Str()
 		s = parseutil.RemoveEscapesEscapable(s, osutil.EscapeRune, "|")
 		u = append(u, s)
 	}
-	return u
+	return osutil.ShellRunArgs(u...)
 }
-
-//----------
-
-//func directCmdPartArgs(part *toolbarparser.Part) []string {
-//	var u []string
-//	for _, a := range part.Args {
-//		s := a.UnquotedStr()
-//		u = append(u, s)
-//	}
-//	return u
-//}
 
 //----------
