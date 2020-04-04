@@ -127,6 +127,10 @@ const (
 	KSymF10
 	KSymF11
 	KSymF12
+	KSymF13
+	KSymF14
+	KSymF15
+	KSymF16
 
 	KSymKeypad0
 	KSymKeypad1

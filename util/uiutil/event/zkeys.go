@@ -121,42 +121,46 @@ func _() {
 	_ = x[KSymF10-366]
 	_ = x[KSymF11-367]
 	_ = x[KSymF12-368]
-	_ = x[KSymKeypad0-369]
-	_ = x[KSymKeypad1-370]
-	_ = x[KSymKeypad2-371]
-	_ = x[KSymKeypad3-372]
-	_ = x[KSymKeypad4-373]
-	_ = x[KSymKeypad5-374]
-	_ = x[KSymKeypad6-375]
-	_ = x[KSymKeypad7-376]
-	_ = x[KSymKeypad8-377]
-	_ = x[KSymKeypad9-378]
-	_ = x[KSymKeypadMultiply-379]
-	_ = x[KSymKeypadAdd-380]
-	_ = x[KSymKeypadSubtract-381]
-	_ = x[KSymKeypadDecimal-382]
-	_ = x[KSymKeypadDivide-383]
-	_ = x[KSymVolumeUp-384]
-	_ = x[KSymVolumeDown-385]
-	_ = x[KSymMute-386]
-	_ = x[KSymMultiKey-387]
-	_ = x[KSymMenu-388]
+	_ = x[KSymF13-369]
+	_ = x[KSymF14-370]
+	_ = x[KSymF15-371]
+	_ = x[KSymF16-372]
+	_ = x[KSymKeypad0-373]
+	_ = x[KSymKeypad1-374]
+	_ = x[KSymKeypad2-375]
+	_ = x[KSymKeypad3-376]
+	_ = x[KSymKeypad4-377]
+	_ = x[KSymKeypad5-378]
+	_ = x[KSymKeypad6-379]
+	_ = x[KSymKeypad7-380]
+	_ = x[KSymKeypad8-381]
+	_ = x[KSymKeypad9-382]
+	_ = x[KSymKeypadMultiply-383]
+	_ = x[KSymKeypadAdd-384]
+	_ = x[KSymKeypadSubtract-385]
+	_ = x[KSymKeypadDecimal-386]
+	_ = x[KSymKeypadDivide-387]
+	_ = x[KSymVolumeUp-388]
+	_ = x[KSymVolumeDown-389]
+	_ = x[KSymMute-390]
+	_ = x[KSymMultiKey-391]
+	_ = x[KSymMenu-392]
 }
 
 const (
 	_KeySym_name_0 = "KSymNone"
-	_KeySym_name_1 = "KSym_dummy_KSym0KSym1KSym2KSym3KSym4KSym5KSym6KSym7KSym8KSym9KSymAKSymBKSymCKSymDKSymEKSymFKSymGKSymHKSymIKSymJKSymKKSymLKSymMKSymNKSymOKSymPKSymQKSymRKSymSKSymTKSymUKSymVKSymWKSymXKSymYKSymZKSymSpaceKSymBackspaceKSymReturnKSymEscapeKSymHomeKSymLeftKSymUpKSymRightKSymDownKSymPageUpKSymPageDownKSymEndKSymInsertKSymShiftLKSymShiftRKSymControlLKSymControlRKSymAltLKSymAltRKSymAltGrKSymSuperLKSymSuperRKSymDeleteKSymTabKSymTabLeftKSymNumLockKSymCapsLockKSymShiftLockKSymExclamKSymDoubleQuoteKSymNumberSignKSymDollarKSymPercentKSymAmpersandKSymApostropheKSymParentLKSymParentRKSymAsteriskKSymPlusKSymCommaKSymMinusKSymPeriodKSymSlashKSymBackSlashKSymColonKSymSemicolonKSymLessKSymEqualKSymGreaterKSymQuestionKSymAtKSymBracketLKSymBracketRKSymGraveKSymAcuteKSymCircumflexKSymTildeKSymCedillaKSymBreveKSymCaronKSymDiaresisKSymRingAboveKSymMacronKSymF1KSymF2KSymF3KSymF4KSymF5KSymF6KSymF7KSymF8KSymF9KSymF10KSymF11KSymF12KSymKeypad0KSymKeypad1KSymKeypad2KSymKeypad3KSymKeypad4KSymKeypad5KSymKeypad6KSymKeypad7KSymKeypad8KSymKeypad9KSymKeypadMultiplyKSymKeypadAddKSymKeypadSubtractKSymKeypadDecimalKSymKeypadDivideKSymVolumeUpKSymVolumeDownKSymMuteKSymMultiKeyKSymMenu"
+	_KeySym_name_1 = "KSym_dummy_KSym0KSym1KSym2KSym3KSym4KSym5KSym6KSym7KSym8KSym9KSymAKSymBKSymCKSymDKSymEKSymFKSymGKSymHKSymIKSymJKSymKKSymLKSymMKSymNKSymOKSymPKSymQKSymRKSymSKSymTKSymUKSymVKSymWKSymXKSymYKSymZKSymSpaceKSymBackspaceKSymReturnKSymEscapeKSymHomeKSymLeftKSymUpKSymRightKSymDownKSymPageUpKSymPageDownKSymEndKSymInsertKSymShiftLKSymShiftRKSymControlLKSymControlRKSymAltLKSymAltRKSymAltGrKSymSuperLKSymSuperRKSymDeleteKSymTabKSymTabLeftKSymNumLockKSymCapsLockKSymShiftLockKSymExclamKSymDoubleQuoteKSymNumberSignKSymDollarKSymPercentKSymAmpersandKSymApostropheKSymParentLKSymParentRKSymAsteriskKSymPlusKSymCommaKSymMinusKSymPeriodKSymSlashKSymBackSlashKSymColonKSymSemicolonKSymLessKSymEqualKSymGreaterKSymQuestionKSymAtKSymBracketLKSymBracketRKSymGraveKSymAcuteKSymCircumflexKSymTildeKSymCedillaKSymBreveKSymCaronKSymDiaresisKSymRingAboveKSymMacronKSymF1KSymF2KSymF3KSymF4KSymF5KSymF6KSymF7KSymF8KSymF9KSymF10KSymF11KSymF12KSymF13KSymF14KSymF15KSymF16KSymKeypad0KSymKeypad1KSymKeypad2KSymKeypad3KSymKeypad4KSymKeypad5KSymKeypad6KSymKeypad7KSymKeypad8KSymKeypad9KSymKeypadMultiplyKSymKeypadAddKSymKeypadSubtractKSymKeypadDecimalKSymKeypadDivideKSymVolumeUpKSymVolumeDownKSymMuteKSymMultiKeyKSymMenu"
 )
 
 var (
-	_KeySym_index_1 = [...]uint16{0, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56, 61, 66, 71, 76, 81, 86, 91, 96, 101, 106, 111, 116, 121, 126, 131, 136, 141, 146, 151, 156, 161, 166, 171, 176, 181, 186, 191, 200, 213, 223, 233, 241, 249, 255, 264, 272, 282, 294, 301, 311, 321, 331, 343, 355, 363, 371, 380, 390, 400, 410, 417, 428, 439, 451, 464, 474, 489, 503, 513, 524, 537, 551, 562, 573, 585, 593, 602, 611, 621, 630, 643, 652, 665, 673, 682, 693, 705, 711, 723, 735, 744, 753, 767, 776, 787, 796, 805, 817, 830, 840, 846, 852, 858, 864, 870, 876, 882, 888, 894, 901, 908, 915, 926, 937, 948, 959, 970, 981, 992, 1003, 1014, 1025, 1043, 1056, 1074, 1091, 1107, 1119, 1133, 1141, 1153, 1161}
+	_KeySym_index_1 = [...]uint16{0, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56, 61, 66, 71, 76, 81, 86, 91, 96, 101, 106, 111, 116, 121, 126, 131, 136, 141, 146, 151, 156, 161, 166, 171, 176, 181, 186, 191, 200, 213, 223, 233, 241, 249, 255, 264, 272, 282, 294, 301, 311, 321, 331, 343, 355, 363, 371, 380, 390, 400, 410, 417, 428, 439, 451, 464, 474, 489, 503, 513, 524, 537, 551, 562, 573, 585, 593, 602, 611, 621, 630, 643, 652, 665, 673, 682, 693, 705, 711, 723, 735, 744, 753, 767, 776, 787, 796, 805, 817, 830, 840, 846, 852, 858, 864, 870, 876, 882, 888, 894, 901, 908, 915, 922, 929, 936, 943, 954, 965, 976, 987, 998, 1009, 1020, 1031, 1042, 1053, 1071, 1084, 1102, 1119, 1135, 1147, 1161, 1169, 1181, 1189}
 )
 
 func (i KeySym) String() string {
 	switch {
 	case i == 0:
 		return _KeySym_name_0
-	case 257 <= i && i <= 388:
+	case 257 <= i && i <= 392:
 		i -= 257
 		return _KeySym_name_1[_KeySym_index_1[i]:_KeySym_index_1[i+1]]
 	default:
