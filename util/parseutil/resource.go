@@ -50,11 +50,11 @@ type Resource struct {
 	ParseVolume              bool
 }
 
-func ParseResource(rd iorw.Reader, index int) (*Resource, error) {
+func ParseResource(rd iorw.ReaderAt, index int) (*Resource, error) {
 	return ParseResource2(rd, index, PathSeparator, Escape, ParseVolume)
 }
 
-func ParseResource2(rd iorw.Reader, index int, sep, esc rune, parseVolume bool) (*Resource, error) {
+func ParseResource2(rd iorw.ReaderAt, index int, sep, esc rune, parseVolume bool) (*Resource, error) {
 	res := &Resource{
 		PathSep:     sep,
 		Escape:      esc,
@@ -76,7 +76,7 @@ type ResParser2 struct {
 	sc  *scanutil.Scanner
 }
 
-func (rp *ResParser2) parse(rd iorw.Reader, index int) error {
+func (rp *ResParser2) parse(rd iorw.ReaderAt, index int) error {
 	// ensure the index is not in the middle of an escape
 	index = ImproveExpandIndexEscape(rd, index, rp.res.Escape)
 
@@ -87,7 +87,7 @@ func (rp *ResParser2) parse(rd iorw.Reader, index int) error {
 	return nil
 }
 
-func (rp *ResParser2) expandLeft(rd iorw.Reader, index int) int {
+func (rp *ResParser2) expandLeft(rd iorw.ReaderAt, index int) int {
 	rp.sc = scanutil.NewScanner(rd)
 	rp.sc.SetStartPos(index)
 	rp.sc.Reverse = true // to the left
@@ -101,8 +101,8 @@ func (rp *ResParser2) expandLeft(rd iorw.Reader, index int) int {
 	return rp.sc.Pos
 }
 
-func (rp *ResParser2) parse2(rd iorw.Reader, index int) bool {
-	rd2 := iorw.NewLimitedReader(rd, index, index+2000)
+func (rp *ResParser2) parse2(rd iorw.ReaderAt, index int) bool {
+	rd2 := iorw.NewLimitedReaderAt(rd, index, index+2000)
 
 	rp.sc = scanutil.NewScanner(rd2)
 	rp.sc.SetStartPos(index)
