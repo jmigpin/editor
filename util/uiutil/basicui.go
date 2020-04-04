@@ -295,6 +295,15 @@ func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
 	ui.AppendEvent(&UIRunFuncEvent{f})
 }
 
+func (ui *BasicUI) WaitRunOnUIGoRoutine(f func()) {
+	ch := make(chan struct{}, 1)
+	ui.RunOnUIGoRoutine(func() {
+		f()
+		ch <- struct{}{}
+	})
+	<-ch
+}
+
 // Allows triggering a run of applyevent (ex: useful for cursor update, needs point or it won't work).
 func (ui *BasicUI) QueueEmptyWindowInputEvent() {
 	p, err := ui.QueryPointer()
