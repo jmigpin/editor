@@ -1,5 +1,7 @@
 package core
 
+////godebug:annotatefile
+
 import (
 	"context"
 	"fmt"
@@ -347,7 +349,17 @@ func (ed *Editor) setupRootToolbar() {
 }
 
 func (ed *Editor) setupRootMenuToolbar() {
-	s := `CopyFilePosition
+	tb := ed.UI.Root.MainMenuButton.Toolbar
+	// cmd event
+	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+		InternalCmdFromRootTb(ed, tb)
+	})
+	// on write
+	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 interface{}) {
+		ed.updateERowsToolbarsHomeVars()
+	})
+
+	tb.SetStrClearHistory(`CopyFilePosition
 ColorTheme
 CtxutilCallsState
 FontRunes | FontTheme 
@@ -363,17 +375,7 @@ LsprotoRename | LsprotoCloseAll
 OpenFilemanager
 Reload | ReloadAll | ReloadAllFiles 
 RuneCodes
-Exit | Stop | Clear`
-	tb := ed.UI.Root.MainMenuButton.Toolbar
-	tb.SetStrClearHistory(s)
-	// cmd event
-	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
-		InternalCmdFromRootTb(ed, tb)
-	})
-	// on write
-	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 interface{}) {
-		ed.updateERowsToolbarsHomeVars()
-	})
+Exit | Stop | Clear`)
 }
 
 //----------
@@ -461,8 +463,9 @@ func (ed *Editor) setupTheme(opt *Options) {
 	}
 
 	// font options
-	ui.TTFontOptions.Size = opt.FontSize
+	fontutil.DPI = opt.DPI
 	ui.TTFontOptions.DPI = opt.DPI
+	ui.TTFontOptions.Size = opt.FontSize
 	switch opt.FontHinting {
 	case "none":
 		ui.TTFontOptions.Hinting = font.HintingNone
