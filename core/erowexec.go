@@ -29,14 +29,12 @@ func NewERowExec(erow *ERow) *ERowExec {
 //----------
 
 func (ee *ERowExec) RunAsync(fn func(context.Context, io.ReadWriter) error) {
-	// Note: textarea w.close() (textareawriter) could lock if run() is not on own goroutine, if w.close waits for UI goroutine to finish and run() is currently occupying it (w.close called after a run(), no local locks involved, just that the UI goroutine is not getting released).
-	// Note: commented since the w.close() is currently not blocking the UI goroutine, just ensures it gets queued)
+	// Note: textarea w.close() (textareawriter) could deadlock if runasync() is not on own goroutine. If w.close waits for UI goroutine to finish and runasync() is currently occupying it (w.close called after a runasync(), just that the UI goroutine is not getting released).
+	// launching in a goroutine allows RunAsync() itself to be called from a uigoroutine since this func will return immediately
+	go ee.runAsync2(fn)
+}
 
-	//	go ee.run(fn)
-	//}
-
-	//func (ee *ERowExec) run(fn func(context.Context, io.Writer) error) {
-
+func (ee *ERowExec) runAsync2(fn func(context.Context, io.ReadWriter) error) {
 	ee.mu.Lock()
 	defer ee.mu.Unlock()
 
