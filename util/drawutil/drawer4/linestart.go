@@ -85,6 +85,9 @@ func (ls *LineStart) linesStartIndexes(offset, nLinesUp int) []int {
 		}
 		w = append(w, k)
 		offset = k - 1
+		if offset < 0 {
+			break
+		}
 	}
 	return w
 }
