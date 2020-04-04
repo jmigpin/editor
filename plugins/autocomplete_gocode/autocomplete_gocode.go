@@ -56,7 +56,7 @@ func autoCompleteERowGolang(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core
 
 	// gocode args
 	filename := erow.Info.Name()
-	offset := erow.Row.TextArea.TextCursor.Index()
+	offset := erow.Row.TextArea.CursorIndex()
 	args := []string{osutil.ExecName("gocode"), "autocomplete", fmt.Sprintf("%v", offset)}
 
 	// gocode can read from stdin: use textarea bytes
