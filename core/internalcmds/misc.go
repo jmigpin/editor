@@ -138,6 +138,11 @@ func GoDebug(args *core.InternalCmdArgs) error {
 	return args.Ed.GoDebug.RunAsync(args.Ctx, args.ERow, args2)
 }
 
+func GoDebugFind(args *core.InternalCmdArgs) error {
+	s := args.Part.FromArgString(1)
+	return args.Ed.GoDebug.AnnotationFind(s)
+}
+
 //----------
 
 func ColorTheme(args *core.InternalCmdArgs) error {

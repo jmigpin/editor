@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -97,6 +98,15 @@ func (gdm *GoDebugManager) SelectERowAnnotation(erow *ERow, ev *ui.TextAreaSelec
 	if gdm.inst.inst != nil {
 		gdm.inst.inst.selectERowAnnotation(erow, ev)
 	}
+}
+
+func (gdm *GoDebugManager) AnnotationFind(s string) error {
+	gdm.inst.Lock()
+	defer gdm.inst.Unlock()
+	if gdm.inst.inst == nil {
+		return fmt.Errorf("missing godebug instance")
+	}
+	return gdm.inst.inst.annotationFind(s)
 }
 
 func (gdm *GoDebugManager) UpdateUIERowInfo(info *ERowInfo) {
@@ -209,6 +219,17 @@ func (gdi *GoDebugInstance) selectERowAnnotation2(erow *ERow, ev *ui.TextAreaSel
 		log.Printf("todo: %#v", ev)
 	}
 	return false
+}
+
+//----------
+
+func (gdi *GoDebugInstance) annotationFind(s string) error {
+	_, ok := gdi.di.selectedAnnFind(s)
+	if !ok {
+		return fmt.Errorf("string not found in selected annotation: %v", s)
+	}
+	gdi.updateUIShowLine(gdi.ed.GoodRowPos())
+	return nil
 }
 
 //----------
@@ -466,7 +487,7 @@ func (gdi *GoDebugInstance) showSelectedLine(rowPos *ui.RowPos) {
 //----------
 
 func (gdi *GoDebugInstance) openArrivalIndexERow() {
-	filename, ok := gdi.di.selectedArrivalIndexFilename()
+	_, filename, ok := gdi.di.selectedArrivalIndexFilename()
 	if !ok {
 		return
 	}
@@ -635,6 +656,36 @@ func (di *GDDataIndex) annPreviousMsgs(filename string, annIndex int) ([]*GDLine
 		return nil, false
 	}
 	return line.lineMsgs[:k+1], true
+}
+
+func (di *GDDataIndex) selectedAnnFind(s string) (*GDLineMsg, bool) {
+	di.RLock()
+	defer di.RUnlock()
+
+	annIndex, filename, ok := di.selectedArrivalIndexFilename()
+	if !ok {
+		return nil, false
+	}
+
+	file, line, ok := di._annIndexFileLine(filename, annIndex)
+	if !ok {
+		return nil, false
+	}
+
+	b := []byte(s)
+	k := file.annEntriesLMIndex[annIndex] // current entry
+	for i := 0; i < len(line.lineMsgs); i++ {
+		h := (k + 1 + i) % len(line.lineMsgs)
+		msg := line.lineMsgs[h]
+		ann := msg.annotation()
+		j := bytes.Index(ann.Bytes, b)
+		if j >= 0 {
+			di.selected.arrivalIndex = msg.arrivalIndex
+			return msg, true
+		}
+	}
+
+	return nil, false
 }
 
 func (di *GDDataIndex) annMsgChangeCurrent(filename string, annIndex int, typ ui.TASelAnnType) bool {
@@ -813,31 +864,22 @@ func (di *GDDataIndex) isFileEdited(filename string) bool {
 
 //----------
 
-func (di *GDDataIndex) selectedArrivalIndexFilename() (string, bool) {
+func (di *GDDataIndex) selectedArrivalIndexFilename() (int, string, bool) {
+	return di.arrivalIndexFilename(di.selected.arrivalIndex)
+}
+
+func (di *GDDataIndex) arrivalIndexFilename(arrivalIndex int) (int, string, bool) {
 	di.RLock()
 	defer di.RUnlock()
-
-	// TODO
-	//sel := &di.selected
-	//if sel.fileIndex >= len(di.files) {
-	//	return "", false
-	//}
-	//file := di.files[sel.fileIndex]
-	//if sel.lineIndex >= file.linesMsgs {
-	//	return "", false
-	//}
-	//lm := file.linesMsgs[sel.fileIndex]
-
-	arrivalIndex := di.selected.arrivalIndex
 	for findex, file := range di.files {
-		for _, lm := range file.linesMsgs {
+		for j, lm := range file.linesMsgs {
 			_, eqK, _ := lm.findIndex(arrivalIndex)
 			if eqK {
-				return di.afds[findex].Filename, true
+				return j, di.afds[findex].Filename, true
 			}
 		}
 	}
-	return "", false
+	return -1, "", false
 }
 
 //----------

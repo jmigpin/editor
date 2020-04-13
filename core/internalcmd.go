@@ -13,16 +13,18 @@ import (
 //----------
 
 type InternalCmd struct {
-	Name       string
-	Fn         func(args *InternalCmdArgs) error
-	RootTbOnly bool
-	Detach     bool // allows running outside UI goroutine (care must be taken)
+	Name      string
+	Fn        InternalCmdFn
+	NeedsERow bool
+	Detach    bool // run outside UI goroutine (care must be taken)
 }
+
+type InternalCmdFn func(args *InternalCmdArgs) error
 
 type InternalCmdArgs struct {
 	Ctx  context.Context
 	Ed   *Editor
-	ERow *ERow // could be nil if cmd is RootTbOnly
+	ERow *ERow // could be nil
 	Part *toolbarparser.Part
 }
 
@@ -124,6 +126,9 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 // erow can be nil (ex: a root toolbar cmd)
 func internalCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 	arg0 := part.Args[0].UnquotedStr()
+	noERowErr := func() {
+		ed.Errorf("%s: no active row", arg0)
+	}
 
 	// util functions
 
@@ -147,60 +152,50 @@ func internalCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
 			fn()
 		}
 	}
-	rowCmd := func(detach bool, fn func(*ERow)) {
-		e := currentERow()
-		if e == nil {
-			ed.Errorf("%s: no active row", arg0)
-			return
-		}
 
-		// feedback node on ui.Root if launched from root toolbar
-		node := widget.Node(e.Row)
-		if e != erow {
-			node = ed.UI.Root
-		}
-
-		run(detach, node, func() { fn(e) })
-	}
+	curERow := currentERow() // possibly != erow, could be nil
 
 	// internal cmds
 	cmd, ok := InternalCmds[arg0]
 	if ok {
 		ctx := context.Background() // TODO: editor ctx
-		args := &InternalCmdArgs{ctx, ed, erow, part}
-		if cmd.RootTbOnly {
-			if erow != nil {
-				ed.Errorf("%s:  root toolbar only command", arg0)
-				return
-			}
-			run(cmd.Detach, ed.UI.Root, func() {
-				if err := cmd.Fn(args); err != nil {
-					ed.Errorf("%v: %v", arg0, err)
-				}
-			})
-		} else {
-			rowCmd(cmd.Detach, func(e *ERow) {
-				ctx, cancel := e.newInternalCmdCtx()
-				defer cancel()
-				args.ERow = e
-				args.Ctx = ctx
-				if err := cmd.Fn(args); err != nil {
-					ed.Errorf("%v: %v", arg0, err)
-				}
-			})
+		args := &InternalCmdArgs{ctx, ed, curERow, part}
+		if cmd.NeedsERow && args.ERow == nil {
+			noERowErr()
+			return
 		}
+
+		// feedback node
+		node := widget.Node(ed.UI.Root)
+		if erow != nil && args.ERow == erow {
+			node = erow.Row
+		}
+
+		run(cmd.Detach, node, func() {
+			if cmd.NeedsERow {
+				ctx, cancel := args.ERow.newInternalCmdCtx()
+				defer cancel()
+				args.Ctx = ctx
+			}
+			if err := cmd.Fn(args); err != nil {
+				ed.Errorf("%v: %v", arg0, err)
+			}
+		})
 		return
 	}
 
 	// have a plugin handle the cmd
-	e := currentERow() // could be nil
-	handled := ed.Plugins.RunToolbarCmd(e, part)
+	handled := ed.Plugins.RunToolbarCmd(curERow, part)
 	if handled {
 		return
 	}
 
-	// run external cmd
-	rowCmd(false, func(e *ERow) {
-		ExternalCmd(e, part) // will run async (detaches)
+	// run external cmd (needs erow)
+	if curERow == nil {
+		noERowErr()
+		return
+	}
+	run(false, curERow.Row, func() {
+		ExternalCmd(curERow, part)
 	})
 }

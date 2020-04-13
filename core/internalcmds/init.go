@@ -7,57 +7,65 @@ import (
 func init() {
 	ic := core.InternalCmds
 
-	ic.Set(&core.InternalCmd{"Exit", Exit, true, false})
+	cmd := func(name string, fn core.InternalCmdFn) {
+		ic.Set(&core.InternalCmd{Name: name, Fn: fn})
+	}
+	cmdERow := func(name string, fn core.InternalCmdFn) {
+		ic.Set(&core.InternalCmd{Name: name, Fn: fn, NeedsERow: true})
+	}
 
-	ic.Set(&core.InternalCmd{"SaveSession", SaveSession, true, false})
-	ic.Set(&core.InternalCmd{"OpenSession", OpenSession, true, false})
-	ic.Set(&core.InternalCmd{"DeleteSession", DeleteSession, true, false})
-	ic.Set(&core.InternalCmd{"ListSessions", ListSessions, true, false})
+	cmd("Exit", Exit)
 
-	ic.Set(&core.InternalCmd{"NewColumn", NewColumn, true, false})
-	ic.Set(&core.InternalCmd{"CloseColumn", CloseColumn, false, false})
+	cmd("SaveSession", SaveSession)
+	cmd("OpenSession", OpenSession)
+	cmd("DeleteSession", DeleteSession)
+	cmd("ListSessions", ListSessions)
 
-	ic.Set(&core.InternalCmd{"NewRow", NewRow, true, false})
-	ic.Set(&core.InternalCmd{"CloseRow", CloseRow, false, false})
-	ic.Set(&core.InternalCmd{"ReopenRow", ReopenRow, true, false})
-	ic.Set(&core.InternalCmd{"MaximizeRow", MaximizeRow, false, false})
+	cmd("NewColumn", NewColumn)
+	cmdERow("CloseColumn", CloseColumn)
 
-	ic.Set(&core.InternalCmd{"NewFile", NewFile, false, false})
-	ic.Set(&core.InternalCmd{"Save", Save, false, false})
-	ic.Set(&core.InternalCmd{"SaveAllFiles", SaveAllFiles, true, false})
+	cmd("NewRow", NewRow)
+	cmdERow("CloseRow", CloseRow)
+	cmd("ReopenRow", ReopenRow)
+	cmdERow("MaximizeRow", MaximizeRow)
 
-	ic.Set(&core.InternalCmd{"Reload", Reload, false, false})
-	ic.Set(&core.InternalCmd{"ReloadAllFiles", ReloadAllFiles, true, false})
-	ic.Set(&core.InternalCmd{"ReloadAll", ReloadAll, true, false})
+	cmd("NewFile", NewFile)
+	cmdERow("Save", Save)
+	cmd("SaveAllFiles", SaveAllFiles)
 
-	ic.Set(&core.InternalCmd{"Stop", Stop, false, false})
-	ic.Set(&core.InternalCmd{"Clear", Clear, false, false})
+	cmdERow("Reload", Reload)
+	cmd("ReloadAllFiles", ReloadAllFiles)
+	cmd("ReloadAll", ReloadAll)
 
-	ic.Set(&core.InternalCmd{"Find", Find, false, false})
-	ic.Set(&core.InternalCmd{"Replace", Replace, false, false})
-	ic.Set(&core.InternalCmd{"GotoLine", GotoLine, false, false})
-	ic.Set(&core.InternalCmd{"GoToLine", GotoLine, false, false})
+	cmdERow("Stop", Stop)
+	cmdERow("Clear", Clear)
 
-	ic.Set(&core.InternalCmd{"CopyFilePosition", CopyFilePosition, false, false})
-	ic.Set(&core.InternalCmd{"RuneCodes", RuneCodes, false, false})
-	ic.Set(&core.InternalCmd{"FontRunes", FontRunes, false, false})
+	cmdERow("Find", Find)
+	cmdERow("Replace", Replace)
+	cmdERow("GotoLine", GotoLine)
+	cmdERow("GoToLine", GotoLine)
+
+	cmdERow("CopyFilePosition", CopyFilePosition)
+	cmdERow("RuneCodes", RuneCodes)
+	cmd("FontRunes", FontRunes)
 
 	// Deprecated: in favor of "OpenFilemanager"
-	ic.Set(&core.InternalCmd{"XdgOpenDir", OpenFilemanager, false, false})
-	ic.Set(&core.InternalCmd{"OpenFilemanager", OpenFilemanager, false, false})
+	cmd("XdgOpenDir", OpenFilemanager)
+	cmdERow("OpenFilemanager", OpenFilemanager)
 
-	ic.Set(&core.InternalCmd{"ListDir", ListDir, false, false})
+	cmdERow("ListDir", ListDir)
 
-	ic.Set(&core.InternalCmd{"GoRename", GoRename, false, false})
-	ic.Set(&core.InternalCmd{"GoDebug", GoDebug, false, false})
+	cmdERow("GoRename", GoRename)
+	cmdERow("GoDebug", GoDebug)
+	cmdERow("GoDebugFind", GoDebugFind)
 
 	// Deprecated: in favor of "LspCloseAll"
-	ic.Set(&core.InternalCmd{"LSProtoCloseAll", LSProtoCloseAll, false, false})
-	ic.Set(&core.InternalCmd{"LsprotoCloseAll", LSProtoCloseAll, false, false})
-	ic.Set(&core.InternalCmd{"LsprotoRename", LSProtoRename, false, true})
+	cmd("LSProtoCloseAll", LSProtoCloseAll)
+	cmd("LsprotoCloseAll", LSProtoCloseAll)
+	cmdERow("LsprotoRename", LSProtoRename)
 
-	ic.Set(&core.InternalCmd{"ColorTheme", ColorTheme, false, false})
-	ic.Set(&core.InternalCmd{"FontTheme", FontTheme, false, false})
+	cmd("ColorTheme", ColorTheme)
+	cmd("FontTheme", FontTheme)
 
-	ic.Set(&core.InternalCmd{"CtxutilCallsState", CtxutilCallsState, false, false})
+	cmd("CtxutilCallsState", CtxutilCallsState)
 }

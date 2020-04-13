@@ -171,6 +171,16 @@ func (p *Part) ArgsUnquoted() []string {
 	return args
 }
 
+func (p *Part) FromArgString(i int) string {
+	if i >= len(p.Args) {
+		return ""
+	}
+	a := p.Args[i:]
+	n1 := a[0]
+	n2 := a[len(a)-1]
+	return p.Node.Data.Str[n1.Pos:n2.End]
+}
+
 //----------
 
 type Arg struct {
