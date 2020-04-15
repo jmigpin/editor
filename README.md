@@ -206,6 +206,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- default: calls `gopls` (limited scope in renaming, but faster).
 	- `-all`: calls `gorename` to rename across packages (slower).
 - `GoDebug <command> [arguments]`: debugger utility for go programs (more at [commands:godebug](#commands-godebug))
+- `GoDebugFind <string>`: find string in current selected annotation. Useful to rewind the annotations to the desired point.
 
 *Row name at the toolbar (usually the filename)*
 

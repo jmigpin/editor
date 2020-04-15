@@ -139,7 +139,17 @@ func GoDebug(args *core.InternalCmdArgs) error {
 }
 
 func GoDebugFind(args *core.InternalCmdArgs) error {
-	s := args.Part.FromArgString(1)
+	a := args.Part.ArgsUnquoted()
+	if len(a) < 2 {
+		return fmt.Errorf("missing string to find")
+	}
+	s := ""
+	if len(a) == 2 {
+		s = a[1] // single arg, unquoted if quoted
+	} else {
+		s = args.Part.FromArgString(1) // verbatim
+	}
+
 	return args.Ed.GoDebug.AnnotationFind(s)
 }
 
