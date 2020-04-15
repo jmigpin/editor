@@ -28,7 +28,7 @@ func TestReadLastUntilStart(t *testing.T) {
 		{in{".", 1}, out{0, "", false}},
 	}
 	for _, u := range w {
-		rw := iorw.NewStringReader(u.in.str)
+		rw := iorw.NewStringReaderAt(u.in.str)
 		start, str, ok := readLastUntilStart(rw, u.in.index)
 		if !(start == u.out.start && str == u.out.str && ok == u.out.ok) {
 			t.Fatal(start, str, ok, "expecting", u.out)
@@ -133,9 +133,9 @@ func TestInsertComplete(t *testing.T) {
 		},
 	}
 	for _, u := range w {
-		rw := iorw.NewBytesReadWriter([]byte(u.in.text))
+		rw := iorw.NewBytesReadWriterAt([]byte(u.in.text))
 		newIndex, completed, comps, _ := insertComplete(u.in.comps, rw, u.in.index)
-		b, err := iorw.ReadFullFast(rw)
+		b, err := iorw.ReadFastFull(rw)
 		if err != nil {
 			t.Fatal(err)
 		}
