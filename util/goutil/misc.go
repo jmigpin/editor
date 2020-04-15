@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	"strings"
 
@@ -76,6 +77,23 @@ func PrintAstFile(w io.Writer, fset *token.FileSet, astFile *ast.File) error {
 	cfg := &printer.Config{Mode: printer.SourcePos, Tabwidth: 4}
 
 	return cfg.Fprint(w, fset, astFile)
+}
+
+//----------
+
+func Printfc(skip int, f string, args ...interface{}) {
+	pc, _, _, ok := runtime.Caller(1 + skip)
+	details := runtime.FuncForPC(pc)
+	if ok && details != nil {
+		u := details.Name()
+		i := strings.Index(u, "(")
+		if i > 0 {
+			u = u[i:]
+		}
+		fmt.Printf(u+": "+f, args...)
+		return
+	}
+	fmt.Printf(f, args...)
 }
 
 //----------
