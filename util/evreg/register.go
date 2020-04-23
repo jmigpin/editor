@@ -1,9 +1,13 @@
 package evreg
 
-import "container/list"
+import (
+	"container/list"
+	"sync"
+)
 
 // The zero register is empty and ready for use.
 type Register struct {
+	sync.RWMutex
 	m map[int]*list.List
 }
 
@@ -17,6 +21,8 @@ func (reg *Register) Add(evId int, fn func(interface{})) *Regist {
 //----------
 
 func (reg *Register) AddCallback(evId int, cb *Callback) *Regist {
+	reg.Lock()
+	defer reg.Unlock()
 	if reg.m == nil {
 		reg.m = map[int]*list.List{}
 	}
@@ -30,6 +36,8 @@ func (reg *Register) AddCallback(evId int, cb *Callback) *Regist {
 }
 
 func (reg *Register) RemoveCallback(evId int, cb *Callback) {
+	reg.Lock()
+	defer reg.Unlock()
 	if reg.m == nil {
 		return
 	}
@@ -56,6 +64,8 @@ func (reg *Register) RemoveCallback(evId int, cb *Callback) {
 
 // Returns number of callbacks done.
 func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
+	reg.RLock()
+	defer reg.RUnlock()
 	if reg.m == nil {
 		return 0
 	}
@@ -74,6 +84,8 @@ func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
 
 // Number of registered callbacks for an event id.
 func (reg *Register) NCallbacks(evId int) int {
+	reg.RLock()
+	defer reg.RUnlock()
 	if reg.m == nil {
 		return 0
 	}
