@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
+//godebug:annotatefile
+
 // small amounts of output need to be flushed (not filling the buffer)
 const abwUpdatesPerSecond = 10
 
 // Flushes after x time if the buffer doesn't get filled. Safe to use concurrently.
 type AutoBufWriter struct {
-	wc io.WriteCloser
+	w  io.Writer
 	mu struct {
 		sync.Mutex
 		buf   *bufio.Writer
@@ -20,10 +22,10 @@ type AutoBufWriter struct {
 	}
 }
 
-func NewAutoBufWriter(wc io.WriteCloser) *AutoBufWriter {
-	w := &AutoBufWriter{wc: wc}
-	w.mu.buf = bufio.NewWriter(wc)
-	return w
+func NewAutoBufWriter(w io.Writer, size int) *AutoBufWriter {
+	abw := &AutoBufWriter{w: w}
+	abw.mu.buf = bufio.NewWriterSize(abw.w, size)
+	return abw
 }
 
 // Implements io.Closer
@@ -32,7 +34,7 @@ func (w *AutoBufWriter) Close() error {
 	defer w.mu.Unlock()
 	w.clearTimer()
 	w.mu.buf.Flush()
-	return w.wc.Close()
+	return nil
 }
 
 // Implements io.Writer
