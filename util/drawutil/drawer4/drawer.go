@@ -663,7 +663,7 @@ func (d *Drawer) RangeVisibleOffset(offset, length int) int {
 		return topLines(freeLines / 2)
 	}
 	keepCurAlignment := func() int {
-		return mathutil.Smallest(d.opt.runeO.offset, d.reader.Max())
+		return mathutil.Min(d.opt.runeO.offset, d.reader.Max())
 	}
 
 	v1 := penVisibility(d, offset)

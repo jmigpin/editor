@@ -58,7 +58,7 @@ func (sb *ScrollBar) scrollWheel(up bool) {
 func (sb *ScrollBar) yBoundsSizePad() (int, int, int) {
 	min := 5
 	d := sb.yaxis(sb.Bounds.Size())
-	dpad := mathutil.Biggest(d-min, 0)
+	dpad := mathutil.Max(d-min, 0)
 	return d, dpad, min
 }
 
@@ -129,7 +129,7 @@ func (sb *ScrollBar) Layout() {
 
 	p := int(math.Ceil(float64(dpad) * sb.positionPercent))
 	s := int(math.Ceil(float64(d) * sb.sizePercent))
-	s = mathutil.Biggest(s, p+min) // minimum bar size (stay visible)
+	s = mathutil.Max(s, p+min) // minimum bar size (stay visible)
 
 	*sb.yaxisPtr(&r.Min) = sb.yaxis(sb.Bounds.Min) + p
 	*sb.yaxisPtr(&r.Max) = sb.yaxis(sb.Bounds.Min) + s
