@@ -191,14 +191,15 @@ func (cli *Client) initializeParams() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	_ = rootUri
 
-	// workspace folders
-	cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
-	b, err := encodeJson(cli.folders)
-	if err != nil {
-		return nil, err
-	}
-	foldersStr := string(b)
+	//// workspace folders
+	//cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
+	//b, err := encodeJson(cli.folders)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//foldersStr := string(b)
 
 	// other capabilities
 	//"capabilities":{
@@ -212,10 +213,11 @@ func (cli *Client) initializeParams() (json.RawMessage, error) {
 	//		}
 	//	}
 	//}
+	//"workspaceFolders":` + foldersStr + `
 
-	//"rootUri":"` + rootUri + `",
+	// TODO: gopls is not allowing rooturi=null at the moment...
 	raw := json.RawMessage(`{
-		"workspaceFolders":` + foldersStr + `
+		"rootUri":"` + rootUri + `"
 	}`)
 	return raw, nil
 }

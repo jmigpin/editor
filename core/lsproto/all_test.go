@@ -103,7 +103,7 @@ func TestRenameGo(t *testing.T) {
 	exp2 := parseutil.TrimLineSpaces(exp)
 
 	offset, src := sourceCursor(t, src0, 0)
-	rd := iorw.NewStringReader(src)
+	rd := iorw.NewStringReaderAt(src)
 
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
@@ -163,7 +163,7 @@ func TestRenameC(t *testing.T) {
 	exp2 := parseutil.TrimLineSpaces(exp)
 
 	offset, src := sourceCursor(t, src0, 1)
-	rd := iorw.NewStringReader(src)
+	rd := iorw.NewStringReaderAt(src)
 
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
@@ -207,7 +207,7 @@ func TestRenameC(t *testing.T) {
 func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 	t.Helper()
 
-	rd := iorw.NewStringReader(src)
+	rd := iorw.NewStringReaderAt(src)
 
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
@@ -228,7 +228,7 @@ func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
 func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 	t.Helper()
 
-	rd := iorw.NewStringReader(src)
+	rd := iorw.NewStringReaderAt(src)
 
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
@@ -261,7 +261,7 @@ func testFileLineColCompletion(t *testing.T, loc string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rw := iorw.NewBytesReadWriter(b)
+	rw := iorw.NewBytesReadWriterAt(b)
 	offset, err := parseutil.LineColumnIndex(rw, l, c)
 	if err != nil {
 		t.Fatal(err)
@@ -281,7 +281,7 @@ func sourceCursor(t *testing.T, src string, nth int) (int, string) {
 }
 
 func parseLocation(t *testing.T, loc string) (string, int, int) {
-	rd := iorw.NewStringReader(loc)
+	rd := iorw.NewStringReaderAt(loc)
 	res, err := parseutil.ParseResource(rd, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -289,12 +289,12 @@ func parseLocation(t *testing.T, loc string) (string, int, int) {
 	return res.Path, res.Line, res.Column
 }
 
-func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWriter, int) {
+func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWriterAt, int) {
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rw := iorw.NewBytesReadWriter(b)
+	rw := iorw.NewBytesReadWriterAt(b)
 	offset, err := parseutil.LineColumnIndex(rw, line, col)
 	if err != nil {
 		t.Fatal(err)

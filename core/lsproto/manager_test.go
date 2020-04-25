@@ -37,7 +37,7 @@ func TestManagerGo1(t *testing.T) {
 	}
 
 	// change content
-	if err := rw.Insert(offset-11, []byte("\n\n\n")); err != nil {
+	if err := rw.OverwriteAt(offset-11, 0, []byte("\n\n\n")); err != nil {
 		t.Fatal(err)
 	}
 	offset += 33 // 3 newlines
@@ -152,7 +152,7 @@ func TestManagerC1(t *testing.T) {
 	}
 
 	// change content
-	if err := rw.Insert(offset-37, []byte("\n\n\n")); err != nil {
+	if err := rw.OverwriteAt(offset-37, 0, []byte("\n\n\n")); err != nil {
 		t.Fatal(err)
 	}
 	offset += 3 // 3 newlines
