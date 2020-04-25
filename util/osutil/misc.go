@@ -74,30 +74,36 @@ func RandomPort(simpleSeed, min, max int) int {
 
 // doesn't wait for the cmd to end
 func OpenBrowser(url string) error {
+	var c *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		c := exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-		return c.Start()
+		c = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
 	case "darwin":
-		c := exec.Command("open", url)
-		return c.Start()
-	default:
-		c := exec.Command("xdg-open", url)
-		return c.Start()
+		c = exec.Command("open", url)
+	default: // linux, others...
+		c = exec.Command("xdg-open", url)
 	}
+	return cmdStartWaitAsync(c)
 }
 
 // doesn't wait for the cmd to end
 func OpenFilemanager(filename string) error {
+	var c *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		c := exec.Command("explorer", "/select,"+filename)
-		return c.Start()
+		c = exec.Command("explorer", "/select,"+filename)
 	case "darwin":
-		c := exec.Command("open", filename)
-		return c.Start()
-	default:
-		c := exec.Command("xdg-open", filename)
-		return c.Start()
+		c = exec.Command("open", filename)
+	default: // linux, others...
+		c = exec.Command("xdg-open", filename)
 	}
+	return cmdStartWaitAsync(c)
+}
+
+func cmdStartWaitAsync(c *exec.Cmd) error {
+	if err := c.Start(); err != nil {
+		return err
+	}
+	go c.Wait() // async to let run, but wait to clear resources
+	return nil
 }
