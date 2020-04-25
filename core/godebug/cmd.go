@@ -982,8 +982,8 @@ Examples:
 	GoDebug test -help
 	GoDebug test
 	GoDebug test -run mytest
-	GoDebug build -addr=:8080 main.go
-	GoDebug connect -addr=:8080
+	GoDebug build -addr=:8008 main.go
+	GoDebug connect -addr=:8008
 	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
 `
 }
