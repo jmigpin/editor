@@ -242,7 +242,11 @@ func New() *Drawer {
 
 //----------
 
-func (d *Drawer) SetReader(r iorw.ReaderAt) { d.reader = r }
+func (d *Drawer) SetReader(r iorw.ReaderAt) {
+	d.reader = r
+	// always run since an underlying reader could have been changed
+	d.ContentChanged()
+}
 
 func (d *Drawer) Reader() iorw.ReaderAt { return d.reader }
 
@@ -313,12 +317,15 @@ func (d *Drawer) SetFirstLineOffsetX(x int) {
 
 func (d *Drawer) Bounds() image.Rectangle { return d.bounds }
 func (d *Drawer) SetBounds(r image.Rectangle) {
+	//d.ContentChanged() // commented for performance
+	// performance (doesn't redo d.opt.wordH.updatedWord)
 	if r.Size() != d.bounds.Size() {
 		d.opt.measure.updated = false
 		d.opt.syntaxH.updated = false
 		d.opt.wordH.updatedOps = false
 		d.opt.parenthesisH.updated = false
 	}
+
 	d.bounds = r // always update value (can change min)
 }
 
