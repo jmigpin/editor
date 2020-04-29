@@ -13,7 +13,8 @@ import (
 // 	...
 // 	// sync/async call to w.Set()
 // 	...
-//     	if err:=w.WaitForSet(); err!=nil{
+//	v,err := w.WaitForSet()
+//	if err!=nil {
 // 	}
 type WaitForSet struct {
 	d struct {

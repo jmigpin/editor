@@ -4,7 +4,7 @@ import (
 	"container/list"
 )
 
-// Flexible channel queue (no fixed length).
+// Flexible channel queue (no fixed length). Note: consider using syncutil.* instead.
 type ChanQ struct {
 	q       list.List
 	in, out chan interface{}

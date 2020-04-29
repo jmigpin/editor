@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Non-blocking channel.
+// Non-blocking channel. Note: consider using syncutil.* instead.
 type NBChan struct {
 	ch        chan interface{}
 	LogString string

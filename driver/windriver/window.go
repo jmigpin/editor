@@ -370,10 +370,12 @@ func (win *Window) Request(req event.Request) error {
 
 func (win *Window) runAppMsgReq(req event.Request) error {
 	appData := NewAppData(req)
-	ready := func() error {
-		return win.postAppMsg(appData)
+	appData.ReqErr.Start(3 * time.Second)
+	if err := win.postAppMsg(appData); err != nil {
+		appData.ReqErr.Cancel()
+		return err
 	}
-	reqErrV, err := appData.ReqErr.Get(3*time.Second, ready)
+	reqErrV, err := appData.ReqErr.WaitForSet()
 	if err != nil {
 		err = fmt.Errorf("win appdata: %T, %w", req, err)
 		return err
@@ -896,12 +898,12 @@ func (win *Window) stopDragDrop() {
 //----------
 
 type AppData struct {
-	ReqErr *syncutil.GetTimeout
+	ReqErr *syncutil.WaitForSet
 	Value  interface{}
 }
 
 func NewAppData(v interface{}) *AppData {
-	return &AppData{syncutil.NewGetTimeout(), v}
+	return &AppData{syncutil.NewWaitForSet(), v}
 }
 
 //----------
