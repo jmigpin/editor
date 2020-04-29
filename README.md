@@ -42,13 +42,11 @@ Source code editor in pure Go.
 
 ## Installation and usage
 
-Get the latest development:
+Get with one of:
 ```
+go get -u github.com/jmigpin/editor@experimental	# bleeding edge
 go get -u github.com/jmigpin/editor@master
-```
-Or get the last tagged release (older) or if in GOPATH mode:
-```
-go get -u github.com/jmigpin/editor
+go get -u github.com/jmigpin/editor				# last tagged release (older)
 ```
 Build and run:
 ```
@@ -59,7 +57,7 @@ go build
 
 Windows platform compilation alternatives:
 ```
-go build	# shows one console window (will be hidden, but makes a flash)
+go build		# shows one console window (will be hidden, but makes a flash)
 go build -ldflags -H=windowsgui 	# hides the console window, but cmds will popup consoles
 go build -tags=xproto 	# (not native, needs an x11 server to run)
 ```
@@ -240,8 +238,8 @@ Examples:
 	GoDebug test -help
 	GoDebug test
 	GoDebug test -run mytest
-	GoDebug build -addr=:8080 main.go
-	GoDebug connect -addr=:8080
+	GoDebug build -addr=:8008 main.go
+	GoDebug connect -addr=:8008
 	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
 ```
 
@@ -322,14 +320,19 @@ Examples:
 		```
 		The example below builds a binary for windows in another platform, for later remote debug:
 		```
-		GoDebug build -env=GOOS=windows -addr=:8080 main.go 
+		GoDebug build -env=GOOS=windows -addr=:8008 main.go
+		... (copy the binary to the target platform and run it) ...
+		GoDebug connect -addr=:8008
 		```
 
 ## Internal variables
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
 - `$font=<name>[,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
-- `$termFilter`: when set on a row toolbar, filters terminal escape sequences. Currently only the `clear` escape sequence `esc[J` is interpreted to clear the textarea. Other escape sequences are removed from the output.
+- `$termFilter`: same as `$terminal=f`
+- `$terminal=[f,k]`: enable terminal features.
+	- `f`: Filter (remove) escape sequences from the output. Currently only the clear display sequence is interpreted in this mode which clears the output (usefull for running programs that want to discard old ouput).
+	- `k`: redirect keyboard input to the running program to enable reading from standard input. Note: typing keys will not be seen in the textarea unless the running program outputs them (exceptions: "\n") .
 
 ## Environment variables set available to external commands
 
