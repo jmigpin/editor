@@ -673,8 +673,14 @@ func (d *Drawer) RangeVisibleOffset(offset, length int) int {
 		return mathutil.Min(d.opt.runeO.offset, d.reader.Max())
 	}
 
+	// don't let offset+length be beyond max for v2 (would give not visible)
+	offset2 := offset + length
+	if offset2 > d.reader.Max() {
+		offset2 = offset
+	}
+
 	v1 := penVisibility(d, offset)
-	v2 := penVisibility(d, offset+length)
+	v2 := penVisibility(d, offset2)
 	if v1.full {
 		if v2.full {
 			return keepCurAlignment()
