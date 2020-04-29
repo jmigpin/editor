@@ -46,7 +46,7 @@ Get with one of:
 ```
 go get -u github.com/jmigpin/editor@experimental	# bleeding edge
 go get -u github.com/jmigpin/editor@master
-go get -u github.com/jmigpin/editor				# last tagged release (older)
+go get -u github.com/jmigpin/editor			# last tagged release (older)
 ```
 Build and run:
 ```
@@ -57,9 +57,9 @@ go build
 
 Windows platform compilation alternatives:
 ```
-go build		# shows one console window (will be hidden, but makes a flash)
-go build -ldflags -H=windowsgui 	# hides the console window, but cmds will popup consoles
-go build -tags=xproto 	# (not native, needs an x11 server to run)
+go build				# shows one console window (will be hidden, but makes a flash)
+go build -ldflags -H=windowsgui	# hides the console window, but cmds will popup consoles
+go build -tags=xproto 			# (not native, needs an x11 server to run)
 ```
 
 Usage:
@@ -330,7 +330,7 @@ Examples:
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
 - `$font=<name>[,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
 - `$termFilter`: same as `$terminal=f`
-- `$terminal=[f,k]`: enable terminal features.
+- `$terminal={f,k}`: enable terminal features.
 	- `f`: Filter (remove) escape sequences from the output. Currently only the clear display sequence is interpreted in this mode which clears the output (usefull for running programs that want to discard old ouput).
 	- `k`: redirect keyboard input to the running program to enable reading from standard input. Note: typing keys will not be seen in the textarea unless the running program outputs them (exceptions: "\n") .
 
