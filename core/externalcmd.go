@@ -77,6 +77,16 @@ func populateEnvVars(erow *ERow, cargs []string) []string {
 			}
 		}
 	}
+
+	// add toolbar defined vars
+	vmap := toolbarparser.ParseVars(&erow.TbData)
+	for k, v := range vmap {
+		if strings.HasPrefix(k, "$") {
+			u := k[1:]
+			env = append(env, u+"="+v)
+		}
+	}
+
 	return env
 }
 

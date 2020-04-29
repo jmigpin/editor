@@ -127,7 +127,7 @@ exec ~/path/editor \
 
 The editor has a top toolbar and columns. Columns have rows. Rows have a toolbar and a textarea.
 
-These row toolbars are also textareas where clicking on the text will run that text as a command. 
+These row toolbars are also textareas where clicking (`buttonRight`) on the text will run that text as a command.
 
 The row toolbar has a square showing the state of the row.
 
@@ -339,7 +339,14 @@ Examples:
 - `$edName`: row name. 
 - `$edDir`: row directory. 
 - `$edFileOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
-- `$edLine`: line from active row cursor. Ex: "12".
+- `$edLine`: line from active row cursor (1-based). Ex: "12".
+- `$<name>=<string>`: set custom variable in a row toolbar to be set in the environment when running an external command. Example row toolbar:
+	```
+	$myprog="a.out -arg1"
+	$myprog -arg2 | echo a${myprog}b
+	```
+	Clicking on `$myprog -arg2` will have the shell run `a.out -arg1 -arg2`.
+	Clicking on `echo a${myprog}b` will result in echoing `aa.out -arg1b`.
 
 ## Row states
 
@@ -434,7 +441,7 @@ Plugins located at: `./plugins`.
 		- double-click: selects word
 		- triple-click: selects line
 	- `shift`+`buttonLeft`: move cursor to point adding to selection
-	- `buttonRight`: move cursor to point + text area cmd
+	- `buttonRight`: move cursor to point + run textarea command
 	- `buttonWheelUp`: scroll up
 	- `buttonWheelDown`: scroll down
 	- `buttonWheelUp` on scrollbar: page up
