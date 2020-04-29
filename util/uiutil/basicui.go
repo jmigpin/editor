@@ -295,6 +295,7 @@ func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
 	ui.AppendEvent(&UIRunFuncEvent{f})
 }
 
+// Use with care to avoid UI deadlock (waiting within another wait).
 func (ui *BasicUI) WaitRunOnUIGoRoutine(f func()) {
 	ch := make(chan struct{}, 1)
 	ui.RunOnUIGoRoutine(func() {

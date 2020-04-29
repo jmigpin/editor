@@ -58,7 +58,7 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 //----------
 
 func (te *TextEdit) RW() iorw.ReadWriterAt {
-	// TODO: returning rw with undo/events, differs from SetRW()
+	// TODO: returning rw with undo/events, differs from SetRW(), workaround is to use te.Text.RW() to get underlying rw
 
 	return te.ctx.RW
 }
@@ -205,16 +205,6 @@ func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 	}
 	return nil
 }
-
-//func (te *TextEdit) WriteAtClearHistory(i int, b []byte) error {
-//	te.rwu.History.Clear()
-//	// bypasses history
-//	rw := te.rwu.ReadWriter
-//	if err := rw.Overwrite(i, 0, b); err != nil {
-//		return err
-//	}
-//	return nil
-//}
 
 //----------
 

@@ -49,6 +49,12 @@ func (in *Input) onMouseDown(ev *event.MouseDown) (event.Handled, error) {
 			MoveCursorToPoint(in.ctx, ev.Point, false)
 		}
 		return true, nil
+
+		//TODO
+		//case event.ButtonWheelUp:
+		//sb.scrollPage(true)
+		//case event.ButtonWheelDown:
+		//sb.scrollPage(false)
 	}
 	return false, nil
 }
