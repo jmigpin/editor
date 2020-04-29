@@ -42,12 +42,15 @@ func TestCmdRead1(t *testing.T) {
 func TestCmdRead2(t *testing.T) {
 	// wait for stdin indefinitely (correct, cmd.cmd.wait waits)
 
+	// (cmd differs from exec.cmd)
+	// BUT: setupstdio doesn't wait because of the terminal feature, which could cause potential leaks
+
 	ctx := context.Background()
 	cmd := NewCmd(ctx, "sh", "-c", "sleep 1")
 	midT := 2 * time.Second
 	h := NewHanger(3 * time.Second)
 	//cmd.Stdin = h // hangs
-	cmd.SetupStdio(h, nil, nil) // hangs
+	cmd.SetupStdio(h, nil, nil) // doesn't hang (should it really hang?)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}

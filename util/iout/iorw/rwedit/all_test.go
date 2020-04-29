@@ -385,13 +385,13 @@ func TestAll1(t *testing.T) {
 		// init
 		ctx := NewCtx()
 		ctx.Fns = EmptyCtxFns()
-		ctx.Fns.LineCommentSymbol = func() string { return "//" }
-		ctx.RW = iorw.NewBytesReadWriter([]byte(w.st.s))
+		ctx.Fns.LineCommentStr = func() string { return "//" }
+		ctx.RW = iorw.NewBytesReadWriterAt([]byte(w.st.s))
 
 		if w.st.son {
 			ctx.C.SetSelection(w.st.si, w.st.ci)
 		} else {
-			ctx.C.Index = w.st.ci
+			ctx.C.SetIndex(w.st.ci)
 		}
 
 		// func error
@@ -399,16 +399,16 @@ func TestAll1(t *testing.T) {
 			t.Fatal(err)
 		}
 		// content
-		b, err := iorw.ReadFullSlice(ctx.RW)
+		b, err := iorw.ReadFastFull(ctx.RW)
 		if err != nil {
 			t.Fatal(err)
 		}
 		// state
 		est := state{
 			s:   string(b),
-			ci:  ctx.C.Index,
-			si:  ctx.C.sel.index,
-			son: ctx.C.sel.on,
+			ci:  ctx.C.Index(),
+			si:  ctx.C.SelectionIndex(),
+			son: ctx.C.HaveSelection(),
 		}
 		if est != w.est {
 			t.Fatalf("expected:\n%v\ngot:\n%v\n", w.est, est)

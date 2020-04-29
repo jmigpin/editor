@@ -14,7 +14,7 @@ func BenchmarkFillRect1(b *testing.B) {
 	bounds := img.Bounds()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		FillRectangle(img, &bounds, color.White)
+		FillRectangle(img, bounds, color.White)
 	}
 }
 func BenchmarkFillRect2(b *testing.B) {
@@ -22,7 +22,7 @@ func BenchmarkFillRect2(b *testing.B) {
 	bounds := img.Bounds()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		FillRectangle(img, &bounds, color.White)
+		FillRectangle(img, bounds, color.White)
 	}
 }
 func BenchmarkDrawBGRA(b *testing.B) {

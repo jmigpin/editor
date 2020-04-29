@@ -104,7 +104,7 @@ func (c *Copy) debugRequest(ev *xproto.SelectionRequestEvent) {
 	// atom name
 	name, err := xutil.GetAtomName(c.conn, ev.Target)
 	if err != nil {
-		log.Printf("cpcopy selectionrequest atom name for target: %w", err)
+		log.Printf("cpcopy selectionrequest atom name for target: %v", err)
 	}
 	// debug
 	log.Printf("cpcopy: non-standard external request for type %v %q\n", ev.Target, name)

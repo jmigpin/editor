@@ -78,7 +78,7 @@ func (tf *TerminalFilter) filter(p []byte) {
 			if err != io.EOF {
 				// just output error, don't stop the filter (not programs fault)
 				if tf.erow != nil {
-					tf.erow.Ed.Messagef("terminal filter: ", err)
+					tf.erow.Ed.Messagef("terminal filter: error: %v", err)
 				}
 			}
 			break

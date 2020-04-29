@@ -1,7 +1,6 @@
-package windriver
+// +build windows
 
-//go:generate stringer -tags=windows -type=_wm -output zwm.go
-//go:generate go run golang.org/x/sys/windows/mkwinsyscall -output zwinapi.go winapi.go
+package windriver
 
 import (
 	"image"

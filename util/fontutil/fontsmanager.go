@@ -12,11 +12,16 @@ import (
 var DPI float64 // default: github.com/golang/freetype/truetype/face.go:31:3
 var FontsMan = NewFontsManager()
 
-func DefaultFontFace() *FontFace {
+func DefaultFont() *Font {
 	f, err := FontsMan.Font(goregular.TTF)
 	if err != nil {
 		panic(err)
 	}
+	return f
+}
+
+func DefaultFontFace() *FontFace {
+	f := DefaultFont()
 	opt := truetype.Options{} // defaults: size=12, dpi=72, ~14px
 	return f.FontFace(opt)
 }

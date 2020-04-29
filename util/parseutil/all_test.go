@@ -106,7 +106,7 @@ func TestParseResource15(t *testing.T) {
 
 func TestParseResource16(t *testing.T) {
 	s := ""
-	rd := iorw.NewStringReader(s)
+	rd := iorw.NewStringReaderAt(s)
 	_, err := ParseResource(rd, 0)
 	if err == nil {
 		t.Fatal("able to parse empty string")
@@ -184,7 +184,7 @@ func TestParseResource24(t *testing.T) {
 
 func testParseResourcePath(t *testing.T, str string, index int, estr string) {
 	t.Helper()
-	rd := iorw.NewStringReader(str)
+	rd := iorw.NewStringReaderAt(str)
 	u, err := ParseResource(rd, index)
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +196,7 @@ func testParseResourcePath(t *testing.T, str string, index int, estr string) {
 
 func testParseResourceLineCol(t *testing.T, str string, index int, eline, ecol int) {
 	t.Helper()
-	rd := iorw.NewStringReader(str)
+	rd := iorw.NewStringReaderAt(str)
 	u, err := ParseResource(rd, index)
 	if err != nil {
 		t.Fatal(err)
@@ -212,7 +212,7 @@ func testParseResourceLineCol(t *testing.T, str string, index int, eline, ecol i
 
 //func TestExpand1(t *testing.T) {
 //s := ": /a/b/c"
-//rd := iorw.NewStringReader(s)
+//rd := iorw.NewStringReaderAt(s)
 //l, _ := ExpandIndexesEscape(rd, rd.Max(), false, isResourceRune, '\\')
 //if l != 2 {
 //	t.Fatalf("%v", l)
@@ -223,7 +223,7 @@ func testParseResourceLineCol(t *testing.T, str string, index int, eline, ecol i
 
 func TestIndexLineColumn1(t *testing.T) {
 	s := "123\n123\n123"
-	rd := iorw.NewStringReader(s)
+	rd := iorw.NewStringReaderAt(s)
 	l, c, err := IndexLineColumn(rd, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -238,7 +238,7 @@ func TestIndexLineColumn1(t *testing.T) {
 }
 func TestIndexLineColumn2(t *testing.T) {
 	s := "123\n123\n123"
-	rd := iorw.NewStringReader(s)
+	rd := iorw.NewStringReaderAt(s)
 	l, c, err := IndexLineColumn(rd, rd.Max())
 	if err != nil {
 		t.Fatal(err)
@@ -254,7 +254,7 @@ func TestIndexLineColumn2(t *testing.T) {
 
 func TestLineColumnIndex1(t *testing.T) {
 	s := "123\n123\n123"
-	rw := iorw.NewStringReader(s)
+	rw := iorw.NewStringReaderAt(s)
 	i, err := LineColumnIndex(rw, 3, 10)
 	if err != nil {
 		t.Fatal(err)

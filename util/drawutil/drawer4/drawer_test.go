@@ -11,20 +11,18 @@ import (
 	"testing"
 
 	"github.com/golang/freetype/truetype"
-	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"golang.org/x/image/colornames"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 func TestEmpty(t *testing.T) {
 	d := New()
-	d.SetFace(drawutil.GetTestFace())
+	d.SetFontFace(fontutil.DefaultFontFace())
 	d.SetBounds(image.Rect(0, 0, 100, 100))
 
 	s := ""
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	w := d.wlineStartIndex(true, 10, 0, nil)
@@ -35,11 +33,11 @@ func TestEmpty(t *testing.T) {
 
 func TestNLinesStartIndex1(t *testing.T) {
 	d := New()
-	d.SetFace(drawutil.GetTestFace())
+	d.SetFontFace(fontutil.DefaultFontFace())
 	d.SetBounds(image.Rect(0, 0, 100, 100))
 
 	s := "111\n222\n333"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 	pos := r.Max()
 	d.SetRuneOffset(pos)
@@ -67,7 +65,7 @@ func TestImg01(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.Draw(img)
@@ -78,7 +76,7 @@ func TestImg01bDrawFullLineAtEndOfLineOffset(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.SetRuneOffset(5)
@@ -91,7 +89,7 @@ func TestImg02WrapLine(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "111111111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.Draw(img)
@@ -102,7 +100,7 @@ func TestImg03Ident(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  11111111111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.Draw(img)
@@ -113,7 +111,7 @@ func TestImg04Offset1(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  111111111111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 	d.SetRuneOffset(8)
 
@@ -125,7 +123,7 @@ func TestImg04bOffset2(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  1111111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 	d.SetRuneOffset(8)
 
@@ -138,7 +136,7 @@ func TestImg05RunePerLine(t *testing.T) {
 	d, img := newTestDrawerRect(rect)
 
 	s := "WWW"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.Draw(img)
@@ -149,7 +147,7 @@ func TestImg06Scroll1(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "111111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	sy := d.scrollSizeYDown(2)
@@ -163,7 +161,7 @@ func TestImg07Scroll2(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  11111111111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	sy := d.scrollSizeYDown(1)
@@ -180,7 +178,7 @@ func TestImg08Scroll3(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "  11111111111\n22222\n33333\n44444"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.SetRuneOffset(15)
@@ -199,7 +197,7 @@ func TestImg09Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	o := d.RangeVisibleOffset(r.Max(), 0)
@@ -213,7 +211,7 @@ func TestImg10Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	o := d.RangeVisibleOffset(19, 4) // line with 4's
@@ -227,7 +225,7 @@ func TestImg11Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	o := d.RangeVisibleOffset(19, 7) // line with 4's
@@ -241,7 +239,7 @@ func TestImg12Cursor(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
@@ -265,7 +263,7 @@ func TestImg13Cursor(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
@@ -286,7 +284,7 @@ func TestImg14Cursor(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333\n44444\n55555\n66666\n77777\n88888"
-	rw := iorw.NewBytesReadWriter([]byte(s))
+	rw := iorw.NewBytesReadWriterAt([]byte(s))
 	d.SetReader(rw)
 
 	d.Opt.Cursor.On = true
@@ -295,7 +293,7 @@ func TestImg14Cursor(t *testing.T) {
 	d.SetRuneOffset(c)
 
 	l := 8
-	rw.Delete(rw.Max()-l, l)
+	rw.OverwriteAt(rw.Max()-l, l, nil)
 
 	d.Draw(img)
 	cmpResult(t, img, "img14")
@@ -305,7 +303,7 @@ func TestImg15Visible(t *testing.T) {
 	d, img := newTestDrawer()
 
 	s := "11111\n22222\n33333"
-	rw := iorw.NewBytesReadWriter([]byte(s))
+	rw := iorw.NewBytesReadWriterAt([]byte(s))
 	d.SetReader(rw)
 
 	d.Opt.Cursor.On = true
@@ -313,14 +311,14 @@ func TestImg15Visible(t *testing.T) {
 	c := rw.Max()
 	d.SetRuneOffset(c)
 
-	rw.Delete(rw.Min(), iorw.MMLen(rw))
-	b, _ := rw.ReadNSliceAt(rw.Min(), iorw.MMLen(rw))
+	rw.OverwriteAt(rw.Min(), rw.Max()-rw.Min(), nil)
+	b, _ := rw.ReadFastAt(rw.Min(), rw.Max()-rw.Min())
 	_ = string(b)
 
 	o := d.RangeVisibleOffset(0, 0)
 	d.SetRuneOffset(o)
 
-	rw.Insert(rw.Min(), []byte("44444\n"))
+	rw.OverwriteAt(rw.Min(), 0, []byte("44444\n"))
 
 	d.Draw(img)
 	cmpResult(t, img, "img15")
@@ -339,7 +337,7 @@ func TestImg16Select(t *testing.T) {
 		s += fmt.Sprintf("%v", i%10)
 	}
 
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
 	d.Opt.Cursor.On = true
@@ -361,7 +359,7 @@ func newTestDrawer() (*Drawer, draw.Image) {
 func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 	face := newTestFace()
 	d := New()
-	d.SetFace(face)
+	d.SetFontFace(face)
 	d.SetBounds(rect)
 	d.SetFg(color.Black)
 
@@ -374,13 +372,11 @@ func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 	return d, img
 }
 
-func newTestFace() font.Face {
-	ttf := goregular.TTF
-	f, err := truetype.Parse(ttf)
-	if err != nil {
-		panic(err)
-	}
-	return drawutil.NewFace(f, &truetype.Options{DPI: 100})
+func newTestFace() *fontutil.FontFace {
+	f := fontutil.DefaultFont()
+	opt := truetype.Options{DPI: 100}
+	return f.FontFace(opt)
+
 }
 
 var testImg0Dir = "testimgs"

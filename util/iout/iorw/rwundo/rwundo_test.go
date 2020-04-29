@@ -4,23 +4,24 @@ import (
 	"testing"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
 //godebug:annotatepackage
 
 func TestRWUndo1(t *testing.T) {
 	s1 := "0123456789"
-	rw := iorw.NewBytesReadWriter([]byte(s1))
+	rw := iorw.NewBytesReadWriterAt([]byte(s1))
 	h := NewHistory(10)
 	rwu := NewRWUndo(rw, h)
 
 	gets := func() string {
-		b, _ := iorw.ReadFullFast(rwu)
+		b, _ := iorw.ReadFastFull(rwu)
 		return string(b)
 	}
 
-	rwu.Overwrite(3, 2, []byte("---")) // "012---56789"
-	rwu.Overwrite(7, 0, []byte("+++")) // "012---5+++6789"
+	rwu.OverwriteAt(3, 2, []byte("---")) // "012---56789"
+	rwu.OverwriteAt(7, 0, []byte("+++")) // "012---5+++6789"
 
 	exp := "012---5+++6789"
 
@@ -47,7 +48,7 @@ func TestRWUndo1(t *testing.T) {
 
 	rwu.undo()
 
-	rwu.Overwrite(5, 4, []byte("***"))
+	rwu.OverwriteAt(5, 4, []byte("***"))
 
 	exp2 := "012--***89"
 	s5 := gets()
@@ -74,18 +75,18 @@ func TestRWUndo1(t *testing.T) {
 
 func TestRWUndo2(t *testing.T) {
 	s1 := "0123456789"
-	rw := iorw.NewBytesReadWriter([]byte(s1))
+	rw := iorw.NewBytesReadWriterAt([]byte(s1))
 	h := NewHistory(10)
 	rwu := NewRWUndo(rw, h)
 
 	gets := func() string {
-		b, _ := iorw.ReadFullFast(rwu)
+		b, _ := iorw.ReadFastFull(rwu)
 		return string(b)
 	}
 
-	rwu.Overwrite(3, 2, nil) // "01256789"
-	rwu.Overwrite(7, 1, nil) // "0125678"
-	rwu.Overwrite(4, 1, nil) // "012578"
+	rwu.OverwriteAt(3, 2, nil) // "01256789"
+	rwu.OverwriteAt(7, 1, nil) // "0125678"
+	rwu.OverwriteAt(4, 1, nil) // "012578"
 
 	exp2 := "012578"
 	s2 := gets()
@@ -104,20 +105,20 @@ func TestRWUndo2(t *testing.T) {
 
 func TestRWUndo3(t *testing.T) {
 	s1 := "0123456789"
-	rw := iorw.NewBytesReadWriter([]byte(s1))
+	rw := iorw.NewBytesReadWriterAt([]byte(s1))
 	h := NewHistory(10)
 	rwu := NewRWUndo(rw, h)
 
 	gets := func() string {
-		b, _ := iorw.ReadFullFast(rwu)
+		b, _ := iorw.ReadFastFull(rwu)
 		return string(b)
 	}
 
-	rwu.Overwrite(3, 2, nil) // "01256789"
-	rwu.History.BeginUndoGroup(nil)
-	rwu.Overwrite(7, 1, nil) // "0125678"
-	rwu.Overwrite(4, 1, nil) // "012578"
-	rwu.History.EndUndoGroup(nil)
+	rwu.OverwriteAt(3, 2, nil) // "01256789"
+	rwu.History.BeginUndoGroup(rwedit.SimpleCursor{})
+	rwu.OverwriteAt(7, 1, nil) // "0125678"
+	rwu.OverwriteAt(4, 1, nil) // "012578"
+	rwu.History.EndUndoGroup(rwedit.SimpleCursor{})
 
 	rwu.undo()
 
@@ -130,20 +131,20 @@ func TestRWUndo3(t *testing.T) {
 
 func TestRWUndo4(t *testing.T) {
 	s1 := "0123456789"
-	rw := iorw.NewBytesReadWriter([]byte(s1))
+	rw := iorw.NewBytesReadWriterAt([]byte(s1))
 	h := NewHistory(10)
 	rwu := NewRWUndo(rw, h)
 
 	gets := func() string {
-		b, _ := iorw.ReadFullFast(rwu)
+		b, _ := iorw.ReadFastFull(rwu)
 		return string(b)
 	}
 
-	rwu.History.BeginUndoGroup(nil)
-	rwu.Overwrite(3, 2, nil) // "01256789"
-	rwu.Overwrite(7, 1, nil) // "0125678"
-	rwu.Overwrite(4, 1, nil) // "012578"
-	rwu.History.EndUndoGroup(nil)
+	rwu.History.BeginUndoGroup(rwedit.SimpleCursor{})
+	rwu.OverwriteAt(3, 2, nil) // "01256789"
+	rwu.OverwriteAt(7, 1, nil) // "0125678"
+	rwu.OverwriteAt(4, 1, nil) // "012578"
+	rwu.History.EndUndoGroup(rwedit.SimpleCursor{})
 
 	rwu.undo()
 
@@ -156,18 +157,18 @@ func TestRWUndo4(t *testing.T) {
 
 func TestRWUndo5(t *testing.T) {
 	s1 := "0123456789"
-	rw := iorw.NewBytesReadWriter([]byte(s1))
+	rw := iorw.NewBytesReadWriterAt([]byte(s1))
 	h := NewHistory(10)
 	rwu := NewRWUndo(rw, h)
 
 	gets := func() string {
-		b, _ := iorw.ReadFullFast(rwu)
+		b, _ := iorw.ReadFastFull(rwu)
 		return string(b)
 	}
 
-	rwu.Overwrite(3, 2, nil) // "01256789"
-	rwu.Overwrite(7, 1, nil) // "0125678"
-	rwu.Overwrite(4, 1, nil) // "012578"
+	rwu.OverwriteAt(3, 2, nil) // "01256789"
+	rwu.OverwriteAt(7, 1, nil) // "0125678"
+	rwu.OverwriteAt(4, 1, nil) // "012578"
 
 	rwu.undo()
 	rwu.History.ClearUndones()
@@ -182,24 +183,24 @@ func TestRWUndo5(t *testing.T) {
 
 func TestRWUndo6(t *testing.T) {
 	s1 := "0123456789"
-	rw := iorw.NewBytesReadWriter([]byte(s1))
+	rw := iorw.NewBytesReadWriterAt([]byte(s1))
 	h := NewHistory(10)
 	rwu := NewRWUndo(rw, h)
 
 	gets := func() string {
-		b, _ := iorw.ReadFullFast(rwu)
+		b, _ := iorw.ReadFastFull(rwu)
 		return string(b)
 	}
 
-	rwu.Overwrite(3, 2, nil) // "01256789"
-	rwu.Overwrite(7, 1, nil) // "0125678"
-	rwu.Overwrite(4, 1, nil) // "012578"
+	rwu.OverwriteAt(3, 2, nil) // "01256789"
+	rwu.OverwriteAt(7, 1, nil) // "0125678"
+	rwu.OverwriteAt(4, 1, nil) // "012578"
 
 	rwu.undo()
 	rwu.undo()
 
-	rwu.Overwrite(3, 2, []byte("-")) // "012-789"
-	rwu.Overwrite(5, 0, []byte("-")) // "012-7-89"
+	rwu.OverwriteAt(3, 2, []byte("-")) // "012-789"
+	rwu.OverwriteAt(5, 0, []byte("-")) // "012-7-89"
 
 	exp2 := "012-7-89"
 	s2 := gets()

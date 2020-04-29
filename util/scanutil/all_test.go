@@ -8,7 +8,7 @@ import (
 
 func TestScan1(t *testing.T) {
 	s := "//\nbbb"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	if !sc.Match.Sequence("//") {
 		t.Fatal()
@@ -26,7 +26,7 @@ func TestScan1(t *testing.T) {
 
 func TestScan2(t *testing.T) {
 	s := "file:aaab"
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 
 	// normal direction
@@ -57,7 +57,7 @@ func TestScanQuote1(t *testing.T) {
 	s := `"aa\""bbb`
 	es := `"aa\""`
 
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 
 	sc := NewScanner(r)
 	if !sc.Match.Quote('"', '\\', false, 1000) {
@@ -82,7 +82,7 @@ func TestScanQuote1(t *testing.T) {
 
 func TestScanQuote2(t *testing.T) {
 	s := `"aa`
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	if sc.Match.Quote('"', '\\', false, 1000) {
 		t.Fatal()
@@ -94,7 +94,7 @@ func TestScanQuote2(t *testing.T) {
 
 func TestEscape1(t *testing.T) {
 	s := `a\`
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	sc.Pos = 1
 	if sc.Match.Escape('\\') || sc.Pos != 1 {
@@ -103,7 +103,7 @@ func TestEscape1(t *testing.T) {
 }
 func TestEscape2(t *testing.T) {
 	s := `a\\\\ `
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	sc.Reverse = true
 	sc.Pos = r.Max()
@@ -113,7 +113,7 @@ func TestEscape2(t *testing.T) {
 }
 func TestEscape3(t *testing.T) {
 	s := `a\\\ `
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	sc.Reverse = true
 	sc.Pos = r.Max()
@@ -123,7 +123,7 @@ func TestEscape3(t *testing.T) {
 }
 func TestEscape4(t *testing.T) {
 	s := `\\\ `
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	sc.Reverse = true
 	sc.Pos = r.Max()
@@ -134,7 +134,7 @@ func TestEscape4(t *testing.T) {
 
 func TestInt1(t *testing.T) {
 	s := `123a`
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	if !sc.Match.Int() || sc.Value() != "123" {
 		t.Fatal(sc.Errorf(""))
@@ -142,7 +142,7 @@ func TestInt1(t *testing.T) {
 }
 func TestInt2(t *testing.T) {
 	s := `-123`
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	sc.Reverse = true
 	sc.SetStartPos(len(s))
@@ -153,7 +153,7 @@ func TestInt2(t *testing.T) {
 
 func TestFloat1(t *testing.T) {
 	s := `.23`
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	if !sc.Match.Float() || sc.Value() != ".23" {
 		t.Fatal(sc.Errorf(""))
@@ -161,7 +161,7 @@ func TestFloat1(t *testing.T) {
 }
 func TestFloat2(t *testing.T) {
 	s := `.23E`
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	if !sc.Match.Float() || sc.Value() != ".23" {
 		t.Fatal(sc.Errorf(""))
@@ -169,7 +169,7 @@ func TestFloat2(t *testing.T) {
 }
 func TestFloat3(t *testing.T) {
 	s := `.23E+1`
-	r := iorw.NewStringReader(s)
+	r := iorw.NewStringReaderAt(s)
 	sc := NewScanner(r)
 	if !sc.Match.Float() || sc.Value() != ".23E+1" {
 		t.Fatal(sc.Errorf(""))
