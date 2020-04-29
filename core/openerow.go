@@ -115,7 +115,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		if conf.RowPos == nil {
 			return isNew, errors.New("missing row position")
 		}
-		erow, err := info.NewERow(conf.RowPos)
+		erow, err := NewLoadedERow(info, conf.RowPos)
 		if err != nil {
 			return isNew, err
 		}

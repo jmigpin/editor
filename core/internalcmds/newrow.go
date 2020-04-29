@@ -33,7 +33,10 @@ func NewRow(args *core.InternalCmdArgs) error {
 
 	info := ed.ReadERowInfo(p)
 
-	erow := core.NewERow(ed, info, rowPos)
+	erow, err := core.NewLoadedERow(info, rowPos)
+	if err != nil {
+		return err
+	}
 	erow.Flash()
 
 	return nil

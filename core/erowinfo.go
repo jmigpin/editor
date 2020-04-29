@@ -29,24 +29,24 @@ type ERowInfo struct {
 	fi    os.FileInfo
 	fiErr error
 
-	// savedHash keeps the hash known even if the file gets deleted and reappears later
-	savedHash struct {
-		size int
-		hash []byte
-	}
-
-	// filesystem hash (reflects changes by other programs)
-	fsHash struct {
-		//size    int
-		hash    []byte
-		modTime time.Time
-	}
-
-	// not always up to date, used if the hash is being requested without the contents being changed
-	editedHash struct {
-		updated bool
-		size    int
-		hash    []byte
+	// file type only
+	fileData struct {
+		// saved/memory (keep even if file is deleted and reappears later)
+		saved struct {
+			size int
+			hash []byte
+		}
+		// filesystem (reflects changes by other programs)
+		fs struct {
+			hash    []byte
+			modTime time.Time
+		}
+		// not always up to date, used if the hash is being requested without the contents being changed
+		edited struct {
+			updated bool
+			size    int
+			hash    []byte
+		}
 	}
 }
 
@@ -144,11 +144,11 @@ func (info *ERowInfo) Dir() string {
 //----------
 
 func (info *ERowInfo) editedHashNeedsUpdate() {
-	info.editedHash.updated = false
+	info.fileData.edited.updated = false
 }
 
 func (info *ERowInfo) updateEditedHash() {
-	if info.editedHash.updated {
+	if info.fileData.edited.updated {
 		return
 	}
 	// read from one of the erows
@@ -166,14 +166,14 @@ func (info *ERowInfo) updateEditedHash() {
 //----------
 
 func (info *ERowInfo) setEditedHash(hash []byte, size int) {
-	info.editedHash.size = size
-	info.editedHash.hash = hash
-	info.editedHash.updated = true
+	info.fileData.edited.size = size
+	info.fileData.edited.hash = hash
+	info.fileData.edited.updated = true
 }
 
 func (info *ERowInfo) setSavedHash(hash []byte, size int) {
-	info.savedHash.size = size
-	info.savedHash.hash = hash
+	info.fileData.saved.size = size
+	info.fileData.saved.hash = hash
 	info.UpdateFsDifferRowState()
 }
 
@@ -182,8 +182,8 @@ func (info *ERowInfo) setFsHash(hash []byte) {
 		return
 	}
 	//info.fsHash.size = int(info.fi.Size()) // TODO: downgrading if 32bit system
-	info.fsHash.hash = hash
-	info.fsHash.modTime = info.fi.ModTime()
+	info.fileData.fs.hash = hash
+	info.fileData.fs.modTime = info.fi.ModTime()
 	info.UpdateFsDifferRowState()
 }
 
@@ -194,7 +194,7 @@ func (info *ERowInfo) updateFsHashIfNeeded() {
 	if info.fi == nil {
 		return
 	}
-	if !info.fi.ModTime().Equal(info.fsHash.modTime) {
+	if !info.fi.ModTime().Equal(info.fileData.fs.modTime) {
 		info.readFsFile()
 	}
 }
@@ -253,84 +253,6 @@ func (info *ERowInfo) FirstERow() (*ERow, bool) {
 
 //----------
 
-func (info *ERowInfo) NewERow(rowPos *ui.RowPos) (*ERow, error) {
-	switch {
-	case info.IsSpecial():
-		// there can be only one instance of a special row
-		if len(info.ERows) > 0 {
-			return nil, fmt.Errorf("special row already exists: %v", info.Name())
-		}
-		erow := NewERow(info.Ed, info, rowPos)
-		return erow, nil
-	case info.IsDir():
-		return info.NewDirERow(rowPos)
-	case info.IsFileButNotDir():
-		return info.NewFileERow(rowPos)
-	default:
-		err := fmt.Errorf("unable to open erow: %v", info.name)
-		if info.fiErr != nil {
-			err = fmt.Errorf("%v: %v", err, info.fiErr)
-		}
-		return nil, err
-	}
-}
-
-func (info *ERowInfo) NewERowCreateOnErr(rowPos *ui.RowPos) (*ERow, error) {
-	erow, err := info.NewERow(rowPos)
-	if err != nil {
-		erow = NewERow(info.Ed, info, rowPos)
-		return erow, err
-	}
-	return erow, nil
-}
-
-//----------
-
-func (info *ERowInfo) NewDirERow(rowPos *ui.RowPos) (*ERow, error) {
-	if !info.IsDir() {
-		return nil, fmt.Errorf("not a directory")
-	}
-	erow := NewERow(info.Ed, info, rowPos)
-	ListDirERow(erow, erow.Info.Name(), false, true)
-	return erow, nil
-}
-
-func (info *ERowInfo) ReloadDir(erow *ERow) error {
-	if !info.IsDir() {
-		return fmt.Errorf("not a directory")
-	}
-	ListDirERow(erow, erow.Info.Name(), false, true)
-	return nil
-}
-
-//----------
-
-func (info *ERowInfo) NewFileERow(rowPos *ui.RowPos) (*ERow, error) {
-	// read content from existing row
-	if erow0, ok := info.FirstERow(); ok {
-		// create erow first to get it updated
-		erow := NewERow(info.Ed, info, rowPos)
-		// update the new erow with content
-		info.setRWFromMaster(erow0)
-		return erow, nil
-	}
-
-	// read file
-	b, err := info.readFsFile()
-	if err != nil {
-		return nil, err
-	}
-
-	// update data
-	info.setSavedHash(info.fsHash.hash, len(b))
-
-	// new erow (no other rows exist)
-	erow := NewERow(info.Ed, info, rowPos)
-	erow.Row.TextArea.SetBytesClearHistory(b)
-
-	return erow, nil
-}
-
 func (info *ERowInfo) ReloadFile() error {
 	b, err := info.readFsFile()
 	if err != nil {
@@ -338,7 +260,7 @@ func (info *ERowInfo) ReloadFile() error {
 	}
 
 	// update data
-	info.setSavedHash(info.fsHash.hash, len(b))
+	info.setSavedHash(info.fileData.fs.hash, len(b))
 
 	// update all erows
 	info.SetRowsBytes(b)
@@ -459,7 +381,7 @@ func (info *ERowInfo) EqualToBytesHash(size int, hash []byte) bool {
 		return false
 	}
 	info.updateEditedHash()
-	return bytes.Equal(hash, info.editedHash.hash)
+	return bytes.Equal(hash, info.fileData.edited.hash)
 }
 
 //----------
@@ -479,7 +401,7 @@ func (info *ERowInfo) UpdateEditedRowState() {
 		return
 	}
 	info.editedHashNeedsUpdate()
-	edited := !info.EqualToBytesHash(info.savedHash.size, info.savedHash.hash)
+	edited := !info.EqualToBytesHash(info.fileData.saved.size, info.fileData.saved.hash)
 	info.updateRowsStates(ui.RowStateEdited, edited)
 }
 
@@ -491,8 +413,8 @@ func (info *ERowInfo) UpdateFsDifferRowState() {
 	if !info.IsFileButNotDir() {
 		return
 	}
-	h1 := info.fsHash.hash
-	h2 := info.savedHash.hash
+	h1 := info.fileData.fs.hash
+	h2 := info.fileData.saved.hash
 	differ := !bytes.Equal(h1, h2)
 	info.updateRowsStates(ui.RowStateFsDiffer, differ)
 }

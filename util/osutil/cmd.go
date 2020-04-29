@@ -11,6 +11,8 @@ import (
 	"sync"
 )
 
+//godebug:annotatefile
+
 type Cmd struct {
 	*exec.Cmd
 	ctx         context.Context
@@ -61,7 +63,7 @@ func (cmd *Cmd) start2() error {
 		return err
 	}
 
-	// Ensure callback is called before the first stdout/stderr write (works since the process takes longer to launch and write back, but in theory this could be called after some output comes out). Always works if stdin/out/err was setup with SetupStdInOutErr() since the copy loop starts after the callback.
+	// Ensure callback is called before the first stdout/stderr write (works since the process takes longer to launch and write back, but in theory this could be called after some output comes out). Always works if stdin/out/err was setup with SetupStdio() since the copy loop starts after the callback.
 	if cmd.PreOutputCallback != nil {
 		cmd.PreOutputCallback()
 	}
@@ -147,9 +149,11 @@ func (cmd *Cmd) setupStdio2(ir io.Reader, ow, ew io.Writer) error {
 		if err != nil {
 			return err
 		}
-		cmd.addCopyCloser(ipwc)
+		// TODO: not adding will not wait for it to close (terminal depends on a cmd not waiting for the input to close)
+		//cmd.addCopyCloser(ipwc)
 		cmd.copy.fns = append(cmd.copy.fns, func() {
-			defer cmd.closeCopyCloser(ipwc)
+			//defer cmd.closeCopyCloser(ipwc)
+			defer ipwc.Close()
 			io.Copy(ipwc, ir)
 		})
 	}
@@ -169,8 +173,8 @@ func (cmd *Cmd) setupStdio2(ir io.Reader, ow, ew io.Writer) error {
 		//if ew == ow { // can panic
 		//if interfaceEqual(ew, ow) { // can panic
 		if reflect.DeepEqual(ew, ow) {
-			cmd.Stderr = cmd.Stdout // set in StdoutPipe() call
-			return nil              // early exit, stderr set
+			cmd.Cmd.Stderr = cmd.Cmd.Stdout // set in StdoutPipe() call
+			return nil                      // early exit, stderr set
 		}
 	}
 
@@ -201,7 +205,7 @@ func (cmd *Cmd) setupStdio2(ir io.Reader, ow, ew io.Writer) error {
 
 func (cmd *Cmd) runCopyFns() {
 	for _, fn := range cmd.copy.fns {
-		// go fn() // will call the same fn twice (loop var)
+		// go fn() // Commented: will call the same fn twice (loop var)
 		go func(fn2 func()) {
 			fn2()
 		}(fn)

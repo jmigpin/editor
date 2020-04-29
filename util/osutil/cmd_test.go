@@ -68,12 +68,17 @@ func TestCmdRead2(t *testing.T) {
 
 func TestCmdRead2Ctx(t *testing.T) {
 	// ctx cancel should be able to stop the hang on stdin
+	// (cmd differs from exec.cmd)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	cmd := NewCmd(ctx, "sh", "-c", "sleep 1")
 	midT := 2 * time.Second
 	h := NewHanger(3 * time.Second)
-	//cmd.Stdin = h // hangs
+	//cmd.Stdin = h              // hangs (waits for it to be closed/fail)
+	//ipwc, _ := cmd.StdinPipe() // doesn't hang
+	//go func() {
+	//	io.Copy(ipwc, h)
+	//}()
 	cmd.SetupStdio(h, nil, nil) // doesn't hang
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -157,13 +162,13 @@ func TestCmdWrite2(t *testing.T) {
 }
 
 func TestCmdWrite2Ctx(t *testing.T) {
-	// ctx cancel should be able to stop the hang on stdout
+	// ctx cancel should be able to stop the hang on stdout (correct, cmd.cmd cancels and sends kill sig)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	midT := 2 * time.Second
 	cmd := NewCmd(ctx, "sh", "-c", "sleep 3; echo aaa")
 	h := NewHanger(4 * time.Second)
-	//cmd.Stdout = h // hangs
+	//cmd.Stdout = h // doesn't hang
 	cmd.SetupStdio(nil, h, nil) // doesn't hang
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -175,6 +180,8 @@ func TestCmdWrite2Ctx(t *testing.T) {
 	}()
 	if err := cmd.Wait(); err == nil {
 		t.Fatal("expecting error")
+	} else {
+		t.Logf("err: %v", err)
 	}
 	dur := time.Since(now)
 	t.Logf("wait done: %v\n", dur)

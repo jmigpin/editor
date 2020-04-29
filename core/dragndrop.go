@@ -107,7 +107,7 @@ func (h *DndHandler) handleDroppedURL(col *ui.Column, p *image.Point, u *url.URL
 	}
 
 	info := h.ed.ReadERowInfo(name)
-	_, err := info.NewERow(rowPos)
+	_, err := NewLoadedERow(info, rowPos)
 	if err != nil {
 		h.ed.Error(err)
 	}

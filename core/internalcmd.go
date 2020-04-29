@@ -102,7 +102,7 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 
 	// create new row
 	info := erow.Ed.ReadERowInfo(filename)
-	erow2, err := info.NewERow(erow.Row.PosBelow())
+	erow2, err := NewLoadedERow(info, erow.Row.PosBelow())
 	if err != nil {
 		erow.Ed.Error(err)
 		return true

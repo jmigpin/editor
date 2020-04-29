@@ -124,7 +124,7 @@ func (s *Session) restore(ed *Editor) {
 		}
 	}
 
-	// restore positions after all rows have been created
+	// restore positions after positioning rows to have correct dimensions
 	for rs, erow := range m {
 		rs.RestorePos(erow)
 	}
@@ -195,21 +195,13 @@ func (state *RowState) OpenERow(ed *Editor, rowPos *ui.RowPos) (*ERow, bool, err
 	name := ed.HomeVars.Decode(arg0.Str())
 	info := ed.ReadERowInfo(name)
 
-	// create erow, even if it will have errors
-	erow, err := info.NewERowCreateOnErr(rowPos)
-	if err != nil {
-		ed.Error(err)
-		// just reporting error, continue
-	}
+	// create erow, even if it had have errors
+	erow := NewLoadedERowOrNewBasic(info, rowPos)
 
 	// setup toolbar even if erow had errors
 	w := data.Str[arg0.End:]
 	if strings.TrimSpace(w) != "" {
 		erow.ToolbarSetStrAfterNameClearHistory(w)
-	}
-
-	if err != nil {
-		return erow, ok, err
 	}
 
 	return erow, true, nil
@@ -286,7 +278,7 @@ func ListSessions(ed *Editor) {
 		fmt.Fprintf(buf, "OpenSession %v\n", sname)
 	}
 
-	erow, _ := ed.ExistingOrNewERow("+Sessions")
+	erow, _ := ExistingERowOrNewBasic(ed, "+Sessions")
 	erow.Row.TextArea.SetBytesClearPos(buf.Bytes())
 	erow.Flash()
 }

@@ -159,10 +159,15 @@ func (ed *Editor) uiEventLoop() {
 		case *event.DndDrop:
 			ed.dndh.OnDrop(t)
 		default:
-			if !ed.handleGlobalShortcuts(ev) {
-				if !ed.UI.HandleEvent(ev) {
-					log.Printf("uievloop: unhandled event: %#v", ev)
-				}
+			//if !ed.handleGlobalShortcuts(ev) {
+			//	if !ed.UI.HandleEvent(ev) {
+			//		log.Printf("uievloop: unhandled event: %#v", ev)
+			//	}
+			//}
+			h1 := ed.handleGlobalShortcuts(ev)
+			h2 := ed.UI.HandleEvent(ev)
+			if !h1 && !h2 {
+				log.Printf("uievloop: unhandled event: %#v", ev)
 			}
 		}
 		ed.UI.LayoutMarkedAndSchedulePaint()
@@ -235,23 +240,11 @@ func (ed *Editor) Message(s string) {
 //----------
 
 func (ed *Editor) messagesERow() *ERow {
-	erow, isNew := ed.ExistingOrNewERow("+Messages")
+	erow, isNew := ExistingERowOrNewBasic(ed, "+Messages")
 	if isNew {
 		erow.ToolbarSetStrAfterNameClearHistory(" | Clear")
 	}
 	return erow
-}
-
-//----------
-
-// Used for: +messages, +sessions.
-func (ed *Editor) ExistingOrNewERow(name string) (_ *ERow, isnew bool) {
-	info := ed.ReadERowInfo(name)
-	if erow0, ok := info.FirstERow(); ok {
-		return erow0, false
-	}
-	rowPos := ed.GoodRowPos()
-	return NewERow(ed, info, rowPos), true
 }
 
 //----------
@@ -345,7 +338,7 @@ func (ed *Editor) setupRootToolbar() {
 		ed.updateERowsToolbarsHomeVars()
 	})
 
-	s := "Exit | ListSessions | NewColumn | NewRow | Reload | "
+	s := "Exit | ListSessions | NewColumn | NewRow | Reload | Stop"
 	tb.SetStrClearHistory(s)
 }
 
@@ -411,7 +404,7 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 			info := ed.ReadERowInfo(filename)
 			if len(info.ERows) == 0 {
 				rowPos := ui.NewRowPos(col, nil)
-				_, err := info.NewERow(rowPos)
+				_, err := NewLoadedERow(info, rowPos)
 				if err != nil {
 					ed.Error(err)
 				}
@@ -430,10 +423,7 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 		info := ed.ReadERowInfo(dir)
 		cols := ed.UI.Root.Cols
 		rowPos := ui.NewRowPos(cols.LastChildColumn(), nil)
-		_, err := info.NewERowCreateOnErr(rowPos)
-		if err != nil {
-			ed.Error(err)
-		}
+		_ = NewLoadedERowOrNewBasic(info, rowPos)
 	}
 }
 

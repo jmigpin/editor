@@ -22,10 +22,10 @@ func ExternalCmd(erow *ERow, part *toolbarparser.Part) {
 
 func ExternalCmdFromArgs(erow *ERow, cargs []string, fend func(error)) {
 	if erow.Info.IsFileButNotDir() {
-		externalCmdFileButNotDir(erow, cargs, fend)
+		externalCmdFromFile(erow, cargs, fend)
 	} else if erow.Info.IsDir() {
 		env := populateEnvVars(erow, cargs)
-		externalCmdDir(erow, cargs, fend, env)
+		externalCmdFromDir(erow, cargs, fend, env)
 	} else {
 		erow.Ed.Errorf("unable to run external cmd for erow: %v", erow.Info.Name())
 	}
@@ -34,16 +34,16 @@ func ExternalCmdFromArgs(erow *ERow, cargs []string, fend func(error)) {
 //----------
 
 // create a row with the file dir and run the cmd
-func externalCmdFileButNotDir(erow *ERow, cargs []string, fend func(error)) {
+func externalCmdFromFile(erow *ERow, cargs []string, fend func(error)) {
 	dir := filepath.Dir(erow.Info.Name())
 
 	info := erow.Ed.ReadERowInfo(dir)
 	rowPos := erow.Row.PosBelow()
-	erow2 := NewERow(erow.Ed, info, rowPos)
+	erow2 := NewBasicERow(info, rowPos)
 
 	env := populateEnvVars(erow, cargs)
 
-	externalCmdDir(erow2, cargs, fend, env)
+	externalCmdFromDir(erow2, cargs, fend, env)
 }
 
 //----------
@@ -103,7 +103,7 @@ func cmdVar_getLine(erow *ERow) string {
 
 //----------
 
-func externalCmdDir(erow *ERow, cargs []string, fend func(error), env []string) {
+func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []string) {
 	if !erow.Info.IsDir() {
 		panic("not a directory")
 	}

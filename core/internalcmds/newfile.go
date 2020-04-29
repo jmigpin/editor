@@ -38,7 +38,10 @@ func NewFile(args *core.InternalCmdArgs) error {
 	info := args.Ed.ReadERowInfo(filename)
 
 	rowPos := erow.Row.PosBelow()
-	erow2 := core.NewERow(args.Ed, info, rowPos)
+	erow2, err := core.NewLoadedERow(info, rowPos)
+	if err != nil {
+		return err
+	}
 	erow2.Flash()
 
 	return nil

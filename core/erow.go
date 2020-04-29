@@ -30,7 +30,7 @@ type ERow struct {
 
 	highlightDuplicates bool
 
-	termFilter bool
+	terminalOpt terminalOpt
 
 	ctx       context.Context // erow general context
 	cancelCtx context.CancelFunc
@@ -44,27 +44,160 @@ type ERow struct {
 
 //----------
 
-func NewERow(ed *Editor, info *ERowInfo, rowPos *ui.RowPos) *ERow {
-	// create row
-	row := rowPos.Column.NewRowBefore(rowPos.NextRow)
+func NewLoadedERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
+	switch {
+	case info.IsSpecial():
+		return newLoadedSpecialERow(info, rowPos)
+	case info.IsDir():
+		return newLoadedDirERow(info, rowPos)
+	case info.IsFileButNotDir():
+		return newLoadedFileERow(info, rowPos)
+	default:
+		err := fmt.Errorf("unable to open erow: %v", info.name)
+		if info.fiErr != nil {
+			err = fmt.Errorf("%v: %w", err, info.fiErr)
+		}
+		return nil, err
+	}
+}
 
-	erow := &ERow{Ed: ed, Row: row, Info: info}
+// Allows creating rows in place even if a file/dir doesn't exist anymore (ex: show non-existent files rows in a saved session).
+func NewLoadedERowOrNewBasic(info *ERowInfo, rowPos *ui.RowPos) *ERow {
+	erow, err := NewLoadedERow(info, rowPos)
+	if err != nil {
+		return NewBasicERow(info, rowPos)
+	}
+	return erow
+}
+
+//----------
+
+func ExistingERowOrNewLoaded(ed *Editor, name string) (_ *ERow, isNew bool, _ error) {
+	info := ed.ReadERowInfo(name)
+	if erow0, ok := info.FirstERow(); ok {
+		return erow0, false, nil
+	}
+	rowPos := ed.GoodRowPos()
+	erow, err := NewLoadedERow(info, rowPos)
+	if err != nil {
+		return nil, false, err
+	}
+	return erow, true, nil
+}
+
+// Used for ex. in: +messages, +sessions.
+func ExistingERowOrNewBasic(ed *Editor, name string) (_ *ERow, isNew bool) {
+
+	info := ed.ReadERowInfo(name)
+	if erow0, ok := info.FirstERow(); ok {
+		return erow0, false
+	}
+	rowPos := ed.GoodRowPos()
+	erow := NewBasicERow(info, rowPos)
+	return erow, true
+}
+
+//----------
+
+func NewBasicERow(info *ERowInfo, rowPos *ui.RowPos) *ERow {
+	erow := &ERow{}
+	erow.init(info, rowPos)
+	return erow
+}
+
+func (erow *ERow) init(info *ERowInfo, rowPos *ui.RowPos) {
+	erow.Ed = info.Ed
+	erow.Info = info
+	erow.Row = rowPos.Column.NewRowBefore(rowPos.NextRow)
 	erow.Exec = NewERowExec(erow)
+
 	ctx0 := context.Background() // TODO: editor ctx
 	erow.ctx, erow.cancelCtx = context.WithCancel(ctx0)
 
 	erow.setupTextAreaSyntaxHighlight()
-
 	erow.initHandlers()
 
-	// init name; any string (len>0) will be replaced by the encoded name
-	erow.updateToolbarNameEncoding2("_")
+	erow.updateToolbarNameEncoding2("")
 
 	// editor events
 	ev := &PostNewERowEEvent{ERow: erow}
 	erow.Ed.EEvents.emit(PostNewERowEEventId, ev)
+}
 
-	return erow
+//----------
+
+func newLoadedSpecialERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
+	// there can be only one instance of a special row
+	if len(info.ERows) > 0 {
+		return nil, fmt.Errorf("special row already exists: %v", info.Name())
+
+	}
+	erow := NewBasicERow(info, rowPos)
+	// load
+	switch {
+	case info.Name() == "+Sessions":
+		ListSessions(erow.Ed)
+	}
+	return erow, nil
+}
+
+func newLoadedDirERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
+	if !info.IsDir() {
+		return nil, fmt.Errorf("not a directory")
+	}
+	erow := NewBasicERow(info, rowPos)
+	// load
+	ListDirERow(erow, erow.Info.Name(), false, true)
+	return erow, nil
+}
+
+func newLoadedFileERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
+	// read content from existing row
+	if erow0, ok := info.FirstERow(); ok {
+		// create erow first to get it updated
+		erow := NewBasicERow(info, rowPos)
+		// update the new erow with content
+		info.setRWFromMaster(erow0)
+		return erow, nil
+	}
+
+	// load
+	b, err := info.readFsFile()
+	if err != nil {
+		return nil, err
+	}
+
+	// update data
+	info.setSavedHash(info.fileData.fs.hash, len(b))
+
+	// new erow (no other rows exist)
+	erow := NewBasicERow(info, rowPos)
+	erow.Row.TextArea.SetBytesClearHistory(b)
+
+	return erow, nil
+}
+
+//----------
+
+func (erow *ERow) Reload() {
+	if err := erow.reload(); err != nil {
+		erow.Ed.Error(err)
+	}
+}
+
+func (erow *ERow) reload() error {
+	switch {
+	case erow.Info.IsSpecial() && erow.Info.Name() == "+Sessions":
+		ListSessions(erow.Ed)
+		return nil
+	case erow.Info.IsDir():
+		ListDirERow(erow, erow.Info.Name(), false, true)
+		return nil
+	case erow.Info.IsFileButNotDir():
+		return erow.Info.ReloadFile()
+	default:
+		return errors.New("unexpected type to reload")
+	}
 }
 
 //----------
@@ -240,21 +373,20 @@ func (erow *ERow) UpdateToolbarNameEncoding() {
 }
 
 func (erow *ERow) updateToolbarNameEncoding2(str string) {
+	arg0End := 0
 	data := toolbarparser.Parse(str)
 	arg0, ok := data.Part0Arg0()
-	if !ok {
-		return
+	if ok {
+		arg0End = arg0.End
 	}
 
 	// replace part0 arg0 with encoded name
 	ename := erow.encodedName()
-	str2 := ename + str[arg0.End:]
+	str2 := ename + str[arg0End:]
 	if str2 != str {
 		erow.Row.Toolbar.SetStrClearHistory(str2)
 	}
 }
-
-//----------
 
 func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
 	arg0, ok := erow.TbData.Part0Arg0()
@@ -281,12 +413,23 @@ func (erow *ERow) parseToolbarVars() {
 		erow.Row.TextArea.SetThemeFontFace(nil)
 	}
 
-	// $termFilter
-	erow.termFilter = false
+	// $terminal
+	erow.terminalOpt = terminalOpt{}
 	if erow.Info.IsDir() {
-		if v, ok := vmap["$termFilter"]; ok {
-			if v == "" || strings.ToLower(v) == "true" {
-				erow.termFilter = true
+		// Deprecated: use $terminal
+		if _, ok := vmap["$termFilter"]; ok {
+			erow.terminalOpt.filter = true
+		}
+
+		if v, ok := vmap["$terminal"]; ok {
+			u := strings.Split(v, ",")
+			for _, k := range u {
+				switch k {
+				case "f":
+					erow.terminalOpt.filter = true
+				case "k":
+					erow.terminalOpt.keyEvents = true
+				}
 			}
 		}
 	}
@@ -318,35 +461,7 @@ func (erow *ERow) setVarFontTheme(s string) error {
 
 //----------
 
-func (erow *ERow) Reload() {
-	if err := erow.reload(); err != nil {
-		erow.Ed.Error(err)
-	}
-}
-
-func (erow *ERow) reload() error {
-	switch {
-	case erow.Info.IsDir():
-		return erow.Info.ReloadDir(erow)
-	case erow.Info.IsFileButNotDir():
-		return erow.Info.ReloadFile()
-	default:
-		return errors.New("unexpected type to reload")
-	}
-}
-
-//----------
-
-//// Deprecated: use textAreaAppendBytesUIWriter().
-//func (erow *ERow) TextAreaAppendBytesAsync(p []byte) <-chan struct{} {
-//	comm := make(chan struct{})
-//	erow.Ed.UI.RunOnUIGoRoutine(func() {
-//		erow.TextAreaAppendBytes(p)
-//		close(comm)
-//	})
-//	return comm
-//}
-
+// Not UI safe.
 func (erow *ERow) TextAreaAppendBytes(p []byte) {
 	ta := erow.Row.TextArea
 	if err := ta.AppendBytesClearHistory(p); err != nil {
@@ -354,65 +469,35 @@ func (erow *ERow) TextAreaAppendBytes(p []byte) {
 	}
 }
 
+// UI safe, with option to wait.
+func (erow *ERow) TextAreaAppendBytesAsync(p []byte) func() {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	erow.Ed.UI.RunOnUIGoRoutine(func() {
+		erow.TextAreaAppendBytes(p)
+		wg.Done()
+	})
+	return wg.Wait
+}
+
 //----------
 
-// UI Safe. Adds request to the UI goroutine to append bytes, avoiding possible UI locks. The actual apppend is done later in the UI goroutine.
-//func (erow *ERow) TextAreaAppendBytesUIWriter__() io.Writer {
-//	var d struct {
-//		sync.Mutex
-//		buf []byte // TODO: this is working as unlimited buffer
-//	}
+func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
+	if erow.terminalOpt.On() {
+		return NewTerminalFilter(erow)
+	}
 
-//	appendBytes := func() {
-//		d.Lock()
-//		defer d.Unlock()
-//		defer func() { d.buf = nil }() // reset buffer
-//		err := erow.Row.TextArea.AppendBytesClearHistory(d.buf)
-//		if err != nil {
-//			erow.Ed.Error(err)
-//		}
-//	}
-
-//	return iout.FnWriter(func(b []byte) (int, error) {
-//		d.Lock()
-//		callRun := len(d.buf) == 0  // need to add if first time appending
-//		d.buf = append(d.buf, b...) // copy
-//		d.Unlock()
-
-//		if callRun {
-//			erow.Ed.UI.RunOnUIGoRoutine(appendBytes)
-//		}
-//		return len(b), nil
-//	})
-//}
-
-func (erow *ERow) TextAreaAppendBytesUIWriter() io.Writer {
-	return iout.FnWriter(func(b []byte) (int, error) {
+	// synced writer to slow down memory usage
+	w := iout.FnWriter(func(b []byte) (int, error) {
 		var err error
 		erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
 			err = erow.Row.TextArea.AppendBytesClearHistory(b)
 		})
 		return len(b), err
 	})
-}
 
-//func (erow *ERow) TextAreaWriteSeeker() io.WriteSeeker {
-//	return iout.FnWriter(func(b []byte) (int, error) {
-//		var err error
-//		erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
-//			err = erow.Row.TextArea.AppendBytesClearHistory(b)
-//		})
-//		return len(b), err
-//	})
-//}
-
-//----------
-
-func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
-	w := erow.TextAreaAppendBytesUIWriter()
-
-	// wrap for performance (buffered), which needs timed output (auto-flush)
-	wc := iout.NewAutoBufWriter(w, 4096*3)
+	// buffered for performance, which needs timed output (auto-flush)
+	wc := iout.NewAutoBufWriter(w, 4096*2)
 
 	rd := iout.FnReader(func(b []byte) (int, error) { return 0, io.EOF })
 	type iorwc struct {
@@ -420,49 +505,8 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 		io.Writer
 		io.Closer
 	}
-	rwc := io.ReadWriteCloser(&iorwc{rd, wc, wc})
-
-	if erow.termFilter {
-		rwc = NewTerminalFilter(erow, rwc)
-	}
-
-	return rwc
+	return io.ReadWriteCloser(&iorwc{rd, wc, wc})
 }
-
-//func (erow *ERow) textAreaWriteCloser() io.WriteCloser {
-//	//// setup output
-//	//prc, pwc := io.Pipe()
-//	//var copyLoop sync.WaitGroup
-//	//copyLoop.Add(1)
-//	//go func() {
-//	//	defer copyLoop.Done()
-//	//	w := erow.TextAreaAppendBytesUIWriter()
-//	//	if _, err := io.Copy(w, prc); err != nil {
-//	//		prc.Close()
-//	//	}
-//	//}()
-
-//      //w:= pwc
-//	w := erow.TextAreaAppendBytesUIWriter()
-
-//	// wrap for performance (buffered), which needs timed output (auto-flush)
-//	abWriter := iout.NewAutoBufWriter(w, 4096*2)
-
-//	//// wait for the copy loop to finish on close
-//	//closer := iout.FnCloser(func() error {
-//	//	err := abWriter.Close()
-//	//	copyLoop.Wait()
-//	//	return err
-//	//})
-
-//	//type iowc struct {
-//	//	io.Writer
-//	//	io.Closer
-//	//}
-//	//return &iowc{abWriter, closer}
-
-//	return abWriter
-//}
 
 //----------
 
@@ -506,9 +550,16 @@ func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 func (erow *ERow) setupTextAreaSyntaxHighlight() {
 	ta := erow.Row.TextArea
 
+	// ensure syntax highlight is on (ex: strings)
+	ta.EnableSyntaxHighlight(true)
+
+	//// consider only files from here (dirs and special rows are out)
+	//if !erow.Info.IsFileButNotDir() {
+	//	return
+	//}
+
 	// util funcs
 	setComments := func(a ...interface{}) {
-		ta.EnableSyntaxHighlight(true) // ensure syntax highlight is on
 		ta.SetCommentStrings(a...)
 	}
 
@@ -528,7 +579,7 @@ func (erow *ERow) setupTextAreaSyntaxHighlight() {
 		return
 	}
 
-	// name extension
+	// setup comments based on name extension
 	ext := strings.ToLower(filepath.Ext(name))
 	switch ext {
 	case ".sh",
@@ -550,14 +601,15 @@ func (erow *ERow) setupTextAreaSyntaxHighlight() {
 		setComments([2]string{"<!--", "-->"})
 	case ".s", ".asm": // assembly
 		setComments("//")
-	case ".json": // no comments to setup
-		ta.EnableSyntaxHighlight(true)
+	case ".json":
+		// no comments to setup
 	case ".txt":
 		setComments("#") // useful (but not correct)
-	case "": // no file extension (includes directories and special rows)
+	case "": // no file extension
+		// handy for ex: /etc/network/interfaces
 		setComments("#") // useful (but not correct)
 	default: // all other file extensions
-		ta.EnableSyntaxHighlight(true)
+		setComments("#") // useful (but not correct)
 	}
 }
 
@@ -602,4 +654,15 @@ func (erow *ERow) cancelInternalCmd2() {
 	if erow.cmd.cancelInternalCmd != nil {
 		erow.cmd.cancelInternalCmd()
 	}
+}
+
+//----------
+
+type terminalOpt struct {
+	filter    bool
+	keyEvents bool
+}
+
+func (t *terminalOpt) On() bool {
+	return t.filter || t.keyEvents
 }

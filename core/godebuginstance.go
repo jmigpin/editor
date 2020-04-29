@@ -151,7 +151,7 @@ func (gdi *GoDebugInstance) start2(ctx context.Context, erow *ERow, args []strin
 		dir := filepath.Dir(erow.Info.Name())
 		info := erow.Ed.ReadERowInfo(dir)
 		rowPos := erow.Row.PosBelow()
-		erow = NewERow(erow.Ed, info, rowPos)
+		erow = NewBasicERow(info, rowPos)
 	}
 
 	if !erow.Info.IsDir() {
