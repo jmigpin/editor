@@ -811,7 +811,8 @@ func TestCmd_goMod8(t *testing.T) {
 }
 
 func TestCmd_goMod9(t *testing.T) {
-	// if the os env doesn't have GOPROXY=off, having no go.mod should fetch the dependencies from the web at pre-build.
+	// Update: fails since go.mod is not present (not a module)
+	// Old: if the os env doesn't have GOPROXY=off, having no go.mod should fetch the dependencies from the web at pre-build.
 
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
@@ -836,9 +837,13 @@ func TestCmd_goMod9(t *testing.T) {
 		"-env=GO111MODULE=on", // force modules mode (no go.mod)
 		"main.go",
 	}
-	msgs := doCmd(t, dir, cmd)
-	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
-	mustHaveString(t, msgs, `[48 48 49]`)
+	//msgs := doCmd(t, dir, cmd)
+	//mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
+	//mustHaveString(t, msgs, `[48 48 49]`)
+	_, err := doCmd2(t, dir, cmd)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
 }
 
 func TestCmd_goMod10(t *testing.T) {
