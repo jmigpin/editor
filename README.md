@@ -340,12 +340,13 @@ Examples:
 - `$edDir`: row directory. 
 - `$edFileOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
 - `$edLine`: line from active row cursor (1-based). Ex: "12".
-- `$<name>=<string>`: set custom variable in a row toolbar to be set in the environment when running an external command. Example row toolbar:
+- `$<name>=<string>`: set custom variable in a row toolbar to be set in the environment when running an external command.<br>
+	Example row toolbar:
 	```
 	$myprog="a.out -arg1"
 	$myprog -arg2 | echo a${myprog}b
 	```
-	Clicking on `$myprog -arg2` will have the shell run `a.out -arg1 -arg2`.
+	Clicking on `$myprog -arg2` will have the shell run `a.out -arg1 -arg2`.<br>
 	Clicking on `echo a${myprog}b` will result in echoing `aa.out -arg1b`.
 
 ## Row states
