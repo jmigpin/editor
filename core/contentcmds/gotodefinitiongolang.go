@@ -59,7 +59,8 @@ func goplsQuery(ctx context.Context, erow *core.ERow, index int) error {
 
 	// gopls query args
 	pos := fmt.Sprintf("%v:#%v", erow.Info.Name(), index)
-	args := []string{osutil.ExecName("gopls"), "query", "-emulate", "guru", "definition", pos}
+	//args := []string{osutil.ExecName("gopls"), "query", "-emulate", "guru", "definition", pos}
+	args := []string{osutil.ExecName("gopls"), "definition", pos}
 
 	// execute external cmd
 	dir := filepath.Dir(erow.Info.Name())
