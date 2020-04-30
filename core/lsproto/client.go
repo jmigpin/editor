@@ -154,6 +154,7 @@ func (cli *Client) onUnexpectedServerReply(resp *Response) {
 			report = true
 		case -32602: // invalid params
 			report = true
+
 			//case -32603: // internal error
 			//report = true
 		}
@@ -193,13 +194,12 @@ func (cli *Client) initializeParams() (json.RawMessage, error) {
 	}
 	_ = rootUri
 
-	//// workspace folders
-	//cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
-	//b, err := encodeJson(cli.folders)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//foldersStr := string(b)
+	// workspace folders
+	cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
+	foldersBytes, err := encodeJson(cli.folders)
+	if err != nil {
+		return nil, err
+	}
 
 	// other capabilities
 	//"capabilities":{
@@ -213,12 +213,13 @@ func (cli *Client) initializeParams() (json.RawMessage, error) {
 	//		}
 	//	}
 	//}
-	//"workspaceFolders":` + foldersStr + `
 
-	// TODO: gopls is not allowing rooturi=null at the moment...
-	raw := json.RawMessage(`{
-		"rootUri":"` + rootUri + `"
-	}`)
+	raw := json.RawMessage("{" +
+		// TODO: gopls is not allowing rooturi=null at the moment...
+		fmt.Sprintf("%q:%q", "rootUri", rootUri) + "," +
+		// set workspace folders to use the later as "remove" value
+		fmt.Sprintf("%q:%s", "workspaceFolders", foldersBytes) +
+		"}")
 	return raw, nil
 }
 
