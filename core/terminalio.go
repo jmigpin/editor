@@ -29,8 +29,8 @@ type TerminalIO interface {
 //----------
 
 type ERowTermIO struct {
-	tf   *TerminalFilter
 	erow *ERow
+	tf   *TerminalFilter
 
 	inputReg *evreg.Regist // input events
 
@@ -74,6 +74,7 @@ func (tio *ERowTermIO) Close() error {
 
 func (tio *ERowTermIO) Read(b []byte) (int, error) {
 	tio.input.Lock()
+
 	for tio.input.buf.Len() == 0 && !tio.input.closing {
 		tio.input.cond.Wait()
 	}

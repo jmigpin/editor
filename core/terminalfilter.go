@@ -28,13 +28,11 @@ type TerminalFilter struct {
 
 func NewTerminalFilter(erow *ERow) *TerminalFilter {
 	tio := NewERowTermIO(erow)
-	tf := NewTerminalFilter2(tio)
-	tf.erow = erow
-	return tf
+	return NewTerminalFilter2(tio, erow)
 }
 
-func NewTerminalFilter2(tio TerminalIO) *TerminalFilter {
-	tf := &TerminalFilter{tio: tio}
+func NewTerminalFilter2(tio TerminalIO, erow *ERow) *TerminalFilter {
+	tf := &TerminalFilter{tio: tio, erow: erow}
 	tf.p.stateFn = tf.stParseDefault
 	tf.tio.Init(tf)
 	return tf
