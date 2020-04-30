@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"reflect"
 	"strings"
 	"sync"
 )
@@ -27,10 +26,11 @@ type Cmd struct {
 		off bool
 	}
 
+	closers []io.Closer
+
 	copy struct {
-		closers     map[io.Closer]*sync.Once
-		closersWait sync.WaitGroup
-		fns         []func()
+		fns     []func()
+		closers []io.Closer
 	}
 }
 
@@ -39,8 +39,15 @@ func NewCmd(ctx context.Context, args ...string) *Cmd {
 	ctx2, cancel := context.WithCancel(ctx)
 	c := exec.CommandContext(ctx2, args[0], args[1:]...) // panic on empty args
 	cmd := &Cmd{Cmd: c, ctx: ctx2, cancelCtx: cancel}
-	cmd.copy.closers = map[io.Closer]*sync.Once{}
 	return cmd
+}
+
+//----------
+
+// can be called before a Start(), clears all possible resources
+func (cmd *Cmd) Cancel() {
+	cmd.cancelCtx()
+	cmd.closeCopyClosers()
 }
 
 //----------
@@ -73,7 +80,6 @@ func (cmd *Cmd) start2() error {
 	go func() {
 		select {
 		case <-cmd.ctx.Done():
-			cmd.closeCopyClosers()
 			cmd.ensureStopNow()
 		}
 	}()
@@ -87,9 +93,8 @@ func (cmd *Cmd) Wait() error {
 
 	defer func() {
 		cmd.disableEnsureStop() // no need to kill process anymore
-		cmd.cancelCtx()
+		cmd.Cancel()            // clear resources
 	}()
-	cmd.copy.closersWait.Wait()
 	return cmd.Cmd.Wait()
 }
 
@@ -98,11 +103,6 @@ func (cmd *Cmd) Run() error {
 		return err
 	}
 	return cmd.Wait()
-}
-
-func (cmd *Cmd) Cancel() {
-	cmd.closeCopyClosers()
-	cmd.cancelCtx()
 }
 
 //----------
@@ -149,57 +149,20 @@ func (cmd *Cmd) setupStdio2(ir io.Reader, ow, ew io.Writer) error {
 		if err != nil {
 			return err
 		}
-		// TODO: not adding will not wait for it to close (terminal depends on a cmd not waiting for the input to close)
-		//cmd.addCopyCloser(ipwc)
+		cmd.addCopyCloser(ipwc)
 		cmd.copy.fns = append(cmd.copy.fns, func() {
-			//defer cmd.closeCopyCloser(ipwc)
 			defer ipwc.Close()
 			io.Copy(ipwc, ir)
 		})
 	}
 
 	// setup stdout
-	if ow != nil {
-		oprc, err := cmd.StdoutPipe()
-		if err != nil {
-			return err
-		}
-		cmd.addCopyCloser(oprc)
-		cmd.copy.fns = append(cmd.copy.fns, func() {
-			defer cmd.closeCopyCloser(oprc)
-			io.Copy(ow, oprc)
-		})
-		// setup stderr if the same
-		//if ew == ow { // can panic
-		//if interfaceEqual(ew, ow) { // can panic
-		if reflect.DeepEqual(ew, ow) {
-			cmd.Cmd.Stderr = cmd.Cmd.Stdout // set in StdoutPipe() call
-			return nil                      // early exit, stderr set
-		}
-	}
+	cmd.Cmd.Stdout = ow
 
 	// setup stderr
-	if ew != nil {
-		eprc, err := cmd.StderrPipe()
-		if err != nil {
-			return err
-		}
-		cmd.addCopyCloser(eprc)
-		cmd.copy.fns = append(cmd.copy.fns, func() {
-			defer cmd.closeCopyCloser(eprc)
-			io.Copy(ew, eprc)
-		})
-	}
+	cmd.Cmd.Stderr = ew
 	return nil
 }
-
-//// from: os/exec/exec.go:218
-//func interfaceEqual(a, b interface{}) bool {
-//	defer func() {
-//		recover()
-//	}()
-//	return a == b
-//}
 
 //----------
 
@@ -214,28 +177,18 @@ func (cmd *Cmd) runCopyFns() {
 
 //----------
 
-func (cmd *Cmd) closeCopyClosers() {
-	for c := range cmd.copy.closers {
-		cmd.closeCopyCloser(c)
-	}
-}
 func (cmd *Cmd) addCopyCloser(c io.Closer) {
-	_, ok := cmd.copy.closers[c]
-	if !ok {
-		cmd.copy.closersWait.Add(1)
-		cmd.copy.closers[c] = &sync.Once{}
-	}
+	cmd.copy.closers = append(cmd.copy.closers, c)
 }
-func (cmd *Cmd) closeCopyCloser(c io.Closer) {
-	once, ok := cmd.copy.closers[c]
-	if ok {
-		once.Do(func() {
-			defer cmd.copy.closersWait.Done()
-			c.Close()
-		})
+
+func (cmd *Cmd) closeCopyClosers() {
+	for _, c := range cmd.copy.closers {
+		c.Close()
 	}
 }
 
+//----------
+//----------
 //----------
 
 func RunCmdCombinedOutput(cmd *Cmd, rd io.Reader) ([]byte, error) {
@@ -269,5 +222,3 @@ func RunCmdStdoutAndStderrInErr(cmd *Cmd, rd io.Reader) ([]byte, error) {
 	}
 	return bout, nil
 }
-
-//----------

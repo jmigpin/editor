@@ -40,17 +40,18 @@ func TestCmdRead1(t *testing.T) {
 }
 
 func TestCmdRead2(t *testing.T) {
-	// wait for stdin indefinitely (correct, cmd.cmd.wait waits)
-
-	// (cmd differs from exec.cmd)
-	// BUT: setupstdio doesn't wait because of the terminal feature, which could cause potential leaks
+	// don't wait for stdin
 
 	ctx := context.Background()
 	cmd := NewCmd(ctx, "sh", "-c", "sleep 1")
 	midT := 2 * time.Second
 	h := NewHanger(3 * time.Second)
 	//cmd.Stdin = h // hangs
-	cmd.SetupStdio(h, nil, nil) // doesn't hang (should it really hang?)
+	//ipwc, _ := cmd.StdinPipe() // doesn't hang
+	//go func() {
+	//	io.Copy(ipwc, h)
+	//}()
+	cmd.SetupStdio(h, nil, nil) // doesn't hang
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -64,20 +65,19 @@ func TestCmdRead2(t *testing.T) {
 	}
 	dur := time.Since(now)
 	t.Logf("wait done: %v\n", dur)
-	if dur < midT {
-		t.Fatalf("cmd did end, did not wait for stdin")
+	if dur > midT {
+		t.Fatalf("cmd waited for stdin")
 	}
 }
 
 func TestCmdRead2Ctx(t *testing.T) {
 	// ctx cancel should be able to stop the hang on stdin
-	// (cmd differs from exec.cmd)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	cmd := NewCmd(ctx, "sh", "-c", "sleep 1")
 	midT := 2 * time.Second
 	h := NewHanger(3 * time.Second)
-	//cmd.Stdin = h              // hangs (waits for it to be closed/fail)
+	//cmd.Stdin = h              // hangs
 	//ipwc, _ := cmd.StdinPipe() // doesn't hang
 	//go func() {
 	//	io.Copy(ipwc, h)
