@@ -46,7 +46,7 @@ type Window struct {
 	}
 }
 
-func NewWindow2() (*Window, error) {
+func NewWindow() (*Window, error) {
 	display := os.Getenv("DISPLAY")
 
 	// help get a display target

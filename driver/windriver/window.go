@@ -42,7 +42,7 @@ type Window struct {
 	}
 }
 
-func NewWindow2() (*Window, error) {
+func NewWindow() (*Window, error) {
 	win := &Window{
 		events: make(chan interface{}, 8),
 	}

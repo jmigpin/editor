@@ -34,12 +34,16 @@ type BasicUI struct {
 	lastPaintStart time.Time
 }
 
-func NewBasicUI(WinName string, root widget.Node) (*BasicUI, error) {
+func NewBasicUI(winName string, root widget.Node) (*BasicUI, error) {
 	win, err := driver.NewWindow()
 	if err != nil {
 		return nil, err
 	}
-	win.SetWindowName(WinName)
+
+	req := &event.ReqWindowSetName{winName}
+	if err := win.Request(req); err != nil {
+		return nil, err
+	}
 
 	ui := &BasicUI{
 		DrawFrameRate: 37,
@@ -83,7 +87,8 @@ func (ui *BasicUI) initMouseFilters() {
 
 func (ui *BasicUI) Close() {
 	ui.closeOnce.Do(func() {
-		if err := ui.Win.Close(); err != nil {
+		req := &event.ReqClose{}
+		if err := ui.Win.Request(req); err != nil {
 			log.Println(err)
 		}
 	})
@@ -95,7 +100,10 @@ func (ui *BasicUI) eventLoop() {
 	for {
 		//ui.eventsQ.PushBack(ui.Win.NextEvent()) // slow UI
 
-		ev := ui.Win.NextEvent()
+		ev, ok := ui.Win.NextEvent()
+		if !ok {
+			break
+		}
 		ui.movef.Filter(ev) // sends events to ui.eventsQ.In()
 	}
 }
@@ -170,13 +178,20 @@ func (ui *BasicUI) LayoutMarkedAndSchedulePaint() {
 //----------
 
 func (ui *BasicUI) resizeImage(r image.Rectangle) {
-	err := ui.Win.ResizeImage(r)
-	if err != nil {
+	req := &event.ReqImageResize{r}
+	if err := ui.Win.Request(req); err != nil {
 		log.Println(err)
 		return
 	}
 
-	ib := ui.Win.Image().Bounds()
+	req2 := &event.ReqImage{}
+	if err := ui.Win.Request(req2); err != nil {
+		log.Println(err)
+		return
+	}
+	img := req2.ReplyImg
+
+	ib := img.Bounds()
 	en := ui.RootNode.Embed()
 	if !en.Bounds.Eq(ib) {
 		en.Bounds = ib
@@ -229,15 +244,17 @@ func (ui *BasicUI) paint() {
 func (ui *BasicUI) paintMarked() {
 	ui.pendingPaint = false
 	u := ui.RootNode.PaintMarked()
-	r := u.Intersect(ui.Win.Image().Bounds())
+	r := u.Intersect(ui.Image().Bounds())
 	if !r.Empty() {
-		ui.putImage(&r)
+		ui.putImage(r)
 	}
 }
 
-func (ui *BasicUI) putImage(r *image.Rectangle) {
-	if err := ui.Win.PutImage(*r); err != nil {
-		ui.AppendEvent(err)
+func (ui *BasicUI) putImage(r image.Rectangle) {
+	req := &event.ReqImagePut{r}
+	if err := ui.Win.Request(req); err != nil {
+		log.Println(err)
+		return
 	}
 }
 
@@ -248,16 +265,26 @@ func (ui *BasicUI) EnqueueNoOpEvent() {
 }
 
 func (ui *BasicUI) Image() draw.Image {
-	return ui.Win.Image()
+	req := &event.ReqImage{}
+	if err := ui.Win.Request(req); err != nil {
+		// dummy img to avoid errors
+		return image.NewRGBA(image.Rect(0, 0, 1, 1))
+	}
+	return req.ReplyImg
 }
 
 func (ui *BasicUI) WarpPointer(p image.Point) {
-	ui.Win.WarpPointer(p)
-	//AIE.SetWarpedPointUntilMouseMove(*p) // TODO******
+	req := &event.ReqPointerWarp{p}
+	if err := ui.Win.Request(req); err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 func (ui *BasicUI) QueryPointer() (image.Point, error) {
-	return ui.Win.QueryPointer()
+	req := &event.ReqPointerQuery{}
+	err := ui.Win.Request(req)
+	return req.ReplyP, err
 }
 
 //----------
@@ -268,24 +295,31 @@ func (ui *BasicUI) SetCursor(c event.Cursor) {
 		return
 	}
 	ui.curCursor = c
-	ui.Win.SetCursor(c)
+
+	req := &event.ReqCursorSet{c}
+	if err := ui.Win.Request(req); err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 //----------
 
 func (ui *BasicUI) GetClipboardData(i event.ClipboardIndex, fn func(string, error)) {
-	i2 := event.CopyPasteIndex(i)
-	ui.Win.GetCPPaste(i2, func(s string, err error) {
+	go func() {
+		req := &event.ReqClipboardDataGet{Index: i}
+		err := ui.Win.Request(req)
 		if err != nil {
 			ui.AppendEvent(fmt.Errorf("getclipboarddata: %w", err))
 		}
-		fn(s, err)
-	})
+		fn(req.ReplyS, err)
+	}()
 }
 func (ui *BasicUI) SetClipboardData(i event.ClipboardIndex, s string) {
-	i2 := event.CopyPasteIndex(i)
-	if err := ui.Win.SetCPCopy(i2, s); err != nil {
+	req := &event.ReqClipboardDataSet{Index: i, Str: s}
+	if err := ui.Win.Request(req); err != nil {
 		ui.AppendEvent(fmt.Errorf("setclipboarddata: %w", err))
+		return
 	}
 }
 
