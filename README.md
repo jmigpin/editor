@@ -510,7 +510,12 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
-
+- 2020/05/01: v2.0.0 (101 commits)
+	- Internal API changes/improvements
+	- Improvements on godebug stability and added features
+	- Improvements on lsproto stability
+	- Performance improvements
+	- Many bug fixes.
 - 2020/02/22: v1.1.1 (9 commits)
 	- lsproto: critial bug fix (#36).
 	- windows: critical bug fix (#37).
