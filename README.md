@@ -339,7 +339,8 @@ Examples:
 - `$edName`: row name. 
 - `$edDir`: row directory. 
 - `$edFileOffset`: filename with offset position from active row cursor. Ex: "filename:#123".
-- `$edLine`: line from active row cursor (1-based). Ex: "12".
+- `$edFileLine`: index line from active row cursor (1-based). Ex: "12".
+- `$edFileWord`: word at index from active row cursor. Ex: "myvar". Usage ex: use `go doc $edFileWord` with cursor at a receiver variable.
 - `$<name>=<string>`: set custom variable in a row toolbar to be set in the environment when running an external command.<br>
 	Example row toolbar:
 	```

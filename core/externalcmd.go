@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
 )
@@ -56,17 +57,20 @@ func populateEnvVars(erow *ERow, cargs []string) []string {
 		"edName": erow.Info.Name, // filename
 		"edDir":  erow.Info.Dir,  // directory
 		"edFileOffset": func() string { // filename + offset "filename:#123"
-			return cmdVar_getFileOffset(erow)
+			return cmdVar_edFileOffset(erow)
 		},
-		"edLine": func() string { // line only
-			return cmdVar_getLine(erow)
+		"edFileLine": func() string { // cursor line
+			return cmdVar_edFileLine(erow)
 		},
-
-		// Deprecated: use $edFileOffset (just renamed)
-		"edPosOffset": func() string { // filename + offset "filename:#123"
-			return cmdVar_getFileOffset(erow)
+		"edFileWord": func() string {
+			return cmdVar_edFileWord(erow)
 		},
 	}
+
+	// Deprecated: allow continued usage
+	m["edPosOffset"] = m["edFileOffset"]
+	m["edLine"] = m["edFileLine"]
+
 	// populate env vars only if detected
 	env := os.Environ()
 	for k, v := range m {
@@ -90,25 +94,28 @@ func populateEnvVars(erow *ERow, cargs []string) []string {
 	return env
 }
 
-func cmdVar_getFileOffset(erow *ERow) string {
-	if !erow.Info.IsFileButNotDir() {
-		return ""
-	}
+func cmdVar_edFileOffset(erow *ERow) string {
 	offset := erow.Row.TextArea.CursorIndex()
 	posOffset := fmt.Sprintf("%v:#%v", erow.Info.Name(), offset)
 	return posOffset
 }
 
-func cmdVar_getLine(erow *ERow) string {
-	if !erow.Info.IsFileButNotDir() {
-		return ""
-	}
+func cmdVar_edFileLine(erow *ERow) string {
 	ta := erow.Row.TextArea
 	l, _, err := parseutil.IndexLineColumn(ta.RW(), ta.CursorIndex())
 	if err != nil {
 		return ""
 	}
 	return fmt.Sprintf("%v", l)
+}
+
+func cmdVar_edFileWord(erow *ERow) string {
+	ta := erow.Row.TextArea
+	b, _, err := iorw.WordAtIndex(ta.RW(), ta.CursorIndex())
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 //----------
