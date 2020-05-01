@@ -488,7 +488,9 @@ Plugins located at: `./plugins`.
 	- `esc`: stop the debug session.
 - inline complete
 	- `tab`: inline code completion for file extensions registered with LSP.
-		- if the previous rune is not a space, it runs code completion. To force `tab` insertion, a `mod-key`+`tab` can be pressed (ex: `ctrl`, `alt`, ...).
+		- if the previous rune is not a space, it runs code completion. To force `tab` insertion, press `modkey`+`tab` (ex: `ctrl`, `alt`, ...).
+	- `esc`: stop inline completion.
+	- Changing the cursor position also stops inline completion.
 
 ## Row placement algorithm
 
