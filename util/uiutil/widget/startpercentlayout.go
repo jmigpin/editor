@@ -330,6 +330,17 @@ func (spl *StartPercentLayout) MaximizeNode(node Node) {
 
 // Used for encoding/decoding only. (Ex: sessions)
 func (spl *StartPercentLayout) SetRawStartPercent(child Node, v float64) {
+	// detect oddly placed rows (two rows with same value due to manual edit of the sessions file)
+	for n, k := range spl.spm {
+		if n == child {
+			continue
+		}
+		if k == v {
+			// return and don't set the value, will keep the automatically assigned percent value uppon child creation. Fixes allowing rows to be hidden with the same percent value on restoring a session.
+			return
+		}
+	}
+
 	spl.setsp(child, v)
 }
 
