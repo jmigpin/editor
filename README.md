@@ -426,6 +426,7 @@ Plugins located at: `./plugins`.
 - Any button/key press: make row active to layout toolbar commands
 
 *Textarea key/button shortcuts*
+
 - basic keyboard navigation
 	- `left`: move cursor left
 	- `right`: move cursor right
@@ -510,7 +511,7 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
-- 2020/05/01: v2.0.0 (101 commits)
+- 2020/05/01: v2.0.0 (92 commits)
 	- Internal API changes/improvements
 	- Improvements on godebug stability and added features
 	- Improvements on lsproto stability
