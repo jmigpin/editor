@@ -8,6 +8,7 @@ import (
 
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -149,9 +150,12 @@ func (tio *ERowTermIO) updateWriteOp2(op interface{}) error {
 
 func (tio *ERowTermIO) appendOp(op interface{}) {
 	o := &tio.update.ops
+	switch t := op.(type) {
+	case []byte:
+		// copy to avoid losing/overwriting content
+		b := iorw.MakeBytesCopy(t)
 
-	// add to previous op if possible
-	if b, ok := op.([]byte); ok {
+		// performance: append to previous op if possible
 		l := len(*o)
 		if l > 0 {
 			last := &(*o)[l-1]
@@ -160,9 +164,11 @@ func (tio *ERowTermIO) appendOp(op interface{}) {
 				return
 			}
 		}
-	}
 
-	*o = append(*o, op)
+		*o = append(*o, b)
+	default:
+		*o = append(*o, op)
+	}
 }
 
 //----------
