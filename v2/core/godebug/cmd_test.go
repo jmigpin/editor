@@ -1105,6 +1105,50 @@ func TestCmd_goMod16(t *testing.T) {
 	mustHaveString(t, msgs, `=> GoPath()`)
 }
 
+//func TestCmd_goMod17(t *testing.T) {
+//	// TODO: needs packages.load to be improved?
+
+//	// debug editor pkg but from another directory (similar to prev test)
+
+//	tf := newTmpFiles(t)
+//	defer tf.RemoveAll()
+
+//	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+//		module main
+//		replace example.com/pkg1 => ../pkg1
+//	`)
+//	tf.WriteFileInTmp2OrPanic("main/main.go", `
+//		package main
+//		//godebug:annotateimport
+//		import "example.com/pkg1"
+//		func main() {
+//			_=pkg1.Fa()
+//		}
+//	`)
+//	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
+//		module example.com/pkg1
+//	`)
+//	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
+//		package pkg1
+//		import "github.com/jmigpin/editor/v2/util/goutil"
+//		func Fa() string {
+//			_=goutil.GoPath()
+//			return "Fa"
+//		}
+//	`)
+
+//	dir := filepath.Join(tf.Dir, "")
+//	cmd := []string{
+//		"run",
+//		//"-work",
+//		//"-verbose",
+//		"main/main.go",
+//	}
+//	msgs := doCmd(t, dir, cmd)
+//	mustHaveString(t, msgs, `"Fa"`)
+//	mustHaveString(t, msgs, `=> GoPath()`)
+//}
+
 //------------
 
 func TestCmd_goPath1(t *testing.T) {
