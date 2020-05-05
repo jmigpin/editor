@@ -48,7 +48,7 @@ Get with `git` the latest from the default master branch:
 ```
 git clone github.com/jmigpin/editor
 ```
-Build:
+Build and run:
 ```
 cd ./editor/v2
 go build
@@ -61,7 +61,9 @@ go build -ldflags -H=windowsgui		# hides the console window, but cmds will popup
 go build -tags=xproto 			# (not native, needs an x11 server to run)
 ```
 
-### Instalation with go-tools (somewhat problematic when programs have a v2+ version)
+### Instalation with go-tools to be used as a library 
+
+*Somewhat problematic when programs have a v2+ version (https://blog.golang.org/v2-go-modules)* 
 
 ```
 go get -u github.com/jmigpin/editor/v2
