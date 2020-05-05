@@ -46,7 +46,7 @@ Source code editor in pure Go.
 
 Get with `git` the latest from the default master branch:
 ```
-git clone github.com/jmigpin/editor
+git clone https://github.com/jmigpin/editor
 ```
 Build and run:
 ```
