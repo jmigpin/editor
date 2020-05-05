@@ -72,10 +72,6 @@ Source location:
 ```
 $GOPATH/pkg/mod/github.com/jmigpin/editor@<version>
 ```
-Build location:
-```
-$GOPATH/pkg/bin/editor
-```
 Packages can be imported with `import "github.com/jmigpin/editor/v2/<pkg>"`.<br> 
 One way to rename imports from v1 to v2 is (unix):
 `find . -type f -name '*.go' -exec sed -i -e 's,github.com/jmigpin/editor,github.com/jmigpin/editor/v2,g' {} \;`
