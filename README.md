@@ -42,7 +42,7 @@ Source code editor in pure Go.
 
 ## Installation and usage
 
-*Instalation with git*
+### Instalation with git
 
 Get with `git` the latest from the default master branch:
 ```
@@ -54,8 +54,14 @@ cd ./editor/v2
 go build
 ./editor
 ```
+Windows platform compilation alternatives:
+```
+go build				# shows one console window (will be hidden, but makes a flash)
+go build -ldflags -H=windowsgui		# hides the console window, but cmds will popup consoles
+go build -tags=xproto 			# (not native, needs an x11 server to run)
+```
 
-*Instalation with go-tools (somewhat problematic when programs have a v2+ version)*
+### Instalation with go-tools (somewhat problematic when programs have a v2+ version)
 
 ```
 go get -u github.com/jmigpin/editor/v2
@@ -70,26 +76,8 @@ $GOPATH/pkg/bin/editor
 ```
 Packages can be imported with `import "github.com/jmigpin/editor/v2/<pkg>"`
 
-*Usage*
+### Usage
 
-Build and run:
-```
-cd $GOPATH
-cd ./pkg/mod/github.com/jmigpin/editor@<version>
-go build 
-./editor
-```
-
-Windows platform compilation alternatives:
-```
-go build				# shows one console window (will be hidden, but makes a flash)
-go build -ldflags -H=windowsgui		# hides the console window, but cmds will popup consoles
-go build -tags=xproto 			# (not native, needs an x11 server to run)
-```
-
-## Usage
-
-Usage:
 ```
 Usage of ./editor:
   -colortheme string
