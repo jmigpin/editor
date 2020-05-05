@@ -3,7 +3,7 @@ package main
 import (
 	"path/filepath"
 
-	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/v2/core"
 )
 
 var h Handler
