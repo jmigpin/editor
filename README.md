@@ -528,6 +528,10 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2020/05/05: v2.0.2 (3 commits)
+	- fixes towards making the project go-getable with v2.
+- 2020/05/05: v2.0.1 (3 commits)
+	- terminal output bug fix (overwrites).
 - 2020/05/01: v2.0.0 (92 commits)
 	- Internal API changes/improvements
 	- Improvements on godebug stability and added features
