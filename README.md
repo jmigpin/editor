@@ -50,7 +50,7 @@ git clone https://github.com/jmigpin/editor
 ```
 Build and run:
 ```
-cd ./editor
+cd ./editor/v2
 go build
 ./editor
 ```
