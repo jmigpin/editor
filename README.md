@@ -63,9 +63,7 @@ go build -tags=xproto 			# (not native, needs an x11 server to run)
 
 ### Instalation with go tooling to be used as a library 
 
-*Somewhat problematic when programs have a v2+ version (https://blog.golang.org/v2-go-modules)*
-
-Note that getting with ~~go get -u github.com/jmigpin/editor~~ will get and build and older v1 series.
+Note that getting with ~~go get -u github.com/jmigpin/editor~~ will get and build an older v1 series (Read https://blog.golang.org/v2-go-modules to understand the v2 directory).
 
 ```
 go get -u github.com/jmigpin/editor/v2
