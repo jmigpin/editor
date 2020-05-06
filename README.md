@@ -61,7 +61,7 @@ go build -ldflags -H=windowsgui		# hides the console window, but cmds will popup
 go build -tags=xproto 			# (not native, needs an x11 server to run)
 ```
 
-### Instalation with go-tools to be used as a library 
+### Instalation with go tooling to be used as a library 
 
 *Somewhat problematic when programs have a v2+ version (https://blog.golang.org/v2-go-modules)* 
 
@@ -72,9 +72,22 @@ Source location:
 ```
 $GOPATH/pkg/mod/github.com/jmigpin/editor@<version>
 ```
+Built binary location:
+```
+$GOPATH/bin/editor
+```
+
 Packages can be imported with `import "github.com/jmigpin/editor/v2/<pkg>"`.<br> 
 One way to rename imports from v1 to v2 is (unix):
-`find . -type f -name '*.go' -exec sed -i -e 's,github.com/jmigpin/editor,github.com/jmigpin/editor/v2,g' {} \;`
+```
+find . -type f -name '*.go' \
+  -exec sed -i -e 's,github.com/jmigpin/editor,github.com/jmigpin/editor/v2,g' {} \;
+```
+
+Please note that `go get` without `/v2` will get and build an older version:
+```
+~~go get -u github.com/jmigpin/editor~~
+```
 
 ### Usage
 
