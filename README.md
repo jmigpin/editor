@@ -70,21 +70,16 @@ go get -u github.com/jmigpin/editor/v2			# latest tagged
 go get -u github.com/jmigpin/editor/v2@master	# latest development
 go get -u github.com/jmigpin/editor/v2@v2.0.7	# specific version
 ```
-Source location:
+Source and build location:
 ```
 $GOPATH/pkg/mod/github.com/jmigpin/editor@<version>
-```
-Built binary location:
-```
 $GOPATH/bin/editor
 ```
 Check version of the build binary of the last `go get`:
 ```
 cd $GOPATH/bin
 go version -m editor
-```
-Example version output:
-```
+# example output:
 editor: go1.14.2
 	path	github.com/jmigpin/editor/v2
 	mod	github.com/jmigpin/editor/v2	v2.0.7	...
