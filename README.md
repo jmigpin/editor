@@ -63,7 +63,9 @@ go build -tags=xproto 			# (not native, needs an x11 server to run)
 
 ### Instalation with go tooling to be used as a library 
 
-*Somewhat problematic when programs have a v2+ version (https://blog.golang.org/v2-go-modules)* 
+*Somewhat problematic when programs have a v2+ version (https://blog.golang.org/v2-go-modules)*
+
+Note that getting with ~~go get -u github.com/jmigpin/editor~~ will get and build and older v1 series.
 
 ```
 go get -u github.com/jmigpin/editor/v2
@@ -82,11 +84,6 @@ One way to rename imports from v1 to v2 is (unix):
 ```
 find . -type f -name '*.go' \
   -exec sed -i -e 's,github.com/jmigpin/editor,github.com/jmigpin/editor/v2,g' {} \;
-```
-
-Please note that `go get` without `/v2` will get and build an older version:
-```
-~~go get -u github.com/jmigpin/editor~~
 ```
 
 ### Usage
