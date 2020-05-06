@@ -66,7 +66,9 @@ go build -tags=xproto 			# (not native, needs an x11 server to run)
 Note that getting with ~~go get -u github.com/jmigpin/editor~~ will get and build an older v1 series (Read https://blog.golang.org/v2-go-modules to understand the v2 directory).
 
 ```
-go get -u github.com/jmigpin/editor/v2
+go get -u github.com/jmigpin/editor/v2			# latest tagged
+go get -u github.com/jmigpin/editor/v2@master	# latest development
+go get -u github.com/jmigpin/editor/v2@v2.0.7	# specific version
 ```
 Source location:
 ```
@@ -75,6 +77,17 @@ $GOPATH/pkg/mod/github.com/jmigpin/editor@<version>
 Built binary location:
 ```
 $GOPATH/bin/editor
+```
+Check version of the build binary of the last `go get`:
+```
+cd $GOPATH/bin
+go version -m editor
+```
+Example version output:
+```
+editor: go1.14.2
+	path	github.com/jmigpin/editor/v2
+	mod	github.com/jmigpin/editor/v2	v2.0.7	...
 ```
 
 Packages can be imported with `import "github.com/jmigpin/editor/v2/<pkg>"`.<br> 
