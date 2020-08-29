@@ -70,9 +70,9 @@ func (c *Copy) set(selection xproto.Atom) error {
 // Another application is asking for the data
 func (c *Copy) OnSelectionRequest(ev *xproto.SelectionRequestEvent) error {
 	//// DEBUG
-	//target, _ := xgbutil.GetAtomName(c.conn, ev.Target)
-	//sel, _ := xgbutil.GetAtomName(c.conn, ev.Selection)
-	//prop, _ := xgbutil.GetAtomName(c.conn, ev.Property)
+	//target, _ := xutil.GetAtomName(c.conn, ev.Target)
+	//sel, _ := xutil.GetAtomName(c.conn, ev.Selection)
+	//prop, _ := xutil.GetAtomName(c.conn, ev.Property)
 	//log.Printf("on selection request: %v %v %v", target, sel, prop)
 
 	switch ev.Target {

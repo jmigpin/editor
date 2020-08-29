@@ -13,7 +13,6 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/BurntSushi/xgbutil/xcursor"
 	"github.com/jmigpin/editor/v2/driver/xdriver/copypaste"
 	"github.com/jmigpin/editor/v2/driver/xdriver/dragndrop"
 	"github.com/jmigpin/editor/v2/driver/xdriver/wimage"
@@ -444,19 +443,19 @@ func (win *Window) setCursor(c event.Cursor) (rerr error) {
 	case event.DefaultCursor:
 		sc(xcursors.XCNone)
 	case event.NSResizeCursor:
-		sc(xcursor.SBVDoubleArrow)
+		sc(xcursors.SBVDoubleArrow)
 	case event.WEResizeCursor:
-		sc(xcursor.SBHDoubleArrow)
+		sc(xcursors.SBHDoubleArrow)
 	case event.CloseCursor:
-		sc(xcursor.XCursor)
+		sc(xcursors.XCursor)
 	case event.MoveCursor:
-		sc(xcursor.Fleur)
+		sc(xcursors.Fleur)
 	case event.PointerCursor:
-		sc(xcursor.Hand2)
+		sc(xcursors.Hand2)
 	case event.BeamCursor:
-		sc(xcursor.XTerm)
+		sc(xcursors.XTerm)
 	case event.WaitCursor:
-		sc(xcursor.Watch)
+		sc(xcursors.Watch)
 	}
 	return
 }

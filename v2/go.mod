@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843
-	github.com/BurntSushi/xgbutil v0.0.0-20190907113008-ad855c713046
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
