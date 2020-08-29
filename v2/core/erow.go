@@ -591,6 +591,7 @@ func (erow *ERow) setupTextAreaSyntaxHighlight() {
 		".c", ".h",
 		".cpp", ".hpp", ".cxx", ".hxx", // c++
 		".java",
+		".v",  // verilog
 		".js": // javascript
 		setComments("//", [2]string{"/*", "*/"})
 	case ".ledger":
