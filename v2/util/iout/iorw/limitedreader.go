@@ -13,7 +13,8 @@ type LimitedReaderAt struct {
 // min<=max; allows arguments min<0 && max>length
 func NewLimitedReaderAt(r ReaderAt, min, max int) *LimitedReaderAt {
 	if min > max {
-		panic(fmt.Sprintf("bad min/max: %v>%v", min, max))
+		//panic(fmt.Sprintf("bad min/max: %v>%v", min, max))
+		max = min
 	}
 	return &LimitedReaderAt{r, min, max}
 }
@@ -21,6 +22,8 @@ func NewLimitedReaderAt(r ReaderAt, min, max int) *LimitedReaderAt {
 func NewLimitedReaderAtPad(r ReaderAt, min, max, pad int) *LimitedReaderAt {
 	return NewLimitedReaderAt(r, min-pad, max+pad)
 }
+
+//----------
 
 func (r *LimitedReaderAt) ReadFastAt(i, n int) ([]byte, error) {
 	if i < r.min {
