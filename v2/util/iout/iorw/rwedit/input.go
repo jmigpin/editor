@@ -6,6 +6,8 @@ import (
 	"github.com/jmigpin/editor/v2/util/uiutil/event"
 )
 
+//godebug:annotatefile
+
 func HandleInput(ctx *Ctx, ev interface{}) (event.Handled, error) {
 	in := &Input{ctx, ev}
 	return in.handle()
@@ -49,12 +51,10 @@ func (in *Input) onMouseDown(ev *event.MouseDown) (event.Handled, error) {
 			MoveCursorToPoint(in.ctx, ev.Point, false)
 		}
 		return true, nil
-
-		//TODO
-		//case event.ButtonWheelUp:
-		//sb.scrollPage(true)
-		//case event.ButtonWheelDown:
-		//sb.scrollPage(false)
+	case event.ButtonWheelUp:
+		ScrollUp(in.ctx, true)
+	case event.ButtonWheelDown:
+		ScrollUp(in.ctx, false)
 	}
 	return false, nil
 }
@@ -130,8 +130,6 @@ func (in *Input) onKeyDown(ev *event.KeyDown) (_ event.Handled, err error) {
 		event.KSymCapsLock,
 		event.KSymNumLock,
 		event.KSymInsert,
-		event.KSymPageUp,
-		event.KSymPageDown,
 		event.KSymEscape,
 		event.KSymSuperL: // windows key
 		// ignore these
@@ -242,6 +240,12 @@ func (in *Input) onKeyDown(ev *event.KeyDown) (_ event.Handled, err error) {
 		err = InsertString(in.ctx, " ")
 		makeCursorVisible()
 		return true, err
+	case event.KSymPageUp:
+		PageUp(in.ctx, true)
+		return true, nil
+	case event.KSymPageDown:
+		PageUp(in.ctx, false)
+		return true, nil
 	default:
 		switch {
 		case mcl.Is(event.ModCtrl):

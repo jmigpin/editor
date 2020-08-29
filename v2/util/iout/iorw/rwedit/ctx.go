@@ -61,6 +61,8 @@ type CtxFns struct {
 	LineHeight       func() int
 	LineCommentStr   func() string
 	MakeIndexVisible func(int)
+	PageUp           func(up bool)
+	ScrollUp         func(up bool)
 
 	SetClipboardData func(event.ClipboardIndex, string)
 	GetClipboardData func(event.ClipboardIndex, func(string, error)) // setter should wrap fn to run on ui goroutine
@@ -79,11 +81,14 @@ func EmptyCtxFns() CtxFns {
 	u.LineHeight = func() int { return 0 }
 	u.LineCommentStr = func() string { return "" }
 	u.MakeIndexVisible = func(int) {}
+	u.PageUp = func(bool) {}
+	u.ScrollUp = func(bool) {}
 
 	u.SetClipboardData = func(event.ClipboardIndex, string) {}
 	u.GetClipboardData = func(event.ClipboardIndex, func(string, error)) {}
 
 	u.Undo = func() error { return nil }
 	u.Redo = func() error { return nil }
+
 	return u
 }
