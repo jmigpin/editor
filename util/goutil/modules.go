@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jmigpin/editor/v2/util/osutil"
+	"github.com/jmigpin/editor/util/osutil"
 	"golang.org/x/mod/modfile"
 )
 

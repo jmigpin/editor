@@ -3,7 +3,7 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/v2/util/uiutil"
+	"github.com/jmigpin/editor/util/uiutil"
 )
 
 type UI struct {

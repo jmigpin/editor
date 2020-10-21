@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jmigpin/editor/v2/core/godebug/debug"
+	"github.com/jmigpin/editor/core/godebug/debug"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-const SelfModPkgPath = "github.com/jmigpin/editor/v2"
+const SelfModPkgPath = "github.com/jmigpin/editor"
 const DebugPkgPath = SelfModPkgPath + "/core/godebug/debug"
 const GodebugconfigPkgPath = SelfModPkgPath + "/core/godebug/godebugconfig"
 

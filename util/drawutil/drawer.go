@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"image/draw"
 
-	"github.com/jmigpin/editor/v2/util/fontutil"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/fontutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 type Drawer interface {

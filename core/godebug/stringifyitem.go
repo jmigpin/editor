@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/jmigpin/editor/v2/core/godebug/debug"
+	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
 var SimplifyStringifyItem = true

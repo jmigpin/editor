@@ -7,12 +7,12 @@ import (
 	"os"
 	"runtime/pprof"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/core/lsproto"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/core/lsproto"
 
 	// imports that can't be imported from core (cyclic import)
-	_ "github.com/jmigpin/editor/v2/core/contentcmds"
-	_ "github.com/jmigpin/editor/v2/core/internalcmds"
+	_ "github.com/jmigpin/editor/core/contentcmds"
+	_ "github.com/jmigpin/editor/core/internalcmds"
 )
 
 func main() {

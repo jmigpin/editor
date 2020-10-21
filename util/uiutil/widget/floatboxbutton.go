@@ -3,7 +3,7 @@ package widget
 import (
 	"image"
 
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type FloatBoxButton struct {

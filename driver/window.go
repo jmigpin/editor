@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type Window interface {

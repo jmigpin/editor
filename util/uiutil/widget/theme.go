@@ -3,8 +3,8 @@ package widget
 import (
 	"image/color"
 
-	"github.com/jmigpin/editor/v2/util/fontutil"
-	"github.com/jmigpin/editor/v2/util/imageutil"
+	"github.com/jmigpin/editor/util/fontutil"
+	"github.com/jmigpin/editor/util/imageutil"
 )
 
 //----------

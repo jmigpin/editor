@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jmigpin/editor/v2/core/toolbarparser"
-	"github.com/jmigpin/editor/v2/ui"
-	"github.com/jmigpin/editor/v2/util/osutil"
+	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 type Sessions struct {

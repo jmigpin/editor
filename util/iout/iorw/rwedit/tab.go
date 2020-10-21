@@ -3,7 +3,7 @@ package rwedit
 import (
 	"bytes"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 func TabRight(ctx *Ctx) error {

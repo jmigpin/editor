@@ -1,7 +1,7 @@
 package rwedit
 
 import (
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 func SelectLine(ctx *Ctx) error {

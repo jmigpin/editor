@@ -4,12 +4,12 @@ import (
 	"image"
 	"unicode"
 
-	"github.com/jmigpin/editor/v2/util/drawutil/drawer4"
-	"github.com/jmigpin/editor/v2/util/evreg"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/iout/iorw/rwedit"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
-	"github.com/jmigpin/editor/v2/util/uiutil/widget"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
+	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type TextArea struct {

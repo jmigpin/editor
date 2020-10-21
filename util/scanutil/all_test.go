@@ -3,7 +3,7 @@ package scanutil
 import (
 	"testing"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 func TestScan1(t *testing.T) {

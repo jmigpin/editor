@@ -6,10 +6,10 @@ import (
 	"image/draw"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/jmigpin/editor/v2/util/drawutil"
-	"github.com/jmigpin/editor/v2/util/fontutil"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/mathutil"
+	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/fontutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/mathutil"
 )
 
 const (

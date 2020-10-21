@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmigpin/editor/v2/util/ctxutil"
-	"github.com/jmigpin/editor/v2/util/iout"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/parseutil"
+	"github.com/jmigpin/editor/util/ctxutil"
+	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type Client struct {

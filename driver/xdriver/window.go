@@ -13,14 +13,14 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/v2/driver/xdriver/copypaste"
-	"github.com/jmigpin/editor/v2/driver/xdriver/dragndrop"
-	"github.com/jmigpin/editor/v2/driver/xdriver/wimage"
-	"github.com/jmigpin/editor/v2/driver/xdriver/wmprotocols"
-	"github.com/jmigpin/editor/v2/driver/xdriver/xcursors"
-	"github.com/jmigpin/editor/v2/driver/xdriver/xinput"
-	"github.com/jmigpin/editor/v2/driver/xdriver/xutil"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/driver/xdriver/copypaste"
+	"github.com/jmigpin/editor/driver/xdriver/dragndrop"
+	"github.com/jmigpin/editor/driver/xdriver/wimage"
+	"github.com/jmigpin/editor/driver/xdriver/wmprotocols"
+	"github.com/jmigpin/editor/driver/xdriver/xcursors"
+	"github.com/jmigpin/editor/driver/xdriver/xinput"
+	"github.com/jmigpin/editor/driver/xdriver/xutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type Window struct {

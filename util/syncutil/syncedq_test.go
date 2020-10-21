@@ -3,7 +3,7 @@ package syncutil
 import (
 	"testing"
 
-	"github.com/jmigpin/editor/v2/util/chanutil"
+	"github.com/jmigpin/editor/util/chanutil"
 )
 
 func BenchmarkSyncedQ(b *testing.B) {

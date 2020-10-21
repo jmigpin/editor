@@ -2,7 +2,7 @@ package xinput
 
 import (
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 // Constants from /usr/include/X11/keysymdef.h

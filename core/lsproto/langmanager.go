@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jmigpin/editor/v2/util/ctxutil"
+	"github.com/jmigpin/editor/util/ctxutil"
 )
 
 type LangManager struct {

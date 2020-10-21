@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/util/parseutil"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func GotoLine(args0 *core.InternalCmdArgs) error {

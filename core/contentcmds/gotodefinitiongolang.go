@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/util/iout"
-	"github.com/jmigpin/editor/v2/util/osutil"
-	"github.com/jmigpin/editor/v2/util/parseutil"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func GoToDefinitionGolang(ctx context.Context, erow *core.ERow, index int) (error, bool) {

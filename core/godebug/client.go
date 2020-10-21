@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmigpin/editor/v2/core/godebug/debug"
-	"github.com/jmigpin/editor/v2/util/ctxutil"
+	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/ctxutil"
 )
 
 type Client struct {

@@ -17,8 +17,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jmigpin/editor/v2/util/goutil"
-	"github.com/jmigpin/editor/v2/util/osutil"
+	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/osutil"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -1099,7 +1099,7 @@ func sourceHash(b []byte) []byte {
 //}
 
 //func (files *Files) filenamesImportingDebugPkg(pkgs []*packages.Package) ([]string, error) {
-//	debugPkgPath := "github.com/jmigpin/editor/v2/core/godebug/debug"
+//	debugPkgPath := "github.com/jmigpin/editor/core/godebug/debug"
 //	pkgsImp := PackagesImportingPkgPath(pkgs, debugPkgPath)
 //	mode := parser.ImportsOnly // fast mode
 //	u := []string{}

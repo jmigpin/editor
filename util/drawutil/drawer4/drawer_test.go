@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/golang/freetype/truetype"
-	"github.com/jmigpin/editor/v2/util/fontutil"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/fontutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
 	"golang.org/x/image/colornames"
 )
 

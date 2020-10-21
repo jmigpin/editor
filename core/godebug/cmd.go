@@ -17,10 +17,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jmigpin/editor/v2/core/godebug/debug"
-	"github.com/jmigpin/editor/v2/util/goutil"
-	"github.com/jmigpin/editor/v2/util/iout"
-	"github.com/jmigpin/editor/v2/util/osutil"
+	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 type Cmd struct {

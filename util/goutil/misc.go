@@ -13,7 +13,7 @@ import (
 	"runtime/pprof"
 	"strings"
 
-	"github.com/jmigpin/editor/v2/util/osutil"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func GoPath() []string {

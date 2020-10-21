@@ -6,7 +6,7 @@ import (
 	"io"
 	"unicode"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 func Comment(ctx *Ctx) error {

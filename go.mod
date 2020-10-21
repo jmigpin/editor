@@ -1,4 +1,4 @@
-module github.com/jmigpin/editor/v2
+module github.com/jmigpin/editor
 
 go 1.14
 

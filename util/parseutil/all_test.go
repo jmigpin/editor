@@ -3,7 +3,7 @@ package parseutil
 import (
 	"testing"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 func TestParseResource1(t *testing.T) {

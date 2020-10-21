@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/jmigpin/editor/v2/util/ctxutil"
-	"github.com/jmigpin/editor/v2/util/iout"
+	"github.com/jmigpin/editor/util/ctxutil"
+	"github.com/jmigpin/editor/util/iout"
 )
 
 type LangInstance struct {

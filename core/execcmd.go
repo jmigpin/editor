@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/jmigpin/editor/v2/util/osutil"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func ExecCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {

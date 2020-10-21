@@ -4,7 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/jmigpin/editor/v2/util/goutil"
+	"github.com/jmigpin/editor/util/goutil"
 )
 
 // debug pkg as its own module: can't use "debug" as a module (with a go.mod) in the main src tree because a default replace to use the tree version won't be honored. Other modules will try to fetch it from the web if not explicitly declared in their go.mod. The editor itself won't find the module in the tree if not explicitly in the go.mod as well.

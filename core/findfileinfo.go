@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/jmigpin/editor/v2/util/goutil"
+	"github.com/jmigpin/editor/util/goutil"
 )
 
 // Checks in GOROOT/GOPATH,  and some C include dirs.

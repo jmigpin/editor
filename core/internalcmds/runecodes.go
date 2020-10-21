@@ -3,7 +3,7 @@ package internalcmds
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/v2/core"
+	"github.com/jmigpin/editor/core"
 )
 
 func RuneCodes(args *core.InternalCmdArgs) error {

@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 
 	"github.com/golang/freetype/truetype"
-	"github.com/jmigpin/editor/v2/util/fontutil"
-	"github.com/jmigpin/editor/v2/util/imageutil"
-	"github.com/jmigpin/editor/v2/util/uiutil/widget"
+	"github.com/jmigpin/editor/util/fontutil"
+	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font/gofont/gomedium"
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"

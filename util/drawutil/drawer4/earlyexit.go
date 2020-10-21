@@ -1,6 +1,6 @@
 package drawer4
 
-import "github.com/jmigpin/editor/v2/util/mathutil"
+import "github.com/jmigpin/editor/util/mathutil"
 
 type EarlyExit struct {
 	d *Drawer

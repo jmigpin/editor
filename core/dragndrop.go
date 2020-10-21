@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/jmigpin/editor/v2/ui"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type DndHandler struct {

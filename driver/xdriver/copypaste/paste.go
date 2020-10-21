@@ -9,9 +9,9 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/v2/driver/xdriver/xutil"
-	"github.com/jmigpin/editor/v2/util/syncutil"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/driver/xdriver/xutil"
+	"github.com/jmigpin/editor/util/syncutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type Paste struct {

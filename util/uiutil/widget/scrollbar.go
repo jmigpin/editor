@@ -4,9 +4,9 @@ import (
 	"image"
 	"math"
 
-	"github.com/jmigpin/editor/v2/util/imageutil"
-	"github.com/jmigpin/editor/v2/util/mathutil"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/mathutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 // Used by ScrollArea. Parent of ScrollHandle.

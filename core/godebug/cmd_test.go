@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmigpin/editor/v2/core/godebug/debug"
-	"github.com/jmigpin/editor/v2/util/iout"
-	"github.com/jmigpin/editor/v2/util/osutil"
+	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 //godebug:annotatepackage
@@ -1086,7 +1086,7 @@ func TestCmd_goMod16(t *testing.T) {
 	`)
 	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
 		package pkg1
-		import "github.com/jmigpin/editor/v2/util/goutil"
+		import "github.com/jmigpin/editor/util/goutil"
 		func Fa() string {
 			_=goutil.GoPath()
 			return "Fa"
@@ -1130,7 +1130,7 @@ func TestCmd_goMod16(t *testing.T) {
 //	`)
 //	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
 //		package pkg1
-//		import "github.com/jmigpin/editor/v2/util/goutil"
+//		import "github.com/jmigpin/editor/util/goutil"
 //		func Fa() string {
 //			_=goutil.GoPath()
 //			return "Fa"

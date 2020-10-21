@@ -6,10 +6,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/jmigpin/editor/v2/ui"
-	"github.com/jmigpin/editor/v2/util/evreg"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 //godebug:annotatefile

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jmigpin/editor/v2/util/iout"
+	"github.com/jmigpin/editor/util/iout"
 )
 
 func TestManagerGo1(t *testing.T) {

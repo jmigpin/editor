@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/v2/util/imageutil"
+	"github.com/jmigpin/editor/util/imageutil"
 )
 
 type PixmapWImage struct {

@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"unicode"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/osutil"
-	"github.com/jmigpin/editor/v2/util/scanutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 //----------

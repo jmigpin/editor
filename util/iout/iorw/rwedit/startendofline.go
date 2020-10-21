@@ -3,7 +3,7 @@ package rwedit
 import (
 	"unicode"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 func StartOfLine(ctx *Ctx, sel bool) error {

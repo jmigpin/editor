@@ -3,8 +3,8 @@ package rwundo
 import (
 	"testing"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/iout/iorw/rwedit"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
 //godebug:annotatepackage

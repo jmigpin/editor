@@ -3,7 +3,7 @@ package widget
 import (
 	"image"
 
-	"github.com/jmigpin/editor/v2/util/imageutil"
+	"github.com/jmigpin/editor/util/imageutil"
 )
 
 type Pad struct {

@@ -3,9 +3,9 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/v2/util/imageutil"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
-	"github.com/jmigpin/editor/v2/util/uiutil/widget"
+	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type ColumnSquare struct {

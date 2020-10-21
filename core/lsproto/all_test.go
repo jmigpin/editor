@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jmigpin/editor/v2/util/goutil"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/osutil"
-	"github.com/jmigpin/editor/v2/util/parseutil"
+	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func TestGoSrc1(t *testing.T) {

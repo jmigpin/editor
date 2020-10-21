@@ -4,8 +4,8 @@ import (
 	"image"
 	"io"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/mathutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/mathutil"
 )
 
 type RuneReader struct {

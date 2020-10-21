@@ -3,7 +3,7 @@
 package driver
 
 import (
-	"github.com/jmigpin/editor/v2/driver/windriver"
+	"github.com/jmigpin/editor/driver/windriver"
 )
 
 func NewWindow() (Window, error) {

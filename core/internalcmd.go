@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jmigpin/editor/v2/core/toolbarparser"
-	"github.com/jmigpin/editor/v2/ui"
-	"github.com/jmigpin/editor/v2/util/uiutil/widget"
+	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 //----------

@@ -3,7 +3,7 @@ package core
 import (
 	"container/list"
 
-	"github.com/jmigpin/editor/v2/ui"
+	"github.com/jmigpin/editor/ui"
 )
 
 type RowReopener struct {

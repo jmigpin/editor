@@ -6,7 +6,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/jmigpin/editor/v2/ui"
+	"github.com/jmigpin/editor/ui"
 )
 
 ////godebug:annotatefile

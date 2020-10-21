@@ -3,8 +3,8 @@ package internalcmds
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/ui"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/ui"
 )
 
 func GoRename(args0 *core.InternalCmdArgs) error {

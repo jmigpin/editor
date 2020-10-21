@@ -3,7 +3,7 @@ package widget
 import (
 	"image/draw"
 
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type UIContext interface {

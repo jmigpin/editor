@@ -13,13 +13,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/util/osutil"
-	"github.com/jmigpin/editor/v2/util/parseutil"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func OnLoad(ed *core.Editor) {
-	// default contentcmds at: github.com/jmigpin/editor/v2/core/contentcmds/init.go
+	// default contentcmds at: github.com/jmigpin/editor/core/contentcmds/init.go
 	core.ContentCmds.Remove("gotodefinition") // remove default
 	core.ContentCmds.Prepend("gotodefinition_godef", goToDefinition)
 }

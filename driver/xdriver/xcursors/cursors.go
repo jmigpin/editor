@@ -5,7 +5,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/v2/util/imageutil"
+	"github.com/jmigpin/editor/util/imageutil"
 )
 
 // https://tronche.com/gui/x/xlib/appendix/b/

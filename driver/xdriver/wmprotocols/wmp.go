@@ -6,7 +6,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/v2/driver/xdriver/xutil"
+	"github.com/jmigpin/editor/driver/xdriver/xutil"
 )
 
 // https://tronche.com/gui/x/icccm/sec-4.html#s-4.2.8.1

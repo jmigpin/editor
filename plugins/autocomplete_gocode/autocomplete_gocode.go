@@ -13,9 +13,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/ui"
-	"github.com/jmigpin/editor/v2/util/osutil"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/osutil"
 )
 
 func AutoComplete(ctx context.Context, ed *core.Editor, cfb *ui.ContextFloatBox) (_ error, handled bool) {

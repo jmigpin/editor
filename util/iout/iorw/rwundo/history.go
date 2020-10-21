@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw/rwedit"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
 ////godebug:annotatefile

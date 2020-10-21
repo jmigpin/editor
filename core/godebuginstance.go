@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmigpin/editor/v2/core/godebug"
-	"github.com/jmigpin/editor/v2/core/godebug/debug"
-	"github.com/jmigpin/editor/v2/ui"
-	"github.com/jmigpin/editor/v2/util/ctxutil"
-	"github.com/jmigpin/editor/v2/util/drawutil/drawer4"
-	"github.com/jmigpin/editor/v2/util/parseutil"
+	"github.com/jmigpin/editor/core/godebug"
+	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/ctxutil"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 //godebug:annotatefile

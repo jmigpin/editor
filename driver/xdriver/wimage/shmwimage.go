@@ -10,7 +10,7 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
-	"github.com/jmigpin/editor/v2/util/syncutil"
+	"github.com/jmigpin/editor/util/syncutil"
 )
 
 type ShmWImage struct {

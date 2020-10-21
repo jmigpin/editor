@@ -5,10 +5,10 @@ import (
 	"image/color"
 	"time"
 
-	"github.com/jmigpin/editor/v2/util/drawutil"
-	"github.com/jmigpin/editor/v2/util/drawutil/drawer4"
-	"github.com/jmigpin/editor/v2/util/imageutil"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 // textedit with extensions

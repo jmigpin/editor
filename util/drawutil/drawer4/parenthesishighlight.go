@@ -1,6 +1,6 @@
 package drawer4
 
-import "github.com/jmigpin/editor/v2/util/iout/iorw"
+import "github.com/jmigpin/editor/util/iout/iorw"
 
 func updateParenthesisHighlight(d *Drawer) {
 	if !d.Opt.ParenthesisHighlight.On {

@@ -3,8 +3,8 @@ package internalcmds
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/util/iout/iorw/rwedit"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
 func Replace(args0 *core.InternalCmdArgs) error {

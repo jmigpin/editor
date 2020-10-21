@@ -1,6 +1,6 @@
 package rwundo
 
-import "github.com/jmigpin/editor/v2/util/iout/iorw"
+import "github.com/jmigpin/editor/util/iout/iorw"
 
 type UndoRedo struct {
 	Index int

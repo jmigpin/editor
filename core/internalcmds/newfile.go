@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jmigpin/editor/v2/core"
+	"github.com/jmigpin/editor/core"
 )
 
 func NewFile(args *core.InternalCmdArgs) error {

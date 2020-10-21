@@ -5,9 +5,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/scanutil"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) {

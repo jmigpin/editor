@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jmigpin/editor/v2/core/toolbarparser"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/osutil"
-	"github.com/jmigpin/editor/v2/util/parseutil"
+	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func ExternalCmd(erow *ERow, part *toolbarparser.Part) {

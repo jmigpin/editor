@@ -7,10 +7,10 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/jmigpin/editor/v2/core"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/osutil"
-	"github.com/jmigpin/editor/v2/util/parseutil"
+	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 // Opens url lines in preferred application.

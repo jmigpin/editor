@@ -1,6 +1,6 @@
 package rwedit
 
-import "github.com/jmigpin/editor/v2/util/iout/iorw"
+import "github.com/jmigpin/editor/util/iout/iorw"
 
 func Delete(ctx *Ctx) error {
 	a, b, ok := ctx.C.SelectionIndexes()

@@ -7,9 +7,9 @@ import (
 	"image/color"
 	"strings"
 
-	"github.com/jmigpin/editor/v2/util/fontutil"
-	"github.com/jmigpin/editor/v2/util/imageutil"
-	"github.com/jmigpin/editor/v2/util/uiutil/event"
+	"github.com/jmigpin/editor/util/fontutil"
+	"github.com/jmigpin/editor/util/imageutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type Node interface {

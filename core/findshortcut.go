@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strconv"
 
-	"github.com/jmigpin/editor/v2/core/toolbarparser"
+	"github.com/jmigpin/editor/core/toolbarparser"
 )
 
 // Search/add the toolbar find command and warps the pointer to it.

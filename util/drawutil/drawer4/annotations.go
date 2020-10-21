@@ -1,8 +1,8 @@
 package drawer4
 
 import (
-	"github.com/jmigpin/editor/v2/util/fontutil"
-	"github.com/jmigpin/editor/v2/util/mathutil"
+	"github.com/jmigpin/editor/util/fontutil"
+	"github.com/jmigpin/editor/util/mathutil"
 )
 
 type Annotations struct {

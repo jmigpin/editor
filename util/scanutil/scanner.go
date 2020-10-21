@@ -3,7 +3,7 @@ package scanutil
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 const eos = -1

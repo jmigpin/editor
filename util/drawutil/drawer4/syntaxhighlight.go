@@ -1,9 +1,9 @@
 package drawer4
 
 import (
-	"github.com/jmigpin/editor/v2/util/drawutil"
-	"github.com/jmigpin/editor/v2/util/iout/iorw"
-	"github.com/jmigpin/editor/v2/util/scanutil"
+	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/scanutil"
 )
 
 func updateSyntaxHighlightOps(d *Drawer) {
