@@ -50,7 +50,7 @@ git clone https://github.com/jmigpin/editor
 ```
 Build and run:
 ```
-cd ./editor/v2
+cd ./editor
 go build
 ./editor
 ```
@@ -63,34 +63,11 @@ go build -tags=xproto 			# (not native, needs an x11 server to run)
 
 ### Instalation with go tooling to be used as a library 
 
-Note that getting with ~~go get -u github.com/jmigpin/editor~~ will get and build an older v1 series (Read https://blog.golang.org/v2-go-modules to understand the v2 directory).
-
 ```
-go get -u github.com/jmigpin/editor/v2			# latest tagged
-go get -u github.com/jmigpin/editor/v2@master	# latest development
-go get -u github.com/jmigpin/editor/v2@v2.0.7	# specific version
-```
-Source and build location:
-```
-$GOPATH/pkg/mod/github.com/jmigpin/editor@<version>
-$GOPATH/bin/editor
-```
-Check version of the build binary of the last `go get`:
-```
-cd $GOPATH/bin
-go version -m editor
-# example output:
-editor: go1.14.2
-	path	github.com/jmigpin/editor/v2
-	mod	github.com/jmigpin/editor/v2	v2.0.7	...
+go get -u github.com/jmigpin/editor
 ```
 
-Packages can be imported with `import "github.com/jmigpin/editor/v2/<pkg>"`.<br> 
-One way to rename imports from v1 to v2 is (unix):
-```
-find . -type f -name '*.go' \
-  -exec sed -i -e 's,github.com/jmigpin/editor,github.com/jmigpin/editor/v2,g' {} \;
-```
+Please take care to distinguish between versions and ensure "go get" is actually getting the version you want.
 
 ### Usage
 
@@ -542,6 +519,11 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2020/10/21: v3.0.0 (11 commits)
+	- Changed directory structure (no vX dir for version).
+	- Reduce dependencies.
+	- Fix lsproto tests and.
+	- Other minor fixes.
 - 2020/05/06: v2.0.7 (23 commits)
 	- fixes towards making the project go-getable with v2.
 - 2020/05/05: v2.0.1 (3 commits)
