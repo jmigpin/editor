@@ -11,7 +11,7 @@ import (
 
 func TestManagerGo1(t *testing.T) {
 	goRoot := os.Getenv("GOROOT")
-	loc := filepath.Join(goRoot, "src/context/context.go:242:12")
+	loc := filepath.Join(goRoot, "src/context/context.go:241:1")
 	f, l, c := parseLocation(t, loc)
 
 	rw, offset := readBytesOffset(t, f, l, c)
@@ -58,7 +58,7 @@ func TestManagerGo1(t *testing.T) {
 
 func TestManagerGo2(t *testing.T) {
 	goRoot := filepath.Join(os.Getenv("GOROOT"), "src")
-	loc := filepath.Join(goRoot, "context/context.go:242:12")
+	loc := filepath.Join(goRoot, "context/context.go:243:12")
 	f, l, c := parseLocation(t, loc)
 
 	rw, offset := readBytesOffset(t, f, l, c)
@@ -96,7 +96,7 @@ func TestManagerGo3(t *testing.T) {
 	// loc1
 	{
 		goRoot := filepath.Join(os.Getenv("GOROOT"), "src")
-		loc1 := filepath.Join(goRoot, "context/context.go:242:12")
+		loc1 := filepath.Join(goRoot, "context/context.go:243:12")
 		f, l, c := parseLocation(t, loc1)
 		rw, offset := readBytesOffset(t, f, l, c)
 		comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)

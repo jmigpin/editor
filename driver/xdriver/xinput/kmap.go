@@ -97,7 +97,7 @@ func (km *KMap) printKeysyms(keycode xproto.Keycode) {
 	{
 		u := []string{}
 		for _, ks := range keysyms {
-			u = append(u, string(ks))
+			u = append(u, string(rune(ks)))
 		}
 		fmt.Printf("[%v]\n", strings.Join(u, " "))
 	}

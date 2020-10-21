@@ -5,6 +5,8 @@ package lsproto
 import (
 	"context"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -78,7 +80,8 @@ func TestManGoCompletionF1(t *testing.T) {
 	testFileLineColCompletion(t, s)
 }
 func TestManGoCompletionF2(t *testing.T) {
-	s := "/home/jorge/lib/golang/go/src/context/context.go:242:12"
+	goRoot := os.Getenv("GOROOT")
+	s := filepath.Join(goRoot, "src/context/context.go:243:12")
 	testFileLineColCompletion(t, s)
 }
 
