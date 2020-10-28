@@ -201,7 +201,15 @@ func (p *Print) doPointer(ctx *Ctx, v reflect.Value, depth int) {
 		p.do(ctx, nil, depth)
 		return
 	}
-	if depth >= p.maxPtrDepth || v.Pointer() == 0 {
+	if depth >= p.maxPtrDepth {
+		// can't call v.Pointer() directly or it will panic (cgo structs)
+		// "panic: can't call pointer on a non-pointer Value"
+		tname := v.Type().Name()
+		if tname == "" {
+			p.appendStr("0x?")
+			return
+		}
+
 		p.do(ctx, v.Pointer(), depth)
 		return
 	}
