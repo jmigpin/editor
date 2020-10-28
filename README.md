@@ -78,10 +78,10 @@ require github.com/jmigpin/editor a08876d10e63
 The command `go mod tidy` will replace that line with:
 
 ```
-require github.com/jmigpin/editor v1.1.2-0.20201021185104-a08876d10e63
+require github.com/jmigpin/editor v1.y.z-0.20201021185104-a08876d10e63
 ```
 
-Note that the last released version in the v1 series was 1.1.1, but because the go compiler insists that a project must follow the vX directories, on projects that stopped doing it, it will now show v1.1.2, even though it will be using the inserted commit hash of v3.0.0 (not aware of a better solution).
+Note that because the go compiler insists that a project must follow the vX directories, on projects that stopped doing it, it will now show v1.y.z, even though it will be using the inserted commit hash of v3.0.0.
 
 ## Usage
 
