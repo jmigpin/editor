@@ -127,6 +127,8 @@ Usage of ./editor:
     	 (default 8)
   -usemultikey
     	use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)
+  -version
+    	output version and exit
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
 ```

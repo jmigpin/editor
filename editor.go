@@ -3,6 +3,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -37,11 +38,17 @@ func main() {
 	flag.StringVar(&opt.Plugins, "plugins", "", "comma separated string of plugin filenames")
 	flag.Var(&opt.LSProtos, "lsproto", "Language-server-protocol register options. Can be specified multiple times.\nFormat: language,extensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}\nExamples:\n"+lsproto.RegistrationExamples())
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
+	version := flag.Bool("version", false, "output version and exit")
 
 	flag.Parse()
 	opt.Filenames = flag.Args()
 
 	log.SetFlags(log.Lshortfile)
+
+	if *version {
+		fmt.Printf("version: %v\n", core.VERSION)
+		return
+	}
 
 	if *cpuProfileFlag != "" {
 		f, err := os.Create(*cpuProfileFlag)

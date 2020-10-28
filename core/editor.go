@@ -1,7 +1,5 @@
 package core
 
-////godebug:annotatefile
-
 import (
 	"context"
 	"fmt"
@@ -23,6 +21,8 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font"
 )
+
+const VERSION = "3.0.1"
 
 type Editor struct {
 	UI                *ui.UI
