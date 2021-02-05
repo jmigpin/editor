@@ -60,8 +60,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	_, err := core.NewEditor(opt)
-	if err != nil {
+	if err := core.RunEditor(opt); err != nil {
 		log.Println(err) // fatal() (os.exit) won't allow godebug to complete
 		return
 	}

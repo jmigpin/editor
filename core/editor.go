@@ -42,7 +42,7 @@ type Editor struct {
 	erowInfos map[string]*ERowInfo // use ed.ERowInfo*() to access
 }
 
-func NewEditor(opt *Options) (*Editor, error) {
+func RunEditor(opt *Options) error {
 	ed := &Editor{}
 	ed.erowInfos = map[string]*ERowInfo{}
 	ed.ifbw = NewInfoFloatBox(ed)
@@ -58,7 +58,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	ed.EEvents = NewEEvents()
 
 	if err := ed.init(opt); err != nil {
-		return nil, err
+		return err
 	}
 
 	ed.initLSProto(opt)
@@ -66,7 +66,7 @@ func NewEditor(opt *Options) (*Editor, error) {
 	go ed.fswatcherEventLoop()
 	ed.uiEventLoop() // blocks
 
-	return ed, nil
+	return nil
 }
 
 //----------
