@@ -112,7 +112,7 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 }
 
 func (cmd *Cmd) start2(ctx context.Context) error {
-	cmd.noModules = cmd.detectNoModules()
+	cmd.noModules = !cmd.detectModulesMode()
 	if cmd.flags.verbose {
 		cmd.Printf("nomodules=%v\n", cmd.noModules)
 	}
@@ -490,24 +490,36 @@ func (cmd *Cmd) goPathStr() (string, bool) {
 
 //------------
 
-func (cmd *Cmd) detectNoModules() bool {
+func (cmd *Cmd) detectModulesMode() bool {
 	env := []string{}
 	env = osutil.SetEnvs(env, os.Environ())
 	env = osutil.SetEnvs(env, cmd.flags.env)
 
 	v := osutil.GetEnv(env, "GO111MODULE")
-	if v == "off" {
+	switch v {
+	case "on":
 		return true
-	}
-	if v == "on" {
+	case "off":
 		return false
-	}
-
-	// auto: if it can't find a go.mod, it is noModules
-	if _, ok := goutil.FindGoMod(cmd.Dir); !ok {
+	case "auto":
+		return cmd.detectGoMod()
+	default:
+		v, err := goutil.GoVersion()
+		if err != nil {
+			return false
+		}
+		// < go1.16, modules mode if go.mod present
+		if goutil.GoVersionLessThan(v, "go1.16") {
+			return cmd.detectGoMod()
+		}
+		// >= go1.16, modules mode by default
 		return true
 	}
-	return false
+}
+
+func (cmd *Cmd) detectGoMod() bool {
+	_, ok := goutil.FindGoMod(cmd.Dir)
+	return ok
 }
 
 //------------

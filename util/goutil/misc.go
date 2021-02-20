@@ -1,6 +1,7 @@
 package goutil
 
 import (
+	"context"
 	"fmt"
 	"go/ast"
 	"go/printer"
@@ -11,10 +12,60 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"strconv"
 	"strings"
 
 	"github.com/jmigpin/editor/util/osutil"
 )
+
+func GoEnv() ([]string, error) {
+	args := []string{"go", "env"}
+	cmd := osutil.NewCmd(context.Background(), args...)
+	bout, err := osutil.RunCmdStdoutAndStderrInErr(cmd, nil)
+	if err != nil {
+		return nil, err
+	}
+	a := strings.Split(string(bout), "\n")
+	return a, nil
+}
+
+//----------
+
+func GoVersion() (string, error) {
+	goEnv, err := GoEnv()
+	if err != nil {
+		return "", err
+	}
+
+	env := []string{}
+	env = osutil.SetEnvs(env, goEnv)
+	v := osutil.GetEnv(env, "GOVERSION")
+	u, err := strconv.Unquote(v)
+	if err != nil {
+		return "", err
+	}
+	return u, err
+}
+
+// expecting format: "goX" like in "go1.16"
+func GoVersionLessThan(a, b string) bool {
+	a = a[2:] // trim "go"
+	b = b[2:] // trim "go"
+	return VersionOrdinal(a) < VersionOrdinal(b)
+}
+
+// constructs a byte array (returned as a string) with the count of sequential digits to be able to compare "1.9"<"1.10"
+func VersionOrdinal(version string) string {
+	a := strings.Split(version, ".")
+	r := []byte{}
+	for _, s := range a {
+		r = append(r, byte(len(s)))
+		r = append(r, []byte(s)...)
+	}
+	return string(r)
+}
+
+//----------
 
 func GoPath() []string {
 	// TODO: use go/build defaultgopath if it becomes public

@@ -82,6 +82,12 @@ func setupGoMod(ctx context.Context, cmd *Cmd, mods map[string]struct{}, dir str
 			return err
 		}
 	}
+
+	// run tidy
+	if err := goutil.GoModTidy(ctx, dirAtTmp, cmd.env); err != nil {
+		return err
+	}
+
 	return nil
 }
 
