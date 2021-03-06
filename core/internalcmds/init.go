@@ -52,6 +52,7 @@ func init() {
 	// Deprecated: in favor of "OpenFilemanager"
 	cmd("XdgOpenDir", OpenFilemanager)
 	cmdERow("OpenFilemanager", OpenFilemanager)
+	cmdERow("OpenTerminal", OpenTerminal)
 
 	cmdERow("ListDir", ListDir)
 

@@ -1,6 +1,7 @@
 package osutil
 
 import (
+	"errors"
 	"math/rand"
 	"net"
 	"os"
@@ -96,6 +97,20 @@ func OpenFilemanager(filename string) error {
 		c = exec.Command("open", filename)
 	default: // linux, others...
 		c = exec.Command("xdg-open", filename)
+	}
+	return cmdStartWaitAsync(c)
+}
+
+// doesn't wait for the cmd to end
+func OpenTerminal(filename string) error {
+	var c *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		return errors.New("todo")
+	case "darwin":
+		return errors.New("todo")
+	default: // linux, others...
+		c = exec.Command("x-terminal-emulator", "--working-directory="+filename)
 	}
 	return cmdStartWaitAsync(c)
 }

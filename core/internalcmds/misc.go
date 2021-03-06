@@ -131,6 +131,16 @@ func OpenFilemanager(args *core.InternalCmdArgs) error {
 	return osutil.OpenFilemanager(erow.Info.Dir())
 }
 
+func OpenTerminal(args *core.InternalCmdArgs) error {
+	erow := args.ERow
+
+	if erow.Info.IsSpecial() {
+		return fmt.Errorf("can't run on special row")
+	}
+
+	return osutil.OpenTerminal(erow.Info.Dir())
+}
+
 //----------
 
 func GoDebug(args *core.InternalCmdArgs) error {
