@@ -6,6 +6,7 @@ package godebug
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -21,6 +22,7 @@ import (
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type Cmd struct {
@@ -36,9 +38,9 @@ type Cmd struct {
 	//FixedTmpDirPid int
 	//noTmpCleanup   bool
 
-	env       []string // set at start
-	annset    *AnnotatorSet
-	noModules bool // go.mod's
+	env        []string // set at start
+	annset     *AnnotatorSet
+	gopathMode bool
 
 	NoPreBuild bool // useful for tests
 
@@ -57,12 +59,12 @@ type Cmd struct {
 			connect bool
 		}
 		verbose     bool
-		filenames   []string
+		filenames   []string // compile
 		work        bool
-		output      string // ex: -o filename (build mode)
-		toolExec    string // ex: "wine" will run "wine args..."
-		dirs        []string
-		files       []string
+		output      string   // ex: -o filename (build mode)
+		toolExec    string   // ex: "wine" will run "wine args..."
+		dirs        []string // annotate
+		files       []string // annotate
 		address     string   // build/connect
 		env         []string // build
 		syncSend    bool
@@ -92,6 +94,12 @@ func (cmd *Cmd) Error(err error) {
 func (cmd *Cmd) Printf(format string, a ...interface{}) (int, error) {
 	return fmt.Fprintf(cmd.Stdout, "# "+format, a...)
 }
+func (cmd *Cmd) Vprintf(format string, a ...interface{}) (int, error) {
+	if cmd.flags.verbose {
+		return cmd.Printf(format, a...)
+	}
+	return 0, nil
+}
 
 //------------
 
@@ -112,19 +120,21 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 }
 
 func (cmd *Cmd) start2(ctx context.Context) error {
-	cmd.noModules = !cmd.detectModulesMode()
-	if cmd.flags.verbose {
-		cmd.Printf("nomodules=%v\n", cmd.noModules)
+	modsMode, err := cmd.detectModulesMode()
+	if err != nil {
+		return err
 	}
+	cmd.gopathMode = !modsMode
+	cmd.Vprintf("gopathMode=%v\n", cmd.gopathMode)
 
-	// depends on: noModules
+	// depends on: gopathMode
 	tmpDir, err := cmd.setupTmpDir()
 	if err != nil {
 		return err
 	}
 	cmd.tmpDir = tmpDir
 
-	// depends on: noModules, tmpDir
+	// depends on: gopathMode, tmpDir
 	cmd.env = cmd.detectEnviron()
 
 	// print tmp dir if work flag is present
@@ -138,7 +148,6 @@ func (cmd *Cmd) start2(ctx context.Context) error {
 
 	m := &cmd.flags.mode
 	if m.run || m.test || m.build {
-		debug.SyncSend = cmd.flags.syncSend
 		if err := cmd.initAndAnnotate(ctx); err != nil {
 			return err
 		}
@@ -160,8 +169,7 @@ func (cmd *Cmd) start2(ctx context.Context) error {
 
 func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 	// "files" not in cmd.* to allow early GC
-	files := NewFiles(cmd.annset.FSet, cmd.noModules, cmd.Stderr)
-	files.Dir = cmd.Dir
+	files := NewFiles(cmd.annset.FSet, cmd.Dir, cmd.flags.mode.test, cmd.gopathMode, cmd.Stderr)
 
 	files.Add(cmd.flags.files...)
 	files.Add(cmd.flags.dirs...)
@@ -171,16 +179,13 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 		cmd.flags.filenames[i] = files.absFilename(f)
 	}
 
-	// pre-build without annotations for better errors with original filenames(result ignored)
+	// pre-build without annotations for better errors with original filenames (result ignored)
 	// done in sync (first pre-build, then annotate) in order to have the "go build" update go.mod's if necessary.
 	if !cmd.NoPreBuild {
 		if err := cmd.preBuild(ctx); err != nil {
 			return err
 		}
 	}
-
-	// TODO: force disable fetching since pre-build was successfull.
-	//cmd.env = cmd.disableGoFetch(cmd.env)
 
 	return cmd.initAndAnnotate2(ctx, files)
 }
@@ -233,7 +238,7 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 //------------
 
 func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
-	err := files.Do(ctx, cmd.flags.filenames, cmd.flags.mode.test, cmd.env)
+	err := files.Do(ctx, cmd.flags.filenames, cmd.env)
 	if err != nil {
 		return err
 	}
@@ -242,46 +247,34 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
 		files.verbose(cmd)
 	}
 
-	// copy
-	for filename := range files.copyFilenames {
-		dst := cmd.tmpDirBasedFilename(filename)
-		if err := mkdirAllCopyFileSync(filename, dst); err != nil {
-			return err
-		}
-	}
-	for filename := range files.modFilenames {
-		dst := cmd.tmpDirBasedFilename(filename)
-		if err := mkdirAllCopyFileSync(filename, dst); err != nil {
-			return err
-		}
-	}
-
-	// annotate
 	if err := cmd.annotateFiles(ctx, files); err != nil {
 		return err
 	}
 
-	// write config file after annotations
-	if err := cmd.writeGoDebugConfigFilesToTmpDir(ctx, files); err != nil {
+	// can alter astFiles
+	if err := cmd.insertExitInMain(ctx, files); err != nil {
 		return err
 	}
 
-	// create testmain file
-	if cmd.flags.mode.test && !cmd.annset.InsertedExitIn.TestMain {
-		if err := cmd.writeTestMainFilesToTmpDir(); err != nil {
+	// get config content from annotations
+	acceptOnlyFirstClient := cmd.flags.mode.run || cmd.flags.mode.test
+	configContent := cmd.annset.ConfigContent(cmd.start.network, cmd.start.address, cmd.flags.syncSend, acceptOnlyFirstClient)
+	if err := files.setGodebugconfigContent(configContent); err != nil {
+		return err
+	}
+
+	if !cmd.gopathMode {
+		if err := setupGoMods(ctx, cmd, files); err != nil {
 			return err
 		}
 	}
 
-	// main must have exit inserted
-	if !cmd.flags.mode.test && !cmd.annset.InsertedExitIn.Main {
-		return fmt.Errorf("have not inserted debug exit in main()")
+	if err := files.writeToTmpDir(cmd); err != nil {
+		return err
 	}
 
-	if !cmd.noModules {
-		if err := SetupGoMods(ctx, cmd, files); err != nil {
-			return err
-		}
+	if cmd.flags.verbose {
+		files.verbose(cmd)
 	}
 
 	return cmd.doBuild(ctx)
@@ -297,7 +290,7 @@ func (cmd *Cmd) doBuild(ctx context.Context) error {
 	}
 
 	// build
-	filenameOutAtTmp, err := cmd.runBuildCmd(ctx, dirAtTmp, filenamesAtTmp)
+	filenameOutAtTmp, err := cmd.runBuildCmd(ctx, dirAtTmp, filenamesAtTmp, false)
 	if err != nil {
 		return err
 	}
@@ -323,7 +316,7 @@ func (cmd *Cmd) doBuild(ctx context.Context) error {
 }
 
 func (cmd *Cmd) preBuild(ctx context.Context) error {
-	filenameOut, err := cmd.runBuildCmd(ctx, cmd.Dir, cmd.flags.filenames)
+	filenameOut, err := cmd.runBuildCmd(ctx, cmd.Dir, cmd.flags.filenames, true)
 	defer os.Remove(filenameOut) // ensure removal even on error
 	if err != nil {
 		return fmt.Errorf("preBuild: %w", err)
@@ -434,7 +427,7 @@ func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 		filename = filename[len(v):]
 	}
 
-	if cmd.noModules {
+	if cmd.gopathMode {
 		// trim filename when inside a src dir
 		rhs := trimAtFirstSrcDir(filename)
 		return filepath.Join(cmd.tmpDir, "src", rhs)
@@ -463,7 +456,7 @@ func (cmd *Cmd) goPathStr() (string, bool) {
 	u := []string{} // first has priority
 
 	// add tmpdir for priority to the annotated files
-	if cmd.noModules {
+	if cmd.gopathMode {
 		u = append(u, cmd.tmpDir)
 	}
 
@@ -477,20 +470,9 @@ func (cmd *Cmd) goPathStr() (string, bool) {
 	return goutil.JoinPathLists(u...), true
 }
 
-//func (cmd *Cmd) disableGoFetch(env []string) []string {
-//	// TODO: without this, windows is failing if there is no connection, but works if there is (checks local?)
-//	// TODO: with this, linux fails with packages not being loaded (doesn't check local?)
-
-//	return osutil.SetEnvs(cmd.env, []string{
-//		//"GOPROXY=direct",
-//		"GOPROXY=off", // don't use the net
-//		//"GOSUMDB=off",
-//	})
-//}
-
 //------------
 
-func (cmd *Cmd) detectModulesMode() bool {
+func (cmd *Cmd) detectModulesMode() (bool, error) {
 	env := []string{}
 	env = osutil.SetEnvs(env, os.Environ())
 	env = osutil.SetEnvs(env, cmd.flags.env)
@@ -498,22 +480,22 @@ func (cmd *Cmd) detectModulesMode() bool {
 	v := osutil.GetEnv(env, "GO111MODULE")
 	switch v {
 	case "on":
-		return true
+		return true, nil
 	case "off":
-		return false
+		return false, nil
 	case "auto":
-		return cmd.detectGoMod()
+		return cmd.detectGoMod(), nil
 	default:
 		v, err := goutil.GoVersion()
 		if err != nil {
-			return false
+			return false, err
 		}
 		// < go1.16, modules mode if go.mod present
-		if goutil.GoVersionLessThan(v, "go1.16") {
-			return cmd.detectGoMod()
+		if parseutil.VersionLessThan(v, "1.16") {
+			return cmd.detectGoMod(), nil
 		}
 		// >= go1.16, modules mode by default
-		return true
+		return true, nil
 	}
 }
 
@@ -555,10 +537,7 @@ func (cmd *Cmd) Cleanup() {
 
 //------------
 
-func (cmd *Cmd) runBuildCmd(ctx context.Context, dir string, filenames []string) (string, error) {
-	// TODO: faster dummy pre-builts?
-	// "-toolexec", "", // don't run asm?
-
+func (cmd *Cmd) runBuildCmd(ctx context.Context, dir string, filenames []string, preBuild bool) (string, error) {
 	filenameOut := filepath.Join(dir, cmd.baseFilenameOut())
 
 	preFilesArgs := godebugBuildFlags(cmd.env)
@@ -580,13 +559,17 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, dir string, filenames []string)
 			osutil.ExecName("go"), "build",
 			"-o", filenameOut,
 		}
+		if preBuild {
+			// TODO: faster dummy pre-builts
+			// TODO: test toolexec on other platforms
+			//args = append(args, "-toolexec /bin/true")  // don't run asm?
+		}
 		args = append(args, preFilesArgs...)
 		args = append(args, filenames...)
 	}
 
-	if cmd.flags.verbose {
-		cmd.Printf("runBuildCmd:  %v\n", args)
-	}
+	cmd.Vprintf("runBuildCmd:  %v\n", args)
+
 	err := cmd.runCmd(ctx, dir, args, cmd.env)
 	if err != nil {
 		err = fmt.Errorf("runBuildCmd: %w", err)
@@ -623,11 +606,31 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string, cb
 
 //------------
 
+func (cmd *Cmd) insertExitInMain(ctx context.Context, files *Files) error {
+	for _, f := range files.filesToInsertMain() {
+		astFile, err := files.fullAstFile(f.filename)
+		if err != nil {
+			return err
+		}
+		if ok := cmd.annset.InsertExitInMain(astFile, f, cmd.flags.mode.test); !ok {
+			return errors.New("unable to insertExitInMain")
+		}
+	}
+	return nil
+}
+
+//------------
+
 func (cmd *Cmd) annotateFiles(ctx context.Context, files *Files) error {
+	fa := files.filesToAnnotate()
+	if len(fa) == 0 {
+		return errors.New("no files selected to annotate")
+	}
+
 	var wg sync.WaitGroup
 	var err1 error
 	flow := make(chan struct{}, 5) // max concurrent
-	for filename := range files.annFilenames {
+	for _, f1 := range fa {
 		// early stop
 		if err := ctx.Err(); err != nil {
 			return err
@@ -635,48 +638,41 @@ func (cmd *Cmd) annotateFiles(ctx context.Context, files *Files) error {
 
 		wg.Add(1)
 		flow <- struct{}{}
-		go func(filename string) {
+		go func(f2 *File) {
 			defer func() {
 				wg.Done()
 				<-flow
 			}()
-			err := cmd.annotateFile(ctx, files, filename)
+
+			// early stop
+			if err := ctx.Err(); err != nil {
+				err1 = err
+				return
+			}
+
+			err := cmd.annotateFile(files, f2)
 			if err1 == nil {
 				err1 = err // just keep first error
 			}
-		}(filename)
+		}(f1)
 	}
 	wg.Wait()
 	return err1
 }
 
-func (cmd *Cmd) annotateFile(ctx context.Context, files *Files, filename string) error {
-
-	dst := cmd.tmpDirBasedFilename(filename)
-	astFile, err := files.fullAstFile(filename)
+func (cmd *Cmd) annotateFile(files *Files, f *File) error {
+	astFile, err := files.fullAstFile(f.filename)
 	if err != nil {
 		return err
 	}
-	if err := cmd.annset.AnnotateAstFile(astFile, filename, files); err != nil {
-		return err
-	}
-
-	// early stop
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	if err := cmd.mkdirAllWriteAstFile(dst, astFile); err != nil {
-		return err
-	}
-	return nil
+	return cmd.annset.AnnotateAstFile(astFile, f)
 }
 
 //------------
 
 func (cmd *Cmd) setupTmpDir() (string, error) {
 	d := "editor_godebug_mod_work"
-	if cmd.noModules {
+	if cmd.gopathMode {
 		d = "editor_godebug_gopath_work"
 	}
 	//if cmd.FixedTmpDir {
@@ -702,54 +698,6 @@ func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 		return err
 	}
 	return mkdirAllWriteFile(filename, buf.Bytes())
-}
-
-//------------
-
-func (cmd *Cmd) writeGoDebugConfigFilesToTmpDir(ctx context.Context, files *Files) error {
-	// godebugconfig pkg: config.go
-	filename := files.GodebugconfigPkgFilename("config.go")
-	src := cmd.annset.ConfigContent(cmd.start.network, cmd.start.address)
-	filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-	if err := mkdirAllWriteFile(filenameAtTmp, []byte(src)); err != nil {
-		return err
-	}
-	// godebugconfig pkg: go.mod
-	if !cmd.noModules {
-		dir := files.GodebugconfigPkgFilename("")
-		dirAtTmp := cmd.tmpDirBasedFilename(dir)
-		if err := goutil.GoModInit(ctx, dirAtTmp, GodebugconfigPkgPath, cmd.env); err != nil {
-			return err
-		}
-	}
-	// debug pkg (pack into a file and add to godebugconfig pkg)
-	for _, fp := range DebugFilePacks() {
-		filename := files.DebugPkgFilename(fp.Name)
-		filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-		if err := mkdirAllWriteFile(filenameAtTmp, []byte(fp.Data)); err != nil {
-			return err
-		}
-	}
-	// debug pkg: go.mod
-	if !cmd.noModules {
-		dir := files.DebugPkgFilename("")
-		dirAtTmp := cmd.tmpDirBasedFilename(dir)
-		if err := goutil.GoModInit(ctx, dirAtTmp, DebugPkgPath, cmd.env); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (cmd *Cmd) writeTestMainFilesToTmpDir() error {
-	u := cmd.annset.TestMainSources()
-	for i, tms := range u {
-		name := fmt.Sprintf("godebug_testmain%v_test.go", i)
-		filename := filepath.Join(tms.Dir, name)
-		filenameAtTmp := cmd.tmpDirBasedFilename(filename)
-		return mkdirAllWriteFile(filenameAtTmp, []byte(tms.Src))
-	}
-	return nil
 }
 
 //------------

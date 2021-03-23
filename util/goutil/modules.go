@@ -44,6 +44,12 @@ func GoModRequire(ctx context.Context, dir, path string, env []string) error {
 	return err
 }
 
+func GoModExclude(ctx context.Context, dir, path string, env []string) error {
+	args := []string{"go", "mod", "edit", "-exclude=" + path}
+	_, err := runGoModCmd(ctx, dir, args, env)
+	return err
+}
+
 func GoModReplace(ctx context.Context, dir, old, new string, env []string) error {
 	//// fails when using directories that contain the version in the name. So it would not allow a downloaded module to be used (contains directories with '@' version in the name).
 	//args := []string{"go", "mod", "edit", "-replace=" + old + "=" + new}
@@ -84,11 +90,17 @@ func runGoModCmd(ctx context.Context, dir string, args []string, env []string) (
 //----------
 
 func FindGoMod(dir string) (string, bool) {
+	return findFileUp(dir, "go.mod")
+}
+func FindGoSum(dir string) (string, bool) {
+	return findFileUp(dir, "go.sum")
+}
+func findFileUp(dir, name string) (string, bool) {
 	for {
-		goMod := filepath.Join(dir, "go.mod")
-		_, err := os.Stat(goMod)
+		fp := filepath.Join(dir, name)
+		_, err := os.Stat(fp)
 		if err == nil {
-			return goMod, true
+			return fp, true
 		}
 		// parent dir
 		oldDir := dir

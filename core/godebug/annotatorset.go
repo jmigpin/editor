@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -12,22 +12,15 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-const SelfModPkgPath = "github.com/jmigpin/editor"
-const DebugPkgPath = SelfModPkgPath + "/core/godebug/debug"
-const GodebugconfigPkgPath = SelfModPkgPath + "/core/godebug/godebugconfig"
-
-//----------
-
 type AnnotatorSet struct {
-	FSet           *token.FileSet
-	debugPkgName   string
-	debugVarPrefix string
-	testFilesPkgs  map[string]string // map[dir]pkgname
-	InsertedExitIn struct {
-		Main     bool
-		TestMain bool
+	FSet            *token.FileSet
+	debugPkgName    string
+	debugVarPrefix  string
+	insertedImports struct {
+		sync.Mutex
+		m map[string]bool
 	}
-	afds struct { // TODO: rename afds
+	afds struct {
 		sync.Mutex
 		m     map[string]*debug.AnnotatorFileData // map[filename]afd
 		a     []*debug.AnnotatorFileData          // ordered
@@ -36,57 +29,42 @@ type AnnotatorSet struct {
 }
 
 func NewAnnotatorSet() *AnnotatorSet {
-	annset := &AnnotatorSet{
-		FSet:          token.NewFileSet(),
-		testFilesPkgs: make(map[string]string),
-	}
-	annset.afds.m = make(map[string]*debug.AnnotatorFileData)
-	annset.debugPkgName = "d" + string(rune(931)) // uncommon  rune to avoid clashes
+	annset := &AnnotatorSet{FSet: token.NewFileSet()}
+	annset.insertedImports.m = map[string]bool{}
+	annset.afds.m = map[string]*debug.AnnotatorFileData{}
+	annset.debugPkgName = "d" + string(rune(931)) // uncommon rune to avoid clashes
 	annset.debugVarPrefix = annset.debugPkgName   // will have integer appended
 	return annset
 }
 
 //----------
 
-func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, filename string, files *Files) error {
+func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, f *File) error {
+	if f.action != FAAnnotate {
+		panic(fmt.Sprintf("file not set for annotation: %v", f.filename))
+	}
+	// default to copy (might endup not getting annotations)
+	if f.action == FAAnnotate {
+		f.action = FACopy
+	}
 
-	afd, err := annset.annotatorFileData(filename, files)
+	afd, err := annset.annotatorFileData(f)
 	if err != nil {
 		return err
 	}
-
-	ann := NewAnnotator(annset.FSet, files.NodeAnnType)
+	ann := NewAnnotator(annset.FSet, f)
 	ann.debugPkgName = annset.debugPkgName
 	ann.debugVarPrefix = annset.debugVarPrefix
 	ann.fileIndex = afd.FileIndex
 
-	typ := files.annTypes[filename]
-	ann.AnnotateAstFile(astFile, typ)
+	ann.AnnotateAstFile(astFile, f.annType)
 
 	// n debug stmts inserted
 	afd.DebugLen = ann.debugIndex
 
 	// insert imports if debug stmts were inserted
 	if ann.builtDebugLineStmt {
-		annset.insertImportDebug(astFile)
-
-		// insert in all files to ensure inner init function runs
-		annset.insertImport(astFile, "_", GodebugconfigPkgPath)
-
-		// insert exit in main
-		ok := annset.insertDebugExitInFunction(astFile, "main")
-		if !annset.InsertedExitIn.Main {
-			annset.InsertedExitIn.Main = ok
-		}
-
-		// insert exit in testmain
-		ok = annset.insertDebugExitInFunction(astFile, "TestMain")
-		if !annset.InsertedExitIn.TestMain {
-			annset.InsertedExitIn.TestMain = ok
-		}
-
-		// keep test files package names in case of need to build testmain files
-		annset.keepTestPackage(filename, astFile)
+		annset.updateImports(astFile, f)
 	}
 
 	return nil
@@ -94,8 +72,34 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, filename string, 
 
 //----------
 
-func (annset *AnnotatorSet) insertDebugExitInFunction(astFile *ast.File, name string) bool {
+func (annset *AnnotatorSet) InsertExitInMain(astFile *ast.File, f *File, testMode bool) bool {
+	name := "main"
+	if testMode {
+		name = "TestMain"
+	}
+	ok := annset.insertDebugExitInFunction(astFile, name)
+	if ok {
+		annset.updateImports(astFile, f)
+	}
+	return ok
+}
 
+func (annset *AnnotatorSet) updateImports(astFile *ast.File, f *File) {
+	annset.insertedImports.Lock()
+	defer annset.insertedImports.Unlock()
+	if _, ok := annset.insertedImports.m[f.filename]; !ok {
+		annset.insertedImports.m[f.filename] = true
+		annset.insertImportDebug(astFile)
+		annset.insertImportGodebugconfig(astFile)
+
+		// ast file changed, set for output
+		f.action = FAWriteAst
+	}
+}
+
+//----------
+
+func (annset *AnnotatorSet) insertDebugExitInFunction(astFile *ast.File, name string) bool {
 	obj := astFile.Scope.Lookup(name)
 	if obj == nil || obj.Kind != ast.Fun {
 		return false
@@ -127,33 +131,34 @@ func (annset *AnnotatorSet) insertImportDebug(astFile *ast.File) {
 	annset.insertImport(astFile, annset.debugPkgName, DebugPkgPath)
 }
 
+func (annset *AnnotatorSet) insertImportGodebugconfig(astFile *ast.File) {
+	// should be inserted in all files to ensure inner init function runs
+	annset.insertImport(astFile, "_", GodebugconfigPkgPath)
+}
+
 func (annset *AnnotatorSet) insertImport(astFile *ast.File, name, path string) {
 	astutil.AddNamedImport(annset.FSet, astFile, name, path)
 }
 
 //----------
 
-func (annset *AnnotatorSet) annotatorFileData(filename string, files *Files) (*debug.AnnotatorFileData, error) {
+func (annset *AnnotatorSet) annotatorFileData(f *File) (*debug.AnnotatorFileData, error) {
 	annset.afds.Lock()
 	defer annset.afds.Unlock()
 
-	afd, ok := annset.afds.m[filename]
+	afd, ok := annset.afds.m[f.filename]
 	if ok {
 		return afd, nil
 	}
 
 	// create new afd
-	fafd, ok := files.annFileData[filename]
-	if !ok {
-		return nil, fmt.Errorf("annset: annotatorfiledata: file not found: %v", filename)
-	}
 	afd = &debug.AnnotatorFileData{
 		FileIndex: annset.afds.index,
-		Filename:  filename,
-		FileHash:  fafd.FileHash,
-		FileSize:  fafd.FileSize,
+		Filename:  f.filename,
+		FileHash:  f.annFileData.FileHash,
+		FileSize:  f.annFileData.FileSize,
 	}
-	annset.afds.m[filename] = afd
+	annset.afds.m[f.filename] = afd
 
 	annset.afds.a = append(annset.afds.a, afd) // keep order
 	annset.afds.index++
@@ -163,22 +168,16 @@ func (annset *AnnotatorSet) annotatorFileData(filename string, files *Files) (*d
 
 //----------
 
-func (annset *AnnotatorSet) ConfigContent(network, addr string) string {
-	entriesStr := annset.buildConfigContentEntries()
-
-	syncSendStr := "false"
-	if debug.SyncSend {
-		syncSendStr = "true"
-	}
-
+func (annset *AnnotatorSet) ConfigContent(serverNetwork, serverAddr string, syncSend, acceptOnlyFirstClient bool) string {
 	src := `package godebugconfig
 import "` + DebugPkgPath + `"
 func init(){
-	debug.ServerNetwork = "` + network + `"
-	debug.ServerAddress = "` + addr + `"
-	debug.SyncSend = ` + syncSendStr + `
+	debug.ServerNetwork = "` + serverNetwork + `"
+	debug.ServerAddress = "` + serverAddr + `"
+	debug.SyncSend = ` + strconv.FormatBool(syncSend) + `
+	debug.AcceptOnlyFirstClient = ` + strconv.FormatBool(acceptOnlyFirstClient) + `
 	debug.AnnotatorFilesData = []*debug.AnnotatorFileData{
-		` + entriesStr + `
+		` + annset.buildConfigContentEntries() + `
 	}
 	debug.StartServer()
 }
@@ -206,56 +205,3 @@ func (annset *AnnotatorSet) buildConfigContentEntries() string {
 	}
 	return strings.Join(u, "\n")
 }
-
-//----------
-
-//func (annset *AnnotatorSet) ConfigGoModuleContent() string {
-//	return "module " + GodebugconfigPkgPath + "\n"
-//}
-
-//----------
-
-func (annset *AnnotatorSet) TestMainSources() []*TestMainSrc {
-	u := []*TestMainSrc{}
-	for dir, pkgName := range annset.testFilesPkgs {
-		src := annset.testMainSource(pkgName)
-		v := &TestMainSrc{Dir: dir, Src: src}
-		u = append(u, v)
-	}
-	return u
-}
-
-func (annset *AnnotatorSet) testMainSource(pkgName string) string {
-	return `		
-package ` + pkgName + `
-import ` + annset.debugPkgName + ` "` + DebugPkgPath + `"
-import "testing"
-import "os"
-func TestMain(m *testing.M) {
-	var code int
-	defer func(){ os.Exit(code) }()
-	defer ` + annset.debugPkgName + `.ExitServer()
-	code = m.Run()
-}
-	`
-}
-
-//----------
-
-func (annset *AnnotatorSet) keepTestPackage(filename string, astFile *ast.File) {
-	isTest := strings.HasSuffix(filename, "_test.go")
-	if isTest {
-		// keep one pkg name per dir
-		dir := filepath.Dir(filename)
-		annset.testFilesPkgs[dir] = astFile.Name.Name // pkg name
-	}
-}
-
-//----------
-
-type TestMainSrc struct {
-	Dir string
-	Src string
-}
-
-//----------

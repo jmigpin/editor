@@ -920,7 +920,8 @@ func TestAnnotator52(t *testing.T) {
 	        Σ1 := Σ.IV(Σ0)
 	        Σ2 := Σ.IC("f2", Σ1)
 	        _ = Σ2
-	        Σ3 := Σ.IVl(len(Σ0))
+	        Σ3 := Σ.IVr(len(Σ0))
+	        Σ.Line(0, 0, 42, Σ3)
 	        for a, b := range Σ0 {
 	        {
 	        Σ4 := Σ.IL(Σ3)
@@ -939,7 +940,8 @@ func TestAnnotator53(t *testing.T) {
 	        Σ1 := Σ.IV(Σ0)
 	        Σ2 := Σ.IC("f2", Σ1)
 	        _ = Σ2
-	        Σ3 := Σ.IVl(len(Σ0))
+	        Σ3 := Σ.IVr(len(Σ0))
+	        Σ.Line(0, 0, 42, Σ3)
 	        for a, _ := range Σ0 {
 	        {
 	        Σ4 := Σ.IL(Σ3)
@@ -955,7 +957,8 @@ func TestAnnotator54(t *testing.T) {
 		`for _,_=range a {}`,
 		` Σ0 := Σ.IV(a)
 	        _ = Σ0
-	        Σ1 := Σ.IVl(len(a))
+	        Σ1 := Σ.IVr(len(a))
+		Σ.Line(0, 0, 38, Σ1)
 	        for _, _ = range a {
 	        {
 	        Σ2 := Σ.IL(Σ1)
@@ -971,7 +974,8 @@ func TestAnnotator55(t *testing.T) {
 		`for a,_=range c {}`,
 		`Σ0 := Σ.IV(c)
 	        _ = Σ0
-	        Σ1 := Σ.IVl(len(c))
+	        Σ1 := Σ.IVr(len(c))
+	        Σ.Line(0, 0, 38, Σ1)
 	        for a, _ = range c {
 	        {
 	        Σ2 := Σ.IL(Σ1)
@@ -2047,6 +2051,22 @@ func TestAnnotator111(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
+func TestAnnotator112(t *testing.T) {
+	srcFunc := func(s string) string {
+		return `package p1
+		type A int
+		func (*a) String() int {
+			` + s + `
+		}`
+	}
+	inout := []string{
+		`_=1`,
+		`Σ.Line(0, 0, 44, Σ.INAnn("special func String()"))
+        	_ = 1`,
+	}
+	testAnnotator1(t, inout[0], inout[1], srcFunc)
+}
+
 func TestAnnotator_(t *testing.T) {
 	inout := []string{
 		``,
@@ -2070,22 +2090,22 @@ func TestAnnConfigContent(t *testing.T) {
 	`
 
 	srcs := []string{src1, src2}
-	files, names := newFilesFromSrcs(t, srcs...)
+	files := newFilesFromSrcs(t, srcs...)
 	annset := NewAnnotatorSet()
 
-	for i := 0; i < len(srcs); i++ {
-		astFile, err := files.fullAstFile(names[i])
+	for _, f := range files.files {
+		astFile, err := files.fullAstFile(f.filename)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = annset.AnnotateAstFile(astFile, names[i], files)
+		err = annset.AnnotateAstFile(astFile, f)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// annotate config
-	src := annset.ConfigContent("test_network", "test_addr")
+	src := annset.ConfigContent("test_network", "test_addr", false, true)
 	t.Logf("%v", src) // TODO: test output
 }
 
@@ -2100,13 +2120,18 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 	out := parseutil.TrimLineSpaces(fn(out0))
 	typ := AnnotationTypeFile
 
-	files, names := newFilesFromSrcs(t, in)
-	astFile, err := files.fullAstFile(names[0])
+	files := newFilesFromSrcs(t, in)
+	f := (*File)(nil)
+	for _, f2 := range files.files {
+		f = f2 // just get the only file in the map
+		break
+	}
+	astFile, err := files.fullAstFile(f.filename)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ann := NewAnnotator(files.fset, files.NodeAnnType)
+	ann := NewAnnotator(files.fset, f)
 	ann.debugPkgName = "Σ"   // expected by tests
 	ann.debugVarPrefix = "Σ" // expected by tests
 	ann.AnnotateAstFile(astFile, typ)

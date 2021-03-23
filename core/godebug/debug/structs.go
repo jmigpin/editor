@@ -36,6 +36,7 @@ func init() {
 	reg(&ItemStep{})
 	reg(&ItemAnon{})
 	reg(&ItemLabel{})
+	reg(&ItemNotAnn{})
 }
 
 //----------
@@ -66,11 +67,8 @@ type AnnotatorFileData struct {
 
 //----------
 
-type Item interface {
-}
-type ItemValue struct {
-	Str string
-}
+type Item interface{}
+type ItemValue struct{ Str string }
 type ItemList struct { // separated by ","
 	List []Item
 }
@@ -129,16 +127,13 @@ type ItemUnaryEnter struct {
 	Op int
 	X  Item
 }
-type ItemParen struct {
-	X Item
-}
-type ItemLiteral struct {
-	Fields *ItemList
-}
+type ItemParen struct{ X Item }
+type ItemLiteral struct{ Fields *ItemList }
 type ItemBranch struct{}
 type ItemStep struct{}
 type ItemAnon struct{}
 type ItemLabel struct{}
+type ItemNotAnn struct{ Reason string } //  not annotated
 
 //----------
 
@@ -159,9 +154,15 @@ func IVt(v V) Item {
 	return &ItemValue{Str: fmt.Sprintf("%T", v)}
 }
 
-// ItemValue: len
-func IVl(v V) Item {
-	return &ItemValue{Str: fmt.Sprintf("%v=len()", v)}
+// ItemValue: range
+func IVr(v V) Item {
+	return &ItemValue{Str: fmt.Sprintf("range(%v=len())", v)}
+}
+
+// ItemValue: printf
+// usage: newDebugCallExpr("IVp", basicLitStringQ("%v"), basicLitInt(1))
+func IVp(format string, args ...interface{}) Item {
+	return &ItemValue{Str: fmt.Sprintf(format, args...)}
 }
 
 // ItemList ("," and ";")
@@ -258,4 +259,9 @@ func IAn() Item {
 // ItemLabel
 func ILa() Item {
 	return &ItemLabel{}
+}
+
+// ItemNotAnn
+func INAnn(reason string) Item {
+	return &ItemNotAnn{Reason: reason}
 }

@@ -6,8 +6,13 @@ import (
 	"sync"
 )
 
-var server *Server
-var startServerMu sync.Mutex
+var dsrv struct { // debug server
+	sync.Mutex
+	srv    *Server
+	exited bool
+}
+
+//----------
 
 // Called by the generated config.
 func StartServer() {
@@ -15,12 +20,12 @@ func StartServer() {
 }
 
 func hotStartServer() {
-	if server == nil {
-		startServerMu.Lock()
-		if server == nil {
+	if dsrv.srv == nil {
+		dsrv.Lock()
+		if dsrv.srv == nil && !dsrv.exited {
 			startServer()
 		}
-		startServerMu.Unlock()
+		dsrv.Unlock()
 	}
 }
 
@@ -30,16 +35,19 @@ func startServer() {
 		fmt.Printf("error: godebug/debug: start server: %v\n", err)
 		os.Exit(1)
 	}
-	server = srv
+	dsrv.srv = srv
 }
 
 //----------
 
 // Auto-inserted at main for a clean exit. Not to be used.
 func ExitServer() {
-	if server != nil {
-		server.Close()
+	dsrv.Lock()
+	if dsrv.srv != nil {
+		dsrv.srv.Close()
 	}
+	dsrv.exited = true
+	dsrv.Unlock()
 }
 
 //----------
@@ -48,5 +56,5 @@ func ExitServer() {
 func Line(fileIndex, debugIndex, offset int, item Item) {
 	hotStartServer()
 	lmsg := &LineMsg{FileIndex: fileIndex, DebugIndex: debugIndex, Offset: offset, Item: item}
-	server.Send(lmsg)
+	dsrv.srv.Send(lmsg)
 }

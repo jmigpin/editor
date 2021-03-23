@@ -13,7 +13,8 @@ import (
 var AnnotatorFilesData []*AnnotatorFileData // all debug data
 var ServerNetwork string
 var ServerAddress string
-var SyncSend bool // don't send in chunks (usefull to get msgs before crash)
+var SyncSend bool              // don't send in chunks (usefull to get msgs before crash)
+var AcceptOnlyFirstClient bool // avoid possible hanging progs waiting for another connection to continue debugging (most common case)
 
 //----------
 
@@ -106,6 +107,12 @@ func (srv *Server) acceptClientsLoop() {
 		}
 		srv.client.cconn = NewCCon(srv, conn)
 		srv.client.Unlock()
+
+		// don't receive anymore connections
+		if AcceptOnlyFirstClient {
+			logger.Println("no more clients (accepting only first)")
+			return
+		}
 	}
 }
 

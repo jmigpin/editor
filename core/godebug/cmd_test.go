@@ -12,11 +12,10 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
-
-//godebug:annotatepackage
 
 func init() {
 	SimplifyStringifyItem = false
@@ -46,7 +45,7 @@ func TestCmd_simplifyStringify1(t *testing.T) {
 			_=d
 		}
 	`
-	msgs := doCmdSrc(t, src, false, false)
+	msgs := doCmdSrc(t, src, false)
 	// "1 := 1=f1(1=f2(1=f3(0)))" // remove duplicated result
 	mustHaveString(t, msgs, "1 := f1(1=f2(1=f3(0)))")
 }
@@ -70,7 +69,7 @@ func TestCmd_src1(t *testing.T) {
 			time.Sleep(10*time.Millisecond)
 		}
 	`
-	msgs := doCmdSrc(t, src, false, false)
+	msgs := doCmdSrc(t, src, false)
 	mustHaveString(t, msgs, `Sleep("10ms"=(10 * "1ms"))`)
 }
 
@@ -99,7 +98,7 @@ func TestCmd_src2(t *testing.T) {
 			_=f2()
 		}
 	`
-	msgs := doCmdSrc(t, src, false, false)
+	msgs := doCmdSrc(t, src, false)
 	mustHaveString(t, msgs, `_ := "20 []"=f2()`)
 }
 
@@ -114,7 +113,7 @@ func TestCmd_src3(t *testing.T) {
 			}
 		}
 	`
-	msgs := doCmdSrc(t, src, false, false)
+	msgs := doCmdSrc(t, src, false)
 	mustHaveString(t, msgs, "false=(10 < 10)")
 }
 
@@ -126,7 +125,7 @@ func TestCmd_src4(t *testing.T) {
 			_=1
 		}
 	`
-	msgs := doCmdSrc(t, src, true, false)
+	msgs := doCmdSrc(t, src, true)
 	mustHaveString(t, msgs, "_ := 1")
 }
 
@@ -140,7 +139,7 @@ func TestCmd_src5(t *testing.T) {
 			_=a+b
 		}
 	`
-	msgs := doCmdSrc(t, src, false, false)
+	msgs := doCmdSrc(t, src, false)
 	mustHaveString(t, msgs, "2 := 2")
 	mustNotHaveString(t, msgs, "_ := 3=(1 + 2)")
 }
@@ -156,7 +155,7 @@ func TestCmd_src5b(t *testing.T) {
 			}
 		}
 	`
-	msgs := doCmdSrc(t, src, false, false)
+	msgs := doCmdSrc(t, src, false)
 	mustHaveString(t, msgs, "_ := 3=(0 + 3)")
 	mustNotHaveString(t, msgs, "true=(0 < 2)")
 }
@@ -172,7 +171,7 @@ func TestCmd_src6(t *testing.T) {
 			_=a+b
 		}
 	`
-	_, err := doCmdSrc2(t, src, false, false)
+	_, err := doCmdSrc2(t, src, false)
 	if err == nil {
 		t.Fatal("expecting error")
 	}
@@ -187,7 +186,7 @@ func TestCmd_src7(t *testing.T) {
 			_=a
 		}
 	`
-	_, _, es, err := doCmdSrc3(t, src, false, false)
+	_, _, es, err := doCmdSrc3(t, src, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,10 +232,11 @@ func TestCmd_comments2(t *testing.T) {
 	// test single import line
 
 	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
+	//defer tf.RemoveAll()
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../w/example.com/pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
@@ -261,7 +261,8 @@ func TestCmd_comments2(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
-		//"-verbose",
+		"-work",
+		"-verbose",
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
@@ -276,6 +277,7 @@ func TestCmd_comments3(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../w/example.com/pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
@@ -322,6 +324,8 @@ func TestCmd_goMod1(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
+		require example.com/pkg2 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 		replace example.com/pkg2 => ../pkg2
 	`)
@@ -345,6 +349,7 @@ func TestCmd_goMod1(t *testing.T) {
 	`)
 	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", `
 		module example.com/pkg2
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", `
@@ -379,6 +384,8 @@ func TestCmd_goMod2(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
+		require example.com/pkg2 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 		replace example.com/pkg2 => `+filepath.Join(tf.Dir, "pkg2")+`
 	`)
@@ -423,6 +430,67 @@ func TestCmd_goMod2(t *testing.T) {
 	mustHaveString(t, msgs, `"F2"`)
 }
 
+func TestCmd_goMod2b(t *testing.T) {
+	// not in gopath
+	// has go.mod
+	// pkg1 is in relative dir, annotated
+	// pkg2 is in relative dir, not annotated, depends on pkg1
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+		require example.com/pkg1 v0.0.0
+		require example.com/pkg2 v0.0.0
+		replace example.com/pkg1 => ../pkg1
+		replace example.com/pkg2 => ../pkg2
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		import "example.com/pkg1"
+		import "example.com/pkg2"
+		func main() {
+			_=pkg1.F1()
+			_=pkg2.F2()
+		}
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
+		module example.com/pkg1
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/f1.go", `
+		package pkg1
+		func F1() string {
+			//godebug:annotateblock
+			return "F1"
+		}
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg2/go.mod", `
+		module example.com/pkg2
+		require example.com/pkg1 v0.0.0
+		replace example.com/pkg1 => ../pkg1
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg2/f2.go", `
+		package pkg2
+		import "example.com/pkg1"
+		func F2() string {
+			return "F2"+pkg1.F1()
+		}
+	`)
+
+	dir1 := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-verbose",
+		//"-work",
+		"main.go",
+	}
+	msgs := doCmd(t, dir1, cmd)
+	mustHaveString(t, msgs, `"F1"`)
+	mustNotHaveString(t, msgs, `"F2F1"=("F2" + "F1"=F1())`)
+
+}
+
 func TestCmd_goMod3(t *testing.T) {
 	// func call should not be annotated: pkg with only one godebug annotate block inside another func
 
@@ -431,6 +499,7 @@ func TestCmd_goMod3(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
@@ -458,7 +527,7 @@ func TestCmd_goMod3(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
-		//"-verbose",
+		"-verbose",
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
@@ -471,6 +540,7 @@ func TestCmd_goMod4(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
@@ -516,6 +586,8 @@ func TestCmd_goMod5_test(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module example.com/main
+		require example.com/pkg1 v0.0.0
+		require example.com/pkg2 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 		replace example.com/pkg2 => ../pkg2
 	`)
@@ -566,6 +638,7 @@ func TestCmd_goMod6(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
@@ -605,7 +678,7 @@ func TestCmd_goMod6(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
-		//"-verbose",
+		"-verbose",
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
@@ -620,6 +693,7 @@ func TestCmd_goMod7(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
@@ -676,6 +750,7 @@ func TestCmd_goMod7b(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
@@ -731,6 +806,7 @@ func TestCmd_goMod7c(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
@@ -887,6 +963,8 @@ func TestCmd_goMod11(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		`+requireStrBurntSushi+`
+		`+requireStrGolangXTools+`
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
@@ -913,6 +991,7 @@ func TestCmd_goMod11(t *testing.T) {
 		//"-verbose",
 		"main.go",
 	}
+	tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
 	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
 	mustHaveString(t, msgs, `[48 48 49]`)
@@ -926,6 +1005,7 @@ func TestCmd_goMod12(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		`+requireStrBurntSushi+`
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
@@ -949,6 +1029,7 @@ func TestCmd_goMod12(t *testing.T) {
 		//"-verbose",
 		"main.go",
 	}
+	tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
 	mustNotHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
 	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
@@ -962,6 +1043,7 @@ func TestCmd_goMod13(t *testing.T) {
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		`+requireStrBurntSushi+`
 	`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
@@ -985,6 +1067,7 @@ func TestCmd_goMod13(t *testing.T) {
 		//"-verbose",
 		"main.go",
 	}
+	tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
 	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
 	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
@@ -1067,12 +1150,15 @@ func TestCmd_goMod16(t *testing.T) {
 	// because the editor module is not annotated, no copy of the necessary modules were done, and so the "debug" package exists causing an ambiguous module
 
 	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
+	//defer tf.RemoveAll()
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
+		require example.com/pkg1 v0.0.0
 		replace example.com/pkg1 => ../pkg1
 	`)
+	//tf.WriteFileInTmp2OrPanic("main/go.sum", `
+	//`)
 	tf.WriteFileInTmp2OrPanic("main/main.go", `
 		package main
 		//godebug:annotateimport
@@ -1083,7 +1169,59 @@ func TestCmd_goMod16(t *testing.T) {
 	`)
 	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 		module example.com/pkg1
+		`+requireStrJmigpinEditor+`
 	`)
+	//tf.WriteFileInTmp2OrPanic("pkg1/go.sum", `
+	//`)
+	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
+		package pkg1
+		import "github.com/jmigpin/editor/util/mathutil"
+		func Fa() string {
+			_=mathutil.Max(0,1)
+			return "Fa"
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		"-work",
+		"-verbose",
+		"main.go",
+	}
+	tryGoModTidy(t, dir)
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `"Fa"`)
+	mustHaveString(t, msgs, `=> Max(0, 1)`)
+}
+
+func TestCmd_goMod17(t *testing.T) {
+	// using the editor as a library that is being annotated as well (the chosen package has annotations)
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+		require example.com/pkg1 v0.0.0
+		replace example.com/pkg1 => ../pkg1
+	`)
+	//tf.WriteFileInTmp2OrPanic("main/go.sum", `
+	//`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		//godebug:annotateimport
+		import "example.com/pkg1"
+		func main() {
+			_=pkg1.Fa()
+		}
+	`)
+	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
+		module example.com/pkg1
+		`+requireStrJmigpinEditor+`
+	`)
+	//tf.WriteFileInTmp2OrPanic("pkg1/go.sum", `
+	//`)
 	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
 		package pkg1
 		import "github.com/jmigpin/editor/util/goutil"
@@ -1100,12 +1238,13 @@ func TestCmd_goMod16(t *testing.T) {
 		//"-verbose",
 		"main.go",
 	}
+	tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
 	mustHaveString(t, msgs, `"Fa"`)
 	mustHaveString(t, msgs, `=> GoPath()`)
 }
 
-//func TestCmd_goMod17(t *testing.T) {
+//func TestCmd_goMod18(t *testing.T) {
 //	// TODO: needs packages.load to be improved?
 
 //	// debug editor pkg but from another directory (similar to prev test)
@@ -1115,7 +1254,11 @@ func TestCmd_goMod16(t *testing.T) {
 
 //	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 //		module main
+//		require example.com/pkg1 v0.0.0
 //		replace example.com/pkg1 => ../pkg1
+//	`)
+//	tf.WriteFileInTmp2OrPanic("main/go.sum", `
+//		`+sumStrJmigpinEditor2+`
 //	`)
 //	tf.WriteFileInTmp2OrPanic("main/main.go", `
 //		package main
@@ -1127,12 +1270,16 @@ func TestCmd_goMod16(t *testing.T) {
 //	`)
 //	tf.WriteFileInTmp2OrPanic("pkg1/go.mod", `
 //		module example.com/pkg1
+//		`+requireStrJmigpinEditor+`
+//	`)
+//	tf.WriteFileInTmp2OrPanic("pkg1/go.sum", `
+//		`+sumStrJmigpinEditor2+`
 //	`)
 //	tf.WriteFileInTmp2OrPanic("pkg1/fa.go", `
 //		package pkg1
-//		import "github.com/jmigpin/editor/util/goutil"
+//		import "github.com/jmigpin/editor/util/mathutil"
 //		func Fa() string {
-//			_=goutil.GoPath()
+//			_=mathutil.Max(0,1)
 //			return "Fa"
 //		}
 //	`)
@@ -1140,14 +1287,151 @@ func TestCmd_goMod16(t *testing.T) {
 //	dir := filepath.Join(tf.Dir, "")
 //	cmd := []string{
 //		"run",
-//		//"-work",
-//		//"-verbose",
+//		"-work",
+//		"-verbose",
 //		"main/main.go",
 //	}
 //	msgs := doCmd(t, dir, cmd)
 //	mustHaveString(t, msgs, `"Fa"`)
-//	mustHaveString(t, msgs, `=> GoPath()`)
+//	mustHaveString(t, msgs, `=> Max(0, 1)`)
 //}
+
+//----------
+
+func TestCmd_goMod20(t *testing.T) {
+	// using the editor as a library
+	// nothing used other then the debug pkg
+	// so the original require for the editor pkg could be dropped since it causes an ambiguous import
+
+	// with const DebugPkgPath = "godebug0/debug", runs but:
+	// 	panic: gob: registering duplicate types
+	// with const DebugPkgPath = correct pkg path, fails to compile:
+	// 	compile error: ... "ambiguous import"
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+		`+requireStrJmigpinEditor+`
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		import "github.com/jmigpin/editor/core/godebug/debug"
+		func main() {
+			msg := &debug.ReqFilesDataMsg{}
+			_, _ = debug.EncodeMessage(msg)
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	tryGoModTidy(t, dir)
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `=> EncodeMessage(&ReqFilesDataMsg{})`)
+}
+
+func TestCmd_goMod21(t *testing.T) {
+	// using the editor as a library (self debug)
+	// uses a pkg that is *not-annotated*
+	// must be handled as a special case due to being in the same module as the debug pkg
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+		`+requireStrJmigpinEditor+`
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		import "github.com/jmigpin/editor/util/mathutil"
+		func main() {
+			_=mathutil.Max(0,1)
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	tryGoModTidy(t, dir)
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `=> Max(0, 1)`)
+}
+
+func TestCmd_goMod22(t *testing.T) {
+	// using the editor as a library (self debug)
+	// uses a pkg that is *annotated*
+	// must be handled as a special case due to being in the same module as the debug pkg
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+		`+requireStrJmigpinEditor+`
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		import "github.com/jmigpin/editor/util/goutil"
+		func main() {
+			_=goutil.GoPath()
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	tryGoModTidy(t, dir)
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `=> GoPath()`)
+}
+
+func TestCmd_goMod23(t *testing.T) {
+	// test with specific package that gave an infinite loop of msgs
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+		require golang.org/x/mod v0.4.2
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		//godebug:annotateimport
+		import "golang.org/x/mod/modfile"
+		func main() {
+			src:=[]byte("asdfasdfasdfas asdfasdf")
+			_, _ = modfile.Parse("aaa", src, nil)
+			_=1
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	tryGoModTidy(t, dir)
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `=> parseToFile("aaa", [97 115 100 102 97 1..., 0x0, true)`)
+}
 
 //------------
 
@@ -1191,7 +1475,7 @@ func TestCmd_goPath1(t *testing.T) {
 		"run",
 		//"-verbose",
 		//"-work",
-		"-env=GOPATH=" + tf.Dir,
+		"-env=GO111MODULE=auto:GOPATH=" + tf.Dir,
 		"main.go"}
 	msgs := doCmd(t, dir, cmd)
 	mustNotHaveString(t, msgs, `"sub1"`)
@@ -1222,7 +1506,7 @@ func TestCmd_goPath2(t *testing.T) {
 		"run",
 		//"-verbose",
 		//"-work",
-		"-env=GOPATH=" + tf.Dir,
+		"-env=GO111MODULE=auto:GOPATH=" + tf.Dir,
 		"main.go",
 	}
 
@@ -1257,7 +1541,7 @@ func TestCmd_goPath3(t *testing.T) {
 	cmd := []string{
 		"run",
 		//"-verbose",
-		"-env=GOPATH=" + filepath.Join(tf.Dir, "w"),
+		"-env=GO111MODULE=auto:GOPATH=" + filepath.Join(tf.Dir, "w"),
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
@@ -1284,6 +1568,7 @@ func TestCmd_simple1(t *testing.T) {
 		"run",
 		//"-verbose",
 		//"-work",
+		"-env=GO111MODULE=auto",
 		"dir1/main.go", // give location, but must run on dir
 	}
 	msgs := doCmd(t, tf.Dir, cmd)
@@ -1338,6 +1623,7 @@ func TestCmd_simple3(t *testing.T) {
 
 	cmd := []string{
 		"run",
+		"-env=GO111MODULE=auto",
 		"dir1/main.go",
 		"-somearg=a",
 	}
@@ -1346,6 +1632,48 @@ func TestCmd_simple3(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustHaveString(t, msgs, `_ := "a"=*&"a"`)
+}
+
+//------------
+
+func TestCmd_code1(t *testing.T) {
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("main/go.mod", `
+		module main
+	`)
+	tf.WriteFileInTmp2OrPanic("main/main.go", `
+		package main
+		import "math"
+		//import "fmt"
+		func main() {
+			//fa := func() []int {
+			//	//return nil
+			//	return []int{1}
+			//}
+			//for i := range fa() { // TODO************
+			//	println(i)
+			//}
+			//_ = 1
+			
+			_=uint64(math.MaxUint64)
+			//a:=math.MaxUint64
+			//_=a
+			//_=[...]int{1,2}
+		}
+	`)
+
+	dir := filepath.Join(tf.Dir, "main")
+	cmd := []string{
+		"run",
+		//"-work",
+		//"-verbose",
+		"main.go",
+	}
+	tryGoModTidy(t, dir)
+	msgs := doCmd(t, dir, cmd)
+	mustHaveString(t, msgs, `todo`)
 }
 
 //------------
@@ -1425,7 +1753,7 @@ func bCmd1(b *testing.B) {
 		}
 	`
 	t := &testing.T{}
-	_ = doCmdSrc(t, src, false, false)
+	_ = doCmdSrc(t, src, false)
 }
 
 //------------
@@ -1526,22 +1854,22 @@ func doCmd3(ctx context.Context, t *testing.T, dir string, args []string) ([]str
 
 //------------
 
-func doCmdSrc(t *testing.T, src string, tests bool, noModules bool) []string {
+func doCmdSrc(t *testing.T, src string, tests bool) []string {
 	t.Helper()
-	msgs, err := doCmdSrc2(t, src, tests, noModules)
+	msgs, err := doCmdSrc2(t, src, tests)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return msgs
 }
 
-func doCmdSrc2(t *testing.T, src string, tests bool, noModules bool) ([]string, error) {
+func doCmdSrc2(t *testing.T, src string, tests bool) ([]string, error) {
 	t.Helper()
-	msgs, _, _, err := doCmdSrc3(t, src, tests, noModules)
+	msgs, _, _, err := doCmdSrc3(t, src, tests)
 	return msgs, err
 }
 
-func doCmdSrc3(t *testing.T, src string, tests bool, noModules bool) ([]string, string, string, error) {
+func doCmdSrc3(t *testing.T, src string, tests bool) ([]string, string, string, error) {
 	t.Helper()
 
 	tf := newTmpFiles(t)
@@ -1555,10 +1883,7 @@ func doCmdSrc3(t *testing.T, src string, tests bool, noModules bool) ([]string, 
 	tf.WriteFileInTmp2OrPanic(filename, src)
 
 	// environment
-	env := []string{}
-	if noModules {
-		env = append(env, "GO111MODULE=off")
-	}
+	env := []string{"GO111MODULE=off"}
 	envArg := strings.Join(env, string(os.PathListSeparator))
 
 	args := []string{}
@@ -1615,3 +1940,18 @@ func hasStringIn(s string, ss []string) bool {
 	}
 	return false
 }
+
+//------------
+
+func tryGoModTidy(t *testing.T, dir string) {
+	if err := goutil.GoModTidy(context.Background(), dir, nil); err != nil {
+		t.Log(err)
+	}
+}
+
+//------------
+
+// use these for reproducible tests
+var requireStrJmigpinEditor = "require github.com/jmigpin/editor v1.3.1-0.20201028050500-3332844d68bb"
+var requireStrBurntSushi = "require github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843"
+var requireStrGolangXTools = "require golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e"

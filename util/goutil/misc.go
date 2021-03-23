@@ -7,65 +7,22 @@ import (
 	"go/printer"
 	"go/token"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
-	"strconv"
 	"strings"
 
 	"github.com/jmigpin/editor/util/osutil"
 )
 
-func GoEnv() ([]string, error) {
-	args := []string{"go", "env"}
-	cmd := osutil.NewCmd(context.Background(), args...)
-	bout, err := osutil.RunCmdStdoutAndStderrInErr(cmd, nil)
-	if err != nil {
-		return nil, err
-	}
-	a := strings.Split(string(bout), "\n")
-	return a, nil
+//godebug:annotatefile
+
+func GoRoot() string {
+	return runtime.GOROOT()
 }
-
-//----------
-
-func GoVersion() (string, error) {
-	goEnv, err := GoEnv()
-	if err != nil {
-		return "", err
-	}
-
-	env := []string{}
-	env = osutil.SetEnvs(env, goEnv)
-	v := osutil.GetEnv(env, "GOVERSION")
-	u, err := strconv.Unquote(v)
-	if err != nil {
-		return "", err
-	}
-	return u, err
-}
-
-// expecting format: "goX" like in "go1.16"
-func GoVersionLessThan(a, b string) bool {
-	a = a[2:] // trim "go"
-	b = b[2:] // trim "go"
-	return VersionOrdinal(a) < VersionOrdinal(b)
-}
-
-// constructs a byte array (returned as a string) with the count of sequential digits to be able to compare "1.9"<"1.10"
-func VersionOrdinal(version string) string {
-	a := strings.Split(version, ".")
-	r := []byte{}
-	for _, s := range a {
-		r = append(r, byte(len(s)))
-		r = append(r, []byte(s)...)
-	}
-	return string(r)
-}
-
-//----------
 
 func GoPath() []string {
 	// TODO: use go/build defaultgopath if it becomes public
@@ -82,6 +39,53 @@ func GoPath() []string {
 
 func JoinPathLists(w ...string) string {
 	return strings.Join(w, string(os.PathListSeparator))
+}
+
+//----------
+
+func GoEnv() ([]string, error) {
+	args := []string{"go", "env"}
+	cmd := osutil.NewCmd(context.Background(), args...)
+	bout, err := osutil.RunCmdStdoutAndStderrInErr(cmd, nil)
+	if err != nil {
+		return nil, err
+	}
+	a := strings.Split(string(bout), "\n")
+
+	// clear "set " prefix (windows output)
+	for i, s := range a {
+		a[i] = strings.TrimPrefix(s, "set ")
+	}
+	return a, nil
+}
+
+//----------
+
+// returns version as in "1.0" without the "go" prefix
+func GoVersion() (string, error) {
+	goEnv, err := GoEnv()
+	if err != nil {
+		return "", err
+	}
+
+	// get from env var, not present in <=go.15.x?
+	v := osutil.GetEnv(goEnv, "GOVERSION")
+
+	if v == "" {
+		// get from file located in go root
+		d := GoRoot()
+		fp := filepath.Join(d, "VERSION")
+		b, err := ioutil.ReadFile(fp)
+		if err != nil {
+			return "", err
+		}
+		v = strings.TrimSpace(string(b))
+	}
+
+	// remove "go" prefix if present
+	v = strings.TrimPrefix(v, "go")
+
+	return v, nil
 }
 
 //----------

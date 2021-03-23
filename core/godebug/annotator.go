@@ -5,27 +5,24 @@ import (
 	"go/ast"
 	"go/printer"
 	"go/token"
+	"go/types"
 	"io"
-
-	"github.com/davecgh/go-spew/spew"
+	"strings"
 )
 
 type Annotator struct {
-	fset              *token.FileSet
-	debugPkgName      string
-	debugVarPrefix    string
-	debugVarNameIndex int
-	fileIndex         int
-
+	fset               *token.FileSet
+	file               *File
+	debugPkgName       string
+	debugVarPrefix     string
+	debugVarNameIndex  int
+	fileIndex          int
 	debugIndex         int
 	builtDebugLineStmt bool
-
-	files         *Files
-	nodeAnnTypeFn func(ast.Node) AnnotationType
 }
 
-func NewAnnotator(fset *token.FileSet, nodeAnnTypeFn func(ast.Node) AnnotationType) *Annotator {
-	ann := &Annotator{fset: fset, nodeAnnTypeFn: nodeAnnTypeFn}
+func NewAnnotator(fset *token.FileSet, f *File) *Annotator {
+	ann := &Annotator{fset: fset, file: f}
 	ann.debugPkgName = string('Σ')
 	ann.debugVarPrefix = string('Σ')
 	return ann
@@ -89,13 +86,27 @@ func (ann *Annotator) visitDeclFromFile(ctx *Ctx, decl ast.Decl) {
 	case *ast.GenDecl:
 		// do nothing
 	default:
-		spew.Dump("decl", t)
+		fmt.Printf("todo: decl: %T\n", t)
 	}
 }
 
 func (ann *Annotator) visitFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
-	// don't annotate String() functions to avoid endless loops recursion
-	if fd.Recv != nil && fd.Name.Name == "String" && len(fd.Type.Params.List) == 0 {
+	// don't annotate these functions to avoid endless loop recursion
+	noAnnSpecialFunc := false
+	if fd.Recv != nil && fd.Body != nil && fd.Name.Name == "String" && len(fd.Type.Params.List) == 0 {
+		noAnnSpecialFunc = true
+	}
+	if fd.Recv != nil && fd.Body != nil && fd.Name.Name == "Error" && len(fd.Type.Params.List) == 0 {
+		noAnnSpecialFunc = true
+	}
+	// insert debugging step to show it ran
+	if noAnnSpecialFunc {
+		s := fmt.Sprintf("special func %v()", fd.Name.Name)
+		re := basicLitStringQ(s)
+		ce := ann.newDebugCallExpr("INAnn", re)
+		stmt := ann.newDebugLineStmt(ctx, fd.Type.End(), ce)
+		ctx2, _ := ctx.withStmtIter(&fd.Body.List)
+		ctx2.insertInStmtListBefore(stmt)
 		return
 	}
 
@@ -104,8 +115,8 @@ func (ann *Annotator) visitFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
 	bs := &ast.BlockStmt{List: []ast.Stmt{}}
 
 	// body can be nil (external func decls, only the header declared)
-	hasParams := len(fd.Type.Params.List) > 0 && fd.Body != nil
-	if hasParams {
+	hasParamsBody := len(fd.Type.Params.List) > 0 && fd.Body != nil
+	if hasParamsBody {
 		// visit parameters
 		ctx3, _ := ctx.withStmtIter(&bs.List)
 		exprs := ann.visitFieldList(ctx3, fd.Type.Params)
@@ -122,7 +133,7 @@ func (ann *Annotator) visitFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
 		ann.visitBlockStmt(ctx2, fd.Body)
 	}
 
-	if hasParams {
+	if hasParamsBody {
 		// insert blockstmt at the top of the body
 		ctx4, _ := ctx.withStmtIter(&fd.Body.List)
 		ctx4.insertInStmtListBefore(bs) // index 0
@@ -245,7 +256,7 @@ func (ann *Annotator) visitIfStmt(ctx *Ctx, is *ast.IfStmt) {
 	case *ast.BlockStmt: // "else ..."
 		ann.visitBlockStmt(ctx, t)
 	default:
-		spew.Dump("todo: visitIfStmt: else: ", t)
+		fmt.Printf("todo: visitIfStmt: else: %T\n", t)
 	}
 }
 
@@ -300,15 +311,27 @@ func (ann *Annotator) visitRangeStmt(ctx *Ctx, rs *ast.RangeStmt) {
 	x := ann.visitExpr(ctx2, &rs.X)
 
 	// TODO: context to discard X when visiting rs.X above?
-	// assign x to anon (not using X value)
+	// assign x to anon (not using X value, showing just length value instead as it will be less verbose and more useful)
 	as2 := ann.newAssignStmt11(anonIdent(), x)
 	as2.Tok = token.ASSIGN
 	ctx.insertInStmtList(as2)
 
 	// length of x
 	ce5 := &ast.CallExpr{Fun: ast.NewIdent("len"), Args: []ast.Expr{rs.X}}
-	ce6 := ann.newDebugCallExpr("IVl", ce5)
-	lenId := ann.assignToNewIdent(ctx, ce6)
+	//// call everytime (go only calls len once in range())
+	//ce8 := ann.newDebugCallExpr("IVr", ce5)
+	//lenId := ce8
+	//rangeLenId := ce8
+	// reuse len value
+	ce6 := ann.newDebugCallExpr("IVr", ce5)
+	ce7 := ann.assignToNewIdent(ctx, ce6)
+	lenId := ce7
+	rangeLenId := ce7
+
+	// show step with length result (in case it is zero, it would not show)
+	ctx5 := ctx.withKeepDebugIndex()
+	stmt5 := ann.newDebugLineStmt(ctx5, pos, lenId)
+	ctx.insertInStmtListBefore(stmt5)
 
 	// key and value
 	lhs := []ast.Expr{}
@@ -331,7 +354,7 @@ func (ann *Annotator) visitRangeStmt(ctx *Ctx, rs *ast.RangeStmt) {
 	bs := &ast.BlockStmt{}
 	ctx3, _ := ctx.withStmtIter(&bs.List) // index at 0
 
-	rhs := []ast.Expr{lenId}
+	rhs := []ast.Expr{rangeLenId}
 	ce1 := ann.newDebugCallExpr("IL", rhs...)
 	rhsId := ann.assignToNewIdent(ctx3, ce1)
 
@@ -645,6 +668,20 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	isPanic := false
 	switch t := ce.Fun.(type) {
 	case *ast.Ident:
+		fname = t.Name
+
+		// handle builtin funcs
+		switch t.Name {
+		case "panic":
+			if ann.isBuiltin(t) {
+				isPanic = true
+			}
+		case "new", "make":
+			if ann.isBuiltin(t) {
+				ctx2 = ctx2.withFirstArgIsType()
+			}
+		}
+
 		// fixes uint64(math.MaxUint64) issue where assigning the big const to a var would give a compiler error (consts are assigned to int by default)
 		// TODO: int64(f())
 		//if avoidCallExpr(t.Name) {
@@ -653,13 +690,6 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 		//	return
 		//}
 
-		fname = t.Name
-		switch t.Name {
-		case "panic": // TODO: could be "a.panic"?
-			isPanic = true
-		case "new", "make":
-			ctx2 = ctx2.withFirstArgIsType()
-		}
 	case *ast.SelectorExpr:
 		fname = t.Sel.Name
 		if !isSelectorIdents(t) { // check if there will be a debug step
@@ -1188,10 +1218,15 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 		ann.visitCompositeLit(ctx, t)
 	case *ast.Ident:
 		ann.visitIdent(ctx, t)
-	//	case *ast.ArrayType: // TODO: [...]
-	//		ann.visitArrayType(ctx, t)
+
+	// TODO: _=new([]int,3), called if builtin not being detect
+	//case *ast.ArrayType:
+	//	ann.visitArrayType(ctx, t)
+
 	default:
-		spew.Dump("todo: expr", t)
+		err := fmt.Errorf("todo: visitExpr: %T", (*exprPtr))
+		err2 := positionError(err, ann.file.files.fset, (*exprPtr).Pos())
+		fmt.Println(err2)
 	}
 
 	exprs := ctx.popExprs()
@@ -1199,9 +1234,11 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 		return exprs[0]
 	}
 
-	//return ann.newDebugCallExpr("IVs", "todo: %T", *exprPtr)
-	fmt.Printf("visitExpr: %T len=%v\n", *exprPtr, len(exprs))
-	spew.Dump(*exprPtr)
+	// debug
+	err := fmt.Errorf("todo: visitExpr: %T, len(exprs)=%v\n", *exprPtr, len(exprs))
+	err2 := positionError(err, ann.file.files.fset, (*exprPtr).Pos())
+	fmt.Println(err2)
+
 	return nilIdent()
 }
 
@@ -1329,7 +1366,7 @@ func (ann *Annotator) newAssignStmt(lhs, rhs []ast.Expr) *ast.AssignStmt {
 
 // Returns on/off, ok.
 func (ann *Annotator) annotationsOn(n ast.Node) (bool, bool) {
-	at := ann.nodeAnnTypeFn(n)
+	at := ann.file.files.NodeAnnType(n)
 	switch at {
 	case AnnotationTypeOff:
 		return false, true
@@ -1337,6 +1374,18 @@ func (ann *Annotator) annotationsOn(n ast.Node) (bool, bool) {
 		return true, true
 	}
 	return false, false
+}
+
+//----------
+
+func (ann *Annotator) isBuiltin(id *ast.Ident) bool {
+	typ, ok := ann.file.astIdentObj(id)
+	if ok {
+		_, ok2 := typ.(*types.Builtin)
+		return ok2
+	}
+	// always returning true if the object is not found (helpful for tests)
+	return true
 }
 
 //----------
@@ -1361,10 +1410,12 @@ func emptyExpr() ast.Expr { return _emptyExpr }
 //----------
 
 func basicLitString(v string) *ast.BasicLit {
-	return &ast.BasicLit{Kind: token.STRING, Value: v}
+	s := strings.ReplaceAll(v, "%", "%%")
+	return &ast.BasicLit{Kind: token.STRING, Value: s}
 }
 func basicLitStringQ(v string) *ast.BasicLit {
-	return &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", v)}
+	s := strings.ReplaceAll(v, "%", "%%")
+	return &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", s)}
 }
 func basicLitInt(v int) *ast.BasicLit {
 	return &ast.BasicLit{Kind: token.INT, Value: fmt.Sprintf("%d", v)}

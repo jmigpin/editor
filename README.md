@@ -309,7 +309,7 @@ Examples:
 		}
 		```
 - Limitations:
-	- `String` methods are not annotated to avoid endless loops (the annotation would recursively call the String method again).
+	- `String()` and `Error()` methods are not annotated to avoid endless loops (the annotation would recursively call the method again).
 	- Go supports multi-value function assignment. These statements are annotated but give a compilation error later:
 		```
 		func myfunc1() (int,int) { return 1, 2}

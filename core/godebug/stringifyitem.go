@@ -226,6 +226,9 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 	case *debug.ItemLabel:
 		is.Str += "LABEL: next debug line is not updated on goto's"
 
+	case *debug.ItemNotAnn:
+		is.Str += fmt.Sprintf("=> not annotated: %v", t.Reason)
+
 	default:
 		is.Str += fmt.Sprintf("[TODO:(%T)%v]", item, item)
 	}
