@@ -67,6 +67,14 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, f *File) error {
 		annset.updateImports(astFile, f)
 	}
 
+	//// DEBUG
+	////godebug:annotatefile:annotator.go
+	//buf := &bytes.Buffer{}
+	//if err := goutil.PrintAstFile(buf, f.files.fset, astFile); err != nil {
+	//	return err
+	//}
+	//fmt.Printf("===astfile===\n%v\n%v\n", f.filename, string(buf.Bytes()))
+
 	return nil
 }
 

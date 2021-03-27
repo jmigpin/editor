@@ -2136,9 +2136,11 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 	ann.debugVarPrefix = "Σ" // expected by tests
 	ann.AnnotateAstFile(astFile, typ)
 
-	var buf bytes.Buffer
-	ann.PrintSimple(&buf, astFile)
-	res := parseutil.TrimLineSpaces(buf.String())
+	s1, err := ann.sprintNode(astFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := parseutil.TrimLineSpaces(s1)
 
 	if res != out {
 		u := fmt.Sprintf("\n*in:\n%s\n*expecting:\n%s\n*got:\n%s", in, out, res)

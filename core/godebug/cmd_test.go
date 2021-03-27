@@ -17,11 +17,11 @@ import (
 	"github.com/jmigpin/editor/util/osutil"
 )
 
+//----------
+
 func init() {
 	SimplifyStringifyItem = false
 }
-
-//------------
 
 func TestCmd_simplifyStringify1(t *testing.T) {
 	SimplifyStringifyItem = true
@@ -194,6 +194,54 @@ func TestCmd_src7(t *testing.T) {
 		strings.Index(es, "not_used_here") >= 0) {
 		t.Fatal("missing warning")
 	}
+}
+
+func TestCmd_src8(t *testing.T) {
+	// check the panic function (not a real builtin here)
+	src := `
+		package main
+		func main() {
+			panic("!") // not a real builtin
+			_=1
+		}
+		func panic(s string){
+			_=2	
+		}
+	`
+	msgs := doCmdSrc(t, src, false)
+	mustHaveString(t, msgs, "_ := 1")
+	mustHaveString(t, msgs, "_ := 2")
+}
+
+func TestCmd_src9(t *testing.T) {
+	// check the panic function
+	src := `
+		package main
+		func main() {
+			panic("!")
+			_=1 // not reachable
+		}
+	`
+	msgs, err := doCmdSrc2(t, src, false)
+	if err == nil {
+		t.Fatal("expecting error from panic")
+	}
+	mustHaveString(t, msgs, `=> panic("!")`)
+	mustNotHaveString(t, msgs, "_ := 1")
+}
+
+func TestCmd_src10(t *testing.T) {
+	// should be able to compile big constants
+	src := `
+		package main
+		import "math"
+		func main() {
+			_=uint64(1<<64 - 1)
+			_=uint64(math.MaxUint64)
+		}
+	`
+	msgs := doCmdSrc(t, src, false)
+	mustHaveString(t, msgs, `_ := 18446744073709551615=uint64(18446744073709551615=(18446744073709551616=(1 << 64) - 1))`)
 }
 
 //------------
@@ -1632,48 +1680,6 @@ func TestCmd_simple3(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustHaveString(t, msgs, `_ := "a"=*&"a"`)
-}
-
-//------------
-
-func TestCmd_code1(t *testing.T) {
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
-	tf.WriteFileInTmp2OrPanic("main/go.mod", `
-		module main
-	`)
-	tf.WriteFileInTmp2OrPanic("main/main.go", `
-		package main
-		import "math"
-		//import "fmt"
-		func main() {
-			//fa := func() []int {
-			//	//return nil
-			//	return []int{1}
-			//}
-			//for i := range fa() { // TODO************
-			//	println(i)
-			//}
-			//_ = 1
-			
-			_=uint64(math.MaxUint64)
-			//a:=math.MaxUint64
-			//_=a
-			//_=[...]int{1,2}
-		}
-	`)
-
-	dir := filepath.Join(tf.Dir, "main")
-	cmd := []string{
-		"run",
-		//"-work",
-		//"-verbose",
-		"main.go",
-	}
-	tryGoModTidy(t, dir)
-	msgs := doCmd(t, dir, cmd)
-	mustHaveString(t, msgs, `todo`)
 }
 
 //------------

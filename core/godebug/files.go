@@ -1342,10 +1342,6 @@ func (f *File) canHaveMain(testMode bool) bool {
 
 //----------
 
-//func (f *File) fullAstFile() (*ast.File, error) {
-//	return f.files.fullAstFile(f.filename)
-//}
-
 func (f *File) destFilename() string {
 	if f.destFilename2 != "" {
 		return f.destFilename2
@@ -1438,6 +1434,16 @@ func (f *File) astIdentObj(id *ast.Ident) (types.Object, bool) {
 		return u, true
 	}
 	return nil, false
+}
+
+func (f *File) astExprType(e ast.Expr) (types.TypeAndValue, bool) {
+	isTesting := f.pkg == nil
+	if isTesting {
+		return types.TypeAndValue{}, false
+	}
+
+	t, ok := f.pkg.TypesInfo.Types[e]
+	return t, ok
 }
 
 //----------

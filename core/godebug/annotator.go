@@ -1,12 +1,14 @@
 package godebug
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/printer"
 	"go/token"
 	"go/types"
-	"io"
+	"math/big"
 	"strings"
 )
 
@@ -66,9 +68,21 @@ func (ann *Annotator) removeInnerFuncComments(astFile *ast.File) {
 
 //----------
 
-func (ann *Annotator) PrintSimple(w io.Writer, astFile *ast.File) error {
+func (ann *Annotator) sprintNode(n ast.Node) (string, error) {
+	buf := &bytes.Buffer{}
 	cfg := &printer.Config{Mode: printer.RawFormat}
-	return cfg.Fprint(w, ann.fset, astFile)
+	if err := cfg.Fprint(buf, ann.fset, n); err != nil {
+		return "", err
+	}
+	return string(buf.Bytes()), nil
+}
+
+func (ann *Annotator) printNode(n ast.Node) {
+	s, err := ann.sprintNode(n)
+	if err != nil {
+		s = err.Error()
+	}
+	fmt.Println(s)
 }
 
 //----------
@@ -669,7 +683,6 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	switch t := ce.Fun.(type) {
 	case *ast.Ident:
 		fname = t.Name
-
 		// handle builtin funcs
 		switch t.Name {
 		case "panic":
@@ -681,15 +694,6 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 				ctx2 = ctx2.withFirstArgIsType()
 			}
 		}
-
-		// fixes uint64(math.MaxUint64) issue where assigning the big const to a var would give a compiler error (consts are assigned to int by default)
-		// TODO: int64(f())
-		//if avoidCallExpr(t.Name) {
-		//	ce := ann.newDebugCallExpr("IBy")
-		//	ctx.pushExprs(ce)
-		//	return
-		//}
-
 	case *ast.SelectorExpr:
 		fname = t.Sel.Name
 		if !isSelectorIdents(t) { // check if there will be a debug step
@@ -846,6 +850,7 @@ func (ann *Annotator) visitUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) {
 }
 
 func (ann *Annotator) visitSelectorExpr(ctx *Ctx, se *ast.SelectorExpr) {
+
 	// simplify if the tree is just made of idents
 	if isSelectorIdents(se) {
 		ce := ann.newDebugCallExpr("IV", se)
@@ -1189,7 +1194,9 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 	ctx = ctx.withNewExprs()
 	ctx = ctx.withExprPtr(exprPtr)
 
-	switch t := (*exprPtr).(type) {
+	e1 := *exprPtr
+
+	switch t := e1.(type) {
 	case *ast.CallExpr:
 		ann.visitCallExpr(ctx, t)
 	case *ast.BinaryExpr:
@@ -1219,13 +1226,13 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 	case *ast.Ident:
 		ann.visitIdent(ctx, t)
 
-	// TODO: _=new([]int,3), called if builtin not being detect
+	// TODO: _=new([]int,3), called if builtin not being detected
 	//case *ast.ArrayType:
 	//	ann.visitArrayType(ctx, t)
 
 	default:
-		err := fmt.Errorf("todo: visitExpr: %T", (*exprPtr))
-		err2 := positionError(err, ann.file.files.fset, (*exprPtr).Pos())
+		err := fmt.Errorf("todo: visitExpr: %T", e1)
+		err2 := positionError(err, ann.fset, e1.Pos())
 		fmt.Println(err2)
 	}
 
@@ -1235,8 +1242,8 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 	}
 
 	// debug
-	err := fmt.Errorf("todo: visitExpr: %T, len(exprs)=%v\n", *exprPtr, len(exprs))
-	err2 := positionError(err, ann.file.files.fset, (*exprPtr).Pos())
+	err := fmt.Errorf("todo: visitExpr: %T, len(exprs)=%v\n", e1, len(exprs))
+	err2 := positionError(err, ann.fset, e1.Pos())
 	fmt.Println(err2)
 
 	return nilIdent()
@@ -1294,6 +1301,15 @@ func (ann *Annotator) assignToNewIdents(ctx *Ctx, nids int, exprs ...ast.Expr) [
 //----------
 
 func (ann *Annotator) newDebugCallExpr(fname string, u ...ast.Expr) *ast.CallExpr {
+	// wrap big constants that cannot be used as args (compile error)
+	if fname == "IV" && len(u) == 1 {
+		e1 := &u[0]
+		if e2, ok := ann.basicLitStringQIfBigConstant(*e1); ok {
+			fname = "IVs"
+			*e1 = e2
+		}
+	}
+
 	se := &ast.SelectorExpr{
 		X:   ast.NewIdent(ann.debugPkgName),
 		Sel: ast.NewIdent(fname),
@@ -1356,10 +1372,38 @@ func (ann *Annotator) newVarName(ctx *Ctx) string {
 }
 
 func (ann *Annotator) newAssignStmt11(lhs, rhs ast.Expr) *ast.AssignStmt {
-	return &ast.AssignStmt{Tok: token.DEFINE, Lhs: []ast.Expr{lhs}, Rhs: []ast.Expr{rhs}}
+	return ann.newAssignStmt([]ast.Expr{lhs}, []ast.Expr{rhs})
 }
 func (ann *Annotator) newAssignStmt(lhs, rhs []ast.Expr) *ast.AssignStmt {
 	return &ast.AssignStmt{Tok: token.DEFINE, Lhs: lhs, Rhs: rhs}
+}
+
+//----------
+
+func (ann *Annotator) basicLitStringQIfBigConstant(e ast.Expr) (ast.Expr, bool) {
+	// handles big constants:
+	// _=uint64(1<<64 - 1)
+	// _=uint64(math.MaxUint64)
+	//
+	// the annotator would generate IV(1<<64), which will give a compile error since "1<<64" overflows an int (consts are assigned to int by default)
+
+	t, ok := ann.file.astExprType(e)
+	if ok && t.Value != nil {
+		switch t.Value.Kind() { // performance (not necessary)
+		case constant.Int, constant.Float, constant.Complex:
+
+			u := constant.Val(t.Value)
+			switch t2 := u.(type) { // necessary
+			case *big.Int:
+				return basicLitStringQ(t2.String()), true
+			case *big.Float:
+				return basicLitStringQ(t2.String()), true
+			case *big.Rat:
+				return basicLitStringQ(t2.String()), true
+			}
+		}
+	}
+	return e, false
 }
 
 //----------
