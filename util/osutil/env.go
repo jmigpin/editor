@@ -2,8 +2,11 @@ package osutil
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
+
+//godebug:annotatefile
 
 func GetEnv(env []string, key string) string {
 	for _, s := range env {
@@ -18,8 +21,22 @@ func GetEnv(env []string, key string) string {
 	return ""
 }
 
+func UnquoteEnvValues(env []string) []string {
+	for i, s := range env {
+		k, v, ok := splitEnvVar(s)
+		if ok {
+			if v2, err := strconv.Unquote(v); err == nil {
+				env[i] = keyvalStr(k, v2)
+			}
+		}
+	}
+	return env
+}
+
+//----------
+
 func SetEnv(env []string, key, value string) []string {
-	entry := fmt.Sprintf("%v=%v", key, value)
+	entry := keyvalStr(key, value)
 	set := false
 	for i, s := range env {
 		k, _, ok := splitEnvVar(s)
@@ -49,6 +66,10 @@ func SetEnv(env []string, key, value string) []string {
 		return append(env, entry)
 	}
 	return env
+}
+
+func keyvalStr(key, value string) string {
+	return fmt.Sprintf("%v=%v", key, value)
 }
 
 func SetEnvs(env []string, addEnv []string) []string {

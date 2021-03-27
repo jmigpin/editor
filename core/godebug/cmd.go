@@ -122,7 +122,11 @@ func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
 }
 
 func (cmd *Cmd) start2(ctx context.Context) error {
-	modsMode, err := cmd.detectModulesMode()
+	// setup environment
+	cmd.env = goutil.FullEnv()
+	cmd.env = osutil.SetEnvs(cmd.env, cmd.flags.env)
+
+	modsMode, err := cmd.detectModulesMode(cmd.env)
 	if err != nil {
 		return err
 	}
@@ -137,7 +141,7 @@ func (cmd *Cmd) start2(ctx context.Context) error {
 	cmd.tmpDir = tmpDir
 
 	// depends on: gopathMode, tmpDir
-	cmd.env = cmd.detectEnviron()
+	cmd.env = cmd.setGoPathEnv(cmd.env)
 
 	// print tmp dir if work flag is present
 	if cmd.flags.work {
@@ -441,21 +445,15 @@ func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
 
 //------------
 
-func (cmd *Cmd) detectEnviron() []string {
-	env := os.Environ()
-
-	env = osutil.SetEnvs(env, cmd.flags.env)
-
+func (cmd *Cmd) setGoPathEnv(env []string) []string {
 	// after cmd.flags.env such that this result won't be overriden
-	if s, ok := cmd.goPathStr(); ok {
-		env = osutil.SetEnv(env, "GOPATH", s)
-	}
 
-	return env
+	s := cmd.fullGoPathStr(env)
+	return osutil.SetEnv(env, "GOPATH", s)
 }
 
-func (cmd *Cmd) goPathStr() (string, bool) {
-	u := []string{} // first has priority
+func (cmd *Cmd) fullGoPathStr(env []string) string {
+	u := []string{} // first has priority, use new slice
 
 	// add tmpdir for priority to the annotated files
 	if cmd.gopathMode {
@@ -467,18 +465,14 @@ func (cmd *Cmd) goPathStr() (string, bool) {
 	}
 
 	// always include default gopath last (includes entry that might not be defined anywhere, needs to be set)
-	u = append(u, goutil.GoPath()...)
+	u = append(u, goutil.GetGoPath(env)...)
 
-	return goutil.JoinPathLists(u...), true
+	return goutil.JoinPathLists(u...)
 }
 
 //------------
 
-func (cmd *Cmd) detectModulesMode() (bool, error) {
-	env := []string{}
-	env = osutil.SetEnvs(env, os.Environ())
-	env = osutil.SetEnvs(env, cmd.flags.env)
-
+func (cmd *Cmd) detectModulesMode(env []string) (bool, error) {
 	v := osutil.GetEnv(env, "GO111MODULE")
 	switch v {
 	case "on":

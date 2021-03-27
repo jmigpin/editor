@@ -17,6 +17,8 @@ import (
 	"github.com/jmigpin/editor/util/osutil"
 )
 
+//godebug:annotatefile:cmd.go
+
 //----------
 
 func init() {

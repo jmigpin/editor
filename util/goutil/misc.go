@@ -20,60 +20,85 @@ import (
 
 //godebug:annotatefile
 
-func GoRoot() string {
-	return runtime.GOROOT()
-}
-
-func GoPath() []string {
-	// TODO: use go/build defaultgopath if it becomes public
-	a := []string{}
-	gopath := os.Getenv("GOPATH")
-	if gopath != "" {
-		a = append(a, filepath.SplitList(gopath)...)
-	} else {
-		// from go/build/build.go:274
-		a = append(a, filepath.Join(osutil.HomeEnvVar(), "go"))
-	}
-	return a
-}
-
-func JoinPathLists(w ...string) string {
-	return strings.Join(w, string(os.PathListSeparator))
-}
-
 //----------
 
+func FullEnv() []string {
+	env := os.Environ()
+	if a, err := GoEnv(); err == nil {
+		env = osutil.SetEnvs(env, a)
+	}
+	return env
+}
+
 func GoEnv() ([]string, error) {
+	// not the same as os.Environ which has entries like PATH
+
 	args := []string{"go", "env"}
 	cmd := osutil.NewCmd(context.Background(), args...)
 	bout, err := osutil.RunCmdStdoutAndStderrInErr(cmd, nil)
 	if err != nil {
 		return nil, err
 	}
-	a := strings.Split(string(bout), "\n")
+	env := strings.Split(string(bout), "\n")
 
-	// clear "set " prefix (windows output)
-	for i, s := range a {
-		a[i] = strings.TrimPrefix(s, "set ")
+	// clear "set " prefix
+	if runtime.GOOS == "windows" {
+		for i, s := range env {
+			env[i] = strings.TrimPrefix(s, "set ")
+		}
 	}
-	return a, nil
+
+	env = osutil.UnquoteEnvValues(env)
+
+	return env, nil
 }
 
 //----------
 
-// returns version as in "1.0" without the "go" prefix
-func GoVersion() (string, error) {
-	goEnv, err := GoEnv()
-	if err != nil {
-		return "", err
-	}
+func GoRoot() string {
+	// doesn't work well in windows
+	//return runtime.GOROOT()
 
+	return GetGoRoot(FullEnv())
+}
+
+func GoPath() []string {
+	return GetGoPath(FullEnv())
+}
+
+func GoVersion() (string, error) {
+	return GetGoVersion(FullEnv())
+}
+
+//----------
+
+func GetGoRoot(env []string) string {
+	return osutil.GetEnv(env, "GOROOT")
+}
+
+func GetGoPath(env []string) []string {
+	//res := []string{}
+	//a := osutil.GetEnv(env, "GOPATH")
+	//if a != "" {
+	//	res = append(res, filepath.SplitList(a)...)
+	//} else {
+	//	// from go/build/build.go:274
+	//	res = append(res, filepath.Join(osutil.HomeEnvVar(), "go"))
+	//}
+	//return res
+
+	a := osutil.GetEnv(env, "GOPATH")
+	return filepath.SplitList(a)
+}
+
+// returns version as in "1.0" without the "go" prefix
+func GetGoVersion(env []string) (string, error) {
 	// get from env var, not present in <=go.15.x?
-	v := osutil.GetEnv(goEnv, "GOVERSION")
+	v := osutil.GetEnv(env, "GOVERSION")
 
 	if v == "" {
 		// get from file located in go root
-		d := GoRoot()
+		d := GetGoRoot(env)
 		fp := filepath.Join(d, "VERSION")
 		b, err := ioutil.ReadFile(fp)
 		if err != nil {
@@ -87,21 +112,6 @@ func GoVersion() (string, error) {
 
 	return v, nil
 }
-
-//----------
-
-//func ExtractSrcDir(filename string) (string, string) {
-//	srcDir := ""
-//	for _, d := range build.Default.SrcDirs() {
-//		d += string(filepath.Separator)
-//		if strings.HasPrefix(filename, d) {
-//			srcDir = filename[:len(d)]
-//			filename = filename[len(d):]
-//			return srcDir, filename
-//		}
-//	}
-//	return srcDir, filename
-//}
 
 //----------
 
@@ -149,6 +159,12 @@ func Printfc(skip int, f string, args ...interface{}) {
 		return
 	}
 	fmt.Printf(f, args...)
+}
+
+//----------
+
+func JoinPathLists(w ...string) string {
+	return strings.Join(w, string(os.PathListSeparator))
 }
 
 //----------
