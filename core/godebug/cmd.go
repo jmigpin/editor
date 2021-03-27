@@ -104,10 +104,12 @@ func (cmd *Cmd) Vprintf(format string, a ...interface{}) (int, error) {
 //------------
 
 func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
-	// must have an absolute dir
-	if !filepath.IsAbs(cmd.Dir) {
-		return true, fmt.Errorf("cmd.dir not absolute")
+	// use absolute dir
+	dir0, err := filepath.Abs(cmd.Dir)
+	if err != nil {
+		return true, err
 	}
+	cmd.Dir = dir0
 
 	if err := cmd.parseArgs(args); err != nil {
 		return true, err

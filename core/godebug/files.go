@@ -100,10 +100,6 @@ func (files *Files) absFilename(filename string) string {
 //----------
 
 func (files *Files) Do(ctx context.Context, filenames []string, env []string) error {
-	if !filepath.IsAbs(files.dir) {
-		return fmt.Errorf("files.dir is not absolute")
-	}
-
 	// all program packages
 	pkgs, err := files.progPackages(ctx, filenames, env)
 	if err != nil {
@@ -151,8 +147,6 @@ func (files *Files) populateFilesMap(pkgs []*packages.Package) {
 
 	packages.Visit(pkgs, func(pkg *packages.Package) bool {
 		// returns if imports should be visited
-
-		//fmt.Printf("visiting pkg: %v\n", pkg.PkgPath)
 
 		// can't annotate debugPkg due to pkgPath duplication
 		if pkg.PkgPath == DebugPkgPath {
