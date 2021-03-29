@@ -1823,8 +1823,8 @@ func doCmd3(ctx context.Context, t *testing.T, dir string, args []string) ([]str
 
 	cmd.Dir = dir
 	cmd.NoPreBuild = true
-	//cmd.FixedTmpDir = true
-	//cmd.FixedTmpDirPid = 1
+	//cmd.fixedTmpDir.on = true
+	//cmd.fixedTmpDir.pid = 1
 
 	// log and get output (pid, build, work dir, warnings...)
 	obuf := &bytes.Buffer{}

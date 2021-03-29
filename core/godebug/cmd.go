@@ -34,9 +34,10 @@ type Cmd struct {
 	tmpDir       string
 	tmpBuiltFile string // file built and exec'd
 
-	//FixedTmpDir    bool // re-use tmp dir to allow caching
-	//FixedTmpDirPid int
-	//noTmpCleanup   bool
+	//fixedTmpDir struct { // re-use tmp dir to allow caching
+	//	on  bool
+	//	pid int
+	//}
 
 	env        []string // set at start
 	annset     *AnnotatorSet
@@ -79,10 +80,8 @@ func NewCmd() *Cmd {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
-
-	//cmd.FixedTmpDir = true
-	//cmd.FixedTmpDirPid = 2
-
+	//cmd.fixedTmpDir.on = true
+	//cmd.fixedTmpDir.pid = 2
 	return cmd
 }
 
@@ -196,53 +195,6 @@ func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
 	return cmd.initAndAnnotate2(ctx, files)
 }
 
-//func (cmd *Cmd) initAndAnnotate___concurrent(ctx context.Context) error {
-//	files := NewFiles(cmd.annset.FSet) // not in cmd.* to allow early GC
-//	files.Dir = cmd.Dir
-
-//	files.Add(cmd.flags.files...)
-//	files.Add(cmd.flags.dirs...)
-
-//	mainFilename := files.absFilename(cmd.flags.filename)
-
-//	ctx2, cancel := context.WithCancel(ctx)
-//	defer cancel()
-
-//	var wg sync.WaitGroup
-
-//	// TODO: if the pre-build is changing the go.mod, then the annotate phase won't have the final go.mod available (also gives some warnings)
-//	// pre-build without annotations for better errors (result is ignored)
-//	wg.Add(1)
-//	var preBuildErr error
-//	go func() {
-//		defer wg.Done()
-//		if err := cmd.preBuild(ctx2, mainFilename, cmd.flags.mode.test); err != nil {
-//			preBuildErr = err
-//			cancel() // early cancel
-//		}
-//	}()
-
-//	// continue with init and annotate
-//	wg.Add(1)
-//	var err2 error
-//	go func() {
-//		defer wg.Done()
-//		if err := cmd.initAndAnnotate2(ctx2, files, mainFilename); err != nil {
-//			err2 = err
-//		}
-//	}()
-
-//	wg.Wait()
-
-//	// send only the prebuild error if it happens
-//	if preBuildErr != nil {
-//		return preBuildErr
-//	}
-//	return err2
-//}
-
-//------------
-
 func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
 	err := files.Do(ctx, cmd.flags.filenames, cmd.env)
 	if err != nil {
@@ -252,6 +204,10 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
 	if cmd.flags.verbose {
 		files.verbose(cmd)
 	}
+
+	//if err := cmd.updateFixedTmpDir(files); err != nil {
+	//	return err
+	//}
 
 	if err := cmd.annotateFiles(ctx, files); err != nil {
 		return err
@@ -328,20 +284,6 @@ func (cmd *Cmd) preBuild(ctx context.Context) error {
 		return fmt.Errorf("preBuild: %w", err)
 	}
 	return nil
-}
-
-//------------
-
-func (cmd *Cmd) baseFilenameOut() string {
-	s := "godebug"
-	if cmd.flags.mode.test {
-		s = "test_godebug"
-	}
-	if len(cmd.flags.filenames) > 0 {
-		base := filepath.Base(cmd.flags.filenames[0])
-		s = replaceExt(base, "_"+s)
-	}
-	return osutil.ExecName(s)
 }
 
 //------------
@@ -514,8 +456,9 @@ func (cmd *Cmd) Cleanup() {
 
 	if cmd.flags.work {
 		// don't cleanup work dir
-		//} else if cmd.noTmpCleanup {
-		//	// don't cleanup work dir
+
+		//} else if cmd.fixedTmpDir.on {
+		// don't cleanup work dir
 	} else if cmd.tmpDir != "" {
 		if err := os.RemoveAll(cmd.tmpDir); err != nil {
 			cmd.Printf("cleanup err: %v\n", err)
@@ -666,28 +609,6 @@ func (cmd *Cmd) annotateFile(files *Files, f *File) error {
 
 //------------
 
-func (cmd *Cmd) setupTmpDir() (string, error) {
-	d := "editor_godebug_mod_work"
-	if cmd.gopathMode {
-		d = "editor_godebug_gopath_work"
-	}
-	//if cmd.FixedTmpDir {
-	//	// use a fixed directory to allow "go build" to use the cache
-	//	// there is only one godebug session per editor, so ok to use pid
-	//	cmd.noTmpCleanup = true
-	//	pid := os.Getpid()
-	//	if cmd.FixedTmpDirPid != 0 {
-	//		pid = cmd.FixedTmpDirPid
-	//	}
-	//	d += fmt.Sprintf("_pid%v", pid)
-	//	tmpDir := filepath.Join(os.TempDir(), d)
-	//	return tmpDir, nil
-	//}
-	return ioutil.TempDir(os.TempDir(), d)
-}
-
-//------------
-
 func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 	buf := &bytes.Buffer{}
 	if err := goutil.PrintAstFile(buf, cmd.annset.FSet, astFile); err != nil {
@@ -695,6 +616,93 @@ func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 	}
 	return mkdirAllWriteFile(filename, buf.Bytes())
 }
+
+//------------
+
+func (cmd *Cmd) baseFilenameOut() string {
+	s := "godebug"
+	if cmd.flags.mode.test {
+		s = "test_godebug"
+	}
+	if len(cmd.flags.filenames) > 0 {
+		base := filepath.Base(cmd.flags.filenames[0])
+		s = replaceExt(base, "_"+s)
+	}
+	return osutil.ExecName(s)
+}
+
+func (cmd *Cmd) setupTmpDir() (string, error) {
+	d := "editor_godebug_mod_work"
+	if cmd.gopathMode {
+		d = "editor_godebug_gopath_work"
+	}
+	//if cmd.fixedTmpDir.on {
+	//	// use a fixed directory to allow "go build" to use the cache
+	//	// there is only one godebug session per editor, so ok to use pid
+	//	pid := os.Getpid()
+	//	if cmd.fixedTmpDir.pid != 0 {
+	//		pid = cmd.fixedTmpDir.pid
+	//	}
+	//	d += fmt.Sprintf("_pid%v", pid)
+	//	return filepath.Join(os.TempDir(), d), nil
+	//}
+	return ioutil.TempDir(os.TempDir(), d)
+}
+
+//------------
+
+//func (cmd *Cmd) updateFixedTmpDir(files *Files) error {
+//	if !cmd.fixedTmpDir.on {
+//		return nil
+//	}
+
+//	// visit all dirs of the loaded files
+//	seen := map[string]bool{}
+//	for _, f := range files.files {
+//		// 1: src
+//		// 2: tmp
+
+//		fname1 := f.destFilename()
+//		dir1 := filepath.Dir(fname1)
+//		fname2 := cmd.tmpDirBasedFilename(fname1)
+//		dir2 := filepath.Dir(fname2)
+//		if seen[dir2] {
+//			continue
+//		}
+//		seen[dir2] = true
+
+//		// read all files in dir
+//		fi2s, err := ioutil.ReadDir(dir2)
+//		if err != nil {
+//			continue
+//		}
+//		// compare files with original filenames
+//		for _, fi2 := range fi2s {
+//			// check if exists in source
+//			fname3 := filepath.Join(dir1, fi2.Name())
+//			fi1, err := os.Stat(fname3)
+//			if err != nil {
+//				// does not exist in source, remove in tmp
+//				fname4 := filepath.Join(dir2, fi2.Name())
+//				fmt.Printf("removing: %v\n", fname4)
+//				if err := os.Remove(fname4); err != nil {
+//					return err
+//				}
+//				continue
+//			}
+//			// exists in source, compare timestamps
+//			if fi2.ModTime().After(fi1.ModTime()) {
+//				// tmp is still newer than the src, keep it as is
+//				if f.typ == FTSrc {
+//					// TODO: need to check and compare new directive
+//					fmt.Printf("setting to none: %v\n", f.filename)
+//					f.action = FANone
+//				}
+//			}
+//		}
+//	}
+//	return nil
+//}
 
 //------------
 
