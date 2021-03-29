@@ -714,8 +714,21 @@ func (ann *Annotator) visitCallExpr(ctx *Ctx, ce *ast.CallExpr) {
 	}
 	fnamee := basicLitStringQ(fname)
 
+	// n results
+	nResults := 1
+	if len(ce.Args) == 1 {
+		arg := ce.Args[0]
+		typ, ok := ann.file.astExprType(arg)
+		if ok {
+			switch t := typ.Type.(type) {
+			case *types.Tuple:
+				nResults = t.Len()
+			}
+		}
+	}
+
 	// visit args
-	ctx2 = ctx2.withNResults(1)
+	ctx2 = ctx2.withNResults(nResults)
 	ctx2 = ctx2.withResultInVar(true)
 	args := ann.visitExprList(ctx2, &ce.Args)
 

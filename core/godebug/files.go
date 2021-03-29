@@ -1418,6 +1418,7 @@ func (f *File) modFile() (*modfile.File, error) {
 //----------
 
 func (f *File) astIdentObj(id *ast.Ident) (types.Object, bool) {
+	// possibly just running tests
 	isTesting := f.pkg == nil
 	if isTesting {
 		return nil, false
@@ -1431,6 +1432,7 @@ func (f *File) astIdentObj(id *ast.Ident) (types.Object, bool) {
 }
 
 func (f *File) astExprType(e ast.Expr) (types.TypeAndValue, bool) {
+	// possibly just running tests
 	isTesting := f.pkg == nil
 	if isTesting {
 		return types.TypeAndValue{}, false

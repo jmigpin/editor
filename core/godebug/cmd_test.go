@@ -246,6 +246,24 @@ func TestCmd_src10(t *testing.T) {
 	mustHaveString(t, msgs, `_ := 18446744073709551615=uint64(18446744073709551615=(18446744073709551616=(1 << 64) - 1))`)
 }
 
+func TestCmd_src11(t *testing.T) {
+	// support function returning multiple vars as args to another func
+	src := `
+		package main
+		func main() {
+			_=f1(f2())
+		}
+		func f1(a,b int)int{
+			return a+b
+		}
+		func f2() (int,int){
+			return 1,2
+		}
+	`
+	msgs := doCmdSrc(t, src, false)
+	mustHaveString(t, msgs, `=> f1((1, 2)=f2())`)
+}
+
 //------------
 
 func TestCmd_comments(t *testing.T) {
