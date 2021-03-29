@@ -264,6 +264,20 @@ func TestCmd_src11(t *testing.T) {
 	mustHaveString(t, msgs, `=> f1((1, 2)=f2())`)
 }
 
+func TestCmd_src12(t *testing.T) {
+	// comments in the middle of a stmt
+	src := `
+		package main
+		func main() {
+			a:=1
+			/*aaa*/
+			_=a
+		}
+	`
+	msgs := doCmdSrc(t, src, false)
+	mustHaveString(t, msgs, `_ := 1`)
+}
+
 //------------
 
 func TestCmd_comments(t *testing.T) {
@@ -300,7 +314,7 @@ func TestCmd_comments2(t *testing.T) {
 	// test single import line
 
 	tf := newTmpFiles(t)
-	//defer tf.RemoveAll()
+	defer tf.RemoveAll()
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
@@ -329,8 +343,8 @@ func TestCmd_comments2(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
-		"-work",
-		"-verbose",
+		//"-work",
+		//"-verbose",
 		"main.go",
 	}
 	msgs := doCmd(t, dir, cmd)
@@ -1218,7 +1232,7 @@ func TestCmd_goMod16(t *testing.T) {
 	// because the editor module is not annotated, no copy of the necessary modules were done, and so the "debug" package exists causing an ambiguous module
 
 	tf := newTmpFiles(t)
-	//defer tf.RemoveAll()
+	defer tf.RemoveAll()
 
 	tf.WriteFileInTmp2OrPanic("main/go.mod", `
 		module main
@@ -1253,8 +1267,8 @@ func TestCmd_goMod16(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
-		"-work",
-		"-verbose",
+		//"-work",
+		//"-verbose",
 		"main.go",
 	}
 	tryGoModTidy(t, dir)
