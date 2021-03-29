@@ -21,21 +21,19 @@ func newFilesFromSrcs(t *testing.T, srcs ...string) *Files {
 func newFilesFromSrcs2(srcs ...string) (*Files, error) {
 	fset := token.NewFileSet()
 	files := NewFiles(fset, "", false, false, nil)
-	//names := []string{}
 	for i, src := range srcs {
 		filename := fmt.Sprintf("test/src%v.go", i)
-		//names = append(names, filename)
 		astFile, err := files.fullAstFile2(filename, []byte(src))
 		if err != nil {
-			return nil, err
-		}
-		// setup files to use comments handling func
-		if err := files.findCommentedFile2(filename, astFile); err != nil {
 			return nil, err
 		}
 		// mark as annotated to have file hash computed
 		f := files.NewFile(filename, FTSrc, nil)
 		f.action = FAAnnotate
+		// setup files to use comments handling func
+		if err := files.findCommentedFile2(f, astFile); err != nil {
+			return nil, err
+		}
 	}
 	// allow to later run annotatorset annotatefile (needs files hashes)
 	files.doAnnFilesHashes()

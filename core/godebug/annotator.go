@@ -32,11 +32,11 @@ func NewAnnotator(fset *token.FileSet, f *File) *Annotator {
 
 //----------
 
-func (ann *Annotator) AnnotateAstFile(astFile *ast.File, typ AnnotationType) {
+func (ann *Annotator) AnnotateAstFile(astFile *ast.File) {
 	ctx := &Ctx{}
 
 	// if annotating only blocks, start with annotations off
-	if typ == AnnotationTypeBlock {
+	if ann.file.annType == AnnotationTypeBlock {
 		ctx = ctx.withNoAnnotations(true)
 	}
 
@@ -1245,7 +1245,7 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 
 	default:
 		err := fmt.Errorf("todo: visitExpr: %T", e1)
-		err2 := positionError(err, ann.fset, e1.Pos())
+		err2 := errorPos(err, ann.fset, e1.Pos())
 		fmt.Println(err2)
 	}
 
@@ -1256,7 +1256,7 @@ func (ann *Annotator) visitExpr(ctx *Ctx, exprPtr *ast.Expr) ast.Expr {
 
 	// debug
 	err := fmt.Errorf("todo: visitExpr: %T, len(exprs)=%v\n", e1, len(exprs))
-	err2 := positionError(err, ann.fset, e1.Pos())
+	err2 := errorPos(err, ann.fset, e1.Pos())
 	fmt.Println(err2)
 
 	return nilIdent()

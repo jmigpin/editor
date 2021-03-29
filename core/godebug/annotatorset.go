@@ -57,7 +57,7 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, f *File) error {
 	ann.debugVarPrefix = annset.debugVarPrefix
 	ann.fileIndex = afd.FileIndex
 
-	ann.AnnotateAstFile(astFile, f.annType)
+	ann.AnnotateAstFile(astFile)
 
 	// n debug stmts inserted
 	afd.DebugLen = ann.debugIndex

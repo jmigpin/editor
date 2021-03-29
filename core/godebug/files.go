@@ -297,50 +297,45 @@ func (files *Files) findCommentedFiles(ctx context.Context) error {
 		if f.typ != FTSrc || f.action == FACreate {
 			continue
 		}
-		if err := files.findCommentedFile(f.filename); err != nil {
+		if err := files.findCommentedFile(f); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (files *Files) findCommentedFile(filename string) error {
-	astFile, err := files.fullAstFile(filename)
+func (files *Files) findCommentedFile(f *File) error {
+	astFile, err := files.fullAstFile(f.filename)
 	if err != nil {
 		return err
 	}
-	return files.findCommentedFile2(filename, astFile)
+	return files.findCommentedFile2(f, astFile)
 }
 
-func (files *Files) findCommentedFile2(filename string, astFile *ast.File) error {
+func (files *Files) findCommentedFile2(f *File, astFile *ast.File) error {
+	// find comments that have "//godebug" directives
 	opts := []*AnnotationOpt{}
 	for _, cg := range astFile.Comments {
 		for _, c := range cg.List {
-			opt, err := AnnotationOptInComment(c, files.fset)
+			opt, err := AnnotationOptInComment(c)
 			if err != nil {
 				return err
 			}
-			ok, err := files.handleAnnOpt(filename, opt)
-			if err != nil {
-				err = positionError(err, files.fset, c.Pos())
-				//return err
-				files.warnErr(err)
-			}
-			if ok {
-				opts = append(opts, opt)
-			}
+			opts = append(opts, opt)
 		}
 	}
-	// map for the annotator to know nodes annotations
-	mn := annOptCommentsNodesMap(files.fset, astFile, opts)
-	for n, opt := range mn {
-		files.nodeAnnTypes[n] = opt.Type
-		// handle annotateimport now that the node is known
-		if opt.Type == AnnotationTypeImport {
-			err := files.handleAnnTypeImport(n, opt)
-			if err != nil {
-				err = positionError(err, files.fset, opt.Comment.Pos())
-				//return err
+	// find annotationOpt associated nodes
+	optm := annOptNodesMap(files.fset, astFile, opts)
+	// add
+	for _, opt := range opts {
+		n, ok := optm[opt]
+		if ok {
+			// keep for annotation phase
+			files.nodeAnnTypes[n] = opt.Type
+
+			if err := files.addAnnOpt(f, astFile, opt, n); err != nil {
+				err := files.errorPos(n, err)
+				//return  err
 				files.warnErr(err)
 			}
 		}
@@ -348,83 +343,58 @@ func (files *Files) findCommentedFile2(filename string, astFile *ast.File) error
 	return nil
 }
 
-func (files *Files) handleAnnOpt(filename string, opt *AnnotationOpt) (bool, error) {
+func (files *Files) addAnnOpt(f *File, astFile *ast.File, opt *AnnotationOpt, node ast.Node) error {
 	switch opt.Type {
 	case AnnotationTypeNone:
-		return false, nil
+		return nil
 	case AnnotationTypeOff:
-		return true, nil
+		return nil
 	case AnnotationTypeBlock:
-		files.addAnnFilename(filename, opt.Type)
-		return true, nil
+		return files.addAnnFile(f, opt.Type)
 	case AnnotationTypeFile:
+		filename := f.filename
 		if opt.Opt != "" {
-			f := opt.Opt
-			if !filepath.IsAbs(f) {
+			fname := opt.Opt
+			if !filepath.IsAbs(fname) {
 				d := filepath.Dir(filename)
-				f = filepath.Join(d, f)
+				fname = filepath.Join(d, fname)
 			}
-			_, ok := files.files[f]
+			_, ok := files.files[fname]
 			if !ok {
-				return false, fmt.Errorf("file not found in loaded program (or stdlib file): %v", opt.Opt)
+				err := fmt.Errorf("file not found in loaded program (or is a stdlib file): %v", opt.Opt)
+				return err
 			}
-			filename = f
+			filename = fname
 		}
-		files.addAnnFilename(filename, opt.Type)
-		return true, nil
+		return files.addAnnFilename(filename, opt.Type)
 	case AnnotationTypeImport:
-		return true, nil
+		return files.addAnnTypeImport(node, opt)
 	case AnnotationTypePackage:
-		// add external pkg
+		pkgPath := f.pkgPath
 		if opt.Opt != "" {
-			if err := files.addPkgPath(opt.Opt, opt.Type); err != nil {
-				return false, err
-			}
-			return true, nil
+			pkgPath = opt.Opt
 		}
-		// add current pkg
-		files.addAnnFilename(filename, opt.Type)
-		dir := filepath.Dir(filename)
-		if err := files.addAnnDir(dir, opt.Type); err != nil {
-			return false, err
-		}
-		return true, nil
+		return files.addPkgPath(pkgPath, opt.Type)
 	case AnnotationTypeModule:
+		f2 := f.moduleGoMod
 		if opt.Opt != "" { // package path
-			_, filename2, err := files.pkgPathDir(opt.Opt)
+			// get a filename that belongs to the pkg
+			_, f3, err := files.pkgPathDir(opt.Opt)
 			if err != nil {
-				return false, err
+				return err
 			}
-			filename = filename2 // a filename that belongs to the pkg
+			f2 = f3.moduleGoMod
 		}
-		// packages files
-		f, ok := files.files[filename]
-		if ok {
-			if f.moduleGoMod != nil {
-				for _, f2 := range files.files {
-					if f2.moduleGoMod == f.moduleGoMod {
-						files.addAnnFilename(f2.filename, opt.Type)
-					}
-				}
-			}
+		if f2 == nil {
+			return fmt.Errorf("missing mod file: %v", f2.filename)
 		}
-
-		//goMod, _ := files.findGoModOrMissing(dir)
-		//// files under the gomod directory
-		//dir2 := filepath.Dir(goMod) + string(filepath.Separator)
-		//for _, f := range files.files {
-		//	if f.typ==FTGo && strings.HasPrefix(f.filename, dir2) {
-		//		files.addAnnFilename(f.filename, opt.Type)
-		//	}
-		//}
-		return true, nil
+		return files.addModule(f2, opt.Type)
 	default:
-		err := fmt.Errorf("todo: handleAnnOpt: %v", opt.Type)
-		return false, err
+		return fmt.Errorf("todo: handleAnnOpt: %v", opt.Type)
 	}
 }
 
-func (files *Files) handleAnnTypeImport(n ast.Node, opt *AnnotationOpt) error {
+func (files *Files) addAnnTypeImport(n ast.Node, opt *AnnotationOpt) error {
 	path, err := files.annTypeImportPath(n, opt)
 	if err != nil {
 		return err
@@ -441,10 +411,11 @@ func (files *Files) annTypeImportPath(n ast.Node, opt *AnnotationOpt) (string, e
 			}
 		}
 	}
-	if is, ok := n.(*ast.ImportSpec); ok {
-		return strconv.Unquote(is.Path.Value)
+	is, ok := n.(*ast.ImportSpec)
+	if !ok {
+		return "", fmt.Errorf("not at an import spec")
 	}
-	return "", fmt.Errorf("not at an import spec")
+	return strconv.Unquote(is.Path.Value)
 }
 
 func (files *Files) addPkgPath(pkgPath string, typ AnnotationType) error {
@@ -453,6 +424,26 @@ func (files *Files) addPkgPath(pkgPath string, typ AnnotationType) error {
 		return err
 	}
 	return files.addAnnDir(dir, typ)
+}
+
+func (files *Files) addModule(modF *File, typ AnnotationType) error {
+	if modF.typ != FTMod {
+		return fmt.Errorf("not a module file: %v", modF.filename)
+	}
+	for _, f2 := range files.files {
+		if f2.moduleGoMod == modF {
+			if err := files.addAnnFile(f2, typ); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+//----------
+
+func (files *Files) errorPos(node ast.Node, err error) error {
+	return errorPos(err, files.fset, node.Pos())
 }
 
 //----------
@@ -483,18 +474,23 @@ func (files *Files) solveGivenFilenames() error {
 
 //----------
 
-func (files *Files) addAnnFilename(filename string, typ AnnotationType) {
-	f, ok := files.files[filename]
-	if ok && f.typ == FTSrc {
-		if typ > f.annType {
-			f.action = FAAnnotate
-			f.annType = typ
-		}
-		return
+func (files *Files) addAnnFile(f *File, typ AnnotationType) error {
+	if f.typ != FTSrc {
+		return fmt.Errorf("not src type: %v", f.filename)
 	}
+	if typ > f.annType {
+		f.action = FAAnnotate
+		f.annType = typ
+	}
+	return nil
+}
 
-	err := errors.New("not part of the program: " + filename)
-	files.warnErr(err)
+func (files *Files) addAnnFilename(filename string, typ AnnotationType) error {
+	f, ok := files.files[filename]
+	if !ok {
+		return fmt.Errorf("not part of the loaded program: " + f.filename)
+	}
+	return files.addAnnFile(f, typ)
 }
 
 func (files *Files) addedAnnFilename(filename string, typ AnnotationType) bool {
@@ -512,7 +508,9 @@ func (files *Files) addAnnDir(dir string, typ AnnotationType) error {
 		// add for annotation if part of the program
 		f, ok := files.files[u]
 		if ok && f.typ == FTSrc {
-			files.addAnnFilename(u, typ)
+			if err := files.addAnnFile(f, typ); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -716,14 +714,13 @@ func (files *Files) doAnnFilesHashes() error {
 
 //----------
 
-func (files *Files) pkgPathDir(pkgPath string) (string, string, error) {
+func (files *Files) pkgPathDir(pkgPath string) (string, *File, error) {
 	for _, f := range files.files {
 		if f.typ == FTSrc && f.pkgPath == pkgPath {
-			return filepath.Dir(f.filename), f.filename, nil
+			return filepath.Dir(f.filename), f, nil
 		}
 	}
-	err := fmt.Errorf("pkg path not found in loaded program (or stdlib pkg): %v", pkgPath)
-	return "", "", err
+	return "", nil, fmt.Errorf("pkg path not found in loaded program (or is a stdlib pkg): %v", pkgPath)
 }
 
 //----------
@@ -1167,7 +1164,7 @@ type AnnotationOpt struct {
 	Comment *ast.Comment
 }
 
-func AnnotationOptInComment(c *ast.Comment, fset *token.FileSet) (*AnnotationOpt, error) {
+func AnnotationOptInComment(c *ast.Comment) (*AnnotationOpt, error) {
 	typ, opt, err := AnnotationTypeInString(c.Text)
 	if err != nil {
 		return nil, err
@@ -1234,38 +1231,83 @@ func ProgramPackages(
 
 //----------
 
-func positionError(err error, fset *token.FileSet, pos token.Pos) error {
+func errorPos(err error, fset *token.FileSet, pos token.Pos) error {
 	p := fset.Position(pos)
 	return fmt.Errorf("%v: %w", p, err)
 }
 
 //----------
 
-func annOptCommentsNodesMap(fset *token.FileSet, astFile *ast.File, opts []*AnnotationOpt) map[ast.Node]*AnnotationOpt {
-	// wrap comments in commentgroups
+func annOptNodesMap(fset *token.FileSet, astFile *ast.File, opts []*AnnotationOpt) map[*AnnotationOpt]ast.Node {
+	// wrap comments in commentgroups to use ast.NewCommentMap
 	cgs := []*ast.CommentGroup{}
-	m := map[*ast.CommentGroup]*AnnotationOpt{}
+	cmap := map[*ast.CommentGroup]*AnnotationOpt{}
 	for _, opt := range opts {
 		cg := &ast.CommentGroup{List: []*ast.Comment{opt.Comment}}
 		cgs = append(cgs, cg)
-		m[cg] = opt
+		cmap[cg] = opt
 	}
 	// map nodes to comments
-	cmap := ast.NewCommentMap(fset, astFile, cgs)
-	mn := map[ast.Node]*AnnotationOpt{}
-	ast.Inspect(astFile, func(n ast.Node) bool {
-		switch n.(type) {
-		case nil, *ast.CommentGroup, *ast.Comment:
-			return false
-		}
-		cgs, ok := cmap[n]
+	nmap := ast.NewCommentMap(fset, astFile, cgs)
+	optm := map[*AnnotationOpt]ast.Node{}
+	for n, cgs := range nmap {
+		cg := cgs[0]
+		opt, ok := cmap[cg]
 		if ok {
-			mn[n] = m[cgs[0]]
+			optm[opt] = n
 		}
-		return true
-	})
-	return mn
+	}
+	return optm
 }
+
+// alternative to annOptNodesMap
+//func findCommentNode(top ast.Node, c *ast.Comment) (ast.Node, error) {
+//	//fmt.Printf("comment pos: %v\n", c.Pos())
+//	found := (ast.Node)(nil)
+//	state := "search"
+//	ast.Inspect(top, func(n ast.Node) bool {
+//		//fmt.Printf("node: %T", n)
+//		//if n != nil {
+//		//	fmt.Printf(" %v", n.Pos())
+//		//}
+//		//fmt.Printf(" st=%v", state)
+//		//fmt.Printf("\n")
+
+//		switch state {
+//		case "search":
+//			if n == c {
+//				state = "exit_comment"
+//			}
+//		case "exit_comment":
+//			if n == nil {
+//				state = "exit_comment_group"
+//			} else {
+//				state = "fail"
+//			}
+//		case "exit_comment_group":
+//			if n == nil {
+//				state = "out_of_comment_group"
+//			} else {
+//				state = "fail"
+//			}
+//		case "out_of_comment_group":
+//			if n == nil {
+//				state = "fail"
+//			} else {
+//				state = "done"
+//				found = n
+//			}
+//		case "fail", "done":
+//			return false
+//		}
+//		return true
+//	})
+//	if found != nil {
+//		//fmt.Printf("FOUND %T\n", found)
+//		return found, nil
+//	}
+//	return nil, fmt.Errorf("comment node not found")
+//}
 
 //----------
 

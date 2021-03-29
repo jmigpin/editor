@@ -2118,7 +2118,6 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 
 	in := parseutil.TrimLineSpaces(fn(in0))
 	out := parseutil.TrimLineSpaces(fn(out0))
-	typ := AnnotationTypeFile
 
 	files := newFilesFromSrcs(t, in)
 	f := (*File)(nil)
@@ -2131,10 +2130,11 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 		t.Fatal(err)
 	}
 
+	f.annType = AnnotationTypeFile
 	ann := NewAnnotator(files.fset, f)
 	ann.debugPkgName = "Σ"   // expected by tests
 	ann.debugVarPrefix = "Σ" // expected by tests
-	ann.AnnotateAstFile(astFile, typ)
+	ann.AnnotateAstFile(astFile)
 
 	s1, err := ann.sprintNode(astFile)
 	if err != nil {
