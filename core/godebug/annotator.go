@@ -14,7 +14,7 @@ import (
 
 type Annotator struct {
 	fset               *token.FileSet
-	file               *File
+	file               *SrcFile
 	debugPkgName       string
 	debugVarPrefix     string
 	debugVarNameIndex  int
@@ -23,7 +23,7 @@ type Annotator struct {
 	builtDebugLineStmt bool
 }
 
-func NewAnnotator(fset *token.FileSet, f *File) *Annotator {
+func NewAnnotator(fset *token.FileSet, f *SrcFile) *Annotator {
 	ann := &Annotator{fset: fset, file: f}
 	ann.debugPkgName = string('Σ')
 	ann.debugVarPrefix = string('Σ')

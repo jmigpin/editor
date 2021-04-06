@@ -28,10 +28,10 @@ func newFilesFromSrcs2(srcs ...string) (*Files, error) {
 			return nil, err
 		}
 		// mark as annotated to have file hash computed
-		f := files.NewFile(filename, FTSrc, nil)
+		f := newSrcFile(filename, "main", files)
 		f.action = FAAnnotate
 		// setup files to use comments handling func
-		if err := files.findCommentedFile2(f, astFile); err != nil {
+		if err := files.solveCommentedFile2(f, astFile); err != nil {
 			return nil, err
 		}
 	}

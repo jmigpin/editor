@@ -244,6 +244,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 ## Commands: GoDebug
 
+Output of `GoDebug -help`:
 ```
 Usage:
 	GoDebug <command> [arguments]
@@ -267,8 +268,27 @@ Examples:
 	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
 ```
 
+Output of `GoDebug run -help`:
+```
+Usage of GoDebug run:
+  -dirs string
+    	comma-separated string of directories to annotate
+  -env string
+    	string with env variables (ex: "GOOS=os:..."'
+  -files string
+    	comma-separated string of files to annotate
+  -syncsend
+    	Don't send msgs in chunks (slow). Useful to get msgs before a crash.
+  -toolexec string
+    	execute cmd, useful to run a tool with the output file (ex: wine outputfilename)
+  -verbose
+    	verbose godebug
+  -work
+    	print workdir and don't cleanup on exit
+```
+
 - Annotate files
-	- By default, the current directory will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, but it is also possible to annotate by inserting one of the following comments in the code (notice the lack of space):
+	- By default, the main file will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, or by inserting one of the following comments in the code (notice the lack of space after "//"):
 		```
 		//godebug:annotateblock
 		//godebug:annotatefile
@@ -310,15 +330,15 @@ Examples:
 		```
 - Limitations:
 	- `String()` and `Error()` methods are not annotated to avoid endless loops (the annotation would recursively call the method again).
-	- Go supports multi-value function assignment. These statements are annotated but give a compilation error later:
+	- fixed ~~Go supports multi-value function assignment. These statements are annotated but give a compilation error later:
 		```
 		func myfunc1() (int,int) { return 1, 2}
 		func myfunc2(a int, b int) {}
 		...
 		myfunc2(myfunc1()) // assumes myfunc1 returns 1 arg (compilation err)
 		```
-		The annotator assumes myfunc1 returns 1 value. For this to be solved the annotator would have to become substantially slower with type analysis.
-	- Constants bigger then `int` get the `int` type when assigned to an `interface{}` https://golang.org/ref/spec#Constants. 
+		The annotator assumes myfunc1 returns 1 value. For this to be solved the annotator would have to become substantially slower with type analysis.~~
+	- fixed ~~Constants bigger then `int` get the `int` type when assigned to an `interface{}` https://golang.org/ref/spec#Constants. 
 		Consider the following code that compiles and runs:
 		```
 		a:=uint64(0)
@@ -332,7 +352,7 @@ Examples:
 		```
 		When the code is annotated, there are debug functions that have `interface{}` arguments. So if an argument is a `const` bigger then `int`, it won't work. 
 		A solution is to use `//godebug:annotateoff` before the offending line.
-		For this to be solved, the types need to be analysed but that would become substantially slower (compiles are not cached).
+		For this to be solved, the types need to be analysed but that would become substantially slower (compiles are not cached).~~
 - Notes:
 	- Use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
 	- Supports remote debugging (check help usage with `GoDebug -h`).

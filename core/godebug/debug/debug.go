@@ -32,7 +32,7 @@ func hotStartServer() {
 func startServer() {
 	srv, err := NewServer()
 	if err != nil {
-		fmt.Printf("error: godebug/debug: start server: %v\n", err)
+		fmt.Printf("error: godebug/debug: start server failed: %v\n", err)
 		os.Exit(1)
 	}
 	dsrv.srv = srv
@@ -43,11 +43,16 @@ func startServer() {
 // Auto-inserted at main for a clean exit. Not to be used.
 func ExitServer() {
 	dsrv.Lock()
-	if dsrv.srv != nil {
+	if !dsrv.exited && dsrv.srv != nil {
 		dsrv.srv.Close()
 	}
 	dsrv.exited = true
 	dsrv.Unlock()
+}
+
+func Exit(code int) {
+	ExitServer()
+	os.Exit(code)
 }
 
 //----------

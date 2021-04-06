@@ -2093,7 +2093,7 @@ func TestAnnConfigContent(t *testing.T) {
 	files := newFilesFromSrcs(t, srcs...)
 	annset := NewAnnotatorSet()
 
-	for _, f := range files.files {
+	for _, f := range files.srcFiles {
 		astFile, err := files.fullAstFile(f.filename)
 		if err != nil {
 			t.Fatal(err)
@@ -2105,7 +2105,7 @@ func TestAnnConfigContent(t *testing.T) {
 	}
 
 	// annotate config
-	src := annset.ConfigContent("test_network", "test_addr", false, true)
+	src := annset.buildDebugConfigEntries()
 	t.Logf("%v", src) // TODO: test output
 }
 
@@ -2120,8 +2120,8 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 	out := parseutil.TrimLineSpaces(fn(out0))
 
 	files := newFilesFromSrcs(t, in)
-	f := (*File)(nil)
-	for _, f2 := range files.files {
+	f := (*SrcFile)(nil)
+	for _, f2 := range files.srcFiles {
 		f = f2 // just get the only file in the map
 		break
 	}

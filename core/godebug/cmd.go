@@ -213,15 +213,12 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
 		return err
 	}
 
-	// can alter astFiles
-	if err := cmd.insertExitInMain(ctx, files); err != nil {
+	if err := cmd.insertDebugExitInMain(ctx, files); err != nil {
 		return err
 	}
 
-	// get config content from annotations
-	acceptOnlyFirstClient := cmd.flags.mode.run || cmd.flags.mode.test
-	configContent := cmd.annset.ConfigContent(cmd.start.network, cmd.start.address, cmd.flags.syncSend, acceptOnlyFirstClient)
-	if err := files.setGodebugconfigContent(configContent); err != nil {
+	// gets config content from annotations
+	if err := files.setDebugConfigContent(cmd); err != nil {
 		return err
 	}
 
@@ -235,15 +232,20 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
 		return err
 	}
 
-	if cmd.flags.verbose {
-		files.verbose(cmd)
-	}
+	//if cmd.flags.verbose {
+	//	files.verbose(cmd)
+	//}
 
 	return cmd.doBuild(ctx)
 }
 
 func (cmd *Cmd) doBuild(ctx context.Context) error {
 	dirAtTmp := cmd.tmpDirBasedFilename(cmd.Dir)
+
+	//// ensure it exists
+	//if err := iout.MkdirAll(dirAtTmp); err != nil {
+	//	return err
+	//}
 
 	filenamesAtTmp := []string{}
 	for _, f := range cmd.flags.filenames {
@@ -507,11 +509,11 @@ func (cmd *Cmd) runBuildCmd(ctx context.Context, dir string, filenames []string,
 		args = append(args, filenames...)
 	}
 
-	cmd.Vprintf("runBuildCmd:  %v\n", args)
+	//cmd.Vprintf("runBuildCmd:  %v\n", args)
 
 	err := cmd.runCmd(ctx, dir, args, cmd.env)
 	if err != nil {
-		err = fmt.Errorf("runBuildCmd: %w", err)
+		err = fmt.Errorf("runBuildCmd: %w, args=%v, dir=%v", err, args, dir)
 	}
 	return filenameOut, err
 }
@@ -545,15 +547,20 @@ func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string, cb
 
 //------------
 
-func (cmd *Cmd) insertExitInMain(ctx context.Context, files *Files) error {
-	for _, f := range files.filesToInsertMain() {
-		astFile, err := files.fullAstFile(f.filename)
-		if err != nil {
-			return err
+func (cmd *Cmd) insertDebugExitInMain(ctx context.Context, files *Files) error {
+	count := 0
+	for _, f := range files.srcFiles {
+		if f.mainFuncDecl != nil {
+			astFile, err := files.fullAstFile(f.filename)
+			if err != nil {
+				return err
+			}
+			cmd.annset.InsertDebugExitInMain(f.mainFuncDecl, astFile, f)
+			count++
 		}
-		if ok := cmd.annset.InsertExitInMain(astFile, f, cmd.flags.mode.test); !ok {
-			return errors.New("unable to insertExitInMain")
-		}
+	}
+	if count == 0 {
+		return errors.New("unable to insertDebugExitInMain")
 	}
 	return nil
 }
@@ -577,7 +584,7 @@ func (cmd *Cmd) annotateFiles(ctx context.Context, files *Files) error {
 
 		wg.Add(1)
 		flow <- struct{}{}
-		go func(f2 *File) {
+		go func(f2 *SrcFile) {
 			defer func() {
 				wg.Done()
 				<-flow
@@ -589,7 +596,7 @@ func (cmd *Cmd) annotateFiles(ctx context.Context, files *Files) error {
 				return
 			}
 
-			err := cmd.annotateFile(files, f2)
+			err := cmd.annotateFile(f2)
 			if err1 == nil {
 				err1 = err // just keep first error
 			}
@@ -599,8 +606,8 @@ func (cmd *Cmd) annotateFiles(ctx context.Context, files *Files) error {
 	return err1
 }
 
-func (cmd *Cmd) annotateFile(files *Files, f *File) error {
-	astFile, err := files.fullAstFile(f.filename)
+func (cmd *Cmd) annotateFile(f *SrcFile) error {
+	astFile, err := f.files.fullAstFile(f.filename)
 	if err != nil {
 		return err
 	}

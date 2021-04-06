@@ -11,8 +11,7 @@ import (
 type GoMods struct {
 	cmd   *Cmd
 	files *Files
-
-	modF map[string]*File // [modPath]
+	mi    map[string]*ModInfo // [pkgPath]
 }
 
 func setupGoMods(ctx context.Context, cmd *Cmd, files *Files) error {
@@ -21,193 +20,118 @@ func setupGoMods(ctx context.Context, cmd *Cmd, files *Files) error {
 }
 
 func (mods *GoMods) do(ctx context.Context) error {
-	// build map
-	mods.modF = map[string]*File{}
-	for _, f := range mods.files.files {
-		if f.typ == FTMod {
-			mods.modF[f.modulePath] = f
-		}
+	mi, err := buildModInfos(mods.files)
+	if err != nil {
+		return err
 	}
+	mods.mi = mi
 
 	if err := mods.updateGoMods(ctx); err != nil {
 		return err
 	}
+
 	return nil
+	//return goutil.GoModTidy(ctx, mods.cmd.tmpDir, mods.cmd.env)
 }
 
 //----------
 
 func (mods *GoMods) updateGoMods(ctx context.Context) error {
-	for _, f := range mods.modF {
-		if f.used() {
-			if err := mods.updateGoMod(f); err != nil {
+	found := false
+	for _, f := range mods.files.modFiles {
+		if f.hasAction() && f.main {
+			found = true
+			if err := mods.updateMainGoMod(f); err != nil {
 				return err
 			}
+			// update action
+			f.action = FAWrite
+
+			// updating main module only
+
+			//dir := filepath.Dir(f.destFilename())
+			//return goutil.GoModTidy(ctx, dir, mods.cmd.env)
+			break
 		}
 	}
-
-	for _, f := range mods.modF {
-		if f.used() {
-			f.action = FAWriteMod
-		}
-	}
-	return nil
-
-}
-
-//----------
-
-func (mods *GoMods) updateGoMod(f1 *File) error {
-	if err := mods.updateRequires(f1); err != nil {
-		return err
-	}
-	if err := mods.updateReplaces(f1); err != nil {
-		return err
+	if !found {
+		return fmt.Errorf("main module not found")
 	}
 	return nil
 }
 
 //----------
 
-func (mods *GoMods) updateRequires(f1 *File) error {
-	if f1.needDebugMods {
-		if err := mods.addRequireDebugMods(f1); err != nil {
-			return err
-		}
-	}
+func (mods *GoMods) updateMainGoMod(f1 *ModFile) error {
+	// insert "requires" for all used packages (multiple versions)
+	// replace them with directory (no version)
 
 	m1, err := f1.modFile()
 	if err != nil {
 		return err
 	}
-
-	// add all "requires" to main module
-	if f1.mainModule {
-		for _, f2 := range mods.modF {
-			if f2 != f1 && f2.used() {
-				if err := mods.addRequire(f1, f2); err != nil {
+	//godebug:annotatefile
+	for _, mi := range mods.mi {
+		if !mi.hasAction {
+			continue
+		}
+		// require all versions
+		for v := range mi.versions {
+			if v != "" {
+				// replaces previous "require" keeping only one
+				if err := m1.AddRequire(mi.path, v); err != nil {
 					return err
 				}
-			}
-		}
-	}
 
-	// add/update used "requires"
-	for _, req := range m1.Require {
-		if reqOk(req) {
-			f2, ok := mods.modF[req.Mod.Path]
-			if ok {
-				if f2 != f1 && f2.used() {
-					if err := mods.addRequire(f1, f2); err != nil {
-						return err
+				//mods.addNewRequire(m1, mi.path, v)
+
+				// add "replace" without version
+				if f2, ok := mi.modfs[v]; ok {
+					if f2.hasAction() {
+						dir := filepath.Dir(f2.destFilename())
+						if err := mods.addReplaceDirAtTmp(m1, mi.path, "", dir, ""); err != nil {
+							return err
+						}
+						break
 					}
 				}
 			}
 		}
 	}
 
-	// drop "require" of editorPkg if not used
-	for _, req := range m1.Require {
-		if reqOk(req) {
-			if req.Mod.Path == editorPkgPath {
-				f2, ok := mods.modF[req.Mod.Path]
-				drop := (ok && !f2.used()) || !ok
-				if drop {
-					if err := mods.dropRequire(f1, req.Mod.Path); err != nil {
-						return err
-					}
-				}
-				break
+	// add "replace" directive of relative directories to original location
+	for _, rep := range m1.Replace {
+		if repOk(rep) {
+			if err := mods.addReplaceWithRelativeDir(f1, m1, rep); err != nil {
+				return err
 			}
 		}
 	}
 
-	return nil
-}
-
-func (mods *GoMods) addRequireDebugPkgs(f1 *File, fmods []*File) error {
-	// find files of the pkgs to insert
-	w := []string{DebugPkgPath, GodebugconfigPkgPath}
-	a := []*File{}
-	for _, s := range w {
-		f2, ok := mods.modF[s]
-		if ok {
-			a = append(a, f2)
-		}
-	}
-	// must have found all
-	if len(a) != len(w) {
-		return fmt.Errorf("not all required debug pkgs were found: %v of %v", len(a), len(w))
-	}
-	// add "requires"
-	for _, f2 := range a {
-		if err := mods.addRequire(f1, f2); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 //----------
 
-func (mods *GoMods) updateReplaces(f1 *File) error {
-	m1, err := f1.modFile()
-	if err != nil {
-		return err
-	}
-	// add/update "replace" directive of "required" annotated modules
+func (mods *GoMods) addNewRequire(m1 *modfile.File, path, version string) {
+	// prevent double lines
 	for _, req := range m1.Require {
 		if reqOk(req) {
-			if err := mods.addReplaceOfUsedRequired(f1, m1, req); err != nil {
-				return err
+			if req.Mod.Path == path && req.Mod.Version == version {
+				return
 			}
 		}
 	}
-	// update "replace" directive of relative directories to original location
-	for _, rep := range m1.Replace {
-		if repOk(rep) {
-			if err := mods.updateReplaceWithRelativeDir(f1, m1, rep); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+
+	m1.AddNewRequire(path, version, false)
 }
 
-func (mods *GoMods) addReplaceOfUsedRequired(f1 *File, m1 *modfile.File, req *modfile.Require) error {
-	// find if the "require" is one of the used mods
-	f2, ok := mods.modF[req.Mod.Path]
-	if !ok || !f2.used() {
-		return nil
-	}
-
-	// must match "replace" version or AddReplace() won't replace
-	// could there be several replaces with diff versions? playing safe
-	version := req.Mod.Version
-	for _, rep := range m1.Replace {
-		if repOk(rep) {
-			if rep.Old.Path == req.Mod.Path {
-				if rep.Old.Version == req.Mod.Version {
-					version = req.Mod.Version
-					break
-				}
-				if rep.Old.Version == "" {
-					version = rep.Old.Version
-				}
-			}
-		}
-	}
-
-	dest := filepath.Dir(mods.cmd.tmpDirBasedFilename(f2.destFilename()))
-	if err := m1.AddReplace(req.Mod.Path, version, dest, ""); err != nil {
-		return err
-	}
-
-	//mods.cmd.Vprintf("addReplaceOfRequired: %v: %v => %v\n", f1.shortFilename(), req.Mod.Path, dest)
-	return nil
+func (mods *GoMods) addReplaceDirAtTmp(m1 *modfile.File, path, v1, dir, v2 string) error {
+	dirAtTmp := mods.cmd.tmpDirBasedFilename(dir)
+	return m1.AddReplace(path, v1, dirAtTmp, v2)
 }
 
-func (mods *GoMods) updateReplaceWithRelativeDir(f1 *File, m1 *modfile.File, rep *modfile.Replace) error {
+func (mods *GoMods) addReplaceWithRelativeDir(f1 *ModFile, m1 *modfile.File, rep *modfile.Replace) error {
 	if !filepath.IsAbs(rep.New.Path) {
 		// relative to original filename dir
 		dir := filepath.Dir(f1.filename)
@@ -215,58 +139,52 @@ func (mods *GoMods) updateReplaceWithRelativeDir(f1 *File, m1 *modfile.File, rep
 		if err := m1.AddReplace(rep.Old.Path, rep.Old.Version, rep.New.Path, ""); err != nil {
 			return err
 		}
-		//mods.cmd.Vprintf("updateReplaceRelativeDir: %v: %v => %v\n", f1.shortFilename(), rep.Old.Path, rep.New.Path)
 	}
-
 	return nil
 }
 
 //----------
+//----------
+//----------
 
-func (mods *GoMods) addRequireDebugMods(f1 *File) error {
-	w := []string{DebugPkgPath, GodebugconfigPkgPath}
-	for _, s := range w {
-		f2, ok := mods.modF[s]
-		if ok {
-			if err := mods.addRequire(f1, f2); err != nil {
-				return err
+type ModInfo struct {
+	path      string
+	hasAction bool
+	modfs     map[string]*ModFile // [version]
+	versions  map[string]bool     // [version]; in "require" and modfiles
+}
+
+func buildModInfos(files *Files) (map[string]*ModInfo, error) {
+	m := map[string]*ModInfo{} // [pkgPath]
+	// index mod files by pkgpath
+	for _, f1 := range files.modFiles {
+		mi, ok := m[f1.path]
+		if !ok {
+			mi = &ModInfo{path: f1.path}
+			mi.modfs = map[string]*ModFile{}
+			mi.versions = map[string]bool{}
+			m[f1.path] = mi
+		}
+		mi.modfs[f1.version] = f1
+		mi.versions[f1.version] = true
+		mi.hasAction = mi.hasAction || f1.hasAction()
+	}
+	// add "require" versions to index
+	for _, f1 := range files.modFiles {
+		m1, err := f1.modFile()
+		if err != nil {
+			return nil, err
+		}
+		for _, req := range m1.Require {
+			if reqOk(req) {
+				mi, ok := m[req.Mod.Path]
+				if ok && req.Mod.Version != "" {
+					mi.versions[req.Mod.Version] = true
+				}
 			}
 		}
 	}
-	return nil
-}
-
-//----------
-
-// f1 requires f2
-func (mods *GoMods) addRequire(f1 *File, f2 *File) error {
-	m1, err := f1.modFile()
-	if err != nil {
-		return err
-	}
-	version := f2.moduleVersion
-	if version == "" {
-		version = "v0.0.0"
-	}
-	if err := m1.AddRequire(f2.modulePath, version); err != nil {
-		return err
-	}
-
-	//mods.cmd.Vprintf("addRequire: %v: %v\n", f1.shortFilename(), m2.Module.Mod.Path)
-	return nil
-}
-
-// f1 does not require modPath
-func (mods *GoMods) dropRequire(f1 *File, modPath string) error {
-	m1, err := f1.modFile()
-	if err != nil {
-		return err
-	}
-	if err := m1.DropRequire(modPath); err != nil {
-		return err
-	}
-	//mods.cmd.Vprintf("dropRequire: %v: %v\n", f1.shortFilename(), modPath)
-	return nil
+	return m, nil
 }
 
 //----------

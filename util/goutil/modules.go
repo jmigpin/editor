@@ -82,7 +82,7 @@ func runGoModCmd(ctx context.Context, dir string, args []string, env []string) (
 	cmd.Env = env
 	bout, err := osutil.RunCmdStdoutAndStderrInErr(cmd, nil)
 	if err != nil {
-		return nil, fmt.Errorf("runGoMod error: args=%v, dir=%v, err=%v", args, dir, err)
+		return nil, fmt.Errorf("runGoMod: %v (args=%v, dir=%v)", err, args, dir)
 	}
 	return bout, nil
 }

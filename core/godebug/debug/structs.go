@@ -133,7 +133,7 @@ type ItemBranch struct{}
 type ItemStep struct{}
 type ItemAnon struct{}
 type ItemLabel struct{}
-type ItemNotAnn struct{ Reason string } //  not annotated
+type ItemNotAnn struct{ Reason string } // not annotated (ex: String(), Error())
 
 //----------
 

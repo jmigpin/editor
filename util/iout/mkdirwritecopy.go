@@ -10,15 +10,19 @@ import (
 
 var MkdirMode os.FileMode = 0770
 
+func MkdirAll(filename string) error {
+	return os.MkdirAll(filename, MkdirMode)
+}
+
 func MkdirAllWriteFile(filename string, src []byte, m os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(filename), MkdirMode); err != nil {
+	if err := MkdirAll(filepath.Dir(filename)); err != nil {
 		return err
 	}
 	return ioutil.WriteFile(filename, []byte(src), m)
 }
 
 func MkdirAllCopyFile(src, dst string, m os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(dst), MkdirMode); err != nil {
+	if err := MkdirAll(filepath.Dir(dst)); err != nil {
 		return err
 	}
 	return CopyFile(src, dst, m)
