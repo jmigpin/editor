@@ -215,19 +215,17 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.stringify(t.Fields)
 		is.Str += "}"
 
-	case *debug.ItemBranch:
-		is.Str += "=>" // other runes: ←
-	case *debug.ItemStep:
-		is.Str += "=>"
-
 	case *debug.ItemAnon:
 		is.Str += "_"
 
+	case *debug.ItemBranch:
+		is.Str += "#"
+	case *debug.ItemStep:
+		is.Str += "#"
 	case *debug.ItemLabel:
-		is.Str += "LABEL: next debug line is not updated on goto's"
-
+		is.Str += "# label: next debug line is not updated on goto's"
 	case *debug.ItemNotAnn:
-		is.Str += fmt.Sprintf("=> not annotated: %v", t.Reason)
+		is.Str += fmt.Sprintf("# not annotated: %v", t.Reason)
 
 	default:
 		is.Str += fmt.Sprintf("[TODO:(%T)%v]", item, item)
