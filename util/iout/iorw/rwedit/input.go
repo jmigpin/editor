@@ -1,6 +1,8 @@
 package rwedit
 
 import (
+	"errors"
+	"io"
 	"unicode"
 
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -94,6 +96,11 @@ func (in *Input) onMouseDoubleClick(ev *event.MouseDoubleClick) (event.Handled, 
 	case event.ButtonLeft:
 		MoveCursorToPoint(in.ctx, ev.Point, false)
 		err := SelectWord(in.ctx)
+		// can select at EOF but avoid error msg
+		if errors.Is(err, io.EOF) {
+			err = nil
+		}
+
 		return true, err
 	}
 	return false, nil
