@@ -482,6 +482,8 @@ Plugins located at: `./plugins`.
 	- `backspace`: delete previous rune
 	- `pageUp`: page up
 	- `pageDown`: page down
+	- `ctrl`+`left`: jump to previous word start
+	- `ctrl`+`right`: jump to next word end
 - basic mouse navigation
 	- `buttonLeft`: move cursor to point
 		- drag: selects text - works as copy making it available for paste (primary selection).

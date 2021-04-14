@@ -170,6 +170,10 @@ func (in *Input) onKeyDown(ev *event.KeyDown) (_ event.Handled, err error) {
 		switch {
 		case mcl.Is(event.ModCtrl | event.ModAlt):
 			err = MoveLineUp(in.ctx)
+		//case mcl.Is(event.ModCtrl | event.ModShift):
+		//err = MoveCursorJumpUp(in.ctx, true)
+		//case mcl.Is(event.ModCtrl):
+		//err = MoveCursorJumpUp(in.ctx, false)
 		case mcl.HasAny(event.ModShift):
 			MoveCursorUp(in.ctx, true)
 		default:
@@ -183,6 +187,10 @@ func (in *Input) onKeyDown(ev *event.KeyDown) (_ event.Handled, err error) {
 			err = DuplicateLines(in.ctx)
 		case mcl.Is(event.ModCtrl | event.ModAlt):
 			err = MoveLineDown(in.ctx)
+		//case mcl.Is(event.ModCtrl | event.ModShift):
+		//err = MoveCursorJumpDown(in.ctx, true)
+		//case mcl.Is(event.ModCtrl):
+		//err = MoveCursorJumpDown(in.ctx, false)
 		case mcl.HasAny(event.ModShift):
 			MoveCursorDown(in.ctx, true)
 		default:
