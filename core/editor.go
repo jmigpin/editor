@@ -22,7 +22,7 @@ import (
 	"golang.org/x/image/font"
 )
 
-const VERSION = "3.1.0"
+const VERSION = "3.2.0-rc1" // (go get: (1.)3.2-rc1)
 
 type Editor struct {
 	UI                *ui.UI
@@ -357,8 +357,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 ColorTheme
 CtxutilCallsState
 FontRunes | FontTheme 
-GoDebug
-GoRename
+GoDebug | GoRename
 GotoLine 
 NewColumn
 NewFile | SaveAllFiles
@@ -366,10 +365,10 @@ NewRow | ReopenRow | MaximizeRow
 ListDir | ListDir -hidden | ListDir -sub
 ListSessions | OpenSession | DeleteSession
 LsprotoRename | LsprotoCloseAll
-OpenFilemanager
+OpenFilemanager | OpenTerminal
 Reload | ReloadAll | ReloadAllFiles 
 RuneCodes
-Exit | Stop | Clear`)
+Exit | Stop | Clear | Version`)
 }
 
 //----------

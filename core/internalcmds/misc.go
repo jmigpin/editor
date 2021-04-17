@@ -12,6 +12,13 @@ import (
 
 //----------
 
+func Version(args *core.InternalCmdArgs) error {
+	args.Ed.Messagef("editor version: %v", core.VERSION)
+	return nil
+}
+
+//----------
+
 func Exit(args *core.InternalCmdArgs) error {
 	args.Ed.Close()
 	return nil

@@ -186,7 +186,7 @@ Use monospaced font in this row textarea (see more at [internal variables](#inte
 
 ## Commands
 
-*Top toolbar commands*
+*Toolbar commands*
 
 - `ListSessions`: lists saved sessions
 - `SaveSession <name>`: save session to ~/.editor_sessions.json
@@ -200,6 +200,7 @@ Use monospaced font in this row textarea (see more at [internal variables](#inte
 - `ColorTheme`: cycles through available color themes.
 - `FontTheme`: cycles through available font themes.
 - `Exit`: exits the program
+- `Version`: shows editor version in the messages row
 
 *Row toolbar commands*
 

@@ -14,6 +14,8 @@ func init() {
 		ic.Set(&core.InternalCmd{Name: name, Fn: fn, NeedsERow: true})
 	}
 
+	cmd("Version", Version)
+
 	cmd("Exit", Exit)
 
 	cmd("SaveSession", SaveSession)
