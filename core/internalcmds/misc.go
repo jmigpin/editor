@@ -13,7 +13,7 @@ import (
 //----------
 
 func Version(args *core.InternalCmdArgs) error {
-	args.Ed.Messagef("editor version: %v", core.VERSION)
+	args.Ed.Messagef("editor version: %v", core.Version())
 	return nil
 }
 

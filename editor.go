@@ -1,6 +1,9 @@
 // Source code editor in pure Go.
 package main
 
+// update hard coded version date variable
+//go:generate /bin/sh -c "sed -i \"s/#___.*___#/#___$(date '+%Y%m%d%H%M')___#/g\" core/editor.go"
+
 import (
 	"flag"
 	"fmt"
@@ -46,7 +49,7 @@ func main() {
 	log.SetFlags(log.Lshortfile)
 
 	if *version {
-		fmt.Printf("version: %v\n", core.VERSION)
+		fmt.Printf("version: %v\n", core.Version())
 		return
 	}
 
