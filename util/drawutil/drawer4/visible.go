@@ -7,7 +7,7 @@ import (
 func header1PenBounds(d *Drawer, offset int) (mathutil.RectangleIntf, bool) {
 	d.st = State{}
 	fnIter := FnIter{}
-	iters := append(d.sIters(), &d.iters.earlyExit, &fnIter)
+	iters := append(d.sIters(true), &fnIter)
 	d.loopInit(iters)
 	d.header1()
 

@@ -4,9 +4,7 @@ type LineWrap struct {
 	d *Drawer
 }
 
-func (lw *LineWrap) Init() {
-	lw.d.st.lineWrap.wrapRi = -1
-}
+func (lw *LineWrap) Init() {}
 
 func (lw *LineWrap) Iter() {
 	if lw.d.Opt.LineWrap.On && lw.d.iters.runeR.isNormal() {
@@ -15,8 +13,7 @@ func (lw *LineWrap) Iter() {
 		penXAdv := stR.pen.X + stR.advance
 		maxX := lw.d.iters.runeR.maxX()
 		if penXAdv > maxX && stR.pen.X > lw.d.iters.runeR.startingPen().X {
-			// wrapping at ri
-			lw.d.st.lineWrap.wrapRi = lw.d.st.runeR.ri
+			lw.d.st.lineWrap.wrapping = true
 
 			if !lw.preLineWrap() {
 				return
@@ -29,6 +26,17 @@ func (lw *LineWrap) Iter() {
 			}
 		}
 	}
+
+	// after postlinewrap to allow indent to be added
+	if lw.d.st.lineWrap.wrapping {
+		if !lw.insertWrapRune() {
+			return
+		}
+		// recalc (tab) advance after possible insertions
+		lw.d.st.runeR.advance = lw.d.iters.runeR.tabbedGlyphAdvance(lw.d.st.runeR.ru)
+	}
+	lw.d.st.lineWrap.wrapping = false
+
 	if !lw.d.iterNext() {
 		return
 	}
@@ -38,27 +46,16 @@ func (lw *LineWrap) End() {}
 
 //----------
 
-// used by indent iterator
-func (lw *LineWrap) wrapping() bool {
-	return lw.d.st.lineWrap.wrapRi == lw.d.st.runeR.ri
-}
-
 func (lw *LineWrap) preLineWrap() bool {
-	// fill bg to max x
-	// keep state
-	rr := lw.d.st.runeR
-	cc := lw.d.st.curColors
-	// restore state
-	defer func() {
-		lw.d.st.runeR = rr
-		lw.d.st.curColors = cc
-	}()
-	// color
-	assignColor(&lw.d.st.curColors.bg, lw.d.Opt.LineWrap.Bg)
 	// draw only the background, use space rune
-	lw.d.st.runeR.ru = ' '
+	ru := lw.d.st.runeR.ru // keep state
+	defer func() { lw.d.st.runeR.ru = ru }()
+	lw.d.st.runeR.ru = ' ' // draw only the background, use space rune
 
-	// prelinewrap flag
+	cc := lw.d.st.curColors
+	defer func() { lw.d.st.curColors = cc }()
+	assignColor(&lw.d.st.curColors.bg, lw.d.Opt.LineWrap.Bg)
+
 	lw.d.st.lineWrap.preLineWrap = true
 	defer func() { lw.d.st.lineWrap.preLineWrap = false }()
 
@@ -67,14 +64,33 @@ func (lw *LineWrap) preLineWrap() bool {
 }
 
 func (lw *LineWrap) postLineWrap() bool {
-	// don't draw this extra rune
-	rr := lw.d.st.runeR
+	// allow post line detection (this rune is not to be drawn)
+	ru := lw.d.st.runeR.ru // keep state
+	defer func() { lw.d.st.runeR.ru = ru }()
 	lw.d.st.runeR.ru = noDrawRune
-	defer func() { lw.d.st.runeR = rr }()
 
-	// linestart flag
 	lw.d.st.lineWrap.postLineWrap = true
 	defer func() { lw.d.st.lineWrap.postLineWrap = false }()
 
 	return lw.d.iterNextExtra()
 }
+
+func (lw *LineWrap) insertWrapRune() bool {
+	// keep state
+	rr := lw.d.st.runeR
+	defer func() {
+		penX := lw.d.st.runeR.pen.X
+		lw.d.st.runeR = rr
+		lw.d.st.runeR.pen.X = penX // use the new penX
+	}()
+
+	cc := lw.d.st.curColors // keep state
+	defer func() { lw.d.st.curColors = cc }()
+	assignColor(&lw.d.st.curColors.fg, lw.d.Opt.LineWrap.Fg)
+	assignColor(&lw.d.st.curColors.bg, lw.d.Opt.LineWrap.Bg)
+
+	s := string(WrapLineRune)
+	return lw.d.iters.runeR.insertExtraString(s)
+}
+
+var WrapLineRune = rune('←') // positioned at the start of wrapped line (left)

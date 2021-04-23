@@ -55,6 +55,8 @@ func (dr *DrawRune) draw2(fface *fontutil.FontFace, pen image.Point, ru rune, fg
 		return
 	}
 
+	//fmt.Printf("draw at %v \"%c\"\n", pen, ru)
+
 	bline := fface.BaseLine()
 	gr, mask, maskp, _, ok := fface.Face.Glyph(bline, ru)
 	if !ok {

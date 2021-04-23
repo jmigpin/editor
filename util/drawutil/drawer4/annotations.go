@@ -198,7 +198,7 @@ func (ann *Annotations) insertSeparatorString(s string) bool {
 type Annotation struct {
 	Offset     int
 	Bytes      []byte
-	NotesBytes []byte
+	NotesBytes []byte // used for arrival index
 }
 
 //----------

@@ -154,9 +154,10 @@ type State struct {
 		lineStart bool
 	}
 	lineWrap struct {
-		wrapRi       int
+		//wrapRi       int
+		wrapping     bool
 		preLineWrap  bool
-		postLineWrap bool // post line wrap
+		postLineWrap bool
 	}
 	lineStart struct {
 		offset     int
@@ -382,14 +383,7 @@ func (d *Drawer) measure2() image.Point {
 // Full content measure in pixels. To be used only for small content.
 func (d *Drawer) measureContent() image.Point {
 	d.st = State{}
-	iters := []Iterator{
-		&d.iters.runeR,
-		&d.iters.line,
-		&d.iters.lineWrap,
-		&d.iters.indent,
-		&d.iters.earlyExit,
-		&d.iters.measure,
-	}
+	iters := d.sIters(true, &d.iters.measure)
 	d.loopInit(iters)
 	d.loop()
 	// remove bounds min and return only the measure
@@ -413,8 +407,8 @@ func (d *Drawer) Draw(img draw.Image) {
 		&d.iters.colorize,
 		&d.iters.line,
 		&d.iters.lineWrap,
+		&d.iters.earlyExit, // after iters that change pen.Y
 		&d.iters.indent,
-		&d.iters.earlyExit,   // after iters that change pen.Y
 		&d.iters.annotations, // after iters that change the line
 		&d.iters.bgFill,
 		&d.iters.drawR,
@@ -434,14 +428,7 @@ func (d *Drawer) LocalPointOf(index int) image.Point {
 	}
 	d.st = State{}
 	d.st.pointOf.index = index
-	iters := []Iterator{
-		&d.iters.runeR,
-		&d.iters.line,
-		&d.iters.lineWrap,
-		&d.iters.indent,
-		&d.iters.earlyExit,
-		&d.iters.pointOf,
-	}
+	iters := d.sIters(true, &d.iters.pointOf)
 	d.loopInit(iters)
 	d.header1()
 	d.loop()
@@ -456,14 +443,7 @@ func (d *Drawer) LocalIndexOf(p image.Point) int {
 	}
 	d.st = State{}
 	d.st.indexOf.p = mathutil.PIntf2(p)
-	iters := []Iterator{
-		&d.iters.runeR,
-		&d.iters.line,
-		&d.iters.lineWrap,
-		&d.iters.indent,
-		&d.iters.earlyExit,
-		&d.iters.indexOf,
-	}
+	iters := d.sIters(true, &d.iters.indexOf)
 	d.loopInit(iters)
 	d.header1()
 	d.loop()
@@ -478,14 +458,7 @@ func (d *Drawer) AnnotationsIndexOf(p image.Point) (int, int, bool) {
 	}
 	d.st = State{}
 	d.st.annotationsIndexOf.p = mathutil.PIntf2(p)
-	iters := []Iterator{
-		&d.iters.runeR,
-		&d.iters.line,
-		&d.iters.lineWrap,
-		&d.iters.indent,
-		&d.iters.annotations,
-		&d.iters.annotationsIndexOf,
-	}
+	iters := d.sIters(true, &d.iters.annotations, &d.iters.annotationsIndexOf)
 	d.loopInit(iters)
 	d.header0()
 	d.loop()
@@ -545,7 +518,7 @@ func (d *Drawer) iterNextExtra() bool {
 
 func (d *Drawer) visibleLen() (int, int, int, int) {
 	d.st = State{}
-	iters := append(d.sIters(), &d.iters.earlyExit)
+	iters := d.sIters(true)
 	d.loopInit(iters)
 	d.header0()
 	startRi := d.st.runeR.ri
@@ -808,9 +781,9 @@ func (d *Drawer) header(offset, nLinesUp int) int {
 	}
 
 	// iterate to the wline start
-	st1 := d.st // keep initialized state to refer to pen difference
+	st1RRPen := d.st.runeR.pen // keep initialized state to refer to pen difference
 	uppedLines := d.wlineStartState(false, offset, nLinesUp)
-	adjustPenY += d.st.runeR.pen.Y - st1.runeR.pen.Y
+	adjustPenY += d.st.runeR.pen.Y - st1RRPen.Y
 	d.st.runeR.pen.Y -= adjustPenY
 
 	return uppedLines
@@ -838,7 +811,6 @@ func (d *Drawer) wlineStartEnd(offset int) (int, int) {
 			s = d.st.runeR.ri
 		},
 		func() {
-			// the line will eventually wrap (finite screen size), no earlyexit testing
 			if d.st.line.lineStart || d.st.lineWrap.postLineWrap {
 				if d.st.runeR.ri > offset {
 					e = d.st.runeR.ri
@@ -863,8 +835,7 @@ func (d *Drawer) wlineStartLoopFn(clearState bool, offset, nLinesUp int, fnInit 
 	iters := d.loopv.iters
 	defer func() { d.loopv.iters = iters }()
 
-	fnIter := FnIter{fn: fn}
-	d.loopv.iters = append(d.sIters(), &fnIter)
+	d.loopv.iters = d.sIters(true, &FnIter{fn: fn})
 	d.wlineStartState(clearState, offset, nLinesUp)
 	fnInit()
 	d.loop()
@@ -904,7 +875,7 @@ func (d *Drawer) wlineStartIndex(clearState bool, offset, nLinesUp int, rd iorw.
 	d.st.lineStart.offset = offset
 	d.st.lineStart.nLinesUp = nLinesUp
 	d.st.lineStart.reader = rd
-	iters := append(d.sIters(), &d.iters.lineStart)
+	iters := d.sIters(true, &d.iters.lineStart)
 	d.loopInit(iters)
 	d.loop()
 	return d.st.lineStart.ri
@@ -913,13 +884,18 @@ func (d *Drawer) wlineStartIndex(clearState bool, offset, nLinesUp int, rd iorw.
 //----------
 
 // structure iterators
-func (d *Drawer) sIters() []Iterator {
-	return []Iterator{
+func (d *Drawer) sIters(earlyExit bool, more ...Iterator) []Iterator {
+	iters := []Iterator{
 		&d.iters.runeR,
 		&d.iters.line,
 		&d.iters.lineWrap,
-		&d.iters.indent,
 	}
+	if earlyExit {
+		iters = append(iters, &d.iters.earlyExit)
+	}
+	iters = append(iters, &d.iters.indent)
+	iters = append(iters, more...)
+	return iters
 }
 
 //----------

@@ -53,13 +53,7 @@ func (rr *RuneReader) iter2(ru rune, size int) bool {
 	st.kern = mathutil.Intf2(k)
 	st.pen.X += st.kern
 
-	// rune advance
-	st.advance = rr.glyphAdvance(st.ru)
-
-	// tabulator
-	if st.ru == '\t' {
-		st.advance = rr.nextTabStopAdvance(st.pen.X, st.advance)
-	}
+	st.advance = rr.tabbedGlyphAdvance(st.ru)
 
 	if !rr.d.iterNext() {
 		return false
@@ -110,6 +104,14 @@ func (rr *RuneReader) glyphAdvance(ru rune) mathutil.Intf {
 		return 0
 	}
 	return mathutil.Intf2(adv)
+}
+
+func (rr *RuneReader) tabbedGlyphAdvance(ru rune) mathutil.Intf {
+	adv := rr.glyphAdvance(ru)
+	if ru == '\t' {
+		adv = rr.nextTabStopAdvance(rr.d.st.runeR.pen.X, adv)
+	}
+	return adv
 }
 
 func (rr *RuneReader) nextTabStopAdvance(penx, tadv mathutil.Intf) mathutil.Intf {

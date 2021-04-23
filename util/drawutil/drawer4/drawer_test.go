@@ -349,6 +349,28 @@ func TestImg16Select(t *testing.T) {
 	cmpResult(t, img, "img16")
 }
 
+func TestImg17Tab(t *testing.T) {
+	//godebug:annotatepackage
+	d, img := newTestDrawer()
+
+	s := "012\t456\t89"
+
+	r := iorw.NewStringReaderAt(s)
+	d.SetReader(r)
+
+	//d.SetRuneOffset(0)
+	d.SetRuneOffset(7)
+
+	// problem: prints 8th forward on the same line (y), but the image shows BC on another line
+	//for i := 5; i <= 9; i++ {
+	//	p := d.LocalPointOf(i)
+	//	fmt.Printf("%v: %v\n", i, p)
+	//}
+
+	d.Draw(img)
+	cmpResult(t, img, "img17")
+}
+
 //----------
 
 func newTestDrawer() (*Drawer, draw.Image) {
