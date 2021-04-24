@@ -103,14 +103,21 @@ Usage of ./editor:
     	 (default 12)
   -lsproto value
     	Language-server-protocol register options. Can be specified multiple times.
-    	Format: language,extensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}
+    	Format: language,fileExtensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}
     	Examples:
-    	go,.go,stdio,"gopls serve"
-    	go,.go,tcp,"gopls serve -listen={{.Addr}}"
-    	cpp,".c .h .cpp .hpp .cc",stdio,clangd
-    	python,.py,tcpclient,127.0.0.1:9000
+    		go,.go,stdio,"gopls serve"
+    		go,.go,tcp,"gopls serve -listen={{.Addr}}"
+    		cpp,".c .h .cpp .hpp .cc",stdio,clangd
+    		python,.py,tcpclient,127.0.0.1:9000
   -plugins string
     	comma separated string of plugin filenames
+  -presavehook value
+    	Run program before saving a file. Uses stdin/stdout. Can be specified multiple times. By default, a "goimports" entry is auto added if no entry is defined for the "go" language.
+    	Format: language,fileExtensions,cmd
+    	Examples:
+    		go,.go,goimports
+    		cpp,".c .h .cpp .hpp",clang-format
+    		python,.py,python_formatter
   -scrollbarleft
     	set scrollbars on the left side (default true)
   -scrollbarwidth int
@@ -144,6 +151,8 @@ exec ~/path/editor \
 --stringscolor=0x8b3100 \
 --lsproto=go,.go,stdio,"gopls serve" \
 --lsproto=cpp,".c .h .cpp .hpp .cc",stdio,clangd \
+--presavehook=go,.go,goimports \
+--presavehook=cpp,".c .h .cpp .hpp",clang-format \
 "$@"
 ```
 
@@ -448,6 +457,7 @@ Plugins located at: `./plugins`.
 - `esc`:
 	- stop debugging session
 	- close context float box
+	- cancels any cmds running (content,internal,preSaveHooks,...)
 - `f1`: toggle context float box
 	- triggers call to plugins that implement `AutoComplete`
 	- `esc`: close context float box

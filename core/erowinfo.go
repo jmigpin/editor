@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/ui"
@@ -47,6 +48,11 @@ type ERowInfo struct {
 			size    int
 			hash    []byte
 		}
+	}
+
+	cmd struct {
+		sync.Mutex
+		cancelCmd context.CancelFunc
 	}
 }
 
@@ -286,18 +292,15 @@ func (info *ERowInfo) SaveFile() error {
 		return err
 	}
 
-	// run go imports for go content, updates content
-	if filepath.Ext(info.Name()) == ".go" {
-		u, err := runGoImports(b, filepath.Dir(info.Name()))
+	// run src formatters (ex: goimports)
+	ctx1, cancel1 := info.newCmdCtx()
+	defer cancel1()
+	if b2, err := info.Ed.runPreSaveHooks(ctx1, info, b); err == nil {
 		// ignore errors, can catch them when compiling
-		if err == nil {
-			b = u
-		}
+		b = b2
 	}
 
-	// save
-	err = info.saveFsFile(b)
-	if err != nil {
+	if err := info.saveFsFile(b); err != nil {
 		return err
 	}
 
@@ -310,10 +313,11 @@ func (info *ERowInfo) SaveFile() error {
 
 	//// warn lsproto of file save
 	//go func() {
-	//	ctx0 := context.Background()
-	//	ctx, cancel := context.WithTimeout(ctx0, 2000*time.Millisecond)
-	//	defer cancel()
-	//	err := info.Ed.LSProtoMan.DidSave(ctx, info.Name(), nil)
+	//	ctx2, cancel2 := info.newCmdCtx()
+	// 	defer cancel2()
+	//	ctx3, cancel3 := context.WithTimeout(ctx2, 3 * time.Second)
+	//	defer cancel3()
+	//	err := info.Ed.LSProtoMan.DidSave(ctx3, info.Name(), nil)
 	//	if err != nil {
 	//		info.Ed.Error(err)
 	//	}
@@ -519,6 +523,28 @@ func (info *ERowInfo) handleRWsWrite2(erow *ERow, ev *iorw.RWEvWrite2) {
 
 //----------
 
+func (info *ERowInfo) newCmdCtx() (context.Context, context.CancelFunc) {
+	info.cmd.Lock()
+	defer info.cmd.Unlock()
+	info.cancelCmd2()
+	ctx0 := context.Background() // TODO: editor ctx
+	ctx, cancel := context.WithCancel(ctx0)
+	info.cmd.cancelCmd = cancel
+	return ctx, cancel
+}
+func (info *ERowInfo) CancelCmd() {
+	info.cmd.Lock()
+	defer info.cmd.Unlock()
+	info.cancelCmd2()
+}
+func (info *ERowInfo) cancelCmd2() {
+	if info.cmd.cancelCmd != nil {
+		info.cmd.cancelCmd()
+	}
+}
+
+//----------
+
 func isSpecialName(name string) bool {
 	return name[0] == '+'
 }
@@ -529,16 +555,4 @@ func bytesHash(b []byte) []byte {
 	h := sha1.New()
 	h.Write(b)
 	return h.Sum(nil)
-}
-
-//----------
-
-func runGoImports(s []byte, dir string) ([]byte, error) {
-	// timeout for the cmd to run
-	timeout := 5000 * time.Millisecond
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	r := bytes.NewReader(s)
-	return ExecCmdStdin(ctx, dir, r, osutil.ExecName("goimports"))
 }

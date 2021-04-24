@@ -1,13 +1,16 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/jmigpin/editor/core/fswatcher"
@@ -17,6 +20,8 @@ import (
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font"
@@ -34,10 +39,10 @@ type Editor struct {
 	EEvents           *EEvents // editor events (used by plugins)
 	FsCaseInsensitive bool     // filesystem
 
-	dndh *DndHandler
-	ifbw *InfoFloatBoxWrap
-
-	erowInfos map[string]*ERowInfo // use ed.ERowInfo*() to access
+	dndh         *DndHandler
+	ifbw         *InfoFloatBoxWrap
+	erowInfos    map[string]*ERowInfo // use ed.ERowInfo*() to access
+	preSaveHooks []*PreSaveHook
 }
 
 func RunEditor(opt *Options) error {
@@ -58,8 +63,6 @@ func RunEditor(opt *Options) error {
 	if err := ed.init(opt); err != nil {
 		return err
 	}
-
-	ed.initLSProto(opt)
 
 	go ed.fswatcherEventLoop()
 	ed.uiEventLoop() // blocks
@@ -107,6 +110,9 @@ func (ed *Editor) init(opt *Options) error {
 		})
 	}
 
+	ed.initLSProto(opt)
+	ed.initPreSaveHooks(opt)
+
 	return nil
 }
 
@@ -128,6 +134,23 @@ func (ed *Editor) initLSProto(opt *Options) {
 	//	}
 	//	ed.LSProtoMan.Register(reg)
 	//}
+}
+
+func (ed *Editor) initPreSaveHooks(opt *Options) {
+	// auto register "goimports" if no entry exists for the "go" language
+	found := false
+	for _, r := range opt.PreSaveHooks.regs {
+		if r.Language == "go" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		exec := osutil.ExecName("goimports")
+		opt.PreSaveHooks.MustSet("go,.go," + exec)
+	}
+
+	ed.preSaveHooks = opt.PreSaveHooks.regs
 }
 
 //----------
@@ -258,9 +281,16 @@ func (ed *Editor) ERowInfo(name string) (*ERowInfo, bool) {
 }
 
 func (ed *Editor) ERowInfos() []*ERowInfo {
-	u := make([]*ERowInfo, 0, len(ed.erowInfos))
-	for _, v := range ed.erowInfos { // TODO: not stable
-		u = append(u, v)
+	// stable list
+	keys := []string{}
+	for k := range ed.erowInfos {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	u := make([]*ERowInfo, len(ed.erowInfos))
+	for i, k := range keys {
+		u[i] = ed.erowInfos[k]
 	}
 	return u
 }
@@ -533,6 +563,7 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) (handled bool) {
 				case event.KSymEscape:
 					ed.GoDebug.CancelAndClear()
 					ed.InlineComplete.CancelAndClear()
+					ed.cancelERowInfosCmds()
 					ed.cancelERowsContentCmds()
 					ed.cancelERowsInternalCmds()
 					autoCloseInfo = false
@@ -567,6 +598,12 @@ func (ed *Editor) cancelERowsContentCmds() {
 func (ed *Editor) cancelERowsInternalCmds() {
 	for _, erow := range ed.ERows() {
 		erow.CancelInternalCmd()
+	}
+}
+
+func (ed *Editor) cancelERowInfosCmds() {
+	for _, info := range ed.ERowInfos() {
+		info.CancelCmd()
 	}
 }
 
@@ -762,6 +799,38 @@ func (ed *Editor) CanModifyAnnotations(req EdAnnotationsRequester, ta *ui.TextAr
 	}
 }
 
+//----------
+
+func (ed *Editor) runPreSaveHooks(ctx context.Context, info *ERowInfo, b []byte) ([]byte, error) {
+	ext := filepath.Ext(info.Name())
+	for _, h := range ed.preSaveHooks {
+		for _, e := range h.Exts {
+			if e == ext {
+				b2, err := ed.runPreSaveHook(ctx, info, b, h.Cmd)
+				if err != nil {
+					return nil, err
+				}
+				b = b2
+			}
+		}
+	}
+	return b, nil
+}
+
+func (ed *Editor) runPreSaveHook(ctx context.Context, info *ERowInfo, content []byte, cmd string) ([]byte, error) {
+	// timeout for the cmd to run
+	timeout := 5 * time.Second
+	ctx2, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	dir := filepath.Dir(info.Name())
+	r := bytes.NewReader(content)
+	cmd2 := strings.Split(cmd, " ")
+	return ExecCmdStdin(ctx2, dir, r, cmd2...)
+}
+
+//----------
+
 type EdAnnotationsRequester int
 
 const (
@@ -820,7 +889,8 @@ type Options struct {
 
 	Plugins string
 
-	LSProtos RegistrationsOpt
+	LSProtos     RegistrationsOpt
+	PreSaveHooks PreSaveHooksOpt
 }
 
 //----------
@@ -848,10 +918,87 @@ func (ro *RegistrationsOpt) MustSet(s string) {
 func (ro *RegistrationsOpt) String() string {
 	u := []string{}
 	for _, reg := range ro.regs {
-		s := lsproto.RegistrationString(reg)
-		u = append(u, s)
+		u = append(u, reg.String())
 	}
 	return fmt.Sprintf("%v", strings.Join(u, "\n"))
+}
+
+//----------
+
+// implements flag.Value interface
+type PreSaveHooksOpt struct {
+	regs []*PreSaveHook
+}
+
+func (o *PreSaveHooksOpt) Set(s string) error {
+	reg, err := newPreSaveHook(s)
+	if err != nil {
+		return err
+	}
+	o.regs = append(o.regs, reg)
+	return nil
+}
+
+func (o *PreSaveHooksOpt) MustSet(s string) {
+	if err := o.Set(s); err != nil {
+		panic(err)
+	}
+}
+
+func (o *PreSaveHooksOpt) String() string {
+	u := []string{}
+	for _, reg := range o.regs {
+		u = append(u, reg.String())
+	}
+	return fmt.Sprintf("%v", strings.Join(u, "\n"))
+}
+
+//----------
+
+type PreSaveHook struct {
+	Language string
+	Exts     []string
+	Cmd      string
+}
+
+func newPreSaveHook(s string) (*PreSaveHook, error) {
+	fields, err := parseutil.ParseFields(s, ',')
+	if err != nil {
+		return nil, err
+	}
+	minFields := 3
+	if len(fields) != minFields {
+		return nil, fmt.Errorf("expecting %v fields: %v", minFields, len(fields))
+	}
+
+	r := &PreSaveHook{}
+	r.Language = fields[0]
+	if r.Language == "" {
+		return nil, fmt.Errorf("empty language")
+	}
+	r.Exts = strings.Split(fields[1], " ")
+	r.Cmd = fields[2]
+
+	return r, nil
+}
+
+func (h *PreSaveHook) String() string {
+	u := []string{h.Language}
+
+	exts := strings.Join(h.Exts, " ")
+	if len(h.Exts) >= 2 {
+		exts = fmt.Sprintf("%q", exts)
+	}
+	u = append(u, exts)
+
+	cmd := h.Cmd
+	cmd2 := parseutil.AddEscapes(cmd, '\\', " ,")
+	if cmd != cmd2 {
+		cmd = fmt.Sprintf("%q", cmd)
+	}
+	u = append(u, cmd)
+
+	return strings.Join(u, ",")
 }
 
 //----------

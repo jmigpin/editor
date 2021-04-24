@@ -2,13 +2,10 @@ package lsproto
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
-	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
-	"github.com/jmigpin/editor/util/scanutil"
 )
 
 //----------
@@ -38,45 +35,16 @@ func (reg *Registration) HasOptional(s string) bool {
 	return false
 }
 
+func (reg *Registration) String() string {
+	return stringifyRegistration(reg)
+}
+
 //----------
 
 func parseRegistration(s string) (*Registration, error) {
-	rd := iorw.NewStringReaderAt(s)
-	sc := scanutil.NewScanner(rd)
-
-	fields := []string{}
-	for i := 0; ; i++ {
-		if sc.Match.End() {
-			break
-		}
-
-		// field separator
-		if i > 0 && !sc.Match.Rune(',') {
-			return nil, sc.Errorf("comma")
-		}
-		sc.Advance()
-
-		// field (can be empty)
-		for {
-			if sc.Match.Quoted("\"'", '\\', true, 5000) {
-				continue
-			}
-			if sc.Match.Except(",") {
-				continue
-			}
-			break
-		}
-		f := sc.Value()
-
-		// unquote field
-		f2, err := strconv.Unquote(f)
-		if err == nil {
-			f = f2
-		}
-
-		// add field
-		fields = append(fields, f)
-		sc.Advance()
+	fields, err := parseutil.ParseFields(s, ',')
+	if err != nil {
+		return nil, err
 	}
 
 	minFields := 4
@@ -97,9 +65,7 @@ func parseRegistration(s string) (*Registration, error) {
 	return reg, nil
 }
 
-//----------
-
-func RegistrationString(reg *Registration) string {
+func stringifyRegistration(reg *Registration) string {
 	exts := strings.Join(reg.Exts, " ")
 	if len(reg.Exts) >= 2 {
 		exts = fmt.Sprintf("%q", exts)
@@ -123,14 +89,13 @@ func RegistrationString(reg *Registration) string {
 
 //----------
 
-func RegistrationExamples() string {
-	u := []string{
+func RegistrationExamples() []string {
+	return []string{
 		goplsRegistration(false, false, false),
 		goplsRegistration(false, false, true),
 		cLangRegistration(false),
 		"python,.py,tcpclient,127.0.0.1:9000",
 	}
-	return strings.Join(u, "\n")
 }
 
 //----------
