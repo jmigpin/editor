@@ -835,7 +835,7 @@ func (d *Drawer) wlineStartLoopFn(clearState bool, offset, nLinesUp int, fnInit 
 	iters := d.loopv.iters
 	defer func() { d.loopv.iters = iters }()
 
-	d.loopv.iters = d.sIters(true, &FnIter{fn: fn})
+	d.loopv.iters = d.sIters(false, &FnIter{fn: fn})
 	d.wlineStartState(clearState, offset, nLinesUp)
 	fnInit()
 	d.loop()
@@ -875,7 +875,7 @@ func (d *Drawer) wlineStartIndex(clearState bool, offset, nLinesUp int, rd iorw.
 	d.st.lineStart.offset = offset
 	d.st.lineStart.nLinesUp = nLinesUp
 	d.st.lineStart.reader = rd
-	iters := d.sIters(true, &d.iters.lineStart)
+	iters := d.sIters(false, &d.iters.lineStart)
 	d.loopInit(iters)
 	d.loop()
 	return d.st.lineStart.ri

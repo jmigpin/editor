@@ -16,6 +16,8 @@ import (
 	"golang.org/x/image/colornames"
 )
 
+//godebug:annotatepackage
+
 func TestEmpty(t *testing.T) {
 	d := New()
 	d.SetFontFace(fontutil.DefaultFontFace())
@@ -350,7 +352,6 @@ func TestImg16Select(t *testing.T) {
 }
 
 func TestImg17Tab(t *testing.T) {
-	//godebug:annotatepackage
 	d, img := newTestDrawer()
 
 	s := "012\t456\t89"
@@ -361,7 +362,7 @@ func TestImg17Tab(t *testing.T) {
 	//d.SetRuneOffset(0)
 	d.SetRuneOffset(7)
 
-	// problem: prints 8th forward on the same line (y), but the image shows BC on another line
+	// problem: prints 8th forward on the same line (y), but the image shows runes on another line
 	//for i := 5; i <= 9; i++ {
 	//	p := d.LocalPointOf(i)
 	//	fmt.Printf("%v: %v\n", i, p)
@@ -369,6 +370,23 @@ func TestImg17Tab(t *testing.T) {
 
 	d.Draw(img)
 	cmpResult(t, img, "img17")
+}
+
+func TestImg18LongWrap(t *testing.T) {
+	d, img := newTestDrawer()
+
+	s := ""
+	for i := 0; i < 10000; i++ {
+		s += fmt.Sprintf("%010d;", i)
+	}
+
+	r := iorw.NewStringReaderAt(s)
+	d.SetReader(r)
+
+	d.SetRuneOffset(len(s) / 2)
+
+	d.Draw(img)
+	cmpResult(t, img, "img18")
 }
 
 //----------
