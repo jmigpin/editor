@@ -807,7 +807,8 @@ func (ed *Editor) runPreSaveHooks(ctx context.Context, info *ERowInfo, b []byte)
 			if e == ext {
 				b2, err := ed.runPreSaveHook(ctx, info, b, h.Cmd)
 				if err != nil {
-					return nil, err
+					err2 := fmt.Errorf("presavehook(%v): %w", h.Language, err)
+					return nil, err2
 				}
 				b = b2
 			}

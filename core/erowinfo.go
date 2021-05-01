@@ -295,8 +295,10 @@ func (info *ERowInfo) SaveFile() error {
 	// run src formatters (ex: goimports)
 	ctx1, cancel1 := info.newCmdCtx()
 	defer cancel1()
-	if b2, err := info.Ed.runPreSaveHooks(ctx1, info, b); err == nil {
+	if b2, err := info.Ed.runPreSaveHooks(ctx1, info, b); err != nil {
 		// ignore errors, can catch them when compiling
+		//info.Ed.Error(err)
+	} else {
 		b = b2
 	}
 

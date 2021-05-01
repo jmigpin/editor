@@ -150,9 +150,9 @@ exec ~/path/editor \
 --commentscolor=0x008b00 \
 --stringscolor=0x8b3100 \
 --lsproto=go,.go,stdio,"gopls serve" \
---lsproto=cpp,".c .h .cpp .hpp .cc",stdio,clangd \
+--lsproto="cpp,\".c .h .cpp .hpp .cc\",stdio,clangd" \
 --presavehook=go,.go,goimports \
---presavehook=cpp,".c .h .cpp .hpp",clang-format \
+--presavehook="cpp,\".c .h .cpp .hpp\",\"clang-format --someoption\"" \
 "$@"
 ```
 
