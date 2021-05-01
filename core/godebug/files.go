@@ -373,11 +373,13 @@ func (files *Files) solveCommentedFile2(f *SrcFile, astFile *ast.File) error {
 	opts := []*AnnotationOpt{}
 	for _, cg := range astFile.Comments {
 		for _, c := range cg.List {
-			opt, err := AnnotationOptInComment(c)
+			opt, ok, err := AnnotationOptInComment(c)
 			if err != nil {
 				return err
 			}
-			opts = append(opts, opt)
+			if ok {
+				opts = append(opts, opt)
+			}
 		}
 	}
 	// find annotationOpt associated nodes
@@ -1122,12 +1124,16 @@ type AnnotationOpt struct {
 	Node    ast.Node // node associated to comment (can be nil)
 }
 
-func AnnotationOptInComment(c *ast.Comment) (*AnnotationOpt, error) {
+func AnnotationOptInComment(c *ast.Comment) (*AnnotationOpt, bool, error) {
 	typ, opt, err := AnnotationTypeInString(c.Text)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return &AnnotationOpt{Type: typ, Opt: opt, Comment: c}, nil
+	if typ == AnnotationTypeNone {
+		return nil, false, nil
+	}
+	u := &AnnotationOpt{Type: typ, Opt: opt, Comment: c}
+	return u, true, nil
 }
 
 //----------

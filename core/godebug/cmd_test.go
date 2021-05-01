@@ -1935,6 +1935,8 @@ func TestCmd_simple3(t *testing.T) {
 }
 
 func TestCmd_simple4(t *testing.T) {
+	// don't annotate args
+
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
@@ -1966,6 +1968,38 @@ func TestCmd_simple4(t *testing.T) {
 	// will be endless loop if it fails
 	_ = msgs
 	//mustHaveString(t, msgs, ``)
+}
+
+func TestCmd_simple5(t *testing.T) {
+	// test annotation node
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", `
+		package main
+		func main() {
+			f1(1)
+		}
+		// some comment that is disabling annotateoff
+		// some comment that is disabling annotateoff
+		//godebug:annotateoff
+		func f1(v int)string{
+			return "f1"
+		}
+	`)
+
+	cmd := []string{
+		"run",
+		"dir1/main.go",
+	}
+	msgs, err := doCmd2(t, tf.Dir, cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// will be endless loop if it fails
+	_ = msgs
+	mustNotHaveString(t, msgs, `"f1"`)
 }
 
 //------------
