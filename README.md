@@ -355,25 +355,25 @@ Usage of GoDebug run:
 		```
 - Limitations:
 	- `String()` and `Error()` methods are not annotated to avoid endless loops (the annotation would recursively call the method again).
-	- fixed ~~Go supports multi-value function assignment. These statements are annotated but give a compilation error later:
+	- fixed ~~Go supports multi-value function assignment. These statements are annotated but give a compilation error later:~~
+		```diff
+		- func myfunc1() (int,int) { return 1, 2}
+		- func myfunc2(a int, b int) {}
+		- ...
+		- myfunc2(myfunc1()) // assumes myfunc1 returns 1 arg (compilation err)
 		```
-		func myfunc1() (int,int) { return 1, 2}
-		func myfunc2(a int, b int) {}
-		...
-		myfunc2(myfunc1()) // assumes myfunc1 returns 1 arg (compilation err)
-		```
-		The annotator assumes myfunc1 returns 1 value. For this to be solved the annotator would have to become substantially slower with type analysis.~~
+		~~The annotator assumes myfunc1 returns 1 value. For this to be solved the annotator would have to become substantially slower with type analysis.~~
 	- fixed ~~Constants bigger then `int` get the `int` type when assigned to an `interface{}` https://golang.org/ref/spec#Constants. 
 		Consider the following code that compiles and runs:~~
-		```
-		~~a:=uint64(0)
-		a=math.MaxUint64~~
+		```diff
+		- a:=uint64(0)
+		- a=math.MaxUint64
 		```
 		~~But, the following gives a compile error:~~
-		```
-		~~var a interface{}
-		a=math.MaxUint64~~
-		// compilation err: constant 18446744073709551615 overflows int
+		```diff
+		- var a interface{}
+		- a=math.MaxUint64
+		- // compilation err: constant 18446744073709551615 overflows int
 		```
 		~~When the code is annotated, there are debug functions that have `interface{}` arguments. So if an argument is a `const` bigger then `int`, it won't work. 
 		A solution is to use `//godebug:annotateoff` before the offending line.
