@@ -392,7 +392,7 @@ func TestAnnotator23(t *testing.T) {
 	        Σ5 := Σ.IV(Σ4)
 	        a := Σ4
 	        Σ6 := Σ.IV(a)
-	        Σ.Line(0, 0, 37, Σ.IA(Σ.IL(Σ6), Σ.IL(Σ.II(Σ5, nil, Σ3))))`,
+	        Σ.Line(0, 0, 37, Σ.IA(Σ.IL(Σ6), Σ.IL(Σ.II(Σ5, "path", Σ3))))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -421,7 +421,7 @@ func TestAnnotator25(t *testing.T) {
 	        a[i] = b
 	        Σ1 := Σ.IV(i)
 	        Σ2 := Σ.IV(a[i])
-	        Σ.Line(0, 0, 31, Σ.IA(Σ.IL(Σ.II(Σ2, nil, Σ1)), Σ.IL(Σ0)))`,
+	        Σ.Line(0, 0, 31, Σ.IA(Σ.IL(Σ.II(Σ2, "a", Σ1)), Σ.IL(Σ0)))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -433,7 +433,7 @@ func TestAnnotator26(t *testing.T) {
 	        Σ2 := Σ.IV(Σ1)
 	        a := Σ1
 	        Σ3 := Σ.IV(a)
-	        Σ.Line(0, 0, 30, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ.II(Σ2, nil, Σ0))))`,
+	        Σ.Line(0, 0, 30, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ.II(Σ2, "b", Σ0))))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -446,7 +446,7 @@ func TestAnnotator27(t *testing.T) {
 	        Σ3 := Σ.IV("a")
 	        Σ4 := Σ1 + "a"
 	        Σ5 := Σ.IV(Σ4)
-	        Σ6 := Σ.IB(Σ5, 12, Σ.II2(Σ2, nil, nil, Σ0, nil, false), Σ3)
+	        Σ6 := Σ.IB(Σ5, 12, Σ.II2(Σ2, "s", nil, Σ0, nil, false), Σ3)
 	        s = Σ4
 	        Σ7 := Σ.IV(s)
 	        Σ.Line(0, 0, 38, Σ.IA(Σ.IL(Σ7), Σ.IL(Σ6)))`,
@@ -462,7 +462,7 @@ func TestAnnotator28(t *testing.T) {
 	        b[1] = Σ1
 	        Σ3 := Σ.IV(1)
 	        Σ4 := Σ.IV(b[1])
-	        Σ.Line(0, 0, 35, Σ.IA(Σ.IL(Σ.II(Σ4, nil, Σ3)), Σ.IL(Σ.II2(Σ2, nil, nil, Σ0, nil, false))))`,
+	        Σ.Line(0, 0, 35, Σ.IA(Σ.IL(Σ.II(Σ4, "b", Σ3)), Σ.IL(Σ.II2(Σ2, "u", nil, Σ0, nil, false))))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -478,7 +478,7 @@ func TestAnnotator29(t *testing.T) {
 	        Σ5 := Σ.IC("f2", Σ4)
 	        u[Σ3] = Σ1
 	        Σ6 := Σ.IV(u[Σ3])
-	        Σ.Line(0, 0, 38, Σ.IA(Σ.IL(Σ.II(Σ6, nil, Σ5)), Σ.IL(Σ.II2(Σ2, nil, nil, Σ0, nil, false))))`,
+	        Σ.Line(0, 0, 38, Σ.IA(Σ.IL(Σ.II(Σ6, "u", Σ5)), Σ.IL(Σ.II2(Σ2, "u", nil, Σ0, nil, false))))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -489,7 +489,7 @@ func TestAnnotator30(t *testing.T) {
 	        Σ1 := Σ.IV(Σ0)
 	        a := Σ0
 	        Σ2 := Σ.IV(a)
-	        Σ.Line(0, 0, 30, Σ.IA(Σ.IL(Σ2), Σ.IL(Σ.II2(Σ1, nil, nil, nil, nil, false))))`,
+	        Σ.Line(0, 0, 30, Σ.IA(Σ.IL(Σ2), Σ.IL(Σ.II2(Σ1, "s", nil, nil, nil, false))))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -508,7 +508,7 @@ func TestAnnotator31(t *testing.T) {
 	        Σ8 := Σ.IV(1 + a)
 	        Σ9 := Σ.IB(Σ8, 12, Σ6, Σ7)
 	        Σ10 := Σ.IV(u[1+a])
-	        Σ.Line(0, 0, 38, Σ.IA(Σ.IL(Σ.II(Σ10, nil, Σ9)), Σ.IL(Σ.II(Σ5, nil, Σ3))))`,
+	        Σ.Line(0, 0, 38, Σ.IA(Σ.IL(Σ.II(Σ10, "u", Σ9)), Σ.IL(Σ.II(Σ5, "u", Σ3))))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -522,7 +522,7 @@ func TestAnnotator32(t *testing.T) {
 	        Σ3 := Σ.IV(1 + a)
 	        Σ4 := Σ.IB(Σ3, 12, Σ1, Σ2)
 	        Σ5 := Σ.IV(p[1+a])
-	        Σ.Line(0, 0, 31, Σ.IA(Σ.IL(Σ.II(Σ5, nil, Σ4)), Σ.IL(Σ0)))`,
+	        Σ.Line(0, 0, 31, Σ.IA(Σ.IL(Σ.II(Σ5, "p", Σ4)), Σ.IL(Σ0)))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -568,7 +568,7 @@ func TestAnnotator35(t *testing.T) {
 	        Σ1 := Σ.IV(c[i])
 	        Σ2 := &c[i]
 	        Σ3 := Σ.IV(Σ2)
-	        Σ4 := Σ.IU(Σ3, 17, Σ.II(Σ1, nil, Σ0))
+	        Σ4 := Σ.IU(Σ3, 17, Σ.II(Σ1, "c", Σ0))
 	        a := Σ2
 	        Σ5 := Σ.IV(a)
 	        Σ.Line(0, 0, 33, Σ.IA(Σ.IL(Σ5), Σ.IL(Σ4)))`,
@@ -1393,7 +1393,7 @@ func TestAnnotator73(t *testing.T) {
 	        Σ5 := Σ.IV(Σ4)
 	        Σ6 := Σ.IV(1)
 	        Σ7 := Σ.IV(1)
-	        Σ.Line(0, 0, 77, Σ.IL(Σ.II2(Σ5, nil, Σ3, nil, nil, false), Σ6, Σ7))
+	        Σ.Line(0, 0, 77, Σ.IL(Σ.II2(Σ5, "path", Σ3, nil, nil, false), Σ6, Σ7))
 	        return Σ4, 1, 1`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc2)
@@ -1577,7 +1577,7 @@ func TestAnnotator85(t *testing.T) {
 	        a, ok := Σ1, Σ2
 	        Σ4 := Σ.IV(a)
 	        Σ5 := Σ.IV(ok)
-	        Σ.Line(0, 0, 40, Σ.IA(Σ.IL(Σ4, Σ5), Σ.IL(Σ.II(Σ3, nil, Σ0))))`,
+	        Σ.Line(0, 0, 40, Σ.IA(Σ.IL(Σ4, Σ5), Σ.IL(Σ.II(Σ3, "d", Σ0))))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -1691,7 +1691,7 @@ func TestAnnotator89(t *testing.T) {
 	        a.b["s"] = 1
 	        Σ1 := Σ.IV("s")
 	        Σ2 := Σ.IV(a.b["s"])
-	        Σ.Line(0, 0, 35, Σ.IA(Σ.IL(Σ.II(Σ2, nil, Σ1)), Σ.IL(Σ0)))`,
+	        Σ.Line(0, 0, 35, Σ.IA(Σ.IL(Σ.II(Σ2, "b", Σ1)), Σ.IL(Σ0)))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -1709,7 +1709,7 @@ func TestAnnotator90(t *testing.T) {
 	        Σ7 := Σ.IV(a[i])
 	        Σ8 := Σ.IV(j)
 	        Σ9 := Σ.IV(a[j])
-	        Σ.Line(0, 0, 46, Σ.IA(Σ.IL(Σ.II(Σ7, nil, Σ6), Σ.II(Σ9, nil, Σ8)), Σ.IL(Σ.II(Σ2, nil, Σ0), Σ.II(Σ5, nil, Σ3))))`,
+	        Σ.Line(0, 0, 46, Σ.IA(Σ.IL(Σ.II(Σ7, "a", Σ6), Σ.II(Σ9, "a", Σ8)), Σ.IL(Σ.II(Σ2, "a", Σ0), Σ.II(Σ5, "a", Σ3))))`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -1793,13 +1793,13 @@ func TestAnnotator96(t *testing.T) {
 	        a[b] = true
 	        Σ1 := Σ.IV(b)
 	        Σ2 := Σ.IV(a[b])
-	        Σ.Line(0, 0, 32, Σ.IA(Σ.IL(Σ.II(Σ2, nil, Σ1)), Σ.IL(Σ0)))
+	        Σ.Line(0, 0, 32, Σ.IA(Σ.IL(Σ.II(Σ2, "a", Σ1)), Σ.IL(Σ0)))
 	        Σ3 := func() {
 	        Σ4 := Σ.IV(true)
 	        a[b] = true
 	        Σ5 := Σ.IV(b)
 	        Σ6 := Σ.IV(a[b])
-	        Σ.Line(0, 1, 52, Σ.IA(Σ.IL(Σ.II(Σ6, nil, Σ5)), Σ.IL(Σ4)))
+	        Σ.Line(0, 1, 52, Σ.IA(Σ.IL(Σ.II(Σ6, "a", Σ5)), Σ.IL(Σ4)))
 	        }
 	        Σ7 := Σ.IV(Σ3)
 	        Σ.Line(0, 2, 53, Σ.ICe("fn", Σ7))

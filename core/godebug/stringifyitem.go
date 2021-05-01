@@ -72,6 +72,8 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 	//log.Printf("stringifyitem: %T", item)
 
 	switch t := item.(type) {
+	//case string:
+	//is.Str += t
 
 	case *debug.ItemValue:
 		if is.FullStr {
@@ -133,9 +135,14 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 	case *debug.ItemIndex:
 		_ = is.result(t.Result)
 		if t.Expr != nil {
-			is.Str += "("
-			is.stringify(t.Expr)
-			is.Str += ")"
+			switch t2 := t.Expr.(type) {
+			case string:
+				is.Str += t2
+			default:
+				is.Str += "("
+				is.stringify(t.Expr)
+				is.Str += ")"
+			}
 		}
 		is.Str += "["
 		if t.Index != nil {
@@ -146,9 +153,14 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 	case *debug.ItemIndex2:
 		_ = is.result(t.Result)
 		if t.Expr != nil {
-			is.Str += "("
-			is.stringify(t.Expr)
-			is.Str += ")"
+			switch t2 := t.Expr.(type) {
+			case string:
+				is.Str += t2
+			default:
+				is.Str += "("
+				is.stringify(t.Expr)
+				is.Str += ")"
+			}
 		}
 		is.Str += "["
 		if t.Low != nil {

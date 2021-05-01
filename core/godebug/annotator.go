@@ -892,9 +892,12 @@ func (ann *Annotator) visitIndexExpr(ctx *Ctx, ie *ast.IndexExpr) {
 
 	// X expr
 	var x ast.Expr
-	switch ie.X.(type) {
-	case *ast.Ident, *ast.SelectorExpr:
-		x = nilIdent()
+	switch t := ie.X.(type) {
+	case *ast.Ident:
+		x = basicLitStringQ(t.Name)
+	case *ast.SelectorExpr:
+		//x = nilIdent()
+		x = basicLitStringQ(t.Sel.Name)
 	default:
 		x = ann.visitExpr(ctx, &ie.X)
 	}
@@ -912,9 +915,12 @@ func (ann *Annotator) visitIndexExpr(ctx *Ctx, ie *ast.IndexExpr) {
 
 func (ann *Annotator) visitSliceExpr(ctx *Ctx, se *ast.SliceExpr) {
 	var x ast.Expr
-	switch se.X.(type) {
-	case *ast.Ident, *ast.SelectorExpr:
-		x = nilIdent()
+	switch t := se.X.(type) {
+	case *ast.Ident:
+		x = basicLitStringQ(t.Name)
+	case *ast.SelectorExpr:
+		//x = nilIdent()
+		x = basicLitStringQ(t.Sel.Name)
 	default:
 		x = ann.visitExpr(ctx, &se.X)
 	}
