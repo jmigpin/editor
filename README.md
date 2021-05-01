@@ -324,7 +324,9 @@ Usage of GoDebug run:
 		```
 		This is helpful to bypass loops that would become too slow with debug messages being sent. Example:
 		```
-		func fn(){
+		//godebug:annotateoff	// don't annotate arg "v1"
+		func fn(v1 int){
+			//godebug:annotateblock		// re-enable annotations
 			a:=0 // annotated
 			if a==0{
 				a++ // annotated
@@ -338,6 +340,19 @@ Usage of GoDebug run:
 			println(a) // annotated, not part of the disabled block
 		}
 		```
+		Also, to improve on the `String()` limitation:
+		```
+		type myint int
+		func (v myint) String() string {
+			return f1(v)
+		}
+		// would cause endless loop with godebug calling t.String() at arg `v`
+		// but not if it the annotations are off
+		//godebug:annotateoff
+		func fn(v myint) string { 
+			return fmt.Sprintf("%d", v) 
+		}
+		```
 - Limitations:
 	- `String()` and `Error()` methods are not annotated to avoid endless loops (the annotation would recursively call the method again).
 	- fixed ~~Go supports multi-value function assignment. These statements are annotated but give a compilation error later:
@@ -349,18 +364,18 @@ Usage of GoDebug run:
 		```
 		The annotator assumes myfunc1 returns 1 value. For this to be solved the annotator would have to become substantially slower with type analysis.~~
 	- fixed ~~Constants bigger then `int` get the `int` type when assigned to an `interface{}` https://golang.org/ref/spec#Constants. 
-		Consider the following code that compiles and runs:
+		Consider the following code that compiles and runs:~~
 		```
-		a:=uint64(0)
-		a=math.MaxUint64
+		~~a:=uint64(0)
+		a=math.MaxUint64~~
 		```
-		But, the following gives a compile error:
+		~~But, the following gives a compile error:~~
 		```
-		var a interface{}
-		a=math.MaxUint64
+		~~var a interface{}
+		a=math.MaxUint64~~
 		// compilation err: constant 18446744073709551615 overflows int
 		```
-		When the code is annotated, there are debug functions that have `interface{}` arguments. So if an argument is a `const` bigger then `int`, it won't work. 
+		~~When the code is annotated, there are debug functions that have `interface{}` arguments. So if an argument is a `const` bigger then `int`, it won't work. 
 		A solution is to use `//godebug:annotateoff` before the offending line.
 		For this to be solved, the types need to be analysed but that would become substantially slower (compiles are not cached).~~
 - Notes:

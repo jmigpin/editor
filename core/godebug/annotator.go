@@ -105,6 +105,12 @@ func (ann *Annotator) visitDeclFromFile(ctx *Ctx, decl ast.Decl) {
 }
 
 func (ann *Annotator) visitFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
+	// catch directive at the top of the function decl
+	on, ok := ann.annotationsOn(fd)
+	if ok && !on {
+		ctx = ctx.withNoAnnotations(!on)
+	}
+
 	// don't annotate these functions to avoid endless loop recursion
 	noAnnSpecialFunc := false
 	if fd.Recv != nil && fd.Body != nil && fd.Name.Name == "String" && len(fd.Type.Params.List) == 0 {
@@ -115,12 +121,12 @@ func (ann *Annotator) visitFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
 	}
 	// insert debugging step to show it ran
 	if noAnnSpecialFunc {
-		s := fmt.Sprintf("special func %v()", fd.Name.Name)
-		re := basicLitStringQ(s)
-		ce := ann.newDebugCallExpr("INAnn", re)
-		stmt := ann.newDebugLineStmt(ctx, fd.Type.End(), ce)
-		ctx2, _ := ctx.withStmtIter(&fd.Body.List)
-		ctx2.insertInStmtListBefore(stmt)
+		//s := fmt.Sprintf("special func %v()", fd.Name.Name)
+		//re := basicLitStringQ(s)
+		//ce := ann.newDebugCallExpr("INAnn", re)
+		//stmt := ann.newDebugLineStmt(ctx, fd.Type.End(), ce)
+		//ctx2, _ := ctx.withStmtIter(&fd.Body.List)
+		//ctx2.insertInStmtListBefore(stmt)
 		return
 	}
 

@@ -2051,21 +2051,21 @@ func TestAnnotator111(t *testing.T) {
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
 
-func TestAnnotator112(t *testing.T) {
-	srcFunc := func(s string) string {
-		return `package p1
-		type A int
-		func (*a) String() int {
-			` + s + `
-		}`
-	}
-	inout := []string{
-		`_=1`,
-		`Σ.Line(0, 0, 44, Σ.INAnn("special func String()"))
-        	_ = 1`,
-	}
-	testAnnotator1(t, inout[0], inout[1], srcFunc)
-}
+//func TestAnnotator112(t *testing.T) {
+//	srcFunc := func(s string) string {
+//		return `package p1
+//		type A int
+//		func (*a) String() int {
+//			` + s + `
+//		}`
+//	}
+//	inout := []string{
+//		`_=1`,
+//		`Σ.Line(0, 0, 44, Σ.INAnn("special func String()"))
+//        	_ = 1`,
+//	}
+//	testAnnotator1(t, inout[0], inout[1], srcFunc)
+//}
 
 func TestAnnotator_(t *testing.T) {
 	inout := []string{

@@ -1934,6 +1934,40 @@ func TestCmd_simple3(t *testing.T) {
 	mustHaveString(t, msgs, `_ := "a"=*&"a"`)
 }
 
+func TestCmd_simple4(t *testing.T) {
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", `
+		package main
+		import "fmt"
+		func main() {
+			v:=T1(0)
+			fmt.Sprintf("%v",v)
+		}
+		type T1 int
+		func (t T1) String() string{
+			return f1(t)
+		}
+		//godebug:annotateoff 	// testing
+		func f1(t T1)string{
+			return fmt.Sprintf("%d",t)
+		}
+	`)
+
+	cmd := []string{
+		"run",
+		"dir1/main.go",
+	}
+	msgs, err := doCmd2(t, tf.Dir, cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// will be endless loop if it fails
+	_ = msgs
+	//mustHaveString(t, msgs, ``)
+}
+
 //------------
 
 //func TestCmd_empty(t *testing.T) {}
