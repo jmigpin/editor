@@ -991,13 +991,13 @@ func TestAnnotator56(t *testing.T) {
 		`label1:
 		a++
 		goto label1`,
-		`Σ.Line(0, 0, 23, Σ.ILa())
-	        Σ0 := Σ.IV(a)
-	        label1:
+		`label1:
+		;
+		Σ0 := Σ.IV(a)
 	        a++
 	        Σ1 := Σ.IV(a)
-	        Σ.Line(0, 1, 34, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
-	        Σ.Line(0, 2, 35, Σ.IBr())
+	        Σ.Line(0, 0, 34, Σ.IA(Σ.IL(Σ1), Σ.IL(Σ0)))
+	        Σ.Line(0, 1, 35, Σ.IBr())
 	        goto label1`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
@@ -1006,33 +1006,23 @@ func TestAnnotator56a(t *testing.T) {
 	inout := []string{
 		`label1:
 		for i:=f();i<2;i++{break label1}`,
-		`Σ.Line(0, 0, 23, Σ.ILa())
-	        {
-	        Σ.Line(0, 1, 40, Σ.ICe("f"))
-	        Σ0 := f()
-	        Σ1 := Σ.IV(Σ0)
-	        Σ2 := Σ.IC("f", Σ1)
-	        i := Σ0
-	        Σ3 := Σ.IV(i)
-	        Σ.Line(0, 1, 41, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ2)))
-	        Σ.Line(0, 2, 23, Σ.ILa())
-	        label1:
-	        for ; ; i++ {
-	        {
-	        Σ4 := Σ.IV(i)
-	        Σ5 := Σ.IV(2)
-	        Σ6 := i < 2
-	        Σ7 := Σ.IV(Σ6)
-	        Σ8 := Σ.IB(Σ7, 40, Σ4, Σ5)
-	        Σ.Line(0, 3, 45, Σ8)
-	        if !Σ6 {
-	        break
-	        }
-	        }
-	        Σ.Line(0, 4, 50, Σ.IBr())
-	        break label1
-	        }
-	        }`,
+		`Σ.Line(0, 0, 23, Σ.ILa("\"for\" init not annotated"))
+        	label1:
+        	for i := f(); ; i++ {
+        	{
+        	Σ0 := Σ.IV(i)
+        	Σ1 := Σ.IV(2)
+        	Σ2 := i < 2
+        	Σ3 := Σ.IV(Σ2)
+        	Σ4 := Σ.IB(Σ3, 40, Σ0, Σ1)
+        	Σ.Line(0, 1, 45, Σ4)
+        	if !Σ2 {
+        	break
+        	}
+        	}
+        	Σ.Line(0, 2, 50, Σ.IBr())
+        	break label1
+        	}`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -1040,22 +1030,20 @@ func TestAnnotator56b(t *testing.T) {
 	inout := []string{
 		`label1:
 		switch a:=f();a {}`,
-		`Σ.Line(0, 0, 23, Σ.ILa())
-	        {
-	        Σ.Line(0, 1, 43, Σ.ICe("f"))
-	        Σ0 := f()
-	        Σ1 := Σ.IV(Σ0)
-	        Σ2 := Σ.IC("f", Σ1)
-	        a := Σ0
-	        Σ3 := Σ.IV(a)
-	        Σ.Line(0, 1, 44, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ2)))
-	        Σ.Line(0, 2, 23, Σ.ILa())
-	        Σ4 := Σ.IV(a)
-	        Σ.Line(0, 3, 46, Σ4)
-	        label1:
-	        switch a {
-	        }
-	        }`,
+		`{
+        	Σ.Line(0, 0, 43, Σ.ICe("f"))
+        	Σ0 := f()
+        	Σ1 := Σ.IV(Σ0)
+        	Σ2 := Σ.IC("f", Σ1)
+        	a := Σ0
+        	Σ3 := Σ.IV(a)
+        	Σ.Line(0, 0, 44, Σ.IA(Σ.IL(Σ3), Σ.IL(Σ2)))
+        	Σ4 := Σ.IV(a)
+        	Σ.Line(0, 1, 46, Σ4)
+        	label1:
+        	switch a {
+        	}
+        	}`,
 	}
 	testAnnotator1(t, inout[0], inout[1], srcFunc1)
 }
@@ -1063,8 +1051,7 @@ func TestAnnotator56c(t *testing.T) {
 	inout := []string{
 		`label1:
 		switch x.(type){}`,
-		`Σ.Line(0, 0, 23, Σ.ILa())
-	        Σ.Line(0, 1, 46, Σ.IVt(x))
+		`Σ.Line(0, 0, 46, Σ.IVt(x))
 	        label1:
 	        switch x.(type) {
 	        }`,
@@ -2143,6 +2130,10 @@ func testAnnotator1(t *testing.T, in0, out0 string, fn func(s string) string) {
 	res := parseutil.TrimLineSpaces(s1)
 
 	if res != out {
+		in = parseutil.TrimLineSpaces2(in, "\t")
+		out = parseutil.TrimLineSpaces2(out, "\t")
+		res = parseutil.TrimLineSpaces2(res, "\t")
+
 		u := fmt.Sprintf("\n*in:\n%s\n*expecting:\n%s\n*got:\n%s", in, out, res)
 		t.Fatalf(u)
 	}

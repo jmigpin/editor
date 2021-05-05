@@ -132,7 +132,7 @@ type ItemLiteral struct{ Fields *ItemList }
 type ItemBranch struct{}
 type ItemStep struct{}
 type ItemAnon struct{}
-type ItemLabel struct{}
+type ItemLabel struct{ Reason string }  // ex: "for" init not debugged
 type ItemNotAnn struct{ Reason string } // not annotated (ex: String(), Error())
 
 //----------
@@ -257,8 +257,8 @@ func IAn() Item {
 }
 
 // ItemLabel
-func ILa() Item {
-	return &ItemLabel{}
+func ILa(reason string) Item {
+	return &ItemLabel{Reason: reason}
 }
 
 // ItemNotAnn

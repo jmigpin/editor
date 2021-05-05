@@ -250,6 +250,10 @@ func (p *Print) doStruct(ctx *Ctx, v reflect.Value, depth int) {
 func (p *Print) doMap(ctx *Ctx, v reflect.Value, depth int) {
 	p.appendStr("map[")
 	defer p.appendStr("]")
+
+	//p.appendStr(fmt.Sprintf("len=%v", v.Len()))
+	//return
+
 	iter := v.MapRange()
 	for i := 0; iter.Next(); i++ {
 		if i > 0 {
@@ -268,6 +272,10 @@ func (p *Print) doMap(ctx *Ctx, v reflect.Value, depth int) {
 func (p *Print) doSlice(ctx *Ctx, v reflect.Value, depth int) {
 	p.appendStr("[")
 	defer p.appendStr("]")
+
+	//p.appendStr(fmt.Sprintf("len=%v", v.Len()))
+	//return
+
 	for i := 0; i < v.Len(); i++ {
 		u := v.Index(i)
 		if i > 0 {

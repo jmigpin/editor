@@ -285,6 +285,10 @@ func RunesExcept(runes, except string) string {
 
 // Useful to compare src code lines.
 func TrimLineSpaces(str string) string {
+	return TrimLineSpaces2(str, "")
+}
+
+func TrimLineSpaces2(str string, pre string) string {
 	a := strings.Split(str, "\n")
 	u := []string{}
 	for _, s := range a {
@@ -293,7 +297,7 @@ func TrimLineSpaces(str string) string {
 			u = append(u, s)
 		}
 	}
-	return strings.Join(u, "\n")
+	return pre + strings.Join(u, "\n"+pre)
 }
 
 //----------

@@ -17,10 +17,11 @@ import (
 	"github.com/jmigpin/editor/util/osutil"
 )
 
-//godebug:annotatefile:modules.go
-//godebug:annotatefile:files.go
 //godebug:annotatefile:cmd.go
-//godebug:annotatefile:annotatorset.go
+//godebug:annotatefile:files.go
+////godebug:annotatefile:modules.go
+////godebug:annotatefile:annotatorset.go
+////godebug:annotatefile:annotator.go
 
 //----------
 
@@ -327,7 +328,7 @@ func TestCmd_comments(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "main")
 	cmd := []string{
 		"run",
-		"-work",
+		//"-work",
 		"main.go",
 	}
 	ctx := context.Background()
@@ -1127,7 +1128,7 @@ func TestCmd_goMod12(t *testing.T) {
 	tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
 	mustNotHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
-	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
+	mustHaveString(t, msgs, `map[]=NewExtErrorFuncs["MIT-SHM"] := map[]=make(type)`)
 }
 
 func TestCmd_goMod13(t *testing.T) {
@@ -1164,7 +1165,7 @@ func TestCmd_goMod13(t *testing.T) {
 	tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
 	mustHaveString(t, msgs, `4=((4=(1 + 3)) & -4=^3)`)
-	mustHaveString(t, msgs, `map[]=["MIT-SHM"] := map[]=make(type)`)
+	mustHaveString(t, msgs, `map[]=NewExtErrorFuncs["MIT-SHM"] := map[]=make(type)`)
 }
 
 func TestCmd_goMod14(t *testing.T) {
@@ -1630,7 +1631,7 @@ func TestCmd_goMod25(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "main/pkg1")
 	cmd := []string{
 		"test",
-		"-work",
+		//"-work",
 	}
 	tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
@@ -1657,7 +1658,7 @@ func TestCmd_goMod26(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "d1/d2")
 	cmd := []string{
 		"test",
-		"-work",
+		//"-work",
 	}
 	tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
@@ -1698,7 +1699,7 @@ func TestCmd_goMod27(t *testing.T) {
 	dir := filepath.Join(tf.Dir, "pkg1")
 	cmd := []string{
 		"test",
-		"-work",
+		//"-work",
 	}
 	//tryGoModTidy(t, dir)
 	msgs := doCmd(t, dir, cmd)
@@ -1998,8 +1999,39 @@ func TestCmd_simple5(t *testing.T) {
 		t.Fatal(err)
 	}
 	// will be endless loop if it fails
-	_ = msgs
 	mustNotHaveString(t, msgs, `"f1"`)
+}
+
+func TestCmd_simple6(t *testing.T) {
+	// goto is changing the program
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	tf.WriteFileInTmp2OrPanic("dir1/main.go", `
+		package main
+		func main() {
+			a:=[]int{1}
+		redo:
+			k := len(a)
+			if k<=1{
+				a=[]int{1,2,3}
+				goto redo
+			}
+		}
+	`)
+
+	cmd := []string{
+		"run",
+		//"-work",
+		"dir1/main.go",
+	}
+	msgs, err := doCmd2(t, tf.Dir, cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// will be endless loop if it fails
+	mustHaveString(t, msgs, `false=(3 <= 1)`)
 }
 
 //------------
@@ -2234,7 +2266,7 @@ func doCmdSrc3(t *testing.T, src string, tests bool) ([]string, string, string, 
 	args = append(args, []string{
 		// "-h",
 		//"-verbose",
-		"-work",
+		//"-work",
 	}...)
 	if envArg != "" {
 		args = append(args, "-env="+envArg)
