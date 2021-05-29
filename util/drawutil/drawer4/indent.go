@@ -66,8 +66,7 @@ func (in *Indent) indent() {
 		pen.X += pad
 	}
 	// margin on the right
-	space := in.d.iters.runeR.glyphAdvance(' ')
-	margin := space * 10
+	margin := 10 * in.d.iters.runeR.glyphAdvance('W')
 	maxX := in.d.iters.runeR.maxX() - margin
 	if pen.X > maxX {
 		pen.X = maxX
