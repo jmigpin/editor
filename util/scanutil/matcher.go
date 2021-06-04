@@ -18,7 +18,7 @@ func (m *Matcher) Rune(ru rune) bool {
 }
 
 func (m *Matcher) End() bool {
-	return m.Rune(eos) || m.Rune(readErr)
+	return m.Rune(Eof) || m.Rune(readErr)
 }
 
 func (m *Matcher) Any(valid string) bool {
@@ -167,6 +167,46 @@ func (m *Matcher) ToNewlineOrEnd() {
 
 //----------
 
+func (m *Matcher) Section(open, close string, escape rune, failOnNewline bool, maxLen int, eofClose bool) bool {
+	return m.sc.RewindOnFalse(func() bool {
+		start := m.sc.Pos
+
+		if !m.Sequence(open) {
+			return false
+		}
+		for {
+			if escape != 0 && m.Escape(escape) {
+				continue
+			}
+			if m.Sequence(close) {
+				return true
+			}
+			ru := m.sc.ReadRune() // consume rune
+
+			// extension: stop on eof
+			if ru == Eof {
+				return eofClose
+			}
+			// extension: newline
+			if failOnNewline && ru == '\n' {
+				return false
+			}
+			// extension: stop on maxlength
+			if maxLen > 0 {
+				d := m.sc.Pos - start
+				if d < 0 {
+					d = -d
+				}
+				if d >= maxLen {
+					return false
+				}
+			}
+		}
+	})
+}
+
+//----------
+
 func (m *Matcher) GoQuotes(escape rune, maxLen, maxLenSingleQuote int) bool {
 	if m.Quote('"', escape, true, maxLen) {
 		return true
@@ -180,52 +220,34 @@ func (m *Matcher) GoQuotes(escape rune, maxLen, maxLenSingleQuote int) bool {
 	return false
 }
 
-func (m *Matcher) Quoted(validQuotes string, escape rune, breakOnNewline bool, maxLen int) bool {
+func (m *Matcher) Quote(quote rune, escape rune, failOnNewline bool, maxLen int) bool {
+	q := string(quote)
+	return m.Section(q, q, escape, failOnNewline, maxLen, false)
+}
+
+func (m *Matcher) Quoted(validQuotes string, escape rune, failOnNewline bool, maxLen int) bool {
 	ru := m.sc.PeekRune()
 	if strings.ContainsRune(validQuotes, ru) {
-		if m.Quote(ru, escape, breakOnNewline, maxLen) {
+		if m.Quote(ru, escape, failOnNewline, maxLen) {
 			return true
 		}
 	}
 	return false
 }
 
-func (m *Matcher) Quote(quote rune, escape rune, breakOnNewline bool, maxLen int) bool {
-	return m.sc.RewindOnFalse(func() bool {
-		if !m.Rune(quote) {
-			return false
-		}
-		start := m.sc.Pos
-		for {
-			if m.End() {
-				break
-			}
-			if m.Escape(escape) {
-				continue
-			}
-
-			ru := m.sc.ReadRune()
-
-			if ru == quote {
-				return true
-			}
-
-			if breakOnNewline && ru == '\n' {
-				break
-			}
-
-			if maxLen > 0 {
-				d := m.sc.Pos - start
-				if d < 0 {
-					d = -d
-				}
-				if d > maxLen {
-					break
-				}
-			}
-		}
-		return false
-	})
+func (m *Matcher) DoubleQuoteStr() bool {
+	q := string('"')
+	return m.Section(q, q, '\\', true, 0, false)
+}
+func (m *Matcher) SingleQuoteStr() bool {
+	q := string('\'')
+	return m.Section(q, q, '\\', true, 0, false)
+}
+func (m *Matcher) MultiLineComment() bool {
+	return m.Section("/*", "*/", 0, false, 0, false)
+}
+func (m *Matcher) LineComment() bool {
+	return m.Section("//", "\n", 0, true, 0, false)
 }
 
 //----------
@@ -333,14 +355,14 @@ func (m *Matcher) IntValue() (int, error) {
 	if !m.Int() {
 		return 0, errors.New("failed to parse int")
 	}
-	return strconv.Atoi(m.sc.Value())
+	return strconv.Atoi(string(m.sc.Value()))
 }
 
 func (m *Matcher) FloatValue() (float64, error) {
 	if !m.Float() {
 		return 0, errors.New("failed to parse float")
 	}
-	return strconv.ParseFloat(m.sc.Value(), 64)
+	return strconv.ParseFloat(string(m.sc.Value()), 64)
 }
 
 //----------

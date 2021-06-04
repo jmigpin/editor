@@ -6,14 +6,18 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
-const eos = -1
+const Eof = -1
 const readErr = -2
 
 type Scanner struct {
 	Start int
 	Pos   int
-	R     iorw.ReaderAt
+
+	R iorw.ReaderAt
+
+	// utils to advance the scanner
 	Match Matcher
+	Parse Parse
 
 	Reverse bool // read direction
 }
@@ -21,8 +25,20 @@ type Scanner struct {
 func NewScanner(r iorw.ReaderAt) *Scanner {
 	sc := &Scanner{R: r}
 	sc.Match = Matcher{sc: sc}
+	sc.Parse = Parse{sc: sc}
+
 	sc.SetStartPos(r.Min())
 	return sc
+}
+
+func NewScanner2(src []byte) *Scanner {
+	r := iorw.NewBytesReadWriterAt(src)
+	return NewScanner(r)
+}
+
+func NewScanner3(src string) *Scanner {
+	r := iorw.NewStringReaderAt(src)
+	return NewScanner(r)
 }
 
 //----------
@@ -45,7 +61,7 @@ func (sc *Scanner) Empty() bool {
 func (sc *Scanner) ReadRune() rune {
 	if sc.Reverse {
 		if sc.Pos <= sc.R.Min() {
-			return eos
+			return Eof
 		}
 		ru, w, err := iorw.ReadLastRuneAt(sc.R, sc.Pos)
 		if err != nil {
@@ -56,7 +72,7 @@ func (sc *Scanner) ReadRune() rune {
 	}
 
 	if sc.Pos >= sc.R.Max() {
-		return eos
+		return Eof
 	}
 	ru, w, err := iorw.ReadRuneAt(sc.R, sc.Pos)
 	if err != nil {
@@ -88,16 +104,36 @@ func (sc *Scanner) RewindOnFalse(fn func() bool) bool {
 
 //----------
 
-func (sc *Scanner) Value() string {
+func (sc *Scanner) ValueBytes() []byte {
 	start, pos := sc.Start, sc.Pos
-	if sc.Reverse {
+
+	//if sc.Reverse {
+	//	start, pos = pos, start
+	//}
+	// auto detect reverse
+	if start > pos {
 		start, pos = pos, start
 	}
+
 	b, err := sc.R.ReadFastAt(start, pos-start)
 	if err != nil {
-		return ""
+		return nil
 	}
-	return string(b)
+	return b
+}
+
+func (sc *Scanner) ValueBytesAdv() []byte {
+	v := sc.ValueBytes()
+	sc.Advance()
+	return v
+}
+
+func (sc *Scanner) Value() string {
+	return string(sc.ValueBytes())
+}
+
+func (sc *Scanner) ValueAdv() string {
+	return string(sc.ValueBytesAdv())
 }
 
 //----------
@@ -122,7 +158,7 @@ func (sc *Scanner) Errorf(f string, args ...interface{}) error {
 	ctx := string(v)
 	// position indicator
 	p := sc.Pos - a
-	ctx = ctx[:p] + "¶" + ctx[p:]
+	ctx = ctx[:p] + "●" + ctx[p:]
 	if a > sc.R.Min() {
 		ctx = "..." + ctx
 	}
