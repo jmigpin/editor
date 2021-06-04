@@ -18,6 +18,10 @@ import (
 
 //godebug:annotatepackage
 
+func init() {
+	useSpaceForMargin = true
+}
+
 func TestEmpty(t *testing.T) {
 	d := New()
 	d.SetFontFace(fontutil.DefaultFontFace())

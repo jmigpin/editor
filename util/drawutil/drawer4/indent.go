@@ -5,6 +5,7 @@ import (
 )
 
 var NoPaddedIndentedLines bool
+var useSpaceForMargin bool
 
 type Indent struct {
 	d *Drawer
@@ -66,7 +67,11 @@ func (in *Indent) indent() {
 		pen.X += pad
 	}
 	// margin on the right
-	margin := 10 * in.d.iters.runeR.glyphAdvance('W')
+	marginRune := 'W'
+	if useSpaceForMargin { // for tests
+		marginRune = ' '
+	}
+	margin := 10 * in.d.iters.runeR.glyphAdvance(marginRune)
 	maxX := in.d.iters.runeR.maxX() - margin
 	if pen.X > maxX {
 		pen.X = maxX
