@@ -73,7 +73,11 @@ func (c *SimpleCursor) UpdateSelection(on bool, ci int) {
 		if !c.sel.on {
 			si = c.index
 		}
-		c.SetSelection(si, ci)
+		if si == ci {
+			c.SetIndexSelectionOff(ci)
+		} else {
+			c.SetSelection(si, ci)
+		}
 	} else {
 		c.SetIndexSelectionOff(ci)
 	}
