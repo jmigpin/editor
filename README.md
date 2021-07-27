@@ -583,10 +583,15 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2021/07/27: v3.1.0 (40 commits)
+	- Support for go 1.16 default modules mode
+	- Version cmd line option
+	- Many godebug fixes.
+	- Other minor fixes.
 - 2020/10/21: v3.0.0 (11 commits)
 	- Changed directory structure (no vX dir for version).
 	- Reduce dependencies.
-	- Fix lsproto tests and.
+	- Fix lsproto tests.
 	- Other minor fixes.
 - 2020/05/06: v2.0.7 (23 commits)
 	- fixes towards making the project go-getable with v2.
