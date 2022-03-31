@@ -119,6 +119,10 @@ func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	case *event.MouseDragMove:
 		sq.row.sep.OnInputEvent(ev, p)
 
+	// handle scroll events from row separator (allows mouse-wheel ops from rowsquare)
+	case *event.MouseDown:
+		sq.row.sep.OnInputEvent(ev, p)
+
 	case *event.MouseClick:
 		switch t.Button {
 		case event.ButtonLeft, event.ButtonMiddle, event.ButtonRight:
