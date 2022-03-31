@@ -114,6 +114,11 @@ func (sq *RowSquare) HasState(s RowState) bool {
 }
 func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 	switch t := ev.(type) {
+
+	// use drag events from row separator (allows dragging using rowsquare)
+	case *event.MouseDragMove:
+		sq.row.sep.OnInputEvent(ev, p)
+
 	case *event.MouseClick:
 		switch t.Button {
 		case event.ButtonLeft, event.ButtonMiddle, event.ButtonRight:
