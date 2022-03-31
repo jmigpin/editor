@@ -109,3 +109,17 @@ func FindShortcut(erow *ERow) {
 	p.Y += tb.LineHeight() * 3 / 4 // center of rune
 	erow.Ed.UI.WarpPointer(p)
 }
+
+// Search/add the toolbar find command and warps the pointer to it.
+func ReplaceShortcut(erow *ERow) {
+	if err := ToolbarUpdate(erow, "Replace"); err != nil {
+		erow.Ed.Error(err)
+		return
+	}
+
+	// warp pointer to toolbar close to "Find " text cmd to be able to click for run
+	tb := erow.Row.Toolbar
+	p := tb.GetPoint(tb.CursorIndex())
+	p.Y += tb.LineHeight() * 3 / 4 // center of rune
+	erow.Ed.UI.WarpPointer(p)
+}
