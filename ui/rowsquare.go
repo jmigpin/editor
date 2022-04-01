@@ -117,7 +117,12 @@ func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
 
 	// use drag events from row separator (allows dragging using rowsquare)
 	case *event.MouseDragMove:
+		sq.Cursor = event.MoveCursor
 		sq.row.sep.OnInputEvent(ev, p)
+
+	// when exiting a drag, make sure the cursor is back to the default
+	case *event.MouseDragEnd:
+		sq.Cursor = event.CloseCursor
 
 	// handle scroll events from row separator (allows mouse-wheel ops from rowsquare)
 	case *event.MouseDown:
