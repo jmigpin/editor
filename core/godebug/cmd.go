@@ -239,6 +239,50 @@ func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
 	return cmd.doBuild(ctx)
 }
 
+// os.Rename() doesn't work across partitions and tmpfs is often used for /tmp
+// This is an alternative.
+func moveFile(sourcePath, destPath string) error {
+
+	// open files for copy
+    inputFile, err := os.Open(sourcePath)
+    if err != nil {
+        return fmt.Errorf("Couldn't open source file: %s", err)
+    }
+    outputFile, err := os.Create(destPath)
+    if err != nil {
+        inputFile.Close()
+        return fmt.Errorf("Couldn't open dest file: %s", err)
+    }
+    defer outputFile.Close()
+    
+    // do file copy
+    _, err = io.Copy(outputFile, inputFile)
+    if err != nil {
+    	inputFile.Close()  // close early if we can't continue
+        return fmt.Errorf("Writing to output file failed: %s", err)
+    }
+    
+    // read file permissions
+    stat, err := inputFile.Stat()
+    if err != nil {
+    	return fmt.Errorf("Unable to read input file permissions: %s", err)
+    }
+    inputFile.Close()
+    
+    // write file permissions
+    err = os.Chmod(destPath, stat.Mode())
+    if err != nil {
+    	return fmt.Errorf("Unable to set output file permissions: %s", err)
+    }
+    
+    // The copy was successful, so now delete the original file
+    err = os.Remove(sourcePath)
+    if err != nil {
+        return fmt.Errorf("Failed removing original file: %s", err)
+    }
+    return nil
+}
+
 func (cmd *Cmd) doBuild(ctx context.Context) error {
 	dirAtTmp := cmd.tmpDirBasedFilename(cmd.Dir)
 
@@ -269,7 +313,9 @@ func (cmd *Cmd) doBuild(ctx context.Context) error {
 		}
 		filenameOut = o
 	}
-	if err := os.Rename(filenameOutAtTmp, filenameOut); err != nil {
+	
+	// move temporary executable out of /tmp
+	if err := moveFile(filenameOutAtTmp, filenameOut); err != nil {
 		return err
 	}
 
