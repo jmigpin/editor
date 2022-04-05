@@ -534,9 +534,11 @@ func jsonGetPath2(v interface{}, args []string) (interface{}, error) {
 			if v, ok := t[a]; ok {
 				return jsonGetPath2(v, args[1:])
 			}
+			return nil, fmt.Errorf("not found: %v", args[0])
 		}
 	case bool, int, float32, float64:
 		return t, nil
 	}
-	return nil, fmt.Errorf("not found: %v", args[0])
+
+	return nil, nil
 }

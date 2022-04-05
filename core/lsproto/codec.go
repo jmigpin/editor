@@ -52,11 +52,22 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 		method = m
 	}
 
-	msg := &RequestMessage{
-		JsonRpc: "2.0",
-		Id:      int(req.Seq),
-		Method:  method,
-		Params:  data,
+	var msg interface{}
+	if  noreply {
+		// don't send an Id on messages that don't need an acknowledgement
+		msg = &NotificationMessage{
+			JsonRpc: "2.0",
+			Method:  method,
+			Params:  data,
+		}
+	} else {
+		// default case includes the Id
+		msg = &RequestMessage{
+			JsonRpc: "2.0",
+			Id:      int(req.Seq),
+			Method:  method,
+			Params:  data,
+		}
 	}
 	//logPrintf("write req -->: %v(%v)", msg.Method, msg.Id)
 
