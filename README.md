@@ -486,9 +486,12 @@ Plugins located at: `./plugins`.
 *Row key/button shortcuts*
 
 - `ctrl`+`s`: save file
+- `ctrl`+`w`: close row
 - `ctrl`+`f`: warp pointer to "Find" cmd in row toolbar
+- `ctrl`+`h`: warp pointer to "Replace" cmd in row toolbar
+- `ctrl`+`n`: warp pointer to "NewFile" cmd in row toolbar
 - `buttonLeft` on square-button: close row
-- on top border:
+- on top border (or row square):
 	- `buttonLeft`: drag to move/resize row
 	- `buttonMiddle`: close row
 	- `buttonWheelUp`: adjust row vertical position, pushing other rows up
