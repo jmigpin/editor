@@ -271,6 +271,12 @@ func (erow *ERow) initHandlers() {
 				}
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
 				FindShortcut(erow)
+			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymH:
+				ReplaceShortcut(erow)
+			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymN:
+				NewFileShortcut(erow)
+			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymW:
+				row.Close()
 			}
 		case *event.MouseDown:
 			erow.Info.UpdateActiveRowState(erow)
