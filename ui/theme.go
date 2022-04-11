@@ -232,6 +232,10 @@ var FontThemeCycler cycler = cycler{
 func regularThemeFont(node widget.Node) {
 	loadThemeFont("regular", node)
 }
+func RegularThemeFont(node widget.Node) {
+	regularThemeFont(node)
+}
+
 func mediumThemeFont(node widget.Node) {
 	loadThemeFont("medium", node)
 }

@@ -2,6 +2,7 @@ package internalcmds
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/ui"
@@ -179,6 +180,22 @@ func ColorTheme(args *core.InternalCmdArgs) error {
 }
 func FontTheme(args *core.InternalCmdArgs) error {
 	ui.FontThemeCycler.Cycle(args.Ed.UI.Root)
+	args.Ed.UI.Root.MarkNeedsLayoutAndPaint()
+	return nil
+}
+
+func FontSize(args *core.InternalCmdArgs) error {
+	if len(args.Part.Args) != 2 {
+		args.Ed.Errorf("missing font size argument")
+		return nil
+	}
+	fontSize,err := strconv.ParseFloat(args.Part.Args[1].Str(),8)
+	if err != nil {
+		args.Ed.Errorf("cannot parse font size")
+		return nil
+	}
+	ui.TTFontOptions.Size =  fontSize
+	ui.RegularThemeFont(args.Ed.UI.Root)
 	args.Ed.UI.Root.MarkNeedsLayoutAndPaint()
 	return nil
 }

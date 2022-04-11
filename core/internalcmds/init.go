@@ -69,6 +69,7 @@ func init() {
 
 	cmd("ColorTheme", ColorTheme)
 	cmd("FontTheme", FontTheme)
+	cmd("FontSize", FontSize)
 
 	cmd("CtxutilCallsState", CtxutilCallsState)
 }
