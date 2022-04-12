@@ -99,6 +99,43 @@ func (man *Manager) Close() error {
 
 //----------
 
+func (man *Manager) TextDocumentImplementation(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) (string, *Range, error) {
+	cli, _, err := man.langInstanceClient(ctx, filename)
+	if err != nil {
+		return "", nil, err
+	}
+
+	dir := filepath.Dir(filename)
+	if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
+		return "", nil, err
+	}
+
+	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
+		return "", nil, err
+	}
+	defer man.didClose(ctx, cli, filename)
+
+	pos, err := OffsetToPosition(rd, offset)
+	if err != nil {
+		return "", nil, err
+	}
+
+	loc, err := cli.TextDocumentImplementation(ctx, filename, pos)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// target filename
+	filename2, err := parseutil.UrlToAbsFilename(string(loc.Uri))
+	if err != nil {
+		return "", nil, err
+	}
+
+	return filename2, loc.Range, nil
+}
+
+//----------
+
 func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) (string, *Range, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {

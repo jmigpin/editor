@@ -6,8 +6,9 @@ import (
 
 func init() {
 	// order matters
-
+	core.ContentCmds.Append("gotoimplementation_lsproto", GoToImplementationLSProto)
 	core.ContentCmds.Append("gotodefinition_lsproto", GoToDefinitionLSProto)
+	
 
 	// "gopls query" might work where lsproto might fail (no views in session)
 	core.ContentCmds.Append("gotodefinition", GoToDefinitionGolang)
