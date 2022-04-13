@@ -25,6 +25,7 @@ type ResponseMessage struct {
 	Result json.RawMessage `json:"result,omitempty"`
 }
 type NotificationMessage struct {
+	JsonRpc string      `json:"jsonrpc"`
 	Method string      `json:"method,omitempty"`
 	Params interface{} `json:"params,omitempty"`
 }
