@@ -176,7 +176,6 @@ func (gdi *GoDebugInstance) start2(ctx context.Context, erow *ERow, args []strin
 
 func (gdi *GoDebugInstance) runCmd(ctx context.Context, erow *ERow, args []string, w io.Writer) error {
 	cmd := godebug.NewCmd()
-	defer cmd.Cleanup()
 
 	cmd.Dir = erow.Info.Name()
 	cmd.Stdout = w
@@ -188,6 +187,10 @@ func (gdi *GoDebugInstance) runCmd(ctx context.Context, erow *ERow, args []strin
 	}
 	if done {
 		return nil
+	}
+
+	if err := gdi.di.handleFilesDataMsg(cmd.FilesData()); err != nil {
+		return err
 	}
 
 	gdi.clientMsgsLoop(ctx, w, cmd) // blocking
@@ -333,24 +336,6 @@ func (gdi *GoDebugInstance) handleMsg(msg interface{}, cmd *godebug.Cmd) error {
 	switch t := msg.(type) {
 	case error:
 		return t
-	case string:
-		if t == "connected" {
-			// TODO: timeout to receive filesetpositions?
-			// request file positions
-			if err := cmd.RequestFileSetPositions(); err != nil {
-				return fmt.Errorf("request file set positions: %w", err)
-			}
-		} else {
-			return fmt.Errorf("unhandled string: %v", t)
-		}
-	case *debug.FilesDataMsg:
-		if err := gdi.di.handleFilesDataMsg(t); err != nil {
-			return err
-		}
-		// on receiving the filesdatamsg, send a requeststart
-		if err := cmd.RequestStart(); err != nil {
-			return fmt.Errorf("request start: %w", err)
-		}
 	case *debug.LineMsg:
 		return gdi.di.handleLineMsgs(t)
 	case []*debug.LineMsg:

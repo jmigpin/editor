@@ -1,0 +1,12 @@
+ucmd godebugtester run main.go
+contains stdout "false=(10 < 10)"
+
+-- main.go --
+package main
+func main(){
+	u:=float64(100)
+	for i:=0; i<10; i++{
+		u/=3
+		_=u
+	}
+}

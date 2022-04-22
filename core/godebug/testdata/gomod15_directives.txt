@@ -1,0 +1,35 @@
+# annotates pkg from std lib
+
+ucmd godebugtester run 
+contains stdout "\"fb\""
+contains stdout "\"fc\""
+fail contains stdout "\"fd\""
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+import "mod1/pkg1"
+func main() {
+	_=pkg1.Fa()
+}
+-- pkg1/fa.go --
+package pkg1
+import "fmt"
+//godebug:annotatefile:fb.go
+//godebug:annotatefile:fc.go
+func Fa() string{
+	_=Fb()
+	_=Fc()
+	_=Fd()
+	return fmt.Sprintf("fa")
+}
+-- pkg1/fb.go --
+package pkg1
+func Fb() string{return "fb"}
+-- pkg1/fc.go --
+package pkg1
+func Fc() string{return "fc"}
+-- pkg1/fd.go --
+package pkg1
+func Fd() string{return "fd"}

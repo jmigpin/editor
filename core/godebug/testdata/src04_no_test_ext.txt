@@ -1,0 +1,15 @@
+# doesn't fail, but doesn't run any tests either (file not named _test.go)
+
+exec go test main.go
+fail contains stdout "2"
+
+fail ucmd godebugtester test main.go
+contains error "missing main func filename"
+
+-- main.go --
+package main
+import "testing"
+func Test001(t*testing.T){
+	_=1
+	println(2)
+}

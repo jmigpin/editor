@@ -1,0 +1,36 @@
+# debug editor pkgs (self debug); able to compile
+
+exec go mod tidy
+
+#ucmd godebugtester run -work
+ucmd godebugtester run
+contains stdout "=> println(\"aaa\")"
+
+ucmd godebugtester test main_test.go main.go
+
+-- go.mod --
+module mod1
+require github.com/jmigpin/editor v0.0.0
+replace github.com/jmigpin/editor => /home/jorge/projects/golangcode/src/github.com/jmigpin/editor
+-- main.go --
+package main
+import "github.com/jmigpin/editor/core/godebug"
+//godebug:annotateimport
+import "github.com/jmigpin/editor/core/godebug/debug"
+func main() {
+	fa()
+}
+func fa(){
+	iv:=&debug.ItemValue{Str:"aaa"}
+	v:=godebug.StringifyItem(iv)
+	println(v)
+}
+-- main_test.go --
+package main
+import "testing"
+func TestFa(t*testing.T) {
+	fa()
+}
+
+
+

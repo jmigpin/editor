@@ -1,0 +1,12 @@
+# able to compile reference to method in type
+ucmd godebugtester run main.go
+contains stdout "=> parseOne()"
+
+-- main.go --
+package main
+//godebug:annotateimport
+import "flag"
+func main() {
+	flag.Parse()
+}
+

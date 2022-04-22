@@ -1,0 +1,42 @@
+# not in gopath
+# has go.mod
+# pkg1 is in relative dir, not annotated
+# pkg2 is in relative dir, annotated, depends on pkg1
+
+cd main
+ucmd godebugtester run main.go
+fail contains stdout "recv: \"F1\"\n"
+contains stdout "\"F2F1\"=(\"F2\" + \"F1\"=F1())"
+
+-- main/go.mod --
+module mod1
+require example.com/pkg1 v0.0.0
+require example.com/pkg2 v0.0.0
+replace example.com/pkg1 => ../pkg1
+replace example.com/pkg2 => ../pkg2
+-- main/main.go --
+package main
+import "example.com/pkg1"
+import "example.com/pkg2"
+func main() {
+	_=pkg1.F1()
+	_=pkg2.F2()
+}
+-- pkg1/go.mod --
+module example.com/pkg1
+-- pkg1/f1.go --
+package pkg1
+func F1() string {
+	return "F1"
+}
+-- pkg2/go.mod --
+module example.com/pkg2
+require example.com/pkg1 v0.0.0
+replace example.com/pkg1 => ../pkg1
+-- pkg2/f2.go --
+package pkg2
+import "example.com/pkg1"
+func F2() string {
+	//godebug:annotateblock
+	return "F2"+pkg1.F1()
+}

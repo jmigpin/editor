@@ -1,0 +1,12 @@
+# replacement of os.exit should still allow other os.* to stay
+ucmd godebugtester run main.go
+contains stdout "=> Getenv(\"a\")"
+contains stdout "=> Exit(0)"
+
+-- main.go --
+package main
+import "os"
+func main() {
+	_=os.Getenv("a")
+	os.Exit(0)
+}

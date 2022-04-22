@@ -1,0 +1,11 @@
+ucmd godebugtester run main.go
+#ucmd godebugtester run -work main.go
+#contains stdout "=> len([97 98 99])"
+
+-- main.go --
+package main
+func main() {	
+	b:=[]byte("abc")
+	println(b)
+}
+

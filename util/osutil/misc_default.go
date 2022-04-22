@@ -1,8 +1,10 @@
+//go:build !windows
 // +build !windows
 
 package osutil
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -20,6 +22,9 @@ func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
 }
 
 func KillExecCmd(cmd *exec.Cmd) error {
+	if cmd.Process == nil {
+		return fmt.Errorf("process is nil")
+	}
 	// negative pid (but !=-1) sends signals to the process group
 	return unix.Kill(-cmd.Process.Pid, unix.SIGKILL)
 }

@@ -1,0 +1,17 @@
+exec go run main1.go
+ucmd godebugtester run main1.go
+# TODO: test "connected"?
+
+exec go run main2.go
+ucmd godebugtester run main2.go
+contains stderr "aaa\n"
+
+-- main1.go --
+package main
+func main(){
+}
+-- main2.go --
+package main
+func main(){	
+	println("aaa")
+}

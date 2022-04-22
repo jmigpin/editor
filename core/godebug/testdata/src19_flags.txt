@@ -1,0 +1,50 @@
+fail ucmd godebugtester run -paths aa.go -work main.go
+contains error "aa.go: no such file or directory"
+
+ucmd godebugtester run main.go -arg1 aa
+contains stdout "[-arg1 aa]"
+
+ucmd godebugtester run main.go -- aa bb
+contains stdout "[aa bb]"
+
+ucmd godebugtester test -run Fa main_test.go -args cc dd
+contains stdout "[-test.run=Fa cc dd]"
+
+ucmd godebugtester test -v -run Fa main_test.go
+contains stdout "[-test.run=Fa -test.v]"
+
+ucmd godebugtester test -v -run Fb
+contains stdout "[-test.run=Fb -test.v]"
+
+fail ucmd godebugtester -help
+contains stderr "The commands are:"
+
+fail ucmd godebugtester run -help
+contains stderr "Usage of GoDebug run:"
+
+# TODO: go test
+# TODO: go test .
+# TODO: go test ./...
+#exec go test ./...
+#ucmd godebugtester test ./...
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+import "os"
+import "fmt"
+func main() {
+	fmt.Println(">>>",os.Args[1:])
+}
+-- main_test.go --
+package main
+import "os"
+import "fmt"
+import "testing"
+func TestFa(t*testing.T) {
+	fmt.Println("fa>>>",os.Args[1:])
+}
+func TestFb(t*testing.T) {
+	fmt.Println("fb>>>",os.Args[1:])
+}

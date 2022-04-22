@@ -1,0 +1,11 @@
+fail ucmd godebugtester run main.go
+contains error "found 'ILLEGAL'"
+
+fail exec go run main.go
+contains stderr "invalid character"
+
+-- main.go --
+package main
+func main(){	
+	#println("here") // compile error (bad comment)
+}

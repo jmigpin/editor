@@ -1,0 +1,20 @@
+# goto was changing the program, will be endless loop if it fails
+
+ucmd godebugtester run 
+contains stdout "false=(3 <= 1)"
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+func main() {
+	a:=[]int{1}
+redo:
+	k := len(a)
+	if k<=1{
+		a=[]int{1,2,3}
+		goto redo
+	}
+}
+
+   

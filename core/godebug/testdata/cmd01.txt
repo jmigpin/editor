@@ -1,0 +1,25 @@
+# able to compile reference to method in type
+
+#ucmd godebugtester test -work main_test.go main.go
+ucmd godebugtester test main_test.go main.go
+#exec ls $WORK
+fail exec test -f $WORK/*.godebug
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+func main() {
+	fa()
+}
+func fa()int{
+	return 10
+}	
+-- main_test.go --
+package main
+import "testing"
+func TestFa(t*testing.T){
+	fa()
+	//t.Fail()
+}
+

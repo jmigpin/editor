@@ -1,0 +1,23 @@
+# executes, but no test is run
+exec go test main_test.go
+
+# executes, but no test is run
+exec go test -run=Test001 main_test.go
+
+# TODO: should not run tests as well as the std go above?
+
+ucmd godebugtester test main_test.go
+contains stdout "=> println(2)"
+
+fail exec go test
+contains stderr "go.mod file not found"
+fail ucmd godebugtester test
+contains error "go.mod file not found"
+
+-- main_test.go --
+package main
+import "testing"
+func Test001(t*testing.T){
+	_=1
+	println(2)
+}

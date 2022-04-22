@@ -1,0 +1,26 @@
+# mod dependency is on godoc, but the annotated package is util
+
+cd main
+
+exec go mod init example.com
+# needed in order to have a go.sum
+exec go mod tidy
+
+ucmd godebugtester run main.go
+# from godoc pkg annotations
+contains stdout "=> Scan()"
+contains stdout "=> len([97 98 99])"
+
+-- main/main.go --
+package main
+import "bytes"
+//godebug:annotateimport
+import "golang.org/x/tools/godoc"
+//godebug:annotateimport
+import "golang.org/x/tools/godoc/util"
+func main() {
+	buf:=&bytes.Buffer{}
+	godoc.Linkify(buf, []byte("012"))
+	v:=util.IsText([]byte("abc"))
+	println(v)
+}

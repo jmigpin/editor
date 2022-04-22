@@ -1,0 +1,22 @@
+cd main
+
+setenv GOPROXY off
+
+# needed in order to have a go.sum
+exec go mod init example.com
+fail exec go mod tidy
+contains stderr "cannot find module"
+
+fail ucmd godebugtester run main.go
+contains error "could not import"
+#contains stdout "println(true)"
+#contains stdout "=> len([97 98 99])"
+
+-- main/main.go --
+package main
+import "golang.org/x/tools/godoc/util"
+//godebug:annotatepackage:golang.org/x/tools/godoc/util
+func main() {
+	v:=util.IsText([]byte("abc"))
+	println(v)
+}

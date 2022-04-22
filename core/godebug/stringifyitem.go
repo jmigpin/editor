@@ -3,12 +3,11 @@ package godebug
 import (
 	"fmt"
 	"go/token"
-	"strings"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
-var SimplifyStringifyItem = true
+//var SimplifyStringifyItem = true
 
 func StringifyItem(item debug.Item) string {
 	is := ItemStringifier{}
@@ -73,19 +72,23 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 
 	switch t := item.(type) {
 	//case string:
-	//is.Str += t
+	//	is.Str += t
+	//case int:
+	//	is.Str += fmt.Sprintf("%d", t)
 
 	case *debug.ItemValue:
+		is.FullStr = true
 		if is.FullStr {
 			is.Str += t.Str
 		} else {
-			is.Str += debug.ReducedSprintf(20, "%s", t.Str)
+			//is.Str += debug.ReducedSprintf(20, "%s", t.Str)
+			is.Str += debug.SprintCutCheckQuote(20, t.Str)
 		}
 
 	case *debug.ItemList: // ex: func args list
-		//if len(t.List) == 0 {
-		//	is.Str += "<>" // TODO: improve
-		//}
+		if t == nil {
+			break
+		}
 		for i, e := range t.List {
 			if i > 0 {
 				is.Str += ", "
@@ -94,9 +97,9 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		}
 
 	case *debug.ItemList2:
-		//if len(t.List) == 0 {
-		//	is.Str += "<>" // TODO: improve
-		//}
+		if t == nil {
+			break
+		}
 		for i, e := range t.List {
 			if i > 0 {
 				is.Str += "; "
@@ -105,44 +108,44 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		}
 
 	case *debug.ItemAssign:
-		if SimplifyStringifyItem {
-			is.simplifyItemAssign(t)
-		} else {
-			is.stringify(t.Lhs)
-			is.Str += " := " // other runes: ≡
-			is.stringify(t.Rhs)
-		}
+		//if SimplifyStringifyItem {
+		//	is.simplifyItemAssign(t)
+		//} else {
+		is.stringify(t.Lhs)
+		is.Str += " " + token.Token(t.Op).String() + " "
+		is.stringify(t.Rhs)
+		//}
 
 	case *debug.ItemSend:
 		is.stringify(t.Chan)
 		is.Str += " <- "
 		is.stringify(t.Value)
 
-	case *debug.ItemCall:
-		_ = is.result(t.Result)
-		is.Str += t.Name // other runes: λ,ƒ
+	case *debug.ItemCallEnter:
+		is.Str += "=> "
+		is.stringify(t.Fun)
 		is.Str += "("
 		is.stringify(t.Args)
 		is.Str += ")"
-
-	case *debug.ItemCallEnter:
-		is.Str += "=> "
-		is.Str += t.Name
+	case *debug.ItemCall:
+		_ = is.result(t.Result)
+		is.stringify(t.Enter.Fun)
 		is.Str += "("
-		is.stringify(t.Args)
+		is.stringify(t.Enter.Args)
 		is.Str += ")"
 
 	case *debug.ItemIndex:
 		_ = is.result(t.Result)
 		if t.Expr != nil {
-			switch t2 := t.Expr.(type) {
-			case string:
-				is.Str += t2
-			default:
-				is.Str += "("
-				is.stringify(t.Expr)
-				is.Str += ")"
-			}
+			//switch t2 := t.Expr.(type) {
+			//case string:
+			//	is.Str += t2
+			//default:
+			//	is.Str += "("
+			//	is.stringify(t.Expr)
+			//	is.Str += ")"
+			//}
+			is.stringify(t.Expr)
 		}
 		is.Str += "["
 		if t.Index != nil {
@@ -153,14 +156,15 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 	case *debug.ItemIndex2:
 		_ = is.result(t.Result)
 		if t.Expr != nil {
-			switch t2 := t.Expr.(type) {
-			case string:
-				is.Str += t2
-			default:
-				is.Str += "("
-				is.stringify(t.Expr)
-				is.Str += ")"
-			}
+			//switch t2 := t.Expr.(type) {
+			//case string:
+			//	is.Str += t2
+			//default:
+			//	is.Str += "("
+			//	is.stringify(t.Expr)
+			//	is.Str += ")"
+			//}
+			is.stringify(t.Expr)
 		}
 		is.Str += "["
 		if t.Low != nil {
@@ -207,15 +211,16 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 			is.Str += ")"
 		}
 
-	case *debug.ItemUnary:
-		_ = is.result(t.Result)
-		is.Str += token.Token(t.Op).String()
-		is.stringify(t.X)
-
 	case *debug.ItemUnaryEnter:
 		is.Str += "=> "
 		is.Str += token.Token(t.Op).String()
 		is.stringify(t.X)
+	case *debug.ItemUnary:
+		_ = is.result(t.Result)
+		//is.Str += token.Token(t.Op).String()
+		//is.stringify(t.X)
+		is.Str += token.Token(t.Enter.Op).String()
+		is.stringify(t.Enter.X)
 
 	case *debug.ItemParen:
 		is.Str += "("
@@ -224,7 +229,9 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 
 	case *debug.ItemLiteral:
 		is.Str += "{" // other runes: τ, s // ex: A{a:1}, []byte{1,2}
-		is.stringify(t.Fields)
+		if t != nil {
+			is.stringify(t.Fields)
+		}
 		is.Str += "}"
 
 	case *debug.ItemAnon:
@@ -250,49 +257,50 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 //----------
 
 func (is *ItemStringifier) result(result debug.Item) bool {
-	if result != nil {
-		isList := false
-		if _, ok := result.(*debug.ItemList); ok {
-			isList = true
-		}
-		if isList {
-			is.Str += "("
-		}
-
-		is.stringify(result)
-
-		if isList {
-			is.Str += ")"
-		}
-
-		is.Str += "=" // other runes: ≡
-
-		return true
+	if result == nil {
+		return false
 	}
-	return false
+
+	isList := false
+	if _, ok := result.(*debug.ItemList); ok {
+		isList = true
+	}
+	if isList {
+		is.Str += "("
+	}
+
+	is.stringify(result)
+
+	if isList {
+		is.Str += ")"
+	}
+
+	is.Str += "=" // other runes: ≡
+
+	return true
 }
 
 //----------
 
-func (is *ItemStringifier) simplifyItemAssign(t *debug.ItemAssign) {
-	s1, e1, str1 := is.captureStringify(t.Lhs)
-	is.Str += " := "
-	s2, e2, str2 := is.captureStringify(t.Rhs)
-	_, _, _, _ = s1, e1, s2, e2
+//func (is *ItemStringifier) simplifyItemAssign(t *debug.ItemAssign) {
+//	s1, e1, str1 := is.captureStringify(t.Lhs)
+//	is.Str += " := "
+//	s2, e2, str2 := is.captureStringify(t.Rhs)
+//	_, _, _, _ = s1, e1, s2, e2
 
-	// remove repeated results
-	w := []string{str1 + "=", "(" + str1 + ")="}
-	for _, s := range w {
-		if strings.HasPrefix(str2, s) {
-			is.Str = is.Str[:s2] + is.Str[s2+len(s):]
-			return
-		}
-	}
+//	// remove repeated results
+//	w := []string{str1 + "=", "(" + str1 + ")="}
+//	for _, s := range w {
+//		if strings.HasPrefix(str2, s) {
+//			is.Str = is.Str[:s2] + is.Str[s2+len(s):]
+//			return
+//		}
+//	}
 
-	// also removes ":="
-	s := str1
-	if strings.HasPrefix(str2, s) {
-		is.Str = is.Str[:e1] + is.Str[s2+len(s):]
-		return
-	}
-}
+//	// also removes ":="
+//	s := str1
+//	if strings.HasPrefix(str2, s) {
+//		is.Str = is.Str[:e1] + is.Str[s2+len(s):]
+//		return
+//	}
+//}

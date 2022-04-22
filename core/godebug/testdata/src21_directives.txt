@@ -1,0 +1,16 @@
+ucmd godebugtester run 
+contains stdout "recv: 1"
+fail contains stdout "recv: 2"
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+func main() {
+	_=1	
+	//godebug:annotateoff
+	
+	_=2
+}
+
+   

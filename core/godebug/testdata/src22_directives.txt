@@ -1,0 +1,19 @@
+ucmd godebugtester run 
+fail contains stdout "recv: 1"
+fail contains stdout "recv: \"f1\""
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+func main() {
+	f1(1)
+}
+// some comment that is disabling annotateoff
+// some comment that is disabling annotateoff
+//godebug:annotateoff
+func f1(v int)string{
+	return "f1"
+}
+
+   

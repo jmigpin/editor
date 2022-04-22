@@ -1,0 +1,9 @@
+ucmd godebugtester test main_test.go
+contains stdout "=> println(1)"
+
+-- main_test.go --
+package main__  // testing with other than "main"
+import "testing"
+func Test001(t*testing.T){
+	println(1)
+}

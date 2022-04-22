@@ -1,0 +1,22 @@
+# don't annotate func args
+
+ucmd godebugtester run 
+fail contains stdout "recv: 0"
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+func main() {
+	var v T1
+	_=v.String()
+}
+type T1 int
+func (t T1) String() string{
+	return f1(t)
+}
+//godebug:annotateoff	// testing
+func f1(t T1)string{
+	return "aa"
+}
+   

@@ -1,0 +1,29 @@
+fail exec go run
+contains stderr "no go files listed"
+
+fail exec go run main.go
+contains stderr "undefined: f1"
+
+exec go run main.go f1.go
+contains stderr "2\n"
+
+fail ucmd godebugtester run
+contains error "go.mod file not found"
+
+fail ucmd godebugtester run main.go
+contains error "undeclared name: f1"
+
+ucmd godebugtester run main.go f1.go
+contains stdout "recv: println(2=f1())"
+contains stderr "2\n"
+
+-- main.go --
+package main
+func main(){
+	println(f1())	
+}
+-- f1.go --
+package main
+func f1() int{
+	return 2
+}

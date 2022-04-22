@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
-	"github.com/jmigpin/editor/util/ctxutil"
 )
 
 type Client struct {
@@ -20,13 +19,11 @@ type Client struct {
 
 func NewClient(ctx context.Context, network, addr string) (*Client, error) {
 	client := &Client{
-		Messages: make(chan interface{}, 128),
+		Messages: make(chan interface{}, 64),
 	}
 	if err := client.connect(ctx, network, addr); err != nil {
 		return nil, fmt.Errorf("client connect: %w", err)
 	}
-
-	client.Messages <- "connected"
 
 	// ensure connection close on ctx cancel
 	go func() {
@@ -58,24 +55,28 @@ func (client *Client) Close() error {
 }
 
 func (client *Client) connect(ctx context.Context, network, addr string) error {
-	// impose timeout to connect
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// timeout to get a sucessful connection
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 
-	fn := func() error {
-		var dialer net.Dialer
+	retry := 250 * time.Millisecond
+	for {
+		dialer := &net.Dialer{}
+		dialer.Timeout = retry
 		conn, err := dialer.DialContext(ctx, network, addr)
-		if err != nil {
-			return err
+		if err == nil {
+			client.Conn = conn
+			return nil
 		}
-		client.Conn = conn
-		return nil
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default: // non-blocking
+			if retry < 5*time.Second {
+				retry += retry // increase for slower conns
+			}
+		}
 	}
-	lateFn := func(err error) {
-		client.Close()
-	}
-	sleep := 200 * time.Millisecond
-	return ctxutil.Retry(ctx, sleep, "connect", fn, lateFn)
 }
 
 func (client *Client) receiveLoop() {

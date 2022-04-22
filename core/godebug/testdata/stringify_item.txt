@@ -1,0 +1,15 @@
+ucmd godebugtester run main.go
+contains stdout "3=a[2=(1 + 1)]"
+contains stdout "2=([1 2 3]=fa())[1]"
+
+-- main.go --
+package main
+func main() {
+	a:=[]int{1,2,3}
+	_=a[1+1]
+	_=fa()[1]
+}
+func fa() []int{
+	return []int{1,2,3}
+}
+

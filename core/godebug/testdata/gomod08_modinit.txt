@@ -1,0 +1,51 @@
+cd main
+
+# opt-out of default proxy service (ex: goes to github.com directly
+#setenv GOPROXY direct
+
+# no proxy to use only what is available locally
+setenv GOPROXY off
+
+# without a go.mod
+fail exec go mod init
+contains stderr "go: cannot determine module path for source directory"
+
+# suggests using "go mod tidy"
+exec go mod init example.com
+
+# cannot find module because goproxy=off, shouldn't it be able to find it locally?
+fail exec go mod tidy
+contains stderr "cannot find module"
+
+fail exec go mod download golang.org/x/tools/godoc/util
+contains stderr "not a known dependency"
+
+fail exec go mod download golang.org/x/tools
+contains stderr "not a known dependency"
+
+# TODO: should be able to solve this with goproxy=off
+
+# set goproxy to empty to get default behaviour (golang.org)
+setenv GOPROXY
+
+exec go mod tidy
+contains stderr "go: finding"
+contains stderr "go: found"
+
+# suggests using "go mod download"
+exec go run main.go
+contains stderr "true"
+
+ucmd godebugtester run main.go
+contains stdout "println(true)"
+# inside the godoc/util pkg
+contains stdout "=> len([97 98 99])"
+
+-- main/main.go --
+package main
+import "golang.org/x/tools/godoc/util"
+//godebug:annotatepackage:golang.org/x/tools/godoc/util
+func main() {
+	v:=util.IsText([]byte("abc"))
+	println(v)
+}

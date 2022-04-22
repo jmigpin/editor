@@ -1,0 +1,12 @@
+cd main
+fail ucmd godebugtester run main.go
+contains error "main.go:2:1: not at an import spec"
+
+-- main/main.go --
+package main
+//godebug:annotateimport
+func main() {
+	a:=1
+	_=a
+}
+

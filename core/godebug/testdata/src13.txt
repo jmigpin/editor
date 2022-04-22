@@ -1,0 +1,12 @@
+# TODO: test actual replacement of os.exit by debug.exit
+# test call to os.exit
+ucmd godebugtester run main.go
+contains stdout "=> Exit(0)"
+
+-- main.go --
+package main
+import "os"
+func main() {
+	os.Exit(0)
+}
+

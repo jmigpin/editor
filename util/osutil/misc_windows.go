@@ -1,8 +1,10 @@
+//go:build windows
 // +build windows
 
 package osutil
 
 import (
+	"fmt"
 	"os/exec"
 
 	"golang.org/x/sys/windows"
@@ -22,6 +24,9 @@ func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
 }
 
 func KillExecCmd(cmd *exec.Cmd) error {
+	if cmd.Process == nil {
+		return fmt.Errorf("process is nil")
+	}
 	return cmd.Process.Kill()
 
 	// TODO: child/groups processes?

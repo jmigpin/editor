@@ -1,0 +1,103 @@
+# able to compile reference to method in type
+ucmd godebugtester run main.go
+contains stdout "println(0)"
+fail contains stdout "1000"
+fail contains stdout "1001"
+contains stdout "println(1)"
+fail contains stdout "1002"
+contains stdout "println(2)"
+fail contains stdout "2000"
+fail contains stdout "println(3)"
+contains stdout "println(4)"
+fail contains stdout "println(5)"
+fail contains stdout "println(6)"
+contains stdout "println(7)"
+fail contains stdout "println(8)"
+fail contains stdout "println(11)"
+contains stdout "println(12)"
+fail contains stdout "println(13)"
+
+-- main.go --
+package main
+func main() {
+	//godebug:annotateblock
+	println(0)
+	//godebug:annotateoff
+	a:=1000
+	_=a+1001
+	//godebug:annotateblock
+	println(1)
+		
+	//godebug:annotateoff
+	
+	b:=1002
+	_=b
+	
+	//godebug:annotateblock
+	println(2)
+	
+	//godebug:annotateoff
+	fa()		
+	fb(3000)
+	
+	//godebug:annotateoff
+	d:=interface{}(4000)
+	switch d.(type){
+	case int:
+		println(3)
+		//godebug:annotateblock
+		println(4)
+	}
+	println(5)
+	
+	//godebug:annotateoff
+	switch 3{
+	case 3:
+		println(6)
+		//godebug:annotateblock
+		println(7)
+	}
+	
+	//godebug:annotateoff
+	println(8)
+	if false{
+		println(9)
+		//godebug:annotateblock
+		println(10)
+	}else{
+		println(11)
+		//godebug:annotateblock
+		println(12)
+	}
+	println(13)
+	
+	// incdecstmt	
+	v2:=0
+	v2++
+	
+	// labeledstmt	
+	v3:=0
+	label2: 
+	v3++
+	if v3<2{		
+		goto label2 // branchstmt
+	}
+	
+	//godebug:annotateoff
+		
+	defer func(){}() // deferstmt
+	go func(){}() // gostmt
+		
+	var v5=1 // declstmt
+	_=v5
+	
+}
+func fa() int{
+	//godebug:annotateoff
+	return 2000
+}
+//godebug:annotateoff
+func fb(c int){
+}
+
+

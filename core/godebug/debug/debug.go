@@ -9,7 +9,7 @@ import (
 var dsrv struct { // debug server
 	sync.Mutex
 	srv    *Server
-	exited bool
+	exited bool // prevent from being hot started again
 }
 
 //----------
@@ -18,18 +18,16 @@ var dsrv struct { // debug server
 func StartServer() {
 	hotStartServer()
 }
-
 func hotStartServer() {
 	if dsrv.srv == nil {
 		dsrv.Lock()
 		if dsrv.srv == nil && !dsrv.exited {
-			startServer()
+			startServer2()
 		}
 		dsrv.Unlock()
 	}
 }
-
-func startServer() {
+func startServer2() {
 	srv, err := NewServer()
 	if err != nil {
 		fmt.Printf("error: godebug/debug: start server failed: %v\n", err)
@@ -50,6 +48,7 @@ func ExitServer() {
 	dsrv.Unlock()
 }
 
+// Auto-inserted in annotated files to replace os.Exit calls. Not to be used.
 func Exit(code int) {
 	ExitServer()
 	os.Exit(code)

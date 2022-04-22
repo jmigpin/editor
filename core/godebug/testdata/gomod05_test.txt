@@ -1,0 +1,36 @@
+cd main
+ucmd godebugtester test main_test.go
+#ucmd godebugtester test -verbose main_test.go
+fail contains stdout "\"F1\"\n"
+contains stdout "\"F2\"\n"
+
+-- main/go.mod --
+module example.com/main
+require example.com/pkg1 v0.0.0
+require example.com/pkg2 v0.0.0
+replace example.com/pkg1 => ../pkg1
+replace example.com/pkg2 => ../pkg2
+-- main/main_test.go --
+package main
+import "testing"
+import "example.com/pkg1"
+import "example.com/pkg2"
+func Test01(t*testing.T) {
+	_=pkg1.F1()
+	_=pkg2.F2()
+}
+-- pkg1/go.mod --
+module example.com/pkg1
+-- pkg1/f1.go --
+package pkg1
+func F1() string {
+	return "F1"
+}
+-- pkg2/go.mod --
+module example.com/pkg2
+-- pkg2/f2.go --
+package pkg2
+func F2() string {
+	//godebug:annotateblock
+	return "F2"
+}

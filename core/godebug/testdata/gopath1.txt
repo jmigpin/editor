@@ -1,0 +1,37 @@
+# annotates pkg from std lib
+
+setenv GOPATH $WORK
+setenv GO111MODULE off
+cd src/main
+ucmd godebugtester run
+contains stdout "sub2"
+fail contains stdout "sub1"
+fail contains stdout "sub3"
+
+-- src/main/main.go --
+package main
+import "main/sub1"
+import "main/sub1/sub2"
+import "main/sub3"
+func main() {
+	//godebug:annotateoff
+	_=sub1.Sub1()
+	_=sub2.Sub2()
+	_=sub3.Sub3()
+}
+-- src/main/sub1/sub1.go --
+package sub1
+func Sub1() string {
+	return "sub1"
+}
+-- src/main/sub1/sub2/sub2.go --
+package sub2
+func Sub2() string {
+	//godebug:annotateblock
+	return "sub2"
+}
+-- src/main/sub3/sub3.go --
+package sub3
+func Sub3() string {
+	return "sub3"
+}

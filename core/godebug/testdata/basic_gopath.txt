@@ -1,0 +1,19 @@
+# test gopath mode (aka not in modules mode)
+
+setenv GO111MODULE off
+
+#setenv GOPATH $WORK
+#exec echo "gopath" $GOPATH
+
+cd src
+
+ucmd godebugtester run
+contains stdout "=> println(1)"
+
+cd ..
+
+-- src/main.go --
+package main
+func main(){
+	println(1)
+}

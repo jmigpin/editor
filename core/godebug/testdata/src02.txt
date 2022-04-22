@@ -1,0 +1,26 @@
+ucmd godebugtester run -work main.go
+contains stdout "\"20 []\"=f2()"
+
+-- main.go --
+package main
+import "fmt"
+func main(){
+	_=f2()
+}
+func f1() int{
+	_=7
+	return 1
+}
+func f2() string{
+	_=5
+	u := []int{9,1,2,3}
+	_=5
+	if 1 >= f1() && 1 <= f1() {
+		b := 10
+		u = u[:1-f1()]
+		a := 10 + b
+		return fmt.Sprintf("%v %v", a, u)
+	}
+	_=8
+	return "aa"
+}

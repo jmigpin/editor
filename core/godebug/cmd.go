@@ -1,150 +1,153 @@
 package godebug
 
-// Needs to run when there are changes on the ./debug pkg
-//go:generate go run debugpack/debugpack.go
-
 import (
 	"bytes"
 	"context"
-	"errors"
-	"flag"
+	"embed"
 	"fmt"
 	"go/ast"
+	"go/printer"
+	"go/token"
+	"go/types"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/astut"
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/pathutil"
 )
 
+//godebug:annotatepackage
+////godebug:annotatefile:cmd.go
+////godebug:annotatefile:annotator.go
+
+// need to use the same location as imported in the client (gob decoder), as well as for detecting if self debugging to avoid including these for annotation
+//const editorPkgPath = "github.com/jmigpin/editor"
+//const partialDebugPkgPath = "core/godebug/debug"
+//const debugPkgPath = editorPkgPath + "/" + partialDebugPkgPath
+
+var debugPkgPath = "godebugconfig/debug"
+
+//----------
+
 type Cmd struct {
-	Client *Client
-	Dir    string
+	Dir string // running directory
+
+	flags      flags
+	gopathMode bool
+	selfMode   bool // target program uses editor module // TODO: remove
+
+	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
 
-	tmpDir       string
-	tmpBuiltFile string // file built and exec'd
+	tmpDir           string
+	tmpBuiltFile     string // godebug file built
+	tmpGoModFilename string
+	//tmpMainFuncFilename string
 
-	//fixedTmpDir struct { // re-use tmp dir to allow caching
-	//	on  bool
-	//	pid int
-	//}
+	mainFuncFilename string // set at annotation time
 
-	env        []string // set at start
-	annset     *AnnotatorSet
-	gopathMode bool
+	fset   *token.FileSet
+	env    []string // set at start
+	annset *AnnotatorSet
 
-	NoPreBuild bool // useful for tests
+	debugPkgDir      string
+	alternativeGoMod string
+	overlayFilename  string
+	overlay          map[string]string // orig->new
 
-	start struct {
-		network   string
-		address   string
-		cancel    context.CancelFunc
-		serverCmd *osutil.Cmd // the annotated program
-	}
-
-	flags struct {
-		mode struct {
-			run     bool
-			test    bool
-			build   bool
-			connect bool
-		}
-		verbose     bool
-		filenames   []string // compile
-		work        bool
-		output      string   // ex: -o filename (build mode)
-		toolExec    string   // ex: "wine" will run "wine args..."
-		dirs        []string // annotate
-		files       []string // annotate
-		address     string   // build/connect
-		env         []string // build
-		syncSend    bool
-		otherArgs   []string
-		testRunArgs []string
+	Client *Client
+	start  struct {
+		network    string
+		address    string
+		cancel     context.CancelFunc
+		serverWait func() error // annotated program; can be nil
+		filesData  *debug.FilesDataMsg
 	}
 }
 
 func NewCmd() *Cmd {
 	cmd := &Cmd{
-		annset: NewAnnotatorSet(),
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
-	//cmd.fixedTmpDir.on = true
-	//cmd.fixedTmpDir.pid = 2
+	cmd.fset = token.NewFileSet()
+	cmd.annset = NewAnnotatorSet(cmd.fset)
 	return cmd
 }
 
 //------------
 
-func (cmd *Cmd) Error(err error) {
-	cmd.Printf("error: %v\n", err)
+func (cmd *Cmd) printf(f string, a ...interface{}) (int, error) {
+	return fmt.Fprintf(cmd.Stdout, "# "+f, a...)
 }
-func (cmd *Cmd) Printf(format string, a ...interface{}) (int, error) {
-	return fmt.Fprintf(cmd.Stdout, "# "+format, a...)
-}
-func (cmd *Cmd) Vprintf(format string, a ...interface{}) (int, error) {
+func (cmd *Cmd) logf(f string, a ...interface{}) (int, error) {
 	if cmd.flags.verbose {
-		return cmd.Printf(format, a...)
+		f = strings.TrimRight(f, "\n") + "\n" // ensure one newline
+		return cmd.printf(f, a...)
 	}
 	return 0, nil
+}
+func (cmd *Cmd) Error(err error) {
+	cmd.printf("error: %v\n", err)
 }
 
 //------------
 
-func (cmd *Cmd) Start(ctx context.Context, args []string) (done bool, _ error) {
+func (cmd *Cmd) Start(ctx context.Context, args []string) (bool, error) {
+	if err := cmd.start2(ctx, args); err != nil {
+		return true, err
+	}
+	if cmd.flags.mode.build {
+		return true, nil
+	}
+	return false, nil
+}
+func (cmd *Cmd) start2(ctx context.Context, args []string) error {
+	defer cmd.cleanupAfterStart()
+
+	cmd.logf("dir=%v\n", cmd.Dir)
+	cmd.logf("testmode=%v\n", cmd.flags.mode.test)
+
 	// use absolute dir
 	dir0, err := filepath.Abs(cmd.Dir)
 	if err != nil {
-		return true, err
+		return err
 	}
 	cmd.Dir = dir0
 
-	if err := cmd.parseArgs(args); err != nil {
-		return true, err
+	// read flags
+	cmd.flags.stderr = cmd.Stderr
+	if err := cmd.flags.parseArgs(args); err != nil {
+		return err
 	}
-	if err := cmd.start2(ctx); err != nil {
-		return true, err
-	}
-	done = cmd.flags.mode.build // just building, wait() should not be called
-	return done, nil
-}
 
-func (cmd *Cmd) start2(ctx context.Context) error {
 	// setup environment
-	cmd.env = goutil.FullEnv()
+	cmd.env = goutil.OsAndGoEnv(cmd.Dir)
 	cmd.env = osutil.SetEnvs(cmd.env, cmd.flags.env)
 
-	modsMode, err := cmd.detectModulesMode(cmd.env)
-	if err != nil {
+	if err := cmd.detectGopathMode(cmd.env); err != nil {
 		return err
 	}
-	cmd.gopathMode = !modsMode
-	cmd.Vprintf("gopathMode=%v\n", cmd.gopathMode)
 
-	// depends on: gopathMode
-	tmpDir, err := cmd.setupTmpDir()
-	if err != nil {
-		return err
-	}
-	cmd.tmpDir = tmpDir
-
+	// REVIEW
 	// depends on: gopathMode, tmpDir
-	cmd.env = cmd.setGoPathEnv(cmd.env)
+	//cmd.env = cmd.setGoPathEnv(cmd.env)
 
-	// print tmp dir if work flag is present
-	if cmd.flags.work {
-		cmd.Printf("work: %v\n", cmd.tmpDir)
+	// depends on cmd.flags.work
+	if err := cmd.setupTmpDir(); err != nil {
+		return err
 	}
 
 	if err := cmd.setupNetworkAddress(); err != nil {
@@ -153,194 +156,227 @@ func (cmd *Cmd) start2(ctx context.Context) error {
 
 	m := &cmd.flags.mode
 	if m.run || m.test || m.build {
-		if err := cmd.initAndAnnotate(ctx); err != nil {
+		if err := cmd.build(ctx); err != nil {
 			return err
 		}
 	}
 
-	// inform the address used in the binary
-	if m.build {
-		cmd.Printf("build: %v (builtin address: %v, %v)\n", cmd.tmpBuiltFile, cmd.start.network, cmd.start.address)
-	}
-
-	if m.run || m.test || m.connect {
+	switch {
+	case m.build:
+		// inform the address used in the binary
+		cmd.printf("build: %v (builtin address: %v, %v)\n", cmd.tmpBuiltFile, cmd.start.network, cmd.start.address)
+		return nil
+	case m.run || m.test:
 		return cmd.startServerClient(ctx)
+	case m.connect:
+		return cmd.startClient(ctx)
+	default:
+		panic(fmt.Sprintf("unhandled mode: %v", m))
+	}
+}
+
+//----------
+
+func (cmd *Cmd) build(ctx context.Context) error {
+	fa := NewFilesToAnnotate(cmd)
+	if err := fa.find(ctx); err != nil {
+		return err
+	}
+	if err := cmd.annotateFiles2(ctx, fa); err != nil {
+		return err
+	}
+	if err := cmd.buildDebugPkg(ctx, fa); err != nil {
+		return err
+	}
+	if err := cmd.buildOverlayFile(ctx, fa); err != nil {
+		return err
+	}
+	if !cmd.gopathMode && !cmd.selfMode {
+		if err := cmd.buildAlternativeGoMod(ctx, fa); err != nil {
+			return err
+		}
 	}
 
+	// DEBUG
+	//cmd.printAnnotatedFilesAsts(fa)
+
+	if err := cmd.buildBinary(ctx, fa); err != nil {
+		// auto-set work flag to avoid cleanup; allows clicking on failing work files locations
+		cmd.flags.work = true
+
+		return err
+	}
 	return nil
+}
+
+func (cmd *Cmd) buildBinary(ctx context.Context, fa *FilesToAnnotate) error {
+	outFilename, err := cmd.buildOutFilename(fa)
+	if err != nil {
+		return err
+	}
+	cmd.tmpBuiltFile = outFilename
+
+	// build args
+	a := []string{osutil.ExecName("go")}
+	if cmd.flags.mode.test {
+		a = append(a, "test")
+		a = append(a, "-c") // compile binary but don't run
+		//a = append(a, "-vet=off")
+	} else {
+		a = append(a, "build")
+	}
+	if cmd.alternativeGoMod != "" {
+		a = append(a, "-modfile="+cmd.alternativeGoMod)
+	}
+	a = append(a, "-overlay="+cmd.overlayFilename)
+	a = append(a, "-o="+cmd.tmpBuiltFile)
+	a = append(a, cmd.buildArgs()...)
+	a = append(a, cmd.flags.unnamedArgs...)
+
+	//if fa.mainFunc.created {
+	//	// keep for removal since it was created
+	//	cmd.tmpMainFuncFilename = fa.mainFunc.filename
+	//}
+	//if len(cmd.flags.filenames) > 0 && fa.mainFunc.created {
+	//if fa.mainFunc.created {
+	//	//// fails with dir not the same in all filenames args
+	//	//a = append(a, fa.mainFunc.filename)
+
+	//	// the cmd line args files must all be in the same dir
+	//	f, err := filepath.Rel(cmd.Dir, fa.mainFunc.filename)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	a = append(a, f)
+	//}
+
+	cmd.logf("build binary: %v\n", a)
+	ec := cmd.newCmdI(ctx, a)
+	if err := ec.Start(); err != nil {
+		return err
+	}
+	return ec.Wait()
 }
 
 //------------
 
-func (cmd *Cmd) initAndAnnotate(ctx context.Context) error {
-	// "files" not in cmd.* to allow early GC
-	files := NewFiles(cmd.annset.FSet, cmd.Dir, cmd.flags.mode.test, cmd.gopathMode, cmd.Stderr)
-
-	files.Add(cmd.flags.files...)
-	files.Add(cmd.flags.dirs...)
-
-	// make flag filenames absolute based on files.dir
-	for i, f := range cmd.flags.filenames {
-		cmd.flags.filenames[i] = files.absFilename(f)
-	}
-
-	// pre-build without annotations for better errors with original filenames (result ignored)
-	// done in sync (first pre-build, then annotate) in order to have the "go build" update go.mod's if necessary.
-	if !cmd.NoPreBuild {
-		if err := cmd.preBuild(ctx); err != nil {
-			return err
+// DEBUG
+func (cmd *Cmd) printAnnotatedFilesAsts(fa *FilesToAnnotate) {
+	for orig, _ := range cmd.overlay {
+		astFile, ok := fa.filesAsts[orig]
+		if ok {
+			astut.PrintNode(cmd.annset.fset, astFile)
 		}
 	}
-
-	return cmd.initAndAnnotate2(ctx, files)
-}
-
-func (cmd *Cmd) initAndAnnotate2(ctx context.Context, files *Files) error {
-	err := files.Do(ctx, cmd.flags.filenames, cmd.env)
-	if err != nil {
-		return err
-	}
-
-	if cmd.flags.verbose {
-		files.verbose(cmd)
-	}
-
-	//if err := cmd.updateFixedTmpDir(files); err != nil {
-	//	return err
-	//}
-
-	if err := cmd.annotateFiles(ctx, files); err != nil {
-		return err
-	}
-
-	if err := cmd.insertDebugExitInMain(ctx, files); err != nil {
-		return err
-	}
-
-	// gets config content from annotations
-	if err := files.setDebugConfigContent(cmd); err != nil {
-		return err
-	}
-
-	if !cmd.gopathMode {
-		if err := setupGoMods(ctx, cmd, files); err != nil {
-			return err
-		}
-	}
-
-	if err := files.writeToTmpDir(cmd); err != nil {
-		return err
-	}
-
-	//if cmd.flags.verbose {
-	//	files.verbose(cmd)
-	//}
-
-	return cmd.doBuild(ctx)
-}
-
-func (cmd *Cmd) doBuild(ctx context.Context) error {
-	dirAtTmp := cmd.tmpDirBasedFilename(cmd.Dir)
-
-	//// ensure it exists
-	//if err := iout.MkdirAll(dirAtTmp); err != nil {
-	//	return err
-	//}
-
-	filenamesAtTmp := []string{}
-	for _, f := range cmd.flags.filenames {
-		u := cmd.tmpDirBasedFilename(f)
-		filenamesAtTmp = append(filenamesAtTmp, u)
-	}
-
-	// build
-	filenameOutAtTmp, err := cmd.runBuildCmd(ctx, dirAtTmp, filenamesAtTmp, false)
-	if err != nil {
-		return err
-	}
-
-	// move filename to working dir
-	filenameOut := filepath.Join(cmd.Dir, filepath.Base(filenameOutAtTmp))
-	// move filename to output option
-	if cmd.flags.output != "" {
-		o := cmd.flags.output
-		if !filepath.IsAbs(o) {
-			o = filepath.Join(cmd.Dir, o)
-		}
-		filenameOut = o
-	}
-	if err := os.Rename(filenameOutAtTmp, filenameOut); err != nil {
-		return err
-	}
-
-	// keep moved filename that will run in working dir for later cleanup
-	cmd.tmpBuiltFile = filenameOut
-
-	return nil
-}
-
-func (cmd *Cmd) preBuild(ctx context.Context) error {
-	filenameOut, err := cmd.runBuildCmd(ctx, cmd.Dir, cmd.flags.filenames, true)
-	defer os.Remove(filenameOut) // ensure removal even on error
-	if err != nil {
-		return fmt.Errorf("preBuild: %w", err)
-	}
-	return nil
 }
 
 //------------
 
 func (cmd *Cmd) startServerClient(ctx context.Context) error {
 	// server/client context to cancel the other when one of them ends
-	ctx, cancel := context.WithCancel(ctx)
+	ctx2, cancel := context.WithCancel(ctx)
 	cmd.start.cancel = cancel
 
-	if err := cmd.startServerClient2(ctx); err != nil {
-		cmd.start.cancel()
-		_ = cmd.Wait()
+	if err := cmd.startServer(ctx2); err != nil {
 		return err
+	}
+	return cmd.startClient(ctx2)
+}
+func (cmd *Cmd) cancelStart() {
+	if cmd.start.cancel != nil {
+		cmd.start.cancel()
+	}
+}
+func (cmd *Cmd) startServer(ctx context.Context) error {
+	return cmd.runBinary(ctx)
+}
+func (cmd *Cmd) runBinary(ctx context.Context) error {
+	// args of the built binary to run (annotated program)
+	args := []string{}
+	if cmd.flags.toolExec != "" {
+		args = append(args, cmd.flags.toolExec)
+	}
+	args = append(args, cmd.tmpBuiltFile)
+	args = append(args, cmd.flags.binaryArgs...)
+
+	// callback func to print process id and args
+	cb := func(cmdi osutil.CmdI) {
+		cmd.printf("pid %d: %v\n", cmdi.Cmd().Process.Pid, args)
+	}
+
+	// run the annotated program
+	ci := cmd.newCmdI(ctx, args)
+	ci = osutil.NewCallbackOnStartCmd(ci, cb)
+	if err := ci.Start(); err != nil {
+		cmd.cancelStart()
+		return err
+	}
+
+	//waitErr := error(nil)
+	//wg := sync.WaitGroup{}
+	//wg.Add(1)
+	//go func() {
+	//	defer wg.Done()
+	//	waitErr = ec.Wait()
+	//}()
+
+	//log.Println("server started")
+	cmd.start.serverWait = func() error {
+		//defer log.Println("server wait done")
+		//wg.Wait()
+		//return waitErr
+
+		return ci.Wait()
 	}
 	return nil
 }
-
-func (cmd *Cmd) startServerClient2(ctx context.Context) error {
-	args := []string{cmd.tmpBuiltFile}
-	args = append(args, cmd.flags.testRunArgs...)
-	args = append(args, cmd.flags.otherArgs...)
-
-	// toolexec
-	if cmd.flags.toolExec != "" {
-		args = append([]string{cmd.flags.toolExec}, args...)
-	}
-
-	// start server (run the annotated program)
-	if !cmd.flags.mode.connect {
-		cb := func(c *osutil.Cmd) {
-			cmd.Printf("pid %d\n", c.Cmd.Process.Pid)
-		}
-		c, err := cmd.startCmd(ctx, cmd.Dir, args, nil, cb)
-		if err != nil {
-			return err
-		}
-		cmd.start.serverCmd = c
-	}
-
-	// start client (blocks until connected)
+func (cmd *Cmd) startClient(ctx context.Context) error {
+	// blocks until connected
 	client, err := NewClient(ctx, cmd.start.network, cmd.start.address)
 	if err != nil {
+		//log.Println("client ended")
+		cmd.cancelStart()
+		if cmd.start.serverWait != nil {
+			cmd.start.serverWait()
+		}
 		return err
 	}
 	cmd.Client = client
+
+	// set deadline for the starting protocol
+	deadline := time.Now().Add(8 * time.Second)
+	cmd.Client.Conn.SetWriteDeadline(deadline)
+	defer cmd.Client.Conn.SetWriteDeadline(time.Time{}) // clear
+
+	// starting protocol
+	if err := cmd.requestFilesData(); err != nil {
+		return err
+	}
+	// wait for filesdata
+	msg, ok := <-cmd.Client.Messages
+	if !ok {
+		return fmt.Errorf("clients msgs chan closed")
+	}
+	if fd, ok := msg.(*debug.FilesDataMsg); !ok {
+		return fmt.Errorf("unexpected msg: %#v", msg)
+	} else {
+		cmd.start.filesData = fd
+	}
+	// request start
+	if err := cmd.requestStart(); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (cmd *Cmd) Wait() error {
-	defer cmd.start.cancel() // ensure resources are cleared
-	var err error
-	if cmd.start.serverCmd != nil { // might be nil: connect mode
-		err = cmd.start.serverCmd.Wait()
+	defer cmd.cleanupAfterWait()
+	defer cmd.cancelStart()
+	err := error(nil)
+	if cmd.start.serverWait != nil { // might be nil (ex: connect mode)
+		err = cmd.start.serverWait()
 	}
-	if cmd.Client != nil { // might be nil if server failed to start
+	if cmd.Client != nil { // might be nil (ex: server failed to start)
 		cmd.Client.Wait()
 	}
 	return err
@@ -348,7 +384,16 @@ func (cmd *Cmd) Wait() error {
 
 //------------
 
-func (cmd *Cmd) RequestFileSetPositions() error {
+func (cmd *Cmd) Messages() chan interface{} {
+	return cmd.Client.Messages
+}
+func (cmd *Cmd) FilesData() *debug.FilesDataMsg {
+	return cmd.start.filesData
+}
+
+//------------
+
+func (cmd *Cmd) requestFilesData() error {
 	msg := &debug.ReqFilesDataMsg{}
 	encoded, err := debug.EncodeMessage(msg)
 	if err != nil {
@@ -358,7 +403,7 @@ func (cmd *Cmd) RequestFileSetPositions() error {
 	return err
 }
 
-func (cmd *Cmd) RequestStart() error {
+func (cmd *Cmd) requestStart() error {
 	msg := &debug.ReqStartMsg{}
 	encoded, err := debug.EncodeMessage(msg)
 	if err != nil {
@@ -370,52 +415,72 @@ func (cmd *Cmd) RequestStart() error {
 
 //------------
 
-func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
-	// remove volume name
-	v := filepath.VolumeName(filename)
-	if len(v) > 0 {
-		filename = filename[len(v):]
-	}
+//func (cmd *Cmd) tmpDirBasedFilename(filename string) string {
+//	// remove volume name
+//	v := filepath.VolumeName(filename)
+//	if len(v) > 0 {
+//		filename = filename[len(v):]
+//	}
 
-	if cmd.gopathMode {
-		// trim filename when inside a src dir
-		rhs := trimAtFirstSrcDir(filename)
-		return filepath.Join(cmd.tmpDir, "src", rhs)
-	}
+//	if cmd.gopathMode {
+//		// trim filename when inside a src dir
+//		rhs := trimAtFirstSrcDir(filename)
+//		return filepath.Join(cmd.tmpDir, "src", rhs)
+//	}
 
-	// just replicate on tmp dir
-	return filepath.Join(cmd.tmpDir, filename)
+//	// just replicate on tmp dir
+//	return filepath.Join(cmd.tmpDir, filename)
+//}
+
+//------------
+
+//func (cmd *Cmd) setGoPathEnv(env []string) []string {
+//	// after cmd.flags.env such that this result won't be overriden
+
+//	s := cmd.fullGoPathStr(env)
+//	return osutil.SetEnv(env, "GOPATH", s)
+//}
+
+//func (cmd *Cmd) fullGoPathStr(env []string) string {
+//	u := []string{} // first has priority, use new slice
+
+//	// add tmpdir for priority to the annotated files
+//	if cmd.gopathMode {
+//		u = append(u, cmd.tmpDir)
+//	}
+
+//	if s := osutil.GetEnv(cmd.flags.env, "GOPATH"); s != "" {
+//		u = append(u, s)
+//	}
+
+//	// always include default gopath last (includes entry that might not be defined anywhere, needs to be set)
+//	u = append(u, goutil.GetGoPath(env)...)
+
+//	return goutil.JoinPathLists(u...)
+//}
+
+func (cmd *Cmd) addToGopathStart(dir string) {
+	varName := "GOPATH"
+	v := osutil.GetEnv(cmd.env, varName)
+	sep := ""
+	if v != "" {
+		sep = string(os.PathListSeparator)
+	}
+	v2 := dir + sep + v
+	cmd.env = osutil.SetEnv(cmd.env, varName, v2)
 }
 
 //------------
 
-func (cmd *Cmd) setGoPathEnv(env []string) []string {
-	// after cmd.flags.env such that this result won't be overriden
-
-	s := cmd.fullGoPathStr(env)
-	return osutil.SetEnv(env, "GOPATH", s)
-}
-
-func (cmd *Cmd) fullGoPathStr(env []string) string {
-	u := []string{} // first has priority, use new slice
-
-	// add tmpdir for priority to the annotated files
-	if cmd.gopathMode {
-		u = append(u, cmd.tmpDir)
+func (cmd *Cmd) detectGopathMode(env []string) error {
+	modsMode, err := cmd.detectModulesMode(env)
+	if err != nil {
+		return err
 	}
-
-	if s := osutil.GetEnv(cmd.flags.env, "GOPATH"); s != "" {
-		u = append(u, s)
-	}
-
-	// always include default gopath last (includes entry that might not be defined anywhere, needs to be set)
-	u = append(u, goutil.GetGoPath(env)...)
-
-	return goutil.JoinPathLists(u...)
+	cmd.gopathMode = !modsMode
+	cmd.logf("gopathmode=%v\n", cmd.gopathMode)
+	return nil
 }
-
-//------------
-
 func (cmd *Cmd) detectModulesMode(env []string) (bool, error) {
 	v := osutil.GetEnv(env, "GO111MODULE")
 	switch v {
@@ -438,7 +503,6 @@ func (cmd *Cmd) detectModulesMode(env []string) (bool, error) {
 		return true, nil
 	}
 }
-
 func (cmd *Cmd) detectGoMod() bool {
 	_, ok := goutil.FindGoMod(cmd.Dir)
 	return ok
@@ -446,179 +510,42 @@ func (cmd *Cmd) detectGoMod() bool {
 
 //------------
 
-func (cmd *Cmd) Cleanup() {
+func (cmd *Cmd) cleanupAfterStart() {
+	// always remove (written in src dir)
+	if cmd.tmpGoModFilename != "" {
+		_ = os.Remove(cmd.tmpGoModFilename) // best effort
+	}
+	//// always remove (written in src dir)
+	//if cmd.tmpMainFuncFilename != "" {
+	//	_ = os.Remove(cmd.tmpMainFuncFilename) // best effort
+	//}
+	// remove dirs
+	if cmd.tmpDir != "" && !cmd.flags.work {
+		_ = os.RemoveAll(cmd.tmpDir) // best effort
+	}
+}
+
+func (cmd *Cmd) cleanupAfterWait() {
 	// cleanup unix socket in case of bad stop
 	if cmd.start.network == "unix" {
-		if err := os.Remove(cmd.start.address); err != nil {
-			if !os.IsNotExist(err) {
-				cmd.Printf("cleanup err: %v\n", err)
-			}
-		}
-	}
-
-	if cmd.flags.work {
-		// don't cleanup work dir
-
-		//} else if cmd.fixedTmpDir.on {
-		// don't cleanup work dir
-	} else if cmd.tmpDir != "" {
-		if err := os.RemoveAll(cmd.tmpDir); err != nil {
-			cmd.Printf("cleanup err: %v\n", err)
-		}
+		_ = os.Remove(cmd.start.address) // best effort
 	}
 
 	if cmd.tmpBuiltFile != "" && !cmd.flags.mode.build {
-		if err := os.Remove(cmd.tmpBuiltFile); err != nil {
-			if !os.IsNotExist(err) {
-				cmd.Printf("cleanup err: %v\n", err)
-			}
-		}
+		_ = os.Remove(cmd.tmpBuiltFile) // best effort
 	}
-}
-
-//------------
-
-func (cmd *Cmd) runBuildCmd(ctx context.Context, dir string, filenames []string, preBuild bool) (string, error) {
-	filenameOut := filepath.Join(dir, cmd.baseFilenameOut())
-
-	preFilesArgs := godebugBuildFlags(cmd.env)
-	if cmd.flags.mode.test || cmd.flags.mode.build {
-		preFilesArgs = append(preFilesArgs, cmd.flags.otherArgs...)
-	}
-
-	args := []string{}
-	if cmd.flags.mode.test {
-		args = []string{
-			osutil.ExecName("go"), "test",
-			"-c", // compile binary but don't run
-			"-o", filenameOut,
-		}
-		args = append(args, preFilesArgs...)
-		args = append(args, filenames...)
-	} else {
-		args = []string{
-			osutil.ExecName("go"), "build",
-			"-o", filenameOut,
-		}
-		if preBuild {
-			// TODO: faster dummy pre-builts
-			// TODO: test toolexec on other platforms
-			//args = append(args, "-toolexec /bin/true")  // don't run asm?
-		}
-		args = append(args, preFilesArgs...)
-		args = append(args, filenames...)
-	}
-
-	//cmd.Vprintf("runBuildCmd:  %v\n", args)
-
-	err := cmd.runCmd(ctx, dir, args, cmd.env)
-	if err != nil {
-		err = fmt.Errorf("runBuildCmd: %w, args=%v, dir=%v", err, args, dir)
-	}
-	return filenameOut, err
-}
-
-//------------
-
-func (cmd *Cmd) runCmd(ctx context.Context, dir string, args, env []string) error {
-	c, err := cmd.startCmd(ctx, dir, args, env, nil)
-	if err != nil {
-		return err
-	}
-	return c.Wait()
-}
-
-func (cmd *Cmd) startCmd(ctx context.Context, dir string, args, env []string, cb func(*osutil.Cmd)) (*osutil.Cmd, error) {
-	cargs := osutil.ShellRunArgs(args...)
-	c := osutil.NewCmd(ctx, cargs...)
-	c.Env = env
-	c.Dir = dir
-	if err := c.SetupStdio(nil, cmd.Stdout, cmd.Stderr); err != nil {
-		return nil, err
-	}
-	if cb != nil {
-		c.PreOutputCallback = func() { cb(c) }
-	}
-	if err := c.Start(); err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-//------------
-
-func (cmd *Cmd) insertDebugExitInMain(ctx context.Context, files *Files) error {
-	count := 0
-	for _, f := range files.srcFiles {
-		if f.mainFuncDecl != nil {
-			astFile, err := files.fullAstFile(f.filename)
-			if err != nil {
-				return err
-			}
-			cmd.annset.InsertDebugExitInMain(f.mainFuncDecl, astFile, f)
-			count++
-		}
-	}
-	if count == 0 {
-		return errors.New("unable to insertDebugExitInMain")
-	}
-	return nil
-}
-
-//------------
-
-func (cmd *Cmd) annotateFiles(ctx context.Context, files *Files) error {
-	fa := files.filesToAnnotate()
-	if len(fa) == 0 {
-		return errors.New("no files selected to annotate")
-	}
-
-	var wg sync.WaitGroup
-	var err1 error
-	flow := make(chan struct{}, 5) // max concurrent
-	for _, f1 := range fa {
-		// early stop
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		wg.Add(1)
-		flow <- struct{}{}
-		go func(f2 *SrcFile) {
-			defer func() {
-				wg.Done()
-				<-flow
-			}()
-
-			// early stop
-			if err := ctx.Err(); err != nil {
-				err1 = err
-				return
-			}
-
-			err := cmd.annotateFile(f2)
-			if err1 == nil {
-				err1 = err // just keep first error
-			}
-		}(f1)
-	}
-	wg.Wait()
-	return err1
-}
-
-func (cmd *Cmd) annotateFile(f *SrcFile) error {
-	astFile, err := f.files.fullAstFile(f.filename)
-	if err != nil {
-		return err
-	}
-	return cmd.annset.AnnotateAstFile(astFile, f)
 }
 
 //------------
 
 func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 	buf := &bytes.Buffer{}
-	if err := goutil.PrintAstFile(buf, cmd.annset.FSet, astFile); err != nil {
+
+	// commented: don't print with sourcepos since it will only confuse the user. If the original code doesn't compile, the load packages should fail early before gettin to output any ast.file
+	//pcfg := &printer.Config{Mode: printer.SourcePos, Tabwidth: 4}
+	pcfg := &printer.Config{Tabwidth: 4}
+
+	if err := pcfg.Fprint(buf, cmd.fset, astFile); err != nil {
 		return err
 	}
 	return mkdirAllWriteFile(filename, buf.Bytes())
@@ -626,265 +553,31 @@ func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 
 //------------
 
-func (cmd *Cmd) baseFilenameOut() string {
-	s := "godebug"
-	if cmd.flags.mode.test {
-		s = "test_godebug"
-	}
-	if len(cmd.flags.filenames) > 0 {
-		base := filepath.Base(cmd.flags.filenames[0])
-		s = replaceExt(base, "_"+s)
-	}
-	return osutil.ExecName(s)
-}
-
-func (cmd *Cmd) setupTmpDir() (string, error) {
-	d := "editor_godebug_mod_work"
-	if cmd.gopathMode {
-		d = "editor_godebug_gopath_work"
-	}
-	//if cmd.fixedTmpDir.on {
-	//	// use a fixed directory to allow "go build" to use the cache
-	//	// there is only one godebug session per editor, so ok to use pid
-	//	pid := os.Getpid()
-	//	if cmd.fixedTmpDir.pid != 0 {
-	//		pid = cmd.fixedTmpDir.pid
-	//	}
-	//	d += fmt.Sprintf("_pid%v", pid)
-	//	return filepath.Join(os.TempDir(), d), nil
-	//}
-	return ioutil.TempDir(os.TempDir(), d)
-}
-
-//------------
-
-//func (cmd *Cmd) updateFixedTmpDir(files *Files) error {
-//	if !cmd.fixedTmpDir.on {
-//		return nil
-//	}
-
-//	// visit all dirs of the loaded files
-//	seen := map[string]bool{}
-//	for _, f := range files.files {
-//		// 1: src
-//		// 2: tmp
-
-//		fname1 := f.destFilename()
-//		dir1 := filepath.Dir(fname1)
-//		fname2 := cmd.tmpDirBasedFilename(fname1)
-//		dir2 := filepath.Dir(fname2)
-//		if seen[dir2] {
-//			continue
-//		}
-//		seen[dir2] = true
-
-//		// read all files in dir
-//		fi2s, err := ioutil.ReadDir(dir2)
-//		if err != nil {
-//			continue
-//		}
-//		// compare files with original filenames
-//		for _, fi2 := range fi2s {
-//			// check if exists in source
-//			fname3 := filepath.Join(dir1, fi2.Name())
-//			fi1, err := os.Stat(fname3)
-//			if err != nil {
-//				// does not exist in source, remove in tmp
-//				fname4 := filepath.Join(dir2, fi2.Name())
-//				fmt.Printf("removing: %v\n", fname4)
-//				if err := os.Remove(fname4); err != nil {
-//					return err
-//				}
-//				continue
-//			}
-//			// exists in source, compare timestamps
-//			if fi2.ModTime().After(fi1.ModTime()) {
-//				// tmp is still newer than the src, keep it as is
-//				if f.typ == FTSrc {
-//					// TODO: need to check and compare new directive
-//					fmt.Printf("setting to none: %v\n", f.filename)
-//					f.action = FANone
-//				}
-//			}
-//		}
-//	}
-//	return nil
-//}
-
-//------------
-
-func (cmd *Cmd) parseArgs(args []string) error {
-	if len(args) > 0 {
-		name := "GoDebug " + args[0]
-		switch args[0] {
-		case "run":
-			cmd.flags.mode.run = true
-			return cmd.parseRunArgs(name, args[1:])
-		case "test":
-			cmd.flags.mode.test = true
-			return cmd.parseTestArgs(name, args[1:])
-		case "build":
-			cmd.flags.mode.build = true
-			return cmd.parseBuildArgs(name, args[1:])
-		case "connect":
-			cmd.flags.mode.connect = true
-			return cmd.parseConnectArgs(name, args[1:])
-		}
-	}
-	fmt.Fprint(cmd.Stderr, cmdUsage())
-	return flag.ErrHelp
-}
-
-func (cmd *Cmd) parseRunArgs(name string, args []string) error {
-	f := flag.NewFlagSet(name, flag.ContinueOnError)
-	f.SetOutput(cmd.Stderr)
-	cmd.dirsFlag(f)
-	cmd.filesFlag(f)
-	cmd.workFlag(f)
-	cmd.verboseFlag(f)
-	cmd.toolExecFlag(f)
-	cmd.syncSendFlag(f)
-	cmd.envFlag(f)
-
-	if err := f.Parse(args); err != nil {
+func (cmd *Cmd) setupTmpDir() error {
+	fixedDir := filepath.Join(os.TempDir(), "editor_godebug")
+	if err := iout.MkdirAll(fixedDir); err != nil {
 		return err
 	}
-
-	cmd.filenamesAndOtherArgs(f)
-
-	return nil
-}
-
-func (cmd *Cmd) parseTestArgs(name string, args []string) error {
-	f := flag.NewFlagSet(name, flag.ContinueOnError)
-	f.SetOutput(cmd.Stderr)
-	cmd.dirsFlag(f)
-	cmd.filesFlag(f)
-	cmd.workFlag(f)
-	cmd.verboseFlag(f)
-	cmd.toolExecFlag(f)
-	cmd.syncSendFlag(f)
-	cmd.envFlag(f)
-	run := f.String("run", "", "run test")
-	verboseTests := f.Bool("v", false, "verbose tests")
-
-	if err := f.Parse(args); err != nil {
+	dir, err := ioutil.TempDir(fixedDir, "work*")
+	if err != nil {
 		return err
 	}
+	cmd.tmpDir = dir
 
-	// set test run flag at other flags to pass to the test exec
-	if *run != "" {
-		a := []string{"-test.run", *run}
-		cmd.flags.testRunArgs = append(a, cmd.flags.testRunArgs...)
+	// print tmp dir if work flag is present
+	if cmd.flags.work {
+		cmd.printf("tmpDir: %v\n", cmd.tmpDir)
 	}
-	// verbose
-	if *verboseTests {
-		a := []string{"-test.v"}
-		cmd.flags.testRunArgs = append(a, cmd.flags.testRunArgs...)
-	}
-
-	cmd.filenamesAndOtherArgs(f)
-
-	return nil
-}
-
-func (cmd *Cmd) parseBuildArgs(name string, args []string) error {
-	f := flag.NewFlagSet(name, flag.ContinueOnError)
-	f.SetOutput(cmd.Stderr)
-	cmd.dirsFlag(f)
-	cmd.filesFlag(f)
-	cmd.workFlag(f)
-	cmd.verboseFlag(f)
-	cmd.syncSendFlag(f)
-	cmd.envFlag(f)
-	addr := f.String("addr", "", "address to serve from, built into the binary")
-	f.StringVar(&cmd.flags.output, "o", "", "output filename (default: ${filename}_godebug")
-
-	if err := f.Parse(args); err != nil {
-		return err
-	}
-
-	cmd.flags.address = *addr
-	cmd.filenamesAndOtherArgs(f)
-
-	return nil
-}
-
-func (cmd *Cmd) parseConnectArgs(name string, args []string) error {
-	f := flag.NewFlagSet(name, flag.ContinueOnError)
-	f.SetOutput(cmd.Stderr)
-	addr := f.String("addr", "", "address to connect to, built into the binary")
-	cmd.toolExecFlag(f)
-
-	if err := f.Parse(args); err != nil {
-		return err
-	}
-
-	cmd.flags.address = *addr
-
 	return nil
 }
 
 //------------
 
-func (cmd *Cmd) filenamesAndOtherArgs(fs *flag.FlagSet) {
-	args := fs.Args()
-
-	// filenames
-	f := []string{}
-	for _, a := range args {
-		if strings.HasSuffix(a, ".go") {
-			f = append(f, a)
-			continue
-		}
-		break
-	}
-	cmd.flags.filenames = f
-
-	if len(args) > 0 {
-		cmd.flags.otherArgs = args[len(f):] // keep rest
-	}
-}
-
-//------------
-
-func (cmd *Cmd) workFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&cmd.flags.work, "work", false, "print workdir and don't cleanup on exit")
-}
-func (cmd *Cmd) verboseFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&cmd.flags.verbose, "verbose", false, "verbose godebug")
-}
-func (cmd *Cmd) syncSendFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&cmd.flags.syncSend, "syncsend", false, "Don't send msgs in chunks (slow). Useful to get msgs before a crash.")
-}
-func (cmd *Cmd) toolExecFlag(fs *flag.FlagSet) {
-	fs.StringVar(&cmd.flags.toolExec, "toolexec", "", "execute cmd, useful to run a tool with the output file (ex: wine outputfilename)")
-}
-func (cmd *Cmd) dirsFlag(fs *flag.FlagSet) {
-	fn := func(s string) error {
-		cmd.flags.dirs = splitCommaList(s)
-		return nil
-	}
-	rf := &runFnFlag{fn}
-	fs.Var(rf, "dirs", "comma-separated `string` of directories to annotate")
-}
-func (cmd *Cmd) filesFlag(fs *flag.FlagSet) {
-	fn := func(s string) error {
-		cmd.flags.files = splitCommaList(s)
-		return nil
-	}
-	rf := &runFnFlag{fn}
-	fs.Var(rf, "files", "comma-separated `string` of files to annotate")
-}
-func (cmd *Cmd) envFlag(fs *flag.FlagSet) {
-	fn := func(s string) error {
-		cmd.flags.env = filepath.SplitList(s)
-		return nil
-	}
-	rf := &runFnFlag{fn}
-	// The type in usage is the backquoted "string" (detected by flagset)
-	usage := fmt.Sprintf("`string` with env variables (ex: \"GOOS=os%c...\"'", filepath.ListSeparator)
-	fs.Var(rf, "env", usage)
+func (cmd *Cmd) buildArgs() []string {
+	u := []string{}
+	u = append(u, envGodebugBuildFlags(cmd.env)...)
+	u = append(u, cmd.flags.unknownArgs...)
+	return u
 }
 
 //------------
@@ -898,7 +591,7 @@ func (cmd *Cmd) setupNetworkAddress() error {
 		return nil
 	}
 
-	// find OS target
+	// OS target to choose how to connect
 	goOs := osutil.GetEnv(cmd.env, "GOOS")
 	if goOs == "" {
 		goOs = runtime.GOOS
@@ -907,15 +600,12 @@ func (cmd *Cmd) setupNetworkAddress() error {
 	switch goOs {
 	case "linux":
 		cmd.start.network = "unix"
-		port := osutil.RandomPort(1, 10000, 65000)
-		p := "editor_godebug.sock" + fmt.Sprintf("%v", port)
-		cmd.start.address = filepath.Join(os.TempDir(), p)
+		cmd.start.address = filepath.Join(cmd.tmpDir, "godebug.sock")
 	default:
-		//port, err := osutil.GetFreeTcpPort()
-		//if err != nil {
-		//	return err
-		//}
-		port := osutil.RandomPort(2, 10000, 65000)
+		port, err := osutil.GetFreeTcpPort()
+		if err != nil {
+			return err
+		}
 		cmd.start.network = "tcp"
 		cmd.start.address = fmt.Sprintf("127.0.0.1:%v", port)
 	}
@@ -923,70 +613,318 @@ func (cmd *Cmd) setupNetworkAddress() error {
 }
 
 //------------
-//------------
-//------------
 
-type runFnFlag struct {
-	fn func(string) error
+func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
+	// annotate files
+	handledMain := false
+	cmd.overlay = map[string]string{}
+	mainName := mainFuncName(fa.cmd.flags.mode.test)
+	for filename := range fa.toAnnotate {
+		astFile, ok := fa.filesAsts[filename]
+		if !ok {
+			return fmt.Errorf("missing ast file: %v", filename)
+		}
+
+		// annotate
+		ti := (*types.Info)(nil)
+		pkg, ok := fa.filesPkgs[filename]
+		if ok {
+			ti = pkg.TypesInfo
+		}
+		if err := cmd.annset.AnnotateAstFile(astFile, ti, fa.nodeAnnTypes); err != nil {
+			return err
+		}
+
+		// setup main ast with debug.exitserver
+		if fd, ok := findFuncDeclWithBody(astFile, mainName); ok {
+			handledMain = true
+			cmd.mainFuncFilename = filename
+			cmd.annset.setupDebugExitInFuncDecl(fd, astFile)
+		}
+	}
+
+	if !handledMain {
+		if !cmd.flags.mode.test {
+			return fmt.Errorf("main func not handled")
+		}
+		// insert testmains in "*_test.go" files
+		seen := map[string]bool{}
+		for filename := range fa.toAnnotate {
+			if !strings.HasSuffix(filename, "_test.go") {
+				continue
+			}
+
+			// one testmain per dir
+			dir := filepath.Dir(filename)
+			if seen[dir] {
+				continue
+			}
+			seen[dir] = true
+
+			astFile, ok := fa.filesAsts[filename]
+			if !ok {
+				continue
+			}
+			if err := cmd.annset.insertTestMain(astFile); err != nil {
+				return err
+			}
+
+			// use dir of the first file // TODO: just use current dir?
+			if cmd.mainFuncFilename == "" {
+				dir := filepath.Dir(filename)
+				cmd.mainFuncFilename = filepath.Join(dir, "testmain")
+			}
+		}
+	}
+
+	for filename := range fa.toAnnotate {
+		astFile, ok := fa.filesAsts[filename]
+		if !ok {
+			return fmt.Errorf("missing ast file: %v", filename)
+		}
+
+		// encode filename for a flat map
+		ext := filepath.Ext(filename)
+		base := filepath.Base(filename)
+		base = base[:len(base)-len(ext)]
+		//hash := md5.New().Write([]byte(filename)).Sum(nil)
+		//hash := genDigitsStr(8)
+		hash := hashStringN(filename, 10)
+		name := fmt.Sprintf("%s_%s%s", base, hash, ext)
+
+		// write annotated files and keep in map for overlay
+		filename2 := filepath.Join(cmd.tmpDir, "annotated", name)
+		if err := cmd.mkdirAllWriteAstFile(filename2, astFile); err != nil {
+			return err
+		}
+
+		cmd.overlay[filename] = filename2
+	}
+
+	return nil
 }
 
-func (v runFnFlag) String() string     { return "" }
-func (v runFnFlag) Set(s string) error { return v.fn(s) }
-
 //------------
 
-func cmdUsage() string {
-	return `Usage:
-	GoDebug <command> [arguments]
-The commands are:
-	run		build and run program with godebug data
-	test		test packages compiled with godebug data
-	build 	build binary with godebug data (allows remote debug)
-	connect	connect to a binary built with godebug data (allows remote debug)
-Env variables:
-	GODEBUG_BUILD_FLAGS	comma separated flags for build
-Examples:
-	GoDebug -help
-	GoDebug run -help
-	GoDebug run main.go -arg1 -arg2
-	GoDebug run -dirs=dir1,dir2 -files=f1.go,f2.go main.go -arg1 -arg2
-	GoDebug test -help
-	GoDebug test
-	GoDebug test -run mytest
-	GoDebug build -addr=:8008 main.go
-	GoDebug connect -addr=:8008
-	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
-`
+func (cmd *Cmd) buildOverlayFile(ctx context.Context, fa *FilesToAnnotate) error {
+	// build entries
+	w := []string{}
+	for src, dest := range cmd.overlay {
+		w = append(w, fmt.Sprintf("%q:%q", src, dest))
+	}
+	// write overlay file
+	src := []byte(fmt.Sprintf("{%q:{%s}}", "Replace", strings.Join(w, ",")))
+	cmd.overlayFilename = filepath.Join(cmd.tmpDir, "annotated_overlay.json")
+	return mkdirAllWriteFile(cmd.overlayFilename, src)
 }
 
 //------------
 
+func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
+	//// detect if the editor debug pkg is used
+	//cmd.selfMode = false
+	//selfDebugPkgDir := ""
+	//for pkgPath, pkg := range fa.pathsPkgs {
+	//	if strings.HasPrefix(pkgPath, editorPkgPath+"/") {
+	//		// find dir
+	//		f := pkg.GoFiles[0]
+	//		k := strings.Index(f, editorPkgPath)
+	//		if k >= 0 {
+	//			cmd.selfMode = true
+	//			selfDebugPkgDir = filepath.Join(f[:k], debugPkgPath)
+	//			break
+	//		}
+	//	}
+	//}
+
+	//// setup current files to be empty by default (attempt to discard if debugging an old version of the editor)
+	//if cmd.selfMode {
+	//	fis, err := ioutil.ReadDir(selfDebugPkgDir)
+	//	if err == nil {
+	//		for _, fi := range fis {
+	//			filename := fsutil.JoinPath(selfDebugPkgDir, fi.Name())
+	//			cmd.overlay[filename] = ""
+	//		}
+	//	}
+	//}
+
+	// target dir
+	cmd.debugPkgDir = filepath.Join(cmd.tmpDir, "debug_pkg")
+	if cmd.gopathMode {
+		cmd.addToGopathStart(cmd.debugPkgDir)
+		cmd.debugPkgDir = filepath.Join(cmd.debugPkgDir, "src/"+debugPkgPath)
+	}
+
+	// util to add file to debug pkg dir
+	writeFile := func(name string, src []byte) error {
+		filename2 := filepath.Join(cmd.debugPkgDir, name)
+
+		//if cmd.selfMode {
+		//	filename3 := filepath.Join(selfDebugPkgDir, name)
+		//	//println("overlay", filename3, filename2)
+		//	cmd.overlay[filename3] = filename2
+		//}
+
+		return mkdirAllWriteFile(filename2, src)
+	}
+
+	// local src pkg dir where the debug pkg is located (io/fs)
+	srcDir := "debug"
+	des, err := debugPkgFs.ReadDir(srcDir)
+	if err != nil {
+		return err
+	}
+	for _, de := range des {
+		filename1 := filepath.Join(srcDir, de.Name())
+		if strings.HasSuffix(filename1, "_test.go") {
+			continue
+		}
+		src, err := debugPkgFs.ReadFile(filename1)
+		if err != nil {
+			return err
+		}
+		if err := writeFile(de.Name(), src); err != nil {
+			return err
+		}
+	}
+
+	// dynamically create go.mod since go:embed doesn't allow it
+	if !cmd.selfMode && !cmd.gopathMode {
+		src3 := []byte(fmt.Sprintf("module %s\n", debugPkgPath))
+		if err := writeFile("go.mod", src3); err != nil {
+			return err
+		}
+	}
+
+	// init() functions declared across multiple files in a package are processed in alphabetical order of the file name. Use name starting with "a" to setup config vars as early as possible.
+	configFilename := "aaaconfig.go"
+
+	// build config file
+	src4 := cmd.annset.BuildConfigSrc(cmd.start.network, cmd.start.address, &cmd.flags)
+	if err := writeFile(configFilename, src4); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+//------------
+
+func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context, fa *FilesToAnnotate) error {
+	filename, ok := fa.GoModFilename()
+	if !ok {
+		//return fmt.Errorf("missing go.mod")
+
+		// in the case of a simple main.go without any go.mod (but in modules mode), it needs to create an artificial go.mod in order to reference the debug pkg that is located in the tmp dir
+
+		// TODO: last resort, having to create files in the src dir is to be avoided -- needs review
+
+		// create temporary go.mod in src dir based on main file
+		if cmd.mainFuncFilename == "" {
+			return fmt.Errorf("missing main func filename")
+		}
+		dir := filepath.Dir(cmd.mainFuncFilename)
+		fname2 := filepath.Join(dir, "go.mod")
+		// must not exist
+		if _, err := os.Stat(fname2); !os.IsNotExist(err) {
+			return fmt.Errorf("file should not exist because gomodfilename didn't found it: %v", fname2)
+		}
+		// create
+		src := []byte("module main\n")
+		if err := mkdirAllWriteFile(fname2, src); err != nil {
+			return err
+		}
+		cmd.tmpGoModFilename = fname2
+		cmd.logf("tmpgomodfilename: %v\n", cmd.tmpGoModFilename)
+		filename = fname2
+	}
+
+	// build based on current go.mod
+	src, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("unable to read mod file: %w", err)
+	}
+	// alter to include debug pkg replace line
+	src = append(src, []byte(fmt.Sprintf("\nrequire %s v0.0.0\nreplace %v => %v\n", debugPkgPath, debugPkgPath, cmd.debugPkgDir))...)
+	// write
+	cmd.alternativeGoMod = filepath.Join(cmd.tmpDir, "alternative.mod")
+	if err := mkdirAllWriteFile(cmd.alternativeGoMod, src); err != nil {
+		return err
+	}
+
+	// copy as well go.sum or it will fail, just need a best effort
+	dir := filepath.Dir(filename)
+	gosum := filepath.Join(dir, "go.sum")
+	gosumDst := pathutil.ReplaceExt(cmd.alternativeGoMod, ".sum")
+	_ = copyFile(gosum, gosumDst)
+
+	return nil
+}
+
+//------------
+
+func (cmd *Cmd) buildOutFilename(fa *FilesToAnnotate) (string, error) {
+	if cmd.flags.outFilename != "" {
+		return cmd.flags.outFilename, nil
+	}
+
+	if cmd.mainFuncFilename == "" {
+		return "", fmt.Errorf("missing main filename")
+	}
+
+	// commented: output to tmp dir
+	//fname := filepath.Base(cmd.mainFuncFilename)
+	//fname = fsutil.JoinPath(cmd.tmpDir, fname)
+
+	// output to next to main file
+	fname := cmd.mainFuncFilename
+	fname = pathutil.ReplaceExt(fname, ".godebug")
+
+	fname = osutil.ExecName(fname)
+	return fname, nil
+}
+
+//------------
+
+func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
+	ec := exec.CommandContext(ctx, args[0], args[1:]...)
+	ec.Stdin = cmd.Stdin
+	ec.Stdout = cmd.Stdout
+	ec.Stderr = cmd.Stderr
+	ec.Dir = cmd.Dir
+	ec.Env = cmd.env
+
+	ci := osutil.NewCmdI(ec)
+	ci = osutil.NewSetSidCmd(ctx, ci)
+	//ci = osutil.NewShellCmd(ci)
+	return ci
+}
+
+//------------
+//------------
+//------------
+
+//go:embed debug/*
+var debugPkgFs embed.FS
+
+//------------
+
+func writeFile(filename string, src []byte) error {
+	return os.WriteFile(filename, src, 0640)
+}
 func mkdirAllWriteFile(filename string, src []byte) error {
-	return iout.MkdirAllWriteFile(filename, src, 0660)
+	return iout.MkdirAllWriteFile(filename, src, 0640)
 }
 
 func mkdirAllCopyFile(src, dst string) error {
-	return iout.MkdirAllCopyFile(src, dst, 0660)
+	return iout.MkdirAllCopyFile(src, dst, 0640)
 }
 func mkdirAllCopyFileSync(src, dst string) error {
-	return iout.MkdirAllCopyFileSync(src, dst, 0660)
+	return iout.MkdirAllCopyFileSync(src, dst, 0640)
 }
 
 func copyFile(src, dst string) error {
-	return iout.CopyFile(src, dst, 0660)
-}
-
-//------------
-
-func replaceExt(filename, ext string) string {
-	// remove extension
-	tmp := filename
-	ext2 := filepath.Ext(tmp)
-	if len(ext2) > 0 {
-		tmp = tmp[:len(tmp)-len(ext2)]
-	}
-	// add new extension
-	return tmp + ext
+	return iout.CopyFile(src, dst, 0640)
 }
 
 //------------
@@ -1008,28 +946,29 @@ func splitCommaList(val string) []string {
 
 //------------
 
-func trimAtFirstSrcDir(filename string) string {
-	v := filename
-	w := []string{}
-	for {
-		base := filepath.Base(v)
-		if base == "src" {
-			return filepath.Join(w...) // trimmed
-		}
-		w = append([]string{base}, w...)
-		oldv := v
-		v = filepath.Dir(v)
-		isRoot := oldv == v
-		if isRoot {
-			break
-		}
-	}
-	return filename
-}
+//func trimAtFirstSrcDir(filename string) string {
+//	v := filename
+//	w := []string{}
+//	for {
+//		base := filepath.Base(v)
+//		if base == "src" {
+//			return filepath.Join(w...) // trimmed
+//		}
+//		w = append([]string{base}, w...)
+//		oldv := v
+//		v = filepath.Dir(v)
+//		isRoot := oldv == v
+//		if isRoot {
+//			break
+//		}
+//	}
+//	return filename
+//}
 
 //----------
 
-func godebugBuildFlags(env []string) []string {
+// TODO: remove once env vars supported in editor
+func envGodebugBuildFlags(env []string) []string {
 	bfs := osutil.GetEnv(env, "GODEBUG_BUILD_FLAGS")
 	if len(bfs) == 0 {
 		return nil

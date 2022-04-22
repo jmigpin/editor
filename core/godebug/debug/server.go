@@ -1,6 +1,7 @@
 package debug
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -9,107 +10,117 @@ import (
 	"time"
 )
 
-// Vars populated at init by godebugconfig pkg (generated at compile).
-var AnnotatorFilesData []*AnnotatorFileData // all debug data
-var ServerNetwork string
-var ServerAddress string
-var SyncSend bool              // don't send in chunks (usefull to get msgs before crash)
-var AcceptOnlyFirstClient bool // avoid possible hanging progs waiting for another connection to continue debugging (most common case)
+// init() functions declared across multiple files in a package are processed in alphabetical order of the file name
+func init() {
+	if hasGenConfig {
+		RegisterStructsForEncodeDecode(encoderId)
+		StartServer()
+	}
+}
 
 //----------
 
+// Vars populated at init (generated at compile).
+var hasGenConfig bool
+var encoderId string
+var ServerNetwork string
+var ServerAddress string
+var annotatorFilesData []*AnnotatorFileData // all debug data
+
+var syncSend bool              // don't send in chunks (usefull to get msgs before crash)
+var acceptOnlyFirstClient bool // avoid possible hanging progs waiting for another connection to continue debugging (most common case)
+var stringifyBytesRunes bool
+
+//----------
+
+//var logger = log.New(os.Stdout, "debug: ", log.Llongfile)
 //var logger = log.New(os.Stdout, "debug: ", 0)
 var logger = log.New(ioutil.Discard, "debug: ", 0)
 
 const chunkSendRate = 15       // per second
-const chunkSendNowNMsgs = 2048 // don't wait for send rate, send now (memory)
 const chunkSendQSize = 512     // msgs queueing to be sent
+const chunkSendNowNMsgs = 2048 // don't wait for send rate, send now (memory)
 
 //----------
 
 type Server struct {
-	ln     net.Listener
-	lnwait sync.WaitGroup
-	client struct {
-		sync.RWMutex
-		cconn *CConn
+	listen struct {
+		ln       net.Listener
+		loopWait sync.WaitGroup
 	}
-	sendReady sync.RWMutex
+	conn struct { // currently only handling one conn at a time
+		sync.Mutex
+		haveConn *sync.Cond // cc!=nil
+		cc       *CConn
+	}
+	toSend       chan interface{}
+	sendLoopWait sync.WaitGroup
 }
 
 func NewServer() (*Server, error) {
+	srv := &Server{}
+	srv.conn.haveConn = sync.NewCond(&srv.conn)
+
 	// start listening
-	logger.Print("listen")
 	ln, err := net.Listen(ServerNetwork, ServerAddress)
 	if err != nil {
 		return nil, err
 	}
+	srv.listen.ln = ln
+	logger.Print("listening")
 
-	srv := &Server{ln: ln}
-	srv.sendReady.Lock() // not ready to send (no client yet)
+	// setup sending
+	qsize := chunkSendQSize
+	if syncSend {
+		qsize = 0
+	}
+	srv.toSend = make(chan interface{}, qsize)
+	srv.sendLoopWait.Add(1)
+	go func() {
+		defer srv.sendLoopWait.Done()
+		srv.sendLoop()
+	}()
 
 	// accept connections
-	srv.lnwait.Add(1)
+	srv.listen.loopWait.Add(1)
 	go func() {
-		defer srv.lnwait.Done()
-		srv.acceptClientsLoop()
+		defer srv.listen.loopWait.Done()
+		srv.acceptClientLoop()
 	}()
+
+	// wait for one client to be sendready before returning
+	srv.waitForCConnReady()
+	logger.Println("server init done (client ready)")
 
 	return srv, nil
 }
 
 //----------
 
-func (srv *Server) Close() {
-	// close listener
-	logger.Println("closing server")
-	_ = srv.ln.Close()
-	srv.lnwait.Wait()
-
-	// close client
-	logger.Println("closing client")
-	srv.client.Lock()
-	if srv.client.cconn != nil {
-		srv.client.cconn.Close()
-		srv.client.cconn = nil
-	}
-	srv.client.Unlock()
-
-	logger.Println("server closed")
-}
-
-//----------
-
-func (srv *Server) acceptClientsLoop() {
+func (srv *Server) acceptClientLoop() {
+	defer logger.Println("end accept client loop")
 	for {
 		// accept client
 		logger.Println("waiting for client")
-		conn, err := srv.ln.Accept()
+		conn, err := srv.listen.ln.Accept()
 		if err != nil {
-			logger.Printf("accept error: (%T) %v ", err, err)
+			logger.Printf("accept error: (%T) %v", err, err)
 
 			// unable to accept (ex: server was closed)
 			if operr, ok := err.(*net.OpError); ok {
 				if operr.Op == "accept" {
-					logger.Println("end accept client loop")
 					return
 				}
 			}
 
 			continue
 		}
-		logger.Println("got client")
 
-		// start client
-		srv.client.Lock()
-		if srv.client.cconn != nil {
-			srv.client.cconn.Close() // close previous connection
-		}
-		srv.client.cconn = NewCCon(srv, conn)
-		srv.client.Unlock()
+		logger.Println("got client")
+		srv.handleConn(conn)
 
 		// don't receive anymore connections
-		if AcceptOnlyFirstClient {
+		if acceptOnlyFirstClient {
 			logger.Println("no more clients (accepting only first)")
 			return
 		}
@@ -118,115 +129,190 @@ func (srv *Server) acceptClientsLoop() {
 
 //----------
 
-func (srv *Server) Send(v *LineMsg) {
-	// locks if client is not ready to send
-	srv.sendReady.RLock()
-	defer srv.sendReady.RUnlock()
+func (srv *Server) handleConn(conn net.Conn) {
+	srv.conn.Lock()
+	defer srv.conn.Unlock()
 
-	srv.client.cconn.Send(v)
+	// currently only handling one client at a time
+	if srv.conn.cc != nil { // already connected, reject
+		_ = conn.Close()
+		return
+	}
+
+	srv.conn.cc = NewCConn(srv, conn)
+	srv.conn.haveConn.Broadcast()
+}
+func (srv *Server) closeConnection() error {
+	srv.conn.Lock()
+	defer srv.conn.Unlock()
+	if srv.conn.cc != nil {
+		cc := srv.conn.cc
+		srv.conn.cc = nil // remove connection from server
+		return cc.close()
+	}
+	return nil
 }
 
+//----------
+
+func (srv *Server) waitForCConn() *CConn {
+	cc := srv.conn.cc
+	if cc == nil {
+		srv.conn.Lock()
+		defer srv.conn.Unlock()
+		for srv.conn.cc == nil {
+			srv.conn.haveConn.Wait()
+		}
+		cc = srv.conn.cc
+	}
+	return cc
+}
+
+//----------
+
+func (srv *Server) Send(v *LineMsg) {
+	// simply add to a channel to allow program to continue
+	srv.toSend <- v
+}
+func (srv *Server) sendLoop() {
+	for {
+		v := <-srv.toSend
+		logger.Printf("tosend: %#v", v)
+		switch t := v.(type) {
+		case bool:
+			if t == false {
+				logger.Println("stopping send loop")
+				return
+			}
+		case *LineMsg:
+			cc := srv.waitForCConn()
+			cc.sendWhenReady(t)
+		}
+	}
+}
+
+//----------
+
+func (srv *Server) waitForCConnReady() {
+	cc := srv.waitForCConn()
+	cc.runWhenReady(func() {})
+}
+
+//----------
+
+func (srv *Server) Close() error {
+	logger.Println("closing server")
+	defer logger.Println("server closed")
+
+	// stop accepting more connections
+	err := srv.listen.ln.Close()
+	srv.listen.loopWait.Wait()
+
+	// stop getting values to send
+	srv.toSend <- false
+	srv.sendLoopWait.Wait()
+
+	_ = srv.closeConnection()
+
+	return err
+}
+
+//----------
+//----------
 //----------
 
 // Client connection.
 type CConn struct {
-	srv          *Server
-	conn         net.Conn
-	rwait, swait sync.WaitGroup
-	sendch       chan *LineMsg // sending loop channel
-	reqStart     struct {
+	srv  *Server
+	conn net.Conn
+
+	state struct {
 		sync.Mutex
-		start   chan struct{}
+		ready   *sync.Cond // have exchanged init data and can send
 		started bool
 		closed  bool
 	}
+
+	lines  []*LineMsg // inside lock if sending in chunks (vs syncsend)
+	chunks struct {
+		sync.Mutex
+		scheduled bool
+		sendWait  sync.WaitGroup
+		sent      time.Time
+	}
 }
 
-func NewCCon(srv *Server, conn net.Conn) *CConn {
-	cconn := &CConn{srv: srv, conn: conn}
-	cconn.reqStart.start = make(chan struct{})
-
-	qsize := chunkSendQSize
-	if SyncSend {
-		qsize = 0
-	}
-	cconn.sendch = make(chan *LineMsg, qsize)
+func NewCConn(srv *Server, conn net.Conn) *CConn {
+	cc := &CConn{srv: srv, conn: conn}
+	cc.state.ready = sync.NewCond(&cc.state)
 
 	// receive messages
-	cconn.rwait.Add(1)
-	go func() {
-		defer cconn.rwait.Done()
-		cconn.receiveMsgsLoop()
-	}()
+	go cc.receiveMsgsLoop()
 
-	// send msgs
-	cconn.swait.Add(1)
-	go func() {
-		defer cconn.swait.Done()
-		cconn.sendMsgsLoop()
-	}()
-
-	return cconn
+	return cc
 }
 
-func (cconn *CConn) Close() {
-	cconn.reqStart.Lock()
-	if cconn.reqStart.started {
-		// not sendready anymore
-		cconn.srv.sendReady.Lock()
+func (cc *CConn) close() error {
+	logger.Println("closing client")
+	defer logger.Println("client closed")
+
+	cc.state.Lock()
+	defer cc.state.Unlock()
+	if cc.state.closed {
+		return nil
 	}
-	cconn.reqStart.closed = true
-	cconn.reqStart.Unlock()
+	cc.state.closed = true
 
-	// close send msgs: can't close receive msgs first (closes client)
-	close(cconn.reqStart.start) // ok even if it didn't start
-	close(cconn.sendch)
-	cconn.swait.Wait()
+	// wait for last msgs to be sent
+	cc.chunks.sendWait.Wait()
 
-	// close receive msgs
-	_ = cconn.conn.Close()
-	cconn.rwait.Wait()
+	return cc.conn.Close() // stops receiveMsgsLoop
+}
+
+func (cc *CConn) closeFromServerWithErr(err error) {
+	err2 := cc.srv.closeConnection()
+	if err == nil {
+		err = err2
+	}
+
+	// connection ended gracefully by the client
+	if errors.Is(err, io.EOF) {
+		return
+	}
+	// unable to read (client was probably closed)
+	if operr, ok := err.(*net.OpError); ok {
+		if operr.Op == "read" {
+			return
+		}
+	}
+	// always print if the error reaches here
+	panic(err)
+	logger.Printf("error: %s", err)
+	return
 }
 
 //----------
 
-func (cconn *CConn) receiveMsgsLoop() {
+func (cc *CConn) receiveMsgsLoop() {
 	for {
-		msg, err := DecodeMessage(cconn.conn)
+		msg, err := DecodeMessage(cc.conn)
 		if err != nil {
-			// unable to read (server was probably closed)
-			if operr, ok := err.(*net.OpError); ok {
-				if operr.Op == "read" {
-					break
-				}
-			}
-			// connection ended gracefully by the client
-			if err == io.EOF {
-				break
-			}
-
-			// always print if the error reaches here
-			log.Print(err)
+			cc.closeFromServerWithErr(err)
 			return
 		}
 
 		// handle msg
 		switch t := msg.(type) {
 		case *ReqFilesDataMsg:
-			logger.Print("sending files data")
-			msg := &FilesDataMsg{Data: AnnotatorFilesData}
-			if err := cconn.send2(msg); err != nil {
-				log.Println(err)
+			logger.Print("got reqfilesdata")
+			msg := &FilesDataMsg{Data: annotatorFilesData}
+			if err := cc.write(msg); err != nil {
+				cc.closeFromServerWithErr(err)
+				return
 			}
 		case *ReqStartMsg:
-			logger.Print("reqstart")
-			cconn.reqStart.Lock()
-			if !cconn.reqStart.started && !cconn.reqStart.closed {
-				cconn.reqStart.start <- struct{}{}
-				cconn.reqStart.started = true
-				cconn.srv.sendReady.Unlock()
-			}
-			cconn.reqStart.Unlock()
+			logger.Print("got reqstart")
+			cc.ready()
 		default:
 			// always print if there is a new msg type
 			log.Printf("todo: unexpected msg type: %T", t)
@@ -236,77 +322,91 @@ func (cconn *CConn) receiveMsgsLoop() {
 
 //----------
 
-func (cconn *CConn) sendMsgsLoop() {
-	// wait for reqstart, or the client won't have the index data
-	_, ok := <-cconn.reqStart.start
-	if !ok {
+func (cc *CConn) sendWhenReady(v *LineMsg) {
+	cc.runWhenReady(func() {
+		cc.send2(v)
+	})
+}
+func (cc *CConn) send2(v *LineMsg) {
+	if syncSend {
+		cc.lines = append(cc.lines, v)
+		cc.sendLines()
+	} else {
+		cc.sendLinesInChunks(v)
+	}
+}
+func (cc *CConn) sendLines() {
+	if len(cc.lines) == 0 {
+		return
+	}
+	if err := cc.write(cc.lines); err != nil {
+		cc.closeFromServerWithErr(err)
+		return
+	}
+	cc.lines = cc.lines[:0]
+}
+func (cc *CConn) sendLinesInChunks(v *LineMsg) {
+	cc.chunks.Lock()
+	defer cc.chunks.Unlock()
+
+	cc.lines = append(cc.lines, v)
+	if len(cc.lines) >= chunkSendNowNMsgs {
+		cc.sendLines()
 		return
 	}
 
-	if SyncSend {
-		cconn.syncSendLoop()
-	} else {
-		cconn.chunkSendLoop()
+	if cc.chunks.scheduled {
+		return
+	}
+	cc.chunks.scheduled = true
+
+	cc.chunks.sendWait.Add(1)
+	go func() {
+		defer cc.chunks.sendWait.Done()
+
+		now := time.Now()
+		d := time.Second / time.Duration(chunkSendRate)
+		sd := cc.chunks.sent.Add(d).Sub(now)
+		cc.chunks.sent = now
+		//log.Println("sleeping", sd)
+		time.Sleep(sd)
+
+		cc.chunks.Lock()
+		defer cc.chunks.Unlock()
+		cc.chunks.scheduled = false
+		cc.sendLines()
+	}()
+}
+
+//----------
+
+func (cc *CConn) ready() {
+	cc.state.Lock()
+	defer cc.state.Unlock()
+	if !cc.state.started && !cc.state.closed {
+		cc.state.started = true
+		cc.state.ready.Broadcast()
+	}
+}
+func (cc *CConn) runWhenReady(fn func()) {
+	cc.state.Lock()
+	defer cc.state.Unlock()
+	for !cc.state.started && !cc.state.closed {
+		cc.state.ready.Wait()
+	}
+	if cc.state.started && !cc.state.closed {
+		fn()
 	}
 }
 
-func (cconn *CConn) syncSendLoop() {
-	for {
-		v, ok := <-cconn.sendch
-		if !ok {
-			break
-		}
-		if err := cconn.send2(v); err != nil {
-			log.Println(err)
-		}
-	}
-}
+//----------
 
-func (cconn *CConn) chunkSendLoop() {
-	scheduled := false
-	timeToSend := make(chan bool)
-	msgs := []*LineMsg{}
-	sendMsgs := func() {
-		if len(msgs) > 0 {
-			if err := cconn.send2(msgs); err != nil {
-				log.Println(err)
-			}
-			msgs = nil
-		}
-	}
-loop1:
-	for {
-		select {
-		case v, ok := <-cconn.sendch:
-			if !ok {
-				break loop1
-			}
-			msgs = append(msgs, v)
-			if len(msgs) >= chunkSendNowNMsgs {
-				sendMsgs()
-			} else if !scheduled {
-				scheduled = true
-				go func() {
-					d := time.Second / time.Duration(chunkSendRate)
-					time.Sleep(d)
-					timeToSend <- true
-				}()
-			}
-		case <-timeToSend:
-			scheduled = false
-			sendMsgs()
-		}
-	}
-	// send last messages if any
-	sendMsgs()
-}
-
-func (cconn *CConn) send2(v interface{}) error {
+func (cc *CConn) write(v interface{}) error {
 	encoded, err := EncodeMessage(v)
 	if err != nil {
 		panic(err)
 	}
-	n, err := cconn.conn.Write(encoded)
+	n, err := cc.conn.Write(encoded)
 	if err != nil {
 		return err
 	}
@@ -314,10 +414,4 @@ func (cconn *CConn) send2(v interface{}) error {
 		logger.Printf("n!=len(encoded): %v %v\n", n, len(encoded))
 	}
 	return nil
-}
-
-//----------
-
-func (cconn *CConn) Send(v *LineMsg) {
-	cconn.sendch <- v
 }

@@ -1,0 +1,17 @@
+# annotates pkg from std lib
+
+ucmd godebugtester run 
+contains stdout "=> IsPathSeparator"
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+import "fmt"
+//godebug:annotateimport
+import "path/filepath"
+
+func main() {
+	a:=[]string{"a","b"}
+	fmt.Println(filepath.Join(a...))
+}

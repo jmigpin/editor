@@ -1,0 +1,13 @@
+# should be able to compile big constants
+#ucmd godebugtester run -work main.go
+ucmd godebugtester run main.go
+contains stdout "18446744073709551615=uint64(18446744073709551615=(18446744073709551616=(1 << 64) - 1))"
+
+-- main.go --
+package main
+import "math"
+func main() {
+	_=uint64(1<<64 - 1)
+	_=uint64(math.MaxUint64)
+}
+

@@ -1,0 +1,38 @@
+cd main
+ucmd godebugtester run main.go
+contains stdout "\"Fa\"\n"
+contains stdout "\"Fb\"\n"
+contains stdout "\"Fc\"\n"
+
+-- main/go.mod --
+module mod1
+require example.com/pkg1 v0.0.0
+replace example.com/pkg1 => ../pkg1
+-- main/main.go --
+package main
+import "example.com/pkg1"
+import "example.com/pkg1/sub1"
+//godebug:annotatemodule
+func main() {
+	_=pkg1.Fa()
+	_=pkg1.Fb()
+	_=sub1.Fc()
+}
+-- pkg1/go.mod --
+module example.com/pkg1
+-- pkg1/fa.go --
+package pkg1
+//godebug:annotatemodule
+func Fa() string {
+	return "Fa"
+}
+-- pkg1/fb.go --
+package pkg1
+func Fb() string {
+	return "Fb"
+}
+-- pkg1/sub1/fc.go --
+package sub1
+func Fc() string {
+	return "Fc"
+}

@@ -1,0 +1,16 @@
+# able to compile reference to method in type
+ucmd godebugtester run main.go
+contains stdout "&A{}=&{}"
+
+-- main.go --
+package main
+func main() {
+	a:=&A{}
+	v:=(*A).f1
+	_,_=a,v
+}
+type A struct{}
+func (a*A) f1()(int,int){
+	return 1, 2
+}
+

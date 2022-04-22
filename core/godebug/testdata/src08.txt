@@ -1,0 +1,14 @@
+# check the panic function (not a real builtin here)
+ucmd godebugtester run main.go
+contains stdout "println(1)"
+contains stdout "println(2)"
+
+-- main.go --
+package main
+func main() {
+	panic("!") // not a real builtin
+	println(1)
+}
+func panic(s string){
+	println(2)	
+}

@@ -1,0 +1,12 @@
+ucmd godebugtester run main.go
+contains stdout "recv: println(\"hello world!\")"
+contains stderr "hello world!\n"
+
+fail ucmd godebugtester run
+contains error "go.mod file not found"
+
+-- main.go --
+package main
+func main(){
+	println("hello world!")
+}

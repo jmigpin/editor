@@ -4,10 +4,10 @@ import (
 	"fmt"
 )
 
-func init() {
-	// register structs to be able to encode/decode from interface{}
-
-	reg := RegisterStructure
+func RegisterStructsForEncodeDecode(encoderId string) {
+	reg := func(v interface{}) {
+		registerForEncodeDecode(encoderId, v)
+	}
 
 	reg(&ReqFilesDataMsg{})
 	reg(&FilesDataMsg{})
@@ -67,103 +67,143 @@ type AnnotatorFileData struct {
 
 //----------
 
-type Item interface{}
-type ItemValue struct{ Str string }
+type Item interface {
+	isItem()
+}
+
+type ItemValue struct {
+	Item
+	Str string
+}
+
 type ItemList struct { // separated by ","
+	Item
 	List []Item
 }
 type ItemList2 struct { // separated by ";"
+	Item
 	List []Item
 }
 type ItemAssign struct {
-	Lhs, Rhs *ItemList
+	Item
+	Lhs *ItemList
+	Op  int
+	Rhs *ItemList
 }
 type ItemSend struct {
+	Item
 	Chan, Value Item
 }
-type ItemCall struct {
-	Name   string
-	Args   *ItemList
-	Result Item
-}
 type ItemCallEnter struct {
-	Name string
+	Item
+	Fun  Item
 	Args *ItemList
 }
-type ItemIndex struct {
+type ItemCall struct {
+	Item
+	Enter  *ItemCallEnter
 	Result Item
+}
+type ItemIndex struct {
+	Item
 	Expr   Item
 	Index  Item
+	Result Item
 }
 type ItemIndex2 struct {
-	Result         Item
+	Item
 	Expr           Item
 	Low, High, Max Item
 	Slice3         bool // 2 colons present
+	Result         Item
 }
 type ItemKeyValue struct {
+	Item
 	Key   Item
 	Value Item
 }
 type ItemSelector struct {
+	Item
 	X   Item
 	Sel Item
 }
 type ItemTypeAssert struct {
+	Item
 	X    Item
 	Type Item
 }
 type ItemBinary struct {
-	Result Item
-	Op     int
-	X, Y   Item
-}
-type ItemUnary struct {
-	Result Item
-	Op     int
+	Item
 	X      Item
+	Op     int
+	Y      Item
+	Result Item
 }
 type ItemUnaryEnter struct {
+	Item
 	Op int
 	X  Item
 }
-type ItemParen struct{ X Item }
-type ItemLiteral struct{ Fields *ItemList }
-type ItemBranch struct{}
-type ItemStep struct{}
-type ItemAnon struct{}
-type ItemLabel struct{ Reason string }  // ex: "for" init not debugged
-type ItemNotAnn struct{ Reason string } // not annotated (ex: String(), Error())
+type ItemUnary struct {
+	Item
+	Enter  *ItemUnaryEnter
+	Result Item
+}
+type ItemLiteral struct {
+	Item
+	Fields *ItemList
+}
+type ItemParen struct {
+	Item
+	X Item
+}
+type ItemLabel struct {
+	Item
+	Reason string // ex: "for" init not debugged
+}
+type ItemNotAnn struct {
+	Item
+	Reason string // not annotated (ex: String(), Error())
+}
+type ItemBranch struct {
+	Item
+}
+type ItemStep struct {
+	Item
+}
+type ItemAnon struct {
+	Item
+}
 
 //----------
 
-type V interface{}
-
-// ItemValue
-func IV(v V) Item {
-	return &ItemValue{Str: stringifyV(v)}
+// ItemValue: interface (ex: int=1, string="1")
+func IVi(v interface{}) Item {
+	return &ItemValue{Str: stringify(v)}
 }
 
-// ItemValue: raw string
+// ItemValue: string (ex: value of "?" is presented without quotes)
 func IVs(s string) Item {
 	return &ItemValue{Str: s}
 }
 
 // ItemValue: typeof
-func IVt(v V) Item {
-	return &ItemValue{Str: fmt.Sprintf("%T", v)}
+func IVt(v interface{}) Item {
+	s := fmt.Sprintf("%T", v)
+	return &ItemValue{Str: s}
 }
 
 // ItemValue: range
-func IVr(v V) Item {
-	return &ItemValue{Str: fmt.Sprintf("range(%v=len())", v)}
+func IVr(v int) Item {
+	s := fmt.Sprintf("range(%v=len())", v)
+	return &ItemValue{Str: s}
 }
 
-// ItemValue: printf
-// usage: newDebugCallExpr("IVp", basicLitStringQ("%v"), basicLitInt(1))
-func IVp(format string, args ...interface{}) Item {
-	return &ItemValue{Str: fmt.Sprintf(format, args...)}
-}
+//// ItemValue: printf
+//// usage: f(ctx,"IVp", basicLitStringQ("%v"), basicLitInt(1))
+//func IVp(format string, args ...interface{}) Item {
+//	return &ItemValue{Str: fmt.Sprintf(format, args...)}
+//}
 
 // ItemList ("," and ";")
 func IL(u ...Item) *ItemList {
@@ -174,8 +214,8 @@ func IL2(u ...Item) Item {
 }
 
 // ItemAssign
-func IA(lhs, rhs *ItemList) Item {
-	return &ItemAssign{Lhs: lhs, Rhs: rhs}
+func IA(lhs *ItemList, op int, rhs *ItemList) Item {
+	return &ItemAssign{Lhs: lhs, Op: op, Rhs: rhs}
 }
 
 // ItemSend
@@ -183,22 +223,23 @@ func IS(ch, value Item) Item {
 	return &ItemSend{Chan: ch, Value: value}
 }
 
-// ItemCall
-func IC(name string, result Item, args ...Item) Item {
-	return &ItemCall{Name: name, Result: result, Args: IL(args...)}
+// ItemCall: enter
+func ICe(fun Item, args *ItemList) Item {
+	return &ItemCallEnter{Fun: fun, Args: args}
 }
 
-// ItemCall: enter
-func ICe(name string, args ...Item) Item {
-	return &ItemCallEnter{Name: name, Args: IL(args...)}
+// ItemCall
+func IC(enter Item, result Item) Item {
+	u := enter.(*ItemCallEnter)
+	return &ItemCall{Enter: u, Result: result}
 }
 
 // ItemIndex
-func II(result, expr, index Item) Item {
-	return &ItemIndex{Result: result, Expr: expr, Index: index}
+func II(expr, index, result Item) Item {
+	return &ItemIndex{Expr: expr, Index: index, Result: result}
 }
-func II2(result, expr, low, high, max Item, slice3 bool) Item {
-	return &ItemIndex2{Result: result, Expr: expr, Low: low, High: high, Max: max, Slice3: slice3}
+func II2(expr, low, high, max Item, slice3 bool, result Item) Item {
+	return &ItemIndex2{Expr: expr, Low: low, High: high, Max: max, Slice3: slice3, Result: result}
 }
 
 // ItemKeyValue
@@ -217,18 +258,19 @@ func ITA(x, t Item) Item {
 }
 
 // ItemBinary
-func IB(result Item, op int, x, y Item) Item {
-	return &ItemBinary{Result: result, Op: op, X: x, Y: y}
-}
-
-// ItemUnary
-func IU(result Item, op int, x Item) Item {
-	return &ItemUnary{Result: result, Op: op, X: x}
+func IB(x Item, op int, y Item, result Item) Item {
+	return &ItemBinary{X: x, Op: op, Y: y, Result: result}
 }
 
 // ItemUnary: enter
 func IUe(op int, x Item) Item {
 	return &ItemUnaryEnter{Op: op, X: x}
+}
+
+// ItemUnary
+func IU(enter Item, result Item) Item {
+	u := enter.(*ItemUnaryEnter)
+	return &ItemUnary{Enter: u, Result: result}
 }
 
 // ItemParen
@@ -237,8 +279,8 @@ func IP(x Item) Item {
 }
 
 // ItemLiteral
-func ILit(fields ...Item) Item {
-	return &ItemLiteral{Fields: IL(fields...)}
+func ILit(fields *ItemList) Item {
+	return &ItemLiteral{Fields: fields}
 }
 
 // ItemBranch

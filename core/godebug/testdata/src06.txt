@@ -1,0 +1,13 @@
+fail ucmd godebugtester run main.go
+contains error "main.go:6:2: unexpected annotate option: \"\""
+
+-- main.go --
+package main
+func main() {
+	a:=1
+	b:=2
+	// has extra ':' at the end in annotation type not expecting it
+	//godebug:annotateblock:
+	_=a+b
+}
+
