@@ -95,8 +95,8 @@ func TestManagerGo3(t *testing.T) {
 
 	// loc1
 	{
-		goRoot := filepath.Join(os.Getenv("GOROOT"), "src")
-		loc1 := filepath.Join(goRoot, "context/context.go:243:12")
+		goRoot := os.Getenv("GOROOT")
+		loc1 := filepath.Join(goRoot, "src/context/context.go:243:12")
 		f, l, c := parseLocation(t, loc1)
 		rw, offset := readBytesOffset(t, f, l, c)
 		comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)
@@ -110,7 +110,8 @@ func TestManagerGo3(t *testing.T) {
 
 	// loc2
 	{
-		loc2 := "/home/jorge/lib/golang_packages/src/golang.org/x/image/vector/vector.go:115:14"
+		goRoot := os.Getenv("GOROOT")
+		loc2 := filepath.Join(goRoot, "src/go/doc/comment.go:128:27")
 		f, l, c := parseLocation(t, loc2)
 		rw, offset := readBytesOffset(t, f, l, c)
 		comps, err := man.TextDocumentCompletionDetailStrings(ctx, f, rw, offset)

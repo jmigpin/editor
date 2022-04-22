@@ -76,7 +76,8 @@ func TestCSrc1(t *testing.T) {
 //----------
 
 func TestManGoCompletionF1(t *testing.T) {
-	s := "/home/jorge/lib/golang_packages/src/github.com/BurntSushi/xgb/xproto/xproto.go:140:23"
+	goRoot := os.Getenv("GOROOT")
+	s := filepath.Join(goRoot, "src/go/doc/doc.go:203:48")
 	testFileLineColCompletion(t, s)
 }
 func TestManGoCompletionF2(t *testing.T) {
@@ -171,7 +172,7 @@ func TestRenameC(t *testing.T) {
 	tf := newTmpFiles(t)
 	defer tf.RemoveAll()
 
-	filename := tf.WriteFileInTmp2OrPanic("src.c", src)
+	filename := tf.WriteFileInTmp2OrPanic("src.cpp", src)
 
 	man := newTestManager(t)
 	defer man.Close()
