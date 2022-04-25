@@ -31,7 +31,7 @@ func init() {
 	cmd("ReopenRow", ReopenRow)
 	cmdERow("MaximizeRow", MaximizeRow)
 
-	cmd("NewFile", NewFile)
+	cmdERow("NewFile", NewFile)
 	cmdERow("Save", Save)
 	cmd("SaveAllFiles", SaveAllFiles)
 
