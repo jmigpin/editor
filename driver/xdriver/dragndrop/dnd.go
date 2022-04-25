@@ -1,6 +1,7 @@
 package dragndrop
 
 import (
+	"encoding/binary"
 	"fmt"
 	"image"
 	"log"
@@ -94,10 +95,16 @@ func (dnd *Dnd) onEnter(data []uint32) {
 		xproto.Atom(data[4]),
 	}
 
-	// DEBUG
 	if dnd.data.enter.moreThan3DataTypes {
-		log.Printf("TODO: dnd enter more than 3 data types")
-		xutil.PrintAtomsNames(dnd.conn, dnd.data.enter.types...)
+		atoms, err := dnd.getTypeList(dnd.data.enter.win)
+		if err != nil {
+			return
+		}
+		w := &dnd.data.enter.types
+		*w = append(*w, atoms...)
+
+		// DEBUG
+		//xutil.PrintAtomsNames(dnd.conn, atoms...)
 	}
 
 	// translate types
@@ -306,6 +313,36 @@ func (dnd *Dnd) clearData() {
 	dnd.data = DndData{}
 }
 
+//----------
+
+func (dnd *Dnd) getTypeList(win xproto.Window) ([]xproto.Atom, error) {
+	cookie := xproto.GetProperty(
+		dnd.conn,
+		false, // delete,
+		win,
+		DndAtoms.XdndTypeList, // property that contains the data
+		xproto.AtomAtom,       // type
+		0,                     // long offset
+		math.MaxUint32)        // long length
+	reply, err := cookie.Reply()
+	if err != nil {
+		return nil, err
+	}
+
+	// convert bytes to []xproto.Atom
+	sizeOfAtom := 4 // bytes
+	raw := reply.Value
+	atoms := make([]xproto.Atom, len(raw)/sizeOfAtom)
+	for i := range atoms {
+		v := raw[i*sizeOfAtom : (i+1)*sizeOfAtom]
+		atoms[i] = xproto.Atom(binary.LittleEndian.Uint32(v))
+	}
+
+	return atoms, nil
+}
+
+//----------
+//----------
 //----------
 
 type DndData struct {
