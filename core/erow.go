@@ -114,7 +114,7 @@ func (erow *ERow) init(info *ERowInfo, rowPos *ui.RowPos) {
 	ctx0 := context.Background() // TODO: editor ctx
 	erow.ctx, erow.cancelCtx = context.WithCancel(ctx0)
 
-	erow.setupTextAreaSyntaxHighlight()
+	erow.setupSyntaxHighlightAndCommentShortcuts()
 	erow.initHandlers()
 
 	erow.updateToolbarNameEncoding2("")
@@ -553,7 +553,11 @@ func (erow *ERow) MakeRangeVisibleAndFlash(index int, len int) {
 
 //----------
 
-func (erow *ERow) setupTextAreaSyntaxHighlight() {
+func (erow *ERow) setupSyntaxHighlightAndCommentShortcuts() {
+	// special handling for the toolbar (allow comment shortcut to work in the toolbar to easily disable cmds)
+	tb := erow.Row.Toolbar
+	tb.SetCommentStrings("#")
+
 	ta := erow.Row.TextArea
 
 	// ensure syntax highlight is on (ex: strings)
