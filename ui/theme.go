@@ -195,14 +195,14 @@ func acmeThemeColors(node widget.Node) {
 func rowSquarePalette() widget.Palette {
 	pal := widget.Palette{
 		"rs_active":              cint(0x0),
-		"rs_executing":           color.RGBA{15, 173, 0, 255},        // dark green
-		"rs_edited":              color.RGBA{0, 0, 255, 255},         // blue
-		"rs_disk_changes":        color.RGBA{255, 0, 0, 255},         // red
-		"rs_not_exist":           color.RGBA{255, 153, 0, 255},       // orange
-		"rs_duplicate":           color.RGBA{136, 136, 204, 255},     // blueish
-		"rs_duplicate_highlight": color.RGBA{255, 255, 0, 255},       // yellow
-		"rs_annotations":         color.RGBA{0xd3, 0x54, 0x00, 0xff}, // pumpkin
-		"rs_annotations_edited":  color.RGBA{255, 255, 0, 255},       // yellow
+		"rs_executing":           cint(0x0fad00),                       // dark green
+		"rs_edited":              cint(0x0000ff),                       // blue
+		"rs_disk_changes":        cint(0xff0000),                       // red
+		"rs_not_exist":           cint(0xff9900),                       // orange
+		"rs_duplicate":           cint(0x8888cc),                       // blueish
+		"rs_duplicate_highlight": cint(0xffff00),                       // yellow
+		"rs_annotations":         cint(0xd35400),                       // pumpkin
+		"rs_annotations_edited":  imageutil.Tint(cint(0xd35400), 0.45), // pumpkin (brighter)
 	}
 	return pal
 }
