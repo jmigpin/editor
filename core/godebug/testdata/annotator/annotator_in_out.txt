@@ -2221,3 +2221,23 @@ func f0() {
 	make(pkg.Type2)
 	Σ.Line(0, 1, 38, Σ.IC(Σ1, nil))
 }
+-- TestAnnotator112.in --
+package p1
+
+func f0() {
+	println(1)	
+}
+//go:embed somefile
+var myvar []byte
+-- TestAnnotator112.out --
+package p1
+
+func f0() {
+	Σ0 := Σ.ICe(Σ.IVs("println"), Σ.IL(Σ.IVi(1)))
+	Σ.Line(0, 0, 25, Σ0)
+	println(1)
+	Σ.Line(0, 0, 25, Σ.IC(Σ0, nil))
+}
+
+//go:embed somefile
+var myvar []byte

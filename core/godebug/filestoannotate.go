@@ -421,24 +421,23 @@ func (fa *FilesToAnnotate) addFromSrcDirectives(ctx context.Context) error {
 }
 func (fa *FilesToAnnotate) addFromSrcDirectivesFile(filename string, astFile *ast.File) error {
 
+	// get nodes with associated comments
+	cns := commentsWithNodes(fa.cmd.fset, astFile, astFile.Comments)
+
 	// find comments that have "//godebug" directives
 	opts := []*AnnotationOpt{}
-	for _, cg := range astFile.Comments {
-		for _, c := range cg.List {
-			opt, ok, err := annOptInComment(c)
-			if err != nil {
-				// improve error
-				err = positionError(fa.cmd.fset, c.Pos(), err)
-				return err
-			}
-			if ok {
-				opts = append(opts, opt)
-			}
+	for _, cns := range cns {
+		opt, ok, err := annOptInComment(cns.Comment, cns.Node)
+		if err != nil {
+			// improve error
+			err = positionError(fa.cmd.fset, cns.Comment.Pos(), err)
+			return err
+		}
+		if ok {
+			opts = append(opts, opt)
 		}
 	}
 
-	// find annotationOpt associated nodes
-	_ = annOptNodesMap2(fa.cmd.fset, astFile, opts)
 	// keep node map for annotation phase
 	for _, opt := range opts {
 		fa.nodeAnnTypes[opt.Node] = opt.Type

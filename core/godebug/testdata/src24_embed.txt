@@ -1,0 +1,28 @@
+# go:embed comment is being misplaced due to godebug insertions that create new nodes
+
+ucmd godebugtester run
+contains stderr "content1"
+contains stderr "content2"
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+import _ "embed"
+func main() {
+	println(aaa)
+	println(ec1)
+	println(bbb)
+	//somecomment
+	println(ec2)
+}
+var aaa int = 1
+//go:embed c1.txt
+var ec1 string
+var bbb int = 2
+//go:embed c2.txt
+var ec2 string
+-- c1.txt --
+content1
+-- c2.txt --
+content2

@@ -46,7 +46,10 @@ func (ann *Annotator) AnnotateAstFile(astFile *ast.File) {
 	ctx = ctx.withDebugIndex(0)
 
 	ann.vis(ctx, astFile)
-	ann.removeInnerFuncComments(astFile)
+
+	// commented: setting astfile.comments to nil seems to fix things for the ast printer.
+	//ann.removeInnerFuncComments(astFile)
+	astFile.Comments = nil
 
 	ann.debugLastIndex = ann.correctDebugIndexes(astFile)
 
