@@ -268,6 +268,7 @@ func init(){
 	syncSend = ` + strconv.FormatBool(flags.syncSend) + `
 	acceptOnlyFirstClient = ` + aofc + `
 	stringifyBytesRunes = ` + strconv.FormatBool(flags.stringifyBytesRunes) + `
+	hasSrcLines = ` + strconv.FormatBool(flags.srcLines) + `
 }
 `
 	return []byte(src)

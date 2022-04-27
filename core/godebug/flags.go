@@ -23,6 +23,7 @@ type flags struct {
 	work                bool
 	syncSend            bool
 	stringifyBytesRunes bool
+	srcLines            bool
 	toolExec            string // ex: "wine" will run "wine args..."
 	outFilename         string // build, ex: -o filename
 	address             string // build/connect
@@ -78,6 +79,7 @@ func (fl *flags) parseRunArgs(name string, args []string) error {
 	fl.addToolExecFlag(fs)
 	fl.addSyncSendFlag(fs)
 	fl.addStringifyBytesRunesFlag(fs)
+	fl.addSrcLinesFlag(fs)
 	fl.addEnvFlag(fs)
 
 	m := goBuildBooleanFlags()
@@ -101,6 +103,7 @@ func (fl *flags) parseTestArgs(name string, args []string) error {
 	fl.addToolExecFlag(fs)
 	fl.addSyncSendFlag(fs)
 	fl.addStringifyBytesRunesFlag(fs)
+	fl.addSrcLinesFlag(fs)
 	fl.addEnvFlag(fs)
 	fl.addTestRunFlag(fs)
 	fl.addTestVFlag(fs)
@@ -117,6 +120,7 @@ func (fl *flags) parseBuildArgs(name string, args []string) error {
 	fl.addVerboseFlag(fs)
 	fl.addSyncSendFlag(fs)
 	fl.addStringifyBytesRunesFlag(fs)
+	fl.addSrcLinesFlag(fs)
 	fl.addEnvFlag(fs)
 	fl.addAddressFlag(fs)
 	fl.addOutFilenameFlag(fs)
@@ -150,8 +154,11 @@ func (fl *flags) addSyncSendFlag(fs *flag.FlagSet) {
 func (fl *flags) addStringifyBytesRunesFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.stringifyBytesRunes, "sbr", false, "Stringify bytes/runes as string (ex: [97 98 99] outputs as \"abc\")")
 }
+func (fl *flags) addSrcLinesFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&fl.srcLines, "srclines", false, "add src reference lines to the compilation such that in case of panics, the stack refers to the original src file")
+}
 func (fl *flags) addToolExecFlag(fs *flag.FlagSet) {
-	fs.StringVar(&fl.toolExec, "toolexec", "", "execute fl, useful to run a tool with the output file (ex: wine)")
+	fs.StringVar(&fl.toolExec, "toolexec", "", "a program to invoke before the program argument. Useful to run a tool with the output file (ex: wine)")
 }
 func (fl *flags) addAddressFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.address, "addr", ":8078", "address to connect to, built into the binary")
@@ -243,6 +250,7 @@ Examples:
 	GoDebug run -help
 	GoDebug run main.go -arg1 -arg2
 	GoDebug run -paths=dir1,file2.go,dir3 main.go -arg1 -arg2
+	GoDebug run -tags=xproto main.go
 	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
 	GoDebug test
 	GoDebug test -help

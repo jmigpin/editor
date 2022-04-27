@@ -29,7 +29,8 @@ var annotatorFilesData []*AnnotatorFileData // all debug data
 
 var syncSend bool              // don't send in chunks (usefull to get msgs before crash)
 var acceptOnlyFirstClient bool // avoid possible hanging progs waiting for another connection to continue debugging (most common case)
-var stringifyBytesRunes bool
+var stringifyBytesRunes bool   // output "abc" instead of [97 98 99]
+var hasSrcLines bool           // in case of panic, show warning about srclines
 
 //----------
 

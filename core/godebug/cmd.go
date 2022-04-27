@@ -27,15 +27,6 @@ import (
 	"github.com/jmigpin/editor/util/pathutil"
 )
 
-//godebug:annotatepackage
-////godebug:annotatefile:cmd.go
-////godebug:annotatefile:annotator.go
-
-// need to use the same location as imported in the client (gob decoder), as well as for detecting if self debugging to avoid including these for annotation
-//const editorPkgPath = "github.com/jmigpin/editor"
-//const partialDebugPkgPath = "core/godebug/debug"
-//const debugPkgPath = editorPkgPath + "/" + partialDebugPkgPath
-
 var debugPkgPath = "godebugconfig/debug"
 
 //----------
@@ -54,7 +45,6 @@ type Cmd struct {
 	tmpDir           string
 	tmpBuiltFile     string // godebug file built
 	tmpGoModFilename string
-	//tmpMainFuncFilename string
 
 	mainFuncFilename string // set at annotation time
 
@@ -232,23 +222,6 @@ func (cmd *Cmd) buildBinary(ctx context.Context, fa *FilesToAnnotate) error {
 	a = append(a, "-o="+cmd.tmpBuiltFile)
 	a = append(a, cmd.buildArgs()...)
 	a = append(a, cmd.flags.unnamedArgs...)
-
-	//if fa.mainFunc.created {
-	//	// keep for removal since it was created
-	//	cmd.tmpMainFuncFilename = fa.mainFunc.filename
-	//}
-	//if len(cmd.flags.filenames) > 0 && fa.mainFunc.created {
-	//if fa.mainFunc.created {
-	//	//// fails with dir not the same in all filenames args
-	//	//a = append(a, fa.mainFunc.filename)
-
-	//	// the cmd line args files must all be in the same dir
-	//	f, err := filepath.Rel(cmd.Dir, fa.mainFunc.filename)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	a = append(a, f)
-	//}
 
 	cmd.logf("build binary: %v\n", a)
 	ec := cmd.newCmdI(ctx, a)
@@ -515,10 +488,6 @@ func (cmd *Cmd) cleanupAfterStart() {
 	if cmd.tmpGoModFilename != "" {
 		_ = os.Remove(cmd.tmpGoModFilename) // best effort
 	}
-	//// always remove (written in src dir)
-	//if cmd.tmpMainFuncFilename != "" {
-	//	_ = os.Remove(cmd.tmpMainFuncFilename) // best effort
-	//}
 	// remove dirs
 	if cmd.tmpDir != "" && !cmd.flags.work {
 		_ = os.RemoveAll(cmd.tmpDir) // best effort
@@ -541,9 +510,10 @@ func (cmd *Cmd) cleanupAfterWait() {
 func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 	buf := &bytes.Buffer{}
 
-	// commented: don't print with sourcepos since it will only confuse the user. If the original code doesn't compile, the load packages should fail early before gettin to output any ast.file
-	//pcfg := &printer.Config{Mode: printer.SourcePos, Tabwidth: 4}
 	pcfg := &printer.Config{Tabwidth: 4}
+	if cmd.flags.srcLines {
+		pcfg.Mode = printer.SourcePos
+	}
 
 	if err := pcfg.Fprint(buf, cmd.fset, astFile); err != nil {
 		return err
@@ -749,7 +719,7 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 	//}
 
 	// target dir
-	cmd.debugPkgDir = filepath.Join(cmd.tmpDir, "debug_pkg")
+	cmd.debugPkgDir = filepath.Join(cmd.tmpDir, "debugpkg")
 	if cmd.gopathMode {
 		cmd.addToGopathStart(cmd.debugPkgDir)
 		cmd.debugPkgDir = filepath.Join(cmd.debugPkgDir, "src/"+debugPkgPath)
@@ -896,7 +866,7 @@ func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
 
 	ci := osutil.NewCmdI(ec)
 	ci = osutil.NewSetSidCmd(ctx, ci)
-	//ci = osutil.NewShellCmd(ci)
+	ci = osutil.NewShellCmd(ci)
 	return ci
 }
 

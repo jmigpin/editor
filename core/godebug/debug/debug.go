@@ -3,6 +3,7 @@ package debug
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"sync"
 )
 
@@ -46,6 +47,19 @@ func ExitServer() {
 	}
 	dsrv.exited = true
 	dsrv.Unlock()
+
+	if !hasSrcLines {
+		if r := recover(); r != nil {
+			// use std msg format
+			println(fmt.Sprintf("panic: %v\n", r))
+
+			println("GODEBUG WARNING: code not compiled with src lines references. Trace locations refer to annotated files. Consider using -srclines flag.\n")
+
+			println(string(debug.Stack()))
+
+			os.Exit(2) // default panic seems to exit with code 2 as well
+		}
+	}
 }
 
 // Auto-inserted in annotated files to replace os.Exit calls. Not to be used.
