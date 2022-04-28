@@ -28,8 +28,7 @@ import (
 	"github.com/jmigpin/editor/util/pathutil"
 )
 
-//godebug:annotatepackage
-
+// The godebug/debug pkg is writen to a tmp dir and used with the pkg path "godebugconfig/debug" to avoid clashes when self debugging. A config.go file is added with the annotation data. The godebug/debug pkg is included in the editor binary via //go:embed directive.
 var debugPkgPath = "godebugconfig/debug"
 
 //----------
@@ -529,6 +528,8 @@ func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 	buf := &bytes.Buffer{}
 
 	pcfg := &printer.Config{Tabwidth: 4}
+
+	// by default, don't print with sourcepos since it will only confuse the user. If the original code doesn't compile, the load packages should fail early before getting to output any ast file.
 	if cmd.flags.srcLines {
 		pcfg.Mode = printer.SourcePos
 	}
