@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -26,6 +27,8 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/pathutil"
 )
+
+//godebug:annotatepackage
 
 var debugPkgPath = "godebugconfig/debug"
 
@@ -109,6 +112,10 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 
 	cmd.logf("dir=%v\n", cmd.Dir)
 	cmd.logf("testmode=%v\n", cmd.flags.mode.test)
+
+	if err := cmd.neededGoVersion(); err != nil {
+		return err
+	}
 
 	// use absolute dir
 	dir0, err := filepath.Abs(cmd.Dir)
@@ -480,6 +487,17 @@ func (cmd *Cmd) detectGoMod() bool {
 	_, ok := goutil.FindGoMod(cmd.Dir)
 	return ok
 }
+func (cmd *Cmd) neededGoVersion() error {
+	// need go version that supports overlays
+	v, err := goutil.GoVersion()
+	if err != nil {
+		return err
+	}
+	if parseutil.VersionLessThan(v, "1.16") {
+		return fmt.Errorf("need go version >=1.16 that supports -overlay flag")
+	}
+	return nil
+}
 
 //------------
 
@@ -745,7 +763,8 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 		return err
 	}
 	for _, de := range des {
-		filename1 := filepath.Join(srcDir, de.Name())
+		// must use path.join since dealing with embedFs
+		filename1 := path.Join(srcDir, de.Name())
 		if strings.HasSuffix(filename1, "_test.go") {
 			continue
 		}
