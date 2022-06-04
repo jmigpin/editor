@@ -192,7 +192,7 @@ func newTestManager(t *testing.T) *Manager {
 
 	// lang registrations
 	u := []string{
-		goplsRegistration(logTestVerbose(), false, false),
+		GoplsRegistration(logTestVerbose(), false, false),
 		cLangRegistration(logTestVerbose()),
 	}
 	for _, s := range u {

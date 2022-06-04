@@ -91,8 +91,8 @@ func stringifyRegistration(reg *Registration) string {
 
 func RegistrationExamples() []string {
 	return []string{
-		goplsRegistration(false, false, false),
-		goplsRegistration(false, false, true),
+		GoplsRegistration(false, false, false),
+		GoplsRegistration(false, false, true),
 		cLangRegistration(false),
 		"python,.py,tcpclient,127.0.0.1:9000",
 	}
@@ -100,7 +100,7 @@ func RegistrationExamples() []string {
 
 //----------
 
-func goplsRegistration(trace bool, stderr bool, tcp bool) string {
+func GoplsRegistration(trace bool, stderr bool, tcp bool) string {
 	cmdStr := ""
 	if trace {
 		cmdStr = " -v -rpc.trace"

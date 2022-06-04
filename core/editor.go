@@ -123,16 +123,18 @@ func (ed *Editor) initLSProto(opt *Options) {
 	}
 
 	// Commented: don't auto add since the lsproto server could have issues, and auto-adding doesn't allow the user to have a choice to using directly some other option (like a plugin)
-	//// auto setup gopls if there is no handler for ".go" files
-	//_, err := ed.LSProtoMan.LangManager("a.go")
-	//if err != nil { // no registration exists
-	//	s := "go,.go,stdio,\"gopls serve\""
-	//	reg, err := lsproto.NewRegistration(s)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//	ed.LSProtoMan.Register(reg)
-	//}
+	// Uncommented: unlikely to be using a plugin for golang since gopls is fairly stable now, allow auto registration
+
+	// auto setup gopls if there is no handler for ".go" files
+	_, err := ed.LSProtoMan.LangManager("a.go")
+	if err != nil { // no registration exists
+		s := lsproto.GoplsRegistration(false, false, true)
+		reg, err := lsproto.NewRegistration(s)
+		if err != nil {
+			panic(err)
+		}
+		ed.LSProtoMan.Register(reg)
+	}
 }
 
 func (ed *Editor) initPreSaveHooks(opt *Options) {
