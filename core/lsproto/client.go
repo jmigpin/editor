@@ -388,6 +388,29 @@ func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, 
 
 //----------
 
+func (cli *Client) TextDocumentImplementation(ctx context.Context, filename string, pos Position) (*Location, error) {
+	// https://microsoft.github.io/language-server-protocol/specification#textDocument_implementation
+
+	opt := &TextDocumentPositionParams{}
+	opt.Position = pos
+	url, err := parseutil.AbsFilenameToUrl(filename)
+	if err != nil {
+		return nil, err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
+
+	result := []*Location{}
+	if err := cli.Call(ctx, "textDocument/implementation", &opt, &result); err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no results")
+	}
+	return result[0], nil // first result only	
+}
+
+//----------
+
 func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, pos Position) (*CompletionList, error) {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_completion
 
