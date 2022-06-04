@@ -100,15 +100,9 @@ func (man *Manager) Close() error {
 //----------
 
 func (man *Manager) TextDocumentImplementation(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) (string, *Range, error) {
-	cli, li, err := man.langInstanceClient(ctx, filename)
+	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
 		return "", nil, err
-	}
-	
-	// some languages don't need to check for implementations (definitions are enough)
-	languagesToBypass := "python go javascript"
-	if strings.Contains(languagesToBypass, strings.ToLower(li.lang.Reg.Language) ) {
-		return "", nil, nil
 	}
 
 	dir := filepath.Dir(filename)

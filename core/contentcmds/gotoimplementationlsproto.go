@@ -3,6 +3,7 @@ package contentcmds
 import (
 	"context"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/jmigpin/editor/core"
@@ -26,8 +27,15 @@ func GoToImplementationLSProto(ctx context.Context, erow *core.ERow, index int) 
 	rw := ta.RW()
 
 	// must have a registration that handles the filename
-	_, err := ed.LSProtoMan.LangManager(erow.Info.Name())
+	lang, err := ed.LSProtoMan.LangManager(erow.Info.Name())
 	if err != nil {
+		return nil, false
+	}
+
+	// TODO: temporary until a cmd line option is implemented
+	// some languages don't need to check for implementations (definitions are enough)
+	languagesToBypass := "python go javascript"
+	if strings.Contains(languagesToBypass, strings.ToLower(lang.Reg.Language)) {
 		return nil, false
 	}
 
