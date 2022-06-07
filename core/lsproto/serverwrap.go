@@ -21,11 +21,11 @@ type ServerWrap struct {
 
 func StartServerWrapTCP(ctx context.Context, cmdTmpl string, w io.Writer) (*ServerWrap, string, error) {
 	// multiple editors can have multiple server wraps
-	//port, err := osutil.GetFreeTcpPort()
-	//if err != nil {
-	//	return nil, "", err
-	//}
-	port := osutil.RandomPort(3, 10000, 65000)
+	port, err := osutil.GetFreeTcpPort()
+	if err != nil {
+		return nil, "", err
+	}
+	//port := osutil.RandomPort(3, 10000, 65000)
 
 	// template vars
 	addr := fmt.Sprintf("127.0.0.1:%v", port)

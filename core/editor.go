@@ -122,18 +122,18 @@ func (ed *Editor) initLSProto(opt *Options) {
 		ed.LSProtoMan.Register(reg)
 	}
 
-	// Commented: don't auto add since the lsproto server could have issues, and auto-adding doesn't allow the user to have a choice to using directly some other option (like a plugin)
-	// Uncommented: unlikely to be using a plugin for golang since gopls is fairly stable now, allow auto registration
+	// NOTE: argument for not having auto-registration: don't auto add since the lsproto server could have issues, and auto-adding doesn't allow the user to have a choice to using directly some other option (like a plugin)
+	// NOTE: unlikely to be using a plugin for golang since gopls is fairly stable now, allow auto registration at least for ".go" if not present
 
 	// auto setup gopls if there is no handler for ".go" files
 	_, err := ed.LSProtoMan.LangManager("a.go")
 	if err != nil { // no registration exists
-		s := lsproto.GoplsRegistration(false, false, true)
+		s := lsproto.GoplsRegistration(false, false, false)
 		reg, err := lsproto.NewRegistration(s)
 		if err != nil {
 			panic(err)
 		}
-		ed.LSProtoMan.Register(reg)
+		_ = ed.LSProtoMan.Register(reg)
 	}
 }
 

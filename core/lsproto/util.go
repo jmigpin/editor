@@ -8,9 +8,12 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
+	"strings"
 	"unicode/utf16"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
@@ -150,3 +153,46 @@ func RangeToOffsetLen(rd iorw.ReaderAt, rang *Range) (int, int, error) {
 }
 
 //----------
+
+func JsonGetPath(v interface{}, path string) (interface{}, error) {
+	args := strings.Split(path, ".")
+	return jsonGetPath2(v, args)
+}
+
+// TODO: incomplete
+func jsonGetPath2(v interface{}, args []string) (interface{}, error) {
+	// handle last arg
+	if len(args) == 0 {
+		switch t := v.(type) {
+		case bool, int, float32, float64:
+			return t, nil
+		}
+		return nil, fmt.Errorf("unhandled last type: %T", v)
+	}
+	// handle args: len(args)>0
+	arg, args2 := args[0], args[1:]
+	switch t := v.(type) {
+	case map[string]interface{}:
+		if v, ok := t[arg]; ok {
+			return jsonGetPath2(v, args2)
+		}
+		return nil, fmt.Errorf("not found: %v", arg)
+	}
+	return nil, fmt.Errorf("unhandled type: %T (arg=%v)", v, arg)
+}
+
+//----------
+
+func urlToAbsFilename(url string) (string, error) {
+	return parseutil.UrlToAbsFilename(url)
+}
+
+func absFilenameToUrl(filename string) (string, error) {
+	if runtime.GOOS == "windows" {
+		// gopls requires casing to match the OS names in windows (error: case mismatch in path ...)
+		if u, err := osutil.FsCaseFilename(filename); err == nil {
+			filename = u
+		}
+	}
+	return parseutil.AbsFilenameToUrl(filename)
+}

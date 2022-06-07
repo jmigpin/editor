@@ -7,15 +7,12 @@ import (
 	"io"
 	"net"
 	"net/rpc"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type Client struct {
@@ -168,13 +165,14 @@ func (cli *Client) onUnexpectedServerReply(resp *Response) {
 //----------
 
 func (cli *Client) Initialize(ctx context.Context) error {
-	opt, err := cli.initializeParams()
-	if err != nil {
-		return err
-	}
+	//opt, err := cli.initializeParams()
+	//if err != nil {
+	//	return err
+	//}
+	opt := json.RawMessage("{}")
 	logJson("opt -->: ", opt)
 
-	var serverCapabilities interface{}
+	serverCapabilities := (interface{})(nil)
 	if err := cli.Call(ctx, "initialize", opt, &serverCapabilities); err != nil {
 		return err
 	}
@@ -184,55 +182,55 @@ func (cli *Client) Initialize(ctx context.Context) error {
 
 	// send "initialized" (gopls: "no views" error without this)
 	opt2 := json.RawMessage("{}")
-	return cli.Call(ctx, "noreply:initialized", &opt2, nil)
+	return cli.Call(ctx, "noreply:initialized", opt2, nil)
 }
 
-func (cli *Client) initializeParams() (json.RawMessage, error) {
-	rootUri, err := cli.rootUri()
-	if err != nil {
-		return nil, err
-	}
-	_ = rootUri
+//func (cli *Client) initializeParams() (json.RawMessage, error) {
+//	rootUri, err := cli.rootUri()
+//	if err != nil {
+//		return nil, err
+//	}
+//	_ = rootUri
 
-	// workspace folders
-	cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
-	foldersBytes, err := encodeJson(cli.folders)
-	if err != nil {
-		return nil, err
-	}
+//	// workspace folders
+//	cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
+//	foldersBytes, err := encodeJson(cli.folders)
+//	if err != nil {
+//		return nil, err
+//	}
 
-	// other capabilities
-	//"capabilities":{
-	//	"workspace":{
-	//		"configuration":true,
-	//		"workspaceFolders":true
-	//	},
-	//	"textDocument":{
-	//		"publishDiagnostics":{
-	//			"relatedInformation":true
-	//		}
-	//	}
-	//}
+//	// other capabilities
+//	//"capabilities":{
+//	//	"workspace":{
+//	//		"configuration":true,
+//	//		"workspaceFolders":true
+//	//	},
+//	//	"textDocument":{
+//	//		"publishDiagnostics":{
+//	//			"relatedInformation":true
+//	//		}
+//	//	}
+//	//}
 
-	raw := json.RawMessage("{" +
-		// TODO: gopls is not allowing rooturi=null at the moment...
-		fmt.Sprintf("%q:%q", "rootUri", rootUri) + "," +
-		// set workspace folders to use the later as "remove" value
-		fmt.Sprintf("%q:%s", "workspaceFolders", foldersBytes) +
-		"}")
-	return raw, nil
-}
+//	raw := json.RawMessage("{" +
+//		// TODO: gopls is not allowing rooturi=null at the moment...
+//		fmt.Sprintf("%q:%q", "rootUri", rootUri) + "," +
+//		// set workspace folders to use the later as "remove" value
+//		fmt.Sprintf("%q:%s", "workspaceFolders", foldersBytes) +
+//		"}")
+//	return raw, nil
+//}
 
-func (cli *Client) rootUri() (DocumentUri, error) {
-	// using a non-existent dir to prevent an lsp server to start scanning the user disk doesn't work well (ex: gopls gives "no views in the session" after the cache is gone)
-	// use initial request file
-	dir := filepath.Dir(cli.li.lang.InstanceReqFilename)
-	rootUrl, err := parseutil.AbsFilenameToUrl(dir)
-	if err != nil {
-		return "", err
-	}
-	return DocumentUri(rootUrl), nil
-}
+//func (cli *Client) rootUri() (DocumentUri, error) {
+//	// using a non-existent dir to prevent an lsp server to start scanning the user disk doesn't work well (ex: gopls gives "no views in the session" after the cache is gone)
+//	// use initial request file
+//	dir := filepath.Dir(cli.li.lang.InstanceReqFilename)
+//	rootUrl, err := absFilenameToUrl(dir)
+//	if err != nil {
+//		return "", err
+//	}
+//	return DocumentUri(rootUrl), nil
+//}
 
 func (cli *Client) readServerCapabilities(caps interface{}) {
 	path := "capabilities.workspace.workspaceFolders.supported"
@@ -297,24 +295,24 @@ func (cli *Client) TextDocumentDidOpen(ctx context.Context, filename, text strin
 	opt.TextDocument.LanguageId = cli.li.lang.Reg.Language
 	opt.TextDocument.Version = version
 	opt.TextDocument.Text = text
-	url, err := parseutil.AbsFilenameToUrl(filename)
+	url, err := absFilenameToUrl(filename)
 	if err != nil {
 		return err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
-	return cli.Call(ctx, "noreply:textDocument/didOpen", &opt, nil)
+	return cli.Call(ctx, "noreply:textDocument/didOpen", opt, nil)
 }
 
 func (cli *Client) TextDocumentDidClose(ctx context.Context, filename string) error {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didClose
 
 	opt := &DidCloseTextDocumentParams{}
-	url, err := parseutil.AbsFilenameToUrl(filename)
+	url, err := absFilenameToUrl(filename)
 	if err != nil {
 		return err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
-	return cli.Call(ctx, "noreply:textDocument/didClose", &opt, nil)
+	return cli.Call(ctx, "noreply:textDocument/didClose", opt, nil)
 }
 
 func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text string, version int) error {
@@ -322,7 +320,7 @@ func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text str
 
 	opt := &DidChangeTextDocumentParams{}
 	opt.TextDocument.Version = &version
-	url, err := parseutil.AbsFilenameToUrl(filename)
+	url, err := absFilenameToUrl(filename)
 	if err != nil {
 		return err
 	}
@@ -346,7 +344,7 @@ func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text str
 			Text: text,
 		},
 	}
-	return cli.Call(ctx, "noreply:textDocument/didChange", &opt, nil)
+	return cli.Call(ctx, "noreply:textDocument/didChange", opt, nil)
 }
 
 func (cli *Client) TextDocumentDidSave(ctx context.Context, filename string, text []byte) error {
@@ -354,13 +352,13 @@ func (cli *Client) TextDocumentDidSave(ctx context.Context, filename string, tex
 
 	opt := &DidSaveTextDocumentParams{}
 	opt.Text = string(text) // has omitempty
-	url, err := parseutil.AbsFilenameToUrl(filename)
+	url, err := absFilenameToUrl(filename)
 	if err != nil {
 		return err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 
-	return cli.Call(ctx, "noreply:textDocument/didSave", &opt, nil)
+	return cli.Call(ctx, "noreply:textDocument/didSave", opt, nil)
 }
 
 //----------
@@ -370,14 +368,14 @@ func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, 
 
 	opt := &TextDocumentPositionParams{}
 	opt.Position = pos
-	url, err := parseutil.AbsFilenameToUrl(filename)
+	url, err := absFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 
 	result := []*Location{}
-	if err := cli.Call(ctx, "textDocument/definition", &opt, &result); err != nil {
+	if err := cli.Call(ctx, "textDocument/definition", opt, &result); err != nil {
 		return nil, err
 	}
 	if len(result) == 0 {
@@ -393,20 +391,20 @@ func (cli *Client) TextDocumentImplementation(ctx context.Context, filename stri
 
 	opt := &TextDocumentPositionParams{}
 	opt.Position = pos
-	url, err := parseutil.AbsFilenameToUrl(filename)
+	url, err := absFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 
 	result := []*Location{}
-	if err := cli.Call(ctx, "textDocument/implementation", &opt, &result); err != nil {
+	if err := cli.Call(ctx, "textDocument/implementation", opt, &result); err != nil {
 		return nil, err
 	}
 	if len(result) == 0 {
 		return nil, fmt.Errorf("no results")
 	}
-	return result[0], nil // first result only	
+	return result[0], nil // first result only
 }
 
 //----------
@@ -417,14 +415,14 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 	opt := &CompletionParams{}
 	opt.Context.TriggerKind = 1 // invoked
 	opt.Position = pos
-	url, err := parseutil.AbsFilenameToUrl(filename)
+	url, err := absFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 
 	result := CompletionList{}
-	if err := cli.Call(ctx, "textDocument/completion", &opt, &result); err != nil {
+	if err := cli.Call(ctx, "textDocument/completion", opt, &result); err != nil {
 		return nil, err
 	}
 	//logJson(result)
@@ -446,36 +444,36 @@ func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename stri
 
 //----------
 
-func (cli *Client) WorkspaceDidChangeWorkspaceFolders(ctx context.Context, added, removed []*WorkspaceFolder) error {
-	opt := &DidChangeWorkspaceFoldersParams{}
-	opt.Event = &WorkspaceFoldersChangeEvent{}
-	opt.Event.Added = added
-	opt.Event.Removed = removed
-	err := cli.Call(ctx, "noreply:workspace/didChangeWorkspaceFolders", &opt, nil)
-	return err
-}
+//func (cli *Client) WorkspaceDidChangeWorkspaceFolders(ctx context.Context, added, removed []*WorkspaceFolder) error {
+//	opt := &DidChangeWorkspaceFoldersParams{}
+//	opt.Event = &WorkspaceFoldersChangeEvent{}
+//	opt.Event.Added = added
+//	opt.Event.Removed = removed
+//	err := cli.Call(ctx, "noreply:workspace/didChangeWorkspaceFolders", opt, nil)
+//	return err
+//}
 
 //----------
 
-func (cli *Client) UpdateWorkspaceFolder(ctx context.Context, dir string) error {
-	if !cli.serverCapabilities.workspace.folders {
-		return nil
-	}
+//func (cli *Client) UpdateWorkspaceFolder(ctx context.Context, dir string) error {
+//	if !cli.serverCapabilities.workspace.folders {
+//		return nil
+//	}
 
-	removed := cli.folders
-	url, err := parseutil.AbsFilenameToUrl(dir)
-	if err != nil {
-		return err
-	}
-	cli.folders = []*WorkspaceFolder{{Uri: DocumentUri(url)}}
-	return cli.WorkspaceDidChangeWorkspaceFolders(ctx, cli.folders, removed)
+//	removed := cli.folders
+//	url, err := absFilenameToUrl(dir)
+//	if err != nil {
+//		return err
+//	}
+//	cli.folders = []*WorkspaceFolder{{Uri: DocumentUri(url)}}
+//	return cli.WorkspaceDidChangeWorkspaceFolders(ctx, cli.folders, removed)
 
-}
+//}
 
 // TODO
 //return cli.WorkspaceDidChangeConfiguration(ctx, dir)
 //func (cli *Client) WorkspaceDidChangeConfiguration(ctx context.Context, dir string) error {
-//	url, err := parseutil.AbsFilenameToUrl(dir)
+//	url, err := absFilenameToUrl(dir)
 //	if err != nil {
 //		return err
 //	}
@@ -483,7 +481,7 @@ func (cli *Client) UpdateWorkspaceFolder(ctx context.Context, dir string) error 
 //	opt := json.RawMessage(`{
 //		"settings":{"workspaceFolders":[{"uri":"` + url + `"}]}
 //	}`)
-//	return cli.Call(ctx, "noreply:workspace/didChangeConfiguration", &opt, nil)
+//	return cli.Call(ctx, "noreply:workspace/didChangeConfiguration", opt, nil)
 //}
 
 //----------
@@ -531,37 +529,12 @@ func (cli *Client) TextDocumentRename(ctx context.Context, filename string, pos 
 	opt := &RenameParams{}
 	opt.NewName = newName
 	opt.Position = pos
-	url, err := parseutil.AbsFilenameToUrl(filename)
+	url, err := absFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 	result := WorkspaceEdit{}
-	err = cli.Call(ctx, "textDocument/rename", &opt, &result)
+	err = cli.Call(ctx, "textDocument/rename", opt, &result)
 	return &result, err
-}
-
-//----------
-
-func JsonGetPath(v interface{}, path string) (interface{}, error) {
-	args := strings.Split(path, ".")
-	return jsonGetPath2(v, args)
-}
-
-// TODO: incomplete
-func jsonGetPath2(v interface{}, args []string) (interface{}, error) {
-	switch t := v.(type) {
-	case map[string]interface{}:
-		if len(args) > 0 {
-			a := args[0]
-			if v, ok := t[a]; ok {
-				return jsonGetPath2(v, args[1:])
-			}
-			return nil, fmt.Errorf("not found: %v", args[0])
-		}
-	case bool, int, float32, float64:
-		return t, nil
-	}
-
-	return nil, nil
 }

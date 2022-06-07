@@ -104,6 +104,14 @@ func (li *LangInstance) startClientServerStdio(ctx context.Context) error {
 	if li.lang.Reg.HasOptional("stderr") {
 		stderr = os.Stderr
 	}
+	if li.lang.Reg.HasOptional("stderrmanmsg") {
+		// get server output in manager messages (editor msgs)
+		stderr = iout.FnWriter(func(p []byte) (int, error) {
+			li.lang.man.Message(string(p))
+			return len(p), nil
+		})
+	}
+
 	// server wrap
 	sw, rwc, err := StartServerWrapIO(ctx, li.lang.Reg.Cmd, stderr, li)
 	if err != nil {

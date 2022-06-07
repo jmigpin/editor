@@ -11,8 +11,6 @@ import (
 type LangManager struct {
 	Reg *Registration // accessed from editor
 
-	InstanceReqFilename string // the calling filename (used in startup)
-
 	man *Manager
 	mu  struct {
 		sync.Mutex
@@ -25,11 +23,9 @@ func NewLangManager(man *Manager, reg *Registration) *LangManager {
 	return &LangManager{Reg: reg, man: man}
 }
 
-func (lang *LangManager) instance(reqCtx context.Context, filename string) (*LangInstance, error) {
+func (lang *LangManager) instance(reqCtx context.Context) (*LangInstance, error) {
 	lang.mu.Lock()
 	defer lang.mu.Unlock()
-
-	lang.InstanceReqFilename = filename
 
 	if lang.mu.li != nil {
 		return lang.mu.li, nil

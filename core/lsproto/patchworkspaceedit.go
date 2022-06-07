@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type WorkspaceEditChange struct {
@@ -17,14 +16,14 @@ type WorkspaceEditChange struct {
 func WorkspaceEditChanges(we *WorkspaceEdit) ([]*WorkspaceEditChange, error) {
 	m := map[string]*WorkspaceEditChange{}
 	for url, edits := range we.Changes {
-		filename, err := parseutil.UrlToAbsFilename(string(url))
+		filename, err := urlToAbsFilename(string(url))
 		if err != nil {
 			return nil, err
 		}
 		m[filename] = &WorkspaceEditChange{filename, edits}
 	}
 	for _, tde := range we.DocumentChanges {
-		filename, err := parseutil.UrlToAbsFilename(string(tde.TextDocument.Uri))
+		filename, err := urlToAbsFilename(string(tde.TextDocument.Uri))
 		if err != nil {
 			return nil, err
 		}

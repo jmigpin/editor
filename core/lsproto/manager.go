@@ -9,7 +9,6 @@ import (
 
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/parseutil"
 )
 
 // Notes:
@@ -68,7 +67,7 @@ func (man *Manager) langInstanceClient(ctx context.Context, filename string) (*C
 	if err != nil {
 		return nil, nil, err
 	}
-	li, err := lang.instance(ctx, filename)
+	li, err := lang.instance(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -105,10 +104,10 @@ func (man *Manager) TextDocumentImplementation(ctx context.Context, filename str
 		return "", nil, err
 	}
 
-	dir := filepath.Dir(filename)
-	if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
-		return "", nil, err
-	}
+	//dir := filepath.Dir(filename)
+	//if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
+	//	return "", nil, err
+	//}
 
 	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
 		return "", nil, err
@@ -126,7 +125,7 @@ func (man *Manager) TextDocumentImplementation(ctx context.Context, filename str
 	}
 
 	// target filename
-	filename2, err := parseutil.UrlToAbsFilename(string(loc.Uri))
+	filename2, err := urlToAbsFilename(string(loc.Uri))
 	if err != nil {
 		return "", nil, err
 	}
@@ -142,10 +141,10 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 		return "", nil, err
 	}
 
-	dir := filepath.Dir(filename)
-	if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
-		return "", nil, err
-	}
+	//dir := filepath.Dir(filename)
+	//if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
+	//	return "", nil, err
+	//}
 
 	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
 		return "", nil, err
@@ -163,7 +162,7 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 	}
 
 	// target filename
-	filename2, err := parseutil.UrlToAbsFilename(string(loc.Uri))
+	filename2, err := urlToAbsFilename(string(loc.Uri))
 	if err != nil {
 		return "", nil, err
 	}
@@ -179,10 +178,10 @@ func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string,
 		return nil, err
 	}
 
-	dir := filepath.Dir(filename)
-	if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
-		return nil, err
-	}
+	//dir := filepath.Dir(filename)
+	//if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
+	//	return nil, err
+	//}
 
 	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
 		return nil, err
@@ -282,10 +281,10 @@ func (man *Manager) TextDocumentRename(ctx context.Context, filename string, rd 
 		return nil, err
 	}
 
-	dir := filepath.Dir(filename)
-	if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
-		return nil, err
-	}
+	//dir := filepath.Dir(filename)
+	//if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
+	//	return nil, err
+	//}
 
 	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
 		return nil, err

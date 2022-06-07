@@ -36,11 +36,13 @@ func TestGoSrc1(t *testing.T) {
 
 func TestGoSrc2(t *testing.T) {
 	src0 := `
-		package lsproto
-		import "log"
+		package lsproto		
 		func main(){
-			log.P●rintf("aaa")
-		}	
+			ma●in2()
+		}
+		func main2() {
+			println("testing")
+		}
 	`
 	{
 		offset, src := sourceCursor(t, src0, 0)
@@ -59,8 +61,11 @@ func TestCSrc1(t *testing.T) {
 		#include <iostream>
 		using namespace std;
 		int main() {
-			co●ut << "Hello, World!";
+			cout << "Hello, World! " << m●ain2();
 			return 0;
+		}
+		int main2(){
+			return 3;
 		}
 	`
 	{

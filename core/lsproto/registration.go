@@ -92,7 +92,7 @@ func stringifyRegistration(reg *Registration) string {
 func RegistrationExamples() []string {
 	return []string{
 		GoplsRegistration(false, false, false),
-		GoplsRegistration(false, false, true),
+		GoplsRegistration(false, true, false),
 		cLangRegistration(false),
 		"python,.py,tcpclient,127.0.0.1:9000",
 	}
@@ -100,21 +100,30 @@ func RegistrationExamples() []string {
 
 //----------
 
-func GoplsRegistration(trace bool, stderr bool, tcp bool) string {
-	cmdStr := ""
+func GoplsRegistration(stderr bool, tcp bool, trace bool) string {
+	cmd := osutil.ExecName("gopls")
 	if trace {
-		cmdStr = " -v -rpc.trace"
+		cmd += " -v"
 	}
-	errOut := ""
-	if stderr {
-		errOut = ",stderr"
+	cmd += " serve"
+	if trace {
+		cmd += " -rpc.trace"
 	}
-	cmd := osutil.ExecName("gopls") + cmdStr + " serve"
 	net := "stdio"
 	if tcp {
 		net = "tcp"
 		cmd += " -listen={{.Addr}}"
 	}
+
+	errOut := ""
+	if net == "stdio" {
+		if stderr {
+			errOut = ",stderr"
+			// DEBUG
+			//errOut = ",stderrmanmsg"
+		}
+	}
+
 	return fmt.Sprintf("go,.go,%v,%q%s", net, cmd, errOut)
 }
 
