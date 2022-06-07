@@ -40,3 +40,9 @@ func ShellRunArgs(args ...string) []string {
 func ExecName(name string) string {
 	return name
 }
+
+//----------
+
+func FsCaseFilename(filename string) (string, error) {
+	return filename, nil
+}

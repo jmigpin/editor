@@ -6,6 +6,7 @@ package osutil
 import (
 	"fmt"
 	"os/exec"
+	"syscall"
 
 	"golang.org/x/sys/windows"
 )
@@ -45,4 +46,38 @@ func ShellRunArgs(args ...string) []string {
 
 func ExecName(name string) string {
 	return name + ".exe"
+}
+
+//----------
+
+func FsCaseFilename(filename string) (string, error) {
+	namep, err := syscall.UTF16PtrFromString(filename)
+	if err != nil {
+		return "", err
+	}
+
+	// Short paths can be longer than long paths, and unicode
+	buf := make([]uint16, 4*len(filename))
+	bufLen := len(buf) * 2 // in bytes
+
+	short := buf
+	n, err := syscall.GetShortPathName(namep, &short[0], uint32(bufLen))
+	if err != nil {
+		return "", err
+	}
+	if int(n) > bufLen {
+		return "", fmt.Errorf("short buffer too short: %v vs %v", n, bufLen)
+	}
+
+	long := make([]uint16, len(buf))
+	n, err = syscall.GetLongPathName(&short[0], &long[0], uint32(bufLen))
+	if err != nil {
+		return "", err
+	}
+	if int(n) > bufLen {
+		return "", fmt.Errorf("long buffer too short: %v vs %v", n, bufLen)
+	}
+
+	longStr := syscall.UTF16ToString(long)
+	return longStr, nil
 }

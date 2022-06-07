@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -302,8 +303,8 @@ func TrimLineSpaces2(str string, pre string) string {
 
 //----------
 
-func UrlToAbsFilename(uri string) (string, error) {
-	u, err := url.Parse(string(uri))
+func UrlToAbsFilename(url2 string) (string, error) {
+	u, err := url.Parse(string(url2))
 	if err != nil {
 		return "", err
 	}
@@ -311,6 +312,16 @@ func UrlToAbsFilename(uri string) (string, error) {
 		return "", fmt.Errorf("expecting file scheme: %v", u.Scheme)
 	}
 	filename := u.Path // unescaped
+
+	if runtime.GOOS == "windows" {
+		// remove leading slash in windows returned by url.parse: https://github.com/golang/go/issues/6027
+		if len(filename) > 0 && filename[0] == '/' {
+			filename = filename[1:]
+		}
+
+		filename = filepath.FromSlash(filename)
+	}
+
 	if !filepath.IsAbs(filename) {
 		return "", fmt.Errorf("filename not absolute: %v", filename)
 	}
@@ -321,6 +332,15 @@ func AbsFilenameToUrl(filename string) (string, error) {
 	if !filepath.IsAbs(filename) {
 		return "", fmt.Errorf("filename not absolute: %v", filename)
 	}
+
+	if runtime.GOOS == "windows" {
+		filename = filepath.ToSlash(filename)
+		// add leading slash to match UrlToAbsFilename behaviour
+		if len(filename) > 0 && filename[0] != '/' {
+			filename = "/" + filename
+		}
+	}
+
 	u := &url.URL{Scheme: "file", Path: filename}
 	return u.String(), nil // path is escaped
 }
