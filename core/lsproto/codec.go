@@ -52,22 +52,24 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 		method = m
 	}
 
-	var msg interface{}
-	if  noreply {
+	msg := (interface{})(nil)
+	if noreply {
 		// don't send an Id on messages that don't need an acknowledgement
-		msg = &NotificationMessage{
-			JsonRpc: "2.0",
-			Method:  method,
-			Params:  data,
+		m := &NotificationMessage{
+			Method: method,
+			Params: data,
 		}
+		m.Message = MakeMessage()
+		msg = m
 	} else {
 		// default case includes the Id
-		msg = &RequestMessage{
-			JsonRpc: "2.0",
-			Id:      int(req.Seq),
-			Method:  method,
-			Params:  data,
+		m := &RequestMessage{
+			Id:     int(req.Seq),
+			Method: method,
+			Params: data,
 		}
+		m.Message = MakeMessage()
+		msg = m
 	}
 	//logPrintf("write req -->: %v(%v)", msg.Method, msg.Id)
 
@@ -115,7 +117,7 @@ func (c *JsonCodec) ReadLoop() error {
 
 //----------
 
-// Sets response.Seq to have ReadResponseBody be called with the correct reply variable. i
+// Sets response.Seq to have ReadResponseBody be called with the correct reply variable.
 func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 	c.readData = readData{}          // reset
 	resp.Seq = uint64(math.MaxInt64) // set to non-existent sequence
@@ -139,7 +141,7 @@ func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 		}
 		c.readData.resp = lspResp
 		// msg id (needed for the rpc to run the reply to the caller)
-		if !lspResp.isServerPush() {
+		if !lspResp.IsNotification() {
 			resp.Seq = uint64(lspResp.Id)
 		}
 		return nil
@@ -155,7 +157,7 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 	}
 
 	// server push callback (no id)
-	if c.readData.resp.isServerPush() {
+	if c.readData.resp.IsNotification() {
 		if reply != nil {
 			return fmt.Errorf("jsoncodec: server push with reply expecting data: %v", reply)
 		}
@@ -285,6 +287,8 @@ func (c *JsonCodec) isClosed() bool {
 	return c.mu.closed
 }
 
+//----------
+//----------
 //----------
 
 type readData struct {

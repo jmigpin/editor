@@ -21,7 +21,8 @@ func TestGoSrc1(t *testing.T) {
 		package lsproto
 		import "log"
 		func main(){
-			log.●Printf("aaa")
+			v1:="aaa"
+			log.●Printf(v●1)
 		}	
 	`
 	{
@@ -31,6 +32,18 @@ func TestGoSrc1(t *testing.T) {
 	{
 		offset, src := sourceCursor(t, src0, 0)
 		testSrcCompletion(t, "src.go", offset, src)
+	}
+	{
+		src2 := `
+			package lsproto
+			import "log"
+			func main(){
+				v2:="aaa"
+				log.Printf(v2)
+			}	
+		`
+		offset, src := sourceCursor(t, src0, 1)
+		testSrcRename(t, "src.go", offset, src, "v2", src2)
 	}
 }
 
@@ -52,6 +65,19 @@ func TestGoSrc2(t *testing.T) {
 		offset, src := sourceCursor(t, src0, 0)
 		testSrcCompletion(t, "src.go", offset, src)
 	}
+	{
+		src2 := `
+			package lsproto		
+			func main(){
+				main3()
+			}
+			func main3() {
+				println("testing")
+			}
+		`
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcRename(t, "src.go", offset, src, "main3", src2)
+	}
 }
 
 //----------
@@ -60,12 +86,12 @@ func TestCSrc1(t *testing.T) {
 	src0 := `
 		#include <iostream>
 		using namespace std;
+		int main2(){
+			return 3;
+		}
 		int main() {
 			cout << "Hello, World! " << m●ain2();
 			return 0;
-		}
-		int main2(){
-			return 3;
 		}
 	`
 	{
@@ -76,6 +102,58 @@ func TestCSrc1(t *testing.T) {
 		offset, src := sourceCursor(t, src0, 0)
 		testSrcCompletion(t, "src.cpp", offset, src)
 	}
+	{
+		src2 := `
+			#include <iostream>
+			using namespace std;
+			int main3(){
+				return 3;
+			}
+			int main() {
+				cout << "Hello, World! " << main3();
+				return 0;
+			}
+		`
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcRename(t, "src.cpp", offset, src, "main3", src2)
+	}
+}
+
+//----------
+
+func TestPythonSrc1(t *testing.T) {
+	src0 := `
+		#!/usr/bin/python3
+		def main1(a):
+			return main2(a+1)
+		def main2(a):
+			return a+1		
+		c=m●ain1(1)
+		print("val = %f" % c)
+	`
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcDefinition(t, "src.py", offset, src)
+	}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcCompletion(t, "src.py", offset, src)
+	}
+
+	// TODO: failing, seems to not be implemented yet in pyls
+	//{
+	//	src2 := `
+	//		#!/usr/bin/python3
+	//		def main3(a):
+	//			return main2(a+1)
+	//		def main2(a):
+	//			return a+1
+	//		c=main3(1)
+	//		print("val = %f" % c)
+	//	`
+	//	offset, src := sourceCursor(t, src0, 0)
+	//	testSrcRename(t, "src.py", offset, src, "main3", src2)
+	//}
 }
 
 //----------
@@ -89,124 +167,6 @@ func TestManGoCompletionF2(t *testing.T) {
 	goRoot := os.Getenv("GOROOT")
 	s := filepath.Join(goRoot, "src/context/context.go:243:12")
 	testFileLineColCompletion(t, s)
-}
-
-//----------
-
-func TestRenameGo(t *testing.T) {
-	src0 := `
-		package main
-		func main() {
-			a●aa := 1
-			println(aaa)
-		}
-	`
-
-	exp := `
-		package main
-		func main() {
-			bbb := 1
-			println(bbb)
-		}
-	`
-	exp2 := parseutil.TrimLineSpaces(exp)
-
-	offset, src := sourceCursor(t, src0, 0)
-	rd := iorw.NewStringReaderAt(src)
-
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
-	filename := tf.WriteFileInTmp2OrPanic("src.go", src)
-
-	man := newTestManager(t)
-	defer man.Close()
-
-	ctx := context.Background()
-	we, err := man.TextDocumentRename(ctx, filename, rd, offset, "bbb")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wecs, err := WorkspaceEditChanges(we)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := PatchWorkspaceEditChanges(wecs); err != nil {
-		t.Fatal(err)
-	}
-	for _, wec := range wecs {
-		b, err := ioutil.ReadFile(wec.Filename)
-		if err != nil {
-			t.Fatal(err)
-		}
-		res2 := parseutil.TrimLineSpaces(string(b))
-		t.Log(res2)
-		if res2 != exp2 {
-			t.Fatal()
-		}
-	}
-}
-
-func TestRenameC(t *testing.T) {
-	src0 := `
-		#include <iostream>
-		using namespace std;
-		int main() {
-			int a●aa = 0;
-			cout<<" "<<a●aa;
-			return 0;
-		}
-	`
-
-	exp := `
-		#include <iostream>
-		using namespace std;
-		int main() {
-			int bbb = 0;
-			cout<<" "<<bbb;
-			return 0;
-		}
-	`
-	exp2 := parseutil.TrimLineSpaces(exp)
-
-	offset, src := sourceCursor(t, src0, 1)
-	rd := iorw.NewStringReaderAt(src)
-
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
-	filename := tf.WriteFileInTmp2OrPanic("src.cpp", src)
-
-	man := newTestManager(t)
-	defer man.Close()
-
-	ctx := context.Background()
-	we, err := man.TextDocumentRename(ctx, filename, rd, offset, "bbb")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wecs, err := WorkspaceEditChanges(we)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := PatchWorkspaceEditChanges(wecs); err != nil {
-		t.Fatal(err)
-	}
-	for _, wec := range wecs {
-		b, err := ioutil.ReadFile(wec.Filename)
-		if err != nil {
-			t.Fatal(err)
-		}
-		res2 := parseutil.TrimLineSpaces(string(b))
-		t.Log(res2)
-		if res2 != exp2 {
-			t.Fatal()
-		}
-	}
 }
 
 //----------
@@ -256,6 +216,48 @@ func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
 		t.Fatal(comps)
 	}
 	t.Logf("%v\n", strings.Join(comps, "\n"))
+}
+
+func testSrcRename(t *testing.T, filename string, offset int, src string, newName string, expectSrc string) {
+	t.Helper()
+
+	rd := iorw.NewStringReaderAt(src)
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	ctx := context.Background()
+	we, err := man.TextDocumentRename(ctx, filename2, rd, offset, newName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wecs, err := WorkspaceEditChanges(we)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := PatchWorkspaceEditChanges(wecs); err != nil {
+		t.Fatal(err)
+	}
+	for _, wec := range wecs {
+		b, err := ioutil.ReadFile(wec.Filename)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res2 := parseutil.TrimLineSpaces(string(b))
+		t.Log(res2)
+
+		exp2 := parseutil.TrimLineSpaces(expectSrc)
+		if res2 != exp2 {
+			t.Fatal()
+		}
+	}
 }
 
 //----------

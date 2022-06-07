@@ -8,30 +8,48 @@ import (
 
 //----------
 
-type RequestMessage struct {
-	JsonRpc string      `json:"jsonrpc"`
-	Id      int         `json:"id"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params,omitempty"`
+type Message struct {
+	JsonRpc string `json:"jsonrpc"`
 }
+
+func MakeMessage() Message {
+	return Message{JsonRpc: "2.0"}
+}
+
+//----------
+
+type RequestMessage struct {
+	Message
+	Id     int         `json:"id"`
+	Method string      `json:"method,omitempty"`
+	Params interface{} `json:"params,omitempty"`
+}
+
+//----------
+
+// Used as request and response (sent/received).
+type NotificationMessage struct {
+	Message
+	Method string      `json:"method,omitempty"`
+	Params interface{} `json:"params,omitempty"`
+}
+
+//----------
 
 type Response struct {
 	ResponseMessage
 	NotificationMessage
 }
+
+func (res *Response) IsNotification() bool {
+	return res.NotificationMessage.Method != ""
+}
+
 type ResponseMessage struct {
+	//Message // commented: not used and avoid clash with definition at notificationmessage (works if defined though)
 	Id     int             `json:"id,omitempty"` // id can be zero on first msg
 	Error  *ResponseError  `json:"error,omitempty"`
 	Result json.RawMessage `json:"result,omitempty"`
-}
-type NotificationMessage struct {
-	JsonRpc string      `json:"jsonrpc"`
-	Method string      `json:"method,omitempty"`
-	Params interface{} `json:"params,omitempty"`
-}
-
-func (nm *NotificationMessage) isServerPush() bool {
-	return nm.Method != ""
 }
 
 //----------

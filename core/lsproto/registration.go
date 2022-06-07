@@ -94,6 +94,7 @@ func RegistrationExamples() []string {
 		GoplsRegistration(false, false, false),
 		GoplsRegistration(false, true, false),
 		cLangRegistration(false),
+		"python,.py,stdio,pylsp",
 		"python,.py,tcpclient,127.0.0.1:9000",
 	}
 }

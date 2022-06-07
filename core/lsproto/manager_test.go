@@ -194,6 +194,7 @@ func newTestManager(t *testing.T) *Manager {
 	u := []string{
 		GoplsRegistration(logTestVerbose(), false, false),
 		cLangRegistration(logTestVerbose()),
+		"python,.py,stdio,pylsp",
 	}
 	for _, s := range u {
 		reg, err := NewRegistration(s)
