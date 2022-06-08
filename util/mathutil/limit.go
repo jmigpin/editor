@@ -31,5 +31,3 @@ func Max(a, b int) int {
 	}
 	return b
 }
-
-//----------

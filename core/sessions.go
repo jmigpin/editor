@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -139,7 +140,7 @@ type ColumnState struct {
 
 func NewColumnState(ed *Editor, col *ui.Column) *ColumnState {
 	cstate := &ColumnState{
-		StartPercent: col.Cols.ColsLayout.Spl.RawStartPercent(col),
+		StartPercent: roundStartPercent(col.Cols.ColsLayout.Spl.RawStartPercent(col)),
 	}
 	for _, row := range col.Rows() {
 		rstate := NewRowState(ed, row)
@@ -179,7 +180,7 @@ func NewRowState(ed *Editor, row *ui.Row) *RowState {
 
 	// check row.col in case the row has been removed from columns (reopenrow?)
 	if row.Col != nil {
-		rs.StartPercent = row.Col.RowsLayout.Spl.RawStartPercent(row)
+		rs.StartPercent = roundStartPercent(row.Col.RowsLayout.Spl.RawStartPercent(row))
 	}
 
 	return rs
@@ -338,4 +339,10 @@ func deleteSession(ed *Editor, part *toolbarparser.Part) error {
 		return fmt.Errorf("deletesession: session not found: %v", sessionName)
 	}
 	return ss.save(sessionsFilename())
+}
+
+//----------
+
+func roundStartPercent(v float64) float64 {
+	return mathutil.RoundFloat64(v, 8)
 }
