@@ -21,12 +21,13 @@ import (
 )
 
 func TestScripts(t *testing.T) {
-	scr := testutil.NewScript(t, os.Args)
+	scr := testutil.NewScript(os.Args)
+	//scr.Work = true
 	scr.ScriptsDir = "testdata"
 	scr.Cmds = []*testutil.ScriptCmd{
 		&testutil.ScriptCmd{"godebugtester", godebugTester},
 	}
-	scr.Run()
+	scr.Run(t)
 }
 func godebugTester(t *testing.T, args []string) error {
 	log.SetFlags(0)

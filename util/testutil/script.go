@@ -23,6 +23,7 @@ type Script struct {
 	ScriptsDir string
 	Args       []string
 	Cmds       []*ScriptCmd // user cmds (provided)
+	Work       bool         // don't remove work dir at end
 
 	ucmds map[string]*ScriptCmd // user cmds (mapped)
 	icmds map[string]*ScriptCmd // internal cmds
@@ -34,28 +35,25 @@ type Script struct {
 		stderr []byte
 		err    []byte
 	}
-
-	t *testing.T
 }
 
-func NewScript(t *testing.T, args []string) *Script {
-	return &Script{t: t, Args: args}
+func NewScript(args []string) *Script {
+	return &Script{Args: args}
 }
 
 //----------
 
-func (scr *Script) log(s string) {
+func (scr *Script) log(t *testing.T, s string) {
 	s = strings.TrimRight(s, "\n") // remove newlines
-	scr.t.Log(s)                   // adds one newline
+	t.Log(s)                       // adds one newline
 }
-func (scr *Script) Logf(f string, args ...interface{}) {
-	s := fmt.Sprintf(f, args...)
-	scr.log(s)
+func (scr *Script) logf(t *testing.T, f string, args ...interface{}) {
+	scr.log(t, fmt.Sprintf(f, args...))
 }
 
 //----------
 
-func (scr *Script) Run() {
+func (scr *Script) Run(t *testing.T) {
 	// internal cmds
 	icmds := []*ScriptCmd{
 		&ScriptCmd{"ucmd", scr.icUCmd}, // run user cmd
@@ -69,11 +67,11 @@ func (scr *Script) Run() {
 	// user cmds
 	scr.ucmds = mapScriptCmds(scr.Cmds)
 
-	if err := scr.runDir(scr.ScriptsDir); err != nil {
-		scr.t.Fatal(err)
+	if err := scr.runDir(t, scr.ScriptsDir); err != nil {
+		t.Fatal(err)
 	}
 }
-func (scr *Script) runDir(dir string) error {
+func (scr *Script) runDir(t *testing.T, dir string) error {
 	des, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -83,25 +81,18 @@ func (scr *Script) runDir(dir string) error {
 			continue
 		}
 		filename := filepath.Join(dir, de.Name())
-		if err := scr.runFile(filename); err != nil {
+		if err := scr.runFile(t, filename); err != nil {
 			return err
 		}
 	}
 	return nil
 }
-func (scr *Script) runFile(filename string) error {
+func (scr *Script) runFile(t1 *testing.T, filename string) error {
 	err0 := error(nil)
 	name := filepath.Base(filename)
-	t1 := scr.t
-	ok := scr.t.Run(name, func(t2 *testing.T) {
+	ok := t1.Run(name, func(t2 *testing.T) {
 		// running as a sub-test
-
-		// keep/restore t for correct logging
-		origT := scr.t
-		scr.t = t2
-		defer func() { scr.t = origT }()
-
-		scr.Logf("script: %v", filename)
+		scr.logf(t2, "script: %v", filename)
 
 		ar, err := txtar.ParseFile(filename)
 		if err != nil {
@@ -109,45 +100,41 @@ func (scr *Script) runFile(filename string) error {
 			return
 		}
 
-		if err := scr.runScript(filename, ar); err != nil {
-			scr.Logf("FAIL: %v", err)
-			//scr.t.Fail() // continues testing
-			scr.t.Fatal() // also seems to continues, need t1
-			t1.Fatal()    // stop testing
+		if err := scr.runScript(t2, filename, ar); err != nil {
+			t2.Logf("FAIL: %v", err)
+			//t2.Fail()  // continues testing
+			t2.Fatal() // also seems to continue, need t1
+			t1.Fatal() // stop testing
 		}
 	})
 	_ = ok
 	return err0
 }
-func (scr *Script) runScript(filename string, ar *txtar.Archive) error {
+func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) error {
 	// create working dir
-	//dir, err := os.MkdirTemp(t.TempDir(), "editor_testutil_work.*") // TODO: review, not working properly
+	// TODO: review, not working properly
+	//dir, err := os.MkdirTemp(t.TempDir(), "editor_testutil_work.*")
 	dir, err := os.MkdirTemp("", "editor_testutilscript*")
 	if err != nil {
 		return err
 	}
 	scr.workDir = dir
-	scr.t.Setenv("WORK", scr.workDir)
-	scr.Logf("script_workdir: %v", scr.workDir)
+	t.Setenv("WORK", scr.workDir)
+	scr.logf(t, "script_workdir: %v", scr.workDir)
 	defer func() {
-		// TODO: make flag to keep
-		_ = os.RemoveAll(scr.workDir)
-
-		//scr.Logf("workDir not cleaned")
-
-		//// TODO: pass flags with env var
-		//workFlag := flagutil.GetFlagBool(scr.Args, "work")
-		//if !workFlag{
-		//	// remove
-		//}
+		if scr.Work {
+			scr.logf(t, "workDir not cleaned")
+		} else {
+			_ = os.RemoveAll(scr.workDir)
+		}
 	}()
 
 	// keep/restore current dir
-	cur, err := os.Getwd()
+	keepDir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	defer os.Chdir(cur)
+	defer os.Chdir(keepDir)
 
 	// switch to working dir
 	if err := os.Chdir(scr.workDir); err != nil {
@@ -156,7 +143,7 @@ func (scr *Script) runScript(filename string, ar *txtar.Archive) error {
 
 	// setup tmp dir in workdir for program to create its own tmp files
 	scriptTmpDir := filepath.Join(scr.workDir, "tmp")
-	scr.t.Setenv("TMPDIR", scriptTmpDir)
+	t.Setenv("TMPDIR", scriptTmpDir)
 	if err := iout.MkdirAll(scriptTmpDir); err != nil {
 		return err
 	}
@@ -190,8 +177,8 @@ func (scr *Script) runScript(filename string, ar *txtar.Archive) error {
 			err := fmt.Errorf("cmd not found: %v", args[0])
 			return &lineError{filename, line, err}
 		}
-		scr.Logf("%v: %v", args[0], args[1:])
-		if err := cmd.Fn(scr.t, args); err != nil {
+		scr.logf(t, "%v: %v", args[0], args[1:])
+		if err := cmd.Fn(t, args); err != nil {
 			return &lineError{filename, line, err}
 		}
 	}
@@ -254,7 +241,9 @@ func (scr *Script) icExec(t *testing.T, args []string) error {
 	}
 	ctx := context.Background()
 	ec := exec.CommandContext(ctx, args[0], args[1:]...)
+
 	//ec.Dir = // commented: dir set with os.Chdir previously
+
 	return scr.collectOutput(t, func() error {
 		// setup cmd stdout inside collectoutput
 		// TODO: stdin?
@@ -354,7 +343,7 @@ func (scr *Script) icFail(t *testing.T, args []string) error {
 	if err == nil {
 		return fmt.Errorf("expected failure but got no error")
 	}
-	scr.Logf("fail ok: %v", err)
+	scr.logf(t, "fail ok: %v", err)
 	return nil
 }
 

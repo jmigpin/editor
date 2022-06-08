@@ -866,9 +866,9 @@ func (cmd *Cmd) buildOutFilename(fa *FilesToAnnotate) (string, error) {
 	//fname := filepath.Base(cmd.mainFuncFilename)
 	//fname = fsutil.JoinPath(cmd.tmpDir, fname)
 
-	// output to next to main file
+	// output to main file dir
 	fname := cmd.mainFuncFilename
-	fname = pathutil.ReplaceExt(fname, ".godebug")
+	fname = pathutil.ReplaceExt(fname, "_godebug") // don't use ".godebug", not a file type
 
 	fname = osutil.ExecName(fname)
 	return fname, nil
