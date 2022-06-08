@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/osutil"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -587,11 +589,12 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 		packages.NeedCompiledGoFiles |
 		packages.NeedImports |
 		packages.NeedDeps |
+		//packages.NeedExportsFile | // TODO
 		packages.NeedTypes |
 		packages.NeedSyntax | // ast.File
 		packages.NeedTypesInfo | // access to pkg.TypesInfo.*
+		//packages.NeedTypesSizes | // TODO
 		packages.NeedModule |
-		//packages.NeedExportsFile |
 		0
 
 	// faster startup
@@ -648,24 +651,26 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 //----------
 
 func (fa *FilesToAnnotate) GoModFilename() (string, bool) {
-	// commented: can return /dev/null
-	//env := goutil.GoEnv(fa.cmd.Dir)
-	//filename := osutil.GetEnv(env, "GOMOD")
-	//return filename, true
 
+	//for _, pkg := range fa.main.pkgs { // can fail to load // TODO: make test
 	for _, pkg := range fa.filesPkgs {
 		//mod := pkg.Module
 		mod := pkgMod(pkg)
-		if mod != nil && mod.Main && mod.GoMod != "" {
-			fa.cmd.logf("gomod=%v", mod.GoMod)
-			return mod.GoMod, true
+		if mod != nil && mod.GoMod != "" {
+			//fa.cmd.logf("gomod(nomain?)=%v", mod.GoMod)
+			if mod.Main {
+				fa.cmd.logf("gomod=%v", mod.GoMod)
+				return mod.GoMod, true
+			}
 		}
 	}
 
-	//log.Println("go mod filename not found")
-	//for _, pkg := range fa.filesPkgs {
-	//	log.Printf("pkg: %#v\n", pkg)
-	//}
+	// try env
+	env := goutil.GoEnv(fa.cmd.Dir)
+	filename := osutil.GetEnv(env, "GOMOD")
+	if filename != "" && filename != os.DevNull { // can be "/dev/null"!
+		return filename, true
+	}
 
 	return "", false
 }

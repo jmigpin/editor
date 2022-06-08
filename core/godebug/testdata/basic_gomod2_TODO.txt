@@ -1,0 +1,27 @@
+# TODO: unable reproduce the issue (failing to find gomod)
+# TODO: related with filestoannotate.gomodfilename()
+
+#exec go run main.go
+cd dir1
+#fail ucmd godebugtester run -work myfile.go -aa
+exec go mod tidy
+ucmd godebugtester run myfile.go -aa bb
+
+-- dir1/go.mod --
+module user1/mod1
+go 1.17
+require user2/mod2 v0.0.0
+replace user2/mod2 => ../dir2
+-- dir1/myfile.go --
+package main
+import "user2/mod2/pkg2"
+func main(){
+	println(pkg2.Fa())
+}
+-- dir2/go.mod --
+module user2/mod2
+-- dir2/pkg2/f2.go --
+package pkg2
+func Fa()string{
+	return "fa"
+}
