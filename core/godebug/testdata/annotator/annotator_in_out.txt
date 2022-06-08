@@ -1276,17 +1276,18 @@ func f0() {
 package p1
 
 func f0() {
-	defer f1(a, b)
+	defer f1(a, nil, b)
 }
 -- TestAnnotator61.out --
 package p1
 
 func f0() {
-	Σ0, Σ1 := a, b
+	Σ0 := a
+	Σ1 := b
 	defer func() {
-		Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1)))
+		Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(Σ0), Σ.IVi(nil), Σ.IVi(Σ1)))
 		Σ.Line(0, 0, 31, Σ2)
-		f1(Σ0, Σ1)
+		f1(Σ0, nil, Σ1)
 		Σ.Line(0, 0, 31, Σ.IC(Σ2, nil))
 	}()
 }
@@ -1300,18 +1301,17 @@ func f0() {
 package p1
 
 func f0() {
-	Σ0 := 3
-	Σ1 := func(a int) bool {
+	Σ0 := func(a int) bool {
 		Σ.Line(0, 1, 35, Σ.IL(Σ.IVi(a)))
 		Σ.Line(0, 2, 50, Σ.IL(Σ.IVi(true)))
 		return true
 	}
-	Σ.Line(0, 0, 31, Σ.IVi(Σ1))
+	Σ.Line(0, 0, 31, Σ.IVi(Σ0))
 	defer func() {
-		Σ2 := Σ.ICe(Σ.IVs("f"), Σ.IL(Σ.IVi(Σ0)))
-		Σ.Line(0, 0, 31, Σ2)
-		Σ1(Σ0)
-		Σ.Line(0, 0, 31, Σ.IC(Σ2, nil))
+		Σ1 := Σ.ICe(Σ.IVs("f"), Σ.IL(Σ.IVi(3)))
+		Σ.Line(0, 0, 31, Σ1)
+		Σ0(3)
+		Σ.Line(0, 0, 31, Σ.IC(Σ1, nil))
 	}()
 }
 -- TestAnnotator62b.in --

@@ -657,11 +657,17 @@ func (ann *Annotator) visDeferStmt2(ctx *Ctx, cep **ast.CallExpr) {
 
 	// assign arguments to tmp variables
 	if len(ce.Args) > 0 {
-		args2 := make([]ast.Expr, len(ce.Args))
-		copy(args2, ce.Args)
-		ids := ann.assignToNewIdents2(ctx, len(ce.Args), args2...)
-		for i := range ce.Args {
-			ce.Args[i] = ids[i]
+		//args2 := make([]ast.Expr, len(ce.Args))
+		//copy(args2, ce.Args)
+		//ids := ann.assignToNewIdents2(ctx, len(ce.Args), args2...)
+		for i, e := range ce.Args {
+			if ann.canAssignToVar(ctx, e) {
+				id := ann.assignToNewIdent(ctx, e)
+				ce.Args[i] = id
+			}
+			//else {
+			//ce.Args[i] = ids[i]
+			//}
 		}
 	}
 
@@ -1301,6 +1307,9 @@ func (ann *Annotator) canAssignToVar(ctx *Ctx, e ast.Expr) bool {
 		return false
 	}
 	if ann.isConst(e) {
+		return false
+	}
+	if isNilIdent(e) {
 		return false
 	}
 

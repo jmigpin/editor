@@ -1,6 +1,5 @@
-#exec go run main.go
-#ucmd godebugtester run main.go
-#ucmd godebugtester run -work main.go
+# needs to compile and run
+ucmd godebugtester run  main.go
 
 -- main.go --
 package main
@@ -11,4 +10,3 @@ func main() {
 func main2(a *int){
 	println(2)	
 }
-
