@@ -618,7 +618,7 @@ func (ann *Annotator) VisLabeledStmt(ctx *Ctx, ls *ast.LabeledStmt) {
 	}
 
 	switch ls.Stmt.(type) {
-	case *ast.ForStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt:
+	case *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt:
 		// can't insert stmts between the label and the stmt (alters program)
 
 		ctx = ctx.withLabeledStmt(ls)

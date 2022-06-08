@@ -1209,6 +1209,28 @@ label1:
 	switch x.(type) {
 	}
 }
+-- TestAnnotator56d.in --
+package p1
+
+func f0() {
+label1:
+	for i:=range a {
+		continue label1
+	}
+}
+-- TestAnnotator56d.out --
+package p1
+
+func f0() {
+	Σ0 := Σ.IVr(len(a))
+	Σ.Line(0, 0, 46, Σ.IL(Σ0, Σ.IVi(a)))
+label1:
+	for i := range a {
+		Σ.Line(0, 0, 37, Σ.IA(Σ.IL(Σ.IVi(i)), 47, Σ.IL(Σ0)))
+		Σ.Line(0, 1, 52, Σ.IBr())
+		continue label1
+	}
+}
 -- TestAnnotator57.in --
 package p1
 
