@@ -45,5 +45,5 @@ func (me *MultiError) Error() string {
 	for i, e := range me.errors {
 		u = append(u, fmt.Sprintf("err%d: %v", i+1, e.Error()))
 	}
-	return fmt.Sprintf("multierror(%d){%s}", len(me.errors), strings.Join(u, ", "))
+	return fmt.Sprintf("multierror(%d){\n\t%s\n}", len(me.errors), strings.Join(u, ",\n\t"))
 }
