@@ -104,15 +104,11 @@ func (man *Manager) TextDocumentImplementation(ctx context.Context, filename str
 		return "", nil, err
 	}
 
-	//dir := filepath.Dir(filename)
-	//if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
-	//	return "", nil, err
-	//}
-
-	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
+	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
+	if err != nil {
 		return "", nil, err
 	}
-	defer man.didClose(ctx, cli, filename)
+	defer didCloseFn()
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
@@ -141,15 +137,11 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 		return "", nil, err
 	}
 
-	//dir := filepath.Dir(filename)
-	//if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
-	//	return "", nil, err
-	//}
-
-	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
+	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
+	if err != nil {
 		return "", nil, err
 	}
-	defer man.didClose(ctx, cli, filename)
+	defer didCloseFn()
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
@@ -178,15 +170,11 @@ func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string,
 		return nil, err
 	}
 
-	//dir := filepath.Dir(filename)
-	//if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
-	//	return nil, err
-	//}
-
-	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
+	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
+	if err != nil {
 		return nil, err
 	}
-	defer man.didClose(ctx, cli, filename)
+	defer didCloseFn()
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
@@ -228,16 +216,22 @@ func (man *Manager) TextDocumentCompletionDetailStrings(ctx context.Context, fil
 
 //----------
 
-func (man *Manager) didOpenVersion(ctx context.Context, cli *Client, filename string, rd iorw.ReaderAt) error {
+func (man *Manager) didOpen(ctx context.Context, cli *Client, filename string, rd iorw.ReaderAt) (func(), error) {
 	b, err := iorw.ReadFastFull(rd)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return cli.TextDocumentDidOpenVersion(ctx, filename, b)
-}
+	if err := cli.TextDocumentDidOpenVersion(ctx, filename, b); err != nil {
+		return nil, err
+	}
 
-func (man *Manager) didClose(ctx context.Context, cli *Client, filename string) error {
-	return cli.TextDocumentDidClose(ctx, filename)
+	// ISSUE: file1 src is sent to the server (didopen). Assume now that the request that follows (ex: lsprotoCallers) takes too long such that the ctx expires. The usual "defer didclose" will fail since the context is no longer valid. And so the server stays with the version that might have compile errors. The user corrects the errors without asking anything else from the lspserver. Later on, on another file2, asks for the lspserver to assist with something. This could fail since the lspserver still has the file1 cached with errors.
+	// solution: if the didopen was successful, return a func to always run the didClose with defer even if the ctx is no longer valid.
+	didCloseFn := func() {
+		ctx2 := context.Background()                 // don't use a possible canceled ctx
+		_ = cli.TextDocumentDidClose(ctx2, filename) // best effort, ignore error
+	}
+	return didCloseFn, nil
 }
 
 //----------
@@ -281,15 +275,11 @@ func (man *Manager) TextDocumentRename(ctx context.Context, filename string, rd 
 		return nil, err
 	}
 
-	//dir := filepath.Dir(filename)
-	//if err := cli.UpdateWorkspaceFolder(ctx, dir); err != nil {
-	//	return nil, err
-	//}
-
-	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
+	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
+	if err != nil {
 		return nil, err
 	}
-	defer man.didClose(ctx, cli, filename)
+	defer didCloseFn()
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
@@ -307,10 +297,11 @@ func (man *Manager) CallHierarchyCalls(ctx context.Context, filename string, rd 
 		return nil, err
 	}
 
-	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
+	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
+	if err != nil {
 		return nil, err
 	}
-	defer man.didClose(ctx, cli, filename)
+	defer didCloseFn()
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
