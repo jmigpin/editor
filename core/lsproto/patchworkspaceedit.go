@@ -68,7 +68,7 @@ func PatchTextEdits(src []byte, edits []*TextEdit) ([]byte, error) {
 	rd := iorw.NewBytesReadWriterAt(src)
 	start := 0
 	for _, e := range edits {
-		offset, n, err := RangeToOffsetLen(rd, &e.Range)
+		offset, n, err := RangeToOffsetLen(rd, e.Range)
 		if err != nil {
 			return nil, err
 		}

@@ -171,8 +171,55 @@ type TextDocumentEdit struct {
 	Edits        []*TextEdit                     `json:"edits"`
 }
 type TextEdit struct {
-	Range   Range  `json:"range"`
+	Range   *Range `json:"range"`
 	NewText string `json:"newText"`
+}
+
+type CallHierarchyPrepareParams struct {
+	TextDocumentPositionParams
+}
+
+// Commented: here for doc only; using the unified/simplified version below
+//type CallHierarchyIncomingCallsParams struct {
+//	Item *CallHierarchyItem `json:"item"`
+//}
+//type CallHierarchyOutgoingCallsParams struct {
+//	Item *CallHierarchyItem `json:"item"`
+//}
+//type CallHierarchyIncomingCall struct {
+//	From       *CallHierarchyItem `json:"from"`
+//	FromRanges []*Range           `json:"fromRanges"`
+//}
+//type CallHierarchyOutgoingCall struct {
+//	To         *CallHierarchyItem `json:"to"`
+//	FromRanges []*Range           `json:"fromRanges"`
+//}
+
+type CallHierarchyCallsParams struct { // used in Incoming/Outgoing
+	Item *CallHierarchyItem `json:"item"`
+}
+type CallHierarchyCall struct { // used in Incoming/Outgoing
+	From       *CallHierarchyItem `json:"from,omitempty"` // incoming
+	To         *CallHierarchyItem `json:"to,omitempty"`   // outgoing
+	FromRanges []*Range           `json:"fromRanges"`
+}
+
+func (chc *CallHierarchyCall) Item() *CallHierarchyItem {
+	if chc.From != nil {
+		return chc.From
+	}
+	return chc.To
+}
+
+type CallHierarchyItem struct {
+	Name           string       `json:"name"`
+	Kind           SymbolKind   `json:"kind"`
+	Tags           []*SymbolTag `json:"tags,omitempty"` // optional
+	Detail         string       `json:"detail"`         // optional
+	Uri            DocumentUri  `json:"uri"`
+	Range          *Range       `json:"range"`
+	SelectionRange *Range       `json:"selectionRange"`
+	data           interface{}  `json:"data,omitempty"` // optional (related to prepare calls)
 }
 
 type Position struct {
@@ -181,3 +228,15 @@ type Position struct {
 }
 
 type DocumentUri string
+type SymbolKind int
+type SymbolTag int
+
+//----------
+
+// Not part of the protocol, used to unify/simplify
+type CallHierarchyCallType int
+
+const (
+	IncomingChct CallHierarchyCallType = iota
+	OutgoingChct
+)

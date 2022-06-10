@@ -538,3 +538,34 @@ func (cli *Client) TextDocumentRename(ctx context.Context, filename string, pos 
 	err = cli.Call(ctx, "textDocument/rename", opt, &result)
 	return &result, err
 }
+
+//----------
+
+func (cli *Client) TextDocumentPrepareCallHierarchy(ctx context.Context, filename string, pos Position) ([]*CallHierarchyItem, error) {
+	opt := &CallHierarchyPrepareParams{}
+	opt.Position = pos
+	url, err := absFilenameToUrl(filename)
+	if err != nil {
+		return nil, err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
+	result := []*CallHierarchyItem{}
+	err = cli.Call(ctx, "textDocument/prepareCallHierarchy", opt, &result)
+	return result, err
+}
+func (cli *Client) CallHierarchyCalls(ctx context.Context, typ CallHierarchyCallType, item *CallHierarchyItem) ([]*CallHierarchyCall, error) {
+	method := ""
+	switch typ {
+	case IncomingChct:
+		method = "callHierarchy/incomingCalls"
+	case OutgoingChct:
+		method = "callHierarchy/outgoingCalls"
+	default:
+		panic("bad type")
+	}
+	opt := &CallHierarchyCallsParams{}
+	opt.Item = item
+	result := []*CallHierarchyCall{}
+	err := cli.Call(ctx, method, opt, &result)
+	return result, err
+}

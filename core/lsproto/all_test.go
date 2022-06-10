@@ -21,9 +21,12 @@ func TestGoSrc1(t *testing.T) {
 		package lsproto
 		import "log"
 		func main(){
-			v1:="aaa"
+			v1 := fn2()
 			log.●Printf(v●1)
-		}	
+		}
+		func f●n2() string {
+			return "fn2"
+		}
 	`
 	{
 		offset, src := sourceCursor(t, src0, 0)
@@ -38,12 +41,19 @@ func TestGoSrc1(t *testing.T) {
 			package lsproto
 			import "log"
 			func main(){
-				v2:="aaa"
+				v2 := fn2()
 				log.Printf(v2)
-			}	
+			}
+			func fn2() string {
+				return "fn2"
+			}
 		`
 		offset, src := sourceCursor(t, src0, 1)
 		testSrcRename(t, "src.go", offset, src, "v2", src2)
+	}
+	{
+		offset, src := sourceCursor(t, src0, 2)
+		testSrcCallHierarchy(t, "src.go", offset, src)
 	}
 }
 
@@ -77,6 +87,10 @@ func TestGoSrc2(t *testing.T) {
 		`
 		offset, src := sourceCursor(t, src0, 0)
 		testSrcRename(t, "src.go", offset, src, "main3", src2)
+	}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcCallHierarchy(t, "src.go", offset, src)
 	}
 }
 
@@ -117,6 +131,10 @@ func TestCSrc1(t *testing.T) {
 		offset, src := sourceCursor(t, src0, 0)
 		testSrcRename(t, "src.cpp", offset, src, "main3", src2)
 	}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcCallHierarchy(t, "src.cpp", offset, src)
+	}
 }
 
 //----------
@@ -153,6 +171,12 @@ func TestPythonSrc1(t *testing.T) {
 	//	`
 	//	offset, src := sourceCursor(t, src0, 0)
 	//	testSrcRename(t, "src.py", offset, src, "main3", src2)
+	//}
+
+	// TODO: not yet implemented in pylsp (method not found)
+	//{
+	//	offset, src := sourceCursor(t, src0, 0)
+	//	testSrcCallHierarchy(t, "src.py", offset, src)
 	//}
 }
 
@@ -258,6 +282,36 @@ func testSrcRename(t *testing.T, filename string, offset int, src string, newNam
 			t.Fatal()
 		}
 	}
+}
+
+func testSrcCallHierarchy(t *testing.T, filename string, offset int, src string) {
+	t.Helper()
+
+	rd := iorw.NewStringReaderAt(src)
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	ctx := context.Background()
+	mcalls, err := man.CallHierarchyCalls(ctx, filename2, rd, offset, IncomingChct)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//spew.Dump(mcalls)
+	if len(mcalls) == 0 {
+		t.Fatal("empty mcalls")
+	}
+
+	str, err := ManagerCallHierarchyCallsToString(mcalls, IncomingChct, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("result: %v", str)
 }
 
 //----------

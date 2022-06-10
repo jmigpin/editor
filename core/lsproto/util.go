@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"unicode/utf16"
@@ -195,4 +196,69 @@ func absFilenameToUrl(filename string) (string, error) {
 		}
 	}
 	return parseutil.AbsFilenameToUrl(filename)
+}
+
+//----------
+
+type ManagerCallHierarchyCalls struct {
+	item  *CallHierarchyItem
+	calls []*CallHierarchyCall
+}
+
+func ManagerCallHierarchyCallsToString(mcalls []*ManagerCallHierarchyCalls, typ CallHierarchyCallType, baseDir string) (string, error) {
+	res := []string{}
+
+	// build title
+	s1 := "incoming"
+	if typ == OutgoingChct {
+		s1 = "outgoing"
+	}
+	u := fmt.Sprintf("lsproto call hierarchy %s calls:", s1)
+	res = append(res, u)
+
+	for _, mcall := range mcalls {
+		// build subtitle
+		s2 := "to"
+		if typ == OutgoingChct {
+			s2 = "from"
+		}
+		// count results for subtitle
+		nres := 0
+		for _, call := range mcall.calls {
+			nres += len(call.FromRanges)
+		}
+		s3 := fmt.Sprintf("calls %s %v: %v results", s2, mcall.item.Name, nres)
+		res = append(res, s3)
+
+		for _, call := range mcall.calls {
+			item := call.Item()
+
+			// item for filename
+			fileItem := item
+			if typ == OutgoingChct {
+				fileItem = mcall.item
+			}
+			filename, err := urlToAbsFilename(string(fileItem.Uri))
+			if err != nil {
+				return "", err
+			}
+			// use basedir to output filename
+			if baseDir != "" {
+				if u, err := filepath.Rel(baseDir, filename); err == nil {
+					filename = u
+				}
+			}
+
+			for _, r := range call.FromRanges {
+				// translate to one-based position
+				line := r.Start.Line + 1
+				col := r.Start.Character + 1
+
+				u := fmt.Sprintf("\t%s: %s:%d:%d", item.Name, filename, line, col)
+				res = append(res, u)
+			}
+		}
+	}
+	w := strings.Join(res, "\n")
+	return w, nil
 }

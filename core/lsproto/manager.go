@@ -298,3 +298,42 @@ func (man *Manager) TextDocumentRename(ctx context.Context, filename string, rd 
 
 	return cli.TextDocumentRename(ctx, filename, pos, newName)
 }
+
+//----------
+
+func (man *Manager) CallHierarchyCalls(ctx context.Context, filename string, rd iorw.ReaderAt, offset int, typ CallHierarchyCallType) ([]*ManagerCallHierarchyCalls, error) {
+	cli, _, err := man.langInstanceClient(ctx, filename)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := man.didOpenVersion(ctx, cli, filename, rd); err != nil {
+		return nil, err
+	}
+	defer man.didClose(ctx, cli, filename)
+
+	pos, err := OffsetToPosition(rd, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := cli.TextDocumentPrepareCallHierarchy(ctx, filename, pos)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, fmt.Errorf("preparecallhierarchy returned no items")
+	}
+
+	res := []*ManagerCallHierarchyCalls{}
+	for _, item := range items {
+		calls, err := cli.CallHierarchyCalls(ctx, typ, item)
+		if err != nil {
+			return nil, err
+		}
+		u := &ManagerCallHierarchyCalls{item, calls}
+		res = append(res, u)
+	}
+
+	return res, nil
+}

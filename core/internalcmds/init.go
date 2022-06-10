@@ -62,8 +62,10 @@ func init() {
 	cmdERow(GoDebug, "GoDebug")
 	cmdERow(GoDebugFind, "GoDebugFind")
 
-	cmd(LSProtoCloseAll, "LsprotoCloseAll", "LSProtoCloseAll")
+	cmd(LSProtoCloseAll, "LsprotoCloseAll", "LSProtoCloseAll") // TODO: deprecate LSProtoCloseAll
 	cmdERow(LSProtoRename, "LsprotoRename")
+	cmdERow(LSProtoCallHierarchyIncomingCalls, "LsprotoCallers", "LsprotoCallHierarchyIncomingCalls")
+	cmdERow(LSProtoCallHierarchyOutgoingCalls, "LsprotoCallees", "LsprotoCallHierarchyOutgoingCalls")
 
 	cmd(ColorTheme, "ColorTheme")
 	cmd(FontTheme, "FontTheme")
