@@ -7,68 +7,66 @@ import (
 func init() {
 	ic := core.InternalCmds
 
-	cmd := func(name string, fn core.InternalCmdFn) {
-		ic.Set(&core.InternalCmd{Name: name, Fn: fn})
+	cmd := func(fn core.InternalCmdFn, names ...string) {
+		for _, name := range names {
+			ic.Set(&core.InternalCmd{Name: name, Fn: fn})
+		}
 	}
-	cmdERow := func(name string, fn core.InternalCmdFn) {
-		ic.Set(&core.InternalCmd{Name: name, Fn: fn, NeedsERow: true})
+	cmdERow := func(fn core.InternalCmdFn, names ...string) {
+		for _, name := range names {
+			ic.Set(&core.InternalCmd{Name: name, Fn: fn, NeedsERow: true})
+		}
 	}
 
-	cmd("Version", Version)
+	cmd(Version, "Version")
+	cmd(Exit, "Exit")
 
-	cmd("Exit", Exit)
+	cmd(SaveSession, "SaveSession")
+	cmd(OpenSession, "OpenSession")
+	cmd(DeleteSession, "DeleteSession")
+	cmd(ListSessions, "ListSessions")
 
-	cmd("SaveSession", SaveSession)
-	cmd("OpenSession", OpenSession)
-	cmd("DeleteSession", DeleteSession)
-	cmd("ListSessions", ListSessions)
+	cmd(NewColumn, "NewColumn")
+	cmdERow(CloseColumn, "CloseColumn")
 
-	cmd("NewColumn", NewColumn)
-	cmdERow("CloseColumn", CloseColumn)
+	cmd(NewRow, "NewRow")
+	cmd(ReopenRow, "ReopenRow")
+	cmdERow(CloseRow, "CloseRow")
+	cmdERow(MaximizeRow, "MaximizeRow")
 
-	cmd("NewRow", NewRow)
-	cmdERow("CloseRow", CloseRow)
-	cmd("ReopenRow", ReopenRow)
-	cmdERow("MaximizeRow", MaximizeRow)
+	cmdERow(NewFile, "NewFile")
+	cmdERow(Save, "Save")
+	cmd(SaveAllFiles, "SaveAllFiles")
 
-	cmdERow("NewFile", NewFile)
-	cmdERow("Save", Save)
-	cmd("SaveAllFiles", SaveAllFiles)
+	cmdERow(Reload, "Reload")
+	cmd(ReloadAllFiles, "ReloadAllFiles")
+	cmd(ReloadAll, "ReloadAll")
 
-	cmdERow("Reload", Reload)
-	cmd("ReloadAllFiles", ReloadAllFiles)
-	cmd("ReloadAll", ReloadAll)
+	cmdERow(Stop, "Stop")
+	cmdERow(Clear, "Clear")
 
-	cmdERow("Stop", Stop)
-	cmdERow("Clear", Clear)
+	cmdERow(Find, "Find")
+	cmdERow(Replace, "Replace")
+	cmdERow(GotoLine, "GotoLine", "GoToLine")
 
-	cmdERow("Find", Find)
-	cmdERow("Replace", Replace)
-	cmdERow("GotoLine", GotoLine)
-	cmdERow("GoToLine", GotoLine)
+	cmdERow(CopyFilePosition, "CopyFilePosition")
+	cmdERow(RuneCodes, "RuneCodes")
+	cmd(FontRunes, "FontRunes")
 
-	cmdERow("CopyFilePosition", CopyFilePosition)
-	cmdERow("RuneCodes", RuneCodes)
-	cmd("FontRunes", FontRunes)
+	cmdERow(OpenFilemanager, "OpenFilemanager", "XdgOpenDir") // TODO: deprecate XdgOpenDir
+	cmdERow(OpenTerminal, "OpenTerminal")
 
-	// Deprecated: in favor of "OpenFilemanager"
-	cmd("XdgOpenDir", OpenFilemanager)
-	cmdERow("OpenFilemanager", OpenFilemanager)
-	cmdERow("OpenTerminal", OpenTerminal)
+	cmdERow(ListDir, "ListDir")
 
-	cmdERow("ListDir", ListDir)
+	cmdERow(GoRename, "GoRename") // TODO: deprecate
+	cmdERow(GoDebug, "GoDebug")
+	cmdERow(GoDebugFind, "GoDebugFind")
 
-	cmdERow("GoRename", GoRename)
-	cmdERow("GoDebug", GoDebug)
-	cmdERow("GoDebugFind", GoDebugFind)
+	cmd(LSProtoCloseAll, "LsprotoCloseAll", "LSProtoCloseAll")
+	cmdERow(LSProtoRename, "LsprotoRename")
 
-	// Deprecated: in favor of "LspCloseAll"
-	cmd("LSProtoCloseAll", LSProtoCloseAll)
-	cmd("LsprotoCloseAll", LSProtoCloseAll)
-	cmdERow("LsprotoRename", LSProtoRename)
+	cmd(ColorTheme, "ColorTheme")
+	cmd(FontTheme, "FontTheme")
 
-	cmd("ColorTheme", ColorTheme)
-	cmd("FontTheme", FontTheme)
-
-	cmd("CtxutilCallsState", CtxutilCallsState)
+	cmd(CtxutilCallsState, "CtxutilCallsState")
 }
