@@ -113,6 +113,7 @@ type CompletionItem struct {
 	Detail        string `json:"detail,omitempty"`
 	Documentation string `json:"documentation,omitempty"`
 	Deprecated    bool   `json:"deprecated,omitempty"`
+	// TODO: tags []CompletionItemTag // since v3.15.0 for deprecated flag
 }
 type CompletionList struct {
 	IsIncomplete bool              `json:"isIncomplete"`

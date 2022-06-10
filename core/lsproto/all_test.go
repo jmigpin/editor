@@ -94,6 +94,29 @@ func TestGoSrc2(t *testing.T) {
 	}
 }
 
+//func TestGoSrc3_develop(t *testing.T) {
+//	src0 := `
+//		package lsproto
+//		import "log"
+//		func main(){
+//			v1 := fn2()
+//			log.●Printf(v●1)
+//		}
+//		func f●n2() string {
+//			a:=image.Z●P // TODO: get deprecated tag?
+//			_=a
+//			return "fn2"
+//		}
+//	`
+
+//	// TESTING
+//	{
+//		offset, src := sourceCursor(t, src0, 3)
+//		testSrcCompletion(t, "src.go", offset, src)
+//	}
+//	return
+//}
+
 //----------
 
 func TestCSrc1(t *testing.T) {
