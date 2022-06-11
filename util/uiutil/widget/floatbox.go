@@ -58,12 +58,12 @@ func (fb *FloatBox) Measure(hint image.Point) image.Point {
 func (fb *FloatBox) Layout() {
 	b := fb.Bounds
 
-	m := fb.content.Measure(b.Size())
-
-	// max size option
-	if fb.MaxSize != image.ZP {
-		m = imageutil.MinPoint(m, fb.MaxSize)
+	// max size
+	max := b.Size()
+	if fb.MaxSize != (image.Point{}) {
+		max = imageutil.MinPoint(max, fb.MaxSize)
 	}
+	m := fb.content.Measure(max)
 
 	// calc bounds attached to the reference point
 	r := image.Rectangle{}

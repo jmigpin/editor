@@ -30,7 +30,7 @@ func NewContextFloatBox(root *Root) *ContextFloatBox {
 	container := WrapInBottomShadowOrNone(root.UI, border)
 
 	cfb.FloatBox = widget.NewFloatBox(root.MultiLayer, container)
-	cfb.FloatBox.MaxSize = image.Point{550, 100000}
+	cfb.FloatBox.MaxSize = image.Point{800, 100000}
 	root.MultiLayer.ContextLayer.Append(cfb)
 	cfb.FloatBox.Hide()
 
