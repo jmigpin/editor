@@ -82,8 +82,9 @@ type Drawer struct {
 
 	// external options
 	Opt struct {
-		QuickMeasure bool // just return the bounds size
-		RuneReader   struct {
+		QuickMeasure     bool // just return the bounds size
+		EarlyExitMeasure bool // allow early exit
+		RuneReader       struct {
 			StartOffsetX int
 		}
 		LineWrap struct {
@@ -383,7 +384,7 @@ func (d *Drawer) measure2() image.Point {
 // Full content measure in pixels. To be used only for small content.
 func (d *Drawer) measureContent() image.Point {
 	d.st = State{}
-	iters := d.sIters(true, &d.iters.measure)
+	iters := d.sIters(d.Opt.EarlyExitMeasure, &d.iters.measure)
 	d.loopInit(iters)
 	d.loop()
 	// remove bounds min and return only the measure

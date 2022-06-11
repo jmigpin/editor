@@ -382,22 +382,47 @@ func (ed *Editor) setupRootMenuToolbar() {
 		ed.updateERowsToolbarsHomeVars()
 	})
 
-	tb.SetStrClearHistory(`CopyFilePosition
-ColorTheme
-CtxutilCallsState
-FontRunes | FontTheme 
-GoDebug | GoRename
-GotoLine 
-NewColumn
-NewFile | SaveAllFiles
-NewRow | ReopenRow | MaximizeRow
-ListDir | ListDir -hidden | ListDir -sub
-ListSessions | OpenSession | DeleteSession
-LsprotoRename | LsprotoCloseAll
-OpenFilemanager | OpenTerminal
-Reload | ReloadAll | ReloadAllFiles 
-RuneCodes
-Exit | Stop | Clear | Version`)
+	w := [][]string{
+		[]string{"ColorTheme"},
+		[]string{"CopyFilePosition"},
+		[]string{"CtxutilCallsState"},
+		[]string{"FontRunes", "FontTheme"},
+		[]string{"GoDebug", "GoRename"},
+		[]string{"GotoLine"},
+		[]string{"NewColumn"},
+		[]string{"NewFile", "SaveAllFiles", "Save"},
+		[]string{"NewRow", "ReopenRow", "MaximizeRow"},
+		[]string{"ListDir", "ListDir -hidden", "ListDir -sub"},
+		[]string{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
+		[]string{"LsprotoRename", "LsprotoCloseAll"},
+		[]string{"LsprotoCallers", "LsprotoCallees"},
+		[]string{"OpenFilemanager", "OpenTerminal"},
+		[]string{"Reload", "ReloadAll", "ReloadAllFiles"},
+		[]string{"RuneCodes"},
+	}
+	last := []string{"Exit", "Version", "Stop", "Clear"}
+
+	//// method 1: sort categorized
+	//sort.Slice(w, func(a, b int) bool {
+	//	v1, v2 := w[a], w[b]
+	//	return v1[0] < v2[0]
+	//})
+	//w2 := []string{}
+	//for _, a := range w {
+	//	w2 = append(w2, strings.Join(a, " | "))
+	//}
+	//s1 := strings.Join(w2, "\n")
+
+	// method 2: simple sorted list
+	w2 := []string{}
+	for _, a := range w {
+		w2 = append(w2, a...)
+	}
+	sort.Slice(w2, func(a, b int) bool { return w2[a] < w2[b] })
+	w2 = append(w2, "\n"+strings.Join(last, " | "))
+	s1 := strings.Join(w2, "\n")
+
+	tb.SetStrClearHistory(s1)
 }
 
 //----------

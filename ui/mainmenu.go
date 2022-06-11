@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
 
 type MainMenuButton struct {
 	*widget.FloatBoxButton
+	sa      *widget.ScrollArea
 	Toolbar *Toolbar
 }
 
@@ -25,9 +27,12 @@ func NewMainMenuButton(root *Root) *MainMenuButton {
 
 	// float content
 	mmb.Toolbar = NewToolbar(root.UI)
-	pad := widget.NewPad(root.UI, mmb.Toolbar)
-	pad.SetAll(10)
-	border := widget.NewBorder(root.UI, pad)
+	if d, ok := mmb.Toolbar.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.EarlyExitMeasure = false // full measure to avoid flicker (want the menu size stable)
+	}
+	mmb.sa = widget.NewScrollArea(root.UI, mmb.Toolbar, false, true)
+	mmb.sa.LeftScroll = ScrollBarLeft
+	border := widget.NewBorder(root.UI, mmb.sa)
 	border.SetAll(1)
 	n1 := WrapInBottomShadowOrNone(root.UI, border)
 	content.Append(n1)

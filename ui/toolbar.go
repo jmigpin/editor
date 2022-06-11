@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -15,6 +16,9 @@ func NewToolbar(ui *UI) *Toolbar {
 	tb := &Toolbar{}
 	tb.TextArea = NewTextArea(ui)
 	tb.SetThemePaletteNamePrefix("toolbar_")
+	if d, ok := tb.TextArea.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.EarlyExitMeasure = true // performance
+	}
 	return tb
 }
 
