@@ -168,6 +168,9 @@ func (t *Text) Paint() {
 //----------
 
 func (t *Text) OnThemeChange() {
+	// word highlight ops (contain fg/bg colors) are cached. A contentchanged() here is the easiest way to invalidate the cache and have all the colors be updated.
+	t.Drawer.ContentChanged()
+
 	fg := t.TreeThemePaletteColor("text_fg")
 	t.Drawer.SetFg(fg)
 
