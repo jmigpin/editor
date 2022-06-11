@@ -13,3 +13,5 @@ require (
 	golang.org/x/sys v0.0.0-20200501145240-bc7a7d42d5c3
 	golang.org/x/tools v0.0.0-20200505023115-26f46d2f7ef8
 )
+
+retract [v2.0.1, v2.0.8]
