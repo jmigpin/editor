@@ -9,7 +9,7 @@ func Version() string {
 
 func taggedVersion(v string) string {
 	// auto-updated with "go generate" from main directory
-	date := "#___202206101538___#"
+	date := "#___202206112203___#"
 	tag := date[4 : len(date)-4]
 
 	return v + "-rc." + tag // release candidate format

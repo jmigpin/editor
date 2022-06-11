@@ -100,6 +100,7 @@ Usage of ./editor:
     		go,.go,stdio,"gopls serve"
     		go,.go,tcp,"gopls serve -listen={{.Addr}}"
     		cpp,".c .h .cpp .hpp .cc",stdio,clangd
+    		python,.py,stdio,pylsp
     		python,.py,tcpclient,127.0.0.1:9000
   -plugins string
     	comma separated string of plugin filenames
@@ -349,29 +350,7 @@ Usage of GoDebug run:
 		```
 - Limitations:
 	- `String()` and `Error()` methods are not annotated to avoid endless loops (the annotation would recursively call the method again).
-	- fixed ~~Go supports multi-value function assignment. These statements are annotated but give a compilation error later:~~
-		```diff
-		- func myfunc1() (int,int) { return 1, 2}
-		- func myfunc2(a int, b int) {}
-		- ...
-		- myfunc2(myfunc1()) // assumes myfunc1 returns 1 arg (compilation err)
-		```
-		~~The annotator assumes myfunc1 returns 1 value. For this to be solved the annotator would have to become substantially slower with type analysis.~~
-	- fixed ~~Constants bigger then `int` get the `int` type when assigned to an `interface{}` https://golang.org/ref/spec#Constants. 
-		Consider the following code that compiles and runs:~~
-		```diff
-		- a:=uint64(0)
-		- a=math.MaxUint64
-		```
-		~~But, the following gives a compile error:~~
-		```diff
-		- var a interface{}
-		- a=math.MaxUint64
-		- // compilation err: constant 18446744073709551615 overflows int
-		```
-		~~When the code is annotated, there are debug functions that have `interface{}` arguments. So if an argument is a `const` bigger then `int`, it won't work. 
-		A solution is to use `//godebug:annotateoff` before the offending line.
-		For this to be solved, the types need to be analysed but that would become substantially slower (compiles are not cached).~~
+		- NOTE: The latest annotator annotates String() and Error() at the cost of not calling these methods to produce the debug msgs themselves. So the debug msgs will not show the String() output but simply the content of the variable. This will later be possible to use again with a command line option, with which these methods will then not be annotated to avoid endless loops.
 - Notes:
 	- Use `esc` key to stop the debug session. Check related shortcuts at the key/buttons shortcuts section.
 	- Supports remote debugging (check help usage with `GoDebug -h`).
@@ -580,6 +559,13 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2022/06/??: v3.3.0 (52 commits) - TO BE RELEASED
+	- godebug: new improved annotator, as well as a new implementation using overlays that takes advantage of the go cache to speed up compiling.
+	- lsproto: goto implementation
+	- lsproto: callers and callees
+	- lsproto: fixes that improved response speed
+	- many other bug fixes and improvements
+	- note: v3.2.0 was bypassed and not released
 - 2021/07/27: v3.1.0 (40 commits)
 	- Support for go 1.16 default modules mode
 	- Version cmd line option

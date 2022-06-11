@@ -43,7 +43,8 @@ func main() {
 	flag.Var(&opt.LSProtos, "lsproto", "Language-server-protocol register options. Can be specified multiple times.\nFormat: language,fileExtensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}\nExamples:\n"+"\t"+strings.Join(lsproto.RegistrationExamples(), "\n\t"))
 	flag.Var(&opt.PreSaveHooks, "presavehook", "Run program before saving a file. Uses stdin/stdout. Can be specified multiple times. By default, a \"goimports\" entry is auto added if no entry is defined for the \"go\" language.\nFormat: language,fileExtensions,cmd\nExamples:\n"+
 		"\tgo,.go,goimports\n"+
-		"\tcpp,\".c .h .cpp .hpp\",clang-format")
+		"\tcpp,\".c .h .cpp .hpp\",clang-format\n"+
+		"\tpython,.py,python_formatter")
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
 	version := flag.Bool("version", false, "output version and exit")
 
