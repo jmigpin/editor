@@ -69,19 +69,11 @@ go get -u github.com/jmigpin/editor
 
 Please take care to distinguish between versions and ensure "go get" is actually getting the version you want.
 
-To use a specific commit inside a `go.mod`, use the commit hash. For example: for the v3.0.0 the hash starts with `a08876d10e639487f5`. So inside the `go.mod` goes:
+This project is not using "vX" named directories. So version 3 is not in the directory "v3", nor is it named "*/v3" in imports. Versions are being updated using the same import path. The downside of this is that go websites (ex: pkg.go.dev) don't recognize versions tagged as 3 and above of this project. 
 
-```
-require github.com/jmigpin/editor a08876d10e63
-```
+Currently a release will be tagged with two tags that refer to the same version (ex: 3.3.0 and 1.3.3 is the same version). 
 
-The command `go mod tidy` will replace that line with:
-
-```
-require github.com/jmigpin/editor v1.y.z-0.20201021185104-a08876d10e63
-```
-
-Note that because the go compiler insists that a project must follow the vX directories, on projects that stopped doing it, it will now show v1.y.z, even though it will be using the inserted commit hash of v3.0.0.
+Feel free to file an issue if you know of a better solution that doesn't require to use an import path of a directory that might not exist (case of using "vX" dirs).
 
 ## Usage
 
