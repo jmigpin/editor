@@ -121,7 +121,7 @@ func (man *Manager) TextDocumentImplementation(ctx context.Context, filename str
 	}
 
 	// target filename
-	filename2, err := urlToAbsFilename(string(loc.Uri))
+	filename2, err := UrlToAbsFilename(string(loc.Uri))
 	if err != nil {
 		return "", nil, err
 	}
@@ -154,7 +154,7 @@ func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string,
 	}
 
 	// target filename
-	filename2, err := urlToAbsFilename(string(loc.Uri))
+	filename2, err := UrlToAbsFilename(string(loc.Uri))
 	if err != nil {
 		return "", nil, err
 	}
@@ -327,4 +327,26 @@ func (man *Manager) CallHierarchyCalls(ctx context.Context, filename string, rd 
 	}
 
 	return res, nil
+}
+
+//----------
+
+func (man *Manager) TextDocumentReferences(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) ([]*Location, error) {
+	cli, _, err := man.langInstanceClient(ctx, filename)
+	if err != nil {
+		return nil, err
+	}
+
+	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
+	if err != nil {
+		return nil, err
+	}
+	defer didCloseFn()
+
+	pos, err := OffsetToPosition(rd, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.TextDocumentReferences(ctx, filename, pos)
 }

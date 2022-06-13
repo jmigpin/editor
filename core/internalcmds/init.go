@@ -64,6 +64,7 @@ func init() {
 
 	cmd(LSProtoCloseAll, "LsprotoCloseAll", "LSProtoCloseAll") // TODO: deprecate LSProtoCloseAll
 	cmdERow(LSProtoRename, "LsprotoRename")
+	cmdERow(LSProtoReferences, "LsprotoReferences")
 	cmdERow(LSProtoCallHierarchyIncomingCalls, "LsprotoCallers", "LsprotoCallHierarchyIncomingCalls")
 	cmdERow(LSProtoCallHierarchyOutgoingCalls, "LsprotoCallees", "LsprotoCallHierarchyOutgoingCalls")
 

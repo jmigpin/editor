@@ -55,6 +55,10 @@ func TestGoSrc1(t *testing.T) {
 		offset, src := sourceCursor(t, src0, 2)
 		testSrcCallHierarchy(t, "src.go", offset, src)
 	}
+	{
+		offset, src := sourceCursor(t, src0, 1)
+		testSrcReferences(t, "src.go", offset, src)
+	}
 }
 
 func TestGoSrc2(t *testing.T) {
@@ -91,6 +95,10 @@ func TestGoSrc2(t *testing.T) {
 	{
 		offset, src := sourceCursor(t, src0, 0)
 		testSrcCallHierarchy(t, "src.go", offset, src)
+	}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcReferences(t, "src.go", offset, src)
 	}
 }
 
@@ -158,6 +166,10 @@ func TestCSrc1(t *testing.T) {
 		offset, src := sourceCursor(t, src0, 0)
 		testSrcCallHierarchy(t, "src.cpp", offset, src)
 	}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcReferences(t, "src.cpp", offset, src)
+	}
 }
 
 //----------
@@ -180,7 +192,6 @@ func TestPythonSrc1(t *testing.T) {
 		offset, src := sourceCursor(t, src0, 0)
 		testSrcCompletion(t, "src.py", offset, src)
 	}
-
 	// TODO: failing, seems to not be implemented yet in pyls
 	//{
 	//	src2 := `
@@ -195,12 +206,15 @@ func TestPythonSrc1(t *testing.T) {
 	//	offset, src := sourceCursor(t, src0, 0)
 	//	testSrcRename(t, "src.py", offset, src, "main3", src2)
 	//}
-
 	// TODO: not yet implemented in pylsp (method not found)
 	//{
 	//	offset, src := sourceCursor(t, src0, 0)
 	//	testSrcCallHierarchy(t, "src.py", offset, src)
 	//}
+	{
+		offset, src := sourceCursor(t, src0, 0)
+		testSrcReferences(t, "src.py", offset, src)
+	}
 }
 
 //----------
@@ -335,6 +349,30 @@ func testSrcCallHierarchy(t *testing.T, filename string, offset int, src string)
 		t.Fatal(err)
 	}
 	t.Logf("result: %v", str)
+}
+
+func testSrcReferences(t *testing.T, filename string, offset int, src string) {
+	t.Helper()
+
+	rd := iorw.NewStringReaderAt(src)
+
+	tf := newTmpFiles(t)
+	defer tf.RemoveAll()
+
+	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
+
+	man := newTestManager(t)
+	defer man.Close()
+
+	ctx := context.Background()
+	locations, err := man.TextDocumentReferences(ctx, filename2, rd, offset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(locations) == 0 {
+		t.Fatal("no locations")
+	}
+	t.Logf("locations: %#v", locations)
 }
 
 //----------

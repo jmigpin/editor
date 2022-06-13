@@ -16,14 +16,14 @@ type WorkspaceEditChange struct {
 func WorkspaceEditChanges(we *WorkspaceEdit) ([]*WorkspaceEditChange, error) {
 	m := map[string]*WorkspaceEditChange{}
 	for url, edits := range we.Changes {
-		filename, err := urlToAbsFilename(string(url))
+		filename, err := UrlToAbsFilename(string(url))
 		if err != nil {
 			return nil, err
 		}
 		m[filename] = &WorkspaceEditChange{filename, edits}
 	}
 	for _, tde := range we.DocumentChanges {
-		filename, err := urlToAbsFilename(string(tde.TextDocument.Uri))
+		filename, err := UrlToAbsFilename(string(tde.TextDocument.Uri))
 		if err != nil {
 			return nil, err
 		}

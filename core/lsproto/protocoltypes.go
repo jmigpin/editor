@@ -223,9 +223,21 @@ type CallHierarchyItem struct {
 	data           interface{}  `json:"data,omitempty"` // optional (related to prepare calls)
 }
 
+type ReferenceParams struct {
+	TextDocumentPositionParams
+	Context ReferenceContext `json:"context"`
+}
+type ReferenceContext struct {
+	IncludeDeclaration bool `json:"includeDeclaration"`
+}
+
 type Position struct {
 	Line      int `json:"line"`      // zero based
 	Character int `json:"character"` // zero based
+}
+
+func (pos *Position) OneBased() (int, int) {
+	return pos.Line + 1, pos.Character + 1
 }
 
 type DocumentUri string

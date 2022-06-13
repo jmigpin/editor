@@ -229,6 +229,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `LsprotoRename <new-name>`: Renames the identifiers under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - `LsprotoCallers`: lists callers of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy incoming calls.
 - `LsprotoCallees`: lists callees of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy outgoing calls.
+- `LsprotoReferences`: lists references of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - `GoRename [-all] <new-name>`: Renames the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
 	- default: calls `gopls` (limited scope in renaming, but faster).
 	- `-all`: calls `gorename` to rename across packages (slower).

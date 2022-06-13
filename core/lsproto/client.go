@@ -295,7 +295,7 @@ func (cli *Client) TextDocumentDidOpen(ctx context.Context, filename, text strin
 	opt.TextDocument.LanguageId = cli.li.lang.Reg.Language
 	opt.TextDocument.Version = version
 	opt.TextDocument.Text = text
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return err
 	}
@@ -307,7 +307,7 @@ func (cli *Client) TextDocumentDidClose(ctx context.Context, filename string) er
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_didClose
 
 	opt := &DidCloseTextDocumentParams{}
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return err
 	}
@@ -320,7 +320,7 @@ func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text str
 
 	opt := &DidChangeTextDocumentParams{}
 	opt.TextDocument.Version = &version
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return err
 	}
@@ -352,7 +352,7 @@ func (cli *Client) TextDocumentDidSave(ctx context.Context, filename string, tex
 
 	opt := &DidSaveTextDocumentParams{}
 	opt.Text = string(text) // has omitempty
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return err
 	}
@@ -368,7 +368,7 @@ func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, 
 
 	opt := &TextDocumentPositionParams{}
 	opt.Position = pos
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +391,7 @@ func (cli *Client) TextDocumentImplementation(ctx context.Context, filename stri
 
 	opt := &TextDocumentPositionParams{}
 	opt.Position = pos
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 	opt := &CompletionParams{}
 	opt.Context.TriggerKind = 1 // invoked
 	opt.Position = pos
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -529,7 +529,7 @@ func (cli *Client) TextDocumentRename(ctx context.Context, filename string, pos 
 	opt := &RenameParams{}
 	opt.NewName = newName
 	opt.Position = pos
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -544,7 +544,7 @@ func (cli *Client) TextDocumentRename(ctx context.Context, filename string, pos 
 func (cli *Client) TextDocumentPrepareCallHierarchy(ctx context.Context, filename string, pos Position) ([]*CallHierarchyItem, error) {
 	opt := &CallHierarchyPrepareParams{}
 	opt.Position = pos
-	url, err := absFilenameToUrl(filename)
+	url, err := AbsFilenameToUrl(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -567,5 +567,21 @@ func (cli *Client) CallHierarchyCalls(ctx context.Context, typ CallHierarchyCall
 	opt.Item = item
 	result := []*CallHierarchyCall{}
 	err := cli.Call(ctx, method, opt, &result)
+	return result, err
+}
+
+//----------
+
+func (cli *Client) TextDocumentReferences(ctx context.Context, filename string, pos Position) ([]*Location, error) {
+	opt := &ReferenceParams{}
+	opt.Context.IncludeDeclaration = true
+	url, err := AbsFilenameToUrl(filename)
+	if err != nil {
+		return nil, err
+	}
+	opt.TextDocument.Uri = DocumentUri(url)
+	opt.Position = pos
+	result := []*Location{}
+	err = cli.Call(ctx, "textDocument/references", opt, &result)
 	return result, err
 }

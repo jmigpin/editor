@@ -118,9 +118,8 @@ func OffsetToPosition(rd iorw.ReaderAt, offset int) (Position, error) {
 }
 
 func RangeToOffsetLen(rd iorw.ReaderAt, rang *Range) (int, int, error) {
-	// one-based lines (range is zero based)
-	l1 := rang.Start.Line + 1
-	l2 := rang.End.Line + 1
+	l1, _ := rang.Start.OneBased()
+	l2, _ := rang.End.OneBased()
 
 	// line start offset
 	// TODO: improve getting lso2
@@ -184,11 +183,11 @@ func jsonGetPath2(v interface{}, args []string) (interface{}, error) {
 
 //----------
 
-func urlToAbsFilename(url string) (string, error) {
+func UrlToAbsFilename(url string) (string, error) {
 	return parseutil.UrlToAbsFilename(url)
 }
 
-func absFilenameToUrl(filename string) (string, error) {
+func AbsFilenameToUrl(filename string) (string, error) {
 	if runtime.GOOS == "windows" {
 		// gopls requires casing to match the OS names in windows (error: case mismatch in path ...)
 		if u, err := osutil.FsCaseFilename(filename); err == nil {
@@ -238,7 +237,7 @@ func ManagerCallHierarchyCallsToString(mcalls []*ManagerCallHierarchyCalls, typ 
 			if typ == OutgoingChct {
 				fileItem = mcall.item
 			}
-			filename, err := urlToAbsFilename(string(fileItem.Uri))
+			filename, err := UrlToAbsFilename(string(fileItem.Uri))
 			if err != nil {
 				return "", err
 			}
@@ -250,10 +249,7 @@ func ManagerCallHierarchyCallsToString(mcalls []*ManagerCallHierarchyCalls, typ 
 			}
 
 			for _, r := range call.FromRanges {
-				// translate to one-based position
-				line := r.Start.Line + 1
-				col := r.Start.Character + 1
-
+				line, col := r.Start.OneBased()
 				u := fmt.Sprintf("\t%s: %s:%d:%d", item.Name, filename, line, col)
 				res = append(res, u)
 			}
