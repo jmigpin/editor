@@ -73,7 +73,7 @@ This project is not using "vX" named directories. So version 3 is not in the dir
 
 Currently a release will be tagged with two tags that refer to the same version (ex: 3.3.0 and 1.3.3 is the same version). 
 
-Feel free to file an issue if you know of a better solution that doesn't require to use an import path of a directory that might not exist (case of using "vX" dirs).
+Feel free to file an issue if you know of a better solution that doesn't require to use an import path of a directory that might not exist (case of using "vX" import paths).
 
 ## Usage
 
@@ -559,11 +559,11 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
-- 2022/06/??: v3.3.0 (52 commits) - TO BE RELEASED
+- 2022/06/13: v3.3.0 (52 commits)
 	- godebug: new improved annotator, as well as a new implementation using overlays that takes advantage of the go cache to speed up compiling.
 	- lsproto: goto implementation
 	- lsproto: callers and callees
-	- lsproto: fixes that improved response speed
+	- lsproto: improved response speed
 	- many other bug fixes and improvements
 	- note: v3.2.0 was bypassed and not released
 - 2021/07/27: v3.1.0 (40 commits)
