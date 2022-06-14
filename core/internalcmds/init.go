@@ -45,7 +45,7 @@ func init() {
 	cmdERow(Stop, "Stop")
 	cmdERow(Clear, "Clear")
 
-	cmdERow(Find, "Find")
+	cmd(Find, "Find")
 	cmdERow(Replace, "Replace")
 	cmdERow(GotoLine, "GotoLine", "GoToLine")
 

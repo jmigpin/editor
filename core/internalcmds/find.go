@@ -14,18 +14,17 @@ import (
 )
 
 func Find(args0 *core.InternalCmdArgs) error {
-	erow := args0.ERow
-	part := args0.Part
-
-	iopt := &iorw.IndexOpt{}
-
+	// setup flagset
 	fs := flag.NewFlagSet("Find", flag.ContinueOnError)
 	fs.SetOutput(io.Discard) // don't output to stderr
 	reverseFlag := fs.Bool("rev", false, "reverse find")
+	iopt := &iorw.IndexOpt{}
 	fs.BoolVar(&iopt.IgnoreCase, "icase", true, "ignore case: 'a' will also match 'A'")
 	fs.BoolVar(&iopt.IgnoreCaseDiacritics, "icasediac", false, "ignore case diacritics: 'á' will also match 'Á'. Because ignore case is usually on by default, this is a separate option to explicitly lower the case of diacritics due to being more expensive (~8x slower)'")
 	fs.BoolVar(&iopt.IgnoreDiacritics, "idiac", false, "ignore diacritics: 'a' will also match 'á'")
 
+	// parse flags
+	part := args0.Part
 	args := part.ArgsStrs()[1:]
 	err := fs.Parse(args)
 	if err != nil {
@@ -37,6 +36,13 @@ func Find(args0 *core.InternalCmdArgs) error {
 			return nil
 		}
 		return err
+	}
+
+	// this cmd is allowed to get here without a row in order to run the help cmd from the toolbar easily
+	erow := args0.ERow
+	if erow == nil {
+		arg0 := part.Args[0].UnquotedStr()
+		return fmt.Errorf("%s: no active row", arg0)
 	}
 
 	args2 := fs.Args()
