@@ -61,7 +61,7 @@ func indexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, chunk int, op
 func indexCtx3(r ReaderAt, i, n int, sep []byte, pfcFn pfcType, opt *IndexOpt) (int, int, error) {
 	return indexCtx4(bytes.Index, r, i, n, sep, pfcFn, opt)
 }
-func indexCtx4(indexFn func(_, _ []byte) int, r ReaderAt, i, n int, sep []byte, pfcFn pfcType, opt *IndexOpt) (int, int, error) {
+func indexCtx4(indexFn func(s, sep []byte) int, r ReaderAt, i, n int, sep []byte, pfcFn pfcType, opt *IndexOpt) (int, int, error) {
 	p, err := r.ReadFastAt(i, n)
 	if err != nil {
 		return 0, 0, err
@@ -70,7 +70,7 @@ func indexCtx4(indexFn func(_, _ []byte) int, r ReaderAt, i, n int, sep []byte, 
 	if err != nil {
 		return 0, 0, err // TODO: continue?
 	}
-	j := indexFn(p2, sep)
+	j := indexFn(p2, sep) // can be used by index/lastindex
 	if j >= 0 {
 		n := len(sep)
 		if opt.IgnoringDiacritics() {
@@ -129,25 +129,6 @@ func lastIndexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, chunk int
 func lastIndexCtx3(r ReaderAt, i, n int, sep []byte, pfcFn pfcType, opt *IndexOpt) (int, int, error) {
 	return indexCtx4(bytes.LastIndex, r, i, n, sep, pfcFn, opt)
 }
-
-//	p, err := r.ReadFastAt(i, n)
-//	if err != nil {
-//		return 0, 0, err
-//	}
-//	p2, _, err := pfcFn(p) // prepare for compare
-//	if err != nil {
-//		return 0, 0, err // TODO: continue?
-//	}
-//	j := bytes.LastIndex(p2, sep)
-//	if j >= 0 {
-//		n := len(sep)
-//		if opt.IgnoringDiacritics() {
-//			j, n = correctRunesPos(p, p2, sep, j)
-//		}
-//		return i + j, n, nil
-//	}
-//	return -1, 0, nil
-//}
 
 //----------
 //----------
