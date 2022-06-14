@@ -2,9 +2,7 @@ package iorw
 
 import (
 	"bytes"
-	"context"
 	"errors"
-	"fmt"
 	"io"
 	"unicode"
 )
@@ -103,84 +101,6 @@ func HasPrefix(r ReaderAt, i int, s []byte) bool {
 
 //----------
 
-func Index(r ReaderAt, i int, sep []byte, toLower bool) (int, error) {
-	ctx := context.Background()
-	return IndexCtx(ctx, r, i, sep, toLower)
-}
-
-// Returns (-1, nil) if not found.
-func IndexCtx(ctx context.Context, r ReaderAt, i int, sep []byte, toLower bool) (int, error) {
-	return indexCtx2(ctx, r, i, sep, toLower, 32*1024)
-}
-
-func indexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, toLower bool, chunk int) (int, error) {
-	// TODO: ignore accents? use strings (runes)
-
-	if chunk < len(sep) {
-		return -1, fmt.Errorf("chunk smaller then sep")
-	}
-
-	// ignore case
-	if toLower {
-		sep = ToLowerAsciiCopy(sep) // copy
-	}
-
-	m := r.Max()
-	for k := i; k < m; k += chunk - (len(sep) - 1) {
-		c := chunk
-		if c > m-k {
-			c = m - k
-		}
-
-		j, err := indexCtx3(r, k, c, sep, toLower)
-		if err != nil || j >= 0 {
-			return j, err
-		}
-
-		// check context cancelation
-		if err := ctx.Err(); err != nil {
-			return 0, err
-		}
-	}
-
-	return -1, nil
-}
-
-func indexCtx3(r ReaderAt, i, n int, sep []byte, toLower bool) (int, error) {
-	p, err := r.ReadFastAt(i, n)
-	if err != nil {
-		return 0, err
-	}
-
-	// ignore case
-	if toLower {
-		p = ToLowerAsciiCopy(p) // copy
-	}
-
-	j := bytes.Index(p, sep)
-	if j >= 0 {
-		return i + j, nil
-	}
-	return -1, nil
-}
-
-// Lower case at byte level without expanding in size the resulting byte slice.
-func ToLowerAsciiCopy(p []byte) []byte {
-	// bytes.ToLower expands the size of the returning slice.
-	//return bytes.ToLower(p) // copy
-
-	u := make([]byte, len(p))
-	for i := 0; i < len(p); i++ {
-		c := p[i]
-		if 'A' <= c && c <= 'Z' {
-			u[i] = c + ('a' - 'A')
-		} else {
-			u[i] = c
-		}
-	}
-	return u
-}
-
 //----------
 
 // On error, returns best failing index. Use errors.Is(err, io.EOF) to handle limitedreaders.
@@ -225,7 +145,7 @@ func RuneLastIndexFn(r ReaderAt, i int, truth bool, f func(rune) bool) (index, s
 
 //----------
 
-//// Returns index where truth was found.
+// Returns index where truth was found.
 func ExpandRuneIndexFn(r ReaderAt, i int, truth bool, f func(rune) bool) int {
 	j, _, _ := RuneIndexFn(r, i, truth, f)
 	return j // found, or last known index before an err

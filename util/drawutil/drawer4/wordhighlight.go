@@ -71,7 +71,7 @@ func wordHOps(d *Drawer) []*ColorizeOp {
 	for i := a; i < b; {
 		// find word
 		rd := iorw.NewLimitedReaderAt(d.reader, i, b)
-		j, err := iorw.Index(rd, i, word, false)
+		j, _, err := iorw.Index(rd, i, word, false)
 		if err != nil {
 			return nil
 		}

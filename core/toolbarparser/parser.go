@@ -171,6 +171,14 @@ func (p *Part) ArgsUnquoted() []string {
 	return args
 }
 
+func (p *Part) ArgsStrs() []string {
+	args := []string{}
+	for _, a := range p.Args {
+		args = append(args, a.Str())
+	}
+	return args
+}
+
 func (p *Part) FromArgString(i int) string {
 	if i >= len(p.Args) {
 		return ""

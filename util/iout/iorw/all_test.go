@@ -43,25 +43,28 @@ func TestRW1(t *testing.T) {
 //----------
 
 func TestIndex1(t *testing.T) {
-	s := "0123456789"
-	for i := 0; i < 32*1024; i++ {
+	s := ""
+	for i := 0; i < 10; i++ {
 		s += "0123456789"
 	}
 	s += "abc"
 
 	rw := NewStringReaderAt(s)
 
-	i, err := Index(rw, 4, []byte("abc"), true)
+	i, _, err := indexCtx2(context.Background(), rw, 0, []byte("abc"), 4, &IndexOpt{IgnoreCase: true})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if i < 0 {
+		t.Fatal("not found")
 	}
 	t.Log(i)
 }
 
 func TestIndex2(t *testing.T) {
-	s := "012345678"
+	s := "0123456789"
 	rw := NewStringReaderAt(s)
-	i, err := indexCtx2(context.Background(), rw, 0, []byte("345"), true, 4)
+	i, _, err := indexCtx2(context.Background(), rw, 0, []byte("345"), 4, &IndexOpt{IgnoreCase: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +74,146 @@ func TestIndex2(t *testing.T) {
 }
 
 func TestLastIndex1(t *testing.T) {
+	s := "-abc"
+	for i := 0; i < 10; i++ {
+		s += "0123456789"
+	}
+	s += ""
+
+	rw := NewStringReaderAt(s)
+
+	i, _, err := lastIndexCtx2(context.Background(), rw, rw.Max(), []byte("abc"), 4, &IndexOpt{IgnoreCase: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i < 0 {
+		t.Fatal("not found")
+	}
+	t.Log(i)
+}
+
+func TestIndexDiacritics1(t *testing.T) {
+	s := "-ìùù-aaáéb--"
+	rw := NewStringReaderAt(s)
+	i, _, err := indexCtx2(context.Background(), rw, 0, []byte("aae"), -1, &IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i < 0 {
+		t.Fatal("not found")
+	}
+	t.Log(i)
+}
+
+func TestIndexDiacritics2(t *testing.T) {
+	s := "úúú-aáé--"
+	rw := NewStringReaderAt(s)
+	i, n, err := indexCtx2(context.Background(), rw, 0, []byte("aae"), -1, &IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i < 0 {
+		t.Fatal("not found")
+	}
+	if i != 7 {
+		t.Fatal(i)
+	}
+	if n != 5 {
+		t.Fatal(n)
+	}
+}
+
+func TestIndexDiacritics3(t *testing.T) {
+	s := "úúú-aáé--ú"
+	rw := NewStringReaderAt(s)
+	i, n, err := lastIndexCtx2(context.Background(), rw, rw.Max(), []byte("aae"), -1, &IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i < 0 {
+		t.Fatal("not found")
+	}
+	if i != 7 {
+		t.Fatal(i)
+	}
+	if n != 5 {
+		t.Fatal(n)
+	}
+}
+
+func TestIndexDiacritics4(t *testing.T) {
+	s := "úúú-aáé--ú"
+	rw := NewStringReaderAt(s)
+	i, n, err := indexCtx2(context.Background(), rw, 0, []byte("aae"), -1, &IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i < 0 {
+		t.Fatal("not found")
+	}
+	if i != 7 {
+		t.Fatal(i)
+	}
+	if n != 5 {
+		t.Fatal(n)
+	}
+}
+
+func TestIndexDiacritics5(t *testing.T) {
+	s := "úúú-aÁé--ú"
+	rw := NewStringReaderAt(s)
+	i, n, err := indexCtx2(context.Background(), rw, 0, []byte("aáé"), -1, &IndexOpt{IgnoreCase: true, IgnoreCaseDiacritics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i < 0 {
+		t.Fatal("not found")
+	}
+	if i != 7 {
+		t.Fatal(i)
+	}
+	if n != 5 {
+		t.Fatal(n)
+	}
+}
+
+func TestPrepareForCompare(t *testing.T) {
+	fn1 := prepareForCompareFn(&IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
+	s1 := "ááBC"
+	p, _, err := fn1([]byte(s1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2 := string(p)
+	if s2 != "aabc" {
+		t.Fatal(s2)
+	}
+}
+
+//----------
+
+func BenchmarkPrepareForCompare(b *testing.B) {
+	pfcFn := prepareForCompareFn(&IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
+	benchmarkPrepareForCompare2(b, pfcFn)
+}
+func benchmarkPrepareForCompare2(b *testing.B, pfcFn pfcType) {
+	s3 := "Áńkúabc"
+	for i := 0; i < 15; i++ {
+		s3 += s3
+	}
+	b.ResetTimer()
+	for k := 0; k < b.N; k++ {
+		p, _, err := pfcFn([]byte(s3))
+		if err != nil {
+			b.Fatal(err)
+		}
+		_ = p
+	}
+}
+
+//----------
+
+func TestRuneLastIndex1(t *testing.T) {
 	s := "a\n0123\nb"
 	rw := NewStringReaderAt(s)
 
