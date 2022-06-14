@@ -383,36 +383,25 @@ func (ed *Editor) setupRootMenuToolbar() {
 	})
 
 	w := [][]string{
-		[]string{"ColorTheme"},
-		[]string{"CopyFilePosition"},
-		[]string{"CtxutilCallsState"},
-		[]string{"FontRunes", "FontTheme"},
-		[]string{"GoDebug", "GoRename"},
-		[]string{"GotoLine"},
-		[]string{"NewColumn"},
+		[]string{"ColorTheme", "FontTheme"},
+		[]string{"FontRunes", "RuneCodes"},
 		[]string{"NewFile", "SaveAllFiles", "Save"},
-		[]string{"NewRow", "ReopenRow", "MaximizeRow"},
+		[]string{"Reload", "ReloadAll", "ReloadAllFiles"},
+		[]string{"NewColumn", "NewRow", "ReopenRow", "MaximizeRow"},
 		[]string{"ListDir", "ListDir -hidden", "ListDir -sub"},
 		[]string{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
+		[]string{"GoDebug -h", "GoRename"},
 		[]string{"LsprotoRename", "LsprotoCloseAll", "LsprotoCallers", "LsprotoCallees", "LsprotoReferences"},
 		[]string{"OpenFilemanager", "OpenTerminal"},
-		[]string{"Reload", "ReloadAll", "ReloadAllFiles"},
-		[]string{"RuneCodes"},
+
+		[]string{"GotoLine"},
+		[]string{"CopyFilePosition"},
+		[]string{"CtxutilCallsState"},
+		[]string{"Find -h"},
 	}
 	last := []string{"Exit", "Version", "Stop", "Clear"}
 
-	//// method 1: sort categorized
-	//sort.Slice(w, func(a, b int) bool {
-	//	v1, v2 := w[a], w[b]
-	//	return v1[0] < v2[0]
-	//})
-	//w2 := []string{}
-	//for _, a := range w {
-	//	w2 = append(w2, strings.Join(a, " | "))
-	//}
-	//s1 := strings.Join(w2, "\n")
-
-	// method 2: simple sorted list
+	// simple sorted list
 	w2 := []string{}
 	for _, a := range w {
 		w2 = append(w2, a...)
