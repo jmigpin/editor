@@ -773,10 +773,10 @@ func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func(done func())) {
 //----------
 
 func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on bool, selIndex int, entries []*drawer4.Annotation) {
-	if !ed.CanModifyAnnotations(req, ta, "") {
+	if !ed.CanModifyAnnotations(req, ta) {
 		return
 	}
-
+	// set annotations (including clear)
 	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 		d.Opt.Annotations.On = on
 		d.Opt.Annotations.Selected.EntryIndex = selIndex
@@ -785,28 +785,29 @@ func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on
 	}
 
 	// restore godebug annotations
-	if req == EdAnnReqInlineComplete && !on {
-		// find erow info from textarea
-		for _, erow := range ed.ERows() {
-			if erow.Row.TextArea == ta {
-				ed.GoDebug.UpdateUIERowInfo(erow.Info)
+	if req == EareqInlineComplete && !on {
+		ed.UI.RunOnUIGoRoutine(func() { // avoid lockup: godebugstart->inlinecomplete.clear->godebugrestoreannotations
+			// find erow info from textarea
+			for _, erow := range ed.ERows() {
+				if erow.Row.TextArea == ta {
+					ed.GoDebug.UpdateUIERowInfo(erow.Info)
+				}
 			}
-		}
+		})
 	}
 }
 
-func (ed *Editor) CanModifyAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, option string) bool {
+func (ed *Editor) CanModifyAnnotations(req EdAnnotationsRequester, ta *ui.TextArea) bool {
 	switch req {
-	case EdAnnReqGoDebug:
-		if option == "starting_session" {
-			ed.InlineComplete.CancelAndClear()
-			return true
-		}
+	case EareqGoDebugStart:
+		ed.InlineComplete.CancelAndClear()
+		return true
+	case EareqGoDebug:
 		if ed.InlineComplete.IsOn(ta) {
 			return false
 		}
 		return true
-	case EdAnnReqInlineComplete:
+	case EareqInlineComplete:
 		return true
 	default:
 		panic(req)
@@ -849,8 +850,9 @@ func (ed *Editor) runPreSaveHook(ctx context.Context, info *ERowInfo, content []
 type EdAnnotationsRequester int
 
 const (
-	EdAnnReqGoDebug EdAnnotationsRequester = iota
-	EdAnnReqInlineComplete
+	EareqGoDebug EdAnnotationsRequester = iota
+	EareqGoDebugStart
+	EareqInlineComplete
 )
 
 //----------

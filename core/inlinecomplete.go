@@ -139,10 +139,9 @@ func (ic *InlineComplete) setAnnotationsMsg(ta *ui.TextArea, s string) {
 	ic.setAnnotations(ta, entries)
 }
 
-//godebug:annotatefile
 func (ic *InlineComplete) setAnnotations(ta *ui.TextArea, entries []*drawer4.Annotation) {
 	on := entries != nil && len(entries) > 0
-	ic.ed.SetAnnotations(EdAnnReqInlineComplete, ta, on, -1, entries)
+	ic.ed.SetAnnotations(EareqInlineComplete, ta, on, -1, entries)
 	if !on {
 		ic.setOff(ta)
 	}

@@ -20,8 +20,6 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-//godebug:annotatefile
-
 // Note: Should have a unique instance because there is no easy solution to debug two (or more) programs that have common files in the same editor
 
 const updatesPerSecond = 15
@@ -144,7 +142,7 @@ func (gdi *GoDebugInstance) wait() {
 
 func (gdi *GoDebugInstance) start2(ctx context.Context, erow *ERow, args []string) error {
 	// warn other annotators about starting a godebug session
-	_ = gdi.ed.CanModifyAnnotations(EdAnnReqGoDebug, erow.Row.TextArea, "starting_session")
+	_ = gdi.ed.CanModifyAnnotations(EareqGoDebugStart, erow.Row.TextArea)
 
 	// create new erow if necessary
 	if erow.Info.IsFileButNotDir() {
@@ -434,7 +432,7 @@ func (gdi *GoDebugInstance) clearAnnotations(info *ERowInfo) {
 }
 
 func (gdi *GoDebugInstance) setAnnotations(erow *ERow, on bool, selIndex int, entries []*drawer4.Annotation) {
-	gdi.ed.SetAnnotations(EdAnnReqGoDebug, erow.Row.TextArea, on, selIndex, entries)
+	gdi.ed.SetAnnotations(EareqGoDebug, erow.Row.TextArea, on, selIndex, entries)
 }
 
 //----------
