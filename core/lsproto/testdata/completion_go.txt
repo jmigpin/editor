@@ -1,0 +1,32 @@
+ucmd lspSourceCursor main_template main.go 0
+setenv offset stdout
+
+ucmd lspCompletion main.go offset
+contains stdout "main2 func() int"
+contains stdout "main3 func() int"
+
+# alter file
+exec sh -c "sed '2 i //acomment' < main.go > main2.go"
+exec sh -c "mv main2.go main.go"
+exec cat main.go
+# adjust offset (+ length of "//acomment\n")
+exec expr $offset + 11
+setenv offset stdout
+
+ucmd lspCompletion main.go offset
+contains stdout "main2 func() int"
+contains stdout "main3 func() int"
+
+
+-- main_template --
+package main
+func main(){
+	v1 := mai●n2()
+	println(v1+main2()+main3())
+}
+func main2() int {
+	return 2
+}
+func main3() int {
+	return 3
+}

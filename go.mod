@@ -9,6 +9,7 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	golang.org/x/image v0.0.0-20220413100746-70e8d0d3baa9
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654
 	golang.org/x/text v0.3.7
 	golang.org/x/tools v0.1.10

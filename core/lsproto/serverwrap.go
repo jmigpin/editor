@@ -20,17 +20,16 @@ type ServerWrap struct {
 //----------
 
 func StartServerWrapTCP(ctx context.Context, cmdTmpl string, w io.Writer) (*ServerWrap, string, error) {
-	// multiple editors can have multiple server wraps
+	host := "127.0.0.1"
+
+	// multiple editors can have multiple server wraps, need unique port
 	port, err := osutil.GetFreeTcpPort()
 	if err != nil {
 		return nil, "", err
 	}
-	//port := osutil.RandomPort(3, 10000, 65000)
 
-	// template vars
-	addr := fmt.Sprintf("127.0.0.1:%v", port)
-
-	cmd, err := cmdTemplate(cmdTmpl, addr)
+	// run cmd template
+	cmd, addr, err := cmdTemplate(cmdTmpl, host, port)
 	if err != nil {
 		return nil, "", err
 	}
@@ -106,17 +105,28 @@ func (rwc *rwc) Close() error {
 
 //----------
 
-func cmdTemplate(cmdTmpl, addr string) (string, error) {
+func cmdTemplate(cmdTmpl string, host string, port int) (string, string, error) {
 	// build template
 	tmpl, err := template.New("").Parse(cmdTmpl)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+
+	// template data
+	type tdata struct {
+		Addr string
+		Host string
+		Port int
+	}
+	data := &tdata{}
+	data.Host = host
+	data.Port = port
+	data.Addr = fmt.Sprintf("%s:%d", host, port)
+
 	// fill template
-	var data = struct{ Addr string }{addr}
-	var out bytes.Buffer
-	if err := tmpl.Execute(&out, data); err != nil {
-		return "", err
+	out := &bytes.Buffer{}
+	if err := tmpl.Execute(out, data); err != nil {
+		return "", "", err
 	}
-	return out.String(), nil
+	return out.String(), data.Addr, nil
 }

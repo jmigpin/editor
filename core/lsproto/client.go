@@ -486,40 +486,6 @@ func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename stri
 
 //----------
 
-//func (cli *Client) SyncText(ctx context.Context, filename string, b []byte) error {
-//	v, ok := cli.fversions[filename]
-//	if !ok {
-//		v = 1
-//	} else {
-//		v++
-//	}
-//	cli.fversions[filename] = v
-
-//	// close before opening. Keeps open/close balanced since not using "didchange", while needing to update the src.
-//	if v > 1 {
-//		err := cli.TextDocumentDidClose(ctx, filename)
-//		if err != nil {
-//			return err
-//		}
-//	}
-//	// send latest version of the document
-//	err := cli.TextDocumentDidOpen(ctx, filename, string(b), v)
-//	if err != nil {
-//		return err
-//	}
-
-//	// TODO: clangd doesn't work well with didchange (works with sending always a didopen)
-//	//} else {
-//	//	err := cli.TextDocumentDidChange(ctx, filename, string(b), v)
-//	//	if err != nil {
-//	//		return err
-//	//	}
-//	//}
-//	return nil
-//}
-
-//----------
-
 func (cli *Client) TextDocumentRename(ctx context.Context, filename string, pos Position, newName string) (*WorkspaceEdit, error) {
 	//// Commented: try it anyway
 	//if !cli.serverCapabilities.rename {

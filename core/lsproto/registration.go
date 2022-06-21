@@ -119,7 +119,7 @@ func GoplsRegistration(stderr bool, tcp bool, trace bool) string {
 	errOut := ""
 	if net == "stdio" {
 		if stderr {
-			errOut = ",stderr"
+			//errOut = ",stderr"
 			// DEBUG
 			//errOut = ",stderrmanmsg"
 		}
@@ -133,7 +133,23 @@ func cLangRegistration(stderr bool) string {
 	cmd := osutil.ExecName("clangd")
 	errOut := ""
 	if stderr {
+		//errOut = ",stderr"
+	}
+	return fmt.Sprintf("cpp,%q,stdio,%q%s", ext, cmd, errOut)
+}
+
+func pylspRegistration(stderr bool, tcp bool) string {
+	cmd := osutil.ExecName("pylsp")
+	net := "stdio"
+	if tcp {
+		net = "tcp"
+		cmd += " --tcp"
+		cmd += " --host={{.Host}}"
+		cmd += " --port={{.Port}}"
+	}
+	errOut := ""
+	if stderr {
 		errOut = ",stderr"
 	}
-	return fmt.Sprintf("cpp,%q,stdio,%s%s", ext, cmd, errOut)
+	return fmt.Sprintf("python,.py,%s,%q%s", net, cmd, errOut)
 }

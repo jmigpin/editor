@@ -1,0 +1,23 @@
+#exec go run main.go
+ucmd lspSourceCursor main_template main.go 0
+setenv offset stdout
+
+# test with multiple files (used to fail at second rename below)
+ucmd lspRename main.go offset V2
+#exec cat main.go
+#exec cat pkg1/fn1.go
+contains stdout "var V2 = \"aaa\""
+ucmd lspRename main.go offset V3
+contains stdout "var V3 = \"aaa\""
+
+-- go.mod --
+module mod1
+-- main_template --
+package main
+import "mod1/pkg1"
+func main(){
+	println(pkg1.V●1)	
+}
+-- pkg1/fn1.go --
+package pkg1
+var V1 = "aaa"

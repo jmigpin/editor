@@ -4,396 +4,368 @@ package lsproto
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/testutil"
 )
 
-func TestGoSrc1(t *testing.T) {
-	src0 := `
-		package lsproto
-		import "log"
-		func main(){
-			v1 := fn2()
-			log.●Printf(v●1)
-		}
-		func f●n2() string {
-			return "fn2"
-		}
-	`
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcDefinition(t, "src.go", offset, src)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcCompletion(t, "src.go", offset, src)
-	}
-	{
-		src2 := `
-			package lsproto
-			import "log"
-			func main(){
-				v2 := fn2()
-				log.Printf(v2)
-			}
-			func fn2() string {
-				return "fn2"
-			}
-		`
-		offset, src := sourceCursor(t, src0, 1)
-		testSrcRename(t, "src.go", offset, src, "v2", src2)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 2)
-		testSrcCallHierarchy(t, "src.go", offset, src)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 1)
-		testSrcReferences(t, "src.go", offset, src)
-	}
-}
+func TestScripts(t *testing.T) {
+	log.SetFlags(0)
+	//log.SetPrefix("lsptester: ")
 
-func TestGoSrc2(t *testing.T) {
-	src0 := `
-		package lsproto		
-		func main(){
-			ma●in2()
-		}
-		func main2() {
-			println("testing")
-		}
-	`
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcDefinition(t, "src.go", offset, src)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcCompletion(t, "src.go", offset, src)
-	}
-	{
-		src2 := `
-			package lsproto		
-			func main(){
-				main3()
-			}
-			func main3() {
-				println("testing")
-			}
-		`
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcRename(t, "src.go", offset, src, "main3", src2)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcCallHierarchy(t, "src.go", offset, src)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcReferences(t, "src.go", offset, src)
-	}
-}
+	scr := testutil.NewScript(os.Args)
+	//scr.Work = true
+	scr.ScriptsDir = "testdata"
 
-//func TestGoSrc3_develop(t *testing.T) {
-//	src0 := `
-//		package lsproto
-//		import "log"
-//		func main(){
-//			v1 := fn2()
-//			log.●Printf(v●1)
-//		}
-//		func f●n2() string {
-//			a:=image.Z●P // TODO: get deprecated tag?
-//			_=a
-//			return "fn2"
-//		}
-//	`
+	man := (*Manager)(nil)
+	scr.ScriptStart = func(t *testing.T) error {
+		man = newTestManager(t)
+		return nil
+	}
+	scr.ScriptStop = func(t *testing.T) error {
+		return man.Close()
+	}
 
-//	// TESTING
-//	{
-//		offset, src := sourceCursor(t, src0, 3)
-//		testSrcCompletion(t, "src.go", offset, src)
-//	}
-//	return
-//}
+	scr.Cmds = []*testutil.ScriptCmd{
+		&testutil.ScriptCmd{"lspSourceCursor", func(t *testing.T, args []string) error {
+			return lspSourceCursor(t, args, man)
+		}},
+		&testutil.ScriptCmd{"lspDefinition", func(t *testing.T, args []string) error {
+			return lspDefinition(t, args, man)
+		}},
+		&testutil.ScriptCmd{"lspCompletion", func(t *testing.T, args []string) error {
+			return lspCompletion(t, args, man)
+		}},
+		&testutil.ScriptCmd{"lspRename", func(t *testing.T, args []string) error {
+			return lspRename(t, args, man)
+		}},
+		&testutil.ScriptCmd{"lspReferences", func(t *testing.T, args []string) error {
+			return lspReferences(t, args, man)
+		}},
+		&testutil.ScriptCmd{"lspCallHierarchy", func(t *testing.T, args []string) error {
+			return lspCallHierarchy(t, args, man)
+		}},
+	}
 
-//----------
-
-func TestCSrc1(t *testing.T) {
-	src0 := `
-		#include <iostream>
-		using namespace std;
-		int main2(){
-			return 3;
-		}
-		int main() {
-			cout << "Hello, World! " << m●ain2();
-			return 0;
-		}
-	`
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcDefinition(t, "src.cpp", offset, src)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcCompletion(t, "src.cpp", offset, src)
-	}
-	{
-		src2 := `
-			#include <iostream>
-			using namespace std;
-			int main3(){
-				return 3;
-			}
-			int main() {
-				cout << "Hello, World! " << main3();
-				return 0;
-			}
-		`
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcRename(t, "src.cpp", offset, src, "main3", src2)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcCallHierarchy(t, "src.cpp", offset, src)
-	}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcReferences(t, "src.cpp", offset, src)
-	}
+	scr.Run(t)
 }
 
 //----------
 
-func TestPythonSrc1(t *testing.T) {
-	src0 := `
-		#!/usr/bin/python3
-		def main1(a):
-			return main2(a+1)
-		def main2(a):
-			return a+1		
-		c=m●ain1(1)
-		print("val = %f" % c)
-	`
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcDefinition(t, "src.py", offset, src)
+func lspSourceCursor(t *testing.T, args []string, man *Manager) error {
+	args = args[1:] // remove cmd string
+	if len(args) != 3 {
+		return fmt.Errorf("sourcecursor: expecting 3 args: %v", args)
 	}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcCompletion(t, "src.py", offset, src)
+
+	template := args[0]
+	filename := args[1]
+	mark := args[2]
+
+	mark2, err := strconv.ParseInt(mark, 10, 32)
+	if err != nil {
+		return err
 	}
-	// TODO: failing, seems to not be implemented yet in pyls
-	//{
-	//	src2 := `
-	//		#!/usr/bin/python3
-	//		def main3(a):
-	//			return main2(a+1)
-	//		def main2(a):
-	//			return a+1
-	//		c=main3(1)
-	//		print("val = %f" % c)
-	//	`
-	//	offset, src := sourceCursor(t, src0, 0)
-	//	testSrcRename(t, "src.py", offset, src, "main3", src2)
-	//}
-	// TODO: not yet implemented in pylsp (method not found)
-	//{
-	//	offset, src := sourceCursor(t, src0, 0)
-	//	testSrcCallHierarchy(t, "src.py", offset, src)
-	//}
-	{
-		offset, src := sourceCursor(t, src0, 0)
-		testSrcReferences(t, "src.py", offset, src)
+
+	// read template
+	b, err := os.ReadFile(template)
+	if err != nil {
+		return err
 	}
+	offset, src := sourceCursor(t, string(b), int(mark2))
+
+	// write filename
+	if err := os.WriteFile(filename, []byte(src), 0o644); err != nil {
+		return err
+	}
+
+	fmt.Printf("%d", offset)
+
+	return nil
 }
 
 //----------
 
-func TestManGoCompletionF1(t *testing.T) {
-	goRoot := os.Getenv("GOROOT")
-	s := filepath.Join(goRoot, "src/go/doc/doc.go:203:48")
-	testFileLineColCompletion(t, s)
-}
-func TestManGoCompletionF2(t *testing.T) {
-	goRoot := os.Getenv("GOROOT")
-	s := filepath.Join(goRoot, "src/context/context.go:243:12")
-	testFileLineColCompletion(t, s)
-}
+func lspDefinition(t *testing.T, args []string, man *Manager) error {
+	args = args[1:] // remove cmd string
+	if len(args) != 2 {
+		return fmt.Errorf("rename: expecting 2 args: %v", args)
+	}
 
-//----------
-//----------
-//----------
+	filename := args[0]
+	offset := args[1]
 
-func testSrcDefinition(t *testing.T, filename string, offset int, src string) {
-	t.Helper()
+	// read offset (allow offset from env var)
+	offset2, err := getIntArgPossiblyFromEnv(offset)
+	if err != nil {
+		return err
+	}
 
-	rd := iorw.NewStringReaderAt(src)
+	// read filename
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	rd := iorw.NewStringReaderAt(string(b))
 
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
-	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
-
-	man := newTestManager(t)
-	defer man.Close()
+	// full filename
+	filename2, err := filepath.Abs(filename)
+	if err != nil {
+		return err
+	}
 
 	ctx := context.Background()
-	f, rang, err := man.TextDocumentDefinition(ctx, filename2, rd, offset)
+	f, rang, err := man.TextDocumentDefinition(ctx, filename2, rd, offset2)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	t.Logf("%v %v", f, rang)
+	fmt.Printf("%v %v", f, rang)
+	return nil
 }
 
-func testSrcCompletion(t *testing.T, filename string, offset int, src string) {
-	t.Helper()
+//----------
 
-	rd := iorw.NewStringReaderAt(src)
+func lspCompletion(t *testing.T, args []string, man *Manager) error {
+	args = args[1:] // remove cmd string
+	if len(args) != 2 {
+		return fmt.Errorf("rename: expecting 2 args: %v", args)
+	}
 
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
+	filename := args[0]
+	offset := args[1]
 
-	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
+	// read offset (allow offset from env var)
+	offset2, err := getIntArgPossiblyFromEnv(offset)
+	if err != nil {
+		return err
+	}
 
-	man := newTestManager(t)
-	defer man.Close()
+	// read filename
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	rd := iorw.NewStringReaderAt(string(b))
+
+	// full filename
+	filename2, err := filepath.Abs(filename)
+	if err != nil {
+		return err
+	}
 
 	ctx := context.Background()
-	comps, err := man.TextDocumentCompletionDetailStrings(ctx, filename2, rd, offset)
+	clist, err := man.TextDocumentCompletion(ctx, filename2, rd, offset2)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	if !(len(comps) >= 1) {
-		t.Fatal(comps)
-	}
-	t.Logf("%v\n", strings.Join(comps, "\n"))
+	w := CompletionListToString(clist)
+	fmt.Printf("%v", w)
+	return nil
 }
 
-func testSrcRename(t *testing.T, filename string, offset int, src string, newName string, expectSrc string) {
-	t.Helper()
+//----------
 
-	rd := iorw.NewStringReaderAt(src)
+func lspRename(t *testing.T, args []string, man *Manager) error {
+	args = args[1:] // remove cmd string
+	if len(args) != 3 {
+		return fmt.Errorf("rename: expecting 3 args: %v", args)
+	}
 
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
+	filename := args[0]
+	offset := args[1]
+	newName := args[2]
 
-	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
+	// read offset (allow offset from env var)
+	offset2, err := getIntArgPossiblyFromEnv(offset)
+	if err != nil {
+		return err
+	}
 
-	man := newTestManager(t)
-	defer man.Close()
+	// read filename
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	rd := iorw.NewStringReaderAt(string(b))
+
+	// full filename
+	filename2, err := filepath.Abs(filename)
+	if err != nil {
+		return err
+	}
 
 	ctx := context.Background()
-	we, err := man.TextDocumentRename(ctx, filename2, rd, offset, newName)
+	wecs, err := man.TextDocumentRenameAndPatch(ctx, filename2, rd, offset2, newName, nil)
 	if err != nil {
-		t.Fatal(err)
-	}
-
-	wecs, err := WorkspaceEditChanges(we)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := PatchWorkspaceEditChanges(wecs); err != nil {
-		t.Fatal(err)
+		return err
 	}
 	for _, wec := range wecs {
 		b, err := ioutil.ReadFile(wec.Filename)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
-		res2 := parseutil.TrimLineSpaces(string(b))
-		t.Log(res2)
-
-		exp2 := parseutil.TrimLineSpaces(expectSrc)
-		if res2 != exp2 {
-			t.Fatal()
-		}
-	}
-}
-
-func testSrcCallHierarchy(t *testing.T, filename string, offset int, src string) {
-	t.Helper()
-
-	rd := iorw.NewStringReaderAt(src)
-
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
-	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
-
-	man := newTestManager(t)
-	defer man.Close()
-
-	ctx := context.Background()
-	mcalls, err := man.CallHierarchyCalls(ctx, filename2, rd, offset, IncomingChct)
-	if err != nil {
-		t.Fatal(err)
-	}
-	//spew.Dump(mcalls)
-	if len(mcalls) == 0 {
-		t.Fatal("empty mcalls")
+		fmt.Printf("filename: %v\n", wec.Filename)
+		fmt.Printf("%s\n", b)
 	}
 
-	str, err := ManagerCallHierarchyCallsToString(mcalls, IncomingChct, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("result: %v", str)
-}
-
-func testSrcReferences(t *testing.T, filename string, offset int, src string) {
-	t.Helper()
-
-	rd := iorw.NewStringReaderAt(src)
-
-	tf := newTmpFiles(t)
-	defer tf.RemoveAll()
-
-	filename2 := tf.WriteFileInTmp2OrPanic(filename, src)
-
-	man := newTestManager(t)
-	defer man.Close()
-
-	ctx := context.Background()
-	locations, err := man.TextDocumentReferences(ctx, filename2, rd, offset)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(locations) == 0 {
-		t.Fatal("no locations")
-	}
-	t.Logf("locations: %#v", locations)
+	return nil
 }
 
 //----------
 
-func testFileLineColCompletion(t *testing.T, loc string) {
+func lspReferences(t *testing.T, args []string, man *Manager) error {
+	args = args[1:] // remove cmd string
+	if len(args) != 2 {
+		return fmt.Errorf("rename: expecting 2 args: %v", args)
+	}
+
+	filename := args[0]
+	offset := args[1]
+
+	// read offset (allow offset from env var)
+	offset2, err := getIntArgPossiblyFromEnv(offset)
+	if err != nil {
+		return err
+	}
+
+	// read filename
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	rd := iorw.NewStringReaderAt(string(b))
+
+	// full filename
+	filename2, err := filepath.Abs(filename)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	locs, err := man.TextDocumentReferences(ctx, filename2, rd, offset2)
+	if err != nil {
+		return err
+	}
+
+	str, err := LocationsToString(locs, "")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%v", str)
+
+	return nil
+}
+
+//----------
+
+func lspCallHierarchy(t *testing.T, args []string, man *Manager) error {
+	args = args[1:] // remove cmd string
+	if len(args) != 2 {
+		return fmt.Errorf("rename: expecting 2 args: %v", args)
+	}
+
+	filename := args[0]
+	offset := args[1]
+
+	// read offset (allow offset from env var)
+	offset2, err := getIntArgPossiblyFromEnv(offset)
+	if err != nil {
+		return err
+	}
+
+	// read filename
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	rd := iorw.NewStringReaderAt(string(b))
+
+	// full filename
+	filename2, err := filepath.Abs(filename)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	mcalls, err := man.CallHierarchyCalls(ctx, filename2, rd, offset2, IncomingChct)
+	if err != nil {
+		return err
+	}
+	str, err := ManagerCallHierarchyCallsToString(mcalls, IncomingChct, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("result: %v", str)
+
+	return nil
+}
+
+//----------
+//----------
+//----------
+
+func newTestManager(t *testing.T) *Manager {
 	t.Helper()
 
-	filename, l, c := parseLocation(t, loc)
-
-	// read file to get offset
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		t.Fatal(err)
+	msgFn := func(s string) {
+		t.Helper()
+		// can't use t.Log if already out of the test
+		logPrintf("manager async msg: %v", s)
 	}
-	rw := iorw.NewBytesReadWriterAt(b)
-	offset, err := parseutil.LineColumnIndex(rw, l, c)
-	if err != nil {
-		t.Fatal(err)
+	w := iout.FnWriter(func(p []byte) (int, error) {
+		msgFn(string(p))
+		return len(p), nil
+	})
+
+	man := NewManager(msgFn)
+	man.serverWrapW = w
+
+	// lang registrations
+	u := []string{
+		// WARNING: can't use stdio with stderr to be able to run scripts collectlog (use tcp if available)
+
+		//GoplsRegistration(logTestVerbose(), false, false),
+		GoplsRegistration(logTestVerbose(), true, false),
+
+		//cLangRegistration(logTestVerbose()),
+		cLangRegistration(false),
+
+		pylspRegistration(false, true),
+	}
+	for _, s := range u {
+		reg, err := NewRegistration(s)
+		if err != nil {
+			panic(err)
+		}
+		if err := man.Register(reg); err != nil {
+			panic(err)
+		}
 	}
 
-	testSrcCompletion(t, filename, offset, string(b))
+	return man
+}
+
+//----------
+
+func getIntArgPossiblyFromEnv(val string) (int, error) {
+	// read offset (allow offset from env var)
+	envValue := os.Getenv(val)
+	if envValue != "" {
+		val = strings.TrimSpace(envValue)
+	}
+
+	u, err := strconv.ParseInt(val, 10, 32)
+	return int(u), err
 }
 
 //----------
@@ -426,13 +398,4 @@ func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWri
 		t.Fatal(err)
 	}
 	return rw, offset
-}
-
-//----------
-
-func newTmpFiles(t *testing.T) *osutil.TmpFiles {
-	t.Helper()
-	tf := osutil.NewTmpFiles("editor_lsproto_tests_tmpfiles")
-	t.Logf("tf.Dir: %v\n", tf.Dir)
-	return tf
 }

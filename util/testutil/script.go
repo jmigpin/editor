@@ -25,6 +25,9 @@ type Script struct {
 	Cmds       []*ScriptCmd // user cmds (provided)
 	Work       bool         // don't remove work dir at end
 
+	ScriptStart func(*testing.T) error // each script init
+	ScriptStop  func(*testing.T) error // each script close
+
 	ucmds map[string]*ScriptCmd // user cmds (mapped)
 	icmds map[string]*ScriptCmd // internal cmds
 
@@ -100,12 +103,27 @@ func (scr *Script) runFile(t1 *testing.T, filename string) error {
 			return
 		}
 
-		if err := scr.runScript(t2, filename, ar); err != nil {
-			t2.Logf("FAIL: %v", err)
-			//t2.Fail()  // continues testing
-			t2.Fatal() // also seems to continue, need t1
-			t1.Fatal() // stop testing
-		}
+		func() { // run in func to use defer inside
+			if scr.ScriptStart != nil {
+				if err := scr.ScriptStart(t2); err != nil {
+					t2.Fatal(err)
+				}
+			}
+			if scr.ScriptStop != nil {
+				defer func() {
+					if err := scr.ScriptStop(t2); err != nil {
+						t2.Fatal(err)
+					}
+				}()
+			}
+
+			if err := scr.runScript(t2, filename, ar); err != nil {
+				t2.Logf("FAIL: %v", err)
+				//t2.Fail()  // continues testing
+				t2.Fatal() // also seems to continue, need t1
+				t1.Fatal() // stop testing
+			}
+		}()
 	})
 	_ = ok
 	return err0
@@ -278,36 +296,23 @@ func (scr *Script) icContains(t *testing.T, args []string) error {
 		return fmt.Errorf("expecting 2 args, got %v", args)
 	}
 
-	type datat struct {
-		name string
-		data []byte
-	}
-	datats := []*datat{
-		&datat{"stdout", scr.lastCmd.stdout},
-		&datat{"stderr", scr.lastCmd.stderr},
-		&datat{"error", scr.lastCmd.err},
+	data, ok := scr.lastCmdContent(args[0])
+	if !ok {
+		return fmt.Errorf("unknown content: %v", args[0])
 	}
 
-	for _, d := range datats {
-		if d.name != args[0] {
-			continue
-		}
-		data := d.data
-
-		// pattern
-		u, err := strconv.Unquote(args[1])
-		if err != nil {
-			return err
-		}
-		pattern := u
-
-		if !bytes.Contains(data, []byte(pattern)) {
-			//return fmt.Errorf("contains: no match:\npattern=[%v]\ndata=[%v]", pattern, string(data))
-			return fmt.Errorf("contains: no match")
-		}
-		return nil
+	// pattern
+	u, err := strconv.Unquote(args[1])
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("unhandled args: %v", args)
+	pattern := u
+
+	if !bytes.Contains(data, []byte(pattern)) {
+		//return fmt.Errorf("contains: no match:\npattern=[%v]\ndata=[%v]", pattern, string(data))
+		return fmt.Errorf("contains: no match")
+	}
+	return nil
 }
 
 //----------
@@ -323,6 +328,12 @@ func (scr *Script) icSetEnv(t *testing.T, args []string) error {
 
 		// allow env expansion when setting env vars
 		v = os.Expand(v, os.Getenv)
+
+		// allow expansion of lastcmd
+		data, ok := scr.lastCmdContent(v)
+		if ok {
+			v = string(data)
+		}
 	}
 	t.Setenv(args[0], v)
 	return nil
@@ -356,6 +367,20 @@ func (scr *Script) icChangeDir(t *testing.T, args []string) error {
 	}
 	dir := args[0]
 	return os.Chdir(dir)
+}
+
+//----------
+
+func (scr *Script) lastCmdContent(name string) ([]byte, bool) {
+	switch name {
+	case "stdout":
+		return scr.lastCmd.stdout, true
+	case "stderr":
+		return scr.lastCmd.stderr, true
+	case "error":
+		return scr.lastCmd.err, true
+	}
+	return nil, false
 }
 
 //----------

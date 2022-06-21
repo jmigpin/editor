@@ -167,6 +167,31 @@ type WorkspaceEdit struct {
 	DocumentChanges []*TextDocumentEdit         `json:"documentChanges,omitempty"`
 }
 
+func (we *WorkspaceEdit) GetChanges() ([]*WorkspaceEditChange, error) {
+	w := []*WorkspaceEditChange{}
+	if len(w) == 0 && len(we.Changes) != 0 {
+		for url, edits := range we.Changes {
+			filename, err := UrlToAbsFilename(string(url))
+			if err != nil {
+				return nil, err
+			}
+			wec := &WorkspaceEditChange{filename, edits}
+			w = append(w, wec)
+		}
+	}
+	if len(w) == 0 && len(we.DocumentChanges) != 0 {
+		for _, tde := range we.DocumentChanges {
+			filename, err := UrlToAbsFilename(string(tde.TextDocument.Uri))
+			if err != nil {
+				return nil, err
+			}
+			wec := &WorkspaceEditChange{filename, tde.Edits}
+			w = append(w, wec)
+		}
+	}
+	return w, nil
+}
+
 type TextDocumentEdit struct {
 	TextDocument VersionedTextDocumentIdentifier `json:"textDocument"`
 	Edits        []*TextEdit                     `json:"edits"`
@@ -220,7 +245,7 @@ type CallHierarchyItem struct {
 	Uri            DocumentUri  `json:"uri"`
 	Range          *Range       `json:"range"`
 	SelectionRange *Range       `json:"selectionRange"`
-	data           interface{}  `json:"data,omitempty"` // optional (related to prepare calls)
+	Data           interface{}  `json:"data,omitempty"` // optional (related to prepare calls)
 }
 
 type ReferenceParams struct {
@@ -245,6 +270,8 @@ type SymbolKind int
 type SymbolTag int
 
 //----------
+//----------
+//----------
 
 // Not part of the protocol, used to unify/simplify
 type CallHierarchyCallType int
@@ -253,3 +280,11 @@ const (
 	IncomingChct CallHierarchyCallType = iota
 	OutgoingChct
 )
+
+//----------
+
+// Not part of the protocol, used to unify/simplify
+type WorkspaceEditChange struct {
+	Filename string
+	Edits    []*TextEdit
+}

@@ -1,0 +1,15 @@
+#exec go run main.go
+ucmd lspSourceCursor main_template main.py 0
+setenv offset stdout
+
+ucmd lspRename main.py offset main3
+contains stdout "def main3"
+ucmd lspRename main.py offset main4
+contains stdout "def main4"
+
+-- main_template --
+def main1(a):
+	return main2(a+1)
+def main2(a):
+	return a+1
+print("%f" % m●ain1(1))

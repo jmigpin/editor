@@ -1,0 +1,16 @@
+ucmd lspSourceCursor main_template main.go 0
+setenv offset stdout
+ucmd lspReferences main.go offset
+contains stdout "main.go:4:2"
+contains stdout "main.go:5:13"
+
+-- main_template --
+package main
+import "log"
+func main(){
+	v1 := fn2()
+	log.Printf(v●1)
+}
+func fn2() string {
+	return "fn2"
+}

@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"golang.org/x/sync/errgroup"
 )
 
 // Notes:
@@ -43,8 +45,15 @@ func (man *Manager) Message(s string) {
 
 func (man *Manager) Register(reg *Registration) error {
 	lang := NewLangManager(man, reg)
+	// replace if already exists
+	for i, lang2 := range man.langs {
+		if lang2.Reg.Language == reg.Language {
+			man.langs[i] = lang
+			return nil
+		}
+	}
+	// append new
 	man.langs = append(man.langs, lang)
-	// TODO: file extentions conflict, will use first added lang that matches
 	return nil
 }
 
@@ -185,33 +194,12 @@ func (man *Manager) TextDocumentCompletion(ctx context.Context, filename string,
 }
 
 func (man *Manager) TextDocumentCompletionDetailStrings(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) ([]string, error) {
-	compList, err := man.TextDocumentCompletion(ctx, filename, rd, offset)
+	clist, err := man.TextDocumentCompletion(ctx, filename, rd, offset)
 	if err != nil {
 		return nil, err
 	}
-
-	res := []string{}
-	for _, ci := range compList.Items {
-		u := []string{}
-		if ci.Deprecated {
-			u = append(u, "*deprecated*")
-		}
-		u = append(u, ci.Label)
-		if ci.Detail != "" {
-			u = append(u, ci.Detail)
-		}
-		res = append(res, strings.Join(u, " "))
-	}
-
-	//// add documentation if there is only 1 result
-	//if len(compList.Items) == 1 {
-	//	doc := compList.Items[0].Documentation
-	//	if doc != "" {
-	//		res[0] += "\n\n" + doc
-	//	}
-	//}
-
-	return res, nil
+	w := CompletionListToString(clist)
+	return w, nil
 }
 
 //----------
@@ -246,7 +234,7 @@ func (man *Manager) didOpen(ctx context.Context, cli *Client, filename string, r
 //}
 
 //func (man *Manager) TextDocumentDidSave(ctx context.Context, filename string, text []byte) error {
-//	cli, _, err := man.langClient(ctx, filename)
+//	cli, _, err := man.langInstanceClient(ctx, filename)
 //	if err != nil {
 //		return err
 //	}
@@ -255,17 +243,21 @@ func (man *Manager) didOpen(ctx context.Context, cli *Client, filename string, r
 
 //----------
 
-//func (man *Manager) syncText(ctx context.Context, filename string, rd iorw.Reader) error {
-//	cli, _, err := man.autoStart(ctx, filename)
-//	if err != nil {
-//		return err
-//	}
-//	b, err := iorw.ReadFullSlice(rd)
-//	if err != nil {
-//		return err
-//	}
-//	return cli.SyncText(ctx, filename, b)
-//}
+func (man *Manager) SyncText(ctx context.Context, filename string, rd iorw.ReaderAt) error {
+	cli, _, err := man.langInstanceClient(ctx, filename)
+	if err != nil {
+		return err
+	}
+
+	// opening/closing is enough to give the content to the server (using a didsave/didchange would just make it slower since our strategy is to open/close for every change)
+	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
+	if err != nil {
+		return err
+	}
+	defer didCloseFn()
+
+	return nil
+}
 
 //----------
 
@@ -287,6 +279,49 @@ func (man *Manager) TextDocumentRename(ctx context.Context, filename string, rd 
 	}
 
 	return cli.TextDocumentRename(ctx, filename, pos, newName)
+}
+
+func (man *Manager) TextDocumentRenameAndPatch(ctx context.Context, filename string, rd iorw.ReaderAt, offset int, newName string, prePatchFn func([]*WorkspaceEditChange) error) ([]*WorkspaceEditChange, error) {
+
+	we, err := man.TextDocumentRename(ctx, filename, rd, offset, newName)
+	if err != nil {
+		return nil, err
+	}
+
+	wecs, err := we.GetChanges()
+	if err != nil {
+		return nil, err
+	}
+
+	if prePatchFn != nil {
+		if err := prePatchFn(wecs); err != nil {
+			return nil, err
+		}
+	}
+
+	// patch (concurrent)
+	eg, _ := errgroup.WithContext(ctx)
+	eg.SetLimit(4)
+	for _, wec0 := range wecs {
+		wec2 := wec0 // local var to avoid overwrite on next iteration
+		eg.Go(func() error {
+			filename := wec2.Filename
+			b, err := ioutil.ReadFile(filename)
+			if err != nil {
+				return err
+			}
+			res, err := PatchTextEdits(b, wec2.Edits)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(filename, res, 0o644); err != nil {
+				return err
+			}
+
+			return man.SyncText(ctx, filename, rd)
+		})
+	}
+	return wecs, eg.Wait()
 }
 
 //----------

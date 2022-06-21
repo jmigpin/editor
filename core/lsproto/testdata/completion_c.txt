@@ -1,0 +1,19 @@
+ucmd lspSourceCursor main_template main.cpp 0
+setenv offset stdout
+
+ucmd lspCompletion main.cpp offset
+contains stdout "main"
+contains stdout "main2"
+contains stdout "main3"
+
+-- main_template --
+int main2(){
+	return 2;
+}
+int main3(){
+	return 3;
+}
+int main() {
+	m●ain2();
+	return 0;
+}

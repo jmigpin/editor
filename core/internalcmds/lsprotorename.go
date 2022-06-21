@@ -27,30 +27,24 @@ func LSProtoRename(args0 *core.InternalCmdArgs) error {
 	// new name argument "to"
 	to := args[len(args)-1].UnquotedStr()
 
+	// before patching, check all affected files are not edited
+	prePatchFn := func(wecs []*lsproto.WorkspaceEditChange) error {
+		for _, wec := range wecs {
+			info, ok := args0.Ed.ERowInfo(wec.Filename)
+			if !ok { // erow not open
+				continue
+			}
+			if info.HasRowState(ui.RowStateEdited | ui.RowStateFsDiffer) {
+				return fmt.Errorf("row has edits, save first: %v", info.Name())
+			}
+		}
+		return nil
+	}
+
 	// id offset to rename "from"
 	ta := erow.Row.TextArea
-	we, err := args0.Ed.LSProtoMan.TextDocumentRename(args0.Ctx, erow.Info.Name(), ta.RW(), ta.CursorIndex(), to)
+	wecs, err := args0.Ed.LSProtoMan.TextDocumentRenameAndPatch(args0.Ctx, erow.Info.Name(), ta.RW(), ta.CursorIndex(), to, prePatchFn)
 	if err != nil {
-		return err
-	}
-
-	wecs, err := lsproto.WorkspaceEditChanges(we)
-	if err != nil {
-		return err
-	}
-
-	// before patching, check all affected files are not edited
-	for _, wec := range wecs {
-		info, ok := args0.Ed.ERowInfo(wec.Filename)
-		if !ok { // erow not open
-			continue
-		}
-		if info.HasRowState(ui.RowStateEdited | ui.RowStateFsDiffer) {
-			return fmt.Errorf("row has edits, save first: %v", info.Name())
-		}
-	}
-
-	if err := lsproto.PatchWorkspaceEditChanges(wecs); err != nil {
 		return err
 	}
 

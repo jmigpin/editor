@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"unicode/utf16"
 
@@ -258,3 +259,84 @@ func ManagerCallHierarchyCallsToString(mcalls []*ManagerCallHierarchyCalls, typ 
 	w := strings.Join(res, "\n")
 	return w, nil
 }
+
+//----------
+
+func LocationsToString(locations []*Location, baseDir string) (string, error) {
+	buf := &strings.Builder{}
+	for _, loc := range locations {
+		filename, err := UrlToAbsFilename(string(loc.Uri))
+		if err != nil {
+			return "", err
+		}
+
+		// use basedir to output filename
+		if baseDir != "" {
+			if u, err := filepath.Rel(baseDir, filename); err == nil {
+				filename = u
+			}
+		}
+
+		line, col := loc.Range.Start.OneBased()
+		fmt.Fprintf(buf, "\t%v:%v:%v\n", filename, line, col)
+	}
+	return buf.String(), nil
+}
+
+//----------
+
+func CompletionListToString(clist *CompletionList) []string {
+	res := []string{}
+	for _, ci := range clist.Items {
+		u := []string{}
+		if ci.Deprecated {
+			u = append(u, "*deprecated*")
+		}
+		ci.Label = strings.TrimSpace(ci.Label) // NOTE: clangd is sending with spaces
+		u = append(u, ci.Label)
+		if ci.Detail != "" {
+			u = append(u, ci.Detail)
+		}
+		res = append(res, strings.Join(u, " "))
+	}
+
+	//// add documentation if there is only 1 result
+	//if len(compList.Items) == 1 {
+	//	doc := compList.Items[0].Documentation
+	//	if doc != "" {
+	//		res[0] += "\n\n" + doc
+	//	}
+	//}
+
+	return res
+}
+
+//----------
+
+func PatchTextEdits(src []byte, edits []*TextEdit) ([]byte, error) {
+	sortTextEdits(edits)
+	res := bytes.Buffer{} // resulting patched src
+	rd := iorw.NewBytesReadWriterAt(src)
+	start := 0
+	for _, e := range edits {
+		offset, n, err := RangeToOffsetLen(rd, e.Range)
+		if err != nil {
+			return nil, err
+		}
+		res.Write(src[start:offset])
+		res.Write([]byte(e.NewText))
+		start = offset + n
+	}
+	res.Write(src[start:]) // rest of the src
+	return res.Bytes(), nil
+}
+
+func sortTextEdits(edits []*TextEdit) {
+	sort.Slice(edits, func(i, j int) bool {
+		p1, p2 := &edits[i].Range.Start, &edits[j].Range.Start
+		return p1.Line < p2.Line ||
+			(p1.Line == p2.Line && p1.Character <= p2.Character)
+	})
+}
+
+//----------

@@ -36,34 +36,20 @@ func LSProtoReferences(args0 *core.InternalCmdArgs) error {
 		if err != nil {
 			return err
 		}
-		return printLocations(rw, locs, erow2.Info.Dir())
-	})
 
-	return nil
-}
-
-func printLocations(rw io.ReadWriter, locations []*lsproto.Location, baseDir string) error {
-	fmt.Fprintf(rw, "lsproto references:")
-	if len(locations) == 0 {
-		fmt.Fprintf(rw, " no results\n")
-		return nil
-	}
-	fmt.Fprintf(rw, "\n")
-	for _, loc := range locations {
-		filename, err := lsproto.UrlToAbsFilename(string(loc.Uri))
+		// print locations
+		str, err := lsproto.LocationsToString(locs, erow2.Info.Dir())
 		if err != nil {
 			return err
 		}
-
-		// use basedir to output filename
-		if baseDir != "" {
-			if u, err := filepath.Rel(baseDir, filename); err == nil {
-				filename = u
-			}
+		fmt.Fprintf(rw, "lsproto references:")
+		if len(locs) == 0 {
+			fmt.Fprintf(rw, " no results\n")
+			return nil
 		}
+		fmt.Fprintf(rw, "\n%v", str)
+		return nil
+	})
 
-		line, col := loc.Range.Start.OneBased()
-		fmt.Fprintf(rw, "\t%v:%v:%v\n", filename, line, col)
-	}
 	return nil
 }

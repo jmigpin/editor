@@ -313,17 +313,20 @@ func (info *ERowInfo) SaveFile() error {
 	ev := &PostFileSaveEEvent{Info: info}
 	info.Ed.EEvents.emit(PostFileSaveEEventId, ev)
 
-	//// warn lsproto of file save
-	//go func() {
-	//	ctx2, cancel2 := info.newCmdCtx()
-	// 	defer cancel2()
-	//	ctx3, cancel3 := context.WithTimeout(ctx2, 3 * time.Second)
-	//	defer cancel3()
-	//	err := info.Ed.LSProtoMan.DidSave(ctx3, info.Name(), nil)
-	//	if err != nil {
-	//		info.Ed.Error(err)
-	//	}
-	//}()
+	// sync with lsproto (or it can cause all sorts of issues)
+	go func() {
+		ctx2, cancel2 := info.newCmdCtx()
+		defer cancel2()
+		ctx3, cancel3 := context.WithTimeout(ctx2, 5*time.Second)
+		defer cancel3()
+
+		rd := iorw.NewStringReaderAt(string(b))
+		err := info.Ed.LSProtoMan.SyncText(ctx3, info.Name(), rd)
+		if err != nil {
+			// commented: best effort
+			//info.Ed.Error(err)
+		}
+	}()
 
 	return nil
 }

@@ -1,0 +1,13 @@
+ucmd lspSourceCursor main_template main.py 0
+setenv offset stdout
+
+ucmd lspCompletion main.py offset
+contains stdout "main1(a)"
+contains stdout "main2(a)"
+
+-- main_template --
+def main1(a):
+	return main2(a+1)
+def main2(a):
+	return a+1
+print("%f" % ma●in1(1))

@@ -102,6 +102,7 @@ func (li *LangInstance) startClientTCP(ctx context.Context, addr string) error {
 func (li *LangInstance) startClientServerStdio(ctx context.Context) error {
 	var stderr io.Writer
 	if li.lang.Reg.HasOptional("stderr") {
+		// useful for testing to see the server output msgs for debug
 		stderr = os.Stderr
 	}
 	if li.lang.Reg.HasOptional("stderrmanmsg") {

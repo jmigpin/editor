@@ -32,7 +32,7 @@ func timedVersion(v string, typ string) string {
 }
 func versionTime() time.Time {
 	// auto-updated with "go generate" from main directory
-	date := "#___202206131724___#"
+	date := "#___202206211951___#"
 	tag := date[4 : len(date)-4]
 
 	layout := "200601021504"

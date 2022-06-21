@@ -1,0 +1,19 @@
+ucmd lspSourceCursor main_template main.cpp 0
+setenv offset stdout
+
+ucmd lspCallHierarchy main.cpp offset
+contains stdout "main.cpp:8:11"
+contains stdout "main.cpp:9:11"
+
+-- main_template --
+int ma●in2(){
+	return 2;
+}
+int main3(){
+	return 3;
+}
+int main() {
+	int v1 = main2()
+	int v2 = main2+main3();
+	return 0;
+}
