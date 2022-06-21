@@ -183,7 +183,8 @@ func TestAll1(t *testing.T) {
 				est: state{s: "01234\nabc", si: 6, ci: 8, son: true},
 				f: func(ctx *Ctx) error {
 					cctx := context.Background()
-					_, err := Find(cctx, ctx, "ab")
+					opt := &iorw.IndexOpt{}
+					_, err := Find(cctx, ctx, "ab", false, opt)
 					return err
 				},
 			})
@@ -194,7 +195,8 @@ func TestAll1(t *testing.T) {
 				est: state{s: "01234\nabc", si: 6, ci: 8, son: true},
 				f: func(ctx *Ctx) error {
 					cctx := context.Background()
-					_, err := Find(cctx, ctx, "ab")
+					opt := &iorw.IndexOpt{}
+					_, err := Find(cctx, ctx, "ab", false, opt)
 					return err
 				},
 			})

@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/testutil"
 )
 
 func TestGoSrc1(t *testing.T) {
@@ -399,7 +399,7 @@ func testFileLineColCompletion(t *testing.T, loc string) {
 //----------
 
 func sourceCursor(t *testing.T, src string, nth int) (int, string) {
-	src2, index, err := goutil.SourceCursor("●", src, nth)
+	src2, index, err := testutil.SourceCursor("●", src, nth)
 	if err != nil {
 		t.Fatal(err)
 	}
