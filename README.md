@@ -560,6 +560,8 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2022/07/26: v3.5.0 (1 commits)
+	- update "golang.org/x/sys" dependency (and others) due to security advisory https://deps.dev/advisory/osv/GO-2022-0493
 - 2022/06/27: v3.4.0 (11 commits)
 	- lsproto: fix text sync
 	- lsproto: internal cmd lsprotoreferences
