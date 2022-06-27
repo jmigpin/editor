@@ -8,9 +8,9 @@ import (
 func Version() string {
 	// NOTE: equivalent "go get" version in format x.y.z is 1.x.y (z not used) (ex: 3.3.0 -> 1.3.3). This is done because go doesn't seem to allow having versions bigger then 1 without altering the import paths.
 	v := "3.4.0"
-	//typ := "release"
+	typ := "release"
 	//typ:="rc" // release candidate
-	typ := "alpha" // development
+	//typ := "alpha" // development
 	return timedVersion(v, typ)
 }
 func timedVersion(v string, typ string) string {
@@ -32,7 +32,7 @@ func timedVersion(v string, typ string) string {
 }
 func versionTime() time.Time {
 	// auto-updated with "go generate" from main directory
-	date := "#___202206211951___#"
+	date := "#___202206271804___#"
 	tag := date[4 : len(date)-4]
 
 	layout := "200601021504"

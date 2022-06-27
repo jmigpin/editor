@@ -560,6 +560,12 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2022/06/27: v3.4.0 (11 commits)
+	- lsproto: fix text sync
+	- lsproto: internal cmd lsprotoreferences
+	- godebug: fix a lockup
+	- add extra flags to the "Find" cmd
+	- other small fixes/improvements.
 - 2022/06/13: v3.3.0 (52 commits)
 	- godebug: new improved annotator, as well as a new implementation using overlays that takes advantage of the go cache to speed up compiling.
 	- lsproto: goto implementation
