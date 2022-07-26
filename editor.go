@@ -1,9 +1,6 @@
 // Source code editor in pure Go.
 package main
 
-// update hard coded version date variable
-//go:generate /bin/sh -c "sed -i \"s/#___.*___#/#___$(date '+%Y%m%d%H%M')___#/g\" core/version.go"
-
 import (
 	"flag"
 	"fmt"
