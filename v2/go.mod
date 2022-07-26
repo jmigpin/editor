@@ -14,4 +14,4 @@ require (
 	golang.org/x/tools v0.0.0-20200505023115-26f46d2f7ef8
 )
 
-retract [v2.0.1, v2.0.8]
+retract [v2.0.0, v2.0.9]
