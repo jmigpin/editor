@@ -105,7 +105,7 @@ func TestLastIndex2(t *testing.T) {
 		t.Fatal(i)
 	}
 
-	i, _, err = lastIndexCtx2(context.Background(), rw, i-1, []byte("abc"), 4, &IndexOpt{IgnoreCase: true})
+	i, _, err = lastIndexCtx2(context.Background(), rw, i, []byte("abc"), 4, &IndexOpt{IgnoreCase: true})
 	if err != nil {
 		t.Fatal(err)
 	}
