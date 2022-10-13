@@ -33,19 +33,58 @@ func PrintAstFile(w io.Writer, fset *token.FileSet, astFile *ast.File) error {
 
 //----------
 
+// frame callers
+
 func Printfc(skip int, f string, args ...interface{}) {
+	fmt.Print(Sprintfc(skip, f, args...))
+}
+func Sprintfc(skip int, f string, args ...interface{}) string {
 	pc, _, _, ok := runtime.Caller(1 + skip)
-	details := runtime.FuncForPC(pc)
-	if ok && details != nil {
-		u := details.Name()
-		i := strings.Index(u, "(")
-		if i > 0 {
-			u = u[i:]
+	if ok {
+		details := runtime.FuncForPC(pc)
+		if details != nil {
+			//u := details.Name()
+			//i := strings.Index(u, "(")
+			//if i > 0 {
+			//	u = u[i:]
+			//}
+			//return fmt.Sprintf(u+": "+f, args...)
+
+			f2, l := details.FileLine(pc)
+			u := fmt.Sprintf("%v:%v", f2, l)
+			return fmt.Sprintf(u+": "+f, args...)
 		}
-		fmt.Printf(u+": "+f, args...)
-		return
 	}
-	fmt.Printf(f, args...)
+	return fmt.Sprintf(f, args...)
+}
+
+// ----------
+//
+//godebug:annotatefile
+func TodoError() error {
+	return fmt.Errorf(Sprintfc(1, "TODO"))
+}
+func TodoErrorStr(s string) error {
+	return fmt.Errorf(Sprintfc(1, "TODO: %v", s))
+}
+func TodoErrorType(t interface{}) error {
+	return fmt.Errorf(Sprintfc(1, "TODO: %T", t))
+}
+
+//----------
+
+func Trace(n int) (string, int, string) {
+	pc, file, line, ok := runtime.Caller(n + 1)
+	if !ok {
+		return "?", 0, "?"
+	}
+
+	fn := runtime.FuncForPC(pc)
+	if fn == nil {
+		return file, line, "?"
+	}
+
+	return file, line, fn.Name()
 }
 
 //----------

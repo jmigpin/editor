@@ -1,0 +1,56 @@
+# " " space is usually a word separator
+# "=" usually around filenames (ex: -arg=/a/b.txt)
+# "(){}[]<>" usually used around filenames in various outputs
+
+# predefined in code: fsep, esc, extraSyms
+
+# TODO: expanded min/max in resloc struct
+
+#----------
+
+rule location = cFile | pyFile | schemeFile
+
+#----------
+
+rule cFile = filename (cLineCol)?
+rule cLineCol = ":" digits (":" digits)?
+
+#----------
+
+rule pyFile = pyFilename pyLineStr digits
+rule pyFilename = dq filename dq
+rule dq = "\""
+rule pyLineStr = ", line "
+
+#----------
+
+rule schemeFile = "file://" (schHost)? schPath (cLineCol)?
+rule schHost = (letter|digit|".-_"&)+
+rule schPath = schSep (schVolume)? schNames
+#rule schVolume = rlIsWindows letter ":" schSep rlIsWindows
+rule schVolume = rlIsWindows letter ":" rlIsWindows
+rule schNames = (schSep|fiName)+
+rule schSep = "/"
+
+#----------
+
+rule filename = (fiVolume)? fiNames
+#rule fiVolume = rlIsWindows letter ":" fiSep rlIsWindows
+rule fiVolume = rlIsWindows letter ":" rlIsWindows
+rule fiNames =  (fiSep|fiName)+
+rule fiName = (letter|digit|fiSyms|fiEsc)+
+rule fiSyms = "._-~+%@#&?!"& | rlExtraSyms
+rule fiEsc = rlEsc anyrune
+rule fiSep = rlSep
+
+#----------
+#----------
+#----------
+
+# rules to run in reverse to find a better parse start
+rule reverse = revNames (rlEsc)*
+rule revNames = (pyFilename)? (fiSep|fiName|revPyLineStr)*
+rule revPyLineStr = ", line "~
+
+
+

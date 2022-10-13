@@ -43,7 +43,14 @@ func (me *MultiError) Error() string {
 	}
 	u := []string{}
 	for i, e := range me.errors {
-		u = append(u, fmt.Sprintf("err%d: %v", i+1, e.Error()))
+		v := indentNewlines("\t", e.Error())
+		u = append(u, fmt.Sprintf("err%d: %v", i+1, v))
 	}
-	return fmt.Sprintf("multierror(%d){\n\t%s\n}", len(me.errors), strings.Join(u, ",\n\t"))
+	v := "\t" + indentNewlines("\t", strings.Join(u, "\n"))
+	return fmt.Sprintf("multierror(%d){\n%s\n}", len(me.errors), v)
+}
+
+func indentNewlines(tab string, u string) string {
+	u = strings.ReplaceAll(u, "\n", "\n"+tab)
+	return u
 }

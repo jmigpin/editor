@@ -1,6 +1,7 @@
 package parseutil
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -10,9 +11,21 @@ import (
 	"unicode/utf8"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/scanutil"
 )
+
+// TODO: remove util/iout/iorw/utils.go:makebytescopy
+func CopyBytes(b []byte) []byte {
+	p := make([]byte, len(b), len(b))
+	copy(p, b)
+	return p
+}
+
+func CountLines(b []byte) int {
+	return bytes.Count(b, []byte("\n"))
+}
 
 //----------
 
@@ -245,6 +258,26 @@ func IndexLineColumn(rd iorw.ReaderAt, index int) (int, int, error) {
 	return line, col, nil
 }
 
+// Returned line/col values are one-based.
+func IndexLineColumn2(b []byte, index int) (int, int) {
+	line, lineStart := 0, 0
+	ri := 0
+	for ri < index {
+		ru, size := utf8.DecodeRune(b[ri:])
+		if size == 0 {
+			break
+		}
+		ri += size
+		if ru == '\n' {
+			line++
+			lineStart = ri
+		}
+	}
+	line++                    // first line is 1
+	col := ri - lineStart + 1 // first column is 1
+	return line, col
+}
+
 //----------
 
 func DetectEnvVar(str, name string) bool {
@@ -343,4 +376,34 @@ func AbsFilenameToUrl(filename string) (string, error) {
 
 	u := &url.URL{Scheme: "file", Path: filename}
 	return u.String(), nil // path is escaped
+}
+
+//----------
+
+func SurroundingString(b []byte, k int, pad int) string {
+	// pad n in each direction for error string
+	i := mathutil.Max(k-pad, 0)
+	i2 := mathutil.Min(k+pad, len(b))
+
+	if i > i2 {
+		return ""
+	}
+
+	s := string(b[i:i2])
+	if s == "" {
+		return ""
+	}
+
+	// position indicator (valid after test of empty string)
+	c := k - i
+
+	sep := "●" // "←"
+	s2 := s[:c] + sep + s[c:]
+	if i > 0 {
+		s2 = "..." + s2
+	}
+	if i2 < len(b)-1 {
+		s2 = s2 + "..."
+	}
+	return s2
 }

@@ -14,7 +14,6 @@ func CtxErrorStr(rd iorw.ReaderAt, filename string, pos int, msg string, context
 	}
 	return fmt.Sprintf("%v:%v: %s: %q", filename, pos, msg, s)
 }
-
 func CtxString(rd iorw.ReaderAt, pos int, contextSize int) (string, error) {
 	// pad n in each direction for error string
 	pad := contextSize / 2
@@ -22,7 +21,7 @@ func CtxString(rd iorw.ReaderAt, pos int, contextSize int) (string, error) {
 	i2 := mathutil.Min(pos+pad, rd.Max())
 
 	// read src string
-	b, err := rd.ReadFastAt(i, i2)
+	b, err := rd.ReadFastAt(i, i2-i)
 	if err != nil {
 		return "", fmt.Errorf("ctxstring: failed to get src: %w", err)
 	}
