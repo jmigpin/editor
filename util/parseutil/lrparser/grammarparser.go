@@ -53,14 +53,7 @@ func (gp *grammarParser) parseLine(ps *PState) (bool, error) {
 	}
 	// rule
 	if err := ps.matchString("rule "); err == nil {
-		if err := gp.parseRule(ps, ""); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-	// if bool rule
-	if err := ps.matchString("if "); err == nil {
-		if err := gp.parseIfRule(ps); err != nil {
+		if err := gp.parseRule(ps); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -71,7 +64,7 @@ func (gp *grammarParser) parseLine(ps *PState) (bool, error) {
 	}
 	return false, errors.New("unexpected line")
 }
-func (gp *grammarParser) parseRule(ps *PState, ifRuleName string) error {
+func (gp *grammarParser) parseRule(ps *PState) error {
 	_ = ps.consumeSpacesExcludingNL() // optional
 
 	i0 := ps.i
@@ -104,8 +97,8 @@ func (gp *grammarParser) parseRule(ps *PState, ifRuleName string) error {
 		return err
 	}
 
-	// setup defrule
-	dr := &DefRule{name: name, ifRuleName: ifRuleName, isStart: isStart}
+	// setup
+	dr := &DefRule{name: name, isStart: isStart}
 	dr.setOnlyChild(ps.parseNode.(Rule))
 	gp.declId++
 	dr.declId = gp.declId
@@ -114,39 +107,6 @@ func (gp *grammarParser) parseRule(ps *PState, ifRuleName string) error {
 
 	return nil
 }
-
-//func (gp *grammarParser) parseRuleNameAndEqual(ps *PState) (string, error) {
-//	name := ""
-//	for {
-//		ps2 := ps.copy()
-//		ru, err := ps.readRune()
-//		if err != nil {
-//			break
-//		}
-//		if !(unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_') {
-//			ps.set(ps2)
-//			break
-//		}
-//		name += string(ru)
-//	}
-//	if name == "" {
-//		return "", errors.New("expecting name")
-//	}
-
-//	if gp.ri.has(name) {
-//		return "", fmt.Errorf("rule already defined: %v", name)
-//	}
-
-//	_ = ps.consumeSpacesExcludingNL() // optional
-
-//	if err := ps.MatchRune('='); err != nil {
-//		return "", errors.New("expecting =")
-//	}
-
-//	_ = ps.consumeSpacesExcludingNL2() // optional
-
-//		return name, nil
-//	}
 func (gp *grammarParser) parseName(ps *PState) (string, error) {
 	name := ""
 	for {
@@ -156,15 +116,21 @@ func (gp *grammarParser) parseName(ps *PState) (string, error) {
 			break
 		}
 		if !(unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_') {
-			ps.set(ps2)
+			ps.set(ps2) // go back
 			break
 		}
 		name += string(ru)
 	}
 	if name == "" {
-		return "", errors.New("expecting name")
+		return "", fmt.Errorf("empty name")
 	}
 	return name, nil
+}
+
+//----------
+
+func (gp *grammarParser) parseItemRule(ps *PState) error {
+	return gp.parseIfRule(ps) // precedence tree construction
 }
 
 //----------
@@ -172,29 +138,49 @@ func (gp *grammarParser) parseName(ps *PState) (string, error) {
 func (gp *grammarParser) parseIfRule(ps *PState) error {
 	_ = ps.consumeSpacesExcludingNL() // optional
 
-	// bool rule name
-	name, err := gp.parseName(ps)
-	if err != nil {
-		return err
+	i0 := ps.i
+
+	if err := ps.matchString("if "); err != nil {
+		return gp.parseOrRule(ps) // ok, not an ifrule
 	}
 
-	if !ps.consumeSpacesExcludingNL() {
-		return fmt.Errorf("expecting space")
+	_, ok := gp.parseRefRule(ps)
+	if !ok {
+		return fmt.Errorf("expecting name")
 	}
+	nameRef := ps.parseNode.(Rule)
 
-	if err := ps.matchString("rule "); err != nil {
+	// then
+	_ = ps.consumeSpacesExcludingNL() // optional
+	if err := ps.matchString("?"); err != nil {
+		return fmt.Errorf("expecting '?'")
+	}
+	_ = ps.consumeSpacesExcludingNL2() // optional
+	if err := gp.parseItemRule(ps); err != nil {
 		return err
 	}
-	if err := gp.parseRule(ps, name); err != nil {
+	thenRule := ps.parseNode.(Rule)
+
+	// else
+	_ = ps.consumeSpacesExcludingNL() // optional
+	if err := ps.matchString(":"); err != nil {
+		return fmt.Errorf("expecting ':'")
+	}
+	_ = ps.consumeSpacesExcludingNL2() // optional
+	if err := gp.parseItemRule(ps); err != nil {
 		return err
 	}
+	elseRule := ps.parseNode.(Rule)
+
+	// setup
+	res := &IfRule{}
+	res.addChild(nameRef)
+	res.addChild(thenRule)
+	res.addChild(elseRule)
+	res.setPos(i0, ps.i)
+	ps.parseNode = res
+
 	return nil
-}
-
-//----------
-
-func (gp *grammarParser) parseItemRule(ps *PState) error {
-	return gp.parseOrRule(ps) // precedence tree construction
 }
 
 //----------
@@ -284,7 +270,7 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 //----------
 
 func (gp *grammarParser) parseBasicItemRule(ps *PState) error {
-	if err, ok := gp.parseIdRule(ps); ok {
+	if err, ok := gp.parseRefRule(ps); ok {
 		return err
 	}
 	if err, ok := gp.parseStringRule(ps); ok {
@@ -295,30 +281,15 @@ func (gp *grammarParser) parseBasicItemRule(ps *PState) error {
 	}
 	return errors.New("unable to parse basic item")
 }
-
-func (gp *grammarParser) parseIdRule(ps *PState) (error, bool) {
+func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 	i0 := ps.i
-	s := ""
-	for {
-		ps2 := ps.copy()
-		ru, err := ps.readRune()
-		if err != nil {
-			break
-		}
-		if !(unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_') {
-			ps.set(ps2) // go back
-			break
-		}
-		s += string(ru)
+	name, err := gp.parseName(ps)
+	if err != nil {
+		return nil, false // err is lost
 	}
-	if len(s) == 0 {
-		return nil, false
-	}
-
-	res := &RefRule{name: s}
+	res := &RefRule{name: name}
 	res.setPos(i0, ps.i)
 	ps.parseNode = res
-
 	return nil, true
 }
 

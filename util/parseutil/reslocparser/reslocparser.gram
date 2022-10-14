@@ -21,31 +21,25 @@ rule pyLineStr = ", line "
 
 rule schemeFile = "file://" (schHost)? schPath (cLineCol)?
 rule schHost = (letter|digit|".-_"&)+
-rule schPath = schSep (schVolume)? schNames
-#rule schVolume = isPVol letter ":" schSep isPVol
-rule schVolume = isPVol letter ":" isPVol
+rule schPath = schSep schVolume schNames
+rule schVolume = if rlParseVolume ? volume schSep : nil
 rule schNames = (schSep|fiName)+
 rule schSep = "/"
 
 #----------
 
-rule filename = (fiVolume)? fiNames
-if rlParseVolume rule fiVolume = letter ":"
+rule filename = fiVolume fiNames
+rule fiVolume = if rlParseVolume ? volume fiSep : nil
 rule fiNames =  (fiSep|fiName)+
 rule fiName = (letter|digit|fiSyms|fiEsc)+
 rule fiSyms = rlExtraSyms
 rule fiEsc = rlEsc anyrune
 rule fiSep = rlSep
 
-#if rlParseVolume rule fiVolume =  letter ":"
-#rule fiVolume if rlParseVolume =  letter ":"
-#rule fiVolume = isPVol letter ":" fiSep isPVol
-#rule fiVolume = isPVol letter ":" isPVol
-
 #----------
 
 rule digits = (digit)+
-rule isPVol = rlParseVolume
+rule volume = letter ":"
 
 #----------
 #----------
@@ -54,11 +48,12 @@ rule isPVol = rlParseVolume
 # rules to run in reverse to find a better parse start
 rule reverse = \
 	(pyQuote)? \
-	(fiVolume)? \
-	(fiSep|fiName)* \
+	(if rlParseVolume ? volume : nil) \
+	(revSep|fiName)* \
 	(pyQuote)? \
 	(revPyLineStr)? \
 	(":"|digits)* \
 	(rlEsc)*
+rule revSep = if rlParseVolume ? fiSep|schSep : fiSep
 rule revPyLineStr = ", line "~
 # TODO: scheme "file://" ?

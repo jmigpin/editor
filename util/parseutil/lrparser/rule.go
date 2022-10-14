@@ -17,6 +17,10 @@ type Rule interface {
 
 	// TODO: consider
 	// parse(*PState) error // for terminal rules
+
+	// TODO: cmnrule0childs
+	// TODO: cmnrule1child
+	// TODO: cmnruleNchilds
 }
 
 //----------
@@ -26,7 +30,7 @@ type CmnRule struct {
 	childs []Rule
 }
 
-func (r *CmnRule) addChilds(r2 Rule) {
+func (r *CmnRule) addChild(r2 Rule) {
 	r.childs = append(r.childs, r2)
 }
 func (r *CmnRule) onlyChild() Rule {
@@ -34,7 +38,7 @@ func (r *CmnRule) onlyChild() Rule {
 }
 func (r *CmnRule) setOnlyChild(r2 Rule) {
 	r.childs = r.childs[:0]
-	r.addChilds(r2)
+	r.addChild(r2)
 }
 func (r *CmnRule) iterChilds(fn func(index int, ref *Rule) error) error {
 	for i := 0; i < len(r.childs); i++ {
@@ -50,14 +54,13 @@ func (r *CmnRule) iterChilds(fn func(index int, ref *Rule) error) error {
 //----------
 
 // definition rule
-type DefRule struct {
+type DefRule struct { // (1 child)
 	CmnPNode
 	CmnRule
-	name       string
-	declId     int  // declaration order, 0=inserted, >=1=declared
-	isStart    bool // has "start" symbol in the grammar
-	isLoop     bool
-	ifRuleName string // name of conditional rule to make this rule work
+	name    string
+	declId  int  // declaration order, 0=inserted, >=1=declared
+	isStart bool // has "start" symbol in the grammar
+	isLoop  bool
 }
 
 func (r *DefRule) isTerminal() bool {
@@ -78,7 +81,8 @@ var defRuleStartSym = "^" // used in grammar
 
 //----------
 
-type RefRule struct { // reference to a rule
+// reference to a rule
+type RefRule struct { // (0 childs)
 	CmnPNode
 	CmnRule
 	name string
@@ -96,7 +100,7 @@ func (r *RefRule) String() string {
 
 //----------
 
-type AndRule struct {
+type AndRule struct { // (n childs)
 	CmnPNode
 	CmnRule
 }
@@ -117,7 +121,7 @@ func (r *AndRule) String() string {
 
 //----------
 
-type OrRule struct {
+type OrRule struct { // (n childs)
 	CmnPNode
 	CmnRule
 }
@@ -138,7 +142,26 @@ func (r *OrRule) String() string {
 
 //----------
 
-type ParenRule struct { // parenthesis, ex: (aaa (bbb|ccc))
+// replaced in dereference phase
+type IfRule struct { // (3 childs: [conditional,then,else])
+	CmnPNode
+	CmnRule
+}
+
+func (r *IfRule) isTerminal() bool {
+	return false
+}
+func (r *IfRule) id() string {
+	return fmt.Sprintf("if %v : %v", r.childs[0], r.childs[1])
+}
+func (r *IfRule) String() string {
+	return r.id()
+}
+
+//----------
+
+// parenthesis, ex: (aaa (bbb|ccc))
+type ParenRule struct { // (1 child)
 	CmnPNode
 	CmnRule
 }
@@ -194,7 +217,7 @@ func (r *ParenOneOrMoreRule) String() string {
 
 //----------
 
-type StringRule struct {
+type StringRule struct { // (0 childs)
 	CmnPNode
 	CmnRule
 	runes []rune
@@ -242,7 +265,26 @@ func (r *StringMidRule) String() string {
 
 //----------
 
-type FuncRule struct {
+// bool rule value is observed at building the contentparser, not at parse time
+type BoolRule struct { // (0 childs)
+	CmnRule
+	name  string
+	value bool
+}
+
+func (r *BoolRule) isTerminal() bool {
+	return true
+}
+func (r *BoolRule) id() string {
+	return fmt.Sprintf("{%v:%v}", r.name, r.value)
+}
+func (r *BoolRule) String() string {
+	return r.id()
+}
+
+//----------
+
+type FuncRule struct { // (0 childs)
 	CmnRule
 	name string
 	fn   pstateParseFn
@@ -260,7 +302,7 @@ func (r *FuncRule) String() string {
 
 //----------
 
-type SingletonRule struct {
+type SingletonRule struct { // (0 childs)
 	CmnPNode
 	CmnRule
 	name   string

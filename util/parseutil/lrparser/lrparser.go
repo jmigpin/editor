@@ -35,8 +35,13 @@ func (lrp *Lrparser) ContentParser(opt *CPOpt) (*ContentParser, error) {
 
 //----------
 
-func (lrp *Lrparser) SetFuncRule(name string, fn pstateParseFn) error {
-	return lrp.ri.setFuncRule(name, fn)
+// should avoid using because of parse order
+//	func (lrp *Lrparser) SetFuncRule(name string, fn pstateParseFn) error {
+//		return lrp.ri.setFuncRule(name, fn)
+//	}
+
+func (lrp *Lrparser) SetBoolRule(name string, v bool) error {
+	return lrp.ri.setBoolRule(name, v)
 }
 func (lrp *Lrparser) SetStringRule(name string, s string) error {
 	if s == "" {

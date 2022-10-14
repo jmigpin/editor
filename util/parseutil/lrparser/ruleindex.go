@@ -9,6 +9,7 @@ import (
 
 // unique rule index
 type RuleIndex struct {
+	// TODO: use *Rule? iter ruleindex with ref
 	m map[string]Rule // *DefRule,*FuncRule
 
 	deref struct {
@@ -55,20 +56,22 @@ func (ri *RuleIndex) set(name string, r Rule) error {
 		return fmt.Errorf("calling set after dereference")
 	}
 
-	// need a level on indirection to have the ruleindex.map be iterable withotu issues when making rules unique. Forcing all rules in the index to be either defrule or funcrule provides that, while allowing directly a stringrule would cause issues
+	// need a level on indirection to have the ruleindex.map be iterable without issues when making rules unique. Forcing rules in the index to be of these types provides that (allowing directly a stringrule would cause issues).
 	switch r.(type) {
-	case *DefRule, *FuncRule:
+	case *DefRule, *FuncRule, *BoolRule:
 	default:
 		return fmt.Errorf("unexpected type to set in ruleindex: %T", r)
 	}
 
+	// don't allow reserverd words to be names
 	switch name {
-	case "", "rule",
+	case "", "rule", "if",
 		endRule.id(),
 		nilRule.id(),
 		anyruneRule.id():
 		return fmt.Errorf("bad rule name: %q", name)
 	}
+
 	if ri.has(name) {
 		return fmt.Errorf("rule already set: %v", name)
 	}
@@ -90,14 +93,18 @@ func (ri *RuleIndex) delete(name string) {
 
 //----------
 
-func (ri *RuleIndex) setFuncRule(name string, fn pstateParseFn) error {
-	fr := &FuncRule{name: name, fn: fn}
-	return ri.set(name, fr)
-}
 func (ri *RuleIndex) setDefRule(name string, r Rule) error {
-	dr := &DefRule{name: name}
-	dr.setOnlyChild(r)
-	return ri.set(name, dr)
+	r2 := &DefRule{name: name}
+	r2.setOnlyChild(r)
+	return ri.set(name, r2)
+}
+func (ri *RuleIndex) setBoolRule(name string, v bool) error {
+	r := &BoolRule{name: name, value: v}
+	return ri.set(name, r)
+}
+func (ri *RuleIndex) setFuncRule(name string, fn pstateParseFn) error {
+	r := &FuncRule{name: name, fn: fn}
+	return ri.set(name, r)
 }
 
 //----------
@@ -273,6 +280,21 @@ func replaceParenthesisRules(ri *RuleIndex) error {
 			r4.childs = []Rule{r3, r2} // last element
 			dr.setOnlyChild(r4)
 			dr.isLoop = true
+
+		case *IfRule:
+			c0 := t.childs[0] // conditional rule
+			c1 := t.childs[1] // rule if condition is true
+			c2 := t.childs[2] // rule if condition is false
+			c0br, ok := c0.(*BoolRule)
+			if !ok {
+				return fmt.Errorf("ifrule condition is not a boolrule: %v (%T)", c0, c0)
+			}
+			// observe the value now
+			if c0br.value {
+				*rref = c1
+			} else {
+				*rref = c2
+			}
 		}
 		return nil
 	})
@@ -311,9 +333,17 @@ func visitRulesOnce(ri *RuleIndex, fn func(*Rule) error) error {
 			return nil
 		}
 		seen[*rref] = true
+
+		//// walk childs first (TESTING: case of ifrule)
+		//if err := walkRuleChilds(*rref, fn2); err != nil {
+		//	return err
+		//}
+
+		// this node
 		if err := fn(rref); err != nil {
 			return err
 		}
+		// walk childs after
 		return walkRuleChilds(*rref, fn2)
 	}
 

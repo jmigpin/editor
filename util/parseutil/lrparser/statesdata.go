@@ -301,7 +301,7 @@ type ActionReduce struct {
 	prod         Rule // reduce to rule
 	popN         int  // pop n
 	prodCanBeNil bool
-	prodIsLoop   bool
+	//prodIsLoop   bool
 }
 
 func (a *ActionReduce) String() string {

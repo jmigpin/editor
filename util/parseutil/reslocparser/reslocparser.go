@@ -2,7 +2,6 @@ package reslocparser
 
 import (
 	_ "embed"
-	"errors"
 
 	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/parseutil/lrparser"
@@ -58,7 +57,7 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 		}
 	}
 	// setup predefined rules
-	poe(p.lrp.SetFuncRule("rlParseVolume", p.parseVolume))
+	poe(p.lrp.SetBoolRule("rlParseVolume", p.ParseVolume))
 	poe(p.lrp.SetStringRule("rlSep", string(p.PathSeparator)))
 	poe(p.lrp.SetStringRule("rlEsc", string(p.Escape)))
 	// setup extra symbols
@@ -123,12 +122,12 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 
 //----------
 
-func (p *ResLocParser) parseVolume(ps *lrparser.PState) error {
-	if !p.ParseVolume {
-		return errors.New("not parsing volume")
-	}
-	return nil
-}
+//func (p *ResLocParser) parseVolume(ps *lrparser.PState) error {
+//	if !p.ParseVolume {
+//		return errors.New("not parsing volume")
+//	}
+//	return nil
+//}
 
 //----------
 
