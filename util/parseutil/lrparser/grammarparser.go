@@ -51,9 +51,16 @@ func (gp *grammarParser) parseLine(ps *PState) (bool, error) {
 		_ = ps.consumeToNLIncluding()
 		return true, nil
 	}
-	// rules
+	// rule
 	if err := ps.matchString("rule "); err == nil {
-		if err := gp.parseRule(ps); err != nil {
+		if err := gp.parseRule(ps, ""); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	// if bool rule
+	if err := ps.matchString("if "); err == nil {
+		if err := gp.parseIfRule(ps); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -64,7 +71,7 @@ func (gp *grammarParser) parseLine(ps *PState) (bool, error) {
 	}
 	return false, errors.New("unexpected line")
 }
-func (gp *grammarParser) parseRule(ps *PState) error {
+func (gp *grammarParser) parseRule(ps *PState, ifRuleName string) error {
 	_ = ps.consumeSpacesExcludingNL() // optional
 
 	i0 := ps.i
@@ -77,17 +84,28 @@ func (gp *grammarParser) parseRule(ps *PState) error {
 	}
 
 	// rule name
-	name, err := gp.parseRuleNameAndEqual(ps)
+	name, err := gp.parseName(ps)
 	if err != nil {
 		return err
 	}
+	if gp.ri.has(name) {
+		return fmt.Errorf("rule already defined: %v", name)
+	}
+
+	_ = ps.consumeSpacesExcludingNL() // optional
+
+	if err := ps.MatchRune('='); err != nil {
+		return errors.New("expecting =")
+	}
+
+	_ = ps.consumeSpacesExcludingNL2() // optional
 
 	if err := gp.parseItemRule(ps); err != nil {
 		return err
 	}
 
 	// setup defrule
-	dr := &DefRule{name: name, isStart: isStart}
+	dr := &DefRule{name: name, ifRuleName: ifRuleName, isStart: isStart}
 	dr.setOnlyChild(ps.parseNode.(Rule))
 	gp.declId++
 	dr.declId = gp.declId
@@ -96,7 +114,40 @@ func (gp *grammarParser) parseRule(ps *PState) error {
 
 	return nil
 }
-func (gp *grammarParser) parseRuleNameAndEqual(ps *PState) (string, error) {
+
+//func (gp *grammarParser) parseRuleNameAndEqual(ps *PState) (string, error) {
+//	name := ""
+//	for {
+//		ps2 := ps.copy()
+//		ru, err := ps.readRune()
+//		if err != nil {
+//			break
+//		}
+//		if !(unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_') {
+//			ps.set(ps2)
+//			break
+//		}
+//		name += string(ru)
+//	}
+//	if name == "" {
+//		return "", errors.New("expecting name")
+//	}
+
+//	if gp.ri.has(name) {
+//		return "", fmt.Errorf("rule already defined: %v", name)
+//	}
+
+//	_ = ps.consumeSpacesExcludingNL() // optional
+
+//	if err := ps.MatchRune('='); err != nil {
+//		return "", errors.New("expecting =")
+//	}
+
+//	_ = ps.consumeSpacesExcludingNL2() // optional
+
+//		return name, nil
+//	}
+func (gp *grammarParser) parseName(ps *PState) (string, error) {
 	name := ""
 	for {
 		ps2 := ps.copy()
@@ -113,21 +164,31 @@ func (gp *grammarParser) parseRuleNameAndEqual(ps *PState) (string, error) {
 	if name == "" {
 		return "", errors.New("expecting name")
 	}
-
-	if gp.ri.has(name) {
-		return "", fmt.Errorf("rule already defined: %v", name)
-	}
-
-	_ = ps.consumeSpacesExcludingNL() // optional
-
-	if err := ps.MatchRune('='); err != nil {
-		return "", errors.New("expecting =")
-	}
-
-	_ = ps.consumeSpacesExcludingNL() // optional
-	//_ = ps.consumeSpacesIncludingNL() // optional
-
 	return name, nil
+}
+
+//----------
+
+func (gp *grammarParser) parseIfRule(ps *PState) error {
+	_ = ps.consumeSpacesExcludingNL() // optional
+
+	// bool rule name
+	name, err := gp.parseName(ps)
+	if err != nil {
+		return err
+	}
+
+	if !ps.consumeSpacesExcludingNL() {
+		return fmt.Errorf("expecting space")
+	}
+
+	if err := ps.matchString("rule "); err != nil {
+		return err
+	}
+	if err := gp.parseRule(ps, name); err != nil {
+		return err
+	}
+	return nil
 }
 
 //----------
@@ -185,8 +246,7 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 	for i := 0; ; i++ {
 		// handle separator
 		if i > 0 {
-			ok := ps2.consumeSpacesExcludingNL() // optional
-			//ok := ps2.consumeSpacesIncludingNL() // optional
+			ok := ps2.consumeSpacesExcludingNL2() // optional
 			if !ok {
 				if i == 1 {
 					ps.set(ps2)

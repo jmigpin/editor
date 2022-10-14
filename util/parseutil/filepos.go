@@ -1,9 +1,5 @@
 package parseutil
 
-import (
-	"github.com/jmigpin/editor/util/iout/iorw"
-)
-
 type FilePos struct {
 	Filename     string
 	Offset, Len  int // length after offset for a range
@@ -17,20 +13,20 @@ func (fp *FilePos) HasOffset() bool {
 //----------
 
 // Parse fmt: <filename:line?:col?>. Accepts escapes but doesn't unescape.
-func ParseFilePos(str string) (*FilePos, error) {
-	rd := iorw.NewStringReaderAt(str)
-	res, err := ParseResource(rd, 0)
-	if err != nil {
-		return nil, err
-	}
-	return NewFilePosFromResource(res), nil
-}
+//func ParseFilePos(str string) (*FilePos, error) {
+//	rd := iorw.NewStringReaderAt(str)
+//	res, err := ParseResource(rd, 0)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return NewFilePosFromResource(res), nil
+//}
 
-func NewFilePosFromResource(res *Resource) *FilePos {
-	return &FilePos{
-		Offset:   -1,
-		Filename: res.RawPath, // original string (unescaped)
-		Line:     res.Line,
-		Column:   res.Column,
-	}
-}
+//func NewFilePosFromResource(res *Resource) *FilePos {
+//	return &FilePos{
+//		Offset:   -1,
+//		Filename: res.RawPath, // original string (unescaped)
+//		Line:     res.Line,
+//		Column:   res.Column,
+//	}
+//}

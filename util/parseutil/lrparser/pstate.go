@@ -153,6 +153,24 @@ func (ps *PState) consumeSpacesExcludingNL() bool {
 		}
 	}
 }
+
+// allows escaped newlines
+func (ps *PState) consumeSpacesExcludingNL2() bool {
+	ok := false
+	for {
+		ok2 := ps.consumeSpacesExcludingNL()
+		err := ps.matchString("\\\n")
+		ok3 := err == nil
+		if ok2 || ok3 {
+			ok = true
+		}
+		if !ok2 && !ok3 {
+			break
+		}
+	}
+	return ok
+}
+
 func (ps *PState) consumeToNLIncluding() bool {
 	ps2 := ps.copy()
 	for i := 0; ; i++ {

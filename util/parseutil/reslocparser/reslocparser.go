@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"errors"
 
+	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
@@ -13,23 +14,30 @@ var resLocFilename = "reslocparser.gram" // for errors
 
 //----------
 
-// resource locator parser (name reminds url)
+var extraSyms = "_-~.%@&?!=#+:^" + "(){}[]<>" + "\\/" + " " // besides letters and digits
+var nameSepSyms = "" +
+	" " + // word separator
+	"=" + // usually around filenames (ex: -arg=/a/b.txt)
+	"(){}[]<>" + // usually used around filenames in various outputs
+	":" // usually separating lines/cols from filenames
+
+//----------
+
+// resource locator parser (reminds url)
 type ResLocParser struct {
 	lrp   *lrparser.Lrparser
 	locCp *lrparser.ContentParser
 	revCp *lrparser.ContentParser
 
-	WindowsMode bool
-	escape      rune
-	separator   rune
-	extraSyms   []rune
+	Escape        rune
+	PathSeparator rune
+	ParseVolume   bool
 }
 
 func NewResLocParser() (*ResLocParser, error) {
 	p := &ResLocParser{}
-	p.escape = '\\'
-	p.separator = '/'
-	p.extraSyms = []rune("^")
+	p.Escape = '\\'
+	p.PathSeparator = '/'
 
 	fset := &lrparser.FileSet{Src: resLocGrammar, Filename: resLocFilename}
 	lrp, err := lrparser.NewLrparser(fset)
@@ -50,10 +58,13 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 		}
 	}
 	// setup predefined rules
-	poe(p.lrp.SetFuncRule("rlIsWindows", p.isWindowsRule))
-	poe(p.lrp.SetStringRule("rlSep", string(p.separator)))
-	poe(p.lrp.SetStringRule("rlEsc", string(p.escape)))
-	poe(p.lrp.SetStringOrRule("rlExtraSyms", string(p.extraSyms)))
+	poe(p.lrp.SetFuncRule("rlParseVolume", p.parseVolume))
+	poe(p.lrp.SetStringRule("rlSep", string(p.PathSeparator)))
+	poe(p.lrp.SetStringRule("rlEsc", string(p.Escape)))
+	// setup extra symbols
+	rm := nameSepSyms + string(p.Escape) + string(p.PathSeparator) // remove these
+	u := parseutil.RunesExcept(extraSyms, rm)
+	poe(p.lrp.SetStringOrRule("rlExtraSyms", u))
 
 	revOpt := &lrparser.CPOpt{
 		StartRule:         "reverse",
@@ -112,9 +123,9 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 
 //----------
 
-func (p *ResLocParser) isWindowsRule(ps *lrparser.PState) error {
-	if !p.WindowsMode {
-		return errors.New("not windows mode")
+func (p *ResLocParser) parseVolume(ps *lrparser.PState) error {
+	if !p.ParseVolume {
+		return errors.New("not parsing volume")
 	}
 	return nil
 }
@@ -123,9 +134,11 @@ func (p *ResLocParser) isWindowsRule(ps *lrparser.PState) error {
 
 func (p *ResLocParser) buildLocation(d *lrparser.BuildNodeData) error {
 	rl := d.Child(0).Data().(*ResLoc)
-	rl.escape = p.escape
-	rl.separator = p.separator
+	rl.Escape = p.Escape
+	rl.PathSep = p.PathSeparator
 	rl.Bnd = d
+	rl.Pos = d.Pos()
+	rl.End = d.End()
 
 	d.SetData(rl)
 	return nil
@@ -133,14 +146,14 @@ func (p *ResLocParser) buildLocation(d *lrparser.BuildNodeData) error {
 func (p *ResLocParser) buildCFile(d *lrparser.BuildNodeData) error {
 	rl := &ResLoc{}
 	// filename
-	rl.Filename = d.ChildStr(0)
+	rl.Path = d.ChildStr(0)
 	// cLineCol
 	if d2 := d.Child(1); !d2.IsNil() { // parenthesis optional
 		d2 = d2.Child(0) // parenthesis
 		d2 = d2.Child(0) // inner rule: cLineCol
 		u := d2.Data().([]int)
 		rl.Line = u[0]
-		rl.Col = u[1]
+		rl.Column = u[1]
 	}
 	d.SetData(rl)
 	return nil
@@ -148,12 +161,15 @@ func (p *ResLocParser) buildCFile(d *lrparser.BuildNodeData) error {
 func (p *ResLocParser) buildPyFile(d *lrparser.BuildNodeData) error {
 	rl := &ResLoc{}
 	// filename
-	rl.Filename = d.Child(0).ChildStr(1)
+	rl.Path = d.Child(0).ChildStr(1)
 	// digits
-	if line, err := d.ChildInt(2); err != nil {
-		return err
-	} else {
-		rl.Line = line
+	if d2 := d.Child(1); !d2.IsNil() {
+		//d2.PrintRuleTree(5)
+		if line, err := d2.Child(0).ChildInt(1); err != nil {
+			return err
+		} else {
+			rl.Line = line
+		}
 	}
 	d.SetData(rl)
 	return nil
@@ -163,21 +179,21 @@ func (p *ResLocParser) buildSchemeFile(d *lrparser.BuildNodeData) error {
 	// scheme
 	rl.Scheme = d.ChildStr(0)
 	// path
-	rl.Filename = d.ChildStr(2)
+	rl.Path = d.ChildStr(2)
 	// cLineCol
 	if d2 := d.Child(3); !d2.IsNil() { // parenthesis optional
 		d2 = d2.Child(0) // parenthesis
 		d2 = d2.Child(0) // inner rule: cLineCol
 		u := d2.Data().([]int)
 		rl.Line = u[0]
-		rl.Col = u[1]
+		rl.Column = u[1]
 	}
 	d.SetData(rl)
 	return nil
 }
 func (p *ResLocParser) buildCLineCol(d *lrparser.BuildNodeData) error {
 	//d.PrintRuleTree(5)
-	line, col := -1, -1
+	line, col := 0, 0
 	// line
 	if line2, err := d.ChildInt(1); err != nil {
 		return err

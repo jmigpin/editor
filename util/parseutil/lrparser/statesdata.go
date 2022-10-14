@@ -119,10 +119,10 @@ func (sd *StatesData) sortForParse(rset RuleSet) []Rule {
 			return 2, string(t.runes)
 		case *StringOrRule: // individual runes
 			return 3, string(t.runes)
-		//case *StringNotRule: // individual runes
-		//	return 4, string(t.runes)
 		case *FuncRule:
 			return 5, t.name
+			//return -1, t.name
+			// TODO: FlagRule? boolRule?
 		case *SingletonRule:
 			switch t {
 			case endRule:
@@ -151,9 +151,29 @@ func (sd *StatesData) sortForParse(rset RuleSet) []Rule {
 //----------
 
 func (sd *StatesData) solveConflicts(vd *VerticesData) error {
-	me := iout.MultiError{}
+	// strings conflicts
+	for _, st := range sd.states {
+		m := map[rune]Rule{}
+		for _, r := range st.rsetSorted {
+			if r2, ok := r.(*StringOrRule); ok {
+				for _, ru := range r2.runes {
+					r3, ok := m[ru]
+					if !ok {
+						m[ru] = r
+						continue
+					}
+					if r3 == r {
+						return fmt.Errorf("%v: duplicated rune %q in rule %v", st.id, ru, r3)
+					} else {
+						return fmt.Errorf("%v: rune %q in %v is already in rset %v", st.id, ru, r, r3)
+					}
+				}
+			}
+		}
+	}
 
 	// action conflicts
+	me := iout.MultiError{}
 	for _, st := range sd.states {
 		for r, as := range st.action {
 			if len(as) <= 1 {
@@ -186,27 +206,6 @@ func (sd *StatesData) solveConflicts(vd *VerticesData) error {
 			//w = append(w, fmt.Sprintf("%v", st))
 			err := fmt.Errorf("%v", strings.Join(w, "\n"))
 			me.Add(err)
-		}
-	}
-
-	// strings conflicts
-	for _, st := range sd.states {
-		m := map[rune]Rule{}
-		for _, r := range st.rsetSorted {
-			if r2, ok := r.(*StringOrRule); ok {
-				for _, ru := range r2.runes {
-					r3, ok := m[ru]
-					if !ok {
-						m[ru] = r
-						continue
-					}
-					if r3 == r {
-						me.Add(fmt.Errorf("%v: rune %q already in rule %v", st.id, ru, r3))
-					} else {
-						me.Add(fmt.Errorf("%v: rune %q already in rset %v (%v)", st.id, ru, r3, r))
-					}
-				}
-			}
 		}
 	}
 	return me.Result()

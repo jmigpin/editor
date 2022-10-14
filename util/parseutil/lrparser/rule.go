@@ -53,10 +53,11 @@ func (r *CmnRule) iterChilds(fn func(index int, ref *Rule) error) error {
 type DefRule struct {
 	CmnPNode
 	CmnRule
-	name    string
-	declId  int  // declaration order, 0=inserted, >=1=declared
-	isStart bool // has "start" symbol in the grammar
-	isLoop  bool
+	name       string
+	declId     int  // declaration order, 0=inserted, >=1=declared
+	isStart    bool // has "start" symbol in the grammar
+	isLoop     bool
+	ifRuleName string // name of conditional rule to make this rule work
 }
 
 func (r *DefRule) isTerminal() bool {
@@ -204,7 +205,7 @@ func (r *StringRule) isTerminal() bool {
 }
 func (r *StringRule) id() string {
 	u := string(r.runes)
-	u = strings.ReplaceAll(u, "%", "%%")
+	//u = strings.ReplaceAll(u, "%", "%%")
 	return fmt.Sprintf("%q", u)
 }
 func (r *StringRule) String() string {

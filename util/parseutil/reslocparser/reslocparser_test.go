@@ -154,14 +154,34 @@ func TestResLocParser23(t *testing.T) {
 	testMode1(t, in, out)
 }
 func TestResLocParser24(t *testing.T) {
-	in := "  File \"aaa.py\", line● 10, in <bbb>"
-	out := "aaa.py:10"
+	in := "bbb \"aa.py\", line● 10, in <bb>"
+	out := "aa.py:10"
 	testMode1(t, in, out)
 }
 func TestResLocParser25(t *testing.T) {
-	in := "bbb \"aaa.ledger\", line 10●:"
-	out := "aaa.ledger:10"
+	in := "bbb \"aa.py\", line 10●, in <bb>"
+	out := "aa.py:10"
 	testMode1(t, in, out)
+}
+func TestResLocParser26(t *testing.T) {
+	in := "bbb \"a●a.py\", line 10, in <bb>"
+	out := "aa.py:10"
+	testMode1(t, in, out)
+}
+func TestResLocParser27(t *testing.T) {
+	in := "bbb \"a●a.py\" bbb"
+	out := "aa.py"
+	testMode1(t, in, out)
+}
+func TestResLocParser28(t *testing.T) {
+	in := "/a/b.txt:●3"
+	out := "/a/b.txt:3"
+	testMode1(t, in, out)
+}
+func TestResLocParser29(t *testing.T) {
+	in := "++c:\\a\\b.txt:3●"
+	out := "c:\\a\\b.txt:3"
+	testMode2(t, in, out, '^', '\\', true)
 }
 
 //----------
@@ -169,6 +189,9 @@ func TestResLocParser25(t *testing.T) {
 //----------
 
 func testMode1(t *testing.T, in, out string) {
+	testMode2(t, in, out, 0, 0, false)
+}
+func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	t.Helper()
 
 	//in = string(bytes.TrimRight(in, "\n"))
@@ -183,6 +206,16 @@ func testMode1(t *testing.T, in, out string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// setup options
+	if esc != 0 {
+		p.Escape = esc
+	}
+	if psep != 0 {
+		p.PathSeparator = psep
+	}
+	p.ParseVolume = parseVolume
+
 	if err := p.Init(t.Logf); err != nil {
 		t.Fatal(err)
 	}

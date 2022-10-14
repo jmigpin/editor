@@ -21,7 +21,7 @@ func newRuleIndex() *RuleIndex {
 	ri := &RuleIndex{m: map[string]Rule{}}
 
 	setSingleton := func(r *SingletonRule) {
-		ri.m[r.name] = r
+		ri.m[r.name] = r // ok to set directly, only for special rules
 	}
 	setFn := func(name string, fn pstateParseFn) {
 		if err := ri.setFuncRule(name, fn); err != nil {
@@ -35,7 +35,15 @@ func newRuleIndex() *RuleIndex {
 	setSingleton(anyruneRule)
 	setFn("letter", parseLetter)
 	setFn("digit", parseDigit)
-	setFn("digits", parseDigits)
+
+	// (digits)+
+	//setFn("digits", parseDigits) // can't define this since it will not be able to compose "digits" with "digit" and will fail the produce a correct parser
+	// works correctly, but it is a non terminal and shows in ruleindex // TODO: improve
+	//r2 := &ParenOneOrMoreRule{}
+	//r2.setOnlyChild(ri.m["digit"])
+	//if err := ri.setDefRule("digits", r2); err != nil {
+	//	panic(err)
+	//}
 
 	return ri
 }
@@ -55,7 +63,10 @@ func (ri *RuleIndex) set(name string, r Rule) error {
 	}
 
 	switch name {
-	case "", "rule", nilRule.id(), anyruneRule.id():
+	case "", "rule",
+		endRule.id(),
+		nilRule.id(),
+		anyruneRule.id():
 		return fmt.Errorf("bad rule name: %q", name)
 	}
 	if ri.has(name) {
@@ -342,22 +353,24 @@ func parseDigit(ps *PState) error {
 	ps.set(ps2)
 	return nil
 }
-func parseDigits(ps *PState) error {
-	for i := 0; ; i++ {
-		ps2 := ps.copy()
-		ru, err := ps2.readRune()
-		if err != nil {
-			if i > 0 {
-				return nil
-			}
-			return err
-		}
-		if !unicode.IsDigit(ru) {
-			if i == 0 {
-				return errors.New("not a digit")
-			}
-			return nil
-		}
-		ps.set(ps2)
-	}
-}
+
+// commented: using this won't recognize "digit" in "digits", which won't allow to parse correctly in some cases
+//func parseDigits(ps *PState) error {
+//	for i := 0; ; i++ {
+//		ps2 := ps.copy()
+//		ru, err := ps2.readRune()
+//		if err != nil {
+//			if i > 0 {
+//				return nil
+//			}
+//			return err
+//		}
+//		if !unicode.IsDigit(ru) {
+//			if i == 0 {
+//				return errors.New("not a digit")
+//			}
+//			return nil
+//		}
+//		ps.set(ps2)
+//	}
+//}

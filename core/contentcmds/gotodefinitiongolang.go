@@ -11,7 +11,7 @@ import (
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/parseutil/reslocparser"
 )
 
 func GoToDefinitionGolang(ctx context.Context, erow *core.ERow, index int) (error, bool) {
@@ -69,7 +69,7 @@ func goplsQuery(ctx context.Context, erow *core.ERow, index int) error {
 		return err
 	}
 
-	filePos, err := parseutil.ParseFilePos(string(out))
+	filePos, err := reslocparser.ParseFilePos(out, 0)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func goGuru(ctx context.Context, erow *core.ERow, index int) error {
 		return err
 	}
 
-	filePos, err := parseutil.ParseFilePos(string(out))
+	filePos, err := reslocparser.ParseFilePos(out, 0)
 	if err != nil {
 		return err
 	}
