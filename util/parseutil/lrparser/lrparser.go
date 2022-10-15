@@ -35,14 +35,8 @@ func (lrp *Lrparser) ContentParser(opt *CPOpt) (*ContentParser, error) {
 
 //----------
 
-// should avoid using because of parse order
-//	func (lrp *Lrparser) SetFuncRule(name string, fn pstateParseFn) error {
-//		return lrp.ri.setFuncRule(name, fn)
-//	}
+// NOTE: avoid make setFuncRule accessible because of parse order
 
-func (lrp *Lrparser) SetBoolRule(name string, v bool) error {
-	return lrp.ri.setBoolRule(name, v)
-}
 func (lrp *Lrparser) SetStringRule(name string, s string) error {
 	if s == "" {
 		return fmt.Errorf("empty string")
@@ -51,11 +45,6 @@ func (lrp *Lrparser) SetStringRule(name string, s string) error {
 	r.runes = []rune(s)
 	return lrp.ri.setDefRule(name, r)
 }
-func (lrp *Lrparser) SetStringOrRule(name string, s string) error {
-	if s == "" {
-		return fmt.Errorf("empty string")
-	}
-	r := &StringOrRule{}
-	r.runes = []rune(s)
-	return lrp.ri.setDefRule(name, r)
+func (lrp *Lrparser) SetBoolRule(name string, v bool) error {
+	return lrp.ri.setBoolRule(name, v)
 }

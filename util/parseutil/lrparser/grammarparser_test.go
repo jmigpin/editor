@@ -20,12 +20,22 @@ func TestGrammarParser1(t *testing.T) {
 	testGrammarParserMode1(t, in, out)
 }
 func TestGrammarParser2(t *testing.T) {
-	in := `
-		rule ^S = (a|b|"cd"&)?
+	in := `	
+		rule ^S = (a|b|("cd")&)?
 	`
 	out := `
 		ruleindex:
-		^S = ({ref:a} | {ref:b} | "cd"&)?
+		^S = ({ref:a} | {ref:b} | ("cd")&)?
+	`
+	testGrammarParserMode1(t, in, out)
+}
+func TestGrammarParser3(t *testing.T) {
+	in := `	
+		rule ^S = (if a?b:c)
+	`
+	out := `
+		ruleindex:
+		^S = if {ref:a} ? {ref:b} : {ref:c}
 	`
 	testGrammarParserMode1(t, in, out)
 }

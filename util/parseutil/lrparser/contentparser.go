@@ -12,8 +12,9 @@ type ContentParser struct {
 	vd           *VerticesData
 	sd           *StatesData
 	buildNodeFns map[Rule]BuildNodeFn
+
+	stk cpStack
 	// run vars (need reset for each parse)
-	stk       cpStack
 	earlyStop struct {
 		on               bool
 		err              error
@@ -70,6 +71,7 @@ func (cp *ContentParser) ParseFileSet(fset *FileSet, index int) (*BuildNodeData,
 func (cp *ContentParser) parse3(ps *PState) (*CPNode, error) {
 	// init parse vars
 	cp.earlyStop.on = false
+	cp.earlyStop.err = nil
 	cp.earlyStop.simStateRsetIter = map[*State]int{}
 	// add initial state to stack
 	cpn0 := newCPNode(ps.i, ps.i, nil)
@@ -298,20 +300,21 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 	switch t := r.(type) {
 	case *StringRule:
 		i0 := ps.i
-		if err := ps.MatchRunesAnd(t.runes); err != nil {
-			return err
-		}
-		ps.parseNode = newCPNode(i0, ps.i, t)
-	case *StringOrRule:
-		i0 := ps.i
-		if err := ps.MatchRunesOr(t.runes); err != nil {
-			return err
-		}
-		ps.parseNode = newCPNode(i0, ps.i, t)
-	case *StringMidRule:
-		i0 := ps.i
-		if err := ps.matchRunesMid(t.runes); err != nil {
-			return err
+		switch t.typ {
+		case parenNone:
+			if err := ps.MatchRunesAnd(t.runes); err != nil {
+				return err
+			}
+		case parenStringRunes:
+			if err := ps.MatchRunesOr(t.runes); err != nil {
+				return err
+			}
+		case parenStringMidMatch:
+			if err := ps.matchRunesMid(t.runes); err != nil {
+				return err
+			}
+		default:
+			panic(goutil.TodoErrorStr(string(t.typ)))
 		}
 		ps.parseNode = newCPNode(i0, ps.i, t)
 	case *FuncRule:

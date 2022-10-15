@@ -233,18 +233,21 @@ func TestLrparser11(t *testing.T) {
 }
 func TestLrparser12(t *testing.T) {
 	gram := `
-		rule ^S = (":\"'"&)+
+		rule ^S = ((":\"'")&)+
 	`
 	in := "●:\":"
 	out := `
 		-> S: ":\":"
-	        	-> (":\"'"&)+: ":\":"
-	        		-> (":\"'"&): ":"
-	        			-> ":\"'"&: ":"
-	        		-> (":\"'"&): "\""
-	        			-> ":\"'"&: "\""
-	        		-> (":\"'"&): ":"
-	        			-> ":\"'"&: ":"
+	        	-> ((":\"'")&)+: ":\":"
+	        		-> ((":\"'")&): ":"
+	        			-> (":\"'")&: ":"
+	        				-> ":\"'"&: ":"
+	        		-> ((":\"'")&): "\""
+	        			-> (":\"'")&: "\""
+	        				-> ":\"'"&: "\""
+	        		-> ((":\"'")&): ":"
+	        			-> (":\"'")&: ":"
+	        				-> ":\"'"&: ":"
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -289,6 +292,40 @@ func TestLrparser14(t *testing.T) {
 
 	// use shift by default
 	testLrparserMode2(t, gram, in, out, false, false, true)
+}
+func TestLrparser15(t *testing.T) {
+	gram := `
+		rule ^S = (s2)~ "de"
+		rule s2 = "abc"
+	`
+	in := "ab●cde"
+	out := `
+		-> S: "cde"
+	        	-> (s2)~: "c"
+	        		-> "abc"~: "c"
+	        	-> "de": "de"
+	`
+	testLrparserMode2(t, gram, in, out, false, false, false)
+}
+func TestLrparser16(t *testing.T) {
+	gram := `
+		rule ^S = (s2)~ ((s2)&)+
+		rule s2 = "abc"
+	`
+	in := "ab●caa"
+	out := `
+		-> S: "caa"
+	        	-> (s2)~: "c"
+	        		-> "abc"~: "c"
+	        	-> ((s2)&)+: "aa"
+	        		-> ((s2)&): "a"
+	        			-> (s2)&: "a"
+	        				-> "abc"&: "a"
+	        		-> ((s2)&): "a"
+	        			-> (s2)&: "a"
+	        				-> "abc"&: "a"
+	`
+	testLrparserMode2(t, gram, in, out, false, false, false)
 }
 
 //----------
@@ -533,6 +570,7 @@ func testLrparserMode1(t *testing.T, gram, in, out string) *BuildNodeData {
 	return testLrparserMode2(t, gram, in, out, false, false, false)
 }
 func testLrparserMode2(t *testing.T, gram, in, out string, reverse, earlyStop, shiftOnSRConflict bool) *BuildNodeData {
+	t.Helper()
 	bnd, err := testLrparserMode3(t, gram, in, out, reverse, earlyStop, shiftOnSRConflict)
 	if err != nil {
 		t.Fatal(err)

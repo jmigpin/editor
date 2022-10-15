@@ -209,8 +209,7 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 				return nil // ok
 			}
 
-			//_ = ps2.consumeSpacesExcludingNL() // optional
-			_ = ps2.consumeSpacesIncludingNL() // optional
+			_ = ps2.consumeSpacesExcludingNL() // optional
 		}
 
 		if err := gp.parseAndRule(ps2); err != nil {
@@ -334,42 +333,17 @@ func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
 	res := &StringRule{runes: []rune(u)}
 	res.setPos(i0, ps.i)
 	ps.parseNode = res
-
-	// extension
-	ps3 := ps.copy()
-	ru, err := ps3.readRune()
-	if err == nil {
-		switch ru {
-		case '&':
-			u := &StringOrRule{}
-			u.StringRule = *res
-			ps.parseNode = u
-			ps.i = ps3.i //advance
-		//case '!':
-		//	u := &StringNotRule{}
-		//	u.StringRule = *res
-		//	ps.parseNode = u
-		//	ps.i = ps3.i //advance
-		case '~':
-			u := &StringMidRule{}
-			u.StringRule = *res
-			ps.parseNode = u
-			ps.i = ps3.i //advance
-		}
-	}
 	return nil, true
 }
 
 func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 	i0 := ps.i
-	//_ = ps.consumeSpacesIncludingNL() // optional
 	if err := ps.MatchRune('('); err != nil {
 		return err, false
 	}
 	if err := gp.parseItemRule(ps); err != nil {
 		return err, true
 	}
-	//_ = ps.consumeSpacesIncludingNL() // optional
 	ruleX := ps.parseNode.(Rule)
 	if err := ps.MatchRune(')'); err != nil {
 		return err, true
@@ -377,28 +351,20 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 
 	//  options
 	ps2 := ps.copy()
-	ru, _ := ps2.readRune()
-	switch ru {
-	case '?':
-		ps.set(ps2)
-		u := &ParenOptionalRule{}
-		u.setOnlyChild(ruleX)
-		u.setPos(i0, ps.i)
-		ps.parseNode = u
-	case '*':
-		ps.set(ps2)
-		u := &ParenZeroOrMoreRule{}
-		u.setOnlyChild(ruleX)
-		u.setPos(i0, ps.i)
-		ps.parseNode = u
-	case '+':
-		ps.set(ps2)
-		u := &ParenOneOrMoreRule{}
-		u.setOnlyChild(ruleX)
-		u.setPos(i0, ps.i)
-		ps.parseNode = u
-	default:
-		u := &ParenRule{}
+	ru, err := ps2.readRune()
+	if err != nil {
+		ru = 0
+	}
+	pt := parenType(ru)
+	switch pt {
+	case parenNone,
+		parenOptional,
+		parenZeroOrMore,
+		parenOneOrMore,
+		parenStringRunes,
+		parenStringMidMatch:
+		ps.set(ps2) // advance (ru=0 will stay in place)
+		u := &ParenRule{typ: pt}
 		u.setOnlyChild(ruleX)
 		u.setPos(i0, ps.i)
 		ps.parseNode = u

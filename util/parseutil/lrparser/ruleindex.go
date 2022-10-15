@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/jmigpin/editor/util/goutil"
 )
 
 // unique rule index
@@ -180,7 +182,11 @@ func (ri *RuleIndex) sorted() []Rule {
 
 func dereferenceRules(ri *RuleIndex) error {
 	// replace refrules first to avoid rule ids with "refs"
-	if err := derefRefRules(ri); err != nil {
+	if err := replaceRefRules(ri); err != nil {
+		return err
+	}
+
+	if err := replaceIfRules(ri); err != nil {
 		return err
 	}
 
@@ -199,14 +205,36 @@ func dereferenceRules(ri *RuleIndex) error {
 	return nil
 }
 
-func derefRefRules(ri *RuleIndex) error {
+func replaceRefRules(ri *RuleIndex) error {
 	return visitRulesOnce(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *RefRule:
 			// replace with defrule in ruleindex
 			if !replaceFromMap(ri.m, t.name, rref) {
 				err := fmt.Errorf("rule not found: %v", t.name)
-				return &PosError{err: err, Pos: t.pos}
+				return &PosError{err: err, Pos: t.Pos()}
+			}
+		}
+		return nil
+	})
+}
+
+func replaceIfRules(ri *RuleIndex) error {
+	return visitRulesOnce(ri, func(rref *Rule) error {
+		switch t := (*rref).(type) {
+		case *IfRule:
+			c0 := t.childs[0] // conditional rule
+			c1 := t.childs[1] // rule if condition is true
+			c2 := t.childs[2] // rule if condition is false
+			c0br, ok := c0.(*BoolRule)
+			if !ok {
+				return fmt.Errorf("ifrule condition is not a boolrule: %v (%T)", c0, c0)
+			}
+			// observe the value now
+			if c0br.value {
+				*rref = c1
+			} else {
+				*rref = c2
 			}
 		}
 		return nil
@@ -240,64 +268,58 @@ func replaceParenthesisRules(ri *RuleIndex) error {
 			if replaced {
 				return nil // don't walk childs, already replaced
 			}
-			dr.setOnlyChild(t.onlyChild())
-
-		case *ParenOptionalRule:
-			dr, replaced := replace("pOpt", t.id(), rref)
-			if replaced {
-				return nil
-			}
-			r3 := &ParenRule{}
-			r3.setOnlyChild(t.onlyChild())
-			r4 := &OrRule{}
-			r4.childs = []Rule{r3, nilRule}
-			dr.setOnlyChild(r4)
-
-		case *ParenZeroOrMoreRule:
-			dr, replaced := replace("pZom", t.id(), rref)
-			if replaced {
-				return nil
-			}
-			r2 := &ParenRule{}
-			r2.setOnlyChild(t.onlyChild())
-			r3 := &AndRule{}
-			r3.childs = []Rule{dr, r2} // loop
-			r4 := &OrRule{}
-			r4.childs = []Rule{r3, nilRule} // last element
-			dr.setOnlyChild(r4)
-			dr.isLoop = true
-
-		case *ParenOneOrMoreRule:
-			dr, replaced := replace("pOom", t.id(), rref)
-			if replaced {
-				return nil
-			}
-			r2 := &ParenRule{}
-			r2.setOnlyChild(t.onlyChild())
-			r3 := &AndRule{}
-			r3.childs = []Rule{dr, r2} // loop
-			r4 := &OrRule{}
-			r4.childs = []Rule{r3, r2} // last element
-			dr.setOnlyChild(r4)
-			dr.isLoop = true
-
-		case *IfRule:
-			c0 := t.childs[0] // conditional rule
-			c1 := t.childs[1] // rule if condition is true
-			c2 := t.childs[2] // rule if condition is false
-			c0br, ok := c0.(*BoolRule)
-			if !ok {
-				return fmt.Errorf("ifrule condition is not a boolrule: %v (%T)", c0, c0)
-			}
-			// observe the value now
-			if c0br.value {
-				*rref = c1
-			} else {
-				*rref = c2
+			switch t.typ {
+			case parenNone:
+				dr.setOnlyChild(t.onlyChild())
+			case parenOptional:
+				r3 := &ParenRule{}
+				r3.setOnlyChild(t.onlyChild())
+				r4 := &OrRule{}
+				r4.childs = []Rule{r3, nilRule}
+				dr.setOnlyChild(r4)
+			case parenZeroOrMore:
+				r2 := &ParenRule{}
+				r2.setOnlyChild(t.onlyChild())
+				r3 := &AndRule{}
+				r3.childs = []Rule{dr, r2} // loop
+				r4 := &OrRule{}
+				r4.childs = []Rule{r3, nilRule} // last element
+				dr.setOnlyChild(r4)
+				dr.isLoop = true
+			case parenOneOrMore:
+				r2 := &ParenRule{}
+				r2.setOnlyChild(t.onlyChild())
+				r3 := &AndRule{}
+				r3.childs = []Rule{dr, r2} // loop
+				r4 := &OrRule{}
+				r4.childs = []Rule{r3, r2} // last element
+				dr.setOnlyChild(r4)
+				dr.isLoop = true
+			case parenStringRunes, parenStringMidMatch:
+				r2 := t.onlyChild()
+				sr, ok := getStringRule(r2)
+				if !ok {
+					return &PosError{Pos: t.Pos(), err: fmt.Errorf("expecting stringrule")}
+				}
+				r4 := *sr
+				r4.typ = t.typ
+				dr.setOnlyChild(&r4)
+			default:
+				return goutil.TodoErrorStr(fmt.Sprintf("%c", t.typ))
 			}
 		}
 		return nil
 	})
+}
+
+func getStringRule(r Rule) (*StringRule, bool) {
+	switch t := r.(type) {
+	case *StringRule:
+		return t, true
+	case *DefRule:
+		return getStringRule(t.onlyChild())
+	}
+	return nil, false
 }
 
 //----------

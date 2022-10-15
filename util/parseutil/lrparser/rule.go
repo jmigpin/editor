@@ -152,7 +152,7 @@ func (r *IfRule) isTerminal() bool {
 	return false
 }
 func (r *IfRule) id() string {
-	return fmt.Sprintf("if %v : %v", r.childs[0], r.childs[1])
+	return fmt.Sprintf("if %v ? %v : %v", r.childs[0], r.childs[1], r.childs[2])
 }
 func (r *IfRule) String() string {
 	return r.id()
@@ -160,112 +160,7 @@ func (r *IfRule) String() string {
 
 //----------
 
-// parenthesis, ex: (aaa (bbb|ccc))
-type ParenRule struct { // (1 child)
-	CmnPNode
-	CmnRule
-}
-
-func (r *ParenRule) isTerminal() bool {
-	return false
-}
-func (r *ParenRule) id() string {
-	return fmt.Sprintf("(%v)", r.onlyChild().id())
-}
-func (r *ParenRule) String() string {
-	return r.id()
-}
-
-//----------
-
-type ParenOptionalRule struct {
-	ParenRule
-}
-
-func (r *ParenOptionalRule) id() string {
-	return fmt.Sprintf("(%v)?", r.onlyChild().id())
-}
-func (r *ParenOptionalRule) String() string {
-	return r.id()
-}
-
-//----------
-
-type ParenZeroOrMoreRule struct {
-	ParenRule
-}
-
-func (r *ParenZeroOrMoreRule) id() string {
-	return fmt.Sprintf("(%v)*", r.onlyChild().id())
-}
-func (r *ParenZeroOrMoreRule) String() string {
-	return r.id()
-}
-
-//----------
-
-type ParenOneOrMoreRule struct {
-	ParenRule
-}
-
-func (r *ParenOneOrMoreRule) id() string {
-	return fmt.Sprintf("(%v)+", r.onlyChild().id())
-}
-func (r *ParenOneOrMoreRule) String() string {
-	return r.id()
-}
-
-//----------
-
-type StringRule struct { // (0 childs)
-	CmnPNode
-	CmnRule
-	runes []rune
-}
-
-func (r *StringRule) isTerminal() bool {
-	return true
-}
-func (r *StringRule) id() string {
-	u := string(r.runes)
-	//u = strings.ReplaceAll(u, "%", "%%")
-	return fmt.Sprintf("%q", u)
-}
-func (r *StringRule) String() string {
-	return r.id()
-}
-
-//----------
-
-// individual rune match
-type StringOrRule struct {
-	StringRule
-}
-
-func (r *StringOrRule) id() string {
-	return fmt.Sprintf("%v&", r.StringRule.id())
-}
-func (r *StringOrRule) String() string {
-	return r.id()
-}
-
-//----------
-
-// middle match
-type StringMidRule struct {
-	StringRule
-}
-
-func (r *StringMidRule) id() string {
-	return fmt.Sprintf("%v~", r.StringRule.id())
-}
-func (r *StringMidRule) String() string {
-	return r.id()
-}
-
-//----------
-
-// bool rule value is observed at building the contentparser, not at parse time
+// To be used in src code and then found by IfRule; the value is observed when building the contentparser, not at parse time
 type BoolRule struct { // (0 childs)
 	CmnRule
 	name  string
@@ -279,6 +174,52 @@ func (r *BoolRule) id() string {
 	return fmt.Sprintf("{%v:%v}", r.name, r.value)
 }
 func (r *BoolRule) String() string {
+	return r.id()
+}
+
+//----------
+
+// parenthesis, ex: (aaa (bbb|ccc))
+type ParenRule struct { // (1 child)
+	CmnPNode
+	CmnRule
+	typ parenType
+}
+
+func (r *ParenRule) isTerminal() bool {
+	return false
+}
+func (r *ParenRule) id() string {
+	s := ""
+	if r.typ != 0 {
+		s = string(r.typ)
+	}
+	return fmt.Sprintf("(%v)%v", r.onlyChild().id(), s)
+}
+func (r *ParenRule) String() string {
+	return r.id()
+}
+
+//----------
+
+type StringRule struct { // (0 childs)
+	CmnPNode
+	CmnRule
+	runes []rune
+	typ   parenType
+}
+
+func (r *StringRule) isTerminal() bool {
+	return true
+}
+func (r *StringRule) id() string {
+	s := ""
+	if r.typ != 0 {
+		s = string(r.typ)
+	}
+	return fmt.Sprintf("%q%v", string(r.runes), s)
+}
+func (r *StringRule) String() string {
 	return r.id()
 }
 
@@ -327,6 +268,21 @@ var anyruneRule = newSingletonRule("anyrune", true)
 
 // special start rule to know start/end (not a terminal)
 var startRule = newSingletonRule("^^^", false)
+
+//----------
+//----------
+//----------
+
+type parenType rune
+
+const (
+	parenNone           parenType = 0 // parenrule/stringrule
+	parenOptional       parenType = '?'
+	parenZeroOrMore     parenType = '*'
+	parenOneOrMore      parenType = '+'
+	parenStringRunes    parenType = '&' // parenrule/stringrule
+	parenStringMidMatch parenType = '~' // parenrule/stringrule
+)
 
 //----------
 //----------

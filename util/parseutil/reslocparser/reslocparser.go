@@ -60,10 +60,10 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 	poe(p.lrp.SetBoolRule("rlParseVolume", p.ParseVolume))
 	poe(p.lrp.SetStringRule("rlSep", string(p.PathSeparator)))
 	poe(p.lrp.SetStringRule("rlEsc", string(p.Escape)))
-	// setup extra symbols
-	rm := nameSepSyms + string(p.Escape) + string(p.PathSeparator) // remove these
+	// setup extra symbols (with some removals)
+	rm := nameSepSyms + string(p.Escape) + string(p.PathSeparator)
 	u := parseutil.RunesExcept(extraSyms, rm)
-	poe(p.lrp.SetStringOrRule("rlExtraSyms", u))
+	poe(p.lrp.SetStringRule("rlExtraSyms", u))
 
 	revOpt := &lrparser.CPOpt{
 		StartRule:         "reverse",
@@ -119,15 +119,6 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 	rl := bnd2.Data().(*ResLoc)
 	return rl, nil
 }
-
-//----------
-
-//func (p *ResLocParser) parseVolume(ps *lrparser.PState) error {
-//	if !p.ParseVolume {
-//		return errors.New("not parsing volume")
-//	}
-//	return nil
-//}
 
 //----------
 

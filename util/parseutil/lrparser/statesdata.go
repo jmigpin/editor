@@ -113,22 +113,25 @@ func (sd *StatesData) sortForParse(rset RuleSet) []Rule {
 	// integer/string for sorting
 	svalues := func(r Rule) (int, string) {
 		switch t := r.(type) {
-		case *StringRule: // ex: keywords
-			return 1, string(t.runes)
-		case *StringMidRule: // ex: keywords
-			return 2, string(t.runes)
-		case *StringOrRule: // individual runes
-			return 3, string(t.runes)
+		case *StringRule:
+			switch t.typ {
+			case parenNone: // ex: keywords
+				return 1, string(t.runes)
+			case parenStringMidMatch: // ex: keywords
+				return 2, string(t.runes)
+			case parenStringRunes: // individual runes
+				return 3, string(t.runes)
+			default:
+				panic(goutil.TodoErrorStr(string(t.typ)))
+			}
 		case *FuncRule:
-			return 5, t.name
-			//return -1, t.name
-			// TODO: FlagRule? boolRule?
+			return 10, t.name
 		case *SingletonRule:
 			switch t {
 			case endRule:
-				return 10, ""
-			case anyruneRule: // last to parse
 				return 20, ""
+			case anyruneRule: // last to parse
+				return 21, ""
 			}
 			panic(goutil.TodoErrorStr(t.name))
 		}
@@ -155,17 +158,20 @@ func (sd *StatesData) solveConflicts(vd *VerticesData) error {
 	for _, st := range sd.states {
 		m := map[rune]Rule{}
 		for _, r := range st.rsetSorted {
-			if r2, ok := r.(*StringOrRule); ok {
-				for _, ru := range r2.runes {
-					r3, ok := m[ru]
-					if !ok {
-						m[ru] = r
-						continue
-					}
-					if r3 == r {
-						return fmt.Errorf("%v: duplicated rune %q in rule %v", st.id, ru, r3)
-					} else {
-						return fmt.Errorf("%v: rune %q in %v is already in rset %v", st.id, ru, r, r3)
+			if sr, ok := r.(*StringRule); ok {
+				switch sr.typ {
+				case parenStringRunes:
+					for _, ru := range sr.runes {
+						r3, ok := m[ru]
+						if !ok {
+							m[ru] = r
+							continue
+						}
+						if r3 == r {
+							return fmt.Errorf("%v: duplicated rune %q in rule %v", st.id, ru, r3)
+						} else {
+							return fmt.Errorf("%v: rune %q in %v is already in rset %v", st.id, ru, r, r3)
+						}
 					}
 				}
 			}
@@ -301,7 +307,6 @@ type ActionReduce struct {
 	prod         Rule // reduce to rule
 	popN         int  // pop n
 	prodCanBeNil bool
-	//prodIsLoop   bool
 }
 
 func (a *ActionReduce) String() string {
