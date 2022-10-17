@@ -77,12 +77,96 @@ func newVerticesData(ri *RuleIndex, startRuleName string, reverse bool) (*Vertic
 
 //----------
 
-func (vd *VerticesData) vertsString() string {
+func (vd *VerticesData) String() string {
 	sb := &strings.Builder{}
 	for _, v := range vd.verts {
 		fmt.Fprintf(sb, "%v\n", v)
 	}
 	return strings.TrimSpace(sb.String())
+}
+
+//----------
+//----------
+//----------
+
+func rdlasGoto(rdlas RuleDotsLaSet, x Rule, rFirst *RuleFirst) (RuleDotsLaSet, RuleDotsLaSet) {
+	res := RuleDotsLaSet{}
+	for rd, laSet := range rdlas {
+		if r, ok := rd.dotRule(); ok && r == x {
+			rd2, _ := rd.advanceDot()
+			res.setRuleSet(*rd2, laSet)
+		}
+	}
+	return res, rdlasClosure(res, rFirst)
+}
+
+//----------
+//----------
+//----------
+
+func rdlasClosure(rdslas RuleDotsLaSet, rFirst *RuleFirst) RuleDotsLaSet {
+	res := RuleDotsLaSet{}
+
+	type entry struct {
+		rd  *RuleDot
+		las RuleSet
+	}
+
+	stk := []*entry{}
+
+	// provided rdslas (kernels) are part of the closure
+	for rd, las := range rdslas {
+		rd2 := rd
+		stk = append(stk, &entry{&rd2, las})
+		res.setRuleSet(rd, las)
+	}
+
+	for len(stk) > 0 {
+		k := len(stk) - 1
+		e := stk[k]   // top
+		stk = stk[:k] // pop
+
+		// [A->α.Bβ,a], B->γ, b in first(βa), add [B->.γ,b]
+		// A = rdla.rd.prod
+
+		B, ok := e.rd.dotRule()
+		if !ok {
+			continue
+		}
+
+		if B.isTerminal() {
+			continue
+		}
+		BProds := ruleVDProductions(B)
+
+		β := []Rule{}
+		rd2, ok := e.rd.advanceDot()
+		if ok {
+			w := rd2.dotAndAfterRules()
+			β = append(β, w...)
+		}
+
+		for a := range e.las {
+			βa := append(β, a)
+			firstβa := rFirst.sequenceFirst(βa)
+			for _, γ := range BProds {
+
+				rd3 := newRuleDot(B, γ, rFirst.reverse)
+
+				las := RuleSet{}
+				for b := range firstβa { // b is terminal
+					if !res.hasRule(*rd3, b) {
+						res.setRule(*rd3, b)
+						las.set(b)
+					}
+				}
+				// add to continue processing
+				stk = append(stk, &entry{rd3, las})
+			}
+		}
+	}
+
+	return res
 }
 
 //----------
@@ -149,88 +233,4 @@ type VertexId int
 
 func (vid VertexId) String() string {
 	return fmt.Sprintf("vertex%v", int(vid))
-}
-
-//----------
-//----------
-//----------
-
-func rdlasGoto(rdlas RuleDotsLaSet, x Rule, rFirst *RuleFirst) (RuleDotsLaSet, RuleDotsLaSet) {
-	res := RuleDotsLaSet{}
-	for rd, laSet := range rdlas {
-		if r, ok := rd.dotRule(); ok && r == x {
-			rd2, _ := rd.advanceDot()
-			res.setRuleSet(*rd2, laSet)
-		}
-	}
-	return res, rdlasClosure(res, rFirst)
-}
-
-//----------
-//----------
-//----------
-
-func rdlasClosure(rdslas RuleDotsLaSet, rFirst *RuleFirst) RuleDotsLaSet {
-	res := RuleDotsLaSet{}
-
-	type entry struct {
-		rd  *RuleDot
-		las RuleSet
-	}
-
-	stk := []*entry{}
-
-	// provided rdslas (kernels) are part of the closure
-	for rd, las := range rdslas {
-		rd2 := rd
-		stk = append(stk, &entry{&rd2, las})
-		res.setRuleSet(rd, las)
-	}
-
-	for len(stk) > 0 {
-		k := len(stk) - 1
-		e := stk[k]   // top
-		stk = stk[:k] // pop
-
-		// [A->α.Bβ,a], B->γ, b in first(βa), add [B->.γ,b]
-		// A = rdla.rd.prod
-
-		B, ok := e.rd.dotRule()
-		if !ok {
-			continue
-		}
-
-		BProds, ok := ruleProductions(B)
-		if !ok {
-			continue
-		}
-
-		β := []Rule{}
-		rd2, ok := e.rd.advanceDot()
-		if ok {
-			w := rd2.dotAndAfterRules()
-			β = append(β, w...)
-		}
-
-		for a := range e.las {
-			βa := append(β, a)
-			firstβa := rFirst.sequenceFirst(βa)
-			for _, γ := range BProds {
-
-				rd3 := newRuleDot(B, γ, rFirst.reverse)
-
-				las := RuleSet{}
-				for b := range firstβa { // b is terminal
-					if !res.hasRule(*rd3, b) {
-						res.setRule(*rd3, b)
-						las.set(b)
-					}
-				}
-				// add to continue processing
-				stk = append(stk, &entry{rd3, las})
-			}
-		}
-	}
-
-	return res
 }

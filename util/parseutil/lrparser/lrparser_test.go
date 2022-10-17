@@ -13,16 +13,17 @@ func TestLrparser1(t *testing.T) {
 		rule C = "c" C | "d"
 	`
 	in := "●ccdd"
-	out := `
-		-> S: "ccdd"
-	        	-> C: "ccd"
+	out := `		
+       		-> {d:^:S}: "ccdd"
+	        	-> {d:C}: "ccd"
 	        		-> "c": "c"
-	        		-> C: "cd"
+	        		-> {d:C}: "cd"
 	        			-> "c": "c"
-	        			-> C: "d"
+	        			-> {d:C}: "d"
 	        				-> "d": "d"
-	        	-> C: "d"
+	        	-> {d:C}: "d"
 	        		-> "d": "d"
+	        		
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -30,18 +31,14 @@ func TestLrparser2(t *testing.T) {
 	gram := `
 		rule ^id = "a" id | "a"
 	`
-	in := "●aaaaa"
+	in := "●aaa"
 	out := `
-		-> id: "aaaaa"
+		-> {d:^:id}: "aaa"
 	        	-> "a": "a"
-	        	-> id: "aaaa"
+	        	-> {d:^:id}: "aa"
 	        		-> "a": "a"
-	        		-> id: "aaa"
+	        		-> {d:^:id}: "a"
 	        			-> "a": "a"
-	        			-> id: "aa"
-	        				-> "a": "a"
-	        				-> id: "a"
-	        					-> "a": "a"
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -49,15 +46,11 @@ func TestLrparser3(t *testing.T) {
 	gram := `
 		rule ^id = id "a" | "a"
 	`
-	in := "●aaaaa"
+	in := "●aaa"
 	out := `
-		-> id: "aaaaa"
-	        	-> id: "aaaa"
-	        		-> id: "aaa"
-	        			-> id: "aa"
-	        				-> id: "a"
-	        					-> "a": "a"
-	        				-> "a": "a"
+		-> {d:^:id}: "aaa"
+	        	-> {d:^:id}: "aa"
+	        		-> {d:^:id}: "a"
 	        			-> "a": "a"
 	        		-> "a": "a"
 	        	-> "a": "a"
@@ -70,25 +63,23 @@ func TestLrparser4(t *testing.T) {
 	`
 	in := "●1"
 	out := `
-		-> id: "1"
-	        	-> (digit)?: "1"
-	        		-> (digit): "1"
-	        			-> digit: "1"
+		-> {d:^:id}: "1"
+	        	-> {d:(digit)?}: "1"
+	        		-> digit: "1"
         `
 	testLrparserMode1(t, gram, in, out)
 }
 func TestLrparser5(t *testing.T) {
 	gram := `
-		rule ^id = letter (digit)? letter
-		
 		#rule ^id = letter id2 letter
 		#rule id2 = digit | nil
+		rule ^id = letter (digit)? letter		
 	`
 	in := "●aa"
 	out := `
-		-> id: "aa"
+		-> {d:^:id}: "aa"
 	        	-> letter: "a"
-	        	-> (digit)?: ""
+	        	-> {d:(digit)?}: ""
 	        	-> letter: "a"
         `
 	testLrparserMode1(t, gram, in, out)
@@ -107,28 +98,42 @@ func TestLrparser6(t *testing.T) {
 		rule id2 = letter id2 | digit id2 | digit
 	`
 	in := "●a11"
-	out := `
-		 -> id: "a11"
+	out := `		
+	         -> {d:^:id}: "a11"
 	        	-> letter: "a"
-	        	-> id2: "11"
+	        	-> {d:id2}: "11"
 	        		-> digit: "1"
-	        		-> id2: "1"
+	        		-> {d:id2}: "1"
 	        			-> digit: "1"
         `
 	testLrparserMode1(t, gram, in, out)
 }
 func TestLrparser7(t *testing.T) {
 	gram := `
+		rule ^id = (letter|digit)*
+	`
+	in := "●a1"
+	out := `
+		-> {d:^:id}: "a1"
+	        	-> {d:l:([letter | digit])*}: "a1"
+	        		-> [letter | digit]: "a"
+	        			-> letter: "a"
+	        		-> [letter | digit]: "1"
+	        			-> digit: "1"
+        `
+	testLrparserMode1(t, gram, in, out)
+}
+func TestLrparser7b(t *testing.T) {
+	gram := `
 		rule ^id = (letter|digit)+
 	`
 	in := "●a1"
-	//in := "●a123"
 	out := `
-		-> id: "a1"
-	        	-> (letter | digit)+: "a1"
-	        		-> (letter | digit): "a"
+		-> {d:^:id}: "a1"
+	        	-> {d:l:([letter | digit])+}: "a1"
+	        		-> [letter | digit]: "a"
 	        			-> letter: "a"
-	        		-> (letter | digit): "1"
+	        		-> [letter | digit]: "1"
 	        			-> digit: "1"
         `
 	testLrparserMode1(t, gram, in, out)
@@ -142,13 +147,13 @@ func TestLrparser8(t *testing.T) {
 	`
 	in := "●aa1"
 	out := `
-		-> S: "aa1"
+		-> {d:^:S}: "aa1"
 	        	-> "a": "a"
-	        	-> s2: "a1"
+	        	-> {d:s2}: "a1"
 	        		-> "a": "a"
-	        		-> s2: "1"
+	        		-> {d:s2}: "1"
 	        			-> "1": "1"
-	        			-> s2: ""
+	        			-> {d:s2}: ""
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -158,13 +163,11 @@ func TestLrparser9a(t *testing.T) {
 	`
 	in := "●aaa"
 	out := `
-		-> S: "aaa"
+		-> {d:^:S}: "aaa"
 	        	-> letter: "a"
-	        	-> (letter)*: "aa"
-	        		-> (letter): "a"
-	        			-> letter: "a"
-	        		-> (letter): "a"
-	        			-> letter: "a"
+	        	-> {d:l:(letter)*}: "aa"
+	        		-> letter: "a"
+	        		-> letter: "a"
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -174,9 +177,9 @@ func TestLrparser9b(t *testing.T) {
 	`
 	in := "●a"
 	out := `
-		-> S: "a"
+		-> {d:^:S}: "a"
 	        	-> letter: "a"
-	        	-> (letter)*: ""
+	        	-> {d:l:(letter)*}: ""
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -186,15 +189,12 @@ func TestLrparser9c(t *testing.T) {
 	`
 	in := "●aaaa"
 	out := `
-		-> S: "aaaa"
+		-> {d:^:S}: "aaaa"
 	        	-> letter: "a"
-	        	-> (letter)+: "aaa"
-	        		-> (letter): "a"
-	        			-> letter: "a"
-	        		-> (letter): "a"
-	        			-> letter: "a"
-	        		-> (letter): "a"
-	        			-> letter: "a"
+	        	-> {d:l:(letter)+}: "aaa"
+	        		-> letter: "a"
+	        		-> letter: "a"
+	        		-> letter: "a"
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -204,9 +204,9 @@ func TestLrparser10(t *testing.T) {
 	`
 	in := "●1"
 	out := `
-		-> S: "1"
-	        	-> (letter | digit)?: "1"
-	        		-> (letter | digit): "1"
+		-> {d:^:S}: "1"
+	        	-> {d:([letter | digit])?}: "1"
+	        		-> [letter | digit]: "1"
 	        			-> digit: "1"
 	`
 	testLrparserMode1(t, gram, in, out)
@@ -214,6 +214,43 @@ func TestLrparser10(t *testing.T) {
 func TestLrparser11(t *testing.T) {
 	gram := `
 		rule ^S = (letter digit)+
+	`
+	in := "●a1b2c3"
+	out := `
+		-> {d:^:S}: "a1b2c3"
+	        	-> {d:l:([letter digit])+}: "a1b2c3"
+	        		-> [letter digit]: "a1"
+		        		-> letter: "a"
+		        		-> digit: "1"
+	        		-> [letter digit]: "b2"
+	        			-> letter: "b"
+	        			-> digit: "2"
+	        		-> [letter digit]: "c3"
+	        			-> letter: "c"
+	        			-> digit: "3"
+	        			
+	      -> {d:^:S}: "a1b2c3"
+        	-> {d:l:([letter digit])+}: "a1b2c3"
+        		-> [[{d:l:([letter digit])+} [letter digit]] | [[letter digit] nil]]: "a1b2c3"
+        			-> {d:l:([letter digit])+}: "a1b2"
+        				-> [[{d:l:([letter digit])+} [letter digit]] | [[letter digit] nil]]: "a1b2"
+        					-> {d:l:([letter digit])+}: "a1"
+        						-> [[{d:l:([letter digit])+} [letter digit]] | [[letter digit] nil]]: "a1"
+        							-> [letter digit]: "a1"
+        								-> letter: "a"
+        								-> digit: "1"
+        					-> [letter digit]: "b2"
+        						-> letter: "b"
+        						-> digit: "2"
+        			-> [letter digit]: "c3"
+        				-> letter: "c"
+        				-> digit: "3"
+	`
+	testLrparserMode1(t, gram, in, out)
+}
+func TestLrparser11b(t *testing.T) {
+	gram := `
+		rule ^S = (letter digit)*
 	`
 	in := "●a1b2c3"
 	out := `
@@ -228,6 +265,18 @@ func TestLrparser11(t *testing.T) {
 	        		-> (letter digit): "c3"
 	        			-> letter: "c"
 	        			-> digit: "3"
+	`
+	testLrparserMode1(t, gram, in, out)
+}
+func TestLrparser11c(t *testing.T) {
+	gram := `
+		rule ^S = letter digit
+	`
+	in := "●a1"
+	out := `
+		-> {d:S}: "a1"
+	        	-> letter: "a"
+	        	-> digit: "1"
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -260,9 +309,9 @@ func TestLrparser13(t *testing.T) {
 		-> S: "aa11"
 	        	-> letter: "a"
 	        	-> (letter | digit)*: "a1"
-	        		-> (letter | digit): "a"
+	        		-> letter | digit: "a"
 	        			-> letter: "a"
-	        		-> (letter | digit): "1"
+	        		-> letter | digit: "1"
 	        			-> digit: "1"
 	        	-> digit: "1"
 	`
@@ -339,10 +388,8 @@ func TestLrparserStop1(t *testing.T) {
 		-> id: "1ab"
 	        	-> digit: "1"
 	        	-> (letter)*: "ab"
-	        		-> (letter): "a"
-	        			-> letter: "a"
-	        		-> (letter): "b"
-	        			-> letter: "b"
+        			-> letter: "a"
+        			-> letter: "b"
         `
 	testLrparserMode2(t, gram, in, out, false, true, false)
 }
@@ -455,10 +502,8 @@ func TestLrparserRev1(t *testing.T) {
 		-> rev: "1ab"
 	        	-> digit: "1"
 	        	-> (letter)*: "ab"
-	        		-> (letter): "a"
-	        			-> letter: "a"
-	        		-> (letter): "b"
-	        			-> letter: "b"
+        			-> letter: "a"
+        			-> letter: "b"
         `
 	testLrparserMode2(t, gram, in, out, true, true, false)
 	//testLrparserMode2(t, gram, in, out, false, true, false) // no rev

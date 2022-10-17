@@ -201,7 +201,7 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 				}
 
 				res := &OrRule{}
-				res.childs = w
+				res.childs2 = w
 				res.setPos(i0, ps2.i)
 				ps2.parseNode = res
 
@@ -258,7 +258,7 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 	}
 
 	res := &AndRule{}
-	res.childs = w
+	res.childs2 = w
 	res.setPos(ps.i, ps2.i)
 	ps2.parseNode = res
 	ps.set(ps2)

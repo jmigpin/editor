@@ -5,14 +5,18 @@ import (
 	"sort"
 	"strings"
 	"unicode"
-
-	"github.com/jmigpin/editor/util/goutil"
 )
 
 type Rule interface {
 	id() string
-	iterChilds(fn func(index int, ref *Rule) error) error
+
 	isTerminal() bool
+	//productions() []Rule // or rule
+	//sequence() []Rule    // and rule
+
+	childs() []Rule // productions
+	iterChildRefs(fn func(index int, ref *Rule) error) error
+
 	String() string
 
 	// TODO: consider
@@ -24,29 +28,39 @@ type Rule interface {
 }
 
 //----------
+//----------
+//----------
 
 // common rule
 type CmnRule struct {
-	childs []Rule
+	childs2 []Rule
 }
 
+//----------
+
 func (r *CmnRule) addChild(r2 Rule) {
-	r.childs = append(r.childs, r2)
+	r.childs2 = append(r.childs2, r2)
 }
 func (r *CmnRule) onlyChild() Rule {
-	return r.childs[0]
+	return r.childs2[0]
 }
 func (r *CmnRule) setOnlyChild(r2 Rule) {
-	r.childs = r.childs[:0]
+	r.childs2 = r.childs2[:0]
 	r.addChild(r2)
 }
-func (r *CmnRule) iterChilds(fn func(index int, ref *Rule) error) error {
-	for i := 0; i < len(r.childs); i++ {
-		if err := fn(i, &r.childs[i]); err != nil {
+
+//----------
+
+func (r *CmnRule) iterChildRefs(fn func(index int, ref *Rule) error) error {
+	for i := 0; i < len(r.childs2); i++ {
+		if err := fn(i, &r.childs2[i]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+func (r *CmnRule) childs() []Rule {
+	return r.childs2
 }
 
 //----------
@@ -67,14 +81,21 @@ func (r *DefRule) isTerminal() bool {
 	return false
 }
 func (r *DefRule) id() string {
-	return r.name
+	s := ""
+	if r.isStart {
+		s += defRuleStartSym
+	}
+	if r.isLoop {
+		s += "l"
+	}
+	if s != "" {
+		s = ":" + s
+	}
+	return fmt.Sprintf("{d%v:%v}", s, r.name)
+	//return r.name
 }
 func (r *DefRule) String() string {
-	s := r.id()
-	if r.isStart {
-		s = defRuleStartSym + s
-	}
-	return fmt.Sprintf("%v = %v", s, r.onlyChild().id())
+	return fmt.Sprintf("%v = %v", r.id(), r.onlyChild().id())
 }
 
 var defRuleStartSym = "^" // used in grammar
@@ -82,6 +103,7 @@ var defRuleStartSym = "^" // used in grammar
 //----------
 
 // reference to a rule
+// replaced in dereference phase
 type RefRule struct { // (0 childs)
 	CmnPNode
 	CmnRule
@@ -92,7 +114,7 @@ func (r *RefRule) isTerminal() bool {
 	return false
 }
 func (r *RefRule) id() string {
-	return fmt.Sprintf("{ref:%v}", r.name)
+	return fmt.Sprintf("{r:%v}", r.name)
 }
 func (r *RefRule) String() string {
 	return r.id()
@@ -110,10 +132,12 @@ func (r *AndRule) isTerminal() bool {
 }
 func (r *AndRule) id() string {
 	w := []string{}
-	for _, r := range r.childs {
+	for _, r := range r.childs2 {
 		w = append(w, r.id())
 	}
-	return strings.Join(w, " ")
+	u := strings.Join(w, " ")
+	return fmt.Sprintf("[%v]", u)
+	//return strings.Join(w, " ")
 }
 func (r *AndRule) String() string {
 	return r.id()
@@ -131,10 +155,12 @@ func (r *OrRule) isTerminal() bool {
 }
 func (r *OrRule) id() string {
 	w := []string{}
-	for _, r := range r.childs {
+	for _, r := range r.childs2 {
 		w = append(w, r.id())
 	}
-	return strings.Join(w, " | ")
+	u := strings.Join(w, " | ")
+	return fmt.Sprintf("[%v]", u)
+	//return strings.Join(w, " | ")
 }
 func (r *OrRule) String() string {
 	return r.id()
@@ -152,7 +178,7 @@ func (r *IfRule) isTerminal() bool {
 	return false
 }
 func (r *IfRule) id() string {
-	return fmt.Sprintf("if %v ? %v : %v", r.childs[0], r.childs[1], r.childs[2])
+	return fmt.Sprintf("{if %v ? %v : %v}", r.childs2[0], r.childs2[1], r.childs2[2])
 }
 func (r *IfRule) String() string {
 	return r.id()
@@ -171,7 +197,7 @@ func (r *BoolRule) isTerminal() bool {
 	return true
 }
 func (r *BoolRule) id() string {
-	return fmt.Sprintf("{%v:%v}", r.name, r.value)
+	return fmt.Sprintf("{b:%v:%v}", r.name, r.value)
 }
 func (r *BoolRule) String() string {
 	return r.id()
@@ -373,17 +399,30 @@ func sortRulesValue(r Rule) (int, string) {
 //----------
 //----------
 
-func ruleSequence(r Rule) []Rule {
+func ruleVDProductions(r Rule) []Rule {
+	return ruleFirstProductions(r)
+}
+func ruleFirstProductions(r Rule) []Rule {
 	switch t := r.(type) {
-	case *AndRule:
-		return t.childs
+	case *AndRule: // andrule childs are not productions
+		return []Rule{t}
+		//case *DefRule:
+		//	switch t2 := t.onlyChild().(type) {
+		//	case *OrRule:
+		//		return t2.childs()
+		//	}
+	}
+	return r.childs()
+}
+func ruleFirstSequence(r Rule) []Rule {
+	switch t := r.(type) {
+	case *AndRule: // andrule is the only rule whose childs provide a sequence
+		return t.childs()
 	default:
 		return []Rule{t}
 	}
 }
-func ruleLen(r Rule) int {
-	return len(ruleSequence(r))
-}
+
 func ruleIsLoop(r Rule) bool {
 	dr, ok := r.(*DefRule)
 	return ok && dr.isLoop
@@ -396,7 +435,7 @@ func ruleCanBeNil(r Rule) bool {
 	case *DefRule:
 		return ruleCanBeNil(t.onlyChild())
 	case *OrRule:
-		for _, r2 := range t.childs {
+		for _, r2 := range t.childs2 {
 			if ruleCanBeNil(r2) {
 				return true
 			}
@@ -423,32 +462,8 @@ func reverseRules(w []Rule) {
 
 //----------
 
-func ruleProductions(r Rule) ([]Rule, bool) {
-	// NOTE: can't create new rules here because they won't be unique (new mem address) and fail as a map index (used in the rest of the code; will allow endless loops)
-
-	switch t := r.(type) {
-	case *DefRule:
-		return ruleProductions2(t.onlyChild()), true
-	default:
-		if r.isTerminal() {
-			return nil, false
-		}
-		panic(goutil.TodoErrorType(t))
-	}
-}
-func ruleProductions2(r Rule) []Rule {
-	switch t := r.(type) {
-	case *OrRule:
-		return t.childs
-	default:
-		return []Rule{t}
-	}
-}
-
-//----------
-
 func walkRuleChilds(rule Rule, fn func(*Rule) error) error {
-	return rule.iterChilds(func(index int, ref *Rule) error {
+	return rule.iterChildRefs(func(index int, ref *Rule) error {
 		return fn(ref)
 	})
 }

@@ -317,5 +317,5 @@ type ActionAccept struct {
 }
 
 func (a *ActionAccept) String() string {
-	return fmt.Sprintf("accept")
+	return fmt.Sprintf("{accept}")
 }

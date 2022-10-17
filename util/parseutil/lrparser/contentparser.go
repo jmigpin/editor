@@ -31,11 +31,12 @@ func newContentParser(opt *CPOpt, ri *RuleIndex) (*ContentParser, error) {
 		return nil, err
 	}
 	cp.vd = vd
-	cp.Opt.Logf("%v\n", ri) // dereferenced
-	cp.Opt.Logf("%v\n", vd.rFirst)
+	cp.Opt.Logf("\n%v\n", ri) // dereferenced
+	cp.Opt.Logf("\n%v\n", vd.rFirst)
 
 	sd, err := newStatesData(vd, cp.Opt.ShiftOnSRConflict)
 	if err != nil {
+		//cp.Opt.Logf("%v\n", vd)
 		return nil, err
 	}
 	cp.sd = sd
@@ -52,7 +53,7 @@ func (cp *ContentParser) Parse(src []byte, index int) (*BuildNodeData, error) {
 func (cp *ContentParser) ParseFileSet(fset *FileSet, index int) (*BuildNodeData, error) {
 	// DEBUG
 	if cp.Opt.LogfFn != nil {
-		//cp.Opt.Logf(cp.vd.vertsString())
+		cp.Opt.Logf(cp.vd.String())
 		cp.Opt.Logf(cp.sd.String())
 	}
 
@@ -175,24 +176,24 @@ func (cp *ContentParser) processPopped(ar *ActionReduce, pops []*cpsItem) (*CPNo
 	return cpn, nil
 }
 func (cp *ContentParser) processPopped2(ar *ActionReduce, pops []*cpsItem) *CPNode {
-	// reducing to a rule that is a loop (flatten childs list)
-	if ruleIsLoop(ar.prod) && len(pops) == 2 {
-		cpn0 := pops[0].cpn
-		if cpn0.rule == ar.prod { // first popped item is the loop rule (this depends on how the loop was constructed, check ruleindex)
-			cpn1 := pops[1].cpn
+	//	// reducing to a rule that is a loop (flatten childs list)
+	//	if ruleIsLoop(ar.prod) && len(pops) == 2 {
+	//		cpn0 := pops[0].cpn
+	//		if cpn0.rule == ar.prod { // first popped item is the loop rule (this depends on how the loop was constructed, check ruleindex)
+	//			cpn1 := pops[1].cpn
 
-			// recover from error
-			if cpn1.simulated {
-				cp.Opt.Logf("recovered: loop node")
-				return cpn0 // ignore the second popped item since it has an error
-			}
+	//			// recover from error
+	//			if cpn1.simulated {
+	//				cp.Opt.Logf("recovered: loop node")
+	//				return cpn0 // ignore the second popped item since it has an error
+	//			}
 
-			cpn2 := newCPNode2(cpn0, cpn1, ar.prod)
-			cpn2.childs = cpn0.childs
-			cpn2.addChilds(cp.vd.reverse, cpn1)
-			return cpn2
-		}
-	}
+	//			cpn2 := newCPNode2(cpn0, cpn1, ar.prod)
+	//			cpn2.childs = cpn0.childs
+	//			cpn2.addChilds(cp.vd.reverse, cpn1)
+	//			return cpn2
+	//		}
+	//	}
 
 	if len(pops) == 0 { // handle no pops reductions (nil rules)
 		i := cp.stk.topEnd()

@@ -35,19 +35,17 @@ func (rf *RuleFirst) first(r Rule) RuleSet {
 	}
 
 	rset = RuleSet{}
-	w, ok := ruleProductions(r)
-	if ok { // non-terminal
-		// r -> w0 | ... | wk
-		for _, r2 := range w { // r2 -> y1 ... yk
-			w2 := ruleSequence(r2)
+	if r.isTerminal() {
+		rset.set(r)
+	} else {
+		for _, r2 := range ruleFirstProductions(r) { // r->a0|...|an
+			w2 := ruleFirstSequence(r2) // r->a0 ... an
 			if rf.reverse && !ruleIsLoop(r) {
 				w2 = reverseRulesCopy(w2)
 			}
 			rset2 := rf.sequenceFirst(w2)
 			rset.add(rset2)
 		}
-	} else { // terminal
-		rset.set(r)
 	}
 	rf.cache[r] = rset
 	return rset

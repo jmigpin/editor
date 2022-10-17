@@ -11,8 +11,7 @@ import (
 
 // unique rule index
 type RuleIndex struct {
-	// TODO: use *Rule? iter ruleindex with ref
-	m map[string]Rule // *DefRule,*FuncRule
+	m map[string]*Rule // *DefRule,*FuncRule,*BoolRule
 
 	deref struct {
 		once bool
@@ -21,10 +20,11 @@ type RuleIndex struct {
 }
 
 func newRuleIndex() *RuleIndex {
-	ri := &RuleIndex{m: map[string]Rule{}}
+	ri := &RuleIndex{m: map[string]*Rule{}}
 
 	setSingleton := func(r *SingletonRule) {
-		ri.m[r.name] = r // ok to set directly, only for special rules
+		r2 := Rule(r)
+		ri.m[r.name] = &r2 // ok to set directly, only for special rules
 	}
 	setFn := func(name string, fn pstateParseFn) {
 		if err := ri.setFuncRule(name, fn); err != nil {
@@ -78,7 +78,7 @@ func (ri *RuleIndex) set(name string, r Rule) error {
 		return fmt.Errorf("rule already set: %v", name)
 	}
 
-	ri.m[name] = r
+	ri.m[name] = &r
 	return nil
 }
 func (ri *RuleIndex) has(name string) bool {
@@ -87,7 +87,7 @@ func (ri *RuleIndex) has(name string) bool {
 }
 func (ri *RuleIndex) get(name string) (Rule, bool) {
 	r, ok := ri.m[name]
-	return r, ok
+	return *r, ok
 }
 func (ri *RuleIndex) delete(name string) {
 	delete(ri.m, name)
@@ -126,7 +126,7 @@ func (ri *RuleIndex) derefRules() error {
 
 func (ri *RuleIndex) startRule(name string) (*DefRule, error) {
 	if r, ok := ri.m[name]; ok {
-		dr, ok := r.(*DefRule)
+		dr, ok := (*r).(*DefRule)
 		if !ok {
 			return nil, fmt.Errorf("not a defrule: %v", r)
 		}
@@ -164,13 +164,13 @@ func (ri *RuleIndex) String() string {
 
 		res = append(res, fmt.Sprintf("%v", r))
 	}
-	return "ruleindex:\n" + strings.Join(res, "\n")
+	return strings.Join(res, "\n")
 }
 
 func (ri *RuleIndex) sorted() []Rule {
 	w := []Rule{}
 	for _, r := range ri.m {
-		w = append(w, r)
+		w = append(w, *r)
 	}
 	sortRules(w)
 	return w
@@ -223,9 +223,9 @@ func replaceIfRules(ri *RuleIndex) error {
 	return visitRulesOnce(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *IfRule:
-			c0 := t.childs[0] // conditional rule
-			c1 := t.childs[1] // rule if condition is true
-			c2 := t.childs[2] // rule if condition is false
+			c0 := t.childs2[0] // conditional rule
+			c1 := t.childs2[1] // rule if condition is true
+			c2 := t.childs2[2] // rule if condition is false
 			c0br, ok := c0.(*BoolRule)
 			if !ok {
 				return fmt.Errorf("ifrule condition is not a boolrule: %v (%T)", c0, c0)
@@ -272,32 +272,41 @@ func replaceParenthesisRules(ri *RuleIndex) error {
 			case parenNone:
 				dr.setOnlyChild(t.onlyChild())
 			case parenOptional:
-				r3 := &ParenRule{}
-				r3.setOnlyChild(t.onlyChild())
+				//r3 := &ParenRule{}
+				//r3.setOnlyChild(t.onlyChild())
+				r3 := t.onlyChild()
 				r4 := &OrRule{}
-				r4.childs = []Rule{r3, nilRule}
+				r4.childs2 = []Rule{r3, nilRule}
 				dr.setOnlyChild(r4)
 			case parenZeroOrMore:
-				r2 := &ParenRule{}
-				r2.setOnlyChild(t.onlyChild())
+				//r2 := &ParenRule{}
+				//r2.setOnlyChild(t.onlyChild())
+				r2 := t.onlyChild()
 				r3 := &AndRule{}
-				r3.childs = []Rule{dr, r2} // loop
+				r3.childs2 = []Rule{dr, r2} // loop
 				r4 := &OrRule{}
-				r4.childs = []Rule{r3, nilRule} // last element
+				r4.childs2 = []Rule{r3, nilRule} // last element
 				dr.setOnlyChild(r4)
 				dr.isLoop = true
 			case parenOneOrMore:
-				r2 := &ParenRule{}
-				r2.setOnlyChild(t.onlyChild())
+				r2 := t.onlyChild()
+				//r2b := &ParenRule{}
+				//r2b.setOnlyChild(r2)
 				r3 := &AndRule{}
-				r3.childs = []Rule{dr, r2} // loop
+				r3.childs2 = []Rule{dr, r2} // loop
 				r4 := &OrRule{}
-				r4.childs = []Rule{r3, r2} // last element
+				//r4.childs2 = []Rule{r3, r2} // last element
+
+				r5 := &AndRule{}
+				r5.childs2 = []Rule{r2, nilRule}
+				r4.childs2 = []Rule{r3, r5} // last element
+
+				//r4.childs2 = []Rule{r3, r2b} // last element
 				dr.setOnlyChild(r4)
 				dr.isLoop = true
 			case parenStringRunes, parenStringMidMatch:
 				r2 := t.onlyChild()
-				sr, ok := getStringRule(r2)
+				sr, ok := innerStringRule(r2)
 				if !ok {
 					return &PosError{Pos: t.Pos(), err: fmt.Errorf("expecting stringrule")}
 				}
@@ -312,12 +321,12 @@ func replaceParenthesisRules(ri *RuleIndex) error {
 	})
 }
 
-func getStringRule(r Rule) (*StringRule, bool) {
+func innerStringRule(r Rule) (*StringRule, bool) {
 	switch t := r.(type) {
 	case *StringRule:
 		return t, true
 	case *DefRule:
-		return getStringRule(t.onlyChild())
+		return innerStringRule(t.onlyChild())
 	}
 	return nil, false
 }
@@ -326,7 +335,7 @@ func getStringRule(r Rule) (*StringRule, bool) {
 
 // ex: parenthesis rules are replaced by an unique instance, that is, all instances of "(a|b)" will have a unique instance
 func makeRulesUnique(ri *RuleIndex) error {
-	unique := map[string]Rule{}
+	unique := map[string]*Rule{}
 	_ = visitRulesOnce(ri, func(rref *Rule) error {
 		_ = replaceFromMap(unique, (*rref).id(), rref)
 		return nil
@@ -336,15 +345,15 @@ func makeRulesUnique(ri *RuleIndex) error {
 
 //----------
 
-func replaceFromMap(m map[string]Rule, id string, rref *Rule) bool {
+func replaceFromMap(m map[string]*Rule, id string, rref *Rule) bool {
 	r2, ok := m[id]
 	if ok {
 		// replace reference with the one already existent
-		*rref = r2
+		*rref = *r2
 		return true
 	}
-	m[id] = *rref // keep
-	return false  // not replaced
+	m[id] = rref // keep
+	return false // not replaced
 }
 
 func visitRulesOnce(ri *RuleIndex, fn func(*Rule) error) error {
@@ -368,9 +377,8 @@ func visitRulesOnce(ri *RuleIndex, fn func(*Rule) error) error {
 		// walk childs after
 		return walkRuleChilds(*rref, fn2)
 	}
-
 	for _, r := range ri.m {
-		if err := fn2(&r); err != nil { // NOTE: r is local
+		if err := fn2(r); err != nil {
 			return err
 		}
 	}

@@ -17,10 +17,32 @@ func newRuleDot(prod, rule Rule, reverse bool) *RuleDot {
 	rd := &RuleDot{prod: prod, rule: rule}
 	if reverse && !ruleIsLoop(prod) {
 		rd.reverse = true
-		rd.dot = ruleLen(rd.rule)
+		rd.dot = len(rd.sequence())
 	}
 	rd.advanceDotNils()
 	return rd
+}
+
+//----------
+
+func (rd *RuleDot) sequence() []Rule {
+	return ruleFirstSequence(rd.rule)
+
+	//switch t := rd.rule.(type) {
+	//case *DefRule:
+	//	if t.isLoop {
+	//		return t.onlyChild().childs()
+	//	}
+	//}
+
+	//	// sequence andrule childs only when iterating itself
+	//	if _, ok := rd.rule.(*AndRule); ok {
+	//		if rd.rule == rd.prod {
+	//			return rd.rule.childs()
+	//		}
+	//	}
+
+	// return []Rule{rd.rule}
 }
 
 //----------
@@ -29,7 +51,7 @@ func (rd *RuleDot) dotRule() (Rule, bool) {
 	if rd.dotAtEnd() {
 		return nil, false
 	}
-	w := ruleSequence(rd.rule)
+	w := rd.sequence()
 	if rd.reverse {
 		return w[rd.dot-1], true
 	}
@@ -39,11 +61,11 @@ func (rd *RuleDot) dotAtEnd() bool {
 	if rd.reverse {
 		return rd.dot == 0
 	}
-	return rd.dot >= ruleLen(rd.rule)
+	return rd.dot >= len(rd.sequence())
 }
 func (rd *RuleDot) dotAndAfterRules() []Rule {
 	// assumes valid dot
-	w := ruleSequence(rd.rule)
+	w := rd.sequence()
 	if rd.reverse {
 		return reverseRulesCopy(w[:rd.dot])
 	}
@@ -82,7 +104,7 @@ func (rd *RuleDot) advanceDotNils() {
 //----------
 
 func (rd *RuleDot) popLen() int {
-	w := ruleSequence(rd.rule)
+	w := rd.sequence()
 	// don't count nils
 	k := 0
 	for _, r := range w {

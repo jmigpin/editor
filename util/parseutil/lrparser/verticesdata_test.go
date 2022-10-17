@@ -433,7 +433,7 @@ func testRulesToVerticesMode1(t *testing.T, grammar, expect string) {
 	}
 	//t.Log(ri) // rule index deref'd
 
-	res := vd.vertsString()
+	res := vd.String()
 
 	res2 := testutil.TrimLineSpaces(res)
 	expect2 := testutil.TrimLineSpaces(expect)
