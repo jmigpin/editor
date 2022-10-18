@@ -45,7 +45,15 @@ func ParseResLoc2(rd iorw.ReaderAt, index int) (*ResLoc, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseResLoc(src, index-rd.Min())
+	min := rd.Min() // keep to restore position
+	rl, err := ParseResLoc(src, index-min)
+	if err != nil {
+		return nil, err
+	}
+	// restore position
+	rl.Pos += min
+	rl.End += min
+	return rl, nil
 }
 
 //----------
