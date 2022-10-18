@@ -20,7 +20,7 @@ rule pyLineStr = ", line "
 #----------
 
 rule schemeFile = "file://" (schHost)? schPath (cLineCol)?
-rule schHost = (letter|digit|(".-_")&)+
+rule schHost = (letter|digit|".-_"&)+
 rule schPath = schSep schVolume schNames
 rule schVolume = if rlParseVolume ? volume schSep : nil
 rule schNames = (schSep|fiName)+
@@ -32,7 +32,7 @@ rule filename = fiVolume fiNames
 rule fiVolume = if rlParseVolume ? volume fiSep : nil
 rule fiNames =  (fiSep|fiName)+
 rule fiName = (letter|digit|fiSyms|fiEsc)+
-rule fiSyms = (rlExtraSyms)&
+rule fiSyms = rlExtraSyms&
 rule fiEsc = rlEsc anyrune
 rule fiSep = rlSep
 
@@ -51,7 +51,7 @@ rule reverse = \
 	(if rlParseVolume ? volume : nil) \
 	(revSep|fiName)* \
 	(pyQuote)? \
-	((pyLineStr)~)? \
+	(pyLineStr~)? \
 	(":"|digits)* \
 	(rlEsc)*
 rule revSep = if rlParseVolume ? fiSep|schSep : fiSep

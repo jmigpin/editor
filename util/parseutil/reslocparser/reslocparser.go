@@ -134,12 +134,13 @@ func (p *ResLocParser) buildLocation(d *lrparser.BuildNodeData) error {
 	return nil
 }
 func (p *ResLocParser) buildCFile(d *lrparser.BuildNodeData) error {
+	//d.PrintRuleTree(5)
+
 	rl := &ResLoc{}
 	// filename
 	rl.Path = d.ChildStr(0)
 	// cLineCol
 	if d2 := d.Child(1); !d2.IsNil() { // parenthesis optional
-		d2 = d2.Child(0) // parenthesis
 		d2 = d2.Child(0) // inner rule: cLineCol
 		u := d2.Data().([]int)
 		rl.Line = u[0]
@@ -149,13 +150,14 @@ func (p *ResLocParser) buildCFile(d *lrparser.BuildNodeData) error {
 	return nil
 }
 func (p *ResLocParser) buildPyFile(d *lrparser.BuildNodeData) error {
+	//d.PrintRuleTree(5)
+
 	rl := &ResLoc{}
 	// filename
 	rl.Path = d.Child(0).ChildStr(1)
 	// digits
 	if d2 := d.Child(1); !d2.IsNil() {
-		//d2.PrintRuleTree(5)
-		if line, err := d2.Child(0).ChildInt(1); err != nil {
+		if line, err := d2.ChildInt(1); err != nil {
 			return err
 		} else {
 			rl.Line = line
@@ -183,6 +185,7 @@ func (p *ResLocParser) buildSchemeFile(d *lrparser.BuildNodeData) error {
 }
 func (p *ResLocParser) buildCLineCol(d *lrparser.BuildNodeData) error {
 	//d.PrintRuleTree(5)
+
 	line, col := 0, 0
 	// line
 	if line2, err := d.ChildInt(1); err != nil {
@@ -192,7 +195,6 @@ func (p *ResLocParser) buildCLineCol(d *lrparser.BuildNodeData) error {
 	}
 	// column
 	if d3 := d.Child(2); !d3.IsNil() { // parenthesis optional
-		d3 = d3.Child(0) // parenthesis
 		if col2, err := d3.ChildInt(1); err != nil {
 			return err
 		} else {

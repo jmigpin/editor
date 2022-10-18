@@ -8,8 +8,8 @@ import (
 )
 
 type grammarParser struct {
-	ri     *RuleIndex
-	declId int
+	ri *RuleIndex
+	//declId int
 }
 
 func newGrammarParser() *grammarParser {
@@ -100,8 +100,8 @@ func (gp *grammarParser) parseRule(ps *PState) error {
 	// setup
 	dr := &DefRule{name: name, isStart: isStart}
 	dr.setOnlyChild(ps.parseNode.(Rule))
-	gp.declId++
-	dr.declId = gp.declId
+	//gp.declId++
+	//dr.declId = gp.declId
 	dr.setPos(i0, ps.i)
 	gp.ri.set(dr.name, dr)
 
@@ -286,7 +286,11 @@ func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 	if err != nil {
 		return nil, false // err is lost
 	}
-	res := &RefRule{name: name}
+
+	// options
+	st, _ := gp.parseStringRuleType(ps)
+
+	res := &RefRule{name: name, stringrType: st}
 	res.setPos(i0, ps.i)
 	ps.parseNode = res
 	return nil, true
@@ -330,12 +334,30 @@ func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
 		return err, true
 	}
 
-	res := &StringRule{runes: []rune(u)}
+	// options
+	st, _ := gp.parseStringRuleType(ps)
+
+	res := &StringRule{runes: []rune(u), typ: st}
 	res.setPos(i0, ps.i)
 	ps.parseNode = res
 	return nil, true
 }
-
+func (gp *grammarParser) parseStringRuleType(ps *PState) (stringrType, bool) {
+	//  options
+	ps2 := ps.copy()
+	ru, err := ps2.readRune()
+	if err != nil {
+		ru = 0
+	}
+	switch t := stringrType(ru); t {
+	case stringrNone,
+		stringrRunes,
+		stringrMidMatch:
+		ps.set(ps2) // advance
+		return t, true
+	}
+	return stringrNone, false
+}
 func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 	i0 := ps.i
 	if err := ps.MatchRune('('); err != nil {
@@ -355,19 +377,20 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 	if err != nil {
 		ru = 0
 	}
-	pt := parenType(ru)
-	switch pt {
-	case parenNone,
-		parenOptional,
-		parenZeroOrMore,
-		parenOneOrMore,
-		parenStringRunes,
-		parenStringMidMatch:
-		ps.set(ps2) // advance (ru=0 will stay in place)
-		u := &ParenRule{typ: pt}
-		u.setOnlyChild(ruleX)
-		u.setPos(i0, ps.i)
-		ps.parseNode = u
+	pt := parenrNone
+	switch t := parenrType(ru); t {
+	case parenrNone,
+		parenrOptional,
+		parenrZeroOrMore,
+		parenrOneOrMore:
+		pt = t
+		ps.set(ps2) // advance
 	}
+
+	u := &ParenRule{typ: pt}
+	u.setOnlyChild(ruleX)
+	u.setPos(i0, ps.i)
+	ps.parseNode = u
+
 	return nil, true
 }

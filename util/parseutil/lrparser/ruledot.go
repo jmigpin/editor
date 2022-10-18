@@ -27,22 +27,6 @@ func newRuleDot(prod, rule Rule, reverse bool) *RuleDot {
 
 func (rd *RuleDot) sequence() []Rule {
 	return ruleFirstSequence(rd.rule)
-
-	//switch t := rd.rule.(type) {
-	//case *DefRule:
-	//	if t.isLoop {
-	//		return t.onlyChild().childs()
-	//	}
-	//}
-
-	//	// sequence andrule childs only when iterating itself
-	//	if _, ok := rd.rule.(*AndRule); ok {
-	//		if rd.rule == rd.prod {
-	//			return rd.rule.childs()
-	//		}
-	//	}
-
-	// return []Rule{rd.rule}
 }
 
 //----------

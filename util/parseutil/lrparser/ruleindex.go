@@ -209,10 +209,22 @@ func replaceRefRules(ri *RuleIndex) error {
 	return visitRulesOnce(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *RefRule:
-			// replace with defrule in ruleindex
+			// replace with rule in ruleindex
 			if !replaceFromMap(ri.m, t.name, rref) {
 				err := fmt.Errorf("rule not found: %v", t.name)
 				return &PosError{err: err, Pos: t.Pos()}
+			}
+			// replace with stringrule
+			t2 := *rref // just replaced above
+			switch t.stringrType {
+			case stringrRunes, stringrMidMatch:
+				sr, ok := ruleInnerStringRule(t2)
+				if !ok {
+					return &PosError{err: fmt.Errorf("expecting stringrule"), Pos: t.Pos()}
+				}
+				r4 := *sr // copy (to set type)
+				r4.typ = t.stringrType
+				*rref = &r4
 			}
 		}
 		return nil
@@ -245,90 +257,59 @@ func replaceParenthesisRules(ri *RuleIndex) error {
 	//replaceM := ri.m
 	replaceM := map[string]Rule{}
 
-	replace := func(tag string, id string, rref *Rule) (*DefRule, bool) {
-		r1, ok := replaceM[id]
-		if ok {
-			*rref = r1
-			return nil, true // replaced
-		}
-		// create
-		dr := &DefRule{}
-		dr.name = id
-		//dr.name =fmt.Sprintf("{%v:%v}",tag,id) // DEBUG
-		dr.setOnlyChild(*rref)
-		*rref = dr
-		replaceM[id] = dr
-		return dr, false // not replaced (created)
-	}
-
 	return visitRulesOnce(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *ParenRule:
-			dr, replaced := replace("par", t.id(), rref)
-			if replaced {
+			//id := t.id()
+			id := t.idSimple()
+			r1, ok := replaceM[id]
+			if ok {
+				*rref = r1
 				return nil // don't walk childs, already replaced
 			}
+
+			// replaced with a defrule with the translation to and/or rules
+			dr := &DefRule{}
+			dr.name = id
+			*rref = dr
+			replaceM[id] = dr
+
 			switch t.typ {
-			case parenNone:
+			case parenrNone:
 				dr.setOnlyChild(t.onlyChild())
-			case parenOptional:
-				//r3 := &ParenRule{}
-				//r3.setOnlyChild(t.onlyChild())
+			case parenrOptional:
 				r3 := t.onlyChild()
 				r4 := &OrRule{}
 				r4.childs2 = []Rule{r3, nilRule}
 				dr.setOnlyChild(r4)
-			case parenZeroOrMore:
-				//r2 := &ParenRule{}
-				//r2.setOnlyChild(t.onlyChild())
+			case parenrZeroOrMore:
 				r2 := t.onlyChild()
 				r3 := &AndRule{}
 				r3.childs2 = []Rule{dr, r2} // loop
 				r4 := &OrRule{}
-				r4.childs2 = []Rule{r3, nilRule} // last element
+				r4.childs2 = []Rule{r3, nilRule}
 				dr.setOnlyChild(r4)
 				dr.isLoop = true
-			case parenOneOrMore:
+			case parenrOneOrMore:
 				r2 := t.onlyChild()
-				//r2b := &ParenRule{}
-				//r2b.setOnlyChild(r2)
 				r3 := &AndRule{}
 				r3.childs2 = []Rule{dr, r2} // loop
 				r4 := &OrRule{}
-				//r4.childs2 = []Rule{r3, r2} // last element
+				//r4.childs = []Rule{r3, r2}
 
+				// NOTE: provide a wrap to the element to have the loop detect and build a slice of elements (andrule with nil is harmless)
 				r5 := &AndRule{}
 				r5.childs2 = []Rule{r2, nilRule}
 				r4.childs2 = []Rule{r3, r5} // last element
 
-				//r4.childs2 = []Rule{r3, r2b} // last element
 				dr.setOnlyChild(r4)
 				dr.isLoop = true
-			case parenStringRunes, parenStringMidMatch:
-				r2 := t.onlyChild()
-				sr, ok := innerStringRule(r2)
-				if !ok {
-					return &PosError{Pos: t.Pos(), err: fmt.Errorf("expecting stringrule")}
-				}
-				r4 := *sr
-				r4.typ = t.typ
-				dr.setOnlyChild(&r4)
 			default:
-				return goutil.TodoErrorStr(fmt.Sprintf("%c", t.typ))
+				return goutil.TodoErrorStr(fmt.Sprintf("%q", t.typ))
 			}
 		}
 		return nil
 	})
-}
-
-func innerStringRule(r Rule) (*StringRule, bool) {
-	switch t := r.(type) {
-	case *StringRule:
-		return t, true
-	case *DefRule:
-		return innerStringRule(t.onlyChild())
-	}
-	return nil, false
 }
 
 //----------

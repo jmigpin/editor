@@ -11,10 +11,8 @@ type Rule interface {
 	id() string
 
 	isTerminal() bool
-	//productions() []Rule // or rule
-	//sequence() []Rule    // and rule
 
-	childs() []Rule // productions
+	childs() []Rule
 	iterChildRefs(fn func(index int, ref *Rule) error) error
 
 	String() string
@@ -68,11 +66,12 @@ func (r *CmnRule) childs() []Rule {
 //----------
 
 // definition rule
-type DefRule struct { // (1 child)
+// (1 child)
+type DefRule struct {
 	CmnPNode
 	CmnRule
-	name    string
-	declId  int  // declaration order, 0=inserted, >=1=declared
+	name string
+	//declId  int  // declaration order, 0=inserted, >=1=declared
 	isStart bool // has "start" symbol in the grammar
 	isLoop  bool
 }
@@ -81,18 +80,33 @@ func (r *DefRule) isTerminal() bool {
 	return false
 }
 func (r *DefRule) id() string {
+	//return r.name
+
+	// better to stringify explicitly to differentiate between parenthesis rules and a defrule that replaced a parenthesis rule
+
+	//s := ""
+	//if r.isStart {
+	//	s += defRuleStartSym
+	//}
+	//if r.isLoop {
+	//	s += "l"
+	//}
+	//if s != "" {
+	//	s = ":" + s
+	//}
+	//return fmt.Sprintf("{d%v:%v}", s, r.name)
+
 	s := ""
 	if r.isStart {
 		s += defRuleStartSym
 	}
-	if r.isLoop {
-		s += "l"
-	}
-	if s != "" {
-		s = ":" + s
-	}
-	return fmt.Sprintf("{d%v:%v}", s, r.name)
-	//return r.name
+
+	// commented: parenthesis replacement indicates the loop is on
+	//if r.isLoop {
+	//	s += "@"
+	//}
+
+	return fmt.Sprintf("%v%v", s, r.name)
 }
 func (r *DefRule) String() string {
 	return fmt.Sprintf("%v = %v", r.id(), r.onlyChild().id())
@@ -104,10 +118,11 @@ var defRuleStartSym = "^" // used in grammar
 
 // reference to a rule
 // replaced in dereference phase
-type RefRule struct { // (0 childs)
+type RefRule struct {
 	CmnPNode
 	CmnRule
-	name string
+	name        string
+	stringrType stringrType // reference to a string
 }
 
 func (r *RefRule) isTerminal() bool {
@@ -122,7 +137,7 @@ func (r *RefRule) String() string {
 
 //----------
 
-type AndRule struct { // (n childs)
+type AndRule struct {
 	CmnPNode
 	CmnRule
 }
@@ -137,7 +152,6 @@ func (r *AndRule) id() string {
 	}
 	u := strings.Join(w, " ")
 	return fmt.Sprintf("[%v]", u)
-	//return strings.Join(w, " ")
 }
 func (r *AndRule) String() string {
 	return r.id()
@@ -145,7 +159,8 @@ func (r *AndRule) String() string {
 
 //----------
 
-type OrRule struct { // (n childs)
+// (n childs)
+type OrRule struct {
 	CmnPNode
 	CmnRule
 }
@@ -160,7 +175,6 @@ func (r *OrRule) id() string {
 	}
 	u := strings.Join(w, " | ")
 	return fmt.Sprintf("[%v]", u)
-	//return strings.Join(w, " | ")
 }
 func (r *OrRule) String() string {
 	return r.id()
@@ -169,14 +183,14 @@ func (r *OrRule) String() string {
 //----------
 
 // replaced in dereference phase
-type IfRule struct { // (3 childs: [conditional,then,else])
+// (3 childs: [conditional,then,else])
+type IfRule struct {
 	CmnPNode
 	CmnRule
 }
 
-func (r *IfRule) isTerminal() bool {
-	return false
-}
+func (r *IfRule) selfSequence() []Rule { return []Rule{r} }
+func (r *IfRule) isTerminal() bool     { return false }
 func (r *IfRule) id() string {
 	return fmt.Sprintf("{if %v ? %v : %v}", r.childs2[0], r.childs2[1], r.childs2[2])
 }
@@ -206,21 +220,25 @@ func (r *BoolRule) String() string {
 //----------
 
 // parenthesis, ex: (aaa (bbb|ccc))
-type ParenRule struct { // (1 child)
+// replaced by defrules at ruleindex
+type ParenRule struct {
 	CmnPNode
 	CmnRule
-	typ parenType
+	typ parenrType
 }
 
 func (r *ParenRule) isTerminal() bool {
 	return false
 }
-func (r *ParenRule) id() string {
+func (r *ParenRule) idSimple() string { // used in defrule when replacing pathensis rules
 	s := ""
-	if r.typ != 0 {
+	if r.typ != parenrNone {
 		s = string(r.typ)
 	}
 	return fmt.Sprintf("(%v)%v", r.onlyChild().id(), s)
+}
+func (r *ParenRule) id() string {
+	return fmt.Sprintf("{p:%v}", r.idSimple())
 }
 func (r *ParenRule) String() string {
 	return r.id()
@@ -228,11 +246,12 @@ func (r *ParenRule) String() string {
 
 //----------
 
-type StringRule struct { // (0 childs)
+// (0 childs)
+type StringRule struct {
 	CmnPNode
 	CmnRule
 	runes []rune
-	typ   parenType
+	typ   stringrType
 }
 
 func (r *StringRule) isTerminal() bool {
@@ -240,7 +259,7 @@ func (r *StringRule) isTerminal() bool {
 }
 func (r *StringRule) id() string {
 	s := ""
-	if r.typ != 0 {
+	if r.typ != stringrNone {
 		s = string(r.typ)
 	}
 	return fmt.Sprintf("%q%v", string(r.runes), s)
@@ -251,7 +270,8 @@ func (r *StringRule) String() string {
 
 //----------
 
-type FuncRule struct { // (0 childs)
+// (0 childs)
+type FuncRule struct {
 	CmnRule
 	name string
 	fn   pstateParseFn
@@ -299,15 +319,25 @@ var startRule = newSingletonRule("^^^", false)
 //----------
 //----------
 
-type parenType rune
+// parenthesis rule type
+type parenrType rune
 
 const (
-	parenNone           parenType = 0 // parenrule/stringrule
-	parenOptional       parenType = '?'
-	parenZeroOrMore     parenType = '*'
-	parenOneOrMore      parenType = '+'
-	parenStringRunes    parenType = '&' // parenrule/stringrule
-	parenStringMidMatch parenType = '~' // parenrule/stringrule
+	parenrNone       parenrType = 0
+	parenrOptional   parenrType = '?'
+	parenrZeroOrMore parenrType = '*'
+	parenrOneOrMore  parenrType = '+'
+)
+
+//----------
+
+// string rule type
+type stringrType rune
+
+const (
+	stringrNone     stringrType = 0
+	stringrRunes    stringrType = '&'
+	stringrMidMatch stringrType = '~'
 )
 
 //----------
@@ -406,11 +436,11 @@ func ruleFirstProductions(r Rule) []Rule {
 	switch t := r.(type) {
 	case *AndRule: // andrule childs are not productions
 		return []Rule{t}
-		//case *DefRule:
-		//	switch t2 := t.onlyChild().(type) {
-		//	case *OrRule:
-		//		return t2.childs()
-		//	}
+	case *DefRule:
+		switch t2 := t.onlyChild().(type) {
+		case *OrRule:
+			return t2.childs()
+		}
 	}
 	return r.childs()
 }
@@ -443,6 +473,15 @@ func ruleCanBeNil(r Rule) bool {
 	}
 	return false
 }
+func ruleInnerStringRule(r Rule) (*StringRule, bool) {
+	switch t := r.(type) {
+	case *StringRule:
+		return t, true
+	case *DefRule:
+		return ruleInnerStringRule(t.onlyChild())
+	}
+	return nil, false
+}
 
 //----------
 
@@ -467,3 +506,31 @@ func walkRuleChilds(rule Rule, fn func(*Rule) error) error {
 		return fn(ref)
 	})
 }
+
+//----------
+//----------
+//----------
+
+//type RuleProductions []RuleSequence
+
+//func (rp RuleProductions) String() string {
+//	w := []string{}
+//	for _, rs := range rp {
+//		w = append(w, rs.String())
+//	}
+//	u := strings.Join(w, " | ")
+//	return fmt.Sprintf("[%v]", u)
+//}
+
+////----------
+
+//type RuleSequence []Rule
+
+//func (rs RuleSequence) String() string {
+//	w := []string{}
+//	for _, r := range rs {
+//		w = append(w, r.String())
+//	}
+//	u := strings.Join(w, " ")
+//	return fmt.Sprintf("[%v]", u)
+//}

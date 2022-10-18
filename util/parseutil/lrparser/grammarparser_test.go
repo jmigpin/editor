@@ -13,26 +13,26 @@ func TestGrammarParser1(t *testing.T) {
 		rule C = "c" C | "d"
 	`
 	out := `
-		{d:^:S} = [{r:C} {r:C}]
-       		{d:C} = [["c" {r:C}] | "d"]
+		^S = [{r:C} {r:C}]
+        	C = [["c" {r:C}] | "d"]
 	`
 	testGrammarParserMode1(t, in, out)
 }
 func TestGrammarParser2(t *testing.T) {
 	in := `	
-		rule ^S = (a|b|("cd")&)?
+		rule ^S = (a|b|"cd"&)?
 	`
 	out := `
-		{d:^:S} = ([{r:a} | {r:b} | ("cd")&])?
+		^S = {p:([{r:a} | {r:b} | "cd"&])?}
 	`
 	testGrammarParserMode1(t, in, out)
 }
 func TestGrammarParser3(t *testing.T) {
 	in := `	
-		rule ^S = (if a?b:c)
+		rule ^S = if a?b:c
 	`
 	out := `
-		{d:^:S} = {if {r:a} ? {r:b} : {r:c}}
+		^S = {if {r:a} ? {r:b} : {r:c}}
 	`
 	testGrammarParserMode1(t, in, out)
 }

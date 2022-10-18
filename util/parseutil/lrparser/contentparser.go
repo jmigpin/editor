@@ -176,24 +176,24 @@ func (cp *ContentParser) processPopped(ar *ActionReduce, pops []*cpsItem) (*CPNo
 	return cpn, nil
 }
 func (cp *ContentParser) processPopped2(ar *ActionReduce, pops []*cpsItem) *CPNode {
-	//	// reducing to a rule that is a loop (flatten childs list)
-	//	if ruleIsLoop(ar.prod) && len(pops) == 2 {
-	//		cpn0 := pops[0].cpn
-	//		if cpn0.rule == ar.prod { // first popped item is the loop rule (this depends on how the loop was constructed, check ruleindex)
-	//			cpn1 := pops[1].cpn
+	// reducing to a rule that is a loop (flatten childs list)
+	if ruleIsLoop(ar.prod) && len(pops) == 2 {
+		cpn0 := pops[0].cpn
+		if cpn0.rule == ar.prod { // first popped item is the loop rule (this depends on how the loop was constructed, check ruleindex)
+			cpn1 := pops[1].cpn
 
-	//			// recover from error
-	//			if cpn1.simulated {
-	//				cp.Opt.Logf("recovered: loop node")
-	//				return cpn0 // ignore the second popped item since it has an error
-	//			}
+			// recover from error
+			if cpn1.simulated {
+				cp.Opt.Logf("recovered: loop node")
+				return cpn0 // ignore the second popped item since it has an error
+			}
 
-	//			cpn2 := newCPNode2(cpn0, cpn1, ar.prod)
-	//			cpn2.childs = cpn0.childs
-	//			cpn2.addChilds(cp.vd.reverse, cpn1)
-	//			return cpn2
-	//		}
-	//	}
+			cpn2 := newCPNode2(cpn0, cpn1, ar.prod)
+			cpn2.childs = cpn0.childs
+			cpn2.addChilds(cp.vd.reverse, cpn1)
+			return cpn2
+		}
+	}
 
 	if len(pops) == 0 { // handle no pops reductions (nil rules)
 		i := cp.stk.topEnd()
@@ -302,15 +302,15 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 	case *StringRule:
 		i0 := ps.i
 		switch t.typ {
-		case parenNone:
+		case stringrNone:
 			if err := ps.MatchRunesAnd(t.runes); err != nil {
 				return err
 			}
-		case parenStringRunes:
+		case stringrRunes:
 			if err := ps.MatchRunesOr(t.runes); err != nil {
 				return err
 			}
-		case parenStringMidMatch:
+		case stringrMidMatch:
 			if err := ps.matchRunesMid(t.runes); err != nil {
 				return err
 			}

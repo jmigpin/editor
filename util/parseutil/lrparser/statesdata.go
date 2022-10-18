@@ -115,11 +115,11 @@ func (sd *StatesData) sortForParse(rset RuleSet) []Rule {
 		switch t := r.(type) {
 		case *StringRule:
 			switch t.typ {
-			case parenNone: // ex: keywords
+			case stringrNone: // ex: keywords
 				return 1, string(t.runes)
-			case parenStringMidMatch: // ex: keywords
+			case stringrMidMatch: // ex: keywords
 				return 2, string(t.runes)
-			case parenStringRunes: // individual runes
+			case stringrRunes: // individual runes
 				return 3, string(t.runes)
 			default:
 				panic(goutil.TodoErrorStr(string(t.typ)))
@@ -160,7 +160,7 @@ func (sd *StatesData) solveConflicts(vd *VerticesData) error {
 		for _, r := range st.rsetSorted {
 			if sr, ok := r.(*StringRule); ok {
 				switch sr.typ {
-				case parenStringRunes:
+				case stringrRunes:
 					for _, ru := range sr.runes {
 						r3, ok := m[ru]
 						if !ok {
