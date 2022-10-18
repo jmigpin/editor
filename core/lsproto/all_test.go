@@ -378,15 +378,6 @@ func sourceCursor(t *testing.T, src string, nth int) (int, string) {
 	return index, src2
 }
 
-func parseLocation(t *testing.T, loc string) (string, int, int) {
-	rd := iorw.NewStringReaderAt(loc)
-	res, err := parseutil.ParseResource(rd, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res.Path, res.Line, res.Column
-}
-
 func readBytesOffset(t *testing.T, filename string, line, col int) (iorw.ReadWriterAt, int) {
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {

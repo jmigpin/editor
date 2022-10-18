@@ -5,15 +5,9 @@ import (
 	"errors"
 	"io"
 	"unicode"
+
+	"github.com/jmigpin/editor/util/iout"
 )
-
-//godebug:annotatefile
-
-func MakeBytesCopy(b []byte) []byte {
-	p := make([]byte, len(b), len(b))
-	copy(p, b)
-	return p
-}
 
 //----------
 
@@ -48,7 +42,7 @@ func ReadFullCopy(rd ReaderAt) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return MakeBytesCopy(b), nil
+	return iout.CopyBytes(b), nil
 }
 
 //----------
@@ -232,7 +226,7 @@ func WordAtIndex(r ReaderAt, index int) ([]byte, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	return MakeBytesCopy(w), i0, nil
+	return iout.CopyBytes(w), i0, nil
 }
 
 func WordIsolated(r ReaderAt, i, le int) bool {

@@ -1,5 +1,7 @@
 package iout
 
+import "bytes"
+
 type FnWriter func([]byte) (int, error)
 
 func (w FnWriter) Write(p []byte) (int, error) {
@@ -23,3 +25,15 @@ func (c FnCloser) Close() error {
 }
 
 //----------
+//----------
+//----------
+
+func CopyBytes(b []byte) []byte {
+	p := make([]byte, len(b), len(b))
+	copy(p, b)
+	return p
+}
+
+func CountLines(b []byte) int {
+	return bytes.Count(b, []byte("\n"))
+}

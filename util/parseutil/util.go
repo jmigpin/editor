@@ -1,7 +1,6 @@
 package parseutil
 
 import (
-	"bytes"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -16,16 +15,19 @@ import (
 	"github.com/jmigpin/editor/util/scanutil"
 )
 
-// TODO: remove util/iout/iorw/utils.go:makebytescopy
-func CopyBytes(b []byte) []byte {
-	p := make([]byte, len(b), len(b))
-	copy(p, b)
-	return p
-}
+//----------
 
-func CountLines(b []byte) int {
-	return bytes.Count(b, []byte("\n"))
-}
+// TODO: review
+
+var ExtraRunes = "_-~.%@&?!=#+:^" + "(){}[]<>" + "\\/" + " "
+
+var excludeResourceRunes = "" +
+	" " + // word separator
+	"=" + // usually around filenames (ex: -arg=/a/b.txt)
+	"(){}[]<>" // usually used around filenames in various outputs
+// escaped when outputing filenames
+var escapedInFilenames = excludeResourceRunes +
+	":" // note: in windows will give "C^:/"
 
 //----------
 
