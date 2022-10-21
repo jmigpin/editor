@@ -259,23 +259,23 @@ func (annset *AnnotatorSet) BuildConfigSrc(serverNetwork, serverAddr string, fla
 	src := `
 package debug
 func init(){
-	hasGenConfig = true
-	encoderId = "` + genEncoderId + `"
 	ServerNetwork = "` + serverNetwork + `"
 	ServerAddress = "` + serverAddr + `"
-	annotatorFilesData = []*AnnotatorFileData{` + bcce + `}
 	
+	hasGenConfig = true
+	encoderId = "` + genEncoderId + `"
 	syncSend = ` + strconv.FormatBool(flags.syncSend) + `
 	acceptOnlyFirstClient = ` + aofc + `
 	stringifyBytesRunes = ` + strconv.FormatBool(flags.stringifyBytesRunes) + `
 	hasSrcLines = ` + strconv.FormatBool(flags.srcLines) + `
+	annotatorFilesData = []*AnnotatorFileData{` + bcce + `}
 }
 `
 	return []byte(src)
 }
 
 func (annset *AnnotatorSet) buildConfigAfdEntries() string {
-	var u []string
+	u := []string{}
 	for _, afd := range annset.afds.order {
 		s := fmt.Sprintf("&AnnotatorFileData{%v,%v,%q,%v,[]byte(%q)}",
 			afd.FileIndex,
@@ -284,9 +284,9 @@ func (annset *AnnotatorSet) buildConfigAfdEntries() string {
 			afd.FileSize,
 			string(afd.FileHash),
 		)
-		u = append(u, s+",")
+		u = append(u, s)
 	}
-	return strings.Join(u, "\n")
+	return strings.Join(u, ",")
 }
 
 //----------
