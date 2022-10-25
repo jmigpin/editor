@@ -22,7 +22,10 @@ import (
 
 func TestScripts(t *testing.T) {
 	scr := testutil.NewScript(os.Args)
+
+	// uncomment to access work dir
 	//scr.Work = true
+
 	scr.ScriptsDir = "testdata"
 	scr.Cmds = []*testutil.ScriptCmd{
 		&testutil.ScriptCmd{"godebugtester", godebugTester},

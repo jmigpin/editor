@@ -795,6 +795,7 @@ func positionError(fset *token.FileSet, pos token.Pos, err error) error {
 
 //----------
 
+// TODO: move to goutil?
 func pkgMod(pkg *packages.Package) *packages.Module {
 	mod := pkg.Module
 	if mod != nil {

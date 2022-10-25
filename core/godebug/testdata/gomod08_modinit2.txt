@@ -1,0 +1,25 @@
+cd main
+
+# without this, fails with "missing go.sum"
+exec go mod tidy
+
+exec go run main.go
+contains stderr "cba"
+
+#ucmd godebugtester run main.go
+ucmd godebugtester run -verbose -work main.go
+contains stdout "println(\"cba\")"
+# inside the external pkg
+contains stdout "=> len([99 98 97])"
+
+-- main/go.mod --
+module example.com/main
+require golang.org/x/example v0.0.0-20220412213650-2e68773dfca0
+-- main/main.go --
+package main
+//godebug:annotatepackage:golang.org/x/example/stringutil
+import "golang.org/x/example/stringutil"
+func main() {
+	v:=stringutil.Reverse("abc")
+	println(v)
+}
