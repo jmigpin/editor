@@ -197,6 +197,7 @@ func TestResLocParserWin1(t *testing.T) {
 //----------
 
 func testMode1(t *testing.T, in, out string) {
+	t.Helper()
 	testMode2(t, in, out, 0, 0, false)
 }
 func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {

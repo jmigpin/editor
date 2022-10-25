@@ -9,7 +9,6 @@ import (
 
 type grammarParser struct {
 	ri *RuleIndex
-	//declId int
 }
 
 func newGrammarParser() *grammarParser {
@@ -27,7 +26,7 @@ func (gp *grammarParser) parse(fset *FileSet) (*RuleIndex, error) {
 }
 func (gp *grammarParser) parse2(ps *PState) error {
 	for {
-		ok, err := gp.parseLine(ps)
+		ok, err := gp.parse3(ps)
 		if err != nil {
 			return err
 		}
@@ -36,37 +35,17 @@ func (gp *grammarParser) parse2(ps *PState) error {
 		}
 	}
 }
-func (gp *grammarParser) parseLine(ps *PState) (bool, error) {
-	_ = ps.consumeSpacesExcludingNL() // optional
-	// empty lines
-	if err := ps.MatchRune('\n'); err == nil {
-		return true, nil
+func (gp *grammarParser) parse3(ps *PState) (bool, error) {
+	gp.parseOptionalSpacesOrComments(ps)
+	if err := gp.parseRule(ps); err == nil {
+		return true, err
 	}
-	// comments
-	if err := ps.MatchRune('#'); err == nil {
-		_ = ps.consumeToNLIncluding()
-		return true, nil
-	}
-	if err := ps.matchString("//"); err == nil {
-		_ = ps.consumeToNLIncluding()
-		return true, nil
-	}
-	// rule
-	if err := ps.matchString("rule "); err == nil {
-		if err := gp.parseRule(ps); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-	// eof
 	if err := ps.matchEof(); err == nil {
 		return false, nil
 	}
-	return false, errors.New("unexpected line")
+	return false, errors.New("unexpected")
 }
 func (gp *grammarParser) parseRule(ps *PState) error {
-	_ = ps.consumeSpacesExcludingNL() // optional
-
 	i0 := ps.i
 
 	// is start
@@ -85,23 +64,27 @@ func (gp *grammarParser) parseRule(ps *PState) error {
 		return fmt.Errorf("rule already defined: %v", name)
 	}
 
-	_ = ps.consumeSpacesExcludingNL() // optional
+	gp.parseOptionalSpacesOrComments(ps)
 
 	if err := ps.MatchRune('='); err != nil {
 		return errors.New("expecting =")
 	}
 
-	_ = ps.consumeSpacesExcludingNL2() // optional
+	gp.parseOptionalSpacesOrComments(ps)
 
 	if err := gp.parseItemRule(ps); err != nil {
 		return err
 	}
 
+	gp.parseOptionalSpacesOrComments(ps)
+
+	if err := ps.MatchRune('.'); err != nil {
+		return errors.New("expecting .")
+	}
+
 	// setup
 	dr := &DefRule{name: name, isStart: isStart}
 	dr.setOnlyChild(ps.parseNode.(Rule))
-	//gp.declId++
-	//dr.declId = gp.declId
 	dr.setPos(i0, ps.i)
 	gp.ri.set(dr.name, dr)
 
@@ -136,8 +119,6 @@ func (gp *grammarParser) parseItemRule(ps *PState) error {
 //----------
 
 func (gp *grammarParser) parseIfRule(ps *PState) error {
-	_ = ps.consumeSpacesExcludingNL() // optional
-
 	i0 := ps.i
 
 	if err := ps.matchString("if "); err != nil {
@@ -151,22 +132,22 @@ func (gp *grammarParser) parseIfRule(ps *PState) error {
 	nameRef := ps.parseNode.(Rule)
 
 	// then
-	_ = ps.consumeSpacesExcludingNL() // optional
+	gp.parseOptionalSpacesOrComments(ps)
 	if err := ps.matchString("?"); err != nil {
 		return fmt.Errorf("expecting '?'")
 	}
-	_ = ps.consumeSpacesExcludingNL2() // optional
+	gp.parseOptionalSpacesOrComments(ps)
 	if err := gp.parseItemRule(ps); err != nil {
 		return err
 	}
 	thenRule := ps.parseNode.(Rule)
 
 	// else
-	_ = ps.consumeSpacesExcludingNL() // optional
+	gp.parseOptionalSpacesOrComments(ps)
 	if err := ps.matchString(":"); err != nil {
 		return fmt.Errorf("expecting ':'")
 	}
-	_ = ps.consumeSpacesExcludingNL2() // optional
+	gp.parseOptionalSpacesOrComments(ps)
 	if err := gp.parseItemRule(ps); err != nil {
 		return err
 	}
@@ -192,7 +173,7 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 	for i := 0; ; i++ {
 		// handle separator
 		if i > 0 {
-			_ = ps2.consumeSpacesExcludingNL() // optional
+			gp.parseOptionalSpacesOrComments(ps2)
 			ps3 := ps2.copy()
 			if err := ps2.MatchRune('|'); err != nil {
 				if i == 1 {
@@ -209,7 +190,7 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 				return nil // ok
 			}
 
-			_ = ps2.consumeSpacesExcludingNL() // optional
+			gp.parseOptionalSpacesOrComments(ps2)
 		}
 
 		if err := gp.parseAndRule(ps2); err != nil {
@@ -231,14 +212,7 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 	for i := 0; ; i++ {
 		// handle separator
 		if i > 0 {
-			ok := ps2.consumeSpacesExcludingNL2() // optional
-			if !ok {
-				if i == 1 {
-					ps.set(ps2)
-					return nil // ok, just not an AND
-				}
-				break // ok
-			}
+			gp.parseOptionalSpacesOrComments(ps2)
 		}
 
 		if err := gp.parseBasicItemRule(ps2); err != nil {
@@ -328,7 +302,7 @@ func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
 		}
 	}
 
-	// transform "\n" (2 runes) into a single '\n'
+	// needed: ex: transforms "\n" (2 runes) into a single '\n'
 	u, err := strconv.Unquote(s)
 	if err != nil {
 		return err, true
@@ -393,4 +367,37 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 	ps.parseNode = u
 
 	return nil, true
+}
+
+//----------
+
+func (gp *grammarParser) parseOptionalSpacesOrComments(ps *PState) {
+	for {
+		if ps.consumeSpacesIncludingNL() {
+			continue
+		}
+		if gp.parseComments(ps) {
+			continue
+		}
+		break
+	}
+}
+
+//func (gp *grammarParser) parseEmptyLine(ps *PState) bool {
+//	if err := ps.MatchRune('\n'); err == nil {
+//		return true
+//	}
+//	return false
+//}
+
+func (gp *grammarParser) parseComments(ps *PState) bool {
+	if err := ps.MatchRune('#'); err == nil {
+		_ = ps.consumeToNLIncluding()
+		return true
+	}
+	if err := ps.matchString("//"); err == nil {
+		_ = ps.consumeToNLIncluding()
+		return true
+	}
+	return false
 }

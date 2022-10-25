@@ -9,8 +9,8 @@ import (
 
 func TestGrammarParser1(t *testing.T) {
 	in := `
-		rule ^S = C C
-		rule C = "c" C | "d"
+		^S = C C .
+		C = "c" C | "d" .
 	`
 	out := `
 		^S = [{r:C} {r:C}]
@@ -20,7 +20,7 @@ func TestGrammarParser1(t *testing.T) {
 }
 func TestGrammarParser2(t *testing.T) {
 	in := `	
-		rule ^S = (a|b|"cd"&)?
+		^S = (a|b|"cd"&)? .
 	`
 	out := `
 		^S = {p:([{r:a} | {r:b} | "cd"&])?}
@@ -29,7 +29,7 @@ func TestGrammarParser2(t *testing.T) {
 }
 func TestGrammarParser3(t *testing.T) {
 	in := `	
-		rule ^S = if a?b:c
+		^S = if a?b:c .
 	`
 	out := `
 		^S = {if {r:a} ? {r:b} : {r:c}}

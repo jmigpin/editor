@@ -66,12 +66,10 @@ func (r *CmnRule) childs() []Rule {
 //----------
 
 // definition rule
-// (1 child)
 type DefRule struct {
 	CmnPNode
 	CmnRule
-	name string
-	//declId  int  // declaration order, 0=inserted, >=1=declared
+	name    string
 	isStart bool // has "start" symbol in the grammar
 	isLoop  bool
 }

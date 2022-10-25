@@ -3,55 +3,56 @@
 
 #----------
 
-rule location = cFile | pyFile | schemeFile
+location = cFile | pyFile | schemeFile .
 
 #----------
 
-rule cFile = filename (cLineCol)?
-rule cLineCol = ":" digits (":" digits)?
+cFile = filename (cLineCol)? .
+cLineCol = ":" digits (":" digits)? .
 
 #----------
 
-rule pyFile = pyFilename (pyLineStr digits)?
-rule pyFilename = pyQuote filename pyQuote
-rule pyQuote = "\""
-rule pyLineStr = ", line "
+pyFile = pyFilename (pyLineStr digits)? .
+pyFilename = pyQuote filename pyQuote .
+pyQuote = "\"" .
+pyLineStr = ", line " .
 
 #----------
 
-rule schemeFile = "file://" (schHost)? schPath (cLineCol)?
-rule schHost = (letter|digit|".-_"&)+
-rule schPath = schSep schVolume schNames
-rule schVolume = if rlParseVolume ? volume schSep : nil
-rule schNames = (schSep|fiName)+
-rule schSep = "/"
+schemeFile = "file://" (schHost)? schPath (cLineCol)? .
+schHost = (letter | digit | ".-_"&)+ .
+schPath = schSep schVolume schNames .
+schVolume = if rlParseVolume ? volume schSep : nil .
+schNames = (schSep | fiName)+ .
+schSep = "/" .
 
 #----------
 
-rule filename = fiVolume fiNames
-rule fiVolume = if rlParseVolume ? volume fiSep : nil
-rule fiNames =  (fiSep|fiName)+
-rule fiName = (letter|digit|fiSyms|fiEsc)+
-rule fiSyms = rlExtraSyms&
-rule fiEsc = rlEsc anyrune
-rule fiSep = rlSep
+filename = fiVolume fiNames .
+fiVolume = if rlParseVolume ? volume fiSep : nil .
+fiNames =  (fiSep | fiName)+ .
+fiName = (letter | digit | fiSyms | fiEsc)+ .
+fiSyms = rlExtraSyms& .
+fiEsc = rlEsc anyrune .
+fiSep = rlSep .
 
 #----------
 
-rule digits = (digit)+
-rule volume = letter ":"
+digits = (digit)+ .
+volume = letter ":" .
 
 #----------
 #----------
 #----------
 
 # rules to run in reverse to find a better parse start
-rule reverse = \
-	(pyQuote)? \
-	(if rlParseVolume ? volume : nil) \
-	(revSep|fiName)* \
-	(pyQuote)? \
-	(pyLineStr~)? \
-	(":"|digits)* \
+reverse =
+	(pyQuote)?
+	(if rlParseVolume ? volume : nil)
+	(revSep | fiName)*
+	(pyQuote)?
+	(pyLineStr~)?
+	(":" | digits)* 		# cLineCol
 	(rlEsc)*
-rule revSep = if rlParseVolume ? fiSep|schSep : fiSep
+	.
+revSep = if rlParseVolume ? fiSep | schSep : fiSep .

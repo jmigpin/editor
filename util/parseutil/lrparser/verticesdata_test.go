@@ -8,8 +8,8 @@ import (
 
 func TestVerticesData1(t *testing.T) {
 	grammar := `
-		rule ^S = C C
-		rule C = "c" C | "d"
+		^S = C C .
+		C = "c" C | "d" .
 	`
 	expect := `
 		vertex0:
@@ -59,9 +59,9 @@ func TestVerticesData1(t *testing.T) {
 }
 func TestVerticesData2(t *testing.T) {
 	grammar := `
-		rule ^E = E "+" T | T
-		rule T = T "*" F | F
-		rule F = "(" E ")" | "a"
+		^E = E "+" T | T .
+		T = T "*" F | F .
+		F = "(" E ")" | "a" .
 	`
 	expect := `
 		vertex0:
@@ -188,7 +188,7 @@ func TestVerticesData2(t *testing.T) {
 }
 func TestVerticesData3(t *testing.T) {
 	grammar := `		
-		rule ^id = id "a" | "a"
+		^id = id "a" | "a" .
 	`
 	expect := `
 		vertex0:
@@ -210,7 +210,7 @@ func TestVerticesData3(t *testing.T) {
 }
 func TestVerticesData4(t *testing.T) {
 	grammar := `		
-		rule ^id = id "b" "a" | "a"
+		^id = id "b" "a" | "a" .
 	`
 	expect := `
 		vertex0:
@@ -235,7 +235,7 @@ func TestVerticesData4(t *testing.T) {
 }
 func TestVerticesData5(t *testing.T) {
 	grammar := `		
-		rule ^id = "a" id | "a"		
+		^id = "a" id | "a" .		
 	`
 	expect := `
 		vertex0:
@@ -260,7 +260,7 @@ func TestVerticesData5(t *testing.T) {
 }
 func TestVerticesData6(t *testing.T) {
 	grammar := `
-		rule ^id = "a" ("b")? "a"
+		^id = "a" ("b")? "a" .
 	`
 	expect := `
 		vertex0:
@@ -288,7 +288,7 @@ func TestVerticesData6(t *testing.T) {
 }
 func TestVerticesData7(t *testing.T) {
 	grammar := `
-		rule ^id = "a" id | nil
+		^id = "a" id | nil .
 	`
 	expect := `
 		vertex0:
@@ -312,9 +312,9 @@ func TestVerticesData7(t *testing.T) {
 }
 func TestVerticesData8(t *testing.T) {
 	grammar := `
-		rule ^S = "a" A "d" | "b" B "d" | "a" B "e" | "b" A "e"
-		rule A = "c"
-		rule B = "c"
+		^S = "a" A "d" | "b" B "d" | "a" B "e" | "b" A "e" .
+		A = "c" .
+		B = "c" .
 	`
 	expect := `
 		vertex0:
@@ -378,18 +378,18 @@ func TestVerticesData8(t *testing.T) {
 
 //func TestVerticesData9(t *testing.T) {
 //	grammar := `
-//		rule ^S = (s1)%
-//		rule s1 = (letter digit)+
+//		^S = (s1)%
+//		s1 = (letter digit)+
 //	`
 //	expect := ``
 //	testRulesToVerticesMode1(t, grammar, expect)
 //}
 //func TestVerticesData9(t *testing.T) {
 //	grammar := `
-//		rule ^S = "a" ("a"|"1")*
+//		^S = "a" ("a"|"1")*
 
-//		#rule ^S = "a" s2
-//		#rule s2 = "a" s2 | "1" s2 | nil
+//		#^S = "a" s2
+//		#s2 = "a" s2 | "1" s2 | nil
 //	`
 //	expect := `
 //	`
@@ -398,10 +398,10 @@ func TestVerticesData8(t *testing.T) {
 
 //func TestVerticesData10(t *testing.T) {
 //	// TODO: crash, should give loop error
-//	// rule ^S = S
+//	// ^S = S
 //	grammar := `
-//		rule ^S = S
-//		#rule ^S = S | "a"
+//		^S = S
+//		#^S = S | "a"
 //	`
 //	expect := `
 //	`
@@ -427,7 +427,7 @@ func testRulesToVerticesMode1(t *testing.T, grammar, expect string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//t.Log(ri) // rule index deref'd
+	//t.Log(ri) // index deref'd
 
 	res := vd.String()
 

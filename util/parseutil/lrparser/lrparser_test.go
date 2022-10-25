@@ -9,8 +9,8 @@ import (
 
 func TestLrparser1(t *testing.T) {
 	gram := `
-		rule ^S = C C
-		rule C = "c" C | "d"
+		^S = C C .
+		C = "c" C | "d" .
 	`
 	in := "●ccdd"
 	out := `		
@@ -28,7 +28,7 @@ func TestLrparser1(t *testing.T) {
 }
 func TestLrparser2(t *testing.T) {
 	gram := `
-		rule ^id = "a" id | "a"
+		^id = "a" id | "a" .
 	`
 	in := "●aaa"
 	out := `
@@ -43,7 +43,7 @@ func TestLrparser2(t *testing.T) {
 }
 func TestLrparser3(t *testing.T) {
 	gram := `
-		rule ^id = id "a" | "a"
+		^id = id "a" | "a" .
 	`
 	in := "●aaa"
 	out := `
@@ -58,7 +58,7 @@ func TestLrparser3(t *testing.T) {
 }
 func TestLrparser4(t *testing.T) {
 	gram := `
-		rule ^id = (digit)?
+		^id = (digit)? .
 	`
 	in := "●1"
 	out := `
@@ -70,9 +70,9 @@ func TestLrparser4(t *testing.T) {
 }
 func TestLrparser5(t *testing.T) {
 	gram := `
-		#rule ^id = letter id2 letter
-		#rule id2 = digit | nil
-		rule ^id = letter (digit)? letter		
+		#^id = letter id2 letter .
+		#id2 = digit | nil .
+		^id = letter (digit)? letter .	
 	`
 	in := "●aa"
 	out := `
@@ -86,15 +86,15 @@ func TestLrparser5(t *testing.T) {
 func TestLrparser6(t *testing.T) {
 	gram := `
 		# conflict
-		#rule ^id = letter (letter|digit)* digit		
+		#^id = letter (letter|digit)* digit	 .	
 		
 		# conflict
-		#rule ^id = letter id2 digit
-		#rule id2 = letter id2 | digit id2 | nil
+		#^id = letter id2 digit .
+		#id2 = letter id2 | digit id2 | nil .
 		
 		# ok
-		rule ^id = letter id2
-		rule id2 = letter id2 | digit id2 | digit
+		^id = letter id2 .
+		id2 = letter id2 | digit id2 | digit .
 	`
 	in := "●a11"
 	out := `		
@@ -109,7 +109,7 @@ func TestLrparser6(t *testing.T) {
 }
 func TestLrparser7(t *testing.T) {
 	gram := `
-		rule ^id = (letter|digit)*
+		^id = (letter|digit)* .
 	`
 	in := "●a1"
 	out := `
@@ -124,7 +124,7 @@ func TestLrparser7(t *testing.T) {
 }
 func TestLrparser7b(t *testing.T) {
 	gram := `
-		rule ^id = (letter|digit)+
+		^id = (letter|digit)+ .
 	`
 	in := "●a1"
 	out := `
@@ -139,10 +139,10 @@ func TestLrparser7b(t *testing.T) {
 }
 func TestLrparser8(t *testing.T) {
 	gram := `
-		#rule ^S = "a" ("a"|"1")*
+		#^S = "a" ("a"|"1")* .
 		
-		rule ^S = "a" s2
-		rule s2 = "a" s2 | "1" s2 | nil
+		^S = "a" s2 .
+		s2 = "a" s2 | "1" s2 | nil .
 	`
 	in := "●aa1"
 	out := `
@@ -158,7 +158,7 @@ func TestLrparser8(t *testing.T) {
 }
 func TestLrparser9a(t *testing.T) {
 	gram := `
-		rule ^S = letter (letter)*
+		^S = letter (letter)* .
 	`
 	in := "●aaa"
 	out := `
@@ -172,7 +172,7 @@ func TestLrparser9a(t *testing.T) {
 }
 func TestLrparser9b(t *testing.T) {
 	gram := `
-		rule ^S = letter (letter)*
+		^S = letter (letter)* .
 	`
 	in := "●a"
 	out := `
@@ -184,7 +184,7 @@ func TestLrparser9b(t *testing.T) {
 }
 func TestLrparser9c(t *testing.T) {
 	gram := `
-		rule ^S = letter (letter)+
+		^S = letter (letter)+ .
 	`
 	in := "●aaaa"
 	out := `
@@ -199,7 +199,7 @@ func TestLrparser9c(t *testing.T) {
 }
 func TestLrparser10(t *testing.T) {
 	gram := `
-		rule ^S = (letter|digit)?
+		^S = (letter|digit)? .
 	`
 	in := "●1"
 	out := `
@@ -212,7 +212,7 @@ func TestLrparser10(t *testing.T) {
 }
 func TestLrparser11(t *testing.T) {
 	gram := `
-		rule ^S = (letter digit)+
+		^S = (letter digit)+ .
 	`
 	in := "●a1b2c3"
 	out := `
@@ -232,7 +232,7 @@ func TestLrparser11(t *testing.T) {
 }
 func TestLrparser11b(t *testing.T) {
 	gram := `
-		rule ^S = (letter digit)*
+		^S = (letter digit)* .
 	`
 	in := "●a1b2c3"
 	out := `
@@ -252,7 +252,7 @@ func TestLrparser11b(t *testing.T) {
 }
 func TestLrparser11c(t *testing.T) {
 	gram := `
-		rule ^S = letter digit
+		^S = letter digit .
 	`
 	in := "●a1"
 	out := `
@@ -264,7 +264,7 @@ func TestLrparser11c(t *testing.T) {
 }
 func TestLrparser12(t *testing.T) {
 	gram := `
-		rule ^S = (":\"'"&)+
+		^S = (":\"'"&)+ .
 	`
 	in := "●:\":"
 	out := `
@@ -278,7 +278,7 @@ func TestLrparser12(t *testing.T) {
 }
 func TestLrparser13(t *testing.T) {
 	gram := `
-		rule ^S = letter (letter|digit)* digit
+		^S = letter (letter|digit)* digit .
 	`
 	in := "●aa11"
 	out := `
@@ -295,8 +295,8 @@ func TestLrparser13(t *testing.T) {
 }
 func TestLrparser14(t *testing.T) {
 	gram := `
-		rule ^S = (s2)+
-		rule s2 = (letter)+
+		^S = (s2)+ .
+		s2 = (letter)+ .
 	`
 	in := "●aa"
 	out := `
@@ -317,9 +317,9 @@ func TestLrparser14(t *testing.T) {
 }
 func TestLrparser15(t *testing.T) {
 	gram := `
-		rule ^S = s2~ s3
-		rule s2 = "abc"
-		rule s3 = "de"
+		^S = s2~ s3 .
+		s2 = "abc" .
+		s3 = "de" .
 	`
 	in := "ab●cde"
 	out := `
@@ -332,8 +332,8 @@ func TestLrparser15(t *testing.T) {
 }
 func TestLrparser16(t *testing.T) {
 	gram := `
-		rule ^S = s2~ (s2&)+
-		rule s2 = "abc"
+		^S = s2~ (s2&)+ .
+		s2 = "abc" .
 	`
 	in := "ab●caa"
 	out := `
@@ -350,7 +350,7 @@ func TestLrparser16(t *testing.T) {
 
 func TestLrparserStop1(t *testing.T) {
 	gram := `
-		rule ^id =  digit (letter)*
+		^id =  digit (letter)* .
 	`
 	in := "<<<●1ab>>>"
 	out := `
@@ -364,9 +364,9 @@ func TestLrparserStop1(t *testing.T) {
 }
 func TestLrparserStop2(t *testing.T) {
 	gram := `
-		rule ^S = letter (linecol)?
-		rule linecol = e (e)?
-		rule e = ":" (digit)+		
+		^S = letter (linecol)? .
+		linecol = e (e)? .
+		e = ":" (digit)+ .	
 	`
 	in := "●a:1:++"
 	out := `
@@ -384,7 +384,7 @@ func TestLrparserStop2(t *testing.T) {
 }
 func TestLrparserStop3(t *testing.T) {
 	gram := `
-		rule ^S = (letter ":")+		
+		^S = (letter ":")+ .	
 	`
 	in := "●a:a:a:b"
 	out := `
@@ -404,7 +404,7 @@ func TestLrparserStop3(t *testing.T) {
 }
 func TestLrparserStop3b(t *testing.T) {
 	gram := `
-		rule ^S = (letter ":")+ (digit)?
+		^S = (letter ":")+ (digit)? .
 	`
 	in := "●a:a:b"
 	out := `
@@ -422,7 +422,7 @@ func TestLrparserStop3b(t *testing.T) {
 }
 func TestLrparserStop4(t *testing.T) {
 	gram := `
-		rule ^S = (letter digit letter)+		
+		^S = (letter digit letter)+ .	
 	`
 	in := "●a1ab2bc3"
 	out := `
@@ -441,7 +441,7 @@ func TestLrparserStop4(t *testing.T) {
 }
 func TestLrparserStop5(t *testing.T) {
 	gram := `
-		rule ^S = ("a" "b" "c" "d")+		
+		^S = ("a" "b" "c" "d")+ .		
 	`
 	in := "●abcdab"
 	out := `
@@ -460,8 +460,8 @@ func TestLrparserStop5(t *testing.T) {
 
 func TestLrparserRev1(t *testing.T) {
 	gram := `
-		rule ^rev =  digit (letter)*		
-		#rule ^rev =  (letter)* digit
+		^rev =  digit (letter)*	 .	
+		#^rev =  (letter)* digit .
 	`
 	in := "<<<1ab●>>>"
 	//in := "<<<●1ab>>>"
@@ -477,8 +477,8 @@ func TestLrparserRev1(t *testing.T) {
 }
 func TestLrparserRev2(t *testing.T) {
 	gram := `
-		rule ^S = (s2)?
-		rule s2 = (letter)+
+		^S = (s2)? .
+		s2 = (letter)+ .
 	`
 	in := "aa●11"
 	out := `
@@ -494,8 +494,8 @@ func TestLrparserRev2(t *testing.T) {
 }
 func TestLrparserRev3(t *testing.T) {
 	gram := `
-		rule ^S = (letter|esc)+
-		rule esc = "\\" anyrune		
+		^S = (letter|esc)+ .
+		esc = "\\" anyrune .		
 	`
 	in := "d ab\\ c●"
 	out := `
@@ -516,8 +516,8 @@ func TestLrparserRev3(t *testing.T) {
 }
 func TestLrparserRev4(t *testing.T) {
 	gram := `
-		rule ^S = (letter|esc)*
-		rule esc = "\\" anyrune		
+		^S = (letter|esc)* .
+		esc = "\\" anyrune .	
 	`
 	in := "aaa ●bbb"
 	out := `
@@ -534,7 +534,7 @@ func TestLrparserRev4(t *testing.T) {
 
 func TestLrparserErr1(t *testing.T) {
 	gram := `
-		rule ^S = (letter)? letter		
+		^S = (letter)? letter .	
 	`
 	in := "●a"
 	out := ``
@@ -546,7 +546,7 @@ func TestLrparserErr1(t *testing.T) {
 }
 func TestLrparserErr2(t *testing.T) {
 	gram := `
-		rule ^S = (digit)+ (letter)? digit // was endless loop "●111+a"
+		^S = (digit)+ (letter)? digit . // was endless loop "●111+a"
 	`
 	in := "●111+a"
 	out := ``
@@ -558,8 +558,8 @@ func TestLrparserErr2(t *testing.T) {
 }
 func TestLrparserErr3(t *testing.T) {
 	gram := `
-		rule ^S = (digit)+ (letter)? ":"
-		//rule ^S = (digit)+ (letter)? // ok
+		^S = (digit)+ (letter)? ":" .
+		//^S = (digit)+ (letter)? . // ok
 	`
 	in := "●111a"
 	out := ``
