@@ -117,10 +117,12 @@ func (sd *StatesData) sortForParse(rset RuleSet) []Rule {
 			switch t.typ {
 			case stringrNone: // ex: keywords
 				return 1, string(t.runes)
-			case stringrMidMatch: // ex: keywords
+			case stringrMid: // ex: keywords
 				return 2, string(t.runes)
-			case stringrRunes: // individual runes
+			case stringrOr: // individual runes
 				return 3, string(t.runes)
+			case stringrNot: // individual runes
+				return 4, string(t.runes)
 			default:
 				panic(goutil.TodoErrorStr(string(t.typ)))
 			}
@@ -154,29 +156,132 @@ func (sd *StatesData) sortForParse(rset RuleSet) []Rule {
 //----------
 
 func (sd *StatesData) solveConflicts(vd *VerticesData) error {
-	// strings conflicts
+	// strings conflicts: util func
+	checkDuplicate := func(m map[rune]Rule, st *State, r Rule, ru rune) error {
+		r2, ok := m[ru]
+		if !ok {
+			m[ru] = r
+			return nil
+		}
+		return fmt.Errorf("%v: rune %q in %v is already defined at %v", st.id, ru, r, r2)
+	}
+
+	// strings conflicts (runes)
 	for _, st := range sd.states {
-		m := map[rune]Rule{}
+		orM := map[rune]Rule{}
+		notM := map[rune]Rule{}
+
+		// check duplicates
 		for _, r := range st.rsetSorted {
-			if sr, ok := r.(*StringRule); ok {
-				switch sr.typ {
-				case stringrRunes:
-					for _, ru := range sr.runes {
-						r3, ok := m[ru]
-						if !ok {
-							m[ru] = r
-							continue
-						}
-						if r3 == r {
-							return fmt.Errorf("%v: duplicated rune %q in rule %v", st.id, ru, r3)
-						} else {
-							return fmt.Errorf("%v: rune %q in %v is already in rset %v", st.id, ru, r, r3)
-						}
+			sr, ok := r.(*StringRule)
+			if !ok {
+				continue
+			}
+			switch sr.typ {
+			case stringrNone:
+				if len(sr.runes) == 1 {
+					if err := checkDuplicate(orM, st, r, sr.runes[0]); err != nil {
+						return err
+					}
+				}
+			case stringrOr:
+				for _, ru := range sr.runes {
+					if err := checkDuplicate(orM, st, r, ru); err != nil {
+						return err
+					}
+				}
+			case stringrNot:
+				for _, ru := range sr.runes {
+					if err := checkDuplicate(notM, st, r, ru); err != nil {
+						return err
 					}
 				}
 			}
 		}
+
+		// check conflicts: all "or" runes must be in "not"
+		if len(notM) > 0 {
+			for ru, r := range orM {
+				_, ok := notM[ru]
+				if !ok {
+					// show all not rules
+					u := []Rule{}
+					for _, v := range notM {
+						u = append(u, v)
+					}
+
+					return fmt.Errorf("%v: rune %q in %v is covered in %v", st.id, ru, r, u)
+				}
+			}
+		}
+
 	}
+
+	//	for _, st := range sd.states {
+	//		// string "and"
+	//		andM := map[rune]Rule{}
+	//		for _, r := range st.rsetSorted {
+
+	//		}
+
+	//		// string "or"
+	//		orM := map[rune]Rule{}
+	//		for _, r := range st.rsetSorted {
+	//			sr, ok := r.(*StringRule)
+	//			if !ok {
+	//				continue
+	//			}
+	//			if sr.typ != stringrOr {
+	//				continue
+	//			}
+	//			for _, ru := range sr.runes {
+	//				r3, ok := orM[ru]
+	//				if !ok {
+	//					orM[ru] = r
+	//					continue
+	//				}
+	//				if r3 == r {
+	//					return fmt.Errorf("%v: duplicated rune %q in rule %v", st.id, ru, r3)
+	//				} else {
+	//					return fmt.Errorf("%v: rune %q in %v is already in rset %v", st.id, ru, r, r3)
+	//				}
+	//			}
+	//		}
+
+	//		// string "not"
+	//		notM := map[rune]Rule{}
+	//		for _, r := range st.rsetSorted {
+	//			sr, ok := r.(*StringRule)
+	//			if !ok {
+	//				continue
+	//			}
+	//			if sr.typ != stringrNot {
+	//				continue
+	//			}
+	//			for _, ru := range sr.runes {
+	//				r3, ok := notM[ru]
+	//				if !ok {
+	//					notM[ru] = r
+	//					continue
+	//				}
+	//				if r3 == r {
+	//					return fmt.Errorf("%v: duplicated rune %q in rule %v", st.id, ru, r3)
+	//				} else {
+	//					return fmt.Errorf("%v: rune %q in %v is already in rset %v", st.id, ru, r, r3)
+	//				}
+	//			}
+	//		}
+
+	//		// string "or"/"not" check
+	//		if len(notM) > 0 {
+	//			for ru, _ := range orM { // all "or" runes must be in "not"
+	//				_, ok := notM[ru]
+	//				if !ok {
+	//					return fmt.Errorf("%v: rune %q in 'or' but no in 'not'", st.id, ru)
+	//				}
+	//			}
+	//		}
+	//	}
 
 	// action conflicts
 	me := iout.MultiError{}

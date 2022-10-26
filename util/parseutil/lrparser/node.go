@@ -14,7 +14,7 @@ type PNode interface {
 
 //----------
 
-func pnodeSrc(node PNode, src []byte) string {
+func pnodeSrc(node PNode, src []byte) string { // TODO: return []byte
 	pos, end := node.Pos(), node.End()
 	if pos > end {
 		pos, end = end, pos
@@ -105,8 +105,11 @@ func (d *BuildNodeData) End() int {
 	return d.cpn.End()
 }
 
-func (d *BuildNodeData) Src() string {
+func (d *BuildNodeData) NodeSrc() string {
 	return pnodeSrc(d.cpn, d.ps.src)
+}
+func (d *BuildNodeData) FullSrc() []byte {
+	return d.ps.src
 }
 func (d *BuildNodeData) Data() interface{} {
 	return d.cpn.data
@@ -114,7 +117,7 @@ func (d *BuildNodeData) Data() interface{} {
 func (d *BuildNodeData) SetData(v interface{}) {
 	d.cpn.data = v
 }
-func (d *BuildNodeData) IsNil() bool {
+func (d *BuildNodeData) IsEmpty() bool { // TODO: rename IsEmpty
 	return d.cpn.pos == d.cpn.end // TODO: nil flag?
 }
 

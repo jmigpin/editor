@@ -13,8 +13,8 @@ type ContentParser struct {
 	sd           *StatesData
 	buildNodeFns map[Rule]BuildNodeFn
 
-	stk cpStack
 	// run vars (need reset for each parse)
+	stk       cpStack
 	earlyStop struct {
 		on               bool
 		err              error
@@ -306,12 +306,16 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 			if err := ps.MatchRunesAnd(t.runes); err != nil {
 				return err
 			}
-		case stringrRunes:
+		case stringrOr:
 			if err := ps.MatchRunesOr(t.runes); err != nil {
 				return err
 			}
-		case stringrMidMatch:
+		case stringrMid:
 			if err := ps.matchRunesMid(t.runes); err != nil {
+				return err
+			}
+		case stringrNot:
+			if err := ps.matchRunesNot(t.runes); err != nil {
 				return err
 			}
 		default:

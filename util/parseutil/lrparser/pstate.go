@@ -42,6 +42,9 @@ func (ps *PState) readRune() (rune, error) {
 	ps.i += size
 	return ru, nil
 }
+
+//----------
+
 func (ps *PState) MatchRune(ru rune) error {
 	ps2 := ps.copy()
 	ru2, err := ps2.readRune()
@@ -60,11 +63,9 @@ func (ps *PState) MatchRunesOr(rs []rune) error {
 	if err != nil {
 		return err
 	}
-	for _, ru2 := range rs {
-		if ru2 == ru {
-			ps.set(ps2)
-			return nil
-		}
+	if containsRune(rs, ru) {
+		ps.set(ps2)
+		return nil
 	}
 	return errors.New("no match")
 }
@@ -85,9 +86,6 @@ func (ps *PState) MatchRunesAnd(rs []rune) error {
 	}
 	ps.set(ps2)
 	return nil
-}
-func (ps *PState) matchString(s string) error {
-	return ps.MatchRunesAnd([]rune(s))
 }
 func (ps *PState) matchRunesMid(rs []rune) error {
 	ps2 := ps.copy()
@@ -111,6 +109,25 @@ func (ps *PState) matchRunesMid(rs []rune) error {
 	}
 	return errors.New("no match")
 }
+func (ps *PState) matchRunesNot(rs []rune) error {
+	ps2 := ps.copy()
+	ru, err := ps2.readRune()
+	if err != nil {
+		return err
+	}
+	if !containsRune(rs, ru) {
+		ps.set(ps2)
+		return nil
+	}
+	return errors.New("no match")
+}
+
+func (ps *PState) matchString(s string) error {
+	return ps.MatchRunesAnd([]rune(s))
+}
+
+//----------
+
 func (ps *PState) matchEof() error {
 	ps2 := ps.copy()
 	_, err := ps2.readRune()
@@ -192,3 +209,16 @@ func (ps *PState) consumeToNLIncluding() bool {
 //----------
 
 type pstateParseFn func(ps *PState) error
+
+//----------
+//----------
+//----------
+
+func containsRune(rs []rune, ru rune) bool {
+	for _, ru2 := range rs {
+		if ru2 == ru {
+			return true
+		}
+	}
+	return false
+}

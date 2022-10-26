@@ -264,15 +264,15 @@ func TestLrparser11c(t *testing.T) {
 }
 func TestLrparser12(t *testing.T) {
 	gram := `
-		^S = (&":\"'")+ .
+		^S = (%":\"'")+ .
 	`
 	in := "●:\":"
 	out := `
 		-> ^S: ":\":"
-	        	-> (&":\"'")+: ":\":"
-	        		-> &":\"'": ":"
-	        		-> &":\"'": "\""
-	        		-> &":\"'": ":"
+	        	-> (%":\"'")+: ":\":"
+	        		-> %":\"'": ":"
+	        		-> %":\"'": "\""
+	        		-> %":\"'": ":"
 	`
 	testLrparserMode1(t, gram, in, out)
 }
@@ -332,18 +332,30 @@ func TestLrparser15(t *testing.T) {
 }
 func TestLrparser16(t *testing.T) {
 	gram := `
-		^S = ~s2 (&s2)+ .
+		^S = ~s2 (%s2)+ .
 		s2 = "abc" .
 	`
 	in := "ab●caa"
 	out := `
 		-> ^S: "caa"
 	        	-> ~"abc": "c"
-	        	-> (&"abc")+: "aa"
-	        		-> &"abc": "a"
-	        		-> &"abc": "a"
+	        	-> (%"abc")+: "aa"
+	        		-> %"abc": "a"
+	        		-> %"abc": "a"
 	`
 	testLrparserMode2(t, gram, in, out, false, false, false)
+}
+func TestLrparser17(t *testing.T) {
+	gram := `
+		^S = !"+" "+" .
+	`
+	in := "●0+"
+	out := `
+		-> ^S: "0+"
+	        	-> !"+": "0"
+	        	-> "+": "+"
+	`
+	testLrparserMode1(t, gram, in, out)
 }
 
 //----------

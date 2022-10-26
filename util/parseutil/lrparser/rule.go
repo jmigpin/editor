@@ -66,6 +66,7 @@ func (r *CmnRule) childs() []Rule {
 //----------
 
 // definition rule
+// (1 child)
 type DefRule struct {
 	CmnPNode
 	CmnRule
@@ -116,6 +117,7 @@ var defRuleStartSym = "^" // used in grammar
 
 // reference to a rule
 // replaced in dereference phase
+// (0 childs)
 type RefRule struct {
 	CmnPNode
 	CmnRule
@@ -135,6 +137,7 @@ func (r *RefRule) String() string {
 
 //----------
 
+// (n childs as a sequence, not productions)
 type AndRule struct {
 	CmnPNode
 	CmnRule
@@ -199,7 +202,8 @@ func (r *IfRule) String() string {
 //----------
 
 // To be used in src code and then found by IfRule; the value is observed when building the contentparser, not at parse time
-type BoolRule struct { // (0 childs)
+// (0 childs)
+type BoolRule struct {
 	CmnRule
 	name  string
 	value bool
@@ -287,7 +291,8 @@ func (r *FuncRule) String() string {
 
 //----------
 
-type SingletonRule struct { // (0 childs)
+// (0 childs)
+type SingletonRule struct {
 	CmnPNode
 	CmnRule
 	name   string
@@ -333,9 +338,10 @@ const (
 type stringrType rune
 
 const (
-	stringrNone     stringrType = 0
-	stringrRunes    stringrType = '&'
-	stringrMidMatch stringrType = '~'
+	stringrNone stringrType = 0 // runes "and" (default)
+	stringrOr   stringrType = '%'
+	stringrMid  stringrType = '~' // middle match
+	stringrNot  stringrType = '!'
 )
 
 //----------
@@ -471,12 +477,28 @@ func ruleCanBeNil(r Rule) bool {
 	}
 	return false
 }
-func ruleInnerStringRule(r Rule) (*StringRule, bool) {
+func ruleInnerStringRule(r Rule, m map[string]*Rule) (*StringRule, bool) {
 	switch t := r.(type) {
 	case *StringRule:
 		return t, true
 	case *DefRule:
-		return ruleInnerStringRule(t.onlyChild())
+		return ruleInnerStringRule(t.onlyChild(), m)
+	case *RefRule:
+		r2, ok := m[t.name]
+		if ok {
+			return ruleInnerStringRule(*r2, m)
+		}
+	case *AndRule:
+		// concat
+		sr2 := &StringRule{}
+		for _, c := range t.childs() {
+			sr3, ok := ruleInnerStringRule(c, m)
+			if !ok {
+				return nil, false
+			}
+			sr2.runes = append(sr2.runes, sr3.runes...)
+		}
+		return sr2, true
 	}
 	return nil, false
 }

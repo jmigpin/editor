@@ -20,10 +20,11 @@ pyLineStr = ", line " .
 #----------
 
 schemeFile = "file://" (schHost)? schPath (cLineCol)? .
-schHost = (letter | digit | &".-_")+ .
+schHost = (letter | digit | %".-_")+ .
 schPath = schSep schVolume schNames .
 schVolume = if rlParseVolume ? volume schSep : nil .
-schNames = (schSep | fiName)+ .
+schNames = (schSep | schName)+ .
+schName = (fiNameItem | %rlExtraSchemeNameSyms)+ .
 schSep = "/" .
 
 #----------
@@ -31,8 +32,8 @@ schSep = "/" .
 filename = fiVolume fiNames .
 fiVolume = if rlParseVolume ? volume fiSep : nil .
 fiNames =  (fiSep | fiName)+ .
-fiName = (letter | digit | fiSyms | fiEsc)+ .
-fiSyms = &rlExtraSyms .
+fiName = (fiNameItem | %rlExtraFileNameSyms)+ .
+fiNameItem = letter | digit | fiEsc .
 fiEsc = rlEsc anyrune .
 fiSep = rlSep .
 
@@ -49,10 +50,13 @@ volume = letter ":" .
 reverse =
 	(pyQuote)?
 	(if rlParseVolume ? volume : nil)
-	(revSep | fiName)*
+	(revNames)?
 	(pyQuote)?
-	(~pyLineStr)?
+	(~pyLineStr)?		# middle match
 	(":" | digits)* 		# cLineCol
 	(rlEsc)*
 	.
-revSep = if rlParseVolume ? fiSep | schSep : fiSep .
+revNames = fiNames . # covers both file and scheme path separators
+#revNames = (revSep | revName)+ .
+#revName = fiName .
+#revSep = if rlSepIsFSlash ? rlSep : rlSep | schSep .

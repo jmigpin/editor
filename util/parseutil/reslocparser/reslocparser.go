@@ -59,11 +59,14 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 	// setup predefined rules
 	poe(p.lrp.SetBoolRule("rlParseVolume", p.ParseVolume))
 	poe(p.lrp.SetStringRule("rlSep", string(p.PathSeparator)))
+	//poe(p.lrp.SetBoolRule("rlSepIsFSlash", p.PathSeparator == '/')) // same as scheme separator
 	poe(p.lrp.SetStringRule("rlEsc", string(p.Escape)))
 	// setup extra symbols (with some removals)
 	rm := nameSepSyms + string(p.Escape) + string(p.PathSeparator)
 	u := parseutil.RunesExcept(extraSyms, rm)
-	poe(p.lrp.SetStringRule("rlExtraSyms", u))
+	poe(p.lrp.SetStringRule("rlExtraFileNameSyms", u))
+	u2 := parseutil.RunesExcept(extraSyms, rm+"/") // don't include scheme path separator
+	poe(p.lrp.SetStringRule("rlExtraSchemeNameSyms", u2))
 
 	revOpt := &lrparser.CPOpt{
 		StartRule:         "reverse",
@@ -140,7 +143,7 @@ func (p *ResLocParser) buildCFile(d *lrparser.BuildNodeData) error {
 	// filename
 	rl.Path = d.ChildStr(0)
 	// cLineCol
-	if d2 := d.Child(1); !d2.IsNil() { // parenthesis optional
+	if d2 := d.Child(1); !d2.IsEmpty() { // parenthesis optional
 		d2 = d2.Child(0) // inner rule: cLineCol
 		u := d2.Data().([]int)
 		rl.Line = u[0]
@@ -156,7 +159,7 @@ func (p *ResLocParser) buildPyFile(d *lrparser.BuildNodeData) error {
 	// filename
 	rl.Path = d.Child(0).ChildStr(1)
 	// digits
-	if d2 := d.Child(1); !d2.IsNil() {
+	if d2 := d.Child(1); !d2.IsEmpty() {
 		if line, err := d2.ChildInt(1); err != nil {
 			return err
 		} else {
@@ -173,7 +176,7 @@ func (p *ResLocParser) buildSchemeFile(d *lrparser.BuildNodeData) error {
 	// path
 	rl.Path = d.ChildStr(2)
 	// cLineCol
-	if d2 := d.Child(3); !d2.IsNil() { // parenthesis optional
+	if d2 := d.Child(3); !d2.IsEmpty() { // parenthesis optional
 		d2 = d2.Child(0) // parenthesis
 		d2 = d2.Child(0) // inner rule: cLineCol
 		u := d2.Data().([]int)
@@ -194,7 +197,7 @@ func (p *ResLocParser) buildCLineCol(d *lrparser.BuildNodeData) error {
 		line = line2
 	}
 	// column
-	if d3 := d.Child(2); !d3.IsNil() { // parenthesis optional
+	if d3 := d.Child(2); !d3.IsEmpty() { // parenthesis optional
 		if col2, err := d3.ChildInt(1); err != nil {
 			return err
 		} else {

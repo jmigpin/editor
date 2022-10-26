@@ -214,11 +214,10 @@ func replaceRefRules(ri *RuleIndex) error {
 				err := fmt.Errorf("rule not found: %v", t.name)
 				return &PosError{err: err, Pos: t.Pos()}
 			}
-			// replace with stringrule
-			t2 := *rref // just replaced above
-			switch t.stringrType {
-			case stringrRunes, stringrMidMatch:
-				sr, ok := ruleInnerStringRule(t2)
+			// solve stringrule references (replace with stringrule)
+			if t.stringrType != stringrNone {
+				t2 := *rref // just replaced above
+				sr, ok := ruleInnerStringRule(t2, ri.m)
 				if !ok {
 					return &PosError{err: fmt.Errorf("expecting stringrule"), Pos: t.Pos()}
 				}

@@ -37,13 +37,13 @@ func (gp *grammarParser) parse2(ps *PState) error {
 }
 func (gp *grammarParser) parse3(ps *PState) (bool, error) {
 	gp.parseOptionalSpacesOrComments(ps)
-	if err := gp.parseRule(ps); err == nil {
-		return true, err
-	}
 	if err := ps.matchEof(); err == nil {
 		return false, nil
 	}
-	return false, errors.New("unexpected")
+	if err := gp.parseRule(ps); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 func (gp *grammarParser) parseRule(ps *PState) error {
 	i0 := ps.i
@@ -79,7 +79,7 @@ func (gp *grammarParser) parseRule(ps *PState) error {
 	gp.parseOptionalSpacesOrComments(ps)
 
 	if err := ps.MatchRune('.'); err != nil {
-		return errors.New("expecting .")
+		return errors.New("expecting '.'")
 	}
 
 	// setup
@@ -194,10 +194,10 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 		}
 
 		if err := gp.parseAndRule(ps2); err != nil {
-			if i == 0 {
-				ps.set(ps2) // better error?
-				return err  // fail, no rule
-			}
+			//if i == 0 {
+			//	ps.set(ps2) // better error?
+			//	return err  // fail, no rule
+			//}
 			ps.set(ps2)
 			return err // fail, not expecting error after sep
 		}
@@ -331,8 +331,9 @@ func (gp *grammarParser) parseStringRuleType(ps *PState) (stringrType, bool) {
 	}
 	switch t := stringrType(ru); t {
 	case stringrNone,
-		stringrRunes,
-		stringrMidMatch:
+		stringrOr,
+		stringrMid,
+		stringrNot:
 		ps.set(ps2) // advance
 		return t, true
 	}
