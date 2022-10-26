@@ -256,13 +256,17 @@ func (gp *grammarParser) parseBasicItemRule(ps *PState) error {
 }
 func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 	i0 := ps.i
-	name, err := gp.parseName(ps)
+
+	// options
+	ps2 := ps.copy()
+	st, _ := gp.parseStringRuleType(ps2)
+
+	name, err := gp.parseName(ps2)
 	if err != nil {
 		return nil, false // err is lost
 	}
 
-	// options
-	st, _ := gp.parseStringRuleType(ps)
+	ps.set(ps2) // advance
 
 	res := &RefRule{name: name, stringrType: st}
 	res.setPos(i0, ps.i)
@@ -272,15 +276,20 @@ func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 
 func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
 	i0 := ps.i
+
+	// options
 	ps2 := ps.copy()
-	quoteRu, err := ps.readRune()
+	st, _ := gp.parseStringRuleType(ps2)
+
+	quoteRu, err := ps2.readRune()
 	if err != nil {
 		return err, false
 	}
 	if quoteRu != '"' {
-		ps.set(ps2) // go back
 		return errors.New("expecting quote"), false
 	}
+
+	ps.set(ps2) // advance
 
 	s := string(quoteRu)
 	esc := '\\' // alows to escape the quote
@@ -307,9 +316,6 @@ func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
 	if err != nil {
 		return err, true
 	}
-
-	// options
-	st, _ := gp.parseStringRuleType(ps)
 
 	res := &StringRule{runes: []rune(u), typ: st}
 	res.setPos(i0, ps.i)

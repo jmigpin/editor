@@ -260,7 +260,7 @@ func (r *StringRule) id() string {
 	if r.typ != stringrNone {
 		s = string(r.typ)
 	}
-	return fmt.Sprintf("%q%v", string(r.runes), s)
+	return fmt.Sprintf("%v%q", s, string(r.runes))
 }
 func (r *StringRule) String() string {
 	return r.id()

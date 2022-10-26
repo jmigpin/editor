@@ -20,10 +20,10 @@ func TestGrammarParser1(t *testing.T) {
 }
 func TestGrammarParser2(t *testing.T) {
 	in := `	
-		^S = (a|b|"cd"&)? .
+		^S = (a|b|&"cd")? .
 	`
 	out := `
-		^S = {p:([{r:a} | {r:b} | "cd"&])?}
+		^S = {p:([{r:a} | {r:b} | &"cd"])?}
 	`
 	testGrammarParserMode1(t, in, out)
 }
