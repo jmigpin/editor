@@ -10,7 +10,6 @@ import (
 
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"golang.org/x/sync/errgroup"
 )
 
 // Notes:
@@ -299,29 +298,26 @@ func (man *Manager) TextDocumentRenameAndPatch(ctx context.Context, filename str
 		}
 	}
 
-	// patch (concurrent)
-	eg, _ := errgroup.WithContext(ctx)
-	eg.SetLimit(4)
-	for _, wec0 := range wecs {
-		wec2 := wec0 // local var to avoid overwrite on next iteration
-		eg.Go(func() error {
-			filename := wec2.Filename
-			b, err := ioutil.ReadFile(filename)
-			if err != nil {
-				return err
-			}
-			res, err := PatchTextEdits(b, wec2.Edits)
-			if err != nil {
-				return err
-			}
-			if err := os.WriteFile(filename, res, 0o644); err != nil {
-				return err
-			}
-
-			return man.SyncText(ctx, filename, rd)
-		})
+	// two or more changes to the same file can give trouble (don't using concurrency for this)
+	for _, wec := range wecs {
+		filename := wec.Filename
+		b, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
+		res, err := PatchTextEdits(b, wec.Edits)
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(filename, res, 0o644); err != nil {
+			return nil, err
+		}
+		if err := man.SyncText(ctx, filename, rd); err != nil {
+			return nil, err
+		}
 	}
-	return wecs, eg.Wait()
+
+	return wecs, nil
 }
 
 //----------
