@@ -159,7 +159,7 @@ func (fl *flags) addStringifyBytesRunesFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.stringifyBytesRunes, "sbr", false, "Stringify bytes/runes as string (ex: [97 98 99] outputs as \"abc\")")
 }
 func (fl *flags) addSrcLinesFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&fl.srcLines, "srclines", false, "add src reference lines to the compilation such that in case of panics, the stack refers to the original src file")
+	fs.BoolVar(&fl.srcLines, "srclines", true, "add src reference lines to the compilation such that in case of panics, the stack refers to the original src file")
 }
 func (fl *flags) addToolExecFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.toolExec, "toolexec", "", "a program to invoke before the program argument. Useful to run a tool with the output file (ex: wine)")
