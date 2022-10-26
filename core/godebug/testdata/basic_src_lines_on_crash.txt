@@ -1,9 +1,9 @@
 # main.go does not have 25 lines. The panic reference will not work because it is from the annotated file.
-fail ucmd godebugtester run main.go
+fail ucmd godebugtester run -srclines=false main.go
 contains stderr "main.go:25"
 contains stderr "GODEBUG WARNING"
 
-fail ucmd godebugtester run -srclines -work main.go
+fail ucmd godebugtester run -srclines=true main.go
 contains stderr "main.go:7"
 fail contains stderr "GODEBUG WARNING"
 
