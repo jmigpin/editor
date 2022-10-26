@@ -15,5 +15,10 @@ require (
 	golang.org/x/tools v0.1.11
 )
 
-retract v2.0.1+incompatible
-retract v2.0.2+incompatible
+retract (
+	v2.0.1+incompatible
+	v2.0.2+incompatible
+	v2.0.6-alpha.2+incompatible 
+	v2.0.7-alpha.1+incompatible 
+	v2.0.7+incompatible
+)
