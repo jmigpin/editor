@@ -37,6 +37,9 @@ func newContentParser(opt *CPOpt, ri *RuleIndex) (*ContentParser, error) {
 	sd, err := newStatesData(vd, cp.Opt.ShiftOnSRConflict)
 	if err != nil {
 		//cp.Opt.Logf("%v\n", vd)
+		if sd != nil {
+			cp.Opt.Logf("%v\n", sd)
+		}
 		return nil, err
 	}
 	cp.sd = sd
@@ -53,8 +56,8 @@ func (cp *ContentParser) Parse(src []byte, index int) (*BuildNodeData, error) {
 func (cp *ContentParser) ParseFileSet(fset *FileSet, index int) (*BuildNodeData, error) {
 	// DEBUG
 	if cp.Opt.LogfFn != nil {
-		cp.Opt.Logf(cp.vd.String())
-		cp.Opt.Logf(cp.sd.String())
+		cp.Opt.Logf("%v", cp.vd)
+		cp.Opt.Logf("%v", cp.sd)
 	}
 
 	ps := &PState{src: fset.Src, i: index, reverse: cp.vd.reverse}
@@ -130,6 +133,10 @@ func (cp *ContentParser) shift(ps *PState, t *ActionShift) (Rule, error) {
 	cp.stk = append(cp.stk, item)
 	cp.Opt.Logf("%v\n", cp.stk)
 
+	if err := cp.buildNode(ps, cpn.rule, cpn); err != nil {
+		return nil, err
+	}
+
 	// next input
 	return cp.nextParseRule(ps, t.st)
 }
@@ -155,17 +162,21 @@ func (cp *ContentParser) reduce(ps *PState, ar *ActionReduce) error {
 	cp.stk = append(cp.stk, item4) // push "goto" to stk
 	cp.Opt.Logf("%v\n", cp.stk)
 
-	// build/alter node func
-	if !cpn.simulated {
-		if fn, ok := cp.buildNodeFns[ar.prod]; ok {
-			d := &BuildNodeData{ps: ps, cpn: cpn}
-			if err := fn(d); err != nil {
-				return err
-			}
-		}
-	}
+	return cp.buildNode(ps, ar.prod, cpn)
+}
 
-	return nil
+//----------
+
+func (cp *ContentParser) buildNode(ps *PState, r Rule, cpn *CPNode) error {
+	if cpn.simulated {
+		return nil
+	}
+	fn, ok := cp.buildNodeFns[r]
+	if !ok {
+		return nil
+	}
+	d := &BuildNodeData{ps: ps, cpn: cpn}
+	return fn(d)
 }
 
 //----------
@@ -324,11 +335,11 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 		ps.parseNode = newCPNode(i0, ps.i, t)
 	case *FuncRule:
 		i0 := ps.i
-		ps2 := ps.copy()
+		ps2 := ps.Copy()
 		if err := t.fn(ps2); err != nil {
 			return err
 		}
-		ps.set(ps2)
+		ps.Set(ps2)
 		ps.parseNode = newCPNode(i0, ps.i, t)
 	case *SingletonRule:
 		switch t {
@@ -343,7 +354,7 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 			ps.parseNode = newCPNode(ps.i, ps.i, t)
 		case anyruneRule:
 			i0 := ps.i
-			if _, err := ps.readRune(); err != nil {
+			if _, err := ps.ReadRune(); err != nil {
 				return err // fails at eof
 			}
 			ps.parseNode = newCPNode(i0, ps.i, t)

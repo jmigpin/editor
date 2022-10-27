@@ -357,6 +357,48 @@ func TestLrparser17(t *testing.T) {
 	`
 	testLrparserMode1(t, gram, in, out)
 }
+func TestLrparser18(t *testing.T) {
+	gram := `
+		^S = !s2 "+" .
+		s2 = %"abc"|%"defg"	 .
+	`
+	in := "●h+"
+	out := `
+		-> ^S: "h+"
+	        	-> !"abcdefg": "h"
+	        	-> "+": "+"
+	`
+	testLrparserMode1(t, gram, in, out)
+}
+func TestLrparser19(t *testing.T) {
+	gram := `
+		^S = (&dropRunes(%s2 %"b"))+.
+		s2 = "abc".
+	`
+	in := "●ac"
+	out := `
+		-> ^S: "ac"
+	        	-> (%"ac")+: "ac"
+	        		-> %"ac": "a"
+	        		-> %"ac": "c"
+	`
+	testLrparserMode1(t, gram, in, out)
+}
+func TODO_TestLrparser20(t *testing.T) {
+	gram := `
+		^S = ((s2)+ s3)+ .
+		s2 = "abc".
+		s3 = "de".
+	`
+	in := "●abcabcde"
+	out := `
+		-> ^S: "ac"
+	        	-> (%"ac")+: "ac"
+	        		-> %"ac": "a"
+	        		-> %"ac": "c"
+	`
+	testLrparserMode1(t, gram, in, out)
+}
 
 //----------
 
@@ -539,6 +581,26 @@ func TestLrparserRev4(t *testing.T) {
 	bnd := testLrparserMode2(t, gram, in, out, true, true, false)
 	if bnd.Pos() != 4 {
 		t.Fatalf("bad pos: %v", bnd.Pos())
+	}
+}
+func TestLrparserRev5(t *testing.T) {
+	gram := `
+		^S = (&escapeAny(esc))+ (esc)+ .
+		esc = "\\" .	
+	`
+	in := "aaa\\:\\ \\● bb"
+	out := `
+		-> ^S: "\\:\\ \\"
+	        	-> ()+: "\\:\\ "
+	        		-> : "\\:"
+	        		-> : "\\ "
+	        	-> (esc)+: "\\"
+	        		-> esc: "\\"
+	        			-> "\\": "\\"
+	`
+	bnd := testLrparserMode2(t, gram, in, out, true, true, false)
+	if bnd.End() != 3 {
+		t.Fatalf("bad pos: %v", bnd.End())
 	}
 }
 

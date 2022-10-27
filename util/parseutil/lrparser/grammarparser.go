@@ -50,7 +50,7 @@ func (gp *grammarParser) parseRule(ps *PState) error {
 
 	// is start
 	isStart := false
-	err := ps.matchString(defRuleStartSym)
+	err := ps.MatchString(defRuleStartSym)
 	if err == nil {
 		isStart = true
 	}
@@ -79,7 +79,7 @@ func (gp *grammarParser) parseRule(ps *PState) error {
 	gp.parseOptionalSpacesOrComments(ps)
 
 	if err := ps.MatchRune('.'); err != nil {
-		return errors.New("expecting '.'")
+		return errors.New("expecting dot \".\" to close rule")
 	}
 
 	// setup
@@ -93,13 +93,20 @@ func (gp *grammarParser) parseRule(ps *PState) error {
 func (gp *grammarParser) parseName(ps *PState) (string, error) {
 	name := ""
 	for {
-		ps2 := ps.copy()
-		ru, err := ps.readRune()
+		ps2 := ps.Copy()
+		ru, err := ps.ReadRune()
 		if err != nil {
 			break
 		}
+
+		// special case: accept endrule
+		if name+string(ru) == endRule.id() {
+			name += string(ru)
+			break
+		}
+
 		if !(unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_') {
-			ps.set(ps2) // go back
+			ps.Set(ps2) // go back
 			break
 		}
 		name += string(ru)
@@ -121,7 +128,7 @@ func (gp *grammarParser) parseItemRule(ps *PState) error {
 func (gp *grammarParser) parseIfRule(ps *PState) error {
 	i0 := ps.i
 
-	if err := ps.matchString("if "); err != nil {
+	if err := ps.MatchString("if "); err != nil {
 		return gp.parseOrRule(ps) // ok, not an ifrule
 	}
 
@@ -133,7 +140,7 @@ func (gp *grammarParser) parseIfRule(ps *PState) error {
 
 	// then
 	gp.parseOptionalSpacesOrComments(ps)
-	if err := ps.matchString("?"); err != nil {
+	if err := ps.MatchString("?"); err != nil {
 		return fmt.Errorf("expecting '?'")
 	}
 	gp.parseOptionalSpacesOrComments(ps)
@@ -144,7 +151,7 @@ func (gp *grammarParser) parseIfRule(ps *PState) error {
 
 	// else
 	gp.parseOptionalSpacesOrComments(ps)
-	if err := ps.matchString(":"); err != nil {
+	if err := ps.MatchString(":"); err != nil {
 		return fmt.Errorf("expecting ':'")
 	}
 	gp.parseOptionalSpacesOrComments(ps)
@@ -168,16 +175,16 @@ func (gp *grammarParser) parseIfRule(ps *PState) error {
 
 func (gp *grammarParser) parseOrRule(ps *PState) error {
 	i0 := ps.i
-	ps2 := ps.copy()
+	ps2 := ps.Copy()
 	w := []Rule{}
 	for i := 0; ; i++ {
 		// handle separator
 		if i > 0 {
 			gp.parseOptionalSpacesOrComments(ps2)
-			ps3 := ps2.copy()
+			ps3 := ps2.Copy()
 			if err := ps2.MatchRune('|'); err != nil {
 				if i == 1 {
-					ps.set(ps3)
+					ps.Set(ps3)
 					return nil // ok, just not an OR
 				}
 
@@ -186,7 +193,7 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 				res.setPos(i0, ps2.i)
 				ps2.parseNode = res
 
-				ps.set(ps2)
+				ps.Set(ps2)
 				return nil // ok
 			}
 
@@ -198,7 +205,7 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 			//	ps.set(ps2) // better error?
 			//	return err  // fail, no rule
 			//}
-			ps.set(ps2)
+			ps.Set(ps2)
 			return err // fail, not expecting error after sep
 		}
 
@@ -207,7 +214,7 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 	}
 }
 func (gp *grammarParser) parseAndRule(ps *PState) error {
-	ps2 := ps.copy()
+	ps2 := ps.Copy()
 	w := []Rule{}
 	for i := 0; ; i++ {
 		// handle separator
@@ -217,11 +224,11 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 
 		if err := gp.parseBasicItemRule(ps2); err != nil {
 			if i == 0 {
-				ps.set(ps2) // better error?
+				ps.Set(ps2) // better error?
 				return err  // fail, no rule
 			}
 			if i == 1 {
-				ps.set(ps2)
+				ps.Set(ps2)
 				return nil // ok, just not an AND
 			}
 			break // ok, don't include the spaces
@@ -235,7 +242,7 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 	res.childs2 = w
 	res.setPos(ps.i, ps2.i)
 	ps2.parseNode = res
-	ps.set(ps2)
+	ps.Set(ps2)
 
 	return nil
 }
@@ -243,6 +250,9 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 //----------
 
 func (gp *grammarParser) parseBasicItemRule(ps *PState) error {
+	if err, ok := gp.parseCallRule(ps); ok {
+		return err
+	}
 	if err, ok := gp.parseRefRule(ps); ok {
 		return err
 	}
@@ -254,11 +264,43 @@ func (gp *grammarParser) parseBasicItemRule(ps *PState) error {
 	}
 	return errors.New("unable to parse basic item")
 }
+func (gp *grammarParser) parseCallRule(ps *PState) (error, bool) {
+	i0 := ps.i
+	// header
+	callRuleSym := "&"
+	if err := ps.MatchString(callRuleSym); err != nil {
+		return err, false
+	}
+	// name
+	name, err := gp.parseName(ps)
+	if err != nil {
+		return err, true
+	}
+	// arg
+	if err := ps.MatchRune('('); err != nil {
+		return err, true
+	}
+	if err := gp.parseItemRule(ps); err != nil {
+		return err, true
+	}
+	ruleX := ps.parseNode.(Rule)
+	if err := ps.MatchRune(')'); err != nil {
+		return err, true
+	}
+
+	res := &ProcRule{}
+	res.name = callRuleSym + name
+	res.addChild(ruleX)
+	res.setPos(i0, ps.i)
+	ps.parseNode = res
+
+	return nil, true
+}
 func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 	i0 := ps.i
 
 	// options
-	ps2 := ps.copy()
+	ps2 := ps.Copy()
 	st, _ := gp.parseStringRuleType(ps2)
 
 	name, err := gp.parseName(ps2)
@@ -266,9 +308,10 @@ func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 		return nil, false // err is lost
 	}
 
-	ps.set(ps2) // advance
+	ps.Set(ps2) // advance
 
-	res := &RefRule{name: name, stringrType: st}
+	res := &RefRule{name: name}
+	res.srRef.typ = st
 	res.setPos(i0, ps.i)
 	ps.parseNode = res
 	return nil, true
@@ -278,10 +321,10 @@ func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
 	i0 := ps.i
 
 	// options
-	ps2 := ps.copy()
+	ps2 := ps.Copy()
 	st, _ := gp.parseStringRuleType(ps2)
 
-	quoteRu, err := ps2.readRune()
+	quoteRu, err := ps2.ReadRune()
 	if err != nil {
 		return err, false
 	}
@@ -289,13 +332,13 @@ func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
 		return errors.New("expecting quote"), false
 	}
 
-	ps.set(ps2) // advance
+	ps.Set(ps2) // advance
 
 	s := string(quoteRu)
 	esc := '\\' // alows to escape the quote
 	escaping := false
 	for {
-		ru, err := ps.readRune()
+		ru, err := ps.ReadRune()
 		if err != nil {
 			break
 		}
@@ -324,8 +367,8 @@ func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
 }
 func (gp *grammarParser) parseStringRuleType(ps *PState) (stringrType, bool) {
 	//  options
-	ps2 := ps.copy()
-	ru, err := ps2.readRune()
+	ps2 := ps.Copy()
+	ru, err := ps2.ReadRune()
 	if err != nil {
 		ru = 0
 	}
@@ -334,7 +377,7 @@ func (gp *grammarParser) parseStringRuleType(ps *PState) (stringrType, bool) {
 		stringrOr,
 		stringrMid,
 		stringrNot:
-		ps.set(ps2) // advance
+		ps.Set(ps2) // advance
 		return t, true
 	}
 	return stringrNone, false
@@ -353,8 +396,8 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 	}
 
 	//  options
-	ps2 := ps.copy()
-	ru, err := ps2.readRune()
+	ps2 := ps.Copy()
+	ru, err := ps2.ReadRune()
 	if err != nil {
 		ru = 0
 	}
@@ -365,7 +408,7 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 		parenrZeroOrMore,
 		parenrOneOrMore:
 		pt = t
-		ps.set(ps2) // advance
+		ps.Set(ps2) // advance
 	}
 
 	u := &ParenRule{typ: pt}
@@ -402,7 +445,7 @@ func (gp *grammarParser) parseComments(ps *PState) bool {
 		_ = ps.consumeToNLIncluding()
 		return true
 	}
-	if err := ps.matchString("//"); err == nil {
+	if err := ps.MatchString("//"); err == nil {
 		_ = ps.consumeToNLIncluding()
 		return true
 	}

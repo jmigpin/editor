@@ -21,26 +21,37 @@ pyLineStr = ", line " .
 
 schemeFile = "file://" (schHost)? schPath (cLineCol)? .
 schHost = (letter | digit | %".-_")+ .
-schPath = schSep schVolume schNames .
-schVolume = if rlParseVolume ? volume schSep : nil .
-schNames = (schSep | schName)+ .
-schName = (fiNameItem | %rlExtraSchemeNameSyms)+ .
-schSep = "/" .
+schPath = schPathSep schVolume schNames .
+schVolume = if rlParseVolume ? volume schPathSep : nil .
+schNames = (schPathSep | schName)+ .
+schName = (fiNameItem | schNameSyms)+ .
+schPathSep = "/" .
+schNameSyms = &dropRunes(%syms %nameSepSyms %schPathSep) .
 
 #----------
 
 filename = fiVolume fiNames .
-fiVolume = if rlParseVolume ? volume fiSep : nil .
-fiNames =  (fiSep | fiName)+ .
-fiName = (fiNameItem | %rlExtraFileNameSyms)+ .
+fiVolume = if rlParseVolume ? volume rlPathSep : nil .
+fiNames =  (rlPathSep | fiName)+ .
+fiName = (fiNameItem | fiNameSyms)+ .
 fiNameItem = letter | digit | fiEsc .
-fiEsc = rlEsc anyrune .
-fiSep = rlSep .
+fiEsc = &escapeAny(rlEsc) .
+fiNameSyms = &dropRunes(%syms %nameSepSyms %rlPathSep) .
 
 #----------
 
-digits = (digit)+ .
 volume = letter ":" .
+
+digits = (digit)+ .
+
+syms = "_-~.%@&?!=#+:^(){}[]<>\\/ " . # besides letters and digits
+nameSepSyms = 	# name separator symbols
+	" "  			# word separator
+	"=" 			# usually around filenames (ex: -arg=/a/b.txt)
+	"(){}[]<>" 		# usually used around filenames in various outputs
+	":" 			# usually separating lines/cols from filenames
+	rlEsc
+	.
 
 #----------
 #----------
@@ -52,11 +63,10 @@ reverse =
 	(if rlParseVolume ? volume : nil)
 	(revNames)?
 	(pyQuote)?
-	(~pyLineStr)?		# middle match
-	(":" | digits)* 		# cLineCol
-	(rlEsc)*
+	(~pyLineStr)?		# python middle match
+	(":" | digits)* 		# c line column	
 	.
-revNames = fiNames . # covers both file and scheme path separators
-#revNames = (revSep | revName)+ .
-#revName = fiName .
-#revSep = if rlSepIsFSlash ? rlSep : rlSep | schSep .
+revNames = (revPathSeps | revName)+ .
+revName = (fiNameItem | revNameSyms | rlEsc)+ .
+revNameSyms = &dropRunes(%syms %nameSepSyms %revPathSeps) .
+revPathSeps = if rlPathSepEqSchPathSep ? rlPathSep : rlPathSep|schPathSep .

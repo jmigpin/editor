@@ -20,7 +20,7 @@ func newStatesData(vd *VerticesData, shiftOnSRConflict bool) (*StatesData, error
 		return nil, err
 	}
 	if err := sd.solveConflicts(vd); err != nil {
-		return nil, err
+		return sd, err // also return sd for debug
 	}
 	return sd, nil
 }
@@ -170,9 +170,14 @@ func (sd *StatesData) solveConflicts(vd *VerticesData) error {
 	for _, st := range sd.states {
 		orM := map[rune]Rule{}
 		notM := map[rune]Rule{}
+		hasAnyrune := false
 
 		// check duplicates
 		for _, r := range st.rsetSorted {
+			if r == anyruneRule {
+				hasAnyrune = true
+				continue
+			}
 			sr, ok := r.(*StringRule)
 			if !ok {
 				continue
@@ -204,84 +209,22 @@ func (sd *StatesData) solveConflicts(vd *VerticesData) error {
 			for ru, r := range orM {
 				_, ok := notM[ru]
 				if !ok {
-					// show all not rules
-					u := []Rule{}
-					for _, v := range notM {
-						u = append(u, v)
+					// show "not" rules
+					rs := &RuleSet{}
+					for _, r2 := range notM {
+						rs.set(r2)
 					}
 
-					return fmt.Errorf("%v: rune %q in %v is covered in %v", st.id, ru, r, u)
+					return fmt.Errorf("%v: rune %q in %v is covered in %v", st.id, ru, r, rs)
 				}
 			}
 		}
-
+		if hasAnyrune {
+			if len(orM) > 0 || len(notM) > 0 {
+				return fmt.Errorf("%v: anyrune and stringrule in the same state\n%v", st.id, sd)
+			}
+		}
 	}
-
-	//	for _, st := range sd.states {
-	//		// string "and"
-	//		andM := map[rune]Rule{}
-	//		for _, r := range st.rsetSorted {
-
-	//		}
-
-	//		// string "or"
-	//		orM := map[rune]Rule{}
-	//		for _, r := range st.rsetSorted {
-	//			sr, ok := r.(*StringRule)
-	//			if !ok {
-	//				continue
-	//			}
-	//			if sr.typ != stringrOr {
-	//				continue
-	//			}
-	//			for _, ru := range sr.runes {
-	//				r3, ok := orM[ru]
-	//				if !ok {
-	//					orM[ru] = r
-	//					continue
-	//				}
-	//				if r3 == r {
-	//					return fmt.Errorf("%v: duplicated rune %q in rule %v", st.id, ru, r3)
-	//				} else {
-	//					return fmt.Errorf("%v: rune %q in %v is already in rset %v", st.id, ru, r, r3)
-	//				}
-	//			}
-	//		}
-
-	//		// string "not"
-	//		notM := map[rune]Rule{}
-	//		for _, r := range st.rsetSorted {
-	//			sr, ok := r.(*StringRule)
-	//			if !ok {
-	//				continue
-	//			}
-	//			if sr.typ != stringrNot {
-	//				continue
-	//			}
-	//			for _, ru := range sr.runes {
-	//				r3, ok := notM[ru]
-	//				if !ok {
-	//					notM[ru] = r
-	//					continue
-	//				}
-	//				if r3 == r {
-	//					return fmt.Errorf("%v: duplicated rune %q in rule %v", st.id, ru, r3)
-	//				} else {
-	//					return fmt.Errorf("%v: rune %q in %v is already in rset %v", st.id, ru, r, r3)
-	//				}
-	//			}
-	//		}
-
-	//		// string "or"/"not" check
-	//		if len(notM) > 0 {
-	//			for ru, _ := range orM { // all "or" runes must be in "not"
-	//				_, ok := notM[ru]
-	//				if !ok {
-	//					return fmt.Errorf("%v: rune %q in 'or' but no in 'not'", st.id, ru)
-	//				}
-	//			}
-	//		}
-	//	}
 
 	// action conflicts
 	me := iout.MultiError{}

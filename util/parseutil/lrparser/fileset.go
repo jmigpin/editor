@@ -53,8 +53,8 @@ func (fset *FileSet) Error(err error) error {
 }
 func (fset *FileSet) Error2(err error, i int) error {
 	line, col := parseutil.IndexLineColumn2(fset.Src, i)
-	str := parseutil.SurroundingString(fset.Src, i, 10)
-	return fmt.Errorf("%s:%d:%d: %v: %v", fset.Filename, line, col, err, str)
+	str := parseutil.SurroundingString(fset.Src, i, 20)
+	return fmt.Errorf("%s:%d:%d: %v: %q", fset.Filename, line, col, err, str)
 }
 
 //----------

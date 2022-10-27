@@ -3,7 +3,6 @@ package reslocparser
 import (
 	_ "embed"
 
-	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
@@ -13,12 +12,12 @@ var resLocFilename = "reslocparser.gram" // for errors
 
 //----------
 
-var extraSyms = "_-~.%@&?!=#+:^" + "(){}[]<>" + "\\/" + " " // besides letters and digits
-var nameSepSyms = "" +
-	" " + // word separator
-	"=" + // usually around filenames (ex: -arg=/a/b.txt)
-	"(){}[]<>" + // usually used around filenames in various outputs
-	":" // usually separating lines/cols from filenames
+//var extraSyms = "_-~.%@&?!=#+:^" + "(){}[]<>" + "\\/" + " " // besides letters and digits
+//var nameSepSyms = "" +
+//	" " + // word separator
+//	"=" + // usually around filenames (ex: -arg=/a/b.txt)
+//	"(){}[]<>" + // usually used around filenames in various outputs
+//	":" // usually separating lines/cols from filenames
 
 //----------
 
@@ -56,18 +55,15 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 			panic(err)
 		}
 	}
+
 	// setup predefined rules
 	poe(p.lrp.SetBoolRule("rlParseVolume", p.ParseVolume))
-	poe(p.lrp.SetStringRule("rlSep", string(p.PathSeparator)))
-	//poe(p.lrp.SetBoolRule("rlSepIsFSlash", p.PathSeparator == '/')) // same as scheme separator
+	poe(p.lrp.SetStringRule("rlPathSep", string(p.PathSeparator)))
+	schPathSep := p.lrp.MustGetStringRule("schPathSep")
+	poe(p.lrp.SetBoolRule("rlPathSepEqSchPathSep", string(p.PathSeparator) == schPathSep))
 	poe(p.lrp.SetStringRule("rlEsc", string(p.Escape)))
-	// setup extra symbols (with some removals)
-	rm := nameSepSyms + string(p.Escape) + string(p.PathSeparator)
-	u := parseutil.RunesExcept(extraSyms, rm)
-	poe(p.lrp.SetStringRule("rlExtraFileNameSyms", u))
-	u2 := parseutil.RunesExcept(extraSyms, rm+"/") // don't include scheme path separator
-	poe(p.lrp.SetStringRule("rlExtraSchemeNameSyms", u2))
 
+	// get reverse content parser
 	revOpt := &lrparser.CPOpt{
 		StartRule:         "reverse",
 		EarlyStop:         true,
@@ -81,6 +77,7 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 	}
 	p.revCp = revCp
 
+	// get content parser
 	locOpt := &lrparser.CPOpt{
 		StartRule:         "location",
 		EarlyStop:         true,
@@ -92,6 +89,8 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 		return err
 	}
 	p.locCp = locCp
+
+	// setup build node funcs
 	p.locCp.SetBuildNodeFn("location", p.buildLocation)
 	p.locCp.SetBuildNodeFn("cFile", p.buildCFile)
 	p.locCp.SetBuildNodeFn("pyFile", p.buildPyFile)

@@ -121,8 +121,13 @@ var defRuleStartSym = "^" // used in grammar
 type RefRule struct {
 	CmnPNode
 	CmnRule
-	name        string
-	stringrType stringrType // reference to a string
+	name string
+
+	// stringrule ref with stringrType
+	srRef struct {
+		typ stringrType // if set, the rule refered by "name" must be a stringrule that will be wrapped with this type
+		r   Rule        // rule reference (rule index phase)
+	}
 }
 
 func (r *RefRule) isTerminal() bool {
@@ -263,6 +268,9 @@ func (r *StringRule) id() string {
 	s := ""
 	if r.typ != stringrNone {
 		s = string(r.typ)
+		if s == "%" {
+			//s = "//" // TODO: fixme
+		}
 	}
 	return fmt.Sprintf("%v%q", s, string(r.runes))
 }
@@ -272,11 +280,31 @@ func (r *StringRule) String() string {
 
 //----------
 
+// processor rule: allows processing rules at compile time. Ex: string operations, escape rune sequence (can fail and recover).
+// (1 childs)
+type ProcRule struct {
+	CmnPNode
+	CmnRule
+	name string
+}
+
+func (r *ProcRule) isTerminal() bool {
+	return false
+}
+func (r *ProcRule) id() string {
+	return fmt.Sprintf("%v(%v)", r.name, r.onlyChild())
+}
+func (r *ProcRule) String() string {
+	return r.id()
+}
+
+//----------
+
 // (0 childs)
 type FuncRule struct {
 	CmnRule
 	name string
-	fn   pstateParseFn
+	fn   PStateParseFn
 }
 
 func (r *FuncRule) isTerminal() bool {
@@ -338,10 +366,10 @@ const (
 type stringrType rune
 
 const (
-	stringrNone stringrType = 0 // runes "and" (default)
-	stringrOr   stringrType = '%'
-	stringrMid  stringrType = '~' // middle match
-	stringrNot  stringrType = '!'
+	stringrNone stringrType = 0   // sequence: "and" (default)
+	stringrMid  stringrType = '~' // sequence: middle match
+	stringrOr   stringrType = '%' // individual runes
+	stringrNot  stringrType = '!' // individual runes: not
 )
 
 //----------
@@ -477,28 +505,75 @@ func ruleCanBeNil(r Rule) bool {
 	}
 	return false
 }
-func ruleInnerStringRule(r Rule, m map[string]*Rule) (*StringRule, bool) {
+func ruleInnerStringRule(r Rule, upperType stringrType) (*StringRule, bool) {
+	acceptType := func(typ2 stringrType) bool {
+		switch upperType {
+		case stringrNone:
+			switch typ2 {
+			case stringrNone:
+				return true
+			}
+		case stringrNot:
+			switch typ2 {
+			case stringrOr:
+				return true
+			}
+		case stringrMid:
+			switch typ2 {
+			case stringrNone:
+				return true
+			}
+		case stringrOr:
+			switch typ2 {
+			case stringrNone, stringrOr:
+				return true
+			}
+		}
+		return false
+	}
+
 	switch t := r.(type) {
 	case *StringRule:
-		return t, true
+		if acceptType(t.typ) {
+			return t, true
+		}
 	case *DefRule:
-		return ruleInnerStringRule(t.onlyChild(), m)
+		return ruleInnerStringRule(t.onlyChild(), upperType)
 	case *RefRule:
-		r2, ok := m[t.name]
-		if ok {
-			return ruleInnerStringRule(*r2, m)
+		if acceptType(t.srRef.typ) && t.srRef.r != nil {
+			sr2, ok := ruleInnerStringRule(t.srRef.r, t.srRef.typ)
+			if ok {
+				sr3 := *sr2
+				sr3.typ = t.srRef.typ
+				return &sr3, true
+			}
+		}
+	case *OrRule:
+		// concat "or" rules
+		sr2 := &StringRule{typ: stringrOr}
+		if acceptType(sr2.typ) {
+			for _, c := range t.childs() {
+				sr3, ok := ruleInnerStringRule(c, sr2.typ)
+				if !ok {
+					return nil, false
+				}
+				sr2.runes = append(sr2.runes, sr3.runes...)
+			}
+			return sr2, true
 		}
 	case *AndRule:
-		// concat
-		sr2 := &StringRule{}
-		for _, c := range t.childs() {
-			sr3, ok := ruleInnerStringRule(c, m)
-			if !ok {
-				return nil, false
+		// concat "and" rules
+		sr2 := &StringRule{typ: stringrNone}
+		if acceptType(sr2.typ) {
+			for _, c := range t.childs() {
+				sr3, ok := ruleInnerStringRule(c, sr2.typ)
+				if !ok {
+					return nil, false
+				}
+				sr2.runes = append(sr2.runes, sr3.runes...)
 			}
-			sr2.runes = append(sr2.runes, sr3.runes...)
+			return sr2, true
 		}
-		return sr2, true
 	}
 	return nil, false
 }
