@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package toolbarparser
@@ -7,6 +8,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 )
+
+//godebug:annotatepackage
+//godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil/lrparser
 
 func TestParseTokens1(t *testing.T) {
 	s := "a|b|c"
@@ -96,7 +100,10 @@ func TestParseParts8(t *testing.T) {
 		s1 := d.Parts[2].Args[0].Str()
 		s2 := d.Parts[2].Args[0].UnquotedStr()
 		if !(s1 == "`c\nd`" && s2 == "c\nd") {
-			t.Fatal(spew.Sdump(d.Parts[2]))
+			//t.Fatal(spew.Sdump(d.Parts[2]))
+			t.Fatal(s1, s2)
+			//d.bnd.PrintRuleTree(5)
+			//t.Fatal()
 		}
 	}
 	{
