@@ -225,7 +225,7 @@ func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	}
 	p.ParseVolume = parseVolume
 
-	if err := p.Init(t.Logf); err != nil {
+	if err := p.Init(true); err != nil {
 		t.Fatal(err)
 	}
 

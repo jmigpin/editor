@@ -19,10 +19,6 @@ type Rule interface {
 
 	// TODO: consider
 	// parse(*PState) error // for terminal rules
-
-	// TODO: cmnrule0childs
-	// TODO: cmnrule1child
-	// TODO: cmnruleNchilds
 }
 
 //----------
@@ -31,34 +27,34 @@ type Rule interface {
 
 // common rule
 type CmnRule struct {
-	childs2 []Rule
+	childs_ []Rule
 }
 
 //----------
 
 func (r *CmnRule) addChild(r2 Rule) {
-	r.childs2 = append(r.childs2, r2)
+	r.childs_ = append(r.childs_, r2)
 }
 func (r *CmnRule) onlyChild() Rule {
-	return r.childs2[0]
+	return r.childs_[0]
 }
 func (r *CmnRule) setOnlyChild(r2 Rule) {
-	r.childs2 = r.childs2[:0]
+	r.childs_ = r.childs_[:0]
 	r.addChild(r2)
 }
 
 //----------
 
 func (r *CmnRule) iterChildRefs(fn func(index int, ref *Rule) error) error {
-	for i := 0; i < len(r.childs2); i++ {
-		if err := fn(i, &r.childs2[i]); err != nil {
+	for i := 0; i < len(r.childs_); i++ {
+		if err := fn(i, &r.childs_[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 func (r *CmnRule) childs() []Rule {
-	return r.childs2
+	return r.childs_
 }
 
 //----------
@@ -72,39 +68,22 @@ type DefRule struct {
 	CmnRule
 	name    string
 	isStart bool // has "start" symbol in the grammar
-	isLoop  bool
+
+	// specially handled cases
+	isNoReverse   bool // don't reverse child sequence in reverse mode
+	isPOptional   bool // parenthesis: optional
+	isPZeroOrMore bool // parenthesis: zeroormore
+	isPOneOrMore  bool // parenthesis: oneormore
 }
 
 func (r *DefRule) isTerminal() bool {
 	return false
 }
 func (r *DefRule) id() string {
-	//return r.name
-
-	// better to stringify explicitly to differentiate between parenthesis rules and a defrule that replaced a parenthesis rule
-
-	//s := ""
-	//if r.isStart {
-	//	s += defRuleStartSym
-	//}
-	//if r.isLoop {
-	//	s += "l"
-	//}
-	//if s != "" {
-	//	s = ":" + s
-	//}
-	//return fmt.Sprintf("{d%v:%v}", s, r.name)
-
 	s := ""
 	if r.isStart {
 		s += defRuleStartSym
 	}
-
-	// commented: parenthesis replacement indicates the loop is on
-	//if r.isLoop {
-	//	s += "@"
-	//}
-
 	return fmt.Sprintf("%v%v", s, r.name)
 }
 func (r *DefRule) String() string {
@@ -122,12 +101,6 @@ type RefRule struct {
 	CmnPNode
 	CmnRule
 	name string
-
-	// stringrule ref with stringrType
-	srRef struct {
-		typ stringrType // if set, the rule refered by "name" must be a stringrule that will be wrapped with this type
-		r   Rule        // rule reference (rule index phase)
-	}
 }
 
 func (r *RefRule) isTerminal() bool {
@@ -153,7 +126,7 @@ func (r *AndRule) isTerminal() bool {
 }
 func (r *AndRule) id() string {
 	w := []string{}
-	for _, r := range r.childs2 {
+	for _, r := range r.childs_ {
 		w = append(w, r.id())
 	}
 	u := strings.Join(w, " ")
@@ -176,10 +149,10 @@ func (r *OrRule) isTerminal() bool {
 }
 func (r *OrRule) id() string {
 	w := []string{}
-	for _, r := range r.childs2 {
+	for _, r := range r.childs_ {
 		w = append(w, r.id())
 	}
-	u := strings.Join(w, " | ")
+	u := strings.Join(w, "|")
 	return fmt.Sprintf("[%v]", u)
 }
 func (r *OrRule) String() string {
@@ -198,7 +171,7 @@ type IfRule struct {
 func (r *IfRule) selfSequence() []Rule { return []Rule{r} }
 func (r *IfRule) isTerminal() bool     { return false }
 func (r *IfRule) id() string {
-	return fmt.Sprintf("{if %v ? %v : %v}", r.childs2[0], r.childs2[1], r.childs2[2])
+	return fmt.Sprintf("{if %v ? %v : %v}", r.childs_[0], r.childs_[1], r.childs_[2])
 }
 func (r *IfRule) String() string {
 	return r.id()
@@ -228,6 +201,7 @@ func (r *BoolRule) String() string {
 
 // parenthesis, ex: (aaa (bbb|ccc))
 // replaced by defrules at ruleindex
+// (1 childs)
 type ParenRule struct {
 	CmnPNode
 	CmnRule
@@ -237,15 +211,13 @@ type ParenRule struct {
 func (r *ParenRule) isTerminal() bool {
 	return false
 }
-func (r *ParenRule) idSimple() string { // used in defrule when replacing pathensis rules
+
+func (r *ParenRule) id() string {
 	s := ""
 	if r.typ != parenrNone {
 		s = string(r.typ)
 	}
 	return fmt.Sprintf("(%v)%v", r.onlyChild().id(), s)
-}
-func (r *ParenRule) id() string {
-	return fmt.Sprintf("{p:%v}", r.idSimple())
 }
 func (r *ParenRule) String() string {
 	return r.id()
@@ -253,7 +225,7 @@ func (r *ParenRule) String() string {
 
 //----------
 
-// (0 childs)
+// (0 childs, or temporarily 1 child that is a refrule)
 type StringRule struct {
 	CmnPNode
 	CmnRule
@@ -266,11 +238,8 @@ func (r *StringRule) isTerminal() bool {
 }
 func (r *StringRule) id() string {
 	s := ""
-	if r.typ != stringrNone {
+	if r.typ != stringrAnd {
 		s = string(r.typ)
-		if s == "%" {
-			//s = "//" // TODO: fixme
-		}
 	}
 	return fmt.Sprintf("%v%q", s, string(r.runes))
 }
@@ -366,10 +335,10 @@ const (
 type stringrType rune
 
 const (
-	stringrNone stringrType = 0   // sequence: "and" (default)
-	stringrMid  stringrType = '~' // sequence: middle match
-	stringrOr   stringrType = '%' // individual runes
-	stringrNot  stringrType = '!' // individual runes: not
+	stringrAnd stringrType = 0   // sequence: "and" (default)
+	stringrMid stringrType = '~' // sequence: middle match
+	stringrOr  stringrType = '%' // individual runes
+	stringrNot stringrType = '!' // individual runes: not
 )
 
 //----------
@@ -461,10 +430,7 @@ func sortRulesValue(r Rule) (int, string) {
 //----------
 //----------
 
-func ruleVDProductions(r Rule) []Rule {
-	return ruleFirstProductions(r)
-}
-func ruleFirstProductions(r Rule) []Rule {
+func ruleProductions(r Rule) []Rule {
 	switch t := r.(type) {
 	case *AndRule: // andrule childs are not productions
 		return []Rule{t}
@@ -476,41 +442,70 @@ func ruleFirstProductions(r Rule) []Rule {
 	}
 	return r.childs()
 }
-func ruleFirstSequence(r Rule) []Rule {
+func ruleSequence(r Rule, reverse bool) []Rule {
 	switch t := r.(type) {
 	case *AndRule: // andrule is the only rule whose childs provide a sequence
+		if reverse {
+			// use a copy to avoid changing the original rule that could be used for other grammars that are non-reverse
+			return reverseRulesCopy(t.childs())
+		}
 		return t.childs()
 	default:
 		return []Rule{t}
 	}
 }
+func ruleProdCanReverse(r Rule) bool {
+	if dr, ok := r.(*DefRule); ok {
+		return !dr.isNoReverse
+	}
+	return true
+}
 
-func ruleIsLoop(r Rule) bool {
-	dr, ok := r.(*DefRule)
-	return ok && dr.isLoop
-}
-func ruleCanBeNil(r Rule) bool {
-	if r == nilRule {
-		return true
-	}
-	switch t := r.(type) {
-	case *DefRule:
-		return ruleCanBeNil(t.onlyChild())
-	case *OrRule:
-		for _, r2 := range t.childs2 {
-			if ruleCanBeNil(r2) {
-				return true
-			}
-		}
-	}
-	return false
-}
+//func ruleIsLoop(r Rule) bool {
+//	dr, ok := r.(*DefRule)
+//	return ok && dr.isLoop
+//}
+//func ruleCanBeNil(r0 Rule) bool {
+//	seen := map[Rule]bool{}
+//	vis := (func(r Rule) bool)(nil)
+//	vis = func(r Rule) bool {
+//		if seen[r] {
+//			return false
+//		}
+//		seen[r] = true
+//		defer func() { seen[r] = false }()
+
+//		if r == nilRule {
+//			return true
+//		}
+//		switch t := r.(type) {
+//		case *DefRule:
+//			return vis(t.onlyChild())
+//		case *OrRule:
+//			for _, r2 := range t.childs2 {
+//				if vis(r2) {
+//					return true
+//				}
+//			}
+//		case *AndRule:
+//			for _, r2 := range t.childs2 {
+//				if !seen[r2] && !vis(r2) {
+//					return false
+//				}
+//			}
+//			return true
+//		}
+//		return false
+//	}
+//	return vis(r0)
+//}
+
 func ruleInnerStringRule(r Rule, upperType stringrType) (*StringRule, bool) {
 	acceptType := func(typ2 stringrType) bool {
 		switch upperType {
-		case stringrNone:
+		case stringrAnd:
 			switch typ2 {
-			case stringrNone:
+			case stringrAnd:
 				return true
 			}
 		case stringrNot:
@@ -520,12 +515,12 @@ func ruleInnerStringRule(r Rule, upperType stringrType) (*StringRule, bool) {
 			}
 		case stringrMid:
 			switch typ2 {
-			case stringrNone:
+			case stringrAnd:
 				return true
 			}
 		case stringrOr:
 			switch typ2 {
-			case stringrNone, stringrOr:
+			case stringrAnd, stringrOr:
 				return true
 			}
 		}
@@ -539,15 +534,6 @@ func ruleInnerStringRule(r Rule, upperType stringrType) (*StringRule, bool) {
 		}
 	case *DefRule:
 		return ruleInnerStringRule(t.onlyChild(), upperType)
-	case *RefRule:
-		if acceptType(t.srRef.typ) && t.srRef.r != nil {
-			sr2, ok := ruleInnerStringRule(t.srRef.r, t.srRef.typ)
-			if ok {
-				sr3 := *sr2
-				sr3.typ = t.srRef.typ
-				return &sr3, true
-			}
-		}
 	case *OrRule:
 		// concat "or" rules
 		sr2 := &StringRule{typ: stringrOr}
@@ -563,7 +549,7 @@ func ruleInnerStringRule(r Rule, upperType stringrType) (*StringRule, bool) {
 		}
 	case *AndRule:
 		// concat "and" rules
-		sr2 := &StringRule{typ: stringrNone}
+		sr2 := &StringRule{typ: stringrAnd}
 		if acceptType(sr2.typ) {
 			for _, c := range t.childs() {
 				sr3, ok := ruleInnerStringRule(c, sr2.typ)

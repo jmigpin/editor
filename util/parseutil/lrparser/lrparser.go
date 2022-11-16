@@ -25,7 +25,7 @@ func NewLrparser(fset *FileSet) (*Lrparser, error) {
 	return lrp, nil
 }
 
-func (lrp *Lrparser) ContentParser(opt *CPOpt) (*ContentParser, error) {
+func (lrp *Lrparser) ContentParser(opt *CpOpt) (*ContentParser, error) {
 	cp, err := newContentParser(opt, lrp.ri)
 	if err != nil {
 		return nil, lrp.fset.Error(err)

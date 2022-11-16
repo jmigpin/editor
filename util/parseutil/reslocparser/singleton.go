@@ -21,7 +21,7 @@ func initResLocParserSingleton() (*ResLocParser, error) {
 	rlp.Escape = rune(osutil.EscapeRune)
 	rlp.ParseVolume = runtime.GOOS == "windows"
 
-	if err := rlp.Init(nil); err != nil {
+	if err := rlp.Init(false); err != nil {
 		return nil, err
 	}
 	return rlp, nil

@@ -2,52 +2,60 @@ package lrparser
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/jmigpin/editor/util/goutil"
 )
 
 func dereferenceRules(ri *RuleIndex) error {
-	// replace refrules first to avoid rule ids with "refs"
+	// replace refrules to avoid rule ids with "refs", and catch first errors in case a refrule does not exist
 	if err := replaceRefRules(ri); err != nil {
 		return err
 	}
-
+	// checks boolrule value (now), can run only after replaceRefRules
 	if err := replaceIfRules(ri); err != nil {
 		return err
 	}
-	if err := replaceRefRules2(ri); err != nil {
+
+	if err := replaceStringRuleRefs(ri); err != nil {
 		return err
 	}
 	if err := replaceProcRules(ri); err != nil {
 		return err
 	}
-
-	// the rule index will not have parenthesis rules after this step, as they will be transformed into defrule with the equivalent id, using and/or rules
 	if err := replaceParenthesisRules(ri); err != nil {
 		return err
 	}
-
-	// make rules unique
-	// - the pos is lost since the repeated rules are replaced with the first definition
-	// - the rule src position must not be used after this function
-	if err := makeRulesUnique(ri); err != nil {
+	if err := replaceDuplicateRules(ri); err != nil {
 		return err
 	}
+
+	// sanity check: rules not allowed after deref phase
+	return visitRuleIndexTree(ri, func(rref *Rule) error {
+		switch t := (*rref).(type) {
+		case *RefRule,
+			*ParenRule,
+			*IfRule,
+			//*BoolRule, // commented: some residual rule not used in an "if" will still be present // TODO: make a clear step of boolrules?
+			*ProcRule:
+			err := fmt.Errorf("rule type present after deref phase: %T, %v", t, t)
+			//return err
+			panic(err)
+		}
+		return nil
+	})
 
 	return nil
 }
 
+//----------
+
 func replaceRefRules(ri *RuleIndex) error {
-	// replace ref rule (non stringrule refs, better first errors)
-	return visitRulesOnce(ri, func(rref *Rule) error {
+	return visitRuleIndexTree(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *RefRule:
-			rref2 := rref
-			if t.srRef.typ != stringrNone { // don't replace yet if it has a stringrType, just keep for later
-				rref2 = &t.srRef.r
-			}
 			// replace with rule in ruleindex
-			if !replaceFromMap(ri.m, t.name, rref2) {
+			if !replaceFromMap(ri.m, t.name, rref) {
 				err := fmt.Errorf("rule not found: %v", t.name)
 				return &PosError{err: err, Pos: t.Pos()}
 			}
@@ -55,25 +63,27 @@ func replaceRefRules(ri *RuleIndex) error {
 		return nil
 	})
 }
-func replaceRefRules2(ri *RuleIndex) error {
+func replaceStringRuleRefs(ri *RuleIndex) error {
 	// replace rest of ref rules (stringrule refs)
-	return visitRulesOnce(ri, func(rref *Rule) error {
+	return visitRuleIndexTree(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
-		case *RefRule:
-			sr, ok := ruleInnerStringRule(t.srRef.r, t.srRef.typ)
-			if !ok {
-				return nodePosErrorf(t, "expecting a compatible derivation of stringrules")
+		case *StringRule:
+			if len(t.childs()) == 1 { // needs dereference
+				r := t.childs()[0]
+				sr, ok := ruleInnerStringRule(r, t.typ)
+				if !ok {
+					return nodePosErrorf(t, "expecting a compatible derivation of stringrules: %v", r)
+				}
+				t.childs_ = nil // dereferenced
+				t.runes = sr.runes
 			}
-			sr2 := *sr // copy (to set type)
-			sr2.typ = t.srRef.typ
-			*rref = &sr2
 		}
 		return nil
 	})
 }
 
 func replaceProcRules(ri *RuleIndex) error {
-	return visitRulesOnce(ri, func(rref *Rule) error {
+	return visitRuleIndexTree(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *ProcRule:
 			fn, ok := ri.cm[t.name]
@@ -91,12 +101,12 @@ func replaceProcRules(ri *RuleIndex) error {
 }
 
 func replaceIfRules(ri *RuleIndex) error {
-	return visitRulesOnce(ri, func(rref *Rule) error {
+	return visitRuleIndexTree(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *IfRule:
-			c0 := t.childs2[0] // conditional rule
-			c1 := t.childs2[1] // rule if condition is true
-			c2 := t.childs2[2] // rule if condition is false
+			c0 := t.childs_[0] // conditional rule
+			c1 := t.childs_[1] // rule if condition is true
+			c2 := t.childs_[2] // rule if condition is false
 			c0br, ok := c0.(*BoolRule)
 			if !ok {
 				return fmt.Errorf("ifrule condition is not a boolrule: %v (%T)", c0, c0)
@@ -112,77 +122,202 @@ func replaceIfRules(ri *RuleIndex) error {
 	})
 }
 
+// the rule index will not have parenthesis rules after this step, as they will be transformed into defrule with the equivalent id, using and/or rules
 func replaceParenthesisRules(ri *RuleIndex) error {
-	//replaceM := ri.m
-	replaceM := map[string]Rule{}
+	// parenthesis defrule name
+	lzc := 0  // loop zero counter
+	loc := 0  // loop one counter
+	optc := 0 // optional counter
+	pname := func(t parenrType) string {
+		ts := ""
+		switch t {
+		case parenrOptional:
+			ts = fmt.Sprintf("opt%d", optc)
+			optc++
+		case parenrZeroOrMore:
+			ts = fmt.Sprintf("lz%d", lzc)
+			lzc++
+		case parenrOneOrMore:
+			ts = fmt.Sprintf("lo%d", loc)
+			loc++
+		default:
+			panic("!")
+		}
+		return fmt.Sprintf("%s", ts)
+	}
+	_ = pname
 
-	return visitRulesOnce(ri, func(rref *Rule) error {
+	unique := map[string]*DefRule{}
+	newDefRule := func(pr *ParenRule) *DefRule {
+		id := pr.id()
+		dr, ok := unique[id]
+		if ok {
+			return dr
+		}
+		//dr = &DefRule{name: pname(pr.typ)}
+		dr = &DefRule{name: id}
+		unique[id] = dr
+		if err := ri.set(dr.name, dr); err != nil {
+			panic(err)
+		}
+		return dr
+	}
+
+	visit := (visitRuleRefFn)(nil)
+	visit = wrapVisitChilds(func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *ParenRule:
-			//id := t.id()
-			id := t.idSimple()
-			r1, ok := replaceM[id]
-			if ok {
-				*rref = r1
-				return nil // don't walk childs, already replaced
-			}
-
-			// replaced with a defrule with the translation to and/or rules
-			dr := &DefRule{}
-			dr.name = id
-			*rref = dr
-			replaceM[id] = dr
-
+			// replace with defrule with special name
 			switch t.typ {
 			case parenrNone:
-				dr.setOnlyChild(t.onlyChild())
+				*rref = t.onlyChild()
+				//return visit(rref) // visit the new rref itself
 			case parenrOptional:
-				r3 := t.onlyChild()
+				dr := newDefRule(t)
+				r2 := t.onlyChild()
 				r4 := &OrRule{}
-				r4.childs2 = []Rule{r3, nilRule}
+				r4.childs_ = []Rule{r2, nilRule}
 				dr.setOnlyChild(r4)
+				dr.isPOptional = true
+				*rref = dr
 			case parenrZeroOrMore:
+				dr := newDefRule(t)
 				r2 := t.onlyChild()
 				r3 := &AndRule{}
-				r3.childs2 = []Rule{dr, r2} // loop
+				r3.childs_ = []Rule{dr, r2} // loop before (smaller run stack // also allows less conflicts due to left-to-right?) // order also used in node.go childloop func
+				//r3.childs2 = []Rule{r2, dr} // loop after
 				r4 := &OrRule{}
-				r4.childs2 = []Rule{r3, nilRule}
+				r4.childs_ = []Rule{r3, nilRule}
 				dr.setOnlyChild(r4)
-				dr.isLoop = true
+				dr.isNoReverse = true
+				dr.isPZeroOrMore = true
+				*rref = dr
 			case parenrOneOrMore:
-				r2 := t.onlyChild()
-				r3 := &AndRule{}
-				r3.childs2 = []Rule{dr, r2} // loop
-				r4 := &OrRule{}
+				//// own loop
+				//// - has issues with early stop because there is no nil rule to recover with
+				//dr := newDefRule(t)
+				//r2 := t.onlyChild()
+				//r3 := &AndRule{}
+				//r3.childs2 = []Rule{dr, r2} // loop before (smaller run stack)
+				////r3.childs2 = []Rule{r2, dr} // loop after
+				//r4 := &OrRule{}
 				//r4.childs2 = []Rule{r3, r2}
+				//dr.setOnlyChild(r4)
+				//dr.isNoReverse = true
+				//*rref = dr
 
-				// NOTE: provide a wrap to the element to have the loop detect and build a slice of elements (andrule with nil is harmless)
-				r5 := &AndRule{}
-				r5.childs2 = []Rule{r2, nilRule}
-				r4.childs2 = []Rule{r3, r5} // last element
-
+				// with zeroormore
+				dr := newDefRule(t)
+				r2 := t.onlyChild()
+				r3 := &ParenRule{}
+				r3.typ = parenrZeroOrMore
+				r3.setOnlyChild(r2)
+				r4 := &AndRule{}
+				r4.childs_ = []Rule{r3, r2} // place loop before // order also used in node.go childloop func
+				//r4.childs2 = []Rule{r2, r3} // place loop after // TODO: fails testlrparser21
 				dr.setOnlyChild(r4)
-				dr.isLoop = true
+				dr.isNoReverse = true
+				dr.isPOneOrMore = true
+				*rref = dr
 			default:
 				return goutil.TodoErrorStr(fmt.Sprintf("%q", t.typ))
 			}
+
+			// visit the new rref itself
+			return visit(rref)
 		}
+		return nil
+	})
+	return visitRuleIndexRules(ri, visit)
+}
+
+// make rules unique
+// - the pos is lost since the repeated rules are replaced with the first definition
+// - the rule src position must not be used after this function
+func replaceDuplicateRules(ri *RuleIndex) error {
+	unique := map[string]*Rule{}
+	return visitRuleIndexTree(ri, func(rref *Rule) error {
+		_ = replaceFromMap(unique, (*rref).id(), rref)
 		return nil
 	})
 }
 
 //----------
+//----------
+//----------
 
-// ex: parenthesis rules are replaced by an unique instance, that is, all instances of "(a|b)" will have a unique instance
-func makeRulesUnique(ri *RuleIndex) error {
-	unique := map[string]*Rule{}
-	_ = visitRulesOnce(ri, func(rref *Rule) error {
-		_ = replaceFromMap(unique, (*rref).id(), rref)
-		return nil
-	})
+func visitRuleIndexTree(ri *RuleIndex, fn visitRuleRefFn) error {
+	visit := (visitRuleRefFn)(nil) // example on how fn could refer to visit inside
+	visit = wrapVisitChilds(fn)
+	return visitRuleIndexRules(ri, visit)
+}
+
+func visitRuleIndexRules(ri *RuleIndex, fn visitRuleRefFn) error {
+	//for _, r := range ri.m {
+	//	r := ri.m[k]
+	//	if err := fn(r); err != nil {
+	//		return err
+	//	}
+	//}
+
+	// stable iteration to avoid (if used) unstable parenthesis loop names
+	ks := []string{}
+	for k := range ri.m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	for _, k := range ks {
+		r := ri.m[k]
+		if err := fn(r); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
+func wrapVisitChilds(fn visitRuleRefFn) visitRuleRefFn {
+	seen := map[Rule]bool{} // avoid loops
+	fn2 := (func(rref *Rule) error)(nil)
+	fn2 = func(rref *Rule) error {
+		if seen[*rref] {
+			return nil
+		}
+		seen[*rref] = true
+		if err := fn(rref); err != nil {
+			return err
+		}
+		return walkRuleChilds(*rref, fn2)
+	}
+	return fn2
+
+	//fns := wrapVisitSeen(fn)
+	//fn2 := (func(rref *Rule) error)(nil)
+	//fn2 = func(rref *Rule) error {
+	//	if err := fns(rref); err != nil {
+	//		return err
+	//	}
+	//	return walkRuleChilds(*rref, fn2)
+	//}
+	//return fn2
+}
+
+//func wrapVisitSeen(fn visitRuleRefFn) visitRuleRefFn {
+//	seen := map[Rule]bool{}
+//	fn2 := (func(rref *Rule) error)(nil)
+//	fn2 = func(rref *Rule) error {
+//		if seen[*rref] {
+//			return nil
+//		}
+//		seen[*rref] = true
+//		return fn(rref)
+//	}
+//	return fn2
+//}
+
+type visitRuleRefFn func(*Rule) error
+
+//----------
+//----------
 //----------
 
 func replaceFromMap(m map[string]*Rule, id string, rref *Rule) bool {
@@ -194,35 +329,6 @@ func replaceFromMap(m map[string]*Rule, id string, rref *Rule) bool {
 	}
 	m[id] = rref // keep
 	return false // not replaced
-}
-
-func visitRulesOnce(ri *RuleIndex, fn func(*Rule) error) error {
-	seen := map[Rule]bool{}
-	fn2 := (func(rref *Rule) error)(nil)
-	fn2 = func(rref *Rule) error {
-		if seen[*rref] {
-			return nil
-		}
-		seen[*rref] = true
-
-		//// walk childs first (TESTING: case of ifrule)
-		//if err := walkRuleChilds(*rref, fn2); err != nil {
-		//	return err
-		//}
-
-		// this node
-		if err := fn(rref); err != nil {
-			return err
-		}
-		// walk childs after
-		return walkRuleChilds(*rref, fn2)
-	}
-	for _, r := range ri.m {
-		if err := fn2(r); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 //----------

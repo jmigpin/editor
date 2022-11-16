@@ -23,8 +23,7 @@ schemeFile = "file://" (schHost)? schPath (cLineCol)? .
 schHost = (letter | digit | %".-_")+ .
 schPath = schPathSep schVolume schNames .
 schVolume = if rlParseVolume ? volume schPathSep : nil .
-schNames = (schPathSep | schName)+ .
-schName = (fiNameItem | schNameSyms)+ .
+schNames = (schPathSep | fiNameItem | schNameSyms)+ .
 schPathSep = "/" .
 schNameSyms = &dropRunes(%syms %nameSepSyms %schPathSep) .
 
@@ -32,11 +31,11 @@ schNameSyms = &dropRunes(%syms %nameSepSyms %schPathSep) .
 
 filename = fiVolume fiNames .
 fiVolume = if rlParseVolume ? volume rlPathSep : nil .
-fiNames =  (rlPathSep | fiName)+ .
-fiName = (fiNameItem | fiNameSyms)+ .
+fiNames =  (rlPathSep | fiNameItem | fiNameSyms)+ .
 fiNameItem = letter | digit | fiEsc .
-fiEsc = &escapeAny(rlEsc) .
 fiNameSyms = &dropRunes(%syms %nameSepSyms %rlPathSep) .
+fiEsc = &escapeAny(rlEsc) .
+#fiEsc = rlEsc anyrune .
 
 #----------
 
@@ -61,12 +60,12 @@ nameSepSyms = 	# name separator symbols
 reverse =
 	(pyQuote)?
 	(if rlParseVolume ? volume : nil)
-	(revNames)?
+	(revNames)
 	(pyQuote)?
 	(~pyLineStr)?		# python middle match
-	(":" | digits)* 		# c line column	
+	(":" | digit)* 		# c line column	
 	.
-revNames = (revPathSeps | revName)+ .
-revName = (fiNameItem | revNameSyms | rlEsc)+ .
+revNames = (revPathSeps | fiNameItem | revNameSyms | rlEsc)* .
 revNameSyms = &dropRunes(%syms %nameSepSyms %revPathSeps) .
 revPathSeps = if rlPathSepEqSchPathSep ? rlPathSep : rlPathSep|schPathSep .
+

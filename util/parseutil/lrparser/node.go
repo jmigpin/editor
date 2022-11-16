@@ -94,10 +94,13 @@ type BuildNodeFn func(*BuildNodeData) error
 //----------
 
 type BuildNodeData struct {
+	cpr *cpRun
 	cpn *CPNode
-	ps  *PState
 }
 
+func newBuildNodeData(cpr *cpRun, cpn *CPNode) *BuildNodeData {
+	return &BuildNodeData{cpr: cpr, cpn: cpn}
+}
 func (d *BuildNodeData) Pos() int {
 	return d.cpn.Pos()
 }
@@ -106,10 +109,10 @@ func (d *BuildNodeData) End() int {
 }
 
 func (d *BuildNodeData) NodeSrc() string {
-	return pnodeSrc(d.cpn, d.ps.src)
+	return pnodeSrc(d.cpn, d.cpr.ps.src)
 }
 func (d *BuildNodeData) FullSrc() []byte {
-	return d.ps.src
+	return d.cpr.ps.src
 }
 func (d *BuildNodeData) Data() interface{} {
 	return d.cpn.data
@@ -117,14 +120,17 @@ func (d *BuildNodeData) Data() interface{} {
 func (d *BuildNodeData) SetData(v interface{}) {
 	d.cpn.data = v
 }
-func (d *BuildNodeData) IsEmpty() bool { // TODO: rename IsEmpty
-	return d.cpn.pos == d.cpn.end // TODO: nil flag?
+func (d *BuildNodeData) IsEmpty() bool {
+	return d.cpn.pos == d.cpn.end
+}
+func (d *BuildNodeData) ExternalData() any {
+	return d.cpr.externalData
 }
 
 //----------
 
 func (d *BuildNodeData) SprintRuleTree(maxDepth int) string {
-	return SprintNodeTree(d.ps.src, d.cpn, maxDepth)
+	return SprintNodeTree(d.cpr.ps.src, d.cpn, maxDepth)
 }
 func (d *BuildNodeData) PrintRuleTree(maxDepth int) {
 	fmt.Printf("%v\n", d.SprintRuleTree(maxDepth))
@@ -136,11 +142,11 @@ func (d *BuildNodeData) ChildsLen() int {
 	return len(d.cpn.childs)
 }
 func (d *BuildNodeData) Child(i int) *BuildNodeData {
-	return &BuildNodeData{cpn: d.cpn.childs[i], ps: d.ps}
+	return newBuildNodeData(d.cpr, d.cpn.childs[i])
 }
 
 func (d *BuildNodeData) ChildStr(i int) string {
-	return pnodeSrc(d.cpn.childs[i], d.ps.src)
+	return pnodeSrc(d.cpn.childs[i], d.cpr.ps.src)
 }
 func (d *BuildNodeData) ChildInt(i int) (int, error) {
 	s := d.ChildStr(i)
@@ -150,6 +156,110 @@ func (d *BuildNodeData) ChildInt(i int) (int, error) {
 	}
 	return int(v), nil
 }
+
+//----------
+
+func (d *BuildNodeData) ChildLoop(i int, fn BuildNodeFn) error {
+	d2 := d.Child(i)
+	//d2.PrintRuleTree(5)
+	if d2.IsEmpty() {
+		return nil
+	}
+
+	dr, ok := d2.cpn.rule.(*DefRule)
+	if !ok {
+		return fmt.Errorf("not a defrule")
+	}
+
+	vis := (BuildNodeFn)(nil)
+	vis = func(d3 *BuildNodeData) error {
+		if d3.IsEmpty() {
+			return nil
+		}
+		if err := vis(d3.Child(0)); err != nil { // loop child
+			return err
+		}
+		return fn(d3.Child(1)) // rule child
+	}
+
+	if dr.isPZeroOrMore {
+		return vis(d2)
+	}
+	if dr.isPOneOrMore {
+		if err := vis(d2.Child(0)); err != nil {
+			return err
+		}
+		return fn(d2.Child(1)) // rule child (last)
+	}
+
+	return fmt.Errorf("child not a loop (missing loop option)")
+}
+
+func (d *BuildNodeData) ChildLoop2(i int, loopi int, pre, post BuildNodeFn) error {
+	d2 := d.Child(i)
+	//d2.PrintRuleTree(5)
+	if d2.IsEmpty() {
+		return nil
+	}
+
+	vis := (BuildNodeFn)(nil)
+	vis = func(d3 *BuildNodeData) error {
+		if d3.IsEmpty() {
+			return nil
+		}
+
+		// could be a production with less childs
+		l := d3.ChildsLen()
+		if loopi >= l {
+			return nil
+		}
+
+		// rule
+		if pre != nil {
+			if err := pre(d3); err != nil {
+				return err
+			}
+		}
+		// loop
+		if err := vis(d3.Child(loopi)); err != nil {
+			return err
+		}
+		// rule
+		if post != nil {
+			if err := post(d3); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return vis(d2)
+}
+
+//func (d *BuildNodeData) ChildRecursive(i int, loopIndex, ruleIndex int, fn func(*BuildNodeData)) {
+//	d2 := d.Child(i)
+//	if d2.IsEmpty() {
+//		return
+//	}
+//	//d2.PrintRuleTree(5)
+//	vis := (func(*BuildNodeData))(nil)
+//	vis = func(d3 *BuildNodeData) {
+//		if d3.IsEmpty() {
+//			return
+//		}
+//		l := d3.ChildsLen()
+//		if loopIndex >= l || ruleIndex >= l {
+//			return
+//		}
+//		if loopIndex < ruleIndex {
+//			vis(d3.Child(loopIndex)) // loop child
+//			fn(d3.Child(ruleIndex))  // rule child
+//		} else {
+//			fn(d3.Child(ruleIndex))  // rule child
+//			vis(d3.Child(loopIndex)) // loop child
+//		}
+//	}
+//	vis(d2)
+//}
 
 //----------
 //----------

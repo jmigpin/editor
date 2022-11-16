@@ -64,9 +64,8 @@ func (sd *StatesData) build(vd *VerticesData) error {
 			} else {
 				for r2 := range las {
 					a := &ActionReduce{
-						prod:         rd.prod,
-						popN:         rd.popLen(),
-						prodCanBeNil: ruleCanBeNil(rd.prod),
+						prod: rd.prod,
+						popN: rd.popLen(),
 					}
 					addAction(st, r2, a)
 				}
@@ -115,7 +114,7 @@ func (sd *StatesData) sortForParse(rset RuleSet) []Rule {
 		switch t := r.(type) {
 		case *StringRule:
 			switch t.typ {
-			case stringrNone: // ex: keywords
+			case stringrAnd: // ex: keywords
 				return 1, string(t.runes)
 			case stringrMid: // ex: keywords
 				return 2, string(t.runes)
@@ -183,7 +182,7 @@ func (sd *StatesData) solveConflicts(vd *VerticesData) error {
 				continue
 			}
 			switch sr.typ {
-			case stringrNone:
+			case stringrAnd:
 				if len(sr.runes) == 1 {
 					if err := checkDuplicate(orM, st, r, sr.runes[0]); err != nil {
 						return err
@@ -352,9 +351,8 @@ func (a *ActionShift) String() string {
 }
 
 type ActionReduce struct {
-	prod         Rule // reduce to rule
-	popN         int  // pop n
-	prodCanBeNil bool
+	prod Rule // reduce to rule
+	popN int  // pop n
 }
 
 func (a *ActionReduce) String() string {

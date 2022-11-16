@@ -43,13 +43,11 @@ func NewResLocParser() (*ResLocParser, error) {
 		return nil, err
 	}
 	p.lrp = lrp
-
 	return p, nil
 }
 
-// separate func to allow setting p.lrp.logfFn
-func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
-	// panic on error
+func (p *ResLocParser) Init(verboseError bool) error {
+	// panic on error (sanity check)
 	poe := func(err error) {
 		if err != nil {
 			panic(err)
@@ -64,12 +62,12 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 	poe(p.lrp.SetStringRule("rlEsc", string(p.Escape)))
 
 	// get reverse content parser
-	revOpt := &lrparser.CPOpt{
+	revOpt := &lrparser.CpOpt{
 		StartRule:         "reverse",
 		EarlyStop:         true,
 		ShiftOnSRConflict: true,
-		LogfFn:            logfFn,
 		Reverse:           true,
+		VerboseError:      verboseError,
 	}
 	revCp, err := p.lrp.ContentParser(revOpt)
 	if err != nil {
@@ -78,11 +76,11 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 	p.revCp = revCp
 
 	// get content parser
-	locOpt := &lrparser.CPOpt{
+	locOpt := &lrparser.CpOpt{
 		StartRule:         "location",
 		EarlyStop:         true,
 		ShiftOnSRConflict: true,
-		LogfFn:            logfFn,
+		VerboseError:      verboseError,
 	}
 	locCp, err := p.lrp.ContentParser(locOpt)
 	if err != nil {
@@ -103,18 +101,18 @@ func (p *ResLocParser) Init(logfFn func(f string, a ...interface{})) error {
 //----------
 
 func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
-	logf := p.locCp.Opt.Logf
+	//logf := p.locCp.Opt.Logf
 
 	// best effort to expand left
-	logf("--- expand left: i=%v\n", index)
-	bnd1, err := p.revCp.Parse(src, index)
+	//logf("--- expand left: i=%v\n", index)
+	bnd1, _, err := p.revCp.Parse(src, index)
 	if err != nil {
 		return nil, err
 	}
 	index = bnd1.End()
-	logf("--- expand left: i=%v err=%v", index, err)
+	//logf("--- expand left: i=%v err=%v", index, err)
 
-	bnd2, err := p.locCp.Parse(src, index)
+	bnd2, _, err := p.locCp.Parse(src, index)
 	if err != nil {
 		return nil, err
 	}

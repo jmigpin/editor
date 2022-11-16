@@ -24,8 +24,7 @@ func newRuleIndex() *RuleIndex {
 	ri.cm = map[string]ProcRuleFn{}
 
 	setSingleton := func(r *SingletonRule) {
-		r2 := Rule(r)
-		ri.m[r.name] = &r2 // ok to set directly, only for special rules
+		ri.set(r.name, r)
 	}
 	setFunc := func(name string, fn PStateParseFn) {
 		if err := ri.setFuncRule(name, fn); err != nil {
@@ -46,11 +45,12 @@ func newRuleIndex() *RuleIndex {
 	setProc("&escapeAny", procEscapeAny)
 
 	// (digits)+
+	// *solution1
 	//setFn("digits", parseDigits) // can't define this since it will not be able to compose "digits" with "digit" and will fail the produce a correct parser
-	// works correctly, but it is a non terminal and shows in ruleindex // TODO: improve
-	//r2 := &ParenOneOrMoreRule{}
-	//r2.setOnlyChild(ri.m["digit"])
-	//if err := ri.setDefRule("digits", r2); err != nil {
+	// *solution2: works correctly, but it is a non terminal and shows in ruleindex even if not used// TODO: improve
+	//pr := &ParenRule{typ: parenrOneOrMore}
+	//pr.setOnlyChild(*ri.m["digit"])
+	//if err := ri.setDefRule("digits", pr); err != nil {
 	//	panic(err)
 	//}
 
@@ -66,17 +66,14 @@ func (ri *RuleIndex) set(name string, r Rule) error {
 
 	// need a level on indirection to have the ruleindex.map be iterable without issues when making rules unique. Forcing rules in the index to be of these types provides that (allowing directly a stringrule would cause issues).
 	switch r.(type) {
-	case *DefRule, *FuncRule, *BoolRule:
+	case *DefRule, *FuncRule, *BoolRule, *SingletonRule:
 	default:
 		return fmt.Errorf("unexpected type to set in ruleindex: %T", r)
 	}
 
 	// don't allow reserverd words to be names
 	switch name {
-	case "", "rule", "if",
-		endRule.id(),
-		nilRule.id(),
-		anyruneRule.id():
+	case "", "rule", "if":
 		return fmt.Errorf("bad rule name: %q", name)
 	}
 
@@ -124,9 +121,8 @@ func (ri *RuleIndex) derefRules() error {
 	if ri.deref.once {
 		return ri.deref.err
 	}
-	ri.deref.once = true
-
 	err := dereferenceRules(ri)
+	ri.deref.once = true
 	ri.deref.err = err
 	return err
 }
@@ -173,7 +169,7 @@ func (ri *RuleIndex) String() string {
 
 		res = append(res, fmt.Sprintf("%v", r))
 	}
-	return strings.Join(res, "\n")
+	return fmt.Sprintf("ruleindex{\n\t%v\n}", strings.Join(res, "\n\t"))
 }
 
 func (ri *RuleIndex) sorted() []Rule {
@@ -283,7 +279,7 @@ func procDropRunes(r Rule) (Rule, error) {
 // allows to rewind in case of failure
 func procEscapeAny(r Rule) (Rule, error) {
 	//sr, ok := r.(*StringRule)
-	sr, ok := ruleInnerStringRule(r, stringrNone)
+	sr, ok := ruleInnerStringRule(r, stringrAnd)
 	if !ok {
 		return nil, fmt.Errorf("expecting stringrule")
 	}
@@ -291,7 +287,7 @@ func procEscapeAny(r Rule) (Rule, error) {
 		return nil, fmt.Errorf("expecting rule with one rune")
 	}
 	esc := sr.runes[0]
-	fr := &FuncRule{}
+	fr := &FuncRule{name: fmt.Sprintf("{escapeAny:%q}", esc)}
 	fr.fn = func(ps *PState) error {
 		return ps.EscapeAny(esc)
 	}

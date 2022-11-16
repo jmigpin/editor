@@ -10,11 +10,14 @@ import (
 
 // parse state (used in grammarparser and contentparser)
 type PState struct {
-	src     []byte
-	i       int
-	reverse bool
-
+	src       []byte
+	i         int
+	reverse   bool
 	parseNode PNode
+}
+
+func NewPState(src []byte, i int, reverse bool) *PState {
+	return &PState{src: src, i: i, reverse: reverse}
 }
 
 //----------
@@ -132,7 +135,7 @@ func (ps *PState) MatchString(s string) error {
 
 //----------
 
-func (ps *PState) matchEof() error {
+func (ps *PState) MatchEof() error {
 	ps2 := ps.Copy()
 	_, err := ps2.ReadRune()
 	if errors.Is(err, io.EOF) {
@@ -159,7 +162,7 @@ func (ps *PState) consumeSpacesIncludingNL() bool {
 		}
 	}
 }
-func (ps *PState) consumeSpacesExcludingNL() bool {
+func (ps *PState) ConsumeSpacesExcludingNL() bool {
 	ps2 := ps.Copy()
 	for i := 0; ; i++ {
 		ps3 := ps2.Copy()
@@ -179,7 +182,7 @@ func (ps *PState) consumeSpacesExcludingNL() bool {
 func (ps *PState) consumeSpacesExcludingNL2() bool {
 	ok := false
 	for {
-		ok2 := ps.consumeSpacesExcludingNL()
+		ok2 := ps.ConsumeSpacesExcludingNL()
 		err := ps.MatchString("\\\n")
 		ok3 := err == nil
 		if ok2 || ok3 {
@@ -256,16 +259,16 @@ func (ps *PState) GoString() error {
 }
 func (ps *PState) GoString2(maxLen1, maxLen2 int) error {
 	esc := '\\'
-	q := "\"" // fail on newline, eof doesn't close
+	q := "\"" // doublequote: fail on newline, eof doesn't close
 	if err := ps.StringSection(q, q, esc, true, maxLen1, false); err == nil {
 		return nil
 	}
-	q = "'" // fail on newline, eof doesn't close
-	if err := ps.StringSection(q, q, esc, true, maxLen2, false); err == nil {
+	q = "`" // backquote: can have newline, eof doesn't close
+	if err := ps.StringSection(q, q, esc, false, maxLen1, false); err == nil {
 		return nil
 	}
-	q = "`" // can have newline, eof doesn't close
-	if err := ps.StringSection(q, q, esc, false, maxLen1, false); err == nil {
+	q = "'" // singlequote: fail on newline, eof doesn't close
+	if err := ps.StringSection(q, q, esc, true, maxLen2, false); err == nil {
 		return nil
 	}
 	return fmt.Errorf("not a string")
@@ -307,12 +310,6 @@ func (ps *PState) NRunes(n int) error {
 //----------
 //----------
 
-type PStateParseFn func(ps *PState) error
-
-//----------
-//----------
-//----------
-
 func containsRune(rs []rune, ru rune) bool {
 	for _, ru2 := range rs {
 		if ru2 == ru {
@@ -325,3 +322,6 @@ func containsRune(rs []rune, ru rune) bool {
 //----------
 //----------
 //----------
+
+// TODO: rename, not used/handled by pstate directly
+type PStateParseFn func(ps *PState) error

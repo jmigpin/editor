@@ -1,6 +1,7 @@
 package lrparser
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -8,21 +9,13 @@ import (
 )
 
 type ContentParser struct {
-	Opt          *CPOpt
+	Opt          *CpOpt
 	vd           *VerticesData
 	sd           *StatesData
 	buildNodeFns map[Rule]BuildNodeFn
-
-	// run vars (need reset for each parse)
-	stk       cpStack
-	earlyStop struct {
-		on               bool
-		err              error
-		simStateRsetIter map[*State]int // iterate over state rset rules to avoid repeating simulated
-	}
 }
 
-func newContentParser(opt *CPOpt, ri *RuleIndex) (*ContentParser, error) {
+func newContentParser(opt *CpOpt, ri *RuleIndex) (*ContentParser, error) {
 	cp := &ContentParser{Opt: opt}
 	cp.buildNodeFns = map[Rule]BuildNodeFn{}
 
@@ -31,14 +24,11 @@ func newContentParser(opt *CPOpt, ri *RuleIndex) (*ContentParser, error) {
 		return nil, err
 	}
 	cp.vd = vd
-	cp.Opt.Logf("\n%v\n", ri) // dereferenced
-	cp.Opt.Logf("\n%v\n", vd.rFirst)
 
 	sd, err := newStatesData(vd, cp.Opt.ShiftOnSRConflict)
 	if err != nil {
-		//cp.Opt.Logf("%v\n", vd)
 		if sd != nil {
-			cp.Opt.Logf("%v\n", sd)
+			err = fmt.Errorf("%w\n%v\n%v\n%v", err, ri, vd.rFirst, sd)
 		}
 		return nil, err
 	}
@@ -49,69 +39,65 @@ func newContentParser(opt *CPOpt, ri *RuleIndex) (*ContentParser, error) {
 
 //----------
 
-func (cp *ContentParser) Parse(src []byte, index int) (*BuildNodeData, error) {
+func (cp *ContentParser) Parse(src []byte, index int) (*BuildNodeData, *cpRun, error) {
 	fset := NewFileSetFromBytes(src)
-	return cp.ParseFileSet(fset, index)
+	return cp.ParseFileSet(fset, index, nil)
 }
-func (cp *ContentParser) ParseFileSet(fset *FileSet, index int) (*BuildNodeData, error) {
-	// DEBUG
-	if cp.Opt.LogfFn != nil {
-		cp.Opt.Logf("%v", cp.vd)
-		cp.Opt.Logf("%v", cp.sd)
-	}
-
-	ps := &PState{src: fset.Src, i: index, reverse: cp.vd.reverse}
-	cpn, err := cp.parse3(ps)
+func (cp *ContentParser) ParseFileSet(fset *FileSet, index int, extData any) (*BuildNodeData, *cpRun, error) {
+	ps := NewPState(fset.Src, index, cp.Opt.Reverse)
+	cpr := newCPRun(cp.Opt, ps)
+	cpr.externalData = extData
+	cpn, err := cp.parse3(cpr)
 	if err != nil {
-		pe := &PosError{err: err, Pos: ps.i}
-		return nil, fset.Error(pe)
+		pe := &PosError{err: err, Pos: cpr.ps.i}
+		err = fset.Error(pe)
+		if cpr.opt.VerboseError {
+			err = fmt.Errorf("%w\n%s", err, cpr.Debug(cp))
+		}
+		return nil, cpr, err
 	}
-	d := &BuildNodeData{ps: ps, cpn: cpn}
-	return d, nil
+	d := newBuildNodeData(cpr, cpn)
+	return d, cpr, nil
 }
 
 //----------
 
-func (cp *ContentParser) parse3(ps *PState) (*CPNode, error) {
-	// init parse vars
-	cp.earlyStop.on = false
-	cp.earlyStop.err = nil
-	cp.earlyStop.simStateRsetIter = map[*State]int{}
+func (cp *ContentParser) parse3(cpr *cpRun) (*CPNode, error) {
 	// add initial state to stack
-	cpn0 := newCPNode(ps.i, ps.i, nil)
+	cpn0 := newCPNode(cpr.ps.i, cpr.ps.i, nil)
 	item0 := &cpsItem{st: cp.sd.states[0], cpn: cpn0}
-	cp.stk = cpStack{item0}
-	cp.Opt.Logf("%v\n", cp.stk)
+	cpr.stk = cpStack{item0}
+	cpr.logf("%v\n", cpr.stk)
 	// first input (action rule)
-	prule, err := cp.nextParseRule(ps, item0.st)
+	prule, err := cp.nextParseRule(cpr, item0.st)
 	if err != nil {
 		return nil, err
 	}
 	// run forever
 	for {
-		item := cp.stk[len(cp.stk)-1] // stack top
+		item := cpr.stk[len(cpr.stk)-1] // stack top
 
 		as := item.st.action[prule]
 		// TODO: deal with this error at statesdata build time?
 		if len(as) != 1 {
-			return nil, fmt.Errorf("expected one action for %v, got %v", prule, as)
+			return nil, fmt.Errorf("expected one action for %v, got %v (st=%v)", prule, as, item.st.id)
 		}
 		a := as[0]
 
 		switch t := a.(type) {
 		case *ActionShift:
-			prule, err = cp.shift(ps, t)
+			prule, err = cp.shift(cpr, t)
 			if err != nil {
 				return nil, err
 			}
 		case *ActionReduce:
-			if err := cp.reduce(ps, t); err != nil {
+			if err := cp.reduce(cpr, t); err != nil {
 				return nil, err
 			}
 		case *ActionAccept:
 			// handle earlystop (nodes with errors)
 			if item.cpn.simulated {
-				return nil, cp.earlyStop.err
+				return nil, cpr.earlyStop.err
 			}
 
 			return item.cpn, nil
@@ -120,54 +106,54 @@ func (cp *ContentParser) parse3(ps *PState) (*CPNode, error) {
 		}
 	}
 }
-func (cp *ContentParser) shift(ps *PState, t *ActionShift) (Rule, error) {
+func (cp *ContentParser) shift(cpr *cpRun, t *ActionShift) (Rule, error) {
 	// correct simulated node position
-	cpn := ps.parseNode.(*CPNode)
+	cpn := cpr.ps.parseNode.(*CPNode)
 	if cpn.simulated {
-		i := cp.stk.topEnd()
+		i := cpr.stk.topEnd()
 		cpn.setPos(i, i)
 	}
 
-	cp.Opt.Logf("shift %v\n", t.st.id)
+	cpr.logf("shift %v\n", t.st.id)
 	item := &cpsItem{st: t.st, cpn: cpn}
-	cp.stk = append(cp.stk, item)
-	cp.Opt.Logf("%v\n", cp.stk)
+	cpr.stk = append(cpr.stk, item)
+	cpr.logf("%v\n", cpr.stk)
 
-	if err := cp.buildNode(ps, cpn.rule, cpn); err != nil {
+	if err := cp.buildNode(cpr, cpn.rule, cpn); err != nil {
 		return nil, err
 	}
 
 	// next input
-	return cp.nextParseRule(ps, t.st)
+	return cp.nextParseRule(cpr, t.st)
 }
-func (cp *ContentParser) reduce(ps *PState, ar *ActionReduce) error {
-	cp.Opt.Logf("reduce to %v (pop %v)\n", ar.prod.id(), ar.popN)
+func (cp *ContentParser) reduce(cpr *cpRun, ar *ActionReduce) error {
+	cpr.logf("reduce to %v (pop %v)\n", ar.prod.id(), ar.popN)
 
 	// pop n items
-	popPos := len(cp.stk) - ar.popN
-	pops := cp.stk[popPos:]
-	cp.stk = cp.stk[:popPos] // pop
+	popPos := len(cpr.stk) - ar.popN
+	pops := cpr.stk[popPos:]
+	cpr.stk = cpr.stk[:popPos] // pop
 
 	// use current stk top to find the rule transition
-	item3 := cp.stk[len(cp.stk)-1] // top of stack
+	item3 := cpr.stk[len(cpr.stk)-1] // top of stack
 	st2, ok := item3.st.gotoSt[ar.prod]
 	if !ok {
 		return fmt.Errorf("no goto for rule %v in %v ", ar.prod.id(), item3.st.id)
 	}
-	cpn, err := cp.processPopped(ar, pops)
+	cpn, err := cp.processPopped(cpr, ar, pops)
 	if err != nil {
 		return err
 	}
 	item4 := &cpsItem{st: st2, cpn: cpn}
-	cp.stk = append(cp.stk, item4) // push "goto" to stk
-	cp.Opt.Logf("%v\n", cp.stk)
+	cpr.stk = append(cpr.stk, item4) // push "goto" to stk
+	cpr.logf("%v\n", cpr.stk)
 
-	return cp.buildNode(ps, ar.prod, cpn)
+	return cp.buildNode(cpr, ar.prod, cpn)
 }
 
 //----------
 
-func (cp *ContentParser) buildNode(ps *PState, r Rule, cpn *CPNode) error {
+func (cp *ContentParser) buildNode(cpr *cpRun, r Rule, cpn *CPNode) error {
 	if cpn.simulated {
 		return nil
 	}
@@ -175,39 +161,40 @@ func (cp *ContentParser) buildNode(ps *PState, r Rule, cpn *CPNode) error {
 	if !ok {
 		return nil
 	}
-	d := &BuildNodeData{ps: ps, cpn: cpn}
+	d := newBuildNodeData(cpr, cpn)
 	return fn(d)
 }
 
 //----------
 
-func (cp *ContentParser) processPopped(ar *ActionReduce, pops []*cpsItem) (*CPNode, error) {
-	cpn := cp.processPopped2(ar, pops)
-	cp.propagateSimulated(ar, cpn)
+func (cp *ContentParser) processPopped(cpr *cpRun, ar *ActionReduce, pops []*cpsItem) (*CPNode, error) {
+	cpn := cp.processPopped2(cpr, ar, pops)
+	cp.propagateSimulatedAndRecover(cpr, ar, cpn)
 	return cpn, nil
 }
-func (cp *ContentParser) processPopped2(ar *ActionReduce, pops []*cpsItem) *CPNode {
+func (cp *ContentParser) processPopped2(cpr *cpRun, ar *ActionReduce, pops []*cpsItem) *CPNode {
+	//TODO: REVIEW: recover from error
 	// reducing to a rule that is a loop (flatten childs list)
-	if ruleIsLoop(ar.prod) && len(pops) == 2 {
-		cpn0 := pops[0].cpn
-		if cpn0.rule == ar.prod { // first popped item is the loop rule (this depends on how the loop was constructed, check ruleindex)
-			cpn1 := pops[1].cpn
+	//	if ruleIsLoop(ar.prod) && len(pops) == 2 {
+	//		cpn0 := pops[0].cpn
+	//		if cpn0.rule == ar.prod { // first popped item is the loop rule (this depends on how the loop was constructed, check ruleindex)
+	//			cpn1 := pops[1].cpn
 
-			// recover from error
-			if cpn1.simulated {
-				cp.Opt.Logf("recovered: loop node")
-				return cpn0 // ignore the second popped item since it has an error
-			}
+	//			// recover from error
+	//			if cpn1.simulated {
+	//				cp.Opt.Logf("recovered: loop node")
+	//				return cpn0 // ignore the second popped item since it has an error
+	//			}
 
-			cpn2 := newCPNode2(cpn0, cpn1, ar.prod)
-			cpn2.childs = cpn0.childs
-			cpn2.addChilds(cp.vd.reverse, cpn1)
-			return cpn2
-		}
-	}
+	//			cpn2 := newCPNode2(cpn0, cpn1, ar.prod)
+	//			cpn2.childs = cpn0.childs
+	//			cpn2.addChilds(cp.Opt.Reverse, cpn1)
+	//			return cpn2
+	//		}
+	//	}
 
 	if len(pops) == 0 { // handle no pops reductions (nil rules)
-		i := cp.stk.topEnd()
+		i := cpr.stk.topEnd()
 		cpn := newCPNode(i, i, ar.prod)
 		return cpn
 	} else {
@@ -217,50 +204,72 @@ func (cp *ContentParser) processPopped2(ar *ActionReduce, pops []*cpsItem) *CPNo
 			w = append(w, item2.cpn)
 		}
 		cpn := newCPNode2(w[0], w[len(w)-1], ar.prod)
-		cpn.addChilds(cp.vd.reverse, w...)
+		isReverse := cp.Opt.Reverse && ruleProdCanReverse(ar.prod)
+		cpn.addChilds(isReverse, w...)
 		return cpn
 	}
 }
-func (cp *ContentParser) propagateSimulated(ar *ActionReduce, cpn *CPNode) {
-	simulated := false
+func (cp *ContentParser) propagateSimulatedAndRecover(cpr *cpRun, ar *ActionReduce, cpn *CPNode) {
+	simulatedChilds := false
 	for _, cpn2 := range cpn.childs {
 		if cpn2.simulated {
-			simulated = true
+			simulatedChilds = true
+			break
 		}
 	}
-	if simulated {
-		cpn.simulated = true
-		cpn.end = cpn.pos // clear end position (as if empty)
+	if !simulatedChilds {
+		return
+	}
 
-		// recover from error
-		if ar.prodCanBeNil {
-			cp.Opt.Logf("recovered: prod can be nil")
+	// attempt to recover simulated childs
+	if dr, ok := cpn.rule.(*DefRule); ok {
+		if dr.isPOptional {
 			cpn.childs = nil
-			cpn.simulated = false
+			cpn.end = cpn.pos // clear end position (as if empty)
+			cpr.logf("recovered: optional\n")
+			return
+		}
+		if dr.isPZeroOrMore {
+			*cpn = *cpn.childs[0]
+			cpr.logf("recovered: pZeroOrMore\n")
+			return
+		}
+		if dr.isPOneOrMore {
+			empty := cpn.childs[0].end == cpn.childs[0].pos
+			if !empty {
+				cpn.childs = cpn.childs[0].childs
+				cpr.logf("recovered: pOneOrMore\n")
+				return
+			}
 		}
 	}
+
+	// simulated
+	cpn.simulated = true
+	cpn.childs = nil
+	cpn.end = cpn.pos // clear end position (as if empty)
 }
 
 //----------
 
-func (cp *ContentParser) nextParseRule(ps *PState, st *State) (Rule, error) {
-	cp.Opt.Logf("rset: %v\n", st.rsetSorted)
+func (cp *ContentParser) nextParseRule(cpr *cpRun, st *State) (Rule, error) {
+	cpr.logf("rset: %v\n", st.rsetSorted)
 
-	if cp.earlyStop.on {
-		return cp.simulateParseRuleSet(ps, st)
+	if cpr.earlyStop.on {
+		return cp.simulateParseRuleSet(cpr, st)
 	}
 
-	r, err := cp.parseRuleSet(ps, st.rsetSorted)
+	r, err := cp.parseRuleSet(cpr, st.rsetSorted)
 	if err == nil {
 		return r, nil
 	}
 
 	// allow input to not be fully consumed
 	if cp.Opt.EarlyStop {
-		cp.Opt.Logf("earlystop: %v\n", err)
-		cp.earlyStop.on = true
-		cp.earlyStop.err = &PosError{err: err, Pos: ps.i}
-		return cp.simulateParseRuleSet(ps, st)
+		cpr.logf("earlystop: %v\n", err)
+		cpr.earlyStop.on = true
+		cpr.earlyStop.err = &PosError{err: err, Pos: cpr.ps.i}
+		return cp.simulateParseRuleSet(cpr, st)
 	}
 
 	return nil, err
@@ -268,28 +277,28 @@ func (cp *ContentParser) nextParseRule(ps *PState, st *State) (Rule, error) {
 
 //----------
 
-func (cp *ContentParser) simulateParseRuleSet(ps *PState, st *State) (Rule, error) {
+func (cp *ContentParser) simulateParseRuleSet(cpr *cpRun, st *State) (Rule, error) {
 	// rule to simulate
 	r := (Rule)(nil)
 	if st.rsetHasEndRule { // performance: faster stop (not necessary)
 		r = endRule
 	} else {
 		// get index to try next
-		k := cp.earlyStop.simStateRsetIter[st] % len(st.rsetSorted)
-		cp.earlyStop.simStateRsetIter[st]++
+		k := cpr.earlyStop.simStateRsetIter[st] % len(st.rsetSorted)
+		cpr.earlyStop.simStateRsetIter[st]++
 		maxIter := 20
-		if cp.earlyStop.simStateRsetIter[st] >= maxIter {
-			return nil, fmt.Errorf("reached max simulated attempts: %v; %w", maxIter, cp.earlyStop.err)
+		if cpr.earlyStop.simStateRsetIter[st] >= maxIter {
+			return nil, fmt.Errorf("reached max simulated attempts: %v; %w", maxIter, cpr.earlyStop.err)
 		}
 
 		r = st.rsetSorted[k]
 	}
 
-	i := cp.stk.topEnd()
+	i := cpr.stk.topEnd()
 	cpn := newCPNode(i, i, r)
 	cpn.simulated = true
-	ps.parseNode = cpn
-	cp.Opt.Logf("simulate parseruleset: %v %v\n", r.id(), pnodePosStr(cpn))
+	cpr.ps.parseNode = cpn
+	cpr.logf("simulate parseruleset: %v %v\n", r.id(), pnodePosStr(cpn))
 
 	return r, nil
 }
@@ -297,12 +306,12 @@ func (cp *ContentParser) simulateParseRuleSet(ps *PState, st *State) (Rule, erro
 //----------
 
 // creates a cpnode in ps
-func (cp *ContentParser) parseRuleSet(ps *PState, rset []Rule) (Rule, error) {
+func (cp *ContentParser) parseRuleSet(cpr *cpRun, rset []Rule) (Rule, error) {
 	for _, r := range rset {
-		if err := cp.parseRule(ps, r); err != nil {
+		if err := cp.parseRule(cpr.ps, r); err != nil {
 			continue
 		}
-		cp.Opt.Logf("parseruleset: %v %v\n", r.id(), pnodePosStr(ps.parseNode))
+		cpr.logf("parseruleset: %v %v\n", r.id(), pnodePosStr(cpr.ps.parseNode))
 		return r, nil
 	}
 	return nil, fmt.Errorf("failed to parse next: %v", rset)
@@ -313,7 +322,7 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 	case *StringRule:
 		i0 := ps.i
 		switch t.typ {
-		case stringrNone:
+		case stringrAnd:
 			if err := ps.MatchRunesAnd(t.runes); err != nil {
 				return err
 			}
@@ -348,7 +357,7 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 		//	ps.parseNode = newCPNode(ps.i, ps.i, t)
 
 		case endRule: // not allowed in grammar ("$") but present in the rules to parse (rset/lookaheads)
-			if err := ps.matchEof(); err != nil {
+			if err := ps.MatchEof(); err != nil {
 				return err
 			}
 			ps.parseNode = newCPNode(ps.i, ps.i, t)
@@ -383,24 +392,52 @@ func (cp *ContentParser) SetBuildNodeFn(name string, buildFn BuildNodeFn) error 
 //----------
 
 // content parser options
-type CPOpt struct {
+type CpOpt struct {
 	EarlyStop         bool // artificially parses an endrule when nextparsedrule fails. Allows parsing to stop successfully when no more input is recognized (although there is still input), while the rules are still able to reduce correctly.
 	ShiftOnSRConflict bool
 
 	StartRule string // can be empty, will get it from grammar
 	Reverse   bool   // runs input/rules in reverse (useful to backtrack in the middle of big inputs to then parse normally)
 
-	HelperFn func()
-	LogfFn   func(f string, a ...interface{})
+	VerboseError bool
 }
 
-func (opt *CPOpt) Logf(f string, a ...interface{}) {
-	if opt.HelperFn != nil {
-		opt.HelperFn()
+//----------
+//----------
+//----------
+
+type cpRun struct {
+	opt       *CpOpt
+	ps        *PState
+	stk       cpStack
+	earlyStop struct {
+		on               bool
+		err              error
+		simStateRsetIter map[*State]int // iterate over state rset rules to avoid repeating simulated
 	}
-	if opt.LogfFn != nil {
-		opt.LogfFn(f, a...)
+	logBuf bytes.Buffer
+
+	externalData any
+}
+
+func newCPRun(opt *CpOpt, ps *PState) *cpRun {
+	cpr := &cpRun{opt: opt, ps: ps}
+	cpr.earlyStop.simStateRsetIter = map[*State]int{}
+	return cpr
+}
+func (cpr *cpRun) logf(f string, args ...any) {
+	if cpr.opt.VerboseError {
+		fmt.Fprintf(&cpr.logBuf, f, args...)
 	}
+}
+func (cpr *cpRun) Debug(cp *ContentParser) string {
+	return fmt.Sprintf("%s\n%s\n%s\n%s%s",
+		cp.vd.rFirst.ri,
+		cp.vd.rFirst,
+		cp.vd,
+		cp.sd,
+		bytes.TrimSpace(cpr.logBuf.Bytes()),
+	)
 }
 
 //----------

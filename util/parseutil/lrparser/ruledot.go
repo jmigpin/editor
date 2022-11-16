@@ -15,9 +15,9 @@ type RuleDot struct { // also know as "item"
 
 func newRuleDot(prod, rule Rule, reverse bool) *RuleDot {
 	rd := &RuleDot{prod: prod, rule: rule}
-	if reverse && !ruleIsLoop(prod) {
+	if reverse && ruleProdCanReverse(prod) {
 		rd.reverse = true
-		rd.dot = len(rd.sequence())
+		//rd.dot = len(rd.sequence())
 	}
 	rd.advanceDotNils()
 	return rd
@@ -26,7 +26,7 @@ func newRuleDot(prod, rule Rule, reverse bool) *RuleDot {
 //----------
 
 func (rd *RuleDot) sequence() []Rule {
-	return ruleFirstSequence(rd.rule)
+	return ruleSequence(rd.rule, rd.reverse)
 }
 
 //----------
@@ -36,23 +36,24 @@ func (rd *RuleDot) dotRule() (Rule, bool) {
 		return nil, false
 	}
 	w := rd.sequence()
-	if rd.reverse {
-		return w[rd.dot-1], true
-	}
+	//if rd.reverse {
+	//	return w[rd.dot-1], true
+	//}
 	return w[rd.dot], true
 }
 func (rd *RuleDot) dotAtEnd() bool {
-	if rd.reverse {
-		return rd.dot == 0
-	}
-	return rd.dot >= len(rd.sequence())
+	//if rd.reverse {
+	//	return rd.dot == 0
+	//}
+	return rd.dot == len(rd.sequence())
 }
 func (rd *RuleDot) dotAndAfterRules() []Rule {
 	// assumes valid dot
 	w := rd.sequence()
-	if rd.reverse {
-		return reverseRulesCopy(w[:rd.dot])
-	}
+	//if rd.reverse {
+	//	//return reverseRulesCopy(w[:rd.dot])
+	//	return w[:rd.dot]
+	//}
 	return w[rd.dot:]
 }
 
@@ -68,11 +69,12 @@ func (rd *RuleDot) advanceDot() (*RuleDot, bool) {
 	return &rd2, true
 }
 func (rd *RuleDot) blindlyAdvanceDot() {
-	if rd.reverse {
-		rd.dot--
-	} else {
-		rd.dot++
-	}
+	//if rd.reverse {
+	//	rd.dot--
+	//} else {
+	//	rd.dot++
+	//}
+	rd.dot++
 }
 func (rd *RuleDot) advanceDotNils() {
 	for {
@@ -103,7 +105,11 @@ func (rd *RuleDot) popLen() int {
 //----------
 
 func (rd *RuleDot) String() string {
-	return fmt.Sprintf("{%v,%v->%v}", rd.dot, rd.prod.id(), rd.rule.id())
+	rev := ""
+	if rd.reverse {
+		rev = "rev:"
+	}
+	return fmt.Sprintf("{%v%v,%v->%v}", rev, rd.dot, rd.prod.id(), rd.rule.id())
 }
 
 //----------

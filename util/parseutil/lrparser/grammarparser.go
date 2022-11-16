@@ -17,7 +17,7 @@ func newGrammarParser() *grammarParser {
 	return gp
 }
 func (gp *grammarParser) parse(fset *FileSet) (*RuleIndex, error) {
-	ps := &PState{src: fset.Src}
+	ps := NewPState(fset.Src, 0, false)
 	err := gp.parse2(ps)
 	if err != nil {
 		return nil, fset.Error2(err, ps.i)
@@ -37,7 +37,7 @@ func (gp *grammarParser) parse2(ps *PState) error {
 }
 func (gp *grammarParser) parse3(ps *PState) (bool, error) {
 	gp.parseOptionalSpacesOrComments(ps)
-	if err := ps.matchEof(); err == nil {
+	if err := ps.MatchEof(); err == nil {
 		return false, nil
 	}
 	if err := gp.parseRule(ps); err != nil {
@@ -189,7 +189,7 @@ func (gp *grammarParser) parseOrRule(ps *PState) error {
 				}
 
 				res := &OrRule{}
-				res.childs2 = w
+				res.childs_ = w
 				res.setPos(i0, ps2.i)
 				ps2.parseNode = res
 
@@ -239,7 +239,7 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 	}
 
 	res := &AndRule{}
-	res.childs2 = w
+	res.childs_ = w
 	res.setPos(ps.i, ps2.i)
 	ps2.parseNode = res
 	ps.Set(ps2)
@@ -250,7 +250,7 @@ func (gp *grammarParser) parseAndRule(ps *PState) error {
 //----------
 
 func (gp *grammarParser) parseBasicItemRule(ps *PState) error {
-	if err, ok := gp.parseCallRule(ps); ok {
+	if err, ok := gp.parseProcRule(ps); ok {
 		return err
 	}
 	if err, ok := gp.parseRefRule(ps); ok {
@@ -264,7 +264,7 @@ func (gp *grammarParser) parseBasicItemRule(ps *PState) error {
 	}
 	return errors.New("unable to parse basic item")
 }
-func (gp *grammarParser) parseCallRule(ps *PState) (error, bool) {
+func (gp *grammarParser) parseProcRule(ps *PState) (error, bool) {
 	i0 := ps.i
 	// header
 	callRuleSym := "&"
@@ -301,7 +301,7 @@ func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 
 	// options
 	ps2 := ps.Copy()
-	st, _ := gp.parseStringRuleType(ps2)
+	stype, haveStringrType := gp.parseStringRuleType(ps2)
 
 	name, err := gp.parseName(ps2)
 	if err != nil {
@@ -311,9 +311,15 @@ func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 	ps.Set(ps2) // advance
 
 	res := &RefRule{name: name}
-	res.srRef.typ = st
 	res.setPos(i0, ps.i)
 	ps.parseNode = res
+	if haveStringrType {
+		sr := &StringRule{}
+		sr.typ = stype
+		sr.addChild(res)
+		ps.parseNode = sr
+	}
+
 	return nil, true
 }
 
@@ -370,17 +376,19 @@ func (gp *grammarParser) parseStringRuleType(ps *PState) (stringrType, bool) {
 	ps2 := ps.Copy()
 	ru, err := ps2.ReadRune()
 	if err != nil {
-		ru = 0
+		return stringrAnd, false
 	}
 	switch t := stringrType(ru); t {
-	case stringrNone,
-		stringrOr,
+	case stringrOr,
 		stringrMid,
 		stringrNot:
 		ps.Set(ps2) // advance
 		return t, true
+	case stringrAnd:
+		return stringrAnd, true // default
+	default:
+		return stringrAnd, false
 	}
-	return stringrNone, false
 }
 func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 	i0 := ps.i
@@ -395,7 +403,7 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 		return err, true
 	}
 
-	//  options
+	// options
 	ps2 := ps.Copy()
 	ru, err := ps2.ReadRune()
 	if err != nil {
@@ -411,10 +419,16 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 		ps.Set(ps2) // advance
 	}
 
+	//if pt == parenrZeroOrMore {
+	//	u := newParenZeroOrMoreRule(ruleX)
+	//	u.setPos(i0, ps.i)
+	//	ps.parseNode = u
+	//} else {
 	u := &ParenRule{typ: pt}
 	u.setOnlyChild(ruleX)
 	u.setPos(i0, ps.i)
 	ps.parseNode = u
+	//}
 
 	return nil, true
 }

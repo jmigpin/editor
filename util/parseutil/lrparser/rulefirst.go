@@ -6,15 +6,15 @@ import (
 )
 
 // rules first terminals
-type RuleFirst struct {
+type RuleFirstT struct {
 	ri      *RuleIndex
 	cache   map[Rule]RuleSet
 	seen    map[Rule]int
 	reverse bool
 }
 
-func newRulesFirst(ri *RuleIndex, reverse bool) *RuleFirst {
-	rf := &RuleFirst{ri: ri, reverse: reverse}
+func newRuleFirstT(ri *RuleIndex, reverse bool) *RuleFirstT {
+	rf := &RuleFirstT{ri: ri, reverse: reverse}
 	rf.cache = map[Rule]RuleSet{}
 	rf.seen = map[Rule]int{}
 	return rf
@@ -22,7 +22,7 @@ func newRulesFirst(ri *RuleIndex, reverse bool) *RuleFirst {
 
 //----------
 
-func (rf *RuleFirst) first(r Rule) RuleSet {
+func (rf *RuleFirstT) first(r Rule) RuleSet {
 	rset, ok := rf.cache[r]
 	if ok {
 		return rset
@@ -38,11 +38,9 @@ func (rf *RuleFirst) first(r Rule) RuleSet {
 	if r.isTerminal() {
 		rset.set(r)
 	} else {
-		for _, r2 := range ruleFirstProductions(r) { // r->a0|...|an
-			w2 := ruleFirstSequence(r2) // r->a0 ... an
-			if rf.reverse && !ruleIsLoop(r) {
-				w2 = reverseRulesCopy(w2)
-			}
+		inReverse := rf.reverse && ruleProdCanReverse(r)
+		for _, r2 := range ruleProductions(r) { // r->a0|...|an
+			w2 := ruleSequence(r2, inReverse) // r->a0 ... an
 			rset2 := rf.sequenceFirst(w2)
 			rset.add(rset2)
 		}
@@ -50,7 +48,7 @@ func (rf *RuleFirst) first(r Rule) RuleSet {
 	rf.cache[r] = rset
 	return rset
 }
-func (rf *RuleFirst) sequenceFirst(w []Rule) RuleSet {
+func (rf *RuleFirstT) sequenceFirst(w []Rule) RuleSet {
 	rset := RuleSet{}
 	allHaveNil := true
 	for _, r := range w { // w -> r1 ... rk
@@ -69,7 +67,7 @@ func (rf *RuleFirst) sequenceFirst(w []Rule) RuleSet {
 
 //----------
 
-func (rf *RuleFirst) String() string {
+func (rf *RuleFirstT) String() string {
 	u := []string{}
 	for _, r := range rf.ri.sorted() {
 		if r.isTerminal() { // no need to show terminals
@@ -77,7 +75,7 @@ func (rf *RuleFirst) String() string {
 		}
 		u = append(u, fmt.Sprintf("%v:%v", r.id(), rf.first(r)))
 	}
-	return fmt.Sprintf("rulefirst{rev:%v}:\n%v", rf.reverse, strings.Join(u, "\n"))
+	return fmt.Sprintf("rulefirst[rev=%v]{\n\t%v\n}", rf.reverse, strings.Join(u, "\n\t"))
 }
 
 //----------

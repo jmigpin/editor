@@ -8,7 +8,7 @@ import (
 // passes rules (ruleindex) to vertices data
 type VerticesData struct {
 	verts   []*Vertex
-	rFirst  *RuleFirst
+	rFirst  *RuleFirstT
 	reverse bool
 }
 
@@ -32,7 +32,7 @@ func newVerticesData(ri *RuleIndex, startRuleName string, reverse bool) (*Vertic
 		return nil, err
 	}
 
-	vd.rFirst = newRulesFirst(ri, vd.reverse)
+	vd.rFirst = newRuleFirstT(ri, vd.reverse)
 
 	rd0 := newRuleDot(startRule, dr0, vd.reverse)
 	rdlas0 := RuleDotsLaSet{}
@@ -50,8 +50,12 @@ func newVerticesData(ri *RuleIndex, startRuleName string, reverse bool) (*Vertic
 		v1 := stk[k]  // top
 		stk = stk[:k] // pop
 
+		//println("***")
+		//fmt.Printf("rdslasC %v\n", v1.rdslasC.ruleDots())
 		rset := v1.rdslasC.ruleDots().dotRulesSet()
+		//fmt.Printf("rset %v\n", rset)
 		for _, x := range rset.sorted() { // stable, otherwise alters vertex creation order and will fail tests
+			//fmt.Printf("***%v\n", x)
 
 			rdslasK, rdslasC := rdlasGoto(v1.rdslasC, x, vd.rFirst)
 			if len(rdslasK) == 0 {
@@ -89,7 +93,7 @@ func (vd *VerticesData) String() string {
 //----------
 //----------
 
-func rdlasGoto(rdlas RuleDotsLaSet, x Rule, rFirst *RuleFirst) (RuleDotsLaSet, RuleDotsLaSet) {
+func rdlasGoto(rdlas RuleDotsLaSet, x Rule, rFirst *RuleFirstT) (RuleDotsLaSet, RuleDotsLaSet) {
 	res := RuleDotsLaSet{}
 	for rd, laSet := range rdlas {
 		if r, ok := rd.dotRule(); ok && r == x {
@@ -104,7 +108,7 @@ func rdlasGoto(rdlas RuleDotsLaSet, x Rule, rFirst *RuleFirst) (RuleDotsLaSet, R
 //----------
 //----------
 
-func rdlasClosure(rdslas RuleDotsLaSet, rFirst *RuleFirst) RuleDotsLaSet {
+func rdlasClosure(rdslas RuleDotsLaSet, rFirst *RuleFirstT) RuleDotsLaSet {
 	res := RuleDotsLaSet{}
 
 	type entry struct {
@@ -137,7 +141,7 @@ func rdlasClosure(rdslas RuleDotsLaSet, rFirst *RuleFirst) RuleDotsLaSet {
 		if B.isTerminal() {
 			continue
 		}
-		BProds := ruleVDProductions(B)
+		BProds := ruleProductions(B)
 
 		β := []Rule{}
 		rd2, ok := e.rd.advanceDot()
@@ -150,7 +154,6 @@ func rdlasClosure(rdslas RuleDotsLaSet, rFirst *RuleFirst) RuleDotsLaSet {
 			βa := append(β, a)
 			firstβa := rFirst.sequenceFirst(βa)
 			for _, γ := range BProds {
-
 				rd3 := newRuleDot(B, γ, rFirst.reverse)
 
 				las := RuleSet{}
@@ -161,7 +164,9 @@ func rdlasClosure(rdslas RuleDotsLaSet, rFirst *RuleFirst) RuleDotsLaSet {
 					}
 				}
 				// add to continue processing
-				stk = append(stk, &entry{rd3, las})
+				if len(las) > 0 {
+					stk = append(stk, &entry{rd3, las})
+				}
 			}
 		}
 	}
