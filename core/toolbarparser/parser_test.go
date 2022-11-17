@@ -54,7 +54,8 @@ func TestParseParts5(t *testing.T) {
 	if !(len(d.Parts) == 3 &&
 		len(d.Parts[1].Args) == 3 &&
 		d.Parts[1].Args[2].Str() == "\"\"") {
-		t.Fatal(spew.Sdump(d))
+		//t.Fatal(spew.Sdump(d))
+		t.Fatal(d)
 	}
 }
 func TestParseParts6(t *testing.T) {
@@ -74,7 +75,8 @@ func TestParseParts7(t *testing.T) {
 		d.Parts[0].Args[0].Str() == `grep` &&
 		d.Parts[0].Args[1].Str() == `-niIR` &&
 		d.Parts[0].Args[2].Str() == `"== last"`) {
-		t.Fatal(spew.Sdump(d))
+		//t.Fatal(spew.Sdump(d))
+		t.Fatal(d)
 	}
 }
 
