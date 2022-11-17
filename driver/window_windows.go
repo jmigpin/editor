@@ -1,4 +1,4 @@
-// +build windows,!xproto
+//go:build windows && !xproto
 
 package driver
 

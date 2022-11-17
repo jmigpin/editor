@@ -38,14 +38,14 @@ func main() {
 -- pkg1/go.mod --
 module example.com/pkg1
 -- pkg1/fa_os1.go --
-// +build OS1
+//go:build OS1
 		
 package pkg1
 func Fa() string {
 	return "Fa_os1"
 }
 -- pkg1/fa_os2.go --
-// +build OS2
+//go:build OS2
 		
 package pkg1
 func Fa() string {
