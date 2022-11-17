@@ -266,7 +266,7 @@ func ManagerCallHierarchyCallsToString(mcalls []*ManagerCallHierarchyCalls, typ 
 //----------
 
 func LocationsToString(locations []*Location, baseDir string) (string, error) {
-	buf := &strings.Builder{}
+	res := []string{}
 	for _, loc := range locations {
 		filename, err := UrlToAbsFilename(string(loc.Uri))
 		if err != nil {
@@ -281,9 +281,11 @@ func LocationsToString(locations []*Location, baseDir string) (string, error) {
 		}
 
 		line, col := loc.Range.Start.OneBased()
-		fmt.Fprintf(buf, "\t%v:%v:%v\n", filename, line, col)
+		u := fmt.Sprintf("\t%v:%v:%v\n", filename, line, col)
+		res = append(res, u)
 	}
-	return buf.String(), nil
+	sort.Strings(res)
+	return strings.Join(res, ""), nil
 }
 
 //----------
