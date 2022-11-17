@@ -592,6 +592,13 @@ func walkRuleChilds(rule Rule, fn func(*Rule) error) error {
 //----------
 //----------
 
+// TODO: rename
+type PStateParseFn func(ps *PState) error
+
+//----------
+//----------
+//----------
+
 //type RuleProductions []RuleSequence
 
 //func (rp RuleProductions) String() string {

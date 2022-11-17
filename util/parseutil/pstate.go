@@ -1,4 +1,4 @@
-package lrparser
+package parseutil
 
 import (
 	"errors"
@@ -8,16 +8,16 @@ import (
 	"unicode/utf8"
 )
 
-// parse state (used in grammarparser and contentparser)
+// parse state (used in lrparser grammarparser/contentparser)
 type PState struct {
-	src       []byte
-	i         int
-	reverse   bool
-	parseNode PNode
+	Src     []byte
+	Pos     int
+	Reverse bool
+	Node    PNode // parse node
 }
 
-func NewPState(src []byte, i int, reverse bool) *PState {
-	return &PState{src: src, i: i, reverse: reverse}
+func NewPState(src []byte) *PState {
+	return &PState{Src: src}
 }
 
 //----------
@@ -28,25 +28,22 @@ func (ps PState) Copy() *PState {
 func (ps *PState) Set(ps2 *PState) {
 	*ps = *ps2
 }
-func (ps *PState) Pos() int {
-	return ps.i
-}
 
 //----------
 
 func (ps *PState) ReadRune() (rune, error) {
 	ru := rune(0)
 	size := 0
-	if ps.reverse {
-		ru, size = utf8.DecodeLastRune(ps.src[:ps.i])
+	if ps.Reverse {
+		ru, size = utf8.DecodeLastRune(ps.Src[:ps.Pos])
 		size = -size // decrease ps.i
 	} else {
-		ru, size = utf8.DecodeRune(ps.src[ps.i:])
+		ru, size = utf8.DecodeRune(ps.Src[ps.Pos:])
 	}
 	if size == 0 {
 		return 0, io.EOF
 	}
-	ps.i += size
+	ps.Pos += size
 	return ru, nil
 }
 
@@ -70,7 +67,7 @@ func (ps *PState) MatchRunesOr(rs []rune) error {
 	if err != nil {
 		return err
 	}
-	if containsRune(rs, ru) {
+	if ContainsRune(rs, ru) {
 		ps.Set(ps2)
 		return nil
 	}
@@ -80,7 +77,7 @@ func (ps *PState) MatchRunesAnd(rs []rune) error {
 	ps2 := ps.Copy()
 	for i, l := 0, len(rs); i < l; i++ {
 		ru := rs[i]
-		if ps2.reverse {
+		if ps2.Reverse {
 			ru = rs[l-1-i]
 		}
 		ru2, err := ps2.ReadRune()
@@ -94,7 +91,7 @@ func (ps *PState) MatchRunesAnd(rs []rune) error {
 	ps.Set(ps2)
 	return nil
 }
-func (ps *PState) matchRunesMid(rs []rune) error {
+func (ps *PState) MatchRunesMid(rs []rune) error {
 	ps2 := ps.Copy()
 	for k := 0; ; k++ {
 		err := ps2.MatchRunesAnd(rs)
@@ -108,21 +105,21 @@ func (ps *PState) matchRunesMid(rs []rune) error {
 		}
 
 		// backup to previous rune to try to match again
-		ps2.reverse = !ps.reverse
+		ps2.Reverse = !ps.Reverse
 		if _, err := ps2.ReadRune(); err != nil {
 			return err
 		}
-		ps2.reverse = ps.reverse
+		ps2.Reverse = ps.Reverse
 	}
 	return errors.New("no match")
 }
-func (ps *PState) matchRunesNot(rs []rune) error {
+func (ps *PState) MatchRunesNot(rs []rune) error {
 	ps2 := ps.Copy()
 	ru, err := ps2.ReadRune()
 	if err != nil {
 		return err
 	}
-	if !containsRune(rs, ru) {
+	if !ContainsRune(rs, ru) {
 		ps.Set(ps2)
 		return nil
 	}
@@ -147,7 +144,7 @@ func (ps *PState) MatchEof() error {
 
 //----------
 
-func (ps *PState) consumeSpacesIncludingNL() bool {
+func (ps *PState) ConsumeSpacesIncludingNL() bool {
 	ps2 := ps.Copy()
 	for i := 0; ; i++ {
 		ps3 := ps2.Copy()
@@ -179,7 +176,7 @@ func (ps *PState) ConsumeSpacesExcludingNL() bool {
 }
 
 // allows escaped newlines
-func (ps *PState) consumeSpacesExcludingNL2() bool {
+func (ps *PState) ConsumeSpacesExcludingNL2() bool {
 	ok := false
 	for {
 		ok2 := ps.ConsumeSpacesExcludingNL()
@@ -195,7 +192,7 @@ func (ps *PState) consumeSpacesExcludingNL2() bool {
 	return ok
 }
 
-func (ps *PState) consumeToNLIncluding() bool {
+func (ps *PState) ConsumeToNLIncluding() bool {
 	ps2 := ps.Copy()
 	for i := 0; ; i++ {
 		ps3 := ps2.Copy()
@@ -239,7 +236,7 @@ func (ps *PState) StringSection(open, close string, escape rune, failOnNewline b
 		}
 		// extension: stop after maxlength
 		if maxLen > 0 {
-			d := ps2.i - ps.i
+			d := ps2.Pos - ps.Pos
 			if d < 0 { // handle reverse
 				d = -d
 			}
@@ -254,11 +251,12 @@ func (ps *PState) StringSection(open, close string, escape rune, failOnNewline b
 	}
 }
 
+//----------
+
 func (ps *PState) GoString() error {
-	return ps.GoString2(3000, 10)
+	return ps.GoString2('\\', 3000, 10)
 }
-func (ps *PState) GoString2(maxLen1, maxLen2 int) error {
-	esc := '\\'
+func (ps *PState) GoString2(esc rune, maxLen1, maxLen2 int) error {
 	q := "\"" // doublequote: fail on newline, eof doesn't close
 	if err := ps.StringSection(q, q, esc, true, maxLen1, false); err == nil {
 		return nil
@@ -267,7 +265,7 @@ func (ps *PState) GoString2(maxLen1, maxLen2 int) error {
 	if err := ps.StringSection(q, q, esc, false, maxLen1, false); err == nil {
 		return nil
 	}
-	q = "'" // singlequote: fail on newline, eof doesn't close
+	q = "'" // singlequote: fail on newline, eof doesn't close (usually a smaller maxlen)
 	if err := ps.StringSection(q, q, esc, true, maxLen2, false); err == nil {
 		return nil
 	}
@@ -278,7 +276,7 @@ func (ps *PState) GoString2(maxLen1, maxLen2 int) error {
 
 func (ps *PState) EscapeAny(escape rune) error {
 	ps2 := ps.Copy()
-	if ps.reverse {
+	if ps.Reverse {
 		if err := ps2.NRunes(1); err != nil {
 			return err
 		}
@@ -286,7 +284,7 @@ func (ps *PState) EscapeAny(escape rune) error {
 	if err := ps2.MatchRune(escape); err != nil {
 		return err
 	}
-	if !ps.reverse {
+	if !ps.Reverse {
 		if err := ps2.NRunes(1); err != nil {
 			return err
 		}
@@ -310,18 +308,23 @@ func (ps *PState) NRunes(n int) error {
 //----------
 //----------
 
-func containsRune(rs []rune, ru rune) bool {
-	for _, ru2 := range rs {
-		if ru2 == ru {
-			return true
-		}
-	}
-	return false
+// parse node
+type PNode interface {
+	Pos() int
+	End() int
 }
 
-//----------
-//----------
-//----------
+func PNodeBytes(node PNode, src []byte) []byte {
+	pos, end := node.Pos(), node.End()
+	if pos > end {
+		pos, end = end, pos
+	}
+	return src[pos:end]
+}
+func PNodeString(node PNode, src []byte) string {
+	return string(PNodeBytes(node, src))
+}
 
-// TODO: rename, not used/handled by pstate directly
-type PStateParseFn func(ps *PState) error
+func PNodePosStr(node PNode) string {
+	return fmt.Sprintf("[%v:%v]", node.Pos(), node.End())
+}

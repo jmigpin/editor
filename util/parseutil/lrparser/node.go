@@ -4,28 +4,17 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-)
 
-// parse node
-type PNode interface {
-	Pos() int
-	End() int
-}
+	"github.com/jmigpin/editor/util/parseutil"
+)
 
 //----------
 
-func pnodeSrc(node PNode, src []byte) string { // TODO: return []byte
-	pos, end := node.Pos(), node.End()
-	if pos > end {
-		pos, end = end, pos
-	}
-	return string(src[pos:end])
-}
+type PState = parseutil.PState
+type PNode = parseutil.PNode
+
 func pnodeSrc2(node PNode, fset *FileSet) string {
-	return pnodeSrc(node, fset.Src)
-}
-func pnodePosStr(node PNode) string {
-	return fmt.Sprintf("[%v:%v]", node.Pos(), node.End())
+	return string(parseutil.PNodeBytes(node, fset.Src))
 }
 
 //----------
@@ -109,10 +98,10 @@ func (d *BuildNodeData) End() int {
 }
 
 func (d *BuildNodeData) NodeSrc() string {
-	return pnodeSrc(d.cpn, d.cpr.ps.src)
+	return parseutil.PNodeString(d.cpn, d.cpr.ps.Src)
 }
 func (d *BuildNodeData) FullSrc() []byte {
-	return d.cpr.ps.src
+	return d.cpr.ps.Src
 }
 func (d *BuildNodeData) Data() interface{} {
 	return d.cpn.data
@@ -130,7 +119,7 @@ func (d *BuildNodeData) ExternalData() any {
 //----------
 
 func (d *BuildNodeData) SprintRuleTree(maxDepth int) string {
-	return SprintNodeTree(d.cpr.ps.src, d.cpn, maxDepth)
+	return SprintNodeTree(d.cpr.ps.Src, d.cpn, maxDepth)
 }
 func (d *BuildNodeData) PrintRuleTree(maxDepth int) {
 	fmt.Printf("%v\n", d.SprintRuleTree(maxDepth))
@@ -146,7 +135,7 @@ func (d *BuildNodeData) Child(i int) *BuildNodeData {
 }
 
 func (d *BuildNodeData) ChildStr(i int) string {
-	return pnodeSrc(d.cpn.childs[i], d.cpr.ps.src)
+	return parseutil.PNodeString(d.cpn.childs[i], d.cpr.ps.Src)
 }
 func (d *BuildNodeData) ChildInt(i int) (int, error) {
 	s := d.ChildStr(i)
@@ -292,7 +281,7 @@ func SprintNodeTree(src []byte, node PNode, maxDepth int) string {
 			tag = fmt.Sprintf("%T", n)
 		}
 
-		pr(depth, "-> %v: %q\n", tag, pnodeSrc(n, src))
+		pr(depth, "-> %v: %q\n", tag, parseutil.PNodeString(n, src))
 
 		if cpn != nil {
 			for _, child := range cpn.childs {

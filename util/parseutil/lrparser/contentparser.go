@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type ContentParser struct {
@@ -44,12 +45,14 @@ func (cp *ContentParser) Parse(src []byte, index int) (*BuildNodeData, *cpRun, e
 	return cp.ParseFileSet(fset, index, nil)
 }
 func (cp *ContentParser) ParseFileSet(fset *FileSet, index int, extData any) (*BuildNodeData, *cpRun, error) {
-	ps := NewPState(fset.Src, index, cp.Opt.Reverse)
+	ps := parseutil.NewPState(fset.Src)
+	ps.Pos = index
+	ps.Reverse = cp.Opt.Reverse
 	cpr := newCPRun(cp.Opt, ps)
 	cpr.externalData = extData
 	cpn, err := cp.parse3(cpr)
 	if err != nil {
-		pe := &PosError{err: err, Pos: cpr.ps.i}
+		pe := &PosError{err: err, Pos: cpr.ps.Pos}
 		err = fset.Error(pe)
 		if cpr.opt.VerboseError {
 			err = fmt.Errorf("%w\n%s", err, cpr.Debug(cp))
@@ -64,7 +67,7 @@ func (cp *ContentParser) ParseFileSet(fset *FileSet, index int, extData any) (*B
 
 func (cp *ContentParser) parse3(cpr *cpRun) (*CPNode, error) {
 	// add initial state to stack
-	cpn0 := newCPNode(cpr.ps.i, cpr.ps.i, nil)
+	cpn0 := newCPNode(cpr.ps.Pos, cpr.ps.Pos, nil)
 	item0 := &cpsItem{st: cp.sd.states[0], cpn: cpn0}
 	cpr.stk = cpStack{item0}
 	cpr.logf("%v\n", cpr.stk)
@@ -108,7 +111,7 @@ func (cp *ContentParser) parse3(cpr *cpRun) (*CPNode, error) {
 }
 func (cp *ContentParser) shift(cpr *cpRun, t *ActionShift) (Rule, error) {
 	// correct simulated node position
-	cpn := cpr.ps.parseNode.(*CPNode)
+	cpn := cpr.ps.Node.(*CPNode)
 	if cpn.simulated {
 		i := cpr.stk.topEnd()
 		cpn.setPos(i, i)
@@ -268,7 +271,7 @@ func (cp *ContentParser) nextParseRule(cpr *cpRun, st *State) (Rule, error) {
 	if cp.Opt.EarlyStop {
 		cpr.logf("earlystop: %v\n", err)
 		cpr.earlyStop.on = true
-		cpr.earlyStop.err = &PosError{err: err, Pos: cpr.ps.i}
+		cpr.earlyStop.err = &PosError{err: err, Pos: cpr.ps.Pos}
 		return cp.simulateParseRuleSet(cpr, st)
 	}
 
@@ -297,8 +300,8 @@ func (cp *ContentParser) simulateParseRuleSet(cpr *cpRun, st *State) (Rule, erro
 	i := cpr.stk.topEnd()
 	cpn := newCPNode(i, i, r)
 	cpn.simulated = true
-	cpr.ps.parseNode = cpn
-	cpr.logf("simulate parseruleset: %v %v\n", r.id(), pnodePosStr(cpn))
+	cpr.ps.Node = cpn
+	cpr.logf("simulate parseruleset: %v %v\n", r.id(), parseutil.PNodePosStr(cpn))
 
 	return r, nil
 }
@@ -311,7 +314,7 @@ func (cp *ContentParser) parseRuleSet(cpr *cpRun, rset []Rule) (Rule, error) {
 		if err := cp.parseRule(cpr.ps, r); err != nil {
 			continue
 		}
-		cpr.logf("parseruleset: %v %v\n", r.id(), pnodePosStr(cpr.ps.parseNode))
+		cpr.logf("parseruleset: %v %v\n", r.id(), parseutil.PNodePosStr(cpr.ps.Node))
 		return r, nil
 	}
 	return nil, fmt.Errorf("failed to parse next: %v", rset)
@@ -320,7 +323,7 @@ func (cp *ContentParser) parseRuleSet(cpr *cpRun, rset []Rule) (Rule, error) {
 func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 	switch t := r.(type) {
 	case *StringRule:
-		i0 := ps.i
+		i0 := ps.Pos
 		switch t.typ {
 		case stringrAnd:
 			if err := ps.MatchRunesAnd(t.runes); err != nil {
@@ -331,42 +334,42 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 				return err
 			}
 		case stringrMid:
-			if err := ps.matchRunesMid(t.runes); err != nil {
+			if err := ps.MatchRunesMid(t.runes); err != nil {
 				return err
 			}
 		case stringrNot:
-			if err := ps.matchRunesNot(t.runes); err != nil {
+			if err := ps.MatchRunesNot(t.runes); err != nil {
 				return err
 			}
 		default:
 			panic(goutil.TodoErrorStr(string(t.typ)))
 		}
-		ps.parseNode = newCPNode(i0, ps.i, t)
+		ps.Node = newCPNode(i0, ps.Pos, t)
 	case *FuncRule:
-		i0 := ps.i
+		i0 := ps.Pos
 		ps2 := ps.Copy()
 		if err := t.fn(ps2); err != nil {
 			return err
 		}
 		ps.Set(ps2)
-		ps.parseNode = newCPNode(i0, ps.i, t)
+		ps.Node = newCPNode(i0, ps.Pos, t)
 	case *SingletonRule:
 		switch t {
 		// commented: should not be called to be parsed
 		//case nilRule:
-		//	ps.parseNode = newCPNode(ps.i, ps.i, t)
+		//	ps.Node = newCPNode(ps.Pos, ps.Pos, t)
 
 		case endRule: // not allowed in grammar ("$") but present in the rules to parse (rset/lookaheads)
 			if err := ps.MatchEof(); err != nil {
 				return err
 			}
-			ps.parseNode = newCPNode(ps.i, ps.i, t)
+			ps.Node = newCPNode(ps.Pos, ps.Pos, t)
 		case anyruneRule:
-			i0 := ps.i
+			i0 := ps.Pos
 			if _, err := ps.ReadRune(); err != nil {
 				return err // fails at eof
 			}
-			ps.parseNode = newCPNode(i0, ps.i, t)
+			ps.Node = newCPNode(i0, ps.Pos, t)
 		default:
 			panic(goutil.TodoErrorStr(t.name))
 		}
@@ -460,7 +463,7 @@ func (stk cpStack) String() string {
 			if item.cpn.rule != nil { // can be nil in state0
 				s += fmt.Sprintf(" %v", item.cpn.rule.id())
 			}
-			s += " " + pnodePosStr(item.cpn)
+			s += " " + parseutil.PNodePosStr(item.cpn)
 			if item.cpn.simulated {
 				s += fmt.Sprintf(" (simulated)")
 			}

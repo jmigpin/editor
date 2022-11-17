@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
@@ -83,13 +84,13 @@ func (p *parser3) Parse(src string) (*Data, error) {
 //----------
 
 func (p *parser3) parseArgFn(esc rune, separators string) lrparser.PStateParseFn {
-	return func(ps *lrparser.PState) error {
+	return func(ps *parseutil.PState) error {
 		ps2 := ps.Copy()
 		for {
 			if err := ps2.EscapeAny(esc); err == nil {
 				continue
 			}
-			if err := ps2.GoString2(3000, 10); err == nil {
+			if err := ps2.GoString2(esc, 3000, 10); err == nil {
 				continue
 			}
 			// read rune
@@ -105,7 +106,7 @@ func (p *parser3) parseArgFn(esc rune, separators string) lrparser.PStateParseFn
 			// solves also if it is an escape at end: "abc\\$"
 			ps2.Set(ps3)
 		}
-		d := ps2.Pos() - ps.Pos()
+		d := ps2.Pos - ps.Pos
 		if d == 0 {
 			return fmt.Errorf("empty")
 		}

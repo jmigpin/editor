@@ -409,3 +409,41 @@ func SurroundingString(b []byte, k int, pad int) string {
 	}
 	return s2
 }
+
+//----------
+
+func UnquoteString(s string, esc rune) (string, error) {
+	rs := []rune(s)
+	if len(rs) < 2 {
+		return "", fmt.Errorf("len<2")
+	}
+	quote := rs[0]
+	quotes := "\"'`"
+	if !strings.ContainsRune(quotes, quote) {
+		return "", fmt.Errorf("unexpected starting quote: %q", quote)
+	}
+	if rs[len(rs)-1] != quote {
+		return "", fmt.Errorf("missing ending quote: %q", quote)
+	}
+	res := make([]rune, 0, len(rs))
+	for i := 1; i < len(rs)-1; i++ {
+		ru := rs[i]
+		if ru == esc {
+			i++
+			continue
+		}
+		res = append(res, ru)
+	}
+	return string(res), nil
+}
+
+//----------
+
+func ContainsRune(rs []rune, ru rune) bool {
+	for _, ru2 := range rs {
+		if ru2 == ru {
+			return true
+		}
+	}
+	return false
+}
