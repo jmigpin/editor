@@ -15,7 +15,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/parseutil/reslocparser"
 )
 
 func OnLoad(ed *core.Editor) {
@@ -57,7 +57,7 @@ func goToDefinition(ctx0 context.Context, erow *core.ERow, index int) (err error
 	}
 
 	// parse external cmd output
-	filePos, err := parseutil.ParseFilePos(string(out))
+	filePos, err := reslocparser.ParseFilePos(out, 0)
 	if err != nil {
 		return err, true
 	}

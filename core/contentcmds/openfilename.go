@@ -8,6 +8,7 @@ import (
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/parseutil/reslocparser"
 )
 
 // Detects compilers output file format <string(:int)?(:int)?>, and goes to line/column.
@@ -24,16 +25,15 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 		rd = iorw.NewLimitedReaderAtPad(ta.RW(), index, index, 1000)
 	}
 
-	res, err := parseutil.ParseResource(rd, index)
+	rl, err := reslocparser.ParseResLoc2(rd, index)
 	if err != nil {
 		return err, false
 	}
-
-	filePos := parseutil.NewFilePosFromResource(res)
+	filePos := reslocparser.ResLocToFilePos(rl)
 
 	// consider middle path (index position) if line/col are not present
 	if considerMiddle && filePos.Line == 0 && filePos.Column == 0 {
-		k := index - res.ExpandedMin
+		k := index - rl.Pos
 		if k <= 0 {
 			// don't consider middle for these cases
 			// k<0: index was before filename (fil^e:///a/b/c.txt)
@@ -44,7 +44,7 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 				k = len(filePos.Filename)
 			}
 			// cut filename
-			i := strings.Index(filePos.Filename[k:], string(res.PathSep))
+			i := strings.Index(filePos.Filename[k:], string(rl.PathSep))
 			if i >= 0 {
 				filePos.Filename = filePos.Filename[:k+i]
 			}
@@ -54,7 +54,7 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 	// detected it's a filename, return true from here
 
 	// remove escapes
-	filePos.Filename = parseutil.RemoveFilenameEscapes(filePos.Filename, res.Escape, res.PathSep)
+	filePos.Filename = parseutil.RemoveFilenameEscapes(filePos.Filename, rl.Escape, rl.PathSep)
 
 	// decode home vars
 	filePos.Filename = erow.Ed.HomeVars.Decode(filePos.Filename)

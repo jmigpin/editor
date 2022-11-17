@@ -29,6 +29,7 @@ type flags struct {
 	address             string // build/connect
 	env                 []string
 	paths               []string // dirs/files to annotate (args from cmd line)
+	usePkgLinks         bool
 
 	unknownArgs []string // unknown args to pass down to tooling
 	unnamedArgs []string // args without name (ex: filenames)
@@ -81,6 +82,7 @@ func (fl *flags) parseRunArgs(name string, args []string) error {
 	fl.addStringifyBytesRunesFlag(fs)
 	fl.addSrcLinesFlag(fs)
 	fl.addEnvFlag(fs)
+	fl.addUsePkgLinksFlag(fs)
 
 	m := goBuildBooleanFlags()
 	return fl.parse(name, fs, args, m)
@@ -107,6 +109,7 @@ func (fl *flags) parseTestArgs(name string, args []string) error {
 	fl.addEnvFlag(fs)
 	fl.addTestRunFlag(fs)
 	fl.addTestVFlag(fs)
+	fl.addUsePkgLinksFlag(fs)
 
 	m := joinMaps(goBuildBooleanFlags(), goTestBooleanFlags())
 	return fl.parse(name, fs, args, m)
@@ -124,6 +127,7 @@ func (fl *flags) parseBuildArgs(name string, args []string) error {
 	fl.addEnvFlag(fs)
 	fl.addAddressFlag(fs)
 	fl.addOutFilenameFlag(fs)
+	fl.addUsePkgLinksFlag(fs)
 
 	m := goBuildBooleanFlags()
 	return fl.parse(name, fs, args, m)
@@ -155,7 +159,7 @@ func (fl *flags) addStringifyBytesRunesFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.stringifyBytesRunes, "sbr", false, "Stringify bytes/runes as string (ex: [97 98 99] outputs as \"abc\")")
 }
 func (fl *flags) addSrcLinesFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&fl.srcLines, "srclines", false, "add src reference lines to the compilation such that in case of panics, the stack refers to the original src file")
+	fs.BoolVar(&fl.srcLines, "srclines", true, "add src reference lines to the compilation such that in case of panics, the stack refers to the original src file")
 }
 func (fl *flags) addToolExecFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.toolExec, "toolexec", "", "a program to invoke before the program argument. Useful to run a tool with the output file (ex: wine)")
@@ -199,6 +203,10 @@ func (fl *flags) addPathsFlag(fs *flag.FlagSet) {
 		return nil
 	})
 	fs.Var(ff, "paths", "comma-separated `string` of dirs/files to annotate (also see the \"//godebug:annotate*\" source code directives to set files to be annotated)")
+}
+
+func (fl *flags) addUsePkgLinksFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&fl.usePkgLinks, "usepkglinks", true, "Use symbolic links to some pkgs directories to build the godebug binary. Helps solving new behaviour introduced by go1.19.x. that fails when an overlaid file depends on a new external module.")
 }
 
 //----------

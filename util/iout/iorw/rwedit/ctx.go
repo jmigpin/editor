@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
@@ -40,7 +41,7 @@ func (ctx *Ctx) Selection() ([]byte, bool) {
 	if err != nil {
 		return nil, false
 	}
-	return iorw.MakeBytesCopy(w), true
+	return iout.CopyBytes(w), true
 }
 
 func (ctx *Ctx) LocalReader(i int) iorw.ReaderAt {

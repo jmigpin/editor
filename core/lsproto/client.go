@@ -20,8 +20,11 @@ type Client struct {
 	li           *LangInstance
 	readLoopWait sync.WaitGroup
 
-	fversions map[string]int
-	folders   []*WorkspaceFolder
+	lock struct {
+		sync.Mutex
+		fversions map[string]int
+		//folders   []*WorkspaceFolder
+	}
 
 	serverCapabilities struct {
 		workspace struct {
@@ -47,7 +50,8 @@ func NewClientTCP(ctx context.Context, addr string, li *LangInstance) (*Client, 
 //----------
 
 func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) *Client {
-	cli := &Client{li: li, fversions: map[string]int{}}
+	cli := &Client{li: li}
+	cli.lock.fversions = map[string]int{}
 
 	cc := NewJsonCodec(rwc)
 	cc.OnNotificationMessage = cli.onNotificationMessage
@@ -432,13 +436,17 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 //----------
 
 func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename string, b []byte) error {
-	v, ok := cli.fversions[filename]
+
+	cli.lock.Lock()
+	v, ok := cli.lock.fversions[filename]
 	if !ok {
 		v = 1
 	} else {
 		v++
 	}
-	cli.fversions[filename] = v
+	cli.lock.fversions[filename] = v
+	cli.lock.Unlock()
+
 	return cli.TextDocumentDidOpen(ctx, filename, string(b), v)
 }
 

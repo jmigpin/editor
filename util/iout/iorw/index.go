@@ -45,7 +45,7 @@ func indexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, chunk int, op
 			c = max - k
 		}
 
-		j, n, err := indexCtx3(r, k, c, sep, pfcFn, opt)
+		j, n, err := runIndexFn(bytes.Index, r, k, c, sep, pfcFn, opt)
 		if err != nil || j >= 0 {
 			return j, n, err
 		}
@@ -56,28 +56,6 @@ func indexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, chunk int, op
 		}
 	}
 
-	return -1, 0, nil
-}
-func indexCtx3(r ReaderAt, i, n int, sep []byte, pfcFn pfcType, opt *IndexOpt) (int, int, error) {
-	return indexCtx4(bytes.Index, r, i, n, sep, pfcFn, opt)
-}
-func indexCtx4(indexFn func(s, sep []byte) int, r ReaderAt, i, n int, sep []byte, pfcFn pfcType, opt *IndexOpt) (int, int, error) {
-	p, err := r.ReadFastAt(i, n)
-	if err != nil {
-		return 0, 0, err
-	}
-	p2, _, err := pfcFn(p) // prepare for compare
-	if err != nil {
-		return 0, 0, err // TODO: continue?
-	}
-	j := indexFn(p2, sep) // can be used by index/lastindex
-	if j >= 0 {
-		n := len(sep)
-		if opt.IgnoringDiacritics() {
-			j, n = correctRunesPos(p, p2, sep, j)
-		}
-		return i + j, n, nil
-	}
 	return -1, 0, nil
 }
 
@@ -113,7 +91,7 @@ func lastIndexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, chunk int
 			c = k - min
 		}
 
-		j, n, err := lastIndexCtx3(r, k-c, k, sep, pfcFn, opt)
+		j, n, err := runIndexFn(bytes.LastIndex, r, k-c, c, sep, pfcFn, opt)
 		if err != nil || j >= 0 {
 			return j, n, err
 		}
@@ -126,8 +104,27 @@ func lastIndexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, chunk int
 
 	return -1, 0, nil
 }
-func lastIndexCtx3(r ReaderAt, i, n int, sep []byte, pfcFn pfcType, opt *IndexOpt) (int, int, error) {
-	return indexCtx4(bytes.LastIndex, r, i, n, sep, pfcFn, opt)
+
+//----------
+
+func runIndexFn(indexFn func(s, sep []byte) int, r ReaderAt, i, n int, sep []byte, pfcFn pfcType, opt *IndexOpt) (int, int, error) {
+	p, err := r.ReadFastAt(i, n)
+	if err != nil {
+		return 0, 0, err
+	}
+	p2, _, err := pfcFn(p) // prepare for compare
+	if err != nil {
+		return 0, 0, err // TODO: continue?
+	}
+	j := indexFn(p2, sep) // can be used by index/lastindex
+	if j >= 0 {
+		n := len(sep)
+		if opt.IgnoringDiacritics() {
+			j, n = correctRunesPos(p, p2, sep, j)
+		}
+		return i + j, n, nil
+	}
+	return -1, 0, nil
 }
 
 //----------

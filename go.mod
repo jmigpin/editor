@@ -1,6 +1,6 @@
 module github.com/jmigpin/editor
 
-go 1.16
+go 1.18
 
 require (
 	github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843
@@ -15,5 +15,10 @@ require (
 	golang.org/x/tools v0.1.11
 )
 
-retract v2.0.1+incompatible
-retract v2.0.2+incompatible
+retract (
+	v2.0.1+incompatible
+	v2.0.2+incompatible
+	v2.0.6-alpha.2+incompatible 
+	v2.0.7-alpha.1+incompatible 
+	v2.0.7+incompatible
+)

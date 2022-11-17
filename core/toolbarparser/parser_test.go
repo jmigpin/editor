@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package toolbarparser
@@ -7,6 +8,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 )
+
+//godebug:annotatepackage
+//godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil/lrparser
 
 func TestParseTokens1(t *testing.T) {
 	s := "a|b|c"
@@ -50,7 +54,8 @@ func TestParseParts5(t *testing.T) {
 	if !(len(d.Parts) == 3 &&
 		len(d.Parts[1].Args) == 3 &&
 		d.Parts[1].Args[2].Str() == "\"\"") {
-		t.Fatal(spew.Sdump(d))
+		//t.Fatal(spew.Sdump(d))
+		t.Fatal(d)
 	}
 }
 func TestParseParts6(t *testing.T) {
@@ -70,7 +75,8 @@ func TestParseParts7(t *testing.T) {
 		d.Parts[0].Args[0].Str() == `grep` &&
 		d.Parts[0].Args[1].Str() == `-niIR` &&
 		d.Parts[0].Args[2].Str() == `"== last"`) {
-		t.Fatal(spew.Sdump(d))
+		//t.Fatal(spew.Sdump(d))
+		t.Fatal(d)
 	}
 }
 
@@ -96,7 +102,10 @@ func TestParseParts8(t *testing.T) {
 		s1 := d.Parts[2].Args[0].Str()
 		s2 := d.Parts[2].Args[0].UnquotedStr()
 		if !(s1 == "`c\nd`" && s2 == "c\nd") {
-			t.Fatal(spew.Sdump(d.Parts[2]))
+			//t.Fatal(spew.Sdump(d.Parts[2]))
+			t.Fatal(s1, s2)
+			//d.bnd.PrintRuleTree(5)
+			//t.Fatal()
 		}
 	}
 	{

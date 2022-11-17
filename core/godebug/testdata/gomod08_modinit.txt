@@ -1,6 +1,6 @@
 cd main
 
-# opt-out of default proxy service (ex: goes to github.com directly
+# opt-out of default proxy service (ex: goes to github.com directly)
 #setenv GOPROXY direct
 
 # no proxy to use only what is available locally
@@ -17,11 +17,10 @@ exec go mod init example.com
 fail exec go mod tidy
 contains stderr "cannot find module"
 
-fail exec go mod download golang.org/x/tools/godoc/util
+fail exec go mod download golang.org/x/example/stringutil
 contains stderr "not a known dependency"
 
-fail exec go mod download golang.org/x/tools
-contains stderr "not a known dependency"
+fail exec go mod download golang.org/x/example
 
 # TODO: should be able to solve this with goproxy=off
 
@@ -34,18 +33,19 @@ contains stderr "go: found"
 
 # suggests using "go mod download"
 exec go run main.go
-contains stderr "true"
+contains stderr "cba"
 
 ucmd godebugtester run main.go
-contains stdout "println(true)"
-# inside the godoc/util pkg
-contains stdout "=> len([97 98 99])"
+#ucmd godebugtester run -verbose -work main.go
+contains stdout "println(\"cba\")"
+# inside the external pkg
+contains stdout "=> len([99 98 97])"
 
 -- main/main.go --
 package main
-import "golang.org/x/tools/godoc/util"
-//godebug:annotatepackage:golang.org/x/tools/godoc/util
+//godebug:annotatepackage:golang.org/x/example/stringutil
+import "golang.org/x/example/stringutil"
 func main() {
-	v:=util.IsText([]byte("abc"))
+	v:=stringutil.Reverse("abc")
 	println(v)
 }

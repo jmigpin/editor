@@ -89,7 +89,7 @@ func (sc *Scanner) ReadByte() (byte, error) {
 	}
 
 	if sc.Reverse {
-		b, err := sc.rd.ReadFastAt(sc.Pos-1, sc.Pos)
+		b, err := sc.rd.ReadFastAt(sc.Pos-1, 1)
 		if err != nil {
 			return 0, err
 		}
@@ -97,7 +97,7 @@ func (sc *Scanner) ReadByte() (byte, error) {
 		return b[0], nil
 	}
 
-	b, err := sc.rd.ReadFastAt(sc.Pos, sc.Pos+1)
+	b, err := sc.rd.ReadFastAt(sc.Pos, 1)
 	if err != nil {
 		return 0, err
 	}
@@ -793,7 +793,7 @@ func (sc *Scanner) BytesValue(fn ScanFunc) ([]byte, bool) {
 	if sc.Reverse {
 		start, end = end, start
 	}
-	b, err := sc.rd.ReadFastAt(start, end)
+	b, err := sc.rd.ReadFastAt(start, end-start)
 	if err != nil {
 		// error info lost
 		return nil, false

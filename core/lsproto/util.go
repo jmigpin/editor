@@ -230,6 +230,7 @@ func ManagerCallHierarchyCallsToString(mcalls []*ManagerCallHierarchyCalls, typ 
 		s3 := fmt.Sprintf("calls %s %v: %v results", s2, mcall.item.Name, nres)
 		res = append(res, s3)
 
+		res2 := []string{}
 		for _, call := range mcall.calls {
 			item := call.Item()
 
@@ -251,10 +252,12 @@ func ManagerCallHierarchyCallsToString(mcalls []*ManagerCallHierarchyCalls, typ 
 
 			for _, r := range call.FromRanges {
 				line, col := r.Start.OneBased()
-				u := fmt.Sprintf("\t%s: %s:%d:%d", item.Name, filename, line, col)
-				res = append(res, u)
+				u := fmt.Sprintf("\t%s:%d:%d: %s", filename, line, col, item.Name)
+				res2 = append(res2, u)
 			}
 		}
+		sort.Strings(res2)
+		res = append(res, res2...)
 	}
 	w := strings.Join(res, "\n")
 	return w, nil

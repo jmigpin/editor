@@ -8,7 +8,7 @@ import (
 
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/evreg"
-	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -153,7 +153,7 @@ func (tio *ERowTermIO) appendOp(op interface{}) {
 	switch t := op.(type) {
 	case []byte:
 		// copy to avoid losing/overwriting content
-		b := iorw.MakeBytesCopy(t)
+		b := iout.CopyBytes(t)
 
 		// performance: append to previous op if possible
 		l := len(*o)

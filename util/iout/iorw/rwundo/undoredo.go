@@ -1,6 +1,9 @@
 package rwundo
 
-import "github.com/jmigpin/editor/util/iout/iorw"
+import (
+	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
+)
 
 type UndoRedo struct {
 	Index int
@@ -14,7 +17,7 @@ func NewUndoRedoOverwrite(rw iorw.ReadWriterAt, i, n int, p []byte) (*UndoRedo, 
 	if err != nil {
 		return nil, err
 	}
-	b1 := iorw.MakeBytesCopy(b0)
+	b1 := iout.CopyBytes(b0)
 	// copy insert
 	b2 := make([]byte, len(p))
 	copy(b2, p)

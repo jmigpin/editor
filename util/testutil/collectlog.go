@@ -11,6 +11,9 @@ import (
 )
 
 func CollectLog(t *testing.T, fn func() error) ([]byte, []byte, error) {
+	return CollectLog2(t.Logf, fn)
+}
+func CollectLog2(logf func(string, ...any), fn func() error) ([]byte, []byte, error) {
 	// keep for later restoration
 	orig1, orig2 := os.Stdout, os.Stderr
 	defer func() { // restore
@@ -33,14 +36,14 @@ func CollectLog(t *testing.T, fn func() error) ([]byte, []byte, error) {
 	logWriter := func(wr io.Writer, buf *bytes.Buffer) io.Writer {
 		return iout.FnWriter(func(b []byte) (int, error) {
 			// commented: prints many lines without log prefix
-			//t.Logf("%s", b)
+			//logf("%s", b)
 
 			// ensure a call to logf() sends a complete line
 			k := 0
 			for i, c := range b {
 				if c == '\n' {
 					b2 := append(buf.Bytes(), b[k:i]...)
-					t.Logf("%s", b2)
+					logf("%s", b2)
 					k = i + 1
 					buf.Reset()
 				}
@@ -50,6 +53,11 @@ func CollectLog(t *testing.T, fn func() error) ([]byte, []byte, error) {
 			}
 			return len(b), nil
 		})
+	}
+	flushLogWriter := func(buf *bytes.Buffer) {
+		if len(buf.Bytes()) > 0 {
+			logf("%s", buf.Bytes())
+		}
 	}
 
 	// copy loop
@@ -66,10 +74,7 @@ func CollectLog(t *testing.T, fn func() error) ([]byte, []byte, error) {
 		_, _ = io.Copy(stdoutBuf, rd)
 		pr1.Close()
 
-		// final bytes
-		if len(buf.Bytes()) > 0 {
-			t.Logf("%s", buf.Bytes())
-		}
+		flushLogWriter(buf) // final bytes
 	}()
 
 	// copy loop
@@ -85,10 +90,7 @@ func CollectLog(t *testing.T, fn func() error) ([]byte, []byte, error) {
 		_, _ = io.Copy(stderrBuf, rd)
 		pr2.Close()
 
-		// final bytes
-		if len(buf.Bytes()) > 0 {
-			t.Logf("%s", buf.Bytes())
-		}
+		flushLogWriter(buf) // final bytes
 	}()
 
 	// run

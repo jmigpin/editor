@@ -92,6 +92,28 @@ func TestLastIndex1(t *testing.T) {
 	t.Log(i)
 }
 
+func TestLastIndex2(t *testing.T) {
+	s := "-abc----------abc----------"
+
+	rw := NewStringReaderAt(s)
+
+	i, _, err := lastIndexCtx2(context.Background(), rw, rw.Max(), []byte("abc"), 4, &IndexOpt{IgnoreCase: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i != 14 {
+		t.Fatal(i)
+	}
+
+	i, _, err = lastIndexCtx2(context.Background(), rw, i, []byte("abc"), 4, &IndexOpt{IgnoreCase: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i != 1 {
+		t.Fatal(i)
+	}
+}
+
 func TestIndexDiacritics1(t *testing.T) {
 	s := "-ìùù-aaáéb--"
 	rw := NewStringReaderAt(s)

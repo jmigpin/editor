@@ -1,6 +1,9 @@
 package rwedit
 
-import "github.com/jmigpin/editor/util/iout/iorw"
+import (
+	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/iout/iorw"
+)
 
 func MoveLineUp(ctx *Ctx) error {
 	a, b, newline, err := ctx.CursorSelectionLinesIndexes()
@@ -16,7 +19,7 @@ func MoveLineUp(ctx *Ctx) error {
 	if err != nil {
 		return err
 	}
-	s := iorw.MakeBytesCopy(s0)
+	s := iout.CopyBytes(s0)
 
 	if err := ctx.RW.OverwriteAt(a, b-a, nil); err != nil {
 		return err
@@ -69,7 +72,7 @@ func MoveLineDown(ctx *Ctx) error {
 	if err != nil {
 		return err
 	}
-	s := iorw.MakeBytesCopy(s0)
+	s := iout.CopyBytes(s0)
 
 	// delete moving line
 	if err := ctx.RW.OverwriteAt(a, b-a, nil); err != nil {

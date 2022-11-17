@@ -26,6 +26,7 @@ import (
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/pathutil"
+	"golang.org/x/mod/modfile"
 )
 
 // The godebug/debug pkg is writen to a tmp dir and used with the pkg path "godebugconfig/debug" to avoid clashes when self debugging. A config.go file is added with the annotation data. The godebug/debug pkg is included in the editor binary via //go:embed directive.
@@ -38,7 +39,6 @@ type Cmd struct {
 
 	flags      flags
 	gopathMode bool
-	selfMode   bool // target program uses editor module // TODO: remove
 
 	Stdin  io.Reader
 	Stdout io.Writer
@@ -184,13 +184,13 @@ func (cmd *Cmd) build(ctx context.Context) error {
 	if err := cmd.buildDebugPkg(ctx, fa); err != nil {
 		return err
 	}
-	if err := cmd.buildOverlayFile(ctx, fa); err != nil {
-		return err
-	}
-	if !cmd.gopathMode && !cmd.selfMode {
+	if !cmd.gopathMode {
 		if err := cmd.buildAlternativeGoMod(ctx, fa); err != nil {
 			return err
 		}
+	}
+	if err := cmd.buildOverlayFile(ctx); err != nil {
+		return err
 	}
 
 	// DEBUG
@@ -695,7 +695,7 @@ func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
 
 //------------
 
-func (cmd *Cmd) buildOverlayFile(ctx context.Context, fa *FilesToAnnotate) error {
+func (cmd *Cmd) buildOverlayFile(ctx context.Context) error {
 	// build entries
 	w := []string{}
 	for src, dest := range cmd.overlay {
@@ -779,7 +779,7 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 	}
 
 	// dynamically create go.mod since go:embed doesn't allow it
-	if !cmd.selfMode && !cmd.gopathMode {
+	if !cmd.gopathMode {
 		src3 := []byte(fmt.Sprintf("module %s\n", debugPkgPath))
 		if err := writeFile("go.mod", src3); err != nil {
 			return err
@@ -834,20 +834,113 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context, fa *FilesToAnnotate) 
 	if err != nil {
 		return fmt.Errorf("unable to read mod file: %w", err)
 	}
-	// alter to include debug pkg replace line
-	src = append(src, []byte(fmt.Sprintf("\nrequire %s v0.0.0\nreplace %v => %v\n", debugPkgPath, debugPkgPath, cmd.debugPkgDir))...)
-	// write
-	cmd.alternativeGoMod = filepath.Join(cmd.tmpDir, "alternative.mod")
-	if err := mkdirAllWriteFile(cmd.alternativeGoMod, src); err != nil {
+	f, err := modfile.ParseLax(filename, src, nil)
+	if err != nil {
 		return err
 	}
 
-	// copy as well go.sum or it will fail, just need a best effort
-	dir := filepath.Dir(filename)
-	gosum := filepath.Join(dir, "go.sum")
-	gosumDst := pathutil.ReplaceExt(cmd.alternativeGoMod, ".sum")
-	_ = copyFile(gosum, gosumDst)
+	if cmd.flags.usePkgLinks {
+		if err := cmd.buildPkgLinks(f, fa); err != nil {
+			return err
+		}
+	}
 
+	// include debug pkg require/replace lines
+	f.AddNewRequire(debugPkgPath, "v0.0.0", false)
+	f.AddReplace(debugPkgPath, "", cmd.debugPkgDir, "")
+
+	src2, err := f.Format()
+	if err != nil {
+		return err
+	}
+	cmd.alternativeGoMod = filepath.Join(cmd.tmpDir, "alternative.mod")
+	if err := mkdirAllWriteFile(cmd.alternativeGoMod, src2); err != nil {
+		return err
+	}
+
+	// REVIEW: commented: using overlay for go.mod, so the original go.sum should be used(?)
+	//// copy as well go.sum or it will fail, just need a best effort
+	//dir := filepath.Dir(filename)
+	//gosum := filepath.Join(dir, "go.sum")
+	//gosumDst := pathutil.ReplaceExt(cmd.alternativeGoMod, ".sum")
+	//_ = copyFile(gosum, gosumDst)
+
+	cmd.overlay[filename] = cmd.alternativeGoMod
+	////cmd.overlay[gosum] = gosumDst
+	cmd.alternativeGoMod = "" // disable (using overlay)
+
+	return nil
+}
+
+func (cmd *Cmd) buildPkgLinks(mf *modfile.File, fa *FilesToAnnotate) error {
+
+	linksDir := filepath.Join(cmd.tmpDir, "pkglinks")
+	if err := iout.MkdirAll(linksDir); err != nil {
+		return err
+	}
+
+	linkFilename := func(dir string) string {
+		hash := hashStringN(dir, 10)
+		base := filepath.Base(dir)
+		name := fmt.Sprintf("%s-%s", base, hash)
+		return filepath.Join(linksDir, name)
+	}
+
+	seen := map[string]bool{}        // seen module
+	for _, req := range mf.Require { // modules being required
+		for filename := range fa.toAnnotate { // all annotated files
+			fpkg, ok := fa.filesPkgs[filename]
+			if !ok {
+				continue
+			}
+
+			fmod := pkgMod(fpkg)
+			if fmod == nil || fmod.Dir == "" {
+				continue
+			}
+
+			// visited already
+			if seen[fmod.Dir] {
+				continue
+			}
+			seen[fmod.Dir] = true
+
+			if fmod.Path != req.Mod.Path {
+				continue
+			}
+
+			// required module with annotated files
+
+			// TODO: do this only if in a gopath dir? Seemed to be the issue that only modules in a gopath dir would not honor the overlay including a new package
+
+			// make a link to the package module and use that link dir to bypass the erroneous behaviour introduced by go1.19.x
+			ldir := linkFilename(fmod.Dir)
+			if err := os.Symlink(fmod.Dir, ldir); err != nil {
+				return fmt.Errorf("builddirlinks: %w", err)
+			}
+
+			// add replace directive to go.mod
+			mf.AddReplace(fmod.Path, "", ldir, "")
+
+			// replace all references in the overlay map to the created link dir
+			for oldf, newf := range cmd.overlay {
+				dir2 := fmod.Dir + string(filepath.Separator)
+				if strings.HasPrefix(oldf, dir2) {
+					rest := oldf[len(dir2):]
+					name2 := filepath.Join(ldir, rest)
+					cmd.overlay[name2] = newf
+					delete(cmd.overlay, oldf)
+				}
+			}
+
+			// add module go.mod in overlay (ex: case of module without a go.mod, but with a built go.mod in a cache dir)
+			dir2 := filepath.Dir(fmod.GoMod)
+			if dir2 != fmod.Dir {
+				filename := filepath.Join(ldir, "go.mod")
+				cmd.overlay[filename] = fmod.GoMod
+			}
+		}
+	}
 	return nil
 }
 
