@@ -95,13 +95,17 @@ Usage of ./editor:
     	 (default 12)
   -lsproto value
     	Language-server-protocol register options. Can be specified multiple times.
-    	Format: language,fileExtensions,network{tcp,tcpclient,stdio},cmd,optional{stderr}
+    	Format: language,fileExtensions,network{tcp|tcpclient|stdio},command,optional{stderr,nogotoimpl}
+    	Format notes:
+    		if network is tcp, the command runs in a template with vars: {{.Addr}}.
+    		if network is tcpclient, the command should be an ipaddress.
     	Examples:
     		go,.go,stdio,"gopls serve"
     		go,.go,tcp,"gopls serve -listen={{.Addr}}"
-    		cpp,".c .h .cpp .hpp .cc",stdio,clangd
+    		cpp,".c .h .cpp .hpp .cc",stdio,"clangd"
     		python,.py,stdio,pylsp
     		python,.py,tcpclient,127.0.0.1:9000
+    		python,.py,stdio,pylsp,"stderr nogotoimpl"
   -plugins string
     	comma separated string of plugin filenames
   -presavehook value

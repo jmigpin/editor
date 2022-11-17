@@ -13,9 +13,9 @@ import (
 type Registration struct {
 	Language string
 	Exts     []string
+	Network  string // {stdio,tcpclient,tcp{templatevals:.Addr}}
 	Cmd      string
-	Network  string   // {stdio, tcp(runs text/template on cmd)}
-	Optional []string // optional extra fields
+	Optional []string // {stderr,nogotoimpl}
 }
 
 func NewRegistration(s string) (*Registration, error) {
@@ -32,6 +32,17 @@ func (reg *Registration) HasOptional(s string) bool {
 			return true
 		}
 	}
+
+	// handle backwards compatibility (keep old defaults)
+	if s == "nogotoimpl" {
+		// - these won't use gotoimplementation, and there is no way to enable it (it would just be slower)
+		// - other languages (ex:c/c++) will use gotoimplementation
+		languagesToBypass := "go python javascript"
+		if strings.Contains(languagesToBypass, strings.ToLower(reg.Language)) {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -60,7 +71,9 @@ func parseRegistration(s string) (*Registration, error) {
 	reg.Exts = strings.Split(fields[1], " ")
 	reg.Network = fields[2]
 	reg.Cmd = fields[3]
-	reg.Optional = fields[4:]
+	if len(fields) > 4 {
+		reg.Optional = strings.Split(fields[4], " ")
+	}
 
 	return reg, nil
 }
@@ -83,7 +96,13 @@ func stringifyRegistration(reg *Registration) string {
 		reg.Network,
 		cmd,
 	}
-	u = append(u, reg.Optional...)
+	if len(reg.Optional) >= 1 {
+		h := strings.Join(reg.Optional, " ")
+		if len(reg.Optional) >= 2 {
+			h = fmt.Sprintf("%q", h)
+		}
+		u = append(u, h)
+	}
 	return strings.Join(u, ",")
 }
 
@@ -96,6 +115,7 @@ func RegistrationExamples() []string {
 		cLangRegistration(false),
 		"python,.py,stdio,pylsp",
 		"python,.py,tcpclient,127.0.0.1:9000",
+		"python,.py,stdio,pylsp,\"stderr nogotoimpl\"",
 	}
 }
 

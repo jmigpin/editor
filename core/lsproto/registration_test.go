@@ -39,4 +39,16 @@ func TestParseRegistration3(t *testing.T) {
 	}
 }
 
+func TestParseRegistration4(t *testing.T) {
+	s := "a,.aaa,stdio,c1,'opt1 opt2'"
+	reg, err := NewRegistration(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2 := reg.String()
+	if s2 != "a,.aaa,stdio,c1,\"opt1 opt2\"" {
+		t.Fatal(s2)
+	}
+}
+
 //----------
