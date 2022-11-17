@@ -1,49 +1,41 @@
 package parseutil
 
-import (
-	"strconv"
-
-	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/scanutil"
-)
+import "fmt"
 
 func ParseFields(s string, fieldSep rune) ([]string, error) {
-	rd := iorw.NewStringReaderAt(s)
-	sc := scanutil.NewScanner(rd)
-
+	ps := NewPState([]byte(s))
+	esc := '\\'
 	fields := []string{}
 	for i := 0; ; i++ {
-		if sc.Match.End() {
+		if ps.MatchEof() == nil {
 			break
 		}
 
 		// field separator
-		if i > 0 && !sc.Match.Rune(fieldSep) {
-			return nil, sc.Errorf("field separator")
+		if i > 0 {
+			if err := ps.MatchRune(fieldSep); err != nil {
+				return nil, fmt.Errorf("field separator: %w", err)
+			}
 		}
-		sc.Advance()
 
 		// field (can be empty)
+		pos0 := ps.Pos
 		for {
-			if sc.Match.Quoted("\"'", '\\', true, 5000) {
+			if ps.GoString2(esc, 3000, 3000) == nil {
 				continue
 			}
-			if sc.Match.Except(string(fieldSep)) {
+			if ps.MatchRunesNot([]rune{fieldSep}) == nil {
 				continue
 			}
 			break
 		}
-		f := sc.Value()
-
-		// unquote field
-		f2, err := strconv.Unquote(f)
-		if err == nil {
-			f = f2
+		val := string(ps.Src[pos0:ps.Pos])
+		if u, err := UnquoteString(val, esc); err == nil {
+			val = u
 		}
 
 		// add field
-		fields = append(fields, f)
-		sc.Advance()
+		fields = append(fields, val)
 	}
 	return fields, nil
 }
