@@ -11,8 +11,8 @@ func Version() string {
 
 	v := "3.6.0"
 	//typ := "release"
-	//typ:="rc" // release candidate
-	typ := "alpha" // development
+	typ := "rc" // release candidate
+	//typ := "alpha" // development
 	return taggedVersion(v, typ)
 }
 func taggedVersion(v string, typ string) string {
