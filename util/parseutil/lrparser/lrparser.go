@@ -1,6 +1,10 @@
 package lrparser
 
-import "fmt"
+import (
+	"fmt"
+)
+
+//godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil
 
 type Lrparser struct {
 	fset *FileSet
@@ -16,19 +20,24 @@ func NewLrparserFromString(src string) (*Lrparser, error) {
 }
 func NewLrparser(fset *FileSet) (*Lrparser, error) {
 	lrp := &Lrparser{fset: fset}
-	gp := newGrammarParser()
-	ri, err := gp.parse(lrp.fset) // creates ruleindex (has some predefined rules)
-	if err != nil {
+	// rule index (setups predefined rules)
+	lrp.ri = newRuleIndex()
+	if err := setupPredefineds(lrp.ri); err != nil {
 		return nil, err
 	}
-	lrp.ri = ri
+	// parse provided grammar
+	gp := newGrammarParser(lrp.ri)
+	if err := gp.parse(lrp.fset); err != nil {
+		return nil, err
+	}
 	return lrp, nil
 }
 
 func (lrp *Lrparser) ContentParser(opt *CpOpt) (*ContentParser, error) {
 	cp, err := newContentParser(opt, lrp.ri)
 	if err != nil {
-		return nil, lrp.fset.Error(err)
+		err = lrp.fset.Error(err) // attempt at improving error; these are ruleindex errors
+		return nil, err
 	}
 	return cp, nil
 }
@@ -43,6 +52,15 @@ func (lrp *Lrparser) SetStringRule(name string, s string) error {
 	r.runes = []rune(s)
 	return lrp.ri.setDefRule(name, r)
 }
+func (lrp *Lrparser) SetBoolRule(name string, v bool) error {
+	return lrp.ri.setBoolRule(name, v)
+}
+func (lrp *Lrparser) SetFuncRule(name string, parseOrder int, fn PStateParseFn) error {
+	return lrp.ri.setFuncRule(name, parseOrder, fn)
+}
+
+//----------
+
 func (lrp *Lrparser) MustGetStringRule(name string) string {
 	if s, err := lrp.GetStringRule(name); err != nil {
 		panic(err)
@@ -61,16 +79,7 @@ func (lrp *Lrparser) GetStringRule(name string) (string, error) {
 	}
 	sr, ok := dr.onlyChild().(*StringRule)
 	if !ok {
-		return "", fmt.Errorf("not a stringrule: %v", r)
+		return "", fmt.Errorf("expecting stringrule: %v", dr.onlyChild())
 	}
 	return string(sr.runes), nil
-}
-
-func (lrp *Lrparser) SetBoolRule(name string, v bool) error {
-	return lrp.ri.setBoolRule(name, v)
-}
-
-// NOTE: avoid using setFuncRule accessible because of parse order
-func (lrp *Lrparser) SetFuncRule(name string, fn PStateParseFn) error {
-	return lrp.ri.setFuncRule(name, fn)
 }

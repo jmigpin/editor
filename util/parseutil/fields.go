@@ -21,10 +21,10 @@ func ParseFields(s string, fieldSep rune) ([]string, error) {
 		// field (can be empty)
 		pos0 := ps.Pos
 		for {
-			if ps.GoString2(esc, 3000, 3000) == nil {
+			if ps.QuotedString2(esc, 3000, 3000) == nil {
 				continue
 			}
-			if ps.MatchRunesNot([]rune{fieldSep}) == nil {
+			if ps.MatchRunesOrNeg([]rune{fieldSep}) == nil {
 				continue
 			}
 			break

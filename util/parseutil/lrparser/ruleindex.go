@@ -1,16 +1,14 @@
 package lrparser
 
 import (
-	"errors"
 	"fmt"
 	"strings"
-	"unicode"
 )
 
 // unique rule index
 type RuleIndex struct {
-	m  map[string]*Rule // *DefRule,*FuncRule,*BoolRule
-	cm map[string]ProcRuleFn
+	m  map[string]*Rule
+	pm map[string]ProcRuleFn
 
 	deref struct {
 		once bool
@@ -21,39 +19,7 @@ type RuleIndex struct {
 func newRuleIndex() *RuleIndex {
 	ri := &RuleIndex{}
 	ri.m = map[string]*Rule{}
-	ri.cm = map[string]ProcRuleFn{}
-
-	setSingleton := func(r *SingletonRule) {
-		ri.set(r.name, r)
-	}
-	setFunc := func(name string, fn PStateParseFn) {
-		if err := ri.setFuncRule(name, fn); err != nil {
-			panic(err)
-		}
-	}
-	setProc := func(name string, fn ProcRuleFn) {
-		ri.cm[name] = fn // ok to set directly, only for special rules
-	}
-
-	// setup predefined rules
-	setSingleton(nilRule)
-	setSingleton(endRule)
-	setSingleton(anyruneRule)
-	setFunc("letter", parseLetter)
-	setFunc("digit", parseDigit)
-	setProc("&dropRunes", procDropRunes)
-	setProc("&escapeAny", procEscapeAny)
-
-	// (digits)+
-	// *solution1
-	//setFn("digits", parseDigits) // can't define this since it will not be able to compose "digits" with "digit" and will fail the produce a correct parser
-	// *solution2: works correctly, but it is a non terminal and shows in ruleindex even if not used// TODO: improve
-	//pr := &ParenRule{typ: parenrOneOrMore}
-	//pr.setOnlyChild(*ri.m["digit"])
-	//if err := ri.setDefRule("digits", pr); err != nil {
-	//	panic(err)
-	//}
-
+	ri.pm = map[string]ProcRuleFn{}
 	return ri
 }
 
@@ -110,9 +76,22 @@ func (ri *RuleIndex) setBoolRule(name string, v bool) error {
 	r := &BoolRule{name: name, value: v}
 	return ri.set(name, r)
 }
-func (ri *RuleIndex) setFuncRule(name string, fn PStateParseFn) error {
-	r := &FuncRule{name: name, fn: fn}
+func (ri *RuleIndex) setFuncRule(name string, parseOrder int, fn PStateParseFn) error {
+	r := &FuncRule{name: name, parseOrder: parseOrder, fn: fn}
 	return ri.set(name, r)
+}
+func (ri *RuleIndex) setSingletonRule(r *SingletonRule) error {
+	return ri.set(r.name, r)
+}
+
+//----------
+
+func (ri *RuleIndex) setProcRuleFn(name string, fn ProcRuleFn) error {
+	if _, ok := ri.pm[name]; ok {
+		return fmt.Errorf("already defined: %v", name)
+	}
+	ri.pm[name] = fn
+	return nil
 }
 
 //----------
@@ -166,7 +145,9 @@ func (ri *RuleIndex) String() string {
 		if r.isTerminal() { // don't print terminals
 			continue
 		}
-
+		if dr, ok := r.(*DefRule); ok && dr.isNoPrint {
+			continue
+		}
 		res = append(res, fmt.Sprintf("%v", r))
 	}
 	return fmt.Sprintf("ruleindex{\n\t%v\n}", strings.Join(res, "\n\t"))
@@ -179,117 +160,4 @@ func (ri *RuleIndex) sorted() []Rule {
 	}
 	sortRules(w)
 	return w
-}
-
-//----------
-//----------
-//----------
-
-type ProcRuleFn func(Rule) (Rule, error)
-
-//----------
-//----------
-//----------
-
-func parseLetter(ps *PState) error {
-	ps2 := ps.Copy()
-	ru, err := ps2.ReadRune()
-	if err != nil {
-		return err
-	}
-	if !unicode.IsLetter(ru) {
-		return errors.New("not a letter")
-	}
-	ps.Set(ps2)
-	return nil
-}
-func parseDigit(ps *PState) error {
-	ps2 := ps.Copy()
-	ru, err := ps2.ReadRune()
-	if err != nil {
-		return err
-	}
-	if !unicode.IsDigit(ru) {
-		return errors.New("not a digit")
-	}
-	ps.Set(ps2)
-	return nil
-}
-
-// commented: using this won't recognize "digit" in "digits", which won't allow to parse correctly in some cases
-//func parseDigits(ps *PState) error {
-//	for i := 0; ; i++ {
-//		ps2 := ps.copy()
-//		ru, err := ps2.readRune()
-//		if err != nil {
-//			if i > 0 {
-//				return nil
-//			}
-//			return err
-//		}
-//		if !unicode.IsDigit(ru) {
-//			if i == 0 {
-//				return errors.New("not a digit")
-//			}
-//			return nil
-//		}
-//		ps.set(ps2)
-//	}
-//}
-
-//----------
-
-// expects andrule composed of stringrules, and removes from the first rule all the other rules runes
-func procDropRunes(r Rule) (Rule, error) {
-	ar, ok := r.(*AndRule)
-	if !ok {
-		return nil, fmt.Errorf("expecting \"and\" rule")
-	}
-	if len(ar.childs()) < 2 {
-		return nil, fmt.Errorf("expecting \"and\" rule with at least 2 childs")
-	}
-	srs := []*StringRule{}
-	for _, c := range ar.childs() {
-		sr, ok := ruleInnerStringRule(c, stringrOr)
-		if !ok || sr.typ != stringrOr {
-			return nil, fmt.Errorf("expecting stringrule type %q", stringrOr)
-		}
-		srs = append(srs, sr)
-	}
-	// join rules to remove
-	m2 := map[rune]bool{}
-	for i := 1; i < len(srs); i++ {
-		for _, ru := range srs[i].runes {
-			m2[ru] = true
-		}
-	}
-	// remove from first rule
-	rs := []rune{}
-	for _, ru := range srs[0].runes {
-		if m2[ru] {
-			continue
-		}
-		rs = append(rs, ru)
-	}
-	sr3 := *srs[0] // copy
-	sr3.runes = rs
-	return &sr3, nil
-}
-
-// allows to rewind in case of failure
-func procEscapeAny(r Rule) (Rule, error) {
-	//sr, ok := r.(*StringRule)
-	sr, ok := ruleInnerStringRule(r, stringrAnd)
-	if !ok {
-		return nil, fmt.Errorf("expecting stringrule")
-	}
-	if len(sr.runes) != 1 {
-		return nil, fmt.Errorf("expecting rule with one rune")
-	}
-	esc := sr.runes[0]
-	fr := &FuncRule{name: fmt.Sprintf("{escapeAny:%q}", esc)}
-	fr.fn = func(ps *PState) error {
-		return ps.EscapeAny(esc)
-	}
-	return fr, nil
 }

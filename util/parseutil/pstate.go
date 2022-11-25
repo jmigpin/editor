@@ -56,22 +56,10 @@ func (ps *PState) MatchRune(ru rune) error {
 		return err
 	}
 	if ru2 != ru {
-		return errors.New("no match")
+		return noMatchErr
 	}
 	ps.Set(ps2)
 	return nil
-}
-func (ps *PState) MatchRunesOr(rs []rune) error {
-	ps2 := ps.Copy()
-	ru, err := ps2.ReadRune()
-	if err != nil {
-		return err
-	}
-	if ContainsRune(rs, ru) {
-		ps.Set(ps2)
-		return nil
-	}
-	return errors.New("no match")
 }
 func (ps *PState) MatchRunesAnd(rs []rune) error {
 	ps2 := ps.Copy()
@@ -85,7 +73,7 @@ func (ps *PState) MatchRunesAnd(rs []rune) error {
 			return err
 		}
 		if ru2 != ru {
-			return errors.New("no match")
+			return noMatchErr
 		}
 	}
 	ps.Set(ps2)
@@ -111,9 +99,24 @@ func (ps *PState) MatchRunesMid(rs []rune) error {
 		}
 		ps2.Reverse = ps.Reverse
 	}
-	return errors.New("no match")
+	return noMatchErr
 }
-func (ps *PState) MatchRunesNot(rs []rune) error {
+
+//----------
+
+func (ps *PState) MatchRunesOr(rs []rune) error {
+	ps2 := ps.Copy()
+	ru, err := ps2.ReadRune()
+	if err != nil {
+		return err
+	}
+	if ContainsRune(rs, ru) {
+		ps.Set(ps2)
+		return nil
+	}
+	return noMatchErr
+}
+func (ps *PState) MatchRunesOrNeg(rs []rune) error { // negation
 	ps2 := ps.Copy()
 	ru, err := ps2.ReadRune()
 	if err != nil {
@@ -123,8 +126,64 @@ func (ps *PState) MatchRunesNot(rs []rune) error {
 		ps.Set(ps2)
 		return nil
 	}
-	return errors.New("no match")
+	return noMatchErr
 }
+
+//----------
+
+func (ps *PState) MatchRuneRanges(rrs RuneRanges) error {
+	ps2 := ps.Copy()
+	ru, err := ps2.ReadRune()
+	if err != nil {
+		return err
+	}
+	if rrs.HasRune(ru) {
+		ps.Set(ps2)
+		return nil
+	}
+	return noMatchErr
+}
+func (ps *PState) MatchRuneRangesNeg(rrs RuneRanges) error { // negation
+	ps2 := ps.Copy()
+	ru, err := ps2.ReadRune()
+	if err != nil {
+		return err
+	}
+	if !rrs.HasRune(ru) {
+		ps.Set(ps2)
+		return nil
+	}
+	return noMatchErr
+}
+
+//----------
+
+func (ps *PState) MatchRunesAndRuneRanges(rs []rune, rrs RuneRanges) error { // negation
+	ps2 := ps.Copy()
+	ru, err := ps2.ReadRune()
+	if err != nil {
+		return err
+	}
+	if ContainsRune(rs, ru) || rrs.HasRune(ru) {
+		ps.Set(ps2)
+		return nil
+	}
+	return noMatchErr
+}
+func (ps *PState) MatchRunesAndRuneRangesNeg(rs []rune, rrs RuneRanges) error { // negation
+	ps2 := ps.Copy()
+	ru, err := ps2.ReadRune()
+	if err != nil {
+		return err
+	}
+	if !ContainsRune(rs, ru) && !rrs.HasRune(ru) {
+		ps.Set(ps2)
+		return nil
+	}
+	return noMatchErr
+}
+
+//----------
 
 func (ps *PState) MatchString(s string) error {
 	return ps.MatchRunesAnd([]rune(s))
@@ -139,7 +198,7 @@ func (ps *PState) MatchEof() error {
 		ps.Set(ps2)
 		return nil
 	}
-	return errors.New("no match")
+	return noMatchErr
 }
 
 //----------
@@ -253,23 +312,25 @@ func (ps *PState) StringSection(open, close string, escape rune, failOnNewline b
 
 //----------
 
-func (ps *PState) GoString() error {
-	return ps.GoString2('\\', 3000, 10)
+func (ps *PState) QuotedString() error {
+	return ps.QuotedString2('\\', 3000, 10)
 }
-func (ps *PState) GoString2(esc rune, maxLen1, maxLen2 int) error {
+
+// allows escaped runes (if esc!=0)
+func (ps *PState) QuotedString2(esc rune, maxLen1, maxLen2 int) error {
 	q := "\"" // doublequote: fail on newline, eof doesn't close
 	if err := ps.StringSection(q, q, esc, true, maxLen1, false); err == nil {
-		return nil
-	}
-	q = "`" // backquote: can have newline, eof doesn't close
-	if err := ps.StringSection(q, q, esc, false, maxLen1, false); err == nil {
 		return nil
 	}
 	q = "'" // singlequote: fail on newline, eof doesn't close (usually a smaller maxlen)
 	if err := ps.StringSection(q, q, esc, true, maxLen2, false); err == nil {
 		return nil
 	}
-	return fmt.Errorf("not a string")
+	q = "`" // backquote: can have newline, eof doesn't close
+	if err := ps.StringSection(q, q, esc, false, maxLen1, false); err == nil {
+		return nil
+	}
+	return fmt.Errorf("not a quoted string")
 }
 
 //----------
@@ -314,6 +375,65 @@ type PNode interface {
 	End() int
 }
 
+//----------
+
+// basic parse node implementation
+type BasicPNode struct {
+	pos int // can have pos>end when in reverse
+	end int
+}
+
+func (n *BasicPNode) Pos() int {
+	return n.pos
+}
+func (n *BasicPNode) End() int {
+	return n.end
+}
+func (n *BasicPNode) SetPos(pos, end int) {
+	n.pos = pos
+	n.end = end
+}
+func (n *BasicPNode) PosEmpty() bool {
+	return n.pos == n.end
+}
+func (n *BasicPNode) SrcString(src []byte) string {
+	return string(src[n.pos:n.end])
+}
+
+//----------
+//----------
+//----------
+
+type RuneRange [2]rune // assume [0]<[1]
+
+func (rr RuneRange) HasRune(ru rune) bool {
+	return ru >= rr[0] && ru <= rr[1]
+}
+func (rr RuneRange) IntersectsRange(rr2 RuneRange) bool {
+	noIntersection := rr2[1] <= rr[0] || rr2[0] > rr[1]
+	return !noIntersection
+}
+func (rr RuneRange) String() string {
+	return fmt.Sprintf("%q-%q", rr[0], rr[1])
+}
+
+//----------
+
+type RuneRanges []RuneRange
+
+func (rrs RuneRanges) HasRune(ru rune) bool {
+	for _, rr := range rrs {
+		if rr.HasRune(ru) {
+			return true
+		}
+	}
+	return false
+}
+
+//----------
+//----------
+//----------
+
 func PNodeBytes(node PNode, src []byte) []byte {
 	pos, end := node.Pos(), node.End()
 	if pos > end {
@@ -328,3 +448,9 @@ func PNodeString(node PNode, src []byte) string {
 func PNodePosStr(node PNode) string {
 	return fmt.Sprintf("[%v:%v]", node.Pos(), node.End())
 }
+
+//----------
+//----------
+//----------
+
+var noMatchErr = errors.New("no match")

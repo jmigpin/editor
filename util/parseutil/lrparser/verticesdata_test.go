@@ -8,8 +8,8 @@ import (
 
 func TestVerticesData1(t *testing.T) {
 	grammar := `
-		^S = C C .
-		C = "c" C | "d" .
+		^S = C C;
+		C = "c" C | "d";
 	`
 	expect := `
 		vertex0:
@@ -59,9 +59,9 @@ func TestVerticesData1(t *testing.T) {
 }
 func TestVerticesData2(t *testing.T) {
 	grammar := `
-		^E = E "+" T | T .
-		T = T "*" F | F .
-		F = "(" E ")" | "a" .
+		^E = E "+" T | T;
+		T = T "*" F | F;
+		F = "(" E ")" | "a";
 	`
 	expect := `
 		vertex0:
@@ -188,7 +188,7 @@ func TestVerticesData2(t *testing.T) {
 }
 func TestVerticesData3(t *testing.T) {
 	grammar := `		
-		^id = id "a" | "a" .
+		^id = id "a" | "a";
 	`
 	expect := `
 		vertex0:
@@ -210,7 +210,7 @@ func TestVerticesData3(t *testing.T) {
 }
 func TestVerticesData4(t *testing.T) {
 	grammar := `		
-		^id = id "b" "a" | "a" .
+		^id = id "b" "a" | "a";
 	`
 	expect := `
 		vertex0:
@@ -235,7 +235,7 @@ func TestVerticesData4(t *testing.T) {
 }
 func TestVerticesData5(t *testing.T) {
 	grammar := `		
-		^id = "a" id | "a" .		
+		^id = "a" id | "a";		
 	`
 	expect := `
 		vertex0:
@@ -260,7 +260,7 @@ func TestVerticesData5(t *testing.T) {
 }
 func TestVerticesData6(t *testing.T) {
 	grammar := `
-		^id = "a" ("b")? "a" .
+		^id = "a" ("b")? "a";
 	`
 	expect := `
 		vertex0:
@@ -288,7 +288,7 @@ func TestVerticesData6(t *testing.T) {
 }
 func TestVerticesData7(t *testing.T) {
 	grammar := `
-		^id = "a" id | nil .
+		^id = "a" id | nil;
 	`
 	expect := `
 		vertex0:
@@ -312,9 +312,9 @@ func TestVerticesData7(t *testing.T) {
 }
 func TestVerticesData8(t *testing.T) {
 	grammar := `
-		^S = "a" A "d" | "b" B "d" | "a" B "e" | "b" A "e" .
-		A = "c" .
-		B = "c" .
+		^S = "a" A "d" | "b" B "d" | "a" B "e" | "b" A "e";
+		A = "c";
+		B = "c";
 	`
 	expect := `
 		vertex0:
@@ -416,10 +416,12 @@ func testRulesToVerticesMode1(t *testing.T, grammar, expect string) {
 	t.Helper()
 
 	fset := &FileSet{Src: []byte(grammar), Filename: "_.grammar"}
-
-	gp := newGrammarParser()
-	ri, err := gp.parse(fset)
-	if err != nil {
+	ri := newRuleIndex()
+	if err := setupPredefineds(ri); err != nil {
+		t.Fatal(err)
+	}
+	gp := newGrammarParser(ri)
+	if err := gp.parse(fset); err != nil {
 		t.Fatal(err)
 	}
 

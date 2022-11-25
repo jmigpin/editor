@@ -5,20 +5,16 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/jmigpin/editor/util/goutil"
 )
 
 type Rule interface {
 	id() string
-
 	isTerminal() bool
-
 	childs() []Rule
 	iterChildRefs(fn func(index int, ref *Rule) error) error
-
 	String() string
-
-	// TODO: consider
-	// parse(*PState) error // for terminal rules
 }
 
 //----------
@@ -32,15 +28,15 @@ type CmnRule struct {
 
 //----------
 
-func (r *CmnRule) addChild(r2 Rule) {
-	r.childs_ = append(r.childs_, r2)
+func (r *CmnRule) addChilds(r2 ...Rule) {
+	r.childs_ = append(r.childs_, r2...)
 }
 func (r *CmnRule) onlyChild() Rule {
 	return r.childs_[0]
 }
 func (r *CmnRule) setOnlyChild(r2 Rule) {
 	r.childs_ = r.childs_[:0]
-	r.addChild(r2)
+	r.addChilds(r2)
 }
 
 //----------
@@ -64,10 +60,11 @@ func (r *CmnRule) childs() []Rule {
 // definition rule
 // (1 child)
 type DefRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
-	name    string
-	isStart bool // has "start" symbol in the grammar
+	name      string
+	isStart   bool // has "start" symbol in the grammar
+	isNoPrint bool // don't print in rule index (useful for tests)
 
 	// specially handled cases
 	isNoReverse   bool // don't reverse child sequence in reverse mode
@@ -90,15 +87,15 @@ func (r *DefRule) String() string {
 	return fmt.Sprintf("%v = %v", r.id(), r.onlyChild().id())
 }
 
-var defRuleStartSym = "^" // used in grammar
+var defRuleStartSym = "^"   // used in grammar
+var defRuleNoPrintSym = "§" // used in grammar
 
 //----------
 
-// reference to a rule
-// replaced in dereference phase
+// reference to a rule // replaced in dereference phase
 // (0 childs)
 type RefRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
 	name string
 }
@@ -117,7 +114,7 @@ func (r *RefRule) String() string {
 
 // (n childs as a sequence, not productions)
 type AndRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
 }
 
@@ -140,7 +137,7 @@ func (r *AndRule) String() string {
 
 // (n childs)
 type OrRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
 }
 
@@ -164,7 +161,7 @@ func (r *OrRule) String() string {
 // replaced in dereference phase
 // (3 childs: [conditional,then,else])
 type IfRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
 }
 
@@ -203,9 +200,9 @@ func (r *BoolRule) String() string {
 // replaced by defrules at ruleindex
 // (1 childs)
 type ParenRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
-	typ parenrType
+	typ parenRType
 }
 
 func (r *ParenRule) isTerminal() bool {
@@ -214,7 +211,7 @@ func (r *ParenRule) isTerminal() bool {
 
 func (r *ParenRule) id() string {
 	s := ""
-	if r.typ != parenrNone {
+	if r.typ != parenRTNone {
 		s = string(r.typ)
 	}
 	return fmt.Sprintf("(%v)%v", r.onlyChild().id(), s)
@@ -225,12 +222,13 @@ func (r *ParenRule) String() string {
 
 //----------
 
-// (0 childs, or temporarily 1 child that is a refrule)
+// (0 childs)
 type StringRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
-	runes []rune
-	typ   stringrType
+	runes   []rune
+	rranges RuneRanges
+	typ     stringRType
 }
 
 func (r *StringRule) isTerminal() bool {
@@ -238,10 +236,21 @@ func (r *StringRule) isTerminal() bool {
 }
 func (r *StringRule) id() string {
 	s := ""
-	if r.typ != stringrAnd {
-		s = string(r.typ)
+	if len(r.runes) > 0 {
+		s += fmt.Sprintf("%q", string(r.runes))
 	}
-	return fmt.Sprintf("%v%q", s, string(r.runes))
+	if len(r.rranges) > 0 {
+		u := []string{}
+		if len(s) > 0 {
+			u = append(u, s)
+		}
+		for _, rr := range r.rranges {
+			u = append(u, fmt.Sprintf("%v", rr))
+		}
+		s = strings.Join(u, ",")
+		return fmt.Sprintf("{%v,%v}", s, r.typ)
+	}
+	return fmt.Sprintf("%v%v", s, r.typ)
 }
 func (r *StringRule) String() string {
 	return r.id()
@@ -249,19 +258,98 @@ func (r *StringRule) String() string {
 
 //----------
 
-// processor rule: allows processing rules at compile time. Ex: string operations, escape rune sequence (can fail and recover).
-// (1 childs)
+func (sr1 *StringRule) intersect(sr2 *StringRule) (bool, error) {
+	switch sr1.typ {
+	case stringRTOr, stringRTOrNeg:
+	default:
+		return false, fmt.Errorf("expecting or/orneg: %T", sr1.typ)
+	}
+	switch sr2.typ {
+	case stringRTOr, stringRTOrNeg:
+	default:
+		return false, fmt.Errorf("expecting or/orneg: %T", sr2.typ)
+	}
+	if sr1.typ == sr2.typ { // same polarity
+		if sr1.intersectRunes(sr2.runes) {
+			return true, nil
+		}
+		if sr1.intersectRanges(sr2.rranges) {
+			return true, nil
+		}
+	} else {
+		if !sr1.intersectRunes(sr2.runes) && !sr1.intersectRanges(sr2.rranges) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func (r *StringRule) intersectRunes(rus []rune) bool {
+	for _, ru2 := range rus {
+		for _, ru := range r.runes {
+			if ru == ru2 {
+				return true
+			}
+		}
+		for _, rr := range r.rranges {
+			if rr.HasRune(ru2) {
+				return true
+			}
+		}
+	}
+	return false
+}
+func (r *StringRule) intersectRanges(rrs []RuneRange) bool {
+	for _, rr2 := range rrs {
+		for _, ru := range r.runes {
+			if rr2.HasRune(ru) {
+				return true
+			}
+		}
+		for _, rr := range r.rranges {
+			if rr.IntersectsRange(rr2) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+//----------
+
+func (r *StringRule) parse(ps *PState) error {
+	return r.parse2(ps, r.typ)
+}
+func (r *StringRule) parse2(ps *PState, typ stringRType) error {
+	switch typ {
+	case stringRTAnd: // sequence, ex: keyword
+		return ps.MatchRunesAnd(r.runes)
+	case stringRTMid: // sequence, ex: keyword
+		return ps.MatchRunesMid(r.runes)
+	case stringRTOr:
+		return ps.MatchRunesAndRuneRanges(r.runes, r.rranges)
+	case stringRTOrNeg:
+		return ps.MatchRunesAndRuneRangesNeg(r.runes, r.rranges)
+	default:
+		panic(goutil.TodoErrorStr(string(r.typ)))
+	}
+}
+
+//----------
+
+// processor function call rule: allows processing rules at compile time. Ex: string operations.
+// (0 childs)
 type ProcRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
 	name string
+	args []ProcRuleArg // allows more then just rules (ex: ints)
 }
 
 func (r *ProcRule) isTerminal() bool {
-	return false
+	return true
 }
 func (r *ProcRule) id() string {
-	return fmt.Sprintf("%v(%v)", r.name, r.onlyChild())
+	return fmt.Sprintf("%v(%v)", r.name, r.childs())
 }
 func (r *ProcRule) String() string {
 	return r.id()
@@ -272,15 +360,20 @@ func (r *ProcRule) String() string {
 // (0 childs)
 type FuncRule struct {
 	CmnRule
-	name string
-	fn   PStateParseFn
+	name       string
+	parseOrder int // value for sorting parse order, zero for func default, check
+	fn         PStateParseFn
 }
 
 func (r *FuncRule) isTerminal() bool {
 	return true
 }
 func (r *FuncRule) id() string {
-	return r.name
+	sv := ""
+	if r.parseOrder != 0 {
+		sv = fmt.Sprintf("<%v>", r.parseOrder)
+	}
+	return fmt.Sprintf("%v%v", r.name, sv)
 }
 func (r *FuncRule) String() string {
 	return r.id()
@@ -290,7 +383,7 @@ func (r *FuncRule) String() string {
 
 // (0 childs)
 type SingletonRule struct {
-	CmnPNode
+	BasicPNode
 	CmnRule
 	name   string
 	isTerm bool
@@ -305,12 +398,9 @@ func (r *SingletonRule) isTerminal() bool {
 func (r *SingletonRule) id() string     { return r.name }
 func (r *SingletonRule) String() string { return r.id() }
 
-//----------
-
 // setup to be available in the grammars at ruleindex.go
 var endRule = newSingletonRule("$", true)
 var nilRule = newSingletonRule("nil", true)
-var anyruneRule = newSingletonRule("anyrune", true)
 
 // special start rule to know start/end (not a terminal)
 var startRule = newSingletonRule("^^^", false)
@@ -320,26 +410,87 @@ var startRule = newSingletonRule("^^^", false)
 //----------
 
 // parenthesis rule type
-type parenrType rune
+type parenRType rune
 
 const (
-	parenrNone       parenrType = 0
-	parenrOptional   parenrType = '?'
-	parenrZeroOrMore parenrType = '*'
-	parenrOneOrMore  parenrType = '+'
+	parenRTNone       parenRType = 0
+	parenRTOptional   parenRType = '?'
+	parenRTZeroOrMore parenRType = '*'
+	parenRTOneOrMore  parenRType = '+'
+
+	// strings related
+	parenRTStrOr      parenRType = '%' // individual runes
+	parenRTStrOrNeg   parenRType = '!' // individual runes: not
+	parenRTStrOrRange parenRType = '-' // individual runes: range
+	parenRTStrMid     parenRType = '~' // sequence: middle match
 )
 
 //----------
 
 // string rule type
-type stringrType rune
+type stringRType byte
 
 const (
-	stringrAnd stringrType = 0   // sequence: "and" (default)
-	stringrMid stringrType = '~' // sequence: middle match
-	stringrOr  stringrType = '%' // individual runes
-	stringrNot stringrType = '!' // individual runes: not
+	stringRTAnd stringRType = iota
+	stringRTOr
+	stringRTOrNeg
+	stringRTMid
 )
+
+func (srt stringRType) String() string {
+	switch srt {
+	case stringRTAnd:
+		return "" // empty
+	case stringRTOr:
+		return string(parenRTStrOr)
+	case stringRTOrNeg:
+		return string(parenRTStrOrNeg)
+	case stringRTMid:
+		return string(parenRTStrMid)
+	default:
+		panic(srt)
+	}
+}
+
+// ----------
+
+type ProcRuleFn func(args ProcRuleArgs) (Rule, error)
+type ProcRuleArg any
+type ProcRuleArgs []ProcRuleArg
+
+func (args ProcRuleArgs) Int(i int) (int, error) {
+	if i >= len(args) {
+		return 0, fmt.Errorf("missing arg %v", i)
+	}
+	arg := args[i]
+	u, ok := arg.(int)
+	if !ok {
+		return 0, fmt.Errorf("arg %v is not an int (%T)", i, arg)
+	}
+	return u, nil
+}
+func (args ProcRuleArgs) Rule(i int) (Rule, error) {
+	if i >= len(args) {
+		return nil, fmt.Errorf("missing arg %v", i)
+	}
+	arg := args[i]
+	u, ok := arg.(Rule)
+	if !ok {
+		return nil, fmt.Errorf("arg %v is not a rule (%T)", i, arg)
+	}
+	return u, nil
+}
+func (args ProcRuleArgs) MergedStringRule(i int) (*StringRule, error) {
+	r, err := args.Rule(i)
+	if err != nil {
+		return nil, err
+	}
+	sr, err := mergeStringRules(r)
+	if err != nil {
+		return nil, fmt.Errorf("arg %v: %w", i, err)
+	}
+	return sr, nil
+}
 
 //----------
 //----------
@@ -386,6 +537,54 @@ func (rs RuleSet) String() string {
 		u = append(u, fmt.Sprintf("%v", r))
 	}
 	return fmt.Sprintf("[%v]", strings.Join(u, ","))
+}
+
+//----------
+
+func sortRuleSetForParse(rset RuleSet) []Rule {
+	// integer/string for sorting
+	svalues := func(r Rule) (int, string) {
+		switch t := r.(type) {
+		case *FuncRule:
+			sv := 100 // allows grammars to use (1,2,...) value without thinking about the funcs default value
+			if t.parseOrder != 0 {
+				sv = t.parseOrder
+			}
+			return sv, t.name
+		case *StringRule:
+			switch t.typ {
+			case stringRTAnd: // ex: keywords
+				return 201, string(t.runes)
+			case stringRTMid: // ex: keywords
+				return 202, string(t.runes)
+			case stringRTOr: // individual runes
+				return 203, string(t.runes)
+			case stringRTOrNeg: // individual runes
+				return 204, string(t.runes)
+			default:
+				panic(goutil.TodoErrorStr(string(t.typ)))
+			}
+		case *SingletonRule:
+			switch t {
+			case endRule:
+				return 301, ""
+			}
+			panic(goutil.TodoErrorStr(t.name))
+		}
+		panic(goutil.TodoErrorType(r))
+	}
+
+	x := rset.toSlice()
+	sort.Slice(x, func(a, b int) bool {
+		ra, rb := x[a], x[b]
+		ta, sa := svalues(ra)
+		tb, sb := svalues(rb)
+		if ta == tb {
+			return sa < sb
+		}
+		return ta < tb
+	})
+	return x
 }
 
 //----------
@@ -500,68 +699,56 @@ func ruleProdCanReverse(r Rule) bool {
 //	return vis(r0)
 //}
 
-func ruleInnerStringRule(r Rule, upperType stringrType) (*StringRule, bool) {
-	acceptType := func(typ2 stringrType) bool {
-		switch upperType {
-		case stringrAnd:
-			switch typ2 {
-			case stringrAnd:
-				return true
-			}
-		case stringrNot:
-			switch typ2 {
-			case stringrOr:
-				return true
-			}
-		case stringrMid:
-			switch typ2 {
-			case stringrAnd:
-				return true
-			}
-		case stringrOr:
-			switch typ2 {
-			case stringrAnd, stringrOr:
-				return true
-			}
-		}
-		return false
-	}
+//----------
 
+func mergeStringRules(r Rule) (*StringRule, error) {
 	switch t := r.(type) {
 	case *StringRule:
-		if acceptType(t.typ) {
-			return t, true
-		}
+		return t, nil
 	case *DefRule:
-		return ruleInnerStringRule(t.onlyChild(), upperType)
+		sr, err := mergeStringRules(t.onlyChild())
+		if err != nil {
+			// improve error
+			err = fmt.Errorf("%v: %w", t.name, err)
+		}
+		return sr, err
 	case *OrRule:
 		// concat "or" rules
-		sr2 := &StringRule{typ: stringrOr}
-		if acceptType(sr2.typ) {
-			for _, c := range t.childs() {
-				sr3, ok := ruleInnerStringRule(c, sr2.typ)
-				if !ok {
-					return nil, false
+		sr2 := &StringRule{typ: stringRTOr}
+		for _, c := range t.childs() {
+			if sr3, err := mergeStringRules(c); err != nil {
+				return nil, err
+			} else {
+				switch sr3.typ {
+				case stringRTOr:
+					sr2.runes = append(sr2.runes, sr3.runes...)
+					sr2.rranges = append(sr2.rranges, sr3.rranges...)
+				default:
+					return nil, fmt.Errorf("unable to merge %v from %v into orrule", sr3, t)
 				}
-				sr2.runes = append(sr2.runes, sr3.runes...)
 			}
-			return sr2, true
 		}
+		return sr2, nil
 	case *AndRule:
 		// concat "and" rules
-		sr2 := &StringRule{typ: stringrAnd}
-		if acceptType(sr2.typ) {
-			for _, c := range t.childs() {
-				sr3, ok := ruleInnerStringRule(c, sr2.typ)
-				if !ok {
-					return nil, false
+		sr2 := &StringRule{typ: stringRTAnd}
+		for _, c := range t.childs() {
+			if sr3, err := mergeStringRules(c); err != nil {
+				return nil, err
+			} else {
+				switch sr3.typ {
+				case stringRTAnd:
+					sr2.runes = append(sr2.runes, sr3.runes...)
+					sr2.rranges = append(sr2.rranges, sr3.rranges...)
+				default:
+					return nil, fmt.Errorf("unable to merge %v from %v into andrule", sr3, r)
 				}
-				sr2.runes = append(sr2.runes, sr3.runes...)
 			}
-			return sr2, true
 		}
+		return sr2, nil
+	default:
+		return nil, fmt.Errorf("unable to merge to stringrule: %T, %v", r, r)
 	}
-	return nil, false
 }
 
 //----------

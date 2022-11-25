@@ -12,6 +12,7 @@ var resLocFilename = "reslocparser.gram" // for errors
 
 //----------
 
+// TODO: review
 //var extraSyms = "_-~.%@&?!=#+:^" + "(){}[]<>" + "\\/" + " " // besides letters and digits
 //var nameSepSyms = "" +
 //	" " + // word separator

@@ -3,40 +3,17 @@ package reslocparser
 import (
 	"os"
 	"runtime"
+	"sync"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-var rlp *ResLocParser
-
-func initResLocParserSingleton() (*ResLocParser, error) {
-	rlp, err := NewResLocParser()
+func ParseResLoc(src []byte, index int) (*ResLoc, error) {
+	rlp, err := getResLocParser()
 	if err != nil {
 		return nil, err
-	}
-
-	rlp.PathSeparator = rune(os.PathSeparator)
-	rlp.Escape = rune(osutil.EscapeRune)
-	rlp.ParseVolume = runtime.GOOS == "windows"
-
-	if err := rlp.Init(false); err != nil {
-		return nil, err
-	}
-	return rlp, nil
-}
-
-//----------
-
-func ParseResLoc(src []byte, index int) (*ResLoc, error) {
-	// init single instance on demand
-	if rlp == nil {
-		rlp0, err := initResLocParserSingleton()
-		if err != nil {
-			return nil, err
-		}
-		rlp = rlp0
 	}
 	return rlp.Parse(src, index)
 }
@@ -54,6 +31,37 @@ func ParseResLoc2(rd iorw.ReaderAt, index int) (*ResLoc, error) {
 	rl.Pos += min
 	rl.End += min
 	return rl, nil
+}
+
+//----------
+
+// reslocparser singleton
+var rlps struct {
+	once sync.Once
+	p    *ResLocParser
+	err  error
+}
+
+func getResLocParser() (*ResLocParser, error) {
+	rlps.once.Do(func() {
+		rlps.p, rlps.err = newResLocParserSingletonInstance()
+	})
+	return rlps.p, rlps.err
+}
+func newResLocParserSingletonInstance() (*ResLocParser, error) {
+	rlp, err := NewResLocParser()
+	if err != nil {
+		return nil, err
+	}
+
+	rlp.PathSeparator = rune(os.PathSeparator)
+	rlp.Escape = rune(osutil.EscapeRune)
+	rlp.ParseVolume = runtime.GOOS == "windows"
+
+	if err := rlp.Init(false); err != nil {
+		return nil, err
+	}
+	return rlp, nil
 }
 
 //----------

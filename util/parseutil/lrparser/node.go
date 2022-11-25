@@ -12,6 +12,11 @@ import (
 
 type PState = parseutil.PState
 type PNode = parseutil.PNode
+type BasicPNode = parseutil.BasicPNode
+type RuneRange = parseutil.RuneRange
+type RuneRanges = parseutil.RuneRanges
+
+//----------
 
 func pnodeSrc2(node PNode, fset *FileSet) string {
 	return string(parseutil.PNodeBytes(node, fset.Src))
@@ -21,30 +26,9 @@ func pnodeSrc2(node PNode, fset *FileSet) string {
 //----------
 //----------
 
-// common node
-type CmnPNode struct {
-	pos int // can have pos>end when in reverse
-	end int
-}
-
-func (n *CmnPNode) setPos(pos, end int) {
-	n.pos = pos
-	n.end = end
-}
-func (n *CmnPNode) Pos() int {
-	return n.pos
-}
-func (n *CmnPNode) End() int {
-	return n.end
-}
-
-//----------
-//----------
-//----------
-
 // content parser node
 type CPNode struct {
-	CmnPNode
+	BasicPNode
 	rule      Rule // can be nil in state0
 	childs    []*CPNode
 	data      interface{}
@@ -53,7 +37,7 @@ type CPNode struct {
 
 func newCPNode(pos, end int, r Rule) *CPNode {
 	cpn := &CPNode{rule: r}
-	cpn.setPos(pos, end)
+	cpn.SetPos(pos, end)
 	return cpn
 }
 func newCPNode2(n1, n2 PNode, r Rule) *CPNode {
@@ -64,10 +48,12 @@ func newCPNode2(n1, n2 PNode, r Rule) *CPNode {
 
 func (cpn *CPNode) addChilds(reverse bool, cs ...*CPNode) {
 	if reverse {
+		// wARNING: changes slice order
 		for i := 0; i < len(cs)/2; i++ {
 			k := len(cs) - 1 - i
 			cs[i], cs[k] = cs[k], cs[i]
 		}
+
 		cpn.childs = append(cs, cpn.childs...)
 	} else {
 		cpn.childs = append(cpn.childs, cs...)
@@ -110,7 +96,7 @@ func (d *BuildNodeData) SetData(v interface{}) {
 	d.cpn.data = v
 }
 func (d *BuildNodeData) IsEmpty() bool {
-	return d.cpn.pos == d.cpn.end
+	return d.cpn.PosEmpty()
 }
 func (d *BuildNodeData) ExternalData() any {
 	return d.cpr.externalData
@@ -224,32 +210,6 @@ func (d *BuildNodeData) ChildLoop2(i int, loopi int, pre, post BuildNodeFn) erro
 	return vis(d2)
 }
 
-//func (d *BuildNodeData) ChildRecursive(i int, loopIndex, ruleIndex int, fn func(*BuildNodeData)) {
-//	d2 := d.Child(i)
-//	if d2.IsEmpty() {
-//		return
-//	}
-//	//d2.PrintRuleTree(5)
-//	vis := (func(*BuildNodeData))(nil)
-//	vis = func(d3 *BuildNodeData) {
-//		if d3.IsEmpty() {
-//			return
-//		}
-//		l := d3.ChildsLen()
-//		if loopIndex >= l || ruleIndex >= l {
-//			return
-//		}
-//		if loopIndex < ruleIndex {
-//			vis(d3.Child(loopIndex)) // loop child
-//			fn(d3.Child(ruleIndex))  // rule child
-//		} else {
-//			fn(d3.Child(ruleIndex))  // rule child
-//			vis(d3.Child(loopIndex)) // loop child
-//		}
-//	}
-//	vis(d2)
-//}
-
 //----------
 //----------
 //----------
@@ -284,8 +244,18 @@ func SprintNodeTree(src []byte, node PNode, maxDepth int) string {
 		pr(depth, "-> %v: %q\n", tag, parseutil.PNodeString(n, src))
 
 		if cpn != nil {
-			for _, child := range cpn.childs {
-				vis(child, depth+1)
+
+			visitChilds := true
+			if dr, ok := cpn.rule.(*DefRule); ok {
+				if dr.isNoPrint {
+					visitChilds = false
+				}
+			}
+
+			if visitChilds {
+				for _, child := range cpn.childs {
+					vis(child, depth+1)
+				}
 			}
 		}
 	}

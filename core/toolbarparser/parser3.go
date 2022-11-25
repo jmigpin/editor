@@ -1,41 +1,111 @@
 package toolbarparser
 
 import (
-	"fmt"
 	"log"
-	"strings"
+	"sync"
 
 	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
 func parse3_basedOnLrparser(str string) *Data {
-	p, err := newParser3()
+	p, err := getParser3()
 	if err != nil {
 		panic(err)
 	}
-	d, err := p.Parse(str)
+	d, err := p.parseData(str)
 	if err != nil {
-		log.Print(err)
+		log.Print(err) // TODO: should return an error
+		return d
+	}
+	// parse vars
+	for _, part := range d.Parts {
+		v, err := p.parseVarDecl(part.String())
+		if err == nil {
+			part.Vars = []*Var{v}
+		}
 	}
 	return d
+}
+func parseVar3_basedOnLrparser(str string) (*Var, error) {
+	p, err := getParser3()
+	if err != nil {
+		return nil, err
+	}
+	return p.parseVarDecl(str)
 }
 
 //----------
 
+// parser3 singleton
+var p3s struct {
+	once sync.Once
+	p    *parser3
+	err  error
+}
+
+func getParser3() (*parser3, error) {
+	p3s.once.Do(func() {
+		p3s.p, p3s.err = newParser3()
+	})
+	return p3s.p, p3s.err
+}
+
+//----------
+//----------
+//----------
+
 type parser3 struct {
-	cp *lrparser.ContentParser
+	lrp    *lrparser.Lrparser
+	partsp *lrparser.ContentParser
+	varsp  *lrparser.ContentParser
+
+	esc string // defined in grammar
 }
 
 func newParser3() (*parser3, error) {
 	p := &parser3{}
 
 	gram := `
-		^parts = part (psep part)* .
-		part = args | nil .
-		args = (asep)* arg ((asep)+ arg)* (asep)* .
-		psep = %"|\n" . // part separator
-		asep = %" \t" . // arg separator
+		//parts = part (psep part)*;
+		//part = args | nil;
+		//args = (asep)* arg ((asep)+ arg)* (asep)*;
+		
+		parts = part (psep part)*;
+		part = arg (asep arg)*;
+		
+		arg = (arg2)*;
+		arg2 =
+			@quotedString(1,esc,3000,3000) |
+			@escapeAny(2,esc) | 
+			//esc (anyrune0)? | // anyrune here matches before argrune, important otherwise anyrune will be "nil" and the nextrune will be an argrune (via negation)			
+			argRune
+			;
+		argRune = (psep|asep)!;
+		//argRune = (psep|asep|esc)!; // needed if using grammar defined escape
+		//argRune = (psep|asep|quotes)!;
+		//quotes = ("\"'` + "`" + `")%;
+		
+		esc = ("\\")%;
+		psep = ("|\n")%; // part separator
+		asep = (" \t")%; // arg separator
+		
+		//----------
+		
+		varDecls = varDecl (";" varDecl)*;
+		varDecl = tildeVar | dollarVar;
+		tildeVar = tildeName "=" varValue;
+		dollarVar = dollarName ("=" varValue)?;
+		tildeName = "~" ("0" | ("19")- (digits)?);
+		dollarName = "$" dollarName2;
+		dollarName2 = ("_"|letter) ("_-"|letter|digit)*;
+		varValue = (
+			@quotedString(1,esc,3000,3000) |
+			@escapeAny(2,esc) | 
+			@anyRune(3)
+		)+;
+		
+		//----------
 	`
 
 	// parse grammar
@@ -44,36 +114,59 @@ func newParser3() (*parser3, error) {
 	if err != nil {
 		return nil, err
 	}
+	p.lrp = lrp
 
-	// setup extra rules
-	esc := '\\'
-	psep, _ := lrp.GetStringRule("psep")
-	asep, _ := lrp.GetStringRule("asep")
-	lrp.SetFuncRule("arg", p.parseArgFn(esc, psep+asep))
-
-	// build content parser
-	opt := &lrparser.CpOpt{}
-	cp, err := lrp.ContentParser(opt)
-	if err != nil {
+	// build content parser 1
+	opt := &lrparser.CpOpt{StartRule: "parts"}
+	//opt.VerboseError = true // DEBUG: slow!
+	if cp, err := lrp.ContentParser(opt); err != nil {
 		return nil, err
+	} else {
+		p.partsp = cp
+	}
+
+	// panic on error
+	poe := func(err error) {
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// setup content parser ast funcs
+	poe(p.partsp.SetBuildNodeFn("parts", p.buildParts))
+	poe(p.partsp.SetBuildNodeFn("part", p.buildPart))
+	poe(p.partsp.SetBuildNodeFn("arg", p.buildArg))
+
+	// build content parser 2
+	opt2 := &lrparser.CpOpt{StartRule: "varDecl"}
+	if cp, err := lrp.ContentParser(opt2); err != nil {
+		return nil, err
+	} else {
+		p.varsp = cp
 	}
 	// setup content parser ast funcs
-	cp.SetBuildNodeFn("parts", p.buildParts)
-	cp.SetBuildNodeFn("part", p.buildPart)
-	cp.SetBuildNodeFn("args", p.buildArgs)
-	cp.SetBuildNodeFn("arg", p.buildArg)
-	p.cp = cp
+	poe(p.varsp.SetBuildNodeFn("varDecl", p.buildVarDecl))
+	poe(p.varsp.SetBuildNodeFn("tildeVar", p.buildTildeVar))
+	poe(p.varsp.SetBuildNodeFn("dollarVar", p.buildDollarVar))
+	poe(p.varsp.SetBuildNodeFn("varValue", p.buildVarValue))
+
+	// keep escape used for unescape in var parse
+	p.esc = p.lrp.MustGetStringRule("esc")
 
 	return p, nil
 }
-func (p *parser3) Parse(src string) (*Data, error) {
+
+//----------
+
+func (p *parser3) parseData(src string) (*Data, error) {
+	// instantiate to pass as external data to parse
 	data := &Data{}
 	data.Str = src
 
 	fset := lrparser.NewFileSetFromBytes([]byte(src))
-	bnd, _, err := p.cp.ParseFileSet(fset, 0, data)
+	bnd, _, err := p.partsp.ParseFileSet(fset, 0, data)
 	if err != nil {
-		return nil, err
+		return data, err // NOTE: also returns data // TODO
 	}
 	_ = bnd
 	//res := bnd.Data().(*Data)
@@ -83,43 +176,18 @@ func (p *parser3) Parse(src string) (*Data, error) {
 
 //----------
 
-func (p *parser3) parseArgFn(esc rune, separators string) lrparser.PStateParseFn {
-	return func(ps *parseutil.PState) error {
-		ps2 := ps.Copy()
-		for {
-			if err := ps2.EscapeAny(esc); err == nil {
-				continue
-			}
-			if err := ps2.GoString2(esc, 3000, 10); err == nil {
-				continue
-			}
-			// read rune
-			ps3 := ps2.Copy()
-			ru, err := ps3.ReadRune()
-			if err != nil {
-				break
-			}
-			if strings.Contains(separators, string(ru)) {
-				break
-			}
-			// consume rune
-			// solves also if it is an escape at end: "abc\\$"
-			ps2.Set(ps3)
-		}
-		d := ps2.Pos - ps.Pos
-		if d == 0 {
-			return fmt.Errorf("empty")
-		}
-		ps.Set(ps2)
-		return nil
+func (p *parser3) parseVarDecl(src string) (*Var, error) {
+	bnd, _, err := p.varsp.Parse([]byte(src), 0)
+	if err != nil {
+		return nil, err
 	}
+	return bnd.Data().(*Var), nil
 }
 
 //----------
 
 func (p *parser3) buildParts(bnd *lrparser.BuildNodeData) error {
 	//bnd.PrintRuleTree(5)
-
 	parts := []*Part{}
 	// first part
 	part0 := bnd.Child(0).Data().(*Part)
@@ -134,6 +202,7 @@ func (p *parser3) buildParts(bnd *lrparser.BuildNodeData) error {
 		return err
 	}
 
+	// use the external data (used because each node has a pointer to the *Data struct)
 	data := bnd.ExternalData().(*Data)
 	data.Parts = parts
 	//data.bnd = bnd
@@ -141,42 +210,72 @@ func (p *parser3) buildParts(bnd *lrparser.BuildNodeData) error {
 	return nil
 }
 func (p *parser3) buildPart(bnd *lrparser.BuildNodeData) error {
-	//d.PrintRuleTree(5)
-
-	// part
-	part := &Part{}
-	part.Node = *bndToNode(bnd)
-	if !bnd.IsEmpty() { // part itself can be nil
-		d2 := bnd.Child(0)
-		part.Args = d2.Data().([]*Arg)
-	}
-	bnd.SetData(part)
-	return nil
-}
-func (p *parser3) buildArgs(bnd *lrparser.BuildNodeData) error {
 	//bnd.PrintRuleTree(5)
 
 	args := []*Arg{}
 	// first arg
-	arg0 := bnd.Child(1).Data().(*Arg)
-	args = append(args, arg0)
+	if !bnd.Child(0).IsEmpty() {
+		arg0 := bnd.Child(0).Data().(*Arg)
+		args = append(args, arg0)
+	}
 	// other args
-	if err2 := bnd.ChildLoop(2, func(d3 *lrparser.BuildNodeData) error {
-		args = append(args, d3.Child(1).Data().(*Arg))
+	if err2 := bnd.ChildLoop(1, func(bnd3 *lrparser.BuildNodeData) error {
+		if !bnd3.Child(1).IsEmpty() {
+			args = append(args, bnd3.Child(1).Data().(*Arg))
+		}
 		return nil
 	}); err2 != nil {
 		return err2
 	}
 
-	bnd.SetData(args)
+	part := &Part{Args: args}
+	part.Node = *bndToNode(bnd)
+	bnd.SetData(part)
 	return nil
 }
-func (p *parser3) buildArg(d *lrparser.BuildNodeData) error {
+func (p *parser3) buildArg(bnd *lrparser.BuildNodeData) error {
 	//d.PrintRuleTree(5)
-
+	if bnd.IsEmpty() {
+		return nil
+	}
 	arg := &Arg{}
-	arg.Node = *bndToNode(d)
-	d.SetData(arg)
+	arg.Node = *bndToNode(bnd)
+	bnd.SetData(arg)
+	return nil
+}
+
+//----------
+
+func (p *parser3) buildVarDecl(d *lrparser.BuildNodeData) error {
+	//d.PrintRuleTree(5)
+	d.SetData(d.Child(0).Data())
+	return nil
+}
+func (p *parser3) buildTildeVar(d *lrparser.BuildNodeData) error {
+	//d.PrintRuleTree(5)
+	v := &Var{Name: d.ChildStr(0), Value: d.Child(2).Data().(string)}
+	d.SetData(v)
+	return nil
+}
+func (p *parser3) buildDollarVar(d *lrparser.BuildNodeData) error {
+	//d.PrintRuleTree(5)
+	v := &Var{Name: d.ChildStr(0)}
+	if d2 := d.Child(1); !d2.IsEmpty() {
+		v.Value = d2.Child(1).Data().(string)
+	}
+	d.SetData(v)
+	return nil
+}
+func (p *parser3) buildVarValue(d *lrparser.BuildNodeData) error {
+	//d.PrintRuleTree(5)
+	str := d.ChildStr(0)
+
+	// TODO: should unquote? or just provide var.unquote()?
+	if u, err := parseutil.UnquoteString(str, []rune(p.esc)[0]); err == nil {
+		str = u
+	}
+
+	d.SetData(str)
 	return nil
 }
 

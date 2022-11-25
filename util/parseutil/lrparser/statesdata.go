@@ -2,10 +2,8 @@ package lrparser
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
-	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/iout"
 )
 
@@ -19,7 +17,10 @@ func newStatesData(vd *VerticesData, shiftOnSRConflict bool) (*StatesData, error
 	if err := sd.build(vd); err != nil {
 		return nil, err
 	}
-	if err := sd.solveConflicts(vd); err != nil {
+	if err := sd.checkStringsConflicts(vd); err != nil {
+		return sd, err // also return sd for debug
+	}
+	if err := sd.checkActionConflicts(vd); err != nil {
 		return sd, err // also return sd for debug
 	}
 	return sd, nil
@@ -99,7 +100,7 @@ func (sd *StatesData) build(vd *VerticesData) error {
 		// remove nil rules from the rset to parse
 		rset.unset(nilRule)
 
-		st.rsetSorted = sd.sortForParse(rset)
+		st.rsetSorted = sortRuleSetForParse(rset)
 		st.rsetHasEndRule = rset.has(endRule)
 	}
 
@@ -108,124 +109,7 @@ func (sd *StatesData) build(vd *VerticesData) error {
 
 //----------
 
-func (sd *StatesData) sortForParse(rset RuleSet) []Rule {
-	// integer/string for sorting
-	svalues := func(r Rule) (int, string) {
-		switch t := r.(type) {
-		case *StringRule:
-			switch t.typ {
-			case stringrAnd: // ex: keywords
-				return 1, string(t.runes)
-			case stringrMid: // ex: keywords
-				return 2, string(t.runes)
-			case stringrOr: // individual runes
-				return 3, string(t.runes)
-			case stringrNot: // individual runes
-				return 4, string(t.runes)
-			default:
-				panic(goutil.TodoErrorStr(string(t.typ)))
-			}
-		case *FuncRule:
-			return 10, t.name
-		case *SingletonRule:
-			switch t {
-			case endRule:
-				return 20, ""
-			case anyruneRule: // last to parse
-				return 21, ""
-			}
-			panic(goutil.TodoErrorStr(t.name))
-		}
-		panic(goutil.TodoErrorType(r))
-	}
-
-	x := rset.toSlice()
-	sort.Slice(x, func(a, b int) bool {
-		ra, rb := x[a], x[b]
-		ta, sa := svalues(ra)
-		tb, sb := svalues(rb)
-		if ta == tb {
-			return sa < sb
-		}
-		return ta < tb
-	})
-	return x
-}
-
-//----------
-
-func (sd *StatesData) solveConflicts(vd *VerticesData) error {
-	// strings conflicts: util func
-	checkDuplicate := func(m map[rune]Rule, st *State, r Rule, ru rune) error {
-		r2, ok := m[ru]
-		if !ok {
-			m[ru] = r
-			return nil
-		}
-		return fmt.Errorf("%v: rune %q in %v is already defined at %v", st.id, ru, r, r2)
-	}
-
-	// strings conflicts (runes)
-	for _, st := range sd.states {
-		orM := map[rune]Rule{}
-		notM := map[rune]Rule{}
-		hasAnyrune := false
-
-		// check duplicates
-		for _, r := range st.rsetSorted {
-			if r == anyruneRule {
-				hasAnyrune = true
-				continue
-			}
-			sr, ok := r.(*StringRule)
-			if !ok {
-				continue
-			}
-			switch sr.typ {
-			case stringrAnd:
-				if len(sr.runes) == 1 {
-					if err := checkDuplicate(orM, st, r, sr.runes[0]); err != nil {
-						return err
-					}
-				}
-			case stringrOr:
-				for _, ru := range sr.runes {
-					if err := checkDuplicate(orM, st, r, ru); err != nil {
-						return err
-					}
-				}
-			case stringrNot:
-				for _, ru := range sr.runes {
-					if err := checkDuplicate(notM, st, r, ru); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		// check conflicts: all "or" runes must be in "not"
-		if len(notM) > 0 {
-			for ru, r := range orM {
-				_, ok := notM[ru]
-				if !ok {
-					// show "not" rules
-					rs := &RuleSet{}
-					for _, r2 := range notM {
-						rs.set(r2)
-					}
-
-					return fmt.Errorf("%v: rune %q in %v is covered in %v", st.id, ru, r, rs)
-				}
-			}
-		}
-		if hasAnyrune {
-			if len(orM) > 0 || len(notM) > 0 {
-				return fmt.Errorf("%v: anyrune and stringrule in the same state\n%v", st.id, sd)
-			}
-		}
-	}
-
-	// action conflicts
+func (sd *StatesData) checkActionConflicts(vd *VerticesData) error {
 	me := iout.MultiError{}
 	for _, st := range sd.states {
 		for r, as := range st.action {
@@ -263,6 +147,313 @@ func (sd *StatesData) solveConflicts(vd *VerticesData) error {
 	}
 	return me.Result()
 }
+
+//----------
+
+func (sd *StatesData) checkStringsConflicts(vd *VerticesData) error {
+	// TODO: anyrune?
+
+	for _, st := range sd.states {
+		for i, r := range st.rsetSorted {
+			sr1, ok := r.(*StringRule)
+			if !ok {
+				continue
+			}
+
+			for k := i + 1; k < len(st.rsetSorted); k++ {
+				r2 := st.rsetSorted[k]
+				sr2, ok := r2.(*StringRule)
+				if !ok {
+					continue
+				}
+
+				if ok, err := sr1.intersect(sr2); err == nil && ok {
+					return fmt.Errorf("stringrules %v intersects with %v", sr2, sr1)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+//func (sd *StatesData) checkStringsConflicts2(sr1, sr2 *StringRule) error {
+//	switch sr2.typ {
+//	case stringRTOr:
+//		for _, ru2 := range sr2.runes {
+//			if has, err := sd.srHasRune(sr1, ru2); err != nil {
+//				return err
+//			} else if has {
+//				return fmt.Errorf("rune %q already in %v", ru2, sr1)
+//			}
+//		}
+//		for _, rr2 := range sr2.ranges {
+//			for _, ru2 := range []rune{rr2[0], rr2[1]} {
+//				if has, err := sd.srHasRune(sr1, ru2); err != nil {
+//					return err
+//				} else if has {
+//					return fmt.Errorf("range %v already in %v", rr2, sr1)
+//				}
+//			}
+//		}
+//		//case stringRTOr:
+//	}
+//	return nil
+//}
+
+//func (sd *StatesData) srHasRune(sr *StringRule, ru rune) (bool, error) {
+//	switch sr.typ {
+//	case stringRTOr:
+//		for _, ru2 := range sr.runes {
+//			if ru == ru2 {
+//				return true, nil
+//			}
+//		}
+//		for _, rr := range sr.ranges {
+//			if rr.HasRune(ru) {
+//				return true, nil
+//			}
+//		}
+//		return false, nil
+//	case stringRTOrNeg:
+//		for _, ru2 := range sr.runes {
+//			if ru == ru2 {
+//				return false, nil
+//			}
+//		}
+//		for _, rr := range sr.ranges {
+//			if !rr.HasRune(ru) {
+//				return false, nil
+//			}
+//		}
+//		return true, nil
+//	}
+//	return false, fmt.Errorf("not orrule")
+//}
+
+//func (sd *StatesData) srHasRune(sr *StringRule, ru rune) (bool, error) {
+//	switch sr.typ {
+//	case stringRTOr:
+//		for _, ru2 := range sr.runes {
+//			if ru == ru2 {
+//				return true, nil
+//			}
+//		}
+//		for _, rr := range sr.ranges {
+//			if rr.HasRune(ru) {
+//				return true, nil
+//			}
+//		}
+//		return false, nil
+//	case stringRTOrNeg:
+//		for _, ru2 := range sr.runes {
+//			if ru == ru2 {
+//				return false, nil
+//			}
+//		}
+//		for _, rr := range sr.ranges {
+//			if !rr.HasRune(ru) {
+//				return false, nil
+//			}
+//		}
+//		return true, nil
+//	}
+//	return false, fmt.Errorf("not orrule")
+//}
+
+//func (sd *StatesData) runeConflict(sr *StringRule, ru rune) error {
+//	switch sr.typ {
+//	case stringRTOr:
+//		for _, ru2 := range sr.runes {
+//			if ru2 == ru {
+//				return fmt.Errorf("rune %q already defined at %v", ru sr)
+//			}
+//		}
+//		for _, rr := range sr.ranges {
+//			if rr.HasRune(ru) {
+//				return fmt.Errorf("rune %q already defined at %v", ru sr)
+//			}
+//		}
+//		return false, nil
+//	case stringRTOrNeg:
+//		for _, ru2 := range sr.runes {
+//			if ru == ru2 {
+//				return false, nil
+//			}
+//		}
+//		for _, rr := range sr.ranges {
+//			if !rr.HasRune(ru) {
+//				return false, nil
+//			}
+//		}
+//		return true, nil
+//	default:
+//		panic(fmt.Sprintf("bad stringrule type: %q", sr.typ))
+//	}
+//}
+
+//func (sd *StatesData) solveConflicts(vd *VerticesData) error {
+//	// strings conflicts (runes)
+//	for _, st := range sd.states {
+//		orM := map[rune]Rule{}
+//		orNegM := map[rune]Rule{}
+//		orRangeM := map[RuneRange]Rule{}
+//		orRangeNegM := map[RuneRange]Rule{}
+
+//		hasAnyrune := false
+//		for _, r := range st.rsetSorted {
+//			if r == anyruneRule {
+//				hasAnyrune = true
+//				break
+//			}
+//		}
+
+//		// check duplicates in orRules
+//		for _, r := range st.rsetSorted {
+//			sr, ok := r.(*StringRule)
+//			if !ok {
+//				continue
+//			}
+
+//			typ := sr.typ
+
+//			// special case: check andRule as orRule
+//			if typ == stringRTAnd && len(sr.runes) == 1 {
+//				typ = stringRTOr
+//			}
+
+//			switch typ {
+//			//case stringRTAnd: // sequence
+//			//case stringRTMid: // sequence
+//			case stringRTOr:
+//				if err := sd.checkRuneDups(orM, st, sr, sr.runes...); err != nil {
+//					return err
+//				}
+//				if err := sd.checkRangeDups(orRangeM, st, sr, sr.ranges...); err != nil {
+//					return err
+//				}
+//			case stringRTOrNeg:
+//				if err := sd.checkRuneDups(orNegM, st, sr, sr.runes...); err != nil {
+//					return err
+//				}
+//				if err := sd.checkRangeDups(orRangeNegM, st, sr, sr.ranges...); err != nil {
+//					return err
+//				}
+//			}
+//		}
+
+//		// check intersections: between individual runes and ranges
+//		if err := sd.checkRunesRangesDups(orM, orRangeM, st); err != nil {
+//			return err
+//		}
+//		if err := sd.checkRunesRangesDups(orNegM, orRangeNegM, st); err != nil {
+//			return err
+//		}
+
+//		// check intersections: all "or" rules must be in "negation" if it is defined (ex: (a|b|(c|a|b)!)
+//		if err := sd.checkRunesNegation(orM, orNegM, orRangeNegM, st); err != nil {
+//			return err
+//		}
+//		//if err := sd.checkRangesNegation(orM, orNegM, st); err != nil {
+//		//	return err
+//		//}
+
+//		// check conflicts: all "or" runes must be in "not"
+//		if len(orNegM) > 0 {
+//			for ru, r := range orM {
+//				_, ok := orNegM[ru]
+//				if !ok {
+//					// show "not" rules
+//					rs := &RuleSet{}
+//					for _, r2 := range orNegM {
+//						rs.set(r2)
+//					}
+
+//					return fmt.Errorf("%v: rune %q in %v is covered in %v", st.id, ru, r, rs)
+//				}
+//			}
+//		}
+//		if hasAnyrune {
+//			if len(orM) > 0 || len(orNegM) > 0 {
+//				return fmt.Errorf("%v: anyrune and stringrule in the same state\n%v", st.id, sd)
+//			}
+//		}
+//	}
+
+//}
+//func (sd *StatesData) checkRuneDups(m map[rune]Rule, st *State, r Rule, rs ...rune) error {
+//	for _, ru := range rs {
+//		r2, ok := m[ru]
+//		if ok {
+//			return fmt.Errorf("%v: rune %q in %v is already defined at %v", st.id, ru, r, r2)
+//		}
+//		m[ru] = r
+//	}
+//	return nil
+//}
+//func (sd *StatesData) checkRangeDups(m map[RuneRange]Rule, st *State, r Rule, h ...RuneRange) error {
+//	for _, rr := range h {
+//		for rr2, r2 := range m {
+//			if rr2.IntersectsRange(rr) {
+//				return fmt.Errorf("%v: range %q in %v is already defined at %v", st.id, rr, r, r2)
+//			}
+//		}
+//		m[rr] = r
+//	}
+//	return nil
+//}
+//func (sd *StatesData) checkRunesRangesDups(m1 map[Rune]Rule, m2 map[RuneRange]Rule, st *State) error {
+//	for ru, r1 := range m1 {
+//		for rr, r2 := range m2 {
+//			if rr.HasRune(ru) {
+//				return fmt.Errorf("%v: rune %q in %v is covered by range %v", st.id, ru, r1, rr)
+//			}
+//		}
+//		m[rr] = r
+//	}
+//	return nil
+//}
+//func (sd *StatesData) checkRunesNegation(m, neg map[Rune]Rule, negRange map[RuneRange]Rule, st *State) error {
+//	// all "or" runes must be in "neg"
+//	if len(neg) > 0 {
+//		for ru, r := range m {
+//			_, ok := neg[ru]
+//			if ok {
+//				continue
+//			}
+//			// show "not" rules
+//			rs := &RuleSet{}
+//			for _, r2 := range neg {
+//				rs.set(r2)
+//			}
+//			return fmt.Errorf("%v: rune %q in %v is covered in %v", st.id, ru, r, rs)
+//		}
+//	}
+//	return nil
+//}
+//func (sd *StatesData) checkRunesNegation2(m map[Rune]Rule, neg map[RuneRange]Rule, st *State) error {
+//	if len(neg) == 0 {
+//		return nil
+//	}
+//	// all "or" runes must be in "neg"
+//	for ru, r := range m {
+//		for rr,r2:=range neg{
+//			if rr.HasRune(ru)[
+
+//			}
+//		}
+//		_, ok := neg[ru]
+//		if ok {
+//			continue
+//		}
+//		// show "not" rules
+//		rs := &RuleSet{}
+//		for _, r2 := range neg {
+//			rs.set(r2)
+//		}
+//		return fmt.Errorf("%v: rune %q in %v is covered in %v", st.id, ru, r, rs)
+//	}
+//	return nil
+//}
 
 //----------
 

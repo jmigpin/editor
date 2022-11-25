@@ -114,7 +114,7 @@ func (cp *ContentParser) shift(cpr *cpRun, t *ActionShift) (Rule, error) {
 	cpn := cpr.ps.Node.(*CPNode)
 	if cpn.simulated {
 		i := cpr.stk.topEnd()
-		cpn.setPos(i, i)
+		cpn.SetPos(i, i)
 	}
 
 	cpr.logf("shift %v\n", t.st.id)
@@ -130,7 +130,9 @@ func (cp *ContentParser) shift(cpr *cpRun, t *ActionShift) (Rule, error) {
 	return cp.nextParseRule(cpr, t.st)
 }
 func (cp *ContentParser) reduce(cpr *cpRun, ar *ActionReduce) error {
-	cpr.logf("reduce to %v (pop %v)\n", ar.prod.id(), ar.popN)
+	if cpr.isLogging() { // performance
+		cpr.logf("reduce to %v (pop %v)\n", ar.prod.id(), ar.popN)
+	}
 
 	// pop n items
 	popPos := len(cpr.stk) - ar.popN
@@ -176,33 +178,13 @@ func (cp *ContentParser) processPopped(cpr *cpRun, ar *ActionReduce, pops []*cps
 	return cpn, nil
 }
 func (cp *ContentParser) processPopped2(cpr *cpRun, ar *ActionReduce, pops []*cpsItem) *CPNode {
-	//TODO: REVIEW: recover from error
-	// reducing to a rule that is a loop (flatten childs list)
-	//	if ruleIsLoop(ar.prod) && len(pops) == 2 {
-	//		cpn0 := pops[0].cpn
-	//		if cpn0.rule == ar.prod { // first popped item is the loop rule (this depends on how the loop was constructed, check ruleindex)
-	//			cpn1 := pops[1].cpn
-
-	//			// recover from error
-	//			if cpn1.simulated {
-	//				cp.Opt.Logf("recovered: loop node")
-	//				return cpn0 // ignore the second popped item since it has an error
-	//			}
-
-	//			cpn2 := newCPNode2(cpn0, cpn1, ar.prod)
-	//			cpn2.childs = cpn0.childs
-	//			cpn2.addChilds(cp.Opt.Reverse, cpn1)
-	//			return cpn2
-	//		}
-	//	}
-
 	if len(pops) == 0 { // handle no pops reductions (nil rules)
 		i := cpr.stk.topEnd()
 		cpn := newCPNode(i, i, ar.prod)
 		return cpn
 	} else {
 		// group popped items nodes into one node
-		w := []*CPNode{}
+		w := make([]*CPNode, 0, len(pops))
 		for _, item2 := range pops {
 			w = append(w, item2.cpn)
 		}
@@ -228,7 +210,7 @@ func (cp *ContentParser) propagateSimulatedAndRecover(cpr *cpRun, ar *ActionRedu
 	if dr, ok := cpn.rule.(*DefRule); ok {
 		if dr.isPOptional {
 			cpn.childs = nil
-			cpn.end = cpn.pos // clear end position (as if empty)
+			cpn.SetPos(cpn.Pos(), cpn.Pos()) // clear end (as if empty)
 			cpr.logf("recovered: optional\n")
 			return
 		}
@@ -238,8 +220,7 @@ func (cp *ContentParser) propagateSimulatedAndRecover(cpr *cpRun, ar *ActionRedu
 			return
 		}
 		if dr.isPOneOrMore {
-			empty := cpn.childs[0].end == cpn.childs[0].pos
-			if !empty {
+			if !cpn.childs[0].PosEmpty() {
 				cpn.childs = cpn.childs[0].childs
 				cpr.logf("recovered: pOneOrMore\n")
 				return
@@ -250,7 +231,7 @@ func (cp *ContentParser) propagateSimulatedAndRecover(cpr *cpRun, ar *ActionRedu
 	// simulated
 	cpn.simulated = true
 	cpn.childs = nil
-	cpn.end = cpn.pos // clear end position (as if empty)
+	cpn.SetPos(cpn.Pos(), cpn.Pos()) // clear end (as if empty)
 }
 
 //----------
@@ -286,6 +267,10 @@ func (cp *ContentParser) simulateParseRuleSet(cpr *cpRun, st *State) (Rule, erro
 	if st.rsetHasEndRule { // performance: faster stop (not necessary)
 		r = endRule
 	} else {
+		if len(st.rsetSorted) == 0 {
+			return nil, fmt.Errorf("empty rset to simulate")
+		}
+
 		// get index to try next
 		k := cpr.earlyStop.simStateRsetIter[st] % len(st.rsetSorted)
 		cpr.earlyStop.simStateRsetIter[st]++
@@ -301,7 +286,9 @@ func (cp *ContentParser) simulateParseRuleSet(cpr *cpRun, st *State) (Rule, erro
 	cpn := newCPNode(i, i, r)
 	cpn.simulated = true
 	cpr.ps.Node = cpn
-	cpr.logf("simulate parseruleset: %v %v\n", r.id(), parseutil.PNodePosStr(cpn))
+	if cpr.isLogging() { // performance
+		cpr.logf("simulate parseruleset: %v %v\n", r.id(), parseutil.PNodePosStr(cpn))
+	}
 
 	return r, nil
 }
@@ -314,7 +301,9 @@ func (cp *ContentParser) parseRuleSet(cpr *cpRun, rset []Rule) (Rule, error) {
 		if err := cp.parseRule(cpr.ps, r); err != nil {
 			continue
 		}
-		cpr.logf("parseruleset: %v %v\n", r.id(), parseutil.PNodePosStr(cpr.ps.Node))
+		if cpr.isLogging() { // performance
+			cpr.logf("parseruleset: %v %v\n", r.id(), parseutil.PNodePosStr(cpr.ps.Node))
+		}
 		return r, nil
 	}
 	return nil, fmt.Errorf("failed to parse next: %v", rset)
@@ -323,28 +312,11 @@ func (cp *ContentParser) parseRuleSet(cpr *cpRun, rset []Rule) (Rule, error) {
 func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 	switch t := r.(type) {
 	case *StringRule:
-		i0 := ps.Pos
-		switch t.typ {
-		case stringrAnd:
-			if err := ps.MatchRunesAnd(t.runes); err != nil {
-				return err
-			}
-		case stringrOr:
-			if err := ps.MatchRunesOr(t.runes); err != nil {
-				return err
-			}
-		case stringrMid:
-			if err := ps.MatchRunesMid(t.runes); err != nil {
-				return err
-			}
-		case stringrNot:
-			if err := ps.MatchRunesNot(t.runes); err != nil {
-				return err
-			}
-		default:
-			panic(goutil.TodoErrorStr(string(t.typ)))
+		pos0 := ps.Pos
+		if err := t.parse(ps); err != nil {
+			return err
 		}
-		ps.Node = newCPNode(i0, ps.Pos, t)
+		ps.Node = newCPNode(pos0, ps.Pos, t)
 	case *FuncRule:
 		i0 := ps.Pos
 		ps2 := ps.Copy()
@@ -355,21 +327,12 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 		ps.Node = newCPNode(i0, ps.Pos, t)
 	case *SingletonRule:
 		switch t {
-		// commented: should not be called to be parsed
-		//case nilRule:
-		//	ps.Node = newCPNode(ps.Pos, ps.Pos, t)
-
-		case endRule: // not allowed in grammar ("$") but present in the rules to parse (rset/lookaheads)
+		//case nilRule:	// commented: not called to be parsed
+		case endRule:
 			if err := ps.MatchEof(); err != nil {
 				return err
 			}
 			ps.Node = newCPNode(ps.Pos, ps.Pos, t)
-		case anyruneRule:
-			i0 := ps.Pos
-			if _, err := ps.ReadRune(); err != nil {
-				return err // fails at eof
-			}
-			ps.Node = newCPNode(i0, ps.Pos, t)
 		default:
 			panic(goutil.TodoErrorStr(t.name))
 		}
@@ -396,13 +359,11 @@ func (cp *ContentParser) SetBuildNodeFn(name string, buildFn BuildNodeFn) error 
 
 // content parser options
 type CpOpt struct {
+	StartRule         string // can be empty, will try to get it from grammar
+	VerboseError      bool
 	EarlyStop         bool // artificially parses an endrule when nextparsedrule fails. Allows parsing to stop successfully when no more input is recognized (although there is still input), while the rules are still able to reduce correctly.
 	ShiftOnSRConflict bool
-
-	StartRule string // can be empty, will get it from grammar
-	Reverse   bool   // runs input/rules in reverse (useful to backtrack in the middle of big inputs to then parse normally)
-
-	VerboseError bool
+	Reverse           bool // runs input/rules in reverse (useful to backtrack in the middle of big inputs to then parse normally)
 }
 
 //----------
@@ -418,8 +379,7 @@ type cpRun struct {
 		err              error
 		simStateRsetIter map[*State]int // iterate over state rset rules to avoid repeating simulated
 	}
-	logBuf bytes.Buffer
-
+	logBuf       bytes.Buffer
 	externalData any
 }
 
@@ -428,8 +388,11 @@ func newCPRun(opt *CpOpt, ps *PState) *cpRun {
 	cpr.earlyStop.simStateRsetIter = map[*State]int{}
 	return cpr
 }
+func (cpr *cpRun) isLogging() bool {
+	return cpr.opt.VerboseError
+}
 func (cpr *cpRun) logf(f string, args ...any) {
-	if cpr.opt.VerboseError {
+	if cpr.isLogging() {
 		fmt.Fprintf(&cpr.logBuf, f, args...)
 	}
 }
@@ -479,15 +442,6 @@ func (stk cpStack) String() string {
 type cpsItem struct {
 	st  *State
 	cpn *CPNode
-}
-
-//----------
-//----------
-//----------
-
-type simEntry struct {
-	st *State
-	r  Rule
 }
 
 //----------

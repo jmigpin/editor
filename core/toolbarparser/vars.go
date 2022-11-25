@@ -15,10 +15,6 @@ import (
 	"github.com/jmigpin/editor/util/scanutil"
 )
 
-type VarMap map[string]string // name -> value (more then one type: "~","$", ...)
-
-//----------
-
 type HomeVarMap struct {
 	vm              VarMap
 	caseInsensitive bool
@@ -130,6 +126,14 @@ func (m *HomeVarMap) decode2(f string) string {
 }
 
 //----------
+//----------
+//----------
+
+type VarMap map[string]string // [name]value; name includes {"~","$",...}
+
+//----------
+//----------
+//----------
 
 func ParseVars(data *Data) VarMap {
 	m := VarMap{}
@@ -149,11 +153,10 @@ func ParseVars(data *Data) VarMap {
 
 //----------
 
-type Var struct {
-	Name, Value string
-}
-
 func ParseVar(str string) (*Var, error) {
+	//// TESTING
+	//return parseVar3_basedOnLrparser(str)
+
 	rd := iorw.NewStringReaderAt(str)
 	sc := scanutil.NewScanner(rd)
 	ru := sc.PeekRune()

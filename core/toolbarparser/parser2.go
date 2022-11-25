@@ -7,11 +7,10 @@ import (
 
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
-	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
-// simple parser based on lrparser.pstate
-func parse2_basedOnLrparserPState(str string) *Data {
+// simple parser based on parseutil.pstate
+func parse2_basedOnParseutilPState(str string) *Data {
 	p := newParser2(str)
 	if err := p.start(); err != nil {
 		log.Print(err)
@@ -23,7 +22,7 @@ func parse2_basedOnLrparserPState(str string) *Data {
 
 type parser2 struct {
 	data *Data
-	ps   *lrparser.PState
+	ps   *parseutil.PState
 }
 
 func newParser2(str string) *parser2 {
@@ -63,9 +62,7 @@ func (p *parser2) part() (*Part, error) {
 	part := &Part{}
 	part.Data = p.data
 
-	// position
-	part.Pos = p.ps.Pos
-	defer func() { part.End = p.ps.Pos }()
+	pos0 := p.ps.Pos
 
 	// optional space at start
 	_ = p.ps.ConsumeSpacesExcludingNL()
@@ -82,17 +79,16 @@ func (p *parser2) part() (*Part, error) {
 			break
 		}
 	}
+
+	part.Pos = pos0
+	part.End = p.ps.Pos
 	return part, nil
 }
 func (p *parser2) arg() (*Arg, error) {
 	arg := &Arg{}
 	arg.Data = p.data
 
-	// position
-	arg.Pos = p.ps.Pos
-	defer func() { arg.End = p.ps.Pos }()
-
-	i0 := p.ps.Pos
+	pos0 := p.ps.Pos
 	ps2 := p.ps.Copy()
 	for {
 		if ps2.MatchEof() == nil {
@@ -101,7 +97,7 @@ func (p *parser2) arg() (*Arg, error) {
 		if ps2.EscapeAny(osutil.EscapeRune) == nil {
 			continue
 		}
-		if ps2.GoString() == nil {
+		if ps2.QuotedString() == nil {
 			continue
 		}
 
@@ -116,11 +112,14 @@ func (p *parser2) arg() (*Arg, error) {
 		}
 		ps2.Set(ps3) // accept rune into arg
 	}
-	empty := ps2.Pos == i0
+	// empty arg. Ex: parts string with empty args: "|||".
+	empty := ps2.Pos == pos0
 	if empty {
-		// empty arg. Ex: parts string with empty args: "|||".
 		return nil, fmt.Errorf("arg")
 	}
 	p.ps.Set(ps2)
+
+	arg.Pos = pos0
+	arg.End = p.ps.Pos
 	return arg, nil
 }

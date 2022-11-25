@@ -18,8 +18,8 @@ import (
 
 func TestLrparser1(t *testing.T) {
 	gram := `
-		^S = C C .
-		C = "c" C | "d" .
+		^S = C C;
+		C = "c" C | "d";
 	`
 	in := "●ccdd"
 	out := `
@@ -37,7 +37,7 @@ func TestLrparser1(t *testing.T) {
 }
 func TestLrparser2(t *testing.T) {
 	gram := `
-		^id = "a" id | "a" .
+		^id = "a" id | "a";
 	`
 	in := "●aaa"
 	out := `
@@ -52,7 +52,7 @@ func TestLrparser2(t *testing.T) {
 }
 func TestLrparser3(t *testing.T) {
 	gram := `
-		^id = id "a" | "a" .
+		^id = id "a" | "a";
 	`
 	in := "●aaa"
 	out := `
@@ -67,7 +67,7 @@ func TestLrparser3(t *testing.T) {
 }
 func TestLrparser4(t *testing.T) {
 	gram := `
-		^id = (digit)? .
+		^id = (digit)?;
 	`
 	in := "●1"
 	out := `
@@ -79,9 +79,9 @@ func TestLrparser4(t *testing.T) {
 }
 func TestLrparser5(t *testing.T) {
 	gram := `
-		#^id = letter id2 letter .
-		#id2 = digit | nil .
-		^id = letter (digit)? letter .	
+		#^id = letter id2 letter;
+		#id2 = digit | nil;
+		^id = letter (digit)? letter;	
 	`
 	in := "●aa"
 	out := `
@@ -94,7 +94,7 @@ func TestLrparser5(t *testing.T) {
 }
 func TestLrparser6(t *testing.T) {
 	gram := `		
-		^id = letter (letter|digit)* digit.
+		^id = letter (letter|digit)* digit;
 	`
 	in := "●a11"
 	out := `
@@ -110,7 +110,7 @@ func TestLrparser6(t *testing.T) {
 }
 func TestLrparser7(t *testing.T) {
 	gram := `
-		^id = (letter|digit)* .
+		^id = (letter|digit)*;
 	`
 	in := "●a1"
 	out := `
@@ -127,7 +127,7 @@ func TestLrparser7(t *testing.T) {
 }
 func TestLrparser7b(t *testing.T) {
 	gram := `
-		^id = (letter|digit)+ .
+		^id = (letter|digit)+;
 	`
 	in := "●a1"
 	out := `
@@ -144,10 +144,10 @@ func TestLrparser7b(t *testing.T) {
 }
 func TestLrparser8(t *testing.T) {
 	gram := `
-		#^S = "a" ("a"|"1")* .
+		#^S = "a" ("a"|"1")*;
 		
-		^S = "a" s2 .
-		s2 = "a" s2 | "1" s2 | nil .
+		^S = "a" s2;
+		s2 = "a" s2 | "1" s2 | nil;
 	`
 	in := "●aa1"
 	out := `
@@ -163,7 +163,7 @@ func TestLrparser8(t *testing.T) {
 }
 func TestLrparser9a(t *testing.T) {
 	gram := `
-		^S = letter (letter)* .
+		^S = letter (letter)*;
 	`
 	in := "●aaa"
 	out := `
@@ -179,7 +179,7 @@ func TestLrparser9a(t *testing.T) {
 }
 func TestLrparser9b(t *testing.T) {
 	gram := `
-		^S = letter (letter)* .
+		^S = letter (letter)*;
 	`
 	in := "●a"
 	out := `
@@ -191,7 +191,7 @@ func TestLrparser9b(t *testing.T) {
 }
 func TestLrparser9c(t *testing.T) {
 	gram := `
-		^S = letter (letter)+ .
+		^S = letter (letter)+;
 	`
 	in := "●aaaa"
 	out := `
@@ -209,7 +209,7 @@ func TestLrparser9c(t *testing.T) {
 }
 func TestLrparser10(t *testing.T) {
 	gram := `
-		^S = (letter|digit)? .
+		^S = (letter|digit)?;
 	`
 	in := "●1"
 	out := `
@@ -222,7 +222,7 @@ func TestLrparser10(t *testing.T) {
 }
 func TestLrparser11(t *testing.T) {
 	gram := `
-		^S = (letter digit)+ .
+		^S = (letter digit)+;
 	`
 	in := "●a1b2c3"
 	out := `
@@ -245,7 +245,7 @@ func TestLrparser11(t *testing.T) {
 }
 func TestLrparser11b(t *testing.T) {
 	gram := `
-		^S = (letter digit)* .
+		^S = (letter digit)*;
 	`
 	in := "●a1b2c3"
 	out := `
@@ -268,7 +268,7 @@ func TestLrparser11b(t *testing.T) {
 }
 func TestLrparser11c(t *testing.T) {
 	gram := `
-		^S = letter digit .
+		^S = letter digit;
 	`
 	in := "●a1"
 	out := `
@@ -280,24 +280,24 @@ func TestLrparser11c(t *testing.T) {
 }
 func TestLrparser12(t *testing.T) {
 	gram := `
-		^S = (%":\"'")+ .
+		^S = ((":\"'")%)+;
 	`
 	in := "●:\":"
 	out := `
 		-> ^S: ":\":"
-			-> (%":\"'")+: ":\":"
-				-> (%":\"'")*: ":\""
-					-> (%":\"'")*: ":"
-						-> (%":\"'")*: ""
-						-> %":\"'": ":"
-					-> %":\"'": "\""
-				-> %":\"'": ":"
+	        	-> (":\"'"%)+: ":\":"
+	        		-> (":\"'"%)*: ":\""
+	        			-> (":\"'"%)*: ":"
+	        				-> (":\"'"%)*: ""
+	        				-> ":\"'"%: ":"
+	        			-> ":\"'"%: "\""
+	        		-> ":\"'"%: ":"
 `
 	testLrparserMode1(t, gram, in, out)
 }
 func TestLrparser13(t *testing.T) {
 	gram := `
-		^S = letter (letter|digit)* digit .
+		^S = letter (letter|digit)* digit;
 	`
 	in := "●aa11"
 	out := `
@@ -317,8 +317,8 @@ func TestLrparser13(t *testing.T) {
 func TestLrparser14(t *testing.T) {
 	gram := `
 		// reduce/reduce conflict
-		^S = (s2)+ . 
-		s2 = (letter)+ .		
+		^S = (s2)+; 
+		s2 = (letter)+;		
 	`
 	in := "●aa"
 	out := `
@@ -339,14 +339,14 @@ func TestLrparser14(t *testing.T) {
 }
 func TestLrparser15(t *testing.T) {
 	gram := `
-		^S = ~s2 s3 .
-		s2 = "abc" .
-		s3 = "de" .
+		^S = (s2)~ s3;
+		s2 = "abc";
+		s3 = "de";
 	`
 	in := "ab●cde"
 	out := `
 		-> ^S: "cde"
-			-> ~"abc": "c"
+			-> "abc"~: "c"
 			-> s3: "de"
 				-> "de": "de"
 `
@@ -354,68 +354,69 @@ func TestLrparser15(t *testing.T) {
 }
 func TestLrparser16(t *testing.T) {
 	gram := `
-		^S = ~s2 (%s2)+ .
-		s2 = "abc" .
+		^S = (s2)~ ((s2)%)+;
+		s2 = "abc";
 	`
 	in := "ab●caa"
 	out := `
 		-> ^S: "caa"
-			-> ~"abc": "c"
-			-> (%"abc")+: "aa"
-				-> (%"abc")*: "a"
-					-> (%"abc")*: ""
-					-> %"abc": "a"
-				-> %"abc": "a"
+	        	-> "abc"~: "c"
+	        	-> ("abc"%)+: "aa"
+	        		-> ("abc"%)*: "a"
+	        			-> ("abc"%)*: ""
+	        			-> "abc"%: "a"
+	        		-> "abc"%: "a"
 `
 	testLrparserMode2(t, gram, in, out, false, false, false)
 }
 func TestLrparser17(t *testing.T) {
 	gram := `
-		^S = !"+" "+" .
+		^S = ("+")! "+";
 	`
 	in := "●0+"
 	out := `
 		-> ^S: "0+"
-			-> !"+": "0"
-			-> "+": "+"
+	        	-> "+"!: "0"
+	        	-> "+": "+"
 `
 	testLrparserMode1(t, gram, in, out)
 }
 func TestLrparser18(t *testing.T) {
 	gram := `
-		^S = !s2 "+" .
-		s2 = %"abc"|%"defg"	 .
+		^S = (s2)! "+";
+		s2 = ("abc")%|("defg")%;
+		//s2 = ("abc"|"defg")%;
 	`
 	in := "●h+"
 	out := `
 		-> ^S: "h+"
-			-> !"abcdefg": "h"
-			-> "+": "+"
+	        	-> "abcdefg"!: "h"
+	        	-> "+": "+"
 `
 	testLrparserMode1(t, gram, in, out)
 }
 func TestLrparser19(t *testing.T) {
 	gram := `
-		^S = (&dropRunes(%s2 %"b"))+.
-		s2 = "abc".
+		^S = (@dropRunes((s2)%,("b")%))+;
+		s2 = "abc";
 	`
 	in := "●ac"
 	out := `
 		-> ^S: "ac"
-			-> (%"ac")+: "ac"
-				-> (%"ac")*: "a"
-					-> (%"ac")*: ""
-					-> %"ac": "a"
-				-> %"ac": "c"
+	        	-> ("ac"%)+: "ac"
+	        		-> ("ac"%)*: "a"
+	        			-> ("ac"%)*: ""
+	        			-> "ac"%: "a"
+	        		-> "ac"%: "c"
 `
 	testLrparserMode1(t, gram, in, out)
 }
 func TestLrparser20(t *testing.T) {
 	gram := `
-		^S = (s2|s3|s4)+.
-		s2 = "ab".
-		s3 = "c".
-		s4 = "d".
+		^S = (s2|s3|s4)+;
+		s2 = "ab";
+		s3 = "c";
+		s4 = "d";
 	`
 	in := "●ababdabcd"
 	out := `
@@ -450,16 +451,16 @@ func TestLrparser20(t *testing.T) {
 }
 func TestLrparser21(t *testing.T) {
 	gram := `
-		//^S = (sep)* arg args2 .		
-		//args2 = (sep)+ arg args2 | (sep)+ | nil . // ok
-		//args2 = (sep)+ arg args2 | (sep)* . // ok (was conflict)		
+		//^S = (sep)* arg args2;		
+		//args2 = (sep)+ arg args2 | (sep)+ | nil; // ok
+		//args2 = (sep)+ arg args2 | (sep)*; // ok (was conflict)		
 		
-		^S = (sep)* arg ((sep)+ arg)* (sep)* . // ok
+		^S = (sep)* arg ((sep)+ arg)* (sep)*; // ok
 		
-		//^S = (sep)* arg ((sep)+ arg (sep)*)*  .
-		//^S = ((sep)* arg)+ (sep)* .
-		sep = " ".
-		arg = "a".
+		//^S = (sep)* arg ((sep)+ arg (sep)*)* ;
+		//^S = ((sep)* arg)+ (sep)*;
+		sep = " ";
+		arg = "a";
 	`
 	in := "●  a  a  "
 	out := `
@@ -498,23 +499,11 @@ func TestLrparser21(t *testing.T) {
 
 //func TestLrparser22(t *testing.T) {
 //	gram := `
-//		^S = "a" ("b" "c"|"d" "e") .
+//		^S = ((letter)!)+;
 //	`
-//	in := "●ac"
+//	in := "●a "
 //	out := `
-//	`
-//	testLrparserMode1(t, gram, in, out)
-//}
-
-//func TestLrparser22(t *testing.T) {
-//	gram := `
-//		^S = (s2)? (s3)? .
-//		s2 = %"abc".
-//		s3 = (":"|digit)+.
-//	`
-//	in := "●  a  a  "
-//	out := `
-//	`
+//`
 //	testLrparserMode1(t, gram, in, out)
 //}
 
@@ -522,7 +511,7 @@ func TestLrparser21(t *testing.T) {
 
 func TestLrparserStop1(t *testing.T) {
 	gram := `
-		^id =  digit (letter)* .		
+		^id =  digit (letter)*;		
 	`
 	in := "<<<●1ab>>>"
 	out := `
@@ -538,9 +527,9 @@ func TestLrparserStop1(t *testing.T) {
 }
 func TestLrparserStop2(t *testing.T) {
 	gram := `
-		^S = letter (linecol)? .
-		linecol = entry (entry)? .
-		entry = ":" (digit)+ .	
+		^S = letter (linecol)?;
+		linecol = entry (entry)?;
+		entry = ":" (digit)+;	
 	`
 	in := "●a:1:++"
 	out := `
@@ -560,7 +549,7 @@ func TestLrparserStop2(t *testing.T) {
 }
 func TestLrparserStop3(t *testing.T) {
 	gram := `
-		^S = (letter ":")+ .
+		^S = (letter ":")+;
 	`
 	in := "●a:b:c:d"
 	out := `
@@ -584,7 +573,7 @@ func TestLrparserStop3(t *testing.T) {
 }
 func TestLrparserStop3b(t *testing.T) {
 	gram := `
-		^S = (letter ":")+ (digit)? .
+		^S = (letter ":")+ (digit)?;
 	`
 	in := "●a:a:b"
 	out := `
@@ -605,7 +594,7 @@ func TestLrparserStop3b(t *testing.T) {
 }
 func TestLrparserStop4(t *testing.T) {
 	gram := `
-		^S = (letter digit letter)+ .	
+		^S = (letter digit letter)+;	
 	`
 	in := "●a1ab2bc3"
 	out := `
@@ -627,7 +616,7 @@ func TestLrparserStop4(t *testing.T) {
 }
 func TestLrparserStop5(t *testing.T) {
 	gram := `
-		^S = ("a" "b" "c" "d")+ .		
+		^S = ("a" "b" "c" "d")+;		
 	`
 	in := "●abcdab"
 	out := `
@@ -648,8 +637,8 @@ func TestLrparserStop5(t *testing.T) {
 
 func TestLrparserRev1(t *testing.T) {
 	gram := `
-		^rev =  digit (letter)*	 .	
-		#^rev =  (letter)* digit .
+		^rev =  digit (letter)*	;	
+		#^rev =  (letter)* digit;
 	`
 	in := "<<<1ab●>>>"
 	//in := "<<<●1ab>>>"
@@ -667,8 +656,8 @@ func TestLrparserRev1(t *testing.T) {
 }
 func TestLrparserRev2(t *testing.T) {
 	gram := `
-		^S = (s2)? .
-		s2 = (letter)+ .
+		^S = (s2)?;
+		s2 = (letter)+;
 	`
 	in := "aa●11"
 	out := `
@@ -686,35 +675,31 @@ func TestLrparserRev2(t *testing.T) {
 }
 func TestLrparserRev3(t *testing.T) {
 	gram := `
-		^S = (letter|esc)+ .
-		esc = "\\" anyrune .		
+		^S = (letter|esc)+;
+		esc = @escapeAny(0,"\\"); 
 	`
-	in := "d ab\\ c●"
+	in := "a b\\ c●"
 	out := `
-		-> ^S: "ab\\ c"
-			-> ([letter|esc])+: "ab\\ c"
-				-> ([letter|esc])*: "b\\ c"
-					-> ([letter|esc])*: "\\ c"
-						-> ([letter|esc])*: "c"
-							-> ([letter|esc])*: ""
-							-> [letter|esc]: "c"
-								-> letter: "c"
-						-> [letter|esc]: "\\ "
-							-> esc: "\\ "
-								-> "\\": "\\"
-								-> anyrune: " "
-					-> [letter|esc]: "b"
-						-> letter: "b"
-				-> [letter|esc]: "a"
-					-> letter: "a"
+		-> ^S: "b\\ c"
+	        	-> ([letter|esc])+: "b\\ c"
+	        		-> ([letter|esc])*: "\\ c"
+	        			-> ([letter|esc])*: "c"
+	        				-> ([letter|esc])*: ""
+	        				-> [letter|esc]: "c"
+	        					-> letter: "c"
+	        			-> [letter|esc]: "\\ "
+	        				-> esc: "\\ "
+	        					-> escapeAny('\\'): "\\ "
+	        		-> [letter|esc]: "b"
+	        			-> letter: "b"
 `
 
 	testLrparserMode2(t, gram, in, out, true, true, false)
 }
 func TestLrparserRev4(t *testing.T) {
 	gram := `
-		^S = (letter|esc)* .
-		esc = "\\" anyrune .	
+		^S = (letter|esc)*;
+		esc = @escapeAny(0,"\\"); 
 	`
 	in := "aaa ●bbb"
 	out := `
@@ -729,21 +714,21 @@ func TestLrparserRev4(t *testing.T) {
 }
 func TestLrparserRev5(t *testing.T) {
 	gram := `
-		^S = (&escapeAny(esc))+ (esc)+ .
-		esc = "\\" .	
+		^S = (@escapeAny(0,esc))+ (esc)+;
+		esc = "\\";	
 	`
 	in := "aaa\\:\\ \\● bb"
 	out := `
 		-> ^S: "\\:\\ \\"
-			-> ({escapeAny:'\\'})+: "\\:\\ "
-				-> ({escapeAny:'\\'})*: "\\ "
-					-> ({escapeAny:'\\'})*: ""
-					-> {escapeAny:'\\'}: "\\ "
-				-> {escapeAny:'\\'}: "\\:"
-			-> (esc)+: "\\"
-				-> (esc)*: ""
-				-> esc: "\\"
-					-> "\\": "\\"
+	        	-> (escapeAny('\\'))+: "\\:\\ "
+	        		-> (escapeAny('\\'))*: "\\ "
+	        			-> (escapeAny('\\'))*: ""
+	        			-> escapeAny('\\'): "\\ "
+	        		-> escapeAny('\\'): "\\:"
+	        	-> (esc)+: "\\"
+	        		-> (esc)*: ""
+	        		-> esc: "\\"
+	        			-> "\\": "\\"
 `
 	bnd := testLrparserMode2(t, gram, in, out, true, true, false)
 	if bnd.End() != 3 {
@@ -755,7 +740,7 @@ func TestLrparserRev5(t *testing.T) {
 
 func TestLrparserErr1(t *testing.T) {
 	gram := `
-		^S = (letter)? letter .	
+		^S = (letter)? letter;	
 	`
 	in := "●a"
 	out := ``
@@ -767,7 +752,7 @@ func TestLrparserErr1(t *testing.T) {
 }
 func TestLrparserErr2(t *testing.T) {
 	gram := `
-		^S = (digit)+ (letter)? digit . // was endless loop "●111+a"
+		^S = (digit)+ (letter)? digit; // was endless loop "●111+a"
 	`
 	in := "●111+a"
 	out := ``
@@ -779,10 +764,22 @@ func TestLrparserErr2(t *testing.T) {
 }
 func TestLrparserErr3(t *testing.T) {
 	gram := `
-		^S = (digit)+ (letter)? ":" .
-		//^S = (digit)+ (letter)? . // ok
+		^S = (digit)+ (letter)? ":";
+		//^S = (digit)+ (letter)?; // ok
 	`
 	in := "●111a"
+	out := ``
+	_, err := testLrparserMode3(t, gram, in, out, false, true, true)
+	t.Log(err)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+}
+func TestLrparserErr4(t *testing.T) {
+	gram := `
+		^S = ((letter)!)%;
+	`
+	in := "●aa"
 	out := ``
 	_, err := testLrparserMode3(t, gram, in, out, false, true, true)
 	t.Log(err)
@@ -795,9 +792,9 @@ func TestLrparserErr3(t *testing.T) {
 
 func TestLrparserBuild1(t *testing.T) {
 	gram := `
-		^S = (sep)* arg ((sep)+ arg)* (sep)* .
-		arg = (letter|digit)+.
-		sep = "-".
+		^S = (sep)* arg ((sep)+ arg)* (sep)*;
+		arg = (letter|digit)+;
+		sep = "-";
 	`
 	cp := testLrparserModeB(t, gram, false, true, true)
 
@@ -829,10 +826,10 @@ func TestLrparserBuild1(t *testing.T) {
 
 func TestLrparserBuild2(t *testing.T) {
 	gram := `
-		^S = args .
-		args = (sep)+ arg args | nil.
-		arg = (letter|digit)+.
-		sep = "-".
+		^S = args;
+		args = (sep)+ arg args | nil;
+		arg = (letter|digit)+;
+		sep = "-";
 	`
 	cp := testLrparserModeB(t, gram, false, true, true)
 

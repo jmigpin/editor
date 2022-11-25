@@ -412,6 +412,7 @@ func SurroundingString(b []byte, k int, pad int) string {
 
 //----------
 
+// removes escapes runes (keeping the escaped)
 func UnquoteString(s string, esc rune) (string, error) {
 	rs := []rune(s)
 	if len(rs) < 2 {
@@ -428,7 +429,7 @@ func UnquoteString(s string, esc rune) (string, error) {
 	res := make([]rune, 0, len(rs))
 	for i := 1; i < len(rs)-1; i++ {
 		ru := rs[i]
-		if ru == esc {
+		if ru == esc { // remove escapes
 			i++
 			continue
 		}
