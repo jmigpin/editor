@@ -135,14 +135,12 @@ func (p *ResLocParser) buildLocation(d *lrparser.BuildNodeData) error {
 	return nil
 }
 func (p *ResLocParser) buildCFile(d *lrparser.BuildNodeData) error {
-	//d.PrintRuleTree(5)
-
 	rl := &ResLoc{}
 	// filename
 	rl.Path = d.ChildStr(0)
 	// cLineCol
-	if d2 := d.Child(1); !d2.IsEmpty() { // parenthesis optional
-		d2 = d2.Child(0) // inner rule: cLineCol
+	if d2, ok := d.ChildOptional(1); ok { // parenthesis optional
+		d2 = d2.Child(0)
 		u := d2.Data().([]int)
 		rl.Line = u[0]
 		rl.Column = u[1]
@@ -157,7 +155,7 @@ func (p *ResLocParser) buildPyFile(d *lrparser.BuildNodeData) error {
 	// filename
 	rl.Path = d.Child(0).ChildStr(1)
 	// digits
-	if d2 := d.Child(1); !d2.IsEmpty() {
+	if d2, ok := d.ChildOptional(1); ok {
 		if line, err := d2.ChildInt(1); err != nil {
 			return err
 		} else {
@@ -174,9 +172,8 @@ func (p *ResLocParser) buildSchemeFile(d *lrparser.BuildNodeData) error {
 	// path
 	rl.Path = d.ChildStr(2)
 	// cLineCol
-	if d2 := d.Child(3); !d2.IsEmpty() { // parenthesis optional
-		d2 = d2.Child(0) // parenthesis
-		d2 = d2.Child(0) // inner rule: cLineCol
+	if d2, ok := d.ChildOptional(3); ok { // parenthesis optional
+		d2 = d2.Child(0)
 		u := d2.Data().([]int)
 		rl.Line = u[0]
 		rl.Column = u[1]
@@ -195,7 +192,7 @@ func (p *ResLocParser) buildCLineCol(d *lrparser.BuildNodeData) error {
 		line = line2
 	}
 	// column
-	if d3 := d.Child(2); !d3.IsEmpty() { // parenthesis optional
+	if d3, ok := d.ChildOptional(2); ok { // parenthesis optional
 		if col2, err := d3.ChildInt(1); err != nil {
 			return err
 		} else {

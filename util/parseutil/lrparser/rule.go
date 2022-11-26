@@ -41,6 +41,7 @@ func (r *CmnRule) setOnlyChild(r2 Rule) {
 
 //----------
 
+//godebug:annotateoff
 func (r *CmnRule) iterChildRefs(fn func(index int, ref *Rule) error) error {
 	for i := 0; i < len(r.childs_); i++ {
 		if err := fn(i, &r.childs_[i]); err != nil {
@@ -629,6 +630,7 @@ func sortRulesValue(r Rule) (int, string) {
 //----------
 //----------
 
+//godebug:annotateoff
 func ruleProductions(r Rule) []Rule {
 	switch t := r.(type) {
 	case *AndRule: // andrule childs are not productions
@@ -641,6 +643,8 @@ func ruleProductions(r Rule) []Rule {
 	}
 	return r.childs()
 }
+
+//godebug:annotateoff
 func ruleSequence(r Rule, reverse bool) []Rule {
 	switch t := r.(type) {
 	case *AndRule: // andrule is the only rule whose childs provide a sequence

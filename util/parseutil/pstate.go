@@ -31,6 +31,7 @@ func (ps *PState) Set(ps2 *PState) {
 
 //----------
 
+//godebug:annotateoff
 func (ps *PState) ReadRune() (rune, error) {
 	ru := rune(0)
 	size := 0

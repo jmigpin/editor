@@ -49,7 +49,7 @@ func (d *Data) String() string {
 type Part struct {
 	Node
 	Args []*Arg
-	Vars []*Var
+	Vars []*VarDecl
 }
 
 func (p *Part) ArgsUnquoted() []string {
@@ -110,10 +110,31 @@ func (n *Node) UnquotedString() string {
 //----------
 //----------
 
-type Var struct {
+type VarDecl struct {
 	Name, Value string
 }
 
-func (v *Var) String() string {
+//func (v *VarDecl) UnquotedString() string {
+//	s := v.Value
+//	if u, err := parseutil.UnquoteString(s, '\\'); err == nil {
+//		s = u
+//	}
+//	return s
+//}
+
+func (v *VarDecl) String() string {
 	return fmt.Sprintf("%v=%v", v.Name, v.Value)
+}
+
+//----------
+//----------
+//----------
+
+type VarRef struct {
+	parseutil.BasicPNode
+	Name string
+}
+
+func (v *VarRef) String() string {
+	return v.Name
 }

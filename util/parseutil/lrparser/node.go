@@ -111,6 +111,8 @@ func (d *BuildNodeData) PrintRuleTree(maxDepth int) {
 	fmt.Printf("%v\n", d.SprintRuleTree(maxDepth))
 }
 
+// TODO: func to print cpnode.data if present
+
 //----------
 
 func (d *BuildNodeData) ChildsLen() int {
@@ -119,7 +121,6 @@ func (d *BuildNodeData) ChildsLen() int {
 func (d *BuildNodeData) Child(i int) *BuildNodeData {
 	return newBuildNodeData(d.cpr, d.cpn.childs[i])
 }
-
 func (d *BuildNodeData) ChildStr(i int) string {
 	return parseutil.PNodeString(d.cpn.childs[i], d.cpr.ps.Src)
 }
@@ -130,6 +131,38 @@ func (d *BuildNodeData) ChildInt(i int) (int, error) {
 		return 0, err
 	}
 	return int(v), nil
+}
+func (d *BuildNodeData) ChildOptional(i int) (*BuildNodeData, bool) {
+	d2 := d.Child(i)
+	if d2.IsEmpty() {
+		return nil, false
+	}
+	return d2, true
+}
+
+func (d *BuildNodeData) IsOr(i int) bool {
+	or, ok := d.cpn.rule.(*OrRule)
+	if !ok {
+		return false
+	}
+	target := or.childs()[i]
+
+	switch t := target.(type) {
+	case *DefRule:
+		if len(d.cpn.childs) == 1 {
+			return d.cpn.childs[0].rule == t
+		}
+	default:
+		if len(d.cpn.childs) == len(target.childs()) {
+			for k, cpn := range d.cpn.childs {
+				if cpn.rule != target.childs()[k] {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
 }
 
 //----------

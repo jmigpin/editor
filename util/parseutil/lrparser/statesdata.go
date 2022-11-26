@@ -457,6 +457,7 @@ func (sd *StatesData) checkStringsConflicts(vd *VerticesData) error {
 
 //----------
 
+//godebug:annotateoff
 func (sd *StatesData) String() string {
 	sb := &strings.Builder{}
 	for _, st := range sd.states {
@@ -493,6 +494,7 @@ func (st *State) actionRulesSorted() []Rule {
 	return w
 }
 
+//godebug:annotateoff
 func (st *State) String() string {
 	s := fmt.Sprintf("%v:\n", st.id)
 

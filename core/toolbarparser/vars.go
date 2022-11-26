@@ -132,7 +132,7 @@ type VarMap map[string]string // [name]value; name includes {"~","$",...}
 //----------
 
 func ParseVars(data *Data) VarMap {
-	m := VarMap{}
+	vm := VarMap{}
 	for _, part := range data.Parts {
 		if len(part.Args) != 1 { // must have 1 arg
 			continue
@@ -142,7 +142,28 @@ func ParseVars(data *Data) VarMap {
 		if err != nil {
 			continue
 		}
-		m[v.Name] = v.Value
+
+		// allows to reuse previously value of the same variable
+		s := expandVariables(v.Value, vm)
+
+		if u, err := parseutil.UnquoteString(s, '\\'); err == nil {
+			s = u
+		}
+
+		vm[v.Name] = s
 	}
-	return m
+	return vm
+}
+func expandVariables(src string, vm VarMap) string {
+	// commented: alternative
+	//v.Value = os.Expand(v.Value, func(name string) string {
+	//	name = "$" + name
+	//	return vm[name]
+	//})
+
+	// replaces "$" and also "~" vars
+	return expandVarRefs(src, func(name string) (string, bool) {
+		v, ok := vm[name]
+		return v, ok
+	})
 }

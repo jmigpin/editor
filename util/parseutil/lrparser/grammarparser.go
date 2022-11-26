@@ -124,7 +124,7 @@ func (gp *grammarParser) parseName(ps *PState) (string, error) {
 //----------
 
 func (gp *grammarParser) parseItemRule(ps *PState) error {
-	// taking into consideration precedence tree construction
+	// NOTE: taking into consideration precedence tree construction
 
 	if err, ok := gp.parseIfRule(ps); ok {
 		return err

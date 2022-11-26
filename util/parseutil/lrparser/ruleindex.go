@@ -139,6 +139,7 @@ func (ri *RuleIndex) startRule(name string) (*DefRule, error) {
 
 //----------
 
+//godebug:annotateoff
 func (ri *RuleIndex) String() string {
 	res := []string{}
 	for _, r := range ri.sorted() {

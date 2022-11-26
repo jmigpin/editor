@@ -145,7 +145,7 @@ func (cp *ContentParser) reduce(cpr *cpRun, ar *ActionReduce) error {
 	if !ok {
 		return fmt.Errorf("no goto for rule %v in %v ", ar.prod.id(), item3.st.id)
 	}
-	cpn, err := cp.processPopped(cpr, ar, pops)
+	cpn, err := cp.groupPopped(cpr, ar, pops)
 	if err != nil {
 		return err
 	}
@@ -172,12 +172,12 @@ func (cp *ContentParser) buildNode(cpr *cpRun, r Rule, cpn *CPNode) error {
 
 //----------
 
-func (cp *ContentParser) processPopped(cpr *cpRun, ar *ActionReduce, pops []*cpsItem) (*CPNode, error) {
-	cpn := cp.processPopped2(cpr, ar, pops)
+func (cp *ContentParser) groupPopped(cpr *cpRun, ar *ActionReduce, pops []*cpsItem) (*CPNode, error) {
+	cpn := cp.groupPopped2(cpr, ar, pops)
 	cp.propagateSimulatedAndRecover(cpr, ar, cpn)
 	return cpn, nil
 }
-func (cp *ContentParser) processPopped2(cpr *cpRun, ar *ActionReduce, pops []*cpsItem) *CPNode {
+func (cp *ContentParser) groupPopped2(cpr *cpRun, ar *ActionReduce, pops []*cpsItem) *CPNode {
 	if len(pops) == 0 { // handle no pops reductions (nil rules)
 		i := cpr.stk.topEnd()
 		cpn := newCPNode(i, i, ar.prod)
@@ -418,6 +418,7 @@ func (stk cpStack) topEnd() int {
 	return stk[k].cpn.End()
 }
 
+//godebug:annotateoff
 func (stk cpStack) String() string {
 	u := []string{}
 	for _, item := range stk {
@@ -442,6 +443,7 @@ func (stk cpStack) String() string {
 type cpsItem struct {
 	st  *State
 	cpn *CPNode
+	//simulated bool // TODO: move cpn.simulated here
 }
 
 //----------

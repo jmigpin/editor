@@ -12,7 +12,7 @@ func TestParseVar1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Value != "a b c" {
+	if v.Value != "\"a b c\"" {
 		t.Fatal(v)
 	}
 }
@@ -117,5 +117,49 @@ func TestEncDec2(t *testing.T) {
 		if r1 != s2 {
 			t.Fatalf("i=%v, s1=%v, r1=%v", i, r1, s2)
 		}
+	}
+}
+
+//----------
+
+func TestParseVars1(t *testing.T) {
+	s := "$aaa=1 | $bb=2 | $c=3${aaa}4$bb+ | ~1=5 | $d=~0~{1}2"
+	d := Parse(s)
+	vm := ParseVars(d)
+	if v, ok := vm["$c"]; !ok || v != "3142+" {
+		t.Fatal(vm)
+	}
+	if v, ok := vm["$d"]; !ok || v != "~052" {
+		t.Fatal(vm)
+	}
+}
+func TestParseVars2(t *testing.T) {
+	s := "$a=1 | $b=\"2$a\"$a"
+	d := Parse(s)
+	vm := ParseVars(d)
+	if v, ok := vm["$b"]; !ok || v != "\"2$a\"1" {
+		t.Fatal(vm)
+	}
+}
+func TestParseVars3(t *testing.T) {
+	s := "~1=abc | $a=~~1"
+	d := Parse(s)
+	vm := ParseVars(d)
+	if v, ok := vm["$a"]; !ok || v != "~abc" {
+		t.Fatal(vm)
+	}
+}
+
+//----------
+
+var benchStr1 = "$aaa=b | $a=a${aaa}c+$aaa+|"
+
+func BenchmarkParseVars1(b *testing.B) {
+	s := benchStr1 + benchStr1
+	d := Parse(s)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		vm := ParseVars(d)
+		_ = vm
 	}
 }
