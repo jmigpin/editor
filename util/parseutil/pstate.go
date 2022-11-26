@@ -47,6 +47,12 @@ func (ps *PState) ReadRune() (rune, error) {
 	ps.Pos += size
 	return ru, nil
 }
+func (ps *PState) PeekRune() (rune, error) {
+	pos0 := ps.Pos
+	ru, err := ps.ReadRune()
+	ps.Pos = pos0
+	return ru, err
+}
 
 //----------
 
@@ -378,6 +384,25 @@ type PNode interface {
 
 //----------
 
+func PNodeBytes(node PNode, src []byte) []byte {
+	pos, end := node.Pos(), node.End()
+	if pos > end {
+		pos, end = end, pos
+	}
+	return src[pos:end]
+}
+func PNodeString(node PNode, src []byte) string {
+	return string(PNodeBytes(node, src))
+}
+
+func PNodePosStr(node PNode) string {
+	return fmt.Sprintf("[%v:%v]", node.Pos(), node.End())
+}
+
+//----------
+//----------
+//----------
+
 // basic parse node implementation
 type BasicPNode struct {
 	pos int // can have pos>end when in reverse
@@ -429,25 +454,6 @@ func (rrs RuneRanges) HasRune(ru rune) bool {
 		}
 	}
 	return false
-}
-
-//----------
-//----------
-//----------
-
-func PNodeBytes(node PNode, src []byte) []byte {
-	pos, end := node.Pos(), node.End()
-	if pos > end {
-		pos, end = end, pos
-	}
-	return src[pos:end]
-}
-func PNodeString(node PNode, src []byte) string {
-	return string(PNodeBytes(node, src))
-}
-
-func PNodePosStr(node PNode) string {
-	return fmt.Sprintf("[%v:%v]", node.Pos(), node.End())
 }
 
 //----------

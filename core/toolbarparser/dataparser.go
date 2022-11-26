@@ -112,13 +112,11 @@ func (p *dataParser) arg() (*Arg, error) {
 		}
 		ps2.Set(ps3) // accept rune into arg
 	}
+	arg.SetPos(pos0, ps2.Pos)
 	// empty arg. Ex: parts string with empty args: "|||".
-	empty := ps2.Pos == pos0
-	if empty {
-		return nil, fmt.Errorf("arg")
+	if arg.PosEmpty() {
+		return nil, fmt.Errorf("empty arg")
 	}
 	p.ps.Set(ps2)
-
-	arg.SetPos(pos0, p.ps.Pos)
 	return arg, nil
 }
