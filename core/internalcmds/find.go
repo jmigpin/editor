@@ -5,12 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func Find(args0 *core.InternalCmdArgs) error {
@@ -25,7 +25,7 @@ func Find(args0 *core.InternalCmdArgs) error {
 
 	// parse flags
 	part := args0.Part
-	args := part.ArgsStrs()[1:]
+	args := part.ArgsStrings()[1:]
 	err := fs.Parse(args)
 	if err != nil {
 		if err == flag.ErrHelp {
@@ -41,8 +41,7 @@ func Find(args0 *core.InternalCmdArgs) error {
 	// this cmd is allowed to get here without a row in order to run the help cmd from the toolbar easily
 	erow := args0.ERow
 	if erow == nil {
-		arg0 := part.Args[0].UnquotedStr()
-		return fmt.Errorf("%s: no active row", arg0)
+		return fmt.Errorf("%s: no active row", part)
 	}
 
 	args2 := fs.Args()
@@ -50,7 +49,7 @@ func Find(args0 *core.InternalCmdArgs) error {
 	// unquote args
 	w := []string{}
 	for _, arg := range args2 {
-		if u, err := strconv.Unquote(arg); err == nil {
+		if u, err := parseutil.UnquoteStringBs(arg); err == nil {
 			arg = u
 		}
 		w = append(w, arg)

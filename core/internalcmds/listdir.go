@@ -18,7 +18,7 @@ func ListDir(args0 *core.InternalCmdArgs) error {
 
 	args := part.Args[1:]
 	for _, a := range args {
-		s := a.UnquotedStr()
+		s := a.UnquotedString()
 		switch s {
 		case "-sub":
 			tree = true

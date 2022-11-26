@@ -85,13 +85,13 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 	ci := erow.Row.Toolbar.CursorIndex()
 
 	// cursor index beyond arg0
-	if ci > a0.End {
+	if ci > a0.End() {
 		return false
 	}
 
 	// get path up to cursor index
-	a0ci := ci - a0.Pos
-	filename := a0.Str()
+	a0ci := ci - a0.Pos()
+	filename := a0.String()
 	i := strings.Index(filename[a0ci:], string(filepath.Separator))
 	if i >= 0 {
 		filename = filename[:a0ci+i]
@@ -125,7 +125,7 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 
 // erow can be nil (ex: a root toolbar cmd)
 func internalCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
-	arg0 := part.Args[0].UnquotedStr()
+	arg0 := part.Args[0].UnquotedString()
 	noERowErr := func() {
 		ed.Errorf("%s: no active row", arg0)
 	}

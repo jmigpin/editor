@@ -30,7 +30,7 @@ func ToolbarMatch(erow *ERow, s string) (*toolbarparser.Part, bool) {
 	found := false
 	var part *toolbarparser.Part
 	for _, p := range erow.TbData.Parts {
-		if len(p.Args) > 0 && p.Args[0].Str() == s {
+		if len(p.Args) > 0 && p.Args[0].String() == s {
 			found = true
 			part = p
 			// don't break, find the last one
@@ -48,8 +48,8 @@ func ToolbarInsertion(erow *ERow, part *toolbarparser.Part, capture []byte, foun
 
 	if found {
 		// select current find cmd string
-		a := part.Args[0].End
-		b := part.End
+		a := part.Args[0].End()
+		b := part.End()
 		if a == b {
 			if err := tb.RW().OverwriteAt(a, 0, []byte(" ")); err != nil {
 				return err

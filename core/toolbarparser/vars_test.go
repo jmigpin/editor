@@ -8,7 +8,7 @@ import (
 
 func TestParseVar1(t *testing.T) {
 	s1 := "~0=\"a b c\""
-	v, err := ParseVar(s1)
+	v, err := parseVarDecl(s1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +19,7 @@ func TestParseVar1(t *testing.T) {
 
 func TestParseVar1_2(t *testing.T) {
 	s1 := "~1" // value can't be empty
-	_, err := ParseVar(s1)
+	_, err := parseVarDecl(s1)
 	if err == nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestParseVar1_2(t *testing.T) {
 
 func TestParseVar2(t *testing.T) {
 	s1 := "$abc=0123"
-	v, err := ParseVar(s1)
+	v, err := parseVarDecl(s1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestParseVar2(t *testing.T) {
 
 func TestParseVar3(t *testing.T) {
 	s1 := "$abc"
-	v, err := ParseVar(s1)
+	v, err := parseVarDecl(s1)
 	if err != nil {
 		t.Fatal(err)
 	}

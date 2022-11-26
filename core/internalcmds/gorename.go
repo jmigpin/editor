@@ -26,18 +26,18 @@ func GoRename(args0 *core.InternalCmdArgs) error {
 
 	// optional "-all" (only as first arg) for full rename (not an option on either gorename/gopls)
 	isF := false
-	if args[0].Str() == "-all" {
+	if args[0].String() == "-all" {
 		isF = true
 		args = args[1:]
 	}
 
 	// new name argument "to"
-	to := args[len(args)-1].UnquotedStr()
+	to := args[len(args)-1].UnquotedString()
 
 	// allow other args
 	otherArgs := []string{}
 	for i := 0; i < len(args)-1; i++ {
-		otherArgs = append(otherArgs, args[i].UnquotedStr())
+		otherArgs = append(otherArgs, args[i].UnquotedString())
 	}
 
 	// id offset to rename "from"

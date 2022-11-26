@@ -166,7 +166,7 @@ func NewRowState(ed *Editor, row *ui.Row) *RowState {
 	data := toolbarparser.Parse(tbStr)
 	arg0, ok := data.Part0Arg0()
 	if ok {
-		arg0Str := arg0.Str()
+		arg0Str := arg0.String()
 		name := ed.HomeVars.Decode(arg0Str)
 		tbStr = name + tbStr[len(arg0Str):]
 	}
@@ -193,14 +193,14 @@ func (state *RowState) OpenERow(ed *Editor, rowPos *ui.RowPos) (*ERow, bool, err
 		return nil, false, fmt.Errorf("missing toolbar arg 0: %s", state.TbStr)
 	}
 
-	name := ed.HomeVars.Decode(arg0.Str())
+	name := ed.HomeVars.Decode(arg0.String())
 	info := ed.ReadERowInfo(name)
 
 	// create erow, even if it had have errors
 	erow := NewLoadedERowOrNewBasic(info, rowPos)
 
 	// setup toolbar even if erow had errors
-	w := data.Str[arg0.End:]
+	w := data.Str[arg0.End():]
 	if strings.TrimSpace(w) != "" {
 		erow.ToolbarSetStrAfterNameClearHistory(w)
 	}
@@ -226,7 +226,7 @@ func saveSession(ed *Editor, part *toolbarparser.Part, filename string) error {
 	if len(part.Args) != 2 {
 		return fmt.Errorf("savesession: missing session name")
 	}
-	sessionName := part.Args[1].Str()
+	sessionName := part.Args[1].String()
 
 	s1 := NewSessionFromEditor(ed)
 	s1.Name = sessionName
@@ -291,7 +291,7 @@ func OpenSession(ed *Editor, part *toolbarparser.Part) {
 		ed.Errorf("missing session name")
 		return
 	}
-	sessionName := part.Args[1].Str()
+	sessionName := part.Args[1].String()
 	OpenSessionFromString(ed, sessionName)
 }
 
@@ -321,7 +321,7 @@ func deleteSession(ed *Editor, part *toolbarparser.Part) error {
 	if len(part.Args) != 2 {
 		return fmt.Errorf("deletesession: missing session name")
 	}
-	sessionName := part.Args[1].Str()
+	sessionName := part.Args[1].String()
 	ss, err := NewSessions(sessionsFilename())
 	if err != nil {
 		return err

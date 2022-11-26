@@ -355,7 +355,7 @@ func (erow *ERow) validateToolbarPreWrite(ev *iorw.RWEvPreWrite) error {
 	if !ok {
 		return fmt.Errorf("unable to get toolbar name")
 	}
-	simName := arg0.UnquotedStr()
+	simName := arg0.UnquotedString()
 
 	// expected name
 	nameEnc := erow.encodedName()
@@ -383,7 +383,7 @@ func (erow *ERow) updateToolbarNameEncoding2(str string) {
 	data := toolbarparser.Parse(str)
 	arg0, ok := data.Part0Arg0()
 	if ok {
-		arg0End = arg0.End
+		arg0End = arg0.End()
 	}
 
 	// replace part0 arg0 with encoded name
@@ -399,11 +399,11 @@ func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
 	if !ok {
 		return
 	}
-	str := erow.Row.Toolbar.Str()[:arg0.End] + s
+	str := erow.Row.Toolbar.Str()[:arg0.End()] + s
 	erow.Row.Toolbar.SetStrClearHistory(str)
 }
 
-//----------
+// ----------
 func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
@@ -522,7 +522,7 @@ func (erow *ERow) Flash() {
 	if ok {
 		if len(p.Args) > 0 {
 			a := p.Args[0]
-			erow.Row.Toolbar.FlashIndexLen(a.Pos, a.End-a.Pos)
+			erow.Row.Toolbar.FlashIndexLen(a.Pos(), a.End()-a.Pos())
 		}
 	}
 }

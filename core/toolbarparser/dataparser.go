@@ -9,9 +9,8 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-// simple parser based on parseutil.pstate
-func parse2_basedOnParseutilPState(str string) *Data {
-	p := newParser2(str)
+func Parse(str string) *Data {
+	p := newDataParser(str)
 	if err := p.start(); err != nil {
 		log.Print(err)
 	}
@@ -19,19 +18,21 @@ func parse2_basedOnParseutilPState(str string) *Data {
 }
 
 //----------
+//----------
+//----------
 
-type parser2 struct {
+type dataParser struct {
 	data *Data
 	ps   *parseutil.PState
 }
 
-func newParser2(str string) *parser2 {
-	p := &parser2{}
+func newDataParser(str string) *dataParser {
+	p := &dataParser{}
 	p.data = &Data{Str: str}
 	p.ps = parseutil.NewPState([]byte(str))
 	return p
 }
-func (p *parser2) start() error {
+func (p *dataParser) start() error {
 	parts, err := p.parts()
 	if err != nil {
 		return err
@@ -39,7 +40,7 @@ func (p *parser2) start() error {
 	p.data.Parts = parts
 	return nil
 }
-func (p *parser2) parts() ([]*Part, error) {
+func (p *dataParser) parts() ([]*Part, error) {
 	parts := []*Part{}
 	for {
 		part, err := p.part()
@@ -58,7 +59,7 @@ func (p *parser2) parts() ([]*Part, error) {
 	}
 	return parts, nil
 }
-func (p *parser2) part() (*Part, error) {
+func (p *dataParser) part() (*Part, error) {
 	part := &Part{}
 	part.Data = p.data
 
@@ -80,11 +81,10 @@ func (p *parser2) part() (*Part, error) {
 		}
 	}
 
-	part.Pos = pos0
-	part.End = p.ps.Pos
+	part.SetPos(pos0, p.ps.Pos)
 	return part, nil
 }
-func (p *parser2) arg() (*Arg, error) {
+func (p *dataParser) arg() (*Arg, error) {
 	arg := &Arg{}
 	arg.Data = p.data
 
@@ -119,7 +119,6 @@ func (p *parser2) arg() (*Arg, error) {
 	}
 	p.ps.Set(ps2)
 
-	arg.Pos = pos0
-	arg.End = p.ps.Pos
+	arg.SetPos(pos0, p.ps.Pos)
 	return arg, nil
 }

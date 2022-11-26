@@ -17,7 +17,7 @@ func GotoLine(args0 *core.InternalCmdArgs) error {
 		return fmt.Errorf("expecting 1 argument")
 	}
 
-	line0, err := strconv.ParseUint(args[0].Str(), 10, 64)
+	line0, err := strconv.ParseUint(args[0].String(), 10, 64)
 	if err != nil {
 		return err
 	}

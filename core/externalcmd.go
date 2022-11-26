@@ -159,10 +159,10 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 func cmdPartArgs(part *toolbarparser.Part) []string {
 	var u []string
 	for _, a := range part.Args {
-		// TODO: auto add escapes for spaces in case of "some arg"?
-		//s := a.UnquotedStr()
-		s := a.Str()
-		s = parseutil.RemoveEscapesEscapable(s, osutil.EscapeRune, "|")
+		s := a.String()
+		if !parseutil.IsQuoted(s) {
+			s = parseutil.RemoveEscapesEscapable(s, osutil.EscapeRune, "|")
+		}
 		u = append(u, s)
 	}
 	return osutil.ShellRunArgs(u...)

@@ -25,7 +25,7 @@ func LSProtoRename(args0 *core.InternalCmdArgs) error {
 	}
 
 	// new name argument "to"
-	to := args[len(args)-1].UnquotedStr()
+	to := args[len(args)-1].UnquotedString()
 
 	// before patching, check all affected files are not edited
 	prePatchFn := func(wecs []*lsproto.WorkspaceEditChange) error {

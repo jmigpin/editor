@@ -33,8 +33,9 @@ var escapedInFilenames = excludeResourceRunes +
 
 func AddEscapes(str string, escape rune, escapeRunes string) string {
 	w := []rune{}
+	er := []rune(escapeRunes)
 	for _, ru := range str {
-		if strings.ContainsRune(escapeRunes, ru) {
+		if ContainsRune(er, ru) {
 			w = append(w, escape)
 		}
 		w = append(w, ru)
@@ -43,43 +44,34 @@ func AddEscapes(str string, escape rune, escapeRunes string) string {
 }
 
 func RemoveEscapes(str string, escape rune) string {
-	w := []rune{}
-	esc := false
-	for _, ru := range str {
-		if !esc {
-			if ru == escape {
-				esc = true
-				continue
-			}
-		} else {
-			esc = false
-		}
-		w = append(w, ru)
-	}
-	return string(w)
+	return RemoveEscapesEscapable(str, escape, "")
 }
-
-// removes the escape only if escapable
 func RemoveEscapesEscapable(str string, escape rune, escapable string) string {
-	w := []rune{}
-	esc := false
-	for _, ru := range str {
-		if !esc {
-			if ru == escape {
-				esc = true
+	return string(RemoveEscapes2([]rune(str), []rune(escapable), escape))
+}
+func RemoveEscapes2(rs []rune, escapable []rune, escape rune) []rune {
+	res := make([]rune, 0, len(rs))
+	escaping := false
+	for i := 0; i < len(rs); i++ {
+		ru := rs[i]
+		if !escaping {
+			if ru == escape { // remove escapes
+				escaping = true
 				continue
 			}
 		} else {
-			esc = false
+			escaping = false
 
 			// re-add escape if not one of the escapable
-			if !strings.ContainsRune(escapable, ru) {
-				w = append(w, escape)
+			if len(escapable) > 0 {
+				if !ContainsRune(escapable, ru) {
+					res = append(res, escape)
+				}
 			}
 		}
-		w = append(w, ru)
+		res = append(res, ru)
 	}
-	return string(w)
+	return res
 }
 
 //----------
@@ -412,30 +404,38 @@ func SurroundingString(b []byte, k int, pad int) string {
 
 //----------
 
-// removes escapes runes (keeping the escaped)
+// unquote string with backslash as escape
+func UnquoteStringBs(s string) (string, error) {
+	return UnquoteString(s, '\\')
+}
+
+// removes escapes runes (keeping the escaped) if quoted
 func UnquoteString(s string, esc rune) (string, error) {
 	rs := []rune(s)
-	if len(rs) < 2 {
-		return "", fmt.Errorf("len<2")
+	_, err := RunesQuote(rs)
+	if err != nil {
+		return "", err
 	}
+	u := RemoveEscapes2(rs[1:len(rs)-1], nil, esc)
+	return string(u), nil
+}
+func RunesQuote(rs []rune) (rune, error) {
+	if len(rs) < 2 {
+		return 0, fmt.Errorf("len<2")
+	}
+	quotes := []rune("\"'`") // allowed quotes
 	quote := rs[0]
-	quotes := "\"'`"
-	if !strings.ContainsRune(quotes, quote) {
-		return "", fmt.Errorf("unexpected starting quote: %q", quote)
+	if !ContainsRune(quotes, quote) {
+		return 0, fmt.Errorf("unexpected starting quote: %q", quote)
 	}
 	if rs[len(rs)-1] != quote {
-		return "", fmt.Errorf("missing ending quote: %q", quote)
+		return 0, fmt.Errorf("missing ending quote: %q", quote)
 	}
-	res := make([]rune, 0, len(rs))
-	for i := 1; i < len(rs)-1; i++ {
-		ru := rs[i]
-		if ru == esc { // remove escapes
-			i++
-			continue
-		}
-		res = append(res, ru)
-	}
-	return string(res), nil
+	return quote, nil
+}
+func IsQuoted(s string) bool {
+	_, err := RunesQuote([]rune(s))
+	return err == nil
 }
 
 //----------

@@ -3,16 +3,12 @@ package toolbarparser
 //godebug:annotatefile
 
 import (
-	"fmt"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
-	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
-	"github.com/jmigpin/editor/util/scanutil"
 )
 
 type HomeVarMap struct {
@@ -141,120 +137,12 @@ func ParseVars(data *Data) VarMap {
 		if len(part.Args) != 1 { // must have 1 arg
 			continue
 		}
-		str := part.Args[0].Str() // parse first arg only
-		v, err := ParseVar(str)
+		str := part.Args[0].String() // parse first arg only
+		v, err := parseVarDecl(str)
 		if err != nil {
 			continue
 		}
 		m[v.Name] = v.Value
 	}
 	return m
-}
-
-//----------
-
-func ParseVar(str string) (*Var, error) {
-	//// TESTING
-	//return parseVar3_basedOnLrparser(str)
-
-	rd := iorw.NewStringReaderAt(str)
-	sc := scanutil.NewScanner(rd)
-	ru := sc.PeekRune()
-	switch ru {
-	case '~':
-		return parseTildeVar(sc)
-	case '$':
-		return parseDollarVar(sc)
-	}
-	return nil, fmt.Errorf("unexpected rune: %v", ru)
-}
-
-//----------
-
-func parseTildeVar(sc *scanutil.Scanner) (*Var, error) {
-	// name
-	if !sc.Match.Sequence("~") {
-		return nil, sc.Errorf("name")
-	}
-	if !sc.Match.Int() {
-		return nil, sc.Errorf("name")
-	}
-	name := sc.Value()
-	sc.Advance()
-	// assign (must have)
-	if !sc.Match.Any("=") {
-		return nil, sc.Errorf("assign")
-	}
-	sc.Advance()
-	// value (must have)
-	v, err := parseVarValue(sc, false)
-	if err != nil {
-		return nil, err
-	}
-	// end
-	_ = sc.Match.Spaces()
-	if !sc.Match.End() {
-		return nil, sc.Errorf("not at end")
-	}
-
-	w := &Var{Name: name, Value: v}
-	return w, nil
-}
-
-//----------
-
-func parseDollarVar(sc *scanutil.Scanner) (*Var, error) {
-	// name
-	if !sc.Match.Sequence("$") {
-		return nil, sc.Errorf("name")
-	}
-	if !sc.Match.Id() {
-		return nil, sc.Errorf("name")
-	}
-	name := sc.Value()
-	sc.Advance()
-
-	w := &Var{Name: name}
-
-	// assign (optional)
-	if !sc.Match.Any("=") {
-		return w, nil
-	}
-	sc.Advance()
-	// value (optional)
-	value, err := parseVarValue(sc, true)
-	if err != nil {
-		return nil, err
-	}
-	w.Value = value
-	// end
-	_ = sc.Match.Spaces()
-	if !sc.Match.End() {
-		return nil, sc.Errorf("not at end")
-	}
-
-	return w, nil
-}
-
-//----------
-
-func parseVarValue(sc *scanutil.Scanner, allowEmpty bool) (string, error) {
-	if sc.Match.Quoted("\"'", osutil.EscapeRune, true, 1000) {
-		v := sc.Value()
-		sc.Advance()
-		u, err := strconv.Unquote(v)
-		if err != nil {
-			return "", sc.Errorf("unquote: %v", err)
-		}
-		return u, nil
-	} else {
-		if !sc.Match.ExceptUnescapedSpaces(osutil.EscapeRune) {
-			if !allowEmpty {
-				return "", sc.Errorf("value")
-			}
-		}
-		v := sc.Value()
-		sc.Advance()
-		return v, nil
-	}
 }

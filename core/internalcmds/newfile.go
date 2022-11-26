@@ -12,7 +12,7 @@ func NewFile(args *core.InternalCmdArgs) error {
 	if len(args.Part.Args) != 2 {
 		return fmt.Errorf("missing filename")
 	}
-	name := args.Part.Args[1].Str()
+	name := args.Part.Args[1].String()
 
 	// erow always defined (row cmd)
 	erow := args.ERow

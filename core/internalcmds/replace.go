@@ -16,7 +16,7 @@ func Replace(args0 *core.InternalCmdArgs) error {
 		return fmt.Errorf("expecting 2 arguments")
 	}
 
-	old, new := args[0].UnquotedStr(), args[1].UnquotedStr()
+	old, new := args[0].UnquotedString(), args[1].UnquotedString()
 
 	ta := erow.Row.TextArea
 	ta.BeginUndoGroup()
