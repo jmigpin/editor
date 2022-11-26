@@ -9,7 +9,7 @@ import (
 )
 
 func ToolbarCmd(ed *core.Editor, erow *core.ERow, part *toolbarparser.Part) bool {
-	arg0 := part.Args[0].UnquotedStr()
+	arg0 := part.Args[0].UnquotedString()
 	switch arg0 {
 	case "RowNames":
 		rowNames(ed)
