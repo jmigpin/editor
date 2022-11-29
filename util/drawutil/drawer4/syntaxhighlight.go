@@ -26,7 +26,7 @@ func updateSyntaxHighlightOps(d *Drawer) {
 
 type SyntaxHighlight struct {
 	d   *Drawer
-	sc  *parseutil.Scanner
+	sc  *parseutil.ScannerR
 	ops []*ColorizeOp
 }
 
@@ -37,8 +37,7 @@ func (sh *SyntaxHighlight) do(pad int) []*ColorizeOp {
 
 	r := iorw.NewLimitedReaderAtPad(sh.d.reader, min, max, pad)
 
-	sh.sc = parseutil.NewScanner()
-	sh.sc.SetSrc2(r)
+	sh.sc = parseutil.NewScannerR(r, min)
 
 	for !sh.sc.M.Eof() {
 		sh.normal(pad)
@@ -46,7 +45,7 @@ func (sh *SyntaxHighlight) do(pad int) []*ColorizeOp {
 	return sh.ops
 }
 func (sh *SyntaxHighlight) normal(pad int) {
-	pos0 := sh.sc.KeepPos()
+	pos0 := sh.sc.Pos()
 	opt := &sh.d.Opt.SyntaxHighlight
 	switch {
 	case sh.comments():
@@ -58,11 +57,11 @@ func (sh *SyntaxHighlight) normal(pad int) {
 		// Also, in the case of Go backquotes, probably only .go files should support them.
 
 		op1 := &ColorizeOp{
-			Offset: pos0.Pos,
+			Offset: pos0,
 			Fg:     opt.String.Fg,
 			Bg:     opt.String.Bg,
 		}
-		op2 := &ColorizeOp{Offset: sh.sc.Pos}
+		op2 := &ColorizeOp{Offset: sh.sc.Pos()}
 		sh.ops = append(sh.ops, op1, op2)
 	default:
 		_, _ = sh.sc.ReadRune()
@@ -79,7 +78,7 @@ func (sh *SyntaxHighlight) comments() bool {
 	return false
 }
 func (sh *SyntaxHighlight) comment(c *drawutil.SyntaxHighlightComment) bool {
-	pos0 := sh.sc.KeepPos()
+	pos0 := sh.sc.Pos()
 
 	// must match sequence start (line or multiline)
 	if err := sh.sc.M.Sequence(c.S); err != nil {
@@ -92,22 +91,22 @@ func (sh *SyntaxHighlight) comment(c *drawutil.SyntaxHighlightComment) bool {
 
 	// single line comment
 	if c.IsLine {
-		op1 := &ColorizeOp{Offset: pos0.Pos, Fg: fg, Bg: bg}
+		op1 := &ColorizeOp{Offset: pos0, Fg: fg, Bg: bg}
 		_ = sh.sc.M.ToNLExcludeOrEnd('\\')
-		op2 := &ColorizeOp{Offset: sh.sc.Pos}
+		op2 := &ColorizeOp{Offset: sh.sc.Pos()}
 		sh.ops = append(sh.ops, op1, op2)
 		return true
 	}
 
 	// multiline comment
 	// start
-	op := &ColorizeOp{Offset: pos0.Pos, Fg: fg, Bg: bg}
+	op := &ColorizeOp{Offset: pos0, Fg: fg, Bg: bg}
 	sh.ops = append(sh.ops, op)
 	// loop until it finds ending sequence
 	for !sh.sc.M.Eof() {
 		if err := sh.sc.M.Sequence(c.E); err == nil {
 			// end
-			op = &ColorizeOp{Offset: sh.sc.Pos}
+			op = &ColorizeOp{Offset: sh.sc.Pos()}
 			sh.ops = append(sh.ops, op)
 			break
 		}

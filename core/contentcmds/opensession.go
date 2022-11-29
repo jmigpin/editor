@@ -29,9 +29,7 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 }
 
 func sessionName(rd iorw.ReaderAt, index int) (string, error) {
-	sc := parseutil.NewScanner()
-	sc.SetSrc2(rd)
-	sc.Pos = index
+	sc := parseutil.NewScannerR(rd, index)
 
 	// index at: "OpenSe|ssion sessionname"
 	sc.Reverse = true
@@ -63,7 +61,7 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 	return "", sc.SrcErrorf("not found")
 }
 
-func readCmdSessionName(sc *parseutil.Scanner) (string, error) {
+func readCmdSessionName(sc *parseutil.ScannerR) (string, error) {
 	pos0 := sc.KeepPos()
 	cmd := "OpenSession"
 	if err := sc.M.Sequence(cmd + " "); err != nil {

@@ -276,10 +276,8 @@ func filterPrefixedAndExpand(comps []string, prefix string) (expand int, canComp
 //----------
 
 func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
-	sc := parseutil.NewScanner()
-	sc.SetSrc2(rd)
+	sc := parseutil.NewScannerR(rd, index)
 	sc.Reverse = true
-	sc.Pos = index
 	pos0 := sc.KeepPos()
 	max := 1000
 	err := sc.M.RuneFnLoop(func(ru rune) bool {
@@ -295,5 +293,5 @@ func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
 	if err != nil || pos0.IsEmpty() {
 		return 0, "", false
 	}
-	return sc.Pos, string(pos0.Bytes()), true
+	return sc.Pos(), string(pos0.Bytes()), true
 }

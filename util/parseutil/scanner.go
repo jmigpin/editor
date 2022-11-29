@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/jmigpin/editor/util/iout"
-	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
 type Scanner struct {
@@ -32,15 +31,6 @@ func NewScanner() *Scanner {
 func (sc *Scanner) SetSrc(src []byte) {
 	sc.Src = src
 	sc.Pos = 0
-}
-func (sc *Scanner) SetSrc2(r iorw.ReaderAt) {
-	src, err := r.ReadFastAt(0, r.Max()) // read from 0 to use pos=min below
-	if err != nil {
-		sc.SetSrc(nil)
-		return
-	}
-	sc.Src = src
-	sc.Pos = r.Min()
 }
 func (sc *Scanner) SrcError(err error) error {
 	filename := sc.ErrFilename

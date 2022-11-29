@@ -12,7 +12,6 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/scanutil"
 )
 
 //----------
@@ -122,14 +121,12 @@ func ExpandIndexesEscape(rd iorw.ReaderAt, index int, truth bool, fn func(rune) 
 }
 
 func ExpandIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc := scanutil.NewScanner(r)
-	sc.Pos = i
+	sc := NewScannerR(r, i)
 	return expandEscape(sc, truth, fn, escape)
 }
 
 func ExpandLastIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc := scanutil.NewScanner(r)
-	sc.Pos = i
+	sc := NewScannerR(r, i)
 
 	// read direction
 	tmp := sc.Reverse
@@ -139,29 +136,31 @@ func ExpandLastIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) boo
 	return expandEscape(sc, truth, fn, escape)
 }
 
-func expandEscape(sc *scanutil.Scanner, truth bool, fn func(rune) bool, escape rune) int {
+func expandEscape(sc *ScannerR, truth bool, fn func(rune) bool, escape rune) int {
 	for {
-		if sc.Match.End() {
+		if sc.M.Eof() {
 			break
 		}
-		if sc.Match.Escape(escape) {
+		if err := sc.M.EscapeAny(escape); err == nil {
 			continue
 		}
-		u := sc.Pos
-		ru := sc.ReadRune()
+		pos0 := sc.KeepPos()
+		ru, err := sc.ReadRune()
+		if err != nil {
+			break
+		}
 		if fn(ru) == truth {
-			sc.Pos = u
+			pos0.Restore()
 			break
 		}
 	}
-	return sc.Pos
+	return sc.Pos()
 }
 
 //----------
 
 func ImproveExpandIndexEscape(r iorw.ReaderAt, i int, escape rune) int {
-	sc := scanutil.NewScanner(r)
-	sc.Pos = i
+	sc := NewScannerR(r, i)
 
 	// read direction
 	tmp := sc.Reverse
@@ -169,15 +168,15 @@ func ImproveExpandIndexEscape(r iorw.ReaderAt, i int, escape rune) int {
 	defer func() { sc.Reverse = tmp }() // restore
 
 	for {
-		if sc.Match.End() {
+		if sc.M.Eof() {
 			break
 		}
-		if sc.Match.Rune(escape) {
+		if err := sc.M.Rune(escape); err == nil {
 			continue
 		}
 		break
 	}
-	return sc.Pos
+	return sc.Pos()
 }
 
 //----------
