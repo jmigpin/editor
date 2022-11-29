@@ -3,6 +3,7 @@ package toolbarparser
 //godebug:annotatefile
 
 import (
+	"log"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -166,4 +167,24 @@ func expandVariables(src string, vm VarMap) string {
 		v, ok := vm[name]
 		return v, ok
 	})
+}
+func expandVarRefs(src string, mapping func(string) (string, bool)) string {
+	refs, err := parseVarRefs([]byte(src))
+	if err != nil {
+		log.Println(err)
+		return src
+	}
+	adjust := 0
+	for _, vr := range refs {
+		v, ok := mapping(vr.Name)
+		if !ok {
+			continue
+		}
+		// replace: refs are expected to be in ascending order
+		pos := vr.Pos() + adjust
+		end := vr.End() + adjust
+		src = src[0:pos] + v + src[end:]
+		adjust += len(v) - (end - pos)
+	}
+	return src
 }

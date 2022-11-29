@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestParseVar1(t *testing.T) {
+func TestParseVarDecl1(t *testing.T) {
 	s1 := "~0=\"a b c\""
 	v, err := parseVarDecl(s1)
 	if err != nil {
@@ -16,18 +16,21 @@ func TestParseVar1(t *testing.T) {
 		t.Fatal(v)
 	}
 }
-
-func TestParseVar1_2(t *testing.T) {
+func TestParseDeclVar1b(t *testing.T) {
 	s1 := "~1" // value can't be empty
 	_, err := parseVarDecl(s1)
 	if err == nil {
 		t.Fatal(err)
 	}
 }
-
-//----------
-
-func TestParseVar2(t *testing.T) {
+func TestParseDeclVar1c(t *testing.T) {
+	s1 := "~1=c"
+	_, err := parseVarDecl(s1)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+func TestParseVarDecl2(t *testing.T) {
 	s1 := "$abc=0123"
 	v, err := parseVarDecl(s1)
 	if err != nil {
@@ -37,8 +40,7 @@ func TestParseVar2(t *testing.T) {
 		t.Fatal(v)
 	}
 }
-
-func TestParseVar3(t *testing.T) {
+func TestParseDeclVar3(t *testing.T) {
 	s1 := "$abc"
 	v, err := parseVarDecl(s1)
 	if err != nil {
@@ -152,7 +154,7 @@ func TestParseVars3(t *testing.T) {
 
 //----------
 
-var benchStr1 = "$aaa=b | $a=a${aaa}c+$aaa+|"
+var benchStr1 = "$aaa=b | $a=a${aaa}c+$aaa+| ~1=zzz | $c=~1"
 
 func BenchmarkParseVars1(b *testing.B) {
 	s := benchStr1 + benchStr1

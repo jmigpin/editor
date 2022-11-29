@@ -29,6 +29,11 @@ func (ps *PState) Set(ps2 *PState) {
 	*ps = *ps2
 }
 
+// from provided, to current position
+func (ps *PState) BytesFrom(from int) []byte {
+	return ps.Src[from:ps.Pos]
+}
+
 //----------
 
 //godebug:annotateoff
@@ -63,7 +68,7 @@ func (ps *PState) MatchRune(ru rune) error {
 		return err
 	}
 	if ru2 != ru {
-		return noMatchErr
+		return NoMatchErr
 	}
 	ps.Set(ps2)
 	return nil
@@ -80,7 +85,7 @@ func (ps *PState) MatchRunesAnd(rs []rune) error {
 			return err
 		}
 		if ru2 != ru {
-			return noMatchErr
+			return NoMatchErr
 		}
 	}
 	ps.Set(ps2)
@@ -106,7 +111,7 @@ func (ps *PState) MatchRunesMid(rs []rune) error {
 		}
 		ps2.Reverse = ps.Reverse
 	}
-	return noMatchErr
+	return NoMatchErr
 }
 
 //----------
@@ -121,7 +126,7 @@ func (ps *PState) MatchRunesOr(rs []rune) error {
 		ps.Set(ps2)
 		return nil
 	}
-	return noMatchErr
+	return NoMatchErr
 }
 func (ps *PState) MatchRunesOrNeg(rs []rune) error { // negation
 	ps2 := ps.Copy()
@@ -133,7 +138,7 @@ func (ps *PState) MatchRunesOrNeg(rs []rune) error { // negation
 		ps.Set(ps2)
 		return nil
 	}
-	return noMatchErr
+	return NoMatchErr
 }
 
 //----------
@@ -148,7 +153,7 @@ func (ps *PState) MatchRuneRanges(rrs RuneRanges) error {
 		ps.Set(ps2)
 		return nil
 	}
-	return noMatchErr
+	return NoMatchErr
 }
 func (ps *PState) MatchRuneRangesNeg(rrs RuneRanges) error { // negation
 	ps2 := ps.Copy()
@@ -160,7 +165,7 @@ func (ps *PState) MatchRuneRangesNeg(rrs RuneRanges) error { // negation
 		ps.Set(ps2)
 		return nil
 	}
-	return noMatchErr
+	return NoMatchErr
 }
 
 //----------
@@ -175,7 +180,7 @@ func (ps *PState) MatchRunesAndRuneRanges(rs []rune, rrs RuneRanges) error { // 
 		ps.Set(ps2)
 		return nil
 	}
-	return noMatchErr
+	return NoMatchErr
 }
 func (ps *PState) MatchRunesAndRuneRangesNeg(rs []rune, rrs RuneRanges) error { // negation
 	ps2 := ps.Copy()
@@ -187,13 +192,13 @@ func (ps *PState) MatchRunesAndRuneRangesNeg(rs []rune, rrs RuneRanges) error { 
 		ps.Set(ps2)
 		return nil
 	}
-	return noMatchErr
+	return NoMatchErr
 }
 
 //----------
 
 func (ps *PState) MatchString(s string) error {
-	return ps.MatchRunesAnd([]rune(s))
+	return ps.MatchRunesAnd([]rune(s)) // TODO: inneficient, better to use func with string that might need to test just the first rune and fail
 }
 
 //----------
@@ -205,7 +210,7 @@ func (ps *PState) MatchEof() error {
 		ps.Set(ps2)
 		return nil
 	}
-	return noMatchErr
+	return NoMatchErr
 }
 
 //----------
@@ -373,6 +378,31 @@ func (ps *PState) NRunes(n int) error {
 }
 
 //----------
+
+func (ps *PState) OneOrMoreFn(fn func(rune) bool) error {
+	for i := 0; ; i++ {
+		ps2 := ps.Copy()
+		ru, err := ps2.ReadRune()
+		if err != nil {
+			return err
+		}
+		if !fn(ru) {
+			return NoMatchErr
+		}
+		ps.Set(ps2)
+	}
+}
+
+//----------
+
+func (ps *PState) Int() error {
+	if err := ps.MatchRunesOr([]rune("+-")); err != nil {
+		return err
+	}
+	return ps.OneOrMoreFn(unicode.IsDigit)
+}
+
+//----------
 //----------
 //----------
 
@@ -460,4 +490,42 @@ func (rrs RuneRanges) HasRune(ru rune) bool {
 //----------
 //----------
 
-var noMatchErr = errors.New("no match")
+var NoMatchErr = errors.New("no match")
+
+//var noParseErr = errors.New("no match") // TODO: indicates that the rule is not parseable, meaning the error is not deep enough to warrant a stop
+
+//----------
+//----------
+//----------
+
+//type matcher struct {
+//	ps *PState
+//}
+
+//func (m *matcher) And(fns ...func() (any, error)) (any, error) {
+//	index := func(i int) int { return i }
+//	if m.ps.Reverse {
+//		index = func(i int) int { return len(fns) - 1 - i }
+//	}
+//	for i := 0; i < len(fns); i++ {
+//		fn := fns[index(i)]
+//		if v, err := fn(); err != nil {
+//			return nil, err
+//		}
+//	}
+//	return true
+//}
+
+//func (m *matcher) Int() error {
+//	for{
+//			_ = m.Any("+-")
+//			return true
+//		},
+//		func() bool {
+//			return m.FnLoop(unicode.IsDigit)
+//		})
+//}
+
+//func ParseAnd(ps *PState) error {
+
+//}
