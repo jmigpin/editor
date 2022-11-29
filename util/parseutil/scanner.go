@@ -51,6 +51,9 @@ func (sc *Scanner) SrcError(err error) error {
 	str := SurroundingString(sc.Src, sc.Pos, 20)
 	return fmt.Errorf("%v:%d:%d: %v: %q", filename, line, col, err, str)
 }
+func (sc *Scanner) SrcErrorf(f string, args ...any) error {
+	return sc.SrcError(fmt.Errorf(f, args...))
+}
 
 //----------
 

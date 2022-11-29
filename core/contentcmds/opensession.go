@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/scanutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) {
@@ -29,12 +29,13 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 }
 
 func sessionName(rd iorw.ReaderAt, index int) (string, error) {
-	sc := scanutil.NewScanner(rd)
-	sc.SetStartPos(index)
+	sc := parseutil.NewScanner()
+	sc.SetSrc2(rd)
+	sc.Pos = index
 
 	// index at: "OpenSe|ssion sessionname"
 	sc.Reverse = true
-	_ = sc.Match.FnLoop(sessionNameRune)
+	_ = sc.M.LoopRuneFn(sessionNameRune)
 	sc.Reverse = false
 
 	// index at: "|OpenSession sessionname"
@@ -46,10 +47,10 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 
 	// index at: "OpenSession |sessionname"
 	sc.Reverse = true
-	if !sc.Match.Rune(' ') {
-		return "", sc.Errorf("space")
+	if err := sc.M.Rune(' '); err != nil {
+		return "", sc.SrcErrorf("space")
 	}
-	_ = sc.Match.FnLoop(sessionNameRune)
+	_ = sc.M.LoopRuneFn(sessionNameRune)
 	sc.Reverse = false
 
 	// index at: "|OpenSession sessionname"
@@ -59,28 +60,25 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 		return sname, nil
 	}
 
-	return "", sc.Errorf("not found")
+	return "", sc.SrcErrorf("not found")
 }
 
-func readCmdSessionName(sc *scanutil.Scanner) (string, error) {
-	var err error
-	ok := sc.RewindOnFalse(func() bool {
+func readCmdSessionName(sc *parseutil.Scanner) (string, error) {
+	pos0 := sc.KeepPos()
+	err := sc.M.RestorePosOnErr(func() error {
 		cmd := "OpenSession"
-		if !sc.Match.Sequence(cmd + " ") {
-			err = sc.Errorf("cmd")
-			return false
+		if err := sc.M.Sequence(cmd + " "); err != nil {
+			return sc.SrcErrorf("cmd")
 		}
-		sc.Advance()
-		if !sc.Match.FnLoop(sessionNameRune) {
-			err = sc.Errorf("sessionname")
-			return false
+		if err := sc.M.LoopRuneFn(sessionNameRune); err != nil {
+			return sc.SrcErrorf("sessionname")
 		}
-		return true
+		return nil
 	})
-	if !ok {
+	if err != nil {
 		return "", err
 	}
-	return sc.Value(), nil
+	return string(pos0.Bytes()), nil
 }
 
 func sessionNameRune(ru rune) bool {
