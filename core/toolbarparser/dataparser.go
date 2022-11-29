@@ -10,8 +10,8 @@ import (
 )
 
 func Parse(str string) *Data {
-	p := newDataParser(str)
-	if err := p.start(); err != nil {
+	p := newDataParser()
+	if err := p.parse(str); err != nil {
 		log.Print(err)
 	}
 	return p.data
@@ -23,16 +23,17 @@ func Parse(str string) *Data {
 
 type dataParser struct {
 	data *Data
-	ps   *parseutil.PState
+	sc   *parseutil.Scanner
 }
 
-func newDataParser(str string) *dataParser {
+func newDataParser() *dataParser {
 	p := &dataParser{}
-	p.data = &Data{Str: str}
-	p.ps = parseutil.NewPState([]byte(str))
+	p.sc = parseutil.NewScanner()
 	return p
 }
-func (p *dataParser) start() error {
+func (p *dataParser) parse(src string) error {
+	p.data = &Data{Str: src}
+	p.sc.SetSrc([]byte(src))
 	parts, err := p.parts()
 	if err != nil {
 		return err
@@ -50,24 +51,22 @@ func (p *dataParser) parts() ([]*Part, error) {
 		parts = append(parts, part)
 
 		// split parts on these runes
-		if p.ps.MatchRunesOr([]rune(("|\n"))) == nil {
+		if p.sc.M.RuneAny([]rune(("|\n"))) == nil {
 			continue
 		}
-		if p.ps.MatchEof() == nil {
+		if p.sc.M.Eof() {
 			break
 		}
 	}
 	return parts, nil
 }
 func (p *dataParser) part() (*Part, error) {
+	pos0 := p.sc.KeepPos()
+
+	_ = p.sc.M.SpacesExcludingNL() // optional space at start
+
 	part := &Part{}
 	part.Data = p.data
-
-	pos0 := p.ps.Pos
-
-	// optional space at start
-	_ = p.ps.ConsumeSpacesExcludingNL()
-
 	for {
 		arg, err := p.arg()
 		if err != nil {
@@ -76,47 +75,46 @@ func (p *dataParser) part() (*Part, error) {
 		part.Args = append(part.Args, arg)
 
 		// need space between args
-		if !p.ps.ConsumeSpacesExcludingNL() {
+		if !p.sc.M.SpacesExcludingNL() {
 			break
 		}
 	}
 
-	part.SetPos(pos0, p.ps.Pos)
+	part.SetPos(pos0.Pos, p.sc.Pos)
 	return part, nil
 }
 func (p *dataParser) arg() (*Arg, error) {
-	arg := &Arg{}
-	arg.Data = p.data
-
-	pos0 := p.ps.Pos
-	ps2 := p.ps.Copy()
+	pos0 := p.sc.KeepPos()
 	for {
-		if ps2.MatchEof() == nil {
-			break
-		}
-		if ps2.EscapeAny(osutil.EscapeRune) == nil {
+		if p.sc.M.EscapeAny(osutil.EscapeRune) == nil {
 			continue
 		}
-		if ps2.QuotedString() == nil {
+		if p.sc.M.QuotedString() == nil {
 			continue
 		}
 
 		// split args
-		ps3 := ps2.Copy()
-		ru, err := ps3.ReadRune()
+		pos3 := p.sc.KeepPos()
+		ru, err := p.sc.ReadRune()
+		if err == nil {
+			valid := !(ru == '|' || unicode.IsSpace(ru))
+			if !valid {
+				err = parseutil.NoMatchErr
+			}
+		}
 		if err != nil {
+			pos3.Restore()
 			break
 		}
-		if ru == '|' || unicode.IsSpace(ru) {
-			break
-		}
-		ps2.Set(ps3) // accept rune into arg
+		// accept rune into arg
 	}
-	arg.SetPos(pos0, ps2.Pos)
 	// empty arg. Ex: parts string with empty args: "|||".
-	if arg.PosEmpty() {
+	if pos0.IsEmpty() {
 		return nil, fmt.Errorf("empty arg")
 	}
-	p.ps.Set(ps2)
+
+	arg := &Arg{}
+	arg.Data = p.data
+	arg.SetPos(pos0.Pos, p.sc.Pos)
 	return arg, nil
 }

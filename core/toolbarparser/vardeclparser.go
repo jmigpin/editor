@@ -34,7 +34,7 @@ type varDeclParser struct {
 
 func newVarDeclParser() *varDeclParser {
 	p := &varDeclParser{}
-	p.sc = parseutil.NewScanner2()
+	p.sc = parseutil.NewScanner()
 	return p
 }
 func (p *varDeclParser) parseVarDecl(src []byte) (*VarDecl, error) {
@@ -88,7 +88,7 @@ func (p *varDeclParser) parseDollarVarDecl() (*VarDecl, error) {
 	// assign (optional)
 	pos2 := p.sc.KeepPos()
 	if err := p.sc.M.Rune('='); err != nil {
-		if err := p.sc.M.Eof(); err == nil {
+		if p.sc.M.Eof() {
 			pos2.Restore()
 			return w, nil
 		}

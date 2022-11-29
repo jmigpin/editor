@@ -94,7 +94,7 @@ func setupQuotedStringFn(ri *RuleIndex) error {
 		name := fmt.Sprintf("quotedString(%q,%v,%v)", esc, maxLen1, maxLen2)
 		fr := &FuncRule{name: name, parseOrder: parseOrder}
 		fr.fn = func(ps *PState) error {
-			return ps.QuotedString2(esc, int(maxLen1), int(maxLen2))
+			return ps.M.QuotedString2(esc, int(maxLen1), int(maxLen2))
 		}
 		return fr, nil
 	}
@@ -163,7 +163,7 @@ func setupEscapeAnyFn(ri *RuleIndex) error {
 		name := fmt.Sprintf("escapeAny(%q)", esc)
 		fr := &FuncRule{name: name, parseOrder: parseOrder}
 		fr.fn = func(ps *PState) error {
-			return ps.EscapeAny(esc)
+			return ps.M.EscapeAny(esc)
 		}
 		return fr, nil
 	}

@@ -33,7 +33,7 @@ type varRefParser struct {
 
 func newVarRefParser() *varRefParser {
 	p := &varRefParser{}
-	p.sc = parseutil.NewScanner2()
+	p.sc = parseutil.NewScanner()
 	return p
 }
 func (p *varRefParser) parseVarRefs(src []byte) ([]*VarRef, error) {

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/util/goutil"
-	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type ContentParser struct {
@@ -45,7 +44,7 @@ func (cp *ContentParser) Parse(src []byte, index int) (*BuildNodeData, *cpRun, e
 	return cp.ParseFileSet(fset, index, nil)
 }
 func (cp *ContentParser) ParseFileSet(fset *FileSet, index int, extData any) (*BuildNodeData, *cpRun, error) {
-	ps := parseutil.NewPState(fset.Src)
+	ps := NewPState(fset.Src)
 	ps.Pos = index
 	ps.Reverse = cp.Opt.Reverse
 	cpr := newCPRun(cp.Opt, ps)
@@ -287,7 +286,7 @@ func (cp *ContentParser) simulateParseRuleSet(cpr *cpRun, st *State) (Rule, erro
 	cpn.simulated = true
 	cpr.ps.Node = cpn
 	if cpr.isLogging() { // performance
-		cpr.logf("simulate parseruleset: %v %v\n", r.id(), parseutil.PNodePosStr(cpn))
+		cpr.logf("simulate parseruleset: %v %v\n", r.id(), PNodePosStr(cpn))
 	}
 
 	return r, nil
@@ -302,7 +301,7 @@ func (cp *ContentParser) parseRuleSet(cpr *cpRun, rset []Rule) (Rule, error) {
 			continue
 		}
 		if cpr.isLogging() { // performance
-			cpr.logf("parseruleset: %v %v\n", r.id(), parseutil.PNodePosStr(cpr.ps.Node))
+			cpr.logf("parseruleset: %v %v\n", r.id(), PNodePosStr(cpr.ps.Node))
 		}
 		return r, nil
 	}
@@ -318,19 +317,18 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 		}
 		ps.Node = newCPNode(pos0, ps.Pos, t)
 	case *FuncRule:
-		i0 := ps.Pos
-		ps2 := ps.Copy()
-		if err := t.fn(ps2); err != nil {
+		pos0 := ps.KeepPos()
+		if err := t.fn(ps); err != nil {
+			pos0.Restore()
 			return err
 		}
-		ps.Set(ps2)
-		ps.Node = newCPNode(i0, ps.Pos, t)
+		ps.Node = newCPNode(pos0.Pos, ps.Pos, t)
 	case *SingletonRule:
 		switch t {
 		//case nilRule:	// commented: not called to be parsed
 		case endRule:
-			if err := ps.MatchEof(); err != nil {
-				return err
+			if !ps.M.Eof() {
+				return fmt.Errorf("not eof")
 			}
 			ps.Node = newCPNode(ps.Pos, ps.Pos, t)
 		default:
@@ -427,7 +425,7 @@ func (stk cpStack) String() string {
 			if item.cpn.rule != nil { // can be nil in state0
 				s += fmt.Sprintf(" %v", item.cpn.rule.id())
 			}
-			s += " " + parseutil.PNodePosStr(item.cpn)
+			s += " " + PNodePosStr(item.cpn)
 			if item.cpn.simulated {
 				s += fmt.Sprintf(" (simulated)")
 			}

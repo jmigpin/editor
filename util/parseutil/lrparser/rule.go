@@ -323,13 +323,13 @@ func (r *StringRule) parse(ps *PState) error {
 func (r *StringRule) parse2(ps *PState, typ stringRType) error {
 	switch typ {
 	case stringRTAnd: // sequence, ex: keyword
-		return ps.MatchRunesAnd(r.runes)
+		return ps.M.RuneSequence(r.runes)
 	case stringRTMid: // sequence, ex: keyword
-		return ps.MatchRunesMid(r.runes)
+		return ps.M.RuneSequenceMid(r.runes)
 	case stringRTOr:
-		return ps.MatchRunesAndRuneRanges(r.runes, r.rranges)
+		return ps.M.RunesAndRuneRanges(r.runes, r.rranges)
 	case stringRTOrNeg:
-		return ps.MatchRunesAndRuneRangesNeg(r.runes, r.rranges)
+		return ps.M.RunesAndRuneRangesNot(r.runes, r.rranges)
 	default:
 		panic(goutil.TodoErrorStr(string(r.typ)))
 	}

@@ -10,12 +10,12 @@ func TestScan1(t *testing.T) {
 	if sc.M.Sequence("aa") != nil {
 		t.Fatal()
 	}
-	sc.M.LoopAnyToNewlineExcludeOrEnd()
+	sc.M.ToNLExcludeOrEnd(0)
 	if sc.Pos != 2 {
 		t.Fatal(sc.Pos)
 	}
 	sc.M.NRunes(1)
-	sc.M.LoopAnyToNewlineIncludeOrEnd()
+	sc.M.ToNLIncludeOrEnd(0)
 	if sc.Pos != len(s) {
 		t.Fatal()
 	}
@@ -249,7 +249,7 @@ func TestSequenceExpand(t *testing.T) {
 //----------
 
 func newTestScanner(s string) *Scanner {
-	sc := NewScanner2()
+	sc := NewScanner()
 	sc.SetSrc([]byte(s))
 	return sc
 }

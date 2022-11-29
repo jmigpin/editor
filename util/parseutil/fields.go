@@ -3,33 +3,34 @@ package parseutil
 import "fmt"
 
 func ParseFields(s string, fieldSep rune) ([]string, error) {
-	ps := NewPState([]byte(s))
+	sc := NewScanner()
+	sc.SetSrc([]byte(s))
 	esc := '\\'
 	fields := []string{}
 	for i := 0; ; i++ {
-		if ps.MatchEof() == nil {
+		if sc.M.Eof() {
 			break
 		}
 
 		// field separator
 		if i > 0 {
-			if err := ps.MatchRune(fieldSep); err != nil {
+			if err := sc.M.Rune(fieldSep); err != nil {
 				return nil, fmt.Errorf("field separator: %w", err)
 			}
 		}
 
 		// field (can be empty)
-		pos0 := ps.Pos
+		pos0 := sc.Pos
 		for {
-			if ps.QuotedString2(esc, 3000, 3000) == nil {
+			if sc.M.QuotedString2(esc, 3000, 3000) == nil {
 				continue
 			}
-			if ps.MatchRunesOrNeg([]rune{fieldSep}) == nil {
+			if sc.M.RuneAnyNot([]rune{fieldSep}) == nil {
 				continue
 			}
 			break
 		}
-		val := string(ps.Src[pos0:ps.Pos])
+		val := string(sc.Src[pos0:sc.Pos])
 		if u, err := UnquoteString(val, esc); err == nil {
 			val = u
 		}

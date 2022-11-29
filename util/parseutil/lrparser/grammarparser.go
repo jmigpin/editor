@@ -4,10 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
-	"unicode"
-
-	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type grammarParser struct {
@@ -19,7 +15,7 @@ func newGrammarParser(ri *RuleIndex) *grammarParser {
 	return gp
 }
 func (gp *grammarParser) parse(fset *FileSet) error {
-	ps := parseutil.NewPState(fset.Src)
+	ps := NewPState(fset.Src)
 	err := gp.parse2(ps)
 	if err != nil {
 		return fset.Error2(err, ps.Pos)
@@ -39,7 +35,7 @@ func (gp *grammarParser) parse2(ps *PState) error {
 }
 func (gp *grammarParser) parse3(ps *PState) (bool, error) {
 	gp.parseOptionalSpacesOrComments(ps)
-	if err := ps.MatchEof(); err == nil {
+	if ps.M.Eof() {
 		return false, nil
 	}
 	if err := gp.parseDefRule(ps); err != nil {
@@ -48,15 +44,15 @@ func (gp *grammarParser) parse3(ps *PState) (bool, error) {
 	return true, nil
 }
 func (gp *grammarParser) parseDefRule(ps *PState) error {
-	i0 := ps.Pos
+	pos0 := ps.KeepPos()
 
 	// options
 	isStart := false
-	if err := ps.MatchString(defRuleStartSym); err == nil {
+	if err := ps.M.Sequence(defRuleStartSym); err == nil {
 		isStart = true
 	}
 	isNoPrint := false
-	if err := ps.MatchString(defRuleNoPrintSym); err == nil {
+	if err := ps.M.Sequence(defRuleNoPrintSym); err == nil {
 		isNoPrint = true
 	}
 
@@ -71,7 +67,7 @@ func (gp *grammarParser) parseDefRule(ps *PState) error {
 
 	gp.parseOptionalSpacesOrComments(ps)
 
-	if err := ps.MatchRune('='); err != nil {
+	if err := ps.M.Rune('='); err != nil {
 		return errors.New("expecting =")
 	}
 
@@ -83,41 +79,26 @@ func (gp *grammarParser) parseDefRule(ps *PState) error {
 
 	gp.parseOptionalSpacesOrComments(ps)
 
-	if err := ps.MatchRune(';'); err != nil {
+	if err := ps.M.Rune(';'); err != nil {
 		return errors.New("expecting close rule \";\"?")
 	}
 
 	// setup
 	dr := &DefRule{name: name, isStart: isStart, isNoPrint: isNoPrint}
 	dr.setOnlyChild(ps.Node.(Rule))
-	dr.SetPos(i0, ps.Pos)
+	dr.SetPos(pos0.Pos, ps.Pos)
 	gp.ri.set(dr.name, dr)
+	ps.Node = dr
 
 	return nil
 }
 func (gp *grammarParser) parseName(ps *PState) (string, error) {
-	name := ""
-	ps2 := ps.Copy()
-	for i := 0; ; i++ {
-		ps3 := ps2.Copy()
-		ru, err := ps3.ReadRune()
-		if err != nil {
-			break
-		}
-		valid := unicode.IsLetter(ru) || strings.Contains("_$", string(ru))
-		if !valid && i > 0 {
-			valid = unicode.IsDigit(ru)
-		}
-		if !valid {
-			break
-		}
-		name += string(ru)
-		ps2.Set(ps3)
+	u := "[_a-zA-Z][_a-zA-Z0-9$]*"
+	pos0 := ps.KeepPos()
+	if err := ps.M.RegexpFromStartCached(u); err != nil {
+		return "", err
 	}
-	if name == "" {
-		return "", fmt.Errorf("empty name")
-	}
-	ps.Set(ps2)
+	name := string(pos0.Bytes())
 	return name, nil
 }
 
@@ -135,7 +116,7 @@ func (gp *grammarParser) parseItemRule(ps *PState) error {
 //----------
 
 func (gp *grammarParser) parseIfRule(ps *PState) (error, bool) {
-	if err := ps.MatchString("if "); err != nil {
+	if err := ps.M.Sequence("if "); err != nil {
 		return err, false // not an ifrule
 	}
 	return gp.parseIfRule2(ps), true
@@ -151,7 +132,7 @@ func (gp *grammarParser) parseIfRule2(ps *PState) error {
 
 	// then
 	gp.parseOptionalSpacesOrComments(ps)
-	if err := ps.MatchString("?"); err != nil {
+	if err := ps.M.Rune('?'); err != nil {
 		return fmt.Errorf("expecting '?'")
 	}
 	gp.parseOptionalSpacesOrComments(ps)
@@ -162,7 +143,7 @@ func (gp *grammarParser) parseIfRule2(ps *PState) error {
 
 	// else
 	gp.parseOptionalSpacesOrComments(ps)
-	if err := ps.MatchString(":"); err != nil {
+	if err := ps.M.Rune(':'); err != nil {
 		return fmt.Errorf("expecting ':'")
 	}
 	gp.parseOptionalSpacesOrComments(ps)
@@ -185,77 +166,70 @@ func (gp *grammarParser) parseIfRule2(ps *PState) error {
 //----------
 
 func (gp *grammarParser) parseOrRule(ps *PState) error {
-	i0 := ps.Pos
-	ps2 := ps.Copy()
+	pos0 := ps.KeepPos()
 	w := []Rule{}
 	for i := 0; ; i++ {
 		// handle separator
 		if i > 0 {
-			gp.parseOptionalSpacesOrComments(ps2)
-			ps3 := ps2.Copy()
-			if err := ps2.MatchRune('|'); err != nil {
+			gp.parseOptionalSpacesOrComments(ps)
+			pos3 := ps.KeepPos()
+			if err := ps.M.Rune('|'); err != nil {
+				pos3.Restore()
 				if i == 1 {
-					ps.Set(ps3)
 					return nil // ok, just not an OR
 				}
 
 				res := &OrRule{}
 				res.childs_ = w
-				res.SetPos(i0, ps2.Pos)
-				ps2.Node = res
+				res.SetPos(pos0.Pos, ps.Pos)
+				ps.Node = res
 
-				ps.Set(ps2)
 				return nil // ok
 			}
 
-			gp.parseOptionalSpacesOrComments(ps2)
+			gp.parseOptionalSpacesOrComments(ps)
 		}
 
 		// precedence tree construction ("and" is higher vs "or")
-		if err := gp.parseAndRule(ps2); err != nil {
-			//if i == 0 {
-			//	ps.set(ps2) // better error?
-			//	return err  // fail, no rule
-			//}
-			ps.Set(ps2)
+		if err := gp.parseAndRule(ps); err != nil {
+			if i == 0 {
+				return err // fail, no rule
+			}
 			return err // fail, not expecting error after sep
 		}
 
-		resRule := ps2.Node.(Rule)
+		resRule := ps.Node.(Rule)
 		w = append(w, resRule)
 	}
 }
 func (gp *grammarParser) parseAndRule(ps *PState) error {
-	pos0 := ps.Pos
-	ps2 := ps.Copy()
+	pos0 := ps.KeepPos()
 	w := []Rule{}
 	for i := 0; ; i++ {
 		// handle separator
+		pos2 := ps.KeepPos()
 		if i > 0 {
-			gp.parseOptionalSpacesOrComments(ps2)
+			gp.parseOptionalSpacesOrComments(ps)
 		}
 
-		if err := gp.parseBasicItemRule(ps2); err != nil {
+		if err := gp.parseBasicItemRule(ps); err != nil {
 			if i == 0 {
-				//ps.Set(ps2) // better error?
 				return err // fail, no rule
 			}
 			if i == 1 {
-				ps.Set(ps2)
 				return nil // ok, just not an AND
 			}
+			pos2.Restore()
 			break // ok, don't include the spaces
 		}
 
-		resRule := ps2.Node.(Rule)
+		resRule := ps.Node.(Rule)
 		w = append(w, resRule)
-		ps.Set(ps2) // will show errors more advanced
 	}
-	//ps.Set(ps2)
 
 	res := &AndRule{}
 	res.childs_ = w
-	res.SetPos(pos0, ps.Pos)
+	res.SetPos(pos0.Pos, ps.Pos)
 	ps.Node = res
 
 	return nil
@@ -282,7 +256,7 @@ func (gp *grammarParser) parseProcRule(ps *PState) (error, bool) {
 	i0 := ps.Pos
 	// header
 	callRuleSym := "@"
-	if err := ps.MatchString(callRuleSym); err != nil {
+	if err := ps.M.Sequence(callRuleSym); err != nil {
 		return err, false
 	}
 
@@ -293,7 +267,7 @@ func (gp *grammarParser) parseProcRule(ps *PState) (error, bool) {
 	}
 
 	// args
-	if err := ps.MatchRune('('); err != nil {
+	if err := ps.M.Rune('('); err != nil {
 		return err, true
 	}
 	parseProcRuleArg := func() (ProcRuleArg, error) {
@@ -317,11 +291,11 @@ func (gp *grammarParser) parseProcRule(ps *PState) (error, bool) {
 		}
 		args = append(args, arg)
 		gp.parseOptionalSpacesOrComments(ps)
-		if err := ps.MatchRune(','); err != nil {
+		if err := ps.M.Rune(','); err != nil {
 			break
 		}
 	}
-	if err := ps.MatchRune(')'); err != nil {
+	if err := ps.M.Rune(')'); err != nil {
 		return err, true
 	}
 
@@ -346,30 +320,29 @@ func (gp *grammarParser) parseRefRule(ps *PState) (error, bool) {
 }
 
 func (gp *grammarParser) parseStringRule(ps *PState) (error, bool) {
-	i0 := ps.Pos
+	pos0 := ps.KeepPos()
 
-	q := "\""
 	esc := '\\' // alows to escape the quote
-	if err := ps.StringSection(q, q, esc, true, 1000, false); err != nil {
+	if err := ps.M.StringSection("\"", esc, true, 1000, false); err != nil {
 		return nil, false
 	}
-	sr := &StringRule{}
-	sr.SetPos(i0, ps.Pos)
 
 	// needed: ex: transforms "\n" (2 runes) into a single '\n'
-	s := sr.SrcString(ps.Src)
-	u, err := strconv.Unquote(s)
+	str := string(pos0.Bytes())
+	u, err := strconv.Unquote(str)
 	if err != nil {
 		return err, true
 	}
-	sr.runes = []rune(u)
 
+	sr := &StringRule{}
+	sr.runes = []rune(u)
+	sr.SetPos(pos0.Pos, ps.Pos)
 	ps.Node = sr
 	return nil, true
 }
 func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
-	i0 := ps.Pos
-	if err := ps.MatchRune('('); err != nil {
+	pos0 := ps.KeepPos()
+	if err := ps.M.Rune('('); err != nil {
 		return err, false
 	}
 	gp.parseOptionalSpacesOrComments(ps)
@@ -378,14 +351,14 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 	}
 	gp.parseOptionalSpacesOrComments(ps)
 	ruleX := ps.Node.(Rule)
-	if err := ps.MatchRune(')'); err != nil {
+	if err := ps.M.Rune(')'); err != nil {
 		return err, true
 	}
 
 	// option rune
 	pt := parenRTNone
-	ps2 := ps.Copy()
-	ru, err := ps2.ReadRune()
+	pos2 := ps.KeepPos()
+	ru, err := ps.ReadRune()
 	if err == nil {
 		u := parenRType(ru)
 		switch u {
@@ -398,13 +371,14 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 			parenRTStrOrRange,
 			parenRTStrOrNeg:
 			pt = u
-			ps.Set(ps2) // advance
+		default:
+			pos2.Restore()
 		}
 	}
 
 	u := &ParenRule{typ: pt}
 	u.setOnlyChild(ruleX)
-	u.SetPos(i0, ps.Pos)
+	u.SetPos(pos0.Pos, ps.Pos)
 	ps.Node = u
 
 	return nil, true
@@ -413,35 +387,20 @@ func (gp *grammarParser) parseParenRule(ps *PState) (error, bool) {
 //----------
 
 func (gp *grammarParser) parseInt(ps *PState) (int, error, bool) {
-	pos0 := ps.Pos
-	rrs09 := RuneRanges{RuneRange{'0', '9'}}
-	ps2 := ps.Copy()
-	for i := 0; ; i++ {
-		if i == 0 {
-			if err := ps2.MatchRunesOr([]rune("-+")); err == nil {
-				continue
-			}
-		}
-		if err := ps2.MatchRuneRanges(rrs09); err == nil {
-			continue
-		}
-		break
+	pos0 := ps.KeepPos()
+	if err := ps.M.Integer(); err != nil {
+		return 0, err, false
 	}
 
-	n := &BasicPNode{}
-	n.SetPos(pos0, ps2.Pos)
-	if n.PosEmpty() {
-		return 0, nil, false
-	}
-
-	u := n.SrcString(ps2.Src)
+	u := string(pos0.Bytes())
 	v, err := strconv.ParseInt(u, 10, 64)
 	if err != nil {
 		return 0, err, true
 	}
 
-	ps2.Node = n
-	ps.Set(ps2)
+	n := &BasicPNode{}
+	n.SetPos(pos0.Pos, ps.Pos)
+	ps.Node = n
 	return int(v), nil, true
 }
 
@@ -449,7 +408,7 @@ func (gp *grammarParser) parseInt(ps *PState) (int, error, bool) {
 
 func (gp *grammarParser) parseOptionalSpacesOrComments(ps *PState) {
 	for {
-		if ps.ConsumeSpacesIncludingNL() {
+		if ps.M.SpacesIncludingNL() {
 			continue
 		}
 		if gp.parseComments(ps) {
@@ -458,6 +417,17 @@ func (gp *grammarParser) parseOptionalSpacesOrComments(ps *PState) {
 		break
 	}
 }
+func (gp *grammarParser) parseComments(ps *PState) bool {
+	if err := ps.M.Rune('#'); err == nil {
+		_ = ps.M.ToNLIncludeOrEnd(0)
+		return true
+	}
+	if err := ps.M.Sequence("//"); err == nil {
+		_ = ps.M.ToNLIncludeOrEnd(0)
+		return true
+	}
+	return false
+}
 
 //func (gp *grammarParser) parseEmptyLine(ps *PState) bool {
 //	if err := ps.MatchRune('\n'); err == nil {
@@ -465,15 +435,3 @@ func (gp *grammarParser) parseOptionalSpacesOrComments(ps *PState) {
 //	}
 //	return false
 //}
-
-func (gp *grammarParser) parseComments(ps *PState) bool {
-	if err := ps.MatchRune('#'); err == nil {
-		_ = ps.ConsumeToNLIncluding()
-		return true
-	}
-	if err := ps.MatchString("//"); err == nil {
-		_ = ps.ConsumeToNLIncluding()
-		return true
-	}
-	return false
-}

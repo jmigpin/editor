@@ -8,18 +8,82 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
+type PState struct {
+	*parseutil.Scanner
+	Node PNode
+}
+
+func NewPState(src []byte) *PState {
+	ps := &PState{}
+	ps.Scanner = parseutil.NewScanner()
+	ps.SetSrc(src)
+	return ps
+}
+
+//----------
+//----------
 //----------
 
-type PState = parseutil.PState
-type PNode = parseutil.PNode
-type BasicPNode = parseutil.BasicPNode
+// type PNode = parseutil.PNode
+// type BasicPNode = parseutil.BasicPNode
 type RuneRange = parseutil.RuneRange
 type RuneRanges = parseutil.RuneRanges
 
 //----------
+//----------
+//----------
 
-func pnodeSrc2(node PNode, fset *FileSet) string {
-	return string(parseutil.PNodeBytes(node, fset.Src))
+// parse node
+type PNode interface {
+	Pos() int
+	End() int
+}
+
+//----------
+
+func PNodeBytes(node PNode, src []byte) []byte {
+	pos, end := node.Pos(), node.End()
+	if pos > end {
+		pos, end = end, pos
+	}
+	return src[pos:end]
+}
+func PNodeString(node PNode, src []byte) string {
+	return string(PNodeBytes(node, src))
+}
+func PNodePosStr(node PNode) string {
+	return fmt.Sprintf("[%v:%v]", node.Pos(), node.End())
+}
+
+//func pnodeSrc2(node PNode, fset *FileSet) string {
+//	return string(PNodeBytes(node, fset.Src))
+//}
+
+//----------
+//----------
+//----------
+
+// basic parse node implementation
+type BasicPNode struct {
+	pos int // can have pos>end when in reverse
+	end int
+}
+
+func (n *BasicPNode) Pos() int {
+	return n.pos
+}
+func (n *BasicPNode) End() int {
+	return n.end
+}
+func (n *BasicPNode) SetPos(pos, end int) {
+	n.pos = pos
+	n.end = end
+}
+func (n *BasicPNode) PosEmpty() bool {
+	return n.pos == n.end
+}
+func (n *BasicPNode) SrcString(src []byte) string {
+	return string(src[n.pos:n.end])
 }
 
 //----------
@@ -84,7 +148,7 @@ func (d *BuildNodeData) End() int {
 }
 
 func (d *BuildNodeData) NodeSrc() string {
-	return parseutil.PNodeString(d.cpn, d.cpr.ps.Src)
+	return PNodeString(d.cpn, d.cpr.ps.Src)
 }
 func (d *BuildNodeData) FullSrc() []byte {
 	return d.cpr.ps.Src
@@ -122,7 +186,7 @@ func (d *BuildNodeData) Child(i int) *BuildNodeData {
 	return newBuildNodeData(d.cpr, d.cpn.childs[i])
 }
 func (d *BuildNodeData) ChildStr(i int) string {
-	return parseutil.PNodeString(d.cpn.childs[i], d.cpr.ps.Src)
+	return PNodeString(d.cpn.childs[i], d.cpr.ps.Src)
 }
 func (d *BuildNodeData) ChildInt(i int) (int, error) {
 	s := d.ChildStr(i)
@@ -274,7 +338,7 @@ func SprintNodeTree(src []byte, node PNode, maxDepth int) string {
 			tag = fmt.Sprintf("%T", n)
 		}
 
-		pr(depth, "-> %v: %q\n", tag, parseutil.PNodeString(n, src))
+		pr(depth, "-> %v: %q\n", tag, PNodeString(n, src))
 
 		if cpn != nil {
 

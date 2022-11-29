@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
 type Data struct {
@@ -91,7 +92,7 @@ type Arg struct {
 //----------
 
 type Node struct {
-	parseutil.BasicPNode
+	lrparser.BasicPNode
 	Data *Data
 }
 
@@ -114,14 +115,6 @@ type VarDecl struct {
 	Name, Value string
 }
 
-//func (v *VarDecl) UnquotedString() string {
-//	s := v.Value
-//	if u, err := parseutil.UnquoteString(s, '\\'); err == nil {
-//		s = u
-//	}
-//	return s
-//}
-
 func (v *VarDecl) String() string {
 	return fmt.Sprintf("%v=%v", v.Name, v.Value)
 }
@@ -131,7 +124,7 @@ func (v *VarDecl) String() string {
 //----------
 
 type VarRef struct {
-	parseutil.BasicPNode
+	lrparser.BasicPNode
 	Name string
 }
 
