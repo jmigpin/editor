@@ -1,7 +1,7 @@
 package sampleparsers
 
 //godebug:annotatepackage
-//godebug:annotatepackage:github.com/jmigpin/editor/util/smparse
+//godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil
 
 import (
 	"testing"
@@ -21,6 +21,19 @@ func TestJsonParser(t *testing.T) {
 	spew.Config.Indent = "\t"
 	spew.Dump(v)
 }
+
+//----------
+
+func ParseJson(src []byte) (interface{}, error) {
+	//p := NewJsonParser(src)
+	//return p.parseJson()
+	p := NewJsonParser2()
+	return p.parseJson(src)
+}
+
+//----------
+//----------
+//----------
 
 func BenchmarkJsonParser(b *testing.B) {
 	s := jsonparserInput1

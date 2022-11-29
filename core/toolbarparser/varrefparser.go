@@ -60,7 +60,7 @@ func (p *varRefParser) parseVarRefs(src []byte) ([]*VarRef, error) {
 func (p *varRefParser) parseVarRef() (*VarRef, error) {
 	pos0 := p.sc.KeepPos()
 	vr := &VarRef{}
-	err := p.sc.M.RestorePosOnErr(func() error {
+	err := p.sc.RestorePosOnErr(func() error {
 		// symbol
 		if err := p.sc.M.RuneAny([]rune("~$")); err != nil {
 			return err

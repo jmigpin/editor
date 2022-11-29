@@ -51,22 +51,22 @@ type ScannerRPos struct {
 	Pos int
 }
 
-func (scp *ScannerRPos) Restore() {
-	scp.sc.SetPos(scp.Pos)
+func (sp *ScannerRPos) Restore() {
+	sp.sc.SetPos(sp.Pos)
 }
-func (scp *ScannerRPos) IsEmpty() bool {
-	return scp.Pos == scp.sc.Pos()
+func (sp *ScannerRPos) IsEmpty() bool {
+	return sp.Pos == sp.sc.Pos()
 }
-func (scp *ScannerRPos) StartEnd() (int, int) {
-	start, end := scp.Pos, scp.sc.Pos()
+func (sp *ScannerRPos) StartEnd() (int, int) {
+	start, end := sp.Pos, sp.sc.Pos()
 	if start > end { // support reverse mode
 		start, end = end, start
 	}
 	return start, end
 }
-func (scp *ScannerRPos) Bytes() []byte {
-	start, end := scp.StartEnd()
-	start -= scp.sc.R.Min()
-	end -= scp.sc.R.Min()
-	return scp.sc.Scanner.Src[start:end]
+func (sp *ScannerRPos) Bytes() []byte {
+	start, end := sp.StartEnd()
+	start -= sp.sc.R.Min()
+	end -= sp.sc.R.Min()
+	return sp.sc.Scanner.Src[start:end]
 }

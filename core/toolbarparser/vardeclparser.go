@@ -107,7 +107,7 @@ func (p *varDeclParser) parseDollarVarDecl() (*VarDecl, error) {
 
 func (p *varDeclParser) parseVarValue() (string, error) {
 	pos0 := p.sc.KeepPos()
-	err := p.sc.M.RestorePosOnErr(func() error {
+	err := p.sc.RestorePosOnErr(func() error {
 		// any runes (with some exceptions)
 		notSpace := func(ru rune) bool { return !unicode.IsSpace(ru) }
 		for {

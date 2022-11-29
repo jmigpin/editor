@@ -4,18 +4,10 @@ import (
 	"fmt"
 	"unicode"
 
-	"github.com/jmigpin/editor/util/scanutil"
+	"github.com/jmigpin/editor/util/parseutil/scanutil"
 )
 
 // A test/sample parser on how to use the smparse pkg.
-
-func ParseJson(src []byte) (interface{}, error) {
-	p := NewJsonParser(src)
-	return p.parseJson()
-}
-
-//----------
-
 type JsonParser struct {
 	sc *scanutil.Scanner
 	fn struct {
