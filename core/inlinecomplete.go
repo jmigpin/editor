@@ -282,7 +282,7 @@ func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
 	sc.Pos = index
 	pos0 := sc.KeepPos()
 	max := 1000
-	err := sc.M.LoopRuneFn(func(ru rune) bool {
+	err := sc.M.RuneFnLoop(func(ru rune) bool {
 		max--
 		if max <= 0 {
 			return false

@@ -281,7 +281,7 @@ func (m *SMatcher) RuneFn(fn func(rune) bool) error {
 }
 
 // one or more
-func (m *SMatcher) LoopRuneFn(fn func(rune) bool) error {
+func (m *SMatcher) RuneFnLoop(fn func(rune) bool) error {
 	for first := true; ; first = false {
 		if err := m.RuneFn(fn); err != nil {
 			if first {
@@ -572,7 +572,7 @@ func (m *SMatcher) Digit() error {
 	return m.RuneFn(unicode.IsDigit)
 }
 func (m *SMatcher) Digits() error {
-	return m.LoopRuneFn(unicode.IsDigit)
+	return m.RuneFnLoop(unicode.IsDigit)
 }
 func (m *SMatcher) Integer() error {
 	// TODO: reverse

@@ -35,7 +35,7 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 
 	// index at: "OpenSe|ssion sessionname"
 	sc.Reverse = true
-	_ = sc.M.LoopRuneFn(sessionNameRune)
+	_ = sc.M.RuneFnLoop(sessionNameRune)
 	sc.Reverse = false
 
 	// index at: "|OpenSession sessionname"
@@ -50,7 +50,7 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 	if err := sc.M.Rune(' '); err != nil {
 		return "", sc.SrcErrorf("space")
 	}
-	_ = sc.M.LoopRuneFn(sessionNameRune)
+	_ = sc.M.RuneFnLoop(sessionNameRune)
 	sc.Reverse = false
 
 	// index at: "|OpenSession sessionname"
@@ -65,20 +65,16 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 
 func readCmdSessionName(sc *parseutil.Scanner) (string, error) {
 	pos0 := sc.KeepPos()
-	err := sc.M.RestorePosOnErr(func() error {
-		cmd := "OpenSession"
-		if err := sc.M.Sequence(cmd + " "); err != nil {
-			return sc.SrcErrorf("cmd")
-		}
-		if err := sc.M.LoopRuneFn(sessionNameRune); err != nil {
-			return sc.SrcErrorf("sessionname")
-		}
-		return nil
-	})
-	if err != nil {
-		return "", err
+	cmd := "OpenSession"
+	if err := sc.M.Sequence(cmd + " "); err != nil {
+		return "", sc.SrcErrorf("cmd")
 	}
-	return string(pos0.Bytes()), nil
+	pos1 := sc.KeepPos()
+	if err := sc.M.RuneFnLoop(sessionNameRune); err != nil {
+		pos0.Restore()
+		return "", sc.SrcErrorf("sessionname")
+	}
+	return string(pos1.Bytes()), nil
 }
 
 func sessionNameRune(ru rune) bool {
