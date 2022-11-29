@@ -3,7 +3,7 @@ package drawer4
 import (
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/scanutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func updateSyntaxHighlightOps(d *Drawer) {
@@ -26,7 +26,7 @@ func updateSyntaxHighlightOps(d *Drawer) {
 
 type SyntaxHighlight struct {
 	d   *Drawer
-	sc  *scanutil.Scanner
+	sc  *parseutil.Scanner
 	ops []*ColorizeOp
 }
 
@@ -34,38 +34,38 @@ func (sh *SyntaxHighlight) do(pad int) []*ColorizeOp {
 	// limit reading to be able to handle big content
 	o, n, _, _ := sh.d.visibleLen()
 	min, max := o, o+n
+
 	r := iorw.NewLimitedReaderAtPad(sh.d.reader, min, max, pad)
 
-	sh.sc = scanutil.NewScanner(r)
-	sh.sc.Advance()
+	sh.sc = parseutil.NewScanner()
+	sh.sc.SetSrc2(r)
 
-	for !sh.sc.Match.End() {
+	for !sh.sc.M.Eof() {
 		sh.normal(pad)
 	}
 	return sh.ops
 }
 func (sh *SyntaxHighlight) normal(pad int) {
+	pos0 := sh.sc.KeepPos()
 	opt := &sh.d.Opt.SyntaxHighlight
 	switch {
 	case sh.comments():
 		// ok
-	case sh.sc.Match.Quote('"', '\\', true, pad) ||
-		sh.sc.Match.Quote('\'', '\\', true, 4):
+	case sh.sc.M.StringSection("\"", '\\', true, pad, false) == nil ||
+		sh.sc.M.StringSection("'", '\\', true, 4, false) == nil:
 
 		// unable to support multiline quotes (Ex: Go backquotes) since the whole file is not parsed, just a section.
 		// Also, in the case of Go backquotes, probably only .go files should support them.
 
 		op1 := &ColorizeOp{
-			Offset: sh.sc.Start,
+			Offset: pos0.Pos,
 			Fg:     opt.String.Fg,
 			Bg:     opt.String.Bg,
 		}
 		op2 := &ColorizeOp{Offset: sh.sc.Pos}
 		sh.ops = append(sh.ops, op1, op2)
-		sh.sc.Advance()
 	default:
-		_ = sh.sc.ReadRune()
-		sh.sc.Advance()
+		_, _ = sh.sc.ReadRune()
 	}
 }
 
@@ -79,8 +79,10 @@ func (sh *SyntaxHighlight) comments() bool {
 	return false
 }
 func (sh *SyntaxHighlight) comment(c *drawutil.SyntaxHighlightComment) bool {
+	pos0 := sh.sc.KeepPos()
+
 	// must match sequence start (line or multiline)
-	if !sh.sc.Match.Sequence(c.S) {
+	if err := sh.sc.M.Sequence(c.S); err != nil {
 		return false
 	}
 
@@ -90,29 +92,26 @@ func (sh *SyntaxHighlight) comment(c *drawutil.SyntaxHighlightComment) bool {
 
 	// single line comment
 	if c.IsLine {
-		op1 := &ColorizeOp{Offset: sh.sc.Start, Fg: fg, Bg: bg}
-		sh.sc.Match.ToNewlineOrEnd()
+		op1 := &ColorizeOp{Offset: pos0.Pos, Fg: fg, Bg: bg}
+		_ = sh.sc.M.ToNLExcludeOrEnd('\\')
 		op2 := &ColorizeOp{Offset: sh.sc.Pos}
 		sh.ops = append(sh.ops, op1, op2)
-		sh.sc.Advance()
 		return true
 	}
 
 	// multiline comment
 	// start
-	op := &ColorizeOp{Offset: sh.sc.Start, Fg: fg, Bg: bg}
+	op := &ColorizeOp{Offset: pos0.Pos, Fg: fg, Bg: bg}
 	sh.ops = append(sh.ops, op)
-	sh.sc.Advance()
 	// loop until it finds ending sequence
-	for !sh.sc.Match.End() {
-		if sh.sc.Match.Sequence(c.E) {
+	for !sh.sc.M.Eof() {
+		if err := sh.sc.M.Sequence(c.E); err == nil {
 			// end
 			op = &ColorizeOp{Offset: sh.sc.Pos}
 			sh.ops = append(sh.ops, op)
 			break
 		}
-		_ = sh.sc.ReadRune()
+		_, _ = sh.sc.ReadRune()
 	}
-	sh.sc.Advance()
 	return true
 }
