@@ -9,7 +9,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/scanutil"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
 type InlineComplete struct {
@@ -276,11 +276,13 @@ func filterPrefixedAndExpand(comps []string, prefix string) (expand int, canComp
 //----------
 
 func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
-	sc := scanutil.NewScanner(rd)
+	sc := parseutil.NewScanner()
+	sc.SetSrc2(rd)
 	sc.Reverse = true
-	sc.SetStartPos(index)
+	sc.Pos = index
+	pos0 := sc.KeepPos()
 	max := 1000
-	ok := sc.Match.FnLoop(func(ru rune) bool {
+	err := sc.M.LoopRuneFn(func(ru rune) bool {
 		max--
 		if max <= 0 {
 			return false
@@ -290,8 +292,8 @@ func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
 			unicode.IsNumber(ru) ||
 			unicode.IsDigit(ru)
 	})
-	if !ok || sc.Empty() {
+	if err != nil || pos0.IsEmpty() {
 		return 0, "", false
 	}
-	return sc.Pos, sc.Value(), true
+	return sc.Pos, string(pos0.Bytes()), true
 }
