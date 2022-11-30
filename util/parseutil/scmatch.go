@@ -6,13 +6,12 @@ import (
 	"io"
 	"regexp"
 	"unicode"
-
-	"github.com/jmigpin/editor/util/iout"
 )
 
 // scanner match utility funcs
 type ScMatch struct {
 	sc    *Scanner
+	P     *ScParse
 	cache struct {
 		regexps map[string]*regexp.Regexp
 	}
@@ -20,6 +19,7 @@ type ScMatch struct {
 
 func (m *ScMatch) init(sc *Scanner) {
 	m.sc = sc
+	m.P = &sc.P
 	m.cache.regexps = map[string]*regexp.Regexp{}
 }
 
@@ -407,38 +407,51 @@ func (m *ScMatch) Spaces(includeNL bool, escape rune) error {
 
 //----------
 
-func (m *ScMatch) FnOptional(fn func() error) error {
-	pos0 := m.sc.KeepPos()
-	if err := fn(); err != nil {
-		pos0.Restore()
-	}
-	return nil
+func (m *ScMatch) And(fns ...ScFn) error {
+	return m.sc.RestorePosOnErr(func() error {
+		if m.sc.Reverse {
+			for i := len(fns) - 1; i >= 0; i-- {
+				fn := fns[i]
+				if err := fn(); err != nil {
+					return err
+				}
+			}
+		} else {
+			for _, fn := range fns {
+				if err := fn(); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }
-func (m *ScMatch) FnOr(fns ...func() error) error {
-	me := iout.MultiError{}
+func (m *ScMatch) Or(fns ...ScFn) error {
+	//me := iout.MultiError{} // TODO: better then first error?
+	firstErr := error(nil)
 	for _, fn := range fns {
+		pos0 := m.sc.KeepPos()
 		if err := fn(); err != nil {
-			me.Add(err)
+			if firstErr == nil {
+				firstErr = err
+			}
+			if IsScFatalError(err) {
+				return err
+			}
+			pos0.Restore()
 			continue
 		}
 		return nil
 	}
-	return me.Result()
+	return firstErr
 }
-func (m *ScMatch) FnAnd(fns ...func() error) error {
-	if m.sc.Reverse {
-		for i := len(fns) - 1; i >= 0; i-- {
-			fn := fns[i]
-			if err := fn(); err != nil {
-				return err
-			}
+func (m *ScMatch) Optional(fn ScFn) error {
+	pos0 := m.sc.KeepPos()
+	if err := fn(); err != nil {
+		if IsScFatalError(err) {
+			return err
 		}
-	} else {
-		for _, fn := range fns {
-			if err := fn(); err != nil {
-				return err
-			}
-		}
+		pos0.Restore()
 	}
 	return nil
 }
@@ -474,26 +487,56 @@ func (m *ScMatch) Digit() error {
 func (m *ScMatch) Digits() error {
 	return m.RuneFnLoop(unicode.IsDigit)
 }
+
 func (m *ScMatch) Integer() error {
 	// TODO: reverse
-
 	//u := "[+-]?[0-9]+"
 	//return m.RegexpFromStartCached(u)
 
-	return m.sc.RestorePosOnErr(func() error {
-		return m.FnAnd(
-			func() error {
-				_ = m.RuneAny([]rune("+-")) // optional
-				return nil
-			},
-			m.Digits,
-		)
-	})
+	return m.And(
+		m.P.Optional(m.sign),
+		m.Digits,
+	)
 }
+
 func (m *ScMatch) Float() error {
 	// TODO: reverse
-	u := "[+-]?([0-9]*[.])?[0-9]+"
-	return m.RegexpFromStartCached(u, 100)
+	//u := "[+-]?([0-9]*[.])?[0-9]+"
+	//u := "[+-]?(\\d+([.]\\d*)?([eE][+-]?\\d+)?|[.]\\d+([eE][+-]?\\d+)?)"
+	//return m.RegexpFromStartCached(u, 100)
+
+	return m.Or(
+		// -1.2
+		// -1.2e3
+		m.P.And(
+			m.Integer,
+			m.fraction,
+			m.P.Optional(m.exponent),
+		),
+		// .2
+		// .2e3
+		m.P.And(
+			m.fraction,
+			m.P.Optional(m.exponent),
+		),
+	)
+}
+
+func (m *ScMatch) sign() error {
+	return m.sc.M.RuneAny([]rune("+-"))
+}
+func (m *ScMatch) fraction() error {
+	return m.And(
+		m.P.Rune('.'),
+		m.Digits,
+	)
+}
+func (m *ScMatch) exponent() error {
+	return m.And(
+		m.P.RuneAny([]rune("eE")),
+		m.P.Optional(m.sign),
+		m.Digits,
+	)
 }
 
 //----------

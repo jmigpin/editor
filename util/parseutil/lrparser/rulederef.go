@@ -55,7 +55,7 @@ func replaceRefRules(ri *RuleIndex) error {
 			// replace with rule in ruleindex
 			if !replaceFromMap(ri.m, t.name, rref) {
 				err := fmt.Errorf("rule not found: %v", t.name)
-				return &PosError{err: err, Pos: t.Pos()}
+				return &PosError{Err: err, Pos: t.Pos()}
 			}
 		case *ProcRule:
 			for k, arg := range t.args {
@@ -424,5 +424,5 @@ func replaceFromMap(m map[string]*Rule, id string, rref *Rule) bool {
 
 func nodePosErrorf(n PNode, f string, args ...interface{}) error {
 	err := fmt.Errorf(f, args...)
-	return &PosError{err: err, Pos: n.Pos()}
+	return &PosError{Err: err, Pos: n.Pos()}
 }

@@ -56,16 +56,3 @@ func (fset *FileSet) Error2(err error, index int) error {
 	str := parseutil.SurroundingString(fset.Src, index, 20)
 	return fmt.Errorf("%s:%d:%d: %v: %q", fset.Filename, line, col, err, str)
 }
-
-//----------
-//----------
-//----------
-
-type PosError struct {
-	err error
-	Pos int
-}
-
-func (pe *PosError) Error() string {
-	return pe.err.Error()
-}

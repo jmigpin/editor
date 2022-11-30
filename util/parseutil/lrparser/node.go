@@ -24,10 +24,9 @@ func NewPState(src []byte) *PState {
 //----------
 //----------
 
-// type PNode = parseutil.PNode
-// type BasicPNode = parseutil.BasicPNode
 type RuneRange = parseutil.RuneRange
 type RuneRanges = parseutil.RuneRanges
+type PosError = parseutil.ScPosError
 
 //----------
 //----------

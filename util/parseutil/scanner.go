@@ -138,6 +138,18 @@ func (sp *ScannerPos) Bytes() []byte {
 //----------
 //----------
 
+// error with position
+type ScPosError struct {
+	Err error
+	Pos int
+}
+
+func (e *ScPosError) Error() string {
+	return e.Err.Error()
+}
+
+//----------
+
 type ScFatalError struct {
 	ScPosError
 }
@@ -145,12 +157,4 @@ type ScFatalError struct {
 func IsScFatalError(err error) bool {
 	_, ok := err.(*ScFatalError)
 	return ok
-}
-
-//----------
-
-// error with position
-type ScPosError struct {
-	error
-	Pos int
 }

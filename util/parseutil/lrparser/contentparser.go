@@ -51,7 +51,7 @@ func (cp *ContentParser) ParseFileSet(fset *FileSet, index int, extData any) (*B
 	cpr.externalData = extData
 	cpn, err := cp.parse3(cpr)
 	if err != nil {
-		pe := &PosError{err: err, Pos: cpr.ps.Pos}
+		pe := &PosError{Err: err, Pos: cpr.ps.Pos}
 		err = fset.Error(pe)
 		if cpr.opt.VerboseError {
 			err = fmt.Errorf("%w\n%s", err, cpr.Debug(cp))
@@ -251,7 +251,7 @@ func (cp *ContentParser) nextParseRule(cpr *cpRun, st *State) (Rule, error) {
 	if cp.Opt.EarlyStop {
 		cpr.logf("earlystop: %v\n", err)
 		cpr.earlyStop.on = true
-		cpr.earlyStop.err = &PosError{err: err, Pos: cpr.ps.Pos}
+		cpr.earlyStop.err = &PosError{Err: err, Pos: cpr.ps.Pos}
 		return cp.simulateParseRuleSet(cpr, st)
 	}
 

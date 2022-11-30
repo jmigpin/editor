@@ -5,8 +5,6 @@ package sampleparsers
 
 import (
 	"testing"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestJsonParser(t *testing.T) {
@@ -18,8 +16,8 @@ func TestJsonParser(t *testing.T) {
 	}
 	_ = v
 
-	spew.Config.Indent = "\t"
-	spew.Dump(v)
+	//spew.Config.Indent = "\t"
+	//spew.Dump(v)
 }
 
 //----------

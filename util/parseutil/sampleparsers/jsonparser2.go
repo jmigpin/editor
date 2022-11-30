@@ -14,15 +14,15 @@ func ParseJson2(src []byte) (interface{}, error) {
 type JsonParser2 struct {
 	sc *parseutil.Scanner
 	fn struct {
-		object   parseutil.ScParseFn
-		array    parseutil.ScParseFn
-		value    parseutil.ScParseFn
-		number   parseutil.ScParseFn
-		string   parseutil.ScParseFn
-		element  parseutil.ScParseFn
-		elements parseutil.ScParseFn
-		member   parseutil.ScParseFn
-		members  parseutil.ScParseFn
+		object   parseutil.ScFn
+		array    parseutil.ScFn
+		value    parseutil.ScFn
+		number   parseutil.ScFn
+		string   parseutil.ScFn
+		element  parseutil.ScFn
+		elements parseutil.ScFn
+		member   parseutil.ScFn
+		members  parseutil.ScFn
 	}
 }
 
@@ -112,4 +112,4 @@ func (p *JsonParser2) parseJson(src []byte) (any, error) {
 //----------
 //----------
 
-type SParserFunc = parseutil.ScParseFn
+type SParserFunc = parseutil.ScFn
