@@ -227,8 +227,8 @@ func (m *ScMatch) Sequence(seq string) error {
 
 //----------
 
-func (m *ScMatch) RegexpFromStartCached(res string) error {
-	return m.RegexpFromStart(res, true, 1000)
+func (m *ScMatch) RegexpFromStartCached(res string, maxLen int) error {
+	return m.RegexpFromStart(res, true, maxLen)
 }
 func (m *ScMatch) RegexpFromStart(res string, cache bool, maxLen int) error {
 	// TODO: reverse
@@ -493,7 +493,7 @@ func (m *ScMatch) Integer() error {
 func (m *ScMatch) Float() error {
 	// TODO: reverse
 	u := "[+-]?([0-9]*[.])?[0-9]+"
-	return m.RegexpFromStartCached(u)
+	return m.RegexpFromStartCached(u, 100)
 }
 
 //----------

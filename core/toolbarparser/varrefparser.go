@@ -38,6 +38,7 @@ func newVarRefParser() *varRefParser {
 }
 func (p *varRefParser) parseVarRefs(src []byte) ([]*VarRef, error) {
 	p.sc.SetSrc(src)
+
 	w := []*VarRef{}
 	for {
 		if err := p.sc.M.EscapeAny(osutil.EscapeRune); err == nil {
@@ -56,6 +57,26 @@ func (p *varRefParser) parseVarRefs(src []byte) ([]*VarRef, error) {
 		}
 	}
 	return w, nil
+
+	// SLOWER
+	//vrs := []*VarRef{}
+	//err := p.sc.P.Loop(
+	//	p.sc.P.Or(
+	//		p.sc.P.EscapeAny(osutil.EscapeRune),
+	//		p.sc.P.QuotedString2('\\', 3000, 3000),
+	//		func() error {
+	//			vr, err := p.parseVarRef()
+	//			if err == nil {
+	//				vrs = append(vrs, vr)
+	//			}
+	//			return err
+	//		},
+	//		p.sc.P.NRunes(1), // consume rune
+	//	),
+	//	nil, false,
+	//)()
+	//return vrs, err
+
 }
 func (p *varRefParser) parseVarRef() (*VarRef, error) {
 	pos0 := p.sc.KeepPos()
@@ -65,7 +86,7 @@ func (p *varRefParser) parseVarRef() (*VarRef, error) {
 		if err := p.sc.M.RuneAny([]rune("~$")); err != nil {
 			return err
 		}
-		sym := p.sc.BytesFrom(pos0.Pos)
+		sym := pos0.Bytes()
 		// open/close
 		hasOpen := false
 		if err := p.sc.M.Rune('{'); err == nil {
@@ -74,10 +95,10 @@ func (p *varRefParser) parseVarRef() (*VarRef, error) {
 		// name
 		pos2 := p.sc.KeepPos()
 		u := "[a-zA-Z0-9_]+"
-		if err := p.sc.M.RegexpFromStartCached(u); err != nil {
+		if err := p.sc.M.RegexpFromStartCached(u, 100); err != nil {
 			return err
 		}
-		name := p.sc.BytesFrom(pos2.Pos)
+		name := pos2.Bytes()
 		// open/close
 		if hasOpen {
 			if err := p.sc.M.Rune('}'); err != nil {
@@ -92,4 +113,30 @@ func (p *varRefParser) parseVarRef() (*VarRef, error) {
 	}
 	vr.SetPos(pos0.Pos, p.sc.Pos)
 	return vr, nil
+
+	// SLOWER
+	//pos0 := p.sc.KeepPos()
+	//symK := p.sc.P.NewValueKeeper()
+	//nameK := p.sc.P.NewValueKeeper()
+	//parseName := func() error {
+	//	u := "[a-zA-Z0-9_]+"
+	//	return nameK.KeepBytes(p.sc.P.RegexpFromStartCached(u, 100))()
+	//}
+	//if err := p.sc.P.And(
+	//	symK.KeepBytes(p.sc.P.RuneAny([]rune("~$"))),
+	//	p.sc.P.Or(
+	//		p.sc.P.And(
+	//			p.sc.P.Rune('{'),
+	//			parseName,
+	//			p.sc.P.Rune('}'),
+	//		),
+	//		parseName,
+	//	),
+	//)(); err != nil {
+	//	return nil, err
+	//}
+	//vr := &VarRef{}
+	//vr.Name = fmt.Sprintf("%s%s", symK.Bytes(), nameK.Bytes())
+	//vr.SetPos(pos0.Pos, p.sc.Pos)
+	//return vr, nil
 }

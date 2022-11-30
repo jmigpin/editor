@@ -102,6 +102,11 @@ func (p *ScParse) Rune(ru rune) ScParseFn {
 		return p.sc.M.Rune(ru)
 	}
 }
+func (p *ScParse) RuneAny(rs []rune) ScParseFn {
+	return func() error {
+		return p.sc.M.RuneAny(rs)
+	}
+}
 func (p *ScParse) RuneFn(fn func(rune) bool) ScParseFn {
 	return func() error {
 		return p.sc.M.RuneFn(fn)
@@ -115,6 +120,11 @@ func (p *ScParse) Sequence(seq string) ScParseFn {
 
 //----------
 
+func (p *ScParse) RegexpFromStartCached(res string, maxLen int) ScParseFn {
+	return func() error {
+		return p.sc.M.RegexpFromStartCached(res, maxLen)
+	}
+}
 func (p *ScParse) DoubleQuotedString(maxLen int) ScParseFn {
 	return func() error {
 		return p.sc.M.DoubleQuotedString(maxLen)
@@ -128,6 +138,11 @@ func (p *ScParse) QuotedString2(esc rune, maxLen1, maxLen2 int) ScParseFn {
 func (p *ScParse) EscapeAny(esc rune) ScParseFn {
 	return func() error {
 		return p.sc.M.EscapeAny(esc)
+	}
+}
+func (p *ScParse) NRunes(n int) ScParseFn {
+	return func() error {
+		return p.sc.M.NRunes(n)
 	}
 }
 func (p *ScParse) Spaces(includeNL bool, escape rune) ScParseFn {
@@ -147,6 +162,14 @@ func (p *ScParse) Float() ScParseFn {
 
 //----------
 
+func (p *ScParse) NewValueKeeper() *ScValueKeeper {
+	ak := &ScValueKeeper{p: p}
+	return ak
+}
+
+//----------
+
+// WARNING: best used when there are no closure variables in the function, otherwise the variables will contain values of previous runs
 func (p *ScParse) GetCacheFunc(name string) *ScParseCacheFn {
 	cf, ok := p.cache.cfs[name]
 	if ok {
@@ -182,7 +205,60 @@ func (p *ScParse) FatalOnErr(str string, fn ScParseFn) ScParseFn {
 type ScParseCacheFn struct {
 	p    *ScParse
 	name string
-	Fn   ScParseFn
+	fn   ScParseFn
+
+	PreRun func()
+	Data   func() any
+}
+
+func (cf *ScParseCacheFn) IsSet() bool {
+	return cf.fn != nil
+}
+func (cf *ScParseCacheFn) Set(fn ScParseFn) {
+	cf.fn = fn
+}
+func (cf *ScParseCacheFn) Run() error {
+	if cf.PreRun != nil {
+		cf.PreRun()
+	}
+	return cf.fn()
+}
+
+//----------
+//----------
+//----------
+
+type ScValueKeeper struct {
+	p     *ScParse
+	Value any
+}
+
+func (vk *ScValueKeeper) Keep(fn ScParseValueFn) ScParseFn {
+	return func() error {
+		v, err := fn()
+		vk.Value = v
+		return err
+	}
+}
+func (vk *ScValueKeeper) KeepBytes(fn ScParseFn) ScParseFn {
+	return func() error {
+		pos0 := vk.p.sc.KeepPos()
+		err := fn()
+		vk.Value = pos0.Bytes()
+		return err
+	}
+}
+func (vk *ScValueKeeper) StringOptional() string {
+	if vk.Value == nil {
+		return ""
+	}
+	return vk.Value.(string)
+}
+func (vk *ScValueKeeper) String() string {
+	return vk.Value.(string)
+}
+func (vk *ScValueKeeper) Bytes() []byte {
+	return vk.Value.([]byte)
 }
 
 //----------
@@ -190,3 +266,4 @@ type ScParseCacheFn struct {
 //----------
 
 type ScParseFn func() error
+type ScParseValueFn func() (any, error)

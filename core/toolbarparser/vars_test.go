@@ -41,13 +41,20 @@ func TestParseVarDecl2(t *testing.T) {
 	}
 }
 func TestParseDeclVar3(t *testing.T) {
-	s1 := "$abc"
+	s1 := "$abc="
 	v, err := parseVarDecl(s1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !(v.Name == "$abc" && v.Value == "") {
 		t.Fatal(v)
+	}
+}
+func TestParseDeclVar4(t *testing.T) {
+	s1 := "$abc"
+	_, err := parseVarDecl(s1)
+	if err == nil {
+		t.Fatal("expecting error")
 	}
 }
 

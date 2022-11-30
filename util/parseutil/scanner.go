@@ -66,11 +66,6 @@ func (sc *Scanner) KeepPos() ScannerPos {
 	return ScannerPos{sc: sc, Pos: sc.Pos}
 }
 
-// from provided, to current position
-func (sc *Scanner) BytesFrom(from int) []byte {
-	return sc.Src[from:sc.Pos]
-}
-
 func (sc *Scanner) RestorePosOnErr(fn func() error) error {
 	pos0 := sc.KeepPos()
 	if err := fn(); err != nil {

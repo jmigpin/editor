@@ -1,7 +1,6 @@
 package toolbarparser
 
 import (
-	"fmt"
 	"unicode"
 
 	"github.com/jmigpin/editor/util/osutil"
@@ -39,101 +38,73 @@ func newVarDeclParser() *varDeclParser {
 }
 func (p *varDeclParser) parseVarDecl(src []byte) (*VarDecl, error) {
 	p.sc.SetSrc(src)
-	ru, err := p.sc.PeekRune()
-	if err != nil {
+	vk := p.sc.P.NewValueKeeper()
+	if err := p.sc.P.Or(
+		vk.Keep(p.parseTildeVarDecl),
+		vk.Keep(p.parseDollarVarDecl),
+	)(); err != nil {
+		//return nil, p.sc.SrcError(err)
 		return nil, err
 	}
-	switch ru {
-	case '~':
-		return p.parseTildeVarDecl()
-	case '$':
-		return p.parseDollarVarDecl()
-	}
-	return nil, fmt.Errorf("unexpected rune: %v", ru)
+	return vk.Value.(*VarDecl), nil
 }
-func (p *varDeclParser) parseTildeVarDecl() (*VarDecl, error) {
+func (p *varDeclParser) parseTildeVarDecl() (any, error) {
+	nameRe := "~(0|[1-9][0-9]*)"
+	vd := &VarDecl{}
 	pos0 := p.sc.KeepPos()
-	// name
-	u := "~(0|[1-9][0-9]*)"
-	if err := p.sc.M.RegexpFromStartCached(u); err != nil {
-		return nil, err
-	}
-	name := string(p.sc.BytesFrom(pos0.Pos))
-
-	w := &VarDecl{Name: name}
-
-	// assign
-	if err := p.sc.M.Rune('='); err != nil {
-		return nil, fmt.Errorf("expecting assign") //err
-	}
-	// value
-	v, err := p.parseVarValue()
-	if err != nil {
-		return nil, err
-	}
-	w.Value = v
-	return w, nil
+	vk := p.sc.P.NewValueKeeper()
+	err := p.sc.P.And(
+		// name
+		p.sc.P.RegexpFromStartCached(nameRe, 100),
+		func() error {
+			vd.Name = string(pos0.Bytes())
+			return nil
+		},
+		// value
+		p.sc.P.Rune('='),
+		vk.Keep(p.parseVarValue),
+	)()
+	vd.Value = vk.StringOptional()
+	return vd, err
 }
-func (p *varDeclParser) parseDollarVarDecl() (*VarDecl, error) {
+func (p *varDeclParser) parseDollarVarDecl() (any, error) {
+	nameRe := "\\$[_a-zA-Z0-9]+"
+	vd := &VarDecl{}
 	pos0 := p.sc.KeepPos()
-	// name
-	u := "\\$[_a-zA-Z0-9]+"
-	if err := p.sc.M.RegexpFromStartCached(u); err != nil {
-		return nil, err
-	}
-	name := string(p.sc.BytesFrom(pos0.Pos))
-
-	w := &VarDecl{Name: name}
-
-	// assign (optional)
-	pos2 := p.sc.KeepPos()
-	if err := p.sc.M.Rune('='); err != nil {
-		if p.sc.M.Eof() {
-			pos2.Restore()
-			return w, nil
-		}
-		return nil, err
-	}
-	// value
-	v, err := p.parseVarValue()
-	if err != nil {
-		return nil, err
-	}
-	w.Value = v
-	return w, nil
+	vk := p.sc.P.NewValueKeeper()
+	err := p.sc.P.And(
+		// name
+		p.sc.P.RegexpFromStartCached(nameRe, 100),
+		func() error {
+			vd.Name = string(pos0.Bytes())
+			return nil
+		},
+		// value (optional after =)
+		p.sc.P.Rune('='),
+		p.sc.P.Optional(vk.Keep(p.parseVarValue)),
+	)()
+	vd.Value = vk.StringOptional()
+	return vd, err
 }
 
 //----------
 
-func (p *varDeclParser) parseVarValue() (string, error) {
+func (p *varDeclParser) parseVarValue() (any, error) {
 	pos0 := p.sc.KeepPos()
-	err := p.sc.RestorePosOnErr(func() error {
-		// any runes (with some exceptions)
+	cf := p.sc.P.GetCacheFunc("parseVarValue") // minor performance improvement; also here for example of usage
+	if !cf.IsSet() {
 		notSpace := func(ru rune) bool { return !unicode.IsSpace(ru) }
-		for {
-			// TODO: necessary?
-			//if err := p.sc.M.Eof(); err == nil {
-			//	break
-			//}
-
-			if err := p.sc.M.EscapeAny(osutil.EscapeRune); err == nil {
-				continue
-			}
-			if err := p.sc.M.QuotedString2('\\', 3000, 3000); err == nil {
-				continue
-			}
-			if err := p.sc.M.RuneFn(notSpace); err == nil {
-				continue
-			}
-			break
-		}
-		if pos0.IsEmpty() {
-			return fmt.Errorf("empty")
-		}
-		return nil
-	})
-	if err != nil {
+		cf.Set(p.sc.P.Loop(
+			p.sc.P.Or(
+				p.sc.P.EscapeAny(osutil.EscapeRune),
+				p.sc.P.QuotedString2('\\', 3000, 3000),
+				p.sc.P.RuneFn(notSpace),
+			),
+			nil, false,
+		))
+	}
+	if err := cf.Run(); err != nil {
 		return "", err
 	}
-	return string(p.sc.BytesFrom(pos0.Pos)), nil
+	return string(pos0.Bytes()), nil
 }

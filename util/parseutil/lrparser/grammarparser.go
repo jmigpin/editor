@@ -95,7 +95,7 @@ func (gp *grammarParser) parseDefRule(ps *PState) error {
 func (gp *grammarParser) parseName(ps *PState) (string, error) {
 	u := "[_a-zA-Z][_a-zA-Z0-9$]*"
 	pos0 := ps.KeepPos()
-	if err := ps.M.RegexpFromStartCached(u); err != nil {
+	if err := ps.M.RegexpFromStartCached(u, 100); err != nil {
 		return "", err
 	}
 	name := string(pos0.Bytes())
