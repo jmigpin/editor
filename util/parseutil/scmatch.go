@@ -1,6 +1,7 @@
 package parseutil
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -9,22 +10,22 @@ import (
 	"github.com/jmigpin/editor/util/iout"
 )
 
-// scanner matcher utility funcs
-type SMatcher struct {
+// scanner match utility funcs
+type ScMatch struct {
 	sc    *Scanner
 	cache struct {
 		regexps map[string]*regexp.Regexp
 	}
 }
 
-func (m *SMatcher) init(sc *Scanner) {
+func (m *ScMatch) init(sc *Scanner) {
 	m.sc = sc
 	m.cache.regexps = map[string]*regexp.Regexp{}
 }
 
 //----------
 
-func (m *SMatcher) Eof() bool {
+func (m *ScMatch) Eof() bool {
 	pos0 := m.sc.KeepPos()
 	_, err := m.sc.ReadRune()
 	if err == nil {
@@ -36,7 +37,7 @@ func (m *SMatcher) Eof() bool {
 
 //----------
 
-func (m *SMatcher) Rune(ru rune) error {
+func (m *ScMatch) Rune(ru rune) error {
 	return m.sc.RestorePosOnErr(func() error {
 		ru2, err := m.sc.ReadRune()
 		if err != nil {
@@ -48,7 +49,7 @@ func (m *SMatcher) Rune(ru rune) error {
 		return nil
 	})
 }
-func (m *SMatcher) RuneAny(rs []rune) error { // "or", any of the runes
+func (m *ScMatch) RuneAny(rs []rune) error { // "or", any of the runes
 	return m.sc.RestorePosOnErr(func() error {
 		ru, err := m.sc.ReadRune()
 		if err != nil {
@@ -60,7 +61,7 @@ func (m *SMatcher) RuneAny(rs []rune) error { // "or", any of the runes
 		return nil
 	})
 }
-func (m *SMatcher) RuneAnyNot(rs []rune) error { // "or", any of the runes
+func (m *ScMatch) RuneAnyNot(rs []rune) error { // "or", any of the runes
 	return m.sc.RestorePosOnErr(func() error {
 		ru, err := m.sc.ReadRune()
 		if err != nil {
@@ -72,7 +73,7 @@ func (m *SMatcher) RuneAnyNot(rs []rune) error { // "or", any of the runes
 		return nil
 	})
 }
-func (m *SMatcher) RuneSequence(seq []rune) error {
+func (m *ScMatch) RuneSequence(seq []rune) error {
 	return m.sc.RestorePosOnErr(func() error {
 		for i, l := 0, len(seq); i < l; i++ {
 			ru := seq[i]
@@ -93,7 +94,7 @@ func (m *SMatcher) RuneSequence(seq []rune) error {
 		return nil
 	})
 }
-func (m *SMatcher) RuneSequenceMid(rs []rune) error {
+func (m *ScMatch) RuneSequenceMid(rs []rune) error {
 	return m.sc.RestorePosOnErr(func() error {
 		for k := 0; ; k++ {
 			if err := m.RuneSequence(rs); err == nil {
@@ -113,7 +114,7 @@ func (m *SMatcher) RuneSequenceMid(rs []rune) error {
 		return NoMatchErr
 	})
 }
-func (m *SMatcher) RuneRange(rr RuneRange) error {
+func (m *ScMatch) RuneRange(rr RuneRange) error {
 	return m.sc.RestorePosOnErr(func() error {
 		ru, err := m.sc.ReadRune()
 		if err != nil {
@@ -125,7 +126,7 @@ func (m *SMatcher) RuneRange(rr RuneRange) error {
 		return nil
 	})
 }
-func (m *SMatcher) RuneRangeNot(rr RuneRange) error { // negation
+func (m *ScMatch) RuneRangeNot(rr RuneRange) error { // negation
 	return m.sc.RestorePosOnErr(func() error {
 		ru, err := m.sc.ReadRune()
 		if err != nil {
@@ -137,7 +138,7 @@ func (m *SMatcher) RuneRangeNot(rr RuneRange) error { // negation
 		return nil
 	})
 }
-func (m *SMatcher) RunesAndRuneRanges(rs []rune, rrs RuneRanges) error { // negation
+func (m *ScMatch) RunesAndRuneRanges(rs []rune, rrs RuneRanges) error { // negation
 	return m.sc.RestorePosOnErr(func() error {
 		ru, err := m.sc.ReadRune()
 		if err != nil {
@@ -149,7 +150,7 @@ func (m *SMatcher) RunesAndRuneRanges(rs []rune, rrs RuneRanges) error { // nega
 		return nil
 	})
 }
-func (m *SMatcher) RunesAndRuneRangesNot(rs []rune, rrs RuneRanges) error {
+func (m *ScMatch) RunesAndRuneRangesNot(rs []rune, rrs RuneRanges) error {
 	return m.sc.RestorePosOnErr(func() error {
 		ru, err := m.sc.ReadRune()
 		if err != nil {
@@ -164,7 +165,7 @@ func (m *SMatcher) RunesAndRuneRangesNot(rs []rune, rrs RuneRanges) error {
 
 //----------
 
-func (m *SMatcher) RuneFn(fn func(rune) bool) error {
+func (m *ScMatch) RuneFn(fn func(rune) bool) error {
 	pos0 := m.sc.KeepPos()
 	ru, err := m.sc.ReadRune()
 	if err == nil {
@@ -177,7 +178,7 @@ func (m *SMatcher) RuneFn(fn func(rune) bool) error {
 }
 
 // one or more
-func (m *SMatcher) RuneFnLoop(fn func(rune) bool) error {
+func (m *ScMatch) RuneFnLoop(fn func(rune) bool) error {
 	for first := true; ; first = false {
 		if err := m.RuneFn(fn); err != nil {
 			if first {
@@ -208,7 +209,7 @@ func (m *SMatcher) RuneFnLoop(fn func(rune) bool) error {
 //----------
 
 // same as rune sequence, but directly using strings comparison
-func (m *SMatcher) Sequence(seq string) error {
+func (m *ScMatch) Sequence(seq string) error {
 	if m.sc.Reverse {
 		return m.RuneSequence([]rune(seq))
 	}
@@ -226,10 +227,10 @@ func (m *SMatcher) Sequence(seq string) error {
 
 //----------
 
-func (m *SMatcher) RegexpFromStartCached(res string) error {
+func (m *ScMatch) RegexpFromStartCached(res string) error {
 	return m.RegexpFromStart(res, true, 1000)
 }
-func (m *SMatcher) RegexpFromStart(res string, cache bool, maxLen int) error {
+func (m *ScMatch) RegexpFromStart(res string, cache bool, maxLen int) error {
 	// TODO: reverse
 
 	res = "^(" + res + ")" // from start
@@ -270,16 +271,16 @@ func (m *SMatcher) RegexpFromStart(res string, cache bool, maxLen int) error {
 
 //----------
 
-func (m *SMatcher) DoubleQuotedString(maxLen int) error {
+func (m *ScMatch) DoubleQuotedString(maxLen int) error {
 	return m.StringSection("\"", '\\', true, maxLen, false)
 }
-func (m *SMatcher) QuotedString() error {
+func (m *ScMatch) QuotedString() error {
 	//return m.QuotedString2('\\', 3000, 10)
 	return m.QuotedString2('\\', 3000, 3000)
 }
 
 // allows escaped runes (if esc!=0)
-func (m *SMatcher) QuotedString2(esc rune, maxLen1, maxLen2 int) error {
+func (m *ScMatch) QuotedString2(esc rune, maxLen1, maxLen2 int) error {
 	// doublequote: fail on newline, eof doesn't close
 	if err := m.StringSection("\"", esc, true, maxLen1, false); err == nil {
 		return nil
@@ -295,12 +296,12 @@ func (m *SMatcher) QuotedString2(esc rune, maxLen1, maxLen2 int) error {
 	return fmt.Errorf("not a quoted string")
 }
 
-func (m *SMatcher) StringSection(openclose string, esc rune, failOnNewline bool, maxLen int, eofClose bool) error {
+func (m *ScMatch) StringSection(openclose string, esc rune, failOnNewline bool, maxLen int, eofClose bool) error {
 	return m.Section(openclose, openclose, esc, failOnNewline, maxLen, eofClose)
 }
 
 // match opened/closed sections.
-func (m *SMatcher) Section(open, close string, esc rune, failOnNewline bool, maxLen int, eofClose bool) error {
+func (m *ScMatch) Section(open, close string, esc rune, failOnNewline bool, maxLen int, eofClose bool) error {
 	pos0 := m.sc.Pos
 	return m.sc.RestorePosOnErr(func() error {
 		if err := m.Sequence(open); err != nil {
@@ -343,7 +344,7 @@ func (m *SMatcher) Section(open, close string, esc rune, failOnNewline bool, max
 
 //----------
 
-func (m *SMatcher) EscapeAny(escape rune) error {
+func (m *ScMatch) EscapeAny(escape rune) error {
 	return m.sc.RestorePosOnErr(func() error {
 		if m.sc.Reverse {
 			if err := m.NRunes(1); err != nil {
@@ -357,7 +358,7 @@ func (m *SMatcher) EscapeAny(escape rune) error {
 		return m.NRunes(1)
 	})
 }
-func (m *SMatcher) NRunes(n int) error {
+func (m *ScMatch) NRunes(n int) error {
 	pos0 := m.sc.KeepPos()
 	for i := 0; i < n; i++ {
 		_, err := m.sc.ReadRune()
@@ -371,15 +372,15 @@ func (m *SMatcher) NRunes(n int) error {
 
 //----------
 
-func (m *SMatcher) SpacesIncludingNL() bool {
+func (m *ScMatch) SpacesIncludingNL() bool {
 	err := m.Spaces(true, 0)
 	return err == nil
 }
-func (m *SMatcher) SpacesExcludingNL() bool {
+func (m *ScMatch) SpacesExcludingNL() bool {
 	err := m.Spaces(false, 0)
 	return err == nil
 }
-func (m *SMatcher) Spaces(includeNL bool, escape rune) error {
+func (m *ScMatch) Spaces(includeNL bool, escape rune) error {
 	for first := true; ; first = false {
 		if escape != 0 {
 			if err := m.EscapeAny(escape); err == nil {
@@ -406,14 +407,14 @@ func (m *SMatcher) Spaces(includeNL bool, escape rune) error {
 
 //----------
 
-func (m *SMatcher) FnOptional(fn func() error) error {
+func (m *ScMatch) FnOptional(fn func() error) error {
 	pos0 := m.sc.KeepPos()
 	if err := fn(); err != nil {
 		pos0.Restore()
 	}
 	return nil
 }
-func (m *SMatcher) FnOr(fns ...func() error) error {
+func (m *ScMatch) FnOr(fns ...func() error) error {
 	me := iout.MultiError{}
 	for _, fn := range fns {
 		if err := fn(); err != nil {
@@ -424,7 +425,7 @@ func (m *SMatcher) FnOr(fns ...func() error) error {
 	}
 	return me.Result()
 }
-func (m *SMatcher) FnAnd(fns ...func() error) error {
+func (m *ScMatch) FnAnd(fns ...func() error) error {
 	if m.sc.Reverse {
 		for i := len(fns) - 1; i >= 0; i-- {
 			fn := fns[i]
@@ -444,7 +445,7 @@ func (m *SMatcher) FnAnd(fns ...func() error) error {
 
 //----------
 
-func (m *SMatcher) ToNLExcludeOrEnd(esc rune) int {
+func (m *ScMatch) ToNLExcludeOrEnd(esc rune) int {
 	pos0 := m.sc.KeepPos()
 	valid := func(ru rune) bool { return ru != '\n' }
 	for {
@@ -458,7 +459,7 @@ func (m *SMatcher) ToNLExcludeOrEnd(esc rune) int {
 	}
 	return pos0.Len()
 }
-func (m *SMatcher) ToNLIncludeOrEnd(esc rune) int {
+func (m *ScMatch) ToNLIncludeOrEnd(esc rune) int {
 	pos0 := m.sc.KeepPos()
 	_ = m.ToNLExcludeOrEnd(esc)
 	_ = m.Rune('\n')
@@ -467,13 +468,13 @@ func (m *SMatcher) ToNLIncludeOrEnd(esc rune) int {
 
 //----------
 
-func (m *SMatcher) Digit() error {
+func (m *ScMatch) Digit() error {
 	return m.RuneFn(unicode.IsDigit)
 }
-func (m *SMatcher) Digits() error {
+func (m *ScMatch) Digits() error {
 	return m.RuneFnLoop(unicode.IsDigit)
 }
-func (m *SMatcher) Integer() error {
+func (m *ScMatch) Integer() error {
 	// TODO: reverse
 
 	//u := "[+-]?[0-9]+"
@@ -489,7 +490,7 @@ func (m *SMatcher) Integer() error {
 		)
 	})
 }
-func (m *SMatcher) Float() error {
+func (m *ScMatch) Float() error {
 	// TODO: reverse
 	u := "[+-]?([0-9]*[.])?[0-9]+"
 	return m.RegexpFromStartCached(u)
@@ -526,3 +527,9 @@ func (rrs RuneRanges) HasRune(ru rune) bool {
 	}
 	return false
 }
+
+//----------
+//----------
+//----------
+
+var NoMatchErr = errors.New("no match")

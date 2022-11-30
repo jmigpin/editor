@@ -1,7 +1,6 @@
 package parseutil
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"unicode/utf8"
@@ -10,8 +9,8 @@ import (
 type Scanner struct {
 	Src []byte
 	Pos int
-	M   SMatcher
-	P   SParser
+	M   ScMatch
+	P   ScParse
 
 	Reverse     bool // read direction
 	Debug       bool
@@ -97,10 +96,10 @@ func (sc *Scanner) SrcError2(err error, maxLen int) error {
 
 	// position
 	pos := sc.Pos
-	if pe, ok := err.(*PosError); ok {
+	if pe, ok := err.(*ScPosError); ok {
 		pos = pe.Pos
 	}
-	if fe, ok := err.(*SFatalError); ok {
+	if fe, ok := err.(*ScFatalError); ok {
 		pos = fe.Pos
 	}
 
@@ -144,25 +143,19 @@ func (sp *ScannerPos) Bytes() []byte {
 //----------
 //----------
 
-type SFatalError struct {
-	PosError
+type ScFatalError struct {
+	ScPosError
 }
 
-func IsFatalErr(err error) bool {
-	_, ok := err.(*SFatalError)
+func IsScFatalError(err error) bool {
+	_, ok := err.(*ScFatalError)
 	return ok
 }
 
 //----------
 
 // error with position
-type PosError struct {
+type ScPosError struct {
 	error
 	Pos int
 }
-
-//----------
-//----------
-//----------
-
-var NoMatchErr = errors.New("no match")
