@@ -1,204 +1,242 @@
 package reslocparser
 
 import (
-	_ "embed"
+	"sync"
 
-	"github.com/jmigpin/editor/util/parseutil/lrparser"
+	"github.com/jmigpin/editor/util/parseutil"
 )
 
-//go:embed reslocparser.gram
-var resLocGrammar []byte
-var resLocFilename = "reslocparser.gram" // for errors
-
-//----------
-
-// TODO: review
-//var extraSyms = "_-~.%@&?!=#+:^" + "(){}[]<>" + "\\/" + " " // besides letters and digits
-//var nameSepSyms = "" +
-//	" " + // word separator
-//	"=" + // usually around filenames (ex: -arg=/a/b.txt)
-//	"(){}[]<>" + // usually used around filenames in various outputs
-//	":" // usually separating lines/cols from filenames
-
-//----------
-
-// resource locator parser (reminds url)
 type ResLocParser struct {
-	lrp   *lrparser.Lrparser
-	locCp *lrparser.ContentParser
-	revCp *lrparser.ContentParser
+	parseMu sync.Mutex // allow .Parse() to be used concurrently
 
 	Escape        rune
 	PathSeparator rune
 	ParseVolume   bool
+
+	sc *parseutil.Scanner
+	fn struct {
+		location ScFn
+		reverse  ScFn
+	}
+	vk struct {
+		path   *parseutil.ScValueKeeper
+		line   *parseutil.ScValueKeeper
+		column *parseutil.ScValueKeeper
+	}
 }
 
-func NewResLocParser() (*ResLocParser, error) {
+func NewResLocParser() *ResLocParser {
 	p := &ResLocParser{}
+	p.sc = parseutil.NewScanner()
+
 	p.Escape = '\\'
 	p.PathSeparator = '/'
+	p.ParseVolume = false
 
-	fset := &lrparser.FileSet{Src: resLocGrammar, Filename: resLocFilename}
-	lrp, err := lrparser.NewLrparser(fset)
-	if err != nil {
-		return nil, err
-	}
-	p.lrp = lrp
-	return p, nil
+	return p
 }
+func (p *ResLocParser) Init() {
+	sc := p.sc
 
-func (p *ResLocParser) Init(verboseError bool) error {
-	// panic on error (sanity check)
-	poe := func(err error) {
-		if err != nil {
-			panic(err)
+	p.vk.path = sc.NewValueKeeper()
+	p.vk.line = sc.NewValueKeeper()
+	p.vk.column = sc.NewValueKeeper()
+	resetVks := func() error {
+		p.vk.path.Reset()
+		p.vk.line.Reset()
+		p.vk.column.Reset()
+		return nil
+	}
+
+	//----------
+
+	nameSyms := func(pathSep, esc rune) ScFn {
+		rs := nameRunes(pathSep, esc)
+		return sc.P.RuneAny(rs)
+	}
+
+	volume := func(pathSepFn ScFn) ScFn {
+		if p.ParseVolume {
+			return sc.P.And(sc.M.Letter, sc.P.Rune(':'), pathSepFn)
+		} else {
+			return nil
 		}
 	}
 
-	// setup predefined rules
-	poe(p.lrp.SetBoolRule("rlParseVolume", p.ParseVolume))
-	poe(p.lrp.SetStringRule("rlPathSep", string(p.PathSeparator)))
-	schPathSep := p.lrp.MustGetStringRule("schPathSep")
-	poe(p.lrp.SetBoolRule("rlPathSepEqSchPathSep", string(p.PathSeparator) == schPathSep))
-	poe(p.lrp.SetStringRule("rlEsc", string(p.Escape)))
+	//----------
 
-	// get reverse content parser
-	revOpt := &lrparser.CpOpt{
-		StartRule:         "reverse",
-		EarlyStop:         true,
-		ShiftOnSRConflict: true,
-		Reverse:           true,
-		VerboseError:      verboseError,
-	}
-	revCp, err := p.lrp.ContentParser(revOpt)
-	if err != nil {
-		return err
-	}
-	p.revCp = revCp
+	cEscRu := p.Escape
+	cPathSepRu := p.PathSeparator
+	cPathSep := sc.P.Rune(cPathSepRu)
+	cName := sc.P.Or(
+		sc.P.EscapeAny(cEscRu),
+		sc.M.Digit,
+		sc.M.Letter,
+		nameSyms(cPathSepRu, cEscRu),
+	)
+	cNames := sc.P.Loop2(sc.P.Or(
+		cName,
+		cPathSep,
+	))
+	cVolume := volume(cPathSep)
+	cPath := sc.P.And(
+		sc.P.Optional(cVolume),
+		cNames,
+	)
+	cLineCol := sc.P.And(
+		sc.P.Rune(':'),
+		p.vk.line.KeepBytes(sc.M.Digits), // line
+		sc.P.Optional(sc.P.And(
+			sc.P.Rune(':'),
+			p.vk.column.KeepBytes(sc.M.Digits), // column
+		)),
+	)
+	cFile := sc.P.And(
+		p.vk.path.KeepBytes(cPath),
+		sc.P.Optional(cLineCol),
+	)
 
-	// get content parser
-	locOpt := &lrparser.CpOpt{
-		StartRule:         "location",
-		EarlyStop:         true,
-		ShiftOnSRConflict: true,
-		VerboseError:      verboseError,
-	}
-	locCp, err := p.lrp.ContentParser(locOpt)
-	if err != nil {
-		return err
-	}
-	p.locCp = locCp
+	//----------
 
-	// setup build node funcs
-	p.locCp.SetBuildNodeFn("location", p.buildLocation)
-	p.locCp.SetBuildNodeFn("cFile", p.buildCFile)
-	p.locCp.SetBuildNodeFn("pyFile", p.buildPyFile)
-	p.locCp.SetBuildNodeFn("schemeFile", p.buildSchemeFile)
-	p.locCp.SetBuildNodeFn("cLineCol", p.buildCLineCol)
+	schEscRu := '\\'    // fixed
+	schPathSepRu := '/' // fixed
+	schPathSep := sc.P.Rune(schPathSepRu)
+	schName := sc.P.Or(
+		sc.P.EscapeAny(schEscRu),
+		sc.M.Digit,
+		sc.M.Letter,
+		nameSyms(schPathSepRu, schEscRu), // fixed
+	)
+	schNames := sc.P.Loop2(sc.P.Or(
+		schName,
+		schPathSep,
+	))
+	schVolume := volume(schPathSep)
+	schPath := sc.P.And(
+		schPathSep,
+		sc.P.Optional(schVolume),
+		schNames,
+	)
+	schFileTagS := "file://"
+	schFile := sc.P.And(
+		sc.P.Sequence(schFileTagS), // protocol
+		p.vk.path.KeepBytes(schPath),
+		sc.P.Optional(cLineCol),
+	)
 
-	return nil
+	//----------
+
+	pyQuote := sc.P.Rune('"')
+	pyLineTagS := ", line "
+	pyFile := sc.P.And(
+		pyQuote,
+		p.vk.path.KeepBytes(cPath),
+		pyQuote,
+		sc.P.Optional(
+			sc.P.And(
+				sc.P.Sequence(pyLineTagS),
+				p.vk.line.KeepBytes(sc.M.Digits),
+			),
+		),
+	)
+
+	//----------
+
+	p.fn.location = sc.P.Or(
+		// ensure values are reset at each attempt
+		sc.P.And(resetVks, schFile),
+		sc.P.And(resetVks, pyFile),
+		sc.P.And(resetVks, cFile),
+	)
+
+	//----------
+	//----------
+	//----------
+
+	revNames := sc.P.Loop2(
+		sc.P.Or(
+			// TODO: escapeany?
+			cName,
+			schName,
+			sc.P.Rune(cEscRu),
+			sc.P.Rune(schEscRu),
+			cPathSep,
+			schPathSep,
+		),
+	)
+	p.fn.reverse = sc.P.And(
+		sc.P.Optional(pyQuote),
+		//sc.P.Optional(cVolume),
+		//sc.P.Optional(schVolume),
+		sc.P.Optional(sc.P.And(sc.M.Letter, sc.P.Rune(':'))), // volume
+		sc.P.Optional(sc.P.SequenceMid(schFileTagS)),
+		sc.P.Optional(revNames),
+		sc.P.Optional(pyQuote),
+		sc.P.Optional(sc.P.SequenceMid(pyLineTagS)),
+		// c line column
+		sc.P.Optional(sc.P.Loop2(
+			sc.P.Or(sc.P.Rune(':'), sc.M.Digit),
+		)),
+	)
 }
-
-//----------
-
 func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
-	//logf := p.locCp.Opt.Logf
+	// only one instance of this parser can parse at each time
+	p.parseMu.Lock()
+	defer p.parseMu.Unlock()
 
-	// best effort to expand left
-	//logf("--- expand left: i=%v\n", index)
-	bnd1, _, err := p.revCp.Parse(src, index)
-	if err != nil {
+	p.sc.SetSrc(src)
+	p.sc.Pos = index
+
+	//fmt.Printf("start pos=%v\n", p.sc.Pos)
+
+	p.sc.Reverse = true
+	_ = p.fn.reverse() // best effort
+	p.sc.Reverse = false
+
+	//fmt.Printf("reverse pos=%v\n", p.sc.Pos)
+
+	//p.sc.Debug = true
+	pos0 := p.sc.KeepPos()
+	if err := p.fn.location(); err != nil {
 		return nil, err
 	}
-	index = bnd1.End()
-	//logf("--- expand left: i=%v err=%v", index, err)
+	//fmt.Printf("location pos=%v\n", p.sc.Pos)
 
-	bnd2, _, err := p.locCp.Parse(src, index)
-	if err != nil {
-		return nil, err
-	}
-	rl := bnd2.Data().(*ResLoc)
+	rl := &ResLoc{}
+	rl.Pos = pos0.Pos
+	rl.End = p.sc.Pos
+	rl.Escape = p.Escape
+	rl.PathSep = p.PathSeparator
+	rl.Path = string(p.vk.path.BytesOrNil())
+	rl.Line = p.vk.line.IntOrZero()
+	rl.Column = p.vk.column.IntOrZero()
+
 	return rl, nil
 }
 
 //----------
+//----------
+//----------
 
-func (p *ResLocParser) buildLocation(d *lrparser.BuildNodeData) error {
-	rl := d.Child(0).Data().(*ResLoc)
-	rl.Escape = p.Escape
-	rl.PathSep = p.PathSeparator
-	rl.Bnd = d
-	rl.Pos = d.Pos()
-	rl.End = d.End()
+type ScFn = parseutil.ScFn
 
-	d.SetData(rl)
-	return nil
-}
-func (p *ResLocParser) buildCFile(d *lrparser.BuildNodeData) error {
-	rl := &ResLoc{}
-	// filename
-	rl.Path = d.ChildStr(0)
-	// cLineCol
-	if d2, ok := d.ChildOptional(1); ok { // parenthesis optional
-		d2 = d2.Child(0)
-		u := d2.Data().([]int)
-		rl.Line = u[0]
-		rl.Column = u[1]
-	}
-	d.SetData(rl)
-	return nil
-}
-func (p *ResLocParser) buildPyFile(d *lrparser.BuildNodeData) error {
-	//d.PrintRuleTree(5)
+//----------
+//----------
+//----------
 
-	rl := &ResLoc{}
-	// filename
-	rl.Path = d.Child(0).ChildStr(1)
-	// digits
-	if d2, ok := d.ChildOptional(1); ok {
-		if line, err := d2.ChildInt(1); err != nil {
-			return err
-		} else {
-			rl.Line = line
-		}
-	}
-	d.SetData(rl)
-	return nil
-}
-func (p *ResLocParser) buildSchemeFile(d *lrparser.BuildNodeData) error {
-	rl := &ResLoc{}
-	// scheme
-	rl.Scheme = d.ChildStr(0)
-	// path
-	rl.Path = d.ChildStr(2)
-	// cLineCol
-	if d2, ok := d.ChildOptional(3); ok { // parenthesis optional
-		d2 = d2.Child(0)
-		u := d2.Data().([]int)
-		rl.Line = u[0]
-		rl.Column = u[1]
-	}
-	d.SetData(rl)
-	return nil
-}
-func (p *ResLocParser) buildCLineCol(d *lrparser.BuildNodeData) error {
-	//d.PrintRuleTree(5)
+// all syms except letters and digits
+var syms = "_-~.%@&?!=#+:^(){}[]<>\\/ "
 
-	line, col := 0, 0
-	// line
-	if line2, err := d.ChildInt(1); err != nil {
-		return err
-	} else {
-		line = line2
-	}
-	// column
-	if d3, ok := d.ChildOptional(2); ok { // parenthesis optional
-		if col2, err := d3.ChildInt(1); err != nil {
-			return err
-		} else {
-			col = col2
-		}
-	}
-	d.SetData([]int{line, col})
-	return nil
+// name separator symbols
+var nameSepSyms = "" +
+	" " + // word separator
+	"=" + // usually around filenames (ex: -arg=/a/b.txt)
+	"(){}[]<>" + // usually used around filenames in various outputs
+	":" + // usually separating lines/cols from filenames
+	""
+
+func nameRunes(pathSep, esc rune) []rune {
+	out := nameSepSyms + string(esc) + string(pathSep)
+	s := parseutil.RunesExcept(syms, out)
+	return []rune(s)
 }

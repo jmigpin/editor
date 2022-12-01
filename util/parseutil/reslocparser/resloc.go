@@ -5,7 +5,6 @@ import (
 	"net/url"
 
 	"github.com/jmigpin/editor/util/parseutil"
-	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
 type ResLoc struct {
@@ -21,8 +20,6 @@ type ResLoc struct {
 	Escape  rune
 	PathSep rune
 	//separator2 rune // windows: translating file://c:/a/b to c:\a\b
-
-	Bnd *lrparser.BuildNodeData // used in testing // TODO: clear if not testing
 }
 
 func (rl *ResLoc) ClearFilename1() string {

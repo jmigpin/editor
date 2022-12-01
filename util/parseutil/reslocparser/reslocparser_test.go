@@ -209,18 +209,8 @@ func BenchmarkResLoc1(b *testing.B) {
 		t.Fatal(err)
 	}
 
-	//----------
-	p := NewResLocParser2()
+	p := NewResLocParser()
 	p.Init()
-	//----------
-	//p, err := NewResLocParser()
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-	//if err := p.Init(true); err != nil {
-	//	t.Fatal(err)
-	//}
-	//----------
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -251,11 +241,7 @@ func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 		t.Fatal(err)
 	}
 
-	//p, err := NewResLocParser()
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-	p := NewResLocParser2()
+	p := NewResLocParser()
 
 	// setup options
 	if esc != 0 {
@@ -266,9 +252,6 @@ func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	}
 	p.ParseVolume = parseVolume
 
-	//if err := p.Init(true); err != nil {
-	//	t.Fatal(err)
-	//}
 	p.Init()
 
 	rl, err := p.Parse([]byte(in2), index)
