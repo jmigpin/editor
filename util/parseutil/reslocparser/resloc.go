@@ -3,6 +3,7 @@ package reslocparser
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/jmigpin/editor/util/parseutil"
 )
@@ -11,15 +12,15 @@ type ResLoc struct {
 	Path   string // raw path
 	Line   int    // 0 is nil
 	Column int    // 0 is nil
+	Offset int    // <=-1 is nil // TODO: file:#123?
 
-	Scheme string // "file://"
-	Offset int    // <=-1 is nil // TODO
+	PathSep rune
+	Escape  rune
+
+	Scheme string // ex: "file://", useful to know when to translate to another path separator
+	Volume string
 
 	Pos, End int // contains reverse expansion
-
-	Escape  rune
-	PathSep rune
-	//separator2 rune // windows: translating file://c:/a/b to c:\a\b
 }
 
 func (rl *ResLoc) ClearFilename1() string {
@@ -30,8 +31,22 @@ func (rl *ResLoc) ClearFilename1() string {
 
 	s = parseutil.CleanMultiplePathSeps(s, rl.PathSep)
 
+	if rl.Scheme == "file://" {
+		// bypass first slash
+		if rl.Volume != "" {
+			rs := []rune(s)
+			if rs[0] == '/' {
+				s = string(rs[1:])
+			}
+		}
+		// replace slashes
+		sep := '/'
+		if rl.PathSep != sep {
+			s = strings.Replace(s, string(sep), string(rl.PathSep), -1)
+		}
+	}
+
 	//if rl.separator2 != 0 {
-	//	s = strings.Replace(s, string(rl.separator2), string(rl.PathSep), -1)
 	//}
 	//u, err := strconv.Unquote("\"" + s + "\"")
 	//if err == nil {

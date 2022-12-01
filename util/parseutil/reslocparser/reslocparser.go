@@ -19,6 +19,8 @@ type ResLocParser struct {
 		reverse  ScFn
 	}
 	vk struct {
+		scheme *parseutil.ScValueKeeper
+		volume *parseutil.ScValueKeeper
 		path   *parseutil.ScValueKeeper
 		line   *parseutil.ScValueKeeper
 		column *parseutil.ScValueKeeper
@@ -38,10 +40,14 @@ func NewResLocParser() *ResLocParser {
 func (p *ResLocParser) Init() {
 	sc := p.sc
 
+	p.vk.scheme = sc.NewValueKeeper()
+	p.vk.volume = sc.NewValueKeeper()
 	p.vk.path = sc.NewValueKeeper()
 	p.vk.line = sc.NewValueKeeper()
 	p.vk.column = sc.NewValueKeeper()
 	resetVks := func() error {
+		p.vk.scheme.Reset()
+		p.vk.volume.Reset()
 		p.vk.path.Reset()
 		p.vk.line.Reset()
 		p.vk.column.Reset()
@@ -57,7 +63,12 @@ func (p *ResLocParser) Init() {
 
 	volume := func(pathSepFn ScFn) ScFn {
 		if p.ParseVolume {
-			return sc.P.And(sc.M.Letter, sc.P.Rune(':'), pathSepFn)
+			return sc.P.And(
+				p.vk.volume.KeepBytes(sc.P.And(
+					sc.M.Letter, sc.P.Rune(':'),
+				)),
+				pathSepFn,
+			)
 		} else {
 			return nil
 		}
@@ -78,9 +89,8 @@ func (p *ResLocParser) Init() {
 		cName,
 		cPathSep,
 	))
-	cVolume := volume(cPathSep)
 	cPath := sc.P.And(
-		sc.P.Optional(cVolume),
+		sc.P.Optional(volume(cPathSep)),
 		cNames,
 	)
 	cLineCol := sc.P.And(
@@ -111,15 +121,14 @@ func (p *ResLocParser) Init() {
 		schName,
 		schPathSep,
 	))
-	schVolume := volume(schPathSep)
 	schPath := sc.P.And(
 		schPathSep,
-		sc.P.Optional(schVolume),
+		sc.P.Optional(volume(schPathSep)),
 		schNames,
 	)
 	schFileTagS := "file://"
 	schFile := sc.P.And(
-		sc.P.Sequence(schFileTagS), // protocol
+		p.vk.scheme.KeepBytes(sc.P.Sequence(schFileTagS)),
 		p.vk.path.KeepBytes(schPath),
 		sc.P.Optional(cLineCol),
 	)
@@ -168,8 +177,15 @@ func (p *ResLocParser) Init() {
 		sc.P.Optional(pyQuote),
 		//sc.P.Optional(cVolume),
 		//sc.P.Optional(schVolume),
-		sc.P.Optional(sc.P.And(sc.M.Letter, sc.P.Rune(':'))), // volume
 		sc.P.Optional(sc.P.SequenceMid(schFileTagS)),
+		sc.P.Optional(sc.P.Loop2(sc.P.Or(
+			cPathSep,
+			schPathSep,
+		))),
+		sc.P.Optional(sc.P.And(
+			sc.M.Letter, sc.P.Rune(':'), // volume
+			//sc.P.Optional(sc.
+		)),
 		sc.P.Optional(revNames),
 		sc.P.Optional(pyQuote),
 		sc.P.Optional(sc.P.SequenceMid(pyLineTagS)),
@@ -203,13 +219,15 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 	//fmt.Printf("location pos=%v\n", p.sc.Pos)
 
 	rl := &ResLoc{}
-	rl.Pos = pos0.Pos
-	rl.End = p.sc.Pos
-	rl.Escape = p.Escape
-	rl.PathSep = p.PathSeparator
+	rl.Scheme = string(p.vk.scheme.BytesOrNil())
+	rl.Volume = string(p.vk.volume.BytesOrNil())
 	rl.Path = string(p.vk.path.BytesOrNil())
 	rl.Line = p.vk.line.IntOrZero()
 	rl.Column = p.vk.column.IntOrZero()
+	rl.Escape = p.Escape
+	rl.PathSep = p.PathSeparator
+	rl.Pos = pos0.Pos
+	rl.End = p.sc.Pos
 
 	return rl, nil
 }

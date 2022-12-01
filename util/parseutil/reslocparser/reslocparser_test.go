@@ -6,8 +6,6 @@ import (
 	"github.com/jmigpin/editor/util/testutil"
 )
 
-//godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil/lrparser
-
 func TestResLocParser1(t *testing.T) {
 	in := "AAA /a/b/c●.txt BBB"
 	out := "/a/b/c.txt"
@@ -192,7 +190,13 @@ func TestResLocParser30(t *testing.T) {
 //----------
 
 func TestResLocParserWin1(t *testing.T) {
-	in := "++c:\\a\\b.txt:3●"
+	in := "++c:\\a\\b.t^ xt:3●"
+	out := "c:\\a\\b.t^ xt:3"
+	testMode2(t, in, out, '^', '\\', true)
+}
+
+func TestResLocParserWin2(t *testing.T) {
+	in := "file:///c:/a/b.txt:3●"
 	out := "c:\\a\\b.txt:3"
 	testMode2(t, in, out, '^', '\\', true)
 }
