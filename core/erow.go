@@ -277,6 +277,8 @@ func (erow *ERow) initHandlers() {
 				NewFileShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymW:
 				row.Close()
+			case evt.KeySym == event.KSymEscape:
+				erow.Exec.Stop()
 			}
 		case *event.MouseDown:
 			erow.Info.UpdateActiveRowState(erow)

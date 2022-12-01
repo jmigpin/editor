@@ -580,7 +580,6 @@ func (ed *Editor) handleGlobalShortcuts(ev interface{}) (handled bool) {
 					ed.cancelERowInfosCmds()
 					ed.cancelERowsContentCmds()
 					ed.cancelERowsInternalCmds()
-					ed.stopActiveERowExec()
 					autoCloseInfo = false
 					ed.cancelInfoFloatBox()
 					return true
@@ -623,14 +622,6 @@ func (ed *Editor) cancelERowInfosCmds() {
 	for _, info := range ed.ERowInfos() {
 		info.CancelCmd()
 	}
-}
-
-func (ed *Editor) stopActiveERowExec() {
-	erow, ok := ed.ActiveERow()
-	if !ok {
-		return
-	}
-	erow.Exec.Stop()
 }
 
 //----------
