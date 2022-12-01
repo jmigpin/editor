@@ -39,16 +39,14 @@ func NewJsonParser2() *JsonParser2 {
 		return p.fn.elements()
 	}
 
-	p.fn.object = func() error {
-		return p.sc.P.And(
-			p.sc.P.Rune('{'),
-			p.sc.P.OptionalSpaces(),
-			p.sc.P.Optional(members),
-			p.sc.P.FatalOnErr("expecting '}'",
-				p.sc.P.Rune('}'),
-			),
-		)()
-	}
+	p.fn.object = p.sc.P.And(
+		p.sc.P.Rune('{'),
+		p.sc.P.OptionalSpaces(),
+		p.sc.P.Optional(members),
+		p.sc.P.FatalOnErr("expecting '}'",
+			p.sc.P.Rune('}'),
+		),
+	)
 	p.fn.array = p.sc.P.And(
 		p.sc.P.Rune('['),
 		p.sc.P.OptionalSpaces(),

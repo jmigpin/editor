@@ -208,22 +208,29 @@ func (m *ScMatch) RuneFnLoop(fn func(rune) bool) error {
 
 //----------
 
-// same as rune sequence, but directly using strings comparison
 func (m *ScMatch) Sequence(seq string) error {
-	if m.sc.Reverse {
-		return m.RuneSequence([]rune(seq))
-	}
-	l := len(seq)
-	b := m.sc.Src[m.sc.Pos:]
-	if l > len(b) {
-		return NoMatchErr
-	}
-	if string(b[:l]) != seq {
-		return NoMatchErr
-	}
-	m.sc.Pos += l
-	return nil
+	return m.RuneSequence([]rune(seq))
 }
+func (m *ScMatch) SequenceMid(seq string) error {
+	return m.RuneSequenceMid([]rune(seq))
+}
+
+//// same as rune sequence, but directly using strings comparison
+//func (m *ScMatch) Sequence(seq string) error {
+//	if m.sc.Reverse {
+//		return m.RuneSequence([]rune(seq))
+//	}
+//	l := len(seq)
+//	b := m.sc.Src[m.sc.Pos:]
+//	if l > len(b) {
+//		return NoMatchErr
+//	}
+//	if string(b[:l]) != seq {
+//		return NoMatchErr
+//	}
+//	m.sc.Pos += l
+//	return nil
+//}
 
 //----------
 
@@ -350,12 +357,14 @@ func (m *ScMatch) EscapeAny(escape rune) error {
 			if err := m.NRunes(1); err != nil {
 				return err
 			}
-			return m.Rune(escape)
 		}
 		if err := m.Rune(escape); err != nil {
 			return err
 		}
-		return m.NRunes(1)
+		if !m.sc.Reverse {
+			return m.NRunes(1)
+		}
+		return nil
 	})
 }
 func (m *ScMatch) NRunes(n int) error {
@@ -412,12 +421,18 @@ func (m *ScMatch) And(fns ...ScFn) error {
 		if m.sc.Reverse {
 			for i := len(fns) - 1; i >= 0; i-- {
 				fn := fns[i]
+				if fn == nil {
+					continue
+				}
 				if err := fn(); err != nil {
 					return err
 				}
 			}
 		} else {
 			for _, fn := range fns {
+				if fn == nil {
+					continue
+				}
 				if err := fn(); err != nil {
 					return err
 				}
@@ -430,6 +445,9 @@ func (m *ScMatch) Or(fns ...ScFn) error {
 	//me := iout.MultiError{} // TODO: better then first error?
 	firstErr := error(nil)
 	for _, fn := range fns {
+		if fn == nil {
+			continue
+		}
 		pos0 := m.sc.KeepPos()
 		if err := fn(); err != nil {
 			if firstErr == nil {
@@ -446,6 +464,9 @@ func (m *ScMatch) Or(fns ...ScFn) error {
 	return firstErr
 }
 func (m *ScMatch) Optional(fn ScFn) error {
+	if fn == nil {
+		return nil
+	}
 	pos0 := m.sc.KeepPos()
 	if err := fn(); err != nil {
 		if IsScFatalError(err) {
@@ -481,6 +502,9 @@ func (m *ScMatch) ToNLIncludeOrEnd(esc rune) int {
 
 //----------
 
+func (m *ScMatch) Letter() error {
+	return m.RuneFn(unicode.IsLetter)
+}
 func (m *ScMatch) Digit() error {
 	return m.RuneFn(unicode.IsDigit)
 }

@@ -38,10 +38,10 @@ func newVarDeclParser() *varDeclParser {
 }
 func (p *varDeclParser) parseVarDecl(src []byte) (*VarDecl, error) {
 	p.sc.SetSrc(src)
-	vk := p.sc.P.NewValueKeeper()
+	vk := p.sc.NewValueKeeper()
 	if err := p.sc.P.Or(
-		vk.Keep(p.parseTildeVarDecl),
-		vk.Keep(p.parseDollarVarDecl),
+		vk.KeepValue(p.parseTildeVarDecl),
+		vk.KeepValue(p.parseDollarVarDecl),
 	)(); err != nil {
 		//return nil, p.sc.SrcError(err)
 		return nil, err
@@ -52,7 +52,7 @@ func (p *varDeclParser) parseTildeVarDecl() (any, error) {
 	nameRe := "~(0|[1-9][0-9]*)"
 	vd := &VarDecl{}
 	pos0 := p.sc.KeepPos()
-	vk := p.sc.P.NewValueKeeper()
+	vk := p.sc.NewValueKeeper()
 	err := p.sc.P.And(
 		// name
 		p.sc.P.RegexpFromStartCached(nameRe, 100),
@@ -62,7 +62,7 @@ func (p *varDeclParser) parseTildeVarDecl() (any, error) {
 		},
 		// value
 		p.sc.P.Rune('='),
-		vk.Keep(p.parseVarValue),
+		vk.KeepValue(p.parseVarValue),
 	)()
 	vd.Value = vk.StringOptional()
 	return vd, err
@@ -71,7 +71,7 @@ func (p *varDeclParser) parseDollarVarDecl() (any, error) {
 	nameRe := "\\$[_a-zA-Z0-9]+"
 	vd := &VarDecl{}
 	pos0 := p.sc.KeepPos()
-	vk := p.sc.P.NewValueKeeper()
+	vk := p.sc.NewValueKeeper()
 	err := p.sc.P.And(
 		// name
 		p.sc.P.RegexpFromStartCached(nameRe, 100),
@@ -81,7 +81,7 @@ func (p *varDeclParser) parseDollarVarDecl() (any, error) {
 		},
 		// value (optional after =)
 		p.sc.P.Rune('='),
-		p.sc.P.Optional(vk.Keep(p.parseVarValue)),
+		p.sc.P.Optional(vk.KeepValue(p.parseVarValue)),
 	)()
 	vd.Value = vk.StringOptional()
 	return vd, err

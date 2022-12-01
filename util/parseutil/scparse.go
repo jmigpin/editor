@@ -39,36 +39,48 @@ func (p *ScParse) Optional(fn ScFn) ScFn {
 
 //----------
 
+func (p *ScParse) Loop2(fn ScFn) ScFn {
+	return p.Loop(fn, nil, false)
+}
 func (p *ScParse) Loop(fn, sep ScFn, lastSep bool) ScFn {
 	return func() error {
 		sepPos := p.sc.KeepPos()
 		for first := true; ; first = false {
-			pos0 := p.sc.KeepPos()
-			if err := fn(); err != nil {
-				pos0.Restore()
+			// seperator
+			if sep != nil && p.sc.Reverse {
+				if err := p.sc.RestorePosOnErr(sep); err != nil {
+					if first && !lastSep {
+						return fmt.Errorf("unexpected last separator")
+					}
+				}
+			}
+			// fn
+			if err := p.sc.RestorePosOnErr(fn); err != nil {
 				if IsScFatalError(err) {
 					return err
 				}
 				if first {
 					return err
 				}
-				if sep != nil && !first && !lastSep {
-					sepPos.Restore()
-					return fmt.Errorf("unexpected last separator")
+				// seperator
+				if sep != nil && !p.sc.Reverse {
+					if !first && !lastSep {
+						sepPos.Restore()
+						return fmt.Errorf("unexpected last separator")
+					}
 				}
 				return nil
 			}
-			if sep != nil {
+			// separator
+			if sep != nil && !p.sc.Reverse {
 				sepPos = p.sc.KeepPos()
-				if err := sep(); err != nil {
-					sepPos.Restore()
+				if err := p.sc.RestorePosOnErr(sep); err != nil {
 					return nil // no sep, last entry
 				}
 			}
 		}
 	}
 }
-
 func (p *ScParse) Rune(ru rune) ScFn {
 	return func() error {
 		return p.M.Rune(ru)
@@ -87,6 +99,11 @@ func (p *ScParse) RuneFn(fn func(rune) bool) ScFn {
 func (p *ScParse) Sequence(seq string) ScFn {
 	return func() error {
 		return p.M.Sequence(seq)
+	}
+}
+func (p *ScParse) SequenceMid(seq string) ScFn {
+	return func() error {
+		return p.M.SequenceMid(seq)
 	}
 }
 
@@ -130,13 +147,6 @@ func (p *ScParse) Integer() ScFn {
 }
 func (p *ScParse) Float() ScFn {
 	return p.M.Float
-}
-
-//----------
-
-func (p *ScParse) NewValueKeeper() *ScValueKeeper {
-	ak := &ScValueKeeper{p: p}
-	return ak
 }
 
 //----------
@@ -195,47 +205,3 @@ func (cf *ScParseCacheFn) Run() error {
 	}
 	return cf.fn()
 }
-
-//----------
-//----------
-//----------
-
-type ScValueKeeper struct {
-	p     *ScParse
-	Value any
-}
-
-func (vk *ScValueKeeper) Keep(fn ScValueFn) ScFn {
-	return func() error {
-		v, err := fn()
-		vk.Value = v
-		return err
-	}
-}
-func (vk *ScValueKeeper) KeepBytes(fn ScFn) ScFn {
-	return func() error {
-		pos0 := vk.p.sc.KeepPos()
-		err := fn()
-		vk.Value = pos0.Bytes()
-		return err
-	}
-}
-func (vk *ScValueKeeper) StringOptional() string {
-	if vk.Value == nil {
-		return ""
-	}
-	return vk.Value.(string)
-}
-func (vk *ScValueKeeper) String() string {
-	return vk.Value.(string)
-}
-func (vk *ScValueKeeper) Bytes() []byte {
-	return vk.Value.([]byte)
-}
-
-//----------
-//----------
-//----------
-
-type ScFn func() error
-type ScValueFn func() (any, error)

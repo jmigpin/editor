@@ -201,6 +201,41 @@ func TestResLocParserWin1(t *testing.T) {
 //----------
 //----------
 
+func BenchmarkResLoc1(b *testing.B) {
+	t := b
+	in := "/a/b/c.●txt:1:2"
+	in2, index, err := testutil.SourceCursor("●", string(in), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//----------
+	p := NewResLocParser2()
+	p.Init()
+	//----------
+	//p, err := NewResLocParser()
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//if err := p.Init(true); err != nil {
+	//	t.Fatal(err)
+	//}
+	//----------
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rl, err := p.Parse([]byte(in2), index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = rl
+	}
+}
+
+//----------
+//----------
+//----------
+
 func testMode1(t *testing.T, in, out string) {
 	t.Helper()
 	testMode2(t, in, out, 0, 0, false)
@@ -216,10 +251,11 @@ func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 		t.Fatal(err)
 	}
 
-	p, err := NewResLocParser()
-	if err != nil {
-		t.Fatal(err)
-	}
+	//p, err := NewResLocParser()
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	p := NewResLocParser2()
 
 	// setup options
 	if esc != 0 {
@@ -230,9 +266,10 @@ func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	}
 	p.ParseVolume = parseVolume
 
-	if err := p.Init(true); err != nil {
-		t.Fatal(err)
-	}
+	//if err := p.Init(true); err != nil {
+	//	t.Fatal(err)
+	//}
+	p.Init()
 
 	rl, err := p.Parse([]byte(in2), index)
 	if err != nil {
@@ -243,6 +280,7 @@ func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	res2 := testutil.TrimLineSpaces(res)
 	expect2 := testutil.TrimLineSpaces(out)
 	if res2 != expect2 {
-		t.Fatalf("res=%v\n%v\n", res, rl.Bnd.SprintRuleTree(5))
+		//t.Fatalf("res=%v\n%v\n", res, rl.Bnd.SprintRuleTree(5))
+		t.Fatalf("res=%v", res)
 	}
 }

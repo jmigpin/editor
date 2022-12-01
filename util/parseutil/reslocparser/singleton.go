@@ -38,29 +38,32 @@ func ParseResLoc2(rd iorw.ReaderAt, index int) (*ResLoc, error) {
 // reslocparser singleton
 var rlps struct {
 	once sync.Once
-	p    *ResLocParser
+	p    *ResLocParser2
 	err  error
 }
 
-func getResLocParser() (*ResLocParser, error) {
+func getResLocParser() (*ResLocParser2, error) {
 	rlps.once.Do(func() {
 		rlps.p, rlps.err = newResLocParserSingletonInstance()
 	})
 	return rlps.p, rlps.err
 }
-func newResLocParserSingletonInstance() (*ResLocParser, error) {
-	rlp, err := NewResLocParser()
-	if err != nil {
-		return nil, err
-	}
+func newResLocParserSingletonInstance() (*ResLocParser2, error) {
+	//rlp, err := NewResLocParser()
+	//if err != nil {
+	//	return nil, err
+	//}
+	rlp := NewResLocParser2()
 
 	rlp.PathSeparator = rune(os.PathSeparator)
 	rlp.Escape = rune(osutil.EscapeRune)
 	rlp.ParseVolume = runtime.GOOS == "windows"
 
-	if err := rlp.Init(false); err != nil {
-		return nil, err
-	}
+	//if err := rlp.Init(false); err != nil {
+	//	return nil, err
+	//}
+	rlp.Init()
+
 	return rlp, nil
 }
 

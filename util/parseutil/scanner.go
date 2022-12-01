@@ -3,9 +3,11 @@ package parseutil
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"unicode/utf8"
 )
 
+// not safe to parse concurrently (match/parse uses closures)
 type Scanner struct {
 	Src []byte
 	Pos int
@@ -45,11 +47,10 @@ func (sc *Scanner) ReadRune() (rune, error) {
 	if size == 0 {
 		return 0, io.EOF
 	}
-	sc.Pos += size
-
 	if sc.Debug {
 		fmt.Printf("%v: %q\n", sc.Pos, ru)
 	}
+	sc.Pos += size
 
 	return ru, nil
 }
@@ -73,6 +74,12 @@ func (sc *Scanner) RestorePosOnErr(fn func() error) error {
 		return err
 	}
 	return nil
+}
+
+//----------
+
+func (sc *Scanner) NewValueKeeper() *ScValueKeeper {
+	return &ScValueKeeper{sc: sc}
 }
 
 //----------
@@ -158,3 +165,82 @@ func IsScFatalError(err error) bool {
 	_, ok := err.(*ScFatalError)
 	return ok
 }
+
+//----------
+//----------
+//----------
+
+type ScValueKeeper struct {
+	sc    *Scanner
+	Value any
+}
+
+func (vk *ScValueKeeper) Reset() {
+	vk.Value = nil
+}
+
+//----------
+
+func (vk *ScValueKeeper) KeepBytes(fn ScFn) ScFn {
+	return func() error {
+		pos0 := vk.sc.KeepPos()
+		err := fn()
+		vk.Value = pos0.Bytes()
+		return err
+	}
+}
+func (vk *ScValueKeeper) KeepValue(fn ScValueFn) ScFn {
+	return func() error {
+		v, err := fn()
+		vk.Value = v
+		return err
+	}
+}
+
+//----------
+
+func (vk *ScValueKeeper) BytesOrNil() []byte {
+	if b, ok := vk.Value.([]byte); ok {
+		return b
+	}
+	return nil
+}
+
+//----------
+
+func (vk *ScValueKeeper) Int() (int, error) {
+	b, ok := vk.Value.([]byte)
+	if !ok {
+		return 0, fmt.Errorf("not []byte")
+	}
+	v, err := strconv.ParseInt(string(b), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return int(v), nil
+}
+func (vk *ScValueKeeper) IntOrZero() int {
+	if v, err := vk.Int(); err == nil {
+		return v
+	}
+	return 0
+}
+
+//----------
+
+func (vk *ScValueKeeper) StringOptional() string {
+	if vk.Value == nil {
+		return ""
+	}
+	return vk.Value.(string)
+}
+func (vk *ScValueKeeper) String() string {
+	return vk.Value.(string)
+}
+
+//----------
+//----------
+//----------
+
+type ScFn func() error
+type ScValueFn func() (any, error)
