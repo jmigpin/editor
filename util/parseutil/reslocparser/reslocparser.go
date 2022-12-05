@@ -76,6 +76,8 @@ func (p *ResLocParser) Init() {
 
 	//----------
 
+	// ex: "/a/b.txt"
+	// ex: "/a/b.txt:12:3"
 	cEscRu := p.Escape
 	cPathSepRu := p.PathSeparator
 	cPathSep := sc.P.Rune(cPathSepRu)
@@ -108,6 +110,7 @@ func (p *ResLocParser) Init() {
 
 	//----------
 
+	// ex: "file:///a/b.txt:12"
 	schEscRu := '\\'    // fixed
 	schPathSepRu := '/' // fixed
 	schPathSep := sc.P.Rune(schPathSepRu)
@@ -135,17 +138,35 @@ func (p *ResLocParser) Init() {
 
 	//----------
 
-	pyQuote := sc.P.Rune('"')
+	// ex: "\"/a/b.txt\""
+	dquote := sc.P.Rune('"') // double quote
+	dquotedFile := sc.P.And(
+		dquote,
+		p.vk.path.KeepBytes(cPath),
+		dquote,
+	)
+
+	//----------
+
+	// ex: "\"/a/b.txt\", line 23"
 	pyLineTagS := ", line "
 	pyFile := sc.P.And(
-		pyQuote,
+		dquotedFile,
+		sc.P.And(
+			sc.P.Sequence(pyLineTagS),
+			p.vk.line.KeepBytes(sc.M.Digits),
+		),
+	)
+
+	//----------
+
+	// ex: "/a/b.txt: line 23"
+	shellLineTagS := ": line "
+	shellFile := sc.P.And(
 		p.vk.path.KeepBytes(cPath),
-		pyQuote,
-		sc.P.Optional(
-			sc.P.And(
-				sc.P.Sequence(pyLineTagS),
-				p.vk.line.KeepBytes(sc.M.Digits),
-			),
+		sc.P.And(
+			sc.P.Sequence(shellLineTagS),
+			p.vk.line.KeepBytes(sc.M.Digits),
 		),
 	)
 
@@ -155,6 +176,8 @@ func (p *ResLocParser) Init() {
 		// ensure values are reset at each attempt
 		sc.P.And(resetVks, schFile),
 		sc.P.And(resetVks, pyFile),
+		sc.P.And(resetVks, dquotedFile),
+		sc.P.And(resetVks, shellFile),
 		sc.P.And(resetVks, cFile),
 	)
 
@@ -174,7 +197,7 @@ func (p *ResLocParser) Init() {
 		),
 	)
 	p.fn.reverse = sc.P.And(
-		sc.P.Optional(pyQuote),
+		sc.P.Optional(dquote),
 		//sc.P.Optional(cVolume),
 		//sc.P.Optional(schVolume),
 		sc.P.Optional(sc.P.SequenceMid(schFileTagS)),
@@ -187,8 +210,9 @@ func (p *ResLocParser) Init() {
 			//sc.P.Optional(sc.
 		)),
 		sc.P.Optional(revNames),
-		sc.P.Optional(pyQuote),
+		sc.P.Optional(dquote),
 		sc.P.Optional(sc.P.SequenceMid(pyLineTagS)),
+		sc.P.Optional(sc.P.SequenceMid(shellLineTagS)),
 		// c line column
 		sc.P.Optional(sc.P.Loop2(
 			sc.P.Or(sc.P.Rune(':'), sc.M.Digit),

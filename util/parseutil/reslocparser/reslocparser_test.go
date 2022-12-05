@@ -186,6 +186,21 @@ func TestResLocParser30(t *testing.T) {
 	out := "/a/b.txt:1:1"
 	testMode1(t, in, out)
 }
+func TestResLocParser31(t *testing.T) {
+	in := "/a/b.t●xt: line 2: etc"
+	out := "/a/b.txt:2"
+	testMode1(t, in, out)
+}
+func TestResLocParser32(t *testing.T) {
+	in := "/a/b.txt: line ●2: etc"
+	out := "/a/b.txt:2"
+	testMode1(t, in, out)
+}
+func TestResLocParser33(t *testing.T) {
+	in := "\"/a/b.●txt\""
+	out := "/a/b.txt"
+	testMode1(t, in, out)
+}
 
 //----------
 
