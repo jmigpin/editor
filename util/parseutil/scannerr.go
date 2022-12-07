@@ -1,6 +1,9 @@
 package parseutil
 
-import "github.com/jmigpin/editor/util/iout/iorw"
+import (
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/mathutil"
+)
 
 // scanner wrapper to be use with iorw.ReaderAt. Needed because the scanner deals with a []byte src, and the position starts at zero. While the reader first position is at r.Min(), where reading a position less then r.Min() gives error.
 type ScannerR struct {
@@ -23,16 +26,10 @@ func NewScannerR(r iorw.ReaderAt, index int) *ScannerR {
 	return sc
 }
 func (sc *ScannerR) SetPos(v int) {
-	sc.Scanner.Pos = sc.filterLimit(v - sc.R.Min())
-}
-func (sc *ScannerR) filterLimit(v int) int {
-	if v > sc.R.Max() {
-		return sc.R.Max()
-	}
-	return v
+	u := v - sc.R.Min()
+	sc.Scanner.Pos = mathutil.Limit(u, 0, len(sc.Scanner.Src))
 }
 func (sc *ScannerR) Pos() int {
-	//return sc.filterLimit(sc.R.Min() + sc.Scanner.Pos)
 	return sc.R.Min() + sc.Scanner.Pos
 }
 func (sc *ScannerR) KeepPos() ScannerRPos {
