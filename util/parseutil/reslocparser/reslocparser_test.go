@@ -209,10 +209,14 @@ func TestResLocParserWin1(t *testing.T) {
 	out := "c:\\a\\b.t^ xt:3"
 	testMode2(t, in, out, '^', '\\', true)
 }
-
 func TestResLocParserWin2(t *testing.T) {
 	in := "file:///c:/a/b.txt:3●"
 	out := "c:\\a\\b.txt:3"
+	testMode2(t, in, out, '^', '\\', true)
+}
+func TestResLocParserWin3(t *testing.T) {
+	in := "..\\\nabc\\●"
+	out := "abc\\"
 	testMode2(t, in, out, '^', '\\', true)
 }
 

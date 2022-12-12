@@ -56,8 +56,8 @@ func (p *ResLocParser) Init() {
 
 	//----------
 
-	nameSyms := func(pathSep, esc rune) ScFn {
-		rs := nameRunes(pathSep, esc)
+	nameSyms := func(except ...rune) ScFn {
+		rs := nameRunes(except...)
 		return sc.P.RuneAny(rs)
 	}
 
@@ -111,6 +111,7 @@ func (p *ResLocParser) Init() {
 	//----------
 
 	// ex: "file:///a/b.txt:12"
+	// no escape sequence for scheme, used to be '\\' but better to avoid conflicts with platforms that use '\\' as escape; could always use encoding (ex: %20 for ' ')
 	schEscRu := '\\'    // fixed
 	schPathSepRu := '/' // fixed
 	schPathSep := sc.P.Rune(schPathSepRu)
@@ -118,7 +119,7 @@ func (p *ResLocParser) Init() {
 		sc.P.EscapeAny(schEscRu),
 		sc.M.Digit,
 		sc.M.Letter,
-		nameSyms(schPathSepRu, schEscRu), // fixed
+		nameSyms(schPathSepRu, schEscRu),
 	)
 	schNames := sc.P.Loop2(sc.P.Or(
 		schName,
@@ -183,13 +184,11 @@ func (p *ResLocParser) Init() {
 
 	//----------
 	//----------
-	//----------
 
 	revNames := sc.P.Loop2(
 		sc.P.Or(
-			// TODO: escapeany?
 			cName,
-			schName,
+			//schName, // can't reverse, contains fixed '\\' escape that can conflit with platform not considering it an escape
 			sc.P.Rune(cEscRu),
 			sc.P.Rune(schEscRu),
 			cPathSep,
@@ -232,6 +231,7 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 	p.sc.Reverse = true
 	_ = p.fn.reverse() // best effort
 	p.sc.Reverse = false
+	_ = p.sc.Pos
 
 	//fmt.Printf("reverse pos=%v\n", p.sc.Pos)
 
@@ -277,8 +277,13 @@ var nameSepSyms = "" +
 	":" + // usually separating lines/cols from filenames
 	""
 
-func nameRunes(pathSep, esc rune) []rune {
-	out := nameSepSyms + string(esc) + string(pathSep)
+func nameRunes(except ...rune) []rune {
+	out := nameSepSyms
+	for _, ru := range except {
+		if ru != 0 {
+			out += string(ru)
+		}
+	}
 	s := parseutil.RunesExcept(syms, out)
 	return []rune(s)
 }
