@@ -10,8 +10,8 @@ func Version() string {
 	// NOTE: equivalent "go get" version in format x.y.z is 1.x.y (z not used) (ex: 3.3.0 -> 1.3.3). This is done because go doesn't seem to allow having versions bigger then 1 without altering the import paths.
 
 	v := "3.6.0"
-	//typ := "release"
-	typ := "rc" // release candidate
+	typ := "release"
+	//typ := "rc" // release candidate
 	//typ := "alpha" // development
 	return taggedVersion(v, typ)
 }

@@ -564,6 +564,12 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2022/12/12: v3.6.0 (36 commits)
+	- improved parsing (several tests of simple parsers to lrparsers)
+	- unified some internal code that had more then one implementation
+	- lsproto: added "nogotoimpl" cmd line option (don't go to implementation)
+	- lsproto: sort results for some commands
+	- crash fixes
 - 2022/07/26: v3.5.0 (1 commits)
 	- update "golang.org/x/sys" dependency (and others) due to security advisory https://deps.dev/advisory/osv/GO-2022-0493
 - 2022/06/27: v3.4.0 (11 commits)
