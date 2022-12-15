@@ -12,8 +12,10 @@ type Intf int64
 func Intf1(x int) Intf           { return Intf(x) << 12 }
 func Intf2(x fixed.Int26_6) Intf { return Intf(x) << 6 }
 
-func (x Intf) Floor() int { return int(x >> 12) }
-func (x Intf) Ceil() int  { return int((x + 0xfff) >> 12) }
+func (x Intf) Floor() int   { return int(x >> 12) }
+func (x Intf) Floor2() Intf { return Intf1(x.Floor()) }
+func (x Intf) Ceil() int    { return int((x + 0xfff) >> 12) }
+func (x Intf) Ceil2() Intf  { return Intf1(x.Ceil()) }
 
 func (x Intf) Mul(y Intf) Intf {
 	a := fixed.Int52_12(x)
@@ -70,6 +72,16 @@ func RIntf(r image.Rectangle) RectangleIntf {
 	return RectangleIntf{min, max}
 }
 
+func (r RectangleIntf) Dx() Intf {
+	return r.Max.X - r.Min.X
+}
+func (r RectangleIntf) Dy() Intf {
+	return r.Max.Y - r.Min.Y
+}
+func (r RectangleIntf) Size() PointIntf {
+	return PointIntf{r.Dx(), r.Dy()}
+}
+
 func (r RectangleIntf) Add(p PointIntf) RectangleIntf {
 	return RectangleIntf{r.Min.Add(p), r.Max.Add(p)}
 }
@@ -100,8 +112,16 @@ func (r RectangleIntf) Empty() bool {
 	return r.Min.X >= r.Max.X || r.Min.Y >= r.Max.Y
 }
 
+// expands
 func (r RectangleIntf) ToRectFloorCeil() image.Rectangle {
 	min := r.Min.ToPointFloor()
 	max := r.Max.ToPointCeil()
+	return image.Rectangle{min, max}
+}
+
+// contracts
+func (r RectangleIntf) ToRectCeilFloor() image.Rectangle {
+	min := r.Min.ToPointCeil()
+	max := r.Max.ToPointFloor()
 	return image.Rectangle{min, max}
 }
