@@ -42,11 +42,18 @@ func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEven
 	ta := ev.TextArea
 
 	ic.mu.Lock()
-	ic.mu.cancel() // cancel previous run
+
+	// cancel previous run
+	ic.mu.cancel()
+	if ic.mu.ta != nil && ic.mu.ta != ta {
+		defer ic.setAnnotations(ic.mu.ta, nil)
+	}
+
 	ctx, cancel := context.WithCancel(erow.ctx)
 	ic.mu.cancel = cancel
 	ic.mu.ta = ta
 	ic.mu.index = ta.CursorIndex()
+
 	ic.mu.Unlock()
 
 	go func() {
