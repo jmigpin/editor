@@ -1231,6 +1231,49 @@ label1:
 		continue label1
 	}
 }
+-- TestAnnotator56e.in --
+package p1
+
+func f0() {
+label1:
+	for a:=0;a<2;a++{
+		if b:=a;b<2{
+			continue label1
+		}
+	}
+}
+-- TestAnnotator56e.out --
+package p1
+
+func f0() {
+	Σ.Line(0, 0, 33, Σ.ILa("init not annotated due to label stmt"))
+	Σ3 := false
+label1:
+	for a := 0; ; {
+		if Σ3 {
+			Σ4 := Σ.IL(Σ.IVi(a))
+			a++
+			Σ.Line(0, 0, 46, Σ.IA(Σ.IL(Σ.IVi(a)), 37, Σ4))
+		}
+		Σ3 = true
+		Σ2 := a < 2
+		Σ.Line(0, 0, 42, Σ.IB(Σ.IVi(a), 40, Σ.IVi(2), Σ.IVi(Σ2)))
+		if !Σ2 {
+			break
+		}
+		{
+			Σ0 := Σ.IL(Σ.IVi(a))
+			Σ.Line(0, 1, 56, Σ0)
+			b := a
+			Σ1 := b < 2
+			Σ.Line(0, 1, 61, Σ.IB(Σ.IVi(b), 40, Σ.IVi(2), Σ.IVi(Σ1)))
+			if Σ1 {
+				Σ.Line(0, 2, 69, Σ.IBr())
+				continue label1
+			}
+		}
+	}
+}
 -- TestAnnotator57.in --
 package p1
 

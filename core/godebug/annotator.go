@@ -286,6 +286,9 @@ func (ann *Annotator) VisFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
 }
 
 func (ann *Annotator) VisBlockStmt(ctx *Ctx, bs *ast.BlockStmt) {
+	// reset labeled stmts flag inside block stmts, otherwise nested stmts will process being labeled
+	ctx = ctx.withoutLabeledStmt()
+
 	ann.vis(ctx, &bs.List)
 }
 

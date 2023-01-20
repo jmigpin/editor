@@ -251,6 +251,9 @@ func (ctx *Ctx) typeInsteadOfValue() (*ast.Expr, bool) {
 func (ctx *Ctx) withLabeledStmt(ls *ast.LabeledStmt) *Ctx {
 	return ctx.WithValue(ctxIdLabeledStmt, ls)
 }
+func (ctx *Ctx) withoutLabeledStmt() *Ctx {
+	return ctx.WithValue(ctxIdLabeledStmt, nil)
+}
 func (ctx *Ctx) labeledStmt() (*ast.LabeledStmt, bool) {
 	v, _ := ctx.Value(ctxIdLabeledStmt)
 	if v == nil {
