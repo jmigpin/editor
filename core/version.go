@@ -68,7 +68,7 @@ func getBuildInfo() (string, bool) {
 		if err != nil {
 			return "", false
 		}
-		str := t.Format("20060102150405")
+		str := t.Format("20060102.150405")
 		addToStr(str)
 	}
 
