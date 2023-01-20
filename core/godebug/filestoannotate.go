@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/osutil"
 	"golang.org/x/tools/go/packages"
 )
@@ -777,13 +779,17 @@ func genDigitsStr(n int) string {
 
 func hashStringN(s string, n int) string {
 	h := md5.New()
-	h.Write([]byte(s))
-	v := h.Sum(nil)
-	s2 := base64.RawURLEncoding.EncodeToString(v)
-	if len(s2) < n {
-		n = len(s2)
-	}
-	return s2[:n]
+	_, _ = h.Write([]byte(s))
+	b := h.Sum(nil)
+
+	s2 := hex.EncodeToString(b)
+	s2 = base64.RawStdEncoding.EncodeToString([]byte(s2))
+
+	// cut short
+	n = mathutil.Min(n, len(s2))
+	s2 = s2[:n]
+
+	return s2
 }
 
 //----------

@@ -676,9 +676,7 @@ func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
 		ext := filepath.Ext(filename)
 		base := filepath.Base(filename)
 		base = base[:len(base)-len(ext)]
-		//hash := md5.New().Write([]byte(filename)).Sum(nil)
-		//hash := genDigitsStr(8)
-		hash := hashStringN(filename, 10)
+		hash := hashStringN(filename, 12)
 		name := fmt.Sprintf("%s_%s%s", base, hash, ext)
 
 		// write annotated files and keep in map for overlay
