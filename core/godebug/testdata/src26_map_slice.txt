@@ -1,0 +1,16 @@
+# expr itself is always one result only (dicts[0] was being assigned to 2 vars, when the 2 vars came from dicts[0][3])
+
+#ucmd godebugtester run -work -srclines=false main.go
+ucmd godebugtester run main.go
+
+-- main.go --
+package main
+type dict map[int]bool
+func main() {
+	dicts:=[]dict{}
+	dicts=append(dicts,map[int]bool{})
+	dicts[0][3]=true
+	if v,ok:=dicts[0][3];ok{
+		_=v
+	}
+}

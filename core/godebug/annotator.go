@@ -350,10 +350,10 @@ func (ann *Annotator) VisAssignStmt(ctx *Ctx, as *ast.AssignStmt) {
 	// left hand side
 	// ex: a[i] // returns 1 result
 	// ex: a,b,c:= // each expr returns 1 result to be debugged
-	ctx4 := ctx
-	ctx4 = ctx.withInsertStmtAfter(true)
-	ctx4 = ctx4.withNResults(1)
-	ctx4 = ctx4.withBoolean(ctxIdExprInLhs, true)
+	ctx4 := ctx.
+		withNResults(1).
+		withInsertStmtAfter(true).
+		withBoolean(ctxIdExprInLhs, true)
 	lhs := ann.resExprs(ctx4, &as.Lhs)
 
 	ctx = ctx.withInsertStmtAfter(true)
@@ -982,10 +982,11 @@ func (ann *Annotator) ResParenExpr(ctx *Ctx, pe *ast.ParenExpr) ast.Expr {
 func (ann *Annotator) ResIndexExpr(ctx *Ctx, ie *ast.IndexExpr) ast.Expr {
 	// ex: a,b=c[i],d[j]
 	// ex: a,ok:=m[f1()] // map access, more then 1 result
-
 	isSimple := isIdentOrSelectorOfIdents(ie.X)
 
-	ctx2 := ctx.withBoolean(ctxIdNameInsteadOfValue, true)
+	ctx2 := ctx.
+		withNResults(1).
+		withBoolean(ctxIdNameInsteadOfValue, true)
 	x := ann.resExpr(ctx2, &ie.X)
 
 	// wrap in parenthesis
@@ -1008,7 +1009,9 @@ func (ann *Annotator) ResIndexExpr(ctx *Ctx, ie *ast.IndexExpr) ast.Expr {
 func (ann *Annotator) ResSliceExpr(ctx *Ctx, se *ast.SliceExpr) ast.Expr {
 	isSimple := isIdentOrSelectorOfIdents(se.X)
 
-	ctx2 := ctx.withBoolean(ctxIdNameInsteadOfValue, true)
+	ctx2 := ctx.
+		withNResults(1).
+		withBoolean(ctxIdNameInsteadOfValue, true)
 	x := ann.resExpr(ctx2, &se.X)
 
 	// wrap in parenthesis
