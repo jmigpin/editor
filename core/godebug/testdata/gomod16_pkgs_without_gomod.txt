@@ -1,0 +1,32 @@
+# issue: old pkgs don't have a go.mod file; use symlinks workaround
+
+cd mod1
+
+exec go mod tidy
+#exec go run main.go
+
+ucmd godebugtester run main.go
+#ucmd godebugtester run -work -srclines=false -verbose main.go
+
+-- mod1/go.mod --
+module mod1
+require github.com/davecgh/go-spew v1.1.1
+require rsc.io/pdf v0.1.1
+
+-- mod1/main.go --
+package main
+
+//godebug:annotateimport
+import "rsc.io/pdf"
+//godebug:annotateimport
+import "github.com/davecgh/go-spew/spew"
+//godebug:annotateimport
+import "golang.org/x/tools/godoc"
+
+func main(){
+	_,_=pdf.Open("somename")
+	spew.Dump(1)
+	_=godoc.RangeSelection("aaa")
+}
+
+

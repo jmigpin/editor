@@ -832,22 +832,22 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context, fa *FilesToAnnotate) 
 	if err != nil {
 		return fmt.Errorf("unable to read mod file: %w", err)
 	}
-	f, err := modfile.ParseLax(filename, src, nil)
+	mf, err := modfile.ParseLax(filename, src, nil)
 	if err != nil {
 		return err
 	}
 
 	if cmd.flags.usePkgLinks {
-		if err := cmd.buildPkgLinks(f, fa); err != nil {
+		if err := cmd.buildPkgLinks(mf, fa); err != nil {
 			return err
 		}
 	}
 
 	// include debug pkg require/replace lines
-	f.AddNewRequire(debugPkgPath, "v0.0.0", false)
-	f.AddReplace(debugPkgPath, "", cmd.debugPkgDir, "")
+	mf.AddNewRequire(debugPkgPath, "v0.0.0", false)
+	mf.AddReplace(debugPkgPath, "", cmd.debugPkgDir, "")
 
-	src2, err := f.Format()
+	src2, err := mf.Format()
 	if err != nil {
 		return err
 	}
@@ -872,6 +872,8 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context, fa *FilesToAnnotate) 
 
 func (cmd *Cmd) buildPkgLinks(mf *modfile.File, fa *FilesToAnnotate) error {
 
+	// old pkgs don't have a go.mod file, and reside in another location. After go1.19, the compiler is not detecting the existence of inserted pkgs in their special/generated go.mod files. There is a workaround to have the pkg symlinked in a tmpdir, and then use the overlay file with a reference to that symlink.
+
 	linksDir := filepath.Join(cmd.tmpDir, "pkglinks")
 	if err := iout.MkdirAll(linksDir); err != nil {
 		return err
@@ -884,59 +886,57 @@ func (cmd *Cmd) buildPkgLinks(mf *modfile.File, fa *FilesToAnnotate) error {
 		return filepath.Join(linksDir, name)
 	}
 
-	seen := map[string]bool{}        // seen module
-	for _, req := range mf.Require { // modules being required
-		for filename := range fa.toAnnotate { // all annotated files
-			fpkg, ok := fa.filesPkgs[filename]
-			if !ok {
-				continue
+	seen := map[string]bool{}             // seen module
+	for filename := range fa.toAnnotate { // all annotated files
+		fpkg, ok := fa.filesPkgs[filename]
+		if !ok {
+			continue
+		}
+
+		// module of an annotated file
+		afMod := pkgMod(fpkg)
+		if afMod == nil || afMod.Dir == "" {
+			continue
+		}
+
+		// visited already
+		if seen[afMod.Dir] {
+			continue
+		}
+		seen[afMod.Dir] = true
+
+		goModIsGenerated := filepath.Dir(afMod.GoMod) != afMod.Dir
+		if !goModIsGenerated {
+			continue
+		}
+
+		// pkg with annotated files without a src go.mod (it was possibly generated)
+
+		// make a link to the package module and use that link dir to bypass the erroneous behaviour introduced by go1.19.x
+		ldir := linkFilename(afMod.Dir)
+		if err := os.Symlink(afMod.Dir, ldir); err != nil {
+			return fmt.Errorf("builddirlinks: %w", err)
+		}
+
+		// add replace directive to go.mod
+		mf.AddReplace(afMod.Path, "", ldir, "")
+
+		// replace all references in the overlay map to the created link dir
+		for oldf, newf := range cmd.overlay {
+			dir2 := afMod.Dir + string(filepath.Separator)
+			if strings.HasPrefix(oldf, dir2) {
+				rest := oldf[len(dir2):]
+				name2 := filepath.Join(ldir, rest)
+				cmd.overlay[name2] = newf
+				delete(cmd.overlay, oldf)
 			}
+		}
 
-			fmod := pkgMod(fpkg)
-			if fmod == nil || fmod.Dir == "" {
-				continue
-			}
-
-			// visited already
-			if seen[fmod.Dir] {
-				continue
-			}
-			seen[fmod.Dir] = true
-
-			if fmod.Path != req.Mod.Path {
-				continue
-			}
-
-			// required module with annotated files
-
-			// TODO: do this only if in a gopath dir? Seemed to be the issue that only modules in a gopath dir would not honor the overlay including a new package
-
-			// make a link to the package module and use that link dir to bypass the erroneous behaviour introduced by go1.19.x
-			ldir := linkFilename(fmod.Dir)
-			if err := os.Symlink(fmod.Dir, ldir); err != nil {
-				return fmt.Errorf("builddirlinks: %w", err)
-			}
-
-			// add replace directive to go.mod
-			mf.AddReplace(fmod.Path, "", ldir, "")
-
-			// replace all references in the overlay map to the created link dir
-			for oldf, newf := range cmd.overlay {
-				dir2 := fmod.Dir + string(filepath.Separator)
-				if strings.HasPrefix(oldf, dir2) {
-					rest := oldf[len(dir2):]
-					name2 := filepath.Join(ldir, rest)
-					cmd.overlay[name2] = newf
-					delete(cmd.overlay, oldf)
-				}
-			}
-
-			// add module go.mod in overlay (ex: case of module without a go.mod, but with a built go.mod in a cache dir)
-			dir2 := filepath.Dir(fmod.GoMod)
-			if dir2 != fmod.Dir {
-				filename := filepath.Join(ldir, "go.mod")
-				cmd.overlay[filename] = fmod.GoMod
-			}
+		// add module go.mod in overlay (ex: case of module without a go.mod, but with a built go.mod in a cache dir)
+		dir2 := filepath.Dir(afMod.GoMod)
+		if dir2 != afMod.Dir {
+			filename := filepath.Join(ldir, "go.mod")
+			cmd.overlay[filename] = afMod.GoMod
 		}
 	}
 	return nil
