@@ -300,6 +300,7 @@ Usage of GoDebug run:
 - Annotate files
 	- By default, the main file will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, or by inserting one of the following comments in the code (notice the lack of space after "//"):
 		```
+		//godebug:annotateoff		# disable annotating
 		//godebug:annotateblock
 		//godebug:annotatefile
 		//godebug:annotatepackage
@@ -310,19 +311,19 @@ Usage of GoDebug run:
 		//godebug:annotatefile:<file> 	# absolute or relative to the current
 		//godebug:annotatepackage:<pkg-path>
 		//godebug:annotatemodule:<pkg-path> 	# any pkg path inside will annotate all
-		```
-		The annotator will detect these comments and annotate accordingly.
-
-		A pkg path can be given to annotatepackage, but beware that pkgs located in $GOROOT are not annotated. Example:
-		```
+		
+		# example:
 		//godebug:annotatepackage:golang.org/x/tools/godoc/util
 		```
+		
+		The annotator will detect these comments and annotate accordingly. 
+		
+		Packages located in $GOROOT are not annotated. 
+		
 		Higher level `//godebug:*` comments will override lower ones.
-		To disable annotating for the current code block, insert:
-		```
-		//godebug:annotateoff
-		```
-		This is helpful to bypass loops that would become too slow with debug messages being sent. Example:
+		
+		Example on how to bypass loops that would become too slow with debug messages being sent:
+		
 		```
 		//godebug:annotateoff	// don't annotate arg "v1"
 		func fn(v1 int){
@@ -340,7 +341,9 @@ Usage of GoDebug run:
 			println(a) // annotated, not part of the disabled block
 		}
 		```
+		
 		Also, to improve on the `String()` limitation:
+		
 		```
 		type myint int
 		func (v myint) String() string {
