@@ -46,7 +46,7 @@ func (cp *ContentParser) Parse(src []byte, index int) (*BuildNodeData, *cpRun, e
 func (cp *ContentParser) ParseFileSet(fset *FileSet, index int, extData any) (*BuildNodeData, *cpRun, error) {
 	ps := NewPState(fset.Src)
 	ps.Pos = index
-	ps.Reverse = cp.Opt.Reverse
+	ps.Sc.Reverse = cp.Opt.Reverse
 	cpr := newCPRun(cp.Opt, ps)
 	cpr.externalData = extData
 	cpn, err := cp.parse3(cpr)
@@ -317,20 +317,22 @@ func (cp *ContentParser) parseRule(ps *PState, r Rule) error {
 		}
 		ps.Node = newCPNode(pos0, ps.Pos, t)
 	case *FuncRule:
-		pos0 := ps.KeepPos()
+		pos0 := ps.Pos
 		if err := t.fn(ps); err != nil {
-			pos0.Restore()
+			ps.Pos = pos0
 			return err
 		}
-		ps.Node = newCPNode(pos0.Pos, ps.Pos, t)
+		ps.Node = newCPNode(pos0, ps.Pos, t)
 	case *SingletonRule:
 		switch t {
 		//case nilRule:	// commented: not called to be parsed
 		case endRule:
-			if !ps.M.Eof() {
+			pos0 := ps.Pos
+			if p2, err := ps.Sc.M.Eof(ps.Pos); err != nil {
+				ps.Pos = p2
 				return fmt.Errorf("not eof")
 			}
-			ps.Node = newCPNode(ps.Pos, ps.Pos, t)
+			ps.Node = newCPNode(pos0, ps.Pos, t)
 		default:
 			panic(goutil.TodoErrorStr(t.name))
 		}

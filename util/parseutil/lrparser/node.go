@@ -5,28 +5,57 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
 
 type PState struct {
-	*parseutil.Scanner
+	Sc   *pscan.Scanner
+	Pos  int
 	Node PNode
 }
 
 func NewPState(src []byte) *PState {
 	ps := &PState{}
-	ps.Scanner = parseutil.NewScanner()
-	ps.SetSrc(src)
+	ps.Sc = pscan.NewScanner()
+	ps.Sc.SetSrc(src)
 	return ps
 }
 
+//func (ps *PState) NodeBytes(node PNode) []byte {
+//	pos, end := node.Pos(), node.End()
+//	if pos > end {
+//		pos, end = end, pos
+//	}
+//	return ps.Sc.SrcFromTo(pos, end)
+//}
+//func (ps *PState) NodeString(node PNode) string {
+//	return string(ps.NodeBytes(node))
+//}
+
 //----------
 //----------
 //----------
 
-type RuneRange = parseutil.RuneRange
-type RuneRanges = parseutil.RuneRanges
-type PosError = parseutil.ScPosError
+type RuneRange = pscan.RuneRange
+
+//type RuneRanges = parseutil.RuneRanges
+//type PosError = parseutil.ScError
+
+type PosError struct {
+	Err error
+	Pos int
+	//Callstack string
+	Fatal bool
+}
+
+func (e *PosError) Error() string {
+	return e.Err.Error()
+	//cs := ""
+	//if e.Callstack != "" {
+	//	cs = "\n" + e.Callstack
+	//}
+	//return fmt.Sprintf("%s%s", e.Err, cs)
+}
 
 //----------
 //----------
@@ -145,12 +174,11 @@ func (d *BuildNodeData) Pos() int {
 func (d *BuildNodeData) End() int {
 	return d.cpn.End()
 }
-
 func (d *BuildNodeData) NodeSrc() string {
-	return PNodeString(d.cpn, d.cpr.ps.Src)
+	return PNodeString(d.cpn, d.cpr.ps.Sc.SrcFullFromOffset())
 }
 func (d *BuildNodeData) FullSrc() []byte {
-	return d.cpr.ps.Src
+	return d.cpr.ps.Sc.SrcFullFromOffset()
 }
 func (d *BuildNodeData) Data() interface{} {
 	return d.cpn.data
@@ -168,7 +196,7 @@ func (d *BuildNodeData) ExternalData() any {
 //----------
 
 func (d *BuildNodeData) SprintRuleTree(maxDepth int) string {
-	return SprintNodeTree(d.cpr.ps.Src, d.cpn, maxDepth)
+	return SprintNodeTree(d.cpr.ps.Sc.SrcFullFromOffset(), d.cpn, maxDepth)
 }
 func (d *BuildNodeData) PrintRuleTree(maxDepth int) {
 	fmt.Printf("%v\n", d.SprintRuleTree(maxDepth))
@@ -185,7 +213,7 @@ func (d *BuildNodeData) Child(i int) *BuildNodeData {
 	return newBuildNodeData(d.cpr, d.cpn.childs[i])
 }
 func (d *BuildNodeData) ChildStr(i int) string {
-	return PNodeString(d.cpn.childs[i], d.cpr.ps.Src)
+	return PNodeString(d.cpn.childs[i], d.cpr.ps.Sc.SrcFullFromOffset())
 }
 func (d *BuildNodeData) ChildInt(i int) (int, error) {
 	s := d.ChildStr(i)

@@ -1,12 +1,11 @@
 package toolbarparser
 
 import (
-	"fmt"
 	"log"
 	"unicode"
 
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
 
 func Parse(str string) *Data {
@@ -23,98 +22,81 @@ func Parse(str string) *Data {
 
 type dataParser struct {
 	data *Data
-	sc   *parseutil.Scanner
+	sc   *pscan.Scanner
 }
 
 func newDataParser() *dataParser {
 	p := &dataParser{}
-	p.sc = parseutil.NewScanner()
+	p.sc = pscan.NewScanner()
 	return p
 }
 func (p *dataParser) parse(src string) error {
 	p.data = &Data{Str: src}
 	p.sc.SetSrc([]byte(src))
-	parts, err := p.parts()
-	if err != nil {
-		return err
+
+	vk := p.sc.NewValueKeeper()
+	if p2, err := p.sc.M.And(0,
+		vk.WKeepValue(p.parseParts),
+		p.sc.M.Eof,
+	); err != nil {
+		return p.sc.SrcError(p2, err)
 	}
-	p.data.Parts = parts
+
+	p.data.Parts = vk.V.([]*Part)
 	return nil
 }
-func (p *dataParser) parts() ([]*Part, error) {
+func (p *dataParser) parseParts(pos int) (any, int, error) {
 	parts := []*Part{}
-	for {
-		part, err := p.part()
-		if err != nil {
-			return nil, err
-		}
-		parts = append(parts, part)
-
-		// split parts on these runes
-		if p.sc.M.RuneAny([]rune(("|\n"))) == nil {
-			continue
-		}
-		if p.sc.M.Eof() {
-			break
-		}
-	}
-	return parts, nil
+	p2, err := p.sc.M.LoopSepCanHaveLast(pos,
+		p.sc.W.OnValue(
+			p.parsePart,
+			func(v any) { parts = append(parts, v.(*Part)) },
+		),
+		// separator
+		p.sc.W.RuneOneOf([]rune("|\n")),
+	)
+	return parts, p2, err
 }
-func (p *dataParser) part() (*Part, error) {
-	pos0 := p.sc.KeepPos()
-
-	_ = p.sc.M.SpacesExcludingNL() // optional space at start
-
+func (p *dataParser) parsePart(pos int) (any, int, error) {
 	part := &Part{}
 	part.Data = p.data
-	for {
-		arg, err := p.arg()
-		if err != nil {
-			break // end of part
-		}
-		part.Args = append(part.Args, arg)
 
-		// need space between args
-		if !p.sc.M.SpacesExcludingNL() {
-			break
-		}
+	// optloop: arg can be nil
+	p2, err := p.sc.M.OptLoop(pos, p.sc.W.Or(
+		p.parseSpaces,
+		p.sc.W.OnValue(
+			p.parseArg,
+			func(v any) { part.Args = append(part.Args, v.(*Arg)) },
+		),
+	))
+	// NOTE: should never be an error with optloop, still leaving it here
+	if err != nil {
+		return nil, p2, err
 	}
 
-	part.SetPos(pos0.Pos, p.sc.Pos)
-	return part, nil
+	part.SetPos(pos, p2)
+	return part, p2, nil
 }
-func (p *dataParser) arg() (*Arg, error) {
-	pos0 := p.sc.KeepPos()
-	for {
-		if p.sc.M.EscapeAny(osutil.EscapeRune) == nil {
-			continue
-		}
-		if p.sc.M.QuotedString() == nil {
-			continue
-		}
-
-		// split args
-		pos3 := p.sc.KeepPos()
-		ru, err := p.sc.ReadRune()
-		if err == nil {
-			valid := !(ru == '|' || unicode.IsSpace(ru))
-			if !valid {
-				err = parseutil.NoMatchErr
-			}
-		}
-		if err != nil {
-			pos3.Restore()
-			break
-		}
-		// accept rune into arg
+func (p *dataParser) parseArg(pos int) (any, int, error) {
+	argRune := func(ru rune) bool {
+		return ru != '|' && !unicode.IsSpace(ru)
 	}
-	// empty arg. Ex: parts string with empty args: "|||".
-	if pos0.IsEmpty() {
-		return nil, fmt.Errorf("empty arg")
+	if p2, err := p.sc.M.Loop(pos, p.sc.W.Or(
+		p.sc.W.EscapeAny(osutil.EscapeRune),
+		p.sc.W.QuotedString(),
+		p.sc.W.RuneFn(argRune),
+	)); err != nil {
+		return nil, p2, err
+	} else {
+		arg := &Arg{}
+		arg.Data = p.data
+		arg.SetPos(pos, p2)
+		return arg, p2, nil
 	}
-
-	arg := &Arg{}
-	arg.Data = p.data
-	arg.SetPos(pos0.Pos, p.sc.Pos)
-	return arg, nil
+}
+func (p *dataParser) parseOptSpaces(pos int) (int, error) {
+	return p.sc.M.Optional(pos, p.parseSpaces)
+}
+func (p *dataParser) parseSpaces(pos int) (int, error) {
+	return p.sc.M.Spaces(pos, false, '\\')
 }

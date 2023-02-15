@@ -14,7 +14,7 @@ func TestJsonParser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = v
+	t.Log(v)
 
 	//spew.Config.Indent = "\t"
 	//spew.Dump(v)

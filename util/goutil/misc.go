@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"reflect"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -58,9 +59,34 @@ func Sprintfc(skip int, f string, args ...interface{}) string {
 	return fmt.Sprintf(f, args...)
 }
 
-// ----------
-//
-//godebug:annotatefile
+//----------
+
+func SprintFnStack(skip int) string {
+	buf := &strings.Builder{}
+	for i := 0; ; i++ {
+		pc, _, _, ok := runtime.Caller(1 + skip + i)
+		if !ok {
+			break
+		}
+		details := runtime.FuncForPC(pc)
+		if details == nil {
+			break
+		}
+
+		u := details.Name()
+		if i := strings.Index(u, ".("); i >= 0 {
+			if j := strings.Index(u[i+2:], ")"); j >= 0 {
+				u = u[i+2+j+1:]
+			}
+		}
+
+		buf.WriteString(u + "\n")
+	}
+	return buf.String()
+}
+
+//----------
+
 func TodoError() error {
 	return fmt.Errorf(Sprintfc(1, "TODO"))
 }
@@ -69,6 +95,18 @@ func TodoErrorStr(s string) error {
 }
 func TodoErrorType(t interface{}) error {
 	return fmt.Errorf(Sprintfc(1, "TODO: %T", t))
+}
+
+//----------
+
+func Hashable(v any) bool {
+	k := reflect.TypeOf(v).Kind()
+	return true &&
+		//k != reflect.UnsafePointer &&
+		//k != reflect.Pointer &&
+		k != reflect.Slice &&
+		k != reflect.Map &&
+		k != reflect.Func
 }
 
 //----------
@@ -85,6 +123,31 @@ func Trace(n int) (string, int, string) {
 	}
 
 	return file, line, fn.Name()
+}
+
+//----------
+
+func FuncName(f interface{}) string {
+	p := reflect.ValueOf(f).Pointer()
+	details := runtime.FuncForPC(p)
+	return runtimeSimpleName(details.Name())
+}
+func CallerName(skip int) string {
+	pc, _, _, ok := runtime.Caller(skip + 1)
+	if !ok {
+		return "<?>"
+	}
+	details := runtime.FuncForPC(pc)
+	return runtimeSimpleName(details.Name())
+}
+func runtimeSimpleName(name string) string {
+	u := name
+	if i := strings.Index(u, ".("); i >= 0 {
+		if j := strings.Index(u[i+2:], ")"); j >= 0 {
+			u = u[i+2+j+1:]
+		}
+	}
+	return u
 }
 
 //----------

@@ -75,9 +75,9 @@ func replaceIfRules(ri *RuleIndex) error {
 	return visitRuleIndexRulesAndChilds(ri, func(rref *Rule) error {
 		switch t := (*rref).(type) {
 		case *IfRule:
-			c0 := t.childs_[0] // conditional rule
-			c1 := t.childs_[1] // rule if condition is true
-			c2 := t.childs_[2] // rule if condition is false
+			c0 := t.childs2[0] // conditional rule
+			c1 := t.childs2[1] // rule if condition is true
+			c2 := t.childs2[2] // rule if condition is false
 			c0br, ok := c0.(*BoolRule)
 			if !ok {
 				return fmt.Errorf("ifrule condition is not a boolrule: %v (%T)", c0, c0)
@@ -248,7 +248,7 @@ func replaceParenthesisRules(ri *RuleIndex) error {
 				dr := newDefRule(t)
 				r2 := t.onlyChild()
 				r4 := &OrRule{}
-				r4.childs_ = []Rule{r2, nilRule}
+				r4.childs2 = []Rule{r2, nilRule}
 				dr.setOnlyChild(r4)
 				dr.isPOptional = true
 				*rref = dr
@@ -256,10 +256,10 @@ func replaceParenthesisRules(ri *RuleIndex) error {
 				dr := newDefRule(t)
 				r2 := t.onlyChild()
 				r3 := &AndRule{}
-				r3.childs_ = []Rule{dr, r2} // loop before (smaller run stack // also allows less conflicts due to left-to-right?) // order also used in node.go childloop func
+				r3.childs2 = []Rule{dr, r2} // loop before (smaller run stack // also allows less conflicts due to left-to-right?) // order also used in node.go childloop func
 				//r3.childs_ = []Rule{r2, dr} // loop after
 				r4 := &OrRule{}
-				r4.childs_ = []Rule{r3, nilRule}
+				r4.childs2 = []Rule{r3, nilRule}
 				dr.setOnlyChild(r4)
 				dr.isNoReverse = true
 				dr.isPZeroOrMore = true
@@ -301,7 +301,7 @@ func replaceParenthesisRules(ri *RuleIndex) error {
 				r3.typ = parenRTZeroOrMore
 				r3.setOnlyChild(r2)
 				r4 := &AndRule{}
-				r4.childs_ = []Rule{r3, r2} // place loop before // order also used in node.go childloop func
+				r4.childs2 = []Rule{r3, r2} // place loop before // order also used in node.go childloop func
 				//r4.childs_ = []Rule{r2, r3} // place loop after // TODO: fails testlrparser21
 				dr.setOnlyChild(r4)
 				dr.isNoReverse = true

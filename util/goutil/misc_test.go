@@ -2,8 +2,6 @@ package goutil
 
 import (
 	"testing"
-
-	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func TestGoVersion1(t *testing.T) {
@@ -12,10 +10,6 @@ func TestGoVersion1(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("%v\n", v)
-
-	if !parseutil.VersionLessThan(v, "20.21") {
-		t.Fail()
-	}
 }
 
 func TestGoPath1(t *testing.T) {

@@ -54,10 +54,12 @@ func setupAnyRuneFn(ri *RuleIndex) error {
 		}
 		fr := &FuncRule{name: name, parseOrder: parseOrder}
 		fr.fn = func(ps *PState) error {
-			if _, err := ps.ReadRune(); err != nil {
+			if _, p2, err := ps.Sc.ReadRune(ps.Pos); err != nil {
 				return err // fails at eof
+			} else {
+				ps.Pos = p2
+				return nil
 			}
-			return nil
 		}
 		return fr, nil
 	}
@@ -94,7 +96,12 @@ func setupQuotedStringFn(ri *RuleIndex) error {
 		name := fmt.Sprintf("quotedString(%q,%v,%v)", esc, maxLen1, maxLen2)
 		fr := &FuncRule{name: name, parseOrder: parseOrder}
 		fr.fn = func(ps *PState) error {
-			return ps.M.QuotedString2(esc, int(maxLen1), int(maxLen2))
+			if p2, err := ps.Sc.M.QuotedString2(ps.Pos, esc, int(maxLen1), int(maxLen2)); err != nil {
+				return err
+			} else {
+				ps.Pos = p2
+				return nil
+			}
 		}
 		return fr, nil
 	}
@@ -163,7 +170,12 @@ func setupEscapeAnyFn(ri *RuleIndex) error {
 		name := fmt.Sprintf("escapeAny(%q)", esc)
 		fr := &FuncRule{name: name, parseOrder: parseOrder}
 		fr.fn = func(ps *PState) error {
-			return ps.M.EscapeAny(esc)
+			if p2, err := ps.Sc.M.EscapeAny(ps.Pos, esc); err != nil {
+				return err
+			} else {
+				ps.Pos = p2
+				return nil
+			}
 		}
 		return fr, nil
 	}

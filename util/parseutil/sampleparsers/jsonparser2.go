@@ -1,7 +1,7 @@
 package sampleparsers
 
 import (
-	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
 
 func ParseJson2(src []byte) (interface{}, error) {
@@ -12,102 +12,122 @@ func ParseJson2(src []byte) (interface{}, error) {
 //----------
 
 type JsonParser2 struct {
-	sc *parseutil.Scanner
+	sc *pscan.Scanner
 	fn struct {
-		object   parseutil.ScFn
-		array    parseutil.ScFn
-		value    parseutil.ScFn
-		number   parseutil.ScFn
-		string   parseutil.ScFn
-		element  parseutil.ScFn
-		elements parseutil.ScFn
-		member   parseutil.ScFn
-		members  parseutil.ScFn
+		doc      pscan.MFn
+		object   pscan.MFn
+		array    pscan.MFn
+		value    pscan.MFn
+		number   pscan.MFn
+		string   pscan.MFn
+		element  pscan.MFn
+		elements pscan.MFn
+		member   pscan.MFn
+		members  pscan.MFn
 	}
+
+	testStrings []string
 }
 
 func NewJsonParser2() *JsonParser2 {
 	p := &JsonParser2{}
-	p.sc = parseutil.NewScanner()
-	//p.sc.Debug = true
+	p.sc = pscan.NewScanner()
 
 	// only defined later
-	members := func() error {
-		return p.fn.members()
-	}
-	elements := func() error {
-		return p.fn.elements()
-	}
+	members := p.sc.W.PtrFn(&p.fn.members)
+	elements := p.sc.W.PtrFn(&p.fn.elements)
 
-	p.fn.object = p.sc.P.And(
-		p.sc.P.Rune('{'),
-		p.sc.P.OptionalSpaces(),
-		p.sc.P.Optional(members),
-		p.sc.P.FatalOnErr("expecting '}'",
-			p.sc.P.Rune('}'),
+	optSpaces := p.sc.W.Optional(p.sc.W.Spaces(true, 0))
+
+	p.fn.object = p.sc.W.And(
+		p.sc.W.Rune('{'),
+		optSpaces,
+		p.sc.W.Optional(members),
+		p.sc.W.FatalOnError("expecting '}'",
+			p.sc.W.Rune('}'),
 		),
 	)
-	p.fn.array = p.sc.P.And(
-		p.sc.P.Rune('['),
-		p.sc.P.OptionalSpaces(),
-		p.sc.P.Optional(elements),
-		p.sc.P.FatalOnErr("expecting ']'",
-			p.sc.P.Rune(']'),
+	p.fn.array = p.sc.W.And(
+		p.sc.W.Rune('['),
+		optSpaces,
+		p.sc.W.Optional(elements),
+		p.sc.W.FatalOnError("expecting ']'",
+			p.sc.W.Rune(']'),
 		),
 	)
-	p.fn.number = p.sc.P.Or(
-		p.sc.P.Float(),
-		p.sc.P.Integer(),
+	p.fn.number = p.sc.W.Or(
+		p.sc.W.Float(),
+		p.sc.W.Integer(),
 	)
-	p.fn.string = p.sc.P.DoubleQuotedString(3000)
-	p.fn.value = p.sc.P.Or(
+	p.fn.string = p.sc.W.DoubleQuotedString(3000)
+	p.fn.value = p.sc.W.Or(
 		p.fn.object,
 		p.fn.array,
 		p.fn.number,
 		p.fn.string,
-		p.sc.P.Sequence("true"),
-		p.sc.P.Sequence("false"),
-		p.sc.P.Sequence("null"),
+		p.sc.W.Sequence("true"),
+		p.sc.W.Sequence("false"),
+		p.sc.W.Sequence("null"),
 	)
-	p.fn.element = p.sc.P.And(
-		p.sc.P.OptionalSpaces(),
+	p.fn.element = p.sc.W.And(
+		optSpaces,
 		p.fn.value,
-		p.sc.P.OptionalSpaces(),
+		optSpaces,
 	)
-	p.fn.member = p.sc.P.And(
-		p.sc.P.OptionalSpaces(),
+	p.fn.member = p.sc.W.And(
+		optSpaces,
 		p.fn.string,
-		p.sc.P.OptionalSpaces(),
-		p.sc.P.Rune(':'),
-		p.sc.P.FatalOnErr("member element",
+		optSpaces,
+		p.sc.W.Rune(':'),
+		optSpaces,
+		p.sc.W.FatalOnError("member element",
 			p.fn.element,
+
+			// TESTING
+			//p.sc.W.OnValue(
+			//	p.sc.W.BytesValue(p.fn.element),
+			//	func(v any) {
+			//		b, _ := v.([]byte)
+			//		//fmt.Printf("%s\n", b)
+			//		if len(b) > 0 && b[0] == '"' {
+			//			p.testStrings = append(p.testStrings, string(b))
+			//		}
+			//	},
+			//),
 		),
 	)
-	p.fn.members = p.sc.P.Loop(
-		p.sc.P.FatalOnErr("member",
+	p.fn.members = p.sc.W.LoopSepCanHaveLast(
+		p.sc.W.FatalOnError("member",
 			p.fn.member,
 		),
-		p.sc.P.Rune(','), true,
+		p.sc.W.Rune(','),
 	)
-	p.fn.elements = p.sc.P.Loop(
-		p.sc.P.FatalOnErr("element",
+	p.fn.elements = p.sc.W.LoopSepCanHaveLast(
+		p.sc.W.FatalOnError("element",
 			p.fn.element,
 		),
-		p.sc.P.Rune(','), true,
+		p.sc.W.Rune(','),
 	)
+	p.fn.doc = p.sc.W.And(
+		p.fn.element,
+		p.sc.M.Eof,
+	)
+
 	return p
 }
 
 func (p *JsonParser2) parseJson(src []byte) (any, error) {
 	p.sc.SetSrc(src)
-	if err := p.fn.element(); err != nil {
-		return nil, p.sc.SrcError2(err, 50)
+	if p2, err := p.fn.doc(0); err != nil {
+		return nil, p.sc.SrcError(p2, err)
+	} else {
+		//return nil, nil // TODO: value
+		return p.testStrings, nil // TESTING
 	}
-	return nil, nil
 }
 
 //----------
 //----------
 //----------
 
-type SParserFunc = parseutil.ScFn
+type SParserFunc = pscan.MFn

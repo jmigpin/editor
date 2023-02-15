@@ -1,42 +1,34 @@
 package parseutil
 
-import "fmt"
+import "github.com/jmigpin/editor/util/parseutil/pscan"
 
 func ParseFields(s string, fieldSep rune) ([]string, error) {
-	sc := NewScanner()
+	sc := pscan.NewScanner()
 	sc.SetSrc([]byte(s))
 	esc := '\\'
 	fields := []string{}
-	for i := 0; ; i++ {
-		if sc.M.Eof() {
-			break
-		}
-
-		// field separator
-		if i > 0 {
-			if err := sc.M.Rune(fieldSep); err != nil {
-				return nil, fmt.Errorf("field separator: %w", err)
-			}
-		}
-
-		// field (can be empty)
-		pos0 := sc.Pos
-		for {
-			if sc.M.QuotedString2(esc, 3000, 3000) == nil {
-				continue
-			}
-			if sc.M.RuneAnyNot([]rune{fieldSep}) == nil {
-				continue
-			}
-			break
-		}
-		val := string(sc.Src[pos0:sc.Pos])
-		if u, err := UnquoteString(val, esc); err == nil {
-			val = u
-		}
-
-		// add field
-		fields = append(fields, val)
+	if p2, err := sc.M.AndR(0,
+		sc.W.LoopSep(
+			sc.W.OnValue(
+				sc.W.StringValue(sc.W.Loop(sc.W.Or(
+					sc.W.QuotedString2(esc, 3000, 3000),
+					sc.W.RuneNoneOf([]rune{fieldSep}),
+				))),
+				func(v any) {
+					s := v.(string)
+					if u, err := UnquoteString(s, esc); err == nil {
+						s = u
+					}
+					fields = append(fields, s)
+				},
+			),
+			// separator
+			sc.W.Rune(fieldSep),
+		),
+		sc.M.Eof,
+	); err != nil {
+		return nil, sc.SrcError(p2, err)
+	} else {
+		return fields, nil
 	}
-	return fields, nil
 }

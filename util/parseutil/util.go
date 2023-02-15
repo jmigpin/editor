@@ -1,6 +1,7 @@
 package parseutil
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -12,6 +13,10 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/osutil"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 //----------
@@ -121,62 +126,39 @@ func ExpandIndexesEscape(rd iorw.ReaderAt, index int, truth bool, fn func(rune) 
 }
 
 func ExpandIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc := NewScannerR(r, i)
-	return expandEscape(sc, truth, fn, escape)
+	sc := iorw.NewScanner(r)
+	return expandEscape(sc, i, truth, fn, escape)
 }
 
 func ExpandLastIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc := NewScannerR(r, i)
+	sc := iorw.NewScanner(r)
 
 	// read direction
 	tmp := sc.Reverse
 	sc.Reverse = true
 	defer func() { sc.Reverse = tmp }() // restore
 
-	return expandEscape(sc, truth, fn, escape)
+	return expandEscape(sc, i, truth, fn, escape)
 }
 
-func expandEscape(sc *ScannerR, truth bool, fn func(rune) bool, escape rune) int {
-	for {
-		if sc.M.Eof() {
-			break
-		}
-		if err := sc.M.EscapeAny(escape); err == nil {
-			continue
-		}
-		pos0 := sc.KeepPos()
-		ru, err := sc.ReadRune()
-		if err != nil {
-			break
-		}
-		if fn(ru) == truth {
-			pos0.Restore()
-			break
-		}
-	}
-	return sc.Pos()
+func expandEscape(sc *pscan.Scanner, i int, truth bool, fn func(rune) bool, escape rune) int {
+	p2, _ := sc.M.Loop(i, sc.W.Or(
+		sc.W.EscapeAny(escape),
+		sc.W.RuneFn(func(ru rune) bool {
+			return fn(ru) != truth
+		}),
+	))
+	return p2
 }
 
 //----------
 
 func ImproveExpandIndexEscape(r iorw.ReaderAt, i int, escape rune) int {
-	sc := NewScannerR(r, i)
-
-	// read direction
-	tmp := sc.Reverse
-	sc.Reverse = true
-	defer func() { sc.Reverse = tmp }() // restore
-
-	for {
-		if sc.M.Eof() {
-			break
-		}
-		if err := sc.M.Rune(escape); err == nil {
-			continue
-		}
-		break
-	}
-	return sc.Pos()
+	sc := iorw.NewScanner(r)
+	p2, _ := sc.M.ReverseMode(i, true,
+		sc.W.Loop(sc.W.Rune(escape)),
+	)
+	return p2
 }
 
 //----------
@@ -446,4 +428,24 @@ func ContainsRune(rs []rune, ru rune) bool {
 		}
 	}
 	return false
+}
+
+//----------
+
+func ToLowerNoAccents(b []byte) []byte {
+	b = bytes.ToLower(b)
+
+	// accents
+	t := transform.Chain(
+		norm.NFD,
+		runes.Remove(runes.In(unicode.Mn)),
+		norm.NFC,
+	)
+	if b2, _, err := transform.Bytes(t, b); err == nil {
+		return b2
+	}
+	return b
+}
+func ToLowerNoAccents2(s string) string {
+	return string(ToLowerNoAccents([]byte(s)))
 }

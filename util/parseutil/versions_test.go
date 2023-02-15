@@ -5,19 +5,22 @@ import (
 )
 
 func TestVersions(t *testing.T) {
-	if r := VersionLessThan("1.17", "1.16"); r {
+	if VersionLessThan("1.17", "1.16") {
 		t.Fail()
 	}
-	if r := VersionLessThan("1.16", "1.17"); !r {
+	if !VersionLessThan("1.16", "1.17") {
 		t.Fail()
 	}
-	if r := VersionLessThan("1.17", "1.161"); !r {
+	if !VersionLessThan("1.17", "1.161") {
 		t.Fail()
 	}
-	if r := VersionLessThan("1.17", "1.16.1"); r {
+	if VersionLessThan("1.17", "1.16.1") {
 		t.Fail()
 	}
-	if r := VersionLessThan("1.9", "1.16"); !r {
+	if !VersionLessThan("1.9", "1.16") {
+		t.Fail()
+	}
+	if !VersionLessThan("1.90", "20.21") {
 		t.Fail()
 	}
 }

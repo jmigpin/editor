@@ -7,15 +7,15 @@ import (
 )
 
 func TestOpenSession1(t *testing.T) {
-	s := "aa OpenSession bb cc"
+	s := "aa OpenSession bb\n cc"
 	rd := iorw.NewStringReaderAt(s)
-	for i := 0; i < 10; i++ {
-		sn, err := sessionName(rd, 17-i)
+	for i := 7; i < 17; i++ {
+		sn, err := sessionName(rd, i)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("i=", i, "err=", err)
 		}
 		if sn != "bb" {
-			t.Fatal()
+			t.Fatalf("i=%v, %q\n", i, sn)
 		}
 	}
 }

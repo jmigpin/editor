@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/util/goutil"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
 
 type Rule interface {
@@ -23,19 +24,19 @@ type Rule interface {
 
 // common rule
 type CmnRule struct {
-	childs_ []Rule
+	childs2 []Rule
 }
 
 //----------
 
 func (r *CmnRule) addChilds(r2 ...Rule) {
-	r.childs_ = append(r.childs_, r2...)
+	r.childs2 = append(r.childs2, r2...)
 }
 func (r *CmnRule) onlyChild() Rule {
-	return r.childs_[0]
+	return r.childs2[0]
 }
 func (r *CmnRule) setOnlyChild(r2 Rule) {
-	r.childs_ = r.childs_[:0]
+	r.childs2 = r.childs2[:0]
 	r.addChilds(r2)
 }
 
@@ -43,15 +44,15 @@ func (r *CmnRule) setOnlyChild(r2 Rule) {
 
 //godebug:annotateoff
 func (r *CmnRule) iterChildRefs(fn func(index int, ref *Rule) error) error {
-	for i := 0; i < len(r.childs_); i++ {
-		if err := fn(i, &r.childs_[i]); err != nil {
+	for i := 0; i < len(r.childs2); i++ {
+		if err := fn(i, &r.childs2[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 func (r *CmnRule) childs() []Rule {
-	return r.childs_
+	return r.childs2
 }
 
 //----------
@@ -124,7 +125,7 @@ func (r *AndRule) isTerminal() bool {
 }
 func (r *AndRule) id() string {
 	w := []string{}
-	for _, r := range r.childs_ {
+	for _, r := range r.childs2 {
 		w = append(w, r.id())
 	}
 	u := strings.Join(w, " ")
@@ -147,7 +148,7 @@ func (r *OrRule) isTerminal() bool {
 }
 func (r *OrRule) id() string {
 	w := []string{}
-	for _, r := range r.childs_ {
+	for _, r := range r.childs2 {
 		w = append(w, r.id())
 	}
 	u := strings.Join(w, "|")
@@ -169,7 +170,7 @@ type IfRule struct {
 func (r *IfRule) selfSequence() []Rule { return []Rule{r} }
 func (r *IfRule) isTerminal() bool     { return false }
 func (r *IfRule) id() string {
-	return fmt.Sprintf("{if %v ? %v : %v}", r.childs_[0], r.childs_[1], r.childs_[2])
+	return fmt.Sprintf("{if %v ? %v : %v}", r.childs2[0], r.childs2[1], r.childs2[2])
 }
 func (r *IfRule) String() string {
 	return r.id()
@@ -228,7 +229,7 @@ type StringRule struct {
 	BasicPNode
 	CmnRule
 	runes   []rune
-	rranges RuneRanges
+	rranges []pscan.RuneRange
 	typ     stringRType
 }
 
@@ -318,18 +319,32 @@ func (r *StringRule) intersectRanges(rrs []RuneRange) bool {
 //----------
 
 func (r *StringRule) parse(ps *PState) error {
-	return r.parse2(ps, r.typ)
+	if p2, err := r.parse2(ps.Pos, ps.Sc); err != nil {
+		return err
+	} else {
+		ps.Pos = p2
+		return nil
+	}
 }
-func (r *StringRule) parse2(ps *PState, typ stringRType) error {
-	switch typ {
+func (r *StringRule) parse2(pos int, sc *pscan.Scanner) (int, error) {
+	switch r.typ {
 	case stringRTAnd: // sequence, ex: keyword
-		return ps.M.RuneSequence(r.runes)
+		return sc.M.RuneSequence(pos, r.runes)
 	case stringRTMid: // sequence, ex: keyword
-		return ps.M.RuneSequenceMid(r.runes)
+		return sc.M.RuneSequenceMid(pos, r.runes)
 	case stringRTOr:
-		return ps.M.RunesAndRuneRanges(r.runes, r.rranges)
+		return sc.M.Or(pos,
+			sc.W.RuneOneOf(r.runes),
+			sc.W.RuneRanges(r.rranges...),
+		)
 	case stringRTOrNeg:
-		return ps.M.RunesAndRuneRangesNot(r.runes, r.rranges)
+		return sc.M.And(pos,
+			sc.W.MustErr(sc.W.Or(
+				sc.W.RuneOneOf(r.runes),
+				sc.W.RuneRanges(r.rranges...),
+			)),
+			sc.M.OneRune,
+		)
 	default:
 		panic(goutil.TodoErrorStr(string(r.typ)))
 	}

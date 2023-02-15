@@ -1,8 +1,17 @@
 package drawer4
 
-import "github.com/jmigpin/editor/util/iout/iorw"
+import (
+	"strings"
+
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
+)
 
 func updateParenthesisHighlight(d *Drawer) {
+	// TODO: testing handling parenthesis in syntaxhighlight
+	//updateSyntaxHighlightOps(d)
+	// return
+
 	if !d.Opt.ParenthesisHighlight.On {
 		d.Opt.ParenthesisHighlight.Group.Ops = nil
 		return
@@ -13,118 +22,121 @@ func updateParenthesisHighlight(d *Drawer) {
 	}
 	d.opt.parenthesisH.updated = true
 
-	d.Opt.ParenthesisHighlight.Group.Ops = parenthesisHOps(d, 5000)
+	ph := &ParenthesisHighlight{d: d, pad: 5000}
+	d.Opt.ParenthesisHighlight.Group.Ops = ph.do()
 }
 
 //----------
 
-func parenthesisHOps(d *Drawer, maxDist int) []*ColorizeOp {
-	if !d.Opt.Cursor.On {
-		return nil
-	}
-
-	pairs := []rune{'{', '}', '(', ')', '[', ']'}
-	ci := d.opt.cursor.offset
-	pi, ok := parenthesisFindPair(d, pairs, ci)
-	if !ok {
-		// try match the previous parenthesis
-		ci--
-		if ci < 0 {
-			return nil
-		}
-		pi, ok = parenthesisFindPair(d, pairs, ci)
-		if !ok {
-			return nil
-		}
-	}
-
-	// assign open/close parenthesis
-	var open, close rune
-	isOpen := pi%2 == 0
-	var nextRune func() (rune, int, error)
-	if isOpen {
-		open, close = pairs[pi], pairs[pi+1]
-		ri := ci + len(string(open))
-		nextRune = func() (rune, int, error) {
-			ru, size, err := iorw.ReadRuneAt(d.reader, ri)
-			if err != nil {
-				return 0, 0, err
-			}
-			ri2 := ri
-			ri += size
-			return ru, ri2, nil
-		}
-	} else {
-		open, close = pairs[pi], pairs[pi-1]
-		ri := ci
-		nextRune = func() (rune, int, error) {
-			ru, size, err := iorw.ReadLastRuneAt(d.reader, ri)
-			if err != nil {
-				return 0, 0, err
-			}
-			ri -= size
-			return ru, ri, nil
-		}
-	}
-
-	// colorize open
-	op1 := &ColorizeOp{
-		Offset: ci,
-		Fg:     d.Opt.ParenthesisHighlight.Fg,
-		Bg:     d.Opt.ParenthesisHighlight.Bg,
-	}
-	op2 := &ColorizeOp{Offset: ci + len(string(open))}
-	var ops []*ColorizeOp
-	ops = append(ops, op1, op2)
-
-	// find parenthesis
-	match := 0
-	for i := 0; i < maxDist; i++ {
-		ru, ri, err := nextRune()
-		if err != nil {
-			break
-		}
-		if ru == open {
-			match++
-		} else if ru == close {
-			if match > 0 {
-				match--
-			} else {
-				// colorize close
-				op1 := &ColorizeOp{
-					Offset: ri,
-					Fg:     d.Opt.ParenthesisHighlight.Fg,
-					Bg:     d.Opt.ParenthesisHighlight.Bg,
-				}
-				op2 := &ColorizeOp{Offset: ri + len(string(close))}
-				ops = append(ops, op1, op2)
-				if !isOpen {
-					// invert order
-					l := len(ops)
-					ops[l-4], ops[l-2] = ops[l-2], ops[l-4]
-					ops[l-3], ops[l-1] = ops[l-1], ops[l-3]
-				}
-				break
-			}
-		}
-	}
-
-	return ops
+type ParenthesisHighlight struct {
+	d     *Drawer
+	sc    *pscan.Scanner
+	ops   []*ColorizeOp
+	pad   int
+	pairs []rune
 }
 
-func parenthesisFindPair(d *Drawer, pairs []rune, ci int) (int, bool) {
-	// read current rune
-	cru, _, err := iorw.ReadRuneAt(d.reader, ci)
-	if err != nil {
-		return 0, false
-	}
+func (ph *ParenthesisHighlight) do() []*ColorizeOp {
+	ci := ph.d.opt.cursor.offset
+	r := iorw.NewLimitedReaderAtPad(ph.d.reader, ci, ci, ph.pad)
 
-	// find parenthesis type
-	var pi int
-	for ; pi < len(pairs); pi++ {
-		if pairs[pi] == cru {
-			break
+	ph.sc = iorw.NewScanner(r)
+	pos0 := ph.sc.ValidPos(ci)
+
+	// match a parenthesis
+	pairs := []rune("(){}[]")
+	vk := ph.sc.NewValueKeeper()
+	parseOpen := vk.WKeepValue(ph.sc.W.RuneValue(ph.sc.W.RuneOneOf(pairs)))
+	_, err := parseOpen(pos0)
+	if err != nil {
+		//return nil // error: no results returned
+
+		// try reading previous
+		if p3, err2 := ph.sc.M.ReverseMode(pos0, true, parseOpen); err2 != nil {
+			return nil // error: no results returned
+		} else {
+			pos0 = p3
 		}
 	}
-	return pi, pi < len(pairs)
+
+	// pos0 is at the left side of the rune
+	openPos := pos0
+
+	// resolve open/close runes
+	sym := vk.V.(rune)
+	k := strings.Index(string(pairs), string(sym))
+	isOpen := k%2 == 0
+	if isOpen {
+		k++
+	} else {
+		k--
+	}
+	openRu, closeRu := sym, pairs[k]
+	reverse := !isOpen
+	if reverse {
+		pos0++ // to read the open rune again
+	}
+
+	// match parenthesis
+	stk := 0
+	done := false
+	closePos := 0
+	pushOpen := func(pos int) (int, error) {
+		stk++
+		return pos, nil
+	}
+	popClose := func(pos int) (int, error) {
+		stk--
+		if stk == 0 {
+			done = true
+			closePos = pos
+			if !reverse {
+				closePos--
+			}
+		}
+		return pos, nil
+	}
+	_, _ = ph.sc.M.ReverseMode(pos0,
+		reverse,
+		ph.sc.W.Loop(ph.sc.W.And(
+			ph.sc.W.PtrFalse(&done),
+			ph.sc.W.Or(
+
+				// might not work well (forward vs reverse)
+				// ph.sc.W.QuotedString(),
+
+				ph.sc.W.And(
+					ph.sc.W.Rune(openRu),
+					pushOpen,
+				),
+				ph.sc.W.And(
+					ph.sc.W.Rune(closeRu),
+					popClose,
+				),
+				ph.sc.M.OneRune,
+			),
+		)),
+	)
+
+	// sort points
+	points := []int{openPos}
+	hasClosePos := done == true
+	if hasClosePos {
+		points = append(points, closePos)
+		if reverse {
+			points[0], points[1] = points[1], points[0]
+		}
+	}
+
+	// build colorize ops
+	opt := &ph.d.Opt.ParenthesisHighlight
+	fg := opt.Fg
+	bg := opt.Bg
+	for _, p := range points {
+		op1 := &ColorizeOp{Offset: p, Fg: fg, Bg: bg}
+		op2 := &ColorizeOp{Offset: p + 1} // assumes rune size 1
+		ph.ops = append(ph.ops, op1, op2)
+	}
+
+	return ph.ops
 }

@@ -28,20 +28,20 @@ func NodeFilename(fset *token.FileSet, node ast.Node) (string, error) {
 //cfg := &printer.Config{Tabwidth: 4}
 //cfg := &printer.Config{Mode: printer.SourcePos, Tabwidth: 4}
 
-func PrintNode(fset *token.FileSet, n ast.Node) {
-	fmt.Println(SprintNode(fset, n))
+func PrintNode(fset *token.FileSet, node any) {
+	fmt.Println(SprintNode(fset, node))
 }
-func SprintNode(fset *token.FileSet, n ast.Node) string {
-	s, err := SprintNode2(fset, n)
+func SprintNode(fset *token.FileSet, node any) string {
+	s, err := SprintNode2(fset, node)
 	if err != nil {
 		return fmt.Sprintf("<sprintnodeerr:%v>", err)
 	}
 	return s
 }
-func SprintNode2(fset *token.FileSet, n ast.Node) (string, error) {
+func SprintNode2(fset *token.FileSet, node any) (string, error) {
 	buf := &bytes.Buffer{}
 	cfg := &printer.Config{Mode: printer.RawFormat}
-	if err := cfg.Fprint(buf, fset, n); err != nil {
+	if err := cfg.Fprint(buf, fset, node); err != nil {
 		return "", err
 	}
 	return string(buf.Bytes()), nil

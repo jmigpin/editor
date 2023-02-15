@@ -7,7 +7,19 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
+
+func NewScanner(rd ReaderAt) *pscan.Scanner {
+	sc := pscan.NewScanner()
+	src, err := ReadFastFull(rd)
+	if err != nil {
+		//return nil, err // TODO
+		return sc // best effort, returns empty scanner
+	}
+	sc.SetSrc2(src, rd.Min())
+	return sc
+}
 
 //----------
 

@@ -3,7 +3,7 @@ package toolbarparser
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/util/parseutil"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
 
 // scan for cmd position, update with arg, or insert new cmd
@@ -68,19 +68,23 @@ func insertCmdPartAtEnd(data *Data, cmd, arg string) uoipcResult {
 		return res
 	}
 
-	sc := parseutil.NewScanner()
+	sc := pscan.NewScanner()
 	sc.SetSrc([]byte(data.Str))
-	sc.Pos = len(data.Str)
 	sc.Reverse = true
-	_ = sc.P.Loop2(sc.P.RuneAny([]rune(" \t")))() // backtrack spaces
-	pos0 := sc.KeepPos()
-	if sc.M.Rune('\n') == nil {
-		return replaceAt(pos0.Pos, "")
+
+	// backtrack spaces (best effort)
+	p2 := len(data.Str)
+	if p3, err := sc.M.Loop(p2, sc.W.RuneOneOf([]rune(" \t"))); err == nil {
+		p2 = p3
 	}
-	if sc.M.Rune('|') == nil {
-		return replaceAt(pos0.Pos, " ")
+
+	if _, err := sc.M.Rune(p2, '\n'); err == nil {
+		return replaceAt(p2, "")
 	}
-	return replaceAt(pos0.Pos, " | ")
+	if _, err := sc.M.Rune(p2, '|'); err == nil {
+		return replaceAt(p2, " ")
+	}
+	return replaceAt(p2, " | ")
 }
 
 //----------

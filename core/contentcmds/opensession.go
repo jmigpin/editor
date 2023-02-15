@@ -7,7 +7,6 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/parseutil"
 )
 
 func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) {
@@ -28,51 +27,44 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 	return nil, true
 }
 
+//----------
+
 func sessionName(rd iorw.ReaderAt, index int) (string, error) {
-	sc := parseutil.NewScannerR(rd, index)
+	sc := iorw.NewScanner(rd)
+	//sc.SetSrc2(rd, index)
 
-	// index at: "OpenSe|ssion sessionname"
-	sc.Reverse = true
-	_ = sc.M.RuneFnLoop(sessionNameRune)
-	sc.Reverse = false
+	parseName := sc.W.RuneFnLoop(sessionNameRune)
+	cmdStr := "OpenSession"
+	vkName := sc.NewValueKeeper()
+	parseCmdAndName := sc.W.And(
+		sc.W.Sequence(cmdStr),
+		sc.W.Spaces(false, 0),
+		vkName.WKeepValue(sc.W.StringValue(parseName)),
+	)
 
-	// index at: "|OpenSession sessionname"
-	sname, err := readCmdSessionName(sc)
-	if err == nil {
-		// found
-		return sname, nil
+	if p2, err := sc.M.Or(index,
+		// index at: "●OpenSession● sessionname"
+		sc.W.And(
+			sc.W.ReverseMode(true, sc.W.Optional(sc.W.Or(
+				sc.W.Sequence(cmdStr),
+				sc.W.SequenceMid(cmdStr),
+			))),
+			parseCmdAndName,
+		),
+		// index at: "OpenSession ●sessionname●"
+		sc.W.And(
+			sc.W.ReverseMode(true, sc.W.AndR(
+				sc.W.Sequence(cmdStr),
+				sc.W.Spaces(false, 0),
+				sc.W.Optional(parseName),
+			)),
+			parseCmdAndName,
+		),
+	); err != nil {
+		return "", sc.SrcError(p2, err)
+	} else {
+		return vkName.V.(string), nil
 	}
-
-	// index at: "OpenSession |sessionname"
-	sc.Reverse = true
-	if err := sc.M.Rune(' '); err != nil {
-		return "", sc.SrcErrorf("space")
-	}
-	_ = sc.M.RuneFnLoop(sessionNameRune)
-	sc.Reverse = false
-
-	// index at: "|OpenSession sessionname"
-	sname, err = readCmdSessionName(sc)
-	if err == nil {
-		// found
-		return sname, nil
-	}
-
-	return "", sc.SrcErrorf("not found")
-}
-
-func readCmdSessionName(sc *parseutil.ScannerR) (string, error) {
-	pos0 := sc.KeepPos()
-	cmd := "OpenSession"
-	if err := sc.M.Sequence(cmd + " "); err != nil {
-		return "", sc.SrcErrorf("cmd")
-	}
-	pos1 := sc.KeepPos()
-	if err := sc.M.RuneFnLoop(sessionNameRune); err != nil {
-		pos0.Restore()
-		return "", sc.SrcErrorf("sessionname")
-	}
-	return string(pos1.Bytes()), nil
 }
 
 func sessionNameRune(ru rune) bool {
