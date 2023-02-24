@@ -150,6 +150,16 @@ func OpenTerminal(args *core.InternalCmdArgs) error {
 	return osutil.OpenTerminal(erow.Info.Dir())
 }
 
+func OpenExternal(args *core.InternalCmdArgs) error {
+	erow := args.ERow
+
+	if erow.Info.IsSpecial() {
+		return fmt.Errorf("can't run on special row")
+	}
+
+	return osutil.OpenExternal(erow.Info.Name())
+}
+
 //----------
 
 func GoDebug(args *core.InternalCmdArgs) error {

@@ -55,6 +55,7 @@ func init() {
 
 	cmdERow(OpenFilemanager, "OpenFilemanager", "XdgOpenDir") // TODO: deprecate XdgOpenDir
 	cmdERow(OpenTerminal, "OpenTerminal")
+	cmdERow(OpenExternal, "OpenExternal")
 
 	cmdERow(ListDir, "ListDir")
 

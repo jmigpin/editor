@@ -392,7 +392,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		[]string{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
 		[]string{"GoDebug -h", "GoRename"},
 		[]string{"LsprotoRename", "LsprotoCloseAll", "LsprotoCallers", "LsprotoCallees", "LsprotoReferences"},
-		[]string{"OpenFilemanager", "OpenTerminal"},
+		[]string{"OpenExternal", "OpenFilemanager", "OpenTerminal"},
 
 		[]string{"GotoLine"},
 		[]string{"CopyFilePosition"},

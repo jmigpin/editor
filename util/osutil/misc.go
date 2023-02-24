@@ -88,6 +88,21 @@ func OpenBrowser(url string) error {
 }
 
 // doesn't wait for the cmd to end
+func OpenExternal(name string) error {
+	c := (*exec.Cmd)(nil)
+	switch runtime.GOOS {
+	case "windows":
+		// TODO: review
+		c = exec.Command("rundll32", "url.dll,FileProtocolHandler", name)
+	case "darwin":
+		c = exec.Command("open", name)
+	default: // linux, others...
+		c = exec.Command("xdg-open", name)
+	}
+	return cmdStartWaitAsync(c)
+}
+
+// doesn't wait for the cmd to end
 func OpenFilemanager(filename string) error {
 	var c *exec.Cmd
 	switch runtime.GOOS {
@@ -108,7 +123,8 @@ func OpenTerminal(filename string) error {
 	case "windows":
 		return errors.New("todo")
 	case "darwin":
-		return errors.New("todo")
+		// TODO: review
+		c = exec.Command("terminal", filename)
 	default: // linux, others...
 		c = exec.Command("x-terminal-emulator", "--working-directory="+filename)
 	}
