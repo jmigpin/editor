@@ -189,6 +189,8 @@ func (erow *ERow) Reload() error {
 		return nil
 	case erow.Info.IsFileButNotDir():
 		return erow.Info.ReloadFile()
+	case erow.Info.FileInfoErr() != nil:
+		return erow.Info.FileInfoErr()
 	default:
 		return errors.New("unexpected type to reload")
 	}
