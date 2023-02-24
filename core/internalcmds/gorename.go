@@ -58,7 +58,9 @@ func GoRename(args0 *core.InternalCmdArgs) error {
 	reloadOnNoErr := func(err error) {
 		if err == nil {
 			erow.Ed.UI.RunOnUIGoRoutine(func() {
-				erow.Reload()
+				if err := erow.Reload(); err != nil {
+					erow.Ed.Error(err)
+				}
 			})
 		}
 	}

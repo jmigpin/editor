@@ -179,13 +179,7 @@ func newLoadedFileERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
 
 //----------
 
-func (erow *ERow) Reload() {
-	if err := erow.reload(); err != nil {
-		erow.Ed.Error(err)
-	}
-}
-
-func (erow *ERow) reload() error {
+func (erow *ERow) Reload() error {
 	switch {
 	case erow.Info.IsSpecial() && erow.Info.Name() == "+Sessions":
 		ListSessions(erow.Ed)
