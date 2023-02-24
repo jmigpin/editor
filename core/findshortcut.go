@@ -16,6 +16,9 @@ func ReplaceShortcut(erow *ERow) {
 func NewFileShortcut(erow *ERow) {
 	updateToolbarPartCmd(erow, "NewFile")
 }
+func ReloadShortcut(erow *ERow) {
+	updateToolbarPartCmd(erow, "Reload")
+}
 
 //----------
 

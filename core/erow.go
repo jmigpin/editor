@@ -269,6 +269,8 @@ func (erow *ERow) initHandlers() {
 				ReplaceShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymN:
 				NewFileShortcut(erow)
+			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymR:
+				ReloadShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymW:
 				row.Close()
 			case evt.KeySym == event.KSymEscape:
