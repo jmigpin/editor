@@ -264,13 +264,13 @@ func (erow *ERow) initHandlers() {
 					erow.Ed.Error(err)
 				}
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
-				FindShortcut(erow)
+				AddFindShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymH:
-				ReplaceShortcut(erow)
+				AddReplaceShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymN:
-				NewFileShortcut(erow)
+				AddNewFileShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymR:
-				ReloadShortcut(erow)
+				AddReloadShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymW:
 				row.Close()
 			case evt.KeySym == event.KSymEscape:

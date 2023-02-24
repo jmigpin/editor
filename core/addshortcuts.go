@@ -7,16 +7,16 @@ import (
 	"github.com/jmigpin/editor/core/toolbarparser"
 )
 
-func FindShortcut(erow *ERow) {
+func AddFindShortcut(erow *ERow) {
 	updateToolbarPartCmd(erow, "Find")
 }
-func ReplaceShortcut(erow *ERow) {
+func AddReplaceShortcut(erow *ERow) {
 	updateToolbarPartCmd(erow, "Replace")
 }
-func NewFileShortcut(erow *ERow) {
+func AddNewFileShortcut(erow *ERow) {
 	updateToolbarPartCmd(erow, "NewFile")
 }
-func ReloadShortcut(erow *ERow) {
+func AddReloadShortcut(erow *ERow) {
 	updateToolbarPartCmd(erow, "Reload")
 }
 
