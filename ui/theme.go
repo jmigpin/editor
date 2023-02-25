@@ -192,9 +192,58 @@ func acmeThemeColors(node widget.Node) {
 
 //----------
 
+func gruvboxThemeColors(node widget.Node) {
+	pal := widget.Palette{
+		"text_cursor_fg":            cint(0xffffff),
+		"text_fg":                   cint(0xfbf1c7),
+		"text_bg":                   cint(0x282828),
+		"text_selection_fg":         nil,
+		"text_selection_bg":         cint(0x928374),
+		"text_colorize_string_fg":   cint(0xb8bb26),
+		"text_colorize_comments_fg": cint(0xa89984), 
+		"text_highlightword_fg":     nil,
+		"text_highlightword_bg":     cint(0x504945),
+		"text_wrapline_fg":          cint(0x0),
+		"text_wrapline_bg":          cint(0xd8d8c6),
+
+		"toolbar_text_bg":          cint(0x504945),
+		"toolbar_text_wrapline_bg": cint(0xc6d8d8),
+
+		"scrollbar_bg":        cint(0x1d2021),
+		"scrollhandle_normal": cint(0xa89984),
+		"scrollhandle_hover":  cint(0xadad6f),
+		"scrollhandle_select": cint(0x99994c),
+
+		"column_norows_rect":  cint(0x1d2021),
+		"columns_nocols_rect": cint(0x1d2021),
+		"colseparator_rect":   cint(0x282828),
+		"rowseparator_rect":   cint(0x282828),
+		"shadowsep_rect":      cint(0x282828),
+
+		"columnsquare": cint(0xb57614),
+		"rowsquare":    cint(0xb57614),
+
+		"mm_text_bg":          cint(0x1d2021),
+		"mm_button_hover_bg":  imageutil.Shade(cint(0xa89984), 0.10),
+		"mm_button_down_bg":   imageutil.Shade(cint(0xeaffff), 0.20),
+		"mm_button_sticky_bg": imageutil.Shade(cint(0xeaffff), 0.40),
+		"mm_border":           cint(0x282828),
+		"mm_content_pad":      cint(0xfbf1c7),
+		"mm_content_border":   cint(0x282828),
+
+		"contextfloatbox_border": cint(0x282828),
+	}
+
+	pal.Merge(rowSquarePalette())
+	pal.Merge(userPalette())
+	node.Embed().SetThemePalette(pal)
+}
+
+//----------
+
 func rowSquarePalette() widget.Palette {
 	pal := widget.Palette{
-		"rs_active":              cint(0x0),
+		"rs_active":              cint(0x282828),
 		"rs_executing":           cint(0x0fad00),                       // dark green
 		"rs_edited":              cint(0x0000ff),                       // blue
 		"rs_disk_changes":        cint(0xff0000),                       // red
@@ -211,6 +260,7 @@ func rowSquarePalette() widget.Palette {
 
 var ColorThemeCycler cycler = cycler{
 	entries: []cycleEntry{
+		{"gruvbox", gruvboxThemeColors},
 		{"light", lightThemeColors},
 		{"dark", darkThemeColors},
 		{"acme", acmeThemeColors},
