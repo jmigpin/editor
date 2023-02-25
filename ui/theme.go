@@ -194,15 +194,15 @@ func acmeThemeColors(node widget.Node) {
 
 func gruvboxThemeColors(node widget.Node) {
 	pal := widget.Palette{
-		"text_cursor_fg":            cint(0xffffff),
+		"text_cursor_fg":            cint(0xd79921),
 		"text_fg":                   cint(0xfbf1c7),
 		"text_bg":                   cint(0x282828),
 		"text_selection_fg":         nil,
-		"text_selection_bg":         cint(0x928374),
+		"text_selection_bg":         cint(0x504945),
 		"text_colorize_string_fg":   cint(0xb8bb26),
 		"text_colorize_comments_fg": cint(0xa89984), 
-		"text_highlightword_fg":     nil,
-		"text_highlightword_bg":     cint(0x504945),
+		"text_highlightword_fg":     cint(0x1d2021),
+		"text_highlightword_bg":     cint(0xf9f5d7),
 		"text_wrapline_fg":          cint(0x0),
 		"text_wrapline_bg":          cint(0xd8d8c6),
 
