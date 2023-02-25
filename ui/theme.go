@@ -272,10 +272,10 @@ func rowSquarePalette() widget.Palette {
 
 var ColorThemeCycler cycler = cycler{
 	entries: []cycleEntry{
-		{"gruvbox", gruvboxThemeColors},
 		{"light", lightThemeColors},
 		{"dark", darkThemeColors},
 		{"acme", acmeThemeColors},
+		{"gruvbox", gruvboxThemeColors},
 	},
 }
 
