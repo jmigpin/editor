@@ -5,7 +5,7 @@ ucmd lspSourceCursor main_template _discard 1
 setenv offset2 stdout
 
 ucmd lspDefinition main.go offset
-contains stdout "&{{759 5} {759 8}}"
+contains stdout "&{{761 5} {761 8}}"
 
 ucmd lspDefinition main.go offset2
 contains stdout "&{{3 1} {3 3}}"

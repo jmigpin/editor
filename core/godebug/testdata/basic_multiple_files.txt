@@ -11,7 +11,8 @@ fail ucmd godebugtester run
 contains error "go.mod file not found"
 
 fail ucmd godebugtester run main.go
-contains error "undeclared name: f1"
+#contains error "undeclared name: f1"
+contains error "undefined: f1"
 
 ucmd godebugtester run main.go f1.go
 contains stdout "recv: println(2=f1())"
