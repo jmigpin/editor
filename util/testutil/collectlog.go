@@ -11,9 +11,11 @@ import (
 )
 
 func CollectLog(t *testing.T, fn func() error) ([]byte, []byte, error) {
-	return CollectLog2(t.Logf, fn)
+	return CollectLog2(t, t.Logf, fn)
 }
-func CollectLog2(logf func(string, ...any), fn func() error) ([]byte, []byte, error) {
+func CollectLog2(t *testing.T, logf func(string, ...any), fn func() error) ([]byte, []byte, error) {
+	t.Helper()
+
 	// keep for later restoration
 	orig1, orig2 := os.Stdout, os.Stderr
 	defer func() { // restore
@@ -35,6 +37,8 @@ func CollectLog2(logf func(string, ...any), fn func() error) ([]byte, []byte, er
 	// setup logger
 	logWriter := func(wr io.Writer, buf *bytes.Buffer) io.Writer {
 		return iout.FnWriter(func(b []byte) (int, error) {
+			t.Helper()
+
 			// commented: prints many lines without log prefix
 			//logf("%s", b)
 

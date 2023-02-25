@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -47,16 +46,46 @@ func NewScript(args []string) *Script {
 //----------
 
 func (scr *Script) log(t *testing.T, s string) {
+	t.Helper()
+	if u := scr.locationInfo(); u != "" {
+		s = u + s
+	}
 	s = strings.TrimRight(s, "\n") // remove newlines
 	t.Log(s)                       // adds one newline
 }
-func (scr *Script) logf(t *testing.T, f string, args ...interface{}) {
+func (scr *Script) logf(t *testing.T, f string, args ...any) {
+	t.Helper()
 	scr.log(t, fmt.Sprintf(f, args...))
 }
 
 //----------
 
+func (scr *Script) error(err error) error {
+	if s := scr.locationInfo(); s != "" {
+		return fmt.Errorf("%v%w", s, err)
+	}
+	return err
+}
+
+//----------
+
+func (scr *Script) locationInfo() string {
+	// add filename line info
+	u := ""
+	if filename := os.Getenv("script_filename"); filename != "" {
+		u = filename
+		if line := os.Getenv("script_line"); line != "" {
+			u += ":" + line
+		}
+		u += ": "
+	}
+	return u
+}
+
+//----------
+
 func (scr *Script) Run(t *testing.T) {
+	t.Helper()
 	// internal cmds
 	icmds := []*ScriptCmd{
 		&ScriptCmd{"ucmd", scr.icUCmd}, // run user cmd
@@ -75,6 +104,7 @@ func (scr *Script) Run(t *testing.T) {
 	}
 }
 func (scr *Script) runDir(t *testing.T, dir string) error {
+	t.Helper()
 	des, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -84,51 +114,50 @@ func (scr *Script) runDir(t *testing.T, dir string) error {
 			continue
 		}
 		filename := filepath.Join(dir, de.Name())
-		if err := scr.runFile(t, filename); err != nil {
-			return err
+		if !scr.runFile(t, filename) {
+			break
 		}
 	}
 	return nil
 }
-func (scr *Script) runFile(t1 *testing.T, filename string) error {
-	err0 := error(nil)
+func (scr *Script) runFile(t1 *testing.T, filename string) bool {
+	t1.Helper()
 	name := filepath.Base(filename)
-	ok := t1.Run(name, func(t2 *testing.T) {
-		// running as a sub-test
-		scr.logf(t2, "script: %v", filename)
-
-		ar, err := txtar.ParseFile(filename)
-		if err != nil {
-			err0 = err // stop testing by returning an error
-			return
+	return t1.Run(name, func(t2 *testing.T) {
+		t1.Helper()
+		t2.Helper()
+		if err := scr.runSubTest(t2, filename); err != nil {
+			err2 := scr.error(err) // setup error with location info
+			t2.Fatal(err2)
 		}
+	})
+}
+func (scr *Script) runSubTest(t *testing.T, filename string) error {
+	t.Helper()
 
-		func() { // run in func to use defer inside
-			if scr.ScriptStart != nil {
-				if err := scr.ScriptStart(t2); err != nil {
-					t2.Fatal(err)
-				}
-			}
-			if scr.ScriptStop != nil {
-				defer func() {
-					if err := scr.ScriptStop(t2); err != nil {
-						t2.Fatal(err)
-					}
-				}()
-			}
+	scr.logf(t, "subtest: %v", filename)
 
-			if err := scr.runScript(t2, filename, ar); err != nil {
-				t2.Logf("FAIL: %v", err)
-				//t2.Fail()  // continues testing
-				t2.Fatal() // also seems to continue, need t1
-				t1.Fatal() // stop testing
+	ar, err := txtar.ParseFile(filename)
+	if err != nil {
+		return err
+	}
+	if scr.ScriptStart != nil {
+		if err := scr.ScriptStart(t); err != nil {
+			return err
+		}
+	}
+	if scr.ScriptStop != nil {
+		defer func() {
+			if err := scr.ScriptStop(t); err != nil {
+				t.Error(err)
 			}
 		}()
-	})
-	_ = ok
-	return err0
+	}
+	return scr.runScript(t, filename, ar)
 }
 func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) error {
+	t.Helper()
+
 	// create working dir
 	// TODO: review, not working properly
 	//dir, err := os.MkdirTemp(t.TempDir(), "editor_testutil_work.*")
@@ -140,6 +169,7 @@ func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) e
 	t.Setenv("WORK", scr.workDir)
 	scr.logf(t, "script_workdir: %v", scr.workDir)
 	defer func() {
+		t.Helper()
 		if scr.Work {
 			scr.logf(t, "workDir not cleaned")
 		} else {
@@ -176,8 +206,11 @@ func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) e
 	rd := bytes.NewReader(ar.Comment)
 	scanner := bufio.NewScanner(rd)
 	line := 0
+	t.Setenv("script_filename", filename) // update for logs/errors
 	for scanner.Scan() {
 		line++
+		t.Setenv("script_line", fmt.Sprintf("%d", line)) // update for logs/errors
+
 		txt := strings.TrimSpace(scanner.Text())
 		// comments
 		if strings.HasPrefix(txt, "#") {
@@ -192,18 +225,14 @@ func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) e
 
 		cmd, ok := scr.icmds[args[0]]
 		if !ok {
-			err := fmt.Errorf("cmd not found: %v", args[0])
-			return &lineError{filename, line, err}
+			return fmt.Errorf("cmd not found: %v", args[0])
 		}
-		scr.logf(t, "%v: %v", args[0], args[1:])
+		scr.logf(t, "$%v", args)
 		if err := cmd.Fn(t, args); err != nil {
-			return &lineError{filename, line, err}
+			return err
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return &lineError{filename, line, err}
-	}
-	return nil
+	return scanner.Err()
 }
 
 //----------
@@ -342,6 +371,7 @@ func (scr *Script) icSetEnv(t *testing.T, args []string) error {
 //----------
 
 func (scr *Script) icFail(t *testing.T, args []string) error {
+	t.Helper()
 	args = args[1:] // drop "fail"
 	if len(args) < 1 {
 		return fmt.Errorf("expecting at least 1 arg, got %v", args)
@@ -398,21 +428,6 @@ func mapScriptCmds(w []*ScriptCmd) map[string]*ScriptCmd {
 		m[cmd.Name] = cmd
 	}
 	return m
-}
-
-//----------
-
-type lineError struct {
-	filename string
-	line     int
-	err      error
-}
-
-func (le *lineError) Error() string {
-	return fmt.Sprintf("%v:%v: %v", le.filename, le.line, le.err)
-}
-func (le *lineError) Is(err error) bool {
-	return errors.Is(le.err, err)
 }
 
 //----------
