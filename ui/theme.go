@@ -234,19 +234,7 @@ func gruvboxThemeColors(node widget.Node) {
 		"contextfloatbox_border": cint(0x282828),
 	}
 	
-	p := widget.Palette{
-		"rs_active":              cint(0x282828),
-		"rs_executing":           cint(0x79740e),                       // dark green
-		"rs_edited":              cint(0x076678),                       // blue
-		"rs_disk_changes":        cint(0xcc241d),                       // red
-		"rs_not_exist":           cint(0xd65d0e),                       // orange
-		"rs_duplicate":           cint(0x83a598),                       // blueish
-		"rs_duplicate_highlight": cint(0xd79921),                       // yellow
-		"rs_annotations":         cint(0xb57614),                       // pumpkin
-		"rs_annotations_edited":  imageutil.Tint(cint(0xd35400), 0.45), // pumpkin (brighter)
-	}
-	
-	pal.Merge(p)
+	pal.Merge(rowSquarePalette())
 	pal.Merge(userPalette())
 	node.Embed().SetThemePalette(pal)
 }
