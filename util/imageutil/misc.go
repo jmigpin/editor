@@ -1,89 +1,14 @@
 package imageutil
 
 import (
+	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
 	"math"
+	"sort"
+
+	"github.com/jmigpin/editor/util/mathutil"
 )
-
-func DrawMask(
-	dst draw.Image,
-	r image.Rectangle,
-	src image.Image, srcp image.Point,
-	mask image.Image, maskp image.Point,
-	op draw.Op,
-) {
-	// improve performance for bgra
-	if bgra, ok := dst.(*BGRA); ok {
-		dst = &bgra.RGBA
-	}
-
-	draw.DrawMask(dst, r, src, srcp, mask, maskp, op)
-}
-
-//----------
-
-func DrawUniformMask(
-	dst draw.Image,
-	r image.Rectangle,
-	c color.Color,
-	mask image.Image, maskp image.Point,
-	op draw.Op,
-) {
-	if c == nil {
-		return
-	}
-	// correct color for bgra
-	if _, ok := dst.(*BGRA); ok {
-		c = BgraColor(c)
-	}
-
-	src := image.NewUniform(c)
-	srcp := image.ZP
-	DrawMask(dst, r, src, srcp, mask, maskp, op)
-}
-
-func DrawUniform(dst draw.Image, r image.Rectangle, c color.Color, op draw.Op) {
-	DrawUniformMask(dst, r, c, nil, image.ZP, op)
-}
-
-//----------
-
-func DrawCopy(dst draw.Image, r image.Rectangle, src image.Image) {
-	DrawMask(dst, r, src, image.ZP, nil, image.ZP, draw.Src)
-}
-
-//----------
-
-func FillRectangle(img draw.Image, r image.Rectangle, c color.Color) {
-	DrawUniform(img, r, c, draw.Src)
-}
-
-func BorderRectangle(img draw.Image, r image.Rectangle, c color.Color, size int) {
-	var sr [4]image.Rectangle
-	// top
-	sr[0] = r
-	sr[0].Max.Y = r.Min.Y + size
-	// bottom
-	sr[1] = r
-	sr[1].Min.Y = r.Max.Y - size
-	// left
-	sr[2] = r
-	sr[2].Max.X = r.Min.X + size
-	sr[2].Min.Y = r.Min.Y + size
-	sr[2].Max.Y = r.Max.Y - size
-	// right
-	sr[3] = r
-	sr[3].Min.X = r.Max.X - size
-	sr[3].Min.Y = r.Min.Y + size
-	sr[3].Max.Y = r.Max.Y - size
-
-	for _, r2 := range sr {
-		r2 = r2.Intersect(r)
-		DrawUniform(img, r2, c, draw.Src)
-	}
-}
 
 //----------
 
@@ -108,33 +33,155 @@ func MinPoint(p1, p2 image.Point) image.Point {
 
 //----------
 
-// maxColorDiff in [0.0, 1.0]
-func PaintShadow(img draw.Image, r image.Rectangle, height int, maxColorDiff float64) {
-	fn := func(c color.Color, v float64) color.Color {
-		//return Shade(c, v)
-		// paint shadow only if already rgba (allows noticing if not using RGBA colors)
-		if c2, ok := c.(color.RGBA); ok {
-			return shade(c2, v)
-		}
-		return c
+func RgbaColor(c color.Color) color.RGBA {
+	if u, ok := c.(color.RGBA); ok {
+		return u
+	} else {
+		return convertToRgbaColor(c)
 	}
+}
+func convertToRgbaColor(c color.Color) color.RGBA {
+	//// slow
+	//return color.RGBAModel.Convert(c).(color.RGBA)
 
-	step := 0
-	dy := float64(height)
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		yperc := float64(step) / dy
-		step++
+	r, g, b, a := c.RGBA()
+	return color.RGBA{
+		uint8(r >> 8),
+		uint8(g >> 8),
+		uint8(b >> 8),
+		uint8(a >> 8),
+	}
+}
 
-		//v := maxColorDiff * (1 - yperc)
+//----------
 
-		// -(1/log(2))*log(x+1)+1
-		u := -(1/math.Log(2))*math.Log(yperc+1) + 1
-		v := maxColorDiff * u
+func RgbaFromInt(u int) color.RGBA {
+	v := u & 0xffffff
+	r := uint8((v << 0) >> 16)
+	g := uint8((v << 8) >> 16)
+	b := uint8((v << 16) >> 16)
+	return color.RGBA{r, g, b, 255}
+}
+func RgbaToInt(c color.RGBA) int {
+	v := 0
+	v += int(c.R) << 16
+	v += int(c.G) << 8
+	v += int(c.B) << 0
+	return v
+}
 
-		for x := r.Min.X; x < r.Max.X; x++ {
-			atc := img.At(x, y)
-			c := fn(atc, v)
-			img.Set(x, y, c)
-		}
+//----------
+
+// Ex. usage: editor.xutil.cursors
+func ColorUint16s(c color.Color) (uint16, uint16, uint16, uint16) {
+	r, g, b, a := c.RGBA()
+	return uint16(r << 8), uint16(g << 8), uint16(b << 8), uint16(a)
+}
+
+//----------
+
+func SprintRgb(c color.Color) string {
+	rgba := RgbaColor(c)
+	return fmt.Sprintf("%x %x %x", rgba.R, rgba.G, rgba.B)
+}
+func SprintRgbaHex(c color.Color) string {
+	return fmt.Sprintf("%06x", RgbaToInt(RgbaColor(c)))
+}
+
+//----------
+
+//func Invert(c color.Color) color.Color {
+//	return InvertRgba(RgbaColor(c))
+//}
+//func Invert2(c color.Color) color.Color {
+//	return InvertRgba2(RgbaColor(c))
+//}
+//func LinearInvert(c color.Color) color.Color {
+//	return LinearInvertRgba(RgbaColor(c))
+//}
+
+//----------
+
+func Invert(c color.RGBA) color.RGBA {
+	c.R = 255 - c.R
+	c.G = 255 - c.G
+	c.B = 255 - c.B
+	return c
+}
+func Invert2(c color.RGBA) color.RGBA {
+	c.R = c.A - c.R
+	c.G = c.A - c.G
+	c.B = c.A - c.B
+	return c
+}
+
+//----------
+
+func Complement(c color.RGBA) color.RGBA {
+	c3 := RgbaColor(c)
+	r, g, b, a := c3.R, c3.G, c3.B, c3.A
+	w := [3]int{int(r), int(g), int(b)}
+
+	// calc "add" with a copy (needs sort)
+	h := w // copy
+	sort.Ints(h[:])
+	m1, _, m3 := h[0], h[1], h[2]
+	add := m1 + m3
+
+	for i, _ := range w {
+		w[i] = add - w[i]
+	}
+	c2 := color.RGBA{uint8(w[0]), uint8(w[1]), uint8(w[2]), uint8(a)}
+	return c2
+}
+
+//----------
+
+// NOTE: https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
+func NewLinearInvertFn(v1, v2 float64) func(color.RGBA) color.RGBA {
+	gt1 := NewGammaTable(v1)
+	gt2 := NewGammaTable(v2)
+	return func(c color.RGBA) color.RGBA {
+		c = gt1.Lookup(c)
+		// bitwise not
+		c.R = ^c.R
+		c.G = ^c.G
+		c.B = ^c.B
+
+		return gt2.Lookup(c)
+	}
+}
+func NewLinearInvertFn2(v1, v2 float64) func(color.Color) color.Color {
+	fn := NewLinearInvertFn(v1, v2)
+	return func(c color.Color) color.Color {
+		return fn(RgbaColor(c))
+	}
+}
+
+//----------
+//----------
+//----------
+
+type GammaTable struct {
+	Table [256]uint8
+}
+
+func NewGammaTable(gamma float64) *GammaTable {
+	g := &GammaTable{}
+	gamma = math.Max(0.00001, gamma)
+	for i := 0; i < 256; i++ {
+		g.Table[i] = uint8(mathutil.Limit(
+			math.Pow(float64(i)/255, 1.0/gamma)*255,
+			0, 255,
+		))
+	}
+	return g
+}
+func (g *GammaTable) Lookup(c color.RGBA) color.RGBA {
+	return color.RGBA{
+		g.Table[c.R],
+		g.Table[c.G],
+		g.Table[c.B],
+		c.A,
 	}
 }

@@ -27,6 +27,8 @@ func (c HSV) RGBA() (_, _, _, _ uint32) {
 	return rgba.RGBA()
 }
 
+//----------
+
 var HSVModel color.Model = color.ModelFunc(convertToHSV)
 
 func convertToHSV(c color.Color) color.Color {
@@ -34,6 +36,10 @@ func convertToHSV(c color.Color) color.Color {
 	h, s, v := rgb2hsv(c2.R, c2.G, c2.B)
 	return HSV{h, s, v}
 }
+
+//----------
+//----------
+//----------
 
 func hsv2rgb(h uint16, s, v uint8) (r, g, b uint8) {
 	max0 := int(v)
@@ -120,4 +126,40 @@ func rgb2hsv(r0, g0, b0 uint8) (h uint16, s, v uint8) {
 	h = uint16(seg*60 + offset)
 
 	return
+}
+
+//----------
+//----------
+//----------
+
+func Valorize(c color.Color, v float64, auto bool) color.Color {
+	if v < -1 || v > 1 {
+		panic("!")
+	}
+	hsv := HSVModel.Convert(c).(HSV)
+
+	var u int = int(hsv.V)
+
+	//d := int(float64(hsv.V) * v)
+	d := int(255 * v)
+	if auto {
+		// auto decide to add or subtract
+		if hsv.V < 255/2 {
+			u += d
+		} else {
+			u -= d
+		}
+	} else {
+		u += d
+	}
+
+	if u > 255 {
+		hsv.V = 255
+	} else if u < 0 {
+		hsv.V = 0
+	} else {
+		hsv.V = uint8(u)
+	}
+	c2 := RgbaColor(hsv)
+	return c2
 }
