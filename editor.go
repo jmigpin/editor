@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/core/lsproto"
+	"github.com/jmigpin/editor/ui"
 
 	// imports that can't be imported from core (cyclic import)
 	_ "github.com/jmigpin/editor/core/contentcmds"
@@ -27,9 +28,9 @@ func main() {
 	flag.Float64Var(&opt.DPI, "dpi", 72, "monitor dots per inch")
 	flag.IntVar(&opt.TabWidth, "tabwidth", 8, "")
 	flag.IntVar(&opt.WrapLineRune, "wraplinerune", int('←'), "code for wrap line rune, can be set to zero")
-	flag.StringVar(&opt.ColorTheme, "colortheme", "light", "available: light, dark, acme")
-	flag.IntVar(&opt.CommentsColor, "commentscolor", 0, "Colorize comments. Can be set to zero to use a percentage of the font color. Ex: 0=auto, 1=Black, 0xff0000=red.")
-	flag.IntVar(&opt.StringsColor, "stringscolor", 0, "Colorize strings. Can be set to zero to not colorize. Ex: 0xff0000=red.")
+	flag.StringVar(&opt.ColorTheme, "colortheme", "light", "available: "+strings.Join(ui.ColorThemeCycler.Names(), ", "))
+	flag.IntVar(&opt.CommentsColor, "commentscolor", 0, "Colorize comments. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")
+	flag.IntVar(&opt.StringsColor, "stringscolor", 0, "Colorize strings. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")
 	flag.IntVar(&opt.ScrollBarWidth, "scrollbarwidth", 0, "Textarea scrollbar width in pixels. A value of 0 takes 3/4 of the font size.")
 	flag.BoolVar(&opt.ScrollBarLeft, "scrollbarleft", true, "set scrollbars on the left side")
 	flag.BoolVar(&opt.Shadows, "shadows", true, "shadow effects on some elements")

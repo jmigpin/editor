@@ -15,41 +15,30 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
-var (
-	ScrollBarLeft             = true
-	ScrollBarWidth        int = 0 // 0=based on a portion of the font size
-	TextAreaCommentsColor color.Color
-	TextAreaStringsColor  color.Color
-)
+var ScrollBarLeft = true
+var ScrollBarWidth int = 0 // 0=based on a portion of the font size
 
-const (
-	separatorWidth = 1 // col/row separators width
-)
+var TextAreaCommentsColor color.Color
+var TextAreaStringsColor color.Color
 
-//----------
-
-// Palette with user supplied color options that should override themes.
-func userPalette() widget.Palette {
-	pal := widget.Palette{}
-	if TextAreaCommentsColor != nil {
-		pal["text_colorize_comments_fg"] = TextAreaCommentsColor
-	}
-	if TextAreaStringsColor != nil {
-		pal["text_colorize_string_fg"] = TextAreaStringsColor
-	}
-	return pal
-}
+const separatorWidth = 1 // col/row separators width
 
 //----------
 
 func lightThemeColors(node widget.Node) {
+	pal := lightThemeColorsPal()
+	pal.Merge(rowSquarePalette())
+	pal.Merge(userPalette())
+	node.Embed().SetThemePalette(pal)
+}
+func lightThemeColorsPal() widget.Palette {
 	pal := widget.Palette{
 		"text_cursor_fg":            cint(0x0),
 		"text_fg":                   cint(0x0),
 		"text_bg":                   cint(0xffffff),
 		"text_selection_fg":         nil,
 		"text_selection_bg":         cint(0xeeee9e), // yellow
-		"text_colorize_string_fg":   nil,
+		"text_colorize_string_fg":   cint(0x8b0000), // red
 		"text_colorize_comments_fg": cint(0x008b00), // green
 		"text_highlightword_fg":     nil,
 		"text_highlightword_bg":     cint(0xc6ee9e), // green
@@ -86,72 +75,28 @@ func lightThemeColors(node widget.Node) {
 
 		"contextfloatbox_border": cint(0x0),
 	}
-
 	pal.Merge(rowSquarePalette())
 	pal.Merge(userPalette())
-	node.Embed().SetThemePalette(pal)
-}
-
-//----------
-
-func darkThemeColors(node widget.Node) {
-	pal := widget.Palette{
-		"text_cursor_fg":            cint(0xffffff),
-		"text_fg":                   cint(0xffffff),
-		"text_bg":                   cint(0x0),
-		"text_selection_fg":         cint(0xffffff),
-		"text_selection_bg":         cint(0xafa753), // yellow
-		"text_colorize_string_fg":   nil,
-		"text_colorize_comments_fg": cint(0xb8b8b8),
-		"text_highlightword_bg":     cint(0x58842d), // green
-		"text_wrapline_fg":          cint(0xffffff),
-		"text_wrapline_bg":          cint(0x595959),
-
-		"toolbar_text_fg":          cint(0xffffff),
-		"toolbar_text_bg":          cint(0x808080),
-		"toolbar_text_wrapline_bg": imageutil.Shade(cint(0x808080), 0.20),
-
-		"scrollbar_bg":        imageutil.Tint(cint(0x0), 0.20),
-		"scrollhandle_normal": imageutil.Tint(cint(0x0), 0.40),
-		"scrollhandle_hover":  imageutil.Tint(cint(0x0), 0.50),
-		"scrollhandle_select": imageutil.Tint(cint(0x0), 0.60),
-
-		"column_norows_rect":  imageutil.Tint(cint(0x0), 0.10),
-		"columns_nocols_rect": imageutil.Tint(cint(0x0), 0.10),
-		"colseparator_rect":   cint(0x0),
-		"rowseparator_rect":   cint(0x0),
-		"shadowsep_rect":      cint(0x0),
-
-		"columnsquare": imageutil.Shade(cint(0x808080), 0.20),
-		"rowsquare":    imageutil.Shade(cint(0x808080), 0.20),
-
-		"mm_text_bg":          cint(0x808080),
-		"mm_button_hover_bg":  imageutil.Tint(cint(0x808080), 0.10),
-		"mm_button_down_bg":   imageutil.Tint(cint(0x808080), 0.20),
-		"mm_button_sticky_bg": imageutil.Tint(cint(0x808080), 0.40),
-		"mm_border":           cint(0x0),
-		"mm_content_pad":      cint(0x808080),
-		"mm_content_border":   cint(0x0),
-
-		"contextfloatbox_border": cint(0xffffff),
-	}
-
-	pal.Merge(rowSquarePalette())
-	pal.Merge(userPalette())
-	node.Embed().SetThemePalette(pal)
+	return pal
 }
 
 //----------
 
 func acmeThemeColors(node widget.Node) {
+	pal := acmeThemeColorsPal()
+	pal.Merge(rowSquarePalette())
+	pal.Merge(userPalette())
+	node.Embed().SetThemePalette(pal)
+}
+func acmeThemeColorsPal() widget.Palette {
 	pal := widget.Palette{
 		"text_cursor_fg":            cint(0x0),
 		"text_fg":                   cint(0x0),
 		"text_bg":                   cint(0xffffea),
 		"text_selection_fg":         nil,
 		"text_selection_bg":         cint(0xeeee9e), // yellow
-		"text_colorize_string_fg":   nil,
-		"text_colorize_comments_fg": cint(0x008b00), // green
+		"text_colorize_string_fg":   cint(0x8b0000), // red
+		"text_colorize_comments_fg": cint(0x007500), // green
 		"text_highlightword_fg":     nil,
 		"text_highlightword_bg":     cint(0xc6ee9e), // green
 		"text_wrapline_fg":          cint(0x0),
@@ -184,10 +129,66 @@ func acmeThemeColors(node widget.Node) {
 
 		"contextfloatbox_border": cint(0x0),
 	}
+	pal.Merge(rowSquarePalette())
+	pal.Merge(userPalette())
+	return pal
+}
 
+//----------
+
+func lightInvertedThemeColors(node widget.Node) {
+	fn := newLinearInvertFn()
+	pal := lightThemeColorsPal()
+	for k, c := range pal {
+		if c != nil {
+			pal[k] = fn(c)
+		}
+	}
 	pal.Merge(rowSquarePalette())
 	pal.Merge(userPalette())
 	node.Embed().SetThemePalette(pal)
+}
+
+//----------
+
+func acmeInvertedThemeColors(node widget.Node) {
+	fn := newLinearInvertFn()
+	pal := acmeThemeColorsPal()
+	for k, c := range pal {
+		if c != nil {
+			pal[k] = fn(c)
+		}
+	}
+	pal.Merge(rowSquarePalette())
+	pal.Merge(userPalette())
+	node.Embed().SetThemePalette(pal)
+}
+
+//----------
+//----------
+//----------
+
+// Palette with user supplied color options that should override themes.
+func userPalette() widget.Palette {
+	pal := widget.Palette{}
+
+	setup := func(name string, c color.Color) {
+		// not defined, nothing to change, use defaults
+		if c == nil {
+			return
+		}
+		// allow explicit setup to nil with a value of 0x1
+		v := imageutil.RgbaToInt(imageutil.RgbaColor(c))
+		if v == 0x1 {
+			c = nil
+		}
+
+		pal[name] = c
+	}
+
+	setup("text_colorize_string_fg", TextAreaStringsColor)
+	setup("text_colorize_comments_fg", TextAreaCommentsColor)
+	return pal
 }
 
 //----------
@@ -208,12 +209,15 @@ func rowSquarePalette() widget.Palette {
 }
 
 //----------
+//----------
+//----------
 
 var ColorThemeCycler cycler = cycler{
 	entries: []cycleEntry{
 		{"light", lightThemeColors},
-		{"dark", darkThemeColors},
 		{"acme", acmeThemeColors},
+		{"lightInverted", lightInvertedThemeColors},
+		{"acmeInverted", acmeInvertedThemeColors},
 	},
 }
 
@@ -346,6 +350,16 @@ func (c *cycler) Set(name string, node widget.Node) {
 	c.entries[i].fn(node)
 }
 
+func (c *cycler) Names() []string {
+	w := []string{}
+	for _, e := range c.entries {
+		w = append(w, e.name)
+	}
+	return w
+}
+
+//----------
+
 type cycleEntry struct {
 	name string
 	fn   func(widget.Node)
@@ -381,7 +395,16 @@ func (uitu *uiThemeUtil) ShadowHeight(ff *fontutil.FontFace) int {
 }
 
 //----------
+//----------
+//----------
 
 func cint(c int) color.RGBA {
 	return imageutil.RgbaFromInt(c)
+}
+
+//----------
+
+func newLinearInvertFn() func(color.Color) color.Color {
+	//return imageutil.NewLinearInvertFn2(0.56, 2.5) // match gimp results
+	return imageutil.NewLinearInvertFn2(0.80, 2.2) // darker, but better contrast then gimps
 }
