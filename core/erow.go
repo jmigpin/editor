@@ -610,6 +610,8 @@ func (erow *ERow) setupSyntaxHighlightAndCommentShortcuts() {
 		setComments("%", [2]string{"/*", "*/"})
 	case ".html", ".xml", ".svg":
 		setComments([2]string{"<!--", "-->"})
+	case ".css":
+		setComments([2]string{"/*", "*/"})
 	case ".s", ".asm": // assembly
 		setComments("//")
 	case ".json":
