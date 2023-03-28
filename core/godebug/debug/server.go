@@ -34,8 +34,8 @@ var hasSrcLines bool           // in case of panic, show warning about srclines
 
 //----------
 
-//var logger = log.New(os.Stdout, "debug: ", log.Llongfile)
-//var logger = log.New(os.Stdout, "debug: ", 0)
+// var logger = log.New(os.Stdout, "debug: ", log.Llongfile)
+// var logger = log.New(os.Stdout, "debug: ", 0)
 var logger = log.New(ioutil.Discard, "debug: ", 0)
 
 const chunkSendRate = 15       // per second

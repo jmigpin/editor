@@ -114,7 +114,7 @@ func setupDropRunesFn(ri *RuleIndex) error {
 			return nil, fmt.Errorf("expecting at least 2 args")
 		}
 		srs := []*StringRule{}
-		for i, _ := range args {
+		for i := range args {
 			sr, err := args.MergedStringRule(i)
 			if err != nil {
 				return nil, err

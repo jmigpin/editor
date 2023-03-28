@@ -1,17 +1,17 @@
-
 package pscan
 
 // WARNING: DO NOT EDIT, THIS FILE WAS AUTO GENERATED
 
-type Wrap struct{
+type Wrap struct {
 	sc *Scanner
-	M *Match
+	M  *Match
 }
-func (w* Wrap) init(sc *Scanner){
+
+func (w *Wrap) init(sc *Scanner) {
 	w.sc = sc
 	w.M = sc.M
 }
-	
+
 func (w *Wrap) And(fns ...MFn) MFn {
 	return func(pos int) (int, error) {
 		return w.M.And(pos, fns...)

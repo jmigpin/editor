@@ -383,21 +383,21 @@ func (ed *Editor) setupRootMenuToolbar() {
 	})
 
 	w := [][]string{
-		[]string{"ColorTheme", "FontTheme"},
-		[]string{"FontRunes", "RuneCodes"},
-		[]string{"NewFile", "SaveAllFiles", "Save"},
-		[]string{"Reload", "ReloadAll", "ReloadAllFiles"},
-		[]string{"NewColumn", "NewRow", "ReopenRow", "MaximizeRow"},
-		[]string{"ListDir", "ListDir -hidden", "ListDir -sub"},
-		[]string{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
-		[]string{"GoDebug -h", "GoRename"},
-		[]string{"LsprotoRename", "LsprotoCloseAll", "LsprotoCallers", "LsprotoCallees", "LsprotoReferences"},
-		[]string{"OpenExternal", "OpenFilemanager", "OpenTerminal"},
+		{"ColorTheme", "FontTheme"},
+		{"FontRunes", "RuneCodes"},
+		{"NewFile", "SaveAllFiles", "Save"},
+		{"Reload", "ReloadAll", "ReloadAllFiles"},
+		{"NewColumn", "NewRow", "ReopenRow", "MaximizeRow"},
+		{"ListDir", "ListDir -hidden", "ListDir -sub"},
+		{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
+		{"GoDebug -h", "GoRename"},
+		{"LsprotoRename", "LsprotoCloseAll", "LsprotoCallers", "LsprotoCallees", "LsprotoReferences"},
+		{"OpenExternal", "OpenFilemanager", "OpenTerminal"},
 
-		[]string{"GotoLine"},
-		[]string{"CopyFilePosition"},
-		[]string{"CtxutilCallsState"},
-		[]string{"Find -h"},
+		{"GotoLine"},
+		{"CopyFilePosition"},
+		{"CtxutilCallsState"},
+		{"Find -h"},
 	}
 	last := []string{"Exit", "Version", "Stop", "Clear"}
 

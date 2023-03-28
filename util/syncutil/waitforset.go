@@ -8,14 +8,15 @@ import (
 
 // Continously usable, instantiated once for many wait()/set() calls. Fails if wait() is not ready when set() is called.
 // Usage:
-// 	w:=NewWaitForSet()
-// 	w.Start(5*time.Second)
-// 	...
-// 	// sync/async call to w.Set()
-// 	...
+//
+//	w:=NewWaitForSet()
+//	w.Start(5*time.Second)
+//	...
+//	// sync/async call to w.Set()
+//	...
 //	v,err := w.WaitForSet()
 //	if err!=nil {
-// 	}
+//	}
 type WaitForSet struct {
 	d struct {
 		sync.Mutex

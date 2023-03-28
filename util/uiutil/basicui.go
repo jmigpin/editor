@@ -112,21 +112,21 @@ func (ui *BasicUI) eventLoop() {
 
 // How to use NextEvent():
 //
-//func SampleEventLoop() {
-//	defer ui.Close()
-//	for {
-//		ev := ui.NextEvent()
-//		switch t := ev.(type) {
-//		case error:
-//			fmt.Println(err)
-//		case *event.WindowClose:
-//			return
-//		default:
-//			ui.HandleEvent(ev)
+//	func SampleEventLoop() {
+//		defer ui.Close()
+//		for {
+//			ev := ui.NextEvent()
+//			switch t := ev.(type) {
+//			case error:
+//				fmt.Println(err)
+//			case *event.WindowClose:
+//				return
+//			default:
+//				ui.HandleEvent(ev)
+//			}
+//			ui.LayoutMarkedAndSchedulePaint()
 //		}
-//		ui.LayoutMarkedAndSchedulePaint()
 //	}
-//}
 func (ui *BasicUI) NextEvent() interface{} {
 	return ui.eventsQ.PopFront()
 }

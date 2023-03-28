@@ -28,7 +28,7 @@ func TestScripts(t *testing.T) {
 
 	scr.ScriptsDir = "testdata"
 	scr.Cmds = []*testutil.ScriptCmd{
-		&testutil.ScriptCmd{"godebugtester", godebugTester},
+		{"godebugtester", godebugTester},
 	}
 	scr.Run(t)
 }

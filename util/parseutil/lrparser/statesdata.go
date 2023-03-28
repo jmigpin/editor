@@ -83,7 +83,7 @@ func (sd *StatesData) build(vd *VerticesData) error {
 
 		rset := RuleSet{}
 		// compute rset for parsenextrule
-		for rd, _ := range v.rdslasK {
+		for rd := range v.rdslasK {
 			if r, ok := rd.dotRule(); ok {
 				//st.rset.add(vd.rFirst.first(r))
 				rset.add(vd.rFirst.first(r))

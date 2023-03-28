@@ -128,7 +128,7 @@ func Complement(c color.RGBA) color.RGBA {
 	m1, _, m3 := h[0], h[1], h[2]
 	add := m1 + m3
 
-	for i, _ := range w {
+	for i := range w {
 		w[i] = add - w[i]
 	}
 	c2 := color.RGBA{uint8(w[0]), uint8(w[1]), uint8(w[2]), uint8(a)}

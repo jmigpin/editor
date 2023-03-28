@@ -241,7 +241,7 @@ func (cmd *Cmd) buildBinary(ctx context.Context, fa *FilesToAnnotate) error {
 
 // DEBUG
 func (cmd *Cmd) printAnnotatedFilesAsts(fa *FilesToAnnotate) {
-	for orig, _ := range cmd.overlay {
+	for orig := range cmd.overlay {
 		astFile, ok := fa.filesAsts[orig]
 		if ok {
 			astut.PrintNode(cmd.annset.fset, astFile)

@@ -88,12 +88,12 @@ func (scr *Script) Run(t *testing.T) {
 	t.Helper()
 	// internal cmds
 	icmds := []*ScriptCmd{
-		&ScriptCmd{"ucmd", scr.icUCmd}, // run user cmd
-		&ScriptCmd{"exec", scr.icExec},
-		&ScriptCmd{"contains", scr.icContains},
-		&ScriptCmd{"setenv", scr.icSetEnv},
-		&ScriptCmd{"fail", scr.icFail},
-		&ScriptCmd{"cd", scr.icChangeDir},
+		{"ucmd", scr.icUCmd}, // run user cmd
+		{"exec", scr.icExec},
+		{"contains", scr.icContains},
+		{"setenv", scr.icSetEnv},
+		{"fail", scr.icFail},
+		{"cd", scr.icChangeDir},
 	}
 	scr.icmds = mapScriptCmds(icmds)
 	// user cmds

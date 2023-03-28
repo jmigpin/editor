@@ -13,7 +13,7 @@ func InvokeByName(v interface{}, name string, args ...interface{}) ([]reflect.Va
 		return nil, fmt.Errorf("method not found: %v", name)
 	}
 	inputs := make([]reflect.Value, len(args))
-	for i, _ := range args {
+	for i := range args {
 		inputs[i] = reflect.ValueOf(args[i])
 	}
 	return method.Call(inputs), nil

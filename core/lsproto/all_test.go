@@ -37,22 +37,22 @@ func TestScripts(t *testing.T) {
 	}
 
 	scr.Cmds = []*testutil.ScriptCmd{
-		&testutil.ScriptCmd{"lspSourceCursor", func(t *testing.T, args []string) error {
+		{"lspSourceCursor", func(t *testing.T, args []string) error {
 			return lspSourceCursor(t, args, man)
 		}},
-		&testutil.ScriptCmd{"lspDefinition", func(t *testing.T, args []string) error {
+		{"lspDefinition", func(t *testing.T, args []string) error {
 			return lspDefinition(t, args, man)
 		}},
-		&testutil.ScriptCmd{"lspCompletion", func(t *testing.T, args []string) error {
+		{"lspCompletion", func(t *testing.T, args []string) error {
 			return lspCompletion(t, args, man)
 		}},
-		&testutil.ScriptCmd{"lspRename", func(t *testing.T, args []string) error {
+		{"lspRename", func(t *testing.T, args []string) error {
 			return lspRename(t, args, man)
 		}},
-		&testutil.ScriptCmd{"lspReferences", func(t *testing.T, args []string) error {
+		{"lspReferences", func(t *testing.T, args []string) error {
 			return lspReferences(t, args, man)
 		}},
-		&testutil.ScriptCmd{"lspCallHierarchy", func(t *testing.T, args []string) error {
+		{"lspCallHierarchy", func(t *testing.T, args []string) error {
 			return lspCallHierarchy(t, args, man)
 		}},
 	}
