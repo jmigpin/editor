@@ -70,7 +70,7 @@ func (ann *Annotations) iter2() {
 	// add annotations after newline
 	if len(*q) > 0 {
 		switch ann.d.st.runeR.ru {
-		case '\n', 0: // insert annotations at newline or EOF
+		case '\n', eofRune: // insert annotations at newline or EOF
 			ann.insertAnnotations()
 		}
 	}
