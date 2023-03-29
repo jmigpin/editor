@@ -17,20 +17,26 @@ func AddNewFileShortcut(erow *ERow) {
 	updateToolbarPartCmd(erow, "NewFile")
 }
 func AddReloadShortcut(erow *ERow) {
-	updateToolbarPartCmd(erow, "Reload")
+	updateToolbarPartCmd2(erow, "Reload", true)
 }
 
 //----------
 
 // Search/add toolbar command and warps the pointer to it. Also inserts selected text as argument if available.
 func updateToolbarPartCmd(erow *ERow, cmd string) {
-	if err := updateToolbarPartCmd2(erow, cmd); err != nil {
+	updateToolbarPartCmd2(erow, cmd, false)
+}
+func updateToolbarPartCmd2(erow *ERow, cmd string, ignoreSelection bool) {
+	if err := updateToolbarPartCmd3(erow, cmd, ignoreSelection); err != nil {
 		erow.Ed.Error(err)
 	}
 }
-func updateToolbarPartCmd2(erow *ERow, cmd string) error {
+func updateToolbarPartCmd3(erow *ERow, cmd string, ignoreSelection bool) error {
 	// modify toolbar text
-	arg := erowTextSelection(erow)
+	arg := ""
+	if !ignoreSelection {
+		arg = erowTextSelection(erow)
+	}
 	res := toolbarparser.UpdateOrInsertPartCmd(&erow.TbData, cmd, arg)
 
 	// update toolbar text
