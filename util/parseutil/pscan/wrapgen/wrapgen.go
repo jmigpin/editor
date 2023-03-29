@@ -56,8 +56,7 @@ func build(fset *token.FileSet, f *ast.File) ([]byte, error) {
 
 	// header
 	//----------START
-	buf.WriteString(`
-package pscan
+	buf.WriteString(`package pscan
 
 // WARNING: DO NOT EDIT, THIS FILE WAS AUTO GENERATED
 
