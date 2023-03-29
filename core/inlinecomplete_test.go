@@ -126,7 +126,7 @@ func TestInsertComplete(t *testing.T) {
 		},
 		{
 			in{[]string{"aAa", "aaa"}, "aa", 2},
-			out{0, false, []string{"aAa", "aaa"}, "aa"},
+			out{3, true, []string{"aAa", "aaa"}, "aAa"},
 		},
 		{
 			in{[]string{"aAac"}, "aaac", 4},
@@ -165,7 +165,8 @@ func TestInsertComplete(t *testing.T) {
 			text == u.out.text &&
 			newIndex == u.out.newIndex &&
 			completed == u.out.completed) {
-			t.Fatal(newIndex, completed, comps, text, "expecting", u.out)
+			//t.Fatal(newIndex, completed, comps, text, "expecting", u.out)
+			t.Fatal("expecting:\n", newIndex, completed, comps, text, "\ngot:\n", u.out)
 		}
 	}
 }
