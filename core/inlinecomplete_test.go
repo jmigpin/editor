@@ -36,48 +36,69 @@ func TestReadLastUntilStart(t *testing.T) {
 	}
 }
 
-func TestFilterPrefixedAndExpand(t *testing.T) {
+func TestExpandAndFilter(t *testing.T) {
 	type in struct {
-		comps  []string
-		prefix string
+		completions []string
+		prefix      string // text already written
 	}
 	type out struct {
-		expand      int
-		canComplete bool
-		comps       []string
+		expand string
+		comps  []string
 	}
 	type result struct {
 		in  in
 		out out
 	}
 	w := []result{
+		// basic completion
+		{
+			in{[]string{"Print", "Println"}, "pr"},
+			out{"Print", []string{"Print", "Println"}},
+		},
+		// unique completion
+		{
+			in{[]string{"Println"}, "Print"},
+			out{"Println", []string{"Println"}},
+		},
+		// iterate completion casing
+		{
+			in{[]string{"PrintA", "PrintA2", "Printa3"}, "printa"},
+			out{"PrintA", []string{"PrintA", "PrintA2", "Printa3"}},
+		},
+		{
+			in{[]string{"PrintA", "PrintA2", "Printa3"}, "PrintA"},
+			out{"Printa", []string{"PrintA", "PrintA2", "Printa3"}},
+		},
+		{
+			in{[]string{"UaAa", "UaAA"}, "UaAA"},
+			out{"UaAa", []string{"UaAa", "UaAA"}},
+		},
+		// other tests
 		{
 			in{[]string{"aaa", "aaabbb"}, "aa"},
-			out{1, true, []string{"aaa", "aaabbb"}},
+			out{"aaa", []string{"aaa", "aaabbb"}},
 		},
 		{
 			in{[]string{"aaa", "aAa"}, "aa"},
-			out{0, false, []string{"aaa", "aAa"}},
+			out{"aaa", []string{"aaa", "aAa"}},
 		},
 		{
 			in{[]string{"aaa", "aAa"}, "aaa"},
-			out{0, false, []string{"aaa", "aAa"}},
+			out{"aAa", []string{"aaa", "aAa"}},
 		},
 		{
 			in{[]string{"aAa"}, "aaa"},
-			out{0, true, []string{"aAa"}},
+			out{"aAa", []string{"aAa"}},
 		},
 		{
-			in{[]string{"aaabbbCCCe"}, "aaabbbC"},
-			out{3, true, []string{"aaabbbCCCe"}},
+			in{[]string{"abCCCe"}, "abC"},
+			out{"abCCCe", []string{"abCCCe"}},
 		},
 	}
 	for _, u := range w {
-		expand, canComplete, comps := filterPrefixedAndExpand(u.in.comps, u.in.prefix)
-		if !(expand == u.out.expand &&
-			canComplete == u.out.canComplete &&
-			cmpStrSlices(comps, u.out.comps)) {
-			t.Fatal(expand, canComplete, comps, "expecting", u.out)
+		expand, comps := expandAndFilter(u.in.prefix, u.in.completions)
+		if !(expand == u.out.expand && cmpStrSlices(comps, u.out.comps)) {
+			t.Fatal("expecting:\n", u.out, "\ngot:\n", expand, comps)
 		}
 	}
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -110,7 +111,8 @@ func (ic *InlineComplete) insertComplete(comps []string, ta *ui.TextArea) (compl
 	if err != nil {
 		return completed, comps2, err
 	}
-	if newIndex != 0 {
+	//if newIndex != 0 {
+	if completed {
 		ta.SetCursorIndex(newIndex)
 		// update index for CancelOnCursorChange
 		ic.mu.Lock()
@@ -203,11 +205,11 @@ func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex i
 		return 0, false, comps, nil
 	}
 
-	expand, canComplete, comps2 := filterPrefixedAndExpand(comps, prefix)
-	comps = comps2
-	if len(comps) == 0 {
-		return 0, false, comps, nil
+	expandStr, comps2 := expandAndFilter(prefix, comps)
+	if len(comps2) == 0 {
+		return 0, false, comps2, nil
 	}
+	canComplete := expandStr != ""
 
 	if canComplete {
 		// original string
@@ -215,9 +217,10 @@ func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex i
 
 		// string to insert
 		n := len(origStr)
-		insStr := comps[0][:n+expand]
+		insStr := expandStr
 
 		// try to expand the index to the existing text
+		expand := len(expandStr) - len(prefix)
 		for i := 0; i < expand; i++ {
 			b, err := rw.ReadFastAt(index+i, 1)
 			if err != nil {
@@ -236,47 +239,66 @@ func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex i
 				return 0, false, nil, err
 			}
 			newIndex = start + len(insStr)
-			return newIndex, true, comps, nil
+			return newIndex, true, comps2, nil
 		}
 	}
 
-	return 0, false, comps, nil
+	return 0, false, comps2, nil
 }
 
 //----------
 
-func filterPrefixedAndExpand(comps []string, prefix string) (expand int, canComplete bool, _ []string) {
-	// find all matches from start to index
+func expandAndFilter(prefix string, comps []string) (expand string, comps5 []string) {
+	// find prefix matches (case insensitive)
 	strLow := strings.ToLower(prefix)
-	res := []string{}
+	comps2 := []string{}
 	for _, v := range comps {
 		vLow := strings.ToLower(v)
 		if strings.HasPrefix(vLow, strLow) {
-			res = append(res, v)
+			comps2 = append(comps2, v)
 		}
 	}
-	// find possible expansions if all matches have common extra runes
-	if len(res) == 1 {
-		// special case to allow overwriting string casing "aaa"->"aAa"
-		canComplete = true
-		expand = len(res[0]) - len(prefix)
-	} else if len(res) >= 1 {
-	loop1:
-		for j := 0; j < len(res[0]); j++ { // test up to first result length
-			// break on any result that fails to expand
-			for i := 1; i < len(res); i++ {
-				if !(j < len(res[i]) && res[i][j] == res[0][j]) {
-					break loop1
-				}
-			}
-			if j >= len(prefix) {
-				expand++
-				canComplete = true
+	if len(comps2) == 0 {
+		return "", nil
+	}
+
+	//// NOTE: this loses the provided order, but better results?
+	//sort.Strings(comps2)
+
+	// longest prefix
+	lcp := longestCommonPrefix(comps2)
+
+	// choose next in line
+	if len(lcp) == len(prefix) {
+		for i, s := range comps2 {
+			if strings.HasPrefix(s, prefix) {
+				k := (i + 1) % len(comps2) // next
+				lcp = comps2[k][:len(prefix)]
 			}
 		}
 	}
 
-	return expand, canComplete, res
+	return lcp, comps2
+}
+
+func longestCommonPrefix(strs0 []string) string {
+	// make copy
+	strs := make([]string, len(strs0))
+	copy(strs, strs0)
+
+	sort.Strings(strs) // allows needing to compare only first/last
+	first := strings.ToLower(strs[0])
+	last := strings.ToLower(strs[len(strs)-1])
+	longestPrefix := ""
+	for i := 0; i < len(first) && i < len(last); i++ {
+		if first[i] == last[i] {
+			//longestPrefix += string(first[i])
+			longestPrefix = strs0[0][:i+1] // use original order
+			continue
+		}
+		break
+	}
+	return longestPrefix
 }
 
 //----------
