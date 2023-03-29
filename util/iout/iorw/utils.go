@@ -105,7 +105,17 @@ func HasPrefix(r ReaderAt, i int, s []byte) bool {
 	return bytes.HasPrefix(b, s)
 }
 
-//----------
+func HasSuffix(r ReaderAt, i int, s []byte) bool {
+	//godebug:annotateblock
+	if len(s) == 0 {
+		return true
+	}
+	b, err := r.ReadFastAt(i-len(s), len(s))
+	if err != nil {
+		return false
+	}
+	return bytes.HasSuffix(b, s)
+}
 
 //----------
 
@@ -167,6 +177,28 @@ func ExpandRuneLastIndexFn(r ReaderAt, i int, truth bool, f func(rune) bool) int
 }
 
 //----------
+
+//func Lines(r ReaderAt, a, b int) (int, int, [][]byte, error) {
+//	ls, err := LineStartIndex(r, a)
+//	if err != nil {
+//		return 0, 0, false, err
+//	}
+
+//	le, newline, err := LineEndIndex(r, b)
+//	if err != nil {
+//		return 0, 0, false, err
+//	}
+//	lines := [][]byte{}
+//	for i := ls; i <= b; {
+//		le, newline, err := LineEndIndex(r, i)
+//		if err != nil {
+//			break
+//		}
+//		line:=
+//		lines=append(lines, line)
+//	}
+//	return ls, le, newline, nil
+//}
 
 func LinesIndexes(r ReaderAt, a, b int) (int, int, bool, error) {
 	ls, err := LineStartIndex(r, a)

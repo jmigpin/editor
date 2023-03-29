@@ -3,6 +3,7 @@ package rwedit
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"unicode"
 
@@ -10,8 +11,8 @@ import (
 )
 
 func Comment(ctx *Ctx) error {
-	cstrb := []byte(ctx.Fns.LineCommentStr())
-	if len(cstrb) == 0 {
+	sym := ctx.Fns.CommentLineSym()
+	if sym == nil {
 		return nil
 	}
 
@@ -50,7 +51,9 @@ func Comment(ctx *Ctx) error {
 
 	// insert comment
 	lines := 0
+	ci := ctx.C.Index()
 	for i := a; i < b; {
+		// end of line
 		rd2 := ctx.LocalReader(i)
 		u, _, err := iorw.LineEndIndex(rd2, i)
 		if err != nil {
@@ -65,12 +68,43 @@ func Comment(ctx *Ctx) error {
 		empty := len(bytes.TrimSpace(s)) == 0
 
 		if !empty {
-			lines++
-			if err := ctx.RW.OverwriteAt(i+ii, 0, cstrb); err != nil {
+			// end of line, last non space
+			u2, size, err := iorw.RuneLastIndexFn(rd2, u, false, unicode.IsSpace)
+			if err != nil {
 				return err
 			}
-			b += len(cstrb)
-			u += len(cstrb)
+			u2 += size
+
+			// helper func
+			insert := func(k int, s string) error {
+				if err := ctx.RW.OverwriteAt(k, 0, []byte(s)); err != nil {
+					return err
+				}
+				b += len(s)
+				u += len(s)
+				u2 += len(s)
+				if k <= ci {
+					ci += len(s)
+				}
+				return nil
+			}
+
+			lines++
+			switch t := sym.(type) {
+			case string:
+				if err := insert(i+ii, t); err != nil {
+					return err
+				}
+			case [2]string:
+				if err := insert(i+ii, t[0]); err != nil {
+					return err
+				}
+				if err := insert(u2, t[1]); err != nil {
+					return err
+				}
+			default:
+				panic(fmt.Sprintf("unexpected type: %T", t))
+			}
 		}
 
 		i = u
@@ -81,10 +115,7 @@ func Comment(ctx *Ctx) error {
 	} else if lines == 1 {
 		// move cursor to the right due to inserted runes
 		ctx.C.SetSelectionOff()
-		ci := ctx.C.Index()
-		if ci-a >= ii {
-			ctx.C.SetIndex(ci + len(cstrb))
-		}
+		ctx.C.SetIndex(ci)
 	} else {
 		// cursor index without the newline
 		if newline {
@@ -98,8 +129,8 @@ func Comment(ctx *Ctx) error {
 }
 
 func Uncomment(ctx *Ctx) error {
-	cstrb := []byte(ctx.Fns.LineCommentStr())
-	if len(cstrb) == 0 {
+	sym := ctx.Fns.CommentLineSym()
+	if sym == nil {
 		return nil
 	}
 
@@ -120,29 +151,61 @@ func Uncomment(ctx *Ctx) error {
 		}
 		i = j
 
-		// remove comment runes
-		if iorw.HasPrefix(ctx.RW, i, cstrb) {
-			lines++
-			if err := ctx.RW.OverwriteAt(i, len(cstrb), nil); err != nil {
-				return err
-			}
-			b -= len(cstrb)
-			if i < ci {
-				// ci in between the comment string (comment len >=2)
-				if i+len(cstrb) > ci {
-					ci -= (i + len(cstrb)) - ci
-				} else {
-					ci -= len(cstrb)
-				}
-			}
-		}
-
-		// go to end of line
+		// end of line
 		rd2 := ctx.LocalReader(i)
 		u, _, err := iorw.LineEndIndex(rd2, i)
 		if err != nil {
 			return err
 		}
+		// end of line, last non space
+		u2, size, err := iorw.RuneLastIndexFn(rd2, u, false, unicode.IsSpace)
+		if err != nil {
+			return err
+		}
+		u2 += size
+
+		// helper func
+		remove := func(k int, s string) error {
+			if err := ctx.RW.OverwriteAt(k, len(s), nil); err != nil {
+				return err
+			}
+			b -= len(s)
+			u -= len(s)
+			u2 -= len(s)
+			if k < ci {
+				// ci in between the comment string (comment len >=2)
+				if k+len(s) >= ci {
+					ci = k
+				} else {
+					ci -= len(s)
+				}
+			}
+			return nil
+		}
+
+		switch t := sym.(type) {
+		case string:
+			if iorw.HasPrefix(ctx.RW, i, []byte(t)) {
+				lines++
+				if err := remove(i, t); err != nil {
+					return err
+				}
+			}
+		case [2]string:
+			if iorw.HasPrefix(ctx.RW, i, []byte(t[0])) &&
+				iorw.HasSuffix(ctx.RW, u2, []byte(t[1])) {
+				lines++
+				if err := remove(i, t[0]); err != nil {
+					return err
+				}
+				if err := remove(u2-len(t[1]), t[1]); err != nil {
+					return err
+				}
+			}
+		default:
+			panic(fmt.Sprintf("unexpected type: %T", t))
+		}
+
 		i = u
 	}
 

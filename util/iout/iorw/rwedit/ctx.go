@@ -60,7 +60,7 @@ type CtxFns struct {
 	GetPoint         func(int) image.Point
 	GetIndex         func(image.Point) int
 	LineHeight       func() int
-	LineCommentStr   func() string
+	CommentLineSym   func() interface{}
 	MakeIndexVisible func(int)
 	PageUp           func(up bool)
 	ScrollUp         func(up bool)
@@ -80,7 +80,7 @@ func EmptyCtxFns() CtxFns {
 	u.GetPoint = func(int) image.Point { return image.ZP }
 	u.GetIndex = func(image.Point) int { return 0 }
 	u.LineHeight = func() int { return 0 }
-	u.LineCommentStr = func() string { return "" }
+	u.CommentLineSym = func() interface{} { return nil }
 	u.MakeIndexVisible = func(int) {}
 	u.PageUp = func(bool) {}
 	u.ScrollUp = func(bool) {}

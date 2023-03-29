@@ -9,10 +9,11 @@ import (
 
 func TestAll1(t *testing.T) {
 	type state struct {
-		s   string
-		ci  int  // cursor index
-		si  int  // selected index
-		son bool // selection on
+		s              string
+		ci             int  // cursor index
+		si             int  // selected index
+		son            bool // selection on
+		commentLineSym any
 	}
 	type test struct {
 		st  state
@@ -95,8 +96,29 @@ func TestAll1(t *testing.T) {
 		},
 		func() {
 			testEntry(&test{
+				st:  state{s: "0123\nabc", ci: 3, commentLineSym: [2]string{"/*", "*/"}},
+				est: state{s: "/*0123*/\nabc", ci: 5},
+				f:   Comment,
+			})
+		},
+		func() {
+			testEntry(&test{
+				st:  state{s: "0123\nabc", si: 1, ci: 5, son: true, commentLineSym: [2]string{"/*", "*/"}},
+				est: state{s: "/*0123*/\n/*abc*/", si: 0, ci: 16, son: true},
+				f:   Comment,
+			})
+		},
+		func() {
+			testEntry(&test{
 				st:  state{s: "0123\n // abc\n //efg\n", si: 5, ci: 19, son: true},
 				est: state{s: "0123\n  abc\n efg\n", si: 5, ci: 15, son: true},
+				f:   Uncomment,
+			})
+		},
+		func() {
+			testEntry(&test{
+				st:  state{s: "0123\n <!-- abc --> \n \n<!--efg-->\n", si: 2, ci: 23, son: true, commentLineSym: [2]string{"<!--", "-->"}},
+				est: state{s: "0123\n  abc  \n \nefg\n", si: 0, ci: 18, son: true},
 				f:   Uncomment,
 			})
 		},
@@ -387,7 +409,11 @@ func TestAll1(t *testing.T) {
 		// init
 		ctx := NewCtx()
 		ctx.Fns = EmptyCtxFns()
-		ctx.Fns.LineCommentStr = func() string { return "//" }
+		cls := w.st.commentLineSym
+		if cls == nil {
+			cls = "//"
+		}
+		ctx.Fns.CommentLineSym = func() any { return cls }
 		ctx.RW = iorw.NewBytesReadWriterAt([]byte(w.st.s))
 
 		if w.st.son {

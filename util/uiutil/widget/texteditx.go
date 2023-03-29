@@ -231,18 +231,18 @@ func (te *TextEditX) EnableCursorWordHighlight(v bool) {
 
 func (te *TextEditX) SetCommentStrings(a ...interface{}) {
 	cs := []*drawutil.SyntaxHighlightComment{}
-	firstLine := true
-	for _, v := range a {
+	for i, v := range a {
+		// keep first definition for shortcut comment insertion
+		if i == 0 {
+			v2 := v // local closure
+			te.ctx.Fns.CommentLineSym = func() any { return v2 }
+		}
+
 		switch t := v.(type) {
 		case string:
 			// line comment
 			c := &drawutil.SyntaxHighlightComment{IsLine: true, S: t}
 			cs = append(cs, c)
-			// keep first definition for shortcut comment insertion
-			if firstLine {
-				firstLine = false
-				te.ctx.Fns.LineCommentStr = func() string { return t }
-			}
 		case [2]string:
 			// multiline comment
 			c := &drawutil.SyntaxHighlightComment{S: t[0], E: t[1]}

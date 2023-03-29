@@ -39,7 +39,6 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 	te.ctx.Fns.GetPoint = te.GetPoint
 	te.ctx.Fns.GetIndex = te.GetIndex
 	te.ctx.Fns.LineHeight = te.LineHeight
-	te.ctx.Fns.LineCommentStr = func() string { return "" } // set by texteditx
 	te.ctx.Fns.MakeIndexVisible = te.MakeIndexVisible
 	te.ctx.Fns.Undo = te.Undo
 	te.ctx.Fns.Redo = te.Redo
