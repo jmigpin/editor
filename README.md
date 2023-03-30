@@ -78,11 +78,12 @@ Feel free to file an issue if you know of a better solution that doesn't require
 ## Usage
 
 ```
-Usage of ./editor:
+<!-- __usageSectionStart__ -->
+Usage of editor:
   -colortheme string
-    	available: light, dark, acme (default "light")
+    	available: light, acme, lightInverted, acmeInverted (default "light")
   -commentscolor int
-    	Colorize comments. Can be set to zero to use a percentage of the font color. Ex: 0=auto, 1=Black, 0xff0000=red.
+    	Colorize comments. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.
   -cpuprofile string
     	profile cpu filename
   -dpi float
@@ -113,7 +114,7 @@ Usage of ./editor:
     	Format: language,fileExtensions,cmd
     	Examples:
     		go,.go,goimports
-    		cpp,".c .h .cpp .hpp",clang-format
+    		cpp,".cpp .hpp","\"clang-format --style={'opt1':1,'opt2':2}\""
     		python,.py,python_formatter
   -scrollbarleft
     	set scrollbars on the left side (default true)
@@ -126,7 +127,7 @@ Usage of ./editor:
   -sn string
     	open existing session
   -stringscolor int
-    	Colorize strings. Can be set to zero to not colorize. Ex: 0xff0000=red.
+    	Colorize strings. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.
   -tabwidth int
     	 (default 8)
   -usemultikey
@@ -135,9 +136,11 @@ Usage of ./editor:
     	output version and exit
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
+<!-- __usageSectionEnd__ -->
 ```
 
 The editor has no configuration file. Use it within a script with your preferences (example `editor.sh`):
+
 ```
 #!/bin/sh
 exec ~/path/editor \
