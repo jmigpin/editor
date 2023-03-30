@@ -38,31 +38,6 @@ func newVarRefParser() *varRefParser {
 }
 func (p *varRefParser) parseVarRefs(src []byte) ([]*VarRef, error) {
 	p.sc.SetSrc(src)
-
-	//w := []*VarRef{}
-	//for {
-	//	pos0 := p.sc.KeepPos()
-	//	if err := p.sc.M.EscapeAny(osutil.EscapeRune); err == nil {
-	//		continue
-	//	}
-	//	pos0.Restore()
-	//	if err := p.sc.M.QuotedString2('\\', 3000, 3000); err == nil {
-	//		continue
-	//	}
-	//	pos0.Restore()
-	//	if v, err := p.parseVarRef(); err == nil {
-	//		w = append(w, v.(*VarRef))
-	//		continue
-	//	}
-	//	pos0.Restore()
-	//	// consume rune
-	//	if _, err := p.sc.ReadRune(); err != nil {
-	//		break
-	//	}
-	//}
-	//return w, nil
-
-	// SLOWER
 	vrs := []*VarRef{}
 	_, err := p.sc.M.Loop(0,
 		p.sc.W.Or(
@@ -78,42 +53,6 @@ func (p *varRefParser) parseVarRefs(src []byte) ([]*VarRef, error) {
 	return vrs, err
 }
 func (p *varRefParser) parseVarRef(pos int) (any, int, error) {
-	//pos0 := p.sc.KeepPos()
-	//vr := &VarRef{}
-	//err := p.sc.RestorePosOnErr(func() error {
-	//	// symbol
-	//	if err := p.sc.M.RuneAny([]rune("~$")); err != nil {
-	//		return err
-	//	}
-	//	sym := pos0.Bytes()
-	//	// open/close
-	//	hasOpen := false
-	//	if err := p.sc.M.Rune('{'); err == nil {
-	//		hasOpen = true
-	//	}
-	//	// name
-	//	pos2 := p.sc.KeepPos()
-	//	u := "[a-zA-Z0-9_]+"
-	//	if err := p.sc.M.RegexpFromStartCached(u, 100); err != nil {
-	//		return err
-	//	}
-	//	name := pos2.Bytes()
-	//	// open/close
-	//	if hasOpen {
-	//		if err := p.sc.M.Rune('}'); err != nil {
-	//			return err
-	//		}
-	//	}
-	//	vr.Name = fmt.Sprintf("%s%s", sym, name)
-	//	return nil
-	//})
-	//if err != nil {
-	//	return nil, err
-	//}
-	//vr.SetPos(pos0.Pos, p.sc.Pos)
-	//return vr, nil
-
-	// SLOWER
 	symK := p.sc.NewValueKeeper()
 	nameK := p.sc.NewValueKeeper()
 	parseName := func(p2 int) (int, error) {
