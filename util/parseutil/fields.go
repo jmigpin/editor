@@ -11,6 +11,7 @@ func ParseFields(s string, fieldSep rune) ([]string, error) {
 		sc.W.LoopSep(
 			sc.W.OnValue(
 				sc.W.StringValue(sc.W.Loop(sc.W.Or(
+					sc.W.EscapeAny(esc),
 					sc.W.QuotedString2(esc, 3000, 3000),
 					sc.W.RuneNoneOf([]rune{fieldSep}),
 				))),
@@ -19,6 +20,7 @@ func ParseFields(s string, fieldSep rune) ([]string, error) {
 					if u, err := UnquoteString(s, esc); err == nil {
 						s = u
 					}
+					s = RemoveEscapes(s, esc)
 					fields = append(fields, s)
 				},
 			),
