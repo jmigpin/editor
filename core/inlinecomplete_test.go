@@ -94,6 +94,18 @@ func TestExpandAndFilter(t *testing.T) {
 			in{[]string{"abCCCe"}, "abC"},
 			out{"abCCCe", []string{"abCCCe"}},
 		},
+		{
+			in{[]string{"read", "receive", "Recv"}, "r"},
+			out{"re", []string{"read", "receive", "Recv"}},
+		},
+		{
+			in{[]string{"Recv", "read", "receive"}, "R"},
+			out{"Re", []string{"Recv", "read", "receive"}},
+		},
+		{
+			in{[]string{"u", "abcd", "abc"}, "a"},
+			out{"abc", []string{"abcd", "abc"}},
+		},
 	}
 	for _, u := range w {
 		expand, comps := expandAndFilter(u.in.prefix, u.in.completions)
@@ -152,6 +164,10 @@ func TestInsertComplete(t *testing.T) {
 			in{[]string{"aaBbbCcc"}, "aaCc", 4},
 			out{0, false, nil, "aaCc"},
 		},
+		{
+			in{[]string{"Recv", "read", "receive"}, "Recv", 1},
+			out{2, true, []string{"Recv", "read", "receive"}, "Recv"},
+		},
 	}
 	for _, u := range w {
 		rw := iorw.NewBytesReadWriterAt([]byte(u.in.text))
@@ -166,7 +182,7 @@ func TestInsertComplete(t *testing.T) {
 			newIndex == u.out.newIndex &&
 			completed == u.out.completed) {
 			//t.Fatal(newIndex, completed, comps, text, "expecting", u.out)
-			t.Fatal("expecting:\n", newIndex, completed, comps, text, "\ngot:\n", u.out)
+			t.Fatal("expecting:\n", u.out, "\ngot:\n", newIndex, completed, comps, text)
 		}
 	}
 }

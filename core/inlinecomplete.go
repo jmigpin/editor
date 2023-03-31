@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -10,6 +9,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/mathutil"
 )
 
 type InlineComplete struct {
@@ -212,33 +212,27 @@ func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex i
 	canComplete := expandStr != ""
 
 	if canComplete {
-		// original string
-		origStr := prefix
-
-		// string to insert
-		n := len(origStr)
-		insStr := expandStr
-
 		// try to expand the index to the existing text
+		n := len(prefix)
 		expand := len(expandStr) - len(prefix)
 		for i := 0; i < expand; i++ {
 			b, err := rw.ReadFastAt(index+i, 1)
 			if err != nil {
 				break
 			}
-			if b[0] != insStr[n] {
+			if b[0] != expandStr[n] {
 				break
 			}
 			n++
 		}
 
 		// insert completion
-		if insStr != origStr {
-			err := rw.OverwriteAt(start, n, []byte(insStr))
+		if expandStr != prefix {
+			err := rw.OverwriteAt(start, n, []byte(expandStr))
 			if err != nil {
 				return 0, false, nil, err
 			}
-			newIndex = start + len(insStr)
+			newIndex = start + len(expandStr)
 			return newIndex, true, comps2, nil
 		}
 	}
@@ -280,25 +274,21 @@ func expandAndFilter(prefix string, comps []string) (expand string, comps5 []str
 
 	return lcp, comps2
 }
-
-func longestCommonPrefix(strs0 []string) string {
-	// make copy
-	strs := make([]string, len(strs0))
-	copy(strs, strs0)
-
-	sort.Strings(strs) // allows needing to compare only first/last
-	first := strings.ToLower(strs[0])
-	last := strings.ToLower(strs[len(strs)-1])
-	longestPrefix := ""
-	for i := 0; i < len(first) && i < len(last); i++ {
-		if first[i] == last[i] {
-			//longestPrefix += string(first[i])
-			longestPrefix = strs0[0][:i+1] // use original order
-			continue
-		}
-		break
+func longestCommonPrefix(strs []string) string {
+	if len(strs) == 0 {
+		return ""
 	}
-	return longestPrefix
+	prefix := strings.ToLower(strs[0])
+	for i := 1; i < len(strs); i++ {
+		str := strings.ToLower(strs[i])
+		n := mathutil.Min(len(prefix), len(str))
+		for str[:n] != prefix[:n] {
+			n--
+		}
+		prefix = prefix[:n]
+	}
+	//return prefix
+	return strs[0][:len(prefix)] // use original string
 }
 
 //----------
