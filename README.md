@@ -136,7 +136,8 @@ Usage of editor:
     	output version and exit
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
-```<!-- __usageSectionEnd__ -->
+```
+ <!-- __usageSectionEnd__ -->
 
 The editor has no configuration file. Use it within a script with your preferences (example `editor.sh`):
 
