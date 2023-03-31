@@ -262,14 +262,22 @@ func expandAndFilter(prefix string, comps []string) (expand string, comps5 []str
 	// longest prefix
 	lcp := longestCommonPrefix(comps2)
 
-	// choose next in line
+	// choose next in line: keep first not eq to prefix after the one eq to prefix
 	if len(lcp) == len(prefix) {
+		k := 0 // default
+		n := len(prefix)
+		first := true
 		for i, s := range comps2 {
-			if strings.HasPrefix(s, prefix) {
-				k := (i + 1) % len(comps2) // next
-				lcp = comps2[k][:len(prefix)]
+			if s[:n] == prefix {
+				if first {
+					first = false
+				}
+			} else if !first {
+				k = i
+				break
 			}
 		}
+		lcp = comps2[k][:n]
 	}
 
 	return lcp, comps2

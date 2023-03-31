@@ -106,6 +106,18 @@ func TestExpandAndFilter(t *testing.T) {
 			in{[]string{"u", "abcd", "abc"}, "a"},
 			out{"abc", []string{"abcd", "abc"}},
 		},
+		{
+			in{[]string{"lockaaa", "Lock", "lockaaab"}, "lock"},
+			out{"Lock", []string{"lockaaa", "Lock", "lockaaab"}},
+		},
+		{
+			in{[]string{"builder", "Build"}, "buil"},
+			out{"build", []string{"builder", "Build"}},
+		},
+		{
+			in{[]string{"builder", "Build"}, "build"},
+			out{"Build", []string{"builder", "Build"}},
+		},
 	}
 	for _, u := range w {
 		expand, comps := expandAndFilter(u.in.prefix, u.in.completions)
