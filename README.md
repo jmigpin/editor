@@ -77,8 +77,8 @@ Feel free to file an issue if you know of a better solution that doesn't require
 
 ## Usage
 
-```
 <!-- __usageSectionStart__ -->
+```
 Usage of editor:
   -colortheme string
     	available: light, acme, lightInverted, acmeInverted (default "light")
@@ -136,8 +136,7 @@ Usage of editor:
     	output version and exit
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
-<!-- __usageSectionEnd__ -->
-```
+```<!-- __usageSectionEnd__ -->
 
 The editor has no configuration file. Use it within a script with your preferences (example `editor.sh`):
 
