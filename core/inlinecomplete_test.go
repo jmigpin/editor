@@ -115,8 +115,16 @@ func TestExpandAndFilter(t *testing.T) {
 			out{"build", []string{"builder", "Build"}},
 		},
 		{
-			in{[]string{"builder", "Build"}, "build"},
-			out{"Build", []string{"builder", "Build"}},
+			in{[]string{"builder", "Build"}, "Build"},
+			out{"build", []string{"builder", "Build"}},
+		},
+		{
+			in{[]string{"aaab", "aaaB", "Aaab", "aaab.c"}, "aaab"},
+			out{"aaaB", []string{"aaab", "aaaB", "Aaab", "aaab.c"}},
+		},
+		{
+			in{[]string{"aaab", "aaaB", "Aaab", "aaab.c"}, "aaaB"},
+			out{"Aaab", []string{"aaab", "aaaB", "Aaab", "aaab.c"}},
 		},
 	}
 	for _, u := range w {

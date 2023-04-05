@@ -136,6 +136,10 @@ func (ic *InlineComplete) completions(ctx context.Context, filename string, ta *
 
 		res = append(res, label)
 	}
+
+	//// NOTE: this loses the provided order
+	//sort.Strings(res)
+
 	return res, nil
 }
 
@@ -197,6 +201,8 @@ func (ic *InlineComplete) CancelOnCursorChange() {
 }
 
 //----------
+//----------
+//----------
 
 func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex int, completed bool, _ []string, _ error) {
 	// build prefix from start of string
@@ -242,7 +248,7 @@ func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex i
 
 //----------
 
-func expandAndFilter(prefix string, comps []string) (expand string, comps5 []string) {
+func expandAndFilter(prefix string, comps []string) (expand string, _ []string) {
 	// find prefix matches (case insensitive)
 	strLow := strings.ToLower(prefix)
 	comps2 := []string{}
@@ -256,24 +262,27 @@ func expandAndFilter(prefix string, comps []string) (expand string, comps5 []str
 		return "", nil
 	}
 
-	//// NOTE: this loses the provided order, but better results?
-	//sort.Strings(comps2)
-
 	// longest prefix
 	lcp := longestCommonPrefix(comps2)
 
 	// choose next in line: keep first not eq to prefix after the one eq to prefix
 	if len(lcp) == len(prefix) {
-		k := 0 // default
+		// find first equal to prefix
 		n := len(prefix)
-		first := true
+		j := 0
 		for i, s := range comps2 {
 			if s[:n] == prefix {
-				if first {
-					first = false
-				}
-			} else if !first {
-				k = i
+				j = i
+				break
+			}
+		}
+		// find next in line not eq to prefix
+		k := 0 // default
+		for i := 0; i < len(comps2); i++ {
+			u := (j + i) % len(comps2)
+			s := comps2[u]
+			if s[:n] != prefix {
+				k = u
 				break
 			}
 		}
