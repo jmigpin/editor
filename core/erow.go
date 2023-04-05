@@ -584,6 +584,9 @@ func (erow *ERow) setupSyntaxHighlightAndCommentShortcuts() {
 	case "bashrc":
 		setComments("#")
 		return
+	case "Xresources":
+		setComments("!")
+		return
 	case "go.mod":
 		setComments("//")
 		return
