@@ -781,10 +781,12 @@ func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on
 	}
 	// set annotations (including clear)
 	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Annotations.On = on
-		d.Opt.Annotations.Selected.EntryIndex = selIndex
-		d.Opt.Annotations.Entries = entries
-		ta.MarkNeedsLayoutAndPaint()
+		ed.UI.RunOnUIGoRoutine(func() {
+			d.Opt.Annotations.On = on
+			d.Opt.Annotations.Selected.EntryIndex = selIndex
+			d.Opt.Annotations.Entries = entries
+			ta.MarkNeedsLayoutAndPaint()
+		})
 	}
 
 	// restore godebug annotations
