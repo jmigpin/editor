@@ -16,7 +16,6 @@ type Options struct {
 
 	TabWidth     int
 	WrapLineRune int
-	ReplaceCarriageReturn bool
 	CarriageReturnRune int
 
 	ColorTheme     string
