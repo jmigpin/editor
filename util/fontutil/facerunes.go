@@ -9,7 +9,6 @@ import (
 
 var TabWidth = 8 // n times the space glyph
 var CarriageReturnRune = '♪'
-var ReplaceCarriageReturn = true
 var NullRune = '◦'
 
 // Special runes face
