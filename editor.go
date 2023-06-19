@@ -28,7 +28,6 @@ func main() {
 	flag.StringVar(&opt.FontHinting, "fonthinting", "full", "font hinting: none, vertical, full")
 	flag.Float64Var(&opt.DPI, "dpi", 72, "monitor dots per inch")
 	flag.IntVar(&opt.TabWidth, "tabwidth", 8, "")
-	flag.BoolVar(&opt.ReplaceCarriageReturn, "replacecarriagereturn", true, "replaces carriage return with a rune ('"+string(fontutil.CarriageReturnRune)+"' by default)")
 	flag.IntVar(&opt.CarriageReturnRune, "carriagereturnrune", int(fontutil.CarriageReturnRune), "replacement rune for carriage return")
 	flag.IntVar(&opt.WrapLineRune, "wraplinerune", int('←'), "code for wrap line rune, can be set to zero")
 	flag.StringVar(&opt.ColorTheme, "colortheme", "light", "available: "+strings.Join(ui.ColorThemeCycler.Names(), ", "))

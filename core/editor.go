@@ -473,7 +473,6 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 func (ed *Editor) setupTheme(opt *Options) {
 	drawer4.WrapLineRune = rune(opt.WrapLineRune)
 	fontutil.TabWidth = opt.TabWidth
-	fontutil.ReplaceCarriageReturn = opt.ReplaceCarriageReturn
 	fontutil.CarriageReturnRune = rune(opt.CarriageReturnRune)
 	ui.ScrollBarLeft = opt.ScrollBarLeft
 	ui.ScrollBarWidth = opt.ScrollBarWidth
