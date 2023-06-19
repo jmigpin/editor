@@ -9,6 +9,7 @@ import (
 
 var TabWidth = 8 // n times the space glyph
 var CarriageReturnRune = '♪'
+var ReplaceCarriageReturn = true
 var NullRune = '◦'
 
 // Special runes face
@@ -67,6 +68,9 @@ func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
 		adv /= 2
 		return ru, adv, ok
 	case '\r':
+		if !ReplaceCarriageReturn {
+			return 0, 0, true
+		}
 		ru := CarriageReturnRune
 		adv, ok := fr.Face.GlyphAdvance(ru)
 		return ru, adv, ok

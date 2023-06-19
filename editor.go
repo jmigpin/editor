@@ -16,6 +16,7 @@ import (
 	// imports that can't be imported from core (cyclic import)
 	_ "github.com/jmigpin/editor/core/contentcmds"
 	_ "github.com/jmigpin/editor/core/internalcmds"
+	"github.com/jmigpin/editor/util/fontutil"
 )
 
 func main() {
@@ -27,6 +28,7 @@ func main() {
 	flag.StringVar(&opt.FontHinting, "fonthinting", "full", "font hinting: none, vertical, full")
 	flag.Float64Var(&opt.DPI, "dpi", 72, "monitor dots per inch")
 	flag.IntVar(&opt.TabWidth, "tabwidth", 8, "")
+	flag.BoolVar(&opt.ReplaceCarriageReturn, "replaceCarriageReturn", true, "replaces carriage return with '"+string(fontutil.CarriageReturnRune)+"'")
 	flag.IntVar(&opt.WrapLineRune, "wraplinerune", int('←'), "code for wrap line rune, can be set to zero")
 	flag.StringVar(&opt.ColorTheme, "colortheme", "light", "available: "+strings.Join(ui.ColorThemeCycler.Names(), ", "))
 	flag.IntVar(&opt.CommentsColor, "commentscolor", 0, "Colorize comments. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")
