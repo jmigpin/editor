@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/rpc"
+	"strings"
 	"sync"
 	"time"
 
@@ -144,6 +145,21 @@ func (cli *Client) onNotificationMessage(msg *NotificationMessage) {
 	// {"error":{"code":-32601,"message":"method not found"},"id":2,"jsonrpc":"2.0"}
 
 	//logJson("notification <--: ", msg)
+	//spew.Dump(msg)
+
+	switch msg.Method {
+	case "window/logMessage":
+		//spew.Dump(msg.Params)
+
+		lmp := msg.Params.lmp
+		if lmp != nil {
+			switch lmp.Type {
+			case 1: // error
+				err := fmt.Errorf("%v", lmp.Message)
+				cli.li.lang.PrintWrapError(err)
+			}
+		}
+	}
 }
 
 func (cli *Client) onUnexpectedServerReply(resp *Response) {
@@ -169,11 +185,10 @@ func (cli *Client) onUnexpectedServerReply(resp *Response) {
 //----------
 
 func (cli *Client) Initialize(ctx context.Context) error {
-	//opt, err := cli.initializeParams()
-	//if err != nil {
-	//	return err
-	//}
-	opt := json.RawMessage("{}")
+	opt, err := cli.initializeParams()
+	if err != nil {
+		return err
+	}
 	logJson("opt -->: ", opt)
 
 	serverCapabilities := (interface{})(nil)
@@ -189,41 +204,45 @@ func (cli *Client) Initialize(ctx context.Context) error {
 	return cli.Call(ctx, "noreply:initialized", opt2, nil)
 }
 
-//func (cli *Client) initializeParams() (json.RawMessage, error) {
-//	rootUri, err := cli.rootUri()
-//	if err != nil {
-//		return nil, err
-//	}
-//	_ = rootUri
+func (cli *Client) initializeParams() (json.RawMessage, error) {
+	opt := []string{}
 
-//	// workspace folders
-//	cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
-//	foldersBytes, err := encodeJson(cli.folders)
-//	if err != nil {
-//		return nil, err
-//	}
+	//	rootUri, err := cli.rootUri()
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	_ = rootUri
 
-//	// other capabilities
-//	//"capabilities":{
-//	//	"workspace":{
-//	//		"configuration":true,
-//	//		"workspaceFolders":true
-//	//	},
-//	//	"textDocument":{
-//	//		"publishDiagnostics":{
-//	//			"relatedInformation":true
-//	//		}
-//	//	}
-//	//}
+	//	// workspace folders
+	//	cli.folders = []*WorkspaceFolder{{Uri: rootUri}}
+	//	foldersBytes, err := encodeJson(cli.folders)
+	//	if err != nil {
+	//		return nil, err
+	//	}
 
-//	raw := json.RawMessage("{" +
-//		// TODO: gopls is not allowing rooturi=null at the moment...
-//		fmt.Sprintf("%q:%q", "rootUri", rootUri) + "," +
-//		// set workspace folders to use the later as "remove" value
-//		fmt.Sprintf("%q:%s", "workspaceFolders", foldersBytes) +
-//		"}")
-//	return raw, nil
-//}
+	//	// other capabilities
+	//	//"capabilities":{
+	//	//	"workspace":{
+	//	//		"configuration":true,
+	//	//		"workspaceFolders":true
+	//	//	},
+	//	//	"textDocument":{
+	//	//		"publishDiagnostics":{
+	//	//			"relatedInformation":true
+	//	//		}
+	//	//	}
+	//	//}
+
+	//	raw := json.RawMessage("{" +
+	//		// TODO: gopls is not allowing rooturi=null at the moment...
+	//		fmt.Sprintf("%q:%q", "rootUri", rootUri) + "," +
+	//		// set workspace folders to use the later as "remove" value
+	//		fmt.Sprintf("%q:%s", "workspaceFolders", foldersBytes) +
+	//		"}")
+
+	raw := "{" + strings.Join(opt, ",") + "}"
+	return json.RawMessage(raw), nil
+}
 
 //func (cli *Client) rootUri() (DocumentUri, error) {
 //	// using a non-existent dir to prevent an lsp server to start scanning the user disk doesn't work well (ex: gopls gives "no views in the session" after the cache is gone)
@@ -429,7 +448,7 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 	if err := cli.Call(ctx, "textDocument/completion", opt, &result); err != nil {
 		return nil, err
 	}
-	//logJson(result)
+	//logJson("textdocumentcompletion", result)
 	return &result, nil
 }
 

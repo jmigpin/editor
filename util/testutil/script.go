@@ -170,6 +170,10 @@ func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) e
 	scr.logf(t, "script_workdir: %v", scr.workDir)
 	defer func() {
 		t.Helper()
+		if !scr.Work {
+			u := os.Getenv("script_keepwork")
+			scr.Work = strings.ToLower(u) == "true"
+		}
 		if scr.Work {
 			scr.logf(t, "workDir not cleaned")
 		} else {

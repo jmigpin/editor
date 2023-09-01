@@ -1,6 +1,8 @@
 ucmd lspSourceCursor main_template main.go 0
 setenv offset stdout
 
+#setenv script_keepwork true
+
 ucmd lspCompletion main.go offset
 contains stdout "main2 func() int"
 contains stdout "main3 func() int"

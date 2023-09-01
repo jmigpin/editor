@@ -4,6 +4,7 @@ package lsproto
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,11 +14,42 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/testutil"
 )
+
+func TestStruct1(t *testing.T) {
+	{
+		msg := `"abc"`
+		doc := _completionItemDocumentation{}
+		if err := json.Unmarshal([]byte(msg), &doc); err != nil {
+			t.Fatal(err)
+		}
+		if doc.str == nil || *doc.str != "abc" {
+			spew.Dump(doc)
+			t.Fail()
+		}
+	}
+	{
+		msg := `{"kind":"markup","value":"abc"}`
+		doc := _completionItemDocumentation{}
+		if err := json.Unmarshal([]byte(msg), &doc); err != nil {
+			t.Fatal(err)
+		}
+		if doc.mc == nil || doc.mc.Value != "abc" {
+			spew.Dump(doc)
+			t.Fail()
+		}
+	}
+
+}
+
+//----------
+//----------
+//----------
 
 func TestScripts(t *testing.T) {
 	log.SetFlags(0)

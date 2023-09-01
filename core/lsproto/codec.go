@@ -57,7 +57,8 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 		// don't send an Id on messages that don't need an acknowledgement
 		m := &NotificationMessage{
 			Method: method,
-			Params: data,
+			//Params: data,
+			Params: _notificationMessageParams{any: data},
 		}
 		m.Message = MakeMessage()
 		msg = m
@@ -84,7 +85,7 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 	copy(buf, []byte(h))  // header
 	copy(buf[len(h):], b) // body
 
-	logPrintf("write req -->: %s%s", h, string(b))
+	logPrintf("write req -->: %T, %T, %s%s", msg, data, h, string(b))
 
 	_, err = c.rwc.Write(buf)
 	if err != nil {
@@ -162,9 +163,8 @@ func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
 			return fmt.Errorf("jsoncodec: server push with reply expecting data: %v", reply)
 		}
 		// run callback
-		nm := c.readData.resp.NotificationMessage
 		if c.OnNotificationMessage != nil {
-			c.OnNotificationMessage(&nm)
+			c.OnNotificationMessage(c.readData.resp.NotificationMessage)
 		}
 		return nil
 	}

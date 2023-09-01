@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// lsp protocol: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/
+
 //----------
 
 type Message struct {
@@ -30,23 +32,57 @@ type RequestMessage struct {
 // Used as request and response (sent/received).
 type NotificationMessage struct {
 	Message
-	Method string      `json:"method,omitempty"`
-	Params interface{} `json:"params,omitempty"`
+	Method string `json:"method,omitempty"`
+
+	//Params any                        `json:"params,omitempty"`
+	Params _notificationMessageParams `json:"params,omitempty"`
 }
 
 //----------
 
+// The reason to have this struct is that there was an error when using godebug that was only getting reported through a logmessageparams notification. This resulted in a different result when not using godebug, causing confusion. The error is connected to the build. Because of the error, the completionitem action would not fail, but report zero completions. While with the regular compiler it would fail showing an issue with a json field that was not declared in one of the structs.
+type _notificationMessageParams struct {
+	lmp *LogMessageParams
+	any any
+}
+
+func (nmp *_notificationMessageParams) MarshalJSON() ([]byte, error) {
+	if nmp.lmp != nil {
+		json.Marshal(nmp.lmp)
+	}
+	return json.Marshal(nmp.any)
+}
+func (nmp *_notificationMessageParams) UnmarshalJSON(b []byte) error {
+	if err := json.Unmarshal(b, &nmp.lmp); err == nil {
+		return nil
+	}
+	nmp.any = string(b)
+	return nil
+}
+
+//----------
+
+type LogMessageParams struct {
+	Type    MessageType `json:"type,omitempty"`
+	Message string      `json:"message,omitempty"`
+}
+type MessageType int
+
+//----------
+
 type Response struct {
-	ResponseMessage
-	NotificationMessage
+	*ResponseMessage
+	*NotificationMessage
 }
 
 func (res *Response) IsNotification() bool {
-	return res.NotificationMessage.Method != ""
+	return res.NotificationMessage != nil
 }
 
+//----------
+
 type ResponseMessage struct {
-	//Message // commented: not used and avoid clash with definition at notificationmessage (works if defined though)
+	Message
 	Id     int             `json:"id,omitempty"` // id can be zero on first msg
 	Error  *ResponseError  `json:"error,omitempty"`
 	Result json.RawMessage `json:"result,omitempty"`
@@ -99,6 +135,9 @@ type Range struct {
 	Start Position `json:"start"`
 	End   Position `json:"end"`
 }
+
+//----------
+
 type CompletionParams struct {
 	TextDocumentPositionParams
 	Context CompletionContext `json:"context"`
@@ -107,18 +146,51 @@ type CompletionContext struct {
 	TriggerKind      int    `json:"triggerKind"` // 1=invoked, 2=char, 3=re-trigger
 	TriggerCharacter string `json:"triggerCharacter,omitempty"`
 }
-type CompletionItem struct {
-	Label         string `json:"label"`
-	Kind          int    `json:"kind,omitempty"`
-	Detail        string `json:"detail,omitempty"`
-	Documentation string `json:"documentation,omitempty"`
-	Deprecated    bool   `json:"deprecated,omitempty"`
-	// TODO: tags []CompletionItemTag // since v3.15.0 for deprecated flag
-}
 type CompletionList struct {
 	IsIncomplete bool              `json:"isIncomplete"`
 	Items        []*CompletionItem `json:"items"`
 }
+type CompletionItem struct {
+	Label         string                       `json:"label"`
+	Kind          CompletionItemKind           `json:"kind,omitempty"`
+	Detail        string                       `json:"detail,omitempty"`
+	Documentation _completionItemDocumentation `json:"documentation,omitempty"`
+	Deprecated    bool                         `json:"deprecated,omitempty"` // deprecated in favor of "tags"
+	Tags          []CompletionItemTag          `json:"tags,omitempty"`
+}
+type CompletionItemKind int
+type CompletionItemTag int
+
+//----------
+
+type _completionItemDocumentation struct {
+	mc  *MarkupContent
+	str *string
+}
+
+func (u *_completionItemDocumentation) MarshalJSON(b []byte) ([]byte, error) {
+	if u.mc != nil {
+		return json.Marshal(u.mc)
+	}
+	return json.Marshal(u.str)
+}
+func (u *_completionItemDocumentation) UnmarshalJSON(b []byte) error {
+	if err := json.Unmarshal(b, &u.mc); err == nil {
+		return nil
+	}
+	return json.Unmarshal(b, &u.str)
+}
+
+//----------
+
+type MarkupContent struct {
+	Kind  MarkupKind `json:"kind"`
+	Value string     `json:"value"`
+}
+type MarkupKind string // ex: plaintext, markup
+
+//----------
+
 type DidOpenTextDocumentParams struct {
 	TextDocument TextDocumentItem `json:"textDocument"`
 }
@@ -162,6 +234,8 @@ type RenameParams struct {
 	NewName string `json:"newName"`
 }
 
+//----------
+
 type WorkspaceEdit struct {
 	Changes         map[DocumentUri][]*TextEdit `json:"changes,omitempty"`
 	DocumentChanges []*TextDocumentEdit         `json:"documentChanges,omitempty"`
@@ -192,6 +266,8 @@ func (we *WorkspaceEdit) GetChanges() ([]*WorkspaceEditChange, error) {
 	return w, nil
 }
 
+//----------
+
 type TextDocumentEdit struct {
 	TextDocument VersionedTextDocumentIdentifier `json:"textDocument"`
 	Edits        []*TextEdit                     `json:"edits"`
@@ -201,22 +277,26 @@ type TextEdit struct {
 	NewText string `json:"newText"`
 }
 
+//----------
+
 type CallHierarchyPrepareParams struct {
 	TextDocumentPositionParams
 }
 
 // Commented: here for doc only; using the unified/simplified version below
-//type CallHierarchyIncomingCallsParams struct {
+
+//type CallHierarchyIncomingCallsParams struct { // request
 //	Item *CallHierarchyItem `json:"item"`
 //}
-//type CallHierarchyOutgoingCallsParams struct {
-//	Item *CallHierarchyItem `json:"item"`
-//}
-//type CallHierarchyIncomingCall struct {
+//type CallHierarchyIncomingCall struct { // response
 //	From       *CallHierarchyItem `json:"from"`
 //	FromRanges []*Range           `json:"fromRanges"`
 //}
-//type CallHierarchyOutgoingCall struct {
+
+//type CallHierarchyOutgoingCallsParams struct { // request
+//	Item *CallHierarchyItem `json:"item"`
+//}
+//type CallHierarchyOutgoingCall struct { // response
 //	To         *CallHierarchyItem `json:"to"`
 //	FromRanges []*Range           `json:"fromRanges"`
 //}
@@ -247,6 +327,8 @@ type CallHierarchyItem struct {
 	SelectionRange *Range       `json:"selectionRange"`
 	Data           interface{}  `json:"data,omitempty"` // optional (related to prepare calls)
 }
+
+//----------
 
 type ReferenceParams struct {
 	TextDocumentPositionParams
