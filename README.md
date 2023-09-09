@@ -80,6 +80,8 @@ Feel free to file an issue if you know of a better solution that doesn't require
 <!-- __usageSectionStart__ -->
 ```
 Usage of editor:
+  -carriagereturnrune int
+    	replacement rune for carriage return (default 9834)
   -colortheme string
     	available: light, acme, lightInverted, acmeInverted (default "light")
   -commentscolor int
@@ -137,7 +139,7 @@ Usage of editor:
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
 ```
- <!-- __usageSectionEnd__ -->
+<!-- __usageSectionEnd__ -->
 
 The editor has no configuration file. Use it within a script with your preferences (example `editor.sh`):
 

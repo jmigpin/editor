@@ -14,8 +14,8 @@ type Options struct {
 	FontHinting string
 	DPI         float64
 
-	TabWidth     int
-	WrapLineRune int
+	TabWidth           int
+	WrapLineRune       int
 	CarriageReturnRune int
 
 	ColorTheme     string
