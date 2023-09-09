@@ -1,3 +1,5 @@
+#setenv script_keepwork true
+
 exec go run main1.go
 ucmd godebugtester run main1.go
 # TODO: test "connected"?

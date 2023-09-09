@@ -39,38 +39,7 @@ func (is *ItemStringifier) p(s string) {
 
 //----------
 
-//func (is *ItemStringifier) captureStringify(item debug.Item) (start, end int, s string) {
-//	start = len(is.Str)
-//	is.stringify(item)
-//	end = len(is.Str)
-//	return start, end, is.Str[start:end]
-//}
-
-//func (is *ItemStringifier) stringify(item debug.Item) {
-//// capture value
-//start := len(is.Str)
-//defer func() {
-//	end := len(is.Str)
-//	if is.Offset >= start && is.Offset < end {
-//		s := is.Str[start:end]
-//		if is.OffsetValueString == "" || len(s) < len(is.OffsetValueString) {
-//			is.OffsetValueString = s
-//		}
-//	}
-//}()
-
-//is.stringify2(item)
-//}
-
-//----------
-
 func (is *ItemStringifier) stringify(item debug.Item) {
-	is.stringify2(item)
-}
-
-func (is *ItemStringifier) stringify2(item debug.Item) {
-	// NOTE: the string append is done sequentially to allow to detect where the strings are positioned (if later supported)
-
 	//log.Printf("stringifyitem: %T", item)
 
 	switch t := item.(type) {
@@ -105,24 +74,20 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 
 	case *debug.ItemAssign:
 		is.stringify(t.Lhs)
-
-		// it's misleading to get a "2 += 1", better to just show "2 = 1"
-		//is.p(" " + token.Token(t.Op).String() + " ")
 		is.p(" ")
-		switch t2 := token.Token(t.Op); t2 {
-		case token.ADD_ASSIGN, token.SUB_ASSIGN,
-			token.MUL_ASSIGN, token.QUO_ASSIGN,
-			token.REM_ASSIGN,
-			token.INC, token.DEC:
-			is.p("=")
-		default:
-			is.p(t2.String())
-		}
+		is.p(token.Token(t.Op).String())
 		is.p(" ")
-
 		is.stringify(t.Rhs)
 
+	//case *debug.ItemSendEnter: // TODO
+	//	is.p("=> ")
+	//	is.stringify(t.Chan)
+	//	is.p(" <- ")
+	//	is.stringify(t.Value)
 	case *debug.ItemSend:
+		//is.stringify(t.Enter.Chan)
+		//is.p(" <- ")
+		//is.stringify(t.Enter.Value)
 		is.stringify(t.Chan)
 		is.p(" <- ")
 		is.stringify(t.Value)
@@ -134,59 +99,46 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.stringify(t.Args)
 		is.p(")")
 	case *debug.ItemCall:
-		_ = is.result(t.Result)
-		is.stringify(t.Enter.Fun)
-		is.p("(")
-		is.stringify(t.Enter.Args)
-		is.p(")")
+		is.pResult(t.Result, func() {
+			is.stringify(t.Enter.Fun)
+			is.p("(")
+			is.stringify(t.Enter.Args)
+			is.p(")")
+		})
 
 	case *debug.ItemIndex:
-		_ = is.result(t.Result)
-		if t.Expr != nil {
-			//switch t2 := t.Expr.(type) {
-			//case string:
-			//	is.p( t2
-			//default:
-			//	is.p( "("
-			//	is.stringify(t.Expr)
-			//	is.p( ")"
-			//}
-			is.stringify(t.Expr)
-		}
-		is.p("[")
-		if t.Index != nil {
-			is.stringify(t.Index)
-		}
-		is.p("]")
+		is.pResult(t.Result, func() {
+			if t.Expr != nil {
+				is.stringify(t.Expr)
+			}
+			is.p("[")
+			if t.Index != nil {
+				is.stringify(t.Index)
+			}
+			is.p("]")
+		})
 
 	case *debug.ItemIndex2:
-		_ = is.result(t.Result)
-		if t.Expr != nil {
-			//switch t2 := t.Expr.(type) {
-			//case string:
-			//	is.p( t2
-			//default:
-			//	is.p( "("
-			//	is.stringify(t.Expr)
-			//	is.p( ")"
-			//}
-			is.stringify(t.Expr)
-		}
-		is.p("[")
-		if t.Low != nil {
-			is.stringify(t.Low)
-		}
-		is.p(":")
-		if t.High != nil {
-			is.stringify(t.High)
-		}
-		if t.Slice3 {
+		is.pResult(t.Result, func() {
+			if t.Expr != nil {
+				is.stringify(t.Expr)
+			}
+			is.p("[")
+			if t.Low != nil {
+				is.stringify(t.Low)
+			}
 			is.p(":")
-		}
-		if t.Max != nil {
-			is.stringify(t.Max)
-		}
-		is.p("]")
+			if t.High != nil {
+				is.stringify(t.High)
+			}
+			if t.Slice3 {
+				is.p(":")
+			}
+			if t.Max != nil {
+				is.stringify(t.Max)
+			}
+			is.p("]")
+		})
 
 	case *debug.ItemKeyValue:
 		is.stringify(t.Key)
@@ -194,37 +146,46 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.stringify(t.Value)
 
 	case *debug.ItemSelector:
-		is.p("(")
-		is.stringify(t.X)
-		is.p(").")
-		is.stringify(t.Sel)
+		//is.pResult(t.Result, func() { // TODO
+		is.pResult(nil, func() {
+			if t.X == nil {
+				is.p("_") // this being here saves transfer bytes
+			} else {
+				is.stringify(t.X)
+			}
+			is.p(".")
+			is.stringify(t.Sel)
+		})
 
 	case *debug.ItemTypeAssert:
-		is.stringify(t.Type)
-		is.p("=type(")
-		is.stringify(t.X)
-		is.p(")")
+		//is.pResult(t.Result, func() { // TODO
+		is.pResult(nil, func() {
+			is.stringify(t.X)
+			is.p(".(")
+			is.stringify(t.Type)
+			is.p(")")
+		})
 
 	case *debug.ItemBinary:
-		showRes := is.result(t.Result)
-		if showRes {
-			is.p("(")
-		}
-		is.stringify(t.X)
-		is.p(" " + token.Token(t.Op).String() + " ")
-		is.stringify(t.Y)
-		if showRes {
-			is.p(")")
-		}
+		is.pResult(t.Result, func() {
+			is.stringify(t.X)
+			is.p(" ")
+			is.p(token.Token(t.Op).String())
+			is.p(" ")
+			is.stringify(t.Y)
+		})
 
 	case *debug.ItemUnaryEnter:
 		is.p("=> ")
 		is.p(token.Token(t.Op).String())
 		is.stringify(t.X)
 	case *debug.ItemUnary:
-		_ = is.result(t.Result)
-		is.p(token.Token(t.Enter.Op).String())
-		is.stringify(t.Enter.X)
+		is.pResult(t.Result, func() {
+			is.p(token.Token(t.Enter.Op).String())
+			if t.Enter.X != nil {
+				is.stringify(t.Enter.X)
+			}
+		})
 
 	case *debug.ItemParen:
 		is.p("(")
@@ -247,39 +208,34 @@ func (is *ItemStringifier) stringify2(item debug.Item) {
 		is.p("#")
 	case *debug.ItemLabel:
 		is.p("#")
-		if t.Reason != "" {
+		if t.Reason != "" { // TODO: remove
 			is.p(" label: " + t.Reason)
 		}
 	case *debug.ItemNotAnn:
 		is.p(fmt.Sprintf("# not annotated: %v", t.Reason))
 
 	default:
-		is.p(fmt.Sprintf("[TODO:(%T)%v]", item, item))
+		is.p(fmt.Sprintf("[TODO:stringifyitem:%T,%v]", item, item))
 	}
 }
 
 //----------
 
-func (is *ItemStringifier) result(result debug.Item) bool {
+func (is *ItemStringifier) pResult(result debug.Item, fn func()) {
 	if result == nil {
-		return false
+		fn()
+		return
 	}
-
-	isList := false
-	if _, ok := result.(*debug.ItemList); ok {
-		isList = true
-	}
+	_, isList := result.(*debug.ItemList)
 	if isList {
 		is.p("(")
 	}
-
 	is.stringify(result)
-
 	if isList {
 		is.p(")")
 	}
-
 	is.p("=") // other runes: ≡ // nice, but not all fonts have it defined
-
-	return true
+	is.p("(")
+	fn()
+	is.p(")")
 }

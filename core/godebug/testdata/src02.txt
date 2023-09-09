@@ -1,5 +1,5 @@
 ucmd godebugtester run -work main.go
-contains stdout "\"20 []\"=f2()"
+contains stdout "\"20 []\"=(f2())"
 
 -- main.go --
 package main

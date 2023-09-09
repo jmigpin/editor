@@ -1,6 +1,6 @@
 # able to compile reference to method in type
 ucmd godebugtester run main.go
-contains stdout "&A{}=&{}"
+contains stdout "&A{}=(&{})"
 
 -- main.go --
 package main

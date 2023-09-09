@@ -15,7 +15,7 @@ fail ucmd godebugtester run main.go
 contains error "undefined: f1"
 
 ucmd godebugtester run main.go f1.go
-contains stdout "recv: println(2=f1())"
+contains stdout "recv: println(2=(f1()))"
 contains stderr "2\n"
 
 -- main.go --

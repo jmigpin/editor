@@ -1,6 +1,6 @@
 # support function returning multiple vars as args to another func
 ucmd godebugtester run main.go
-contains stdout "=> f1((1, 2)=f2())"
+contains stdout "=> f1((1, 2)=(f2()))"
 
 -- main.go --
 package main
