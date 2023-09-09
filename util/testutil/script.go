@@ -231,7 +231,7 @@ func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) e
 		if !ok {
 			return fmt.Errorf("cmd not found: %v", args[0])
 		}
-		scr.logf(t, "$%v", args)
+		scr.logf(t, "SCRIPT: %v", args)
 		if err := cmd.Fn(t, args); err != nil {
 			return err
 		}

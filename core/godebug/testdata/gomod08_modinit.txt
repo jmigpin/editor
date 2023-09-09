@@ -17,12 +17,11 @@ exec go mod init example.com
 fail exec go mod tidy
 contains stderr "cannot find module"
 
-fail exec go mod download golang.org/x/example/stringutil
+fail exec go mod download golang.org/x/example
 contains stderr "not a known dependency"
 
-fail exec go mod download golang.org/x/example
-
-# TODO: should be able to solve this with goproxy=off
+# TODO: should be able to solve this with goproxy=off if the module is already local
+#exec go mod download golang.org/x/example@v0.0.0-20230901165430-d9923f6970e9
 
 # set goproxy to empty to get default behaviour (golang.org)
 setenv GOPROXY
@@ -43,9 +42,9 @@ contains stdout "=> len([99 98 97])"
 
 -- main/main.go --
 package main
-//godebug:annotatepackage:golang.org/x/example/stringutil
-import "golang.org/x/example/stringutil"
+//godebug:annotatepackage:golang.org/x/example/hello/reverse
+import "golang.org/x/example/hello/reverse"
 func main() {
-	v:=stringutil.Reverse("abc")
+	v:=reverse.String("abc")
 	println(v)
 }

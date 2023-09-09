@@ -2,11 +2,10 @@ package osutil
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
-)
 
-//godebug:annotatefile
+	"github.com/jmigpin/editor/util/strconvutil"
+)
 
 func GetEnv(env []string, key string) string {
 	for _, s := range env {
@@ -25,7 +24,8 @@ func UnquoteEnvValues(env []string) []string {
 	for i, s := range env {
 		k, v, ok := splitEnvVar(s)
 		if ok {
-			if v2, err := strconv.Unquote(v); err == nil {
+			// NOTE: strconv.Unquote() fails on singlequotes with len>6 runes
+			if v2, ok := strconvutil.BasicUnquote(v); ok {
 				env[i] = keyvalStr(k, v2)
 			}
 		}
@@ -84,9 +84,5 @@ func SetEnvs(env []string, addEnv []string) []string {
 }
 
 func splitEnvVar(s string) (string, string, bool) {
-	u := strings.SplitN(s, "=", 2)
-	if len(u) != 2 {
-		return "", "", false
-	}
-	return u[0], u[1], true
+	return strings.Cut(s, "=")
 }
