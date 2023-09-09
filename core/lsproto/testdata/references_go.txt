@@ -1,15 +1,19 @@
 ucmd lspSourceCursor main_template main.go 0
 setenv offset stdout
 ucmd lspReferences main.go offset
-contains stdout "main.go:4:2"
-contains stdout "main.go:5:13"
+containsre stdout "main.go:9:2(?:.|\\n)*main.go:10:13"
 
 -- main_template --
 package main
 import "log"
 func main(){
-	v1 := fn2()
-	log.Printf(v●1)
+	//
+	//
+	// string sorting puts 10 before 9
+	// int sorting puts 9 before 10
+	//
+	v1 := fn2() // 9th line
+	log.Printf(v●1) // 10th line 
 }
 func fn2() string {
 	return "fn2"

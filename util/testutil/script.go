@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -91,6 +92,7 @@ func (scr *Script) Run(t *testing.T) {
 		{"ucmd", scr.icUCmd}, // run user cmd
 		{"exec", scr.icExec},
 		{"contains", scr.icContains},
+		{"containsre", scr.icContainsRegexp},
 		{"setenv", scr.icSetEnv},
 		{"fail", scr.icFail},
 		{"cd", scr.icChangeDir},
@@ -344,6 +346,36 @@ func (scr *Script) icContains(t *testing.T, args []string) error {
 	if !bytes.Contains(data, []byte(pattern)) {
 		//return fmt.Errorf("contains: no match:\npattern=[%v]\ndata=[%v]", pattern, string(data))
 		return fmt.Errorf("contains: no match")
+	}
+	return nil
+}
+
+func (scr *Script) icContainsRegexp(t *testing.T, args []string) error {
+	args = args[1:] // drop "containsre"
+	if len(args) != 2 {
+		return fmt.Errorf("expecting 2 args, got %v", args)
+	}
+
+	data, ok := scr.lastCmdContent(args[0])
+	if !ok {
+		return fmt.Errorf("unknown content: %v", args[0])
+	}
+
+	// pattern
+	u, err := strconv.Unquote(args[1])
+	if err != nil {
+		return err
+	}
+	pattern := u
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return err
+	}
+
+	if re.Find(data) == nil {
+		//return fmt.Errorf("contains: no match:\npattern=[%v]\ndata=[%v]", pattern, string(data))
+		return fmt.Errorf("containsre: no match")
 	}
 	return nil
 }
