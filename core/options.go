@@ -16,6 +16,7 @@ type Options struct {
 
 	TabWidth     int
 	WrapLineRune int
+	CarriageReturnRune int
 
 	ColorTheme     string
 	CommentsColor  int
