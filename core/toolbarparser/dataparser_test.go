@@ -215,7 +215,20 @@ func TestParseParts17(t *testing.T) {
 		d.Parts[3].Args[0].String() != "cc" {
 		t.Fatal(d.Parts[3].Args[0].String())
 	}
-
+}
+func TestParseParts18(t *testing.T) {
+	s := "cmd \"a\\nb\""
+	d := Parse(s)
+	//spew.Dump(d)
+	if len(d.Parts) != 1 {
+		t.Fatalf("%v", d)
+	}
+	if len(d.Parts[0].Args) != 2 {
+		t.Fatalf("%v", d.Parts[0].Args)
+	}
+	if d.Parts[0].Args[1].UnquotedString() != "a\nb" {
+		t.Fatalf("%v", d.Parts[0].Args[1].UnquotedString())
+	}
 }
 
 //----------

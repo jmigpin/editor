@@ -2,8 +2,8 @@ package toolbarparser
 
 import (
 	"fmt"
+	"strconv"
 
-	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
@@ -101,7 +101,8 @@ func (n *Node) String() string {
 }
 func (n *Node) UnquotedString() string {
 	s := n.String()
-	if s2, err := parseutil.UnquoteStringBs(s); err == nil {
+	//if s2, err := parseutil.UnquoteStringBs(s); err == nil {
+	if s2, err := strconv.Unquote(s); err == nil { // interpret '\n','\t',...
 		s = s2
 	}
 	return s
