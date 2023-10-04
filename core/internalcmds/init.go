@@ -73,4 +73,6 @@ func init() {
 	cmd(FontTheme, "FontTheme")
 
 	cmd(CtxutilCallsState, "CtxutilCallsState")
+
+	cmdERow(sortTextLines, "SortTextLines")
 }

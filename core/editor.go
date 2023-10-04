@@ -398,6 +398,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		{"CopyFilePosition"},
 		{"CtxutilCallsState"},
 		{"Find -h"},
+		{"SortTextLines"},
 	}
 	last := []string{"Exit", "Version", "Stop", "Clear"}
 
