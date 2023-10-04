@@ -289,7 +289,7 @@ func (gdi *GoDebugInstance) printIndexAllPrevious(erow *ERow, annIndex, offset i
 	sb := strings.Builder{}
 	for _, msg := range msgs {
 		s := godebug.StringifyItemFull(msg.dbgLineMsg.Item)
-		sb.WriteString(fmt.Sprintf("\t" + s + "\n"))
+		sb.WriteString("\t" + s + "\n")
 	}
 	gdi.gdm.Printf("annotations (%d entries):\n%v\n", len(msgs), sb.String())
 }
