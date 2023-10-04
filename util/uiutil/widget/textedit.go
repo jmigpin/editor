@@ -10,8 +10,6 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-//godebug:annotatefile
-
 type TextEdit struct {
 	*Text
 	uiCtx   UIContext

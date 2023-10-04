@@ -1,7 +1,5 @@
 package widget
 
-//godebug:annotatefile
-
 // offset, start, deletedn, insertedn
 func StableOffsetScroll(o int, s, dn, in int) int {
 	// TODO: need to know if the insertion/delete is on the same line to try to keep the line percentage (smooth scrolling)
