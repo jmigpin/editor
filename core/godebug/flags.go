@@ -29,21 +29,20 @@ type flags struct {
 	env                 []string
 	isServer            bool
 	noInitMsg           bool
-	outFilename         string // build, ex: -o filename
+	outFilename         string   // build, ex: -o filename
+	paths               []string // dirs/files to annotate (args from cmd line)
 	srcLines            bool
+	startExec           bool
 	stringifyBytesRunes bool
 	syncSend            bool
 	toolExec            string // ex: "wine" will run "wine args..."
 	usePkgLinks         bool
 	verbose             bool
 	work                bool
-	paths               []string // dirs/files to annotate (args from cmd line)
-	startExec           bool
 
 	unknownArgs []string // unknown args to pass down to tooling
 	unnamedArgs []string // args without name (ex: filenames)
 	binaryArgs  []string // to be passed to the binary when running
-
 }
 
 func (fl *flags) parseArgs(args []string) error {
@@ -114,22 +113,22 @@ func (fl *flags) parseTestArgs(name string, args []string) error {
 
 	fs := fl.newFlagSet(name)
 
-	fl.addPathsFlag(fs)
-	fl.addWorkFlag(fs)
-	fl.addVerboseFlag(fs)
-	fl.addToolExecFlag(fs)
-	fl.addIsIsServerFlag(fs, true) // editor side
-	fl.addSyncSendFlag(fs)
-	fl.addStringifyBytesRunesFlag(fs)
-	fl.addSrcLinesFlag(fs)
-	fl.addNoInitMsgFlag(fs)
-	fl.addEnvFlag(fs)
-	fl.addNetworkFlag(fs)
 	fl.addAddrFlag(fs, "")
+	fl.addEnvFlag(fs)
+	fl.addIsIsServerFlag(fs, true) // editor side
+	fl.addNetworkFlag(fs)
+	fl.addNoInitMsgFlag(fs)
+	fl.addPathsFlag(fs)
+	fl.addSrcLinesFlag(fs)
+	fl.addStartExecFlag(fs)
+	fl.addStringifyBytesRunesFlag(fs)
+	fl.addSyncSendFlag(fs)
 	fl.addTestRunFlag(fs)
 	fl.addTestVFlag(fs)
+	fl.addToolExecFlag(fs)
 	fl.addUsePkgLinksFlag(fs)
-	fl.addStartExecFlag(fs)
+	fl.addVerboseFlag(fs)
+	fl.addWorkFlag(fs)
 
 	m := joinMaps(goBuildBooleanFlags(), goTestBooleanFlags())
 	return fl.parse(name, fs, args, m)
@@ -138,19 +137,19 @@ func (fl *flags) parseTestArgs(name string, args []string) error {
 func (fl *flags) parseBuildArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
-	fl.addPathsFlag(fs)
-	fl.addWorkFlag(fs)
-	fl.addVerboseFlag(fs)
-	fl.addIsIsServerFlag(fs, true) // exec side (only at build it means exec)
-	fl.addSyncSendFlag(fs)
-	fl.addStringifyBytesRunesFlag(fs)
-	fl.addSrcLinesFlag(fs)
-	fl.addNoInitMsgFlag(fs)
-	fl.addEnvFlag(fs)
-	fl.addNetworkFlag(fs)
 	fl.addAddrFlag(fs, defaultBuildConnectAddr)
+	fl.addEnvFlag(fs)
+	fl.addIsIsServerFlag(fs, true) // exec side (only at build it means exec)
+	fl.addNetworkFlag(fs)
+	fl.addNoInitMsgFlag(fs)
 	fl.addOutFilenameFlag(fs)
+	fl.addPathsFlag(fs)
+	fl.addSrcLinesFlag(fs)
+	fl.addStringifyBytesRunesFlag(fs)
+	fl.addSyncSendFlag(fs)
 	fl.addUsePkgLinksFlag(fs)
+	fl.addVerboseFlag(fs)
+	fl.addWorkFlag(fs)
 
 	m := goBuildBooleanFlags()
 	return fl.parse(name, fs, args, m)
@@ -159,9 +158,9 @@ func (fl *flags) parseBuildArgs(name string, args []string) error {
 func (fl *flags) parseConnectArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
+	fl.addAddrFlag(fs, defaultBuildConnectAddr)
 	fl.addIsIsServerFlag(fs, false) // editor side
 	fl.addNetworkFlag(fs)
-	fl.addAddrFlag(fs, defaultBuildConnectAddr)
 	fl.addToolExecFlag(fs)
 
 	// commented: strict parsing, no unknown flags allowed
@@ -327,27 +326,27 @@ func joinMaps(ms ...map[string]bool) map[string]bool {
 func goBuildBooleanFlags() map[string]bool {
 	return map[string]bool{
 		"a":          true,
-		"i":          true,
-		"n":          true,
-		"v":          true,
-		"x":          true,
-		"race":       true,
-		"msan":       true,
 		"asan":       true,
-		"work":       true,
+		"buildvcs":   true,
+		"i":          true,
 		"linkshared": true,
 		"modcacherw": true,
+		"msan":       true,
+		"n":          true,
+		"race":       true,
 		"trimpath":   true,
-		"buildvcs":   true,
+		"v":          true,
+		"work":       true,
+		"x":          true,
 	}
 }
 func goTestBooleanFlags() map[string]bool {
 	return map[string]bool{
+		"benchmem": true,
 		"c":        true,
-		"json":     true,
 		"cover":    true,
 		"failfast": true,
+		"json":     true,
 		"short":    true,
-		"benchmem": true,
 	}
 }

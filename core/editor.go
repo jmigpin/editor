@@ -384,20 +384,19 @@ func (ed *Editor) setupRootMenuToolbar() {
 
 	w := [][]string{
 		{"ColorTheme", "FontTheme"},
-		{"FontRunes", "RuneCodes"},
-		{"NewFile", "SaveAllFiles", "Save"},
-		{"Reload", "ReloadAll", "ReloadAllFiles"},
-		{"NewColumn", "NewRow", "ReopenRow", "MaximizeRow"},
-		{"ListDir", "ListDir -hidden", "ListDir -sub"},
-		{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
-		{"GoDebug -h", "GoRename"},
-		{"LsprotoRename", "LsprotoCloseAll", "LsprotoCallers", "LsprotoCallees", "LsprotoReferences"},
-		{"OpenExternal", "OpenFilemanager", "OpenTerminal"},
-
-		{"GotoLine"},
 		{"CopyFilePosition"},
 		{"CtxutilCallsState"},
 		{"Find -h"},
+		{"FontRunes", "RuneCodes"},
+		{"GoDebug -h"},
+		{"GotoLine"},
+		{"ListDir", "ListDir -hidden", "ListDir -sub"},
+		{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
+		{"LsprotoRename", "LsprotoCloseAll", "LsprotoCallers", "LsprotoCallees", "LsprotoReferences"},
+		{"NewColumn", "NewRow", "ReopenRow", "MaximizeRow"},
+		{"NewFile", "SaveAllFiles", "Save"},
+		{"OpenExternal", "OpenFilemanager", "OpenTerminal"},
+		{"Reload", "ReloadAll", "ReloadAllFiles"},
 		{"SortTextLines"},
 	}
 	last := []string{"Exit", "Version", "Stop", "Clear"}
