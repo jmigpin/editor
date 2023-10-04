@@ -306,9 +306,7 @@ func (ann *Annotator) visFuncDecl(ctx *Ctx, fd *ast.FuncDecl) error {
 	if err != nil {
 		return err
 	}
-	if !isNilIdent(de) {
-		ann.insertDebugLineStmt(ctx2, de)
-	}
+	ann.insertDebugLineStmt(ctx2, de)
 
 	return ann.visStmt(ctx, fd.Body)
 }
@@ -1038,9 +1036,8 @@ func (ann *Annotator) visFuncLit(ctx *Ctx, fl *ast.FuncLit) (DebugExpr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !isNilIdent(de) {
-		ann.insertDebugLineStmt(ctx3, de)
-	}
+	ann.insertDebugLineStmt(ctx3, de)
+
 	// visit body
 	if err := ann.visStmt(ctx2, fl.Body); err != nil {
 		return nil, err
@@ -1078,7 +1075,13 @@ func (ann *Annotator) visFuncType(ctx *Ctx, ft *ast.FuncType) (DebugExpr, error)
 		w = append(w, de2)
 	}
 
-	return ann.newDebugILOrNilIdent(ft.Pos(), w...), nil
+	switch len(w) {
+	case 0:
+		// show step in
+		return ann.newDebugISt(ft.Pos()), nil
+	default:
+		return ann.newDebugIL(w...), nil
+	}
 }
 
 func (ann *Annotator) visIdent(ctx *Ctx, id *ast.Ident) (DebugExpr, error) {
