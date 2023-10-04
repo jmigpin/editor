@@ -3,6 +3,7 @@ package godebug
 import (
 	"bytes"
 	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -35,6 +36,7 @@ func TestAnnotator(t *testing.T) {
 
 	line := countLines(ar.Comment) + 1 // start at line 1
 	nextLines := 0
+	contentChanged := false
 	for iar, file := range ar.Files {
 		line += nextLines
 		nextLines = countLines(file.Data) + 1 // add name line
@@ -52,18 +54,41 @@ func TestAnnotator(t *testing.T) {
 		}
 
 		name := filepath.Base(file.Name)
+		stop := false
 		ok2 := t.Run(name, func(t2 *testing.T) {
-			if err := testAnnotator2(t2, name, file.Data, file2.Data, testsFilename, line, ar, iar+1); err != nil {
+			stop2, changed, err := testAnnotator2(t2, name, file.Data, file2.Data, testsFilename, line, ar, iar+1)
+			if err != nil {
 				t2.Fatal(err)
 			}
+			if changed {
+				contentChanged = true
+			}
+			if stop2 {
+				stop = true
+			}
 		})
-		if !ok2 {
-			break // stop on first failed test
+		if !ok2 || stop {
+			break
+		}
+	}
+
+	if contentChanged {
+		b := txtar.Format(ar)
+		//fmt.Println(string(b)) // DEBUG
+		if err := os.WriteFile(testsFilename, b, 0o644); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
-func testAnnotator2(t *testing.T, name string, in, out []byte, filename string, line int, ar *txtar.Archive, iarOut int) error {
-	t.Logf("name: %v\n", name)
+func testAnnotator2(t *testing.T, name string, in0, out []byte, filename string, line int, ar *txtar.Archive, iarOut int) (bool, bool, error) {
+	//t.Logf("name: %v\n", name)
+	location := fmt.Sprintf("%s:%d", filename, line)
+
+	// simplify input: add package line if not present
+	in := in0
+	if !bytes.HasPrefix(in, []byte("package ")) {
+		in = append([]byte("package p1\n\n"), in...)
+	}
 
 	fset := token.NewFileSet()
 
@@ -71,69 +96,68 @@ func testAnnotator2(t *testing.T, name string, in, out []byte, filename string, 
 	mode := parser.ParseComments
 	astFile, err := parser.ParseFile(fset, "a.go", in, mode)
 	if err != nil {
-		return err
+		return false, false, err
+	}
+
+	ti, err := getTypesInfo(fset, astFile)
+	if err != nil {
+		return false, false, fmt.Errorf("%v: %v", location, err)
 	}
 
 	// annotate
-	ann := NewAnnotator(fset)
-	ann.simpleTestMode = true
-	ann.debugPkgName = "Σ"   // expected by tests
-	ann.debugVarPrefix = "Σ" // expected by tests
+	ann := NewAnnotator(fset, ti)
 
 	_, _, _ = testutil.CollectLog(t, func() error {
-		// TODO: types and other? anntype?
 		ann.AnnotateAstFile(astFile)
 		return nil
 	})
 
+	// find node to output (simplify output)
+	node := (ast.Node)(astFile)
+	ast.Inspect(astFile, func(n ast.Node) bool {
+		if node == astFile {
+			if _, ok := n.(*ast.FuncDecl); ok {
+				node = n
+			}
+			return true
+		}
+		return false
+	})
+
 	// output result to string for comparison
-	res := ann.sprintNode(astFile)
+	res := ann.sprintNode(node)
+	if len(res) > 0 && res[len(res)-1] != '\n' {
+		res = res + "\n"
+	}
+
 	//_ := parseutil.TrimLineSpaces(res) // old way of comparing
 
 	fail := res != string(out)
 
-	overwrite := false
-	if !overwrite {
-		// use after flag "--":
-		// ex: go test -run=Annotator -- -overwriteoutput=TestAnnotator1.in
-		v, ok := flagutil.GetFlagString(os.Args, "owout")
-		overwrite = ok && v == name
-	}
-	if !overwrite {
-		v := flagutil.GetFlagBool(os.Args, "owoutFirstFail")
-		overwrite = v && fail
-	}
-	continueOnOverwrite := false
-	if !overwrite {
-		v := flagutil.GetFlagBool(os.Args, "owoutAllFail")
-		overwrite = v && fail
-		if overwrite {
-			continueOnOverwrite = true
+	//----------
+
+	// use after flag "--":
+	// ex: go test -run=Annotator/TestAnnotator1.in -- -owout
+	if fail {
+		owOut := flagutil.GetFlagBool(os.Args, "owout")
+		if owOut {
+			fmt.Printf("overwrite test output: %v\n", name)
+			ar.Files[iarOut].Data = []byte(res)
+
+			owAll := flagutil.GetFlagBool(os.Args, "owall")
+			return !owAll, owOut, nil
 		}
-	}
-	if overwrite {
-		fmt.Printf("overwriting output for test: %v\n", name)
-		ar.Files[iarOut].Data = []byte(res)
-		b := txtar.Format(ar)
-		//fmt.Println(string(b)) // DEBUG
-		if err := os.WriteFile(filename, b, 0o644); err != nil {
-			return err
-		}
-		if continueOnOverwrite {
-			return nil
-		}
-		return fmt.Errorf("tests file overwriten")
 	}
 
 	if fail {
-		location := fmt.Sprintf("%s:%d", filename, line)
 		err := fmt.Errorf(""+ //"\n"+
 			"%s\n"+
 			"-- input --\n%s"+ // has ending newline (go fmt)
 			"-- result --\n%s"+ // has ending newline (go fmt)
 			"-- expected --\n%s", // has ending newline (go fmt)
-			location, in, res, out)
-		return err
+			location, in0, res, out)
+		return false, false, err
 	}
-	return nil
+
+	return false, false, nil
 }

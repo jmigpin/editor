@@ -1,5 +1,5 @@
 ucmd godebugtester test main_test.go
-contains stdout "=> println(1)"
+contains stdout "recv: println(1)"
 
 -- main_test.go --
 package main__  // testing with other than "main"

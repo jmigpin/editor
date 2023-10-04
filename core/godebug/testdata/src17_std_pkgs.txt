@@ -1,5 +1,7 @@
+#setenv script_keepwork true
+#ucmd godebugtester run -work -srclines=false main.go
 ucmd godebugtester run main.go
-contains stdout "=> parseOne()"
+contains stdout "=> _.parseOne()"
 
 -- main.go --
 package main

@@ -10,7 +10,7 @@ func stringify(v interface{}) string {
 	return stringifyV3(v)
 }
 func stringifyV3(v interface{}) string {
-	p := newPrint3(150, 7, stringifyBytesRunes)
+	p := newPrint3(150, 7, eso.stringifyBytesRunes)
 	p.do(v)
 	return p.ToString()
 }

@@ -1,0 +1,37 @@
+#exec go run main.go
+ucmd godebugtester run main.go
+
+#setenv script_keepwork true
+#ucmd godebugtester run -work -srclines=false main.go
+
+contains stderr "main1: int 1"
+contains stderr "main1: float64 +2.2"
+contains stderr "main2: int 1"
+
+-- main.go --
+package main
+func main() {
+	main1()
+	main2()
+}
+func main1(){
+	w:=[]any{}
+	w=append(w, 1, 2.2)
+	for _,v:=range w{
+		switch t:=v.(type) {
+		case int:
+			println("main1: int",t)
+		case float64:
+			println("main1: float64",t)
+		default:
+		}
+	}
+}
+func main2(){
+	a:=1
+	b:=(interface{})(a)
+	switch t:=b.(type) {
+	case int:
+		println("main2: int",t)
+	}
+}

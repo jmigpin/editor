@@ -237,177 +237,6 @@ func (fa *FilesToAnnotate) addFromMain(ctx context.Context) error {
 	return nil
 }
 
-//func (fa *FilesToAnnotate) addFromMainFuncDecl(ctx context.Context) error {
-//	fd, filename, err := fa.getMainFuncDecl()
-//	if err != nil {
-//		return err
-//	}
-//	fa.addToAnnotate(filename, AnnotationTypeFile)
-
-//	fa.mainFunc.filename = filename
-//	fa.mainFunc.decl = fd
-//	fa.cmd.logf("mainfunc filename: %v\n", filename)
-
-//	return nil
-//}
-//func (fa *FilesToAnnotate) getMainFuncDecl() (*ast.FuncDecl, string, error) {
-//	fd, filename, err := fa.findMainFuncDecl()
-//	if err != nil {
-//		if fa.cmd.flags.mode.test {
-//			if err := fa.insertTestMains(); err != nil {
-//				return nil, "", err
-//			}
-
-//			//if err := fa.createTestMain(); err != nil {
-//			//	return nil, "", err
-//			//}
-
-//			// try again
-//			fd, filename, err = fa.findMainFuncDecl()
-//		}
-//	}
-//	return fd, filename, err
-//}
-//func (fa *FilesToAnnotate) findMainFuncDecl() (*ast.FuncDecl, string, error) {
-//	name := mainFuncName(fa.cmd.flags.mode.test)
-//	for filename, astFile := range fa.filesAsts {
-//		fd, ok := findFuncDeclWithBody(astFile, name)
-//		if ok {
-//			return fd, filename, nil
-//		}
-//	}
-//	return nil, "", fmt.Errorf("main func decl not found")
-//}
-
-//----------
-
-//func (fa *FilesToAnnotate) insertTestMains() error {
-//	// insert testmain once per dir in *_test.go dirs
-//	seen := map[string]bool{}
-//	for filename, astFile := range fa.filesAsts {
-//		if !strings.HasSuffix(filename, "_test.go") {
-//			continue
-//		}
-
-//		dir := filepath.Dir(filename)
-//		if seen[dir] {
-//			continue
-//		}
-//		seen[dir] = true
-
-//		if err := fa.insertTestMain(astFile); err != nil {
-//			return err
-//		}
-//	}
-
-//	if len(seen) == 0 {
-//		return fmt.Errorf("missing *_test.go files")
-//		//return fmt.Errorf("testmain not inserted")
-//	}
-//	return nil
-//}
-
-//func (fa *FilesToAnnotate) insertTestMain(astFile *ast.File) error {
-//	// TODO: detect if used imports are already imported with another name (os,testing)
-
-//	// build ast to insert (easier to parse from text then to build the ast manually here. notice how "imports" are missing since it is just to get the ast of the funcdecl)
-//	src := `
-//		package main
-//		func TestMain(m *testing.M) {
-//			os.Exit(m.Run())
-//		}
-//	`
-//	fset := token.NewFileSet()
-//	astFile2, err := parser.ParseFile(fset, "", src, 0)
-//	if err != nil {
-//		panic(err)
-//	}
-//	//goutil.PrintNode(fset, node)
-
-//	// insert imports first to avoid "crashing" with asutil when visiting a node that was inserted and might not have a position
-//	astutil.AddImport(fset, astFile, "os")
-//	astutil.AddImport(fset, astFile, "testing")
-
-//	// get func decl for insertion
-//	fd := (*ast.FuncDecl)(nil)
-//	ast.Inspect(astFile2, func(n ast.Node) bool {
-//		if n2, ok := n.(*ast.FuncDecl); ok {
-//			fd = n2
-//			return false
-//		}
-//		return true
-//	})
-//	if fd == nil {
-//		err := fmt.Errorf("missing func decl")
-//		panic(err)
-//	}
-
-//	// insert in ast file
-//	astFile.Decls = append(astFile.Decls, fd)
-
-//	// DEBUG
-//	//goutil.PrintNode(fa.cmd.fset, astFile)
-
-//	return nil
-//}
-
-//----------
-
-//func (fa *FilesToAnnotate) createTestMain() error {
-//	// get info from a "_test.go" file
-//	found := false
-//	dir := ""
-//	pkgName := ""
-//	for filename, astFile := range fa.filesAsts {
-//		if strings.HasSuffix(filename, "_test.go") {
-//			found = true
-//			dir = filepath.Dir(filename)
-//			pkgName = astFile.Name.Name
-//			break
-//		}
-//	}
-//	if !found {
-//		return fmt.Errorf("missing *_test.go files")
-//	}
-
-//	fname := fmt.Sprintf("testmain%s_test.go", genDigitsStr(5))
-//	filename := fsutil.JoinPath(dir, fname)
-//	astFile, src := fa.createTestMainAst(filename, pkgName)
-
-//	if err := writeFile(filename, src); err != nil {
-//		return err
-//	}
-//	fa.mainFunc.created = true
-//	fa.cmd.logf("mainfunc created: %v", filename)
-//	//fa.mainFunc.filename = filename
-
-//	// TODO: add to pathsPkgs?
-//	// TODO: file not supposed to be annotated, should just get the insert startserver/exitserver
-
-//	fa.filesAsts[filename] = astFile
-
-//	return nil
-//}
-
-//func (fa *FilesToAnnotate) createTestMainAst(filename, pkgName string) (*ast.File, []byte) {
-//	src := fa.testMainSrc(pkgName)
-//	astFile, err := parser.ParseFile(fa.cmd.fset, filename, src, parser.Mode(0))
-//	if err != nil {
-//		panic(err)
-//	}
-//	return astFile, src
-//}
-//func (fa *FilesToAnnotate) testMainSrc(pkgName string) []byte {
-//	return []byte(`
-//package ` + pkgName + `
-//import "os"
-//import "testing"
-//func TestMain(m *testing.M) {
-//	os.Exit(m.Run())
-//}
-//	`)
-//}
-
 //----------
 
 func (fa *FilesToAnnotate) addFromSrcDirectives(ctx context.Context) error {
@@ -755,13 +584,13 @@ func nodeFilename(fset *token.FileSet, node ast.Node) (string, error) {
 
 //----------
 
-func mainFuncName(testMode bool) string {
-	if testMode {
-		// needs to be used because getting the generated file by packages.Load() that contains a "main" will not allow it to be compiled since it uses "testing/internal" packages.
-		return "TestMain"
-	}
-	return "main"
-}
+//func mainFuncName(testMode bool) string {
+//	if testMode {
+//		// needs to be used because getting the generated file by packages.Load() that contains a "main" will not allow it to be compiled since it uses "testing/internal" packages.
+//		return "TestMain"
+//	}
+//	return "main"
+//}
 
 //----------
 

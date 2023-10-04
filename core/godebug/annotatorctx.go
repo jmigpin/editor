@@ -1,94 +1,152 @@
 package godebug
 
 import (
+	"fmt"
 	"go/ast"
+	"slices"
 )
 
 type Ctx struct {
-	pctx  *Ctx
-	id    ctxId
-	value interface{}
+	pctx *Ctx
+	id   ctxId
+	v    any
+
+	ann *Annotator
 }
 
-func (ctx *Ctx) WithValue(id ctxId, value interface{}) *Ctx {
-	return &Ctx{ctx, id, value}
+func newCtx(ann *Annotator) *Ctx {
+	return &Ctx{ann: ann}
 }
-func (ctx *Ctx) Value(id ctxId) (interface{}, *Ctx) {
+
+//----------
+
+func (ctx *Ctx) withValue(id ctxId, value any) *Ctx {
+	return &Ctx{ctx, id, value, ctx.ann}
+}
+func (ctx *Ctx) withValue2(ids []ctxId, value any) *Ctx {
+	ctx2 := ctx
+	for _, id := range ids {
+		ctx2 = ctx2.withValue(id, value)
+	}
+	return ctx2
+}
+func (ctx *Ctx) withInherit(match, v any, cids ...ctxId) *Ctx {
+	cids2 := ctx.valueMatch3(cids, match)
+	return ctx.withValue2(cids2, v)
+}
+
+//----------
+
+func (ctx *Ctx) value(id ctxId) (any, *Ctx, bool) {
 	for c := ctx; c != nil; c = c.pctx {
 		if c.id == id {
-			return c.value, c
+			return c.v, c, true
 		}
 	}
-	return nil, nil
+	return nil, nil, false
 }
-func (ctx *Ctx) SetValue(value interface{}) {
-	ctx.value = value
+func (ctx *Ctx) value2(id ctxId) (any, *Ctx) {
+	v, ctx2, ok := ctx.value(id)
+	if !ok {
+		return nil, nil
+	}
+	return v, ctx2
+}
+func (ctx *Ctx) setValue(v any) {
+	ctx.v = v
+}
+func (ctx *Ctx) mustValue(id ctxId) interface{} {
+	v, _, ok := ctx.value(id)
+	if !ok {
+		err := fmt.Errorf("must value: %v", id)
+		ctx.panic(err)
+	}
+	return v
 }
 
 //----------
 
-func (ctx *Ctx) withBoolean(id ctxId, v bool) *Ctx {
-	return ctx.WithValue(id, v)
+func (ctx *Ctx) valueMatch(id ctxId, v any) (*Ctx, bool) {
+	ctx2 := ctx
+	for ctx2 != nil {
+		v2, ctx3, ok := ctx2.value(id)
+		if !ok {
+			break
+		}
+		if v2 == v {
+			return ctx3, true
+		}
+		ctx2 = ctx3.pctx
+	}
+	return nil, false
 }
+func (ctx *Ctx) valueMatch2(id ctxId, v any) bool {
+	_, ok := ctx.valueMatch(id, v)
+	return ok
+}
+func (ctx *Ctx) valueMatch3(ids []ctxId, v any) []ctxId {
+	w := []ctxId{}
+	for _, id := range ids {
+		if ctx.valueMatch2(id, v) {
+			w = append(w, id)
+		}
+	}
+	return w
+}
+
+//----------
+
 func (ctx *Ctx) boolean(id ctxId) bool {
-	v, _ := ctx.Value(id)
-	if v == nil {
-		return false
+	v, _, ok := ctx.boolean2(id)
+	return ok && v
+}
+func (ctx *Ctx) boolean2(id ctxId) (bool, *Ctx, bool) {
+	v, ctx2, ok := ctx.value(id)
+	if !ok {
+		return false, nil, false
 	}
-	return v.(bool)
+	return v.(bool), ctx2, true
 }
 
 //----------
 
-func (ctx *Ctx) withExpr(e *ast.Expr) *Ctx {
-	return ctx.WithValue(ctxIdExpr, e)
-}
-func (ctx *Ctx) replaceExpr(e ast.Expr) {
-	v, _ := ctx.Value(ctxIdExpr)
-	if v == nil {
-		panic("ctx: missing expr")
+func (ctx *Ctx) integer(id ctxId) (int, bool) {
+	v, _, ok := ctx.value(id)
+	if !ok {
+		return 0, false
 	}
-	u := v.(*ast.Expr)
-	*u = e
+	return v.(int), true
 }
 
 //----------
 
-func (ctx *Ctx) withExprs(es *[]ast.Expr) *Ctx {
-	return ctx.WithValue(ctxIdExprs, es)
-}
-func (ctx *Ctx) replaceExprs(es []ast.Expr) {
-	v, _ := ctx.Value(ctxIdExprs)
-	if v == nil {
-		panic("ctx: missing exprs")
+func (ctx *Ctx) replaceExprs(exprs ...ast.Expr) {
+	if len(exprs) == 1 {
+		expr := exprs[0]
+		v, _, ok := ctx.value(cidnExpr)
+		if !ok {
+			ctx.panic("ctx: missing expr")
+		}
+		u := v.(*ast.Expr)
+		*u = expr
+		return
+	}
+
+	v, _, ok := ctx.value(cidnExprs)
+	if !ok {
+		ctx.panic("ctx: missing exprs")
 	}
 	u := v.(*[]ast.Expr)
-	*u = es
+	*u = exprs
 }
 
 //----------
 
-func (ctx *Ctx) withCallExpr(cep **ast.CallExpr) *Ctx {
-	return ctx.WithValue(ctxIdCallExpr, cep)
-}
-func (ctx *Ctx) replaceCallExpr(ce *ast.CallExpr) {
-	v, _ := ctx.Value(ctxIdCallExpr)
-	if v == nil {
-		panic("ctx: missing call expr")
-	}
-	u := v.(**ast.CallExpr)
-	*u = ce
-}
-
-//----------
-
-func (ctx *Ctx) withStmtsIter(si *StmtsIter) *Ctx {
-	return ctx.WithValue(ctxIdStmtsIter, si)
-}
 func (ctx *Ctx) stmtsIter() *StmtsIter {
-	v, _ := ctx.Value(ctxIdStmtsIter)
-	if v == nil {
-		panic("ctx: stmtsiter not set")
+	v, _, ok := ctx.value(cidStmtsIter)
+	if !ok {
+		err := fmt.Errorf("stmtsiter not set")
+		ctx.panic(err)
 	}
 	return v.(*StmtsIter)
 }
@@ -96,186 +154,134 @@ func (ctx *Ctx) stmtsIter() *StmtsIter {
 //----------
 
 func (ctx *Ctx) withStmts(stmts *[]ast.Stmt) *Ctx {
-	si := &StmtsIter{stmts: stmts}
-	return ctx.withStmtsIter(si)
+	si := newStmtsIter(ctx, stmts)
+	return ctx.withValue(cidStmtsIter, si)
+}
+func (ctx *Ctx) withStmt(stmt *ast.Stmt) *Ctx {
+	si := newStmtsIter2(ctx, stmt)
+	return ctx.withValue(cidStmtsIter, si)
 }
 func (ctx *Ctx) insertStmt(stmt ast.Stmt) {
 	si := ctx.stmtsIter()
-	if ctx.insertStmtAfter() {
-		si.after++
-		k := si.index + si.after
-		*si.stmts = insertStmtAt(*si.stmts, k, stmt)
-		return
-	}
-	*si.stmts = insertStmtAt(*si.stmts, si.index, stmt)
-	si.index++
+	after := ctx.boolean(cidbInsertStmtAfter)
+	si.insert(stmt, after)
 }
 func (ctx *Ctx) replaceStmt(stmt ast.Stmt) {
 	si := ctx.stmtsIter()
-	(*si.stmts)[si.index] = stmt
-}
-func (ctx *Ctx) nilifyStmt(stmt *ast.Stmt) {
-	*stmt = nil
-}
-func (ctx *Ctx) curStmt() ast.Stmt { // can be nil
-	si := ctx.stmtsIter()
-	if si.index >= len(*si.stmts) {
-		return nil
-	}
-	return (*si.stmts)[si.index]
-}
-func (ctx *Ctx) nextStmt() ast.Stmt { // can be nil
-	si := ctx.stmtsIter()
-
-	// advance
-	si.index += si.after + 1
-	si.after = 0
-
-	return ctx.curStmt()
+	si.replace(stmt)
 }
 
 //----------
 
-func (ctx *Ctx) withInsertStmtAfter(v bool) *Ctx {
-	return ctx.withBoolean(ctxIdStmtsIterInsertAfter, v)
+func (ctx *Ctx) stmtVisited(stmt ast.Stmt) bool {
+	_, ok := ctx.ann.ctxData.visited[stmt]
+	return ok
 }
-func (ctx *Ctx) insertStmtAfter() bool {
-	return ctx.boolean(ctxIdStmtsIterInsertAfter)
+func (ctx *Ctx) setStmtVisited(stmt ast.Stmt, v bool) {
+	if v {
+		ctx.ann.ctxData.visited[stmt] = struct{}{}
+	} else {
+		delete(ctx.ann.ctxData.visited, stmt)
+	}
 }
 
 //----------
 
-func (ctx *Ctx) withNResults(n int) *Ctx {
-	return ctx.WithValue(ctxIdNResults, n)
-}
-func (ctx *Ctx) nResults() int {
-	v, _ := ctx.Value(ctxIdNResults)
-	if v == nil {
-		return 0
+func (ctx *Ctx) getDebugIndex() int {
+	v, _, ok := ctx.value(cidiFixedDebugIndex)
+	if ok {
+		u := v.(int)
+		if u >= 0 {
+			return u
+		}
 	}
-	u := v.(int)
-	return u
-}
-
-//----------
-
-func (ctx *Ctx) withDebugIndex(v int) *Ctx {
-	return ctx.WithValue(ctxIdDebugIndex, &v)
-}
-func (ctx *Ctx) debugIndex() *int {
-	v, _ := ctx.Value(ctxIdDebugIndex)
-	if v == nil {
-		panic("ctx: debugindex not set")
-	}
-	return v.(*int)
+	return ctx.nextDebugIndex()
 }
 func (ctx *Ctx) nextDebugIndex() int {
-	u := ctx.debugIndex()
-	r := *u
-
-	fdi, ok := ctx.fixedDebugIndex()
-	if ok {
-		if fdi.added {
-			return fdi.index
-		}
-		fdi.added = true
-		fdi.index = r
+	u := ctx.ann.ctxData.debugIndex
+	ctx.ann.ctxData.debugIndex++
+	return u
+}
+func (ctx *Ctx) withFixedDebugIndex(fixed bool) *Ctx {
+	index := -1 // allows reset if already existed
+	if fixed {
+		index = ctx.nextDebugIndex() // new unique index
 	}
-
-	*u++
-	return r
-}
-
-//----------
-
-func (ctx *Ctx) withFixedDebugIndex() *Ctx {
-	if _, ok := ctx.fixedDebugIndex(); ok {
-		return ctx
-	}
-	v := &FixedDebugIndex{}
-	return ctx.WithValue(ctxIdFixedDebugIndex, v)
-}
-func (ctx *Ctx) fixedDebugIndex() (*FixedDebugIndex, bool) {
-	v, _ := ctx.Value(ctxIdFixedDebugIndex)
-	if v == nil {
-		return nil, false
-	}
-	return v.(*FixedDebugIndex), true
-}
-func (ctx *Ctx) withNilFixedDebugIndex() *Ctx {
-	return ctx.WithValue(ctxIdFixedDebugIndex, nil)
-}
-
-//----------
-
-func (ctx *Ctx) withFuncType(ft *ast.FuncType) *Ctx {
-	return ctx.WithValue(ctxIdFuncType, ft)
-}
-func (ctx *Ctx) funcType() (*ast.FuncType, bool) {
-	v, _ := ctx.Value(ctxIdFuncType)
-	if v == nil {
-		return nil, false
-	}
-	u := v.(*ast.FuncType)
-	return u, true
-}
-
-//----------
-
-func (ctx *Ctx) withTakingVarAddress(e ast.Expr) *Ctx {
-	return ctx.WithValue(ctxIdTakingVarAddress, e)
-}
-func (ctx *Ctx) takingVarAddress() (ast.Expr, bool) {
-	v, _ := ctx.Value(ctxIdTakingVarAddress)
-	if v == nil {
-		return nil, false
-	}
-	return v.(ast.Expr), true
-}
-
-//----------
-
-func (ctx *Ctx) withTypeInsteadOfValue(e *ast.Expr) *Ctx {
-	return ctx.WithValue(ctxIdTypeInsteadOfValue, e)
-}
-func (ctx *Ctx) typeInsteadOfValue() (*ast.Expr, bool) {
-	v, _ := ctx.Value(ctxIdTypeInsteadOfValue)
-	if v == nil {
-		return nil, false
-	}
-	return v.(*ast.Expr), true
-}
-
-//----------
-
-func (ctx *Ctx) withLabeledStmt(ls *ast.LabeledStmt) *Ctx {
-	return ctx.WithValue(ctxIdLabeledStmt, ls)
-}
-func (ctx *Ctx) withoutLabeledStmt() *Ctx {
-	return ctx.WithValue(ctxIdLabeledStmt, nil)
-}
-func (ctx *Ctx) labeledStmt() (*ast.LabeledStmt, bool) {
-	v, _ := ctx.Value(ctxIdLabeledStmt)
-	if v == nil {
-		return nil, false
-	}
-	return v.(*ast.LabeledStmt), true
+	return ctx.withValue(cidiFixedDebugIndex, index)
 }
 
 //----------
 
 func (ctx *Ctx) withResetForFuncLit() *Ctx {
-	ctx2 := &Ctx{} // new ctx (full reset)
-
-	v, _ := ctx.Value(ctxIdDebugIndex)
-	ctx2 = ctx2.WithValue(ctxIdDebugIndex, v)
-
-	v2 := ctx.boolean(ctxIdNoAnnotations)
-	if v2 {
-		ctx2 = ctx2.withBoolean(ctxIdNoAnnotations, v2)
-	}
-
+	ctx2 := newCtx(ctx.ann) // full reset
+	ctx2 = ctx2.withNoAnnotationsInstance2(ctx)
 	return ctx2
+}
+
+//----------
+
+func (ctx *Ctx) funcNode() (ast.Node, *ast.FuncType, *ast.BlockStmt) {
+	v2 := ctx.mustValue(cidnFuncNode)
+	switch t := v2.(type) {
+	case *ast.FuncLit:
+		return t, t.Type, t.Body
+	case *ast.FuncDecl:
+		return t, t.Type, t.Body
+	default:
+		panic("expecting func node")
+	}
+}
+
+//----------
+
+func (ctx *Ctx) withNoAnnotationsInstance() *Ctx {
+	return ctx.withNoAnnotationsInstance2(ctx)
+}
+func (ctx *Ctx) withNoAnnotationsInstance2(ctx0 *Ctx) *Ctx {
+	// ensure noannotations instance; useful to inherit value and allow to be changed only for this block
+	v := ctx0.boolean(cidbNoBlockAnnotations)
+	return ctx.withValue(cidbNoBlockAnnotations, v)
+}
+func (ctx *Ctx) withNoAnnotationsUpdated(node ast.Node) *Ctx {
+	if on, ok := ctx.ann.nodeAnnotationBlockOn(node); ok {
+		_, ctx2, ok2 := ctx.boolean2(cidbNoBlockAnnotations)
+		if ok2 {
+			ctx2.setValue(!on) // change value, keep ctx
+		} else {
+			ctx = ctx.withValue(cidbNoBlockAnnotations, !on)
+		}
+	}
+	return ctx
+}
+
+//----------
+
+func (ctx *Ctx) panic(v any) error {
+	s := fmt.Sprint(v)
+	if u, ok := ctx.curStmtSrc(); ok {
+		s += "\n" + u
+	}
+	panic(s)
+}
+func (ctx *Ctx) curStmtSrc() (string, bool) {
+	if v, _, ok := ctx.value(cidStmtsIter); ok {
+		si := v.(*StmtsIter)
+		stmt := (ast.Stmt)(nil)
+		if si.stmts != nil {
+			i := si.index - 1
+			if i < len(*si.stmts) {
+				stmt = (*si.stmts)[i]
+			}
+		} else if si.stmt != nil {
+			stmt = *si.stmt
+		}
+		if stmt != nil {
+			s := ctx.ann.debug2(stmt)
+			//err = fmt.Errorf("%w:\n%v", err, s)
+			return s, true
+		}
+	}
+	return "", false
 }
 
 //----------
@@ -285,53 +291,82 @@ func (ctx *Ctx) withResetForFuncLit() *Ctx {
 type ctxId int
 
 const (
-	ctxIdNone ctxId = iota
-	ctxIdFuncType
-	ctxIdTakingVarAddress
-	ctxIdTypeInsteadOfValue
-	ctxIdLabeledStmt
-	ctxIdNResults // int
-	ctxIdStmtsIter
-	ctxIdStmtsIterInsertAfter // bool
-	ctxIdExpr
-	ctxIdExprs
-	ctxIdCallExpr        // pointer
-	ctxIdDebugIndex      // int
-	ctxIdFixedDebugIndex // struct
+	cidNone ctxId = iota
 
-	ctxIdExprInLhs          // bool
-	ctxIdNoAnnotations      // bool
-	ctxIdNameInsteadOfValue // bool
-	ctxIdFirstArgIsType     // bool
-	ctxIdInTypeArg          // bool
-	ctxIdInDeclStmt         // bool
+	cidStmtsIter // struct
+
+	cidbNoBlockAnnotations
+	cidiSliceExprsLimit
+	cidiFixedDebugIndex
+	cidbInsertStmtAfter
+
+	cidnExpr
+	cidnExprs
+	cidnFuncNode
+	cidnNameInsteadOfValue
+
+	cidnResNil
+	cidnResAssignDebugToVar
+	cidnResNotReplaceable
+	cidnResReplaceWithVar
+
+	cidnIsConstSpec
+	cidnIsExprStmtExpr
+	cidnIsTypeSwitchStmtAssign
+	cidnIsCaseClauseListItem
+	cidnIsLabeledStmtStmt
+	cidnIsCallExprFun
 )
 
 //----------
+//----------
+//----------
 
 type StmtsIter struct {
+	index int // current stmt index
 	stmts *[]ast.Stmt
-	index int // current
-	after int // n inserted after
+	stmt  *ast.Stmt // meaningful if stmts is nil
+	ctx   *Ctx
 }
 
-//----------
-
-type DebugIndex struct {
-	index int
+func newStmtsIter(ctx *Ctx, stmts *[]ast.Stmt) *StmtsIter {
+	return &StmtsIter{ctx: ctx, stmts: stmts}
 }
-type FixedDebugIndex struct {
-	index int
-	added bool
+func newStmtsIter2(ctx *Ctx, stmt *ast.Stmt) *StmtsIter {
+	return &StmtsIter{ctx: ctx, stmt: stmt}
 }
-
-//----------
-
-func insertStmtAt(ss []ast.Stmt, index int, stmt ast.Stmt) []ast.Stmt {
-	if len(ss) <= index { // nil or empty slice or after last element
-		return append(ss, stmt)
+func (si *StmtsIter) iterate(fn func(ast.Stmt) error) error {
+	for ; si.index < len(*si.stmts); si.index++ {
+		if err := fn((*si.stmts)[si.index]); err != nil {
+			return err
+		}
 	}
-	ss = append(ss[:index+1], ss[index:]...) // get space, index < len(a)
-	ss[index] = stmt
-	return ss
+	return nil
+}
+func (si *StmtsIter) replace(stmt ast.Stmt) {
+	if si.stmts == nil || len(*si.stmts) == 0 {
+		if si.stmt == nil {
+			err := fmt.Errorf("replace: len(stmts)=0 && stmt=nil")
+			panic(err)
+		}
+		*si.stmt = stmt
+	} else {
+		(*si.stmts)[si.index] = stmt
+	}
+	si.ctx.setStmtVisited(stmt, true)
+}
+func (si *StmtsIter) insert(stmt ast.Stmt, after bool) {
+	if si.stmts == nil {
+		err := fmt.Errorf("insert: stmts=nil")
+		panic(err)
+	}
+
+	k := si.index
+	if after {
+		k++
+	} else {
+		si.index++
+	}
+	*si.stmts = slices.Insert(*si.stmts, k, stmt)
+	si.ctx.setStmtVisited(stmt, true)
 }

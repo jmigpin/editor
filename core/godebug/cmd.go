@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/printer"
@@ -16,8 +17,8 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/astut"
@@ -32,10 +33,15 @@ import (
 // The godebug/debug pkg is writen to a tmp dir and used with the pkg path "godebugconfig/debug" to avoid clashes when self debugging. A config.go file is added with the annotation data. The godebug/debug pkg is included in the editor binary via //go:embed directive.
 var debugPkgPath = "godebugconfig/debug"
 
+//go:embed debug/*
+var debugPkgFs embed.FS
+
 //----------
 
 type Cmd struct {
 	Dir string // running directory
+
+	CmdLineMode bool
 
 	flags      flags
 	gopathMode bool
@@ -59,13 +65,10 @@ type Cmd struct {
 	overlayFilename  string
 	overlay          map[string]string // orig->new
 
-	Client *Client
-	start  struct {
-		network    string
-		address    string
-		cancel     context.CancelFunc
-		serverWait func() error // annotated program; can be nil
-		filesData  *debug.FilesDataMsg
+	start struct {
+		p             *debug.Proto
+		execSideCmd   osutil.CmdI
+		cleanupCancel context.CancelFunc
 	}
 }
 
@@ -160,15 +163,122 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 	switch {
 	case m.build:
 		// inform the address used in the binary
-		cmd.printf("build: %v (builtin address: %v, %v)\n", cmd.tmpBuiltFile, cmd.start.network, cmd.start.address)
+		cmd.printf("build: %v (builtin address: %v, %v, server=%v)\n", cmd.tmpBuiltFile, cmd.flags.network, cmd.flags.address, cmd.flags.isServer)
 		return nil
 	case m.run || m.test:
-		return cmd.startServerClient(ctx)
+		return cmd.start3(ctx)
 	case m.connect:
-		return cmd.startClient(ctx)
+		return cmd.startEditorSide(ctx)
 	default:
 		panic(fmt.Sprintf("unhandled mode: %v", m))
 	}
+}
+
+func (cmd *Cmd) start3(ctx context.Context) error {
+	ctx2, cancel := context.WithCancel(ctx)
+	if err := cmd.start4(ctx2); err != nil {
+		cancel() // possibly cancel the started exec
+		return err
+	}
+	// keep to clear resources later
+	cmd.start.cleanupCancel = cancel
+	return nil
+}
+func (cmd *Cmd) start4(ctx context.Context) error {
+	// start exec cmd first since the editor side will block
+	if cmd.flags.startExec {
+		if err := cmd.startExecSide(ctx); err != nil {
+			return err
+		}
+	}
+	// blocking until connected
+	if err := cmd.startEditorSide(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+//----------
+
+func (cmd *Cmd) startEditorSide(ctx context.Context) error {
+	addr := debug.NewAddrI(cmd.flags.network, cmd.flags.address)
+	p, err := debug.StartEditorSide(ctx, cmd.flags.isServer, addr)
+	if err != nil {
+		return err
+	}
+	cmd.start.p = p
+	return nil
+}
+
+//------------
+
+func (cmd *Cmd) startExecSide(ctx context.Context) error {
+	// args of the built binary to run (annotated program)
+	args := []string{}
+	if cmd.flags.toolExec != "" {
+		args = append(args, cmd.flags.toolExec)
+	}
+	args = append(args, cmd.tmpBuiltFile)
+	args = append(args, cmd.flags.binaryArgs...)
+
+	// callback func to print process id and args
+	cb := func(cmdi osutil.CmdI) {
+		cmd.printf("pid %d: %v\n", cmdi.Cmd().Process.Pid, args)
+	}
+
+	// run the annotated program
+	ci := cmd.newCmdI(ctx, args)
+	ci = osutil.NewCallbackOnStartCmd(ci, cb)
+	if err := ci.Start(); err != nil {
+		return err
+	}
+	cmd.start.execSideCmd = ci
+	return nil
+}
+
+//------------
+
+func (cmd *Cmd) Wait() error {
+	err := (error)(nil)
+
+	if cmd.start.execSideCmd != nil {
+		err = cmd.start.execSideCmd.Wait()
+	}
+
+	// editor side
+	if err2 := cmd.start.p.WaitClose(); err2 != nil {
+		//_ = err2 // ignore, best effort
+		if err == nil {
+			err = err2
+		}
+	}
+
+	cmd.cleanupAfterWait()
+	return err
+}
+
+//------------
+
+func (cmd *Cmd) ProtoRead() (interface{}, bool, error) {
+	v := (any)(nil)
+	err := cmd.start.p.Read(&v)
+	if err != nil {
+		// EOF: connection ended gracefully by the other side
+		if errors.Is(err, io.EOF) {
+			return nil, false, nil
+		}
+		// read/errNetClosing: closed the socket on this side (usually?)
+		//if operr, ok := err.(*net.OpError); ok {
+		//	if operr.Op == "read" {
+		//		err = io.EOF
+		//	}
+		//}
+		return nil, false, err
+	}
+	return v, true, nil
+}
+func (cmd *Cmd) ProtoFilesData() *debug.FilesDataMsg {
+	return cmd.start.p.Side.(*debug.ProtoEditorSide).FData
 }
 
 //----------
@@ -247,149 +357,6 @@ func (cmd *Cmd) printAnnotatedFilesAsts(fa *FilesToAnnotate) {
 			astut.PrintNode(cmd.annset.fset, astFile)
 		}
 	}
-}
-
-//------------
-
-func (cmd *Cmd) startServerClient(ctx context.Context) error {
-	// server/client context to cancel the other when one of them ends
-	ctx2, cancel := context.WithCancel(ctx)
-	cmd.start.cancel = cancel
-
-	if err := cmd.startServer(ctx2); err != nil {
-		return err
-	}
-	return cmd.startClient(ctx2)
-}
-func (cmd *Cmd) cancelStart() {
-	if cmd.start.cancel != nil {
-		cmd.start.cancel()
-	}
-}
-func (cmd *Cmd) startServer(ctx context.Context) error {
-	return cmd.runBinary(ctx)
-}
-func (cmd *Cmd) runBinary(ctx context.Context) error {
-	// args of the built binary to run (annotated program)
-	args := []string{}
-	if cmd.flags.toolExec != "" {
-		args = append(args, cmd.flags.toolExec)
-	}
-	args = append(args, cmd.tmpBuiltFile)
-	args = append(args, cmd.flags.binaryArgs...)
-
-	// callback func to print process id and args
-	cb := func(cmdi osutil.CmdI) {
-		cmd.printf("pid %d: %v\n", cmdi.Cmd().Process.Pid, args)
-	}
-
-	// run the annotated program
-	ci := cmd.newCmdI(ctx, args)
-	ci = osutil.NewCallbackOnStartCmd(ci, cb)
-	if err := ci.Start(); err != nil {
-		cmd.cancelStart()
-		return err
-	}
-
-	//waitErr := error(nil)
-	//wg := sync.WaitGroup{}
-	//wg.Add(1)
-	//go func() {
-	//	defer wg.Done()
-	//	waitErr = ec.Wait()
-	//}()
-
-	//log.Println("server started")
-	cmd.start.serverWait = func() error {
-		//defer log.Println("server wait done")
-		//wg.Wait()
-		//return waitErr
-
-		return ci.Wait()
-	}
-	return nil
-}
-func (cmd *Cmd) startClient(ctx context.Context) error {
-	// blocks until connected
-	client, err := NewClient(ctx, cmd.start.network, cmd.start.address)
-	if err != nil {
-		//log.Println("client ended")
-		cmd.cancelStart()
-		if cmd.start.serverWait != nil {
-			cmd.start.serverWait()
-		}
-		return err
-	}
-	cmd.Client = client
-
-	// set deadline for the starting protocol
-	deadline := time.Now().Add(8 * time.Second)
-	cmd.Client.Conn.SetWriteDeadline(deadline)
-	defer cmd.Client.Conn.SetWriteDeadline(time.Time{}) // clear
-
-	// starting protocol
-	if err := cmd.requestFilesData(); err != nil {
-		return err
-	}
-	// wait for filesdata
-	msg, ok := <-cmd.Client.Messages
-	if !ok {
-		return fmt.Errorf("clients msgs chan closed")
-	}
-	if fd, ok := msg.(*debug.FilesDataMsg); !ok {
-		return fmt.Errorf("unexpected msg: %#v", msg)
-	} else {
-		cmd.start.filesData = fd
-	}
-	// request start
-	if err := cmd.requestStart(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (cmd *Cmd) Wait() error {
-	defer cmd.cleanupAfterWait()
-	defer cmd.cancelStart()
-	err := error(nil)
-	if cmd.start.serverWait != nil { // might be nil (ex: connect mode)
-		err = cmd.start.serverWait()
-	}
-	if cmd.Client != nil { // might be nil (ex: server failed to start)
-		cmd.Client.Wait()
-	}
-	return err
-}
-
-//------------
-
-func (cmd *Cmd) Messages() chan interface{} {
-	return cmd.Client.Messages
-}
-func (cmd *Cmd) FilesData() *debug.FilesDataMsg {
-	return cmd.start.filesData
-}
-
-//------------
-
-func (cmd *Cmd) requestFilesData() error {
-	msg := &debug.ReqFilesDataMsg{}
-	encoded, err := debug.EncodeMessage(msg)
-	if err != nil {
-		return err
-	}
-	_, err = cmd.Client.Conn.Write(encoded)
-	return err
-}
-
-func (cmd *Cmd) requestStart() error {
-	msg := &debug.ReqStartMsg{}
-	encoded, err := debug.EncodeMessage(msg)
-	if err != nil {
-		return err
-	}
-	_, err = cmd.Client.Conn.Write(encoded)
-	return err
 }
 
 //------------
@@ -505,16 +472,21 @@ func (cmd *Cmd) cleanupAfterStart() {
 	if cmd.tmpGoModFilename != "" {
 		_ = os.Remove(cmd.tmpGoModFilename) // best effort
 	}
-	// remove dirs
-	if cmd.tmpDir != "" && !cmd.flags.work {
-		_ = os.RemoveAll(cmd.tmpDir) // best effort
-	}
 }
 
 func (cmd *Cmd) cleanupAfterWait() {
+	if cmd.start.cleanupCancel != nil {
+		cmd.start.cleanupCancel()
+	}
+
+	// remove dirs (can/used-to be done at "afterstart")
+	if cmd.tmpDir != "" && !cmd.flags.work {
+		_ = os.RemoveAll(cmd.tmpDir) // best effort
+	}
+
 	// cleanup unix socket in case of bad stop
-	if cmd.start.network == "unix" {
-		_ = os.Remove(cmd.start.address) // best effort
+	if cmd.flags.network == "unix" {
+		_ = os.Remove(cmd.flags.address) // best effort
 	}
 
 	if cmd.tmpBuiltFile != "" && !cmd.flags.mode.build {
@@ -542,11 +514,14 @@ func (cmd *Cmd) mkdirAllWriteAstFile(filename string, astFile *ast.File) error {
 
 //------------
 
-func (cmd *Cmd) setupTmpDir() error {
+func (cmd *Cmd) editorRootTmpDir() string {
 	fixedDir := filepath.Join(os.TempDir(), "editor_godebug")
-	if err := iout.MkdirAll(fixedDir); err != nil {
-		return err
-	}
+	_ = iout.MkdirAll(fixedDir) // best effort
+	return fixedDir
+}
+
+func (cmd *Cmd) setupTmpDir() error {
+	fixedDir := cmd.editorRootTmpDir()
 	dir, err := ioutil.TempDir(fixedDir, "work*")
 	if err != nil {
 		return err
@@ -566,39 +541,62 @@ func (cmd *Cmd) buildArgs() []string {
 	u := []string{}
 	u = append(u, envGodebugBuildFlags(cmd.env)...)
 	u = append(u, cmd.flags.unknownArgs...)
+
+	// TODO: to be removed once the std lib has a websocket impl.
+	// add tag to existing tags
+	added := false
+	tag1 := "editorDebugExecSide"
+	for i, e := range u {
+		k, _, ok := strings.Cut(e, "=")
+		if ok && k == "-tags" {
+			u[i] += "," + tag1
+			added = true
+			break
+		}
+	}
+	if !added {
+		u = append(u, "-tags="+tag1)
+	}
+	//goutil.Logf("%v", u)
+
 	return u
 }
 
 //------------
 
 func (cmd *Cmd) setupNetworkAddress() error {
-	// can't consider using stdin/out since the program could use it
+	// NOTE: for communication, can't consider using stdin/out since the program could use it
 
-	if cmd.flags.address != "" {
-		cmd.start.network = "tcp"
-		cmd.start.address = cmd.flags.address
-		return nil
+	cmd.improveNetwork()
+
+	// auto fill empty address
+	if cmd.flags.address == "" {
+		switch cmd.flags.network {
+		case "tcp":
+			port, err := osutil.GetFreeTcpPort()
+			if err != nil {
+				return err
+			}
+			cmd.flags.address = fmt.Sprintf("127.0.0.1:%v", port)
+		case "unix":
+			// file create outside of tmpdir, but inside the editor root tmp dir, otherwise the socket file will get deleted after "start"
+			cmd.flags.address = filepath.Join(cmd.editorRootTmpDir(), "godebug.sock"+debug.GenDigitsStr(5))
+		}
 	}
-
+	return nil
+}
+func (cmd *Cmd) improveNetwork() {
 	// OS target to choose how to connect
 	goOs := osutil.GetEnv(cmd.env, "GOOS")
 	if goOs == "" {
 		goOs = runtime.GOOS
 	}
-
 	switch goOs {
 	case "linux":
-		cmd.start.network = "unix"
-		cmd.start.address = filepath.Join(cmd.tmpDir, "godebug.sock")
-	default:
-		port, err := osutil.GetFreeTcpPort()
-		if err != nil {
-			return err
+		if cmd.flags.network == "tcp" && cmd.flags.address == "" {
+			cmd.flags.network = "unix"
 		}
-		cmd.start.network = "tcp"
-		cmd.start.address = fmt.Sprintf("127.0.0.1:%v", port)
 	}
-	return nil
 }
 
 //------------
@@ -607,7 +605,7 @@ func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
 	// annotate files
 	handledMain := false
 	cmd.overlay = map[string]string{}
-	mainName := mainFuncName(fa.cmd.flags.mode.test)
+	//mainName := mainFuncName(fa.cmd.flags.mode.test)
 	for filename := range fa.toAnnotate {
 		astFile, ok := fa.filesAsts[filename]
 		if !ok {
@@ -620,15 +618,14 @@ func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
 		if ok {
 			ti = pkg.TypesInfo
 		}
-		if err := cmd.annset.AnnotateAstFile(astFile, ti, fa.nodeAnnTypes); err != nil {
+		ann, err := cmd.annset.AnnotateAstFile(astFile, ti, fa.nodeAnnTypes, cmd.flags.mode.test)
+		if err != nil {
 			return err
 		}
 
-		// setup main ast with debug.exitserver
-		if fd, ok := findFuncDeclWithBody(astFile, mainName); ok {
+		if ann.hasMainFunc {
 			handledMain = true
 			cmd.mainFuncFilename = filename
-			cmd.annset.setupDebugExitInFuncDecl(fd, astFile)
 		}
 	}
 
@@ -761,6 +758,11 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 	if err != nil {
 		return err
 	}
+	// dynamically map some filenames due to "go:embed" // ex: go.mod
+	m := map[string]string{
+		//"gomod.txt": "go.mod",
+		//"gosum.txt": "go.sum",
+	}
 	for _, de := range des {
 		// must use path.join since dealing with embedFs
 		filename1 := path.Join(srcDir, de.Name())
@@ -771,7 +773,12 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 		if err != nil {
 			return err
 		}
-		if err := writeFile(de.Name(), src); err != nil {
+
+		name := de.Name()
+		if s, ok := m[name]; ok {
+			name = s
+		}
+		if err := writeFile(name, src); err != nil {
 			return err
 		}
 	}
@@ -779,6 +786,7 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 	// dynamically create go.mod since go:embed doesn't allow it
 	if !cmd.gopathMode {
 		src3 := []byte(fmt.Sprintf("module %s\n", debugPkgPath))
+		//src3 = append(src3, []byte("go 1.18\n")) // support "any" in debug pkg
 		if err := writeFile("go.mod", src3); err != nil {
 			return err
 		}
@@ -788,12 +796,40 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 	configFilename := "aaaconfig.go"
 
 	// build config file
-	src4 := cmd.annset.BuildConfigSrc(cmd.start.network, cmd.start.address, &cmd.flags)
+	src4 := cmd.buildConfigSrc()
 	if err := writeFile(configFilename, src4); err != nil {
 		return err
 	}
 
 	return nil
+}
+func (cmd *Cmd) buildConfigSrc() []byte {
+	flags := &cmd.flags
+	bcce := cmd.annset.buildConfigAfdEntries()
+
+	esoIsServer := !flags.isServer
+	if flags.mode.build {
+		esoIsServer = flags.isServer
+	}
+
+	//acceptOnlyFirstConn := flags.mode.run || flags.mode.test
+	//aofc := strconv.FormatBool(acceptOnlyFirstConn)
+	//eso.acceptOnlyFirstConn = ` + aofc + `
+
+	src := `package debug
+func init(){
+	EncoderId = "` + debug.EncoderId + `"
+	onExecSide = true	
+	eso.addr = NewAddrI("` + flags.network + `","` + flags.address + `")
+	eso.isServer = ` + strconv.FormatBool(esoIsServer) + `
+	eso.noInitMsg = ` + strconv.FormatBool(flags.noInitMsg) + `
+	eso.srcLines = ` + strconv.FormatBool(flags.srcLines) + `
+	eso.syncSend = ` + strconv.FormatBool(flags.syncSend) + `
+	eso.stringifyBytesRunes = ` + strconv.FormatBool(flags.stringifyBytesRunes) + `
+	eso.filesData = []*AnnotatorFileData{` + bcce + `}
+}
+`
+	return []byte(src)
 }
 
 //------------
@@ -983,11 +1019,6 @@ func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
 
 //------------
 //------------
-//------------
-
-//go:embed debug/*
-var debugPkgFs embed.FS
-
 //------------
 
 func writeFile(filename string, src []byte) error {

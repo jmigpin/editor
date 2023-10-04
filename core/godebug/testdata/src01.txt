@@ -1,4 +1,7 @@
-ucmd godebugtester run main.go
+setenv script_keepwork true
+ucmd godebugtester run -work -srclines=false main.go
+#ucmd godebugtester run main.go
+
 #contains stdout "Sleep(\"10ms\"=(10 * \"1ms\"))"
 contains stdout "Sleep(10000000=(10 * 1000000))"
 

@@ -187,11 +187,11 @@ func (gdi *GoDebugInstance) runCmd(ctx context.Context, erow *ERow, args []strin
 		return nil
 	}
 
-	if err := gdi.di.handleFilesDataMsg(cmd.FilesData()); err != nil {
+	if err := gdi.di.handleFilesDataMsg(cmd.ProtoFilesData()); err != nil {
 		return err
 	}
 
-	gdi.clientMsgsLoop(ctx, w, cmd) // blocking
+	gdi.messagesLoop(w, cmd) // blocking
 
 	return cmd.Wait()
 }
@@ -296,34 +296,65 @@ func (gdi *GoDebugInstance) printIndexAllPrevious(erow *ERow, annIndex, offset i
 
 //----------
 
-func (gdi *GoDebugInstance) clientMsgsLoop(ctx context.Context, w io.Writer, cmd *godebug.Cmd) {
-	var updatec <-chan time.Time // update channel
+func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
+
+	updateInterval := time.Second / updatesPerSecond
+	var d struct {
+		sync.Mutex
+		updating   bool
+		lastUpdate time.Time
+	}
 	updateUI := func() {
-		if updatec != nil {
-			updatec = nil
-			gdi.updateUI()
+		d.updating = false
+		d.lastUpdate = time.Now()
+		gdi.updateUI()
+	}
+	checkUI := (func())(nil)
+	checkUI = func() {
+		d.Lock()
+		defer d.Unlock()
+
+		if d.updating { // update will run in the future
+			return
 		}
+		d.updating = true
+
+		deadline := d.lastUpdate.Add(updateInterval)
+
+		// update now
+		now := time.Now()
+		if now.After(deadline) {
+			updateUI()
+			return
+		}
+		// update later
+		_ = time.AfterFunc(deadline.Sub(now), func() {
+			d.Lock()
+			defer d.Unlock()
+			updateUI()
+		})
+	}
+
+	//----------
+
+	handleError := func(err error) {
+		fmt.Fprintf(w, "godebuginstance: error: %v\n", err)
+		//gdi.gdm.ed.Errorf("godebuginstance: %v", err)
 	}
 
 	for {
-		select {
-		case <-ctx.Done():
-			updateUI() // final ui update
-			return
-		case msg, ok := <-cmd.Client.Messages:
-			if !ok {
-				updateUI() // last msg (end of program), final ui update
-				return
-			}
-			if err := gdi.handleMsg(msg, cmd); err != nil {
-				fmt.Fprintf(w, "error: %v\n", err)
-			}
-			if updatec == nil {
-				t := time.NewTimer(time.Second / updatesPerSecond)
-				updatec = t.C
-			}
-		case <-updatec:
-			updateUI()
+		checkUI()
+
+		v, ok, err := cmd.ProtoRead()
+		if err != nil {
+			handleError(err)
+			break
+		}
+		if !ok {
+			break
+		}
+		if err := gdi.handleMsg(v, cmd); err != nil {
+			handleError(err)
 		}
 	}
 }

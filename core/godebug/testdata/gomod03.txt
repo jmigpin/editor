@@ -2,7 +2,8 @@
 
 cd main
 ucmd godebugtester run main.go
-contains stdout "=> F1a()"
+contains stdout "=> _.F1a()"
+fail contains stdout "=> _.F1b()"
 fail contains stdout "\"mainArg0\""
 
 -- main/go.mod --
@@ -21,6 +22,7 @@ func main() {
 module example.com/pkg1
 -- pkg1/f1.go --
 package pkg1
+//godebug:annotateoff
 func F1a() string {
 	//godebug:annotateblock
 	return "F1a"

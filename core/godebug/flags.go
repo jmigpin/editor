@@ -9,6 +9,10 @@ import (
 	"github.com/jmigpin/editor/util/flagutil"
 )
 
+var defaultBuildConnectAddr = ":8078"
+
+//----------
+
 type flags struct {
 	stderr io.Writer
 
@@ -19,17 +23,22 @@ type flags struct {
 		connect bool
 	}
 
+	network string
+	address string // build/connect
+
+	env                 []string
+	isServer            bool
+	noInitMsg           bool
+	outFilename         string // build, ex: -o filename
+	srcLines            bool
+	stringifyBytesRunes bool
+	syncSend            bool
+	toolExec            string // ex: "wine" will run "wine args..."
+	usePkgLinks         bool
 	verbose             bool
 	work                bool
-	syncSend            bool
-	stringifyBytesRunes bool
-	srcLines            bool
-	toolExec            string // ex: "wine" will run "wine args..."
-	outFilename         string // build, ex: -o filename
-	address             string // build/connect
-	env                 []string
 	paths               []string // dirs/files to annotate (args from cmd line)
-	usePkgLinks         bool
+	startExec           bool
 
 	unknownArgs []string // unknown args to pass down to tooling
 	unnamedArgs []string // args without name (ex: filenames)
@@ -78,11 +87,17 @@ func (fl *flags) parseRunArgs(name string, args []string) error {
 	fl.addWorkFlag(fs)
 	fl.addVerboseFlag(fs)
 	fl.addToolExecFlag(fs)
+	fl.addIsIsServerFlag(fs, true) // editor side
 	fl.addSyncSendFlag(fs)
 	fl.addStringifyBytesRunesFlag(fs)
 	fl.addSrcLinesFlag(fs)
+	fl.addNoInitMsgFlag(fs)
 	fl.addEnvFlag(fs)
+	fl.addNetworkFlag(fs)
+	fl.addAddrFlag(fs, "")
+	fl.addOutFilenameFlag(fs)
 	fl.addUsePkgLinksFlag(fs)
+	fl.addStartExecFlag(fs)
 
 	m := goBuildBooleanFlags()
 	return fl.parse(name, fs, args, m)
@@ -103,13 +118,18 @@ func (fl *flags) parseTestArgs(name string, args []string) error {
 	fl.addWorkFlag(fs)
 	fl.addVerboseFlag(fs)
 	fl.addToolExecFlag(fs)
+	fl.addIsIsServerFlag(fs, true) // editor side
 	fl.addSyncSendFlag(fs)
 	fl.addStringifyBytesRunesFlag(fs)
 	fl.addSrcLinesFlag(fs)
+	fl.addNoInitMsgFlag(fs)
 	fl.addEnvFlag(fs)
+	fl.addNetworkFlag(fs)
+	fl.addAddrFlag(fs, "")
 	fl.addTestRunFlag(fs)
 	fl.addTestVFlag(fs)
 	fl.addUsePkgLinksFlag(fs)
+	fl.addStartExecFlag(fs)
 
 	m := joinMaps(goBuildBooleanFlags(), goTestBooleanFlags())
 	return fl.parse(name, fs, args, m)
@@ -121,11 +141,14 @@ func (fl *flags) parseBuildArgs(name string, args []string) error {
 	fl.addPathsFlag(fs)
 	fl.addWorkFlag(fs)
 	fl.addVerboseFlag(fs)
+	fl.addIsIsServerFlag(fs, true) // exec side (only at build it means exec)
 	fl.addSyncSendFlag(fs)
 	fl.addStringifyBytesRunesFlag(fs)
 	fl.addSrcLinesFlag(fs)
+	fl.addNoInitMsgFlag(fs)
 	fl.addEnvFlag(fs)
-	fl.addAddressFlag(fs)
+	fl.addNetworkFlag(fs)
+	fl.addAddrFlag(fs, defaultBuildConnectAddr)
 	fl.addOutFilenameFlag(fs)
 	fl.addUsePkgLinksFlag(fs)
 
@@ -136,7 +159,9 @@ func (fl *flags) parseBuildArgs(name string, args []string) error {
 func (fl *flags) parseConnectArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
-	fl.addAddressFlag(fs)
+	fl.addIsIsServerFlag(fs, false) // editor side
+	fl.addNetworkFlag(fs)
+	fl.addAddrFlag(fs, defaultBuildConnectAddr)
 	fl.addToolExecFlag(fs)
 
 	// commented: strict parsing, no unknown flags allowed
@@ -152,24 +177,37 @@ func (fl *flags) addWorkFlag(fs *flag.FlagSet) {
 func (fl *flags) addVerboseFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.verbose, "verbose", false, "print extra godebug build info")
 }
+func (fl *flags) addIsIsServerFlag(fs *flag.FlagSet, def bool) {
+	fs.BoolVar(&fl.isServer, "isserver", def, "run as server instead of client")
+}
 func (fl *flags) addSyncSendFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.syncSend, "syncsend", false, "Don't send msgs in chunks (slow). Useful to get msgs before a crash.")
 }
 func (fl *flags) addStringifyBytesRunesFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&fl.stringifyBytesRunes, "sbr", false, "Stringify bytes/runes as string (ex: [97 98 99] outputs as \"abc\")")
+	fs.BoolVar(&fl.stringifyBytesRunes, "sbr", true, "Stringify bytes/runes as string (ex: [97 98 99] outputs as \"abc\")")
 }
 func (fl *flags) addSrcLinesFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.srcLines, "srclines", true, "add src reference lines to the compilation such that in case of panics, the stack refers to the original src file")
 }
+func (fl *flags) addNoInitMsgFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&fl.noInitMsg, "noinitmsg", false, "omit initial warning message from the compiled binary")
+}
 func (fl *flags) addToolExecFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.toolExec, "toolexec", "", "a program to invoke before the program argument. Useful to run a tool with the output file (ex: wine)")
 }
-func (fl *flags) addAddressFlag(fs *flag.FlagSet) {
-	fs.StringVar(&fl.address, "addr", ":8078", "address to connect to, built into the binary")
+func (fl *flags) addNetworkFlag(fs *flag.FlagSet) {
+	fs.StringVar(&fl.network, "network", "tcp", "protocol to use to transmit debug data")
+}
+func (fl *flags) addAddrFlag(fs *flag.FlagSet, def string) {
+	fs.StringVar(&fl.address, "addr", def, "address to transmit debug data")
 }
 func (fl *flags) addOutFilenameFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.outFilename, "o", "", "output filename")
 }
+func (fl *flags) addStartExecFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&fl.startExec, "startexec", true, "start executable; useful to set to false in the case of compiling for js/wasm where the browser is the one starting the compiled file")
+}
+
 func (fl *flags) addTestRunFlag(fs *flag.FlagSet) {
 	ff := flagutil.StringFuncFlag(func(s string) error {
 		u := "-test.run=" + s
@@ -193,7 +231,7 @@ func (fl *flags) addEnvFlag(fs *flag.FlagSet) {
 		return nil
 	})
 	// The type in usage doc is the backquoted "string" (detected by flagset)
-	usage := fmt.Sprintf("`string` with env variables (ex: \"N1=V1%c...\"'", filepath.ListSeparator)
+	usage := fmt.Sprintf("`string` with env variables (ex: \"a=1%cb=2%c...\"'", filepath.ListSeparator, filepath.ListSeparator)
 	fs.Var(ff, "env", usage)
 }
 

@@ -15,6 +15,7 @@ fail contains stdout "println(8)"
 fail contains stdout "println(11)"
 contains stdout "println(12)"
 fail contains stdout "println(13)"
+fail contains stdout "println(14)"
 
 -- main.go --
 package main
@@ -89,6 +90,10 @@ func main() {
 		
 	var v5=1 // declstmt
 	_=v5
+	
+	func(){
+		println(14)
+	}()
 	
 }
 func fa() int{

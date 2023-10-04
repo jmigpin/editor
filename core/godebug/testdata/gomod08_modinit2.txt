@@ -7,10 +7,11 @@ exec go run main.go
 contains stderr "cba"
 
 #ucmd godebugtester run main.go
-ucmd godebugtester run -verbose -work main.go
+#ucmd godebugtester run -sbr -work main.go
+ucmd godebugtester run -sbr=false main.go
 contains stdout "println(\"cba\")"
 # inside the external pkg
-contains stdout "=> len([99 98 97])"
+contains stdout "len([99 98 97])"
 
 -- main/go.mod --
 module example.com/main

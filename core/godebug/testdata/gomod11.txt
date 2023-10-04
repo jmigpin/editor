@@ -8,9 +8,9 @@ contains stderr "missing go.sum entry"
 # needed in order to have a go.sum
 exec go mod tidy
 
-ucmd godebugtester run main.go
+ucmd godebugtester run -sbr=false main.go
 contains stdout "println(true)"
-contains stdout "=> len([97 98 99])"
+contains stdout "len([97 98 99])"
 
 -- main/go.mod --
 module example.com

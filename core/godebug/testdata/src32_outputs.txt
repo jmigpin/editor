@@ -1,0 +1,31 @@
+#exec go run main.go
+
+setenv script_keepwork true
+ucmd godebugtester run -work -srclines=false main.go
+#ucmd godebugtester run main.go
+
+contains stdout "recv: 2=(f1())"
+contains stdout "recv: true=(f2())"
+
+#contains stdout "??"
+fail contains stdout "TODO:"
+
+-- main.go --
+package main
+func main() {
+	intCaseClause()
+	boolCaseClause()
+}
+func intCaseClause() {
+	f1:=func()int{return 2}
+	a:=1
+	switch a{
+	case f1():
+	}
+}
+func boolCaseClause(){
+	f2:=func()bool{return true}
+	switch {
+	case f2():
+	}
+}

@@ -28,7 +28,7 @@ func ExtractFlagString(args []string, name string) (string, []string, bool) {
 
 func GetFlagBool(args []string, name string) bool {
 	v, _, ok := GetFlagValue(args, name, true)
-	if ok && v == "true" {
+	if ok && (v == "" || v == "true") {
 		return true
 	}
 	return false

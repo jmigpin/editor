@@ -6,10 +6,12 @@ exec go mod init example.com
 # needed in order to have a go.sum
 exec go mod tidy
 
-ucmd godebugtester run main.go
+setenv script_keepwork true
+#ucmd godebugtester run -sbr=false -work -srclines=false main.go
+ucmd godebugtester run -sbr=false main.go
 # from godoc pkg annotations
-contains stdout "=> Scan()"
-contains stdout "=> len([97 98 99])"
+contains stdout "=> _.Scan()"
+contains stdout "len([97 98 99])"
 
 -- main/main.go --
 package main

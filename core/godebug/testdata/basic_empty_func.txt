@@ -1,8 +1,11 @@
-#setenv script_keepwork true
-
 exec go run main1.go
-ucmd godebugtester run main1.go
-# TODO: test "connected"?
+
+#setenv script_keepwork true
+#ucmd godebugtester run -work -srclines=false main1.go
+#ucmd godebugtester run main1.go
+
+ucmd godebugtester run -isserver=false main1.go
+ucmd godebugtester run -isserver=true main1.go
 
 exec go run main2.go
 ucmd godebugtester run main2.go

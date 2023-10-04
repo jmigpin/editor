@@ -1,0 +1,353 @@
+#exec go run main.go
+
+setenv script_keepwork true
+ucmd godebugtester run -work -srclines=false main.go
+#ucmd godebugtester run main.go
+
+contains stderr "main1: 2 2"
+contains stderr "main2: 2"
+contains stderr "main4: 1 1 1"
+contains stderr "main3: 2 true"
+contains stderr "main5: 3"
+contains stderr "main6:"
+contains stderr "main7:"
+contains stderr "main8: 3 4 5 1"
+contains stderr "main9: 0 2 2 3"
+contains stderr "main10: 1 7 1"
+contains stdout "recv: 1, 7=(a[0]) = 1=(0 + 1), 7"
+contains stderr "main11: 2 0 1"
+contains stdout "recv: 2, 1=(a[2=(1 + 1)]) = 2=(1 + 1), 1"
+contains stderr "main12: 1"
+contains stderr "main13: 1 2"
+contains stderr "main14: f2 1"
+contains stderr "main15: 7 1 2"
+contains stderr "main16:"
+contains stderr "main17: 8"
+contains stderr "main18:"
+contains stderr "main19: 3"
+contains stderr "main20: 1234"
+contains stderr "main21: 1"
+contains stderr "main22: f1"
+contains stdout "recv: false=(f1())"
+contains stderr "main23: case int"
+contains stdout "recv: int"
+contains stderr "main24:"
+contains stdout "recv: \"11\" += \"1\""
+contains stdout "recv: 2 += 1"
+contains stderr "main25:"
+contains stdout "recv: (*_)(nil)"
+contains stderr "main26: 2"
+contains stderr "main27: 1"
+contains stderr "main28:"
+contains stderr "main29: 3"
+contains stderr "main30: 0x"
+contains stdout "recv: &3=(&3)"
+contains stderr "main31: 0x0"
+contains stderr "main32:"
+
+#contains stdout "??"
+#TODO: there is a "TODO" in the forward jump
+#fail contains stdout "TODO:"
+
+-- main.go --
+package main
+func main() {
+	main1()
+	main2()
+	main3()
+	main4()
+	main5()
+	main6()
+	main7()
+	main8()
+	main9()
+	main10()
+	main11()
+	main12()
+	main13()
+	main14()
+	main15()
+	main16()
+	main17()
+	main18()
+	main19()
+	main20()
+	main21()
+	main22()
+	main23()
+	main24()
+	main25()
+	main26()
+	main27()
+	main28()
+	main29()
+	main30()
+	main31()
+	main32()
+	main33()
+	main34()
+}
+func main1() {
+	type A struct{b,c int}
+	f1:=func(d *int)int{*d++;return *d}
+	a:=1
+	u:=&A{f1(&a), a}
+	println("main1:", u.b, u.c)
+}
+func main2() {
+	b:=1
+	a:=&b
+	*a=2
+	println("main2:", b)
+}
+func main3() {
+	c:=make(chan int,1)
+	c<-2
+	select {
+	case a, ok := <-c:
+		println("main3:",a,ok)
+	}
+}
+func main4() {
+	a:=0
+	f:=func(k*int)int{*k++;return *k}
+	println("main4:", a, f(&a), a)
+}
+func main5() {
+	type A struct{b int}
+	a:=[]*A{&A{1},&A{2}}
+	a[1].b = 3
+	println("main5:", a[1].b)
+}
+func main6() {
+	a:=make(chan int,1)
+	a<-1
+	(<-a)
+	println("main6:")
+}
+func main7() {
+	a:=1
+	_=(&a)
+	println("main7:")
+}
+func main8() {
+	type A struct{b [2]int}
+	a:=A{b:[2]int{1,2}}
+
+	a.b[0]=3
+	v1:=a.b[0]
+
+	(a).b[0]=4
+	v2:=a.b[0]
+
+	fc:=0
+	f:=func()*A{fc++;return &a}
+	f().b[0]=5
+	v3:=a.b[0]
+
+	println("main8:",v1,v2,v3,fc)
+}
+func main9(){
+	a := 0
+	f1 := func() int { a++; return a }
+	g := func(h int) int { return h  }
+	b:=[]int{0,1,2}
+	
+	// b[1],_ = g(2), 3
+	// b[1],_ = 2, 3
+	// b = {0,2,2}
+	
+	b[f1()],_ = g(f1()), f1()
+	println("main9:", b[0], b[1], b[2], a)
+}
+func main10(){
+	a:=[]int{0,1}
+	k:=0
+	k, a[k] = k+1, 7
+	println("main10:",k,a[0],a[1])
+}
+func main11(){
+	a:=[]int{0,1,2}
+	k:=1
+	k, a[k+1] = k+1, k
+	println("main11:",k,a[0],a[1])
+}
+func main12(){
+	a:="one"
+	v:=map[string]int{a:1}
+	println("main12:", v["one"])
+}
+func main13(){
+	var (
+		a = 1
+		b = a+1
+	)
+	println("main13:",a,b)
+}
+func main14(){
+	a:=0
+	b:=make(chan int,1)
+	f1:=func()chan int{
+		a=1
+		return b
+	}
+	f2:=func()int{
+		println("main14:", "f2", a) // a=0 f2 first, a=1 f1 first
+		a=2
+		return 3
+	}
+	f1() <- f2()
+}
+func main15(){
+	a:=[]int{0,1,2}
+	b:=[]*int{&a[0],&a[1],&a[2]}
+	b[0],*b[0]=&a[2],7
+	println("main15:",a[0],a[1],a[2])
+}
+func main16(){
+	list:=[]int{0,1}
+	for _,d:=range list{
+		_=d
+	}
+	println("main16:")
+}
+func main17(){
+	a:=1
+	f:=func(u *int)*int{(*u)++;return u}
+	*f(&a) += 2
+	*f(&a) += 3
+	println("main17:",a)
+}
+func main18() int{
+	a:=1
+	goto label1
+	return a
+label1:
+	println("main18:") // must compile
+	return 2
+}
+func main19() {
+	f2:=func(a,b int) int{
+		c:=a+b
+		println("main19:",c)
+		return c
+	}
+	defer f2(1,2)
+}	
+func main20() {
+	s:="1"
+	defer func() func() {
+		s+="2"
+		return func() {
+			s+="4"
+			println("main20:",s)
+		}
+	}()()
+	s+="3"
+}
+func main21() {
+	a:=0
+	f0:=func()(int,int){return 1,2}
+	f1:=func(fn func(int)){
+		fn(1)
+	}
+	f1(func(b int){
+		a+=b
+		f0()
+	})
+	println("main21:",a)
+}
+func main22() {
+	f1:=func()bool{println("main22: f1");return false}
+	f2:=func()bool{println("main22: f2");return false}
+	switch {
+	case f1():
+	case f2():
+	}
+}
+func main23() {
+	println("main23:")
+	v:=(any)(0)
+	switch v.(type){
+	case int: // need to compile
+		println("main23: case int")
+	}
+}
+func main24() {
+	println("main24:")
+	a:="1"
+	a+=a
+	b:=1
+	b+=b
+}
+func main25() {
+	type B struct{c int}
+	type A struct{b B}
+	a:=(*A)(nil)
+	println("main25:",a)
+}
+func main26() {
+	for i:=0; i<3;i=i+1{
+		println("main26:",i)
+	}
+}
+func main27() int {
+	u:=1
+	switch u{
+	case 0, 1:
+		println("main27:", u)
+		return u
+	default:
+		panic("!")
+	}
+}
+func main28() {
+	u:=5
+	f:=func(int,int){}
+	defer f(1,u)
+	println("main28:")
+}
+func main29() {	
+	k:=3
+	u:=func()int{return k}() // test assignstmt.rhs eval
+	println("main29:",u)
+}
+func main30() {	
+	k:=3
+	u:=&k
+	println("main30:",u) // var address
+}
+func main31() {	
+	a:=struct{b,c *int}{}
+	a.b = nil
+	println("main31:",a.b)
+}
+func main32() {
+	// must compile
+
+	//type tm32 struct {} // compile error if defined here
+	
+	//var tm32 []tm32
+	//tm32=[]tm32{} // fails, typename clash with varname that was defined previously
+	
+	tm32 := []tm32{}
+	_=tm32
+	println("main32:")
+}
+type tm32 struct {}
+
+func main33() {
+	// must compile
+	type T uint
+	mode:=T(0)
+	mode |= 1+4
+	_=mode
+}
+func main34() {
+	// must compile
+	switch a:=1;a{
+	case 1:
+	}
+}
+
+ // TODO: b=(b.(int)+1).(any)

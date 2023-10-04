@@ -1,1239 +1,1163 @@
 -- TestAnnotator1.in --
-package p1
-
 func f0() {
 	f1(1)
 }
+func f1(int){}
 -- TestAnnotator1.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(1)))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVs("1")))
+	Σ.L(0, 0, 25, Σ0)
 	f1(1)
-	Σ.Line(0, 0, 25, Σ.IC(Σ0, nil))
+	Σ.L(0, 0, 25, Σ.IC(Σ0, nil))
 }
 -- TestAnnotator2.in --
-package p1
-
 func f0() {
-	f1(a, 1, nil, "s")
+	f1(1, nil, "s")
 }
+func f1(int,*int,string){}
 -- TestAnnotator2.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(a), Σ.IVi(1), Σ.IVi(nil), Σ.IVi("s")))
-	Σ.Line(0, 0, 25, Σ0)
-	f1(a, 1, nil, "s")
-	Σ.Line(0, 0, 25, Σ.IC(Σ0, nil))
+	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVs("1"), Σ.IVi(nil), Σ.IVs("\"s\"")))
+	Σ.L(0, 0, 25, Σ0)
+	f1(1, nil, "s")
+	Σ.L(0, 0, 25, Σ.IC(Σ0, nil))
 }
 -- TestAnnotator3.in --
-package p1
-
 func f0() {
-	f1(f2(a, f3()))
+	f1(f2(2, f3()))
 }
+func f1(int){}
+func f2(int,int)int{return 2}
+func f3()int{return 3}
 -- TestAnnotator3.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f3"), nil)
-	Σ.Line(0, 0, 34, Σ0)
+	Σ.L(0, 0, 34, Σ0)
 	Σ1 := f3()
-	Σ2 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(a), Σ.IC(Σ0, Σ.IVi(Σ1))))
-	Σ.Line(0, 0, 28, Σ2)
-	Σ3 := f2(a, Σ1)
+	Σ2 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVs("2"), Σ.IC(Σ0, Σ.IVi(Σ1))))
+	Σ.L(0, 0, 28, Σ2)
+	Σ3 := f2(2, Σ1)
 	Σ4 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ2, Σ.IVi(Σ3))))
-	Σ.Line(0, 0, 25, Σ4)
+	Σ.L(0, 0, 25, Σ4)
 	f1(Σ3)
-	Σ.Line(0, 0, 25, Σ.IC(Σ4, nil))
+	Σ.L(0, 0, 25, Σ.IC(Σ4, nil))
 }
 -- TestAnnotator4.in --
-package p1
-
 func f0() {
 	f1(1 * 200)
 }
+func f1(int){}
 -- TestAnnotator4.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IB(Σ.IVi(1), 14, Σ.IVi(200), Σ.IVi(1*200))))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IB(Σ.IVs("1"), 14, Σ.IVs("200"), Σ.IVs("200"))))
+	Σ.L(0, 0, 25, Σ0)
 	f1(1 * 200)
-	Σ.Line(0, 0, 25, Σ.IC(Σ0, nil))
+	Σ.L(0, 0, 25, Σ.IC(Σ0, nil))
 }
 -- TestAnnotator5.in --
-package p1
-
 func f0() {
 	f1(1 * 200 * f2())
 }
+func f1(int){}
+func f2()int{return 2}
 -- TestAnnotator5.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
-	Σ.Line(0, 0, 38, Σ0)
+	Σ.L(0, 0, 38, Σ0)
 	Σ1 := f2()
-	Σ2 := 1 * 200 * Σ1
-	Σ3 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IB(Σ.IB(Σ.IVi(1), 14, Σ.IVi(200), Σ.IVi(1*200)), 14, Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVi(Σ2))))
-	Σ.Line(0, 0, 25, Σ3)
-	f1(Σ2)
-	Σ.Line(0, 0, 25, Σ.IC(Σ3, nil))
+	Σ2 := Σ.IVi(Σ1)
+	Σ3 := 1 * 200 * Σ1
+	Σ4 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IB(Σ.IB(Σ.IVs("1"), 14, Σ.IVs("200"), Σ.IVs("200")), 14, Σ.IC(Σ0, Σ2), Σ.IVi(Σ3))))
+	Σ.L(0, 0, 25, Σ4)
+	f1(Σ3)
+	Σ.L(0, 0, 25, Σ.IC(Σ4, nil))
 }
 -- TestAnnotator6.in --
-package p1
-
 func f0() {
-	f1(f2(&a), f3(&a))
+	f1(f2(&a))
 }
+var a=1
+func f1(int){}
+func f2(*int)int{return 2}
 -- TestAnnotator6.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IUe(17, Σ.IVi(a))
-	Σ1 := &a
-	Σ2 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IU(Σ0, Σ.IVi(Σ1))))
-	Σ.Line(0, 0, 28, Σ2)
-	Σ3 := f2(Σ1)
-	Σ4 := Σ.IUe(17, Σ.IVi(a))
-	Σ5 := &a
-	Σ6 := Σ.ICe(Σ.IVs("f3"), Σ.IL(Σ.IU(Σ4, Σ.IVi(Σ5))))
-	Σ.Line(0, 0, 36, Σ6)
-	Σ7 := f3(Σ5)
-	Σ8 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ2, Σ.IVi(Σ3)), Σ.IC(Σ6, Σ.IVi(Σ7))))
-	Σ.Line(0, 0, 25, Σ8)
-	f1(Σ3, Σ7)
-	Σ.Line(0, 0, 25, Σ.IC(Σ8, nil))
+	Σ0 := &a
+	Σ1 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IU(Σ.IUe(17, Σ.IVi(a)), Σ.IVi(Σ0))))
+	Σ.L(0, 0, 28, Σ1)
+	Σ2 := f2(Σ0)
+	Σ3 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ1, Σ.IVi(Σ2))))
+	Σ.L(0, 0, 25, Σ3)
+	f1(Σ2)
+	Σ.L(0, 0, 25, Σ.IC(Σ3, nil))
 }
 -- TestAnnotator7.in --
-package p1
-
 func f0() {
-	f1(a, func() { f2() })
+	f1(1, func() { f2() })
 }
+func f1(int,func()){}
+func f2(){}
 -- TestAnnotator7.out --
-package p1
-
 func f0() {
-	Σ1 := func() {
-		Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
-		Σ.Line(0, 1, 40, Σ0)
-		f2()
-		Σ.Line(0, 1, 40, Σ.IC(Σ0, nil))
-	}
-	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(a), Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
-	f1(a, Σ1)
-	Σ.Line(0, 0, 25, Σ.IC(Σ2, nil))
+	Σ1 := func() { Σ0 := Σ.ICe(Σ.IVs("f2"), nil); Σ.L(0, 1, 40, Σ0); f2(); Σ.L(0, 1, 40, Σ.IC(Σ0, nil)) }
+	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVs("1"), Σ.IVi(Σ1)))
+	Σ.L(0, 0, 25, Σ2)
+	f1(1, Σ1)
+	Σ.L(0, 0, 25, Σ.IC(Σ2, nil))
 }
 -- TestAnnotator7b.in --
-package p1
-
 func f0() {
-	a(b(), func() { d() })
+	a(b(), func() { c() })
 }
+func a(int,func()){}
+func b()int{return 2}
+func c(){}
 -- TestAnnotator7b.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("b"), nil)
-	Σ.Line(0, 0, 27, Σ0)
+	Σ.L(0, 0, 27, Σ0)
 	Σ1 := b()
-	Σ3 := func() {
-		Σ2 := Σ.ICe(Σ.IVs("d"), nil)
-		Σ.Line(0, 1, 41, Σ2)
-		d()
-		Σ.Line(0, 1, 41, Σ.IC(Σ2, nil))
-	}
+	Σ3 := func() { Σ2 := Σ.ICe(Σ.IVs("c"), nil); Σ.L(0, 1, 41, Σ2); c(); Σ.L(0, 1, 41, Σ.IC(Σ2, nil)) }
 	Σ4 := Σ.ICe(Σ.IVs("a"), Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVi(Σ3)))
-	Σ.Line(0, 0, 25, Σ4)
+	Σ.L(0, 0, 25, Σ4)
 	a(Σ1, Σ3)
-	Σ.Line(0, 0, 25, Σ.IC(Σ4, nil))
+	Σ.L(0, 0, 25, Σ.IC(Σ4, nil))
 }
 -- TestAnnotator7c.in --
-package p1
-
 func f0() {
 	a.b().c.d()
 }
+var a=A{}
+type A struct{b func() B}
+type B struct{c C}
+type C struct{d func()}
 -- TestAnnotator7c.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("b"), nil)
-	Σ.Line(0, 0, 25, Σ0)
+	Σ0 := Σ.ICe(Σ.ISel(nil, Σ.IVs("b"), nil), nil)
+	Σ.L(0, 0, 25, Σ0)
 	Σ1 := a.b()
-	Σ2 := Σ.ICe(Σ.ISel(Σ.ISel(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVs("c")), Σ.IVs("d")), nil)
-	Σ.Line(0, 0, 25, Σ2)
+	Σ2 := Σ.ICe(Σ.ISel(Σ.ISel(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVs("c"), Σ.IVi(Σ1.c)), Σ.IVs("d"), nil), nil)
+	Σ.L(0, 0, 25, Σ2)
 	Σ1.c.d()
-	Σ.Line(0, 0, 25, Σ.IC(Σ2, nil))
+	Σ.L(0, 0, 25, Σ.IC(Σ2, nil))
 }
 -- TestAnnotator8.in --
-package p1
-
 func f0() {
 	a := 1
+	_=a
 }
 -- TestAnnotator8.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 30, Σ.IL(Σ.IVs("1")))
 	a := 1
+	Σ0 := Σ.IVi(a)
+	Σ.L(0, 1, 35, Σ.IL(Σ0))
+	_ = a
 }
 -- TestAnnotator9.in --
-package p1
-
 func f0() {
-	a, b := 1, c
+	a, b := 1, 2
+	_,_=a,b
 }
 -- TestAnnotator9.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1), Σ.IVi(c))
-	Σ.Line(0, 0, 25, Σ0)
-	a, b := 1, c
+	Σ.L(0, 0, 33, Σ.IL(Σ.IVs("1"), Σ.IVs("2")))
+	a, b := 1, 2
+	Σ0 := Σ.IVi(a)
+	Σ1 := Σ.IVi(b)
+	Σ.L(0, 1, 43, Σ.IL(Σ0, Σ1))
+	_, _ = a, b
 }
 -- TestAnnotator10.in --
-package p1
-
 func f0() {
+	c,d:=2,3
 	a, b, _ := 1, c, d
+	_,_=a,b
 }
 -- TestAnnotator10.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1), Σ.IVi(c), Σ.IVi(d))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 30, Σ.IL(Σ.IVs("2"), Σ.IVs("3")))
+	c, d := 2, 3
+	Σ0 := Σ.IVi(c)
+	Σ1 := Σ.IVi(d)
+	Σ.L(0, 1, 46, Σ.IL(Σ.IVs("1"), Σ0, Σ1))
 	a, b, _ := 1, c, d
+	Σ2 := Σ.IVi(a)
+	Σ3 := Σ.IVi(b)
+	Σ.L(0, 2, 59, Σ.IL(Σ2, Σ3))
+	_, _ = a, b
 }
 -- TestAnnotator11.in --
-package p1
-
 func f0() {
-	a = 1
+	a=1
 }
+var a=0
 -- TestAnnotator11.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 27, Σ.IL(Σ.IVs("1")))
 	a = 1
 }
 -- TestAnnotator12.in --
-package p1
-
 func f0() {
 	_ = 1
 }
 -- TestAnnotator12.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 29, Σ.IL(Σ.IVs("1")))
 	_ = 1
 }
 -- TestAnnotator13.in --
-package p1
-
 func f0() {
 	a, _ := 1, "s"
+	_=a
 }
 -- TestAnnotator13.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1), Σ.IVi("s"))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 33, Σ.IL(Σ.IVs("1"), Σ.IVs("\"s\"")))
 	a, _ := 1, "s"
+	Σ0 := Σ.IVi(a)
+	Σ.L(0, 1, 43, Σ.IL(Σ0))
+	_ = a
 }
 -- TestAnnotator14.in --
-package p1
-
 func f0() {
 	a, _ = 1, "s"
 }
+var a = 0
 -- TestAnnotator14.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1), Σ.IVi("s"))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 32, Σ.IL(Σ.IVs("1"), Σ.IVs("\"s\"")))
 	a, _ = 1, "s"
 }
 -- TestAnnotator15.in --
-package p1
-
 func f0() {
 	a.b = true
 }
+var a=struct{b bool}{}
 -- TestAnnotator15.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(true))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 31, Σ.IL(Σ.IVs("true")))
 	a.b = true
 }
 -- TestAnnotator16.in --
-package p1
-
 func f0() {
 	i, _ = a.b(c)
 }
+var a=struct{b func(int)(int,int)}{}
+var c=0
+var i=0
 -- TestAnnotator16.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("b"), Σ.IL(Σ.IVi(c)))
-	Σ.Line(0, 0, 32, Σ0)
+	Σ0 := Σ.ICe(Σ.ISel(nil, Σ.IVs("b"), nil), Σ.IL(Σ.IVi(c)))
+	Σ.L(0, 0, 32, Σ0)
 	Σ1, Σ2 := a.b(c)
-	Σ3 := Σ.IL(Σ.IC(Σ0, Σ.IL(Σ.IVi(Σ1), Σ.IVi(Σ2))))
-	Σ.Line(0, 0, 25, Σ3)
+	Σ3 := Σ.IL(Σ.IVi(Σ1), Σ.IVi(Σ2))
+	Σ.L(0, 0, 32, Σ.IL(Σ.IC(Σ0, Σ3)))
 	i, _ = Σ1, Σ2
 }
 -- TestAnnotator16a.in --
-package p1
-
 func f0() {
 	i, _ = a().b(c)
 }
+func a() *A{return nil}
+type A struct{b func(int)(int,int)}
+var c=0
+var i=0
 -- TestAnnotator16a.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("a"), nil)
-	Σ.Line(0, 0, 32, Σ0)
+	Σ.L(0, 0, 32, Σ0)
 	Σ1 := a()
-	Σ2 := Σ.ICe(Σ.ISel(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVs("b")), Σ.IL(Σ.IVi(c)))
-	Σ.Line(0, 0, 32, Σ2)
+	Σ2 := Σ.ICe(Σ.ISel(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVs("b"), nil), Σ.IL(Σ.IVi(c)))
+	Σ.L(0, 0, 32, Σ2)
 	Σ3, Σ4 := Σ1.b(c)
-	Σ5 := Σ.IL(Σ.IC(Σ2, Σ.IL(Σ.IVi(Σ3), Σ.IVi(Σ4))))
-	Σ.Line(0, 0, 25, Σ5)
+	Σ5 := Σ.IL(Σ.IVi(Σ3), Σ.IVi(Σ4))
+	Σ.L(0, 0, 32, Σ.IL(Σ.IC(Σ2, Σ5)))
 	i, _ = Σ3, Σ4
 }
 -- TestAnnotator17.in --
-package p1
-
 func f0() {
 	c := f1()
+	_=c
 }
+func f1()int{return 1}
 -- TestAnnotator17.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
-	Σ.Line(0, 0, 30, Σ0)
+	Σ.L(0, 0, 30, Σ0)
 	Σ1 := f1()
-	Σ2 := Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
+	Σ2 := Σ.IVi(Σ1)
+	Σ.L(0, 0, 30, Σ.IL(Σ.IC(Σ0, Σ2)))
 	c := Σ1
+	Σ3 := Σ.IVi(c)
+	Σ.L(0, 1, 38, Σ.IL(Σ3))
+	_ = c
 }
 -- TestAnnotator18.in --
-package p1
-
 func f0() {
 	_, b := c.d(e, f())
+	_=b
 }
+var c=struct{d func(int,int)(int,int)}{}
+var e=0
+var f=func()int{return 0}
 -- TestAnnotator18.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f"), nil)
-	Σ.Line(0, 0, 40, Σ0)
+	Σ.L(0, 0, 40, Σ0)
 	Σ1 := f()
-	Σ2 := Σ.ICe(Σ.IVs("d"), Σ.IL(Σ.IVi(e), Σ.IC(Σ0, Σ.IVi(Σ1))))
-	Σ.Line(0, 0, 33, Σ2)
+	Σ2 := Σ.ICe(Σ.ISel(nil, Σ.IVs("d"), nil), Σ.IL(Σ.IVi(e), Σ.IC(Σ0, Σ.IVi(Σ1))))
+	Σ.L(0, 0, 33, Σ2)
 	Σ3, Σ4 := c.d(e, Σ1)
-	Σ5 := Σ.IL(Σ.IC(Σ2, Σ.IL(Σ.IVi(Σ3), Σ.IVi(Σ4))))
-	Σ.Line(0, 0, 25, Σ5)
+	Σ5 := Σ.IL(Σ.IVi(Σ3), Σ.IVi(Σ4))
+	Σ.L(0, 0, 33, Σ.IL(Σ.IC(Σ2, Σ5)))
 	_, b := Σ3, Σ4
+	Σ6 := Σ.IVi(b)
+	Σ.L(0, 1, 48, Σ.IL(Σ6))
+	_ = b
 }
 -- TestAnnotator19.in --
-package p1
-
 func f0() {
 	a, _ = 1, c
 }
+var a=0
+var c=0
 -- TestAnnotator19.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1), Σ.IVi(c))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ0 := Σ.IVi(c)
+	Σ.L(0, 0, 32, Σ.IL(Σ.IVs("1"), Σ0))
 	a, _ = 1, c
 }
 -- TestAnnotator20.in --
-package p1
-
 func f0() {
 	a, _ = c.d(1, f(u), 'c', nil)
 }
+var a=0
+var c=struct{d func(int,int,byte,*int)(int,int)}{}
+var f=func(int)int{return 0}
+var u=0
 -- TestAnnotator20.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 39, Σ0)
+	Σ.L(0, 0, 39, Σ0)
 	Σ1 := f(u)
-	Σ2 := Σ.ICe(Σ.IVs("d"), Σ.IL(Σ.IVi(1), Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVi('c'), Σ.IVi(nil)))
-	Σ.Line(0, 0, 32, Σ2)
+	Σ2 := Σ.ICe(Σ.ISel(nil, Σ.IVs("d"), nil), Σ.IL(Σ.IVs("1"), Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVs("99"), Σ.IVi(nil)))
+	Σ.L(0, 0, 32, Σ2)
 	Σ3, Σ4 := c.d(1, Σ1, 'c', nil)
-	Σ5 := Σ.IL(Σ.IC(Σ2, Σ.IL(Σ.IVi(Σ3), Σ.IVi(Σ4))))
-	Σ.Line(0, 0, 25, Σ5)
+	Σ5 := Σ.IL(Σ.IVi(Σ3), Σ.IVi(Σ4))
+	Σ.L(0, 0, 32, Σ.IL(Σ.IC(Σ2, Σ5)))
 	a, _ = Σ3, Σ4
 }
 -- TestAnnotator21.in --
-package p1
-
 func f0() {
 	a, b = f1(c, "s")
 }
+var a=0
+var b=0
+var f1=func(int,string)(int,int){return 0,0}
+var c=0
 -- TestAnnotator21.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(c), Σ.IVi("s")))
-	Σ.Line(0, 0, 32, Σ0)
+	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(c), Σ.IVs("\"s\"")))
+	Σ.L(0, 0, 32, Σ0)
 	Σ1, Σ2 := f1(c, "s")
-	Σ3 := Σ.IL(Σ.IC(Σ0, Σ.IL(Σ.IVi(Σ1), Σ.IVi(Σ2))))
-	Σ.Line(0, 0, 25, Σ3)
+	Σ3 := Σ.IL(Σ.IVi(Σ1), Σ.IVi(Σ2))
+	Σ.L(0, 0, 32, Σ.IL(Σ.IC(Σ0, Σ3)))
 	a, b = Σ1, Σ2
 }
 -- TestAnnotator22.in --
-package p1
-
 func f0() {
 	a = f1(f2())
 }
+var a=0
+var f1=func(int)int{return 0}
+var f2=func()int{return 0}
 -- TestAnnotator22.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
-	Σ.Line(0, 0, 32, Σ0)
+	Σ.L(0, 0, 32, Σ0)
 	Σ1 := f2()
 	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1))))
-	Σ.Line(0, 0, 29, Σ2)
+	Σ.L(0, 0, 29, Σ2)
 	Σ3 := f1(Σ1)
-	Σ4 := Σ.IL(Σ.IC(Σ2, Σ.IVi(Σ3)))
-	Σ.Line(0, 0, 25, Σ4)
+	Σ4 := Σ.IVi(Σ3)
+	Σ.L(0, 0, 29, Σ.IL(Σ.IC(Σ2, Σ4)))
 	a = Σ3
 }
 -- TestAnnotator23.in --
-package p1
-
 func f0() {
 	a := path[f1(d)]
+	_=a
 }
+var path=[]int{}
+var f1=func(int)int{return 0}
+var d=0
 -- TestAnnotator23.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(d)))
-	Σ.Line(0, 0, 35, Σ0)
+	Σ.L(0, 0, 35, Σ0)
 	Σ1 := f1(d)
 	Σ2 := path[Σ1]
-	Σ3 := Σ.IL(Σ.II(Σ.IVs("path"), Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVi(Σ2)))
-	Σ.Line(0, 0, 25, Σ3)
+	Σ3 := Σ.IVi(Σ2)
+	Σ.L(0, 0, 30, Σ.IL(Σ.II(Σ.IVs("path"), Σ.IC(Σ0, Σ.IVi(Σ1)), Σ3)))
 	a := Σ2
+	Σ4 := Σ.IVi(a)
+	Σ.L(0, 1, 45, Σ.IL(Σ4))
+	_ = a
 }
 -- TestAnnotator24.in --
-package p1
-
 func f0() {
 	a, b := c-d, e+f
+	_,_=a,b
 }
+var c=0
+var d=0
+var e=0
+var f=0
 -- TestAnnotator24.out --
-package p1
-
 func f0() {
-	Σ0 := c - d
-	Σ1 := e + f
-	Σ2 := Σ.IL(Σ.IB(Σ.IVi(c), 13, Σ.IVi(d), Σ.IVi(Σ0)), Σ.IB(Σ.IVi(e), 12, Σ.IVi(f), Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
-	a, b := Σ0, Σ1
+	Σ0 := Σ.IVi(c)
+	Σ1 := Σ.IVi(d)
+	Σ2 := c - d
+	Σ3 := Σ.IVi(Σ2)
+	Σ4 := Σ.IVi(e)
+	Σ5 := Σ.IVi(f)
+	Σ6 := e + f
+	Σ7 := Σ.IVi(Σ6)
+	Σ.L(0, 0, 33, Σ.IL(Σ.IB(Σ0, 13, Σ1, Σ3), Σ.IB(Σ4, 12, Σ5, Σ7)))
+	a, b := Σ2, Σ6
+	Σ8 := Σ.IVi(a)
+	Σ9 := Σ.IVi(b)
+	Σ.L(0, 1, 47, Σ.IL(Σ8, Σ9))
+	_, _ = a, b
 }
 -- TestAnnotator25.in --
-package p1
-
 func f0() {
 	a[i] = b
 }
+var a=[]int{}
+var i=0
+var b=0
 -- TestAnnotator25.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(b))
-	a[i] = b
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(i), Σ.IVi(a[i]))), 42, Σ0))
+	Σ0 := i
+	Σ1 := Σ.IVi(b)
+	a[Σ0] = b
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(Σ0), Σ.IVi(a[Σ0]))), 42, Σ.IL(Σ1)))
 }
 -- TestAnnotator26.in --
-package p1
-
 func f0() {
 	a := b[c]
+	_=a
 }
+var a=0
+var b=[]int{}
+var c=0
 -- TestAnnotator26.out --
-package p1
-
 func f0() {
-	Σ0 := b[c]
-	Σ1 := Σ.IL(Σ.II(Σ.IVs("b"), Σ.IVi(c), Σ.IVi(Σ0)))
-	Σ.Line(0, 0, 25, Σ1)
-	a := Σ0
+	Σ0 := c
+	Σ1 := b[Σ0]
+	Σ2 := Σ.IVi(Σ1)
+	Σ.L(0, 0, 30, Σ.IL(Σ.II(Σ.IVs("b"), Σ.IVi(Σ0), Σ2)))
+	a := Σ1
+	Σ3 := Σ.IVi(a)
+	Σ.L(0, 1, 38, Σ.IL(Σ3))
+	_ = a
 }
 -- TestAnnotator27.in --
-package p1
-
 func f0() {
 	s = s[:i] + "a"
 }
+var s=""
+var i=0
 -- TestAnnotator27.out --
-package p1
-
 func f0() {
-	Σ0 := s[:i]
-	Σ1 := Σ0 + "a"
-	Σ2 := Σ.IL(Σ.IB(Σ.II2(Σ.IVs("s"), nil, Σ.IVi(i), nil, false, Σ.IVi(Σ0)), 12, Σ.IVi("a"), Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
+	Σ0 := Σ.IVi(s[:i])
+	Σ1 := s[:i] + "a"
+	Σ2 := Σ.IVi(Σ1)
+	Σ.L(0, 0, 29, Σ.IL(Σ.IB(Σ.II2(Σ.IVs("s"), nil, Σ.IVi(i), nil, false, Σ0), 12, Σ.IVs("\"a\""), Σ2)))
 	s = Σ1
 }
 -- TestAnnotator28.in --
-package p1
-
 func f0() {
 	b[1] = u[:2]
 }
+var b=[][]int{}
+var u=[]int{}
 -- TestAnnotator28.out --
-package p1
-
 func f0() {
-	Σ0 := u[:2]
-	Σ1 := Σ.IL(Σ.II2(Σ.IVs("u"), nil, Σ.IVi(2), nil, false, Σ.IVi(Σ0)))
-	b[1] = Σ0
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("b"), Σ.IVi(1), Σ.IVi(b[1]))), 42, Σ1))
+	Σ0 := Σ.IVi(u[:2])
+	b[1] = u[:2]
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("b"), Σ.IVs("1"), Σ.IVi(b[1]))), 42, Σ.IL(Σ.II2(Σ.IVs("u"), nil, Σ.IVs("2"), nil, false, Σ0))))
 }
 -- TestAnnotator29.in --
-package p1
-
 func f0() {
-	u[f2()] = u[:2]
+	a[f2()] = b[:2]
 }
+var a=[][]int{}
+var f2=func()int{return 0}
+var b=[]int{}
 -- TestAnnotator29.out --
-package p1
-
 func f0() {
-	Σ0 := u[:2]
-	Σ1 := Σ.IL(Σ.II2(Σ.IVs("u"), nil, Σ.IVi(2), nil, false, Σ.IVi(Σ0)))
-	Σ2 := Σ.ICe(Σ.IVs("f2"), nil)
-	Σ.Line(0, 0, 27, Σ2)
-	Σ3 := f2()
-	u[Σ3] = Σ0
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("u"), Σ.IC(Σ2, Σ.IVi(Σ3)), Σ.IVi(u[Σ3]))), 42, Σ1))
+	Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
+	Σ.L(0, 0, 27, Σ0)
+	Σ1 := f2()
+	Σ2 := Σ.IVi(b[:2])
+	a[Σ1] = b[:2]
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVi(a[Σ1]))), 42, Σ.IL(Σ.II2(Σ.IVs("b"), nil, Σ.IVs("2"), nil, false, Σ2))))
 }
 -- TestAnnotator30.in --
-package p1
-
 func f0() {
 	a := s[:]
+	_=a
 }
+var s=[]int{}
 -- TestAnnotator30.out --
-package p1
-
 func f0() {
-	Σ0 := s[:]
-	Σ1 := Σ.IL(Σ.II2(Σ.IVs("s"), nil, nil, nil, false, Σ.IVi(Σ0)))
-	Σ.Line(0, 0, 25, Σ1)
-	a := Σ0
+	Σ0 := Σ.IVi(s[:])
+	Σ.L(0, 0, 30, Σ.IL(Σ.II2(Σ.IVs("s"), nil, nil, nil, false, Σ0)))
+	a := s[:]
+	Σ1 := Σ.IVi(a)
+	Σ.L(0, 1, 38, Σ.IL(Σ1))
+	_ = a
 }
 -- TestAnnotator31.in --
-package p1
-
 func f0() {
 	u[1+a] = u[1+b]
 }
+var u=[]int{}
+var a=0
+var b=0
 -- TestAnnotator31.out --
-package p1
-
 func f0() {
-	Σ0 := 1 + b
-	Σ1 := u[Σ0]
-	Σ2 := Σ.IL(Σ.II(Σ.IVs("u"), Σ.IB(Σ.IVi(1), 12, Σ.IVi(b), Σ.IVi(Σ0)), Σ.IVi(Σ1)))
-	Σ3 := 1 + a
-	u[Σ3] = Σ1
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("u"), Σ.IB(Σ.IVi(1), 12, Σ.IVi(a), Σ.IVi(Σ3)), Σ.IVi(u[Σ3]))), 42, Σ2))
+	Σ0 := Σ.IVi(a)
+	Σ1 := 1 + a
+	Σ2 := Σ.IVi(b)
+	Σ3 := 1 + b
+	Σ4 := u[Σ3]
+	Σ5 := Σ.IVi(Σ4)
+	u[Σ1] = Σ4
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("u"), Σ.IB(Σ.IVs("1"), 12, Σ0, Σ.IVi(Σ1)), Σ.IVi(u[Σ1]))), 42, Σ.IL(Σ.II(Σ.IVs("u"), Σ.IB(Σ.IVs("1"), 12, Σ2, Σ.IVi(Σ3)), Σ5))))
 }
 -- TestAnnotator32.in --
-package p1
-
 func f0() {
 	p[1+a] = 1
 }
+var p=[]int{}
+var a=0
 -- TestAnnotator32.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1))
+	Σ0 := Σ.IVi(a)
 	Σ1 := 1 + a
 	p[Σ1] = 1
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("p"), Σ.IB(Σ.IVi(1), 12, Σ.IVi(a), Σ.IVi(Σ1)), Σ.IVi(p[Σ1]))), 42, Σ0))
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("p"), Σ.IB(Σ.IVs("1"), 12, Σ0, Σ.IVi(Σ1)), Σ.IVi(p[Σ1]))), 42, Σ.IL(Σ.IVs("1"))))
 }
 -- TestAnnotator33.in --
-package p1
-
 func f0() {
-	a := &Struct1{A: f1(u), B: 2}
+	a := &A{b: f1(u), c: 2}
+	_=a
 }
+type A struct{b,c int}
+var f1=func(int)int{return 0}
+var u=0
 -- TestAnnotator33.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 42, Σ0)
+	Σ.L(0, 0, 36, Σ0)
 	Σ1 := f1(u)
-	Σ2 := Σ.IUe(17, Σ.ILit(Σ.IL(Σ.IKV(Σ.IVs("A"), Σ.IC(Σ0, Σ.IVi(Σ1))), Σ.IKV(Σ.IVs("B"), Σ.IVi(2)))))
-	Σ3 := &Struct1{A: Σ1, B: 2}
-	Σ4 := Σ.IL(Σ.IU(Σ2, Σ.IVi(Σ3)))
-	Σ.Line(0, 0, 25, Σ4)
-	a := Σ3
+	Σ2 := &A{b: Σ1, c: 2}
+	Σ3 := Σ.IVi(Σ2)
+	Σ.L(0, 0, 30, Σ.IL(Σ.IU(Σ.IUe(17, Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IC(Σ0, Σ.IVi(Σ1))), Σ.IKV(nil, Σ.IVs("2"))))), Σ3)))
+	a := Σ2
+	Σ4 := Σ.IVi(a)
+	Σ.L(0, 1, 52, Σ.IL(Σ4))
+	_ = a
 }
 -- TestAnnotator34.in --
-package p1
-
 func f0() {
 	a += f3(a + 1)
 }
+var a=0
+var f3=func(int)int{return 0}
 -- TestAnnotator34.out --
-package p1
-
 func f0() {
-	Σ0 := a + 1
-	Σ1 := Σ.ICe(Σ.IVs("f3"), Σ.IL(Σ.IB(Σ.IVi(a), 12, Σ.IVi(1), Σ.IVi(Σ0))))
-	Σ.Line(0, 0, 30, Σ1)
-	Σ2 := f3(Σ0)
-	Σ3 := Σ.IL(Σ.IC(Σ1, Σ.IVi(Σ2)))
-	a += Σ2
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.IVi(a)), 23, Σ3))
+	Σ0 := Σ.IVi(a)
+	Σ1 := a + 1
+	Σ2 := Σ.ICe(Σ.IVs("f3"), Σ.IL(Σ.IB(Σ0, 12, Σ.IVs("1"), Σ.IVi(Σ1))))
+	Σ.L(0, 0, 30, Σ2)
+	Σ3 := f3(Σ1)
+	Σ4 := Σ.IVi(Σ3)
+	a += Σ3
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.IVi(a)), 23, Σ.IL(Σ.IC(Σ2, Σ4))))
 }
 -- TestAnnotator35.in --
-package p1
-
 func f0() {
 	a := &c[i]
+	_=a
 }
+var c=[]int{}
+var i=0
 -- TestAnnotator35.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IUe(17, Σ.II(Σ.IVs("c"), Σ.IVi(i), Σ.IVi(c[i])))
-	Σ1 := &c[i]
-	Σ2 := Σ.IL(Σ.IU(Σ0, Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
+	Σ0 := i
+	Σ1 := &c[Σ0]
+	Σ2 := Σ.IVi(Σ1)
+	Σ.L(0, 0, 30, Σ.IL(Σ.IU(Σ.IUe(17, Σ.II(Σ.IVs("c"), Σ.IVi(Σ0), Σ.IVi(c[Σ0]))), Σ2)))
 	a := Σ1
+	Σ3 := Σ.IVi(a)
+	Σ.L(0, 1, 39, Σ.IL(Σ3))
+	_ = a
 }
 -- TestAnnotator36.in --
-package p1
-
 func f0() {
 	switch x.(type) {
 	}
 }
+var x any
 -- TestAnnotator36.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 32, Σ.ITA(Σ.IVi(x), Σ.IVt(x)))
+	Σ.L(0, 0, 32, Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil))
 	switch x.(type) {
 	}
 }
 -- TestAnnotator36a.in --
-package p1
-
 func f0() {
 	switch f().(type) {
 	}
 }
+var f=func()any{return nil}
 -- TestAnnotator36a.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f"), nil)
-	Σ.Line(0, 0, 32, Σ0)
+	Σ.L(0, 0, 32, Σ0)
 	Σ1 := f()
-	Σ.Line(0, 0, 32, Σ.ITA(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVt(Σ1)))
+	Σ.L(0, 0, 32, Σ.ITA(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVt(Σ1), nil))
 	switch Σ1.(type) {
 	}
 }
 -- TestAnnotator36b.in --
-package p1
-
 func f0() {
 	switch (<-x).(type) {
 	}
 }
+var x chan any
 -- TestAnnotator36b.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.IUe(36, Σ.IVi(x))
-	Σ.Line(0, 0, 35, Σ0)
+	Σ.L(0, 0, 33, Σ0)
 	Σ1 := <-x
-	Σ.Line(0, 0, 32, Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVt((Σ1))))
+	Σ.L(0, 0, 33, Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVt((Σ1)), nil))
 	switch (Σ1).(type) {
 	}
 }
 -- TestAnnotator37.in --
-package p1
-
 func f0() {
 	switch b := x.(type) {
+	case int:
+		_=b
 	}
 }
+var x any
 -- TestAnnotator37.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 37, Σ.ITA(Σ.IVi(x), Σ.IVt(x)))
 	switch b := x.(type) {
+	case int:
+		Σ.L(0, 0, 49, Σ.ISt())
+		Σ0 := Σ.IVi(b)
+		Σ.L(0, 1, 63, Σ.IL(Σ0))
+		_ = b
 	}
 }
 -- TestAnnotator38.in --
-package p1
-
 func f0() {
 	switch a > b {
 	}
 }
+var a=0
+var b=0
 -- TestAnnotator38.out --
-package p1
-
 func f0() {
-	Σ0 := a > b
-	Σ.Line(0, 0, 32, Σ.IB(Σ.IVi(a), 41, Σ.IVi(b), Σ.IVi(Σ0)))
-	switch Σ0 {
+	Σ0 := Σ.IVi(a)
+	Σ1 := Σ.IVi(b)
+	Σ2 := a > b
+	Σ.L(0, 0, 32, Σ.IB(Σ0, 41, Σ1, Σ.IVi(Σ2)))
+	switch Σ2 {
 	}
 }
 -- TestAnnotator39.in --
-package p1
-
 func f0() {
 	switch a {
 	}
 }
+var a=0
 -- TestAnnotator39.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 32, Σ.IVi(a))
+	Σ.L(0, 0, 32, Σ.IVi(a))
 	switch a {
 	}
 }
 -- TestAnnotator40.in --
-package p1
-
 func f0() {
-	b := 1
 	switch a := f1(u); a {
 	}
 }
+var f1=func(int)int{return 0}
+var u=0
 -- TestAnnotator40.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1))
-	Σ.Line(0, 0, 25, Σ0)
-	b := 1
 	{
-		Σ1 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
-		Σ.Line(0, 1, 45, Σ1)
-		Σ2 := f1(u)
-		Σ3 := Σ.IL(Σ.IC(Σ1, Σ.IVi(Σ2)))
-		Σ.Line(0, 1, 40, Σ3)
-		a := Σ2
-		Σ.Line(0, 1, 52, Σ.IVi(a))
+		Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
+		Σ.L(0, 0, 37, Σ0)
+		Σ1 := f1(u)
+		Σ2 := Σ.IVi(Σ1)
+		Σ.L(0, 0, 37, Σ.IL(Σ.IC(Σ0, Σ2)))
+		a := Σ1
+		Σ.L(0, 1, 44, Σ.IVi(a))
 		switch a {
 		}
 	}
 }
 -- TestAnnotator40a.in --
-package p1
-
 func f0() {
 	switch f1(u) {
 	}
 }
+var f1=func(int)int{return 0}
+var u=0
 -- TestAnnotator40a.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 32, Σ0)
+	Σ.L(0, 0, 32, Σ0)
 	Σ1 := f1(u)
-	Σ.Line(0, 0, 32, Σ.IC(Σ0, Σ.IVi(Σ1)))
+	Σ.L(0, 0, 32, Σ.IC(Σ0, Σ.IVi(Σ1)))
 	switch Σ1 {
 	}
 }
 -- TestAnnotator41.in --
-package p1
-
 func f0() {
 	if a {
 	}
 }
+var a=true
 -- TestAnnotator41.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 28, Σ.IVi(a))
-	if a {
+	if func() bool {
+		Σ.L(0, 0, 28, Σ.IL(Σ.IVi(a)))
+		return a
+	}() {
 	}
 }
 -- TestAnnotator42.in --
-package p1
-
 func f0() {
-	if a {
-		b = 1
+	if a:=true;a {
+	}else if b:=a;b{
+		_=b
 	}
 }
 -- TestAnnotator42.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 28, Σ.IVi(a))
-	if a {
-		Σ0 := Σ.IL(Σ.IVi(1))
-		Σ.Line(0, 1, 34, Σ0)
-		b = 1
+	{
+		Σ.L(0, 0, 31, Σ.IL(Σ.IVs("true")))
+		a := true
+		if func() bool {
+			Σ.L(0, 1, 36, Σ.IL(Σ.IVi(a)))
+			return a
+		}() {
+		} else {
+			Σ0 := Σ.IVi(a)
+			Σ.L(0, 2, 53, Σ.IL(Σ0))
+			b := a
+			if func() bool {
+				Σ.L(0, 3, 55, Σ.IL(Σ.IVi(b)))
+				return b
+			}() {
+				Σ1 := Σ.IVi(b)
+				Σ.L(0, 4, 62, Σ.IL(Σ1))
+				_ = b
+			}
+		}
 	}
 }
 -- TestAnnotator43.in --
-package p1
-
 func f0() {
 	if c := f1(); c > 2 {
 	}
 }
+var f1=func()int{return 0}
 -- TestAnnotator43.out --
-package p1
-
 func f0() {
 	{
 		Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
-		Σ.Line(0, 0, 33, Σ0)
+		Σ.L(0, 0, 33, Σ0)
 		Σ1 := f1()
-		Σ2 := Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1)))
-		Σ.Line(0, 0, 28, Σ2)
+		Σ2 := Σ.IVi(Σ1)
+		Σ.L(0, 0, 33, Σ.IL(Σ.IC(Σ0, Σ2)))
 		c := Σ1
-		Σ3 := c > 2
-		Σ.Line(0, 0, 39, Σ.IB(Σ.IVi(c), 41, Σ.IVi(2), Σ.IVi(Σ3)))
-		if Σ3 {
+		if func() bool {
+			Σ3 := Σ.IVi(c)
+			Σ4 := c > 2
+			Σ.L(0, 1, 39, Σ.IL(Σ.IB(Σ3, 41, Σ.IVs("2"), Σ.IVi(Σ4))))
+			return Σ4
+		}() {
 		}
 	}
 }
 -- TestAnnotator44.in --
-package p1
-
 func f0() {
 	if a {
 	} else if b {
 	}
 }
+var a=true
+var b=true
 -- TestAnnotator44.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 28, Σ.IVi(a))
-	if a {
-	} else {
-		Σ.Line(0, 1, 43, Σ.IVi(b))
-		if b {
-		}
+	if func() bool {
+		Σ.L(0, 0, 28, Σ.IL(Σ.IVi(a)))
+		return a
+	}() {
+	} else if func() bool {
+		Σ.L(0, 1, 43, Σ.IL(Σ.IVi(b)))
+		return b
+	}() {
 	}
 }
 -- TestAnnotator45.in --
-package p1
-
 func f0() {
 	if v > f1(f2(v)) {
 	}
 }
+var v=0
+var f1=func(int)int{return 1}
+var f2=func(int)int{return 2}
 -- TestAnnotator45.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(v)))
-	Σ.Line(0, 0, 35, Σ0)
-	Σ1 := f2(v)
-	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1))))
-	Σ.Line(0, 0, 32, Σ2)
-	Σ3 := f1(Σ1)
-	Σ4 := v > Σ3
-	Σ.Line(0, 0, 28, Σ.IB(Σ.IVi(v), 41, Σ.IC(Σ2, Σ.IVi(Σ3)), Σ.IVi(Σ4)))
-	if Σ4 {
+	if func() bool {
+		Σ0 := Σ.IVi(v)
+		Σ1 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(v)))
+		Σ.L(0, 0, 35, Σ1)
+		Σ2 := f2(v)
+		Σ3 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ1, Σ.IVi(Σ2))))
+		Σ.L(0, 0, 32, Σ3)
+		Σ4 := f1(Σ2)
+		Σ5 := Σ.IVi(Σ4)
+		Σ6 := v > Σ4
+		Σ.L(0, 0, 28, Σ.IL(Σ.IB(Σ0, 41, Σ.IC(Σ3, Σ5), Σ.IVi(Σ6))))
+		return Σ6
+	}() {
 	}
 }
 -- TestAnnotator45b.in --
-package p1
-
 func f0() {
 	if !a {
 	}
 }
+var a=true
 -- TestAnnotator45b.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IUe(43, Σ.IVi(a))
-	Σ1 := !a
-	Σ.Line(0, 0, 28, Σ.IU(Σ0, Σ.IVi(Σ1)))
-	if Σ1 {
+	if func() bool {
+		Σ.L(0, 0, 28, Σ.IL(Σ.IU(Σ.IUe(43, Σ.IVi(a)), Σ.IVi(!a))))
+		return !a
+	}() {
 	}
 }
 -- TestAnnotator46.in --
-package p1
-
 func f0() {
 	if n := f1("s1"); !f2(n, "s2") {
 	}
 }
+var f1=func(string)int{return 1}
+var f2=func(int,string)bool{return false}
 -- TestAnnotator46.out --
-package p1
-
 func f0() {
 	{
-		Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi("s1")))
-		Σ.Line(0, 0, 33, Σ0)
+		Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVs("\"s1\"")))
+		Σ.L(0, 0, 33, Σ0)
 		Σ1 := f1("s1")
-		Σ2 := Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1)))
-		Σ.Line(0, 0, 28, Σ2)
+		Σ2 := Σ.IVi(Σ1)
+		Σ.L(0, 0, 33, Σ.IL(Σ.IC(Σ0, Σ2)))
 		n := Σ1
-		Σ3 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(n), Σ.IVi("s2")))
-		Σ.Line(0, 0, 44, Σ3)
-		Σ4 := f2(n, "s2")
-		Σ5 := Σ.IUe(43, Σ.IC(Σ3, Σ.IVi(Σ4)))
-		Σ6 := !Σ4
-		Σ.Line(0, 0, 43, Σ.IU(Σ5, Σ.IVi(Σ6)))
-		if Σ6 {
+		if func() bool {
+			Σ3 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(n), Σ.IVs("\"s2\"")))
+			Σ.L(0, 1, 44, Σ3)
+			Σ4 := f2(n, "s2")
+			Σ.L(0, 1, 43, Σ.IL(Σ.IU(Σ.IUe(43, Σ.IC(Σ3, Σ.IVi(Σ4))), Σ.IVi(!Σ4))))
+			return !Σ4
+		}() {
 		}
 	}
 }
 -- TestAnnotator47.in --
-package p1
-
 func f0() {
-	if nil != nil {
+	if a != nil {
 	}
 }
+var a *int
 -- TestAnnotator47.out --
-package p1
-
 func f0() {
-	Σ0 := nil != nil
-	Σ.Line(0, 0, 28, Σ.IB(Σ.IVi(nil), 44, Σ.IVi(nil), Σ.IVi(Σ0)))
-	if Σ0 {
+	if func() bool {
+		Σ0 := Σ.IVi(a)
+		Σ1 := Σ.IVi(nil)
+		Σ2 := a != nil
+		Σ.L(0, 0, 28, Σ.IL(Σ.IB(Σ0, 44, Σ1, Σ.IVi(Σ2))))
+		return Σ2
+	}() {
 	}
 }
 -- TestAnnotator48.in --
-package p1
-
 func f0() {
 	if a != 1 && b != 2 {
 	}
 }
+var a=0
+var b=0
 -- TestAnnotator48.out --
-package p1
-
 func f0() {
-	Σ0 := a != 1
-	Σ1 := Σ0
-	Σ2 := Σ.IVs("?")
-	if Σ1 {
-		Σ3 := b != 2
-		Σ2 = Σ.IB(Σ.IVi(b), 44, Σ.IVi(2), Σ.IVi(Σ3))
-		Σ1 = Σ3
-	}
-	Σ.Line(0, 0, 28, Σ.IB(Σ.IB(Σ.IVi(a), 44, Σ.IVi(1), Σ.IVi(Σ0)), 34, Σ2, Σ.IVi(Σ1)))
-	if Σ1 {
+	if func() bool {
+		Σ0 := Σ.IVi(a)
+		Σ1 := a != 1
+		Σ2 := Σ1
+		Σ3 := Σ.IVs("?")
+		if Σ1 {
+			Σ4 := Σ.IVi(b)
+			Σ5 := b != 2
+			Σ3 = Σ.IB(Σ4, 44, Σ.IVs("2"), Σ.IVi(Σ5))
+			Σ2 = Σ5
+		}
+		Σ.L(0, 0, 28, Σ.IL(Σ.IB(Σ.IB(Σ0, 44, Σ.IVs("1"), Σ.IVi(Σ1)), 34, Σ3, Σ.IVi(Σ2))))
+		return Σ2
+	}() {
 	}
 }
 -- TestAnnotator49.in --
-package p1
-
 func f0() {
 	if a || f2() {
 	}
 }
+var a=true
+var f2=func()bool{return true}
 -- TestAnnotator49.out --
-package p1
-
 func f0() {
-	Σ0 := a
-	Σ1 := Σ.IVs("?")
-	if !Σ0 {
-		Σ2 := Σ.ICe(Σ.IVs("f2"), nil)
-		Σ.Line(0, 0, 33, Σ2)
-		Σ3 := f2()
-		Σ1 = Σ.IC(Σ2, Σ.IVi(Σ3))
-		Σ0 = Σ3
-	}
-	Σ.Line(0, 0, 28, Σ.IB(Σ.IVi(a), 35, Σ1, Σ.IVi(Σ0)))
-	if Σ0 {
+	if func() bool {
+		Σ0 := a
+		Σ1 := Σ.IVs("?")
+		if !a {
+			Σ2 := Σ.ICe(Σ.IVs("f2"), nil)
+			Σ.L(0, 0, 33, Σ2)
+			Σ3 := f2()
+			Σ1 = Σ.IC(Σ2, Σ.IVi(Σ3))
+			Σ0 = Σ3
+		}
+		Σ.L(0, 0, 28, Σ.IL(Σ.IB(Σ.IVi(a), 35, Σ1, Σ.IVi(Σ0))))
+		return Σ0
+	}() {
 	}
 }
 -- TestAnnotator50.in --
-package p1
-
 func f0() {
 	for i := 0; ; i++ {
 	}
 }
 -- TestAnnotator50.out --
-package p1
-
 func f0() {
 	{
-		Σ0 := Σ.IL(Σ.IVi(0))
-		Σ.Line(0, 0, 29, Σ0)
+		Σ.L(0, 0, 34, Σ.IL(Σ.IVs("0")))
 		i := 0
-		Σ1 := false
-		for {
-			if Σ1 {
-				Σ2 := Σ.IL(Σ.IVi(i))
-				i++
-				Σ.Line(0, 0, 39, Σ.IA(Σ.IL(Σ.IVi(i)), 37, Σ2))
-			}
-			Σ1 = true
+		for ; ; func() {
+			i++
+			Σ.L(0, 1, 39, Σ.IVi(i))
+		}() {
 		}
 	}
 }
 -- TestAnnotator51.in --
-package p1
-
 func f0() {
 	for i := 0; i < 10; i++ {
 		a = 1
 	}
 }
+var a=0
 -- TestAnnotator51.out --
-package p1
-
 func f0() {
 	{
-		Σ0 := Σ.IL(Σ.IVi(0))
-		Σ.Line(0, 0, 29, Σ0)
+		Σ.L(0, 0, 34, Σ.IL(Σ.IVs("0")))
 		i := 0
-		Σ3 := false
-		for {
-			if Σ3 {
-				Σ4 := Σ.IL(Σ.IVi(i))
-				i++
-				Σ.Line(0, 0, 45, Σ.IA(Σ.IL(Σ.IVi(i)), 37, Σ4))
-			}
-			Σ3 = true
-			Σ2 := i < 10
-			Σ.Line(0, 0, 37, Σ.IB(Σ.IVi(i), 40, Σ.IVi(10), Σ.IVi(Σ2)))
-			if !Σ2 {
-				break
-			}
-			Σ1 := Σ.IL(Σ.IVi(1))
-			Σ.Line(0, 1, 53, Σ1)
+		for ; func() bool {
+			Σ0 := Σ.IVi(i)
+			Σ1 := i < 10
+			Σ.L(0, 1, 37, Σ.IL(Σ.IB(Σ0, 40, Σ.IVs("10"), Σ.IVi(Σ1))))
+			return Σ1
+		}(); func() {
+			i++
+			Σ.L(0, 2, 45, Σ.IVi(i))
+		}() {
+			Σ.L(0, 3, 57, Σ.IL(Σ.IVs("1")))
 			a = 1
 		}
 	}
 }
 -- TestAnnotator52.in --
-package p1
-
 func f0() {
 	for a, b := range c {
+		_,_=a,b
 	}
 }
+var c=[]int{}
 -- TestAnnotator52.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IVr(len(c))
-	Σ.Line(0, 0, 43, Σ.IL(Σ0, Σ.IVi(c)))
+	Σ.L(0, 0, 43, Σ.IVr(len(c)))
 	for a, b := range c {
-		Σ.Line(0, 0, 29, Σ.IA(Σ.IL(Σ.IVi(a), Σ.IVi(b)), 47, Σ.IL(Σ0)))
+		Σ.L(0, 0, 29, Σ.IL(Σ.IVi(a), Σ.IVi(b)))
+		Σ0 := Σ.IVi(a)
+		Σ1 := Σ.IVi(b)
+		Σ.L(0, 1, 53, Σ.IL(Σ0, Σ1))
+		_, _ = a, b
 	}
 }
 -- TestAnnotator53.in --
-package p1
-
 func f0() {
 	for a, _ := range f2() {
+		_=a
 	}
 }
+var f2=func()[]int{return nil}
 -- TestAnnotator53.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
-	Σ.Line(0, 0, 43, Σ0)
-	Σ1 := f2()
-	Σ2 := Σ.IVr(len(Σ1))
-	Σ.Line(0, 0, 43, Σ.IL(Σ2, Σ.IC(Σ0, Σ.IVi(Σ1))))
-	for a, _ := range Σ1 {
-		Σ.Line(0, 0, 29, Σ.IA(Σ.IL(Σ.IVi(a), Σ.IAn()), 47, Σ.IL(Σ2)))
+	Σ.L(0, 0, 43, Σ.IVr(len(f2())))
+	for a, _ := range f2() {
+		Σ.L(0, 0, 29, Σ.IL(Σ.IVi(a), Σ.IAn()))
+		Σ0 := Σ.IVi(a)
+		Σ.L(0, 1, 54, Σ.IL(Σ0))
+		_ = a
 	}
 }
 -- TestAnnotator54.in --
-package p1
-
 func f0() {
 	for _, _ = range a {
 	}
 }
+var a=[]int{}
 -- TestAnnotator54.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IVr(len(a))
-	Σ.Line(0, 0, 42, Σ.IL(Σ0, Σ.IVi(a)))
+	Σ.L(0, 0, 42, Σ.IVr(len(a)))
 	for _, _ = range a {
-		Σ.Line(0, 0, 29, Σ.IA(Σ.IL(Σ.IAn(), Σ.IAn()), 42, Σ.IL(Σ0)))
+		Σ.L(0, 0, 29, Σ.IL(Σ.IAn(), Σ.IAn()))
 	}
 }
 -- TestAnnotator55.in --
-package p1
-
 func f0() {
 	for a, _ = range c {
 	}
 }
+var a=0
+var c=[]int{}
 -- TestAnnotator55.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IVr(len(c))
-	Σ.Line(0, 0, 42, Σ.IL(Σ0, Σ.IVi(c)))
+	Σ.L(0, 0, 42, Σ.IVr(len(c)))
 	for a, _ = range c {
-		Σ.Line(0, 0, 29, Σ.IA(Σ.IL(Σ.IVi(a), Σ.IAn()), 42, Σ.IL(Σ0)))
+		Σ.L(0, 0, 29, Σ.IL(Σ.IVi(a), Σ.IAn()))
 	}
 }
 -- TestAnnotator56.in --
-package p1
-
 func f0() {
 label1:
 	a++
 	goto label1
 }
+var a=0
 -- TestAnnotator56.out --
-package p1
-
 func f0() {
 label1:
 	;
-	Σ0 := Σ.IL(Σ.IVi(a))
 	a++
-	Σ.Line(0, 0, 33, Σ.IA(Σ.IL(Σ.IVi(a)), 37, Σ0))
-	Σ.Line(0, 1, 38, Σ.IBr())
+	Σ.L(0, 0, 33, Σ.IVi(a))
+	Σ.L(0, 1, 38, Σ.ISt())
 	goto label1
 }
 -- TestAnnotator56a.in --
-package p1
-
 func f0() {
 label1:
 	for i := f(); i < 2; i++ {
 		break label1
 	}
 }
+var f=func()int{return 1}
 -- TestAnnotator56a.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 33, Σ.ILa("init not annotated due to label stmt"))
-	Σ1 := false
 label1:
-	for i := f(); ; {
-		if Σ1 {
-			Σ2 := Σ.IL(Σ.IVi(i))
-			i++
-			Σ.Line(0, 0, 54, Σ.IA(Σ.IL(Σ.IVi(i)), 37, Σ2))
-		}
-		Σ1 = true
-		Σ0 := i < 2
-		Σ.Line(0, 0, 47, Σ.IB(Σ.IVi(i), 40, Σ.IVi(2), Σ.IVi(Σ0)))
-		if !Σ0 {
-			break
-		}
-		Σ.Line(0, 1, 62, Σ.IBr())
+	for i := f(); func() bool {
+		Σ0 := Σ.IVi(i)
+		Σ1 := i < 2
+		Σ.L(0, 0, 47, Σ.IL(Σ.IB(Σ0, 40, Σ.IVs("2"), Σ.IVi(Σ1))))
+		return Σ1
+	}(); func() {
+		i++
+		Σ.L(0, 1, 54, Σ.IVi(i))
+	}() {
+		Σ.L(0, 2, 62, Σ.ISt())
 		break label1
 	}
 }
 -- TestAnnotator56b.in --
-package p1
-
 func f0() {
 label1:
 	switch a := f(); a {
+	case 1:
 	}
+	goto label1
 }
+var f=func()int{return 0}
 -- TestAnnotator56b.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 33, Σ.ILa("init not annotated due to label stmt"))
-	Σ.Line(0, 0, 50, Σ.IVi(a))
 label1:
 	switch a := f(); a {
+	case 1:
+		Σ.L(0, 0, 55, Σ.ISt())
 	}
+	Σ.L(0, 1, 67, Σ.ISt())
+	goto label1
 }
 -- TestAnnotator56c.in --
-package p1
-
 func f0() {
 label1:
 	switch x.(type) {
 	}
+	goto label1
 }
+var x any
 -- TestAnnotator56c.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 40, Σ.ITA(Σ.IVi(x), Σ.IVt(x)))
+
+	Σ.L(0, 0, 40, Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil))
 label1:
 	switch x.(type) {
 	}
+	Σ.L(0, 1, 55, Σ.ISt())
+	goto label1
 }
 -- TestAnnotator56d.in --
-package p1
-
 func f0() {
 label1:
 	for i:=range a {
 		continue label1
+		_=i
 	}
 }
+var a=[]int{}
 -- TestAnnotator56d.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IVr(len(a))
-	Σ.Line(0, 0, 46, Σ.IL(Σ0, Σ.IVi(a)))
+
+	Σ.L(0, 0, 46, Σ.IVr(len(a)))
 label1:
 	for i := range a {
-		Σ.Line(0, 0, 37, Σ.IA(Σ.IL(Σ.IVi(i)), 47, Σ.IL(Σ0)))
-		Σ.Line(0, 1, 52, Σ.IBr())
+		Σ.L(0, 0, 37, Σ.IL(Σ.IVi(i)))
+		Σ.L(0, 1, 52, Σ.ISt())
 		continue label1
+		Σ0 := Σ.IVi(i)
+		Σ.L(0, 2, 72, Σ.IL(Σ0))
+		_ = i
 	}
 }
 -- TestAnnotator56e.in --
-package p1
-
 func f0() {
 label1:
 	for a:=0;a<2;a++{
@@ -1243,418 +1167,366 @@ label1:
 	}
 }
 -- TestAnnotator56e.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 33, Σ.ILa("init not annotated due to label stmt"))
-	Σ3 := false
 label1:
-	for a := 0; ; {
-		if Σ3 {
-			Σ4 := Σ.IL(Σ.IVi(a))
-			a++
-			Σ.Line(0, 0, 46, Σ.IA(Σ.IL(Σ.IVi(a)), 37, Σ4))
-		}
-		Σ3 = true
-		Σ2 := a < 2
-		Σ.Line(0, 0, 42, Σ.IB(Σ.IVi(a), 40, Σ.IVi(2), Σ.IVi(Σ2)))
-		if !Σ2 {
-			break
-		}
+	for a := 0; func() bool {
+		Σ0 := Σ.IVi(a)
+		Σ1 := a < 2
+		Σ.L(0, 0, 42, Σ.IL(Σ.IB(Σ0, 40, Σ.IVs("2"), Σ.IVi(Σ1))))
+		return Σ1
+	}(); func() {
+		a++
+		Σ.L(0, 1, 46, Σ.IVi(a))
+	}() {
 		{
-			Σ0 := Σ.IL(Σ.IVi(a))
-			Σ.Line(0, 1, 56, Σ0)
+			Σ2 := Σ.IVi(a)
+			Σ.L(0, 2, 59, Σ.IL(Σ2))
 			b := a
-			Σ1 := b < 2
-			Σ.Line(0, 1, 61, Σ.IB(Σ.IVi(b), 40, Σ.IVi(2), Σ.IVi(Σ1)))
-			if Σ1 {
-				Σ.Line(0, 2, 69, Σ.IBr())
+			if func() bool {
+				Σ3 := Σ.IVi(b)
+				Σ4 := b < 2
+				Σ.L(0, 3, 61, Σ.IL(Σ.IB(Σ3, 40, Σ.IVs("2"), Σ.IVi(Σ4))))
+				return Σ4
+			}() {
+				Σ.L(0, 4, 69, Σ.ISt())
 				continue label1
 			}
 		}
 	}
 }
 -- TestAnnotator57.in --
-package p1
-
 func f0() {
 	a, b := 1, func(a int) int { return 3 }
+	_,_=a,b
 }
 -- TestAnnotator57.out --
-package p1
-
 func f0() {
-	Σ0 := func(a int) int { Σ.Line(0, 1, 40, Σ.IL(Σ.IVi(a))); Σ.Line(0, 2, 54, Σ.IL(Σ.IVi(3))); return 3 }
-	Σ1 := Σ.IL(Σ.IVi(1), Σ.IVi(Σ0))
-	Σ.Line(0, 0, 25, Σ1)
+	Σ0 := func(a int) int { Σ.L(0, 1, 41, Σ.IL(Σ.IL(Σ.IVi(a)))); Σ.L(0, 2, 61, Σ.IL(Σ.IVs("3"))); return 3 }
+	Σ1 := Σ.IVi(Σ0)
+	Σ.L(0, 0, 33, Σ.IL(Σ.IVs("1"), Σ1))
 	a, b := 1, Σ0
+	Σ2 := Σ.IVi(a)
+	Σ3 := Σ.IVi(b)
+	Σ.L(0, 3, 70, Σ.IL(Σ2, Σ3))
+	_, _ = a, b
 }
 -- TestAnnotator58.in --
-package p1
-
 func f0() {
-	a := make(map[string]string)
+	a = make(map[string]string)
 }
+var a any
 -- TestAnnotator58.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("T")))
-	Σ.Line(0, 0, 30, Σ0)
-	Σ1 := make(map[string]string)
-	Σ2 := Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
-	a := Σ1
+	Σ.L(0, 0, 29, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("_"))), nil)))
+	a = make(map[string]string)
 }
 -- TestAnnotator59.in --
-package p1
-
 func f0() {
-	a := map[string]string{"a": "b"}
+	a = map[string]string{"a": "b"}
 }
+var a any
 -- TestAnnotator59.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(Σ.IVi("a"), Σ.IVi("b")))))
-	Σ.Line(0, 0, 25, Σ0)
-	a := map[string]string{"a": "b"}
+	Σ.L(0, 0, 47, Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IVs("\"b\""))))))
+	a = map[string]string{"a": "b"}
 }
 -- TestAnnotator60.in --
-package p1
-
+import "bytes"
 func f0() {
-	tbuf := new(bytes.Buffer)
+	a = new(bytes.Buffer)
 }
+var a any
 -- TestAnnotator60.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("new"), Σ.IL(Σ.IVs("T")))
-	Σ.Line(0, 0, 33, Σ0)
-	Σ1 := new(bytes.Buffer)
-	Σ2 := Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
-	tbuf := Σ1
+	Σ.L(0, 0, 44, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("new"), Σ.IL(Σ.IVs("_"))), nil)))
+	a = new(bytes.Buffer)
 }
 -- TestAnnotator61.in --
-package p1
-
 func f0() {
 	defer f1(a, nil, b)
 }
+var f1=func(int,*int,int){}
+var a=0
+var b=0
 -- TestAnnotator61.out --
-package p1
-
 func f0() {
-	Σ0 := a
-	Σ1 := b
-	defer func() {
-		Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(Σ0), Σ.IVi(nil), Σ.IVi(Σ1)))
-		Σ.Line(0, 0, 31, Σ2)
-		f1(Σ0, nil, Σ1)
-		Σ.Line(0, 0, 31, Σ.IC(Σ2, nil))
-	}()
+	defer func() func() {
+		Σ.L(0, 1, 34, Σ.IL(Σ.IVi(a), Σ.IVi(nil), Σ.IVi(b)))
+		return func() {
+			Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(a), Σ.IVi(nil), Σ.IVi(b)))
+			Σ.L(0, 0, 31, Σ0)
+			f1(a, nil, b)
+			Σ.L(0, 0, 31, Σ.IC(Σ0, nil))
+		}
+	}()()
 }
 -- TestAnnotator62.in --
-package p1
-
 func f0() {
 	defer func(a int) bool { return true }(3)
 }
 -- TestAnnotator62.out --
-package p1
-
 func f0() {
-	Σ0 := func(a int) bool {
-		Σ.Line(0, 1, 35, Σ.IL(Σ.IVi(a)))
-		Σ.Line(0, 2, 50, Σ.IL(Σ.IVi(true)))
-		return true
-	}
-	Σ.Line(0, 0, 31, Σ.IVi(Σ0))
-	defer func() {
-		Σ1 := Σ.ICe(Σ.IVs("f"), Σ.IL(Σ.IVi(3)))
-		Σ.Line(0, 0, 31, Σ1)
-		Σ0(3)
-		Σ.Line(0, 0, 31, Σ.IC(Σ1, nil))
-	}()
+	defer func() func() {
+		Σ0 := func(a int) bool {
+			Σ.L(0, 2, 36, Σ.IL(Σ.IL(Σ.IVi(a))))
+			Σ.L(0, 3, 57, Σ.IL(Σ.IVs("true")))
+			return true
+		}
+		Σ.L(0, 0, 31, Σ.IVi(Σ0))
+		Σ.L(0, 0, 64, Σ.IL(Σ.IVs("3")))
+		return func() {
+			Σ1 := Σ.ICe(Σ.IVs("Σ0"), Σ.IL(Σ.IVs("3")))
+			Σ.L(0, 1, 31, Σ1)
+			Σ2 := Σ0(3)
+			Σ.L(0, 1, 31, Σ.IC(Σ1, Σ.IVi(Σ2)))
+		}
+	}()()
 }
 -- TestAnnotator62b.in --
-package p1
-
 func f0() {
 	defer f1()
 }
+var f1=func(){}
 -- TestAnnotator62b.out --
-package p1
-
 func f0() {
-	defer func() {
-		Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
-		Σ.Line(0, 0, 31, Σ0)
-		f1()
-		Σ.Line(0, 0, 31, Σ.IC(Σ0, nil))
-	}()
+	defer func() func() {
+		return func() {
+			Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
+			Σ.L(0, 0, 31, Σ0)
+			f1()
+			Σ.L(0, 0, 31, Σ.IC(Σ0, nil))
+		}
+	}()()
 }
 -- TestAnnotator62c.in --
-package p1
-
 func f0() {
 	defer func() { a = 1 }()
 }
+var a=0
 -- TestAnnotator62c.out --
-package p1
-
 func f0() {
-	Σ1 := func() { Σ0 := Σ.IL(Σ.IVi(1)); Σ.Line(0, 1, 40, Σ0); a = 1 }
-	Σ.Line(0, 0, 31, Σ.IVi(Σ1))
-	defer func() {
-		Σ2 := Σ.ICe(Σ.IVs("f"), nil)
-		Σ.Line(0, 0, 31, Σ2)
-		Σ1()
-		Σ.Line(0, 0, 31, Σ.IC(Σ2, nil))
-	}()
+	defer func() func() {
+		Σ0 := func() { Σ.L(0, 2, 44, Σ.IL(Σ.IVs("1"))); a = 1 }
+		Σ.L(0, 0, 31, Σ.IVi(Σ0))
+		return func() {
+			Σ1 := Σ.ICe(Σ.IVs("Σ0"), nil)
+			Σ.L(0, 1, 31, Σ1)
+			Σ0()
+			Σ.L(0, 1, 31, Σ.IC(Σ1, nil))
+		}
+	}()()
 }
 -- TestAnnotator63.in --
-package p1
-
 func f0() {
 	var a, b int = 1, 2
+	_,_=a,b
 }
 -- TestAnnotator63.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 29, Σ.IL(Σ.IVi(1), Σ.IVi(2)))
 	var a, b int = 1, 2
+	Σ0 := Σ.IVi(a)
+	Σ1 := Σ.IVi(b)
+	Σ.L(0, 0, 50, Σ.IL(Σ0, Σ1))
+	_, _ = a, b
 }
 -- TestAnnotator64.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
+func f0() (a int, b *int, c *C) {
 	return
 }
+type C struct{}
 -- TestAnnotator64.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IVi(a), Σ.IVi(b), Σ.IVi(c)))
+func f0() (a int, b *int, c *C) {
+	Σ.L(0, 0, 23, Σ.IL(Σ.IVi(a), Σ.IVi(b), Σ.IVi(c)))
 	return a, b, c
 
 }
 -- TestAnnotator65.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	return 1, f1(u), 1
+func f0() (a int, b *int, c *C) {
+	return 1, f1(u), c
 }
+type C struct{}
+var f1=func(int)*int{return nil}
+var u=0
 -- TestAnnotator65.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
+func f0() (a int, b *int, c *C) {
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 63, Σ0)
+	Σ.L(0, 0, 57, Σ0)
 	Σ1 := f1(u)
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IVi(1), Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVi(1)))
-	return 1, Σ1, 1
+	Σ.L(0, 0, 54, Σ.IL(Σ.IVs("1"), Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVi(c)))
+	return 1, Σ1, c
 }
 -- TestAnnotator66.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
+func f0() (a int, b *int, c *C) {
 	return f1(f2(u))
 }
+type C struct{}
+var f1=func(int,int)(a int,b *int,c *C){return}
+var f2=func(int)(int,int){return 0,0}
+var u=0
 -- TestAnnotator66.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
+func f0() (a int, b *int, c *C) {
 	Σ0 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 63, Σ0)
-	Σ1 := f2(u)
-	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1))))
-	Σ.Line(0, 0, 60, Σ2)
-	Σ3, Σ4, Σ5 := f1(Σ1)
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IC(Σ2, Σ.IL(Σ.IVi(Σ3), Σ.IVi(Σ4), Σ.IVi(Σ5)))))
-	return Σ3, Σ4, Σ5
+	Σ.L(0, 0, 57, Σ0)
+	Σ1, Σ2 := f2(u)
+	Σ3 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ0, Σ.IL(Σ.IVi(Σ1), Σ.IVi(Σ2)))))
+	Σ.L(0, 0, 54, Σ3)
+	Σ4, Σ5, Σ6 := f1(Σ1, Σ2)
+	Σ.L(0, 0, 54, Σ.IL(Σ.IC(Σ3, Σ.IL(Σ.IVi(Σ4), Σ.IVi(Σ5), Σ.IVi(Σ6)))))
+	return Σ4, Σ5, Σ6
 }
 -- TestAnnotator67.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	return f1(f2(u)), 3, f2(u)
+func f0() (a int, b *int, c *C) {
+	return f1(f2(u)), nil, f3(u)
 }
+type C struct{}
+var f1=func(int)int{return 0}
+var f2=func(int)int{return 0}
+var f3=func(int)*C{return nil}
+var u=0
 -- TestAnnotator67.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
+func f0() (a int, b *int, c *C) {
 	Σ0 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 63, Σ0)
+	Σ.L(0, 0, 57, Σ0)
 	Σ1 := f2(u)
 	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1))))
-	Σ.Line(0, 0, 60, Σ2)
+	Σ.L(0, 0, 54, Σ2)
 	Σ3 := f1(Σ1)
-	Σ4 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 74, Σ4)
-	Σ5 := f2(u)
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IC(Σ2, Σ.IVi(Σ3)), Σ.IVi(3), Σ.IC(Σ4, Σ.IVi(Σ5))))
-	return Σ3, 3, Σ5
+	Σ4 := Σ.ICe(Σ.IVs("f3"), Σ.IL(Σ.IVi(u)))
+	Σ.L(0, 0, 70, Σ4)
+	Σ5 := f3(u)
+	Σ.L(0, 0, 54, Σ.IL(Σ.IC(Σ2, Σ.IVi(Σ3)), Σ.IVi(nil), Σ.IC(Σ4, Σ.IVi(Σ5))))
+	return Σ3, nil, Σ5
 }
 -- TestAnnotator68.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	return a.b, c, d
+func f0() (a int, b *int, c *C) {
+	return a, b, c
 }
+type C struct{}
 -- TestAnnotator68.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IVi(a.b), Σ.IVi(c), Σ.IVi(d)))
-	return a.b, c, d
+func f0() (a int, b *int, c *C) {
+	Σ.L(0, 0, 54, Σ.IL(Σ.IVi(a), Σ.IVi(b), Σ.IVi(c)))
+	return a, b, c
 }
 -- TestAnnotator69.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	return 1, 1, f1(f2(u))
+func f0() (a int, b *int, c *C) {
+	return 1, nil, f1(f2(u))
 }
+type C struct{}
+var f1=func(int)*C{return nil}
+var f2=func(int)int{return 0}
+var u=0
 -- TestAnnotator69.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
+func f0() (a int, b *int, c *C) {
 	Σ0 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 69, Σ0)
+	Σ.L(0, 0, 65, Σ0)
 	Σ1 := f2(u)
 	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1))))
-	Σ.Line(0, 0, 66, Σ2)
+	Σ.L(0, 0, 62, Σ2)
 	Σ3 := f1(Σ1)
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IVi(1), Σ.IVi(1), Σ.IC(Σ2, Σ.IVi(Σ3))))
-	return 1, 1, Σ3
+	Σ.L(0, 0, 54, Σ.IL(Σ.IVs("1"), Σ.IVi(nil), Σ.IC(Σ2, Σ.IVi(Σ3))))
+	return 1, nil, Σ3
 }
 -- TestAnnotator70.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	return 1, 1, &Struct1{a, f1(a + 1)}
+func f0() (a int, b *int, c *C) {
+	return 1, nil, &C{a, f1(a + 1)}
 }
+type C struct{d,e int}
+var a=0
+var f1=func(int)int{return 0}
 -- TestAnnotator70.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	Σ0 := a + 1
-	Σ1 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IB(Σ.IVi(a), 12, Σ.IVi(1), Σ.IVi(Σ0))))
-	Σ.Line(0, 0, 78, Σ1)
-	Σ2 := f1(Σ0)
-	Σ3 := Σ.IUe(17, Σ.ILit(Σ.IL(Σ.IVi(a), Σ.IC(Σ1, Σ.IVi(Σ2)))))
-	Σ4 := &Struct1{a, Σ2}
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IVi(1), Σ.IVi(1), Σ.IU(Σ3, Σ.IVi(Σ4))))
-	return 1, 1, Σ4
+func f0() (a int, b *int, c *C) {
+	Σ0 := Σ.IVi(a)
+	Σ1 := a + 1
+	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IB(Σ0, 12, Σ.IVs("1"), Σ.IVi(Σ1))))
+	Σ.L(0, 0, 68, Σ2)
+	Σ3 := f1(Σ1)
+	Σ4 := &C{a, Σ3}
+	Σ.L(0, 0, 54, Σ.IL(Σ.IVs("1"), Σ.IVi(nil), Σ.IU(Σ.IUe(17, Σ.ILit(Σ.IL(Σ.IVi(a), Σ.IC(Σ2, Σ.IVi(Σ3))))), Σ.IVi(Σ4))))
+	return 1, nil, Σ4
 }
 -- TestAnnotator71.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	return 1, 1, &Struct1{a, uint16((1 << 16) / 360)}
+func f0() (a int, b *int, c *C) {
+	return 1, nil, &C{a, uint16((1 << 16) / 360)}
 }
+type C struct{c int; e uint16}
+var a=0
 -- TestAnnotator71.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	Σ0 := Σ.ICe(Σ.IVs("uint16"), Σ.IL(Σ.IB(Σ.IP(Σ.IB(Σ.IVi(1), 20, Σ.IVi(16), Σ.IVi(1<<16))), 15, Σ.IVi(360), Σ.IVi((1<<16)/360))))
-	Σ.Line(0, 0, 78, Σ0)
-	Σ1 := uint16((1 << 16) / 360)
-	Σ2 := Σ.IUe(17, Σ.ILit(Σ.IL(Σ.IVi(a), Σ.IC(Σ0, Σ.IVi(Σ1)))))
-	Σ3 := &Struct1{a, Σ1}
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IVi(1), Σ.IVi(1), Σ.IU(Σ2, Σ.IVi(Σ3))))
-	return 1, 1, Σ3
+func f0() (a int, b *int, c *C) {
+	Σ0 := &C{a, uint16((1 << 16) / 360)}
+	Σ.L(0, 0, 54, Σ.IL(Σ.IVs("1"), Σ.IVi(nil), Σ.IU(Σ.IUe(17, Σ.ILit(Σ.IL(Σ.IVi(a), Σ.IC(Σ.ICe(Σ.IVs("uint16"), Σ.IL(Σ.IB(Σ.IP(Σ.IB(Σ.IVs("1"), 20, Σ.IVs("16"), Σ.IVs("65536"))), 15, Σ.IVs("360"), Σ.IVs("182")))), Σ.IVs("182"))))), Σ.IVi(Σ0))))
+	return 1, nil, Σ0
 }
 -- TestAnnotator72.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	return 1, f1(u) + f1(u), nil
+func f0() (a int, b *int, c *C) {
+	return f1(u) + f1(u), nil, nil
 }
+type C struct{}
+var f1=func(int)int{return 0}
+var u=0
 -- TestAnnotator72.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
+func f0() (a int, b *int, c *C) {
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 63, Σ0)
+	Σ.L(0, 0, 54, Σ0)
 	Σ1 := f1(u)
-	Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
-	Σ.Line(0, 0, 71, Σ2)
-	Σ3 := f1(u)
-	Σ4 := Σ1 + Σ3
-	Σ.Line(0, 0, 53, Σ.IL(Σ.IVi(1), Σ.IB(Σ.IC(Σ0, Σ.IVi(Σ1)), 12, Σ.IC(Σ2, Σ.IVi(Σ3)), Σ.IVi(Σ4)), Σ.IVi(nil)))
-	return 1, Σ4, nil
+	Σ2 := Σ.IVi(Σ1)
+	Σ3 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
+	Σ.L(0, 0, 62, Σ3)
+	Σ4 := f1(u)
+	Σ5 := Σ.IVi(Σ4)
+	Σ6 := Σ1 + Σ4
+	Σ.L(0, 0, 54, Σ.IL(Σ.IB(Σ.IC(Σ0, Σ2), 12, Σ.IC(Σ3, Σ5), Σ.IVi(Σ6)), Σ.IVi(nil), Σ.IVi(nil)))
+	return Σ6, nil, nil
 }
 -- TestAnnotator73.in --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	return path[len(d):], 1, 1
+func f0() (a int, b *int) {
+	return path[len(d):][0], nil
 }
+var path=[]int{}
+var d=[]int{}
 -- TestAnnotator73.out --
-package p1
-
-func f0() (a int, b *int, c *Struct1) {
-	Σ0 := Σ.ICe(Σ.IVs("len"), Σ.IL(Σ.IVi(d)))
-	Σ.Line(0, 0, 65, Σ0)
-	Σ1 := len(d)
-	Σ2 := path[Σ1:]
-	Σ.Line(0, 0, 53, Σ.IL(Σ.II2(Σ.IVs("path"), Σ.IC(Σ0, Σ.IVi(Σ1)), nil, nil, false, Σ.IVi(Σ2)), Σ.IVi(1), Σ.IVi(1)))
-	return Σ2, 1, 1
+func f0() (a int, b *int) {
+	Σ0 := len(d)
+	Σ1 := path[Σ0:][0]
+	Σ.L(0, 0, 48, Σ.IL(Σ.II(Σ.II2(Σ.IVs("path"), Σ.IC(Σ.ICe(Σ.IVs("len"), Σ.IL(Σ.IVi(d))), Σ.IVi(Σ0)), nil, nil, false, nil), Σ.IVs("0"), Σ.IVi(Σ1)), Σ.IVi(nil)))
+	return Σ1, nil
 }
 -- TestAnnotator74.in --
-package p1
-
 func f0(a, b int, c bool) {
 }
 -- TestAnnotator74.out --
-package p1
-
 func f0(a, b int, c bool) {
-	Σ.Line(0, 0, 19, Σ.IL(Σ.IVi(a), Σ.IVi(b), Σ.IVi(c)))
+	Σ.L(0, 0, 20, Σ.IL(Σ.IL(Σ.IVi(a), Σ.IVi(b), Σ.IVi(c))))
 }
 -- TestAnnotator75.in --
-package p1
-
 func f0() {
 	a++
 }
+var a=0
 -- TestAnnotator75.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(a))
 	a++
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.IVi(a)), 37, Σ0))
+	Σ.L(0, 0, 25, Σ.IVi(a))
 }
 -- TestAnnotator76.in --
-package p1
-
 func f0() {
 	switch a {
 	case 1:
 		b = 2
 	}
 }
+var a=0
+var b=0
 -- TestAnnotator76.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 32, Σ.IVi(a))
+	Σ.L(0, 0, 32, Σ.IVi(a))
 	switch a {
 	case 1:
-		Σ.Line(0, 1, 37, Σ.ISt())
-		Σ0 := Σ.IL(Σ.IVi(2))
-		Σ.Line(0, 2, 47, Σ0)
+		Σ.L(0, 1, 37, Σ.ISt())
+		Σ.L(0, 2, 51, Σ.IL(Σ.IVs("2")))
 		b = 2
 	}
 }
 -- TestAnnotator76a.in --
-package p1
-
 func f0() {
 	switch {
 	case a == 1:
@@ -1662,647 +1534,736 @@ func f0() {
 	default:
 	}
 }
+var a=0
 -- TestAnnotator76a.out --
-package p1
-
 func f0() {
+	Σ.L(0, 0, 25, Σ.ISt())
 	switch {
 	case a == 1:
-		Σ.Line(0, 0, 35, Σ.ISt())
-		Σ.Line(0, 1, 50, Σ.ISt())
+		Σ.L(0, 1, 35, Σ.ISt())
+		Σ.L(0, 2, 50, Σ.ISt())
 		return
 	default:
-		Σ.Line(0, 2, 58, Σ.ISt())
+		Σ.L(0, 3, 58, Σ.ISt())
 	}
 }
 -- TestAnnotator77.in --
-package p1
-
 func f0() {
 	go f1()
 }
+var f1=func(){}
 -- TestAnnotator77.out --
-package p1
-
 func f0() {
-	go func() {
-		Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
-		Σ.Line(0, 0, 28, Σ0)
-		f1()
-		Σ.Line(0, 0, 28, Σ.IC(Σ0, nil))
-	}()
+	go func() func() {
+		return func() {
+			Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
+			Σ.L(0, 0, 28, Σ0)
+			f1()
+			Σ.L(0, 0, 28, Σ.IC(Σ0, nil))
+		}
+	}()()
+}
+-- TestAnnotator77b.in --
+func f0() {
+	go f1(f2())
+}
+var f1=func(int){}
+var f2=func()int {return 0}
+-- TestAnnotator77b.out --
+func f0() {
+	go func() func() {
+		Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
+		Σ.L(0, 1, 31, Σ0)
+		Σ1 := f2()
+		Σ.L(0, 1, 31, Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1))))
+		return func() {
+			Σ2 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(Σ1)))
+			Σ.L(0, 0, 28, Σ2)
+			f1(Σ1)
+			Σ.L(0, 0, 28, Σ.IC(Σ2, nil))
+		}
+	}()()
 }
 -- TestAnnotator78.in --
-package p1
-
 func f0() {
 	*a = 1
 }
+var a *int
 -- TestAnnotator78.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1))
 	*a = 1
-	Σ1 := Σ.IUe(14, Σ.IVi(a))
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.IU(Σ1, Σ.IVi(*a))), 42, Σ0))
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.IU(Σ.IUe(14, Σ.IVi(a)), Σ.IVi(*a))), 42, Σ.IL(Σ.IVs("1"))))
 }
 -- TestAnnotator79.in --
-package p1
-
 func f0() {
-	a := W{a: 1, b: 2, c: 3}
+	a := A{a: 1, b: 2, c: 3}
+	_=a
 }
+type A struct{a,b,c int}
 -- TestAnnotator79.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(Σ.IVs("a"), Σ.IVi(1)), Σ.IKV(Σ.IVs("b"), Σ.IVi(2)), Σ.IKV(Σ.IVs("c"), Σ.IVi(3)))))
-	Σ.Line(0, 0, 25, Σ0)
-	a := W{a: 1, b: 2, c: 3}
+	Σ.L(0, 0, 32, Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IVs("1")), Σ.IKV(nil, Σ.IVs("2")), Σ.IKV(nil, Σ.IVs("3"))))))
+	a := A{a: 1, b: 2, c: 3}
+	Σ0 := Σ.IVi(a)
+	Σ.L(0, 1, 53, Σ.IL(Σ0))
+	_ = a
 }
 -- TestAnnotator80.in --
-package p1
-
 func f0() {
 	type A struct{ a int }
 }
 -- TestAnnotator80.out --
-package p1
-
 func f0() {
 	type A struct{ a int }
 }
 -- TestAnnotator81.in --
-package p1
-
 func f0() {
 	var a = f1(1)
+	_=a
 }
+var f1=func(int)int{return 0}
 -- TestAnnotator81.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(1)))
-	Σ.Line(0, 0, 33, Σ0)
-	Σ1 := f1(1)
-	Σ.Line(0, 0, 29, Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1))))
-	var a = Σ1
+	var a = f1(1)
+	Σ0 := Σ.IVi(a)
+	Σ.L(0, 0, 42, Σ.IL(Σ0))
+	_ = a
 }
 -- TestAnnotator82.in --
-package p1
-
 func f0() {
-	var a = S{1}
+	var a = A{1}
+	_=a
 }
+type A struct{a int}
 -- TestAnnotator82.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 29, Σ.IL(Σ.ILit(Σ.IL(Σ.IVi(1)))))
-	var a = S{1}
+	var a = A{1}
+	Σ0 := Σ.IVi(a)
+	Σ.L(0, 0, 41, Σ.IL(Σ0))
+	_ = a
 }
 -- TestAnnotator84.in --
-package p1
-
 func f0() {
 	select {
 	case a, ok := <-c:
-		_ = a
+		_,_=a,ok
 	}
 }
+var c chan int
 -- TestAnnotator84.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 25, Σ.ISt())
+	Σ.L(0, 0, 25, Σ.ISt())
 	select {
 	case a, ok := <-c:
-		Σ.Line(0, 1, 35, Σ.ISt())
-		Σ0 := Σ.IL(Σ.IVi(a))
-		Σ.Line(0, 2, 56, Σ0)
-		_ = a
+		Σ.L(0, 1, 35, Σ.ISt())
+		Σ0 := Σ.IVi(a)
+		Σ1 := Σ.IVi(ok)
+		Σ.L(0, 2, 60, Σ.IL(Σ0, Σ1))
+		_, _ = a, ok
 	}
 }
 -- TestAnnotator84a.in --
-package p1
-
 func f0() {
 	select {
 	case a := <-c:
-	case <-b:
+		_=a
+	case <-d:
 		break
-	case <-c:
+	case <-e:
 		return
 	}
 }
+var c chan int
+var d chan int
+var e chan int
 -- TestAnnotator84a.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 25, Σ.ISt())
+	Σ.L(0, 0, 25, Σ.ISt())
 	select {
 	case a := <-c:
-		Σ.Line(0, 1, 35, Σ.ISt())
-	case <-b:
-		Σ.Line(0, 2, 51, Σ.ISt())
-		Σ.Line(0, 3, 63, Σ.IBr())
+		Σ.L(0, 1, 35, Σ.ISt())
+		Σ0 := Σ.IVi(a)
+		Σ.L(0, 2, 54, Σ.IL(Σ0))
+		_ = a
+	case <-d:
+		Σ.L(0, 3, 57, Σ.ISt())
+		Σ.L(0, 4, 69, Σ.ISt())
 		break
-	case <-c:
-		Σ.Line(0, 4, 70, Σ.ISt())
-		Σ.Line(0, 5, 82, Σ.ISt())
+	case <-e:
+		Σ.L(0, 5, 76, Σ.ISt())
+		Σ.L(0, 6, 88, Σ.ISt())
 		return
 	}
 }
 -- TestAnnotator85.in --
-package p1
-
 func f0() {
-	a[c].b = true
+	a[c].b = d
 }
+var a=[]A{}
+type A struct{b bool}
+var c=0
+var d=true
 -- TestAnnotator85.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(true))
-	a[c].b = true
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.ISel(Σ.II(Σ.IVs("a"), Σ.IVi(c), Σ.IVi(a[c])), Σ.IVi(a[c].b))), 42, Σ0))
+	Σ0 := c
+	Σ1 := a[Σ0]
+	Σ2 := Σ.IVi(d)
+	Σ1.b = d
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.ISel(Σ.II(Σ.IVs("a"), Σ.IVi(Σ0), Σ.IVi(Σ1)), Σ.IVs("b"), Σ.IVi(Σ1.b))), 42, Σ.IL(Σ2)))
 }
 -- TestAnnotator86.in --
-package p1
-
 func f0() {
 	panic(a)
 }
+var a=0
 -- TestAnnotator86.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("panic"), Σ.IL(Σ.IVi(a)))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 25, Σ0)
+	_ = Σ.IC(Σ0, nil)
 	panic(a)
 }
 -- TestAnnotator87.in --
-package p1
-
 func f0() {
 	<-c
 }
+var c chan any
 -- TestAnnotator87.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.IUe(36, Σ.IVi(c))
-	Σ.Line(0, 0, 27, Σ0)
-	<-c
-	Σ.Line(0, 0, 25, Σ.IU(Σ0, nil))
+	Σ.L(0, 0, 25, Σ0)
+	Σ1 := <-c
+	Σ.L(0, 0, 25, Σ.IU(Σ0, Σ.IVi(Σ1)))
 }
 -- TestAnnotator87a.in --
-package p1
-
 func f0() {
 	a <- <-c
 }
+var c chan int
+var a chan int
 -- TestAnnotator87a.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.IUe(36, Σ.IVi(c))
-	Σ.Line(0, 1, 32, Σ0)
+	Σ.L(0, 0, 30, Σ0)
 	Σ1 := <-c
+	Σ.L(0, 0, 25, Σ.IS(Σ.IVi(a), Σ.IU(Σ0, Σ.IVi(Σ1))))
 	a <- Σ1
-	Σ.Line(0, 0, 25, Σ.IS(Σ.IVi(a), Σ.IU(Σ0, Σ.IVi(Σ1))))
 }
 -- TestAnnotator87b.in --
-package p1
-
 func f0() {
-	c := (<-a).(*b1)
+	c := (<-a).(*C)
+	_=c
 }
+var a chan any
+type C struct{}
 -- TestAnnotator87b.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.IUe(36, Σ.IVi(a))
-	Σ.Line(0, 0, 33, Σ0)
+	Σ.L(0, 0, 31, Σ0)
 	Σ1 := <-a
-	Σ2 := Σ.IL(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))))
-	c := (Σ1).(*b1)
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.IVi(c)), 47, Σ2))
+	Σ2 := (Σ1).(*C)
+	Σ3 := Σ.IVi(Σ2)
+	Σ.L(0, 0, 31, Σ.IL(Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), nil, Σ3)))
+	c := Σ2
+	Σ4 := Σ.IVi(c)
+	Σ.L(0, 1, 44, Σ.IL(Σ4))
+	_ = c
 }
 -- TestAnnotator87c.in --
-package p1
-
 func f0() {
-	c, ok := (<-a).(b)
+	c, ok := (<-a).(C)
+	_,_=c,ok
 }
+var a chan any
+type C struct{}
 -- TestAnnotator87c.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.IUe(36, Σ.IVi(a))
-	Σ.Line(0, 0, 37, Σ0)
+	Σ.L(0, 0, 35, Σ0)
 	Σ1 := <-a
-	Σ2 := Σ.IL(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))))
-	c, ok := (Σ1).(b)
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.IVi(c), Σ.IVi(ok)), 47, Σ2))
+	Σ2, Σ3 := (Σ1).(C)
+	Σ4 := Σ.IL(Σ.IVi(Σ2), Σ.IVi(Σ3))
+	Σ.L(0, 0, 35, Σ.IL(Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVt((Σ1)), Σ4)))
+	c, ok := Σ2, Σ3
+	Σ5 := Σ.IVi(c)
+	Σ6 := Σ.IVi(ok)
+	Σ.L(0, 1, 49, Σ.IL(Σ5, Σ6))
+	_, _ = c, ok
 }
 -- TestAnnotator87d.in --
-package p1
-
 func f0() {
 	(<-a).f()
 }
+var a chan A
+type A struct{f func()}
 -- TestAnnotator87d.out --
-package p1
-
-func f0() {
-	Σ0 := Σ.IUe(36, Σ.IVs("a"))
-	Σ.Line(0, 0, 28, Σ0)
-	Σ1 := <-a
-	Σ2 := Σ.ICe(Σ.ISel(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVs("f")), nil)
-	Σ.Line(0, 0, 25, Σ2)
-	(Σ1).f()
-	Σ.Line(0, 0, 25, Σ.IC(Σ2, nil))
-}
--- TestAnnotator87e.in --
-package p1
-
-func f0() {
-	(<-a)
-}
--- TestAnnotator87e.out --
-package p1
-
 func f0() {
 	Σ0 := Σ.IUe(36, Σ.IVi(a))
-	Σ.Line(0, 0, 28, Σ0)
+	Σ.L(0, 0, 26, Σ0)
+	Σ1 := <-a
+	Σ2 := Σ.ICe(Σ.ISel(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVs("f"), nil), nil)
+	Σ.L(0, 0, 26, Σ2)
+	(Σ1).f()
+	Σ.L(0, 0, 26, Σ.IC(Σ2, nil))
+}
+-- TestAnnotator87e.in --
+func f0() {
 	(<-a)
-	Σ.Line(0, 0, 25, Σ.IP(Σ.IU(Σ0, nil)))
+}
+var a chan any
+-- TestAnnotator87e.out --
+func f0() {
+	Σ0 := Σ.IUe(36, Σ.IVi(a))
+	Σ.L(0, 0, 26, Σ0)
+	Σ1 := <-a
+	Σ.L(0, 0, 26, Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))))
 }
 -- TestAnnotator88.in --
-package p1
-
 func f0() {
 	{
-		a
+		_=a
 	}
 }
+var a=0
 -- TestAnnotator88.out --
-package p1
-
 func f0() {
 	{
-		a
-		Σ.Line(0, 0, 29, Σ.IVi(a))
+		Σ0 := Σ.IVi(a)
+		Σ.L(0, 0, 31, Σ.IL(Σ0))
+		_ = a
 	}
 }
 -- TestAnnotator89.in --
-package p1
-
 func f0() {
 	a.b["s"] = 1
 }
+var a=struct{b map[string]int}{}
 -- TestAnnotator89.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(1))
 	a.b["s"] = 1
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("b"), Σ.IVi("s"), Σ.IVi(a.b["s"]))), 42, Σ0))
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.II(nil, Σ.IVs("\"s\""), Σ.IVi(a.b["s"]))), 42, Σ.IL(Σ.IVs("1"))))
 }
 -- TestAnnotator90.in --
-package p1
-
 func f0() {
 	a[i], a[j] = a[j], a[i]
 }
+var a=[]int{}
+var i,j int
 -- TestAnnotator90.out --
-package p1
-
 func f0() {
-	Σ0 := a[j]
-	Σ1 := a[i]
-	Σ2 := Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(j), Σ.IVi(Σ0)), Σ.II(Σ.IVs("a"), Σ.IVi(i), Σ.IVi(Σ1)))
-	a[i], a[j] = Σ0, Σ1
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(i), Σ.IVi(a[i])), Σ.II(Σ.IVs("a"), Σ.IVi(j), Σ.IVi(a[j]))), 42, Σ2))
+	Σ0 := i
+	Σ1 := j
+	Σ2 := j
+	Σ3 := a[Σ2]
+	Σ4 := Σ.IVi(Σ3)
+	Σ5 := i
+	Σ6 := a[Σ5]
+	Σ7 := Σ.IVi(Σ6)
+	a[Σ0], a[Σ1] = Σ3, Σ6
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(Σ0), Σ.IVi(a[Σ0])), Σ.II(Σ.IVs("a"), Σ.IVi(Σ1), Σ.IVi(a[Σ1]))), 42, Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(Σ2), Σ4), Σ.II(Σ.IVs("a"), Σ.IVi(Σ5), Σ7))))
 }
 -- TestAnnotator91.in --
-package p1
-
 func f0() {
 	a := []byte{}
+	_=a
 }
 -- TestAnnotator91.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.ILit(nil))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 30, Σ.IL(Σ.ILit(nil)))
 	a := []byte{}
+	Σ0 := Σ.IVi(a)
+	Σ.L(0, 1, 42, Σ.IL(Σ0))
+	_ = a
 }
 -- TestAnnotator92.in --
-package p1
-
 func f0() {
 	a := func(a ...int) []int { return a }
+	_=a
 }
 -- TestAnnotator92.out --
-package p1
-
 func f0() {
 	Σ0 := func(a ...int) []int {
-		Σ.Line(0, 1, 34, Σ.IL(Σ.IVi(a)))
-		Σ.Line(0, 2, 53, Σ.IL(Σ.IVi(a)))
+		Σ.L(0, 1, 35, Σ.IL(Σ.IL(Σ.IVi(a))))
+		Σ.L(0, 2, 60, Σ.IL(Σ.IVi(a)))
 		return a
 	}
-	Σ1 := Σ.IL(Σ.IVi(Σ0))
-	Σ.Line(0, 0, 25, Σ1)
+	Σ1 := Σ.IVi(Σ0)
+	Σ.L(0, 0, 30, Σ.IL(Σ1))
 	a := Σ0
+	Σ2 := Σ.IVi(a)
+	Σ.L(0, 3, 67, Σ.IL(Σ2))
+	_ = a
 }
 -- TestAnnotator93.in --
-package p1
-
 func f0() {
 	a := []byte(b)
+	_=a
 }
+var b=""
 -- TestAnnotator93.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("T"), Σ.IL(Σ.IVi(b)))
-	Σ.Line(0, 0, 30, Σ0)
-	Σ1 := []byte(b)
-	Σ2 := Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
-	a := Σ1
+	Σ.L(0, 0, 30, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("_"), Σ.IL(Σ.IVi(b))), nil)))
+	a := []byte(b)
+	Σ0 := Σ.IVi(a)
+	Σ.L(0, 1, 43, Σ.IL(Σ0))
+	_ = a
 }
 -- TestAnnotator94.in --
-package p1
-
 func f0() {
-	var evMask uint32 = 0 | a
+	var m uint32 = 0 | a
+	_=m
 }
+var a=uint32(0)
 -- TestAnnotator94.out --
-package p1
-
 func f0() {
-	Σ0 := 0 | a
-	Σ.Line(0, 0, 29, Σ.IL(Σ.IB(Σ.IVi(0), 18, Σ.IVi(a), Σ.IVi(Σ0))))
-	var evMask uint32 = Σ0
+	var m uint32 = 0 | a
+	Σ0 := Σ.IVi(m)
+	Σ.L(0, 0, 49, Σ.IL(Σ0))
+	_ = m
 }
 -- TestAnnotator95.in --
-package p1
-
 func f0() {
 	a := v < -1
+	_=a
 }
+var v=0
 -- TestAnnotator95.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IUe(13, Σ.IVi(1))
+	Σ0 := Σ.IVi(v)
 	Σ1 := v < -1
-	Σ2 := Σ.IL(Σ.IB(Σ.IVi(v), 40, Σ.IU(Σ0, Σ.IVi(-1)), Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
+	Σ2 := Σ.IVi(Σ1)
+	Σ.L(0, 0, 30, Σ.IL(Σ.IB(Σ0, 40, Σ.IU(Σ.IUe(13, Σ.IVs("1")), Σ.IVs("-1")), Σ2)))
 	a := Σ1
+	Σ3 := Σ.IVi(a)
+	Σ.L(0, 1, 40, Σ.IL(Σ3))
+	_ = a
 }
 -- TestAnnotator96.in --
-package p1
-
 func f0() {
 	a[b] = true
-	fn(func() { a[b] = true })
+	fn(func() { a[b] = d })
 }
+var a=[]bool{}
+var b=0
+var fn=func(func()){}
+var d=true
 -- TestAnnotator96.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(true))
-	a[b] = true
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(b), Σ.IVi(a[b]))), 42, Σ0))
-	Σ2 := func() {
-		Σ1 := Σ.IL(Σ.IVi(true))
-		a[b] = true
-		Σ.Line(0, 2, 50, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(b), Σ.IVi(a[b]))), 42, Σ1))
+	Σ0 := b
+	a[Σ0] = true
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(Σ0), Σ.IVi(a[Σ0]))), 42, Σ.IL(Σ.IVs("true"))))
+	Σ3 := func() {
+		Σ1 := b
+		Σ2 := Σ.IVi(d)
+		a[Σ1] = d
+		Σ.L(0, 2, 50, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(Σ1), Σ.IVi(a[Σ1]))), 42, Σ.IL(Σ2)))
 	}
-	Σ3 := Σ.ICe(Σ.IVs("fn"), Σ.IL(Σ.IVi(Σ2)))
-	Σ.Line(0, 1, 38, Σ3)
-	fn(Σ2)
-	Σ.Line(0, 1, 38, Σ.IC(Σ3, nil))
+	Σ4 := Σ.ICe(Σ.IVs("fn"), Σ.IL(Σ.IVi(Σ3)))
+	Σ.L(0, 1, 38, Σ4)
+	fn(Σ3)
+	Σ.L(0, 1, 38, Σ.IC(Σ4, nil))
 }
 -- TestAnnotator97.in --
-package p1
-
 func f0() {
 	p = 'a' - 'A'
 }
+var p rune
 -- TestAnnotator97.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IB(Σ.IVi('a'), 13, Σ.IVi('A'), Σ.IVi('a'-'A')))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ.L(0, 0, 29, Σ.IL(Σ.IB(Σ.IVs("97"), 13, Σ.IVs("65"), Σ.IVs("32"))))
 	p = 'a' - 'A'
 }
 -- TestAnnotator100.in --
-package p1
-
 func f0() {
 	a = b
 	/*aaa*/
 }
+var a=0
+var b=0
 -- TestAnnotator100.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(b))
-	Σ.Line(0, 0, 25, Σ0)
+	Σ0 := Σ.IVi(b)
+	Σ.L(0, 0, 29, Σ.IL(Σ0))
 	a = b
 
 }
 -- TestAnnotator101.in --
-package p1
-
 func f0() {
 	_ = func(int) int { return 1 }
 }
 -- TestAnnotator101.out --
-package p1
-
 func f0() {
 	Σ1 := func(Σ0 int) int {
-		Σ.Line(0, 1, 33, Σ.IL(Σ.IVi(Σ0)))
-		Σ.Line(0, 2, 45, Σ.IL(Σ.IVi(1)))
+		Σ.L(0, 1, 34, Σ.IL(Σ.IL(Σ.IVi(Σ0))))
+		Σ.L(0, 2, 52, Σ.IL(Σ.IVs("1")))
 		return 1
 	}
-	Σ2 := Σ.IL(Σ.IVi(Σ1))
-	Σ.Line(0, 0, 25, Σ2)
+	Σ2 := Σ.IVi(Σ1)
+	Σ.L(0, 0, 29, Σ.IL(Σ2))
 	_ = Σ1
 }
 -- TestAnnotator102.in --
-package p1
-
 func f0() {
 	d = a.b.c()
 }
+var d=0
+var a=struct{b B}{}
+type B struct{c func()int}
 -- TestAnnotator102.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("c"), nil)
-	Σ.Line(0, 0, 29, Σ0)
+	Σ0 := Σ.ICe(Σ.ISel(nil, Σ.IVs("c"), nil), nil)
+	Σ.L(0, 0, 29, Σ0)
 	Σ1 := a.b.c()
-	Σ2 := Σ.IL(Σ.IC(Σ0, Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 25, Σ2)
+	Σ2 := Σ.IVi(Σ1)
+	Σ.L(0, 0, 29, Σ.IL(Σ.IC(Σ0, Σ2)))
 	d = Σ1
 }
 -- TestAnnotator103.in --
-package p1
-
 func f0() {
 	e = a.b().c.d()
 }
+var e=0
+var a=struct{b func()B}{}
+type B struct{c C}
+type C struct{d func()int}
 -- TestAnnotator103.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("b"), nil)
-	Σ.Line(0, 0, 29, Σ0)
+	Σ0 := Σ.ICe(Σ.ISel(nil, Σ.IVs("b"), nil), nil)
+	Σ.L(0, 0, 29, Σ0)
 	Σ1 := a.b()
-	Σ2 := Σ.ICe(Σ.ISel(Σ.ISel(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVs("c")), Σ.IVs("d")), nil)
-	Σ.Line(0, 0, 29, Σ2)
+	Σ2 := Σ.ICe(Σ.ISel(Σ.ISel(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVs("c"), Σ.IVi(Σ1.c)), Σ.IVs("d"), nil), nil)
+	Σ.L(0, 0, 29, Σ2)
 	Σ3 := Σ1.c.d()
-	Σ4 := Σ.IL(Σ.IC(Σ2, Σ.IVi(Σ3)))
-	Σ.Line(0, 0, 25, Σ4)
+	Σ4 := Σ.IVi(Σ3)
+	Σ.L(0, 0, 29, Σ.IL(Σ.IC(Σ2, Σ4)))
 	e = Σ3
 }
 -- TestAnnotator106.in --
-package p1
-
 func f0() {
 	return
 }
 -- TestAnnotator106.out --
-package p1
-
 func f0() {
-	Σ.Line(0, 0, 25, Σ.ISt())
+	Σ.L(0, 0, 25, Σ.ISt())
 	return
 }
 -- TestAnnotator107.in --
-package p1
-
 func f0() {
 	if a == "a" {
 	}
 }
+var a=""
 -- TestAnnotator107.out --
-package p1
-
 func f0() {
-	Σ0 := a == "a"
-	Σ.Line(0, 0, 28, Σ.IB(Σ.IVi(a), 39, Σ.IVi("a"), Σ.IVi(Σ0)))
-	if Σ0 {
+	if func() bool {
+		Σ0 := Σ.IVi(a)
+		Σ1 := a == "a"
+		Σ.L(0, 0, 28, Σ.IL(Σ.IB(Σ0, 39, Σ.IVs("\"a\""), Σ.IVi(Σ1))))
+		return Σ1
+	}() {
 	}
 }
 -- TestAnnotator108.in --
-package p1
-
 func f0() {
 	var (
 		a = 1
 		b = a
 	)
+	_=b
 }
+var a=0
+var b=0
 -- TestAnnotator108.out --
-package p1
-
 func f0() {
-	var ()
-	Σ.Line(0, 0, 33, Σ.IL(Σ.IVi(1)))
 	var a = 1
-	Σ.Line(0, 1, 41, Σ.IL(Σ.IVi(a)))
 	var b = a
 
+	Σ0 := Σ.IVi(b)
+	Σ.L(0, 0, 53, Σ.IL(Σ0))
+	_ = b
 }
 -- TestAnnotator109.in --
-package p1
-
 func f0() int {
 	return <-fn()
 }
+var fn=func()chan int{return nil}
 -- TestAnnotator109.out --
-package p1
-
 func f0() int {
 	Σ0 := Σ.ICe(Σ.IVs("fn"), nil)
-	Σ.Line(0, 0, 38, Σ0)
+	Σ.L(0, 0, 38, Σ0)
 	Σ1 := fn()
 	Σ2 := Σ.IUe(36, Σ.IC(Σ0, Σ.IVi(Σ1)))
-	Σ.Line(0, 0, 38, Σ2)
+	Σ.L(0, 0, 36, Σ2)
 	Σ3 := <-Σ1
-	Σ.Line(0, 0, 29, Σ.IL(Σ.IU(Σ2, Σ.IVi(Σ3))))
+	Σ.L(0, 0, 36, Σ.IL(Σ.IU(Σ2, Σ.IVi(Σ3))))
 	return Σ3
 }
 -- TestAnnotator110.in --
-package p1
-
 func f0() {
 	*a=b
 	b=*a
 }
+var a *int
+var b=0
 -- TestAnnotator110.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.IL(Σ.IVi(b))
+	Σ0 := Σ.IVi(b)
 	*a = b
-	Σ1 := Σ.IUe(14, Σ.IVi(a))
-	Σ.Line(0, 0, 25, Σ.IA(Σ.IL(Σ.IU(Σ1, Σ.IVi(*a))), 42, Σ0))
-	Σ2 := *a
-	Σ3 := Σ.IUe(14, Σ.IVi(a))
-	Σ4 := Σ.IL(Σ.IU(Σ3, Σ.IVi(Σ2)))
-	Σ.Line(0, 1, 31, Σ4)
-	b = Σ2
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.IU(Σ.IUe(14, Σ.IVi(a)), Σ.IVi(*a))), 42, Σ.IL(Σ0)))
+	Σ1 := Σ.IVi(*a)
+	Σ.L(0, 1, 33, Σ.IL(Σ.IU(Σ.IUe(14, Σ.IVi(a)), Σ1)))
+	b = *a
 }
 -- TestAnnotator111.in --
-package p1
-
 func f0() {
-	make(Type1)
-	make(pkg.Type2)
+	_=make([]int,1)
 }
 -- TestAnnotator111.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("T")))
-	Σ.Line(0, 0, 25, Σ0)
-	make(Type1)
-	Σ.Line(0, 0, 25, Σ.IC(Σ0, nil))
-	Σ1 := Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("T")))
-	Σ.Line(0, 1, 38, Σ1)
-	make(pkg.Type2)
-	Σ.Line(0, 1, 38, Σ.IC(Σ1, nil))
+	Σ.L(0, 0, 27, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("_"), Σ.IVs("1"))), nil)))
+	_ = make([]int, 1)
 }
 -- TestAnnotator112.in --
-package p1
-
 func f0() {
-	println(1)	
+	k, a[k+1] = k+1, 7
 }
-//go:embed somefile
-var myvar []byte
+var k=0
+var a=[]int{0,1}
 -- TestAnnotator112.out --
-package p1
-
 func f0() {
-	Σ0 := Σ.ICe(Σ.IVs("println"), Σ.IL(Σ.IVi(1)))
-	Σ.Line(0, 0, 25, Σ0)
-	println(1)
-	Σ.Line(0, 0, 25, Σ.IC(Σ0, nil))
+	Σ0 := Σ.IVi(k)
+	Σ1 := k + 1
+	Σ2 := Σ.IVi(k)
+	Σ3 := k + 1
+	Σ4 := Σ.IVi(Σ3)
+	k, a[Σ1] = Σ3, 7
+	Σ.L(0, 0, 25, Σ.IA(Σ.IL(Σ.IVi(k), Σ.II(Σ.IVs("a"), Σ.IB(Σ0, 12, Σ.IVs("1"), Σ.IVi(Σ1)), Σ.IVi(a[Σ1]))), 42, Σ.IL(Σ.IB(Σ2, 12, Σ.IVs("1"), Σ4), Σ.IVs("7"))))
 }
+-- TestAnnotator113.in --
+func f0() {
+	f:=func(int,*int){}
+	f(7,nil)
+}
+-- TestAnnotator113.out --
+func f0() {
+	Σ2 := func(Σ0 int, Σ1 *int) { Σ.L(0, 1, 33, Σ.IL(Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1)))) }
+	Σ3 := Σ.IVi(Σ2)
+	Σ.L(0, 0, 28, Σ.IL(Σ3))
+	f := Σ2
+	Σ4 := Σ.ICe(Σ.IVs("f"), Σ.IL(Σ.IVs("7"), Σ.IVi(nil)))
+	Σ.L(0, 2, 46, Σ4)
+	f(7, nil)
+	Σ.L(0, 2, 46, Σ.IC(Σ4, nil))
+}
+-- TestAnnotator114.in --
+func f0() {
+	_=(func(int))(nil)
+}
+-- TestAnnotator114.out --
+func f0() {
+	Σ.L(0, 0, 28, Σ.IL(Σ.IC(Σ.ICe(Σ.IP(Σ.IVs("_")), Σ.IL(Σ.IVi(nil))), nil)))
+	_ = (func(int))(nil)
+}
+-- TestAnnotator115.in --
+func f0() {
+	_=(*struct{})(nil)
+}
+-- TestAnnotator115.out --
+func f0() {
+	Σ.L(0, 0, 28, Σ.IL(Σ.IC(Σ.ICe(Σ.IP(Σ.IU(Σ.IUe(14, Σ.IVs("_")), nil)), Σ.IL(Σ.IVi(nil))), nil)))
+	_ = (*struct{})(nil)
+}
+-- TestAnnotator116.in --
+func f0() {
+	_,_=d.(bool)
+}
+var d =(any)(1)
+-- TestAnnotator116.out --
+func f0() {
+	Σ0, Σ1 := d.(bool)
+	Σ2 := Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1))
+	Σ.L(0, 0, 29, Σ.IL(Σ.ITA(Σ.IVi(d), Σ.IVt(d), Σ2)))
+	_, _ = Σ0, Σ1
+}
+-- TestAnnotator117.in --
+func f0() {
+	_,_=m[1]
+}
+var m=map[int]int{}
+-- TestAnnotator117.out --
+func f0() {
+	Σ0, Σ1 := m[1]
+	Σ2 := Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1))
+	Σ.L(0, 0, 29, Σ.IL(Σ.II(Σ.IVs("m"), Σ.IVs("1"), Σ2)))
+	_, _ = Σ0, Σ1
+}
+-- TestAnnotator118.in --
+func f0() {
+	a:=1
+	goto Label1
+	// can't declare variables between the label jump
+	a=f()
+Label1:
+	_=a
+}
+var f=func()int{return 0}
+-- TestAnnotator118.out --
+func f0() {
+	Σ.L(0, 0, 12, Σ.INAnn("TODO: forward jump label detected: Label1"))
+	a := 1
+	goto Label1
 
-//go:embed somefile
-var myvar []byte
+	a = f()
+Label1:
+	_ = a
+}
+-- TestAnnotator119.in --
+func f0() {
+	// error: mismatched types byte and int
+	/*
+		a := uint(1)
+		c:=byte(0)
+		// works
+		c |= 1<<a 
+		// fails
+		b := 1 << a
+		c |= b 
+	*/
+	
+	a |= 1<<b
+}
+var a=byte(0)
+var b=uint(1)
+-- TestAnnotator119.out --
+func f0() {
+
+	Σ0 := Σ.IVi(b)
+	Σ1 := byte(1 << b)
+	Σ2 := Σ.IVi(Σ1)
+	a |= Σ1
+	Σ.L(0, 0, 163, Σ.IA(Σ.IL(Σ.IVi(a)), 29, Σ.IL(Σ.IB(Σ.IVs("1"), 20, Σ0, Σ2))))
+}
+-- TestAnnotator120.in --
+func f0() {
+	a=0xffffffffffffffff
+	//b=0xffffffffffffffff
+}
+var a uint64
+var b interface{}
+-- TestAnnotator120.out --
+func f0() {
+	Σ.L(0, 0, 27, Σ.IL(Σ.IVs("18446744073709551615")))
+	a = 0xffffffffffffffff
+
+}
+-- TestAnnotator121.in --
+func f0() {
+	<-make(chan bool)
+}
+-- TestAnnotator121.out --
+func f0() {
+	Σ0 := Σ.IUe(36, Σ.IC(Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("_"))), nil))
+	Σ.L(0, 0, 25, Σ0)
+	Σ1 := <-make(chan bool)
+	Σ.L(0, 0, 25, Σ.IU(Σ0, Σ.IVi(Σ1)))
+}

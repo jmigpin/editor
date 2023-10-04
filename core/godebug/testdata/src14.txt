@@ -1,7 +1,7 @@
 # replacement of os.exit should still allow other os.* to stay
 ucmd godebugtester run main.go
-contains stdout "=> Getenv(\"a\")"
-contains stdout "=> Exit(0)"
+contains stdout "=> _.Getenv(\"a\")"
+contains stdout "=> _.Exit(0)"
 
 -- main.go --
 package main

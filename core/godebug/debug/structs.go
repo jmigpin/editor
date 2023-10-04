@@ -4,9 +4,9 @@ import (
 	"fmt"
 )
 
-func RegisterStructsForEncodeDecode(encoderId string) {
+func registerStructsForProtoConn(encoderId string) {
 	reg := func(v interface{}) {
-		registerForEncodeDecode(encoderId, v)
+		registerForProtoConn(encoderId, v)
 	}
 
 	reg(&ReqFilesDataMsg{})
@@ -124,13 +124,15 @@ type ItemKeyValue struct {
 }
 type ItemSelector struct {
 	Item
-	X   Item
-	Sel Item
+	X      Item
+	Sel    Item
+	Result Item
 }
 type ItemTypeAssert struct {
 	Item
-	X    Item
-	Type Item
+	X      Item
+	Type   Item
+	Result Item
 }
 type ItemBinary struct {
 	Item
@@ -248,13 +250,13 @@ func IKV(key, value Item) Item {
 }
 
 // ItemSelector
-func ISel(x, sel Item) Item {
-	return &ItemSelector{X: x, Sel: sel}
+func ISel(x, sel, result Item) Item {
+	return &ItemSelector{X: x, Sel: sel, Result: result}
 }
 
 // ItemTypeAssert
-func ITA(x, t Item) Item {
-	return &ItemTypeAssert{X: x, Type: t}
+func ITA(x, t, result Item) Item {
+	return &ItemTypeAssert{X: x, Type: t, Result: result}
 }
 
 // ItemBinary

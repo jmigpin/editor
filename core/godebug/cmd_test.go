@@ -7,17 +7,16 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/testutil"
+
+	////godebug:annotateimport
+	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
-func TestScripts(t *testing.T) {
+func TestCmd(t *testing.T) {
 	scr := testutil.NewScript(os.Args)
-
-	// uncomment to access work dir
-	//scr.Work = true
-
 	scr.ScriptsDir = "testdata"
 	scr.Cmds = []*testutil.ScriptCmd{
 		{"godebugtester", godebugTester},
@@ -48,11 +47,21 @@ func godebugTester(t *testing.T, args []string) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
 		// util func
 		add := func(s string) {
 			fmt.Printf("recv: %v\n", s)
 		}
-		for msg := range cmd.Messages() {
+		for {
+			msg, ok, err := cmd.ProtoRead()
+			if err != nil {
+				fmt.Printf("godebugtester msg loop error: %v", err)
+				break
+			}
+			if !ok {
+				break
+			}
+
 			switch mt := msg.(type) {
 			case *debug.LineMsg:
 				add(StringifyItem(mt.Item))
@@ -69,4 +78,36 @@ func godebugTester(t *testing.T, args []string) error {
 	err = cmd.Wait()
 	wg.Wait()
 	return err
+}
+
+//----------
+
+func TestCmdCtxCancel(t *testing.T) {
+	// max time to run this test
+	timer := time.AfterFunc(1000*time.Millisecond, func() {
+		t.Fatal("test timeout")
+	})
+	defer timer.Stop()
+
+	cmd := NewCmd()
+	args := []string{
+		"connect",
+		//"-network=ws", // requires websocket client
+		"-isserver=true",
+		"-addr=:8079",
+	}
+
+	ctx := context.Background()
+	ctx2, cancel := context.WithCancel(ctx)
+
+	go func() {
+		time.Sleep(250 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := cmd.Start(ctx2, args)
+	if err == nil || err.Error() != "context canceled" {
+		t.Fatal(err)
+	}
+	t.Log(err)
 }

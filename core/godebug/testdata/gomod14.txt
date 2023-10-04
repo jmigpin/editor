@@ -1,7 +1,9 @@
 # annotates pkg from std lib
 
-ucmd godebugtester run 
-contains stdout "=> IsPathSeparator"
+setenv script_keepwork true
+ucmd godebugtester run -work -srclines=false main.go
+#ucmd godebugtester run
+contains stdout "_.IsPathSeparator"
 
 -- go.mod --
 module mod1

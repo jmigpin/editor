@@ -141,13 +141,16 @@ func (is *ItemStringifier) stringify(item debug.Item) {
 		})
 
 	case *debug.ItemKeyValue:
-		is.stringify(t.Key)
+		if t.Key == nil {
+			is.p("_")
+		} else {
+			is.stringify(t.Key)
+		}
 		is.p(":")
 		is.stringify(t.Value)
 
 	case *debug.ItemSelector:
-		//is.pResult(t.Result, func() { // TODO
-		is.pResult(nil, func() {
+		is.pResult(t.Result, func() {
 			if t.X == nil {
 				is.p("_") // this being here saves transfer bytes
 			} else {
@@ -158,12 +161,12 @@ func (is *ItemStringifier) stringify(item debug.Item) {
 		})
 
 	case *debug.ItemTypeAssert:
-		//is.pResult(t.Result, func() { // TODO
-		is.pResult(nil, func() {
-			is.stringify(t.X)
-			is.p(".(")
-			is.stringify(t.Type)
-			is.p(")")
+		is.pResult(t.Result, func() {
+			is.pResult(t.Type, func() {
+				is.stringify(t.X)
+				//is.p(".(T)")
+				is.p(".(_)")
+			})
 		})
 
 	case *debug.ItemBinary:

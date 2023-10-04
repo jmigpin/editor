@@ -1,5 +1,6 @@
 # goto was changing the program, will be endless loop if it fails
 
+#exec go run main.go
 ucmd godebugtester run 
 contains stdout "false=(3 <= 1)"
 

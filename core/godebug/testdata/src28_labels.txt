@@ -1,0 +1,109 @@
+#exec go run main.go
+
+#setenv script_keepwork true
+#ucmd godebugtester run -work -srclines=false main.go
+ucmd godebugtester run main.go
+
+contains stderr "t1 vi= 7 4"
+contains stderr "t2 vi= 2 12"
+contains stderr "t3 vi= 2 0 7"
+contains stderr "t4 a= 1"
+contains stderr "t5: [2 1 0]"
+
+-- main.go --
+package main
+import "fmt"
+func main() {
+	main1()
+	main2()
+	main3()
+	main4()
+	main5()
+}
+func main1() {
+	v:=0
+label1:
+	for i := 0; i < 5; i++ {
+		println("t1 vi=",v,i)
+		v++
+		if v<=3 {
+			goto label1 // must set i to zero
+		}
+	}
+}
+func main1b() {
+	// must compile
+label1:
+	for {
+		break label1
+	}
+
+	// must compile
+	a:=[]int{1,2}
+label2:
+	for range a {
+		break label2
+	}
+	
+	// must compile
+label3:
+	switch {
+	case true:
+		break label3
+	}
+}
+func main2(){	
+	v:=0
+	f:=func()int{return 10+v} 
+label2:
+	switch i := f(); i {
+	case 10,11,12,13:
+		println("t2 vi=",v,i)
+		v++
+		i++
+		if v<=2{
+			goto label2 // must run f()
+		}
+	}
+}
+func main3(){
+	v:=0
+	c:=[]int{0,1,2}
+	d:=[]int{7}
+	f:=func()[]int{
+		if v<=1{
+			return c
+		}
+		return d
+	}
+label2:
+	for i,k:=range f(){
+		println("t3 vi=",v,i,k)
+		v++
+		if v<=2{
+			goto label2 // must run f()
+		}
+	}
+}
+func main4(){
+	a:=0
+label1:
+	println("t4 a=",a)
+	a++
+	if a<2{
+		goto label1	
+	}
+}
+func main5(){
+	a:=0
+	f2:=func()int{return a}
+	w:=[]int{}
+	defer func(){println("t5:",fmt.Sprintf("%v",w))}()
+	f:=func(k int){w=append(w,k)}
+label1:
+	defer f(f2())
+	a++
+	if a<3{
+		goto label1
+	}
+}

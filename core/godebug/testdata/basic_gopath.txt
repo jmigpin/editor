@@ -8,7 +8,7 @@ setenv GO111MODULE off
 cd src
 
 ucmd godebugtester run
-contains stdout "=> println(1)"
+contains stdout "recv: println(1)"
 
 cd ..
 

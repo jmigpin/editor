@@ -3,16 +3,12 @@ package godebug
 import (
 	"fmt"
 	"go/ast"
-	"go/constant"
 	"go/token"
 	"go/types"
-	"math/big"
-	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/jmigpin/editor/util/astut"
-	"github.com/jmigpin/editor/util/reflectutil"
+	"github.com/jmigpin/editor/util/goutil"
 )
 
 type Annotator struct {
@@ -21,40 +17,54 @@ type Annotator struct {
 	typesInfo    *types.Info
 	nodeAnnTypes map[ast.Node]AnnotationType
 
-	fileIndex          int
-	debugPkgName       string
-	debugVarPrefix     string // will have integer appended
-	debugVarNameIndex  int
-	debugLastIndex     int  // n indexes were used
-	builtDebugLineStmt bool // at least one debug stmt inserted
+	fileIndex         int
+	debugPkgName      string
+	debugVarPrefix    string // will have integer appended
+	debugVarNameIndex int
+	debugLastIndex    int // n indexes were used
 
-	simpleTestMode bool // just testing annotator (no types)
+	testModeMainFunc bool
+	hasMainFunc      bool
+
+	simplify bool // document simplifications
+
+	pkg *types.Package
+
+	ctxData struct {
+		debugIndex int
+		visited    map[ast.Stmt]struct{}
+	}
 }
 
-func NewAnnotator(fset *token.FileSet) *Annotator {
-	ann := &Annotator{fset: fset}
-	// defaults for tests; used values are in annotatorset
-	ann.debugPkgName = "Σ"
-	ann.debugVarPrefix = "Σ"
+func NewAnnotator(fset *token.FileSet, ti *types.Info) *Annotator {
+	ann := &Annotator{fset: fset, typesInfo: ti}
+	ann.simplify = true      // always true
+	ann.debugPkgName = "Σ"   // expected by tests
+	ann.debugVarPrefix = "Σ" // expected by tests
+
+	ann.ctxData.visited = map[ast.Stmt]struct{}{}
+	ann.nodeAnnTypes = map[ast.Node]AnnotationType{}
+	ann.pkg = ann.typesPkg()
 	return ann
 }
 
 //----------
 
 func (ann *Annotator) AnnotateAstFile(astFile *ast.File) {
-	ctx := &Ctx{}
-	ctx = ctx.withDebugIndex(0)
+	defer func() { // always run, even on error
+		ann.debugLastIndex = ann.correctDebugIndexes(astFile)
 
-	ann.vis(ctx, astFile)
+		// fix issues like "//go:embed" comments staying in place
+		//ann.removeInnerFuncComments(astFile) // failing
+		astFile.Comments = nil // seems to work!
+	}()
 
-	// commented: setting astfile.comments to nil seems to fix things for the ast printer.
-	//ann.removeInnerFuncComments(astFile)
-	astFile.Comments = nil
+	ctx := newCtx(ann)
+	if err := ann.visFile(ctx, astFile); err != nil {
+		ann.logf("annotate error: %v", err)
+	}
 
-	ann.debugLastIndex = ann.correctDebugIndexes(astFile)
-
-	//fmt.Println("result----")
-	//ann.printNode(astFile)
+	ann.addImports(astFile)
 }
 
 //----------
@@ -70,1747 +80,1303 @@ func (ann *Annotator) logf(f string, args ...interface{}) {
 }
 
 //----------
+//----------
 
-func (ann *Annotator) vis(ctx *Ctx, v interface{}) {
-	switch t := v.(type) {
-	case nil: // nothing todo
-	case ast.Node:
-		ann.vis2(ctx, t)
-	case *[]ast.Stmt:
-		ann.visStmts(ctx, t)
+func (ann *Annotator) visFile(ctx *Ctx, file *ast.File) error {
+	ctx = ctx.withNoAnnotationsUpdated(file)
+	for _, decl := range file.Decls {
+		if err := ann.visDecl(ctx, decl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ann *Annotator) visDecl(ctx *Ctx, decl ast.Decl) error {
+	ctx = ctx.withNoAnnotationsUpdated(decl)
+	switch t := decl.(type) {
+	case *ast.BadDecl:
+		return nil
+	case *ast.GenDecl:
+		return ann.visGenDecl(ctx, t)
+	case *ast.FuncDecl:
+		return ann.visFuncDecl(ctx, t)
 	default:
-		panic(fmt.Sprintf("todo: %T", t))
+		return goutil.TodoErrorType(decl)
 	}
 }
 
-// Should only be called throught vis()
-func (ann *Annotator) vis2(ctx *Ctx, node ast.Node) {
-	//ann.logf("vis2 %T\n", node)
-	//ann.logf("vis2 %T (%v)\n", node, ann.sprintNode(node))
+func (ann *Annotator) visStmt(ctx *Ctx, stmt ast.Stmt) error {
 
-	// handle here for top level directives (ex: func decl)
-	ctx = ann.annotationBlockCtx(ctx, node)
-	if ctx.boolean(ctxIdNoAnnotations) {
-		ann.visNoAnnotations(ctx, node)
-		return
+	if ctx.stmtVisited(stmt) {
+		return nil
 	}
+	ctx.setStmtVisited(stmt, true)
 
-	// build name: visit node if there is a function defined for it
-	name, err := reflectutil.TypeNameBase(node)
-	if err != nil {
-		return
+	ctx = ctx.withFixedDebugIndex(true) // each stmt uses a fixed index
+	ctx = ctx.withNoAnnotationsUpdated(stmt)
+
+	//----------
+
+	switch t := stmt.(type) {
+	case *ast.AssignStmt:
+		return ann.visAssignStmt(ctx, t)
+	case *ast.BadStmt:
+		return nil
+	case *ast.BlockStmt:
+		return ann.visStmts(ctx, &t.List)
+	case *ast.BranchStmt:
+		return ann.visBranchStmt(ctx, t)
+	case *ast.CaseClause:
+		return ann.visCaseClause(ctx, t)
+	case *ast.CommClause:
+		return ann.visCommClause(ctx, t)
+	case *ast.DeclStmt:
+		return ann.visDecl(ctx, t.Decl)
+	case *ast.DeferStmt:
+		return ann.visAsyncStmt(ctx, &t.Call)
+	case *ast.EmptyStmt:
+		return nil
+	case *ast.ExprStmt:
+		return ann.visExprStmt(ctx, t)
+	case *ast.ForStmt:
+		return ann.visForStmt(ctx, t)
+	case *ast.GoStmt:
+		return ann.visAsyncStmt(ctx, &t.Call)
+	case *ast.IfStmt:
+		return ann.visIfStmt(ctx, t)
+	case *ast.IncDecStmt:
+		return ann.visIncDecStmt(ctx, t)
+	case *ast.LabeledStmt:
+		return ann.visLabeledStmt(ctx, t)
+	case *ast.RangeStmt:
+		return ann.visRangeStmt(ctx, t)
+	case *ast.ReturnStmt:
+		return ann.visReturnStmt(ctx, t)
+	case *ast.SelectStmt:
+		return ann.visSelectStmt(ctx, t)
+	case *ast.SendStmt:
+		return ann.visSendStmt(ctx, t)
+	case *ast.SwitchStmt:
+		return ann.visSwitchStmt(ctx, t)
+	case *ast.TypeSwitchStmt:
+		return ann.visTypeSwitchStmt(ctx, t)
+	default:
+		return goutil.TodoErrorType(stmt)
 	}
-	res, err := reflectutil.InvokeByName(ann, "Vis"+name, ctx, node)
-	if err != nil {
-		ann.logf("todo: vis2: %v", err)
-		return
+}
+
+func (ann *Annotator) visExpr(ctx *Ctx, expr0 *ast.Expr) (DebugExpr, error) {
+	ctx = ctx.withValue(cidnExpr, expr0)
+	expr := *expr0
+	switch t := expr.(type) {
+	case *ast.ArrayType:
+		return ann.resultDE(ctx, t)
+	case *ast.BadExpr:
+		return nil, nil
+	case *ast.BasicLit:
+		return ann.visBasicLit(ctx, t)
+	case *ast.BinaryExpr:
+		return ann.visBinaryExpr(ctx, t)
+	case *ast.CallExpr:
+		return ann.visCallExpr(ctx, t)
+	case *ast.ChanType:
+		return ann.resultDE(ctx, t)
+	case *ast.CompositeLit:
+		return ann.visCompositeLit(ctx, t)
+	case *ast.Ellipsis:
+		return ann.visExpr(ctx, &t.Elt) // TODO: review
+	case *ast.FuncLit:
+		return ann.visFuncLit(ctx, t)
+	case *ast.FuncType:
+		return ann.visFuncType(ctx, t)
+	case *ast.Ident:
+		return ann.visIdent(ctx, t)
+	case *ast.IndexExpr:
+		return ann.visIndexExpr(ctx, t)
+	case *ast.InterfaceType:
+		return ann.resultDE(ctx, t)
+	case *ast.KeyValueExpr:
+		return ann.visKeyValueExpr(ctx, t)
+	case *ast.MapType:
+		return ann.resultDE(ctx, t)
+	case *ast.ParenExpr:
+		return ann.visParenExprs(ctx, t)
+	case *ast.SelectorExpr:
+		return ann.visSelectorExpr(ctx, t)
+	case *ast.SliceExpr:
+		return ann.visSliceExpr(ctx, t)
+	case *ast.StarExpr:
+		return ann.visStarExpr(ctx, t)
+	case *ast.StructType:
+		return ann.resultDE(ctx, t)
+	case *ast.TypeAssertExpr:
+		return ann.visTypeAssertExpr(ctx, t)
+	case *ast.UnaryExpr:
+		return ann.visUnaryExpr(ctx, t)
+	default:
+		return nil, goutil.TodoErrorType(expr)
 	}
-	if len(res) != 0 {
-		panic(fmt.Sprintf("len of res not zero: %v", len(res)))
+}
+
+func (ann *Annotator) visSpec(ctx *Ctx, spec ast.Spec) error {
+	// NOTE: a spec can have initial values
+
+	switch t := spec.(type) {
+	case *ast.ImportSpec:
+		return nil
+	case *ast.TypeSpec:
+		return nil
+	case *ast.ValueSpec:
+		// inside a func node
+		if _, _, ok := ctx.value(cidnFuncNode); ok {
+			de, err := ann.visExprs(ctx, &t.Values, t.Pos())
+			if err != nil {
+				return err
+			}
+			// TODO: insert after?
+			ann.insertDebugLineStmt(ctx, de)
+			return nil
+		}
+		return nil
+	default:
+		_ = t
+		return goutil.TodoErrorType(spec)
 	}
 }
 
 //----------
+//----------
 
-func (ann *Annotator) visNoAnnotations(ctx *Ctx, n1 ast.Node) {
-	ast.Inspect(n1, func(n2 ast.Node) bool {
-		if n2 != n1 {
-			ctx2 := ann.annotationBlockCtx(ctx, n2)
-			if !ctx2.boolean(ctxIdNoAnnotations) {
-				ann.vis(ctx2, n2)
-				return false // done with noannotations
-			}
+func (ann *Annotator) visGenDecl(ctx *Ctx, gd *ast.GenDecl) error {
+	// split into individual decls to be able to insert debug lines
+	// TODO: can't split CONST
+	canSplit := gd.Tok == token.VAR
+	if _, _, ok := ctx.value(cidnFuncNode); ok && canSplit {
+		for _, spec := range gd.Specs {
+			gd := &ast.GenDecl{Tok: gd.Tok, Specs: []ast.Spec{spec}}
+			ds := &ast.DeclStmt{Decl: gd}
+			ctx.insertStmt(ds)
+			ctx.setStmtVisited(ds, false)
 		}
+		ctx.replaceStmt(&ast.EmptyStmt{})
+		return nil
+	}
 
-		// special handling of a few nodes to setup the ctx in case annotations become enabled
-		switch t2 := n2.(type) {
-		case *ast.BlockStmt:
-			ann.vis(ctx, &t2.List)
-			return false
-		case *ast.CaseClause:
-			ann.vis(ctx, &t2.Body) // not a blockstmt
-			return false
-		case *ast.CommClause:
-			ann.vis(ctx, &t2.Body) // not a blockstmt
-			return false
-
-		case *ast.FuncDecl:
-			ctx2 := ctx.withFuncType(t2.Type)
-			ann.vis(ctx2, t2.Body)
-			return false
-		case *ast.FuncLit:
-			ctx2 := ctx.withFuncType(t2.Type)
-			ann.vis(ctx2, t2.Body)
-			return false
-
-		case *ast.DeclStmt:
-			ann.VisDeclStmt(ctx, t2) // sets ctx boolean
-			return false
-
-		// TODO: godebug directive in "else if" between "else" and "if"?
-
-		default:
-			return true // visit childs
+	for i := range gd.Specs {
+		// TODO: can't visit CONST
+		canVisit := gd.Tok == token.VAR
+		if !canVisit {
+			continue
 		}
+		ctx2 := ctx
+		//if gd.Tok == token.CONST {
+		//	ctx2 = ctx2.withValue(cidnIsConstSpec, gd.Specs[i])
+		//}
+		if err := ann.visSpec(ctx2, gd.Specs[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ann *Annotator) visFuncDecl(ctx *Ctx, fd *ast.FuncDecl) error {
+	if fd.Body == nil {
+		return nil
+	}
+
+	ctx = ctx.withValue(cidnFuncNode, fd) // ex: returnstmt needs this
+
+	ctx2 := ctx.withStmts(&fd.Body.List)
+
+	if err, ok := ann.insertMainClose(ctx2, fd); ok && err != nil {
+		return err
+	}
+
+	if name, ok := ann.detectJumps(ctx2, fd); ok {
+		// insert a not annotated step
+		s := fmt.Sprintf("TODO: forward jump label detected: %s", name)
+		de := ann.newDebugCE("INAnn", basicLitStringQ(s, fd.Pos()))
+		ann.insertDebugLineStmt(ctx2, de)
+		return nil
+	}
+
+	u := (ast.Expr)(fd.Type)
+	de, err := ann.visExpr(ctx2, &u)
+	if err != nil {
+		return err
+	}
+	if !isNilIdent(de) {
+		ann.insertDebugLineStmt(ctx2, de)
+	}
+
+	return ann.visStmt(ctx, fd.Body)
+}
+
+//----------
+//----------
+
+func (ann *Annotator) visStmts(ctx *Ctx, stmts *[]ast.Stmt) error {
+	ctx = ctx.withNoAnnotationsInstance()
+	ctx = ctx.withFixedDebugIndex(false)
+
+	si := newStmtsIter(ctx, stmts)
+	ctx = ctx.withValue(cidStmtsIter, si)
+	return si.iterate(func(stmt ast.Stmt) error {
+		return ann.visStmt(ctx, stmt)
 	})
 }
 
 //----------
 
-// the resulting (res) "debug" expr for the given expr
-func (ann *Annotator) resExpr(ctx *Ctx, e *ast.Expr) ast.Expr {
-	ctx = ctx.withExpr(e)
-	node := *e
+func (ann *Annotator) visAssignStmt(ctx *Ctx, as *ast.AssignStmt) error {
+	// ex: a,b=c,d
+	// ex:"switch a:=b.(type)"
 
-	//ann.logf("resExpr %T\n", node)
-	//ann.logf("resExpr %T (%v)\n", *e, ann.sprintNode2(node))
+	//ctx.insertStmt(as) // DEBUG SCRIPT
 
-	// buildname: visit node if there is a function defined for it
-	name, err := reflectutil.TypeNameBase(node)
-	if err != nil {
-		return nilIdent()
+	// TODO: improve
+	if ctx.valueMatch2(cidnIsTypeSwitchStmtAssign, as) {
+		return nil
 	}
-	res, err := reflectutil.InvokeByName(ann, "Res"+name, ctx, node)
-	if err != nil {
-		ann.logf("todo: resExpr: %v", err)
-		return nilIdent()
-	}
-	result := res[0].Interface().(ast.Expr) // must succeed
-	if result == nil {
-		return nilIdent()
-	}
-	return result
-}
 
-func (ann *Annotator) resExprs(ctx *Ctx, es *[]ast.Expr) ast.Expr {
-	ctx = ctx.withExprs(es)
-	w := []ast.Expr{}
-	for i := range *es {
-		ctx2 := ctx
-		e1 := &(*es)[i]
-		res := (ast.Expr)(nil)
-		if i == 0 && ctx2.boolean(ctxIdFirstArgIsType) {
-			ctx2 = ctx2.withBoolean(ctxIdInTypeArg, true)
+	rhsOnly := false
+	if ann.simplify {
+		allowedTok := func() bool {
+			return as.Tok == token.DEFINE ||
+				as.Tok == token.ASSIGN
 		}
-		res = ann.resExpr(ctx2, e1)
-		if res == nil {
-			res = nilIdent()
-		}
-		w = append(w, res)
-	}
-	if len(w) == 0 {
-		return nilIdent()
-	}
-	return ann.newDebugI(ctx, "IL", w...)
-}
-
-func (ann *Annotator) resFieldList(ctx *Ctx, fl *ast.FieldList) ast.Expr {
-	w := []ast.Expr{}
-	for _, f := range fl.List {
-		// set field name if it has no names (otherwise it won't output)
-		if len(f.Names) == 0 {
-			f.Names = append(f.Names, ann.newIdent(ctx))
+		allIds := func() bool {
+			for _, e := range as.Lhs {
+				if !isIdentsSequence(e) {
+					return false
+				}
+			}
+			return true
 		}
 
-		for i := range f.Names {
-			e1 := ast.Expr(f.Names[i])
-			e := ann.resExpr(ctx, &e1) // e1 won't be replaceable (local var)
-			w = append(w, e)
+		rhsOnly = allowedTok() && allIds()
+	}
+
+	lhs := (DebugExpr)(nil)
+	if !rhsOnly {
+		ctx2 := ctx.withValue(cidnResNotReplaceable, &as.Lhs)
+		//ctx2 = ctx2.withValue(cidnResAssignDebugToVar, &as.Lhs) // commented: cannot be used, won't work for all cases
+		lhs2, err := ann.visExprs(ctx2, &as.Lhs, as.Lhs[0].Pos())
+		if err != nil {
+			return err
 		}
-	}
-	if len(w) == 0 {
-		return nilIdent()
-	}
-	return ann.newDebugI(ctx, "IL", w...)
-}
-
-//----------
-//----------
-//----------
-
-func (ann *Annotator) VisFile(ctx *Ctx, file *ast.File) {
-	for _, d := range file.Decls {
-		ann.vis(ctx, d)
-	}
-}
-
-func (ann *Annotator) VisGenDecl(ctx *Ctx, gd *ast.GenDecl) {
-	switch gd.Tok {
-	case token.CONST:
-		// TODO: handle iota
-	case token.VAR:
-		// annotate only if inside decl stmt
-		// TODO: top level var decls that have a func lit assigned?
-		if !ctx.boolean(ctxIdInDeclStmt) {
-			break
-		}
-
-		if len(gd.Specs) >= 2 {
-			ann.splitGenDecl(ctx, gd)
-		}
-		for _, spec := range gd.Specs {
-			ann.vis(ctx, spec)
-		}
-	}
-}
-
-func (ann *Annotator) VisImportSpec(ctx *Ctx, is *ast.ImportSpec) {
-}
-
-func (ann *Annotator) VisDeclStmt(ctx *Ctx, ds *ast.DeclStmt) {
-	// DeclStmt is a decl in a stmt list => gendecl is only const/type/var
-	ctx = ctx.withBoolean(ctxIdInDeclStmt, true)
-	ann.vis(ctx, ds.Decl)
-}
-
-func (ann *Annotator) VisFuncDecl(ctx *Ctx, fd *ast.FuncDecl) {
-	// body can be nil (external func decls, only the header declared)
-	if fd.Body == nil {
-		return
+		lhs = lhs2
 	}
 
-	//// don't annotate these functions to avoid endless loop recursion
-	//if fd.Recv != nil && fd.Body != nil && fd.Name.Name == "String" && len(fd.Type.Params.List) == 0 {
-	//	return
-	//}
-	//if fd.Recv != nil && fd.Body != nil && fd.Name.Name == "Error" && len(fd.Type.Params.List) == 0 {
-	//	return
-	//}
-
-	// visit body first to avoid annotating params insertions
-	ctx2 := ctx.withFuncType(fd.Type)
-	ann.vis(ctx2, fd.Body)
-
-	// visit params
-	ann.visFieldList(ctx, fd.Type.Params, fd.Body)
-}
-
-func (ann *Annotator) VisBlockStmt(ctx *Ctx, bs *ast.BlockStmt) {
-	// reset labeled stmts flag inside block stmts, otherwise nested stmts will process being labeled
-	ctx = ctx.withoutLabeledStmt()
-
-	ann.vis(ctx, &bs.List)
-}
-
-func (ann *Annotator) VisExprStmt(ctx *Ctx, es *ast.ExprStmt) {
-	ctx = ctx.withFixedDebugIndex()
-	xPos := es.X.Pos()
-	e := ann.resExpr(ctx, &es.X)
-	ctx3 := ctx.withInsertStmtAfter(true)
-	ann.insertDebugLine(ctx3, xPos, e)
-}
-
-func (ann *Annotator) VisAssignStmt(ctx *Ctx, as *ast.AssignStmt) {
-	ctx = ctx.withFixedDebugIndex()
-
-	asPos := as.Pos()
-	asTok := as.Tok
-
-	// right hand side
 	ctx3 := ctx
-	if len(as.Rhs) == 1 {
-		// ex: a:=b
-		// ex: a,ok:= m[b]
-		// ex: a,b,c:=f()
-		ctx3 = ctx3.withNResults(len(as.Lhs))
-	} else {
-		// ex: a,b,c:=d,e,f // each of {d,e,f} return only 1 result
-		ctx3 = ctx3.withNResults(1)
+	ctx3 = ctx3.withValue(cidnResAssignDebugToVar, &as.Rhs)
+	rhs, err := ann.visExprs(ctx3, &as.Rhs, as.Rhs[0].Pos())
+	if err != nil {
+		return err
 	}
-	rhs := ann.resExprs(ctx3, &as.Rhs)
+	if rhsOnly {
+		ann.insertDebugLineStmt(ctx, rhs)
+		return nil
+	}
 
-	// assign right hand side to a var before the main assign stmt
-	ctx5 := ctx.withInsertStmtAfter(false)
-	rhs2 := ann.assignToNewIdent(ctx5, rhs)
+	opbl := basicLitInt(int(as.Tok), as.TokPos)
+	e3 := ann.newDebugCE("IA", lhs, opbl, rhs)
+	ctx4 := ctx.withValue(cidbInsertStmtAfter, true)
+	ann.insertDebugLineStmt(ctx4, e3)
+	return nil
+}
 
-	// simplify (don't show lhs since it's similar to rhs)
-	allSimple := false // ex: a++, a+=1
-	switch asTok {
-	case token.DEFINE, token.ASSIGN:
-		allSimple = true
-		if len(as.Rhs) == 1 {
-			if _, ok := as.Rhs[0].(*ast.TypeAssertExpr); ok {
-				allSimple = false
+func (ann *Annotator) visBranchStmt(ctx *Ctx, bs *ast.BranchStmt) error {
+	// show step in
+	de := ann.newDebugISt(bs.Pos())
+	ann.insertDebugLineStmt(ctx, de)
+	return nil
+}
+
+func (ann *Annotator) visCaseClause(ctx *Ctx, cc *ast.CaseClause) error {
+	for i := range cc.List {
+
+		// only callexprs since they need to run for each case before actually matching
+		expr := &cc.List[i]
+		if _, ok := (bypassParenExpr(*expr)).(*ast.CallExpr); ok {
+
+			// wrap in funclit if possible
+			tt, ok := ann.newTType2(*expr)
+			if ok && !tt.isBasicInfo(types.IsUntyped) &&
+				tt.isBasicInfo(types.IsOrdered|
+					types.IsBoolean|
+					types.IsInteger|
+					types.IsUnsigned|
+					types.IsFloat|
+					types.IsString|
+					types.IsComplex) {
+				typeName := fmt.Sprintf("%s", tt.Type)
+				fl := newFuncLitRetType(typeName)
+				rs := &ast.ReturnStmt{Results: []ast.Expr{*expr}}
+				fl.Body.List = append(fl.Body.List, rs)
+				if err := ann.visStmt(ctx, fl.Body); err != nil {
+					return err
+				}
+				*expr = &ast.CallExpr{Fun: fl}
 			}
 		}
 	}
-	if allSimple {
-		for _, e := range as.Lhs {
-			if !isIdentOrSelectorOfIdents(e) {
-				allSimple = false
-				break
-			}
-		}
-	}
-	if allSimple {
-		ann.insertDebugLine(ctx, asPos, rhs2)
-		return
-	}
 
-	// left hand side
-	// ex: a[i] // returns 1 result
-	// ex: a,b,c:= // each expr returns 1 result to be debugged
-	ctx4 := ctx.
-		withNResults(1).
-		withInsertStmtAfter(true).
-		withBoolean(ctxIdExprInLhs, true)
-	lhs := ann.resExprs(ctx4, &as.Lhs)
-
-	ctx = ctx.withInsertStmtAfter(true)
-	opbl := basicLitInt(int(asTok))
-	ce3 := ann.newDebugI(ctx, "IA", lhs, opbl, rhs2)
-	ann.insertDebugLine(ctx, asPos, ce3)
-}
-
-func (ann *Annotator) VisReturnStmt(ctx *Ctx, rs *ast.ReturnStmt) {
-	ft, ok := ctx.funcType()
-	if !ok {
-		return
-	}
-
-	// functype number of results to return
-	nres := ft.Results.NumFields()
-	if nres == 0 {
-		// show debug step
-		ce := ann.newDebugI(ctx, "ISt")
-		ann.insertDebugLine(ctx, rs.Pos(), ce)
-		return
-	}
-
-	// naked return (have nres>0), use results ids
-	if len(rs.Results) == 0 {
-		var w []ast.Expr
-		for _, f := range ft.Results.List {
-			for _, id := range f.Names {
-				w = append(w, id)
-			}
-		}
-		rs.Results = w
-	}
-
-	// visit results
-	pos := rs.Pos()
-	ctx2 := ctx
-	ctx2 = ctx2.withFixedDebugIndex()
-	if len(rs.Results) > 1 { // each return expr returns 1 result
-		ctx2 = ctx2.withNResults(1)
-	} else {
-		ctx2 = ctx2.withNResults(nres)
-	}
-	e2 := ann.resExprs(ctx2, &rs.Results)
-
-	ann.insertDebugLine(ctx2, pos, e2)
-}
-
-func (ann *Annotator) VisTypeSwitchStmt(ctx *Ctx, tss *ast.TypeSwitchStmt) {
-	ctx = ctx.withFixedDebugIndex()
-	if ok := ann.wrapInitInBlockAndVisit(ctx, tss, &tss.Init); ok {
-		return
-	}
-
-	// visiting tss.assign stmt would enter into the stmt exprstmt that always inserts the stmt after; this case needs the stmt insert before
-	e2 := (*ast.Expr)(nil)
-	switch t := tss.Assign.(type) {
-	case *ast.ExprStmt:
-		e2 = &t.X
-	case *ast.AssignStmt:
-		if len(t.Rhs) == 1 {
-			e2 = &t.Rhs[0]
-		}
-	}
-	if e2 != nil {
-		pos := (*e2).Pos()
-		ctx2 := ctx
-		ctx2 = ctx2.withFixedDebugIndex()
-		ctx2 = ctx2.withInsertStmtAfter(false)
-		e := ann.resExpr(ctx2, e2)
-		ann.insertDebugLine(ctx2, pos, e)
-	}
-
-	ctx3 := ctx.withNilFixedDebugIndex()
-	ann.vis(ctx3, tss.Body)
-}
-
-func (ann *Annotator) VisSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) {
-	ctx = ctx.withFixedDebugIndex()
-	if ok := ann.wrapInitInBlockAndVisit(ctx, ss, &ss.Init); ok {
-		return
-	}
-
-	if ss.Tag != nil {
-		tagPos := ss.Tag.Pos()
-		ctx3 := ctx
-		ctx3 = ctx3.withNResults(1) // ex: switch f1() // f1 has 1 result
-		e := ann.resExpr(ctx3, &ss.Tag)
-		ann.insertDebugLine(ctx3, tagPos, e)
-	}
-
-	// reset fixed debug index to visit the body since it has several stmts
-	ctx2 := ctx.withNilFixedDebugIndex()
-	ann.vis(ctx2, ss.Body)
-}
-
-func (ann *Annotator) VisIfStmt(ctx *Ctx, is *ast.IfStmt) {
-	ctx = ctx.withFixedDebugIndex()
-	if ok := ann.wrapInitInBlockAndVisit(ctx, is, &is.Init); ok {
-		return
-	}
-
-	// condition
-	isPos := is.Cond.Pos()
-	ctx2 := ctx
-	ctx2 = ctx2.withNResults(1)
-	ctx2 = ctx2.withInsertStmtAfter(false)
-	e := ann.resExpr(ctx2, &is.Cond)
-	ann.insertDebugLine(ctx2, isPos, e)
-
-	// reset fixed debug index to visit the body since it has several stmts
-	ctx3 := ctx.withNilFixedDebugIndex()
-	ann.vis(ctx3, is.Body)
-
-	switch is.Else.(type) {
-	case *ast.IfStmt: // "else if ..."
-		// wrap in block stmt to visit "if" stmt
-		bs := &ast.BlockStmt{List: []ast.Stmt{is.Else}}
-		is.Else = bs
-	}
-	ann.vis(ctx3, is.Else)
-}
-
-func (ann *Annotator) VisForStmt(ctx *Ctx, fs *ast.ForStmt) {
-	ctx = ctx.withFixedDebugIndex()
-	if ok := ann.wrapInitInBlockAndVisit(ctx, fs, &fs.Init); ok {
-		return
-	}
-
-	// visit the body first to avoid annotating inserted stmts of cond/post later
-	ctx7 := ctx.withNilFixedDebugIndex()
-	ann.vis(ctx7, fs.Body)
-
-	if fs.Cond != nil {
-		fsBodyCtx := ctx.withStmts(&fs.Body.List)
-		condPos := fs.Cond.Pos()
-
-		e := ann.resExpr(fsBodyCtx, &fs.Cond)
-		ann.insertDebugLine(fsBodyCtx, condPos, e)
-
-		// create ifstmt to break the loop
-		ue := &ast.UnaryExpr{Op: token.NOT, X: fs.Cond} // negate
-		is := &ast.IfStmt{If: fs.Pos(), Cond: ue, Body: &ast.BlockStmt{}}
-		fs.Cond = nil // clear forstmt condition
-		fsBodyCtx.insertStmt(is)
-		isBodyCtx := ctx.withStmts(&is.Body.List)
-
-		// insert break inside ifstmt
-		brk := &ast.BranchStmt{Tok: token.BREAK}
-		isBodyCtx.insertStmt(brk)
-	}
-
-	if fs.Post != nil {
-		fsBodyCtx := ctx.withStmts(&fs.Body.List) // TODO: review
-
-		// init flag var to run post stmt
-		flagVar := ann.newIdent(ctx)
-		as4 := ann.newAssignStmt11(flagVar, &ast.Ident{Name: "false"})
-		ctx.insertStmt(as4)
-
-		// inside the forloop: ifstmt to know if the post stmt can run
-		is := &ast.IfStmt{Body: &ast.BlockStmt{}}
-		is.Cond = flagVar
-		fsBodyCtx.insertStmt(is)
-		isBodyCtx := ctx.withStmts(&is.Body.List)
-
-		// move fs.Post to inside the ifstmt
-		isBodyCtx.insertStmt(fs.Post)
-		fs.Post = nil
-
-		// visit ifstmt body that now contains the post stmt
-		ann.vis(ctx, is.Body)
-
-		// insert stmt that sets the flag to true
-		as5 := ann.newAssignStmt11(flagVar, &ast.Ident{Name: "true"})
-		as5.Tok = token.ASSIGN
-		fsBodyCtx.insertStmt(as5)
-	}
-}
-
-func (ann *Annotator) VisRangeStmt(ctx *Ctx, rs *ast.RangeStmt) {
-	ctx = ctx.withFixedDebugIndex()
-
-	xPos := rs.X.Pos()
-	rsTok := rs.Tok
-
-	// range stmt
-	ctx3 := ctx.withNResults(1)
-	x := ann.resExpr(ctx3, &rs.X)
-	//ann.insertDebugLine(ctx3, xPos, x)
-
-	// length of x (insert before for stmt)
-	e5 := &ast.CallExpr{Fun: ast.NewIdent("len"), Args: []ast.Expr{rs.X}}
-	e6 := ann.newDebugI(ctx, "IVr", e5)
-	e7 := ann.assignToNewIdent(ctx, e6) // var is of type item
-
-	// first debug line (entering the loop)
-	e11 := ann.newDebugIL(ctx, e7, x)
-	ann.insertDebugLine(ctx, xPos, e11)
-
-	// visit the body first to avoid annotating inserted stmts
-	ctx6 := ctx.withNilFixedDebugIndex()
-	ann.vis(ctx6, rs.Body)
-
-	// key and value
-	kvPos := token.Pos(0)
-	rsBodyCtx := ctx.withStmts(&rs.Body.List)
-	kves := []ast.Expr{}
-	if rs.Key != nil {
-		kvPos = rs.Key.Pos()
-		e2 := ann.resExpr(rsBodyCtx, &rs.Key)
-		kves = append(kves, e2)
-	}
-	if rs.Value != nil {
-		if kvPos == 0 {
-			kvPos = rs.Value.Pos()
-		}
-		e2 := ann.resExpr(rsBodyCtx, &rs.Value)
-		kves = append(kves, e2)
-	}
-
-	if len(kves) > 0 {
-		ctx5 := rsBodyCtx
-		opbl := basicLitInt(int(rsTok))
-		rhs := ann.newDebugI(ctx5, "IL", []ast.Expr{e7}...)
-		lhs := ann.newDebugI(ctx5, "IL", kves...)
-		e9 := ann.newDebugI(ctx5, "IA", lhs, opbl, rhs)
-		ann.insertDebugLine(ctx5, kvPos, e9)
-	}
-}
-
-func (ann *Annotator) VisIncDecStmt(ctx *Ctx, ids *ast.IncDecStmt) {
-	ctx = ctx.withFixedDebugIndex()
-	idsPos := ids.X.Pos()
-	idsTok := ids.Tok
-
-	// value before
-	e1 := ann.resExpr(ctx, &ids.X)
-	l1 := ann.newDebugI(ctx, "IL", e1)
-	ctx3 := ctx.withInsertStmtAfter(false)
-	l1before := ann.assignToNewIdent(ctx3, l1)
-
-	// value after
-	ctx2 := ctx.withInsertStmtAfter(true)
-	e2 := ann.resExpr(ctx2, &ids.X)
-	l2 := ann.newDebugI(ctx, "IL", e2)
-
-	opbl := basicLitInt(int(idsTok))
-	ce3 := ann.newDebugI(ctx2, "IA", l2, opbl, l1before)
-	ann.insertDebugLine(ctx2, idsPos, ce3)
-}
-
-func (ann *Annotator) VisLabeledStmt(ctx *Ctx, ls *ast.LabeledStmt) {
-	// Problem:
-	// -	label1: ; // inserting empty stmt breaks compilation
-	// 	for { break label1 } // compile error: invalid break label
-	// -	using block stmts won't work
-	// 	label1:
-	// 	{ for { break label1} } // compile error
-	// No way to insert debug stmts between the label and the stmt.
-	// Just make a debug step with "label" where a warning can be shown.
-
-	if ls.Stmt == nil {
-		return
-	}
-
-	switch ls.Stmt.(type) {
-	case *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt:
-		// can't insert stmts between the label and the stmt (alters program)
-
-		ctx = ctx.withLabeledStmt(ls)
-		ann.vis(ctx, ls.Stmt)
-	default:
-		// use empty stmt to insert stmts between label and stmt
-		stmt := ls.Stmt
-		ls.Stmt = &ast.EmptyStmt{}
-
-		// insert stmt before, consider stmt done
-		ctx3 := ctx.withInsertStmtAfter(false)
-		ctx3.insertStmt(ls)
-
-		// replace stmt and continue visit
-		ctx.replaceStmt(stmt)
-		ann.vis(ctx, stmt)
-	}
-}
-
-func (ann *Annotator) VisBranchStmt(ctx *Ctx, bs *ast.BranchStmt) {
-	ce := ann.newDebugI(ctx, "IBr")
-	ann.insertDebugLine(ctx, bs.Pos(), ce)
-}
-
-func (ann *Annotator) VisDeferStmt(ctx *Ctx, ds *ast.DeferStmt) {
-	ann.visDeferStmt2(ctx, &ds.Call)
-}
-func (ann *Annotator) VisGoStmt(ctx *Ctx, gs *ast.GoStmt) {
-	ann.visDeferStmt2(ctx, &gs.Call)
-}
-func (ann *Annotator) visDeferStmt2(ctx *Ctx, cep **ast.CallExpr) {
-	ctx = ctx.withCallExpr(cep)
-	ce := *cep
-
-	funPos := ce.Fun.Pos()
-
-	// assign arguments to tmp variables
-	if len(ce.Args) > 0 {
-		//args2 := make([]ast.Expr, len(ce.Args))
-		//copy(args2, ce.Args)
-		//ids := ann.assignToNewIdents2(ctx, len(ce.Args), args2...)
-		for i, e := range ce.Args {
-			if ann.canAssignToVar(ctx, e) {
-				id := ann.assignToNewIdent(ctx, e)
-				ce.Args[i] = id
-			}
-			//else {
-			//ce.Args[i] = ids[i]
-			//}
-		}
-	}
-
-	ctx = ctx.withFixedDebugIndex()
-
-	// handle funclit
-	ceFunIsFuncLit := false
-	switch ce.Fun.(type) {
-	case *ast.FuncLit:
-		ceFunIsFuncLit = true
-		ctx3 := ctx.withNResults(1)
-		fun := ann.resExpr(ctx3, &ce.Fun)
-		ann.insertDebugLine(ctx, funPos, fun)
-	}
-
-	// replace func call with wrapped function
-	fl2 := &ast.FuncLit{
-		Type: &ast.FuncType{
-			Params: &ast.FieldList{},
-		},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{&ast.ExprStmt{X: ce}},
-		},
-	}
-	ce2 := &ast.CallExpr{Fun: fl2}
-	ctx.replaceCallExpr(ce2)
-
-	// temporary switch names for better debug line
-	if ceFunIsFuncLit {
-		if id, ok := ce.Fun.(*ast.Ident); ok {
-			name := id.Name
-			id.Name = "f"
-			defer func() { id.Name = name }()
-		}
-	}
-
-	// visit block with the func call to insert debug stmts inside
-	ann.vis(ctx, fl2.Body)
-}
-
-func (ann *Annotator) VisValueSpec(ctx *Ctx, vs *ast.ValueSpec) {
-	// ex: var a, b int = 1, 2
-	// ex: var a, b = f()
-	if len(vs.Values) > 0 {
-		pos := vs.Pos()
-		nres := len(vs.Names)
-		if len(vs.Values) >= 2 {
-			nres = 1
-		}
-		ctx2 := ctx
-		ctx2 = ctx2.withFixedDebugIndex()
-		ctx2 = ctx2.withNResults(nres)
-		e := ann.resExprs(ctx2, &vs.Values)
-		ann.insertDebugLine(ctx2, pos, e)
-	}
-}
-
-func (ann *Annotator) VisSelectStmt(ctx *Ctx, ss *ast.SelectStmt) {
-	// debug step to show it has entered the select statement
-	e1 := ann.newDebugI(ctx, "ISt")
-	ann.insertDebugLine(ctx, ss.Pos(), e1)
-
-	ann.vis(ctx, ss.Body)
-}
-
-func (ann *Annotator) VisCaseClause(ctx *Ctx, cc *ast.CaseClause) {
-	// visit body
-	ann.vis(ctx, &cc.Body)
-
-	// debug step showing the case was entered
+	// show debug step entering the clause
+	de := ann.newDebugISt(cc.Pos())
 	ctx2 := ctx.withStmts(&cc.Body)
-	ce := ann.newDebugI(ctx2, "ISt")
-	ann.insertDebugLine(ctx2, cc.Case, ce)
+	ann.insertDebugLineStmt(ctx2, de)
+
+	return ann.visStmts(ctx, &cc.Body)
 }
 
-func (ann *Annotator) VisCommClause(ctx *Ctx, cc *ast.CommClause) {
-	// visit body first to avoid annotating inserted stmts
-	ann.vis(ctx, &cc.Body)
+func (ann *Annotator) visCommClause(ctx *Ctx, cc *ast.CommClause) error {
+	// TODO
+	//cc.Comm
 
-	// debug step showing the case was entered
+	// show debug step entering the clause
+	de := ann.newDebugISt(cc.Pos())
 	ctx2 := ctx.withStmts(&cc.Body)
-	e1 := ann.newDebugI(ctx2, "ISt")
-	ann.insertDebugLine(ctx2, cc.Case, e1)
+	ann.insertDebugLineStmt(ctx2, de)
+
+	return ann.visStmts(ctx, &cc.Body)
 }
 
-func (ann *Annotator) VisSendStmt(ctx *Ctx, ss *ast.SendStmt) {
-	pos := ss.Pos()
+func (ann *Annotator) visAsyncStmt(ctx *Ctx, ce0 **ast.CallExpr) error {
+	// used by: ast.DeferStmt and ast.GoStmt
 
-	ctx2 := ctx.withNResults(1)
-	val := ann.resExpr(ctx2, &ss.Value)
+	ce := *ce0
 
-	ctx3 := ctx.withInsertStmtAfter(true)
-	ch := ann.resExpr(ctx3, &ss.Chan)
-
-	ce := ann.newDebugI(ctx, "IS", ch, val)
-	ann.insertDebugLine(ctx3, pos, ce)
-}
-
-//----------
-
-func (ann *Annotator) visStmts(ctx *Ctx, stmts *[]ast.Stmt) {
-	ctx2 := ctx.withStmts(stmts)
-	for stmt := ctx2.curStmt(); stmt != nil; stmt = ctx2.nextStmt() {
-		// handle here to enabled/disable next stmts in this list
-		ctx2 = ann.annotationBlockCtx(ctx2, stmt)
-
-		ann.vis(ctx2, stmt)
+	// funclit that will run now
+	runFl := newFuncLit()
+	retType := &ast.FuncType{Params: &ast.FieldList{}}
+	runFl.Type.Results.List = []*ast.Field{
+		&ast.Field{Type: retType},
 	}
-}
+	runFlCtx := ctx.withStmts(&runFl.Body.List)
 
-// NOTE: mostly used for params (fixed debug index)
-func (ann *Annotator) visFieldList(ctx *Ctx, fl *ast.FieldList, body *ast.BlockStmt) {
-	if len(fl.List) == 0 {
-		return
-	}
-	ctx2 := ctx
-	ctx2 = ctx2.withStmts(&body.List)
-	ctx2 = ctx2.withFixedDebugIndex()
-	e1 := ann.resFieldList(ctx2, fl)
-	ann.insertDebugLine(ctx2, fl.Opening, e1)
-}
-
-//----------
-//----------
-//----------
-
-func (ann *Annotator) ResCallExpr(ctx *Ctx, ce *ast.CallExpr) ast.Expr {
-	cePos := ce.Pos()
-
-	// handle fun expr
-	isFuncLit := false
-	isPanic := false
-	isFirstArgType := false
-	switch t := ce.Fun.(type) {
-	case *ast.Ident:
-		// handle builtin funcs
-		switch t.Name {
-		case "panic":
-			if ann.isBuiltin(t) {
-				isPanic = true
-			}
-		case "new", "make":
-			if ann.isBuiltin(t) {
-				isFirstArgType = true
-			}
+	// visit fun
+	if !isIdentsSequence(ce.Fun) {
+		de, err := ann.visExpr(runFlCtx, &ce.Fun)
+		if err != nil {
+			return err
 		}
-	case *ast.FuncLit:
-		isFuncLit = true
-	}
-
-	// visit fun expr
-	ctx5 := ctx.withNResults(1)
-	ctx5 = ctx5.withBoolean(ctxIdNameInsteadOfValue, true)
-	fx := ann.resExpr(ctx5, &ce.Fun)
-	if isFuncLit {
-		ann.insertDebugLine(ctx, cePos, fx) // show step
-		fx = ann.newDebugIVsBl(ctx, "f")    // continue with simple name
+		ann.insertDebugLineStmt(runFlCtx, de)
 	}
 
 	// visit args
-	ctx2 := ctx
-	ctx2 = ctx2.withNResults(1) // each arg returns 1 result
-	ctx2 = ctx2.withBoolean(ctxIdFirstArgIsType, isFirstArgType)
-	args := ann.resExprs(ctx2, &ce.Args)
-
-	// show stepping in (insert before func call)
-	args2 := append([]ast.Expr{fx}, args)
-	e4 := ann.newDebugI(ctx, "ICe", args2...)
-	ann.insertDebugLine(ctx, cePos, e4)
-
-	// avoid "line unreachable" compiler errors
-	if isPanic {
-		return afterPanicIdent()
+	de, err := ann.visExprs(runFlCtx, &ce.Args, ce.Pos())
+	if err != nil {
+		return err
+	}
+	if !isNilIdent(de) {
+		ann.insertDebugLineStmt(runFlCtx, de)
 	}
 
-	result := ann.solveNResults(ctx, ce)
-	//if ctx.boolean(ctxIdNameInsteadOfValue) {
-	//	result = nilIdent()
-	//}
+	// funclit that will run later
+	asyncFl := newFuncLit()
+	asyncFlCtx := ctx.withStmts(&asyncFl.Body.List)
+	rs := &ast.ReturnStmt{Results: []ast.Expr{asyncFl}}
+	runFlCtx.insertStmt(rs)
 
-	return ann.newDebugI(ctx, "IC", e4, result)
+	es := &ast.ExprStmt{X: ce}
+	asyncFlCtx.insertStmt(es)
+	asyncFlCtx.setStmtVisited(es, false)
+	if err := ann.visStmt(ctx, asyncFl.Body); err != nil {
+		return err
+	}
+
+	// replace
+	ce2 := &ast.CallExpr{Fun: runFl}
+	*ce0 = &ast.CallExpr{Fun: ce2}
+	return nil
 }
 
-func (ann *Annotator) ResBasicLit(ctx *Ctx, bl *ast.BasicLit) ast.Expr {
-	return ann.newDebugIVi(ctx, bl)
-}
-
-func (ann *Annotator) ResIdent(ctx *Ctx, id *ast.Ident) ast.Expr {
-	if id.Name == "_" {
-		return ann.newDebugI(ctx, "IAn")
-	}
-	if ctx.boolean(ctxIdInTypeArg) {
-		return ann.resType(ctx, id)
-	}
-	if ctx.boolean(ctxIdNameInsteadOfValue) {
-		return ann.newDebugIVsBl(ctx, id.Name)
-	}
-	return ann.newDebugIVi(ctx, id)
-}
-
-func (ann *Annotator) ResUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) ast.Expr {
-	xPos := ue.X.Pos()
-
-	ctx2 := ctx
-	if ue.Op == token.AND {
-		ctx2 = ctx2.withTakingVarAddress(ue.X)
-	}
-	x := ann.resExpr(ctx2, &ue.X)
-
-	opbl := basicLitInt(int(ue.Op))
-	e4 := ann.newDebugI(ctx, "IUe", opbl, x)
-	if ue.Op == token.ARROW {
-		ann.insertDebugLine(ctx, xPos, e4)
+func (ann *Annotator) visExprStmt(ctx *Ctx, es *ast.ExprStmt) error {
+	ctx = ctx.withValue(cidnIsExprStmtExpr, es.X)
+	de, err := ann.visExpr(ctx, &es.X)
+	if err != nil {
+		return err
 	}
 
-	result := ann.solveNResults(ctx, ue)
-
-	return ann.newDebugI(ctx, "IU", e4, result)
-}
-
-func (ann *Annotator) ResFuncLit(ctx *Ctx, fl *ast.FuncLit) ast.Expr {
-	ctx0 := ctx // for the last return
-	ctx = ctx.withResetForFuncLit()
-
-	// visit body first to avoid annotating params insertions
-	ctx3 := ctx
-	ctx3 = ctx3.withFuncType(fl.Type)
-	ann.vis(ctx3, fl.Body)
-
-	// visit params
-	ann.visFieldList(ctx, fl.Type.Params, fl.Body)
-
-	return ann.solveNResults(ctx0, fl)
-}
-
-func (ann *Annotator) ResSelectorExpr(ctx *Ctx, se *ast.SelectorExpr) ast.Expr {
-	if ctx.boolean(ctxIdInTypeArg) {
-		return ann.resType(ctx, se)
-	}
-
-	// simplify
-	if isIdentOrSelectorOfIdents(se) {
-		if ctx.boolean(ctxIdNameInsteadOfValue) {
-			return ann.newDebugIVsBl(ctx, se.Sel.Name)
+	// special case: don't insert after if panic (won't compile)
+	if ce, ok := bypassParenExpr(es.X).(*ast.CallExpr); ok {
+		tt, ok := ann.newTType2(ce.Fun)
+		if ok && tt.isBuiltinWithName("panic") {
+			as := newAssignToAnons(de)
+			ctx.insertStmt(as)
+			return nil
 		}
-		return ann.newDebugIVi(ctx, se)
 	}
-
-	//xPos := se.X.Pos()
-	ctx4 := ctx.withNResults(1) //.withNameInsteadOfValue(false)
-	x := ann.resExpr(ctx4, &se.X)
-	//ann.insertDebugLine(ctx4, xPos, x)
-
-	sel := ast.Expr(nil)
-	if ctx.boolean(ctxIdNameInsteadOfValue) {
-		sel = ann.newDebugIVsBl(ctx, se.Sel.Name)
-	} else {
-		sel = ann.newDebugIVi(ctx, se)
-	}
-	return ann.newDebugI(ctx, "ISel", x, sel)
-
-	//ctx3 := ctx.withExpr(&se.X).withNResults(1)
-	//result := ann.solveNResults(ctx3, se.X)
-
-	//return ann.newDebugItem(ctx, "ISel", result, sel)
-}
-
-func (ann *Annotator) ResCompositeLit(ctx *Ctx, cl *ast.CompositeLit) ast.Expr {
-	// NOTE: not doing cl.Type
-	e := ann.resExprs(ctx, &cl.Elts)
-	return ann.newDebugI(ctx, "ILit", e)
-}
-
-func (ann *Annotator) ResKeyValueExpr(ctx *Ctx, kv *ast.KeyValueExpr) ast.Expr {
-	k := ast.Expr(nil)
-	if id, ok := kv.Key.(*ast.Ident); ok {
-		bl := basicLitStringQ(id.Name)
-		k = ann.newDebugI(ctx, "IVs", bl)
-	} else {
-		k = ann.resExpr(ctx, &kv.Key)
-	}
-	v := ann.resExpr(ctx, &kv.Value)
-	return ann.newDebugI(ctx, "IKV", k, v)
-}
-
-func (ann *Annotator) ResTypeAssertExpr(ctx *Ctx, tae *ast.TypeAssertExpr) ast.Expr {
-	// tae.Type!=nil is "t,ok:=X.(<type>)"
-	// tae.Type==nil is "switch X.(type)"
-	isSwitch := tae.Type == nil
 
 	ctx2 := ctx
-	ctx2 = ctx2.withNResults(1) // ex: f().(type) // f() returns 1 result
-	x := ann.resExpr(ctx2, &tae.X)
+	if ctx2.valueMatch2(cidnIsTypeSwitchStmtAssign, es) {
+		// ex: "switch a.(int)"
+	} else {
+		ctx = ctx.withValue(cidbInsertStmtAfter, true)
+	}
+	ann.insertDebugLineStmt(ctx, de)
+	return nil
+}
 
-	// simplify
-	if !isSwitch {
-		return x
+func (ann *Annotator) visForStmt(ctx *Ctx, fs *ast.ForStmt) error {
+	// wrap in blockstmt to have vars valid only inside the stmt
+	canInit := !ctx.valueMatch2(cidnIsLabeledStmtStmt, fs)
+	if canInit && fs.Init != nil {
+		stmt, init := fs, &fs.Init
+
+		bs := &ast.BlockStmt{}
+		bs.List = append(bs.List, *init, stmt)
+		ctx2 := ctx.withStmts(&bs.List)
+		if err := ann.visStmt(ctx2, *init); err != nil {
+			return err
+		}
+		*init = nil
+		ctx.replaceStmt(bs)
 	}
 
-	xt := ann.newDebugI(ctx, "IVt", tae.X)
-	return ann.newDebugI(ctx, "ITA", x, xt)
-}
-
-func (ann *Annotator) ResParenExpr(ctx *Ctx, pe *ast.ParenExpr) ast.Expr {
-	x := ann.resExpr(ctx, &pe.X)
-	return ann.newDebugI(ctx, "IP", x)
-}
-
-func (ann *Annotator) ResIndexExpr(ctx *Ctx, ie *ast.IndexExpr) ast.Expr {
-	// ex: a,b=c[i],d[j]
-	// ex: a,ok:=m[f1()] // map access, more then 1 result
-	isSimple := isIdentOrSelectorOfIdents(ie.X)
-
-	ctx2 := ctx.
-		withNResults(1).
-		withBoolean(ctxIdNameInsteadOfValue, true)
-	x := ann.resExpr(ctx2, &ie.X)
-
-	// wrap in parenthesis
-	if !isSimple {
-		x = ann.newDebugIP(ctx, x)
+	// wrap in funclit that returns bool
+	if fs.Cond != nil {
+		fl := newFuncLitRetBool()
+		rs := &ast.ReturnStmt{Results: []ast.Expr{fs.Cond}}
+		fl.Body.List = append(fl.Body.List, rs)
+		if err := ann.visStmt(ctx, fl.Body); err != nil {
+			return err
+		}
+		fs.Cond = &ast.CallExpr{Fun: fl}
 	}
 
-	// Index expr
-	ctx3 := ctx
-	ctx3 = ctx3.withNResults(1)                    // ex: a[f()] // f() returns 1 result
-	ctx3 = ctx3.withInsertStmtAfter(false)         // ex: a[f()] // f() must be before
-	ctx3 = ctx3.withBoolean(ctxIdExprInLhs, false) // ex: a[f()] // allow to replace f()
-	ix := ann.resExpr(ctx3, &ie.Index)
-
-	result := ann.solveNResults(ctx, ie)
-
-	return ann.newDebugI(ctx, "II", x, ix, result)
-}
-
-func (ann *Annotator) ResSliceExpr(ctx *Ctx, se *ast.SliceExpr) ast.Expr {
-	isSimple := isIdentOrSelectorOfIdents(se.X)
-
-	ctx2 := ctx.
-		withNResults(1).
-		withBoolean(ctxIdNameInsteadOfValue, true)
-	x := ann.resExpr(ctx2, &se.X)
-
-	// wrap in parenthesis
-	if !isSimple {
-		x = ann.newDebugIP(ctx, x)
+	// wrap in funclit, there are no new variables
+	if fs.Post != nil {
+		fl := newFuncLit()
+		fl.Body.List = append(fl.Body.List, fs.Post)
+		if err := ann.visStmt(ctx, fl.Body); err != nil {
+			return err
+		}
+		fs.Post = &ast.ExprStmt{X: &ast.CallExpr{Fun: fl}}
 	}
 
-	// index expr
-	ix := []ast.Expr{}
-	for _, e := range []*ast.Expr{&se.Low, &se.High, &se.Max} {
-		r := ann.resExpr(ctx, e)
-		ix = append(ix, r)
+	return ann.visStmt(ctx, fs.Body)
+}
+
+func (ann *Annotator) visIfStmt(ctx *Ctx, is *ast.IfStmt) error {
+	// wrap in blockstmt to have vars that belong only to the forstmt
+	if is.Init != nil {
+		bs := &ast.BlockStmt{}
+		bs.List = append(bs.List, is.Init, is)
+		ctx2 := ctx.withStmts(&bs.List)
+		if err := ann.visStmt(ctx2, is.Init); err != nil {
+			return err
+		}
+		is.Init = nil
+		ctx.replaceStmt(bs) // replaces is with bs in stmts
 	}
 
-	result := ann.solveNResults(ctx, se)
-
-	// slice3: 2 colons present
-	s := "false"
-	if se.Slice3 {
-		s = "true"
-	}
-	slice3Bl := basicLitString(s)
-
-	return ann.newDebugI(ctx, "II2", x, ix[0], ix[1], ix[2], slice3Bl, result)
-}
-
-func (ann *Annotator) ResStarExpr(ctx *Ctx, se *ast.StarExpr) ast.Expr {
-	if ann.isType(se) {
-		return ann.resType(ctx, se)
+	// wrap in funclit with bool return value
+	if is.Cond != nil {
+		fl := newFuncLitRetBool()
+		rs := &ast.ReturnStmt{Results: []ast.Expr{is.Cond}}
+		fl.Body.List = append(fl.Body.List, rs)
+		if err := ann.visStmt(ctx, fl.Body); err != nil {
+			return err
+		}
+		is.Cond = &ast.CallExpr{Fun: fl}
 	}
 
-	// ex: *a=1
-	ctx = ctx.withNResults(1)
+	if err := ann.visStmt(ctx, is.Body); err != nil {
+		return err
+	}
 
-	x := ann.resExpr(ctx, &se.X)
-	//return x
-
-	result := ann.solveNResults(ctx, se)
-
-	opbl := basicLitInt(int(token.MUL))
-	e2 := ann.newDebugI(ctx, "IUe", opbl, x)
-	return ann.newDebugI(ctx, "IU", e2, result)
+	if is.Else != nil {
+		ctx2 := ctx.withStmt(&is.Else)
+		return ann.visStmt(ctx2, is.Else)
+	}
+	return nil
 }
 
-func (ann *Annotator) ResMapType(ctx *Ctx, mt *ast.MapType) ast.Expr {
-	return ann.resType(ctx, mt)
+func (ann *Annotator) visIncDecStmt(ctx *Ctx, rs *ast.IncDecStmt) error {
+	// ex: a++
+	// ex: *f()++
+
+	ctx2 := ctx.withValue(cidnResNotReplaceable, rs.X)
+
+	// commented: not showing the value before
+	//de, err := ann.visExpr(ctx2, &rs.X)
+	//if err != nil {
+	//	return err
+	//}
+	//ann.insertDebugLineStmt(ctx2, de)
+
+	result, err := ann.resultDE(ctx2, rs.X)
+	if err != nil {
+		return err
+	}
+
+	ctx3 := ctx2.withValue(cidbInsertStmtAfter, true) // TODO: review
+	ann.insertDebugLineStmt(ctx3, result)
+	return nil
 }
-func (ann *Annotator) ResChanType(ctx *Ctx, ct *ast.ChanType) ast.Expr {
-	return ann.resType(ctx, ct)
+
+func (ann *Annotator) visLabeledStmt(ctx *Ctx, ls *ast.LabeledStmt) error {
+	ctx = ctx.withValue(cidnIsLabeledStmtStmt, ls.Stmt)
+
+	// these can't detach the label or the program could be altered
+	// ex: setting labelstmt.stmt as empty will fail to compile continue/break labels ("invalid break label X")
+	//*ast.ForStmt, 		// visStmtWithInit, !stepin
+	//*ast.RangeStmt,     	// no init, !stepin
+	//*ast.SwitchStmt,     	// visStmtWithInit, stepin
+	//*ast.TypeSwitchStmt, 	// visStmtWithInit, stepin by assignstmt
+	//*ast.SelectStmt:     	// no init, stepin
+
+	switch ls.Stmt.(type) {
+	case *ast.ForStmt,
+		*ast.RangeStmt,
+		*ast.SwitchStmt,
+		*ast.TypeSwitchStmt,
+		*ast.SelectStmt:
+		return ann.visStmt(ctx, ls.Stmt)
+	default:
+		// detach stmt
+		ctx2 := ctx.withValue(cidbInsertStmtAfter, true)
+		ctx2.insertStmt(ls.Stmt)
+		ctx2.setStmtVisited(ls.Stmt, false)
+		ls.Stmt = &ast.EmptyStmt{}
+		return nil
+	}
 }
-func (ann *Annotator) ResArrayType(ctx *Ctx, at *ast.ArrayType) ast.Expr {
-	return ann.resType(ctx, at)
+
+func (ann *Annotator) visRangeStmt(ctx *Ctx, rs *ast.RangeStmt) error {
+	// lenght of x
+	id := &ast.Ident{Name: "len", NamePos: rs.X.Pos()}
+	ce2 := &ast.CallExpr{Fun: id, Args: []ast.Expr{rs.X}}
+	de2 := ann.newDebugCE("IVr", ce2)
+	ann.insertDebugLineStmt(ctx, de2)
+
+	// key and value inside the range body
+	rsBodyCtx := ctx.withStmts(&rs.Body.List)
+	kv := []DebugExpr{}
+	if rs.Key != nil {
+		ctx2 := rsBodyCtx
+		ctx2 = ctx2.withValue(cidnResNotReplaceable, rs.Key)
+		de, err := ann.visExpr(ctx2, &rs.Key)
+		if err != nil {
+			return err
+		}
+		kv = append(kv, de)
+	}
+	if rs.Value != nil {
+		ctx2 := rsBodyCtx
+		ctx2 = ctx2.withValue(cidnResNotReplaceable, rs.Value)
+		de, err := ann.visExpr(ctx2, &rs.Value)
+		if err != nil {
+			return err
+		}
+		kv = append(kv, de)
+	}
+	if len(kv) > 0 {
+		de := ann.newDebugIL(kv...)
+		ann.insertDebugLineStmt(rsBodyCtx, de)
+	}
+
+	return ann.visStmt(ctx, rs.Body)
 }
-func (ann *Annotator) ResInterfaceType(ctx *Ctx, it *ast.InterfaceType) ast.Expr {
-	return ann.resType(ctx, it)
+
+func (ann *Annotator) visReturnStmt(ctx *Ctx, rs *ast.ReturnStmt) error {
+	fn, ft, _ := ctx.funcNode()
+
+	tt, err := ann.newTType(fn)
+	if err != nil {
+		return err
+	}
+
+	if len(rs.Results) == 0 {
+		// just show debug step
+		if tt.nResults2(true) == 0 {
+			de := ann.newDebugISt(rs.Pos())
+			ann.insertDebugLineStmt(ctx, de)
+			return nil
+		}
+
+		// naked return, nresults>=1
+		if err := ann.nameMissingFieldListNames(ft.Results); err != nil {
+			return err
+		}
+		rs.Results = ann.fieldListNames(ft.Results)
+	} else {
+		//// TODO:***
+		//// fix "return nil" has no type
+		//tes := ann.fieldListTypeExprs(ft.Results)
+		//if err := ann.setNilsTypes(rs.Results, tes); err != nil {
+		//	return err
+		//}
+	}
+
+	de, err := ann.visExprs(ctx, &rs.Results, rs.Pos())
+	if err != nil {
+		return err
+	}
+	ann.insertDebugLineStmt(ctx, de)
+	return nil
+}
+
+func (ann *Annotator) visSelectStmt(ctx *Ctx, ss *ast.SelectStmt) error {
+	// show debug step entering the switch
+	de := ann.newDebugISt(ss.Pos())
+	ann.insertDebugLineStmt(ctx, de)
+
+	return ann.visStmt(ctx, ss.Body)
+}
+
+func (ann *Annotator) visSendStmt(ctx *Ctx, ss *ast.SendStmt) error {
+	ch, err := ann.visExpr(ctx, &ss.Chan)
+	if err != nil {
+		return err
+	}
+
+	val, err := ann.visExpr(ctx, &ss.Value)
+	if err != nil {
+		return err
+	}
+
+	de := ann.newDebugCE("IS", ch, val)
+	ann.insertDebugLineStmt(ctx, de)
+	return nil
+}
+
+func (ann *Annotator) visSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) error {
+	// show debug step entering the switch
+	if ss.Init == nil && ss.Tag == nil {
+		de := ann.newDebugISt(ss.Pos())
+		ann.insertDebugLineStmt(ctx, de)
+	}
+
+	ctx3 := ctx // used in ss.tag
+
+	// wrap in blockstmt to have vars valid only inside the stmt
+	canInit := !ctx.valueMatch2(cidnIsLabeledStmtStmt, ss)
+	if canInit && ss.Init != nil {
+		stmt, init := ss, &ss.Init
+
+		bs := &ast.BlockStmt{}
+		bs.List = append(bs.List, *init, stmt)
+		ctx2 := ctx.withStmts(&bs.List)
+		if err := ann.visStmt(ctx2, *init); err != nil {
+			return err
+		}
+		*init = nil
+		ctx.replaceStmt(bs)
+
+		ctx3 = ctx2
+		ctx3.stmtsIter().index++
+	}
+
+	if canInit && ss.Tag != nil {
+		// TODO: only possible with funclit+returntypes?
+		de, err := ann.visExpr(ctx3, &ss.Tag)
+		if err != nil {
+			return err
+		}
+		//ctx2 := ctx.withValue(cidbInsertStmtAfter, true)
+		ann.insertDebugLineStmt(ctx3, de)
+	}
+
+	return ann.visStmt(ctx, ss.Body)
+}
+
+func (ann *Annotator) visTypeSwitchStmt(ctx *Ctx, tss *ast.TypeSwitchStmt) error {
+	// wrap in blockstmt to have vars valid only inside the stmt
+	canInit := !ctx.valueMatch2(cidnIsLabeledStmtStmt, tss)
+	if canInit && tss.Init != nil {
+		stmt, init := tss, &tss.Init
+
+		bs := &ast.BlockStmt{}
+		bs.List = append(bs.List, *init, stmt)
+		ctx2 := ctx.withStmts(&bs.List)
+		if err := ann.visStmt(ctx2, *init); err != nil {
+			return err
+		}
+		*init = nil
+		ctx.replaceStmt(bs)
+	}
+
+	ctx2 := ctx.withValue(cidnIsTypeSwitchStmtAssign, tss.Assign)
+	ctx2 = ctx2.withValue(cidnResNotReplaceable, tss.Assign)
+	if err := ann.visStmt(ctx2, tss.Assign); err != nil {
+		return err
+	}
+
+	return ann.visStmt(ctx, tss.Body)
+}
+
+//----------
+//----------
+
+func (ann *Annotator) visExprs(ctx *Ctx, exprs0 *[]ast.Expr, noExprsPos token.Pos) (DebugExpr, error) {
+	ctx = ctx.withValue(cidnExprs, exprs0)
+	exprs := *exprs0
+
+	// performance: avoid lengthy run times
+	limit := 30
+	if l, ok := ctx.integer(cidiSliceExprsLimit); ok {
+		limit = l
+	}
+
+	// inherit ctxs
+	cids := []ctxId{
+		cidnResNotReplaceable,
+		cidnResAssignDebugToVar,
+	}
+	cids2 := ctx.valueMatch3(cids, exprs0)
+
+	w := []DebugExpr{}
+	for i := range exprs {
+		ctx2 := ctx.withValue2(cids2, exprs[i]) // inherit ctxs
+		de, err := ann.visExpr(ctx2, &exprs[i])
+		if err != nil {
+			return nil, err
+		}
+		w = append(w, de)
+
+		// simplification/performance/usability: annotated executable becomes unusable if there is no limit. Ex: files with big number of constants will be really slow.
+		if limit > 0 && i+1 >= limit {
+			rest := len(exprs) - (i + 1)
+			if rest > 0 {
+				s := fmt.Sprintf("(+%v elems)", rest)
+				de2 := ann.newDebugIVs(s, exprs[0].Pos())
+				w = append(w, de2)
+				break
+			}
+		}
+	}
+
+	return ann.newDebugILOrNilIdent(noExprsPos, w...), nil
 }
 
 //----------
 
-func (ann *Annotator) ResBinaryExpr(ctx *Ctx, be *ast.BinaryExpr) ast.Expr {
-	ctx = ctx.withNResults(1)
+func (ann *Annotator) visBasicLit(ctx *Ctx, bl *ast.BasicLit) (DebugExpr, error) {
+	return ann.resultDE(ctx, bl)
+	//return ann.newDebugCE("IVi", t), nil
+}
+func (ann *Annotator) visBinaryExpr(ctx *Ctx, be *ast.BinaryExpr) (DebugExpr, error) {
 	switch be.Op {
 	case token.LAND, token.LOR:
-		return ann.resBinaryExprAndOr(ctx, be)
+		return ann.visBinaryExprAndOr(ctx, be)
 	default:
-		return ann.resBinaryExpr2(ctx, be)
+		return ann.visBinaryExpr2(ctx, be)
 	}
 }
-func (ann *Annotator) resBinaryExpr2(ctx *Ctx, be *ast.BinaryExpr) ast.Expr {
-	x := ann.resExpr(ctx, &be.X)
-	y := ann.resExpr(ctx, &be.Y)
-	result := ann.solveNResults(ctx, be)
-	opbl := basicLitInt(int(be.Op))
-	return ann.newDebugI(ctx, "IB", x, opbl, y, result)
+func (ann *Annotator) visBinaryExpr2(ctx *Ctx, be *ast.BinaryExpr) (DebugExpr, error) {
+
+	// NOTE: the need for cidnAssignDebugToVar for x and y is because in the case of the assign stmt, a var in x/y might be changed in the lhs, and getting the current value in the inserted line after the assignment will be wrong
+
+	ctx2 := ctx.withValue(cidnResAssignDebugToVar, be.X)
+	x, err := ann.visExpr(ctx2, &be.X)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx3 := ctx.withValue(cidnResAssignDebugToVar, be.Y)
+	y, err := ann.visExpr(ctx3, &be.Y)
+	if err != nil {
+		return nil, err
+	}
+
+	//// TODO: cast to the correct type?
+	// in some cases a cast is needed
+	// ex: b |= 1<<a, b is byte, 1<<a will be int if assigned to a new var
+
+	ctx4 := ctx
+	ctx4 = ctx4.withValue(cidnResReplaceWithVar, be) // needs casting in some cases
+	//ctx4 = ctx4.withValue(cidnResNotReplaceable, be) // need to be careful about being able to then not debug the value directly if changed in an assign lhs
+	//ctx4 = ctx4.withValue(cidnResAssignDebugToVar, be) // must keep result in case of assign lhs
+	result, err := ann.resultDE(ctx4, be)
+	if err != nil {
+		return nil, err
+	}
+
+	opbl := basicLitInt(int(be.Op), be.Pos())
+	de := ann.newDebugCE("IB", x, opbl, y, result)
+	return de, nil
 }
-func (ann *Annotator) resBinaryExprAndOr(ctx *Ctx, be *ast.BinaryExpr) ast.Expr {
+func (ann *Annotator) visBinaryExprAndOr(ctx *Ctx, be *ast.BinaryExpr) (DebugExpr, error) {
 	// ex: f1() || f2() // f2 should not be called if f1 is true
 	// ex: f1() && f2() // f2 should not be called if f1 is false
 
-	x := ann.resExpr(ctx, &be.X)
+	x, err := ann.visExpr(ctx, &be.X)
+	if err != nil {
+		return nil, err
+	}
 
-	// init result var with be.X
-	resVar := ast.Expr(ann.newIdent(ctx))
-	as4 := ann.newAssignStmt11(resVar, be.X)
-	as4.Tok = token.DEFINE
-	ctx.insertStmt(as4)
-	// replace expr with result var
-	ctx.replaceExpr(resVar)
+	// init value var with be.X
+	value, err := ann.insertAssignToIdent(ctx, be.X)
+	if err != nil {
+		return nil, err
+	}
+	ctx.replaceExprs(value)
 
 	// init y result var (in case be.Y doesn't run)
-	ybl := ann.newDebugIVsBl(ctx, "?")
-	yRes := ann.assignToNewIdent(ctx, ybl)
+	y, err := ann.insertAssignToIdent(ctx, ann.newDebugIVs("?", be.Y.Pos()))
+	if err != nil {
+		return nil, err
+	}
 
-	// x condition based on being "&&" or "||"
-	xCond := resVar
+	// build ifstmt to test x result to decide whether to run y
+	ifs := &ast.IfStmt{If: be.Pos(), Body: &ast.BlockStmt{}}
+	ifs.Cond = be.X
 	if be.Op == token.LOR {
-		xCond = &ast.UnaryExpr{Op: token.NOT, X: xCond}
+		// negate
+		ifs.Cond = &ast.UnaryExpr{Op: token.NOT, X: ifs.Cond}
 	}
+	ctx.insertStmt(ifs)
 
-	// ifstmt to test x result to decide whether to run y
-	is := &ast.IfStmt{If: be.Pos(), Body: &ast.BlockStmt{}}
-	is.Cond = xCond
-	ctx.insertStmt(is)
-	isBodyCtx := ctx.withStmts(&is.Body.List)
-
-	y := ann.resExpr(isBodyCtx, &be.Y)
-
-	// (inside ifstmt) assign debug result to y
-	as3 := ann.newAssignStmt11(yRes, y)
-	as3.Tok = token.ASSIGN
-	isBodyCtx.insertStmt(as3)
-
+	// inside ifstmt: walk be.Y inside ifstmt
+	ifsBodyCtx := ctx.withStmts(&ifs.Body.List)
+	y2, err := ann.visExpr(ifsBodyCtx, &be.Y)
+	if err != nil {
+		return nil, err
+	}
+	// inside ifstmt: assign debug result to y
+	as2 := newAssignStmtA11(y, y2)
+	ifsBodyCtx.insertStmt(as2)
 	// inside ifstmt: assign be.Y to result var
-	as2 := ann.newAssignStmt11(resVar, be.Y)
-	as2.Tok = token.ASSIGN
-	isBodyCtx.insertStmt(as2)
+	as3 := newAssignStmtA11(value, be.Y)
+	ifsBodyCtx.insertStmt(as3)
 
-	opbl := basicLitInt(int(be.Op))
-	resVar2 := ann.newDebugIVi(ctx, resVar)
-	return ann.newDebugI(ctx, "IB", x, opbl, yRes, resVar2)
-}
+	result := ann.newDebugIVi(value)
 
-//----------
-//----------
-//----------
-
-// Mostly gets the expression into a var(s) to be able to use the result without calculating it twice. Ex: don't double call f().
-func (ann *Annotator) solveNResults(ctx *Ctx, e ast.Expr) ast.Expr {
-	// ex: a, b = c[i], d[j] // 1 result for each expr
-	// ex: a, ok := c[f1()] // map access, more then 1 result
-	// ex: a[i]=b // can't replace a[i]
-	// ex: a:=&b[i] -> d0:=b[i];a:=&d0 // d0 wrong address
-
-	nres := ctx.nResults()
-	if nres == 0 {
-		return nilIdent() // ex: f1() // with no return value
-	}
-
-	if !ann.canAssignToVar(ctx, e) {
-		return ann.newDebugIVi(ctx, e)
-	}
-
-	if ce, ok := e.(*ast.CallExpr); ok {
-		if typ, ok := ann.typev(ce); ok {
-			switch t := typ.Type.(type) {
-			case *types.Tuple:
-				nres = t.Len()
-			}
-		}
-	}
-
-	if nres >= 2 {
-		ids := ann.assignToNewIdents2(ctx, nres, e)
-		ctx.replaceExprs(ids)
-		ids2 := ann.wrapInIVi(ctx, ids...)
-		return ann.newDebugIL(ctx, ids2...)
-	}
-
-	ctx = ctx.withInsertStmtAfter(false)
-
-	// TODO: review
-	//if ctx.exprOnLhs() {
-	//	// get address of the expression to replace
-	//	ue := &ast.UnaryExpr{Op: token.AND, X: e}
-	//	e2 := ann.assignToNewIdent2(ctx, ue)
-	//	se := &ast.StarExpr{X: e2}
-	//	ctx.replaceExpr(se)
-	//	return ann.newDebugItem(ctx, "IVi", e2)
-	//}
-
-	e2 := ann.assignToNewIdent(ctx, e)
-	ctx.replaceExpr(e2)
-	return ann.newDebugIVi(ctx, e2)
+	opbl := basicLitInt(int(be.Op), be.Pos())
+	de := ann.newDebugCE("IB", x, opbl, y, result)
+	return de, nil
 }
 
 //----------
 
-func (ann *Annotator) newDebugIVi(ctx *Ctx, e ast.Expr) ast.Expr {
-	if s, ok := ann.isBigConst(e); ok {
-		return ann.newDebugIVsBl(ctx, s)
-	}
-	return ann.newDebugI(ctx, "IVi", e)
-}
-func (ann *Annotator) newDebugIVsBl(ctx *Ctx, s string) ast.Expr {
-	return ann.newDebugI(ctx, "IVs", basicLitStringQ(s))
-}
-func (ann *Annotator) newDebugIL(ctx *Ctx, es ...ast.Expr) ast.Expr {
-	return ann.newDebugI(ctx, "IL", es...)
-}
-func (ann *Annotator) newDebugIP(ctx *Ctx, e ast.Expr) ast.Expr {
-	return ann.newDebugI(ctx, "IP", e)
-}
+func (ann *Annotator) visCallExpr(ctx *Ctx, ce *ast.CallExpr) (DebugExpr, error) {
 
-func (ann *Annotator) wrapInIVi(ctx *Ctx, es ...ast.Expr) []ast.Expr {
-	ivs := []ast.Expr{}
-	for _, e := range es {
-		e2 := ann.newDebugIVi(ctx, e)
-		ivs = append(ivs, e2)
+	ctx2 := ctx.withValue(cidnNameInsteadOfValue, ce.Fun)
+	ctx2 = ctx2.withValue(cidnIsCallExprFun, ce.Fun)
+	fun, err := ann.visExpr(ctx2, &ce.Fun)
+	if err != nil {
+		return nil, err
 	}
-	return ivs
-}
-
-func (ann *Annotator) newDebugI(ctx *Ctx, fname string, es ...ast.Expr) ast.Expr {
-	se := &ast.SelectorExpr{
-		X:   ast.NewIdent(ann.debugPkgName),
-		Sel: ast.NewIdent(fname),
-	}
-	ce := &ast.CallExpr{Fun: se, Args: es}
-
-	// TODO: handle this where they are called?
-	// assign to var because these are called more then once
-	assign := false
-	switch fname {
-	case "ICe", "IUe":
-		assign = true
-	}
-	if assign {
-		return ann.assignToNewIdent(ctx, ce)
+	args, err := ann.visExprs(ctx, &ce.Args, ce.Pos())
+	if err != nil {
+		return nil, err
 	}
 
-	return ce
-}
-
-//----------
-
-func (ann *Annotator) insertDebugLine(ctx *Ctx, pos token.Pos, expr ast.Expr) {
-	if isAfterPanicIdent(expr) {
-		return
-	}
-	stmt := ann.newDebugLine(ctx, pos, expr)
-	ctx.insertStmt(stmt)
-}
-func (ann *Annotator) newDebugLine(ctx *Ctx, pos token.Pos, expr ast.Expr) ast.Stmt {
-	se := &ast.SelectorExpr{
-		X:   ast.NewIdent(ann.debugPkgName),
-		Sel: ast.NewIdent("Line"),
-	}
-	args := []ast.Expr{
-		basicLitInt(ann.fileIndex),
-		basicLitInt(ctx.nextDebugIndex()),
-		basicLitInt(ann.fset.Position(pos).Offset),
-		expr,
-	}
-	es := &ast.ExprStmt{X: &ast.CallExpr{Fun: se, Args: args}}
-	ann.builtDebugLineStmt = true
-	return es
-}
-
-//----------
-
-func (ann *Annotator) assignToNewIdent(ctx *Ctx, expr ast.Expr) ast.Expr {
-	return ann.assignToNewIdents2(ctx, 1, expr)[0]
-}
-func (ann *Annotator) assignToNewIdents2(ctx *Ctx, nIds int, exprs ...ast.Expr) []ast.Expr {
-	ids := []ast.Expr{}
-	for i := 0; i < nIds; i++ {
-		id := ann.newIdent(ctx)
-
-		// have id use expr position
-		k := i
-		if len(exprs) == 1 {
-			k = 0
-		}
-		id.NamePos = exprs[k].Pos()
-
-		ids = append(ids, id)
-	}
-	as := ann.newAssignStmt(ids, exprs)
-	ctx.insertStmt(as)
-	return ids
-}
-
-//----------
-
-func (ann *Annotator) newAssignStmt11(lhs, rhs ast.Expr) *ast.AssignStmt {
-	return ann.newAssignStmt([]ast.Expr{lhs}, []ast.Expr{rhs})
-}
-func (ann *Annotator) newAssignStmt(lhs, rhs []ast.Expr) *ast.AssignStmt {
-	return &ast.AssignStmt{Tok: token.DEFINE, Lhs: lhs, Rhs: rhs}
-}
-
-//----------
-
-func (ann *Annotator) newIdent(ctx *Ctx) *ast.Ident {
-	return &ast.Ident{Name: ann.newVarName(ctx)}
-}
-func (ann *Annotator) newVarName(ctx *Ctx) string {
-	s := fmt.Sprintf("%s%d", ann.debugVarPrefix, ann.debugVarNameIndex)
-	ann.debugVarNameIndex++
-	return s
-}
-
-//----------
-
-// assigning the expr to a var could create a var of different type,
-// if the expr is on the left-hand-side, it could alter program behavior if the original destination doesn't get the value
-func (ann *Annotator) canAssignToVar(ctx *Ctx, e ast.Expr) bool {
-	if ann.isType(e) {
-		return false
-	}
-	if ann.isConst(e) {
-		return false
-	}
-	if isNilIdent(e) {
-		return false
-	}
-
-	// TODO: review
-	if e2, ok := ctx.takingVarAddress(); ok {
-		if e2 == e {
-			return false
-		}
-	}
-
-	switch t := e.(type) {
-	case *ast.BasicLit:
-		return false
-	case *ast.CallExpr:
-		return true
-	case *ast.FuncLit:
-		return true
-	case *ast.TypeAssertExpr:
-		return true
-	case *ast.ParenExpr:
-		return ann.canAssignToVar(ctx, t.X)
-	case *ast.StarExpr:
-		return !ctx.boolean(ctxIdExprInLhs) && !ann.isType(t.X)
-	case *ast.SelectorExpr:
-		// could be a const in a pkg (pkg.const1)
-		//return !ann.isType(t.Sel) && !ann.isConst(t.Sel)
-		return ann.canAssignToVar(ctx, t.Sel)
-	case *ast.Ident:
-		//return !ann.isType(t) && !ann.isConst(t)
-		return true
-	case *ast.IndexExpr, *ast.SliceExpr:
-		// ex: a[i]=b // can't replace a[i] // TODO: it could with an address but that can't be done here
-		return !ctx.boolean(ctxIdExprInLhs)
-
-	case *ast.BinaryExpr:
-		switch t.Op {
-		// depend on one being assignable (both could be consts)
-		case
-			token.ADD, // +
-			token.SUB, // -
-			token.MUL, // *
-			token.QUO, // /
-			token.REM, // %
-
-			token.AND, // &
-			token.OR,  // |
-			token.XOR, // ^
-			//token.SHL,     // << // depend on left arg only
-			//token.SHR,     // >> // depend on left arg only
-			token.AND_NOT: // &^
-			return ann.canAssignToVar(ctx, t.X) || ann.canAssignToVar(ctx, t.Y)
-
-		// depend on the left arg
-		case token.SHL, // <<
-			token.SHR: // >>
-			return ann.canAssignToVar(ctx, t.X)
-
-		default:
-			// ex: a>b
-			return true
-		}
-
-	case *ast.UnaryExpr:
-		switch t.Op {
-		case token.AND, // ex: &a
-			token.ARROW: // ex: <-a
-			return true
-		case token.ADD, // ex: 1+(+2)
-			token.SUB, // ex: 1+(-2)
-			token.XOR, // ex: ^a
-			token.NOT: // ex: !a
-			return ann.canAssignToVar(ctx, t.X) // can be a const
-		}
-
-	default:
-		fmt.Printf("todo: canassigntovar: %T", e)
-	}
-	return false
-}
-
-//----------
-
-func (ann *Annotator) wrapInitInBlockAndVisit(ctx *Ctx, stmt ast.Stmt, initStmt *ast.Stmt) bool {
-	if *initStmt == nil {
-		return false
-	}
-
-	if _, ok := ctx.labeledStmt(); ok {
-		// setup debug msg
-		bls := basicLitStringQ("init not annotated due to label stmt")
-		ce := ann.newDebugI(ctx, "ILa", bls)
-		ann.insertDebugLine(ctx, stmt.Pos(), ce)
-		return false
-	}
-
-	// wrap in blockstmt to have vars that belong only to init
-	bs := &ast.BlockStmt{}
-	bs.List = append(bs.List, *initStmt, stmt)
-	//ctx.nilifyStmt(initStmt)
-	*initStmt = nil
-	ctx.replaceStmt(bs)
-
-	ann.vis(ctx, bs)
-
-	return true
-}
-
-//func (ann *Annotator) wrapInBlockIfInit(ctx *Ctx, stmt ast.Stmt, initStmt *ast.Stmt) (*Ctx, bool) {
-//	if *initStmt == nil {
-//		return nil, false
-//	}
-
-//	//if _, ok := ctx.labeledStmt(); ok {
-//	//	// setup debug msg
-//	//	bls := basicLitStringQ("init not annotated due to label stmt")
-//	//	ce := ann.newDebugItem(ctx, "ILa", bls)
-//	//	ann.insertDebugLine(ctx, stmt.Pos(), ce)
-//	//	return false
-//	//}
-
-//	// wrap in blockstmt to have vars that belong only to init
-//	bs := &ast.BlockStmt{}
-//	bs.List = append(bs.List, *initStmt, stmt)
-//	*initStmt = nil
-//	ctx.replaceStmt(bs)
-
-//	ctx2 := ctx.withStmts(&bs.List)
-//	ann.vis(ctx2, bs)
-
-//	return true
-//}
-
-//----------
-
-//func (ann *Annotator) castStringToItem(ctx *Ctx, v string) ast.Expr {
-//	se := &ast.SelectorExpr{
-//		X:   ast.NewIdent(ann.debugPkgName),
-//		Sel: ast.NewIdent("Item"),
-//	}
-//	bl := basicLitStringQ(v)
-//	return &ast.CallExpr{Fun: se, Args: []ast.Expr{bl}}
-//}
-
-func (ann *Annotator) resType(ctx *Ctx, e ast.Expr) ast.Expr {
-	//str := "type"
-	//switch t := e.(type) {
-	//case *ast.InterfaceType:
-	//case *ast.MapType:
-	//	str = "map"
-	//case *ast.ArrayType:
-	//	str = "array"
-	//	if t.Len == nil {
-	//		str = "slice"
-	//	}
-	//case *ast.SelectorExpr:
-	//	str = "type"
-	//}
-
-	return ann.newDebugIVsBl(ctx, "T")
-}
-
-//----------
-
-func (ann *Annotator) splitGenDecl(ctx *Ctx, gd *ast.GenDecl) {
-	// keep to reset later
-	si := ctx.stmtsIter()
-	after := si.after
-
-	ctx2 := ctx.withInsertStmtAfter(true)
-	for _, spec := range gd.Specs {
-		gd2 := &ast.GenDecl{Tok: gd.Tok, Specs: []ast.Spec{spec}}
-		stmt := &ast.DeclStmt{Decl: gd2}
-		ctx2.insertStmt(stmt)
-	}
-	// reset counter to have the other specs be visited
-	si.after = after
-	// clear gd stmt, will output as "var ()"
-	gd.Specs = nil
-}
-
-//----------
-
-func (ann *Annotator) annotationBlockCtx(ctx *Ctx, n ast.Node) *Ctx {
-	// TODO: catches "godebug" directives surrounded with blank lines?
-
-	// catch "godebug" directive at the top of this node
-	on, ok := ann.annotationBlockOn(n)
-
-	// if annotating only blocks, start with no annotations
-	// TODO: confusing? there is no other way having only a block being annotated and don't annotate the rest
-	if ok && on {
-		if _, ok2 := n.(*ast.File); ok2 {
-			on = false
-		}
-	}
-
-	if ok && ctx.boolean(ctxIdNoAnnotations) != !on {
-		return ctx.withBoolean(ctxIdNoAnnotations, !on)
-	}
-	return ctx
-}
-
-// Returns (on/off, ok)
-func (ann *Annotator) annotationBlockOn(n ast.Node) (bool, bool) {
-	if ann.nodeAnnTypes == nil {
-		return false, false
-	}
-	at, ok := ann.nodeAnnTypes[n]
-	if !ok {
-		return false, false
-	}
-	switch at {
-	case AnnotationTypeOff:
-		return false, true
-	case AnnotationTypeBlock:
-		return true, true
-	default:
-		return false, false
-	}
-}
-
-//----------
-
-func (ann *Annotator) isType(e ast.Expr) bool {
-	if ann.simpleTestMode {
-		return false
-	}
-	tv, ok := ann.typev(e)
-	return ok && tv.IsType()
-}
-
-func (ann *Annotator) isBuiltin(e ast.Expr) bool {
-	if ann.simpleTestMode {
-		return true
-	}
-	tv, ok := ann.typev(e)
-	return ok && tv.IsBuiltin()
-}
-
-//// ex: fn() is not addressable (can't do "&fn()", only a:=fn(); &a)
-//func (ann *Annotator) isAddressable(e ast.Expr) bool {
-//	tv, ok := ann.typev(e)
-//	return ok && tv.Addressable()
-//}
-
-func (ann *Annotator) isConst(e ast.Expr) bool {
-	if ann.simpleTestMode {
-		//if id, ok := e.(*ast.Ident); ok {
-		//	isVar := strings.HasPrefix(id.Name, ann.debugVarPrefix)
-		//	return !isVar
-		//}
-		return false
-	}
-
-	tv, ok := ann.typev(e)
-	return ok && tv.Value != nil
-
-	//if !ok || tv.Value == nil {
-	//	return false
-	//}
-	//switch tv.Value.Kind() {
-	//case constant.Int, constant.Float, constant.Complex:
-	//	return true
-	//default:
-	//	return false
-	//}
-}
-
-func (ann *Annotator) isBigConst(e ast.Expr) (string, bool) {
-	// handles big constants:
-	// _=uint64(1<<64 - 1)
-	// _=uint64(math.MaxUint64)
-	// the annotator would generate IV(1<<64), which will give a compile error since "1<<64" overflows an int (consts are assigned to int by default)
-
-	tv, ok := ann.typev(e)
-	if !ok || tv.Value == nil {
-		return "", false
-	}
-	u := constant.Val(tv.Value)
-	switch t := u.(type) {
-	case *big.Int, *big.Float, *big.Rat:
-		return fmt.Sprintf("%s", t), true
-	}
-	return "", false
-}
-
-func (ann *Annotator) typev(e ast.Expr) (types.TypeAndValue, bool) {
-	if ann.typesInfo == nil {
-		return types.TypeAndValue{}, false
-	}
-	tv, ok := ann.typesInfo.Types[e]
-	return tv, ok
-}
-
-//----------
-
-// Correct debugindexes to have the numbers attributed in order at compile time. Allows assuming an ordered slice (debugindex/textindex) in the editor.
-func (ann *Annotator) correctDebugIndexes(n ast.Node) int {
-
-	type lineInfo struct {
-		lineCE        *ast.CallExpr
-		oldDebugIndex int
-		byteIndex     int // fset position offset (for sort)
-		seenCount     int
-	}
-	seenCount := 0
-	lines := []*lineInfo{}
-
-	// collect all calls to debug.Line()
-	ast.Inspect(n, func(n2 ast.Node) bool {
-		// find line callexpr
-		ce := (*ast.CallExpr)(nil)
-		switch t2 := n2.(type) {
-		case *ast.CallExpr:
-			ce2 := t2
-			if se, ok := ce2.Fun.(*ast.SelectorExpr); ok {
-				if id, ok := se.X.(*ast.Ident); ok {
-					if id.Name == ann.debugPkgName && se.Sel.Name == "Line" {
-						ce = ce2
-					}
+	// don't show stepin/result if type casting or calling a builtin
+	stepIn := true
+	if ann.simplify {
+		//u := bypassParenExpr(ce.Fun) // TODO needed?
+		u := ce.Fun // detects type casts
+		if tt, ok := ann.newTType2(u); ok {
+			switch {
+			case tt.isType():
+				stepIn = false
+				if tt.isBasicInfo(types.IsNumeric) {
+					// show result
+				} else {
+					ctx = ctx.withValue(cidnResNil, ce)
 				}
+			case tt.isBuiltinWithName("len"):
+				stepIn = false
+			case tt.isBuiltinWithName("panic"):
+				// show step in
+			case tt.isBuiltin():
+				stepIn = false
+				ctx = ctx.withValue(cidnResNil, ce)
 			}
 		}
-		if ce == nil {
-			return true // continue
-		}
+	}
 
-		// debugindex
-		di, err := strconv.Atoi(ce.Args[1].(*ast.BasicLit).Value)
+	// show stepping in (insert before func call)
+	e4 := ann.newDebugCE("ICe", fun, args)
+	if stepIn {
+		u, err := ann.insertAssignToIdent(ctx, e4) // avoid double call
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		// fset offset position (byteindex)
-		byteIndex, err := strconv.Atoi(ce.Args[2].(*ast.BasicLit).Value)
+		ann.insertDebugLineStmt(ctx, u)
+		e4 = u
+	}
+
+	// update possible os.exit calls before replacing with var, but after the debug stmts being done
+	if err, ok := ann.updateOsExitCalls(ctx, ce); ok && err != nil {
+		return nil, err
+	}
+
+	ctx4 := ctx.withValue(cidnResReplaceWithVar, ce) // avoid double call
+	result, err := ann.resultDE(ctx4, ce)
+	if err != nil {
+		return nil, err
+	}
+
+	de := ann.newDebugCE("IC", e4, result)
+	return de, nil
+}
+
+func (ann *Annotator) visCompositeLit(ctx *Ctx, cl *ast.CompositeLit) (DebugExpr, error) {
+	ctx2 := ctx.withValue(cidiSliceExprsLimit, 10)
+	de, err := ann.visExprs(ctx2, &cl.Elts, cl.Pos())
+	if err != nil {
+		return nil, err
+	}
+	return ann.newDebugCE("ILit", de), nil
+}
+
+func (ann *Annotator) visFuncLit(ctx *Ctx, fl *ast.FuncLit) (DebugExpr, error) {
+
+	ctx2 := ctx.withResetForFuncLit()
+	ctx2 = ctx2.withValue(cidnFuncNode, fl) // ex: returnstmt
+
+	// visit type inside the body
+	ctx3 := ctx2.withStmts(&fl.Body.List)
+	u := (ast.Expr)(fl.Type)
+	de, err := ann.visExpr(ctx3, &u)
+	if err != nil {
+		return nil, err
+	}
+	if !isNilIdent(de) {
+		ann.insertDebugLineStmt(ctx3, de)
+	}
+	// visit body
+	if err := ann.visStmt(ctx2, fl.Body); err != nil {
+		return nil, err
+	}
+
+	ctx4 := ctx.withValue(cidnResReplaceWithVar, fl) // avoid double call
+	return ann.resultDE(ctx4, fl)
+}
+
+func (ann *Annotator) visFuncType(ctx *Ctx, ft *ast.FuncType) (DebugExpr, error) {
+	// example src code
+	// ex: _=func(){}
+	// ex: _=a.(func())
+
+	// ex: _=(func(int))(nil)
+	if ctx.valueMatch2(cidnIsCallExprFun, ft) {
+		return ann.resultDE(ctx, ft)
+	}
+
+	w := []DebugExpr{}
+
+	de1, ok1, err := ann.visFieldList(ctx, ft.TypeParams)
+	if err != nil {
+		return nil, err
+	}
+	if ok1 {
+		w = append(w, de1)
+	}
+
+	de2, ok2, err := ann.visFieldList(ctx, ft.Params)
+	if err != nil {
+		return nil, err
+	}
+	if ok2 {
+		w = append(w, de2)
+	}
+
+	return ann.newDebugILOrNilIdent(ft.Pos(), w...), nil
+}
+
+func (ann *Annotator) visIdent(ctx *Ctx, id *ast.Ident) (DebugExpr, error) {
+	if isAnonIdent(id) {
+		return ann.newDebugCE2("IAn", id.Pos()), nil
+	}
+	if ctx.valueMatch2(cidnNameInsteadOfValue, id) {
+		return ann.newDebugIVs(id.Name, id.Pos()), nil
+	}
+	return ann.resultDE(ctx, id)
+}
+
+func (ann *Annotator) visIndexExpr(ctx *Ctx, ie *ast.IndexExpr) (DebugExpr, error) {
+	ctx2 := ctx
+	ctx2 = ctx2.withValue(cidnResNil, ie.X) // TODO: review
+	ctx2 = ctx2.withValue(cidnNameInsteadOfValue, ie.X)
+	x, err := ann.visExpr(ctx2, &ie.X)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx3 := ctx.withValue(cidnResReplaceWithVar, ie.Index)
+	ix, err := ann.visExpr(ctx3, &ie.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx4 := ctx.withValue(cidnResReplaceWithVar, ie)
+	result, err := ann.resultDE(ctx4, ie)
+	if err != nil {
+		return nil, err
+	}
+	return ann.newDebugCE("II", x, ix, result), nil
+}
+
+func (ann *Annotator) visKeyValueExpr(ctx *Ctx, kve *ast.KeyValueExpr) (DebugExpr, error) {
+
+	// TODO: compositelit: allow replacing the key
+	//allow := false
+	// *ast.CompositeLit
+
+	ctx2 := ctx
+	//ctx2 = ctx2.withValue(cidnNameInsteadOfValue, kve.Key)
+	ctx2 = ctx2.withValue(cidnResNotReplaceable, kve.Key)
+	ctx2 = ctx2.withValue(cidnResNil, kve.Key)
+	k, err := ann.visExpr(ctx2, &kve.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	v, err := ann.visExpr(ctx, &kve.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	de := ann.newDebugCE("IKV", k, v)
+	return de, nil
+}
+
+func (ann *Annotator) visParenExprs(ctx *Ctx, pe *ast.ParenExpr) (DebugExpr, error) {
+	// inherit ctxs
+	cids := []ctxId{
+		cidnResNotReplaceable,
+		cidnResAssignDebugToVar,
+		cidnIsCallExprFun,
+		cidnIsExprStmtExpr,
+	}
+	ctx = ctx.withInherit(pe, pe.X, cids...)
+
+	x, err := ann.visExpr(ctx, &pe.X)
+	if err != nil {
+		return nil, err
+	}
+	return ann.newDebugCE("IP", x), nil
+}
+
+func (ann *Annotator) visSelectorExpr(ctx *Ctx, se *ast.SelectorExpr) (DebugExpr, error) {
+	doX := true
+	if isIdentsSequence(se.X) {
+		doX = false
+	}
+
+	doSel := doX // false ex: "a.b.c" => "5"
+	//doSel := true // true ex: "a.b.c" => "5=(_.c)"
+	doResult := true
+	tt, ok := ann.newTType2(se)
+	if ok {
+		if _, ok2 := tt.Type.(*types.Signature); ok2 {
+			doResult = false
+			doSel = true
+		}
+	}
+
+	//----------
+
+	x := DebugExpr(nilIdent(se.X.Pos()))
+	if doX {
+		x2, err := ann.visExpr(ctx, &se.X)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		// keep
-		li := &lineInfo{
-			lineCE:        ce,
-			oldDebugIndex: di,
-			byteIndex:     byteIndex,
-			seenCount:     seenCount,
-		}
-		seenCount++
-
-		lines = append(lines, li)
-
-		return true
-	})
-
-	// sort debug lines by byteindex (fset offset)
-	sort.Slice(lines, func(a, b int) bool {
-		va, vb := lines[a], lines[b]
-		if va.byteIndex == vb.byteIndex {
-			// the one seen first while visiting the ast
-			return va.seenCount < vb.seenCount
-		}
-		return va.byteIndex < vb.byteIndex
-	})
-
-	// setup new debug indexes
-	di := 0
-	m := map[int]int{}         // [textIndex]debugIndex
-	for _, li := range lines { // visited by byteindex order
-		di2 := di
-		// check if this debugIndex was already seen
-		if di3, ok := m[li.oldDebugIndex]; ok {
-			di2 = di3
-		} else {
-			// assign new debug index
-			di2 = di
-			m[li.oldDebugIndex] = di
-			di++
-		}
-
-		// assign final debug index
-		li.lineCE.Args[1] = basicLitInt(di2)
+		x = x2
 	}
 
-	return di
+	sel := DebugExpr(nilIdent(se.Sel.Pos()))
+	if doSel {
+		ctx2 := ctx.withValue(cidnNameInsteadOfValue, se.Sel)
+		u := (ast.Expr)(se.Sel)
+		sel2, err := ann.visExpr(ctx2, &u)
+		if err != nil {
+			return nil, err
+		}
+		sel = sel2
+	}
+
+	result := DebugExpr(nilIdent(se.Pos()))
+	if doResult {
+		result2, err := ann.resultDE(ctx, se)
+		if err != nil {
+			return nil, err
+		}
+		result = result2
+	}
+
+	if !doX && !doSel && doResult {
+		return result, nil
+	}
+	de := ann.newDebugCE("ISel", x, sel, result)
+	return de, nil
 }
 
-//----------
+func (ann *Annotator) visSliceExpr(ctx *Ctx, se *ast.SliceExpr) (DebugExpr, error) {
+	ctx2 := ctx
+	ctx2 = ctx2.withValue(cidnResNil, se.X) // TODO: review
+	ctx2 = ctx2.withValue(cidnNameInsteadOfValue, se.X)
+	x, err := ann.visExpr(ctx2, &se.X)
+	if err != nil {
+		return nil, err
+	}
 
-func (ann *Annotator) removeInnerFuncComments(astFile *ast.File) {
-	// ensure comments are not in between stmts in the middle of declarations inside functions (solves test100)
-	// Other comments stay in place since they might be needed (build comments, "c" package comments, ...)
-	u := astFile.Comments[:0]             // use already allocated mem
-	for _, cg := range astFile.Comments { // all comments
-		keep := true
-
-		// check if inside func decl
-		for _, d := range astFile.Decls {
-			if _, ok := d.(*ast.FuncDecl); !ok {
-				continue
-			}
-			if d.Pos() > cg.End() { // passed comment
-				break
-			}
-			in := cg.Pos() >= d.Pos() && cg.Pos() < d.End()
-			if in {
-				keep = false
-				break
-			}
+	w := []*ast.Expr{&se.Low, &se.High, &se.Max}
+	ix := make([]DebugExpr, len(w))
+	for i := range w {
+		if *w[i] == nil {
+			ix[i] = nilIdent(se.Lbrack)
+			continue
 		}
 
-		if keep {
-			u = append(u, cg)
+		ctx3 := ctx.withValue(cidnResReplaceWithVar, w[i])
+		de, err := ann.visExpr(ctx3, w[i])
+		if err != nil {
+			return nil, err
+		}
+		ix[i] = de
+	}
+
+	result, err := ann.resultDE(ctx, se)
+	if err != nil {
+		return nil, err
+	}
+
+	slice3Bl := basicLitString(strconv.FormatBool(se.Slice3), se.Lbrack)
+	de := ann.newDebugCE("II2", x, ix[0], ix[1], ix[2], slice3Bl, result)
+	return de, nil
+}
+
+func (ann *Annotator) visStarExpr(ctx *Ctx, se *ast.StarExpr) (DebugExpr, error) {
+	x, err := ann.visExpr(ctx, &se.X)
+	if err != nil {
+		return nil, err
+	}
+
+	if ann.simplify {
+		// simplify "_=(*A)(nil)": "((*A=*A))(nil)" -> "(*A)(nil)"
+		if tt, ok := ann.newTType2(se.X); ok {
+			if tt.isType() {
+				ctx = ctx.withValue(cidnResNil, se)
+			}
 		}
 	}
-	astFile.Comments = u
-}
 
-//----------
-
-func (ann *Annotator) sprintNode(n ast.Node) string {
-	return astut.SprintNode(ann.fset, n)
-}
-func (ann *Annotator) printNode(n ast.Node) {
-	fmt.Println(ann.sprintNode(n))
-}
-
-//----------
-
-//func (ann *Annotator) wrapInParenIfNotSimple(ctx *Ctx, e ast.Expr) ast.Expr {
-//	if !isSimple(e) {
-//		return ann.newDebugIP(ctx, e)
-//	}
-//	return e
-//}
-
-//----------
-//----------
-//----------
-
-//func isSimple(e ast.Expr) bool {
-//	return isIdentOrSelectorOfIdents(e)
-//}
-
-func isIdentOrSelectorOfIdents(e ast.Expr) bool {
-	switch t := e.(type) {
-	case *ast.Ident:
-		return true
-	case *ast.SelectorExpr:
-		return isIdentOrSelectorOfIdents(t.X)
+	result, err := ann.resultDE(ctx, se)
+	if err != nil {
+		return nil, err
 	}
-	// ex: (a+b).Fn()
-	return false
+
+	opbl := basicLitInt(int(token.MUL), se.Star)
+	e2 := ann.newDebugCE("IUe", opbl, x)
+	de := ann.newDebugCE("IU", e2, result)
+	return de, nil
+}
+
+func (ann *Annotator) visTypeAssertExpr(ctx *Ctx, tae *ast.TypeAssertExpr) (DebugExpr, error) {
+	// ex: a.b.(*C).d
+	// ex: "a,ok:=b.(int)"
+	// ex: "switch t:=b.(type)"
+
+	isSwitch := tae.Type == nil
+
+	doTyp := true
+	doResult := !isSwitch
+	if ann.simplify {
+		tt, ok := ann.newTType2(tae)
+		if ok && tt.nResults() <= 1 { // ex: _=a+b.(int)+c
+			doTyp = false
+		}
+	}
+
+	de, err := ann.visExpr(ctx, &tae.X)
+	if err != nil {
+		return nil, err
+	}
+
+	typ := DebugExpr(nilIdent(tae.Pos()))
+	if doTyp {
+		typ = ann.newDebugCE("IVt", tae.X)
+	}
+
+	result := DebugExpr(nilIdent(tae.Pos()))
+	if doResult {
+		ctx2 := ctx.withValue(cidnResReplaceWithVar, tae)
+		result2, err := ann.resultDE(ctx2, tae)
+		if err != nil {
+			return nil, err
+		}
+		result = result2
+	}
+
+	return ann.newDebugCE("ITA", de, typ, result), nil
+}
+
+func (ann *Annotator) visUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) (DebugExpr, error) {
+	opbl := basicLitInt(int(ue.Op), ue.Pos())
+
+	ctx2 := ctx
+	//ctx2 = ctx2.withValue(cidnAssignDebugToVar, ue.X)
+	if hasAddressOp(ue) { // ex: _=&a; _=&A{1,2}
+		ctx2 = ctx2.withValue(cidnResNotReplaceable, ue.X)
+	}
+	x, err := ann.visExpr(ctx2, &ue.X)
+	if err != nil {
+		return nil, err
+	}
+
+	stepIn := false
+	if hasChanRecvOp(ue) {
+		stepIn = true
+	}
+
+	e2 := ann.newDebugCE("IUe", opbl, x)
+	if stepIn {
+		u, err := ann.insertAssignToIdent(ctx, e2) // avoid double call
+		if err != nil {
+			return nil, err
+		}
+		ann.insertDebugLineStmt(ctx, u)
+		e2 = u
+	}
+
+	ctx3 := ctx
+	if hasChanRecvOp(ue) || hasAddressOp(ue) {
+		ctx3 = ctx3.withValue(cidnResReplaceWithVar, ue) // avoid double call
+	}
+	result, err := ann.resultDE(ctx3, ue)
+	if err != nil {
+		return nil, err
+	}
+
+	de := ann.newDebugCE("IU", e2, result)
+	return de, nil
 }
 
 //----------
-
-var _emptyExpr = &ast.Ident{Name: "*emptyExpr*"}
-
-func emptyExpr() ast.Expr { return _emptyExpr }
-
 //----------
 
-func nilIdent() *ast.Ident {
-	return &ast.Ident{Name: "nil"}
-}
-func isNilIdent(e ast.Expr) bool {
-	return isIdentWithName(e, "nil")
-}
-
-func anonIdent() *ast.Ident {
-	return &ast.Ident{Name: "_"}
-}
-func isAnonIdent(e ast.Expr) bool {
-	return isIdentWithName(e, "_")
-}
-
-func afterPanicIdent() *ast.Ident {
-	return &ast.Ident{Name: "after panic"}
-}
-func isAfterPanicIdent(e ast.Expr) bool {
-	return isIdentWithName(e, "after panic")
-}
-
-func isIdentWithName(e ast.Expr, name string) bool {
-	id, ok := e.(*ast.Ident)
-	return ok && id.Name == name
-}
-
-//----------
-
-func basicLitString(v string) *ast.BasicLit {
-	s := strings.ReplaceAll(v, "%", "%%")
-	return &ast.BasicLit{Kind: token.STRING, Value: s}
-}
-func basicLitStringQ(v string) *ast.BasicLit { // quoted
-	s := strings.ReplaceAll(v, "%", "%%")
-	return &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", s)}
-}
-func basicLitInt(v int) *ast.BasicLit {
-	return &ast.BasicLit{Kind: token.INT, Value: fmt.Sprintf("%d", v)}
+func (ann *Annotator) visFieldList(ctx *Ctx, fl *ast.FieldList) (DebugExpr, bool, error) {
+	if fl == nil { // ex: functype.typeparams
+		return nil, false, nil
+	}
+	if err := ann.nameMissingFieldListNames(fl); err != nil {
+		return nil, false, err
+	}
+	w := []DebugExpr{}
+	for _, f := range fl.List {
+		for i := range f.Names {
+			ctx2 := ctx
+			ctx2 = ctx2.withValue(cidnResNotReplaceable, f.Names[i])
+			e := (ast.Expr)(f.Names[i]) // local var
+			de, err := ann.visExpr(ctx2, &e)
+			if err != nil {
+				return nil, false, err
+			}
+			w = append(w, de)
+		}
+	}
+	if len(w) == 0 {
+		return nil, false, nil
+	}
+	de := ann.newDebugIL(w...)
+	return de, true, nil
 }

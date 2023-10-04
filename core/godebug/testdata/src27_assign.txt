@@ -1,0 +1,20 @@
+#exec go run main.go
+ucmd godebugtester run main.go
+
+#setenv script_keepwork true
+#ucmd godebugtester run -work -srclines=false main.go
+
+
+contains stdout "9223372036854775807=(9223372036854775808=(1 << 63) - 1)"
+contains stdout "8=(c[0=(9223372036854775807=(9223372036854775808=(1 << 63) - 1) - 9223372036854775807)]) = 8"
+
+-- main.go --
+package main
+func main() {
+	{
+		c:=[]int{0,1}
+		// ok in 64bit arch
+		h:=1<<63-1 
+		c[1<<63-1-h] = 8
+	}
+}

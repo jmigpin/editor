@@ -1,5 +1,5 @@
 ucmd godebugtester run main.go
-contains stdout "=> uint(2)"
+fail contains stdout "=> uint(2)"
 contains stdout "5=(buf[0]) |= 4=(1 << 2=(uint(2))"
 
 -- main.go --
