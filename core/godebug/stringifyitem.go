@@ -164,8 +164,13 @@ func (is *ItemStringifier) stringify(item debug.Item) {
 		is.pResult(t.Result, func() {
 			is.pResult(t.Type, func() {
 				is.stringify(t.X)
-				//is.p(".(T)")
-				is.p(".(_)")
+
+				u := "_"
+				if t.IsSwitch {
+					u = "type"
+				}
+				s := fmt.Sprintf(".(%s)", u)
+				is.p(s)
 			})
 		})
 

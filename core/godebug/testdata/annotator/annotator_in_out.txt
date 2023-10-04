@@ -666,7 +666,7 @@ var x any
 -- TestAnnotator36.out --
 func f0() {
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ.L(0, 1, 32, Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil))
+	Σ.L(0, 1, 32, Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil, true))
 	switch x.(type) {
 	}
 }
@@ -682,7 +682,7 @@ func f0() {
 	Σ0 := Σ.ICe(Σ.IVs("f"), nil)
 	Σ.L(0, 1, 32, Σ0)
 	Σ1 := f()
-	Σ.L(0, 1, 32, Σ.ITA(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVt(Σ1), nil))
+	Σ.L(0, 1, 32, Σ.ITA(Σ.IC(Σ0, Σ.IVi(Σ1)), Σ.IVt(Σ1), nil, true))
 	switch Σ1.(type) {
 	}
 }
@@ -698,7 +698,7 @@ func f0() {
 	Σ0 := Σ.IUe(36, Σ.IVi(x))
 	Σ.L(0, 1, 33, Σ0)
 	Σ1 := <-x
-	Σ.L(0, 1, 33, Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVt((Σ1)), nil))
+	Σ.L(0, 1, 33, Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVt((Σ1)), nil, true))
 	switch (Σ1).(type) {
 	}
 }
@@ -713,11 +713,12 @@ var x any
 -- TestAnnotator37.out --
 func f0() {
 	Σ.L(0, 0, 12, Σ.ISt())
+	Σ.L(0, 1, 37, Σ.IL(Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil, true)))
 	switch b := x.(type) {
 	case int:
-		Σ.L(0, 1, 49, Σ.ISt())
+		Σ.L(0, 2, 57, Σ.ISt())
 		Σ0 := Σ.IVi(b)
-		Σ.L(0, 2, 63, Σ.IL(Σ0))
+		Σ.L(0, 3, 63, Σ.IL(Σ0))
 		_ = b
 	}
 }
@@ -1187,10 +1188,13 @@ func f0() {
 	Σ.L(0, 0, 12, Σ.ISt())
 label1:
 	switch a := f(); a {
-	case 1:
-		Σ.L(0, 1, 55, Σ.ISt())
+	case func() int {
+		Σ.L(0, 1, 60, Σ.IL(Σ.IVs("1")))
+		return 1
+	}():
+		Σ.L(0, 2, 61, Σ.ISt())
 	}
-	Σ.L(0, 2, 67, Σ.ISt())
+	Σ.L(0, 3, 67, Σ.ISt())
 	goto label1
 }
 -- TestAnnotator56c.in --
@@ -1205,7 +1209,7 @@ var x any
 func f0() {
 	Σ.L(0, 0, 12, Σ.ISt())
 
-	Σ.L(0, 1, 40, Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil))
+	Σ.L(0, 1, 40, Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil, true))
 label1:
 	switch x.(type) {
 	}
@@ -1621,9 +1625,12 @@ func f0() {
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 32, Σ.IVi(a))
 	switch a {
-	case 1:
-		Σ.L(0, 2, 37, Σ.ISt())
-		Σ.L(0, 3, 51, Σ.IL(Σ.IVs("2")))
+	case func() int {
+		Σ.L(0, 2, 42, Σ.IL(Σ.IVs("1")))
+		return 1
+	}():
+		Σ.L(0, 3, 43, Σ.ISt())
+		Σ.L(0, 4, 51, Σ.IL(Σ.IVs("2")))
 		b = 2
 	}
 }
@@ -1641,12 +1648,17 @@ func f0() {
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 25, Σ.ISt())
 	switch {
-	case a == 1:
-		Σ.L(0, 2, 35, Σ.ISt())
-		Σ.L(0, 3, 50, Σ.ISt())
+	case func() bool {
+		Σ0 := Σ.IVi(a)
+		Σ1 := a == 1
+		Σ.L(0, 2, 40, Σ.IL(Σ.IB(Σ0, 39, Σ.IVs("1"), Σ.IVi(Σ1))))
+		return Σ1
+	}():
+		Σ.L(0, 3, 46, Σ.ISt())
+		Σ.L(0, 4, 50, Σ.ISt())
 		return
 	default:
-		Σ.L(0, 4, 58, Σ.ISt())
+		Σ.L(0, 5, 65, Σ.ISt())
 	}
 }
 -- TestAnnotator77.in --
@@ -1879,7 +1891,7 @@ func f0() {
 	Σ1 := <-a
 	Σ2 := (Σ1).(*C)
 	Σ3 := Σ.IVi(Σ2)
-	Σ.L(0, 1, 31, Σ.IL(Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), nil, Σ3)))
+	Σ.L(0, 1, 31, Σ.IL(Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), nil, Σ3, false)))
 	c := Σ2
 	Σ4 := Σ.IVi(c)
 	Σ.L(0, 2, 44, Σ.IL(Σ4))
@@ -1900,7 +1912,7 @@ func f0() {
 	Σ1 := <-a
 	Σ2, Σ3 := (Σ1).(C)
 	Σ4 := Σ.IL(Σ.IVi(Σ2), Σ.IVi(Σ3))
-	Σ.L(0, 1, 35, Σ.IL(Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVt((Σ1)), Σ4)))
+	Σ.L(0, 1, 35, Σ.IL(Σ.ITA(Σ.IP(Σ.IU(Σ0, Σ.IVi(Σ1))), Σ.IVt((Σ1)), Σ4, false)))
 	c, ok := Σ2, Σ3
 	Σ5 := Σ.IVi(c)
 	Σ6 := Σ.IVi(ok)
@@ -2327,7 +2339,7 @@ func f0() {
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0, Σ1 := d.(bool)
 	Σ2 := Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1))
-	Σ.L(0, 1, 29, Σ.IL(Σ.ITA(Σ.IVi(d), Σ.IVt(d), Σ2)))
+	Σ.L(0, 1, 29, Σ.IL(Σ.ITA(Σ.IVi(d), Σ.IVt(d), Σ2, false)))
 	_, _ = Σ0, Σ1
 }
 -- TestAnnotator117.in --
@@ -2424,4 +2436,35 @@ func f0() {
 func f0() {
 	Σ.L(0, 0, 12, Σ.ISt())
 
+}
+-- TestAnnotator123.in --
+func f0() {
+	switch {
+	case u == 0:
+	case fb():
+	}
+}
+var u=1
+var fb=func()bool{return true}
+-- TestAnnotator123.out --
+func f0() {
+	Σ.L(0, 0, 12, Σ.ISt())
+	Σ.L(0, 1, 25, Σ.ISt())
+	switch {
+	case func() bool {
+		Σ0 := Σ.IVi(u)
+		Σ1 := u == 0
+		Σ.L(0, 2, 40, Σ.IL(Σ.IB(Σ0, 39, Σ.IVs("0"), Σ.IVi(Σ1))))
+		return Σ1
+	}():
+		Σ.L(0, 3, 46, Σ.ISt())
+	case func() bool {
+		Σ2 := Σ.ICe(Σ.IVs("fb"), nil)
+		Σ.L(0, 4, 54, Σ2)
+		Σ3 := fb()
+		Σ.L(0, 4, 54, Σ.IL(Σ.IC(Σ2, Σ.IVi(Σ3))))
+		return Σ3
+	}():
+		Σ.L(0, 5, 58, Σ.ISt())
+	}
 }

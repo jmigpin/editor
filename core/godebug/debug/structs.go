@@ -130,9 +130,10 @@ type ItemSelector struct {
 }
 type ItemTypeAssert struct {
 	Item
-	X      Item
-	Type   Item
-	Result Item
+	X        Item
+	Type     Item
+	Result   Item
+	IsSwitch bool
 }
 type ItemBinary struct {
 	Item
@@ -255,8 +256,8 @@ func ISel(x, sel, result Item) Item {
 }
 
 // ItemTypeAssert
-func ITA(x, t, result Item) Item {
-	return &ItemTypeAssert{X: x, Type: t, Result: result}
+func ITA(x, t, result Item, isSwitch bool) Item {
+	return &ItemTypeAssert{X: x, Type: t, Result: result, IsSwitch: isSwitch}
 }
 
 // ItemBinary

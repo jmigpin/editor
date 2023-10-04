@@ -331,15 +331,11 @@ func (ann *Annotator) visAssignStmt(ctx *Ctx, as *ast.AssignStmt) error {
 	// ex: a,b=c,d
 	// ex:"switch a:=b.(type)"
 
-	//ctx.insertStmt(as) // DEBUG SCRIPT
-
-	// TODO: improve
-	if ctx.valueMatch2(cidnIsTypeSwitchStmtAssign, as) {
-		return nil
-	}
-
 	rhsOnly := false
-	if ann.simplify {
+	if ctx.valueMatch2(cidnIsTypeSwitchStmtAssign, as) {
+		rhsOnly = true
+	}
+	if !rhsOnly && ann.simplify {
 		allowedTok := func() bool {
 			return as.Tok == token.DEFINE ||
 				as.Tok == token.ASSIGN
@@ -394,35 +390,46 @@ func (ann *Annotator) visBranchStmt(ctx *Ctx, bs *ast.BranchStmt) error {
 
 func (ann *Annotator) visCaseClause(ctx *Ctx, cc *ast.CaseClause) error {
 	for i := range cc.List {
-
-		// only callexprs since they need to run for each case before actually matching
 		expr := &cc.List[i]
-		if _, ok := (bypassParenExpr(*expr)).(*ast.CallExpr); ok {
 
-			// wrap in funclit if possible
-			tt, ok := ann.newTType2(*expr)
-			if ok && !tt.isBasicInfo(types.IsUntyped) &&
-				tt.isBasicInfo(types.IsOrdered|
-					types.IsBoolean|
-					types.IsInteger|
-					types.IsUnsigned|
-					types.IsFloat|
-					types.IsString|
-					types.IsComplex) {
-				typeName := fmt.Sprintf("%s", tt.Type)
-				fl := newFuncLitRetType(typeName)
-				rs := &ast.ReturnStmt{Results: []ast.Expr{*expr}}
-				fl.Body.List = append(fl.Body.List, rs)
-				if err := ann.visStmt(ctx, fl.Body); err != nil {
-					return err
-				}
-				*expr = &ast.CallExpr{Fun: fl}
+		//// decide what to wrap
+		//expr2 := bypassParenExpr(*expr)
+		//wrap := false
+		//switch expr2.(type) {
+		//// need to run for each case before actually matching
+		//case *ast.CallExpr, *ast.BinaryExpr:
+		//	wrap = true
+		//}
+		//if !wrap {
+		//	continue
+		//}
+
+		// wrap in funclit
+		tt, ok := ann.newTType2(*expr)
+		if ok &&
+			//!func() bool { _, ok := tt.constValue(); return ok }() &&
+			!tt.isType() &&
+			!tt.isBasicInfo(types.IsUntyped) &&
+			tt.isBasicInfo(types.IsOrdered|
+				types.IsBoolean|
+				types.IsInteger|
+				types.IsUnsigned|
+				types.IsFloat|
+				types.IsString|
+				types.IsComplex) {
+			typeName := fmt.Sprintf("%s", tt.Type)
+			fl := newFuncLitRetType(typeName)
+			rs := &ast.ReturnStmt{Results: []ast.Expr{*expr}}
+			fl.Body.List = append(fl.Body.List, rs)
+			if err := ann.visStmt(ctx, fl.Body); err != nil {
+				return err
 			}
+			*expr = &ast.CallExpr{Fun: fl}
 		}
 	}
 
 	// show debug step entering the clause
-	de := ann.newDebugISt(cc.Pos())
+	de := ann.newDebugISt(cc.Colon)
 	ctx2 := ctx.withStmts(&cc.Body)
 	ann.insertDebugLineStmt(ctx2, de)
 
@@ -450,7 +457,7 @@ func (ann *Annotator) visAsyncStmt(ctx *Ctx, ce0 **ast.CallExpr) error {
 	runFl := newFuncLit()
 	retType := &ast.FuncType{Params: &ast.FieldList{}}
 	runFl.Type.Results.List = []*ast.Field{
-		&ast.Field{Type: retType},
+		{Type: retType},
 	}
 	runFlCtx := ctx.withStmts(&runFl.Body.List)
 
@@ -1279,7 +1286,7 @@ func (ann *Annotator) visTypeAssertExpr(ctx *Ctx, tae *ast.TypeAssertExpr) (Debu
 	// ex: "a,ok:=b.(int)"
 	// ex: "switch t:=b.(type)"
 
-	isSwitch := tae.Type == nil
+	isSwitch := tae.Type == nil // type switch, as opposed to type assert
 
 	doTyp := true
 	doResult := !isSwitch
@@ -1310,7 +1317,8 @@ func (ann *Annotator) visTypeAssertExpr(ctx *Ctx, tae *ast.TypeAssertExpr) (Debu
 		result = result2
 	}
 
-	return ann.newDebugCE("ITA", de, typ, result), nil
+	isSwitch2 := basicLitString(strconv.FormatBool(isSwitch), tae.Pos())
+	return ann.newDebugCE("ITA", de, typ, result, isSwitch2), nil
 }
 
 func (ann *Annotator) visUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) (DebugExpr, error) {

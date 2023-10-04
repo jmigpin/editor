@@ -956,7 +956,7 @@ func newFuncLit() *ast.FuncLit {
 func newFuncLitRetType(typeName string) *ast.FuncLit {
 	fl := newFuncLit()
 	fl.Type.Results.List = []*ast.Field{
-		&ast.Field{Type: &ast.Ident{Name: typeName}},
+		{Type: &ast.Ident{Name: typeName}},
 	}
 	return fl
 }
