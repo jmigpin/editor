@@ -8,11 +8,12 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
-	golang.org/x/image v0.12.1-0.20230908231547-491771c68142
+	golang.org/x/image v0.12.0
 	golang.org/x/mod v0.12.0
+	golang.org/x/net v0.15.0
 	golang.org/x/sys v0.12.0
 	golang.org/x/text v0.13.0
-	golang.org/x/tools v0.13.1-0.20230908203021-627959a8e32a
+	golang.org/x/tools v0.13.0
 )
 
 retract (
