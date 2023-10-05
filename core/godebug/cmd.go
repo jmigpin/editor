@@ -41,7 +41,7 @@ type Cmd struct {
 
 	CmdLineMode bool
 
-	flags      flags
+	flags      Flags
 	gopathMode bool
 
 	Stdin  io.Reader

@@ -13,7 +13,7 @@ var defaultBuildConnectAddr = ":8078"
 
 //----------
 
-type flags struct {
+type Flags struct {
 	stderr io.Writer
 
 	mode struct {
@@ -45,7 +45,7 @@ type flags struct {
 	binaryArgs  []string // to be passed to the binary when running
 }
 
-func (fl *flags) parseArgs(args []string) error {
+func (fl *Flags) parseArgs(args []string) error {
 	if len(args) == 0 {
 		return fl.usageErr()
 	}
@@ -68,18 +68,18 @@ func (fl *flags) parseArgs(args []string) error {
 	}
 }
 
-func (fl *flags) usageErr() error {
+func (fl *Flags) usageErr() error {
 	fl.printCmdUsage()
 	return flag.ErrHelp
 }
 
-func (fl *flags) printCmdUsage() {
+func (fl *Flags) printCmdUsage() {
 	fmt.Fprint(fl.stderr, cmdUsage())
 }
 
 //----------
 
-func (fl *flags) parseRunArgs(name string, args []string) error {
+func (fl *Flags) parseRunArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
 	fl.addAddrFlag(fs, "")
@@ -102,7 +102,7 @@ func (fl *flags) parseRunArgs(name string, args []string) error {
 	return fl.parse(name, fs, args, m)
 }
 
-func (fl *flags) parseTestArgs(name string, args []string) error {
+func (fl *Flags) parseTestArgs(name string, args []string) error {
 	// support test "-args" special flag
 	for i, a := range args {
 		if a == "-args" || a == "--args" {
@@ -134,7 +134,7 @@ func (fl *flags) parseTestArgs(name string, args []string) error {
 	return fl.parse(name, fs, args, m)
 }
 
-func (fl *flags) parseBuildArgs(name string, args []string) error {
+func (fl *Flags) parseBuildArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
 	fl.addAddrFlag(fs, defaultBuildConnectAddr)
@@ -155,7 +155,7 @@ func (fl *flags) parseBuildArgs(name string, args []string) error {
 	return fl.parse(name, fs, args, m)
 }
 
-func (fl *flags) parseConnectArgs(name string, args []string) error {
+func (fl *Flags) parseConnectArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
 	fl.addAddrFlag(fs, defaultBuildConnectAddr)
@@ -170,45 +170,45 @@ func (fl *flags) parseConnectArgs(name string, args []string) error {
 
 //----------
 
-func (fl *flags) addWorkFlag(fs *flag.FlagSet) {
+func (fl *Flags) addWorkFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.work, "work", false, "print workdir and don't cleanup on exit")
 }
-func (fl *flags) addVerboseFlag(fs *flag.FlagSet) {
+func (fl *Flags) addVerboseFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.verbose, "verbose", false, "print extra godebug build info")
 }
 
-func (fl *flags) addEditorIsServerFlag(fs *flag.FlagSet) {
+func (fl *Flags) addEditorIsServerFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.editorIsServer, "editorisserver", true, "run editor side as server instead of client")
 }
-func (fl *flags) addSyncSendFlag(fs *flag.FlagSet) {
+func (fl *Flags) addSyncSendFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.syncSend, "syncsend", false, "Don't send msgs in chunks (slow). Useful to get msgs before a crash.")
 }
-func (fl *flags) addStringifyBytesRunesFlag(fs *flag.FlagSet) {
+func (fl *Flags) addStringifyBytesRunesFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.stringifyBytesRunes, "sbr", true, "Stringify bytes/runes as string (ex: [97 98 99] outputs as \"abc\")")
 }
-func (fl *flags) addSrcLinesFlag(fs *flag.FlagSet) {
+func (fl *Flags) addSrcLinesFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.srcLines, "srclines", true, "add src reference lines to the compilation such that in case of panics, the stack refers to the original src file")
 }
-func (fl *flags) addNoInitMsgFlag(fs *flag.FlagSet) {
+func (fl *Flags) addNoInitMsgFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.noInitMsg, "noinitmsg", false, "omit initial warning message from the compiled binary")
 }
-func (fl *flags) addToolExecFlag(fs *flag.FlagSet) {
+func (fl *Flags) addToolExecFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.toolExec, "toolexec", "", "a program to invoke before the program argument. Useful to run a tool with the output file (ex: wine)")
 }
-func (fl *flags) addNetworkFlag(fs *flag.FlagSet) {
+func (fl *Flags) addNetworkFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.network, "network", "tcp", "protocol to use to transmit debug data: [tcp, unix, ws]")
 }
-func (fl *flags) addAddrFlag(fs *flag.FlagSet, def string) {
+func (fl *Flags) addAddrFlag(fs *flag.FlagSet, def string) {
 	fs.StringVar(&fl.address, "addr", def, "address to transmit debug data")
 }
-func (fl *flags) addOutFilenameFlag(fs *flag.FlagSet) {
+func (fl *Flags) addOutFilenameFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.outFilename, "o", "", "output filename")
 }
-func (fl *flags) addStartExecFlag(fs *flag.FlagSet) {
+func (fl *Flags) addStartExecFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.startExec, "startexec", true, "start executable; useful to set to false in the case of compiling for js/wasm where the browser is the one starting the compiled file")
 }
 
-func (fl *flags) addTestRunFlag(fs *flag.FlagSet) {
+func (fl *Flags) addTestRunFlag(fs *flag.FlagSet) {
 	ff := flagutil.StringFuncFlag(func(s string) error {
 		u := "-test.run=" + s
 		fl.binaryArgs = append([]string{u}, fl.binaryArgs...)
@@ -216,7 +216,7 @@ func (fl *flags) addTestRunFlag(fs *flag.FlagSet) {
 	})
 	fs.Var(ff, "run", "`string` with test name pattern to run")
 }
-func (fl *flags) addTestVFlag(fs *flag.FlagSet) {
+func (fl *Flags) addTestVFlag(fs *flag.FlagSet) {
 	ff := flagutil.BoolFuncFlag(func(s string) error {
 		u := "-test.v"
 		fl.binaryArgs = append([]string{u}, fl.binaryArgs...)
@@ -225,7 +225,7 @@ func (fl *flags) addTestVFlag(fs *flag.FlagSet) {
 	fs.Var(ff, "v", "`bool` verbose")
 }
 
-func (fl *flags) addEnvFlag(fs *flag.FlagSet) {
+func (fl *Flags) addEnvFlag(fs *flag.FlagSet) {
 	ff := flagutil.StringFuncFlag(func(s string) error {
 		fl.env = filepath.SplitList(s)
 		return nil
@@ -235,7 +235,7 @@ func (fl *flags) addEnvFlag(fs *flag.FlagSet) {
 	fs.Var(ff, "env", usage)
 }
 
-func (fl *flags) addPathsFlag(fs *flag.FlagSet) {
+func (fl *Flags) addPathsFlag(fs *flag.FlagSet) {
 	ff := flagutil.StringFuncFlag(func(s string) error {
 		fl.paths = splitCommaList(s)
 		return nil
@@ -243,18 +243,18 @@ func (fl *flags) addPathsFlag(fs *flag.FlagSet) {
 	fs.Var(ff, "paths", "comma-separated `string` of dirs/files to annotate (also see the \"//godebug:annotate*\" source code directives to set files to be annotated)")
 }
 
-func (fl *flags) addUsePkgLinksFlag(fs *flag.FlagSet) {
+func (fl *Flags) addUsePkgLinksFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.usePkgLinks, "usepkglinks", true, "Use symbolic links to some pkgs directories to build the godebug binary. Helps solving new behaviour introduced by go1.19.x. that fails when an overlaid file depends on a new external module.")
 }
 
 //----------
 
-func (fl *flags) newFlagSet(name string) *flag.FlagSet {
+func (fl *Flags) newFlagSet(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	return fs
 }
 
-func (fl *flags) parse(name string, fs *flag.FlagSet, args []string, isBool map[string]bool) error {
+func (fl *Flags) parse(name string, fs *flag.FlagSet, args []string, isBool map[string]bool) error {
 
 	// don't show err "flag provided but not defined"
 	fs.SetOutput(io.Discard)
