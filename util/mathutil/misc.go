@@ -2,6 +2,7 @@ package mathutil
 
 import (
 	"math"
+	"math/rand"
 
 	"golang.org/x/exp/constraints"
 )
@@ -61,4 +62,15 @@ func Max[T constraints.Ordered](s ...T) T {
 		}
 	}
 	return m
+}
+
+//----------
+
+func GenDigitsStr(n int) string {
+	const src = "0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = src[rand.Intn(len(src))]
+	}
+	return string(b)
 }

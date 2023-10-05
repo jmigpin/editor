@@ -24,6 +24,7 @@ import (
 	"github.com/jmigpin/editor/util/astut"
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/pathutil"
@@ -580,7 +581,7 @@ func (cmd *Cmd) setupNetworkAddress() error {
 			cmd.flags.address = fmt.Sprintf("127.0.0.1:%v", port)
 		case "unix":
 			// file create outside of tmpdir, but inside the editor root tmp dir, otherwise the socket file will get deleted after "start"
-			cmd.flags.address = filepath.Join(cmd.editorRootTmpDir(), "godebug.sock"+debug.GenDigitsStr(5))
+			cmd.flags.address = filepath.Join(cmd.editorRootTmpDir(), "godebug.sock"+mathutil.GenDigitsStr(5))
 		}
 	}
 	return nil

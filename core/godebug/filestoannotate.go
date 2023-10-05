@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/mathutil"
@@ -532,14 +530,6 @@ func (fa *FilesToAnnotate) pathPkg(path string) (*packages.Package, error) {
 //----------
 //----------
 
-// TODO: consider using "go list" instead of packages.load?
-// - would need to use:
-// 		- go/types types.Config{Importer}
-// 		- conf.check()...
-// go list -json -export -deps
-
-//----------
-
 func nodeImportPath(node ast.Node) (string, error) {
 	// ex: direclty at *ast.ImportSpec
 	// 	import (
@@ -583,28 +573,6 @@ func nodeFilename(fset *token.FileSet, node ast.Node) (string, error) {
 }
 
 //----------
-
-//func mainFuncName(testMode bool) string {
-//	if testMode {
-//		// needs to be used because getting the generated file by packages.Load() that contains a "main" will not allow it to be compiled since it uses "testing/internal" packages.
-//		return "TestMain"
-//	}
-//	return "main"
-//}
-
-//----------
-
-var genDigitsRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-func genDigitsStr(n int) string {
-	sb := strings.Builder{}
-	sb.Grow(n)
-	for i := 0; i < n; i++ {
-		b := byte('0' + genDigitsRand.Intn(10))
-		_ = sb.WriteByte(b)
-	}
-	return sb.String()
-}
 
 func hashStringN(s string, n int) string {
 	h := md5.New()

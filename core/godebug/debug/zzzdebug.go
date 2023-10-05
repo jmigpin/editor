@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-// Vars populated at an init that runs before this file (generated at compile).
+// Initialized by a generated config file when on exec side.
 var EncoderId string
 var onExecSide bool // has generated config
 
@@ -17,11 +17,14 @@ var onExecSide bool // has generated config
 // NOTE: init() functions declared across multiple files in a package are processed in alphabetical order of the file name
 
 func init() {
-	if !onExecSide {
-		// NOTE: a built binary will only be able to run with this editor instance. On the other hand, it can self debug any part of the editor, including the debug pkg, inside an editor running from another editor.
-		EncoderId = GenDigitsStr(10)
-	} else {
+	if onExecSide {
 		//EncoderId = // set by generated config
+	} else {
+		// NOTE: a built binary will only be able to run with this editor instance. On the other hand, it can self debug any part of the editor, including the debug pkg, inside an editor running from another editor.
+		EncoderId = genDigitsStr(10)
+
+		//TODO: staticencoderid option?
+		//EncoderId = "editor_eid_001"
 	}
 
 	registerStructsForProtoConn(EncoderId)
@@ -66,12 +69,6 @@ func newES() *ES {
 	es.initw = newInitWait()
 	return es
 }
-
-//initExecSide2(initExecSide3)
-// allows onload func to be defined when in syscal/js mode
-//var initExecSide2 = func(fn func()) { fn() }
-//func initExecSide3() {
-
 func (es *ES) init() {
 	defer es.initw.done()
 
@@ -192,7 +189,7 @@ func (iw *InitWait) done() {
 //----------
 //----------
 
-func GenDigitsStr(n int) string {
+func genDigitsStr(n int) string {
 	const src = "0123456789"
 	b := make([]byte, n)
 	for i := range b {
