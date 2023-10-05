@@ -22,10 +22,10 @@ import (
 )
 
 func main() {
-	//// allow direct access to godebug on the cmd line
-	//if godebugMain() {
-	//	return
-	//}
+	// allow direct access to godebug on the cmd line
+	if godebugMain() {
+		return
+	}
 
 	opt := &core.Options{}
 
@@ -96,16 +96,21 @@ func godebugMain() bool {
 	if args[1] != "godebug" {
 		return false
 	}
-
-	//fmt.Println(args)
-
-	if err := godebugMain2(args[2:]); err != nil {
+	args = args[2:]
+	if err := godebugMain2(args); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 	return true
 }
 func godebugMain2(args []string) error {
+	if len(args) >= 1 {
+		switch args[0] {
+		case "run", "test": // nothing useful with it
+			return fmt.Errorf("mode not available in cmd line: %v", args[0])
+		}
+	}
+
 	cmd := godebug.NewCmd()
 	cmd.CmdLineMode = true
 	ctx := context.Background()
