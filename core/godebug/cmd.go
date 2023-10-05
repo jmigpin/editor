@@ -801,9 +801,8 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context) error {
 
 	// dynamically create go.mod since go:embed doesn't allow it
 	if !cmd.gopathMode && !selfMode {
-		src3 := []byte(fmt.Sprintf("module %s\n", cmd.annset.dopt.PkgPath))
-		//src3 = append(src3, []byte("go 1.18\n")) // support "any" in debug pkg
-		if err := writeFile("go.mod", src3); err != nil {
+		src3 := goModuleSrc(cmd.annset.dopt.PkgPath)
+		if err := writeFile("go.mod", []byte(src3)); err != nil {
 			return err
 		}
 	}
@@ -869,8 +868,8 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context) error {
 			return fmt.Errorf("file should not exist because gomodfilename didn't found it: %v", fname2)
 		}
 		// create
-		src := []byte("module main\n")
-		if err := mkdirAllWriteFile(fname2, src); err != nil {
+		src := goModuleSrc("main")
+		if err := mkdirAllWriteFile(fname2, []byte(src)); err != nil {
 			return err
 		}
 		cmd.tmpGoModFilename = fname2
@@ -1094,4 +1093,11 @@ func envGodebugBuildFlags(env []string) []string {
 		return nil
 	}
 	return strings.Split(bfs, ",")
+}
+
+//----------
+
+func goModuleSrc(name string) string {
+	// go 1.18 needed to support "any"
+	return fmt.Sprintf("module %s\ngo 1.18\n", name)
 }
