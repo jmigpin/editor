@@ -106,7 +106,6 @@ func HasPrefix(r ReaderAt, i int, s []byte) bool {
 }
 
 func HasSuffix(r ReaderAt, i int, s []byte) bool {
-	//godebug:annotateblock
 	if len(s) == 0 {
 		return true
 	}

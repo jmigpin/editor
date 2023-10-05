@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-//godebug:annotatefile
-
 // small amounts of output need to be flushed (not filling the buffer)
 const abwUpdatesPerSecond = 10
 
