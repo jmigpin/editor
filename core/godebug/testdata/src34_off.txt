@@ -1,0 +1,41 @@
+# an annotateoff should not set the file for annotation
+# an annotateblock should not init the whole file for annotation
+
+#setenv script_keepwork true
+#ucmd godebugtester run -work main.go
+ucmd godebugtester run -verbose main.go
+#ucmd godebugtester run main.go
+contains stdout "println(1)"
+fail contains stdout "println(2)"
+fail contains stdout "println(3)"
+fail contains stdout "println(4)"
+contains stdout "println(5)"
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+import "mod1/fa"
+func main() {
+	println(1)
+	fa.Fa()
+	fa.Fb()
+}
+-- fa/fa.go --
+package fa
+func Fa(){
+	println(2) 
+	// should not trigger annotations in this file
+	//godebug:annotateoff
+	println(3) 
+}
+-- fa/fb.go --
+package fa
+func Fb(){
+	println(4)
+	//godebug:annotateblock
+	println(5) 
+}
+
+
+

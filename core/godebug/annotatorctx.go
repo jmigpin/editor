@@ -243,6 +243,15 @@ func (ctx *Ctx) withNoAnnotationsInstance2(ctx0 *Ctx) *Ctx {
 	return ctx.withValue(cidbNoBlockAnnotations, v)
 }
 func (ctx *Ctx) withNoAnnotationsUpdated(node ast.Node) *Ctx {
+	// start with annotations off in the case of a block level annotation
+	if file, ok := node.(*ast.File); ok {
+		if at, ok := ctx.ann.nodeAnnTypes[file]; ok {
+			if at == AnnotationTypeBlock {
+				return ctx.withValue(cidbNoBlockAnnotations, true)
+			}
+		}
+	}
+
 	if on, ok := ctx.ann.nodeAnnotationBlockOn(node); ok {
 		_, ctx2, ok2 := ctx.boolean2(cidbNoBlockAnnotations)
 		if ok2 {
