@@ -106,7 +106,7 @@ func (cli *Client) sendClose() error {
 
 //----------
 
-func (cli *Client) Call(ctx context.Context, method string, args, reply interface{}) error {
+func (cli *Client) Call(ctx context.Context, method string, args, reply any) error {
 	lspResp := &Response{}
 	fn := func() error {
 		return cli.rcli.Call(method, args, lspResp)
@@ -191,7 +191,7 @@ func (cli *Client) Initialize(ctx context.Context) error {
 	}
 	logJson("opt -->: ", opt)
 
-	serverCapabilities := (interface{})(nil)
+	serverCapabilities := (any)(nil)
 	if err := cli.Call(ctx, "initialize", opt, &serverCapabilities); err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func (cli *Client) initializeParams() (json.RawMessage, error) {
 //	return DocumentUri(rootUrl), nil
 //}
 
-func (cli *Client) readServerCapabilities(caps interface{}) {
+func (cli *Client) readServerCapabilities(caps any) {
 	path := "capabilities.workspace.workspaceFolders.supported"
 	v, err := JsonGetPath(caps, path)
 	if err == nil {

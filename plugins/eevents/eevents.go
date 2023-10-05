@@ -23,10 +23,10 @@ type Handler struct {
 	ed *core.Editor
 }
 
-func (h *Handler) onEvent1(ev interface{}) {
+func (h *Handler) onEvent1(ev any) {
 	h.ed.Messagef("handler1: %T\n", ev)
 }
-func (h *Handler) onEvent2(ev interface{}) {
+func (h *Handler) onEvent2(ev any) {
 	h.ed.Messagef("handler2: %T\n", ev)
 
 	e := ev.(*core.RowStateChangeEEvent)

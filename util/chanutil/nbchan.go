@@ -8,7 +8,7 @@ import (
 
 // Non-blocking channel. Note: consider using syncutil.* instead.
 type NBChan struct {
-	ch        chan interface{}
+	ch        chan any
 	LogString string
 }
 
@@ -17,7 +17,7 @@ func NewNBChan() *NBChan {
 }
 func NewNBChan2(n int, logS string) *NBChan {
 	ch := &NBChan{
-		ch:        make(chan interface{}, n),
+		ch:        make(chan any, n),
 		LogString: logS,
 	}
 	return ch
@@ -26,7 +26,7 @@ func NewNBChan2(n int, logS string) *NBChan {
 //----------
 
 // Send now if a receiver is watching, or fails (non-blocking) with error.
-func (ch *NBChan) Send(v interface{}) error {
+func (ch *NBChan) Send(v any) error {
 	select {
 	case ch.ch <- v:
 		return nil
@@ -36,7 +36,7 @@ func (ch *NBChan) Send(v interface{}) error {
 }
 
 // Receives or fails after timeout.
-func (ch *NBChan) Receive(timeout time.Duration) (interface{}, error) {
+func (ch *NBChan) Receive(timeout time.Duration) (any, error) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
@@ -51,7 +51,7 @@ func (ch *NBChan) Receive(timeout time.Duration) (interface{}, error) {
 //----------
 
 func (ch *NBChan) NewBufChan(n int) {
-	ch.ch = make(chan interface{}, n)
+	ch.ch = make(chan any, n)
 }
 
 // Setting the channel to zero allows a send to fail immediatly if there is no receiver waiting.

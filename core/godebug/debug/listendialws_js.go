@@ -34,14 +34,14 @@ func dialWebsocket2(ctx context.Context, addr Addr, timeout time.Duration) (Conn
 type WsConn struct {
 	addr   Addr
 	ws     js.Value
-	readCh chan interface{}
+	readCh chan any
 }
 
 func newWsConn(addr Addr, ws js.Value) (*WsConn, error) {
 	wsc := &WsConn{addr: addr, ws: ws}
-	wsc.readCh = make(chan interface{}, 1)
+	wsc.readCh = make(chan any, 1)
 
-	openCh := make(chan interface{}, 1)
+	openCh := make(chan any, 1)
 	openDone := false
 
 	//----------
@@ -145,7 +145,7 @@ func bytesToJsArray(b []byte) js.Value {
 
 // simplifies to not need to return a value
 func jsFuncOf2(fn func(args []js.Value)) js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	return js.FuncOf(func(this js.Value, args []js.Value) any {
 		fn(args)
 		return nil
 	})
@@ -168,6 +168,6 @@ func jsEvListen(v js.Value, evName string, fn js.Func) {
 
 //----------
 
-func jsLog(args ...interface{}) {
+func jsLog(args ...any) {
 	js.Global().Get("console").Call("log", args...)
 }

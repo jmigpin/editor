@@ -65,7 +65,7 @@ func NewBasicUI(winName string, root widget.Node) (*BasicUI, error) {
 
 func (ui *BasicUI) initMouseFilters() {
 	// move filter
-	isMouseMoveEv := func(ev interface{}) bool {
+	isMouseMoveEv := func(ev any) bool {
 		if wi, ok := ev.(*event.WindowInput); ok {
 			if _, ok := wi.Event.(*event.MouseMove); ok {
 				return true
@@ -76,7 +76,7 @@ func (ui *BasicUI) initMouseFilters() {
 	ui.movef = mousefilter.NewMoveFilter(ui.DrawFrameRate, ui.eventsQ.PushBack, isMouseMoveEv)
 
 	// click/drag filters
-	emitFn := func(ev interface{}, p image.Point) {
+	emitFn := func(ev any, p image.Point) {
 		ui.handleWidgetEv(ev, p)
 	}
 	ui.clickf = mousefilter.NewClickFilter(emitFn)
@@ -127,19 +127,19 @@ func (ui *BasicUI) eventLoop() {
 //			ui.LayoutMarkedAndSchedulePaint()
 //		}
 //	}
-func (ui *BasicUI) NextEvent() interface{} {
+func (ui *BasicUI) NextEvent() any {
 	return ui.eventsQ.PopFront()
 }
 
 //----------
 
-func (ui *BasicUI) AppendEvent(ev interface{}) {
+func (ui *BasicUI) AppendEvent(ev any) {
 	ui.eventsQ.PushBack(ev)
 }
 
 //----------
 
-func (ui *BasicUI) HandleEvent(ev interface{}) (handled bool) {
+func (ui *BasicUI) HandleEvent(ev any) (handled bool) {
 	switch t := ev.(type) {
 	case *event.WindowResize:
 		ui.resizeImage(t.Rect)
@@ -164,7 +164,7 @@ func (ui *BasicUI) handleWindowInput(wi *event.WindowInput) {
 	ui.clickf.Filter(wi.Event) // emit events; set on initMouseFilters()
 	ui.dragf.Filter(wi.Event)  // emit events; set on initMouseFilters()
 }
-func (ui *BasicUI) handleWidgetEv(ev interface{}, p image.Point) {
+func (ui *BasicUI) handleWidgetEv(ev any, p image.Point) {
 	ui.applyEv.Apply(ui.RootNode, ev, p)
 }
 

@@ -29,7 +29,7 @@ func NewTextArea(ui *UI) *TextArea {
 
 //----------
 
-func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
+func (ta *TextArea) OnInputEvent(ev0 any, p image.Point) event.Handled {
 	h := event.Handled(false)
 
 	// input events callbacks (terminal related)
@@ -59,7 +59,7 @@ func (ta *TextArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
 	return h
 }
 
-func (ta *TextArea) handleInputEvent2(ev0 interface{}, p image.Point) event.Handled {
+func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 	switch ev := ev0.(type) {
 	case *event.MouseClick:
 		switch ev.Button {
@@ -260,7 +260,7 @@ type TextAreaInlineCompleteEvent struct {
 
 type TextAreaInputEvent struct {
 	TextArea     *TextArea
-	Event        interface{}
+	Event        any
 	ReplyHandled event.Handled
 }
 

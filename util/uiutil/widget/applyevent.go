@@ -18,7 +18,7 @@ func NewApplyEvent(cctx CursorContext) *ApplyEvent {
 
 //----------
 
-func (ae *ApplyEvent) Apply(node Node, ev interface{}, p image.Point) {
+func (ae *ApplyEvent) Apply(node Node, ev any, p image.Point) {
 	if !ae.drag.dragging {
 		ae.mouseEnterLeave(node, p)
 	}
@@ -211,7 +211,7 @@ func (ae *ApplyEvent) dragEnd(ev *event.MouseDragEnd, p image.Point) {
 
 //----------
 
-func (ae *ApplyEvent) depthFirstEv(node Node, ev interface{}, p image.Point) event.Handled {
+func (ae *ApplyEvent) depthFirstEv(node Node, ev any, p image.Point) event.Handled {
 	if !p.In(node.Embed().Bounds) {
 		return false
 	}
@@ -238,7 +238,7 @@ func (ae *ApplyEvent) depthFirstEv(node Node, ev interface{}, p image.Point) eve
 
 //----------
 
-func (ae *ApplyEvent) runEv(node Node, ev interface{}, p image.Point) event.Handled {
+func (ae *ApplyEvent) runEv(node Node, ev any, p image.Point) event.Handled {
 	return node.OnInputEvent(ev, p)
 }
 

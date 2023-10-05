@@ -8,7 +8,7 @@ import (
 )
 
 // taken from: go/parser/interface.go:25:9
-func ReadSource(filename string, src interface{}) ([]byte, error) {
+func ReadSource(filename string, src any) ([]byte, error) {
 	if src != nil {
 		switch s := src.(type) {
 		case string:

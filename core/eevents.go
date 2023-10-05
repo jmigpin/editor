@@ -14,11 +14,11 @@ func NewEEvents() *EEvents {
 	return &EEvents{}
 }
 
-func (eevs *EEvents) emit(eid EEventId, ev interface{}) int {
+func (eevs *EEvents) emit(eid EEventId, ev any) int {
 	return eevs.reg.RunCallbacks(int(eid), ev)
 }
 
-func (eevs *EEvents) Register(eid EEventId, fn func(interface{})) *evreg.Regist {
+func (eevs *EEvents) Register(eid EEventId, fn func(any)) *evreg.Regist {
 	return eevs.reg.Add(int(eid), fn)
 }
 

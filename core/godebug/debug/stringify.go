@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-func stringify(v interface{}) string {
+func stringify(v any) string {
 	return stringifyV3(v)
 }
-func stringifyV3(v interface{}) string {
+func stringifyV3(v any) string {
 	p := newPrint3(150, 7, eso.stringifyBytesRunes)
 	p.do(v)
 	return p.ToString()
@@ -34,7 +34,7 @@ func newPrint3(max, maxDepth int, sbr bool) *print3 {
 	return &print3{avail: max, maxDepth: maxDepth, stringifyBytesAndRunes: sbr}
 }
 
-func (p *print3) do(v interface{}) {
+func (p *print3) do(v any) {
 	rv := reflect.ValueOf(v)
 	p.doValue(rv, 0)
 }

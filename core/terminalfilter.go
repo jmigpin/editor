@@ -319,11 +319,11 @@ func (tf *TerminalFilter) stParseAlignmentTest() error {
 
 //----------
 
-func (tf *TerminalFilter) todo(f string, a ...interface{}) {
+func (tf *TerminalFilter) todo(f string, a ...any) {
 	tf.debug("todo: "+f, a...)
 }
 
-func (tf *TerminalFilter) debug(f string, a ...interface{}) {
+func (tf *TerminalFilter) debug(f string, a ...any) {
 	f = "tfdebug: " + f
 	if tf.erow != nil {
 		tf.erow.Ed.Messagef(f, a...)

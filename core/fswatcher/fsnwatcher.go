@@ -6,7 +6,7 @@ import (
 
 type FsnWatcher struct {
 	w      *fsnotify.Watcher
-	events chan interface{}
+	events chan any
 	opMask Op
 }
 
@@ -17,7 +17,7 @@ func NewFsnWatcher() (*FsnWatcher, error) {
 	}
 	w := &FsnWatcher{
 		w:      w0,
-		events: make(chan interface{}),
+		events: make(chan any),
 	}
 
 	w.opMask = AllOps
@@ -47,7 +47,7 @@ func (w *FsnWatcher) Remove(name string) error {
 
 //----------
 
-func (w *FsnWatcher) Events() <-chan interface{} {
+func (w *FsnWatcher) Events() <-chan any {
 	return w.events
 }
 

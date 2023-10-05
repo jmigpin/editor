@@ -12,7 +12,7 @@ import (
 // graph based watcher
 type GWatcher struct {
 	w      Watcher
-	events chan interface{}
+	events chan any
 	root   struct {
 		sync.Mutex
 		n *Node
@@ -23,7 +23,7 @@ func NewGWatcher(w Watcher) *GWatcher {
 	*w.OpMask() = AllOps
 
 	gw := &GWatcher{w: w}
-	gw.events = make(chan interface{})
+	gw.events = make(chan any)
 
 	gw.root.Lock()
 	gw.root.n = NewNode(string(os.PathSeparator), nil)
@@ -45,7 +45,7 @@ func (gw *GWatcher) Close() error {
 
 //----------
 
-func (gw *GWatcher) Events() <-chan interface{} {
+func (gw *GWatcher) Events() <-chan any {
 	return gw.events
 }
 func (gw *GWatcher) eventLoop() {

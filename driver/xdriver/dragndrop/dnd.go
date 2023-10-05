@@ -59,7 +59,7 @@ func (dnd *Dnd) setupWindowProperty() error {
 //----------
 
 // Error could be nil.
-func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent) (ev_ interface{}, _ error, ok bool) {
+func (dnd *Dnd) OnClientMessage(ev *xproto.ClientMessageEvent) (ev_ any, _ error, ok bool) {
 	if ev.Format != 32 {
 		err := fmt.Errorf("dnd event: data format is not 32: %d", ev.Format)
 		return nil, err, true
@@ -120,7 +120,7 @@ func (dnd *Dnd) onEnter(data []uint32) {
 
 //----------
 
-func (dnd *Dnd) onPosition(data []uint32) (ev interface{}, _ error) {
+func (dnd *Dnd) onPosition(data []uint32) (ev any, _ error) {
 	// must have had a dnd enter event before
 	if !dnd.data.hasEnter {
 		return nil, fmt.Errorf("missing dnd enter event")
@@ -171,7 +171,7 @@ func (dnd *Dnd) positionReply(action event.DndAction) {
 
 //----------
 
-func (dnd *Dnd) onDrop(data []uint32) (ev interface{}, _ error) {
+func (dnd *Dnd) onDrop(data []uint32) (ev any, _ error) {
 	// must have had a dnd position event before
 	if !dnd.data.hasPosition {
 		return nil, fmt.Errorf("missing dnd position event")

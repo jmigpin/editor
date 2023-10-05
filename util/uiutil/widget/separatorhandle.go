@@ -42,7 +42,7 @@ func (sh *SeparatorHandle) Layout() {
 	sh.Bounds = b
 }
 
-func (sh *SeparatorHandle) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
+func (sh *SeparatorHandle) OnInputEvent(ev0 any, p image.Point) event.Handled {
 	switch ev := ev0.(type) {
 	case *event.MouseDragStart:
 		u := sh.ref.Embed().Bounds.Min

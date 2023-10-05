@@ -66,13 +66,13 @@ func (ann *Annotator) AnnotateAstFile(astFile *ast.File) {
 
 //----------
 
-func (ann *Annotator) log(args ...interface{}) {
+func (ann *Annotator) log(args ...any) {
 	//log.Print(args...)
 	s := fmt.Sprint(args...)
 	s = strings.TrimRight(s, "\n") + "\n"
 	fmt.Print(s)
 }
-func (ann *Annotator) logf(f string, args ...interface{}) {
+func (ann *Annotator) logf(f string, args ...any) {
 	ann.log(fmt.Sprintf(f, args...))
 }
 

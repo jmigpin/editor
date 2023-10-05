@@ -58,7 +58,7 @@ func (cfb *ContextFloatBox) Layout() {
 
 //----------
 
-func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Handled {
+func (cfb *ContextFloatBox) OnInputEvent(ev any, p image.Point) event.Handled {
 	switch ev.(type) {
 	case *event.KeyUp,
 		*event.KeyDown:
@@ -70,7 +70,7 @@ func (cfb *ContextFloatBox) OnInputEvent(ev interface{}, p image.Point) event.Ha
 
 //----------
 
-func (cfb *ContextFloatBox) AutoClose(ev interface{}, p image.Point) {
+func (cfb *ContextFloatBox) AutoClose(ev any, p image.Point) {
 	if cfb.Visible() && !p.In(cfb.Bounds) {
 		switch ev.(type) {
 		case *event.KeyDown,

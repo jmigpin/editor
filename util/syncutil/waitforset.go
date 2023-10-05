@@ -26,7 +26,7 @@ type WaitForSet struct {
 		}
 		set struct {
 			gotV bool
-			v    interface{}
+			v    any
 		}
 	}
 	cond *sync.Cond // signals from set() or timeout()
@@ -49,7 +49,7 @@ func (w *WaitForSet) Start(timeout time.Duration) {
 	w.d.get.timer = time.AfterFunc(timeout, w.cond.Signal)
 }
 
-func (w *WaitForSet) WaitForSet() (interface{}, error) {
+func (w *WaitForSet) WaitForSet() (any, error) {
 	w.d.Lock()
 	defer w.d.Unlock()
 	defer w.clearTimer()
@@ -91,7 +91,7 @@ func (w *WaitForSet) clearTimer() {
 //----------
 
 // Fails if not able to set while get() is ready.
-func (w *WaitForSet) Set(v interface{}) error {
+func (w *WaitForSet) Set(v any) error {
 	w.d.Lock()
 	defer w.d.Unlock()
 	if w.d.get.timer == nil {

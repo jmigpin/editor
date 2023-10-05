@@ -23,7 +23,7 @@ func NewColSeparator(col *Column) *ColSeparator {
 	csep.SetThemePaletteNamePrefix("colseparator_")
 	return csep
 }
-func (sh *ColSeparator) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
+func (sh *ColSeparator) OnInputEvent(ev0 any, p image.Point) event.Handled {
 	switch ev := ev0.(type) {
 	case *event.MouseDragMove:
 		switch {

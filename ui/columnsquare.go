@@ -27,7 +27,7 @@ func (sq *ColumnSquare) Paint() {
 	c := sq.TreeThemePaletteColor("columnsquare")
 	imageutil.FillRectangle(sq.col.ui.Image(), sq.Bounds, c)
 }
-func (sq *ColumnSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
+func (sq *ColumnSquare) OnInputEvent(ev any, p image.Point) event.Handled {
 	switch t := ev.(type) {
 	case *event.MouseClick:
 		switch t.Button {

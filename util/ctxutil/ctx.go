@@ -6,14 +6,14 @@ type Ctx struct {
 	Parent *Ctx
 	// name/value (short names to avoid usage, still exporting it)
 	N string
-	V interface{}
+	V any
 }
 
-func (ctx *Ctx) WithValue(name string, value interface{}) *Ctx {
+func (ctx *Ctx) WithValue(name string, value any) *Ctx {
 	return &Ctx{ctx, name, value}
 }
 
-func (ctx *Ctx) Value(name string) (interface{}, *Ctx) {
+func (ctx *Ctx) Value(name string) (any, *Ctx) {
 	for c := ctx; c != nil; c = c.Parent {
 		if c.N == name {
 			return c.V, c

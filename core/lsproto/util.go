@@ -28,14 +28,14 @@ func logTestVerbose() bool {
 	return f != nil && f.Value.String() == "true"
 }
 
-func logPrintf(f string, args ...interface{}) {
+func logPrintf(f string, args ...any) {
 	if !logTestVerbose() {
 		return
 	}
 	logger0.Output(2, fmt.Sprintf(f, args...))
 }
 
-func logJson(prefix string, v interface{}) {
+func logJson(prefix string, v any) {
 	if !logTestVerbose() {
 		return
 	}
@@ -48,7 +48,7 @@ func logJson(prefix string, v interface{}) {
 
 //----------
 
-func encodeJson(a interface{}) ([]byte, error) {
+func encodeJson(a any) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	err := enc.Encode(a)
@@ -59,11 +59,11 @@ func encodeJson(a interface{}) ([]byte, error) {
 	return b, nil
 }
 
-func decodeJson(r io.Reader, a interface{}) error {
+func decodeJson(r io.Reader, a any) error {
 	dec := json.NewDecoder(r)
 	return dec.Decode(a)
 }
-func decodeJsonRaw(raw json.RawMessage, a interface{}) error {
+func decodeJsonRaw(raw json.RawMessage, a any) error {
 	return json.Unmarshal(raw, a)
 }
 
@@ -155,13 +155,13 @@ func RangeToOffsetLen(rd iorw.ReaderAt, rang *Range) (int, int, error) {
 
 //----------
 
-func JsonGetPath(v interface{}, path string) (interface{}, error) {
+func JsonGetPath(v any, path string) (any, error) {
 	args := strings.Split(path, ".")
 	return jsonGetPath2(v, args)
 }
 
 // TODO: incomplete
-func jsonGetPath2(v interface{}, args []string) (interface{}, error) {
+func jsonGetPath2(v any, args []string) (any, error) {
 	// handle last arg
 	if len(args) == 0 {
 		switch t := v.(type) {
@@ -173,7 +173,7 @@ func jsonGetPath2(v interface{}, args []string) (interface{}, error) {
 	// handle args: len(args)>0
 	arg, args2 := args[0], args[1:]
 	switch t := v.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		if v, ok := t[arg]; ok {
 			return jsonGetPath2(v, args2)
 		}

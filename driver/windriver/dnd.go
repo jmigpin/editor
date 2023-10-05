@@ -19,7 +19,7 @@ func NewDndMan() *DndMan {
 	return &DndMan{}
 }
 
-func (m *DndMan) HandleDrop(hDrop uintptr) (interface{}, bool, error) {
+func (m *DndMan) HandleDrop(hDrop uintptr) (any, bool, error) {
 	//dropped, p := m.dropPoint(hDrop)
 	//if !dropped {
 	//	ev := m.buildPositionEvent(hDrop, p)
@@ -38,7 +38,7 @@ func (m *DndMan) HandleDrop(hDrop uintptr) (interface{}, bool, error) {
 
 //----------
 
-func (m *DndMan) buildPositionEvent(hDrop uintptr, p image.Point) interface{} {
+func (m *DndMan) buildPositionEvent(hDrop uintptr, p image.Point) any {
 	//fmt.Printf("reply %v\n", action)
 	types := []event.DndType{event.TextURLListDndT}
 	appReplyFn := func(action event.DndAction) {
@@ -50,7 +50,7 @@ func (m *DndMan) buildPositionEvent(hDrop uintptr, p image.Point) interface{} {
 
 //----------
 
-func (m *DndMan) buildDropEvent(hDrop uintptr, p image.Point) interface{} {
+func (m *DndMan) buildDropEvent(hDrop uintptr, p image.Point) any {
 	appReqFn := func(typ event.DndType) ([]byte, error) {
 		u := FilesDropped(hDrop)
 		if len(u) == 0 {

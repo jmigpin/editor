@@ -227,14 +227,14 @@ func (ed *Editor) handleWatcherEvent(ev *fswatcher.Event) {
 
 //----------
 
-func (ed *Editor) Errorf(f string, a ...interface{}) {
+func (ed *Editor) Errorf(f string, a ...any) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
 	ed.Messagef("error: %v", err)
 }
 
-func (ed *Editor) Messagef(f string, a ...interface{}) {
+func (ed *Editor) Messagef(f string, a ...any) {
 	ed.Message(fmt.Sprintf(f, a...))
 }
 
@@ -349,7 +349,7 @@ func (ed *Editor) setupUIRoot() {
 	ed.setupRootMenuToolbar()
 
 	// ui.root select annotation
-	ed.UI.Root.EvReg.Add(ui.RootSelectAnnotationEventId, func(ev interface{}) {
+	ed.UI.Root.EvReg.Add(ui.RootSelectAnnotationEventId, func(ev any) {
 		rowPos := ed.GoodRowPos()
 		ev2 := ev.(*ui.RootSelectAnnotationEvent)
 		ed.GoDebug.SelectAnnotation(rowPos, ev2)
@@ -359,11 +359,11 @@ func (ed *Editor) setupUIRoot() {
 func (ed *Editor) setupRootToolbar() {
 	tb := ed.UI.Root.Toolbar
 	// cmd event
-	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
 		InternalCmdFromRootTb(ed, tb)
 	})
 	// on write
-	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 interface{}) {
+	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 any) {
 		ed.updateERowsToolbarsHomeVars()
 	})
 
@@ -374,11 +374,11 @@ func (ed *Editor) setupRootToolbar() {
 func (ed *Editor) setupRootMenuToolbar() {
 	tb := ed.UI.Root.MainMenuButton.Toolbar
 	// cmd event
-	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev interface{}) {
+	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
 		InternalCmdFromRootTb(ed, tb)
 	})
 	// on write
-	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 interface{}) {
+	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 any) {
 		ed.updateERowsToolbarsHomeVars()
 	})
 
@@ -556,7 +556,7 @@ func (ed *Editor) EnsureOneColumn() {
 func (ed *Editor) NewColumn() *ui.Column {
 	col := ed.UI.Root.Cols.NewColumn()
 	// close
-	col.EvReg.Add(ui.ColumnCloseEventId, func(ev0 interface{}) {
+	col.EvReg.Add(ui.ColumnCloseEventId, func(ev0 any) {
 		ed.EnsureOneColumn()
 	})
 	return col
@@ -564,7 +564,7 @@ func (ed *Editor) NewColumn() *ui.Column {
 
 //----------
 
-func (ed *Editor) handleGlobalShortcuts(ev interface{}) (handled bool) {
+func (ed *Editor) handleGlobalShortcuts(ev any) (handled bool) {
 	switch t := ev.(type) {
 	case *event.WindowInput:
 		autoCloseInfo := true

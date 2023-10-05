@@ -22,7 +22,7 @@ func NewButton(ctx ImageContext) *Button {
 	b.Append(b.Label)
 	return b
 }
-func (b *Button) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
+func (b *Button) OnInputEvent(ev0 any, p image.Point) event.Handled {
 	// set "text_*" one level below (b.Label) to allow subclassing elements (ex: floatbutton) to set their own "text_*" values without disrupting the hover/down/sticky colors.
 	restoreColor := func() {
 		b.Label.SetThemePaletteColor("text_fg", nil)

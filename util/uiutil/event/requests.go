@@ -5,7 +5,7 @@ import (
 	"image/draw"
 )
 
-type Request interface{}
+type Request any
 
 //----------
 

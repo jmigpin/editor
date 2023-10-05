@@ -145,7 +145,7 @@ func (sb *ScrollBar) Paint() {
 
 //----------
 
-func (sb *ScrollBar) OnInputEvent(ev interface{}, p image.Point) event.Handled {
+func (sb *ScrollBar) OnInputEvent(ev any, p image.Point) event.Handled {
 	switch evt := ev.(type) {
 	case *event.MouseDown:
 		switch evt.Button {

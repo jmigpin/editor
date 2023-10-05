@@ -17,7 +17,7 @@ func NewSyncedQ() *SyncedQ {
 	return sq
 }
 
-func (sq *SyncedQ) PushBack(v interface{}) {
+func (sq *SyncedQ) PushBack(v any) {
 	sq.Lock()
 	sq.q.PushBack(v)
 	sq.Unlock()
@@ -25,7 +25,7 @@ func (sq *SyncedQ) PushBack(v interface{}) {
 }
 
 // Waits until a value is available
-func (sq *SyncedQ) PopFront() interface{} {
+func (sq *SyncedQ) PopFront() any {
 	sq.Lock()
 	for sq.q.Len() == 0 {
 		sq.cond.Wait()
@@ -38,7 +38,7 @@ func (sq *SyncedQ) PopFront() interface{} {
 	return v
 }
 
-func (sq *SyncedQ) PeekFront() (interface{}, bool) {
+func (sq *SyncedQ) PeekFront() (any, bool) {
 	sq.Lock()
 	defer sq.Unlock()
 	if sq.q.Len() == 0 {

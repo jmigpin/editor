@@ -217,40 +217,40 @@ func (erow *ERow) initHandlers() {
 	}
 
 	// toolbar on prewrite
-	row.Toolbar.RWEvReg.Add(iorw.RWEvIdPreWrite, func(ev0 interface{}) {
+	row.Toolbar.RWEvReg.Add(iorw.RWEvIdPreWrite, func(ev0 any) {
 		ev := ev0.(*iorw.RWEvPreWrite)
 		if err := erow.validateToolbarPreWrite(ev); err != nil {
 			ev.ReplyErr = err
 		}
 	})
 	// toolbar cmds
-	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
+	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 any) {
 		InternalCmdFromRowTb(erow)
 	})
 	// textarea on write
-	row.TextArea.RWEvReg.Add(iorw.RWEvIdWrite2, func(ev0 interface{}) {
+	row.TextArea.RWEvReg.Add(iorw.RWEvIdWrite2, func(ev0 any) {
 		ev := ev0.(*iorw.RWEvWrite2)
 		erow.Info.HandleRWEvWrite2(erow, ev)
 	})
 	// textarea content cmds
-	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 interface{}) {
+	row.TextArea.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 any) {
 		ev := ev0.(*ui.TextAreaCmdEvent)
 		ContentCmdFromTextArea(erow, ev.Index)
 	})
 	// textarea select annotation
-	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev interface{}) {
+	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev any) {
 		ev2 := ev.(*ui.TextAreaSelectAnnotationEvent)
 		erow.Ed.GoDebug.SelectERowAnnotation(erow, ev2)
 	})
 	// textarea inlinecomplete
-	row.TextArea.EvReg.Add(ui.TextAreaInlineCompleteEventId, func(ev0 interface{}) {
+	row.TextArea.EvReg.Add(ui.TextAreaInlineCompleteEventId, func(ev0 any) {
 		ev := ev0.(*ui.TextAreaInlineCompleteEvent)
 		handled := erow.Ed.InlineComplete.Complete(erow, ev)
 		// Allow the input event (`tab` key press) to function normally if the inlinecomplete is not being handled (ex: no lsproto server is registered for this filename extension)
 		ev.ReplyHandled = event.Handled(handled)
 	})
 	// key shortcuts
-	row.EvReg.Add(ui.RowInputEventId, func(ev0 interface{}) {
+	row.EvReg.Add(ui.RowInputEventId, func(ev0 any) {
 		erow.Ed.InlineComplete.CancelOnCursorChange()
 
 		ev := ev0.(*ui.RowInputEvent)
@@ -289,7 +289,7 @@ func (erow *ERow) initHandlers() {
 		}
 	})
 	// close
-	row.EvReg.Add(ui.RowCloseEventId, func(ev0 interface{}) {
+	row.EvReg.Add(ui.RowCloseEventId, func(ev0 any) {
 		// editor events
 		ev := &PreRowCloseEEvent{ERow: erow}
 		erow.Ed.EEvents.emit(PreRowCloseEEventId, ev)
@@ -569,7 +569,7 @@ func (erow *ERow) setupSyntaxHighlightAndCommentShortcuts() {
 	//}
 
 	// util funcs
-	setComments := func(a ...interface{}) {
+	setComments := func(a ...any) {
 		ta.SetCommentStrings(a...)
 	}
 

@@ -112,7 +112,7 @@ func (sq *RowSquare) SetState(s RowState, v bool) {
 func (sq *RowSquare) HasState(s RowState) bool {
 	return sq.state.hasAny(s)
 }
-func (sq *RowSquare) OnInputEvent(ev interface{}, p image.Point) event.Handled {
+func (sq *RowSquare) OnInputEvent(ev any, p image.Point) event.Handled {
 	switch t := ev.(type) {
 
 	// use drag events from row separator (allows dragging using rowsquare)

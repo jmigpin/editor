@@ -14,7 +14,7 @@ func registerStructsForProtoConn(encoderId string) (err error) {
 	return
 }
 func registerStructsForProtoConn2(encoderId string) {
-	reg := func(v interface{}) {
+	reg := func(v any) {
 		registerForProtoConn(encoderId, v)
 	}
 
@@ -190,7 +190,7 @@ type ItemAnon struct {
 //----------
 
 // ItemValue: interface (ex: int=1, string="1")
-func IVi(v interface{}) Item {
+func IVi(v any) Item {
 	return &ItemValue{Str: stringify(v)}
 }
 
@@ -200,7 +200,7 @@ func IVs(s string) Item {
 }
 
 // ItemValue: typeof
-func IVt(v interface{}) Item {
+func IVt(v any) Item {
 	s := fmt.Sprintf("%T", v)
 	return &ItemValue{Str: s}
 }

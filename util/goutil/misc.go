@@ -38,10 +38,10 @@ func PrintAstFile(w io.Writer, fset *token.FileSet, astFile *ast.File) error {
 
 // frame callers
 
-func Printfc(skip int, f string, args ...interface{}) {
+func Printfc(skip int, f string, args ...any) {
 	fmt.Print(Sprintfc(skip, f, args...))
 }
-func Sprintfc(skip int, f string, args ...interface{}) string {
+func Sprintfc(skip int, f string, args ...any) string {
 	h := CallerFileLine(1)
 	return fmt.Sprintf(h+f, args...)
 }
@@ -157,7 +157,7 @@ func Trace(n int) (string, int, string) {
 
 //----------
 
-func FuncName(f interface{}) string {
+func FuncName(f any) string {
 	p := reflect.ValueOf(f).Pointer()
 	details := runtime.FuncForPC(p)
 	return runtimeSimpleName(details.Name())

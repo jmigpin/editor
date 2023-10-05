@@ -7,22 +7,22 @@ import (
 
 type MoveFilter struct {
 	fps      int
-	emitFn   func(interface{})
-	isMoveFn func(interface{}) bool
+	emitFn   func(any)
+	isMoveFn func(any) bool
 
 	last struct {
 		sync.Mutex
 		timer  *time.Timer
 		sent   time.Time
-		moveEv interface{}
+		moveEv any
 	}
 }
 
-func NewMoveFilter(fps int, emitFn func(interface{}), isMoveFn func(interface{}) bool) *MoveFilter {
+func NewMoveFilter(fps int, emitFn func(any), isMoveFn func(any) bool) *MoveFilter {
 	return &MoveFilter{fps: fps, emitFn: emitFn, isMoveFn: isMoveFn}
 }
 
-func (movef *MoveFilter) Filter(ev interface{}) {
+func (movef *MoveFilter) Filter(ev any) {
 	if movef.isMoveFn(ev) {
 		movef.keepMoveEv(ev)
 	} else {
@@ -31,7 +31,7 @@ func (movef *MoveFilter) Filter(ev interface{}) {
 	}
 }
 
-func (movef *MoveFilter) keepMoveEv(moveEv interface{}) {
+func (movef *MoveFilter) keepMoveEv(moveEv any) {
 	frameDur := time.Second / time.Duration(movef.fps)
 	movef.last.Lock()
 	defer movef.last.Unlock()

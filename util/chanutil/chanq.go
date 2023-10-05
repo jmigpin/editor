@@ -7,28 +7,28 @@ import (
 // Flexible channel queue (no fixed length). Note: consider using syncutil.* instead.
 type ChanQ struct {
 	q       list.List
-	in, out chan interface{}
+	in, out chan any
 }
 
 func NewChanQ(inSize, outSize int) *ChanQ {
 	ch := &ChanQ{}
-	ch.in = make(chan interface{}, inSize)
-	ch.out = make(chan interface{}, outSize)
+	ch.in = make(chan any, inSize)
+	ch.out = make(chan any, outSize)
 	go ch.loop()
 	return ch
 }
 
-func (ch *ChanQ) In() chan<- interface{} {
+func (ch *ChanQ) In() chan<- any {
 	return ch.in
 }
 
-func (ch *ChanQ) Out() <-chan interface{} {
+func (ch *ChanQ) Out() <-chan any {
 	return ch.out
 }
 
 func (ch *ChanQ) loop() {
-	var next interface{}
-	var out chan<- interface{}
+	var next any
+	var out chan<- any
 	for {
 		select {
 		case v := <-ch.in:

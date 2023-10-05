@@ -237,7 +237,7 @@ func (win *Window) NextEvent() (event.Event, bool) {
 	}
 }
 
-func (win *Window) nextEvent2() interface{} {
+func (win *Window) nextEvent2() any {
 	ev, xerr := win.Conn.WaitForEvent()
 	if ev == nil {
 		if xerr != nil {

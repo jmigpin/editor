@@ -533,7 +533,7 @@ func (sid stateId) String() string {
 //----------
 //----------
 
-type Action interface{}
+type Action any
 
 type ActionShift struct {
 	st *State

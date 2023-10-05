@@ -75,7 +75,7 @@ func (te *TextEdit) SetRWFromMaster(m *TextEdit) {
 //----------
 
 // Called when the changes are done on this textedit
-func (te *TextEdit) onWrite2(ev interface{}) {
+func (te *TextEdit) onWrite2(ev any) {
 	e := ev.(*iorw.RWEvWrite2)
 	if e.Changed {
 		te.contentChanged()
@@ -152,7 +152,7 @@ func (te *TextEdit) EndUndoGroup() {
 
 //----------
 
-func (te *TextEdit) OnInputEvent(ev interface{}, p image.Point) event.Handled {
+func (te *TextEdit) OnInputEvent(ev any, p image.Point) event.Handled {
 	te.BeginUndoGroup()
 	defer te.EndUndoGroup()
 

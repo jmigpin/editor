@@ -22,7 +22,7 @@ func TestJsonParser(t *testing.T) {
 
 //----------
 
-func ParseJson(src []byte) (interface{}, error) {
+func ParseJson(src []byte) (any, error) {
 	//p := NewJsonParser(src)
 	//return p.parseJson()
 	p := NewJsonParser2()

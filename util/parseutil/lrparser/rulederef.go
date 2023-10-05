@@ -422,7 +422,7 @@ func replaceFromMap(m map[string]*Rule, id string, rref *Rule) bool {
 
 //----------
 
-func nodePosErrorf(n PNode, f string, args ...interface{}) error {
+func nodePosErrorf(n PNode, f string, args ...any) error {
 	err := fmt.Errorf(f, args...)
 	return &PosError{Err: err, Pos: n.Pos()}
 }

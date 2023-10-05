@@ -85,7 +85,7 @@ func (row *Row) Layout() {
 
 //----------
 
-func (row *Row) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
+func (row *Row) OnInputEvent(ev0 any, p image.Point) event.Handled {
 	ev2 := &RowInputEvent{row, ev0}
 	row.EvReg.RunCallbacks(RowInputEventId, ev2)
 	return false
@@ -215,7 +215,7 @@ const (
 
 type RowInputEvent struct {
 	Row   *Row
-	Event interface{}
+	Event any
 }
 type RowCloseEvent struct {
 	Row *Row

@@ -55,7 +55,7 @@ func (ctx *Ctx) value2(id ctxId) (any, *Ctx) {
 func (ctx *Ctx) setValue(v any) {
 	ctx.v = v
 }
-func (ctx *Ctx) mustValue(id ctxId) interface{} {
+func (ctx *Ctx) mustValue(id ctxId) any {
 	v, _, ok := ctx.value(id)
 	if !ok {
 		err := fmt.Errorf("must value: %v", id)

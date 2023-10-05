@@ -4,7 +4,7 @@ import (
 	"image"
 )
 
-type Event interface{}
+type Event any
 
 //----------
 

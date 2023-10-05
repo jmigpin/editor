@@ -21,8 +21,8 @@ type JsonCodec struct {
 	OnUnexpectedServerReply func(*Response)
 
 	rwc           io.ReadWriteCloser
-	responses     chan interface{}
-	simulatedResp chan interface{}
+	responses     chan any
+	simulatedResp chan any
 
 	readData readData // used by read response header/body
 
@@ -35,14 +35,14 @@ type JsonCodec struct {
 // Needs a call to ReadLoop() to start reading.
 func NewJsonCodec(rwc io.ReadWriteCloser) *JsonCodec {
 	c := &JsonCodec{rwc: rwc}
-	c.responses = make(chan interface{}, 4)
-	c.simulatedResp = make(chan interface{}, 4)
+	c.responses = make(chan any, 4)
+	c.simulatedResp = make(chan any, 4)
 	return c
 }
 
 //----------
 
-func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
+func (c *JsonCodec) WriteRequest(req *rpc.Request, data any) error {
 	method := req.ServiceMethod
 
 	// internal: methods with a noreply prefix don't expect a reply. This was done throught the method name to be able to use net/rpc. This is not part of the lsp protocol.
@@ -52,7 +52,7 @@ func (c *JsonCodec) WriteRequest(req *rpc.Request, data interface{}) error {
 		method = m
 	}
 
-	msg := (interface{})(nil)
+	msg := (any)(nil)
 	if noreply {
 		// don't send an Id on messages that don't need an acknowledgement
 		m := &NotificationMessage{
@@ -151,7 +151,7 @@ func (c *JsonCodec) ReadResponseHeader(resp *rpc.Response) error {
 	}
 }
 
-func (c *JsonCodec) ReadResponseBody(reply interface{}) error {
+func (c *JsonCodec) ReadResponseBody(reply any) error {
 	// exhaust requests with noreply
 	if c.readData.noReply {
 		return nil

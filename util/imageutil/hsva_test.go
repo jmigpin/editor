@@ -55,7 +55,7 @@ func dabs(a, b int) int {
 //------------
 
 func TestHSV1(t *testing.T) {
-	u := []interface{}{
+	u := []any{
 		MakeHSV(0, 0, 20),
 		color.RGBA{51, 51, 51, 255},
 

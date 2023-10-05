@@ -91,14 +91,14 @@ func (p *Proto) GotConnectedFastCheck() bool {
 
 //----------
 
-func (p *Proto) Read(v interface{}) error {
+func (p *Proto) Read(v any) error {
 	err := p.md.pconn.Read(v)
 	if errors.Is(err, io.EOF) {
 		p.setWaitEditorRead()
 	}
 	return err
 }
-func (p *Proto) Write(v interface{}) error {
+func (p *Proto) Write(v any) error {
 	return p.md.pconn.Write(v)
 }
 func (p *Proto) WriteLineMsg(lm *LineMsg) error {
@@ -289,17 +289,17 @@ func newProtoConn(conn Conn, writeBuffering bool) *ProtoConn {
 	}
 	return pconn
 }
-func (pconn *ProtoConn) Read(v interface{}) error {
+func (pconn *ProtoConn) Read(v any) error {
 	return pconn.dec.Decode(v)
 }
-func (pconn *ProtoConn) Write(v interface{}) error {
+func (pconn *ProtoConn) Write(v any) error {
 	return pconn.enc.Encode(v)
 }
 func (pconn *ProtoConn) WriteLineMsg(lm *LineMsg) error {
 	if pconn.lmwb != nil {
 		return pconn.lmwb.Write(lm)
 	}
-	u := (interface{})(lm)
+	u := (any)(lm)
 	return pconn.Write(&u)
 }
 func (pconn *ProtoConn) Close() error {
@@ -398,7 +398,7 @@ func (wb *LinesMsgWriteBuffering) flush() error {
 
 	now := time.Now()
 
-	u := (interface{})(wb.md.buf)
+	u := (any)(wb.md.buf)
 	if err := wb.pconn.Write(&u); err != nil {
 		return err
 	}
@@ -426,7 +426,7 @@ func (wb *LinesMsgWriteBuffering) noMoreWritesAndWait() error {
 //----------
 //----------
 
-func registerForProtoConn(encoderId string, v interface{}) {
+func registerForProtoConn(encoderId string, v any) {
 	// commented: needs encoderId to avoid name clashes when self debugging
 	//gob.Register(v)
 

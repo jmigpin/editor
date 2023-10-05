@@ -85,10 +85,10 @@ func NewCmd() *Cmd {
 
 //------------
 
-func (cmd *Cmd) printf(f string, a ...interface{}) (int, error) {
+func (cmd *Cmd) printf(f string, a ...any) (int, error) {
 	return fmt.Fprintf(cmd.Stdout, "# "+f, a...)
 }
-func (cmd *Cmd) logf(f string, a ...interface{}) (int, error) {
+func (cmd *Cmd) logf(f string, a ...any) (int, error) {
 	if cmd.flags.verbose {
 		f = strings.TrimRight(f, "\n") + "\n" // ensure one newline
 		return cmd.printf(f, a...)
@@ -266,7 +266,7 @@ func (cmd *Cmd) Wait() error {
 
 //------------
 
-func (cmd *Cmd) ProtoRead() (interface{}, bool, error) {
+func (cmd *Cmd) ProtoRead() (any, bool, error) {
 	v := (any)(nil)
 	err := cmd.start.editorSideP.Read(&v)
 	if err != nil {

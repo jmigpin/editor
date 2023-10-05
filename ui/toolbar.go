@@ -24,7 +24,7 @@ func NewToolbar(ui *UI) *Toolbar {
 
 //----------
 
-func (tb *Toolbar) OnInputEvent(ev interface{}, p image.Point) event.Handled {
+func (tb *Toolbar) OnInputEvent(ev any, p image.Point) event.Handled {
 	switch ev.(type) {
 	case *event.KeyDown, *event.KeyUp:
 		// allow typing in the toolbar (dynamic size) without losing focus

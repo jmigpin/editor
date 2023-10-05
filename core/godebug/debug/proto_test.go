@@ -36,7 +36,7 @@ func TestProto1(t *testing.T) {
 		}
 
 		for {
-			u := (interface{})(nil)
+			u := (any)(nil)
 			if err := dp1.Read(&u); err != nil {
 				if errors.Is(err, io.EOF) {
 					break

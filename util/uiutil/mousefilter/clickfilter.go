@@ -10,17 +10,17 @@ import (
 // produce click/doubleclick/tripleclick events
 type ClickFilter struct {
 	m        map[event.MouseButton]*MultipleClick
-	emitEvFn func(interface{}, image.Point)
+	emitEvFn func(any, image.Point)
 }
 
-func NewClickFilter(emitEvFn func(interface{}, image.Point)) *ClickFilter {
+func NewClickFilter(emitEvFn func(any, image.Point)) *ClickFilter {
 	return &ClickFilter{
 		m:        map[event.MouseButton]*MultipleClick{},
 		emitEvFn: emitEvFn,
 	}
 }
 
-func (clickf *ClickFilter) Filter(ev interface{}) {
+func (clickf *ClickFilter) Filter(ev any) {
 	switch t := ev.(type) {
 	case *event.MouseDown:
 		clickf.down(t)
@@ -97,7 +97,7 @@ func (clickf *ClickFilter) move(ev *event.MouseMove) {
 
 //----------
 
-func (clickf *ClickFilter) emitEv(ev interface{}, p image.Point) {
+func (clickf *ClickFilter) emitEv(ev any, p image.Point) {
 	clickf.emitEvFn(ev, p)
 }
 

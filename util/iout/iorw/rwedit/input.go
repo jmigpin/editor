@@ -10,7 +10,7 @@ import (
 
 //godebug:annotatefile
 
-func HandleInput(ctx *Ctx, ev interface{}) (event.Handled, error) {
+func HandleInput(ctx *Ctx, ev any) (event.Handled, error) {
 	in := &Input{ctx, ev}
 	return in.handle()
 }
@@ -19,7 +19,7 @@ func HandleInput(ctx *Ctx, ev interface{}) (event.Handled, error) {
 
 type Input struct {
 	ctx *Ctx
-	ev  interface{}
+	ev  any
 }
 
 func (in *Input) handle() (event.Handled, error) {

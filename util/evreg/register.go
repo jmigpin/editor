@@ -14,7 +14,7 @@ type Register struct {
 //----------
 
 // Remove is done via *Regist.Unregister().
-func (reg *Register) Add(evId int, fn func(interface{})) *Regist {
+func (reg *Register) Add(evId int, fn func(any)) *Regist {
 	return reg.AddCallback(evId, &Callback{fn})
 }
 
@@ -63,7 +63,7 @@ func (reg *Register) RemoveCallback(evId int, cb *Callback) {
 //----------
 
 // Returns number of callbacks done.
-func (reg *Register) RunCallbacks(evId int, ev interface{}) int {
+func (reg *Register) RunCallbacks(evId int, ev any) int {
 	reg.RLock()
 	defer reg.RUnlock()
 	if reg.m == nil {
@@ -99,7 +99,7 @@ func (reg *Register) NCallbacks(evId int) int {
 //----------
 
 type Callback struct {
-	F func(ev interface{})
+	F func(ev any)
 }
 
 //----------

@@ -123,7 +123,7 @@ type CPNode struct {
 	BasicPNode
 	rule      Rule // can be nil in state0
 	childs    []*CPNode
-	data      interface{}
+	data      any
 	simulated bool
 }
 
@@ -180,10 +180,10 @@ func (d *BuildNodeData) NodeSrc() string {
 func (d *BuildNodeData) FullSrc() []byte {
 	return d.cpr.ps.Sc.SrcFullFromOffset()
 }
-func (d *BuildNodeData) Data() interface{} {
+func (d *BuildNodeData) Data() any {
 	return d.cpn.data
 }
-func (d *BuildNodeData) SetData(v interface{}) {
+func (d *BuildNodeData) SetData(v any) {
 	d.cpn.data = v
 }
 func (d *BuildNodeData) IsEmpty() bool {
@@ -342,7 +342,7 @@ func (d *BuildNodeData) ChildLoop2(i int, loopi int, pre, post BuildNodeFn) erro
 func SprintNodeTree(src []byte, node PNode, maxDepth int) string {
 	sb := &strings.Builder{}
 
-	pr := func(depth int, f string, args ...interface{}) {
+	pr := func(depth int, f string, args ...any) {
 		for i := 0; i < depth; i++ {
 			fmt.Fprint(sb, "\t")
 		}

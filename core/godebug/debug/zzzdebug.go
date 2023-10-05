@@ -101,7 +101,7 @@ func mustBeExecSide() {
 func execSidePrintError(err error) {
 	execSidePrintf("error: %v\n", err)
 }
-func execSidePrintf(f string, args ...interface{}) {
+func execSidePrintf(f string, args ...any) {
 	mustBeExecSide()
 	fmt.Fprintf(os.Stderr, "DEBUG: "+f, args...)
 }

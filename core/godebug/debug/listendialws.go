@@ -31,7 +31,7 @@ func init() {
 // websocket listener
 type wsListener struct {
 	Listener
-	acceptCh chan interface{}
+	acceptCh chan any
 }
 
 func listenWebsocket(ctx context.Context, addr Addr) (Listener, error) {
@@ -42,7 +42,7 @@ func listenWebsocket(ctx context.Context, addr Addr) (Listener, error) {
 	}
 
 	ln := &wsListener{Listener: ln0}
-	ln.acceptCh = make(chan interface{}, 2)
+	ln.acceptCh = make(chan any, 2)
 
 	// server
 	srv := &http.Server{Addr: addr.String()}

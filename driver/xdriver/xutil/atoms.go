@@ -11,7 +11,7 @@ import (
 // Tags can be used with: `loadAtoms:"atomname"`.
 // "st" should be a pointer to a struct with xproto.Atom fields.
 // "onlyIfExists" asks the x server to assign a value only if the atom exists.
-func LoadAtoms(conn *xgb.Conn, st interface{}, onlyIfExists bool) error {
+func LoadAtoms(conn *xgb.Conn, st any, onlyIfExists bool) error {
 	// request atoms
 	// use reflection to get atoms names
 	typ := reflect.Indirect(reflect.ValueOf(st)).Type()

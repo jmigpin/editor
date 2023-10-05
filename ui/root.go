@@ -67,7 +67,7 @@ func (l *Root) OnChildMarked(child widget.Node, newMarks widget.Marks) {
 
 //----------
 
-func (l *Root) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
+func (l *Root) OnInputEvent(ev0 any, p image.Point) event.Handled {
 	switch ev := ev0.(type) {
 	case *event.KeyDown:
 		m := ev.Mods.ClearLocks()

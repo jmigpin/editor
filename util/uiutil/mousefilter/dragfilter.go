@@ -10,14 +10,14 @@ import (
 type DragFilter struct {
 	pressEv  *event.MouseDown
 	dragging bool
-	emitEvFn func(interface{}, image.Point)
+	emitEvFn func(any, image.Point)
 }
 
-func NewDragFilter(emitEvFn func(interface{}, image.Point)) *DragFilter {
+func NewDragFilter(emitEvFn func(any, image.Point)) *DragFilter {
 	return &DragFilter{emitEvFn: emitEvFn}
 }
 
-func (dragf *DragFilter) Filter(ev interface{}) {
+func (dragf *DragFilter) Filter(ev any) {
 	switch t := ev.(type) {
 	case *event.MouseDown:
 		dragf.keepStartingPoint(t)
@@ -67,6 +67,6 @@ func (dragf *DragFilter) end(ev *event.MouseUp) {
 
 //----------
 
-func (dragf *DragFilter) emitEv(ev interface{}, p image.Point) {
+func (dragf *DragFilter) emitEv(ev any, p image.Point) {
 	dragf.emitEvFn(ev, p)
 }

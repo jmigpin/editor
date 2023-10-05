@@ -20,7 +20,7 @@ type TerminalIO interface {
 	Read([]byte) (int, error) // input interface
 	AddToRead([]byte)         // add input internally to be read
 
-	WriteOp(interface{}) error // accepted types: {[]byte,string}
+	WriteOp(any) error // accepted types: {[]byte,string}
 
 	Close() error
 }
@@ -44,7 +44,7 @@ type ERowTermIO struct {
 	update struct {
 		sync.Mutex
 		updating bool
-		ops      []interface{}
+		ops      []any
 	}
 }
 
@@ -95,12 +95,12 @@ func (tio *ERowTermIO) AddToRead(b []byte) {
 
 //----------
 
-func (tio *ERowTermIO) WriteOp(op interface{}) error {
+func (tio *ERowTermIO) WriteOp(op any) error {
 	tio.updateWriteOp(op)
 	return nil
 }
 
-func (tio *ERowTermIO) updateWriteOp(op interface{}) {
+func (tio *ERowTermIO) updateWriteOp(op any) {
 	tio.update.Lock()
 	defer tio.update.Unlock()
 
@@ -126,7 +126,7 @@ func (tio *ERowTermIO) updateWriteOp(op interface{}) {
 	})
 }
 
-func (tio *ERowTermIO) updateWriteOp2(op interface{}) error {
+func (tio *ERowTermIO) updateWriteOp2(op any) error {
 	ta := tio.tf.erow.Row.TextArea
 	switch t := op.(type) {
 	case []byte:
@@ -148,7 +148,7 @@ func (tio *ERowTermIO) updateWriteOp2(op interface{}) error {
 	return nil
 }
 
-func (tio *ERowTermIO) appendOp(op interface{}) {
+func (tio *ERowTermIO) appendOp(op any) {
 	o := &tio.update.ops
 	switch t := op.(type) {
 	case []byte:
@@ -178,7 +178,7 @@ func (tio *ERowTermIO) initInput() {
 	tio.inputReg = ta.EvReg.Add(ui.TextAreaInputEventId, tio.onTextAreaInputEvent)
 }
 
-func (tio *ERowTermIO) onTextAreaInputEvent(ev0 interface{}) {
+func (tio *ERowTermIO) onTextAreaInputEvent(ev0 any) {
 	ev := ev0.(*ui.TextAreaInputEvent)
 	b, handled := tio.eventToBytes(ev.Event)
 	if len(b) > 0 {
@@ -189,7 +189,7 @@ func (tio *ERowTermIO) onTextAreaInputEvent(ev0 interface{}) {
 
 //----------
 
-func (tio *ERowTermIO) eventToBytes(ev interface{}) ([]byte, event.Handled) {
+func (tio *ERowTermIO) eventToBytes(ev any) ([]byte, event.Handled) {
 	// util funcs
 	keyboardEvs := func() bool {
 		return tio.erow.terminalOpt.keyEvents

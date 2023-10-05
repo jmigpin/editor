@@ -78,7 +78,7 @@ func TestStringifySlice2(t *testing.T) {
 	type S1 struct {
 		a int
 		B int
-		c interface{}
+		c any
 	}
 	a := []*S1{{1, 2, 10}, {3, 4, true}}
 	runTest1(t, a, "[&{1 2 10} &{3 4 true}]")
@@ -109,15 +109,15 @@ func TestStringifyInterface(t *testing.T) {
 	type S1 struct {
 		a int
 		B int
-		c interface{}
+		c any
 	}
-	var a interface{} = &S1{1, 2, 3}
+	var a any = &S1{1, 2, 3}
 	runTest1(t, a, "&S1{1 2 3}")
 	runTest1(t, &a, "&&S1{1 2 3}")
 	var c = &S1{1, 2, 3}
 	runTest1(t, c, "&S1{1 2 3}")
 
-	var b interface{} = &a
+	var b any = &a
 	runTest1(t, b, "&&S1{1 2 3}")
 }
 
@@ -235,7 +235,7 @@ func TestStringifyStringError(t *testing.T) {
 }
 
 func TestStringifyNil(t *testing.T) {
-	a := interface{}(nil)
+	a := any(nil)
 	runTest1(t, a, "nil")
 	runTest1(t, &a, "&nil")
 }
@@ -256,15 +256,15 @@ func TestStringifyNil(t *testing.T) {
 
 //----------
 
-func runTest1(t *testing.T, v interface{}, out string) {
+func runTest1(t *testing.T, v any, out string) {
 	t.Helper()
 	runTest2(t, v, out, 0, 0)
 }
-func runTest2(t *testing.T, v interface{}, out string, max, maxDepth int) {
+func runTest2(t *testing.T, v any, out string, max, maxDepth int) {
 	t.Helper()
 	runTest3(t, v, out, max, maxDepth, false)
 }
-func runTest3(t *testing.T, v interface{}, out string, max, maxDepth int, sbr bool) {
+func runTest3(t *testing.T, v any, out string, max, maxDepth int, sbr bool) {
 	t.Helper()
 	s2 := ""
 	if max == 0 && maxDepth == 0 {

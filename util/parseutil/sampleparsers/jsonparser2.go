@@ -4,7 +4,7 @@ import (
 	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
 
-func ParseJson2(src []byte) (interface{}, error) {
+func ParseJson2(src []byte) (any, error) {
 	p := NewJsonParser2()
 	return p.parseJson(src)
 }

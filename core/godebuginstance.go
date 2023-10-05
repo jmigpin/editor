@@ -38,7 +38,7 @@ func NewGoDebugManager(ed *Editor) *GoDebugManager {
 	return gdm
 }
 
-func (gdm *GoDebugManager) Printf(format string, args ...interface{}) {
+func (gdm *GoDebugManager) Printf(format string, args ...any) {
 	gdm.ed.Messagef("godebug: "+format, args...)
 }
 
@@ -361,7 +361,7 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 
 //----------
 
-func (gdi *GoDebugInstance) handleMsg(msg interface{}, cmd *godebug.Cmd) error {
+func (gdi *GoDebugInstance) handleMsg(msg any, cmd *godebug.Cmd) error {
 	switch t := msg.(type) {
 	case error:
 		return t

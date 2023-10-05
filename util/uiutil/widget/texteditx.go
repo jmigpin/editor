@@ -229,7 +229,7 @@ func (te *TextEditX) EnableCursorWordHighlight(v bool) {
 
 //----------
 
-func (te *TextEditX) SetCommentStrings(a ...interface{}) {
+func (te *TextEditX) SetCommentStrings(a ...any) {
 	cs := []*drawutil.SyntaxHighlightComment{}
 	for i, v := range a {
 		// keep first definition for shortcut comment insertion

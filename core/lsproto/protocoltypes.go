@@ -22,9 +22,9 @@ func MakeMessage() Message {
 
 type RequestMessage struct {
 	Message
-	Id     int         `json:"id"`
-	Method string      `json:"method,omitempty"`
-	Params interface{} `json:"params,omitempty"`
+	Id     int    `json:"id"`
+	Method string `json:"method,omitempty"`
+	Params any    `json:"params,omitempty"`
 }
 
 //----------
@@ -91,9 +91,9 @@ type ResponseMessage struct {
 //----------
 
 type ResponseError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 func (e *ResponseError) Error() string {
@@ -325,7 +325,7 @@ type CallHierarchyItem struct {
 	Uri            DocumentUri  `json:"uri"`
 	Range          *Range       `json:"range"`
 	SelectionRange *Range       `json:"selectionRange"`
-	Data           interface{}  `json:"data,omitempty"` // optional (related to prepare calls)
+	Data           any          `json:"data,omitempty"` // optional (related to prepare calls)
 }
 
 //----------

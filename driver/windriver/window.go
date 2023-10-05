@@ -28,13 +28,13 @@ type Window struct {
 	img draw.Image
 	bmH windows.Handle // bitmap handle
 
-	events chan interface{}
+	events chan any
 	dndMan *DndMan
 
 	postM struct {
 		sync.Mutex
 		id int
-		m  map[int]interface{}
+		m  map[int]any
 	}
 	cursors struct {
 		currentId int
@@ -44,10 +44,10 @@ type Window struct {
 
 func NewWindow() (*Window, error) {
 	win := &Window{
-		events: make(chan interface{}, 8),
+		events: make(chan any, 8),
 	}
 	win.cursors.cache = map[int]windows.Handle{}
-	win.postM.m = map[int]interface{}{}
+	win.postM.m = map[int]any{}
 	win.dndMan = NewDndMan()
 
 	// initial size
@@ -400,7 +400,7 @@ func (win *Window) readAppMsgReq(id int) (event.Request, *AppData, error) {
 
 //----------
 
-func (win *Window) keyUpDown(msg *_Msg, up bool) interface{} {
+func (win *Window) keyUpDown(msg *_Msg, up bool) any {
 	p, err := win.ostQueryPointer()
 	if err != nil {
 		return err
@@ -417,7 +417,7 @@ func (win *Window) keyUpDown(msg *_Msg, up bool) interface{} {
 	km := translateKStateToEventKeyModifiers(&kstate)
 	bs := translateKStateToEventMouseButtons(&kstate)
 
-	var ev interface{}
+	var ev any
 	if up {
 		ev = &event.KeyUp{p, ks, km, bs, ru}
 	} else {
@@ -426,7 +426,7 @@ func (win *Window) keyUpDown(msg *_Msg, up bool) interface{} {
 	return &event.WindowInput{Point: p, Event: ev}
 }
 
-func (win *Window) mouseMove(msg *_Msg) interface{} {
+func (win *Window) mouseMove(msg *_Msg) any {
 	p := paramToPoint(uint32(msg.LParam)) // window point
 
 	vkey := uint32(msg.WParam)
@@ -437,7 +437,7 @@ func (win *Window) mouseMove(msg *_Msg) interface{} {
 	return &event.WindowInput{Point: p, Event: ev}
 }
 
-func (win *Window) mouseButton(msg *_Msg, b event.MouseButton, up bool) interface{} {
+func (win *Window) mouseButton(msg *_Msg, b event.MouseButton, up bool) any {
 	p := paramToPoint(uint32(msg.LParam)) // window point
 	// screen point if mousewheel
 	if msg.Msg == uint32(_WM_MOUSEWHEEL) {
@@ -452,7 +452,7 @@ func (win *Window) mouseButton(msg *_Msg, b event.MouseButton, up bool) interfac
 	km := translateVKeyToEventKeyModifiers(vkey)
 	bs := translateVKeyToEventMouseButtons(vkey)
 
-	var ev interface{}
+	var ev any
 	if up {
 		ev = &event.MouseUp{p, b, bs, km}
 	} else {
@@ -852,7 +852,7 @@ func (win *Window) ostSetWindowName(s string) error {
 
 //----------
 
-func (win *Window) postAppMsg(v interface{}) error {
+func (win *Window) postAppMsg(v any) error {
 	win.postM.Lock()
 	defer win.postM.Unlock()
 	id := win.postM.id
@@ -865,7 +865,7 @@ func (win *Window) postAppMsg(v interface{}) error {
 	return nil
 }
 
-func (win *Window) getAppMsgData(id int) (interface{}, error) {
+func (win *Window) getAppMsgData(id int) (any, error) {
 	win.postM.Lock()
 	defer win.postM.Unlock()
 	v, ok := win.postM.m[id]
@@ -901,10 +901,10 @@ func (win *Window) stopDragDrop() {
 
 type AppData struct {
 	ReqErr *syncutil.WaitForSet
-	Value  interface{}
+	Value  any
 }
 
-func NewAppData(v interface{}) *AppData {
+func NewAppData(v any) *AppData {
 	return &AppData{syncutil.NewWaitForSet(), v}
 }
 

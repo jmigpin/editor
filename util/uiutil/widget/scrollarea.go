@@ -136,7 +136,7 @@ func (sa *ScrollArea) Layout() {
 
 //----------
 
-func (sa *ScrollArea) OnInputEvent(ev0 interface{}, p image.Point) event.Handled {
+func (sa *ScrollArea) OnInputEvent(ev0 any, p image.Point) event.Handled {
 	switch evt := ev0.(type) {
 	case *event.KeyDown:
 		switch evt.KeySym {
