@@ -93,8 +93,8 @@ func TestCmdCtxCancel(t *testing.T) {
 	args := []string{
 		"connect",
 		//"-network=ws", // requires websocket client
-		"-isserver=true",
-		"-addr=:8079",
+		"-editorisserver=true",
+		//"-addr=:8079",
 	}
 
 	ctx := context.Background()

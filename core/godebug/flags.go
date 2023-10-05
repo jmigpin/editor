@@ -26,8 +26,8 @@ type flags struct {
 	network string
 	address string // build/connect
 
+	editorIsServer      bool
 	env                 []string
-	isServer            bool
 	noInitMsg           bool
 	outFilename         string   // build, ex: -o filename
 	paths               []string // dirs/files to annotate (args from cmd line)
@@ -82,21 +82,21 @@ func (fl *flags) printCmdUsage() {
 func (fl *flags) parseRunArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
-	fl.addPathsFlag(fs)
-	fl.addWorkFlag(fs)
-	fl.addVerboseFlag(fs)
-	fl.addToolExecFlag(fs)
-	fl.addIsIsServerFlag(fs, true) // editor side
-	fl.addSyncSendFlag(fs)
-	fl.addStringifyBytesRunesFlag(fs)
-	fl.addSrcLinesFlag(fs)
-	fl.addNoInitMsgFlag(fs)
+	fl.addAddrFlag(fs, "")
+	fl.addEditorIsServerFlag(fs)
 	fl.addEnvFlag(fs)
 	fl.addNetworkFlag(fs)
-	fl.addAddrFlag(fs, "")
+	fl.addNoInitMsgFlag(fs)
 	fl.addOutFilenameFlag(fs)
-	fl.addUsePkgLinksFlag(fs)
+	fl.addPathsFlag(fs)
+	fl.addSrcLinesFlag(fs)
 	fl.addStartExecFlag(fs)
+	fl.addStringifyBytesRunesFlag(fs)
+	fl.addSyncSendFlag(fs)
+	fl.addToolExecFlag(fs)
+	fl.addUsePkgLinksFlag(fs)
+	fl.addVerboseFlag(fs)
+	fl.addWorkFlag(fs)
 
 	m := goBuildBooleanFlags()
 	return fl.parse(name, fs, args, m)
@@ -114,8 +114,8 @@ func (fl *flags) parseTestArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
 	fl.addAddrFlag(fs, "")
+	fl.addEditorIsServerFlag(fs)
 	fl.addEnvFlag(fs)
-	fl.addIsIsServerFlag(fs, true) // editor side
 	fl.addNetworkFlag(fs)
 	fl.addNoInitMsgFlag(fs)
 	fl.addPathsFlag(fs)
@@ -138,8 +138,8 @@ func (fl *flags) parseBuildArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
 	fl.addAddrFlag(fs, defaultBuildConnectAddr)
+	fl.addEditorIsServerFlag(fs)
 	fl.addEnvFlag(fs)
-	fl.addIsIsServerFlag(fs, true) // exec side (only at build it means exec)
 	fl.addNetworkFlag(fs)
 	fl.addNoInitMsgFlag(fs)
 	fl.addOutFilenameFlag(fs)
@@ -159,7 +159,7 @@ func (fl *flags) parseConnectArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
 	fl.addAddrFlag(fs, defaultBuildConnectAddr)
-	fl.addIsIsServerFlag(fs, false) // editor side
+	fl.addEditorIsServerFlag(fs)
 	fl.addNetworkFlag(fs)
 	fl.addToolExecFlag(fs)
 
@@ -176,8 +176,9 @@ func (fl *flags) addWorkFlag(fs *flag.FlagSet) {
 func (fl *flags) addVerboseFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.verbose, "verbose", false, "print extra godebug build info")
 }
-func (fl *flags) addIsIsServerFlag(fs *flag.FlagSet, def bool) {
-	fs.BoolVar(&fl.isServer, "isserver", def, "run as server instead of client")
+
+func (fl *flags) addEditorIsServerFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&fl.editorIsServer, "editorisserver", true, "run editor side as server instead of client")
 }
 func (fl *flags) addSyncSendFlag(fs *flag.FlagSet) {
 	fs.BoolVar(&fl.syncSend, "syncsend", false, "Don't send msgs in chunks (slow). Useful to get msgs before a crash.")
@@ -195,7 +196,7 @@ func (fl *flags) addToolExecFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.toolExec, "toolexec", "", "a program to invoke before the program argument. Useful to run a tool with the output file (ex: wine)")
 }
 func (fl *flags) addNetworkFlag(fs *flag.FlagSet) {
-	fs.StringVar(&fl.network, "network", "tcp", "protocol to use to transmit debug data")
+	fs.StringVar(&fl.network, "network", "tcp", "protocol to use to transmit debug data: [tcp, unix, ws]")
 }
 func (fl *flags) addAddrFlag(fs *flag.FlagSet, def string) {
 	fs.StringVar(&fl.address, "addr", def, "address to transmit debug data")

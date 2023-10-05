@@ -164,7 +164,7 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 	switch {
 	case m.build:
 		// inform the address used in the binary
-		cmd.printf("build: %v (builtin address: %v, %v, server=%v)\n", cmd.tmpBuiltFile, cmd.flags.network, cmd.flags.address, cmd.flags.isServer)
+		cmd.printBuildInfo()
 		return nil
 	case m.run || m.test:
 		return cmd.start3(ctx)
@@ -191,10 +191,16 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 		if err := cmd.startExecSide(ctx); err != nil {
 			return err
 		}
+	} else {
+		cmd.printBuildInfo()
+		cmd.printf("waiting for connect (exec side not started)\n")
 	}
 	// blocking until connected
 	if err := cmd.startEditorSide(ctx); err != nil {
 		return err
+	}
+	if !cmd.flags.startExec {
+		cmd.printf("connected\n")
 	}
 	return nil
 }
@@ -203,7 +209,7 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 
 func (cmd *Cmd) startEditorSide(ctx context.Context) error {
 	addr := debug.NewAddrI(cmd.flags.network, cmd.flags.address)
-	p, err := debug.StartEditorSide(ctx, cmd.flags.isServer, addr)
+	p, err := debug.StartEditorSide(ctx, cmd.flags.editorIsServer, addr)
 	if err != nil {
 		return err
 	}
@@ -268,12 +274,6 @@ func (cmd *Cmd) ProtoRead() (interface{}, bool, error) {
 		if errors.Is(err, io.EOF) {
 			return nil, false, nil
 		}
-		// read/errNetClosing: closed the socket on this side (usually?)
-		//if operr, ok := err.(*net.OpError); ok {
-		//	if operr.Op == "read" {
-		//		err = io.EOF
-		//	}
-		//}
 		return nil, false, err
 	}
 	return v, true, nil
@@ -573,15 +573,17 @@ func (cmd *Cmd) setupNetworkAddress() error {
 	// auto fill empty address
 	if cmd.flags.address == "" {
 		switch cmd.flags.network {
-		case "tcp":
+		case "tcp", "ws":
 			port, err := osutil.GetFreeTcpPort()
 			if err != nil {
 				return err
 			}
 			cmd.flags.address = fmt.Sprintf("127.0.0.1:%v", port)
 		case "unix":
-			// file create outside of tmpdir, but inside the editor root tmp dir, otherwise the socket file will get deleted after "start"
+			// create file outside of tmpdir but inside the editor root tmp dir, otherwise the socket file will get deleted after "start"
 			cmd.flags.address = filepath.Join(cmd.editorRootTmpDir(), "godebug.sock"+mathutil.GenDigitsStr(5))
+		default:
+			return fmt.Errorf("unexpected network: %q", cmd.flags.network)
 		}
 	}
 	return nil
@@ -805,13 +807,8 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 	return nil
 }
 func (cmd *Cmd) buildConfigSrc() []byte {
-	flags := &cmd.flags
+	fl := &cmd.flags
 	bcce := cmd.annset.buildConfigAfdEntries()
-
-	esoIsServer := !flags.isServer
-	if flags.mode.build {
-		esoIsServer = flags.isServer
-	}
 
 	//acceptOnlyFirstConn := flags.mode.run || flags.mode.test
 	//aofc := strconv.FormatBool(acceptOnlyFirstConn)
@@ -820,13 +817,13 @@ func (cmd *Cmd) buildConfigSrc() []byte {
 	src := `package debug
 func init(){
 	EncoderId = "` + debug.EncoderId + `"
-	onExecSide = true	
-	eso.addr = NewAddrI("` + flags.network + `","` + flags.address + `")
-	eso.isServer = ` + strconv.FormatBool(esoIsServer) + `
-	eso.noInitMsg = ` + strconv.FormatBool(flags.noInitMsg) + `
-	eso.srcLines = ` + strconv.FormatBool(flags.srcLines) + `
-	eso.syncSend = ` + strconv.FormatBool(flags.syncSend) + `
-	eso.stringifyBytesRunes = ` + strconv.FormatBool(flags.stringifyBytesRunes) + `
+	onExecSide = true
+	eso.addr = NewAddrI("` + fl.network + `","` + fl.address + `")
+	eso.isServer = ` + strconv.FormatBool(!fl.editorIsServer) + `
+	eso.noInitMsg = ` + strconv.FormatBool(fl.noInitMsg) + `
+	eso.srcLines = ` + strconv.FormatBool(fl.srcLines) + `
+	eso.syncSend = ` + strconv.FormatBool(fl.syncSend) + `
+	eso.stringifyBytesRunes = ` + strconv.FormatBool(fl.stringifyBytesRunes) + `
 	eso.filesData = []*AnnotatorFileData{` + bcce + `}
 }
 `
@@ -1016,6 +1013,18 @@ func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
 	ci = osutil.NewSetSidCmd(ctx, ci)
 	ci = osutil.NewShellCmd(ci)
 	return ci
+}
+
+//------------
+
+func (cmd *Cmd) printBuildInfo() {
+	info := []string{}
+
+	info = append(info, fmt.Sprintf("addr=(%v, %v)", cmd.flags.network, cmd.flags.address))
+
+	info = append(info, fmt.Sprintf("editorIsServer=%v", cmd.flags.editorIsServer))
+
+	cmd.printf("build: %v (builtin: %s)\n", cmd.tmpBuiltFile, strings.Join(info, ", "))
 }
 
 //------------
