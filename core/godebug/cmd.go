@@ -31,9 +31,6 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-// The godebug/debug pkg is writen to a tmp dir and used with the pkg path "godebugconfig/debug" to avoid clashes when self debugging. A config.go file is added with the annotation data. The godebug/debug pkg is included in the editor binary via //go:embed directive.
-var debugPkgPath = "godebugconfig/debug"
-
 //go:embed debug/*
 var debugPkgFs embed.FS
 
@@ -57,9 +54,11 @@ type Cmd struct {
 
 	mainFuncFilename string // set at annotation time
 
-	fset   *token.FileSet
-	env    []string // set at start
-	annset *AnnotatorSet
+	env []string // set at start
+
+	fa     *FilesToAnnotate
+	fset   *token.FileSet // TODO: reset for gc
+	annset *AnnotatorSet  // TODO: reset for gc
 
 	debugPkgDir      string
 	alternativeGoMod string
@@ -67,7 +66,7 @@ type Cmd struct {
 	overlay          map[string]string // orig->new
 
 	start struct {
-		p             *debug.Proto
+		editorSideP   *debug.Proto
 		execSideCmd   osutil.CmdI
 		cleanupCancel context.CancelFunc
 	}
@@ -78,6 +77,7 @@ func NewCmd() *Cmd {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+	cmd.fa = NewFilesToAnnotate(cmd)
 	cmd.fset = token.NewFileSet()
 	cmd.annset = NewAnnotatorSet(cmd.fset)
 	return cmd
@@ -195,10 +195,12 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 		cmd.printBuildInfo()
 		cmd.printf("waiting for connect (exec side not started)\n")
 	}
+
 	// blocking until connected
 	if err := cmd.startEditorSide(ctx); err != nil {
 		return err
 	}
+
 	if !cmd.flags.startExec {
 		cmd.printf("connected\n")
 	}
@@ -213,7 +215,7 @@ func (cmd *Cmd) startEditorSide(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	cmd.start.p = p
+	cmd.start.editorSideP = p
 	return nil
 }
 
@@ -252,9 +254,7 @@ func (cmd *Cmd) Wait() error {
 		err = cmd.start.execSideCmd.Wait()
 	}
 
-	// editor side
-	if err2 := cmd.start.p.WaitClose(); err2 != nil {
-		//_ = err2 // ignore, best effort
+	if err2 := cmd.start.editorSideP.WaitClose(); err2 != nil {
 		if err == nil {
 			err = err2
 		}
@@ -268,7 +268,7 @@ func (cmd *Cmd) Wait() error {
 
 func (cmd *Cmd) ProtoRead() (interface{}, bool, error) {
 	v := (any)(nil)
-	err := cmd.start.p.Read(&v)
+	err := cmd.start.editorSideP.Read(&v)
 	if err != nil {
 		// EOF: connection ended gracefully by the other side
 		if errors.Is(err, io.EOF) {
@@ -279,35 +279,36 @@ func (cmd *Cmd) ProtoRead() (interface{}, bool, error) {
 	return v, true, nil
 }
 func (cmd *Cmd) ProtoFilesData() *debug.FilesDataMsg {
-	return cmd.start.p.Side.(*debug.ProtoEditorSide).FData
+	return cmd.start.editorSideP.Side.(*debug.ProtoEditorSide).FData
 }
 
 //----------
 
 func (cmd *Cmd) build(ctx context.Context) error {
-	fa := NewFilesToAnnotate(cmd)
-	if err := fa.find(ctx); err != nil {
+	if err := cmd.fa.find(ctx); err != nil {
 		return err
 	}
-	if err := cmd.annotateFiles2(ctx, fa); err != nil {
+	if cmd.fa.editorDebugPkgLoaded {
+		cmd.annset.dopt.PkgPath = editorDebugPkgPath
+	}
+
+	if err := cmd.annotateFiles2(ctx); err != nil {
 		return err
 	}
-	if err := cmd.buildDebugPkg(ctx, fa); err != nil {
+	if err := cmd.buildDebugPkg(ctx); err != nil {
 		return err
 	}
-	if !cmd.gopathMode {
-		if err := cmd.buildAlternativeGoMod(ctx, fa); err != nil {
-			return err
-		}
+	if err := cmd.buildAlternativeGoMod(ctx); err != nil {
+		return err
 	}
 	if err := cmd.buildOverlayFile(ctx); err != nil {
 		return err
 	}
 
 	// DEBUG
-	//cmd.printAnnotatedFilesAsts(fa)
+	//cmd.printAnnotatedFilesAsts(cmd.fa)
 
-	if err := cmd.buildBinary(ctx, fa); err != nil {
+	if err := cmd.build2(ctx); err != nil {
 		// auto-set work flag to avoid cleanup; allows clicking on failing work files locations
 		cmd.flags.work = true
 
@@ -315,9 +316,8 @@ func (cmd *Cmd) build(ctx context.Context) error {
 	}
 	return nil
 }
-
-func (cmd *Cmd) buildBinary(ctx context.Context, fa *FilesToAnnotate) error {
-	outFilename, err := cmd.buildOutFilename(fa)
+func (cmd *Cmd) build2(ctx context.Context) error {
+	outFilename, err := cmd.buildOutFilename(cmd.fa)
 	if err != nil {
 		return err
 	}
@@ -469,6 +469,11 @@ func (cmd *Cmd) neededGoVersion() error {
 //------------
 
 func (cmd *Cmd) cleanupAfterStart() {
+	// allow garbage collect
+	cmd.fa = nil
+	cmd.fset = nil
+	cmd.annset = nil
+
 	// always remove (written in src dir)
 	if cmd.tmpGoModFilename != "" {
 		_ = os.Remove(cmd.tmpGoModFilename) // best effort
@@ -604,24 +609,23 @@ func (cmd *Cmd) improveNetwork() {
 
 //------------
 
-func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
+func (cmd *Cmd) annotateFiles2(ctx context.Context) error {
 	// annotate files
 	handledMain := false
 	cmd.overlay = map[string]string{}
-	//mainName := mainFuncName(fa.cmd.flags.mode.test)
-	for filename := range fa.toAnnotate {
-		astFile, ok := fa.filesAsts[filename]
+	for filename := range cmd.fa.toAnnotate {
+		astFile, ok := cmd.fa.filesAsts[filename]
 		if !ok {
 			return fmt.Errorf("missing ast file: %v", filename)
 		}
 
 		// annotate
 		ti := (*types.Info)(nil)
-		pkg, ok := fa.filesPkgs[filename]
+		pkg, ok := cmd.fa.filesPkgs[filename]
 		if ok {
 			ti = pkg.TypesInfo
 		}
-		ann, err := cmd.annset.AnnotateAstFile(astFile, ti, fa.nodeAnnTypes, cmd.flags.mode.test)
+		ann, err := cmd.annset.AnnotateAstFile(astFile, ti, cmd.fa.nodeAnnTypes, cmd.flags.mode.test)
 		if err != nil {
 			return err
 		}
@@ -638,7 +642,7 @@ func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
 		}
 		// insert testmains in "*_test.go" files
 		seen := map[string]bool{}
-		for filename := range fa.toAnnotate {
+		for filename := range cmd.fa.toAnnotate {
 			if !strings.HasSuffix(filename, "_test.go") {
 				continue
 			}
@@ -650,7 +654,7 @@ func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
 			}
 			seen[dir] = true
 
-			astFile, ok := fa.filesAsts[filename]
+			astFile, ok := cmd.fa.filesAsts[filename]
 			if !ok {
 				continue
 			}
@@ -666,8 +670,8 @@ func (cmd *Cmd) annotateFiles2(ctx context.Context, fa *FilesToAnnotate) error {
 		}
 	}
 
-	for filename := range fa.toAnnotate {
-		astFile, ok := fa.filesAsts[filename]
+	for filename := range cmd.fa.toAnnotate {
+		astFile, ok := cmd.fa.filesAsts[filename]
 		if !ok {
 			return fmt.Errorf("missing ast file: %v", filename)
 		}
@@ -707,50 +711,59 @@ func (cmd *Cmd) buildOverlayFile(ctx context.Context) error {
 
 //------------
 
-func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
-	//// detect if the editor debug pkg is used
-	//cmd.selfMode = false
-	//selfDebugPkgDir := ""
-	//for pkgPath, pkg := range fa.pathsPkgs {
-	//	if strings.HasPrefix(pkgPath, editorPkgPath+"/") {
-	//		// find dir
-	//		f := pkg.GoFiles[0]
-	//		k := strings.Index(f, editorPkgPath)
-	//		if k >= 0 {
-	//			cmd.selfMode = true
-	//			selfDebugPkgDir = filepath.Join(f[:k], debugPkgPath)
-	//			break
-	//		}
-	//	}
-	//}
+func (cmd *Cmd) buildDebugPkg(ctx context.Context) error {
+	// detect if the editor debug pkg is used
+	// aka: single debug pkg mode
+	selfMode := cmd.fa.editorDebugPkgLoaded
+	selfDebugPkgDir := ""
+	if selfMode {
+		// find editor debug pkg dir
+		pp := editorDebugPkgPath
+		for pkgPath, pkg := range cmd.fa.pathsPkgs {
+			if !strings.HasPrefix(pkgPath, pp) {
+				continue
+			}
 
-	//// setup current files to be empty by default (attempt to discard if debugging an old version of the editor)
-	//if cmd.selfMode {
-	//	fis, err := ioutil.ReadDir(selfDebugPkgDir)
-	//	if err == nil {
-	//		for _, fi := range fis {
-	//			filename := fsutil.JoinPath(selfDebugPkgDir, fi.Name())
-	//			cmd.overlay[filename] = ""
-	//		}
-	//	}
-	//}
+			f := pkg.GoFiles[0]
+			k := strings.Index(f, pp)
+			if k < 0 {
+				continue
+			}
+			dir := f[:k] // has the pkg and filename cleared
+			selfDebugPkgDir = path.Join(dir, pp)
+			break
+		}
+		if selfDebugPkgDir == "" {
+			return fmt.Errorf("self debug pkg dir not set")
+		}
+
+		// setup current files to be empty by default (attempt to discard if debugging an old version of the editor)
+		if fis, err := ioutil.ReadDir(selfDebugPkgDir); err == nil {
+			for _, fi := range fis {
+				filename := path.Join(selfDebugPkgDir, fi.Name())
+				cmd.overlay[filename] = ""
+			}
+		}
+	}
+
+	//----------
 
 	// target dir
 	cmd.debugPkgDir = filepath.Join(cmd.tmpDir, "debugpkg")
 	if cmd.gopathMode {
 		cmd.addToGopathStart(cmd.debugPkgDir)
-		cmd.debugPkgDir = filepath.Join(cmd.debugPkgDir, "src/"+debugPkgPath)
+		cmd.debugPkgDir = filepath.Join(cmd.debugPkgDir, "src/"+cmd.annset.dopt.PkgPath)
 	}
 
 	// util to add file to debug pkg dir
 	writeFile := func(name string, src []byte) error {
 		filename2 := filepath.Join(cmd.debugPkgDir, name)
 
-		//if cmd.selfMode {
-		//	filename3 := filepath.Join(selfDebugPkgDir, name)
-		//	//println("overlay", filename3, filename2)
-		//	cmd.overlay[filename3] = filename2
-		//}
+		if selfMode {
+			filename3 := filepath.Join(selfDebugPkgDir, name)
+			cmd.overlay[filename3] = filename2
+			//println("overlay", filename3, filename2)
+		}
 
 		return mkdirAllWriteFile(filename2, src)
 	}
@@ -787,8 +800,8 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context, fa *FilesToAnnotate) error {
 	}
 
 	// dynamically create go.mod since go:embed doesn't allow it
-	if !cmd.gopathMode {
-		src3 := []byte(fmt.Sprintf("module %s\n", debugPkgPath))
+	if !cmd.gopathMode && !selfMode {
+		src3 := []byte(fmt.Sprintf("module %s\n", cmd.annset.dopt.PkgPath))
 		//src3 = append(src3, []byte("go 1.18\n")) // support "any" in debug pkg
 		if err := writeFile("go.mod", src3); err != nil {
 			return err
@@ -832,8 +845,12 @@ func init(){
 
 //------------
 
-func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context, fa *FilesToAnnotate) error {
-	filename, ok := fa.GoModFilename()
+func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context) error {
+	if cmd.gopathMode {
+		return nil
+	}
+
+	filename, ok := cmd.fa.GoModFilename()
 	if !ok {
 		//return fmt.Errorf("missing go.mod")
 
@@ -872,14 +889,16 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context, fa *FilesToAnnotate) 
 	}
 
 	if cmd.flags.usePkgLinks {
-		if err := cmd.buildPkgLinks(mf, fa); err != nil {
+		if err := cmd.buildPkgLinks(mf); err != nil {
 			return err
 		}
 	}
 
 	// include debug pkg require/replace lines
-	mf.AddNewRequire(debugPkgPath, "v0.0.0", false)
-	mf.AddReplace(debugPkgPath, "", cmd.debugPkgDir, "")
+	if !cmd.fa.editorDebugPkgLoaded {
+		mf.AddNewRequire(cmd.annset.dopt.PkgPath, "v0.0.0", false)
+		mf.AddReplace(cmd.annset.dopt.PkgPath, "", cmd.debugPkgDir, "")
+	}
 
 	src2, err := mf.Format()
 	if err != nil {
@@ -904,7 +923,7 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context, fa *FilesToAnnotate) 
 	return nil
 }
 
-func (cmd *Cmd) buildPkgLinks(mf *modfile.File, fa *FilesToAnnotate) error {
+func (cmd *Cmd) buildPkgLinks(mf *modfile.File) error {
 
 	// old pkgs don't have a go.mod file, and reside in another location. After go1.19, the compiler is not detecting the existence of inserted pkgs in their special/generated go.mod files. There is a workaround to have the pkg symlinked in a tmpdir, and then use the overlay file with a reference to that symlink.
 
@@ -920,9 +939,9 @@ func (cmd *Cmd) buildPkgLinks(mf *modfile.File, fa *FilesToAnnotate) error {
 		return filepath.Join(linksDir, name)
 	}
 
-	seen := map[string]bool{}             // seen module
-	for filename := range fa.toAnnotate { // all annotated files
-		fpkg, ok := fa.filesPkgs[filename]
+	seen := map[string]bool{}                 // seen module
+	for filename := range cmd.fa.toAnnotate { // all annotated files
+		fpkg, ok := cmd.fa.filesPkgs[filename]
 		if !ok {
 			continue
 		}
@@ -1065,27 +1084,6 @@ func splitCommaList(val string) []string {
 	}
 	return u
 }
-
-//------------
-
-//func trimAtFirstSrcDir(filename string) string {
-//	v := filename
-//	w := []string{}
-//	for {
-//		base := filepath.Base(v)
-//		if base == "src" {
-//			return filepath.Join(w...) // trimmed
-//		}
-//		w = append([]string{base}, w...)
-//		oldv := v
-//		v = filepath.Dir(v)
-//		isRoot := oldv == v
-//		if isRoot {
-//			break
-//		}
-//	}
-//	return filename
-//}
 
 //----------
 

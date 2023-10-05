@@ -17,17 +17,13 @@ var onExecSide bool // has generated config
 // NOTE: init() functions declared across multiple files in a package are processed in alphabetical order of the file name
 
 func init() {
-	if onExecSide {
-		//EncoderId = // set by generated config
-	} else {
-		// NOTE: a built binary will only be able to run with this editor instance. On the other hand, it can self debug any part of the editor, including the debug pkg, inside an editor running from another editor.
-		EncoderId = genDigitsStr(10)
+	EncoderId = "editor_eid_001" // static
 
-		//TODO: staticencoderid option?
-		//EncoderId = "editor_eid_001"
+	if err := registerStructsForProtoConn(EncoderId); err != nil {
+		execSidePrintError(err)
+		os.Exit(1)
 	}
 
-	registerStructsForProtoConn(EncoderId)
 	if onExecSide {
 		es.init()
 	}
@@ -54,10 +50,8 @@ var eso struct {
 //----------
 
 // exec side
-// runs before init(), needed because there could be an Exit() call throught some other init() func, before main() starts
+// runs before init()s, needed because there could be an Exit() call throught some other init() func, before main() starts
 var es = newES()
-
-//----------
 
 type ES struct {
 	p     *Proto
@@ -197,3 +191,24 @@ func genDigitsStr(n int) string {
 	}
 	return string(b)
 }
+
+//----------
+//----------
+//----------
+
+// NOTE: explanation of the issue with encoder ids
+// The defined structs can live in two pkgs:
+// - godebugconfig/debug.ReqFilesDataMsg
+// - github.com/jmigpin/editor/core/godebug/debug.ReqFilesDataMsg
+// in self debug, the 2nd editor registers its struct, but if the encoderId is the same, it will clash with the existing debug struct from godebugconfig, which is a different struct by virtue of pkg location, but will register in the same name (gob panic)
+// generated encoder ids solves this, but then a built binary only works with that editor, and, for example, a connect cmd waiting for a binary has to be built with that editor instance (same encoder id)
+// registering only once doesn't work, there needs to be 2 registrations, one for the config and other for editor, but after that, down the wire, the config needs to match the editor (generated ids solves this)
+// with generated encoder ids, a built binary will only be able to run with this editor instance. On the other hand, it can self debug any part of the editor, including the debug pkg, inside an editor running from another editor instance.
+
+//----------
+
+// implemented
+// a single pkg for all purposes would solve this issue, but then having an external program be injected with a package named "github.com/jmigpin/editor/core/godebug/debug" could fail to compile (pkg exists; there might be changes in the structs; editor pkg not in cache and needs to fetch; ...)
+// in case of self debug, the editor running the debug session needs to be compatible with the structs being sent by the client
+
+//----------

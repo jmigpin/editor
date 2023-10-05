@@ -4,7 +4,16 @@ import (
 	"fmt"
 )
 
-func registerStructsForProtoConn(encoderId string) {
+func registerStructsForProtoConn(encoderId string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
+		}
+	}()
+	registerStructsForProtoConn2(encoderId)
+	return
+}
+func registerStructsForProtoConn2(encoderId string) {
 	reg := func(v interface{}) {
 		registerForProtoConn(encoderId, v)
 	}

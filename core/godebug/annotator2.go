@@ -34,7 +34,7 @@ func (ann *Annotator) newDebugCE2(fname string, pos token.Pos, des ...DebugExpr)
 	}
 
 	se := &ast.SelectorExpr{
-		X:   &ast.Ident{Name: ann.debugPkgName, NamePos: pos},
+		X:   &ast.Ident{Name: ann.dopt.PkgName, NamePos: pos},
 		Sel: ast.NewIdent(fname),
 	}
 	return &ast.CallExpr{Fun: se, Args: w}
@@ -76,7 +76,7 @@ func (ann *Annotator) insertDebugLineStmt(ctx *Ctx, de DebugExpr) {
 }
 func (ann *Annotator) newDebugLineStmt(ctx *Ctx, de DebugExpr) ast.Stmt {
 	se := &ast.SelectorExpr{
-		X:   &ast.Ident{Name: ann.debugPkgName, NamePos: de.Pos()},
+		X:   &ast.Ident{Name: ann.dopt.PkgName, NamePos: de.Pos()},
 		Sel: ast.NewIdent("L"),
 	}
 	args := []ast.Expr{
@@ -402,7 +402,7 @@ func (ann *Annotator) newIncIdentsWithTypes(def bool, ts []types.Type, poss []to
 func (ann *Annotator) newIncIdentWithType(define bool, t types.Type, pos token.Pos) *ast.Ident {
 	//id := ann.newIncIdent(pos)
 
-	name := fmt.Sprintf("%s%d", ann.debugVarPrefix, ann.debugVarNameIndex)
+	name := fmt.Sprintf("%s%d", ann.dopt.VarPrefix, ann.debugVarNameIndex)
 	ann.debugVarNameIndex++ // increment identifier
 	id := &ast.Ident{Name: name, NamePos: pos}
 
@@ -569,13 +569,13 @@ func (ann *Annotator) posSrcError(pos token.Pos, err error) error {
 
 func (ann *Annotator) isIdentWithDebugVarPrefix(e ast.Expr) bool {
 	id, ok := e.(*ast.Ident)
-	return ok && strings.HasPrefix(id.Name, ann.debugVarPrefix)
+	return ok && strings.HasPrefix(id.Name, ann.dopt.VarPrefix)
 }
 func (ann *Annotator) isDebugPkgCallExpr(node ast.Node) bool {
 	if ce, ok := node.(*ast.CallExpr); ok {
 		if se, ok := ce.Fun.(*ast.SelectorExpr); ok {
 			if id, ok := se.X.(*ast.Ident); ok {
-				if id.Name == ann.debugPkgName {
+				if id.Name == ann.dopt.PkgName {
 					return true
 				}
 			}
@@ -588,9 +588,6 @@ func (ann *Annotator) isDebugPkgCallExpr(node ast.Node) bool {
 
 // Returns (on/off, ok)
 func (ann *Annotator) nodeAnnotationBlockOn(n ast.Node) (bool, bool) {
-	//if ann.nodeAnnTypes == nil {
-	//	return false, false
-	//}
 	at, ok := ann.nodeAnnTypes[n]
 	if !ok {
 		return false, false
@@ -617,10 +614,9 @@ func (ann *Annotator) addImports(astFile *ast.File) {
 		switch t := n2.(type) {
 		case *ast.SelectorExpr:
 			if id, ok := t.X.(*ast.Ident); ok {
-				if id.Name == ann.debugPkgName {
+				if id.Name == ann.dopt.PkgName {
 					// used
-					//ann.builtDebugLineStmt = true
-					addImp(ann.debugPkgName, debugPkgPath)
+					addImp(ann.dopt.PkgName, ann.dopt.PkgPath)
 					done = true
 				}
 			}
@@ -668,7 +664,7 @@ func (ann *Annotator) correctDebugIndexes(n ast.Node) int {
 			ce2 := t2
 			if se, ok := ce2.Fun.(*ast.SelectorExpr); ok {
 				if x, ok := se.X.(*ast.Ident); ok {
-					if x.Name == ann.debugPkgName && se.Sel.Name == "L" {
+					if x.Name == ann.dopt.PkgName && se.Sel.Name == "L" {
 						ce = ce2
 					}
 				}
@@ -834,7 +830,7 @@ func (ann *Annotator) insertMainClose(ctx *Ctx, fd *ast.FuncDecl) (error, bool) 
 	ds := &ast.DeferStmt{
 		Call: &ast.CallExpr{
 			Fun: &ast.SelectorExpr{
-				X:   ast.NewIdent(ann.debugPkgName),
+				X:   ast.NewIdent(ann.dopt.PkgName),
 				Sel: ast.NewIdent("Close"),
 			},
 		},
@@ -878,7 +874,7 @@ func (ann *Annotator) updateOsExitCalls(ctx *Ctx, ce *ast.CallExpr) (error, bool
 
 	// replace wtih call to debug exit
 	ce.Fun = &ast.SelectorExpr{
-		X:   ast.NewIdent(ann.debugPkgName),
+		X:   ast.NewIdent(ann.dopt.PkgName),
 		Sel: ast.NewIdent("Exit"),
 	}
 

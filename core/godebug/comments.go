@@ -11,6 +11,8 @@ import (
 // Comment nodes mapped to the following relevant node. Used for godebug directives.
 func commentsWithNodes(fset *token.FileSet, topNode ast.Node, cgs []*ast.CommentGroup) (res []*CommentWithNode) {
 
+	//godebug:annotateoff
+
 	// ensure it is sorted (sanity check)
 	sort.Slice(cgs, func(a, b int) bool {
 		return cgs[a].Pos() < cgs[b].Pos()

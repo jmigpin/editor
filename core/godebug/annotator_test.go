@@ -105,7 +105,8 @@ func testAnnotator2(t *testing.T, name string, in0, out []byte, filename string,
 	}
 
 	// annotate
-	ann := NewAnnotator(fset, ti)
+	dopt := newAnnSetDebugOpt()
+	ann := NewAnnotator(fset, ti, dopt)
 
 	_, _, _ = testutil.CollectLog(t, func() error {
 		ann.AnnotateAstFile(astFile)

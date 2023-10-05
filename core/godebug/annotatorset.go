@@ -15,11 +15,17 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
+// The godebug/debug pkg is writen to a tmp dir and used with the pkg path "godebugconfig/debug" to avoid dependencies in the target build. Annotation data is added to the aaaconfig.go. The godebug/debug pkg is included in the editor binary via //go:embed directive.
+var debugPkgPath = "godebugconfig/debug"
+
+var editorDebugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
+
+//----------
+
 type AnnotatorSet struct {
-	fset           *token.FileSet
-	debugPkgName   string
-	debugVarPrefix string
-	afds           struct {
+	fset *token.FileSet
+	dopt *AnnSetDebugOpt
+	afds struct {
 		sync.Mutex
 		m     map[string]*debug.AnnotatorFileData // map[filename]afd
 		order []*debug.AnnotatorFileData          // ordered
@@ -30,9 +36,8 @@ type AnnotatorSet struct {
 func NewAnnotatorSet(fset *token.FileSet) *AnnotatorSet {
 	annset := &AnnotatorSet{}
 	annset.fset = fset
+	annset.dopt = newAnnSetDebugOpt()
 	annset.afds.m = map[string]*debug.AnnotatorFileData{}
-	annset.debugPkgName = "Σ" // uncommon rune to avoid clashes
-	annset.debugVarPrefix = "Σ"
 	return annset
 }
 
@@ -50,9 +55,7 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, ti *types.Info, n
 		return nil, err
 	}
 
-	ann := NewAnnotator(annset.fset, ti)
-	ann.debugPkgName = annset.debugPkgName
-	ann.debugVarPrefix = annset.debugVarPrefix
+	ann := NewAnnotator(annset.fset, ti, annset.dopt)
 	ann.fileIndex = afd.FileIndex
 	ann.nodeAnnTypes = nat
 	ann.testModeMainFunc = testModeMainFunc
@@ -73,7 +76,7 @@ func (annset *AnnotatorSet) insertTestMain(astFile *ast.File) error {
 		func TestMain(m *testing.M) {
 			%s.Exit(m.Run())
 		}
-	`, annset.debugPkgName)
+	`, annset.dopt.PkgName)
 	fd, err := goutil.ParseFuncDecl("TestMain", src)
 	if err != nil {
 		return err
@@ -134,6 +137,25 @@ func (annset *AnnotatorSet) buildConfigAfdEntries() string {
 		u = append(u, s)
 	}
 	return strings.Join(u, ",")
+}
+
+//----------
+//----------
+//----------
+
+type AnnSetDebugOpt struct {
+	PkgPath   string
+	PkgName   string
+	VarPrefix string
+}
+
+func newAnnSetDebugOpt() *AnnSetDebugOpt {
+	// defaults
+	return &AnnSetDebugOpt{
+		PkgPath:   debugPkgPath,
+		PkgName:   "Σ", // uncommon rune to avoid clashes; expected by tests
+		VarPrefix: "Σ", // will have integer appended
+	}
 }
 
 //----------

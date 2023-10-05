@@ -29,9 +29,9 @@ type FilesToAnnotate struct {
 	toAnnotate   map[string]AnnotationType   // map[filename]
 	nodeAnnTypes map[ast.Node]AnnotationType // map[*ast.File and inner ast.Node's, check how a file is added for annotation]
 
-	main struct {
-		pkgs []*packages.Package
-	}
+	loadPkgs []*packages.Package
+
+	editorDebugPkgLoaded bool
 }
 
 func NewFilesToAnnotate(cmd *Cmd) *FilesToAnnotate {
@@ -49,6 +49,8 @@ func (fa *FilesToAnnotate) find(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load packages: %w", err)
 	}
+	fa.loadPkgs = pkgs
+
 	if err := fa.initMaps(pkgs); err != nil {
 		return err
 	}
@@ -76,8 +78,6 @@ func (fa *FilesToAnnotate) find(ctx context.Context) error {
 }
 
 func (fa *FilesToAnnotate) initMaps(pkgs []*packages.Package) error {
-	fa.main.pkgs = pkgs
-
 	if fa.cmd.flags.verbose {
 		fa.cmd.printf("main pkgs: %v\n", len(pkgs))
 		for _, pkg := range pkgs {
@@ -130,6 +130,10 @@ func (fa *FilesToAnnotate) initMaps2(pkg *packages.Package) error {
 		//	for _, filename := range pkg.CompiledGoFiles {
 		//		fa.cmd.printf("\tpkgfile: %v\n", filename)
 		//	}
+	}
+
+	if pkg.PkgPath == editorDebugPkgPath {
+		fa.editorDebugPkgLoaded = true
 	}
 
 	// map filenames to pkgs
@@ -218,7 +222,7 @@ func (fa *FilesToAnnotate) addFromArgs(ctx context.Context) error {
 //----------
 
 func (fa *FilesToAnnotate) addFromMain(ctx context.Context) error {
-	for _, pkg := range fa.main.pkgs {
+	for _, pkg := range fa.loadPkgs {
 		for _, filename := range pkg.CompiledGoFiles {
 
 			if fa.cmd.flags.mode.test {
@@ -458,6 +462,7 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 		return nil, err
 	}
 
+	// TODO: can be misleading getting the first error like this
 	for _, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
 			return nil, pkg.Errors[0]
@@ -471,7 +476,7 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 	//	}
 	//}
 	//if err := me.Result(); err != nil {
-	//	return err
+	//	return nil, err
 	//}
 
 	return pkgs, nil
@@ -480,8 +485,6 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 //----------
 
 func (fa *FilesToAnnotate) GoModFilename() (string, bool) {
-
-	//for _, pkg := range fa.main.pkgs { // can fail to load // TODO: make test
 	for _, pkg := range fa.filesPkgs {
 		//mod := pkg.Module
 		mod := pkgMod(pkg)

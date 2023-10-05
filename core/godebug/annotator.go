@@ -17,9 +17,9 @@ type Annotator struct {
 	typesInfo    *types.Info
 	nodeAnnTypes map[ast.Node]AnnotationType
 
-	fileIndex         int
-	debugPkgName      string
-	debugVarPrefix    string // will have integer appended
+	fileIndex int
+
+	dopt              *AnnSetDebugOpt
 	debugVarNameIndex int
 	debugLastIndex    int // n indexes were used
 
@@ -36,12 +36,9 @@ type Annotator struct {
 	}
 }
 
-func NewAnnotator(fset *token.FileSet, ti *types.Info) *Annotator {
-	ann := &Annotator{fset: fset, typesInfo: ti}
-	ann.simplify = true      // always true
-	ann.debugPkgName = "Σ"   // expected by tests
-	ann.debugVarPrefix = "Σ" // expected by tests
-
+func NewAnnotator(fset *token.FileSet, ti *types.Info, dopt *AnnSetDebugOpt) *Annotator {
+	ann := &Annotator{fset: fset, typesInfo: ti, dopt: dopt}
+	ann.simplify = true // always true
 	ann.ctxData.visited = map[ast.Stmt]struct{}{}
 	ann.nodeAnnTypes = map[ast.Node]AnnotationType{}
 	ann.pkg = ann.typesPkg()

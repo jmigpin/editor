@@ -15,7 +15,7 @@ import (
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
-func TestCmd(t *testing.T) {
+func TestCmd1(t *testing.T) {
 	scr := testutil.NewScript(os.Args)
 	scr.ScriptsDir = "testdata"
 	scr.Cmds = []*testutil.ScriptCmd{
@@ -82,7 +82,7 @@ func godebugTester(t *testing.T, args []string) error {
 
 //----------
 
-func TestCmdCtxCancel(t *testing.T) {
+func TestCmd2CtxCancel(t *testing.T) {
 	// max time to run this test
 	timer := time.AfterFunc(1000*time.Millisecond, func() {
 		t.Fatal("test timeout")

@@ -2,6 +2,7 @@
 
 exec go mod tidy
 
+#setenv script_keepwork true
 #ucmd godebugtester run -work
 ucmd godebugtester run
 contains stdout "println(\"aaa\")"
