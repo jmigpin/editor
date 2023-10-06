@@ -4,6 +4,7 @@ package debug
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 )
@@ -35,6 +36,14 @@ func listenNet(ctx context.Context, addr Addr) (Listener, error) {
 func (ln *netListener) Accept() (Conn, error) {
 	// ln.ctx can cancel the accept
 
+	// accept timeout
+	ctx2 := ln.ctx
+	if val, ok := ctx2.Value("connectTimeout").(time.Duration); ok {
+		ctx3, cancel := context.WithTimeout(ctx2, val)
+		defer cancel()
+		ctx2 = ctx3
+	}
+
 	type result struct {
 		c Conn
 		e error
@@ -46,9 +55,9 @@ func (ln *netListener) Accept() (Conn, error) {
 	}()
 
 	select {
-	case <-ln.ctx.Done():
-		_ = ln.Close() // stop the accept
-		return nil, ln.ctx.Err()
+	case <-ctx2.Done():
+		_ = ln.Close() // stops the listener.accept
+		return nil, fmt.Errorf("accept: %w", ctx2.Err())
 	case res := <-accept:
 		return res.c, res.e
 	}
@@ -56,7 +65,9 @@ func (ln *netListener) Accept() (Conn, error) {
 
 //----------
 
-func dialNet(ctx context.Context, addr Addr, timeout time.Duration) (Conn, error) {
-	d := &net.Dialer{Timeout: timeout}
+func dialNet(ctx context.Context, addr Addr) (Conn, error) {
+	// NOTE: use ctx to set a timeout
+
+	d := &net.Dialer{}
 	return d.DialContext(ctx, addr.Network(), addr.String())
 }

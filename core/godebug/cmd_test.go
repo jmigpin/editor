@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jmigpin/editor/util/testutil"
 
-	////godebug:annotateimport
+	//godebug:annotateimport
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
@@ -89,12 +90,12 @@ func TestCmd2CtxCancel(t *testing.T) {
 	})
 	defer timer.Stop()
 
+	//----------
+
 	cmd := NewCmd()
 	args := []string{
-		"connect",
-		//"-network=ws", // requires websocket client
+		"connect", // just a connect (might have no timeouts set)
 		"-editorisserver=true",
-		//"-addr=:8079",
 	}
 
 	ctx := context.Background()
@@ -106,7 +107,10 @@ func TestCmd2CtxCancel(t *testing.T) {
 	}()
 
 	_, err := cmd.Start(ctx2, args)
-	if err == nil || err.Error() != "context canceled" {
+	if err == nil {
+		t.Fatal("got no error")
+	}
+	if strings.Index(err.Error(), "context canceled") < 0 {
 		t.Fatal(err)
 	}
 	t.Log(err)

@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/astut"
@@ -196,8 +197,13 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 		cmd.printf("waiting for connect (exec side not started)\n")
 	}
 
+	// exec side started but already exited early (ex: crash)
+	// - don't even start the editor and show error
+	// - might still be starting (best to have a timeout)
+	ctx2 := context.WithValue(ctx, "connectTimeout", 5*time.Second)
+
 	// blocking until connected
-	if err := cmd.startEditorSide(ctx); err != nil {
+	if err := cmd.startEditorSide(ctx2); err != nil {
 		return err
 	}
 
@@ -288,6 +294,8 @@ func (cmd *Cmd) build(ctx context.Context) error {
 	if err := cmd.fa.find(ctx); err != nil {
 		return err
 	}
+
+	// setup to use only one debug pkg
 	if cmd.fa.editorDebugPkgLoaded {
 		cmd.annset.dopt.PkgPath = editorDebugPkgPath
 	}

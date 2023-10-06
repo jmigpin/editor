@@ -19,7 +19,9 @@ func init() {
 
 //----------
 
-func dialWebsocket2(ctx context.Context, addr Addr, timeout time.Duration) (Conn, error) {
+func dialWebsocket2(ctx context.Context, addr Addr) (Conn, error) {
+	// TODO: ctx
+
 	u := websocketHostToUrl(addr.String())
 	ws := js.Global().Get("WebSocket").New(u)
 
@@ -48,7 +50,7 @@ func newWsConn(addr Addr, ws js.Value) (*WsConn, error) {
 
 	jsEvListen(ws, "error", jsFuncOf2(func(args []js.Value) {
 		//jsLog(args)
-		jsLog(args[0])
+		//jsLog(args[0])
 		jsErr := args[0]
 		message := jsErr.Get("message").String()
 		err := errors.New(message)
@@ -97,14 +99,15 @@ func (wsc *WsConn) Read(b []byte) (int, error) {
 func (wsc *WsConn) Write(b []byte) (int, error) {
 	jsArr := bytesToJsArray(b)
 	wsc.ws.Call("send", jsArr)
-	return len(b), nil // TODO, error
+	return len(b), nil // TODO: error
 }
 func (wsc *WsConn) Close() error {
-	return fmt.Errorf("TODO: close")
+	wsc.ws.Call("close")
+	return nil // TODO
 }
 func (wsc *WsConn) LocalAddr() Addr {
 	//return wsc.addr
-	return nil
+	return nil // TODO
 }
 func (wsc *WsConn) RemoteAddr() Addr {
 	return wsc.addr

@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -107,7 +106,7 @@ func (ln *wsListener) Accept() (Conn, error) {
 
 //----------
 
-func dialWebsocket(ctx context.Context, addr Addr, timeout time.Duration) (Conn, error) {
+func dialWebsocket(ctx context.Context, addr Addr) (Conn, error) {
 
 	u := websocketHostToUrl(addr.String())
 	//origin := strings.Replace(u, "ws://", "http://", 1)
@@ -128,10 +127,9 @@ func dialWebsocket(ctx context.Context, addr Addr, timeout time.Duration) (Conn,
 	if err != nil {
 		return nil, err
 	}
-	//conf.Protocol = []string{"websocket"}
 
 	addr2 := NewAddrI("tcp", addr.String())
-	conn, err := dialNet(ctx, addr2, timeout)
+	conn, err := dialNet(ctx, addr2)
 	if err != nil {
 		return nil, err
 	}

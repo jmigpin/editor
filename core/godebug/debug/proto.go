@@ -54,7 +54,7 @@ func (p *Proto) Connect() error {
 	}
 
 	p.setupWaitEditorRead()
-	p.cdr = newCtxDoneRelease(p.ctx, p.ctxCanceled)
+	p.cdr = newCtxDoneRelease(p.ctx, p.ctxDone)
 	p.md.pconn = pconn
 	return nil
 }
@@ -75,8 +75,7 @@ func (p *Proto) connectServer() (*ProtoConn, error) {
 	return p.Side.InitProto(conn)
 }
 func (p *Proto) connectClient() (*ProtoConn, error) {
-	timeout := 4 * time.Second
-	conn, err := dialRetry(p.ctx, p.addr, timeout)
+	conn, err := dialRetry(p.ctx, p.addr)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +106,7 @@ func (p *Proto) WriteLineMsg(lm *LineMsg) error {
 
 //----------
 
-func (p *Proto) ctxCanceled() {
+func (p *Proto) ctxDone() {
 	p.setWaitEditorRead()
 	if err := p.Close(); err != nil {
 		_ = err // best effort

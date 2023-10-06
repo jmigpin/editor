@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"sync"
+	"time"
 )
 
 // Initialized by a generated config file when on exec side.
@@ -74,9 +75,11 @@ func (es *ES) init() {
 		execSidePrintf("%v\n", msg)
 	}
 
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "connectTimeout", 5*time.Second)
+
 	fd := &FilesDataMsg{Data: eso.filesData}
 	exs := &ProtoExecSide{fdata: fd, NoWriteBuffering: eso.syncSend}
-	ctx := context.Background()
 	es.p = NewProto(ctx, eso.isServer, eso.addr, exs)
 	if err := es.p.Connect(); err != nil {
 		execSidePrintError(err)

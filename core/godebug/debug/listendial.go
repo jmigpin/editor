@@ -20,11 +20,14 @@ var listenReg = map[string]listenFunc{}
 var dialReg = map[string]dialFunc{}
 
 type listenFunc func(context.Context, Addr) (Listener, error)
-type dialFunc func(context.Context, Addr, time.Duration) (Conn, error)
+type dialFunc func(context.Context, Addr) (Conn, error)
 
 //----------
 
 func listen(ctx context.Context, addr Addr) (Listener, error) {
+	// listen timeout can be set in the ctx
+	// accept timeout is done per implementation
+
 	t := addr.Network()
 	fn, ok := listenReg[t]
 	if !ok {
@@ -35,29 +38,32 @@ func listen(ctx context.Context, addr Addr) (Listener, error) {
 
 //----------
 
-func dial(ctx context.Context, addr Addr, timeout time.Duration) (Conn, error) {
+func dial(ctx context.Context, addr Addr) (Conn, error) {
 	t := addr.Network()
 	fn, ok := dialReg[t]
 	if !ok {
 		return nil, fmt.Errorf("missing dial network: %v", t)
 	}
-	return fn(ctx, addr, timeout)
+	return fn(ctx, addr)
 }
-func dialRetry(ctx context.Context, addr Addr, timeout time.Duration) (Conn, error) {
-	oneDialTimeout := 1 * time.Second
-	if oneDialTimeout > timeout {
-		oneDialTimeout = timeout
+func dialRetry(ctx context.Context, addr Addr) (Conn, error) {
+	// dial timeout
+	ctx2 := ctx
+	if val, ok := ctx2.Value("connectTimeout").(time.Duration); ok {
+		ctx3, cancel := context.WithTimeout(ctx2, val)
+		defer cancel()
+		ctx2 = ctx3
 	}
 
-	deadline := time.Now().Add(timeout)
 	for {
-		conn, err := dial(ctx, addr, oneDialTimeout)
+		conn, err := dial(ctx2, addr)
 		if err != nil {
-			if time.Now().Before(deadline) {
-				time.Sleep(25 * time.Millisecond) // prevent hot loop
-				continue
+			if ctx2.Err() != nil {
+				return nil, fmt.Errorf("dialretry: %v: %w", err)
 			}
-			return nil, err
+			// retry until ctx done
+			time.Sleep(50 * time.Millisecond) // prevent hot loop
+			continue
 		}
 		return conn, nil
 	}

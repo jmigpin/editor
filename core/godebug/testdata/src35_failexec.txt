@@ -1,0 +1,23 @@
+setenv script_keepwork true
+#ucmd godebugtester run -work main1.go
+
+fail ucmd godebugtester run main1.go
+contains error "accept: context deadline exceeded"
+
+-- go.mod --
+module main
+-- main1.go --
+package main
+import "main/fa"
+func main(){
+	fa.Fa()
+	println(1)
+}
+-- fa/fa.go --
+package fa
+func init(){
+	panic("fa!")
+}
+func Fa(){
+	println(2)
+}
