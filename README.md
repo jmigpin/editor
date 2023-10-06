@@ -77,7 +77,7 @@ Feel free to file an issue if you know of a better solution that doesn't require
 
 ## Usage
 
-<!-- __usageSectionStart__ -->
+<!--__usageSectionStart__-->
 ```
 Usage of editor:
   -carriagereturnrune int
@@ -139,7 +139,7 @@ Usage of editor:
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
 ```
-<!-- __usageSectionEnd__ -->
+<!--__usageSectionEnd__-->
 
 The editor has no configuration file. Use it within a script with your preferences (example `editor.sh`):
 
@@ -262,6 +262,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 ## Commands: GoDebug
 
 Output of `GoDebug -help`:
+<!--__godebugUsageSectionStart__-->
 ```
 Usage:
 	GoDebug <command> [arguments]
@@ -273,36 +274,62 @@ The commands are:
 Env variables:
 	GODEBUG_BUILD_FLAGS	comma separated flags for build
 Examples:
-	GoDebug -help
+	GoDebug run
 	GoDebug run -help
 	GoDebug run main.go -arg1 -arg2
-	GoDebug run -dirs=dir1,dir2 -files=f1.go,f2.go main.go -arg1 -arg2
-	GoDebug test -help
+	GoDebug run -paths=dir1,file2.go,dir3 main.go -arg1 -arg2
+	GoDebug run -tags=xproto main.go
+	GoDebug run -env=GODEBUG_BUILD_FLAGS=-cover main.go
+	GoDebug run -network=ws -startexec=false -env=GOOS=js:GOARCH=wasm -o=static/main.wasm client/main.go
 	GoDebug test
-	GoDebug test -run mytest
-	GoDebug build -addr=:8008 main.go
-	GoDebug connect -addr=:8008
-	GoDebug run -env=GODEBUG_BUILD_FLAGS=-tags=xproto main.go
+	GoDebug test -help
+	GoDebug test -run=mytest -v
+	GoDebug test a_test.go -test.run=mytest -test.v -test.count 5
+	GoDebug build -help
+	GoDebug build -addr=:8078 main.go
+	GoDebug build -network=ws -addr=:8078 -env=GOOS=js:GOARCH=wasm -o=static/main.wasm client/main.go
+	GoDebug connect -help
+	GoDebug connect -addr=:8078
+	GoDebug connect -network=ws -addr=:8078
 ```
+<!--__godebugUsageSectionEnd__-->
 
 Output of `GoDebug run -help`:
+<!--__godebugRunUsageSectionStart__-->
 ```
 Usage of GoDebug run:
-  -dirs string
-    	comma-separated string of directories to annotate
+  -addr string
+    	address to transmit debug data
+  -editorisserver
+    	run editor side as server instead of client (default true)
   -env string
-    	string with env variables (ex: "GOOS=os:..."'
-  -files string
-    	comma-separated string of files to annotate
+    	string with env variables (ex: "a=1:b=2:..."'
+  -network string
+    	protocol to use to transmit debug data: [tcp, unix, ws] (default "tcp")
+  -noinitmsg
+    	omit initial warning message from the compiled binary
+  -o string
+    	output filename
+  -paths string
+    	comma-separated string of dirs/files to annotate (also see the "//godebug:annotate*" source code directives to set files to be annotated)
+  -sbr
+    	Stringify bytes/runes as string (ex: [97 98 99] outputs as "abc") (default true)
+  -srclines
+    	add src reference lines to the compilation such that in case of panics, the stack refers to the original src file (default true)
+  -startexec
+    	start executable; useful to set to false in the case of compiling for js/wasm where the browser is the one starting the compiled file (default true)
   -syncsend
     	Don't send msgs in chunks (slow). Useful to get msgs before a crash.
   -toolexec string
-    	execute cmd, useful to run a tool with the output file (ex: wine outputfilename)
+    	a program to invoke before the program argument. Useful to run a tool with the output file (ex: wine)
+  -usepkglinks
+    	Use symbolic links to some pkgs directories to build the godebug binary. Helps solving new behaviour introduced by go1.19.x. that fails when an overlaid file depends on a new external module. (default true)
   -verbose
-    	verbose godebug
+    	print extra godebug build info
   -work
     	print workdir and don't cleanup on exit
 ```
+<!--__godebugRunUsageSectionEnd__-->
 
 - Annotate files
 	- By default, the main file will be annotated. Other files/directories can be added with the `-dirs` and `-files` command line options, or by inserting one of the following comments in the code (notice the lack of space after "//"):
