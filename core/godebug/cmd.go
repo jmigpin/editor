@@ -234,7 +234,7 @@ func (cmd *Cmd) startExecSide(ctx context.Context) error {
 		args = append(args, cmd.flags.toolExec)
 	}
 	args = append(args, cmd.tmpBuiltFile)
-	args = append(args, cmd.flags.binaryArgs...)
+	args = append(args, cmd.flags.execArgs...)
 
 	// callback func to print process id and args
 	cb := func(cmdi osutil.CmdI) {

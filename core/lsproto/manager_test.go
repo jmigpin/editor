@@ -367,7 +367,7 @@ func newTestManager(t *testing.T) *Manager {
 		// WARNING: can't use stdio with stderr to be able to run scripts collectlog (use tcp if available)
 
 		//GoplsRegistration(logTestVerbose(), false, false),
-		GoplsRegistration(logTestVerbose(), true, false),
+		GoplsRegistration(verboseLog(), true, false),
 
 		//cLangRegistration(logTestVerbose()),
 		cLangRegistration(false),

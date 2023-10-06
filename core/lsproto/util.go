@@ -23,20 +23,25 @@ import (
 
 var logger0 = log.New(os.Stdout, "", log.Lshortfile)
 
-func logTestVerbose() bool {
+func verboseLog() bool {
+	//// DEBUG
+	//return true
+
+	// test mode
+	//flag.Usage()
 	f := flag.Lookup("test.v")
 	return f != nil && f.Value.String() == "true"
 }
 
 func logPrintf(f string, args ...any) {
-	if !logTestVerbose() {
+	if !verboseLog() {
 		return
 	}
 	logger0.Output(2, fmt.Sprintf(f, args...))
 }
 
 func logJson(prefix string, v any) {
-	if !logTestVerbose() {
+	if !verboseLog() {
 		return
 	}
 	b, err := json.MarshalIndent(v, "", "\t")

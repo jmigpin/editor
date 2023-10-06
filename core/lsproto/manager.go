@@ -12,6 +12,8 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
+//godebug:annotatepackage
+
 // Notes:
 // - Manager manages LangManagers
 // - LangManager has a Registration and handles a LangInstance

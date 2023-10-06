@@ -41,7 +41,7 @@ type Flags struct {
 
 	unknownArgs []string // unknown args to pass down to tooling
 	unnamedArgs []string // args without name (ex: filenames)
-	binaryArgs  []string // to be passed to the binary when running
+	execArgs    []string // to be passed to the executable when running
 }
 
 func (fl *Flags) parseArgs(args []string) error {
@@ -105,7 +105,7 @@ func (fl *Flags) parseTestArgs(name string, args []string) error {
 	// support test "-args" special flag
 	for i, a := range args {
 		if a == "-args" || a == "--args" {
-			args, fl.binaryArgs = args[:i], args[i+1:] // exclude
+			args, fl.execArgs = args[:i], args[i+1:] // exclude
 			break
 		}
 	}
@@ -242,7 +242,7 @@ func (fl *Flags) addWorkFlag(fs *flag.FlagSet) {
 func (fl *Flags) addTestVFlag(fs *flag.FlagSet) {
 	ff := flagutil.BoolFuncFlag(func(s string) error {
 		u := "-test.v"
-		fl.binaryArgs = append([]string{u}, fl.binaryArgs...)
+		fl.execArgs = append([]string{u}, fl.execArgs...)
 		return nil
 	})
 	fs.Var(ff, "v", "`bool` verbose")
@@ -250,7 +250,7 @@ func (fl *Flags) addTestVFlag(fs *flag.FlagSet) {
 func (fl *Flags) addTestRunFlag(fs *flag.FlagSet) {
 	ff := flagutil.StringFuncFlag(func(s string) error {
 		u := "-test.run=" + s
-		fl.binaryArgs = append([]string{u}, fl.binaryArgs...)
+		fl.execArgs = append([]string{u}, fl.execArgs...)
 		return nil
 	})
 	fs.Var(ff, "run", "`string` with test name pattern to run")
@@ -279,7 +279,7 @@ func (fl *Flags) parse(name string, fs *flag.FlagSet, args []string, isBool map[
 	}
 	fl.unknownArgs = unknown
 	fl.unnamedArgs = unnamed
-	fl.binaryArgs = append(fl.binaryArgs, binary...)
+	fl.execArgs = append(fl.execArgs, binary...)
 
 	//spew.Dump(fl.flags)
 
