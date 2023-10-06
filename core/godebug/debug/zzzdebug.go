@@ -138,10 +138,14 @@ func L(fileIndex, debugIndex, offset int, item Item) {
 	}
 	es.afterInitOk(func() {
 		if err := es.p.WriteLineMsg(lmsg); err != nil {
-			execSidePrintError(err)
+			lineErrOnce.Do(func() {
+				execSidePrintError(err)
+			})
 		}
 	})
 }
+
+var lineErrOnce sync.Once
 
 //----------
 //----------

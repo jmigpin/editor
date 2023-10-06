@@ -414,11 +414,12 @@ func (wb *LinesMsgWriteBuffering) noMoreWritesAndWait() error {
 	wb.md.Lock()
 	defer wb.md.Unlock()
 
-	wb.md.noMoreWrites = true
-
 	for wb.md.flushing {
 		wb.md.flushingDone.Wait()
 	}
+
+	wb.md.noMoreWrites = true
+
 	return nil
 }
 
