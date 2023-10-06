@@ -98,7 +98,7 @@ func godebugMain() bool {
 	}
 	args = args[2:]
 	if err := godebugMain2(args); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "godebug error: %s\n", err)
 		os.Exit(1)
 	}
 	return true
@@ -113,7 +113,7 @@ func godebugMain2(args []string) error {
 				break
 			}
 
-			return fmt.Errorf("mode not available in cmd line: %v", args[0])
+			return fmt.Errorf("mode not available in cmd line: %q", args[0])
 		}
 	}
 

@@ -343,7 +343,7 @@ func (wb *LinesMsgWriteBuffering) Write(lm *LineMsg) error {
 	defer wb.md.Unlock()
 
 	if wb.md.noMoreWrites {
-		return fmt.Errorf("no more write allowed")
+		return fmt.Errorf("no more writes allowed")
 	}
 
 	// wait for space in the buffer
