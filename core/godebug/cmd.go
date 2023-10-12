@@ -298,12 +298,6 @@ func (cmd *Cmd) build(ctx context.Context) error {
 	if err := cmd.fa.find(ctx); err != nil {
 		return err
 	}
-
-	// setup to use only one debug pkg
-	if cmd.fa.editorDebugPkgLoaded {
-		cmd.annset.dopt.PkgPath = editorDebugPkgPath
-	}
-
 	if err := cmd.annotateFiles2(ctx); err != nil {
 		return err
 	}
@@ -724,43 +718,6 @@ func (cmd *Cmd) buildOverlayFile(ctx context.Context) error {
 //------------
 
 func (cmd *Cmd) buildDebugPkg(ctx context.Context) error {
-	// detect if the editor debug pkg is used
-	// aka: single debug pkg mode
-	selfMode := cmd.fa.editorDebugPkgLoaded
-	selfDebugPkgDir := ""
-	if selfMode {
-		// find editor debug pkg dir
-		pp := editorDebugPkgPath
-		for pkgPath, pkg := range cmd.fa.pathsPkgs {
-			if !strings.HasPrefix(pkgPath, pp) {
-				continue
-			}
-
-			f := pkg.GoFiles[0]
-			k := strings.Index(f, pp)
-			if k < 0 {
-				continue
-			}
-			dir := f[:k] // has the pkg and filename cleared
-			selfDebugPkgDir = path.Join(dir, pp)
-			break
-		}
-		if selfDebugPkgDir == "" {
-			return fmt.Errorf("self debug pkg dir not set")
-		}
-
-		// commented: won't allow to debug current editor
-		// setup current files to be empty by default (attempt to discard if debugging an old version of the editor)
-		if fis, err := ioutil.ReadDir(selfDebugPkgDir); err == nil {
-			for _, fi := range fis {
-				filename := path.Join(selfDebugPkgDir, fi.Name())
-				cmd.overlay[filename] = ""
-			}
-		}
-	}
-
-	//----------
-
 	// target dir
 	cmd.debugPkgDir = filepath.Join(cmd.tmpDir, "debugpkg")
 	if cmd.gopathMode {
@@ -771,13 +728,6 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context) error {
 	// util to add file to debug pkg dir
 	writeFile := func(name string, src []byte) error {
 		filename2 := filepath.Join(cmd.debugPkgDir, name)
-
-		if selfMode {
-			filename3 := filepath.Join(selfDebugPkgDir, name)
-			cmd.overlay[filename3] = filename2
-			//println("overlay", filename3, filename2)
-		}
-
 		return mkdirAllWriteFile(filename2, src)
 	}
 
@@ -813,7 +763,7 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context) error {
 	}
 
 	// dynamically create go.mod since go:embed doesn't allow it
-	if !cmd.gopathMode && !selfMode {
+	if !cmd.gopathMode {
 		src3 := goModuleSrc(cmd.annset.dopt.PkgPath)
 		if err := writeFile("go.mod", []byte(src3)); err != nil {
 			return err
@@ -906,10 +856,8 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context) error {
 	}
 
 	// include debug pkg require/replace lines
-	if !cmd.fa.editorDebugPkgLoaded {
-		mf.AddNewRequire(cmd.annset.dopt.PkgPath, "v0.0.0", false)
-		mf.AddReplace(cmd.annset.dopt.PkgPath, "", cmd.debugPkgDir, "")
-	}
+	mf.AddNewRequire(cmd.annset.dopt.PkgPath, "v0.0.0", false)
+	mf.AddReplace(cmd.annset.dopt.PkgPath, "", cmd.debugPkgDir, "")
 
 	src2, err := mf.Format()
 	if err != nil {

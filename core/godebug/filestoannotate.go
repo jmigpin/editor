@@ -30,8 +30,6 @@ type FilesToAnnotate struct {
 	nodeAnnTypes map[ast.Node]AnnotationType // map[*ast.File and inner ast.Node's, check how a file is added for annotation]
 
 	loadPkgs []*packages.Package
-
-	editorDebugPkgLoaded bool
 }
 
 func NewFilesToAnnotate(cmd *Cmd) *FilesToAnnotate {
@@ -130,10 +128,6 @@ func (fa *FilesToAnnotate) initMaps2(pkg *packages.Package) error {
 		//	for _, filename := range pkg.CompiledGoFiles {
 		//		fa.cmd.printf("\tpkgfile: %v\n", filename)
 		//	}
-	}
-
-	if pkg.PkgPath == editorDebugPkgPath {
-		//fa.editorDebugPkgLoaded = true
 	}
 
 	// map filenames to pkgs
