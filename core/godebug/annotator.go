@@ -21,7 +21,7 @@ type Annotator struct {
 
 	dopt              *AnnSetDebugOpt
 	debugVarNameIndex int
-	debugLastIndex    int // n indexes were used
+	debugNIndexes    int // n indexes were used
 
 	testModeMainFunc bool
 	hasMainFunc      bool
@@ -49,7 +49,7 @@ func NewAnnotator(fset *token.FileSet, ti *types.Info, dopt *AnnSetDebugOpt) *An
 
 func (ann *Annotator) AnnotateAstFile(astFile *ast.File) {
 	defer func() { // always run, even on error
-		ann.debugLastIndex = ann.correctDebugIndexes(astFile)
+		ann.debugNIndexes = ann.correctDebugIndexes(astFile)
 
 		// fix issues like "//go:embed" comments staying in place
 		//ann.removeInnerFuncComments(astFile) // failing

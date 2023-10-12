@@ -32,6 +32,10 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
+//godebug:annotatefile
+//godebug:annotatefile:/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/erow.go
+//godebug:annotatefile:/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/godebuginstance.go
+
 //go:embed debug/*
 var debugPkgFs embed.FS
 
@@ -745,6 +749,7 @@ func (cmd *Cmd) buildDebugPkg(ctx context.Context) error {
 			return fmt.Errorf("self debug pkg dir not set")
 		}
 
+		// commented: won't allow to debug current editor
 		// setup current files to be empty by default (attempt to discard if debugging an old version of the editor)
 		if fis, err := ioutil.ReadDir(selfDebugPkgDir); err == nil {
 			for _, fi := range fis {

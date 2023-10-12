@@ -1,8 +1,8 @@
 #exec go run main.go
 
-#setenv script_keepwork true
-#ucmd godebugtester run -work -srclines=false main.go
-ucmd godebugtester run main.go
+setenv script_keepwork true
+ucmd godebugtester run -work -srclines=false main.go
+#ucmd godebugtester run main.go
 
 contains stdout "recv: false=(!true)"
 contains stdout "recv: true=(1 < 2)"

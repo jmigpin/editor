@@ -15,14 +15,19 @@ func registerStructsForProtoConn(encoderId string) (err error) {
 }
 func registerStructsForProtoConn2(encoderId string) {
 	reg := func(v any) {
-		registerForProtoConn(encoderId, v)
+		//registerForProtoConn(encoderId, v)
+		edReg.register(v)
 	}
 
 	reg(&ReqFilesDataMsg{})
-	reg(&FilesDataMsg{})
 	reg(&ReqStartMsg{})
+
+	reg(&FilesDataMsg{})
+	reg(&AnnotatorFileData{})
+
+	reg(&LineMsgs{})
 	reg(&LineMsg{})
-	reg([]*LineMsg{})
+	//reg([]*LineMsg{})
 
 	reg(&ItemValue{})
 	reg(&ItemList{})
@@ -49,29 +54,40 @@ func registerStructsForProtoConn2(encoderId string) {
 }
 
 //----------
+//----------
+//----------
 
 type ReqFilesDataMsg struct{}
 type ReqStartMsg struct{}
-
-//----------
-
-type LineMsg struct {
-	FileIndex  int
-	DebugIndex int
-	Offset     int
-	Item       Item
-}
 
 type FilesDataMsg struct {
 	Data []*AnnotatorFileData
 }
 
+//----------
+
 type AnnotatorFileData struct {
-	FileIndex int
-	DebugLen  int
-	Filename  string
-	FileSize  int
-	FileHash  []byte
+	// decl order matters: used by the config generator to fill the struct
+	FileIndex     AfdFileIndex
+	DebugNIndexes AfdDebugLen
+	Filename      string
+	FileSize      AfdFileSize
+	FileHash      []byte
+}
+
+type AfdFileIndex = uint16
+type AfdFileSize = uint32
+type AfdDebugLen = uint32 // uint16 enough?
+
+//----------
+
+type LineMsgs []*LineMsg
+
+type LineMsg struct {
+	FileIndex  AfdFileIndex
+	DebugIndex AfdDebugLen
+	Offset     AfdFileSize
+	Item       Item
 }
 
 //----------
@@ -84,25 +100,29 @@ type ItemValue struct {
 	Item
 	Str string
 }
-
 type ItemList struct { // separated by ","
 	Item
 	List []Item
 }
-type ItemList2 struct { // separated by ";"
-	Item
-	List []Item
-}
+
+// type ItemList2 struct { // separated by ";"
+//		Item
+//		List []Item
+//	}
+
+type ItemList2 ItemList // separated by ";"
+
 type ItemAssign struct {
 	Item
 	Lhs *ItemList
-	Op  int
+	Op  uint16
 	Rhs *ItemList
 }
 type ItemSend struct {
 	Item
 	Chan, Value Item
 }
+
 type ItemCallEnter struct {
 	Item
 	Fun  Item
@@ -113,6 +133,7 @@ type ItemCall struct {
 	Enter  *ItemCallEnter
 	Result Item
 }
+
 type ItemIndex struct {
 	Item
 	Expr   Item
@@ -147,13 +168,14 @@ type ItemTypeAssert struct {
 type ItemBinary struct {
 	Item
 	X      Item
-	Op     int
+	Op     uint16
 	Y      Item
 	Result Item
 }
+
 type ItemUnaryEnter struct {
 	Item
-	Op int
+	Op uint16
 	X  Item
 }
 type ItemUnary struct {
@@ -161,6 +183,7 @@ type ItemUnary struct {
 	Enter  *ItemUnaryEnter
 	Result Item
 }
+
 type ItemLiteral struct {
 	Item
 	Fields *ItemList
@@ -187,6 +210,8 @@ type ItemAnon struct {
 	Item
 }
 
+//----------
+//----------
 //----------
 
 // ItemValue: interface (ex: int=1, string="1")
@@ -227,7 +252,7 @@ func IL2(u ...Item) Item {
 
 // ItemAssign
 func IA(lhs *ItemList, op int, rhs *ItemList) Item {
-	return &ItemAssign{Lhs: lhs, Op: op, Rhs: rhs}
+	return &ItemAssign{Lhs: lhs, Op: uint16(op), Rhs: rhs}
 }
 
 // ItemSend
@@ -271,12 +296,12 @@ func ITA(x, t, result Item, isSwitch bool) Item {
 
 // ItemBinary
 func IB(x Item, op int, y Item, result Item) Item {
-	return &ItemBinary{X: x, Op: op, Y: y, Result: result}
+	return &ItemBinary{X: x, Op: uint16(op), Y: y, Result: result}
 }
 
 // ItemUnary: enter
 func IUe(op int, x Item) Item {
-	return &ItemUnaryEnter{Op: op, X: x}
+	return &ItemUnaryEnter{Op: uint16(op), X: x}
 }
 
 // ItemUnary
@@ -319,3 +344,7 @@ func ILa(reason string) Item {
 func INAnn(reason string) Item {
 	return &ItemNotAnn{Reason: reason}
 }
+
+//----------
+//----------
+//----------

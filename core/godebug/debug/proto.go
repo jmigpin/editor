@@ -1,11 +1,10 @@
 package debug
 
 import (
+	"bytes"
 	"context"
 	"encoding/gob"
-	"errors"
 	"fmt"
-	"io"
 	"reflect"
 	"sync"
 	"time"
@@ -26,8 +25,8 @@ type Proto struct {
 	cdr            *CtxDoneRelease
 	waitEditorRead struct {
 		sync.Mutex
-		eofOrCancel bool
-		cond        *sync.Cond
+		anyError bool // eof, ctx cancel, or any other error
+		cond     *sync.Cond
 	}
 }
 
@@ -52,10 +51,10 @@ func (p *Proto) Connect() error {
 	if err != nil {
 		return err
 	}
+	p.md.pconn = pconn
 
 	p.setupWaitEditorRead()
-	p.cdr = newCtxDoneRelease(p.ctx, p.ctxDone)
-	p.md.pconn = pconn
+	p.cdr = newCtxDoneRelease(p.ctx, p.onCtxDone)
 	return nil
 }
 func (p *Proto) connectServer() (*ProtoConn, error) {
@@ -92,8 +91,9 @@ func (p *Proto) GotConnectedFastCheck() bool {
 
 func (p *Proto) Read(v any) error {
 	err := p.md.pconn.Read(v)
-	if errors.Is(err, io.EOF) {
-		p.setWaitEditorRead()
+	//if errors.Is(err, io.EOF) {
+	if err != nil {
+		p.editorReadDone()
 	}
 	return err
 }
@@ -106,8 +106,8 @@ func (p *Proto) WriteLineMsg(lm *LineMsg) error {
 
 //----------
 
-func (p *Proto) ctxDone() {
-	p.setWaitEditorRead()
+func (p *Proto) onCtxDone() {
+	p.editorReadDone()
 	if err := p.Close(); err != nil {
 		_ = err // best effort
 	}
@@ -136,7 +136,7 @@ func (p *Proto) Close() error {
 }
 
 func (p *Proto) WaitClose() error {
-	p.runWaitEditorRead()
+	p.waitForEditorRead()
 	return p.Close()
 }
 
@@ -149,21 +149,21 @@ func (p *Proto) setupWaitEditorRead() {
 	}
 	p.waitEditorRead.cond = sync.NewCond(&p.waitEditorRead)
 }
-func (p *Proto) setWaitEditorRead() {
+func (p *Proto) editorReadDone() {
 	if _, ok := p.Side.(*ProtoEditorSide); !ok {
 		return
 	}
 	p.waitEditorRead.Lock()
-	p.waitEditorRead.eofOrCancel = true
+	p.waitEditorRead.anyError = true
 	p.waitEditorRead.cond.Broadcast()
 	p.waitEditorRead.Unlock()
 }
-func (p *Proto) runWaitEditorRead() {
+func (p *Proto) waitForEditorRead() {
 	if _, ok := p.Side.(*ProtoEditorSide); !ok {
 		return
 	}
 	p.waitEditorRead.Lock()
-	for !p.waitEditorRead.eofOrCancel {
+	for !p.waitEditorRead.anyError {
 		p.waitEditorRead.cond.Wait()
 	}
 	p.waitEditorRead.Unlock()
@@ -182,7 +182,7 @@ type CtxDoneRelease struct {
 
 func newCtxDoneRelease(ctx context.Context, fn func()) *CtxDoneRelease {
 	cdr := &CtxDoneRelease{ctx: ctx, fn: fn}
-	cdr.release = make(chan struct{})
+	cdr.release = make(chan struct{}, 1)
 	go func() {
 		select {
 		case <-cdr.release:
@@ -218,10 +218,17 @@ type ProtoSide interface {
 type ProtoEditorSide struct {
 	pconn *ProtoConn
 	FData *FilesDataMsg // received from exec side
+
+	logOn bool
 }
 
 func (eds *ProtoEditorSide) InitProto(conn Conn) (*ProtoConn, error) {
 	pconn := newProtoConn(conn, true)
+	if eds.logOn {
+		pconn.logOn = true
+		pconn.logPrefix = "1:"
+	}
+
 	if err := pconn.Write(&ReqFilesDataMsg{}); err != nil {
 		return nil, err
 	}
@@ -247,14 +254,20 @@ type ProtoExecSide struct {
 	pconn            *ProtoConn
 	fdata            *FilesDataMsg // to be sent, can be discarded
 	NoWriteBuffering bool
+
+	logOn bool
 }
 
 func (exs *ProtoExecSide) InitProto(conn Conn) (*ProtoConn, error) {
-	defer func() {
-		exs.fdata = nil
-	}()
+	// garbage collect?
+	defer func() { exs.fdata = nil }()
 
 	pconn := newProtoConn(conn, !exs.NoWriteBuffering)
+	if exs.logOn {
+		pconn.logOn = true
+		pconn.logPrefix = "1:"
+	}
+
 	if err := pconn.Read(&ReqFilesDataMsg{}); err != nil {
 		return nil, err
 	}
@@ -273,41 +286,65 @@ func (exs *ProtoExecSide) InitProto(conn Conn) (*ProtoConn, error) {
 
 type ProtoConn struct {
 	conn Conn
-	enc  *gob.Encoder
-	dec  *gob.Decoder
+
+	w struct {
+		sync.Mutex
+		buf *bytes.Buffer
+	}
+	r struct {
+		sync.Mutex
+	}
+
 	lmwb *LinesMsgWriteBuffering // line msg write buffer
 
+	logOn     bool
+	logPrefix string
 }
 
-func newProtoConn(conn Conn, writeBuffering bool) *ProtoConn {
+func newProtoConn(conn Conn, lmWriteBuffering bool) *ProtoConn {
 	pconn := &ProtoConn{conn: conn}
-	pconn.enc = gob.NewEncoder(conn)
-	pconn.dec = gob.NewDecoder(conn)
-	if writeBuffering {
+	pconn.w.buf = &bytes.Buffer{}
+	if lmWriteBuffering {
 		pconn.lmwb = newLinesMsgWriteBuffering(pconn)
 	}
 	return pconn
 }
 func (pconn *ProtoConn) Read(v any) error {
-	return pconn.dec.Decode(v)
+	pconn.r.Lock()
+	defer pconn.r.Unlock()
+	return decode(pconn.conn, v, pconn.logOn, pconn.logPrefix)
 }
 func (pconn *ProtoConn) Write(v any) error {
-	return pconn.enc.Encode(v)
+	pconn.w.Lock()
+	defer pconn.w.Unlock()
+	pconn.w.buf.Reset()
+	if err := encode(pconn.w.buf, v, pconn.logOn, pconn.logPrefix); err != nil {
+		return err
+	}
+	_, err := pconn.conn.Write(pconn.w.buf.Bytes())
+	return err
 }
 func (pconn *ProtoConn) WriteLineMsg(lm *LineMsg) error {
 	if pconn.lmwb != nil {
 		return pconn.lmwb.Write(lm)
 	}
-	u := (any)(lm)
-	return pconn.Write(&u)
+	return pconn.Write(lm)
 }
 func (pconn *ProtoConn) Close() error {
-	if pconn.lmwb != nil {
-		if err := pconn.lmwb.noMoreWritesAndWait(); err != nil {
-			execSidePrintError(err)
+	err0 := (error)(nil)
+	firstErr := func(err error) {
+		if err0 == nil {
+			err0 = err
 		}
 	}
-	return pconn.conn.Close()
+
+	if pconn.lmwb != nil {
+		firstErr(pconn.lmwb.noMoreWritesAndWait())
+	}
+
+	firstErr(pconn.conn.Close())
+
+	return err0
 }
 
 //----------
@@ -320,20 +357,21 @@ type LinesMsgWriteBuffering struct {
 
 	md struct { // mutex data
 		sync.Mutex
-		buf []*LineMsg
+		lms LineMsgs // buffer
 
-		flushing     bool // ex: flushing later
-		noMoreWrites bool
-		lastFlush    time.Time
-		flushingDone *sync.Cond
-		flushTimer   *time.Timer
+		flushing           bool // ex: flushing later
+		flushTimer         *time.Timer
+		firstFlushWriteErr error
+		flushingDone       *sync.Cond
+		lastFlush          time.Time
+		noMoreWrites       bool
 	}
 }
 
 func newLinesMsgWriteBuffering(pconn *ProtoConn) *LinesMsgWriteBuffering {
 	wb := &LinesMsgWriteBuffering{pconn: pconn}
 	wb.flushInterval = time.Second / 10 // minimum times per sec, can be updated more often if the buffer is getting full
-	wb.md.buf = make([]*LineMsg, 0, 8*1024)
+	wb.md.lms = make([]*LineMsg, 0, 4*1024)
 	wb.md.flushingDone = sync.NewCond(&wb.md)
 	return wb
 }
@@ -346,22 +384,22 @@ func (wb *LinesMsgWriteBuffering) Write(lm *LineMsg) error {
 	}
 
 	// wait for space in the buffer
-	for len(wb.md.buf) == cap(wb.md.buf) { // must be flushing
+	for len(wb.md.lms) == cap(wb.md.lms) { // must be flushing
 		if !wb.md.flushing {
 			return fmt.Errorf("buffer is full and not flushing")
 		}
 
 		// force earlier flush due to buffer being full
-		if wb.md.flushTimer.Stop() {
-			return wb.flush()
-		} else {
-			<-wb.md.flushTimer.C // drain channel
+		if wb.md.flushTimer.Stop() { // able to stop
+			wb.flush()
 		}
 
-		wb.md.flushingDone.Wait()
+		if err := wb.waitForFlushingDone(); err != nil {
+			return err
+		}
 	}
 	// add to buffer
-	wb.md.buf = append(wb.md.buf, lm)
+	wb.md.lms = append(wb.md.lms, lm)
 
 	if wb.md.flushing { // already added, will be delivered by async flush
 		return nil
@@ -375,36 +413,39 @@ func (wb *LinesMsgWriteBuffering) Write(lm *LineMsg) error {
 	// commented: always try to buffer (performance)
 	// don't async, flush now if already passed the time
 	//if now.After(deadline) {
-	//	return wb.flush()
+	//	wb.flush()
+	// 	return wb.md.flushErr
 	//}
 
 	// flush later
 	wb.md.flushTimer = time.AfterFunc(deadline.Sub(now), func() {
 		wb.md.Lock()
 		defer wb.md.Unlock()
-		if err := wb.flush(); err != nil {
-			execSidePrintError(err)
-		}
+		wb.flush()
 	})
 	return nil
 }
-func (wb *LinesMsgWriteBuffering) flush() error {
+func (wb *LinesMsgWriteBuffering) flush() {
 	// alway run, even on error
 	defer func() {
 		wb.md.flushing = false
 		wb.md.flushingDone.Broadcast()
 	}()
-
 	now := time.Now()
-
-	u := (any)(wb.md.buf)
-	if err := wb.pconn.Write(&u); err != nil {
-		return err
+	if err := wb.pconn.Write(&wb.md.lms); err != nil {
+		if wb.md.firstFlushWriteErr == nil {
+			wb.md.firstFlushWriteErr = err
+		}
+		return
 	}
-
-	wb.md.buf = wb.md.buf[:0]
+	wb.md.lms = wb.md.lms[:0]
 	wb.md.lastFlush = now
-	return nil
+}
+func (wb *LinesMsgWriteBuffering) waitForFlushingDone() error {
+	for wb.md.flushing {
+		wb.md.flushingDone.Wait()
+	}
+	return wb.md.firstFlushWriteErr
 }
 
 //----------
@@ -413,8 +454,8 @@ func (wb *LinesMsgWriteBuffering) noMoreWritesAndWait() error {
 	wb.md.Lock()
 	defer wb.md.Unlock()
 
-	for wb.md.flushing {
-		wb.md.flushingDone.Wait()
+	if err := wb.waitForFlushingDone(); err != nil {
+		return err
 	}
 
 	wb.md.noMoreWrites = true

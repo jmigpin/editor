@@ -20,10 +20,11 @@ var onExecSide bool // has generated config
 func init() {
 	EncoderId = "editor_eid_001" // static
 
-	if err := registerStructsForProtoConn(EncoderId); err != nil {
-		execSidePrintError(err)
-		os.Exit(1)
-	}
+	//if err := registerStructsForProtoConn(EncoderId); err != nil {
+	//	execSidePrintError(err)
+	//	os.Exit(1)
+	//}
+	registerStructsForProtoConn2("")
 
 	if onExecSide {
 		es.init()
@@ -72,7 +73,7 @@ func (es *ES) init() {
 		if !eso.srcLines {
 			msg += fmt.Sprintf(" Note that in the case of panic, the src lines will not correspond to the original src code, but to the annotated src (-srclines=false).")
 		}
-		execSidePrintf("%v\n", msg)
+		logf("%v\n", msg)
 	}
 
 	ctx := context.Background()
@@ -82,7 +83,7 @@ func (es *ES) init() {
 	exs := &ProtoExecSide{fdata: fd, NoWriteBuffering: eso.syncSend}
 	es.p = NewProto(ctx, eso.isServer, eso.addr, exs)
 	if err := es.p.Connect(); err != nil {
-		execSidePrintError(err)
+		logError(err)
 	}
 }
 func (es *ES) afterInitOk(fn func()) {
@@ -101,11 +102,11 @@ func mustBeExecSide() {
 		panic("not on exec side")
 	}
 }
-func execSidePrintError(err error) {
-	execSidePrintf("error: %v\n", err)
+func logError(err error) {
+	logf("error: %v\n", err)
 }
-func execSidePrintf(f string, args ...any) {
-	mustBeExecSide()
+func logf(f string, args ...any) {
+	// TODO: should be exec side only
 	fmt.Fprintf(os.Stderr, "DEBUG: "+f, args...)
 }
 
@@ -115,7 +116,7 @@ func execSidePrintf(f string, args ...any) {
 func Close() {
 	es.afterInitOk(func() {
 		if err := es.p.WaitClose(); err != nil {
-			execSidePrintError(err)
+			logError(err)
 		}
 	})
 }
@@ -125,7 +126,7 @@ func Close() {
 func Exit(code int) {
 	Close()
 	if !eso.noInitMsg {
-		execSidePrintf("exit code: %v\n", code)
+		logf("exit code: %v\n", code)
 	}
 	os.Exit(code)
 }
@@ -134,15 +135,15 @@ func Exit(code int) {
 // NOTE: func name is used in annotator, don't rename.
 func L(fileIndex, debugIndex, offset int, item Item) {
 	lmsg := &LineMsg{
-		FileIndex:  fileIndex,
-		DebugIndex: debugIndex,
-		Offset:     offset,
+		FileIndex:  AfdFileIndex(fileIndex),
+		DebugIndex: AfdDebugLen(debugIndex),
+		Offset:     AfdFileSize(offset),
 		Item:       item,
 	}
 	es.afterInitOk(func() {
 		if err := es.p.WriteLineMsg(lmsg); err != nil {
 			lineErrOnce.Do(func() {
-				execSidePrintError(err)
+				logError(err)
 			})
 		}
 	})

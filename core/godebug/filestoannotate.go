@@ -133,7 +133,7 @@ func (fa *FilesToAnnotate) initMaps2(pkg *packages.Package) error {
 	}
 
 	if pkg.PkgPath == editorDebugPkgPath {
-		fa.editorDebugPkgLoaded = true
+		//fa.editorDebugPkgLoaded = true
 	}
 
 	// map filenames to pkgs

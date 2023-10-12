@@ -367,8 +367,8 @@ func (gdi *GoDebugInstance) handleMsg(msg any, cmd *godebug.Cmd) error {
 		return t
 	case *debug.LineMsg:
 		return gdi.di.handleLineMsgs(t)
-	case []*debug.LineMsg:
-		return gdi.di.handleLineMsgs(t...)
+	case *debug.LineMsgs:
+		return gdi.di.handleLineMsgs(*t...)
 	default:
 		return fmt.Errorf("unexpected msg: %T", msg)
 	}
@@ -486,7 +486,7 @@ func (gdi *GoDebugInstance) showSelectedLine(rowPos *ui.RowPos) {
 
 	// file offset
 	dlm := msg.dbgLineMsg
-	fo := &parseutil.FilePos{Filename: filename, Offset: dlm.Offset}
+	fo := &parseutil.FilePos{Filename: filename, Offset: int(dlm.Offset)}
 
 	// show line
 	conf := &OpenFileERowConfig{
@@ -583,16 +583,16 @@ func (di *GDDataIndex) handleFilesDataMsg(fdm *debug.FilesDataMsg) error {
 	di.filesIndexM = map[string]int{}
 	for _, afd := range di.afds {
 		name := di.FilesIndexKey(afd.Filename)
-		di.filesIndexM[name] = afd.FileIndex
+		di.filesIndexM[name] = int(afd.FileIndex)
 	}
 	// init index
 	di.files = make([]*GDFileMsgs, len(di.afds))
 	for _, afd := range di.afds {
 		// check index
-		if afd.FileIndex >= len(di.files) {
+		if int(afd.FileIndex) >= len(di.files) {
 			return fmt.Errorf("bad file index at init: %v len=%v", afd.FileIndex, len(di.files))
 		}
-		di.files[afd.FileIndex] = NewGDFileMsgs(afd.DebugLen)
+		di.files[afd.FileIndex] = NewGDFileMsgs(int(afd.DebugNIndexes))
 	}
 	return nil
 }
@@ -613,12 +613,12 @@ func (di *GDDataIndex) handleLineMsgs(msgs ...*debug.LineMsg) error {
 func (di *GDDataIndex) _handleLineMsg(u *debug.LineMsg) error {
 	// check index
 	l1 := len(di.files)
-	if u.FileIndex >= l1 {
+	if int(u.FileIndex) >= l1 {
 		return fmt.Errorf("bad file index: %v len=%v", u.FileIndex, l1)
 	}
 	// check index
-	l2 := len(di.files[u.FileIndex].linesMsgs)
-	if u.DebugIndex >= l2 {
+	l2 := len(di.files[int(u.FileIndex)].linesMsgs)
+	if int(u.DebugIndex) >= l2 {
 		return fmt.Errorf("bad debug index: %v len=%v", u.DebugIndex, l2)
 	}
 	// line msg
@@ -861,7 +861,7 @@ func (di *GDDataIndex) updateFileEdited(info *ERowInfo) bool {
 		return false
 	}
 	afd := di.afds[findex]
-	edited := !info.EqualToBytesHash(afd.FileSize, afd.FileHash)
+	edited := !info.EqualToBytesHash(int(afd.FileSize), afd.FileHash)
 	di.filesEdited[findex] = edited
 	return edited
 }
@@ -979,7 +979,7 @@ type GDLineMsg struct {
 
 func (msg *GDLineMsg) ann() *drawer4.Annotation {
 	if msg.cache.ann == nil {
-		msg.cache.ann = &drawer4.Annotation{Offset: msg.dbgLineMsg.Offset}
+		msg.cache.ann = &drawer4.Annotation{Offset: int(msg.dbgLineMsg.Offset)}
 	}
 	return msg.cache.ann
 }

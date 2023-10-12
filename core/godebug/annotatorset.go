@@ -56,13 +56,13 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, ti *types.Info, n
 	}
 
 	ann := NewAnnotator(annset.fset, ti, annset.dopt)
-	ann.fileIndex = afd.FileIndex
+	ann.fileIndex = int(afd.FileIndex)
 	ann.nodeAnnTypes = nat
 	ann.testModeMainFunc = testModeMainFunc
 	ann.AnnotateAstFile(astFile)
 
 	// n debug stmts inserted
-	afd.DebugLen = ann.debugLastIndex
+	afd.DebugNIndexes = debug.AfdDebugLen(ann.debugNIndexes)
 
 	return ann, nil
 }
@@ -109,9 +109,9 @@ func (annset *AnnotatorSet) annotatorFileData(filename string) (*debug.Annotator
 
 	// create new afd
 	afd = &debug.AnnotatorFileData{
-		FileIndex: annset.afds.index,
+		FileIndex: uint16(annset.afds.index),
+		FileSize:  uint32(len(src)),
 		Filename:  filename,
-		FileSize:  len(src),
 		FileHash:  sourceHash(src),
 	}
 	annset.afds.m[filename] = afd
@@ -129,7 +129,7 @@ func (annset *AnnotatorSet) buildConfigAfdEntries() string {
 	for _, afd := range annset.afds.order {
 		s := fmt.Sprintf("&AnnotatorFileData{%v,%v,%q,%v,[]byte(%q)}",
 			afd.FileIndex,
-			afd.DebugLen,
+			afd.DebugNIndexes,
 			afd.Filename,
 			afd.FileSize,
 			string(afd.FileHash),
