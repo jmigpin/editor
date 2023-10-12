@@ -32,9 +32,9 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-//godebug:annotatefile
-//godebug:annotatefile:/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/erow.go
-//godebug:annotatefile:/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/godebuginstance.go
+////godebug:annotatefile
+////godebug:annotatefile:/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/erow.go
+////godebug:annotatefile:/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/godebuginstance.go
 
 //go:embed debug/*
 var debugPkgFs embed.FS
@@ -841,8 +841,7 @@ func (cmd *Cmd) buildConfigSrc() []byte {
 
 	src := `package debug
 func init(){
-	EncoderId = "` + debug.EncoderId + `"
-	onExecSide = true
+	eso.onExecSide = true
 	eso.addr = NewAddrI("` + fl.network + `","` + fl.address + `")
 	eso.isServer = ` + strconv.FormatBool(!fl.editorIsServer) + `
 	eso.noInitMsg = ` + strconv.FormatBool(fl.noInitMsg) + `

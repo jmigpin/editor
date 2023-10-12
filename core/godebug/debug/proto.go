@@ -259,7 +259,7 @@ type ProtoExecSide struct {
 }
 
 func (exs *ProtoExecSide) InitProto(conn Conn) (*ProtoConn, error) {
-	// garbage collect?
+	// allow garbage collect?
 	defer func() { exs.fdata = nil }()
 
 	pconn := newProtoConn(conn, !exs.NoWriteBuffering)

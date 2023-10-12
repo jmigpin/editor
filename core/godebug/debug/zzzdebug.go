@@ -3,40 +3,31 @@ package debug
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"sync"
 	"time"
 )
 
-// Initialized by a generated config file when on exec side.
-var EncoderId string
-var onExecSide bool // has generated config
-
-//----------
-
 // NOTE: init() functions declared across multiple files in a package are processed in alphabetical order of the file name
-
 func init() {
-	EncoderId = "editor_eid_001" // static
+	// runs on editorSide/execSide
 
-	//if err := registerStructsForProtoConn(EncoderId); err != nil {
-	//	execSidePrintError(err)
-	//	os.Exit(1)
-	//}
-	registerStructsForProtoConn2("")
+	registerStructsForProtoConn()
 
-	if onExecSide {
+	if eso.onExecSide {
 		es.init()
 	}
 }
 
 //----------
-//----------
-//----------
+
+// exec side: runs before init()s, needed because there could be an Exit() call throught some other init() func, before main() starts
+var es = newES()
 
 // exec side options (set by generated config)
 var eso struct {
+	onExecSide bool // on exec side
+
 	addr                Addr
 	isServer            bool
 	noInitMsg           bool
@@ -50,11 +41,21 @@ var eso struct {
 }
 
 //----------
+//----------
+//----------
+
+func StartEditorSide(ctx context.Context, isServer bool, addr Addr) (*Proto, error) {
+	eds := &ProtoEditorSide{}
+	p := NewProto(ctx, isServer, addr, eds)
+	err := p.Connect()
+	return p, err
+}
+
+//----------
+//----------
+//----------
 
 // exec side
-// runs before init()s, needed because there could be an Exit() call throught some other init() func, before main() starts
-var es = newES()
-
 type ES struct {
 	p     *Proto
 	initw *InitWait
@@ -98,7 +99,7 @@ func (es *ES) afterInitOk(fn func()) {
 //----------
 
 func mustBeExecSide() {
-	if !onExecSide {
+	if !eso.onExecSide {
 		panic("not on exec side")
 	}
 }
@@ -155,17 +156,6 @@ var lineErrOnce sync.Once
 //----------
 //----------
 
-func StartEditorSide(ctx context.Context, isServer bool, addr Addr) (*Proto, error) {
-	eds := &ProtoEditorSide{}
-	p := NewProto(ctx, isServer, addr, eds)
-	err := p.Connect()
-	return p, err
-}
-
-//----------
-//----------
-//----------
-
 type InitWait struct {
 	wg       *sync.WaitGroup
 	waitSlow bool
@@ -186,37 +176,3 @@ func (iw *InitWait) wait() {
 func (iw *InitWait) done() {
 	iw.wg.Done()
 }
-
-//----------
-//----------
-//----------
-
-func genDigitsStr(n int) string {
-	const src = "0123456789"
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = src[rand.Intn(len(src))]
-	}
-	return string(b)
-}
-
-//----------
-//----------
-//----------
-
-// NOTE: explanation of the issue with encoder ids
-// The defined structs can live in two pkgs:
-// - godebugconfig/debug.ReqFilesDataMsg
-// - github.com/jmigpin/editor/core/godebug/debug.ReqFilesDataMsg
-// in self debug, the 2nd editor registers its struct, but if the encoderId is the same, it will clash with the existing debug struct from godebugconfig, which is a different struct by virtue of pkg location, but will register in the same name (gob panic)
-// generated encoder ids solves this, but then a built binary only works with that editor, and, for example, a connect cmd waiting for a binary has to be built with that editor instance (same encoder id)
-// registering only once doesn't work, there needs to be 2 registrations, one for the config and other for editor, but after that, down the wire, the config needs to match the editor (generated ids solves this)
-// with generated encoder ids, a built binary will only be able to run with this editor instance. On the other hand, it can self debug any part of the editor, including the debug pkg, inside an editor running from another editor instance.
-
-//----------
-
-// implemented
-// a single pkg for all purposes would solve this issue, but then having an external program be injected with a package named "github.com/jmigpin/editor/core/godebug/debug" could fail to compile (pkg exists; there might be changes in the structs; editor pkg not in cache and needs to fetch; ...)
-// in case of self debug, the editor running the debug session needs to be compatible with the structs being sent by the client
-
-//----------

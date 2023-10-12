@@ -22,8 +22,6 @@ type EDRegistry struct {
 	idToType map[EDRegId]reflect.Type
 
 	nilId EDRegId
-	//nilPointerId   EDRegId
-	//nilInterfaceId EDRegId
 }
 
 func newEDRegistry() *EDRegistry {
@@ -31,18 +29,14 @@ func newEDRegistry() *EDRegistry {
 	reg.typeToId = map[reflect.Type]EDRegId{}
 	reg.idToType = map[EDRegId]reflect.Type{}
 
-	// default entries
-	// start at non-zero to detect zero value as error
-	reg.idc = 5
-	reg.nilId = reg.newId(nil)
-	//reg.nilPointerId = reg.newId(nil)
-	//reg.nilInterfaceId = reg.newId(nil)
-	reg.idc = 10
+	reg.idc = 1                // start at non-zero to detect errors
+	reg.nilId = reg.newId(nil) // register nil
+	reg.idc = 10               // start other registration at a fixed num
 
 	return reg
 }
 func (reg *EDRegistry) register(v any) EDRegId {
-	typ := bypassPointersAndInterfaces(reflect.ValueOf(v)).Type()
+	typ := concreteType(reflect.ValueOf(v))
 	id, ok := reg.typeToId[typ]
 	if ok {
 		return id
@@ -148,7 +142,7 @@ func (dec *Decoder) id() (EDRegId, error) {
 //----------
 
 func (enc *Encoder) id2(v reflect.Value) error {
-	typ := bypassPointersAndInterfaces(v).Type()
+	typ := concreteType(v)
 	id, ok := enc.reg.typeToId[typ]
 	if !ok {
 		return enc.errorf("type has no id: %v", typ)
@@ -225,7 +219,6 @@ func (enc *Encoder) reflect2(v reflect.Value) error {
 	case reflect.Pointer:
 		// has always an id because it can be nil
 		if v.IsNil() {
-			//return enc.id(enc.reg.nilPointerId)
 			return enc.id(enc.reg.nilId)
 		}
 		if err := enc.id2(v); err != nil {
@@ -236,7 +229,6 @@ func (enc *Encoder) reflect2(v reflect.Value) error {
 	case reflect.Interface:
 		// has always an id because it can be nil
 		if v.IsNil() {
-			//return enc.id(enc.reg.nilInterfaceId)
 			return enc.id(enc.reg.nilId)
 		}
 		if err := enc.id2(v); err != nil {
@@ -303,7 +295,6 @@ func (dec *Decoder) reflect2(v reflect.Value) error {
 			return err
 		}
 		dec.logf("\tdecode pointer id: %v\n", id)
-		//if id == dec.reg.nilPointerId {
 		if id == dec.reg.nilId {
 			v.Set(reflect.Zero(v.Type()))
 			return nil
@@ -330,7 +321,6 @@ func (dec *Decoder) reflect2(v reflect.Value) error {
 			return err
 		}
 		dec.logf("\tdecode interface id: %v\n", id)
-		//if id == dec.reg.nilInterfaceId {
 		if id == dec.reg.nilId {
 			v.Set(reflect.Zero(v.Type()))
 			return nil
@@ -461,15 +451,25 @@ func wrapErrorWithType(err error, v any) error {
 
 //----------
 
-func bypassPointersAndInterfaces(val reflect.Value) reflect.Value {
-	for (val.Kind() == reflect.Pointer || val.Kind() == reflect.Interface) && !val.IsNil() {
-		val = val.Elem()
+func concreteType(v reflect.Value) reflect.Type {
+	// NOTE: this can't be done directly with reflect.Type because interface type doesn't have a t.elem(), only the interface value does
+
+	for {
+		switch v.Kind() {
+		case reflect.Pointer:
+			if v.IsNil() {
+				return v.Type().Elem()
+			}
+			v = v.Elem()
+			continue
+		case reflect.Interface:
+			if v.IsNil() {
+				return v.Type()
+			}
+			v = v.Elem()
+			continue
+		}
+		break
 	}
-	return val
-}
-func bypassPointerTypes(typ reflect.Type) reflect.Type {
-	for typ != nil && typ.Kind() == reflect.Pointer {
-		typ = typ.Elem()
-	}
-	return typ
+	return v.Type()
 }

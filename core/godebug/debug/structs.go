@@ -4,18 +4,8 @@ import (
 	"fmt"
 )
 
-func registerStructsForProtoConn(encoderId string) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("%v", r)
-		}
-	}()
-	registerStructsForProtoConn2(encoderId)
-	return
-}
-func registerStructsForProtoConn2(encoderId string) {
+func registerStructsForProtoConn() {
 	reg := func(v any) {
-		//registerForProtoConn(encoderId, v)
 		edReg.register(v)
 	}
 
@@ -27,7 +17,6 @@ func registerStructsForProtoConn2(encoderId string) {
 
 	reg(&LineMsgs{})
 	reg(&LineMsg{})
-	//reg([]*LineMsg{})
 
 	reg(&ItemValue{})
 	reg(&ItemList{})
@@ -104,14 +93,7 @@ type ItemList struct { // separated by ","
 	Item
 	List []Item
 }
-
-// type ItemList2 struct { // separated by ";"
-//		Item
-//		List []Item
-//	}
-
 type ItemList2 ItemList // separated by ";"
-
 type ItemAssign struct {
 	Item
 	Lhs *ItemList

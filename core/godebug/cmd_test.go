@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -44,41 +43,43 @@ func godebugTester(t *testing.T, args []string) error {
 		return nil
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		// util func
-		add := func(s string) {
+	fn := func() error {
+		pr := func(s string) { // util func
 			fmt.Printf("recv: %v\n", s)
 		}
+
 		for {
 			msg, ok, err := cmd.ProtoRead()
 			if err != nil {
-				fmt.Printf("godebugtester msg loop error: %v", err)
-				break
+				return err
 			}
 			if !ok {
 				break
 			}
 
-			switch mt := msg.(type) {
+			switch t := msg.(type) {
 			case *debug.LineMsg:
-				add(StringifyItem(mt.Item))
-			case []*debug.LineMsg:
-				for _, m := range mt {
-					add(StringifyItem(m.Item))
+				pr(StringifyItem(t.Item))
+			case *debug.LineMsgs:
+				for _, m := range *t {
+					pr(StringifyItem(m.Item))
 				}
 			default:
-				add(fmt.Sprintf("(%T)%v", msg, msg))
+				return fmt.Errorf("unexpected type: %T, %v", msg, msg)
 			}
 		}
-	}()
+		return nil
+	}
 
-	err = cmd.Wait()
-	wg.Wait()
-	return err
+	ch := make(chan any)
+	go func() {
+		ch <- fn()
+	}()
+	if v := <-ch; v != nil {
+		return v.(error)
+	}
+
+	return cmd.Wait()
 }
 
 //----------
