@@ -316,6 +316,7 @@ Examples:
 	GoDebug build -addr=:8078 main.go
 	GoDebug build -network=ws -addr=:8078 -env=GOOS=js:GOARCH=wasm -o=static/main.wasm client/main.go
 	GoDebug connect -help
+	GoDebug connect -addr=:8078
 	GoDebug connect -network=ws -addr=:8078
 `
 }
