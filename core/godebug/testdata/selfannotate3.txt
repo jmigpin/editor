@@ -1,0 +1,86 @@
+# debug editor pkgs (self debug)
+
+exec go mod tidy
+
+#setenv script_keepwork true
+#ucmd godebugtester run -work
+
+# commented: disabled, was mainly used for a specific test
+#ucmd godebugtester run
+
+-- go.mod --
+module mod1
+require github.com/jmigpin/editor v0.0.0
+replace github.com/jmigpin/editor => /home/jorge/projects/golangcode/src/github.com/jmigpin/editor
+-- main.go --
+package main
+import "os"
+import "fmt"
+import "context"
+import "github.com/jmigpin/editor/core/godebug"
+import "github.com/jmigpin/editor/core/godebug/debug"
+func main() {
+	if err:=main2();err!=nil{
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+func main2() error{
+	args:=[]string{"run","f1.go"}
+	
+	cmd := godebug.NewCmd()
+	
+	cmd.Dir = "./dir1"
+	
+	ctx := context.Background()
+	done, err := cmd.Start(ctx, args)
+	if err!=nil{
+		return err
+	}
+	if done { 
+		return nil
+	}
+	
+	fn := func() error {
+		pr := func(s string) { // util func
+			fmt.Printf("RECEIVE: %v\n", s)
+		}
+
+		for {
+			msg, ok, err := cmd.ProtoRead()
+			if err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+
+			switch t := msg.(type) {
+			case *debug.LineMsg:
+				pr(godebug.StringifyItem(t.Item))
+			case *debug.LineMsgs:
+				for _, m := range *t {
+					pr(godebug.StringifyItem(m.Item))
+				}
+			default:
+				return fmt.Errorf("unexpected type: %T, %v", msg, msg)
+			}
+		}
+		return nil
+	}
+	
+	ch := make(chan any)
+	go func() {
+		ch <- fn()
+	}()
+	if v := <-ch; v != nil {
+		return v.(error)
+	}
+
+	return cmd.Wait()
+}
+-- dir1/f1.go --
+package main
+func main(){
+	println(1)
+}

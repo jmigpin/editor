@@ -2468,3 +2468,22 @@ func f0() {
 		Σ.L(0, 5, 58, Σ.ISt())
 	}
 }
+-- TestAnnotator124.in --
+func f0() {
+	a:=make([]A,3)
+	w:=&a[2].v
+	*w=append(*w,5,6,7)
+}
+type A struct{v[]int}
+-- TestAnnotator124.out --
+func f0() {
+	Σ.L(0, 0, 12, Σ.ISt())
+	Σ.L(0, 1, 28, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("_"), Σ.IVs("3"))), nil)))
+	a := make([]A, 3)
+	Σ0 := &a[2].v
+	Σ1 := Σ.IVi(Σ0)
+	Σ.L(0, 2, 44, Σ.IL(Σ.IU(Σ.IUe(17, Σ.ISel(Σ.II(Σ.IVs("a"), Σ.IVs("2"), Σ.IVi(a[2])), Σ.IVs("v"), Σ.IVi(a[2].v))), Σ1)))
+	w := Σ0
+	*w = append(*w, 5, 6, 7)
+	Σ.L(0, 3, 53, Σ.IA(Σ.IL(Σ.IU(Σ.IUe(14, Σ.IVi(w)), Σ.IVi(*w))), 42, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("append"), Σ.IL(Σ.IU(Σ.IUe(14, Σ.IVi(w)), Σ.IVi(*w)), Σ.IVs("5"), Σ.IVs("6"), Σ.IVs("7"))), nil))))
+}

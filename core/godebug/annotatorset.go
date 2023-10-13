@@ -15,13 +15,6 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-// The godebug/debug pkg is writen to a tmp dir and used with the pkg path "godebugconfig/debug" to avoid dependencies in the target build. Annotation data is added to the aaaconfig.go. The godebug/debug pkg is included in the editor binary via //go:embed directive.
-var debugPkgPath = "godebugconfig/debug"
-
-var editorDebugPkgPath = "github.com/jmigpin/editor/core/godebug/debug"
-
-//----------
-
 type AnnotatorSet struct {
 	fset *token.FileSet
 	dopt *AnnSetDebugOpt
@@ -150,7 +143,9 @@ type AnnSetDebugOpt struct {
 }
 
 func newAnnSetDebugOpt() *AnnSetDebugOpt {
-	// defaults
+	// The godebug/debug pkg is writen to a tmp dir and used with the pkg path "godebugconfig/debug" to avoid dependencies in the target build. Annotation data is added to the aaaconfig.go. The godebug/debug pkg is included in the editor binary via //go:embed directive.
+	var debugPkgPath = "godebugconfig/debug"
+
 	return &AnnSetDebugOpt{
 		PkgPath:   debugPkgPath,
 		PkgName:   "Σ", // uncommon rune to avoid clashes; expected by tests

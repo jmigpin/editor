@@ -30,9 +30,14 @@ func (ctx *Ctx) withValue2(ids []ctxId, value any) *Ctx {
 	}
 	return ctx2
 }
-func (ctx *Ctx) withInherit(match, v any, cids ...ctxId) *Ctx {
-	cids2 := ctx.valueMatch3(cids, match)
-	return ctx.withValue2(cids2, v)
+
+// inherit
+func (ctx *Ctx) withValueMatch(ids []ctxId, match, v any) *Ctx {
+	ids2 := ctx.valueMatch3(ids, match)
+	if len(ids2) > 0 {
+		return ctx.withValue2(ids2, v)
+	}
+	return ctx
 }
 
 //----------
@@ -318,6 +323,7 @@ const (
 	cidnResAssignDebugToVar
 	cidnResNotReplaceable
 	cidnResReplaceWithVar
+	cidnResIsForAddress
 
 	cidnIsConstSpec
 	cidnIsExprStmtExpr

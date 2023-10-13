@@ -11,7 +11,6 @@ import (
 
 	"github.com/jmigpin/editor/util/testutil"
 
-	//godebug:annotateimport
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
 

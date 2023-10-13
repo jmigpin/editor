@@ -149,6 +149,10 @@ func (ann *Annotator) resultDE(ctx *Ctx, expr ast.Expr) (DebugExpr, error) {
 		return expr2, nil
 	}
 
+	if ctx.valueMatch2(cidnResIsForAddress, expr) {
+		return ann.resBasic(ctx, expr, expr)
+	}
+
 	if ctx.valueMatch2(cidnResNotReplaceable, expr) {
 		return ann.resBasic(ctx, expr, expr)
 	}

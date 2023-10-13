@@ -21,7 +21,7 @@ func init() {
 
 //----------
 
-// exec side: runs before init()s, needed because there could be an Exit() call throught some other init() func, before main() starts
+// exec side: runs before init()s, needed because there could be an Exit() call throught some other init() func, and the initwait must initialize before that to block sending until init is done
 var es = newES()
 
 // exec side options (set by generated config)
@@ -46,6 +46,8 @@ var eso struct {
 
 func StartEditorSide(ctx context.Context, isServer bool, addr Addr) (*Proto, error) {
 	eds := &ProtoEditorSide{}
+	//eds.logOn = true
+	//log.Printf("edside -> %v\n", addr)
 	p := NewProto(ctx, isServer, addr, eds)
 	err := p.Connect()
 	return p, err
@@ -74,7 +76,7 @@ func (es *ES) init() {
 		if !eso.srcLines {
 			msg += fmt.Sprintf(" Note that in the case of panic, the src lines will not correspond to the original src code, but to the annotated src (-srclines=false).")
 		}
-		logf("%v\n", msg)
+		execSideLogf("%v\n", msg)
 	}
 
 	ctx := context.Background()
@@ -82,9 +84,11 @@ func (es *ES) init() {
 
 	fd := &FilesDataMsg{Data: eso.filesData}
 	exs := &ProtoExecSide{fdata: fd, NoWriteBuffering: eso.syncSend}
+	//exs.logOn = true
+	//log.Printf("exec -> %v\n", eso.addr)
 	es.p = NewProto(ctx, eso.isServer, eso.addr, exs)
 	if err := es.p.Connect(); err != nil {
-		logError(err)
+		execSideError(err)
 	}
 }
 func (es *ES) afterInitOk(fn func()) {
@@ -103,10 +107,10 @@ func mustBeExecSide() {
 		panic("not on exec side")
 	}
 }
-func logError(err error) {
-	logf("error: %v\n", err)
+func execSideError(err error) {
+	execSideLogf("error: %v\n", err)
 }
-func logf(f string, args ...any) {
+func execSideLogf(f string, args ...any) {
 	// TODO: should be exec side only
 	fmt.Fprintf(os.Stderr, "DEBUG: "+f, args...)
 }
@@ -117,7 +121,7 @@ func logf(f string, args ...any) {
 func Close() {
 	es.afterInitOk(func() {
 		if err := es.p.WaitClose(); err != nil {
-			logError(err)
+			execSideError(err)
 		}
 	})
 }
@@ -127,7 +131,7 @@ func Close() {
 func Exit(code int) {
 	Close()
 	if !eso.noInitMsg {
-		logf("exit code: %v\n", code)
+		execSideLogf("exit code: %v\n", code)
 	}
 	os.Exit(code)
 }
@@ -144,7 +148,7 @@ func L(fileIndex, debugIndex, offset int, item Item) {
 	es.afterInitOk(func() {
 		if err := es.p.WriteLineMsg(lmsg); err != nil {
 			lineErrOnce.Do(func() {
-				logError(err)
+				execSideError(err)
 			})
 		}
 	})

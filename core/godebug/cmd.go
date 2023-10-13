@@ -32,9 +32,9 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-////godebug:annotatefile
-////godebug:annotatefile:/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/erow.go
-////godebug:annotatefile:/home/jorge/projects/golangcode/src/github.com/jmigpin/editor/core/godebuginstance.go
+//godebug:annotatefile
+////godebug:annotatefile:../godebuginstance.go
+////godebug:annotatefile:../editor.go
 
 //go:embed debug/*
 var debugPkgFs embed.FS

@@ -1,0 +1,23 @@
+# was printing "{[]}" instead of "{[5 6 7]}" due to slice copy to tmp var
+
+#setenv script_keepwork true
+#ucmd godebugtester run -work main1.go
+
+#exec go run main.go
+ucmd godebugtester run main.go 
+contains stdout "{[5 6 7]}"
+
+-- go.mod --
+module main
+-- main.go --
+package main
+import "fmt"
+func main(){
+	type A struct{
+		v []int
+	}	
+	a:=make([]A,3)
+	w:=&a[2].v
+	*w=append(*w,5,6,7)
+	fmt.Printf("%v\n", a[2])
+}

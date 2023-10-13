@@ -22,7 +22,7 @@ import (
 
 // Note: Should have a unique instance because there is no easy solution to debug two (or more) programs that have common files in the same editor
 
-const updatesPerSecond = 15
+const updatesPerSecond = 12
 
 type GoDebugManager struct {
 	ed   *Editor
@@ -301,12 +301,11 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 	updateInterval := time.Second / updatesPerSecond
 	var d struct {
 		sync.Mutex
-		updating   bool
-		lastUpdate time.Time
+		updating        bool
+		lastUpdateStart time.Time
 	}
-	updateUI := func() {
+	updateUI := func() { // d must be locked
 		d.updating = false
-		d.lastUpdate = time.Now()
 		gdi.updateUI()
 	}
 	checkUI := (func())(nil)
@@ -319,10 +318,11 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 		}
 		d.updating = true
 
-		deadline := d.lastUpdate.Add(updateInterval)
+		now := time.Now()
+		d.lastUpdateStart = now
+		deadline := d.lastUpdateStart.Add(updateInterval)
 
 		// update now
-		now := time.Now()
 		if now.After(deadline) {
 			updateUI()
 			return
@@ -355,16 +355,12 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 		}
 		if err := gdi.handleMsg(v, cmd); err != nil {
 			handleError(err)
+			break
 		}
 	}
 }
-
-//----------
-
 func (gdi *GoDebugInstance) handleMsg(msg any, cmd *godebug.Cmd) error {
 	switch t := msg.(type) {
-	case error:
-		return t
 	case *debug.LineMsg:
 		return gdi.di.handleLineMsgs(t)
 	case *debug.LineMsgs:
@@ -372,7 +368,6 @@ func (gdi *GoDebugInstance) handleMsg(msg any, cmd *godebug.Cmd) error {
 	default:
 		return fmt.Errorf("unexpected msg: %T", msg)
 	}
-	return nil
 }
 
 //----------
@@ -747,7 +742,8 @@ func (di *GDDataIndex) _annIndexFileLine(filename string, annIndex int) (*GDFile
 	if annIndex < 0 || annIndex >= len(file.linesMsgs) {
 		return nil, nil, false
 	}
-	return file, &file.linesMsgs[annIndex], true
+
+	return file, file.linesMsgs[annIndex], true
 }
 
 //----------
@@ -899,7 +895,7 @@ func (di *GDDataIndex) arrivalIndexFilename(arrivalIndex int) (int, string, bool
 //----------
 
 type GDFileMsgs struct {
-	linesMsgs []GDLineMsgs // [lineIndex] file annotations received
+	linesMsgs []*GDLineMsgs // [lineIndex] file annotations received
 
 	// current annotation entries to be shown with a file
 	annEntries        []*drawer4.Annotation
@@ -909,11 +905,19 @@ type GDFileMsgs struct {
 }
 
 func NewGDFileMsgs(n int) *GDFileMsgs {
-	return &GDFileMsgs{
-		linesMsgs:         make([]GDLineMsgs, n),
+	fms := &GDFileMsgs{
+		linesMsgs:         make([]*GDLineMsgs, n),
 		annEntries:        make([]*drawer4.Annotation, n),
 		annEntriesLMIndex: make([]int, n),
 	}
+
+	// alloc contiguous memory
+	u := make([]GDLineMsgs, n)
+	for i := 0; i < n; i++ {
+		fms.linesMsgs[i] = &u[i]
+	}
+
+	return fms
 }
 
 // Not locked
@@ -949,14 +953,14 @@ type GDLineMsgs struct {
 	lineMsgs []*GDLineMsg // [arrivalIndex] line annotations received
 }
 
-func (lm *GDLineMsgs) findIndex(arrivalIndex int) (int, bool, bool) {
-	k := sort.Search(len(lm.lineMsgs), func(i int) bool {
-		u := lm.lineMsgs[i].arrivalIndex
+func (lms *GDLineMsgs) findIndex(arrivalIndex int) (int, bool, bool) {
+	k := sort.Search(len(lms.lineMsgs), func(i int) bool {
+		u := lms.lineMsgs[i].arrivalIndex
 		return u >= arrivalIndex
 	})
 	foundK := false
 	eqK := false
-	if k < len(lm.lineMsgs) && lm.lineMsgs[k].arrivalIndex == arrivalIndex {
+	if k < len(lms.lineMsgs) && lms.lineMsgs[k].arrivalIndex == arrivalIndex {
 		eqK = true
 		foundK = true
 	} else {

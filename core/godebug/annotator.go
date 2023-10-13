@@ -21,7 +21,7 @@ type Annotator struct {
 
 	dopt              *AnnSetDebugOpt
 	debugVarNameIndex int
-	debugNIndexes    int // n indexes were used
+	debugNIndexes     int // n indexes were used
 
 	testModeMainFunc bool
 	hasMainFunc      bool
@@ -1149,11 +1149,12 @@ func (ann *Annotator) visParenExprs(ctx *Ctx, pe *ast.ParenExpr) (DebugExpr, err
 	// inherit ctxs
 	cids := []ctxId{
 		cidnResNotReplaceable,
+		cidnResIsForAddress,
 		cidnResAssignDebugToVar,
 		cidnIsCallExprFun,
 		cidnIsExprStmtExpr,
 	}
-	ctx = ctx.withInherit(pe, pe.X, cids...)
+	ctx = ctx.withValueMatch(cids, pe, pe.X)
 
 	x, err := ann.visExpr(ctx, &pe.X)
 	if err != nil {
@@ -1183,7 +1184,13 @@ func (ann *Annotator) visSelectorExpr(ctx *Ctx, se *ast.SelectorExpr) (DebugExpr
 
 	x := DebugExpr(nilIdent(se.X.Pos()))
 	if doX {
-		x2, err := ann.visExpr(ctx, &se.X)
+		ctx2 := ctx
+		ids := []ctxId{
+			cidnResIsForAddress,
+		}
+		ctx2 = ctx2.withValueMatch(ids, se, se.X)
+
+		x2, err := ann.visExpr(ctx2, &se.X)
 		if err != nil {
 			return nil, err
 		}
@@ -1324,7 +1331,8 @@ func (ann *Annotator) visUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) (DebugExpr, erro
 	ctx2 := ctx
 	//ctx2 = ctx2.withValue(cidnAssignDebugToVar, ue.X)
 	if hasAddressOp(ue) { // ex: _=&a; _=&A{1,2}
-		ctx2 = ctx2.withValue(cidnResNotReplaceable, ue.X)
+		//ctx2 = ctx2.withValue(cidnResNotReplaceable, ue.X)
+		ctx2 = ctx2.withValue(cidnResIsForAddress, ue.X)
 	}
 	x, err := ann.visExpr(ctx2, &ue.X)
 	if err != nil {
@@ -1346,7 +1354,7 @@ func (ann *Annotator) visUnaryExpr(ctx *Ctx, ue *ast.UnaryExpr) (DebugExpr, erro
 		e2 = u
 	}
 
-	ctx3 := ctx
+	ctx3 := ctx2
 	if hasChanRecvOp(ue) || hasAddressOp(ue) {
 		ctx3 = ctx3.withValue(cidnResReplaceWithVar, ue) // avoid double call
 	}
