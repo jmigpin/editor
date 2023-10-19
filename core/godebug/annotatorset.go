@@ -55,7 +55,7 @@ func (annset *AnnotatorSet) AnnotateAstFile(astFile *ast.File, ti *types.Info, n
 	ann.AnnotateAstFile(astFile)
 
 	// n debug stmts inserted
-	afd.DebugNIndexes = debug.AfdDebugLen(ann.debugNIndexes)
+	afd.DebugNIndexes = debug.AfdMsgIndex(ann.debugNIndexes)
 
 	return ann, nil
 }

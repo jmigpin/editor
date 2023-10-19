@@ -7,7 +7,7 @@ import (
 )
 
 func TestEncode1(t *testing.T) {
-	lines := LineMsgs{
+	lines := OffsetMsgs{
 		{Item: IVi(1), FileIndex: 7},
 		{Item: IVi(2), FileIndex: 8},
 		{Item: IA(nil, 5, nil)},
@@ -19,7 +19,7 @@ func TestEncode1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lms, ok := v.(*LineMsgs)
+	lms, ok := v.(*OffsetMsgs)
 	if !ok {
 		t.Fatal(v)
 	}
@@ -43,7 +43,7 @@ func TestEncode2(t *testing.T) {
 		]
 	*/
 
-	lm := &LineMsg{Item: IVi(1)}
+	lm := &OffsetMsg{Item: IVi(1)}
 	v, b, err := testEncDec(t, lm)
 	if err != nil {
 		t.Fatal(err)

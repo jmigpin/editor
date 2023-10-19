@@ -57,9 +57,9 @@ func godebugTester(t *testing.T, args []string) error {
 			}
 
 			switch t := msg.(type) {
-			case *debug.LineMsg:
+			case *debug.OffsetMsg:
 				pr(StringifyItem(t.Item))
-			case *debug.LineMsgs:
+			case *debug.OffsetMsgs:
 				for _, m := range *t {
 					pr(StringifyItem(m.Item))
 				}

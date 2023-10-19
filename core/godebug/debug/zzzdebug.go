@@ -139,14 +139,14 @@ func Exit(code int) {
 // Auto-inserted at annotations. Don't use.
 // NOTE: func name is used in annotator, don't rename.
 func L(fileIndex, debugIndex, offset int, item Item) {
-	lmsg := &LineMsg{
+	lmsg := &OffsetMsg{
 		FileIndex:  AfdFileIndex(fileIndex),
-		DebugIndex: AfdDebugLen(debugIndex),
+		MsgIndex: AfdMsgIndex(debugIndex),
 		Offset:     AfdFileSize(offset),
 		Item:       item,
 	}
 	es.afterInitOk(func() {
-		if err := es.p.WriteLineMsg(lmsg); err != nil {
+		if err := es.p.WriteMsg(lmsg); err != nil {
 			lineErrOnce.Do(func() {
 				execSideError(err)
 			})

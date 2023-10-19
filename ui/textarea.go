@@ -67,11 +67,11 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 			m := ev.Mods.ClearLocks()
 			switch {
 			case m.Is(event.ModCtrl):
-				if ta.selAnnCurEv(ev.Point, TASelAnnTypePrint) {
+				if ta.selAnnCurEv(ev.Point, TasatPrint) {
 					return true
 				}
 			case m.Is(event.ModCtrl | event.ModShift):
-				if ta.selAnnCurEv(ev.Point, TASelAnnTypePrintAllPrevious) {
+				if ta.selAnnCurEv(ev.Point, TasatPrintPreviousAll) {
 					return true
 				}
 			}
@@ -90,21 +90,21 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 		case event.ButtonLeft:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
-				if ta.selAnnCurEv(ev.Point, TASelAnnTypeLine) {
+				if ta.selAnnCurEv(ev.Point, TasatMsg) {
 					return true
 				}
 			}
 		case event.ButtonWheelUp:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
-				if ta.selAnnCurEv(ev.Point, TASelAnnTypeLinePrev) {
+				if ta.selAnnCurEv(ev.Point, TasatMsgPrev) {
 					return true
 				}
 			}
 		case event.ButtonWheelDown:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
-				if ta.selAnnCurEv(ev.Point, TASelAnnTypeLineNext) {
+				if ta.selAnnCurEv(ev.Point, TasatMsgNext) {
 					return true
 				}
 			}
@@ -152,10 +152,10 @@ func (ta *TextArea) selAnnCurEv(p image.Point, typ TASelAnnType) bool {
 			} else {
 				// not in an annotation, switch the general prev/next
 				switch typ {
-				case TASelAnnTypeLinePrev:
-					ev2.Type = TASelAnnTypePrev
-				case TASelAnnTypeLineNext:
-					ev2.Type = TASelAnnTypeNext
+				case TasatMsgPrev:
+					ev2.Type = TasatPrev
+				case TasatMsgNext:
+					ev2.Type = TasatNext
 				default:
 					return false
 				}
@@ -257,16 +257,18 @@ type TextAreaSelectAnnotationEvent struct {
 	Type            TASelAnnType
 }
 
+//----------
+
 type TASelAnnType int
 
 const (
-	TASelAnnTypePrev TASelAnnType = iota
-	TASelAnnTypeNext
-	TASelAnnTypeLine
-	TASelAnnTypeLinePrev
-	TASelAnnTypeLineNext
-	TASelAnnTypePrint
-	TASelAnnTypePrintAllPrevious
+	TasatPrev TASelAnnType = iota
+	TasatNext
+	TasatMsg
+	TasatMsgPrev
+	TasatMsgNext
+	TasatPrint
+	TasatPrintPreviousAll
 )
 
 //----------

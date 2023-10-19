@@ -15,8 +15,8 @@ func registerStructsForProtoConn() {
 	reg(&FilesDataMsg{})
 	reg(&AnnotatorFileData{})
 
-	reg(&LineMsgs{})
-	reg(&LineMsg{})
+	reg(&OffsetMsgs{})
+	reg(&OffsetMsg{})
 
 	reg(&ItemValue{})
 	reg(&ItemList{})
@@ -58,7 +58,7 @@ type FilesDataMsg struct {
 type AnnotatorFileData struct {
 	// decl order matters: used by the config generator to fill the struct
 	FileIndex     AfdFileIndex
-	DebugNIndexes AfdDebugLen
+	DebugNIndexes AfdMsgIndex
 	Filename      string
 	FileSize      AfdFileSize
 	FileHash      []byte
@@ -66,15 +66,15 @@ type AnnotatorFileData struct {
 
 type AfdFileIndex = uint16
 type AfdFileSize = uint32
-type AfdDebugLen = uint32 // uint16 enough?
+type AfdMsgIndex = uint32 // uint16 enough?
 
 //----------
 
-type LineMsgs []*LineMsg
+type OffsetMsgs []*OffsetMsg
 
-type LineMsg struct {
+type OffsetMsg struct {
 	FileIndex  AfdFileIndex
-	DebugIndex AfdDebugLen
+	MsgIndex AfdMsgIndex
 	Offset     AfdFileSize
 	Item       Item
 }

@@ -24,7 +24,7 @@ func TestProto1(t *testing.T) {
 
 	msg := []byte("abcdefg")
 	msgOut := "[97 98 99 100 101 102 103]"
-	lineMsg := &LineMsg{Item: IVi(msg)}
+	lineMsg := &OffsetMsg{Item: IVi(msg)}
 
 	// accept
 	go func() {
@@ -53,11 +53,11 @@ func TestProto1(t *testing.T) {
 			}
 			tlogf(t, "1: read done\n")
 
-			lms := LineMsgs{}
+			lms := OffsetMsgs{}
 			switch t := u.(type) {
-			case *LineMsg:
+			case *OffsetMsg:
 				lms = append(lms, t)
-			case *LineMsgs:
+			case *OffsetMsgs:
 				lms = *t
 			default:
 				panic(fmt.Errorf("1: %T", u))
@@ -109,7 +109,7 @@ func TestProto1(t *testing.T) {
 	//for i := 0; i < 1000000; i++ {
 	for i := 0; i < 10000; i++ {
 		//for i := 0; i < 2; i++ {
-		if err := dp2.WriteLineMsg(lineMsg); err != nil {
+		if err := dp2.WriteMsg(lineMsg); err != nil {
 			t.Fatal(err)
 		}
 	}
