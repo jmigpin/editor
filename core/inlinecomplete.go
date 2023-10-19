@@ -94,10 +94,10 @@ func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui
 		}
 	default:
 		// show completions
-		entries := []*drawer4.Annotation{}
-		for _, v := range comps {
+		entries := drawer4.NewAnnotationGroup(len(comps))
+		for i, v := range comps {
 			u := &drawer4.Annotation{Offset: ev.Offset, Bytes: []byte(v)}
-			entries = append(entries, u)
+			entries.Anns[i] = u
 		}
 		ic.setAnnotations(ta, entries)
 	}
@@ -147,12 +147,13 @@ func (ic *InlineComplete) completions(ctx context.Context, filename string, ta *
 
 func (ic *InlineComplete) setAnnotationsMsg(ta *ui.TextArea, s string) {
 	offset := ta.CursorIndex()
-	entries := []*drawer4.Annotation{{Offset: offset, Bytes: []byte(s)}}
+	entries := drawer4.NewAnnotationGroup(1)
+	entries.Anns = []*drawer4.Annotation{{Offset: offset, Bytes: []byte(s)}}
 	ic.setAnnotations(ta, entries)
 }
 
-func (ic *InlineComplete) setAnnotations(ta *ui.TextArea, entries []*drawer4.Annotation) {
-	on := entries != nil && len(entries) > 0
+func (ic *InlineComplete) setAnnotations(ta *ui.TextArea, entries *drawer4.AnnotationGroup) {
+	on := entries != nil && len(entries.Anns) > 0
 	ic.ed.SetAnnotations(EareqInlineComplete, ta, on, -1, entries)
 	if !on {
 		ic.setOff(ta)

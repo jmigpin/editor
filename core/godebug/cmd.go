@@ -33,7 +33,8 @@ import (
 )
 
 //godebug:annotatefile
-////godebug:annotatefile:../godebuginstance.go
+//godebug:annotatefile:../godebuginstance.go
+//godebug:annotatefile:../openerow.go
 ////godebug:annotatefile:../editor.go
 
 //go:embed debug/*

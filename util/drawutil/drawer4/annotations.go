@@ -1,6 +1,8 @@
 package drawer4
 
 import (
+	"sync"
+
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/mathutil"
 )
@@ -13,6 +15,10 @@ type Annotations struct {
 func (ann *Annotations) Init() {
 	size2 := ann.d.st.runeR.fface.Size * 0.70
 	ann.notesFFace = ann.d.st.runeR.fface.Font.FontFace2(size2)
+
+	if ann.d.Opt.Annotations.Entries != nil {
+		ann.d.Opt.Annotations.Entries.RLock()
+	}
 }
 
 func (ann *Annotations) Iter() {
@@ -32,8 +38,8 @@ func (ann *Annotations) iter2() {
 	q := &ann.d.st.annotations.indexQ
 	// add annotations up to the first entry offset, only need to check next entries with offsets smaller then the first entry (ex: function literals with inner annotations that have higher entry index, but lower offsets).
 	var first *Annotation
-	for k := *i; k < len(entries); k++ {
-		e := entries[k]
+	for k := *i; k < len(entries.Anns); k++ {
+		e := entries.Anns[k]
 		if e == nil {
 			continue
 		}
@@ -76,7 +82,11 @@ func (ann *Annotations) iter2() {
 	}
 }
 
-func (ann *Annotations) End() {}
+func (ann *Annotations) End() {
+	if ann.d.Opt.Annotations.Entries != nil {
+		ann.d.Opt.Annotations.Entries.RUnlock()
+	}
+}
 
 //----------
 
@@ -118,7 +128,7 @@ func (ann *Annotations) insertAnnotations2() {
 	// annotations
 	c := 0
 	for _, index := range ann.d.st.annotations.indexQ {
-		entry := ann.d.Opt.Annotations.Entries[index]
+		entry := ann.d.Opt.Annotations.Entries.Anns[index]
 		if entry == nil {
 			continue
 		}
@@ -194,6 +204,26 @@ func (ann *Annotations) insertSeparatorString(s string) bool {
 }
 
 //----------
+//----------
+//----------
+
+type AnnotationGroup struct {
+	sync.RWMutex
+	Anns []*Annotation
+}
+
+func NewAnnotationGroup(n int) *AnnotationGroup {
+	ag := &AnnotationGroup{}
+	ag.Anns = make([]*Annotation, n)
+	// allocate contiguous memory
+	w := make([]Annotation, n)
+	for i := range w {
+		ag.Anns[i] = &w[i]
+	}
+	return ag
+}
+
+//----------
 
 type Annotation struct {
 	Offset     int
@@ -201,6 +231,8 @@ type Annotation struct {
 	NotesBytes []byte // used for arrival index
 }
 
+//----------
+//----------
 //----------
 
 type AnnotationsIndexOf struct {

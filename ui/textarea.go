@@ -90,21 +90,21 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 		case event.ButtonLeft:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
-				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrent) {
+				if ta.selAnnCurEv(ev.Point, TASelAnnTypeLine) {
 					return true
 				}
 			}
 		case event.ButtonWheelUp:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
-				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentPrev) {
+				if ta.selAnnCurEv(ev.Point, TASelAnnTypeLinePrev) {
 					return true
 				}
 			}
 		case event.ButtonWheelDown:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
-				if ta.selAnnCurEv(ev.Point, TASelAnnTypeCurrentNext) {
+				if ta.selAnnCurEv(ev.Point, TASelAnnTypeLineNext) {
 					return true
 				}
 			}
@@ -137,20 +137,40 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 func (ta *TextArea) selAnnCurEv(p image.Point, typ TASelAnnType) bool {
 	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 		if d.Opt.Annotations.On {
+			//i, o, ok := d.AnnotationsIndexOf(p)
+			//if ok {
+			//	ev2 := &TextAreaSelectAnnotationEvent{ta, i, o, typ}
+			//	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
+			//	return true
+			//}
+
+			ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, typ}
 			i, o, ok := d.AnnotationsIndexOf(p)
 			if ok {
-				ev2 := &TextAreaSelectAnnotationEvent{ta, i, o, typ}
-				ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
-				return true
+				ev2.AnnotationIndex = i
+				ev2.Offset = o
+			} else {
+				// not in an annotation, switch the general prev/next
+				switch typ {
+				case TASelAnnTypeLinePrev:
+					ev2.Type = TASelAnnTypePrev
+				case TASelAnnTypeLineNext:
+					ev2.Type = TASelAnnTypeNext
+				default:
+					return false
+				}
 			}
+			ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
+			return true
 		}
 	}
 	return false
 }
-func (ta *TextArea) selAnnEv(typ TASelAnnType) {
-	ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, typ}
-	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
-}
+
+//func (ta *TextArea) selAnnEv(typ TASelAnnType) {
+//	ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, typ}
+//	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
+//}
 
 //----------
 
@@ -240,9 +260,11 @@ type TextAreaSelectAnnotationEvent struct {
 type TASelAnnType int
 
 const (
-	TASelAnnTypeCurrent TASelAnnType = iota // make current
-	TASelAnnTypeCurrentPrev
-	TASelAnnTypeCurrentNext
+	TASelAnnTypePrev TASelAnnType = iota
+	TASelAnnTypeNext
+	TASelAnnTypeLine
+	TASelAnnTypeLinePrev
+	TASelAnnTypeLineNext
 	TASelAnnTypePrint
 	TASelAnnTypePrintAllPrevious
 )

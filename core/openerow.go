@@ -18,6 +18,8 @@ type OpenFileERowConfig struct {
 
 	//FlashRowsIfNotFlashed bool
 	FlashVisibleOffsets bool // flashes rows if not visible
+
+	PreferedERow *ERow
 }
 
 // TODO: make it UI safe? rename to openfileerowasync?
@@ -32,6 +34,8 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	var filename string
 	if conf.FilePos != nil {
 		filename = conf.FilePos.Filename
+	} else if conf.PreferedERow != nil {
+		filename = conf.PreferedERow.Info.Name()
 	} else {
 		return false, errors.New("missing filename")
 	}
@@ -132,7 +136,14 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 
 		// use newly created erow
 		erow := newERow
-
+		// use prefered erow
+		if erow == nil {
+			for _, e := range info.ERows {
+				if e == conf.PreferedERow {
+					erow = e
+				}
+			}
+		}
 		// use existing row with visible offset
 		if erow == nil {
 			for _, e := range info.ERows {
@@ -142,7 +153,6 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 				}
 			}
 		}
-
 		// use first row in UI order
 		if erow == nil {
 			erow = info.ERowsInUIOrder()[0]

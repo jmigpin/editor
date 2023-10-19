@@ -776,7 +776,7 @@ func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func(done func())) {
 
 //----------
 
-func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on bool, selIndex int, entries []*drawer4.Annotation) {
+func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on bool, selIndex int, entries *drawer4.AnnotationGroup) {
 	if !ed.CanModifyAnnotations(req, ta) {
 		return
 	}
@@ -796,7 +796,7 @@ func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on
 			// find erow info from textarea
 			for _, erow := range ed.ERows() {
 				if erow.Row.TextArea == ta {
-					ed.GoDebug.UpdateUIERowInfo(erow.Info)
+					ed.GoDebug.UpdateInfoAnnotations(erow.Info)
 				}
 			}
 		})

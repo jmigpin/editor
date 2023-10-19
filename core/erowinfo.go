@@ -514,7 +514,7 @@ func (info *ERowInfo) setRWFromMaster(erow *ERow) {
 		e.Row.TextArea.SetRWFromMaster(erow.Row.TextArea.TextEdit)
 	}
 	info.UpdateEditedRowState()
-	info.Ed.GoDebug.UpdateUIERowInfo(info)
+	info.Ed.GoDebug.UpdateInfoAnnotations(info)
 }
 
 func (info *ERowInfo) handleRWsWrite2(erow *ERow, ev *iorw.RWEvWrite2) {

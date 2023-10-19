@@ -106,7 +106,7 @@ type Drawer struct {
 				EntryIndex int
 				Fg, Bg     color.Color
 			}
-			Entries []*Annotation // must be ordered by offset
+			Entries *AnnotationGroup // must be ordered by offset
 		}
 		WordHighlight struct {
 			On     bool
