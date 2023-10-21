@@ -164,7 +164,12 @@ func (fl *Flags) parseConnectArgs(name string, args []string) error {
 	fl.addNetworkFlag(fs)
 	fl.addToolExecFlag(fs)
 
-	return fl.parse(name, fs, args, nil)
+	// commented: doesn't fail on not defined
+	//return fl.parse(name, fs, args, nil)
+
+	// strict: fail on flags not defined
+	fs.SetOutput(fl.stderr)
+	return fs.Parse(args)
 }
 
 //----------
@@ -274,7 +279,7 @@ func (fl *Flags) parse(name string, fs *flag.FlagSet, args []string, isBool map[
 	// don't show err "flag provided but not defined"
 	fs.SetOutput(io.Discard)
 
-	unknown, unnamed, binary, err := flagutil.ParseFlagSetSets(fs, args, isBool)
+	unknown, unnamed, exec, err := flagutil.ParseFlagSetSets(fs, args, isBool)
 	if err != nil {
 		if err == flag.ErrHelp {
 			fmt.Fprintf(fl.stderr, "Usage of %v:\n", name)
@@ -285,7 +290,7 @@ func (fl *Flags) parse(name string, fs *flag.FlagSet, args []string, isBool map[
 	}
 	fl.unknownArgs = unknown
 	fl.unnamedArgs = unnamed
-	fl.execArgs = append(fl.execArgs, binary...)
+	fl.execArgs = append(fl.execArgs, exec...)
 
 	//spew.Dump(fl.flags)
 
