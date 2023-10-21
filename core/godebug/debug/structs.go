@@ -58,7 +58,7 @@ type FilesDataMsg struct {
 type AnnotatorFileData struct {
 	// decl order matters: used by the config generator to fill the struct
 	FileIndex     AfdFileIndex
-	DebugNIndexes AfdMsgIndex
+	NMsgIndexes AfdMsgIndex
 	Filename      string
 	FileSize      AfdFileSize
 	FileHash      []byte

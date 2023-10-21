@@ -24,6 +24,7 @@ type Flags struct {
 	}
 
 	address             string // build/connect
+	continueServing     bool
 	editorIsServer      bool
 	env                 []string
 	network             string
@@ -159,6 +160,7 @@ func (fl *Flags) parseConnectArgs(name string, args []string) error {
 
 	fl.addAddrFlag(fs, defaultBuildConnectAddr)
 	fl.addEditorIsServerFlag(fs)
+	fl.addContinueServingFlag(fs)
 	fl.addNetworkFlag(fs)
 	fl.addToolExecFlag(fs)
 
@@ -169,6 +171,10 @@ func (fl *Flags) parseConnectArgs(name string, args []string) error {
 
 func (fl *Flags) addAddrFlag(fs *flag.FlagSet, def string) {
 	fs.StringVar(&fl.address, "addr", def, "address to transmit debug data")
+}
+
+func (fl *Flags) addContinueServingFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&fl.continueServing, "continueserving", true, "Keep serving after the client connection is closed. Ex: useful when listening from a web page (js/wasm) that is being reloaded. Use with caution. In the case of the editor side it can be canceled with Stop.")
 }
 
 func (fl *Flags) addEditorIsServerFlag(fs *flag.FlagSet) {

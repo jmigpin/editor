@@ -19,10 +19,12 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-////godebug:annotatefile
+//godebug:annotatefile
+//godebug:annotatefile:godebug/cmd.go
+//godebug:annotatefile:godebug/debug/proto.go
+
 ////godebug:annotatefile:editor.go
 ////godebug:annotatefile:openerow.go
-////godebug:annotatefile:godebug/cmd.go
 ////godebug:annotatefile:../?
 
 // Note: Should have a unique instance because there is no easy solution to debug two (or more) programs that have common files in the same editor
@@ -198,10 +200,6 @@ func (gdi *GoDebugInstance) runCmd(ctx context.Context, erow *ERow, args []strin
 		return nil
 	}
 
-	if err := gdi.di.handleFilesDataMsg(cmd.ProtoFilesData()); err != nil {
-		return err
-	}
-
 	gdi.messagesLoop(w, cmd) // blocking
 
 	return cmd.Wait()
@@ -363,14 +361,18 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 		if !ok {
 			break
 		}
-		if err := gdi.handleMsg(v, cmd); err != nil {
+		if err := gdi.handleMsg(v, w, cmd); err != nil {
 			handleError(err)
 			break
 		}
 	}
 }
-func (gdi *GoDebugInstance) handleMsg(msg any, cmd *godebug.Cmd) error {
+func (gdi *GoDebugInstance) handleMsg(msg any, w io.Writer, cmd *godebug.Cmd) error {
 	switch t := msg.(type) {
+	case *debug.FilesDataMsg:
+		//fmt.Fprintf(w, "godebug: index data received\n")
+		//gdi.gdm.ed.Messagef(w, "godebug: index data received\n")
+		return gdi.di.handleFilesDataMsg(t)
 	case *debug.OffsetMsg:
 		return gdi.di.handleOffsetMsgs(t)
 	case *debug.OffsetMsgs:
@@ -553,14 +555,21 @@ func (di *GDDataIndex) FilesIndexKey(name string) string {
 	return name
 }
 
+//----------
+
 func (di *GDDataIndex) reset() {
 	di.Lock()
 	defer di.Unlock()
+
+	di.resetArrivalIndex()
+
 	for _, f := range di.files {
 		n := len(f.msgs) // keep n
 		u := NewGDFileMsgs(n)
 		*f = *u
 	}
+}
+func (di *GDDataIndex) resetArrivalIndex() {
 	di.lastArrivalIndex = -1
 	di.selected.arrivalIndex = di.lastArrivalIndex
 }
@@ -570,6 +579,8 @@ func (di *GDDataIndex) reset() {
 func (di *GDDataIndex) handleFilesDataMsg(fdm *debug.FilesDataMsg) error {
 	di.Lock()
 	defer di.Unlock()
+
+	di.resetArrivalIndex()
 
 	di.afds = fdm.Data
 	// index filenames
@@ -585,7 +596,7 @@ func (di *GDDataIndex) handleFilesDataMsg(fdm *debug.FilesDataMsg) error {
 		if int(afd.FileIndex) >= len(di.files) {
 			return fmt.Errorf("bad file index at init: %v len=%v", afd.FileIndex, len(di.files))
 		}
-		di.files[afd.FileIndex] = NewGDFileMsgs(int(afd.DebugNIndexes))
+		di.files[afd.FileIndex] = NewGDFileMsgs(int(afd.NMsgIndexes))
 	}
 	return nil
 }

@@ -57,6 +57,8 @@ func godebugTester(t *testing.T, args []string) error {
 			}
 
 			switch t := msg.(type) {
+			case *debug.FilesDataMsg:
+				pr(fmt.Sprintf("%#v", t))
 			case *debug.OffsetMsg:
 				pr(StringifyItem(t.Item))
 			case *debug.OffsetMsgs:
@@ -96,6 +98,7 @@ func TestCmd2CtxCancel(t *testing.T) {
 	args := []string{
 		"connect", // just a connect (might have no timeouts set)
 		"-editorisserver=true",
+		"-addr=:9158",
 	}
 
 	ctx := context.Background()

@@ -44,11 +44,11 @@ var eso struct {
 //----------
 //----------
 
-func StartEditorSide(ctx context.Context, isServer bool, addr Addr) (*Proto, error) {
+func StartEditorSide(ctx context.Context, addr Addr, isServer bool, isServerKeepRunning bool) (*Proto, error) {
 	eds := &ProtoEditorSide{}
 	//eds.logOn = true
 	//log.Printf("edside -> %v\n", addr)
-	p := NewProto(ctx, isServer, addr, eds)
+	p := NewProto(ctx, addr, eds, isServer, isServerKeepRunning)
 	err := p.Connect()
 	return p, err
 }
@@ -86,7 +86,7 @@ func (es *ES) init() {
 	exs := &ProtoExecSide{fdata: fd, NoWriteBuffering: eso.syncSend}
 	//exs.logOn = true
 	//log.Printf("exec -> %v\n", eso.addr)
-	es.p = NewProto(ctx, eso.isServer, eso.addr, exs)
+	es.p = NewProto(ctx, eso.addr, exs, eso.isServer, false)
 	if err := es.p.Connect(); err != nil {
 		execSideError(err)
 	}
@@ -140,10 +140,10 @@ func Exit(code int) {
 // NOTE: func name is used in annotator, don't rename.
 func L(fileIndex, debugIndex, offset int, item Item) {
 	lmsg := &OffsetMsg{
-		FileIndex:  AfdFileIndex(fileIndex),
-		MsgIndex: AfdMsgIndex(debugIndex),
-		Offset:     AfdFileSize(offset),
-		Item:       item,
+		FileIndex: AfdFileIndex(fileIndex),
+		MsgIndex:  AfdMsgIndex(debugIndex),
+		Offset:    AfdFileSize(offset),
+		Item:      item,
 	}
 	es.afterInitOk(func() {
 		if err := es.p.WriteMsg(lmsg); err != nil {

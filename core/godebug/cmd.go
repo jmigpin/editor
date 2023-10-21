@@ -67,9 +67,9 @@ type Cmd struct {
 	overlay          map[string]string // orig->new
 
 	start struct {
-		editorSideP   *debug.Proto
-		execSideCmd   osutil.CmdI
-		cleanupCancel context.CancelFunc
+		editorSideProto *debug.Proto
+		execSideCmd     osutil.CmdI
+		cleanupCancel   context.CancelFunc
 	}
 }
 
@@ -197,7 +197,7 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 		cmd.printf("waiting for connect (exec side not started)\n")
 	}
 
-	// exec side started but already exited early (ex: crash)
+	// special case: exec side started but exited early (ex: crash)
 	// - don't even start the editor and show error
 	// - might still be starting (best to have a timeout)
 	ctx2 := context.WithValue(ctx, "connectTimeout", 5*time.Second)
@@ -217,11 +217,11 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 
 func (cmd *Cmd) startEditorSide(ctx context.Context) error {
 	addr := debug.NewAddrI(cmd.flags.network, cmd.flags.address)
-	p, err := debug.StartEditorSide(ctx, cmd.flags.editorIsServer, addr)
+	p, err := debug.StartEditorSide(ctx, addr, cmd.flags.editorIsServer, cmd.flags.continueServing)
 	if err != nil {
 		return err
 	}
-	cmd.start.editorSideP = p
+	cmd.start.editorSideProto = p
 	return nil
 }
 
@@ -260,7 +260,7 @@ func (cmd *Cmd) Wait() error {
 		err = cmd.start.execSideCmd.Wait()
 	}
 
-	if err2 := cmd.start.editorSideP.WaitClose(); err2 != nil {
+	if err2 := cmd.start.editorSideProto.WaitClose(); err2 != nil {
 		if err == nil {
 			err = err2
 		}
@@ -272,9 +272,9 @@ func (cmd *Cmd) Wait() error {
 
 //------------
 
-func (cmd *Cmd) ProtoRead() (any, bool, error) {
+func (cmd *Cmd) ProtoRead() (_ any, ok bool, _ error) {
 	v := (any)(nil)
-	err := cmd.start.editorSideP.Read(&v)
+	err := cmd.start.editorSideProto.Read(&v)
 	if err != nil {
 		// EOF: connection ended gracefully by the other side
 		if errors.Is(err, io.EOF) {
@@ -283,9 +283,6 @@ func (cmd *Cmd) ProtoRead() (any, bool, error) {
 		return nil, false, err
 	}
 	return v, true, nil
-}
-func (cmd *Cmd) ProtoFilesData() *debug.FilesDataMsg {
-	return cmd.start.editorSideP.Side.(*debug.ProtoEditorSide).FData
 }
 
 //----------
