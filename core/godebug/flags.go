@@ -180,7 +180,7 @@ func (fl *Flags) addAddrFlag(fs *flag.FlagSet, def string) {
 }
 
 func (fl *Flags) addContinueServingFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&fl.continueServing, "continueserving", true, "Keep serving after the client connection is closed. Ex: useful when listening from a web page (js/wasm) that is being reloaded. Use with caution. In the case of the editor side it can be canceled with Stop.")
+	fs.BoolVar(&fl.continueServing, "continueserving", false, "Keep serving after the client connection is closed. Ex: useful when listening from a web page (js/wasm) that is being reloaded. Use with caution. In the case of the editor side it can be canceled with Stop.")
 }
 
 func (fl *Flags) addEditorIsServerFlag(fs *flag.FlagSet) {
