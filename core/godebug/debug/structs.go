@@ -57,11 +57,11 @@ type FilesDataMsg struct {
 
 type AnnotatorFileData struct {
 	// decl order matters: used by the config generator to fill the struct
-	FileIndex     AfdFileIndex
+	FileIndex   AfdFileIndex
 	NMsgIndexes AfdMsgIndex
-	Filename      string
-	FileSize      AfdFileSize
-	FileHash      []byte
+	Filename    string
+	FileSize    AfdFileSize
+	FileHash    []byte
 }
 
 type AfdFileIndex = uint16
@@ -73,10 +73,10 @@ type AfdMsgIndex = uint32 // uint16 enough?
 type OffsetMsgs []*OffsetMsg
 
 type OffsetMsg struct {
-	FileIndex  AfdFileIndex
-	MsgIndex AfdMsgIndex
-	Offset     AfdFileSize
-	Item       Item
+	FileIndex AfdFileIndex
+	MsgIndex  AfdMsgIndex
+	Offset    AfdFileSize
+	Item      Item
 }
 
 //----------

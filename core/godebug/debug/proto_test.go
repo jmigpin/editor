@@ -30,7 +30,7 @@ func TestProto1(t *testing.T) {
 	go func() {
 		eds := &ProtoEditorSide{}
 		eds.logOn = testing.Verbose()
-		dp1 := NewProto(ctx, editorIsServer, addr, eds)
+		dp1 := NewProto(ctx, addr, eds, editorIsServer, false)
 
 		ch <- 1
 
@@ -55,6 +55,8 @@ func TestProto1(t *testing.T) {
 
 			lms := OffsetMsgs{}
 			switch t := u.(type) {
+			case *FilesDataMsg:
+				continue // for loop
 			case *OffsetMsg:
 				lms = append(lms, t)
 			case *OffsetMsgs:
@@ -62,6 +64,7 @@ func TestProto1(t *testing.T) {
 			default:
 				panic(fmt.Errorf("1: %T", u))
 			}
+
 			tlogf(t, "1: received: %T, n=%v\n", u, len(lms))
 
 			for _, lm := range lms {
@@ -97,7 +100,7 @@ func TestProto1(t *testing.T) {
 	exs := &ProtoExecSide{fdata: &FilesDataMsg{}}
 	exs.logOn = testing.Verbose()
 	//exs.NoWriteBuffering = true // disable buffer
-	dp2 := NewProto(ctx, !editorIsServer, addr, exs)
+	dp2 := NewProto(ctx, addr, exs, !editorIsServer, false)
 
 	tlogf(t, "2: connecting\n")
 	if err := dp2.Connect(); err != nil {
@@ -141,7 +144,7 @@ func TestProto2(t *testing.T) {
 	go func() {
 		eds := &ProtoEditorSide{}
 		eds.logOn = testing.Verbose()
-		dp1 := NewProto(ctx, editorIsServer, addr, eds)
+		dp1 := NewProto(ctx, addr, eds, editorIsServer, false)
 
 		ch <- 1
 
@@ -180,7 +183,7 @@ func TestProto2(t *testing.T) {
 	exs := &ProtoExecSide{fdata: &FilesDataMsg{}}
 	exs.logOn = testing.Verbose()
 	//exs.NoWriteBuffering = true // disable buffer
-	dp2 := NewProto(ctx, !editorIsServer, addr, exs)
+	dp2 := NewProto(ctx, addr, exs, !editorIsServer, false)
 	if err := dp2.Connect(); err != nil {
 		t.Fatal(err)
 	}

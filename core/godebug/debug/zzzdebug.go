@@ -30,6 +30,7 @@ var eso struct {
 
 	addr                Addr
 	isServer            bool
+	continueServing     bool
 	noInitMsg           bool
 	srcLines            bool                 // warning at init msg
 	syncSend            bool                 // don't send in chunks (slow)
@@ -44,11 +45,11 @@ var eso struct {
 //----------
 //----------
 
-func StartEditorSide(ctx context.Context, addr Addr, isServer bool, isServerKeepRunning bool) (*Proto, error) {
+func StartEditorSide(ctx context.Context, addr Addr, isServer bool, continueServing bool) (*Proto, error) {
 	eds := &ProtoEditorSide{}
 	//eds.logOn = true
 	//log.Printf("edside -> %v\n", addr)
-	p := NewProto(ctx, addr, eds, isServer, isServerKeepRunning)
+	p := NewProto(ctx, addr, eds, isServer, continueServing)
 	err := p.Connect()
 	return p, err
 }
@@ -86,7 +87,7 @@ func (es *ES) init() {
 	exs := &ProtoExecSide{fdata: fd, NoWriteBuffering: eso.syncSend}
 	//exs.logOn = true
 	//log.Printf("exec -> %v\n", eso.addr)
-	es.p = NewProto(ctx, eso.addr, exs, eso.isServer, false)
+	es.p = NewProto(ctx, eso.addr, exs, eso.isServer, eso.continueServing)
 	if err := es.p.Connect(); err != nil {
 		execSideError(err)
 	}

@@ -787,6 +787,7 @@ func init(){
 	eso.onExecSide = true
 	eso.addr = NewAddrI("` + fl.network + `","` + fl.address + `")
 	eso.isServer = ` + strconv.FormatBool(!fl.editorIsServer) + `
+	eso.continueServing = ` + strconv.FormatBool(fl.continueServing) + `
 	eso.noInitMsg = ` + strconv.FormatBool(fl.noInitMsg) + `
 	eso.srcLines = ` + strconv.FormatBool(fl.srcLines) + `
 	eso.syncSend = ` + strconv.FormatBool(fl.syncSend) + `

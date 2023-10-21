@@ -138,6 +138,7 @@ func (fl *Flags) parseBuildArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
 	fl.addAddrFlag(fs, defaultBuildConnectAddr)
+	fl.addContinueServingFlag(fs)
 	fl.addEditorIsServerFlag(fs)
 	fl.addEnvFlag(fs)
 	fl.addNetworkFlag(fs)
@@ -159,8 +160,8 @@ func (fl *Flags) parseConnectArgs(name string, args []string) error {
 	fs := fl.newFlagSet(name)
 
 	fl.addAddrFlag(fs, defaultBuildConnectAddr)
-	fl.addEditorIsServerFlag(fs)
 	fl.addContinueServingFlag(fs)
+	fl.addEditorIsServerFlag(fs)
 	fl.addNetworkFlag(fs)
 	fl.addToolExecFlag(fs)
 
