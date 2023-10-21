@@ -522,6 +522,7 @@ type GDDataIndex struct {
 	filesEdited map[int]bool               // [fileindex]
 	filesIndexM map[string]int             // [name]fileindex
 
+	resetCount       int // number of resets to number msgs
 	lastArrivalIndex int
 	selected         struct {
 		arrivalIndex int
@@ -537,7 +538,7 @@ func NewGDDataIndex(gdi *GoDebugInstance) *GDDataIndex {
 	di := &GDDataIndex{gdi: gdi}
 	di.filesIndexM = map[string]int{}
 	di.filesEdited = map[int]bool{}
-	di.reset()
+	di.resetArrivalIndex()
 	return di
 }
 
@@ -560,9 +561,11 @@ func (di *GDDataIndex) FilesIndexKey(name string) string {
 func (di *GDDataIndex) reset() {
 	di.Lock()
 	defer di.Unlock()
-
+	di.reset2()
+}
+func (di *GDDataIndex) reset2() {
+	di.resetCount++
 	di.resetArrivalIndex()
-
 	for _, f := range di.files {
 		n := len(f.msgs) // keep n
 		u := NewGDFileMsgs(n)
@@ -580,7 +583,7 @@ func (di *GDDataIndex) handleFilesDataMsg(fdm *debug.FilesDataMsg) error {
 	di.Lock()
 	defer di.Unlock()
 
-	di.resetArrivalIndex()
+	di.reset2()
 
 	di.afds = fdm.Data
 	// index filenames
@@ -625,7 +628,7 @@ func (di *GDDataIndex) handleOffsetMsg_noLock(u *debug.OffsetMsg) error {
 	}
 	// msg
 	di.lastArrivalIndex++ // starts/clears to -1, so first n is 0
-	lm := &GDOffsetMsg{arrivalIndex: di.lastArrivalIndex, offsetMsg: u}
+	lm := &GDOffsetMsg{arrivalIndex: di.lastArrivalIndex, resetIndex: di.resetCount, offsetMsg: u}
 	// append newly arrived msg
 	w := &di.files[u.FileIndex].msgs[u.MsgIndex].arrivals
 	*w = append(*w, lm)
@@ -681,21 +684,21 @@ func (di *GDDataIndex) selectedAnnFind(s string) (*GDOffsetMsg, bool) {
 		return nil, false
 	}
 
-	file, line, ok := di.msgIndexFileMsg_noLock(filename, annIndex)
+	file, msg, ok := di.msgIndexFileMsg_noLock(filename, annIndex)
 	if !ok {
 		return nil, false
 	}
 
 	b := []byte(s)
 	k := file.annsMsgIndex[annIndex] // current entry
-	for i := 0; i < len(line.arrivals); i++ {
-		h := (k + 1 + i) % len(line.arrivals)
-		msg := line.arrivals[h]
-		ann := msg.annotation()
+	for i := 0; i < len(msg.arrivals); i++ {
+		h := (k + 1 + i) % len(msg.arrivals)
+		om := msg.arrivals[h]
+		ann := om.annotation()
 		j := bytes.Index(ann.Bytes, b)
 		if j >= 0 {
-			di.selected.arrivalIndex = msg.arrivalIndex
-			return msg, true
+			di.selected.arrivalIndex = om.arrivalIndex
+			return om, true
 		}
 	}
 
@@ -1042,34 +1045,47 @@ func (u *GDMsg) findIndex(arrivalIndex int) (int, bool, bool) {
 
 type GDOffsetMsg struct {
 	arrivalIndex int
+	resetIndex   int
 	offsetMsg    *debug.OffsetMsg
 	cache        struct {
-		item []byte
-		ann  *drawer4.Annotation
+		ann   *drawer4.Annotation
+		empty *drawer4.Annotation
 	}
-}
-
-func (msg *GDOffsetMsg) ann() *drawer4.Annotation {
-	if msg.cache.ann == nil {
-		msg.cache.ann = &drawer4.Annotation{Offset: int(msg.offsetMsg.Offset)}
-	}
-	return msg.cache.ann
 }
 
 func (msg *GDOffsetMsg) annotation() *drawer4.Annotation {
-	ann := msg.ann()
-	if msg.cache.item == nil {
-		s := godebug.StringifyItem(msg.offsetMsg.Item)
-		msg.cache.item = []byte(s)
+	if msg.cache.ann != nil {
+		return msg.cache.ann
 	}
-	ann.Bytes = msg.cache.item
-	ann.NotesBytes = []byte(fmt.Sprintf("#%d", msg.arrivalIndex))
+
+	ann := &drawer4.Annotation{}
+	ann.Offset = int(msg.offsetMsg.Offset)
+
+	s := godebug.StringifyItem(msg.offsetMsg.Item)
+	ann.Bytes = []byte(s)
+
+	s2 := ""
+	if msg.resetIndex >= 2 {
+		s2 = fmt.Sprintf("%d:", msg.resetIndex)
+	}
+	s3 := fmt.Sprintf("#%s%d", s2, msg.arrivalIndex)
+	ann.NotesBytes = []byte(s3)
+
+	msg.cache.ann = ann
+
 	return ann
 }
-
 func (msg *GDOffsetMsg) emptyAnnotation() *drawer4.Annotation {
-	ann := msg.ann()
-	ann.Bytes = []byte(" ")
+	if msg.cache.empty != nil {
+		return msg.cache.empty
+	}
+
+	ann := &drawer4.Annotation{}
+	ann.Offset = int(msg.offsetMsg.Offset)
+	ann.Bytes = []byte(" ") // allow a clickable rune (empty space)
 	ann.NotesBytes = nil
+
+	msg.cache.empty = ann
+
 	return ann
 }
