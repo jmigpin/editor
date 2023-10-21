@@ -2,7 +2,9 @@ package osutil
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
+	"time"
 
 	"github.com/jmigpin/editor/util/iout"
 )
@@ -13,9 +15,12 @@ type CmdI interface {
 	Wait() error
 }
 
+//----------
+
 func NewCmdI(cmd *exec.Cmd) CmdI {
 	return NewBasicCmd(cmd)
 }
+
 func RunCmdI(ci CmdI) error {
 	if err := ci.Start(); err != nil {
 		return err
@@ -65,36 +70,66 @@ func NewShellCmd(cmdi CmdI) *ShellCmd {
 
 //----------
 
-type SetSidCmd struct {
+//CtxCmd behaviour is somewhat equivalent to:
+// 	cmd := exec.CommandContext(ctx, args[0], args[1:]...))
+// 	cmd.WaitDelay = X * time.Second
+//but it has a custom error msg and sends a term signal that can include the process group. Beware that if using this, the exec.cmd should probably not be started with exec.commandcontext, since that will have the ctx cancel run first (before this handler) and when it gets here the process is already canceled.
+
+type CtxCmd struct {
 	CmdI
-	done context.CancelFunc
+	ctx    context.Context
+	waitCh chan error
 }
 
-func NewSetSidCmd(ctx context.Context, cmdi CmdI) *SetSidCmd {
-	c := &SetSidCmd{CmdI: cmdi}
+func NewCtxCmd(ctx context.Context, cmdi CmdI) *CtxCmd {
+	c := &CtxCmd{CmdI: cmdi, ctx: ctx}
+	c.waitCh = make(chan error, 1)
+
 	SetupExecCmdSysProcAttr(c.CmdI.Cmd())
 
-	ctx2, cancel := context.WithCancel(ctx)
-	c.done = cancel // clear resources
-	go func() {
-		select {
-		case <-ctx2.Done():
-			// either the cmd is running and should be killed, or it reached the end and this goroutine should be unblocked
-			_ = KillExecCmd(c.CmdI.Cmd()) // effective kill
-		}
-	}()
 	return c
 }
-func (c *SetSidCmd) Start() error {
+func (c *CtxCmd) Start() error {
 	if err := c.CmdI.Start(); err != nil {
-		c.done()
 		return err
 	}
+	go func() {
+		c.waitCh <- c.CmdI.Wait()
+	}()
 	return nil
 }
-func (c *SetSidCmd) Wait() error {
-	defer c.done()
-	return c.CmdI.Wait()
+func (c *CtxCmd) Wait() error {
+	select {
+	case err := <-c.waitCh:
+		return err
+	case <-c.ctx.Done():
+		_ = KillExecCmd(c.CmdI.Cmd())
+
+		// wait for the possibility of wait returning after kill
+		timeout := 3 * time.Second
+		select {
+		case err := <-c.waitCh:
+			return err
+		case <-time.After(timeout):
+			// warn about the process not returning
+			s := fmt.Sprintf("termination timeout (%v): process has not returned from wait (ex: a subprocess might be keeping a file descriptor open).\n", timeout)
+			c.printf(s)
+
+			//// exit now (leaks waitCh go routine)
+			////return c.ctx.Err()
+			//return fmt.Errorf(s)
+
+			// wait forever
+			return <-c.waitCh
+		}
+	}
+}
+func (c *CtxCmd) printf(f string, args ...any) {
+	cmd := c.CmdI.Cmd()
+	if cmd.Stderr == nil {
+		return
+	}
+	fmt.Fprintf(cmd.Stderr, "# ctxcmd: "+f, args...)
 }
 
 //----------
@@ -119,12 +154,11 @@ func NewCallbackOnStartCmd(cmdi CmdI, cb func(CmdI)) *CallbackOnStartCmd {
 	return c
 }
 func (c *CallbackOnStartCmd) Start() error {
+	defer c.unpause()
 	if err := c.CmdI.Start(); err != nil {
-		c.unpause()
 		return err
 	}
 	c.callback(c)
-	c.unpause()
 	return nil
 }
 func (c *CallbackOnStartCmd) Wait() error {

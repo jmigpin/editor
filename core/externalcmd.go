@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -56,24 +57,26 @@ func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []stri
 }
 
 func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter) error {
-	cmd := osutil.NewCmd(ctx, cargs...)
+
+	cmd := exec.Command(cargs[0], cargs[1:]...)
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = env
+	cmd.Stdin = rw
+	cmd.Stdout = rw
+	cmd.Stderr = rw
 
-	if err := cmd.SetupStdio(rw, rw, rw); err != nil {
+	c := osutil.NewCmdI(cmd)
+	c = osutil.NewCtxCmd(ctx, c)
+	c = osutil.NewShellCmd(c)
+	c = osutil.NewCallbackOnStartCmd(c, func(c osutil.CmdI) {
+		argsStr := strings.Join(c.Cmd().Args, " ")
+		fmt.Fprintf(rw, "# pid %d: %s\n", c.Cmd().Process.Pid, argsStr)
+	})
+
+	if err := c.Start(); err != nil {
 		return err
 	}
-
-	// output pid before any output
-	cmd.PreOutputCallback = func() {
-		cargsStr := strings.Join(cargs, " ")
-		fmt.Fprintf(rw, "# pid %d: %s\n", cmd.Process.Pid, cargsStr)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	return cmd.Wait()
+	return c.Wait()
 }
 
 //----------
@@ -89,7 +92,7 @@ func cmdPartArgs(part *toolbarparser.Part) []string {
 		}
 		u = append(u, s)
 	}
-	return osutil.ShellRunArgs(u...)
+	return u
 }
 
 //----------

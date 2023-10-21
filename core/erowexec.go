@@ -9,20 +9,21 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-////godebug:annotatefile
-
 type ERowExec struct {
 	erow *ERow
-	mu   struct {
+	c    struct { // count
 		sync.Mutex
-		cancel context.CancelFunc
-		fnWait sync.WaitGroup // added while locked
+		q       int
+		running bool
+		cond    *sync.Cond
+		cancel  context.CancelFunc
 	}
 }
 
 func NewERowExec(erow *ERow) *ERowExec {
 	ee := &ERowExec{erow: erow}
-	ee.mu.cancel = func() {}
+	ee.c.cancel = func() {}
+	ee.c.cond = sync.NewCond(&ee.c)
 	return ee
 }
 
@@ -35,22 +36,37 @@ func (ee *ERowExec) RunAsync(fn func(context.Context, io.ReadWriter) error) {
 }
 
 func (ee *ERowExec) runAsync2(fn func(context.Context, io.ReadWriter) error) {
-	ee.mu.Lock()
-	defer ee.mu.Unlock()
+	ee.c.Lock()
+	defer ee.c.Unlock()
+
+	ee.c.q++
+	id := ee.c.q
 
 	// cancel and wait for previous if any
-	ee.mu.cancel()
-	ee.mu.fnWait.Wait()
+	ee.c.cancel()
+	for ee.c.running {
+		ee.c.cond.Wait()
+	}
+
+	// there is another request after this one, don't start since the next one would cancel this one
+	if id != ee.c.q {
+		return
+	}
 
 	// new context
 	ctx, cancel := context.WithCancel(ee.erow.ctx)
-	ee.mu.cancel = cancel
+	ee.c.cancel = cancel
 
 	rwc := ee.erow.TextAreaReadWriteCloser()
 
-	ee.mu.fnWait.Add(1)
+	ee.c.running = true
 	go func() {
-		defer ee.mu.fnWait.Done()
+		defer func() {
+			ee.c.Lock()
+			defer ee.c.Unlock()
+			ee.c.running = false
+			ee.c.cond.Broadcast()
+		}()
 
 		// indicate the row is running
 		ee.erow.Ed.UI.RunOnUIGoRoutine(func() {
@@ -80,9 +96,12 @@ func (ee *ERowExec) runAsync2(fn func(context.Context, io.ReadWriter) error) {
 //----------
 
 func (ee *ERowExec) Stop() {
-	ee.mu.Lock()
-	defer ee.mu.Unlock()
-	if ee.mu.cancel != nil {
-		ee.mu.cancel()
+	ee.c.Lock()
+	defer ee.c.Unlock()
+
+	ee.c.q++ // if this was issued after another cmd, that cmd is not going to start
+
+	if ee.c.cancel != nil {
+		ee.c.cancel()
 	}
 }

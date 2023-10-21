@@ -982,7 +982,7 @@ func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
 	ec.Env = cmd.env
 
 	ci := osutil.NewCmdI(ec)
-	ci = osutil.NewSetSidCmd(ctx, ci)
+	ci = osutil.NewCtxCmd(ctx, ci)
 	ci = osutil.NewShellCmd(ci)
 	return ci
 }
