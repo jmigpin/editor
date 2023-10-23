@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -58,20 +57,20 @@ func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []stri
 
 func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter) error {
 
-	cmd := exec.Command(cargs[0], cargs[1:]...)
+	printPid := func(c osutil.CmdI) {
+		argsStr := strings.Join(c.Cmd().Args, " ")
+		fmt.Fprintf(rw, "# pid %d: %s\n", c.Cmd().Process.Pid, argsStr)
+	}
+
+	c := osutil.NewCmdI2(ctx, cargs...)
+	c = osutil.NewPausedWritersCmd(c, printPid)
+
+	cmd := c.Cmd()
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = env
 	cmd.Stdin = rw
 	cmd.Stdout = rw
 	cmd.Stderr = rw
-
-	c := osutil.NewCmdI(cmd)
-	c = osutil.NewCtxCmd(ctx, c)
-	c = osutil.NewShellCmd(c)
-	c = osutil.NewCallbackOnStartCmd(c, func(c osutil.CmdI) {
-		argsStr := strings.Join(c.Cmd().Args, " ")
-		fmt.Fprintf(rw, "# pid %d: %s\n", c.Cmd().Process.Pid, argsStr)
-	})
 
 	if err := c.Start(); err != nil {
 		return err

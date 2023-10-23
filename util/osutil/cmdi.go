@@ -1,13 +1,18 @@
 package osutil
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/jmigpin/editor/util/iout"
 )
+
+//godebug:annotatefile
 
 type CmdI interface {
 	Cmd() *exec.Cmd
@@ -16,18 +21,32 @@ type CmdI interface {
 }
 
 //----------
+//----------
+//----------
 
 func NewCmdI(cmd *exec.Cmd) CmdI {
 	return NewBasicCmd(cmd)
 }
 
-func RunCmdI(ci CmdI) error {
-	if err := ci.Start(); err != nil {
-		return err
-	}
-	return ci.Wait()
+func NewCmdI2(ctx context.Context, args ...string) CmdI {
+	// NOTE: not using exec.CommandContext because the ctx is dealt with in NewCtxCmd
+	cmd := exec.Command(args[0], args[1:]...)
+
+	return NewCmdI3(ctx, cmd)
 }
 
+func NewCmdI3(ctx context.Context, cmd *exec.Cmd) CmdI {
+	c := NewCmdI(cmd)
+	c = NewNoHangPipeCmd(c, true, true, true)
+	if ctx != nil {
+		c = NewCtxCmd(ctx, c)
+	}
+	c = NewShellCmd(c)
+	return c
+}
+
+//----------
+//----------
 //----------
 
 type BasicCmd struct {
@@ -48,6 +67,8 @@ func (c *BasicCmd) Wait() error {
 }
 
 //----------
+//----------
+//----------
 
 type ShellCmd struct {
 	CmdI
@@ -64,11 +85,19 @@ func NewShellCmd(cmdi CmdI) *ShellCmd {
 	if lp, err := exec.LookPath(name); err == nil {
 		cmd.Path = lp
 	}
+	// TODO: review
+	// set to nil (ex: exec.command can set this at init in case it doesn't find the exec)
+	cmd.Err = nil
 
 	return c
 }
 
 //----------
+//----------
+//----------
+
+// Old note: explanations on possible hangs.
+// https://github.com/golang/go/issues/18874#issuecomment-277280139
 
 //CtxCmd behaviour is somewhat equivalent to:
 // 	cmd := exec.CommandContext(ctx, args[0], args[1:]...))
@@ -133,17 +162,90 @@ func (c *CtxCmd) printf(f string, args ...any) {
 }
 
 //----------
+//----------
+//----------
+
+type NoHangPipeCmd struct {
+	CmdI
+	doIn, doOut, doErr bool
+	stdin              io.WriteCloser
+	stdout             io.ReadCloser
+	stderr             io.ReadCloser
+}
+
+func NewNoHangPipeCmd(cmdi CmdI, doIn, doOut, doErr bool) *NoHangPipeCmd {
+	return &NoHangPipeCmd{CmdI: cmdi, doIn: doIn, doOut: doOut, doErr: doErr}
+}
+func (c *NoHangPipeCmd) Start() error {
+	cmd := c.Cmd()
+	if c.doIn && cmd.Stdin != nil {
+		r := cmd.Stdin
+		cmd.Stdin = nil // cmd wants nil here
+		wc, err := cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
+		c.stdin = wc
+		go func() {
+			_, _ = io.Copy(wc, r)
+			_ = wc.Close()
+		}()
+	}
+	if c.doOut && cmd.Stdout != nil {
+		w := cmd.Stdout
+		cmd.Stdout = nil // cmd wants nil here
+		rc, err := cmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		c.stdout = rc
+		go func() {
+			_, _ = io.Copy(w, rc)
+			_ = rc.Close()
+		}()
+	}
+	if c.doErr && cmd.Stderr != nil {
+		w := cmd.Stderr
+		cmd.Stderr = nil // cmd wants nil here
+		rc, err := cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
+		c.stderr = rc
+		go func() {
+			_, _ = io.Copy(w, rc)
+			_ = rc.Close()
+		}()
+	}
+	return c.CmdI.Start()
+}
+
+// some commands will not exit unless the stdin is closed, allow access
+func (c *NoHangPipeCmd) CloseStdin() error {
+	if c.stdin != nil {
+		return c.stdin.Close()
+	}
+	return nil
+}
+
+//----------
+//----------
+//----------
 
 // ex: usefull to print something before any cmd output is printed
-type CallbackOnStartCmd struct {
+type PausedWritersCmd struct {
 	CmdI
 	callback func(CmdI)
 	stdout   *iout.PausedWriter
 	stderr   *iout.PausedWriter
 }
 
-func NewCallbackOnStartCmd(cmdi CmdI, cb func(CmdI)) *CallbackOnStartCmd {
-	c := &CallbackOnStartCmd{CmdI: cmdi, callback: cb}
+func NewPausedWritersCmd(cmdi CmdI, cb func(CmdI)) *PausedWritersCmd {
+	c := &PausedWritersCmd{CmdI: cmdi, callback: cb}
+	return c
+}
+func (c *PausedWritersCmd) Start() error {
+	defer c.unpause()
 	cmd := c.CmdI.Cmd()
 	if cmd.Stdout != nil {
 		c.stdout = iout.NewPausedWriter(cmd.Stdout)
@@ -151,25 +253,88 @@ func NewCallbackOnStartCmd(cmdi CmdI, cb func(CmdI)) *CallbackOnStartCmd {
 	if cmd.Stderr != nil {
 		c.stderr = iout.NewPausedWriter(cmd.Stderr)
 	}
-	return c
-}
-func (c *CallbackOnStartCmd) Start() error {
-	defer c.unpause()
 	if err := c.CmdI.Start(); err != nil {
 		return err
 	}
 	c.callback(c)
 	return nil
 }
-func (c *CallbackOnStartCmd) Wait() error {
+func (c *PausedWritersCmd) Wait() error {
 	c.unpause()
 	return c.CmdI.Wait()
 }
-func (c *CallbackOnStartCmd) unpause() {
+func (c *PausedWritersCmd) unpause() {
 	if c.stdout != nil {
 		c.stdout.Unpause()
 	}
 	if c.stderr != nil {
 		c.stderr.Unpause()
 	}
+}
+
+//----------
+//----------
+//----------
+
+func RunCmdI(ci CmdI) error {
+	if err := ci.Start(); err != nil {
+		return err
+	}
+	return ci.Wait()
+}
+func RunCmdIOutputs(c CmdI) (sout []byte, serr []byte, _ error) {
+	obuf := &bytes.Buffer{}
+	ebuf := &bytes.Buffer{}
+
+	cmd := c.Cmd()
+	if cmd.Stdout != nil {
+		return nil, nil, fmt.Errorf("stdout already set")
+	}
+	if cmd.Stderr != nil {
+		return nil, nil, fmt.Errorf("stderr already set")
+	}
+	cmd.Stdout = obuf
+	cmd.Stderr = ebuf
+
+	err := RunCmdI(c)
+	return obuf.Bytes(), ebuf.Bytes(), err
+}
+func RunCmdICombineStdoutStderr(c CmdI) ([]byte, error) {
+	buf := &bytes.Buffer{}
+
+	cmd := c.Cmd()
+	if cmd.Stdout != nil {
+		return nil, fmt.Errorf("stdout already set")
+	}
+	if cmd.Stderr != nil {
+		return nil, fmt.Errorf("stderr already set")
+	}
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+
+	err := RunCmdI(c)
+	return buf.Bytes(), err
+}
+func RunCmdICombineStderrErr(c CmdI) ([]byte, error) {
+	bout, berr, err := RunCmdIOutputs(c)
+	if err != nil {
+		serr := strings.TrimSpace(string(berr))
+		if serr != "" {
+			err = fmt.Errorf("%w: stderr(%v)", err, serr)
+		}
+		return nil, err
+	}
+	return bout, nil
+}
+
+//----------
+
+func RunCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	return RunCmdStdin(ctx, dir, nil, args...)
+}
+func RunCmdStdin(ctx context.Context, dir string, rd io.Reader, args ...string) ([]byte, error) {
+	c := NewCmdI2(ctx, args...)
+	c.Cmd().Dir = dir
+	c.Cmd().Stdin = rd
+	return RunCmdICombineStderrErr(c)
 }

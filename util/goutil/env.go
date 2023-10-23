@@ -1,7 +1,6 @@
 package goutil
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,9 +26,9 @@ func GoEnv2(dir string) ([]string, error) {
 	// not the same as os.Environ which has entries like PATH
 
 	args := []string{"go", "env"}
-	cmd := osutil.NewCmd(context.Background(), args...)
-	cmd.Dir = dir
-	bout, err := osutil.RunCmdStdoutAndStderrInErr(cmd, nil)
+	c := osutil.NewCmdI2(nil, args...)
+	c.Cmd().Dir = dir
+	bout, err := osutil.RunCmdICombineStderrErr(c)
 	if err != nil {
 		return nil, err
 	}

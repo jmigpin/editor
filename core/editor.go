@@ -848,7 +848,8 @@ func (ed *Editor) runPreSaveHook(ctx context.Context, info *ERowInfo, content []
 	dir := filepath.Dir(info.Name())
 	r := bytes.NewReader(content)
 	cmd2 := strings.Split(cmd, " ")
-	return ExecCmdStdin(ctx2, dir, r, cmd2...)
+
+	return osutil.RunCmdStdin(ctx2, dir, r, cmd2...)
 }
 
 //----------

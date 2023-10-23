@@ -51,7 +51,7 @@ func goToDefinition(ctx0 context.Context, erow *core.ERow, index int) (err error
 
 	// execute external cmd
 	dir := filepath.Dir(erow.Info.Name())
-	out, err := core.ExecCmdStdin(ctx, dir, in, args...)
+	out, err := osutil.RunCmdStdin(ctx, dir, in, args...)
 	if err != nil {
 		return err, true
 	}

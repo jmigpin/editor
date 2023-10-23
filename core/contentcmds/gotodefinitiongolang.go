@@ -64,7 +64,7 @@ func goplsQuery(ctx context.Context, erow *core.ERow, index int) error {
 
 	// execute external cmd
 	dir := filepath.Dir(erow.Info.Name())
-	out, err := core.ExecCmd(ctx, dir, args...)
+	out, err := osutil.RunCmd(ctx, dir, args...)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func goGuru(ctx context.Context, erow *core.ERow, index int) error {
 
 	// execute external cmd
 	dir := filepath.Dir(erow.Info.Name())
-	out, err := core.ExecCmdStdin(ctx, dir, in, args...)
+	out, err := osutil.RunCmdStdin(ctx, dir, in, args...)
 	if err != nil {
 		return err
 	}

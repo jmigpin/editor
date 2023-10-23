@@ -237,31 +237,34 @@ func (gdi *GoDebugInstance) selectAnnotation2(ev *ui.RootSelectAnnotationEvent) 
 //----------
 
 func (gdi *GoDebugInstance) selectERowAnnotation(erow *ERow, ev *ui.TextAreaSelectAnnotationEvent) {
-	if err := gdi.selectERowAnnotation2(erow, ev); err != nil {
+	showLine, err := gdi.selectERowAnnotation2(erow, ev)
+	if err != nil {
 		//gdi.gdm.printError(err)
 		//gdi.updateAnnotations()
 		//return
 	}
-	gdi.updateAnnotationsAndShowLine(erow, erow.Row.PosBelow())
+	if showLine {
+		gdi.updateAnnotationsAndShowLine(erow, erow.Row.PosBelow())
+	}
 }
-func (gdi *GoDebugInstance) selectERowAnnotation2(erow *ERow, ev *ui.TextAreaSelectAnnotationEvent) error {
+func (gdi *GoDebugInstance) selectERowAnnotation2(erow *ERow, ev *ui.TextAreaSelectAnnotationEvent) (bool, error) {
 	switch ev.Type {
 	case ui.TasatPrev:
-		return gdi.di.selectPrev()
+		return true, gdi.di.selectPrev()
 	case ui.TasatNext:
-		return gdi.di.selectNext()
+		return true, gdi.di.selectNext()
 	case ui.TasatMsg,
 		ui.TasatMsgPrev,
 		ui.TasatMsgNext:
-		return gdi.di.selectMsgAnnotation(erow.Info.Name(), ev.AnnotationIndex, ev.Type)
+		return true, gdi.di.selectMsgAnnotation(erow.Info.Name(), ev.AnnotationIndex, ev.Type)
 	case ui.TasatPrint:
 		gdi.printIndex(erow, ev.AnnotationIndex, ev.Offset)
-		return nil
+		return false, nil
 	case ui.TasatPrintPreviousAll:
 		gdi.printIndexAllPrevious(erow, ev.AnnotationIndex, ev.Offset)
-		return nil
+		return false, nil
 	default:
-		return fmt.Errorf("todo: %#v", ev)
+		return false, fmt.Errorf("todo: %#v", ev)
 	}
 }
 

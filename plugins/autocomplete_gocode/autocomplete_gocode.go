@@ -69,7 +69,7 @@ func autoCompleteERowGolang(ed *core.Editor, cfb *ui.ContextFloatBox, erow *core
 
 	// execute external cmd
 	dir := filepath.Dir(filename)
-	bout, err := core.ExecCmdStdin(ctx, dir, in, args...)
+	bout, err := osutil.RunCmdStdin(ctx, dir, in, args...)
 	if err != nil {
 		ed.Error(err)
 		return

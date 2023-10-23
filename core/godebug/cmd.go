@@ -13,7 +13,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -243,7 +242,7 @@ func (cmd *Cmd) startExecSide(ctx context.Context) error {
 
 	// run the annotated program
 	ci := cmd.newCmdI(ctx, args)
-	ci = osutil.NewCallbackOnStartCmd(ci, cb)
+	ci = osutil.NewPausedWritersCmd(ci, cb)
 	if err := ci.Start(); err != nil {
 		return err
 	}
@@ -974,16 +973,13 @@ func (cmd *Cmd) buildOutFilename(fa *FilesToAnnotate) (string, error) {
 //------------
 
 func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
-	ec := exec.CommandContext(ctx, args[0], args[1:]...)
+	ci := osutil.NewCmdI2(ctx, args...)
+	ec := ci.Cmd()
 	ec.Stdin = cmd.Stdin
 	ec.Stdout = cmd.Stdout
 	ec.Stderr = cmd.Stderr
 	ec.Dir = cmd.Dir
 	ec.Env = cmd.env
-
-	ci := osutil.NewCmdI(ec)
-	ci = osutil.NewCtxCmd(ctx, ci)
-	ci = osutil.NewShellCmd(ci)
 	return ci
 }
 

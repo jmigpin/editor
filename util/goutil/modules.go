@@ -77,10 +77,10 @@ func GoModReplace(ctx context.Context, dir, old, new string, env []string) error
 //----------
 
 func runGoModCmd(ctx context.Context, dir string, args []string, env []string) ([]byte, error) {
-	cmd := osutil.NewCmd(ctx, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	bout, err := osutil.RunCmdStdoutAndStderrInErr(cmd, nil)
+	c := osutil.NewCmdI2(ctx, args...)
+	c.Cmd().Dir = dir
+	c.Cmd().Env = env
+	bout, err := osutil.RunCmdICombineStderrErr(c)
 	if err != nil {
 		return nil, fmt.Errorf("runGoMod: %v (args=%v, dir=%v)", err, args, dir)
 	}

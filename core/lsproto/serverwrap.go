@@ -13,7 +13,7 @@ import (
 )
 
 type ServerWrap struct {
-	Cmd *osutil.Cmd
+	Cmd osutil.CmdI
 	rwc *rwc // just for IO mode (can be nil)
 }
 
@@ -38,10 +38,8 @@ func StartServerWrapTCP(ctx context.Context, cmdTmpl string, w io.Writer) (*Serv
 
 	// get lsp server output in tcp mode
 	if w != nil {
-		if err := sw.Cmd.SetupStdio(nil, w, w); err != nil {
-			sw.Cmd.Cancel() // start will not run, clear ctx
-			return nil, "", err
-		}
+		sw.Cmd.Cmd().Stdout = w
+		sw.Cmd.Cmd().Stderr = w
 	}
 
 	if err := sw.Cmd.Start(); err != nil {
@@ -55,10 +53,11 @@ func StartServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, li *La
 
 	pr1, pw1 := io.Pipe()
 	pr2, pw2 := io.Pipe()
-	if err := sw.Cmd.SetupStdio(pr1, pw2, stderr); err != nil {
-		sw.Cmd.Cancel() // start will not run, clear ctx
-		return nil, nil, err
-	}
+
+	sw.Cmd.Cmd().Stdin = pr1
+	sw.Cmd.Cmd().Stdout = pw2
+	sw.Cmd.Cmd().Stderr = stderr
+
 	sw.rwc = &rwc{} // also keep for later close
 	sw.rwc.WriteCloser = pw1
 	sw.rwc.ReadCloser = pr2
@@ -74,7 +73,7 @@ func StartServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, li *La
 func newServerWrapCommon(ctx context.Context, cmd string) *ServerWrap {
 	sw := &ServerWrap{}
 	args := strings.Split(cmd, " ") // TODO: escapes
-	sw.Cmd = osutil.NewCmd(ctx, args...)
+	sw.Cmd = osutil.NewCmdI2(ctx, args...)
 	return sw
 }
 
