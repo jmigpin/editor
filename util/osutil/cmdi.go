@@ -3,6 +3,7 @@ package osutil
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -141,15 +142,15 @@ func (c *CtxCmd) Wait() error {
 			return err
 		case <-time.After(timeout):
 			// warn about the process not returning
-			s := fmt.Sprintf("termination timeout (%v): process has not returned from wait (ex: a subprocess might be keeping a file descriptor open).\n", timeout)
-			c.printf(s)
+			s := fmt.Sprintf("termination timeout (%v): process has not returned from wait (ex: a subprocess might be keeping a file descriptor open). Beware that these processes might produce output visible here.\n", timeout)
+			//c.printf(s)
 
-			//// exit now (leaks waitCh go routine)
-			////return c.ctx.Err()
-			//return fmt.Errorf(s)
+			// exit now (leaks waitCh go routine)
+			//return c.ctx.Err()
+			return errors.New(s)
 
-			// wait forever
-			return <-c.waitCh
+			//// wait forever
+			//return <-c.waitCh
 		}
 	}
 }
@@ -169,8 +170,9 @@ type NoHangPipeCmd struct {
 	CmdI
 	doIn, doOut, doErr bool
 	stdin              io.WriteCloser
-	stdout             io.ReadCloser
-	stderr             io.ReadCloser
+	//stdout             io.ReadCloser
+	//stderr             io.ReadCloser
+	//outPipes           sync.WaitGroup // stdout/stderr pipe wait
 }
 
 func NewNoHangPipeCmd(cmdi CmdI, doIn, doOut, doErr bool) *NoHangPipeCmd {
@@ -191,34 +193,43 @@ func (c *NoHangPipeCmd) Start() error {
 			_ = wc.Close()
 		}()
 	}
-	if c.doOut && cmd.Stdout != nil {
-		w := cmd.Stdout
-		cmd.Stdout = nil // cmd wants nil here
-		rc, err := cmd.StdoutPipe()
-		if err != nil {
-			return err
-		}
-		c.stdout = rc
-		go func() {
-			_, _ = io.Copy(w, rc)
-			_ = rc.Close()
-		}()
-	}
-	if c.doErr && cmd.Stderr != nil {
-		w := cmd.Stderr
-		cmd.Stderr = nil // cmd wants nil here
-		rc, err := cmd.StderrPipe()
-		if err != nil {
-			return err
-		}
-		c.stderr = rc
-		go func() {
-			_, _ = io.Copy(w, rc)
-			_ = rc.Close()
-		}()
-	}
+	//if c.doOut && cmd.Stdout != nil {
+	//	w := cmd.Stdout
+	//	cmd.Stdout = nil // cmd wants nil here
+	//	rc, err := cmd.StdoutPipe()
+	//	if err != nil {
+	//		return err
+	//	}
+	//	c.stdout = rc
+	//	c.outPipes.Add(1)
+	//	go func() {
+	//		defer c.outPipes.Done()
+	//		_, _ = io.Copy(w, rc)
+	//		_ = rc.Close()
+	//	}()
+	//}
+	//if c.doErr && cmd.Stderr != nil {
+	//	w := cmd.Stderr
+	//	cmd.Stderr = nil // cmd wants nil here
+	//	rc, err := cmd.StderrPipe()
+	//	if err != nil {
+	//		return err
+	//	}
+	//	c.stderr = rc
+	//	c.outPipes.Add(1)
+	//	go func() {
+	//		defer c.outPipes.Done()
+	//		_, _ = io.Copy(w, rc)
+	//		_ = rc.Close()
+	//	}()
+	//}
 	return c.CmdI.Start()
 }
+
+//func (c *NoHangPipeCmd) Wait() error {
+//	//c.outPipes.Wait() // wait for stdout/stderr pipes before calling wait
+//	return c.CmdI.Wait()
+//}
 
 // some commands will not exit unless the stdin is closed, allow access
 func (c *NoHangPipeCmd) CloseStdin() error {

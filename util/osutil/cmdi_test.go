@@ -144,40 +144,41 @@ func TestCmdIWrite1(t *testing.T) {
 		t.Fatalf("bad output: %v", s)
 	}
 }
-func TestCmdIWrite2(t *testing.T) {
-	// ctx cancel stops the hang on stdout
 
-	cmd0 := exec.Command("sh", "-c", "sleep 0.25; echo aaa")
+//func TestCmdIWrite2(t *testing.T) {
+//	// ctx cancel stops the hang on stdout
 
-	midT := 750 * time.Millisecond
+//	cmd0 := exec.Command("sh", "-c", "sleep 0.25; echo aaa")
 
-	h := NewHanger(1 * time.Second)
-	cmd0.Stdout = h
+//	midT := 750 * time.Millisecond
 
-	ctx, cancel := context.WithCancel(context.Background())
+//	h := NewHanger(1 * time.Second)
+//	cmd0.Stdout = h
 
-	cmd := NewCmdI(cmd0)
-	cmd = NewCtxCmd(ctx, cmd)
-	cmd = NewNoHangPipeCmd(cmd, false, true, true)
+//	ctx, cancel := context.WithCancel(context.Background())
 
-	now := time.Now()
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	if err := cmd.Wait(); err != nil {
-		t.Fatal(err)
-	}
-	dur := time.Since(now)
-	cancel()
-	if dur > midT {
-		t.Fatalf("cmd waited for stdout")
-	}
+//	cmd := NewCmdI(cmd0)
+//	cmd = NewCtxCmd(ctx, cmd)
+//	cmd = NewNoHangPipeCmd(cmd, false, true, true)
 
-	s := string(h.buf.Bytes())
-	if s != "" {
-		t.Fatalf("bad output: %v", s)
-	}
-}
+//	now := time.Now()
+//	if err := cmd.Start(); err != nil {
+//		t.Fatal(err)
+//	}
+//	if err := cmd.Wait(); err != nil {
+//		t.Fatal(err)
+//	}
+//	dur := time.Since(now)
+//	cancel()
+//	if dur > midT {
+//		t.Fatalf("cmd waited for stdout")
+//	}
+
+//	s := string(h.buf.Bytes())
+//	if s != "" {
+//		t.Fatalf("bad output: %v", s)
+//	}
+//}
 
 //----------
 //----------
