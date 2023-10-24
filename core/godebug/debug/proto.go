@@ -3,9 +3,7 @@ package debug
 import (
 	"bytes"
 	"context"
-	"encoding/gob"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 )
@@ -590,24 +588,4 @@ func (wb *MsgWriteBuffering) noMoreWritesAndWait() error {
 	wb.md.noMoreWrites = true
 
 	return nil
-}
-
-//----------
-//----------
-//----------
-
-func registerForProtoConn(encoderId string, v any) {
-	// commented: needs encoderId to avoid name clashes when self debugging
-	//gob.Register(v)
-
-	rt := reflect.TypeOf(v)
-	name := rt.String() // ex: *debug.ReqFilesDataMsg
-
-	// after: rt = rt.Elem()
-	// 	rt.Name() // ex: ReqFilesDataMsg
-	// 	rt.PkgPath() // ex: github.com/jmigpin/editor/core/godebug/debug
-	// 	rt.PkgPath() // ex: godebugconfig/debug
-
-	s := fmt.Sprintf("%v:%v", encoderId, name)
-	gob.RegisterName(s, v)
 }
