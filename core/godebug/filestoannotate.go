@@ -411,22 +411,18 @@ func (fa *FilesToAnnotate) addToAnnotate(filename string, typ AnnotationType) {
 func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Package, error) {
 
 	loadMode := 0 |
-		packages.NeedName | // name and pkgpath
-		packages.NeedFiles |
-		packages.NeedCompiledGoFiles |
-		packages.NeedImports |
-		packages.NeedDeps |
-		//packages.NeedExportsFile | // TODO
-		packages.NeedTypes |
-		packages.NeedSyntax | // ast.File
-		packages.NeedTypesInfo | // access to pkg.TypesInfo.*
+		//packages.NeedExportFile | // TODO
 		//packages.NeedTypesSizes | // TODO
+		packages.NeedCompiledGoFiles |
+		packages.NeedDeps |
+		packages.NeedFiles |
+		packages.NeedImports |
 		packages.NeedModule |
+		packages.NeedName | // name and pkgpath
+		packages.NeedSyntax |
+		packages.NeedTypes |
+		packages.NeedTypesInfo | // access to pkg.TypesInfo.*
 		0
-
-	// faster startup
-	env := fa.cmd.env
-	env = append(env, "GOPACKAGESDRIVER=off")
 
 	cfg := &packages.Config{
 		Context:    ctx,
@@ -434,7 +430,7 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 		Tests:      fa.cmd.flags.mode.test,
 		Dir:        fa.cmd.Dir,
 		Mode:       loadMode,
-		Env:        env,
+		Env:        fa.cmd.env,
 		BuildFlags: fa.cmd.buildArgs(),
 		//ParseFile:  parseFile,
 		//Logf: func(f string, args ...interface{}) {
@@ -456,7 +452,6 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 		return nil, err
 	}
 
-	// TODO: can be misleading getting the first error like this
 	for _, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
 			return nil, pkg.Errors[0]
