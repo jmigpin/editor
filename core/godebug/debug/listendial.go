@@ -55,14 +55,18 @@ func dialRetry(ctx context.Context, addr Addr) (Conn, error) {
 		ctx2 = ctx3
 	}
 
+	sleep := 50 * time.Millisecond
 	for {
 		conn, err := dial(ctx2, addr)
 		if err != nil {
 			if ctx2.Err() != nil {
 				return nil, fmt.Errorf("dialretry: %v: %w", ctx2.Err(), err)
 			}
-			// retry until ctx done
-			time.Sleep(50 * time.Millisecond) // prevent hot loop
+
+			// prevent hot loop
+			time.Sleep(sleep)
+			sleep *= 2 // next time have a longer wait
+
 			continue
 		}
 		return conn, nil
