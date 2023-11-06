@@ -76,8 +76,8 @@ func (annset *AnnotatorSet) insertTestMain(astFile *ast.File) error {
 	}
 
 	// ensure imports
-	//astutil.AddImport(annset.fset, astFile, "os")
-	astutil.AddImport(annset.fset, astFile, "testing")
+	_ = astutil.AddImport(annset.fset, astFile, "testing")
+	_ = astutil.AddNamedImport(annset.fset, astFile, annset.dopt.PkgName, annset.dopt.PkgPath)
 
 	astFile.Decls = append(astFile.Decls, fd)
 
