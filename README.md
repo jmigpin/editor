@@ -602,6 +602,12 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2023/11/29: v3.7.0 (103 commits)
+	- improved godebug with support to js/wasm
+	- allow access to godebug from the cmd line (useful for js/wasm)
+	- added cmd sorttextlines
+	- lsproto improvements
+	- several crash fixes
 - 2022/12/12: v3.6.0 (36 commits)
 	- improved parsing (several tests of simple parsers to lrparsers)
 	- unified some internal code that had more then one implementation
