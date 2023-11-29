@@ -17,6 +17,8 @@ require (
 )
 
 retract (
+	v1.6.1
+	v1.6.0
 	v2.0.7+incompatible
 	v2.0.7-alpha.1+incompatible
 	v2.0.6-alpha.2+incompatible
