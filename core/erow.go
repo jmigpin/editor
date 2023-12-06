@@ -587,7 +587,7 @@ func (erow *ERow) setupSyntaxHighlightAndCommentShortcuts() {
 	case "Xresources":
 		setComments("!")
 		return
-	case "go.mod":
+	case "go.mod", "go.sum", "go.work", "go.work.sum":
 		setComments("//")
 		return
 	}
