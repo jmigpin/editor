@@ -413,6 +413,7 @@ Usage of GoDebug run:
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
 - `$font=<name>[,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
+- `$scrollMode={auto}`: if the current bottom of the content is visible, auto scroll down when new content is added (ex: a cmd output).
 - `$termFilter`: same as `$terminal=f`
 - `$terminal={f,k}`: enable terminal features.
 	- `f`: Filter (remove) escape sequences from the output. Currently only the clear display sequence is interpreted in this mode which clears the output (usefull for running programs that want to discard old ouput).

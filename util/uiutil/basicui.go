@@ -331,12 +331,13 @@ func (ui *BasicUI) RunOnUIGoRoutine(f func()) {
 
 // Use with care to avoid UI deadlock (waiting within another wait).
 func (ui *BasicUI) WaitRunOnUIGoRoutine(f func()) {
-	ch := make(chan struct{}, 1)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	ui.RunOnUIGoRoutine(func() {
+		defer wg.Done()
 		f()
-		ch <- struct{}{}
 	})
-	<-ch
+	wg.Wait()
 }
 
 // Allows triggering a run of applyevent (ex: useful for cursor update, needs point or it won't work).

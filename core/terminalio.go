@@ -127,10 +127,11 @@ func (tio *ERowTermIO) updateWriteOp(op any) {
 }
 
 func (tio *ERowTermIO) updateWriteOp2(op any) error {
-	ta := tio.tf.erow.Row.TextArea
+	erow := tio.tf.erow
+	ta := erow.Row.TextArea
 	switch t := op.(type) {
 	case []byte:
-		if err := ta.AppendBytesClearHistory(t); err != nil {
+		if err := erow.AppendBytesClearHistory2(t); err != nil {
 			return err
 		}
 	case string:

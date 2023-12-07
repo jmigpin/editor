@@ -118,7 +118,10 @@ func (t *Text) MakeIndexVisible(offset int) {
 	t.MakeRangeVisible(offset, 0)
 }
 func (t *Text) MakeRangeVisible(offset, n int) {
-	o := t.Drawer.RangeVisibleOffset(offset, n)
+	t.MakeRangeVisible2(offset, n, drawutil.RAlignAuto)
+}
+func (t *Text) MakeRangeVisible2(offset, n int, align drawutil.RangeAlignment) {
+	o := t.Drawer.RangeVisibleOffset(offset, n, align)
 	t.SetRuneOffset(o)
 }
 

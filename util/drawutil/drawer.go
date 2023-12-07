@@ -49,7 +49,7 @@ type Drawer interface {
 
 	// visibility utils
 	RangeVisible(offset, n int) bool
-	RangeVisibleOffset(offset, n int) int
+	RangeVisibleOffset(offset, n int, align RangeAlignment) int
 }
 
 //----------
@@ -58,3 +58,15 @@ type SyntaxHighlightComment struct {
 	S, E   string // {start,end} sequence
 	IsLine bool   // single line comment (end argument is ignored)
 }
+
+//----------
+
+type RangeAlignment int
+
+const (
+	RAlignKeep RangeAlignment = iota
+	RAlignAuto
+	RAlignTop
+	RAlignBottom
+	RAlignCenter
+)

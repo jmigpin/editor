@@ -12,6 +12,7 @@ import (
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -403,7 +404,8 @@ func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
 	erow.Row.Toolbar.SetStrClearHistory(str)
 }
 
-// ----------
+//----------
+
 func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
@@ -468,22 +470,33 @@ func (erow *ERow) setVarFontTheme(s string) error {
 //----------
 
 // Not UI safe.
-func (erow *ERow) TextAreaAppendBytes(p []byte) {
-	ta := erow.Row.TextArea
-	if err := ta.AppendBytesClearHistory(p); err != nil {
+func (erow *ERow) AppendBytesClearHistory(p []byte) {
+	if err := erow.AppendBytesClearHistory2(p); err != nil {
 		erow.Ed.Error(err)
 	}
 }
+func (erow *ERow) AppendBytesClearHistory2(p []byte) error {
+	ta := erow.Row.TextArea
 
-// UI safe, with option to wait.
-func (erow *ERow) TextAreaAppendBytesAsync(p []byte) func() {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	erow.Ed.UI.RunOnUIGoRoutine(func() {
-		erow.TextAreaAppendBytes(p)
-		wg.Done()
-	})
-	return wg.Wait
+	// $scrollMode: auto/manual/off
+	scrollDown := false
+	vmap := toolbarparser.ParseVars(&erow.TbData)
+	if v, ok := vmap["$scrollMode"]; ok {
+		if v == "auto" {
+			if ta.IndexVisible(ta.RW().Max()) {
+				scrollDown = true
+			}
+		}
+	}
+
+	if err := ta.AppendBytesClearHistory(p); err != nil {
+		return err
+	}
+
+	if scrollDown {
+		ta.MakeRangeVisible2(ta.RW().Max(), 0, drawutil.RAlignBottom)
+	}
+	return nil
 }
 
 //----------
@@ -497,7 +510,7 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 	w := iout.FnWriter(func(b []byte) (int, error) {
 		var err error
 		erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
-			err = erow.Row.TextArea.AppendBytesClearHistory(b)
+			err = erow.AppendBytesClearHistory2(b)
 		})
 		return len(b), err
 	})

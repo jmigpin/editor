@@ -1,9 +1,11 @@
 package drawer4
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"log"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/jmigpin/editor/util/drawutil"
@@ -620,31 +622,42 @@ func (d *Drawer) RangeVisible(offset, length int) bool {
 	// v1 above and v2 below view is considered not visible (will align with v1 at top on RangeVisibleOffset(...))
 	return false
 }
+func (d *Drawer) RangeVisibleOffset(offset, length int, align drawutil.RangeAlignment) int {
 
-func (d *Drawer) RangeVisibleOffset(offset, length int) int {
-	rnlines := d.rangeNLines(offset, length)
-	bnlines := d.boundsNLines()
-	// extra lines beyond the lines ocuppied by the range
-	freeLines := bnlines - rnlines
-	if freeLines < 0 {
-		freeLines = 0
-	}
-
+	// top lines visible before the offset line
 	topLines := func(n int) int {
-		// top lines visible before the offset line
 		return d.wlineStartIndex(true, offset, n, nil)
 	}
-	alignTop := func() int {
-		return topLines(0)
+
+	freeLines := func() int {
+		rnlines := d.rangeNLines(offset, length)
+		bnlines := d.boundsNLines()
+		// extra lines beyond the lines ocuppied by the range
+		v := bnlines - rnlines
+		if v < 0 {
+			v = 0
+		}
+		return v
 	}
-	alignBottom := func() int {
-		return topLines(freeLines)
-	}
-	alignCenter := func() int {
-		return topLines(freeLines / 2)
-	}
-	keepCurAlignment := func() int {
+
+	switch align {
+	case drawutil.RAlignKeep:
 		return mathutil.Min(d.opt.runeO.offset, d.reader.Max())
+	case drawutil.RAlignTop:
+		return topLines(0)
+	case drawutil.RAlignCenter:
+		return topLines(freeLines() / 2)
+	case drawutil.RAlignBottom:
+		return topLines(freeLines())
+	case drawutil.RAlignAuto:
+		return d.rangeVisibleOffsetAuto(offset, length)
+	default:
+		panic(fmt.Errorf("todo: %v", align))
+	}
+}
+func (d *Drawer) rangeVisibleOffsetAuto(offset, length int) int {
+	align := func(a drawutil.RangeAlignment) int {
+		return d.RangeVisibleOffset(offset, length, a)
 	}
 
 	// don't let offset+length be beyond max for v2 (would give not visible)
@@ -657,31 +670,31 @@ func (d *Drawer) RangeVisibleOffset(offset, length int) int {
 	v2 := penVisibility(d, offset2)
 	if v1.full {
 		if v2.full {
-			return keepCurAlignment()
+			return align(drawutil.RAlignKeep)
 		} else if v2.partial {
 			if v2.top {
-				// panic (can't be: v1 is full)
+				// panic: can't be: v1 is full
 			} else {
-				return alignBottom()
+				return align(drawutil.RAlignBottom)
 			}
 		} else if v2.not { // past bottom line
-			return alignBottom()
+			return align(drawutil.RAlignBottom)
 		} else {
 			// panic
 		}
 	} else if v1.partial {
 		if v1.top {
-			return alignTop()
+			return align(drawutil.RAlignTop)
 		} else {
-			return alignBottom()
+			return align(drawutil.RAlignBottom)
 		}
 	} else if v1.not {
 		if v2.full {
-			return alignTop()
+			return align(drawutil.RAlignTop)
 		} else if v2.partial {
-			return alignTop()
+			return align(drawutil.RAlignTop)
 		} else if v2.not {
-			return alignCenter()
+			return align(drawutil.RAlignCenter)
 		} else {
 			// panic
 		}
@@ -689,8 +702,10 @@ func (d *Drawer) RangeVisibleOffset(offset, length int) int {
 		// panic
 	}
 
-	// should never get here
-	return alignCenter()
+	// NOTE: should never get here
+	log.Printf("drawer: range visible offset bad value: %v, %v", offset, length)
+
+	return align(drawutil.RAlignCenter)
 }
 
 //----------

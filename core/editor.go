@@ -251,7 +251,7 @@ func (ed *Editor) Message(s string) {
 		ta := erow.Row.TextArea
 		index := ta.Len()
 
-		erow.TextAreaAppendBytes([]byte(s))
+		erow.AppendBytesClearHistory([]byte(s))
 
 		// don't count spaces at the end for closer bottom alignment
 		u := strings.TrimRightFunc(s, unicode.IsSpace)
