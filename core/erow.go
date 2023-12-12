@@ -621,7 +621,7 @@ func (erow *ERow) setupSyntaxHighlightAndCommentShortcuts() {
 		".js": // javascript
 		setComments("//", [2]string{"/*", "*/"})
 	case ".ledger":
-		setComments(";", "//")
+		setComments("#", ";")
 	case ".pro": // prolog
 		setComments("%", [2]string{"/*", "*/"})
 	case ".html", ".xml", ".svg":
