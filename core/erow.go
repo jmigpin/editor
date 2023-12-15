@@ -621,7 +621,7 @@ func (erow *ERow) setupSyntaxHighlightAndCommentShortcuts() {
 		".js": // javascript
 		setComments("//", [2]string{"/*", "*/"})
 	case ".ledger":
-		setComments("#", ";")
+		setComments(";", "#") // ";" is main symbol for comments but is not if in the description; while "#" is not a comment in some other cases
 	case ".pro": // prolog
 		setComments("%", [2]string{"/*", "*/"})
 	case ".html", ".xml", ".svg":
