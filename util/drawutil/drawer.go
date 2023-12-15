@@ -64,7 +64,8 @@ type SyntaxHighlightComment struct {
 type RangeAlignment int
 
 const (
-	RAlignKeep RangeAlignment = iota
+	RAlignKeep         RangeAlignment = iota
+	RAlignKeepOrBottom                // keep if visible, or bottom
 	RAlignAuto
 	RAlignTop
 	RAlignBottom

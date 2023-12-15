@@ -642,7 +642,12 @@ func (d *Drawer) RangeVisibleOffset(offset, length int, align drawutil.RangeAlig
 
 	switch align {
 	case drawutil.RAlignKeep:
-		return mathutil.Min(d.opt.runeO.offset, d.reader.Max())
+		return d.alignKeep()
+	case drawutil.RAlignKeepOrBottom:
+		if v, ok := d.rangeVisibleOffsetKeepIfVisible(offset, length); ok {
+			return v
+		}
+		return topLines(freeLines())
 	case drawutil.RAlignTop:
 		return topLines(0)
 	case drawutil.RAlignCenter:
@@ -655,16 +660,28 @@ func (d *Drawer) RangeVisibleOffset(offset, length int, align drawutil.RangeAlig
 		panic(fmt.Errorf("todo: %v", align))
 	}
 }
+
+//----------
+
+func (d *Drawer) alignKeep() int {
+	return mathutil.Min(d.opt.runeO.offset, d.reader.Max())
+}
+
+func (d *Drawer) rangeVisibleOffsetKeepIfVisible(offset, length int) (int, bool) {
+	offset2 := d.rangeVisibleOffset2(offset, length)
+	v2 := penVisibility(d, offset2)
+	if v2.full {
+		return d.alignKeep(), true
+	}
+	return 0, false
+}
+
 func (d *Drawer) rangeVisibleOffsetAuto(offset, length int) int {
 	align := func(a drawutil.RangeAlignment) int {
 		return d.RangeVisibleOffset(offset, length, a)
 	}
 
-	// don't let offset+length be beyond max for v2 (would give not visible)
-	offset2 := offset + length
-	if offset2 > d.reader.Max() {
-		offset2 = offset
-	}
+	offset2 := d.rangeVisibleOffset2(offset, length)
 
 	v1 := penVisibility(d, offset)
 	v2 := penVisibility(d, offset2)
@@ -706,6 +723,17 @@ func (d *Drawer) rangeVisibleOffsetAuto(offset, length int) int {
 	log.Printf("drawer: range visible offset bad value: %v, %v", offset, length)
 
 	return align(drawutil.RAlignCenter)
+}
+
+//----------
+
+func (d *Drawer) rangeVisibleOffset2(offset, length int) int {
+	// don't let offset+length be beyond max for v2 (would give not visible)
+	offset2 := offset + length
+	if offset2 > d.reader.Max() {
+		offset2 = offset
+	}
+	return offset2
 }
 
 //----------

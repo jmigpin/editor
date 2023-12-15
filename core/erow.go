@@ -494,7 +494,7 @@ func (erow *ERow) AppendBytesClearHistory2(p []byte) error {
 	}
 
 	if scrollDown {
-		ta.MakeRangeVisible2(ta.RW().Max(), 0, drawutil.RAlignBottom)
+		ta.MakeRangeVisible2(ta.RW().Max(), 0, drawutil.RAlignKeepOrBottom)
 	}
 	return nil
 }
