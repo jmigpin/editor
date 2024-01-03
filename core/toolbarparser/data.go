@@ -29,7 +29,7 @@ func (d *Data) Part0Arg0() (*Arg, bool) {
 
 //----------
 
-func (d *Data) String() string {
+func (d *Data) ToString() string {
 	s := ""
 	for i, p := range d.Parts {
 		s += fmt.Sprintf("part%v:\n", i)

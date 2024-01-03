@@ -161,15 +161,7 @@ type RowState struct {
 }
 
 func NewRowState(ed *Editor, row *ui.Row) *RowState {
-	// get toolbar string with the name decoded
 	tbStr := row.Toolbar.Str()
-	data := toolbarparser.Parse(tbStr)
-	arg0, ok := data.Part0Arg0()
-	if ok {
-		arg0Str := arg0.String()
-		name := ed.HomeVars.Decode(arg0Str)
-		tbStr = name + tbStr[len(arg0Str):]
-	}
 
 	rs := &RowState{
 		TbStr:         tbStr,
