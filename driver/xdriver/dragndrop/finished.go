@@ -1,6 +1,6 @@
 package dragndrop
 
-import "github.com/BurntSushi/xgb/xproto"
+import "github.com/jezek/xgb/xproto"
 
 type FinishedEvent struct {
 	Window   xproto.Window
