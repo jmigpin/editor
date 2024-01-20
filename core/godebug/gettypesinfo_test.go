@@ -11,11 +11,14 @@ import (
 // useful for testing with types
 func getTypesInfo(fset *token.FileSet, astFile *ast.File) (*types.Info, error) {
 	conf := types.Config{
-		Importer: importer.Default(),
+		//Importer: importer.Default(), // failing
+		Importer: importer.ForCompiler(fset, "source", nil),
+
 		//Sizes:    nil,
 		//DisableUnusedImportCheck: true,
 		//IgnoreFuncBodies: true,
 		//AllowTypeAssertions:      true,
+
 		Error: func(err error) {
 			// DEBUG
 			fmt.Printf("typesinfo: error: %v\n", err)

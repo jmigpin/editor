@@ -101,7 +101,7 @@ func testAnnotator2(t *testing.T, name string, in0, out []byte, filename string,
 
 	ti, err := getTypesInfo(fset, astFile)
 	if err != nil {
-		return false, false, fmt.Errorf("%v: %v", location, err)
+		return false, false, fmt.Errorf("typesinfo: %v: %w", location, err)
 	}
 
 	// annotate
