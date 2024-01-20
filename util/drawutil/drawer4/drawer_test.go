@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang/freetype/truetype"
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"golang.org/x/image/colornames"
@@ -206,7 +207,7 @@ func TestImg09Visible(t *testing.T) {
 	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
-	o := d.RangeVisibleOffset(r.Max(), 0)
+	o := d.RangeVisibleOffset(r.Max(), 0, drawutil.RAlignAuto)
 	d.SetRuneOffset(o)
 
 	d.Draw(img)
@@ -220,7 +221,7 @@ func TestImg10Visible(t *testing.T) {
 	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
-	o := d.RangeVisibleOffset(19, 4) // line with 4's
+	o := d.RangeVisibleOffset(19, 4, drawutil.RAlignAuto) // line with 4's
 	d.SetRuneOffset(o)
 
 	d.Draw(img)
@@ -234,7 +235,7 @@ func TestImg11Visible(t *testing.T) {
 	r := iorw.NewStringReaderAt(s)
 	d.SetReader(r)
 
-	o := d.RangeVisibleOffset(19, 7) // line with 4's
+	o := d.RangeVisibleOffset(19, 7, drawutil.RAlignAuto) // line with 4's
 	d.SetRuneOffset(o)
 
 	d.Draw(img)
@@ -279,7 +280,7 @@ func TestImg13Cursor(t *testing.T) {
 	d.SetCursorOffset(c)
 
 	// range visible when offset was eof was causing draw at bottom
-	u := d.RangeVisibleOffset(c, 1)
+	u := d.RangeVisibleOffset(c, 1, drawutil.RAlignAuto)
 	d.SetRuneOffset(u)
 
 	d.Draw(img)
@@ -321,7 +322,7 @@ func TestImg15Visible(t *testing.T) {
 	b, _ := rw.ReadFastAt(rw.Min(), rw.Max()-rw.Min())
 	_ = string(b)
 
-	o := d.RangeVisibleOffset(0, 0)
+	o := d.RangeVisibleOffset(0, 0, drawutil.RAlignAuto)
 	d.SetRuneOffset(o)
 
 	rw.OverwriteAt(rw.Min(), 0, []byte("44444\n"))
