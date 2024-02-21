@@ -295,7 +295,7 @@ func (gdi *GoDebugInstance) trace() error {
 		sb.WriteString("\t" + u + "\n")
 	}
 
-	gdi.gdm.Printf("trace (%d entries):\n%v\n", len(msgs), sb.String())
+	gdi.gdm.Printf("trace (%d entries):\n%v", len(msgs), sb.String())
 	return nil
 }
 
@@ -308,7 +308,8 @@ func (gdi *GoDebugInstance) printIndex(erow *ERow, annIndex, offset int) {
 	}
 	// build output
 	s := godebug.StringifyItemFull(msg.offsetMsg.Item)
-	gdi.gdm.Printf("annotation: #%d\n\t%v\n", msg.arrivalIndex, s)
+	s2 := "\t" + s + "\n"
+	gdi.gdm.Printf("annotation: #%d\n%v", msg.arrivalIndex, s2)
 }
 
 func (gdi *GoDebugInstance) printIndexAllPrevious(erow *ERow, annIndex, offset int) {
@@ -322,7 +323,7 @@ func (gdi *GoDebugInstance) printIndexAllPrevious(erow *ERow, annIndex, offset i
 		s := godebug.StringifyItemFull(msg.offsetMsg.Item)
 		sb.WriteString("\t" + s + "\n")
 	}
-	gdi.gdm.Printf("annotations (%d entries):\n%v\n", len(msgs), sb.String())
+	gdi.gdm.Printf("annotations (%d entries):\n%v", len(msgs), sb.String())
 }
 
 //----------
