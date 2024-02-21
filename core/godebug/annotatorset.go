@@ -143,8 +143,8 @@ type AnnSetDebugOpt struct {
 }
 
 func newAnnSetDebugOpt() *AnnSetDebugOpt {
-	// The godebug/debug pkg is writen to a tmp dir and used with the pkg path "godebugconfig/debug" to avoid dependencies in the target build. Annotation data is added to the aaaconfig.go. The godebug/debug pkg is included in the editor binary via //go:embed directive.
-	var debugPkgPath = "godebugconfig/debug"
+	// The godebug/debug pkg is writen to a tmp dir and used with the pkg path below to avoid dependencies in the target build. Annotation data is added to the aaaconfig.go. The godebug/debug pkg is included in the editor binary via //go:embed directive.
+	var debugPkgPath = "godebugconfig.local/debug"
 
 	return &AnnSetDebugOpt{
 		PkgPath:   debugPkgPath,
