@@ -249,6 +249,10 @@ func GoDebugFind(args *core.InternalCmdArgs) error {
 	return args.Ed.GoDebug.AnnotationFind(s)
 }
 
+func GoDebugTrace(args *core.InternalCmdArgs) error {
+	return args.Ed.GoDebug.Trace()
+}
+
 //----------
 
 func ColorTheme(args *core.InternalCmdArgs) error {

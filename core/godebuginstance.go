@@ -115,6 +115,15 @@ func (gdm *GoDebugManager) UpdateInfoAnnotations(info *ERowInfo) {
 	}
 }
 
+func (gdm *GoDebugManager) Trace() error {
+	gdm.gdi.Lock()
+	defer gdm.gdi.Unlock()
+	if gdm.gdi.gdi == nil {
+		return fmt.Errorf("missing godebug instance")
+	}
+	return gdm.gdi.gdi.trace()
+}
+
 //----------
 
 func (gdm *GoDebugManager) Printf(format string, args ...any) {
@@ -267,6 +276,26 @@ func (gdi *GoDebugInstance) annotationFind(s string) error {
 		return fmt.Errorf("string not found in selected annotation: %v", s)
 	}
 	gdi.updateAnnotationsAndShowLine(nil, gdi.gdm.ed.GoodRowPos())
+	return nil
+}
+
+//----------
+
+func (gdi *GoDebugInstance) trace() error {
+	msgs := gdi.di.trace()
+
+	// build output
+	sb := strings.Builder{}
+	for i := len(msgs) - 1; i >= 0; i-- { // reverse order
+		msg := msgs[i]
+		afd := gdi.di.afds[msg.offsetMsg.FileIndex]
+		loc := fmt.Sprintf("%v:o=%d", afd.Filename, msg.offsetMsg.Offset)
+		s := godebug.StringifyItemFull(msg.offsetMsg.Item)
+		u := fmt.Sprintf("%v: %v", s, loc)
+		sb.WriteString("\t" + u + "\n")
+	}
+
+	gdi.gdm.Printf("trace (%d entries):\n%v\n", len(msgs), sb.String())
 	return nil
 }
 
@@ -832,8 +861,6 @@ func (di *GDDataIndex) selectNext() error {
 
 //----------
 
-//----------
-
 func (di *GDDataIndex) findSelectedAndUpdateAnnEntries(info *ERowInfo) (entries *drawer4.AnnotationGroup, selMsgIndex int, edited bool, fileFound bool) {
 	di.Lock()
 	defer di.Unlock()
@@ -954,6 +981,38 @@ func (di *GDDataIndex) filenameIsIndexed(filename string) bool {
 	defer di.RUnlock()
 	_, ok := di.filesIndexM[filename]
 	return ok
+}
+
+//----------
+
+func (di *GDDataIndex) trace() []*GDOffsetMsg {
+	di.RLock()
+	defer di.RUnlock()
+
+	res := []*GDOffsetMsg{}
+
+	arrivalIndex := di.selected.arrivalIndex
+
+	// all files, all lines, if currently holding, keep it; check arrival
+	for _, f := range di.files {
+		for _, m := range f.msgs {
+			idx, eq, found := m.findIndex(arrivalIndex)
+			if !found {
+				continue
+			}
+			_ = eq
+			om := m.arrivals[idx]
+
+			switch om.offsetMsg.Item.(type) {
+			case *debug.ItemCallEnter,
+				*debug.ItemUnaryEnter,
+				*debug.ItemSend:
+				res = append(res, om)
+			}
+		}
+	}
+
+	return res
 }
 
 //----------

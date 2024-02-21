@@ -395,6 +395,8 @@ func (ed *Editor) setupRootMenuToolbar() {
 		{"Find -h"},
 		{"FontRunes", "RuneCodes"},
 		{"GoDebug -h", "GoDebug run -h", "GoDebug connect -h"},
+		{"GoDebugFind"},
+		{"GoDebugTrace"},
 		{"GotoLine"},
 		{"ListDir", "ListDir -hidden", "ListDir -sub"},
 		{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
