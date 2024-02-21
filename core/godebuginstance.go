@@ -14,6 +14,7 @@ import (
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/parseutil"
 )
@@ -31,11 +32,10 @@ import (
 const updatesPerSecond = 12
 
 type GoDebugManager struct {
-	ed   *Editor
-	inst struct {
+	ed  *Editor
+	gdi struct {
 		sync.Mutex
-		inst *GoDebugInstance
-		//cancel context.CancelFunc
+		gdi *GoDebugInstance
 	}
 }
 
@@ -44,64 +44,74 @@ func NewGoDebugManager(ed *Editor) *GoDebugManager {
 	return gdm
 }
 
-func (gdm *GoDebugManager) RunAsync(reqCtx context.Context, erow *ERow, args []string) error {
+func (gdm *GoDebugManager) RunAsync(startCtx context.Context, erow *ERow, args []string) error {
+	gdm.gdi.Lock()
+	defer gdm.gdi.Unlock()
 
-	gdm.inst.Lock()
-	defer gdm.inst.Unlock()
+	gdm.cancelAndWaitAndClear2() // previous instance
 
-	gdm.cancelAndWaitAndClear() // previous instance
+	// setup instance context
+	ctx, cancel := context.WithCancel(context.Background())
 
-	inst, err := newGoDebugInstance(gdm.ed, gdm, erow, args)
+	// call cancel if startCtx is done
+	clearWatching := ctxutil.WatchDone(startCtx, cancel)
+	defer clearWatching()
+
+	gdi, err := newGoDebugInstance(ctx, gdm, erow, args)
 	if err != nil {
 		return err
 	}
-	gdm.inst.inst = inst
+	gdm.gdi.gdi = gdi
 
 	return nil
 }
 
+//----------
+
 func (gdm *GoDebugManager) CancelAndClear() {
-	gdm.inst.Lock()
-	defer gdm.inst.Unlock()
-	gdm.cancelAndWaitAndClear()
+	gdm.gdi.Lock()
+	defer gdm.gdi.Unlock()
+	gdm.cancelAndWaitAndClear2()
 }
-func (gdm *GoDebugManager) cancelAndWaitAndClear() {
-	if gdm.inst.inst != nil {
-		gdm.inst.inst.cancelAndWaitAndClear()
-		gdm.inst.inst = nil
+func (gdm *GoDebugManager) cancelAndWaitAndClear2() {
+	if gdm.gdi.gdi != nil {
+		gdm.gdi.gdi.cancelAndWaitAndClear()
+		gdm.gdi.gdi = nil
 	}
 }
 
+//----------
+
 func (gdm *GoDebugManager) SelectAnnotation(rowPos *ui.RowPos, ev *ui.RootSelectAnnotationEvent) {
-	gdm.inst.Lock()
-	defer gdm.inst.Unlock()
-	if gdm.inst.inst != nil {
-		gdm.inst.inst.selectAnnotation(rowPos, ev)
+	gdm.gdi.Lock()
+	defer gdm.gdi.Unlock()
+	if gdm.gdi.gdi != nil {
+		gdm.gdi.gdi.selectAnnotation(rowPos, ev)
 	}
 }
 
 func (gdm *GoDebugManager) SelectERowAnnotation(erow *ERow, ev *ui.TextAreaSelectAnnotationEvent) {
-	gdm.inst.Lock()
-	defer gdm.inst.Unlock()
-	if gdm.inst.inst != nil {
-		gdm.inst.inst.selectERowAnnotation(erow, ev)
+	gdm.gdi.Lock()
+	defer gdm.gdi.Unlock()
+	if gdm.gdi.gdi != nil {
+		gdm.gdi.gdi.selectERowAnnotation(erow, ev)
 	}
 }
 
 func (gdm *GoDebugManager) AnnotationFind(s string) error {
-	gdm.inst.Lock()
-	defer gdm.inst.Unlock()
-	if gdm.inst.inst == nil {
+	gdm.gdi.Lock()
+	defer gdm.gdi.Unlock()
+	if gdm.gdi.gdi == nil {
 		return fmt.Errorf("missing godebug instance")
 	}
-	return gdm.inst.inst.annotationFind(s)
+	return gdm.gdi.gdi.annotationFind(s)
 }
 
 func (gdm *GoDebugManager) UpdateInfoAnnotations(info *ERowInfo) {
-	gdm.inst.Lock()
-	defer gdm.inst.Unlock()
-	if gdm.inst.inst != nil {
-		gdm.inst.inst.updateInfoAnnotations(info)
+	gdm.gdi.Lock()
+	defer gdm.gdi.Unlock()
+	if gdm.gdi.gdi != nil {
+		gdm.gdi.gdi.updateInfoAnnotations(info)
 	}
 }
 
@@ -125,7 +135,7 @@ type GoDebugInstance struct {
 	di     *GDDataIndex
 }
 
-func newGoDebugInstance(ed *Editor, gdm *GoDebugManager, erow *ERow, args []string) (*GoDebugInstance, error) {
+func newGoDebugInstance(ctx context.Context, gdm *GoDebugManager, erow *ERow, args []string) (*GoDebugInstance, error) {
 	gdi := &GoDebugInstance{gdm: gdm}
 	gdi.di = NewGDDataIndex(gdi)
 
@@ -144,12 +154,12 @@ func newGoDebugInstance(ed *Editor, gdm *GoDebugManager, erow *ERow, args []stri
 		return nil, fmt.Errorf("can't run on this erow type")
 	}
 
-	_, cancel := erow.Exec.RunAsyncWithCancel(func(ctx context.Context, rw io.ReadWriter) error {
-		return gdi.runCmd(ctx, erow, args, rw)
+	_, cancel := erow.Exec.RunAsyncWithCancel(func(erowCtx context.Context, rw io.ReadWriter) error {
+		return gdi.runCmd(erowCtx, erow, args, rw)
 	})
 
 	// full ctx for the duration of the instance, not just the cmd
-	ctx2, cancel2 := context.WithCancel(context.Background())
+	ctx2, cancel2 := context.WithCancel(ctx)
 	gdi.ctx = ctx2
 	gdi.cancel = func() {
 		cancel()  // cancel cmd
