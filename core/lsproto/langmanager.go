@@ -35,7 +35,7 @@ func (lang *LangManager) instance(reqCtx context.Context) (*LangInstance, error)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// call cancel if reqCtx is done
-	clearWatching := ctxutil.WatchDone(cancel, reqCtx)
+	clearWatching := ctxutil.WatchDone(reqCtx, cancel)
 	defer clearWatching()
 
 	li, err := NewLangInstance(ctx, lang)

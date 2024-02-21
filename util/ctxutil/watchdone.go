@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-func WatchDone(cancel func(), ctx context.Context) func() {
+func WatchDone(ctx context.Context, cancel func()) func() {
 	ch := make(chan struct{}, 1) // 1=receive clearwatching if ctx already done
 
 	// ensure sync with the receiver, otherwise clearwatching could be called and exit and the ctx.done be called later on the same goroutine and still arrive before the clearwatching signal
