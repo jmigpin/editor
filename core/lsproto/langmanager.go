@@ -12,10 +12,10 @@ type LangManager struct {
 	Reg *Registration // accessed from editor
 
 	man *Manager
-	mu  struct {
+	li  struct {
 		sync.Mutex
-		li             *LangInstance
-		cancelInstance context.CancelFunc
+		li     *LangInstance
+		cancel context.CancelFunc
 	}
 }
 
@@ -23,19 +23,20 @@ func NewLangManager(man *Manager, reg *Registration) *LangManager {
 	return &LangManager{Reg: reg, man: man}
 }
 
-func (lang *LangManager) instance(reqCtx context.Context) (*LangInstance, error) {
-	lang.mu.Lock()
-	defer lang.mu.Unlock()
+func (lang *LangManager) instance(startCtx context.Context) (*LangInstance, error) {
+	lang.li.Lock()
+	defer lang.li.Unlock()
 
-	if lang.mu.li != nil {
-		return lang.mu.li, nil
+	// existing running instance
+	if lang.li.li != nil {
+		return lang.li.li, nil
 	}
 
-	// setup instance context // TODO: manager ctx
+	// setup instance context
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// call cancel if reqCtx is done
-	clearWatching := ctxutil.WatchDone(reqCtx, cancel)
+	// call cancel if startCtx is done
+	clearWatching := ctxutil.WatchDone(startCtx, cancel)
 	defer clearWatching()
 
 	li, err := NewLangInstance(ctx, lang)
@@ -44,6 +45,8 @@ func (lang *LangManager) instance(reqCtx context.Context) (*LangInstance, error)
 		err = lang.WrapError(err)
 		return nil, err
 	}
+	lang.li.li = li
+	lang.li.cancel = cancel
 
 	// handle server/client abnormal early exit
 	go func() {
@@ -52,26 +55,23 @@ func (lang *LangManager) instance(reqCtx context.Context) (*LangInstance, error)
 			lang.PrintWrapError(err)
 		}
 		// ensure this instance is cleared
-		lang.mu.Lock()
-		defer lang.mu.Unlock()
-		if lang.mu.li == li {
-			lang.mu.li = nil
+		lang.li.Lock()
+		defer lang.li.Unlock()
+		if lang.li.li == li {
+			lang.li.li = nil
 		}
 	}()
-
-	lang.mu.li = li
-	lang.mu.cancelInstance = cancel
 
 	return li, nil
 }
 
 // returns true if the instance was running
 func (lang *LangManager) Close() (error, bool) {
-	lang.mu.Lock()
-	defer lang.mu.Unlock()
-	if lang.mu.li != nil {
-		lang.mu.cancelInstance()
-		lang.mu.li = nil
+	lang.li.Lock()
+	defer lang.li.Unlock()
+	if lang.li.li != nil {
+		lang.li.cancel()
+		lang.li.li = nil
 		return nil, true
 	}
 	return nil, false
