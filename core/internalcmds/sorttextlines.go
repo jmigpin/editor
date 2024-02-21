@@ -1,7 +1,6 @@
 package internalcmds
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -12,30 +11,22 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
-func sortTextLines(args0 *core.InternalCmdArgs) error {
+func sortTextLines(args *core.InternalCmdArgs) error {
 	// setup flagset
 	fs := flag.NewFlagSet("SortTextLines", flag.ContinueOnError)
 	fs.SetOutput(io.Discard) // don't output to stderr
 	identFlag := fs.Bool("firstIndent", false, "sorts the first identation level and leaves inner indented lines untouched; ex: sort switch/case statements while keeping each case body")
-
-	// parse flags
-	part := args0.Part
-	args := part.ArgsStrings()[1:]
-	err := fs.Parse(args)
-	if err != nil {
-		if err == flag.ErrHelp {
-			buf := &bytes.Buffer{}
-			fs.SetOutput(buf)
-			fs.Usage()
-			args0.Ed.Message(buf.String())
-			return nil
-		}
+	if err := parseFlagSetHandleUsage(args, fs); err != nil {
 		return err
 	}
 
 	//----------
 
-	erow := args0.ERow
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+
 	ta := erow.Row.TextArea
 	ctx := ta.EditCtx()
 	// get selection text indexes (get start/end of lines)

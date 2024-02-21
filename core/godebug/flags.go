@@ -16,6 +16,11 @@ var defaultBuildConnectAddr = ":8078"
 type Flags struct {
 	stderr io.Writer
 
+	parseOnce struct {
+		parsed bool
+		err    error
+	}
+
 	mode struct {
 		run     bool
 		test    bool
@@ -45,9 +50,16 @@ type Flags struct {
 	execArgs    []string // to be passed to the executable when running
 }
 
+func (fl *Flags) parseArgsOnce(args []string) error {
+	if !fl.parseOnce.parsed {
+		fl.parseOnce.parsed = true
+		fl.parseOnce.err = fl.parseArgs(args)
+	}
+	return fl.parseOnce.err
+}
 func (fl *Flags) parseArgs(args []string) error {
 	if len(args) == 0 {
-		return fl.usageErr()
+		return fl.usagePrintAndErr()
 	}
 	name := "GoDebug " + args[0]
 	switch args[0] {
@@ -64,17 +76,13 @@ func (fl *Flags) parseArgs(args []string) error {
 		fl.mode.connect = true
 		return fl.parseConnectArgs(name, args[1:])
 	default:
-		return fl.usageErr()
+		return fl.usagePrintAndErr()
 	}
 }
 
-func (fl *Flags) usageErr() error {
-	fl.printCmdUsage()
-	return flag.ErrHelp
-}
-
-func (fl *Flags) printCmdUsage() {
+func (fl *Flags) usagePrintAndErr() error {
 	fmt.Fprint(fl.stderr, cmdUsage())
+	return flag.ErrHelp
 }
 
 //----------

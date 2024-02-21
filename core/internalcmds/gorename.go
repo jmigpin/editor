@@ -7,9 +7,11 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func GoRename(args0 *core.InternalCmdArgs) error {
-	erow := args0.ERow
-	part := args0.Part
+func GoRename(args *core.InternalCmdArgs) error {
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
 	if !erow.Info.IsFileButNotDir() {
 		return fmt.Errorf("not a file")
@@ -19,25 +21,26 @@ func GoRename(args0 *core.InternalCmdArgs) error {
 		return fmt.Errorf("row has edits, save first")
 	}
 
-	args := part.Args[1:]
-	if len(args) < 1 {
+	part := args.Part
+	args2 := part.Args[1:]
+	if len(args2) < 1 {
 		return fmt.Errorf("expecting at least 1 argument")
 	}
 
 	// optional "-all" (only as first arg) for full rename (not an option on either gorename/gopls)
 	isF := false
-	if args[0].String() == "-all" {
+	if args2[0].String() == "-all" {
 		isF = true
-		args = args[1:]
+		args2 = args2[1:]
 	}
 
 	// new name argument "to"
-	to := args[len(args)-1].UnquotedString()
+	to := args2[len(args2)-1].UnquotedString()
 
 	// allow other args
 	otherArgs := []string{}
-	for i := 0; i < len(args)-1; i++ {
-		otherArgs = append(otherArgs, args[i].UnquotedString())
+	for i := 0; i < len(args2)-1; i++ {
+		otherArgs = append(otherArgs, args2[i].UnquotedString())
 	}
 
 	// id offset to rename "from"

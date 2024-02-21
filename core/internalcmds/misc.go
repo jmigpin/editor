@@ -1,9 +1,14 @@
 package internalcmds
 
 import (
+	"bytes"
+	"errors"
+	"flag"
 	"fmt"
+	"os"
 
 	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
@@ -50,14 +55,22 @@ func NewColumn(args *core.InternalCmdArgs) error {
 	return nil
 }
 func CloseColumn(args *core.InternalCmdArgs) error {
-	args.ERow.Row.Col.Close()
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+	erow.Row.Col.Close()
 	return nil
 }
 
 //----------
 
 func CloseRow(args *core.InternalCmdArgs) error {
-	args.ERow.Row.Close()
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+	erow.Row.Close()
 	return nil
 }
 func ReopenRow(args *core.InternalCmdArgs) error {
@@ -65,14 +78,22 @@ func ReopenRow(args *core.InternalCmdArgs) error {
 	return nil
 }
 func MaximizeRow(args *core.InternalCmdArgs) error {
-	args.ERow.Row.Maximize()
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+	erow.Row.Maximize()
 	return nil
 }
 
 //----------
 
 func Save(args *core.InternalCmdArgs) error {
-	return args.ERow.Info.SaveFile()
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+	return erow.Info.SaveFile()
 }
 func SaveAllFiles(args *core.InternalCmdArgs) error {
 	var me iout.MultiError
@@ -87,7 +108,11 @@ func SaveAllFiles(args *core.InternalCmdArgs) error {
 //----------
 
 func Reload(args *core.InternalCmdArgs) error {
-	return args.ERow.Reload()
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+	return erow.Reload()
 }
 func ReloadAllFiles(args *core.InternalCmdArgs) error {
 	me := &iout.MultiError{}
@@ -117,41 +142,64 @@ func ReloadAll(args *core.InternalCmdArgs) error {
 //----------
 
 func Stop(args *core.InternalCmdArgs) error {
-	args.ERow.Exec.Stop()
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+	erow.Exec.Stop()
 	return nil
 }
 
 //----------
 
 func Clear(args *core.InternalCmdArgs) error {
-	args.ERow.Row.TextArea.SetStrClearHistory("")
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+	erow.Row.TextArea.SetStrClearHistory("")
 	return nil
 }
 
 //----------
 
 func OpenFilemanager(args *core.InternalCmdArgs) error {
-	erow := args.ERow
-
-	if erow.Info.IsSpecial() {
-		return fmt.Errorf("can't run on special row")
+	dir := ""
+	erow, ok := args.ERow()
+	if ok && !erow.Info.IsSpecial() {
+		dir = erow.Info.Dir()
+	} else {
+		d, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		dir = d
 	}
 
-	return osutil.OpenFilemanager(erow.Info.Dir())
+	return osutil.OpenFilemanager(dir)
 }
 
 func OpenTerminal(args *core.InternalCmdArgs) error {
-	erow := args.ERow
-
-	if erow.Info.IsSpecial() {
-		return fmt.Errorf("can't run on special row")
+	dir := ""
+	erow, ok := args.ERow()
+	if ok && !erow.Info.IsSpecial() {
+		dir = erow.Info.Dir()
+	} else {
+		d, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		dir = d
 	}
 
-	return osutil.OpenTerminal(erow.Info.Dir())
+	return osutil.OpenTerminal(dir)
 }
 
 func OpenExternal(args *core.InternalCmdArgs) error {
-	erow := args.ERow
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
 	if erow.Info.IsSpecial() {
 		return fmt.Errorf("can't run on special row")
@@ -164,10 +212,29 @@ func OpenExternal(args *core.InternalCmdArgs) error {
 
 func GoDebug(args *core.InternalCmdArgs) error {
 	args2 := args.Part.ArgsUnquoted()
-	return args.Ed.GoDebug.RunAsync(args.Ctx, args.ERow, args2)
+
+	// special case: show help
+	cmd := godebug.NewCmd()
+	buf := &bytes.Buffer{}
+	cmd.Stderr = buf
+	if err := cmd.ParseFlagsOnce(args2[1:]); errors.Is(err, flag.ErrHelp) {
+		return fmt.Errorf("%w\n%v", err, buf.String())
+	}
+
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
+	return args.Ed.GoDebug.RunAsync(args.Ctx, erow, args2)
 }
 
 func GoDebugFind(args *core.InternalCmdArgs) error {
+	// TODO: erow needed?
+	//erow, err := args.ERowOrErr()
+	//if err != nil {
+	//	return err
+	//}
+
 	a := args.Part.ArgsUnquoted()
 	if len(a) < 2 {
 		return fmt.Errorf("missing string to find")

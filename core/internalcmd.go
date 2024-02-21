@@ -2,41 +2,55 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/uiutil/widget"
 )
-
-//----------
-
-type InternalCmd struct {
-	Name      string
-	Fn        InternalCmdFn
-	NeedsERow bool
-	Detach    bool // run outside UI goroutine (care must be taken)
-}
-
-type InternalCmdFn func(args *InternalCmdArgs) error
-
-type InternalCmdArgs struct {
-	Ctx  context.Context
-	Ed   *Editor
-	ERow *ERow // could be nil
-	Part *toolbarparser.Part
-}
-
-//----------
 
 // cmds added via init() from "internalcmds" pkg
 var InternalCmds = internalCmds{}
+
+var noERowErr = fmt.Errorf("no active row")
+
+//----------
 
 type internalCmds map[string]*InternalCmd
 
 func (ic *internalCmds) Set(cmd *InternalCmd) {
 	(*ic)[cmd.Name] = cmd
+}
+
+//----------
+
+type InternalCmd struct {
+	Name string
+	Fn   InternalCmdFn
+}
+
+type InternalCmdFn func(args *InternalCmdArgs) error
+
+//----------
+
+type InternalCmdArgs struct {
+	Cmd     *InternalCmd
+	Ctx     context.Context
+	Ed      *Editor
+	Part    *toolbarparser.Part
+	optERow *ERow // can be nil
+}
+
+func (args *InternalCmdArgs) ERow() (*ERow, bool) {
+	return args.optERow, args.optERow != nil
+}
+func (args *InternalCmdArgs) ERowOrErr() (*ERow, error) {
+	erow, ok := args.ERow()
+	if !ok {
+		return nil, noERowErr
+	}
+	return erow, nil
 }
 
 //----------
@@ -124,78 +138,60 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 //----------
 
 // erow can be nil (ex: a root toolbar cmd)
-func internalCmd(ed *Editor, part *toolbarparser.Part, erow *ERow) {
-	arg0 := part.Args[0].UnquotedString()
-	noERowErr := func() {
-		ed.Errorf("%s: no active row", arg0)
+func internalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) {
+	if err := internalCmd2(ed, part, optERow); err != nil {
+		arg0 := part.Args[0].UnquotedString()
+		ed.Errorf("%s: %w", arg0, err)
+	}
+}
+func internalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow) error {
+	if optERow == nil {
+		if ae, ok := ed.ActiveERow(); ok {
+			optERow = ae
+		}
 	}
 
-	// util functions
-
-	currentERow := func() *ERow {
-		if erow != nil {
-			return erow
-		}
-		e, ok := ed.ActiveERow()
-		if ok {
-			return e
-		}
+	if handled, err := internalCmd3(ed, part, optERow); err != nil {
+		return err
+	} else if handled {
 		return nil
-	}
-	run := func(detach bool, node widget.Node, fn func()) {
-		if detach {
-			ed.RunAsyncBusyCursor(node, func(done func()) {
-				defer done()
-				fn()
-			})
-		} else {
-			fn()
-		}
-	}
-
-	curERow := currentERow() // possibly != erow, could be nil
-
-	// internal cmds
-	cmd, ok := InternalCmds[arg0]
-	if ok {
-		ctx := context.Background() // TODO: editor ctx
-		args := &InternalCmdArgs{ctx, ed, curERow, part}
-		if cmd.NeedsERow && args.ERow == nil {
-			noERowErr()
-			return
-		}
-
-		// feedback node
-		node := widget.Node(ed.UI.Root)
-		if erow != nil && args.ERow == erow {
-			node = erow.Row
-		}
-
-		run(cmd.Detach, node, func() {
-			if cmd.NeedsERow {
-				ctx, cancel := args.ERow.newInternalCmdCtx()
-				defer cancel()
-				args.Ctx = ctx
-			}
-			if err := cmd.Fn(args); err != nil {
-				ed.Errorf("%v: %v", arg0, err)
-			}
-		})
-		return
 	}
 
 	// have a plugin handle the cmd
-	handled := ed.Plugins.RunToolbarCmd(curERow, part)
+	handled := ed.Plugins.RunToolbarCmd(optERow, part)
 	if handled {
-		return
+		return nil
 	}
 
 	// run external cmd (needs erow)
-	if curERow == nil {
-		noERowErr()
-		return
+	erow := optERow
+	if erow == nil {
+		return noERowErr
 	}
-	run(false, curERow.Row, func() {
-		ExternalCmd(curERow, part)
-	})
+	ExternalCmd(erow, part)
+	return nil
 }
+func internalCmd3(ed *Editor, part *toolbarparser.Part, optERow *ERow) (bool, error) {
+	arg0 := part.Args[0].UnquotedString()
+	cmd, ok := InternalCmds[arg0]
+	if !ok {
+		return false, nil
+	}
+	ctx := context.Background()
+	args := &InternalCmdArgs{cmd, ctx, ed, part, optERow}
+	if args.optERow != nil {
+		ctx2, cancel := args.optERow.newInternalCmdCtx()
+		defer cancel()
+		args.Ctx = ctx2
+	}
+	return true, cmd.Fn(args)
+}
+
+//----------
+
+// TODO
+//// feedback node
+//node := widget.Node(ed.UI.Root)
+//if optERow != nil && args.ERow == optERow {
+//	node = optERow.Row
+//}

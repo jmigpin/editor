@@ -11,16 +11,20 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
-func LSProtoCallHierarchyIncomingCalls(args0 *core.InternalCmdArgs) error {
-	return lsprotoCallHierarchyCalls(args0, lsproto.IncomingChct)
+func LSProtoCallHierarchyIncomingCalls(args *core.InternalCmdArgs) error {
+	return lsprotoCallHierarchyCalls(args, lsproto.IncomingChct)
 }
-func LSProtoCallHierarchyOutgoingCalls(args0 *core.InternalCmdArgs) error {
-	return lsprotoCallHierarchyCalls(args0, lsproto.OutgoingChct)
+func LSProtoCallHierarchyOutgoingCalls(args *core.InternalCmdArgs) error {
+	return lsprotoCallHierarchyCalls(args, lsproto.OutgoingChct)
 }
 
-func lsprotoCallHierarchyCalls(args0 *core.InternalCmdArgs, typ lsproto.CallHierarchyCallType) error {
-	ed := args0.Ed
-	erow := args0.ERow
+func lsprotoCallHierarchyCalls(args *core.InternalCmdArgs, typ lsproto.CallHierarchyCallType) error {
+	ed := args.Ed
+
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
 	if !erow.Info.IsFileButNotDir() {
 		return fmt.Errorf("not a file")

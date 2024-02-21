@@ -7,8 +7,11 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-func CopyFilePosition(args0 *core.InternalCmdArgs) error {
-	erow := args0.ERow
+func CopyFilePosition(args *core.InternalCmdArgs) error {
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
 	if !erow.Info.IsFileButNotDir() {
 		return fmt.Errorf("not a file")

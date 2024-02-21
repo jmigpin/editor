@@ -7,16 +7,18 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
-func Replace(args0 *core.InternalCmdArgs) error {
-	erow := args0.ERow
-	part := args0.Part
+func Replace(args *core.InternalCmdArgs) error {
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
-	args := part.Args[1:]
-	if len(args) != 2 {
+	args2 := args.Part.Args[1:]
+	if len(args2) != 2 {
 		return fmt.Errorf("expecting 2 arguments")
 	}
 
-	old, new := args[0].UnquotedString(), args[1].UnquotedString()
+	old, new := args2[0].UnquotedString(), args2[1].UnquotedString()
 
 	ta := erow.Row.TextArea
 	ta.BeginUndoGroup()

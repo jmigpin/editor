@@ -8,16 +8,18 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-func GotoLine(args0 *core.InternalCmdArgs) error {
-	erow := args0.ERow
-	part := args0.Part
+func GotoLine(args *core.InternalCmdArgs) error {
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
-	args := part.Args[1:]
-	if len(args) != 1 {
+	args2 := args.Part.Args[1:]
+	if len(args2) != 1 {
 		return fmt.Errorf("expecting 1 argument")
 	}
 
-	line0, err := strconv.ParseUint(args[0].String(), 10, 64)
+	line0, err := strconv.ParseUint(args2[0].String(), 10, 64)
 	if err != nil {
 		return err
 	}

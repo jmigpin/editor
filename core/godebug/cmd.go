@@ -101,6 +101,14 @@ func (cmd *Cmd) Error(err error) {
 
 //------------
 
+// allow direct external access to this feature (ex: godebug -h)
+func (cmd *Cmd) ParseFlagsOnce(args []string) error {
+	cmd.flags.stderr = cmd.Stderr
+	return cmd.flags.parseArgsOnce(args)
+}
+
+//------------
+
 func (cmd *Cmd) Start(ctx context.Context, args []string) (bool, error) {
 	if err := cmd.start2(ctx, args); err != nil {
 		return true, err
@@ -127,10 +135,15 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 	}
 	cmd.Dir = dir0
 
-	// read flags
-	cmd.flags.stderr = cmd.Stderr
-	if err := cmd.flags.parseArgs(args); err != nil {
+	// parse flags
+	if err := cmd.ParseFlagsOnce(args); err != nil {
 		return err
+	}
+
+	if cmd.CmdLineMode {
+		if cmd.flags.mode.run || cmd.flags.mode.test {
+			return fmt.Errorf("mode not available in cmd line: %q", args[0])
+		}
 	}
 
 	// setup environment

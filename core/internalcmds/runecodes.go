@@ -7,7 +7,10 @@ import (
 )
 
 func RuneCodes(args *core.InternalCmdArgs) error {
-	erow := args.ERow
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
 	ta := erow.Row.TextArea
 	b, ok := ta.EditCtx().Selection()

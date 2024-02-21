@@ -6,15 +6,9 @@ import (
 
 func init() {
 	ic := core.InternalCmds
-
 	cmd := func(fn core.InternalCmdFn, names ...string) {
 		for _, name := range names {
 			ic.Set(&core.InternalCmd{Name: name, Fn: fn})
-		}
-	}
-	cmdERow := func(fn core.InternalCmdFn, names ...string) {
-		for _, name := range names {
-			ic.Set(&core.InternalCmd{Name: name, Fn: fn, NeedsERow: true})
 		}
 	}
 
@@ -27,52 +21,52 @@ func init() {
 	cmd(ListSessions, "ListSessions")
 
 	cmd(NewColumn, "NewColumn")
-	cmdERow(CloseColumn, "CloseColumn")
+	cmd(CloseColumn, "CloseColumn")
 
 	cmd(NewRow, "NewRow")
 	cmd(ReopenRow, "ReopenRow")
-	cmdERow(CloseRow, "CloseRow")
-	cmdERow(MaximizeRow, "MaximizeRow")
+	cmd(CloseRow, "CloseRow")
+	cmd(MaximizeRow, "MaximizeRow")
 
-	cmdERow(NewFile, "NewFile")
-	cmdERow(Save, "Save")
+	cmd(NewFile, "NewFile")
+	cmd(Save, "Save")
 	cmd(SaveAllFiles, "SaveAllFiles")
 
-	cmdERow(Reload, "Reload")
+	cmd(Reload, "Reload")
 	cmd(ReloadAllFiles, "ReloadAllFiles")
 	cmd(ReloadAll, "ReloadAll")
 
-	cmdERow(Stop, "Stop")
-	cmdERow(Clear, "Clear")
+	cmd(Stop, "Stop")
+	cmd(Clear, "Clear")
 
 	cmd(Find, "Find")
-	cmdERow(Replace, "Replace")
-	cmdERow(GotoLine, "GotoLine", "GoToLine")
+	cmd(Replace, "Replace")
+	cmd(GotoLine, "GotoLine", "GoToLine")
 
-	cmdERow(CopyFilePosition, "CopyFilePosition")
-	cmdERow(RuneCodes, "RuneCodes")
+	cmd(CopyFilePosition, "CopyFilePosition")
+	cmd(RuneCodes, "RuneCodes")
 	cmd(FontRunes, "FontRunes")
 
-	cmdERow(OpenFilemanager, "OpenFilemanager", "XdgOpenDir") // TODO: deprecate XdgOpenDir
-	cmdERow(OpenTerminal, "OpenTerminal")
-	cmdERow(OpenExternal, "OpenExternal")
+	cmd(OpenFilemanager, "OpenFilemanager", "XdgOpenDir") // TODO: deprecate XdgOpenDir
+	cmd(OpenTerminal, "OpenTerminal")
+	cmd(OpenExternal, "OpenExternal")
 
-	cmdERow(ListDir, "ListDir")
+	cmd(ListDir, "ListDir")
 
-	cmdERow(GoRename, "GoRename") // TODO: deprecate
-	cmdERow(GoDebug, "GoDebug")
-	cmdERow(GoDebugFind, "GoDebugFind")
+	cmd(GoRename, "GoRename") // TODO: deprecate
+	cmd(GoDebug, "GoDebug")
+	cmd(GoDebugFind, "GoDebugFind")
 
 	cmd(LSProtoCloseAll, "LsprotoCloseAll", "LSProtoCloseAll") // TODO: deprecate LSProtoCloseAll
-	cmdERow(LSProtoRename, "LsprotoRename")
-	cmdERow(LSProtoReferences, "LsprotoReferences")
-	cmdERow(LSProtoCallHierarchyIncomingCalls, "LsprotoCallers", "LsprotoCallHierarchyIncomingCalls")
-	cmdERow(LSProtoCallHierarchyOutgoingCalls, "LsprotoCallees", "LsprotoCallHierarchyOutgoingCalls")
+	cmd(LSProtoRename, "LsprotoRename")
+	cmd(LSProtoReferences, "LsprotoReferences")
+	cmd(LSProtoCallHierarchyIncomingCalls, "LsprotoCallers", "LsprotoCallHierarchyIncomingCalls")
+	cmd(LSProtoCallHierarchyOutgoingCalls, "LsprotoCallees", "LsprotoCallHierarchyOutgoingCalls")
 
 	cmd(ColorTheme, "ColorTheme")
 	cmd(FontTheme, "FontTheme")
 
 	cmd(CtxutilCallsState, "CtxutilCallsState")
 
-	cmdERow(sortTextLines, "SortTextLines")
+	cmd(sortTextLines, "SortTextLines")
 }

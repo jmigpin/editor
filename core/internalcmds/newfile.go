@@ -14,8 +14,10 @@ func NewFile(args *core.InternalCmdArgs) error {
 	}
 	name := args.Part.Args[1].String()
 
-	// erow always defined (row cmd)
-	erow := args.ERow
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
 	// directory
 	dir := erow.Info.Name()
@@ -25,8 +27,7 @@ func NewFile(args *core.InternalCmdArgs) error {
 
 	filename := filepath.Join(dir, name)
 
-	_, err := os.Stat(filename)
-	if !os.IsNotExist(err) {
+	if _, err := os.Stat(filename); !os.IsNotExist(err) {
 		return fmt.Errorf("already exists: %v", filename)
 	}
 	f, err := os.Create(filename)

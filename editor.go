@@ -104,19 +104,6 @@ func godebugMain() bool {
 	return true
 }
 func godebugMain2(args []string) error {
-	if len(args) >= 1 {
-		switch args[0] {
-		case "run", "test": // nothing useful with it
-
-			// let "run -h" pass to allow updating readme/usage with a script before release
-			if args[0] == "run" && len(args) > 1 && args[1] == "-h" {
-				break
-			}
-
-			return fmt.Errorf("mode not available in cmd line: %q", args[0])
-		}
-	}
-
 	cmd := godebug.NewCmd()
 	cmd.CmdLineMode = true
 	ctx := context.Background()

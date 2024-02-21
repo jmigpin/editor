@@ -11,25 +11,25 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-func ListDirERow(erow *ERow, filepath string, tree, hidden bool) {
+func ListDirERow(erow *ERow, filepath string, subs, hiddens bool) {
 	erow.Exec.RunAsync(func(ctx context.Context, rw io.ReadWriter) error {
-		return ListDirContext(ctx, rw, erow.Info.Name(), tree, hidden)
+		return ListDirContext(ctx, rw, erow.Info.Name(), subs, hiddens)
 	})
 }
 
 //----------
 
-func ListDirContext(ctx context.Context, w io.Writer, filepath string, tree, hidden bool) error {
+func ListDirContext(ctx context.Context, w io.Writer, filepath string, subs, hiddens bool) error {
 	// "../" at the top
 	u := ".." + string(os.PathSeparator)
 	if _, err := w.Write([]byte(u + "\n")); err != nil {
 		return err
 	}
 
-	return listDirContext(ctx, w, filepath, "", tree, hidden)
+	return listDirContext(ctx, w, filepath, "", subs, hiddens)
 }
 
-func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath string, tree, hidden bool) error {
+func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath string, subs, hiddens bool) error {
 	fp2 := filepath.Join(fpath, addedFilepath)
 
 	out := func(s string) bool {
@@ -65,7 +65,7 @@ func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath strin
 
 		name := fi.Name()
 
-		if !hidden && strings.HasPrefix(name, ".") {
+		if !hiddens && strings.HasPrefix(name, ".") {
 			continue
 		}
 
@@ -78,9 +78,9 @@ func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath strin
 			return nil
 		}
 
-		if fi.IsDir() && tree {
+		if fi.IsDir() && subs {
 			afp := filepath.Join(addedFilepath, name)
-			err := listDirContext(ctx, w, fpath, afp, tree, hidden)
+			err := listDirContext(ctx, w, fpath, afp, subs, hiddens)
 			if err != nil {
 				return err
 			}

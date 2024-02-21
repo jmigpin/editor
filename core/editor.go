@@ -3,6 +3,8 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -231,7 +233,11 @@ func (ed *Editor) Errorf(f string, a ...any) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
-	ed.Messagef("error: %v", err)
+	header := "error"
+	if errors.Is(err, flag.ErrHelp) {
+		header = "usage"
+	}
+	ed.Messagef("%v: %v", header, err)
 }
 
 func (ed *Editor) Messagef(f string, a ...any) {
@@ -388,7 +394,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		{"CtxutilCallsState"},
 		{"Find -h"},
 		{"FontRunes", "RuneCodes"},
-		{"GoDebug -h"},
+		{"GoDebug -h", "GoDebug run -h", "GoDebug connect -h"},
 		{"GotoLine"},
 		{"ListDir", "ListDir -hidden", "ListDir -sub"},
 		{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
@@ -397,13 +403,14 @@ func (ed *Editor) setupRootMenuToolbar() {
 		{"NewFile", "SaveAllFiles", "Save"},
 		{"OpenExternal", "OpenFilemanager", "OpenTerminal"},
 		{"Reload", "ReloadAll", "ReloadAllFiles"},
-		{"SortTextLines"},
+		{"SortTextLines", "SortTextLines -h"},
 	}
 	last := []string{"Exit", "Version", "Stop", "Clear"}
 
 	// simple sorted list
 	w2 := []string{}
 	for _, a := range w {
+		//w2 = append(w2, strings.Join(a, "|")) // TODO: ui test issue
 		w2 = append(w2, a...)
 	}
 	sort.Slice(w2, func(a, b int) bool { return w2[a] < w2[b] })

@@ -8,8 +8,11 @@ import (
 	"github.com/jmigpin/editor/ui"
 )
 
-func LSProtoRename(args0 *core.InternalCmdArgs) error {
-	erow := args0.ERow
+func LSProtoRename(args *core.InternalCmdArgs) error {
+	erow, err := args.ERowOrErr()
+	if err != nil {
+		return err
+	}
 
 	if !erow.Info.IsFileButNotDir() {
 		return fmt.Errorf("not a file")
@@ -19,18 +22,18 @@ func LSProtoRename(args0 *core.InternalCmdArgs) error {
 		return fmt.Errorf("row has edits, save first")
 	}
 
-	args := args0.Part.Args[1:]
-	if len(args) < 1 {
+	args2 := args.Part.Args[1:]
+	if len(args2) < 1 {
 		return fmt.Errorf("expecting at least 1 argument")
 	}
 
 	// new name argument "to"
-	to := args[len(args)-1].UnquotedString()
+	to := args2[len(args2)-1].UnquotedString()
 
 	// before patching, check all affected files are not edited
 	prePatchFn := func(wecs []*lsproto.WorkspaceEditChange) error {
 		for _, wec := range wecs {
-			info, ok := args0.Ed.ERowInfo(wec.Filename)
+			info, ok := args.Ed.ERowInfo(wec.Filename)
 			if !ok { // erow not open
 				continue
 			}
@@ -43,20 +46,20 @@ func LSProtoRename(args0 *core.InternalCmdArgs) error {
 
 	// id offset to rename "from"
 	ta := erow.Row.TextArea
-	wecs, err := args0.Ed.LSProtoMan.TextDocumentRenameAndPatch(args0.Ctx, erow.Info.Name(), ta.RW(), ta.CursorIndex(), to, prePatchFn)
+	wecs, err := args.Ed.LSProtoMan.TextDocumentRenameAndPatch(args.Ctx, erow.Info.Name(), ta.RW(), ta.CursorIndex(), to, prePatchFn)
 	if err != nil {
 		return err
 	}
 
 	// reload filenames
-	args0.Ed.UI.RunOnUIGoRoutine(func() {
+	args.Ed.UI.RunOnUIGoRoutine(func() {
 		for _, wec := range wecs {
-			info, ok := args0.Ed.ERowInfo(wec.Filename)
+			info, ok := args.Ed.ERowInfo(wec.Filename)
 			if !ok { // erow not open
 				continue
 			}
 			if err := info.ReloadFile(); err != nil {
-				args0.Ed.Error(err)
+				args.Ed.Error(err)
 			}
 		}
 	})
