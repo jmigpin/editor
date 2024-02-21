@@ -1,13 +1,17 @@
 package core
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
@@ -19,43 +23,141 @@ type Sessions struct {
 	Sessions []*Session
 }
 
-func NewSessions(filename string) (*Sessions, error) {
-	// read file
+func newSessionsFromPlain(filename string) (*Sessions, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// empty sessions if it doesn't exist
-			return &Sessions{}, nil
-		}
 		return nil, err
 	}
 	defer f.Close()
-	// decode
-	dec := json.NewDecoder(f)
-	ss := &Sessions{}
-	err = dec.Decode(ss)
-	if err != nil {
-		return nil, err
-	}
-	return ss, err
+
+	return decodeSessionsFromJson(f)
 }
-func (ss *Sessions) save(filename string) error {
-	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-	f, err := os.OpenFile(filename, flags, 0644)
+func newSessionsFromZip(zipFilename, filename string) (*Sessions, error) {
+	zr, err := zip.OpenReader(zipFilename)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer f.Close()
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "\t")
-	return enc.Encode(&ss)
+	defer zr.Close()
+
+	// find filename inside zip file
+	zf := (*zip.File)(nil)
+	for _, zf2 := range zr.File {
+		if zf2.Name == filename {
+			zf = zf2
+			break
+		}
+	}
+	if zf == nil {
+		return nil, fmt.Errorf("file not found inside zip: %v", filename)
+	}
+
+	rc, err := zf.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	return decodeSessionsFromJson(rc)
 }
 
 //----------
 
+func (ss *Sessions) saveToPlain(filename string) error {
+	f, err := openToWriteSessionsFile(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	jsonBytes, err := ss.encodeToJson()
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(jsonBytes)
+	return err
+}
+func (ss *Sessions) saveToZip(zipFilename, filename string) error {
+	jsonBytes, err := ss.encodeToJson()
+	if err != nil {
+		return err
+	}
+
+	f, err := openToWriteSessionsFile(zipFilename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	zipw := zip.NewWriter(f)
+	defer zipw.Close()
+
+	// create file to put inside the zip
+	h := &zip.FileHeader{}
+	h.Name = filename
+	h.UncompressedSize64 = uint64(len(jsonBytes))
+	h.SetModTime(time.Now())
+	h.SetMode(0644)
+	h.Method = zip.Deflate
+
+	fzipw, err := zipw.CreateHeader(h)
+	if err != nil {
+		return err
+	}
+	if _, err := fzipw.Write(jsonBytes); err != nil {
+		return err
+	}
+	return nil
+}
+
+//----------
+
+func (ss *Sessions) encodeToJson() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	enc := json.NewEncoder(buf)
+	enc.SetIndent("", "\t")
+	if err := enc.Encode(&ss); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+//----------
+//----------
+//----------
+
+func openToWriteSessionsFile(filename string) (*os.File, error) {
+	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	return os.OpenFile(filename, flags, 0644)
+}
+
+func decodeSessionsFromJson(r io.Reader) (*Sessions, error) {
+	dec := json.NewDecoder(r)
+	ss := &Sessions{}
+	if err := dec.Decode(ss); err != nil {
+		return nil, err
+	}
+	return ss, nil
+}
+
+//----------
+//----------
+//----------
+
 func sessionsFilename() string {
+	return homeFilename(sessionsBasicFilename())
+}
+func sessionsZipFilenames() (string, string) {
+	fn1 := sessionsBasicFilename()
+	ext := path.Ext(fn1)
+	fn2 := strings.TrimSuffix(fn1, ext) + ".zip"
+	return homeFilename(fn2), fn1
+}
+
+func sessionsBasicFilename() string {
+	return ".editor_sessions.json"
+}
+func homeFilename(filename string) string {
 	home := osutil.HomeEnvVar()
-	return filepath.Join(home, ".editor_sessions.json")
+	return filepath.Join(home, filename)
 }
 
 //----------
@@ -207,14 +309,16 @@ func (state *RowState) RestorePos(erow *ERow) {
 }
 
 //----------
+//----------
+//----------
 
 func SaveSession(ed *Editor, part *toolbarparser.Part) {
-	err := saveSession(ed, part, sessionsFilename())
+	err := saveSession(ed, part)
 	if err != nil {
 		ed.Error(err)
 	}
 }
-func saveSession(ed *Editor, part *toolbarparser.Part, filename string) error {
+func saveSession(ed *Editor, part *toolbarparser.Part) error {
 	if len(part.Args) != 2 {
 		return fmt.Errorf("savesession: missing session name")
 	}
@@ -223,7 +327,7 @@ func saveSession(ed *Editor, part *toolbarparser.Part, filename string) error {
 	s1 := NewSessionFromEditor(ed)
 	s1.Name = sessionName
 
-	ss, err := NewSessions(filename)
+	ss, err := ed.loadSessions()
 	if err != nil {
 		return err
 	}
@@ -241,7 +345,7 @@ func saveSession(ed *Editor, part *toolbarparser.Part, filename string) error {
 		ss.Sessions = append(ss.Sessions, s1)
 	}
 	// save to file
-	err = ss.save(filename)
+	err = ed.saveSessions(ss)
 	if err != nil {
 		return err
 	}
@@ -251,7 +355,7 @@ func saveSession(ed *Editor, part *toolbarparser.Part, filename string) error {
 //----------
 
 func ListSessions(ed *Editor) {
-	ss, err := NewSessions(sessionsFilename())
+	ss, err := ed.loadSessions()
 	if err != nil {
 		ed.Error(err)
 		return
@@ -288,8 +392,9 @@ func OpenSession(ed *Editor, part *toolbarparser.Part) {
 }
 
 func OpenSessionFromString(ed *Editor, sessionName string) {
-	ss, err := NewSessions(sessionsFilename())
+	ss, err := ed.loadSessions()
 	if err != nil {
+		ed.Error(err)
 		return
 	}
 	for _, s := range ss.Sessions {
@@ -314,7 +419,7 @@ func deleteSession(ed *Editor, part *toolbarparser.Part) error {
 		return fmt.Errorf("deletesession: missing session name")
 	}
 	sessionName := part.Args[1].String()
-	ss, err := NewSessions(sessionsFilename())
+	ss, err := ed.loadSessions()
 	if err != nil {
 		return err
 	}
@@ -330,7 +435,7 @@ func deleteSession(ed *Editor, part *toolbarparser.Part) error {
 	if !found {
 		return fmt.Errorf("deletesession: session not found: %v", sessionName)
 	}
-	return ss.save(sessionsFilename())
+	return ed.saveSessions(ss)
 }
 
 //----------
@@ -338,3 +443,7 @@ func deleteSession(ed *Editor, part *toolbarparser.Part) error {
 func roundStartPercent(v float64) float64 {
 	return mathutil.RoundFloat64(v, 8)
 }
+
+//----------
+//----------
+//----------

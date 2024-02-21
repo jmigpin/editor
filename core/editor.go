@@ -44,6 +44,8 @@ type Editor struct {
 	ifbw         *InfoFloatBoxWrap
 	erowInfos    map[string]*ERowInfo // use ed.ERowInfo*() to access
 	preSaveHooks []*PreSaveHook
+
+	zipSessionsFile bool
 }
 
 func RunEditor(opt *Options) error {
@@ -80,6 +82,8 @@ func (ed *Editor) init(opt *Options) error {
 		return err
 	}
 	ed.Watcher = fswatcher.NewGWatcher(w)
+
+	ed.zipSessionsFile = opt.ZipSessionsFile
 
 	ed.setupTheme(opt)
 	event.UseMultiKey = opt.UseMultiKey
@@ -861,6 +865,78 @@ func (ed *Editor) runPreSaveHook(ctx context.Context, info *ERowInfo, content []
 	return osutil.RunCmdStdin(ctx2, dir, r, cmd2...)
 }
 
+//----------
+
+func (ed *Editor) loadSessions() (*Sessions, error) {
+	// DEBUG
+	//start := time.Now()
+	//ss, err := ed.loadSessions2()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//diff := time.Now().Sub(start)
+	//ed.Messagef("loaded sessions in %v\n", diff)
+	//return ss, nil
+
+	return ed.loadSessions2()
+}
+func (ed *Editor) loadSessions2() (*Sessions, error) {
+	loadZip := func() (*Sessions, error) {
+		//ed.Messagef("loading zip")
+		zipFilename, filename := sessionsZipFilenames()
+		return newSessionsFromZip(zipFilename, filename)
+	}
+	loadPlain := func() (*Sessions, error) {
+		//ed.Messagef("loading plain")
+		filename := sessionsFilename()
+		return newSessionsFromPlain(filename)
+	}
+
+	load0, load1 := loadPlain, loadZip
+	if ed.zipSessionsFile {
+		load0, load1 = loadZip, loadPlain
+	}
+
+	ss, err := load0()
+	// try to load the other way to allow transition
+	if errors.Is(err, os.ErrNotExist) {
+		ss2, err2 := load1()
+		if errors.Is(err2, os.ErrNotExist) {
+			// both non-existent, allow newsessions without error
+			ss, err = &Sessions{}, nil
+		} else {
+			ss, err = ss2, err2
+		}
+	}
+
+	return ss, err
+}
+
+func (ed *Editor) saveSessions(ss *Sessions) error {
+	// DEBUG
+	//start := time.Now()
+	//err := ed.saveSessions2(ss)
+	//if err != nil {
+	//	return err
+	//}
+	//diff := time.Now().Sub(start)
+	//ed.Messagef("saved sessions in %v\n", diff)
+	//return nil
+
+	return ed.saveSessions2(ss)
+}
+func (ed *Editor) saveSessions2(ss *Sessions) error {
+	if ed.zipSessionsFile {
+		zipFilename, filename := sessionsZipFilenames()
+		return ss.saveToZip(zipFilename, filename)
+	} else {
+		filename := sessionsFilename()
+		return ss.saveToPlain(filename)
+	}
+}
+
+//----------
+//----------
 //----------
 
 type EdAnnotationsRequester int

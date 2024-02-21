@@ -34,6 +34,8 @@ type Options struct {
 
 	LSProtos     RegistrationsOpt
 	PreSaveHooks PreSaveHooksOpt
+
+	ZipSessionsFile bool
 }
 
 //----------
