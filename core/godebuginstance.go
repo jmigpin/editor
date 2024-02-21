@@ -14,7 +14,6 @@ import (
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/parseutil"
 )
@@ -35,8 +34,8 @@ type GoDebugManager struct {
 	ed   *Editor
 	inst struct {
 		sync.Mutex
-		inst   *GoDebugInstance
-		cancel context.CancelFunc
+		inst *GoDebugInstance
+		//cancel context.CancelFunc
 	}
 }
 
@@ -50,38 +49,26 @@ func (gdm *GoDebugManager) RunAsync(reqCtx context.Context, erow *ERow, args []s
 	gdm.inst.Lock()
 	defer gdm.inst.Unlock()
 
-	// cancel and wait for previous
-	gdm.cancelAndWait()
+	gdm.cancelAndWaitAndClear() // previous instance
 
-	// setup instance context // TODO: editor ctx?
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// call cancel if reqCtx is done (short amount of time, just watches start)
-	clearWatching := ctxutil.WatchDone(cancel, reqCtx)
-	defer clearWatching()
-
-	inst, err := startGoDebugInstance(ctx, gdm.ed, gdm, erow, args)
+	inst, err := newGoDebugInstance(gdm.ed, gdm, erow, args)
 	if err != nil {
-		cancel()
 		return err
 	}
-
 	gdm.inst.inst = inst
-	gdm.inst.cancel = cancel
+
 	return nil
 }
 
 func (gdm *GoDebugManager) CancelAndClear() {
 	gdm.inst.Lock()
 	defer gdm.inst.Unlock()
-	gdm.cancelAndWait() // clears
+	gdm.cancelAndWaitAndClear()
 }
-func (gdm *GoDebugManager) cancelAndWait() {
+func (gdm *GoDebugManager) cancelAndWaitAndClear() {
 	if gdm.inst.inst != nil {
-		gdm.inst.cancel()
-		gdm.inst.inst.wait()
+		gdm.inst.inst.cancelAndWaitAndClear()
 		gdm.inst.inst = nil
-		gdm.inst.cancel = nil
 	}
 }
 
@@ -132,28 +119,16 @@ func (gdm *GoDebugManager) printError(err error) {
 //----------
 
 type GoDebugInstance struct {
-	gdm          *GoDebugManager
-	di           *GDDataIndex
-	erowExecWait sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+	gdm    *GoDebugManager
+	di     *GDDataIndex
 }
 
-func startGoDebugInstance(ctx context.Context, ed *Editor, gdm *GoDebugManager, erow *ERow, args []string) (*GoDebugInstance, error) {
+func newGoDebugInstance(ed *Editor, gdm *GoDebugManager, erow *ERow, args []string) (*GoDebugInstance, error) {
 	gdi := &GoDebugInstance{gdm: gdm}
 	gdi.di = NewGDDataIndex(gdi)
-	if err := gdi.start2(ctx, erow, args); err != nil {
-		return nil, err
-	}
-	return gdi, nil
-}
 
-func (gdi *GoDebugInstance) wait() {
-	gdi.erowExecWait.Wait()
-	gdi.clearAnnotations()
-}
-
-//----------
-
-func (gdi *GoDebugInstance) start2(ctx context.Context, erow *ERow, args []string) error {
 	// warn other annotators about starting a godebug session
 	_ = gdi.gdm.ed.CanModifyAnnotations(EareqGoDebugStart, erow.Row.TextArea)
 
@@ -166,24 +141,30 @@ func (gdi *GoDebugInstance) start2(ctx context.Context, erow *ERow, args []strin
 	}
 
 	if !erow.Info.IsDir() {
-		return fmt.Errorf("can't run on this erow type")
+		return nil, fmt.Errorf("can't run on this erow type")
 	}
 
-	gdi.erowExecWait.Add(1)
-	erow.Exec.RunAsync(func(erowCtx context.Context, rw io.ReadWriter) error {
-		defer gdi.erowExecWait.Done()
-
-		// call cancel if ctx is done (allow cancel from godebugmanager)
-		erowCtx2, cancel := context.WithCancel(erowCtx)
-		defer cancel()
-		clearWatching := ctxutil.WatchDone(cancel, ctx)
-		defer clearWatching()
-
-		return gdi.runCmd(erowCtx2, erow, args, rw)
+	_, cancel := erow.Exec.RunAsyncWithCancel(func(ctx context.Context, rw io.ReadWriter) error {
+		return gdi.runCmd(ctx, erow, args, rw)
 	})
 
-	return nil
+	// full ctx for the duration of the instance, not just the cmd
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	gdi.ctx = ctx2
+	gdi.cancel = func() {
+		cancel()  // cancel cmd
+		cancel2() // clears resources
+	}
+
+	return gdi, nil
 }
+func (gdi *GoDebugInstance) cancelAndWaitAndClear() {
+	gdi.cancel()
+	<-gdi.ctx.Done()
+	gdi.clearAnnotations()
+}
+
+//----------
 
 func (gdi *GoDebugInstance) runCmd(ctx context.Context, erow *ERow, args []string, w io.Writer) error {
 	cmd := godebug.NewCmd()
@@ -317,7 +298,9 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 	}
 	updateUI := func() { // d must be locked
 		d.updating = false
-		gdi.updateAnnotations()
+		if gdi.ctx.Err() == nil {
+			gdi.updateAnnotations()
+		}
 	}
 	checkUI := (func())(nil)
 	checkUI = func() {
