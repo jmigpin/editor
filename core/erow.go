@@ -31,7 +31,8 @@ type ERow struct {
 
 	highlightDuplicates bool
 
-	terminalOpt terminalOpt
+	terminalOpt    terminalOpt
+	scrollDownMode string
 
 	ctx       context.Context // erow general context
 	cancelCtx context.CancelFunc
@@ -441,6 +442,12 @@ func (erow *ERow) parseToolbarVars() {
 			}
 		}
 	}
+
+	// $scrollMode: "auto", otherwise is "manual"/"off"
+	erow.scrollDownMode = ""
+	if v, ok := vmap["$scrollMode"]; ok {
+		erow.scrollDownMode = v
+	}
 }
 
 func (erow *ERow) setVarFontTheme(s string) error {
@@ -478,14 +485,10 @@ func (erow *ERow) AppendBytesClearHistory(p []byte) {
 func (erow *ERow) AppendBytesClearHistory2(p []byte) error {
 	ta := erow.Row.TextArea
 
-	// $scrollMode: auto/manual/off
-	scrollDown := false
-	vmap := toolbarparser.ParseVars(&erow.TbData)
-	if v, ok := vmap["$scrollMode"]; ok {
-		if v == "auto" {
-			if ta.IndexVisible(ta.RW().Max()) {
-				scrollDown = true
-			}
+	scrollDownModeAuto := false
+	if erow.scrollDownMode == "auto" {
+		if ta.IndexVisible(ta.RW().Max()) {
+			scrollDownModeAuto = true
 		}
 	}
 
@@ -493,7 +496,8 @@ func (erow *ERow) AppendBytesClearHistory2(p []byte) error {
 		return err
 	}
 
-	if scrollDown {
+	if scrollDownModeAuto {
+		// TODO: better drawutil.RAlignBottom? issues with sometimes losing the bottom hook
 		ta.MakeRangeVisible2(ta.RW().Max(), 0, drawutil.RAlignKeepOrBottom)
 	}
 	return nil
