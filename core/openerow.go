@@ -73,7 +73,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	// helper func: get offset
 	getOffset := func() int {
 		if conf.FilePos != nil {
-			if conf.FilePos.HasOffset() {
+			if conf.FilePos.HasNoLinecol() {
 				return conf.FilePos.Offset
 			}
 			if erow0, ok := info.FirstERow(); ok {
@@ -168,7 +168,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		if conf.FlashVisibleOffsets {
 			o, l := 0, 0
 			if conf.FilePos != nil {
-				if conf.FilePos.HasOffset() {
+				if conf.FilePos.HasNoLinecol() {
 					o, l = conf.FilePos.Offset, conf.FilePos.Len
 				} else {
 					o = offset

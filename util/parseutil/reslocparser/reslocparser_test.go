@@ -201,6 +201,11 @@ func TestResLocParser33(t *testing.T) {
 	out := "/a/b.txt"
 	testMode1(t, in, out)
 }
+func TestResLocParser34(t *testing.T) {
+	in := "/a/b.●txt:o=5"
+	out := "/a/b.txt:o=5"
+	testMode2b(t, in, out, 0, 0, false)
+}
 
 //----------
 
@@ -253,11 +258,31 @@ func testMode1(t *testing.T, in, out string) {
 	t.Helper()
 	testMode2(t, in, out, 0, 0, false)
 }
+
 func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	t.Helper()
+	rl := testMode3(t, in, out, esc, psep, parseVolume)
+	res := rl.Stringify1()
+	res2 := testutil.TrimLineSpaces(res)
+	expect2 := testutil.TrimLineSpaces(out)
+	if res2 != expect2 {
+		//t.Fatalf("res=%v\n%v\n", res, rl.Bnd.SprintRuleTree(5))
+		t.Fatalf("res=%v", res)
+	}
+}
+func testMode2b(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
+	t.Helper()
+	rl := testMode3(t, in, out, esc, psep, parseVolume)
+	res := rl.ToOffsetString()
+	res2 := testutil.TrimLineSpaces(res)
+	expect2 := testutil.TrimLineSpaces(out)
+	if res2 != expect2 {
+		t.Fatalf("res=%v", res)
+	}
+}
 
-	//in = string(bytes.TrimRight(in, "\n"))
-	//out = string(bytes.TrimRight(out, "\n"))
+func testMode3(t *testing.T, in, out string, esc, psep rune, parseVolume bool) *ResLoc {
+	t.Helper()
 
 	in2, index, err := testutil.SourceCursor("●", string(in), 0)
 	if err != nil {
@@ -275,18 +300,11 @@ func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	}
 	p.ParseVolume = parseVolume
 
+	// parse
 	p.Init()
-
 	rl, err := p.Parse([]byte(in2), index)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res := rl.Stringify1()
-
-	res2 := testutil.TrimLineSpaces(res)
-	expect2 := testutil.TrimLineSpaces(out)
-	if res2 != expect2 {
-		//t.Fatalf("res=%v\n%v\n", res, rl.Bnd.SprintRuleTree(5))
-		t.Fatalf("res=%v", res)
-	}
+	return rl
 }

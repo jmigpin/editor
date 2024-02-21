@@ -31,8 +31,8 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 	}
 	filePos := reslocparser.ResLocToFilePos(rl)
 
-	// consider middle path (index position) if line/col are not present
-	if considerMiddle && filePos.Line == 0 && filePos.Column == 0 {
+	// consider middle path (index position) if pos is not present
+	if considerMiddle && !filePos.HasPos() {
 		k := index - rl.Pos
 		if k <= 0 {
 			// don't consider middle for these cases

@@ -9,10 +9,11 @@ import (
 )
 
 type ResLoc struct {
-	Path   string // raw path
-	Line   int    // 0 is nil
-	Column int    // 0 is nil
-	Offset int    // <=-1 is nil // TODO: file:#123?
+	Path string // raw path
+
+	Line   int // 0 is nil
+	Column int // 0 is nil
+	Offset int // -1 is nil
 
 	PathSep rune
 	Escape  rune
@@ -22,6 +23,12 @@ type ResLoc struct {
 
 	Pos, End int // contains reverse expansion
 }
+
+func NewResLoc() *ResLoc {
+	return &ResLoc{Offset: -1}
+}
+
+//----------
 
 func (rl *ResLoc) ClearFilename1() string {
 	s := rl.Path
@@ -61,12 +68,56 @@ func (rl *ResLoc) ClearFilename1() string {
 }
 
 func (rl *ResLoc) Stringify1() string {
+	return rl.ToLinecolString()
+}
+
+//----------
+
+func (rl *ResLoc) ToLinecolString() string {
 	s := rl.ClearFilename1()
 	if rl.Line > 0 {
-		s += fmt.Sprintf(":%d", rl.Line)
+		s += rl.linecolToString()
 	}
+	return s
+}
+func (rl *ResLoc) ToOffsetString() string {
+	s := rl.ClearFilename1()
+	if rl.Offset >= 0 {
+		s += rl.offsetToString()
+	}
+	return s
+}
+
+//----------
+
+func (rl *ResLoc) offsetToString() string {
+	return fmt.Sprintf(":o=%d", rl.Offset)
+}
+func (rl *ResLoc) linecolToString() string {
+	s := fmt.Sprintf(":%d", rl.Line)
 	if rl.Column > 0 {
 		s += fmt.Sprintf(":%d", rl.Column)
 	}
 	return s
 }
+
+//----------
+
+//func (rl *ResLoc) ToString() string {
+//	return rl.ToString2(false)
+//}
+//func (rl *ResLoc) ToString2(preferOffset bool) string {
+//	s := rl.ClearFilename1()
+//	u := ""
+//	if preferOffset && rl.Offset >= 0 {
+//		u = rl.offsetToString()
+//	} else if rl.Line > 0 {
+//		u = rl.linecolToString()
+//	} else if rl.Offset >= 0 {
+//		u = rl.offsetToString()
+//	}
+//	if u != "" {
+//		u = ":" + u
+//	}
+//	return s + u
+//}

@@ -6,7 +6,10 @@ type FilePos struct {
 	Line, Column int // bigger than zero to be considered
 }
 
-func (fp *FilePos) HasOffset() bool {
+func (fp *FilePos) HasPos() bool {
+	return fp.Line != 0 || fp.Offset >= 0
+}
+func (fp *FilePos) HasNoLinecol() bool {
 	return fp.Line == 0
 }
 

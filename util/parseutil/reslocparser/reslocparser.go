@@ -29,6 +29,7 @@ type ResLocParser struct {
 		path   *pscan.ValueKeeper
 		line   *pscan.ValueKeeper
 		column *pscan.ValueKeeper
+		offset *pscan.ValueKeeper
 	}
 }
 
@@ -50,12 +51,14 @@ func (p *ResLocParser) Init() {
 	p.vk.path = sc.NewValueKeeper()
 	p.vk.line = sc.NewValueKeeper()
 	p.vk.column = sc.NewValueKeeper()
+	p.vk.offset = sc.NewValueKeeper()
 	resetVks := func(pos int) (int, error) {
 		p.vk.scheme.V = nil
 		p.vk.volume.V = nil
 		p.vk.path.V = nil
 		p.vk.line.V = nil
 		p.vk.column.V = nil
+		p.vk.offset.V = nil
 		return pos, nil
 	}
 
@@ -86,6 +89,7 @@ func (p *ResLocParser) Init() {
 
 	// ex: "/a/b.txt"
 	// ex: "/a/b.txt:12:3"
+	// ex: "/a/b.txt:o=123" // offset (custom format)
 	cEscRu := p.Escape
 	cPathSepRu := p.PathSeparator
 	cPathSep := sc.W.Rune(cPathSepRu)
@@ -111,9 +115,13 @@ func (p *ResLocParser) Init() {
 			p.vk.column.WKeepValue(sc.M.IntValue), // column
 		)),
 	)
+	cOffset := sc.W.And(
+		sc.W.Sequence(":o="),
+		p.vk.offset.WKeepValue(sc.M.IntValue),
+	)
 	cFile := sc.W.And(
 		p.vk.path.WKeepValue(sc.W.StringValue(cPath)),
-		sc.W.Optional(cLineCol),
+		sc.W.Optional(sc.W.Or(cOffset, cLineCol)),
 	)
 
 	//----------
@@ -222,9 +230,10 @@ func (p *ResLocParser) Init() {
 		sc.W.Optional(dquote),
 		sc.W.Optional(sc.W.SequenceMid(pyLineTagS)),
 		sc.W.Optional(sc.W.SequenceMid(shellLineTagS)),
-		// c line column
+		// c line column / offset
 		sc.W.Optional(sc.W.Loop(sc.W.Or(
 			sc.W.Rune(':'),
+			sc.W.RuneOneOf([]rune("o=")), // offset
 			sc.M.Digit,
 		))),
 	))
@@ -247,7 +256,7 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 		return nil, err
 	}
 
-	rl := &ResLoc{}
+	rl := NewResLoc()
 	if p.vk.scheme.V != nil {
 		rl.Scheme = p.vk.scheme.V.(string)
 	}
@@ -262,6 +271,9 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 	}
 	if p.vk.column.V != nil {
 		rl.Column = p.vk.column.V.(int)
+	}
+	if p.vk.offset.V != nil {
+		rl.Offset = p.vk.offset.V.(int)
 	}
 	rl.Escape = p.Escape
 	rl.PathSep = p.PathSeparator

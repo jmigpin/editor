@@ -1000,9 +1000,13 @@ func (di *GDDataIndex) trace() []*GDOffsetMsg {
 			if !found {
 				continue
 			}
-			_ = eq
 			om := m.arrivals[idx]
-
+			// current line
+			if eq {
+				res = append(res, om)
+				continue
+			}
+			// call lines
 			switch om.offsetMsg.Item.(type) {
 			case *debug.ItemCallEnter,
 				*debug.ItemUnaryEnter,

@@ -78,6 +78,7 @@ func ResLocToFilePos(rl *ResLoc) *parseutil.FilePos {
 		Filename: rl.Path, // original string (unescaped)
 		Line:     rl.Line,
 		Column:   rl.Column,
-		Offset:   -1, // TODO
+		Offset:   rl.Offset,
+		Len:      0,
 	}
 }
