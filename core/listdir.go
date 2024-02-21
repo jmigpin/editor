@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/jmigpin/editor/util/parseutil"
@@ -55,7 +55,7 @@ func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath strin
 		return ctx.Err()
 	}
 
-	sort.Sort(ByListOrder(fis))
+	slices.SortFunc(fis, CompareFileInfos)
 
 	for _, fi := range fis {
 		// stop on context
@@ -91,27 +91,26 @@ func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath strin
 
 //----------
 
-type ByListOrder []os.FileInfo
+func CompareFileInfos(a, b os.FileInfo) int {
+	an := strings.ToLower(a.Name())
+	bn := strings.ToLower(b.Name())
 
-func (a ByListOrder) Len() int {
-	return len(a)
-}
-func (a ByListOrder) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-func (a ByListOrder) Less(i, j int) bool {
-	ei := a[i]
-	ej := a[j]
-	iname := strings.ToLower(ei.Name())
-	jname := strings.ToLower(ej.Name())
-	if ei.IsDir() && ej.IsDir() {
-		return iname < jname
+	cmp := func() int {
+		v := strings.Compare(an, bn)
+		if v == 0 {
+			return strings.Compare(a.Name(), b.Name())
+		}
+		return v
 	}
-	if ei.IsDir() {
-		return true
+
+	if a.IsDir() {
+		if b.IsDir() {
+			return cmp()
+		}
+		return -1
 	}
-	if ej.IsDir() {
-		return false
+	if b.IsDir() {
+		return 1
 	}
-	return iname < jname
+	return cmp()
 }
