@@ -13,7 +13,7 @@ contains stdout "println(\"aaa\")"
 -- go.mod --
 module mod1
 require github.com/jmigpin/editor v0.0.0
-replace github.com/jmigpin/editor => /home/jorge/projects/golangcode/src/github.com/jmigpin/editor
+replace github.com/jmigpin/editor => /home/jorge/projects/golang_code/github.com/jmigpin/editor
 -- main.go --
 package main
 //godebug:annotateimport
