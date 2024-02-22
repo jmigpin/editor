@@ -9,13 +9,17 @@ import (
 )
 
 func StringifyItem(item debug.Item) string {
+	return StringifyItem2(item, 20)
+}
+func StringifyItem2(item debug.Item, valueStrLen int) string {
 	is := NewItemStringifier()
+	is.valueStrLen = valueStrLen
 	is.stringify(item)
 	return is.b.String()
 }
 func StringifyItemFull(item debug.Item) string {
 	is := NewItemStringifier()
-	is.fullStr = true
+	is.valueStrLen = -1 // full str
 	is.stringify(item)
 	return is.b.String()
 }
@@ -23,13 +27,14 @@ func StringifyItemFull(item debug.Item) string {
 //----------
 
 type ItemStringifier struct {
-	b       *strings.Builder
-	fullStr bool
+	b           *strings.Builder
+	valueStrLen int // <0 = full str
 }
 
 func NewItemStringifier() *ItemStringifier {
 	is := &ItemStringifier{}
 	is.b = &strings.Builder{}
+	is.valueStrLen = 20
 	return is
 }
 
@@ -44,10 +49,10 @@ func (is *ItemStringifier) stringify(item debug.Item) {
 
 	switch t := item.(type) {
 	case *debug.ItemValue:
-		if is.fullStr {
+		if is.valueStrLen < 0 {
 			is.p(t.Str)
 		} else {
-			is.p(debug.SprintCutCheckQuote(20, t.Str))
+			is.p(debug.SprintCutCheckQuote(is.valueStrLen, t.Str))
 		}
 
 	case *debug.ItemList: // ex: func args list

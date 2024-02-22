@@ -290,7 +290,7 @@ func (gdi *GoDebugInstance) trace() error {
 		msg := msgs[i]
 		afd := gdi.di.afds[msg.offsetMsg.FileIndex]
 		loc := fmt.Sprintf("%v:o=%d", afd.Filename, msg.offsetMsg.Offset)
-		s := godebug.StringifyItemFull(msg.offsetMsg.Item)
+		s := godebug.StringifyItem2(msg.offsetMsg.Item, 8)
 		u := fmt.Sprintf("%v: %v", s, loc)
 		sb.WriteString("\t" + u + "\n")
 	}
@@ -1016,6 +1016,10 @@ func (di *GDDataIndex) trace() []*GDOffsetMsg {
 			}
 		}
 	}
+
+	sort.Slice(res, func(a, b int) bool {
+		return res[a].arrivalIndex < res[b].arrivalIndex
+	})
 
 	return res
 }
