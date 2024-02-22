@@ -139,19 +139,24 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 
 // erow can be nil (ex: a root toolbar cmd)
 func internalExternalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) {
-	// run with busy cursor
-	node := ed.UI.RootNode
-	if optERow != nil {
-		node = optERow.Row
-	}
-	ed.RunAsyncBusyCursor(node, func() {
 
-		if err := internalCmd2(ed, part, optERow); err != nil {
-			arg0 := part.Args[0].UnquotedString()
-			ed.Errorf("%s: %w", arg0, err)
-		}
-	})
+	// TODO: remove sync dependency or it will crash
+	// TODO: also, need active row check here instead of internalcmd2
+	//// run with busy cursor
+	//node := ed.UI.RootNode
+	//if optERow != nil {
+	//	node = optERow.Row
+	//}
+	//ed.RunAsyncBusyCursor(node, func() {
+
+	if err := internalCmd2(ed, part, optERow); err != nil {
+		arg0 := part.Args[0].UnquotedString()
+		ed.Errorf("%s: %w", arg0, err)
+	}
+
+	//})
 }
+
 func internalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow) error {
 	if optERow == nil {
 		if ae, ok := ed.ActiveERow(); ok {
@@ -159,15 +164,11 @@ func internalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow) error {
 		}
 	}
 
-	if handled, err := internalCmd3(ed, part, optERow); err != nil {
+	if err, handled := internalCmd3(ed, part, optERow); handled {
 		return err
-	} else if handled {
-		return nil
 	}
 
-	// have a plugin handle the cmd
-	handled := ed.Plugins.RunToolbarCmd(optERow, part)
-	if handled {
+	if handled := ed.Plugins.RunToolbarCmd(optERow, part); handled {
 		return nil
 	}
 
@@ -179,11 +180,11 @@ func internalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow) error {
 	ExternalCmd(erow, part)
 	return nil
 }
-func internalCmd3(ed *Editor, part *toolbarparser.Part, optERow *ERow) (bool, error) {
+func internalCmd3(ed *Editor, part *toolbarparser.Part, optERow *ERow) (error, bool) {
 	arg0 := part.Args[0].UnquotedString()
 	cmd, ok := InternalCmds[arg0]
 	if !ok {
-		return false, nil
+		return nil, false
 	}
 	ctx := context.Background()
 	args := &InternalCmdArgs{cmd, ctx, ed, part, optERow}
@@ -192,7 +193,7 @@ func internalCmd3(ed *Editor, part *toolbarparser.Part, optERow *ERow) (bool, er
 		defer cancel()
 		args.Ctx = ctx2
 	}
-	return true, cmd.Fn(args)
+	return cmd.Fn(args), true
 }
 
 //----------
