@@ -142,6 +142,8 @@ type GoDebugInstance struct {
 	cancel context.CancelFunc
 	gdm    *GoDebugManager
 	di     *GDDataIndex
+
+	cmdWait sync.WaitGroup
 }
 
 func newGoDebugInstance(ctx context.Context, gdm *GoDebugManager, erow *ERow, args []string) (*GoDebugInstance, error) {
@@ -163,7 +165,9 @@ func newGoDebugInstance(ctx context.Context, gdm *GoDebugManager, erow *ERow, ar
 		return nil, fmt.Errorf("can't run on this erow type")
 	}
 
+	gdi.cmdWait.Add(1)
 	_, cancel := erow.Exec.RunAsyncWithCancel(func(erowCtx context.Context, rw io.ReadWriter) error {
+		defer gdi.cmdWait.Done()
 		return gdi.runCmd(erowCtx, erow, args, rw)
 	})
 
@@ -179,7 +183,7 @@ func newGoDebugInstance(ctx context.Context, gdm *GoDebugManager, erow *ERow, ar
 }
 func (gdi *GoDebugInstance) cancelAndWaitAndClear() {
 	gdi.cancel()
-	<-gdi.ctx.Done()
+	gdi.cmdWait.Wait()
 	gdi.clearAnnotations()
 }
 
