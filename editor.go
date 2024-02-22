@@ -52,7 +52,7 @@ func main() {
 		"\tgo,.go,goimports\n"+
 		"\tcpp,\".cpp .hpp\",\"\\\"clang-format --style={'opt1':1,'opt2':2}\\\"\"\n"+
 		"\tpython,.py,python_formatter")
-	flag.BoolVar(&opt.ZipSessionsFile, "zipsessionsfile", false, "Save sessions file insize zip. Does not delete old sessions file.")
+	flag.BoolVar(&opt.ZipSessionsFile, "zipsessionsfile", false, "Save sessions in a zip. Useful for 100+ sessions. Does not delete the plain file. Beware that the file might not be easily editable as in a plain file.")
 	cpuProfileFlag := flag.String("cpuprofile", "", "profile cpu filename")
 	version := flag.Bool("version", false, "output version and exit")
 

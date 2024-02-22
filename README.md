@@ -138,6 +138,8 @@ Usage of editor:
     	output version and exit
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
+  -zipsessionsfile
+    	Save sessions in a zip. Useful for 100+ sessions. Does not delete the plain file. Beware that the file might not be easily editable as in a plain file.
 ```
 <!--__usageSectionEnd__-->
 
