@@ -68,8 +68,7 @@ func runContentCmds(ctx context.Context, erow *ERow, index int) {
 }
 
 func ContentCmdFromTextArea(erow *ERow, index int) {
-	erow.Ed.RunAsyncBusyCursor(erow.Row, func(done func()) {
-		defer done()
+	erow.Ed.RunAsyncBusyCursor(erow.Row, func() {
 		ctx, cancel := erow.newContentCmdCtx()
 		defer cancel()
 		runContentCmds(ctx, erow, index)

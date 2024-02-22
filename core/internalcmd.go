@@ -67,7 +67,7 @@ func InternalCmdFromRootTb(ed *Editor, tb *ui.Toolbar) {
 		return
 	}
 
-	internalCmd(ed, part, nil)
+	internalExternalCmd(ed, part, nil)
 }
 
 //----------
@@ -91,7 +91,7 @@ func InternalCmdFromRowTb(erow *ERow) {
 		return
 	}
 
-	internalCmd(erow.Ed, part, erow)
+	internalExternalCmd(erow.Ed, part, erow)
 }
 
 func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
@@ -138,11 +138,19 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 //----------
 
 // erow can be nil (ex: a root toolbar cmd)
-func internalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) {
-	if err := internalCmd2(ed, part, optERow); err != nil {
-		arg0 := part.Args[0].UnquotedString()
-		ed.Errorf("%s: %w", arg0, err)
+func internalExternalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) {
+	// run with busy cursor
+	node := ed.UI.RootNode
+	if optERow != nil {
+		node = optERow.Row
 	}
+	ed.RunAsyncBusyCursor(node, func() {
+
+		if err := internalCmd2(ed, part, optERow); err != nil {
+			arg0 := part.Args[0].UnquotedString()
+			ed.Errorf("%s: %w", arg0, err)
+		}
+	})
 }
 func internalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow) error {
 	if optERow == nil {

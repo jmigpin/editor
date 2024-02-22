@@ -688,9 +688,7 @@ func (ed *Editor) toggleInfoFloatBox() {
 	cfb.SetRefPointToTextAreaCursor(ta)
 	show("Loading...")
 
-	ed.RunAsyncBusyCursor(cfb, func(done func()) {
-		defer done()
-
+	ed.RunAsyncBusyCursor(cfb, func() {
 		// there is no timeout to complete since the context can be canceled manually
 
 		// context based on erow context
@@ -771,8 +769,12 @@ func (ed *Editor) NodeERow(node widget.Node) (*ERow, bool) {
 
 //----------
 
+func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func()) {
+	ed.RunAsyncBusyCursor2(node, func(done func()) { fn(); done() })
+}
+
 // Caller should call done function in the end.
-func (ed *Editor) RunAsyncBusyCursor(node widget.Node, fn func(done func())) {
+func (ed *Editor) RunAsyncBusyCursor2(node widget.Node, fn func(done func())) {
 	set := func(c event.Cursor) {
 		ed.UI.RunOnUIGoRoutine(func() {
 			node.Embed().Cursor = c

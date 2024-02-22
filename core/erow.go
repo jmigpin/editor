@@ -264,9 +264,11 @@ func (erow *ERow) initHandlers() {
 			mods := evt.Mods.ClearLocks()
 			switch {
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymS:
-				if err := erow.Info.SaveFile(); err != nil {
-					erow.Ed.Error(err)
-				}
+				erow.Ed.RunAsyncBusyCursor(row, func() {
+					if err := erow.Info.SaveFile(); err != nil {
+						erow.Ed.Error(err)
+					}
+				})
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
 				AddFindShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymH:
