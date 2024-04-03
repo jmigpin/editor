@@ -605,6 +605,12 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2024/04/03: v3.8.0 (28 commits)
+	- added $scrollMode=auto option
+	- added parsing "<filename>:o=<num>" offset
+	- internal cmd calls improvements
+	- added zipsessionsfile option
+	- deadlock/crash fixes
 - 2023/11/29: v3.7.0 (103 commits)
 	- improved godebug with support to js/wasm
 	- allow access to godebug from the cmd line (useful for js/wasm)
