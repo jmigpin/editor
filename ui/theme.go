@@ -294,7 +294,13 @@ func ThemeFontFace2(name string, size float64) (*fontutil.FontFace, error) {
 		return nil, err
 	}
 	opt := TTFontOptions // copy
+
+	// if we have a font size specified
 	if size != 0 {
+		// clamp it to a safe minimum (font size of '1' can cause crashes)
+		if size < 3 {
+			size = 3
+		}
 		opt.Size = size
 	}
 	return f.FontFace(opt), nil
