@@ -115,6 +115,11 @@ func (rr *RuneReader) tabbedGlyphAdvance(ru rune) mathutil.Intf {
 }
 
 func (rr *RuneReader) nextTabStopAdvance(penx, tadv mathutil.Intf) mathutil.Intf {
+	// avoid divide by zero
+	if tadv == 0 {
+		return 0
+	}
+
 	px := penx - rr.startingPen().X
 	x := px + tadv
 	n := int(x / tadv)
