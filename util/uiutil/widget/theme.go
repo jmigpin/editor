@@ -61,7 +61,7 @@ func (t *Theme) empty() bool {
 		t.PaletteNamePrefix == "")
 }
 
-func (t *Theme) Clear() {
+func (t *Theme) ClearIfEmpty() {
 	if t.empty() {
 		*t = Theme{}
 	}
@@ -72,13 +72,13 @@ func (t *Theme) Clear() {
 // Can be set to nil to erase.
 func (t *Theme) SetFontFace(ff *fontutil.FontFace) {
 	t.FontFace = ff
-	t.Clear()
+	t.ClearIfEmpty()
 }
 
 // Can be set to nil to erase.
 func (t *Theme) SetPalette(p Palette) {
 	t.Palette = p
-	t.Clear()
+	t.ClearIfEmpty()
 }
 
 // Can be set to nil to erase.
@@ -88,7 +88,7 @@ func (t *Theme) SetPaletteColor(name string, c color.Color) {
 		if t.Palette != nil {
 			delete(t.Palette, name)
 		}
-		t.Clear()
+		t.ClearIfEmpty()
 		return
 	}
 
@@ -101,7 +101,7 @@ func (t *Theme) SetPaletteColor(name string, c color.Color) {
 // Can be set to "" to erase.
 func (t *Theme) SetPaletteNamePrefix(prefix string) {
 	t.PaletteNamePrefix = prefix
-	t.Clear()
+	t.ClearIfEmpty()
 }
 
 //----------
