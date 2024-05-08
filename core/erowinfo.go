@@ -412,6 +412,8 @@ func (info *ERowInfo) UpdateEditedRowState() {
 	info.editedHashNeedsUpdate()
 	edited := !info.EqualToBytesHash(info.fileData.saved.size, info.fileData.saved.hash)
 	info.updateRowsStates(ui.RowStateEdited, edited)
+
+	info.Ed.GoDebug.UpdateInfoAnnotations(info)
 }
 
 func (info *ERowInfo) UpdateExistsRowState() {
@@ -502,9 +504,18 @@ func (info *ERowInfo) HandleRWEvWrite2(erow *ERow, ev *iorw.RWEvWrite2) {
 	if !info.IsFileButNotDir() {
 		return
 	}
-	info.setRWFromMaster(erow)
-	info.handleRWsWrite2(erow, ev)
+
+	for _, e := range info.ERows {
+		if e == erow {
+			continue
+		}
+		e.Row.TextArea.HandleRWWrite2(ev)
+	}
+
+	info.UpdateEditedRowState()
 }
+
+//----------
 
 func (info *ERowInfo) setRWFromMaster(erow *ERow) {
 	for _, e := range info.ERows {
@@ -513,17 +524,8 @@ func (info *ERowInfo) setRWFromMaster(erow *ERow) {
 		}
 		e.Row.TextArea.SetRWFromMaster(erow.Row.TextArea.TextEdit)
 	}
-	info.UpdateEditedRowState()
-	info.Ed.GoDebug.UpdateInfoAnnotations(info)
-}
 
-func (info *ERowInfo) handleRWsWrite2(erow *ERow, ev *iorw.RWEvWrite2) {
-	for _, e := range info.ERows {
-		if e == erow {
-			continue
-		}
-		e.Row.TextArea.HandleRWWrite2(ev)
-	}
+	info.UpdateEditedRowState()
 }
 
 //----------
