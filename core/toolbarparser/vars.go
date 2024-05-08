@@ -3,7 +3,6 @@ package toolbarparser
 //godebug:annotatefile
 
 import (
-	"log"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -171,7 +170,9 @@ func expandVariables(src string, vm VarMap) string {
 func expandVarRefs(src string, mapping func(string) (string, bool)) string {
 	refs, err := parseVarRefs([]byte(src))
 	if err != nil {
-		log.Println(err)
+		// DEBUG
+		//log.Println(err)
+
 		return src
 	}
 	adjust := 0
