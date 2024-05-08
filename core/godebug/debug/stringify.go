@@ -44,7 +44,7 @@ func (p *print3) doValue(v reflect.Value, depth int) {
 			// found errors:
 			// 	reflect.Value.Interface: cannot return value obtained from unexported field or method
 			// 	reflect.Value.UnsafeAddr of unaddressable value
-			// 	interface conversion: interface {} is debug.t3, not []uint8}}
+			// 	interface conversion: interface {} is debug.t3, not []uint8{}
 			//p.print("PANIC" + fmt.Sprint(r)) // use fmt.sprintf just for debug
 
 			//if err, ok := r.(error); ok {
