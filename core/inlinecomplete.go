@@ -25,7 +25,6 @@ type InlineComplete struct {
 
 func NewInlineComplete(ed *Editor) *InlineComplete {
 	ic := &InlineComplete{ed: ed}
-	ic.mu.cancel = func() {} // avoid testing for nil
 	return ic
 }
 
@@ -42,9 +41,14 @@ func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEven
 	ta := ev.TextArea
 
 	ic.mu.Lock()
+	defer ic.mu.Unlock()
 
 	// cancel previous run
-	ic.mu.cancel()
+	if ic.mu.cancel != nil {
+		ic.mu.cancel()
+	}
+
+	// clear annotations at other textarea
 	if ic.mu.ta != nil && ic.mu.ta != ta {
 		defer ic.setAnnotations(ic.mu.ta, nil)
 	}
@@ -54,31 +58,38 @@ func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEven
 	ic.mu.ta = ta
 	ic.mu.index = ta.CursorIndex()
 
-	ic.mu.Unlock()
-
-	go func() {
-		defer cancel()
-		ic.setAnnotationsMsg(ta, "loading...")
-		err := ic.complete2(ctx, erow.Info.Name(), ta, ev)
-		if err != nil {
-			ic.setAnnotations(ta, nil)
-			ic.ed.Error(err)
-		}
-		// TODO: not necessary in all cases
-		// ensure UI update
-		ic.ed.UI.EnqueueNoOpEvent()
-	}()
+	go ic.complete2(ctx, erow.Info.Name(), ta, ev)
 	return true
 }
 
-func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui.TextArea, ev *ui.TextAreaInlineCompleteEvent) error {
-	comps, err := ic.completions(ctx, filename, ta)
-	if err != nil {
-		return err
+func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui.TextArea, ev *ui.TextAreaInlineCompleteEvent) {
+	cleanup := func() {
+		ic.mu.cancel()
+		ic.ed.UI.EnqueueNoOpEvent()
+	}
+	handleErr := func(err error) {
+		ic.setAnnotations(ta, nil)
+		ic.ed.Error(err)
 	}
 
+	comps, err := ic.lsprotoCompletions(ctx, filename, ta)
+	if err != nil {
+		defer cleanup()
+		handleErr(err)
+		return
+	}
+
+	// insert completions uses BeginUndoGroup, needs to run in sync
+	ic.ed.UI.RunOnUIGoRoutine(func() {
+		defer cleanup()
+		if err := ic.insertCompletions(ta, ev, comps); err != nil {
+			handleErr(err)
+		}
+	})
+}
+func (ic *InlineComplete) insertCompletions(ta *ui.TextArea, ev *ui.TextAreaInlineCompleteEvent, comps []string) error {
 	// insert complete
-	completed, comps, err := ic.insertComplete(comps, ta)
+	completed, comps, err := ic.insertCompletions2(comps, ta)
 	if err != nil {
 		return err
 	}
@@ -104,9 +115,10 @@ func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui
 	return nil
 }
 
-func (ic *InlineComplete) insertComplete(comps []string, ta *ui.TextArea) (completed bool, _ []string, _ error) {
+func (ic *InlineComplete) insertCompletions2(comps []string, ta *ui.TextArea) (completed bool, _ []string, _ error) {
 	ta.BeginUndoGroup()
 	defer ta.EndUndoGroup()
+
 	newIndex, completed, comps2, err := insertComplete(comps, ta.RW(), ta.CursorIndex())
 	if err != nil {
 		return completed, comps2, err
@@ -124,7 +136,7 @@ func (ic *InlineComplete) insertComplete(comps []string, ta *ui.TextArea) (compl
 
 //----------
 
-func (ic *InlineComplete) completions(ctx context.Context, filename string, ta *ui.TextArea) ([]string, error) {
+func (ic *InlineComplete) lsprotoCompletions(ctx context.Context, filename string, ta *ui.TextArea) ([]string, error) {
 	compList, err := ic.ed.LSProtoMan.TextDocumentCompletion(ctx, filename, ta.RW(), ta.CursorIndex())
 	if err != nil {
 		return nil, err
