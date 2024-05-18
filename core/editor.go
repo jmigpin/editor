@@ -377,7 +377,7 @@ func (ed *Editor) setupRootToolbar() {
 		ed.updateERowsToolbarsHomeVars()
 	})
 
-	s := "Exit | ListSessions | NewColumn | NewRow | Reload | Stop"
+	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | Reload | LsprotoCloseAll | Stop"
 	tb.SetStrClearHistory(s)
 }
 
