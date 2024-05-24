@@ -70,10 +70,7 @@ func (te *TextEdit) SetRW(rw iorw.ReadWriterAt) {
 func (te *TextEdit) SetRWFromMaster(m *TextEdit) {
 	te.SetRW(m.Text.rw)
 
-	// DEBUG: trigger "history undo group already set" issue
-	//time.Sleep(10 * time.Millisecond)
-	//fmt.Printf("assign: %p <- %p\n", te.rwu.History, m.rwu.History)
-
+	// TODO: should be set at instanciation when known that it will be a duplicate
 	te.rwu.History = m.rwu.History
 }
 

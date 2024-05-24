@@ -15,6 +15,7 @@ type History struct {
 	hlist  *HList
 	ugroup struct { // undo group
 		sync.Mutex
+		active int
 		ohlist *HList // original list
 		c      rwedit.SimpleCursor
 	}
@@ -39,6 +40,7 @@ func (h *History) UndoRedo(redo, peek bool) (*Edits, bool) {
 	// the call to undo could be inside an undogroup, use the original list; usually this is ok since the only operations should be undo/redo, but if other write operations are done while on this undogroup, there could be undefined behaviour (programmer responsability)
 	h.ugroup.Lock()
 	defer h.ugroup.Unlock()
+
 	hl := h.hlist
 	if h.ugroup.ohlist != nil {
 		hl = h.ugroup.ohlist
@@ -56,8 +58,10 @@ func (h *History) UndoRedo(redo, peek bool) (*Edits, bool) {
 func (h *History) BeginUndoGroup(c rwedit.SimpleCursor) {
 	h.ugroup.Lock()
 	defer h.ugroup.Unlock()
-	if h.ugroup.ohlist != nil {
-		panic("history undo group already set")
+
+	h.ugroup.active++
+	if h.ugroup.active > 1 {
+		return
 	}
 
 	// replace hlist
@@ -71,10 +75,14 @@ func (h *History) BeginUndoGroup(c rwedit.SimpleCursor) {
 func (h *History) EndUndoGroup(c rwedit.SimpleCursor) {
 	h.ugroup.Lock()
 	defer h.ugroup.Unlock()
-	if h.ugroup.ohlist == nil {
-		panic("history undo group is not set")
+
+	h.ugroup.active--
+	if h.ugroup.active < 0 {
+		panic("history undo group is not active")
 	}
-	defer func() { h.ugroup.ohlist = nil }()
+	if h.ugroup.active > 0 {
+		return
+	}
 
 	// merge all, should then have either 0 or 1 element
 	h.hlist.mergeToDoneBack(h.hlist.list.Front())
@@ -93,6 +101,7 @@ func (h *History) EndUndoGroup(c rwedit.SimpleCursor) {
 
 	// restore original list
 	h.hlist = h.ugroup.ohlist
+	h.ugroup.ohlist = nil
 }
 
 //----------
