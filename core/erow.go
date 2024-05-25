@@ -264,11 +264,7 @@ func (erow *ERow) initHandlers() {
 			mods := evt.Mods.ClearLocks()
 			switch {
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymS:
-				erow.Ed.RunAsyncBusyCursor(row, func() {
-					if err := erow.Info.SaveFile(); err != nil {
-						erow.Ed.Error(err)
-					}
-				})
+				erow.SaveFileBusyCursor()
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
 				AddFindShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymH:
@@ -691,6 +687,18 @@ func (erow *ERow) cancelInternalCmd2() {
 	}
 }
 
+//----------
+
+func (erow *ERow) SaveFileBusyCursor() {
+	erow.Ed.RunAsyncBusyCursor(erow.Row, func() {
+		if err := erow.Info.SaveFile(); err != nil {
+			erow.Ed.Error(err)
+		}
+	})
+}
+
+//----------
+//----------
 //----------
 
 type terminalOpt struct {

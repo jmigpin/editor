@@ -792,29 +792,32 @@ func (ed *Editor) RunAsyncBusyCursor2(node widget.Node, fn func(done func())) {
 //----------
 
 func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on bool, selIndex int, entries *drawer4.AnnotationGroup) {
+	// avoid lockup:
+	// godebugstart->inlinecomplete.clear->godebugrestoreannotations
+	ed.UI.RunOnUIGoRoutine(func() {
+		ed.setAnnotations2(req, ta, on, selIndex, entries)
+	})
+}
+func (ed *Editor) setAnnotations2(req EdAnnotationsRequester, ta *ui.TextArea, on bool, selIndex int, entries *drawer4.AnnotationGroup) {
 	if !ed.CanModifyAnnotations(req, ta) {
 		return
 	}
 	// set annotations (including clear)
 	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-		ed.UI.RunOnUIGoRoutine(func() {
-			d.Opt.Annotations.On = on
-			d.Opt.Annotations.Selected.EntryIndex = selIndex
-			d.Opt.Annotations.Entries = entries
-			ta.MarkNeedsLayoutAndPaint()
-		})
+		d.Opt.Annotations.On = on
+		d.Opt.Annotations.Selected.EntryIndex = selIndex
+		d.Opt.Annotations.Entries = entries
+		ta.MarkNeedsLayoutAndPaint()
 	}
 
 	// restore godebug annotations
 	if req == EareqInlineComplete && !on {
-		ed.UI.RunOnUIGoRoutine(func() { // avoid lockup: godebugstart->inlinecomplete.clear->godebugrestoreannotations
-			// find erow info from textarea
-			for _, erow := range ed.ERows() {
-				if erow.Row.TextArea == ta {
-					ed.GoDebug.UpdateInfoAnnotations(erow.Info)
-				}
+		// find erow info from textarea
+		for _, erow := range ed.ERows() {
+			if erow.Row.TextArea == ta {
+				ed.GoDebug.UpdateInfoAnnotations(erow.Info)
 			}
-		})
+		}
 	}
 }
 

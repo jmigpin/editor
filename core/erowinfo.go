@@ -306,7 +306,7 @@ func (info *ERowInfo) SaveFile() error {
 		return err
 	}
 
-	// update all erows (including row saved states)
+	// update content
 	info.SetRowsBytes(b)
 
 	// editor events
@@ -327,6 +327,9 @@ func (info *ERowInfo) SaveFile() error {
 			//info.Ed.Error(err)
 		}
 	}()
+
+	// the content might change due to content formatters, but the cursor can be in the same place, and so it will not be cleared by InlineComplete.CancelOnCursorChange. This is particular to the save op, not the same as just a write op since inlinecomplete also writes the completion text.
+	info.Ed.InlineComplete.CancelAndClear()
 
 	return nil
 }
