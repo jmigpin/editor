@@ -25,6 +25,7 @@ type InlineComplete struct {
 
 func NewInlineComplete(ed *Editor) *InlineComplete {
 	ic := &InlineComplete{ed: ed}
+	ic.mu.cancel = func() {} // avoid nil call (called in many places)
 	return ic
 }
 
@@ -43,14 +44,12 @@ func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEven
 	ic.mu.Lock()
 	defer ic.mu.Unlock()
 
-	// cancel previous run
-	if ic.mu.cancel != nil {
-		ic.mu.cancel()
-	}
+	ic.mu.cancel() // cancel previous run
 
 	// clear annotations at other textarea
 	if ic.mu.ta != nil && ic.mu.ta != ta {
-		defer ic.setAnnotations(ic.mu.ta, nil)
+		// run async to avoid lockup
+		go ic.setAnnotations(ic.mu.ta, nil)
 	}
 
 	ctx, cancel := context.WithCancel(erow.ctx)
@@ -166,10 +165,10 @@ func (ic *InlineComplete) setAnnotationsMsg(ta *ui.TextArea, s string) {
 
 func (ic *InlineComplete) setAnnotations(ta *ui.TextArea, entries *drawer4.AnnotationGroup) {
 	on := entries != nil && len(entries.Anns) > 0
-	ic.ed.SetAnnotations(EareqInlineComplete, ta, on, -1, entries)
 	if !on {
 		ic.setOff(ta)
 	}
+	ic.ed.SetAnnotations(EareqInlineComplete, ta, on, -1, entries)
 }
 
 //----------
