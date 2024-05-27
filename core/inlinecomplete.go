@@ -200,17 +200,17 @@ func (ic *InlineComplete) CancelAndClear() {
 	}
 }
 
-func (ic *InlineComplete) CancelOnCursorChange() {
-	ic.mu.Lock()
-	ta := ic.mu.ta
-	index := ic.mu.index
-	ic.mu.Unlock()
-	if ta != nil {
-		if index != ta.CursorIndex() {
-			ic.setAnnotations(ta, nil)
-		}
-	}
-}
+//func (ic *InlineComplete) CancelOnCursorChange() {
+//	ic.mu.Lock()
+//	ta := ic.mu.ta
+//	index := ic.mu.index
+//	ic.mu.Unlock()
+//	if ta != nil {
+//		if index != ta.CursorIndex() {
+//			ic.setAnnotations(ta, nil)
+//		}
+//	}
+//}
 
 //----------
 //----------

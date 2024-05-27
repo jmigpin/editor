@@ -253,9 +253,13 @@ func (erow *ERow) initHandlers() {
 	})
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 any) {
-		erow.Ed.InlineComplete.CancelOnCursorChange()
-
 		ev := ev0.(*ui.RowInputEvent)
+
+		switch ev.Event.(type) {
+		case *event.KeyDown, *event.MouseDown:
+			erow.Ed.InlineComplete.CancelAndClear()
+		}
+
 		switch evt := ev.Event.(type) {
 		case *event.KeyDown:
 			// activate row
