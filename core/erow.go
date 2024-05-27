@@ -602,9 +602,17 @@ func (erow *ERow) setupSyntaxHighlightAndCommentShortcuts() {
 	case "Xresources":
 		setComments("!")
 		return
-	case "go.mod", "go.sum", "go.work", "go.work.sum":
-		setComments("//")
-		return
+	}
+
+	// specific suffixes (ex: allows "my_go.work")
+	suffixes := []string{
+		"go.mod", "go.sum", "go.work", "go.work.sum",
+	}
+	for _, suf := range suffixes {
+		if strings.HasSuffix(name, suf) {
+			setComments("//")
+			return
+		}
 	}
 
 	// setup comments based on name extension
