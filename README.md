@@ -248,6 +248,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- `-all`: calls `gorename` to rename across packages (slower).
 - `GoDebug <command> [arguments]`: debugger utility for go programs (more at [commands:godebug](#commands-godebug))
 - `GoDebugFind <string>`: find string in current selected annotation. Useful to rewind the annotations to the desired point.
+- `GoDebugTrace`: print all current callers that have not returned. Useful to aid in finding deadlocks.
 
 *Row name at the toolbar (usually the filename)*
 
