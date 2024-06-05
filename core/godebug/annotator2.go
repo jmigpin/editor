@@ -813,9 +813,9 @@ func (ann *Annotator) typesPkg() *types.Package {
 
 //----------
 
-func (ann *Annotator) insertMainClose(ctx *Ctx, fd *ast.FuncDecl) (error, bool) {
+func (ann *Annotator) insertMainClose(ctx *Ctx, fd *ast.FuncDecl) bool {
 	if fd.Recv != nil { // is a method
-		return nil, false
+		return false
 	}
 
 	// NOTE: case of TestMain in testmode (note from old code)
@@ -827,7 +827,7 @@ func (ann *Annotator) insertMainClose(ctx *Ctx, fd *ast.FuncDecl) (error, bool) 
 		name = "TestMain"
 	}
 	if fd.Name.Name != name {
-		return nil, false
+		return false
 	}
 	ann.hasMainFunc = true
 
@@ -840,7 +840,19 @@ func (ann *Annotator) insertMainClose(ctx *Ctx, fd *ast.FuncDecl) (error, bool) 
 		},
 	}
 	ctx.insertStmt(ds)
-	return nil, true
+	return true
+}
+
+func (ann *Annotator) insertDeferRecover(ctx *Ctx) {
+	ds := &ast.DeferStmt{
+		Call: &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent(ann.dopt.PkgName),
+				Sel: ast.NewIdent("Recover"),
+			},
+		},
+	}
+	ctx.insertStmt(ds)
 }
 
 //----------

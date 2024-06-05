@@ -286,9 +286,8 @@ func (ann *Annotator) visFuncDecl(ctx *Ctx, fd *ast.FuncDecl) error {
 
 	ctx2 := ctx.withStmts(&fd.Body.List)
 
-	if err, ok := ann.insertMainClose(ctx2, fd); ok && err != nil {
-		return err
-	}
+	ann.insertDeferRecover(ctx2)
+	_ = ann.insertMainClose(ctx2, fd)
 
 	if name, ok := ann.detectJumps(ctx2, fd); ok {
 		// insert a not annotated step
@@ -1033,8 +1032,11 @@ func (ann *Annotator) visFuncLit(ctx *Ctx, fl *ast.FuncLit) (DebugExpr, error) {
 	ctx2 := ctx.withResetForFuncLit()
 	ctx2 = ctx2.withValue(cidnFuncNode, fl) // ex: returnstmt
 
-	// visit type inside the body
 	ctx3 := ctx2.withStmts(&fl.Body.List)
+
+	ann.insertDeferRecover(ctx3)
+
+	// visit type inside the body
 	u := (ast.Expr)(fl.Type)
 	de, err := ann.visExpr(ctx3, &u)
 	if err != nil {

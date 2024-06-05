@@ -5,6 +5,7 @@ func f0() {
 func f1(int){}
 -- TestAnnotator1.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVs("1")))
 	Σ.L(0, 1, 25, Σ0)
@@ -18,6 +19,7 @@ func f0() {
 func f1(int,*int,string){}
 -- TestAnnotator2.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVs("1"), Σ.IVi(nil), Σ.IVs("\"s\"")))
 	Σ.L(0, 1, 25, Σ0)
@@ -33,6 +35,7 @@ func f2(int,int)int{return 2}
 func f3()int{return 3}
 -- TestAnnotator3.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f3"), nil)
 	Σ.L(0, 1, 34, Σ0)
@@ -52,6 +55,7 @@ func f0() {
 func f1(int){}
 -- TestAnnotator4.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IB(Σ.IVs("1"), 14, Σ.IVs("200"), Σ.IVs("200"))))
 	Σ.L(0, 1, 25, Σ0)
@@ -66,6 +70,7 @@ func f1(int){}
 func f2()int{return 2}
 -- TestAnnotator5.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
 	Σ.L(0, 1, 38, Σ0)
@@ -86,6 +91,7 @@ func f1(int){}
 func f2(*int)int{return 2}
 -- TestAnnotator6.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := &a
 	Σ1 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IU(Σ.IUe(17, Σ.IVi(a)), Σ.IVi(Σ0))))
@@ -104,8 +110,10 @@ func f1(int,func()){}
 func f2(){}
 -- TestAnnotator7.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ1 := func() {
+		defer Σ.Recover()
 		Σ.L(0, 2, 31, Σ.ISt())
 		Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
 		Σ.L(0, 3, 40, Σ0)
@@ -126,11 +134,13 @@ func b()int{return 2}
 func c(){}
 -- TestAnnotator7b.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("b"), nil)
 	Σ.L(0, 1, 27, Σ0)
 	Σ1 := b()
 	Σ3 := func() {
+		defer Σ.Recover()
 		Σ.L(0, 2, 32, Σ.ISt())
 		Σ2 := Σ.ICe(Σ.IVs("c"), nil)
 		Σ.L(0, 3, 41, Σ2)
@@ -152,6 +162,7 @@ type B struct{c C}
 type C struct{d func()}
 -- TestAnnotator7c.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.ISel(nil, Σ.IVs("b"), nil), nil)
 	Σ.L(0, 1, 25, Σ0)
@@ -168,6 +179,7 @@ func f0() {
 }
 -- TestAnnotator8.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 30, Σ.IL(Σ.IVs("1")))
 	a := 1
@@ -182,6 +194,7 @@ func f0() {
 }
 -- TestAnnotator9.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 33, Σ.IL(Σ.IVs("1"), Σ.IVs("2")))
 	a, b := 1, 2
@@ -198,6 +211,7 @@ func f0() {
 }
 -- TestAnnotator10.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 30, Σ.IL(Σ.IVs("2"), Σ.IVs("3")))
 	c, d := 2, 3
@@ -217,6 +231,7 @@ func f0() {
 var a=0
 -- TestAnnotator11.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 27, Σ.IL(Σ.IVs("1")))
 	a = 1
@@ -227,6 +242,7 @@ func f0() {
 }
 -- TestAnnotator12.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 29, Σ.IL(Σ.IVs("1")))
 	_ = 1
@@ -238,6 +254,7 @@ func f0() {
 }
 -- TestAnnotator13.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 33, Σ.IL(Σ.IVs("1"), Σ.IVs("\"s\"")))
 	a, _ := 1, "s"
@@ -252,6 +269,7 @@ func f0() {
 var a = 0
 -- TestAnnotator14.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 32, Σ.IL(Σ.IVs("1"), Σ.IVs("\"s\"")))
 	a, _ = 1, "s"
@@ -263,6 +281,7 @@ func f0() {
 var a=struct{b bool}{}
 -- TestAnnotator15.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 31, Σ.IL(Σ.IVs("true")))
 	a.b = true
@@ -276,6 +295,7 @@ var c=0
 var i=0
 -- TestAnnotator16.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.ISel(nil, Σ.IVs("b"), nil), Σ.IL(Σ.IVi(c)))
 	Σ.L(0, 1, 32, Σ0)
@@ -294,6 +314,7 @@ var c=0
 var i=0
 -- TestAnnotator16a.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("a"), nil)
 	Σ.L(0, 1, 32, Σ0)
@@ -313,6 +334,7 @@ func f0() {
 func f1()int{return 1}
 -- TestAnnotator17.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
 	Σ.L(0, 1, 30, Σ0)
@@ -334,6 +356,7 @@ var e=0
 var f=func()int{return 0}
 -- TestAnnotator18.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f"), nil)
 	Σ.L(0, 1, 40, Σ0)
@@ -356,6 +379,7 @@ var a=0
 var c=0
 -- TestAnnotator19.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(c)
 	Σ.L(0, 1, 32, Σ.IL(Σ.IVs("1"), Σ0))
@@ -371,6 +395,7 @@ var f=func(int)int{return 0}
 var u=0
 -- TestAnnotator20.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f"), Σ.IL(Σ.IVi(u)))
 	Σ.L(0, 1, 39, Σ0)
@@ -392,6 +417,7 @@ var f1=func(int,string)(int,int){return 0,0}
 var c=0
 -- TestAnnotator21.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(c), Σ.IVs("\"s\"")))
 	Σ.L(0, 1, 32, Σ0)
@@ -409,6 +435,7 @@ var f1=func(int)int{return 0}
 var f2=func()int{return 0}
 -- TestAnnotator22.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
 	Σ.L(0, 1, 32, Σ0)
@@ -430,6 +457,7 @@ var f1=func(int)int{return 0}
 var d=0
 -- TestAnnotator23.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(d)))
 	Σ.L(0, 1, 35, Σ0)
@@ -453,6 +481,7 @@ var e=0
 var f=0
 -- TestAnnotator24.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(c)
 	Σ1 := Σ.IVi(d)
@@ -478,6 +507,7 @@ var i=0
 var b=0
 -- TestAnnotator25.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := i
 	Σ1 := Σ.IVi(b)
@@ -494,6 +524,7 @@ var b=[]int{}
 var c=0
 -- TestAnnotator26.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := c
 	Σ1 := b[Σ0]
@@ -512,6 +543,7 @@ var s=""
 var i=0
 -- TestAnnotator27.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(s[:i])
 	Σ1 := s[:i] + "a"
@@ -527,6 +559,7 @@ var b=[][]int{}
 var u=[]int{}
 -- TestAnnotator28.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(u[:2])
 	b[1] = u[:2]
@@ -541,6 +574,7 @@ var f2=func()int{return 0}
 var b=[]int{}
 -- TestAnnotator29.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
 	Σ.L(0, 1, 27, Σ0)
@@ -557,6 +591,7 @@ func f0() {
 var s=[]int{}
 -- TestAnnotator30.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(s[:])
 	Σ.L(0, 1, 30, Σ.IL(Σ.II2(Σ.IVs("s"), nil, nil, nil, false, Σ0)))
@@ -574,6 +609,7 @@ var a=0
 var b=0
 -- TestAnnotator31.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(a)
 	Σ1 := 1 + a
@@ -592,6 +628,7 @@ var p=[]int{}
 var a=0
 -- TestAnnotator32.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(a)
 	Σ1 := 1 + a
@@ -608,6 +645,7 @@ var f1=func(int)int{return 0}
 var u=0
 -- TestAnnotator33.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
 	Σ.L(0, 1, 36, Σ0)
@@ -628,6 +666,7 @@ var a=0
 var f3=func(int)int{return 0}
 -- TestAnnotator34.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(a)
 	Σ1 := a + 1
@@ -647,6 +686,7 @@ var c=[]int{}
 var i=0
 -- TestAnnotator35.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := i
 	Σ1 := &c[Σ0]
@@ -665,6 +705,7 @@ func f0() {
 var x any
 -- TestAnnotator36.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 32, Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil, true))
 	switch x.(type) {
@@ -678,6 +719,7 @@ func f0() {
 var f=func()any{return nil}
 -- TestAnnotator36a.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f"), nil)
 	Σ.L(0, 1, 32, Σ0)
@@ -694,6 +736,7 @@ func f0() {
 var x chan any
 -- TestAnnotator36b.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IUe(36, Σ.IVi(x))
 	Σ.L(0, 1, 33, Σ0)
@@ -712,6 +755,7 @@ func f0() {
 var x any
 -- TestAnnotator37.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 37, Σ.IL(Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil, true)))
 	switch b := x.(type) {
@@ -731,6 +775,7 @@ var a=0
 var b=0
 -- TestAnnotator38.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(a)
 	Σ1 := Σ.IVi(b)
@@ -747,6 +792,7 @@ func f0() {
 var a=0
 -- TestAnnotator39.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 32, Σ.IVi(a))
 	switch a {
@@ -761,6 +807,7 @@ var f1=func(int)int{return 0}
 var u=0
 -- TestAnnotator40.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	{
 		Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
@@ -783,6 +830,7 @@ var f1=func(int)int{return 0}
 var u=0
 -- TestAnnotator40a.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
 	Σ.L(0, 1, 32, Σ0)
@@ -799,6 +847,7 @@ func f0() {
 var a=true
 -- TestAnnotator41.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	if func() bool {
 		Σ.L(0, 1, 28, Σ.IL(Σ.IVi(a)))
@@ -815,6 +864,7 @@ func f0() {
 }
 -- TestAnnotator42.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	{
 		Σ.L(0, 1, 31, Σ.IL(Σ.IVs("true")))
@@ -846,6 +896,7 @@ func f0() {
 var f1=func()int{return 0}
 -- TestAnnotator43.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	{
 		Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
@@ -873,6 +924,7 @@ var a=true
 var b=true
 -- TestAnnotator44.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	if func() bool {
 		Σ.L(0, 1, 28, Σ.IL(Σ.IVi(a)))
@@ -894,6 +946,7 @@ var f1=func(int)int{return 1}
 var f2=func(int)int{return 2}
 -- TestAnnotator45.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	if func() bool {
 		Σ0 := Σ.IVi(v)
@@ -918,6 +971,7 @@ func f0() {
 var a=true
 -- TestAnnotator45b.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	if func() bool {
 		Σ.L(0, 1, 28, Σ.IL(Σ.IU(Σ.IUe(43, Σ.IVi(a)), Σ.IVi(!a))))
@@ -934,6 +988,7 @@ var f1=func(string)int{return 1}
 var f2=func(int,string)bool{return false}
 -- TestAnnotator46.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	{
 		Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVs("\"s1\"")))
@@ -960,6 +1015,7 @@ func f0() {
 var a *int
 -- TestAnnotator47.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	if func() bool {
 		Σ0 := Σ.IVi(a)
@@ -979,6 +1035,7 @@ var a=0
 var b=0
 -- TestAnnotator48.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	if func() bool {
 		Σ0 := Σ.IVi(a)
@@ -1005,6 +1062,7 @@ var a=true
 var f2=func()bool{return true}
 -- TestAnnotator49.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	if func() bool {
 		Σ0 := a
@@ -1028,6 +1086,7 @@ func f0() {
 }
 -- TestAnnotator50.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	{
 		Σ.L(0, 1, 34, Σ.IL(Σ.IVs("0")))
@@ -1048,6 +1107,7 @@ func f0() {
 var a=0
 -- TestAnnotator51.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	{
 		Σ.L(0, 1, 34, Σ.IL(Σ.IVs("0")))
@@ -1075,6 +1135,7 @@ func f0() {
 var c=[]int{}
 -- TestAnnotator52.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 43, Σ.IVr(len(c)))
 	for a, b := range c {
@@ -1094,6 +1155,7 @@ func f0() {
 var f2=func()[]int{return nil}
 -- TestAnnotator53.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 43, Σ.IVr(len(f2())))
 	for a, _ := range f2() {
@@ -1111,6 +1173,7 @@ func f0() {
 var a=[]int{}
 -- TestAnnotator54.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 42, Σ.IVr(len(a)))
 	for _, _ = range a {
@@ -1126,6 +1189,7 @@ var a=0
 var c=[]int{}
 -- TestAnnotator55.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 42, Σ.IVr(len(c)))
 	for a, _ = range c {
@@ -1141,6 +1205,7 @@ label1:
 var a=0
 -- TestAnnotator56.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 label1:
 	;
@@ -1159,6 +1224,7 @@ label1:
 var f=func()int{return 1}
 -- TestAnnotator56a.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 label1:
 	for i := f(); func() bool {
@@ -1185,6 +1251,7 @@ label1:
 var f=func()int{return 0}
 -- TestAnnotator56b.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 label1:
 	switch a := f(); a {
@@ -1207,6 +1274,7 @@ label1:
 var x any
 -- TestAnnotator56c.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 
 	Σ.L(0, 1, 40, Σ.ITA(Σ.IVi(x), Σ.IVt(x), nil, true))
@@ -1227,6 +1295,7 @@ label1:
 var a=[]int{}
 -- TestAnnotator56d.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 
 	Σ.L(0, 1, 46, Σ.IVr(len(a)))
@@ -1251,6 +1320,7 @@ label1:
 }
 -- TestAnnotator56e.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 label1:
 	for a := 0; func() bool {
@@ -1285,8 +1355,14 @@ func f0() {
 }
 -- TestAnnotator57.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ0 := func(a int) int { Σ.L(0, 2, 41, Σ.IL(Σ.IL(Σ.IVi(a)))); Σ.L(0, 3, 61, Σ.IL(Σ.IVs("3"))); return 3 }
+	Σ0 := func(a int) int {
+		defer Σ.Recover()
+		Σ.L(0, 2, 41, Σ.IL(Σ.IL(Σ.IVi(a))))
+		Σ.L(0, 3, 61, Σ.IL(Σ.IVs("3")))
+		return 3
+	}
 	Σ1 := Σ.IVi(Σ0)
 	Σ.L(0, 1, 33, Σ.IL(Σ.IVs("1"), Σ1))
 	a, b := 1, Σ0
@@ -1302,6 +1378,7 @@ func f0() {
 var a any
 -- TestAnnotator58.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 29, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("_"))), nil)))
 	a = make(map[string]string)
@@ -1313,6 +1390,7 @@ func f0() {
 var a any
 -- TestAnnotator59.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 47, Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IVs("\"b\""))))))
 	a = map[string]string{"a": "b"}
@@ -1325,6 +1403,7 @@ func f0() {
 var a any
 -- TestAnnotator60.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 27, Σ.ISt())
 	Σ.L(0, 1, 44, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("new"), Σ.IL(Σ.IVs("_"))), nil)))
 	a = new(bytes.Buffer)
@@ -1338,6 +1417,7 @@ var a=0
 var b=0
 -- TestAnnotator61.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	defer func() func() {
 		Σ.L(0, 2, 34, Σ.IL(Σ.IVi(a), Σ.IVi(nil), Σ.IVi(b)))
@@ -1355,9 +1435,11 @@ func f0() {
 }
 -- TestAnnotator62.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	defer func() func() {
 		Σ0 := func(a int) bool {
+			defer Σ.Recover()
 			Σ.L(0, 3, 36, Σ.IL(Σ.IL(Σ.IVi(a))))
 			Σ.L(0, 4, 57, Σ.IL(Σ.IVs("true")))
 			return true
@@ -1379,6 +1461,7 @@ func f0() {
 var f1=func(){}
 -- TestAnnotator62b.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	defer func() func() {
 		return func() {
@@ -1396,9 +1479,10 @@ func f0() {
 var a=0
 -- TestAnnotator62c.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	defer func() func() {
-		Σ0 := func() { Σ.L(0, 1, 31, Σ.ISt()); Σ.L(0, 4, 44, Σ.IL(Σ.IVs("1"))); a = 1 }
+		Σ0 := func() { defer Σ.Recover(); Σ.L(0, 1, 31, Σ.ISt()); Σ.L(0, 4, 44, Σ.IL(Σ.IVs("1"))); a = 1 }
 		Σ.L(0, 2, 31, Σ.IVi(Σ0))
 		return func() {
 			Σ1 := Σ.ICe(Σ.IVs("Σ0"), nil)
@@ -1415,6 +1499,7 @@ func f0() {
 }
 -- TestAnnotator63.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	var a, b int = 1, 2
 	Σ0 := Σ.IVi(a)
@@ -1429,6 +1514,7 @@ func f0() (a int, b *int, c *C) {
 type C struct{}
 -- TestAnnotator64.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 23, Σ.IL(Σ.IVi(a), Σ.IVi(b), Σ.IVi(c)))
 	return a, b, c
@@ -1443,6 +1529,7 @@ var f1=func(int)*int{return nil}
 var u=0
 -- TestAnnotator65.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
 	Σ.L(0, 1, 57, Σ0)
@@ -1460,6 +1547,7 @@ var f2=func(int)(int,int){return 0,0}
 var u=0
 -- TestAnnotator66.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(u)))
 	Σ.L(0, 1, 57, Σ0)
@@ -1481,6 +1569,7 @@ var f3=func(int)*C{return nil}
 var u=0
 -- TestAnnotator67.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(u)))
 	Σ.L(0, 1, 57, Σ0)
@@ -1501,6 +1590,7 @@ func f0() (a int, b *int, c *C) {
 type C struct{}
 -- TestAnnotator68.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 54, Σ.IL(Σ.IVi(a), Σ.IVi(b), Σ.IVi(c)))
 	return a, b, c
@@ -1515,6 +1605,7 @@ var f2=func(int)int{return 0}
 var u=0
 -- TestAnnotator69.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f2"), Σ.IL(Σ.IVi(u)))
 	Σ.L(0, 1, 65, Σ0)
@@ -1534,6 +1625,7 @@ var a=0
 var f1=func(int)int{return 0}
 -- TestAnnotator70.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(a)
 	Σ1 := a + 1
@@ -1552,6 +1644,7 @@ type C struct{c int; e uint16}
 var a=0
 -- TestAnnotator71.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := &C{a, uint16((1 << 16) / 360)}
 	Σ.L(0, 1, 54, Σ.IL(Σ.IVs("1"), Σ.IVi(nil), Σ.IU(Σ.IUe(17, Σ.ILit(Σ.IL(Σ.IVi(a), Σ.IC(Σ.ICe(Σ.IVs("uint16"), Σ.IL(Σ.IB(Σ.IP(Σ.IB(Σ.IVs("1"), 20, Σ.IVs("16"), Σ.IVs("65536"))), 15, Σ.IVs("360"), Σ.IVs("182")))), Σ.IVs("182"))))), Σ.IVi(Σ0))))
@@ -1566,6 +1659,7 @@ var f1=func(int)int{return 0}
 var u=0
 -- TestAnnotator72.out --
 func f0() (a int, b *int, c *C) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("f1"), Σ.IL(Σ.IVi(u)))
 	Σ.L(0, 1, 54, Σ0)
@@ -1587,6 +1681,7 @@ var path=[]int{}
 var d=[]int{}
 -- TestAnnotator73.out --
 func f0() (a int, b *int) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := len(d)
 	Σ1 := path[Σ0:][0]
@@ -1598,6 +1693,7 @@ func f0(a, b int, c bool) {
 }
 -- TestAnnotator74.out --
 func f0(a, b int, c bool) {
+	defer Σ.Recover()
 	Σ.L(0, 0, 20, Σ.IL(Σ.IL(Σ.IVi(a), Σ.IVi(b), Σ.IVi(c))))
 }
 -- TestAnnotator75.in --
@@ -1607,6 +1703,7 @@ func f0() {
 var a=0
 -- TestAnnotator75.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	a++
 	Σ.L(0, 1, 25, Σ.IVi(a))
@@ -1622,6 +1719,7 @@ var a=0
 var b=0
 -- TestAnnotator76.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 32, Σ.IVi(a))
 	switch a {
@@ -1645,6 +1743,7 @@ func f0() {
 var a=0
 -- TestAnnotator76a.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 25, Σ.ISt())
 	switch {
@@ -1668,6 +1767,7 @@ func f0() {
 var f1=func(){}
 -- TestAnnotator77.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	go func() func() {
 		return func() {
@@ -1686,6 +1786,7 @@ var f1=func(int){}
 var f2=func()int {return 0}
 -- TestAnnotator77b.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	go func() func() {
 		Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
@@ -1707,6 +1808,7 @@ func f0() {
 var a *int
 -- TestAnnotator78.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	*a = 1
 	Σ.L(0, 1, 25, Σ.IA(Σ.IL(Σ.IU(Σ.IUe(14, Σ.IVi(a)), Σ.IVi(*a))), 42, Σ.IL(Σ.IVs("1"))))
@@ -1719,6 +1821,7 @@ func f0() {
 type A struct{a,b,c int}
 -- TestAnnotator79.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 32, Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IVs("1")), Σ.IKV(nil, Σ.IVs("2")), Σ.IKV(nil, Σ.IVs("3"))))))
 	a := A{a: 1, b: 2, c: 3}
@@ -1732,6 +1835,7 @@ func f0() {
 }
 -- TestAnnotator80.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	type A struct{ a int }
 }
@@ -1743,6 +1847,7 @@ func f0() {
 var f1=func(int)int{return 0}
 -- TestAnnotator81.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	var a = f1(1)
 	Σ0 := Σ.IVi(a)
@@ -1757,6 +1862,7 @@ func f0() {
 type A struct{a int}
 -- TestAnnotator82.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	var a = A{1}
 	Σ0 := Σ.IVi(a)
@@ -1773,6 +1879,7 @@ func f0() {
 var c chan int
 -- TestAnnotator84.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 25, Σ.ISt())
 	select {
@@ -1800,6 +1907,7 @@ var d chan int
 var e chan int
 -- TestAnnotator84a.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 25, Σ.ISt())
 	select {
@@ -1828,6 +1936,7 @@ var c=0
 var d=true
 -- TestAnnotator85.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := c
 	Σ1 := a[Σ0]
@@ -1842,6 +1951,7 @@ func f0() {
 var a=0
 -- TestAnnotator86.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("panic"), Σ.IL(Σ.IVi(a)))
 	Σ.L(0, 1, 25, Σ0)
@@ -1855,6 +1965,7 @@ func f0() {
 var c chan any
 -- TestAnnotator87.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IUe(36, Σ.IVi(c))
 	Σ.L(0, 1, 25, Σ0)
@@ -1869,6 +1980,7 @@ var c chan int
 var a chan int
 -- TestAnnotator87a.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IUe(36, Σ.IVi(c))
 	Σ.L(0, 1, 30, Σ0)
@@ -1885,6 +1997,7 @@ var a chan any
 type C struct{}
 -- TestAnnotator87b.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IUe(36, Σ.IVi(a))
 	Σ.L(0, 1, 31, Σ0)
@@ -1906,6 +2019,7 @@ var a chan any
 type C struct{}
 -- TestAnnotator87c.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IUe(36, Σ.IVi(a))
 	Σ.L(0, 1, 35, Σ0)
@@ -1927,6 +2041,7 @@ var a chan A
 type A struct{f func()}
 -- TestAnnotator87d.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IUe(36, Σ.IVi(a))
 	Σ.L(0, 1, 26, Σ0)
@@ -1943,6 +2058,7 @@ func f0() {
 var a chan any
 -- TestAnnotator87e.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IUe(36, Σ.IVi(a))
 	Σ.L(0, 1, 26, Σ0)
@@ -1958,6 +2074,7 @@ func f0() {
 var a=0
 -- TestAnnotator88.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	{
 		Σ0 := Σ.IVi(a)
@@ -1972,6 +2089,7 @@ func f0() {
 var a=struct{b map[string]int}{}
 -- TestAnnotator89.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	a.b["s"] = 1
 	Σ.L(0, 1, 25, Σ.IA(Σ.IL(Σ.II(nil, Σ.IVs("\"s\""), Σ.IVi(a.b["s"]))), 42, Σ.IL(Σ.IVs("1"))))
@@ -1984,6 +2102,7 @@ var a=[]int{}
 var i,j int
 -- TestAnnotator90.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := i
 	Σ1 := j
@@ -2003,6 +2122,7 @@ func f0() {
 }
 -- TestAnnotator91.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 30, Σ.IL(Σ.ILit(nil)))
 	a := []byte{}
@@ -2017,8 +2137,10 @@ func f0() {
 }
 -- TestAnnotator92.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := func(a ...int) []int {
+		defer Σ.Recover()
 		Σ.L(0, 2, 35, Σ.IL(Σ.IL(Σ.IVi(a))))
 		Σ.L(0, 3, 60, Σ.IL(Σ.IVi(a)))
 		return a
@@ -2038,6 +2160,7 @@ func f0() {
 var b=""
 -- TestAnnotator93.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 30, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("_"), Σ.IL(Σ.IVi(b))), nil)))
 	a := []byte(b)
@@ -2053,6 +2176,7 @@ func f0() {
 var a=uint32(0)
 -- TestAnnotator94.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	var m uint32 = 0 | a
 	Σ0 := Σ.IVi(m)
@@ -2067,6 +2191,7 @@ func f0() {
 var v=0
 -- TestAnnotator95.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(v)
 	Σ1 := v < -1
@@ -2088,11 +2213,13 @@ var fn=func(func()){}
 var d=true
 -- TestAnnotator96.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := b
 	a[Σ0] = true
 	Σ.L(0, 1, 25, Σ.IA(Σ.IL(Σ.II(Σ.IVs("a"), Σ.IVi(Σ0), Σ.IVi(a[Σ0]))), 42, Σ.IL(Σ.IVs("true"))))
 	Σ3 := func() {
+		defer Σ.Recover()
 		Σ.L(0, 3, 41, Σ.ISt())
 		Σ1 := b
 		Σ2 := Σ.IVi(d)
@@ -2111,6 +2238,7 @@ func f0() {
 var p rune
 -- TestAnnotator97.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 29, Σ.IL(Σ.IB(Σ.IVs("97"), 13, Σ.IVs("65"), Σ.IVs("32"))))
 	p = 'a' - 'A'
@@ -2124,6 +2252,7 @@ var a=0
 var b=0
 -- TestAnnotator100.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(b)
 	Σ.L(0, 1, 29, Σ.IL(Σ0))
@@ -2136,8 +2265,10 @@ func f0() {
 }
 -- TestAnnotator101.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ1 := func(Σ0 int) int {
+		defer Σ.Recover()
 		Σ.L(0, 2, 34, Σ.IL(Σ.IL(Σ.IVi(Σ0))))
 		Σ.L(0, 3, 52, Σ.IL(Σ.IVs("1")))
 		return 1
@@ -2155,6 +2286,7 @@ var a=struct{b B}{}
 type B struct{c func()int}
 -- TestAnnotator102.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.ISel(nil, Σ.IVs("c"), nil), nil)
 	Σ.L(0, 1, 29, Σ0)
@@ -2173,6 +2305,7 @@ type B struct{c C}
 type C struct{d func()int}
 -- TestAnnotator103.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.ISel(nil, Σ.IVs("b"), nil), nil)
 	Σ.L(0, 1, 29, Σ0)
@@ -2190,6 +2323,7 @@ func f0() {
 }
 -- TestAnnotator106.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 25, Σ.ISt())
 	return
@@ -2202,6 +2336,7 @@ func f0() {
 var a=""
 -- TestAnnotator107.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	if func() bool {
 		Σ0 := Σ.IVi(a)
@@ -2223,6 +2358,7 @@ var a=0
 var b=0
 -- TestAnnotator108.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	var a = 1
 	var b = a
@@ -2238,6 +2374,7 @@ func f0() int {
 var fn=func()chan int{return nil}
 -- TestAnnotator109.out --
 func f0() int {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.ICe(Σ.IVs("fn"), nil)
 	Σ.L(0, 1, 38, Σ0)
@@ -2257,6 +2394,7 @@ var a *int
 var b=0
 -- TestAnnotator110.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(b)
 	*a = b
@@ -2271,6 +2409,7 @@ func f0() {
 }
 -- TestAnnotator111.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 27, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("_"), Σ.IVs("1"))), nil)))
 	_ = make([]int, 1)
@@ -2283,6 +2422,7 @@ var k=0
 var a=[]int{0,1}
 -- TestAnnotator112.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IVi(k)
 	Σ1 := k + 1
@@ -2299,8 +2439,9 @@ func f0() {
 }
 -- TestAnnotator113.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ2 := func(Σ0 int, Σ1 *int) { Σ.L(0, 2, 33, Σ.IL(Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1)))) }
+	Σ2 := func(Σ0 int, Σ1 *int) { defer Σ.Recover(); Σ.L(0, 2, 33, Σ.IL(Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1)))) }
 	Σ3 := Σ.IVi(Σ2)
 	Σ.L(0, 1, 28, Σ.IL(Σ3))
 	f := Σ2
@@ -2315,6 +2456,7 @@ func f0() {
 }
 -- TestAnnotator114.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 28, Σ.IL(Σ.IC(Σ.ICe(Σ.IP(Σ.IVs("_")), Σ.IL(Σ.IVi(nil))), nil)))
 	_ = (func(int))(nil)
@@ -2325,6 +2467,7 @@ func f0() {
 }
 -- TestAnnotator115.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 28, Σ.IL(Σ.IC(Σ.ICe(Σ.IP(Σ.IU(Σ.IUe(14, Σ.IVs("_")), nil)), Σ.IL(Σ.IVi(nil))), nil)))
 	_ = (*struct{})(nil)
@@ -2336,6 +2479,7 @@ func f0() {
 var d =(any)(1)
 -- TestAnnotator116.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0, Σ1 := d.(bool)
 	Σ2 := Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1))
@@ -2349,6 +2493,7 @@ func f0() {
 var m=map[int]int{}
 -- TestAnnotator117.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0, Σ1 := m[1]
 	Σ2 := Σ.IL(Σ.IVi(Σ0), Σ.IVi(Σ1))
@@ -2367,6 +2512,7 @@ Label1:
 var f=func()int{return 0}
 -- TestAnnotator118.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.INAnn("TODO: forward jump label detected: Label1"))
 	a := 1
 	goto Label1
@@ -2394,6 +2540,7 @@ var a=byte(0)
 var b=uint(1)
 -- TestAnnotator119.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 
 	Σ0 := Σ.IVi(b)
@@ -2411,6 +2558,7 @@ var a uint64
 var b interface{}
 -- TestAnnotator120.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 27, Σ.IL(Σ.IVs("18446744073709551615")))
 	a = 0xffffffffffffffff
@@ -2422,6 +2570,7 @@ func f0() {
 }
 -- TestAnnotator121.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ0 := Σ.IUe(36, Σ.IC(Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("_"))), nil))
 	Σ.L(0, 1, 25, Σ0)
@@ -2434,6 +2583,7 @@ func f0() {
 }
 -- TestAnnotator122.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 
 }
@@ -2448,6 +2598,7 @@ var u=1
 var fb=func()bool{return true}
 -- TestAnnotator123.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 25, Σ.ISt())
 	switch {
@@ -2477,6 +2628,7 @@ func f0() {
 type A struct{v[]int}
 -- TestAnnotator124.out --
 func f0() {
+	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
 	Σ.L(0, 1, 28, Σ.IL(Σ.IC(Σ.ICe(Σ.IVs("make"), Σ.IL(Σ.IVs("_"), Σ.IVs("3"))), nil)))
 	a := make([]A, 3)
