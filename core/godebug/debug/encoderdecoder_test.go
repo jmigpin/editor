@@ -49,7 +49,7 @@ func TestEncode2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b2 := "[15 0 0 0 0 0 0 0 0 0 0 16 16 0 1 49]"
+	b2 := "[16 0 0 0 0 0 0 0 0 0 0 17 17 0 1 49]"
 	b3 := fmt.Sprintf("%v", b)
 	if b2 != b3 {
 		t.Fatalf("expecting:\n%v got\n%v", b2, b3)
@@ -75,10 +75,11 @@ func TestEncode3(t *testing.T) {
 //----------
 
 func testEncDec(t *testing.T, v any) (any, []byte, error) {
-	logOn := testing.Verbose()
+	logStdout := verboseStdout()
+	logger := Logger{"test: ", logStdout}
 
 	buf := &bytes.Buffer{}
-	if err := encode(buf, v, logOn, "test:"); err != nil {
+	if err := encode(buf, v, logger); err != nil {
 		return nil, nil, err
 	}
 	b := buf.Bytes()
@@ -90,7 +91,7 @@ func testEncDec(t *testing.T, v any) (any, []byte, error) {
 	//err := decode(buf2, res)
 
 	res := (any)(nil)
-	err := decode(buf2, &res, logOn, "test:")
+	err := decode(buf2, &res, logger)
 
 	return res, b, err
 }

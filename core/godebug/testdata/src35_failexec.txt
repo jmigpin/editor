@@ -2,7 +2,7 @@
 #ucmd godebugtester run -work main1.go
 
 fail ucmd godebugtester run main1.go
-contains error "accept: context deadline exceeded"
+contains error "context deadline exceeded"
 
 -- go.mod --
 module main
@@ -16,7 +16,7 @@ func main(){
 -- fa/fa.go --
 package fa
 func init(){
-	panic("fa!")
+	panic("fa!") // early panic before debug connect
 }
 func Fa(){
 	println(2)

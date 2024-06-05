@@ -1,0 +1,27 @@
+#setenv script_keepwork true
+#fail ucmd godebugtester run -work main.go
+
+#fail ucmd godebugtester run -syncsend main.go
+fail ucmd godebugtester run main.go
+contains stdout  "recv: true=(3 == 3)"
+
+-- go.mod --
+module mod1
+-- main.go --
+package main
+func main() {
+	println("start")
+	for i:=0; i<5;i++{
+		i:=i
+		go func(){
+			fn(i)		
+		}()
+	}
+	select{} // block
+}
+func fn(i int){
+	println("fn",i)
+	if i==3{
+		panic("!")
+	}
+}

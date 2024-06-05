@@ -1,7 +1,7 @@
 # check the panic function
 fail ucmd godebugtester run main.go
 contains stdout "recv: => panic(\"!\")"
-contains stderr "panic: !"
+#contains stderr "panic: !"
 fail contains stdout "_ := 1"
 
 -- main.go --

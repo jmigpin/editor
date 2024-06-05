@@ -13,54 +13,24 @@ type Conn = net.Conn
 type Addr = net.Addr
 
 //----------
-//----------
-//----------
-
-var listenReg = map[string]listenFunc{}
-var dialReg = map[string]dialFunc{}
-
-type listenFunc func(context.Context, Addr) (Listener, error)
-type dialFunc func(context.Context, Addr) (Conn, error)
-
-//----------
 
 func listen(ctx context.Context, addr Addr) (Listener, error) {
-	// listen timeout can be set in the ctx
-	// accept timeout is done per implementation
-
-	t := addr.Network()
-	fn, ok := listenReg[t]
-	if !ok {
-		return nil, fmt.Errorf("missing listen network: %v", t)
-	}
-	return fn(ctx, addr)
+	return listen2(ctx, addr)
 }
 
 //----------
 
 func dial(ctx context.Context, addr Addr) (Conn, error) {
-	t := addr.Network()
-	fn, ok := dialReg[t]
-	if !ok {
-		return nil, fmt.Errorf("missing dial network: %v", t)
-	}
-	return fn(ctx, addr)
+	return dial2(ctx, addr)
 }
-func dialRetry(ctx context.Context, addr Addr) (Conn, error) {
-	// dial timeout
-	ctx2 := ctx
-	if val, ok := ctx2.Value("connectTimeout").(time.Duration); ok {
-		ctx3, cancel := context.WithTimeout(ctx2, val)
-		defer cancel()
-		ctx2 = ctx3
-	}
 
+func dialRetry(ctx context.Context, addr Addr) (Conn, error) {
 	sleep := 50 * time.Millisecond
 	for {
-		conn, err := dial(ctx2, addr)
+		conn, err := dial(ctx, addr)
 		if err != nil {
-			if ctx2.Err() != nil {
-				return nil, fmt.Errorf("dialretry: %v: %w", ctx2.Err(), err)
+			if ctx.Err() != nil {
+				return nil, fmt.Errorf("dialretry: %w: %w", ctx.Err(), err)
 			}
 
 			// prevent hot loop
@@ -73,8 +43,6 @@ func dialRetry(ctx context.Context, addr Addr) (Conn, error) {
 	}
 }
 
-//----------
-//----------
 //----------
 
 // a simple addr implementation
@@ -98,11 +66,9 @@ func (addr *AddrImpl) String() string {
 }
 
 //----------
-//----------
-//----------
 
 const websocketEntryPath = "/editor_debug_ws"
 
-func websocketHostToUrl(host string) string {
+func websocketEntryPathUrl(host string) string {
 	return fmt.Sprintf("ws://%s%s", host, websocketEntryPath)
 }

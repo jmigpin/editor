@@ -9,25 +9,25 @@ import (
 	"unsafe"
 )
 
-var edReg = newEDRegistry()
+var encDecReg = newEncDecRegistry()
 
 //----------
 //----------
 //----------
 
 // encode/decode, id/type, registry
-type EDRegistry struct {
-	idc      EDRegId
-	typeToId map[reflect.Type]EDRegId
-	idToType map[EDRegId]reflect.Type
+type EncDecRegistry struct {
+	idc      EncDecRegId
+	typeToId map[reflect.Type]EncDecRegId
+	idToType map[EncDecRegId]reflect.Type
 
-	nilId EDRegId
+	nilId EncDecRegId
 }
 
-func newEDRegistry() *EDRegistry {
-	reg := &EDRegistry{}
-	reg.typeToId = map[reflect.Type]EDRegId{}
-	reg.idToType = map[EDRegId]reflect.Type{}
+func newEncDecRegistry() *EncDecRegistry {
+	reg := &EncDecRegistry{}
+	reg.typeToId = map[reflect.Type]EncDecRegId{}
+	reg.idToType = map[EncDecRegId]reflect.Type{}
 
 	reg.idc = 1                // start at non-zero to detect errors
 	reg.nilId = reg.newId(nil) // register nil
@@ -35,7 +35,7 @@ func newEDRegistry() *EDRegistry {
 
 	return reg
 }
-func (reg *EDRegistry) register(v any) EDRegId {
+func (reg *EncDecRegistry) register(v any) EncDecRegId {
 	typ := concreteType(reflect.ValueOf(v))
 	id, ok := reg.typeToId[typ]
 	if ok {
@@ -46,7 +46,7 @@ func (reg *EDRegistry) register(v any) EDRegId {
 	reg.idToType[id] = typ
 	return id
 }
-func (reg *EDRegistry) newId(typ reflect.Type) EDRegId {
+func (reg *EncDecRegistry) newId(typ reflect.Type) EncDecRegId {
 	id := reg.idc
 	reg.idc++
 
@@ -58,22 +58,22 @@ func (reg *EDRegistry) newId(typ reflect.Type) EDRegId {
 
 //----------
 
-type EDRegId byte
+type EncDecRegId byte
 
 //----------
 //----------
 //----------
 
-func encode(w io.Writer, v any, logOn bool, logPrefix string) error {
-	enc := newEncoder(w, edReg)
-	enc.logOn = logOn
-	enc.logPrefix = logPrefix + enc.logPrefix
+func encode(w io.Writer, v any, logger Logger) error {
+	enc := newEncoder(w, encDecReg)
+	enc.stdout = logger.stdout
+	enc.prefix = logger.prefix + enc.prefix
 	return enc.reflect(v)
 }
-func decode(r io.Reader, v any, logOn bool, logPrefix string) error {
-	dec := newDecoder(r, edReg)
-	dec.logOn = logOn
-	dec.logPrefix = logPrefix + dec.logPrefix
+func decode(r io.Reader, v any, logger Logger) error {
+	dec := newDecoder(r, encDecReg)
+	dec.stdout = logger.stdout
+	dec.prefix = logger.prefix + dec.prefix
 	return dec.reflect(v)
 
 }
@@ -84,38 +84,32 @@ func decode(r io.Reader, v any, logOn bool, logPrefix string) error {
 
 type Encoder struct {
 	w   io.Writer
-	reg *EDRegistry
+	reg *EncDecRegistry
 
 	Logger
 }
-
-func newEncoder(w io.Writer, reg *EDRegistry) *Encoder {
-	enc := &Encoder{w: w, reg: reg}
-	enc.logPrefix = "enc: "
-	return enc
-}
-
-//----------
-//----------
-//----------
-
 type Decoder struct {
 	r              io.Reader
-	reg            *EDRegistry
+	reg            *EncDecRegistry
 	firstInterface bool
 	firstPointer   bool
 
 	Logger
 }
 
-func newDecoder(r io.Reader, reg *EDRegistry) *Decoder {
+//----------
+
+func newEncoder(w io.Writer, reg *EncDecRegistry) *Encoder {
+	enc := &Encoder{w: w, reg: reg}
+	enc.prefix = "enc: "
+	return enc
+}
+func newDecoder(r io.Reader, reg *EncDecRegistry) *Decoder {
 	dec := &Decoder{r: r, reg: reg}
-	dec.logPrefix = "dec: "
+	dec.prefix = "dec: "
 	return dec
 }
 
-//----------
-//----------
 //----------
 
 func (enc *Encoder) sliceLen(n int) error {
@@ -130,11 +124,11 @@ func (dec *Decoder) sliceLen(v *int) error {
 
 //----------
 
-func (enc *Encoder) id(id EDRegId) error {
+func (enc *Encoder) id(id EncDecRegId) error {
 	return enc.writeBinary(id)
 }
-func (dec *Decoder) id() (EDRegId, error) {
-	id := EDRegId(0)
+func (dec *Decoder) id() (EncDecRegId, error) {
+	id := EncDecRegId(0)
 	err := dec.readBinary(&id)
 	return id, err
 }
@@ -149,7 +143,7 @@ func (enc *Encoder) id2(v reflect.Value) error {
 	}
 	return enc.id(id)
 }
-func (dec *Decoder) id2(id EDRegId) (reflect.Type, error) {
+func (dec *Decoder) id2(id EncDecRegId) (reflect.Type, error) {
 	typ, ok := dec.reg.idToType[id]
 	if !ok {
 		return nil, dec.errorf("id has no type: %v", id)
@@ -161,7 +155,7 @@ func (dec *Decoder) id2(id EDRegId) (reflect.Type, error) {
 
 func (enc *Encoder) reflect(v any) error {
 	// log encoded bytes at the end
-	if enc.logOn {
+	if enc.stdout != nil {
 		buf := &bytes.Buffer{}
 		enc.w = io.MultiWriter(enc.w, buf)
 		defer func() {
@@ -406,40 +400,21 @@ func (dec *Decoder) reflect2(v reflect.Value) error {
 
 func (enc *Encoder) writeBinary(v any) error {
 	if err := binary.Write(enc.w, binary.BigEndian, v); err != nil {
-		return enc.errorf("writeBinary(%T): %w", v, err)
+		//return enc.errorf("writeBinary(%T): %w", v, err) // DEBUG
+		return enc.errorf("write: %w", err) // simpler
 	}
 	return nil
 }
 func (dec *Decoder) readBinary(v any) error {
 	if err := binary.Read(dec.r, binary.BigEndian, v); err != nil {
-		return dec.errorf("readBinary(%T): %w", v, err)
+		//return dec.errorf("readBinary(%T): %w", v, err) // DEBUG
+		return dec.errorf("read: %w", err) // simpler
 	}
 	return nil
 }
 
 //----------
 //----------
-//----------
-
-type Logger struct {
-	logOn     bool
-	logPrefix string
-}
-
-func (l *Logger) logf(f string, args ...any) {
-	if l.logOn {
-		// TODO: pass whitespace to before the prefix?
-		f = l.logPrefix + f
-		fmt.Printf(f, args...)
-	}
-}
-func (l *Logger) errorf(f string, args ...any) error {
-	return l.error(fmt.Errorf(f, args...))
-}
-func (l *Logger) error(err error) error {
-	return fmt.Errorf("%v%w", l.logPrefix, err)
-}
-
 //----------
 
 func wrapErrorWithType(err error, v any) error {

@@ -40,6 +40,7 @@ type Cmd struct {
 	Dir string // running directory
 
 	CmdLineMode bool
+	Testing     bool // not the same as flags.mode.test
 
 	flags      Flags
 	gopathMode bool
@@ -66,9 +67,9 @@ type Cmd struct {
 	overlay          map[string]string // orig->new
 
 	start struct {
-		editorSideProto *debug.Proto
-		execSideCmd     osutil.CmdI
-		cleanupCancel   context.CancelFunc
+		proto         debug.Proto // check ProtoRead()
+		execSideCmd   osutil.CmdI
+		cleanupCancel context.CancelFunc
 	}
 }
 
@@ -95,9 +96,10 @@ func (cmd *Cmd) logf(f string, a ...any) (int, error) {
 	}
 	return 0, nil
 }
-func (cmd *Cmd) Error(err error) {
-	cmd.printf("error: %v\n", err)
-}
+
+//func (cmd *Cmd) Error(err error) {
+//	cmd.printf("error: %v\n", err)
+//}
 
 //------------
 
@@ -212,15 +214,12 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 	// special case: exec side started but exited early (ex: crash)
 	// - don't even start the editor and show error
 	// - might still be starting (best to have a timeout)
-	ctx2 := context.WithValue(ctx, "connectTimeout", 5*time.Second)
+	//ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	//defer cancel()
 
 	// blocking until connected
-	if err := cmd.startEditorSide(ctx2); err != nil {
+	if err := cmd.startEditorSide(ctx); err != nil {
 		return err
-	}
-
-	if !cmd.flags.startExec {
-		cmd.printf("connected\n")
 	}
 	return nil
 }
@@ -228,12 +227,34 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 //----------
 
 func (cmd *Cmd) startEditorSide(ctx context.Context) error {
+	// special case: exec side started but exited early (ex: crash)
+	// - don't even start the editor and show error
+	// - might still be starting (best to have a timeout)
+	timeout := 30 * time.Second
+	if cmd.Testing {
+		timeout = 500 * time.Millisecond
+	}
+	ctx = context.WithValue(ctx, "connectTimeout", timeout)
+
+	//pf := func(f string, a ...any) {
+	//	//if !cmd.flags.startExec {
+	//	//cmd.printf("DEBUG: "+f, a...)
+	//	fmt.Fprintf(cmd.Stderr, "# editor.godebug: "+f, a...)
+	//}
+	//_ = pf
+
 	addr := debug.NewAddrI(cmd.flags.network, cmd.flags.address)
-	p, err := debug.StartEditorSide(ctx, addr, cmd.flags.editorIsServer, cmd.flags.continueServing)
+
+	peds := &debug.ProtoEditorSide{}
+
+	stdout := io.Writer(nil)
+	//stdout := NewPrefixWriter(cmd.Stderr, "DEBUG2: ")
+
+	p, err := debug.NewProto(ctx, addr, peds, cmd.flags.editorIsServer, cmd.flags.continueServing, stdout)
 	if err != nil {
 		return err
 	}
-	cmd.start.editorSideProto = p
+	cmd.start.proto = p
 	return nil
 }
 
@@ -266,35 +287,40 @@ func (cmd *Cmd) startExecSide(ctx context.Context) error {
 //------------
 
 func (cmd *Cmd) Wait() error {
-	err := (error)(nil)
+	w := []error{}
 
 	if cmd.start.execSideCmd != nil {
-		err = cmd.start.execSideCmd.Wait()
+		err := cmd.start.execSideCmd.Wait()
+		w = append(w, err)
 	}
 
-	if err2 := cmd.start.editorSideProto.WaitClose(); err2 != nil {
-		if err == nil {
-			err = err2
+	if cmd.start.proto != nil {
+		if err := cmd.start.proto.CloseOrWait(); err != nil {
+			w = append(w, err)
 		}
 	}
 
 	cmd.cleanupAfterWait()
-	return err
+	return errors.Join(w...)
 }
 
 //------------
 
-func (cmd *Cmd) ProtoRead() (_ any, ok bool, _ error) {
+func (cmd *Cmd) ProtoRead() (any, error, bool) {
 	v := (any)(nil)
-	err := cmd.start.editorSideProto.Read(&v)
+	ok := true
+	err := cmd.start.proto.Read(&v)
 	if err != nil {
-		// EOF: connection ended gracefully by the other side
-		if errors.Is(err, io.EOF) {
-			return nil, false, nil
+		ok = false
+		if errors.Is(err, debug.ContinueServingErr) {
+			ok = true
+		} else if errors.Is(err, io.EOF) { // connection ended gracefully
+			ok = false
+			err = nil
 		}
-		return nil, false, err
+		return nil, err, ok
 	}
-	return v, true, nil
+	return v, nil, ok
 }
 
 //----------
@@ -790,21 +816,20 @@ func (cmd *Cmd) buildConfigSrc() []byte {
 	fl := &cmd.flags
 	bcce := cmd.annset.buildConfigAfdEntries()
 
-	//acceptOnlyFirstConn := flags.mode.run || flags.mode.test
-	//aofc := strconv.FormatBool(acceptOnlyFirstConn)
-	//eso.acceptOnlyFirstConn = ` + aofc + `
+	fb := strconv.FormatBool
 
 	src := `package debug
 func init(){
-	eso.onExecSide = true
-	eso.addr = NewAddrI("` + fl.network + `","` + fl.address + `")
-	eso.isServer = ` + strconv.FormatBool(!fl.editorIsServer) + `
-	eso.continueServing = ` + strconv.FormatBool(fl.continueServing) + `
-	eso.noInitMsg = ` + strconv.FormatBool(fl.noInitMsg) + `
-	eso.srcLines = ` + strconv.FormatBool(fl.srcLines) + `
-	eso.syncSend = ` + strconv.FormatBool(fl.syncSend) + `
-	eso.stringifyBytesRunes = ` + strconv.FormatBool(fl.stringifyBytesRunes) + `
-	eso.filesData = []*AnnotatorFileData{` + bcce + `}
+	exso.testing = ` + fb(cmd.Testing) + `
+	exso.onExecSide = true
+	exso.addr = NewAddrI("` + fl.network + `","` + fl.address + `")
+	exso.isServer = ` + fb(!fl.editorIsServer) + `
+	exso.continueServing = ` + fb(fl.continueServing) + `
+	exso.noDebugMsg = ` + fb(fl.noDebugMsg) + `
+	exso.srcLines = ` + fb(fl.srcLines) + `
+	exso.syncSend = ` + fb(fl.syncSend) + `
+	exso.stringifyBytesRunes = ` + fb(fl.stringifyBytesRunes) + `
+	exso.filesData = []*AnnotatorFileData{` + bcce + `}
 }
 `
 	return []byte(src)
@@ -1061,6 +1086,24 @@ func envGodebugBuildFlags(env []string) []string {
 //----------
 
 func goModuleSrc(name string) string {
+	// go 1.16 needed to support -overlay flag
 	// go 1.18 needed to support "any"
-	return fmt.Sprintf("module %s\ngo 1.18\n", name)
+	// go 1.22 needed to support "range int"
+
+	//return fmt.Sprintf("module %s\ngo 1.18\n", name)
+
+	v := "1.18"
+
+	//v := "1.22" // TODO: fails with "go: updates to go.mod needed; to update it: go mod tidy"
+
+	//if v2, err := goutil.GoVersion(); err == nil {
+	//	v3 := "1.22"
+	//	v2o := parseutil.VersionOrdinal(v2)
+	//	v3o := parseutil.VersionOrdinal(v3)
+	//	if v3o < v2o {
+	//		v = v3
+	//	}
+	//}
+
+	return fmt.Sprintf("module %s\ngo %v\n", name, v)
 }

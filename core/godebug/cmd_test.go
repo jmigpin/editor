@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,9 +31,11 @@ func godebugTester(t *testing.T, args []string) error {
 	args = args[1:]
 
 	cmd := NewCmd()
+	cmd.Testing = true
 
 	dir, _ := os.Getwd()
 	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
 
 	ctx := context.Background()
 	done, err := cmd.Start(ctx, args)
@@ -42,23 +46,28 @@ func godebugTester(t *testing.T, args []string) error {
 		return nil
 	}
 
+	//----------
+
 	fn := func() error {
 		pr := func(s string) { // util func
 			fmt.Printf("recv: %v\n", s)
 		}
-
 		for {
-			msg, ok, err := cmd.ProtoRead()
-			if err != nil {
-				return err
-			}
+			v, err, ok := cmd.ProtoRead()
 			if !ok {
 				break
 			}
+			if err != nil {
+				t.Log(err)
+				continue
+			}
 
-			switch t := msg.(type) {
+			switch t := v.(type) {
 			case *debug.FilesDataMsg:
 				pr(fmt.Sprintf("%#v", t))
+				//for i, afd := range t.Data {
+				//	pr(fmt.Sprintf("%v: %#v", i, afd))
+				//}
 			case *debug.OffsetMsg:
 				pr(StringifyItem(t.Item))
 			case *debug.OffsetMsgs:
@@ -66,19 +75,16 @@ func godebugTester(t *testing.T, args []string) error {
 					pr(StringifyItem(m.Item))
 				}
 			default:
-				return fmt.Errorf("unexpected type: %T, %v", msg, msg)
+				return fmt.Errorf("unexpected type: %T, %v", v, v)
 			}
 		}
 		return nil
 	}
-
-	ch := make(chan any)
 	go func() {
-		ch <- fn()
+		if err := fn(); err != nil {
+			fmt.Printf("error: %v\n", err)
+		}
 	}()
-	if v := <-ch; v != nil {
-		return v.(error)
-	}
 
 	return cmd.Wait()
 }
@@ -117,4 +123,97 @@ func TestCmd2CtxCancel(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log(err)
+}
+
+func TestCmd3Reconnect(t *testing.T) {
+	ctx := context.Background()
+	addr := debug.NewAddrI("tcp", ":9158")
+	isServer := true
+
+	running := sync.WaitGroup{}
+
+	//----------
+
+	ctx2, cancel2 := context.WithCancel(ctx)
+
+	nClients := 3
+	nMsgs := 2
+
+	running.Add(1)
+	go func() {
+		defer running.Done()
+
+		cmd := NewCmd()
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		args := []string{
+			"connect", // just a connect (might have no timeouts set)
+			"-addr=" + addr.String(),
+			"-editorisserver=" + strconv.FormatBool(isServer),
+			"-continueserving",
+		}
+		_, err := cmd.Start(ctx2, args)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		count := 0
+		for {
+			v, err, ok := cmd.ProtoRead()
+			if !ok {
+				break
+			}
+			if err != nil {
+				t.Log(err)
+				continue
+			}
+			count++
+			t.Logf("<- %T\n", v)
+		}
+
+		if err := cmd.Wait(); err != nil {
+			t.Fatal(err)
+		}
+
+		if n := nClients * nMsgs; count != n {
+			t.Fatalf("expecting %v msgs, got %v", n, count)
+		}
+	}()
+
+	//----------
+
+	running.Add(1)
+	go func() {
+		defer running.Done()
+
+		for nc := 0; nc < nClients; nc++ {
+			//fd := &debug.FilesDataMsg{Data: nil}
+			pexs := &debug.ProtoExecSide{}
+			p, err := debug.NewProto(ctx, addr, pexs, !isServer, false, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg := []byte("abc")
+			//msgOut := "[97 98 99]"
+			lineMsg := &debug.OffsetMsg{Item: debug.IVi(msg)}
+			//for i := 0; i < 10000; i++ {
+			for i := 0; i < nMsgs; i++ {
+				//if err := p.WriteMsg(lineMsg); err != nil {
+				t.Logf("-> %T\n", lineMsg)
+				if err := p.Write(lineMsg); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := p.CloseOrWait(); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		time.Sleep(1 * time.Second)
+		cancel2() // stop server
+	}()
+
+	//----------
+
+	running.Wait()
 }

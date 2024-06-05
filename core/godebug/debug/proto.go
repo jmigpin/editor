@@ -3,326 +3,444 @@ package debug
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 )
 
-type Proto struct {
-	ctx  context.Context // accept/dial, not conn
-	addr Addr
-	Side ProtoSide
+type Proto interface {
+	Read(any) error
+	Write(any) error
+	WriteMsg(*OffsetMsg) error
 
-	isServer        bool
+	// ex: execside(server/client): close after finished sending
+	// ex: editorside(server/client): wait for EOF
+	CloseOrWait() error
+}
+
+func NewProto(ctx context.Context, addr Addr, side ProtoSide, isServer, continueServing bool, stdout io.Writer) (Proto, error) {
+
+	// support connect timeout
+	connectCtx := ctx
+	if dur, ok := ctx.Value("connectTimeout").(time.Duration); ok {
+		ctx3, cancel := context.WithTimeout(ctx, dur)
+		defer cancel()
+		connectCtx = ctx3
+	}
+
+	if isServer {
+		return newProtoServer(ctx, connectCtx, addr, side, continueServing, stdout)
+	} else {
+		return newProtoClient(ctx, connectCtx, addr, side, stdout)
+	}
+}
+
+//----------
+//----------
+//----------
+
+type ProtoServer struct {
+	ctx             context.Context
+	side            ProtoSide
 	continueServing bool
 
-	cdr *CtxDoneRelease
-
-	c struct {
+	state struct {
 		sync.Mutex
-		cond        *sync.Cond // have pconn
-		pconn       *ProtoConn // server client / client
-		ln          Listener   // server side only
-		readHeaders bool       // editor side only, read flag
+		*sync.Cond
+
+		listening  bool
+		accepting  bool
+		haveConn   bool
+		havePconn  bool
+		closing    bool
+		closingErr error
+
+		conn  Conn
+		pconn *ProtoConn
 	}
 
-	waitEditorRead struct { // wait for read error, but only on editorside
-		sync.Mutex
-		cond    *sync.Cond
-		haveErr bool
+	ln struct {
+		ln       Listener
+		closeErr error
 	}
+
+	ctxStop func() bool
+
+	Logger
 }
 
-func NewProto(ctx context.Context, addr Addr, side ProtoSide, isServer bool, continueServing bool) *Proto {
-	p := &Proto{ctx: ctx, addr: addr, Side: side, isServer: isServer, continueServing: continueServing}
+func newProtoServer(ctx, connectCtx context.Context, addr Addr, side ProtoSide, continueServing bool, stdout io.Writer) (*ProtoServer, error) {
+	p := &ProtoServer{
+		ctx:             ctx,
+		side:            side,
+		continueServing: continueServing,
+	}
+	p.state.Cond = sync.NewCond(&p.state)
+	p.Logger.stdout = stdout
 
-	p.c.cond = sync.NewCond(&p.c)
-	p.waitEditorRead.cond = sync.NewCond(&p.waitEditorRead)
+	// allow general ctx to stop
+	p.ctxStop = context.AfterFunc(ctx, func() {
+		_ = p.closeWithCause(ctx.Err())
+	})
 
-	return p
+	if err := p.startListening(connectCtx, addr); err != nil {
+		_ = p.closeWithCause(err)
+		return nil, err
+	}
+
+	return p, nil
 }
 
 //----------
 
-func (p *Proto) Connect() error {
-	p.c.Lock()
-	defer p.c.Unlock()
+func (p *ProtoServer) stateLB(fn func()) {
+	p.state.Lock()
+	defer p.state.Unlock()
+	defer p.state.Broadcast()
+	fn()
+}
 
-	err := (error)(nil)
-	pconn := (*ProtoConn)(nil)
-	if p.isServer {
-		pconn, err = p.connectServer()
-	} else {
-		pconn, err = p.connectClient()
-	}
+//----------
+
+func (p *ProtoServer) startListening(ctx context.Context, addr Addr) error {
+	ln, err := listen(ctx, addr)
 	if err != nil {
 		return err
 	}
-	p.c.pconn = pconn
-	p.c.cond.Broadcast()
+	p.ln.ln = ln
+	p.stateLB(func() { p.state.listening = true })
+	p.logf("listening: %v\n", addr)
 
-	p.setupWaitEditorRead()
+	// allow ctx to stop
+	stop := context.AfterFunc(ctx, func() {
+		_ = p.closeWithCause(ctx.Err())
+	})
+	defer stop()
 
-	if p.cdr == nil {
-		p.cdr = newCtxDoneRelease(p.ctx, p.onCtxDone)
-	}
+	go p.acceptLoop()
 
-	return nil
+	return p.waitForConn(ctx)
+}
+func (p *ProtoServer) closeListener() error {
+	p.stateLB(func() {
+		if p.state.listening {
+			p.ln.closeErr = p.ln.ln.Close()
+			p.state.listening = false
+		}
+	})
+	return p.ln.closeErr
 }
 
 //----------
 
-func (p *Proto) connectServer() (*ProtoConn, error) {
-	p.c.readHeaders = false
+func (p *ProtoServer) acceptLoop() {
+	defer p.closeListener()
 
-	// auto start listener
-	if p.c.ln == nil {
-		ln, err := listen(p.ctx, p.addr)
+	p.stateLB(func() { p.state.accepting = true })
+	defer p.stateLB(func() { p.state.accepting = false })
+
+	for {
+		conn, err := p.ln.ln.Accept()
 		if err != nil {
-			return nil, err
+			p.logError(err)
+			break
 		}
-		p.c.ln = ln
+
+		p.handleAccepted(conn)
+
+		// only one connection
+		if !p.continueServing {
+			break
+		}
+	}
+}
+func (p *ProtoServer) handleAccepted(conn Conn) {
+	p.stateLB(func() {
+		// don't continue if already/still have a connection
+		if p.state.haveConn {
+			_ = conn.Close()
+			err := fmt.Errorf("already have a connection")
+			p.logError(err)
+			return
+		}
+
+		p.state.conn = conn
+		p.state.haveConn = true
+	})
+}
+
+//----------
+
+func (p *ProtoServer) waitForConn(ctx context.Context) error {
+	_, err := p.getPconn(ctx)
+	return err
+}
+func (p *ProtoServer) getPconn(ctx context.Context) (*ProtoConn, error) {
+	p.state.Lock()
+	defer p.state.Unlock()
+
+	if p.state.havePconn {
+		return p.state.pconn, nil
 	}
 
-	conn, err := p.c.ln.Accept()
+	defer p.state.Broadcast()
+
+	// wait for connection
+	for ; p.state.haveConn == false; p.state.Wait() {
+		if p.state.closing {
+			return nil, p.state.closingErr
+		}
+	}
+
+	// transition conn to pconn
+	conn := p.state.conn
+	p.state.conn = nil
+	p.state.haveConn = false
+
+	// init proto connection
+	pconn, err := InitProtoSide(ctx, p.side, conn, p.stdout)
 	if err != nil {
 		return nil, err
 	}
 
-	pconn, err := p.Side.InitProto(conn)
-	if err != nil {
-		return nil, err
-	}
-	p.c.readHeaders = true
+	p.state.pconn = pconn
+	p.state.havePconn = true
+
 	return pconn, nil
 }
-func (p *Proto) connectClient() (*ProtoConn, error) {
-	conn, err := dialRetry(p.ctx, p.addr)
-	if err != nil {
-		return nil, err
-	}
-	return p.Side.InitProto(conn)
-}
-
-//----------
-
-func (p *Proto) getConn() (*ProtoConn, error) {
-	p.c.Lock()
-	defer p.c.Unlock()
-	for p.c.pconn == nil {
-		if p.ctx.Err() != nil {
-			return nil, p.ctx.Err()
+func (p *ProtoServer) closePconn() error {
+	err := error(nil)
+	p.stateLB(func() {
+		if p.state.havePconn {
+			err = p.state.pconn.Close()
+			p.state.havePconn = false
 		}
-		p.c.cond.Wait()
-	}
-	return p.c.pconn, nil
+	})
+	return err
 }
 
 //----------
 
-func (p *Proto) Read(v any) error {
-	if err, ok := p.readHeaders(v); ok {
-		return err
+func (p *ProtoServer) Read(v any) error {
+	if eds, ok := p.side.(*ProtoEditorSide); ok {
+		if ok2, err := eds.readHeaders(v); err != nil || ok2 {
+			return err
+		}
 	}
 
-	pconn, err := p.getConn()
+	pconn, err := p.getPconn(p.ctx)
 	if err != nil {
 		return err
 	}
-
-	err = pconn.Read(v)
+	return p.monitorPconnErr(pconn.Read(v))
+}
+func (p *ProtoServer) Write(v any) error {
+	pconn, err := p.getPconn(p.ctx)
 	if err != nil {
+		return err
+	}
+	return p.monitorPconnErr(pconn.Write(v))
+}
+func (p *ProtoServer) WriteMsg(m *OffsetMsg) error {
+	pconn, err := p.getPconn(p.ctx)
+	if err != nil {
+		return err
+	}
+	return p.monitorPconnErr(pconn.WriteMsg(m))
+}
 
-		if p.shouldContinueServing() {
-			if err := p.Connect(); err != nil {
-				return err
+//----------
+
+func (p *ProtoServer) monitorPconnErr(err error) error {
+	if err != nil {
+		p.stateLB(func() {
+			p.state.havePconn = false
+			if p.state.accepting {
+				//err = errors.Join(err, ContinueServingErr)
+				err = fmt.Errorf("%w, %w", err, ContinueServingErr)
 			}
-			return p.Read(v)
-		}
-
-		p.editorReadDone()
+		})
 	}
 	return err
 }
 
 //----------
 
-func (p *Proto) Write(v any) error {
-	pconn, err := p.getConn()
-	if err != nil {
-		return err
-	}
-	return pconn.Write(v)
-}
-func (p *Proto) WriteMsg(m *OffsetMsg) error {
-	pconn, err := p.getConn()
-	if err != nil {
-		return err
-	}
-	return pconn.WriteMsg(m)
+func (p *ProtoServer) closeWithCause(err error) error {
+	p.stateLB(func() {
+		if p.state.closing == false {
+			p.state.closing = true
+			p.state.closingErr = err
+		}
+	})
+
+	err1 := p.closeListener()
+	err2 := p.closePconn()
+	p.ctxStop() // clear resource
+
+	return errors.Join(err1, err2)
 }
 
 //----------
 
-func (p *Proto) onCtxDone() {
-	p.editorReadDone()
-	if err := p.close(); err != nil {
-		_ = err // best effort
+func (p *ProtoServer) wait() error {
+	p.state.Lock()
+	defer p.state.Unlock()
+	for p.state.listening ||
+		p.state.accepting ||
+		p.state.haveConn ||
+		p.state.havePconn {
+		p.state.Wait()
+	}
+	return nil
+}
+
+//----------
+
+func (p *ProtoServer) CloseOrWait() error {
+	switch p.side.(type) {
+	case *ProtoEditorSide:
+		return p.wait()
+	case *ProtoExecSide:
+		return p.closeWithCause(errors.New("close"))
+	default:
+		panic("bad type")
 	}
 }
-func (p *Proto) close() error {
-	p.c.Lock()
-	defer p.c.Unlock()
 
-	p.cdr.Release()
+//----------
+//----------
+//----------
 
-	err0 := (error)(nil)
+type ProtoClient struct {
+	ctx  context.Context
+	side ProtoSide
 
-	if !p.shouldContinueServing() {
-		if p.c.ln != nil {
-			if err := p.c.ln.Close(); err != nil {
-				err0 = err
+	state struct {
+		sync.Mutex
+		*sync.Cond
+
+		havePconn  bool
+		closing    bool
+		closingErr error
+	}
+
+	pconn *ProtoConn
+
+	ctxStop func() bool
+
+	Logger
+}
+
+func newProtoClient(ctx, connectCtx context.Context, addr Addr, side ProtoSide, stdout io.Writer) (*ProtoClient, error) {
+	p := &ProtoClient{ctx: ctx, side: side}
+	p.state.Cond = sync.NewCond(&p.state)
+	p.Logger.stdout = stdout
+
+	// allow general ctx to stop
+	p.ctxStop = context.AfterFunc(ctx, func() {
+		_ = p.closeWithCause(ctx.Err())
+	})
+
+	conn, err := dialRetry(connectCtx, addr)
+	if err != nil {
+		_ = p.closeWithCause(err)
+		return nil, err
+	}
+	pconn, err := InitProtoSide(connectCtx, side, conn, stdout)
+	if err != nil {
+		_ = p.closeWithCause(err)
+		return nil, err
+	}
+	p.pconn = pconn
+	p.stateLB(func() { p.state.havePconn = true })
+	p.logf("connected: %v\n", addr)
+
+	return p, nil
+}
+
+//----------
+
+func (p *ProtoClient) stateLB(fn func()) {
+	p.state.Lock()
+	defer p.state.Unlock()
+	defer p.state.Broadcast()
+	fn()
+}
+
+//----------
+
+func (p *ProtoClient) Read(v any) error {
+	if eds, ok := p.side.(*ProtoEditorSide); ok {
+		if ok2, err := eds.readHeaders(v); err != nil || ok2 {
+			return err
+		}
+	}
+
+	return p.monitorPconnErr(p.pconn.Read(v))
+}
+
+func (p *ProtoClient) Write(v any) error {
+	return p.monitorPconnErr(p.pconn.Write(v))
+}
+func (p *ProtoClient) WriteMsg(m *OffsetMsg) error {
+	return p.monitorPconnErr(p.pconn.WriteMsg(m))
+}
+
+//----------
+
+func (p *ProtoClient) monitorPconnErr(err error) error {
+	if err != nil {
+		err = p.closeWithCause(err)
+	}
+	return err
+}
+
+//----------
+
+func (p *ProtoClient) closeWithCause(err error) error {
+	err2 := error(nil)
+	p.stateLB(func() {
+		if p.state.closing == false {
+			p.state.closing = true
+			p.state.closingErr = err
+
+			if p.state.havePconn {
+				p.state.havePconn = false
+				err2 = p.pconn.Close()
 			}
 		}
-	}
-
-	if p.c.pconn != nil {
-		if err := p.c.pconn.Close(); err != nil {
-			err0 = err
-		}
-	}
-
-	return err0
-}
-
-func (p *Proto) WaitClose() error {
-	p.waitForEditorRead()
-	return p.close()
-}
-
-//----------
-
-func (p *Proto) shouldContinueServing() bool {
-	dontStop := p.isServer && p.continueServing && p.ctx.Err() == nil
-	return dontStop
-}
-
-//----------
-
-func (p *Proto) readHeaders(v any) (error, bool) {
-	es, ok := p.Side.(*ProtoEditorSide)
-	if !ok {
-		return nil, false
-	}
-
-	p.c.Lock()
-	defer p.c.Unlock()
-
-	if !p.c.readHeaders {
-		return nil, false
-	}
-	p.c.readHeaders = false
-	return p.readHeaders2(v, es), true
-}
-func (p *Proto) readHeaders2(v any, es *ProtoEditorSide) error {
-	switch t := v.(type) {
-	case **FilesDataMsg:
-		*t = es.FData
-		return nil
-	case *FilesDataMsg:
-		*t = *es.FData // copy, must have instance
-		return nil
-	case *any:
-		*t = es.FData
-		return nil
-	default:
-		return fmt.Errorf("bad type for filesdatamsg: %T", v)
-	}
-
-	// commented: works as well
-	//rv := reflect.ValueOf(v)
-	//if rv.Kind() != reflect.Pointer {
-	//	return fmt.Errorf("expecting pointer: %T", v)
-	//}
-	//rv = rv.Elem()
-	//rv2 := reflect.ValueOf(es.FData)
-	//if !rv2.Type().AssignableTo(rv.Type()) {
-	//	return fmt.Errorf("%v not assignable to %v", rv2.Type(), rv.Type())
-	//}
-	//rv.Set(rv2)
-	//return nil
-}
-
-//----------
-
-// setup to be able to wait for read before closing
-func (p *Proto) setupWaitEditorRead() {
-	if _, ok := p.Side.(*ProtoEditorSide); !ok {
-		return
-	}
-	p.waitEditorRead.Lock()
-	defer p.waitEditorRead.Unlock()
-	p.waitEditorRead.haveErr = false
-}
-func (p *Proto) editorReadDone() {
-	if _, ok := p.Side.(*ProtoEditorSide); !ok {
-		return
-	}
-	p.waitEditorRead.Lock()
-	defer p.waitEditorRead.Unlock()
-	p.waitEditorRead.haveErr = true
-	p.waitEditorRead.cond.Broadcast()
-}
-func (p *Proto) waitForEditorRead() {
-	if _, ok := p.Side.(*ProtoEditorSide); !ok {
-		return
-	}
-	p.waitEditorRead.Lock()
-	defer p.waitEditorRead.Unlock()
-	for !p.waitEditorRead.haveErr {
-		p.waitEditorRead.cond.Wait()
-	}
-}
-func (p *Proto) isEditorSide() bool {
-	_, ok := p.Side.(*ProtoEditorSide)
-	return ok
-}
-
-//----------
-
-func (p *Proto) GotConnectedFastCheck() bool {
-	// no lock, just a quick check
-	// TODO: improve - just used in exec side?
-	return p.c.pconn != nil
-}
-
-//----------
-//----------
-//----------
-
-type CtxDoneRelease struct {
-	ctx         context.Context
-	fn          func()
-	releaseOnce sync.Once
-	release     chan struct{}
-}
-
-func newCtxDoneRelease(ctx context.Context, fn func()) *CtxDoneRelease {
-	cdr := &CtxDoneRelease{ctx: ctx, fn: fn}
-	cdr.release = make(chan struct{}, 1)
-	go func() {
-		select {
-		case <-cdr.release:
-		case <-ctx.Done(): // ctx.Err()!=nil if done
-			fn()
-		}
-	}()
-	return cdr
-}
-func (cdr *CtxDoneRelease) Release() {
-	cdr.releaseOnce.Do(func() {
-		close(cdr.release)
 	})
+
+	p.ctxStop() // clear resource
+
+	return err2
+}
+
+//----------
+
+func (p *ProtoClient) wait() error {
+	p.state.Lock()
+	defer p.state.Unlock()
+	for p.state.havePconn {
+		p.state.Wait()
+	}
+	return nil
+}
+
+//----------
+
+func (p *ProtoClient) CloseOrWait() error {
+	switch p.side.(type) {
+	case *ProtoEditorSide:
+		return p.wait()
+	case *ProtoExecSide:
+		return p.closeWithCause(errors.New("close"))
+	default:
+		panic("bad type")
+	}
 }
 
 //----------
@@ -330,7 +448,25 @@ func (cdr *CtxDoneRelease) Release() {
 //----------
 
 type ProtoSide interface {
-	InitProto(Conn) (*ProtoConn, error)
+	initProto(_ Conn, logStdout io.Writer) (*ProtoConn, error)
+}
+
+func InitProtoSide(ctx context.Context, side ProtoSide, conn Conn, logStdout io.Writer) (*ProtoConn, error) {
+	// allow ctx to stop initproto() by closing the connection
+	stop := context.AfterFunc(ctx, func() {
+		_ = conn.Close()
+	})
+	defer stop()
+
+	pconn, err := side.initProto(conn, logStdout)
+	if err != nil {
+		_ = conn.Close()
+		if ctx.Err() != nil {
+			err = fmt.Errorf("initprotoside: %w: %w", ctx.Err(), err)
+		}
+		return nil, err
+	}
+	return pconn, nil
 }
 
 //----------
@@ -343,17 +479,18 @@ type ProtoSide interface {
 // 3. send request for start
 
 type ProtoEditorSide struct {
-	pconn *ProtoConn
-	FData *FilesDataMsg // received from exec side
-
-	logOn bool
+	pconn   *ProtoConn
+	FData   *FilesDataMsg // received from exec side
+	fdataMu sync.Mutex
 }
 
-func (eds *ProtoEditorSide) InitProto(conn Conn) (*ProtoConn, error) {
+func (eds *ProtoEditorSide) initProto(conn Conn, logStdout io.Writer) (*ProtoConn, error) {
 	pconn := newProtoConn(conn, true)
-	if eds.logOn {
-		pconn.logOn = true
-		pconn.logPrefix = "1:"
+	pconn.stdout = logStdout
+	pconn.prefix = "1:"
+
+	if err := pconn.Read(&HandshakeMsg{}); err != nil {
+		return nil, err
 	}
 
 	if err := pconn.Write(&ReqFilesDataMsg{}); err != nil {
@@ -366,6 +503,35 @@ func (eds *ProtoEditorSide) InitProto(conn Conn) (*ProtoConn, error) {
 		return nil, err
 	}
 	return pconn, nil
+}
+
+func (eds *ProtoEditorSide) readHeaders(v any) (bool, error) {
+	// fast track
+	if eds.FData == nil {
+		return false, nil
+	}
+
+	eds.fdataMu.Lock()
+	defer eds.fdataMu.Unlock()
+
+	if eds.FData == nil {
+		return false, nil
+	}
+	defer func() { eds.FData = nil }()
+
+	switch t := v.(type) {
+	//case **FilesDataMsg:
+	//	*t = eds.FData
+	//	return nil
+	//case *FilesDataMsg:
+	//	*t = *eds.FData // copy, must have instance
+	//	return nil
+	case *any:
+		*t = eds.FData
+		return true, nil
+	default:
+		return false, fmt.Errorf("readheaders: unhandled type: %T", v)
+	}
 }
 
 //----------
@@ -381,18 +547,19 @@ type ProtoExecSide struct {
 	pconn            *ProtoConn
 	fdata            *FilesDataMsg // to be sent, can be discarded
 	NoWriteBuffering bool
-
-	logOn bool
 }
 
-func (exs *ProtoExecSide) InitProto(conn Conn) (*ProtoConn, error) {
-	// allow garbage collect?
+func (exs *ProtoExecSide) initProto(conn Conn, logStdout io.Writer) (*ProtoConn, error) {
+	// allow garbage collect
 	defer func() { exs.fdata = nil }()
 
 	pconn := newProtoConn(conn, !exs.NoWriteBuffering)
-	if exs.logOn {
-		pconn.logOn = true
-		pconn.logPrefix = "1:"
+	pconn.stdout = logStdout
+	pconn.prefix = "2:"
+
+	// exec side needs to send handshake first, to allow the editor to peek the client intention, the msg should have at least the size of the peek at flexlistener (~10)
+	if err := pconn.Write(&HandshakeMsg{Msg: "0000000000"}); err != nil {
+		return nil, err
 	}
 
 	if err := pconn.Read(&ReqFilesDataMsg{}); err != nil {
@@ -424,8 +591,7 @@ type ProtoConn struct {
 
 	mwb *MsgWriteBuffering
 
-	logOn     bool
-	logPrefix string
+	Logger
 }
 
 func newProtoConn(conn Conn, mWriteBuffering bool) *ProtoConn {
@@ -439,13 +605,16 @@ func newProtoConn(conn Conn, mWriteBuffering bool) *ProtoConn {
 func (pconn *ProtoConn) Read(v any) error {
 	pconn.r.Lock()
 	defer pconn.r.Unlock()
-	return decode(pconn.conn, v, pconn.logOn, pconn.logPrefix)
+	return decode(pconn.conn, v, pconn.Logger)
 }
+
+//----------
+
 func (pconn *ProtoConn) Write(v any) error {
 	pconn.w.Lock()
 	defer pconn.w.Unlock()
 	pconn.w.buf.Reset()
-	if err := encode(pconn.w.buf, v, pconn.logOn, pconn.logPrefix); err != nil {
+	if err := encode(pconn.w.buf, v, pconn.Logger); err != nil {
 		return err
 	}
 	_, err := pconn.conn.Write(pconn.w.buf.Bytes())
@@ -457,21 +626,18 @@ func (pconn *ProtoConn) WriteMsg(m *OffsetMsg) error {
 	}
 	return pconn.Write(m)
 }
+
+//----------
+
 func (pconn *ProtoConn) Close() error {
-	err0 := (error)(nil)
-	firstErr := func(err error) {
-		if err0 == nil {
-			err0 = err
-		}
-	}
-
+	w := []error{}
 	if pconn.mwb != nil {
-		firstErr(pconn.mwb.noMoreWritesAndWait())
+		err := pconn.mwb.noMoreWritesAndWait()
+		w = append(w, err)
 	}
-
-	firstErr(pconn.conn.Close())
-
-	return err0
+	err := pconn.conn.Close()
+	w = append(w, err)
+	return errors.Join(w...)
 }
 
 //----------
@@ -482,15 +648,15 @@ type MsgWriteBuffering struct {
 	pconn         *ProtoConn
 	flushInterval time.Duration
 
-	md struct { // mutex data
+	mu struct { // mutex data
 		sync.Mutex
-		omBuf OffsetMsgs // buffer
+		*sync.Cond
 
-		flushing           bool // ex: flushing later
+		msgBuf             OffsetMsgs // buffer
+		flushing           bool       // ex: flushing later
 		flushTimer         *time.Timer
-		firstFlushWriteErr error
-		flushingDone       *sync.Cond
 		lastFlush          time.Time
+		firstFlushWriteErr error
 		noMoreWrites       bool
 	}
 }
@@ -498,26 +664,26 @@ type MsgWriteBuffering struct {
 func newMsgWriteBuffering(pconn *ProtoConn) *MsgWriteBuffering {
 	wb := &MsgWriteBuffering{pconn: pconn}
 	wb.flushInterval = time.Second / 10 // minimum times per sec, can be updated more often if the buffer is getting full
-	wb.md.omBuf = make([]*OffsetMsg, 0, 4*1024)
-	wb.md.flushingDone = sync.NewCond(&wb.md)
+	wb.mu.msgBuf = make([]*OffsetMsg, 0, 4*1024)
+	wb.mu.Cond = sync.NewCond(&wb.mu)
 	return wb
 }
 func (wb *MsgWriteBuffering) Write(lm *OffsetMsg) error {
-	wb.md.Lock()
-	defer wb.md.Unlock()
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
 
-	if wb.md.noMoreWrites {
+	if wb.mu.noMoreWrites {
 		return fmt.Errorf("no more writes allowed")
 	}
 
 	// wait for space in the buffer
-	for len(wb.md.omBuf) == cap(wb.md.omBuf) { // must be flushing
-		if !wb.md.flushing {
+	for len(wb.mu.msgBuf) == cap(wb.mu.msgBuf) { // must be flushing
+		if !wb.mu.flushing {
 			return fmt.Errorf("buffer is full and not flushing")
 		}
 
 		// force earlier flush due to buffer being full
-		if wb.md.flushTimer.Stop() { // able to stop
+		if wb.mu.flushTimer.Stop() { // able to stop
 			wb.flush()
 		}
 
@@ -526,16 +692,15 @@ func (wb *MsgWriteBuffering) Write(lm *OffsetMsg) error {
 		}
 	}
 	// add to buffer
-	wb.md.omBuf = append(wb.md.omBuf, lm)
+	wb.mu.msgBuf = append(wb.mu.msgBuf, lm)
 
-	if wb.md.flushing { // already added, will be delivered by async flush
+	if wb.mu.flushing { // already added, will be delivered by async flush
 		return nil
 	}
-
-	wb.md.flushing = true
+	wb.mu.flushing = true
 
 	now := time.Now()
-	deadline := wb.md.lastFlush.Add(wb.flushInterval)
+	deadline := wb.mu.lastFlush.Add(wb.flushInterval)
 
 	// commented: always try to buffer (performance)
 	// don't async, flush now if already passed the time
@@ -545,47 +710,51 @@ func (wb *MsgWriteBuffering) Write(lm *OffsetMsg) error {
 	//}
 
 	// flush later
-	wb.md.flushTimer = time.AfterFunc(deadline.Sub(now), func() {
-		wb.md.Lock()
-		defer wb.md.Unlock()
+	wb.mu.flushTimer = time.AfterFunc(deadline.Sub(now), func() {
+		wb.mu.Lock()
+		defer wb.mu.Unlock()
 		wb.flush()
 	})
 	return nil
 }
 func (wb *MsgWriteBuffering) flush() {
-	// alway run, even on error
+	// always run, even on error
 	defer func() {
-		wb.md.flushing = false
-		wb.md.flushingDone.Broadcast()
+		wb.mu.flushing = false
+		wb.mu.Broadcast()
 	}()
+
 	now := time.Now()
-	if err := wb.pconn.Write(&wb.md.omBuf); err != nil {
-		if wb.md.firstFlushWriteErr == nil {
-			wb.md.firstFlushWriteErr = err
+	if err := wb.pconn.Write(&wb.mu.msgBuf); err != nil {
+		if wb.mu.firstFlushWriteErr == nil {
+			wb.mu.firstFlushWriteErr = err
 		}
 		return
 	}
-	wb.md.omBuf = wb.md.omBuf[:0]
-	wb.md.lastFlush = now
+	wb.mu.msgBuf = wb.mu.msgBuf[:0]
+	wb.mu.lastFlush = now
 }
 func (wb *MsgWriteBuffering) waitForFlushingDone() error {
-	for wb.md.flushing {
-		wb.md.flushingDone.Wait()
+	for wb.mu.flushing {
+		wb.mu.Wait()
 	}
-	return wb.md.firstFlushWriteErr
+	return wb.mu.firstFlushWriteErr
 }
 
 //----------
 
 func (wb *MsgWriteBuffering) noMoreWritesAndWait() error {
-	wb.md.Lock()
-	defer wb.md.Unlock()
-
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+	wb.mu.noMoreWrites = true
 	if err := wb.waitForFlushingDone(); err != nil {
 		return err
 	}
-
-	wb.md.noMoreWrites = true
-
 	return nil
 }
+
+//----------
+//----------
+//----------
+
+var ContinueServingErr = errors.New("continue serving")

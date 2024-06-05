@@ -33,7 +33,7 @@ type Flags struct {
 	editorIsServer      bool
 	env                 []string
 	network             string
-	noInitMsg           bool
+	noDebugMsg            bool
 	outFilename         string   // build, ex: -o filename
 	paths               []string // dirs/files to annotate (args from cmd line)
 	srcLines            bool
@@ -94,7 +94,7 @@ func (fl *Flags) parseRunArgs(name string, args []string) error {
 	fl.addEditorIsServerFlag(fs)
 	fl.addEnvFlag(fs)
 	fl.addNetworkFlag(fs)
-	fl.addNoInitMsgFlag(fs)
+	fl.addNoDebugMsgFlag(fs)
 	fl.addOutFilenameFlag(fs)
 	fl.addPathsFlag(fs)
 	fl.addSrcLinesFlag(fs)
@@ -125,7 +125,7 @@ func (fl *Flags) parseTestArgs(name string, args []string) error {
 	fl.addEditorIsServerFlag(fs)
 	fl.addEnvFlag(fs)
 	fl.addNetworkFlag(fs)
-	fl.addNoInitMsgFlag(fs)
+	fl.addNoDebugMsgFlag(fs)
 	fl.addPathsFlag(fs)
 	fl.addSrcLinesFlag(fs)
 	fl.addStartExecFlag(fs)
@@ -150,7 +150,7 @@ func (fl *Flags) parseBuildArgs(name string, args []string) error {
 	fl.addEditorIsServerFlag(fs)
 	fl.addEnvFlag(fs)
 	fl.addNetworkFlag(fs)
-	fl.addNoInitMsgFlag(fs)
+	fl.addNoDebugMsgFlag(fs)
 	fl.addOutFilenameFlag(fs)
 	fl.addPathsFlag(fs)
 	fl.addSrcLinesFlag(fs)
@@ -209,8 +209,8 @@ func (fl *Flags) addNetworkFlag(fs *flag.FlagSet) {
 	fs.StringVar(&fl.network, "network", "tcp", "protocol to use to transmit debug data: [tcp, unix, ws]")
 }
 
-func (fl *Flags) addNoInitMsgFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&fl.noInitMsg, "noinitmsg", false, "omit initial warning message from the compiled binary")
+func (fl *Flags) addNoDebugMsgFlag(fs *flag.FlagSet) {
+	fs.BoolVar(&fl.noDebugMsg, "nodebugmsg", false, "omit debug messages from the compiled binary")
 }
 
 func (fl *Flags) addOutFilenameFlag(fs *flag.FlagSet) {

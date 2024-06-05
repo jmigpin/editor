@@ -6,9 +6,10 @@ import (
 
 func registerStructsForProtoConn() {
 	reg := func(v any) {
-		edReg.register(v)
+		encDecReg.register(v)
 	}
 
+	reg(&HandshakeMsg{})
 	reg(&ReqFilesDataMsg{})
 	reg(&ReqStartMsg{})
 
@@ -46,6 +47,7 @@ func registerStructsForProtoConn() {
 //----------
 //----------
 
+type HandshakeMsg struct{ Msg string }
 type ReqFilesDataMsg struct{}
 type ReqStartMsg struct{}
 

@@ -3,10 +3,14 @@ package debug
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	rdebug "runtime/debug"
 	"sync"
 	"time"
 )
+
+//godebug:annotatepackage
 
 // NOTE: init() functions declared across multiple files in a package are processed in alphabetical order of the file name
 func init() {
@@ -14,97 +18,93 @@ func init() {
 
 	registerStructsForProtoConn()
 
-	if eso.onExecSide {
-		es.init()
+	if exso.onExecSide {
+		exs.init()
 	}
 }
 
 //----------
 
-// exec side: runs before init()s, needed because there could be an Exit() call throught some other init() func, and the initwait must initialize before that to block sending until init is done
-var es = newES()
-
 // exec side options (set by generated config)
-var eso struct {
+var exso struct {
+	testing bool // not the same as "godebug test"
+
 	onExecSide bool // on exec side
 
 	addr                Addr
 	isServer            bool
 	continueServing     bool
-	noInitMsg           bool
+	noDebugMsg          bool
 	srcLines            bool                 // warning at init msg
 	syncSend            bool                 // don't send in chunks (slow)
 	stringifyBytesRunes bool                 // "abc" instead of [97 98 99]
 	filesData           []*AnnotatorFileData // all debug data
-
-	// TODO: currently always true
-	//acceptOnlyFirstConn bool // avoid possible hanging progs waiting for another connection to continue debugging (most common case)
 }
 
 //----------
 //----------
 //----------
 
-func StartEditorSide(ctx context.Context, addr Addr, isServer bool, continueServing bool) (*Proto, error) {
-	eds := &ProtoEditorSide{}
-	//eds.logOn = true
-	//log.Printf("edside -> %v\n", addr)
-	p := NewProto(ctx, addr, eds, isServer, continueServing)
-	err := p.Connect()
-	return p, err
+// exec side: runs before init()s, needed because there could be an Exit() call throught some other init() func, and the initwait must initialize before that to block sending until init is done
+var exs = newExecSide()
+
+type execSide struct {
+	p       Proto
+	initw   *InitWait
+	initErr error
 }
 
-//----------
-//----------
-//----------
-
-// exec side
-type ES struct {
-	p     *Proto
-	initw *InitWait
-}
-
-func newES() *ES {
-	es := &ES{}
+func newExecSide() *execSide {
+	es := &execSide{}
 	es.initw = newInitWait()
 	return es
 }
-func (es *ES) init() {
-	defer es.initw.done()
-
-	if !eso.noInitMsg {
-		msg := "binary compiled with editor debug data. Use -noinitmsg to omit this msg."
-		if !eso.srcLines {
+func (exs *execSide) init() {
+	ok := true
+	if err := exs.init2(); err != nil {
+		ok = false
+		execSideError(err)
+	}
+	exs.initw.done(ok)
+}
+func (exs *execSide) init2() error {
+	if !exso.noDebugMsg {
+		msg := "binary compiled with editor debug data. Use -nodebugmsg to omit these msgs."
+		if !exso.srcLines {
 			msg += fmt.Sprintf(" Note that in the case of panic, the src lines will not correspond to the original src code, but to the annotated src (-srclines=false).")
 		}
 		execSideLogf("%v\n", msg)
 	}
 
+	// initial connect timeout
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "connectTimeout", 5*time.Second)
+	timeout := 30 * time.Second
+	if exso.testing {
+		timeout = 500 * time.Millisecond
+	}
+	ctx = context.WithValue(ctx, "connectTimeout", timeout)
 
-	fd := &FilesDataMsg{Data: eso.filesData}
-	exs := &ProtoExecSide{fdata: fd, NoWriteBuffering: eso.syncSend}
-	//exs.logOn = true
-	//log.Printf("exec -> %v\n", eso.addr)
-	es.p = NewProto(ctx, eso.addr, exs, eso.isServer, eso.continueServing)
-	if err := es.p.Connect(); err != nil {
-		execSideError(err)
-	}
+	stdout := io.Writer(nil)
+	//stdout := NewPrefixWriter(os.Stderr, "DEBUG2: ")
+
+	fd := &FilesDataMsg{Data: exso.filesData}
+	pexs := &ProtoExecSide{fdata: fd, NoWriteBuffering: exso.syncSend}
+
+	p, err := NewProto(ctx, exso.addr, pexs, exso.isServer, exso.continueServing, stdout)
+	exs.p = p
+	return err
 }
-func (es *ES) afterInitOk(fn func()) {
+func (exs *execSide) afterInitOk(fn func()) {
 	mustBeExecSide()
-	es.initw.wait()
-	if !es.p.GotConnectedFastCheck() {
-		return
-	}
-	fn()
+	exs.initw.afterInitOk(fn)
 }
 
 //----------
+//----------
+//----------
 
 func mustBeExecSide() {
-	if !eso.onExecSide {
+	if !exso.onExecSide {
 		panic("not on exec side")
 	}
 }
@@ -112,16 +112,28 @@ func execSideError(err error) {
 	execSideLogf("error: %v\n", err)
 }
 func execSideLogf(f string, args ...any) {
-	// TODO: should be exec side only
-	fmt.Fprintf(os.Stderr, "DEBUG: "+f, args...)
+	if !exso.noDebugMsg {
+		mustBeExecSide()
+		fmt.Fprintf(os.Stderr, "DEBUG: "+f, args...)
+	}
 }
 
 //----------
 
+// Auto-inserted at functions to recover from panics. Don't use.
+func Recover() {
+	if r := recover(); r != nil {
+		Close()
+		execSideLogf("panic (closed): %v\n", r)
+		rdebug.PrintStack()
+		os.Exit(1)
+	}
+}
+
 // Auto-inserted at defer main for a clean exit. Don't use.
 func Close() {
-	es.afterInitOk(func() {
-		if err := es.p.WaitClose(); err != nil {
+	exs.afterInitOk(func() {
+		if err := exs.p.CloseOrWait(); err != nil {
 			execSideError(err)
 		}
 	})
@@ -131,9 +143,7 @@ func Close() {
 // Non-annotated files that call os.Exit will not let the editor receive all debug msgs. The sync msgs option will need to be used.
 func Exit(code int) {
 	Close()
-	if !eso.noInitMsg {
-		execSideLogf("exit code: %v\n", code)
-	}
+	execSideLogf("exit code: %v\n", code)
 	os.Exit(code)
 }
 
@@ -146,8 +156,8 @@ func L(fileIndex, debugIndex, offset int, item Item) {
 		Offset:    AfdFileSize(offset),
 		Item:      item,
 	}
-	es.afterInitOk(func() {
-		if err := es.p.WriteMsg(lmsg); err != nil {
+	exs.afterInitOk(func() {
+		if err := exs.p.WriteMsg(lmsg); err != nil {
 			lineErrOnce.Do(func() {
 				execSideError(err)
 			})
@@ -162,8 +172,9 @@ var lineErrOnce sync.Once
 //----------
 
 type InitWait struct {
-	wg       *sync.WaitGroup
-	waitSlow bool
+	wg   *sync.WaitGroup
+	fast bool
+	ok   bool
 }
 
 func newInitWait() *InitWait {
@@ -173,11 +184,18 @@ func newInitWait() *InitWait {
 	return iw
 }
 func (iw *InitWait) wait() {
-	if !iw.waitSlow {
-		iw.waitSlow = true
+	if !iw.fast {
 		iw.wg.Wait()
+		iw.fast = true
 	}
 }
-func (iw *InitWait) done() {
+func (iw *InitWait) afterInitOk(fn func()) {
+	iw.wait()
+	if iw.ok {
+		fn()
+	}
+}
+func (iw *InitWait) done(ok bool) {
+	iw.ok = ok
 	iw.wg.Done()
 }

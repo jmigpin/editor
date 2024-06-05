@@ -1,28 +1,30 @@
 //go:build js && editorDebugExecSide
 
+// NOTE: ex: browser client is always js/execside
+
 package debug
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
-
 	"syscall/js"
+	"time"
 )
 
-func init() {
-	//listenReg["ws"] = listenWebsocket
-	dialReg["ws"] = dialWebsocket2
-	dialReg["wss"] = dialWebsocket2
+// NOTE: not supporting being a server in the browser
+func listen2(ctx context.Context, addr Addr) (Listener, error) {
+	return nil, fmt.Errorf("not supported")
 }
 
 //----------
+//----------
+//----------
 
-func dialWebsocket2(ctx context.Context, addr Addr) (Conn, error) {
+func dial2(ctx context.Context, addr Addr) (Conn, error) {
 	// TODO: ctx
 
-	u := websocketHostToUrl(addr.String())
+	u := websocketEntryPathUrl(addr.String())
 	ws := js.Global().Get("WebSocket").New(u)
 
 	// easier to deal with then a blob (could use blob?)

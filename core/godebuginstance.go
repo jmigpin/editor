@@ -383,14 +383,15 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 	for {
 		checkUI()
 
-		v, ok, err := cmd.ProtoRead()
-		if err != nil {
-			handleError(err)
-			break
-		}
+		v, err, ok := cmd.ProtoRead()
 		if !ok {
 			break
 		}
+		if err != nil {
+			handleError(err)
+			continue
+		}
+
 		if err := gdi.handleMsg(v, w, cmd); err != nil {
 			handleError(err)
 			break
@@ -400,7 +401,7 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 func (gdi *GoDebugInstance) handleMsg(msg any, w io.Writer, cmd *godebug.Cmd) error {
 	switch t := msg.(type) {
 	case *debug.FilesDataMsg:
-		//fmt.Fprintf(w, "godebug: index data received\n")
+		fmt.Fprintf(w, "godebuginstance: index data received\n")
 		//gdi.gdm.ed.Messagef(w, "godebug: index data received\n")
 		return gdi.di.handleFilesDataMsg(t)
 	case *debug.OffsetMsg:
