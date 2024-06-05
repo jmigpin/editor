@@ -615,7 +615,7 @@ func (cmd *Cmd) setupNetworkAddress() error {
 	// auto fill empty address
 	if cmd.flags.address == "" {
 		switch cmd.flags.network {
-		case "tcp", "ws":
+		case "tcp", "ws", "auto":
 			port, err := osutil.GetFreeTcpPort()
 			if err != nil {
 				return err

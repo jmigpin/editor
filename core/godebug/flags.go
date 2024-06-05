@@ -33,7 +33,7 @@ type Flags struct {
 	editorIsServer      bool
 	env                 []string
 	network             string
-	noDebugMsg            bool
+	noDebugMsg          bool
 	outFilename         string   // build, ex: -o filename
 	paths               []string // dirs/files to annotate (args from cmd line)
 	srcLines            bool
@@ -206,7 +206,7 @@ func (fl *Flags) addEnvFlag(fs *flag.FlagSet) {
 }
 
 func (fl *Flags) addNetworkFlag(fs *flag.FlagSet) {
-	fs.StringVar(&fl.network, "network", "tcp", "protocol to use to transmit debug data: [tcp, unix, ws]")
+	fs.StringVar(&fl.network, "network", "tcp", "protocol to use to transmit debug data: [tcp, ws, unix, auto]. Option 'auto' detects a tcp client request to auto upgrade to http/websocket. Ex: useful to alternate between a debug session for a server (tcp) and a brower (websocket), without restarting the godebug cmd by also using the -continueserving flag.")
 }
 
 func (fl *Flags) addNoDebugMsgFlag(fs *flag.FlagSet) {
@@ -338,6 +338,7 @@ Examples:
 	GoDebug connect -help
 	GoDebug connect -addr=:8078
 	GoDebug connect -network=ws -addr=:8078
+	GoDebug connect -network=auto --continueserving
 `
 }
 
