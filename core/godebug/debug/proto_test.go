@@ -76,7 +76,7 @@ func testProto1b(t *testing.T, addr1, addr2 Addr, addr1IsServer, continueServing
 
 	//----------
 
-	exs := &ProtoExecSide{fdata: &FilesDataMsg{}}
+	exs := &ProtoExecSide{FData: &FilesDataMsg{}}
 	//exs.NoWriteBuffering = true // disable buffer
 	addr2IsServer := !addr1IsServer
 	p2, err := NewProto(ctx, addr2, exs, addr2IsServer, addr2IsServer && continueServing, stdout)

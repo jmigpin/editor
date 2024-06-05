@@ -20,7 +20,7 @@ type Proto interface {
 	CloseOrWait() error
 }
 
-func NewProto(ctx context.Context, addr Addr, side ProtoSide, isServer, continueServing bool, stdout io.Writer) (Proto, error) {
+func NewProto(ctx context.Context, addr Addr, side ProtoSide, isServer, continueServing bool, logw io.Writer) (Proto, error) {
 
 	// support connect timeout
 	connectCtx := ctx
@@ -31,9 +31,9 @@ func NewProto(ctx context.Context, addr Addr, side ProtoSide, isServer, continue
 	}
 
 	if isServer {
-		return newProtoServer(ctx, connectCtx, addr, side, continueServing, stdout)
+		return newProtoServer(ctx, connectCtx, addr, side, continueServing, logw)
 	} else {
-		return newProtoClient(ctx, connectCtx, addr, side, stdout)
+		return newProtoClient(ctx, connectCtx, addr, side, logw)
 	}
 }
 
@@ -71,14 +71,14 @@ type ProtoServer struct {
 	Logger
 }
 
-func newProtoServer(ctx, connectCtx context.Context, addr Addr, side ProtoSide, continueServing bool, stdout io.Writer) (*ProtoServer, error) {
+func newProtoServer(ctx, connectCtx context.Context, addr Addr, side ProtoSide, continueServing bool, logw io.Writer) (*ProtoServer, error) {
 	p := &ProtoServer{
 		ctx:             ctx,
 		side:            side,
 		continueServing: continueServing,
 	}
 	p.state.Cond = sync.NewCond(&p.state)
-	p.Logger.stdout = stdout
+	p.Logger.W = logw
 
 	// allow general ctx to stop
 	p.ctxStop = context.AfterFunc(ctx, func() {
@@ -147,6 +147,7 @@ func (p *ProtoServer) acceptLoop() {
 			p.logError(err)
 			break
 		}
+		p.logf("connected: %v\n", conn.RemoteAddr())
 
 		p.handleAccepted(conn)
 
@@ -200,7 +201,7 @@ func (p *ProtoServer) getPconn(ctx context.Context) (*ProtoConn, error) {
 	p.state.haveConn = false
 
 	// init proto connection
-	pconn, err := InitProtoSide(ctx, p.side, conn, p.stdout)
+	pconn, err := InitProtoSide(ctx, p.side, conn)
 	if err != nil {
 		return nil, err
 	}
@@ -334,29 +335,31 @@ type ProtoClient struct {
 	Logger
 }
 
-func newProtoClient(ctx, connectCtx context.Context, addr Addr, side ProtoSide, stdout io.Writer) (*ProtoClient, error) {
+func newProtoClient(ctx, connectCtx context.Context, addr Addr, side ProtoSide, logw io.Writer) (*ProtoClient, error) {
 	p := &ProtoClient{ctx: ctx, side: side}
 	p.state.Cond = sync.NewCond(&p.state)
-	p.Logger.stdout = stdout
+	p.Logger.W = logw
 
 	// allow general ctx to stop
 	p.ctxStop = context.AfterFunc(ctx, func() {
 		_ = p.closeWithCause(ctx.Err())
 	})
 
+	p.logf("connecting: %v\n", addr)
+
 	conn, err := dialRetry(connectCtx, addr)
 	if err != nil {
 		_ = p.closeWithCause(err)
 		return nil, err
 	}
-	pconn, err := InitProtoSide(connectCtx, side, conn, stdout)
+	p.logf("connected: %v\n", conn.LocalAddr())
+	pconn, err := InitProtoSide(connectCtx, side, conn)
 	if err != nil {
 		_ = p.closeWithCause(err)
 		return nil, err
 	}
 	p.pconn = pconn
 	p.stateLB(func() { p.state.havePconn = true })
-	p.logf("connected: %v\n", addr)
 
 	return p, nil
 }
@@ -448,17 +451,17 @@ func (p *ProtoClient) CloseOrWait() error {
 //----------
 
 type ProtoSide interface {
-	initProto(_ Conn, logStdout io.Writer) (*ProtoConn, error)
+	initProto(Conn) (*ProtoConn, error)
 }
 
-func InitProtoSide(ctx context.Context, side ProtoSide, conn Conn, logStdout io.Writer) (*ProtoConn, error) {
+func InitProtoSide(ctx context.Context, side ProtoSide, conn Conn) (*ProtoConn, error) {
 	// allow ctx to stop initproto() by closing the connection
 	stop := context.AfterFunc(ctx, func() {
 		_ = conn.Close()
 	})
 	defer stop()
 
-	pconn, err := side.initProto(conn, logStdout)
+	pconn, err := side.initProto(conn)
 	if err != nil {
 		_ = conn.Close()
 		if ctx.Err() != nil {
@@ -482,12 +485,13 @@ type ProtoEditorSide struct {
 	pconn   *ProtoConn
 	FData   *FilesDataMsg // received from exec side
 	fdataMu sync.Mutex
+
+	Logger
 }
 
-func (eds *ProtoEditorSide) initProto(conn Conn, logStdout io.Writer) (*ProtoConn, error) {
+func (eds *ProtoEditorSide) initProto(conn Conn) (*ProtoConn, error) {
 	pconn := newProtoConn(conn, true)
-	pconn.stdout = logStdout
-	pconn.prefix = "1:"
+	pconn.Logger = eds.Logger
 
 	if err := pconn.Read(&HandshakeMsg{}); err != nil {
 		return nil, err
@@ -545,17 +549,18 @@ func (eds *ProtoEditorSide) readHeaders(v any) (bool, error) {
 
 type ProtoExecSide struct {
 	pconn            *ProtoConn
-	fdata            *FilesDataMsg // to be sent, can be discarded
+	FData            *FilesDataMsg // to be sent, can be discarded
 	NoWriteBuffering bool
+
+	Logger
 }
 
-func (exs *ProtoExecSide) initProto(conn Conn, logStdout io.Writer) (*ProtoConn, error) {
+func (exs *ProtoExecSide) initProto(conn Conn) (*ProtoConn, error) {
 	// allow garbage collect
-	defer func() { exs.fdata = nil }()
+	defer func() { exs.FData = nil }()
 
 	pconn := newProtoConn(conn, !exs.NoWriteBuffering)
-	pconn.stdout = logStdout
-	pconn.prefix = "2:"
+	pconn.Logger = exs.Logger
 
 	// exec side needs to send handshake first, to allow the editor to peek the client intention, the msg should have at least the size of the peek at flexlistener (~10)
 	if err := pconn.Write(&HandshakeMsg{Msg: "0000000000"}); err != nil {
@@ -565,7 +570,7 @@ func (exs *ProtoExecSide) initProto(conn Conn, logStdout io.Writer) (*ProtoConn,
 	if err := pconn.Read(&ReqFilesDataMsg{}); err != nil {
 		return nil, err
 	}
-	if err := pconn.Write(exs.fdata); err != nil {
+	if err := pconn.Write(exs.FData); err != nil {
 		return nil, err
 	}
 	if err := pconn.Read(&ReqStartMsg{}); err != nil {

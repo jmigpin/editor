@@ -84,13 +84,16 @@ func (exs *execSide) init2() error {
 	}
 	ctx = context.WithValue(ctx, "connectTimeout", timeout)
 
-	stdout := io.Writer(nil)
-	//stdout := NewPrefixWriter(os.Stderr, "DEBUG2: ")
+	logw := io.Writer(nil)
+	if !exso.noDebugMsg {
+		logw = NewPrefixWriter(os.Stderr, "# godebug.execside: ")
+	}
 
 	fd := &FilesDataMsg{Data: exso.filesData}
-	pexs := &ProtoExecSide{fdata: fd, NoWriteBuffering: exso.syncSend}
+	pexs := &ProtoExecSide{FData: fd, NoWriteBuffering: exso.syncSend}
+	//pexs.Logger = Logger{"pexs: ", logw} // DEBUG: lots of output
 
-	p, err := NewProto(ctx, exso.addr, pexs, exso.isServer, exso.continueServing, stdout)
+	p, err := NewProto(ctx, exso.addr, pexs, exso.isServer, exso.continueServing, logw)
 	exs.p = p
 	return err
 }

@@ -66,14 +66,14 @@ type EncDecRegId byte
 
 func encode(w io.Writer, v any, logger Logger) error {
 	enc := newEncoder(w, encDecReg)
-	enc.stdout = logger.stdout
-	enc.prefix = logger.prefix + enc.prefix
+	enc.W = logger.W
+	enc.Prefix = logger.Prefix + enc.Prefix
 	return enc.reflect(v)
 }
 func decode(r io.Reader, v any, logger Logger) error {
 	dec := newDecoder(r, encDecReg)
-	dec.stdout = logger.stdout
-	dec.prefix = logger.prefix + dec.prefix
+	dec.W = logger.W
+	dec.Prefix = logger.Prefix + dec.Prefix
 	return dec.reflect(v)
 
 }
@@ -101,12 +101,12 @@ type Decoder struct {
 
 func newEncoder(w io.Writer, reg *EncDecRegistry) *Encoder {
 	enc := &Encoder{w: w, reg: reg}
-	enc.prefix = "enc: "
+	enc.Prefix = "enc: "
 	return enc
 }
 func newDecoder(r io.Reader, reg *EncDecRegistry) *Decoder {
 	dec := &Decoder{r: r, reg: reg}
-	dec.prefix = "dec: "
+	dec.Prefix = "dec: "
 	return dec
 }
 
@@ -155,7 +155,7 @@ func (dec *Decoder) id2(id EncDecRegId) (reflect.Type, error) {
 
 func (enc *Encoder) reflect(v any) error {
 	// log encoded bytes at the end
-	if enc.stdout != nil {
+	if enc.W != nil {
 		buf := &bytes.Buffer{}
 		enc.w = io.MultiWriter(enc.w, buf)
 		defer func() {

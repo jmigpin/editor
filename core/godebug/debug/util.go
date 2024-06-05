@@ -42,14 +42,14 @@ func (c *FnOnCtxDone) Cancel() {
 //----------
 
 type Logger struct {
-	prefix string
-	stdout io.Writer
+	Prefix string
+	W      io.Writer // ex: os.stderr
 }
 
 func (l *Logger) logf(f string, args ...any) {
-	if l.stdout != nil {
-		f = l.prefix + f
-		fmt.Fprintf(l.stdout, f, args...)
+	if l.W != nil {
+		f = l.Prefix + f
+		fmt.Fprintf(l.W, f, args...)
 	}
 }
 func (l *Logger) logError(err error) {
@@ -60,7 +60,7 @@ func (l *Logger) errorf(f string, args ...any) error {
 	return l.error(fmt.Errorf(f, args...))
 }
 func (l *Logger) error(err error) error {
-	return fmt.Errorf("%v%w", l.prefix, err)
+	return fmt.Errorf("%v%w", l.Prefix, err)
 }
 
 //----------
@@ -68,34 +68,43 @@ func (l *Logger) error(err error) error {
 //----------
 
 type PrefixWriter struct {
-	writer io.Writer
-	prefix string
-	buf    bytes.Buffer
+	writer    io.Writer
+	prefix    string
+	lineStart bool
 }
 
 func NewPrefixWriter(writer io.Writer, prefix string) *PrefixWriter {
 	return &PrefixWriter{
-		writer: writer,
-		prefix: prefix,
+		writer:    writer,
+		prefix:    prefix,
+		lineStart: true,
 	}
 }
 func (p *PrefixWriter) Write(data []byte) (int, error) {
-	totalWritten := 0
-	for {
-		line, err := p.buf.ReadBytes('\n')
-		if err == io.EOF {
-			p.buf.Write(data)
-			break
+	written := 0 // from data slice
+	for len(data) > 0 {
+		// write prefix
+		if p.lineStart {
+			p.lineStart = false
+			if _, err := p.writer.Write([]byte(p.prefix)); err != nil {
+				return written, err
+			}
 		}
-		if _, err := p.writer.Write([]byte(p.prefix)); err != nil {
-			return totalWritten, err
+		// find newline
+		k := len(data)
+		i := bytes.IndexByte(data, '\n')
+		if i >= 0 {
+			k = i + 1
+			p.lineStart = true // next line will be a line start
 		}
-		n, err := p.writer.Write(line)
-		totalWritten += n
+		// write line
+		n, err := p.writer.Write(data[:k])
+		written += n
 		if err != nil {
-			return totalWritten, err
+			return written, err
 		}
-		data = nil
+		// advance
+		data = data[n:]
 	}
-	return totalWritten, nil
+	return written, nil
 }

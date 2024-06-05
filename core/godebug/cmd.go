@@ -236,21 +236,17 @@ func (cmd *Cmd) startEditorSide(ctx context.Context) error {
 	}
 	ctx = context.WithValue(ctx, "connectTimeout", timeout)
 
-	//pf := func(f string, a ...any) {
-	//	//if !cmd.flags.startExec {
-	//	//cmd.printf("DEBUG: "+f, a...)
-	//	fmt.Fprintf(cmd.Stderr, "# editor.godebug: "+f, a...)
-	//}
-	//_ = pf
-
 	addr := debug.NewAddrI(cmd.flags.network, cmd.flags.address)
 
+	logw := io.Writer(nil)
+	if !cmd.flags.noDebugMsg {
+		logw = debug.NewPrefixWriter(cmd.Stderr, "# godebug.cmd.proto: ")
+	}
+
 	peds := &debug.ProtoEditorSide{}
+	//peds.Logger = debug.Logger{"peds: ", stdout} // DEBUG: lots of output
 
-	stdout := io.Writer(nil)
-	//stdout := NewPrefixWriter(cmd.Stderr, "DEBUG2: ")
-
-	p, err := debug.NewProto(ctx, addr, peds, cmd.flags.editorIsServer, cmd.flags.continueServing, stdout)
+	p, err := debug.NewProto(ctx, addr, peds, cmd.flags.editorIsServer, cmd.flags.continueServing, logw)
 	if err != nil {
 		return err
 	}
