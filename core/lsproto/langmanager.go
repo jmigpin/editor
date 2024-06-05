@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-
-	"github.com/jmigpin/editor/util/ctxutil"
 )
 
 type LangManager struct {
@@ -33,11 +31,12 @@ func (lang *LangManager) instance(startCtx context.Context) (*LangInstance, erro
 	}
 
 	// setup instance context
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx0 := context.Background() // TODO: editor ctx?
+	ctx, cancel := context.WithCancel(ctx0)
 
 	// call cancel if startCtx is done
-	clearWatching := ctxutil.WatchDone(startCtx, cancel)
-	defer clearWatching()
+	stop := context.AfterFunc(startCtx, cancel)
+	defer stop()
 
 	li, err := NewLangInstance(ctx, lang)
 	if err != nil {

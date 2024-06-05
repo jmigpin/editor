@@ -14,7 +14,6 @@ import (
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/parseutil"
 )
@@ -35,12 +34,14 @@ type GoDebugManager struct {
 	ed  *Editor
 	gdi struct {
 		sync.Mutex
-		gdi *GoDebugInstance
+		gdi    *GoDebugInstance
+		cancel context.CancelFunc
 	}
 }
 
 func NewGoDebugManager(ed *Editor) *GoDebugManager {
 	gdm := &GoDebugManager{ed: ed}
+	gdm.gdi.cancel = func() {}
 	return gdm
 }
 
@@ -50,12 +51,12 @@ func (gdm *GoDebugManager) RunAsync(startCtx context.Context, erow *ERow, args [
 
 	gdm.cancelAndWaitAndClear2() // previous instance
 
-	// setup instance context
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// call cancel if startCtx is done
-	clearWatching := ctxutil.WatchDone(startCtx, cancel)
-	defer clearWatching()
+	// allow startctx to cancel the full running ctx during start
+	ctx0 := context.Background() // TODO: editor ctx?
+	ctx, cancel := context.WithCancel(ctx0)
+	gdm.gdi.cancel = cancel
+	stop := context.AfterFunc(startCtx, cancel)
+	defer stop()
 
 	gdi, err := newGoDebugInstance(ctx, gdm, erow, args)
 	if err != nil {
@@ -75,6 +76,7 @@ func (gdm *GoDebugManager) CancelAndClear() {
 }
 func (gdm *GoDebugManager) cancelAndWaitAndClear2() {
 	if gdm.gdi.gdi != nil {
+		gdm.gdi.cancel()
 		gdm.gdi.gdi.cancelAndWaitAndClear()
 		gdm.gdi.gdi = nil
 	}
@@ -401,8 +403,6 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 func (gdi *GoDebugInstance) handleMsg(msg any, w io.Writer, cmd *godebug.Cmd) error {
 	switch t := msg.(type) {
 	case *debug.FilesDataMsg:
-		fmt.Fprintf(w, "godebuginstance: index data received\n")
-		//gdi.gdm.ed.Messagef(w, "godebug: index data received\n")
 		return gdi.di.handleFilesDataMsg(t)
 	case *debug.OffsetMsg:
 		return gdi.di.handleOffsetMsgs(t)
