@@ -171,6 +171,7 @@ func (fl *Flags) parseConnectArgs(name string, args []string) error {
 	fl.addContinueServingFlag(fs)
 	fl.addEditorIsServerFlag(fs)
 	fl.addNetworkFlag(fs)
+	fl.addNoDebugMsgFlag(fs)
 	fl.addToolExecFlag(fs)
 
 	// commented: doesn't fail on not defined

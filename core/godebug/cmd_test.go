@@ -105,6 +105,7 @@ func TestCmd2CtxCancel(t *testing.T) {
 		"connect", // just a connect (might have no timeouts set)
 		"-editorisserver=true",
 		"-addr=:9158",
+		"-nodebugmsg",
 	}
 
 	ctx := context.Background()
@@ -144,13 +145,12 @@ func TestCmd3Reconnect(t *testing.T) {
 		defer running.Done()
 
 		cmd := NewCmd()
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
 		args := []string{
 			"connect", // just a connect (might have no timeouts set)
 			"-addr=" + addr.String(),
 			"-editorisserver=" + strconv.FormatBool(isServer),
 			"-continueserving",
+			"-nodebugmsg",
 		}
 		_, err := cmd.Start(ctx2, args)
 		if err != nil {

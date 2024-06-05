@@ -240,7 +240,7 @@ func (cmd *Cmd) startEditorSide(ctx context.Context) error {
 
 	logw := io.Writer(nil)
 	if !cmd.flags.noDebugMsg {
-		logw = debug.NewPrefixWriter(cmd.Stderr, "# godebug.cmd.proto: ")
+		logw = debug.NewPrefixWriter(cmd.Stderr, "# godebug.editorside: ")
 	}
 
 	peds := &debug.ProtoEditorSide{}

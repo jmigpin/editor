@@ -53,7 +53,7 @@ func (l *Logger) logf(f string, args ...any) {
 	}
 }
 func (l *Logger) logError(err error) {
-	l.logf("error: %v", err.Error())
+	l.logf("error: %v\n", err.Error())
 }
 
 func (l *Logger) errorf(f string, args ...any) error {
