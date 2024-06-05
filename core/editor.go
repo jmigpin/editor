@@ -873,28 +873,16 @@ func (ed *Editor) runPreSaveHook(ctx context.Context, info *ERowInfo, content []
 //----------
 
 func (ed *Editor) loadSessions() (*Sessions, error) {
-	// DEBUG
-	//start := time.Now()
-	//ss, err := ed.loadSessions2()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//diff := time.Now().Sub(start)
-	//ed.Messagef("loaded sessions in %v\n", diff)
-	//return ss, nil
-
 	return ed.loadSessions2()
 }
 func (ed *Editor) loadSessions2() (*Sessions, error) {
-	loadZip := func() (*Sessions, error) {
-		//ed.Messagef("loading zip")
-		zipFilename, filename := sessionsZipFilenames()
-		return newSessionsFromZip(zipFilename, filename)
-	}
 	loadPlain := func() (*Sessions, error) {
-		//ed.Messagef("loading plain")
 		filename := sessionsFilename()
 		return newSessionsFromPlain(filename)
+	}
+	loadZip := func() (*Sessions, error) {
+		zipFilename, filename := sessionsZipFilenames()
+		return newSessionsFromZip(zipFilename, filename)
 	}
 
 	load0, load1 := loadPlain, loadZip
@@ -918,20 +906,21 @@ func (ed *Editor) loadSessions2() (*Sessions, error) {
 }
 
 func (ed *Editor) saveSessions(ss *Sessions) error {
-	// DEBUG
-	//start := time.Now()
-	//err := ed.saveSessions2(ss)
-	//if err != nil {
-	//	return err
-	//}
-	//diff := time.Now().Sub(start)
-	//ed.Messagef("saved sessions in %v\n", diff)
-	//return nil
-
 	return ed.saveSessions2(ss)
 }
 func (ed *Editor) saveSessions2(ss *Sessions) error {
-	if ed.zipSessionsFile {
+	hasPlainFile := func() bool {
+		filename := sessionsFilename()
+		_, err := os.Stat(filename)
+		return err == nil
+	}
+	hasZipFile := func() bool {
+		zipFilename, _ := sessionsZipFilenames()
+		_, err := os.Stat(zipFilename)
+		return err == nil
+	}
+
+	if ed.zipSessionsFile || (hasZipFile() && !hasPlainFile()) {
 		zipFilename, filename := sessionsZipFilenames()
 		return ss.saveToZip(zipFilename, filename)
 	} else {

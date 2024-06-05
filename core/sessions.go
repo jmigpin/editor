@@ -145,7 +145,8 @@ func decodeSessionsFromJson(r io.Reader) (*Sessions, error) {
 func sessionsFilename() string {
 	return homeFilename(sessionsBasicFilename())
 }
-func sessionsZipFilenames() (string, string) {
+
+func sessionsZipFilenames() (zipFilename string, innerFilename string) {
 	fn1 := sessionsBasicFilename()
 	ext := path.Ext(fn1)
 	fn2 := strings.TrimSuffix(fn1, ext) + ".zip"
