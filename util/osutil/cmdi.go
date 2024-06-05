@@ -107,30 +107,26 @@ func NewShellCmd(cmdi CmdI) *ShellCmd {
 
 type CtxCmd struct {
 	CmdI
-	ctx    context.Context
-	waitCh chan error
+	ctx context.Context
 }
 
 func NewCtxCmd(ctx context.Context, cmdi CmdI) *CtxCmd {
 	c := &CtxCmd{CmdI: cmdi, ctx: ctx}
-	c.waitCh = make(chan error, 1)
 
 	SetupExecCmdSysProcAttr(c.CmdI.Cmd())
 
 	return c
 }
 func (c *CtxCmd) Start() error {
-	if err := c.CmdI.Start(); err != nil {
-		return err
-	}
-	go func() {
-		c.waitCh <- c.CmdI.Wait()
-	}()
-	return nil
+	return c.CmdI.Start()
 }
 func (c *CtxCmd) Wait() error {
+	waitCh := make(chan error, 1)
+	go func() {
+		waitCh <- c.CmdI.Wait()
+	}()
 	select {
-	case err := <-c.waitCh:
+	case err := <-waitCh:
 		return err
 	case <-c.ctx.Done():
 		_ = KillExecCmd(c.CmdI.Cmd())
@@ -138,7 +134,7 @@ func (c *CtxCmd) Wait() error {
 		// wait for the possibility of wait returning after kill
 		timeout := 3 * time.Second
 		select {
-		case err := <-c.waitCh:
+		case err := <-waitCh:
 			return err
 		case <-time.After(timeout):
 			// warn about the process not returning
@@ -150,7 +146,7 @@ func (c *CtxCmd) Wait() error {
 			return errors.New(s)
 
 			//// wait forever
-			//return <-c.waitCh
+			//return <-waitCh
 		}
 	}
 }
