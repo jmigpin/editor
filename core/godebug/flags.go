@@ -210,7 +210,7 @@ func (fl *Flags) addNetworkFlag(fs *flag.FlagSet) {
 }
 
 func (fl *Flags) addNoDebugMsgFlag(fs *flag.FlagSet) {
-	fs.BoolVar(&fl.noDebugMsg, "nodebugmsg", false, "omit debug messages from the compiled binary")
+	fs.BoolVar(&fl.noDebugMsg, "nodebugmsg", false, "omit debug messages")
 }
 
 func (fl *Flags) addOutFilenameFlag(fs *flag.FlagSet) {
