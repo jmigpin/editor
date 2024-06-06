@@ -275,10 +275,19 @@ func (p *ProtoServer) monitorPConnContinueServing(fn func() error) error {
 	for {
 		err := fn()
 		if err != nil {
+			// improve error
+			if err2 := p.ctx.Err(); err2 != nil {
+				//err = fmt.Errorf("%w: %w", err2, err)
+				err = err2
+			}
+
+			// update pconn state
+			p.stateLWrite(func() { p.state.havePconn = false })
+
+			// log error if continue serving
 			continueServing := false
-			p.stateLWrite(func() {
-				p.state.havePconn = false
-				continueServing = p.state.accepting
+			p.stateLRead(func() {
+				continueServing = p.state.accepting && !p.state.closing
 			})
 			if continueServing {
 				p.logError(err)
