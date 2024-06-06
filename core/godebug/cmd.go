@@ -87,7 +87,7 @@ func NewCmd() *Cmd {
 //------------
 
 func (cmd *Cmd) printf(f string, a ...any) (int, error) {
-	return fmt.Fprintf(cmd.Stdout, "# "+f, a...)
+	return fmt.Fprintf(cmd.Stderr, "# "+f, a...)
 }
 func (cmd *Cmd) logf(f string, a ...any) (int, error) {
 	if cmd.flags.verbose {
@@ -96,10 +96,6 @@ func (cmd *Cmd) logf(f string, a ...any) (int, error) {
 	}
 	return 0, nil
 }
-
-//func (cmd *Cmd) Error(err error) {
-//	cmd.printf("error: %v\n", err)
-//}
 
 //------------
 
@@ -211,17 +207,7 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 		cmd.printf("waiting for connect (exec side not started)\n")
 	}
 
-	// special case: exec side started but exited early (ex: crash)
-	// - don't even start the editor and show error
-	// - might still be starting (best to have a timeout)
-	//ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-	//defer cancel()
-
-	// blocking until connected
-	if err := cmd.startEditorSide(ctx); err != nil {
-		return err
-	}
-	return nil
+	return cmd.startEditorSide(ctx) // blocks
 }
 
 //----------
@@ -240,7 +226,7 @@ func (cmd *Cmd) startEditorSide(ctx context.Context) error {
 
 	logw := io.Writer(nil)
 	if !cmd.flags.noDebugMsg {
-		logw = debug.NewPrefixWriter(cmd.Stderr, "# godebug.editorside: ")
+		logw = debug.NewPrefixWriter(cmd.Stderr, "# godebug.editor: ")
 	}
 
 	peds := &debug.ProtoEditorSide{}
@@ -302,21 +288,10 @@ func (cmd *Cmd) Wait() error {
 
 //------------
 
-func (cmd *Cmd) ProtoRead() (any, error, bool) {
+func (cmd *Cmd) ProtoRead() (any, error) {
 	v := (any)(nil)
-	ok := true
 	err := cmd.start.proto.Read(&v)
-	if err != nil {
-		ok = false
-		if errors.Is(err, debug.ContinueServingErr) {
-			ok = true
-		} else if errors.Is(err, io.EOF) { // connection ended gracefully
-			ok = false
-			err = nil
-		}
-		return nil, err, ok
-	}
-	return v, nil, ok
+	return v, err
 }
 
 //----------

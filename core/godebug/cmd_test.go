@@ -2,7 +2,9 @@ package godebug
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -53,13 +55,12 @@ func godebugTester(t *testing.T, args []string) error {
 			fmt.Printf("recv: %v\n", s)
 		}
 		for {
-			v, err, ok := cmd.ProtoRead()
-			if !ok {
-				break
-			}
+			v, err := cmd.ProtoRead()
 			if err != nil {
-				t.Log(err)
-				continue
+				if !errors.Is(err, io.EOF) {
+					t.Fatal(err)
+				}
+				break
 			}
 
 			switch t := v.(type) {
@@ -159,13 +160,13 @@ func TestCmd3Reconnect(t *testing.T) {
 
 		count := 0
 		for {
-			v, err, ok := cmd.ProtoRead()
-			if !ok {
-				break
-			}
+			v, err := cmd.ProtoRead()
 			if err != nil {
-				t.Log(err)
-				continue
+				if !errors.Is(err, io.EOF) &&
+					!errors.Is(err, context.Canceled) {
+					t.Fatal(err)
+				}
+				break
 			}
 			count++
 			t.Logf("<- %T\n", v)

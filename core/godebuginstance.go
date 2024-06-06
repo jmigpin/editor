@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -206,7 +207,7 @@ func (gdi *GoDebugInstance) runCmd(ctx context.Context, erow *ERow, args []strin
 		return nil
 	}
 
-	gdi.messagesLoop(w, cmd) // blocking
+	gdi.messagesLoop(cmd, w) // blocking
 
 	return cmd.Wait()
 }
@@ -334,7 +335,7 @@ func (gdi *GoDebugInstance) printIndexAllPrevious(erow *ERow, annIndex, offset i
 
 //----------
 
-func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
+func (gdi *GoDebugInstance) messagesLoop(cmd *godebug.Cmd, w io.Writer) {
 
 	updateInterval := time.Second / updatesPerSecond
 	var d struct {
@@ -377,30 +378,29 @@ func (gdi *GoDebugInstance) messagesLoop(w io.Writer, cmd *godebug.Cmd) {
 
 	//----------
 
-	handleError := func(err error) {
-		fmt.Fprintf(w, "godebuginstance: error: %v\n", err)
-		//gdi.gdm.ed.Errorf("godebuginstance: %v", err)
+	printError := func(err error) {
+		//gdi.gdm.printError(err) // editor msgs row
+		fmt.Fprintf(w, "# godebug.instance: "+err.Error()) // running row
 	}
 
 	for {
 		checkUI()
 
-		v, err, ok := cmd.ProtoRead()
-		if !ok {
+		v, err := cmd.ProtoRead()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				printError(err)
+			}
 			break
 		}
-		if err != nil {
-			handleError(err)
-			continue
-		}
 
-		if err := gdi.handleMsg(v, w, cmd); err != nil {
-			handleError(err)
+		if err := gdi.handleMsg(v, cmd); err != nil {
+			printError(err)
 			break
 		}
 	}
 }
-func (gdi *GoDebugInstance) handleMsg(msg any, w io.Writer, cmd *godebug.Cmd) error {
+func (gdi *GoDebugInstance) handleMsg(msg any, cmd *godebug.Cmd) error {
 	switch t := msg.(type) {
 	case *debug.FilesDataMsg:
 		return gdi.di.handleFilesDataMsg(t)

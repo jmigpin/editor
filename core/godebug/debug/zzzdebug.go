@@ -86,7 +86,7 @@ func (exs *execSide) init2() error {
 
 	logw := io.Writer(nil)
 	if !exso.noDebugMsg {
-		logw = NewPrefixWriter(os.Stderr, "# godebug.execside: ")
+		logw = NewPrefixWriter(os.Stderr, "# godebug.exec: ")
 	}
 
 	fd := &FilesDataMsg{Data: exso.filesData}
