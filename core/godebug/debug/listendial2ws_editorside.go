@@ -39,7 +39,13 @@ func acceptWebsocket(conn net.Conn) (net.Conn, error) {
 	go func() {
 		// there is no other way to access hijack logic easily other then srv.Serve(...), so using a single connection listener that will cause the srv.Serve(...) to exit after first connection
 		ln := &singleConnListener{conn: connWrap}
-		srv := &http.Server{Handler: handler}
+		// ignore entry path, just serve
+		//srv := &http.Server{Handler: handler}
+		// must have the expected entry path
+		smux := http.NewServeMux()
+		smux.HandleFunc(websocketEntryPath, handler.ServeHTTP)
+		srv := &http.Server{Handler: smux}
+
 		_ = srv.Serve(ln)
 	}()
 
@@ -73,17 +79,6 @@ func (s *singleConnListener) Close() error {
 }
 func (s *singleConnListener) Addr() Addr {
 	return s.conn.LocalAddr()
-}
-
-//----------
-
-type ConnFnCloser struct {
-	net.Conn
-	closeFn func() error
-}
-
-func (c *ConnFnCloser) Close() error {
-	return c.closeFn()
 }
 
 //----------

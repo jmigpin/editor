@@ -213,14 +213,14 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 //----------
 
 func (cmd *Cmd) startEditorSide(ctx context.Context) error {
-	// special case: exec side started but exited early (ex: crash)
-	// - don't even start the editor and show error
-	// - might still be starting (best to have a timeout)
-	timeout := 30 * time.Second
-	if cmd.Testing {
-		timeout = 500 * time.Millisecond
+	// use timeout: ex: exec side started but exited early with a crash
+	if !cmd.flags.mode.connect || cmd.Testing {
+		timeout := 30 * time.Second
+		if cmd.Testing {
+			timeout = 500 * time.Millisecond
+		}
+		ctx = context.WithValue(ctx, "connectTimeout", timeout)
 	}
-	ctx = context.WithValue(ctx, "connectTimeout", timeout)
 
 	addr := debug.NewAddrI(cmd.flags.network, cmd.flags.address)
 

@@ -2,39 +2,43 @@ package debug
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
-	"sync"
+	"net"
+	"strings"
 )
 
+// a simple addr implementation
+type AddrImpl struct {
+	net, str string
+}
+
+func NewAddrI(network, str string) *AddrImpl {
+	return &AddrImpl{net: network, str: str}
+}
+func (addr *AddrImpl) Network() string {
+	return addr.net
+}
+func (addr *AddrImpl) String() string {
+	h := addr.str
+	if k := strings.Index(h, ":"); k == 0 { // ex: ":8080"
+		//h = "localhost" + h
+		h = "127.0.0.1" + h
+	}
+	return h
+}
+
 //----------
 //----------
 //----------
 
-type FnOnCtxDone struct {
-	ctx  context.Context
-	fn   func()
-	once sync.Once
-	ch   chan struct{}
+type ConnFnCloser struct {
+	net.Conn
+	closeFn func() error
 }
 
-func NewFnOnCtxDone(ctx context.Context, fn func()) *FnOnCtxDone {
-	c := &FnOnCtxDone{ctx: ctx, fn: fn}
-	c.ch = make(chan struct{}, 1)
-	go func() {
-		select {
-		case <-c.ch:
-		case <-ctx.Done(): // ctx.Err()!=nil if done
-			fn()
-		}
-	}()
-	return c
-}
-func (c *FnOnCtxDone) Cancel() {
-	c.once.Do(func() {
-		close(c.ch)
-	})
+func (c *ConnFnCloser) Close() error {
+	return c.closeFn()
 }
 
 //----------
@@ -107,4 +111,12 @@ func (p *PrefixWriter) Write(data []byte) (int, error) {
 		data = data[n:]
 	}
 	return written, nil
+}
+
+//----------
+
+const websocketEntryPath = "/editor_debug_ws"
+
+func websocketEntryPathUrl(host string) string {
+	return fmt.Sprintf("ws://%s%s", host, websocketEntryPath)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 )
 
@@ -41,34 +40,4 @@ func dialRetry(ctx context.Context, addr Addr) (Conn, error) {
 		}
 		return conn, nil
 	}
-}
-
-//----------
-
-// a simple addr implementation
-type AddrImpl struct {
-	net, str string
-}
-
-func NewAddrI(network, str string) *AddrImpl {
-	return &AddrImpl{net: network, str: str}
-}
-func (addr *AddrImpl) Network() string {
-	return addr.net
-}
-func (addr *AddrImpl) String() string {
-	h := addr.str
-	if k := strings.Index(h, ":"); k == 0 { // ex: ":8080"
-		//h = "localhost" + h
-		h = "127.0.0.1" + h
-	}
-	return h
-}
-
-//----------
-
-const websocketEntryPath = "/editor_debug_ws"
-
-func websocketEntryPathUrl(host string) string {
-	return fmt.Sprintf("ws://%s%s", host, websocketEntryPath)
 }

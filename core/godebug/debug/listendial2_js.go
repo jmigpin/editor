@@ -101,15 +101,15 @@ func (wsc *WsConn) Read(b []byte) (int, error) {
 func (wsc *WsConn) Write(b []byte) (int, error) {
 	jsArr := bytesToJsArray(b)
 	wsc.ws.Call("send", jsArr)
-	return len(b), nil // TODO: error
+	return len(b), nil // TODO: error (exception)
 }
 func (wsc *WsConn) Close() error {
 	wsc.ws.Call("close")
-	return nil // TODO
+	return nil // TODO: error (exception)
 }
 func (wsc *WsConn) LocalAddr() Addr {
-	//return wsc.addr
-	return nil // TODO
+	addr := &AddrImpl{"", "<local addr not available>"}
+	return addr
 }
 func (wsc *WsConn) RemoteAddr() Addr {
 	return wsc.addr

@@ -118,11 +118,12 @@ func (c *PeekedConn) Read(b []byte) (int, error) {
 
 func isHTTPRequest(data []byte) bool {
 	methods := []string{
-		"GET ", "POST ", "PUT ", "DELETE ",
-		"HEAD ", "OPTIONS ", "PATCH ",
+		"GET", "POST",
+		"PUT", "DELETE",
+		"HEAD", "OPTIONS", "PATCH",
 	}
 	for _, method := range methods {
-		if bytes.HasPrefix(data, []byte(method)) {
+		if bytes.HasPrefix(data, []byte(method+" ")) {
 			return true
 		}
 	}
