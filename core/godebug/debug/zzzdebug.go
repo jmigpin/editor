@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-//godebug:annotatepackage
+////godebug:annotatepackage
 
 // NOTE: init() functions declared across multiple files in a package are processed in alphabetical order of the file name
 func init() {
@@ -49,31 +49,34 @@ var exso struct {
 var exs = newExecSide()
 
 type execSide struct {
-	p       Proto
-	initw   *InitWait
-	initErr error
+	p     Proto
+	initw *InitWait
+	logw  io.Writer
 }
 
 func newExecSide() *execSide {
-	es := &execSide{}
-	es.initw = newInitWait()
-	return es
+	exs := &execSide{}
+	exs.initw = newInitWait()
+	return exs
 }
 func (exs *execSide) init() {
-	ok := true
-	if err := exs.init2(); err != nil {
-		ok = false
-		execSideError(err)
+	defer exs.initw.done()
+	if !exso.noDebugMsg {
+		exs.logw = NewPrefixWriter(os.Stderr, "# godebug.exec: ")
 	}
-	exs.initw.done(ok)
+	if err := exs.init2(); err != nil {
+		exs.logError(err)
+		return
+	}
+	exs.initw.ok = true
 }
 func (exs *execSide) init2() error {
 	if !exso.noDebugMsg {
 		msg := "binary compiled with editor debug data. Use -nodebugmsg to omit these msgs."
 		if !exso.srcLines {
-			msg += fmt.Sprintf(" Note that in the case of panic, the src lines will not correspond to the original src code, but to the annotated src (-srclines=false).")
+			msg += " Note that in the case of panic, the src lines will not correspond to the original src code, but to the annotated src (-srclines=false)."
 		}
-		execSideLogf("%v\n", msg)
+		exs.logf("%v\n", msg)
 	}
 
 	// initial connect timeout
@@ -84,50 +87,39 @@ func (exs *execSide) init2() error {
 	}
 	ctx = context.WithValue(ctx, "connectTimeout", timeout)
 
-	logw := io.Writer(nil)
-	if !exso.noDebugMsg {
-		logw = NewPrefixWriter(os.Stderr, "# godebug.exec: ")
-	}
-
 	fd := &FilesDataMsg{Data: exso.filesData}
 	pexs := &ProtoExecSide{FData: fd, NoWriteBuffering: exso.syncSend}
-	//pexs.Logger = Logger{"pexs: ", logw} // DEBUG: lots of output
+	//pexs.Logger = Logger{"pexs: ", exs.logw} // DEBUG: lots of output
 
-	p, err := NewProto(ctx, exso.addr, pexs, exso.isServer, exso.continueServing, logw)
+	p, err := NewProto(ctx, exso.addr, pexs, exso.isServer, exso.continueServing, exs.logw)
 	exs.p = p
 	return err
 }
 func (exs *execSide) afterInitOk(fn func()) {
-	mustBeExecSide()
 	exs.initw.afterInitOk(fn)
 }
 
-//----------
-//----------
-//----------
-
-func mustBeExecSide() {
-	if !exso.onExecSide {
-		panic("not on exec side")
+func (exs *execSide) logf(f string, args ...any) {
+	if exs.logw != nil {
+		fmt.Fprintf(exs.logw, f, args...)
 	}
 }
-func execSideError(err error) {
-	execSideLogf("error: %v\n", err)
-}
-func execSideLogf(f string, args ...any) {
-	if !exso.noDebugMsg {
-		mustBeExecSide()
-		fmt.Fprintf(os.Stderr, "DEBUG: "+f, args...)
-	}
+func (exs *execSide) logError(err error) {
+	exs.logf("error: %v\n", err)
 }
 
+//----------
+//----------
 //----------
 
 // Auto-inserted at functions to recover from panics. Don't use.
 func Recover() {
+	//mustBeExecSide() // commented for performance
+
 	if r := recover(); r != nil {
 		Close()
-		execSideLogf("panic (closed): %v\n", r)
+		//exs.logf("panic (closed): %v\n", r)
+		fmt.Fprintf(os.Stderr, "panic (closed): %v\n", r)
 		rdebug.PrintStack()
 		os.Exit(1)
 	}
@@ -135,9 +127,10 @@ func Recover() {
 
 // Auto-inserted at defer main for a clean exit. Don't use.
 func Close() {
+	mustBeExecSide()
 	exs.afterInitOk(func() {
 		if err := exs.p.CloseOrWait(); err != nil {
-			execSideError(err)
+			exs.logError(err)
 		}
 	})
 }
@@ -145,14 +138,17 @@ func Close() {
 // Auto-inserted in annotated files to replace os.Exit calls. Don't use.
 // Non-annotated files that call os.Exit will not let the editor receive all debug msgs. The sync msgs option will need to be used.
 func Exit(code int) {
+	mustBeExecSide()
 	Close()
-	execSideLogf("exit code: %v\n", code)
+	exs.logf("exit code: %v\n", code)
 	os.Exit(code)
 }
 
 // Auto-inserted at annotations. Don't use.
 // NOTE: func name is used in annotator, don't rename.
 func L(fileIndex, debugIndex, offset int, item Item) {
+	//mustBeExecSide() // commented for performance
+
 	lmsg := &OffsetMsg{
 		FileIndex: AfdFileIndex(fileIndex),
 		MsgIndex:  AfdMsgIndex(debugIndex),
@@ -162,7 +158,7 @@ func L(fileIndex, debugIndex, offset int, item Item) {
 	exs.afterInitOk(func() {
 		if err := exs.p.WriteMsg(lmsg); err != nil {
 			lineErrOnce.Do(func() {
-				execSideError(err)
+				exs.logError(err)
 			})
 		}
 	})
@@ -198,7 +194,14 @@ func (iw *InitWait) afterInitOk(fn func()) {
 		fn()
 	}
 }
-func (iw *InitWait) done(ok bool) {
-	iw.ok = ok
+func (iw *InitWait) done() {
 	iw.wg.Done()
+}
+
+//----------
+
+func mustBeExecSide() {
+	if !exso.onExecSide {
+		panic("not on exec side")
+	}
 }

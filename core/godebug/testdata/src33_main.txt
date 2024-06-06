@@ -6,7 +6,7 @@ exec go mod tidy
 #ucmd godebugtester test -work main_test.go main.go
 ucmd godebugtester test main_test.go main.go
 contains stdout "println(3)"
-contains stderr "DEBUG: exit code"
+contains stderr "exit code: 0"
 fail contains stdout "println(4)"
 
 -- go.mod --

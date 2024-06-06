@@ -1,11 +1,11 @@
 # main.go does not have 25 lines. The panic reference will not work because it is from the annotated file.
 fail ucmd godebugtester run -srclines=false main.go
 fail contains stderr "main.go:7"
-contains stderr "DEBUG:"
+contains stderr "# godebug.exec"
 
 fail ucmd godebugtester run -srclines=true -nodebugmsg main.go
 contains stderr "main.go:7"
-fail contains stderr "DEBUG:"
+fail contains stderr "# godebug.exec"
 
 -- go.mod --
 module mod1
