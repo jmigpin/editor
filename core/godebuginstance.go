@@ -380,7 +380,7 @@ func (gdi *GoDebugInstance) messagesLoop(cmd *godebug.Cmd, w io.Writer) {
 
 	printError := func(err error) {
 		//gdi.gdm.printError(err) // editor msgs row
-		fmt.Fprintf(w, "# godebug.instance: "+err.Error()) // running row
+		fmt.Fprintf(w, "# godebug.instance: %v\n", err.Error()) // cur row
 	}
 
 	for {
