@@ -72,11 +72,10 @@ func (exs *execSide) init() {
 }
 func (exs *execSide) init2() error {
 	if !exso.noDebugMsg {
-		msg := "binary compiled with editor debug data. Use -nodebugmsg to omit these msgs."
+		exs.logf("binary compiled with editor debug data. Use -nodebugmsg to omit these msgs.\n")
 		if !exso.srcLines {
-			msg += " Note that in the case of panic, the src lines will not correspond to the original src code, but to the annotated src (-srclines=false)."
+			exs.logf("Note that in the case of panic, the src lines will not correspond to the original src code, but to the annotated src (-srclines=false).\n")
 		}
-		exs.logf("%v\n", msg)
 	}
 
 	// initial connect timeout
