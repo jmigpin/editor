@@ -308,23 +308,7 @@ func (ann *Annotator) castExpr(ctx *Ctx, expr ast.Expr, tt *TType) (ast.Expr, bo
 		return nil, false
 	}
 
-	// TODO: external pkg private type?
-
-	// can return "untyped bool"
-	// can return "go/printer.Mode(...)"
-	//name := fmt.Sprintf("%s", tt.Type)
-
-	qf := func(pkg *types.Package) string {
-		if pkg == nil || ann.pkg == nil || pkg.Path() == ann.pkg.Path() {
-			return ""
-		}
-		//goutil.Log(pkg.Path())
-		return pkg.Name()
-	}
-	name := types.TypeString(tt.Type, qf)
-	name = strings.Replace(name, "untyped ", "", 1)
-
-	fun := &ast.Ident{Name: name, NamePos: expr.Pos()}
+	fun := &ast.Ident{Name: ann.typeString(tt.Type), NamePos: expr.Pos()}
 	ce := &ast.CallExpr{Fun: fun, Args: []ast.Expr{expr}}
 	return ce, true
 }
@@ -898,6 +882,41 @@ func (ann *Annotator) updateOsExitCalls(ctx *Ctx, ce *ast.CallExpr) (error, bool
 }
 
 //----------
+
+func (ann *Annotator) newFuncLitRetType(node ast.Node) (*ast.FuncLit, error) {
+	tt, err := ann.newTType(node)
+	if err != nil {
+		return nil, err
+	}
+	fl := newFuncLitRetType(ann.typeString(tt.Type))
+	return fl, nil
+}
+
+//----------
+
+func (ann *Annotator) typeString(typ types.Type) string {
+	// TODO: external pkg private type?
+
+	// can return "untyped bool"
+	// can return "go/printer.Mode(...)"
+	//name := fmt.Sprintf("%s", tt.Type)
+
+	qf := func(pkg *types.Package) string {
+		if pkg == nil || ann.pkg == nil || pkg.Path() == ann.pkg.Path() {
+			return ""
+		}
+		//goutil.Log(pkg.Path())
+		return pkg.Name()
+	}
+	name := types.TypeString(typ, qf)
+
+	// TODO: a better way?
+	name = strings.Replace(name, "untyped ", "", 1)
+
+	return name
+}
+
+//----------
 //----------
 //----------
 
@@ -971,9 +990,6 @@ func newFuncLitRetType(typeName string) *ast.FuncLit {
 		{Type: &ast.Ident{Name: typeName}},
 	}
 	return fl
-}
-func newFuncLitRetBool() *ast.FuncLit {
-	return newFuncLitRetType("bool")
 }
 
 //----------

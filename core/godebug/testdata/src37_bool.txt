@@ -1,0 +1,19 @@
+#setenv script_keepwork true
+
+exec go run main.go
+contains stderr "ok"
+
+ucmd godebugtester run main.go 
+contains stderr "ok"
+
+-- go.mod --
+module main
+-- main.go --
+package main
+func main(){
+	type A bool
+	var a A
+	if !a {
+		println("ok")
+	}
+}

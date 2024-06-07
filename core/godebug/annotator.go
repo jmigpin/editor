@@ -413,8 +413,7 @@ func (ann *Annotator) visCaseClause(ctx *Ctx, cc *ast.CaseClause) error {
 				types.IsFloat|
 				types.IsString|
 				types.IsComplex) {
-			typeName := fmt.Sprintf("%s", tt.Type)
-			fl := newFuncLitRetType(typeName)
+			fl := newFuncLitRetType(tt.Type.String())
 			rs := &ast.ReturnStmt{Results: []ast.Expr{*expr}}
 			fl.Body.List = append(fl.Body.List, rs)
 			if err := ann.visStmt(ctx, fl.Body); err != nil {
@@ -539,7 +538,10 @@ func (ann *Annotator) visForStmt(ctx *Ctx, fs *ast.ForStmt) error {
 
 	// wrap in funclit that returns bool
 	if fs.Cond != nil {
-		fl := newFuncLitRetBool()
+		fl, err := ann.newFuncLitRetType(fs.Cond)
+		if err != nil {
+			return err
+		}
 		rs := &ast.ReturnStmt{Results: []ast.Expr{fs.Cond}}
 		fl.Body.List = append(fl.Body.List, rs)
 		if err := ann.visStmt(ctx, fl.Body); err != nil {
@@ -576,7 +578,10 @@ func (ann *Annotator) visIfStmt(ctx *Ctx, is *ast.IfStmt) error {
 
 	// wrap in funclit with bool return value
 	if is.Cond != nil {
-		fl := newFuncLitRetBool()
+		fl, err := ann.newFuncLitRetType(is.Cond)
+		if err != nil {
+			return err
+		}
 		rs := &ast.ReturnStmt{Results: []ast.Expr{is.Cond}}
 		fl.Body.List = append(fl.Body.List, rs)
 		if err := ann.visStmt(ctx, fl.Body); err != nil {
