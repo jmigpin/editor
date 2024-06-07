@@ -394,7 +394,8 @@ func (ann *Annotator) newIncIdentWithType(define bool, t types.Type, pos token.P
 	ann.debugVarNameIndex++ // increment identifier
 	id := &ast.Ident{Name: name, NamePos: pos}
 
-	pkg := (*types.Package)(nil) // TODO: ann.pkg***
+	//pkg := (*types.Package)(nil)
+	pkg := ann.pkg
 
 	// set type
 	v := types.NewVar(id.Pos(), pkg, id.Name, t)
@@ -901,13 +902,16 @@ func (ann *Annotator) typeString(typ types.Type) string {
 	// can return "go/printer.Mode(...)"
 	//name := fmt.Sprintf("%s", tt.Type)
 
+	//qf := types.RelativeTo(ann.pkg) // fails: prints path, want name
 	qf := func(pkg *types.Package) string {
-		if pkg == nil || ann.pkg == nil || pkg.Path() == ann.pkg.Path() {
+		// works as well: pkg.Path() == ann.pkg.Path()
+		if pkg == nil || ann.pkg == nil || pkg == ann.pkg {
 			return ""
 		}
 		//goutil.Log(pkg.Path())
 		return pkg.Name()
 	}
+
 	name := types.TypeString(typ, qf)
 
 	// TODO: a better way?

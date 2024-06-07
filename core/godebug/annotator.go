@@ -413,7 +413,7 @@ func (ann *Annotator) visCaseClause(ctx *Ctx, cc *ast.CaseClause) error {
 				types.IsFloat|
 				types.IsString|
 				types.IsComplex) {
-			fl := newFuncLitRetType(tt.Type.String())
+			fl := newFuncLitRetType(ann.typeString(tt.Type))
 			rs := &ast.ReturnStmt{Results: []ast.Expr{*expr}}
 			fl.Body.List = append(fl.Body.List, rs)
 			if err := ann.visStmt(ctx, fl.Body); err != nil {
