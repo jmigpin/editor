@@ -982,7 +982,7 @@ func (cmd *Cmd) buildOutFilename(fa *FilesToAnnotate) (string, error) {
 //------------
 
 func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
-	ci := osutil.NewCmdI2(ctx, args...)
+	ci := osutil.NewCmdIShell(ctx, args...)
 	ec := ci.Cmd()
 	ec.Stdin = cmd.Stdin
 	ec.Stdout = cmd.Stdout

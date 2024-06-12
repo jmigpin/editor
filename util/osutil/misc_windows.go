@@ -37,8 +37,11 @@ func KillExecCmd(cmd *exec.Cmd) error {
 
 //----------
 
-func ShellRunArgs(args ...string) []string {
+func ShellCmdArgs(args ...string) []string {
 	return append([]string{"cmd", "/C"}, args...)
+}
+func ShellScriptArgs(args ...string) []string {
+	return ShellCmdArgs(args...)
 }
 
 //----------

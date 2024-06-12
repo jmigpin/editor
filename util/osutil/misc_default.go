@@ -30,7 +30,12 @@ func KillExecCmd(cmd *exec.Cmd) error {
 
 //----------
 
-func ShellRunArgs(args ...string) []string {
+func ShellCmdArgs(args ...string) []string {
+	// NOTE: scripting possible with args[0] set to "<script>; true"
+	script := args[0] + " \"$@\""
+	return append([]string{"sh", "-c", script, "sh"}, args[1:]...)
+}
+func ShellScriptArgs(args ...string) []string {
 	return []string{"sh", "-c", strings.Join(args, " ")}
 }
 

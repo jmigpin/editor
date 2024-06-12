@@ -73,7 +73,7 @@ func StartServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, li *La
 func newServerWrapCommon(ctx context.Context, cmd string) *ServerWrap {
 	sw := &ServerWrap{}
 	args := strings.Split(cmd, " ") // TODO: escapes
-	sw.Cmd = osutil.NewCmdI2(ctx, args...)
+	sw.Cmd = osutil.NewCmdIShell(ctx, args...)
 	return sw
 }
 

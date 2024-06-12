@@ -28,22 +28,19 @@ type CmdI interface {
 func NewCmdI(cmd *exec.Cmd) CmdI {
 	return NewBasicCmd(cmd)
 }
-
-func NewCmdI2(ctx context.Context, args ...string) CmdI {
-	// NOTE: not using exec.CommandContext because the ctx is dealt with in NewCtxCmd
+func NewCmdI2(args []string) CmdI {
 	cmd := exec.Command(args[0], args[1:]...)
-
-	return NewCmdI3(ctx, cmd)
+	return NewBasicCmd(cmd)
 }
 
-func NewCmdI3(ctx context.Context, cmd *exec.Cmd) CmdI {
-	c := NewCmdI(cmd)
-	c = NewNoHangPipeCmd(c, true, true, true)
+func NewCmdIShell(ctx context.Context, args ...string) CmdI {
+	c := NewCmdI2(args)
+	c = NewNoHangPipeCmd(c, true, true, true) // active only if the pipe is not nil (ex: cmd.stdin)
 	if ctx != nil {
+		// NOTE: not using exec.CommandContext because the ctx is dealt with in NewCtxCmd to better handle termination
 		c = NewCtxCmd(ctx, c)
 	}
-	c = NewShellCmd(c)
-	return c
+	return NewShellCmd(c)
 }
 
 //----------
@@ -78,17 +75,18 @@ type ShellCmd struct {
 func NewShellCmd(cmdi CmdI) *ShellCmd {
 	c := &ShellCmd{CmdI: cmdi}
 	cmd := c.CmdI.Cmd()
-	cmd.Args = ShellRunArgs(cmd.Args...)
+	//cmd.Args = ShellScriptArgs(cmd.Args...)
+	cmd.Args = ShellCmdArgs(cmd.Args...)
 
 	// update cmd.path with shell executable
 	name := cmd.Args[0]
-	cmd.Path = name
-	if lp, err := exec.LookPath(name); err == nil {
+	if lp, err := exec.LookPath(name); err != nil {
+		cmd.Path = name
+		cmd.Err = err
+	} else {
 		cmd.Path = lp
+		cmd.Err = nil // clear explicitly, exec.command can set this at init when it doesn't find the exec with the original args
 	}
-	// TODO: review
-	// set to nil (ex: exec.command can set this at init in case it doesn't find the exec)
-	cmd.Err = nil
 
 	return c
 }
@@ -340,7 +338,7 @@ func RunCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	return RunCmdStdin(ctx, dir, nil, args...)
 }
 func RunCmdStdin(ctx context.Context, dir string, rd io.Reader, args ...string) ([]byte, error) {
-	c := NewCmdI2(ctx, args...)
+	c := NewCmdIShell(ctx, args...)
 	c.Cmd().Dir = dir
 	c.Cmd().Stdin = rd
 	return RunCmdICombineStderrErr(c)

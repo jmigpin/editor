@@ -58,11 +58,12 @@ func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []stri
 func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter) error {
 
 	printPid := func(c osutil.CmdI) {
-		argsStr := strings.Join(c.Cmd().Args, " ")
+		//argsStr := strings.Join(c.Cmd().Args, " ")
+		argsStr := strings.Join(cargs, " ")
 		fmt.Fprintf(rw, "# pid %d: %s\n", c.Cmd().Process.Pid, argsStr)
 	}
 
-	c := osutil.NewCmdI2(ctx, cargs...)
+	c := osutil.NewCmdIShell(ctx, cargs...)
 	c = osutil.NewPausedWritersCmd(c, printPid)
 
 	cmd := c.Cmd()

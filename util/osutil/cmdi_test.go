@@ -3,7 +3,9 @@ package osutil
 import (
 	"bytes"
 	"context"
+	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 )
@@ -179,6 +181,32 @@ func TestCmdIWrite1(t *testing.T) {
 //		t.Fatalf("bad output: %v", s)
 //	}
 //}
+
+//----------
+
+func TestCmdIShell(t *testing.T) {
+	args := []string{"a", "b c d", "e f"}
+	script := `for arg in "$@"; do echo "$arg"; done; true`
+	args = append([]string{script}, args...)
+
+	c := NewCmdI2(args)
+	c = NewShellCmd(c)
+	buf := &bytes.Buffer{}
+	c.Cmd().Stdout = buf
+	c.Cmd().Stderr = os.Stderr
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	//t.Fatal()
+	out := buf.String()
+	//t.Log(out)
+	if !strings.Contains(out, "b c d\n") {
+		t.Fatal(out)
+	}
+}
 
 //----------
 //----------
