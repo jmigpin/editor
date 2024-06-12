@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/jmigpin/editor/util/flagutil"
 )
@@ -202,7 +203,8 @@ func (fl *Flags) addEnvFlag(fs *flag.FlagSet) {
 		return nil
 	})
 	// The type in usage doc is the backquoted "string" (detected by flagset)
-	usage := fmt.Sprintf("`string` with env variables (ex: \"a=1%cb=2%c...\"'", filepath.ListSeparator, filepath.ListSeparator)
+	u := strings.Join([]string{"a=1", "b=2", "..."}, string(filepath.ListSeparator))
+	usage := fmt.Sprintf("`string` with env variables (ex: %q)", u)
 	fs.Var(ff, "env", usage)
 }
 

@@ -307,7 +307,7 @@ Usage of GoDebug run:
   -editorisserver
     	run editor side as server instead of client (default true)
   -env string
-    	string with env variables (ex: "a=1:b=2:..."'
+    	string with env variables (ex: "a=1:b=2:...")
   -network string
     	protocol to use to transmit debug data: [tcp, ws, unix, auto]. Option 'auto' detects a tcp client request to auto upgrade to http/websocket. Ex: useful to alternate between a debug session for a server (tcp) and a brower (websocket), without restarting the godebug cmd by also using the -continueserving flag. (default "tcp")
   -nodebugmsg
