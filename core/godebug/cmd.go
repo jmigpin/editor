@@ -161,7 +161,8 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 		return err
 	}
 
-	if err := cmd.setupNetworkAddress(); err != nil {
+	cmd.improveNetwork()
+	if err := cmd.setupAddress(); err != nil {
 		return err
 	}
 
@@ -578,40 +579,47 @@ func (cmd *Cmd) buildArgs() []string {
 
 //------------
 
-func (cmd *Cmd) setupNetworkAddress() error {
-	// NOTE: for communication, can't consider using stdin/out since the program could use it
-
-	cmd.improveNetwork()
-
-	// auto fill empty address
-	if cmd.flags.address == "" {
-		switch cmd.flags.network {
-		case "tcp", "ws", "auto":
-			port, err := osutil.GetFreeTcpPort()
-			if err != nil {
-				return err
-			}
-			cmd.flags.address = fmt.Sprintf("127.0.0.1:%v", port)
-		case "unix":
-			// create file outside of tmpdir but inside the editor root tmp dir, otherwise the socket file will get deleted after "start"
-			cmd.flags.address = filepath.Join(cmd.editorRootTmpDir(), "godebug.sock"+mathutil.GenDigitsStr(5))
-		default:
-			return fmt.Errorf("unexpected network: %q", cmd.flags.network)
-		}
-	}
-	return nil
-}
 func (cmd *Cmd) improveNetwork() {
+	// performance: switch to unix sockets under certain conditions
+
 	// OS target to choose how to connect
 	goOs := osutil.GetEnv(cmd.env, "GOOS")
 	if goOs == "" {
 		goOs = runtime.GOOS
 	}
+
 	switch goOs {
 	case "linux":
-		if cmd.flags.network == "tcp" && cmd.flags.address == "" {
+		if (cmd.flags.mode.run || cmd.flags.mode.test) &&
+			cmd.flags.network == "tcp" &&
+			cmd.flags.address == "" {
 			cmd.flags.network = "unix"
 		}
+	}
+}
+
+func (cmd *Cmd) setupAddress() error {
+	if cmd.flags.address != "" {
+		return nil
+	}
+
+	// NOTE: for communication, can't consider using stdin/out since the program could use it
+
+	// fill empty address
+	switch cmd.flags.network {
+	case "tcp", "ws", "auto":
+		port, err := osutil.GetFreeTcpPort()
+		if err != nil {
+			return err
+		}
+		cmd.flags.address = fmt.Sprintf("127.0.0.1:%v", port)
+		return nil
+	case "unix":
+		// create file outside of tmpdir but inside the editor root tmp dir, otherwise the socket file will get deleted after "start"
+		cmd.flags.address = filepath.Join(cmd.editorRootTmpDir(), "godebug.sock"+mathutil.GenDigitsStr(5))
+		return nil
+	default:
+		return fmt.Errorf("unexpected network: %q", cmd.flags.network)
 	}
 }
 
