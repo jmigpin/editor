@@ -12,7 +12,7 @@ import (
 
 func OsAndGoEnv(dir string) []string {
 	env := os.Environ()
-	return osutil.SetEnvs(env, GoEnv(dir))
+	return osutil.AppendEnv(env, GoEnv(dir))
 }
 
 func GoEnv(dir string) []string {

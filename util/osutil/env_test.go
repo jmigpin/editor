@@ -33,7 +33,7 @@ func TestEnv2(t *testing.T) {
 
 func TestEnv3(t *testing.T) {
 	env := []string{"AA=1", "AA=2"}
-	if GetEnv(env, "AA") != "1" {
+	if GetEnv(env, "AA") != "2" {
 		t.Fail()
 	}
 }
@@ -41,7 +41,15 @@ func TestEnv3(t *testing.T) {
 func TestEnv4(t *testing.T) {
 	env := []string{"AA=1", "AA=2"}
 	env = SetEnv(env, "AA", "3")
-	if len(env) != 1 {
+	if len(env) != 1 || GetEnv(env, "AA") != "3" {
+		t.Fail()
+	}
+}
+
+func TestEnv5(t *testing.T) {
+	env := []string{"AA=1", "AA=2", "AA=3"}
+	env = clearDuplicatesFavorLast(env)
+	if len(env) != 1 || GetEnv(env, "AA") != "3" {
 		t.Fail()
 	}
 }

@@ -146,7 +146,7 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 
 	// setup environment
 	cmd.env = goutil.OsAndGoEnv(cmd.Dir)
-	cmd.env = osutil.SetEnvs(cmd.env, cmd.flags.env)
+	cmd.env = osutil.AppendEnv(cmd.env, cmd.flags.env)
 
 	if err := cmd.detectGopathMode(cmd.env); err != nil {
 		return err
