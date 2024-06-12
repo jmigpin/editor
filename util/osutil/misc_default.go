@@ -30,11 +30,16 @@ func KillExecCmd(cmd *exec.Cmd) error {
 
 //----------
 
+// deals correctly with args that contain spaces
+// scripting possible with args[0] set to "<script>; true"
 func ShellCmdArgs(args ...string) []string {
-	// NOTE: scripting possible with args[0] set to "<script>; true"
 	script := args[0] + " \"$@\""
 	return append([]string{"sh", "-c", script, "sh"}, args[1:]...)
 }
+
+// allows scripting, but can have issues on args with spaces:
+// ex: "echo a > b.txt"
+// ex: "VAR_1=2 prog arg1 arg2"
 func ShellScriptArgs(args ...string) []string {
 	return []string{"sh", "-c", strings.Join(args, " ")}
 }

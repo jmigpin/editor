@@ -26,7 +26,7 @@ func GoEnv2(dir string) ([]string, error) {
 	// not the same as os.Environ which has entries like PATH
 
 	c := osutil.NewCmdI2([]string{"go", "env"})
-	c = osutil.NewShellCmd(c)
+	c = osutil.NewShellCmd(c, false)
 	c.Cmd().Dir = dir
 	bout, err := osutil.RunCmdICombineStderrErr(c)
 	if err != nil {

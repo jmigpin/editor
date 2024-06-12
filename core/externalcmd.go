@@ -63,7 +63,10 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 		fmt.Fprintf(rw, "# pid %d: %s\n", c.Cmd().Process.Pid, argsStr)
 	}
 
-	c := osutil.NewCmdIShell(ctx, cargs...)
+	c := osutil.NewCmdI2(cargs)
+	c = osutil.NewNoHangStdinCmd(c)
+	c = osutil.NewCtxCmd(ctx, c)
+	c = osutil.NewShellCmd(c, true)
 	c = osutil.NewPausedWritersCmd(c, printPid)
 
 	cmd := c.Cmd()

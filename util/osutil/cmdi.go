@@ -40,7 +40,7 @@ func NewCmdIShell(ctx context.Context, args ...string) CmdI {
 		// NOTE: not using exec.CommandContext because the ctx is dealt with in NewCtxCmd to better handle termination
 		c = NewCtxCmd(ctx, c)
 	}
-	return NewShellCmd(c)
+	return NewShellCmd(c, true)
 }
 
 //----------
@@ -72,11 +72,14 @@ type ShellCmd struct {
 	CmdI
 }
 
-func NewShellCmd(cmdi CmdI) *ShellCmd {
+func NewShellCmd(cmdi CmdI, scriptArgs bool) *ShellCmd {
 	c := &ShellCmd{CmdI: cmdi}
 	cmd := c.CmdI.Cmd()
-	//cmd.Args = ShellScriptArgs(cmd.Args...)
-	cmd.Args = ShellCmdArgs(cmd.Args...)
+	if scriptArgs {
+		cmd.Args = ShellScriptArgs(cmd.Args...)
+	} else {
+		cmd.Args = ShellCmdArgs(cmd.Args...)
+	}
 
 	// update cmd.path with shell executable
 	name := cmd.Args[0]
@@ -159,6 +162,10 @@ func (c *CtxCmd) printf(f string, args ...any) {
 //----------
 //----------
 //----------
+
+func NewNoHangStdinCmd(cmdi CmdI) *NoHangPipeCmd {
+	return &NoHangPipeCmd{CmdI: cmdi, doIn: true}
+}
 
 type NoHangPipeCmd struct {
 	CmdI
