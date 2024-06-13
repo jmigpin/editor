@@ -12,6 +12,8 @@ import (
 	"sync"
 )
 
+const Listener2PeekLen = 9
+
 // besides direct tcp/unix, allows on demand websocket clients
 type Listener2 struct {
 	Listener
@@ -73,7 +75,7 @@ func (ln *Listener2) Accept() (Conn, error) {
 func (ln *Listener2) acceptAuto(conn net.Conn) (Conn, error) {
 	// peek for http header
 	br := bufio.NewReader(conn)
-	peek, err := br.Peek(10) // size to cover isHTTPRequest test
+	peek, err := br.Peek(Listener2PeekLen) // size to cover isHTTPRequest test
 	// io.EOF error can have a valid peek
 	if err != nil && err != io.EOF {
 		return nil, err
@@ -103,6 +105,8 @@ func (ln *Listener2) Close() error {
 	return ln.Listener.Close()
 }
 
+//----------
+//----------
 //----------
 
 type PeekedConn struct {

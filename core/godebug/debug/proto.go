@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 )
@@ -158,7 +159,6 @@ func (p *ProtoServer) acceptLoop() {
 			}
 			break
 		}
-		p.logf("connected: %v\n", conn.RemoteAddr())
 
 		p.handleAccepted(conn)
 
@@ -170,12 +170,12 @@ func (p *ProtoServer) acceptLoop() {
 }
 func (p *ProtoServer) handleAccepted(conn Conn) {
 	p.stateLWrite(func() {
-		// don't continue if already/still have a connection
+		// close previous connection
 		if p.state.haveConn {
-			_ = conn.Close()
-			err := fmt.Errorf("already have a connection")
-			p.logError(err)
-			return
+			p.state.haveConn = false
+			p.state.havePconn = false
+			_ = p.state.conn.Close()
+			p.logf("closed connection (%v) due to new (%v)\n", p.state.conn.RemoteAddr(), conn.RemoteAddr())
 		}
 
 		p.state.conn = conn
@@ -219,6 +219,7 @@ func (p *ProtoServer) getPconn(ctx context.Context) (*ProtoConn, error) {
 
 	p.state.pconn = pconn
 	p.state.havePconn = true
+	p.logf("connected: %v\n", conn.RemoteAddr())
 
 	return pconn, nil
 }
@@ -236,61 +237,64 @@ func (p *ProtoServer) closePconn() error {
 //----------
 
 func (p *ProtoServer) Read(v any) error {
-	return p.monitorPConnContinueServing(func() error {
+	return p.monitorPConnContinueServing(func() (*ProtoConn, error) {
 		if eds, ok := p.side.(*ProtoEditorSide); ok {
 			if ok2, err := eds.readHeaders(v); err != nil || ok2 {
-				return err
+				return nil, err
 			}
 		}
 
 		pconn, err := p.getPconn(p.ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return pconn.Read(v)
+		return pconn, pconn.Read(v)
 	})
 }
 func (p *ProtoServer) Write(v any) error {
-	return p.monitorPConnContinueServing(func() error {
+	return p.monitorPConnContinueServing(func() (*ProtoConn, error) {
 		pconn, err := p.getPconn(p.ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return pconn.Write(v)
+		return pconn, pconn.Write(v)
 	})
 }
 func (p *ProtoServer) WriteMsg(m *OffsetMsg) error {
-	return p.monitorPConnContinueServing(func() error {
+	return p.monitorPConnContinueServing(func() (*ProtoConn, error) {
 		pconn, err := p.getPconn(p.ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return pconn.WriteMsg(m)
+		return pconn, pconn.WriteMsg(m)
 	})
 }
 
 //----------
 
-func (p *ProtoServer) monitorPConnContinueServing(fn func() error) error {
+func (p *ProtoServer) monitorPConnContinueServing(fn func() (*ProtoConn, error)) error {
 	for {
-		err := fn()
+		pconn, err := fn()
 		if err != nil {
 			// improve error
-			if err2 := p.ctx.Err(); err2 != nil {
-				//err = fmt.Errorf("%w: %w", err2, err)
-				err = err2
+			if errors.Is(err, io.EOF) {
+				err = fmt.Errorf("disconnected (%w): %v", err, pconn.conn.RemoteAddr())
 			}
+			//} else if err2 := p.ctx.Err(); err2 != nil {
+			//	err = fmt.Errorf("%w: %w", err2, err)
+			//	//err = fmt.Errorf("%w", err2)
+			//}
 
-			// update pconn state
-			p.stateLWrite(func() { p.state.havePconn = false })
-
-			// log error if continue serving
-			continueServing := false
-			p.stateLRead(func() {
-				continueServing = p.state.accepting && !p.state.closing
+			p.stateLWrite(func() {
+				if p.state.havePconn && p.state.pconn == pconn {
+					p.state.havePconn = false
+				}
 			})
+
+			continueServing := false
+			p.stateLRead(func() { continueServing = p.state.accepting && !p.state.closing })
 			if continueServing {
-				p.logError(err)
+				p.logf("%v\n", err) // not using logError to avoid the error prefix
 				continue
 			}
 		}
@@ -532,9 +536,14 @@ func (eds *ProtoEditorSide) initProto(conn Conn) (*ProtoConn, error) {
 	if err := pconn.Write(&ReqFilesDataMsg{}); err != nil {
 		return nil, err
 	}
+
 	if err := pconn.Read(&eds.FData); err != nil {
 		return nil, err
 	}
+	if eds.FData == nil {
+		return nil, fmt.Errorf("protoeditorside: fdata is nil")
+	}
+
 	if err := pconn.Write(&ReqStartMsg{}); err != nil {
 		return nil, err
 	}
@@ -594,17 +603,23 @@ func (exs *ProtoExecSide) initProto(conn Conn) (*ProtoConn, error) {
 	pconn := newProtoConn(conn, !exs.NoWriteBuffering)
 	pconn.Logger = exs.Logger
 
-	// exec side needs to send handshake first, to allow the editor to peek the client intention, the msg should have at least the size of the peek at flexlistener (~10)
-	if err := pconn.Write(&HandshakeMsg{Msg: "0000000000"}); err != nil {
+	// exec side needs to send handshake first, to allow the editor to peek the client intention, the msg should have at least the size of the peek listener
+	s1 := strings.Repeat("0", Listener2PeekLen)
+	if err := pconn.Write(&HandshakeMsg{Msg: s1}); err != nil {
 		return nil, err
 	}
 
 	if err := pconn.Read(&ReqFilesDataMsg{}); err != nil {
 		return nil, err
 	}
+
+	if exs.FData == nil {
+		return nil, fmt.Errorf("protoexecside: fdata is nil")
+	}
 	if err := pconn.Write(exs.FData); err != nil {
 		return nil, err
 	}
+
 	if err := pconn.Read(&ReqStartMsg{}); err != nil {
 		return nil, err
 	}

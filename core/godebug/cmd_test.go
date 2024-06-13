@@ -91,6 +91,8 @@ func godebugTester(t *testing.T, args []string) error {
 }
 
 //----------
+//----------
+//----------
 
 func TestCmd2CtxCancel(t *testing.T) {
 	// max time to run this test
@@ -127,6 +129,8 @@ func TestCmd2CtxCancel(t *testing.T) {
 	t.Log(err)
 }
 
+//----------
+
 func TestCmd3Reconnect(t *testing.T) {
 	ctx := context.Background()
 	addr := debug.NewAddrI("tcp", ":9158")
@@ -137,6 +141,7 @@ func TestCmd3Reconnect(t *testing.T) {
 	//----------
 
 	ctx2, cancel2 := context.WithCancel(ctx)
+	//ctx2 := ctx
 
 	nClients := 3
 	nMsgs := 2
@@ -144,41 +149,7 @@ func TestCmd3Reconnect(t *testing.T) {
 	running.Add(1)
 	go func() {
 		defer running.Done()
-
-		cmd := NewCmd()
-		args := []string{
-			"connect", // just a connect (might have no timeouts set)
-			"-addr=" + addr.String(),
-			"-editorisserver=" + strconv.FormatBool(isServer),
-			"-continueserving",
-			"-nodebugmsg",
-		}
-		_, err := cmd.Start(ctx2, args)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		count := 0
-		for {
-			v, err := cmd.ProtoRead()
-			if err != nil {
-				if !errors.Is(err, io.EOF) &&
-					!errors.Is(err, context.Canceled) {
-					t.Fatal(err)
-				}
-				break
-			}
-			count++
-			t.Logf("<- %T\n", v)
-		}
-
-		if err := cmd.Wait(); err != nil {
-			t.Fatal(err)
-		}
-
-		if n := nClients * nMsgs; count != n {
-			t.Fatalf("expecting %v msgs, got %v", n, count)
-		}
+		runServer(t, ctx2, addr, isServer, nClients, nClients*(1+nMsgs))
 	}()
 
 	//----------
@@ -188,33 +159,108 @@ func TestCmd3Reconnect(t *testing.T) {
 		defer running.Done()
 
 		for nc := 0; nc < nClients; nc++ {
-			//fd := &debug.FilesDataMsg{Data: nil}
-			pexs := &debug.ProtoExecSide{}
-			p, err := debug.NewProto(ctx, addr, pexs, !isServer, false, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			msg := []byte("abc")
-			//msgOut := "[97 98 99]"
-			lineMsg := &debug.OffsetMsg{Item: debug.IVi(msg)}
-			//for i := 0; i < 10000; i++ {
-			for i := 0; i < nMsgs; i++ {
-				//if err := p.WriteMsg(lineMsg); err != nil {
-				t.Logf("-> %T\n", lineMsg)
-				if err := p.Write(lineMsg); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if err := p.CloseOrWait(); err != nil {
-				t.Fatal(err)
-			}
+			runClient(t, ctx, addr, !isServer, nMsgs)
+			//go runClient(t, ctx, addr, !isServer, nMsgs) // DEBUG
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(1500 * time.Millisecond)
 		cancel2() // stop server
 	}()
 
 	//----------
 
 	running.Wait()
+}
+
+func runServer(t *testing.T, ctx context.Context, addr debug.Addr, isServer bool, nClients, nMsgs int) {
+	tw := &TestWriter{t: t}
+	cmd := NewCmd()
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
+	cmd.Stdout = tw
+	cmd.Stderr = tw
+	args := []string{
+		"connect", // just a connect (might have no timeouts set)
+		"-addr=" + addr.String(),
+		"-editorisserver=" + strconv.FormatBool(isServer),
+		"-continueserving",
+		//"-nodebugmsg",
+	}
+	_, err := cmd.Start(ctx, args)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count := 0
+	//nErrs := 0
+	for {
+		v, err := cmd.ProtoRead()
+		if err != nil {
+			if errors.Is(err, io.EOF) ||
+				errors.Is(err, context.Canceled) ||
+				errors.Is(err, context.DeadlineExceeded) {
+				t.Log(err)
+				break
+				//nErrs++
+				//if nErrs == nClients {
+				//	break
+				//}
+				//continue
+			}
+
+			t.Fatal(err)
+		}
+		count++
+		t.Logf("<- %T\n", v)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	//if nErrs != nClients {
+	//	t.Fatalf("expecting %v clients, got %v", nClients, nErrs)
+	//}
+	if count != nMsgs {
+		t.Fatalf("expecting %v msgs, got %v", nMsgs, count)
+	}
+}
+func runClient(t *testing.T, ctx context.Context, addr debug.Addr, isServer bool, nMsgs int) {
+	tw := &TestWriter{t: t}
+	//logw := debug.NewPrefixWriter(os.Stderr, "# godebug.exec: ")
+	logw := debug.NewPrefixWriter(tw, "# godebug.exec: ")
+
+	fd := &debug.FilesDataMsg{Data: nil}
+	pexs := &debug.ProtoExecSide{FData: fd}
+	p, err := debug.NewProto(ctx, addr, pexs, isServer, false, logw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := []byte("abc")
+	//msgOut := "[97 98 99]"
+	lineMsg := &debug.OffsetMsg{Item: debug.IVi(msg)}
+	//for i := 0; i < 10000; i++ {
+	for i := 0; i < nMsgs; i++ {
+		//if err := p.WriteMsg(lineMsg); err != nil {
+		//t.Logf("-> %T\n", lineMsg)
+		if err := p.Write(lineMsg); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := p.CloseOrWait(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+//----------
+//----------
+//----------
+
+type TestWriter struct {
+	t *testing.T
+}
+
+func (tw *TestWriter) Write(p []byte) (n int, err error) {
+	tw.t.Logf("%s", string(p))
+	return len(p), nil
 }
