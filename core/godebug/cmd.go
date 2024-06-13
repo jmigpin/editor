@@ -1067,6 +1067,7 @@ func envGodebugBuildFlags(env []string) []string {
 func goModuleSrc(name string) string {
 	// go 1.16 needed to support -overlay flag
 	// go 1.18 needed to support "any"
+	// go 1.21 needed to support "max()"
 	// go 1.22 needed to support "range int"
 
 	//return fmt.Sprintf("module %s\ngo 1.18\n", name)

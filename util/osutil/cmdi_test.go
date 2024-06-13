@@ -190,7 +190,7 @@ func TestCmdIShell(t *testing.T) {
 	args = append([]string{script}, args...)
 
 	c := NewCmdI2(args)
-	c = NewShellCmd(c)
+	c = NewShellCmd(c, false)
 	buf := &bytes.Buffer{}
 	c.Cmd().Stdout = buf
 	c.Cmd().Stderr = os.Stderr
