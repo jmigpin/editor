@@ -73,26 +73,25 @@ func (l *Logger) error(err error) error {
 
 type PrefixWriter struct {
 	writer    io.Writer
-	prefix    string
+	prefix    []byte
 	lineStart bool
 }
 
 func NewPrefixWriter(writer io.Writer, prefix string) *PrefixWriter {
 	return &PrefixWriter{
 		writer:    writer,
-		prefix:    prefix,
+		prefix:    []byte(prefix),
 		lineStart: true,
 	}
 }
 func (p *PrefixWriter) Write(data []byte) (int, error) {
 	written := 0 // from data slice
 	for len(data) > 0 {
-		// write prefix
+		// prefix
+		prefix := []byte{}
 		if p.lineStart {
 			p.lineStart = false
-			if _, err := p.writer.Write([]byte(p.prefix)); err != nil {
-				return written, err
-			}
+			prefix = p.prefix
 		}
 		// find newline
 		k := len(data)
@@ -102,7 +101,14 @@ func (p *PrefixWriter) Write(data []byte) (int, error) {
 			p.lineStart = true // next line will be a line start
 		}
 		// write line
-		n, err := p.writer.Write(data[:k])
+		n, err := p.writer.Write(append(prefix, data[:k]...))
+
+		//n = max(n-len(prefix), 0) // needs go1.21
+		n -= len(prefix)
+		if n < 0 {
+			n = 0
+		}
+
 		written += n
 		if err != nil {
 			return written, err
@@ -113,6 +119,8 @@ func (p *PrefixWriter) Write(data []byte) (int, error) {
 	return written, nil
 }
 
+//----------
+//----------
 //----------
 
 const websocketEntryPath = "/editor_debug_ws"
