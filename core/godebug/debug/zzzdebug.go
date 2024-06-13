@@ -139,7 +139,7 @@ func Close() {
 func Exit(code int) {
 	mustBeExecSide()
 	Close()
-	exs.logf("exit code: %v\n", code)
+	//exs.logf("exit code: %v\n", code)
 	os.Exit(code)
 }
 
