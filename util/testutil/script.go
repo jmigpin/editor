@@ -318,7 +318,7 @@ func (scr *Script) icExec(t *testing.T, args []string) error {
 
 		ci := osutil.NewCmdI(ec)
 		ci = osutil.NewCtxCmd(ctx, ci)
-		ci = osutil.NewShellCmd(ci)
+		ci = osutil.NewShellCmd(ci, true)
 		return osutil.RunCmdI(ci)
 	})
 }
