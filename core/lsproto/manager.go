@@ -12,7 +12,7 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
-//godebug:annotatepackage
+////godebug:annotatepackage
 
 // Notes:
 // - Manager manages LangManagers

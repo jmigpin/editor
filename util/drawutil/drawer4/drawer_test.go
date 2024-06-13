@@ -17,8 +17,6 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-//godebug:annotatepackage
-
 func init() {
 	useSpaceForMargin = true
 }

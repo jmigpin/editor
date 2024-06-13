@@ -13,8 +13,6 @@ import (
 	"github.com/jmigpin/editor/util/iout"
 )
 
-//godebug:annotatefile
-
 type CmdI interface {
 	Cmd() *exec.Cmd
 	Start() error

@@ -6,10 +6,6 @@ import (
 	"unicode/utf8"
 )
 
-//godebug:annotatefile
-
-//----------
-
 type TerminalFilter struct {
 	tio  TerminalIO
 	erow *ERow // can be nil in tests

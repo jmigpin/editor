@@ -1,7 +1,5 @@
 package toolbarparser
 
-//godebug:annotatefile
-
 import (
 	"path/filepath"
 	"sort"
