@@ -5,6 +5,7 @@
 package debug
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -36,9 +37,10 @@ func dial2(ctx context.Context, addr Addr) (Conn, error) {
 //----------
 
 type WsConn struct {
-	addr   Addr
-	ws     js.Value
-	readCh chan any
+	addr    Addr
+	ws      js.Value
+	readCh  chan any
+	readBuf bytes.Buffer
 }
 
 func newWsConn(addr Addr, ws js.Value) (*WsConn, error) {
@@ -87,13 +89,22 @@ func newWsConn(addr Addr, ws js.Value) (*WsConn, error) {
 //----------
 
 func (wsc *WsConn) Read(b []byte) (int, error) {
+	if len(b) <= wsc.readBuf.Len() {
+		return wsc.readBuf.Read(b)
+	}
+
 	v := <-wsc.readCh
 	switch t := v.(type) {
 	case error:
 		return 0, t
 	case []byte:
-		n := copy(b, t)
-		return n, nil
+		// append to buffer first
+		if _, err := wsc.readBuf.Write(t); err != nil {
+			err2 := fmt.Errorf("wsc.read: %v", err)
+			panic(err2)
+		}
+		// try again
+		return wsc.Read(b)
 	default:
 		panic("!")
 	}
