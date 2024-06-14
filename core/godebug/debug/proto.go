@@ -58,7 +58,7 @@ type ProtoServer struct {
 		closing    bool
 		closingErr error
 
-		conn  Conn
+		conn  Conn // before transfer to pconn
 		pconn *ProtoConn
 	}
 
@@ -169,15 +169,24 @@ func (p *ProtoServer) acceptLoop() {
 	}
 }
 func (p *ProtoServer) handleAccepted(conn Conn) {
+	perr1 := func(conn2 Conn) {
+		p.logf("closed connection (%v) due to new (%v)\n", conn2.RemoteAddr(), conn.RemoteAddr())
+	}
+
 	p.stateLWrite(func() {
-		// close previous connection
+		// close previous conn not transfered to pconn yet
 		if p.state.haveConn {
 			p.state.haveConn = false
-			p.state.havePconn = false
+			perr1(p.state.conn)
 			_ = p.state.conn.Close()
-			p.logf("closed connection (%v) due to new (%v)\n", p.state.conn.RemoteAddr(), conn.RemoteAddr())
+		}
+		// close previous pconn to have protoread call getconn
+		if p.state.havePconn {
+			perr1(p.state.pconn.conn)
+			_ = p.closePconn(false)
 		}
 
+		p.logf("connected: %v\n", conn.RemoteAddr())
 		p.state.conn = conn
 		p.state.haveConn = true
 	})
@@ -219,74 +228,78 @@ func (p *ProtoServer) getPconn(ctx context.Context) (*ProtoConn, error) {
 
 	p.state.pconn = pconn
 	p.state.havePconn = true
-	p.logf("connected: %v\n", conn.RemoteAddr())
+	//p.logf("connected: %v\n", conn.RemoteAddr())
 
 	return pconn, nil
 }
-func (p *ProtoServer) closePconn() error {
+func (p *ProtoServer) closePconn(lockAndBCast bool) error {
+	if lockAndBCast {
+		p.state.Lock()
+		defer p.state.Unlock()
+		defer p.state.Broadcast()
+	}
 	err := error(nil)
-	p.stateLWrite(func() {
-		if p.state.havePconn {
-			err = p.state.pconn.Close()
-			p.state.havePconn = false
-		}
-	})
+	if p.state.havePconn {
+		err = p.state.pconn.Close()
+		p.state.havePconn = false
+	}
 	return err
 }
 
 //----------
 
 func (p *ProtoServer) Read(v any) error {
-	return p.monitorPConnContinueServing(func() (*ProtoConn, error) {
+	return p.monitorPConnContinueServing(func() (*ProtoConn, bool, error) {
+		pconn, err := p.getPconn(p.ctx)
+		if err != nil {
+			return nil, false, err
+		}
+
+		// after getpconn to ensure that it handles headers first
 		if eds, ok := p.side.(*ProtoEditorSide); ok {
 			if ok2, err := eds.readHeaders(v); err != nil || ok2 {
-				return nil, err
+				return nil, false, err
 			}
 		}
 
-		pconn, err := p.getPconn(p.ctx)
-		if err != nil {
-			return nil, err
-		}
-		return pconn, pconn.Read(v)
+		return pconn, true, pconn.Read(v)
 	})
 }
 func (p *ProtoServer) Write(v any) error {
-	return p.monitorPConnContinueServing(func() (*ProtoConn, error) {
+	return p.monitorPConnContinueServing(func() (*ProtoConn, bool, error) {
 		pconn, err := p.getPconn(p.ctx)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return pconn, pconn.Write(v)
+		return pconn, true, pconn.Write(v)
 	})
 }
 func (p *ProtoServer) WriteMsg(m *OffsetMsg) error {
-	return p.monitorPConnContinueServing(func() (*ProtoConn, error) {
+	return p.monitorPConnContinueServing(func() (*ProtoConn, bool, error) {
 		pconn, err := p.getPconn(p.ctx)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return pconn, pconn.WriteMsg(m)
+		return pconn, true, pconn.WriteMsg(m)
 	})
 }
 
 //----------
 
-func (p *ProtoServer) monitorPConnContinueServing(fn func() (*ProtoConn, error)) error {
+func (p *ProtoServer) monitorPConnContinueServing(fn func() (*ProtoConn, bool, error)) error {
 	for {
-		pconn, err := fn()
+		pconn, havePconn, err := fn()
 		if err != nil {
 			// improve error
 			if errors.Is(err, io.EOF) {
-				err = fmt.Errorf("disconnected (%w): %v", err, pconn.conn.RemoteAddr())
+				err = fmt.Errorf("disconnected: %w", err)
 			}
-			//} else if err2 := p.ctx.Err(); err2 != nil {
-			//	err = fmt.Errorf("%w: %w", err2, err)
-			//	//err = fmt.Errorf("%w", err2)
-			//}
+			if havePconn {
+				err = fmt.Errorf("%w: %v", err, pconn.conn.RemoteAddr())
+			}
 
 			p.stateLWrite(func() {
-				if p.state.havePconn && p.state.pconn == pconn {
+				if p.state.havePconn && (havePconn && p.state.pconn == pconn) {
 					p.state.havePconn = false
 				}
 			})
@@ -314,7 +327,7 @@ func (p *ProtoServer) closeWithCause(err error) error {
 	})
 
 	err1 := p.closeListener()
-	err2 := p.closePconn()
+	err2 := p.closePconn(true)
 	p.ctxStop() // clear resource
 
 	return errors.Join(err1, err2)
@@ -809,4 +822,4 @@ func (wb *MsgWriteBuffering) noMoreWritesAndWait() error {
 //----------
 //----------
 
-var ContinueServingErr = errors.New("continue serving")
+const Listener2PeekLen = 9

@@ -12,8 +12,6 @@ import (
 	"sync"
 )
 
-const Listener2PeekLen = 9
-
 // besides direct tcp/unix, allows on demand websocket clients
 type Listener2 struct {
 	Listener
