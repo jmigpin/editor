@@ -1,7 +1,7 @@
 package sampleparsers
 
-//godebug:annotatepackage
-//godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil
+////godebug:annotatepackage
+////godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil
 
 import (
 	"testing"

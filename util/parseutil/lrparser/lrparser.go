@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-//godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil
+////godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil
 
 type Lrparser struct {
 	fset *FileSet
