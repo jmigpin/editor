@@ -231,6 +231,16 @@ func runClient(t *testing.T, ctx context.Context, addr debug.Addr, isServer bool
 	logw := debug.NewPrefixWriter(tw, "# godebug.exec: ")
 
 	fd := &debug.FilesDataMsg{Data: nil}
+
+	//for i := 0; i < 10; i++ {
+	//	afd := &debug.AnnotatorFileData{
+	//		FileIndex:   0,
+	//		NMsgIndexes: 0,
+	//		Filename:    "a.go",
+	//	}
+	//	fd.Data = append(fd.Adata, afd)
+	//}
+
 	pexs := &debug.ProtoExecSide{FData: fd}
 	p, err := debug.NewProto(ctx, addr, pexs, isServer, false, logw)
 	if err != nil {

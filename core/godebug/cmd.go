@@ -145,7 +145,9 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 	}
 
 	// setup environment
-	cmd.env = goutil.OsAndGoEnv(cmd.Dir)
+	cmd.env = []string{}
+	//cmd.env = osutil.AppendEnv(cmd.env, goutil.OsAndGoEnv(cmd.Dir)) // commented: cannot set go env vars for the running exec, can have issues with compilation fails in some cases (ex: js/wasm)
+	cmd.env = osutil.AppendEnv(cmd.env, os.Environ())
 	cmd.env = osutil.AppendEnv(cmd.env, cmd.flags.env)
 
 	if err := cmd.detectGopathMode(cmd.env); err != nil {
