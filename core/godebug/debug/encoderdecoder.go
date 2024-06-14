@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"slices"
 	"unsafe"
 )
 
@@ -64,16 +65,34 @@ type EncDecRegId byte
 //----------
 //----------
 
+var encDecHeader = []byte{3, 7} // just to avoid matching random bytes
+
 func encode(w io.Writer, v any, logger Logger) error {
 	enc := newEncoder(w, encDecReg)
 	enc.W = logger.W
 	enc.Prefix = logger.Prefix + enc.Prefix
+
+	// header
+	if _, err := enc.w.Write(encDecHeader); err != nil {
+		return err
+	}
+
 	return enc.reflect(v)
 }
 func decode(r io.Reader, v any, logger Logger) error {
 	dec := newDecoder(r, encDecReg)
 	dec.W = logger.W
 	dec.Prefix = logger.Prefix + dec.Prefix
+
+	// header
+	h := make([]byte, len(encDecHeader))
+	if _, err := io.ReadFull(dec.r, h); err != nil {
+		return err
+	}
+	if !slices.Equal(h, encDecHeader) {
+		return fmt.Errorf("header mismatch: %v", h)
+	}
+
 	return dec.reflect(v)
 
 }
@@ -288,7 +307,7 @@ func (dec *Decoder) reflect2(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		dec.logf("\tdecode pointer id: %v\n", id)
+		dec.logf("\tpointer id: %v\n", id)
 		if id == dec.reg.nilId {
 			v.Set(reflect.Zero(v.Type()))
 			return nil
@@ -314,7 +333,7 @@ func (dec *Decoder) reflect2(v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		dec.logf("\tdecode interface id: %v\n", id)
+		dec.logf("\tinterface id: %v\n", id)
 		if id == dec.reg.nilId {
 			v.Set(reflect.Zero(v.Type()))
 			return nil
@@ -359,7 +378,7 @@ func (dec *Decoder) reflect2(v reflect.Value) error {
 		if err := dec.sliceLen(&n); err != nil {
 			return err
 		}
-		dec.logf("dec slice len: %v\n", n)
+		dec.logf("\tslice len: %v\n", n)
 
 		// fast path for bytes
 		if _, ok := v.Interface().([]byte); ok {
@@ -392,7 +411,11 @@ func (dec *Decoder) reflect2(v reflect.Value) error {
 		_, err := io.ReadFull(dec.r, (*[8]byte)(ptr)[:])
 		return err
 	default:
-		return dec.readBinary(v.Addr().Interface())
+		err := dec.readBinary(v.Addr().Interface())
+		if err == nil {
+			dec.logf("\tbinary: %v\n", v.Interface())
+		}
+		return nil
 	}
 }
 

@@ -30,11 +30,12 @@ func TestEncode1(t *testing.T) {
 }
 func TestEncode2(t *testing.T) {
 	/*
-		linemsg encode
+		encode
 		[
-		14 // linemsg id
+		3 2 7 // header
+		16 // offsetmsg id
 		0 0 // file index
-		0 0 // debug index
+		0 0 0 0 // debug index
 		0 0 0 0 // offset
 		15 // itemvalue id (interface)
 		15 // itemvalue id (pointer)
@@ -49,7 +50,7 @@ func TestEncode2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b2 := "[16 0 0 0 0 0 0 0 0 0 0 17 17 0 1 49]"
+	b2 := "[3 7 16 0 0 0 0 0 0 0 0 0 0 17 17 0 1 49]"
 	b3 := fmt.Sprintf("%v", b)
 	if b2 != b3 {
 		t.Fatalf("expecting:\n%v got\n%v", b2, b3)
