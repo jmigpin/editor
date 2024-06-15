@@ -199,6 +199,8 @@ func (gdi *GoDebugInstance) runCmd(ctx context.Context, erow *ERow, args []strin
 	cmd.Stdout = w
 	cmd.Stderr = w
 
+	ctx, cancelCause := context.WithCancelCause(ctx)
+
 	done, err := cmd.Start(ctx, args[1:])
 	if err != nil {
 		return err
@@ -207,7 +209,12 @@ func (gdi *GoDebugInstance) runCmd(ctx context.Context, erow *ERow, args []strin
 		return nil
 	}
 
-	gdi.messagesLoop(cmd, w) // blocking
+	go func() {
+		if err := gdi.messagesLoop(cmd); err != nil {
+			cancelCause(err) // ensure cmd stops
+			fmt.Fprintf(w, "# godebug.instance: error: %v\n", err)
+		}
+	}()
 
 	return cmd.Wait()
 }
@@ -335,7 +342,7 @@ func (gdi *GoDebugInstance) printIndexAllPrevious(erow *ERow, annIndex, offset i
 
 //----------
 
-func (gdi *GoDebugInstance) messagesLoop(cmd *godebug.Cmd, w io.Writer) {
+func (gdi *GoDebugInstance) messagesLoop(cmd *godebug.Cmd) error {
 
 	updateInterval := time.Second / updatesPerSecond
 	var d struct {
@@ -343,7 +350,11 @@ func (gdi *GoDebugInstance) messagesLoop(cmd *godebug.Cmd, w io.Writer) {
 		updating        bool
 		lastUpdateStart time.Time
 	}
-	updateUI := func() { // d must be locked
+	updateUI := func(lock bool) {
+		if lock {
+			d.Lock()
+			defer d.Unlock()
+		}
 		d.updating = false
 		if gdi.ctx.Err() == nil {
 			gdi.updateAnnotations()
@@ -365,42 +376,36 @@ func (gdi *GoDebugInstance) messagesLoop(cmd *godebug.Cmd, w io.Writer) {
 
 		// update now
 		if now.After(deadline) {
-			updateUI()
+			updateUI(false)
 			return
 		}
 		// update later
 		_ = time.AfterFunc(deadline.Sub(now), func() {
-			d.Lock()
-			defer d.Unlock()
-			updateUI()
+			updateUI(true)
 		})
 	}
 
 	//----------
-
-	printError := func(err error) {
-		//gdi.gdm.printError(err) // editor msgs row
-		fmt.Fprintf(w, "# godebug.instance: error: %v\n", err.Error()) // cur row
-	}
 
 	for {
 		checkUI()
 
 		v, err := cmd.ProtoRead()
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				printError(err)
+			if errors.Is(err, io.EOF) {
+				return nil
 			}
-			break
+			return err
 		}
 
 		if err := gdi.handleMsg(v, cmd); err != nil {
-			printError(err)
-			break
+			return err
 		}
 	}
 }
 func (gdi *GoDebugInstance) handleMsg(msg any, cmd *godebug.Cmd) error {
+	//return goutil.TodoError() // DEBUG
+
 	switch t := msg.(type) {
 	case *debug.FilesDataMsg:
 		return gdi.di.handleFilesDataMsg(t)
@@ -589,6 +594,7 @@ func (di *GDDataIndex) FilesIndexKey(name string) string {
 
 //----------
 
+// TODO: rename: this is a reset that keeps the same headers
 func (di *GDDataIndex) reset() {
 	di.Lock()
 	defer di.Unlock()
@@ -655,7 +661,7 @@ func (di *GDDataIndex) handleOffsetMsg_noLock(u *debug.OffsetMsg) error {
 	// check index
 	l2 := len(di.files[int(u.FileIndex)].msgs)
 	if int(u.MsgIndex) >= l2 {
-		return fmt.Errorf("bad debug index: %v len=%v", u.MsgIndex, l2)
+		return fmt.Errorf("bad debug index: %v len=%v fileindex=%v", u.MsgIndex, l2, u.FileIndex)
 	}
 	// msg
 	di.lastArrivalIndex++ // starts/clears to -1, so first n is 0

@@ -91,18 +91,23 @@ func newProtoServer(ctx, connectCtx context.Context, addr Addr, side ProtoSide, 
 		return nil, err
 	}
 
+	if err := p.waitForConn(connectCtx); err != nil {
+		_ = p.closeWithCause(err)
+		return nil, err
+	}
+
 	return p, nil
 }
 
 //----------
 
-func (p *ProtoServer) stateLWrite(fn func()) {
+func (p *ProtoServer) stateLkBcast(fn func()) {
 	p.state.Lock()
 	defer p.state.Unlock()
 	defer p.state.Broadcast()
 	fn()
 }
-func (p *ProtoServer) stateLRead(fn func()) {
+func (p *ProtoServer) stateLk(fn func()) {
 	p.state.Lock()
 	defer p.state.Unlock()
 	fn()
@@ -116,21 +121,15 @@ func (p *ProtoServer) startListening(ctx context.Context, addr Addr) error {
 		return err
 	}
 	p.ln.ln = ln
-	p.stateLWrite(func() { p.state.listening = true })
+	p.stateLkBcast(func() { p.state.listening = true })
 	p.logf("listening: %v\n", addr)
-
-	// allow ctx to stop
-	stop := context.AfterFunc(ctx, func() {
-		_ = p.closeWithCause(ctx.Err())
-	})
-	defer stop()
 
 	go p.acceptLoop()
 
-	return p.waitForConn(ctx)
+	return nil
 }
 func (p *ProtoServer) closeListener() error {
-	p.stateLWrite(func() {
+	p.stateLkBcast(func() {
 		if p.state.listening {
 			p.ln.closeErr = p.ln.ln.Close()
 			p.state.listening = false
@@ -144,15 +143,15 @@ func (p *ProtoServer) closeListener() error {
 func (p *ProtoServer) acceptLoop() {
 	defer p.closeListener()
 
-	p.stateLWrite(func() { p.state.accepting = true })
-	defer p.stateLWrite(func() { p.state.accepting = false })
+	p.stateLkBcast(func() { p.state.accepting = true })
+	defer p.stateLkBcast(func() { p.state.accepting = false })
 
 	for {
 		conn, err := p.ln.ln.Accept()
 		if err != nil {
 			// avoid logging noise
 			dontLog := false
-			p.stateLRead(func() { dontLog = p.state.closing })
+			p.stateLk(func() { dontLog = p.state.closing })
 
 			if !dontLog {
 				p.logError(err)
@@ -173,7 +172,7 @@ func (p *ProtoServer) handleAccepted(conn Conn) {
 		p.logf("closed connection (%v) due to new (%v)\n", conn2.RemoteAddr(), conn.RemoteAddr())
 	}
 
-	p.stateLWrite(func() {
+	p.stateLkBcast(func() {
 		// close previous conn not transfered to pconn yet
 		if p.state.haveConn {
 			p.state.haveConn = false
@@ -208,6 +207,13 @@ func (p *ProtoServer) getPconn(ctx context.Context) (*ProtoConn, error) {
 
 	defer p.state.Broadcast()
 
+	// TODO: improve
+	// allow ctx to stop the following wait
+	stop := context.AfterFunc(ctx, func() {
+		_ = p.closeWithCause(ctx.Err())
+	})
+	defer stop()
+
 	// wait for connection
 	for ; p.state.haveConn == false; p.state.Wait() {
 		if p.state.closing {
@@ -228,7 +234,6 @@ func (p *ProtoServer) getPconn(ctx context.Context) (*ProtoConn, error) {
 
 	p.state.pconn = pconn
 	p.state.havePconn = true
-	//p.logf("connected: %v\n", conn.RemoteAddr())
 
 	return pconn, nil
 }
@@ -255,10 +260,10 @@ func (p *ProtoServer) Read(v any) error {
 			return nil, false, err
 		}
 
-		// after getpconn to ensure that it handles headers first
+		// after getpconn to ensure that it handles headers first in case of a reconnect
 		if eds, ok := p.side.(*ProtoEditorSide); ok {
 			if ok2, err := eds.readHeaders(v); err != nil || ok2 {
-				return nil, false, err
+				return pconn, true, err
 			}
 		}
 
@@ -293,19 +298,22 @@ func (p *ProtoServer) monitorPConnContinueServing(fn func() (*ProtoConn, bool, e
 			// improve error
 			if errors.Is(err, io.EOF) {
 				err = fmt.Errorf("disconnected: %w", err)
+			} else if p.ctx.Err() != nil {
+				err = fmt.Errorf("%w: %w", p.ctx.Err(), err)
 			}
 			if havePconn {
 				err = fmt.Errorf("%w: %v", err, pconn.conn.RemoteAddr())
 			}
 
-			p.stateLWrite(func() {
-				if p.state.havePconn && (havePconn && p.state.pconn == pconn) {
-					p.state.havePconn = false
+			// close only if it is the current holded connection
+			p.stateLkBcast(func() {
+				if havePconn && p.state.havePconn && p.state.pconn == pconn {
+					_ = p.closePconn(false)
 				}
 			})
 
 			continueServing := false
-			p.stateLRead(func() { continueServing = p.state.accepting && !p.state.closing })
+			p.stateLk(func() { continueServing = p.state.accepting && !p.state.closing })
 			if continueServing {
 				p.logf("%v\n", err) // not using logError to avoid the error prefix
 				continue
@@ -318,10 +326,16 @@ func (p *ProtoServer) monitorPConnContinueServing(fn func() (*ProtoConn, bool, e
 
 //----------
 
+// TODO: review
+// - closing just to end cleanly
+// - closing because there was an error that forces close/cleanup
 func (p *ProtoServer) closeWithCause(err error) error {
-	p.stateLWrite(func() {
+	p.stateLkBcast(func() {
 		if p.state.closing == false {
 			p.state.closing = true
+			if err == nil {
+				panic("nil err")
+			}
 			p.state.closingErr = err
 		}
 	})
@@ -408,14 +422,14 @@ func newProtoClient(ctx, connectCtx context.Context, addr Addr, side ProtoSide, 
 		return nil, err
 	}
 	p.pconn = pconn
-	p.stateLWrite(func() { p.state.havePconn = true })
+	p.stateLkBcast(func() { p.state.havePconn = true })
 
 	return p, nil
 }
 
 //----------
 
-func (p *ProtoClient) stateLWrite(fn func()) {
+func (p *ProtoClient) stateLkBcast(fn func()) {
 	p.state.Lock()
 	defer p.state.Unlock()
 	defer p.state.Broadcast()
@@ -445,7 +459,7 @@ func (p *ProtoClient) WriteMsg(m *OffsetMsg) error {
 
 func (p *ProtoClient) monitorPconnErr(err error) error {
 	if err != nil {
-		err = p.closeWithCause(err)
+		_ = p.closeWithCause(err)
 	}
 	return err
 }
@@ -453,22 +467,22 @@ func (p *ProtoClient) monitorPconnErr(err error) error {
 //----------
 
 func (p *ProtoClient) closeWithCause(err error) error {
-	err2 := error(nil)
-	p.stateLWrite(func() {
+	err1 := error(nil)
+	p.stateLkBcast(func() {
 		if p.state.closing == false {
 			p.state.closing = true
 			p.state.closingErr = err
 
 			if p.state.havePconn {
 				p.state.havePconn = false
-				err2 = p.pconn.Close()
+				err1 = p.pconn.Close()
 			}
 		}
 	})
 
 	p.ctxStop() // clear resource
 
-	return err2
+	return err1
 }
 
 //----------

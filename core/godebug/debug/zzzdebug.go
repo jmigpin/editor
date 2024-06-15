@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-////godebug:annotatepackage
-
 // NOTE: init() functions declared across multiple files in a package are processed in alphabetical order of the file name
 func init() {
 	// runs on editorSide/execSide
@@ -66,6 +64,7 @@ func (exs *execSide) init() {
 	}
 	if err := exs.init2(); err != nil {
 		exs.logError(err)
+		internalExit()
 		return
 	}
 	exs.initw.ok = true
@@ -117,7 +116,6 @@ func Recover() {
 
 	if r := recover(); r != nil {
 		Close()
-		//exs.logf("panic (closed): %v\n", r)
 		fmt.Fprintf(os.Stderr, "panic (closed): %v\n", r)
 		rdebug.PrintStack()
 		os.Exit(1)
@@ -137,9 +135,7 @@ func Close() {
 // Auto-inserted in annotated files to replace os.Exit calls. Don't use.
 // Non-annotated files that call os.Exit will not let the editor receive all debug msgs. The sync msgs option will need to be used.
 func Exit(code int) {
-	mustBeExecSide()
 	Close()
-	//exs.logf("exit code: %v\n", code)
 	os.Exit(code)
 }
 
@@ -158,6 +154,9 @@ func L(fileIndex, debugIndex, offset int, item Item) {
 		if err := exs.p.WriteMsg(lmsg); err != nil {
 			lineErrOnce.Do(func() {
 				exs.logError(err)
+
+				// TODO: if buffered, writemsg might not return errors, so no way to stop
+				internalExit()
 			})
 		}
 	})
@@ -203,4 +202,9 @@ func mustBeExecSide() {
 	if !exso.onExecSide {
 		panic("not on exec side")
 	}
+}
+
+func internalExit() {
+	Exit(129)
+	//os.Exit(129)
 }

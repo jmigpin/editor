@@ -18,6 +18,8 @@ import (
 	"github.com/jmigpin/editor/core/godebug/debug"
 )
 
+//godebug:annotatefile:debug/proto.go
+
 func TestCmd1(t *testing.T) {
 	scr := testutil.NewScript(os.Args)
 	scr.ScriptsDir = "testdata"
@@ -50,42 +52,45 @@ func godebugTester(t *testing.T, args []string) error {
 
 	//----------
 
-	fn := func() error {
-		pr := func(s string) { // util func
-			fmt.Printf("recv: %v\n", s)
-		}
-		for {
-			v, err := cmd.ProtoRead()
-			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					t.Fatal(err)
-				}
-				break
-			}
-
-			switch t := v.(type) {
-			case *debug.FilesDataMsg:
-				pr(fmt.Sprintf("%#v", t))
-				//for i, afd := range t.Data {
-				//	pr(fmt.Sprintf("%v: %#v", i, afd))
-				//}
-			case *debug.OffsetMsg:
-				pr(StringifyItem(t.Item))
-			case *debug.OffsetMsgs:
-				for _, m := range *t {
-					pr(StringifyItem(m.Item))
-				}
-			default:
-				return fmt.Errorf("unexpected type: %T, %v", v, v)
-			}
-		}
-		return nil
+	//fn := func() error {
+	pr := func(s string) { // util func
+		fmt.Printf("recv: %v\n", s)
 	}
-	go func() {
-		if err := fn(); err != nil {
-			fmt.Printf("error: %v\n", err)
+	for {
+		v, err := cmd.ProtoRead()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				t.Fatal(err)
+			}
+			break
 		}
-	}()
+
+		switch t := v.(type) {
+		case *debug.FilesDataMsg:
+			pr(fmt.Sprintf("%#v", t))
+
+			// DEBUG: can make some tests fail if active: ex: will print filenames that can match output that should not be seen
+			//for i, afd := range t.Data {
+			//	pr(fmt.Sprintf("%v: %#v", i, afd))
+			//}
+		case *debug.OffsetMsg:
+			pr(StringifyItem(t.Item))
+		case *debug.OffsetMsgs:
+			for _, m := range *t {
+				pr(StringifyItem(m.Item))
+			}
+		default:
+			return fmt.Errorf("unexpected type: %T, %v", v, v)
+		}
+	}
+	//}()
+	//return nil
+	//}
+	//go func() {
+	//	if err := fn(); err != nil {
+	//		fmt.Printf("error: %v\n", err)
+	//	}
+	//}()
 
 	return cmd.Wait()
 }
@@ -160,10 +165,12 @@ func TestCmd3Reconnect(t *testing.T) {
 
 		for nc := 0; nc < nClients; nc++ {
 			runClient(t, ctx, addr, !isServer, nMsgs)
+			time.Sleep(500 * time.Millisecond) // wait to avoid the server getting the close before some message
+
 			//go runClient(t, ctx, addr, !isServer, nMsgs) // DEBUG
 		}
 
-		time.Sleep(1500 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 		cancel2() // stop server
 	}()
 

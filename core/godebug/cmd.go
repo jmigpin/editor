@@ -210,7 +210,7 @@ func (cmd *Cmd) start4(ctx context.Context) error {
 		cmd.printf("waiting for connect (exec side not started)\n")
 	}
 
-	return cmd.startEditorSide(ctx) // blocks
+	return cmd.startEditorSide(ctx)
 }
 
 //----------
@@ -233,7 +233,7 @@ func (cmd *Cmd) startEditorSide(ctx context.Context) error {
 	}
 
 	peds := &debug.ProtoEditorSide{}
-	//peds.Logger = debug.Logger{"peds: ", stdout} // DEBUG: lots of output
+	//peds.Logger = debug.Logger{"peds: ", logw} // DEBUG: lots of output
 
 	p, err := debug.NewProto(ctx, addr, peds, cmd.flags.editorIsServer, cmd.flags.continueServing, logw)
 	if err != nil {
@@ -280,9 +280,8 @@ func (cmd *Cmd) Wait() error {
 	}
 
 	if cmd.start.proto != nil {
-		if err := cmd.start.proto.CloseOrWait(); err != nil {
-			w = append(w, err)
-		}
+		err := cmd.start.proto.CloseOrWait()
+		w = append(w, err)
 	}
 
 	cmd.cleanupAfterWait()
