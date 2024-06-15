@@ -51,11 +51,11 @@ type HandshakeMsg struct{ Msg string }
 type ReqFilesDataMsg struct{}
 type ReqStartMsg struct{}
 
+//----------
+
 type FilesDataMsg struct {
 	Data []*AnnotatorFileData
 }
-
-//----------
 
 type AnnotatorFileData struct {
 	// decl order matters: used by the config generator to fill the struct

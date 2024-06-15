@@ -1,5 +1,7 @@
 //go:build !js && editorDebugExecSide
 
+////go:build !js // DEBUG
+
 package debug
 
 import (
