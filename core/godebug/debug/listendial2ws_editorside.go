@@ -38,16 +38,42 @@ func acceptWebsocket(conn net.Conn) (net.Conn, error) {
 		connWg.Wait() // blocks to keep connection alive
 	})
 
+	wsSrv := &websocket.Server{Handler: handler}
+	wsSrv.Handshake = func(config *websocket.Config, req *http.Request) (err error) {
+		//// DEBUG
+		//for k, v := range req.Header {
+		//	for _, v2 := range v {
+		//		fmt.Printf("%v=%v\n", k, v2)
+		//	}
+		//}
+
+		// allow origin to be null (ex: direct html page in the browser)
+		v := req.Header.Get("Origin")
+		if v == "null" {
+			req.Header.Set("Origin", "http://127.0.0.1")
+		}
+
+		config.Origin, err = websocket.Origin(config, req)
+		if err == nil && config.Origin == nil {
+			return fmt.Errorf("null origin")
+		}
+		return err
+	}
+
 	go func() {
 		// there is no other way to access hijack logic easily other then srv.Serve(...), so using a single connection listener that will cause the srv.Serve(...) to exit after first connection
 		ln := &singleConnListener{conn: connWrap}
-		// ignore entry path, just serve
+
+		//// ignore entry path, just serve
 		//srv := &http.Server{Handler: handler}
+		//srv := &http.Server{Handler: wsSrv}
+
 		// must have the expected entry path
 		smux := http.NewServeMux()
-		smux.HandleFunc(websocketEntryPath, handler.ServeHTTP)
-		srv := &http.Server{Handler: smux}
+		//smux.HandleFunc(websocketEntryPath, handler.ServeHTTP)
+		smux.HandleFunc(websocketEntryPath, wsSrv.ServeHTTP)
 
+		srv := &http.Server{Handler: smux}
 		_ = srv.Serve(ln)
 	}()
 
