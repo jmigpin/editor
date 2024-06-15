@@ -31,6 +31,8 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
+////godebug:annotatefile:../../util/goutil/modules.go
+
 //go:embed debug/*
 var debugPkgFs embed.FS
 
@@ -49,9 +51,10 @@ type Cmd struct {
 	Stdout io.Writer
 	Stderr io.Writer
 
-	tmpDir           string
-	tmpBuiltFile     string // godebug file built
-	tmpGoModFilename string
+	tmpDir            string
+	tmpBuiltFile      string // godebug file built
+	tmpGoModFilename  string
+	tmpGoWorkFilename string
 
 	mainFuncFilename string // set at annotation time
 
@@ -308,6 +311,9 @@ func (cmd *Cmd) build(ctx context.Context) error {
 	if err := cmd.buildDebugPkg(ctx); err != nil {
 		return err
 	}
+	if err := cmd.buildAlternativeGoWork(ctx); err != nil {
+		return err
+	}
 	if err := cmd.buildAlternativeGoMod(ctx); err != nil {
 		return err
 	}
@@ -487,6 +493,10 @@ func (cmd *Cmd) cleanupAfterStart() {
 	// always remove (written in src dir)
 	if cmd.tmpGoModFilename != "" {
 		_ = os.Remove(cmd.tmpGoModFilename) // best effort
+	}
+	// always remove (written in src dir)
+	if cmd.tmpGoWorkFilename != "" {
+		_ = os.Remove(cmd.tmpGoWorkFilename) // best effort
 	}
 }
 
@@ -817,28 +827,63 @@ func init(){
 
 //------------
 
+func (cmd *Cmd) buildAlternativeGoWork(ctx context.Context) error {
+	if cmd.gopathMode {
+		return nil
+	}
+	gwFilename, ok := goutil.FindGoWork(cmd.Dir)
+	if !ok {
+		return nil
+	}
+
+	// build based on current go.work
+	src, err := ioutil.ReadFile(gwFilename)
+	if err != nil {
+		return fmt.Errorf("unable to read go work file: %w", err)
+	}
+	// add use line to debug pkg
+	line := fmt.Sprintf("\nuse %s\n", cmd.debugPkgDir)
+	src = append(src, []byte(line)...)
+
+	// create temporary go.work in same location as orig
+	dir := filepath.Dir(gwFilename)
+	gw2Filename := filepath.Join(dir, "godebug_go.work")
+	// must not exist
+	if _, err := os.Stat(gw2Filename); !os.IsNotExist(err) {
+		return fmt.Errorf("file already exists: %v", gw2Filename)
+	}
+	// create
+	if err := mkdirAllWriteFile(gw2Filename, []byte(src)); err != nil {
+		return err
+	}
+	cmd.tmpGoWorkFilename = gw2Filename
+	cmd.logf("tmpGoWorkFilename: %v\n", cmd.tmpGoWorkFilename)
+	// add location to env
+	cmd.env = osutil.AppendEnv(cmd.env, []string{"GOWORK=" + gw2Filename})
+	return nil
+}
+
+//------------
+
 func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context) error {
 	if cmd.gopathMode {
 		return nil
 	}
+	if cmd.tmpGoWorkFilename != "" {
+		return nil
+	}
 
-	filename, ok := cmd.fa.GoModFilename()
+	filename, ok := goutil.FindGoMod(cmd.Dir)
 	if !ok {
-		//return fmt.Errorf("missing go.mod")
-
 		// in the case of a simple main.go without any go.mod (but in modules mode), it needs to create an artificial go.mod in order to reference the debug pkg that is located in the tmp dir
 
-		// TODO: last resort, having to create files in the src dir is to be avoided -- needs review
+		// create temporary go.mod in src dir
+		dir := cmd.Dir
 
-		// create temporary go.mod in src dir based on main file
-		if cmd.mainFuncFilename == "" {
-			return fmt.Errorf("missing main func filename")
-		}
-		dir := filepath.Dir(cmd.mainFuncFilename)
 		fname2 := filepath.Join(dir, "go.mod")
 		// must not exist
 		if _, err := os.Stat(fname2); !os.IsNotExist(err) {
-			return fmt.Errorf("file should not exist because gomodfilename didn't found it: %v", fname2)
+			return fmt.Errorf("file already exists: %v", fname2)
 		}
 		// create
 		src := goModuleSrc("main")
@@ -846,7 +891,7 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context) error {
 			return err
 		}
 		cmd.tmpGoModFilename = fname2
-		cmd.logf("tmpgomodfilename: %v\n", cmd.tmpGoModFilename)
+		cmd.logf("tmpGoModFilename: %v\n", cmd.tmpGoModFilename)
 		filename = fname2
 	}
 
@@ -874,7 +919,7 @@ func (cmd *Cmd) buildAlternativeGoMod(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	cmd.alternativeGoMod = filepath.Join(cmd.tmpDir, "alternative.mod")
+	cmd.alternativeGoMod = filepath.Join(cmd.tmpDir, "godebug_go.mod")
 	if err := mkdirAllWriteFile(cmd.alternativeGoMod, src2); err != nil {
 		return err
 	}
@@ -973,14 +1018,10 @@ func (cmd *Cmd) buildOutFilename(fa *FilesToAnnotate) (string, error) {
 	}
 
 	if cmd.mainFuncFilename == "" {
-		return "", fmt.Errorf("missing main filename")
+		return "", fmt.Errorf("missing main func filename")
 	}
 
-	// commented: output to tmp dir
-	//fname := filepath.Base(cmd.mainFuncFilename)
-	//fname = fsutil.JoinPath(cmd.tmpDir, fname)
-
-	// output to main file dir
+	// output to src dir
 	fname := cmd.mainFuncFilename
 	fname = pathutil.ReplaceExt(fname, "_godebug") // don't use ".godebug", not a file type
 

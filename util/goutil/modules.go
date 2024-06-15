@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jmigpin/editor/util/osutil"
 	"golang.org/x/mod/modfile"
@@ -90,11 +91,31 @@ func runGoModCmd(ctx context.Context, dir string, args []string, env []string) (
 //----------
 
 func FindGoMod(dir string) (string, bool) {
+	v := os.Getenv("GOMOD")
+	if v != "" {
+		if strings.EqualFold(v, os.DevNull) {
+			return "", false
+		}
+		return v, true
+	}
 	return findFileUp(dir, "go.mod")
 }
-func FindGoSum(dir string) (string, bool) {
-	return findFileUp(dir, "go.sum")
+
+//func FindGoSum(dir string) (string, bool) {
+//	return findFileUp(dir, "go.sum")
+//}
+
+func FindGoWork(dir string) (string, bool) {
+	v := os.Getenv("GOWORK")
+	if strings.EqualFold(v, "off") {
+		return "", false
+	}
+	if v != "" {
+		return v, true
+	}
+	return findFileUp(dir, "go.work")
 }
+
 func findFileUp(dir, name string) (string, bool) {
 	for {
 		fp := filepath.Join(dir, name)

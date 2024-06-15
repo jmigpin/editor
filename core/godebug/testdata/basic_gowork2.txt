@@ -1,0 +1,34 @@
+# the presence of a go.work file conflicts with an alternative specificied go.mod, which has the godebug location config
+
+#setenv script_keepwork true
+
+cd dir1
+exec go run main.go
+contains stderr "abc\n"
+contains stderr "f2\n"
+ucmd godebugtester run main.go
+#ucmd godebugtester run -work main.go
+contains stderr "abc\n"
+contains stderr "f2\n"
+
+-- go.work --
+go 1.22
+use ./dir2
+-- dir1/go.mod --
+module mod1
+require mod2.local v0.0.0 
+replace mod2.local v0.0.0 => ../dir2
+-- dir1/main.go --
+package main
+import "mod2.local/pkg2"
+func main(){
+	println("abc")
+	pkg2.F2()
+}
+-- dir2/go.mod --
+module mod2.local
+-- dir2/pkg2/f2.go --
+package pkg2
+func F2(){
+	println("f2")
+}

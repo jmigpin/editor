@@ -13,9 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jmigpin/editor/util/goutil"
 	"github.com/jmigpin/editor/util/mathutil"
-	"github.com/jmigpin/editor/util/osutil"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -473,28 +471,34 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 
 //----------
 
-func (fa *FilesToAnnotate) GoModFilename() (string, bool) {
-	for _, pkg := range fa.filesPkgs {
-		//mod := pkg.Module
-		mod := pkgMod(pkg)
-		if mod != nil && mod.GoMod != "" {
-			//fa.cmd.logf("gomod(nomain?)=%v", mod.GoMod)
-			if mod.Main {
-				fa.cmd.logf("gomod=%v", mod.GoMod)
-				return mod.GoMod, true
-			}
-		}
-	}
+// commented: in favor of goutil.FindGoMod
+//func (fa *FilesToAnnotate) GoModFilename() (string, bool) {
+//	for _, pkg := range fa.filesPkgs {
+//		fmt.Printf("** %v\n", pkg.Module)
+//		if pkg.Module != nil {
+//			fa.cmd.logf("gomod=%v", pkg.Module.GoMod)
+//		}
 
-	// try env
-	env := goutil.GoEnv(fa.cmd.Dir)
-	filename := osutil.GetEnv(env, "GOMOD")
-	if filename != "" && filename != os.DevNull { // can be "/dev/null"!
-		return filename, true
-	}
+//		//mod := pkg.Module
+//		mod := pkgMod(pkg)
+//		if mod != nil && mod.GoMod != "" {
+//			//fa.cmd.logf("gomod(nomain?)=%v", mod.GoMod)
+//			if mod.Main {
+//				fa.cmd.logf("gomod=%v", mod.GoMod)
+//				return mod.GoMod, true
+//			}
+//		}
+//	}
 
-	return "", false
-}
+//	// try env
+//	env := goutil.GoEnv(fa.cmd.Dir)
+//	filename := osutil.GetEnv(env, "GOMOD")
+//	if filename != "" && filename != os.DevNull { // can be "/dev/null"!
+//		return filename, true
+//	}
+
+//	return "", false
+//}
 
 //----------
 

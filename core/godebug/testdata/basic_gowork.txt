@@ -1,0 +1,25 @@
+# the presence of a go.work file conflicts with an alternative specificied go.mod, which has the godebug location config
+
+#setenv script_keepwork true
+
+exec go run dir1/main.go
+contains stderr "abc\n"
+ucmd godebugtester run dir1/main.go
+contains stderr "abc\n"
+
+# also works, perhaps because there are no submodules (module issue, not go.work)
+#cd dir1
+#exec go run main.go
+#contains stderr "abc\n"
+#ucmd godebugtester run main.go
+#contains stderr "abc\n"
+
+-- go.work --
+go 1.22
+-- dir1/go.mod --
+module mod1
+-- dir1/main.go --
+package main
+func main(){
+	println("abc")
+}

@@ -1,3 +1,6 @@
+#setenv script_keepwork true
+#ucmd godebugtester run -work
+
 ucmd godebugtester run
 contains stdout "3=(a[1]) = 3"
 
