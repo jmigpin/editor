@@ -89,6 +89,13 @@ func TestAll1(t *testing.T) {
 		},
 		func() {
 			testEntry(&test{
+				st:  state{s: "\t0\n\n\t1\n", commentLineSym: "#", si: 0, ci: 7, son: true},
+				est: state{s: "\t#0\n\n\t#1\n", si: 0, ci: 9, son: true},
+				f:   Comment,
+			})
+		},
+		func() {
+			testEntry(&test{
 				st:  state{s: "0123\n  abc\n efg\n", si: 9, ci: 14, son: true},
 				est: state{s: "0123\n // abc\n //efg\n", si: 5, ci: 19, son: true},
 				f:   Comment,
@@ -447,4 +454,14 @@ func TestAll1(t *testing.T) {
 	for _, fn := range testFns {
 		fn()
 	}
+
+	//// DEBUG
+	//_ = testFns
+	//func() {
+	//	testEntry(&test{
+	//		st:  state{s: ""},
+	//		est: state{s: "//h"},
+	//		f:   Comment,
+	//	})
+	//}()
 }

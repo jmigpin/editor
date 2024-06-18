@@ -10,6 +10,8 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
+////godebug:annotatepackage:github.com/jmigpin/editor/util/iout/iorw
+
 func Comment(ctx *Ctx) error {
 	sym := ctx.Fns.CommentLineSym()
 	if sym == nil {
@@ -36,13 +38,18 @@ func Comment(ctx *Ctx) error {
 		}
 
 		rd2 := ctx.LocalReader(j)
-		u, _, err := iorw.LineEndIndex(rd2, j)
+		u, uIsNewline, err := iorw.LineEndIndex(rd2, j)
 		if err != nil {
 			return err
 		}
 
 		// ignore empty lines (j==u all spaces) and keep best
-		if j != u && j-i < ii {
+		endSize := 0
+		if uIsNewline {
+			endSize = 1
+		}
+		emptyLine := j+endSize == u
+		if !emptyLine && j-i < ii {
 			ii = j - i
 		}
 
