@@ -209,7 +209,7 @@ func (fl *Flags) addEnvFlag(fs *flag.FlagSet) {
 }
 
 func (fl *Flags) addNetworkFlag(fs *flag.FlagSet) {
-	fs.StringVar(&fl.network, "network", "tcp", "protocol to use to transmit debug data: [tcp, ws, unix, auto]. Option 'auto' detects a tcp client request to auto upgrade to http/websocket. Ex: useful to alternate between a debug session for a server (tcp) and a brower (websocket), without restarting the godebug cmd by also using the -continueserving flag.")
+	fs.StringVar(&fl.network, "network", "", "protocol to use to transmit debug data: [tcp, ws, unix, auto]. Option 'auto' detects a tcp client request to auto upgrade to http/websocket. Ex: useful to alternate between a debug session for a server (tcp) and a brower (websocket), without restarting the godebug cmd (use with -continueserving).")
 }
 
 func (fl *Flags) addNoDebugMsgFlag(fs *flag.FlagSet) {

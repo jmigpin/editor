@@ -166,7 +166,7 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 		return err
 	}
 
-	cmd.improveNetwork()
+	cmd.setupNetwork()
 	if err := cmd.setupAddress(); err != nil {
 		return err
 	}
@@ -590,8 +590,11 @@ func (cmd *Cmd) buildArgs() []string {
 
 //------------
 
-func (cmd *Cmd) improveNetwork() {
-	// performance: switch to unix sockets under certain conditions
+func (cmd *Cmd) setupNetwork() {
+	// do nothing if already set
+	if cmd.flags.network != "" {
+		return
+	}
 
 	// OS target to choose how to connect
 	goOs := osutil.GetEnv(cmd.env, "GOOS")
@@ -600,11 +603,20 @@ func (cmd *Cmd) improveNetwork() {
 	}
 
 	switch goOs {
+	case "js":
+		cmd.flags.network = "ws" // client side compile
 	case "linux":
-		if (cmd.flags.mode.run || cmd.flags.mode.test) &&
-			cmd.flags.network == "tcp" &&
-			cmd.flags.address == "" {
-			cmd.flags.network = "unix"
+		if cmd.flags.mode.run || cmd.flags.mode.test {
+			cmd.flags.network = "unix" // performance
+		}
+	}
+
+	// fallback
+	if cmd.flags.network == "" {
+		if cmd.flags.mode.connect {
+			cmd.flags.network = "auto" // tcp/ws
+		} else {
+			cmd.flags.network = "tcp"
 		}
 	}
 }
@@ -1047,7 +1059,7 @@ func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
 func (cmd *Cmd) printBuildInfo() {
 	info := []string{}
 
-	info = append(info, fmt.Sprintf("addr=(%v, %v)", cmd.flags.network, cmd.flags.address))
+	info = append(info, fmt.Sprintf("network=%v, addr=%v", cmd.flags.network, cmd.flags.address))
 
 	info = append(info, fmt.Sprintf("editorIsServer=%v", cmd.flags.editorIsServer))
 
