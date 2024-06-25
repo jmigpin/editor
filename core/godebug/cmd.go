@@ -496,7 +496,8 @@ func (cmd *Cmd) cleanupAfterStart() {
 	}
 	// always remove (written in src dir)
 	if cmd.tmpGoWorkFilename != "" {
-		_ = os.Remove(cmd.tmpGoWorkFilename) // best effort
+		_ = os.Remove(cmd.tmpGoWorkFilename)          // best effort
+		_ = os.Remove(cmd.tmpGoWorkFilename + ".sum") // best effort
 	}
 }
 
@@ -859,7 +860,7 @@ func (cmd *Cmd) buildAlternativeGoWork(ctx context.Context) error {
 
 	// create temporary go.work in same location as orig
 	dir := filepath.Dir(gwFilename)
-	gw2Filename := filepath.Join(dir, "godebug_go.work")
+	gw2Filename := filepath.Join(dir, "editor_godebug_go.work")
 	// must not exist
 	if _, err := os.Stat(gw2Filename); !os.IsNotExist(err) {
 		return fmt.Errorf("file already exists: %v", gw2Filename)
