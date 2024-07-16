@@ -607,6 +607,9 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2024/07/16: v3.10.0 (1 commits)
+	- update go.mod (golang.org/x/image)
+	- bump required version to go 1.21 (slices pkg)
 - 2024/07/16: v3.9.0 (58 commits)
 	- support go.work files
 	- history/undoredo crash fix
