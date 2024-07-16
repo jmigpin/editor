@@ -309,7 +309,7 @@ Usage of GoDebug run:
   -env string
     	string with env variables (ex: "a=1:b=2:...")
   -network string
-    	protocol to use to transmit debug data: [tcp, ws, unix, auto]. Option 'auto' detects a tcp client request to auto upgrade to http/websocket. Ex: useful to alternate between a debug session for a server (tcp) and a brower (websocket), without restarting the godebug cmd by also using the -continueserving flag. (default "tcp")
+    	protocol to use to transmit debug data: [tcp, ws, unix, auto]. Option 'auto' detects a tcp client request to auto upgrade to http/websocket. Ex: useful to alternate between a debug session for a server (tcp) and a brower (websocket), without restarting the godebug cmd (use with -continueserving).
   -nodebugmsg
     	omit debug messages
   -o string
@@ -607,6 +607,13 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2024/07/16: v3.9.0 (58 commits)
+	- support go.work files
+	- history/undoredo crash fix
+	- other crash fixes
+	- improved inserted comments shortcut
+	- godebug js/wasm support improvements
+	- overall stability improvements
 - 2024/04/03: v3.8.0 (28 commits)
 	- added $scrollMode=auto option
 	- added parsing "<filename>:o=<num>" offset
