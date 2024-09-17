@@ -3,7 +3,7 @@
 setenv script_keepwork true
 ucmd godebugtester run -work -srclines=false main.go
 #ucmd godebugtester run
-contains stdout "_.IsPathSeparator"
+contains stdout "_.Clean"
 
 -- go.mod --
 module mod1
