@@ -37,7 +37,7 @@ func NewJsonParser2() *JsonParser2 {
 	members := p.sc.W.PtrFn(&p.fn.members)
 	elements := p.sc.W.PtrFn(&p.fn.elements)
 
-	optSpaces := p.sc.W.Optional(p.sc.W.Spaces(true, 0))
+	optSpaces := p.sc.W.Optional(p.sc.M.SpacesIncludingNewline)
 
 	p.fn.object = p.sc.W.And(
 		p.sc.W.Rune('{'),
@@ -96,13 +96,15 @@ func NewJsonParser2() *JsonParser2 {
 			//),
 		),
 	)
-	p.fn.members = p.sc.W.LoopSepCanHaveLast(
+	p.fn.members = p.sc.W.LoopSep(
+		true,
 		p.sc.W.FatalOnError("member",
 			p.fn.member,
 		),
 		p.sc.W.Rune(','),
 	)
-	p.fn.elements = p.sc.W.LoopSepCanHaveLast(
+	p.fn.elements = p.sc.W.LoopSep(
+		true,
 		p.sc.W.FatalOnError("element",
 			p.fn.element,
 		),

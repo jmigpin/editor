@@ -70,7 +70,7 @@ func (sh *SyntaxHighlight) do() []*ColorizeOp {
 	sh.sc = iorw.NewScanner(r)
 	//sh.parens.pairs = []rune("{}()[]") // TODO: disabled
 
-	_, _ = sh.sc.M.Loop(sh.sc.SrcMin(), sh.sc.W.Or(
+	_, _ = sh.sc.M.LoopOneOrMore(sh.sc.SrcMin(), sh.sc.W.Or(
 		sh.parseString,
 		sh.parseComment,
 		//sh.parseParenthesis, // TODO: disabled
@@ -98,7 +98,7 @@ func (sh *SyntaxHighlight) parseComment2(pos int, c *drawutil.SyntaxHighlightCom
 		func(p3 int) (int, error) {
 			// single line comment
 			if c.IsLine {
-				return sh.sc.M.ToNLOrErr(p3, false, '\\')
+				return sh.sc.M.LoopUntilNLOrEof(p3, -1, false, '\\')
 
 				// TODO
 				//return sh.sc.W.OptLoop(p3,sh.sc.W.And(
@@ -108,7 +108,7 @@ func (sh *SyntaxHighlight) parseComment2(pos int, c *drawutil.SyntaxHighlightCom
 			}
 			// multi line comment
 			return sh.sc.M.And(p3,
-				sh.sc.W.OptLoop(sh.sc.W.And(
+				sh.sc.W.LoopZeroOrMore(sh.sc.W.And(
 					sh.sc.W.MustErr(sh.sc.W.Sequence(c.E)),
 					sh.sc.M.OneRune,
 				)),

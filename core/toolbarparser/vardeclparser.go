@@ -50,38 +50,30 @@ func (p *varDeclParser) parseVarDecl(src []byte) (*VarDecl, error) {
 func (p *varDeclParser) parseTildeVarDecl(pos int) (any, int, error) {
 	nameRe := "~(0|[1-9][0-9]*)"
 	vd := &VarDecl{}
-	vk := p.sc.NewValueKeepers(2)
 	if p2, err := p.sc.M.And(pos,
 		// name
-		vk[0].WKeepValue(p.sc.W.StringValue(p.sc.W.RegexpFromStartCached(nameRe, 100))),
+		pscan.WKeep(&vd.Name, p.sc.W.StrValue(p.sc.W.RegexpFromStartCached(nameRe, 100))),
 		// value
 		p.sc.W.Rune('='),
-		vk[1].WKeepValue(p.parseVarValue),
+		pscan.WKeep(&vd.Value, p.parseVarValue),
 	); err != nil {
 		return nil, p2, err
 	} else {
-		vd.Name = vk[0].V.(string)
-		vd.Value = vk[1].V.(string)
 		return vd, p2, err
 	}
 }
 func (p *varDeclParser) parseDollarVarDecl(pos int) (any, int, error) {
 	nameRe := "\\$[_a-zA-Z0-9]+"
-	vk := p.sc.NewValueKeepers(2)
+	vd := &VarDecl{}
 	if p2, err := p.sc.M.And(pos,
 		// name
-		vk[0].WKeepValue(p.sc.W.StringValue(p.sc.W.RegexpFromStartCached(nameRe, 100))),
+		pscan.WKeep(&vd.Name, p.sc.W.StrValue(p.sc.W.RegexpFromStartCached(nameRe, 100))),
 		// value (optional after =)
 		p.sc.W.Rune('='),
-		p.sc.W.Optional(vk[1].WKeepValue(p.parseVarValue)),
+		p.sc.W.Optional(pscan.WKeep(&vd.Value, p.parseVarValue)),
 	); err != nil {
 		return nil, p2, err
 	} else {
-		vd := &VarDecl{}
-		vd.Name = vk[0].V.(string)
-		if vk[1].V != nil {
-			vd.Value = vk[1].V.(string)
-		}
 		return vd, p2, err
 	}
 }
@@ -90,7 +82,7 @@ func (p *varDeclParser) parseDollarVarDecl(pos int) (any, int, error) {
 
 func (p *varDeclParser) parseVarValue(pos int) (any, int, error) {
 	notSpace := func(ru rune) bool { return !unicode.IsSpace(ru) }
-	if v, p2, err := p.sc.M.StringValue(pos, p.sc.W.Loop(p.sc.W.Or(
+	if v, p2, err := p.sc.M.StrValue(pos, p.sc.W.LoopOneOrMore(p.sc.W.Or(
 		p.sc.W.EscapeAny(osutil.EscapeRune),
 		p.sc.W.QuotedString2('\\', 3000, 3000),
 		p.sc.W.RuneFn(notSpace),

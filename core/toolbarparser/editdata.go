@@ -74,7 +74,7 @@ func insertCmdPartAtEnd(data *Data, cmd, arg string) uoipcResult {
 
 	// backtrack spaces (best effort)
 	p2 := len(data.Str)
-	if p3, err := sc.M.Loop(p2, sc.W.RuneOneOf([]rune(" \t"))); err == nil {
+	if p3, err := sc.M.LoopOneOrMore(p2, sc.W.RuneOneOf([]rune(" \t"))); err == nil {
 		p2 = p3
 	}
 

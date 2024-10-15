@@ -29,7 +29,7 @@ func (gp *grammarParser) parse(fset *FileSet) error {
 }
 func (gp *grammarParser) parseRules(pos int) (int, error) {
 	return gp.sc.M.And(pos,
-		gp.sc.W.Loop(gp.sc.W.Or(
+		gp.sc.W.LoopOneOrMore(gp.sc.W.Or(
 			gp.parseSpacesOrComments,
 			gp.parseDefRule,
 		)),
@@ -41,8 +41,8 @@ func (gp *grammarParser) parseDefRule(pos int) (int, error) {
 
 	isStart := false
 	isNoPrint := false
-	vkName := gp.sc.NewValueKeeper()
-	vkItem := gp.sc.NewValueKeeper()
+	name := ""
+	item := (Rule)(nil)
 	p2, err := gp.sc.M.And(pos,
 		gp.sc.W.Optional(gp.sc.W.And(
 			gp.sc.W.Sequence(defRuleStartSym),
@@ -52,13 +52,13 @@ func (gp *grammarParser) parseDefRule(pos int) (int, error) {
 			gp.sc.W.Sequence(defRuleNoPrintSym),
 			func(pos int) (int, error) { isNoPrint = true; return pos, nil },
 		)),
-		vkName.WKeepValue(gp.parseName),
+		pscan.WKeep(&name, gp.parseName),
 		gp.parseOptSpacesOrComments,
 		gp.sc.W.FatalOnError("expecting '='",
 			gp.sc.W.Rune('='),
 		),
 		gp.parseOptSpacesOrComments,
-		vkItem.WKeepValue(gp.parseItemRule),
+		pscan.WKeep(&item, gp.parseItemRule),
 		gp.parseOptSpacesOrComments,
 		gp.sc.W.FatalOnError("expecting close rule \";\"?",
 			gp.sc.W.Rune(';'),
@@ -68,14 +68,13 @@ func (gp *grammarParser) parseDefRule(pos int) (int, error) {
 		return p2, err
 	}
 
-	name := vkName.V.(string)
 	if gp.ri.has(name) {
 		return p2, fmt.Errorf("rule already defined: %v", name)
 	}
 
 	// setup
 	dr := &DefRule{name: name, isStart: isStart, isNoPrint: isNoPrint}
-	dr.setOnlyChild(vkItem.V.(Rule))
+	dr.setOnlyChild(item)
 	dr.SetPos(pos0, p2)
 	gp.ri.set(dr.name, dr)
 
@@ -83,7 +82,7 @@ func (gp *grammarParser) parseDefRule(pos int) (int, error) {
 }
 func (gp *grammarParser) parseName(pos int) (any, int, error) {
 	u := "[_a-zA-Z][_a-zA-Z0-9$]*"
-	return gp.sc.M.StringValue(pos, gp.sc.W.RegexpFromStartCached(u, 100))
+	return gp.sc.M.StrValue(pos, gp.sc.W.RegexpFromStartCached(u, 100))
 }
 
 //----------
@@ -100,12 +99,12 @@ func (gp *grammarParser) parseItemRule(pos int) (any, int, error) {
 func (gp *grammarParser) parseIfRule(pos int) (any, int, error) {
 	pos0 := pos
 
-	vk := gp.sc.NewValueKeepers(3)
+	rules := [3]Rule{}
 	p2, err := gp.sc.M.And(pos,
 		gp.sc.W.Sequence("if"),
 		gp.parseSpacesOrComments,
 		gp.sc.W.FatalOnError("expecting name",
-			vk[0].WKeepValue(gp.parseRefRule),
+			pscan.WKeep(&rules[0], gp.parseRefRule),
 		),
 		// then
 		gp.parseOptSpacesOrComments,
@@ -113,14 +112,14 @@ func (gp *grammarParser) parseIfRule(pos int) (any, int, error) {
 			gp.sc.W.Rune('?'),
 		),
 		gp.parseOptSpacesOrComments,
-		vk[1].WKeepValue(gp.parseItemRule),
+		pscan.WKeep(&rules[1], gp.parseItemRule),
 		// else
 		gp.parseOptSpacesOrComments,
 		gp.sc.W.FatalOnError("expecting ':'",
 			gp.sc.W.Rune(':'),
 		),
 		gp.parseOptSpacesOrComments,
-		vk[2].WKeepValue(gp.parseItemRule),
+		pscan.WKeep(&rules[2], gp.parseItemRule),
 	)
 	if err != nil {
 		return nil, p2, err
@@ -128,9 +127,7 @@ func (gp *grammarParser) parseIfRule(pos int) (any, int, error) {
 
 	// setup
 	res := &IfRule{}
-	res.addChilds(vk[0].V.(Rule))
-	res.addChilds(vk[1].V.(Rule))
-	res.addChilds(vk[2].V.(Rule))
+	res.addChilds(rules[:]...)
 	res.SetPos(pos0, p2)
 	return res, p2, nil
 }
@@ -139,11 +136,11 @@ func (gp *grammarParser) parseIfRule(pos int) (any, int, error) {
 
 func (gp *grammarParser) parseOrTreeRule(pos int) (any, int, error) {
 	w := []Rule{}
-	if p2, err := gp.sc.M.LoopSep(pos,
-		gp.sc.W.OnValue(
+	if p2, err := gp.sc.M.LoopSep(pos, false,
+		pscan.WOnValueM(
 			// precedence tree construction ("and" is higher precedence than "or")
 			gp.parseAndTreeRule,
-			func(v any) { w = append(w, v.(Rule)) },
+			func(v Rule) error { w = append(w, v); return nil },
 		),
 		// separator
 		gp.sc.W.And(
@@ -166,11 +163,11 @@ func (gp *grammarParser) parseOrTreeRule(pos int) (any, int, error) {
 func (gp *grammarParser) parseAndTreeRule(pos int) (any, int, error) {
 	w := []Rule{}
 	// NOTE: better than using a loopsep because it doesn't include the end spaces
-	if p2, err := gp.sc.M.Loop(pos, gp.sc.W.And(
+	if p2, err := gp.sc.M.LoopOneOrMore(pos, gp.sc.W.And(
 		gp.parseOptSpacesOrComments,
-		gp.sc.W.OnValue(
+		pscan.WOnValueM(
 			gp.parseBasicItemRule,
-			func(v any) { w = append(w, v.(Rule)) },
+			func(v Rule) error { w = append(w, v); return nil },
 		),
 	)); err != nil {
 		return nil, p2, err
@@ -196,20 +193,21 @@ func (gp *grammarParser) parseBasicItemRule(pos int) (any, int, error) {
 	)
 }
 func (gp *grammarParser) parseProcRule(pos int) (any, int, error) {
-	vkName := gp.sc.NewValueKeeper()
+	name := ""
 	args := []ProcRuleArg{}
 	if p2, err := gp.sc.M.And(pos,
 		gp.sc.W.Sequence("@"),
-		vkName.WKeepValue(gp.parseName),
+		pscan.WKeep(&name, gp.parseName),
 		gp.sc.W.Rune('('),
 		gp.parseOptSpacesOrComments,
 		gp.sc.W.LoopSep(
-			gp.sc.W.OnValue(
+			false,
+			pscan.WOnValueM(
 				gp.sc.W.OrValue(
 					gp.parseItemRule,
 					gp.sc.M.IntValue,
 				),
-				func(v any) { args = append(args, v.(ProcRuleArg)) },
+				func(v ProcRuleArg) error { args = append(args, v); return nil },
 			),
 			// separator
 			gp.sc.W.And(
@@ -224,7 +222,7 @@ func (gp *grammarParser) parseProcRule(pos int) (any, int, error) {
 		return nil, p2, err
 	} else {
 		res := &ProcRule{}
-		res.name = vkName.V.(string)
+		res.name = name
 		res.args = args
 		res.SetPos(pos, p2)
 		return res, p2, nil
@@ -241,7 +239,7 @@ func (gp *grammarParser) parseRefRule(pos int) (any, int, error) {
 }
 
 func (gp *grammarParser) parseStringRule(pos int) (any, int, error) {
-	if v, p2, err := gp.sc.M.StringValue(pos,
+	if v, p2, err := gp.sc.M.StrValue(pos,
 		gp.sc.W.StringSection("\"", '\\', true, 1000, false),
 	); err != nil {
 		return nil, p2, err
@@ -250,7 +248,7 @@ func (gp *grammarParser) parseStringRule(pos int) (any, int, error) {
 		str := v.(string)
 		u, err := strconv.Unquote(str)
 		if err != nil {
-			return nil, pos, gp.sc.EnsureFatalError(err)
+			return nil, pos, pscan.FatalError(err)
 		}
 
 		sr := &StringRule{}
@@ -260,14 +258,15 @@ func (gp *grammarParser) parseStringRule(pos int) (any, int, error) {
 	}
 }
 func (gp *grammarParser) parseParenRule(pos int) (any, int, error) {
-	vk := gp.sc.NewValueKeepers(2)
+	rule := (Rule)(nil)
+	ru := (*rune)(nil)
 	if p2, err := gp.sc.M.And(pos,
 		gp.sc.W.Rune('('),
 		gp.parseOptSpacesOrComments,
-		vk[0].WKeepValue(gp.parseItemRule),
+		pscan.WKeep(&rule, gp.parseItemRule),
 		gp.parseOptSpacesOrComments,
 		gp.sc.W.Rune(')'),
-		gp.sc.W.Optional(vk[1].WKeepValue(gp.sc.W.RuneValue(gp.sc.W.Or(
+		gp.sc.W.Optional(pscan.WKeep(&ru, gp.sc.W.RuneValue(gp.sc.W.Or(
 			gp.sc.W.Rune(rune(parenRTOptional)),
 			gp.sc.W.Rune(rune(parenRTZeroOrMore)),
 			gp.sc.W.Rune(rune(parenRTOneOrMore)),
@@ -280,9 +279,9 @@ func (gp *grammarParser) parseParenRule(pos int) (any, int, error) {
 		return nil, p2, err
 	} else {
 		res := &ParenRule{}
-		res.setOnlyChild(vk[0].V.(Rule))
-		if vk[1].V != nil {
-			res.typ = parenRType(vk[1].V.(rune))
+		res.setOnlyChild(rule)
+		if ru != nil {
+			res.typ = parenRType(*ru)
 		}
 		res.SetPos(pos, p2)
 		return res, p2, nil
@@ -295,8 +294,8 @@ func (gp *grammarParser) parseOptSpacesOrComments(pos int) (int, error) {
 	return gp.sc.M.Optional(pos, gp.parseSpacesOrComments)
 }
 func (gp *grammarParser) parseSpacesOrComments(pos int) (int, error) {
-	return gp.sc.M.Loop(pos, gp.sc.W.Or(
-		gp.sc.W.Spaces(true, 0),
+	return gp.sc.M.LoopOneOrMore(pos, gp.sc.W.Or(
+		gp.sc.M.SpacesIncludingNewline,
 		gp.parseComments,
 	))
 }
@@ -306,6 +305,6 @@ func (gp *grammarParser) parseComments(pos int) (int, error) {
 			gp.sc.W.Rune('#'),
 			gp.sc.W.Sequence("//"),
 		),
-		gp.sc.W.ToNLOrErr(true, 0),
+		gp.sc.W.LoopUntilNLOrEof(-1, true, 0),
 	)
 }

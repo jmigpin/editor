@@ -142,7 +142,7 @@ func ExpandLastIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) boo
 }
 
 func expandEscape(sc *pscan.Scanner, i int, truth bool, fn func(rune) bool, escape rune) int {
-	p2, _ := sc.M.Loop(i, sc.W.Or(
+	p2, _ := sc.M.LoopOneOrMore(i, sc.W.Or(
 		sc.W.EscapeAny(escape),
 		sc.W.RuneFn(func(ru rune) bool {
 			return fn(ru) != truth
@@ -156,7 +156,7 @@ func expandEscape(sc *pscan.Scanner, i int, truth bool, fn func(rune) bool, esca
 func ImproveExpandIndexEscape(r iorw.ReaderAt, i int, escape rune) int {
 	sc := iorw.NewScanner(r)
 	p2, _ := sc.M.ReverseMode(i, true,
-		sc.W.Loop(sc.W.Rune(escape)),
+		sc.W.LoopOneOrMore(sc.W.Rune(escape)),
 	)
 	return p2
 }

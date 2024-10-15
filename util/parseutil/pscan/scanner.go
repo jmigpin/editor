@@ -4,20 +4,23 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"unicode/utf8"
-
-	"github.com/jmigpin/editor/util/mathutil"
 )
 
 //go:generate go run ./wrapgen/wrapgen.go
 
-// NOTE: to debug, use fatal error wrappers
+// NOTE: to debug, use match.print* and fatal error wrappers
+// NOTE: to debug, activate DebugLimitedLoop
+
 type Scanner struct {
 	src       []byte
 	srcOffset int // src[0] position
 	Reverse   bool
-	M         *Match
-	W         *Wrap
+	Debug bool
+
+	M *Match
+	W *Wrap
 }
 
 func NewScanner() *Scanner {
@@ -26,6 +29,9 @@ func NewScanner() *Scanner {
 	sc.W = &Wrap{}
 	sc.M.init(sc)
 	sc.W.init(sc)
+
+	//sc.DebugLoop = true
+
 	return sc
 }
 
@@ -42,7 +48,7 @@ func (sc *Scanner) SetSrc2(src []byte, offset int) {
 //----------
 
 func (sc *Scanner) ValidPos(i int) int {
-	return mathutil.Max(sc.SrcMin(), mathutil.Min(i, sc.SrcLen()))
+	return max(sc.SrcMin(), min(i, sc.SrcMax()))
 }
 
 //----------
@@ -68,30 +74,34 @@ func (sc *Scanner) SrcFromTo(a, b int) []byte {
 func (sc *Scanner) SrcMin() int {
 	return sc.srcOffset
 }
-func (sc *Scanner) SrcLen() int {
+func (sc *Scanner) SrcMax() int {
 	return sc.srcOffset + len(sc.src)
 }
 
 //----------
 
 // WARNING: use with caution, using pos in resulting []byte might fail when there is offset
-func (sc *Scanner) SrcFullFromOffset() []byte {
-	return sc.SrcFromTo(sc.SrcMin(), sc.SrcLen())
+// func (sc *Scanner) SrcFullFromOffset() []byte {
+// return sc.SrcFromTo(sc.SrcMin(), sc.SrcMax())
+func (sc *Scanner) RawSrc() []byte {
+	return sc.src
 }
 
 //----------
 
-func (sc *Scanner) srcSection0(pos int, maxLen int) string {
-	start := mathutil.Max(pos-maxLen, sc.SrcMin())
-	end := mathutil.Min(pos+maxLen, sc.SrcLen())
-	src := sc.SrcFromTo(start, end)
-	return SurroundingString(src, pos-start, maxLen)
-}
 func (sc *Scanner) SrcSection(pos int) string {
-	return sc.srcSection0(pos, 35)
+	maxLen := 35
+	return SurroundingString(sc.src, pos-sc.SrcMin(), maxLen)
 }
 func (sc *Scanner) SrcError(pos int, err error) error {
-	return fmt.Errorf("%v: %v", err, sc.SrcSection(pos))
+	lc := ""
+	if l, c, ok := sc.SrcLineCol(pos); ok {
+		lc = fmt.Sprintf("%v:%v: ", l, c)
+	}
+	return fmt.Errorf("%v%v: %q", lc, err, sc.SrcSection(pos))
+}
+func (sc *Scanner) SrcLineCol(pos int) (int, int, bool) {
+	return FindLineColumn(sc.src, pos-sc.SrcMin())
 }
 
 //----------
@@ -105,7 +115,7 @@ func (sc *Scanner) ReadByte(pos int) (byte, int, error) {
 		b := sc.SrcByte(pos)
 		return b, pos, nil
 	} else {
-		if pos >= sc.SrcLen() {
+		if pos >= sc.SrcMax() {
 			return 0, pos, EOF
 		}
 		b := sc.SrcByte(pos)
@@ -133,59 +143,70 @@ func (sc *Scanner) ReadRune(pos int) (rune, int, error) {
 }
 
 //----------
-
-func (sc *Scanner) EnsureFatalError(err error) error {
-	e2, ok := err.(*Error)
-	if !ok {
-		e2 = &Error{err: err}
-	}
-	e2.Fatal = true
-	return e2
-}
-
+//----------
 //----------
 
-func (sc *Scanner) NewValueKeeper() *ValueKeeper {
-	return sc.NewValueKeepers(1)[0]
-}
-func (sc *Scanner) NewValueKeepers(n int) []*ValueKeeper {
-	w := make([]*ValueKeeper, n, n)
-	for i := 0; i < n; i++ {
-		w[i] = &ValueKeeper{sc: sc}
-	}
-	return w
-}
+type MFn = func(pos int) (int, error)      // match func
+type VFn = func(pos int) (any, int, error) // value func
 
 //----------
 //----------
 //----------
 
-type ValueKeeper struct {
-	sc *Scanner
-	V  any // value
-}
-
-func (vk *ValueKeeper) KeepValue(pos int, fn VFn) (int, error) {
-	vk.V = nil
-	if v, p2, err := fn(pos); err != nil {
+func Keep[T any](pos int, v *T, fn VFn) (int, error) {
+	p2, err := keep2[T](pos, v, fn)
+	if err != nil {
 		return p2, err
-	} else {
-		vk.V = v
+	}
+
+	// set position
+	if u, ok := any(v).(interface{ SetPos(pos int) }); ok {
+		u.SetPos(pos)
+	}
+	if u, ok := any(v).(interface{ SetPosEnd(pos, end int) }); ok {
+		u.SetPosEnd(pos, p2)
+	}
+
+	return p2, nil
+}
+func keep2[T any](pos int, v *T, fn VFn) (int, error) {
+	v2, p2, err := fn(pos)
+	if err != nil {
+		return p2, err
+	}
+
+	if u, ok := any(v).(interface{ Keep(any) error }); ok {
+		if err := u.Keep(v2); err != nil {
+			return p2, err
+		}
 		return p2, nil
 	}
+
+	v3, ok := v2.(T)
+	if ok {
+		*v = v3
+		return p2, nil
+	}
+
+	// special case: ex: assign string to *string
+	rv2 := reflect.ValueOf(v2)
+	v2ptr := reflect.New(rv2.Type())
+	v2ptr.Elem().Set(rv2)
+	v5, ok := (v2ptr.Interface()).(T)
+	if ok {
+		*v = v5
+		return p2, nil
+	}
+
+	var zero T
+	err = fmt.Errorf("pscan.keep: type is %T, not %T", v2, zero)
+	return 0, FatalError(err)
 }
-func (vk *ValueKeeper) WKeepValue(fn VFn) MFn {
+func WKeep[T any](v *T, fn VFn) MFn {
 	return func(pos int) (int, error) {
-		return vk.KeepValue(pos, fn)
+		return Keep(pos, v, fn)
 	}
 }
-
-//----------
-//----------
-//----------
-
-type MFn func(pos int) (int, error)      // match func
-type VFn func(pos int) (any, int, error) // value func
 
 //----------
 //----------
@@ -196,24 +217,39 @@ type Error struct {
 	Fatal bool
 }
 
-func (e Error) Error() string {
+func FatalError(err error) error {
+	//e2, ok := err.(*Error)
+	//if !ok {
+	//	e2 = &Error{err: err}
+	//}
+	//e2.Fatal = true
+	//return e2
+
+	if IsFatalError(err) {
+		return err
+	}
+	return &Error{err, true}
+}
+
+func (e *Error) Unwrap() error {
+	return e.err
+}
+func (e *Error) Error() string {
 	return e.err.Error()
 }
 
 //----------
 
-func errorIsFatal(err error) bool {
-	e, ok := err.(*Error)
-	return ok && e.Fatal
+func IsFatalError(err error) bool {
+	//e, ok := err.(*Error)
+	//return ok && e.Fatal
+
+	e := &Error{}
+	if errors.As(err, &e) {
+		return e.Fatal
+	}
+	return false
 }
-
-//----------
-//----------
-//----------
-
-var NoMatchErr = errors.New("no match")
-var EOF = io.EOF
-var SOF = errors.New("SOF") // start-of-file (as opposed to EOF)
 
 //----------
 //----------
@@ -231,3 +267,28 @@ func (rr RuneRange) IntersectsRange(rr2 RuneRange) bool {
 func (rr RuneRange) String() string {
 	return fmt.Sprintf("%q-%q", rr[0], rr[1])
 }
+
+//----------
+//----------
+//----------
+
+type AndOpt struct {
+	Reverse   *bool
+	OptSpaces *SpacesOpt // optional spaces, nil=no optional spaces
+}
+
+//----------
+
+type SpacesOpt struct {
+	IncludeNL bool
+	Esc       rune
+}                                     //
+func (opt SpacesOpt) HasEscape() bool { return opt.Esc != 0 }
+
+//----------
+//----------
+//----------
+
+var NoMatchErr = errors.New("no match")
+var EOF = io.EOF
+var SOF = errors.New("SOF") // start-of-file (as opposed to EOF)

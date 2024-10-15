@@ -8,21 +8,21 @@ func TestScan1(t *testing.T) {
 	p := 0
 	if p2, err := sc.M.And(p,
 		sc.W.Sequence("aa"),
-		sc.W.ToNLOrErr(false, 0),
+		sc.W.LoopUntilNLOrEof(100, false, 0),
 	); err != nil {
-		t.Fatal(err)
+		t.Fatal(sc.SrcError(p2, err))
 	} else if p2 != 2 {
 		t.Fatal(p2)
 	} else {
 		p = p2
 	}
 	if p3, err := sc.M.And(p,
-		sc.W.NRunes(1),
-		sc.W.ToNLOrErr(true, 0),
+		sc.W.OneRune(),
+		sc.W.LoopUntilNLOrEof(100, true, 0),
 	); err != nil {
 		t.Fatal(err)
 	} else if p3 != len(s) {
-		t.Fatal(p3)
+		t.Fatal(sc.SrcError(p3, err))
 	}
 }
 
@@ -61,6 +61,16 @@ func TestScan2(t *testing.T) {
 		t.Fatal(p)
 	}
 }
+func TestScan3(t *testing.T) {
+	s := "aabbb"
+	sc := newTestScanner(s)
+	p := 0
+	if p3, err := sc.M.LoopUntilNLOrEof(p, 100, true, 0); err != nil {
+		t.Fatal(err)
+	} else if p3 != len(s) {
+		t.Fatal(sc.SrcError(p3, err))
+	}
+}
 
 func TestScanQuote1(t *testing.T) {
 	s := `"aa\""bbb`
@@ -87,6 +97,7 @@ func TestScanQuote2(t *testing.T) {
 		t.Fatal(sc.SrcSection(p2))
 	}
 }
+
 func TestEscape1(t *testing.T) {
 	s := `a\`
 	sc := newTestScanner(s)
@@ -121,6 +132,18 @@ func TestEscape4(t *testing.T) {
 	p := len(s)
 	sc.Reverse = true
 	if p2, err := sc.M.EscapeAny(p, '\\'); err != nil || p2 != 2 {
+		t.Fatal(sc.SrcError(p2, err))
+	}
+}
+
+//----------
+
+func TestSpaces1(t *testing.T) {
+	s := "abc\n123"
+	sc := newTestScanner(s)
+	//sc.DebugLoop = true
+	p := 3
+	if p2, err := sc.M.EmptyRestOfLine(p); err != nil || p2 != 4 {
 		t.Fatal(sc.SrcError(p2, err))
 	}
 }
@@ -183,16 +206,16 @@ func TestLoopSep0ReUse(t *testing.T) {
 	}
 }
 
-func testLoopSep0F1(sc *Scanner, lastSep bool) MFn {
+func testLoopSep0F1(sc *Scanner, hasLastSep bool) MFn {
 	sep := sc.W.Rune(',')
-	accept := sc.W.And(
+	accept := sc.W.AndNoReverse(
 		sc.W.MustErr(sep),
 		sc.M.OneRune,
 	)
-	return sc.W.loopSep0(
+	return sc.W.LoopSep(
+		hasLastSep,
 		accept,
 		sep,
-		lastSep,
 	)
 }
 
@@ -225,6 +248,21 @@ func TestSection2(t *testing.T) {
 		t.Fatal(sc.SrcSection(p2))
 	}
 }
+func TestSection3(t *testing.T) {
+	s := "(a\\\nb)"
+	//s := "(a\nb)"
+	sc := newTestScanner(s)
+	p := 0
+
+	fn := sc.W.Section("(", ")", '\\', true, 1000, false, sc.M.OneRune)
+
+	if p2, err := fn(p); err != nil {
+		t.Fatal(sc.SrcError(p2, err))
+	} else if p2 != len(s) {
+		t.Fatal(sc.SrcSection(p2))
+	}
+}
+
 func testSectionF1(sc *Scanner) MFn {
 	return sc.W.Section("(", ")", 0, true, 1000, false, sc.M.OneRune)
 }
@@ -307,6 +345,10 @@ func TestSequenceExpand(t *testing.T) {
 }
 
 //----------
+
+// TODO: tests for scanner that ignores spaces (and comments?)
+
+//----------
 //----------
 //----------
 
@@ -330,7 +372,7 @@ func BenchmarkScan1(b *testing.B) {
 
 	sc := newTestScanner(s)
 
-	fn := sc.W.Loop(
+	fn := sc.W.LoopOneOrMore(
 		sc.W.Or(
 			sc.W.Rune('0'),
 			sc.W.Rune('1'),

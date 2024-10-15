@@ -45,8 +45,8 @@ func (ph *ParenthesisHighlight) do() []*ColorizeOp {
 
 	// match a parenthesis
 	pairs := []rune("(){}[]")
-	vk := ph.sc.NewValueKeeper()
-	parseOpen := vk.WKeepValue(ph.sc.W.RuneValue(ph.sc.W.RuneOneOf(pairs)))
+	sym := rune(0)
+	parseOpen := pscan.WKeep(&sym, ph.sc.W.RuneValue(ph.sc.W.RuneOneOf(pairs)))
 	_, err := parseOpen(pos0)
 	if err != nil {
 		//return nil // error: no results returned
@@ -63,7 +63,6 @@ func (ph *ParenthesisHighlight) do() []*ColorizeOp {
 	openPos := pos0
 
 	// resolve open/close runes
-	sym := vk.V.(rune)
 	k := strings.Index(string(pairs), string(sym))
 	isOpen := k%2 == 0
 	if isOpen {
@@ -98,7 +97,7 @@ func (ph *ParenthesisHighlight) do() []*ColorizeOp {
 	}
 	_, _ = ph.sc.M.ReverseMode(pos0,
 		reverse,
-		ph.sc.W.Loop(ph.sc.W.And(
+		ph.sc.W.LoopOneOrMore(ph.sc.W.And(
 			ph.sc.W.PtrFalse(&done),
 			ph.sc.W.Or(
 

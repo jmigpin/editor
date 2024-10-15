@@ -18,9 +18,21 @@ func (w *Wrap) And(fns ...MFn) MFn {
 	}
 }
 
-func (w *Wrap) AndR(fns ...MFn) MFn {
+func (w *Wrap) AndNoReverse(fns ...MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.AndR(pos, fns...)
+		return w.M.AndNoReverse(pos, fns...)
+	}
+}
+
+func (w *Wrap) AndOptSpaces(sopt SpacesOpt, fns ...MFn) MFn {
+	return func(pos int) (int, error) {
+		return w.M.AndOptSpaces(pos, sopt, fns...)
+	}
+}
+
+func (w *Wrap) And2(aopt AndOpt, fns ...MFn) MFn {
+	return func(pos int) (int, error) {
+		return w.M.And2(pos, aopt, fns...)
 	}
 }
 
@@ -33,6 +45,12 @@ func (w *Wrap) Or(fns ...MFn) MFn {
 func (w *Wrap) Optional(fn MFn) MFn {
 	return func(pos int) (int, error) {
 		return w.M.Optional(pos, fn)
+	}
+}
+
+func (w *Wrap) Peek(fn MFn) MFn {
+	return func(pos int) (int, error) {
+		return w.M.Peek(pos, fn)
 	}
 }
 
@@ -156,45 +174,45 @@ func (w *Wrap) RuneRanges(rrs ...RuneRange) MFn {
 	}
 }
 
-func (w *Wrap) LimitedLoop(min, max int, fn MFn) MFn {
+func (w *Wrap) Loop(min, max int, fn MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.LimitedLoop(pos, min, max, fn)
+		return w.M.Loop(pos, min, max, fn)
 	}
 }
 
-func (w *Wrap) Loop(fn MFn) MFn {
+func (w *Wrap) LoopOneOrMore(fn MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.Loop(pos, fn)
+		return w.M.LoopOneOrMore(pos, fn)
 	}
 }
 
-func (w *Wrap) OptLoop(fn MFn) MFn {
+func (w *Wrap) LoopZeroOrMore(fn MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.OptLoop(pos, fn)
+		return w.M.LoopZeroOrMore(pos, fn)
 	}
 }
 
-func (w *Wrap) NLoop(n int, fn MFn) MFn {
+func (w *Wrap) LoopN(n int, fn MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.NLoop(pos, n, fn)
+		return w.M.LoopN(pos, n, fn)
 	}
 }
 
-func (w *Wrap) loopSep0(fn, sep MFn, lastSep bool) MFn {
+func (w *Wrap) LoopSep(optLastSep bool, fn, sepFn MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.loopSep0(pos, fn, sep, lastSep)
+		return w.M.LoopSep(pos, optLastSep, fn, sepFn)
 	}
 }
 
-func (w *Wrap) LoopSep(fn, sep MFn) MFn {
+func (w *Wrap) LoopStartEnd(min, max int, startFn, consumeFn, endFn MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.LoopSep(pos, fn, sep)
+		return w.M.LoopStartEnd(pos, min, max, startFn, consumeFn, endFn)
 	}
 }
 
-func (w *Wrap) LoopSepCanHaveLast(fn, sep MFn) MFn {
+func (w *Wrap) LoopUntilNLOrEof(max int, includeNL bool, esc rune) MFn {
 	return func(pos int) (int, error) {
-		return w.M.LoopSepCanHaveLast(pos, fn, sep)
+		return w.M.LoopUntilNLOrEof(pos, max, includeNL, esc)
 	}
 }
 
@@ -204,9 +222,45 @@ func (w *Wrap) PtrFn(fn *MFn) MFn {
 	}
 }
 
-func (w *Wrap) Spaces(includeNL bool, escape rune) MFn {
+func (w *Wrap) Newline() MFn {
 	return func(pos int) (int, error) {
-		return w.M.Spaces(pos, includeNL, escape)
+		return w.M.Newline(pos)
+	}
+}
+
+func (w *Wrap) Spaces(opt SpacesOpt) MFn {
+	return func(pos int) (int, error) {
+		return w.M.Spaces(pos, opt)
+	}
+}
+
+func (w *Wrap) SpacesExceptNewline() MFn {
+	return func(pos int) (int, error) {
+		return w.M.SpacesExceptNewline(pos)
+	}
+}
+
+func (w *Wrap) SpacesIncludingNewline() MFn {
+	return func(pos int) (int, error) {
+		return w.M.SpacesIncludingNewline(pos)
+	}
+}
+
+func (w *Wrap) EmptyLine() MFn {
+	return func(pos int) (int, error) {
+		return w.M.EmptyLine(pos)
+	}
+}
+
+func (w *Wrap) EmptyEof() MFn {
+	return func(pos int) (int, error) {
+		return w.M.EmptyEof(pos)
+	}
+}
+
+func (w *Wrap) EmptyRestOfLine() MFn {
+	return func(pos int) (int, error) {
+		return w.M.EmptyRestOfLine(pos)
 	}
 }
 
@@ -216,15 +270,9 @@ func (w *Wrap) EscapeAny(escape rune) MFn {
 	}
 }
 
-func (w *Wrap) ToNLOrErr(includeNL bool, esc rune) MFn {
+func (w *Wrap) Section(open, close string, esc rune, failOnNewline bool, max int, eofClose bool, consumeFn MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.ToNLOrErr(pos, includeNL, esc)
-	}
-}
-
-func (w *Wrap) Section(open, close string, esc rune, failOnNewline bool, maxLen int, eofClose bool, consumeFn MFn) MFn {
-	return func(pos int) (int, error) {
-		return w.M.Section(pos, open, close, esc, failOnNewline, maxLen, eofClose, consumeFn)
+		return w.M.Section(pos, open, close, esc, failOnNewline, max, eofClose, consumeFn)
 	}
 }
 
@@ -288,6 +336,30 @@ func (w *Wrap) Float() MFn {
 	}
 }
 
+func (w *Wrap) FloatOrInteger() MFn {
+	return func(pos int) (int, error) {
+		return w.M.FloatOrInteger(pos)
+	}
+}
+
+func (w *Wrap) Identifier() MFn {
+	return func(pos int) (int, error) {
+		return w.M.Identifier(pos)
+	}
+}
+
+func (w *Wrap) LettersAndDigits() MFn {
+	return func(pos int) (int, error) {
+		return w.M.LettersAndDigits(pos)
+	}
+}
+
+func (w *Wrap) HexBytes() MFn {
+	return func(pos int) (int, error) {
+		return w.M.HexBytes(pos)
+	}
+}
+
 func (w *Wrap) RegexpFromStart(res string, cache bool, maxLen int) MFn {
 	return func(pos int) (int, error) {
 		return w.M.RegexpFromStart(pos, res, cache, maxLen)
@@ -318,21 +390,9 @@ func (w *Wrap) PtrFalse(v *bool) MFn {
 	}
 }
 
-func (w *Wrap) StaticTrue(v bool) MFn {
+func (w *Wrap) StaticCondFn(v bool, tfn, ffn MFn) MFn {
 	return func(pos int) (int, error) {
-		return w.M.StaticTrue(pos, v)
-	}
-}
-
-func (w *Wrap) StaticFalse(v bool) MFn {
-	return func(pos int) (int, error) {
-		return w.M.StaticFalse(pos, v)
-	}
-}
-
-func (w *Wrap) FnTrue(fn func() bool) MFn {
-	return func(pos int) (int, error) {
-		return w.M.FnTrue(pos, fn)
+		return w.M.StaticCondFn(pos, v, tfn, ffn)
 	}
 }
 
@@ -354,15 +414,27 @@ func (w *Wrap) ReverseMode(reverse bool, fn MFn) MFn {
 	}
 }
 
-func (w *Wrap) OnValue(fn VFn, cb func(any)) MFn {
-	return func(pos int) (int, error) {
-		return w.M.OnValue(pos, fn, cb)
+func (w *Wrap) LoopValue(min, max int, fn VFn) VFn {
+	return func(pos int) (any, int, error) {
+		return w.M.LoopValue(pos, min, max, fn)
 	}
 }
 
-func (w *Wrap) OnValue2(fn VFn, cb func(any) error) MFn {
-	return func(pos int) (int, error) {
-		return w.M.OnValue2(pos, fn, cb)
+func (w *Wrap) LoopSepValue(optLastSep bool, fn VFn, sepFn MFn) VFn {
+	return func(pos int) (any, int, error) {
+		return w.M.LoopSepValue(pos, optLastSep, fn, sepFn)
+	}
+}
+
+func (w *Wrap) AndValue(fns ...VFn) VFn {
+	return func(pos int) (any, int, error) {
+		return w.M.AndValue(pos, fns...)
+	}
+}
+
+func (w *Wrap) AndFlexValue(fns ...any) VFn {
+	return func(pos int) (any, int, error) {
+		return w.M.AndFlexValue(pos, fns...)
 	}
 }
 
@@ -372,15 +444,27 @@ func (w *Wrap) OrValue(fns ...VFn) VFn {
 	}
 }
 
+func (w *Wrap) OptionalValue(fn VFn) VFn {
+	return func(pos int) (any, int, error) {
+		return w.M.OptionalValue(pos, fn)
+	}
+}
+
+func (w *Wrap) NilValue(fn MFn) VFn {
+	return func(pos int) (any, int, error) {
+		return w.M.NilValue(pos, fn)
+	}
+}
+
 func (w *Wrap) BytesValue(fn MFn) VFn {
 	return func(pos int) (any, int, error) {
 		return w.M.BytesValue(pos, fn)
 	}
 }
 
-func (w *Wrap) StringValue(fn MFn) VFn {
+func (w *Wrap) StrValue(fn MFn) VFn {
 	return func(pos int) (any, int, error) {
-		return w.M.StringValue(pos, fn)
+		return w.M.StrValue(pos, fn)
 	}
 }
 
@@ -408,26 +492,62 @@ func (w *Wrap) Int64Value() VFn {
 	}
 }
 
+func (w *Wrap) Float32Value() VFn {
+	return func(pos int) (any, int, error) {
+		return w.M.Float32Value(pos)
+	}
+}
+
 func (w *Wrap) Float64Value() VFn {
 	return func(pos int) (any, int, error) {
 		return w.M.Float64Value(pos)
 	}
 }
 
-func (w *Wrap) PrintfNoErr(f string, args ...any) MFn {
+func (w *Wrap) Printf(f string, args ...any) MFn {
 	return func(pos int) (int, error) {
-		return w.M.PrintfNoErr(pos, f, args...)
+		return w.M.Printf(pos, f, args...)
 	}
 }
 
-func (w *Wrap) PrintfErr(f string, args ...any) MFn {
+func (w *Wrap) PrintfForOr(f string, args ...any) MFn {
 	return func(pos int) (int, error) {
-		return w.M.PrintfErr(pos, f, args...)
+		return w.M.PrintfForOr(pos, f, args...)
+	}
+}
+
+func (w *Wrap) PrintLineColAndSrc() MFn {
+	return func(pos int) (int, error) {
+		return w.M.PrintLineColAndSrc(pos)
+	}
+}
+
+func (w *Wrap) PrintLineColAndSrcForOr() MFn {
+	return func(pos int) (int, error) {
+		return w.M.PrintLineColAndSrcForOr(pos)
+	}
+}
+
+func (w *Wrap) PrintPosAndSrc() MFn {
+	return func(pos int) (int, error) {
+		return w.M.PrintPosAndSrc(pos)
+	}
+}
+
+func (w *Wrap) PrintPosAndSrcForOr() MFn {
+	return func(pos int) (int, error) {
+		return w.M.PrintPosAndSrcForOr(pos)
 	}
 }
 
 func (w *Wrap) FatalOnError(s string, fn MFn) MFn {
 	return func(pos int) (int, error) {
 		return w.M.FatalOnError(pos, s, fn)
+	}
+}
+
+func (w *Wrap) FailForOr(fn MFn) MFn {
+	return func(pos int) (int, error) {
+		return w.M.FailForOr(pos, fn)
 	}
 }

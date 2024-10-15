@@ -1,22 +1,9 @@
 package pscan
 
-import "github.com/jmigpin/editor/util/mathutil"
-
-func ContainsRune(rs []rune, ru rune) bool {
-	for _, ru2 := range rs {
-		if ru2 == ru {
-			return true
-		}
-	}
-	return false
-}
-
-//----------
-
 func SurroundingString(b []byte, k int, pad int) string {
 	// pad n in each direction for error string
-	i := mathutil.Max(k-pad, 0)
-	i2 := mathutil.Min(k+pad, len(b))
+	i := max(k-pad, 0)
+	i2 := min(k+pad, len(b))
 
 	if i > i2 {
 		return ""
@@ -39,4 +26,24 @@ func SurroundingString(b []byte, k int, pad int) string {
 		s2 = s2 + "..."
 	}
 	return s2
+}
+
+//----------
+
+// probably belongs to a textutil pkg, but here to reduce dependencies
+func FindLineColumn(data []byte, pos int) (int, int, bool) {
+	if pos > len(data) {
+		return 0, 0, false
+	}
+	line, col := 1, 1
+	for i := 0; i < pos; i++ {
+		b := data[i]
+		if b == '\n' {
+			line++
+			col = 1
+		} else {
+			col++
+		}
+	}
+	return line, col, true
 }

@@ -24,12 +24,12 @@ type ResLocParser struct {
 		reverse  MFn
 	}
 	vk struct {
-		scheme *pscan.ValueKeeper
-		volume *pscan.ValueKeeper
-		path   *pscan.ValueKeeper
-		line   *pscan.ValueKeeper
-		column *pscan.ValueKeeper
-		offset *pscan.ValueKeeper
+		scheme *string
+		volume *string
+		path   *string
+		line   *int
+		column *int
+		offset *int
 	}
 }
 
@@ -46,19 +46,13 @@ func NewResLocParser() *ResLocParser {
 func (p *ResLocParser) Init() {
 	sc := p.sc
 
-	p.vk.scheme = sc.NewValueKeeper()
-	p.vk.volume = sc.NewValueKeeper()
-	p.vk.path = sc.NewValueKeeper()
-	p.vk.line = sc.NewValueKeeper()
-	p.vk.column = sc.NewValueKeeper()
-	p.vk.offset = sc.NewValueKeeper()
 	resetVks := func(pos int) (int, error) {
-		p.vk.scheme.V = nil
-		p.vk.volume.V = nil
-		p.vk.path.V = nil
-		p.vk.line.V = nil
-		p.vk.column.V = nil
-		p.vk.offset.V = nil
+		p.vk.scheme = nil
+		p.vk.volume = nil
+		p.vk.path = nil
+		p.vk.line = nil
+		p.vk.column = nil
+		p.vk.offset = nil
 		return pos, nil
 	}
 
@@ -72,7 +66,7 @@ func (p *ResLocParser) Init() {
 	volume := func(pathSepFn MFn) MFn {
 		if p.ParseVolume {
 			return sc.W.And(
-				p.vk.volume.WKeepValue(sc.W.StringValue(sc.W.And(
+				pscan.WKeep(&p.vk.volume, sc.W.StrValue(sc.W.And(
 					sc.M.Letter,
 					sc.W.Rune(':'),
 				))),
@@ -99,7 +93,7 @@ func (p *ResLocParser) Init() {
 		sc.M.Letter,
 		nameSyms(cPathSepRu, cEscRu),
 	)
-	cNames := sc.W.Loop(sc.W.Or(
+	cNames := sc.W.LoopOneOrMore(sc.W.Or(
 		cName,
 		cPathSep,
 	))
@@ -109,18 +103,18 @@ func (p *ResLocParser) Init() {
 	)
 	cLineCol := sc.W.And(
 		sc.W.Rune(':'),
-		p.vk.line.WKeepValue(sc.M.IntValue), // line
+		pscan.WKeep(&p.vk.line, sc.M.IntValue), // line
 		sc.W.Optional(sc.W.And(
 			sc.W.Rune(':'),
-			p.vk.column.WKeepValue(sc.M.IntValue), // column
+			pscan.WKeep(&p.vk.column, sc.M.IntValue), // column
 		)),
 	)
 	cOffset := sc.W.And(
 		sc.W.Sequence(":o="),
-		p.vk.offset.WKeepValue(sc.M.IntValue),
+		pscan.WKeep(&p.vk.offset, sc.M.IntValue),
 	)
 	cFile := sc.W.And(
-		p.vk.path.WKeepValue(sc.W.StringValue(cPath)),
+		pscan.WKeep(&p.vk.path, sc.W.StrValue(cPath)),
 		sc.W.Optional(sc.W.Or(cOffset, cLineCol)),
 	)
 
@@ -137,7 +131,7 @@ func (p *ResLocParser) Init() {
 		sc.M.Letter,
 		nameSyms(schPathSepRu, schEscRu),
 	)
-	schNames := sc.W.Loop(sc.W.Or(
+	schNames := sc.W.LoopOneOrMore(sc.W.Or(
 		schName,
 		schPathSep,
 	))
@@ -148,10 +142,10 @@ func (p *ResLocParser) Init() {
 	)
 	schFileTagS := "file://"
 	schFile := sc.W.And(
-		p.vk.scheme.WKeepValue(sc.W.StringValue(
+		pscan.WKeep(&p.vk.scheme, sc.W.StrValue(
 			sc.W.Sequence(schFileTagS)),
 		),
-		p.vk.path.WKeepValue(sc.W.StringValue(schPath)),
+		pscan.WKeep(&p.vk.path, sc.W.StrValue(schPath)),
 		sc.W.Optional(cLineCol),
 	)
 
@@ -161,7 +155,7 @@ func (p *ResLocParser) Init() {
 	dquote := sc.W.Rune('"') // double quote
 	dquotedFile := sc.W.And(
 		dquote,
-		p.vk.path.WKeepValue(sc.W.StringValue(cPath)),
+		pscan.WKeep(&p.vk.path, sc.W.StrValue(cPath)),
 		dquote,
 	)
 
@@ -173,7 +167,7 @@ func (p *ResLocParser) Init() {
 		dquotedFile,
 		sc.W.And(
 			sc.W.Sequence(pyLineTagS),
-			p.vk.line.WKeepValue(sc.M.IntValue),
+			pscan.WKeep(&p.vk.line, sc.M.IntValue),
 		),
 	)
 
@@ -182,10 +176,10 @@ func (p *ResLocParser) Init() {
 	// ex: "/a/b.txt: line 23"
 	shellLineTagS := ": line "
 	shellFile := sc.W.And(
-		p.vk.path.WKeepValue(sc.W.StringValue(cPath)),
+		pscan.WKeep(&p.vk.path, sc.W.StrValue(cPath)),
 		sc.W.And(
 			sc.W.Sequence(shellLineTagS),
-			p.vk.line.WKeepValue(sc.M.IntValue),
+			pscan.WKeep(&p.vk.line, sc.M.IntValue),
 		),
 	)
 
@@ -203,7 +197,7 @@ func (p *ResLocParser) Init() {
 	//----------
 	//----------
 
-	revNames := sc.W.Loop(
+	revNames := sc.W.LoopOneOrMore(
 		sc.W.Or(
 			cName,
 			//schName, // can't reverse, contains fixed '\\' escape that can conflit with platform not considering it an escape
@@ -213,16 +207,16 @@ func (p *ResLocParser) Init() {
 			schPathSep,
 		),
 	)
-	p.fn.reverse = sc.W.ReverseMode(true, sc.W.AndR(
+	p.fn.reverse = sc.W.ReverseMode(true, sc.W.And(
 		sc.W.Optional(dquote),
 		//sc.P.Optional(cVolume),
 		//sc.P.Optional(schVolume),
 		sc.W.Optional(sc.W.SequenceMid(schFileTagS)),
-		sc.W.Optional(sc.W.Loop(sc.W.Or(
+		sc.W.Optional(sc.W.LoopOneOrMore(sc.W.Or(
 			cPathSep,
 			schPathSep,
 		))),
-		sc.W.Optional(sc.W.AndR(
+		sc.W.Optional(sc.W.And(
 			sc.M.Letter,
 			sc.W.Rune(':'), // volume
 		)),
@@ -231,7 +225,7 @@ func (p *ResLocParser) Init() {
 		sc.W.Optional(sc.W.SequenceMid(pyLineTagS)),
 		sc.W.Optional(sc.W.SequenceMid(shellLineTagS)),
 		// c line column / offset
-		sc.W.Optional(sc.W.Loop(sc.W.Or(
+		sc.W.Optional(sc.W.LoopOneOrMore(sc.W.Or(
 			sc.W.Rune(':'),
 			sc.W.RuneOneOf([]rune("o=")), // offset
 			sc.M.Digit,
@@ -257,23 +251,23 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 	}
 
 	rl := NewResLoc()
-	if p.vk.scheme.V != nil {
-		rl.Scheme = p.vk.scheme.V.(string)
+	if p.vk.scheme != nil {
+		rl.Scheme = *p.vk.scheme
 	}
-	if p.vk.volume.V != nil {
-		rl.Volume = p.vk.volume.V.(string)
+	if p.vk.volume != nil {
+		rl.Volume = *p.vk.volume
 	}
-	if p.vk.path.V != nil {
-		rl.Path = p.vk.path.V.(string)
+	if p.vk.path != nil {
+		rl.Path = *p.vk.path
 	}
-	if p.vk.line.V != nil {
-		rl.Line = p.vk.line.V.(int)
+	if p.vk.line != nil {
+		rl.Line = *p.vk.line
 	}
-	if p.vk.column.V != nil {
-		rl.Column = p.vk.column.V.(int)
+	if p.vk.column != nil {
+		rl.Column = *p.vk.column
 	}
-	if p.vk.offset.V != nil {
-		rl.Offset = p.vk.offset.V.(int)
+	if p.vk.offset != nil {
+		rl.Offset = *p.vk.offset
 	}
 	rl.Escape = p.Escape
 	rl.PathSep = p.PathSeparator

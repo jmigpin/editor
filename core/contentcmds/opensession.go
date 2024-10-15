@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
 
 func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) {
@@ -35,11 +36,11 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 
 	parseName := sc.W.RuneFnLoop(sessionNameRune)
 	cmdStr := "OpenSession"
-	vkName := sc.NewValueKeeper()
+	name := ""
 	parseCmdAndName := sc.W.And(
 		sc.W.Sequence(cmdStr),
-		sc.W.Spaces(false, 0),
-		vkName.WKeepValue(sc.W.StringValue(parseName)),
+		sc.M.SpacesExceptNewline,
+		pscan.WKeep(&name, sc.W.StrValue(parseName)),
 	)
 
 	if p2, err := sc.M.Or(index,
@@ -53,9 +54,9 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 		),
 		// index at: "OpenSession ●sessionname●"
 		sc.W.And(
-			sc.W.ReverseMode(true, sc.W.AndR(
+			sc.W.ReverseMode(true, sc.W.And(
 				sc.W.Sequence(cmdStr),
-				sc.W.Spaces(false, 0),
+				sc.M.SpacesExceptNewline,
 				sc.W.Optional(parseName),
 			)),
 			parseCmdAndName,
@@ -63,7 +64,7 @@ func sessionName(rd iorw.ReaderAt, index int) (string, error) {
 	); err != nil {
 		return "", sc.SrcError(p2, err)
 	} else {
-		return vkName.V.(string), nil
+		return name, nil
 	}
 }
 

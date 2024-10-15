@@ -175,10 +175,10 @@ func (d *BuildNodeData) End() int {
 	return d.cpn.End()
 }
 func (d *BuildNodeData) NodeSrc() string {
-	return PNodeString(d.cpn, d.cpr.ps.Sc.SrcFullFromOffset())
+	return PNodeString(d.cpn, d.cpr.ps.Sc.RawSrc())
 }
 func (d *BuildNodeData) FullSrc() []byte {
-	return d.cpr.ps.Sc.SrcFullFromOffset()
+	return d.cpr.ps.Sc.RawSrc()
 }
 func (d *BuildNodeData) Data() any {
 	return d.cpn.data
@@ -196,7 +196,7 @@ func (d *BuildNodeData) ExternalData() any {
 //----------
 
 func (d *BuildNodeData) SprintRuleTree(maxDepth int) string {
-	return SprintNodeTree(d.cpr.ps.Sc.SrcFullFromOffset(), d.cpn, maxDepth)
+	return SprintNodeTree(d.cpr.ps.Sc.RawSrc(), d.cpn, maxDepth)
 }
 func (d *BuildNodeData) PrintRuleTree(maxDepth int) {
 	fmt.Printf("%v\n", d.SprintRuleTree(maxDepth))
@@ -213,7 +213,7 @@ func (d *BuildNodeData) Child(i int) *BuildNodeData {
 	return newBuildNodeData(d.cpr, d.cpn.childs[i])
 }
 func (d *BuildNodeData) ChildStr(i int) string {
-	return PNodeString(d.cpn.childs[i], d.cpr.ps.Sc.SrcFullFromOffset())
+	return PNodeString(d.cpn.childs[i], d.cpr.ps.Sc.RawSrc())
 }
 func (d *BuildNodeData) ChildInt(i int) (int, error) {
 	s := d.ChildStr(i)

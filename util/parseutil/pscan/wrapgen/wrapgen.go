@@ -2,21 +2,14 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
 	"fmt"
 	"go/ast"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"io/ioutil"
 	"strings"
-
-	"github.com/jmigpin/editor/util/astut"
 )
-
-// var input = "../scmatch.go"
-// var output = "../scwrap.go"
-var input = "./match.go"
-var output = "./wrap.go"
 
 func main() {
 	if err := main2(); err != nil {
@@ -24,19 +17,15 @@ func main() {
 	}
 }
 func main2() error {
-	//src, err := ioutil.ReadFile(input)
-	//if err != nil {
-	//	return err
-	//}
-	//fmt.Printf("%s\n", src)
+	// called from "../" with "go run ./wrapgen/wrapgen.go"
+	input := "./match.go"
+	output := "./wrap.go"
 
 	fset := &token.FileSet{}
-	//f, err := parser.ParseFile(fset, input, src, 0)
 	f, err := parser.ParseFile(fset, input, nil, 0)
 	if err != nil {
 		return err
 	}
-	//fmt.Printf("%s\n", f)
 
 	b, err := build(fset, f)
 	if err != nil {
@@ -236,6 +225,9 @@ func MustSprintNode(fset *token.FileSet, node0 any, fieldNamesFn func(string)) s
 			results := fn(t.Results)
 			funcTypeDepth--
 			if results != "" {
+				if len(t.Results.List) >= 2 {
+					results = fmt.Sprintf("(%s)", results)
+				}
 				results = " " + results
 			}
 			return fmt.Sprintf("func(%s)%s", params, results)
@@ -245,7 +237,8 @@ func MustSprintNode(fset *token.FileSet, node0 any, fieldNamesFn func(string)) s
 		//----------
 
 		case *ast.Ident:
-			s, err := astut.SprintNode2(fset, node)
+			//s, err := astut.SprintNode2(fset, node)
+			s, err := SprintNode2(fset, node)
 			if err != nil {
 				panic(err)
 			}
@@ -255,4 +248,15 @@ func MustSprintNode(fset *token.FileSet, node0 any, fieldNamesFn func(string)) s
 		}
 	}
 	return fn(node0)
+}
+
+//----------
+
+func SprintNode2(fset *token.FileSet, node any) (string, error) {
+	buf := &bytes.Buffer{}
+	cfg := &printer.Config{Mode: printer.RawFormat}
+	if err := cfg.Fprint(buf, fset, node); err != nil {
+		return "", err
+	}
+	return string(buf.Bytes()), nil
 }
