@@ -85,19 +85,19 @@ func (sh *SyntaxHighlight) do() []*ColorizeOp {
 //----------
 
 func (sh *SyntaxHighlight) parseComment(pos int) (int, error) {
-	for _, c := range sh.d.Opt.SyntaxHighlight.Comment.Defs {
+	for _, c := range sh.d.Opt.SyntaxHighlight.Comment.SCs {
 		if p2, err := sh.parseComment2(pos, c); err == nil {
 			return p2, nil
 		}
 	}
 	return pos, pscan.NoMatchErr
 }
-func (sh *SyntaxHighlight) parseComment2(pos int, c *drawutil.SyntaxHighlightComment) (int, error) {
+func (sh *SyntaxHighlight) parseComment2(pos int, c *drawutil.SyntaxComment) (int, error) {
 	if p2, err := sh.sc.M.And(pos,
-		sh.sc.W.Sequence(c.S),
+		sh.sc.W.Sequence(c.Start),
 		func(p3 int) (int, error) {
 			// single line comment
-			if c.IsLine {
+			if c.IsLine() {
 				return sh.sc.M.LoopUntilNLOrEof(p3, -1, false, '\\')
 
 				// TODO
@@ -109,10 +109,10 @@ func (sh *SyntaxHighlight) parseComment2(pos int, c *drawutil.SyntaxHighlightCom
 			// multi line comment
 			return sh.sc.M.And(p3,
 				sh.sc.W.LoopZeroOrMore(sh.sc.W.And(
-					sh.sc.W.MustErr(sh.sc.W.Sequence(c.E)),
+					sh.sc.W.MustErr(sh.sc.W.Sequence(c.End)),
 					sh.sc.M.OneRune,
 				)),
-				sh.sc.W.Sequence(c.E),
+				sh.sc.W.Sequence(c.End),
 			)
 		},
 	); err != nil {

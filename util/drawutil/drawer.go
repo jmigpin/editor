@@ -54,9 +54,13 @@ type Drawer interface {
 
 //----------
 
-type SyntaxHighlightComment struct {
-	S, E   string // {start,end} sequence
-	IsLine bool   // single line comment (end argument is ignored)
+type SyntaxComment struct {
+	Start string
+	End   string // empty for single line comment
+}
+
+func (syc *SyntaxComment) IsLine() bool {
+	return syc.End == ""
 }
 
 //----------

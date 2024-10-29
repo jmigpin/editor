@@ -123,7 +123,7 @@ type Drawer struct {
 		SyntaxHighlight struct {
 			On      bool
 			Comment struct {
-				Defs   []*drawutil.SyntaxHighlightComment
+				SCs   []*drawutil.SyntaxComment
 				Fg, Bg color.Color
 			}
 			String struct {

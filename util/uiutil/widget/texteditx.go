@@ -230,7 +230,7 @@ func (te *TextEditX) EnableCursorWordHighlight(v bool) {
 //----------
 
 func (te *TextEditX) SetCommentStrings(a ...any) {
-	cs := []*drawutil.SyntaxHighlightComment{}
+	cs := []*drawutil.SyntaxComment{}
 	for i, v := range a {
 		// keep first definition for shortcut comment insertion
 		if i == 0 {
@@ -241,11 +241,11 @@ func (te *TextEditX) SetCommentStrings(a ...any) {
 		switch t := v.(type) {
 		case string:
 			// line comment
-			c := &drawutil.SyntaxHighlightComment{IsLine: true, S: t}
+			c := &drawutil.SyntaxComment{Start: t}
 			cs = append(cs, c)
 		case [2]string:
 			// multiline comment
-			c := &drawutil.SyntaxHighlightComment{S: t[0], E: t[1]}
+			c := &drawutil.SyntaxComment{Start: t[0], End: t[1]}
 			cs = append(cs, c)
 		default:
 			panic(fmt.Sprintf("unexpected type: %v", t))
@@ -254,7 +254,7 @@ func (te *TextEditX) SetCommentStrings(a ...any) {
 
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
 		opt := &d.Opt.SyntaxHighlight
-		opt.Comment.Defs = cs
+		opt.Comment.SCs = cs
 	}
 }
 
