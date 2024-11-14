@@ -6,6 +6,7 @@ import (
 	"sync"
 	"unicode"
 
+	"github.com/jmigpin/editor/core/lsproto"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/iout/iorw"
@@ -19,7 +20,7 @@ type InlineComplete struct {
 		sync.Mutex
 		cancel context.CancelFunc
 		ta     *ui.TextArea // if not nil, inlinecomplete is on
-		index  int          // cursor index
+		//index  int          // cursor index
 	}
 }
 
@@ -33,13 +34,22 @@ func NewInlineComplete(ed *Editor) *InlineComplete {
 
 func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEvent) bool {
 
-	// early pre-check if filename is supported
-	_, err := ic.ed.LSProtoMan.LangManager(erow.Info.Name())
+	// previous rune should not be a space
+	ta := ev.TextArea
+	c := ta.Cursor()
+	ru, _, err := iorw.ReadRuneAt(ta.RW(), c.Index()-1)
 	if err != nil {
-		return false // not handled
+		return false
+	}
+	if unicode.IsSpace(ru) {
+		return false
 	}
 
-	ta := ev.TextArea
+	// early pre-check
+	completor, ok := ic.completor(erow)
+	if !ok {
+		return false // not handled
+	}
 
 	ic.mu.Lock()
 	defer ic.mu.Unlock()
@@ -55,13 +65,13 @@ func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEven
 	ctx, cancel := context.WithCancel(erow.ctx)
 	ic.mu.cancel = cancel
 	ic.mu.ta = ta
-	ic.mu.index = ta.CursorIndex()
+	//ic.mu.index = ta.CursorIndex()
 
-	go ic.complete2(ctx, erow.Info.Name(), ta, ev)
+	go ic.complete2(ctx, erow.Info.Name(), ta, ev, erow, ev.Offset, completor)
 	return true
 }
 
-func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui.TextArea, ev *ui.TextAreaInlineCompleteEvent) {
+func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui.TextArea, ev *ui.TextAreaInlineCompleteEvent, erow *ERow, offset int, completor Completor) {
 	cleanup := func() {
 		ic.mu.cancel()
 		ic.ed.UI.EnqueueNoOpEvent()
@@ -71,7 +81,7 @@ func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui
 		ic.ed.Error(err)
 	}
 
-	comps, err := ic.lsprotoCompletions(ctx, filename, ta)
+	comps, err := completor.Completions(ctx, erow, offset)
 	if err != nil {
 		defer cleanup()
 		handleErr(err)
@@ -125,10 +135,10 @@ func (ic *InlineComplete) insertCompletions2(comps []string, ta *ui.TextArea) (c
 	//if newIndex != 0 {
 	if completed {
 		ta.SetCursorIndex(newIndex)
-		// update index for CancelOnCursorChange
-		ic.mu.Lock()
-		ic.mu.index = newIndex
-		ic.mu.Unlock()
+		//// update index for CancelOnCursorChange
+		//ic.mu.Lock()
+		//ic.mu.index = newIndex
+		//ic.mu.Unlock()
 	}
 	return completed, comps2, err
 }
@@ -157,18 +167,17 @@ func (ic *InlineComplete) lsprotoCompletions(ctx context.Context, filename strin
 //----------
 
 func (ic *InlineComplete) setAnnotationsMsg(ta *ui.TextArea, s string) {
-	offset := ta.CursorIndex()
 	entries := drawer4.NewAnnotationGroup(1)
-	entries.Anns = []*drawer4.Annotation{{Offset: offset, Bytes: []byte(s)}}
+	entries.Anns[0].Offset = ta.CursorIndex()
+	entries.Anns[0].Bytes = []byte(s)
 	ic.setAnnotations(ta, entries)
 }
 
 func (ic *InlineComplete) setAnnotations(ta *ui.TextArea, entries *drawer4.AnnotationGroup) {
-	on := entries != nil && len(entries.Anns) > 0
-	if !on {
+	if !entries.On() {
 		ic.setOff(ta)
 	}
-	ic.ed.SetAnnotations(EareqInlineComplete, ta, on, -1, entries)
+	ic.ed.SetAnnotations(AnnotatorInlineComplete, ta, -1, entries)
 }
 
 //----------
@@ -210,6 +219,99 @@ func (ic *InlineComplete) CancelAndClear() {
 //			ic.setAnnotations(ta, nil)
 //		}
 //	}
+//}
+
+//----------
+
+func (ic *InlineComplete) completor(erow *ERow) (Completor, bool) {
+	w := []Completor{
+		//&FillAssistCompletor{ed: ic.ed},
+		&LsprotoCompletor{ic.ed.LSProtoMan},
+	}
+	for _, c := range w {
+		if c.PrimaryCheck(erow) {
+			return c, true
+		}
+	}
+	return nil, false
+}
+
+//----------
+//----------
+//----------
+
+type Completor interface {
+	PrimaryCheck(*ERow) bool
+	Completions(_ context.Context, _ *ERow, offset int) ([]string, error)
+}
+
+//----------
+//----------
+//----------
+
+type LsprotoCompletor struct {
+	lsprotoMan *lsproto.Manager
+}
+
+func (lc *LsprotoCompletor) PrimaryCheck(erow *ERow) bool {
+	_, err := lc.lsprotoMan.LangManager(erow.Info.Name())
+	return err == nil
+}
+func (lc *LsprotoCompletor) Completions(ctx context.Context, erow *ERow, offset int) ([]string, error) {
+	ta := erow.Row.TextArea
+	filename := erow.Info.Name()
+	compList, err := lc.lsprotoMan.TextDocumentCompletion(ctx, filename, ta.RW(), offset)
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for _, ci := range compList.Items {
+		// trim labels (clangd: has some entries prefixed with space)
+		label := strings.TrimSpace(ci.Label)
+
+		res = append(res, label)
+	}
+
+	//// NOTE: this loses the provided order
+	//sort.Strings(res)
+
+	return res, nil
+}
+
+//----------
+//----------
+//----------
+
+//type FillAssistCompletor struct {
+//	ed    *Editor
+//	names []string
+//}
+
+//func (fc *FillAssistCompletor) PrimaryCheck(erow *ERow) bool {
+//	// must have fillers
+//	fc.names = fillassist.FillersNames()
+//	if len(fc.names) == 0 {
+//		return false
+//	}
+
+//	ta := erow.Row.TextArea
+//	ci := ta.CursorIndex()
+
+//	// parse
+//	syc := fillassist.SelectSyntaxComment(erow.SyntaxComments())
+//	pd, err, ok := fillassist.Parse(ta.RW(), ci, syc, true)
+//	if !ok {
+//		return false
+//	}
+//	if err != nil {
+//		//fc.ed.Error(err) // DEBUG
+//		return false
+//	}
+
+//	return pd.FillerName.Pos <= ci && ci <= pd.FillerName.End
+//}
+//func (fc *FillAssistCompletor) Completions(ctx context.Context, erow *ERow, offset int) ([]string, error) {
+//	return fc.names, nil
 //}
 
 //----------
@@ -257,9 +359,6 @@ func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex i
 
 	return 0, false, comps2, nil
 }
-
-//----------
-
 func expandAndFilter(prefix string, comps []string) (expand string, _ []string) {
 	// find prefix matches (case insensitive)
 	strLow := strings.ToLower(prefix)
@@ -319,14 +418,11 @@ func longestCommonPrefix(strs []string) string {
 	//return prefix
 	return strs[0][:len(prefix)] // use original string
 }
-
-//----------
-
 func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
 	sc := iorw.NewScanner(rd)
 	sc.Reverse = true
 	max := 1000
-	if v, p2, err := sc.M.StringValue(index, sc.W.RuneFnLoop(func(ru rune) bool {
+	if v, p2, err := sc.M.StrValue(index, sc.W.RuneFnLoop(func(ru rune) bool {
 		max--
 		if max <= 0 {
 			return false

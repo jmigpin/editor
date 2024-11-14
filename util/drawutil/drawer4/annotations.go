@@ -222,6 +222,9 @@ func NewAnnotationGroup(n int) *AnnotationGroup {
 	}
 	return ag
 }
+func (ag *AnnotationGroup) On() bool {
+	return ag != nil && len(ag.Anns) > 0
+}
 
 //----------
 

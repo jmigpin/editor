@@ -327,7 +327,7 @@ func (info *ERowInfo) SaveFile() error {
 	}()
 
 	// the content might change due to content formatters, but the cursor can be in the same place, and so it will not be cleared by InlineComplete.CancelOnCursorChange. This is particular to the save op, not the same as just a write op since inlinecomplete also writes the completion text.
-	info.Ed.InlineComplete.CancelAndClear()
+	info.Ed.AnnotationsOnContentSaved()
 
 	return nil
 }

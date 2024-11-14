@@ -2,11 +2,9 @@ package ui
 
 import (
 	"image"
-	"unicode"
 
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
-	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
@@ -180,15 +178,6 @@ func (ta *TextArea) inlineCompleteEv() event.Handled {
 		return false
 	}
 
-	// previous rune should not be a space
-	ru, _, err := iorw.ReadRuneAt(ta.RW(), c.Index()-1)
-	if err != nil {
-		return false
-	}
-	if unicode.IsSpace(ru) {
-		return false
-	}
-
 	ev2 := &TextAreaInlineCompleteEvent{ta, c.Index(), false}
 	ta.EvReg.RunCallbacks(TextAreaInlineCompleteEventId, ev2)
 	return ev2.ReplyHandled
@@ -277,7 +266,7 @@ type TextAreaInlineCompleteEvent struct {
 	TextArea *TextArea
 	Offset   int
 
-	ReplyHandled event.Handled // allow callbacks to set value
+	ReplyHandled event.Handled // allow callbacks to set value // ex: Allow input event (`tab` key press) to function normally if the inlinecomplete is not being handled (ex: no lsproto server is registered for a filename extension)
 }
 
 //----------

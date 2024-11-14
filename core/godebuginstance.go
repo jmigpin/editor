@@ -154,7 +154,7 @@ func newGoDebugInstance(ctx context.Context, gdm *GoDebugManager, erow *ERow, ar
 	gdi.di = NewGDDataIndex(gdi)
 
 	// warn other annotators about starting a godebug session
-	_ = gdi.gdm.ed.CanModifyAnnotations(EareqGoDebugStart, erow.Row.TextArea)
+	gdi.gdm.ed.SetAnnotations(AnnotatorGoDebugStart, erow.Row.TextArea, 0, nil)
 
 	// create new erow if necessary
 	if erow.Info.IsFileButNotDir() {
@@ -456,7 +456,7 @@ func (gdi *GoDebugInstance) clearAnnotations() {
 }
 func (gdi *GoDebugInstance) clearInfoAnnotations2(info *ERowInfo) {
 	for _, erow := range info.ERows {
-		gdi.setAnnotations(erow, false, -1, nil)
+		gdi.setAnnotations(erow, -1, nil)
 	}
 }
 
@@ -481,14 +481,14 @@ func (gdi *GoDebugInstance) updateInfoAnnotations2(info *ERowInfo) {
 	// set annotations into opened (existing) erows
 	// Note: the current selected debug line might not have an open erow (ex: when auto increased to match the lastarrivalindex).
 	for _, erow := range info.ERows {
-		gdi.setAnnotations(erow, true, selMsgIndex, entries)
+		gdi.setAnnotations(erow, selMsgIndex, entries)
 	}
 }
 
 //----------
 
-func (gdi *GoDebugInstance) setAnnotations(erow *ERow, on bool, selIndex int, entries *drawer4.AnnotationGroup) {
-	gdi.gdm.ed.SetAnnotations(EareqGoDebug, erow.Row.TextArea, on, selIndex, entries)
+func (gdi *GoDebugInstance) setAnnotations(erow *ERow, selIndex int, entries *drawer4.AnnotationGroup) {
+	gdi.gdm.ed.SetAnnotations(AnnotatorGoDebug, erow.Row.TextArea, selIndex, entries)
 }
 
 //----------

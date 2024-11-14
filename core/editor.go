@@ -370,7 +370,7 @@ func (ed *Editor) setupRootToolbar() {
 	tb := ed.UI.Root.Toolbar
 	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
-		InternalCmdFromRootTb(ed, tb)
+		InternalOrExternalCmdFromRootTb(ed, tb)
 	})
 	// on write
 	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 any) {
@@ -385,7 +385,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 	tb := ed.UI.Root.MainMenuButton.Toolbar
 	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
-		InternalCmdFromRootTb(ed, tb)
+		InternalOrExternalCmdFromRootTb(ed, tb)
 	})
 	// on write
 	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 any) {
@@ -791,27 +791,17 @@ func (ed *Editor) RunAsyncBusyCursor2(node widget.Node, fn func(done func())) {
 
 //----------
 
-func (ed *Editor) SetAnnotations(req EdAnnotationsRequester, ta *ui.TextArea, on bool, selIndex int, entries *drawer4.AnnotationGroup) {
+// setting entries to nil/empty clears the annotations
+func (ed *Editor) SetAnnotations(annotator Annotator, ta *ui.TextArea, selIndex int, entries *drawer4.AnnotationGroup) {
 	// avoid lockup:
 	// godebugstart->inlinecomplete.clear->godebugrestoreannotations
 	ed.UI.RunOnUIGoRoutine(func() {
-		ed.setAnnotations2(req, ta, on, selIndex, entries)
+		ed.setAnnotations2(annotator, ta, selIndex, entries)
 	})
 }
-func (ed *Editor) setAnnotations2(req EdAnnotationsRequester, ta *ui.TextArea, on bool, selIndex int, entries *drawer4.AnnotationGroup) {
-	if !ed.CanModifyAnnotations(req, ta) {
-		return
-	}
-	// set annotations (including clear)
-	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Annotations.On = on
-		d.Opt.Annotations.Selected.EntryIndex = selIndex
-		d.Opt.Annotations.Entries = entries
-		ta.MarkNeedsLayoutAndPaint()
-	}
+func (ed *Editor) setAnnotations2(annotator Annotator, ta *ui.TextArea, selIndex int, entries *drawer4.AnnotationGroup) {
 
-	// restore godebug annotations
-	if req == EareqInlineComplete && !on {
+	restoreGoDebugAnnotations := func() {
 		// find erow info from textarea
 		for _, erow := range ed.ERows() {
 			if erow.Row.TextArea == ta {
@@ -819,23 +809,36 @@ func (ed *Editor) setAnnotations2(req EdAnnotationsRequester, ta *ui.TextArea, o
 			}
 		}
 	}
+
+	annotation := &Annotation{ta, selIndex, entries}
+
+	switch annotator {
+	case AnnotatorGoDebugStart:
+		ed.InlineComplete.CancelAndClear()
+		annotation.set()
+	case AnnotatorGoDebug:
+		if ed.InlineComplete.IsOn(ta) {
+			return
+		}
+		annotation.set()
+	case AnnotatorInlineComplete:
+		annotation.set()
+		if !annotation.entries.On() {
+			restoreGoDebugAnnotations()
+		}
+	default:
+		panic("todo")
+	}
 }
 
-func (ed *Editor) CanModifyAnnotations(req EdAnnotationsRequester, ta *ui.TextArea) bool {
-	switch req {
-	case EareqGoDebugStart:
-		ed.InlineComplete.CancelAndClear()
-		return true
-	case EareqGoDebug:
-		if ed.InlineComplete.IsOn(ta) {
-			return false
-		}
-		return true
-	case EareqInlineComplete:
-		return true
-	default:
-		panic(req)
-	}
+func (ed *Editor) AnnotationsOnContentSaved() {
+	ed.InlineComplete.CancelAndClear()
+}
+func (ed *Editor) AnnotationsOnMouseKeyDown() {
+	ed.InlineComplete.CancelAndClear()
+}
+func (ed *Editor) AnnotationsHandled(erow *ERow, ev *ui.TextAreaInlineCompleteEvent) bool {
+	return erow.Ed.InlineComplete.Complete(erow, ev)
 }
 
 //----------
@@ -933,13 +936,31 @@ func (ed *Editor) saveSessions2(ss *Sessions) error {
 //----------
 //----------
 
-type EdAnnotationsRequester int
+type Annotator int
 
 const (
-	EareqGoDebug EdAnnotationsRequester = iota
-	EareqGoDebugStart
-	EareqInlineComplete
+	AnnotatorGoDebug Annotator = iota
+	AnnotatorGoDebugStart
+	AnnotatorInlineComplete
 )
+
+//----------
+
+type Annotation struct {
+	ta      *ui.TextArea
+	index   int
+	entries *drawer4.AnnotationGroup
+}
+
+func (anno *Annotation) set() {
+	// set annotations (including clear)
+	if d, ok := anno.ta.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.Annotations.On = anno.entries.On()
+		d.Opt.Annotations.Selected.EntryIndex = anno.index
+		d.Opt.Annotations.Entries = anno.entries
+		anno.ta.MarkNeedsLayoutAndPaint()
+	}
+}
 
 //----------
 

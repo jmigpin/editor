@@ -13,6 +13,7 @@ import (
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -223,7 +224,7 @@ func (erow *ERow) initHandlers() {
 	})
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 any) {
-		InternalCmdFromRowTb(erow)
+		InternalOrExternalCmdFromRowTb(erow)
 	})
 	// textarea on write
 	row.TextArea.RWEvReg.Add(iorw.RWEvIdWrite2, func(ev0 any) {
@@ -243,8 +244,7 @@ func (erow *ERow) initHandlers() {
 	// textarea inlinecomplete
 	row.TextArea.EvReg.Add(ui.TextAreaInlineCompleteEventId, func(ev0 any) {
 		ev := ev0.(*ui.TextAreaInlineCompleteEvent)
-		handled := erow.Ed.InlineComplete.Complete(erow, ev)
-		// Allow the input event (`tab` key press) to function normally if the inlinecomplete is not being handled (ex: no lsproto server is registered for this filename extension)
+		handled := erow.Ed.AnnotationsHandled(erow, ev)
 		ev.ReplyHandled = event.Handled(handled)
 	})
 	// key shortcuts
@@ -253,7 +253,7 @@ func (erow *ERow) initHandlers() {
 
 		switch ev.Event.(type) {
 		case *event.KeyDown, *event.MouseDown:
-			erow.Ed.InlineComplete.CancelAndClear()
+			erow.Ed.AnnotationsOnMouseKeyDown()
 		}
 
 		switch evt := ev.Event.(type) {
@@ -267,6 +267,12 @@ func (erow *ERow) initHandlers() {
 				erow.SaveFileBusyCursor()
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
 				AddFindShortcut(erow)
+			case mods.Is(event.ModCtrl|event.ModShift) && evt.KeySym == event.KSymF:
+				// internal cmd
+				str := "FillAssist -template"
+				data := toolbarparser.Parse(str)
+				part, _ := data.PartAtIndex(0)
+				internalOrExternalCmd(erow.Ed, part, erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymH:
 				AddReplaceShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymN:
@@ -703,6 +709,17 @@ func (erow *ERow) SaveFileBusyCursor() {
 			erow.Ed.Error(err)
 		}
 	})
+}
+
+//----------
+
+func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
+	ta := erow.Row.TextArea
+	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+		opt := &d.Opt.SyntaxHighlight
+		return opt.Comment.SCs
+	}
+	return nil
 }
 
 //----------

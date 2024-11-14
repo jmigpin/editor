@@ -11,14 +11,8 @@ import (
 )
 
 // cmds added via init() from "internalcmds" pkg
-var InternalCmds = internalCmds{}
-
-var noERowErr = fmt.Errorf("no active row")
-
-//----------
-
-type internalCmds map[string]*InternalCmd
-
+var InternalCmds = internalCmds{}         //
+type internalCmds map[string]*InternalCmd //
 func (ic *internalCmds) Set(cmd *InternalCmd) {
 	(*ic)[cmd.Name] = cmd
 }
@@ -29,6 +23,8 @@ type InternalCmd struct {
 	Name string
 	Fn   InternalCmdFn
 }
+
+//----------
 
 type InternalCmdFn func(args *InternalCmdArgs) error
 
@@ -54,8 +50,10 @@ func (args *InternalCmdArgs) ERowOrErr() (*ERow, error) {
 }
 
 //----------
+//----------
+//----------
 
-func InternalCmdFromRootTb(ed *Editor, tb *ui.Toolbar) {
+func InternalOrExternalCmdFromRootTb(ed *Editor, tb *ui.Toolbar) {
 	tbdata := toolbarparser.Parse(tb.Str())
 	part, ok := tbdata.PartAtIndex(int(tb.CursorIndex()))
 	if !ok {
@@ -67,12 +65,12 @@ func InternalCmdFromRootTb(ed *Editor, tb *ui.Toolbar) {
 		return
 	}
 
-	internalExternalCmd(ed, part, nil)
+	internalOrExternalCmd(ed, part, nil)
 }
 
 //----------
 
-func InternalCmdFromRowTb(erow *ERow) {
+func InternalOrExternalCmdFromRowTb(erow *ERow) {
 	part, ok := erow.TbData.PartAtIndex(int(erow.Row.Toolbar.CursorIndex()))
 	if !ok {
 		erow.Ed.Errorf("missing part at index")
@@ -91,9 +89,8 @@ func InternalCmdFromRowTb(erow *ERow) {
 		return
 	}
 
-	internalExternalCmd(erow.Ed, part, erow)
+	internalOrExternalCmd(erow.Ed, part, erow)
 }
-
 func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 	a0 := part.Args[0]
 	ci := erow.Row.Toolbar.CursorIndex()
@@ -138,7 +135,7 @@ func internalCmdFromRowTbFirstPart(erow *ERow, part *toolbarparser.Part) bool {
 //----------
 
 // erow can be nil (ex: a root toolbar cmd)
-func internalExternalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) {
+func internalOrExternalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) {
 
 	// TODO: remove sync dependency or it will crash
 	// TODO: also, need active row check here instead of internalcmd2
@@ -149,22 +146,21 @@ func internalExternalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) {
 	//}
 	//ed.RunAsyncBusyCursor(node, func() {
 
-	if err := internalCmd2(ed, part, optERow); err != nil {
+	if err := internalOrExternalCmd2(ed, part, optERow); err != nil {
 		arg0 := part.Args[0].UnquotedString()
 		ed.Errorf("%s: %w", arg0, err)
 	}
 
 	//})
 }
-
-func internalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow) error {
+func internalOrExternalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow) error {
 	if optERow == nil {
 		if ae, ok := ed.ActiveERow(); ok {
 			optERow = ae
 		}
 	}
 
-	if err, handled := internalCmd3(ed, part, optERow); handled {
+	if err, handled := internalCmd(ed, part, optERow); handled {
 		return err
 	}
 
@@ -180,7 +176,7 @@ func internalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow) error {
 	ExternalCmd(erow, part)
 	return nil
 }
-func internalCmd3(ed *Editor, part *toolbarparser.Part, optERow *ERow) (error, bool) {
+func internalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) (error, bool) {
 	arg0 := part.Args[0].UnquotedString()
 	cmd, ok := InternalCmds[arg0]
 	if !ok {
@@ -195,6 +191,10 @@ func internalCmd3(ed *Editor, part *toolbarparser.Part, optERow *ERow) (error, b
 	}
 	return cmd.Fn(args), true
 }
+
+//----------
+
+var noERowErr = fmt.Errorf("no active row")
 
 //----------
 
