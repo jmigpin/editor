@@ -64,7 +64,7 @@ func runContentCmds(ctx context.Context, erow *ERow, index int) {
 	if len(u) > 0 {
 		u = "\n\t" + u
 	}
-	erow.Ed.Errorf("no content cmd ran successfully%v", u)
+	erow.Ed.Errorf("failed to complete any content cmd%v", u)
 }
 
 func ContentCmdFromTextArea(erow *ERow, index int) {
