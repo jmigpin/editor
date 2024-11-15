@@ -64,7 +64,7 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 	}
 
 	c := osutil.NewCmdI2(cargs)
-	c = osutil.NewNoHangStdinCmd(c)
+	c = osutil.NewNoHangPipeCmd(c)
 	c = osutil.NewCtxCmd(ctx, c)
 	c = osutil.NewShellCmd(c, true)
 	c = osutil.NewPausedWritersCmd(c, printPid)

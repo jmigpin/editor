@@ -286,7 +286,12 @@ func FontRunes(args *core.InternalCmdArgs) error {
 //----------
 
 func LSProtoCloseAll(args *core.InternalCmdArgs) error {
-	return args.Ed.LSProtoMan.Close()
+	man := args.Ed.LSProtoMan
+	if man.NInstances() == 0 {
+		return fmt.Errorf("no instances are running")
+	}
+	args.Ed.LSProtoMan.Stop()
+	return nil
 }
 func CtxutilCallsState(args *core.InternalCmdArgs) error {
 	s := ctxutil.CallsState()

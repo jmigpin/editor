@@ -8,6 +8,7 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jmigpin/editor/util/iout"
@@ -33,7 +34,7 @@ func NewCmdI2(args []string) CmdI {
 
 func NewCmdIShell(ctx context.Context, args ...string) CmdI {
 	c := NewCmdI2(args)
-	c = NewNoHangPipeCmd(c, true, true, true) // active only if the pipe is not nil (ex: cmd.stdin)
+	c = NewNoHangPipeCmd(c) // active only if the pipe is not nil at start (ex: cmd.stdin)
 	if ctx != nil {
 		// NOTE: not using exec.CommandContext because the ctx is dealt with in NewCtxCmd to better handle termination
 		c = NewCtxCmd(ctx, c)
@@ -161,22 +162,22 @@ func (c *CtxCmd) printf(f string, args ...any) {
 //----------
 //----------
 
-func NewNoHangStdinCmd(cmdi CmdI) *NoHangPipeCmd {
-	return &NoHangPipeCmd{CmdI: cmdi, doIn: true}
-}
-
 type NoHangPipeCmd struct {
 	CmdI
 	doIn, doOut, doErr bool
 	stdin              io.WriteCloser
-	//stdout             io.ReadCloser
-	//stderr             io.ReadCloser
-	//outPipes           sync.WaitGroup // stdout/stderr pipe wait
+	stdout             io.ReadCloser
+	stderr             io.ReadCloser
+	outPipes           sync.WaitGroup // stdout/stderr pipe wait
 }
 
-func NewNoHangPipeCmd(cmdi CmdI, doIn, doOut, doErr bool) *NoHangPipeCmd {
+func NewNoHangPipeCmd(cmdi CmdI) *NoHangPipeCmd {
+	return NewNoHangPipeCmd2(cmdi, true, true, true)
+}
+func NewNoHangPipeCmd2(cmdi CmdI, doIn, doOut, doErr bool) *NoHangPipeCmd {
 	return &NoHangPipeCmd{CmdI: cmdi, doIn: doIn, doOut: doOut, doErr: doErr}
 }
+
 func (c *NoHangPipeCmd) Start() error {
 	cmd := c.Cmd()
 	if c.doIn && cmd.Stdin != nil {
@@ -192,43 +193,46 @@ func (c *NoHangPipeCmd) Start() error {
 			_ = wc.Close()
 		}()
 	}
-	//if c.doOut && cmd.Stdout != nil {
-	//	w := cmd.Stdout
-	//	cmd.Stdout = nil // cmd wants nil here
-	//	rc, err := cmd.StdoutPipe()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	c.stdout = rc
-	//	c.outPipes.Add(1)
-	//	go func() {
-	//		defer c.outPipes.Done()
-	//		_, _ = io.Copy(w, rc)
-	//		_ = rc.Close()
-	//	}()
-	//}
-	//if c.doErr && cmd.Stderr != nil {
-	//	w := cmd.Stderr
-	//	cmd.Stderr = nil // cmd wants nil here
-	//	rc, err := cmd.StderrPipe()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	c.stderr = rc
-	//	c.outPipes.Add(1)
-	//	go func() {
-	//		defer c.outPipes.Done()
-	//		_, _ = io.Copy(w, rc)
-	//		_ = rc.Close()
-	//	}()
-	//}
+
+	if c.doOut && cmd.Stdout != nil {
+		w := cmd.Stdout
+		cmd.Stdout = nil // cmd wants nil here
+		rc, err := cmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		c.stdout = rc
+		c.outPipes.Add(1)
+		go func() {
+			defer c.outPipes.Done()
+			_, _ = io.Copy(w, rc)
+			_ = rc.Close()
+		}()
+	}
+
+	if c.doErr && cmd.Stderr != nil {
+		w := cmd.Stderr
+		cmd.Stderr = nil // cmd wants nil here
+		rc, err := cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
+		c.stderr = rc
+		c.outPipes.Add(1)
+		go func() {
+			defer c.outPipes.Done()
+			_, _ = io.Copy(w, rc)
+			_ = rc.Close()
+		}()
+	}
+
 	return c.CmdI.Start()
 }
 
-//func (c *NoHangPipeCmd) Wait() error {
-//	//c.outPipes.Wait() // wait for stdout/stderr pipes before calling wait
-//	return c.CmdI.Wait()
-//}
+func (c *NoHangPipeCmd) Wait() error {
+	c.outPipes.Wait() // wait for stdout/stderr pipes before calling wait
+	return c.CmdI.Wait()
+}
 
 // some commands will not exit unless the stdin is closed, allow access
 func (c *NoHangPipeCmd) CloseStdin() error {
@@ -280,6 +284,36 @@ func (c *PausedWritersCmd) unpause() {
 	if c.stderr != nil {
 		c.stderr.Unpause()
 	}
+}
+
+//----------
+//----------
+//----------
+
+type OnWaitDoneCmd struct {
+	CmdI
+	fn func(error)
+	ch chan error
+}
+
+func NewOnWaitDoneCmd(cmdi CmdI, fn func(error)) *OnWaitDoneCmd {
+	c := &OnWaitDoneCmd{CmdI: cmdi, fn: fn}
+	c.ch = make(chan error, 1)
+	return c
+}
+func (c *OnWaitDoneCmd) Start() error {
+	if err := c.CmdI.Start(); err != nil {
+		return err
+	}
+	go func() {
+		err := c.CmdI.Wait() // gets called only once
+		c.ch <- err
+		c.fn(err)
+	}()
+	return nil
+}
+func (c *OnWaitDoneCmd) Wait() error {
+	return <-c.ch
 }
 
 //----------

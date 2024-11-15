@@ -1,0 +1,14 @@
+# there is a handler for ".dummy2" but the exec doesn't exist
+
+# get src positions
+ucmd lspSourceCursor main_template main.dummy2 0
+setenv offset stdout
+
+fail ucmd lspDefinition main.dummy2 offset
+
+-- main_template --
+package main
+func main(){
+	abc:=0
+	_=ab●c
+}

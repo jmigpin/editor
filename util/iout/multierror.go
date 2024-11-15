@@ -14,9 +14,7 @@ type MultiError struct {
 // Returns an error (MultiError) or nil if the errors added were all nil.
 func MultiErrors(errs ...error) error {
 	me := &MultiError{}
-	for _, e := range errs {
-		me.Add(e)
-	}
+	me.Add(errs...)
 	return me.Result()
 }
 
@@ -28,13 +26,20 @@ func (me *MultiError) Result() error {
 	return me
 }
 
-// Can be used concurrently.
-func (me *MultiError) Add(err error) {
-	if err != nil {
-		me.addMu.Lock()
-		me.errors = append(me.errors, err)
-		me.addMu.Unlock()
+// Only this func can be used concurrently.
+func (me *MultiError) Add(errs ...error) {
+	w := make([]error, 0, len(errs)) // usually small
+	for _, e := range errs {
+		if e != nil {
+			w = append(w, e)
+		}
 	}
+	if len(w) == 0 {
+		return
+	}
+	me.addMu.Lock()
+	defer me.addMu.Unlock()
+	me.errors = append(me.errors, w...)
 }
 
 func (me *MultiError) Error() string {
@@ -49,6 +54,8 @@ func (me *MultiError) Error() string {
 	v := "\t" + indentNewlines("\t", strings.Join(u, "\n"))
 	return fmt.Sprintf("multierror(%d){\n%s\n}", len(me.errors), v)
 }
+
+//----------
 
 func indentNewlines(tab string, u string) string {
 	u = strings.ReplaceAll(u, "\n", "\n"+tab)

@@ -65,7 +65,8 @@ func TestScripts(t *testing.T) {
 		return nil
 	}
 	scr.ScriptStop = func(t *testing.T) error {
-		return man.Close()
+		man.Stop()
+		return nil
 	}
 
 	scr.Cmds = []*testutil.ScriptCmd{
@@ -366,13 +367,18 @@ func newTestManager(t *testing.T) *Manager {
 	u := []string{
 		// WARNING: can't use stdio with stderr to be able to run scripts collectlog (use tcp if available)
 
-		//GoplsRegistration(logTestVerbose(), false, false),
-		GoplsRegistration(verboseLog(), true, false),
+		//GoplsRegistration(false, false,logTestVerbose()),
+		GoplsRegistration(true, false, verboseLog()),
 
-		//cLangRegistration(logTestVerbose()),
-		cLangRegistration(false),
+		//cLangRegistration("", false),
+		//cLangRegistration("", logTestVerbose()),
+		cLangRegistration("clangd-16", false),
 
-		pylspRegistration(false, true),
+		pylspRegistration(true, false),
+
+		// dummy
+		"dummy1,.dummy1,stdio,dummy_exec",
+		"dummy2,.dummy2,tcp,dummy_exec",
 	}
 	for _, s := range u {
 		reg, err := NewRegistration(s)

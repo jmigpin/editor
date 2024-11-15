@@ -19,7 +19,7 @@ import (
 type Client struct {
 	rcli         *rpc.Client
 	li           *LangInstance
-	readLoopWait sync.WaitGroup
+	readLoopDone chan error
 
 	lock struct {
 		sync.Mutex
@@ -61,13 +61,13 @@ func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) 
 	cli.rcli = rpc.NewClientWithCodec(cc)
 
 	// wait for the codec readloop
-	cli.readLoopWait.Add(1)
+	cli.readLoopDone = make(chan error, 1)
 	go func() {
-		defer cli.readLoopWait.Done()
-		if err := cc.ReadLoop(); err != nil {
-			cli.li.lang.PrintWrapError(err)
+		err := cc.ReadLoop()
+		if err != nil {
 			cli.li.cancelCtx()
 		}
+		cli.readLoopDone <- err
 	}()
 
 	// close when ctx is done
@@ -79,6 +79,12 @@ func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) 
 				//cli.li.lang.PrintWrapError(err)
 			}
 			if err := rwc.Close(); err != nil {
+				// Commented: best effort, ignore errors
+				//cli.li.lang.PrintWrapError(err)
+			}
+
+			if err := context.Cause(ctx); err != context.Canceled {
+				err = fmt.Errorf("ctxcause: %w", err)
 				cli.li.lang.PrintWrapError(err)
 			}
 		}
@@ -90,8 +96,7 @@ func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) 
 //----------
 
 func (cli *Client) Wait() error {
-	cli.readLoopWait.Wait()
-	return nil
+	return <-cli.readLoopDone
 }
 
 func (cli *Client) sendClose() error {

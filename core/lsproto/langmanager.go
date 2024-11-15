@@ -7,9 +7,8 @@ import (
 )
 
 type LangManager struct {
+	man *Manager      // parent stuct
 	Reg *Registration // accessed from editor
-
-	man *Manager
 	li  struct {
 		sync.Mutex
 		li     *LangInstance
@@ -47,13 +46,13 @@ func (lang *LangManager) instance(startCtx context.Context) (*LangInstance, erro
 	lang.li.li = li
 	lang.li.cancel = cancel
 
-	// handle server/client abnormal early exit
+	// clear instance var on exit
 	go func() {
 		defer cancel()
-		if err := li.Wait(); err != nil {
+		if err := li.Wait(); err != nil { // err ex: "signal: killed"
 			lang.PrintWrapError(err)
 		}
-		// ensure this instance is cleared
+		// ensure correct instance is cleared
 		lang.li.Lock()
 		defer lang.li.Unlock()
 		if lang.li.li == li {
@@ -64,16 +63,22 @@ func (lang *LangManager) instance(startCtx context.Context) (*LangInstance, erro
 	return li, nil
 }
 
+func (lang *LangManager) hasInstance() bool {
+	lang.li.Lock()
+	defer lang.li.Unlock()
+	return lang.li.li != nil
+}
+
 // returns true if the instance was running
-func (lang *LangManager) Close() (error, bool) {
+func (lang *LangManager) stopInstance() bool {
 	lang.li.Lock()
 	defer lang.li.Unlock()
 	if lang.li.li != nil {
 		lang.li.cancel()
 		lang.li.li = nil
-		return nil, true
+		return true
 	}
-	return nil, false
+	return false
 }
 
 //----------

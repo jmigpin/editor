@@ -8,13 +8,11 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-//----------
-
 type Registration struct {
 	Language string
 	Exts     []string
-	Network  string // {stdio,tcpclient,tcp{templatevals:.Addr}}
-	Cmd      string
+	Network  string   // {stdio,tcpclient,tcp}
+	Cmd      string   // template values: {.Addr,.Host,.Port}
 	Optional []string // {stderr,nogotoimpl}
 }
 
@@ -53,6 +51,8 @@ func (reg *Registration) String() string {
 //----------
 
 func parseRegistration(s string) (*Registration, error) {
+	// TODO: parse
+
 	fields, err := parseutil.ParseFields(s, ',')
 	if err != nil {
 		return nil, err
@@ -77,6 +77,8 @@ func parseRegistration(s string) (*Registration, error) {
 
 	return reg, nil
 }
+
+//----------
 
 func stringifyRegistration(reg *Registration) string {
 	exts := strings.Join(reg.Exts, " ")
@@ -111,8 +113,8 @@ func stringifyRegistration(reg *Registration) string {
 func RegistrationExamples() []string {
 	return []string{
 		GoplsRegistration(false, false, false),
-		GoplsRegistration(false, true, false),
-		cLangRegistration(false),
+		GoplsRegistration(true, false, false),
+		cLangRegistration("", false),
 		"python,.py,stdio,pylsp",
 		"python,.py,tcpclient,127.0.0.1:9000",
 		"python,.py,stdio,pylsp,\"stderr nogotoimpl\"",
@@ -121,7 +123,7 @@ func RegistrationExamples() []string {
 
 //----------
 
-func GoplsRegistration(stderr bool, tcp bool, trace bool) string {
+func GoplsRegistration(tcp bool, trace bool, stderr bool) string {
 	cmd := osutil.ExecName("gopls")
 	if trace {
 		cmd += " -v"
@@ -137,28 +139,29 @@ func GoplsRegistration(stderr bool, tcp bool, trace bool) string {
 	}
 
 	errOut := ""
-	if net == "stdio" {
-		if stderr {
-			//errOut = ",stderr"
-			// DEBUG
-			//errOut = ",stderrmanmsg"
-		}
+	if stderr {
+		errOut = ",stderr"
+		//errOut = ",stderrmanmsg" // DEBUG
 	}
 
 	return fmt.Sprintf("go,.go,%v,%q%s", net, cmd, errOut)
 }
 
-func cLangRegistration(stderr bool) string {
+func cLangRegistration(alternateExe string, stderr bool) string {
 	ext := ".c .h .cpp .hpp .cc"
-	cmd := osutil.ExecName("clangd")
+	exe := "clangd"
+	if alternateExe != "" {
+		exe = alternateExe
+	}
+	cmd := osutil.ExecName(exe)
 	errOut := ""
 	if stderr {
-		//errOut = ",stderr"
+		errOut = ",stderr"
 	}
 	return fmt.Sprintf("cpp,%q,stdio,%q%s", ext, cmd, errOut)
 }
 
-func pylspRegistration(stderr bool, tcp bool) string {
+func pylspRegistration(tcp bool, stderr bool) string {
 	cmd := osutil.ExecName("pylsp")
 	net := "stdio"
 	if tcp {

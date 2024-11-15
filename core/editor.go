@@ -163,7 +163,7 @@ func (ed *Editor) initPreSaveHooks(opt *Options) {
 //----------
 
 func (ed *Editor) Close() {
-	ed.LSProtoMan.Close()
+	ed.LSProtoMan.Stop()
 	ed.UI.AppendEvent(&editorCloseEv{})
 }
 

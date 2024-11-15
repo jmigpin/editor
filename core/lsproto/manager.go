@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
 
@@ -86,24 +85,22 @@ func (man *Manager) langInstanceClient(ctx context.Context, filename string) (*C
 
 //----------
 
-func (man *Manager) Close() error {
-	count := 0
-	me := &iout.MultiError{}
+func (man *Manager) NInstances() int {
+	c := 0
 	for _, lang := range man.langs {
-		err, ok := lang.Close()
-		if ok {
-			count++
-			if err != nil {
-				me.Add(err)
-			} else {
-				man.Message(lang.WrapMsg("closed"))
-			}
+		if lang.hasInstance() {
+			c++
 		}
 	}
-	if count == 0 {
-		return fmt.Errorf("no instances are running")
+	return c
+}
+
+func (man *Manager) Stop() {
+	for _, lang := range man.langs {
+		if ok := lang.stopInstance(); ok {
+			man.Message(lang.WrapMsg("stopped"))
+		}
 	}
-	return me.Result()
 }
 
 //----------

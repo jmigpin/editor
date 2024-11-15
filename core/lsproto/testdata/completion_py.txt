@@ -10,4 +10,4 @@ def main1(a):
 	return main2(a+1)
 def main2(a):
 	return a+1
-print("%f" % ma●in1(1))
+print("%f" % main●1(1))

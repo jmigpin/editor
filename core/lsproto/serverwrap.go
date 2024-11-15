@@ -14,42 +14,62 @@ import (
 
 type ServerWrap struct {
 	Cmd osutil.CmdI
-	rwc *rwc // just for IO mode (can be nil)
+}
+
+func newServerWrap(ctx context.Context, cmd string) *ServerWrap {
+	sw := &ServerWrap{}
+	args := strings.Split(cmd, " ") // TODO: escapes
+	sw.Cmd = osutil.NewCmdIShell(ctx, args...)
+	return sw
+}
+func (sw *ServerWrap) Wait() error {
+	return sw.Cmd.Wait()
 }
 
 //----------
+//----------
+//----------
 
-func StartServerWrapTCP(ctx context.Context, cmdTmpl string, w io.Writer) (*ServerWrap, string, error) {
+func startServerWrapTCP(ctx context.Context, cmdTmpl string, outw io.Writer) (context.Context, *ServerWrap, string, error) {
 	host := "127.0.0.1"
 
 	// multiple editors can have multiple server wraps, need unique port
 	port, err := osutil.GetFreeTcpPort()
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 
 	// run cmd template
 	cmd, addr, err := cmdTemplate(cmdTmpl, host, port)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 
-	sw := newServerWrapCommon(ctx, cmd)
+	ctx2, cancel := context.WithCancelCause(ctx)
+
+	sw := newServerWrap(ctx2, cmd)
 
 	// get lsp server output in tcp mode
-	if w != nil {
-		sw.Cmd.Cmd().Stdout = w
-		sw.Cmd.Cmd().Stderr = w
+	if outw != nil {
+		sw.Cmd.Cmd().Stdout = outw
+		sw.Cmd.Cmd().Stderr = outw
 	}
+
+	// ensure ctx cancel in case of error after start
+	sw.Cmd = osutil.NewOnWaitDoneCmd(sw.Cmd, func(err error) {
+		cancel(err)
+	})
 
 	if err := sw.Cmd.Start(); err != nil {
-		return nil, "", err
+		cancel(err) // clear resources
+		return nil, nil, "", err
 	}
-	return sw, addr, nil
+
+	return ctx2, sw, addr, nil
 }
 
-func StartServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, li *LangInstance) (*ServerWrap, io.ReadWriteCloser, error) {
-	sw := newServerWrapCommon(ctx, cmd)
+func startServerWrapIO(ctx context.Context, cmd string, stderr io.Writer) (*ServerWrap, io.ReadWriteCloser, error) {
+	sw := newServerWrap(ctx, cmd)
 
 	pr1, pw1 := io.Pipe()
 	pr2, pw2 := io.Pipe()
@@ -58,36 +78,24 @@ func StartServerWrapIO(ctx context.Context, cmd string, stderr io.Writer, li *La
 	sw.Cmd.Cmd().Stdout = pw2
 	sw.Cmd.Cmd().Stderr = stderr
 
-	sw.rwc = &rwc{} // also keep for later close
-	sw.rwc.WriteCloser = pw1
-	sw.rwc.ReadCloser = pr2
+	rwc := &rwc{} // also keep for later close
+	rwc.WriteCloser = pw1
+	rwc.ReadCloser = pr2
+	// ensure pipe close in case of error after start()
+	sw.Cmd = osutil.NewOnWaitDoneCmd(sw.Cmd, func(err error) {
+		rwc.Close()
+	})
 
 	if err := sw.Cmd.Start(); err != nil {
-		sw.rwc.Close() // wait will not be called, clear resources
+		rwc.Close()
 		return nil, nil, err
 	}
 
-	return sw, sw.rwc, nil
-}
-
-func newServerWrapCommon(ctx context.Context, cmd string) *ServerWrap {
-	sw := &ServerWrap{}
-	args := strings.Split(cmd, " ") // TODO: escapes
-	sw.Cmd = osutil.NewCmdIShell(ctx, args...)
-	return sw
+	return sw, rwc, nil
 }
 
 //----------
-
-func (sw *ServerWrap) Wait() error {
-	if sw.rwc != nil { // can be nil if in tcp mode
-		// was set outside cmd, close after cmd.wait
-		defer sw.rwc.Close()
-	}
-
-	return sw.Cmd.Wait()
-}
-
+//----------
 //----------
 
 type rwc struct {
@@ -96,10 +104,9 @@ type rwc struct {
 }
 
 func (rwc *rwc) Close() error {
-	me := iout.MultiError{}
-	me.Add(rwc.ReadCloser.Close())
-	me.Add(rwc.WriteCloser.Close())
-	return me.Result()
+	err1 := rwc.ReadCloser.Close()
+	err2 := rwc.WriteCloser.Close()
+	return iout.MultiErrors(err1, err2)
 }
 
 //----------

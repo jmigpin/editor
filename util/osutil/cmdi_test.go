@@ -45,7 +45,7 @@ func TestCmdIRead2(t *testing.T) {
 	cmd0.Stdin = h
 
 	cmd := NewCmdI(cmd0)
-	cmd = NewNoHangPipeCmd(cmd, true, false, false)
+	cmd = NewNoHangPipeCmd2(cmd, true, false, false)
 
 	now := time.Now()
 	if err := cmd.Start(); err != nil {
@@ -73,7 +73,7 @@ func TestCmdIRead3(t *testing.T) {
 
 	cmd := NewCmdI(cmd0)
 	cmd = NewCtxCmd(ctx, cmd)
-	cmd = NewNoHangPipeCmd(cmd, true, false, false)
+	cmd = NewNoHangPipeCmd2(cmd, true, false, false)
 
 	now := time.Now()
 	if err := cmd.Start(); err != nil {
@@ -99,7 +99,7 @@ func TestCmdIRead4(t *testing.T) {
 	cmd0.Stdin = h
 
 	cmd := NewCmdI(cmd0)
-	cmd = NewNoHangPipeCmd(cmd, true, false, false)
+	cmd = NewNoHangPipeCmd2(cmd, true, false, false)
 
 	now := time.Now()
 	if err := cmd.Start(); err != nil {

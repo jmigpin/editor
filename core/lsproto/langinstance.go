@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/jmigpin/editor/util/ctxutil"
@@ -24,27 +23,23 @@ func NewLangInstance(ctx context.Context, lang *LangManager) (*LangInstance, err
 	ctx2, cancel := context.WithCancel(ctx)
 	li.cancelCtx = cancel
 
-	if err := li.startAndInit(ctx2); err != nil {
-		cancel()
-		_ = li.Wait()
+	// start new client/server
+	if err := li.start(ctx2); err != nil {
+		li.cancelCtx() // clear resources
 		return nil, err
 	}
+
+	// initialize client
+	if err := li.cli.Initialize(ctx2); err != nil {
+		li.cancelCtx()
+		_ = li.Wait() // wait for server/client
+		return nil, err
+	}
+
 	return li, nil
 }
 
 //----------
-
-func (li *LangInstance) startAndInit(ctx context.Context) error {
-	// start new client/server
-	if err := li.start(ctx); err != nil {
-		return err
-	}
-	// initialize client
-	if err := li.cli.Initialize(ctx); err != nil {
-		return err
-	}
-	return nil
-}
 
 func (li *LangInstance) start(ctx context.Context) error {
 	switch li.lang.Reg.Network {
@@ -63,13 +58,18 @@ func (li *LangInstance) start(ctx context.Context) error {
 
 func (li *LangInstance) startClientServerTCP(ctx context.Context) error {
 	// server wrap
-	sw, addr, err := StartServerWrapTCP(ctx, li.lang.Reg.Cmd, li.lang.man.serverWrapW)
+	ctx2, sw, addr, err := startServerWrapTCP(ctx, li.lang.Reg.Cmd, li.srvOutW())
 	if err != nil {
 		return err
 	}
 	li.sw = sw
 	// client
-	return li.startClientTCP(ctx, addr)
+	if err := li.startClientTCP(ctx2, addr); err != nil {
+		li.cancelCtx()
+		_ = sw.Wait()
+		return err
+	}
+	return nil
 }
 
 func (li *LangInstance) startClientTCP(ctx context.Context, addr string) error {
@@ -99,22 +99,11 @@ func (li *LangInstance) startClientTCP(ctx context.Context, addr string) error {
 	return nil
 }
 
-func (li *LangInstance) startClientServerStdio(ctx context.Context) error {
-	var stderr io.Writer
-	if li.lang.Reg.HasOptional("stderr") {
-		// useful for testing to see the server output msgs for debug
-		stderr = os.Stderr
-	}
-	if li.lang.Reg.HasOptional("stderrmanmsg") {
-		// get server output in manager messages (editor msgs)
-		stderr = iout.FnWriter(func(p []byte) (int, error) {
-			li.lang.man.Message(string(p))
-			return len(p), nil
-		})
-	}
+//----------
 
-	// server wrap
-	sw, rwc, err := StartServerWrapIO(ctx, li.lang.Reg.Cmd, stderr, li)
+func (li *LangInstance) startClientServerStdio(ctx context.Context) error {
+	// server wrap; the server can rwc.close, which will stop the client
+	sw, rwc, err := startServerWrapIO(ctx, li.lang.Reg.Cmd, li.srvOutW())
 	if err != nil {
 		return err
 	}
@@ -127,9 +116,29 @@ func (li *LangInstance) startClientServerStdio(ctx context.Context) error {
 
 //----------
 
+func (li *LangInstance) srvOutW() io.Writer {
+	if w := li.lang.man.serverWrapW; w != nil {
+		return w
+	}
+
+	if li.lang.Reg.HasOptional("stderr") {
+		//// useful for testing to see the server output msgs for debug
+		//return os.Stderr
+
+		// get server output in manager messages (editor msgs)
+		return iout.FnWriter(func(p []byte) (int, error) {
+			li.lang.man.Message(string(p))
+			return len(p), nil
+		})
+	}
+	return nil
+}
+
+//----------
+
 func (li *LangInstance) Wait() error {
 	defer li.cancelCtx()
-	var me iout.MultiError
+	me := iout.MultiError{}
 	if li.sw != nil { // might be nil: "tcpclient" option (or not started)
 		me.Add(li.sw.Wait())
 	}
