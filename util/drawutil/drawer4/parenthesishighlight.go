@@ -104,11 +104,11 @@ func (ph *ParenthesisHighlight) do() []*ColorizeOp {
 				// might not work well (forward vs reverse)
 				// ph.sc.W.QuotedString(),
 
-				ph.sc.W.And(
+				ph.sc.W.AndNoReverse(
 					ph.sc.W.Rune(openRu),
 					pushOpen,
 				),
-				ph.sc.W.And(
+				ph.sc.W.AndNoReverse(
 					ph.sc.W.Rune(closeRu),
 					popClose,
 				),
