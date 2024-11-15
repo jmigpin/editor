@@ -1029,7 +1029,7 @@ func (ann *Annotator) visCompositeLit(ctx *Ctx, cl *ast.CompositeLit) (DebugExpr
 	if err != nil {
 		return nil, err
 	}
-	return ann.newDebugCE("ILit", de), nil
+	return ann.newDebugCE2("ILit", cl.Pos(), de), nil
 }
 
 func (ann *Annotator) visFuncLit(ctx *Ctx, fl *ast.FuncLit) (DebugExpr, error) {

@@ -1392,7 +1392,7 @@ var a any
 func f0() {
 	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ.L(0, 1, 47, Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IVs("\"b\""))))))
+	Σ.L(0, 1, 29, Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IVs("\"b\""))))))
 	a = map[string]string{"a": "b"}
 }
 -- TestAnnotator60.in --
@@ -1823,7 +1823,7 @@ type A struct{a,b,c int}
 func f0() {
 	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ.L(0, 1, 32, Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IVs("1")), Σ.IKV(nil, Σ.IVs("2")), Σ.IKV(nil, Σ.IVs("3"))))))
+	Σ.L(0, 1, 30, Σ.IL(Σ.ILit(Σ.IL(Σ.IKV(nil, Σ.IVs("1")), Σ.IKV(nil, Σ.IVs("2")), Σ.IKV(nil, Σ.IVs("3"))))))
 	a := A{a: 1, b: 2, c: 3}
 	Σ0 := Σ.IVi(a)
 	Σ.L(0, 2, 53, Σ.IL(Σ0))

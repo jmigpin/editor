@@ -54,10 +54,10 @@ func (ann *Annotator) newDebugISt(pos token.Pos) DebugExpr {
 func (ann *Annotator) newDebugIL(exprs ...DebugExpr) ast.Expr {
 	return ann.newDebugCE("IL", exprs...)
 }
-func (ann *Annotator) newDebugILOrNilIdent(pos token.Pos, exprs ...DebugExpr) DebugExpr {
+func (ann *Annotator) newDebugILOrNilIdent(noExprsPos token.Pos, exprs ...DebugExpr) DebugExpr {
 	switch len(exprs) {
 	case 0:
-		return nilIdent(pos)
+		return nilIdent(noExprsPos)
 	default:
 		return ann.newDebugIL(exprs...)
 	}
