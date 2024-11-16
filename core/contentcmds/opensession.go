@@ -31,8 +31,7 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 //----------
 
 func sessionName(rd iorw.ReaderAt, index int) (string, error) {
-	sc := iorw.NewScanner(rd)
-	//sc.SetSrc2(rd, index)
+	sc, index := iorw.NewScanner(rd, index)
 
 	parseName := sc.W.RuneFnLoop(sessionNameRune)
 	cmdStr := "OpenSession"

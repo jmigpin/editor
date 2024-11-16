@@ -67,10 +67,12 @@ func (sh *SyntaxHighlight) do() []*ColorizeOp {
 
 	r := iorw.NewLimitedReaderAtPad(sh.d.reader, min, max, sh.pad)
 
-	sh.sc = iorw.NewScanner(r)
+	sc, pos0 := iorw.NewScanner(r, r.Min())
+	sh.sc = sc
+
 	//sh.parens.pairs = []rune("{}()[]") // TODO: disabled
 
-	_, _ = sh.sc.M.LoopOneOrMore(sh.sc.SrcMin(), sh.sc.W.Or(
+	_, _ = sh.sc.M.LoopOneOrMore(pos0, sh.sc.W.Or(
 		sh.parseString,
 		sh.parseComment,
 		//sh.parseParenthesis, // TODO: disabled

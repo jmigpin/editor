@@ -10,15 +10,13 @@ import (
 	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
 
-func NewScanner(rd ReaderAt) *pscan.Scanner {
+func NewScanner(rd ReaderAt, index int) (*pscan.Scanner, int) {
 	sc := pscan.NewScanner()
 	src, err := ReadFastFull(rd)
-	if err != nil {
-		//return nil, err // TODO
-		return sc // best effort, returns empty scanner
+	if err == nil { // best effort, valid scanner even with error
+		sc.SetSrc2(src, rd.Min())
 	}
-	sc.SetSrc2(src, rd.Min())
-	return sc
+	return sc, sc.ValidPos(index)
 }
 
 //----------
@@ -42,13 +40,11 @@ func REqual(r ReaderAt, i, n int, p []byte) (bool, error) {
 
 //----------
 
-// Result might not be a copy.
 func ReadFastFull(rd ReaderAt) ([]byte, error) {
 	min, max := rd.Min(), rd.Max()
 	return rd.ReadFastAt(min, max-min)
 }
 
-// Result might not be a copy.
 func ReadFullCopy(rd ReaderAt) ([]byte, error) {
 	b, err := ReadFastFull(rd)
 	if err != nil {

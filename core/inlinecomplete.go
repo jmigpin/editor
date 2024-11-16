@@ -419,7 +419,7 @@ func longestCommonPrefix(strs []string) string {
 	return strs[0][:len(prefix)] // use original string
 }
 func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
-	sc := iorw.NewScanner(rd)
+	sc, index := iorw.NewScanner(rd, index)
 	sc.Reverse = true
 	max := 1000
 	if v, p2, err := sc.M.StrValue(index, sc.W.RuneFnLoop(func(ru rune) bool {

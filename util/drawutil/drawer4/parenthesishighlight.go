@@ -40,8 +40,8 @@ func (ph *ParenthesisHighlight) do() []*ColorizeOp {
 	ci := ph.d.opt.cursor.offset
 	r := iorw.NewLimitedReaderAtPad(ph.d.reader, ci, ci, ph.pad)
 
-	ph.sc = iorw.NewScanner(r)
-	pos0 := ph.sc.ValidPos(ci)
+	sc, pos0 := iorw.NewScanner(r, ci)
+	ph.sc = sc
 
 	// match a parenthesis
 	pairs := []rune("(){}[]")
