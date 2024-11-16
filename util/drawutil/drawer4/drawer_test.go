@@ -422,10 +422,10 @@ func newTestFace() *fontutil.FontFace {
 
 }
 
-var testImg0Dir = "testimgs"
+//----------
 
 func imgFilename(name string) string {
-	return filepath.Join(testImg0Dir, name+".png")
+	return filepath.Join("../testdata", name+".png")
 }
 
 func cmpResult(t *testing.T, img image.Image, name string) {
@@ -442,7 +442,7 @@ func cmpResult(t *testing.T, img image.Image, name string) {
 }
 
 func saveResult(img image.Image, name string) {
-	fname := filepath.Join(testImg0Dir, name+".png")
+	fname := imgFilename(name)
 	f, err := os.Create(fname)
 	if err != nil {
 		panic(err)
@@ -454,7 +454,7 @@ func saveResult(img image.Image, name string) {
 }
 
 func openResult(name string) image.Image {
-	fname := filepath.Join(testImg0Dir, name+".png")
+	fname := imgFilename(name)
 	f, err := os.Open(fname)
 	if err != nil {
 		panic(err)
