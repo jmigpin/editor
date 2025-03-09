@@ -266,6 +266,9 @@ func (win *Window) nextEvent2() any {
 			return err
 		}
 
+	case xproto.UnmapNotifyEvent: // window unmapped (hidden)
+		return nil
+
 	case xproto.KeyPressEvent:
 		return win.XInput.KeyPress(&t)
 	case xproto.KeyReleaseEvent:
