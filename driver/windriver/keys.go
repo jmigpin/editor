@@ -257,20 +257,23 @@ func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 		return event.KSymKeypad8
 	case 0x69:
 		return event.KSymKeypad9
-	//case 0x6A: // VK_MULTIPLY: TODO: keypad?
-	//return event.KSymKeypadMultiply
-	//case 0x6B:
-	//	return event.KSymKeypadAdd
-	//case 0x6D:
-	//	return event.KSymKeypadSubtract
-	//case 0x6E:
-	//	return event.KSymKeypadDecimal
-	//case 0x6F:
-	//	return event.KSymKeypadDivide
+
+	case 0x6A: // VK_MULTIPLY
+		return event.KSymKeypadMultiply
+	case 0x6B: // VK_ADD
+		return event.KSymKeypadAdd
+	case 0x6D: // VK_SUBTRACT
+		return event.KSymKeypadSubtract
+	case 0x6E: // VK_DECIMAL
+		return event.KSymKeypadDecimal
+	case 0x6F: // VK_DIVIDE
+		return event.KSymKeypadDivide
 	//case ?:
 	//	return event.KSymKeypadEnter
+	case 0x6C: // VK_SEPARATOR
+		return event.KSymKeypadSeparator
 	//case ?:
-	//	return event.KSymKeypadSeparator
+	//	return event.KSymKeypadDelete
 
 	case 0xAF:
 		return event.KSymVolumeUp

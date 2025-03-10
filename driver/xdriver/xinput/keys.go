@@ -271,6 +271,8 @@ func translateXKeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
 		return event.KSymKeypadEnter
 	case 0xffac:
 		return event.KSymKeypadSeparator
+	case 0xff9f:
+		return event.KSymKeypadDelete
 
 	case 0x1008ff13:
 		return event.KSymVolumeUp

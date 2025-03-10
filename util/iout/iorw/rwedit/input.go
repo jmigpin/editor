@@ -228,7 +228,7 @@ func (in *Input) onKeyDown(ev *event.KeyDown) (_ event.Handled, err error) {
 		err = Backspace(in.ctx)
 		makeCursorVisible()
 		return true, err
-	case event.KSymDelete:
+	case event.KSymDelete, event.KSymKeypadDelete:
 		err = Delete(in.ctx)
 		makeCursorVisible() // TODO: on delete?
 		return true, err

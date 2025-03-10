@@ -93,7 +93,7 @@ const (
 	KSymMinus       // -
 	KSymPeriod      // .
 	KSymSlash       // /
-	KSymBackSlash   // \
+	KSymBackSlash   // "\"
 	KSymColon       // :
 	KSymSemicolon   // ;
 	KSymLess        // <
@@ -149,6 +149,7 @@ const (
 	KSymKeypadDivide
 	KSymKeypadEnter
 	KSymKeypadSeparator
+	KSymKeypadDelete
 
 	KSymVolumeUp
 	KSymVolumeDown
