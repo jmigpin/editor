@@ -147,6 +147,8 @@ const (
 	KSymKeypadSubtract
 	KSymKeypadDecimal
 	KSymKeypadDivide
+	KSymKeypadEnter
+	KSymKeypadSeparator
 
 	KSymVolumeUp
 	KSymVolumeDown

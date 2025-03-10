@@ -14,6 +14,7 @@ func translateVKeyToEventKeySym(vkey uint32, ru rune) event.KeySym {
 	return ks
 }
 
+// Constants from https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 	switch vkey {
 	case 0x30:
@@ -266,6 +267,10 @@ func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 	//	return event.KSymKeypadDecimal
 	//case 0x6F:
 	//	return event.KSymKeypadDivide
+	//case ?:
+	//	return event.KSymKeypadEnter
+	//case ?:
+	//	return event.KSymKeypadSeparator
 
 	case 0xAF:
 		return event.KSymVolumeUp
