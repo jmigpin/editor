@@ -269,7 +269,7 @@ func translateXKeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
 		return event.KSymKeypadDivide
 	case 0xff8d:
 		return event.KSymKeypadEnter
-	case 0xffac:
+	case 0xff9f:
 		return event.KSymKeypadSeparator
 
 	case 0x1008ff13:
@@ -352,6 +352,8 @@ func eventKeySymRune(eks event.KeySym) rune {
 		return '.'
 	case event.KSymKeypadDivide:
 		return '/'
+	case event.KSymKeypadSeparator:
+		return '.'
 	}
 	return rune(0)
 }
