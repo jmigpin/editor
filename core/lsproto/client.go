@@ -205,7 +205,7 @@ func (cli *Client) Initialize(ctx context.Context) error {
 }
 
 func (cli *Client) initializeParams() (json.RawMessage, error) {
-	opt := []string{}
+	opt := []string{"\"capabilities\":{}"}
 
 	//	rootUri, err := cli.rootUri()
 	//	if err != nil {
