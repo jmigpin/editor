@@ -372,7 +372,7 @@ func newTestManager(t *testing.T) *Manager {
 
 		//cLangRegistration("", false),
 		//cLangRegistration("", logTestVerbose()),
-		cLangRegistration("clangd-16", false),
+		cLangRegistration("clangd-19", false),
 
 		pylspRegistration(true, false),
 

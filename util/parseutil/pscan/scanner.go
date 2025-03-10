@@ -17,7 +17,7 @@ type Scanner struct {
 	src       []byte
 	srcOffset int // src[0] position
 	Reverse   bool
-	Debug bool
+	Debug     bool
 
 	M *Match
 	W *Wrap
