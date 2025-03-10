@@ -232,7 +232,7 @@ func (in *Input) onKeyDown(ev *event.KeyDown) (_ event.Handled, err error) {
 		err = Delete(in.ctx)
 		makeCursorVisible() // TODO: on delete?
 		return true, err
-	case event.KSymReturn:
+	case event.KSymReturn, event.KSymKeypadEnter:
 		err = AutoIndent(in.ctx)
 		makeCursorVisible()
 		return true, err

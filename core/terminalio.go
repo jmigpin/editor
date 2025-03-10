@@ -209,7 +209,7 @@ func (tio *ERowTermIO) eventToBytes(ev any) ([]byte, event.Handled) {
 		if keyboardEvs() {
 			var b []byte
 			switch t.KeySym {
-			case event.KSymReturn:
+			case event.KSymReturn, event.KSymKeypadEnter:
 				b = byteOut('\n', '\n')
 			case event.KSymEscape:
 				b = []byte{27}
