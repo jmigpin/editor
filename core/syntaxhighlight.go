@@ -87,6 +87,8 @@ func detectSetupSyntaxHighlight(erow *ERow) {
 		setc("#", [2]string{"=begin", "=end"})
 	case ".ledger":
 		setc(";", "#") // ";" is main symbol for comments but is not if in the description; while "#" is not a comment in some other cases
+	case ".ml", ".mli":
+		setc([2]string{"(*", "*)"})
 
 	case ".txt":
 		setc("#") // useful (but not correct)
