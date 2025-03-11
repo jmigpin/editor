@@ -361,30 +361,6 @@ func eventKeysymRune(eks event.KeySym) rune {
 
 //----------
 
-func translateModifiersToEventKeyModifiers(v uint16) event.KeyModifiers {
-	type pair struct {
-		a uint16
-		b event.KeyModifiers
-	}
-	pairs := []pair{
-		{xproto.KeyButMaskShift, event.ModShift},
-		{xproto.KeyButMaskControl, event.ModCtrl},
-		{xproto.KeyButMaskLock, event.ModLock},
-		{xproto.KeyButMaskMod1, event.Mod1},
-		{xproto.KeyButMaskMod2, event.Mod2},
-		{xproto.KeyButMaskMod3, event.Mod3},
-		{xproto.KeyButMaskMod4, event.Mod4},
-		{xproto.KeyButMaskMod5, event.Mod5},
-	}
-	var w event.KeyModifiers
-	for _, p := range pairs {
-		if v&p.a > 0 {
-			w |= p.b
-		}
-	}
-	return w
-}
-
 func translateModifiersToEventMouseButtons(v uint16) event.MouseButtons {
 	type pair struct {
 		a uint16

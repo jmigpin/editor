@@ -120,7 +120,7 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 	case *event.KeyDown:
 		m := ev.Mods.ClearLocks()
 		switch {
-		case m.Is(event.ModNone):
+		case m.IsEmpty():
 			switch ev.KeySym {
 			case event.KSymTab:
 				return ta.inlineCompleteEv()

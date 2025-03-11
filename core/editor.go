@@ -586,7 +586,7 @@ func (ed *Editor) handleGlobalShortcuts(ev any) (handled bool) {
 		case *event.KeyDown:
 			m := t2.Mods.ClearLocks()
 			switch {
-			case m.Is(event.ModNone):
+			case m.IsEmpty():
 				switch t2.KeySym {
 				case event.KSymEscape:
 					ed.GoDebug.CancelAndClear()

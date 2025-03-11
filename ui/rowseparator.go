@@ -33,7 +33,7 @@ func (sh *RowSeparator) OnInputEvent(ev0 any, p image.Point) event.Handled {
 		}
 	case *event.MouseDown:
 		m := ev.Mods.ClearLocks()
-		if m.Is(event.ModNone) {
+		if m.IsEmpty() {
 			switch ev.Button {
 			case event.ButtonWheelUp:
 				sh.row.resizeWithPushJump(true, &p)

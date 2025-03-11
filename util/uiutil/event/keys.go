@@ -1,5 +1,11 @@
 package event
 
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
+
 //go:generate stringer -type KeySym -output zkeys.go
 
 type KeySym int
@@ -169,31 +175,57 @@ func (km KeyModifiers) HasAny(m KeyModifiers) bool {
 func (km KeyModifiers) Is(m KeyModifiers) bool {
 	return km == m
 }
+func (km KeyModifiers) IsEmpty() bool {
+	return km == 0
+}
 func (km KeyModifiers) ClearLocks() KeyModifiers {
-	w := []KeyModifiers{ModLock, ModNum}
+	w := []KeyModifiers{ModCapsLock, ModNumLock}
 	u := km
 	for _, m := range w {
 		u &^= m
 	}
 	return u
 }
+func (km KeyModifiers) String() string {
+	w := []string{}
+	if km.HasAny(ModShift) {
+		w = append(w, "shift")
+	}
+	if km.HasAny(ModCapsLock) {
+		w = append(w, "caps")
+	}
+	if km.HasAny(ModCtrl) {
+		w = append(w, "ctrl")
+	}
+	if km.HasAny(ModNumLock) {
+		w = append(w, "num")
+	}
+	if km.HasAny(ModAlt) {
+		w = append(w, "alt")
+	}
+	if km.HasAny(ModAltGr) {
+		w = append(w, "altGr")
+	}
+	if km.HasAny(ModSuper) {
+		w = append(w, "super")
+	}
+	if km.HasAny(ModMeta) {
+		w = append(w, "meta")
+	}
+	slices.Reverse(w)
+	return fmt.Sprintf("(%b:%v)", km, strings.Join(w, "|"))
+}
 
 const (
-	// TODO: rename to KMod
-	ModNone  KeyModifiers = 0
-	ModShift KeyModifiers = 1 << (iota - 1)
-	ModLock               // caps
+	// masks
+	ModShift KeyModifiers = 1 << iota
+	ModCapsLock
 	ModCtrl
-	Mod1 // usually alt
-	Mod2 // often numlock
-	Mod3 // rarely used
-	Mod4 // often super/meta
-	Mod5 // often altgr
-)
-const (
-	ModNum   = Mod2 // TODO: rename ModNumLock
-	ModAlt   = Mod1
-	ModAltGr = Mod5
+	ModNumLock
+	ModAlt
+	ModAltGr
+	ModSuper
+	ModMeta
 )
 
 //----------
