@@ -6,7 +6,7 @@ import (
 )
 
 // Constants from /usr/include/X11/keysymdef.h
-func translateXKeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
+func keysymToEventKeysym(xk xproto.Keysym) event.KeySym {
 	switch xk {
 	case 0x30:
 		return event.KSym0
@@ -116,12 +116,12 @@ func translateXKeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
 		return event.KSymControlL
 	case 0xffe4:
 		return event.KSymControlR
-	case 0xffe9:
+	case 0xffe9: // XK_Alt_L
 		return event.KSymAltL
-	case 0xffea:
+	case 0xffea: // XK_Alt_R
 		return event.KSymAltR
-	case 0xfe03:
-		return event.KSymAltGr // ISOLevel3Shift
+	case 0xfe03: // ISOLevel3Shift
+		return event.KSymAltGr
 	case 0xffeb:
 		return event.KSymSuperL // windows key
 	case 0xffec:
@@ -133,7 +133,7 @@ func translateXKeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
 	case 0xfe20:
 		return event.KSymTabLeft // ISOLeftTab
 
-	case 0xff7f:
+	case 0xff7f: // XK_Num_Lock
 		return event.KSymNumLock
 	case 0xffe5:
 		return event.KSymCapsLock
@@ -291,16 +291,15 @@ func translateXKeysymToEventKeySym(xk xproto.Keysym) event.KeySym {
 
 //----------
 
-func keySymsRune(xks xproto.Keysym, eks event.KeySym) rune {
-	ru := rune(xks) // default direct translation (covers some ascii values)
-	ru2 := eventKeySymRune(eks)
-	if ru2 != 0 {
+func keysymRune(ks xproto.Keysym, eks event.KeySym) rune {
+	ru := rune(ks) // default direct translation (covers some ascii values)
+	if ru2 := eventKeysymRune(eks); ru2 != 0 {
 		ru = ru2
 	}
 	return ru
 }
 
-func eventKeySymRune(eks event.KeySym) rune {
+func eventKeysymRune(eks event.KeySym) rune {
 	switch eks {
 	case event.KSymGrave:
 		return '`'
@@ -350,10 +349,12 @@ func eventKeySymRune(eks event.KeySym) rune {
 		return '+'
 	case event.KSymKeypadSubtract:
 		return '-'
-	case event.KSymKeypadDecimal:
-		return '.'
 	case event.KSymKeypadDivide:
 		return '/'
+	case event.KSymKeypadDecimal:
+		return '.' // TODO: needs to be detected
+	case event.KSymKeypadSeparator:
+		return '.' // TODO: needs to be detected
 	}
 	return rune(0)
 }

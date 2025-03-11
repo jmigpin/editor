@@ -16,16 +16,27 @@ import (
 // http://wiki.linuxquestions.org/wiki/List_of_Keysyms_Recognised_by_Xmodmap
 // https://www.x.org/releases/X11R7.7/doc/libX11/i18n/compose/iso8859-2.html
 
+// xproto.Keycode is a physical key.
+// xproto.Keysym is the encoding of a symbol on the cap of a key.
+// A list of keysyms is associated with each keycode.
+
+//----------
+
 // Keyboard mapping
 type KMap struct {
 	si    *xproto.SetupInfo
 	reply *xproto.GetKeyboardMappingReply
 	conn  *xgb.Conn
+
+	modGroups struct {
+		numLock byte
+		altGr   byte
+	}
 }
 
 func NewKMap(conn *xgb.Conn) (*KMap, error) {
 	km := &KMap{conn: conn}
-	err := km.ReadTable()
+	err := km.ReadMapping()
 	if err != nil {
 		return nil, err
 	}
@@ -34,14 +45,23 @@ func NewKMap(conn *xgb.Conn) (*KMap, error) {
 
 //----------
 
-func (km *KMap) ReadTable() error {
+func (km *KMap) ReadMapping() error {
+	if err := km.readKeyboardMapping(); err != nil {
+		return err
+	}
+	if err := km.readModMapping(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (km *KMap) readKeyboardMapping() error {
 	si := xproto.Setup(km.conn)
 	count := byte(si.MaxKeycode - si.MinKeycode + 1)
-	if count == 0 {
-		return fmt.Errorf("count is 0")
+	if count <= 0 {
+		return fmt.Errorf("bad keycode count: %v", count)
 	}
-	cookie := xproto.GetKeyboardMapping(km.conn, si.MinKeycode, count)
-	reply, err := cookie.Reply()
+	reply, err := xproto.GetKeyboardMapping(km.conn, si.MinKeycode, count).Reply()
 	if err != nil {
 		return err
 	}
@@ -56,42 +76,94 @@ func (km *KMap) ReadTable() error {
 	return nil
 }
 
+func (km *KMap) readModMapping() error {
+	modMap, err := xproto.GetModifierMapping(km.conn).Reply()
+	if err != nil {
+		return err
+	}
+
+	// 8 modifiers groups, that can have n keycodes
+	//0	Shift (ModMaskShift)
+	//1	Lock (Caps Lock)
+	//2	Control (ModMaskControl)
+	//3	Mod1 (Usually Alt)
+	//4	Mod2 (Often Num Lock)
+	//5	Mod3 (Rarely used)
+	//6	Mod4 (Often Super/Meta)
+	//7	Mod5 (Often AltGr)
+
+	// X11
+	const numLock = 0xff7f
+	const altGr = 0xfe03 // TODO: alternatives 0xfe11, 0xff7e?
+
+	// defaults
+	km.modGroups.numLock = 4
+	km.modGroups.altGr = 7
+
+	// detect
+	stride := modMap.KeycodesPerModifier
+	for g := byte(0); g < 8; g++ {
+		kcs := modMap.Keycodes[g*stride : (g+1)*stride]
+		//fmt.Println(g, kcs) // DEBUG
+	kcLoop: // iterate keycodes/keysyms, keep first found group
+		for _, kc := range kcs { //
+			kss := km.keycodeToKeysyms(kc)
+			//fmt.Println("\t", kss) // DEBUG
+			// iterate all modifiers, keep first
+			for _, ks := range kss {
+				switch ks {
+				case numLock:
+					km.modGroups.numLock = g
+					break kcLoop
+				case altGr:
+					km.modGroups.altGr = g
+					break kcLoop
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 //----------
 
 func (km *KMap) KeysymTable() string {
-	// some symbols are not present, like "~" and "^", and their X11 constant is present instead
 	o := "keysym table\n"
-	table := km.reply.Keysyms
-	width := int(km.reply.KeysymsPerKeycode)
-	for y := 0; y*width < len(table); y++ {
-		var u []string
-		for x := 0; x < width; x++ {
-			xks := table[y*width+x]
-			evs := translateXKeysymToEventKeySym(xks)
-			s2 := fmt.Sprintf("%v", evs)
-			if evs == event.KSymNone {
-				s2 = "-"
-			}
-			u = append(u, fmt.Sprintf("(%c,%v)", rune(xks), s2))
+	for j := 0; j < 256; j++ {
+		kc := xproto.Keycode(j)
+		kss := km.keycodeToKeysyms(kc)
+		u := []string{}
+		for _, xks := range kss {
+			eks := keysymToEventKeysym(xks)
+			ru := eventKeysymRune(eks)
+			u = append(u, fmt.Sprintf("\t(%c,%v)", ru, eks))
 		}
-		kc := xproto.Keycode(y) + km.si.MinKeycode
-		o += fmt.Sprintf("kc=%v: %v\n", kc, strings.Join(u, ", "))
+		us := strings.Join(u, "\n")
+		if len(us) > 0 {
+			us = "\n" + us
+		}
+		o += fmt.Sprintf("kc=%v:%v\n", kc, us)
 	}
 	return o
 }
 
 //----------
 
-func (km *KMap) keysymRow(keycode xproto.Keycode) []xproto.Keysym {
+func (km *KMap) keycodeToKeysyms(keycode xproto.Keycode) []xproto.Keysym {
 	y := int(keycode - km.si.MinKeycode)
-	width := int(km.reply.KeysymsPerKeycode) // usually ~7
-	return km.reply.Keysyms[y*width : y*width+width]
+	n := km.si.MaxKeycode - km.si.MinKeycode + 1
+	if y < 0 || y >= int(n) {
+		return nil
+	}
+	stride := int(km.reply.KeysymsPerKeycode) // usually ~7
+	return km.reply.Keysyms[y*stride : (y+1)*stride]
 }
 
 //----------
 
 func (km *KMap) printKeysyms(keycode xproto.Keycode) {
-	keysyms := km.keysymRow(keycode)
+	keysyms := km.keycodeToKeysyms(keycode)
 	//fmt.Printf("%v\n", keysyms)
 
 	{
@@ -112,24 +184,15 @@ func (km *KMap) printKeysyms(keycode xproto.Keycode) {
 
 //----------
 
-func isKeypad(ks xproto.Keysym) bool {
-	return (0xFF80 <= ks && ks <= 0xFFBD) ||
-		(0x11000000 <= ks && ks <= 0x1100FFFF)
-}
-
-//----------
-
-// xproto.Keycode is a physical key.
-// xproto.Keysym is the encoding of a symbol on the cap of a key.
-// A list of keysyms is associated with each keycode.
-
-func (km *KMap) keysym(krow []xproto.Keysym, m uint16) xproto.Keysym {
+func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 	bitIsSet := func(v uint16) bool { return m&v > 0 }
 	hasShift := bitIsSet(xproto.KeyButMaskShift)
 	hasCaps := bitIsSet(xproto.KeyButMaskLock)
 	hasCtrl := bitIsSet(xproto.KeyButMaskControl)
-	hasNum := bitIsSet(xproto.KeyButMaskMod2)
-	hasAltGr := bitIsSet(xproto.KeyButMaskMod5)
+	//hasNum := bitIsSet(xproto.KeyButMaskMod2)
+	hasNum := bitIsSet(1 << km.modGroups.numLock) // detected
+	//hasAltGr := bitIsSet(xproto.KeyButMaskMod5)
+	hasAltGr := bitIsSet(1 << km.modGroups.altGr) // detected
 
 	// keysym group
 	group := 0
@@ -142,13 +205,13 @@ func (km *KMap) keysym(krow []xproto.Keysym, m uint16) xproto.Keysym {
 	// each group has two symbols
 	i1 := group * 2
 	i2 := i1 + 1
-	if i1 >= len(krow) {
+	if i1 >= len(kss) {
 		return 0
 	}
-	if i2 >= len(krow) {
+	if i2 >= len(kss) {
 		i2 = i1
 	}
-	ks1, ks2 := krow[i1], krow[i2]
+	ks1, ks2 := kss[i1], kss[i2]
 	if ks2 == 0 {
 		ks2 = ks1
 	}
@@ -182,11 +245,18 @@ func (km *KMap) keysym(krow []xproto.Keysym, m uint16) xproto.Keysym {
 //----------
 
 func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (event.KeySym, rune) {
-	// keysym
-	ksRow := km.keysymRow(keycode)            // keycode to keysyms
-	xks := km.keysym(ksRow, kmods)            // keysyms to keysym
-	eks := translateXKeysymToEventKeySym(xks) // keysym to event.keysym
-	// rune
-	ru := keySymsRune(xks, eks)
+	kss := km.keycodeToKeysyms(keycode)
+	ks := km.keysymsToKeysym(kss, kmods)
+	eks := keysymToEventKeysym(ks)
+	ru := keysymRune(ks, eks)
 	return eks, ru
+}
+
+//----------
+//----------
+//----------
+
+func isKeypad(ks xproto.Keysym) bool {
+	return (0xFF80 <= ks && ks <= 0xFFBD) ||
+		(0x11000000 <= ks && ks <= 0x1100FFFF)
 }

@@ -262,7 +262,7 @@ func (win *Window) nextEvent2() any {
 	case xproto.MapNotifyEvent: // window mapped (created)
 	case xproto.ReparentNotifyEvent: // window rerooted
 	case xproto.MappingNotifyEvent: // keyboard mapping
-		if err := win.XInput.ReadMapTable(); err != nil {
+		if err := win.XInput.ReadMapping(); err != nil {
 			return err
 		}
 

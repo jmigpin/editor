@@ -10,10 +10,7 @@ import (
 )
 
 func TestKMapLookup1(t *testing.T) {
-	kmap, conn, err := getKMap(t)
-	if err != nil {
-		t.Fatal(err)
-	}
+	kmap, conn := getKMap(t)
 	defer conn.Close()
 
 	type pair struct {
@@ -30,11 +27,14 @@ func TestKMapLookup1(t *testing.T) {
 		{35, xproto.KeyButMaskShift, event.KSymGrave, '`'},
 		{65, 0, event.KSymSpace, ' '},
 		{51, 0, event.KSymTilde, '~'},
+		{77, 0, event.KSymNumLock, 'ｿ'},
+		{91, 0, event.KSymKeypadDelete, 'ﾟ'},
+		{91, xproto.KeyButMaskMod2, event.KSymKeypadDecimal, '.'},
 	}
 
 	//println(kmap.KeysymTable())
 
-	//for i := kmap.si.MinKeycode; i < 255; i++ {
+	//for i := 0; i < 256; i++ {
 	//	eks, ru := kmap.Lookup(xproto.Keycode(i), 0)
 	//	fmt.Printf("%v, %v, %v(%c)\n", i, eks, ru, ru)
 	//}
@@ -49,17 +49,19 @@ func TestKMapLookup1(t *testing.T) {
 }
 
 //----------
+//----------
+//----------
 
-func getKMap(t *testing.T) (*KMap, *xgb.Conn, error) {
+func getKMap(t *testing.T) (*KMap, *xgb.Conn) {
 	display := os.Getenv("DISPLAY")
 	conn, err := xgb.NewConnDisplay(display)
 	if err != nil {
-		return nil, nil, err
+		t.Fatal(err)
 	}
 	km, err := NewKMap(conn)
 	if err != nil {
 		conn.Close()
-		return nil, nil, err
+		t.Fatal(err)
 	}
-	return km, conn, err
+	return km, conn
 }

@@ -23,8 +23,8 @@ func NewXInput(conn *xgb.Conn) (*XInput, error) {
 
 //----------
 
-func (xi *XInput) ReadMapTable() error {
-	return xi.km.ReadTable()
+func (xi *XInput) ReadMapping() error {
+	return xi.km.ReadMapping()
 }
 
 //----------

@@ -182,13 +182,13 @@ const (
 	// TODO: rename to KMod
 	ModNone  KeyModifiers = 0
 	ModShift KeyModifiers = 1 << (iota - 1)
-	ModLock               // caps // TODO: rename ModCapsLock
+	ModLock               // caps
 	ModCtrl
-	Mod1 // ~ alt
-	Mod2 // ~ num lock
-	Mod3
-	Mod4 // ~ windows key
-	Mod5 // ~ alt gr
+	Mod1 // usually alt
+	Mod2 // often numlock
+	Mod3 // rarely used
+	Mod4 // often super/meta
+	Mod5 // often altgr
 )
 const (
 	ModNum   = Mod2 // TODO: rename ModNumLock
