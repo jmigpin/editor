@@ -32,17 +32,17 @@ func TestKMapLookup1(t *testing.T) {
 		{91, xproto.KeyButMaskMod2, event.KSymKeypadDecimal, '.'},
 	}
 
-	//println(kmap.KeysymTable())
+	//println(kmap.keysymsTableStr())
 
 	//for i := 0; i < 256; i++ {
 	//	eks, ru := kmap.Lookup(xproto.Keycode(i), 0)
 	//	fmt.Printf("%v, %v, %v(%c)\n", i, eks, ru, ru)
 	//}
 
-	for _, p := range pairs {
+	for i, p := range pairs {
 		eks, ru := kmap.Lookup(p.kc, p.kmods)
 		if eks != p.eks || ru != p.ru {
-			t.Logf("%v, %v, %v(%c)\n", p.kc, eks, ru, ru)
+			t.Logf("%v: %v, %v, %v(%c)\n", i, p.kc, eks, ru, ru)
 			t.Fail()
 		}
 	}

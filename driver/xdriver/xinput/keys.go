@@ -120,8 +120,10 @@ func keysymToEventKeysym(xk xproto.Keysym) event.KeySym {
 		return event.KSymAltL
 	case 0xffea: // XK_Alt_R
 		return event.KSymAltR
-	case 0xfe03: // ISOLevel3Shift
+	case 0xfe03: // XK_ISO_Level3_Shift
 		return event.KSymAltGr
+	//case 0xfe08: // XK_ISO_Next_Group
+	//	return
 	case 0xffeb:
 		return event.KSymSuperL // windows key
 	case 0xffec:

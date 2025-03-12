@@ -3,7 +3,6 @@ package xinput
 import (
 	"fmt"
 	"strings"
-	"unicode"
 
 	"github.com/jezek/xgb"
 	"github.com/jezek/xgb/xproto"
@@ -74,7 +73,7 @@ func (km *KMap) readKeyboardMapping() error {
 	km.reply = reply
 	km.si = si
 
-	//log.Printf("%v", km.KeysymTable())
+	//log.Printf("%v", km.keysymsTableStr())
 
 	return nil
 }
@@ -191,24 +190,82 @@ func (km *KMap) keycodeToKeysyms(keycode xproto.Keycode) []xproto.Keysym {
 
 //----------
 
+//func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
+//	em := km.modifiersToEventModifiers(m)
+
+//	hasShift := em.HasAny(event.ModShift)
+//	hasCapsLock := em.HasAny(event.ModCapsLock)
+//	hasCtrl := em.HasAny(event.ModCtrl)
+//	hasAltGr := em.HasAny(event.ModAltGr)
+//	hasNumLock := em.HasAny(event.ModNumLock)
+
+//	// keysym group
+//	group := 0
+//	if hasCtrl {
+//		group = 1
+//	} else if hasAltGr {
+//		group = 2
+//	}
+
+//	// each group has two symbols (normal and shifted)
+//	i1 := group * 2
+//	i2 := i1 + 1
+//	if i1 >= len(kss) {
+//		return 0
+//	}
+//	if i2 >= len(kss) {
+//		i2 = i1
+//	}
+//	ks1, ks2 := kss[i1], kss[i2]
+//	if ks2 == 0 {
+//		ks2 = ks1
+//	}
+
+//	// keypad
+//	if hasNumLock && isKeypad(ks2) {
+//		if hasShift {
+//			return ks1
+//		} else {
+//			return ks2
+//		}
+//	}
+
+//	r1 := rune(ks1)
+//	hasLower := unicode.IsLower(unicode.ToLower(r1))
+
+//	if hasLower {
+//		shifted := (hasShift && !hasCapsLock) || (!hasShift && hasCapsLock)
+//		if shifted {
+//			return ks2
+//		}
+//		return ks1
+//	}
+
+//	if hasShift {
+//		return ks2
+//	}
+//	return ks1
+//}
+
 func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 	em := km.modifiersToEventModifiers(m)
 
 	hasShift := em.HasAny(event.ModShift)
-	hasCapsLock := em.HasAny(event.ModCapsLock)
 	hasCtrl := em.HasAny(event.ModCtrl)
 	hasAltGr := em.HasAny(event.ModAltGr)
+	hasCapsLock := em.HasAny(event.ModCapsLock)
 	hasNumLock := em.HasAny(event.ModNumLock)
 
 	// keysym group
 	group := 0
-	if hasCtrl {
-		group = 1
-	} else if hasAltGr {
+	if hasAltGr {
 		group = 2
+		if hasCtrl { // TODO: this is custom, since ctrl alone is probably not the correct group changer
+			group = 1
+		}
 	}
 
-	// each group has two symbols
+	// each group has two symbols (normal and shifted)
 	i1 := group * 2
 	i2 := i1 + 1
 	if i1 >= len(kss) {
@@ -218,31 +275,19 @@ func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 		i2 = i1
 	}
 	ks1, ks2 := kss[i1], kss[i2]
-	if ks2 == 0 {
-		ks2 = ks1
-	}
 
-	// keypad
-	if hasNumLock && isKeypad(ks2) {
-		if hasShift {
-			return ks1
-		} else {
-			return ks2
+	shifted := hasShift
+	if isKeypad(ks1) {
+		if hasNumLock {
+			shifted = !shifted
+		}
+	} else {
+		if hasCapsLock {
+			shifted = !shifted
 		}
 	}
 
-	r1 := rune(ks1)
-	hasLower := unicode.IsLower(unicode.ToLower(r1))
-
-	if hasLower {
-		shifted := (hasShift && !hasCapsLock) || (!hasShift && hasCapsLock)
-		if shifted {
-			return ks2
-		}
-		return ks1
-	}
-
-	if hasShift {
+	if shifted {
 		return ks2
 	}
 	return ks1
