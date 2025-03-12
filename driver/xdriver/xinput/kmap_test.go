@@ -67,17 +67,12 @@ func TestKMapLookup1(t *testing.T) {
 			0xffe9, event.KSymAltL, '￩',
 		},
 		{
-			0x40, xproto.KeyButMaskShift,
-			0xffe7, event.KSymNone, '\uffe7', // TODO: review
+			0x74, xproto.KeyButMaskShift | xproto.KeyButMaskControl | xproto.KeyButMaskMod1,
+			0xff54, event.KSymDown, 'ｔ',
 		},
 	}
 
 	//println(kmap.keysymsTableStr())
-
-	//for i := 0; i < 256; i++ {
-	//	eks, ru := kmap.Lookup(xproto.Keycode(i), 0)
-	//	fmt.Printf("%v, %v, %v(%c)\n", i, eks, ru, ru)
-	//}
 
 	for i, p := range pairs {
 		ks, eks, ru := kmap.Lookup(p.kc, p.kmods)

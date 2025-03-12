@@ -332,16 +332,16 @@ func (km *KMap) keysymsTableStr() string {
 		kc := xproto.Keycode(j)
 		kss := km.keycodeToKeysyms(kc)
 		u := []string{}
-		for _, xks := range kss {
-			eks := keysymToEventKeysym(xks)
-			ru := eventKeysymRune(eks)
+		for _, ks := range kss {
+			eks := keysymToEventKeysym(ks)
+			ru := keysymRune(ks, eks)
 			u = append(u, fmt.Sprintf("\t(%c,%v)", ru, eks))
 		}
 		us := strings.Join(u, "\n")
 		if len(us) > 0 {
 			us = "\n" + us
 		}
-		o += fmt.Sprintf("kc=%v:%v\n", kc, us)
+		o += fmt.Sprintf("kc=0x%x:%v\n", kc, us)
 	}
 	return o
 }
