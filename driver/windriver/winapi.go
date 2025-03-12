@@ -93,8 +93,10 @@ const (
 	_VK_SHIFT   = 0x10
 	_VK_CONTROL = 0x11
 	_VK_MENU    = 0x12 // alt
-	//_VK_LMENU   = 0xa4 // alt-gr?
-	//_VK_RMENU   = 0xa5 // alt-gr?
+	_VK_LMENU   = 0xa4 // left alt
+	_VK_RMENU   = 0xa5 // right alt
+	_VK_LWIN    = 0x5b // left windows key
+	_VK_RWIN    = 0x5c // left windows key
 	_VK_CAPITAL = 0x14 // caps-lock
 
 	_VK_LBUTTON  = 0x01 // mouse left button

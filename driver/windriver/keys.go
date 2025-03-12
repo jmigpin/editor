@@ -11,6 +11,10 @@ func translateVKeyToEventKeySym(vkey uint32, ru rune) event.KeySym {
 	if ks == 0 {
 		ks = translateVKeyToEventKeySym2(vkey)
 	}
+
+	//// DEBUG
+	//fmt.Printf("vkeyToEvks-> %c, %v, %x, %s\n", ru, vkey, vkey, ks)
+
 	return ks
 }
 
@@ -95,7 +99,7 @@ func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 		return event.KSymSpace
 	case 0x08: // VK_BACK
 		return event.KSymBackspace
-	case 0x0D, 228: // TEST
+	case 0x0D, 0xe4: // VK_RETURN
 		return event.KSymReturn
 	case 0x1B:
 		return event.KSymEscape
@@ -130,22 +134,24 @@ func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 	case 0xa5: // VK_RMENU
 		return event.KSymAltR
 	case 0x12: // VK_MENU
-		return event.KSymAltGr // 227? 50?
+		return event.KSymAltGr
 	case 0x5B: // VK_LWIN: windows key
 		return event.KSymSuperL
 	case 0x5C: // VK_RWIN: windows key
 		return event.KSymSuperR
-	case 0x2E:
+	case 0x2E: // VK_DELETE
 		return event.KSymDelete
 	case 0x09: // VK_TAB
 		return event.KSymTab
-	//case 0x: return event.KSymTabLeft
+	//case 0x0:
+	//	return event.KSymTabLeft
 
-	case 144: // 0x90:
+	case 0x90: // VK_NUMLOCK
 		return event.KSymNumLock
 	case 0x14: // VK_CAPITAL
 		return event.KSymCapsLock
-	//case 0x: return event.KSymShiftLock
+	//case 0x0:
+	//	return event.KSymShiftLock
 
 	//case 0x21:
 	//	return event.KSymExclam
@@ -159,34 +165,32 @@ func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 	//	return event.KSymPercent
 	//case 0x26:
 	//	return event.KSymAmpersand
-	case 189: // TEST
+	case 0xdb: // VK_OEM_4
 		return event.KSymApostrophe
 	//case 0x28:
 	//	return event.KSymParentL
 	//case 0x29:
 	//	return event.KSymParentR
-	case 0x6a: // VK_MULTIPLY
-		return event.KSymAsterisk
-	case 107, 219: // TEST
-		return event.KSymPlus
+	//case 0x0:
+	//	return event.KSymPlus
 	case 0xbc: // VK_OEM_COMMA
 		return event.KSymComma
-	case 109, 191: // TEST // 0xbd=VK_OEM_MINUS
+	case 0xbd: // VK_OEM_MINUS
 		return event.KSymMinus
-	case 110, 108, 190: // TEST // 0xbe=VK_OEM_PERIOD
+	case 0xbe: // VK_OEM_PERIOD
 		return event.KSymPeriod
-	case 111: // TEST
-		return event.KSymSlash
-	case 192: // TEST
-		return event.KSymBackSlash
+	//case 0x0: // VK_DIVIDE->KSymKeypadDivide?
+	//	return event.KSymSlash
+	//case 0xdc: // VK_OEM_5
+	//	return event.KSymBackSlash
 	//case 0x3a:
 	//	return event.KSymColon
 	//case 0x3b:
 	//	return event.KSymSemicolon
-	case 226: // TEST
-		return event.KSymLess
-	case 146: // TEST
-		return event.KSymEqual
+	//case 0xe2: // VK_OEM_102
+	//	return event.KSymLess
+	//case 146: // TEST
+	//	return event.KSymEqual
 	//case 0x3e:
 	//	return event.KSymGreater
 	//case 0xbf: // VK_OEM_2
@@ -200,11 +204,12 @@ func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 
 	//case 0xdd:
 	//return event.KSymGrave
-	case 221: // TEST
-		return event.KSymAcute
-	//case 0x: return event.KSymCircumflex
-	case 220: // TEST
-		return event.KSymTilde
+	//case 0x:
+	//	return event.KSymAcute
+	//case 0x0:
+	//	return event.KSymCircumflex
+	//case 0x0:
+	//	return event.KSymTilde
 	//case 0x: return event.KSymCedilla
 	//case 0x: return event.KSymBreve
 	//case 0x: return event.KSymCaron
@@ -257,7 +262,6 @@ func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 		return event.KSymKeypad8
 	case 0x69:
 		return event.KSymKeypad9
-
 	case 0x6A: // VK_MULTIPLY
 		return event.KSymKeypadMultiply
 	case 0x6B: // VK_ADD
@@ -268,11 +272,11 @@ func translateVKeyToEventKeySym2(vkey uint32) event.KeySym {
 		return event.KSymKeypadDecimal
 	case 0x6F: // VK_DIVIDE
 		return event.KSymKeypadDivide
-	//case ?:
+	//case 0x0: // VK_RETURN->KSymReturn
 	//	return event.KSymKeypadEnter
 	case 0x6C: // VK_SEPARATOR
 		return event.KSymKeypadSeparator
-	//case ?:
+	//case 0x0: // VK_DELETE->KSymDelete
 	//	return event.KSymKeypadDelete
 
 	case 0xAF:
@@ -357,7 +361,12 @@ func translateKStateToEventKeyModifiers(kstate *[256]byte) event.KeyModifiers {
 	pairs := []pair{
 		{_VK_SHIFT, event.ModShift},
 		{_VK_CONTROL, event.ModCtrl},
-		{_VK_MENU, event.ModAlt},
+		//{_VK_MENU, event.ModAlt},
+		{_VK_MENU, event.ModAltGr},
+		{_VK_LMENU, event.ModAlt},
+		{_VK_RMENU, event.ModAlt},
+		{_VK_LWIN, event.ModSuper},
+		{_VK_RWIN, event.ModSuper},
 	}
 	var w event.KeyModifiers
 	for _, p := range pairs {
