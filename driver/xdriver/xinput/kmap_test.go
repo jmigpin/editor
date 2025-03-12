@@ -16,20 +16,60 @@ func TestKMapLookup1(t *testing.T) {
 	type pair struct {
 		kc    xproto.Keycode
 		kmods uint16
-		eks   event.KeySym
-		ru    rune
+
+		ks  xproto.Keysym
+		eks event.KeySym
+		ru  rune
 	}
 	pairs := []pair{
-		{11, 0, event.KSym2, '2'},
-		{11, xproto.KeyButMaskMod5, event.KSymAt, '@'},
-		{38, 0, event.KSymA, 'a'},
-		{38, xproto.KeyButMaskShift, event.KSymA, 'A'},
-		{35, xproto.KeyButMaskShift, event.KSymGrave, '`'},
-		{65, 0, event.KSymSpace, ' '},
-		{51, 0, event.KSymTilde, '~'},
-		{77, 0, event.KSymNumLock, 'ｿ'},
-		{91, 0, event.KSymKeypadDelete, 'ﾟ'},
-		{91, xproto.KeyButMaskMod2, event.KSymKeypadDecimal, '.'},
+		{
+			0xb, 0,
+			0x32, event.KSym2, '2',
+		},
+		{
+			0xb, xproto.KeyButMaskMod5,
+			0x40, event.KSymAt, '@',
+		},
+		{
+			0x26, 0,
+			0x61, event.KSymA, 'a',
+		},
+		{
+			0x26, xproto.KeyButMaskShift,
+			0x41, event.KSymA, 'A',
+		},
+		{
+			0x23, xproto.KeyButMaskShift,
+			0xfe50, event.KSymGrave, '`',
+		},
+		{
+			0x41, 0,
+			0x20, event.KSymSpace, ' ',
+		},
+		{
+			0x33, 0,
+			0xfe53, event.KSymTilde, '~',
+		},
+		{
+			0x4d, 0,
+			0xff7f, event.KSymNumLock, 'ｿ',
+		},
+		{
+			0x5b, 0,
+			0xff9f, event.KSymKeypadDelete, 'ﾟ',
+		},
+		{
+			0x5b, xproto.KeyButMaskMod2,
+			0xffae, event.KSymKeypadDecimal, '.',
+		},
+		{
+			0x40, 0,
+			0xffe9, event.KSymAltL, '￩',
+		},
+		{
+			0x40, xproto.KeyButMaskShift,
+			0xffe7, event.KSymNone, '\uffe7', // TODO: review
+		},
 	}
 
 	//println(kmap.keysymsTableStr())
@@ -40,10 +80,14 @@ func TestKMapLookup1(t *testing.T) {
 	//}
 
 	for i, p := range pairs {
-		eks, ru := kmap.Lookup(p.kc, p.kmods)
-		if eks != p.eks || ru != p.ru {
-			t.Logf("%v: %v, %v, %v(%c)\n", i, p.kc, eks, ru, ru)
-			t.Fail()
+		ks, eks, ru := kmap.Lookup(p.kc, p.kmods)
+		if ks != p.ks || eks != p.eks || ru != p.ru {
+			t.Fatalf("entry %v:\n(0x%x,%v)->(0x%x,%v,%q)\nexpected (0x%x,%v,%q)\n",
+				i,
+				p.kc, p.kmods,
+				ks, eks, ru,
+				p.ks, p.eks, p.ru,
+			)
 		}
 	}
 }

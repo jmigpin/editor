@@ -168,12 +168,12 @@ func (km *KMap) readModMapping() error {
 
 //----------
 
-func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (event.KeySym, rune) {
+func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (xproto.Keysym, event.KeySym, rune) {
 	kss := km.keycodeToKeysyms(keycode)
 	ks := km.keysymsToKeysym(kss, kmods)
 	eks := keysymToEventKeysym(ks)
 	ru := keysymRune(ks, eks)
-	return eks, ru
+	return ks, eks, ru
 }
 
 //----------
@@ -275,6 +275,9 @@ func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 		i2 = i1
 	}
 	ks1, ks2 := kss[i1], kss[i2]
+	if ks2 == 0 {
+		ks2 = ks1
+	}
 
 	shifted := hasShift
 	if isKeypad(ks1) {
