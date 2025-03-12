@@ -71,7 +71,6 @@ func detectSetupSyntaxHighlight(erow *ERow) {
 		".c", ".h",
 		".cpp", ".hpp", ".cxx", ".hxx", // c++
 		".java",
-		".jsonc", ".jsonh", // json flavors
 		".v",  // verilog
 		".js": // javascript
 		setc("//", [2]string{"/*", "*/"})
@@ -94,6 +93,8 @@ func detectSetupSyntaxHighlight(erow *ERow) {
 		setc("#") // useful (but not correct)
 
 	case ".json": // no comments to setup
+	case ".json5", ".jsonc", ".jsonh": // json flavors
+		setc("//", [2]string{"/*", "*/"})
 
 	default: // all other file extensions
 		// ex: /etc/network/interfaces (no file extension)
