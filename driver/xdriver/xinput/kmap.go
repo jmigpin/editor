@@ -29,11 +29,11 @@ type KMap struct {
 	conn  *xgb.Conn
 
 	modGroups struct {
-		numLock byte
-		alt     byte
-		altGr   byte
-		super   byte
-		meta    byte
+		numLock int8
+		alt     int8
+		altGr   int8
+		super   int8
+		meta    int8
 	}
 }
 
@@ -123,11 +123,11 @@ func (km *KMap) readModMapping() error {
 	km.modGroups.numLock = 4
 	km.modGroups.alt = 3
 	km.modGroups.altGr = 7
-	km.modGroups.super = 0
-	km.modGroups.meta = 0
+	km.modGroups.super = -1
+	km.modGroups.meta = -1
 
 	type pair struct {
-		group *byte
+		group *int8
 		kss   []KS
 	}
 
@@ -141,8 +141,8 @@ func (km *KMap) readModMapping() error {
 	_ = metas
 
 	// detect
-	stride := modMap.KeycodesPerModifier
-	for g := byte(3); g < 8; g++ {
+	stride := int8(modMap.KeycodesPerModifier)
+	for g := int8(3); g < 8; g++ {
 		kcs := modMap.Keycodes[g*stride : (g+1)*stride]
 		//fmt.Println(g, kcs) // DEBUG
 	kcLoop: // iterate keycodes/keysyms, keep first found group
@@ -256,8 +256,8 @@ func (km *KMap) modifiersToEventModifiers(m uint16) event.KeyModifiers {
 			em |= em2
 		}
 	}
-	addGroup := func(g byte, em2 event.KeyModifiers) {
-		if g == 0 { // not detected
+	addGroup := func(g int8, em2 event.KeyModifiers) {
+		if g < 0 { // not detected
 			return
 		}
 		add(1<<g, em2)
