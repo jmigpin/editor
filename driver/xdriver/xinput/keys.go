@@ -365,10 +365,16 @@ func eventKeysymRune(eks event.KeySym) rune {
 }
 
 func keysymExtendedUnicode(ks xproto.Keysym) (rune, bool) {
-	// TODO: non standard? extended unicode should be 0x10000000 to 0x10ffffff?
-	if ks >= 0x01000000 && ks <= 0x01ffffff {
-		return rune(ks & 0x00ffffff), true // get first 24 bits
+	// from /usr/include/X11/keysymdef.h
+	//For any future extension of the keysyms with characters already found in ISO 10646 / Unicode, the following algorithm shall be used. The new keysym code position will simply be the character's Unicode number plus 0x01000000. The keysym values in the range 0x01000100 to 0x0110ffff are reserved to represent Unicode characters in the range U+0100 to U+10FFFF.
+
+	const start = 0x01000000 // support the whole space
+	const end = 0x01ffffff
+	const mask = 0x00ffffff
+	if ks >= start && ks <= end {
+		return rune(ks & mask), true
 	}
+
 	return 0, false
 }
 
