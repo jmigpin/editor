@@ -111,6 +111,10 @@ func TestKMapLookup13(t *testing.T) {
 		0x56, xproto.KeyButMaskShift,
 		0x100002b, event.KSymNone, '+',
 	)
+	testLookup(t,
+		0x56, xproto.KeyButMaskShift|xproto.KeyButMaskMod2,
+		0xffab, event.KSymKeypadAdd, '+',
+	)
 }
 
 //----------

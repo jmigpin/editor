@@ -191,63 +191,6 @@ func (km *KMap) keycodeToKeysyms(keycode xproto.Keycode) []xproto.Keysym {
 
 //----------
 
-//func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
-//	em := km.modifiersToEventModifiers(m)
-
-//	hasShift := em.HasAny(event.ModShift)
-//	hasCapsLock := em.HasAny(event.ModCapsLock)
-//	hasCtrl := em.HasAny(event.ModCtrl)
-//	hasAltGr := em.HasAny(event.ModAltGr)
-//	hasNumLock := em.HasAny(event.ModNumLock)
-
-//	// keysym group
-//	group := 0
-//	if hasCtrl {
-//		group = 1
-//	} else if hasAltGr {
-//		group = 2
-//	}
-
-//	// each group has two symbols (normal and shifted)
-//	i1 := group * 2
-//	i2 := i1 + 1
-//	if i1 >= len(kss) {
-//		return 0
-//	}
-//	if i2 >= len(kss) {
-//		i2 = i1
-//	}
-//	ks1, ks2 := kss[i1], kss[i2]
-//	if ks2 == 0 {
-//		ks2 = ks1
-//	}
-
-//	// keypad
-//	if hasNumLock && isKeypad(ks2) {
-//		if hasShift {
-//			return ks1
-//		} else {
-//			return ks2
-//		}
-//	}
-
-//	r1 := rune(ks1)
-//	hasLower := unicode.IsLower(unicode.ToLower(r1))
-
-//	if hasLower {
-//		shifted := (hasShift && !hasCapsLock) || (!hasShift && hasCapsLock)
-//		if shifted {
-//			return ks2
-//		}
-//		return ks1
-//	}
-
-//	if hasShift {
-//		return ks2
-//	}
-//	return ks1
-//}
-
 func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 	em := km.modifiersToEventModifiers(m)
 
@@ -352,22 +295,3 @@ func (km *KMap) keysymsTableStr() string {
 	}
 	return o
 }
-
-//func (km *KMap) printKeysyms(keycode xproto.Keycode) {
-//	keysyms := km.keycodeToKeysyms(keycode)
-//	//fmt.Printf("%v\n", keysyms)
-//	{
-//		u := []string{}
-//		for _, ks := range keysyms {
-//			u = append(u, string(rune(ks)))
-//		}
-//		fmt.Printf("[%v]\n", strings.Join(u, " "))
-//	}
-//	{
-//		u := []string{}
-//		for _, ks := range keysyms {
-//			u = append(u, fmt.Sprintf("%x", ks))
-//		}
-//		fmt.Printf("[%v]\n", strings.Join(u, " "))
-//	}
-//}
