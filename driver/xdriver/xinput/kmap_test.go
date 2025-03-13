@@ -62,11 +62,12 @@ func TestKMapLookup1(t *testing.T) {
 			0x5b, xproto.KeyButMaskMod2,
 			0xffae, event.KSymKeypadDecimal, '.',
 		},
+		// entry index 10
 		{
 			0x40, 0,
 			0xffe9, event.KSymAltL, '￩',
 		},
-		{
+		{ // down+shift|ctrl|alt
 			0x74, xproto.KeyButMaskShift | xproto.KeyButMaskControl | xproto.KeyButMaskMod1,
 			0xff54, event.KSymDown, 'ｔ',
 		},
@@ -75,6 +76,10 @@ func TestKMapLookup1(t *testing.T) {
 	//println(kmap.keysymsTableStr())
 
 	for i, p := range pairs {
+		//{
+		//i := 11
+		//p := pairs[i]
+
 		ks, eks, ru := kmap.Lookup(p.kc, p.kmods)
 		if ks != p.ks || eks != p.eks || ru != p.ru {
 			t.Fatalf("entry %v:\n(0x%x,%v)->(0x%x,%v,%q)\nexpected (0x%x,%v,%q)\n",

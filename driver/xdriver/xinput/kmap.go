@@ -14,6 +14,7 @@ import (
 // https://tronche.com/gui/x/xlib/input/keyboard-encoding.html
 // http://wiki.linuxquestions.org/wiki/List_of_Keysyms_Recognised_by_Xmodmap
 // https://www.x.org/releases/X11R7.7/doc/libX11/i18n/compose/iso8859-2.html
+// https://www.x.org/releases/X11R7.7/doc/kbproto/xkbproto.html#Transforming_the_KeySym_Associated_with_a_Key_Event
 
 // xproto.Keycode is a physical key.
 // xproto.Keysym is the encoding of a symbol on the cap of a key.
@@ -275,15 +276,18 @@ func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 		i2 = i1
 	}
 	ks1, ks2 := kss[i1], kss[i2]
+
+	// only one is valid, return the other // TODO: this is custom since some combinations are not supposed to return anything - this simplifies and gives access to the defined key
 	if ks1 == 0 {
-		ks1 = ks2
+		return ks2
 	}
 	if ks2 == 0 {
-		ks2 = ks1
+		return ks1
 	}
 
+	// have both ks1 and ks2: determine shift
 	shifted := hasShift
-	if isKeypad(ks1) {
+	if isKeypad(ks1) { // TODO: hopefully, ks2 is in keypad too!
 		if hasNumLock {
 			shifted = !shifted
 		}
