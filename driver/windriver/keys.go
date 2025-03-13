@@ -361,10 +361,14 @@ func translateKStateToEventKeyModifiers(kstate *[256]byte) event.KeyModifiers {
 	pairs := []pair{
 		{_VK_SHIFT, event.ModShift},
 		{_VK_CONTROL, event.ModCtrl},
-		//{_VK_MENU, event.ModAlt},
-		{_VK_MENU, event.ModAltGr},
+
+		{_VK_MENU, event.ModAlt},
+		//{_VK_MENU, event.ModAltGr},
+
 		{_VK_LMENU, event.ModAlt},
-		{_VK_RMENU, event.ModAlt},
+		//{_VK_RMENU, event.ModAlt},
+		{_VK_RMENU, event.ModAltGr},
+
 		{_VK_LWIN, event.ModSuper},
 		{_VK_RWIN, event.ModSuper},
 	}
