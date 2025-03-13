@@ -1,7 +1,8 @@
 module github.com/jmigpin/editor
 
-go 1.21
-toolchain go1.23.7
+go 1.23.0
+
+toolchain go1.24.1
 
 require (
 	github.com/davecgh/go-spew v1.1.1
