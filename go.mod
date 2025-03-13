@@ -1,6 +1,7 @@
 module github.com/jmigpin/editor
 
 go 1.21
+toolchain go1.23.7
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -10,13 +11,13 @@ require (
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
 	golang.org/x/image v0.18.0
 	golang.org/x/mod v0.18.0
-	golang.org/x/net v0.34.0
-	golang.org/x/sys v0.29.0
-	golang.org/x/text v0.21.0
+	golang.org/x/net v0.36.0
+	golang.org/x/sys v0.30.0
+	golang.org/x/text v0.22.0
 	golang.org/x/tools v0.22.0
 )
 
-require golang.org/x/sync v0.10.0 // indirect
+require golang.org/x/sync v0.11.0 // indirect
 
 retract (
 	v2.0.7+incompatible
