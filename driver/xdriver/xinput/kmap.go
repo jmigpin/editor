@@ -275,6 +275,9 @@ func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 		i2 = i1
 	}
 	ks1, ks2 := kss[i1], kss[i2]
+	if ks1 == 0 {
+		ks1 = ks2
+	}
 	if ks2 == 0 {
 		ks2 = ks1
 	}
@@ -335,7 +338,7 @@ func (km *KMap) keysymsTableStr() string {
 		for _, ks := range kss {
 			eks := keysymToEventKeysym(ks)
 			ru := keysymRune(ks, eks)
-			u = append(u, fmt.Sprintf("\t(%c,%v)", ru, eks))
+			u = append(u, fmt.Sprintf("\t(0x%x,%c,%v)", ks, ru, eks))
 		}
 		us := strings.Join(u, "\n")
 		if len(us) > 0 {
