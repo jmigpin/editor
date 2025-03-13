@@ -371,12 +371,3 @@ func (km *KMap) keysymsTableStr() string {
 //		fmt.Printf("[%v]\n", strings.Join(u, " "))
 //	}
 //}
-
-//----------
-//----------
-//----------
-
-func isKeypad(ks xproto.Keysym) bool {
-	return (0xFF80 <= ks && ks <= 0xFFBD) ||
-		(0x11000000 <= ks && ks <= 0x1100FFFF)
-}

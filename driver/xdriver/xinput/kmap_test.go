@@ -10,91 +10,141 @@ import (
 )
 
 func TestKMapLookup1(t *testing.T) {
-	kmap, conn := getKMap(t)
-	defer conn.Close()
+	testLookup(t,
+		0xb, 0,
+		0x32, event.KSym2, '2',
+	)
+}
+func TestKMapLookup2(t *testing.T) {
+	testLookup(t,
+		0xb, xproto.KeyButMaskMod5,
+		0x40, event.KSymAt, '@',
+	)
+}
+func TestKMapLookup3(t *testing.T) {
+	testLookup(t,
+		0x26, 0,
+		0x61, event.KSymA, 'a',
+	)
+}
+func TestKMapLookup4(t *testing.T) {
+	testLookup(t,
+		0x26, xproto.KeyButMaskShift,
+		0x41, event.KSymA, 'A',
+	)
+}
+func TestKMapLookup5(t *testing.T) {
+	testLookup(t,
+		0x23, xproto.KeyButMaskShift,
+		0xfe50, event.KSymGrave, '`',
+	)
+}
+func TestKMapLookup6(t *testing.T) {
+	testLookup(t,
+		0x41, 0,
+		0x20, event.KSymSpace, ' ',
+	)
+}
+func TestKMapLookup7(t *testing.T) {
+	testLookup(t,
+		0x33, 0,
+		0xfe53, event.KSymTilde, '~',
+	)
+}
+func TestKMapLookup8(t *testing.T) {
+	testLookup(t,
+		0x4d, 0,
+		0xff7f, event.KSymNumLock, 'ｿ',
+	)
+}
+func TestKMapLookup9(t *testing.T) {
+	testLookup(t,
+		0x5b, 0,
+		0xff9f, event.KSymKeypadDelete, 'ﾟ',
+	)
+}
+func TestKMapLookup10(t *testing.T) {
+	testLookup(t,
+		0x5b, xproto.KeyButMaskMod2,
+		0xffae, event.KSymKeypadDecimal, '.',
+	)
+}
+func TestKMapLookup11(t *testing.T) {
+	testLookup(t,
+		0x40, 0,
+		0xffe9, event.KSymAltL, '￩',
+	)
+}
+func TestKMapLookup12(t *testing.T) {
+	testLookup(t,
+		0x74, xproto.KeyButMaskShift|xproto.KeyButMaskControl|xproto.KeyButMaskMod1,
+		0xff54, event.KSymDown, 'ｔ',
+	)
+}
 
-	type pair struct {
-		kc    xproto.Keycode
-		kmods uint16
+func TestKMapLookup13(t *testing.T) {
+	// keypad add: 0x56, 0xffab -> unicode u+002b
 
-		ks  xproto.Keysym
-		eks event.KeySym
-		ru  rune
-	}
-	pairs := []pair{
-		{
-			0xb, 0,
-			0x32, event.KSym2, '2',
-		},
-		{
-			0xb, xproto.KeyButMaskMod5,
-			0x40, event.KSymAt, '@',
-		},
-		{
-			0x26, 0,
-			0x61, event.KSymA, 'a',
-		},
-		{
-			0x26, xproto.KeyButMaskShift,
-			0x41, event.KSymA, 'A',
-		},
-		{
-			0x23, xproto.KeyButMaskShift,
-			0xfe50, event.KSymGrave, '`',
-		},
-		{
-			0x41, 0,
-			0x20, event.KSymSpace, ' ',
-		},
-		{
-			0x33, 0,
-			0xfe53, event.KSymTilde, '~',
-		},
-		{
-			0x4d, 0,
-			0xff7f, event.KSymNumLock, 'ｿ',
-		},
-		{
-			0x5b, 0,
-			0xff9f, event.KSymKeypadDelete, 'ﾟ',
-		},
-		{
-			0x5b, xproto.KeyButMaskMod2,
-			0xffae, event.KSymKeypadDecimal, '.',
-		},
-		// entry index 10
-		{
-			0x40, 0,
-			0xffe9, event.KSymAltL, '￩',
-		},
-		{ // down+shift|ctrl|alt
-			0x74, xproto.KeyButMaskShift | xproto.KeyButMaskControl | xproto.KeyButMaskMod1,
-			0xff54, event.KSymDown, 'ｔ',
-		},
-	}
+	// alter kmap for testing exotic keyboard config
+	kmap, _ := getKMap(t)
+	kss := kmap.keycodeToKeysyms(0x56)
+	group := 0
+	i := group * 2
+	ks1p := &kss[i]
+	ks2p := &kss[i+1]
 
-	//println(kmap.keysymsTableStr())
+	*ks1p = 0xffab
+	*ks2p = 0x100002b
 
-	for i, p := range pairs {
-		//{
-		//i := 11
-		//p := pairs[i]
+	//fmt.Println(kmap.keysymsTableStr())
 
-		ks, eks, ru := kmap.Lookup(p.kc, p.kmods)
-		if ks != p.ks || eks != p.eks || ru != p.ru {
-			t.Fatalf("entry %v:\n(0x%x,%v)->(0x%x,%v,%q)\nexpected (0x%x,%v,%q)\n",
-				i,
-				p.kc, p.kmods,
-				ks, eks, ru,
-				p.ks, p.eks, p.ru,
-			)
-		}
-	}
+	// replace/restore global var
+	tmp := gkmap
+	gkmap = kmap
+	defer func() { gkmap = tmp }()
+
+	testLookup(t,
+		0x56, 0,
+		0xffab, event.KSymKeypadAdd, '+',
+	)
+	testLookup(t,
+		0x56, xproto.KeyButMaskShift,
+		0x100002b, event.KSymNone, '+',
+	)
 }
 
 //----------
 //----------
 //----------
+
+var gkmap *KMap
+
+func testLookup(
+	t *testing.T,
+
+	kc xproto.Keycode,
+	kmods uint16,
+
+	ks2 xproto.Keysym,
+	eks2 event.KeySym,
+	ru2 rune,
+) {
+	t.Helper()
+	if gkmap == nil {
+		gkmap, _ = getKMap(t)
+
+		//fmt.Println(gkmap.keysymsTableStr())
+	}
+	ks1, eks1, ru1 := gkmap.Lookup(kc, kmods)
+
+	if ks1 != ks2 || eks1 != eks2 || ru1 != ru2 {
+		t.Fatalf("->(0x%x,%v)\nexp:(0x%x,%v,%q)\ngot:(0x%x,%v,%q)",
+			kc, kmods,
+			ks2, eks2, ru2,
+			ks1, eks1, ru1,
+		)
+	}
+}
 
 func getKMap(t *testing.T) (*KMap, *xgb.Conn) {
 	display := os.Getenv("DISPLAY")

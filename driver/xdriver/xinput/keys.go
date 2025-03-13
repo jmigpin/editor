@@ -296,7 +296,10 @@ func keysymToEventKeysym(xk xproto.Keysym) event.KeySym {
 func keysymRune(ks xproto.Keysym, eks event.KeySym) rune {
 	ru := rune(ks) // default direct translation (covers some ascii values)
 	if ru2 := eventKeysymRune(eks); ru2 != 0 {
-		ru = ru2
+		return ru2
+	}
+	if ru2, ok := keysymExtendedUnicode(ks); ok {
+		return ru2
 	}
 	return ru
 }
@@ -359,6 +362,19 @@ func eventKeysymRune(eks event.KeySym) rune {
 		return '.' // TODO: needs to be detected
 	}
 	return rune(0)
+}
+
+func keysymExtendedUnicode(ks xproto.Keysym) (rune, bool) {
+	// TODO: non standard? extended unicode should be 0x10000000 to 0x10ffffff?
+	if ks >= 0x01000000 && ks <= 0x01ffffff {
+		return rune(ks & 0x00ffffff), true // get first 24 bits
+	}
+	return 0, false
+}
+
+func isKeypad(ks xproto.Keysym) bool {
+	return (ks >= 0xff80 && ks <= 0xffbd) ||
+		(ks >= 0x11000000 && ks <= 0x1100ffff)
 }
 
 //----------
