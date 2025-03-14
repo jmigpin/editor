@@ -390,6 +390,12 @@ func eventKeysymRune2(eks event.KeySym) rune {
 
 //----------
 
+func isNumLockKeypad(ks xproto.Keysym) bool {
+	//return isKeypad(ks) // fails tests
+	// subset of keypad
+	dot := ks == 0xff9f //  TODO: verify/document why
+	return dot || isKeypadDigit(ks)
+}
 func isKeypad(ks xproto.Keysym) bool {
 	return (ks >= 0xff80 && ks <= 0xffbd) ||
 		(ks >= 0x11000000 && ks <= 0x1100ffff)

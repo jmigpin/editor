@@ -26,16 +26,17 @@ import (
 
 // Keyboard mapping
 type KMap struct {
-	si    *xproto.SetupInfo
-	reply *xproto.GetKeyboardMappingReply
 	conn  *xgb.Conn
-
-	modGroups struct {
-		numLock int8
-		alt     int8
-		altGr   int8
-		super   int8
-		meta    int8
+	si    *xproto.SetupInfo
+	kbm   [256][]xproto.Keysym // keyboard map
+	mmask struct {             // modifiers masks
+		shift     uint16
+		capsL     uint16
+		ctrl      uint16
+		numL      uint16
+		alt       uint16
+		altGr     uint16
+		superMeta uint16
 	}
 }
 
@@ -54,7 +55,7 @@ func (km *KMap) ReadMapping() error {
 	if err := km.readKeyboardMapping(); err != nil {
 		return err
 	}
-	if err := km.readModMapping(); err != nil {
+	if err := km.readModifiersMapping(); err != nil {
 		return err
 	}
 	return nil
@@ -63,28 +64,89 @@ func (km *KMap) ReadMapping() error {
 func (km *KMap) readKeyboardMapping() error {
 	si := xproto.Setup(km.conn)
 	count := byte(si.MaxKeycode - si.MinKeycode + 1)
-	if count <= 0 {
-		return fmt.Errorf("bad keycode count: %v", count)
-	}
 	reply, err := xproto.GetKeyboardMapping(km.conn, si.MinKeycode, count).Reply()
 	if err != nil {
 		return err
 	}
-	if reply.KeysymsPerKeycode < 2 {
-		return fmt.Errorf("keysyms per keycode < 2")
-	}
-	km.reply = reply
-	km.si = si
 
-	//log.Printf("%v", km.keysymsTableStr())
+	stride := int(reply.KeysymsPerKeycode)
+	for i := 0; i < 256; i++ {
+		if i >= int(si.MinKeycode) && i <= int(si.MaxKeycode) {
+			k := i - int(si.MinKeycode)
+			w := reply.Keysyms[k*stride : (k+1)*stride]
+			km.kbm[i] = w
+		}
+	}
+
+	//fmt.Println(km.kbm)
 
 	return nil
 }
 
-func (km *KMap) readModMapping() error {
+func (km *KMap) setKeyboardMappingEntries(kbm map[xproto.Keycode][]xproto.Keysym) {
+	for kc, kss := range kbm {
+		km.kbm[kc] = kss
+	}
+}
+
+func (km *KMap) readModifiersMapping() error {
 	modMap, err := xproto.GetModifierMapping(km.conn).Reply()
 	if err != nil {
 		return err
+	}
+
+	mm := [8][]xproto.Keycode{}
+	stride := int8(modMap.KeycodesPerModifier)
+	for g := int8(0); g < 8; g++ {
+		w := modMap.Keycodes[g*stride : (g+1)*stride]
+		mm[g] = w
+	}
+
+	km.detectModifiersMapping(mm)
+	return nil
+}
+
+func (km *KMap) detectModifiersMapping(mm [8][]xproto.Keycode) {
+	// keysyms to detect which group might have them
+	numLocks := []xproto.Keysym{
+		0xff7f, // XK_Num_Lock
+	}
+	alts := []xproto.Keysym{
+		0xffe9, // XK_Alt_L
+		0xffea, // XK_Alt_R
+	}
+	altGrs := []xproto.Keysym{
+		0xfe03, // XK_ISO_Level3_Shift
+		0xfe11, // XK_ISO_Level5_Shift
+		0xff7e, // XK_ISO_Group_Shift
+	}
+	superMetas := []xproto.Keysym{
+		0xffeb, // XK_Super_L
+		0xffe7, // XK_Meta_L
+		0xffec, // XK_Super_R
+		0xffe8, // XK_Meta_R
+	}
+
+	// defaults
+	km.mmask.shift = xproto.KeyButMaskShift
+	km.mmask.capsL = xproto.KeyButMaskLock
+	km.mmask.ctrl = xproto.KeyButMaskControl
+	km.mmask.alt = 1 << 3  // mod1
+	km.mmask.numL = 1 << 4 // mod2
+	// mod3 // rarely used
+	km.mmask.superMeta = 0  // mod4
+	km.mmask.altGr = 1 << 7 // mod 5
+
+	type pair struct {
+		group *uint16
+		kss   []xproto.Keysym
+	}
+
+	pairs := []pair{
+		pair{&km.mmask.numL, numLocks},
+		pair{&km.mmask.alt, alts},
+		pair{&km.mmask.altGr, altGrs},
+		pair{&km.mmask.superMeta, superMetas},
 	}
 
 	// 8 modifiers groups, that can have n keycodes
@@ -98,66 +160,19 @@ func (km *KMap) readModMapping() error {
 	//6	Mod4 (Often Super/Meta)
 	//7	Mod5 (Often AltGr)
 
-	// X11: keysyms to detect which group might have them
-	type KS = xproto.Keysym
-	numLocks := []KS{
-		0xff7f, // XK_Num_Lock
-	}
-	alts := []KS{
-		0xffe9, // XK_Alt_L
-		0xffea, // XK_Alt_R
-	}
-	altGrs := []KS{
-		0xfe03, // XK_ISO_Level3_Shift
-		0xfe11, // XK_ISO_Level5_Shift
-		0xff7e, // XK_ISO_Group_Shift
-	}
-	supers := []KS{
-		0xffeb, // XK_Super_L
-		0xffec, // XK_Super_R
-	}
-	metas := []KS{
-		0xffe7, // XK_Meta_L
-		0xffe8, // XK_Meta_R
-	}
-
-	// defaults
-	km.modGroups.numLock = 4
-	km.modGroups.alt = 3
-	km.modGroups.altGr = 7
-	km.modGroups.super = -1
-	km.modGroups.meta = -1
-
-	type pair struct {
-		group *int8
-		kss   []KS
-	}
-
-	pairs := []pair{
-		pair{&km.modGroups.numLock, numLocks},
-		pair{&km.modGroups.alt, alts},
-		pair{&km.modGroups.altGr, altGrs},
-		pair{&km.modGroups.super, supers},
-		pair{&km.modGroups.meta, metas},
-	}
-	_ = metas
-
 	// detect
-	stride := int8(modMap.KeycodesPerModifier)
-	for g := int8(3); g < 8; g++ {
-		kcs := modMap.Keycodes[g*stride : (g+1)*stride]
-		//fmt.Println(g, kcs) // DEBUG
+	for g, kcs := range mm {
 	kcLoop: // iterate keycodes/keysyms, keep first found group
 		for _, kc := range kcs { //
-			kss := km.keycodeToKeysyms(kc)
+			kss := km.kbm[kc]
 			//fmt.Println("\t", kss) // DEBUG
 			for _, ks := range kss {
 				for pi, p := range pairs {
 					_ = pi
 					for _, ks2 := range p.kss {
 						if ks == ks2 {
-							*p.group = g
-							//fmt.Println("detected", g, "for pair", pi, *p.group, fmt.Sprintf("%b", *p.group)) // DEBUG
+							*p.group = 1 << g
+							//fmt.Println("g", g, "detected", fmt.Sprintf("%x", ks), "pair", pi) // DEBUG
 							break kcLoop
 						}
 					}
@@ -165,14 +180,12 @@ func (km *KMap) readModMapping() error {
 			}
 		}
 	}
-
-	return nil
 }
 
 //----------
 
-func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (xproto.Keysym, event.KeySym, rune) {
-	kss := km.keycodeToKeysyms(keycode)
+func (km *KMap) Lookup(kc xproto.Keycode, kmods uint16) (xproto.Keysym, event.KeySym, rune) {
+	kss := km.kbm[kc]
 	ks := km.keysymsToKeysym(kss, kmods)
 	eks := keysymToEventKeysym(ks)
 	ru := finalKeysymRune(eks, ks)
@@ -180,73 +193,6 @@ func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (xproto.Keysym, eve
 }
 
 //----------
-
-func (km *KMap) keycodeToKeysyms(keycode xproto.Keycode) []xproto.Keysym {
-	y := int(keycode - km.si.MinKeycode)
-	n := km.si.MaxKeycode - km.si.MinKeycode + 1
-	if y < 0 || y >= int(n) {
-		return nil
-	}
-	stride := int(km.reply.KeysymsPerKeycode) // usually ~7
-	return km.reply.Keysyms[y*stride : (y+1)*stride]
-}
-
-//----------
-
-//func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
-//	em := km.modifiersToEventModifiers(m)
-
-//	hasShift := em.HasAny(event.ModShift)
-//	hasCtrl := em.HasAny(event.ModCtrl)
-//	hasAltGr := em.HasAny(event.ModAltGr)
-//	hasCapsLock := em.HasAny(event.ModCapsLock)
-//	hasNumLock := em.HasAny(event.ModNumLock)
-
-//	// keysym group
-//	group := 0
-//	if hasAltGr {
-//		group = 2
-//		if hasCtrl { // TODO: this is custom, since ctrl alone is probably not the correct group changer
-//			group = 1
-//		}
-//	}
-
-//	// each group has two symbols (normal and shifted)
-//	i1 := group * 2
-//	i2 := i1 + 1
-//	if i1 >= len(kss) {
-//		return 0
-//	}
-//	if i2 >= len(kss) {
-//		i2 = i1
-//	}
-//	ks1, ks2 := kss[i1], kss[i2]
-
-//	// only one is valid, return the other // TODO: this is custom since some combinations are not supposed to return anything - this simplifies and gives access to the defined key
-//	if ks1 == 0 {
-//		return ks2
-//	}
-//	if ks2 == 0 {
-//		return ks1
-//	}
-
-//	// have both ks1 and ks2: determine shift
-//	shifted := hasShift
-//	if isKeypad(ks1) { // TODO: hopefully, ks2 is in keypad too!
-//		if hasNumLock {
-//			shifted = !shifted
-//		}
-//	} else {
-//		if hasCapsLock {
-//			shifted = !shifted
-//		}
-//	}
-
-//	if shifted {
-//		return ks2
-//	}
-//	return ks1
-//}
 
 func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 	em := km.modifiersToEventModifiers(m)
@@ -290,7 +236,7 @@ func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 		return ks
 	}
 
-	if isKeypadDigit(ks1) || isKeypadDigit(ks2) {
+	if isNumLockKeypad(ks1) || isNumLockKeypad(ks2) {
 		if hasNumLock {
 			return ksFn(!hasShift, true)
 		}
@@ -315,22 +261,14 @@ func (km *KMap) modifiersToEventModifiers(m uint16) event.KeyModifiers {
 			em |= em2
 		}
 	}
-	addGroup := func(g int8, em2 event.KeyModifiers) {
-		if g < 0 { // not detected
-			return
-		}
-		add(1<<g, em2)
-	}
 
-	add(xproto.KeyButMaskShift, event.ModShift)
-	add(xproto.KeyButMaskLock, event.ModCapsLock)
-	add(xproto.KeyButMaskControl, event.ModCtrl)
-
-	addGroup(km.modGroups.numLock, event.ModNumLock)
-	addGroup(km.modGroups.alt, event.ModAlt)
-	addGroup(km.modGroups.altGr, event.ModAltGr)
-	addGroup(km.modGroups.super, event.ModSuper)
-	addGroup(km.modGroups.meta, event.ModMeta)
+	add(km.mmask.shift, event.ModShift)
+	add(km.mmask.capsL, event.ModCapsLock)
+	add(km.mmask.ctrl, event.ModCtrl)
+	add(km.mmask.numL, event.ModNumLock)
+	add(km.mmask.alt, event.ModAlt)
+	add(km.mmask.altGr, event.ModAltGr)
+	add(km.mmask.superMeta, event.ModSuperMeta)
 
 	return em
 }
@@ -341,7 +279,7 @@ func (km *KMap) Dump1() string {
 	o := "keysym table\n"
 	for j := 0; j < 256; j++ {
 		kc := xproto.Keycode(j)
-		kss := km.keycodeToKeysyms(kc)
+		kss := km.kbm[kc]
 		u := []string{}
 		for _, ks := range kss {
 			eks := keysymToEventKeysym(ks)
@@ -366,12 +304,13 @@ func (km *KMap) Dump2() string {
 	pf("keyboard mapping (hex)\n")
 	for j := 0; j < 256; j++ {
 		kc := xproto.Keycode(j)
-		kss := km.keycodeToKeysyms(kc)
+		kss := km.kbm[kc]
 		u := []string{}
 		for _, ks := range kss {
-			u = append(u, fmt.Sprintf("%x", ks))
+			u = append(u, fmt.Sprintf("0x%x", ks))
 		}
-		pf("kc=%d: %v\n", j, strings.Join(u, " "))
+		//pf("kc=%d: %v\n", j, strings.Join(u, " "))
+		pf("kc=%d: {%v}\n", j, strings.Join(u, ","))
 	}
 
 	//----------
@@ -387,9 +326,9 @@ func (km *KMap) Dump2() string {
 		kcs := modMap.Keycodes[g*stride : (g+1)*stride]
 		u := []string{}
 		for _, kc := range kcs {
-			u = append(u, fmt.Sprintf("%x", kc))
+			u = append(u, fmt.Sprintf("0x%x", kc))
 		}
-		pf("g=%d: %v\n", g, strings.Join(u, " "))
+		pf("g=%d: {%v}\n", g, strings.Join(u, ","))
 	}
 
 	return b.String()

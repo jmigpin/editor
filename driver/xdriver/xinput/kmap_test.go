@@ -10,169 +10,195 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-// will only work under certain x11 configs
-const shiftMask = uint16(xproto.KeyButMaskShift)
-const capsMask = uint16(xproto.KeyButMaskLock)
-const ctrlMask = uint16(xproto.KeyButMaskControl)
-const altMask = uint16(xproto.KeyButMaskMod1)
-const numMask = uint16(xproto.KeyButMaskMod2)
-const altGrMask = uint16(xproto.KeyButMaskMod5)
-
 func TestKMapLookup1(t *testing.T) {
-	testLookup(t,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
 		0xb, 0,
 		0x32, event.KSym2, '2',
 	)
 }
 func TestKMapLookup2(t *testing.T) {
-	testLookup(t,
-		0xb, altGrMask,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
+		0xb, km.mmask.altGr,
 		0x40, event.KSymAt, '@',
 	)
 }
 func TestKMapLookup3(t *testing.T) {
-	testLookup(t,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
 		0x26, 0,
 		0x61, event.KSymA, 'a',
 	)
 }
 func TestKMapLookup4(t *testing.T) {
-	testLookup(t,
-		0x26, shiftMask,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
+		0x26, km.mmask.shift,
 		0x41, event.KSymA, 'A',
 	)
 }
 func TestKMapLookup5(t *testing.T) {
-	testLookup(t,
-		0x23, shiftMask,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
+		0x23, km.mmask.shift,
 		0xfe50, event.KSymGrave, '`',
 	)
 }
 func TestKMapLookup6(t *testing.T) {
-	testLookup(t,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
 		0x41, 0,
 		0x20, event.KSymSpace, ' ',
 	)
 }
 func TestKMapLookup7(t *testing.T) {
-	testLookup(t,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
 		0x33, 0,
 		0xfe53, event.KSymTilde, '~',
 	)
 }
 func TestKMapLookup8(t *testing.T) {
-	testLookup(t,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
 		0x4d, 0,
 		0xff7f, event.KSymNumLock, 'ｿ',
 	)
 }
 func TestKMapLookup9(t *testing.T) {
-	testLookup(t,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
 		0x5b, 0,
 		0xff9f, event.KSymKeypadDelete, 'ﾟ',
 	)
 }
 func TestKMapLookup10(t *testing.T) {
-	testLookup(t,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
 		0x40, 0,
 		0xffe9, event.KSymAltL, '￩',
 	)
 }
 func TestKMapLookup11(t *testing.T) {
-	testLookup(t,
-		//0x74, shiftMask|ctrlMask|altMask,
-		0x74, shiftMask|ctrlMask,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
+		0x74, km.mmask.shift|km.mmask.ctrl,
 		0xff54, event.KSymDown, 'ｔ',
 	)
 }
 func TestKMapLookup12(t *testing.T) {
-	testLookup(t,
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	testLookup(t, km,
 		0x57, 0,
 		0xff9c, event.KSymNone, 'ﾜ',
 	)
-	testLookup(t,
-		0x57, numMask,
+	testLookup(t, km,
+		0x57, km.mmask.numL,
 		0xffb1, event.KSymKeypad1, '1',
 	)
-	testLookup(t,
+	testLookup(t, km,
 		// shift not affecting keypad digit
-		0x57, shiftMask,
+		0x57, km.mmask.shift,
 		0xff9c, event.KSymNone, 'ﾜ',
 	)
-	testLookup(t,
+	testLookup(t, km,
 		// with numlock on, shift can affect keypad digit
-		0x57, numMask|shiftMask,
+		0x57, km.mmask.numL|km.mmask.shift,
 		0xff9c, event.KSymNone, 'ﾜ',
+	)
+}
+func TestKMapLookup13(t *testing.T) {
+	km, conn := getKMap(t)
+	defer conn.Close()
+
+	kc := xproto.Keycode(0x5b) // keypad period/delete
+	testLookup(t, km,
+		kc, 0,
+		0xff9f, event.KSymKeypadDelete, 'ﾟ',
+	)
+	testLookup(t, km,
+		kc, km.mmask.numL,
+		//0x2e, event.KSymPeriod, '.',
+		0xffae, event.KSymKeypadDecimal, '.',
 	)
 }
 
 //----------
 
-func TestKMapLookupC1(t *testing.T) {
-	kc := xproto.Keycode(0x5b)
-	restore := setupKmapReplacePair(t,
-		kc,
-		0,
-		0x2e, // KSymPeriod
-		0xff9f,
-	)
-	defer restore()
+func TestKMapLookup_FR1_1(t *testing.T) {
+	km, conn := getKMap_FR1(t)
+	defer conn.Close()
 
-	testLookup(t,
-		kc, numMask,
-		0x2e, event.KSymPeriod, '.',
-	)
-	testLookup(t,
-		kc, numMask|shiftMask,
+	kc := xproto.Keycode(0x5b) // keypad period/delete
+	testLookup(t, km,
+		kc, 0,
 		0xff9f, event.KSymKeypadDelete, 'ﾟ',
+	)
+	testLookup(t, km,
+		kc, km.mmask.numL,
+		0x2e, event.KSymPeriod, '.',
 	)
 }
 
-func TestKMapLookupC2(t *testing.T) {
-	kc := xproto.Keycode(0x56) // 86
-	restore := setupKmapReplacePair(t,
-		kc,
-		0,
-		0xffab,    // KSymKeypadAdd
-		0x100002b, // u+002b
-	)
-	defer restore()
+func TestKMapLookup_FR1_2(t *testing.T) {
+	km, conn := getKMap_FR1(t)
+	defer conn.Close()
 
-	testLookup(t,
-		kc, numMask,
+	kc := xproto.Keycode(0x56) // keypad add
+	testLookup(t, km,
+		kc, km.mmask.numL,
 		0xffab, event.KSymKeypadAdd, '+',
 	)
-	testLookup(t,
-		kc, numMask|shiftMask,
+	testLookup(t, km,
+		kc, km.mmask.numL|km.mmask.shift,
 		0x100002b, event.KSymNone, '+',
 	)
 }
 
-func TestKMapLookupC3(t *testing.T) {
-	kc := xproto.Keycode(0x3f) // 63
-	restore := setupKmapReplacePair(t,
-		kc,
-		0,
-		0xffaa, // KSymKeypadMultiply
-		0x10022c5,
-	)
-	defer restore()
+func TestKMapLookup_FR1_3(t *testing.T) {
+	km, conn := getKMap_FR1(t)
+	defer conn.Close()
 
-	// numlock not affecting "*" multiply, but shift does
-	testLookup(t,
+	kc := xproto.Keycode(0x3f) // keypad multiply
+	testLookup(t, km,
 		kc, 0,
 		0xffaa, event.KSymKeypadMultiply, '*',
 	)
-	testLookup(t,
-		kc, numMask,
+	testLookup(t, km,
+		kc, km.mmask.numL,
 		0xffaa, event.KSymKeypadMultiply, '*',
 	)
-	testLookup(t,
-		kc, numMask|shiftMask,
+	testLookup(t, km,
+		kc, km.mmask.numL|km.mmask.shift,
 		0x10022c5, event.KSymNone, '⋅',
 	)
-	testLookup(t,
-		kc, shiftMask,
+	testLookup(t, km,
+		kc, km.mmask.shift,
 		0x10022c5, event.KSymNone, '⋅',
 	)
 }
@@ -185,7 +211,9 @@ func TestDumpMapping(t *testing.T) {
 	// comment this to enable
 	t.Skip("avoid dumping in general tests")
 
-	km, _ := getKMap(t)
+	km, conn := getKMap(t)
+	defer conn.Close()
+	_ = km
 	fmt.Print(km.Dump2())
 }
 
@@ -193,10 +221,9 @@ func TestDumpMapping(t *testing.T) {
 //----------
 //----------
 
-var gkmap *KMap
-
 func testLookup(
 	t *testing.T,
+	kmap *KMap,
 
 	kc xproto.Keycode,
 	kmods uint16,
@@ -206,11 +233,7 @@ func testLookup(
 	ru2 rune,
 ) {
 	t.Helper()
-	if gkmap == nil {
-		gkmap, _ = getKMap(t)
-	}
-	ks1, eks1, ru1 := gkmap.Lookup(kc, kmods)
-
+	ks1, eks1, ru1 := kmap.Lookup(kc, kmods)
 	if ks1 != ks2 || eks1 != eks2 || ru1 != ru2 {
 		t.Fatalf("->(0x%x,%v)\nexp:(0x%x,%v,%q)\ngot:(0x%x,%v,%q)",
 			kc, kmods,
@@ -219,6 +242,8 @@ func testLookup(
 		)
 	}
 }
+
+//----------
 
 func getKMap(t *testing.T) (*KMap, *xgb.Conn) {
 	display := os.Getenv("DISPLAY")
@@ -237,23 +262,36 @@ func getKMap(t *testing.T) (*KMap, *xgb.Conn) {
 	return km, conn
 }
 
-func setupKmapReplacePair(t *testing.T, kc xproto.Keycode, group int, ks1, ks2 xproto.Keysym) func() {
-	kmap, _ := getKMap(t)
-	// replace/restore global var
-	tmp := gkmap
-	gkmap = kmap
-	//defer func() { gkmap = tmp }()
+//----------
 
-	// alter kmap for testing exotic keyboard config
-	kss := kmap.keycodeToKeysyms(kc)
-	i := group * 2
-	ks1p := &kss[i]
-	ks2p := &kss[i+1]
+func getKMap_FR1(t *testing.T) (*KMap, *xgb.Conn) {
+	kmap, conn := getKMap(t)
+	kmap.setKeyboardMappingEntries(keyboardMappingPartial_FR1())
+	kmap.detectModifiersMapping(modifierMapping_FR1())
+	return kmap, conn
+}
 
-	*ks1p = ks1
-	*ks2p = ks2
+func keyboardMappingPartial_FR1() map[xproto.Keycode][]xproto.Keysym {
+	w := map[xproto.Keycode][]xproto.Keysym{
+		// has KSymKeypadDelete, KSymPeriod
+		0x5b: {0xff9f, 0x2e, 0xff9f, 0x2e, 0x2c, 0x100202f, 0x2c},
+		// has KSymKeypadMultiply
+		0x3f: {0xffaa, 0x10022c5, 0xffaa, 0x10022c5, 0x10000d7, 0xffffff, 0x1008fe21},
+		// has KSymKeypadAdd
+		0x56: {0xffab, 0x100002b, 0xffab, 0x100002b, 0x100002b, 0xffffff, 0x1008fe22},
+	}
+	return w
+}
 
-	return func() {
-		gkmap = tmp
+func modifierMapping_FR1() [8][]xproto.Keycode {
+	return [8][]xproto.Keycode{
+		{0x32, 0x3e, 0x0, 0x0},
+		{0x42, 0x0, 0x0, 0x0},
+		{0x25, 0x6d, 0x0, 0x0},
+		{0x40, 0x9c, 0x0, 0x0},
+		{0x4d, 0x0, 0x0, 0x0},
+		{0x0, 0x0, 0x0, 0x0},
+		{0x73, 0x74, 0x7f, 0x80},
+		{0x8, 0x7c, 0x0, 0x0},
 	}
 }

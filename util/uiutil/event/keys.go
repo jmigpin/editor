@@ -206,11 +206,8 @@ func (km KeyModifiers) String() string {
 	if km.HasAny(ModAltGr) {
 		w = append(w, "altGr")
 	}
-	if km.HasAny(ModSuper) {
-		w = append(w, "super")
-	}
-	if km.HasAny(ModMeta) {
-		w = append(w, "meta")
+	if km.HasAny(ModSuperMeta) {
+		w = append(w, "superMeta")
 	}
 	slices.Reverse(w)
 	return fmt.Sprintf("(%b:%v)", km, strings.Join(w, "|"))
@@ -224,8 +221,7 @@ const (
 	ModNumLock
 	ModAlt
 	ModAltGr
-	ModSuper
-	ModMeta
+	ModSuperMeta
 )
 
 //----------
