@@ -1,8 +1,10 @@
 package xinput
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/jezek/xgb"
 	"github.com/jezek/xgb/xproto"
@@ -173,7 +175,7 @@ func (km *KMap) Lookup(keycode xproto.Keycode, kmods uint16) (xproto.Keysym, eve
 	kss := km.keycodeToKeysyms(keycode)
 	ks := km.keysymsToKeysym(kss, kmods)
 	eks := keysymToEventKeysym(ks)
-	ru := keysymRune(ks, eks)
+	ru := finalKeysymRune(eks, ks)
 	return ks, eks, ru
 }
 
@@ -190,6 +192,61 @@ func (km *KMap) keycodeToKeysyms(keycode xproto.Keycode) []xproto.Keysym {
 }
 
 //----------
+
+//func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
+//	em := km.modifiersToEventModifiers(m)
+
+//	hasShift := em.HasAny(event.ModShift)
+//	hasCtrl := em.HasAny(event.ModCtrl)
+//	hasAltGr := em.HasAny(event.ModAltGr)
+//	hasCapsLock := em.HasAny(event.ModCapsLock)
+//	hasNumLock := em.HasAny(event.ModNumLock)
+
+//	// keysym group
+//	group := 0
+//	if hasAltGr {
+//		group = 2
+//		if hasCtrl { // TODO: this is custom, since ctrl alone is probably not the correct group changer
+//			group = 1
+//		}
+//	}
+
+//	// each group has two symbols (normal and shifted)
+//	i1 := group * 2
+//	i2 := i1 + 1
+//	if i1 >= len(kss) {
+//		return 0
+//	}
+//	if i2 >= len(kss) {
+//		i2 = i1
+//	}
+//	ks1, ks2 := kss[i1], kss[i2]
+
+//	// only one is valid, return the other // TODO: this is custom since some combinations are not supposed to return anything - this simplifies and gives access to the defined key
+//	if ks1 == 0 {
+//		return ks2
+//	}
+//	if ks2 == 0 {
+//		return ks1
+//	}
+
+//	// have both ks1 and ks2: determine shift
+//	shifted := hasShift
+//	if isKeypad(ks1) { // TODO: hopefully, ks2 is in keypad too!
+//		if hasNumLock {
+//			shifted = !shifted
+//		}
+//	} else {
+//		if hasCapsLock {
+//			shifted = !shifted
+//		}
+//	}
+
+//	if shifted {
+//		return ks2
+//	}
+//	return ks1
+//}
 
 func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 	em := km.modifiersToEventModifiers(m)
@@ -215,36 +272,40 @@ func (km *KMap) keysymsToKeysym(kss []xproto.Keysym, m uint16) xproto.Keysym {
 	if i1 >= len(kss) {
 		return 0
 	}
-	if i2 >= len(kss) {
-		i2 = i1
+	i2v := xproto.Keysym(0)
+	if i2 < len(kss) {
+		i2v = kss[i2]
 	}
-	ks1, ks2 := kss[i1], kss[i2]
+	ks1, ks2 := kss[i1], i2v
 
-	// only one is valid, return the other // TODO: this is custom since some combinations are not supposed to return anything - this simplifies and gives access to the defined key
-	if ks1 == 0 {
-		return ks2
-	}
-	if ks2 == 0 {
-		return ks1
+	// canZero means it can return zero (no action), honors mapping
+	ksFn := func(shifted, canZero bool) xproto.Keysym {
+		ks := ks1
+		if shifted {
+			ks = ks2
+		}
+		if ks == 0 && !canZero {
+			return max(ks1, ks2)
+		}
+		return ks
 	}
 
-	// have both ks1 and ks2: determine shift
-	shifted := hasShift
-	if isKeypad(ks1) { // TODO: hopefully, ks2 is in keypad too!
+	if isKeypadDigit(ks1) || isKeypadDigit(ks2) {
 		if hasNumLock {
-			shifted = !shifted
+			return ksFn(!hasShift, true)
 		}
+		return ksFn(false, true) // no affect from shift
 	} else {
-		if hasCapsLock {
-			shifted = !shifted
+		if unicode.IsLetter(keysymRune(ks1)) { // trying not to have capslock affect digits and others
+			shifted := hasShift != hasCapsLock
+			return ksFn(shifted, false) // no zeros, ensures a key if present; ex: downarrow can be a letter here, and if it can zero then the downarrow will not work with the shift on
 		}
 	}
 
-	if shifted {
-		return ks2
-	}
-	return ks1
+	return ksFn(hasShift, false) // no zeros, ensures a key if present
 }
+
+//----------
 
 func (km *KMap) modifiersToEventModifiers(m uint16) event.KeyModifiers {
 	em := event.KeyModifiers(0)
@@ -276,7 +337,7 @@ func (km *KMap) modifiersToEventModifiers(m uint16) event.KeyModifiers {
 
 //----------
 
-func (km *KMap) keysymsTableStr() string {
+func (km *KMap) Dump1() string {
 	o := "keysym table\n"
 	for j := 0; j < 256; j++ {
 		kc := xproto.Keycode(j)
@@ -284,7 +345,7 @@ func (km *KMap) keysymsTableStr() string {
 		u := []string{}
 		for _, ks := range kss {
 			eks := keysymToEventKeysym(ks)
-			ru := keysymRune(ks, eks)
+			ru := finalKeysymRune(eks, ks)
 			u = append(u, fmt.Sprintf("\t(0x%x,%c,%v)", ks, ru, eks))
 		}
 		us := strings.Join(u, "\n")
@@ -294,4 +355,42 @@ func (km *KMap) keysymsTableStr() string {
 		o += fmt.Sprintf("kc=0x%x:%v\n", kc, us)
 	}
 	return o
+}
+
+func (km *KMap) Dump2() string {
+	b := &bytes.Buffer{}
+	pf := func(f string, args ...any) {
+		fmt.Fprintf(b, f, args...)
+	}
+
+	pf("keyboard mapping (hex)\n")
+	for j := 0; j < 256; j++ {
+		kc := xproto.Keycode(j)
+		kss := km.keycodeToKeysyms(kc)
+		u := []string{}
+		for _, ks := range kss {
+			u = append(u, fmt.Sprintf("%x", ks))
+		}
+		pf("kc=%d: %v\n", j, strings.Join(u, " "))
+	}
+
+	//----------
+
+	modMap, err := xproto.GetModifierMapping(km.conn).Reply()
+	if err != nil {
+		panic(err)
+	}
+
+	pf("modifier mapping (hex)\n")
+	stride := int8(modMap.KeycodesPerModifier)
+	for g := int8(0); g < 8; g++ {
+		kcs := modMap.Keycodes[g*stride : (g+1)*stride]
+		u := []string{}
+		for _, kc := range kcs {
+			u = append(u, fmt.Sprintf("%x", kc))
+		}
+		pf("g=%d: %v\n", g, strings.Join(u, " "))
+	}
+
+	return b.String()
 }

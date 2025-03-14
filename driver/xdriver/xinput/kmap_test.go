@@ -1,6 +1,7 @@
 package xinput
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -8,6 +9,14 @@ import (
 	"github.com/jezek/xgb/xproto"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
+
+// will only work under certain x11 configs
+const shiftMask = uint16(xproto.KeyButMaskShift)
+const capsMask = uint16(xproto.KeyButMaskLock)
+const ctrlMask = uint16(xproto.KeyButMaskControl)
+const altMask = uint16(xproto.KeyButMaskMod1)
+const numMask = uint16(xproto.KeyButMaskMod2)
+const altGrMask = uint16(xproto.KeyButMaskMod5)
 
 func TestKMapLookup1(t *testing.T) {
 	testLookup(t,
@@ -17,7 +26,7 @@ func TestKMapLookup1(t *testing.T) {
 }
 func TestKMapLookup2(t *testing.T) {
 	testLookup(t,
-		0xb, xproto.KeyButMaskMod5,
+		0xb, altGrMask,
 		0x40, event.KSymAt, '@',
 	)
 }
@@ -29,13 +38,13 @@ func TestKMapLookup3(t *testing.T) {
 }
 func TestKMapLookup4(t *testing.T) {
 	testLookup(t,
-		0x26, xproto.KeyButMaskShift,
+		0x26, shiftMask,
 		0x41, event.KSymA, 'A',
 	)
 }
 func TestKMapLookup5(t *testing.T) {
 	testLookup(t,
-		0x23, xproto.KeyButMaskShift,
+		0x23, shiftMask,
 		0xfe50, event.KSymGrave, '`',
 	)
 }
@@ -65,56 +74,119 @@ func TestKMapLookup9(t *testing.T) {
 }
 func TestKMapLookup10(t *testing.T) {
 	testLookup(t,
-		0x5b, xproto.KeyButMaskMod2,
-		0xffae, event.KSymKeypadDecimal, '.',
-	)
-}
-func TestKMapLookup11(t *testing.T) {
-	testLookup(t,
 		0x40, 0,
 		0xffe9, event.KSymAltL, '￩',
 	)
 }
-func TestKMapLookup12(t *testing.T) {
+func TestKMapLookup11(t *testing.T) {
 	testLookup(t,
-		0x74, xproto.KeyButMaskShift|xproto.KeyButMaskControl|xproto.KeyButMaskMod1,
+		//0x74, shiftMask|ctrlMask|altMask,
+		0x74, shiftMask|ctrlMask,
 		0xff54, event.KSymDown, 'ｔ',
 	)
 }
+func TestKMapLookup12(t *testing.T) {
+	testLookup(t,
+		0x57, 0,
+		0xff9c, event.KSymNone, 'ﾜ',
+	)
+	testLookup(t,
+		0x57, numMask,
+		0xffb1, event.KSymKeypad1, '1',
+	)
+	testLookup(t,
+		// shift not affecting keypad digit
+		0x57, shiftMask,
+		0xff9c, event.KSymNone, 'ﾜ',
+	)
+	testLookup(t,
+		// with numlock on, shift can affect keypad digit
+		0x57, numMask|shiftMask,
+		0xff9c, event.KSymNone, 'ﾜ',
+	)
+}
 
-func TestKMapLookup13(t *testing.T) {
-	// keypad add: 0x56, 0xffab -> unicode u+002b
+//----------
 
-	// alter kmap for testing exotic keyboard config
-	kmap, _ := getKMap(t)
-	kss := kmap.keycodeToKeysyms(0x56)
-	group := 0
-	i := group * 2
-	ks1p := &kss[i]
-	ks2p := &kss[i+1]
-
-	*ks1p = 0xffab
-	*ks2p = 0x100002b
-
-	//fmt.Println(kmap.keysymsTableStr())
-
-	// replace/restore global var
-	tmp := gkmap
-	gkmap = kmap
-	defer func() { gkmap = tmp }()
+func TestKMapLookupC1(t *testing.T) {
+	kc := xproto.Keycode(0x5b)
+	restore := setupKmapReplacePair(t,
+		kc,
+		0,
+		0x2e, // KSymPeriod
+		0xff9f,
+	)
+	defer restore()
 
 	testLookup(t,
-		0x56, 0,
+		kc, numMask,
+		0x2e, event.KSymPeriod, '.',
+	)
+	testLookup(t,
+		kc, numMask|shiftMask,
+		0xff9f, event.KSymKeypadDelete, 'ﾟ',
+	)
+}
+
+func TestKMapLookupC2(t *testing.T) {
+	kc := xproto.Keycode(0x56) // 86
+	restore := setupKmapReplacePair(t,
+		kc,
+		0,
+		0xffab,    // KSymKeypadAdd
+		0x100002b, // u+002b
+	)
+	defer restore()
+
+	testLookup(t,
+		kc, numMask,
 		0xffab, event.KSymKeypadAdd, '+',
 	)
 	testLookup(t,
-		0x56, xproto.KeyButMaskShift,
+		kc, numMask|shiftMask,
 		0x100002b, event.KSymNone, '+',
 	)
-	testLookup(t,
-		0x56, xproto.KeyButMaskShift|xproto.KeyButMaskMod2,
-		0xffab, event.KSymKeypadAdd, '+',
+}
+
+func TestKMapLookupC3(t *testing.T) {
+	kc := xproto.Keycode(0x3f) // 63
+	restore := setupKmapReplacePair(t,
+		kc,
+		0,
+		0xffaa, // KSymKeypadMultiply
+		0x10022c5,
 	)
+	defer restore()
+
+	// numlock not affecting "*" multiply, but shift does
+	testLookup(t,
+		kc, 0,
+		0xffaa, event.KSymKeypadMultiply, '*',
+	)
+	testLookup(t,
+		kc, numMask,
+		0xffaa, event.KSymKeypadMultiply, '*',
+	)
+	testLookup(t,
+		kc, numMask|shiftMask,
+		0x10022c5, event.KSymNone, '⋅',
+	)
+	testLookup(t,
+		kc, shiftMask,
+		0x10022c5, event.KSymNone, '⋅',
+	)
+}
+
+// TODO: keypad divide "/" "∕"?
+
+//----------
+
+func TestDumpMapping(t *testing.T) {
+	// comment this to enable
+	t.Skip("avoid dumping in general tests")
+
+	km, _ := getKMap(t)
+	fmt.Print(km.Dump2())
 }
 
 //----------
@@ -136,8 +208,6 @@ func testLookup(
 	t.Helper()
 	if gkmap == nil {
 		gkmap, _ = getKMap(t)
-
-		//fmt.Println(gkmap.keysymsTableStr())
 	}
 	ks1, eks1, ru1 := gkmap.Lookup(kc, kmods)
 
@@ -161,5 +231,29 @@ func getKMap(t *testing.T) (*KMap, *xgb.Conn) {
 		conn.Close()
 		t.Fatal(err)
 	}
+
+	//fmt.Println(km.keysymsTableStr())
+
 	return km, conn
+}
+
+func setupKmapReplacePair(t *testing.T, kc xproto.Keycode, group int, ks1, ks2 xproto.Keysym) func() {
+	kmap, _ := getKMap(t)
+	// replace/restore global var
+	tmp := gkmap
+	gkmap = kmap
+	//defer func() { gkmap = tmp }()
+
+	// alter kmap for testing exotic keyboard config
+	kss := kmap.keycodeToKeysyms(kc)
+	i := group * 2
+	ks1p := &kss[i]
+	ks2p := &kss[i+1]
+
+	*ks1p = ks1
+	*ks2p = ks2
+
+	return func() {
+		gkmap = tmp
+	}
 }

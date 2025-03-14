@@ -293,18 +293,42 @@ func keysymToEventKeysym(xk xproto.Keysym) event.KeySym {
 
 //----------
 
-func keysymRune(ks xproto.Keysym, eks event.KeySym) rune {
-	ru := rune(ks) // default direct translation (covers some ascii values)
-	if ru2 := eventKeysymRune(eks); ru2 != 0 {
-		return ru2
+func finalKeysymRune(eks event.KeySym, ks xproto.Keysym) rune {
+	if ru, ok := eventKeysymRune(eks); ok {
+		return ru
 	}
+	return keysymRune(ks)
+}
+
+//----------
+
+func keysymRune(ks xproto.Keysym) rune {
 	if ru2, ok := keysymExtendedUnicode(ks); ok {
 		return ru2
 	}
-	return ru
+	return rune(ks) // default direct translation (covers some ascii values)
+}
+func keysymExtendedUnicode(ks xproto.Keysym) (rune, bool) {
+	// from /usr/include/X11/keysymdef.h
+	//For any future extension of the keysyms with characters already found in ISO 10646 / Unicode, the following algorithm shall be used. The new keysym code position will simply be the character's Unicode number plus 0x01000000. The keysym values in the range 0x01000100 to 0x0110ffff are reserved to represent Unicode characters in the range U+0100 to U+10FFFF.
+
+	const start = 0x01000000 // support the whole space
+	const end = 0x01ffffff
+	const mask = 0x00ffffff
+	if ks >= start && ks <= end {
+		return rune(ks & mask), true
+	}
+
+	return 0, false
 }
 
-func eventKeysymRune(eks event.KeySym) rune {
+//----------
+
+func eventKeysymRune(eks event.KeySym) (rune, bool) {
+	ru := eventKeysymRune2(eks)
+	return ru, ru != 0
+}
+func eventKeysymRune2(eks event.KeySym) rune {
 	switch eks {
 	case event.KSymGrave:
 		return '`'
@@ -364,23 +388,14 @@ func eventKeysymRune(eks event.KeySym) rune {
 	return rune(0)
 }
 
-func keysymExtendedUnicode(ks xproto.Keysym) (rune, bool) {
-	// from /usr/include/X11/keysymdef.h
-	//For any future extension of the keysyms with characters already found in ISO 10646 / Unicode, the following algorithm shall be used. The new keysym code position will simply be the character's Unicode number plus 0x01000000. The keysym values in the range 0x01000100 to 0x0110ffff are reserved to represent Unicode characters in the range U+0100 to U+10FFFF.
-
-	const start = 0x01000000 // support the whole space
-	const end = 0x01ffffff
-	const mask = 0x00ffffff
-	if ks >= start && ks <= end {
-		return rune(ks & mask), true
-	}
-
-	return 0, false
-}
+//----------
 
 func isKeypad(ks xproto.Keysym) bool {
 	return (ks >= 0xff80 && ks <= 0xffbd) ||
 		(ks >= 0x11000000 && ks <= 0x1100ffff)
+}
+func isKeypadDigit(ks xproto.Keysym) bool {
+	return (ks >= 0xffb0 && ks <= 0xffb9)
 }
 
 //----------
