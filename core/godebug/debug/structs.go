@@ -215,10 +215,10 @@ func IVt(v any) Item {
 }
 
 // ItemValue: range
-func IVr(v int) Item {
-	s := fmt.Sprintf("range(%v=len())", v)
-	return &ItemValue{Str: s}
-}
+//func IVr(v int) Item {
+//	s := fmt.Sprintf("range(%v=len())", v)
+//	return &ItemValue{Str: s}
+//}
 
 //// ItemValue: printf
 //// usage: f(ctx,"IVp", basicLitStringQ("%v"), basicLitInt(1))

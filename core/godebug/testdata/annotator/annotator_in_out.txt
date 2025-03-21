@@ -1137,7 +1137,7 @@ var c=[]int{}
 func f0() {
 	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ.L(0, 1, 43, Σ.IVr(len(c)))
+	Σ.L(0, 1, 43, Σ.IVi(c))
 	for a, b := range c {
 		Σ.L(0, 1, 29, Σ.IL(Σ.IVi(a), Σ.IVi(b)))
 		Σ0 := Σ.IVi(a)
@@ -1157,11 +1157,14 @@ var f2=func()[]int{return nil}
 func f0() {
 	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ.L(0, 1, 43, Σ.IVr(len(f2())))
-	for a, _ := range f2() {
+	Σ0 := Σ.ICe(Σ.IVs("f2"), nil)
+	Σ.L(0, 1, 43, Σ0)
+	Σ1 := f2()
+	Σ.L(0, 1, 43, Σ.IC(Σ0, Σ.IVi(Σ1)))
+	for a, _ := range Σ1 {
 		Σ.L(0, 1, 29, Σ.IL(Σ.IVi(a), Σ.IAn()))
-		Σ0 := Σ.IVi(a)
-		Σ.L(0, 2, 54, Σ.IL(Σ0))
+		Σ2 := Σ.IVi(a)
+		Σ.L(0, 2, 54, Σ.IL(Σ2))
 		_ = a
 	}
 }
@@ -1175,7 +1178,7 @@ var a=[]int{}
 func f0() {
 	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ.L(0, 1, 42, Σ.IVr(len(a)))
+	Σ.L(0, 1, 42, Σ.IVi(a))
 	for _, _ = range a {
 		Σ.L(0, 1, 29, Σ.IL(Σ.IAn(), Σ.IAn()))
 	}
@@ -1191,7 +1194,7 @@ var c=[]int{}
 func f0() {
 	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-	Σ.L(0, 1, 42, Σ.IVr(len(c)))
+	Σ.L(0, 1, 42, Σ.IVi(c))
 	for a, _ = range c {
 		Σ.L(0, 1, 29, Σ.IL(Σ.IVi(a), Σ.IAn()))
 	}
@@ -1297,8 +1300,6 @@ var a=[]int{}
 func f0() {
 	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
-
-	Σ.L(0, 1, 46, Σ.IVr(len(a)))
 label1:
 	for i := range a {
 		Σ.L(0, 1, 37, Σ.IL(Σ.IVi(i)))
@@ -2654,5 +2655,32 @@ func f0() {
 		Σ.L(0, 1, 37, Σ.IL(Σ.IVi(a)))
 		return a
 	}() {
+	}
+}
+-- TestAnnotator126.in --
+import "iter"
+func f0() {
+	for a := range f1(){
+		_=a
+	}
+}
+func f1() iter.Seq[int]{
+	return func(y func(int) bool){
+		y(0)
+	}
+}
+-- TestAnnotator126.out --
+func f0() {
+	defer Σ.Recover()
+	Σ.L(0, 0, 26, Σ.ISt())
+	Σ0 := Σ.ICe(Σ.IVs("f1"), nil)
+	Σ.L(0, 1, 54, Σ0)
+	Σ1 := f1()
+	Σ.L(0, 1, 54, Σ.IC(Σ0, Σ.IVi(Σ1)))
+	for a := range Σ1 {
+		Σ.L(0, 1, 43, Σ.IL(Σ.IVi(a)))
+		Σ2 := Σ.IVi(a)
+		Σ.L(0, 2, 64, Σ.IL(Σ2))
+		_ = a
 	}
 }

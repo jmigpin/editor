@@ -653,11 +653,22 @@ func (ann *Annotator) visLabeledStmt(ctx *Ctx, ls *ast.LabeledStmt) error {
 }
 
 func (ann *Annotator) visRangeStmt(ctx *Ctx, rs *ast.RangeStmt) error {
-	// lenght of x
-	id := &ast.Ident{Name: "len", NamePos: rs.X.Pos()}
-	ce2 := &ast.CallExpr{Fun: id, Args: []ast.Expr{rs.X}}
-	de2 := ann.newDebugCE("IVr", ce2)
-	ann.insertDebugLineStmt(ctx, de2)
+	canInit := !ctx.valueMatch2(cidnIsLabeledStmtStmt, rs)
+	if canInit {
+		// range expr
+		de, err := ann.visExpr(ctx, &rs.X)
+		if err != nil {
+			return err
+		}
+		ann.insertDebugLineStmt(ctx, de)
+
+		// TODO: check if type is countable (slice,int,...)
+		//// lenght of x
+		//id := &ast.Ident{Name: "len", NamePos: rs.X.Pos()}
+		//ce2 := &ast.CallExpr{Fun: id, Args: []ast.Expr{rs.X}}
+		//de2 := ann.newDebugCE("IVr", ce2)
+		//ann.insertDebugLineStmt(ctx, de2)
+	}
 
 	// key and value inside the range body
 	rsBodyCtx := ctx.withStmts(&rs.Body.List)

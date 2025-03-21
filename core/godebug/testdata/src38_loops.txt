@@ -1,0 +1,23 @@
+#setenv script_keepwork true
+
+#exec go run main.go
+#contains stderr "1"
+
+ucmd godebugtester run main.go 
+contains stderr "1"
+
+-- go.mod --
+module main
+-- main.go --
+package main
+func main(){
+	for a,b:=range f1() {	
+		_,_=a,b
+	}
+	println(v1)
+}
+var v1 int
+func f1() []int{
+	v1++
+	return nil
+}
