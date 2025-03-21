@@ -1300,6 +1300,8 @@ var a=[]int{}
 func f0() {
 	defer Σ.Recover()
 	Σ.L(0, 0, 12, Σ.ISt())
+
+	Σ.L(0, 1, 40, Σ.ISt())
 label1:
 	for i := range a {
 		Σ.L(0, 1, 37, Σ.IL(Σ.IVi(i)))

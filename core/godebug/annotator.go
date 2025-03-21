@@ -424,9 +424,8 @@ func (ann *Annotator) visCaseClause(ctx *Ctx, cc *ast.CaseClause) error {
 	}
 
 	// show debug step entering the clause
-	de := ann.newDebugISt(cc.Colon)
 	ctx2 := ctx.withStmts(&cc.Body)
-	ann.insertDebugLineStmt(ctx2, de)
+	ann.insertStepInStmt(ctx2, cc.Colon)
 
 	return ann.visStmts(ctx, &cc.Body)
 }
@@ -436,9 +435,8 @@ func (ann *Annotator) visCommClause(ctx *Ctx, cc *ast.CommClause) error {
 	//cc.Comm
 
 	// show debug step entering the clause
-	de := ann.newDebugISt(cc.Pos())
 	ctx2 := ctx.withStmts(&cc.Body)
-	ann.insertDebugLineStmt(ctx2, de)
+	ann.insertStepInStmt(ctx2, cc.Pos())
 
 	return ann.visStmts(ctx, &cc.Body)
 }
@@ -668,6 +666,8 @@ func (ann *Annotator) visRangeStmt(ctx *Ctx, rs *ast.RangeStmt) error {
 		//ce2 := &ast.CallExpr{Fun: id, Args: []ast.Expr{rs.X}}
 		//de2 := ann.newDebugCE("IVr", ce2)
 		//ann.insertDebugLineStmt(ctx, de2)
+	} else {
+		ann.insertStepInStmt(ctx, rs.Range)
 	}
 
 	// key and value inside the range body
@@ -710,8 +710,7 @@ func (ann *Annotator) visReturnStmt(ctx *Ctx, rs *ast.ReturnStmt) error {
 	if len(rs.Results) == 0 {
 		// just show debug step
 		if tt.nResults2(true) == 0 {
-			de := ann.newDebugISt(rs.Pos())
-			ann.insertDebugLineStmt(ctx, de)
+			ann.insertStepInStmt(ctx, rs.Pos())
 			return nil
 		}
 
@@ -738,10 +737,7 @@ func (ann *Annotator) visReturnStmt(ctx *Ctx, rs *ast.ReturnStmt) error {
 }
 
 func (ann *Annotator) visSelectStmt(ctx *Ctx, ss *ast.SelectStmt) error {
-	// show debug step entering the switch
-	de := ann.newDebugISt(ss.Pos())
-	ann.insertDebugLineStmt(ctx, de)
-
+	ann.insertStepInStmt(ctx, ss.Pos())
 	return ann.visStmt(ctx, ss.Body)
 }
 
@@ -764,8 +760,7 @@ func (ann *Annotator) visSendStmt(ctx *Ctx, ss *ast.SendStmt) error {
 func (ann *Annotator) visSwitchStmt(ctx *Ctx, ss *ast.SwitchStmt) error {
 	// show debug step entering the switch
 	if ss.Init == nil && ss.Tag == nil {
-		de := ann.newDebugISt(ss.Pos())
-		ann.insertDebugLineStmt(ctx, de)
+		ann.insertStepInStmt(ctx, ss.Pos())
 	}
 
 	ctx3 := ctx // used in ss.tag

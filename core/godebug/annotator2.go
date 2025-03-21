@@ -65,6 +65,10 @@ func (ann *Annotator) newDebugILOrNilIdent(noExprsPos token.Pos, exprs ...DebugE
 
 //----------
 
+func (ann *Annotator) insertStepInStmt(ctx *Ctx, pos token.Pos) {
+	de := ann.newDebugISt(pos)
+	ann.insertDebugLineStmt(ctx, de)
+}
 func (ann *Annotator) insertDebugLineStmt(ctx *Ctx, de DebugExpr) {
 	stmt := (ast.Stmt)(nil)
 	if ctx.boolean(cidbNoBlockAnnotations) {
