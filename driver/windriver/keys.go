@@ -369,8 +369,8 @@ func translateKStateToEventKeyModifiers(kstate *[256]byte) event.KeyModifiers {
 		//{_VK_RMENU, event.ModAlt},
 		{_VK_RMENU, event.ModAltGr},
 
-		{_VK_LWIN, event.ModSuper},
-		{_VK_RWIN, event.ModSuper},
+		{_VK_LWIN, event.ModSuperMeta},
+		{_VK_RWIN, event.ModSuperMeta},
 	}
 	var w event.KeyModifiers
 	for _, p := range pairs {
