@@ -607,6 +607,12 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2025/03/28: v3.11.0 (37 commits)
+	- util/iout/iorw: crash fix
+	- lsproto: minor exec fix
+	- driver/xdriver/xinput: improved keyboard detect/support
+	- godebug: rangestmt fix
+	- bump required version to go 1.23 (func iterators)
 - 2024/07/16: v3.10.0 (1 commits)
 	- update go.mod (golang.org/x/image)
 	- bump required version to go 1.21 (slices pkg)
