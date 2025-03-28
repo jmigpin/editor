@@ -143,10 +143,10 @@ func (km *KMap) detectModifiersMapping(mm [8][]xproto.Keycode) {
 	}
 
 	pairs := []pair{
-		pair{&km.mmask.numL, numLocks},
-		pair{&km.mmask.alt, alts},
-		pair{&km.mmask.altGr, altGrs},
-		pair{&km.mmask.superMeta, superMetas},
+		{&km.mmask.numL, numLocks},
+		{&km.mmask.alt, alts},
+		{&km.mmask.altGr, altGrs},
+		{&km.mmask.superMeta, superMetas},
 	}
 
 	// 8 modifiers groups, that can have n keycodes
