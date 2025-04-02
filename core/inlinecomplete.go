@@ -340,7 +340,7 @@ func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex i
 			if err != nil {
 				break
 			}
-			if b[0] != expandStr[n] {
+			if !strings.EqualFold(string(b[0]), string(expandStr[n])) {
 				break
 			}
 			n++
