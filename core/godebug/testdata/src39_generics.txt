@@ -1,0 +1,21 @@
+#setenv script_keepwork true
+
+#exec go run main.go
+#contains stderr "1"
+
+ucmd godebugtester run main.go 
+contains stderr "1"
+
+-- go.mod --
+module main
+go 1.21
+-- main.go --
+package main
+func main(){
+	a:=int(1)
+	b:=f1[bool](a)		
+	println(b)
+}
+func f1[T,U any](u U) U{
+	return u
+}

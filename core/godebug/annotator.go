@@ -969,10 +969,21 @@ func (ann *Annotator) visCallExpr(ctx *Ctx, ce *ast.CallExpr) (DebugExpr, error)
 
 	ctx2 := ctx.withValue(cidnNameInsteadOfValue, ce.Fun)
 	ctx2 = ctx2.withValue(cidnIsCallExprFun, ce.Fun)
+
+	// generics call: can debug partial generics call, it won't be able to infer some of the args, just use nil for now
+	if ie, ok := ce.Fun.(*ast.IndexExpr); ok {
+		if tt, ok := ann.newTType2(ie); ok {
+			if _, ok := tt.Type.(*types.Signature); ok {
+				ctx2 = ctx2.withValue(cidnResNil, ce.Fun)
+			}
+		}
+	}
+
 	fun, err := ann.visExpr(ctx2, &ce.Fun)
 	if err != nil {
 		return nil, err
 	}
+
 	args, err := ann.visExprs(ctx, &ce.Args, ce.Pos())
 	if err != nil {
 		return nil, err
