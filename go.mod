@@ -2,8 +2,6 @@ module github.com/jmigpin/editor
 
 go 1.23.0
 
-toolchain go1.24.1
-
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.7.0
