@@ -230,11 +230,14 @@ func (st *ST) runFile2(t *testing.T) error {
 
 //----------
 
-func (st *ST) lastCmdErrBytes(err error) []byte {
-	if err == nil {
-		return nil
+func (st *ST) lastCmdUpdate(sout, serr []byte, err error) {
+	st.lastCmd.stdout = sout
+	st.lastCmd.stderr = serr
+	if err != nil {
+		st.lastCmd.err = []byte(err.Error())
+	} else {
+		st.lastCmd.err = nil
 	}
-	return []byte(err.Error())
 }
 
 func (st *ST) lastCmdContent(name string) ([]byte, bool) {
@@ -383,16 +386,10 @@ func runCmd(st *ST, args []string) error {
 
 	// user cmds
 	if cmd, ok := st.ucmds[args[0]]; ok {
-		//return st.collectOutput(t, func() error {
-		//return cmd.Fn(t, st, args)
-		//})
-
 		st.Stdout = &bytes.Buffer{}
 		st.Stderr = &bytes.Buffer{}
 		err := cmd.Fn(st, args)
-		st.lastCmd.stdout = st.Stdout.Bytes()
-		st.lastCmd.stderr = st.Stderr.Bytes()
-		st.lastCmd.err = st.lastCmdErrBytes(err)
+		st.lastCmdUpdate(st.Stdout.Bytes(), st.Stderr.Bytes(), err)
 		return err
 
 	}
@@ -415,9 +412,7 @@ func runCmd(st *ST, args []string) error {
 	ci = osutil.NewCtxCmd(ctx, ci)
 	ci = osutil.NewShellCmd(ci, true)
 	sout, serr, err := osutil.RunCmdIOutputs(ci)
-	st.lastCmd.stdout = sout
-	st.lastCmd.stderr = serr
-	st.lastCmd.err = st.lastCmdErrBytes(err)
+	st.lastCmdUpdate(sout, serr, err)
 	return err
 }
 
