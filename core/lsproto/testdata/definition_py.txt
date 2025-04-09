@@ -1,13 +1,13 @@
 # get src positions
-ucmd lspSourceCursor main_template main.py 0
+lspSourceCursor main_template main.py 0
 setenv offset stdout
-ucmd lspSourceCursor main_template _discard 1
+lspSourceCursor main_template _discard 1
 setenv offset2 stdout
 
-ucmd lspDefinition main.py offset
+lspDefinition main.py offset
 contains stdout "&{{0 4} {0 9}}"
 
-ucmd lspDefinition main.py offset2
+lspDefinition main.py offset2
 contains stdout "&{{2 4} {2 9}}"
 
 -- main_template --

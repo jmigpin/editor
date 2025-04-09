@@ -1,6 +1,6 @@
-ucmd lspSourceCursor main_template main.go 0
+lspSourceCursor main_template main.go 0
 setenv offset stdout
-ucmd lspReferences main.go offset
+lspReferences main.go offset
 containsre stdout "main.go:9:2(?:.|\\n)*main.go:10:13"
 
 -- main_template --

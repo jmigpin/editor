@@ -1,7 +1,7 @@
-ucmd lspSourceCursor main_template main.py 0
+lspSourceCursor main_template main.py 0
 setenv offset stdout
 
-ucmd lspReferences main.py offset
+lspReferences main.py offset
 contains stdout "main.py:1:5"
 contains stdout "main.py:5:14"
 contains stdout "main.py:6:14"

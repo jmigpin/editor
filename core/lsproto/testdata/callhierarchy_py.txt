@@ -1,8 +1,8 @@
-ucmd lspSourceCursor main_template main.py 0
+lspSourceCursor main_template main.py 0
 setenv offset stdout
 
 # TODO: method not found
-fail ucmd lspCallHierarchy main.py offset
+fail lspCallHierarchy main.py offset
 contains error "Method Not Found: textDocument/prepareCallHierarchy"
 
 -- main_template --

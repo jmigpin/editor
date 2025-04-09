@@ -1,6 +1,6 @@
-ucmd lspSourceCursor main_template main.go 0
+lspSourceCursor main_template main.go 0
 setenv offset stdout
-ucmd lspCallHierarchy main.go offset
+lspCallHierarchy main.go offset
 contains stdout "main.go:4:8"
 
 -- main_template --

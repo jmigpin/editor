@@ -1,7 +1,7 @@
-ucmd lspSourceCursor main_template main.cpp 0
+lspSourceCursor main_template main.cpp 0
 setenv offset stdout
 
-ucmd lspCallHierarchy main.cpp offset
+lspCallHierarchy main.cpp offset
 contains stdout "main.cpp:8:11"
 contains stdout "main.cpp:9:11"
 

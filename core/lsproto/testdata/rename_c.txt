@@ -1,10 +1,10 @@
-#exec go run main.go
-ucmd lspSourceCursor main_template main.cpp 0
+#go run main.go
+lspSourceCursor main_template main.cpp 0
 setenv offset stdout
 
-ucmd lspRename main.cpp offset main3
+lspRename main.cpp offset main3
 contains stdout "int main3()"
-ucmd lspRename main.cpp offset main4
+lspRename main.cpp offset main4
 contains stdout "int main4()"
 
 -- main_template --

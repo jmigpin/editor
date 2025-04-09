@@ -1,13 +1,13 @@
 # get src positions
-ucmd lspSourceCursor main_template main.cpp 0
+lspSourceCursor main_template main.cpp 0
 setenv offset stdout
-ucmd lspSourceCursor main_template _discard 1
+lspSourceCursor main_template _discard 1
 setenv offset2 stdout
 
-ucmd lspDefinition main.cpp offset
+lspDefinition main.cpp offset
 contains stdout "&{{0 4} {0 9}}"
 
-ucmd lspDefinition main.cpp offset2
+lspDefinition main.cpp offset2
 contains stdout "&{{3 4} {3 9}}"
 
 -- main_template --

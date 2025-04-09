@@ -1,13 +1,13 @@
-#exec go run main.go
-ucmd lspSourceCursor main_template main.go 0
+#go run main.go
+lspSourceCursor main_template main.go 0
 setenv offset stdout
 
 # test with multiple files (used to fail at second rename below)
-ucmd lspRename main.go offset V2
-#exec cat main.go
-#exec cat pkg1/fn1.go
+lspRename main.go offset V2
+#cat main.go
+#cat pkg1/fn1.go
 contains stdout "var V2 = \"aaa\""
-ucmd lspRename main.go offset V3
+lspRename main.go offset V3
 contains stdout "var V3 = \"aaa\""
 
 -- go.mod --

@@ -1,10 +1,10 @@
-#exec go run main.go
-ucmd lspSourceCursor main_template main.py 0
+#go run main.go
+lspSourceCursor main_template main.py 0
 setenv offset stdout
 
-ucmd lspRename main.py offset main3
+lspRename main.py offset main3
 contains stdout "def main3"
-ucmd lspRename main.py offset main4
+lspRename main.py offset main4
 contains stdout "def main4"
 
 -- main_template --

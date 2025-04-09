@@ -1,7 +1,7 @@
-ucmd lspSourceCursor main_template main.c 0
+lspSourceCursor main_template main.c 0
 setenv offset stdout
 
-ucmd lspReferences main.c offset
+lspReferences main.c offset
 contains stdout "main.c:2:6"
 contains stdout "main.c:4:14"
 
