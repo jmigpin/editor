@@ -8,7 +8,7 @@ import (
 
 func TestEnv1(t *testing.T) {
 	env := []string{"AA=1", "BB=2"}
-	env = SetEnv(env, "CC", "3")
+	SetEnv(&env, "CC", "3")
 	if GetEnv(env, "AA") != "1" {
 		t.Fail()
 	}
@@ -19,7 +19,7 @@ func TestEnv1(t *testing.T) {
 
 func TestEnv2(t *testing.T) {
 	env := []string{"AA=1", "BB=2"}
-	env = SetEnv(env, "AA", "3")
+	SetEnv(&env, "AA", "3")
 	if GetEnv(env, "AA") != "3" {
 		t.Fail()
 	}
@@ -40,7 +40,7 @@ func TestEnv3(t *testing.T) {
 
 func TestEnv4(t *testing.T) {
 	env := []string{"AA=1", "AA=2"}
-	env = SetEnv(env, "AA", "3")
+	SetEnv(&env, "AA", "3")
 	if len(env) != 1 || GetEnv(env, "AA") != "3" {
 		t.Fail()
 	}

@@ -26,6 +26,7 @@ type Script struct {
 	Cmds           []*ScriptCmd // user cmds (provided)
 	Work           bool         // don't remove work dir at end
 	NoFilepathsFix bool         // don't rewrite filepaths for current dir
+	Parallel       bool
 
 	ScriptStart func(*testing.T) error // each script init
 	ScriptStop  func(*testing.T) error // each script close
@@ -69,9 +70,11 @@ func (scr *Script) runDir(t *testing.T, dir string) error {
 func (scr *Script) runFile(t *testing.T, filename string) bool {
 	name := filepath.Base(filename)
 	return t.Run(name, func(t *testing.T) {
-		t.Helper()
-		t.Parallel()
-		st := newScriptTest(scr, filename)
+		//t.Helper()
+		if scr.Parallel {
+			t.Parallel()
+		}
+		st := newST(t, scr, filename)
 		if err := st.runFile(t); err != nil {
 			t.Fatal(err)
 		}
@@ -82,32 +85,34 @@ func (scr *Script) runFile(t *testing.T, filename string) bool {
 //----------
 //----------
 
-type ScriptTest struct {
+type ST struct { // script test
+	T   *testing.T
+	Env osutil.Envm
+
+	workDir string // test root dir
+	Dir     string // current dir
+
 	scr *Script
-	Env *Env
+
+	filename string
 
 	ucmds map[string]*ScriptCmd // user cmds (mapped)
 	icmds map[string]*ScriptCmd // internal cmds
 
-	filename string
+	// collects output for lastcmd
+	// error is returned by the func
+	Stdout *bytes.Buffer
+	Stderr *bytes.Buffer
 
-	workDir string // test root dir
-	CurDir  string // current dir
-
-	lastCmdStd [2][]byte // stdin, stdout
-	lastCmd    struct {
+	lastCmd struct {
 		stdout []byte
 		stderr []byte
 		err    []byte
 	}
-
-	// useful for colecting output
-	Stdout *bytes.Buffer
-	Stderr *bytes.Buffer
 }
 
-func newScriptTest(scr *Script, filename string) *ScriptTest {
-	st := &ScriptTest{scr: scr, Env: NewEnvMap(), filename: filename}
+func newST(t *testing.T, scr *Script, filename string) *ST {
+	st := &ST{T: t, scr: scr, Env: osutil.NewEnvm(nil), filename: filename}
 
 	// internal cmds
 	icmds := []*ScriptCmd{
@@ -116,10 +121,6 @@ func newScriptTest(scr *Script, filename string) *ScriptTest {
 		{"setenv", icSetEnv},
 		{"contains", icContains},
 		{"containsre", icContainsRegexp},
-
-		// TODO: remove, no need for ucmd/exec anymore
-		{"ucmd", icUCmd}, // user cmd
-		{"exec", icExec}, // internal cmd
 	}
 	st.icmds = mapScriptCmds(icmds)
 	st.ucmds = mapScriptCmds(scr.Cmds) // script user cmds
@@ -129,16 +130,16 @@ func newScriptTest(scr *Script, filename string) *ScriptTest {
 
 //----------
 
-func (st *ScriptTest) runFile(t *testing.T) error {
+func (st *ST) runFile(t *testing.T) error {
 	if err := st.runFile2(t); err != nil {
 		return st.error(err) // setup error with location info
 	}
 	return nil
 }
-func (st *ScriptTest) runFile2(t *testing.T) error {
-	//t.Helper()
+func (st *ST) runFile2(t *testing.T) error {
+	t.Helper()
 
-	st.Logf(t, "SCRIPT_FILENAME: %v", st.filename)
+	st.Logf("SCRIPT_FILENAME: %v", st.filename)
 
 	ar, err := txtar.ParseFile(st.filename)
 	if err != nil {
@@ -164,11 +165,11 @@ func (st *ScriptTest) runFile2(t *testing.T) error {
 	}
 
 	st.workDir = dir
-	st.CurDir = st.workDir
+	st.Dir = st.workDir
 
 	// work directory env and cleanup
 	st.Env.Set("WORK", st.workDir)
-	st.Logf(t, "script_workdir: %v", st.workDir)
+	st.Logf("script_workdir: %v", st.workDir)
 	defer func() {
 		t.Helper()
 		if !st.scr.Work {
@@ -218,9 +219,9 @@ func (st *ScriptTest) runFile2(t *testing.T) error {
 		}
 		// as least an arg after empty lines check
 		args := st.splitArgs(txt)
-		st.Logf(t, "SCRIPT: %v", args)
+		st.Logf("SCRIPT: %v", args)
 
-		if err := runCmd(t, st, args); err != nil {
+		if err := runCmd(st, args); err != nil {
 			return err
 		}
 	}
@@ -229,14 +230,14 @@ func (st *ScriptTest) runFile2(t *testing.T) error {
 
 //----------
 
-func (st *ScriptTest) lastCmdErrBytes(err error) []byte {
+func (st *ST) lastCmdErrBytes(err error) []byte {
 	if err == nil {
 		return nil
 	}
 	return []byte(err.Error())
 }
 
-func (st *ScriptTest) lastCmdContent(name string) ([]byte, bool) {
+func (st *ST) lastCmdContent(name string) ([]byte, bool) {
 	switch name {
 	case "stdout":
 		return st.lastCmd.stdout, true
@@ -250,17 +251,13 @@ func (st *ScriptTest) lastCmdContent(name string) ([]byte, bool) {
 
 //----------
 
-func (st *ScriptTest) collectOutput2() {
-
-}
-
-func (st *ScriptTest) collectOutput(t *testing.T, fn func() error) error {
+func (st *ST) collectOutput(t *testing.T, fn func() error) error {
 	logf := func(f string, args ...any) {
 		if st.scr.NoFilepathsFix {
 			t.Logf(f, args...)
 		} else {
 			u := fmt.Sprintf(f, args...)
-			u = string(fixFilepathsForCurDir([]byte(u), st.CurDir))
+			u = string(fixFilepathsForCurDir([]byte(u), st.Dir))
 			t.Log(u)
 		}
 	}
@@ -277,32 +274,51 @@ func (st *ScriptTest) collectOutput(t *testing.T, fn func() error) error {
 	return err
 }
 
-func (st *ScriptTest) writeFile(filename string, data []byte) error {
+func (st *ST) writeFile(filename string, data []byte) error {
 	return iout.MkdirAllWriteFile(filename, data, 0o644)
 }
 
 //----------
 
-func (st *ScriptTest) Logf(t *testing.T, f string, args ...any) {
-	t.Helper()
-	st.Log(t, fmt.Sprintf(f, args...))
+func (st *ST) DirJoin(fp string) string {
+	return filepath.Join(st.Dir, fp)
 }
-func (st *ScriptTest) Log(t *testing.T, s string) {
-	t.Helper()
+
+//----------
+
+// to be used in user cmds, as st.stdout might not be defined
+
+func (st *ST) Printf(f string, args ...any) {
+	fmt.Fprintf(st.Stdout, f, args...)
+}
+func (st *ST) Println(args ...any) {
+	fmt.Fprintln(st.Stdout, args...)
+}
+
+//----------
+
+func (st *ST) Logf(f string, args ...any) {
+	st.T.Helper()
+	st.T.Log(fmt.Sprintf(f, args...))
+}
+func (st *ST) Log(s string) {
+	st.T.Helper()
 	if u := st.locationInfo(); u != "" {
 		s = u + s
 	}
 	s = strings.TrimRight(s, "\n") // remove newlines
-	t.Log(s)                       // adds one newline
+	st.T.Log(s)                    // adds one newline
 }
 
-func (st *ScriptTest) error(err error) error {
+//----------
+
+func (st *ST) error(err error) error {
 	if s := st.locationInfo(); s != "" {
 		return fmt.Errorf("%v%w", s, err)
 	}
 	return err
 }
-func (st *ScriptTest) locationInfo() string {
+func (st *ST) locationInfo() string {
 	// add filename line info
 	u := ""
 	if filename := st.Env.Get("script_filename"); filename != "" {
@@ -317,7 +333,7 @@ func (st *ScriptTest) locationInfo() string {
 
 //----------
 
-func (st *ScriptTest) splitArgs(s string) []string {
+func (st *ST) splitArgs(s string) []string {
 	quoted := false
 	escape := false
 	a := strings.FieldsFunc(s, func(r rune) bool {
@@ -346,7 +362,7 @@ type ScriptCmd struct {
 	Fn   ScriptCmdFn
 }
 
-type ScriptCmdFn func(t *testing.T, st *ScriptTest, args []string) error
+type ScriptCmdFn func(st *ST, args []string) error
 
 func mapScriptCmds(w []*ScriptCmd) map[string]*ScriptCmd {
 	m := map[string]*ScriptCmd{}
@@ -360,7 +376,11 @@ func mapScriptCmds(w []*ScriptCmd) map[string]*ScriptCmd {
 //----------
 //----------
 
-func runCmd(t *testing.T, st *ScriptTest, args []string) error {
+func runCmd(st *ST, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("expecting args")
+	}
+
 	// user cmds
 	if cmd, ok := st.ucmds[args[0]]; ok {
 		//return st.collectOutput(t, func() error {
@@ -369,53 +389,28 @@ func runCmd(t *testing.T, st *ScriptTest, args []string) error {
 
 		st.Stdout = &bytes.Buffer{}
 		st.Stderr = &bytes.Buffer{}
-		err := cmd.Fn(t, st, args)
+		err := cmd.Fn(st, args)
 		st.lastCmd.stdout = st.Stdout.Bytes()
 		st.lastCmd.stderr = st.Stderr.Bytes()
 		st.lastCmd.err = st.lastCmdErrBytes(err)
 		return err
 
 	}
+
 	// internal cmds
 	if cmd, ok := st.icmds[args[0]]; ok {
 		//return st.collectOutput(t, func() error {}) // commented: don't collect output from all internal cmds, otherwise it will be getting empty output from cmds like "contains" that follow the pretented cmd that has the desired output
 
-		return cmd.Fn(t, st, args)
+		return cmd.Fn(st, args)
 	}
+
 	// default cmd
-	return icExec(t, st, args)
-}
+	//return icExec(t, st, args)
 
-//----------
-
-func icExec(t *testing.T, st *ScriptTest, args []string) error {
-	// drop "exec"
-	if args[0] == "exec" {
-		args = args[1:]
-	}
-
-	if len(args) <= 0 {
-		return fmt.Errorf("expecting args, got %v", len(args))
-	}
 	ctx := context.Background()
-
 	ec := exec.CommandContext(ctx, args[0], args[1:]...)
-
-	ec.Dir = st.CurDir
+	ec.Dir = st.Dir
 	ec.Env = st.Env.Environ()
-
-	//return st.collectOutput(t, func() error {
-	//	// setup cmd stdout inside collectoutput
-	//	// TODO: stdin?
-	//	ec.Stdout = os.Stdout
-	//	ec.Stderr = os.Stderr
-
-	//	ci := osutil.NewCmdI(ec)
-	//	ci = osutil.NewCtxCmd(ctx, ci)
-	//	ci = osutil.NewShellCmd(ci, true)
-	//	return osutil.RunCmdI(ci)
-	//})
-
 	ci := osutil.NewCmdI(ec)
 	ci = osutil.NewCtxCmd(ctx, ci)
 	ci = osutil.NewShellCmd(ci, true)
@@ -428,27 +423,7 @@ func icExec(t *testing.T, st *ScriptTest, args []string) error {
 
 //----------
 
-// TODO: eventually, remove
-func icUCmd(t *testing.T, st *ScriptTest, args []string) error {
-	// drop "ucmd"
-	if args[0] == "ucmd" {
-		args = args[1:]
-	}
-
-	//cmd, ok := st.ucmds[args[0]]
-	//if !ok {
-	//	return fmt.Errorf("cmd not found: %v", args[0])
-	//}
-	//return st.collectOutput(t, func() error {
-	//	return cmd.Fn(t, st, args)
-	//})
-
-	return runCmd(t, st, args)
-}
-
-//----------
-
-func icContains(t *testing.T, st *ScriptTest, args []string) error {
+func icContains(st *ST, args []string) error {
 	args = args[1:] // drop "contains"
 	if len(args) != 2 {
 		return fmt.Errorf("expecting 2 args, got %v", args)
@@ -467,13 +442,12 @@ func icContains(t *testing.T, st *ScriptTest, args []string) error {
 	}
 
 	if !bytes.Contains(data, []byte(pattern)) {
-		//return fmt.Errorf("contains:%s: no match:\ndata=%q\npattern=%q", args[0], string(data), pattern)
-		return fmt.Errorf("contains:%s: no match: data=%q", args[0], string(data))
+		return fmt.Errorf("contains: no match\ncontent=%q\ndata=%q", args[0], string(data))
 	}
 	return nil
 }
 
-func icContainsRegexp(t *testing.T, st *ScriptTest, args []string) error {
+func icContainsRegexp(st *ST, args []string) error {
 	args = args[1:] // drop "containsre"
 	if len(args) != 2 {
 		return fmt.Errorf("expecting 2 args, got %v", args)
@@ -497,15 +471,14 @@ func icContainsRegexp(t *testing.T, st *ScriptTest, args []string) error {
 	}
 
 	if re.Find(data) == nil {
-		//return fmt.Errorf("contains: no match:\npattern=[%v]\ndata=[%v]", pattern, string(data))
-		return fmt.Errorf("containsre: no match")
+		return fmt.Errorf("containsre: no match\ncontent=%q\ndata=%q", args[0], string(data))
 	}
 	return nil
 }
 
 //----------
 
-func icSetEnv(t *testing.T, st *ScriptTest, args []string) error {
+func icSetEnv(st *ST, args []string) error {
 	args = args[1:] // drop "setenv"
 	if len(args) != 1 && len(args) != 2 {
 		return fmt.Errorf("expecting 1 or 2 args, got %v", args)
@@ -518,7 +491,7 @@ func icSetEnv(t *testing.T, st *ScriptTest, args []string) error {
 		//v = os.Expand(v, os.Getenv)
 		v = os.Expand(v, st.Env.Get)
 
-		// allow expansion of lastcmd (setenv x stdout)
+		// allow expansion of lastcmd (setenv <name> stdout)
 		data, ok := st.lastCmdContent(v)
 		if ok {
 			v = string(data)
@@ -530,34 +503,34 @@ func icSetEnv(t *testing.T, st *ScriptTest, args []string) error {
 
 //----------
 
-func icFail(t *testing.T, st *ScriptTest, args []string) error {
-	t.Helper()
+func icFail(st *ST, args []string) error {
+	st.T.Helper()
 	args = args[1:] // drop "fail"
 	if len(args) < 1 {
 		return fmt.Errorf("expecting at least 1 arg, got %v", args)
 	}
 
-	err := runCmd(t, st, args)
+	err := runCmd(st, args)
 	if err == nil {
 		return fmt.Errorf("expected failure but got no error")
 	}
 
-	st.Logf(t, "fail ok: %v", err)
+	st.Logf("fail ok: %v", err)
 	return nil
 }
 
 //----------
 
-func icChangeDir(t *testing.T, st *ScriptTest, args []string) error {
+func icChangeDir(st *ST, args []string) error {
 	args = args[1:] // drop "cd"
 	if len(args) != 1 {
 		return fmt.Errorf("expecting 1 arg, got %v", args)
 	}
 	dir := args[0]
 	if filepath.IsAbs(dir) {
-		st.CurDir = dir
+		st.Dir = dir
 	} else {
-		st.CurDir = filepath.Join(st.CurDir, dir)
+		st.Dir = filepath.Join(st.Dir, dir)
 	}
 	return nil
 }
@@ -655,20 +628,3 @@ func fixFilepathsForCurDir(b []byte, curDir string) []byte {
 //----------
 //----------
 //----------
-
-type Env struct {
-	data []string
-}
-
-func NewEnvMap() *Env {
-	return &Env{data: os.Environ()}
-}
-func (e *Env) Get(key string) string {
-	return osutil.GetEnv(e.data, key)
-}
-func (e *Env) Set(key, val string) {
-	osutil.SetEnv(&e.data, key, val)
-}
-func (e *Env) Environ() []string {
-	return e.data
-}

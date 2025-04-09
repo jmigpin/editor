@@ -2,11 +2,51 @@ package osutil
 
 import (
 	"fmt"
+	"maps"
+	"os"
 	"slices"
 	"strings"
 
 	"github.com/jmigpin/editor/util/strconvutil"
 )
+
+// environ map
+type Envm map[string]string
+
+func NewEnvm(env []string) Envm {
+	if env == nil {
+		env = os.Environ()
+	}
+	e := Envm{}
+	e.Add(env)
+	return e
+}
+func (e Envm) Add(env []string) {
+	// last entry has precedence
+	for _, s := range env {
+		k, v, ok := splitEnvVar(s)
+		if !ok {
+			continue
+		}
+		e[k] = v
+	}
+}
+func (e Envm) Get(key string) string {
+	return e[key]
+}
+func (e Envm) Set(key, val string) {
+	e[key] = val
+}
+func (e Envm) Environ() []string {
+	ks := slices.Sorted(maps.Keys(e))
+	w := make([]string, 0, len(ks))
+	for _, k := range ks {
+		w = append(w, keyValStr(k, e[k]))
+	}
+	return w
+}
+
+//----------
 
 func GetEnv(env []string, key string) string {
 	for i := len(env) - 1; i >= 0; i-- { // last entry has precedence

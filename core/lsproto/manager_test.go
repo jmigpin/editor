@@ -56,8 +56,9 @@ func TestScripts(t *testing.T) {
 	//log.SetPrefix("lsptester: ")
 
 	scr := testutil.NewScript(os.Args)
-	//scr.Work = true
 	scr.ScriptsDir = "testdata"
+	//scr.Parallel = true // TODO: failing
+	//scr.Work = true
 
 	man := (*Manager)(nil)
 	scr.ScriptStart = func(t *testing.T) error {
@@ -70,23 +71,23 @@ func TestScripts(t *testing.T) {
 	}
 
 	scr.Cmds = []*testutil.ScriptCmd{
-		{"lspSourceCursor", func(t *testing.T, args []string) error {
-			return lspSourceCursor(t, args, man)
+		{"lspSourceCursor", func(st *testutil.ST, args []string) error {
+			return lspSourceCursor(st, args, man)
 		}},
-		{"lspDefinition", func(t *testing.T, args []string) error {
-			return lspDefinition(t, args, man)
+		{"lspDefinition", func(st *testutil.ST, args []string) error {
+			return lspDefinition(st, args, man)
 		}},
-		{"lspCompletion", func(t *testing.T, args []string) error {
-			return lspCompletion(t, args, man)
+		{"lspCompletion", func(st *testutil.ST, args []string) error {
+			return lspCompletion(st, args, man)
 		}},
-		{"lspRename", func(t *testing.T, args []string) error {
-			return lspRename(t, args, man)
+		{"lspRename", func(st *testutil.ST, args []string) error {
+			return lspRename(st, args, man)
 		}},
-		{"lspReferences", func(t *testing.T, args []string) error {
-			return lspReferences(t, args, man)
+		{"lspReferences", func(st *testutil.ST, args []string) error {
+			return lspReferences(st, args, man)
 		}},
-		{"lspCallHierarchy", func(t *testing.T, args []string) error {
-			return lspCallHierarchy(t, args, man)
+		{"lspCallHierarchy", func(st *testutil.ST, args []string) error {
+			return lspCallHierarchy(st, args, man)
 		}},
 	}
 
@@ -95,14 +96,14 @@ func TestScripts(t *testing.T) {
 
 //----------
 
-func lspSourceCursor(t *testing.T, args []string, man *Manager) error {
+func lspSourceCursor(st *testutil.ST, args []string, man *Manager) error {
 	args = args[1:] // remove cmd string
 	if len(args) != 3 {
 		return fmt.Errorf("sourcecursor: expecting 3 args: %v", args)
 	}
 
-	template := args[0]
-	filename := args[1]
+	template := st.DirJoin(args[0])
+	filename := st.DirJoin(args[1])
 	mark := args[2]
 
 	mark2, err := strconv.ParseInt(mark, 10, 32)
@@ -115,31 +116,31 @@ func lspSourceCursor(t *testing.T, args []string, man *Manager) error {
 	if err != nil {
 		return err
 	}
-	offset, src := sourceCursor(t, string(b), int(mark2))
+	offset, src := sourceCursor(st.T, string(b), int(mark2))
 
 	// write filename
 	if err := os.WriteFile(filename, []byte(src), 0o644); err != nil {
 		return err
 	}
 
-	fmt.Printf("%d", offset)
+	st.Printf("%d", offset)
 
 	return nil
 }
 
 //----------
 
-func lspDefinition(t *testing.T, args []string, man *Manager) error {
+func lspDefinition(st *testutil.ST, args []string, man *Manager) error {
 	args = args[1:] // remove cmd string
 	if len(args) != 2 {
 		return fmt.Errorf("rename: expecting 2 args: %v", args)
 	}
 
-	filename := args[0]
+	filename := st.DirJoin(args[0])
 	offset := args[1]
 
 	// read offset (allow offset from env var)
-	offset2, err := getIntArgPossiblyFromEnv(offset)
+	offset2, err := getIntArgPossiblyFromEnv(st, offset)
 	if err != nil {
 		return err
 	}
@@ -162,23 +163,23 @@ func lspDefinition(t *testing.T, args []string, man *Manager) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%v %v", f, rang)
+	st.Printf("%v %v", f, rang)
 	return nil
 }
 
 //----------
 
-func lspCompletion(t *testing.T, args []string, man *Manager) error {
+func lspCompletion(st *testutil.ST, args []string, man *Manager) error {
 	args = args[1:] // remove cmd string
 	if len(args) != 2 {
 		return fmt.Errorf("rename: expecting 2 args: %v", args)
 	}
 
-	filename := args[0]
+	filename := st.DirJoin(args[0])
 	offset := args[1]
 
 	// read offset (allow offset from env var)
-	offset2, err := getIntArgPossiblyFromEnv(offset)
+	offset2, err := getIntArgPossiblyFromEnv(st, offset)
 	if err != nil {
 		return err
 	}
@@ -202,24 +203,24 @@ func lspCompletion(t *testing.T, args []string, man *Manager) error {
 		return err
 	}
 	w := CompletionListToString(clist)
-	fmt.Printf("%v", w)
+	st.Printf("%v", w)
 	return nil
 }
 
 //----------
 
-func lspRename(t *testing.T, args []string, man *Manager) error {
+func lspRename(st *testutil.ST, args []string, man *Manager) error {
 	args = args[1:] // remove cmd string
 	if len(args) != 3 {
 		return fmt.Errorf("rename: expecting 3 args: %v", args)
 	}
 
-	filename := args[0]
-	offset := args[1]
+	filename := st.DirJoin(args[0])
+	offsetVar := args[1]
 	newName := args[2]
 
 	// read offset (allow offset from env var)
-	offset2, err := getIntArgPossiblyFromEnv(offset)
+	offset2, err := getIntArgPossiblyFromEnv(st, offsetVar)
 	if err != nil {
 		return err
 	}
@@ -247,8 +248,8 @@ func lspRename(t *testing.T, args []string, man *Manager) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("filename: %v\n", wec.Filename)
-		fmt.Printf("%s\n", b)
+		st.Printf("filename: %v\n", wec.Filename)
+		st.Printf("%s\n", b)
 	}
 
 	return nil
@@ -256,17 +257,17 @@ func lspRename(t *testing.T, args []string, man *Manager) error {
 
 //----------
 
-func lspReferences(t *testing.T, args []string, man *Manager) error {
+func lspReferences(st *testutil.ST, args []string, man *Manager) error {
 	args = args[1:] // remove cmd string
 	if len(args) != 2 {
 		return fmt.Errorf("rename: expecting 2 args: %v", args)
 	}
 
-	filename := args[0]
-	offset := args[1]
+	filename := st.DirJoin(args[0])
+	offsetVar := args[1]
 
 	// read offset (allow offset from env var)
-	offset2, err := getIntArgPossiblyFromEnv(offset)
+	offset2, err := getIntArgPossiblyFromEnv(st, offsetVar)
 	if err != nil {
 		return err
 	}
@@ -294,24 +295,24 @@ func lspReferences(t *testing.T, args []string, man *Manager) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%v", str)
+	st.Printf("%v", str)
 
 	return nil
 }
 
 //----------
 
-func lspCallHierarchy(t *testing.T, args []string, man *Manager) error {
+func lspCallHierarchy(st *testutil.ST, args []string, man *Manager) error {
 	args = args[1:] // remove cmd string
 	if len(args) != 2 {
 		return fmt.Errorf("rename: expecting 2 args: %v", args)
 	}
 
-	filename := args[0]
-	offset := args[1]
+	filename := st.DirJoin(args[0])
+	offsetVar := args[1]
 
 	// read offset (allow offset from env var)
-	offset2, err := getIntArgPossiblyFromEnv(offset)
+	offset2, err := getIntArgPossiblyFromEnv(st, offsetVar)
 	if err != nil {
 		return err
 	}
@@ -336,9 +337,9 @@ func lspCallHierarchy(t *testing.T, args []string, man *Manager) error {
 	}
 	str, err := ManagerCallHierarchyCallsToString(mcalls, IncomingChct, "")
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	fmt.Printf("result: %v", str)
+	st.Printf("result: %v", str)
 
 	return nil
 }
@@ -395,14 +396,13 @@ func newTestManager(t *testing.T) *Manager {
 
 //----------
 
-func getIntArgPossiblyFromEnv(val string) (int, error) {
+func getIntArgPossiblyFromEnv(st *testutil.ST, v string) (int, error) {
 	// read offset (allow offset from env var)
-	envValue := os.Getenv(val)
-	if envValue != "" {
-		val = strings.TrimSpace(envValue)
+	if v2 := st.Env.Get(v); v2 != "" {
+		v = strings.TrimSpace(v2)
 	}
 
-	u, err := strconv.ParseInt(val, 10, 32)
+	u, err := strconv.ParseInt(v, 10, 32)
 	return int(u), err
 }
 

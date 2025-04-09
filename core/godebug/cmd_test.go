@@ -24,12 +24,14 @@ import (
 func TestCmd1(t *testing.T) {
 	scr := testutil.NewScript(os.Args)
 	scr.ScriptsDir = "testdata"
+	scr.Parallel = true
+
 	scr.Cmds = []*testutil.ScriptCmd{
 		{"godebugtester", godebugTester},
 	}
 	scr.Run(t)
 }
-func godebugTester(t *testing.T, st *testutil.ScriptTest, args []string) error {
+func godebugTester(st *testutil.ST, args []string) error {
 	log.SetFlags(0)
 	log.SetPrefix("godebugtester: ")
 
@@ -38,7 +40,7 @@ func godebugTester(t *testing.T, st *testutil.ScriptTest, args []string) error {
 	cmd := NewCmd()
 	cmd.Testing = true
 
-	cmd.Dir = st.CurDir
+	cmd.Dir = st.Dir
 	cmd.env = st.Env.Environ()
 	cmd.Stdout = st.Stdout
 	cmd.Stderr = st.Stderr
@@ -67,7 +69,7 @@ func godebugTester(t *testing.T, st *testutil.ScriptTest, args []string) error {
 		v, err := cmd.ProtoRead()
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				t.Fatal(err)
+				st.T.Fatal(err)
 			}
 			break
 		}
