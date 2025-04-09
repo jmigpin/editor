@@ -432,7 +432,7 @@ func (cmd *Cmd) addToGopathStart(dir string) {
 		sep = string(os.PathListSeparator)
 	}
 	v2 := dir + sep + v
-	cmd.env = osutil.SetEnv(cmd.env, varName, v2)
+	osutil.SetEnv(&cmd.env, varName, v2)
 }
 
 //------------

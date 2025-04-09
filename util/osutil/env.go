@@ -22,13 +22,13 @@ func GetEnv(env []string, key string) string {
 	return ""
 }
 
-func SetEnv(env []string, key, value string) []string {
+func SetEnv(env *[]string, key, value string) {
+	*env = SetEnv2(*env, key, value)
+}
+func SetEnv2(env []string, key, value string) []string {
 	w := append(env, keyValStr(key, value))
 	w = clearDuplicatesFavorLast(w)
 	return w
-}
-func SetEnv2(env *[]string, key, value string) {
-	*env = SetEnv(*env, key, value)
 }
 
 func AppendEnv(env []string, addEnv []string) []string {

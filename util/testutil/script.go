@@ -642,7 +642,7 @@ func (e *Env) Get(key string) string {
 	return osutil.GetEnv(e.data, key)
 }
 func (e *Env) Set(key, val string) {
-	osutil.SetEnv2(&e.data, key, val)
+	osutil.SetEnv(&e.data, key, val)
 }
 func (e *Env) Environ() []string {
 	return e.data
