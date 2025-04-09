@@ -1,12 +1,12 @@
 # debug editor pkgs (self debug)
 
-exec go mod tidy
+go mod tidy
 
 #setenv script_keepwork true
-#ucmd godebugtester run -work
+#godebugtester run -work
 
 # commented: disabled, was mainly used for a specific test
-#ucmd godebugtester run
+#godebugtester run
 
 -- go.mod --
 module mod1

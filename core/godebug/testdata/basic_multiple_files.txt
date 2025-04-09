@@ -1,20 +1,20 @@
-fail exec go run
+fail go run
 contains stderr "no go files listed"
 
-fail exec go run main.go
+fail go run main.go
 contains stderr "undefined: f1"
 
-exec go run main.go f1.go
+go run main.go f1.go
 contains stderr "2\n"
 
-fail ucmd godebugtester run
+fail godebugtester run
 contains error "go.mod file not found"
 
-fail ucmd godebugtester run main.go
+fail godebugtester run main.go
 #contains error "undeclared name: f1"
 contains error "undefined: f1"
 
-ucmd godebugtester run main.go f1.go
+godebugtester run main.go f1.go
 contains stdout "recv: println(2=(f1()))"
 contains stderr "2\n"
 

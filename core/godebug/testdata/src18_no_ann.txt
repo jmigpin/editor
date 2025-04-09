@@ -1,4 +1,4 @@
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "println(0)"
 fail contains stdout "1000"
 fail contains stdout "1001"

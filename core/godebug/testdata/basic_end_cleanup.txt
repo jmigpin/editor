@@ -1,10 +1,10 @@
 # cleanup dir at the end
 
-#ucmd godebugtester test -work main_test.go main.go
-ucmd godebugtester test main_test.go main.go
+#godebugtester test -work main_test.go main.go
+godebugtester test main_test.go main.go
 
-exec ls $WORK
-fail exec test -f $WORK/*.godebug
+ls $WORK
+fail test -f $WORK/*.godebug
 
 -- go.mod --
 module mod1

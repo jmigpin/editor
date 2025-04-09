@@ -1,7 +1,7 @@
 # func call should not be annotated: pkg with only one godebug annotate block inside another func
 
 cd main
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "=> _.F1a()"
 fail contains stdout "=> _.F1b()"
 fail contains stdout "\"mainArg0\""

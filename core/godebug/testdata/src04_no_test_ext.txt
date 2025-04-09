@@ -1,9 +1,9 @@
 # doesn't fail, but doesn't run any tests either (file not named _test.go)
 
-exec go test main.go
+go test main.go
 fail contains stdout "2"
 
-fail ucmd godebugtester test main.go
+fail godebugtester test main.go
 contains error "missing main func filename"
 
 -- main.go --

@@ -1,10 +1,10 @@
 # altering a main() func that actually won't run in testmode. It will need to create a testmain() with the appropriate debug.close() call. This would fail sometimes due to the debug.close() not being called.
 
-exec go mod tidy
+go mod tidy
 
 #setenv script_keepwork true
-#ucmd godebugtester test -work main_test.go main.go
-ucmd godebugtester test main_test.go main.go
+#godebugtester test -work main_test.go main.go
+godebugtester test main_test.go main.go
 contains stdout "println(3)"
 fail contains stdout "println(4)"
 

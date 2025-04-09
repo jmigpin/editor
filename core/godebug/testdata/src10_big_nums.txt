@@ -1,6 +1,6 @@
 # should be able to compile big constants
 #setenv script_keepwork true
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "18446744073709551615=(uint64(18446744073709551615=(18446744073709551616=(1 << 64) - 1)))"
 
 -- main.go --

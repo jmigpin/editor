@@ -1,6 +1,6 @@
 # don't annotate func args
 
-ucmd godebugtester run 
+godebugtester run 
 fail contains stdout "recv: 0"
 
 -- go.mod --

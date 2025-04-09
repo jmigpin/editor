@@ -1,13 +1,13 @@
 # debug editor pkgs (self debug); able to compile
 
-exec go mod tidy
+go mod tidy
 
 #setenv script_keepwork true
-#ucmd godebugtester run -work
-ucmd godebugtester run
+#godebugtester run -work
+godebugtester run
 contains stdout "println(\"aaa\")"
 
-ucmd godebugtester test main_test.go main.go
+godebugtester test main_test.go main.go
 
 -- go.mod --
 module mod1

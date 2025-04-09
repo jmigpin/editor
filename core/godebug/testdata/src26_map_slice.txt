@@ -1,7 +1,7 @@
 # expr itself is always one result only (dicts[0] was being assigned to 2 vars, when the 2 vars came from dicts[0][3])
 
-#ucmd godebugtester run -work -srclines=false main.go
-ucmd godebugtester run main.go
+#godebugtester run -work -srclines=false main.go
+godebugtester run main.go
 
 -- main.go --
 package main

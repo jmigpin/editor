@@ -2,16 +2,16 @@
 
 #setenv script_keepwork true
 
-exec go run dir1/main.go
+go run dir1/main.go
 contains stderr "abc\n"
-ucmd godebugtester run dir1/main.go
+godebugtester run dir1/main.go
 contains stderr "abc\n"
 
 # also works, perhaps because there are no submodules (module issue, not go.work)
 #cd dir1
-#exec go run main.go
+#go run main.go
 #contains stderr "abc\n"
-#ucmd godebugtester run main.go
+#godebugtester run main.go
 #contains stderr "abc\n"
 
 -- go.work --

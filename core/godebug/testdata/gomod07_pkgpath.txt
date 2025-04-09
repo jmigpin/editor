@@ -1,7 +1,7 @@
 # annotatemodule:<pkg-path>
 
 cd main
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "\"Fa\"\n"
 contains stdout "\"Fb\"\n"
 contains stdout "\"Fc\"\n"

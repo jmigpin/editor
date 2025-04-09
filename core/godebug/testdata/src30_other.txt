@@ -1,8 +1,8 @@
-#exec go run main.go
+#go run main.go
 
 #setenv script_keepwork true
-#ucmd godebugtester run -work -srclines=false main.go
-ucmd godebugtester run main.go
+#godebugtester run -work -srclines=false main.go
+godebugtester run main.go
 
 contains stderr "main1: 2 2"
 contains stderr "main2: 2"

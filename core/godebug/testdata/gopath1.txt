@@ -3,7 +3,7 @@
 setenv GOPATH $WORK
 setenv GO111MODULE off
 cd src/main
-ucmd godebugtester run
+godebugtester run
 contains stdout "sub2"
 fail contains stdout "sub1"
 fail contains stdout "sub3"

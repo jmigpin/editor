@@ -1,4 +1,4 @@
-fail ucmd godebugtester run main.go
+fail godebugtester run main.go
 contains error "main.go:2:1: missing pkg for path: not_used_here"
 
 -- main.go --

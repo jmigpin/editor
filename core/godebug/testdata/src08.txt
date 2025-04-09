@@ -1,5 +1,5 @@
 # check the panic function (not a real builtin here)
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "println(1)"
 contains stdout "println(2)"
 

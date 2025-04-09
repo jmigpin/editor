@@ -1,6 +1,6 @@
 cd main
-ucmd godebugtester test main_test.go
-#ucmd godebugtester test -verbose main_test.go
+godebugtester test main_test.go
+#godebugtester test -verbose main_test.go
 fail contains stdout "\"F1\"\n"
 contains stdout "\"F2\"\n"
 

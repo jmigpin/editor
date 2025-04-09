@@ -2,13 +2,13 @@
 
 cd main
 
-fail exec go run main.go
+fail go run main.go
 contains stderr "missing go.sum entry"
 
 # needed in order to have a go.sum
-exec go mod tidy
+go mod tidy
 
-ucmd godebugtester run -sbr=false main.go
+godebugtester run -sbr=false main.go
 contains stdout "println(true)"
 contains stdout "len([97 98 99])"
 

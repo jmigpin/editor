@@ -1,5 +1,5 @@
 cd main
-ucmd godebugtester run -work main.go
+godebugtester run -work main.go
 fail contains stdout "\"Fa\"\n"
 fail contains stdout "\"Fb\"\n"
 contains stdout "\"Fc\"\n"

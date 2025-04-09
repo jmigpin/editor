@@ -1,4 +1,4 @@
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "2"
 fail contains stdout "3=(1 + 2)"
 contains stdout "8=(6=(1 + 5) + 2)"

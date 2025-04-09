@@ -1,5 +1,5 @@
 # comments in the middle of a stmt
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "1"
 
 -- main.go --

@@ -1,4 +1,4 @@
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "3=(a[2=(1 + 1)])"
 contains stdout "2=(fa()[1])"
 

@@ -1,10 +1,10 @@
 # was printing "{[]}" instead of "{[5 6 7]}" due to slice copy to tmp var
 
 #setenv script_keepwork true
-#ucmd godebugtester run -work main1.go
+#godebugtester run -work main1.go
 
-#exec go run main.go
-ucmd godebugtester run main.go 
+#go run main.go
+godebugtester run main.go 
 contains stdout "{[5 6 7]}"
 
 -- go.mod --

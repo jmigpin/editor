@@ -1,7 +1,7 @@
-fail ucmd godebugtester run main.go
+fail godebugtester run main.go
 contains error "found 'ILLEGAL'"
 
-fail exec go run main.go
+fail go run main.go
 contains stderr "invalid character"
 
 -- main.go --

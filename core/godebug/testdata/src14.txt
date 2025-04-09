@@ -1,5 +1,5 @@
 # replacement of os.exit should still allow other os.* to stay
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "=> _.Getenv(\"a\")"
 contains stdout "=> _.Exit(0)"
 

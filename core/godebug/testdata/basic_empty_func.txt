@@ -1,12 +1,12 @@
-#exec go run main1.go
+#go run main1.go
 
 #setenv script_keepwork true
-#ucmd godebugtester run -work main1.go
+#godebugtester run -work main1.go
 
-ucmd godebugtester run -editorisserver=true main1.go
-ucmd godebugtester run -editorisserver=false main1.go
+godebugtester run -editorisserver=true main1.go
+godebugtester run -editorisserver=false main1.go
 
-ucmd godebugtester run main2.go
+godebugtester run main2.go
 contains stderr "aaa\n"
 
 -- main1.go --

@@ -3,11 +3,11 @@
 #setenv script_keepwork true
 
 cd dir1
-exec go run main.go
+go run main.go
 contains stderr "abc\n"
 contains stderr "f2\n"
-ucmd godebugtester run main.go
-#ucmd godebugtester run -work main.go
+godebugtester run main.go
+#godebugtester run -work main.go
 contains stderr "abc\n"
 contains stderr "f2\n"
 

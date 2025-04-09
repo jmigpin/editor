@@ -6,10 +6,10 @@
 cd main
 
 # replace $WORK var in go.mod
-exec envsubst < go.mod.template > go.mod
-exec cat go.mod
+envsubst < go.mod.template > go.mod
+cat go.mod
 
-ucmd godebugtester run main.go
+godebugtester run main.go
 fail contains stdout "recv: \"F1\"\n"
 contains stdout "recv: \"F2\"\n"
 

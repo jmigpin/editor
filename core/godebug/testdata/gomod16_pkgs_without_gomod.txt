@@ -2,11 +2,11 @@
 
 cd mod1
 
-exec go mod tidy
-#exec go run main.go
+go mod tidy
+#go run main.go
 
-ucmd godebugtester run main.go
-#ucmd godebugtester run -work -srclines=false -verbose main.go
+godebugtester run main.go
+#godebugtester run -work -srclines=false -verbose main.go
 
 -- mod1/go.mod --
 module mod1

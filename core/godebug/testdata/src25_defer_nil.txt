@@ -1,5 +1,5 @@
 # needs to compile and run
-ucmd godebugtester run  main.go
+godebugtester run  main.go
 
 -- main.go --
 package main

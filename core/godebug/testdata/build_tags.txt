@@ -2,27 +2,27 @@
 
 cd main
 
-ucmd godebugtester run -env=GODEBUG_BUILD_FLAGS=-tags=OS2 main.go
+godebugtester run -env=GODEBUG_BUILD_FLAGS=-tags=OS2 main.go
 fail contains stdout "\"Fa_os1\"\n"
 contains stdout "\"Fa_os2\"\n"
 
-ucmd godebugtester run -env=GODEBUG_BUILD_FLAGS=-tags=OS1 main.go
+godebugtester run -env=GODEBUG_BUILD_FLAGS=-tags=OS1 main.go
 contains stdout "\"Fa_os1\"\n"
 fail contains stdout "\"Fa_os2\"\n"
 
-ucmd godebugtester run -tags=OS1 main.go
+godebugtester run -tags=OS1 main.go
 contains stdout "\"Fa_os1\"\n"
 fail contains stdout "\"Fa_os2\"\n"
 
 setenv GODEBUG_BUILD_FLAGS -tags=OS1
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "\"Fa_os1\"\n"
 fail contains stdout "\"Fa_os2\"\n"
 
 # TESTING
-#exec go list -json -export -tags=OS1
-#exec go list -json -export -deps
-#exec go run main.go
+#go list -json -export -tags=OS1
+#go list -json -export -deps
+#go run main.go
 
 -- main/go.mod --
 module mod1

@@ -1,4 +1,4 @@
-ucmd godebugtester test main_test.go
+godebugtester test main_test.go
 contains stdout "recv: println(1)"
 
 -- main_test.go --

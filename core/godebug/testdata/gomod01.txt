@@ -4,7 +4,7 @@
 # pkg2 is in relative dir, annotated, depends on pkg1
 
 cd main
-ucmd godebugtester run main.go
+godebugtester run main.go
 fail contains stdout "recv: \"F1\"\n"
 contains stdout "\"F2F1\"=(\"F2\" + \"F1\"=(_.F1()))"
 

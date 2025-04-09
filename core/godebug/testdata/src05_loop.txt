@@ -1,4 +1,4 @@
-ucmd godebugtester run -work main.go
+godebugtester run -work main.go
 fail contains stdout "true=(0 < 2)"
 contains stdout "3=(0 + 3)"
 

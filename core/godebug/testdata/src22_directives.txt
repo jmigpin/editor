@@ -1,4 +1,4 @@
-ucmd godebugtester run 
+godebugtester run 
 fail contains stdout "recv: 1"
 fail contains stdout "recv: 2, 3"
 

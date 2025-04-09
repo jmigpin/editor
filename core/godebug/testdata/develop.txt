@@ -1,6 +1,6 @@
-#exec go run main.go
-#ucmd godebugtester run main.go
-#ucmd godebugtester run -work main.go
+#go run main.go
+#godebugtester run main.go
+#godebugtester run -work main.go
 
 -- main.go --
 package main

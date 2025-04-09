@@ -1,5 +1,5 @@
 cd main
-fail ucmd godebugtester run main.go
+fail godebugtester run main.go
 contains error "main.go:2:1: not at an import spec"
 
 -- main/main.go --

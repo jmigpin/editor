@@ -1,16 +1,16 @@
 cd main
 
 # needed in order to have a go.sum
-#exec go mod init example.com
-#exec go mod tidy
+#go mod init example.com
+#go mod tidy
 
 # but now disable module
 setenv GO111MODULE off
 
-fail exec go run main.go
+fail go run main.go
 contains stderr "cannot find package"
 
-fail ucmd godebugtester run main.go
+fail godebugtester run main.go
 contains error "load packages"
 contains error "could not import"
 #contains stdout "println(true)"

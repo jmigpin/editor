@@ -1,7 +1,7 @@
 # annotate package
 
 cd main
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "\"F1a\"\n"
 contains stdout "\"F1b\"\n"
 

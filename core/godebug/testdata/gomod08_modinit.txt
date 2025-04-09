@@ -7,36 +7,36 @@ cd main
 setenv GOPROXY off
 
 # without a go.mod
-fail exec go mod init
+fail go mod init
 contains stderr "go: cannot determine module path for source directory"
 
 # suggests using "go mod tidy"
-exec go mod init example.com
+go mod init example.com
 
 # cannot find module because goproxy=off, shouldn't it be able to find it locally?
-fail exec go mod tidy
+fail go mod tidy
 contains stderr "cannot find module"
 
-fail exec go mod download golang.org/x/example
+fail go mod download golang.org/x/example
 contains stderr "not a known dependency"
 
 # TODO: should be able to solve this with goproxy=off if the module is already local
-#exec go mod download golang.org/x/example@v0.0.0-20230901165430-d9923f6970e9
+#go mod download golang.org/x/example@v0.0.0-20230901165430-d9923f6970e9
 
 # set goproxy to empty to get default behaviour (golang.org)
 setenv GOPROXY
 
-exec go mod tidy
+go mod tidy
 contains stderr "go: finding"
 contains stderr "go: found"
 
 # suggests using "go mod download"
-exec go run main.go
+go run main.go
 contains stderr "cba"
 
 #setenv script_keepwork true
-#ucmd godebugtester run -verbose -srclines=false -work main.go
-ucmd godebugtester run -sbr=false main.go
+#godebugtester run -verbose -srclines=false -work main.go
+godebugtester run -sbr=false main.go
 contains stdout "println(\"cba\")"
 # inside the external pkg
 contains stdout "len([99 98 97])"

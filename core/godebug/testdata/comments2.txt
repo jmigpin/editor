@@ -1,7 +1,7 @@
 # test single import line
 
 cd main
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "\"Fa\""
 
 -- main/go.mod --

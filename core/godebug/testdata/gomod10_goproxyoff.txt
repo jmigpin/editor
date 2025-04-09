@@ -3,11 +3,11 @@ cd main
 setenv GOPROXY off
 
 # needed in order to have a go.sum
-exec go mod init example.com
-fail exec go mod tidy
+go mod init example.com
+fail go mod tidy
 contains stderr "cannot find module"
 
-fail ucmd godebugtester run main.go
+fail godebugtester run main.go
 contains error "could not import"
 #contains stdout "println(true)"
 #contains stdout "=> len([97 98 99])"

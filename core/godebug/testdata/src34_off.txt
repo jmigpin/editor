@@ -2,9 +2,9 @@
 # an annotateblock should not init the whole file for annotation
 
 #setenv script_keepwork true
-#ucmd godebugtester run -work main.go
-ucmd godebugtester run -verbose main.go
-#ucmd godebugtester run main.go
+#godebugtester run -work main.go
+godebugtester run -verbose main.go
+#godebugtester run main.go
 contains stdout "println(1)"
 fail contains stdout "println(2)"
 fail contains stdout "println(3)"

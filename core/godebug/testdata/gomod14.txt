@@ -1,8 +1,8 @@
 # annotates pkg from std lib
 
 #setenv script_keepwork true
-ucmd godebugtester run -work -srclines=false main.go
-#ucmd godebugtester run
+godebugtester run -work -srclines=false main.go
+#godebugtester run
 contains stdout "_.Clean"
 
 -- go.mod --

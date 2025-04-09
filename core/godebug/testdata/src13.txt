@@ -2,8 +2,8 @@
 # test call to os.exit
 
 #setenv script_keepwork true
-#ucmd godebugtester run -work main.go
-ucmd godebugtester run main.go
+#godebugtester run -work main.go
+godebugtester run main.go
 contains stdout "=> _.Exit(0)"
 
 -- main.go --

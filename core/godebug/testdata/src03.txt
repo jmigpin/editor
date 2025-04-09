@@ -1,6 +1,6 @@
 #setenv script_keepwork true
-#ucmd godebugtester run -work -srclines=false main.go
-ucmd godebugtester run main.go
+#godebugtester run -work -srclines=false main.go
+godebugtester run main.go
 contains stdout "false=(10 < 10)"
 
 -- main.go --

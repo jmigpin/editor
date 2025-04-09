@@ -1,6 +1,6 @@
 # go:embed comment is being misplaced due to godebug insertions that create new nodes
 
-ucmd godebugtester run
+godebugtester run
 contains stderr "content1"
 contains stderr "content2"
 

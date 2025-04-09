@@ -1,9 +1,9 @@
 #setenv script_keepwork true
 
-#exec go run main.go
+#go run main.go
 #contains stderr "1"
 
-ucmd godebugtester run main.go 
+godebugtester run main.go 
 contains stderr "1"
 
 -- go.mod --

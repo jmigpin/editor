@@ -1,6 +1,6 @@
 # annotates pkg from std lib
 
-ucmd godebugtester run 
+godebugtester run 
 contains stdout "\"fb\""
 contains stdout "\"fc\""
 fail contains stdout "\"fd\""

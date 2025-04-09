@@ -1,8 +1,8 @@
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "recv: println(\"hello world!\")"
 contains stderr "hello world!\n"
 
-fail ucmd godebugtester run
+fail godebugtester run
 contains error "go.mod file not found"
 
 -- main.go --

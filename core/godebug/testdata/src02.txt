@@ -1,4 +1,4 @@
-ucmd godebugtester run -work main.go
+godebugtester run -work main.go
 contains stdout "\"20 []\"=(f2())"
 
 -- main.go --

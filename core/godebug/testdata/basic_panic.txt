@@ -1,8 +1,8 @@
 #setenv script_keepwork true
-#fail ucmd godebugtester run -work main.go
+#fail godebugtester run -work main.go
 
-#fail ucmd godebugtester run -syncsend main.go
-fail ucmd godebugtester run main.go
+#fail godebugtester run -syncsend main.go
+fail godebugtester run main.go
 contains stdout  "recv: true=(3 == 3)"
 
 -- go.mod --
