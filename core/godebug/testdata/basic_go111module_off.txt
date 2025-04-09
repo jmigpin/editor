@@ -1,5 +1,5 @@
 setenv GO111MODULE off 
-ucmd godebugtester run main.go
+godebugtester run main.go
 contains stdout "recv: println(\"hello world!\")"
 contains stderr "hello world!\n"
 

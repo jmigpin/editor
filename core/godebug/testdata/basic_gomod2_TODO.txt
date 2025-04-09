@@ -1,11 +1,11 @@
 # TODO: unable reproduce the issue (failing to find gomod)
 # TODO: related with filestoannotate.gomodfilename()
 
-#exec go run main.go
+#go run main.go
 cd dir1
-#fail ucmd godebugtester run -work myfile.go -aa
-exec go mod tidy
-ucmd godebugtester run myfile.go -aa bb
+#fail godebugtester run -work myfile.go -aa
+go mod tidy
+godebugtester run myfile.go -aa bb
 
 -- dir1/go.mod --
 module user1/mod1

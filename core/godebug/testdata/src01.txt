@@ -1,4 +1,4 @@
-setenv script_keepwork true
+#setenv script_keepwork true
 ucmd godebugtester run -work -srclines=false main.go
 #ucmd godebugtester run main.go
 

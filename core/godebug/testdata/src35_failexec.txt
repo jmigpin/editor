@@ -1,7 +1,7 @@
 #setenv script_keepwork true
 #ucmd godebugtester run -work main1.go
 
-fail ucmd godebugtester run main1.go
+fail godebugtester run main1.go
 contains error "context deadline exceeded"
 
 -- go.mod --

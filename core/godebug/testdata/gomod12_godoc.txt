@@ -6,7 +6,7 @@ exec go mod init example.com
 # needed in order to have a go.sum
 exec go mod tidy
 
-setenv script_keepwork true
+#setenv script_keepwork true
 #ucmd godebugtester run -sbr=false -work -srclines=false main.go
 ucmd godebugtester run -sbr=false main.go
 # from godoc pkg annotations

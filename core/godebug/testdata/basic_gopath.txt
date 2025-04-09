@@ -1,15 +1,14 @@
 # test gopath mode (aka not in modules mode)
 
-setenv GO111MODULE off
+#setenv script_keepwork 1
 
+setenv GO111MODULE off
 #setenv GOPATH $WORK
-#exec echo "gopath" $GOPATH
+#echo "gopath" $GOPATH
 
 cd src
-
-ucmd godebugtester run
+godebugtester run
 contains stdout "recv: println(1)"
-
 cd ..
 
 -- src/main.go --

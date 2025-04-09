@@ -1,5 +1,7 @@
+#setenv script_keepwork 1
 cd main
-ucmd godebugtester run main.go
+#go run main.go
+godebugtester run main.go
 contains stdout "\"Fa\"\n"
 contains stdout "\"Fb\"\n"
 contains stdout "\"Fc\"\n"

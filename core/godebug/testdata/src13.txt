@@ -1,9 +1,9 @@
 # TODO: test actual replacement of os.exit by debug.exit
 # test call to os.exit
 
-setenv script_keepwork true
-ucmd godebugtester run -work main.go
-#ucmd godebugtester run main.go
+#setenv script_keepwork true
+#ucmd godebugtester run -work main.go
+ucmd godebugtester run main.go
 contains stdout "=> _.Exit(0)"
 
 -- main.go --

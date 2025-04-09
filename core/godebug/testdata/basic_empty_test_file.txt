@@ -1,7 +1,7 @@
 #setenv script_keepwork true
-#ucmd godebugtester run -work main1.go
+#godebugtester run -work main1.go
 
-ucmd godebugtester test main_test.go
+godebugtester test main_test.go
 
 -- main_test.go --
 package main
