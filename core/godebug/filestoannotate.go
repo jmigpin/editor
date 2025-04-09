@@ -77,7 +77,7 @@ func (fa *FilesToAnnotate) initMaps(pkgs []*packages.Package) error {
 	if fa.cmd.flags.verbose {
 		fa.cmd.printf("main pkgs: %v\n", len(pkgs))
 		for _, pkg := range pkgs {
-			fa.cmd.printf("\t%v (%v)\n", pkg.PkgPath, pkg.ID)
+			fa.cmd.printf("\t%v (%v) (hasMod=%v)\n", pkg.PkgPath, pkg.ID, pkg.Module != nil)
 			for _, filename := range pkg.CompiledGoFiles {
 				fa.cmd.printf("\t\t%v\n", filename)
 			}
@@ -439,8 +439,10 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 
 	// There is a distinction between passing a file directly, or with the "file=" query. Passing without the file will pass a file argument to the underlying build tool, that could actually fail to properly load pkg.module var in the case of a simple [main.go go.mod] project. Because "go build" and "go build main.go" have slightly different behaviours. Check testdata/basic_gomod.txt test where it fails if the "file=" patterns are commented.
 	p := []string{}
-
 	for _, f := range fa.cmd.flags.unnamedArgs {
+		if !filepath.IsAbs(f) {
+			f = filepath.Join(cfg.Dir, f)
+		}
 		p = append(p, "file="+f)
 	}
 	p = append(p, fa.cmd.flags.unnamedArgs...)

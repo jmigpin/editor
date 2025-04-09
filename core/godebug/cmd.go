@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/util/astut"
@@ -61,8 +62,8 @@ type Cmd struct {
 	env []string // set at start
 
 	fa     *FilesToAnnotate
-	fset   *token.FileSet // TODO: reset for gc
-	annset *AnnotatorSet  // TODO: reset for gc
+	fset   *token.FileSet // reset after start (garbage collect)
+	annset *AnnotatorSet  // reset after start (garbage collect)
 
 	debugPkgDir      string
 	alternativeGoMod string
@@ -90,7 +91,14 @@ func NewCmd() *Cmd {
 //------------
 
 func (cmd *Cmd) printf(f string, a ...any) (int, error) {
-	return fmt.Fprintf(cmd.Stderr, "# "+f, a...)
+	i := strings.IndexFunc(f, func(ru rune) bool {
+		return !unicode.IsSpace(ru)
+	})
+	if i < 0 {
+		i = 0
+	}
+	f = f[:i] + "#" + f[i:]
+	return fmt.Fprintf(cmd.Stderr, f, a...)
 }
 func (cmd *Cmd) logf(f string, a ...any) (int, error) {
 	if cmd.flags.verbose {

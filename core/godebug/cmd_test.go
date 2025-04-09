@@ -1,6 +1,7 @@
 package godebug
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -13,13 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmigpin/editor/util/testutil"
-
 	"github.com/jmigpin/editor/core/godebug/debug"
+	"github.com/jmigpin/editor/util/testutil"
 )
 
-//godebug:annotatefile:debug/proto.go
-//godebug:annotatepackage:github.com/jmigpin/editor/util/testutil
+////godebug:annotatefile:debug/proto.go
+////godebug:annotatepackage:github.com/jmigpin/editor/util/testutil
 
 func TestCmd1(t *testing.T) {
 	scr := testutil.NewScript(os.Args)
@@ -40,14 +40,8 @@ func godebugTester(t *testing.T, st *testutil.ScriptTest, args []string) error {
 
 	cmd.Dir = st.CurDir
 	cmd.env = st.Env.Environ()
-	cmd.Stdout = os.Stdout
-
-	//----------
-	// TODO: tests failing without this; this prevents running tests in parallel
-	tmp, _ := os.Getwd()
-	defer func() { _ = os.Chdir(tmp) }()
-	_ = os.Chdir(st.CurDir)
-	//----------
+	cmd.Stdout = st.Stdout
+	cmd.Stderr = st.Stderr
 
 	ctx := context.Background()
 	done, err := cmd.Start(ctx, args)
@@ -60,10 +54,15 @@ func godebugTester(t *testing.T, st *testutil.ScriptTest, args []string) error {
 
 	//----------
 
+	// write these at the end to avoid interlacing cmd stdout
+	buf := &bytes.Buffer{}
+	defer func() { st.Stdout.Write(buf.Bytes()) }()
 	pr := func(s string) { // util func
 		//st.Logf(t, "recv: %v\n", s)
-		fmt.Printf("recv: %v\n", s)
+		//fmt.Printf("recv: %v\n", s)
+		fmt.Fprintf(buf, "recv: %v\n", s)
 	}
+
 	for {
 		v, err := cmd.ProtoRead()
 		if err != nil {

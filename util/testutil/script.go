@@ -45,6 +45,12 @@ func (scr *Script) Run(t *testing.T) {
 }
 func (scr *Script) runDir(t *testing.T, dir string) error {
 	t.Helper()
+
+	//dir, err := filepath.Abs(dir)
+	//if err != nil {
+	//	return err
+	//}
+
 	des, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -61,13 +67,10 @@ func (scr *Script) runDir(t *testing.T, dir string) error {
 	return nil
 }
 func (scr *Script) runFile(t *testing.T, filename string) bool {
-	t.Helper()
 	name := filepath.Base(filename)
 	return t.Run(name, func(t *testing.T) {
 		t.Helper()
-
-		//t.Parallel()
-
+		t.Parallel()
 		st := newScriptTest(scr, filename)
 		if err := st.runFile(t); err != nil {
 			t.Fatal(err)
@@ -97,6 +100,10 @@ type ScriptTest struct {
 		stderr []byte
 		err    []byte
 	}
+
+	// useful for colecting output
+	Stdout *bytes.Buffer
+	Stderr *bytes.Buffer
 }
 
 func newScriptTest(scr *Script, filename string) *ScriptTest {
@@ -129,7 +136,7 @@ func (st *ScriptTest) runFile(t *testing.T) error {
 	return nil
 }
 func (st *ScriptTest) runFile2(t *testing.T) error {
-	t.Helper()
+	//t.Helper()
 
 	st.Logf(t, "SCRIPT_FILENAME: %v", st.filename)
 
@@ -177,18 +184,6 @@ func (st *ScriptTest) runFile2(t *testing.T) error {
 		}
 	}()
 
-	//// keep/restore current dir
-	//keepDir, err := os.Getwd()
-	//if err != nil {
-	//	return err
-	//}
-	//defer os.Chdir(keepDir)
-
-	//// switch to working dir
-	//if err := os.Chdir(st.workDir); err != nil {
-	//	return err
-	//}
-
 	// setup tmp dir in workdir for program to create its own tmp files
 	scriptTmpDir := filepath.Join(st.workDir, "tmp")
 	st.Env.Set("TMPDIR", scriptTmpDir)
@@ -234,6 +229,13 @@ func (st *ScriptTest) runFile2(t *testing.T) error {
 
 //----------
 
+func (st *ScriptTest) lastCmdErrBytes(err error) []byte {
+	if err == nil {
+		return nil
+	}
+	return []byte(err.Error())
+}
+
 func (st *ScriptTest) lastCmdContent(name string) ([]byte, bool) {
 	switch name {
 	case "stdout":
@@ -247,6 +249,10 @@ func (st *ScriptTest) lastCmdContent(name string) ([]byte, bool) {
 }
 
 //----------
+
+func (st *ScriptTest) collectOutput2() {
+
+}
 
 func (st *ScriptTest) collectOutput(t *testing.T, fn func() error) error {
 	logf := func(f string, args ...any) {
@@ -357,9 +363,18 @@ func mapScriptCmds(w []*ScriptCmd) map[string]*ScriptCmd {
 func runCmd(t *testing.T, st *ScriptTest, args []string) error {
 	// user cmds
 	if cmd, ok := st.ucmds[args[0]]; ok {
-		return st.collectOutput(t, func() error {
-			return cmd.Fn(t, st, args)
-		})
+		//return st.collectOutput(t, func() error {
+		//return cmd.Fn(t, st, args)
+		//})
+
+		st.Stdout = &bytes.Buffer{}
+		st.Stderr = &bytes.Buffer{}
+		err := cmd.Fn(t, st, args)
+		st.lastCmd.stdout = st.Stdout.Bytes()
+		st.lastCmd.stderr = st.Stderr.Bytes()
+		st.lastCmd.err = st.lastCmdErrBytes(err)
+		return err
+
 	}
 	// internal cmds
 	if cmd, ok := st.icmds[args[0]]; ok {
@@ -388,19 +403,27 @@ func icExec(t *testing.T, st *ScriptTest, args []string) error {
 
 	ec.Dir = st.CurDir
 	ec.Env = st.Env.Environ()
-	//fmt.Println(ec.Env)
 
-	return st.collectOutput(t, func() error {
-		// setup cmd stdout inside collectoutput
-		// TODO: stdin?
-		ec.Stdout = os.Stdout
-		ec.Stderr = os.Stderr
+	//return st.collectOutput(t, func() error {
+	//	// setup cmd stdout inside collectoutput
+	//	// TODO: stdin?
+	//	ec.Stdout = os.Stdout
+	//	ec.Stderr = os.Stderr
 
-		ci := osutil.NewCmdI(ec)
-		ci = osutil.NewCtxCmd(ctx, ci)
-		ci = osutil.NewShellCmd(ci, true)
-		return osutil.RunCmdI(ci)
-	})
+	//	ci := osutil.NewCmdI(ec)
+	//	ci = osutil.NewCtxCmd(ctx, ci)
+	//	ci = osutil.NewShellCmd(ci, true)
+	//	return osutil.RunCmdI(ci)
+	//})
+
+	ci := osutil.NewCmdI(ec)
+	ci = osutil.NewCtxCmd(ctx, ci)
+	ci = osutil.NewShellCmd(ci, true)
+	sout, serr, err := osutil.RunCmdIOutputs(ci)
+	st.lastCmd.stdout = sout
+	st.lastCmd.stderr = serr
+	st.lastCmd.err = st.lastCmdErrBytes(err)
+	return err
 }
 
 //----------
@@ -412,13 +435,15 @@ func icUCmd(t *testing.T, st *ScriptTest, args []string) error {
 		args = args[1:]
 	}
 
-	cmd, ok := st.ucmds[args[0]]
-	if !ok {
-		return fmt.Errorf("cmd not found: %v", args[0])
-	}
-	return st.collectOutput(t, func() error {
-		return cmd.Fn(t, st, args)
-	})
+	//cmd, ok := st.ucmds[args[0]]
+	//if !ok {
+	//	return fmt.Errorf("cmd not found: %v", args[0])
+	//}
+	//return st.collectOutput(t, func() error {
+	//	return cmd.Fn(t, st, args)
+	//})
+
+	return runCmd(t, st, args)
 }
 
 //----------
