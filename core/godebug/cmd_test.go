@@ -19,6 +19,7 @@ import (
 )
 
 //godebug:annotatefile:debug/proto.go
+//godebug:annotatepackage:github.com/jmigpin/editor/util/testutil
 
 func TestCmd1(t *testing.T) {
 	scr := testutil.NewScript(os.Args)
@@ -28,18 +29,25 @@ func TestCmd1(t *testing.T) {
 	}
 	scr.Run(t)
 }
-func godebugTester(t *testing.T, args []string) error {
+func godebugTester(t *testing.T, st *testutil.ScriptTest, args []string) error {
 	log.SetFlags(0)
 	log.SetPrefix("godebugtester: ")
 
-	args = args[1:]
+	args = args[1:] // clear "godebugtester"
 
 	cmd := NewCmd()
 	cmd.Testing = true
 
-	dir, _ := os.Getwd()
-	cmd.Dir = dir
+	cmd.Dir = st.CurDir
+	cmd.env = st.Env.Environ()
 	cmd.Stdout = os.Stdout
+
+	//----------
+	// TODO: tests failing without this; this prevents running tests in parallel
+	tmp, _ := os.Getwd()
+	defer func() { _ = os.Chdir(tmp) }()
+	_ = os.Chdir(st.CurDir)
+	//----------
 
 	ctx := context.Background()
 	done, err := cmd.Start(ctx, args)
@@ -52,8 +60,8 @@ func godebugTester(t *testing.T, args []string) error {
 
 	//----------
 
-	//fn := func() error {
 	pr := func(s string) { // util func
+		//st.Logf(t, "recv: %v\n", s)
 		fmt.Printf("recv: %v\n", s)
 	}
 	for {

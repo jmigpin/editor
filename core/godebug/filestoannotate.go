@@ -364,7 +364,7 @@ func (fa *FilesToAnnotate) addPkg(pkg *packages.Package, typ AnnotationType) err
 }
 func (fa *FilesToAnnotate) addModule(pkg *packages.Package, typ AnnotationType) error {
 	if pkg.Module == nil {
-		return fmt.Errorf("missing module in pkg: %v", pkg.Name)
+		return fmt.Errorf("filestoannnotate: missing module in pkg: %v", pkg.Name)
 	}
 	// add pkgs that belong to module
 	for _, pkg2 := range fa.filesPkgs {

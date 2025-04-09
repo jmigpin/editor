@@ -1,8 +1,10 @@
 package goutil
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -86,22 +88,34 @@ func GetGoPath(env []string) []string {
 
 // returns version as in "1.0" without the "go" prefix
 func GetGoVersion(env []string) (string, error) {
-	// get from env var, not present in <=go.15.x?
-	v := osutil.GetEnv(env, "GOVERSION")
-
-	if v == "" {
-		// get from file located in go root
-		d := GetGoRoot(env)
-		fp := filepath.Join(d, "VERSION")
-		b, err := ioutil.ReadFile(fp)
-		if err != nil {
-			return "", err
-		}
-		v = strings.TrimSpace(string(b))
-	}
 
 	// remove "go" prefix if present
-	v = strings.TrimPrefix(v, "go")
+	trim := func(s string) string {
+		return strings.TrimPrefix(s, "go")
+	}
 
-	return v, nil
+	// get from env var, not present in <=go.15.x?
+	if v := osutil.GetEnv(env, "GOVERSION"); v != "" {
+		return trim(v), nil
+	}
+
+	// get from file located in go root
+	d := GetGoRoot(env)
+	fp := filepath.Join(d, "VERSION")
+	if b, err := ioutil.ReadFile(fp); err == nil {
+		v := strings.TrimSpace(string(b))
+		return trim(v), nil
+	}
+
+	// get from go cmd
+	if out, err := exec.Command("go", "version").Output(); err == nil {
+		s := string(out)
+		v := ""
+		// e.g., "go version go1.22.1 linux/amd64"
+		if _, err := fmt.Sscanf(s, "go version %s", &v); err == nil {
+			return trim(v), nil
+		}
+	}
+
+	return "", fmt.Errorf("unable to get go version")
 }

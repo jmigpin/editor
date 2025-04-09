@@ -29,17 +29,6 @@ type Script struct {
 
 	ScriptStart func(*testing.T) error // each script init
 	ScriptStop  func(*testing.T) error // each script close
-
-	ucmds map[string]*ScriptCmd // user cmds (mapped)
-	icmds map[string]*ScriptCmd // internal cmds
-
-	workDir    string
-	lastCmdStd [2][]byte // stdin, stdout
-	lastCmd    struct {
-		stdout []byte
-		stderr []byte
-		err    []byte
-	}
 }
 
 func NewScript(args []string) *Script {
@@ -48,60 +37,8 @@ func NewScript(args []string) *Script {
 
 //----------
 
-func (scr *Script) log(t *testing.T, s string) {
-	t.Helper()
-	if u := scr.locationInfo(); u != "" {
-		s = u + s
-	}
-	s = strings.TrimRight(s, "\n") // remove newlines
-	t.Log(s)                       // adds one newline
-}
-func (scr *Script) logf(t *testing.T, f string, args ...any) {
-	t.Helper()
-	scr.log(t, fmt.Sprintf(f, args...))
-}
-
-//----------
-
-func (scr *Script) error(err error) error {
-	if s := scr.locationInfo(); s != "" {
-		return fmt.Errorf("%v%w", s, err)
-	}
-	return err
-}
-
-//----------
-
-func (scr *Script) locationInfo() string {
-	// add filename line info
-	u := ""
-	if filename := os.Getenv("script_filename"); filename != "" {
-		u = filename
-		if line := os.Getenv("script_line"); line != "" {
-			u += ":" + line
-		}
-		u += ": "
-	}
-	return u
-}
-
-//----------
-
 func (scr *Script) Run(t *testing.T) {
 	t.Helper()
-	// internal cmds
-	icmds := []*ScriptCmd{
-		{"ucmd", scr.icUCmd}, // run user cmd
-		{"exec", scr.icExec},
-		{"contains", scr.icContains},
-		{"containsre", scr.icContainsRegexp},
-		{"setenv", scr.icSetEnv},
-		{"fail", scr.icFail},
-		{"cd", scr.icChangeDir},
-	}
-	scr.icmds = mapScriptCmds(icmds)
-	scr.ucmds = mapScriptCmds(scr.Cmds) // user cmds
-
 	if err := scr.runDir(t, scr.ScriptsDir); err != nil {
 		t.Fatal(err)
 	}
@@ -123,88 +60,145 @@ func (scr *Script) runDir(t *testing.T, dir string) error {
 	}
 	return nil
 }
-func (scr *Script) runFile(t1 *testing.T, filename string) bool {
-	t1.Helper()
+func (scr *Script) runFile(t *testing.T, filename string) bool {
+	t.Helper()
 	name := filepath.Base(filename)
-	return t1.Run(name, func(t2 *testing.T) {
-		t1.Helper()
-		t2.Helper()
-		if err := scr.runSubTest(t2, filename); err != nil {
-			err2 := scr.error(err) // setup error with location info
-			t2.Fatal(err2)
+	return t.Run(name, func(t *testing.T) {
+		t.Helper()
+
+		//t.Parallel()
+
+		st := newScriptTest(scr, filename)
+		if err := st.runFile(t); err != nil {
+			t.Fatal(err)
 		}
 	})
 }
-func (scr *Script) runSubTest(t *testing.T, filename string) error {
+
+//----------
+//----------
+//----------
+
+type ScriptTest struct {
+	scr *Script
+	Env *Env
+
+	ucmds map[string]*ScriptCmd // user cmds (mapped)
+	icmds map[string]*ScriptCmd // internal cmds
+
+	filename string
+
+	workDir string // test root dir
+	CurDir  string // current dir
+
+	lastCmdStd [2][]byte // stdin, stdout
+	lastCmd    struct {
+		stdout []byte
+		stderr []byte
+		err    []byte
+	}
+}
+
+func newScriptTest(scr *Script, filename string) *ScriptTest {
+	st := &ScriptTest{scr: scr, Env: NewEnvMap(), filename: filename}
+
+	// internal cmds
+	icmds := []*ScriptCmd{
+		{"fail", icFail},
+		{"cd", icChangeDir},
+		{"setenv", icSetEnv},
+		{"contains", icContains},
+		{"containsre", icContainsRegexp},
+
+		// TODO: remove, no need for ucmd/exec anymore
+		{"ucmd", icUCmd}, // user cmd
+		{"exec", icExec}, // internal cmd
+	}
+	st.icmds = mapScriptCmds(icmds)
+	st.ucmds = mapScriptCmds(scr.Cmds) // script user cmds
+
+	return st
+}
+
+//----------
+
+func (st *ScriptTest) runFile(t *testing.T) error {
+	if err := st.runFile2(t); err != nil {
+		return st.error(err) // setup error with location info
+	}
+	return nil
+}
+func (st *ScriptTest) runFile2(t *testing.T) error {
 	t.Helper()
 
-	scr.logf(t, "SCRIPT_FILENAME: %v", filename)
+	st.Logf(t, "SCRIPT_FILENAME: %v", st.filename)
 
-	ar, err := txtar.ParseFile(filename)
+	ar, err := txtar.ParseFile(st.filename)
 	if err != nil {
 		return err
 	}
-	if scr.ScriptStart != nil {
-		if err := scr.ScriptStart(t); err != nil {
+	if st.scr.ScriptStart != nil {
+		if err := st.scr.ScriptStart(t); err != nil {
 			return err
 		}
 	}
-	if scr.ScriptStop != nil {
+	if st.scr.ScriptStop != nil {
 		defer func() {
-			if err := scr.ScriptStop(t); err != nil {
+			if err := st.scr.ScriptStop(t); err != nil {
 				t.Error(err)
 			}
 		}()
 	}
-	return scr.runScript(t, filename, ar)
-}
-func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) error {
-	t.Helper()
 
 	// create working dir
-	// TODO: review, not working properly
-	//dir, err := os.MkdirTemp(t.TempDir(), "editor_testutil_work.*")
 	dir, err := os.MkdirTemp("", "editor_testutilscript*")
 	if err != nil {
 		return err
 	}
-	scr.workDir = dir
-	t.Setenv("WORK", scr.workDir)
-	scr.logf(t, "script_workdir: %v", scr.workDir)
+
+	st.workDir = dir
+	st.CurDir = st.workDir
+
+	// work directory env and cleanup
+	st.Env.Set("WORK", st.workDir)
+	st.Logf(t, "script_workdir: %v", st.workDir)
 	defer func() {
 		t.Helper()
-		if !scr.Work {
-			u := os.Getenv("script_keepwork")
-			scr.Work = strings.ToLower(u) == "true"
+		if !st.scr.Work {
+			u := st.Env.Get("script_keepwork")
+			if v, err := strconv.ParseBool(u); err == nil {
+				st.scr.Work = v
+			}
 		}
-		if scr.Work {
+		if st.scr.Work {
 			//scr.logf(t, "workDir not cleaned")
 		} else {
-			_ = os.RemoveAll(scr.workDir)
+			_ = os.RemoveAll(st.workDir)
 		}
 	}()
 
-	// keep/restore current dir
-	keepDir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	defer os.Chdir(keepDir)
+	//// keep/restore current dir
+	//keepDir, err := os.Getwd()
+	//if err != nil {
+	//	return err
+	//}
+	//defer os.Chdir(keepDir)
 
-	// switch to working dir
-	if err := os.Chdir(scr.workDir); err != nil {
-		return err
-	}
+	//// switch to working dir
+	//if err := os.Chdir(st.workDir); err != nil {
+	//	return err
+	//}
 
 	// setup tmp dir in workdir for program to create its own tmp files
-	scriptTmpDir := filepath.Join(scr.workDir, "tmp")
-	t.Setenv("TMPDIR", scriptTmpDir)
+	scriptTmpDir := filepath.Join(st.workDir, "tmp")
+	st.Env.Set("TMPDIR", scriptTmpDir)
 	if err := iout.MkdirAll(scriptTmpDir); err != nil {
 		return err
 	}
 
 	for _, f := range ar.Files {
-		if err := scr.writeToTmp(f.Name, f.Data); err != nil {
+		u := filepath.Join(st.workDir, f.Name)
+		if err := st.writeFile(u, f.Data); err != nil {
 			return err
 		}
 	}
@@ -213,10 +207,10 @@ func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) e
 	rd := bytes.NewReader(ar.Comment)
 	scanner := bufio.NewScanner(rd)
 	line := 0
-	t.Setenv("script_filename", filename) // update for logs/errors
+	st.Env.Set("script_filename", st.filename) // update for logs/errors
 	for scanner.Scan() {
 		line++
-		t.Setenv("script_line", fmt.Sprintf("%d", line)) // update for logs/errors
+		st.Env.Set("script_line", fmt.Sprintf("%d", line)) // update for logs/errors
 
 		txt := strings.TrimSpace(scanner.Text())
 		// comments
@@ -228,14 +222,10 @@ func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) e
 			continue
 		}
 		// as least an arg after empty lines check
-		args := scr.splitArgs(txt)
+		args := st.splitArgs(txt)
+		st.Logf(t, "SCRIPT: %v", args)
 
-		cmd, ok := scr.icmds[args[0]]
-		if !ok {
-			return fmt.Errorf("cmd not found: %v", args[0])
-		}
-		scr.logf(t, "SCRIPT: %v", args)
-		if err := cmd.Fn(t, args); err != nil {
+		if err := runCmd(t, st, args); err != nil {
 			return err
 		}
 	}
@@ -244,7 +234,84 @@ func (scr *Script) runScript(t *testing.T, filename string, ar *txtar.Archive) e
 
 //----------
 
-func (scr *Script) splitArgs(s string) []string {
+func (st *ScriptTest) lastCmdContent(name string) ([]byte, bool) {
+	switch name {
+	case "stdout":
+		return st.lastCmd.stdout, true
+	case "stderr":
+		return st.lastCmd.stderr, true
+	case "error":
+		return st.lastCmd.err, true
+	}
+	return nil, false
+}
+
+//----------
+
+func (st *ScriptTest) collectOutput(t *testing.T, fn func() error) error {
+	logf := func(f string, args ...any) {
+		if st.scr.NoFilepathsFix {
+			t.Logf(f, args...)
+		} else {
+			u := fmt.Sprintf(f, args...)
+			u = string(fixFilepathsForCurDir([]byte(u), st.CurDir))
+			t.Log(u)
+		}
+	}
+	//stdout, stderr, err := CollectLog(t, fn)
+	stdout, stderr, err := CollectLog2(t, logf, fn)
+
+	st.lastCmd.stdout = stdout
+	st.lastCmd.stderr = stderr
+	st.lastCmd.err = nil
+	if err != nil {
+		st.lastCmd.err = []byte(err.Error())
+	}
+
+	return err
+}
+
+func (st *ScriptTest) writeFile(filename string, data []byte) error {
+	return iout.MkdirAllWriteFile(filename, data, 0o644)
+}
+
+//----------
+
+func (st *ScriptTest) Logf(t *testing.T, f string, args ...any) {
+	t.Helper()
+	st.Log(t, fmt.Sprintf(f, args...))
+}
+func (st *ScriptTest) Log(t *testing.T, s string) {
+	t.Helper()
+	if u := st.locationInfo(); u != "" {
+		s = u + s
+	}
+	s = strings.TrimRight(s, "\n") // remove newlines
+	t.Log(s)                       // adds one newline
+}
+
+func (st *ScriptTest) error(err error) error {
+	if s := st.locationInfo(); s != "" {
+		return fmt.Errorf("%v%w", s, err)
+	}
+	return err
+}
+func (st *ScriptTest) locationInfo() string {
+	// add filename line info
+	u := ""
+	if filename := st.Env.Get("script_filename"); filename != "" {
+		u = filename
+		if line := st.Env.Get("script_line"); line != "" {
+			u += ":" + line
+		}
+		u += ": "
+	}
+	return u
+}
+
+//----------
+
+func (st *ScriptTest) splitArgs(s string) []string {
 	quoted := false
 	escape := false
 	a := strings.FieldsFunc(s, func(r rune) bool {
@@ -265,52 +332,65 @@ func (scr *Script) splitArgs(s string) []string {
 }
 
 //----------
+//----------
+//----------
 
-func (scr *Script) collectOutput(t *testing.T, fn func() error) error {
-	curDir, _ := os.Getwd()
-	logf := func(f string, args ...any) {
-		if scr.NoFilepathsFix {
-			t.Logf(f, args...)
-		} else {
-			u := fmt.Sprintf(f, args...)
-			_ = curDir
-			u = string(fixFilepathsForCurDir([]byte(u), curDir))
-			t.Log(u)
-		}
+type ScriptCmd struct {
+	Name string
+	Fn   ScriptCmdFn
+}
+
+type ScriptCmdFn func(t *testing.T, st *ScriptTest, args []string) error
+
+func mapScriptCmds(w []*ScriptCmd) map[string]*ScriptCmd {
+	m := map[string]*ScriptCmd{}
+	for _, cmd := range w {
+		m[cmd.Name] = cmd
 	}
-	//stdout, stderr, err := CollectLog(t, fn)
-	stdout, stderr, err := CollectLog2(t, logf, fn)
+	return m
+}
 
-	scr.lastCmd.stdout = stdout
-	scr.lastCmd.stderr = stderr
-	scr.lastCmd.err = nil
-	if err != nil {
-		scr.lastCmd.err = []byte(err.Error())
+//----------
+//----------
+//----------
+
+func runCmd(t *testing.T, st *ScriptTest, args []string) error {
+	// user cmds
+	if cmd, ok := st.ucmds[args[0]]; ok {
+		return st.collectOutput(t, func() error {
+			return cmd.Fn(t, st, args)
+		})
 	}
+	// internal cmds
+	if cmd, ok := st.icmds[args[0]]; ok {
+		//return st.collectOutput(t, func() error {}) // commented: don't collect output from all internal cmds, otherwise it will be getting empty output from cmds like "contains" that follow the pretented cmd that has the desired output
 
-	return err
+		return cmd.Fn(t, st, args)
+	}
+	// default cmd
+	return icExec(t, st, args)
 }
 
 //----------
 
-func (scr *Script) writeToTmp(filename string, data []byte) error {
-	filename2 := filepath.Join(scr.workDir, filename)
-	return iout.MkdirAllWriteFile(filename2, data, 0o644)
-}
+func icExec(t *testing.T, st *ScriptTest, args []string) error {
+	// drop "exec"
+	if args[0] == "exec" {
+		args = args[1:]
+	}
 
-//----------
-
-func (scr *Script) icExec(t *testing.T, args []string) error {
-	args = args[1:] // drop "exec"
 	if len(args) <= 0 {
 		return fmt.Errorf("expecting args, got %v", len(args))
 	}
 	ctx := context.Background()
+
 	ec := exec.CommandContext(ctx, args[0], args[1:]...)
 
-	//ec.Dir = // commented: dir set with os.Chdir previously
+	ec.Dir = st.CurDir
+	ec.Env = st.Env.Environ()
+	//fmt.Println(ec.Env)
 
-	return scr.collectOutput(t, func() error {
+	return st.collectOutput(t, func() error {
 		// setup cmd stdout inside collectoutput
 		// TODO: stdin?
 		ec.Stdout = os.Stdout
@@ -325,51 +405,56 @@ func (scr *Script) icExec(t *testing.T, args []string) error {
 
 //----------
 
-func (scr *Script) icUCmd(t *testing.T, args []string) error {
-	args = args[1:] // drop "cmd"
-	cmd, ok := scr.ucmds[args[0]]
+// TODO: eventually, remove
+func icUCmd(t *testing.T, st *ScriptTest, args []string) error {
+	// drop "ucmd"
+	if args[0] == "ucmd" {
+		args = args[1:]
+	}
+
+	cmd, ok := st.ucmds[args[0]]
 	if !ok {
 		return fmt.Errorf("cmd not found: %v", args[0])
 	}
-	return scr.collectOutput(t, func() error {
-		return cmd.Fn(t, args)
+	return st.collectOutput(t, func() error {
+		return cmd.Fn(t, st, args)
 	})
 }
 
 //----------
 
-func (scr *Script) icContains(t *testing.T, args []string) error {
+func icContains(t *testing.T, st *ScriptTest, args []string) error {
 	args = args[1:] // drop "contains"
 	if len(args) != 2 {
 		return fmt.Errorf("expecting 2 args, got %v", args)
 	}
 
-	data, ok := scr.lastCmdContent(args[0])
+	// data source (stdout,stderr,err)
+	data, ok := st.lastCmdContent(args[0])
 	if !ok {
 		return fmt.Errorf("unknown content: %v", args[0])
 	}
 
 	// pattern
-	u, err := strconv.Unquote(args[1])
+	pattern, err := strconv.Unquote(args[1])
 	if err != nil {
 		return err
 	}
-	pattern := u
 
 	if !bytes.Contains(data, []byte(pattern)) {
-		//return fmt.Errorf("contains: no match:\npattern=[%v]\ndata=[%v]", pattern, string(data))
-		return fmt.Errorf("contains: no match")
+		//return fmt.Errorf("contains:%s: no match:\ndata=%q\npattern=%q", args[0], string(data), pattern)
+		return fmt.Errorf("contains:%s: no match: data=%q", args[0], string(data))
 	}
 	return nil
 }
 
-func (scr *Script) icContainsRegexp(t *testing.T, args []string) error {
+func icContainsRegexp(t *testing.T, st *ScriptTest, args []string) error {
 	args = args[1:] // drop "containsre"
 	if len(args) != 2 {
 		return fmt.Errorf("expecting 2 args, got %v", args)
 	}
 
-	data, ok := scr.lastCmdContent(args[0])
+	data, ok := st.lastCmdContent(args[0])
 	if !ok {
 		return fmt.Errorf("unknown content: %v", args[0])
 	}
@@ -395,7 +480,7 @@ func (scr *Script) icContainsRegexp(t *testing.T, args []string) error {
 
 //----------
 
-func (scr *Script) icSetEnv(t *testing.T, args []string) error {
+func icSetEnv(t *testing.T, st *ScriptTest, args []string) error {
 	args = args[1:] // drop "setenv"
 	if len(args) != 1 && len(args) != 2 {
 		return fmt.Errorf("expecting 1 or 2 args, got %v", args)
@@ -405,78 +490,51 @@ func (scr *Script) icSetEnv(t *testing.T, args []string) error {
 		v = args[1]
 
 		// allow env expansion when setting env vars
-		v = os.Expand(v, os.Getenv)
+		//v = os.Expand(v, os.Getenv)
+		v = os.Expand(v, st.Env.Get)
 
-		// allow expansion of lastcmd
-		data, ok := scr.lastCmdContent(v)
+		// allow expansion of lastcmd (setenv x stdout)
+		data, ok := st.lastCmdContent(v)
 		if ok {
 			v = string(data)
 		}
 	}
-	t.Setenv(args[0], v)
+	st.Env.Set(args[0], v)
 	return nil
 }
 
 //----------
 
-func (scr *Script) icFail(t *testing.T, args []string) error {
+func icFail(t *testing.T, st *ScriptTest, args []string) error {
 	t.Helper()
 	args = args[1:] // drop "fail"
 	if len(args) < 1 {
 		return fmt.Errorf("expecting at least 1 arg, got %v", args)
 	}
-	cmd, ok := scr.icmds[args[0]]
-	if !ok {
-		return fmt.Errorf("cmd not found: %v", args[0])
-	}
-	err := cmd.Fn(t, args)
+
+	err := runCmd(t, st, args)
 	if err == nil {
 		return fmt.Errorf("expected failure but got no error")
 	}
-	scr.logf(t, "fail ok: %v", err)
+
+	st.Logf(t, "fail ok: %v", err)
 	return nil
 }
 
 //----------
 
-func (scr *Script) icChangeDir(t *testing.T, args []string) error {
+func icChangeDir(t *testing.T, st *ScriptTest, args []string) error {
 	args = args[1:] // drop "cd"
 	if len(args) != 1 {
 		return fmt.Errorf("expecting 1 arg, got %v", args)
 	}
 	dir := args[0]
-	return os.Chdir(dir)
-}
-
-//----------
-
-func (scr *Script) lastCmdContent(name string) ([]byte, bool) {
-	switch name {
-	case "stdout":
-		return scr.lastCmd.stdout, true
-	case "stderr":
-		return scr.lastCmd.stderr, true
-	case "error":
-		return scr.lastCmd.err, true
+	if filepath.IsAbs(dir) {
+		st.CurDir = dir
+	} else {
+		st.CurDir = filepath.Join(st.CurDir, dir)
 	}
-	return nil, false
-}
-
-//----------
-//----------
-//----------
-
-type ScriptCmd struct {
-	Name string
-	Fn   func(t *testing.T, args []string) error
-}
-
-func mapScriptCmds(w []*ScriptCmd) map[string]*ScriptCmd {
-	m := map[string]*ScriptCmd{}
-	for _, cmd := range w {
-		m[cmd.Name] = cmd
-	}
-	return m
+	return nil
 }
 
 //----------
@@ -567,4 +625,25 @@ func fixFilepathsForCurDir(b []byte, curDir string) []byte {
 	}
 
 	return b
+}
+
+//----------
+//----------
+//----------
+
+type Env struct {
+	data []string
+}
+
+func NewEnvMap() *Env {
+	return &Env{data: os.Environ()}
+}
+func (e *Env) Get(key string) string {
+	return osutil.GetEnv(e.data, key)
+}
+func (e *Env) Set(key, val string) {
+	osutil.SetEnv2(&e.data, key, val)
+}
+func (e *Env) Environ() []string {
+	return e.data
 }

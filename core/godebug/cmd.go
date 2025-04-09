@@ -148,10 +148,12 @@ func (cmd *Cmd) start2(ctx context.Context, args []string) error {
 	}
 
 	// setup environment
-	cmd.env = []string{}
+	//cmd.env = []string{} // commented: allow godebugtester to set
 	//cmd.env = osutil.AppendEnv(cmd.env, goutil.OsAndGoEnv(cmd.Dir)) // commented: cannot set go env vars for the running exec, can have issues with compilation fails in some cases (ex: js/wasm)
-	cmd.env = osutil.AppendEnv(cmd.env, os.Environ())
-	cmd.env = osutil.AppendEnv(cmd.env, cmd.flags.env)
+	env2 := []string{}
+	env2 = osutil.AppendEnv(env2, os.Environ())
+	env2 = osutil.AppendEnv(env2, cmd.flags.env)
+	cmd.env = osutil.AppendEnv(env2, cmd.env) // keeps cmd.env if set
 
 	if err := cmd.detectGopathMode(cmd.env); err != nil {
 		return err
@@ -454,7 +456,7 @@ func (cmd *Cmd) detectModulesMode(env []string) (bool, error) {
 	case "auto":
 		return cmd.detectGoMod(), nil
 	default:
-		v, err := goutil.GoVersion()
+		v, err := cmd.goVersion()
 		if err != nil {
 			return false, err
 		}
@@ -472,7 +474,7 @@ func (cmd *Cmd) detectGoMod() bool {
 }
 func (cmd *Cmd) neededGoVersion() error {
 	// need go version that supports overlays
-	v, err := goutil.GoVersion()
+	v, err := cmd.goVersion()
 	if err != nil {
 		return err
 	}
@@ -480,6 +482,10 @@ func (cmd *Cmd) neededGoVersion() error {
 		return fmt.Errorf("need go version >=1.16 that supports -overlay flag")
 	}
 	return nil
+}
+func (cmd *Cmd) goVersion() (string, error) {
+	//return goutil.GoVersion()
+	return goutil.GetGoVersion(goutil.GoEnv(cmd.Dir))
 }
 
 //------------
@@ -1047,11 +1053,11 @@ func (cmd *Cmd) buildOutFilename(fa *FilesToAnnotate) (string, error) {
 func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
 	ci := osutil.NewCmdIShell(ctx, args...)
 	ec := ci.Cmd()
+	ec.Dir = cmd.Dir
+	ec.Env = cmd.env
 	ec.Stdin = cmd.Stdin
 	ec.Stdout = cmd.Stdout
 	ec.Stderr = cmd.Stderr
-	ec.Dir = cmd.Dir
-	ec.Env = cmd.env
 	return ci
 }
 

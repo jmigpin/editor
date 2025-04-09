@@ -27,6 +27,9 @@ func SetEnv(env []string, key, value string) []string {
 	w = clearDuplicatesFavorLast(w)
 	return w
 }
+func SetEnv2(env *[]string, key, value string) {
+	*env = SetEnv(*env, key, value)
+}
 
 func AppendEnv(env []string, addEnv []string) []string {
 	w := append(env, addEnv...)
