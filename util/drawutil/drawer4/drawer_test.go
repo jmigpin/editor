@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"golang.org/x/image/colornames"
+	"golang.org/x/image/font/opentype"
 )
 
 func init() {
@@ -417,7 +417,7 @@ func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 
 func newTestFace() *fontutil.FontFace {
 	f := fontutil.DefaultFont()
-	opt := truetype.Options{DPI: 100}
+	opt := opentype.FaceOptions{DPI: 100}
 	return f.FontFace(opt)
 
 }
@@ -430,6 +430,10 @@ func imgFilename(name string) string {
 
 func cmpResult(t *testing.T, img image.Image, name string) {
 	t.Helper()
+
+	//// overwrite results
+	//saveResult(img, name)
+	//return
 
 	// auto save if file doesn't exit
 	fname := imgFilename(name)
