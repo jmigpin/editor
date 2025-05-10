@@ -6,13 +6,13 @@ import (
 	"image/color"
 	"io/ioutil"
 
-	"github.com/golang/freetype/truetype"
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 	"golang.org/x/image/font/gofont/gomedium"
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
+	"golang.org/x/image/font/opentype"
 )
 
 var ScrollBarLeft = true
@@ -279,7 +279,7 @@ func loadThemeFont(name string, node widget.Node) error {
 
 //----------
 
-var TTFontOptions truetype.Options
+var TTFontOptions opentype.FaceOptions
 
 func ThemeFontFace(name string) (*fontutil.FontFace, error) {
 	return ThemeFontFace2(name, 0)

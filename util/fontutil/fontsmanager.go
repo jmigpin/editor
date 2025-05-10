@@ -1,9 +1,10 @@
 package fontutil
 
 import (
-	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
+	"golang.org/x/image/font/opentype"
+	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -22,7 +23,7 @@ func DefaultFont() *Font {
 
 func DefaultFontFace() *FontFace {
 	f := DefaultFont()
-	opt := truetype.Options{} // defaults: size=12, dpi=72, ~14px
+	opt := opentype.FaceOptions{} // defaults: size=12, dpi=72, ~14px
 	return f.FontFace(opt)
 }
 
@@ -58,25 +59,26 @@ func (fm *FontsManager) Font(ttf []byte) (*Font, error) {
 //----------
 
 type Font struct {
-	Font       *truetype.Font
-	facesCache map[truetype.Options]*FontFace
+	Font       *sfnt.Font
+	facesCache map[opentype.FaceOptions]*FontFace
 }
 
 func NewFont(ttf []byte) (*Font, error) {
-	font, err := truetype.Parse(ttf)
+	font, err := opentype.Parse(ttf)
 	if err != nil {
 		return nil, err
 	}
 	f := &Font{Font: font}
 	f.ClearFacesCache()
+
 	return f, nil
 }
 
 func (f *Font) ClearFacesCache() {
-	f.facesCache = map[truetype.Options]*FontFace{}
+	f.facesCache = map[opentype.FaceOptions]*FontFace{}
 }
 
-func (f *Font) FontFace(opt truetype.Options) *FontFace {
+func (f *Font) FontFace(opt opentype.FaceOptions) *FontFace {
 	if opt.DPI == 0 {
 		opt.DPI = DPI
 	}
@@ -90,22 +92,30 @@ func (f *Font) FontFace(opt truetype.Options) *FontFace {
 }
 
 func (f *Font) FontFace2(size float64) *FontFace {
-	opt := truetype.Options{Size: size}
+	opt := opentype.FaceOptions{Size: size}
 	return f.FontFace(opt)
 }
 
 //----------
 
 type FontFace struct {
-	Font       *Font
-	Face       font.Face
-	Size       float64 // in points, readonly
-	Metrics    *font.Metrics
-	lineHeight fixed.Int26_6
+	Font    *Font
+	Face    font.Face
+	Size    float64 // in points, readonly
+	Metrics *font.Metrics
 }
 
-func NewFontFace(font *Font, opt truetype.Options) *FontFace {
-	face := truetype.NewFace(font.Font, &opt)
+func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
+	// avoid divide by zero; also ensure face.metrics() works
+	if opt.Size == 0 {
+		opt.Size = 12 // internal opentype default
+	}
+
+	face, err := opentype.NewFace(font.Font, &opt)
+	if err != nil {
+		panic(err)
+	}
+
 	face = NewFaceRunes(face)
 	// TODO: allow cache choice
 	//face = NewFaceCache(face) // can safely be used only in ui loop (read)
@@ -115,29 +125,15 @@ func NewFontFace(font *Font, opt truetype.Options) *FontFace {
 	ff := &FontFace{Font: font, Face: face}
 	m := face.Metrics()
 	ff.Metrics = &m
-	ff.lineHeight = ff.calcLineHeight()
-
-	ff.Size = opt.Size
-	if ff.Size == 0 {
-		// github.com/golang/freetype/truetype/face.go:26:2
-		ff.Size = 12
-	}
 
 	return ff
 }
 
-func (ff *FontFace) calcLineHeight() fixed.Int26_6 {
-	// TODO: failing: m.Height
-	m := ff.Metrics
-	lh := m.Ascent + m.Descent
-	return fixed.I(lh.Ceil()) // ceil for stable lines
-}
-
 func (ff *FontFace) LineHeight() fixed.Int26_6 {
-	return ff.lineHeight
+	return ff.Metrics.Height
 }
 func (ff *FontFace) LineHeightInt() int {
-	return ff.LineHeight().Floor()
+	return ff.LineHeight().Ceil()
 }
 func (ff *FontFace) LineHeightFloat() float64 {
 	return Fixed266ToFloat64(ff.LineHeight())
