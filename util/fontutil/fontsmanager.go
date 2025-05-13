@@ -103,6 +103,9 @@ type FontFace struct {
 	Face    font.Face
 	Size    float64 // in points, readonly
 	Metrics *font.Metrics
+
+	lineHeight fixed.Int26_6
+	baselineY  fixed.Int26_6
 }
 
 func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
@@ -112,7 +115,7 @@ func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
 	}
 
 	face, err := opentype.NewFace(font.Font, &opt)
-	if err != nil {
+	if err != nil { // currently, no error is being returned
 		panic(err)
 	}
 
@@ -126,11 +129,20 @@ func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
 	m := face.Metrics()
 	ff.Metrics = &m
 
+	//ff.lineHeight = ff.Metrics.Height
+	//ff.baselineY = ff.Metrics.Ascent
+	ff.lineHeight = max(
+		ff.Metrics.Ascent+ff.Metrics.Descent,
+		ff.Metrics.Height)
+	ff.baselineY = min(
+		ff.Metrics.Ascent,
+		ff.lineHeight-ff.Metrics.Descent)
+
 	return ff
 }
 
 func (ff *FontFace) LineHeight() fixed.Int26_6 {
-	return ff.Metrics.Height
+	return ff.lineHeight
 }
 func (ff *FontFace) LineHeightInt() int {
 	return ff.LineHeight().Ceil()
@@ -140,5 +152,5 @@ func (ff *FontFace) LineHeightFloat() float64 {
 }
 
 func (ff *FontFace) BaseLine() fixed.Point26_6 {
-	return fixed.Point26_6{0, ff.Metrics.Ascent}
+	return fixed.Point26_6{0, ff.baselineY}
 }
