@@ -8,11 +8,6 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-//----------
-
-var DPI float64 // default: github.com/golang/freetype/truetype/face.go:31:3
-var FontsMan = NewFontsManager()
-
 func DefaultFont() *Font {
 	f, err := FontsMan.Font(goregular.TTF)
 	if err != nil {
@@ -26,6 +21,10 @@ func DefaultFontFace() *FontFace {
 	opt := opentype.FaceOptions{} // defaults: size=12, dpi=72, ~14px
 	return f.FontFace(opt)
 }
+
+//----------
+
+var FontsMan = NewFontsManager()
 
 //----------
 
@@ -79,9 +78,14 @@ func (f *Font) ClearFacesCache() {
 }
 
 func (f *Font) FontFace(opt opentype.FaceOptions) *FontFace {
-	if opt.DPI == 0 {
-		opt.DPI = DPI
+	// avoid divide by zero; also ensure face.metrics() works
+	if opt.Size == 0 {
+		opt.Size = 12 // internal opentype default
 	}
+	if opt.DPI == 0 {
+		opt.DPI = 72
+	}
+
 	ff, ok := f.facesCache[opt]
 	if ok {
 		return ff
@@ -109,9 +113,9 @@ type FontFace struct {
 }
 
 func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
-	// avoid divide by zero; also ensure face.metrics() works
-	if opt.Size == 0 {
-		opt.Size = 12 // internal opentype default
+	// should be set from font.fontface
+	if opt.Size == 0 || opt.DPI == 0 {
+		panic("!")
 	}
 
 	face, err := opentype.NewFace(font.Font, &opt)
@@ -121,11 +125,11 @@ func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
 
 	face = NewFaceRunes(face)
 	// TODO: allow cache choice
-	//face = NewFaceCache(face) // can safely be used only in ui loop (read)
+	//face = NewFaceCache(face) // safe for ui loop thread only (read)
 	face = NewFaceCacheL(face) // safe for concurrent calls
 	//face = NewFaceCacheL2(face)
 
-	ff := &FontFace{Font: font, Face: face}
+	ff := &FontFace{Font: font, Face: face, Size: opt.Size}
 	m := face.Metrics()
 	ff.Metrics = &m
 

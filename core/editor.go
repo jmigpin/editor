@@ -509,16 +509,15 @@ func (ed *Editor) setupTheme(opt *Options) {
 	}
 
 	// font options
-	fontutil.DPI = opt.DPI
-	ui.TTFontOptions.DPI = opt.DPI
-	ui.TTFontOptions.Size = opt.FontSize
+	ui.FontFaceOptions.DPI = opt.DPI
+	ui.FontFaceOptions.Size = opt.FontSize
 	switch opt.FontHinting {
 	case "none":
-		ui.TTFontOptions.Hinting = font.HintingNone
+		ui.FontFaceOptions.Hinting = font.HintingNone
 	case "vertical":
-		ui.TTFontOptions.Hinting = font.HintingVertical
+		ui.FontFaceOptions.Hinting = font.HintingVertical
 	case "full":
-		ui.TTFontOptions.Hinting = font.HintingFull
+		ui.FontFaceOptions.Hinting = font.HintingFull
 	default:
 		fmt.Fprintf(os.Stderr, "unknown font hinting: %v\n", opt.FontHinting)
 		os.Exit(2)
