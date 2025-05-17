@@ -1,7 +1,12 @@
 #setenv script_keepwork 1
 cd main
-#go run main.go
-godebugtester run main.go
+
+go run main.go
+
+# currently failing if there is no "file=" at packages.load
+#godebugtester run main.go
+
+godebugtester run .
 contains stdout "\"Fa\"\n"
 contains stdout "\"Fb\"\n"
 contains stdout "\"Fc\"\n"

@@ -1,18 +1,17 @@
 fail go run
 contains stderr "no go files listed"
 
-fail go run main.go
-contains stderr "undefined: f1"
-
-go run main.go f1.go
-contains stderr "2\n"
-
 fail godebugtester run
 contains error "go.mod file not found"
 
+fail go run main.go
+contains stderr "undefined: f1"
+
 fail godebugtester run main.go
-#contains error "undeclared name: f1"
 contains error "undefined: f1"
+
+go run main.go f1.go
+contains stderr "2\n"
 
 godebugtester run main.go f1.go
 contains stdout "recv: println(2=(f1()))"

@@ -411,6 +411,7 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 	loadMode := 0 |
 		//packages.NeedExportFile | // TODO
 		//packages.NeedTypesSizes | // TODO
+
 		packages.NeedCompiledGoFiles |
 		packages.NeedDeps |
 		packages.NeedFiles |
@@ -438,13 +439,26 @@ func (fa *FilesToAnnotate) loadPackages(ctx context.Context) ([]*packages.Packag
 	}
 
 	// There is a distinction between passing a file directly, or with the "file=" query. Passing without the file will pass a file argument to the underlying build tool, that could actually fail to properly load pkg.module var in the case of a simple [main.go go.mod] project. Because "go build" and "go build main.go" have slightly different behaviours. Check testdata/basic_gomod.txt test where it fails if the "file=" patterns are commented.
+
+	// testdata/gomod06.txt: needs abs+"file="
+	// testdata/basic_multiple_files.txt:
+	// TODO: setting abs can make this fail?
+
 	p := []string{}
-	for _, f := range fa.cmd.flags.unnamedArgs {
-		if !filepath.IsAbs(f) {
-			f = filepath.Join(cfg.Dir, f)
-		}
-		p = append(p, "file="+f)
-	}
+
+	//for _, arg := range fa.cmd.flags.unnamedArgs {
+	//	f := arg
+	//	if !filepath.IsAbs(f) {
+	//		f = filepath.Join(cfg.Dir, f)
+	//	}
+	//	if info, err := os.Stat(f); err == nil && !info.IsDir() {
+	//		p = append(p, "file="+arg)
+	//	} else {
+	//		p = append(p, arg)
+	//		//fmt.Println("--just an arg", arg)
+	//	}
+	//}
+
 	p = append(p, fa.cmd.flags.unnamedArgs...)
 
 	pkgs, err := packages.Load(cfg, p...)

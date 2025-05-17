@@ -1,0 +1,16 @@
+godebugtester run main1.go 
+contains stderr "m1\n"
+
+godebugtester run main2.go 
+contains stderr "m2\n"
+
+-- main1.go --
+package main
+func main(){
+	println("m1")
+}
+-- main2.go --
+package main
+func main(){
+	println("m2")
+}
