@@ -7,9 +7,10 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-var TabWidth = 8 // n times the space glyph
-var CarriageReturnRune = '♪'
-var NullRune = '◦'
+var TabWidth = 8             // n times the space glyph
+var CarriageReturnRune = '␍' // '♪'
+var nullRune = '◦'
+var noRune = '◦' // '�'
 
 // Special runes face
 type FaceRunes struct {
@@ -71,12 +72,20 @@ func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
 		adv, ok := fr.Face.GlyphAdvance(ru)
 		return ru, adv, ok
 	case 0:
-		ru := NullRune
+		ru := nullRune
 		adv, ok := fr.Face.GlyphAdvance(ru)
 		return ru, adv, ok
 	case -1: // -1=eof
 		ru := ' '
 		return ru, 0, true
 	}
+
+	// no rune
+	if _, ok := fr.Face.GlyphAdvance(ru0); !ok {
+		ru := noRune
+		adv, ok := fr.Face.GlyphAdvance(ru)
+		return ru, adv, ok
+	}
+
 	return 0, 0, false
 }
