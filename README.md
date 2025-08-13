@@ -81,7 +81,7 @@ Feel free to file an issue if you know of a better solution that doesn't require
 ```
 Usage of editor:
   -carriagereturnrune int
-    	replacement rune for carriage return (default 9834)
+    	replacement rune for carriage return (default 9229)
   -colortheme string
     	available: light, acme, lightInverted, acmeInverted (default "light")
   -commentscolor int
