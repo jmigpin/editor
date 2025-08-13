@@ -8,9 +8,9 @@ import (
 )
 
 var TabWidth = 8             // n times the space glyph
-var CarriageReturnRune = '␍' // '♪'
-var nullRune = '◦'
-var noRune = '◦' // '�'
+var CarriageReturnRune = '␍' // 9229 (C/R symbol) // old: '♪'
+var nullRune = '◦'           // 9702 (tiny circle)
+var noRune = '◦'             // 9792; usual alternative: '�'
 
 // Special runes face
 type FaceRunes struct {
