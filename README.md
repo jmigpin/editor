@@ -607,6 +607,13 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2025/08/13: v3.12.0 (23 commmits)
+	- core/inlinecomplete: improved completion
+	- godebug: improved internal testing facilities
+	- godebug: simplified packages.load call
+	- util/fontutil: switch font rasterizer to opentype pkg
+	- util/fontutil: fix height/baseline better default values
+	- util/fontutil: fix not diplaying font missing runes
 - 2025/03/28: v3.11.0 (37 commits)
 	- util/iout/iorw: crash fix
 	- lsproto: minor exec fix
