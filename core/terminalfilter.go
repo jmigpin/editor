@@ -37,7 +37,7 @@ func NewTerminalFilter2(tio TerminalIO, erow *ERow) *TerminalFilter {
 //----------
 
 func (tf *TerminalFilter) Write(p []byte) (int, error) {
-	if tf.erow != nil && tf.erow.terminalOpt.filter {
+	if tf.erow != nil && tf.erow.terminalOpt.emulate {
 		tf.filter(p)
 	} else {
 		if err := tf.tio.WriteOp(p); err != nil {

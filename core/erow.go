@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil"
@@ -429,9 +431,9 @@ func (erow *ERow) parseToolbarVars() {
 	// $terminal
 	erow.terminalOpt = terminalOpt{}
 	if erow.Info.IsDir() {
-		// Deprecated: use $terminal
+		//DEPRECATED: use $terminal
 		if _, ok := vmap["$termFilter"]; ok {
-			erow.terminalOpt.filter = true
+			erow.terminalOpt.emulate = true
 		}
 
 		if v, ok := vmap["$terminal"]; ok {
@@ -440,10 +442,10 @@ func (erow *ERow) parseToolbarVars() {
 				switch k {
 				case "pty":
 					erow.terminalOpt.pty = true
-				case "f":
-					erow.terminalOpt.filter = true
+				case "f", "emu": //DEPRECATED: "f" // update readme
+					erow.terminalOpt.emulate = true
 				case "k":
-					erow.terminalOpt.keyEvents = true
+					erow.terminalOpt.keybInput = true
 				}
 			}
 		}
@@ -536,9 +538,9 @@ func (erow *ERow) AppendBytesClearHistory2(p []byte) error {
 //----------
 
 func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
-	if erow.terminalOpt.On() {
-		return NewTerminalFilter(erow)
-	}
+	//if erow.terminalOpt.On() {
+	//	return NewTerminalFilter(erow)
+	//}
 
 	// synced writer to slow down memory usage
 	w := iout.FnWriter(func(b []byte) (int, error) {
@@ -548,17 +550,95 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 		})
 		return len(b), err
 	})
-
 	// buffered for performance, which needs timed output (auto-flush)
 	wc := iout.NewAutoBufWriter(w, 4096*2)
 
-	rd := iout.FnReader(func(b []byte) (int, error) { return 0, io.EOF })
+	// setup closer
+	cl := io.Closer(wc)
+
+	// setup reader
+	rd := (io.Reader)(nil)
+	if erow.terminalOpt.keybInput {
+		tard := newTextareaReader(erow.Row.TextArea)
+		tard.handleKeybInput = true
+		rd = io.Reader(tard)
+		// setup closer
+		cl = iout.FnCloser(func() error {
+			_ = tard.Close()
+			return wc.Close()
+		})
+	} else {
+		rd = iout.FnReader(func(b []byte) (int, error) {
+			return 0, io.EOF
+		})
+	}
+
 	type iorwc struct {
 		io.Reader
 		io.Writer
 		io.Closer
 	}
-	return io.ReadWriteCloser(&iorwc{rd, wc, wc})
+	rwc := io.ReadWriteCloser(&iorwc{rd, wc, cl})
+
+	if erow.terminalOpt.emulate {
+		te := termemu.NewEmu(rwc, termemu.Opts{})
+		go erow.handleTermEmuEvents(te)
+		rwc = te
+	}
+
+	return rwc
+}
+
+//----------
+
+func (erow *ERow) handleTermEmuEvents(te *termemu.Emu) {
+	for ev := range te.Events() {
+		//fmt.Printf("new ev: %v\n", ev)
+		switch ev.Kind {
+		case "error":
+			erow.Ed.Errorf("erow.termemu: %v", ev.Data)
+			break
+		case "repaint":
+			erow.Row.TextArea.SetCursorIndex(0)
+			erow.paintTermScreen(te)
+		default:
+			fmt.Println("erow.termemu: todo", ev)
+		}
+	}
+}
+func (erow *ERow) paintTermScreen(te *termemu.Emu) {
+	scr := te.Snapshot()
+
+	buf := &bytes.Buffer{}
+
+	width := len(scr.Grid[0])
+	buf.WriteString("┌")
+	buf.WriteString(strings.Repeat("─", width))
+	buf.WriteString("┐\n")
+
+	for y, line := range scr.Grid {
+		buf.WriteString("│")
+		for x, cell := range line {
+			if scr.Cursor.X == x && scr.Cursor.Y == y {
+				buf.WriteString("◙")
+				continue
+			}
+
+			if cell.R == 0 {
+				buf.WriteString(" ")
+				continue
+			}
+			buf.WriteString(string(cell.R))
+		}
+		buf.WriteString("│\n")
+	}
+
+	buf.WriteString("└")
+	buf.WriteString(strings.Repeat("─", width))
+	buf.WriteString("┘\n")
+
+	erow.Row.TextArea.SetBytesClearHistory(buf.Bytes())
+	//erow.Row.TextArea.AppendBytesClearHistory(buf.Bytes())
 }
 
 //----------
@@ -668,10 +748,11 @@ func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
 
 type terminalOpt struct {
 	pty       bool
-	filter    bool
-	keyEvents bool
+	emulate   bool
+	keybInput bool
+	//mouseInput bool // TODO
 }
 
 func (t *terminalOpt) On() bool {
-	return t.filter || t.keyEvents
+	return t.emulate || t.keybInput || t.pty
 }

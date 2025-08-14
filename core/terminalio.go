@@ -191,7 +191,7 @@ func (tio *ERowTermIO) onTextAreaInputEvent(ev0 any) {
 func (tio *ERowTermIO) eventToBytes(ev any) ([]byte, event.Handled) {
 	// util funcs
 	keyboardEvs := func() bool {
-		return tio.erow.terminalOpt.keyEvents
+		return tio.erow.terminalOpt.keybInput
 	}
 	byteOut := func(v byte, ru rune) []byte {
 		b := []byte{v}
