@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -599,8 +598,8 @@ func (erow *ERow) handleTermEmuEvents(te *termemu.Emu) {
 			erow.Ed.Errorf("erow.termemu: %v", ev.Data)
 			break
 		case "repaint":
-			erow.Row.TextArea.SetCursorIndex(0)
 			erow.paintTermScreen(te)
+			erow.Row.TextArea.SetCursorIndex(0)
 		default:
 			fmt.Println("erow.termemu: todo", ev)
 		}
@@ -608,36 +607,9 @@ func (erow *ERow) handleTermEmuEvents(te *termemu.Emu) {
 }
 func (erow *ERow) paintTermScreen(te *termemu.Emu) {
 	scr := te.Snapshot()
-
-	buf := &bytes.Buffer{}
-
-	width := len(scr.Grid[0])
-	buf.WriteString("┌")
-	buf.WriteString(strings.Repeat("─", width))
-	buf.WriteString("┐\n")
-
-	for y, line := range scr.Grid {
-		buf.WriteString("│")
-		for x, cell := range line {
-			if scr.Cursor.X == x && scr.Cursor.Y == y {
-				buf.WriteString("◙")
-				continue
-			}
-
-			if cell.R == 0 {
-				buf.WriteString(" ")
-				continue
-			}
-			buf.WriteString(string(cell.R))
-		}
-		buf.WriteString("│\n")
-	}
-
-	buf.WriteString("└")
-	buf.WriteString(strings.Repeat("─", width))
-	buf.WriteString("┘\n")
-
-	erow.Row.TextArea.SetBytesClearHistory(buf.Bytes())
+	b := scr.Bytes(true, true)
+	erow.Row.TextArea.SetBytesClearHistory(b)
+	//erow.Row.TextArea.MarkNeedsPaint()
 	//erow.Row.TextArea.AppendBytesClearHistory(buf.Bytes())
 }
 

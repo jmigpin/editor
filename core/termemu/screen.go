@@ -1,20 +1,25 @@
 package termemu
 
+import (
+	"bytes"
+	"fmt"
+	"slices"
+	"strings"
+)
+
 type Screen struct {
-	W, H    int
-	Grid    [][]Cell
-	Cursor  Cursor
-	curAttr Attr
+	W, H int
+	Grid [][]Cell
 
-	// scrolling region [top..bottom], inclusive, 0-based
-	sTop, sBot int // defaults to 0 and H-1
+	Cursor     Cursor
+	curAttr    Attr
+	modes      Modes
+	wrapNext   bool // autowrap support
+	sTop, sBot int  // scrolling region [top..bottom], inclusive, 0-based // defaults to 0 and H-1
 
-	modes *Modes
-
-	// saved pos for CSI s/u
-	saved struct {
-		X, Y int
-		OK   bool
+	csiSavedCursor struct {
+		c  Cursor
+		ok bool
 	}
 }
 
@@ -28,20 +33,16 @@ func NewScreen(w, h int) *Screen {
 
 	s.sTop, s.sBot = 0, h-1
 
-	s.modes = NewModes()
-	s.modes.SetDEC(25, true) // cursor
+	s.modes = *NewModes()
+	s.modes.set(25, true) // cursor
 	return s
 }
 
 //----------
 
 func (s *Screen) Clone() *Screen {
-	cp := Screen{W: s.W, H: s.H, Cursor: s.Cursor, curAttr: s.curAttr}
-	cp.Grid = make([][]Cell, s.H)
-	for i := range s.Grid {
-		cp.Grid[i] = make([]Cell, s.W)
-		copy(cp.Grid[i], s.Grid[i])
-	}
+	cp := *s // copy
+	cp.Grid = cloneGrid(cp.Grid)
 	return &cp
 }
 
@@ -52,36 +53,38 @@ func (s *Screen) PutRune(r rune) {
 	if r == '\t' {
 		r = ' '
 	}
-	if s.Cursor.Y < 0 || s.Cursor.Y >= s.H {
-		s.Cursor.Y = clamp(s.Cursor.Y, 0, s.H-1)
-	}
-	if s.Cursor.X < 0 || s.Cursor.X >= s.W {
-		s.Cursor.X = clamp(s.Cursor.X, 0, s.W-1)
-	}
-	s.Grid[s.Cursor.Y][s.Cursor.X] = Cell{R: r, A: s.curAttr}
-	s.Cursor.X++
-	if s.Cursor.X >= s.W {
+
+	// apply pending wrap first
+	if s.wrapNext {
+		s.wrapNext = false
 		s.Cursor.X = 0
-		s.LF()
+		s.LF() // scrolls inside region
+	}
+
+	s.Grid[s.Cursor.Y][s.Cursor.X] = Cell{R: r, A: s.curAttr}
+
+	if s.Cursor.X >= s.W-1 {
+		if s.modes.AutoWrap() {
+			// do not move now; set wrap for the *next* printable
+			s.wrapNext = true
+		} // else: stay at last column, overwrite subsequent prints
+	} else {
+		s.Cursor.X++
 	}
 }
 
+//----------
+
 func (s *Screen) CR() {
+	s.wrapNext = false
+
 	s.Cursor.X = 0
 }
 
-//func (s *Screen) LF() {
-//	if s.Cursor.Y == s.H-1 {
-//		// scroll up
-//		copy(s.Grid[0:], s.Grid[1:])
-//		s.Grid[s.H-1] = make([]Cell, s.W)
-//	} else {
-//		s.Cursor.Y++
-//	}
-//}
-
-// LF performs an index (move down one line), scrolling **inside the region**.
+// move down one line, scrolling **inside the region**
 func (s *Screen) LF() {
+	s.wrapNext = false
+
 	if s.Cursor.Y < s.sBot {
 		s.Cursor.Y++
 		return
@@ -96,6 +99,8 @@ func (s *Screen) LF() {
 
 // Reverse Index (move up), scrolling **inside the region**.
 func (s *Screen) RI() {
+	s.wrapNext = false
+
 	if s.Cursor.Y > s.sTop {
 		s.Cursor.Y--
 		return
@@ -109,27 +114,32 @@ func (s *Screen) RI() {
 }
 
 func (s *Screen) BS() {
+	s.wrapNext = false
+
 	if s.Cursor.X > 0 {
 		s.Cursor.X--
 	}
 }
 
+//----------
+
 func (s *Screen) MoveTo(row1, col1 int) { // 1-based
+	s.wrapNext = false
 	s.MoveToRow(row1)
 	s.MoveToCol(col1)
 }
 func (s *Screen) MoveToRow(row1 int) { // 1-based
-	r := clamp(row1-1, 0, s.H-1)
-	s.Cursor.Y = r
+	s.wrapNext = false
+	s.setCursorY(row1 - 1)
 }
 func (s *Screen) MoveToCol(col1 int) { // 1-based
-	c := clamp(col1-1, 0, s.W-1)
-	s.Cursor.X = c
+	s.wrapNext = false
+	s.setCursorX(col1 - 1)
 }
 
 func (s *Screen) MoveRel(dy, dx int) {
-	s.Cursor.Y = clamp(s.Cursor.Y+dy, 0, s.H-1)
-	s.Cursor.X = clamp(s.Cursor.X+dx, 0, s.W-1)
+	s.wrapNext = false
+	s.setCursorYX(s.Cursor.Y+dy, s.Cursor.X+dx)
 }
 
 //----------
@@ -218,16 +228,16 @@ func (s *Screen) Region() (int, int) { return s.sTop, s.sBot }
 
 func (s *Screen) scrollUpRegion(top, bot int) {
 	// move rows [top+1..bot] up by 1
-	copy(s.Grid[top:bot], s.Grid[top+1:bot+1])
+	copy(s.Grid[top:bot], cloneGrid(s.Grid[top+1:bot+1]))
 	// clear bottom row
-	s.Grid[bot] = make([]Cell, s.W)
+	s.clearCells(s.Grid[bot])
 }
 
 func (s *Screen) scrollDownRegion(top, bot int) {
 	// move rows [top..bot-1] down by 1
-	copy(s.Grid[top+1:bot+1], s.Grid[top:bot])
+	copy(s.Grid[top+1:bot+1], cloneGrid(s.Grid[top:bot]))
 	// clear top row
-	s.Grid[top] = make([]Cell, s.W)
+	s.clearCells(s.Grid[top])
 }
 
 //----------
@@ -235,9 +245,7 @@ func (s *Screen) scrollDownRegion(top, bot int) {
 // In type Screen (0-based). DCH/ECH keep cursor, act on current line only.
 
 func (s *Screen) DeleteChars(n int) {
-	//y := clamp(s.Cursor.Y, 0, s.H-1)
-	//x := clamp(s.Cursor.X, 0, s.W-1)
-	x, y := s.Cursor.X, s.Cursor.Y
+	y, x := s.Cursor.Y, s.Cursor.X
 
 	row := s.Grid[y]
 
@@ -253,15 +261,11 @@ func (s *Screen) DeleteChars(n int) {
 	if shift > 0 {
 		copy(row[x:x+shift], row[x+n:x+n+shift]) // shift left
 	}
-	blank := Cell{R: ' ', A: s.curAttr}
-	for i := s.W - n; i < s.W; i++ {
-		row[i] = blank
-	}
+
+	s.clearCells(row[s.W-n : s.W])
 }
 
 func (s *Screen) EraseChars(n int) {
-	//y := clamp(s.Cursor.Y, 0, s.H-1)
-	//x := clamp(s.Cursor.X, 0, s.W-1)
 	x, y := s.Cursor.X, s.Cursor.Y
 
 	row := s.Grid[y]
@@ -294,7 +298,9 @@ func (s *Screen) replyCPR() (int, int) {
 	return row1, col1
 }
 
-func (s *Screen) homeOrigin(on bool) {
+//----------
+
+func (s *Screen) moveToOrigin(on bool) {
 	if on {
 		top, _ := s.Region()
 		s.MoveTo(top, 0) // (top, col 0)
@@ -307,17 +313,17 @@ func (s *Screen) homeOrigin(on bool) {
 
 // SaveCursorPos implements CSI s (SCP).
 func (s *Screen) SaveCursorPos() {
-	s.saved.X, s.saved.Y = s.Cursor.X, s.Cursor.Y
-	s.saved.OK = true
+	s.csiSavedCursor.c = s.Cursor
+	s.csiSavedCursor.ok = true
 }
 
 // RestoreCursorPos implements CSI u (RCP).
 func (s *Screen) RestoreCursorPos() {
-	if !s.saved.OK {
+	if !s.csiSavedCursor.ok {
 		return
 	}
-	s.Cursor.X = clamp(s.saved.X, 0, s.W-1)
-	s.Cursor.Y = clamp(s.saved.Y, 0, s.H-1)
+	c := s.csiSavedCursor.c
+	s.setCursorYX(c.Y, c.X)
 }
 
 //----------
@@ -325,7 +331,6 @@ func (s *Screen) RestoreCursorPos() {
 // insertLines/DL operate only if cursor is inside scroll region.
 // insert n blank lines at cursor row within [sTop..sBot].
 func (s *Screen) insertLines(n int) {
-	//y := clamp(s.Cursor.Y, 0, s.H-1)
 	y := s.Cursor.Y
 
 	if y < s.sTop || y > s.sBot {
@@ -338,22 +343,17 @@ func (s *Screen) insertLines(n int) {
 
 	// shift down [y..sBot-n] → [y+n..sBot]
 	if dst := y + n; dst <= s.sBot {
-		copy(s.Grid[dst:s.sBot+1], s.Grid[y:s.sBot-n+1])
+		copy(s.Grid[dst:s.sBot+1], cloneGrid(s.Grid[y:s.sBot-n+1]))
 	}
 
 	// clear inserted lines with spaces using current attr
 	for r := y; r < y+n; r++ {
-		row := s.Grid[r]
-		blank := Cell{R: ' ', A: s.curAttr}
-		for i := range row {
-			row[i] = blank
-		}
+		s.clearCells(s.Grid[r])
 	}
 }
 
 // delete n lines at cursor row within [sTop..sBot].
 func (s *Screen) deleteLines(n int) {
-	//y := clamp(s.Cursor.Y, 0, s.H-1)
 	y := s.Cursor.Y
 
 	if y < s.sTop || y > s.sBot {
@@ -366,17 +366,115 @@ func (s *Screen) deleteLines(n int) {
 
 	// shift up [y+n..sBot] → [y..sBot-n]
 	if src := y + n; src <= s.sBot {
-		copy(s.Grid[y:s.sBot-n+1], s.Grid[src:s.sBot+1])
+		copy(s.Grid[y:s.sBot-n+1], cloneGrid(s.Grid[src:s.sBot+1]))
 	}
 
 	// clear vacated bottom lines with spaces using current attr
 	for r := s.sBot - n + 1; r <= s.sBot; r++ {
-		row := s.Grid[r]
-		blank := Cell{R: ' ', A: s.curAttr}
-		for i := range row {
-			row[i] = blank
-		}
+		s.clearCells(s.Grid[r])
 	}
+}
+
+//----------
+
+func (s *Screen) scrollUp(n int) {
+	if n <= 0 {
+		return
+	}
+	h := s.sBot - s.sTop + 1
+	if n > h {
+		n = h
+	}
+	for i := 0; i < n; i++ {
+		s.scrollUpRegion(s.sTop, s.sBot) // shifts up, blanks bottom
+	}
+}
+
+func (s *Screen) scrollDown(n int) {
+	if n <= 0 {
+		return
+	}
+	h := s.sBot - s.sTop + 1
+	if n > h {
+		n = h
+	}
+	for i := 0; i < n; i++ {
+		s.scrollDownRegion(s.sTop, s.sBot) // shifts down, blanks top
+	}
+}
+
+//----------
+
+func (scr *Screen) clearCells(w []Cell) {
+	for i := range w {
+		// blank
+		//w[i].R = 0
+		w[i].R = ' '
+		//w[i] = Cell{}
+		//w[i] = Cell{Attr:scr.curAttr}
+	}
+}
+
+//----------
+
+func (s *Screen) setCursorYX(y, x int) {
+	s.setCursorY(y)
+	s.setCursorX(x)
+}
+func (s *Screen) setCursorY(y int) {
+	s.Cursor.Y = clamp(y, 0, s.H-1)
+}
+func (s *Screen) setCursorX(x int) {
+	s.Cursor.X = clamp(x, 0, s.W-1)
+}
+
+//----------
+
+func (scr *Screen) Print() {
+	fmt.Println(scr.String())
+}
+func (scr *Screen) String() string {
+	return string(scr.Bytes(true, true))
+	//return string(scr.Bytes(true, false))
+}
+func (scr *Screen) Bytes(leftTopLines, cursor bool) []byte {
+	buf := &bytes.Buffer{}
+
+	width := len(scr.Grid[0])
+	if leftTopLines {
+		buf.WriteString("┌")
+		buf.WriteString(strings.Repeat("─", width))
+		buf.WriteString("┐\n")
+	}
+
+	for y, line := range scr.Grid {
+		if leftTopLines {
+			buf.WriteString("│")
+		}
+		for x, cell := range line {
+			if cursor {
+				if scr.Cursor.X == x && scr.Cursor.Y == y {
+					buf.WriteString("◙")
+					continue
+				}
+			}
+
+			if cell.R == 0 {
+				buf.WriteString(" ")
+				continue
+			}
+			buf.WriteString(string(cell.R))
+		}
+		buf.WriteString("│\n")
+	}
+
+	if leftTopLines {
+		buf.WriteString("└")
+	}
+	buf.WriteString(strings.Repeat("─", width))
+	buf.WriteString("┘\n")
+
+	return buf.Bytes()
 }
 
 //----------
@@ -395,7 +493,7 @@ type Attr struct {
 }
 
 type Cursor struct {
-	X, Y int // 0-based
+	Y, X int // 0-based
 }
 
 //----------
@@ -409,14 +507,30 @@ type Modes struct {
 
 func NewModes() *Modes { return &Modes{m: make(map[int]bool)} }
 
-func (md *Modes) SetDEC(n int, on bool) { md.m[n] = on }
-func (md *Modes) Is(n int) bool         { return md.m[n] }
+func (md *Modes) set(n int, on bool) { md.m[n] = on }
+func (md *Modes) Is(n int) bool      { return md.m[n] }
 
-func (md *Modes) Origin() bool { return md.Is(6) }
-func (md *Modes) Cursor() bool { return md.Is(25) }
+//----------
+
+func (md *Modes) Origin() bool   { return md.Is(6) }
+func (md *Modes) AutoWrap() bool { return md.Is(7) }
+func (md *Modes) Cursor() bool   { return md.Is(25) }
 
 //----------
 //----------
+//----------
+
+func cloneCells(r []Cell) []Cell {
+	return slices.Clone(r)
+}
+func cloneGrid(g [][]Cell) [][]Cell {
+	out := make([][]Cell, len(g))
+	for i := range g {
+		out[i] = cloneCells(g[i])
+	}
+	return out
+}
+
 //----------
 
 func clamp(v, lo, hi int) int {

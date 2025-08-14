@@ -9,6 +9,8 @@ import (
 //godebug:annotatefile
 ////godebug:annotatefile:../textareareader.go
 
+// TODO: pty size (getsize/setsize/...)
+
 type Emu struct {
 	rwc io.ReadWriteCloser
 
@@ -113,11 +115,9 @@ func (emu *Emu) applyEmit(op *TermOp) {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
 
+	//fmt.Printf("op %v: cursor %v\n", op.kind, emu.scr.Cursor)
+
 	switch op.kind {
-	case "print":
-		for _, ru := range op.s {
-			emu.scr.PutRune(ru)
-		}
 	case "cr":
 		emu.scr.CR()
 	case "lf":
@@ -126,8 +126,12 @@ func (emu *Emu) applyEmit(op *TermOp) {
 		emu.scr.BS()
 	case "csi":
 		emu.applyEmitCsi(op)
-	case "fnkey":
-		// ignore
+	case "bell": // TODO
+	case "fnkey": // TODO
+	case "print":
+		for _, ru := range op.s {
+			emu.scr.PutRune(ru)
+		}
 
 	//case OpTitle:
 	//	t.push(Event{Kind: "title", Data: op.S})
@@ -135,19 +139,20 @@ func (emu *Emu) applyEmit(op *TermOp) {
 	default:
 		err := fmt.Errorf("emu.applyemit: %q", op.kind)
 		fmt.Println(err)
-		panic(err) // TESTING
+		//panic(err) // TESTING
 	}
 	emu.push(Event{Kind: "repaint"})
 }
+
 func (emu *Emu) applyEmitCsi(op *TermOp) {
 	switch op.csi.final {
 	case 'A': // cuu: Cursor Up (n rows, default 1)
 		emu.scr.MoveRel(-op.csiADef(1), 0)
 	case 'B': // cud: Cursor Down
-		emu.scr.MoveRel(op.csiA(), 0)
-		//for i := 0; i < op.csiADef(1); i++ {
-		//	emu.scr.LF()
-		//}
+		//emu.scr.MoveRel(op.csiA(), 0)
+		for i := 0; i < op.csiADef(1); i++ {
+			emu.scr.LF()
+		}
 	case 'C': // cuf: Cursor Forward (right)
 		emu.scr.MoveRel(0, op.csiADef(1))
 	case 'D': // cub: Cursor Backward (left)
@@ -169,13 +174,12 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 		emu.scr.insertLines(op.csiADef(1))
 	case 'M': // DL: Delete Lines
 		emu.scr.deleteLines(op.csiADef(1))
-
 	case 'P': //  DCH: Delete Characters
 		emu.scr.DeleteChars(op.csiADef(1))
-
-	//S  SU  – Scroll Up
-	//T  SD  – Scroll Down
-
+	case 'S': // SU: Scroll Up
+		emu.scr.scrollUp(op.csiADef(1))
+	case 'T': // SD: Scroll Down
+		emu.scr.scrollDown(op.csiADef(1))
 	case 'X': //  ECH: Erase Characters
 		emu.scr.EraseChars(op.csiADef(1))
 
@@ -199,18 +203,12 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 	//f  HVP – Horizontal and Vertical Position (same as CUP)
 	//g  TBC – Tab Clear
 
-	case 'h': // sm: Set Mode
+	case 'h', 'l': // h:sm: Set Mode; l:rm: Reset Mode
 		if op.csiPrivIs('?') {
-			emu.scr.modes.SetDEC(op.csiA(), true)
+			on := op.csi.final == 'h'
+			emu.scr.modes.set(op.csiA(), on)
 			if op.csiA() == 6 {
-				emu.scr.homeOrigin(true)
-			}
-		}
-	case 'l': // rm: Reset Mode
-		if op.csiPrivIs('?') {
-			emu.scr.modes.SetDEC(op.csiA(), false)
-			if op.csiA() == 6 {
-				emu.scr.homeOrigin(false)
+				emu.scr.moveToOrigin(on)
 			}
 		}
 
@@ -218,7 +216,10 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 		emu.scr.SetSGR(op.csi.params)
 
 	case 'n': // DSR: Device Status Report
-		if op.csiA() == 6 {
+		switch op.csiA() {
+		case 5: // "are you ok?"
+			fmt.Fprint(emu.readPw, "\x1b[0n") // "OK"
+		case 6: // cursor position report
 			row1, col1 := emu.scr.replyCPR()
 			fmt.Fprintf(emu.readPw, "\x1b[%d;%dR", row1, col1)
 		}
@@ -237,12 +238,24 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 	case 's': // SCP: Save Cursor Position
 		emu.scr.SaveCursorPos()
 	case 'u': // RCP: Restore Cursor Position
-		emu.scr.RestoreCursorPos()
+		switch {
+		case op.csiPrivIs('>'): // kitty: push flags (default 0)
+			//emu.kittyPush(op.csiADef(0))
+			return
+		case op.csiPrivIs('<'): // kitty: pop N (default 1)
+			//emu.kittyPop(op.csiADef(1))
+			return
+		case op.csiPrivIs('?'): // kitty: query flags
+			//fmt.Fprintf(emu.readPw, "\x1b[?%du", emu.kittyFlags)
+			return
+		}
+
+		emu.scr.RestoreCursorPos() // ANSI/VT: restore cursor (CSI u)
 
 	default:
 		err := fmt.Errorf("emu.csi.final: todo: %c", op.csi.final)
 		fmt.Println(err)
-		panic(err) // TESTING
+		//panic(err) // TESTING
 	}
 }
 

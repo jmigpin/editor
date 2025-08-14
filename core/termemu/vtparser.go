@@ -2,7 +2,6 @@ package termemu
 
 import (
 	"bufio"
-	"bytes"
 	"io"
 )
 
@@ -54,27 +53,27 @@ func (p *VTParser) stDefault() error {
 	case 0x7f: // DEL
 	default:
 		// emit rune (direct, slower)
-		//p.Emit(&TermOp{kind: "print", s: string(ru)})
+		p.Emit(&TermOp{kind: "print", s: string(ru)})
 
-		// printable run (performance)
-		buf := &bytes.Buffer{}
-		buf.WriteRune(ru)
-		for {
-			bs, err := p.rd.Peek(1)
-			if err != nil {
-				break
-			}
-			b := bs[0]
-			if _, err := p.rd.Discard(1); err != nil {
-				// TODO: log fn error
-				//fmt.Println("B err discard", err)
-			}
-			if b < 0x20 || b == 0x7f || b == 0x1b || b == 0x9b {
-				break
-			}
-			buf.WriteByte(b)
-		}
-		p.Emit(&TermOp{kind: "print", s: buf.String()})
+		//// printable run (performance)
+		//buf := &bytes.Buffer{}
+		//buf.WriteRune(ru)
+		//for {
+		//	bs, err := p.rd.Peek(1)
+		//	if err != nil {
+		//		break
+		//	}
+		//	b := bs[0]
+		//	if b < 0x20 || b == 0x7f || b == 0x1b || b == 0x9b {
+		//		break
+		//	}
+		//	if _, err := p.rd.Discard(1); err != nil {
+		//		// TODO: log fn error
+		//		//fmt.Println("B err discard", err)
+		//	}
+		//	buf.WriteByte(b)
+		//}
+		//p.Emit(&TermOp{kind: "print", s: buf.String()})
 	}
 	return nil
 }
