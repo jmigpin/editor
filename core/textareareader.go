@@ -44,11 +44,13 @@ func (tard *TextareaReader) Close() error {
 
 func (tard *TextareaReader) onTextAreaInputEvent(ev0 any) {
 	ev := ev0.(*ui.TextAreaInputEvent)
-	if b, ok := tard.eventToBytes(ev.Event); ok {
-		ev.ReplyHandled = event.Handled(true)
+
+	b, ok := tard.eventToBytes(ev.Event)
+	if ok {
 		_, err := tard.pw.Write(b)
 		_ = err // TODO
 	}
+	ev.ReplyHandled = event.Handled(ok)
 }
 func (tard *TextareaReader) eventToBytes(ev any) ([]byte, bool) {
 	switch t := ev.(type) {
@@ -56,6 +58,9 @@ func (tard *TextareaReader) eventToBytes(ev any) ([]byte, bool) {
 		if tard.handleKeybInput {
 			return tard.kdToBytes(t)
 		}
+
+		//case *event.KeyUp:
+		// TODO
 	}
 	return nil, false
 }
@@ -91,10 +96,10 @@ func (tard *TextareaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
 	}
 
 	switch ev.KeySym {
-	case event.KSymReturn, event.KSymKeypadEnter:
-		// TODO: might need LF behaviour? "\r\n"
-		//return []byte{'\n'}, true
-		return []byte{'\r'}, true
+	case event.KSymReturn:
+		return []byte("\r"), true // vt100
+	case event.KSymKeypadEnter:
+		return []byte("\x1bOM"), true // vt100
 
 	case event.KSymUp:
 		return esc("A"), true

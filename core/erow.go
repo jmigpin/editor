@@ -430,21 +430,13 @@ func (erow *ERow) parseToolbarVars() {
 	// $terminal
 	erow.terminalOpt = terminalOpt{}
 	if erow.Info.IsDir() {
-		//DEPRECATED: use $terminal
-		if _, ok := vmap["$termFilter"]; ok {
-			erow.terminalOpt.emulate = true
-		}
-
 		if v, ok := vmap["$terminal"]; ok {
+			erow.terminalOpt = terminalOpt{} // reset
 			u := strings.Split(v, ",")
 			for _, k := range u {
-				switch k {
-				case "pty":
-					erow.terminalOpt.pty = true
-				case "f", "emu": //DEPRECATED: "f" // update readme
-					erow.terminalOpt.emulate = true
-				case "k":
-					erow.terminalOpt.keybInput = true
+				if err := erow.applyTerminalOpt(k); err != nil {
+					// TODO: can't error like this since it will be outputing errors while typing an option (the parse is done on every input)
+					//erow.Ed.Error(err)
 				}
 			}
 		}
@@ -505,6 +497,51 @@ func (erow *ERow) setVarFontTheme(s string) error {
 	return nil
 }
 
+func (erow *ERow) applyTerminalOpt(opt string) error {
+	topt := &erow.terminalOpt
+
+	opt = strings.ToLower(strings.TrimSpace(opt))
+
+	set := true
+	if strings.HasPrefix(opt, "no-") { // support negation
+		set = false
+		opt = opt[3:]
+	}
+
+	// aliases
+	alias := map[string]string{
+		"f":     "emuraw",
+		"k":     "kb",
+		"raw":   "emuraw",
+		"ui":    "emuui",
+		"plain": "emuplain",
+	}
+	if a, ok := alias[opt]; ok {
+		opt = a
+	}
+
+	switch opt {
+	case "pty":
+		topt.pty = set
+	case "emuraw":
+		return topt.topts.Mode.SetBool(set, termemu.ModeRaw)
+	case "emuplain":
+		return topt.topts.Mode.SetBool(set, termemu.ModePlain)
+	case "emuui":
+		return topt.topts.Mode.SetBool(set, termemu.ModeUI)
+	case "kb":
+		topt.forwardKb = set
+	case "mouse":
+		topt.forwardMouse = set
+	case "debug":
+		topt.topts.Debug = true
+	default:
+		return fmt.Errorf("unknown $terminal option: %q\n\t%s", opt, erow.Info.Name())
+	}
+
+	return nil
+}
+
 //----------
 
 // Not UI safe.
@@ -537,10 +574,6 @@ func (erow *ERow) AppendBytesClearHistory2(p []byte) error {
 //----------
 
 func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
-	//if erow.terminalOpt.On() {
-	//	return NewTerminalFilter(erow)
-	//}
-
 	// synced writer to slow down memory usage
 	w := iout.FnWriter(func(b []byte) (int, error) {
 		var err error
@@ -551,13 +584,14 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 	})
 	// buffered for performance, which needs timed output (auto-flush)
 	wc := iout.NewAutoBufWriter(w, 4096*2)
+	//wc := &iout.RWC{nil, w, iout.FnCloser(func() error { return nil })} // DEBUG: no buffer
 
 	// setup closer
 	cl := io.Closer(wc)
 
 	// setup reader
 	rd := (io.Reader)(nil)
-	if erow.terminalOpt.keybInput {
+	if erow.terminalOpt.forwardKb {
 		tard := newTextareaReader(erow.Row.TextArea)
 		tard.handleKeybInput = true
 		rd = io.Reader(tard)
@@ -572,15 +606,10 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 		})
 	}
 
-	type iorwc struct {
-		io.Reader
-		io.Writer
-		io.Closer
-	}
-	rwc := io.ReadWriteCloser(&iorwc{rd, wc, cl})
+	rwc := io.ReadWriteCloser(&iout.RWC{rd, wc, cl})
 
-	if erow.terminalOpt.emulate {
-		te := termemu.NewEmu(rwc, termemu.Opts{})
+	if erow.terminalOpt.topts.Mode.On() {
+		te := termemu.NewEmu(rwc, erow.terminalOpt.topts)
 		go erow.handleTermEmuEvents(te)
 		rwc = te
 	}
@@ -599,7 +628,6 @@ func (erow *ERow) handleTermEmuEvents(te *termemu.Emu) {
 			break
 		case "repaint":
 			erow.paintTermScreen(te)
-			erow.Row.TextArea.SetCursorIndex(0)
 		default:
 			fmt.Println("erow.termemu: todo", ev)
 		}
@@ -607,8 +635,10 @@ func (erow *ERow) handleTermEmuEvents(te *termemu.Emu) {
 }
 func (erow *ERow) paintTermScreen(te *termemu.Emu) {
 	scr := te.Snapshot()
-	b := scr.Bytes(true, true)
+	b := scr.Bytes(false, true)
 	erow.Row.TextArea.SetBytesClearHistory(b)
+	erow.Row.TextArea.SetCursorIndex(0)
+
 	//erow.Row.TextArea.MarkNeedsPaint()
 	//erow.Row.TextArea.AppendBytesClearHistory(buf.Bytes())
 }
@@ -719,12 +749,8 @@ func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
 //----------
 
 type terminalOpt struct {
-	pty       bool
-	emulate   bool
-	keybInput bool
-	//mouseInput bool // TODO
-}
-
-func (t *terminalOpt) On() bool {
-	return t.emulate || t.keybInput || t.pty
+	pty          bool // run under a pseudo-terminal
+	forwardKb    bool // forward keyboard events to the process
+	forwardMouse bool // forward mouse events to the process
+	topts        termemu.Opts
 }

@@ -34,6 +34,7 @@ func NewScreen(w, h int) *Screen {
 	s.sTop, s.sBot = 0, h-1
 
 	s.modes = *NewModes()
+	s.modes.set(7, true)  // autowrap
 	s.modes.set(25, true) // cursor
 	return s
 }

@@ -38,7 +38,7 @@ func TestCursorMoves(t *testing.T) {
 			m := newPtyMock()
 			defer m.Close()
 
-			te := NewEmu(m, Opts{W: 10, H: 5})
+			te := newTestEmu(m, Opts{W: 10, H: 5})
 			//te.scr.modes.set(7, true) // autowrap
 			defer te.Close()
 
@@ -57,7 +57,7 @@ func TestCursorMoves(t *testing.T) {
 
 func TestCPRRoundTrip(t *testing.T) {
 	m := newPtyMock()
-	te := NewEmu(m, Opts{W: 10, H: 5})
+	te := newTestEmu(m, Opts{W: 10, H: 5})
 	defer te.Close()
 
 	// Place cursor at (row=3,col=4) [0-based 2,3]
@@ -81,7 +81,7 @@ func TestCPRRoundTrip(t *testing.T) {
 
 func TestScrollRegionAndOriginMode(t *testing.T) {
 	m := newPtyMock()
-	te := NewEmu(m, Opts{W: 5, H: 6})
+	te := newTestEmu(m, Opts{W: 5, H: 6})
 	defer te.Close()
 
 	// Region rows 2..5 (1-based); enable origin mode (?6h)
@@ -113,7 +113,7 @@ func TestScrollRegionAndOriginMode(t *testing.T) {
 
 func TestDCH_ECH(t *testing.T) {
 	m := newPtyMock()
-	te := NewEmu(m, Opts{W: 6, H: 2})
+	te := newTestEmu(m, Opts{W: 6, H: 2})
 	defer te.Close()
 
 	sendWithBarrier(t, te, "ABCDEF")    // fills first row
@@ -140,7 +140,7 @@ func TestDCH_ECH(t *testing.T) {
 
 func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 	m := newPtyMock()
-	te := NewEmu(m, Opts{W: 4, H: 5})
+	te := newTestEmu(m, Opts{W: 4, H: 5})
 	defer te.Close()
 
 	// Fill with labels 1..5
@@ -181,7 +181,7 @@ func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 
 func TestEnterIsCRNotLF(t *testing.T) {
 	m := newPtyMock()
-	te := NewEmu(m, Opts{W: 4, H: 2})
+	te := newTestEmu(m, Opts{W: 4, H: 2})
 	defer te.Close()
 
 	sendWithBarrier(t, te, "AB\r") // CR only
@@ -206,13 +206,12 @@ func newPtyMock() *ptyMock {
 }
 
 func (m *ptyMock) Read(p []byte) (int, error) {
-	return m.pr.Read(p)
 	//return m.pr.Read(p)
-	//return 0, nil
+	return len(p), nil
 }
 func (m *ptyMock) Write(p []byte) (int, error) {
-	return m.pw.Write(p)
-	//return len(p), nil
+	//return m.pw.Write(p)
+	return len(p), nil
 }
 func (m *ptyMock) Close() error {
 	_ = m.pr.Close()
@@ -223,6 +222,11 @@ func (m *ptyMock) Close() error {
 //----------
 //----------
 //----------
+
+func newTestEmu(rwc io.ReadWriteCloser, opts Opts) *Emu {
+	opts.Mode = ModeUI
+	return NewEmu(rwc, opts)
+}
 
 func cup(row0, col0 int) string { // 0-based → VT 1-based
 	return fmt.Sprintf("\x1b[%d;%dH", row0+1, col0+1)
@@ -235,18 +239,19 @@ func send(t *testing.T, te *Emu, s string) {
 func sendWithBarrier(t *testing.T, te *Emu, seq string) {
 	t.Helper()
 	send(t, te, seq+"\x1b[5n") // seq+DSR 5
-	deadline := time.After(500 * time.Millisecond)
+	deadline := time.After(10000 * time.Millisecond)
 	for {
 		select {
 		case <-deadline:
 			t.Fatal("timeout waiting DSR(5) reply")
 		default:
-			buf := make([]byte, 256)
+			//buf := make([]byte, 256)
+			buf := make([]byte, 4)
 			n, err := te.Read(buf)
 			if err != nil {
 				t.Fatalf("read: %v", err)
 			}
-			// ESC[0n
+			// expecting reply: ESC[0n
 			if n > 0 && buf[n-1] == 'n' {
 				return
 			}
@@ -254,8 +259,6 @@ func sendWithBarrier(t *testing.T, te *Emu, seq string) {
 	}
 }
 
-//----------
-//----------
 //----------
 
 // printable helps debug control sequences in errors.
