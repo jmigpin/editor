@@ -13,8 +13,9 @@ type Annotations struct {
 }
 
 func (ann *Annotations) Init() {
-	size2 := ann.d.st.runeR.fface.Size * 0.70
-	ann.notesFFace = ann.d.st.runeR.fface.Font.FontFace2(size2)
+	fopts := ann.d.st.runeR.fface.Opts // copy
+	fopts.SetSize(fopts.Size() * 0.70)
+	ann.notesFFace = ann.d.st.runeR.fface.Font.FontFace(fopts)
 
 	if ann.d.Opt.Annotations.Entries != nil {
 		ann.d.Opt.Annotations.Entries.RLock()

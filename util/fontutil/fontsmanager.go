@@ -17,9 +17,10 @@ func DefaultFont() *Font {
 }
 
 func DefaultFontFace() *FontFace {
-	f := DefaultFont()
-	opt := opentype.FaceOptions{} // defaults: size=12, dpi=72, ~14px
-	return f.FontFace(opt)
+	return DefaultFont().FontFace(DefaultFaceOptions())
+}
+func DefaultFaceOptions() FaceOptions {
+	return NewFaceOptions(12, 72)
 }
 
 //----------
@@ -72,32 +73,17 @@ func NewFont(ttf []byte) (*Font, error) {
 
 	return f, nil
 }
-
 func (f *Font) ClearFacesCache() {
 	f.facesCache = map[opentype.FaceOptions]*FontFace{}
 }
-
-func (f *Font) FontFace(opt opentype.FaceOptions) *FontFace {
-	// avoid divide by zero; also ensure face.metrics() works
-	if opt.Size == 0 {
-		opt.Size = 12 // internal opentype default
-	}
-	if opt.DPI == 0 {
-		opt.DPI = 72
-	}
-
-	ff, ok := f.facesCache[opt]
+func (f *Font) FontFace(fopts FaceOptions) *FontFace {
+	ff, ok := f.facesCache[fopts.opts]
 	if ok {
 		return ff
 	}
-	ff = NewFontFace(f, opt)
-	f.facesCache[opt] = ff
+	ff = NewFontFace(f, fopts)
+	f.facesCache[fopts.opts] = ff
 	return ff
-}
-
-func (f *Font) FontFace2(size float64) *FontFace {
-	opt := opentype.FaceOptions{Size: size}
-	return f.FontFace(opt)
 }
 
 //----------
@@ -105,23 +91,15 @@ func (f *Font) FontFace2(size float64) *FontFace {
 type FontFace struct {
 	Font    *Font
 	Face    font.Face
-	Size    float64 // in points, readonly
+	Opts    FaceOptions // readonly, make copy and change
 	Metrics *font.Metrics
 
 	lineHeight fixed.Int26_6
 	baselineY  fixed.Int26_6
 }
 
-func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
-	// should be set from font.fontface
-	if opt.Size == 0 || opt.DPI == 0 {
-		panic("!")
-	}
-
-	face, err := opentype.NewFace(font.Font, &opt)
-	if err != nil { // currently, no error is being returned
-		panic(err)
-	}
+func NewFontFace(font *Font, fopts FaceOptions) *FontFace {
+	face := mustNewFace(font.Font, &fopts.opts)
 
 	face = NewFaceRunes(face)
 	// TODO: allow cache choice
@@ -129,7 +107,7 @@ func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
 	face = NewFaceCacheL(face) // safe for concurrent calls
 	//face = NewFaceCacheL2(face)
 
-	ff := &FontFace{Font: font, Face: face, Size: opt.Size}
+	ff := &FontFace{Font: font, Face: face, Opts: fopts}
 	m := face.Metrics()
 	ff.Metrics = &m
 
@@ -144,7 +122,6 @@ func NewFontFace(font *Font, opt opentype.FaceOptions) *FontFace {
 
 	return ff
 }
-
 func (ff *FontFace) LineHeight() fixed.Int26_6 {
 	return ff.lineHeight
 }
@@ -157,4 +134,45 @@ func (ff *FontFace) LineHeightFloat() float64 {
 
 func (ff *FontFace) BaseLine() fixed.Point26_6 {
 	return fixed.Point26_6{0, ff.baselineY}
+}
+
+//----------
+//----------
+//----------
+
+func mustNewFace(font *opentype.Font, fopts *opentype.FaceOptions) font.Face {
+	face, err := opentype.NewFace(font, fopts)
+	if err != nil {
+		panic(err) // TODO: opentype.newface() doesn't return errors for now
+	}
+	return face
+}
+
+//----------
+
+// avoid zero value in size/dpi by forcing set funcs; use existing copies
+type FaceOptions struct {
+	opts opentype.FaceOptions
+}
+
+func NewFaceOptions(size, dpi float64) FaceOptions {
+	o := FaceOptions{}
+	o.SetSize(size)
+	o.SetDPI(dpi)
+	return o
+}
+func (o *FaceOptions) Size() float64 {
+	return o.opts.Size
+}
+func (o *FaceOptions) DPI() float64 {
+	return o.opts.DPI
+}
+func (o *FaceOptions) SetSize(v float64) {
+	o.opts.Size = max(0.1, v)
+}
+func (o *FaceOptions) SetDPI(v float64) {
+	o.opts.DPI = max(0.1, v)
+}
+func (o *FaceOptions) SetHinting(h font.Hinting) {
+	o.opts.Hinting = h
 }

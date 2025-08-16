@@ -455,7 +455,7 @@ func (erow *ERow) parseToolbarVars() {
 
 func (erow *ERow) setVarFontTheme(s string) error {
 	w := strings.SplitN(s, ",", 2)
-	name := w[0]
+	name := strings.TrimSpace(w[0])
 
 	// font size arg
 	size := float64(0)
@@ -469,11 +469,25 @@ func (erow *ERow) setVarFontTheme(s string) error {
 		}
 	}
 
-	ff, err := ui.ThemeFontFace2(name, size)
+	ta := erow.Row.TextArea
+
+	// use parent node face options (might contain dpi)
+	face := ta.Parent.TreeThemeFontFace()
+	fopts2 := face.Opts // copy
+	fopts2.SetSize(size)
+
+	// change only size if name not provided
+	if len(name) == 0 {
+		ff := face.Font.FontFace(fopts2)
+		ta.SetThemeFontFace(ff)
+		return nil
+	}
+
+	ff, err := ui.ThemeFontFace2(name, fopts2)
 	if err != nil {
 		return err
 	}
-	erow.Row.TextArea.SetThemeFontFace(ff)
+	ta.SetThemeFontFace(ff)
 	return nil
 }
 

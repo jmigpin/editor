@@ -12,7 +12,6 @@ import (
 	"golang.org/x/image/font/gofont/gomedium"
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
-	"golang.org/x/image/font/opentype"
 )
 
 var ScrollBarLeft = true
@@ -279,12 +278,12 @@ func loadThemeFont(name string, node widget.Node) error {
 
 //----------
 
-var FontFaceOptions opentype.FaceOptions
+var FontFaceOptions fontutil.FaceOptions
 
 func ThemeFontFace(name string) (*fontutil.FontFace, error) {
-	return ThemeFontFace2(name, 0)
+	return ThemeFontFace2(name, FontFaceOptions)
 }
-func ThemeFontFace2(name string, size float64) (*fontutil.FontFace, error) {
+func ThemeFontFace2(name string, fopts fontutil.FaceOptions) (*fontutil.FontFace, error) {
 	b, err := fontBytes(name)
 	if err != nil {
 		return nil, err
@@ -293,11 +292,7 @@ func ThemeFontFace2(name string, size float64) (*fontutil.FontFace, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt := FontFaceOptions // copy
-	if size != 0 {
-		opt.Size = size
-	}
-	return f.FontFace(opt), nil
+	return f.FontFace(fopts), nil
 }
 
 func fontBytes(name string) ([]byte, error) {
