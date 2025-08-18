@@ -23,7 +23,7 @@ func ExternalCmd(erow *ERow, part *toolbarparser.Part) {
 }
 
 func ExternalCmdFromArgs(erow *ERow, cargs []string, fend func(error), env []string) {
-	env = append(env, populateEdEnvVars(erow, cargs)...)
+	env = append(env, detectedEdEnvVars(erow, cargs)...)
 
 	switch {
 	case erow.Info.IsDir():
@@ -64,14 +64,21 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 	}
 
 	c := osutil.NewCmdI2(cargs)
-	c = osutil.NewNoHangPipeCmd(c)
-	c = osutil.NewCtxCmd(ctx, c)
+	if erow.terminalOpt.pty {
+		c = osutil.NewPtyCmd(c) // first, to run start first and wrap everything in a pty
+		//e := &c.Cmd().Env
+		//*e = append(*e, termemu.TermEnv)
+	} else {
+		c = osutil.NewNoHangPipeCmd(c)
+	}
 	c = osutil.NewShellCmd(c, true)
 	c = osutil.NewPausedWritersCmd(c, printPid)
+	c = osutil.NewPrependOsEnvCmd(c)
+	c = osutil.NewCtxCmd(ctx, c) // last, to run wait first, such that a ctx cancel sends a proc kill
 
 	cmd := c.Cmd()
 	cmd.Dir = erow.Info.Name()
-	cmd.Env = env
+	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdin = rw
 	cmd.Stdout = rw
 	cmd.Stderr = rw
@@ -102,7 +109,7 @@ func cmdPartArgs(part *toolbarparser.Part) []string {
 //----------
 //----------
 
-func populateEdEnvVars(erow *ERow, cargs []string) []string {
+func detectedEdEnvVars(erow *ERow, cargs []string) []string {
 	// Can't use os.Expand() to replace (and show the values in cargs) since the idea is for the variable to be available in scripting if wanted.
 
 	// supported env vars
@@ -125,7 +132,7 @@ func populateEdEnvVars(erow *ERow, cargs []string) []string {
 	m["edLine"] = m["edFileLine"]
 
 	// populate env vars only if detected
-	env := os.Environ()
+	env := []string{}
 	for k, v := range m {
 		for _, s := range cargs {
 			if parseutil.DetectEnvVar(s, k) {

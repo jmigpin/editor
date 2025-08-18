@@ -16,11 +16,26 @@ const EscapeRune = '\\'
 
 //----------
 
-func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &unix.SysProcAttr{Setsid: true}
+func ProcAttrSetDefaults(cmd *exec.Cmd) {
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &unix.SysProcAttr{}
+	}
+	// set new group
+	cmd.SysProcAttr.Setpgid = true
 }
 
-func KillExecCmd(cmd *exec.Cmd) error {
+func ProcAttrSetControllingTTY(cmd *exec.Cmd) {
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &unix.SysProcAttr{}
+	}
+	// Setsid=true: the child does setsid(). It becomes session leader, gets a new process group, and drops any existing controlling TTY. This is required before it can receive a new controlling terminal.
+	cmd.SysProcAttr.Setsid = true
+	cmd.SysProcAttr.Setpgid = false // ensure or it can fail
+	// Setctty=true: after setsid(), the kernel does TIOCSCTTY on fd 0 of the child. Because fd 0/1/2 is wired to the PTY slave, this makes that PTY the child’s controlling TTY.
+	cmd.SysProcAttr.Setctty = true
+}
+
+func ProcKill(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return fmt.Errorf("process is nil")
 	}

@@ -438,6 +438,8 @@ func (erow *ERow) parseToolbarVars() {
 			u := strings.Split(v, ",")
 			for _, k := range u {
 				switch k {
+				case "pty":
+					erow.terminalOpt.pty = true
 				case "f":
 					erow.terminalOpt.filter = true
 				case "k":
@@ -665,6 +667,7 @@ func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
 //----------
 
 type terminalOpt struct {
+	pty       bool
 	filter    bool
 	keyEvents bool
 }

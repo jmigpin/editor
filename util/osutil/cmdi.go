@@ -6,13 +6,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/creack/pty"
 	"github.com/jmigpin/editor/util/iout"
+	"golang.org/x/term"
 )
+
+// NOTES on cmdi chain
+// 	inside constructor, the first runs first
+// 	inside start/wait, the first runs last
+// 	ex: ctxcmd should be the last, such that its wait runs first and is able to send proc kill on ctx cancel
 
 type CmdI interface {
 	Cmd() *exec.Cmd
@@ -27,6 +35,7 @@ type CmdI interface {
 func NewCmdI(cmd *exec.Cmd) CmdI {
 	return NewBasicCmd(cmd)
 }
+
 func NewCmdI2(args []string) CmdI {
 	cmd := exec.Command(args[0], args[1:]...)
 	return NewBasicCmd(cmd)
@@ -51,6 +60,7 @@ type BasicCmd struct {
 }
 
 func NewBasicCmd(cmd *exec.Cmd) *BasicCmd {
+	ProcAttrSetDefaults(cmd)
 	return &BasicCmd{cmd: cmd}
 }
 func (c *BasicCmd) Cmd() *exec.Cmd {
@@ -111,11 +121,7 @@ type CtxCmd struct {
 }
 
 func NewCtxCmd(ctx context.Context, cmdi CmdI) *CtxCmd {
-	c := &CtxCmd{CmdI: cmdi, ctx: ctx}
-
-	SetupExecCmdSysProcAttr(c.CmdI.Cmd())
-
-	return c
+	return &CtxCmd{CmdI: cmdi, ctx: ctx}
 }
 func (c *CtxCmd) Start() error {
 	return c.CmdI.Start()
@@ -129,7 +135,7 @@ func (c *CtxCmd) Wait() error {
 	case err := <-waitCh:
 		return err
 	case <-c.ctx.Done():
-		_ = KillExecCmd(c.CmdI.Cmd())
+		_ = ProcKill(c.CmdI.Cmd())
 
 		// wait for the possibility of wait returning after kill
 		timeout := 3 * time.Second
@@ -314,6 +320,117 @@ func (c *OnWaitDoneCmd) Start() error {
 }
 func (c *OnWaitDoneCmd) Wait() error {
 	return <-c.ch
+}
+
+//----------
+//----------
+//----------
+
+// NOTE: implementing emulators should add $TERM to env (ex: "TERM=vt100")
+type PtyCmd struct {
+	CmdI
+	ptm     *os.File // master
+	pts     *os.File // slave
+	writing sync.WaitGroup
+
+	restoreState *term.State
+}
+
+func NewPtyCmd(cmdi CmdI) *PtyCmd {
+	ProcAttrSetControllingTTY(cmdi.Cmd())
+	return &PtyCmd{CmdI: cmdi}
+}
+
+func (c *PtyCmd) Start() error {
+	ptm, pts, err := pty.Open()
+	if err != nil {
+		return err
+	}
+	c.ptm, c.pts = ptm, pts
+
+	defer c.pts.Close() // parent keeps only the master
+	earlyErrClose := func() {
+		_ = c.ptm.Close()
+	}
+
+	// TODO: syscall.SIGWINCH
+	// TODO: pty.Start
+
+	// TODO: custom sizes
+	ws := &pty.Winsize{25, 80, 800, 600}
+	if err := pty.Setsize(ptm, ws); err != nil {
+		earlyErrClose()
+		return err
+	}
+
+	if st, err := term.MakeRaw(int(pts.Fd())); err != nil {
+		earlyErrClose()
+		return err
+	} else {
+		c.restoreState = st
+	}
+
+	cmd := c.Cmd()
+
+	// wrap stdin [origin->(ptm,pts)->cmd]
+	if cmd.Stdin != nil {
+		r := cmd.Stdin
+		go func() {
+			_, _ = io.Copy(c.ptm, r)
+		}()
+		cmd.Stdin = c.pts
+	}
+
+	// wrap stdout/stderr [cmd->(pts,ptm)->origin]
+	outs := []io.Writer{}
+	if cmd.Stdout != nil {
+		outs = append(outs, cmd.Stdout)
+	}
+	//if cmd.Stderr != nil {
+	//	outs = append(outs, cmd.Stderr)
+	//}
+	if len(outs) > 0 {
+		mw := io.MultiWriter(outs...)
+		c.writing.Add(1)
+		go func() {
+			defer c.writing.Done()
+			_, _ = io.Copy(mw, c.ptm)
+		}()
+	}
+	cmd.Stdout, cmd.Stderr = c.pts, c.pts
+
+	if err := c.CmdI.Start(); err != nil {
+		earlyErrClose()
+		return err
+	}
+	return nil
+}
+
+func (c *PtyCmd) Wait() error {
+	err := c.CmdI.Wait()
+	_ = term.Restore(int(c.pts.Fd()), c.restoreState)
+	_ = c.ptm.Close()
+	c.writing.Wait()
+	return err
+}
+
+//----------
+//----------
+//----------
+
+type PrependOsEnvCmd struct {
+	CmdI
+}
+
+func NewPrependOsEnvCmd(cmdi CmdI) *PrependOsEnvCmd {
+	return &PrependOsEnvCmd{CmdI: cmdi}
+}
+
+func (c *PrependOsEnvCmd) Start() error {
+	cmd := c.Cmd()
+	env := os.Environ()
+	cmd.Env = append(env, cmd.Env...)
+	return c.CmdI.Start()
 }
 
 //----------

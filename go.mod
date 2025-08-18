@@ -3,6 +3,7 @@ module github.com/jmigpin/editor
 go 1.24.0
 
 require (
+	github.com/creack/pty v1.1.24
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/jezek/xgb v1.1.1

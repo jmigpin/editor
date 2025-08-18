@@ -16,14 +16,20 @@ const EscapeRune = '^'
 
 //----------
 
-func SetupExecCmdSysProcAttr(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &windows.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+func ProcAttrSetDefaults(cmd *exec.Cmd) {
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &windows.SysProcAttr{}
 	}
+	cmd.SysProcAttr.HideWindow = true
+	cmd.SysProcAttr.CreationFlags |= windows.CREATE_NO_WINDOW
+	cmd.SysProcAttr.CreationFlags |= windows.CREATE_NEW_PROCESS_GROUP
 }
 
-func KillExecCmd(cmd *exec.Cmd) error {
+func ProcAttrSetControllingTTY(cmd *exec.Cmd) {
+	// NOOP
+}
+
+func ProcKill(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return fmt.Errorf("process is nil")
 	}
