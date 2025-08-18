@@ -418,25 +418,6 @@ func (c *PtyCmd) Wait() error {
 //----------
 //----------
 
-type PrependOsEnvCmd struct {
-	CmdI
-}
-
-func NewPrependOsEnvCmd(cmdi CmdI) *PrependOsEnvCmd {
-	return &PrependOsEnvCmd{CmdI: cmdi}
-}
-
-func (c *PrependOsEnvCmd) Start() error {
-	cmd := c.Cmd()
-	env := os.Environ()
-	cmd.Env = append(env, cmd.Env...)
-	return c.CmdI.Start()
-}
-
-//----------
-//----------
-//----------
-
 func RunCmdI(ci CmdI) error {
 	if err := ci.Start(); err != nil {
 		return err

@@ -67,15 +67,13 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 	c := osutil.NewCmdI2(cargs)
 	if erow.terminalOpt.pty {
 		c = osutil.NewPtyCmd(c) // first, to run start first and wrap everything in a pty
-		// TODO: should be applied only if emulator on
-		e := &c.Cmd().Env
-		*e = append(*e, termemu.TermEnv)
+		// TODO: should be added only if emulator on
+		env = append(env, termemu.TermEnv)
 	} else {
 		c = osutil.NewNoHangPipeCmd(c)
 	}
 	c = osutil.NewShellCmd(c, true)
 	c = osutil.NewPausedWritersCmd(c, printPid)
-	c = osutil.NewPrependOsEnvCmd(c)
 	c = osutil.NewCtxCmd(ctx, c) // last, to run wait first, such that a ctx cancel sends a proc kill
 
 	cmd := c.Cmd()
