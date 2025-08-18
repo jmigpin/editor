@@ -11,83 +11,97 @@ type Screen struct {
 	W, H int
 	Grid [][]Cell
 
-	Cursor     Cursor
-	curAttr    Attr
-	modes      Modes
-	wrapNext   bool // autowrap support
-	sTop, sBot int  // scrolling region [top..bottom], inclusive, 0-based // defaults to 0 and H-1
+	cursor  Cursor
+	curAttr Attr
+	modes   Modes
 
-	csiSavedCursor struct {
-		c  Cursor
-		ok bool
+	wrapNext bool // autowrap support
+
+	sTop, sBot int // scrolling region [top..bottom], inclusive, 0-based // defaults to 0 and H-1
+
+	tabStops []bool // len==W; true where a tab stop exists
+
+	csiSaveCursor        SaveCursor
+	escSaveCursorAndAttr struct {
+		SaveCursor
+		attr Attr
 	}
 }
 
 func NewScreen(w, h int) *Screen {
-	s := &Screen{W: w, H: h}
+	s := &Screen{}
+	s.resize(w, h)
+	s.modes = *NewModes()
+	return s
+}
 
-	s.Grid = make([][]Cell, h)
-	for i := range s.Grid {
-		s.Grid[i] = make([]Cell, w)
+func (s *Screen) resize(w, h int) {
+	s.W, s.H = w, h
+
+	// adjust size by keeping existing data
+	if len(s.Grid) != s.H {
+		u := make([][]Cell, s.H)
+		copy(u, s.Grid)
+		s.Grid = u
+	}
+	if len(s.Grid[0]) != s.W {
+		for y := range s.Grid {
+			u := make([]Cell, s.W)
+			copy(u, s.Grid[y])
+			s.Grid[y] = u
+		}
 	}
 
-	s.sTop, s.sBot = 0, h-1
+	s.sTop, s.sBot = 0, s.H-1
+	s.setCursorYX(s.cursor.y, s.cursor.x) // clamp cursor
+	s.initTabStops()
+}
 
-	s.modes = *NewModes()
-	s.modes.set(7, true)  // autowrap
-	s.modes.set(25, true) // cursor
-	return s
+func (s *Screen) Clone() *Screen {
+	s2 := *s // copy
+	s2.Grid = cloneGrid(s2.Grid)
+	return &s2
 }
 
 //----------
 
-func (s *Screen) Clone() *Screen {
-	cp := *s // copy
-	cp.Grid = cloneGrid(cp.Grid)
-	return &cp
-}
-
-func (s *Screen) PutRune(r rune) {
-	if r == 0 {
-		return
-	}
-	if r == '\t' {
-		r = ' '
-	}
-
+func (s *Screen) putRune(r rune) {
 	// apply pending wrap first
 	if s.wrapNext {
-		s.wrapNext = false
-		s.Cursor.X = 0
-		s.LF() // scrolls inside region
+		s.cancelWrap()
+		s.carriageReturn()
+		s.lineFeed() // respects inside region
 	}
 
-	s.Grid[s.Cursor.Y][s.Cursor.X] = Cell{R: r, A: s.curAttr}
+	s.Grid[s.cursor.y][s.cursor.x] = Cell{R: r, A: s.curAttr}
 
-	if s.Cursor.X >= s.W-1 {
+	if s.cursor.x >= s.W-1 {
 		if s.modes.AutoWrap() {
 			// do not move now; set wrap for the *next* printable
 			s.wrapNext = true
 		} // else: stay at last column, overwrite subsequent prints
 	} else {
-		s.Cursor.X++
+		s.cursor.x++
 	}
 }
 
 //----------
 
-func (s *Screen) CR() {
-	s.wrapNext = false
-
-	s.Cursor.X = 0
+func (s *Screen) carriageReturn() {
+	s.cancelWrap()
+	s.cursor.x = 0
 }
 
 // move down one line, scrolling **inside the region**
-func (s *Screen) LF() {
-	s.wrapNext = false
+func (s *Screen) lineFeed() {
+	s.cancelWrap()
 
-	if s.Cursor.Y < s.sBot {
-		s.Cursor.Y++
+	if s.modes.LineFeedNewlineMode() {
+		s.carriageReturn()
+	}
+
+	if s.cursor.y < s.sBot {
+		s.cursor.y++
 		return
 	}
 	// at bottom margin: scroll region up
@@ -95,68 +109,168 @@ func (s *Screen) LF() {
 		s.scrollUpRegion(s.sTop, s.sBot)
 	}
 	// cursor stays on bottom margin
-	s.Cursor.Y = s.sBot
+	s.cursor.y = s.sBot
 }
 
-// Reverse Index (move up), scrolling **inside the region**.
-func (s *Screen) RI() {
-	s.wrapNext = false
-
-	if s.Cursor.Y > s.sTop {
-		s.Cursor.Y--
-		return
-	}
-	// at top margin: scroll region down
-	if s.sTop < s.sBot {
-		s.scrollDownRegion(s.sTop, s.sBot)
-	}
-	// cursor stays on top margin
-	s.Cursor.Y = s.sTop
-}
-
-func (s *Screen) BS() {
-	s.wrapNext = false
-
-	if s.Cursor.X > 0 {
-		s.Cursor.X--
-	}
+func (s *Screen) backspace() {
+	s.moveRel(0, -1)
 }
 
 //----------
 
-func (s *Screen) MoveTo(row1, col1 int) { // 1-based
-	s.wrapNext = false
-	s.MoveToRow(row1)
-	s.MoveToCol(col1)
+func (s *Screen) moveTo(row1, col1 int) { // 1-based
+	s.cancelWrap()
+	s.moveToRow(row1)
+	s.moveToCol(col1)
 }
-func (s *Screen) MoveToRow(row1 int) { // 1-based
-	s.wrapNext = false
+func (s *Screen) moveToRow(row1 int) { // 1-based
+	s.cancelWrap()
 	s.setCursorY(row1 - 1)
 }
-func (s *Screen) MoveToCol(col1 int) { // 1-based
-	s.wrapNext = false
+func (s *Screen) moveToCol(col1 int) { // 1-based
+	s.cancelWrap()
 	s.setCursorX(col1 - 1)
 }
 
-func (s *Screen) MoveRel(dy, dx int) {
-	s.wrapNext = false
-	s.setCursorYX(s.Cursor.Y+dy, s.Cursor.X+dx)
+func (s *Screen) moveRel(dy, dx int) {
+	s.cancelWrap()
+	s.setCursorYX(s.cursor.y+dy, s.cursor.x+dx)
+}
+
+func (s *Screen) moveToOrigin() {
+	if s.modes.Origin() { // TODO: only if currently inside the region?
+		top1, _ := s.region()
+		s.moveTo(top1, 1)
+	} else {
+		s.moveTo(1, 1)
+	}
 }
 
 //----------
 
-func (s *Screen) EraseDisplay(mode int) {
+func (s *Screen) cancelWrap() {
+	s.wrapNext = false
+}
+
+func (s *Screen) clearLine(y int) {
+	s.clearCells(s.Grid[y])
+}
+
+func (s *Screen) clearCells(w []Cell) {
+	for i := range w {
+		// blank
+		//w[i].R = 0
+		//w[i].R = ' '
+		w[i] = Cell{}
+		//w[i] = Cell{Attr:s.curAttr}
+	}
+}
+
+//----------
+
+func (s *Screen) setCursorYX(y, x int) {
+	s.setCursorY(y)
+	s.setCursorX(x)
+}
+func (s *Screen) setCursorY(y int) {
+	s.cursor.y = clamp(y, 0, s.H-1)
+}
+func (s *Screen) setCursorX(x int) {
+	s.cursor.x = clamp(x, 0, s.W-1)
+}
+
+//----------
+
+// It clamps to the screen and ensures top<=bot. Caller may want to move the cursor to (top0,0) if emulating DECSTBM semantics.
+func (s *Screen) setScrollRegion(top1, bot1 int) {
+	top := clamp(top1-1, 0, s.H-1)
+	bot := clamp(bot1-1, 0, s.H-1)
+	if top > bot {
+		top, bot = 0, s.H-1
+	}
+	s.sTop, s.sBot = top, bot
+}
+
+func (s *Screen) resetScrollRegion() {
+	s.sTop, s.sBot = 0, s.H-1
+}
+
+// region returns current [top..bottom], inclusive.
+func (s *Screen) region() (int, int) {
+	return s.sTop, s.sBot
+}
+
+func (s *Screen) scrollUpRegion(top, bot int) {
+	// move rows [top+1..bot] up by 1
+	copy(s.Grid[top:bot], cloneGrid(s.Grid[top+1:bot+1]))
+	// clear bottom row
+	s.clearCells(s.Grid[bot])
+}
+
+func (s *Screen) scrollDownRegion(top, bot int) {
+	// move rows [top..bot-1] down by 1
+	copy(s.Grid[top+1:bot+1], cloneGrid(s.Grid[top:bot]))
+	// clear top row
+	s.clearCells(s.Grid[top])
+}
+
+//----------
+
+func (s *Screen) initTabStops() {
+	s.tabStops = make([]bool, s.W)
+	for x := 8; x < s.W; x += 8 { // every 8 cols
+		s.tabStops[x] = true
+	}
+}
+
+func (s *Screen) nextTabX(x int) int {
+	for i := x + 1; i < s.W; i++ {
+		if s.tabStops[i] {
+			return i
+		}
+	}
+	return s.W - 1
+}
+func (s *Screen) prevTabX(x int) int {
+	for i := x - 1; i >= 0; i-- {
+		if s.tabStops[i] {
+			return i
+		}
+	}
+	return 0
+}
+
+//----------
+//----------
+
+func (s *Screen) csiCuu_cursorUp(v int) {
+	s.moveRel(-v, 0)
+}
+func (s *Screen) csiCud_cursorDown(v int) {
+	s.moveRel(v, 0)
+	//for i := 0; i < op.csiADef(1); i++ {
+	//	s.lineFeed()
+	//}
+}
+func (s *Screen) csiCuf_cursorForward(v int) {
+	s.moveRel(0, v)
+}
+func (s *Screen) csiCub_cursorBackward(v int) {
+	s.moveRel(0, -v)
+}
+
+func (s *Screen) csiEd_eraseInDisplay(mode int) {
 	switch mode {
-	case 0: // cursor→end
-		s.EraseLine(0)
-		for y := s.Cursor.Y + 1; y < s.H; y++ {
+	case 0: // cursor to end
+		s.csiEl_eraseInLine(0)
+		for y := s.cursor.y + 1; y < s.H; y++ {
 			s.clearLine(y)
 		}
-	case 1: // home→cursor
-		for y := 0; y < s.Cursor.Y; y++ {
+	case 1: // home to cursor
+		for y := 0; y < s.cursor.y; y++ {
 			s.clearLine(y)
 		}
-		s.EraseLine(1)
+		s.csiEl_eraseInLine(1)
 	default: // 2 or others: entire screen
 		for y := 0; y < s.H; y++ {
 			s.clearLine(y)
@@ -164,23 +278,19 @@ func (s *Screen) EraseDisplay(mode int) {
 	}
 }
 
-func (s *Screen) EraseLine(mode int) {
-	y := s.Cursor.Y
+func (s *Screen) csiEl_eraseInLine(mode int) {
+	y := s.cursor.y
 	switch mode {
-	case 0: // cursor→end
-		for x := s.Cursor.X; x < s.W; x++ {
-			s.Grid[y][x] = Cell{}
-		}
-	case 1: // start→cursor
-		for x := 0; x <= s.Cursor.X; x++ {
-			s.Grid[y][x] = Cell{}
-		}
+	case 0: // cursor to end
+		s.clearCells(s.Grid[y][s.cursor.x:s.W])
+	case 1: // start to cursor
+		s.clearCells(s.Grid[y][0 : s.cursor.x+1])
 	default: // 2: whole line
 		s.clearLine(y)
 	}
 }
 
-func (s *Screen) SetSGR(params []int) {
+func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 	if len(params) == 0 {
 		s.curAttr = Attr{}
 		return
@@ -203,50 +313,8 @@ func (s *Screen) SetSGR(params []int) {
 	}
 }
 
-func (s *Screen) clearLine(y int) {
-	row := s.Grid[y]
-	for i := range row {
-		row[i] = Cell{}
-	}
-}
-
-//----------
-
-// It clamps to the screen and ensures top<=bot. Caller may want to move the cursor to (top0,0) if emulating DECSTBM semantics.
-func (s *Screen) SetScrollRegion(top1, bot1 int) {
-	top := clamp(top1-1, 0, s.H-1)
-	bot := clamp(bot1-1, 0, s.H-1)
-	if top > bot {
-		top, bot = 0, s.H-1
-	}
-	s.sTop, s.sBot = top, bot
-}
-
-func (s *Screen) ResetScrollRegion() { s.sTop, s.sBot = 0, s.H-1 }
-
-// Region returns current [top..bottom], inclusive.
-func (s *Screen) Region() (int, int) { return s.sTop, s.sBot }
-
-func (s *Screen) scrollUpRegion(top, bot int) {
-	// move rows [top+1..bot] up by 1
-	copy(s.Grid[top:bot], cloneGrid(s.Grid[top+1:bot+1]))
-	// clear bottom row
-	s.clearCells(s.Grid[bot])
-}
-
-func (s *Screen) scrollDownRegion(top, bot int) {
-	// move rows [top..bot-1] down by 1
-	copy(s.Grid[top+1:bot+1], cloneGrid(s.Grid[top:bot]))
-	// clear top row
-	s.clearCells(s.Grid[top])
-}
-
-//----------
-
-// In type Screen (0-based). DCH/ECH keep cursor, act on current line only.
-
-func (s *Screen) DeleteChars(n int) {
-	y, x := s.Cursor.Y, s.Cursor.X
+func (s *Screen) csiDch_deleteChars(n int) {
+	y, x := s.cursor.y, s.cursor.x
 
 	row := s.Grid[y]
 
@@ -266,8 +334,8 @@ func (s *Screen) DeleteChars(n int) {
 	s.clearCells(row[s.W-n : s.W])
 }
 
-func (s *Screen) EraseChars(n int) {
-	x, y := s.Cursor.X, s.Cursor.Y
+func (s *Screen) csiEch_eraseChars(n int) {
+	x, y := s.cursor.x, s.cursor.y
 
 	row := s.Grid[y]
 
@@ -275,17 +343,11 @@ func (s *Screen) EraseChars(n int) {
 	if end > s.W {
 		end = s.W
 	}
-	blank := Cell{R: ' ', A: s.curAttr}
-	for i := x; i < end; i++ {
-		row[i] = blank
-	}
+	s.clearCells(row[x:end])
 }
 
-//----------
-
-// cursor position report
-func (s *Screen) replyCPR() (int, int) {
-	y, x := s.Cursor.Y, s.Cursor.X
+func (s *Screen) csiCpr_cursorPositionReport() (int, int) {
+	y, x := s.cursor.y, s.cursor.x
 	top := s.sTop // 0-based region top
 
 	row1 := y + 1
@@ -299,40 +361,10 @@ func (s *Screen) replyCPR() (int, int) {
 	return row1, col1
 }
 
-//----------
-
-func (s *Screen) moveToOrigin(on bool) {
-	if on {
-		top, _ := s.Region()
-		s.MoveTo(top, 0) // (top, col 0)
-	} else {
-		s.MoveTo(0, 0)
-	}
-}
-
-//----------
-
-// SaveCursorPos implements CSI s (SCP).
-func (s *Screen) SaveCursorPos() {
-	s.csiSavedCursor.c = s.Cursor
-	s.csiSavedCursor.ok = true
-}
-
-// RestoreCursorPos implements CSI u (RCP).
-func (s *Screen) RestoreCursorPos() {
-	if !s.csiSavedCursor.ok {
-		return
-	}
-	c := s.csiSavedCursor.c
-	s.setCursorYX(c.Y, c.X)
-}
-
-//----------
-
-// insertLines/DL operate only if cursor is inside scroll region.
+// csiIl_insertLines/DL operate only if cursor is inside scroll region.
 // insert n blank lines at cursor row within [sTop..sBot].
-func (s *Screen) insertLines(n int) {
-	y := s.Cursor.Y
+func (s *Screen) csiIl_insertLines(n int) {
+	y := s.cursor.y
 
 	if y < s.sTop || y > s.sBot {
 		return
@@ -354,8 +386,8 @@ func (s *Screen) insertLines(n int) {
 }
 
 // delete n lines at cursor row within [sTop..sBot].
-func (s *Screen) deleteLines(n int) {
-	y := s.Cursor.Y
+func (s *Screen) csiDl_deleteLines(n int) {
+	y := s.cursor.y
 
 	if y < s.sTop || y > s.sBot {
 		return
@@ -376,9 +408,7 @@ func (s *Screen) deleteLines(n int) {
 	}
 }
 
-//----------
-
-func (s *Screen) scrollUp(n int) {
+func (s *Screen) csiSu_scrollUp(n int) {
 	if n <= 0 {
 		return
 	}
@@ -391,7 +421,7 @@ func (s *Screen) scrollUp(n int) {
 	}
 }
 
-func (s *Screen) scrollDown(n int) {
+func (s *Screen) csiSd_scrollDown(n int) {
 	if n <= 0 {
 		return
 	}
@@ -404,31 +434,111 @@ func (s *Screen) scrollDown(n int) {
 	}
 }
 
-//----------
-
-func (scr *Screen) clearCells(w []Cell) {
-	for i := range w {
-		// blank
-		//w[i].R = 0
-		w[i].R = ' '
-		//w[i] = Cell{}
-		//w[i] = Cell{Attr:scr.curAttr}
+func (s *Screen) csiCht_cursorHorizontalTab(n int) {
+	s.escHt_tab(n)
+}
+func (s *Screen) csiCbt_cursorBackwardTab(n int) {
+	if n <= 0 {
+		n = 1
+	}
+	s.cancelWrap()
+	for ; n > 0; n-- {
+		s.cursor.x = s.prevTabX(s.cursor.x)
+	}
+}
+func (s *Screen) csiTbc_tabClear(ps int) {
+	switch ps {
+	case 0: // at cursor
+		x := s.cursor.x
+		if 0 <= x && x < s.W {
+			s.tabStops[x] = false
+		}
+	case 3: // all
+		for i := range s.tabStops {
+			s.tabStops[i] = false
+		}
+	default:
+		// TBC 1/2 are rarely implemented; safely ignore.
 	}
 }
 
+func (s *Screen) csiScp_saveCursorPos() {
+	s.csiSaveCursor.save(s)
+}
+func (s *Screen) csiRcp_restoreCursorPos() {
+	s.csiSaveCursor.restore(s)
+}
+
 //----------
 
-func (s *Screen) setCursorYX(y, x int) {
-	s.setCursorY(y)
-	s.setCursorX(x)
-}
-func (s *Screen) setCursorY(y int) {
-	s.Cursor.Y = clamp(y, 0, s.H-1)
-}
-func (s *Screen) setCursorX(x int) {
-	s.Cursor.X = clamp(x, 0, s.W-1)
+// Reverse Index (move up), scrolling **inside the region**.
+func (s *Screen) escRi_reverseIndex() {
+	s.cancelWrap()
+
+	if s.cursor.y > s.sTop {
+		s.cursor.y--
+		return
+	}
+	// at top margin: scroll region down
+	if s.sTop < s.sBot {
+		s.scrollDownRegion(s.sTop, s.sBot)
+	}
+	// cursor stays on top margin
+	s.cursor.y = s.sTop
 }
 
+func (s *Screen) escHt_tab(n int) {
+	if n <= 0 {
+		n = 1
+	}
+	s.cancelWrap()
+	for ; n > 0; n-- {
+		s.cursor.x = s.nextTabX(s.cursor.x)
+	}
+}
+
+func (s *Screen) escHts_horizontalTabSet() {
+	x := s.cursor.x
+	if 0 <= x && x < s.W {
+		s.tabStops[x] = true
+	}
+}
+
+func (s *Screen) escAln_screenAlignment() {
+	s.cancelWrap()
+	for y := 0; y < s.H; y++ {
+		for x := 0; x < s.W; x++ {
+			s.Grid[y][x] = Cell{R: 'E', A: s.curAttr}
+		}
+	}
+	s.cursor = Cursor{y: 0, x: 0}
+}
+
+func (s *Screen) escSc_saveCursor() {
+	s.escSaveCursorAndAttr.save(s)
+	s.escSaveCursorAndAttr.attr = s.curAttr
+}
+func (s *Screen) escRc_restoreCursor() {
+	s.escSaveCursorAndAttr.restore(s)
+	s.curAttr = s.escSaveCursorAndAttr.attr
+}
+
+//----------
+
+func (s *Screen) csiColm_column132Mode() bool {
+	cols := 80
+	if s.modes.column132Mode() {
+		cols = 132
+	}
+	needResize := len(s.Grid[0]) != cols
+	if needResize {
+		s.W = cols
+		s.resize(s.W, s.H)
+	}
+	return needResize
+}
+
+//----------
 //----------
 
 func (scr *Screen) Print() {
@@ -454,7 +564,7 @@ func (scr *Screen) Bytes(leftTopLines, cursor bool) []byte {
 		}
 		for x, cell := range line {
 			if cursor {
-				if scr.Cursor.X == x && scr.Cursor.Y == y {
+				if scr.cursor.x == x && scr.cursor.y == y {
 					buf.WriteString("◙")
 					continue
 				}
@@ -494,7 +604,30 @@ type Attr struct {
 }
 
 type Cursor struct {
-	Y, X int // 0-based
+	y, x int // 0-based
+}
+
+//----------
+//----------
+//----------
+
+type SaveCursor struct {
+	ok bool
+	c  Cursor
+	wn bool
+}
+
+func (c *SaveCursor) save(s *Screen) {
+	c.ok = true
+	c.c = s.cursor
+	c.wn = s.wrapNext
+}
+func (c *SaveCursor) restore(s *Screen) {
+	if !c.ok {
+		return
+	}
+	s.setCursorYX(c.c.y, c.c.x)
+	s.wrapNext = c.wn
 }
 
 //----------
@@ -506,16 +639,26 @@ type Modes struct {
 	m map[int]bool
 }
 
-func NewModes() *Modes { return &Modes{m: make(map[int]bool)} }
+func NewModes() *Modes {
+	m := &Modes{m: make(map[int]bool)}
+	// defaults
+	m.set(7, true)  // autowrap
+	m.set(20, true) // line feed newline mode
+	m.set(25, true) // cursor
+	return m
+}
 
 func (md *Modes) set(n int, on bool) { md.m[n] = on }
 func (md *Modes) Is(n int) bool      { return md.m[n] }
 
 //----------
 
-func (md *Modes) Origin() bool   { return md.Is(6) }
-func (md *Modes) AutoWrap() bool { return md.Is(7) }
-func (md *Modes) Cursor() bool   { return md.Is(25) }
+func (md *Modes) column132Mode() bool       { return md.Is(3) }
+func (md *Modes) Origin() bool              { return md.Is(6) }
+func (md *Modes) AutoWrap() bool            { return md.Is(7) }
+func (md *Modes) AutoRepeat() bool          { return md.Is(8) }
+func (md *Modes) LineFeedNewlineMode() bool { return md.Is(20) }
+func (md *Modes) Cursor() bool              { return md.Is(25) }
 
 //----------
 //----------

@@ -1,0 +1,208 @@
+package core
+
+import (
+	"io"
+	"sync"
+
+	"github.com/jmigpin/editor/core/termemu"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/fontutil"
+)
+
+// implement [termemu.ConsoleConn] interface
+type TextAreaConsole struct {
+	erow *ERow
+	rwc  io.ReadWriteCloser
+	temu *termemu.Emu
+
+	w, h     int
+	origFace *fontutil.FontFace
+
+	reg *evreg.Regist
+
+	paint struct {
+		sync.Mutex
+		on bool
+	}
+}
+
+func newTextAreaConsole(erow *ERow, rwc io.ReadWriteCloser) *TextAreaConsole {
+	tac := &TextAreaConsole{erow: erow, rwc: rwc}
+
+	ta := tac.erow.Row.TextArea
+
+	tac.origFace = ta.TreeThemeFontFace()
+
+	// register to handle textarea input events
+	tac.reg = ta.EvReg.Add(ui.TextAreaLayoutEventId, tac.onTextAreaLayoutEvent)
+
+	return tac
+}
+
+//----------
+
+func (tac *TextAreaConsole) Read(p []byte) (int, error) {
+	return tac.rwc.Read(p)
+}
+func (tac *TextAreaConsole) Write(p []byte) (int, error) {
+	return tac.rwc.Write(p)
+}
+func (tac *TextAreaConsole) Close() error {
+	defer tac.reg.Unregister()
+	return tac.rwc.Close()
+}
+
+//----------
+
+func (tac *TextAreaConsole) Error(err error) {
+	tac.erow.Ed.Error(err)
+}
+
+//----------
+
+func (tac *TextAreaConsole) Repaint() {
+	if tac.temu == nil {
+		return
+	}
+
+	// performance: avoid calling paint too many times
+	tac.paint.Lock()
+	defer tac.paint.Unlock()
+	if !tac.paint.on {
+		tac.paint.on = true
+		tac.erow.Ed.UI.RunOnUIGoRoutine(func() {
+			tac.paint.Lock()
+			tac.paint.on = false
+			tac.paint.Unlock()
+			tac.paintNow()
+		})
+	} // else a paint call is already on the stack
+}
+func (tac *TextAreaConsole) paintNow() {
+	scr := tac.temu.Snapshot()
+	//b := scr.Bytes(false, true)
+	b := scr.Bytes(true, true) // full border
+	tac.erow.Row.TextArea.SetBytesClearHistory(b)
+	tac.erow.Row.TextArea.SetCursorIndex(0)
+
+	//erow.Row.TextArea.MarkNeedsPaint()
+	//erow.Row.TextArea.AppendBytesClearHistory(buf.Bytes())
+}
+
+//----------
+
+func (tac *TextAreaConsole) SetSize(w, h int) {
+	tac.w, tac.h = w, h
+
+	// TODO: extra border drawn around the snapshot
+	w += 2 + 1 // +1 is the extra space set at start on the left side
+	h += 2
+
+	ta := tac.erow.Row.TextArea
+
+	face := tac.origFace
+	faceAtSize := func(v float64) *fontutil.FontFace {
+		fopts2 := face.Opts // copy
+		fopts2.SetSize(float64(v))
+		return face.Font.FontFace(fopts2)
+	}
+
+	runeSize := func(p float64) (int, int) {
+		face2 := faceAtSize(p)
+		adv, ok := face2.Face.GlyphAdvance('W')
+		//adv, ok := face2.Face.GlyphAdvance('─')
+		if !ok {
+			return 0, 0
+		}
+		return adv.Ceil(), face2.LineHeightInt()
+	}
+
+	sx, sy := ta.Bounds.Dx(), ta.Bounds.Dy()
+	rx, ry, p := FitRuneSizeF(sx, sy, w, h, runeSize)
+
+	if rx == 0 && ry == 0 && p == 0 {
+		ta.SetThemeFontFace(tac.origFace)
+		return
+	}
+
+	maxFSize := tac.origFace.Opts.Size()
+	if p > maxFSize {
+		p = maxFSize
+	}
+
+	face2 := faceAtSize(p)
+	ta.SetThemeFontFace(face2)
+}
+
+//----------
+
+func (tac *TextAreaConsole) onTextAreaLayoutEvent(ev0 any) {
+	ev := ev0.(*ui.TextAreaLayoutEvent)
+	_ = ev
+
+	ta := tac.erow.Row.TextArea
+
+	// TODO: how to know if $font changed or simple resize
+	//tac.origFace = ta.TreeThemeFontFace()
+
+	tac.SetSize(tac.w, tac.h)
+
+	ta.MarkNeedsLayout()
+}
+
+//----------
+//----------
+//----------
+
+// FitRuneSizeF finds the largest p (float) such that w×x <= sx and h×y <= sy,
+// where (x,y) = runeSize(p) are pixel dims (monotonic non-decreasing in p).
+// Returns the chosen (x,y,p). If impossible, returns zeros.
+func FitRuneSizeF(sx, sy, w, h int, runeSize func(p float64) (int, int)) (int, int, float64) {
+	if sx <= 0 || sy <= 0 || w <= 0 || h <= 0 {
+		return 0, 0, 0
+	}
+	fits := func(p float64) bool {
+		x, y := runeSize(p)
+		//return x > 0 && y > 0 && w*x <= sx && h*y <= sy
+		return x > 0 && y > 0 && w*x < sx && h*y < sy
+	}
+
+	const (
+		minP  = 1e-6
+		maxP  = 1e6
+		eps   = 1e-6 // binary search tolerance on p
+		maxIt = 5    // cap iterations
+	)
+
+	// Find some fitting p (shrink if needed).
+	lo, hi := 0.0, 1.0
+	for !fits(hi) && hi > minP {
+		hi *= 0.5
+	}
+	if !fits(hi) {
+		return 0, 0, 0
+	}
+	lo = hi
+
+	// Exponentially grow to bracket the first non-fitting p.
+	for fits(hi) && hi < maxP {
+		lo = hi
+		hi *= 2
+	}
+
+	// Binary search in [lo,hi] for max fitting p.
+	best := lo
+	for it := 0; it < maxIt && hi-lo > eps; it++ {
+		mid := (lo + hi) / 2
+		if fits(mid) {
+			best = mid
+			lo = mid
+		} else {
+			hi = mid
+		}
+	}
+
+	x, y := runeSize(best)
+	return x, y, best
+}

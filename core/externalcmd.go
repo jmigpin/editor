@@ -65,7 +65,7 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 	}
 
 	c := osutil.NewCmdI2(cargs)
-	if erow.terminalOpt.pty {
+	if erow.termOpts.pty {
 		c = osutil.NewPtyCmd(c) // first, to run start first and wrap everything in a pty
 		// TODO: should be added only if emulator on
 		env = append(env, termemu.TermEnv)

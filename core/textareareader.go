@@ -8,18 +8,17 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-////godebug:annotatefile
-////godebug:annotatefile:erow.go
-
-type TextareaReader struct {
+// used as a reader to pass to the terminal emulator for input like keyboard/mouse events
+type TextAreaReader struct {
 	handleKeybInput bool
-	reg             *evreg.Regist
-	pr              *io.PipeReader
-	pw              *io.PipeWriter
+	//te              *termemu.Emu
+	reg *evreg.Regist
+	pr  *io.PipeReader
+	pw  *io.PipeWriter
 }
 
-func newTextareaReader(ta *ui.TextArea) *TextareaReader {
-	tard := &TextareaReader{}
+func newTextareaReader(ta *ui.TextArea) *TextAreaReader {
+	tard := &TextAreaReader{}
 
 	tard.pr, tard.pw = io.Pipe()
 
@@ -31,10 +30,10 @@ func newTextareaReader(ta *ui.TextArea) *TextareaReader {
 
 //----------
 
-func (tard *TextareaReader) Read(p []byte) (int, error) {
+func (tard *TextAreaReader) Read(p []byte) (int, error) {
 	return tard.pr.Read(p)
 }
-func (tard *TextareaReader) Close() error {
+func (tard *TextAreaReader) Close() error {
 	defer tard.reg.Unregister()
 	_ = tard.pr.Close()
 	return tard.pw.Close()
@@ -42,7 +41,7 @@ func (tard *TextareaReader) Close() error {
 
 //----------
 
-func (tard *TextareaReader) onTextAreaInputEvent(ev0 any) {
+func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
 	ev := ev0.(*ui.TextAreaInputEvent)
 
 	b, ok := tard.eventToBytes(ev.Event)
@@ -52,7 +51,7 @@ func (tard *TextareaReader) onTextAreaInputEvent(ev0 any) {
 	}
 	ev.ReplyHandled = event.Handled(ok)
 }
-func (tard *TextareaReader) eventToBytes(ev any) ([]byte, bool) {
+func (tard *TextAreaReader) eventToBytes(ev any) ([]byte, bool) {
 	switch t := ev.(type) {
 	case *event.KeyDown:
 		if tard.handleKeybInput {
@@ -64,7 +63,7 @@ func (tard *TextareaReader) eventToBytes(ev any) ([]byte, bool) {
 	}
 	return nil, false
 }
-func (tard *TextareaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
+func (tard *TextAreaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
 
 	esc := func(s string) []byte {
 		mod := ""
@@ -97,9 +96,12 @@ func (tard *TextareaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
 
 	switch ev.KeySym {
 	case event.KSymReturn:
+		//if tard.te != nil && tard.te.LineFeedNewlineMode() {
+		//	return []byte("\n"), true
+		//}
 		return []byte("\r"), true // vt100
 	case event.KSymKeypadEnter:
-		return []byte("\x1bOM"), true // vt100
+		return []byte("\x1bOM"), true // vt100 // TODO
 
 	case event.KSymUp:
 		return esc("A"), true

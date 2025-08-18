@@ -2,10 +2,8 @@ package termemu
 
 import (
 	"fmt"
-	"io"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestCursorMoves(t *testing.T) {
@@ -14,49 +12,51 @@ func TestCursorMoves(t *testing.T) {
 		startY, startX int    // 0-based
 		seq            string // VT bytes after positioning at start
 		wantY, wantX   int
+		lnm            bool // linefeed newline mode
 	}
 
 	tests := []mt{
-		{"home_H", 2, 2, "\x1b[H", 0, 0},
-		{"cup_5_10", 0, 0, "\x1b[5;10H", 4, 9},
-		{"cha_7G", 1, 3, "\x1b[7G", 1, 6},
-		{"vpa_2d", 3, 5, "\x1b[2d", 1, 5},
-		{"rel_0C", 1, 1, "\x1b[0C", 1, 2},
-		{"rel_3C", 1, 1, "\x1b[3C", 1, 4},
-		{"rel_2A", 2, 4, "\x1b[2A", 0, 4},
-		{"cr", 1, 5, "\r", 1, 0},
-		{"lf_no_scroll", 3, 9, "\n", 4, 9},
-		//{"wrap_then_lf", 0, 8, "ABC", 1, 1}, // needs autowrap
-		{"lf_scroll", 4, 9, "\n", 4, 9},
-		{"el_keep_pos", 2, 5, "\x1b[K", 2, 5},
-		{"ed2_keep_pos", 1, 1, "\x1b[2J", 1, 1},
-		{"cursor_showhide", 1, 1, "\x1b[?25l\x1b[?25h", 1, 1},
+		{"home_H", 2, 2, "\x1b[H", 0, 0, true},
+		{"cup_5_10", 0, 0, "\x1b[5;10H", 4, 9, true},
+		{"cha_7G", 1, 3, "\x1b[7G", 1, 6, true},
+		{"vpa_2d", 3, 5, "\x1b[2d", 1, 5, true},
+		{"rel_0C", 1, 1, "\x1b[0C", 1, 2, true},
+		{"rel_3C", 1, 1, "\x1b[3C", 1, 4, true},
+		{"rel_2A", 2, 4, "\x1b[2A", 0, 4, true},
+		{"cr", 1, 5, "\r", 1, 0, true},
+		{"wrap_then_lf", 0, 8, "ABC", 1, 1, true},
+		{"lf_no_scroll", 3, 9, "\n", 4, 9, false},
+		{"lf_scroll", 4, 9, "\n", 4, 9, false},
+		{"el_keep_pos", 2, 5, "\x1b[K", 2, 5, true},
+		{"ed2_keep_pos", 1, 1, "\x1b[2J", 1, 1, true},
+		{"cursor_showhide", 1, 1, "\x1b[?25l\x1b[?25h", 1, 1, true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := newPtyMock()
+			m := newUserMock()
 			defer m.Close()
 
 			te := newTestEmu(m, Opts{W: 10, H: 5})
-			//te.scr.modes.set(7, true) // autowrap
 			defer te.Close()
+
+			te.scr.modes.set(20, tc.lnm)
 
 			seq := cup(tc.startY, tc.startX) + tc.seq
 			sendWithBarrier(t, te, seq)
 
 			// Snapshot and verify.
 			snap := te.Snapshot()
-			if snap.Cursor.Y != tc.wantY || snap.Cursor.X != tc.wantX {
+			if snap.cursor.y != tc.wantY || snap.cursor.x != tc.wantX {
 				t.Fatalf("got cursor=(%d,%d), want=(%d,%d). seq=%q",
-					snap.Cursor.Y, snap.Cursor.X, tc.wantY, tc.wantX, printable(seq))
+					snap.cursor.y, snap.cursor.x, tc.wantY, tc.wantX, printable(seq))
 			}
 		})
 	}
 }
 
 func TestCPRRoundTrip(t *testing.T) {
-	m := newPtyMock()
+	m := newUserMock()
 	te := newTestEmu(m, Opts{W: 10, H: 5})
 	defer te.Close()
 
@@ -80,7 +80,7 @@ func TestCPRRoundTrip(t *testing.T) {
 }
 
 func TestScrollRegionAndOriginMode(t *testing.T) {
-	m := newPtyMock()
+	m := newUserMock()
 	te := newTestEmu(m, Opts{W: 5, H: 6})
 	defer te.Close()
 
@@ -91,28 +91,34 @@ func TestScrollRegionAndOriginMode(t *testing.T) {
 	// Ask CPR to confirm relative coordinates
 	send(t, te, "\x1b[6n")
 	buf := make([]byte, 32)
-	n, _ := te.Read(buf)
+	n, err := te.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got, want := string(buf[:n]), "\x1b[1;1R"; got != want {
+		snap := te.Snapshot()
+		snap.Print()
+
 		t.Fatalf("got %q, want %q", printable(got), printable(want))
 	}
 
 	// Move down to bottom margin and LF to force region scroll
 	sendWithBarrier(t, te, "\x1b[4B") // 4 down inside region
 	snap := te.Snapshot()
-	top, bot := snap.Region()
+	top, bot := snap.region()
 	if top != 1 || bot != 4 { // 0-based internally
 		t.Fatalf("bad region top/bot: %d/%d", top, bot)
 	}
 	// Next LF should keep cursor at bottom margin
 	sendWithBarrier(t, te, "\n")
 	snap = te.Snapshot()
-	if snap.Cursor.Y != bot {
-		t.Fatalf("cursor not at bottom margin after LF: %d vs %d", snap.Cursor.Y, bot)
+	if snap.cursor.y != bot {
+		t.Fatalf("cursor not at bottom margin after LF: %d vs %d", snap.cursor.y, bot)
 	}
 }
 
-func TestDCH_ECH(t *testing.T) {
-	m := newPtyMock()
+func TestDchEch(t *testing.T) {
+	m := newUserMock()
 	te := newTestEmu(m, Opts{W: 6, H: 2})
 	defer te.Close()
 
@@ -123,7 +129,7 @@ func TestDCH_ECH(t *testing.T) {
 	s := te.Snapshot()
 	row := s.Grid[0]
 	got := string([]rune{row[0].R, row[1].R, row[2].R, row[3].R, row[4].R, row[5].R})
-	if got != "ABCF  " {
+	if got != "ABCF\x00\x00" {
 		t.Fatalf("DCH got %q", got)
 	}
 
@@ -133,13 +139,13 @@ func TestDCH_ECH(t *testing.T) {
 	s = te.Snapshot()
 	row = s.Grid[0]
 	got = string([]rune{row[0].R, row[1].R, row[2].R, row[3].R, row[4].R, row[5].R})
-	if got != "A  F  " {
+	if got != "A\x00\x00F\x00\x00" {
 		t.Fatalf("ECH got %q", got)
 	}
 }
 
 func TestInsertDeleteLinesWithinRegion(t *testing.T) {
-	m := newPtyMock()
+	m := newUserMock()
 	te := newTestEmu(m, Opts{W: 4, H: 5})
 	defer te.Close()
 
@@ -154,19 +160,13 @@ func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 
 	//te.Snapshot().Print()
 
-	// Region rows 2..4; put cursor on row 3 (1-based)
-	//sendWithBarrier(t, te, "\x1b[2;4r\x1b[3;1H\x1b[L") // IL 1
-
 	// Region rows 2..4; put cursor on row 2 (1-based)
 	sendWithBarrier(t, te, "\x1b[2;4r\x1b[2;1H\x1b[L") // IL 1
 	snap := te.Snapshot()
 
-	// Row texts after IL: 1, blank, 3, 4, 5  (2..4 moved down)
-	//if snap.Grid[1][0].R != ' ' || snap.Grid[2][0].R != '3' {
-
 	// Row texts after IL: 1, blank, 2, 3, 5  (2..4 moved down)
 	//te.Snapshot().Print()
-	if snap.Grid[1][0].R != ' ' || snap.Grid[2][0].R != '2' {
+	if snap.Grid[1][0].R != '\x00' || snap.Grid[2][0].R != '2' {
 		t.Fatalf("IL failed around region")
 	}
 
@@ -180,14 +180,236 @@ func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 }
 
 func TestEnterIsCRNotLF(t *testing.T) {
-	m := newPtyMock()
+	m := newUserMock()
 	te := newTestEmu(m, Opts{W: 4, H: 2})
 	defer te.Close()
 
 	sendWithBarrier(t, te, "AB\r") // CR only
 	snap := te.Snapshot()
-	if snap.Cursor.Y != 0 || snap.Cursor.X != 0 {
-		t.Fatalf("CR should return to col 0 without moving row, got (%d,%d)", snap.Cursor.Y, snap.Cursor.X)
+	if snap.cursor.y != 0 || snap.cursor.x != 0 {
+		t.Fatalf("CR should return to col 0 without moving row, got (%d,%d)", snap.cursor.y, snap.cursor.x)
+	}
+}
+
+//----------
+
+func TestDECALN(t *testing.T) {
+	m := newUserMock()
+	te := newTestEmu(m, Opts{W: 6, H: 3})
+	defer te.Close()
+
+	sendWithBarrier(t, te, "\x1b#8")
+
+	s := te.Snapshot()
+	if s.cursor.y != 0 || s.cursor.x != 0 {
+		t.Fatalf("cursor at (%d,%d), want (0,0)", s.cursor.y, s.cursor.x)
+	}
+	for y := 0; y < s.H; y++ {
+		for x := 0; x < s.W; x++ {
+			if s.Grid[y][x].R != 'E' {
+				t.Fatalf("cell(%d,%d)=%q, want 'E'", y, x, string(s.Grid[y][x].R))
+			}
+		}
+	}
+}
+
+func TestINDandRI_RespectScrollRegion(t *testing.T) {
+	m := newUserMock()
+	te := newTestEmu(m, Opts{W: 4, H: 5})
+	defer te.Close()
+
+	// Region rows 2..4 (1-based)
+	sendWithBarrier(t, te, "\x1b[2;4r")
+
+	// Fill region with tags
+	sendWithBarrier(t, te, cup(1, 0)+"AAAA") // row 2 (0-based 1)
+	sendWithBarrier(t, te, cup(2, 0)+"BBBB") // row 3 (0-based 2)
+	sendWithBarrier(t, te, cup(3, 0)+"CCCC") // row 4 (0-based 3)
+
+	// IND at bottom margin scrolls up inside region
+	sendWithBarrier(t, te, cup(3, 0)+"\x1bD")
+	s := te.Snapshot()
+	if got := string(runesOf(s.Grid[1][:4])); got != "BBBB" {
+		t.Fatalf("after IND, row2=%q, want BBBB", printable(got))
+	}
+	if got := string(runesOf(s.Grid[2][:4])); got != "CCCC" {
+		t.Fatalf("after IND, row3=%q, want CCCC", printable(got))
+	}
+	if anyNonBlank(s.Grid[3][:4]) {
+		t.Fatalf("after IND, row4 should be blank")
+	}
+
+	// RI at top margin scrolls down inside region
+	sendWithBarrier(t, te, cup(1, 0)+"\x1bM")
+	s = te.Snapshot()
+	if anyNonBlank(s.Grid[1][:4]) {
+		t.Fatalf("after RI, row2 should be blank")
+	}
+	if got := string(runesOf(s.Grid[2][:4])); got != "BBBB" {
+		t.Fatalf("after RI, row3=%q, want BBBB", printable(got))
+	}
+	if got := string(runesOf(s.Grid[3][:4])); got != "CCCC" {
+		t.Fatalf("after RI, row4=%q, want CCCC", printable(got))
+	}
+}
+
+func TestNEL(t *testing.T) {
+	m := newUserMock()
+	te := newTestEmu(m, Opts{W: 5, H: 4})
+	defer te.Close()
+
+	sendWithBarrier(t, te, cup(1, 2)+"\x1bE") // from (1,2) → CR+LF to (2,0)
+	s := te.Snapshot()
+	if s.cursor.y != 2 || s.cursor.x != 0 {
+		t.Fatalf("NEL cursor=(%d,%d), want (2,0)", s.cursor.y, s.cursor.x)
+	}
+}
+
+func TestELandED(t *testing.T) {
+	m := newUserMock()
+	te := newTestEmu(m, Opts{W: 6, H: 3})
+	defer te.Close()
+
+	// Row0: "ABCDEF"
+	sendWithBarrier(t, te, cup(0, 0)+"ABCDEF")
+	// Row1: "ghijkl"
+	sendWithBarrier(t, te, cup(1, 0)+"ghijkl")
+
+	// EL0 at row0,col2 → "AB" + blanks
+	sendWithBarrier(t, te, cup(0, 2)+"\x1b[0K")
+	s := te.Snapshot()
+	if got := string(runesOf(s.Grid[0][:])); got != "AB" {
+		t.Fatalf("EL0 row0=%q, want 'AB' then blanks", printable(got))
+	}
+
+	// ED0 at row1,col3 → clears rest of screen from here
+	sendWithBarrier(t, te, cup(1, 3)+"\x1b[0J")
+	s = te.Snapshot()
+	if got := string(runesOf(s.Grid[1][:3])); got != "ghi" {
+		t.Fatalf("ED0 prefix row1=%q, want 'ghi'", printable(got))
+	}
+	if anyNonBlank(s.Grid[1][3:]) || anyNonBlank(s.Grid[2][:]) {
+		t.Fatalf("ED0 should blank from cursor to end of screen")
+	}
+
+	// Refill and test ED2 (entire screen)
+	sendWithBarrier(t, te, cup(0, 0)+"XXXXXX"+cup(1, 0)+"YYYYYY")
+	sendWithBarrier(t, te, "\x1b[2J")
+	s = te.Snapshot()
+	for y := 0; y < s.H; y++ {
+		if anyNonBlank(s.Grid[y][:]) {
+			t.Fatalf("ED2 should blank entire screen")
+		}
+	}
+}
+
+func TestCSI0C_Equals1C(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 5, H: 2})
+	defer te.Close()
+	sendWithBarrier(t, te, "A\x1b[0CB") // 0C must move 1
+	s := te.Snapshot()
+	if s.Grid[0][0].R != 'A' || s.Grid[0][1].R != 0 || s.Grid[0][2].R != 'B' {
+		t.Fatalf("got [%q %q %q], want ['A' NUL 'B']",
+			s.Grid[0][0].R, s.Grid[0][1].R, s.Grid[0][2].R)
+	}
+}
+
+func TestBackspaceMovesLeft(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 5, H: 1})
+	defer te.Close()
+	sendWithBarrier(t, te, "AB\bC") // C overwrites B
+	s := te.Snapshot()
+	if got := string([]rune{s.Grid[0][0].R, s.Grid[0][1].R}); got != "AC" {
+		t.Fatalf("got %q, want AC", got)
+	}
+}
+
+func TestHT_DefaultStopsEvery8(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 16, H: 1})
+	defer te.Close()
+	sendWithBarrier(t, te, "\tX") // start at col0; next stop at col8 → X at 8
+	s := te.Snapshot()
+	if s.cursor.y != 0 || s.cursor.x != 9 || s.Grid[0][8].R != 'X' {
+		t.Fatalf("tab failed; cur=(%d,%d) cell8=%q", s.cursor.y, s.cursor.x, string(s.Grid[0][8].R))
+	}
+}
+
+func TestCRandLF(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 5, H: 2})
+	defer te.Close()
+	sendWithBarrier(t, te, "ABC\rD\nE")
+	s := te.Snapshot()
+	if string([]rune{s.Grid[0][0].R, s.Grid[0][1].R}) != "DB" {
+		t.Fatal("CR failed")
+	}
+	if s.Grid[1][0].R != 'E' {
+		t.Fatal("LF failed")
+	}
+}
+
+func TestED1_ClearsToCursor(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 6, H: 4})
+	defer te.Close()
+	sendWithBarrier(t, te, "\x1b#8")           // fill E
+	sendWithBarrier(t, te, "\x1b[3;4H\x1b[1J") // ED 1
+	s := te.Snapshot()
+	for y := 0; y < 2; y++ { // rows above
+		if anyNonBlank(s.Grid[y][:]) {
+			t.Fatal("ED1 failed above")
+		}
+	}
+	for x := 0; x <= 3; x++ { // up to cursor inclusive
+		if s.Grid[2][x].R != 0 {
+			t.Fatal("ED1 failed at row 3 left side")
+		}
+	}
+}
+
+func TestEL1_ClearsLeftToCursor(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 6, H: 1})
+	defer te.Close()
+	sendWithBarrier(t, te, "ABCDEF\x1b[1G\x1b[3C") // go to col4
+	sendWithBarrier(t, te, "\x1b[1K")              // EL 1
+	s := te.Snapshot()
+	for x := 0; x <= 3; x++ {
+		if s.Grid[0][x].R != 0 {
+			t.Fatal("EL1 failed")
+		}
+	}
+	for x := 4; x < 6; x++ {
+		if s.Grid[0][x].R == 0 {
+			t.Fatal("EL1 overcleared")
+		}
+	}
+}
+
+func TestWrapPending_CancelledByCUB(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 4, H: 2})
+	defer te.Close()
+	sendWithBarrier(t, te, "\x1b[1;4H*") // put '*' at last col (wrap-pending)
+	sendWithBarrier(t, te, "\x1b[1D")    // CUB 1 must cancel wrap
+	sendWithBarrier(t, te, "X")          // writes SAME line, col 3
+	s := te.Snapshot()
+	if s.Grid[0][3].R != '*' || s.Grid[0][2].R != 'X' {
+		t.Fatalf("wrap-pending not cancelled")
+	}
+	if anyNonBlank(s.Grid[1][:]) {
+		t.Fatalf("unexpected scroll/wrap into next line")
+	}
+}
+
+func TestDECSC_DECRC_PosRestored(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 20, H: 10})
+	defer te.Close()
+
+	sendWithBarrier(t, te, "\x1b[6;11H") // 1-based -> (5,10)
+	sendWithBarrier(t, te, "\x1b7")      // DECSC
+	sendWithBarrier(t, te, "\x1b[2;2H")  // move elsewhere
+	sendWithBarrier(t, te, "\x1b8")      // DECRC
+
+	s := te.Snapshot()
+	if s.cursor.y != 5 || s.cursor.x != 10 {
+		t.Fatalf("cursor=(%d,%d), want (5,10)", s.cursor.y, s.cursor.x)
 	}
 }
 
@@ -195,37 +417,42 @@ func TestEnterIsCRNotLF(t *testing.T) {
 //----------
 //----------
 
-type ptyMock struct {
-	pr *io.PipeReader
-	pw *io.PipeWriter
+type userMock struct {
+	ch chan struct{}
 }
 
-func newPtyMock() *ptyMock {
-	pr, pw := io.Pipe()
-	return &ptyMock{pr: pr, pw: pw}
+func newUserMock() *userMock {
+	m := &userMock{}
+	m.ch = make(chan struct{})
+	return m
 }
 
-func (m *ptyMock) Read(p []byte) (int, error) {
-	//return m.pr.Read(p)
+func (m *userMock) Read(p []byte) (int, error) {
+	<-m.ch // simulate no keyboard input, just lock
 	return len(p), nil
 }
-func (m *ptyMock) Write(p []byte) (int, error) {
-	//return m.pw.Write(p)
-	return len(p), nil
+func (m *userMock) Write(p []byte) (int, error) {
+	return len(p), nil // simulate output to a display
 }
-func (m *ptyMock) Close() error {
-	_ = m.pr.Close()
-	_ = m.pw.Close()
+func (m *userMock) Close() error {
+	if m.ch != nil {
+		close(m.ch)
+		m.ch = nil
+	}
 	return nil
 }
+func (m *userMock) SetSize(int, int) {}
+func (m *userMock) Repaint()         {}
+func (m *userMock) Error(error)      {}
 
 //----------
 //----------
 //----------
 
-func newTestEmu(rwc io.ReadWriteCloser, opts Opts) *Emu {
+func newTestEmu(cons ConsoleConn, opts Opts) *Emu {
 	opts.Mode = ModeUI
-	return NewEmu(rwc, opts)
+	emu := NewEmu(cons, opts)
+	return emu
 }
 
 func cup(row0, col0 int) string { // 0-based → VT 1-based
@@ -239,24 +466,40 @@ func send(t *testing.T, te *Emu, s string) {
 func sendWithBarrier(t *testing.T, te *Emu, seq string) {
 	t.Helper()
 	send(t, te, seq+"\x1b[5n") // seq+DSR 5
-	deadline := time.After(10000 * time.Millisecond)
-	for {
-		select {
-		case <-deadline:
-			t.Fatal("timeout waiting DSR(5) reply")
-		default:
-			//buf := make([]byte, 256)
-			buf := make([]byte, 4)
-			n, err := te.Read(buf)
-			if err != nil {
-				t.Fatalf("read: %v", err)
-			}
-			// expecting reply: ESC[0n
-			if n > 0 && buf[n-1] == 'n' {
-				return
-			}
+	expectedReply := "\x1b[0n"
+
+	buf := make([]byte, len(expectedReply))
+	n, err := te.Read(buf)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if u := string(buf[:n]); u != expectedReply {
+		t.Fatalf("read: bad barrier: %q", u)
+	}
+}
+
+//----------
+
+// helpers for quick rune extraction
+func runesOf(cells []Cell) []rune {
+	rs := make([]rune, len(cells))
+	for i, c := range cells {
+		rs[i] = c.R
+	}
+	// trim trailing NULs (blanks) for string compares
+	i := len(rs)
+	for i > 0 && rs[i-1] == 0 {
+		i--
+	}
+	return rs[:i]
+}
+func anyNonBlank(cells []Cell) bool {
+	for _, c := range cells {
+		if c.R != 0 {
+			return true
 		}
 	}
+	return false
 }
 
 //----------

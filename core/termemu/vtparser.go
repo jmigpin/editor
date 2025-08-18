@@ -36,25 +36,30 @@ func (p *VTParser) stDefault() error {
 	switch ru {
 	case 0x1b: // ESC
 		p.state = p.stEsc
-	case 0x9b: // CSI single
+	case 0x9b: // CSI: control sequence introducer
 		p.state = p.stCSI
 	case 0x07: // BEL
 		p.emitKind("bell")
-	case '\b':
+	case 0x08: // \b
 		p.emitKind("bs")
-	case '\n':
+	case 0x09: // \t
+		p.emitKind("ht")
+
+	case 0x0a, 0x0b, 0x0c: // \n // LF/VT/FF
 		p.emitKind("lf")
-	case 0x0b, 0x0c: // VT/FF
-	case '\r':
+	case 0x0d: // \r
 		p.emitKind("cr")
+
 	case 0x0e, 0x0f: // SO/SI (G1/G0)
 	case 0x18, 0x1a: // CAN/SUB
 	case 0x7f: // DEL
+
 	default:
 		// emit rune (direct, slower)
 		p.Emit(&TermOp{kind: "print", s: string(ru)})
 
 		//// printable run (performance)
+		//// TODO: issues with last peek halting the read
 		//buf := &bytes.Buffer{}
 		//buf.WriteRune(ru)
 		//for {
@@ -92,6 +97,43 @@ func (p *VTParser) stEsc() error {
 	case '\\': // ST
 		p.state = p.stDefault
 		return nil
+	case 'H': // HTS
+		p.state = p.stDefault
+		p.emitKind("hts")
+		return nil
+	case 'D': // IND
+		p.state = p.stDefault
+		p.emitKind("ind")
+		return nil
+	case 'M': // RI
+		p.state = p.stDefault
+		p.emitKind("ri")
+		return nil
+	case 'E': // NEL
+		p.state = p.stDefault
+		p.emitKind("nel")
+		return nil
+
+	case '7': // SC
+		p.state = p.stDefault
+		p.emitKind("sc")
+		return nil
+	case '8': // RC
+		p.state = p.stDefault
+		p.emitKind("rc")
+		return nil
+
+	case '#': // DEC special graphics
+		p.state = p.stDefault
+		nb, err2 := p.nextByte()
+		if err2 != nil {
+			return err2
+		}
+		if nb == '8' { // screen Alignment
+			p.emitKind("aln")
+		}
+		return nil
+
 	default:
 		// unsupported single ESC: ignore
 		p.state = p.stDefault
@@ -167,7 +209,7 @@ func (p *VTParser) parseCSI(b []byte, final byte) error {
 
 	if len(b) > 0 {
 		switch u := b[0]; u {
-		case '?', '>':
+		case '?', '>', '<':
 			op.csi.hasPriv = true
 			op.csi.priv = u
 			b = b[1:]

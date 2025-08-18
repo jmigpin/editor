@@ -363,12 +363,12 @@ func (c *PtyCmd) Start() error {
 		return err
 	}
 
-	if st, err := term.MakeRaw(int(pts.Fd())); err != nil {
-		earlyErrClose()
-		return err
-	} else {
-		c.restoreState = st
-	}
+	//if st, err := term.MakeRaw(int(pts.Fd())); err != nil {
+	//	earlyErrClose()
+	//	return err
+	//} else {
+	//	c.restoreState = st
+	//}
 
 	cmd := c.Cmd()
 
@@ -408,7 +408,9 @@ func (c *PtyCmd) Start() error {
 
 func (c *PtyCmd) Wait() error {
 	err := c.CmdI.Wait()
-	_ = term.Restore(int(c.pts.Fd()), c.restoreState)
+	if c.restoreState != nil {
+		_ = term.Restore(int(c.pts.Fd()), c.restoreState)
+	}
 	_ = c.ptm.Close()
 	c.writing.Wait()
 	return err

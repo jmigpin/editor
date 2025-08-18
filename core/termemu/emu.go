@@ -10,25 +10,39 @@ import (
 
 //godebug:annotatefile
 //godebug:annotatefile:vtparser.go
+//godebug:annotatefile:screen.go
 ////godebug:annotatefile:../textareareader.go
 
 //----------
 
-// TEST
+// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
+
+//----------
+
+// NOTES
 // tput smcup - enter alt screen
 // tput rmcup - return
 // tput -Tvt100 clear
 // infocmp vt100
 // infocmp -1 "vt100" | grep -E 'smcup|rmcup'
 // infocmp -1 "$TERM" | grep -E 'smcup|rmcup'
+
 const TermEnv = "TERM=vt100"
+
+const vt100 = "\x1b[?1;0c" //
+// const vt101NoOpt = vt100
+// const vt100WithAVO = "\x1b[?1;2c"
+// const vt102 = "\x1b[?6c"
+// const vt420 = "\x1b[?64c"
+// const vt420Sixel = "\x1b[?6;4;4c" // ?
+const termSeqReply = vt100
 
 //----------
 
 // TODO: pty size (getsize/setsize/...)
 
 type Emu struct {
-	userRwc io.ReadWriteCloser // user side (ex: editor textarea)
+	userCons ConsoleConn // user side (ex: editor textarea)
 
 	execRwc   io.ReadWriteCloser
 	execPipes struct {
@@ -36,19 +50,17 @@ type Emu struct {
 		w io.Writer
 	}
 
+	parser     *VTParser // parser->emu->screen
+	parserDone sync.WaitGroup
+
 	mu  sync.Mutex
 	scr *Screen
-
-	evs chan Event
-
-	parser     *VTParser
-	parserDone sync.WaitGroup
 
 	opts Opts
 }
 
-// emu itself is a rwc to be passed to the executable, then the emu reads and write from rwc which is the textarea input and output
-func NewEmu(rwc io.ReadWriteCloser, opts Opts) *Emu {
+// emu itself is a read/write to be passed to the executable, as well as read/writing from the user (ex: textarea)
+func NewEmu(userCons ConsoleConn, opts Opts) *Emu {
 	if opts.W <= 0 {
 		opts.W = 80
 	}
@@ -56,12 +68,10 @@ func NewEmu(rwc io.ReadWriteCloser, opts Opts) *Emu {
 		opts.H = 24
 	}
 
-	emu := &Emu{
-		userRwc: rwc,
-		opts:    opts,
-		scr:     NewScreen(opts.W, opts.H),
-		evs:     make(chan Event, 10),
-	}
+	emu := &Emu{userCons: userCons, opts: opts}
+
+	emu.scr = NewScreen(opts.W, opts.H)
+	emu.userCons.SetSize(opts.W, opts.H)
 
 	emu.setupExecSideRWC()
 
@@ -101,21 +111,21 @@ func (emu *Emu) setupExecSideRWC() {
 
 	if emu.opts.Mode == ModeRaw {
 		rd := &execRwc.Reader
-		*rd = io.TeeReader(*rd, emu.userRwc)
+		*rd = io.TeeReader(*rd, emu.userCons)
 	}
 
 	// auto read from user to exec
 	go func() {
 		if emu.opts.Debug {
 			rd := iout.FnReader(func(p []byte) (int, error) {
-				n, err := emu.userRwc.Read(p)
+				n, err := emu.userCons.Read(p)
 				s := fmt.Sprintf("\n*RCV: %q\n", string(p[:n]))
 				emu.sendToUser(s)
 				return n, err
 			})
 			_, _ = io.Copy(emu.execRwc, rd)
 		} else {
-			_, _ = io.Copy(emu.execRwc, emu.userRwc)
+			_, _ = io.Copy(emu.execRwc, emu.userCons)
 		}
 	}()
 }
@@ -131,9 +141,8 @@ func (emu *Emu) Write(p []byte) (int, error) {
 
 func (emu *Emu) Close() error {
 	defer func() {
-		emu.userRwc.Close()   // flush
+		emu.userCons.Close()  // flush
 		emu.parserDone.Wait() // after user close, parse should stop
-		close(emu.evs)        // after parse done, no more evs
 	}()
 	return emu.execRwc.Close()
 }
@@ -149,7 +158,7 @@ func (emu *Emu) sendToExec(s string) {
 	_, _ = emu.execRwc.Write([]byte(s))
 }
 func (emu *Emu) sendToUser(s string) {
-	_, _ = emu.userRwc.Write([]byte(s))
+	_, _ = emu.userCons.Write([]byte(s))
 }
 
 //----------
@@ -160,20 +169,22 @@ func (emu *Emu) plainMode() bool {
 
 //----------
 
-func (emu *Emu) Events() <-chan Event {
-	return emu.evs
-}
+//func (emu *Emu) Events() <-chan Event {
+//	return emu.evs
+//}
 
-func (emu *Emu) push(ev Event) {
-	// TODO: review.. should not be skipping any, need cache then push
-	select {
-	case emu.evs <- ev:
-	default:
-	}
+//func (emu *Emu) push(ev Event) {
+//	//// TODO: review.. should not be skipping any, need cache then push
+//	//select {
+//	//case emu.evs <- ev:
+//	//default:
+//	//}
 
-	// TODO: review, halting without goroutine
-	//go func() { emu.evCh <- ev }()
-}
+//	// TODO: review, halting without goroutine
+//	//go func() { emu.evs <- ev }()
+
+//	emu.evs <- ev
+//}
 
 //----------
 
@@ -182,6 +193,12 @@ func (emu *Emu) Snapshot() *Screen {
 	defer emu.mu.Unlock()
 	return emu.scr.Clone()
 }
+
+//func (emu *Emu) LineFeedNewlineMode() bool {
+//	emu.mu.Lock()
+//	defer emu.mu.Unlock()
+//	return emu.scr.modes.LineFeedNewlineMode()
+//}
 
 //----------
 //----------
@@ -194,30 +211,49 @@ func (emu *Emu) applyEmit(op *TermOp) {
 	//fmt.Printf("op %v: cursor %v\n", op.kind, emu.scr.Cursor)
 
 	switch op.kind {
+	case "aln":
+		emu.scr.escAln_screenAlignment()
+		if emu.plainMode() {
+			// optional: nothing to send; UI mode repaints
+		}
+	case "bell": // TODO
+	case "bs":
+		emu.scr.backspace()
 	case "cr":
-		emu.scr.CR()
+		emu.scr.carriageReturn()
+	case "csi":
+		emu.applyEmitCsi(op)
+	case "fnkey": // TODO
+	case "ht":
+		emu.scr.escHt_tab(1)
+	case "hts":
+		emu.scr.escHts_horizontalTabSet()
+	case "ind":
+		emu.scr.lineFeed()
 	case "lf":
-		emu.scr.LF()
+		emu.scr.lineFeed()
 		if emu.plainMode() {
 			emu.sendToUser("\n")
 		}
-	case "bs":
-		emu.scr.BS()
-	case "csi":
-		emu.applyEmitCsi(op)
-	case "bell": // TODO
-	case "fnkey": // TODO
+	case "nel":
+		emu.scr.carriageReturn()
+		emu.scr.lineFeed()
+	case "rc":
+		emu.scr.escRc_restoreCursor()
+	case "ri":
+		emu.scr.escRi_reverseIndex()
+	case "sc":
+		emu.scr.escSc_saveCursor()
+
+	//----------
 
 	case "print":
 		for _, ru := range op.s {
-			emu.scr.PutRune(ru)
+			emu.scr.putRune(ru)
 		}
 		if emu.plainMode() {
 			emu.sendToUser(op.s)
 		}
-
-	//case OpTitle:
-	//	t.push(Event{Kind: "title", Data: op.S})
 
 	default:
 		err := fmt.Errorf("emu.applyemit: %q", op.kind)
@@ -226,92 +262,89 @@ func (emu *Emu) applyEmit(op *TermOp) {
 	}
 
 	if emu.opts.Mode == ModeUI {
-		emu.push(Event{Kind: "repaint"})
+		emu.userCons.Repaint()
 	}
 }
 
 func (emu *Emu) applyEmitCsi(op *TermOp) {
-	// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
-
 	switch op.csi.final {
 	case 'A': // cuu: Cursor Up (n rows, default 1)
-		emu.scr.MoveRel(-op.csiADef(1), 0)
+		emu.scr.csiCuu_cursorUp(op.csiADef(1))
 	case 'B': // cud: Cursor Down
-		//emu.scr.MoveRel(op.csiA(), 0)
-		for i := 0; i < op.csiADef(1); i++ {
-			emu.scr.LF()
-		}
+		emu.scr.csiCud_cursorDown(op.csiADef(1))
 	case 'C': // cuf: Cursor Forward (right)
-		emu.scr.MoveRel(0, op.csiADef(1))
+		emu.scr.csiCuf_cursorForward(op.csiADef(1))
 	case 'D': // cub: Cursor Backward (left)
-		emu.scr.MoveRel(0, -op.csiADef(1))
+		emu.scr.csiCub_cursorBackward(op.csiADef(1))
 
-	//D  CUB – Cursor Backward (left)
-	//E  CNL – Cursor Next Line (down n rows, col 1)
-	//F  CPL – Cursor Previous Line (up n rows, col 1)
+		//E  CNL – Cursor Next Line (down n rows, col 1)
+		//F  CPL – Cursor Previous Line (up n rows, col 1)
 
 	case 'G': // cha: Cursor Horizontal Absolute (to col n, same row)
-		emu.scr.MoveToCol(op.csiA())
+		emu.scr.moveToCol(op.csiA())
 	case 'H', 'f': // cup: Cursor Position (row n, col m, default 1,1)
-		emu.scr.MoveTo(op.csiADef(1), op.csiBDef(1))
+		emu.scr.moveTo(op.csiADef(1), op.csiBDef(1))
 	case 'J': // ed: Erase in Display
-		emu.scr.EraseDisplay(op.csiA())
+		emu.scr.csiEd_eraseInDisplay(op.csiA())
 	case 'K': // el: Erase in Line
-		emu.scr.EraseLine(op.csiA())
+		emu.scr.csiEl_eraseInLine(op.csiA())
 	case 'L': // IL: Insert Lines
-		emu.scr.insertLines(op.csiADef(1))
+		emu.scr.csiIl_insertLines(op.csiADef(1))
 	case 'M': // DL: Delete Lines
-		emu.scr.deleteLines(op.csiADef(1))
+		emu.scr.csiDl_deleteLines(op.csiADef(1))
 	case 'P': //  DCH: Delete Characters
-		emu.scr.DeleteChars(op.csiADef(1))
+		emu.scr.csiDch_deleteChars(op.csiADef(1))
 	case 'S': // SU: Scroll Up
-		emu.scr.scrollUp(op.csiADef(1))
+		emu.scr.csiSu_scrollUp(op.csiADef(1))
 	case 'T': // SD: Scroll Down
-		emu.scr.scrollDown(op.csiADef(1))
+		emu.scr.csiSd_scrollDown(op.csiADef(1))
 	case 'X': //  ECH: Erase Characters
-		emu.scr.EraseChars(op.csiADef(1))
+		emu.scr.csiEch_eraseChars(op.csiADef(1))
+	case 'I': // CHT: Cursor Horizontal Tabulation
+		emu.scr.csiCht_cursorHorizontalTab(op.csiADef(1))
+	case 'Z': // CBT: Cursor Backward Tab
+		emu.scr.csiCbt_cursorBackwardTab(op.csiADef(1))
 
-	//Z  CBT – Cursor Backward Tab
 	//@  ICH – Insert Characters
 	//`  HPA – Horizontal Position Absolute (same as CHA, but 0-based in some terms)
 	//a  HPR – Horizontal Position Relative (right n cols)
 
 	case 'c': // DA: Device Attributes
 		if !op.csi.hasPriv && op.csiA() == 0 {
-			const vt100 = "\x1b[?1;0c"
-			//const vt101NoOpt = vt100
-			//const vt100WithAVO = "\x1b[?1;2c"
-			//const vt102 = "\x1b[?6c"
-			//const vt420 = "\x1b[?64c"
-			//const vt420Sixel = "\x1b[?6;4;4c" // ?
-			emu.sendToExec(vt100)
+			emu.sendToExec(termSeqReply)
 		}
-
 	case 'd': //  vpa: Vertical Position Absolute (to row n)
-		emu.scr.MoveToRow(op.csiA())
+		emu.scr.moveToRow(op.csiA())
 
 	//e  VPR – Vertical Position Relative (down n rows)
 	//f  HVP – Horizontal and Vertical Position (same as CUP)
-	//g  TBC – Tab Clear
+
+	case 'g': // TBC: Tabulation Clear
+		emu.scr.csiTbc_tabClear(op.csiADef(0))
 
 	case 'h', 'l': // h:sm: Set Mode; l:rm: Reset Mode
 		if op.csiPrivIs('?') {
 			on := op.csi.final == 'h'
 			emu.scr.modes.set(op.csiA(), on)
-			if op.csiA() == 6 {
-				emu.scr.moveToOrigin(on)
+			switch op.csiA() {
+			case 3:
+				if needResize := emu.scr.csiColm_column132Mode(); needResize {
+					emu.userCons.SetSize(emu.scr.W, emu.scr.H)
+				}
+			case 6:
+				emu.scr.moveToOrigin()
 			}
 		}
 
 	case 'm': // SGR: Select Graphic Rendition (colors, bold, etc.)
-		emu.scr.SetSGR(op.csi.params)
+		emu.scr.csiSgr_selectGraphicRendition(op.csi.params)
 
 	case 'n': // DSR: Device Status Report
 		switch op.csiA() {
 		case 5: // "are you ok?"
 			emu.sendToExec("\x1b[0n") // "OK"
 		case 6: // cursor position report
-			row1, col1 := emu.scr.replyCPR()
+			row1, col1 := emu.scr.csiCpr_cursorPositionReport()
 			s := fmt.Sprintf("\x1b[%d;%dR", row1, col1)
 			emu.sendToExec(s)
 		}
@@ -320,15 +353,11 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 
 	case 'r': // DECSTBM: Set Scrolling Region
 		top1, bot1 := op.csiADef(1), op.csiBDef(emu.scr.H)
-		emu.scr.SetScrollRegion(top1, bot1)
-		if emu.scr.modes.Origin() {
-			emu.scr.MoveTo(top1, 1)
-		} else {
-			emu.scr.MoveTo(1, 1)
-		}
+		emu.scr.setScrollRegion(top1, bot1)
+		emu.scr.moveToOrigin()
 
 	case 's': // SCP: Save Cursor Position
-		emu.scr.SaveCursorPos()
+		emu.scr.csiScp_saveCursorPos()
 	case 'u': // RCP: Restore Cursor Position
 		//switch {
 		//case op.csiPrivIs('>'): // kitty: push flags (default 0)
@@ -342,7 +371,9 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 		//	return
 		//}
 
-		emu.scr.RestoreCursorPos()
+		if !op.csi.hasPriv {
+			emu.scr.csiRcp_restoreCursorPos()
+		}
 
 	default:
 		err := fmt.Errorf("emu.csi.final: todo: %c", op.csi.final)
@@ -366,4 +397,14 @@ type Opts struct {
 type Event struct {
 	Kind string
 	Data any
+}
+
+//----------
+
+// bidirectional UI endpoint (kbd/mouse + draw)
+type ConsoleConn interface {
+	io.ReadWriteCloser
+	SetSize(w, h int)
+	Repaint()
+	Error(error)
 }

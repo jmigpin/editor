@@ -29,7 +29,7 @@ type ERow struct {
 
 	highlightDuplicates bool
 
-	terminalOpt    terminalOpt
+	termOpts       terminalOpts
 	scrollDownMode string
 
 	ctx       context.Context // erow general context
@@ -428,10 +428,10 @@ func (erow *ERow) parseToolbarVars() {
 	}
 
 	// $terminal
-	erow.terminalOpt = terminalOpt{}
+	erow.termOpts = terminalOpts{}
 	if erow.Info.IsDir() {
 		if v, ok := vmap["$terminal"]; ok {
-			erow.terminalOpt = terminalOpt{} // reset
+			erow.termOpts = terminalOpts{} // reset
 			u := strings.Split(v, ",")
 			for _, k := range u {
 				if err := erow.applyTerminalOpt(k); err != nil {
@@ -467,7 +467,7 @@ func (erow *ERow) setVarFontTheme(s string) error {
 
 	ta := erow.Row.TextArea
 
-	// use parent node face options (might contain dpi)
+	// use parent node face options (inherit dpi)
 	face := ta.Parent.TreeThemeFontFace()
 	fopts2 := face.Opts // copy
 
@@ -498,7 +498,7 @@ func (erow *ERow) setVarFontTheme(s string) error {
 }
 
 func (erow *ERow) applyTerminalOpt(opt string) error {
-	topt := &erow.terminalOpt
+	topt := &erow.termOpts
 
 	opt = strings.ToLower(strings.TrimSpace(opt))
 
@@ -524,17 +524,17 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 	case "pty":
 		topt.pty = set
 	case "emuraw":
-		return topt.topts.Mode.SetBool(set, termemu.ModeRaw)
+		return topt.Mode.SetBool(set, termemu.ModeRaw)
 	case "emuplain":
-		return topt.topts.Mode.SetBool(set, termemu.ModePlain)
+		return topt.Mode.SetBool(set, termemu.ModePlain)
 	case "emuui":
-		return topt.topts.Mode.SetBool(set, termemu.ModeUI)
+		return topt.Mode.SetBool(set, termemu.ModeUI)
 	case "kb":
 		topt.forwardKb = set
 	case "mouse":
 		topt.forwardMouse = set
 	case "debug":
-		topt.topts.Debug = true
+		topt.Debug = true
 	default:
 		return fmt.Errorf("unknown $terminal option: %q\n\t%s", opt, erow.Info.Name())
 	}
@@ -591,8 +591,9 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 
 	// setup reader
 	rd := (io.Reader)(nil)
-	if erow.terminalOpt.forwardKb {
-		tard := newTextareaReader(erow.Row.TextArea)
+	tard := (*TextAreaReader)(nil)
+	if erow.termOpts.forwardKb {
+		tard = newTextareaReader(erow.Row.TextArea)
 		tard.handleKeybInput = true
 		rd = io.Reader(tard)
 		// setup closer
@@ -608,39 +609,16 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 
 	rwc := io.ReadWriteCloser(&iout.RWC{rd, wc, cl})
 
-	if erow.terminalOpt.topts.Mode.On() {
-		te := termemu.NewEmu(rwc, erow.terminalOpt.topts)
-		go erow.handleTermEmuEvents(te)
+	if erow.termOpts.Mode.On() {
+		cons := newTextAreaConsole(erow, rwc)
+		//erow.termOpts.W = 80
+		//erow.termOpts.H = 24
+		te := termemu.NewEmu(cons, erow.termOpts.Opts)
+		cons.temu = te
 		rwc = te
 	}
 
 	return rwc
-}
-
-//----------
-
-func (erow *ERow) handleTermEmuEvents(te *termemu.Emu) {
-	for ev := range te.Events() {
-		//fmt.Printf("new ev: %v\n", ev)
-		switch ev.Kind {
-		case "error":
-			erow.Ed.Errorf("erow.termemu: %v", ev.Data)
-			break
-		case "repaint":
-			erow.paintTermScreen(te)
-		default:
-			fmt.Println("erow.termemu: todo", ev)
-		}
-	}
-}
-func (erow *ERow) paintTermScreen(te *termemu.Emu) {
-	scr := te.Snapshot()
-	b := scr.Bytes(false, true)
-	erow.Row.TextArea.SetBytesClearHistory(b)
-	erow.Row.TextArea.SetCursorIndex(0)
-
-	//erow.Row.TextArea.MarkNeedsPaint()
-	//erow.Row.TextArea.AppendBytesClearHistory(buf.Bytes())
 }
 
 //----------
@@ -748,9 +726,9 @@ func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
 //----------
 //----------
 
-type terminalOpt struct {
+type terminalOpts struct {
+	termemu.Opts
 	pty          bool // run under a pseudo-terminal
 	forwardKb    bool // forward keyboard events to the process
 	forwardMouse bool // forward mouse events to the process
-	topts        termemu.Opts
 }
