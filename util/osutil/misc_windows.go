@@ -22,6 +22,8 @@ func ProcAttrSetDefaults(cmd *exec.Cmd) {
 	}
 	cmd.SysProcAttr.HideWindow = true
 	cmd.SysProcAttr.CreationFlags |= windows.CREATE_NO_WINDOW
+
+	// requires a group kill at the end if started with a "shell" (ex: win cmd). cmd.process.kill will only kill the shell and not the proc
 	cmd.SysProcAttr.CreationFlags |= windows.CREATE_NEW_PROCESS_GROUP
 }
 
@@ -33,12 +35,18 @@ func ProcKill(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return fmt.Errorf("process is nil")
 	}
-	return cmd.Process.Kill()
 
-	// TODO: child/groups processes?
-	//pid := fmt.Sprintf("%v", cmd.Process.Pid)
-	//c := exec.Command("taskkill", "/T", "/F", "/PID", pid)
-	//return c.Run()
+	// fails if started with CREATE_NEW_PROCESS_GROUP
+	//return cmd.Process.Kill()
+
+	// send CTRL_BREAK to the group (pid == group id)
+	// TODO: fails to work
+	//return windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, uint32(cmd.Process.Pid))
+
+	// child/groups processes
+	pid := fmt.Sprintf("%v", cmd.Process.Pid)
+	c := exec.Command("taskkill", "/T", "/F", "/PID", pid)
+	return c.Run()
 }
 
 //----------
