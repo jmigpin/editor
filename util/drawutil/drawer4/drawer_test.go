@@ -14,7 +14,6 @@ import (
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"golang.org/x/image/colornames"
-	"golang.org/x/image/font/opentype"
 )
 
 func init() {
@@ -417,9 +416,9 @@ func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 
 func newTestFace() *fontutil.FontFace {
 	f := fontutil.DefaultFont()
-	opt := opentype.FaceOptions{DPI: 100}
-	return f.FontFace(opt)
-
+	opts := fontutil.DefaultFaceOptions()
+	opts.SetDPI(100)
+	return f.FontFace(opts)
 }
 
 //----------
