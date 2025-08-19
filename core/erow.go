@@ -13,6 +13,7 @@ import (
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -474,19 +475,29 @@ func (erow *ERow) setVarFontTheme(s string) error {
 	// use parent node face options (might contain dpi)
 	face := ta.Parent.TreeThemeFontFace()
 	fopts2 := face.Opts // copy
-	fopts2.SetSize(size)
 
-	// change only size if name not provided
-	if len(name) == 0 {
-		ff := face.Font.FontFace(fopts2)
-		ta.SetThemeFontFace(ff)
-		return nil
+	// start accepting only at 2, allows typing 1x without affecting the rendering
+	if size >= 2 {
+		fopts2.SetSize(size)
+		// change only size if name not provided
+		if len(name) == 0 {
+			ff := face.Font.FontFace(fopts2)
+			ta.SetThemeFontFace(ff)
+			return nil
+		}
 	}
 
-	ff, err := ui.ThemeFontFace2(name, fopts2)
-	if err != nil {
-		return err
+	ff := (*fontutil.FontFace)(nil)
+	if len(name) == 0 { // change only size if name not provided
+		ff = face.Font.FontFace(fopts2)
+	} else {
+		ff2, err := ui.ThemeFontFace2(name, fopts2)
+		if err != nil {
+			return err
+		}
+		ff = ff2
 	}
+
 	ta.SetThemeFontFace(ff)
 	return nil
 }
