@@ -248,6 +248,12 @@ func (erow *ERow) initHandlers() {
 		handled := erow.Ed.AnnotationsHandled(erow, ev)
 		ev.ReplyHandled = event.Handled(handled)
 	})
+	// textarea layout for console
+	row.TextArea.EvReg.Add(ui.TextAreaLayoutEventId, func(ev0 any) {
+		ev := ev0.(*ui.TextAreaLayoutEvent)
+		_ = ev
+		updateConsoleFontSize(erow)
+	})
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 any) {
 		ev := ev0.(*ui.RowInputEvent)
@@ -428,10 +434,11 @@ func (erow *ERow) parseToolbarVars() {
 	}
 
 	// $terminal
-	erow.termOpts = terminalOpts{}
+	erow.termOpts = terminalOpts{ // reset
+		origFace: erow.Row.TextArea.TreeThemeFontFace(),
+	}
 	if erow.Info.IsDir() {
 		if v, ok := vmap["$terminal"]; ok {
-			erow.termOpts = terminalOpts{} // reset
 			u := strings.Split(v, ",")
 			for _, k := range u {
 				if err := erow.applyTerminalOpt(k); err != nil {
@@ -439,6 +446,7 @@ func (erow *ERow) parseToolbarVars() {
 					//erow.Ed.Error(err)
 				}
 			}
+			updateConsoleFontSize(erow)
 		}
 	}
 
@@ -731,4 +739,6 @@ type terminalOpts struct {
 	pty          bool // run under a pseudo-terminal
 	forwardKb    bool // forward keyboard events to the process
 	forwardMouse bool // forward mouse events to the process
+
+	origFace *fontutil.FontFace
 }

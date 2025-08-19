@@ -5,8 +5,6 @@ import (
 	"sync"
 
 	"github.com/jmigpin/editor/core/termemu"
-	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/fontutil"
 )
 
@@ -16,11 +14,6 @@ type TextAreaConsole struct {
 	rwc  io.ReadWriteCloser
 	temu *termemu.Emu
 
-	w, h     int
-	origFace *fontutil.FontFace
-
-	reg *evreg.Regist
-
 	paint struct {
 		sync.Mutex
 		on bool
@@ -29,14 +22,6 @@ type TextAreaConsole struct {
 
 func newTextAreaConsole(erow *ERow, rwc io.ReadWriteCloser) *TextAreaConsole {
 	tac := &TextAreaConsole{erow: erow, rwc: rwc}
-
-	ta := tac.erow.Row.TextArea
-
-	tac.origFace = ta.TreeThemeFontFace()
-
-	// register to handle textarea input events
-	tac.reg = ta.EvReg.Add(ui.TextAreaLayoutEventId, tac.onTextAreaLayoutEvent)
-
 	return tac
 }
 
@@ -49,7 +34,6 @@ func (tac *TextAreaConsole) Write(p []byte) (int, error) {
 	return tac.rwc.Write(p)
 }
 func (tac *TextAreaConsole) Close() error {
-	defer tac.reg.Unregister()
 	return tac.rwc.Close()
 }
 
@@ -93,15 +77,56 @@ func (tac *TextAreaConsole) paintNow() {
 //----------
 
 func (tac *TextAreaConsole) SetSize(w, h int) {
-	tac.w, tac.h = w, h
+	tac.erow.termOpts.W, tac.erow.termOpts.H = w, h
+	updateConsoleFontSize(tac.erow)
+}
 
-	// TODO: extra border drawn around the snapshot
+//----------
+
+//func (tac *TextAreaConsole) onTextAreaLayoutEvent(ev0 any) {
+//	ev := ev0.(*ui.TextAreaLayoutEvent)
+//	_ = ev
+
+//	ta := tac.erow.Row.TextArea
+
+//	// TODO: how to know if $font changed or simple resize
+//	//tac.origFace = ta.TreeThemeFontFace()
+
+//	//tac.SetSize(tac.erow.termOpts.W, tac.erow.termOpts.H)
+
+//	ta.MarkNeedsLayout()
+//}
+
+//----------
+//----------
+//----------
+
+func updateConsoleFontSize(erow *ERow) {
+	if erow.termOpts.Mode == termemu.ModeUI {
+		setConsoleFontSize(erow)
+	}
+}
+
+func setConsoleFontSize(erow *ERow) {
+	w := max(80, erow.termOpts.W)
+	h := max(24, erow.termOpts.H)
+
+	// TODO: get this from the emu screen
+	// extra border drawn around the snapshot
 	w += 2 + 1 // +1 is the extra space set at start on the left side
 	h += 2
 
-	ta := tac.erow.Row.TextArea
+	ta := erow.Row.TextArea
 
-	face := tac.origFace
+	// use mono font
+	origFace := erow.termOpts.origFace
+	face := origFace
+	if !face.TestIsMono() {
+		face = fontutil.DefaultMonoFontFace()
+	}
+
+	// TODO: max font size
+
 	faceAtSize := func(v float64) *fontutil.FontFace {
 		fopts2 := face.Opts // copy
 		fopts2.SetSize(float64(v))
@@ -111,7 +136,6 @@ func (tac *TextAreaConsole) SetSize(w, h int) {
 	runeSize := func(p float64) (int, int) {
 		face2 := faceAtSize(p)
 		adv, ok := face2.Face.GlyphAdvance('W')
-		//adv, ok := face2.Face.GlyphAdvance('─')
 		if !ok {
 			return 0, 0
 		}
@@ -119,14 +143,14 @@ func (tac *TextAreaConsole) SetSize(w, h int) {
 	}
 
 	sx, sy := ta.Bounds.Dx(), ta.Bounds.Dy()
-	rx, ry, p := FitRuneSizeF(sx, sy, w, h, runeSize)
+	rx, ry, p := fitRuneSizeF(sx, sy, w, h, runeSize)
 
 	if rx == 0 && ry == 0 && p == 0 {
-		ta.SetThemeFontFace(tac.origFace)
+		ta.SetThemeFontFace(origFace)
 		return
 	}
 
-	maxFSize := tac.origFace.Opts.Size()
+	maxFSize := origFace.Opts.Size()
 	if p > maxFSize {
 		p = maxFSize
 	}
@@ -135,30 +159,10 @@ func (tac *TextAreaConsole) SetSize(w, h int) {
 	ta.SetThemeFontFace(face2)
 }
 
-//----------
-
-func (tac *TextAreaConsole) onTextAreaLayoutEvent(ev0 any) {
-	ev := ev0.(*ui.TextAreaLayoutEvent)
-	_ = ev
-
-	ta := tac.erow.Row.TextArea
-
-	// TODO: how to know if $font changed or simple resize
-	//tac.origFace = ta.TreeThemeFontFace()
-
-	tac.SetSize(tac.w, tac.h)
-
-	ta.MarkNeedsLayout()
-}
-
-//----------
-//----------
-//----------
-
-// FitRuneSizeF finds the largest p (float) such that w×x <= sx and h×y <= sy,
+// finds the largest p (float) such that w×x <= sx and h×y <= sy,
 // where (x,y) = runeSize(p) are pixel dims (monotonic non-decreasing in p).
 // Returns the chosen (x,y,p). If impossible, returns zeros.
-func FitRuneSizeF(sx, sy, w, h int, runeSize func(p float64) (int, int)) (int, int, float64) {
+func fitRuneSizeF(sx, sy, w, h int, runeSize func(p float64) (int, int)) (int, int, float64) {
 	if sx <= 0 || sy <= 0 || w <= 0 || h <= 0 {
 		return 0, 0, 0
 	}
@@ -169,9 +173,9 @@ func FitRuneSizeF(sx, sy, w, h int, runeSize func(p float64) (int, int)) (int, i
 	}
 
 	const (
-		minP  = 1e-6
-		maxP  = 1e6
-		eps   = 1e-6 // binary search tolerance on p
+		minP  = 1e-1
+		maxP  = 1e3
+		eps   = 1e-1 // binary search tolerance on p
 		maxIt = 5    // cap iterations
 	)
 

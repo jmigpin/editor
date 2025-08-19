@@ -2,6 +2,7 @@ package fontutil
 
 import (
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
@@ -9,16 +10,19 @@ import (
 )
 
 func DefaultFont() *Font {
-	f, err := FontsMan.Font(goregular.TTF)
-	if err != nil {
-		panic(err)
-	}
-	return f
+	return FontsMan.mustFont(goregular.TTF)
 }
-
 func DefaultFontFace() *FontFace {
 	return DefaultFont().FontFace(DefaultFaceOptions())
 }
+
+func DefaultMonoFont() *Font {
+	return FontsMan.mustFont(gomono.TTF)
+}
+func DefaultMonoFontFace() *FontFace {
+	return DefaultMonoFont().FontFace(DefaultFaceOptions())
+}
+
 func DefaultFaceOptions() FaceOptions {
 	return NewFaceOptions(12, 72)
 }
@@ -54,6 +58,14 @@ func (fm *FontsManager) Font(ttf []byte) (*Font, error) {
 	}
 	fm.fontsCache[string(ttf)] = f
 	return f, nil
+}
+
+func (fm *FontsManager) mustFont(ttf []byte) *Font {
+	f, err := fm.Font(ttf)
+	if err != nil {
+		panic(err)
+	}
+	return f
 }
 
 //----------
@@ -134,6 +146,12 @@ func (ff *FontFace) LineHeightFloat() float64 {
 
 func (ff *FontFace) BaseLine() fixed.Point26_6 {
 	return fixed.Point26_6{0, ff.baselineY}
+}
+
+func (ff *FontFace) TestIsMono() bool {
+	adv1, ok1 := ff.Face.GlyphAdvance('W')
+	adv2, ok2 := ff.Face.GlyphAdvance('i')
+	return ok1 && ok2 && adv1 == adv2
 }
 
 //----------
