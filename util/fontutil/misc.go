@@ -3,8 +3,32 @@ package fontutil
 import (
 	"image"
 
+	"golang.org/x/image/font/gofont/gomono"
+	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/math/fixed"
 )
+
+func DefaultFont() *Font {
+	return FontsMan.mustFont(goregular.TTF)
+}
+func DefaultMonoFont() *Font {
+	return FontsMan.mustFont(gomono.TTF)
+}
+
+//----------
+
+// avoid, fixed DPI
+func DefaultFontFace() *FontFace {
+	return DefaultFont().FontFace(DefaultFaceOptions())
+}
+func DefaultMonoFontFace() *FontFace {
+	return DefaultMonoFont().FontFace(DefaultFaceOptions())
+}
+func DefaultFaceOptions() FaceOptions {
+	return NewFaceOptions(12, 72)
+}
+
+//----------
 
 func Rect266MinFloorMaxCeil(r fixed.Rectangle26_6) image.Rectangle {
 	min := image.Point{r.Min.X.Floor(), r.Min.Y.Floor()}

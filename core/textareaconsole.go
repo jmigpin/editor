@@ -82,22 +82,6 @@ func (tac *TextAreaConsole) SetSize(w, h int) {
 }
 
 //----------
-
-//func (tac *TextAreaConsole) onTextAreaLayoutEvent(ev0 any) {
-//	ev := ev0.(*ui.TextAreaLayoutEvent)
-//	_ = ev
-
-//	ta := tac.erow.Row.TextArea
-
-//	// TODO: how to know if $font changed or simple resize
-//	//tac.origFace = ta.TreeThemeFontFace()
-
-//	//tac.SetSize(tac.erow.termOpts.W, tac.erow.termOpts.H)
-
-//	ta.MarkNeedsLayout()
-//}
-
-//----------
 //----------
 //----------
 
@@ -122,7 +106,7 @@ func setConsoleFontSize(erow *ERow) {
 	origFace := erow.termOpts.origFace
 	face := origFace
 	if !face.TestIsMono() {
-		face = fontutil.DefaultMonoFontFace()
+		face = fontutil.DefaultMonoFont().FontFace(face.Opts)
 	}
 
 	// TODO: max font size

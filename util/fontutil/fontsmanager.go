@@ -2,32 +2,10 @@ package fontutil
 
 import (
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/gomono"
-	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 )
-
-func DefaultFont() *Font {
-	return FontsMan.mustFont(goregular.TTF)
-}
-func DefaultFontFace() *FontFace {
-	return DefaultFont().FontFace(DefaultFaceOptions())
-}
-
-func DefaultMonoFont() *Font {
-	return FontsMan.mustFont(gomono.TTF)
-}
-func DefaultMonoFontFace() *FontFace {
-	return DefaultMonoFont().FontFace(DefaultFaceOptions())
-}
-
-func DefaultFaceOptions() FaceOptions {
-	return NewFaceOptions(12, 72)
-}
-
-//----------
 
 var FontsMan = NewFontsManager()
 
