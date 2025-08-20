@@ -619,11 +619,12 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 
 	if erow.termOpts.Mode.On() {
 		cons := newTextAreaConsole(erow, rwc)
-		//erow.termOpts.W = 80
-		//erow.termOpts.H = 24
 		te := termemu.NewEmu(cons, erow.termOpts.Opts)
-		cons.temu = te
 		rwc = te
+		cons.temu = te
+		if tard != nil {
+			tard.temu = te
+		}
 	}
 
 	return rwc

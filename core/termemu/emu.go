@@ -169,36 +169,15 @@ func (emu *Emu) plainMode() bool {
 
 //----------
 
-//func (emu *Emu) Events() <-chan Event {
-//	return emu.evs
-//}
-
-//func (emu *Emu) push(ev Event) {
-//	//// TODO: review.. should not be skipping any, need cache then push
-//	//select {
-//	//case emu.evs <- ev:
-//	//default:
-//	//}
-
-//	// TODO: review, halting without goroutine
-//	//go func() { emu.evs <- ev }()
-
-//	emu.evs <- ev
-//}
-
-//----------
-
 func (emu *Emu) Snapshot() *Screen {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
 	return emu.scr.Clone()
 }
 
-//func (emu *Emu) LineFeedNewlineMode() bool {
-//	emu.mu.Lock()
-//	defer emu.mu.Unlock()
-//	return emu.scr.modes.LineFeedNewlineMode()
-//}
+func (emu *Emu) ScrMode() *Modes {
+	return &emu.scr.modes
+}
 
 //----------
 //----------
@@ -229,7 +208,7 @@ func (emu *Emu) applyEmit(op *TermOp) {
 	case "hts":
 		emu.scr.escHts_horizontalTabSet()
 	case "ind":
-		emu.scr.lineFeed()
+		emu.scr.escInd_index()
 	case "lf":
 		emu.scr.lineFeed()
 		if emu.plainMode() {
@@ -268,22 +247,24 @@ func (emu *Emu) applyEmit(op *TermOp) {
 
 func (emu *Emu) applyEmitCsi(op *TermOp) {
 	switch op.csi.final {
-	case 'A': // cuu: Cursor Up (n rows, default 1)
+	case 'A': // CUU: Cursor Up (n rows, default 1)
 		emu.scr.csiCuu_cursorUp(op.csiADef(1))
-	case 'B': // cud: Cursor Down
+	case 'B': // CUD: Cursor Down
 		emu.scr.csiCud_cursorDown(op.csiADef(1))
-	case 'C': // cuf: Cursor Forward (right)
+	case 'C': // CUF: Cursor Forward (right)
 		emu.scr.csiCuf_cursorForward(op.csiADef(1))
-	case 'D': // cub: Cursor Backward (left)
+	case 'D': // CUB: Cursor Backward (left)
 		emu.scr.csiCub_cursorBackward(op.csiADef(1))
 
 		//E  CNL – Cursor Next Line (down n rows, col 1)
 		//F  CPL – Cursor Previous Line (up n rows, col 1)
 
-	case 'G': // cha: Cursor Horizontal Absolute (to col n, same row)
-		emu.scr.moveToCol(op.csiA())
+	case 'G': // CHA: Cursor Horizontal Absolute (to col n, same row)
+		emu.scr.csiCha_cursorHorizontalAbsolute(op.csiADef(1))
 	case 'H', 'f': // cup: Cursor Position (row n, col m, default 1,1)
-		emu.scr.moveTo(op.csiADef(1), op.csiBDef(1))
+		emu.scr.csiCup_cursorPosition(op.csiADef(1), op.csiBDef(1))
+	case 'I': // CHT: cursor horizontal tabulation
+		emu.scr.csiCht_cursorHorizontalTabulation(op.csiADef(1))
 	case 'J': // ed: Erase in Display
 		emu.scr.csiEd_eraseInDisplay(op.csiA())
 	case 'K': // el: Erase in Line
@@ -300,8 +281,6 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 		emu.scr.csiSd_scrollDown(op.csiADef(1))
 	case 'X': //  ECH: Erase Characters
 		emu.scr.csiEch_eraseChars(op.csiADef(1))
-	case 'I': // CHT: Cursor Horizontal Tabulation
-		emu.scr.csiCht_cursorHorizontalTab(op.csiADef(1))
 	case 'Z': // CBT: Cursor Backward Tab
 		emu.scr.csiCbt_cursorBackwardTab(op.csiADef(1))
 
@@ -310,9 +289,19 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 	//a  HPR – Horizontal Position Relative (right n cols)
 
 	case 'c': // DA: Device Attributes
+		// primary
 		if !op.csi.hasPriv && op.csiA() == 0 {
 			emu.sendToExec(termSeqReply)
 		}
+		// secondary
+		if op.csiPrivIs('>') && op.csiA() == 0 {
+			emu.sendToExec("\x1b[>0;1;1c")
+		}
+		// tertiary
+		if op.csiPrivIs('=') && op.csiA() == 0 {
+			emu.sendToExec("\x1b[>0;1;1c")
+		}
+
 	case 'd': //  vpa: Vertical Position Absolute (to row n)
 		emu.scr.moveToRow(op.csiA())
 
@@ -323,8 +312,8 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 		emu.scr.csiTbc_tabClear(op.csiADef(0))
 
 	case 'h', 'l': // h:sm: Set Mode; l:rm: Reset Mode
+		on := op.csi.final == 'h'
 		if op.csiPrivIs('?') {
-			on := op.csi.final == 'h'
 			emu.scr.modes.set(op.csiA(), on)
 			switch op.csiA() {
 			case 3:
@@ -333,6 +322,8 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 				}
 			case 6:
 				emu.scr.moveToOrigin()
+			case 69:
+
 			}
 		}
 
@@ -348,15 +339,31 @@ func (emu *Emu) applyEmitCsi(op *TermOp) {
 			s := fmt.Sprintf("\x1b[%d;%dR", row1, col1)
 			emu.sendToExec(s)
 		}
-
-	//q  DECLL – Load LEDs
-
+	case 'q': // DECLL: Load LEDs
+		switch op.csiA() {
+		case 0: // 	clear all leds
+		case 1: // light nums lock
+		case 2:
+			switch op.csiB() {
+			case 0: // light caps lock
+			case 1: // extinguish num lock
+			case 2: // extinguish caps lock
+			case 3: // extinguish scroll lock
+			}
+		case 3: // light scroll lock
+		}
 	case 'r': // DECSTBM: Set Scrolling Region
 		top1, bot1 := op.csiADef(1), op.csiBDef(emu.scr.H)
 		emu.scr.setScrollRegion(top1, bot1)
 		emu.scr.moveToOrigin()
-
-	case 's': // SCP: Save Cursor Position
+	case 's':
+		// SLRM: set left right margins
+		if len(op.csi.params) == 2 {
+			left1, right1 := op.csiADef(1), op.csiBDef(1)
+			emu.scr.csiSlrm_lrmmSetMargins(left1, right1)
+			return
+		}
+		// SCP: Save Cursor Position
 		emu.scr.csiScp_saveCursorPos()
 	case 'u': // RCP: Restore Cursor Position
 		//switch {

@@ -105,7 +105,7 @@ func TestScrollRegionAndOriginMode(t *testing.T) {
 	// Move down to bottom margin and LF to force region scroll
 	sendWithBarrier(t, te, "\x1b[4B") // 4 down inside region
 	snap := te.Snapshot()
-	top, bot := snap.region()
+	top, bot := snap.sTop, snap.sBot
 	if top != 1 || bot != 4 { // 0-based internally
 		t.Fatalf("bad region top/bot: %d/%d", top, bot)
 	}
@@ -412,6 +412,199 @@ func TestDECSC_DECRC_PosRestored(t *testing.T) {
 		t.Fatalf("cursor=(%d,%d), want (5,10)", s.cursor.y, s.cursor.x)
 	}
 }
+
+func TestLRMM_WrapAndCR(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 10, H: 3})
+	defer te.Close()
+
+	// Enable L/R margins 3..8 (1-based) and move to col=1 (→ left margin).
+	sendWithBarrier(t, te, "\x1b[?69h\x1b[3;8s\x1b[1;1H")
+
+	// Fill up to right margin; 'F' lands at x=7 and sets wrap-pending.
+	sendWithBarrier(t, te, "ABCDEF")
+	s := te.Snapshot()
+	if s.Grid[0][7].R != 'F' {
+		t.Fatalf("want 'F' at right edge x=7, got %q", string(s.Grid[0][7].R))
+	}
+
+	// Next printable triggers the wrap into next line at the left margin (x=2).
+	sendWithBarrier(t, te, "G")
+	s = te.Snapshot()
+	if s.Grid[1][2].R != 'G' {
+		t.Fatalf("wrap failed: want 'G' at row=1,x=2 (left margin)")
+	}
+
+	// CR must move to left margin (not column 0) and overwrite at x=2.
+	sendWithBarrier(t, te, "\rX")
+	s = te.Snapshot()
+	if s.Grid[1][2].R != 'X' {
+		t.Fatalf("CR should move to left margin; got %q elsewhere", string(s.Grid[1][2].R))
+	}
+}
+
+func TestCAN_SUB_Abort(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 5, H: 1})
+	defer te.Close()
+	send(t, te, "\x1b[9999")          // start a CSI
+	send(t, te, string([]byte{0x18})) // CAN
+	sendWithBarrier(t, te, "A")
+	s := te.Snapshot()
+	if s.Grid[0][0].R != 'A' {
+		t.Fatal("CAN did not abort; parser stuck")
+	}
+}
+
+func TestCUP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 10, H: 4})
+	defer te.Close()
+
+	// Sanity: LRMM off → CUP 1;1 == absolute col 0
+	sendWithBarrier(t, te, "\x1b[H")
+	s := te.Snapshot()
+	if s.cursor.y != 0 || s.cursor.x != 0 {
+		t.Fatalf("LRMM off: want (0,0), got (%d,%d)", s.cursor.y, s.cursor.x)
+	}
+
+	// Enable LRMM and set left/right margins to 3..8 (1-based) → 0-based [2..7]
+	sendWithBarrier(t, te, "\x1b[?69h\x1b[3;8s")
+
+	// CUP 1;1 → should land at left margin (column 3 → x=2)
+	sendWithBarrier(t, te, "\x1b[1;1H")
+	s = te.Snapshot()
+	if s.cursor.x != 2 {
+		t.Fatalf("CUP 1;1 with LRMM: want x=2 (left margin), got %d", s.cursor.x)
+	}
+
+	// CUP 1;6 → left margin + 5 → x=7 (still within right margin)
+	sendWithBarrier(t, te, "\x1b[1;6H")
+	s = te.Snapshot()
+	//s.PrintWithCursor()
+	if s.cursor.x != 7 {
+		t.Fatalf("CUP 1;6 with LRMM: want x=7, got %d", s.cursor.x)
+	}
+
+	// CUP 1;99 → clamp at right margin (x=7)
+	sendWithBarrier(t, te, "\x1b[1;99H")
+	s = te.Snapshot()
+	if s.cursor.x != 7 {
+		t.Fatalf("CUP 1;99 with LRMM: want x=7 (right margin), got %d", s.cursor.x)
+	}
+
+	// Turn LRMM off → CUP 1;1 back to absolute col 0
+	sendWithBarrier(t, te, "\x1b[?69l\x1b[1;1H")
+	s = te.Snapshot()
+	if s.cursor.x != 0 {
+		t.Fatalf("LRMM off again: CUP 1;1 should be x=0, got %d", s.cursor.x)
+	}
+}
+
+func TestHVP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 12, H: 4})
+	defer te.Close()
+
+	sendWithBarrier(t, te, "\x1b[?69h\x1b[4;9s") // margins 4..9 → x in [3..8]
+	sendWithBarrier(t, te, "\x1b[2;1f")          // HVP row2,col1 → x=3
+	s := te.Snapshot()
+	if s.cursor.x != 3 {
+		t.Fatalf("HVP 2;1 with LRMM: want x=3 (left margin), got %d", s.cursor.x)
+	}
+}
+
+func TestIND_PreservesColumn(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 6, H: 5})
+	defer te.Close()
+
+	sendWithBarrier(t, te, "\x1b[2;3H+\x1b[1D\x1bD+")
+	s := te.Snapshot()
+
+	if s.Grid[1][2].R != '+' {
+		t.Fatalf("want '+' at row2,col3")
+	}
+	if s.Grid[2][2].R != '+' {
+		t.Fatalf("IND must keep X; want '+' at row3,col3")
+	}
+}
+
+func TestCSI_I_CHT(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 20, H: 1})
+	defer te.Close()
+	sendWithBarrier(t, te, "A\x1b[I")  // default 1 tab -> col 8
+	sendWithBarrier(t, te, "B\x1b[2I") // +2 tabs -> col 24 (clamped by W=20)
+	s := te.Snapshot()
+	if s.Grid[0][0].R != 'A' || s.Grid[0][8].R != 'B' {
+		t.Fatalf("CHT failed")
+	}
+}
+
+func TestCSI_ParamsIgnoreC0(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 10, H: 3})
+	defer te.Close()
+	seq := "\x1b[" + string([]byte{0x09}) + "2" + string([]byte{0x0D}) + ";" + string([]byte{0x08}) + "3H"
+	sendWithBarrier(t, te, seq+"X") // CUP 2;3 with C0 mixed in
+	s := te.Snapshot()
+	if s.cursor.y != 1 || s.cursor.x != 3 || s.Grid[1][2].R != 'X' {
+		t.Fatalf("C0 inside CSI not ignored; got (%d,%d)", s.cursor.y, s.cursor.x)
+	}
+}
+
+func TestCSI_ParamsIgnore2(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 20, H: 3})
+	defer te.Close()
+	seq := "A [2CB[4CC[6CD[8CE[10CF[12CG[14CH[16CI"
+	sendWithBarrier(t, te, seq)
+	s := te.Snapshot()
+
+	u := string(s.Bytes(false, false)[:17])
+	exp := "A B C D E F G H I"
+	if u != exp {
+		t.Fatalf("expected %q, got %q", exp, u)
+	}
+}
+func TestCSI_ParamsIgnore3(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 20, H: 3})
+	defer te.Close()
+	seq := "A[2CB[2CC[2CD[2CE[2CF[2CG[2CH[2CI[2C"
+	sendWithBarrier(t, te, seq)
+	s := te.Snapshot()
+	//s.Print()
+
+	u := string(s.Bytes(false, false)[:17])
+	exp := "A B C D E F G H I"
+	if u != exp {
+		t.Fatalf("expected %q, got %q", exp, u)
+	}
+}
+func TestCSI_ParamsIgnore4(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 20, H: 3})
+	defer te.Close()
+	seq := "[3,1H[20lA [1AB [1AC [1AD [1AE [1AF [1AG [1AH [1AI [1A"
+	sendWithBarrier(t, te, seq)
+	s := te.Snapshot()
+	//s.Print()
+
+	k := 21*2 + 6
+	u := string(s.Bytes(false, false)[k : k+17])
+	exp := "A B C D E F G H I"
+	if u != exp {
+		t.Fatalf("expected %q, got %q", exp, u)
+	}
+}
+
+//func TestSeq1(t *testing.T) {
+//	te := newTestEmu(newUserMock(), Opts{W: 20, H: 20})
+//	defer te.Close()
+//	seq := "[19;80HO		o[19;2HO[19;80H\n[18;1HP[18;80Hp[19;1HQ[19;80Hq"
+//	sendWithBarrier(t, te, seq)
+//	s := te.Snapshot()
+//	s.Print()
+
+//	k := 21*2 + 6
+//	u := string(s.Bytes(false, false)[k : k+17])
+//	exp := "A B C D E F G H I"
+//	if u != exp {
+//		t.Fatalf("expected %q, got %q", exp, u)
+//	}
+//}
 
 //----------
 //----------

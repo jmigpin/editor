@@ -95,6 +95,8 @@ func setConsoleFontSize(erow *ERow) {
 	w := max(80, erow.termOpts.W)
 	h := max(24, erow.termOpts.H)
 
+	//h += 1000 // TESTING
+
 	// TODO: get this from the emu screen
 	// extra border drawn around the snapshot
 	w += 2 + 1 // +1 is the extra space set at start on the left side
@@ -153,7 +155,8 @@ func fitRuneSizeF(sx, sy, w, h int, runeSize func(p float64) (int, int)) (int, i
 	fits := func(p float64) bool {
 		x, y := runeSize(p)
 		//return x > 0 && y > 0 && w*x <= sx && h*y <= sy
-		return x > 0 && y > 0 && w*x < sx && h*y < sy
+		//return x > 0 && y > 0 && w*x < sx && h*y < sy
+		return x > 0 && y > 0 && w*x < sx
 	}
 
 	const (

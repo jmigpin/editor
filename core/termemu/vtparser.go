@@ -6,13 +6,13 @@ import (
 )
 
 type VTParser struct {
-	Emit  func(*TermOp)
+	emit  func(*TermOp)
 	state func() error
 	rd    *bufio.Reader
 }
 
 func NewVTParser(r io.Reader, emit func(*TermOp)) *VTParser {
-	p := &VTParser{Emit: emit}
+	p := &VTParser{emit: emit}
 	p.state = p.stDefault
 	p.rd = bufio.NewReader(r)
 	return p
@@ -33,30 +33,32 @@ func (p *VTParser) stDefault() error {
 	if err != nil {
 		return err
 	}
+	return p.handleDefault(ru)
+}
+func (p *VTParser) handleDefault(ru rune) error {
 	switch ru {
-	case 0x1b: // ESC
+	case codeESC:
 		p.state = p.stEsc
-	case 0x9b: // CSI: control sequence introducer
+	case codeCSI:
 		p.state = p.stCSI
-	case 0x07: // BEL
+	case codeBEL:
 		p.emitKind("bell")
-	case 0x08: // \b
+	case codeBS:
 		p.emitKind("bs")
-	case 0x09: // \t
+	case codeTAB:
 		p.emitKind("ht")
-
-	case 0x0a, 0x0b, 0x0c: // \n // LF/VT/FF
+	case codeLF, codeVT, codeFF:
 		p.emitKind("lf")
-	case 0x0d: // \r
+	case codeCR:
 		p.emitKind("cr")
 
+	case codeCAN, codeSUB: // TODO
 	case 0x0e, 0x0f: // SO/SI (G1/G0)
-	case 0x18, 0x1a: // CAN/SUB
-	case 0x7f: // DEL
+	case codeDEL: // TODO
 
 	default:
 		// emit rune (direct, slower)
-		p.Emit(&TermOp{kind: "print", s: string(ru)})
+		p.emit(&TermOp{kind: "print", s: string(ru)})
 
 		//// printable run (performance)
 		//// TODO: issues with last peek halting the read
@@ -87,161 +89,171 @@ func (p *VTParser) stEsc() error {
 	if err != nil {
 		return err
 	}
+
+	p.state = p.stDefault
+
 	switch b {
+	case codeESC:
+		p.state = p.stEsc // cancel and start again
 	case '[': // CSI
 		p.state = p.stCSI
-		return nil
 	case ']': // OSC (skip payload)
 		p.state = p.stOSC
-		return nil
-	case '\\': // ST
-		p.state = p.stDefault
-		return nil
+	case '\\': // ST // TODO: string terminator
 	case 'H': // HTS
-		p.state = p.stDefault
 		p.emitKind("hts")
-		return nil
 	case 'D': // IND
-		p.state = p.stDefault
 		p.emitKind("ind")
-		return nil
 	case 'M': // RI
-		p.state = p.stDefault
 		p.emitKind("ri")
-		return nil
 	case 'E': // NEL
-		p.state = p.stDefault
 		p.emitKind("nel")
-		return nil
-
 	case '7': // SC
-		p.state = p.stDefault
 		p.emitKind("sc")
-		return nil
 	case '8': // RC
-		p.state = p.stDefault
 		p.emitKind("rc")
-		return nil
-
 	case '#': // DEC special graphics
-		p.state = p.stDefault
-		nb, err2 := p.nextByte()
+		b2, err2 := p.nextByte()
 		if err2 != nil {
 			return err2
 		}
-		if nb == '8' { // screen Alignment
+		if b2 == '8' { // screen Alignment
 			p.emitKind("aln")
 		}
-		return nil
-
 	default:
 		// unsupported single ESC: ignore
-		p.state = p.stDefault
-		return nil
 	}
+	return nil
 }
 
 func (p *VTParser) stCSI() error {
-	// collect until final (0x40..0x7E)
+	// collect until final
 	w := []byte{}
 	for {
-		// TODO: break out after n runes (safe side)?
-
 		b, err := p.nextByte()
 		if err != nil {
 			return err
 		}
-		if b >= 0x40 && b <= 0x7E {
-			if len(w) == 0 && b == '[' {
-				p.state = p.stFnKeySeq
-				return nil
-			}
 
-			defer func() { p.state = p.stDefault }()
+		// abort
+		switch b {
+		case codeCAN, codeSUB:
+			p.state = p.stDefault
+			return nil
+		case codeESC: // TODO: review
+			p.state = p.stEsc
+			return nil
+		}
+
+		if b >= 0x40 && b <= 0x7e {
+			//if len(w) == 0 && b == '[' {
+			//	p.state = p.stFnKeySeq
+			//	return nil
+			//}
+
+			p.state = p.stDefault
 			return p.parseCSI(w, b)
 		}
+
 		w = append(w, b)
 	}
 }
 
-func (p *VTParser) stFnKeySeq() error {
-	defer func() { p.state = p.stDefault }()
-
-	b, err := p.nextByte() // 'A'=f1, ...
-	if err != nil {
-		return err
-	}
-
-	p.Emit(&TermOp{kind: "fnkey", s: string(b)})
-
-	return nil
-}
-
 func (p *VTParser) stOSC() error {
-	defer func() { p.state = p.stDefault }()
+	p.state = p.stDefault
 
+	// osc = operating system commands
 	// OSC ... BEL or ST
 	for {
 		b, err := p.nextByte()
 		if err != nil {
 			return err
 		}
-		if b == 0x07 { // BEL
+		if b == codeBEL {
 			return nil
 		}
-		if b == 0x1b {
-			nb, err2 := p.nextByte()
+		if b == codeESC {
+			b2, err2 := p.nextByte()
 			if err2 != nil {
 				return err2
 			}
-			if nb == '\\' {
+			if b2 == '\\' { // ST: string terminator
 				return nil
-			} // ST
+			}
 		}
 	}
 }
+
+//func (p *VTParser) stFnKeySeq() error {
+//	defer func() { p.state = p.stDefault }()
+
+//	b, err := p.nextByte() // 'A'=f1, ...
+//	if err != nil {
+//		return err
+//	}
+
+//	p.Emit(&TermOp{kind: "fnkey", s: string(b)})
+
+//	return nil
+//}
 
 //----------
 
-func (p *VTParser) parseCSI(b []byte, final byte) error {
+func (p *VTParser) parseCSI(bs []byte, final byte) error {
 	op := &TermOp{kind: "csi"}
 	op.csi.final = final
 
-	if len(b) > 0 {
-		switch u := b[0]; u {
+	if len(bs) > 0 {
+		switch u := bs[0]; u {
 		case '?', '>', '<':
 			op.csi.hasPriv = true
 			op.csi.priv = u
-			b = b[1:]
+			bs = bs[1:]
 		}
 	}
 
-	op.csi.params = p.parseCSIParams(b)
+	ps, cancel := p.parseCSIParams(bs)
+	if cancel {
+		return nil
+	}
 
-	p.Emit(op)
+	op.csi.params = ps
+
+	p.emit(op)
 
 	return nil
 }
-func (p *VTParser) parseCSIParams(b []byte) (vals []int) {
+func (p *VTParser) parseCSIParams(bs []byte) (vals []int, cancel bool) {
 	v, seen := 0, false
-	for _, c := range b {
+	for _, b := range bs {
 		switch {
-		case c >= '0' && c <= '9':
-			v = v*10 + int(c-'0')
+		case b >= '0' && b <= '9':
+			v = v*10 + int(b-'0')
 			seen = true
-		case c == ';':
+		case b == ';':
 			if seen {
 				vals = append(vals, v)
 				v, seen = 0, false
 			} else {
 				vals = append(vals, 0)
 			}
+		default:
+			switch b {
+			case codeVT:
+				// cancel, dont emit op
+				return nil, true
+			case codeCR, codeBS:
+				// handle now and continue
+				p.handleDefault(rune(b))
+			default:
+				// ignore
+			}
 		}
 	}
 	if seen {
 		vals = append(vals, v)
 	}
-	return vals
+	return vals, false
 }
 
 //----------
@@ -257,7 +269,7 @@ func (p *VTParser) nextRune() (rune, int, error) {
 //----------
 
 func (p *VTParser) emitKind(kind string) {
-	p.Emit(&TermOp{kind: kind})
+	p.emit(&TermOp{kind: kind})
 }
 
 //----------
@@ -303,3 +315,24 @@ func (op *TermOp) csiParam(idx int) int {
 //----------
 //----------
 //----------
+
+const (
+	codeNUL = 0x00
+	codeESC = 0x1b
+	codeCSI = 0x9b // control sequence introducer
+
+	codeBS  = 0x08 // backspace, \b, 8
+	codeTAB = 0x09 // tab, \t, 9
+	codeLF  = 0x0a // linefeed/newline, \n, 10
+	codeVT  = 0x0b // vertical tab, 11
+	codeFF  = 0x0c // formfeed, 12
+	codeCR  = 0x0d // carriage return, \r, 13
+	codeDEL = 0x7f
+	codeBEL = 0x07
+
+	codeXON  = 0x11
+	codeXOFF = 0x13
+
+	codeCAN = 0x18
+	codeSUB = 0x1a
+)

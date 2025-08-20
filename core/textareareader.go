@@ -3,18 +3,23 @@ package core
 import (
 	"io"
 
+	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
+//godebug:annotatefile
+
 // used as a reader to pass to the terminal emulator for input like keyboard/mouse events
 type TextAreaReader struct {
 	handleKeybInput bool
-	//te              *termemu.Emu
-	reg *evreg.Regist
-	pr  *io.PipeReader
-	pw  *io.PipeWriter
+
+	reg  *evreg.Regist
+	temu *termemu.Emu
+
+	pr *io.PipeReader
+	pw *io.PipeWriter
 }
 
 func newTextareaReader(ta *ui.TextArea) *TextAreaReader {
@@ -66,25 +71,9 @@ func (tard *TextAreaReader) eventToBytes(ev any) ([]byte, bool) {
 func (tard *TextAreaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
 
 	esc := func(s string) []byte {
-		mod := ""
-		switch {
-		case ev.Mods.Is(event.ModShift):
-			mod = "1;2"
-		case ev.Mods.Is(event.ModAlt):
-			mod = "1;3"
-		case ev.Mods.Is(event.ModShift | event.ModAlt):
-			mod = "1;4"
-		case ev.Mods.Is(event.ModCtrl):
-			mod = "1;5"
-		case ev.Mods.Is(event.ModShift | event.ModCtrl):
-			mod = "1;6"
-		case ev.Mods.Is(event.ModAlt | event.ModCtrl):
-			mod = "1;7"
-		case ev.Mods.Is(event.ModShift | event.ModAlt | event.ModCtrl):
-			mod = "1;8"
-		}
-
-		return []byte("\x1b[" + mod + s)
+		mods := keyMods(ev.Mods)
+		s2 := tard.escSeq(mods + s)
+		return []byte(s2)
 	}
 
 	ctrl := func(b byte) byte {
@@ -96,12 +85,20 @@ func (tard *TextAreaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
 
 	switch ev.KeySym {
 	case event.KSymReturn:
-		//if tard.te != nil && tard.te.LineFeedNewlineMode() {
-		//	return []byte("\n"), true
+		//m := tard.temu.ScrMode().LineFeedNewlineMode()
+		//if m {
+		//	return []byte("\r\n"), true
 		//}
 		return []byte("\r"), true // vt100
 	case event.KSymKeypadEnter:
-		return []byte("\x1bOM"), true // vt100 // TODO
+		return esc("M"), true // vt100
+
+	case event.KSymBackspace:
+		m := tard.temu.ScrMode().LineFeedNewlineMode()
+		if m {
+			return []byte{0x7f}, true // del
+		}
+		return []byte{'\b'}, true
 
 	case event.KSymUp:
 		return esc("A"), true
@@ -112,12 +109,15 @@ func (tard *TextAreaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
 	case event.KSymLeft:
 		return esc("D"), true
 
+	case event.KSymHome:
+		return esc("H"), true
+	case event.KSymEnd:
+		return esc("F"), true
+
 	case event.KSymEscape:
 		return []byte{27}, true
 	case event.KSymTab:
 		return []byte{'\t'}, true
-	case event.KSymBackspace:
-		return []byte{'\b'}, true
 
 	default:
 
@@ -132,4 +132,40 @@ func (tard *TextAreaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
 
 		return []byte(string(ev.Rune)), true
 	}
+}
+
+//----------
+
+func (tard *TextAreaReader) escSeq(seq string) string {
+	appMode := tard.temu.ScrMode().CursorKeysMode()
+	if appMode {
+		return "\x1bO" + seq
+	}
+	// normal mode
+	return "\x1b[" + seq
+}
+
+//----------
+//----------
+//----------
+
+func keyMods(km event.KeyModifiers) string {
+	mod := ""
+	switch {
+	case km.Is(event.ModShift):
+		mod = "1;2"
+	case km.Is(event.ModAlt):
+		mod = "1;3"
+	case km.Is(event.ModShift | event.ModAlt):
+		mod = "1;4"
+	case km.Is(event.ModCtrl):
+		mod = "1;5"
+	case km.Is(event.ModShift | event.ModCtrl):
+		mod = "1;6"
+	case km.Is(event.ModAlt | event.ModCtrl):
+		mod = "1;7"
+	case km.Is(event.ModShift | event.ModAlt | event.ModCtrl):
+		mod = "1;8"
+	}
+	return mod
 }
