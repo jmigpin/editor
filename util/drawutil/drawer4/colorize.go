@@ -1,6 +1,8 @@
 package drawer4
 
-import "image/color"
+import (
+	"image/color"
+)
 
 type Colorize struct {
 	d *Drawer
@@ -45,22 +47,22 @@ func (c *Colorize) colorize() {
 }
 
 func (c *Colorize) applyOp(op *ColorizeOp) {
+	st := &c.d.st.curColors
 	if op.Fg != nil {
-		c.d.st.curColors.fg = op.Fg
+		st.fg = op.Fg
 	} else if op.SetNil {
-		c.d.st.curColors.fg = c.d.fg // default drawer color
+		st.fg = c.d.fg // default drawer color
 	}
 	if op.Bg != nil || op.SetNil {
-		c.d.st.curColors.bg = op.Bg
+		st.bg = op.Bg
 	}
 	if op.ProcColor != nil {
-		st := &c.d.st.curColors
 		st.fg, st.bg = op.ProcColor(st.fg, st.bg)
 	}
 	if op.Line {
 		// run only once or will paint over runes
 		if op.Offset == c.d.st.runeR.ri {
-			c.d.st.curColors.lineBg = c.d.st.curColors.bg
+			st.lineBg = c.d.st.curColors.bg
 		}
 	}
 }

@@ -260,6 +260,22 @@ func (te *TextEditX) SetCommentStrings(a ...any) {
 
 //----------
 
+func (te *TextEditX) EnableTerminalColors(v bool) {
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.Colorize.Groups[3].Off = !v
+		te.MarkNeedsPaint()
+	}
+}
+
+func (te *TextEditX) SetTerminalColorOps(ops []*drawer4.ColorizeOp) {
+	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.Colorize.Groups[3].Ops = ops
+		te.MarkNeedsPaint()
+	}
+}
+
+//----------
+
 func (te *TextEditX) OnThemeChange() {
 	te.Text.OnThemeChange()
 
