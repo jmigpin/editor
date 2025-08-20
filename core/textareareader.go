@@ -9,8 +9,6 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-//godebug:annotatefile
-
 // used as a reader to pass to the terminal emulator for input like keyboard/mouse events
 type TextAreaReader struct {
 	handleKeybInput bool
@@ -54,13 +52,13 @@ func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
 		_, err := tard.pw.Write(b)
 		_ = err // TODO
 	}
-	ev.ReplyHandled = event.Handled(ok)
+	ev.ReplyHandled = event.Handled(ok) // let events bubble up
 }
 func (tard *TextAreaReader) eventToBytes(ev any) ([]byte, bool) {
 	switch t := ev.(type) {
 	case *event.KeyDown:
 		if tard.handleKeybInput {
-			return tard.kdToBytes(t)
+			return tard.keydownToBytes(t)
 		}
 
 		//case *event.KeyUp:
@@ -68,104 +66,139 @@ func (tard *TextAreaReader) eventToBytes(ev any) ([]byte, bool) {
 	}
 	return nil, false
 }
-func (tard *TextAreaReader) kdToBytes(ev *event.KeyDown) ([]byte, bool) {
 
-	esc := func(s string) []byte {
-		mods := keyMods(ev.Mods)
-		s2 := tard.escSeq(mods + s)
-		return []byte(s2)
-	}
+//----------
 
-	ctrl := func(b byte) byte {
-		if b == '?' { // Ctrl+? → DEL
-			return 0x7F
-		}
-		return b & 0x1F
+func (tard *TextAreaReader) keydownToBytes(ev *event.KeyDown) ([]byte, bool) {
+	s := tard.keydownToString(ev)
+	return []byte(s), len(s) != 0
+}
+func (tard *TextAreaReader) keydownToString(ev *event.KeyDown) string {
+
+	encodeEsc := func(s string) string {
+		//mods, ok := encodeKeyMods(ev.Mods)
+		//if ok {
+		//	s = "1;" + mods + s
+		//}
+		return tard.encodeEsc(s)
 	}
 
 	switch ev.KeySym {
-	case event.KSymReturn:
-		//m := tard.temu.ScrMode().LineFeedNewlineMode()
-		//if m {
-		//	return []byte("\r\n"), true
-		//}
-		return []byte("\r"), true // vt100
-	case event.KSymKeypadEnter:
-		return esc("M"), true // vt100
+	case event.KSymReturn, event.KSymKeypadEnter:
+		ckm := tard.temu.ScrMode().CursorKeysMode()
+		if ckm {
+			return encodeEsc("M")
+		}
+		m := tard.temu.ScrMode().LineFeedNewlineMode()
+		if m {
+			// introduces extra newlines: aptitude
+			//return []byte("\r\n"), true
+		}
+		return "\r" // vt100
 
 	case event.KSymBackspace:
 		m := tard.temu.ScrMode().LineFeedNewlineMode()
 		if m {
-			return []byte{0x7f}, true // del
+			return string(0x7f) // del
 		}
-		return []byte{'\b'}, true
+		return "\b"
 
 	case event.KSymUp:
-		return esc("A"), true
+		return encodeEsc("A")
 	case event.KSymDown:
-		return esc("B"), true
+		return encodeEsc("B")
 	case event.KSymRight:
-		return esc("C"), true
+		return encodeEsc("C")
 	case event.KSymLeft:
-		return esc("D"), true
+		return encodeEsc("D")
 
 	case event.KSymHome:
-		return esc("H"), true
+		return encodeEsc("H")
 	case event.KSymEnd:
-		return esc("F"), true
+		return encodeEsc("F")
+
+	//case event.KSymHome:
+	//	return seqEscCsi + "1~"
+	case event.KSymInsert:
+		return seqEscCsi + "2~"
+	case event.KSymDelete:
+		return seqEscCsi + "3~"
+	//case event.KSymEnd:
+	//	return seqEscCsi + "4~"
+	case event.KSymPageUp:
+		return seqEscCsi + "5~"
+	case event.KSymPageDown:
+		return seqEscCsi + "6~"
+	//case event.KSymHome:
+	//	return seqEscCsi + "7~"
+	//case event.KSymEnd:
+	//	return seqEscCsi + "8~"
 
 	case event.KSymEscape:
-		return []byte{27}, true
+		return string(27)
 	case event.KSymTab:
-		return []byte{'\t'}, true
+		return "\t"
 
 	default:
 
-		//if ev.Mods.HasAny(event.ModShift | event.ModCtrl) {
-		//return esc(string(ev.Rune)), true
 		if ev.Mods.HasAny(event.ModCtrl) {
-			s := string(ev.Rune)
-			if len(s) == 1 {
-				return []byte{ctrl(s[0])}, true
+			if ev.Rune <= 0x7f {
+				return string(encodeCtrl(byte(ev.Rune)))
 			}
 		}
 
-		return []byte(string(ev.Rune)), true
+		// ignore
+		if ev.Rune >= 0xff00 && ev.Rune <= 0xffff {
+			return ""
+		}
+
+		return string(ev.Rune)
 	}
 }
 
 //----------
 
-func (tard *TextAreaReader) escSeq(seq string) string {
-	appMode := tard.temu.ScrMode().CursorKeysMode()
-	if appMode {
-		return "\x1bO" + seq
+func (tard *TextAreaReader) encodeEsc(seq string) string {
+	ckm := tard.temu.ScrMode().CursorKeysMode()
+	if ckm {
+		return seqEscO + seq
 	}
 	// normal mode
-	return "\x1b[" + seq
+	return seqEscCsi + seq
 }
 
 //----------
 //----------
 //----------
 
-func keyMods(km event.KeyModifiers) string {
+const seqEsc = "\x1b"
+const seqEscCsi = seqEsc + "["
+const seqEscO = seqEsc + "O"
+
+func encodeCtrl(b byte) byte {
+	if b == '?' { // // special case: Ctrl+? => DEL
+		return 0x7F
+	}
+	return b & 0x1F // clears case bit; A/a -> 0x01, etc.
+}
+
+func encodeKeyMods(km event.KeyModifiers) (string, bool) {
 	mod := ""
 	switch {
 	case km.Is(event.ModShift):
-		mod = "1;2"
+		mod = "2"
 	case km.Is(event.ModAlt):
-		mod = "1;3"
+		mod = "3"
 	case km.Is(event.ModShift | event.ModAlt):
-		mod = "1;4"
+		mod = "4"
 	case km.Is(event.ModCtrl):
-		mod = "1;5"
+		mod = "5"
 	case km.Is(event.ModShift | event.ModCtrl):
-		mod = "1;6"
+		mod = "6"
 	case km.Is(event.ModAlt | event.ModCtrl):
-		mod = "1;7"
+		mod = "7"
 	case km.Is(event.ModShift | event.ModAlt | event.ModCtrl):
-		mod = "1;8"
+		mod = "8"
 	}
-	return mod
+	return mod, mod != ""
 }

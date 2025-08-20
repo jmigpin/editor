@@ -1,14 +1,19 @@
 package core
 
 import (
+	"bytes"
+	"image/color"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/jmigpin/editor/core/termemu"
+	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/fontutil"
 )
 
-// implement [termemu.ConsoleConn] interface
+// implements [termemu.ConsoleConn] interface
+// user side in (user<->emulator<->exec)
 type TextAreaConsole struct {
 	erow *ERow
 	rwc  io.ReadWriteCloser
@@ -22,6 +27,11 @@ type TextAreaConsole struct {
 
 func newTextAreaConsole(erow *ERow, rwc io.ReadWriteCloser) *TextAreaConsole {
 	tac := &TextAreaConsole{erow: erow, rwc: rwc}
+
+	tac.erow.Ed.UI.RunOnUIGoRoutine(func() {
+		tac.erow.Row.TextArea.EnableTerminalColors(true)
+	})
+
 	return tac
 }
 
@@ -34,6 +44,15 @@ func (tac *TextAreaConsole) Write(p []byte) (int, error) {
 	return tac.rwc.Write(p)
 }
 func (tac *TextAreaConsole) Close() error {
+	defer func() {
+		tac.erow.Ed.UI.RunOnUIGoRoutine(func() {
+			ta := tac.erow.Row.TextArea
+			ta.EnableTerminalColors(false)
+			ta.SetTerminalColorOps(nil) // clear to avoid bad caloring upon re-enable
+
+			//ta.SetBytesClearHistory(nil)	// commented: clearing hides output of temporary cmds (ex: ls)
+		})
+	}()
 	return tac.rwc.Close()
 }
 
@@ -41,6 +60,13 @@ func (tac *TextAreaConsole) Close() error {
 
 func (tac *TextAreaConsole) Error(err error) {
 	tac.erow.Ed.Error(err)
+}
+
+//----------
+
+func (tac *TextAreaConsole) SetSize(w, h int) {
+	tac.erow.termOpts.W, tac.erow.termOpts.H = w, h
+	updateConsoleFontSize(tac.erow)
 }
 
 //----------
@@ -64,22 +90,95 @@ func (tac *TextAreaConsole) Repaint() {
 	} // else a paint call is already on the stack
 }
 func (tac *TextAreaConsole) paintNow() {
-	scr := tac.temu.Snapshot()
-	//b := scr.Bytes(false, true)
-	b := scr.Bytes(true, true) // full border
+	ops, b := tac.paintOpsBytes()
+	tac.erow.Row.TextArea.SetTerminalColorOps(ops)
 	tac.erow.Row.TextArea.SetBytesClearHistory(b)
-	tac.erow.Row.TextArea.SetCursorIndex(0)
+	//tac.erow.Row.ScrollArea.SetBars(false, false)
+}
+func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
+	scr := tac.temu.Snapshot()
 
-	//erow.Row.TextArea.MarkNeedsPaint()
-	//erow.Row.TextArea.AppendBytesClearHistory(buf.Bytes())
+	dops := []*D4COp{}
+
+	// defaults colors for reverse video
+	tfg := tac.erow.Row.TextArea.TreeThemePaletteColor("text_fg")
+	tbg := tac.erow.Row.TextArea.TreeThemePaletteColor("text_bg")
+	defColors := func(fg, bg color.Color) (_, _ color.Color) {
+		if fg == nil {
+			fg = tfg
+		}
+		if bg == nil {
+			bg = tbg
+		}
+		return fg, bg
+	}
+
+	addColor0 := func(offset int, fg, bg color.Color, reverse bool) {
+		if fg == nil && bg == nil && !reverse {
+			return
+		}
+		if reverse {
+			fg, bg = defColors(fg, bg)
+			fg, bg = bg, fg
+		}
+		dop := &D4COp{Offset: offset, Fg: fg, Bg: bg}
+		dop2 := &D4COp{Offset: offset + 1, SetNil: true} // reset
+		dops = append(dops, dop, dop2)
+	}
+	addColor1 := func(offset int, fg, bg *termemu.AttrColor, reverse bool) {
+		addColor0(offset, fg.Color(), bg.Color(), reverse)
+	}
+
+	//----------
+
+	buf := &bytes.Buffer{}
+	border := func(s string) {
+		// TODO: option?
+		buf.WriteString(s)
+	}
+
+	doCursor := tac.erow.termOpts.Mode == termemu.ModeUI
+
+	width := len(scr.Grid[0])
+	border("┌")
+	border(strings.Repeat("─", width))
+	border("┐\n")
+
+	for y, line := range scr.Grid {
+		border("│")
+		for x, cell := range line {
+
+			offset := buf.Len()
+
+			ru := cell.R
+			if ru == 0 {
+				ru = ' '
+			}
+			buf.WriteRune(ru)
+
+			addColor1(offset, cell.A.Fg, cell.A.Bg, cell.A.Reverse)
+
+			if doCursor && scr.IsCursor(x, y) {
+				//addColor0(offset, nil, colornames.Red, false)
+				addColor0(offset, nil, nil, true)
+			}
+		}
+		border("│")
+		buf.WriteString("\n")
+	}
+
+	border("└")
+	border(strings.Repeat("─", width))
+	border("┘\n")
+
+	return dops, buf.Bytes()
 }
 
 //----------
+//----------
+//----------
 
-func (tac *TextAreaConsole) SetSize(w, h int) {
-	tac.erow.termOpts.W, tac.erow.termOpts.H = w, h
-	updateConsoleFontSize(tac.erow)
-}
+type D4COp = drawer4.ColorizeOp
 
 //----------
 //----------

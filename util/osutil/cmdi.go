@@ -357,7 +357,7 @@ func (c *PtyCmd) Start() error {
 	// TODO: pty.Start
 
 	// TODO: custom sizes
-	ws := &pty.Winsize{25, 80, 800, 600}
+	ws := &pty.Winsize{24, 80, 800, 600}
 	if err := pty.Setsize(ptm, ws); err != nil {
 		earlyErrClose()
 		return err

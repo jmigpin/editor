@@ -43,9 +43,9 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 		// setup colorize order
 		d.Opt.Colorize.Groups = []*drawer4.ColorizeGroup{
 			&d.Opt.SyntaxHighlight.Group,
+			{}, // 1=terminal
 			&d.Opt.WordHighlight.Group,
 			&d.Opt.ParenthesisHighlight.Group,
-			{}, // 3=terminal
 			{}, // 4=selection
 			{}, // 5=flash
 		}
@@ -53,6 +53,12 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 
 	return te
 }
+
+const (
+	cgIdxTerm      = 1
+	cgIdxSelection = 4
+	cgIdxFlash     = 5
+)
 
 //----------
 
@@ -71,7 +77,7 @@ func (te *TextEditX) Paint() {
 
 func (te *TextEditX) updateSelectionOpt() {
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		g := d.Opt.Colorize.Groups[4]
+		g := d.Opt.Colorize.Groups[cgIdxSelection]
 		c := te.Cursor()
 		if s, e, ok := c.SelectionIndexes(); ok {
 			// colors
@@ -173,7 +179,7 @@ func (te *TextEditX) updateFlashOpt() {
 }
 
 func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
-	g := d.Opt.Colorize.Groups[5]
+	g := d.Opt.Colorize.Groups[cgIdxFlash]
 	if !te.flash.index.on {
 		g.Ops = nil
 		return
@@ -262,14 +268,14 @@ func (te *TextEditX) SetCommentStrings(a ...any) {
 
 func (te *TextEditX) EnableTerminalColors(v bool) {
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Colorize.Groups[3].Off = !v
+		d.Opt.Colorize.Groups[cgIdxTerm].Off = !v
 		te.MarkNeedsPaint()
 	}
 }
 
 func (te *TextEditX) SetTerminalColorOps(ops []*drawer4.ColorizeOp) {
 	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Colorize.Groups[3].Ops = ops
+		d.Opt.Colorize.Groups[cgIdxTerm].Ops = ops
 		te.MarkNeedsPaint()
 	}
 }

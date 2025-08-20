@@ -51,10 +51,14 @@ func (p *VTParser) handleDefault(ru rune) error {
 		p.emitKind("lf")
 	case codeCR:
 		p.emitKind("cr")
+	case codeG0:
+		p.emitKind("g0")
+	case codeG1:
+		p.emitKind("g1")
 
 	case codeCAN, codeSUB: // TODO
-	case 0x0e, 0x0f: // SO/SI (G1/G0)
 	case codeDEL: // TODO
+	case codeNUL: // TODO: bash is dumping all these zeros
 
 	default:
 		// emit rune (direct, slower)
@@ -99,29 +103,39 @@ func (p *VTParser) stEsc() error {
 		p.state = p.stCSI
 	case ']': // OSC (skip payload)
 		p.state = p.stOSC
+	case '(':
+		p.state = p.stGraphics0
+	case ')':
+		p.state = p.stGraphics1
+
 	case '\\': // ST // TODO: string terminator
-	case 'H': // HTS
-		p.emitKind("hts")
+
+	//case '=': // alternate keypad mode
+
 	case 'D': // IND
 		p.emitKind("ind")
-	case 'M': // RI
-		p.emitKind("ri")
 	case 'E': // NEL
 		p.emitKind("nel")
+	case 'H': // HTS
+		p.emitKind("hts")
+	case 'M': // RI
+		p.emitKind("ri")
+	case 'c':
+		p.emitKind("ris")
+
 	case '7': // SC
 		p.emitKind("sc")
 	case '8': // RC
 		p.emitKind("rc")
+
 	case '#': // DEC special graphics
-		b2, err2 := p.nextByte()
-		if err2 != nil {
-			return err2
-		}
-		if b2 == '8' { // screen Alignment
-			p.emitKind("aln")
-		}
+		p.state = p.stSpecialGraphics
+
 	default:
 		// unsupported single ESC: ignore
+
+		//p.state = p.stDefault
+		//p.handleDefault(rune(b))
 	}
 	return nil
 }
@@ -184,6 +198,47 @@ func (p *VTParser) stOSC() error {
 	}
 }
 
+//----------
+
+func (p *VTParser) stSpecialGraphics() error {
+	p.state = p.stDefault
+
+	b, err := p.nextByte()
+	if err != nil {
+		return err
+	}
+	switch b {
+	case '8': // screen Alignment
+		p.emitKind("aln")
+	}
+	return nil
+}
+
+//----------
+
+func (p *VTParser) stGraphics0() error { return p.stGraphics("g0") }
+func (p *VTParser) stGraphics1() error { return p.stGraphics("g1") }
+func (p *VTParser) stGraphics(typ string) error {
+	p.state = p.stDefault
+
+	b, err := p.nextByte()
+	if err != nil {
+		return err
+	}
+	op := &TermOp{kind: typ}
+	switch b {
+	case '0':
+		// TODO: g0 is special line drawing?
+		op.s = "special"
+	case 'B':
+		op.s = "ascii"
+	}
+	p.emit(op)
+	return nil
+}
+
+//----------
+
 //func (p *VTParser) stFnKeySeq() error {
 //	defer func() { p.state = p.stDefault }()
 
@@ -198,15 +253,16 @@ func (p *VTParser) stOSC() error {
 //}
 
 //----------
+//----------
 
 func (p *VTParser) parseCSI(bs []byte, final byte) error {
 	op := &TermOp{kind: "csi"}
+	op.csi = &TermCsiOp{}
 	op.csi.final = final
 
 	if len(bs) > 0 {
 		switch u := bs[0]; u {
 		case '?', '>', '<':
-			op.csi.hasPriv = true
 			op.csi.priv = u
 			bs = bs[1:]
 		}
@@ -279,38 +335,38 @@ func (p *VTParser) emitKind(kind string) {
 type TermOp struct {
 	kind string // csi,bell,bs,print,...
 	s    string // used at least in "print"
-	csi  struct {
-		final   byte
-		params  []int
-		hasPriv bool
-		priv    byte // '?', '>', ...
-	}
+	csi  *TermCsiOp
 }
-
-func (op *TermOp) csiPrivIs(b byte) bool {
-	return op.csi.hasPriv == true && op.csi.priv == b
-}
-
-func (op *TermOp) csiA() int           { return op.csiParam(0) }
-func (op *TermOp) csiADef(def int) int { return op.csiParamDef(0, def) }
-func (op *TermOp) csiB() int           { return op.csiParam(1) }
-func (op *TermOp) csiBDef(def int) int { return op.csiParamDef(1, def) }
 
 //----------
 
-func (op *TermOp) csiParamDef(idx, def int) int {
-	v := op.csiParam(idx)
+type TermCsiOp struct {
+	final  byte
+	params []int
+	priv   byte // 0=none,'?', '>', ...
+}
+
+func (op *TermCsiOp) isPriv(b byte) bool {
+	return op.priv == b
+}
+func (op *TermCsiOp) paramDef(idx, def int) int {
+	v := op.param(idx)
 	if v == 0 {
 		v = def
 	}
 	return v
 }
-func (op *TermOp) csiParam(idx int) int {
-	if idx < 0 || idx >= len(op.csi.params) {
+func (op *TermCsiOp) param(idx int) int {
+	if idx < 0 || idx >= len(op.params) {
 		return 0
 	}
-	return op.csi.params[idx]
+	return op.params[idx]
 }
+
+func (op *TermCsiOp) A() int           { return op.param(0) }
+func (op *TermCsiOp) ADef(def int) int { return op.paramDef(0, def) }
+func (op *TermCsiOp) B() int           { return op.param(1) }
+func (op *TermCsiOp) BDef(def int) int { return op.paramDef(1, def) }
 
 //----------
 //----------
@@ -335,4 +391,9 @@ const (
 
 	codeCAN = 0x18
 	codeSUB = 0x1a
+
+	codeSO = 0x0e
+	codeSI = 0x0f // 15
+	codeG1 = codeSO
+	codeG0 = codeSI
 )

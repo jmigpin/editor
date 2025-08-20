@@ -1,6 +1,7 @@
 package termemu
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
@@ -40,7 +41,7 @@ func TestCursorMoves(t *testing.T) {
 			te := newTestEmu(m, Opts{W: 10, H: 5})
 			defer te.Close()
 
-			te.scr.modes.set(20, tc.lnm)
+			te.scr.pmodes.set(20, tc.lnm)
 
 			seq := cup(tc.startY, tc.startX) + tc.seq
 			sendWithBarrier(t, te, seq)
@@ -48,6 +49,7 @@ func TestCursorMoves(t *testing.T) {
 			// Snapshot and verify.
 			snap := te.Snapshot()
 			if snap.cursor.y != tc.wantY || snap.cursor.x != tc.wantX {
+				snap.PrintWithCursor()
 				t.Fatalf("got cursor=(%d,%d), want=(%d,%d). seq=%q",
 					snap.cursor.y, snap.cursor.x, tc.wantY, tc.wantX, printable(seq))
 			}
@@ -105,7 +107,7 @@ func TestScrollRegionAndOriginMode(t *testing.T) {
 	// Move down to bottom margin and LF to force region scroll
 	sendWithBarrier(t, te, "\x1b[4B") // 4 down inside region
 	snap := te.Snapshot()
-	top, bot := snap.sTop, snap.sBot
+	top, bot := snap.gbY.AB()
 	if top != 1 || bot != 4 { // 0-based internally
 		t.Fatalf("bad region top/bot: %d/%d", top, bot)
 	}
@@ -127,6 +129,7 @@ func TestDchEch(t *testing.T) {
 
 	sendWithBarrier(t, te, "\x1b[2P") // DCH 2: delete D,E ⇒ row becomes ABCF__
 	s := te.Snapshot()
+	//s.Print()
 	row := s.Grid[0]
 	got := string([]rune{row[0].R, row[1].R, row[2].R, row[3].R, row[4].R, row[5].R})
 	if got != "ABCF\x00\x00" {
@@ -165,15 +168,15 @@ func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 	snap := te.Snapshot()
 
 	// Row texts after IL: 1, blank, 2, 3, 5  (2..4 moved down)
-	//te.Snapshot().Print()
 	if snap.Grid[1][0].R != '\x00' || snap.Grid[2][0].R != '2' {
+		snap.Print()
 		t.Fatalf("IL failed around region")
 	}
 
 	// Now DL 1 at row 3 (deletes the '3' line, pulls up within region)
 	sendWithBarrier(t, te, "\x1b[3;1H\x1b[M")
-	//te.Snapshot().Print()
 	snap = te.Snapshot()
+	//snap.Print()
 	if snap.Grid[2][0].R != '3' {
 		t.Fatalf("DL failed within region")
 	}
@@ -230,6 +233,7 @@ func TestINDandRI_RespectScrollRegion(t *testing.T) {
 	sendWithBarrier(t, te, cup(3, 0)+"\x1bD")
 	s := te.Snapshot()
 	if got := string(runesOf(s.Grid[1][:4])); got != "BBBB" {
+		s.Print()
 		t.Fatalf("after IND, row2=%q, want BBBB", printable(got))
 	}
 	if got := string(runesOf(s.Grid[2][:4])); got != "CCCC" {
@@ -424,6 +428,7 @@ func TestLRMM_WrapAndCR(t *testing.T) {
 	sendWithBarrier(t, te, "ABCDEF")
 	s := te.Snapshot()
 	if s.Grid[0][7].R != 'F' {
+		s.PrintWithCursor()
 		t.Fatalf("want 'F' at right edge x=7, got %q", string(s.Grid[0][7].R))
 	}
 
@@ -554,7 +559,8 @@ func TestCSI_ParamsIgnore2(t *testing.T) {
 	sendWithBarrier(t, te, seq)
 	s := te.Snapshot()
 
-	u := string(s.Bytes(false, false)[:17])
+	//s.Print()
+	u := stringOf(s.Grid[0][:17])
 	exp := "A B C D E F G H I"
 	if u != exp {
 		t.Fatalf("expected %q, got %q", exp, u)
@@ -568,7 +574,7 @@ func TestCSI_ParamsIgnore3(t *testing.T) {
 	s := te.Snapshot()
 	//s.Print()
 
-	u := string(s.Bytes(false, false)[:17])
+	u := stringOf(s.Grid[0][:17])
 	exp := "A B C D E F G H I"
 	if u != exp {
 		t.Fatalf("expected %q, got %q", exp, u)
@@ -580,29 +586,170 @@ func TestCSI_ParamsIgnore4(t *testing.T) {
 	seq := "[3,1H[20lA [1AB [1AC [1AD [1AE [1AF [1AG [1AH [1AI [1A"
 	sendWithBarrier(t, te, seq)
 	s := te.Snapshot()
-	//s.Print()
 
-	k := 21*2 + 6
-	u := string(s.Bytes(false, false)[k : k+17])
+	//s.Print()
+	u := stringOf(s.Grid[2][:17])
 	exp := "A B C D E F G H I"
 	if u != exp {
 		t.Fatalf("expected %q, got %q", exp, u)
 	}
 }
 
-//func TestSeq1(t *testing.T) {
-//	te := newTestEmu(newUserMock(), Opts{W: 20, H: 20})
+func TestTabs_DefaultsAndHTS_TBC(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 20, H: 1})
+	defer te.Close()
+
+	// default every 8: '\tX' → X at col 8 (0-based)
+	sendWithBarrier(t, te, "\tX")
+	s := te.Snapshot()
+	if s.Grid[0][8].R != 'X' {
+		t.Fatalf("default tab stop failed")
+	}
+
+	// Clear all, set one at col 4 → '\tY' lands at x=3
+	sendWithBarrier(t, te, "\x1b[3g\x1b[1;4H\x1bH\x1b[1;1H\tY")
+	s = te.Snapshot()
+	if s.Grid[0][3].R != 'Y' {
+		t.Fatalf("HTS/TBC failed")
+	}
+}
+
+func TestCHT_CBT(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 40, H: 1})
+	defer te.Close()
+
+	// Go to col 1, forward 2 tabs → x=16; back 1 tab → x=8
+	sendWithBarrier(t, te, "\x1b[1;1H\x1b[2I"+"A\b"+"\x1b[1Z"+"B")
+	s := te.Snapshot()
+	if s.Grid[0][16].R != 'A' || s.Grid[0][8].R != 'B' {
+		s.Print()
+		t.Fatalf("CHT/CBT failed")
+	}
+}
+
+func TestTab_RespectsLRMM(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 20, H: 1})
+	defer te.Close()
+	sendWithBarrier(t, te, "\x1b[?69h\x1b[5;12s\x1b[1;5H") // margins 5..12 → x in [4..11]
+	sendWithBarrier(t, te, "\tZ")                          // next stop but not beyond right margin
+	s := te.Snapshot()
+	if s.cursor.x < 4 || s.cursor.x > 11 {
+		t.Fatalf("tab ignored LRMM")
+	}
+	if s.Grid[0][11].R == 0 { /* ok if it clamped to 11 */
+	}
+}
+
+func TestCNL_CPL_LeftMarginAndScroll(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 10, H: 4})
+	defer te.Close()
+	sendWithBarrier(t, te, "\x1b[?69h\x1b[3;8s\x1b[1;1H") // LRMM 3..8; CUP row1,col1 → left margin
+	sendWithBarrier(t, te, "A\x1b[2E")                    // CNL 2
+	s := te.Snapshot()
+	//s.PrintWithCursor()
+	if s.cursor.y != 2 || s.cursor.x != 2 {
+		t.Fatalf("CNL not at left margin")
+	}
+	sendWithBarrier(t, te, "B\x1b[1F") // CPL 1
+	s = te.Snapshot()
+	//s.PrintWithCursor()
+	if s.cursor.y != 1 || s.cursor.x != 2 {
+		t.Fatalf("CPL not at left margin")
+	}
+}
+
+func TestVPR_HPR_Relative(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 8, H: 4})
+	defer te.Close()
+	sendWithBarrier(t, te, "\x1b[2;2H\x1b[3a\x1b[2eX") // → (row4,col5) write X
+	s := te.Snapshot()
+	if s.Grid[3][4].R != 'X' {
+		t.Fatalf("HPR/VPR failed")
+	}
+}
+
+func TestDECSpecial_OnOff(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 6, H: 1})
+	defer te.Close()
+	sendWithBarrier(t, te, "\x1b(0qqq") // G0=DEC Special, GL=G0
+	s := te.Snapshot()
+	//s.Print()
+	if s.Grid[0][0].R != '─' || s.Grid[0][1].R != '─' || s.Grid[0][2].R != '─' {
+		t.Fatalf("DEC special mapping failed")
+	}
+	sendWithBarrier(t, te, "\x1b(Bq") // back to ASCII
+	s = te.Snapshot()
+	//s.Print()
+	if s.Grid[0][3].R != 'q' {
+		t.Fatalf("ASCII after rmacs failed")
+	}
+}
+
+func TestDECSpecial_SO_SI_G1(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 4, H: 1})
+	defer te.Close()
+	sendWithBarrier(t, te, "\x1b)0")                                          // G1 = DEC Special
+	sendWithBarrier(t, te, string([]byte{0x0E})+"q"+string([]byte{0x0F})+"q") // SO q SI q
+	s := te.Snapshot()
+	if s.Grid[0][0].R != '─' || s.Grid[0][1].R != 'q' {
+		t.Fatalf("SO/SI mapping failed")
+	}
+}
+
+// vttest-like: place on far right using BS+TAB, then left edge via BS.
+func Test_RightAndLeftEdges_WithBS_TAB(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 20, H: 6})
+	defer te.Close()
+
+	// Right edge: CUP 5;20, print 'C', BS, TAB (clamp to right edge), 'c'
+	sendWithBarrier(t, te, "\x1b[5;20HC\b\tc")
+	// Left edge: CUP 5;2, BS to col 1, print 'C'
+	sendWithBarrier(t, te, "\x1b[5;2H\bC")
+
+	s := te.Snapshot()
+	if s.Grid[4][19].R != 'c' {
+		t.Fatalf("want 'c' at (5,20)")
+	}
+	if s.Grid[4][0].R != 'C' {
+		t.Fatalf("want 'C' at (5,1)")
+	}
+}
+
+// The problematic bit: CR/BS inside CSI params must be ignored.
+// This reproduces the “letters down the margins go missing” when CR is executed.
+func Test_CSI_Params_Ignore_CR_BS_HT(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 12, H: 3})
+	defer te.Close()
+
+	// CUP 2;10 but with CR and BS injected in params: should still land 2;10.
+	seq := "\x1b[" + string([]byte{0x0d}) + "2;" + string([]byte{0x08}) + "10H"
+	sendWithBarrier(t, te, seq+"X")
+
+	s := te.Snapshot()
+	//s.Print()
+	if s.cursor.y != 1 || s.cursor.x != 10 || s.Grid[1][9].R != 'X' {
+		t.Fatalf("C0 inside CSI not ignored; got cur=(%d,%d)", s.cursor.y, s.cursor.x)
+	}
+}
+
+//// Column letters via CNL/CPL (LRMM off). If CR got executed inside a CSI elsewhere,
+//// these left/right markers get lost; this keeps us honest.
+//func Test_CNL_CPL_DrawMarginLetters(t *testing.T) {
+//	te := newTestEmu(newUserMock(), Opts{W: 10, H: 6})
 //	defer te.Close()
-//	seq := "[19;80HO		o[19;2HO[19;80H\n[18;1HP[18;80Hp[19;1HQ[19;80Hq"
-//	sendWithBarrier(t, te, seq)
+
+//	// Left column A,B,C downwards using CNL
+//	sendWithBarrier(t, te, "\x1b[2;1HA\x1b[EB\x1b[EC")
+//	// Right column x,y,z upwards using CHA to col 10 and CPL
+//	sendWithBarrier(t, te, "\x1b[6;10Hx\x1b[Fy\x1b[Fz")
+
 //	s := te.Snapshot()
 //	s.Print()
-
-//	k := 21*2 + 6
-//	u := string(s.Bytes(false, false)[k : k+17])
-//	exp := "A B C D E F G H I"
-//	if u != exp {
-//		t.Fatalf("expected %q, got %q", exp, u)
+//	if s.Grid[1][0].R != 'A' || s.Grid[2][0].R != 'B' || s.Grid[3][0].R != 'C' {
+//		t.Fatalf("left margin letters missing")
+//	}
+//	if s.Grid[5][9].R != 'x' || s.Grid[4][9].R != 'y' || s.Grid[3][9].R != 'z' {
+//		t.Fatalf("right margin letters missing")
 //	}
 //}
 
@@ -674,6 +821,18 @@ func sendWithBarrier(t *testing.T, te *Emu, seq string) {
 //----------
 
 // helpers for quick rune extraction
+
+func stringOf(cells []Cell) string {
+	buf := &bytes.Buffer{}
+	for _, c := range cells {
+		ru := c.R
+		if ru == 0 {
+			ru = ' '
+		}
+		buf.WriteRune(ru)
+	}
+	return buf.String()
+}
 func runesOf(cells []Cell) []rune {
 	rs := make([]rune, len(cells))
 	for i, c := range cells {
@@ -686,6 +845,7 @@ func runesOf(cells []Cell) []rune {
 	}
 	return rs[:i]
 }
+
 func anyNonBlank(cells []Cell) bool {
 	for _, c := range cells {
 		if c.R != 0 {
