@@ -826,6 +826,7 @@ func (m *PrivModes) autoRepeat() bool      { return m.Is(8) }
 func (m *PrivModes) LineFeedNewline() bool { return m.Is(20) }
 func (m *PrivModes) cursor() bool          { return m.Is(25) }
 func (m *PrivModes) leftRightMargin() bool { return m.Is(69) }
+func (m *PrivModes) BracketedPaste() bool  { return m.Is(2004) }
 
 //----------
 //----------

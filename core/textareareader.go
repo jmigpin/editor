@@ -62,7 +62,7 @@ func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
 					if err != nil {
 						return
 					}
-					tard.sendString(s)
+					tard.sendPaste(s)
 				})
 				// handled
 				ev1.ReplyHandled = event.Handled(true)
@@ -90,7 +90,7 @@ func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
 					if err != nil {
 						return
 					}
-					tard.sendString(s)
+					tard.sendPaste(s)
 				})
 				// handled
 				ev1.ReplyHandled = event.Handled(true)
@@ -104,6 +104,14 @@ func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
 func (tard *TextAreaReader) sendString(s string) {
 	_, err := tard.pw.Write([]byte(s))
 	_ = err // TODO
+}
+
+func (tard *TextAreaReader) sendPaste(s string) {
+	pm := tard.temu.ScrMode()
+	if pm.BracketedPaste() {
+		s = bracketedPaste(s)
+	}
+	tard.sendString(s)
 }
 
 //----------
@@ -215,6 +223,12 @@ func encodeCtrl(b byte) byte {
 		return 0x7F
 	}
 	return b & 0x1F // clears case bit; A/a -> 0x01, etc.
+}
+
+func bracketedPaste(s string) string {
+	open := seqEscCsi + "200~"
+	close := seqEscCsi + "201~"
+	return open + s + close
 }
 
 func encodeKeyMods(km event.KeyModifiers) (string, bool) {
