@@ -1,7 +1,6 @@
 package osutil
 
 import (
-	"errors"
 	"math/rand"
 	"net"
 	"os"
@@ -117,17 +116,17 @@ func OpenFilemanager(filename string) error {
 }
 
 // doesn't wait for the cmd to end
-func OpenTerminal(filename string) error {
+func OpenTerminal(dir string) error {
 	var c *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		return errors.New("todo")
+		c = exec.Command("cmd", "/C", "start")
 	case "darwin":
-		// TODO: review
-		c = exec.Command("terminal", filename)
+		c = exec.Command("open", "-a", "Terminal", dir)
 	default: // linux, others...
-		c = exec.Command("x-terminal-emulator", "--working-directory="+filename)
+		c = exec.Command("x-terminal-emulator")
 	}
+	c.Dir = dir
 	return cmdStartWaitAsync(c)
 }
 

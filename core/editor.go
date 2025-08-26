@@ -407,7 +407,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		{"LsprotoRename", "LsprotoCloseAll", "LsprotoCallers", "LsprotoCallees", "LsprotoReferences"},
 		{"NewColumn", "NewRow", "ReopenRow", "MaximizeRow"},
 		{"NewFile", "SaveAllFiles", "Save"},
-		{"OpenExternal", "OpenFilemanager", "OpenTerminal"},
+		{"OpenExternal", "OpenFilemanager", "OpenTerminalExt", "OpenTerminalEmu"},
 		{"Reload", "ReloadAll", "ReloadAllFiles"},
 		{"SortTextLines", "SortTextLines -h"},
 	}

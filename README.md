@@ -237,7 +237,8 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `FontRunes`: output the current font runes.
 - `OpenExternal`: open the row with the preferred external application (ex: useful to open an image, pdf, etc).
 - `OpenFilemanager`: open the row directory with the external filemanager.
-- `OpenTerminal`: open the row directory with the external terminal.
+- `OpenTerminalExt`: open the row directory with the external terminal.
+- `OpenTerminalEmu`: open the row directory with the internal terminal emulator.
 - `LsprotoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `LsprotoRename <new-name>`: Renames the identifiers under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - `LsprotoCallers`: lists callers of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy incoming calls.

@@ -164,35 +164,42 @@ func Clear(args *core.InternalCmdArgs) error {
 //----------
 
 func OpenFilemanager(args *core.InternalCmdArgs) error {
-	dir := ""
-	erow, ok := args.ERow()
-	if ok && !erow.Info.IsSpecial() {
-		dir = erow.Info.Dir()
-	} else {
-		d, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		dir = d
+	dir, err := argsERowDirOrWd(args)
+	if err != nil {
+		return err
 	}
-
 	return osutil.OpenFilemanager(dir)
 }
-
-func OpenTerminal(args *core.InternalCmdArgs) error {
-	dir := ""
+func argsERowDirOrWd(args *core.InternalCmdArgs) (string, error) {
 	erow, ok := args.ERow()
 	if ok && !erow.Info.IsSpecial() {
-		dir = erow.Info.Dir()
+		return erow.Info.Dir(), nil
 	} else {
-		d, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		dir = d
+		return os.Getwd()
+	}
+}
+
+func OpenTerminalExternal(args *core.InternalCmdArgs) error {
+	dir, err := argsERowDirOrWd(args)
+	if err != nil {
+		return err
+	}
+	return osutil.OpenTerminal(dir)
+}
+
+func OpenTerminalEmulator(args *core.InternalCmdArgs) error {
+	dir, err := argsERowDirOrWd(args)
+	if err != nil {
+		return err
 	}
 
-	return osutil.OpenTerminal(dir)
+	info := args.Ed.ReadERowInfo(dir)
+	rowPos := args.Ed.GoodRowPos()
+	erow := core.NewBasicERow(info, rowPos)
+	erow.ToolbarSetStrAfterNameClearHistory(" | $terminal=pty,kb,emuUi | $scrollMode=auto | Stop | $SHELL")
+
+	core.ExternalCmdFromArgs(erow, []string{"$SHELL"}, nil, nil)
+	return nil
 }
 
 func OpenExternal(args *core.InternalCmdArgs) error {
