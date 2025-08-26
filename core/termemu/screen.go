@@ -84,9 +84,8 @@ func (s *Screen) clearSubGrid(x1, y1, x2, y2 int) {
 }
 func (s *Screen) clearCells(w []Cell) {
 	for i := range w {
-		w[i] = Cell{}
-		//w[i].R = 0
-		//w[i] = Cell{Attr:s.curAttr}
+		//w[i] = Cell{}
+		w[i] = Cell{A: s.curAttr}
 	}
 }
 
@@ -375,11 +374,26 @@ func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 	}
 }
 
+func (s *Screen) csiIch_insertChars(n int) {
+	y, x := s.cursor.y, s.cursor.x
+
+	b := s.gbX.B()
+	ins := b - x + 1
+	if n > ins {
+		n = ins
+	}
+	shift := ins - n
+
+	s.copyRange(y, x+n, x, x+shift) // shift right
+
+	s.clearRange(y, x, n)
+}
+
 func (s *Screen) csiDch_deleteChars(n int) {
 	y, x := s.cursor.y, s.cursor.x
 
-	maxX := s.gbX.B()
-	rem := maxX - x + 1
+	b := s.gbX.B()
+	rem := b - x + 1
 	if n > rem {
 		n = rem
 	}
@@ -387,7 +401,7 @@ func (s *Screen) csiDch_deleteChars(n int) {
 
 	s.copyRange(y, x, x+n, x+n+shift) // shift left
 
-	s.clearRange(y, maxX-n+1, n)
+	s.clearRange(y, b-n+1, n)
 }
 
 func (s *Screen) csiEch_eraseChars(n int) {
@@ -407,9 +421,9 @@ func (s *Screen) csiIl_insertLines(n int) {
 	y := s.cursor.y
 
 	b := s.gbY.B()
-	maxIns := b - y + 1
-	if n > maxIns {
-		n = maxIns
+	ins := b - y + 1
+	if n > ins {
+		n = ins
 	}
 
 	// shift down [y..sBot-n] → [y+n..sBot]
@@ -531,7 +545,7 @@ func (s *Screen) csi_setResetMode(priv byte, a, b, c int, on bool, userCons Cons
 	case '?':
 		s.pmodes.set(a, on)
 		switch a {
-		case 3: // 32 Column Mode (DECCOLM), VT100
+		case 3: // 32 Column Mode (DECCOLM)
 			if needResize := s.csiColm_column132Mode(); needResize {
 				userCons.SetSize(s.W, s.H)
 			}

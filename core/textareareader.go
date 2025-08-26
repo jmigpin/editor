@@ -85,16 +85,16 @@ func (tard *TextAreaReader) keydownToString(ev *event.KeyDown) string {
 
 	switch ev.KeySym {
 	case event.KSymReturn, event.KSymKeypadEnter:
-		ckm := tard.temu.ScrMode().CursorKeysMode()
-		if ckm {
-			return encodeEsc("M")
-		}
+		//ckm := tard.temu.ScrMode().CursorKeysMode()
+		//if ckm {
+		//	return encodeEsc("M")
+		//}
 		m := tard.temu.ScrMode().LineFeedNewlineMode()
 		if m {
 			// introduces extra newlines: aptitude
 			//return []byte("\r\n"), true
 		}
-		return "\r" // vt100
+		return "\r"
 
 	case event.KSymBackspace:
 		m := tard.temu.ScrMode().LineFeedNewlineMode()

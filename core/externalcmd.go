@@ -15,15 +15,22 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-func ExternalCmd(erow *ERow, part *toolbarparser.Part) {
-	env := []string{}
-	env = append(env, toolbarVarsEnv(part)...)
-	cargs := cmdPartArgs(part)
+// if part is nil, cargs should be set
+// if cargs is nil, part should be set
+func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func(error), env []string) {
 
-	ExternalCmdFromArgs(erow, cargs, nil, env)
-}
+	// before toolbar vars to allow override
+	if erow.termOpts.Opts.Mode.On() {
+		env = append(env, termemu.TermEnv)
+	}
 
-func ExternalCmdFromArgs(erow *ERow, cargs []string, fend func(error), env []string) {
+	if part != nil {
+		env = append(env, toolbarVarsEnv(part)...)
+		if cargs == nil {
+			cargs = cmdPartArgs(part)
+		}
+	}
+
 	env = append(env, detectedEdEnvVars(erow, cargs)...)
 
 	switch {
@@ -67,8 +74,6 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 	c := osutil.NewCmdI2(cargs)
 	if erow.termOpts.pty {
 		c = osutil.NewPtyCmd(c) // first, to run start first and wrap everything in a pty
-		// TODO: should be added only if emulator on
-		env = append(env, termemu.TermEnv)
 	} else {
 		c = osutil.NewNoHangPipeCmd(c)
 	}

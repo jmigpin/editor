@@ -68,7 +68,7 @@ func GoRename(args *core.InternalCmdArgs) error {
 		}
 	}
 
-	core.ExternalCmdFromArgs(erow, cargs, reloadOnNoErr, nil)
+	core.ExternalCmd(erow, nil, cargs, reloadOnNoErr, nil)
 
 	return nil
 }

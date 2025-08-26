@@ -326,7 +326,7 @@ func (c *OnWaitDoneCmd) Wait() error {
 //----------
 //----------
 
-// NOTE: implementing emulators should add $TERM to env (ex: "TERM=vt100")
+// NOTE: emulators should define $TERM in running env
 type PtyCmd struct {
 	CmdI
 	ptm     *os.File // master
@@ -357,7 +357,7 @@ func (c *PtyCmd) Start() error {
 	// TODO: pty.Start
 
 	// TODO: custom sizes
-	ws := &pty.Winsize{24, 80, 800, 600}
+	ws := &pty.Winsize{Rows: 24, Cols: 80, X: 800, Y: 600}
 	if err := pty.Setsize(ptm, ws); err != nil {
 		earlyErrClose()
 		return err

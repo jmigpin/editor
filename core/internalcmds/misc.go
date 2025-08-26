@@ -198,7 +198,7 @@ func OpenTerminalEmulator(args *core.InternalCmdArgs) error {
 	erow := core.NewBasicERow(info, rowPos)
 	erow.ToolbarSetStrAfterNameClearHistory(" | $terminal=pty,kb,emuUi | $scrollMode=auto | Stop | $SHELL")
 
-	core.ExternalCmdFromArgs(erow, []string{"$SHELL"}, nil, nil)
+	core.ExternalCmd(erow, nil, []string{"$SHELL"}, nil, nil)
 	return nil
 }
 

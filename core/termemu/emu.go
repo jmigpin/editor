@@ -28,15 +28,16 @@ import (
 // infocmp -1 "vt100" | grep -E 'smcup|rmcup'
 // infocmp -1 "$TERM" | grep -E 'smcup|rmcup'
 
-const TermEnv = "TERM=vt100"
+// const TermEnv = "TERM=vt100" //
+const TermEnv = "TERM=xterm-mono" //
 
-const vt100 = "\x1b[?1;0c" //
+// const vt100 = "\x1b[?1;0c" //
 // const vt101NoOpt = vt100
-// const vt100WithAVO = "\x1b[?1;2c"
+const vt100WithAVO = "\x1b[?1;2c" //
 // const vt102 = "\x1b[?6c"
 // const vt420 = "\x1b[?64c"
 // const vt420Sixel = "\x1b[?6;4;4c" // ?
-const termSeqReply = vt100
+const termSeqReply = vt100WithAVO
 
 //----------
 
@@ -292,22 +293,21 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	case 'Z': // CBT: Cursor Backward Tab
 		emu.scr.csiCbt_cursorBackwardTab(op.ADef(1))
 
-	//case '@': // ICH: Insert Characters
-
+	case '@': // ICH: Insert Characters
+		emu.scr.csiIch_insertChars(op.ADef(1))
 	case '`': // HPA: Horizontal Position Absolute (same as CHA, but 0-based in some terms)
 		emu.scr.csiCha_cursorHorizontalAbsolute(op.ADef(0) + 1)
+
 	case 'c': // DA: Device Attributes
-		// primary
-		if op.isPriv(0) && op.A() == 0 {
+		switch {
+		case op.isPriv(0) && op.A() == 0: // primary
 			emu.sendToExec(termSeqReply)
-		}
-		// secondary
-		if op.isPriv('>') && op.A() == 0 {
+		case op.isPriv('>') && op.A() == 0: // secondary
 			emu.sendToExec("\x1b[>0;1;1c")
-		}
-		// tertiary
-		if op.isPriv('=') && op.A() == 0 {
+		case op.isPriv('=') && op.A() == 0: // tertiary
 			emu.sendToExec("\x1b[>0;1;1c")
+		default:
+			emu.csiOpTodo(op)
 		}
 	case 'd': //  vpa: Vertical Position Absolute (to row n)
 		emu.scr.moveToRow(op.A())
@@ -331,23 +331,29 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			row1, col1 := emu.scr.csiCpr_cursorPositionReport()
 			s := fmt.Sprintf("\x1b[%d;%dR", row1, col1)
 			emu.sendToExec(s)
+		default:
+			emu.csiOpTodo(op)
 		}
 	case 'p':
 		if op.isPriv('!') {
 			emu.scr.escRis_reset(false)
+		} else {
+			emu.csiOpTodo(op)
 		}
 	case 'q': // DECLL: Load LEDs
 		switch op.A() {
-		case 0: // 	clear all leds
-		case 1: // light nums lock
-		case 2:
-			switch op.B() {
-			case 0: // light caps lock
-			case 1: // extinguish num lock
-			case 2: // extinguish caps lock
-			case 3: // extinguish scroll lock
-			}
-		case 3: // light scroll lock
+		//case 0: // 	clear all leds
+		//case 1: // light nums lock
+		//case 2:
+		//	switch op.B() {
+		//	case 0: // light caps lock
+		//	case 1: // extinguish num lock
+		//	case 2: // extinguish caps lock
+		//	case 3: // extinguish scroll lock
+		//	}
+		//case 3: // light scroll lock
+		default:
+			emu.csiOpTodo(op)
 		}
 	case 'r': // DECSTBM: Set Scrolling Region
 		top1, bot1 := op.ADef(1), op.BDef(emu.scr.H)
@@ -376,13 +382,30 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		//}
 		if op.isPriv(0) {
 			emu.scr.csiRcp_restoreCursorPos()
+		} else {
+			emu.csiOpTodo(op)
+		}
+
+	case 't':
+		if op.isPriv(0) {
+			switch op.A() {
+			case 22: // xterm: save window/icon title
+			case 23: // xterm: restore window/icon title
+			default:
+				emu.csiOpTodo(op)
+			}
+		} else {
+			emu.csiOpTodo(op)
 		}
 
 	default:
-		err := fmt.Errorf("emu.csi.final: todo: %c", op.final)
-		fmt.Println(err)
-		//panic(err) // TESTING
+		emu.csiOpTodo(op)
 	}
+}
+
+func (emu *Emu) csiOpTodo(op *TermCsiOp) {
+	err := fmt.Errorf("emu.csi.final: todo: %c, %#v", op.final, op)
+	emu.userCons.Error(err)
 }
 
 //----------

@@ -156,7 +156,7 @@ func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
 			}
 			buf.WriteRune(ru)
 
-			addColor1(offset, cell.A.Fg, cell.A.Bg, cell.A.Reverse)
+			addColor1(offset, cell.A.Fg, cell.A.Bg, cell.A.Reverse && !cell.A.NoReverse)
 
 			if doCursor && scr.IsCursor(x, y) {
 				//addColor0(offset, nil, colornames.Red, false)
