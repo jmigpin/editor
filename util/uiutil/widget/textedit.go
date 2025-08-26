@@ -2,6 +2,7 @@ package widget
 
 import (
 	"image"
+	"unicode/utf8"
 
 	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/iout/iorw"
@@ -27,8 +28,11 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 	te.RWEvReg = &te.rwev.EvReg
 	te.RWEvReg.Add(iorw.RWEvIdWrite2, te.onWrite2)
 
+	rwac := newAdjustCursorRWAt(te, te.rwev)
+
 	hist := rwundo.NewHistory(200)
-	te.rwu = rwundo.NewRWUndo(te.rwev, hist)
+	//te.rwu = rwundo.NewRWUndo(te.rwev, hist)
+	te.rwu = rwundo.NewRWUndo(rwac, hist)
 
 	te.ctx = rwedit.NewCtx()
 	te.ctx.RW = te.rwu
@@ -252,4 +256,61 @@ func (te *TextEdit) stableCursor(ev *iorw.RWEvWrite) {
 	} else {
 		te.SetCursorIndex(ci)
 	}
+}
+
+//----------
+//----------
+//----------
+
+type AdjustCursorRWAt struct {
+	iorw.ReadWriterAt
+	te *TextEdit
+}
+
+func newAdjustCursorRWAt(te *TextEdit, u iorw.ReadWriterAt) *AdjustCursorRWAt {
+	rwat := &AdjustCursorRWAt{}
+	rwat.te = te
+	rwat.ReadWriterAt = u
+	return rwat
+}
+
+func (rwat AdjustCursorRWAt) OverwriteAt(i, del int, p []byte) error {
+	ci := rwat.te.ctx.C.Index()
+	ci0 := ci
+	if i < ci0 && del > 0 {
+		end := i + del
+		if end > ci0 {
+			end = ci0
+		}
+		if end > 0 {
+			b, err := rwat.ReadWriterAt.ReadFastAt(i, end-i)
+			if err == nil {
+				for _, c := range string(b) {
+					l := utf8.RuneLen(c)
+					if l > 1 {
+						ci -= l - 1
+					}
+				}
+			}
+		}
+	}
+
+	if i < ci0 && len(p) > 0 {
+		end := i + len(p)
+		if end > ci0 {
+			end = ci0
+		}
+
+		for _, c := range string(p[:end-i]) {
+			l := utf8.RuneLen(c)
+			if l > 1 {
+				ci += l - 1
+			}
+		}
+	}
+	if ci != ci0 {
+		defer rwat.te.ctx.C.SetIndex(ci)
+	}
+
+	return rwat.ReadWriterAt.OverwriteAt(i, del, p)
 }
