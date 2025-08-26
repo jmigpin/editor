@@ -94,8 +94,10 @@ func (emu *Emu) setupExecSideRWC() {
 	readPr, readPw := io.Pipe()
 	writePr, writePw := io.Pipe()
 
-	// allow concurrent writes (ex: textarea vs emu cmds)
-	readPw2 := iout.NewSafeWriter(readPw)
+	// allow concurrent writes (ex: textarea input vs emu cmds)
+	// commented: not needed - io.pipe doesn't interleave write calls
+	//readPw2 := iout.NewSafeWriter(readPw)
+	readPw2 := readPw
 
 	execRwc := &iout.RWC{}
 	emu.execRwc = execRwc
@@ -314,6 +316,9 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	case 'g': // TBC: Tabulation Clear
 		emu.scr.csiTbc_tabClear(op.ADef(0))
 	case 'h', 'l': // h:sm: Set Mode; l:rm: Reset Mode
+		//// DEBUG
+		//emu.csiOpTodo(op)
+
 		on := op.final == 'h'
 		emu.scr.csi_setResetMode(
 			op.priv,
@@ -367,7 +372,9 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			return
 		}
 		// SCP: Save Cursor Position
-		emu.scr.csiScp_saveCursorPos()
+		if op.isPriv(0) || op.isPriv('?') {
+			emu.scr.csiScp_saveCursorPos()
+		}
 	case 'u': // RCP: Restore Cursor Position
 		//switch {
 		//case op.csiPrivIs('>'): // kitty: push flags (default 0)

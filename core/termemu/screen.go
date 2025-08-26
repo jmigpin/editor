@@ -13,7 +13,12 @@ import (
 
 type Screen struct {
 	W, H int
-	Grid [][]Cell
+
+	Grid  *[][]Cell // current grid ptr
+	grid1 [][]Cell
+	grid2 [][]Cell // alternate screen buffer
+
+	scrollBack []byte
 
 	cursor   Cursor
 	curAttr  Attr
@@ -38,12 +43,15 @@ func NewScreen(w, h int) *Screen {
 	s.resize(w, h)
 	s.pmodes = *newPrivModes()
 	s.graphics = *newGraphics()
+	s.Grid = &s.grid1
 	return s
 }
 
 func (s *Screen) Clone() *Screen {
 	s2 := *s // copy
-	s2.Grid = cloneGrid(s.Grid)
+	//s2.Grid = cloneGrid(s.Grid)
+	s2.grid1 = cloneGrid(s.grid1)
+	s2.grid2 = cloneGrid(s.grid2)
 	s2.pmodes = *s.pmodes.clone()
 	s2.graphics = *s.graphics.clone()
 	return &s2
@@ -53,7 +61,7 @@ func (s *Screen) resize(w, h int) {
 	s.W, s.H = w, h
 
 	// make new grid
-	s.Grid = newGrid(s.W, s.H)
+	s.newGrids()
 
 	// TODO: loses current region settings.. review this
 	s.gbX = *newGridBounds(0, s.W-1)
@@ -66,20 +74,37 @@ func (s *Screen) resize(w, h int) {
 
 //----------
 
+func (s *Screen) newGrids() {
+	s.grid1 = newGrid(s.W, s.H)
+	s.grid2 = newGrid(s.W, s.H)
+}
+func (s *Screen) newGrid() {
+	*s.Grid = newGrid(s.W, s.H)
+}
+func (s *Screen) setGrid2(on bool) {
+	if on {
+		s.Grid = &s.grid2
+	} else {
+		s.Grid = &s.grid1
+	}
+}
+
+//----------
+
 func (s *Screen) copySubGrid(dstX, dstY, x1, y1, x2, y2 int) {
 	w := [][]Cell{}
 	// copy to tmp first to allow correct overwriting
 	for y := y1; y < y2; y++ {
-		w = append(w, cloneCells(s.Grid[y][x1:x2]))
+		w = append(w, cloneCells((*s.Grid)[y][x1:x2]))
 	}
 	// copy to the destination
 	for k, u := range w {
-		copy(s.Grid[dstY+k][dstX:], u)
+		copy((*s.Grid)[dstY+k][dstX:], u)
 	}
 }
 func (s *Screen) clearSubGrid(x1, y1, x2, y2 int) {
 	for y := y1; y < y2; y++ {
-		s.clearCells(s.Grid[y][x1:x2])
+		s.clearCells((*s.Grid)[y][x1:x2])
 	}
 }
 func (s *Screen) clearCells(w []Cell) {
@@ -98,7 +123,7 @@ func (s *Screen) clearRange(y, x, n int) {
 	a, b := s.gbX.AB()
 	x = max(a, x)
 	xn := min(b+1, x+n)
-	s.clearCells(s.Grid[y][x:xn])
+	s.clearCells((*s.Grid)[y][x:xn])
 }
 
 //----------
@@ -138,7 +163,7 @@ func (s *Screen) putRune(r rune) {
 		s.lineFeed()
 	}
 
-	s.Grid[s.cursor.y][s.cursor.x] = Cell{R: r, A: s.curAttr}
+	(*s.Grid)[s.cursor.y][s.cursor.x] = Cell{R: r, A: s.curAttr}
 
 	if s.cursor.x == s.gbX.B() {
 		if s.pmodes.autoWrap() {
@@ -160,7 +185,7 @@ func (s *Screen) carriageReturn() {
 func (s *Screen) lineFeed() {
 	s.cancelWrap()
 
-	if s.pmodes.LineFeedNewlineMode() {
+	if s.pmodes.LineFeedNewline() {
 		s.carriageReturn()
 	}
 
@@ -524,10 +549,10 @@ func (s *Screen) csiCpl_cursorPreviousLine(n int) {
 
 func (s *Screen) csiColm_column132Mode() bool {
 	cols := 80
-	if s.pmodes.column132Mode() {
+	if s.pmodes.column132() {
 		cols = 132
 	}
-	needResize := len(s.Grid[0]) != cols
+	needResize := len(s.grid1[0]) != cols
 	if needResize {
 		s.W = cols
 		s.resize(s.W, s.H)
@@ -559,6 +584,14 @@ func (s *Screen) csi_setResetMode(priv byte, a, b, c int, on bool, userCons Cons
 			if on {
 				s.moveToOrigin()
 			}
+		case 47: // alternate screen buffer
+			s.setGrid2(on)
+		case 1047: // save cursor
+			s.csiScp_saveCursorPos()
+		case 1048: // save cursor, alternate screen buffer, clear
+			s.csiScp_saveCursorPos()
+			s.setGrid2(on)
+			s.newGrid()
 		}
 	}
 }
@@ -603,7 +636,7 @@ func (s *Screen) escAln_screenAlignment() {
 	s.cancelWrap()
 	for y := 0; y < s.H; y++ {
 		for x := 0; x < s.W; x++ {
-			s.Grid[y][x] = Cell{R: 'E', A: s.curAttr}
+			(*s.Grid)[y][x] = Cell{R: 'E', A: s.curAttr}
 		}
 	}
 	s.cursor = Cursor{}
@@ -629,11 +662,10 @@ func (s *Screen) escRis_reset(hard bool) {
 	s.initTabStops()
 
 	if hard {
-		s.Grid = newGrid(s.W, s.H)
+		s.newGrids()
 	}
 }
 
-//----------
 //----------
 //----------
 
@@ -653,12 +685,12 @@ func (scr *Screen) Bytes(border, cursor bool) []byte {
 		}
 	}
 
-	width := len(scr.Grid[0])
+	width := len((*scr.Grid)[0])
 	br("┌")
 	br(strings.Repeat("─", width))
 	br("┐\n")
 
-	for y, line := range scr.Grid {
+	for y, line := range *scr.Grid {
 		br("│")
 		for x, cell := range line {
 			if cursor && scr.IsCursor(x, y) {
@@ -785,15 +817,15 @@ func (m *PrivModes) clone() *PrivModes {
 
 //----------
 
-func (m *PrivModes) CursorKeysMode() bool      { return m.Is(1) }
-func (m *PrivModes) column132Mode() bool       { return m.Is(3) }
-func (m *PrivModes) reverseVideo() bool        { return m.Is(5) }
-func (m *PrivModes) origin() bool              { return m.Is(6) }
-func (m *PrivModes) autoWrap() bool            { return m.Is(7) }
-func (m *PrivModes) autoRepeat() bool          { return m.Is(8) }
-func (m *PrivModes) LineFeedNewlineMode() bool { return m.Is(20) }
-func (m *PrivModes) cursor() bool              { return m.Is(25) }
-func (m *PrivModes) leftRightMarginMode() bool { return m.Is(69) }
+func (m *PrivModes) AppCursorKeys() bool   { return m.Is(1) }
+func (m *PrivModes) column132() bool       { return m.Is(3) }
+func (m *PrivModes) reverseVideo() bool    { return m.Is(5) }
+func (m *PrivModes) origin() bool          { return m.Is(6) }
+func (m *PrivModes) autoWrap() bool        { return m.Is(7) }
+func (m *PrivModes) autoRepeat() bool      { return m.Is(8) }
+func (m *PrivModes) LineFeedNewline() bool { return m.Is(20) }
+func (m *PrivModes) cursor() bool          { return m.Is(25) }
+func (m *PrivModes) leftRightMargin() bool { return m.Is(69) }
 
 //----------
 //----------
@@ -914,6 +946,15 @@ func (gb *GridBounds) inInnerAB(v int) bool {
 //----------
 //----------
 
+type Buffer struct {
+	grid       [][]Cell
+	scrollBack []Cell
+}
+
+//----------
+//----------
+//----------
+
 func cloneCells(r []Cell) []Cell {
 	return slices.Clone(r)
 }
@@ -944,8 +985,6 @@ func clamp(v, lo, hi int) int {
 	return v
 }
 
-//----------
-//----------
 //----------
 
 var decSpec = map[rune]rune{

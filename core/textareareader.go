@@ -11,7 +11,8 @@ import (
 
 // used as a reader to pass to the terminal emulator for input like keyboard/mouse events
 type TextAreaReader struct {
-	handleKeybInput bool
+	handleKeybInput  bool
+	handleMouseInput bool
 
 	reg  *evreg.Regist
 	temu *termemu.Emu
@@ -45,35 +46,69 @@ func (tard *TextAreaReader) Close() error {
 //----------
 
 func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
-	ev := ev0.(*ui.TextAreaInputEvent)
+	ev1 := ev0.(*ui.TextAreaInputEvent)
 
-	b, ok := tard.eventToBytes(ev.Event)
-	if ok {
-		_, err := tard.pw.Write(b)
-		_ = err // TODO
-	}
-	ev.ReplyHandled = event.Handled(ok) // let events bubble up
-}
-func (tard *TextAreaReader) eventToBytes(ev any) ([]byte, bool) {
-	switch t := ev.(type) {
+	switch ev2 := ev1.Event.(type) {
 	case *event.KeyDown:
-		if tard.handleKeybInput {
-			return tard.keydownToBytes(t)
+		if !tard.handleKeybInput {
+			break
 		}
 
-		//case *event.KeyUp:
-		// TODO
+		// support pasting (ctrl+v)
+		if ev2.KeySym == event.KSymV {
+			mcl := ev2.Mods.ClearLocks()
+			if mcl.Is(event.ModCtrl) {
+				ev1.TextArea.EditCtx().Fns.GetClipboardData(event.CIClipboard, func(s string, err error) {
+					if err != nil {
+						return
+					}
+					tard.sendString(s)
+				})
+				// handled
+				ev1.ReplyHandled = event.Handled(true)
+				return
+			}
+		}
+
+		s := tard.keydownToString(ev1, ev2)
+		ok := s != ""
+		if ok {
+			tard.sendString(s)
+		}
+		ev1.ReplyHandled = event.Handled(ok) // let events bubble up
+
+	case *event.MouseClick:
+		if !tard.handleMouseInput {
+			break
+		}
+
+		// support pasting (middle click)
+		if ev2.Button == event.ButtonMiddle {
+			mcl := ev2.Mods.ClearLocks()
+			if mcl.Is(0) {
+				ev1.TextArea.EditCtx().Fns.GetClipboardData(event.CIPrimary, func(s string, err error) {
+					if err != nil {
+						return
+					}
+					tard.sendString(s)
+				})
+				// handled
+				ev1.ReplyHandled = event.Handled(true)
+				return
+			}
+		}
+
 	}
-	return nil, false
+}
+
+func (tard *TextAreaReader) sendString(s string) {
+	_, err := tard.pw.Write([]byte(s))
+	_ = err // TODO
 }
 
 //----------
 
-func (tard *TextAreaReader) keydownToBytes(ev *event.KeyDown) ([]byte, bool) {
-	s := tard.keydownToString(ev)
-	return []byte(s), len(s) != 0
-}
-func (tard *TextAreaReader) keydownToString(ev *event.KeyDown) string {
+func (tard *TextAreaReader) keydownToString(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) string {
 
 	encodeEsc := func(s string) string {
 		//mods, ok := encodeKeyMods(ev.Mods)
@@ -83,13 +118,13 @@ func (tard *TextAreaReader) keydownToString(ev *event.KeyDown) string {
 		return tard.encodeEsc(s)
 	}
 
-	switch ev.KeySym {
+	switch ev2.KeySym {
 	case event.KSymReturn, event.KSymKeypadEnter:
 		//ckm := tard.temu.ScrMode().CursorKeysMode()
 		//if ckm {
 		//	return encodeEsc("M")
 		//}
-		m := tard.temu.ScrMode().LineFeedNewlineMode()
+		m := tard.temu.ScrMode().LineFeedNewline()
 		if m {
 			// introduces extra newlines: aptitude
 			//return []byte("\r\n"), true
@@ -97,7 +132,7 @@ func (tard *TextAreaReader) keydownToString(ev *event.KeyDown) string {
 		return "\r"
 
 	case event.KSymBackspace:
-		m := tard.temu.ScrMode().LineFeedNewlineMode()
+		m := tard.temu.ScrMode().LineFeedNewline()
 		if m {
 			return string(0x7f) // del
 		}
@@ -141,25 +176,25 @@ func (tard *TextAreaReader) keydownToString(ev *event.KeyDown) string {
 
 	default:
 
-		if ev.Mods.HasAny(event.ModCtrl) {
-			if ev.Rune <= 0x7f {
-				return string(encodeCtrl(byte(ev.Rune)))
+		if ev2.Mods.HasAny(event.ModCtrl) {
+			if ev2.Rune <= 0x7f {
+				return string(encodeCtrl(byte(ev2.Rune)))
 			}
 		}
 
 		// ignore
-		if ev.Rune >= 0xff00 && ev.Rune <= 0xffff {
+		if ev2.Rune >= 0xff00 && ev2.Rune <= 0xffff {
 			return ""
 		}
 
-		return string(ev.Rune)
+		return string(ev2.Rune)
 	}
 }
 
 //----------
 
 func (tard *TextAreaReader) encodeEsc(seq string) string {
-	ckm := tard.temu.ScrMode().CursorKeysMode()
+	ckm := tard.temu.ScrMode().AppCursorKeys()
 	if ckm {
 		return seqEscO + seq
 	}

@@ -61,7 +61,6 @@ func (p *VTParser) handleDefault(ru rune) error {
 	case codeNUL: // TODO: bash is dumping all these zeros
 
 	default:
-		// emit rune (direct, slower)
 		p.emit(&TermOp{kind: "print", s: string(ru)})
 
 		//// printable run (performance)

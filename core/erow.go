@@ -274,12 +274,14 @@ func (erow *ERow) initHandlers() {
 				erow.SaveFileBusyCursor()
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
 				AddFindShortcut(erow)
-			case mods.Is(event.ModCtrl|event.ModShift) && evt.KeySym == event.KSymF:
-				// internal cmd
-				str := "FillAssist -template"
-				data := toolbarparser.Parse(str)
-				part, _ := data.PartAtIndex(0)
-				internalOrExternalCmd(erow.Ed, part, erow)
+
+			//case mods.Is(event.ModCtrl|event.ModShift) && evt.KeySym == event.KSymF:
+			//	// internal cmd
+			//	str := "FillAssist -template"
+			//	data := toolbarparser.Parse(str)
+			//	part, _ := data.PartAtIndex(0)
+			//	internalOrExternalCmd(erow.Ed, part, erow)
+
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymH:
 				AddReplaceShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymN:
@@ -600,9 +602,10 @@ func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
 	// setup reader
 	rd := (io.Reader)(nil)
 	tard := (*TextAreaReader)(nil)
-	if erow.termOpts.forwardKb {
+	if erow.termOpts.forwardKb || erow.termOpts.forwardMouse {
 		tard = newTextareaReader(erow.Row.TextArea)
-		tard.handleKeybInput = true
+		tard.handleKeybInput = erow.termOpts.forwardKb
+		tard.handleMouseInput = erow.termOpts.forwardMouse
 		rd = io.Reader(tard)
 		// setup closer
 		cl = iout.FnCloser(func() error {

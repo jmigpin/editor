@@ -139,12 +139,12 @@ func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
 
 	doCursor := tac.erow.termOpts.Mode == termemu.ModeUI
 
-	width := len(scr.Grid[0])
+	width := len((*scr.Grid)[0])
 	border("┌")
 	border(strings.Repeat("─", width))
 	border("┐\n")
 
-	for y, line := range scr.Grid {
+	for y, line := range *scr.Grid {
 		border("│")
 		for x, cell := range line {
 
@@ -159,7 +159,6 @@ func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
 			addColor1(offset, cell.A.Fg, cell.A.Bg, cell.A.Reverse && !cell.A.NoReverse)
 
 			if doCursor && scr.IsCursor(x, y) {
-				//addColor0(offset, nil, colornames.Red, false)
 				addColor0(offset, nil, nil, true)
 			}
 		}
