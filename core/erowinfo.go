@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -334,8 +333,17 @@ func (info *ERowInfo) SaveFile() error {
 
 //----------
 
+func (info *ERowInfo) checkOpen() error {
+	f, err := os.Open(info.Name())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return nil
+}
+
 func (info *ERowInfo) readFsFile() ([]byte, error) {
-	b, err := ioutil.ReadFile(info.Name())
+	b, err := os.ReadFile(info.Name())
 	if err != nil {
 		return nil, err
 	}

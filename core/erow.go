@@ -45,20 +45,11 @@ type ERow struct {
 //----------
 
 func NewLoadedERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
-	switch {
-	case info.IsSpecial():
-		return newLoadedSpecialERow(info, rowPos)
-	case info.IsDir():
-		return newLoadedDirERow(info, rowPos)
-	case info.IsFileButNotDir():
-		return newLoadedFileERow(info, rowPos)
-	default:
-		err := fmt.Errorf("unable to open erow: %v", info.name)
-		if info.fiErr != nil {
-			err = fmt.Errorf("%v: %w", err, info.fiErr)
-		}
+	erow, err := NewERow(info, rowPos)
+	if err != nil {
 		return nil, err
 	}
+	return erow, erow.Load()
 }
 
 // Allows creating rows in place even if a file/dir doesn't exist anymore (ex: show non-existent files rows in a saved session).
@@ -69,8 +60,6 @@ func NewLoadedERowOrNewBasic(info *ERowInfo, rowPos *ui.RowPos) *ERow {
 	}
 	return erow
 }
-
-//----------
 
 func ExistingERowOrNewLoaded(ed *Editor, name string) (_ *ERow, isNew bool, _ error) {
 	info := ed.ReadERowInfo(name)
@@ -99,6 +88,102 @@ func ExistingERowOrNewBasic(ed *Editor, name string) (_ *ERow, isNew bool) {
 
 //----------
 
+// a new viable erow, not yet loaded, or an error without instantiating the erow
+func NewERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
+	switch {
+	case info.IsSpecial():
+		// there can be only one instance of a special row
+		if len(info.ERows) > 0 {
+			return nil, fmt.Errorf("special row already exists: %v", info.Name())
+		}
+		erow := NewBasicERow(info, rowPos)
+		return erow, nil
+
+	case info.IsDir():
+		if err := info.checkOpen(); err != nil {
+			return nil, err // can't read from fs
+		}
+
+		erow := NewBasicERow(info, rowPos)
+		return erow, nil
+
+	case info.IsFileButNotDir():
+		if _, ok := info.FirstERow(); !ok { // can't read from existing row
+			if err := info.checkOpen(); err != nil {
+				return nil, err // can't read from fs
+			}
+		}
+
+		erow := NewBasicERow(info, rowPos)
+		return erow, nil
+
+	case info.FileInfoErr() != nil:
+		return nil, info.FileInfoErr()
+
+	default:
+		return nil, errors.New("unexpected erow type")
+	}
+}
+
+func (erow *ERow) Load() error {
+	return erow.Reload2(true)
+}
+func (erow *ERow) Reload() error {
+	return erow.Reload2(false)
+}
+
+func (erow *ERow) Reload2(firstLoad bool) error {
+	switch {
+	case erow.Info.IsSpecial():
+		if erow.Info.Name() == "+Sessions" {
+			ListSessions(erow.Ed)
+		}
+		return nil
+
+	case erow.Info.IsDir():
+		ListDirERow(erow, erow.Info.Name(), false, true)
+		return nil
+
+	case erow.Info.IsFileButNotDir():
+		if firstLoad {
+			// read content from existing row
+			if erow0, ok := erow.Info.FirstERow(); ok {
+				if erow0 != erow {
+					// use with existing content
+					erow.Info.setRWFromMaster(erow0)
+					return nil
+				}
+			}
+		}
+
+		// load
+		b, err := erow.Info.readFsFile()
+		if err != nil {
+			return err
+		}
+
+		// update data
+		erow.Info.setSavedHash(erow.Info.fileData.fs.hash, len(b))
+
+		// new erow (no other rows exist)
+		if firstLoad {
+			erow.Row.TextArea.SetBytesClearHistory(b)
+		} else {
+			erow.Info.SetRowsBytes(b)
+		}
+		return nil
+	default:
+		info := erow.Info
+		err := fmt.Errorf("unable to load erow: %v", info.name)
+		if info.fiErr != nil {
+			err = fmt.Errorf("%v: %w", err, info.fiErr)
+		}
+		return err
+	}
+}
+
+//----------
+
 func NewBasicERow(info *ERowInfo, rowPos *ui.RowPos) *ERow {
 	erow := &ERow{}
 	erow.init(info, rowPos)
@@ -122,78 +207,6 @@ func (erow *ERow) init(info *ERowInfo, rowPos *ui.RowPos) {
 	// editor events
 	ev := &PostNewERowEEvent{ERow: erow}
 	erow.Ed.EEvents.emit(PostNewERowEEventId, ev)
-}
-
-//----------
-
-func newLoadedSpecialERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
-	// there can be only one instance of a special row
-	if len(info.ERows) > 0 {
-		return nil, fmt.Errorf("special row already exists: %v", info.Name())
-
-	}
-	erow := NewBasicERow(info, rowPos)
-	// load
-	switch {
-	case info.Name() == "+Sessions":
-		ListSessions(erow.Ed)
-	}
-	return erow, nil
-}
-
-func newLoadedDirERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
-	if !info.IsDir() {
-		return nil, fmt.Errorf("not a directory")
-	}
-	erow := NewBasicERow(info, rowPos)
-	// load
-	ListDirERow(erow, erow.Info.Name(), false, true)
-	return erow, nil
-}
-
-func newLoadedFileERow(info *ERowInfo, rowPos *ui.RowPos) (*ERow, error) {
-	// read content from existing row
-	if erow0, ok := info.FirstERow(); ok {
-		// create erow first to get it updated
-		erow := NewBasicERow(info, rowPos)
-		// update the new erow with content
-		info.setRWFromMaster(erow0)
-		return erow, nil
-	}
-
-	// load
-	b, err := info.readFsFile()
-	if err != nil {
-		return nil, err
-	}
-
-	// update data
-	info.setSavedHash(info.fileData.fs.hash, len(b))
-
-	// new erow (no other rows exist)
-	erow := NewBasicERow(info, rowPos)
-	erow.Row.TextArea.SetBytesClearHistory(b)
-
-	return erow, nil
-}
-
-//----------
-
-func (erow *ERow) Reload() error {
-	switch {
-	case erow.Info.IsSpecial() && erow.Info.Name() == "+Sessions":
-		ListSessions(erow.Ed)
-		return nil
-	case erow.Info.IsDir():
-		ListDirERow(erow, erow.Info.Name(), false, true)
-		return nil
-	case erow.Info.IsFileButNotDir():
-		return erow.Info.ReloadFile()
-	case erow.Info.FileInfoErr() != nil:
-		return erow.Info.FileInfoErr()
-	default:
-		return errors.New("unexpected type to reload")
-	}
 }
 
 //----------

@@ -292,7 +292,11 @@ func (state *RowState) OpenERow(ed *Editor, rowPos *ui.RowPos) (*ERow, bool, err
 	info := ed.ReadERowInfo(name)
 
 	// create erow, even if it had have errors
-	erow := NewLoadedERowOrNewBasic(info, rowPos)
+	//erow := NewLoadedERowOrNewBasic(info, rowPos)
+	erow, err := NewERow(info, rowPos)
+	if err != nil {
+		erow = NewBasicERow(info, rowPos)
+	}
 
 	// setup toolbar even if erow had errors
 	w := data.Str[arg0.End():]
@@ -300,7 +304,8 @@ func (state *RowState) OpenERow(ed *Editor, rowPos *ui.RowPos) (*ERow, bool, err
 		erow.ToolbarSetStrAfterNameClearHistory(w)
 	}
 
-	return erow, true, nil
+	//return erow, true, nil
+	return erow, true, erow.Load()
 }
 
 func (state *RowState) RestorePos(erow *ERow) {
