@@ -142,7 +142,7 @@ func (tard *TextAreaReader) keydownToString(ev1 *ui.TextAreaInputEvent, ev2 *eve
 	case event.KSymBackspace:
 		m := tard.temu.ScrMode().LineFeedNewline()
 		if m {
-			return string(0x7f) // del
+			return string('\x7f') // del
 		}
 		return "\b"
 
@@ -178,7 +178,7 @@ func (tard *TextAreaReader) keydownToString(ev1 *ui.TextAreaInputEvent, ev2 *eve
 	//	return seqEscCsi + "8~"
 
 	case event.KSymEscape:
-		return string(27)
+		return string('\x1b')
 	case event.KSymTab:
 		return "\t"
 

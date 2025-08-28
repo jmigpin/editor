@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/jmigpin/editor/util/iout"
 )
@@ -11,7 +12,7 @@ import (
 //godebug:annotatefile
 //godebug:annotatefile:vtparser.go
 //godebug:annotatefile:screen.go
-//godebug:annotatefile:../textareareader.go
+////godebug:annotatefile:../textareareader.go
 ////godebug:annotatefile:../textareaconsole.go
 
 //----------
@@ -78,6 +79,7 @@ func NewEmu(userCons ConsoleConn, opts Opts) *Emu {
 	emu.setupExecSideRWC()
 
 	emu.parser = NewVTParser(emu.execRwc, emu.applyEmit)
+	emu.parser.ansiMode = emu.scr.pmodes.AnsiNotVT52()
 
 	emu.parserDone.Add(1)
 	go func() {
@@ -118,13 +120,40 @@ func (emu *Emu) setupExecSideRWC() {
 		*rd = io.TeeReader(*rd, emu.userCons)
 	}
 
+	//// write exec raw output, spliting on cmds
+	//if emu.opts.Debug {
+	//	rd := &execRwc.Reader
+	//	*rd = io.TeeReader(*rd, iout.FnWriter(func(p []byte) (int, error) {
+	//		buf := &bytes.Buffer{}
+
+	//		flush := func() {
+	//			if buf.Len() > 0 {
+	//				s := buf.String()
+	//				s = strings.TrimRight(s, "\n") + "\n"
+	//				fmt.Print(s)
+	//			}
+	//			buf.Reset()
+	//		}
+
+	//		for _, b := range p {
+	//			if b == codeESC || b == codeCSI {
+	//				flush()
+	//			}
+	//			buf.WriteByte(b)
+	//		}
+	//		flush()
+	//		return len(p), nil
+	//	}))
+	//}
+
 	// auto read from user to exec
 	go func() {
 		if emu.opts.Debug {
 			rd := iout.FnReader(func(p []byte) (int, error) {
 				n, err := emu.userCons.Read(p)
-				s := fmt.Sprintf("\n*RCV: %q\n", string(p[:n]))
-				emu.sendToUser(s)
+				s := fmt.Sprintf("emu.dbg: rcvFromUser: %q\n", string(p[:n]))
+				//emu.sendToUser(s)
+				fmt.Print(s)
 				return n, err
 			})
 			_, _ = io.Copy(emu.execRwc, rd)
@@ -155,8 +184,9 @@ func (emu *Emu) Close() error {
 
 func (emu *Emu) sendToExec(s string) {
 	if emu.opts.Debug {
-		s2 := fmt.Sprintf("\n*SEND: %q\n", s)
-		emu.sendToUser(s2)
+		s2 := fmt.Sprintf("emu.dbg: sendToExec: %q\n", s)
+		//emu.sendToUser(s2)
+		fmt.Print(s2)
 	}
 
 	_, _ = emu.execRwc.Write([]byte(s))
@@ -218,8 +248,7 @@ func (emu *Emu) applyEmit(op *TermOp) {
 			emu.sendToUser("\n")
 		}
 	case "nel":
-		emu.scr.carriageReturn()
-		emu.scr.lineFeed()
+		emu.scr.escNel_nextLine()
 	case "rc":
 		emu.scr.escRc_restoreCursor()
 	case "ri":
@@ -228,6 +257,10 @@ func (emu *Emu) applyEmit(op *TermOp) {
 		emu.scr.escRis_reset(true)
 	case "sc":
 		emu.scr.escSc_saveCursor()
+
+	case "vt52Id":
+		//emu.sendToExec("\x1b/K") // vt52
+		emu.sendToExec("\x1b/Z") // vt52 emulated by vt100
 
 	//----------
 
@@ -238,6 +271,10 @@ func (emu *Emu) applyEmit(op *TermOp) {
 		if emu.plainMode() {
 			emu.sendToUser(op.s)
 		}
+
+	case "unknownEsc":
+		err := fmt.Errorf("emu.applyemit: vtparser: %q", op.s)
+		emu.userCons.Error(err)
 
 	default:
 		err := fmt.Errorf("emu.applyemit: %q", op.kind)
@@ -312,20 +349,11 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			emu.csiOpTodo(op)
 		}
 	case 'd': //  vpa: Vertical Position Absolute (to row n)
-		emu.scr.moveToRow(op.A())
+		emu.scr.csiVpa_moveToRow(op.A())
 	case 'g': // TBC: Tabulation Clear
 		emu.scr.csiTbc_tabClear(op.ADef(0))
 	case 'h', 'l': // h:sm: Set Mode; l:rm: Reset Mode
-		//// DEBUG
-		//emu.csiOpTodo(op)
-
-		on := op.final == 'h'
-		emu.scr.csi_setResetMode(
-			op.priv,
-			op.param(0), op.param(1), op.param(2),
-			on,
-			emu.userCons,
-		)
+		emu.csiSetMode(op)
 	case 'm': // SGR: Select Graphic Rendition (colors, bold, etc.)
 		emu.scr.csiSgr_selectGraphicRendition(op.params)
 	case 'n': // DSR: Device Status Report
@@ -336,6 +364,9 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			row1, col1 := emu.scr.csiCpr_cursorPositionReport()
 			s := fmt.Sprintf("\x1b[%d;%dR", row1, col1)
 			emu.sendToExec(s)
+		case 9: // CUSTOM: debug
+			emu.scr.PrintWithCursor()
+			time.Sleep(100 * time.Second)
 		default:
 			emu.csiOpTodo(op)
 		}
@@ -363,12 +394,11 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	case 'r': // DECSTBM: Set Scrolling Region
 		top1, bot1 := op.ADef(1), op.BDef(emu.scr.H)
 		emu.scr.setScrollRegion(top1, bot1)
-		emu.scr.moveToOrigin()
 	case 's':
 		// SLRM: set left right margins
 		if len(op.params) == 2 {
 			left1, right1 := op.ADef(1), op.BDef(1)
-			emu.scr.csiSlrm_setXMargins(left1, right1)
+			emu.scr.csiSlrm_setLeftRightMargins(left1, right1)
 			return
 		}
 		// SCP: Save Cursor Position
@@ -410,9 +440,50 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	}
 }
 
+//----------
+
 func (emu *Emu) csiOpTodo(op *TermCsiOp) {
 	err := fmt.Errorf("emu.csi.final: todo: %c, %#v", op.final, op)
 	emu.userCons.Error(err)
+}
+
+func (emu *Emu) csiSetMode(op *TermCsiOp) {
+	//// DEBUG
+	//emu.csiOpTodo(op)
+
+	// ex: "20", "?3", ...
+	idx := ""
+	if !op.isPriv(0) {
+		idx += string(op.priv) // "?", ...
+	}
+	idx += fmt.Sprintf("%d", op.A())
+
+	s := emu.scr
+	on := op.final == 'h'
+	s.pmodes.set(idx, on)
+
+	switch idx {
+	case "2": // Keyboard Action Mode (KAM).
+	case "4": // insert mode
+	case "20": // Automatic Newline (LNM)
+
+	case "?2": // ansi
+		emu.parser.ansiMode = on
+	case "?3": // 32 Column Mode (DECCOLM)
+		if resized := s.csiColm_column132Mode(); resized {
+			emu.userCons.SetSize(s.W, s.H)
+		}
+	case "?6": // scroll origin mode
+	case "?69": // left/right margin mode
+	case "?47": // alternate screen buffer
+		s.setGrid2(on)
+	case "?1047": // save cursor
+		s.csiScp_saveCursorPos()
+	case "?1048": // save cursor, alternate screen buffer, clear
+		s.csiScp_saveCursorPos()
+		s.setGrid2(on)
+		s.newGrid()
+	}
 }
 
 //----------
@@ -441,3 +512,5 @@ type ConsoleConn interface {
 	Repaint()
 	Error(error)
 }
+
+//----------

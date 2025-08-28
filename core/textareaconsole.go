@@ -47,6 +47,7 @@ func (tac *TextAreaConsole) Close() error {
 	defer func() {
 		tac.erow.Ed.UI.RunOnUIGoRoutine(func() {
 			ta := tac.erow.Row.TextArea
+			ta.EnableSyntaxHighlight(true) // TODO: always on or set to previous?
 			ta.EnableTerminalColors(false)
 			ta.SetTerminalColorOps(nil) // clear to avoid bad caloring upon re-enable
 
@@ -91,8 +92,10 @@ func (tac *TextAreaConsole) Repaint() {
 }
 func (tac *TextAreaConsole) paintNow() {
 	ops, b := tac.paintOpsBytes()
-	tac.erow.Row.TextArea.SetTerminalColorOps(ops)
-	tac.erow.Row.TextArea.SetBytesClearHistory(b)
+	ta := tac.erow.Row.TextArea
+	ta.EnableSyntaxHighlight(false)
+	ta.SetTerminalColorOps(ops)
+	ta.SetBytesClearHistory(b)
 	//tac.erow.Row.ScrollArea.SetBars(false, false)
 }
 func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {

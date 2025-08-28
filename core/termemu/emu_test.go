@@ -41,7 +41,7 @@ func TestCursorMoves(t *testing.T) {
 			te := newTestEmu(m, Opts{W: 10, H: 5})
 			defer te.Close()
 
-			te.scr.pmodes.set(20, tc.lnm)
+			te.scr.pmodes.set("20", tc.lnm)
 
 			seq := cup(tc.startY, tc.startX) + tc.seq
 			sendWithBarrier(t, te, seq)
@@ -98,24 +98,25 @@ func TestScrollRegionAndOriginMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got, want := string(buf[:n]), "\x1b[1;1R"; got != want {
-		snap := te.Snapshot()
-		snap.Print()
+		s := te.Snapshot()
+		s.Print()
 
 		t.Fatalf("got %q, want %q", printable(got), printable(want))
 	}
 
 	// Move down to bottom margin and LF to force region scroll
 	sendWithBarrier(t, te, "\x1b[4B") // 4 down inside region
-	snap := te.Snapshot()
-	top, bot := snap.gbY.AB()
+	s := te.Snapshot()
+	a, b := s.boundsScrollEdges(s.cursor)
+	top, bot := a.y, b.y
 	if top != 1 || bot != 4 { // 0-based internally
 		t.Fatalf("bad region top/bot: %d/%d", top, bot)
 	}
 	// Next LF should keep cursor at bottom margin
 	sendWithBarrier(t, te, "\n")
-	snap = te.Snapshot()
-	if snap.cursor.y != bot {
-		t.Fatalf("cursor not at bottom margin after LF: %d vs %d", snap.cursor.y, bot)
+	s = te.Snapshot()
+	if s.cursor.y != bot {
+		t.Fatalf("cursor not at bottom margin after LF: %d vs %d", s.cursor.y, bot)
 	}
 }
 
@@ -167,7 +168,7 @@ func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[2;4r\x1b[2;1H\x1b[L") // IL 1
 	s := te.Snapshot()
 
-	// Row texts after IL: 1, blank, 2, 3, 5  (2..4 moved down)
+	// Row texts after IL: 1, blank, 2, 3, 5
 	if s.grid1[1][0].R != '\x00' || s.grid1[2][0].R != '2' {
 		s.Print()
 		t.Fatalf("IL failed around region")
@@ -233,7 +234,7 @@ func TestINDandRI_RespectScrollRegion(t *testing.T) {
 	sendWithBarrier(t, te, cup(3, 0)+"\x1bD")
 	s := te.Snapshot()
 	if got := string(runesOf(s.grid1[1][:4])); got != "BBBB" {
-		s.Print()
+		s.PrintWithCursor()
 		t.Fatalf("after IND, row2=%q, want BBBB", printable(got))
 	}
 	if got := string(runesOf(s.grid1[2][:4])); got != "CCCC" {
@@ -250,6 +251,7 @@ func TestINDandRI_RespectScrollRegion(t *testing.T) {
 		t.Fatalf("after RI, row2 should be blank")
 	}
 	if got := string(runesOf(s.grid1[2][:4])); got != "BBBB" {
+		s.PrintWithCursor()
 		t.Fatalf("after RI, row3=%q, want BBBB", printable(got))
 	}
 	if got := string(runesOf(s.grid1[3][:4])); got != "CCCC" {
@@ -732,26 +734,63 @@ func Test_CSI_Params_Ignore_CR_BS_HT(t *testing.T) {
 	}
 }
 
-//// Column letters via CNL/CPL (LRMM off). If CR got executed inside a CSI elsewhere,
-//// these left/right markers get lost; this keeps us honest.
-//func Test_CNL_CPL_DrawMarginLetters(t *testing.T) {
-//	te := newTestEmu(newUserMock(), Opts{W: 10, H: 6})
-//	defer te.Close()
+func TestVT52_DCA(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 10, H: 6})
+	defer te.Close()
+	// Enter VT52 mode
+	sendWithBarrierVT52(t, te, "\x1b[?2l")
+	// ESC Y (row=3,col=5) → bytes 0x20+3, 0x20+5
+	seq := "\x1bY" + string([]byte{0x20 - 1 + 3, 0x20 - 1 + 5})
+	sendWithBarrierVT52(t, te, seq+"X")
+	s := te.Snapshot()
+	if s.cursor.y != 2 || s.cursor.x != 5 || s.grid1[2][4].R != 'X' {
+		s.PrintWithCursor()
+		t.Fatalf("VT52 DCA failed: cur=(%d,%d) r='%c'", s.cursor.y, s.cursor.x, s.grid1[2][4].R)
+	}
+	// Back to ANSI
+	sendWithBarrier(t, te, "\x1b<")
+}
 
-//	// Left column A,B,C downwards using CNL
-//	sendWithBarrier(t, te, "\x1b[2;1HA\x1b[EB\x1b[EC")
-//	// Right column x,y,z upwards using CHA to col 10 and CPL
-//	sendWithBarrier(t, te, "\x1b[6;10Hx\x1b[Fy\x1b[Fz")
+func TestVT52_F_G(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 6, H: 1})
+	defer te.Close()
+	sendWithBarrierVT52(t, te, "\x1b[?2l") // VT52 mode
+	sendWithBarrierVT52(t, te, "\x1bFqqx") // ESC F: graphics on
+	sendWithBarrierVT52(t, te, "\x1bGq")   // ESC G: graphics off
+	s := te.Snapshot()
+	if string([]rune{s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R}) != "──│" {
+		t.Fatal("graphics map failed")
+	}
+	if s.grid1[0][3].R != 'q' {
+		t.Fatal("exit graphics failed")
+	}
+}
 
-//	s := te.Snapshot()
-//	s.Print()
-//	if s.grid1[1][0].R != 'A' || s.grid1[2][0].R != 'B' || s.grid1[3][0].R != 'C' {
-//		t.Fatalf("left margin letters missing")
-//	}
-//	if s.grid1[5][9].R != 'x' || s.grid1[4][9].R != 'y' || s.grid1[3][9].R != 'z' {
-//		t.Fatalf("right margin letters missing")
-//	}
-//}
+//----------
+//----------
+//----------
+
+// NOTE: long tests
+// paste content into a constant using go's backquotes ``
+// remove cmds that expect reply to avoid stalling (ex: [0c)
+// use "[9n" for custom print/pause for debuging the screen state
+
+func _TestSnapshot0(t *testing.T) {
+
+	opts := Opts{W: 80, H: 24}
+	//opts.Mode = ModeRaw
+	opts.Debug = true
+	te := newTestEmu(newUserMock(), opts)
+	defer te.Close()
+
+	const u = ``
+
+	sendWithBarrier(t, te, u)
+	s := te.Snapshot()
+	_ = s
+	s.PrintWithCursor()
+	t.Fatalf("todo")
+}
 
 //----------
 //----------
@@ -772,6 +811,9 @@ func (m *userMock) Read(p []byte) (int, error) {
 	return len(p), nil
 }
 func (m *userMock) Write(p []byte) (int, error) {
+	// DEBUG
+	//fmt.Printf("%s\n", string(p))
+
 	return len(p), nil // simulate output to a display
 }
 func (m *userMock) Close() error {
@@ -783,30 +825,49 @@ func (m *userMock) Close() error {
 }
 func (m *userMock) SetSize(int, int) {}
 func (m *userMock) Repaint()         {}
-func (m *userMock) Error(error)      {}
+func (m *userMock) Error(err error)  { fmt.Println(err) }
 
 //----------
 //----------
 //----------
 
 func newTestEmu(cons ConsoleConn, opts Opts) *Emu {
-	opts.Mode = ModeUI
+	if opts.Mode == ModeOff {
+		opts.Mode = ModeUI
+	}
 	emu := NewEmu(cons, opts)
+
+	//go func() {
+	// read all cmds sent to exec
+	// but then it won't be able to read for testing
+	//io.Copy(io.Discard, emu)
+	//}()
+
 	return emu
 }
 
-func cup(row0, col0 int) string { // 0-based → VT 1-based
-	return fmt.Sprintf("\x1b[%d;%dH", row0+1, col0+1)
-}
+//----------
 
 func send(t *testing.T, te *Emu, s string) {
 	t.Helper()
 	_, _ = te.Write([]byte(s))
 }
+
 func sendWithBarrier(t *testing.T, te *Emu, seq string) {
 	t.Helper()
-	send(t, te, seq+"\x1b[5n") // seq+DSR 5
-	expectedReply := "\x1b[0n"
+	ping, pong := "\x1b[5n", "\x1b[0n" // DSR 5
+	sendWithBarrier2(t, te, seq, ping, pong)
+}
+func sendWithBarrierVT52(t *testing.T, te *Emu, seq string) {
+	t.Helper()
+	ping, pong := "\x1bZ", "\x1b/Z"
+	sendWithBarrier2(t, te, seq, ping, pong)
+}
+
+func sendWithBarrier2(t *testing.T, te *Emu, seq string, ping, pong string) {
+	t.Helper()
+	send(t, te, seq+ping)
+	expectedReply := pong
 
 	buf := make([]byte, len(expectedReply))
 	n, err := te.Read(buf)
@@ -816,6 +877,12 @@ func sendWithBarrier(t *testing.T, te *Emu, seq string) {
 	if u := string(buf[:n]); u != expectedReply {
 		t.Fatalf("read: bad barrier: %q", u)
 	}
+}
+
+//----------
+
+func cup(row0, col0 int) string { // 0-based → VT 1-based
+	return fmt.Sprintf("\x1b[%d;%dH", row0+1, col0+1)
 }
 
 //----------
@@ -855,8 +922,6 @@ func anyNonBlank(cells []Cell) bool {
 	return false
 }
 
-//----------
-
 // printable helps debug control sequences in errors.
 func printable(s string) string {
 	var b strings.Builder
@@ -880,3 +945,5 @@ func printable(s string) string {
 	}
 	return b.String()
 }
+
+//----------
