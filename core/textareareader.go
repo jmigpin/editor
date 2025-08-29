@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/jmigpin/editor/core/termemu"
@@ -54,52 +55,94 @@ func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
 			break
 		}
 
-		// support pasting (ctrl+v)
-		if ev2.KeySym == event.KSymV {
-			mcl := ev2.Mods.ClearLocks()
-			if mcl.Is(event.ModCtrl) {
-				ev1.TextArea.EditCtx().Fns.GetClipboardData(event.CIClipboard, func(s string, err error) {
-					if err != nil {
-						return
-					}
-					tard.sendPaste(s)
-				})
-				// handled
-				ev1.ReplyHandled = event.Handled(true)
-				return
-			}
+		if ok := tard.kbCopyingWarning(ev1, ev2); ok {
+			return
 		}
-
-		s := tard.keydownToString(ev1, ev2)
-		ok := s != ""
-		if ok {
-			tard.sendString(s)
+		if ok := tard.kbPaste(ev1, ev2); ok {
+			return
 		}
-		ev1.ReplyHandled = event.Handled(ok) // let events bubble up
+		if ok := tard.kbEncode(ev1, ev2); ok {
+			return
+		}
 
 	case *event.MouseClick:
 		if !tard.handleMouseInput {
 			break
 		}
 
-		// support pasting (middle click)
-		if ev2.Button == event.ButtonMiddle {
-			mcl := ev2.Mods.ClearLocks()
-			if mcl.Is(0) {
-				ev1.TextArea.EditCtx().Fns.GetClipboardData(event.CIPrimary, func(s string, err error) {
-					if err != nil {
-						return
-					}
-					tard.sendPaste(s)
-				})
-				// handled
-				ev1.ReplyHandled = event.Handled(true)
-				return
-			}
+		if ok := tard.mousePaste(ev1, ev2); ok {
+			return
 		}
-
 	}
 }
+
+//----------
+
+func (tard *TextAreaReader) kbPaste(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
+	// support pasting (ctrl+v)
+	if ev2.KeySym != event.KSymV {
+		return false
+	}
+	mcl := ev2.Mods.ClearLocks()
+	if !mcl.Is(event.ModCtrl) {
+		return false
+	}
+
+	ev1.TextArea.EditCtx().Fns.GetClipboardData(event.CIClipboard, func(s string, err error) {
+		if err != nil {
+			return
+		}
+		tard.sendPaste(s)
+	})
+	// handled
+	ev1.ReplyHandled = event.Handled(true)
+	return true
+}
+
+func (tard *TextAreaReader) mousePaste(ev1 *ui.TextAreaInputEvent, ev2 *event.MouseClick) bool {
+	// support pasting (middle click)
+	if ev2.Button != event.ButtonMiddle {
+		return false
+	}
+	mcl := ev2.Mods.ClearLocks()
+	if !mcl.Is(0) {
+		return false
+	}
+	ev1.TextArea.EditCtx().Fns.GetClipboardData(event.CIPrimary, func(s string, err error) {
+		if err != nil {
+			return
+		}
+		tard.sendPaste(s)
+	})
+	// handled
+	ev1.ReplyHandled = event.Handled(true)
+	return true
+}
+
+func (tard *TextAreaReader) kbCopyingWarning(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
+	// warn about keys going to the exec instead of copying (ctrl+c)
+	if ev2.KeySym != event.KSymC {
+		return false
+	}
+	mcl := ev2.Mods.ClearLocks()
+	if !mcl.Is(event.ModCtrl) {
+		return false
+	}
+
+	// there must be a selection for the warn to show (less annoying)
+	_, _, ok := ev1.TextArea.Cursor().SelectionIndexes()
+	if !ok {
+		return false
+	}
+
+	err := fmt.Errorf("warning: the keyboard input is being redirected to the executable, therefore your Ctrl+C is not copying, use the mouse to copy/paste on select")
+	//fmt.Println(err)
+	ev1.TextArea.EditCtx().Fns.Error(err) // TODO: get to ed.error?
+
+	return true
+}
+
+//----------
 
 func (tard *TextAreaReader) sendString(s string) {
 	_, err := tard.pw.Write([]byte(s))
@@ -116,7 +159,17 @@ func (tard *TextAreaReader) sendPaste(s string) {
 
 //----------
 
-func (tard *TextAreaReader) keydownToString(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) string {
+func (tard *TextAreaReader) kbEncode(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
+	s := tard.kbEncodeToStr(ev1, ev2)
+	if s != "" {
+		tard.sendString(s)
+		// handled
+		ev1.ReplyHandled = event.Handled(true)
+		return true
+	}
+	return false
+}
+func (tard *TextAreaReader) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) string {
 
 	encodeEsc := func(s string) string {
 		//mods, ok := encodeKeyMods(ev.Mods)
