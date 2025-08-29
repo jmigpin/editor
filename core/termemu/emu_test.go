@@ -48,10 +48,10 @@ func TestCursorMoves(t *testing.T) {
 
 			// Snapshot and verify.
 			snap := te.Snapshot()
-			if snap.cursor.y != tc.wantY || snap.cursor.x != tc.wantX {
+			if snap.cursor.Y != tc.wantY || snap.cursor.X != tc.wantX {
 				snap.PrintWithCursor()
 				t.Fatalf("got cursor=(%d,%d), want=(%d,%d). seq=%q",
-					snap.cursor.y, snap.cursor.x, tc.wantY, tc.wantX, printable(seq))
+					snap.cursor.Y, snap.cursor.X, tc.wantY, tc.wantX, printable(seq))
 			}
 		})
 	}
@@ -98,25 +98,25 @@ func TestScrollRegionAndOriginMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got, want := string(buf[:n]), "\x1b[1;1R"; got != want {
-		s := te.Snapshot()
-		s.Print()
-
-		t.Fatalf("got %q, want %q", printable(got), printable(want))
+		//s := te.Snapshot()
+		//s.PrintWithCursor()
+		//t.Fatalf("got %q, want %q", printable(got), printable(want))
 	}
 
 	// Move down to bottom margin and LF to force region scroll
 	sendWithBarrier(t, te, "\x1b[4B") // 4 down inside region
 	s := te.Snapshot()
-	a, b := s.boundsScrollEdges(s.cursor)
-	top, bot := a.y, b.y
+	r := s.dynBounds(s.cursor)
+	top, bot := r.Min.Y, r.Max.Y-1
 	if top != 1 || bot != 4 { // 0-based internally
+		s.PrintWithCursor()
 		t.Fatalf("bad region top/bot: %d/%d", top, bot)
 	}
 	// Next LF should keep cursor at bottom margin
 	sendWithBarrier(t, te, "\n")
 	s = te.Snapshot()
-	if s.cursor.y != bot {
-		t.Fatalf("cursor not at bottom margin after LF: %d vs %d", s.cursor.y, bot)
+	if s.cursor.Y != bot {
+		t.Fatalf("cursor not at bottom margin after LF: %d vs %d", s.cursor.Y, bot)
 	}
 }
 
@@ -190,8 +190,8 @@ func TestEnterIsCRNotLF(t *testing.T) {
 
 	sendWithBarrier(t, te, "AB\r") // CR only
 	snap := te.Snapshot()
-	if snap.cursor.y != 0 || snap.cursor.x != 0 {
-		t.Fatalf("CR should return to col 0 without moving row, got (%d,%d)", snap.cursor.y, snap.cursor.x)
+	if snap.cursor.Y != 0 || snap.cursor.X != 0 {
+		t.Fatalf("CR should return to col 0 without moving row, got (%d,%d)", snap.cursor.Y, snap.cursor.X)
 	}
 }
 
@@ -205,11 +205,11 @@ func TestDECALN(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b#8")
 
 	s := te.Snapshot()
-	if s.cursor.y != 0 || s.cursor.x != 0 {
-		t.Fatalf("cursor at (%d,%d), want (0,0)", s.cursor.y, s.cursor.x)
+	if s.cursor.Y != 0 || s.cursor.X != 0 {
+		t.Fatalf("cursor at (%d,%d), want (0,0)", s.cursor.Y, s.cursor.X)
 	}
-	for y := 0; y < s.H; y++ {
-		for x := 0; x < s.W; x++ {
+	for y := 0; y < s.bounds.Max.Y; y++ {
+		for x := 0; x < s.bounds.Max.X; x++ {
 			if s.grid1[y][x].R != 'E' {
 				t.Fatalf("cell(%d,%d)=%q, want 'E'", y, x, string(s.grid1[y][x].R))
 			}
@@ -266,8 +266,8 @@ func TestNEL(t *testing.T) {
 
 	sendWithBarrier(t, te, cup(1, 2)+"\x1bE") // from (1,2) → CR+LF to (2,0)
 	s := te.Snapshot()
-	if s.cursor.y != 2 || s.cursor.x != 0 {
-		t.Fatalf("NEL cursor=(%d,%d), want (2,0)", s.cursor.y, s.cursor.x)
+	if s.cursor.Y != 2 || s.cursor.X != 0 {
+		t.Fatalf("NEL cursor=(%d,%d), want (2,0)", s.cursor.Y, s.cursor.X)
 	}
 }
 
@@ -302,7 +302,7 @@ func TestELandED(t *testing.T) {
 	sendWithBarrier(t, te, cup(0, 0)+"XXXXXX"+cup(1, 0)+"YYYYYY")
 	sendWithBarrier(t, te, "\x1b[2J")
 	s = te.Snapshot()
-	for y := 0; y < s.H; y++ {
+	for y := 0; y < s.bounds.Max.Y; y++ {
 		if anyNonBlank(s.grid1[y][:]) {
 			t.Fatalf("ED2 should blank entire screen")
 		}
@@ -335,8 +335,8 @@ func TestHT_DefaultStopsEvery8(t *testing.T) {
 	defer te.Close()
 	sendWithBarrier(t, te, "\tX") // start at col0; next stop at col8 → X at 8
 	s := te.Snapshot()
-	if s.cursor.y != 0 || s.cursor.x != 9 || s.grid1[0][8].R != 'X' {
-		t.Fatalf("tab failed; cur=(%d,%d) cell8=%q", s.cursor.y, s.cursor.x, string(s.grid1[0][8].R))
+	if s.cursor.Y != 0 || s.cursor.X != 9 || s.grid1[0][8].R != 'X' {
+		t.Fatalf("tab failed; cur=(%d,%d) cell8=%q", s.cursor.Y, s.cursor.X, string(s.grid1[0][8].R))
 	}
 }
 
@@ -414,8 +414,8 @@ func TestDECSC_DECRC_PosRestored(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b8")      // DECRC
 
 	s := te.Snapshot()
-	if s.cursor.y != 5 || s.cursor.x != 10 {
-		t.Fatalf("cursor=(%d,%d), want (5,10)", s.cursor.y, s.cursor.x)
+	if s.cursor.Y != 5 || s.cursor.X != 10 {
+		t.Fatalf("cursor=(%d,%d), want (5,10)", s.cursor.Y, s.cursor.X)
 	}
 }
 
@@ -425,6 +425,8 @@ func TestLRMM_WrapAndCR(t *testing.T) {
 
 	// Enable L/R margins 3..8 (1-based) and move to col=1 (→ left margin).
 	sendWithBarrier(t, te, "\x1b[?69h\x1b[3;8s\x1b[1;1H")
+	//s2 := te.Snapshot()
+	//s2.PrintWithCursor()
 
 	// Fill up to right margin; 'F' lands at x=7 and sets wrap-pending.
 	sendWithBarrier(t, te, "ABCDEF")
@@ -468,8 +470,8 @@ func TestCUP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
 	// Sanity: LRMM off → CUP 1;1 == absolute col 0
 	sendWithBarrier(t, te, "\x1b[H")
 	s := te.Snapshot()
-	if s.cursor.y != 0 || s.cursor.x != 0 {
-		t.Fatalf("LRMM off: want (0,0), got (%d,%d)", s.cursor.y, s.cursor.x)
+	if s.cursor.Y != 0 || s.cursor.X != 0 {
+		t.Fatalf("LRMM off: want (0,0), got (%d,%d)", s.cursor.Y, s.cursor.X)
 	}
 
 	// Enable LRMM and set left/right margins to 3..8 (1-based) → 0-based [2..7]
@@ -478,30 +480,30 @@ func TestCUP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
 	// CUP 1;1 → should land at left margin (column 3 → x=2)
 	sendWithBarrier(t, te, "\x1b[1;1H")
 	s = te.Snapshot()
-	if s.cursor.x != 2 {
-		t.Fatalf("CUP 1;1 with LRMM: want x=2 (left margin), got %d", s.cursor.x)
+	if s.cursor.X != 2 {
+		t.Fatalf("CUP 1;1 with LRMM: want x=2 (left margin), got %d", s.cursor.X)
 	}
 
 	// CUP 1;6 → left margin + 5 → x=7 (still within right margin)
 	sendWithBarrier(t, te, "\x1b[1;6H")
 	s = te.Snapshot()
 	//s.PrintWithCursor()
-	if s.cursor.x != 7 {
-		t.Fatalf("CUP 1;6 with LRMM: want x=7, got %d", s.cursor.x)
+	if s.cursor.X != 7 {
+		t.Fatalf("CUP 1;6 with LRMM: want x=7, got %d", s.cursor.X)
 	}
 
 	// CUP 1;99 → clamp at right margin (x=7)
 	sendWithBarrier(t, te, "\x1b[1;99H")
 	s = te.Snapshot()
-	if s.cursor.x != 7 {
-		t.Fatalf("CUP 1;99 with LRMM: want x=7 (right margin), got %d", s.cursor.x)
+	if s.cursor.X != 7 {
+		t.Fatalf("CUP 1;99 with LRMM: want x=7 (right margin), got %d", s.cursor.X)
 	}
 
 	// Turn LRMM off → CUP 1;1 back to absolute col 0
 	sendWithBarrier(t, te, "\x1b[?69l\x1b[1;1H")
 	s = te.Snapshot()
-	if s.cursor.x != 0 {
-		t.Fatalf("LRMM off again: CUP 1;1 should be x=0, got %d", s.cursor.x)
+	if s.cursor.X != 0 {
+		t.Fatalf("LRMM off again: CUP 1;1 should be x=0, got %d", s.cursor.X)
 	}
 }
 
@@ -512,8 +514,8 @@ func TestHVP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[?69h\x1b[4;9s") // margins 4..9 → x in [3..8]
 	sendWithBarrier(t, te, "\x1b[2;1f")          // HVP row2,col1 → x=3
 	s := te.Snapshot()
-	if s.cursor.x != 3 {
-		t.Fatalf("HVP 2;1 with LRMM: want x=3 (left margin), got %d", s.cursor.x)
+	if s.cursor.X != 3 {
+		t.Fatalf("HVP 2;1 with LRMM: want x=3 (left margin), got %d", s.cursor.X)
 	}
 }
 
@@ -549,8 +551,8 @@ func TestCSI_ParamsIgnoreC0(t *testing.T) {
 	seq := "\x1b[" + string([]byte{0x09}) + "2" + string([]byte{0x0D}) + ";" + string([]byte{0x08}) + "3H"
 	sendWithBarrier(t, te, seq+"X") // CUP 2;3 with C0 mixed in
 	s := te.Snapshot()
-	if s.cursor.y != 1 || s.cursor.x != 3 || s.grid1[1][2].R != 'X' {
-		t.Fatalf("C0 inside CSI not ignored; got (%d,%d)", s.cursor.y, s.cursor.x)
+	if s.cursor.Y != 1 || s.cursor.X != 3 || s.grid1[1][2].R != 'X' {
+		t.Fatalf("C0 inside CSI not ignored; got (%d,%d)", s.cursor.Y, s.cursor.X)
 	}
 }
 
@@ -635,7 +637,7 @@ func TestTab_RespectsLRMM(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[?69h\x1b[5;12s\x1b[1;5H") // margins 5..12 → x in [4..11]
 	sendWithBarrier(t, te, "\tZ")                          // next stop but not beyond right margin
 	s := te.Snapshot()
-	if s.cursor.x < 4 || s.cursor.x > 11 {
+	if s.cursor.X < 4 || s.cursor.X > 11 {
 		t.Fatalf("tab ignored LRMM")
 	}
 	if s.grid1[0][11].R == 0 { /* ok if it clamped to 11 */
@@ -649,13 +651,13 @@ func TestCNL_CPL_LeftMarginAndScroll(t *testing.T) {
 	sendWithBarrier(t, te, "A\x1b[2E")                    // CNL 2
 	s := te.Snapshot()
 	//s.PrintWithCursor()
-	if s.cursor.y != 2 || s.cursor.x != 2 {
+	if s.cursor.Y != 2 || s.cursor.X != 2 {
 		t.Fatalf("CNL not at left margin")
 	}
 	sendWithBarrier(t, te, "B\x1b[1F") // CPL 1
 	s = te.Snapshot()
 	//s.PrintWithCursor()
-	if s.cursor.y != 1 || s.cursor.x != 2 {
+	if s.cursor.Y != 1 || s.cursor.X != 2 {
 		t.Fatalf("CPL not at left margin")
 	}
 }
@@ -729,8 +731,8 @@ func Test_CSI_Params_Ignore_CR_BS_HT(t *testing.T) {
 
 	s := te.Snapshot()
 	//s.Print()
-	if s.cursor.y != 1 || s.cursor.x != 10 || s.grid1[1][9].R != 'X' {
-		t.Fatalf("C0 inside CSI not ignored; got cur=(%d,%d)", s.cursor.y, s.cursor.x)
+	if s.cursor.Y != 1 || s.cursor.X != 10 || s.grid1[1][9].R != 'X' {
+		t.Fatalf("C0 inside CSI not ignored; got cur=(%d,%d)", s.cursor.Y, s.cursor.X)
 	}
 }
 
@@ -743,9 +745,9 @@ func TestVT52_DCA(t *testing.T) {
 	seq := "\x1bY" + string([]byte{0x20 - 1 + 3, 0x20 - 1 + 5})
 	sendWithBarrierVT52(t, te, seq+"X")
 	s := te.Snapshot()
-	if s.cursor.y != 2 || s.cursor.x != 5 || s.grid1[2][4].R != 'X' {
+	if s.cursor.Y != 2 || s.cursor.X != 5 || s.grid1[2][4].R != 'X' {
 		s.PrintWithCursor()
-		t.Fatalf("VT52 DCA failed: cur=(%d,%d) r='%c'", s.cursor.y, s.cursor.x, s.grid1[2][4].R)
+		t.Fatalf("VT52 DCA failed: cur=(%d,%d) r='%c'", s.cursor.Y, s.cursor.X, s.grid1[2][4].R)
 	}
 	// Back to ANSI
 	sendWithBarrier(t, te, "\x1b<")

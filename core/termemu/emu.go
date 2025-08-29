@@ -392,7 +392,7 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			emu.csiOpTodo(op)
 		}
 	case 'r': // DECSTBM: Set Scrolling Region
-		top1, bot1 := op.ADef(1), op.BDef(emu.scr.H)
+		top1, bot1 := op.ADef(1), op.BDef(emu.scr.bounds.Max.Y)
 		emu.scr.setScrollRegion(top1, bot1)
 	case 's':
 		// SLRM: set left right margins
@@ -471,10 +471,11 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 		emu.parser.ansiMode = on
 	case "?3": // 32 Column Mode (DECCOLM)
 		if resized := s.csiColm_column132Mode(); resized {
-			emu.userCons.SetSize(s.W, s.H)
+			emu.userCons.SetSize(s.bounds.Dx(), s.bounds.Dy())
 		}
 	case "?6": // scroll origin mode
 	case "?69": // left/right margin mode
+		emu.scr.updateRegionX()
 	case "?47": // alternate screen buffer
 		s.setGrid2(on)
 	case "?1047": // save cursor
