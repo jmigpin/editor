@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"image/color"
 	"io"
 	"sync"
@@ -65,6 +66,9 @@ func (tac *TextAreaConsole) Close() error {
 
 func (tac *TextAreaConsole) Error(err error) {
 	tac.erow.Ed.Error(err)
+}
+func (tac *TextAreaConsole) Print(v any) {
+	tac.erow.Ed.Message(fmt.Sprint(v))
 }
 
 //----------
@@ -139,7 +143,7 @@ func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
 	tac.sp.Border = true
 	tac.sp.Cursor = true
 	tac.sp.ColorFn = addColor0
-	bs := tac.sp.Print(scr)
+	bs := tac.sp.Bprint(scr)
 
 	return dops, bs
 }

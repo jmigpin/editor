@@ -207,7 +207,10 @@ func (s *Screen) putRune(r rune) {
 
 	(*s.Grid)[s.cursor.Y][s.cursor.X] = Cell{R: r, A: s.curAttr}
 
-	if !s.pmodes.insert() {
+	if s.pmodes.insert() {
+		s.cursor.X++
+		clampInX(&s.cursor.X, s.bounds)
+	} else {
 		if s.cursor.X == s.dynBounds(s.cursor).Max.X-1 {
 			if s.pmodes.autoWrap() {
 				// do not move now; set wrap for the *next* printable
@@ -696,21 +699,19 @@ func (s *Screen) escAln_screenAlignment() {
 //----------
 //----------
 
+// useful for debug
 func (scr *Screen) Print() {
-	fmt.Println(string(scr.Bytes(true, false)))
+	fmt.Println(string(scr.Bprint(true, false)))
 }
 func (scr *Screen) PrintWithCursor() {
-	fmt.Println(string(scr.Bytes(true, true)))
+	fmt.Println(string(scr.Bprint(true, true)))
 }
-
-func (scr *Screen) Bytes(border, cursor bool) []byte {
+func (scr *Screen) Bprint(border, cursor bool) []byte {
 	sp := NewScreenPrinter()
 	sp.Border = border
 	sp.Cursor = cursor
-	if cursor {
-		sp.CursorRune = '◙'
-	}
-	return sp.Print(scr)
+	sp.CursorRune = '◙'
+	return sp.Bprint(scr)
 }
 
 //----------
@@ -928,7 +929,7 @@ func NewScreenPrinter() *ScreenPrinter {
 	return sp
 }
 
-func (sp *ScreenPrinter) Print(scr *Screen) []byte {
+func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 	buf := &sp.buf
 	buf.Reset()
 
@@ -949,18 +950,6 @@ func (sp *ScreenPrinter) Print(scr *Screen) []byte {
 
 			offset := buf.Len()
 
-			onCursor := sp.Cursor && scr.IsCursor(x, y)
-			if sp.CursorRune != 0 {
-				buf.WriteRune(sp.CursorRune)
-				continue
-			}
-
-			ru := cell.R
-			if ru == 0 {
-				ru = ' '
-			}
-			buf.WriteRune(ru)
-
 			sp.ColorFn(
 				offset,
 				cell.A.Fg.Color(),
@@ -968,9 +957,19 @@ func (sp *ScreenPrinter) Print(scr *Screen) []byte {
 				cell.A.Reverse && !cell.A.NoReverse,
 			)
 
-			if onCursor {
-				sp.ColorFn(offset, nil, nil, true)
+			ru := cell.R
+			if ru == 0 {
+				ru = ' '
 			}
+
+			if sp.Cursor && scr.IsCursor(x, y) {
+				sp.ColorFn(offset, nil, nil, true)
+				if sp.CursorRune != 0 {
+					ru = sp.CursorRune
+				}
+			}
+
+			buf.WriteRune(ru)
 		}
 		border("│")
 		buf.WriteString("\n")

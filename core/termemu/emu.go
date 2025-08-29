@@ -119,41 +119,22 @@ func (emu *Emu) setupExecSideRWC() {
 		rd := &execRwc.Reader
 		*rd = io.TeeReader(*rd, emu.userCons)
 	}
-
-	//// write exec raw output, spliting on cmds
-	//if emu.opts.Debug {
-	//	rd := &execRwc.Reader
-	//	*rd = io.TeeReader(*rd, iout.FnWriter(func(p []byte) (int, error) {
-	//		buf := &bytes.Buffer{}
-
-	//		flush := func() {
-	//			if buf.Len() > 0 {
-	//				s := buf.String()
-	//				s = strings.TrimRight(s, "\n") + "\n"
-	//				fmt.Print(s)
-	//			}
-	//			buf.Reset()
-	//		}
-
-	//		for _, b := range p {
-	//			if b == codeESC || b == codeCSI {
-	//				flush()
-	//			}
-	//			buf.WriteByte(b)
-	//		}
-	//		flush()
-	//		return len(p), nil
-	//	}))
-	//}
+	if emu.opts.Debug {
+		rd := &execRwc.Reader
+		*rd = io.TeeReader(*rd, iout.FnWriter(func(p []byte) (int, error) {
+			s := fmt.Sprintf("%q", p)
+			emu.sendForDebug("rcv from exec: " + s)
+			return len(p), nil
+		}))
+	}
 
 	// auto read from user to exec
 	go func() {
 		if emu.opts.Debug {
 			rd := iout.FnReader(func(p []byte) (int, error) {
 				n, err := emu.userCons.Read(p)
-				s := fmt.Sprintf("emu.dbg: rcvFromUser: %q\n", string(p[:n]))
-				//emu.sendToUser(s)
-				fmt.Print(s)
+				s := fmt.Sprintf("rcv from user: %q\n", string(p[:n]))
+				emu.sendForDebug(s)
 				return n, err
 			})
 			_, _ = io.Copy(emu.execRwc, rd)
@@ -184,15 +165,18 @@ func (emu *Emu) Close() error {
 
 func (emu *Emu) sendToExec(s string) {
 	if emu.opts.Debug {
-		s2 := fmt.Sprintf("emu.dbg: sendToExec: %q\n", s)
-		//emu.sendToUser(s2)
-		fmt.Print(s2)
+		s2 := fmt.Sprintf("snd to exec: %q\n", s)
+		emu.sendForDebug(s2)
 	}
 
 	_, _ = emu.execRwc.Write([]byte(s))
 }
 func (emu *Emu) sendToUser(s string) {
 	_, _ = emu.userCons.Write([]byte(s))
+}
+func (emu *Emu) sendForDebug(s string) {
+	//fmt.Print(s)
+	emu.userCons.Print("emu.dbg: " + s)
 }
 
 //----------
@@ -512,6 +496,7 @@ type ConsoleConn interface {
 	SetSize(w, h int)
 	Repaint()
 	Error(error)
+	Print(any) // not the same as Write() (ex: print to +messages)
 }
 
 //----------

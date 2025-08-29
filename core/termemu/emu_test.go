@@ -768,6 +768,38 @@ func TestVT52_F_G(t *testing.T) {
 	}
 }
 
+func TestIRM_InsertMode(t *testing.T) {
+	te := newTestEmu(newUserMock(), Opts{W: 6, H: 2})
+	defer te.Close()
+
+	// Row 1: "ABCDEF"
+	sendWithBarrier(t, te, "\x1b[1;1HABCDEF")
+
+	// IRM on; CUP 1;3; print 'X' -> "ABXCDE" (F drops)
+	sendWithBarrier(t, te, "\x1b[4h\x1b[1;3HX")
+	s := te.Snapshot()
+	got := string([]rune{s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R, s.grid1[0][3].R, s.grid1[0][4].R, s.grid1[0][5].R})
+	if got != "ABXCDE" {
+		t.Fatalf("IRM insert failed: got %q, want %q", got, "ABXCDE")
+	}
+
+	// IRM off; overwrite at next col with 'Y' -> "ABXYDE"
+	sendWithBarrier(t, te, "\x1b[4lY")
+	s = te.Snapshot()
+	got = string([]rune{s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R, s.grid1[0][3].R, s.grid1[0][4].R, s.grid1[0][5].R})
+	if got != "ABXYDE" {
+		t.Fatalf("Replace after IRM off failed: got %q, want %q", got, "ABXYDE")
+	}
+
+	// IRM on at last col; insert 'Z' -> last char replaced, no wrap: "ABXYDZ"
+	sendWithBarrier(t, te, "\x1b[4h\x1b[1;6HZ")
+	s = te.Snapshot()
+	got = string([]rune{s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R, s.grid1[0][3].R, s.grid1[0][4].R, s.grid1[0][5].R})
+	if got != "ABXYDZ" {
+		t.Fatalf("Insert at right edge failed: got %q, want %q", got, "ABXYDZ")
+	}
+}
+
 //----------
 //----------
 //----------
@@ -781,11 +813,13 @@ func _TestSnapshot0(t *testing.T) {
 
 	opts := Opts{W: 80, H: 24}
 	//opts.Mode = ModeRaw
-	opts.Debug = true
+	//opts.Debug = true
 	te := newTestEmu(newUserMock(), opts)
 	defer te.Close()
 
 	const u = ``
+	//2 1[4h [4l
+	//[4h [4lb
 
 	sendWithBarrier(t, te, u)
 	s := te.Snapshot()
@@ -828,6 +862,7 @@ func (m *userMock) Close() error {
 func (m *userMock) SetSize(int, int) {}
 func (m *userMock) Repaint()         {}
 func (m *userMock) Error(err error)  { fmt.Println(err) }
+func (m *userMock) Print(v any)      { fmt.Println(v) }
 
 //----------
 //----------
