@@ -1,7 +1,5 @@
 package lsproto
 
-//godebug:annotatepackage
-
 import (
 	"context"
 	"encoding/json"

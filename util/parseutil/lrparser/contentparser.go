@@ -418,7 +418,6 @@ func (stk cpStack) topEnd() int {
 	return stk[k].cpn.End()
 }
 
-//godebug:annotateoff
 func (stk cpStack) String() string {
 	u := []string{}
 	for _, item := range stk {

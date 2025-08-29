@@ -8,8 +8,6 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-//godebug:annotatefile
-
 func HandleInput(ctx *Ctx, ev any) (event.Handled, error) {
 	in := &Input{ctx, ev}
 	return in.handle()

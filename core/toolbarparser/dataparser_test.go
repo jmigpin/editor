@@ -6,9 +6,6 @@ import (
 	"testing"
 )
 
-//godebug:annotatepackage
-//godebug:annotatepackage:github.com/jmigpin/editor/util/parseutil/lrparser
-
 func TestParseTokens1(t *testing.T) {
 	s := "a|b|c"
 	d := Parse(s)

@@ -9,8 +9,6 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-//godebug:annotatefile
-
 type Ctx struct {
 	RW  iorw.ReadWriterAt
 	C   Cursor

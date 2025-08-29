@@ -7,8 +7,6 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
-//godebug:annotatepackage
-
 func TestRWUndo1(t *testing.T) {
 	s1 := "0123456789"
 	rw := iorw.NewBytesReadWriterAt([]byte(s1))

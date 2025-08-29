@@ -19,9 +19,9 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-//godebug:annotatefile
-//godebug:annotatefile:godebug/cmd.go
-//godebug:annotatefile:godebug/debug/proto.go
+////godebug:annotatefile
+////godebug:annotatefile:godebug/cmd.go
+////godebug:annotatefile:godebug/debug/proto.go
 
 ////godebug:annotatefile:editor.go
 ////godebug:annotatefile:openerow.go
