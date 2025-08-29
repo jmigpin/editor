@@ -704,42 +704,13 @@ func (scr *Screen) PrintWithCursor() {
 }
 
 func (scr *Screen) Bytes(border, cursor bool) []byte {
-	buf := &bytes.Buffer{}
-	pr := func(s string) { buf.WriteString(s) }
-	br := func(s string) {
-		if border {
-			pr(s)
-		}
+	sp := NewScreenPrinter()
+	sp.Border = border
+	sp.Cursor = cursor
+	if cursor {
+		sp.CursorRune = '◙'
 	}
-
-	width := len((*scr.Grid)[0])
-	br("┌")
-	br(strings.Repeat("─", width))
-	br("┐\n")
-
-	for y, line := range *scr.Grid {
-		br("│")
-		for x, cell := range line {
-			if cursor && scr.IsCursor(x, y) {
-				pr("◙")
-				continue
-			}
-			if cell.R == 0 {
-				pr(" ")
-				continue
-			}
-			pr(string(cell.R))
-		}
-		br("│")
-		pr("\n")
-	}
-
-	br("└")
-	br(strings.Repeat("─", width))
-	//br("┘\n")
-	br("┘")
-
-	return buf.Bytes()
+	return sp.Print(scr)
 }
 
 //----------
@@ -750,10 +721,6 @@ type P = image.Point     // 0-based
 type R = image.Rectangle // r.Max exclusive
 
 //----------
-
-//func valueIn(v, min, max int) bool {
-//	return v >= min && v < max
-//}
 
 func clampInR(p *P, r R) {
 	clampInX(&p.X, r)
@@ -941,6 +908,80 @@ func (gr *Graphics) clone() *Graphics {
 //	grid       [][]Cell
 //	scrollBack []Cell
 //}
+
+//----------
+//----------
+//----------
+
+type ScreenPrinter struct {
+	Border     bool
+	Cursor     bool
+	CursorRune rune
+	ColorFn    func(offset int, fg, bg color.Color, reverse bool)
+
+	buf bytes.Buffer
+}
+
+func NewScreenPrinter() *ScreenPrinter {
+	sp := &ScreenPrinter{}
+	sp.ColorFn = func(offset int, fg, bg color.Color, reverse bool) {}
+	return sp
+}
+
+func (sp *ScreenPrinter) Print(scr *Screen) []byte {
+	buf := &sp.buf
+	buf.Reset()
+
+	border := func(s string) {
+		if sp.Border {
+			buf.WriteString(s)
+		}
+	}
+
+	width := len((*scr.Grid)[0])
+	border("┌")
+	border(strings.Repeat("─", width))
+	border("┐\n")
+
+	for y, line := range *scr.Grid {
+		border("│")
+		for x, cell := range line {
+
+			offset := buf.Len()
+
+			onCursor := sp.Cursor && scr.IsCursor(x, y)
+			if sp.CursorRune != 0 {
+				buf.WriteRune(sp.CursorRune)
+				continue
+			}
+
+			ru := cell.R
+			if ru == 0 {
+				ru = ' '
+			}
+			buf.WriteRune(ru)
+
+			sp.ColorFn(
+				offset,
+				cell.A.Fg.Color(),
+				cell.A.Bg.Color(),
+				cell.A.Reverse && !cell.A.NoReverse,
+			)
+
+			if onCursor {
+				sp.ColorFn(offset, nil, nil, true)
+			}
+		}
+		border("│")
+		buf.WriteString("\n")
+	}
+
+	border("└")
+	border(strings.Repeat("─", width))
+	border("┘\n")
+
+	return buf.Bytes()
+}
 
 //----------
 //----------

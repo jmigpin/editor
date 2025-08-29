@@ -1,10 +1,8 @@
 package core
 
 import (
-	"bytes"
 	"image/color"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/jmigpin/editor/core/termemu"
@@ -23,6 +21,8 @@ type TextAreaConsole struct {
 		sync.Mutex
 		on bool
 	}
+
+	sp *termemu.ScreenPrinter
 }
 
 func newTextAreaConsole(erow *ERow, rwc io.ReadWriteCloser) *TextAreaConsole {
@@ -31,6 +31,8 @@ func newTextAreaConsole(erow *ERow, rwc io.ReadWriteCloser) *TextAreaConsole {
 	tac.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		tac.erow.Row.TextArea.EnableTerminalColors(true)
 	})
+
+	tac.sp = termemu.NewScreenPrinter()
 
 	return tac
 }
@@ -50,6 +52,8 @@ func (tac *TextAreaConsole) Close() error {
 			ta.EnableSyntaxHighlight(true) // TODO: always on or set to previous?
 			ta.EnableTerminalColors(false)
 			ta.SetTerminalColorOps(nil) // clear to avoid bad caloring upon re-enable
+
+			//tac.erow.Row.ScrollArea.SetBars(false, true)
 
 			//ta.SetBytesClearHistory(nil)	// commented: clearing hides output of temporary cmds (ex: ls)
 		})
@@ -96,6 +100,7 @@ func (tac *TextAreaConsole) paintNow() {
 	ta.EnableSyntaxHighlight(false)
 	ta.SetTerminalColorOps(ops)
 	ta.SetBytesClearHistory(b)
+
 	//tac.erow.Row.ScrollArea.SetBars(false, false)
 }
 func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
@@ -128,52 +133,15 @@ func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
 		dop2 := &D4COp{Offset: offset + 1, SetNil: true} // reset
 		dops = append(dops, dop, dop2)
 	}
-	addColor1 := func(offset int, fg, bg *termemu.AttrColor, reverse bool) {
-		addColor0(offset, fg.Color(), bg.Color(), reverse)
-	}
 
 	//----------
 
-	buf := &bytes.Buffer{}
-	border := func(s string) {
-		// TODO: option?
-		buf.WriteString(s)
-	}
+	tac.sp.Border = true
+	tac.sp.Cursor = true
+	tac.sp.ColorFn = addColor0
+	bs := tac.sp.Print(scr)
 
-	doCursor := tac.erow.termOpts.Mode == termemu.ModeUI
-
-	width := len((*scr.Grid)[0])
-	border("┌")
-	border(strings.Repeat("─", width))
-	border("┐\n")
-
-	for y, line := range *scr.Grid {
-		border("│")
-		for x, cell := range line {
-
-			offset := buf.Len()
-
-			ru := cell.R
-			if ru == 0 {
-				ru = ' '
-			}
-			buf.WriteRune(ru)
-
-			addColor1(offset, cell.A.Fg, cell.A.Bg, cell.A.Reverse && !cell.A.NoReverse)
-
-			if doCursor && scr.IsCursor(x, y) {
-				addColor0(offset, nil, nil, true)
-			}
-		}
-		border("│")
-		buf.WriteString("\n")
-	}
-
-	border("└")
-	border(strings.Repeat("─", width))
-	border("┘\n")
-
-	return dops, buf.Bytes()
+	return dops, bs
 }
 
 //----------
