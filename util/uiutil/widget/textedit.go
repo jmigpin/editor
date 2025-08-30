@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"bytes"
 	"image"
 	"unicode/utf8"
 
@@ -28,10 +29,9 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 	te.RWEvReg = &te.rwev.EvReg
 	te.RWEvReg.Add(iorw.RWEvIdWrite2, te.onWrite2)
 
-	rwac := newAdjustCursorRWAt(te, te.rwev)
-
 	hist := rwundo.NewHistory(200)
-	//te.rwu = rwundo.NewRWUndo(te.rwev, hist)
+	rwac := te.rwev
+	//rwac := newAdjustCursorRWAt(te, te.rwev) // TODO: messes up position in the case of moving lines up/down
 	te.rwu = rwundo.NewRWUndo(rwac, hist)
 
 	te.ctx = rwedit.NewCtx()
@@ -191,18 +191,15 @@ func (te *TextEdit) SetBytesClearPos(b []byte) error {
 
 // Keeps position (useful for file save)
 func (te *TextEdit) SetBytesClearHistory(b []byte) error {
-	te.rwu.History.Clear()
-	rw := te.rwu.ReadWriterAt // bypass history
-	if err := iorw.SetBytes(rw, b); err != nil {
-		return err
-	}
-	return nil
+	return te.OverwriteBytesClearHistory(te.RW().Min(), te.RW().Max(), b)
 }
-
 func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
+	return te.OverwriteBytesClearHistory(te.RW().Max(), 0, b)
+}
+func (te *TextEdit) OverwriteBytesClearHistory(i, del int, b []byte) error {
 	te.rwu.History.Clear()
 	rw := te.rwu.ReadWriterAt // bypass history
-	if err := rw.OverwriteAt(rw.Max(), 0, b); err != nil {
+	if err := rw.OverwriteAt(i, del, b); err != nil {
 		return err
 	}
 	return nil
@@ -277,39 +274,58 @@ func newAdjustCursorRWAt(te *TextEdit, u iorw.ReadWriterAt) *AdjustCursorRWAt {
 func (rwat AdjustCursorRWAt) OverwriteAt(i, del int, p []byte) error {
 	ci := rwat.te.ctx.C.Index()
 	ci0 := ci
-	if i < ci0 && del > 0 {
-		end := i + del
-		if end > ci0 {
-			end = ci0
-		}
-		if end > 0 {
-			b, err := rwat.ReadWriterAt.ReadFastAt(i, end-i)
-			if err == nil {
-				for _, c := range string(b) {
-					l := utf8.RuneLen(c)
-					if l > 1 {
-						ci -= l - 1
-					}
-				}
-			}
-		}
-	}
 
-	if i < ci0 && len(p) > 0 {
-		end := i + len(p)
-		if end > ci0 {
-			end = ci0
+	// find line/col location between i and ci
+	if i < ci0 {
+		// read current bytes
+		n := ci0 - i
+		b, err := rwat.ReadFastAt(i, n)
+		if err != nil {
+			return err
 		}
 
-		for _, c := range string(p[:end-i]) {
-			l := utf8.RuneLen(c)
-			if l > 1 {
-				ci += l - 1
+		// find line/col
+		b2 := b[:n]
+		line, col := 0, 0
+		for {
+			if k := bytes.IndexByte(b2, '\n'); k >= 0 {
+				line++
+				b2 = b2[k+1:]
+			} else {
+				break
 			}
 		}
-	}
-	if ci != ci0 {
-		defer rwat.te.ctx.C.SetIndex(ci)
+		col = utf8.RuneCount(b2)
+
+		// make insertion
+		if err := rwat.ReadWriterAt.OverwriteAt(i, del, p); err != nil {
+			return err
+		}
+
+		// get to line
+		pos := 0
+		p2 := p
+		for ; line > 0; line-- {
+			if k := bytes.IndexByte(p2, '\n'); k >= 0 {
+				k++
+				pos += k
+				p2 = p2[k:]
+			} else {
+				break
+			}
+		}
+		// get to col
+		k := bytes.IndexByte(p2, '\n')
+		if k < 0 {
+			k = 0
+		}
+		p2 = p2[:k]
+		rus := []rune(string(p2))
+		col = min(col, len(rus))
+		pos += len(string(rus[:col]))
+
+		rwat.te.ctx.C.SetIndex(i + pos)
+		return nil
 	}
 
 	return rwat.ReadWriterAt.OverwriteAt(i, del, p)
