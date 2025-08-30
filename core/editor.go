@@ -485,6 +485,7 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 
 func (ed *Editor) setupTheme(opt *Options) {
 	drawer4.WrapLineRune = rune(opt.WrapLineRune)
+	drawer4.WrapWordLimit = opt.WrapWordLimit
 	fontutil.TabWidth = opt.TabWidth
 	fontutil.CarriageReturnRune = rune(opt.CarriageReturnRune)
 	ui.ScrollBarLeft = opt.ScrollBarLeft

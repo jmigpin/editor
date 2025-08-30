@@ -615,7 +615,8 @@ func (d *Drawer) RangeVisible(offset, length int) bool {
 	if v1.full || v1.partial {
 		return true
 	}
-	v2 := penVisibility(d, offset+length)
+	offset2 := d.offset2(offset, length)
+	v2 := penVisibility(d, offset2)
 	if v2.full || v2.partial {
 		return true
 	}
@@ -668,7 +669,7 @@ func (d *Drawer) alignKeep() int {
 }
 
 func (d *Drawer) rangeVisibleOffsetKeepIfVisible(offset, length int) (int, bool) {
-	offset2 := d.rangeVisibleOffset2(offset, length)
+	offset2 := d.offset2(offset, length)
 	v2 := penVisibility(d, offset2)
 	if v2.full {
 		return d.alignKeep(), true
@@ -681,7 +682,7 @@ func (d *Drawer) rangeVisibleOffsetAuto(offset, length int) int {
 		return d.RangeVisibleOffset(offset, length, a)
 	}
 
-	offset2 := d.rangeVisibleOffset2(offset, length)
+	offset2 := d.offset2(offset, length)
 
 	v1 := penVisibility(d, offset)
 	v2 := penVisibility(d, offset2)
@@ -727,13 +728,9 @@ func (d *Drawer) rangeVisibleOffsetAuto(offset, length int) int {
 
 //----------
 
-func (d *Drawer) rangeVisibleOffset2(offset, length int) int {
+func (d *Drawer) offset2(offset, length int) int {
 	// don't let offset+length be beyond max for v2 (would give not visible)
-	offset2 := offset + length
-	if offset2 > d.reader.Max() {
-		offset2 = offset
-	}
-	return offset2
+	return min(offset+length, d.reader.Max())
 }
 
 //----------
