@@ -31,6 +31,7 @@ import (
 
 // const TermEnv = "TERM=vt100" //
 const TermEnv = "TERM=xterm-mono" //
+//const TermEnv = "TERM=xterm" //
 
 // const vt100 = "\x1b[?1;0c" //
 // const vt101NoOpt = vt100
@@ -389,21 +390,15 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		if op.isPriv(0) || op.isPriv('?') {
 			emu.scr.csiScp_saveCursorPos()
 		}
-	case 'u': // RCP: Restore Cursor Position
-		//switch {
-		//case op.csiPrivIs('>'): // kitty: push flags (default 0)
-		//	//emu.kittyPush(op.ADef(0))
-		//	return
-		//case op.csiPrivIs('<'): // kitty: pop N (default 1)
-		//	//emu.kittyPop(op.ADef(1))
-		//	return
-		//case op.csiPrivIs('?'): // kitty: query flags
-		//	//fmt.Fprintf(emu.readPw, "\x1b[?%du", emu.kittyFlags)
-		//	return
-		//}
-		if op.isPriv(0) {
+	case 'u':
+		switch op.priv {
+		case 0:
+			// RCP: Restore Cursor Position
 			emu.scr.csiRcp_restoreCursorPos()
-		} else {
+		case '>': // kitty kb protocol: push flags
+		case '<': // kitty kb protocol: pop n
+		case '?': // kitty kb protocol: query flags
+		default:
 			emu.csiOpTodo(op)
 		}
 
@@ -460,14 +455,17 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 	case "?6": // scroll origin mode
 	case "?69": // left/right margin mode
 		emu.scr.updateRegionX()
-	case "?47": // alternate screen buffer
+
+	case "?47", "?1047": // alternate screen buffer
 		s.setGrid2(on)
-	case "?1047": // save cursor
+	case "?1048": // save cursor
 		s.csiScp_saveCursorPos()
-	case "?1048": // save cursor, alternate screen buffer, clear
+	case "?1049": // save cursor, alternate screen buffer, clear
 		s.csiScp_saveCursorPos()
 		s.setGrid2(on)
-		s.newGrid()
+		if on {
+			s.newGrid()
+		}
 	}
 }
 
@@ -495,8 +493,8 @@ type ConsoleConn interface {
 	io.ReadWriteCloser
 	SetSize(w, h int)
 	Repaint()
-	Error(error)
 	Print(any) // not the same as Write() (ex: print to +messages)
+	Error(error)
 }
 
 //----------

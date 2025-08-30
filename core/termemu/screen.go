@@ -7,14 +7,14 @@ import (
 	"image/color"
 	"maps"
 	"slices"
-	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/image/colornames"
 )
 
 type Screen struct {
 	bounds      R
-	region      R // top/bot/left/right
+	region      R // top/bottom scroll region + left/right margins
 	regionLeft  int
 	regionRight int
 
@@ -22,7 +22,9 @@ type Screen struct {
 	grid1 [][]Cell
 	grid2 [][]Cell // alternate screen buffer
 
-	//scrollBack []byte // TODO: support for both grids?
+	ScrollBack  *[]byte
+	scrollBack1 []byte
+	scrollBack2 []byte
 
 	cursor   P
 	curAttr  Attr
@@ -88,8 +90,10 @@ func (s *Screen) newGrids() {
 func (s *Screen) setGrid2(on bool) {
 	if on {
 		s.Grid = &s.grid2
+		s.ScrollBack = &s.scrollBack2
 	} else {
 		s.Grid = &s.grid1
+		s.ScrollBack = &s.scrollBack1
 	}
 }
 
@@ -278,7 +282,28 @@ func (s *Screen) setScrollRegion(top1, bot1 int) {
 
 // shifts up, blanks bottom
 func (s *Screen) scrollUpR(r0 R, n int) {
+
 	n = clamp(n, 0, r0.Dy())
+
+	//----------
+
+	// keep scrollback
+	if r0.Min == s.bounds.Min && r0.Max.X == s.bounds.Max.X {
+		sb := &s.ScrollBack
+		for i := range n {
+			for _, c := range (*s.Grid)[i] {
+				ru := c.R
+				if ru == 0 {
+					ru = ' '
+				}
+				**sb = appendRune(**sb, ru)
+			}
+			**sb = bytes.TrimRight(**sb, "\n")
+			**sb = appendRune(**sb, '\n')
+		}
+	}
+
+	//----------
 
 	// move rows [top+n..bot] up by 1
 	dst := r0.Min
@@ -290,6 +315,7 @@ func (s *Screen) scrollUpR(r0 R, n int) {
 	r2 := r0
 	r2.Min.Y = r0.Max.Y - n
 	s.clearR(r2)
+
 }
 
 // shift down, blanks top
@@ -408,10 +434,13 @@ func (s *Screen) csiEd_eraseInDisplay(mode int) {
 			s.clearLineInBounds(y)
 		}
 		s.csiEl_eraseInLine(1)
-	default: // 2 or others: entire screen
+	//case 2: // entire screen
+	//case 3: // entire screen and the scrollback buffer
+	default:
 		for y := 0; y < s.bounds.Max.Y; y++ {
 			s.clearLineInBounds(y)
 		}
+
 	}
 }
 
@@ -441,9 +470,11 @@ func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 		case p == 1:
 			s.curAttr.Bold = true
 		case p == 7:
-			s.curAttr.Reverse = true
+			s.curAttr.Inverse = true
+		case p == 22:
+			s.curAttr.Bold = false // also faint=false
 		case p == 27:
-			s.curAttr.NoReverse = false
+			s.curAttr.Inverse = false
 		case 30 <= p && p <= 37:
 			u := AttrColor(p - 30)
 			s.curAttr.Fg = &u
@@ -756,10 +787,10 @@ type Cell struct {
 //----------
 
 type Attr struct {
-	Fg                 *AttrColor
-	Bg                 *AttrColor
-	Bold               bool
-	Reverse, NoReverse bool // reverse video
+	Fg      *AttrColor
+	Bg      *AttrColor
+	Bold    bool
+	Inverse bool // inverse fg/bg
 }
 
 type AttrColor int
@@ -905,82 +936,10 @@ func (gr *Graphics) clone() *Graphics {
 //----------
 //----------
 
-//type Buffer struct {
+//type Grid struct {
 //	grid       [][]Cell
-//	scrollBack []Cell
+//	scrollBack []byte
 //}
-
-//----------
-//----------
-//----------
-
-type ScreenPrinter struct {
-	Border     bool
-	Cursor     bool
-	CursorRune rune
-	ColorFn    func(offset int, fg, bg color.Color, reverse bool)
-
-	buf bytes.Buffer
-}
-
-func NewScreenPrinter() *ScreenPrinter {
-	sp := &ScreenPrinter{}
-	sp.ColorFn = func(offset int, fg, bg color.Color, reverse bool) {}
-	return sp
-}
-
-func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
-	buf := &sp.buf
-	buf.Reset()
-
-	border := func(s string) {
-		if sp.Border {
-			buf.WriteString(s)
-		}
-	}
-
-	width := len((*scr.Grid)[0])
-	border("┌")
-	border(strings.Repeat("─", width))
-	border("┐\n")
-
-	for y, line := range *scr.Grid {
-		border("│")
-		for x, cell := range line {
-
-			offset := buf.Len()
-
-			sp.ColorFn(
-				offset,
-				cell.A.Fg.Color(),
-				cell.A.Bg.Color(),
-				cell.A.Reverse && !cell.A.NoReverse,
-			)
-
-			ru := cell.R
-			if ru == 0 {
-				ru = ' '
-			}
-
-			if sp.Cursor && scr.IsCursor(x, y) {
-				sp.ColorFn(offset, nil, nil, true)
-				if sp.CursorRune != 0 {
-					ru = sp.CursorRune
-				}
-			}
-
-			buf.WriteRune(ru)
-		}
-		border("│")
-		buf.WriteString("\n")
-	}
-
-	border("└")
-	border(strings.Repeat("─", width))
-	border("┘\n")
-
-	return buf.Bytes()
-}
 
 //----------
 //----------
@@ -1018,4 +977,12 @@ func mapDecSpecial(r rune) rune {
 		return v
 	}
 	return r
+}
+
+//----------
+
+func appendRune(b []byte, r rune) []byte {
+	buf := [utf8.UTFMax]byte{}
+	n := utf8.EncodeRune(buf[:], r)
+	return append(b, buf[:n]...)
 }

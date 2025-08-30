@@ -575,19 +575,23 @@ func (erow *ERow) AppendBytesClearHistory(p []byte) {
 }
 func (erow *ERow) AppendBytesClearHistory2(p []byte) error {
 	ta := erow.Row.TextArea
+	return erow.OverwriteBytesClearHistory(ta.RW().Max(), 0, p)
+}
+func (erow *ERow) OverwriteBytesClearHistory(i, del int, p []byte) error {
+	ta := erow.Row.TextArea
 
-	scrollDownModeAuto := false
+	scrollDown := false
 	if erow.scrollDownMode == "auto" {
 		if ta.IndexVisible(ta.RW().Max()) {
-			scrollDownModeAuto = true
+			scrollDown = true
 		}
 	}
 
-	if err := ta.AppendBytesClearHistory(p); err != nil {
+	if err := ta.OverwriteBytesClearHistory(i, del, p); err != nil {
 		return err
 	}
 
-	if scrollDownModeAuto {
+	if scrollDown {
 		// TODO: better drawutil.RAlignBottom? issues with sometimes losing the bottom hook
 		ta.MakeRangeVisible2(ta.RW().Max(), 0, drawutil.RAlignKeepOrBottom)
 	}

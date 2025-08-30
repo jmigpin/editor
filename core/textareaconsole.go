@@ -103,7 +103,17 @@ func (tac *TextAreaConsole) paintNow() {
 	ta := tac.erow.Row.TextArea
 	ta.EnableSyntaxHighlight(false)
 	ta.SetTerminalColorOps(ops)
-	ta.SetBytesClearHistory(b)
+
+	//ta.SetBytesClearHistory(b) // issue: no scroll mode
+
+	//ta.SetBytesClearHistory(nil)        // issue: sets cursor to zero
+	//tac.erow.AppendBytesClearHistory(b)
+
+	tac.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), b)
+
+	// TODO
+	//ta.
+	//imageutil.FillRectangle(bgf.d.st.drawR.img, r, st.lineBg)
 
 	//tac.erow.Row.ScrollArea.SetBars(false, false)
 }
@@ -112,7 +122,7 @@ func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
 
 	dops := []*D4COp{}
 
-	// defaults colors for reverse video
+	// defaults colors for inverse video
 	tfg := tac.erow.Row.TextArea.TreeThemePaletteColor("text_fg")
 	tbg := tac.erow.Row.TextArea.TreeThemePaletteColor("text_bg")
 	defColors := func(fg, bg color.Color) (_, _ color.Color) {
@@ -125,11 +135,11 @@ func (tac *TextAreaConsole) paintOpsBytes() ([]*D4COp, []byte) {
 		return fg, bg
 	}
 
-	addColor0 := func(offset int, fg, bg color.Color, reverse bool) {
-		if fg == nil && bg == nil && !reverse {
+	addColor0 := func(offset int, fg, bg color.Color, inverse bool) {
+		if fg == nil && bg == nil && !inverse {
 			return
 		}
-		if reverse {
+		if inverse {
 			fg, bg = defColors(fg, bg)
 			fg, bg = bg, fg
 		}
@@ -167,8 +177,6 @@ func updateConsoleFontSize(erow *ERow) {
 func setConsoleFontSize(erow *ERow) {
 	w := max(80, erow.termOpts.W)
 	h := max(24, erow.termOpts.H)
-
-	//h += 1000 // TESTING
 
 	// TODO: get this from the emu screen
 	// extra border drawn around the snapshot
