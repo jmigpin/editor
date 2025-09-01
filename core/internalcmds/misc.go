@@ -196,9 +196,11 @@ func OpenTerminalEmulator(args *core.InternalCmdArgs) error {
 	info := args.Ed.ReadERowInfo(dir)
 	rowPos := args.Ed.GoodRowPos()
 	erow := core.NewBasicERow(info, rowPos)
-	erow.ToolbarSetStrAfterNameClearHistory(" | $terminal=pty,kb,emuUi | $scrollMode=auto | Stop | $SHELL")
 
-	core.ExternalCmd(erow, nil, []string{"$SHELL"}, nil, nil)
+	shell := os.Getenv("SHELL")
+	erow.ToolbarSetStrAfterNameClearHistory(" | $terminal=emu | Stop | " + shell)
+
+	core.ExternalCmd(erow, nil, []string{shell}, nil, nil)
 	return nil
 }
 

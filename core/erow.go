@@ -448,6 +448,9 @@ func (erow *ERow) parseToolbarVars() {
 		erow.Row.TextArea.SetThemeFontFace(nil)
 	}
 
+	// $scrollMode: reset before $terminal
+	erow.scrollDownMode = ""
+
 	// $terminal
 	erow.termOpts = terminalOpts{ // reset
 		origFace: erow.Row.TextArea.TreeThemeFontFace(),
@@ -465,8 +468,7 @@ func (erow *ERow) parseToolbarVars() {
 		}
 	}
 
-	// $scrollMode: "auto", otherwise is "manual"/"off"
-	erow.scrollDownMode = ""
+	// $scrollMode: "auto", otherwise is "manual"/"off" // TODO: always down on new output
 	if v, ok := vmap["$scrollMode"]; ok {
 		erow.scrollDownMode = v
 	}
@@ -546,12 +548,26 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 	switch opt {
 	case "pty":
 		topt.pty = set
+
+	case "emu":
+		if err := topt.Mode.SetBool(set, termemu.ModeUI); err != nil {
+			return err
+		}
+		if set {
+			topt.pty = true
+			topt.forwardKb = true
+			topt.forwardMouse = true
+			erow.scrollDownMode = "auto"
+		}
+		return nil
+
 	case "emuraw":
 		return topt.Mode.SetBool(set, termemu.ModeRaw)
 	case "emuplain":
 		return topt.Mode.SetBool(set, termemu.ModePlain)
 	case "emuui":
 		return topt.Mode.SetBool(set, termemu.ModeUI)
+
 	case "kb":
 		topt.forwardKb = set
 	case "mouse":
