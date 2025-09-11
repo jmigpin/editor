@@ -1,6 +1,8 @@
 package fontutil
 
 import (
+	"sync"
+
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
@@ -49,7 +51,9 @@ func (fm *FontsManager) mustFont(ttf []byte) *Font {
 //----------
 
 type Font struct {
-	Font       *sfnt.Font
+	Font *sfnt.Font
+
+	fcmu       sync.Mutex
 	facesCache map[opentype.FaceOptions]*FontFace
 }
 
@@ -64,10 +68,14 @@ func NewFont(ttf []byte) (*Font, error) {
 	return f, nil
 }
 func (f *Font) ClearFacesCache() {
+	f.fcmu.Lock()
+	defer f.fcmu.Unlock()
 	f.facesCache = map[opentype.FaceOptions]*FontFace{}
 }
 func (f *Font) FontFace(fopts FaceOptions) *FontFace {
-	ff, ok := f.facesCache[fopts.opts]
+	f.fcmu.Lock()
+	defer f.fcmu.Unlock()
+	ff, ok := f.facesCache[fopts.opts] // TODO: concurrent map read/write
 	if ok {
 		return ff
 	}
