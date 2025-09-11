@@ -85,7 +85,10 @@ func (ed *Editor) init(opt *Options) error {
 
 	ed.zipSessionsFile = opt.ZipSessionsFile
 
-	ed.setupTheme(opt)
+	if err := ed.setupTheme(opt); err != nil {
+		return err
+	}
+
 	event.UseMultiKey = opt.UseMultiKey
 
 	// user interface
@@ -483,7 +486,7 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 
 //----------
 
-func (ed *Editor) setupTheme(opt *Options) {
+func (ed *Editor) setupTheme(opt *Options) error {
 	drawer4.WrapLineRune = rune(opt.WrapLineRune)
 	drawer4.WrapWordLimit = opt.WrapWordLimit
 	fontutil.TabWidth = opt.TabWidth
@@ -494,8 +497,7 @@ func (ed *Editor) setupTheme(opt *Options) {
 
 	// color theme
 	if _, ok := ui.ColorThemeCycler.GetIndex(opt.ColorTheme); !ok {
-		fmt.Fprintf(os.Stderr, "unknown color theme: %v\n", opt.ColorTheme)
-		os.Exit(2)
+		return fmt.Errorf("unknown color theme: %v\n", opt.ColorTheme)
 	}
 	ui.ColorThemeCycler.CurName = opt.ColorTheme
 
@@ -520,8 +522,7 @@ func (ed *Editor) setupTheme(opt *Options) {
 	case "full":
 		ui.FontFaceOptions.SetHinting(font.HintingFull)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown font hinting: %v\n", opt.FontHinting)
-		os.Exit(2)
+		return fmt.Errorf("unknown font hinting: %v\n", opt.FontHinting)
 	}
 
 	// font theme
@@ -538,6 +539,8 @@ func (ed *Editor) setupTheme(opt *Options) {
 			ui.FontThemeCycler.CurName = "regular"
 		}
 	}
+
+	return nil
 }
 
 //----------
