@@ -553,7 +553,7 @@ func (en *EmbedNode) TreeThemeFontFace() *fontutil.FontFace {
 			return n.theme.FontFace
 		}
 	}
-	return fontutil.DefaultFontFace() // avoid, fixed DPI
+	return fontutil.DefaultFontFace()
 }
 
 //----------

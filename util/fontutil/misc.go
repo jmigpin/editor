@@ -17,16 +17,14 @@ func DefaultMonoFont() *Font {
 
 //----------
 
-// avoid, fixed DPI
 func DefaultFontFace() *FontFace {
-	return DefaultFont().FontFace(DefaultFaceOptions())
+	return DefaultFont().FontFace(DefaultFaceOptions)
 }
 func DefaultMonoFontFace() *FontFace {
-	return DefaultMonoFont().FontFace(DefaultFaceOptions())
+	return DefaultMonoFont().FontFace(DefaultFaceOptions)
 }
-func DefaultFaceOptions() FaceOptions {
-	return NewFaceOptions(12, 72)
-}
+
+var DefaultFaceOptions = NewFaceOptions(12, 72)
 
 //----------
 

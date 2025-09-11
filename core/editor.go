@@ -512,15 +512,16 @@ func (ed *Editor) setupTheme(opt *Options) error {
 	}
 
 	// font options
-	ui.FontFaceOptions.SetDPI(opt.DPI)
-	ui.FontFaceOptions.SetSize(opt.FontSize)
+	fopts := &fontutil.DefaultFaceOptions
+	fopts.SetDPI(opt.DPI)
+	fopts.SetSize(opt.FontSize)
 	switch opt.FontHinting {
 	case "none":
-		ui.FontFaceOptions.SetHinting(font.HintingNone)
+		fopts.SetHinting(font.HintingNone)
 	case "vertical":
-		ui.FontFaceOptions.SetHinting(font.HintingVertical)
+		fopts.SetHinting(font.HintingVertical)
 	case "full":
-		ui.FontFaceOptions.SetHinting(font.HintingFull)
+		fopts.SetHinting(font.HintingFull)
 	default:
 		return fmt.Errorf("unknown font hinting: %v\n", opt.FontHinting)
 	}

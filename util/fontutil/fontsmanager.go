@@ -75,7 +75,7 @@ func (f *Font) ClearFacesCache() {
 func (f *Font) FontFace(fopts FaceOptions) *FontFace {
 	f.fcmu.Lock()
 	defer f.fcmu.Unlock()
-	ff, ok := f.facesCache[fopts.opts] // TODO: concurrent map read/write
+	ff, ok := f.facesCache[fopts.opts]
 	if ok {
 		return ff
 	}

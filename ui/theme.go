@@ -278,10 +278,8 @@ func loadThemeFont(name string, node widget.Node) error {
 
 //----------
 
-var FontFaceOptions fontutil.FaceOptions
-
 func ThemeFontFace(name string) (*fontutil.FontFace, error) {
-	return ThemeFontFace2(name, FontFaceOptions)
+	return ThemeFontFace2(name, fontutil.DefaultFaceOptions)
 }
 func ThemeFontFace2(name string, fopts fontutil.FaceOptions) (*fontutil.FontFace, error) {
 	b, err := fontBytes(name)
