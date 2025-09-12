@@ -14,6 +14,7 @@ var FontsMan = NewFontsManager()
 //----------
 
 type FontsManager struct {
+	fcmu       sync.Mutex
 	fontsCache map[string]*Font
 }
 
@@ -24,10 +25,14 @@ func NewFontsManager() *FontsManager {
 }
 
 func (fm *FontsManager) ClearFontsCache() {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
 	fm.fontsCache = map[string]*Font{}
 }
 
 func (fm *FontsManager) Font(ttf []byte) (*Font, error) {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
 	f, ok := fm.fontsCache[string(ttf)]
 	if ok {
 		return f, nil
