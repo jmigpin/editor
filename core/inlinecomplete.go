@@ -74,7 +74,7 @@ func (ic *InlineComplete) Complete(erow *ERow, ev *ui.TextAreaInlineCompleteEven
 func (ic *InlineComplete) complete2(ctx context.Context, filename string, ta *ui.TextArea, ev *ui.TextAreaInlineCompleteEvent, erow *ERow, offset int, completor Completor) {
 	cleanup := func() {
 		ic.mu.cancel()
-		ic.ed.UI.EnqueueNoOpEvent()
+		ic.ed.EnqueueNoOpEvent()
 	}
 	handleErr := func(err error) {
 		ic.setAnnotations(ta, nil)

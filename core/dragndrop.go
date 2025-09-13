@@ -48,7 +48,7 @@ func (h *DndHandler) OnDrop(ev *event.DndDrop) {
 		ev.ReplyAccept(v)
 		if v {
 			// ensure paint if needed
-			h.ed.UI.EnqueueNoOpEvent()
+			h.ed.EnqueueNoOpEvent()
 		}
 	}()
 }

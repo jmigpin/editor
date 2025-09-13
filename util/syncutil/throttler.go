@@ -54,7 +54,16 @@ func (thr *Throttler) run() {
 }
 
 func (thr *Throttler) schedule() {
-	_ = time.AfterFunc(thr.durationToNext(), thr.run)
+	d := thr.durationToNext()
+
+	//_ = time.AfterFunc(d, thr.run)
+
+	go func() {
+		if d > 0 {
+			time.Sleep(d)
+		}
+		thr.run()
+	}()
 }
 
 func (thr *Throttler) durationToNext() time.Duration {

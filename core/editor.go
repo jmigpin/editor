@@ -170,6 +170,11 @@ func (ed *Editor) Close() {
 	ed.UI.AppendEvent(&editorCloseEv{})
 }
 
+func (ed *Editor) EnqueueNoOpEvent() {
+	// no op, allow layout/schedule funcs to run
+	ed.UI.RunOnUIGoRoutine(func() {})
+}
+
 //----------
 
 func (ed *Editor) uiEventLoop() {

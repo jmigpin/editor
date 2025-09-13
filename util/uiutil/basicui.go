@@ -16,7 +16,7 @@ import (
 )
 
 type BasicUI struct {
-	DrawFrameRate int // frames per second
+	drawFrameRate int // frames per second
 	RootNode      widget.Node
 	Win           driver.Window
 
@@ -30,8 +30,7 @@ type BasicUI struct {
 	clickf  *mousefilter.ClickFilter
 	dragf   *mousefilter.DragFilter
 
-	pendingPaint   bool
-	lastPaintStart time.Time
+	paintThrottle *syncutil.Throttler
 }
 
 func NewBasicUI(winName string, root widget.Node) (*BasicUI, error) {
@@ -46,9 +45,13 @@ func NewBasicUI(winName string, root widget.Node) (*BasicUI, error) {
 	}
 
 	ui := &BasicUI{
-		DrawFrameRate: 37,
+		drawFrameRate: 37,
 		Win:           win,
 	}
+
+	ui.paintThrottle = syncutil.NewThrottler()
+	ui.paintThrottle.Interval = time.Second / time.Duration(ui.drawFrameRate)
+	ui.paintThrottle.Fn = ui.prepareToPaint
 
 	ui.eventsQ = syncutil.NewSyncedQ()
 	ui.applyEv = widget.NewApplyEvent(ui)
@@ -73,7 +76,7 @@ func (ui *BasicUI) initMouseFilters() {
 		}
 		return false
 	}
-	ui.movef = mousefilter.NewMoveFilter(ui.DrawFrameRate, ui.eventsQ.PushBack, isMouseMoveEv)
+	ui.movef = mousefilter.NewMoveFilter(ui.drawFrameRate, ui.eventsQ.PushBack, isMouseMoveEv)
 
 	// click/drag filters
 	emitFn := func(ev any, p image.Point) {
@@ -149,10 +152,6 @@ func (ui *BasicUI) HandleEvent(ev any) (handled bool) {
 		ui.handleWindowInput(t)
 	case *UIRunFuncEvent:
 		t.Func()
-	case *UIPaintTime:
-		ui.paint()
-	case struct{}:
-		// no op, allow layout/schedule funcs to run
 	default:
 		return false
 	}
@@ -208,41 +207,18 @@ func (ui *BasicUI) schedulePaintMarked() {
 	}
 }
 func (ui *BasicUI) schedulePaint() {
-	if ui.pendingPaint {
-		return
-	}
-	ui.pendingPaint = true
-	// schedule
-	go func() {
-		d := ui.durationToNextPaint()
-		if d > 0 {
-			time.Sleep(d)
-		}
-		ui.AppendEvent(&UIPaintTime{})
-	}()
+	ui.paintThrottle.Call()
 }
-
-func (ui *BasicUI) durationToNextPaint() time.Duration {
-	now := time.Now()
-	frameDur := time.Second / time.Duration(ui.DrawFrameRate)
-	d := now.Sub(ui.lastPaintStart)
-	return frameDur - d
+func (ui *BasicUI) prepareToPaint(done func()) {
+	ui.RunOnUIGoRoutine(func() {
+		defer done()
+		ui.paint()
+	})
 }
 
 //----------
 
 func (ui *BasicUI) paint() {
-	// DEBUG: print fps
-	now := time.Now()
-	//d := now.Sub(ui.lastPaintStart)
-	//fmt.Printf("paint: fps %v\n", int(time.Second/d))
-	ui.lastPaintStart = now
-
-	ui.paintMarked()
-}
-
-func (ui *BasicUI) paintMarked() {
-	ui.pendingPaint = false
 	u := ui.RootNode.PaintMarked()
 	r := u.Intersect(ui.Image().Bounds())
 	if !r.Empty() {
@@ -259,10 +235,6 @@ func (ui *BasicUI) putImage(r image.Rectangle) {
 }
 
 //----------
-
-func (ui *BasicUI) EnqueueNoOpEvent() {
-	ui.AppendEvent(struct{}{})
-}
 
 func (ui *BasicUI) Image() draw.Image {
 	req := &event.ReqImage{}
@@ -350,8 +322,8 @@ func (ui *BasicUI) QueueEmptyWindowInputEvent() {
 }
 
 //----------
-
-type UIPaintTime struct{}
+//----------
+//----------
 
 type UIRunFuncEvent struct {
 	Func func()
