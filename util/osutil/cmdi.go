@@ -41,7 +41,7 @@ func NewCmdI2(args []string) CmdI {
 	return NewBasicCmd(cmd)
 }
 
-func NewCmdIShell(ctx context.Context, args ...string) CmdI {
+func NewCmdINoHangPipeShell(ctx context.Context, args ...string) CmdI {
 	c := NewCmdI2(args)
 	c = NewNoHangPipeCmd(c) // active only if the pipe is not nil at start (ex: cmd.stdin)
 	if ctx != nil {
@@ -356,12 +356,12 @@ func (c *PtyCmd) Start() error {
 	// TODO: syscall.SIGWINCH
 	// TODO: pty.Start
 
-	// TODO: custom sizes
-	ws := &pty.Winsize{Rows: 24, Cols: 80, X: 800, Y: 600}
-	if err := pty.Setsize(ptm, ws); err != nil {
-		earlyErrClose()
-		return err
-	}
+	//// TODO: custom sizes
+	//ws := &pty.Winsize{Rows: 24, Cols: 80, X: 800, Y: 600}
+	//if err := pty.Setsize(ptm, ws); err != nil {
+	//	earlyErrClose()
+	//	return err
+	//}
 
 	//if st, err := term.MakeRaw(int(pts.Fd())); err != nil {
 	//	earlyErrClose()
@@ -372,32 +372,32 @@ func (c *PtyCmd) Start() error {
 
 	cmd := c.Cmd()
 
-	// wrap stdin [origin->(ptm,pts)->cmd]
+	// wrap stdin [user->(ptm,pts)->cmd]
 	if cmd.Stdin != nil {
 		r := cmd.Stdin
-		go func() {
-			_, _ = io.Copy(c.ptm, r)
-		}()
-		cmd.Stdin = c.pts
+		go func() { _, _ = io.Copy(c.ptm, r) }()
 	}
+	cmd.Stdin = c.pts
 
-	// wrap stdout/stderr [cmd->(pts,ptm)->origin]
-	outs := []io.Writer{}
+	// wrap stdout/stderr [cmd->(pts,ptm)->user]
+	out := io.Writer(nil)
 	if cmd.Stdout != nil {
-		outs = append(outs, cmd.Stdout)
+		out = cmd.Stdout
+	} else if cmd.Stderr != nil {
+		out = cmd.Stderr
 	}
-	//if cmd.Stderr != nil {
-	//	outs = append(outs, cmd.Stderr)
-	//}
-	if len(outs) > 0 {
-		mw := io.MultiWriter(outs...)
+	if out != nil {
 		c.writing.Add(1)
 		go func() {
 			defer c.writing.Done()
-			_, _ = io.Copy(mw, c.ptm)
+			_, _ = io.Copy(out, c.ptm)
 		}()
 	}
-	cmd.Stdout, cmd.Stderr = c.pts, c.pts
+
+	// TODO: case of stdout!=stderr, keep original stderr?
+
+	cmd.Stdout = c.pts
+	cmd.Stderr = c.pts
 
 	if err := c.CmdI.Start(); err != nil {
 		earlyErrClose()
@@ -414,6 +414,15 @@ func (c *PtyCmd) Wait() error {
 	_ = c.ptm.Close()
 	c.writing.Wait()
 	return err
+}
+
+func (c *PtyCmd) SetSize(cols, rows, sx, sy int) error {
+	ws := &pty.Winsize{}
+	ws.Cols, ws.Rows = uint16(cols), uint16(rows)
+	if sx != 0 && sy != 0 {
+		ws.X, ws.Y = uint16(sx), uint16(sy)
+	}
+	return pty.Setsize(c.ptm, ws)
 }
 
 //----------
@@ -477,7 +486,7 @@ func RunCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	return RunCmdStdin(ctx, dir, nil, args...)
 }
 func RunCmdStdin(ctx context.Context, dir string, rd io.Reader, args ...string) ([]byte, error) {
-	c := NewCmdIShell(ctx, args...)
+	c := NewCmdINoHangPipeShell(ctx, args...)
 	c.Cmd().Dir = dir
 	c.Cmd().Stdin = rd
 	return RunCmdICombineStderrErr(c)

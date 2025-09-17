@@ -1059,7 +1059,7 @@ func (cmd *Cmd) buildOutFilename(fa *FilesToAnnotate) (string, error) {
 //------------
 
 func (cmd *Cmd) newCmdI(ctx context.Context, args []string) osutil.CmdI {
-	ci := osutil.NewCmdIShell(ctx, args...)
+	ci := osutil.NewCmdINoHangPipeShell(ctx, args...)
 	ec := ci.Cmd()
 	ec.Dir = cmd.Dir
 	ec.Env = cmd.env
