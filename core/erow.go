@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,7 +14,6 @@ import (
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/fontutil"
-	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
@@ -28,9 +26,9 @@ type ERow struct {
 	TbData toolbarparser.Data
 
 	highlightDuplicates bool
+	scrollMode          string
 
-	termOpts       terminalOpts
-	scrollDownMode string
+	runOpts ERowRunOpts
 
 	ctx       context.Context // erow general context
 	cancelCtx context.CancelFunc
@@ -261,12 +259,14 @@ func (erow *ERow) initHandlers() {
 		handled := erow.Ed.AnnotationsHandled(erow, ev)
 		ev.ReplyHandled = event.Handled(handled)
 	})
-	// textarea layout for console
-	row.TextArea.EvReg.Add(ui.TextAreaLayoutEventId, func(ev0 any) {
-		ev := ev0.(*ui.TextAreaLayoutEvent)
-		_ = ev
-		updateConsoleFontSize(erow)
-	})
+
+	//// textarea layout for console
+	//row.TextArea.EvReg.Add(ui.TextAreaLayoutEventId, func(ev0 any) {
+	//	ev := ev0.(*ui.TextAreaLayoutEvent)
+	//	_ = ev
+	//	updateConsoleFontSize(erow)
+	//})
+
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 any) {
 		ev := ev0.(*ui.RowInputEvent)
@@ -449,10 +449,10 @@ func (erow *ERow) parseToolbarVars() {
 	}
 
 	// $scrollMode: reset before $terminal
-	erow.scrollDownMode = ""
+	erow.scrollMode = ""
 
 	// $terminal
-	erow.termOpts = terminalOpts{ // reset
+	erow.runOpts = ERowRunOpts{ // reset
 		origFace: erow.Row.TextArea.TreeThemeFontFace(),
 	}
 	if erow.Info.IsDir() {
@@ -464,13 +464,13 @@ func (erow *ERow) parseToolbarVars() {
 					//erow.Ed.Error(err)
 				}
 			}
-			updateConsoleFontSize(erow)
+			//updateConsoleFontSize(erow, nil)
 		}
 	}
 
-	// $scrollMode: "auto", otherwise is "manual"/"off" // TODO: always down on new output
+	// $scrollMode: auto/top/""
 	if v, ok := vmap["$scrollMode"]; ok {
-		erow.scrollDownMode = v
+		erow.scrollMode = v
 	}
 }
 
@@ -523,7 +523,7 @@ func (erow *ERow) setVarFontTheme(s string) error {
 }
 
 func (erow *ERow) applyTerminalOpt(opt string) error {
-	topt := &erow.termOpts
+	topt := &erow.runOpts
 
 	opt = strings.ToLower(strings.TrimSpace(opt))
 
@@ -550,30 +550,30 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 		topt.pty = set
 
 	case "emu":
-		if err := topt.Mode.SetBool(set, termemu.ModeUI); err != nil {
+		if err := topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid); err != nil {
 			return err
 		}
 		if set {
 			topt.pty = true
 			topt.forwardKb = true
 			topt.forwardMouse = true
-			erow.scrollDownMode = "auto"
+			erow.scrollMode = "auto"
 		}
 		return nil
 
 	case "emuraw":
-		return topt.Mode.SetBool(set, termemu.ModeRaw)
+		return topt.emuOpts.Mode.SetBool(set, termemu.ModeRaw)
 	case "emuplain":
-		return topt.Mode.SetBool(set, termemu.ModePlain)
+		return topt.emuOpts.Mode.SetBool(set, termemu.ModePlain)
 	case "emuui":
-		return topt.Mode.SetBool(set, termemu.ModeUI)
+		return topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid)
 
 	case "kb":
 		topt.forwardKb = set
 	case "mouse":
 		topt.forwardMouse = set
 	case "debug":
-		topt.Debug = true
+		topt.emuOpts.Debug = true
 	default:
 		return fmt.Errorf("unknown $terminal option: %q\n\t%s", opt, erow.Info.Name())
 	}
@@ -597,7 +597,7 @@ func (erow *ERow) OverwriteBytesClearHistory(i, del int, p []byte) error {
 	ta := erow.Row.TextArea
 
 	scrollDown := false
-	if erow.scrollDownMode == "auto" {
+	if erow.scrollMode == "auto" {
 		if ta.IndexVisible(ta.RW().Max()) {
 			scrollDown = true
 		}
@@ -607,63 +607,15 @@ func (erow *ERow) OverwriteBytesClearHistory(i, del int, p []byte) error {
 		return err
 	}
 
-	if scrollDown {
-		// TODO: better drawutil.RAlignBottom? issues with sometimes losing the bottom hook
-		ta.MakeRangeVisible2(ta.RW().Max(), 0, drawutil.RAlignKeepOrBottom)
+	switch {
+	case scrollDown:
+		ta.MakeRangeVisible2(ta.RW().Max(), 0,
+			//drawutil.RAlignBottom)
+			drawutil.RAlignKeepOrBottom)
+	case erow.scrollMode == "top":
+		ta.MakeRangeVisible2(0, 0, drawutil.RAlignTop)
 	}
 	return nil
-}
-
-//----------
-
-func (erow *ERow) TextAreaReadWriteCloser() io.ReadWriteCloser {
-	// synced writer to slow down memory usage
-	w := iout.FnWriter(func(b []byte) (int, error) {
-		var err error
-		erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
-			err = erow.AppendBytesClearHistory2(b)
-		})
-		return len(b), err
-	})
-	// buffered for performance, which needs timed output (auto-flush)
-	wc := iout.NewAutoBufWriter(w, 4096*2)
-	//wc := &iout.RWC{nil, w, iout.FnCloser(func() error { return nil })} // DEBUG: no buffer
-
-	// setup closer
-	cl := io.Closer(wc)
-
-	// setup reader
-	rd := (io.Reader)(nil)
-	tard := (*TextAreaReader)(nil)
-	if erow.termOpts.forwardKb || erow.termOpts.forwardMouse {
-		tard = newTextareaReader(erow.Row.TextArea)
-		tard.handleKeybInput = erow.termOpts.forwardKb
-		tard.handleMouseInput = erow.termOpts.forwardMouse
-		rd = io.Reader(tard)
-		// setup closer
-		cl = iout.FnCloser(func() error {
-			_ = tard.Close()
-			return wc.Close()
-		})
-	} else {
-		rd = iout.FnReader(func(b []byte) (int, error) {
-			return 0, io.EOF
-		})
-	}
-
-	rwc := io.ReadWriteCloser(&iout.RWC{rd, wc, cl})
-
-	if erow.termOpts.Mode.On() {
-		cons := newTextAreaConsole(erow, rwc)
-		te := termemu.NewEmu(cons, erow.termOpts.Opts)
-		rwc = te
-		cons.temu = te
-		if tard != nil {
-			tard.temu = te
-		}
-	}
-
-	return rwc
 }
 
 //----------
@@ -771,11 +723,12 @@ func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
 //----------
 //----------
 
-type terminalOpts struct {
-	termemu.Opts
+type ERowRunOpts struct {
 	pty          bool // run under a pseudo-terminal
 	forwardKb    bool // forward keyboard events to the process
 	forwardMouse bool // forward mouse events to the process
+
+	emuOpts termemu.Opts
 
 	origFace *fontutil.FontFace
 }

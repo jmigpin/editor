@@ -29,16 +29,34 @@ func NewERowExec(erow *ERow) *ERowExec {
 
 //----------
 
-func (ee *ERowExec) RunAsync(fn func(context.Context, io.ReadWriter) error) {
-	// Note: textarea w.close() (textareawriter) could deadlock if runasync() is not on own goroutine. If w.close waits for UI goroutine to finish and runasync() is currently occupying it (w.close called after a runasync(), just that the UI goroutine is not getting released). Launching in a goroutine allows RunAsync() itself to be called from a uigoroutine since this func will return immediately
-	go ee.runAsync2(nil, nil, fn)
+func (ee *ERowExec) RunAsync(fn func(context.Context, io.ReadWriter) error) (context.Context, context.CancelFunc) {
+	return ee.startRunAsync(func(ctx context.Context) {
+		tarwc := newERowTaReadWriteCloser(ee.erow)
+		err := fn(ctx, tarwc)
+		if err != nil {
+			fmt.Fprintf(tarwc, "# error: %v\n", err)
+		}
+		if err := tarwc.Close(); err != nil {
+			ee.erow.Ed.Error(err)
+		}
+	})
 }
-func (ee *ERowExec) RunAsyncWithCancel(fn func(context.Context, io.ReadWriter) error) (context.Context, context.CancelFunc) {
+
+//----------
+
+func (ee *ERowExec) startRunAsync(fn func(context.Context)) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(ee.erow.ctx)
-	go ee.runAsync2(ctx, cancel, fn)
+	go func() {
+		err := ee.startRunAsync2(ctx, cancel, fn)
+		if err != nil { // start error
+			ee.erow.Ed.Error(err)
+		}
+	}()
 	return ctx, cancel
 }
-func (ee *ERowExec) runAsync2(optCtx context.Context, optCancel context.CancelFunc, fn func(context.Context, io.ReadWriter) error) {
+
+// should start on its own goroutine to avoid deadlocks
+func (ee *ERowExec) startRunAsync2(ctx context.Context, cancel context.CancelFunc, fn func(context.Context)) error {
 	ee.c.Lock()
 	defer ee.c.Unlock()
 
@@ -51,55 +69,33 @@ func (ee *ERowExec) runAsync2(optCtx context.Context, optCancel context.CancelFu
 		ee.c.cond.Wait()
 	}
 
-	// there is another request after this one, don't start since the next one would cancel this one
+	// there is another request after this one (or a stop), don't start since the next one would cancel this one
 	if id != ee.c.q {
-		return
+		cancel() // clear resources
+		return fmt.Errorf("not running, a later request was done")
 	}
 
-	// new context
-	ctx := (context.Context)(nil)
-	cancel := (context.CancelFunc)(nil)
-	if optCtx != nil {
-		ctx, cancel = optCtx, optCancel
-	} else {
-		ctx, cancel = context.WithCancel(ee.erow.ctx)
-	}
+	// new
 	ee.c.cancel = cancel
 
-	rwc := ee.erow.TextAreaReadWriteCloser()
-
 	ee.c.running = true
+	ee.showRunning(true)
+
+	// start
 	go func() {
 		defer func() {
+			cancel() // clear resources
 			ee.c.Lock()
-			defer ee.c.Unlock()
 			ee.c.running = false
+			ee.showRunning(false)
+			ee.c.Unlock()
 			ee.c.cond.Broadcast()
 		}()
 
-		// indicate the row is running
-		ee.erow.Ed.UI.RunOnUIGoRoutine(func() {
-			ee.erow.Row.SetState(ui.RowStateExecuting, true)
-			ee.erow.Row.TextArea.SetStrClearHistory("")
-			ee.erow.Row.TextArea.ClearPos()
-		})
-
-		err := fn(ctx, rwc)
-		if err != nil {
-			fmt.Fprintf(rwc, "# error: %v\n", err)
-		}
-
-		// clear cancel resources
-		cancel()
-
-		if err := rwc.Close(); err != nil {
-			ee.erow.Ed.Error(err)
-		}
-
-		ee.erow.Ed.UI.RunOnUIGoRoutine(func() {
-			ee.erow.Row.SetState(ui.RowStateExecuting, false)
-		})
+		fn(ctx) // run
 	}()
+
+	return nil
 }
 
 //----------
@@ -107,10 +103,18 @@ func (ee *ERowExec) runAsync2(optCtx context.Context, optCancel context.CancelFu
 func (ee *ERowExec) Stop() {
 	ee.c.Lock()
 	defer ee.c.Unlock()
+	ee.c.q++      // if issued after another cmd, that cmd is not going to start
+	ee.c.cancel() // always set
+}
 
-	ee.c.q++ // if this was issued after another cmd, that cmd is not going to start
+//---------
 
-	if ee.c.cancel != nil {
-		ee.c.cancel()
-	}
+func (ee *ERowExec) showRunning(on bool) {
+	ee.erow.Ed.UI.RunOnUIGoRoutine(func() {
+		ee.erow.Row.SetState(ui.RowStateExecuting, on)
+		if on {
+			ee.erow.Row.TextArea.SetStrClearHistory("")
+			ee.erow.Row.TextArea.ClearPos()
+		}
+	})
 }

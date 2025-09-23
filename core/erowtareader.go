@@ -10,67 +10,108 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
-// used as a reader to pass to the terminal emulator for input like keyboard/mouse events
-type TextAreaReader struct {
-	handleKeybInput  bool
-	handleMouseInput bool
-
+// textarea read closer; passes to the terminal emulator keyboard/mouse events
+type ERowTaReadCloser struct {
+	erow *ERow
 	reg  *evreg.Regist
-	temu *termemu.Emu
+
+	optTemu *ERowTermEmu // access to screen private modes
 
 	pr *io.PipeReader
 	pw *io.PipeWriter
 }
 
-func newTextareaReader(ta *ui.TextArea) *TextAreaReader {
-	tard := &TextAreaReader{}
-
-	tard.pr, tard.pw = io.Pipe()
+func newERowTaReadCloser(erow *ERow) *ERowTaReadCloser {
+	tarc := &ERowTaReadCloser{erow: erow}
 
 	// register to handle textarea input events
-	tard.reg = ta.EvReg.Add(ui.TextAreaInputEventId, tard.onTextAreaInputEvent)
+	ta := tarc.erow.Row.TextArea
+	tarc.reg = ta.EvReg.Add(ui.TextAreaInputEventId, tarc.onTextAreaInputEvent)
+	// setup pipe to write for reading
+	tarc.pr, tarc.pw = io.Pipe()
 
-	return tard
+	return tarc
+}
+
+func (tarc *ERowTaReadCloser) isOn() bool {
+	u := tarc.erow.runOpts
+	return u.forwardKb || u.forwardMouse
 }
 
 //----------
 
-func (tard *TextAreaReader) Read(p []byte) (int, error) {
-	return tard.pr.Read(p)
+func (tarc *ERowTaReadCloser) Read(p []byte) (int, error) {
+	return tarc.pr.Read(p)
 }
-func (tard *TextAreaReader) Close() error {
-	defer tard.reg.Unregister()
-	_ = tard.pr.Close()
-	return tard.pw.Close()
+
+func (tarc *ERowTaReadCloser) Close() error {
+	tarc.reg.Unregister()
+
+	_ = tarc.pr.Close()
+	return tarc.pw.Close()
 }
 
 //----------
 
-func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
+func (tarc *ERowTaReadCloser) writeToRead(s string) {
+	_, err := tarc.pw.Write([]byte(s))
+	if err != nil {
+		tarc.erow.Ed.Errorf("textarea.writeToRead: %w", err)
+	}
+}
+func (tarc *ERowTaReadCloser) writePasteToRead(s string) {
+	if tarc.bracketedPaste() {
+		s = bracketedPaste(s)
+	}
+	tarc.writeToRead(s)
+}
+
+//----------
+
+func (tarc *ERowTaReadCloser) bracketedPaste() bool {
+	u := tarc.optTemu
+	return u != nil && u.emu.ScrPrivModes().BracketedPaste()
+}
+func (tarc *ERowTaReadCloser) lineFeedNewline() bool {
+	u := tarc.optTemu
+	return u != nil && u.emu.ScrPrivModes().LineFeedNewline()
+}
+func (tarc *ERowTaReadCloser) appCursorKeys() bool {
+	u := tarc.optTemu
+	return u != nil && u.emu.ScrPrivModes().AppCursorKeys()
+}
+
+//----------
+
+func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
+	if !tarc.isOn() {
+		return
+	}
+
 	ev1 := ev0.(*ui.TextAreaInputEvent)
 
 	switch ev2 := ev1.Event.(type) {
 	case *event.KeyDown:
-		if !tard.handleKeybInput {
+		if !tarc.erow.runOpts.forwardKb {
 			break
 		}
 
-		if ok := tard.kbCopyingWarning(ev1, ev2); ok {
+		if ok := tarc.kbCopyingWarning(ev1, ev2); ok {
 			return
 		}
-		if ok := tard.kbPaste(ev1, ev2); ok {
+		if ok := tarc.kbPaste(ev1, ev2); ok {
 			return
 		}
-		if ok := tard.kbEncode(ev1, ev2); ok {
+		if ok := tarc.kbEncode(ev1, ev2); ok {
 			return
 		}
 
 	case *event.MouseClick:
-		if !tard.handleMouseInput {
+		if !tarc.erow.runOpts.forwardMouse {
 			break
 		}
 
-		if ok := tard.mousePaste(ev1, ev2); ok {
+		if ok := tarc.mousePaste(ev1, ev2); ok {
 			return
 		}
 	}
@@ -78,7 +119,7 @@ func (tard *TextAreaReader) onTextAreaInputEvent(ev0 any) {
 
 //----------
 
-func (tard *TextAreaReader) kbPaste(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
+func (tarc *ERowTaReadCloser) kbPaste(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
 	// support pasting (ctrl+v)
 	if ev2.KeySym != event.KSymV {
 		return false
@@ -92,14 +133,14 @@ func (tard *TextAreaReader) kbPaste(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDo
 		if err != nil {
 			return
 		}
-		tard.sendPaste(s)
+		tarc.writePasteToRead(s)
 	})
 	// handled
 	ev1.ReplyHandled = event.Handled(true)
 	return true
 }
 
-func (tard *TextAreaReader) mousePaste(ev1 *ui.TextAreaInputEvent, ev2 *event.MouseClick) bool {
+func (tarc *ERowTaReadCloser) mousePaste(ev1 *ui.TextAreaInputEvent, ev2 *event.MouseClick) bool {
 	// support pasting (middle click)
 	if ev2.Button != event.ButtonMiddle {
 		return false
@@ -112,14 +153,14 @@ func (tard *TextAreaReader) mousePaste(ev1 *ui.TextAreaInputEvent, ev2 *event.Mo
 		if err != nil {
 			return
 		}
-		tard.sendPaste(s)
+		tarc.writePasteToRead(s)
 	})
 	// handled
 	ev1.ReplyHandled = event.Handled(true)
 	return true
 }
 
-func (tard *TextAreaReader) kbCopyingWarning(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
+func (tarc *ERowTaReadCloser) kbCopyingWarning(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
 	// warn about keys going to the exec instead of copying (ctrl+c)
 	if ev2.KeySym != event.KSymC {
 		return false
@@ -144,57 +185,36 @@ func (tard *TextAreaReader) kbCopyingWarning(ev1 *ui.TextAreaInputEvent, ev2 *ev
 
 //----------
 
-func (tard *TextAreaReader) sendString(s string) {
-	_, err := tard.pw.Write([]byte(s))
-	_ = err // TODO
-}
-
-func (tard *TextAreaReader) sendPaste(s string) {
-	pm := tard.temu.ScrMode()
-	if pm.BracketedPaste() {
-		s = bracketedPaste(s)
-	}
-	tard.sendString(s)
-}
-
-//----------
-
-func (tard *TextAreaReader) kbEncode(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
-	s := tard.kbEncodeToStr(ev1, ev2)
+func (tarc *ERowTaReadCloser) kbEncode(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
+	s := tarc.kbEncodeToStr(ev1, ev2)
 	if s != "" {
-		tard.sendString(s)
+		tarc.writeToRead(s)
 		// handled
 		ev1.ReplyHandled = event.Handled(true)
 		return true
 	}
 	return false
 }
-func (tard *TextAreaReader) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) string {
+func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) string {
 
 	encodeEsc := func(s string) string {
 		//mods, ok := encodeKeyMods(ev.Mods)
 		//if ok {
 		//	s = "1;" + mods + s
 		//}
-		return tard.encodeEsc(s)
+		return tarc.encodeEsc(s)
 	}
 
 	switch ev2.KeySym {
 	case event.KSymReturn, event.KSymKeypadEnter:
-		//ckm := tard.temu.ScrMode().CursorKeysMode()
-		//if ckm {
-		//	return encodeEsc("M")
+		//if tarc.lineFeedNewline() {
+		//	// introduces extra newlines: aptitude
+		//	return []byte("\r\n"), true
 		//}
-		m := tard.temu.ScrMode().LineFeedNewline()
-		if m {
-			// introduces extra newlines: aptitude
-			//return []byte("\r\n"), true
-		}
 		return "\r"
 
 	case event.KSymBackspace:
-		m := tard.temu.ScrMode().LineFeedNewline()
-		if m {
+		if tarc.lineFeedNewline() {
 			return string('\x7f') // del
 		}
 		return "\b"
@@ -214,21 +234,21 @@ func (tard *TextAreaReader) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event
 		return encodeEsc("F")
 
 	//case event.KSymHome:
-	//	return seqEscCsi + "1~"
+	//	return termemu.SeqEscCsi + "1~"
 	case event.KSymInsert:
-		return seqEscCsi + "2~"
+		return termemu.SeqEscCsi + "2~"
 	case event.KSymDelete:
-		return seqEscCsi + "3~"
+		return termemu.SeqEscCsi + "3~"
 	//case event.KSymEnd:
-	//	return seqEscCsi + "4~"
+	//	return termemu.SeqEscCsi + "4~"
 	case event.KSymPageUp:
-		return seqEscCsi + "5~"
+		return termemu.SeqEscCsi + "5~"
 	case event.KSymPageDown:
-		return seqEscCsi + "6~"
+		return termemu.SeqEscCsi + "6~"
 	//case event.KSymHome:
-	//	return seqEscCsi + "7~"
+	//	return termemu.SeqEscCsi + "7~"
 	//case event.KSymEnd:
-	//	return seqEscCsi + "8~"
+	//	return termemu.SeqEscCsi + "8~"
 
 	case event.KSymEscape:
 		return string('\x1b')
@@ -254,22 +274,16 @@ func (tard *TextAreaReader) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event
 
 //----------
 
-func (tard *TextAreaReader) encodeEsc(seq string) string {
-	ckm := tard.temu.ScrMode().AppCursorKeys()
-	if ckm {
-		return seqEscO + seq
+func (tarc *ERowTaReadCloser) encodeEsc(seq string) string {
+	if tarc.appCursorKeys() {
+		return termemu.SeqEscO + seq
 	}
-	// normal mode
-	return seqEscCsi + seq
+	return termemu.SeqEscCsi + seq
 }
 
 //----------
 //----------
 //----------
-
-const seqEsc = "\x1b"
-const seqEscCsi = seqEsc + "["
-const seqEscO = seqEsc + "O"
 
 func encodeCtrl(b byte) byte {
 	if b == '?' { // // special case: Ctrl+? => DEL
@@ -279,8 +293,8 @@ func encodeCtrl(b byte) byte {
 }
 
 func bracketedPaste(s string) string {
-	open := seqEscCsi + "200~"
-	close := seqEscCsi + "201~"
+	open := termemu.SeqEscCsi + "200~"
+	close := termemu.SeqEscCsi + "201~"
 	return open + s + close
 }
 

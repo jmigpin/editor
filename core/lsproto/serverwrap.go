@@ -20,7 +20,7 @@ type ServerWrap struct {
 func newServerWrap(ctx context.Context, cmd string) *ServerWrap {
 	sw := &ServerWrap{}
 	args := strings.Split(cmd, " ") // TODO: escapes
-	sw.Cmd = osutil.NewCmdIShell(ctx, args...)
+	sw.Cmd = osutil.NewCmdINoHangPipeShell(ctx, args...)
 	return sw
 }
 func (sw *ServerWrap) Wait() error {

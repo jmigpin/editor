@@ -169,7 +169,7 @@ func newGoDebugInstance(ctx context.Context, gdm *GoDebugManager, erow *ERow, ar
 	}
 
 	gdi.cmdWait.Add(1)
-	_, cancel := erow.Exec.RunAsyncWithCancel(func(erowCtx context.Context, rw io.ReadWriter) error {
+	_, cancel := erow.Exec.RunAsync(func(erowCtx context.Context, rw io.ReadWriter) error {
 		defer gdi.cmdWait.Done()
 		return gdi.runCmd(erowCtx, erow, args, rw)
 	})

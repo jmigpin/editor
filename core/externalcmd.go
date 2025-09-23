@@ -20,7 +20,7 @@ import (
 func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func(error), env []string) {
 
 	// before toolbar vars to allow override
-	if erow.termOpts.Opts.Mode.On() {
+	if erow.runOpts.emuOpts.Mode.On() {
 		env = append(env, termemu.TermEnv)
 	}
 
@@ -54,32 +54,42 @@ func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []stri
 	if !erow.Info.IsDir() {
 		panic("not a directory")
 	}
-	erow.Exec.RunAsync(func(ctx context.Context, rw io.ReadWriter) error {
-		err := externalCmdDir2(ctx, erow, cargs, env, rw)
+	fend2 := func(err error) {
 		if fend != nil {
 			fend(err)
 		}
+	}
+	_, _ = erow.Exec.RunAsync(func(ctx context.Context, rw io.ReadWriter) error {
+		err := externalCmdFromDir2(ctx, erow, cargs, env, rw)
+		fend2(err)
 		return err
 	})
 }
 
-func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter) error {
+func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter) error {
 
-	printPid := func(c osutil.CmdI) {
-		//argsStr := strings.Join(c.Cmd().Args, " ")
-		argsStr := strings.Join(cargs, " ")
-		fmt.Fprintf(rw, "# pid %d: %s\n", c.Cmd().Process.Pid, argsStr)
-	}
+	// TODO: unify this code with godebug cmd call
 
 	c := osutil.NewCmdI2(cargs)
-	if erow.termOpts.pty {
-		c = osutil.NewPtyCmd(c) // first, to run start first and wrap everything in a pty
+	c = osutil.NewShellCmd(c, true)
+
+	// first, to run start() last and wrap everything in a pty
+	if erow.runOpts.pty {
+		ptyCmd := osutil.NewPtyCmd(c)
+		c = ptyCmd
+		if tarwc, ok := rw.(*ERowTaReadWriteCloser); ok {
+			if tarwc.optTemu != nil {
+				tarwc.optTemu.setPty(ptyCmd)
+			}
+		}
 	} else {
 		c = osutil.NewNoHangPipeCmd(c)
 	}
-	c = osutil.NewShellCmd(c, true)
-	c = osutil.NewPausedWritersCmd(c, printPid)
-	c = osutil.NewCtxCmd(ctx, c) // last, to run wait first, such that a ctx cancel sends a proc kill
+
+	c = newPausedWriter(c, cargs, rw)
+
+	// last, to run wait() first, such that a ctx cancel sends a proc kill
+	c = osutil.NewCtxCmd(ctx, c)
 
 	cmd := c.Cmd()
 	cmd.Dir = erow.Info.Name()
@@ -98,6 +108,17 @@ func externalCmdDir2(ctx context.Context, erow *ERow, cargs []string, env []stri
 //----------
 //----------
 
+func newPausedWriter(c osutil.CmdI, cargs []string, w io.Writer) osutil.CmdI {
+	printPid := func(c osutil.CmdI) {
+		//argsStr := strings.Join(c.Cmd().Args, " ")
+		argsStr := strings.Join(cargs, " ")
+		fmt.Fprintf(w, "# pid %d: %s\n", c.Cmd().Process.Pid, argsStr)
+	}
+	return osutil.NewPausedWritersCmd(c, printPid)
+}
+
+//----------
+
 func cmdPartArgs(part *toolbarparser.Part) []string {
 	var u []string
 	for _, a := range part.Args {
@@ -110,8 +131,6 @@ func cmdPartArgs(part *toolbarparser.Part) []string {
 	return u
 }
 
-//----------
-//----------
 //----------
 
 func detectedEdEnvVars(erow *ERow, cargs []string) []string {
@@ -149,6 +168,8 @@ func detectedEdEnvVars(erow *ERow, cargs []string) []string {
 
 	return env
 }
+
+//----------
 
 func cmdVar_edFileOffset(erow *ERow) string {
 	offset := erow.Row.TextArea.CursorIndex()
