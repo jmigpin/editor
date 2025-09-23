@@ -35,13 +35,13 @@ func TestCursorMoves(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := newUserMock()
+			m := newTuiMock()
 			defer m.Close()
 
-			te := newTestEmu(m, Opts{W: 10, H: 5})
+			te := newTestEmu(m, Opts{}, 10, 5)
 			defer te.Close()
 
-			te.scr.pmodes.set("20", tc.lnm)
+			te.scr.privModes.set("20", tc.lnm)
 
 			seq := cup(tc.startY, tc.startX) + tc.seq
 			sendWithBarrier(t, te, seq)
@@ -58,8 +58,8 @@ func TestCursorMoves(t *testing.T) {
 }
 
 func TestCPRRoundTrip(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 10, H: 5})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 10, 5)
 	defer te.Close()
 
 	// Place cursor at (row=3,col=4) [0-based 2,3]
@@ -68,13 +68,8 @@ func TestCPRRoundTrip(t *testing.T) {
 	// Ask for CPR
 	send(t, te, "\x1b[6n")
 
-	// Read reply from the emu (it writes to readPw → Read())
-	buf := make([]byte, 64)
-	n, err := te.Read(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := string(buf[:n])
+	// Read reply from the emu
+	got := receive(t, te, 64)
 
 	if want := "\x1b[3;4R"; got != want {
 		t.Fatalf("got %q, want %q", printable(got), printable(want))
@@ -82,8 +77,8 @@ func TestCPRRoundTrip(t *testing.T) {
 }
 
 func TestScrollRegionAndOriginMode(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 5, H: 6})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 5, 6)
 	defer te.Close()
 
 	// Region rows 2..5 (1-based); enable origin mode (?6h)
@@ -92,15 +87,11 @@ func TestScrollRegionAndOriginMode(t *testing.T) {
 	// Home within region should be (top, col1) in origin mode
 	// Ask CPR to confirm relative coordinates
 	send(t, te, "\x1b[6n")
-	buf := make([]byte, 32)
-	n, err := te.Read(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := string(buf[:n]), "\x1b[1;1R"; got != want {
+	got := receive(t, te, 32)
+	if want := "\x1b[1;1R"; got != want {
 		//s := te.Snapshot()
 		//s.PrintWithCursor()
-		//t.Fatalf("got %q, want %q", printable(got), printable(want))
+		t.Fatalf("got %q, want %q", printable(got), printable(want))
 	}
 
 	// Move down to bottom margin and LF to force region scroll
@@ -121,8 +112,8 @@ func TestScrollRegionAndOriginMode(t *testing.T) {
 }
 
 func TestDchEch(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 6, H: 2})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 6, 2)
 	defer te.Close()
 
 	sendWithBarrier(t, te, "ABCDEF")    // fills first row
@@ -149,8 +140,8 @@ func TestDchEch(t *testing.T) {
 }
 
 func TestInsertDeleteLinesWithinRegion(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 4, H: 5})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 4, 5)
 	defer te.Close()
 
 	// Fill with labels 1..5
@@ -184,8 +175,8 @@ func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 }
 
 func TestEnterIsCRNotLF(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 4, H: 2})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 4, 2)
 	defer te.Close()
 
 	sendWithBarrier(t, te, "AB\r") // CR only
@@ -198,8 +189,8 @@ func TestEnterIsCRNotLF(t *testing.T) {
 //----------
 
 func TestDECALN(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 6, H: 3})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 6, 3)
 	defer te.Close()
 
 	sendWithBarrier(t, te, "\x1b#8")
@@ -218,8 +209,8 @@ func TestDECALN(t *testing.T) {
 }
 
 func TestINDandRI_RespectScrollRegion(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 4, H: 5})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 4, 5)
 	defer te.Close()
 
 	// Region rows 2..4 (1-based)
@@ -260,8 +251,8 @@ func TestINDandRI_RespectScrollRegion(t *testing.T) {
 }
 
 func TestNEL(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 5, H: 4})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 5, 4)
 	defer te.Close()
 
 	sendWithBarrier(t, te, cup(1, 2)+"\x1bE") // from (1,2) → CR+LF to (2,0)
@@ -272,8 +263,8 @@ func TestNEL(t *testing.T) {
 }
 
 func TestELandED(t *testing.T) {
-	m := newUserMock()
-	te := newTestEmu(m, Opts{W: 6, H: 3})
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 6, 3)
 	defer te.Close()
 
 	// Row0: "ABCDEF"
@@ -310,7 +301,7 @@ func TestELandED(t *testing.T) {
 }
 
 func TestCSI0C_Equals1C(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 5, H: 2})
+	te := newTestEmu(newTuiMock(), Opts{}, 5, 2)
 	defer te.Close()
 	sendWithBarrier(t, te, "A\x1b[0CB") // 0C must move 1
 	s := te.Snapshot()
@@ -321,7 +312,7 @@ func TestCSI0C_Equals1C(t *testing.T) {
 }
 
 func TestBackspaceMovesLeft(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 5, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 5, 1)
 	defer te.Close()
 	sendWithBarrier(t, te, "AB\bC") // C overwrites B
 	s := te.Snapshot()
@@ -331,7 +322,7 @@ func TestBackspaceMovesLeft(t *testing.T) {
 }
 
 func TestHT_DefaultStopsEvery8(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 16, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 16, 1)
 	defer te.Close()
 	sendWithBarrier(t, te, "\tX") // start at col0; next stop at col8 → X at 8
 	s := te.Snapshot()
@@ -341,7 +332,7 @@ func TestHT_DefaultStopsEvery8(t *testing.T) {
 }
 
 func TestCRandLF(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 5, H: 2})
+	te := newTestEmu(newTuiMock(), Opts{}, 5, 2)
 	defer te.Close()
 	sendWithBarrier(t, te, "ABC\rD\nE")
 	s := te.Snapshot()
@@ -354,7 +345,7 @@ func TestCRandLF(t *testing.T) {
 }
 
 func TestED1_ClearsToCursor(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 6, H: 4})
+	te := newTestEmu(newTuiMock(), Opts{}, 6, 4)
 	defer te.Close()
 	sendWithBarrier(t, te, "\x1b#8")           // fill E
 	sendWithBarrier(t, te, "\x1b[3;4H\x1b[1J") // ED 1
@@ -372,7 +363,7 @@ func TestED1_ClearsToCursor(t *testing.T) {
 }
 
 func TestEL1_ClearsLeftToCursor(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 6, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 6, 1)
 	defer te.Close()
 	sendWithBarrier(t, te, "ABCDEF\x1b[1G\x1b[3C") // go to col4
 	sendWithBarrier(t, te, "\x1b[1K")              // EL 1
@@ -390,7 +381,7 @@ func TestEL1_ClearsLeftToCursor(t *testing.T) {
 }
 
 func TestWrapPending_CancelledByCUB(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 4, H: 2})
+	te := newTestEmu(newTuiMock(), Opts{}, 4, 2)
 	defer te.Close()
 	sendWithBarrier(t, te, "\x1b[1;4H*") // put '*' at last col (wrap-pending)
 	sendWithBarrier(t, te, "\x1b[1D")    // CUB 1 must cancel wrap
@@ -405,7 +396,7 @@ func TestWrapPending_CancelledByCUB(t *testing.T) {
 }
 
 func TestDECSC_DECRC_PosRestored(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 20, H: 10})
+	te := newTestEmu(newTuiMock(), Opts{}, 20, 10)
 	defer te.Close()
 
 	sendWithBarrier(t, te, "\x1b[6;11H") // 1-based -> (5,10)
@@ -420,7 +411,7 @@ func TestDECSC_DECRC_PosRestored(t *testing.T) {
 }
 
 func TestLRMM_WrapAndCR(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 10, H: 3})
+	te := newTestEmu(newTuiMock(), Opts{}, 10, 3)
 	defer te.Close()
 
 	// Enable L/R margins 3..8 (1-based) and move to col=1 (→ left margin).
@@ -452,7 +443,7 @@ func TestLRMM_WrapAndCR(t *testing.T) {
 }
 
 func TestCAN_SUB_Abort(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 5, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 5, 1)
 	defer te.Close()
 	send(t, te, "\x1b[9999")          // start a CSI
 	send(t, te, string([]byte{0x18})) // CAN
@@ -464,7 +455,7 @@ func TestCAN_SUB_Abort(t *testing.T) {
 }
 
 func TestCUP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 10, H: 4})
+	te := newTestEmu(newTuiMock(), Opts{}, 10, 4)
 	defer te.Close()
 
 	// Sanity: LRMM off → CUP 1;1 == absolute col 0
@@ -508,7 +499,7 @@ func TestCUP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
 }
 
 func TestHVP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 12, H: 4})
+	te := newTestEmu(newTuiMock(), Opts{}, 12, 4)
 	defer te.Close()
 
 	sendWithBarrier(t, te, "\x1b[?69h\x1b[4;9s") // margins 4..9 → x in [3..8]
@@ -520,7 +511,7 @@ func TestHVP_ColumnIsRelativeToLeftMargin_WhenLRMM(t *testing.T) {
 }
 
 func TestIND_PreservesColumn(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 6, H: 5})
+	te := newTestEmu(newTuiMock(), Opts{}, 6, 5)
 	defer te.Close()
 
 	sendWithBarrier(t, te, "\x1b[2;3H+\x1b[1D\x1bD+")
@@ -535,7 +526,7 @@ func TestIND_PreservesColumn(t *testing.T) {
 }
 
 func TestCSI_I_CHT(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 20, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 20, 1)
 	defer te.Close()
 	sendWithBarrier(t, te, "A\x1b[I")  // default 1 tab -> col 8
 	sendWithBarrier(t, te, "B\x1b[2I") // +2 tabs -> col 24 (clamped by W=20)
@@ -546,7 +537,7 @@ func TestCSI_I_CHT(t *testing.T) {
 }
 
 func TestCSI_ParamsIgnoreC0(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 10, H: 3})
+	te := newTestEmu(newTuiMock(), Opts{}, 10, 3)
 	defer te.Close()
 	seq := "\x1b[" + string([]byte{0x09}) + "2" + string([]byte{0x0D}) + ";" + string([]byte{0x08}) + "3H"
 	sendWithBarrier(t, te, seq+"X") // CUP 2;3 with C0 mixed in
@@ -557,7 +548,7 @@ func TestCSI_ParamsIgnoreC0(t *testing.T) {
 }
 
 func TestCSI_ParamsIgnore2(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 20, H: 3})
+	te := newTestEmu(newTuiMock(), Opts{}, 20, 3)
 	defer te.Close()
 	seq := "A [2CB[4CC[6CD[8CE[10CF[12CG[14CH[16CI"
 	sendWithBarrier(t, te, seq)
@@ -571,7 +562,7 @@ func TestCSI_ParamsIgnore2(t *testing.T) {
 	}
 }
 func TestCSI_ParamsIgnore3(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 20, H: 3})
+	te := newTestEmu(newTuiMock(), Opts{}, 20, 3)
 	defer te.Close()
 	seq := "A[2CB[2CC[2CD[2CE[2CF[2CG[2CH[2CI[2C"
 	sendWithBarrier(t, te, seq)
@@ -585,7 +576,7 @@ func TestCSI_ParamsIgnore3(t *testing.T) {
 	}
 }
 func TestCSI_ParamsIgnore4(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 20, H: 3})
+	te := newTestEmu(newTuiMock(), Opts{}, 20, 3)
 	defer te.Close()
 	seq := "[3,1H[20lA [1AB [1AC [1AD [1AE [1AF [1AG [1AH [1AI [1A"
 	sendWithBarrier(t, te, seq)
@@ -600,7 +591,7 @@ func TestCSI_ParamsIgnore4(t *testing.T) {
 }
 
 func TestTabs_DefaultsAndHTS_TBC(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 20, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 20, 1)
 	defer te.Close()
 
 	// default every 8: '\tX' → X at col 8 (0-based)
@@ -619,7 +610,7 @@ func TestTabs_DefaultsAndHTS_TBC(t *testing.T) {
 }
 
 func TestCHT_CBT(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 40, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 40, 1)
 	defer te.Close()
 
 	// Go to col 1, forward 2 tabs → x=16; back 1 tab → x=8
@@ -632,7 +623,7 @@ func TestCHT_CBT(t *testing.T) {
 }
 
 func TestTab_RespectsLRMM(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 20, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 20, 1)
 	defer te.Close()
 	sendWithBarrier(t, te, "\x1b[?69h\x1b[5;12s\x1b[1;5H") // margins 5..12 → x in [4..11]
 	sendWithBarrier(t, te, "\tZ")                          // next stop but not beyond right margin
@@ -645,7 +636,7 @@ func TestTab_RespectsLRMM(t *testing.T) {
 }
 
 func TestCNL_CPL_LeftMarginAndScroll(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 10, H: 4})
+	te := newTestEmu(newTuiMock(), Opts{}, 10, 4)
 	defer te.Close()
 	sendWithBarrier(t, te, "\x1b[?69h\x1b[3;8s\x1b[1;1H") // LRMM 3..8; CUP row1,col1 → left margin
 	sendWithBarrier(t, te, "A\x1b[2E")                    // CNL 2
@@ -663,7 +654,7 @@ func TestCNL_CPL_LeftMarginAndScroll(t *testing.T) {
 }
 
 func TestVPR_HPR_Relative(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 8, H: 4})
+	te := newTestEmu(newTuiMock(), Opts{}, 8, 4)
 	defer te.Close()
 	sendWithBarrier(t, te, "\x1b[2;2H\x1b[3a\x1b[2eX") // → (row4,col5) write X
 	s := te.Snapshot()
@@ -673,7 +664,7 @@ func TestVPR_HPR_Relative(t *testing.T) {
 }
 
 func TestDECSpecial_OnOff(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 6, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 6, 1)
 	defer te.Close()
 	sendWithBarrier(t, te, "\x1b(0qqq") // G0=DEC Special, GL=G0
 	s := te.Snapshot()
@@ -690,7 +681,7 @@ func TestDECSpecial_OnOff(t *testing.T) {
 }
 
 func TestDECSpecial_SO_SI_G1(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 4, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 4, 1)
 	defer te.Close()
 	sendWithBarrier(t, te, "\x1b)0")                                          // G1 = DEC Special
 	sendWithBarrier(t, te, string([]byte{0x0E})+"q"+string([]byte{0x0F})+"q") // SO q SI q
@@ -702,7 +693,7 @@ func TestDECSpecial_SO_SI_G1(t *testing.T) {
 
 // vttest-like: place on far right using BS+TAB, then left edge via BS.
 func Test_RightAndLeftEdges_WithBS_TAB(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 20, H: 6})
+	te := newTestEmu(newTuiMock(), Opts{}, 20, 6)
 	defer te.Close()
 
 	// Right edge: CUP 5;20, print 'C', BS, TAB (clamp to right edge), 'c'
@@ -722,7 +713,7 @@ func Test_RightAndLeftEdges_WithBS_TAB(t *testing.T) {
 // The problematic bit: CR/BS inside CSI params must be ignored.
 // This reproduces the “letters down the margins go missing” when CR is executed.
 func Test_CSI_Params_Ignore_CR_BS_HT(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 12, H: 3})
+	te := newTestEmu(newTuiMock(), Opts{}, 12, 3)
 	defer te.Close()
 
 	// CUP 2;10 but with CR and BS injected in params: should still land 2;10.
@@ -737,7 +728,7 @@ func Test_CSI_Params_Ignore_CR_BS_HT(t *testing.T) {
 }
 
 func TestVT52_DCA(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 10, H: 6})
+	te := newTestEmu(newTuiMock(), Opts{}, 10, 6)
 	defer te.Close()
 	// Enter VT52 mode
 	sendWithBarrierVT52(t, te, "\x1b[?2l")
@@ -754,7 +745,7 @@ func TestVT52_DCA(t *testing.T) {
 }
 
 func TestVT52_F_G(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 6, H: 1})
+	te := newTestEmu(newTuiMock(), Opts{}, 6, 1)
 	defer te.Close()
 	sendWithBarrierVT52(t, te, "\x1b[?2l") // VT52 mode
 	sendWithBarrierVT52(t, te, "\x1bFqqx") // ESC F: graphics on
@@ -769,7 +760,7 @@ func TestVT52_F_G(t *testing.T) {
 }
 
 func TestIRM_InsertMode(t *testing.T) {
-	te := newTestEmu(newUserMock(), Opts{W: 6, H: 2})
+	te := newTestEmu(newTuiMock(), Opts{}, 6, 2)
 	defer te.Close()
 
 	// Row 1: "ABCDEF"
@@ -801,6 +792,20 @@ func TestIRM_InsertMode(t *testing.T) {
 }
 
 //----------
+
+func TestDecrqm(t *testing.T) {
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{}, 10, 5)
+	defer te.Close()
+
+	send(t, te, "\x1b[?2026$p")
+	got := receive(t, te, 64)
+	if want := "\x1b[?2026;2$y"; got != want {
+		t.Fatalf("got %q, want %q", printable(got), printable(want))
+	}
+}
+
+//----------
 //----------
 //----------
 
@@ -811,10 +816,10 @@ func TestIRM_InsertMode(t *testing.T) {
 
 func _TestSnapshot0(t *testing.T) {
 
-	opts := Opts{W: 80, H: 24}
+	opts := Opts{}
 	//opts.Mode = ModeRaw
 	//opts.Debug = true
-	te := newTestEmu(newUserMock(), opts)
+	te := newTestEmu(newTuiMock(), opts, 80, 24)
 	defer te.Close()
 
 	const u = ``
@@ -832,47 +837,49 @@ func _TestSnapshot0(t *testing.T) {
 //----------
 //----------
 
-type userMock struct {
+type TuiMock struct {
 	ch chan struct{}
 }
 
-func newUserMock() *userMock {
-	m := &userMock{}
+func newTuiMock() *TuiMock {
+	m := &TuiMock{}
 	m.ch = make(chan struct{})
 	return m
 }
 
-func (m *userMock) Read(p []byte) (int, error) {
+func (m *TuiMock) Read(p []byte) (int, error) {
 	<-m.ch // simulate no keyboard input, just lock
 	return len(p), nil
 }
-func (m *userMock) Write(p []byte) (int, error) {
+func (m *TuiMock) Write(p []byte) (int, error) {
 	// DEBUG
 	//fmt.Printf("%s\n", string(p))
 
 	return len(p), nil // simulate output to a display
 }
-func (m *userMock) Close() error {
+func (m *TuiMock) Close() error {
 	if m.ch != nil {
 		close(m.ch)
 		m.ch = nil
 	}
 	return nil
 }
-func (m *userMock) SetSize(int, int) {}
-func (m *userMock) Repaint()         {}
-func (m *userMock) Error(err error)  { fmt.Println(err) }
-func (m *userMock) Print(v any)      { fmt.Println(v) }
+func (m *TuiMock) UpdateSize()     {}
+func (m *TuiMock) Paint()          {}
+func (m *TuiMock) Error(err error) { fmt.Println(err) }
+func (m *TuiMock) Print(v any)     { fmt.Println(v) }
 
 //----------
 //----------
 //----------
 
-func newTestEmu(cons ConsoleConn, opts Opts) *Emu {
+func newTestEmu(tui *TuiMock, opts Opts, w, h int) *Emu {
 	if opts.Mode == ModeOff {
-		opts.Mode = ModeUI
+		opts.Mode = ModeGrid
 	}
-	emu := NewEmu(cons, opts)
+	emu := NewEmu(tui, tui, opts)
+	emu.scr.testing = true
+	emu.SetSize(P{w, h})
 
 	//go func() {
 	// read all cmds sent to exec
@@ -920,6 +927,18 @@ func sendWithBarrier2(t *testing.T, te *Emu, seq string, ping, pong string) {
 
 func cup(row0, col0 int) string { // 0-based → VT 1-based
 	return fmt.Sprintf("\x1b[%d;%dH", row0+1, col0+1)
+}
+
+//----------
+
+func receive(t *testing.T, te *Emu, size int) string {
+	t.Helper()
+	buf := make([]byte, size)
+	n, err := te.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(buf[:n])
 }
 
 //----------

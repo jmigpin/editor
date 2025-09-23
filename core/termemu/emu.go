@@ -12,11 +12,11 @@ import (
 //godebug:annotatefile
 //godebug:annotatefile:vtparser.go
 //godebug:annotatefile:screen.go
-////godebug:annotatefile:../textareareader.go
-////godebug:annotatefile:../textareaconsole.go
+////godebug:annotatefile:../erowtermemu.go
 
 //----------
 
+// https://vt100.net/docs/vt510-rm/contents.html
 // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 
 //----------
@@ -30,23 +30,24 @@ import (
 // infocmp -1 "$TERM" | grep -E 'smcup|rmcup'
 
 // const TermEnv = "TERM=vt100" //
-const TermEnv = "TERM=xterm-mono" //
-//const TermEnv = "TERM=xterm" //
+// const TermEnv = "TERM=xterm-mono" //
+const TermEnv = "TERM=xterm" //
 
 // const vt100 = "\x1b[?1;0c" //
 // const vt101NoOpt = vt100
-const vt100WithAVO = "\x1b[?1;2c" //
-// const vt102 = "\x1b[?6c"
-// const vt420 = "\x1b[?64c"
+// const vt100WithAVO = "\x1b[?1;2c" //
+// const vt102 = "\x1b[?6c" //
+const vt420 = "\x1b[?64c" //
 // const vt420Sixel = "\x1b[?6;4;4c" // ?
-const termSeqReply = vt100WithAVO
+// const termSeqReply = vt100WithAVO
+// const termSeqReply = vt102 //
+const termSeqReply = vt420 //
 
 //----------
 
-// TODO: pty size (getsize/setsize/...)
-
 type Emu struct {
-	userCons ConsoleConn // user side (ex: editor textarea)
+	userRw io.ReadWriter
+	tui    Tui
 
 	execRwc   io.ReadWriteCloser
 	execPipes struct {
@@ -63,24 +64,17 @@ type Emu struct {
 	opts Opts
 }
 
-// emu itself is a read/write to be passed to the executable, as well as read/writing from the user (ex: textarea)
-func NewEmu(userCons ConsoleConn, opts Opts) *Emu {
-	if opts.W <= 0 {
-		opts.W = 80
-	}
-	if opts.H <= 0 {
-		opts.H = 24
-	}
+// emu itself is a read/write to be passed to the executable, wrapping the UI that is a rwc as well
+func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
+	emu := &Emu{userRw: userRw, tui: tui, opts: opts}
 
-	emu := &Emu{userCons: userCons, opts: opts}
-
-	emu.scr = NewScreen(opts.W, opts.H)
-	emu.userCons.SetSize(opts.W, opts.H)
+	emu.scr = NewScreen()
+	emu.scr.onSizeChange = emu.tui.UpdateSize
 
 	emu.setupExecSideRWC()
 
 	emu.parser = NewVTParser(emu.execRwc, emu.applyEmit)
-	emu.parser.ansiMode = emu.scr.pmodes.AnsiNotVT52()
+	emu.parser.ansiMode = emu.scr.privModes.AnsiNotVT52()
 
 	emu.parserDone.Add(1)
 	go func() {
@@ -92,6 +86,28 @@ func NewEmu(userCons ConsoleConn, opts Opts) *Emu {
 
 	return emu
 }
+
+//----------
+
+func (emu *Emu) ClampSize(p P) P {
+	emu.mu.Lock()
+	defer emu.mu.Unlock()
+	return emu.scr.clampSize(p)
+}
+
+func (emu *Emu) SetSize(p P) {
+	emu.mu.Lock()
+	defer emu.mu.Unlock()
+	emu.scr.setSize(p, false)
+}
+
+func (emu *Emu) GetSize() P {
+	emu.mu.Lock()
+	defer emu.mu.Unlock()
+	return emu.scr.size()
+}
+
+//----------
 
 func (emu *Emu) setupExecSideRWC() {
 	readPr, readPw := io.Pipe()
@@ -118,7 +134,7 @@ func (emu *Emu) setupExecSideRWC() {
 
 	if emu.opts.Mode == ModeRaw {
 		rd := &execRwc.Reader
-		*rd = io.TeeReader(*rd, emu.userCons)
+		*rd = io.TeeReader(*rd, emu.userRw)
 	}
 	if emu.opts.Debug {
 		rd := &execRwc.Reader
@@ -133,14 +149,14 @@ func (emu *Emu) setupExecSideRWC() {
 	go func() {
 		if emu.opts.Debug {
 			rd := iout.FnReader(func(p []byte) (int, error) {
-				n, err := emu.userCons.Read(p)
+				n, err := emu.userRw.Read(p)
 				s := fmt.Sprintf("rcv from user: %q\n", string(p[:n]))
 				emu.sendForDebug(s)
 				return n, err
 			})
 			_, _ = io.Copy(emu.execRwc, rd)
 		} else {
-			_, _ = io.Copy(emu.execRwc, emu.userCons)
+			_, _ = io.Copy(emu.execRwc, emu.userRw)
 		}
 	}()
 }
@@ -155,10 +171,7 @@ func (emu *Emu) Write(p []byte) (int, error) {
 }
 
 func (emu *Emu) Close() error {
-	defer func() {
-		emu.parserDone.Wait() // on exec close, parse should stop
-		emu.userCons.Close()
-	}()
+	defer emu.parserDone.Wait() // on exec close, parse should stop
 	return emu.execRwc.Close()
 }
 
@@ -173,11 +186,11 @@ func (emu *Emu) sendToExec(s string) {
 	_, _ = emu.execRwc.Write([]byte(s))
 }
 func (emu *Emu) sendToUser(s string) {
-	_, _ = emu.userCons.Write([]byte(s))
+	_, _ = emu.userRw.Write([]byte(s))
 }
 func (emu *Emu) sendForDebug(s string) {
 	//fmt.Print(s)
-	emu.userCons.Print("emu.dbg: " + s)
+	emu.tui.Print("emu.dbg: " + s)
 }
 
 //----------
@@ -194,10 +207,16 @@ func (emu *Emu) Snapshot() *Screen {
 	return emu.scr.Clone()
 }
 
-func (emu *Emu) ScrMode() *PrivModes {
+//func (emu *Emu) Snapshot2(fn func(*Screen)) {
+//	emu.mu.Lock()
+//	defer emu.mu.Unlock()
+//	fn(emu.scr)
+//}
+
+func (emu *Emu) ScrPrivModes() *PrivModes {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
-	return emu.scr.pmodes.clone()
+	return emu.scr.privModes.clone()
 }
 
 //----------
@@ -259,7 +278,7 @@ func (emu *Emu) applyEmit(op *TermOp) {
 
 	case "unknownEsc":
 		err := fmt.Errorf("emu.applyemit: vtparser: %q", op.s)
-		emu.userCons.Error(err)
+		emu.tui.Error(err)
 
 	default:
 		err := fmt.Errorf("emu.applyemit: %q", op.kind)
@@ -267,8 +286,10 @@ func (emu *Emu) applyEmit(op *TermOp) {
 		panic(err)
 	}
 
-	if emu.opts.Mode == ModeUI {
-		emu.userCons.Repaint()
+	if emu.opts.Mode == ModeGrid {
+		if !emu.scr.privModes.SynchronizedOutput() {
+			emu.tui.Paint()
+		}
 	}
 }
 
@@ -299,6 +320,8 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	case 'I': // CHT: cursor horizontal tabulation
 		emu.scr.csiCht_cursorHorizontalTabulation(op.ADef(1))
 	case 'J': // ed: Erase in Display
+		// TODO: somehow, wait for new content for some time before showing a clear screen - avoids flicker
+
 		emu.scr.csiEd_eraseInDisplay(op.A())
 	case 'K': // EL: Erase in Line
 		emu.scr.csiEl_eraseInLine(op.A())
@@ -349,18 +372,37 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			row1, col1 := emu.scr.csiCpr_cursorPositionReport()
 			s := fmt.Sprintf("\x1b[%d;%dR", row1, col1)
 			emu.sendToExec(s)
-		case 9: // CUSTOM: debug
+		case 9: // CUSTOM: debug // TODO: use something else?
 			emu.scr.PrintWithCursor()
 			time.Sleep(100 * time.Second)
 		default:
 			emu.csiOpTodo(op)
 		}
 	case 'p':
+		if op.footer == '$' && (op.isPriv('?') || op.isPriv(0)) {
+			// DECRQM: request mode
+			// DECRPM: report Mode
+			idA := op.idA()
+			on := emu.scr.privModes.isOn(idA)
+			onS := "2"
+			if on {
+				onS = "1"
+			}
+			s := fmt.Sprintf("%s%s;%s$y", SeqEscCsi, idA, onS)
+			emu.sendToExec(s)
+
+			//// DEBUG
+			//fmt.Println("csi report mode", op)
+
+			break
+		}
+
 		if op.isPriv('!') {
 			emu.scr.escRis_reset(false)
-		} else {
-			emu.csiOpTodo(op)
+			break
 		}
+
+		emu.csiOpTodo(op)
 	case 'q': // DECLL: Load LEDs
 		switch op.A() {
 		//case 0: // 	clear all leds
@@ -387,8 +429,22 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			return
 		}
 		// SCP: Save Cursor Position
-		if op.isPriv(0) || op.isPriv('?') {
+		//if op.isPriv(0) || op.isPriv('?') {
+		if op.isPriv(0) && !emu.scr.privModes.leftRightMargin() {
 			emu.scr.csiScp_saveCursorPos()
+		}
+	case 't':
+		if op.isPriv(0) {
+			switch op.A() {
+			//case 14, 16: // ask for pixels?
+			//case 18: // ask for cols/rows?
+			case 22: // xterm: save window/icon title
+			case 23: // xterm: restore window/icon title
+			default:
+				emu.csiOpTodo(op)
+			}
+		} else {
+			emu.csiOpTodo(op)
 		}
 	case 'u':
 		switch op.priv {
@@ -401,19 +457,13 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		default:
 			emu.csiOpTodo(op)
 		}
-
-	case 't':
+	case 'x': // Request Terminal Parameters (DECREQTPARM).
 		if op.isPriv(0) {
-			switch op.A() {
-			case 22: // xterm: save window/icon title
-			case 23: // xterm: restore window/icon title
-			default:
-				emu.csiOpTodo(op)
-			}
+			s := fmt.Sprintf("\x1b[%dx", op.A()+2)
+			emu.sendToExec(s)
 		} else {
 			emu.csiOpTodo(op)
 		}
-
 	default:
 		emu.csiOpTodo(op)
 	}
@@ -423,35 +473,27 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 
 func (emu *Emu) csiOpTodo(op *TermCsiOp) {
 	err := fmt.Errorf("emu.csi.final: todo: %c, %#v", op.final, op)
-	emu.userCons.Error(err)
+	emu.tui.Error(err)
 }
 
 func (emu *Emu) csiSetMode(op *TermCsiOp) {
 	//// DEBUG
 	//emu.csiOpTodo(op)
 
-	// ex: "20", "?3", ...
-	idx := ""
-	if !op.isPriv(0) {
-		idx += string(op.priv) // "?", ...
-	}
-	idx += fmt.Sprintf("%d", op.A())
-
-	s := emu.scr
+	idA := op.idA()
 	on := op.final == 'h'
-	s.pmodes.set(idx, on)
+	s := emu.scr
+	s.privModes.set(idA, on)
 
-	switch idx {
+	switch idA {
 	case "2": // Keyboard Action Mode (KAM).
 	case "4": // insert mode
 	case "20": // Automatic Newline (LNM)
 
 	case "?2": // ansi
 		emu.parser.ansiMode = on
-	case "?3": // 32 Column Mode (DECCOLM)
-		if resized := s.csiColm_column132Mode(); resized {
-			emu.userCons.SetSize(s.bounds.Dx(), s.bounds.Dy())
-		}
+	case "?3": // 132 Column Mode (DECCOLM)
+		s.updateSize()
 	case "?6": // scroll origin mode
 	case "?69": // left/right margin mode
 		emu.scr.updateRegionX()
@@ -459,13 +501,25 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 	case "?47", "?1047": // alternate screen buffer
 		s.setGrid2(on)
 	case "?1048": // save cursor
-		s.csiScp_saveCursorPos()
-	case "?1049": // save cursor, alternate screen buffer, clear
-		s.csiScp_saveCursorPos()
-		s.setGrid2(on)
 		if on {
-			s.newGrid()
+			s.csiScp_saveCursorPos()
+		} else {
+			s.csiRcp_restoreCursorPos()
 		}
+	case "?1049": // save cursor, alternate screen buffer, clear
+		if on {
+			s.csiScp_saveCursorPos()
+			s.setGrid2(true)
+			//s.clearGrid()
+		} else {
+			s.csiRcp_restoreCursorPos()
+			s.setGrid2(false)
+			// commented: after an app closes, we want to see the previous content
+			//s.clearGrid() // TODO: review
+		}
+	default:
+		//emu.csiOpTodo(op)
+		//emu.tui.Error(fmt.Errorf("emu.csi: todo: %v", idx))
 	}
 }
 
@@ -474,7 +528,6 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 //----------
 
 type Opts struct {
-	W, H  int
 	Mode  Mode
 	Debug bool
 }
@@ -488,12 +541,11 @@ type Event struct {
 
 //----------
 
-// bidirectional UI endpoint (kbd/mouse + draw)
-type ConsoleConn interface {
-	io.ReadWriteCloser
-	SetSize(w, h int)
-	Repaint()
-	Print(any) // not the same as Write() (ex: print to +messages)
+// terminal user interface
+type Tui interface {
+	UpdateSize()
+	Paint()
+	Print(any)
 	Error(error)
 }
 

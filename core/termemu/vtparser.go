@@ -353,13 +353,25 @@ func (p *VTParser) stGraphics(typ string) error {
 func (p *VTParser) parseCSI(bs []byte, final byte) error {
 	op := &TermOp{kind: "csi"}
 	op.csi = &TermCsiOp{}
+
 	op.csi.final = final
 
+	// parse header, if any
 	if len(bs) > 0 {
 		switch u := bs[0]; u {
-		case '?', '>', '<':
+		case '?', '>', '<', '!':
 			op.csi.priv = u
 			bs = bs[1:]
+		}
+	}
+
+	// parse footer, if any
+	if len(bs) > 0 {
+		k := len(bs) - 1
+		switch u := bs[k]; u {
+		case '$':
+			op.csi.footer = u
+			bs = bs[:k]
 		}
 	}
 
@@ -367,7 +379,6 @@ func (p *VTParser) parseCSI(bs []byte, final byte) error {
 	if cancel {
 		return nil
 	}
-
 	op.csi.params = ps
 
 	p.emit(op)
@@ -483,9 +494,18 @@ type TermOp struct {
 type TermCsiOp struct {
 	priv   byte // 0=none,'?', '>', ...
 	params []int
+	footer byte
 	final  byte
 }
 
+func (op *TermCsiOp) idA() string {
+	id := ""
+	if !op.isPriv(0) {
+		id += string(op.priv) // "?", ...
+	}
+	id += fmt.Sprintf("%d", op.A())
+	return id // ex:  "?3", "10", ...
+}
 func (op *TermCsiOp) isPriv(b byte) bool {
 	return op.priv == b
 }
@@ -515,16 +535,16 @@ func (op *TermCsiOp) BDef(def int) int { return op.paramDef(1, def) }
 const (
 	codeNUL = 0x00
 	codeESC = 0x1b
+	codeDEL = 0x7f
 	codeCSI = 0x9b // control sequence introducer
 
+	codeBEL = 0x07
 	codeBS  = 0x08 // backspace, \b, 8
 	codeTAB = 0x09 // tab, \t, 9
 	codeLF  = 0x0a // linefeed/newline, \n, 10
 	codeVT  = 0x0b // vertical tab, 11
 	codeFF  = 0x0c // formfeed, 12
 	codeCR  = 0x0d // carriage return, \r, 13
-	codeDEL = 0x7f
-	codeBEL = 0x07
 
 	codeXON  = 0x11
 	codeXOFF = 0x13

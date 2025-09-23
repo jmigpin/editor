@@ -319,7 +319,15 @@ func (d *Drawer) SetFirstLineOffsetX(x int) {
 
 //----------
 
-func (d *Drawer) Bounds() image.Rectangle { return d.bounds }
+func (d *Drawer) Bounds() image.Rectangle {
+	return d.bounds
+}
+func (d *Drawer) InnerBounds() image.Rectangle {
+	b := d.bounds // copy
+	b.Min.X += d.Opt.RuneReader.StartOffsetX
+	b.Max.X = max(b.Min.X, b.Max.X) // keep rect well formed
+	return b
+}
 func (d *Drawer) SetBounds(r image.Rectangle) {
 	//d.ContentChanged() // commented for performance
 	// performance (doesn't redo d.opt.wordH.updatedWord)

@@ -224,6 +224,12 @@ func (te *TextEditX) EnableSyntaxHighlight(v bool) {
 		d.Opt.SyntaxHighlight.On = v
 	}
 }
+func (te *TextEditX) SyntaxHighlight() bool {
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		return d.Opt.SyntaxHighlight.On
+	}
+	return false
+}
 
 //----------
 

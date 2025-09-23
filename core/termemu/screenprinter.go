@@ -7,12 +7,14 @@ import (
 )
 
 type ScreenPrinter struct {
-	Border     bool
-	Cursor     bool
-	CursorRune rune
-	ColorFn    func(offset int, fg, bg color.Color, inverse bool)
+	Border  bool
+	ColorFn func(offset int, fg, bg color.Color, inverse bool)
 
-	buf bytes.Buffer
+	CursorRune rune // mostly for testing where there are no colors, so a rune is printed for guidance
+
+	// double buffer to avoid writing over the currently displayed bytes
+	bufK int
+	bufs [2]bytes.Buffer
 }
 
 func NewScreenPrinter() *ScreenPrinter {
@@ -22,16 +24,20 @@ func NewScreenPrinter() *ScreenPrinter {
 }
 
 func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
-	buf := &sp.buf
+	// choose buffer
+	sp.bufK = (sp.bufK + 1) % len(sp.bufs)
+	buf := sp.bufs[sp.bufK]
+
 	buf.Reset()
 
 	//----------
 
-	// TODO: needs clone - or just on the user side
-	sb := *scr.ScrollBack
-	buf.Write(sb)
-	if len(sb) > 0 && sb[len(sb)-1] != '\n' {
-		buf.WriteString("\n")
+	if scr.ScrollBack != nil {
+		sb := *scr.ScrollBack
+		buf.Write(sb)
+		if len(sb) > 0 && sb[len(sb)-1] != '\n' {
+			buf.WriteString("\n")
+		}
 	}
 
 	//----------
@@ -42,22 +48,27 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		}
 	}
 
+	isCursor := func(x, y int) bool {
+		return scr.IsCursor(x, y) && scr.privModes.showCursor()
+	}
+
 	width := len((*scr.Grid)[0])
 	border("┌")
 	border(strings.Repeat("─", width))
 	border("┐\n")
 
+	maxOffset := 0
 	for y, line := range *scr.Grid {
 
-		// backtrack runes from end to find first non empty
-		max2 := len(line)
+		// when there is no border, backtrack runes from end to find first non empty - needs to be done here to have correct color positions
+		max2 := len(line) // exclusive
 		if !sp.Border {
 			for ; max2 > 0; max2-- {
 				x := max2 - 1
 				c := line[x]
 				empty := (c.R == 0 || c.R == ' ') &&
 					c.A.Bg == nil && !c.A.Inverse &&
-					!scr.IsCursor(x, y)
+					!isCursor(x, y)
 				if !empty {
 					break
 				}
@@ -66,30 +77,30 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 		border("│")
 		for x, cell := range line {
+			offset := buf.Len()
+			maxOffset = offset
 
 			if !sp.Border && x >= max2 {
 				break
 			}
-
-			offset := buf.Len()
-
-			sp.ColorFn(
-				offset,
-				cell.A.Fg.Color(),
-				cell.A.Bg.Color(),
-				cell.A.Inverse,
-			)
 
 			ru := cell.R
 			if ru == 0 {
 				ru = ' '
 			}
 
-			if sp.Cursor && scr.IsCursor(x, y) {
+			if isCursor(x, y) {
 				sp.ColorFn(offset, nil, nil, true)
 				if sp.CursorRune != 0 {
 					ru = sp.CursorRune
 				}
+			} else {
+				sp.ColorFn(
+					offset,
+					cell.A.Fg.Color(),
+					cell.A.Bg.Color(),
+					cell.A.Inverse,
+				)
 			}
 
 			buf.WriteRune(ru)
@@ -101,6 +112,11 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 	border("└")
 	border(strings.Repeat("─", width))
 	border("┘")
+
+	if !sp.Border {
+		b2 := buf.Bytes()[:maxOffset]
+		return b2
+	}
 
 	return buf.Bytes()
 }
