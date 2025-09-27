@@ -22,7 +22,7 @@ func RuneCodes(args *core.InternalCmdArgs) error {
 	for i, ru := range string(b) {
 		s += fmt.Sprintf("\t%v: %c, %v\n", i, ru, int(ru))
 	}
-	erow.Ed.Messagef(s)
+	erow.Ed.Message(s)
 
 	return nil
 }

@@ -45,7 +45,7 @@ func TestGWatcher1(t *testing.T) {
 
 	s := w.root.n.SprintFlatTree()
 	if s != "{/:}" {
-		t.Fatalf(s)
+		t.Fatal(s)
 	}
 }
 
@@ -89,7 +89,7 @@ func TestGWatcher2(t *testing.T) {
 
 	s := w.root.n.SprintFlatTree()
 	if s != "{/:}" {
-		t.Fatalf(s)
+		t.Fatal(s)
 	}
 }
 
@@ -128,7 +128,7 @@ func TestGWatcher3(t *testing.T) {
 
 	s := w.root.n.SprintFlatTree()
 	if s != "{/:}" {
-		t.Fatalf(s)
+		t.Fatal(s)
 	}
 }
 
@@ -180,7 +180,7 @@ func TestGWatcher4(t *testing.T) {
 
 	s := w.root.n.SprintFlatTree()
 	if s != "{/:}" {
-		t.Fatalf(s)
+		t.Fatal(s)
 	}
 }
 
@@ -222,7 +222,7 @@ func TestGWatcher5(t *testing.T) {
 
 	s := w.root.n.SprintFlatTree()
 	if s != "{/:}" {
-		t.Fatalf(s)
+		t.Fatal(s)
 	}
 }
 
@@ -247,6 +247,6 @@ func TestGWatcher6(t *testing.T) {
 
 	s := w.root.n.SprintFlatTree()
 	if s != "{/:}" {
-		t.Fatalf(s)
+		t.Fatal(s)
 	}
 }

@@ -26,7 +26,7 @@ func CopyFilePosition(args *core.InternalCmdArgs) error {
 	}
 
 	s := fmt.Sprintf("copyfileposition:\n\t%v:%v:%v", erow.Info.Name(), line, col)
-	erow.Ed.Messagef(s)
+	erow.Ed.Message(s)
 
 	return nil
 }

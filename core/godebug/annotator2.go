@@ -528,7 +528,7 @@ func (ann *Annotator) printNode(n ast.Node) {
 //----------
 
 func (ann *Annotator) debug(item any) {
-	goutil.LogSkipf(1, ann.debug2(item))
+	goutil.LogSkip(1, ann.debug2(item))
 }
 func (ann *Annotator) debug2(item any) string {
 	s := ""

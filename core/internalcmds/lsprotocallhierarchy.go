@@ -51,7 +51,7 @@ func lsprotoCallHierarchyCalls(args *core.InternalCmdArgs, typ lsproto.CallHiera
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(rw, str)
+		fmt.Fprint(rw, str)
 		return nil
 	})
 

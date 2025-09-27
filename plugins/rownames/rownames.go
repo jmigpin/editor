@@ -26,5 +26,5 @@ func rowNames(ed *core.Editor) {
 	}
 	sort.Strings(u)
 	msg := "rownames:\n\t" + strings.Join(u, "\n\t")
-	ed.Messagef(msg)
+	ed.Message(msg)
 }
