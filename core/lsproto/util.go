@@ -369,3 +369,15 @@ func sortTextEdits(edits []*TextEdit) {
 }
 
 //----------
+
+//var noReplyMethodPrefix = "noreply:"
+
+//func noreplyMethod(method string) string {
+//	return noReplyMethodPrefix + method
+//}
+//func isNoreplyMethod(method string) (string, bool) {
+//	if strings.HasPrefix(method, noreplyMethod) {
+//		return method[len(noreplyMethod):], true
+//	}
+//	return method, false
+//}

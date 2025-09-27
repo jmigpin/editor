@@ -11,27 +11,30 @@ import (
 )
 
 type LangInstance struct {
-	lang      *LangManager
-	cli       *Client
-	sw        *ServerWrap // might be nil: "tcpclient" option
-	cancelCtx context.CancelFunc
+	lang *LangManager
+	ctx  context.Context
+	cli  *Client
+	sw   *ServerWrap // might be nil: "tcpclient" option
 }
 
 func NewLangInstance(ctx context.Context, lang *LangManager) (*LangInstance, error) {
 	li := &LangInstance{lang: lang}
 
-	ctx2, cancel := context.WithCancel(ctx)
-	li.cancelCtx = cancel
+	li.ctx = withLangInstanceNamedCancel(ctx)
+	earlyErrClear := func() {
+		mustCancelLangInstance(li.ctx)
+	}
 
 	// start new client/server
-	if err := li.start(ctx2); err != nil {
-		li.cancelCtx() // clear resources
+	if err := li.start(li.ctx); err != nil {
+		earlyErrClear()
+		_ = li.Wait() // wait for server/client
 		return nil, err
 	}
 
 	// initialize client
-	if err := li.cli.Initialize(ctx2); err != nil {
-		li.cancelCtx()
+	if err := li.cli.Initialize(li.ctx); err != nil {
+		earlyErrClear()
 		_ = li.Wait() // wait for server/client
 		return nil, err
 	}
@@ -58,15 +61,15 @@ func (li *LangInstance) start(ctx context.Context) error {
 
 func (li *LangInstance) startClientServerTCP(ctx context.Context) error {
 	// server wrap
-	ctx2, sw, addr, err := startServerWrapTCP(ctx, li.lang.Reg.Cmd, li.srvOutW())
+	sw, addr, err := startServerWrapTCP(ctx, li.lang.Reg.Cmd, li.srvOutW())
 	if err != nil {
 		return err
 	}
 	li.sw = sw
+
 	// client
-	if err := li.startClientTCP(ctx2, addr); err != nil {
-		li.cancelCtx()
-		_ = sw.Wait()
+	if err := li.startClientTCP(ctx, addr); err != nil {
+		// NOTE: not waiting for server in case of error, handled upstream
 		return err
 	}
 	return nil
@@ -74,29 +77,15 @@ func (li *LangInstance) startClientServerTCP(ctx context.Context) error {
 
 func (li *LangInstance) startClientTCP(ctx context.Context, addr string) error {
 	// client connect with retries
-	var cli *Client
 	fn := func() error {
 		cli0, err := NewClientTCP(ctx, addr, li)
 		if err != nil {
 			return err
 		}
-		cli = cli0
+		li.cli = cli0
 		return nil
 	}
-	lateFn := func(err error) {
-		if err != nil {
-			// no connection close, it was handled already on late error
-			err = fmt.Errorf("call late: %w", err)
-			li.lang.PrintWrapError(err)
-		}
-	}
-	retryPause := 300 * time.Millisecond
-	err := ctxutil.Retry(ctx, retryPause, "clienttcp", fn, lateFn)
-	if err != nil {
-		return err
-	}
-	li.cli = cli
-	return nil
+	return ctxutil.RetryIncrease(ctx, 100*time.Millisecond, fn)
 }
 
 //----------
@@ -108,8 +97,13 @@ func (li *LangInstance) startClientServerStdio(ctx context.Context) error {
 		return err
 	}
 	li.sw = sw
+
 	// client
-	cli := NewClientIO(ctx, rwc, li)
+	cli, err := NewClientIO(ctx, rwc, li)
+	if err != nil {
+		// NOTE: not waiting for server
+		return err
+	}
 	li.cli = cli
 	return nil
 }
@@ -137,13 +131,28 @@ func (li *LangInstance) srvOutW() io.Writer {
 //----------
 
 func (li *LangInstance) Wait() error {
-	defer li.cancelCtx()
-	me := iout.MultiError{}
+	// clear resources
+	defer mustCancelLangInstance(li.ctx)
+
+	err := (error)(nil)
 	if li.sw != nil { // might be nil: "tcpclient" option (or not started)
-		me.Add(li.sw.Wait())
+		err = iout.MultiErrors(err, li.sw.Wait())
 	}
 	if li.cli != nil { // might be nil: not started in case of sw start error
-		me.Add(li.cli.Wait())
+		err = iout.MultiErrors(err, li.cli.Wait())
 	}
-	return me.Result()
+	return err
+}
+
+//----------
+//----------
+//----------
+
+var liNamedCancelStr = "langInstance"
+
+func withLangInstanceNamedCancel(ctx context.Context) context.Context {
+	return ctxutil.WithNamedCancel(ctx, liNamedCancelStr)
+}
+func mustCancelLangInstance(ctx context.Context) {
+	ctxutil.MustCancelNamed(ctx, liNamedCancelStr)
 }

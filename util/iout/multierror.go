@@ -30,7 +30,12 @@ func (me *MultiError) Result() error {
 func (me *MultiError) Add(errs ...error) {
 	w := make([]error, 0, len(errs)) // usually small
 	for _, e := range errs {
-		if e != nil {
+		if e == nil {
+			continue
+		}
+		if me2, ok := e.(*MultiError); ok {
+			w = append(w, me2.errors...) // merge
+		} else {
 			w = append(w, e)
 		}
 	}

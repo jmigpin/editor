@@ -6,20 +6,20 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/rpc"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/iout/iorw"
+
+	"golang.org/x/exp/jsonrpc2"
 )
 
 type Client struct {
-	rcli         *rpc.Client
-	li           *LangInstance
-	readLoopDone chan error
+	conn *jsonrpc2.Connection
+
+	li *LangInstance
 
 	lock struct {
 		sync.Mutex
@@ -44,31 +44,23 @@ func NewClientTCP(ctx context.Context, addr string, li *LangInstance) (*Client, 
 	if err != nil {
 		return nil, err
 	}
-	cli := NewClientIO(ctx, conn, li)
-	return cli, nil
+	return NewClientIO(ctx, conn, li)
 }
 
 //----------
 
-func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) *Client {
+func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) (*Client, error) {
 	cli := &Client{li: li}
 	cli.lock.fversions = map[string]int{}
 
-	cc := NewJsonCodec(rwc)
-	cc.OnNotificationMessage = cli.onNotificationMessage
-	cc.OnUnexpectedServerReply = cli.onUnexpectedServerReply
-
-	cli.rcli = rpc.NewClientWithCodec(cc)
-
-	// wait for the codec readloop
-	cli.readLoopDone = make(chan error, 1)
-	go func() {
-		err := cc.ReadLoop()
-		if err != nil {
-			cli.li.cancelCtx()
-		}
-		cli.readLoopDone <- err
-	}()
+	rwcd := &RwcDialer{rwc: rwc}
+	opts := jsonrpc2.ConnectionOptions{}
+	conn, err := jsonrpc2.Dial(ctx, rwcd, opts)
+	if err != nil {
+		rwc.Close()
+		return nil, err
+	}
+	cli.conn = conn
 
 	// close when ctx is done
 	go func() {
@@ -77,6 +69,10 @@ func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) 
 			if err := cli.sendClose(); err != nil {
 				// Commented: best effort, ignore errors
 				//cli.li.lang.PrintWrapError(err)
+			}
+			if err := conn.Close(); err != nil {
+				// Commented: best effort, ignore errors
+				// closes rwc
 			}
 			if err := rwc.Close(); err != nil {
 				// Commented: best effort, ignore errors
@@ -90,13 +86,13 @@ func NewClientIO(ctx context.Context, rwc io.ReadWriteCloser, li *LangInstance) 
 		}
 	}()
 
-	return cli
+	return cli, nil
 }
 
 //----------
 
 func (cli *Client) Wait() error {
-	return <-cli.readLoopDone
+	return cli.conn.Wait()
 }
 
 func (cli *Client) sendClose() error {
@@ -112,80 +108,57 @@ func (cli *Client) sendClose() error {
 //----------
 
 func (cli *Client) Call(ctx context.Context, method string, args, reply any) error {
-	lspResp := &Response{}
-	fn := func() error {
-		return cli.rcli.Call(method, args, lspResp)
-	}
-	lateFn := func(err error) {
-		if err != nil {
-			err = fmt.Errorf("call late: %w", err)
-			cli.li.lang.PrintWrapError(err)
-		}
-	}
-	err := ctxutil.Call(ctx, method, fn, lateFn)
-	if err != nil {
-		err = fmt.Errorf("call: %w", err)
-		return cli.li.lang.WrapError(err)
-	}
-
-	// not expecting a reply
-	if _, ok := noreplyMethod(method); ok {
-		return nil
-	}
-
-	// soft error (rpc data with error content)
-	if lspResp.Error != nil {
-		return cli.li.lang.WrapError(lspResp.Error)
-	}
-
-	// decode result
-	return decodeJsonRaw(lspResp.Result, reply)
+	ac := cli.conn.Call(ctx, method, args)
+	return ac.Await(ctx, reply)
+}
+func (cli *Client) CallNoReply(ctx context.Context, method string, args, reply any) error {
+	return cli.conn.Notify(ctx, method, args)
 }
 
 //----------
 
-func (cli *Client) onNotificationMessage(msg *NotificationMessage) {
-	// Msgs like:
-	// - a notification was sent to the srv, not expecting a reply, but it receives one because it was an error (has id)
-	// {"error":{"code":-32601,"message":"method not found"},"id":2,"jsonrpc":"2.0"}
+//func (cli *Client) onNotificationMessage(msg *NotificationMessage) {
+//	// Msgs like:
+//	// - a notification was sent to the srv, not expecting a reply, but it receives one because it was an error (has id)
+//	// {"error":{"code":-32601,"message":"method not found"},"id":2,"jsonrpc":"2.0"}
 
-	//logJson("notification <--: ", msg)
-	//spew.Dump(msg)
+//	//logJson("notification <--: ", msg)
+//	//spew.Dump(msg)
 
-	switch msg.Method {
-	case "window/logMessage":
-		//spew.Dump(msg.Params)
+//	switch msg.Method {
+//	case "window/logMessage":
+//		//spew.Dump(msg.Params)
 
-		lmp := msg.Params.lmp
-		if lmp != nil {
-			switch lmp.Type {
-			case 1: // error
-				err := fmt.Errorf("%v", lmp.Message)
-				cli.li.lang.PrintWrapError(err)
-			}
-		}
-	}
-}
+//		lmp := msg.Params.lmp
+//		if lmp != nil {
+//			switch lmp.Type {
+//			case 1: // error
+//				err := fmt.Errorf("%v", lmp.Message)
+//				cli.li.lang.PrintWrapError(err)
+//			}
+//		}
+//	}
+//}
 
-func (cli *Client) onUnexpectedServerReply(resp *Response) {
-	if resp.Error != nil {
-		// json-rpc error codes: https://www.jsonrpc.org/specification
-		report := false
-		switch resp.Error.Code {
-		case -32601: // method not found
-			report = true
-		case -32602: // invalid params
-			report = true
+//func (cli *Client) onUnexpectedServerReply(resp *Response) {
+//	if resp.Error != nil {
+//		// json-rpc error codes: https://www.jsonrpc.org/specification
+//		report := false
+//		switch resp.Error.Code {
+//		case -32601: // method not found
+//			report = true
+//		case -32602: // invalid params
+//			report = true
 
-			//case -32603: // internal error
-			//report = true
-		}
-		if report {
-			err := fmt.Errorf("id=%v, code=%v, msg=%q, data=%v", resp.Id, resp.Error.Code, resp.Error.Message, resp.Error.Data)
-			cli.li.lang.PrintWrapError(err)
-		}
-	}
-}
+//			//case -32603: // internal error
+//			//report = true
+//		}
+//		if report {
+//			err := fmt.Errorf("id=%v, code=%v, msg=%q, data=%v", resp.Id, resp.Error.Code, resp.Error.Message, resp.Error.Data)
+//			cli.li.lang.PrintWrapError(err)
+//		}
+//	}
+//}
 
 //----------
 
@@ -206,7 +179,7 @@ func (cli *Client) Initialize(ctx context.Context) error {
 
 	// send "initialized" (gopls: "no views" error without this)
 	opt2 := json.RawMessage("{}")
-	return cli.Call(ctx, "noreply:initialized", opt2, nil)
+	return cli.CallNoReply(ctx, "initialized", opt2, nil)
 }
 
 func (cli *Client) initializeParams() (json.RawMessage, error) {
@@ -296,13 +269,10 @@ func (cli *Client) ShutdownRequest() error {
 	// * gopls is not sending a reply (NOT OK)
 
 	// best effort, impose timeout
-	ctx := context.Background()
-	ctx2, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
+	ctx2, cancel := context.WithTimeout(cli.li.ctx, 1*time.Second)
 	defer cancel()
-	ctx = ctx2
 
-	err := cli.Call(ctx, "shutdown", nil, nil)
-	return err
+	return cli.Call(ctx2, "shutdown", nil, nil)
 }
 
 func (cli *Client) ExitNotification() error {
@@ -310,7 +280,7 @@ func (cli *Client) ExitNotification() error {
 
 	// no ctx timeout needed, it's not expecting a reply
 	ctx := context.Background()
-	err := cli.Call(ctx, "noreply:exit", nil, nil)
+	err := cli.CallNoReply(ctx, "exit", nil, nil)
 	return err
 }
 
@@ -328,7 +298,7 @@ func (cli *Client) TextDocumentDidOpen(ctx context.Context, filename, text strin
 		return err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
-	return cli.Call(ctx, "noreply:textDocument/didOpen", opt, nil)
+	return cli.CallNoReply(ctx, "textDocument/didOpen", opt, nil)
 }
 
 func (cli *Client) TextDocumentDidClose(ctx context.Context, filename string) error {
@@ -340,7 +310,7 @@ func (cli *Client) TextDocumentDidClose(ctx context.Context, filename string) er
 		return err
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
-	return cli.Call(ctx, "noreply:textDocument/didClose", opt, nil)
+	return cli.CallNoReply(ctx, "textDocument/didClose", opt, nil)
 }
 
 func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text string, version int) error {
@@ -372,7 +342,7 @@ func (cli *Client) TextDocumentDidChange(ctx context.Context, filename, text str
 			Text: text,
 		},
 	}
-	return cli.Call(ctx, "noreply:textDocument/didChange", opt, nil)
+	return cli.CallNoReply(ctx, "textDocument/didChange", opt, nil)
 }
 
 func (cli *Client) TextDocumentDidSave(ctx context.Context, filename string, text []byte) error {
@@ -386,7 +356,7 @@ func (cli *Client) TextDocumentDidSave(ctx context.Context, filename string, tex
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 
-	return cli.Call(ctx, "noreply:textDocument/didSave", opt, nil)
+	return cli.CallNoReply(ctx, "textDocument/didSave", opt, nil)
 }
 
 //----------
@@ -481,7 +451,7 @@ func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename stri
 //	opt.Event = &WorkspaceFoldersChangeEvent{}
 //	opt.Event.Added = added
 //	opt.Event.Removed = removed
-//	err := cli.Call(ctx, "noreply:workspace/didChangeWorkspaceFolders", opt, nil)
+//	err := cli.CallNoReply(ctx, "workspace/didChangeWorkspaceFolders", opt, nil)
 //	return err
 //}
 
@@ -513,7 +483,7 @@ func (cli *Client) TextDocumentDidOpenVersion(ctx context.Context, filename stri
 //	opt := json.RawMessage(`{
 //		"settings":{"workspaceFolders":[{"uri":"` + url + `"}]}
 //	}`)
-//	return cli.Call(ctx, "noreply:workspace/didChangeConfiguration", opt, nil)
+//	return cli.CallNoReply(ctx, "workspace/didChangeConfiguration", opt, nil)
 //}
 
 //----------
@@ -582,4 +552,16 @@ func (cli *Client) TextDocumentReferences(ctx context.Context, filename string, 
 	result := []*Location{}
 	err = cli.Call(ctx, "textDocument/references", opt, &result)
 	return result, err
+}
+
+//----------
+//----------
+//----------
+
+type RwcDialer struct {
+	rwc io.ReadWriteCloser
+}
+
+func (d *RwcDialer) Dial(ctx context.Context) (io.ReadWriteCloser, error) {
+	return d.rwc, nil
 }

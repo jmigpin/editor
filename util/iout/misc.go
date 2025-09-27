@@ -1,6 +1,10 @@
 package iout
 
-import "bytes"
+import (
+	"bytes"
+	"io"
+	"sync"
+)
 
 type FnWriter func([]byte) (int, error)
 
@@ -22,6 +26,32 @@ type FnCloser func() error
 
 func (c FnCloser) Close() error {
 	return c()
+}
+
+//----------
+
+// useful to help instantiate an io.ReadWriteCloser
+type RWC struct {
+	io.Reader
+	io.Writer
+	io.Closer
+}
+
+//----------
+
+// serializes concurrent writes
+type SafeWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func NewSafeWriter(w io.Writer) *SafeWriter {
+	return &SafeWriter{w: w}
+}
+func (s *SafeWriter) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.w.Write(p)
 }
 
 //----------
