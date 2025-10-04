@@ -419,12 +419,13 @@ func (cli *Client) TextDocumentCompletion(ctx context.Context, filename string, 
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 
-	result := CompletionList{}
+	result := completionResponseUnion{}
 	if err := cli.Call(ctx, "textDocument/completion", opt, &result); err != nil {
 		return nil, err
 	}
+
 	//logJson("textdocumentcompletion", result)
-	return &result, nil
+	return result.normalized(), nil
 }
 
 //----------

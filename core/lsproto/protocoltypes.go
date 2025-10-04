@@ -1,7 +1,9 @@
 package lsproto
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 )
 
 // lsp protocol: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/
@@ -39,6 +41,50 @@ type CompletionContext struct {
 	TriggerKind      int    `json:"triggerKind"` // 1=invoked, 2=char, 3=re-trigger
 	TriggerCharacter string `json:"triggerCharacter,omitempty"`
 }
+
+//----------
+
+type completionResponseUnion struct {
+	items []*CompletionItem
+	list  *CompletionList
+	null  bool
+}
+
+func (r *completionResponseUnion) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+
+	if bytes.Equal(data, []byte("null")) {
+		*r = completionResponseUnion{null: true}
+		return nil
+	}
+
+	var items []*CompletionItem
+	if err := json.Unmarshal(data, &items); err == nil {
+		*r = completionResponseUnion{items: items}
+		return nil
+	}
+
+	var list CompletionList
+	if err := json.Unmarshal(data, &list); err == nil {
+		*r = completionResponseUnion{list: &list}
+		return nil
+	}
+
+	return fmt.Errorf("invalid completion result shape")
+}
+
+func (r completionResponseUnion) normalized() *CompletionList {
+	if r.null {
+		return &CompletionList{IsIncomplete: false}
+	}
+	if r.items != nil {
+		return &CompletionList{IsIncomplete: false, Items: r.items}
+	}
+	return r.list
+}
+
+//----------
+
 type CompletionList struct {
 	IsIncomplete bool              `json:"isIncomplete"`
 	Items        []*CompletionItem `json:"items"`
