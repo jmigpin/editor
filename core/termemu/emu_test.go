@@ -122,8 +122,8 @@ func TestDchEch(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[2P") // DCH 2: delete D,E ⇒ row becomes ABCF__
 	s := te.Snapshot()
 	//s.Print()
-	row := s.grid1[0]
-	got := string([]rune{row[0].R, row[1].R, row[2].R, row[3].R, row[4].R, row[5].R})
+	row := s.grid1.lines[0]
+	got := string([]rune{row.cells[0].R, row.cells[1].R, row.cells[2].R, row.cells[3].R, row.cells[4].R, row.cells[5].R})
 	if got != "ABCF\x00\x00" {
 		t.Fatalf("DCH got %q", got)
 	}
@@ -132,8 +132,8 @@ func TestDchEch(t *testing.T) {
 
 	sendWithBarrier(t, te, "\r\x1b[1C\x1b[2X") // to col 2 then ECH 2: blank BC
 	s = te.Snapshot()
-	row = s.grid1[0]
-	got = string([]rune{row[0].R, row[1].R, row[2].R, row[3].R, row[4].R, row[5].R})
+	row = s.grid1.lines[0]
+	got = string([]rune{row.cells[0].R, row.cells[1].R, row.cells[2].R, row.cells[3].R, row.cells[4].R, row.cells[5].R})
 	if got != "A\x00\x00F\x00\x00" {
 		t.Fatalf("ECH got %q", got)
 	}
@@ -160,7 +160,7 @@ func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 	s := te.Snapshot()
 
 	// Row texts after IL: 1, blank, 2, 3, 5
-	if s.grid1[1][0].R != '\x00' || s.grid1[2][0].R != '2' {
+	if s.grid1.lines[1].cells[0].R != '\x00' || s.grid1.lines[2].cells[0].R != '2' {
 		s.Print()
 		t.Fatalf("IL failed around region")
 	}
@@ -169,7 +169,7 @@ func TestInsertDeleteLinesWithinRegion(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[3;1H\x1b[M")
 	s = te.Snapshot()
 	//snap.Print()
-	if s.grid1[2][0].R != '3' {
+	if s.grid1.lines[2].cells[0].R != '3' {
 		t.Fatalf("DL failed within region")
 	}
 }
@@ -199,10 +199,10 @@ func TestDECALN(t *testing.T) {
 	if s.cursor.Y != 0 || s.cursor.X != 0 {
 		t.Fatalf("cursor at (%d,%d), want (0,0)", s.cursor.Y, s.cursor.X)
 	}
-	for y := 0; y < s.bounds.Max.Y; y++ {
-		for x := 0; x < s.bounds.Max.X; x++ {
-			if s.grid1[y][x].R != 'E' {
-				t.Fatalf("cell(%d,%d)=%q, want 'E'", y, x, string(s.grid1[y][x].R))
+	for y := 0; y < s.Grid.size.Y; y++ {
+		for x := 0; x < s.Grid.size.X; x++ {
+			if s.grid1.lines[y].cells[x].R != 'E' {
+				t.Fatalf("cell(%d,%d)=%q, want 'E'", y, x, string(s.grid1.lines[y].cells[x].R))
 			}
 		}
 	}
@@ -224,28 +224,28 @@ func TestINDandRI_RespectScrollRegion(t *testing.T) {
 	// IND at bottom margin scrolls up inside region
 	sendWithBarrier(t, te, cup(3, 0)+"\x1bD")
 	s := te.Snapshot()
-	if got := string(runesOf(s.grid1[1][:4])); got != "BBBB" {
+	if got := string(runesOf(s.grid1.lines[1].cells[:4])); got != "BBBB" {
 		s.PrintWithCursor()
 		t.Fatalf("after IND, row2=%q, want BBBB", printable(got))
 	}
-	if got := string(runesOf(s.grid1[2][:4])); got != "CCCC" {
+	if got := string(runesOf(s.grid1.lines[2].cells[:4])); got != "CCCC" {
 		t.Fatalf("after IND, row3=%q, want CCCC", printable(got))
 	}
-	if anyNonBlank(s.grid1[3][:4]) {
+	if anyNonBlank(s.grid1.lines[3].cells[:4]) {
 		t.Fatalf("after IND, row4 should be blank")
 	}
 
 	// RI at top margin scrolls down inside region
 	sendWithBarrier(t, te, cup(1, 0)+"\x1bM")
 	s = te.Snapshot()
-	if anyNonBlank(s.grid1[1][:4]) {
+	if anyNonBlank(s.grid1.lines[1].cells[:4]) {
 		t.Fatalf("after RI, row2 should be blank")
 	}
-	if got := string(runesOf(s.grid1[2][:4])); got != "BBBB" {
+	if got := string(runesOf(s.grid1.lines[2].cells[:4])); got != "BBBB" {
 		s.PrintWithCursor()
 		t.Fatalf("after RI, row3=%q, want BBBB", printable(got))
 	}
-	if got := string(runesOf(s.grid1[3][:4])); got != "CCCC" {
+	if got := string(runesOf(s.grid1.lines[3].cells[:4])); got != "CCCC" {
 		t.Fatalf("after RI, row4=%q, want CCCC", printable(got))
 	}
 }
@@ -275,17 +275,17 @@ func TestELandED(t *testing.T) {
 	// EL0 at row0,col2 → "AB" + blanks
 	sendWithBarrier(t, te, cup(0, 2)+"\x1b[0K")
 	s := te.Snapshot()
-	if got := string(runesOf(s.grid1[0][:])); got != "AB" {
+	if got := string(runesOf(s.grid1.lines[0].cells[:])); got != "AB" {
 		t.Fatalf("EL0 row0=%q, want 'AB' then blanks", printable(got))
 	}
 
 	// ED0 at row1,col3 → clears rest of screen from here
 	sendWithBarrier(t, te, cup(1, 3)+"\x1b[0J")
 	s = te.Snapshot()
-	if got := string(runesOf(s.grid1[1][:3])); got != "ghi" {
+	if got := string(runesOf(s.grid1.lines[1].cells[:3])); got != "ghi" {
 		t.Fatalf("ED0 prefix row1=%q, want 'ghi'", printable(got))
 	}
-	if anyNonBlank(s.grid1[1][3:]) || anyNonBlank(s.grid1[2][:]) {
+	if anyNonBlank(s.grid1.lines[1].cells[3:]) || anyNonBlank(s.grid1.lines[2].cells[:]) {
 		t.Fatalf("ED0 should blank from cursor to end of screen")
 	}
 
@@ -293,8 +293,8 @@ func TestELandED(t *testing.T) {
 	sendWithBarrier(t, te, cup(0, 0)+"XXXXXX"+cup(1, 0)+"YYYYYY")
 	sendWithBarrier(t, te, "\x1b[2J")
 	s = te.Snapshot()
-	for y := 0; y < s.bounds.Max.Y; y++ {
-		if anyNonBlank(s.grid1[y][:]) {
+	for y := 0; y < s.Grid.size.Y; y++ {
+		if anyNonBlank(s.grid1.lines[y].cells[:]) {
 			t.Fatalf("ED2 should blank entire screen")
 		}
 	}
@@ -305,9 +305,9 @@ func TestCSI0C_Equals1C(t *testing.T) {
 	defer te.Close()
 	sendWithBarrier(t, te, "A\x1b[0CB") // 0C must move 1
 	s := te.Snapshot()
-	if s.grid1[0][0].R != 'A' || s.grid1[0][1].R != 0 || s.grid1[0][2].R != 'B' {
+	if s.grid1.lines[0].cells[0].R != 'A' || s.grid1.lines[0].cells[1].R != 0 || s.grid1.lines[0].cells[2].R != 'B' {
 		t.Fatalf("got [%q %q %q], want ['A' NUL 'B']",
-			s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R)
+			s.grid1.lines[0].cells[0].R, s.grid1.lines[0].cells[1].R, s.grid1.lines[0].cells[2].R)
 	}
 }
 
@@ -316,7 +316,7 @@ func TestBackspaceMovesLeft(t *testing.T) {
 	defer te.Close()
 	sendWithBarrier(t, te, "AB\bC") // C overwrites B
 	s := te.Snapshot()
-	if got := string([]rune{s.grid1[0][0].R, s.grid1[0][1].R}); got != "AC" {
+	if got := string([]rune{s.grid1.lines[0].cells[0].R, s.grid1.lines[0].cells[1].R}); got != "AC" {
 		t.Fatalf("got %q, want AC", got)
 	}
 }
@@ -326,8 +326,8 @@ func TestHT_DefaultStopsEvery8(t *testing.T) {
 	defer te.Close()
 	sendWithBarrier(t, te, "\tX") // start at col0; next stop at col8 → X at 8
 	s := te.Snapshot()
-	if s.cursor.Y != 0 || s.cursor.X != 9 || s.grid1[0][8].R != 'X' {
-		t.Fatalf("tab failed; cur=(%d,%d) cell8=%q", s.cursor.Y, s.cursor.X, string(s.grid1[0][8].R))
+	if s.cursor.Y != 0 || s.cursor.X != 9 || s.grid1.lines[0].cells[8].R != 'X' {
+		t.Fatalf("tab failed; cur=(%d,%d) cell8=%q", s.cursor.Y, s.cursor.X, string(s.grid1.lines[0].cells[8].R))
 	}
 }
 
@@ -336,10 +336,10 @@ func TestCRandLF(t *testing.T) {
 	defer te.Close()
 	sendWithBarrier(t, te, "ABC\rD\nE")
 	s := te.Snapshot()
-	if string([]rune{s.grid1[0][0].R, s.grid1[0][1].R}) != "DB" {
+	if string([]rune{s.grid1.lines[0].cells[0].R, s.grid1.lines[0].cells[1].R}) != "DB" {
 		t.Fatal("CR failed")
 	}
-	if s.grid1[1][0].R != 'E' {
+	if s.grid1.lines[1].cells[0].R != 'E' {
 		t.Fatal("LF failed")
 	}
 }
@@ -351,12 +351,12 @@ func TestED1_ClearsToCursor(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[3;4H\x1b[1J") // ED 1
 	s := te.Snapshot()
 	for y := 0; y < 2; y++ { // rows above
-		if anyNonBlank(s.grid1[y][:]) {
+		if anyNonBlank(s.grid1.lines[y].cells[:]) {
 			t.Fatal("ED1 failed above")
 		}
 	}
 	for x := 0; x <= 3; x++ { // up to cursor inclusive
-		if s.grid1[2][x].R != 0 {
+		if s.grid1.lines[2].cells[x].R != 0 {
 			t.Fatal("ED1 failed at row 3 left side")
 		}
 	}
@@ -369,12 +369,12 @@ func TestEL1_ClearsLeftToCursor(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[1K")              // EL 1
 	s := te.Snapshot()
 	for x := 0; x <= 3; x++ {
-		if s.grid1[0][x].R != 0 {
+		if s.grid1.lines[0].cells[x].R != 0 {
 			t.Fatal("EL1 failed")
 		}
 	}
 	for x := 4; x < 6; x++ {
-		if s.grid1[0][x].R == 0 {
+		if s.grid1.lines[0].cells[x].R == 0 {
 			t.Fatal("EL1 overcleared")
 		}
 	}
@@ -387,10 +387,10 @@ func TestWrapPending_CancelledByCUB(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[1D")    // CUB 1 must cancel wrap
 	sendWithBarrier(t, te, "X")          // writes SAME line, col 3
 	s := te.Snapshot()
-	if s.grid1[0][3].R != '*' || s.grid1[0][2].R != 'X' {
+	if s.grid1.lines[0].cells[3].R != '*' || s.grid1.lines[0].cells[2].R != 'X' {
 		t.Fatalf("wrap-pending not cancelled")
 	}
-	if anyNonBlank(s.grid1[1][:]) {
+	if anyNonBlank(s.grid1.lines[1].cells[:]) {
 		t.Fatalf("unexpected scroll/wrap into next line")
 	}
 }
@@ -422,23 +422,23 @@ func TestLRMM_WrapAndCR(t *testing.T) {
 	// Fill up to right margin; 'F' lands at x=7 and sets wrap-pending.
 	sendWithBarrier(t, te, "ABCDEF")
 	s := te.Snapshot()
-	if s.grid1[0][7].R != 'F' {
+	if s.grid1.lines[0].cells[7].R != 'F' {
 		s.PrintWithCursor()
-		t.Fatalf("want 'F' at right edge x=7, got %q", string(s.grid1[0][7].R))
+		t.Fatalf("want 'F' at right edge x=7, got %q", string(s.grid1.lines[0].cells[7].R))
 	}
 
 	// Next printable triggers the wrap into next line at the left margin (x=2).
 	sendWithBarrier(t, te, "G")
 	s = te.Snapshot()
-	if s.grid1[1][2].R != 'G' {
+	if s.grid1.lines[1].cells[2].R != 'G' {
 		t.Fatalf("wrap failed: want 'G' at row=1,x=2 (left margin)")
 	}
 
 	// CR must move to left margin (not column 0) and overwrite at x=2.
 	sendWithBarrier(t, te, "\rX")
 	s = te.Snapshot()
-	if s.grid1[1][2].R != 'X' {
-		t.Fatalf("CR should move to left margin; got %q elsewhere", string(s.grid1[1][2].R))
+	if s.grid1.lines[1].cells[2].R != 'X' {
+		t.Fatalf("CR should move to left margin; got %q elsewhere", string(s.grid1.lines[1].cells[2].R))
 	}
 }
 
@@ -449,7 +449,7 @@ func TestCAN_SUB_Abort(t *testing.T) {
 	send(t, te, string([]byte{0x18})) // CAN
 	sendWithBarrier(t, te, "A")
 	s := te.Snapshot()
-	if s.grid1[0][0].R != 'A' {
+	if s.grid1.lines[0].cells[0].R != 'A' {
 		t.Fatal("CAN did not abort; parser stuck")
 	}
 }
@@ -517,10 +517,10 @@ func TestIND_PreservesColumn(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[2;3H+\x1b[1D\x1bD+")
 	s := te.Snapshot()
 
-	if s.grid1[1][2].R != '+' {
+	if s.grid1.lines[1].cells[2].R != '+' {
 		t.Fatalf("want '+' at row2,col3")
 	}
-	if s.grid1[2][2].R != '+' {
+	if s.grid1.lines[2].cells[2].R != '+' {
 		t.Fatalf("IND must keep X; want '+' at row3,col3")
 	}
 }
@@ -531,7 +531,7 @@ func TestCSI_I_CHT(t *testing.T) {
 	sendWithBarrier(t, te, "A\x1b[I")  // default 1 tab -> col 8
 	sendWithBarrier(t, te, "B\x1b[2I") // +2 tabs -> col 24 (clamped by W=20)
 	s := te.Snapshot()
-	if s.grid1[0][0].R != 'A' || s.grid1[0][8].R != 'B' {
+	if s.grid1.lines[0].cells[0].R != 'A' || s.grid1.lines[0].cells[8].R != 'B' {
 		t.Fatalf("CHT failed")
 	}
 }
@@ -542,7 +542,7 @@ func TestCSI_ParamsIgnoreC0(t *testing.T) {
 	seq := "\x1b[" + string([]byte{0x09}) + "2" + string([]byte{0x0D}) + ";" + string([]byte{0x08}) + "3H"
 	sendWithBarrier(t, te, seq+"X") // CUP 2;3 with C0 mixed in
 	s := te.Snapshot()
-	if s.cursor.Y != 1 || s.cursor.X != 3 || s.grid1[1][2].R != 'X' {
+	if s.cursor.Y != 1 || s.cursor.X != 3 || s.grid1.lines[1].cells[2].R != 'X' {
 		t.Fatalf("C0 inside CSI not ignored; got (%d,%d)", s.cursor.Y, s.cursor.X)
 	}
 }
@@ -555,7 +555,7 @@ func TestCSI_ParamsIgnore2(t *testing.T) {
 	s := te.Snapshot()
 
 	//s.Print()
-	u := stringOf(s.grid1[0][:17])
+	u := stringOf(s.grid1.lines[0].cells[:17])
 	exp := "A B C D E F G H I"
 	if u != exp {
 		t.Fatalf("expected %q, got %q", exp, u)
@@ -569,7 +569,7 @@ func TestCSI_ParamsIgnore3(t *testing.T) {
 	s := te.Snapshot()
 	//s.Print()
 
-	u := stringOf(s.grid1[0][:17])
+	u := stringOf(s.grid1.lines[0].cells[:17])
 	exp := "A B C D E F G H I"
 	if u != exp {
 		t.Fatalf("expected %q, got %q", exp, u)
@@ -583,7 +583,7 @@ func TestCSI_ParamsIgnore4(t *testing.T) {
 	s := te.Snapshot()
 
 	//s.Print()
-	u := stringOf(s.grid1[2][:17])
+	u := stringOf(s.grid1.lines[2].cells[:17])
 	exp := "A B C D E F G H I"
 	if u != exp {
 		t.Fatalf("expected %q, got %q", exp, u)
@@ -597,14 +597,14 @@ func TestTabs_DefaultsAndHTS_TBC(t *testing.T) {
 	// default every 8: '\tX' → X at col 8 (0-based)
 	sendWithBarrier(t, te, "\tX")
 	s := te.Snapshot()
-	if s.grid1[0][8].R != 'X' {
+	if s.grid1.lines[0].cells[8].R != 'X' {
 		t.Fatalf("default tab stop failed")
 	}
 
 	// Clear all, set one at col 4 → '\tY' lands at x=3
 	sendWithBarrier(t, te, "\x1b[3g\x1b[1;4H\x1bH\x1b[1;1H\tY")
 	s = te.Snapshot()
-	if s.grid1[0][3].R != 'Y' {
+	if s.grid1.lines[0].cells[3].R != 'Y' {
 		t.Fatalf("HTS/TBC failed")
 	}
 }
@@ -616,7 +616,7 @@ func TestCHT_CBT(t *testing.T) {
 	// Go to col 1, forward 2 tabs → x=16; back 1 tab → x=8
 	sendWithBarrier(t, te, "\x1b[1;1H\x1b[2I"+"A\b"+"\x1b[1Z"+"B")
 	s := te.Snapshot()
-	if s.grid1[0][16].R != 'A' || s.grid1[0][8].R != 'B' {
+	if s.grid1.lines[0].cells[16].R != 'A' || s.grid1.lines[0].cells[8].R != 'B' {
 		s.Print()
 		t.Fatalf("CHT/CBT failed")
 	}
@@ -631,7 +631,7 @@ func TestTab_RespectsLRMM(t *testing.T) {
 	if s.cursor.X < 4 || s.cursor.X > 11 {
 		t.Fatalf("tab ignored LRMM")
 	}
-	if s.grid1[0][11].R == 0 { /* ok if it clamped to 11 */
+	if s.grid1.lines[0].cells[11].R == 0 { /* ok if it clamped to 11 */
 	}
 }
 
@@ -658,7 +658,7 @@ func TestVPR_HPR_Relative(t *testing.T) {
 	defer te.Close()
 	sendWithBarrier(t, te, "\x1b[2;2H\x1b[3a\x1b[2eX") // → (row4,col5) write X
 	s := te.Snapshot()
-	if s.grid1[3][4].R != 'X' {
+	if s.grid1.lines[3].cells[4].R != 'X' {
 		t.Fatalf("HPR/VPR failed")
 	}
 }
@@ -669,13 +669,13 @@ func TestDECSpecial_OnOff(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b(0qqq") // G0=DEC Special, GL=G0
 	s := te.Snapshot()
 	//s.Print()
-	if s.grid1[0][0].R != '─' || s.grid1[0][1].R != '─' || s.grid1[0][2].R != '─' {
+	if s.grid1.lines[0].cells[0].R != '─' || s.grid1.lines[0].cells[1].R != '─' || s.grid1.lines[0].cells[2].R != '─' {
 		t.Fatalf("DEC special mapping failed")
 	}
 	sendWithBarrier(t, te, "\x1b(Bq") // back to ASCII
 	s = te.Snapshot()
 	//s.Print()
-	if s.grid1[0][3].R != 'q' {
+	if s.grid1.lines[0].cells[3].R != 'q' {
 		t.Fatalf("ASCII after rmacs failed")
 	}
 }
@@ -686,7 +686,7 @@ func TestDECSpecial_SO_SI_G1(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b)0")                                          // G1 = DEC Special
 	sendWithBarrier(t, te, string([]byte{0x0E})+"q"+string([]byte{0x0F})+"q") // SO q SI q
 	s := te.Snapshot()
-	if s.grid1[0][0].R != '─' || s.grid1[0][1].R != 'q' {
+	if s.grid1.lines[0].cells[0].R != '─' || s.grid1.lines[0].cells[1].R != 'q' {
 		t.Fatalf("SO/SI mapping failed")
 	}
 }
@@ -702,10 +702,10 @@ func Test_RightAndLeftEdges_WithBS_TAB(t *testing.T) {
 	sendWithBarrier(t, te, "\x1b[5;2H\bC")
 
 	s := te.Snapshot()
-	if s.grid1[4][19].R != 'c' {
+	if s.grid1.lines[4].cells[19].R != 'c' {
 		t.Fatalf("want 'c' at (5,20)")
 	}
-	if s.grid1[4][0].R != 'C' {
+	if s.grid1.lines[4].cells[0].R != 'C' {
 		t.Fatalf("want 'C' at (5,1)")
 	}
 }
@@ -722,7 +722,7 @@ func Test_CSI_Params_Ignore_CR_BS_HT(t *testing.T) {
 
 	s := te.Snapshot()
 	//s.Print()
-	if s.cursor.Y != 1 || s.cursor.X != 10 || s.grid1[1][9].R != 'X' {
+	if s.cursor.Y != 1 || s.cursor.X != 10 || s.grid1.lines[1].cells[9].R != 'X' {
 		t.Fatalf("C0 inside CSI not ignored; got cur=(%d,%d)", s.cursor.Y, s.cursor.X)
 	}
 }
@@ -736,9 +736,9 @@ func TestVT52_DCA(t *testing.T) {
 	seq := "\x1bY" + string([]byte{0x20 - 1 + 3, 0x20 - 1 + 5})
 	sendWithBarrierVT52(t, te, seq+"X")
 	s := te.Snapshot()
-	if s.cursor.Y != 2 || s.cursor.X != 5 || s.grid1[2][4].R != 'X' {
+	if s.cursor.Y != 2 || s.cursor.X != 5 || s.grid1.lines[2].cells[4].R != 'X' {
 		s.PrintWithCursor()
-		t.Fatalf("VT52 DCA failed: cur=(%d,%d) r='%c'", s.cursor.Y, s.cursor.X, s.grid1[2][4].R)
+		t.Fatalf("VT52 DCA failed: cur=(%d,%d) r='%c'", s.cursor.Y, s.cursor.X, s.grid1.lines[2].cells[4].R)
 	}
 	// Back to ANSI
 	sendWithBarrier(t, te, "\x1b<")
@@ -751,10 +751,10 @@ func TestVT52_F_G(t *testing.T) {
 	sendWithBarrierVT52(t, te, "\x1bFqqx") // ESC F: graphics on
 	sendWithBarrierVT52(t, te, "\x1bGq")   // ESC G: graphics off
 	s := te.Snapshot()
-	if string([]rune{s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R}) != "──│" {
+	if string([]rune{s.grid1.lines[0].cells[0].R, s.grid1.lines[0].cells[1].R, s.grid1.lines[0].cells[2].R}) != "──│" {
 		t.Fatal("graphics map failed")
 	}
-	if s.grid1[0][3].R != 'q' {
+	if s.grid1.lines[0].cells[3].R != 'q' {
 		t.Fatal("exit graphics failed")
 	}
 }
@@ -769,7 +769,7 @@ func TestIRM_InsertMode(t *testing.T) {
 	// IRM on; CUP 1;3; print 'X' -> "ABXCDE" (F drops)
 	sendWithBarrier(t, te, "\x1b[4h\x1b[1;3HX")
 	s := te.Snapshot()
-	got := string([]rune{s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R, s.grid1[0][3].R, s.grid1[0][4].R, s.grid1[0][5].R})
+	got := string([]rune{s.grid1.lines[0].cells[0].R, s.grid1.lines[0].cells[1].R, s.grid1.lines[0].cells[2].R, s.grid1.lines[0].cells[3].R, s.grid1.lines[0].cells[4].R, s.grid1.lines[0].cells[5].R})
 	if got != "ABXCDE" {
 		t.Fatalf("IRM insert failed: got %q, want %q", got, "ABXCDE")
 	}
@@ -777,7 +777,7 @@ func TestIRM_InsertMode(t *testing.T) {
 	// IRM off; overwrite at next col with 'Y' -> "ABXYDE"
 	sendWithBarrier(t, te, "\x1b[4lY")
 	s = te.Snapshot()
-	got = string([]rune{s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R, s.grid1[0][3].R, s.grid1[0][4].R, s.grid1[0][5].R})
+	got = string([]rune{s.grid1.lines[0].cells[0].R, s.grid1.lines[0].cells[1].R, s.grid1.lines[0].cells[2].R, s.grid1.lines[0].cells[3].R, s.grid1.lines[0].cells[4].R, s.grid1.lines[0].cells[5].R})
 	if got != "ABXYDE" {
 		t.Fatalf("Replace after IRM off failed: got %q, want %q", got, "ABXYDE")
 	}
@@ -785,7 +785,7 @@ func TestIRM_InsertMode(t *testing.T) {
 	// IRM on at last col; insert 'Z' -> last char replaced, no wrap: "ABXYDZ"
 	sendWithBarrier(t, te, "\x1b[4h\x1b[1;6HZ")
 	s = te.Snapshot()
-	got = string([]rune{s.grid1[0][0].R, s.grid1[0][1].R, s.grid1[0][2].R, s.grid1[0][3].R, s.grid1[0][4].R, s.grid1[0][5].R})
+	got = string([]rune{s.grid1.lines[0].cells[0].R, s.grid1.lines[0].cells[1].R, s.grid1.lines[0].cells[2].R, s.grid1.lines[0].cells[3].R, s.grid1.lines[0].cells[4].R, s.grid1.lines[0].cells[5].R})
 	if got != "ABXYDZ" {
 		t.Fatalf("Insert at right edge failed: got %q, want %q", got, "ABXYDZ")
 	}
@@ -806,6 +806,32 @@ func TestDecrqm(t *testing.T) {
 }
 
 //----------
+
+func TestWraplines(t *testing.T) {
+	opts := Opts{}
+	//opts.Mode = ModeRaw
+	//opts.Debug = true
+	te := newTestEmu(newTuiMock(), opts, 4, 4)
+	defer te.Close()
+
+	u := ``
+	for i := 0; i < 30; i++ {
+		//u += string([]rune{'0' + rune(i%10)})
+		u += string('0' + rune(i%10))
+	}
+
+	//2 1[4h [4l
+	//[4h [4lb
+
+	sendWithBarrier(t, te, u)
+	s := te.Snapshot()
+	_ = s
+	//s.PrintWithCursor()
+	fmt.Println(string(s.Bprint(true, false, true)))
+	t.Fatalf("todo")
+}
+
+//----------
 //----------
 //----------
 
@@ -819,10 +845,14 @@ func _TestSnapshot0(t *testing.T) {
 	opts := Opts{}
 	//opts.Mode = ModeRaw
 	//opts.Debug = true
-	te := newTestEmu(newTuiMock(), opts, 80, 24)
+	te := newTestEmu(newTuiMock(), opts, 4, 4)
 	defer te.Close()
 
-	const u = ``
+	u := ``
+	for i := 0; i < 30; i++ {
+		u += "W"
+	}
+
 	//2 1[4h [4l
 	//[4h [4lb
 

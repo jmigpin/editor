@@ -104,7 +104,7 @@ func (emu *Emu) SetSize(p P) {
 func (emu *Emu) GetSize() P {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
-	return emu.scr.size()
+	return emu.scr.Grid.size
 }
 
 //----------
@@ -419,7 +419,7 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			emu.csiOpTodo(op)
 		}
 	case 'r': // DECSTBM: Set Scrolling Region
-		top1, bot1 := op.ADef(1), op.BDef(emu.scr.bounds.Max.Y)
+		top1, bot1 := op.ADef(1), op.BDef(emu.scr.Grid.size.Y)
 		emu.scr.setScrollRegion(top1, bot1)
 	case 's':
 		// SLRM: set left right margins

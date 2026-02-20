@@ -79,7 +79,9 @@ func (temu *ERowTermEmu) setEmuGridSize() {
 }
 
 func (temu *ERowTermEmu) updateSize() {
-	fface := temu.origMonoFontFace()
+	//fface := temu.origMonoFontFace()
+	fface := temu.erow.runOpts.origFace // TESTING
+
 	cr1, psize := temu.termSize(fface)
 
 	cr2 := temu.emu.ClampSize(cr1)
@@ -92,10 +94,10 @@ func (temu *ERowTermEmu) updateSize() {
 		}
 	}
 
-	fface0 := temu.erow.Row.TextArea.TreeThemeFontFace()
-	if fface != fface0 {
-		temu.erow.Row.TextArea.SetThemeFontFace(fface)
-	}
+	//fface0 := temu.erow.Row.TextArea.TreeThemeFontFace()
+	//if fface != fface0 {
+	//	temu.erow.Row.TextArea.SetThemeFontFace(fface)
+	//}
 
 	temu.emu.SetSize(cr2)
 	temu.updatePty(cr2, psize)
@@ -228,10 +230,12 @@ type ERowTermEmuUI struct {
 
 func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 	tui := &ERowTermEmuUI{temu: temu}
+
 	tui.sp = termemu.NewScreenPrinter()
+	tui.sp.Seperator = true
 
 	tui.paintThrottle = syncutil.NewThrottler()
-	tui.paintThrottle.Interval = time.Second / 25
+	tui.paintThrottle.Interval = time.Second / 10
 	tui.paintThrottle.Fn = tui.paint2
 
 	// defaults colors for inverse video
@@ -293,7 +297,7 @@ func (tui *ERowTermEmuUI) Print(v any) {
 //----------
 
 func (tui *ERowTermEmuUI) Paint() {
-	tui.paintThrottle.Call()
+	tui.paintThrottle.Call() // TODO: rename to schedule
 }
 func (tui *ERowTermEmuUI) paint2(done func()) {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {

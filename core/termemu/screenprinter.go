@@ -7,8 +7,9 @@ import (
 )
 
 type ScreenPrinter struct {
-	Border  bool
-	ColorFn func(offset int, fg, bg color.Color, inverse bool)
+	Border    bool
+	Seperator bool
+	ColorFn   func(offset int, fg, bg color.Color, inverse bool)
 
 	CursorRune rune // mostly for testing where there are no colors, so a rune is printed for guidance
 
@@ -20,6 +21,10 @@ type ScreenPrinter struct {
 func NewScreenPrinter() *ScreenPrinter {
 	sp := &ScreenPrinter{}
 	sp.ColorFn = func(_ int, _, _ color.Color, _ bool) {}
+
+	//sp.Border = true // TESTING
+	//sp.Seperator = true
+
 	return sp
 }
 
@@ -32,8 +37,8 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 	//----------
 
-	if scr.ScrollBack != nil {
-		sb := *scr.ScrollBack
+	if scr.ScrollBack1 != nil {
+		sb := scr.ScrollBack1
 		buf.Write(sb)
 		if len(sb) > 0 && sb[len(sb)-1] != '\n' {
 			buf.WriteString("\n")
@@ -52,20 +57,26 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		return scr.IsCursor(x, y) && scr.privModes.showCursor()
 	}
 
-	width := len((*scr.Grid)[0])
+	width := len(scr.Grid.lines[0].cells)
+
+	if sp.Seperator {
+		//s:="↕"+strings.Repeat("─", width) + "┐\n")
+		buf.WriteString("" + strings.Repeat("─", width-1) + "┼\n")
+	}
+
 	border("┌")
 	border(strings.Repeat("─", width))
 	border("┐\n")
 
 	maxOffset := 0
-	for y, line := range *scr.Grid {
+	for y, line := range scr.Grid.lines {
 
 		// when there is no border, backtrack runes from end to find first non empty - needs to be done here to have correct color positions
-		max2 := len(line) // exclusive
+		max2 := len(line.cells) // exclusive
 		if !sp.Border {
 			for ; max2 > 0; max2-- {
 				x := max2 - 1
-				c := line[x]
+				c := line.cells[x]
 				empty := (c.R == 0 || c.R == ' ') &&
 					c.A.Bg == nil && !c.A.Inverse &&
 					!isCursor(x, y)
@@ -76,7 +87,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		}
 
 		border("│")
-		for x, cell := range line {
+		for x, cell := range line.cells {
 			offset := buf.Len()
 			maxOffset = offset
 
