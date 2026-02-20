@@ -5,7 +5,7 @@ godebugtester run main.go
 #godebugtester run -work -srclines=false main.go
 
 contains stderr "main1: int 1"
-contains stderr "main1: float64 +2.2"
+contains stderr "main1: float64 2.2"
 contains stderr "main2: int 1"
 
 -- main.go --
