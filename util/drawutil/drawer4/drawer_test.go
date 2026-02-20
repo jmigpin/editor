@@ -416,7 +416,7 @@ func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 
 func newTestFace() *fontutil.FontFace {
 	f := fontutil.DefaultFont()
-	opts := fontutil.DefaultFaceOptions()
+	opts := fontutil.DefaultFaceOptions
 	opts.SetDPI(100)
 	return f.FontFace(opts)
 }
