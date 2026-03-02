@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -400,36 +401,43 @@ func (ed *Editor) setupRootMenuToolbar() {
 		ed.updateERowsToolbarsHomeVars()
 	})
 
-	w := [][]string{
-		{"ColorTheme", "FontTheme"},
-		{"CopyFilePosition"},
-		{"CtxutilCallsState"},
-		{"Find -h"},
-		{"FontRunes", "RuneCodes"},
-		{"GoDebug -h", "GoDebug run -h", "GoDebug connect -h"},
-		{"GoDebugFind"},
-		{"GoDebugTrace"},
-		{"GotoLine"},
-		{"ListDir", "ListDir -hidden", "ListDir -sub"},
-		{"ListSessions", "OpenSession", "DeleteSession", "SaveSession"},
-		{"LsprotoRename", "LsprotoCloseAll", "LsprotoCallers", "LsprotoCallees", "LsprotoReferences"},
-		{"NewColumn", "NewRow", "ReopenRow", "MaximizeRow"},
-		{"NewFile", "SaveAllFiles", "Save"},
-		{"OpenExternal", "OpenFilemanager", "OpenTerminalExt", "OpenTerminalEmu"},
-		{"Reload", "ReloadAll", "ReloadAllFiles"},
-		{"SortTextLines", "SortTextLines -h"},
+	w := []string{}
+
+	extra := []string{
+		"Find -h",
+		"GoDebug -h", "GoDebug run -h", "GoDebug connect -h",
+		"ListDir -hidden", "ListDir -sub",
+		"SortTextLines -h",
 	}
+	w = append(w, extra...)
+
 	last := []string{"Exit", "Version", "Stop", "Clear"}
 
-	// simple sorted list
-	w2 := []string{}
-	for _, a := range w {
-		//w2 = append(w2, strings.Join(a, "|")) // TODO: ui test issue
-		w2 = append(w2, a...)
+	hide := []string{
+		"Find",                              // have Find -h
+		"GoDebug",                           // have GoDebug -h
+		"LsprotoCallHierarchyIncomingCalls", // alias LsprotoCallers
+		"LsprotoCallHierarchyOutgoingCalls", // alias LsprotoCallees
+		"OpenTerminalExternal",              // alias OpenTerminal
+		"CloseColumn", "CloseRow",           // not useful in the list
+		"GoRename", // to be removed, old cmd
+		"GotoLine", // alias GoToLine
 	}
-	sort.Slice(w2, func(a, b int) bool { return w2[a] < w2[b] })
-	w2 = append(w2, "\n"+strings.Join(last, " | "))
-	s1 := strings.Join(w2, "\n")
+	hide = append(hide, last...) // added in last cmds, hide them now
+
+	for _, ic := range InternalCmds {
+		if slices.Contains(hide, ic.Name) {
+			continue
+		}
+		w = append(w, ic.Name)
+	}
+
+	// simple sorted list
+	sort.Slice(w, func(a, b int) bool { return w[a] < w[b] })
+
+	w = append(w, "\n"+strings.Join(last, " | "))
+
+	s1 := strings.Join(w, "\n")
 
 	tb.SetStrClearHistory(s1)
 }
