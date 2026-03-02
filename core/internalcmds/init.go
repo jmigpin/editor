@@ -48,9 +48,8 @@ func init() {
 	cmd(FontRunes, "FontRunes")
 
 	cmd(OpenFilemanager, "OpenFilemanager")
-	cmd(OpenTerminalExternal, "OpenTerminal") // TODO: deprecate
-	cmd(OpenTerminalExternal, "OpenTerminalExt")
-	cmd(OpenTerminalEmulator, "OpenTerminalEmu")
+	cmd(OpenTerminalExternal, "OpenTerminal", "OpenTerminalExternal")
+	cmd(OpenTerminalIntegrated, "OpenTerminalIntegrated")
 	cmd(OpenExternal, "OpenExternal")
 
 	cmd(ListDir, "ListDir")

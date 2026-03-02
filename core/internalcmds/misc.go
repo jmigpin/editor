@@ -187,7 +187,7 @@ func OpenTerminalExternal(args *core.InternalCmdArgs) error {
 	return osutil.OpenTerminal(dir)
 }
 
-func OpenTerminalEmulator(args *core.InternalCmdArgs) error {
+func OpenTerminalIntegrated(args *core.InternalCmdArgs) error {
 	dir, err := argsERowDirOrWd(args)
 	if err != nil {
 		return err
