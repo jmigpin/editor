@@ -79,8 +79,8 @@ func (temu *ERowTermEmu) setEmuGridSize() {
 }
 
 func (temu *ERowTermEmu) updateSize() {
-	//fface := temu.origMonoFontFace()
-	fface := temu.erow.runOpts.origFace // TESTING
+	fface := temu.origMonoFontFace()
+	//fface := temu.erow.runOpts.origFace // TESTING
 
 	cr1, psize := temu.termSize(fface)
 

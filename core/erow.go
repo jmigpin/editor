@@ -453,7 +453,7 @@ func (erow *ERow) parseToolbarVars() {
 
 	// $terminal
 	erow.runOpts = ERowRunOpts{ // reset
-		origFace: erow.Row.TextArea.TreeThemeFontFace(),
+		origFace: erow.Row.TextArea.TreeThemeFontFace(), // current parsed font from toolbar or default
 	}
 	if erow.Info.IsDir() {
 		if v, ok := vmap["$terminal"]; ok {
@@ -535,7 +535,7 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 
 	// aliases
 	alias := map[string]string{
-		"f":     "emuraw",
+		"f":     "emuraw", // old "filter" option
 		"k":     "kb",
 		"raw":   "emuraw",
 		"ui":    "emuui",
@@ -548,8 +548,20 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 	switch opt {
 	case "pty":
 		topt.pty = set
+	case "kb":
+		topt.forwardKb = set
+	case "mouse":
+		topt.forwardMouse = set
+	case "debug":
+		topt.emuOpts.Debug = true
 
-	case "emu":
+	case "emuraw":
+		return topt.emuOpts.Mode.SetBool(set, termemu.ModeRaw)
+	case "emuplain":
+		return topt.emuOpts.Mode.SetBool(set, termemu.ModePlain)
+	case "emuui":
+		return topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid)
+	case "emu": // pre-set options
 		if err := topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid); err != nil {
 			return err
 		}
@@ -561,19 +573,6 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 		}
 		return nil
 
-	case "emuraw":
-		return topt.emuOpts.Mode.SetBool(set, termemu.ModeRaw)
-	case "emuplain":
-		return topt.emuOpts.Mode.SetBool(set, termemu.ModePlain)
-	case "emuui":
-		return topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid)
-
-	case "kb":
-		topt.forwardKb = set
-	case "mouse":
-		topt.forwardMouse = set
-	case "debug":
-		topt.emuOpts.Debug = true
 	default:
 		return fmt.Errorf("unknown $terminal option: %q\n\t%s", opt, erow.Info.Name())
 	}
