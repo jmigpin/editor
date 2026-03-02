@@ -14,6 +14,8 @@ type Options struct {
 	FontHinting string
 	DPI         float64
 
+	StartMaximized bool
+
 	TabWidth           int
 	WrapLineRune       int
 	WrapWordLimit      int

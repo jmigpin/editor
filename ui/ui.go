@@ -12,12 +12,12 @@ type UI struct {
 	OnError func(error)
 }
 
-func NewUI(winName string) (*UI, error) {
+func NewUI(winName string, startMaximized bool) (*UI, error) {
 	ui := &UI{}
 
 	ui.Root = NewRoot(ui)
 
-	bui, err := uiutil.NewBasicUI(winName, ui.Root)
+	bui, err := uiutil.NewBasicUI(winName, ui.Root, startMaximized)
 	if err != nil {
 		return nil, err
 	}

@@ -34,6 +34,7 @@ func main() {
 	flag.Float64Var(&opt.FontSize, "fontsize", 12, "")
 	flag.StringVar(&opt.FontHinting, "fonthinting", "full", "font hinting: none, vertical, full")
 	flag.Float64Var(&opt.DPI, "dpi", 72, "monitor dots per inch")
+	flag.BoolVar(&opt.StartMaximized, "startmaximized", false, "maximize window at start")
 	flag.IntVar(&opt.TabWidth, "tabwidth", 8, "")
 	flag.IntVar(&opt.CarriageReturnRune, "carriagereturnrune", int(fontutil.CarriageReturnRune), "replacement rune for carriage return")
 	flag.IntVar(&opt.WrapLineRune, "wraplinerune", int('←'), "code for wrap line rune, can be set to zero")

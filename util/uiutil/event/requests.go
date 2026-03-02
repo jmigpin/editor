@@ -11,6 +11,7 @@ type Request any
 
 type ReqClose struct{}
 type ReqWindowSetName struct{ Name string }
+type ReqWindowMaximize struct{}
 type ReqImage struct{ ReplyImg draw.Image }
 type ReqImagePut struct{ Rect image.Rectangle }
 type ReqImageResize struct{ Rect image.Rectangle }

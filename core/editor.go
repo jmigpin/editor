@@ -93,7 +93,7 @@ func (ed *Editor) init(opt *Options) error {
 	event.UseMultiKey = opt.UseMultiKey
 
 	// user interface
-	ui0, err := ui.NewUI("Editor")
+	ui0, err := ui.NewUI("Editor", opt.StartMaximized)
 	if err != nil {
 		return err
 	}

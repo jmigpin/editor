@@ -337,6 +337,8 @@ func (win *Window) Request(req event.Request) error {
 	switch r := req.(type) {
 	case *event.ReqWindowSetName:
 		return win.setWindowName(r.Name)
+	case *event.ReqWindowMaximize:
+		return win.maximizeWindow()
 	case *event.ReqImage:
 		r.ReplyImg = win.image()
 		return nil
@@ -376,6 +378,30 @@ func (win *Window) setWindowName(str string) error {
 		uint32(len(str)),
 		[]byte(str))
 	return c1.Check()
+}
+
+func (win *Window) maximizeWindow() error {
+	ev := xproto.ClientMessageEvent{
+		Type:   Atoms.NetWMState,
+		Format: 32,
+		Window: win.Window,
+		Data: xproto.ClientMessageDataUnionData32New([]uint32{
+			1, // _NET_WM_STATE_ADD
+			uint32(Atoms.NetWMStateMaximizedHorz),
+			uint32(Atoms.NetWMStateMaximizedVert),
+			1, // source indication: 1=application, 2=pager
+			0,
+		}),
+	}
+	err := xproto.SendEventChecked(
+		win.Conn,
+		false,
+		win.Screen.Root,
+		xproto.EventMaskSubstructureRedirect|
+			xproto.EventMaskSubstructureNotify,
+		string(ev.Bytes()),
+	).Check()
+	return err
 }
 
 //----------
@@ -466,6 +492,9 @@ func (win *Window) setCursor(c event.Cursor) (rerr error) {
 //----------
 
 var Atoms struct {
-	NetWMName  xproto.Atom `loadAtoms:"_NET_WM_NAME"`
-	Utf8String xproto.Atom `loadAtoms:"UTF8_STRING"`
+	NetWMState              xproto.Atom `loadAtoms:"_NET_WM_STATE"`
+	NetWMStateMaximizedHorz xproto.Atom `loadAtoms:"_NET_WM_STATE_MAXIMIZED_HORZ"`
+	NetWMStateMaximizedVert xproto.Atom `loadAtoms:"_NET_WM_STATE_MAXIMIZED_VERT"`
+	NetWMName               xproto.Atom `loadAtoms:"_NET_WM_NAME"`
+	Utf8String              xproto.Atom `loadAtoms:"UTF8_STRING"`
 }
