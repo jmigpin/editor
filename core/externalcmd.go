@@ -21,7 +21,7 @@ func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func
 
 	// before toolbar vars to allow override
 	if erow.runOpts.emuOpts.Mode.On() {
-		env = append(env, termemu.TermEnv)
+		env = append(env, termemu.TermEnv...)
 	}
 
 	if part != nil {

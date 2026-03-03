@@ -199,8 +199,8 @@ func TestDECALN(t *testing.T) {
 	if s.cursor.Y != 0 || s.cursor.X != 0 {
 		t.Fatalf("cursor at (%d,%d), want (0,0)", s.cursor.Y, s.cursor.X)
 	}
-	for y := 0; y < s.Grid.size.Y; y++ {
-		for x := 0; x < s.Grid.size.X; x++ {
+	for y := 0; y < s.grid.size.Y; y++ {
+		for x := 0; x < s.grid.size.X; x++ {
 			if s.grid1.lines[y].cells[x].R != 'E' {
 				t.Fatalf("cell(%d,%d)=%q, want 'E'", y, x, string(s.grid1.lines[y].cells[x].R))
 			}
@@ -293,7 +293,7 @@ func TestELandED(t *testing.T) {
 	sendWithBarrier(t, te, cup(0, 0)+"XXXXXX"+cup(1, 0)+"YYYYYY")
 	sendWithBarrier(t, te, "\x1b[2J")
 	s = te.Snapshot()
-	for y := 0; y < s.Grid.size.Y; y++ {
+	for y := 0; y < s.grid.size.Y; y++ {
 		if anyNonBlank(s.grid1.lines[y].cells[:]) {
 			t.Fatalf("ED2 should blank entire screen")
 		}
@@ -811,12 +811,12 @@ func TestWraplines(t *testing.T) {
 	opts := Opts{}
 	//opts.Mode = ModeRaw
 	//opts.Debug = true
-	te := newTestEmu(newTuiMock(), opts, 4, 4)
+	te := newTestEmu(newTuiMock(), opts, 4, 2)
 	defer te.Close()
 
+	// runes to force wrapping
 	u := ``
-	for i := 0; i < 30; i++ {
-		//u += string([]rune{'0' + rune(i%10)})
+	for i := 0; i < 4*2+1; i++ {
 		u += string('0' + rune(i%10))
 	}
 
@@ -825,9 +825,14 @@ func TestWraplines(t *testing.T) {
 
 	sendWithBarrier(t, te, u)
 	s := te.Snapshot()
-	_ = s
-	//s.PrintWithCursor()
-	fmt.Println(string(s.Bprint(true, false, true)))
+	s.PrintWithCursor()
+
+	//fmt.Println("---")
+
+	te.scr.setSize(P{2, 4})
+	s2 := te.Snapshot()
+	s2.PrintWithCursor()
+
 	t.Fatalf("todo")
 }
 
@@ -894,10 +899,10 @@ func (m *TuiMock) Close() error {
 	}
 	return nil
 }
-func (m *TuiMock) UpdateSize()     {}
-func (m *TuiMock) Paint()          {}
-func (m *TuiMock) Error(err error) { fmt.Println(err) }
-func (m *TuiMock) Print(v any)     { fmt.Println(v) }
+func (m *TuiMock) ColumnModeChange() {}
+func (m *TuiMock) Paint()            {}
+func (m *TuiMock) Error(err error)   { fmt.Println(err) }
+func (m *TuiMock) Print(v any)       { fmt.Println(v) }
 
 //----------
 //----------

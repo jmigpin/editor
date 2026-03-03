@@ -47,7 +47,7 @@ func (p *VTParser) handleDefault(ru rune) error {
 		if p.ansiMode {
 			p.state = p.stCSI
 		} else {
-			p.emitPrintableRun(ru)
+			p.emitPrintableRune(ru)
 		}
 	case codeBEL:
 		p.emitKind("bell")
@@ -67,7 +67,7 @@ func (p *VTParser) handleDefault(ru rune) error {
 	case codeDEL: // TODO
 	case codeNUL: // TODO: bash is dumping all these zeros
 	default:
-		p.emitPrintableRun(ru)
+		p.emitPrintableRune(ru)
 	}
 	return nil
 }
@@ -450,7 +450,7 @@ func (p *VTParser) emitCsi(priv byte, params []int, final byte) {
 
 //----------
 
-func (p *VTParser) emitPrintableRun(ru rune) {
+func (p *VTParser) emitPrintableRune(ru rune) {
 	//// just one (slower)
 	//p.emit(&TermOp{kind: "print", s: string(ru)})
 	//return
@@ -476,6 +476,7 @@ func (p *VTParser) emitPrintableRun(ru rune) {
 		}
 		buf.WriteByte(b)
 	}
+
 	p.emit(&TermOp{kind: "print", s: buf.String()})
 }
 

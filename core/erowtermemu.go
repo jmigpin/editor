@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"io"
-	"time"
 
 	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/ui"
@@ -45,7 +44,8 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 	temu.reg = erow.Row.TextArea.EvReg.Add(ui.TextAreaLayoutEventId, func(ev0 any) {
 		//ev := ev0.(*ui.TextAreaLayoutEvent)
 		temu.setEmuGridSize()
-		temu.tui.paint3(func() {}) // immediate paint on layout
+		//temu.tui.paint3(func() {}) // immediate paint on layout
+		//temu.tui.paint2()
 	})
 
 	return temu
@@ -144,10 +144,10 @@ func (temu *ERowTermEmu) termSize(fface *fontutil.FontFace) (_, _ termemu.P) {
 
 	sx, sy := temu.taPixelSize()
 	sx -= rw // newline
-	if temu.tui.sp.Border {
-		sx -= rw * 2
-		sy -= lh * 2
-	}
+	//if temu.tui.sp.Border {
+	//	sx -= rw * 2
+	//	sy -= lh * 2
+	//}
 	sx, sy = max(sx, 0), max(sy, 0)
 	pixs := P{sx, sy}
 
@@ -232,11 +232,11 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 	tui := &ERowTermEmuUI{temu: temu}
 
 	tui.sp = termemu.NewScreenPrinter()
-	tui.sp.Seperator = true
+	//tui.sp.Seperator = true
 
-	tui.paintThrottle = syncutil.NewThrottler()
-	tui.paintThrottle.Interval = time.Second / 10
-	tui.paintThrottle.Fn = tui.paint2
+	//tui.paintThrottle = syncutil.NewThrottler()
+	//tui.paintThrottle.Interval = time.Second / 10
+	//tui.paintThrottle.Fn = tui.paint2
 
 	// defaults colors for inverse video
 	ta := tui.temu.erow.Row.TextArea
@@ -281,7 +281,7 @@ func (tui *ERowTermEmuUI) Close() error {
 
 //----------
 
-func (tui *ERowTermEmuUI) UpdateSize() {
+func (tui *ERowTermEmuUI) ColumnModeChange() {
 	tui.temu.updateSizeFromEmu()
 }
 
@@ -297,42 +297,66 @@ func (tui *ERowTermEmuUI) Print(v any) {
 //----------
 
 func (tui *ERowTermEmuUI) Paint() {
-	tui.paintThrottle.Call() // TODO: rename to schedule
-}
-func (tui *ERowTermEmuUI) paint2(done func()) {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		tui.paint3(done)
+		//scr := tui.temu.emu.Snapshot()
+		//ops, bs := tui.paintOpsBytes(scr)
+		//ta := tui.temu.erow.Row.TextArea
+		//ta.SetTerminalColorOps(ops)
+		//tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
+		tui.paint2()
 	})
 }
-func (tui *ERowTermEmuUI) paint3(done func()) {
-	defer done()
+
+func (tui *ERowTermEmuUI) paint2() {
 	scr := tui.temu.emu.Snapshot()
 	ops, bs := tui.paintOpsBytes(scr)
-	tui.paint4(bs, ops, done)
-}
-
-func (tui *ERowTermEmuUI) paint4(bs []byte, ops []*D4COp, done func()) {
-	defer done()
-
-	// TODO: crash on drawer4 colorize ops are nil?
-
 	ta := tui.temu.erow.Row.TextArea
 	ta.SetTerminalColorOps(ops)
 	tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
-
-	//// darken bg color
-	//cint := func(c int) color.RGBA {
-	//	return imageutil.RgbaFromInt(c)
-	//}
-	//_ = cint
-	//tbg := ta.TreeThemePaletteColor("text_bg")
-	//tbg2 := imageutil.TintOrShade(tui.restore.bg, 0.30)
-	//tbg2 := cint(0xff0000)
-	//tbg2 := cint(0xdddddd)
-	//tbg2 := cint(0xdddddd)
-	//ta.SetThemePaletteColor("text_bg", tbg2)
-	//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tbg2)
 }
+
+//----------
+
+//func (tui *ERowTermEmuUI) Paint() {
+//	//tui.paintThrottle.Call() // TODO: rename to schedule
+//}
+
+//func (tui *ERowTermEmuUI) paint2(done func()) {
+//	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
+//		tui.paint3(done)
+//	})
+//}
+//func (tui *ERowTermEmuUI) paint3(done func()) {
+//	defer done()
+
+//	scr := tui.temu.emu.Snapshot()
+//	ops, bs := tui.paintOpsBytes(scr)
+
+//	tui.paint4(bs, ops, done)
+//}
+
+//func (tui *ERowTermEmuUI) paint4(bs []byte, ops []*D4COp, done func()) {
+//	defer done()
+
+//	// TODO: crash on drawer4 colorize ops are nil?
+
+//	ta := tui.temu.erow.Row.TextArea
+//	ta.SetTerminalColorOps(ops)
+//	tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
+
+//	//// darken bg color
+//	//cint := func(c int) color.RGBA {
+//	//	return imageutil.RgbaFromInt(c)
+//	//}
+//	//_ = cint
+//	//tbg := ta.TreeThemePaletteColor("text_bg")
+//	//tbg2 := imageutil.TintOrShade(tui.restore.bg, 0.30)
+//	//tbg2 := cint(0xff0000)
+//	//tbg2 := cint(0xdddddd)
+//	//tbg2 := cint(0xdddddd)
+//	//ta.SetThemePaletteColor("text_bg", tbg2)
+//	//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tbg2)
+//}
 
 //----------
 

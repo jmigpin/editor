@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/util/iout"
+	"github.com/jmigpin/editor/util/syncutil"
 )
 
 //godebug:annotatefile
@@ -31,7 +32,9 @@ import (
 
 // const TermEnv = "TERM=vt100" //
 // const TermEnv = "TERM=xterm-mono" //
-const TermEnv = "TERM=xterm" //
+// const TermEnv = "TERM=xterm" //
+// var TermEnv = []string{"TERM=xterm-256color", "COLORTERM=truecolor"}
+var TermEnv = []string{"TERM=xterm-256color"}
 
 // const vt100 = "\x1b[?1;0c" //
 // const vt101NoOpt = vt100
@@ -62,6 +65,8 @@ type Emu struct {
 	scr *Screen
 
 	opts Opts
+
+	paint *syncutil.ThrottledTrigger
 }
 
 // emu itself is a read/write to be passed to the executable, wrapping the UI that is a rwc as well
@@ -69,12 +74,20 @@ func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
 	emu := &Emu{userRw: userRw, tui: tui, opts: opts}
 
 	emu.scr = NewScreen()
-	emu.scr.onSizeChange = emu.tui.UpdateSize
+	emu.scr.onColumnModeChange = emu.tui.ColumnModeChange
 
 	emu.setupExecSideRWC()
 
 	emu.parser = NewVTParser(emu.execRwc, emu.applyEmit)
 	emu.parser.ansiMode = emu.scr.privModes.AnsiNotVT52()
+
+	emu.paint = syncutil.NewThrottledTrigger(
+		func() { emu.tui.Paint() },
+		//2*time.Millisecond,
+		//16*time.Millisecond,
+		5*time.Millisecond,
+		30*time.Millisecond, // ~33 fps
+	)
 
 	emu.parserDone.Add(1)
 	go func() {
@@ -98,13 +111,13 @@ func (emu *Emu) ClampSize(p P) P {
 func (emu *Emu) SetSize(p P) {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
-	emu.scr.setSize(p, false)
+	emu.scr.setSize(p)
 }
 
 func (emu *Emu) GetSize() P {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
-	return emu.scr.Grid.size
+	return emu.scr.grid.size
 }
 
 //----------
@@ -207,6 +220,10 @@ func (emu *Emu) Snapshot() *Screen {
 	return emu.scr.Clone()
 }
 
+//func (emu *Emu) Screen() *Screen { return emu.scr }
+//func (emu *Emu) Lock()           { emu.mu.Lock() }
+//func (emu *Emu) Unlock()         { emu.mu.Unlock() }
+
 //func (emu *Emu) Snapshot2(fn func(*Screen)) {
 //	emu.mu.Lock()
 //	defer emu.mu.Unlock()
@@ -288,7 +305,8 @@ func (emu *Emu) applyEmit(op *TermOp) {
 
 	if emu.opts.Mode == ModeGrid {
 		if !emu.scr.privModes.SynchronizedOutput() {
-			emu.tui.Paint()
+			//emu.tui.Paint()
+			emu.paint.Trigger() // needs paint
 		}
 	}
 }
@@ -419,7 +437,7 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			emu.csiOpTodo(op)
 		}
 	case 'r': // DECSTBM: Set Scrolling Region
-		top1, bot1 := op.ADef(1), op.BDef(emu.scr.Grid.size.Y)
+		top1, bot1 := op.ADef(1), op.BDef(emu.scr.grid.size.Y)
 		emu.scr.setScrollRegion(top1, bot1)
 	case 's':
 		// SLRM: set left right margins
@@ -493,7 +511,7 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 	case "?2": // ansi
 		emu.parser.ansiMode = on
 	case "?3": // 132 Column Mode (DECCOLM)
-		s.updateSize()
+		s.updateColumnMode()
 	case "?6": // scroll origin mode
 	case "?69": // left/right margin mode
 		emu.scr.updateRegionX()
@@ -517,6 +535,7 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 			// commented: after an app closes, we want to see the previous content
 			//s.clearGrid() // TODO: review
 		}
+
 	default:
 		//emu.csiOpTodo(op)
 		//emu.tui.Error(fmt.Errorf("emu.csi: todo: %v", idx))
@@ -543,7 +562,7 @@ type Event struct {
 
 // terminal user interface
 type Tui interface {
-	UpdateSize()
+	ColumnModeChange()
 	Paint()
 	Print(any)
 	Error(error)
