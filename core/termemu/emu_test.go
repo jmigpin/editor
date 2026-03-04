@@ -822,12 +822,13 @@ func TestWraplines(t *testing.T) {
 
 	sendWithBarrier(t, te, u)
 	s := te.Snapshot()
-	t.Log(s.Qprint(false))
+	t.Log(s.Qprint(true))
 
 	te.scr.setSize(P{2, 4})
 	s = te.Snapshot()
+	t.Log(s.Qprint(true))
 	out := s.Sprint(true)
-	if out != "0123\n45\n8◙\n\n\n" {
+	if out != "0123\n∆∆∆\n45\n8◙\n\n\n" {
 		t.Fatal(out)
 	}
 }
@@ -853,7 +854,7 @@ func TestWraplines2(t *testing.T) {
 	t.Log(s.Qprint(false))
 
 	out := string(s.Bprint(false))
-	if out != "AAAAA\nBBBBB\n∆\nCCCCC\nDDDDD\nEEEEE\n" {
+	if out != "AAAAA\nBBBBB\n∆∆∆\nCCCCC\nDDDDD\nEEEEE\n" {
 		t.Fatal()
 	}
 }
@@ -876,8 +877,10 @@ func TestWraplines3(t *testing.T) {
 	te.scr.setSize(P{3, 5})
 	s = te.Snapshot()
 	t.Log(s.Qprint(true))
-
-	t.Fatal()
+	out := s.Sprint(true)
+	if out != "AAAAA\nBBBBB\nCCCCC\nDDDDD\nEE◙EE\n" {
+		t.Fatal(out)
+	}
 }
 
 //----------

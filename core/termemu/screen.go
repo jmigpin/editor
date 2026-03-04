@@ -725,6 +725,7 @@ func (scr *Screen) PrintWithCursor() {
 // bytes print
 func (scr *Screen) Bprint(cursor bool) []byte {
 	sp := NewScreenPrinter()
+	sp.testing = scr.testing
 	if cursor {
 		sp.CursorRune = '◙'
 	}
