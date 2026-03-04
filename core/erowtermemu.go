@@ -79,8 +79,14 @@ func (temu *ERowTermEmu) setEmuGridSize() {
 }
 
 func (temu *ERowTermEmu) updateSize() {
-	fface := temu.origMonoFontFace()
-	//fface := temu.erow.runOpts.origFace // TESTING
+	// unless the user defined a font, run with a monospace font
+	fface := temu.erow.runOpts.origFace
+	if !temu.erow.runOpts.hasUserFont {
+		// run with a mono
+		if !fface.TestIsMono() {
+			fface = fontutil.DefaultMonoFont().FontFace(fface.Opts)
+		}
+	}
 
 	cr1, psize := temu.termSize(fface)
 
@@ -94,10 +100,10 @@ func (temu *ERowTermEmu) updateSize() {
 		}
 	}
 
-	//fface0 := temu.erow.Row.TextArea.TreeThemeFontFace()
-	//if fface != fface0 {
-	//	temu.erow.Row.TextArea.SetThemeFontFace(fface)
-	//}
+	fface0 := temu.erow.Row.TextArea.TreeThemeFontFace()
+	if fface != fface0 {
+		temu.erow.Row.TextArea.SetThemeFontFace(fface)
+	}
 
 	temu.emu.SetSize(cr2)
 	temu.updatePty(cr2, psize)
@@ -123,16 +129,6 @@ func (temu *ERowTermEmu) updatePty(cr, psize P) {
 		return
 	}
 	_ = temu.optPtyCmd.SetSize(cr.X, cr.Y, psize.X, psize.Y)
-}
-
-//----------
-
-func (temu *ERowTermEmu) origMonoFontFace() *fontutil.FontFace {
-	fface := temu.erow.runOpts.origFace
-	if !fface.TestIsMono() {
-		fface = fontutil.DefaultMonoFont().FontFace(fface.Opts)
-	}
-	return fface
 }
 
 //----------

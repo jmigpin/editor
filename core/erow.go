@@ -437,14 +437,14 @@ func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
 	// $font
-	clear := true
+	hasUserFont := false
 	if v, ok := vmap["$font"]; ok {
 		err := erow.setVarFontTheme(v)
 		if err == nil {
-			clear = false
+			hasUserFont = true
 		}
 	}
-	if clear {
+	if clear := !hasUserFont; clear {
 		erow.Row.TextArea.SetThemeFontFace(nil)
 	}
 
@@ -453,7 +453,8 @@ func (erow *ERow) parseToolbarVars() {
 
 	// $terminal
 	erow.runOpts = ERowRunOpts{ // reset
-		origFace: erow.Row.TextArea.TreeThemeFontFace(), // current parsed font from toolbar or default
+		hasUserFont: hasUserFont,
+		origFace:    erow.Row.TextArea.TreeThemeFontFace(),
 	}
 	if erow.Info.IsDir() {
 		if v, ok := vmap["$terminal"]; ok {
@@ -729,5 +730,6 @@ type ERowRunOpts struct {
 
 	emuOpts termemu.Opts
 
-	origFace *fontutil.FontFace
+	hasUserFont bool
+	origFace    *fontutil.FontFace
 }
