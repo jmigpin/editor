@@ -827,10 +827,22 @@ func (g *Grid) copyR(dst P, r R) {
 
 		w = append(w, slices.Clone(line.cells[r.Min.X:maxX]))
 	}
+
 	// copy to the destination
 	for k, u := range w {
 		line := g.line(dst.Y + k)
-		line.cells = append(line.cells[:dst.X], u...)
+
+		if g.isLongLineMode() {
+			// always truncate old offscreen cells
+			line.cells = line.cells[:g.size.X]
+
+			newSizeX := dst.X + len(u)
+			if d := newSizeX - len(line.cells); d > 0 {
+				line.cells = append(line.cells, make([]Cell, d)...)
+			}
+		}
+
+		copy(line.cells[dst.X:], u)
 	}
 }
 func (g *Grid) copyRangeX(dst P, minX, maxX int) {
