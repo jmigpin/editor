@@ -132,13 +132,6 @@ func NewScreenPrinter() *ScreenPrinter {
 //}
 
 func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
-	// use old buffer
-	//if scr.privModes.SynchronizedOutput() {
-	//if scr.grid.cleared {
-	//	scr.grid.cleared = false
-	//	return sp.bufs[sp.bufK].Bytes()
-	//}
-
 	// choose buffer
 	sp.bufK = (sp.bufK + 1) % len(sp.bufs)
 	buf := sp.bufs[sp.bufK]
@@ -153,6 +146,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		if len(sb) > 0 && sb[len(sb)-1] != '\n' {
 			buf.WriteString("\n")
 		}
+		buf.WriteString("∆\n")
 	}
 
 	//----------
@@ -168,7 +162,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		max2 := len(line.cells) // exclusive
 		for ; max2 > 0; max2-- {
 			x := max2 - 1
-			c := line.cells[x]
+			c := line.cell(x)
 			empty := (c.R == 0 || c.R == ' ') &&
 				c.A.Bg == nil && !c.A.Inverse &&
 				!isCursor(x, y)
@@ -181,16 +175,12 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 			cell := line.cell(x)
 
 			offset := buf.Len()
-			//maxOffset = offset
 
 			if x >= max2 {
 				break
 			}
 
-			ru := cell.R
-			if ru == 0 {
-				ru = ' '
-			}
+			ru := cell.printableRune()
 
 			if isCursor(x, y) {
 				sp.ColorFn(offset, nil, nil, true)
@@ -208,13 +198,9 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 			buf.WriteRune(ru)
 		}
+
 		buf.WriteString("\n")
 	}
-
-	//if !sp.Border {
-	//	b2 := buf.Bytes()[:maxOffset]
-	//	return b2
-	//}
 
 	return buf.Bytes()
 }

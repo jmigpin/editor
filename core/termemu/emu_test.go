@@ -809,10 +809,10 @@ func TestDecrqm(t *testing.T) {
 
 func TestWraplines(t *testing.T) {
 	opts := Opts{}
-	//opts.Mode = ModeRaw
-	//opts.Debug = true
+
 	te := newTestEmu(newTuiMock(), opts, 4, 2)
 	defer te.Close()
+	te.scr.longLineMode = false
 
 	// runes to force wrapping
 	u := ``
@@ -820,20 +820,62 @@ func TestWraplines(t *testing.T) {
 		u += string('0' + rune(i%10))
 	}
 
-	//2 1[4h [4l
-	//[4h [4lb
+	sendWithBarrier(t, te, u)
+	s := te.Snapshot()
+	t.Log(s.Qprint(false))
+
+	te.scr.setSize(P{2, 4})
+	s = te.Snapshot()
+	out := s.Sprint(true)
+	if out != "0123\n45\n8◙\n\n\n" {
+		t.Fatal(out)
+	}
+}
+
+func TestWraplines2(t *testing.T) {
+	opts := Opts{}
+
+	te := newTestEmu(newTuiMock(), opts, 4, 2)
+	defer te.Close()
+
+	te.scr.longLineMode = true
+
+	// runes to force wrapping
+	u := ``
+	//for range 2 {
+	for i := 0; i < 10; i++ {
+		u += string('0' + rune(i%10))
+	}
+	//u += "\n"
+	//}
 
 	sendWithBarrier(t, te, u)
 	s := te.Snapshot()
-	s.PrintWithCursor()
+	//s.ScrollBackBuf1 = nil
+	t.Log(s.Qprint(false))
 
-	//fmt.Println("---")
+	te.scr.setSize(P{2, 2})
+	s = te.Snapshot()
+	t.Log(s.Qprint(false))
 
-	te.scr.setSize(P{2, 4})
-	s2 := te.Snapshot()
-	s2.PrintWithCursor()
+	//out := string(s.Bprint(true))
+	//if out != "0123\n4567\n8◙\n\n\n" {
+	//	t.Fatal(out)
+	//}
 
-	t.Fatalf("todo")
+	// writing before the end of the line, clears offscreen cells
+	te.scr.cursor = P{0, 0}
+	te.scr.putRune('A')
+	s = te.Snapshot()
+	t.Log(s.Qprint(false))
+
+	out := s.Sprint(false)
+	if out != "A1\n\n" {
+		s = te.Snapshot()
+		t.Log(s.Qprint(false))
+		t.Fatal()
+	}
+
 }
 
 //----------
@@ -914,6 +956,7 @@ func newTestEmu(tui *TuiMock, opts Opts, w, h int) *Emu {
 	}
 	emu := NewEmu(tui, tui, opts)
 	emu.scr.testing = true
+	emu.scr.longLineMode = false // default for tests
 	emu.SetSize(P{w, h})
 
 	//go func() {
