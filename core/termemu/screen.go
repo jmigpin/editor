@@ -68,7 +68,7 @@ func NewScreen() *Screen {
 //----------
 
 func (s *Screen) setSize(size P) {
-	size = s.clampSize(size)
+	size = s.clampSizeConsideringCol132(size)
 	if size == s.grid.size {
 		return
 	}
@@ -90,7 +90,7 @@ func (s *Screen) setSize(size P) {
 	s.initTabStops()
 }
 
-func (s *Screen) clampSize(size P) P {
+func (s *Screen) clampSizeConsideringCol132(size P) P {
 	if s.privModes.column132() {
 		size.X = 132
 	}
