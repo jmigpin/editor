@@ -140,13 +140,15 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 	//----------
 
-	if scr.ScrollBackBuf1 != nil {
-		sb := scr.ScrollBackBuf1
-		buf.Write(sb)
-		if len(sb) > 0 && sb[len(sb)-1] != '\n' {
-			buf.WriteString("\n")
+	if scr.grid.hasScrollBack {
+		sb := scr.grid.scrollBack
+		if len(sb) > 0 {
+			buf.Write(sb)
+			if len(sb) > 0 && sb[len(sb)-1] != '\n' {
+				buf.WriteString("\n")
+			}
+			buf.WriteString("∆\n")
 		}
-		buf.WriteString("∆\n")
 	}
 
 	//----------
@@ -197,6 +199,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 			}
 
 			buf.WriteRune(ru)
+			//println(ru, string(ru), cell.R)
 		}
 
 		buf.WriteString("\n")

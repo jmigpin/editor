@@ -19,11 +19,10 @@ type Screen struct {
 
 	//sizeInPixels P // TODO: sixel support?
 
-	grid  *Grid
-	grid1 *Grid
-	grid2 *Grid // alternate screen buffer
-
-	ScrollBackBuf1 []byte // only grid1 has scrollback
+	grid         *Grid
+	grid1        *Grid
+	grid2        *Grid // alternate screen buffer
+	longLineMode bool  // long grid cells lines
 
 	cursor     P
 	cursorOffX int // extra X beyond size.X-1, reset on most cursor movements
@@ -43,8 +42,6 @@ type Screen struct {
 	col132Mode         bool
 	onColumnModeChange func()
 
-	longLineMode bool // long grid cells lines
-
 	testing bool
 }
 
@@ -53,14 +50,18 @@ func NewScreen() *Screen {
 	s.privModes = *newPrivModes()
 	s.graphics = *newGraphics()
 
-	size0 := P{1, 1}
-	s.grid1 = newGrid(size0)
-	s.grid2 = newGrid(size0)
-	s.setGrid2(false)
+	s.longLineMode = true
 
+	size0 := P{1, 1}
+
+	s.grid1 = newGrid(size0, s)
+	s.grid1.hasScrollBack = true
+
+	s.grid2 = newGrid(size0, s)
+
+	s.setGrid2(false)
 	s.setSize(size0)
 
-	s.longLineMode = true
 	return s
 }
 
@@ -72,13 +73,19 @@ func (s *Screen) setSize(size P) {
 		return
 	}
 
-	s.grid1.resize(size, s)
-	s.grid2.resize(size, s)
+	s.grid1.resize(size)
+	s.grid2.resize(size)
 
 	s.updateRegion()
 
 	clampInR(&s.cursor, s.grid.bounds())
 	s.cursorOffX = 0 // reset offscreen cursor on resize
+
+	// clear the line where cursor lands after resize
+	// the running program will redraw from here
+	//s.grid.clearLineCells(s.cursor.Y, 0, size.X)
+	//s.cursor.Y--
+	//clampInY(&s.cursor.Y, s.grid.bounds())
 
 	s.initTabStops()
 }
@@ -87,8 +94,7 @@ func (s *Screen) clampSize(size P) P {
 	if s.privModes.column132() {
 		size.X = 132
 	}
-	// enforce minimums
-	// usual terminal defaults: 80x24
+	// enforce minimums- usual terminal defaults: 80x24
 	if s.testing {
 		size.X = max(size.X, 1)
 		size.Y = max(size.Y, 1)
@@ -138,9 +144,11 @@ func (s *Screen) Clone() *Screen {
 
 	s2.grid1 = s.grid1.clone()
 	s2.grid2 = s.grid2.clone()
-	s2.setGrid2(s.grid == s.grid2)
+	// fix pointers to point to the new screen
+	s2.grid1.scr = &s2
+	s2.grid2.scr = &s2
 
-	s2.ScrollBackBuf1 = slices.Clone(s.ScrollBackBuf1)
+	s2.setGrid2(s.grid == s.grid2)
 
 	s2.privModes = *s.privModes.clone()
 	s2.graphics = *s.graphics.clone()
@@ -150,8 +158,8 @@ func (s *Screen) Clone() *Screen {
 //----------
 
 func (s *Screen) clearGrids() {
-	s.grid1.clear()
-	s.grid2.clear()
+	s.grid1.reset()
+	s.grid2.reset()
 }
 
 //----------
@@ -188,44 +196,6 @@ func (s *Screen) dynBounds(p P) R {
 
 //----------
 
-func (s *Screen) copyR(dst P, r R) {
-	w := [][]Cell{}
-	// copy to tmp first to allow correct overwriting
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		line := s.grid.line(y)
-		w = append(w, slices.Clone(line.cells[r.Min.X:r.Max.X]))
-	}
-	// copy to the destination
-	for k, u := range w {
-		line := s.grid.line(dst.Y + k)
-		copy(line.cells[dst.X:], u)
-	}
-}
-
-func (s *Screen) copyRangeX(dst P, minX, maxX int) {
-	s.copyR(dst, R{P{minX, dst.Y}, P{maxX, dst.Y + 1}})
-}
-
-//----------
-
-func (s *Screen) clearR(r R) {
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		line := s.grid.line(y)
-		s.clearCells(line.cells[r.Min.X:r.Max.X])
-	}
-}
-
-func (s *Screen) clearCells(w []Cell) {
-	for i := range w {
-		w[i] = Cell{A: s.curAttr}
-	}
-}
-
-func (s *Screen) clearRangeX(dst P, n int) {
-	n = min(n, s.grid.size.X-dst.X)
-	s.clearCells(s.grid.lines[dst.Y].cells[dst.X : dst.X+n])
-}
-
 func (s *Screen) clearLineInBounds(y int) {
 	s.clearLinesInBounds(y, 1)
 }
@@ -233,7 +203,7 @@ func (s *Screen) clearLinesInBounds(y, n int) {
 	r := s.grid.bounds()
 	r.Min.Y = y
 	r.Max.Y = y + n
-	s.clearR(r)
+	s.grid.clearR(r)
 }
 
 //----------
@@ -322,7 +292,7 @@ func (s *Screen) lineFeed() {
 
 	r := s.dynBounds(s.cursor)
 	if s.cursor.Y == r.Max.Y-1 {
-		s.scrollUpR(r, 1)
+		s.grid.scrollUpR(r, 1)
 	} else {
 		s.cursor.Y++
 	}
@@ -358,60 +328,6 @@ func (s *Screen) setScrollRegion(top1, bot1 int) {
 	if s.privModes.leftRightMargin() {
 		s.cursor.X = s.region.Min.X
 	}
-}
-
-// shifts up, blanks bottom
-func (s *Screen) scrollUpR(r0 R, n int) {
-	n = clamp(n, 0, r0.Dy())
-
-	//----------
-
-	// keep scrollback
-	if s.grid == s.grid1 &&
-		r0.Min == (P{0, 0}) &&
-		r0.Max.X == s.grid.size.X {
-		//r0.Max.Y < s.grid.size.Y {
-
-		sb := &s.ScrollBackBuf1
-		for i := range n {
-			for _, c := range s.grid.line(i).cells {
-				*sb = appendRune(*sb, c.printableRune())
-			}
-
-			// clean end of line to avoid space wraps
-			*sb = bytes.TrimRight(*sb, " \n")
-			*sb = appendRune(*sb, '\n')
-		}
-	}
-
-	//----------
-
-	// move rows [top+n..bot] up by n
-	dst := r0.Min
-	r1 := r0
-	r1.Min.Y += n
-	s.copyR(dst, r1)
-
-	// clear bottom rows
-	r2 := r0
-	r2.Min.Y = r0.Max.Y - n
-	s.clearR(r2)
-}
-
-// shift down, blanks top
-func (s *Screen) scrollDownR(r0 R, n int) {
-	n = clamp(n, 0, r0.Dy())
-
-	// move rows [top..bot-n] down by n
-	dst := r0.Min.Add(P{0, n})
-	r1 := r0
-	r1.Max.Y -= n
-	s.copyR(dst, r1)
-
-	// clear top rows
-	r2 := r0
-	r2.Max.Y = r0.Min.Y + n
-	s.clearR(r2)
 }
 
 //----------
@@ -509,18 +425,18 @@ func (s *Screen) csiEd_eraseInDisplay(mode int) {
 
 		b := s.grid.bounds() // copy
 		b.Min.Y = s.cursor.Y + 1
-		s.clearR(b)
+		s.grid.clearR(b)
 	case 1: // home to cursor
 		b := s.grid.bounds() // copy
 		b.Max.Y = s.cursor.Y
-		s.clearR(b)
+		s.grid.clearR(b)
 
 		s.csiEl_eraseInLine(1)
 	//case 2: // entire screen
 	//case 3: // entire screen and the scrollback buffer
 	default:
-		//s.clearR(s.grid.bounds()) // keeps old content?
-		s.grid.clear() // clears all
+		s.grid.clearR(s.grid.bounds())
+		s.grid.reset() // clears all
 	}
 }
 
@@ -529,10 +445,10 @@ func (s *Screen) csiEl_eraseInLine(mode int) {
 	switch mode {
 	case 0: // cursor to end
 		n := s.grid.size.X - s.cursor.X
-		s.clearRangeX(s.cursor, n)
+		s.grid.clearRangeX(s.cursor, n)
 	case 1: // start to cursor
 		n := s.cursor.X + 1
-		s.clearRangeX(P{0, s.cursor.Y}, n)
+		s.grid.clearRangeX(P{0, s.cursor.Y}, n)
 	default: // 2: whole line
 		s.clearLineInBounds(s.cursor.Y)
 	}
@@ -578,10 +494,10 @@ func (s *Screen) csiIch_insertChars(n int) {
 
 	// shift right
 	dst := s.cursor.Add(P{n, 0})
-	s.copyRangeX(dst, s.cursor.X, r0.Max.X-n)
+	s.grid.copyRangeX(dst, s.cursor.X, r0.Max.X-n)
 
 	// clear left
-	s.clearRangeX(s.cursor, n)
+	s.grid.clearRangeX(s.cursor, n)
 }
 
 func (s *Screen) csiDch_deleteChars(n int) {
@@ -593,17 +509,17 @@ func (s *Screen) csiDch_deleteChars(n int) {
 
 	// shift left
 	dst := s.cursor
-	s.copyRangeX(dst, s.cursor.X+n, r0.Max.X)
+	s.grid.copyRangeX(dst, s.cursor.X+n, r0.Max.X)
 
 	// clear right
 	dst2 := s.cursor
 	dst2.X = r0.Max.X - n
-	s.clearRangeX(dst2, n)
+	s.grid.clearRangeX(dst2, n)
 }
 
 func (s *Screen) csiEch_eraseChars(n int) {
 	s.cancelWrap()
-	s.clearRangeX(s.cursor, n)
+	s.grid.clearRangeX(s.cursor, n)
 }
 
 func (s *Screen) csiCpr_cursorPositionReport() (int, int) {
@@ -622,7 +538,7 @@ func (s *Screen) csiIl_insertLines(n int) {
 	}
 
 	r.Min.Y = s.cursor.Y
-	s.scrollDownR(r, n)
+	s.grid.scrollDownR(r, n)
 }
 
 // region only: delete n lines at cursor row within region
@@ -633,7 +549,7 @@ func (s *Screen) csiDl_deleteLines(n int) {
 	}
 
 	r.Min.Y = s.cursor.Y
-	s.scrollUpR(r, n)
+	s.grid.scrollUpR(r, n)
 }
 
 // region only
@@ -643,7 +559,7 @@ func (s *Screen) csiSu_scrollUp(n int) {
 		return
 	}
 	n = clamp(n, 1, r.Dy())
-	s.scrollUpR(r, n)
+	s.grid.scrollUpR(r, n)
 }
 
 // region only
@@ -653,7 +569,7 @@ func (s *Screen) csiSd_scrollDown(n int) {
 		return
 	}
 	n = clamp(n, 1, r.Dy())
-	s.scrollDownR(r, n)
+	s.grid.scrollDownR(r, n)
 }
 
 //----------
@@ -721,7 +637,7 @@ func (s *Screen) escInd_index() {
 	s.cancelWrap()
 
 	if s.cursor.Y == r.Max.Y-1 {
-		s.scrollUpR(r, 1)
+		s.grid.scrollUpR(r, 1)
 	} else {
 		s.cursor.Y++
 	}
@@ -736,7 +652,7 @@ func (s *Screen) escRi_reverseIndex() {
 	s.cancelWrap()
 
 	if s.cursor.Y == r.Min.Y {
-		s.scrollDownR(r, 1)
+		s.grid.scrollDownR(r, 1)
 	} else {
 		s.cursor.Y--
 	}
@@ -861,10 +777,22 @@ func clamp(v, lo, hi int) int {
 type Grid struct {
 	size  P
 	lines []GridLine
+	//clearAttr *Attr // attribute when clearing cells
+
+	hasScrollBack bool
+	scrollBack    []byte
+
+	//longLineMode *bool
+
+	scr *Screen
 }
 
-func newGrid(size P) *Grid {
-	return &Grid{size: size, lines: newGridLines(size)}
+func newGrid(size P, scr *Screen) *Grid {
+	return &Grid{size: size, lines: newGridLines(size), scr: scr}
+}
+
+func (g *Grid) reset() {
+	*g = *newGrid(g.size, g.scr)
 }
 
 func (g *Grid) bounds() R {
@@ -878,13 +806,112 @@ func (g *Grid) cell(p P) *Cell {
 	return g.line(p.Y).cell(p.X)
 }
 
-//func (g *Grid) setCell(p P, c Cell) {
-//	*g.cell(p) = c
-//}
-
-func (g *Grid) clear() {
-	*g = *newGrid(g.size)
+func (g *Grid) isLongLineMode() bool {
+	return g.scr.longLineMode
 }
+
+//----------
+
+func (g *Grid) copyR(dst P, r R) {
+	w := [][]Cell{}
+	// copy to tmp first to allow correct overwriting
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		line := g.line(y)
+
+		maxX := r.Max.X
+		if g.isLongLineMode() {
+			if maxX == g.size.X {
+				maxX = len(line.cells)
+			}
+		}
+
+		w = append(w, slices.Clone(line.cells[r.Min.X:maxX]))
+	}
+	// copy to the destination
+	for k, u := range w {
+		line := g.line(dst.Y + k)
+		line.cells = append(line.cells[:dst.X], u...)
+	}
+}
+func (g *Grid) copyRangeX(dst P, minX, maxX int) {
+	g.copyR(dst, R{P{minX, dst.Y}, P{maxX, dst.Y + 1}})
+}
+
+func (g *Grid) clearR(r R) {
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		g.clearLineCells(y, r.Min.X, r.Max.X)
+	}
+}
+func (g *Grid) clearRangeX(dst P, n int) {
+	n = min(n, g.size.X-dst.X)
+	g.clearLineCells(dst.Y, dst.X, dst.X+n)
+}
+
+func (g *Grid) clearLineCells(y int, x0, x1 int) {
+	line := g.line(y)
+
+	for x := x0; x < x1; x++ {
+		*line.cell(x) = Cell{A: g.scr.curAttr}
+	}
+
+	if g.isLongLineMode() {
+		// clear offscreen cells
+		line.cells = line.cells[:g.size.X] // truncate
+	}
+}
+
+//----------
+
+// shifts up, blanks bottom
+func (g *Grid) scrollUpR(r0 R, n int) {
+	n = clamp(n, 0, r0.Dy())
+
+	// keep scrollback
+	if g.hasScrollBack &&
+		r0.Min == (P{0, 0}) &&
+		r0.Max.X == g.size.X {
+
+		sb := &g.scrollBack
+		for i := range n {
+			for _, c := range g.line(i).cells {
+				*sb = appendRune(*sb, c.printableRune())
+			}
+
+			// clean end of line to avoid space wraps
+			*sb = bytes.TrimRight(*sb, " \n")
+			*sb = appendRune(*sb, '\n')
+		}
+	}
+
+	// move rows [top+n..bot] up by n
+	dst := r0.Min
+	r1 := r0
+	r1.Min.Y += n
+	g.copyR(dst, r1)
+
+	// clear bottom rows
+	r2 := r0
+	r2.Min.Y = r0.Max.Y - n
+	g.clearR(r2)
+}
+
+// shift down, blanks top
+func (g *Grid) scrollDownR(r0 R, n int) {
+	n = clamp(n, 0, r0.Dy())
+
+	// move rows [top..bot-n] down by n
+	dst := r0.Min.Add(P{0, n})
+	r1 := r0
+	r1.Max.Y -= n
+	g.copyR(dst, r1)
+
+	// clear top rows
+	r2 := r0
+	r2.Max.Y = r0.Min.Y + n
+	g.clearR(r2)
+}
+
+//----------
 
 func (g *Grid) clone() *Grid {
 	g2 := *g
@@ -892,29 +919,31 @@ func (g *Grid) clone() *Grid {
 	for i := range g.size.Y {
 		g2.lines[i] = g.lines[i].Clone()
 	}
+	g2.scrollBack = slices.Clone(g.scrollBack)
 	return &g2
 }
 
-func (g *Grid) resize(size P, scr *Screen) {
+func (g *Grid) resize(size P) {
 	if d := size.Y - g.size.Y; d > 0 {
 		g.lines = append(g.lines, newGridLines(P{size.X, d})...)
 	} else if d < 0 {
-		//// temporarily redirect s.grid so scrollUpR operates on g
-		//saved := scr.grid
-		//scr.grid = g
-		//scr.scrollUpR(g.bounds(), -d)
-		//scr.grid = saved
-
-		g.lines = g.lines[:size.Y]
+		d = -d
+		if g.isLongLineMode() {
+			if g.scr.cursor.Y >= size.Y {
+				g.scrollUpR(g.bounds(), d)
+			}
+		}
+		g.lines = g.lines[:size.Y] // truncate
 	}
 
 	for i := range g.lines {
 		line := g.line(i)
-		// hard truncate - standard terminal behaviour
 		if d := size.X - len(line.cells); d > 0 {
 			line.cells = append(line.cells, make([]Cell, d)...)
 		} else if d < 0 {
-			if !scr.longLineMode {
+			if g.isLongLineMode() {
+				// do thing, keep content
+			} else {
 				line.cells = line.cells[:size.X] // truncate
 			}
 		}
@@ -1116,60 +1145,6 @@ func (gr *Graphics) clone() *Graphics {
 
 //----------
 //----------
-//----------
-
-//type ScrollBack struct {
-//	toMove []byte // scrolled but not yet displayed
-//	scroll []byte // read only, already displayed
-//}
-
-//----------
-//----------
-//----------
-
-//func cloneCells(r []Cell) []Cell {
-//	return slices.Clone(r)
-//}
-
-//func cloneGrid(g [][]Cell) [][]Cell {
-//	out := make([][]Cell, len(g))
-//	for i := range g {
-//		out[i] = cloneCells(g[i])
-//	}
-//	return out
-//}
-
-//func newGrid(size P) [][]Cell {
-//	out := make([][]Cell, size.Y)
-//	for i := range out {
-//		out[i] = make([]Cell, size.X)
-//	}
-//	return out
-//}
-
-//func resizeGrid(grid [][]Cell, size P) [][]Cell {
-//	if d := size.Y - len(grid); d > 0 {
-//		// TODO: scrollback
-
-//		//grid = append([][]Cell(nil), grid[d:]...) // keep lower lines
-//		grid = append(grid, make([][]Cell, d)...)
-//	} else {
-//		grid = grid[:size.Y] // keep top lines
-//	}
-//	for i := range grid {
-//		//row := grid[i]
-//		if d := size.X - len(grid[i]); d > 0 {
-//			grid[i] = append(grid[i], make([]Cell, d)...)
-//		} else {
-//			// TODO: check wraps
-//			// TODO: check unwraps
-//			// reduce size
-//			grid[i] = grid[i][:size.X]
-//		}
-//	}
-//	return grid
-//}
-
 //----------
 
 func mapDecSpecial(r rune) rune {

@@ -835,47 +835,49 @@ func TestWraplines(t *testing.T) {
 func TestWraplines2(t *testing.T) {
 	opts := Opts{}
 
-	te := newTestEmu(newTuiMock(), opts, 4, 2)
+	te := newTestEmu(newTuiMock(), opts, 3, 5)
 	defer te.Close()
 
 	te.scr.longLineMode = true
 
 	// runes to force wrapping
-	u := ``
-	//for range 2 {
-	for i := 0; i < 10; i++ {
-		u += string('0' + rune(i%10))
-	}
-	//u += "\n"
-	//}
+	u := "AAAAA\nBBBBB\nCCCCC\nDDDDD\nEEEEE"
 
 	sendWithBarrier(t, te, u)
 	s := te.Snapshot()
-	//s.ScrollBackBuf1 = nil
 	t.Log(s.Qprint(false))
 
-	te.scr.setSize(P{2, 2})
+	// resize
+	te.scr.setSize(P{3, 3})
 	s = te.Snapshot()
 	t.Log(s.Qprint(false))
 
-	//out := string(s.Bprint(true))
-	//if out != "0123\n4567\n8◙\n\n\n" {
-	//	t.Fatal(out)
-	//}
-
-	// writing before the end of the line, clears offscreen cells
-	te.scr.cursor = P{0, 0}
-	te.scr.putRune('A')
-	s = te.Snapshot()
-	t.Log(s.Qprint(false))
-
-	out := s.Sprint(false)
-	if out != "A1\n\n" {
-		s = te.Snapshot()
-		t.Log(s.Qprint(false))
+	out := string(s.Bprint(false))
+	if out != "AAAAA\nBBBBB\n∆\nCCCCC\nDDDDD\nEEEEE\n" {
 		t.Fatal()
 	}
+}
 
+func TestWraplines3(t *testing.T) {
+	opts := Opts{}
+
+	te := newTestEmu(newTuiMock(), opts, 3, 7)
+	defer te.Close()
+
+	te.scr.longLineMode = true
+
+	u := "AAAAA\nBBBBB\nCCCCC\nDDDDD\nEEEEE"
+
+	sendWithBarrier(t, te, u)
+	s := te.Snapshot()
+	t.Log(s.Qprint(true))
+
+	// resize
+	te.scr.setSize(P{3, 5})
+	s = te.Snapshot()
+	t.Log(s.Qprint(true))
+
+	t.Fatal()
 }
 
 //----------
