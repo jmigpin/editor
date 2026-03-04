@@ -11,7 +11,6 @@ import (
 	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/syncutil"
 )
 
 type ERowTermEmu struct {
@@ -94,9 +93,10 @@ func (temu *ERowTermEmu) updateSize() {
 
 	if cr2 != cr1 { // need to adjust font
 		if fface2, ok := temu.termFontFace(cr2, psize, fface); ok {
-			cr3, _ := temu.termSize(fface2)
+			cr3, psize2 := temu.termSize(fface2)
 			cr2 = temu.emu.ClampSize(cr3)
 			fface = fface2
+			psize = psize2
 		}
 	}
 
@@ -207,8 +207,7 @@ type ERowTermEmuUI struct {
 	temu *ERowTermEmu
 	sp   *termemu.ScreenPrinter
 
-	paintThrottle *syncutil.Throttler
-	paint         struct {
+	paint struct {
 		//sync.Mutex
 		//on   bool
 		text struct {
@@ -228,11 +227,6 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 	tui := &ERowTermEmuUI{temu: temu}
 
 	tui.sp = termemu.NewScreenPrinter()
-	//tui.sp.Seperator = true
-
-	//tui.paintThrottle = syncutil.NewThrottler()
-	//tui.paintThrottle.Interval = time.Second / 10
-	//tui.paintThrottle.Fn = tui.paint2
 
 	// defaults colors for inverse video
 	ta := tui.temu.erow.Row.TextArea
@@ -311,48 +305,18 @@ func (tui *ERowTermEmuUI) paint2() {
 	tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
 }
 
-//----------
-
-//func (tui *ERowTermEmuUI) Paint() {
-//	//tui.paintThrottle.Call() // TODO: rename to schedule
+//// darken bg color
+//cint := func(c int) color.RGBA {
+//	return imageutil.RgbaFromInt(c)
 //}
-
-//func (tui *ERowTermEmuUI) paint2(done func()) {
-//	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
-//		tui.paint3(done)
-//	})
-//}
-//func (tui *ERowTermEmuUI) paint3(done func()) {
-//	defer done()
-
-//	scr := tui.temu.emu.Snapshot()
-//	ops, bs := tui.paintOpsBytes(scr)
-
-//	tui.paint4(bs, ops, done)
-//}
-
-//func (tui *ERowTermEmuUI) paint4(bs []byte, ops []*D4COp, done func()) {
-//	defer done()
-
-//	// TODO: crash on drawer4 colorize ops are nil?
-
-//	ta := tui.temu.erow.Row.TextArea
-//	ta.SetTerminalColorOps(ops)
-//	tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
-
-//	//// darken bg color
-//	//cint := func(c int) color.RGBA {
-//	//	return imageutil.RgbaFromInt(c)
-//	//}
-//	//_ = cint
-//	//tbg := ta.TreeThemePaletteColor("text_bg")
-//	//tbg2 := imageutil.TintOrShade(tui.restore.bg, 0.30)
-//	//tbg2 := cint(0xff0000)
-//	//tbg2 := cint(0xdddddd)
-//	//tbg2 := cint(0xdddddd)
-//	//ta.SetThemePaletteColor("text_bg", tbg2)
-//	//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tbg2)
-//}
+//_ = cint
+//tbg := ta.TreeThemePaletteColor("text_bg")
+//tbg2 := imageutil.TintOrShade(tui.restore.bg, 0.30)
+//tbg2 := cint(0xff0000)
+//tbg2 := cint(0xdddddd)
+//tbg2 := cint(0xdddddd)
+//ta.SetThemePaletteColor("text_bg", tbg2)
+//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tbg2)
 
 //----------
 
@@ -391,12 +355,6 @@ func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) 
 
 	return dops, bs
 }
-
-//----------
-
-//func (temu *ERowTermEmu) usingAlternateBuffer() bool {
-//	return temu.emu.ScrPrivModes().AlternateBuffer()
-//}
 
 //----------
 //----------
