@@ -87,16 +87,14 @@ func (temu *ERowTermEmu) updateSize() {
 		}
 	}
 
-	cr1, psize := temu.termSize(fface)
+	cr, psize := temu.termSize(fface) // cr=cols/rows
 
-	cr2 := temu.emu.ClampSize(cr1)
-
-	if cr2 != cr1 { // need to adjust font
+	if cr2 := temu.emu.ClampSize(cr); cr2 != cr {
 		if fface2, ok := temu.termFontFace(cr2, psize, fface); ok {
 			cr3, psize2 := temu.termSize(fface2)
-			cr2 = temu.emu.ClampSize(cr3)
+			cr = temu.emu.ClampSize(cr3)
 			fface = fface2
-			psize = psize2
+			psize = psize2 // usually the same
 		}
 	}
 
@@ -105,8 +103,8 @@ func (temu *ERowTermEmu) updateSize() {
 		temu.erow.Row.TextArea.SetThemeFontFace(fface)
 	}
 
-	temu.emu.SetSize(cr2)
-	temu.updatePty(cr2, psize)
+	temu.emu.SetSize(cr)
+	temu.updatePty(cr, psize)
 }
 
 // triggered by a term sequence that changes cols/rows
@@ -140,10 +138,6 @@ func (temu *ERowTermEmu) termSize(fface *fontutil.FontFace) (_, _ termemu.P) {
 
 	sx, sy := temu.taPixelSize()
 	sx -= rw // newline
-	//if temu.tui.sp.Border {
-	//	sx -= rw * 2
-	//	sy -= lh * 2
-	//}
 	sx, sy = max(sx, 0), max(sy, 0)
 	pixs := P{sx, sy}
 
