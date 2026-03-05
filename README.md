@@ -243,8 +243,8 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `FontRunes`: output the current font runes.
 - `OpenExternal`: open the row with the preferred external application (ex: useful to open an image, pdf, etc).
 - `OpenFilemanager`: open the row directory with the external filemanager.
-- `OpenTerminalExt`: open the row directory with the external terminal.
-- `OpenTerminalEmu`: open the row directory with the internal terminal emulator.
+- `OpenTerminal`: open the row directory with the external terminal.
+- `OpenTerminalIntegrated`: open the row directory with the internal terminal emulator.
 - `LsprotoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `LsprotoRename <new-name>`: Renames the identifiers under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - `LsprotoCallers`: lists callers of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy incoming calls.
@@ -420,15 +420,36 @@ Usage of GoDebug run:
 		GoDebug connect -addr=:8008
 		```
 
+## Integrated Terminal Emulator
+
+The editor includes a built-in terminal emulator that runs directly inside a row.
+Opening a terminal row:
+
+Run `OpenTerminalIntegrated` from the toolbar — opens a new row with a shell at the active row's directory.
+Or use the `$terminal=emu` internal variable in any row toolbar, causing commands run in that row to execute in a PTY (pseudo-terminal) instead of a regular pipe. This is useful when running programs that require a real terminal (e.g. interactive CLI tools, programs that check isatty).
+
+Example:
+
+```
+~/myproject/ | $terminal=emu | bash
+```
+
+Clicking `bash` will run it inside a PTY - useful if the program uses terminal color output, prompts, or isatty checks.
+
 ## Internal variables
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
 - `$font=<name>[,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
 - `$scrollMode={auto}`: if the current bottom of the content is visible, auto scroll down when new content is added (ex: a cmd output).
-- `$termFilter`: same as `$terminal=f`
-- `$terminal={f,k}`: enable terminal features.
-	- `f`: Filter (remove) escape sequences from the output. Currently only the clear display sequence is interpreted in this mode which clears the output (usefull for running programs that want to discard old ouput).
-	- `k`: redirect keyboard input to the running program to enable reading from standard input. Note: typing keys will not be seen in the textarea unless the running program outputs them (exceptions: "\n") .
+- `$terminal=<options>`: run commands in this row using a terminal emulator.Options are comma-separated: `pty`, `kb`, `mouse`, `raw`, `plain`, `grid`, `emu`.	
+	- `pty`: run as pseudo-terminal.
+	- `kb`: forward keyboard input to the process. Note: typing keys will not be seen in the textarea unless the running program outputs them.
+	- `mouse`: forward mouse events to the process.
+	- `raw`: disable input processing (send raw bytes).
+	- `plain`: disable output processing (display raw bytes).
+	- `grid`: enable grid-based terminal rendering.
+	- `emu`: shorthand for `grid,pty,kb,mouse` and `$scrollMode=auto`.
+	- Negation is supported: ex: `$terminal=emu,no-kb`
 
 ## Environment variables set available to external commands
 
