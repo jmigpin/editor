@@ -5,14 +5,14 @@ go 1.24.0
 require (
 	github.com/creack/pty v1.1.24
 	github.com/davecgh/go-spew v1.1.1
-	github.com/fsnotify/fsnotify v1.7.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/jezek/xgb v1.1.1
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
 	golang.org/x/exp/jsonrpc2 v0.0.0-20250911091902-df9299821621
 	golang.org/x/image v0.18.0
 	golang.org/x/mod v0.24.0
 	golang.org/x/net v0.40.0
-	golang.org/x/sys v0.35.0
+	golang.org/x/sys v0.41.0
 	golang.org/x/term v0.32.0
 	golang.org/x/text v0.25.0
 	golang.org/x/tools v0.33.0

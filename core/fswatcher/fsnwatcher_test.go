@@ -63,23 +63,25 @@ func TestFsWatcher2(t *testing.T) {
 	mustAddWatch(t, w, file2)
 	mustRemoveAll(t, file1)
 
-	// two equal events, one from dir4, one from file1
+	// OLD: 2 equal events, one from dir4, one from file1
+	// fsnotify 1.9.0: triggers only one event
 	readEvent(t, w, true, func(ev *Event) bool {
 		return ev.Name == file1 && ev.Op.HasAny(Remove)
 	})
-	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file1 && ev.Op.HasAny(Remove)
-	})
+	//readEvent(t, w, true, func(ev *Event) bool {
+	//	return ev.Name == file1 && ev.Op.HasAny(Remove)
+	//})
 
 	mustRemoveAll(t, dir4)
 
-	// 2 equal events, 1 from dir4, 1 from file1
+	// OLD: 2 equal events, 1 from dir4, 1 from file1
+	// fsnotify 1.9.0: triggers only one event
 	readEvent(t, w, true, func(ev *Event) bool {
 		return ev.Name == file2 && ev.Op.HasAny(Remove)
 	})
-	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file2 && ev.Op.HasAny(Remove)
-	})
+	//readEvent(t, w, true, func(ev *Event) bool {
+	//	return ev.Name == file2 && ev.Op.HasAny(Remove)
+	//})
 }
 
 func TestFsWatcher3(t *testing.T) {
@@ -194,7 +196,8 @@ func TestFsWatcher5(t *testing.T) {
 	readEvent(t, w, true, func(ev *Event) bool {
 		return ev.Name == file1 && ev.Op.HasAny(Rename)
 	})
-	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file2 && ev.Op.HasAny(Remove)
-	})
+	// fsnotify 1.9.0 - this event doesn't happen anymore, only the create above on file2
+	//readEvent(t, w, true, func(ev *Event) bool {
+	//	return ev.Name == file2 && ev.Op.HasAny(Remove)
+	//})
 }
