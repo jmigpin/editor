@@ -2,13 +2,15 @@
 
 Source code editor in pure Go.
 
-![screenshot](./screenshot.png)
+![screenshot](docs/screenshot.png)
 
-![screenshot](./screenshot2.png)
+![screenshot](docs/screenshot2.png)
 
-![screenshot](./screenshot3.png)
+![screenshot](docs/screenshot3.png)
 
-![screenshot](./screenshot4.png)
+![screenshot](docs/screenshot4.png)
+
+![screenshot](docs/screenshot5.png)
 
 ## About
 
@@ -128,6 +130,8 @@ Usage of editor:
     	shadow effects on some elements (default true)
   -sn string
     	open existing session
+  -startmaximized
+    	maximize window at start
   -stringscolor int
     	Colorize strings. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.
   -tabwidth int
@@ -138,6 +142,8 @@ Usage of editor:
     	output version and exit
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
+  -wrapwordlimit int
+    	wrap at word boundaries for words up to N runes. Set to zero to disable word wrap. (default 10)
   -zipsessionsfile
     	Save sessions in a zip. Useful for 100+ sessions. Does not delete the plain file. Beware that the file might not be easily editable as in a plain file.
 ```
