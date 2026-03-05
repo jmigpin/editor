@@ -102,9 +102,12 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 			buf.WriteRune(ru)
 		}
-
 		buf.WriteString("\n")
 	}
 
-	return buf.Bytes()
+	bs := buf.Bytes()
+	// clear ending newlines to allow screen alignment
+	bs = bytes.TrimRight(bs, "\n")
+
+	return bs
 }
