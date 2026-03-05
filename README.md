@@ -614,6 +614,11 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2026/??/??: v3.13 (work in progress)
+	- added terminal emulator integrated into the editor
+	- added (startmaximized, wrapwordlimit)  options
+	- upgraded fsnotify pkg
+	- many small fixes and improvements
 - 2025/08/13: v3.12.0 (23 commmits)
 	- core/inlinecomplete: improved completion
 	- godebug: improved internal testing facilities
