@@ -534,34 +534,33 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 		opt = opt[3:]
 	}
 
-	// aliases
+	// aliases - old options
 	alias := map[string]string{
-		"f":     "emuraw", // old "filter" option
-		"k":     "kb",
-		"raw":   "emuraw",
-		"ui":    "emuui",
-		"plain": "emuplain",
+		"f": "raw", // old "filter" option
+		"k": "kb",
 	}
 	if a, ok := alias[opt]; ok {
 		opt = a
 	}
 
 	switch opt {
+	case "debug":
+		topt.emuOpts.Debug = true
+
 	case "pty":
 		topt.pty = set
 	case "kb":
 		topt.forwardKb = set
 	case "mouse":
 		topt.forwardMouse = set
-	case "debug":
-		topt.emuOpts.Debug = true
 
-	case "emuraw":
+	case "raw":
 		return topt.emuOpts.Mode.SetBool(set, termemu.ModeRaw)
-	case "emuplain":
+	case "plain":
 		return topt.emuOpts.Mode.SetBool(set, termemu.ModePlain)
-	case "emuui":
+	case "grid":
 		return topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid)
+
 	case "emu": // pre-set options
 		if err := topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid); err != nil {
 			return err
