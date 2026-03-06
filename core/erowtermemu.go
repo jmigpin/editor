@@ -59,7 +59,7 @@ func (temu *ERowTermEmu) Close() error {
 
 	temu.tui.Close()
 	temu.erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
-		temu.erow.Row.TextArea.SetThemeFontFace(temu.erow.runOpts.fface)
+		temu.erow.Row.TextArea.SetThemeFontFace(temu.erow.runOpts.ffaceRestore)
 	})
 
 	return temu.ReadWriteCloser.Close()
@@ -82,6 +82,7 @@ func (temu *ERowTermEmu) updateSize() {
 
 	cr, psize := temu.termSize(fface) // cr=cols/rows
 
+	// support col132 mode, but ends allowing dynamic font size when the screen rows/cols are lower then the minimum required
 	if cr2 := temu.emu.ClampSize(cr); cr2 != cr {
 		if fface2, ok := temu.termFontFace(cr2, psize, fface); ok {
 			cr3, psize2 := temu.termSize(fface2)
