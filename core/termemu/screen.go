@@ -58,6 +58,7 @@ func NewScreen() *Screen {
 	s.grid1.hasScrollBack = true
 
 	s.grid2 = newGrid(size0, s)
+	//s.grid2.hasScrollBack = true
 
 	s.setGrid2(false)
 	s.setSize(size0)
@@ -158,8 +159,8 @@ func (s *Screen) Clone() *Screen {
 //----------
 
 func (s *Screen) clearGrids() {
-	s.grid1.reset()
-	s.grid2.reset()
+	s.grid1.clear()
+	s.grid2.clear()
 }
 
 //----------
@@ -436,7 +437,7 @@ func (s *Screen) csiEd_eraseInDisplay(mode int) {
 	//case 3: // entire screen and the scrollback buffer
 	default:
 		s.grid.clearR(s.grid.bounds())
-		s.grid.reset() // clears all
+		s.grid.clear() // clears all
 	}
 }
 
@@ -778,22 +779,15 @@ func clamp(v, lo, hi int) int {
 type Grid struct {
 	size  P
 	lines []GridLine
-	//clearAttr *Attr // attribute when clearing cells
 
 	hasScrollBack bool
 	scrollBack    []byte
-
-	//longLineMode *bool
 
 	scr *Screen
 }
 
 func newGrid(size P, scr *Screen) *Grid {
 	return &Grid{size: size, lines: newGridLines(size), scr: scr}
-}
-
-func (g *Grid) reset() {
-	*g = *newGrid(g.size, g.scr)
 }
 
 func (g *Grid) bounds() R {
@@ -848,6 +842,13 @@ func (g *Grid) copyR(dst P, r R) {
 }
 func (g *Grid) copyRangeX(dst P, minX, maxX int) {
 	g.copyR(dst, R{P{minX, dst.Y}, P{maxX, dst.Y + 1}})
+}
+
+//----------
+
+func (g *Grid) clear() {
+	//*g = *newGrid(g.size, g.scr) // commented: kills the scrollback
+	g.clearR(g.bounds())
 }
 
 func (g *Grid) clearR(r R) {
