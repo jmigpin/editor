@@ -59,7 +59,7 @@ func (temu *ERowTermEmu) Close() error {
 
 	temu.tui.Close()
 	temu.erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
-		temu.erow.Row.TextArea.SetThemeFontFace(temu.erow.runOpts.origFace)
+		temu.erow.Row.TextArea.SetThemeFontFace(temu.erow.runOpts.fface)
 	})
 
 	return temu.ReadWriteCloser.Close()
@@ -78,14 +78,7 @@ func (temu *ERowTermEmu) setEmuGridSize() {
 }
 
 func (temu *ERowTermEmu) updateSize() {
-	// unless the user defined a font, run with a monospace font
-	fface := temu.erow.runOpts.origFace
-	if !temu.erow.runOpts.hasUserFont {
-		// run with a mono
-		if !fface.TestIsMono() {
-			fface = fontutil.DefaultMonoFont().FontFace(fface.Opts)
-		}
-	}
+	fface := temu.erow.runOpts.fface
 
 	cr, psize := temu.termSize(fface) // cr=cols/rows
 

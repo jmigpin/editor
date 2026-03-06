@@ -437,14 +437,11 @@ func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
 	// $font
-	hasUserFont := false
+	var userFont struct{ name, size bool }
 	if v, ok := vmap["$font"]; ok {
-		err := erow.setVarFontTheme(v)
-		if err == nil {
-			hasUserFont = true
-		}
+		userFont.name, userFont.size, _ = erow.setVarFontTheme(v)
 	}
-	if clear := !hasUserFont; clear {
+	if clear := !userFont.name && !userFont.size; clear {
 		erow.Row.TextArea.SetThemeFontFace(nil)
 	}
 
@@ -452,9 +449,13 @@ func (erow *ERow) parseToolbarVars() {
 	erow.scrollMode = ""
 
 	// $terminal
+	// terminal font face - unless the user defined a font, run with a monospace font
+	tfface := erow.Row.TextArea.TreeThemeFontFace()
+	if !userFont.name && !tfface.TestIsMono() {
+		tfface = fontutil.DefaultMonoFont().FontFace(tfface.Opts)
+	}
 	erow.runOpts = ERowRunOpts{ // reset
-		hasUserFont: hasUserFont,
-		origFace:    erow.Row.TextArea.TreeThemeFontFace(),
+		fface: tfface,
 	}
 	if erow.Info.IsDir() {
 		if v, ok := vmap["$terminal"]; ok {
@@ -475,52 +476,63 @@ func (erow *ERow) parseToolbarVars() {
 	}
 }
 
-func (erow *ERow) setVarFontTheme(s string) error {
+func (erow *ERow) setVarFontTheme(s string) (bool, bool, error) {
 	w := strings.SplitN(s, ",", 2)
-	name := strings.TrimSpace(w[0])
+
+	// font name arg
+	name := (*string)(nil)
+	if s := strings.TrimSpace(w[0]); s != "" {
+		name = &s
+	}
 
 	// font size arg
-	size := float64(0)
+	size := (*float64)(nil)
 	if len(w) > 1 {
 		v, err := strconv.ParseFloat(w[1], 64)
 		if err != nil {
 			// commented: ignore error
-			//return err
+			//return false,false,err
 		} else {
-			size = v
+			// start accepting font size only at 2, allows typing 1x without affecting the rendering
+			if v >= 2 {
+				size = &v
+			}
 		}
 	}
+
+	//----------
 
 	ta := erow.Row.TextArea
 
-	// use parent node face options (inherit dpi)
+	// use parent node face options (also inherits dpi)
 	face := ta.Parent.TreeThemeFontFace()
 	fopts2 := face.Opts // copy
 
-	// start accepting only at 2, allows typing 1x without affecting the rendering
-	if size >= 2 {
-		fopts2.SetSize(size)
-		// change only size if name not provided
-		if len(name) == 0 {
-			ff := face.Font.FontFace(fopts2)
-			ta.SetThemeFontFace(ff)
-			return nil
-		}
+	if size != nil {
+		fopts2.SetSize(*size)
 	}
 
 	ff := (*fontutil.FontFace)(nil)
-	if len(name) == 0 { // change only size if name not provided
-		ff = face.Font.FontFace(fopts2)
-	} else {
-		ff2, err := ui.ThemeFontFace2(name, fopts2)
-		if err != nil {
-			return err
+	validName := false
+	if name != nil {
+		ff2, err := ui.ThemeFontFace2(*name, fopts2)
+		if err == nil {
+			ff = ff2
+			validName = true
 		}
-		ff = ff2
+	}
+
+	if ff == nil {
+		if size != nil { // change only size
+			ff = face.Font.FontFace(fopts2)
+		} else {
+			return false, false, errors.New("unable to load name and missing size")
+		}
 	}
 
 	ta.SetThemeFontFace(ff)
-	return nil
+
+	return validName, size != nil, nil
 }
 
 func (erow *ERow) applyTerminalOpt(opt string) error {
@@ -729,6 +741,5 @@ type ERowRunOpts struct {
 
 	emuOpts termemu.Opts
 
-	hasUserFont bool
-	origFace    *fontutil.FontFace
+	fface *fontutil.FontFace
 }
