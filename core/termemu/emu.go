@@ -30,11 +30,11 @@ import (
 // infocmp -1 "vt100" | grep -E 'smcup|rmcup'
 // infocmp -1 "$TERM" | grep -E 'smcup|rmcup'
 
-// const TermEnv = "TERM=vt100" //
-// const TermEnv = "TERM=xterm-mono" //
-// const TermEnv = "TERM=xterm" //
-// var TermEnv = []string{"TERM=xterm-256color", "COLORTERM=truecolor"}
-var TermEnv = []string{"TERM=xterm-256color"}
+var TermEnv = []string{
+	//"TERM=vt100",
+	//"TERM=xterm"
+	"TERM=xterm-256color",
+}
 
 // const vt100 = "\x1b[?1;0c" //
 // const vt101NoOpt = vt100

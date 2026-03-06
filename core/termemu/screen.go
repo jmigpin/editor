@@ -82,12 +82,6 @@ func (s *Screen) setSize(size P) {
 	clampInR(&s.cursor, s.grid.bounds())
 	s.cursorOffX = 0 // reset offscreen cursor on resize
 
-	// clear the line where cursor lands after resize
-	// the running program will redraw from here
-	//s.grid.clearLineCells(s.cursor.Y, 0, size.X)
-	//s.cursor.Y--
-	//clampInY(&s.cursor.Y, s.grid.bounds())
-
 	s.initTabStops()
 }
 
@@ -103,8 +97,9 @@ func (s *Screen) clampSizeConsideringCol132(size P) P {
 		size.X = max(size.X, 5)
 		size.Y = max(size.Y, 3)
 
-		//size.X = max(size.X, 40)
-		//size.Y = max(size.Y, 12)
+		//// to keep useful view with dynamic font sizing
+		//size.X = max(size.X, 60)
+		//size.Y = max(size.Y, 15)
 	}
 	return size
 }
