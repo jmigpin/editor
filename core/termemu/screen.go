@@ -7,8 +7,6 @@ import (
 	"image/color"
 	"maps"
 	"slices"
-
-	"golang.org/x/image/colornames"
 )
 
 type Screen struct {
@@ -455,7 +453,8 @@ func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 		s.curAttr = Attr{}
 		return
 	}
-	for _, p := range params {
+	for i := 0; i < len(params); i++ {
+		p := params[i]
 		switch {
 		case p == 0:
 			s.curAttr = Attr{}
@@ -467,16 +466,40 @@ func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 			s.curAttr.Bold = false // also faint=false
 		case p == 27:
 			s.curAttr.Inverse = false
+
 		case 30 <= p && p <= 37:
 			u := AttrColor(p - 30)
 			s.curAttr.Fg = &u
 		case p == 39:
 			s.curAttr.Fg = nil
+
 		case 40 <= p && p <= 47:
 			u := AttrColor(p - 40)
 			s.curAttr.Bg = &u
 		case p == 49:
 			s.curAttr.Bg = nil
+
+		// bright options
+		case 90 <= p && p <= 97:
+			u := AttrColor(8 + p - 90)
+			s.curAttr.Fg = &u
+		case 100 <= p && p <= 107:
+			u := AttrColor(8 + p - 100)
+			s.curAttr.Bg = &u
+
+		case p == 38 || p == 48:
+			if i+2 < len(params) && params[i+1] == 5 {
+				n := params[i+2]
+				if 0 <= n && n <= 255 {
+					u := AttrColor(n)
+					if p == 38 {
+						s.curAttr.Fg = &u
+					} else {
+						s.curAttr.Bg = &u
+					}
+				}
+				i += 2
+			}
 		}
 	}
 }
@@ -1017,26 +1040,48 @@ func (ac *AttrColor) Color() color.Color {
 	if ac == nil {
 		return nil
 	}
-	switch *ac {
-	case 0:
-		return colornames.Black
-	case 1:
-		return colornames.Red
-	case 2:
-		return colornames.Green
-	case 3:
-		return colornames.Yellow
-	case 4:
-		return colornames.Blue
-	case 5:
-		return colornames.Magenta
-	case 6:
-		return colornames.Cyan
-	case 7:
-		return colornames.White
-	default:
-		panic("!")
+	v := int(*ac)
+	ansi16 := [16]color.RGBA{
+		{0, 0, 0, 255},       // 0
+		{205, 0, 0, 255},     // 1
+		{0, 205, 0, 255},     // 2
+		{205, 205, 0, 255},   // 3
+		{0, 0, 238, 255},     // 4
+		{205, 0, 205, 255},   // 5
+		{0, 205, 205, 255},   // 6
+		{229, 229, 229, 255}, // 7
+		{127, 127, 127, 255}, // 8
+		{255, 0, 0, 255},     // 9
+		{0, 255, 0, 255},     // 10
+		{255, 255, 0, 255},   // 11
+		{92, 92, 255, 255},   // 12
+		{255, 0, 255, 255},   // 13
+		{0, 255, 255, 255},   // 14
+		{255, 255, 255, 255}, // 15
 	}
+	switch {
+	case 0 <= v && v <= 15:
+		return ansi16[v]
+	case 16 <= v && v <= 255:
+		return xterm256Color(v)
+	}
+	panic("!")
+}
+
+func xterm256Color(n int) color.Color {
+	if 16 <= n && n <= 231 {
+		k := n - 16
+		levels := [6]uint8{0, 95, 135, 175, 215, 255}
+		r := levels[k/36]
+		g := levels[(k/6)%6]
+		b := levels[k%6]
+		return color.RGBA{r, g, b, 255}
+	}
+	if 232 <= n && n <= 255 {
+		v := uint8(8 + (n-232)*10)
+		return color.RGBA{v, v, v, 255}
+	}
+	panic("!")
 }
 
 //----------
