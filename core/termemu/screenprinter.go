@@ -94,8 +94,8 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 			} else {
 				sp.ColorFn(
 					offset,
-					cell.A.Fg.Color(),
-					cell.A.Bg.Color(),
+					cell.A.Fg,
+					cell.A.Bg,
 					cell.A.Inverse,
 				)
 			}

@@ -34,6 +34,7 @@ var TermEnv = []string{
 	//"TERM=vt100",
 	//"TERM=xterm"
 	"TERM=xterm-256color",
+	"COLORTERM=truecolor",
 }
 
 // const vt100 = "\x1b[?1;0c" //
