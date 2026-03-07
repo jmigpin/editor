@@ -449,14 +449,14 @@ func (erow *ERow) parseToolbarVars() {
 	erow.scrollMode = ""
 
 	// $terminal
-	// terminal font face - unless the user defined a font, run with a monospace font
+	// terminal font face: unless the user defined a font, run with a monospace font
 	fface0 := erow.Row.TextArea.TreeThemeFontFace()
 	fface1 := fface0
 	if !userFont.name && !fface1.TestIsMono() {
 		fface1 = fontutil.DefaultMonoFont().FontFace(fface1.Opts)
 	}
 	erow.runOpts = ERowRunOpts{ // reset
-		fface:     fface1,
+		fface:        fface1,
 		ffaceRestore: fface0,
 	}
 	if erow.Info.IsDir() {
@@ -743,6 +743,6 @@ type ERowRunOpts struct {
 
 	emuOpts termemu.Opts
 
-	fface     *fontutil.FontFace
+	fface        *fontutil.FontFace
 	ffaceRestore *fontutil.FontFace
 }

@@ -919,6 +919,8 @@ func (g *Grid) clearLineCells(y int, x0, x1 int) {
 func (g *Grid) scrollUpR(r0 R, n int) {
 	n = clamp(n, 0, r0.Dy())
 
+	//----------
+
 	// keep scrollback
 	if g.hasScrollBack &&
 		r0.Min == (P{0, 0}) &&
@@ -935,6 +937,8 @@ func (g *Grid) scrollUpR(r0 R, n int) {
 			*sb = appendRune(*sb, '\n')
 		}
 	}
+
+	//----------
 
 	// move rows [top+n..bot] up by n
 	dst := r0.Min
