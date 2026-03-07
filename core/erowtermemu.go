@@ -80,17 +80,19 @@ func (temu *ERowTermEmu) setEmuGridSize() {
 func (temu *ERowTermEmu) updateSize() {
 	fface := temu.erow.runOpts.fface
 
-	cr, psize := temu.termSize(fface) // cr=cols/rows
+	cr, psize := temu.termSize(fface) // cr=cols/rows, area size
+	_ = psize
 
-	// support col132 mode, but ends allowing dynamic font size when the screen rows/cols are lower then the minimum required
-	if cr2 := temu.emu.ClampSize(cr); cr2 != cr {
-		if fface2, ok := temu.termFontFace(cr2, psize, fface); ok {
-			cr3, psize2 := temu.termSize(fface2)
-			cr = temu.emu.ClampSize(cr3)
-			fface = fface2
-			psize = psize2 // usually the same
-		}
-	}
+	// DISABLED: can be annoying at times
+	//// support col132 mode, but ends allowing dynamic font size when the screen rows/cols are lower then the minimum required
+	//if cr2 := temu.emu.ClampSize(cr); cr2 != cr {
+	//	if fface2, ok := temu.termFontFace(cr2, psize, fface); ok {
+	//		cr3, psize2 := temu.termSize(fface2)
+	//		cr = temu.emu.ClampSize(cr3)
+	//		fface = fface2
+	//		psize = psize2 // usually the same
+	//	}
+	//}
 
 	fface0 := temu.erow.Row.TextArea.TreeThemeFontFace()
 	if fface != fface0 {
@@ -136,19 +138,19 @@ func (temu *ERowTermEmu) termSize(fface *fontutil.FontFace) (_, _ termemu.P) {
 	pixs := P{sx, sy}
 
 	// max cols/rows at wanted font
-	cols := sx / rw
-	rows := sy / lh
+	cols := pixs.X / rw
+	rows := pixs.Y / lh
 	cols, rows = max(cols, 1), max(rows, 1)
 	cr := P{cols, rows}
 
-	return cr, pixs
+	return cr, pixs // columns/rows, available area pixel size
 }
 
 func (temu *ERowTermEmu) taPixelSize() (int, int) {
 	ta := temu.erow.Row.TextArea
 	b := ta.Bounds
-	// handle extra space on the left side used inside the drawer
 	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+		// handle extra space on the left side used inside the drawer
 		b = d.InnerBounds()
 	}
 	return b.Dx(), b.Dy()
@@ -337,7 +339,6 @@ func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) 
 
 	//----------
 
-	//tui.sp.Border = true
 	tui.sp.ColorFn = addColor0
 	bs := tui.sp.Bprint(scr)
 
