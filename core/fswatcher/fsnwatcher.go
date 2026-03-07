@@ -84,9 +84,8 @@ func (w *FsnWatcher) eventLoop() {
 				op.Add(Attrib)
 			}
 
-			op2 := op & w.opMask
-			if op2 > 0 {
-				w.events <- &Event{Op: op, Name: name}
+			if op2 := op & w.opMask; op2 != 0 {
+				w.events <- &Event{Op: op2, Name: name}
 			} else {
 				//log.Printf("not sending event: %v", ev)
 			}

@@ -65,10 +65,10 @@ func (gw *GWatcher) eventLoop() {
 }
 func (gw *GWatcher) handleEv(ev *Event) {
 	u := ev.Name
-	switch ev.Op {
-	case Create, Remove, Rename:
+	if ev.Op.HasAny(Create | Remove | Rename) {
 		_ = gw.review(u)
-	case Modify:
+	}
+	if ev.Op.HasAny(Modify) {
 		_ = gw.modify(u)
 	}
 }
