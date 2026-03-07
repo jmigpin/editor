@@ -107,8 +107,8 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 	bs := buf.Bytes()
 
-	// clear ending newlines to allow screen alignment
-	//bs = bytes.TrimRight(bs, "\n")
+	// clear ending newlines to prevent the last newline to push the screen up and make the autoscroll move
+	bs = bytes.TrimRight(bs, "\n")
 
 	return bs
 }
