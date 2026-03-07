@@ -50,8 +50,7 @@ func NewScreen() *Screen {
 	s.privModes = *newPrivModes()
 	s.graphics = *newGraphics()
 
-	//s.longLineMode = true
-	s.longLineMode = false
+	s.longLineMode = true
 	s.grayscale = true
 
 	size0 := P{1, 1}
@@ -156,8 +155,8 @@ func (s *Screen) Clone() *Screen {
 //----------
 
 func (s *Screen) clearGrids() {
-	s.grid1.clear()
-	s.grid2.clear()
+	s.grid1.clearBounds()
+	s.grid2.clearBounds()
 }
 
 //----------
@@ -431,11 +430,13 @@ func (s *Screen) csiEd_eraseInDisplay(mode int) {
 		s.grid.clearR(b)
 
 		s.csiEl_eraseInLine(1)
-	//case 2: // entire screen
-	//case 3: // entire screen and the scrollback buffer
+	case 2: // entire screen
+		s.grid.clearBounds()
+	case 3: // entire screen and the scrollback buffer
+		s.grid.clearBounds()
+		s.grid.scrollBack = nil
 	default:
-		s.grid.clearR(s.grid.bounds())
-		s.grid.clear() // clears all
+		s.grid.clearBounds()
 	}
 }
 
@@ -885,8 +886,7 @@ func (g *Grid) copyRangeX(dst P, minX, maxX int) {
 
 //----------
 
-func (g *Grid) clear() {
-	//*g = *newGrid(g.size, g.scr) // commented: kills the scrollback
+func (g *Grid) clearBounds() {
 	g.clearR(g.bounds())
 }
 
