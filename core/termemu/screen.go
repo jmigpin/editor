@@ -90,15 +90,16 @@ func (s *Screen) clampSizeConsideringCol132(size P) P {
 	if s.privModes.column132() {
 		size.X = 132
 	}
-	// enforce minimums- usual terminal defaults: 80x24
+	// enforce minimums
 	if s.testing {
 		size.X = max(size.X, 1)
 		size.Y = max(size.Y, 1)
 	} else {
-		size.X = max(size.X, 5)
-		size.Y = max(size.Y, 3)
+		size.X = max(size.X, 1)
+		size.Y = max(size.Y, 1)
 
-		//// to keep useful view with dynamic font sizing
+		// usual defaults: 80x24
+		// useful in dynamic font sizing
 		//size.X = max(size.X, 60)
 		//size.Y = max(size.Y, 15)
 	}
