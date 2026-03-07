@@ -32,6 +32,12 @@ func (in *Indent) Iter() {
 	}
 
 	if in.d.st.lineWrap.postLineWrap {
+		// Wrapped while still scanning only starting spaces: keep wrapped lines visible by using base indent 0 (+tab padding in indent()).
+		if !in.d.st.indent.notStartingSpaces {
+			in.d.st.indent.notStartingSpaces = true
+			in.d.st.indent.indent = 0
+		}
+
 		in.indent()
 	}
 
