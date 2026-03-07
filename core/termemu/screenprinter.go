@@ -23,7 +23,7 @@ func NewScreenPrinter() *ScreenPrinter {
 	sp := &ScreenPrinter{}
 	sp.ColorFn = func(_ int, _, _ color.Color, _ bool) {}
 
-	sp.scrollbackSep = "∆∆∆\n" // check screen.go for testing
+	sp.scrollbackSep = "▲▲▲\n"
 
 	return sp
 }
@@ -106,8 +106,9 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 	}
 
 	bs := buf.Bytes()
+
 	// clear ending newlines to allow screen alignment
-	bs = bytes.TrimRight(bs, "\n")
+	//bs = bytes.TrimRight(bs, "\n")
 
 	return bs
 }

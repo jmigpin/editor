@@ -931,7 +931,7 @@ func (g *Grid) scrollUpR(r0 R, n int) {
 			}
 
 			// clean end of line to avoid space wraps
-			*sb = bytes.TrimRight(*sb, " \n")
+			*sb = bytes.TrimRight(*sb, " \t")
 			*sb = appendRune(*sb, '\n')
 		}
 	}
