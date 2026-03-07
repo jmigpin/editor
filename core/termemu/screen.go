@@ -155,13 +155,6 @@ func (s *Screen) Clone() *Screen {
 
 //----------
 
-func (s *Screen) clearGrids() {
-	s.grid1.clearBounds()
-	s.grid2.clearBounds()
-}
-
-//----------
-
 func (s *Screen) setGrid2(on bool) {
 	if on {
 		s.grid = s.grid2
@@ -437,7 +430,7 @@ func (s *Screen) csiEd_eraseInDisplay(mode int) {
 		s.grid.clearBounds()
 		s.grid.scrollBack = nil
 	default:
-		s.grid.clearBounds()
+		// ignore unknown ED modes
 	}
 }
 
@@ -730,7 +723,8 @@ func (s *Screen) escRis_reset(hard bool) {
 	s.updateRegion()
 	s.initTabStops()
 	if hard {
-		s.clearGrids()
+		s.grid1.clearBounds()
+		s.grid2.clearBounds()
 	}
 }
 
