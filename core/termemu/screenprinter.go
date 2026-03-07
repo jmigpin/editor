@@ -55,6 +55,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 	//----------
 
+	// We intentionally keep cursor-only cells as visible content when  computing the printable line end. While an app is running, many terminals show the cursor via color/inverse (without a dedicated cursor rune), and trimming that cell would make the cursor disappear at line end. Side effect: after the app exits, a trailing " " can remain in text dumps (for example "\n "). This is expected and preferred over losing the live cursor.
 	isCursor := func(x, y int) bool {
 		return scr.IsCursor(x, y) && scr.privModes.showCursor()
 	}
@@ -88,9 +89,11 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 			if isCursor(x, y) {
 				sp.ColorFn(offset, nil, nil, true)
-				if sp.CursorRune != 0 {
+
+				if sp.testing && sp.CursorRune != 0 {
 					ru = sp.CursorRune
 				}
+
 			} else {
 				sp.ColorFn(
 					offset,
@@ -107,7 +110,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 	bs := buf.Bytes()
 
-	// clear ending newlines to prevent the last newline to push the screen up and make the autoscroll move
+	// clear ending newlines to prevent the last added newline to push the screen up and make the autoscroll move
 	bs = bytes.TrimRight(bs, "\n")
 
 	return bs
