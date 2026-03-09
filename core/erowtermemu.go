@@ -99,6 +99,12 @@ func (temu *ERowTermEmu) updateSize() {
 		temu.erow.Row.TextArea.SetThemeFontFace(fface)
 	}
 
+	if temu.tui.sp.UseGrayscale != temu.erow.runOpts.useGrayscale {
+		temu.tui.sp.UseGrayscale = temu.erow.runOpts.useGrayscale
+		// Force repaint in case size did not change.
+		temu.tui.Paint()
+	}
+
 	temu.emu.SetSize(cr)
 	// Keep PTY size aligned with the effective emu size after internal clamping.
 	temu.updatePty(temu.emu.GetSize(), psize)
@@ -198,9 +204,7 @@ type ERowTermEmuUI struct {
 	temu *ERowTermEmu
 	sp   *termemu.ScreenPrinter
 
-	paint struct {
-		//sync.Mutex
-		//on   bool
+	defaultColors struct {
 		text struct {
 			fg, bg color.Color
 		}
@@ -220,9 +224,10 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 	tui.sp = termemu.NewScreenPrinter()
 
 	// defaults colors for inverse video
+	// TODO: run inside ui goroutine?
 	ta := tui.temu.erow.Row.TextArea
-	tui.paint.text.fg = ta.TreeThemePaletteColor("text_fg")
-	tui.paint.text.bg = ta.TreeThemePaletteColor("text_bg")
+	tui.defaultColors.text.fg = ta.TreeThemePaletteColor("text_fg")
+	tui.defaultColors.text.bg = ta.TreeThemePaletteColor("text_bg")
 
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		ta := tui.temu.erow.Row.TextArea
@@ -279,11 +284,6 @@ func (tui *ERowTermEmuUI) Print(v any) {
 
 func (tui *ERowTermEmuUI) Paint() {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		//scr := tui.temu.emu.Snapshot()
-		//ops, bs := tui.paintOpsBytes(scr)
-		//ta := tui.temu.erow.Row.TextArea
-		//ta.SetTerminalColorOps(ops)
-		//tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
 		tui.paint2()
 	})
 }
@@ -317,10 +317,10 @@ func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) 
 	// defaults colors for inverse video
 	defColors := func(fg, bg color.Color) (_, _ color.Color) {
 		if fg == nil {
-			fg = tui.paint.text.fg
+			fg = tui.defaultColors.text.fg
 		}
 		if bg == nil {
-			bg = tui.paint.text.bg
+			bg = tui.defaultColors.text.bg
 		}
 		return fg, bg
 	}

@@ -7,6 +7,8 @@ import (
 
 type ScreenPrinter struct {
 	ColorFn func(offset int, fg, bg color.Color, inverse bool)
+	// Apply grayscale conversion only on output rendering; screen keeps true colors.
+	UseGrayscale bool
 
 	CursorRune rune // mostly for testing where there are no colors, so a rune is printed for guidance
 
@@ -97,8 +99,8 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 			} else {
 				sp.ColorFn(
 					offset,
-					cell.A.Fg,
-					cell.A.Bg,
+					sp.filterColor(cell.A.Fg),
+					sp.filterColor(cell.A.Bg),
 					cell.A.Inverse,
 				)
 			}
@@ -114,4 +116,11 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 	bs = bytes.TrimRight(bs, "\n")
 
 	return bs
+}
+
+func (sp *ScreenPrinter) filterColor(c color.Color) color.Color {
+	if sp.UseGrayscale {
+		return grayscaleColor(c)
+	}
+	return c
 }

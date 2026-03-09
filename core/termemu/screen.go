@@ -41,8 +41,6 @@ type Screen struct {
 	onColumnModeChange func()
 
 	testing bool
-
-	grayscale bool
 }
 
 func NewScreen() *Screen {
@@ -51,7 +49,6 @@ func NewScreen() *Screen {
 	s.graphics = *newGraphics()
 
 	s.longLineMode = true
-	s.grayscale = true
 
 	size0 := P{1, 1}
 
@@ -467,44 +464,44 @@ func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 		case p == 27:
 			s.curAttr.Inverse = false
 
-		case 30 <= p && p <= 37:
-			s.curAttr.Fg = s.attrColor(xterm256Color(p - 30))
-		case p == 39:
-			s.curAttr.Fg = nil
+			case 30 <= p && p <= 37:
+				s.curAttr.Fg = xterm256Color(p - 30)
+			case p == 39:
+				s.curAttr.Fg = nil
 
-		case 40 <= p && p <= 47:
-			s.curAttr.Bg = s.attrColor(xterm256Color(p - 40))
-		case p == 49:
-			s.curAttr.Bg = nil
+			case 40 <= p && p <= 47:
+				s.curAttr.Bg = xterm256Color(p - 40)
+			case p == 49:
+				s.curAttr.Bg = nil
 
 			// bright options
-		case 90 <= p && p <= 97:
-			s.curAttr.Fg = s.attrColor(xterm256Color(8 + p - 90))
-		case 100 <= p && p <= 107:
-			s.curAttr.Bg = s.attrColor(xterm256Color(8 + p - 100))
+			case 90 <= p && p <= 97:
+				s.curAttr.Fg = xterm256Color(8 + p - 90)
+			case 100 <= p && p <= 107:
+				s.curAttr.Bg = xterm256Color(8 + p - 100)
 
 		// 256 colors + rgb colors
 		case p == 38 || p == 48:
 			if i+2 < len(params) && params[i+1] == 5 {
-				n := params[i+2]
-				if 0 <= n && n <= 255 {
-					if p == 38 {
-						s.curAttr.Fg = s.attrColor(xterm256Color(n))
-					} else {
-						s.curAttr.Bg = s.attrColor(xterm256Color(n))
+					n := params[i+2]
+					if 0 <= n && n <= 255 {
+						if p == 38 {
+							s.curAttr.Fg = xterm256Color(n)
+						} else {
+							s.curAttr.Bg = xterm256Color(n)
+						}
 					}
-				}
 				i += 2
 			} else if i+4 < len(params) && params[i+1] == 2 {
 				r, g, b := params[i+2], params[i+3], params[i+4]
-				if 0 <= r && r <= 255 && 0 <= g && g <= 255 && 0 <= b && b <= 255 {
-					c := color.RGBA{uint8(r), uint8(g), uint8(b), 255}
-					if p == 38 {
-						s.curAttr.Fg = s.attrColor(c)
-					} else {
-						s.curAttr.Bg = s.attrColor(c)
+					if 0 <= r && r <= 255 && 0 <= g && g <= 255 && 0 <= b && b <= 255 {
+						c := color.RGBA{uint8(r), uint8(g), uint8(b), 255}
+						if p == 38 {
+							s.curAttr.Fg = c
+						} else {
+							s.curAttr.Bg = c
+						}
 					}
-				}
 				i += 4
 			}
 		}
@@ -739,13 +736,6 @@ func (s *Screen) escAln_screenAlignment() {
 }
 
 //----------
-
-func (s *Screen) attrColor(c color.Color) color.Color {
-	if !s.grayscale {
-		return c
-	}
-	return grayscaleColor(c)
-}
 
 //----------
 //----------

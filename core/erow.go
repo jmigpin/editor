@@ -458,6 +458,7 @@ func (erow *ERow) parseToolbarVars() {
 	erow.runOpts = ERowRunOpts{ // reset
 		fface:        fface1,
 		ffaceRestore: fface0,
+		useGrayscale: true,
 	}
 	if erow.Info.IsDir() {
 		if v, ok := vmap["$terminal"]; ok {
@@ -560,6 +561,11 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 	switch opt {
 	case "debug":
 		topt.emuOpts.Debug = true
+
+	case "grayscale":
+		topt.useGrayscale = set
+	case "color":
+		topt.useGrayscale = !set
 
 	case "pty":
 		topt.pty = set
@@ -742,6 +748,8 @@ type ERowRunOpts struct {
 	forwardMouse bool // forward mouse events to the process
 
 	emuOpts termemu.Opts
+
+	useGrayscale bool
 
 	fface        *fontutil.FontFace
 	ffaceRestore *fontutil.FontFace
