@@ -66,10 +66,17 @@ func (gw *GWatcher) eventLoop() {
 func (gw *GWatcher) handleEv(ev *Event) {
 	u := ev.Name
 	if ev.Op.HasAny(Create | Remove | Rename) {
-		_ = gw.review(u)
+		if err := gw.review(u); err != nil {
+			gw.events <- fmt.Errorf("gwatcher review failed (op=%v, name=%q): %w", ev.Op, u, err)
+		}
 	}
-	if ev.Op.HasAny(Modify) {
-		_ = gw.modify(u)
+	if ev.Op.HasAny(Modify | Attrib) {
+		if err := gw.modify(u); err != nil {
+			gw.events <- fmt.Errorf("gwatcher modify failed (op=%v, name=%q): %w", ev.Op, u, err)
+		}
+		if err := gw.resync(u); err != nil {
+			gw.events <- fmt.Errorf("gwatcher resync failed (op=%v, name=%q): %w", ev.Op, u, err)
+		}
 	}
 }
 
@@ -171,6 +178,46 @@ func (gw *GWatcher) modify(name string) error {
 	return nil
 }
 
+// resync updates watched descendants under name and emits:
+// - Create/Remove on existence transitions
+// - Resync when target remains watchable and should be re-checked by callers
+func (gw *GWatcher) resync(name string) error {
+	if err := gw.normalize(&name); err != nil {
+		return err
+	}
+
+	v := gw.split(name)
+	gw.root.Lock()
+	defer gw.root.Unlock()
+
+	n := gw.root.n.find(v)
+	if n == nil || len(n.childs) == 0 {
+		return nil
+	}
+
+	n.visit(nil, false, true, false, func(n *Node) {
+		if !n.target {
+			return
+		}
+
+		p := n.path()
+		err := gw.w.Add(p)
+		wasAdded := n.added
+		n.added = err == nil
+
+		switch {
+		case !wasAdded && n.added:
+			gw.events <- &Event{Op: Create, Name: p}
+		case wasAdded && !n.added:
+			gw.events <- &Event{Op: Remove, Name: p}
+		case wasAdded && n.added:
+			gw.events <- &Event{Op: Resync, Name: p}
+		}
+	})
+
+	return nil
+}
+
 //----------
 
 func (gw *GWatcher) split(name string) []string {
@@ -193,6 +240,59 @@ func (gw *GWatcher) normalize(name *string) error {
 	return nil
 }
 
+//----------
+
+func (gw *GWatcher) DebugWatchState() string {
+	gw.root.Lock()
+	defer gw.root.Unlock()
+
+	type debugWatchNode struct {
+		Path   string
+		Target bool
+		Added  bool
+	}
+
+	u := []debugWatchNode{}
+	gw.root.n.visit(nil, false, true, false, func(n *Node) {
+		if n.parent == nil {
+			return
+		}
+		if !n.target && !n.added {
+			return
+		}
+		u = append(u, debugWatchNode{
+			Path:   n.path(),
+			Target: n.target,
+			Added:  n.added,
+		})
+	})
+
+	sort.Slice(u, func(i, j int) bool {
+		return u[i].Path < u[j].Path
+	})
+	if len(u) == 0 {
+		return "watcher: no active nodes\n"
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "watcher nodes: %d\n", len(u))
+	for _, n := range u {
+		flags := "--"
+		if n.Target {
+			flags = "t-"
+		}
+		if n.Added {
+			flags = "-a"
+		}
+		if n.Target && n.Added {
+			flags = "ta"
+		}
+		fmt.Fprintf(&b, "%s %s\n", flags, n.Path)
+	}
+	return b.String()
+}
+
+//----------
 //----------
 
 type Node struct {
@@ -221,8 +321,8 @@ func (n *Node) delete() {
 
 //----------
 
-func (n *Node) visit(v []string, create, visSubChilds, depthFirst bool, fn func(*Node)) {
-	if depthFirst {
+func (n *Node) visit(v []string, create, visSubChilds, postOrder bool, fn func(*Node)) {
+	if postOrder {
 		defer fn(n)
 	} else {
 		fn(n)
@@ -230,7 +330,7 @@ func (n *Node) visit(v []string, create, visSubChilds, depthFirst bool, fn func(
 	if len(v) == 0 {
 		if visSubChilds {
 			for _, c := range n.childs {
-				c.visit(nil, create, visSubChilds, depthFirst, fn)
+				c.visit(nil, create, visSubChilds, postOrder, fn)
 			}
 		}
 		return
@@ -246,7 +346,7 @@ func (n *Node) visit(v []string, create, visSubChilds, depthFirst bool, fn func(
 	if create && len(v) == 1 {
 		c.target = true
 	}
-	c.visit(v[1:], create, visSubChilds, depthFirst, fn)
+	c.visit(v[1:], create, visSubChilds, postOrder, fn)
 }
 
 //----------
@@ -262,6 +362,17 @@ func (n *Node) remove(v []string, fn func(*Node)) {
 }
 func (n *Node) modify(v []string, fn func(*Node)) {
 	n.visit(v, false, false, false, fn)
+}
+
+func (n *Node) find(v []string) *Node {
+	if len(v) == 0 {
+		return n
+	}
+	c, ok := n.childs[v[0]]
+	if !ok {
+		return nil
+	}
+	return c.find(v[1:])
 }
 
 //----------

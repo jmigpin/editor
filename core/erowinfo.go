@@ -197,9 +197,9 @@ func (info *ERowInfo) updateFsHashIfNeeded() {
 	if info.fi == nil {
 		return
 	}
-	if !info.fi.ModTime().Equal(info.fileData.fs.modTime) {
-		info.readFsFile()
-	}
+	//if !info.fi.ModTime().Equal(info.fileData.fs.modTime) { // COMMENTED: in atomic saves from certain external programs modifications, the modtime might be the same
+	info.readFsFile()
+	//}
 }
 
 //----------
@@ -383,9 +383,7 @@ func (info *ERowInfo) saveFsFile(b []byte) error {
 // Should be called under UI goroutine.
 func (info *ERowInfo) UpdateDiskEvent() {
 	info.readFileInfo()
-	if info.IsFileButNotDir() {
-		info.updateFsHashIfNeeded()
-	}
+	info.updateFsHashIfNeeded()
 }
 
 //----------

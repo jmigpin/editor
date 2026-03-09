@@ -70,6 +70,7 @@ func init() {
 	cmd(FontTheme, "FontTheme")
 
 	cmd(CtxutilCallsState, "CtxutilCallsState")
+	cmd(WatcherState, "WatcherState")
 
 	cmd(sortTextLines, "SortTextLines")
 }

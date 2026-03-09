@@ -32,5 +32,7 @@ const (
 	Remove
 	Rename
 
-	AllOps Op = Attrib | Create | Modify | Remove | Rename
+	Resync // uncertain dir-triggered change, caller should re-check file state
+
+	AllOps Op = Attrib | Create | Modify | Remove | Rename | Resync
 )

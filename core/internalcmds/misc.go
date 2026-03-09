@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/ctxutil"
@@ -305,5 +306,15 @@ func LSProtoCloseAll(args *core.InternalCmdArgs) error {
 func CtxutilCallsState(args *core.InternalCmdArgs) error {
 	s := ctxutil.CallsState()
 	args.Ed.Messagef("%s", s)
+	return nil
+}
+
+func WatcherState(args *core.InternalCmdArgs) error {
+	gw, ok := args.Ed.Watcher.(*fswatcher.GWatcher)
+	if !ok {
+		return fmt.Errorf("watcher debug unavailable for type %T", args.Ed.Watcher)
+	}
+
+	args.Ed.Message(gw.DebugWatchState())
 	return nil
 }
