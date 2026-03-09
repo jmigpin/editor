@@ -95,10 +95,10 @@ func (s *Screen) clampSizeConsideringCol132(size P) P {
 		size.X = max(size.X, 1)
 		size.Y = max(size.Y, 1)
 	} else {
-		size.X = max(size.X, 1)
-		size.Y = max(size.Y, 1)
-
 		// usual defaults: 80x24
+		size.X = max(size.X, 1)
+		size.Y = max(size.Y, 8) // helps common problem of programs that maintain a lower fixed number of rows for input (like a prompt section). This way, it won't try to scroll up in longlinemode.
+
 		// useful in dynamic font sizing
 		//size.X = max(size.X, 60)
 		//size.Y = max(size.Y, 15)
@@ -981,8 +981,12 @@ func (g *Grid) resize(size P) {
 	} else if d < 0 {
 		d = -d
 		if g.isLongLineMode() {
-			if g.scr.cursor.Y >= size.Y {
-				g.scrollUpR(g.bounds(), d)
+			// In long-line mode, when shrinking height we scroll only the minimal number of rows needed to keep the cursor visible in the new viewport, because scrolling by all removed rows ("d") can over-scroll content, duplicate entries in scrollback, and desynchronize cursor position/ reporting after resize; therefore "need" is computed as cursorY-(newHeight-1) and clamped to [0,d].
+			need := g.scr.cursor.Y - (size.Y - 1)
+			need = clamp(need, 0, d)
+			if need > 0 {
+				g.scrollUpR(g.bounds(), need)
+				g.scr.cursor.Y -= need
 			}
 		}
 		g.lines = g.lines[:size.Y] // truncate
