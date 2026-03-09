@@ -100,7 +100,8 @@ func (temu *ERowTermEmu) updateSize() {
 	}
 
 	temu.emu.SetSize(cr)
-	temu.updatePty(cr, psize)
+	// Keep PTY size aligned with the effective emu size after internal clamping.
+	temu.updatePty(temu.emu.GetSize(), psize)
 }
 
 // triggered by a term sequence that changes cols/rows

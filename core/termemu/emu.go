@@ -103,11 +103,11 @@ func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
 
 //----------
 
-func (emu *Emu) ClampSize(p P) P {
-	emu.mu.Lock()
-	defer emu.mu.Unlock()
-	return emu.scr.clampSizeConsideringCol132(p)
-}
+//func (emu *Emu) ClampSize(p P) P {
+//	emu.mu.Lock()
+//	defer emu.mu.Unlock()
+//	return emu.scr.clampSizeConsideringCol132(p)
+//}
 
 func (emu *Emu) SetSize(p P) {
 	emu.mu.Lock()
