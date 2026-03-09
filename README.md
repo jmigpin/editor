@@ -431,7 +431,7 @@ Or use the `$terminal=emu` internal variable in any row toolbar, causing command
 Example:
 
 ```
-~/myproject/ | $terminal=emu | bash
+/myproject/ | $terminal=emu,color | bash
 ```
 
 Clicking `bash` will run it inside a PTY - useful if the program uses terminal color output, prompts, or isatty checks.
@@ -441,7 +441,7 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
 - `$font=<name>[,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
 - `$scrollMode={auto}`: if the current bottom of the content is visible, auto scroll down when new content is added (ex: a cmd output).
-- `$terminal=<options>`: run commands in this row using a terminal emulator.Options are comma-separated: `pty`, `kb`, `mouse`, `raw`, `plain`, `grid`, `emu`.	
+- `$terminal=<options>`: run commands in this row using a terminal emulator.Options are comma-separated. Negation is supported: ex: `$terminal=emu,no-kb`.
 	- `pty`: run as pseudo-terminal.
 	- `kb`: forward keyboard input to the process. Note: typing keys will not be seen in the textarea unless the running program outputs them.
 	- `mouse`: forward mouse events to the process.
@@ -449,7 +449,8 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 	- `plain`: disable output processing (display raw bytes).
 	- `grid`: enable grid-based terminal rendering.
 	- `emu`: shorthand for `grid,pty,kb,mouse` and `$scrollMode=auto`.
-	- Negation is supported: ex: `$terminal=emu,no-kb`
+	- `grayscale`: render terminal colors in grayscale (default; equivalent to `no-color`).
+	- `color`: render terminal colors normally.
 
 ## Environment variables set available to external commands
 
