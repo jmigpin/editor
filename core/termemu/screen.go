@@ -97,7 +97,7 @@ func (s *Screen) clampSizeConsideringCol132(size P) P {
 	} else {
 		// usual defaults: 80x24
 		size.X = max(size.X, 1)
-		size.Y = max(size.Y, 8) // helps common problem of programs that maintain a lower fixed number of rows for input (like a prompt section). This way, it won't try to scroll up in longlinemode.
+		size.Y = max(size.Y, 5) // helps common problem of programs that maintain a lower fixed number of rows for input (like a prompt section). This way, it won't try to scroll up in longlinemode.
 
 		// useful in dynamic font sizing
 		//size.X = max(size.X, 60)

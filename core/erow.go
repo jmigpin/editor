@@ -583,7 +583,7 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 			topt.pty = true
 			topt.forwardKb = true
 			topt.forwardMouse = true
-			erow.scrollMode = "auto"
+			//erow.scrollMode = "auto" // annoying at times
 		}
 		return nil
 
