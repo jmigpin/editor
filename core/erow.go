@@ -131,6 +131,10 @@ func (erow *ERow) Reload() error {
 }
 
 func (erow *ERow) Reload2(firstLoad bool) error {
+	if !firstLoad && erow.Row.HasState(ui.RowStateExecuting) {
+		return fmt.Errorf("currently running a cmd so can't reload: %s", erow.Info.Name())
+	}
+
 	switch {
 	case erow.Info.IsSpecial():
 		if erow.Info.Name() == "+Sessions" {
@@ -172,7 +176,7 @@ func (erow *ERow) Reload2(firstLoad bool) error {
 		return nil
 	default:
 		info := erow.Info
-		err := fmt.Errorf("unable to load erow: %v", info.name)
+		err := fmt.Errorf("unable to load erow: %v", info.Name())
 		if info.fiErr != nil {
 			err = fmt.Errorf("%v: %w", err, info.fiErr)
 		}
