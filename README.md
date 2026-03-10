@@ -439,7 +439,7 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 ## Internal variables
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
-- `$font=<name>[,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Ex.: `$font=mono`.
+- `$font=[<name>][,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Both name and size are optional (ex: `$font=mono`, `$font=,8`).
 - `$scrollMode={auto}`: if the current bottom of the content is visible, auto scroll down when new content is added (ex: a cmd output).
 - `$terminal=<options>`: run commands in this row using a terminal emulator.Options are comma-separated. Negation is supported: ex: `$terminal=emu,no-kb`.
 	- `pty`: run as pseudo-terminal.
@@ -447,10 +447,13 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 	- `mouse`: forward mouse events to the process.
 	- `raw`: disable input processing (send raw bytes).
 	- `plain`: disable output processing (display raw bytes).
-	- `grid`: enable grid-based terminal rendering.
-	- `emu`: shorthand for `grid,pty,kb,mouse` and `$scrollMode=auto`.
+	- `emu`: shorthand for `pty,kb,mouse` and `$scrollMode=auto`.
+	- `rows=N`: set a fixed terminal height (number of rows).
 	- `grayscale`: render terminal colors in grayscale (default; equivalent to `no-color`).
 	- `color`: render terminal colors normally.
+
+*Terminal Emulator Notes:*
+The integrated terminal emulator prioritizes integration with the editor's features. It supports automatic visual wrapping and indentation by communicating logical line continuity to the TextArea. It also preserves logical output during window resizing, ensuring no data is lost when rows or columns are decreased.
 
 ## Environment variables set available to external commands
 
