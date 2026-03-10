@@ -3,8 +3,11 @@ package termemu
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
+	"time"
+	"unicode/utf8"
 )
 
 func TestCursorMoves(t *testing.T) {
@@ -881,6 +884,67 @@ func TestWraplines3(t *testing.T) {
 	if out != "AAAAA\nBBBBB\nCCCCC\nDDDDD\nEE◙EE" {
 		t.Fatal(out)
 	}
+}
+
+func TestResizeOverwritesLastRune(t *testing.T) {
+	m := newTuiMock()
+	te := newTestEmu(m, Opts{Mode: ModeGrid}, 10, 5)
+	te.scr.longLineMode = true
+
+	// 1. write 11 chars on terminal width 10.
+	// "0123456789" fills the line (X=9, offX=1).
+	// "A" is written at index 10 (off-screen) (X=9, offX=2).
+	sendWithBarrier(t, te, "0123456789A")
+
+	// 2. resize to width 15.
+	te.SetSize(P{15, 5})
+
+	// 3. write "B".
+	sendWithBarrier(t, te, "B")
+
+	s := te.Snapshot()
+	out := s.Sprint(false)
+
+	// If the bug exists, 'B' overwrote '9' at index 9.
+	// Expected: "0123456789AB"
+	if out[9] == 'B' {
+		t.Errorf("Bug: 'B' overwrote '9' at pos 9 after resize!")
+	}
+}
+
+func TestUTF8FragmentedEmit(t *testing.T) {
+	pr, pw := io.Pipe()
+
+	detectedError := false
+	p := NewVTParser(pr, func(op *TermOp) {
+		if op.kind == "print" {
+			for _, ru := range op.s {
+				if ru == utf8.RuneError {
+					detectedError = true
+				}
+			}
+		}
+	})
+
+	go func() {
+		_ = p.Run()
+	}()
+
+	// 1. Send 'A' and the first 2 bytes of '€' (E2 82 AC)
+	_, _ = pw.Write([]byte{'A', 0xE2, 0x82})
+
+	// Small pause to let the parser process what it has
+	time.Sleep(50 * time.Millisecond)
+
+	// 2. Send the last byte of '€'
+	_, _ = pw.Write([]byte{0xAC})
+
+	time.Sleep(50 * time.Millisecond)
+
+	if detectedError {
+		t.Errorf("UTF-8 was corrupted by partial emit!")
+	}
+	_ = pw.Close()
 }
 
 //----------

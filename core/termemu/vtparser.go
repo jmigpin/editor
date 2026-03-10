@@ -467,7 +467,7 @@ func (p *VTParser) emitPrintableRune(ru rune) {
 			break
 		}
 		b := bs[0]
-		if b < 0x20 || b == codeDEL || b == codeESC || b == codeCSI {
+		if b < 0x20 || b >= 0x80 || b == codeDEL || b == codeESC || b == codeCSI {
 			break
 		}
 		if _, err := p.rd.Discard(1); err != nil {

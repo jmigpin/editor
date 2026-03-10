@@ -77,8 +77,16 @@ func (s *Screen) setSize(size P) {
 
 	s.updateRegion()
 
-	clampInR(&s.cursor, s.grid.bounds())
-	s.cursorOffX = 0 // reset offscreen cursor on resize
+	if s.longLineMode {
+		lx := s.cursor.X + s.cursorOffX
+		s.cursor.X = lx
+		clampInX(&s.cursor.X, s.grid.bounds())
+		s.cursorOffX = lx - s.cursor.X
+		clampInY(&s.cursor.Y, s.grid.bounds())
+	} else {
+		clampInR(&s.cursor, s.grid.bounds())
+		s.cursorOffX = 0 // reset offscreen cursor on resize
+	}
 
 	s.initTabStops()
 }
@@ -464,44 +472,44 @@ func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 		case p == 27:
 			s.curAttr.Inverse = false
 
-			case 30 <= p && p <= 37:
-				s.curAttr.Fg = xterm256Color(p - 30)
-			case p == 39:
-				s.curAttr.Fg = nil
+		case 30 <= p && p <= 37:
+			s.curAttr.Fg = xterm256Color(p - 30)
+		case p == 39:
+			s.curAttr.Fg = nil
 
-			case 40 <= p && p <= 47:
-				s.curAttr.Bg = xterm256Color(p - 40)
-			case p == 49:
-				s.curAttr.Bg = nil
+		case 40 <= p && p <= 47:
+			s.curAttr.Bg = xterm256Color(p - 40)
+		case p == 49:
+			s.curAttr.Bg = nil
 
-			// bright options
-			case 90 <= p && p <= 97:
-				s.curAttr.Fg = xterm256Color(8 + p - 90)
-			case 100 <= p && p <= 107:
-				s.curAttr.Bg = xterm256Color(8 + p - 100)
+		// bright options
+		case 90 <= p && p <= 97:
+			s.curAttr.Fg = xterm256Color(8 + p - 90)
+		case 100 <= p && p <= 107:
+			s.curAttr.Bg = xterm256Color(8 + p - 100)
 
 		// 256 colors + rgb colors
 		case p == 38 || p == 48:
 			if i+2 < len(params) && params[i+1] == 5 {
-					n := params[i+2]
-					if 0 <= n && n <= 255 {
-						if p == 38 {
-							s.curAttr.Fg = xterm256Color(n)
-						} else {
-							s.curAttr.Bg = xterm256Color(n)
-						}
+				n := params[i+2]
+				if 0 <= n && n <= 255 {
+					if p == 38 {
+						s.curAttr.Fg = xterm256Color(n)
+					} else {
+						s.curAttr.Bg = xterm256Color(n)
 					}
+				}
 				i += 2
 			} else if i+4 < len(params) && params[i+1] == 2 {
 				r, g, b := params[i+2], params[i+3], params[i+4]
-					if 0 <= r && r <= 255 && 0 <= g && g <= 255 && 0 <= b && b <= 255 {
-						c := color.RGBA{uint8(r), uint8(g), uint8(b), 255}
-						if p == 38 {
-							s.curAttr.Fg = c
-						} else {
-							s.curAttr.Bg = c
-						}
+				if 0 <= r && r <= 255 && 0 <= g && g <= 255 && 0 <= b && b <= 255 {
+					c := color.RGBA{uint8(r), uint8(g), uint8(b), 255}
+					if p == 38 {
+						s.curAttr.Fg = c
+					} else {
+						s.curAttr.Bg = c
 					}
+				}
 				i += 4
 			}
 		}
@@ -988,7 +996,7 @@ func (g *Grid) resize(size P) {
 			line.cells = append(line.cells, make([]Cell, d)...)
 		} else if d < 0 {
 			if g.isLongLineMode() {
-				// do thing, keep content
+				// do nothing, keep content
 			} else {
 				line.cells = line.cells[:size.X] // truncate
 			}
