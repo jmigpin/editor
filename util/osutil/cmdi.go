@@ -419,10 +419,35 @@ func (c *PtyCmd) Wait() error {
 func (c *PtyCmd) SetSize(cols, rows, sx, sy int) error {
 	ws := &pty.Winsize{}
 	ws.Cols, ws.Rows = uint16(cols), uint16(rows)
-	if sx != 0 && sy != 0 {
-		ws.X, ws.Y = uint16(sx), uint16(sy)
-	}
+	ws.X, ws.Y = uint16(sx), uint16(sy)
 	return pty.Setsize(c.ptm, ws)
+}
+
+//----------
+//----------
+//----------
+
+type FuncsCmd struct {
+	CmdI
+	OnStart func(CmdI) error
+	OnWait  func(CmdI) error
+}
+
+func NewFuncsCmd(cmdi CmdI, onStart, onWait func(CmdI) error) *FuncsCmd {
+	c := &FuncsCmd{CmdI: cmdi, OnStart: onStart, OnWait: onWait}
+	return c
+}
+func (c *FuncsCmd) Start() error {
+	if c.OnStart != nil {
+		return c.OnStart(c.CmdI)
+	}
+	return c.CmdI.Start()
+}
+func (c *FuncsCmd) Wait() error {
+	if c.OnWait != nil {
+		return c.OnWait(c.CmdI)
+	}
+	return c.CmdI.Wait()
 }
 
 //----------
