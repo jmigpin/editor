@@ -299,14 +299,12 @@ func (emu *Emu) applyEmit(op *TermOp) {
 		emu.tui.Error(err)
 
 	default:
-		err := fmt.Errorf("emu.applyemit: %q", op.kind)
-		//fmt.Println(err)
-		panic(err)
+		err := fmt.Errorf("emu.applyemit: unhandled kind: %q", op.kind)
+		emu.tui.Error(err)
 	}
 
 	if emu.opts.Mode == ModeGrid {
 		if !emu.scr.privModes.SynchronizedOutput() {
-			//emu.tui.Paint()
 			emu.paint.Trigger() // needs paint
 		}
 	}
