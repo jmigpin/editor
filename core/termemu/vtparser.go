@@ -215,6 +215,17 @@ func (p *VTParser) stEsc() error {
 			p.handleDefault(rune(b))
 		}
 
+	case '%': // character set selection
+		// skip next byte
+		_, _ = p.nextByte()
+
+	case 'P': // DCS - Device Control String
+		p.state = p.stDCS
+	case '^': // PM - Privacy Message
+		p.state = p.stDCS // same logic
+	case '_': // APC - Application Program Command
+		p.state = p.stDCS // same logic
+
 	case 'c':
 		p.emitKind("ris")
 
@@ -233,6 +244,30 @@ func (p *VTParser) stEsc() error {
 		p.emit(&TermOp{kind: "unknownEsc", s: fmt.Sprintf("unhandled: esc %q", rune(b))})
 	}
 	return nil
+}
+
+func (p *VTParser) stDCS() error {
+	p.state = p.stDefault
+
+	// DCS ... BEL or ST
+	for {
+		b, err := p.nextByte()
+		if err != nil {
+			return err
+		}
+		if b == codeBEL {
+			return nil
+		}
+		if b == codeESC {
+			b2, err2 := p.nextByte()
+			if err2 != nil {
+				return err2
+			}
+			if b2 == '\\' { // ST: string terminator
+				return nil
+			}
+		}
+	}
 }
 
 func (p *VTParser) stCSI() error {
