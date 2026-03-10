@@ -422,7 +422,14 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		}
 
 		emu.csiOpTodo(op)
-	case 'q': // DECLL: Load LEDs
+	case 'q':
+		// xterm: XTVERSION query (CSI > q)
+		if op.isPriv('>') && len(op.params) == 0 {
+			emu.sendToExec("\x1bP>|editor-termemu\x1b\\")
+			break
+		}
+
+		// DECLL: Load LEDs
 		switch op.A() {
 		//case 0: // 	clear all leds
 		//case 1: // light nums lock
@@ -550,13 +557,6 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 type Opts struct {
 	Mode  Mode
 	Debug bool
-}
-
-//----------
-
-type Event struct {
-	Kind string
-	Data any
 }
 
 //----------
