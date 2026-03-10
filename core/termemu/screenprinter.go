@@ -107,7 +107,9 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 			buf.WriteRune(ru)
 		}
-		buf.WriteString("\n")
+		if !line.Wrapped {
+			buf.WriteString("\n")
+		}
 	}
 
 	bs := buf.Bytes()

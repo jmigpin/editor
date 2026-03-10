@@ -17,15 +17,13 @@ type Screen struct {
 
 	//sizeInPixels P // TODO: sixel support?
 
-	grid         *Grid
-	grid1        *Grid
-	grid2        *Grid // alternate screen buffer
-	longLineMode bool  // long grid cells lines
+	grid  *Grid
+	grid1 *Grid
+	grid2 *Grid // alternate screen buffer
 
-	cursor     P
-	cursorOffX int // extra X beyond size.X-1, reset on most cursor movements
-	curAttr    Attr
-	wrapNext   bool // autowrap support
+	cursor   P
+	curAttr  Attr
+	wrapNext bool // autowrap support
 
 	privModes PrivModes
 	graphics  Graphics
@@ -47,8 +45,6 @@ func NewScreen() *Screen {
 	s := &Screen{}
 	s.privModes = *newPrivModes()
 	s.graphics = *newGraphics()
-
-	s.longLineMode = true
 
 	size0 := P{1, 1}
 
@@ -77,16 +73,7 @@ func (s *Screen) setSize(size P) {
 
 	s.updateRegion()
 
-	if s.longLineMode {
-		lx := s.cursor.X + s.cursorOffX
-		s.cursor.X = lx
-		clampInX(&s.cursor.X, s.grid.bounds())
-		s.cursorOffX = lx - s.cursor.X
-		clampInY(&s.cursor.Y, s.grid.bounds())
-	} else {
-		clampInR(&s.cursor, s.grid.bounds())
-		s.cursorOffX = 0 // reset offscreen cursor on resize
-	}
+	clampInR(&s.cursor, s.grid.bounds())
 
 	s.initTabStops()
 }
@@ -102,11 +89,7 @@ func (s *Screen) clampSizeConsideringCol132(size P) P {
 	} else {
 		// usual defaults: 80x24
 		size.X = max(size.X, 1)
-		size.Y = max(size.Y, 5) // helps common problem of programs that maintain a lower fixed number of rows for input (like a prompt section). This way, it won't try to scroll up in longlinemode.
-
-		// useful in dynamic font sizing
-		//size.X = max(size.X, 60)
-		//size.Y = max(size.Y, 15)
+		size.Y = max(size.Y, 5) // helps common problem of programs that maintain a lower fixed number of rows for input (like a prompt section).
 	}
 	return size
 }
@@ -206,7 +189,6 @@ func (s *Screen) clearLinesInBounds(y, n int) {
 
 func (s *Screen) cancelWrap() {
 	s.wrapNext = false
-	s.cursorOffX = 0
 }
 
 //----------
@@ -230,43 +212,28 @@ func (s *Screen) putRune(ru rune) {
 		// apply pending wrap first
 		if s.wrapNext {
 			s.cancelWrap()
+			// mark previous line as wrapped
+			line := s.grid.line(s.cursor.Y)
+			line.Wrapped = true
+			// truncate any old off-screen data to ensure clean wrap
+			line.cells = line.cells[:s.grid.size.X]
+
 			s.carriageReturn()
 			s.lineFeed()
 		}
 	}
 
-	line := s.grid.line(s.cursor.Y)
-
-	effectiveX := s.cursor.X
-	if s.longLineMode {
-		//// truncate logical content if writing within visible area
-		//if s.cursor.X < s.grid.size.X-1 {
-		//	if len(line.cells) > s.grid.size.X {
-		//		line.cells = line.cells[:s.grid.size.X]
-		//	}
-		//	s.cursorOffX = 0
-		//}
-
-		effectiveX = s.cursor.X + s.cursorOffX
-		for len(line.cells) <= effectiveX {
-			line.cells = append(line.cells, Cell{})
-		}
-	}
-	*line.cell(effectiveX) = Cell{R: ru, A: s.curAttr}
+	*s.grid.cell(s.cursor) = Cell{R: ru, A: s.curAttr}
 
 	if s.privModes.insert() {
 		s.cursor.X++
 		clampInX(&s.cursor.X, s.grid.bounds())
 	} else {
 		if s.cursor.X >= s.dynBounds(s.cursor).Max.X-1 {
-			if s.longLineMode { // no autowrap
-				s.cursorOffX++ // grow into offscreen
-			} else {
-				if s.privModes.autoWrap() {
-					// do not move now; set wrap for the *next* printable
-					s.wrapNext = true
-				} // else: stay at last column, overwrite
-			}
+			if s.privModes.autoWrap() {
+				// do not move now; set wrap for the *next* printable
+				s.wrapNext = true
+			} // else: stay at last column, overwrite
 		} else {
 			s.cursor.X++
 		}
@@ -834,43 +801,24 @@ func (g *Grid) cell(p P) *Cell {
 	return g.line(p.Y).cell(p.X)
 }
 
-func (g *Grid) isLongLineMode() bool {
-	return g.scr.longLineMode
-}
-
 //----------
 
 func (g *Grid) copyR(dst P, r R) {
-	w := [][]Cell{}
+	w := []GridLine{}
 	// copy to tmp first to allow correct overwriting
 	for y := r.Min.Y; y < r.Max.Y; y++ {
-		line := g.line(y)
-
-		maxX := r.Max.X
-		if g.isLongLineMode() {
-			if maxX == g.size.X {
-				maxX = len(line.cells)
-			}
-		}
-
-		w = append(w, slices.Clone(line.cells[r.Min.X:maxX]))
+		w = append(w, g.line(y).Clone())
 	}
 
 	// copy to the destination
-	for k, u := range w {
+	for k, gl := range w {
 		line := g.line(dst.Y + k)
-
-		if g.isLongLineMode() {
-			// always truncate old offscreen cells
-			line.cells = line.cells[:g.size.X]
-
-			newSizeX := dst.X + len(u)
-			if d := newSizeX - len(line.cells); d > 0 {
-				line.cells = append(line.cells, make([]Cell, d)...)
-			}
+		if dst.X == 0 && r.Min.X == 0 && r.Max.X == g.size.X {
+			line.cells = gl.cells
+			line.Wrapped = gl.Wrapped
+		} else {
+			copy(line.cells[dst.X:], gl.cells[r.Min.X:r.Max.X])
 		}
-
-		copy(line.cells[dst.X:], u)
 	}
 }
 func (g *Grid) copyRangeX(dst P, minX, maxX int) {
@@ -900,9 +848,9 @@ func (g *Grid) clearLineCells(y int, x0, x1 int) {
 		*line.cell(x) = Cell{A: g.scr.curAttr}
 	}
 
-	if g.isLongLineMode() {
-		// clear offscreen cells
-		line.cells = line.cells[:g.size.X] // truncate
+	if x0 == 0 && x1 == g.size.X {
+		line.Wrapped = false
+		line.cells = line.cells[:g.size.X]
 	}
 }
 
@@ -921,13 +869,16 @@ func (g *Grid) scrollUpR(r0 R, n int) {
 
 		sb := &g.scrollBack
 		for i := range n {
-			for _, c := range g.line(i).cells {
+			line := g.line(i)
+			for _, c := range line.cells {
 				*sb = appendRune(*sb, c.printableRune())
 			}
 
 			// clean end of line to avoid space wraps
 			*sb = bytes.TrimRight(*sb, " \t")
-			*sb = appendRune(*sb, '\n')
+			if !line.Wrapped {
+				*sb = appendRune(*sb, '\n')
+			}
 		}
 	}
 
@@ -978,28 +929,22 @@ func (g *Grid) resize(size P) {
 		g.lines = append(g.lines, newGridLines(P{size.X, d})...)
 	} else if d < 0 {
 		d = -d
-		if g.isLongLineMode() {
-			// In long-line mode, when shrinking height we scroll only the minimal number of rows needed to keep the cursor visible in the new viewport, because scrolling by all removed rows ("d") can over-scroll content, duplicate entries in scrollback, and desynchronize cursor position/ reporting after resize; therefore "need" is computed as cursorY-(newHeight-1) and clamped to [0,d].
-			need := g.scr.cursor.Y - (size.Y - 1)
-			need = clamp(need, 0, d)
-			if need > 0 {
-				g.scrollUpR(g.bounds(), need)
-				g.scr.cursor.Y -= need
-			}
+		// In shrinking height we scroll only the minimal number of rows needed to keep the cursor visible in the new viewport, because scrolling by all removed rows ("d") can over-scroll content, duplicate entries in scrollback, and desynchronize cursor position/ reporting after resize; therefore "need" is computed as cursorY-(newHeight-1) and clamped to [0,d].
+		need := g.scr.cursor.Y - (size.Y - 1)
+		need = clamp(need, 0, d)
+		if need > 0 {
+			g.scrollUpR(g.bounds(), need)
+			g.scr.cursor.Y -= need
 		}
 		g.lines = g.lines[:size.Y] // truncate
 	}
 
 	for i := range g.lines {
-		line := g.line(i)
+		line := &g.lines[i]
 		if d := size.X - len(line.cells); d > 0 {
 			line.cells = append(line.cells, make([]Cell, d)...)
 		} else if d < 0 {
-			if g.isLongLineMode() {
-				// do nothing, keep content
-			} else {
-				line.cells = line.cells[:size.X] // truncate
-			}
+			// keep logical content even if physical width decreased
 		}
 	}
 
@@ -1009,7 +954,8 @@ func (g *Grid) resize(size P) {
 //----------
 
 type GridLine struct {
-	cells []Cell // logical line, may grow beyond size.X
+	cells   []Cell // logical line
+	Wrapped bool   // if true, next line is logical continuation of this one
 }
 
 func newGridLine(x int) GridLine {
