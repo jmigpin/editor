@@ -249,6 +249,7 @@ func (p *VTParser) stEsc() error {
 func (p *VTParser) stDCS() error {
 	p.state = p.stDefault
 
+	// TODO: support DCS sequences (e.g., Sixel graphics)
 	// DCS ... BEL or ST
 	for {
 		b, err := p.nextByte()
