@@ -147,6 +147,17 @@ func (temu *ERowTermEmu) termSize(fface *fontutil.FontFace) (_, _ termemu.P) {
 	// max cols/rows at wanted font
 	cols := pixs.X / rw
 	rows := pixs.Y / lh
+
+	// Use fixed rows if specified
+	if temu.erow.runOpts.fixedRows > 0 {
+		rows = temu.erow.runOpts.fixedRows
+	}
+
+	// UX-ADAPTATION: If rows is 0 (hidden), keep previous columns to avoid programs re-wrapping.
+	if rows <= 0 && temu.emu != nil {
+		cols = max(cols, temu.emu.GetSize().X)
+	}
+
 	cols, rows = max(cols, 1), max(rows, 1)
 	cr := P{cols, rows}
 

@@ -562,30 +562,43 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 		opt = a
 	}
 
-	switch opt {
-	case "debug":
+	switch {
+	case opt == "debug":
 		topt.emuOpts.Debug = true
 
-	case "grayscale":
+	case opt == "grayscale":
 		topt.useGrayscale = set
-	case "color":
+	case opt == "color":
 		topt.useGrayscale = !set
 
-	case "pty":
+	case opt == "pty":
 		topt.pty = set
-	case "kb":
+	case opt == "kb":
 		topt.forwardKb = set
-	case "mouse":
+	case opt == "mouse":
 		topt.forwardMouse = set
 
-	case "raw":
+	case strings.HasPrefix(opt, "rows="):
+		if set {
+			if v, err := strconv.Atoi(opt[5:]); err == nil {
+				topt.fixedRows = v
+			}
+		} else {
+			topt.fixedRows = 0
+		}
+	case opt == "rows": // ignore "rows" without value, but support "no-rows"
+		if !set {
+			topt.fixedRows = 0
+		}
+
+	case opt == "raw":
 		return topt.emuOpts.Mode.SetBool(set, termemu.ModeRaw)
-	case "plain":
+	case opt == "plain":
 		return topt.emuOpts.Mode.SetBool(set, termemu.ModePlain)
-	case "grid":
+	case opt == "grid":
 		return topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid)
 
-	case "emu": // pre-set options
+	case opt == "emu": // pre-set options
 		if err := topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid); err != nil {
 			return err
 		}
@@ -750,6 +763,8 @@ type ERowRunOpts struct {
 	pty          bool // run under a pseudo-terminal
 	forwardKb    bool // forward keyboard events to the process
 	forwardMouse bool // forward mouse events to the process
+
+	fixedRows int // if > 0, use fixed terminal height
 
 	emuOpts termemu.Opts
 

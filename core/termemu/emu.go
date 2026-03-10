@@ -41,7 +41,7 @@ var TermEnv = []string{
 // const vt101NoOpt = vt100
 // const vt100WithAVO = "\x1b[?1;2c" //
 // const vt102 = "\x1b[?6c" //
-const vt420 = "\x1b[?64c" //
+const vt420 = "\x1b[?64;1;10;18;21c" // 1:132cols, 10:utf8, 18:windowing, 21:horizscroll
 // const vt420Sixel = "\x1b[?6;4;4c" // ?
 // const termSeqReply = vt100WithAVO
 // const termSeqReply = vt102 //
@@ -460,8 +460,9 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	case 't':
 		if op.isPriv(0) {
 			switch op.A() {
-			//case 14, 16: // ask for pixels?
-			//case 18: // ask for cols/rows?
+			case 18, 19: // report size in chars
+				s := fmt.Sprintf("\x1b[8;%d;%dt", emu.scr.grid.size.Y, emu.scr.grid.size.X)
+				emu.sendToExec(s)
 			case 22: // xterm: save window/icon title
 			case 23: // xterm: restore window/icon title
 			default:

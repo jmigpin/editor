@@ -503,6 +503,7 @@ func (p *VTParser) emitPrintableRune(ru rune) {
 			break
 		}
 		b := bs[0]
+		// UX-ADAPTATION: restrict automatic grouping to pure ASCII characters (< 0x80) to prevent corruption of fragmented multi-byte UTF-8 sequences.
 		if b < 0x20 || b >= 0x80 || b == codeDEL || b == codeESC || b == codeCSI {
 			break
 		}

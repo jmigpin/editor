@@ -212,10 +212,10 @@ func (s *Screen) putRune(ru rune) {
 		// apply pending wrap first
 		if s.wrapNext {
 			s.cancelWrap()
-			// mark previous line as wrapped
+			// UX-ADAPTATION: mark previous line as wrapped; ScreenPrinter will omit the \n, allowing the editor to perform visual wrapping and indentation.
 			line := s.grid.line(s.cursor.Y)
 			line.Wrapped = true
-			// truncate any old off-screen data to ensure clean wrap
+			// UX-ADAPTATION: truncate any old off-screen data to ensure clean visual wrap in the editor.
 			line.cells = line.cells[:s.grid.size.X]
 
 			s.carriageReturn()
@@ -944,7 +944,7 @@ func (g *Grid) resize(size P) {
 		if d := size.X - len(line.cells); d > 0 {
 			line.cells = append(line.cells, make([]Cell, d)...)
 		} else if d < 0 {
-			// keep logical content even if physical width decreased
+			// UX-ADAPTATION: keep logical content (cells beyond physical width) even if physical width decreased, preserving existing output during resize.
 		}
 	}
 
