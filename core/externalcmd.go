@@ -77,6 +77,7 @@ func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []
 	if erow.runOpts.pty {
 		ptyCmd := osutil.NewPtyCmd(c)
 		c = ptyCmd
+		// set pty in the textarea
 		if tarwc, ok := rw.(*ERowTaReadWriteCloser); ok {
 			if tarwc.optTemu != nil {
 				tarwc.optTemu.setPty(ptyCmd)
@@ -90,6 +91,21 @@ func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []
 
 	// last, to run wait() first, such that a ctx cancel sends a proc kill
 	c = osutil.NewCtxCmd(ctx, c)
+
+	if tarwc, ok := rw.(*ERowTaReadWriteCloser); ok {
+		if tarwc.optTemu != nil {
+			// run callback on start
+			c = osutil.NewFuncsCmd(c,
+				func(inner osutil.CmdI) error { // on start
+					if err := inner.Start(); err != nil {
+						return err
+					}
+					return tarwc.optTemu.onPtyStart()
+				},
+				nil,
+			)
+		}
+	}
 
 	cmd := c.Cmd()
 	cmd.Dir = erow.Info.Name()

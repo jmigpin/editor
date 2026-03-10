@@ -46,26 +46,32 @@ func NewScreen() *Screen {
 	s.privModes = *newPrivModes()
 	s.graphics = *newGraphics()
 
-	size0 := P{1, 1}
-
-	s.grid1 = newGrid(size0, s)
+	s.grid1 = newGrid(s)
 	s.grid1.hasScrollBack = true
 
-	s.grid2 = newGrid(size0, s)
+	s.grid2 = newGrid(s)
 	//s.grid2.hasScrollBack = true
 
 	s.setGrid2(false)
-	s.setSize(size0)
+
+	_, _ = s.setSize(P{1, 1})
 
 	return s
 }
 
 //----------
 
-func (s *Screen) setSize(size P) {
-	size = s.clampSizeConsideringCol132(size)
+func (s *Screen) setSize(size P) (_ P, changed bool) {
+	// must be at least (1,1) or we crash with the cursor not inside the grid
+	size.X = max(size.X, 1)
+	size.Y = max(size.Y, 1)
+
+	if s.privModes.column132() {
+		size.X = 132
+	}
+
 	if size == s.grid.size {
-		return
+		return size, false
 	}
 
 	s.grid1.resize(size)
@@ -76,22 +82,8 @@ func (s *Screen) setSize(size P) {
 	clampInR(&s.cursor, s.grid.bounds())
 
 	s.initTabStops()
-}
 
-func (s *Screen) clampSizeConsideringCol132(size P) P {
-	if s.privModes.column132() {
-		size.X = 132
-	}
-	// enforce minimums
-	if s.testing {
-		size.X = max(size.X, 1)
-		size.Y = max(size.Y, 1)
-	} else {
-		// usual defaults: 80x24
-		size.X = max(size.X, 1)
-		size.Y = max(size.Y, 5) // UX-ADAPTATION: helps common problem of programs that maintain a lower fixed number of rows for input (like a prompt section).
-	}
-	return size
+	return size, true
 }
 
 //----------
@@ -101,7 +93,7 @@ func (s *Screen) updateColumnMode() {
 		return
 	} else {
 		s.col132Mode = m
-		s.setSize(s.grid.size)
+		_, _ = s.setSize(s.grid.size)
 		if s.onColumnModeChange != nil {
 			s.onColumnModeChange()
 		}
@@ -786,8 +778,8 @@ type Grid struct {
 	scr *Screen
 }
 
-func newGrid(size P, scr *Screen) *Grid {
-	return &Grid{size: size, lines: newGridLines(size), scr: scr}
+func newGrid(scr *Screen) *Grid {
+	return &Grid{scr: scr}
 }
 
 func (g *Grid) bounds() R {

@@ -75,7 +75,7 @@ func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
 	emu := &Emu{userRw: userRw, tui: tui, opts: opts}
 
 	emu.scr = NewScreen()
-	emu.scr.onColumnModeChange = emu.tui.ColumnModeChange
+	emu.scr.onColumnModeChange = emu.tui.OnColumnModeChange
 
 	emu.setupExecSideRWC()
 
@@ -101,18 +101,22 @@ func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
 	return emu
 }
 
+func (emu *Emu) NeedsPaint() {
+	emu.paint.Trigger()
+}
+
 //----------
 
-//func (emu *Emu) ClampSize(p P) P {
-//	emu.mu.Lock()
-//	defer emu.mu.Unlock()
-//	return emu.scr.clampSizeConsideringCol132(p)
-//}
-
-func (emu *Emu) SetSize(p P) {
+func (emu *Emu) SetSize(p P) (P, bool) {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
-	emu.scr.setSize(p)
+
+	if emu.opts.Mode != ModeGrid {
+		// grid will not be displayed, just emulation. ex: plain, text, ...
+		p = P{80, 24}
+	}
+
+	return emu.scr.setSize(p)
 }
 
 func (emu *Emu) GetSize() P {
@@ -305,7 +309,7 @@ func (emu *Emu) applyEmit(op *TermOp) {
 
 	if emu.opts.Mode == ModeGrid {
 		if !emu.scr.privModes.SynchronizedOutput() {
-			emu.paint.Trigger() // needs paint
+			emu.NeedsPaint()
 		}
 	}
 }
@@ -562,7 +566,7 @@ type Opts struct {
 
 // terminal user interface
 type Tui interface {
-	ColumnModeChange()
+	OnColumnModeChange()
 	Paint()
 	Print(any)
 	Error(error)

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
 	"io"
@@ -36,15 +37,13 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 	temu.ReadWriteCloser = temu.emu
 
 	temu.erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
-		temu.setEmuGridSize()
+		temu.calcAndSetTermSize()
 	})
 
 	// textarea layout for console
-	temu.reg = erow.Row.TextArea.EvReg.Add(ui.TextAreaLayoutEventId, func(ev0 any) {
-		//ev := ev0.(*ui.TextAreaLayoutEvent)
-		temu.setEmuGridSize()
-		//temu.tui.paint3(func() {}) // immediate paint on layout
-		//temu.tui.paint2()
+	temu.reg = erow.Row.TextArea.EvReg.Add(ui.TextAreaBoundsEventId, func(ev0 any) {
+		//ev := ev0.(*ui.TextAreaBoundsEvent)
+		temu.calcAndSetTermSize()
 	})
 
 	return temu
@@ -67,21 +66,11 @@ func (temu *ERowTermEmu) Close() error {
 
 //----------
 
-func (temu *ERowTermEmu) setEmuGridSize() {
-	if temu.erow.runOpts.emuOpts.Mode != termemu.ModeGrid {
-		// grid will not be displayed, so just for emulation // ex: emu modes: plain, text, ...
-		temu.emu.SetSize(P{80, 24})
-		return
-	}
-
-	temu.updateSize()
-}
-
-func (temu *ERowTermEmu) updateSize() {
+// runs inside ui goroutine to get textarea pixel size
+func (temu *ERowTermEmu) calcAndSetTermSize() {
 	fface := temu.erow.runOpts.fface
 
-	cr, psize := temu.termSize(fface) // cr=cols/rows, area size
-	_ = psize
+	cr, psize := temu.termSize(fface) // cr=cols/rows, area pixel size
 
 	// DISABLED: can be annoying at times
 	//// support col132 mode, but ends allowing dynamic font size when the screen rows/cols are lower then the minimum required
@@ -101,24 +90,25 @@ func (temu *ERowTermEmu) updateSize() {
 
 	if temu.tui.sp.UseGrayscale != temu.erow.runOpts.useGrayscale {
 		temu.tui.sp.UseGrayscale = temu.erow.runOpts.useGrayscale
-		// Force repaint in case size did not change.
-		temu.tui.Paint()
+		// Force repaint in case size did not change. Call this through emu to be managed and avoid flicker
+		temu.emu.NeedsPaint()
 	}
 
 	// UX-ADAPTATION: skip resize if window is too small (e.g. collapsed) to avoid pushing to scrollback
-	if cr.X >= 2 && cr.Y >= 2 {
-		if cr != temu.emu.GetSize() {
-			temu.emu.SetSize(cr) // can clamp
-			// Keep PTY size aligned with the effective emu size after internal clamping.
-			temu.updatePty(temu.emu.GetSize(), psize)
+	//if cr.X > 1 && cr.Y > 1 {
+
+	if cr2, changed := temu.emu.SetSize(cr); changed {
+		// align PTY with emu size after possible clamp
+		if err := temu.setPtySize(cr2, psize); err != nil {
+			//temu.tui.Error(err) // commented: pty cmd can be nil while the exec is starting, gives errors
 		}
 	}
 }
 
 // triggered by a term sequence that changes cols/rows
-func (temu *ERowTermEmu) updateSizeFromEmu() {
+func (temu *ERowTermEmu) uiCalcAndSetTermSize() {
 	temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		temu.updateSize()
+		temu.calcAndSetTermSize()
 	})
 }
 
@@ -126,15 +116,19 @@ func (temu *ERowTermEmu) updateSizeFromEmu() {
 
 func (temu *ERowTermEmu) setPty(ptyCmd *osutil.PtyCmd) {
 	temu.optPtyCmd = ptyCmd
-	cr := temu.emu.GetSize()
-	temu.updatePty(cr, P{}) // TODO: get ta size
 }
 
-func (temu *ERowTermEmu) updatePty(cr, psize P) {
+func (temu *ERowTermEmu) setPtySize(cr, psize P) error {
 	if temu.optPtyCmd == nil {
-		return
+		return errors.New("opt pty cmd is nil")
 	}
-	_ = temu.optPtyCmd.SetSize(cr.X, cr.Y, psize.X, psize.Y)
+	return temu.optPtyCmd.SetSize(cr.X, cr.Y, psize.X, psize.Y)
+}
+
+func (temu *ERowTermEmu) onPtyStart() error {
+	cr := temu.emu.GetSize()
+	psize := P{1, 1}
+	return temu.setPtySize(cr, psize)
 }
 
 //----------
@@ -233,14 +227,13 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 
 	tui.sp = termemu.NewScreenPrinter()
 
-	// defaults colors for inverse video
-	// TODO: run inside ui goroutine?
-	ta := tui.temu.erow.Row.TextArea
-	tui.defaultColors.text.fg = ta.TreeThemePaletteColor("text_fg")
-	tui.defaultColors.text.bg = ta.TreeThemePaletteColor("text_bg")
-
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		ta := tui.temu.erow.Row.TextArea
+
+		// defaults colors for inverse video
+		tui.defaultColors.text.fg = ta.TreeThemePaletteColor("text_fg")
+		tui.defaultColors.text.bg = ta.TreeThemePaletteColor("text_bg")
+
 		ta.EnableTerminalColors(true)
 		ta.SetTerminalColorOps(nil)
 
@@ -277,8 +270,8 @@ func (tui *ERowTermEmuUI) Close() error {
 
 //----------
 
-func (tui *ERowTermEmuUI) ColumnModeChange() {
-	tui.temu.updateSizeFromEmu()
+func (tui *ERowTermEmuUI) OnColumnModeChange() {
+	tui.temu.uiCalcAndSetTermSize()
 }
 
 //----------
@@ -297,7 +290,6 @@ func (tui *ERowTermEmuUI) Paint() {
 		tui.paint2()
 	})
 }
-
 func (tui *ERowTermEmuUI) paint2() {
 	scr := tui.temu.emu.Snapshot()
 	ops, bs := tui.paintOpsBytes(scr)
