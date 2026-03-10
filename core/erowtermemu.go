@@ -105,9 +105,14 @@ func (temu *ERowTermEmu) updateSize() {
 		temu.tui.Paint()
 	}
 
-	temu.emu.SetSize(cr)
-	// Keep PTY size aligned with the effective emu size after internal clamping.
-	temu.updatePty(temu.emu.GetSize(), psize)
+	// UX-ADAPTATION: skip resize if window is too small (e.g. collapsed) to avoid pushing to scrollback
+	if cr.X >= 2 && cr.Y >= 2 {
+		if cr != temu.emu.GetSize() {
+			temu.emu.SetSize(cr) // can clamp
+			// Keep PTY size aligned with the effective emu size after internal clamping.
+			temu.updatePty(temu.emu.GetSize(), psize)
+		}
+	}
 }
 
 // triggered by a term sequence that changes cols/rows
@@ -153,12 +158,6 @@ func (temu *ERowTermEmu) termSize(fface *fontutil.FontFace) (_, _ termemu.P) {
 		rows = temu.erow.runOpts.fixedRows
 	}
 
-	// UX-ADAPTATION: If rows is 0 (hidden), keep previous columns to avoid programs re-wrapping.
-	if rows <= 0 && temu.emu != nil {
-		cols = max(cols, temu.emu.GetSize().X)
-	}
-
-	cols, rows = max(cols, 1), max(rows, 1)
 	cr := P{cols, rows}
 
 	return cr, pixs // columns/rows, available area pixel size
