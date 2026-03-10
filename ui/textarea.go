@@ -197,11 +197,18 @@ func (ta *TextArea) PointIndexInsideSelection(p image.Point) bool {
 //----------
 
 func (ta *TextArea) Layout() {
+	oldBounds := ta.Drawer.Bounds()
+
 	ta.TextEditX.Layout()
 	ta.setDrawer4Opts()
 
 	ev2 := &TextAreaLayoutEvent{TextArea: ta}
 	ta.EvReg.RunCallbacks(TextAreaLayoutEventId, ev2)
+
+	if newBounds := ta.Drawer.Bounds(); oldBounds != newBounds {
+		ev2 := &TextAreaBoundsEvent{TextArea: ta, Old: oldBounds, Bounds: newBounds}
+		ta.EvReg.RunCallbacks(TextAreaBoundsEventId, ev2)
+	}
 }
 
 func (ta *TextArea) setDrawer4Opts() {
@@ -228,6 +235,7 @@ const (
 	TextAreaInlineCompleteEventId
 	TextAreaInputEventId
 	TextAreaLayoutEventId
+	TextAreaBoundsEventId
 )
 
 //----------
@@ -281,4 +289,10 @@ type TextAreaInputEvent struct {
 
 type TextAreaLayoutEvent struct {
 	TextArea *TextArea
+}
+
+type TextAreaBoundsEvent struct {
+	TextArea *TextArea
+	Old      image.Rectangle
+	Bounds   image.Rectangle
 }
