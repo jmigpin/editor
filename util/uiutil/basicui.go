@@ -33,17 +33,10 @@ type BasicUI struct {
 	paintThrottle *syncutil.Throttler
 }
 
-func NewBasicUI(winName string, root widget.Node, startMaximized bool) (*BasicUI, error) {
-	win, err := driver.NewWindow()
+func NewBasicUI(winName string, root widget.Node, opt *event.WindowOptions) (*BasicUI, error) {
+	win, err := driver.NewWindow(opt)
 	if err != nil {
 		return nil, err
-	}
-
-	if startMaximized {
-		req := &event.ReqWindowMaximize{}
-		if err := win.Request(req); err != nil {
-			return nil, err
-		}
 	}
 
 	req := &event.ReqWindowSetName{winName}

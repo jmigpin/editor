@@ -8,3 +8,5 @@ type Window interface {
 	NextEvent() (_ event.Event, ok bool) // !ok = no more events
 	Request(event.Request) error
 }
+
+type WindowOptions = event.WindowOptions

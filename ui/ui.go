@@ -4,6 +4,7 @@ import (
 	"image"
 
 	"github.com/jmigpin/editor/util/uiutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type UI struct {
@@ -12,12 +13,12 @@ type UI struct {
 	OnError func(error)
 }
 
-func NewUI(winName string, startMaximized bool) (*UI, error) {
+func NewUI(winName string, opt *event.WindowOptions) (*UI, error) {
 	ui := &UI{}
 
 	ui.Root = NewRoot(ui)
 
-	bui, err := uiutil.NewBasicUI(winName, ui.Root, startMaximized)
+	bui, err := uiutil.NewBasicUI(winName, ui.Root, opt)
 	if err != nil {
 		return nil, err
 	}

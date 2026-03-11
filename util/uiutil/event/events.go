@@ -17,6 +17,11 @@ type WindowInput struct {
 	Event Event
 }
 
+type WindowOptions struct {
+	StartMaximized bool
+	Rect           image.Rectangle
+}
+
 //----------
 
 type MouseEnter struct{}

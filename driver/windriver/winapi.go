@@ -47,6 +47,7 @@ const (
 	_SW_SHOWDEFAULT = 10
 	_SW_HIDE        = 0
 	_SW_SHOW        = 5
+	_SW_SHOWMAXIMIZED = 3
 
 	// redraw window
 	_RDW_INTERNALPAINT = 2

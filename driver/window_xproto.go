@@ -4,6 +4,6 @@ package driver
 
 import "github.com/jmigpin/editor/driver/xdriver"
 
-func NewWindow() (Window, error) {
-	return xdriver.NewWindow()
+func NewWindow(opt *WindowOptions) (Window, error) {
+	return xdriver.NewWindow(opt)
 }

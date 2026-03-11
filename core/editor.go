@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"image"
 	"log"
 	"os"
 	"path/filepath"
@@ -93,7 +94,11 @@ func (ed *Editor) init(opt *Options) error {
 	event.UseMultiKey = opt.UseMultiKey
 
 	// user interface
-	ui0, err := ui.NewUI("Editor", opt.StartMaximized)
+	winOpt := &event.WindowOptions{
+		Rect:           image.Rect(0, 0, 600, 400), // default size
+		StartMaximized: opt.StartMaximized,
+	}
+	ui0, err := ui.NewUI("Editor", winOpt)
 	if err != nil {
 		return err
 	}

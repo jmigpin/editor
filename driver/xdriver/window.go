@@ -45,7 +45,7 @@ type Window struct {
 	}
 }
 
-func NewWindow() (*Window, error) {
+func NewWindow(opt *event.WindowOptions) (*Window, error) {
 	display := os.Getenv("DISPLAY")
 
 	// help get a display target
@@ -71,7 +71,7 @@ func NewWindow() (*Window, error) {
 
 	win := &Window{Conn: conn}
 
-	if err := win.initialize(); err != nil {
+	if err := win.initialize(opt); err != nil {
 		_ = win.Close() // best effort to close since it was opened
 		return nil, fmt.Errorf("win init: %w", err)
 	}
@@ -79,7 +79,7 @@ func NewWindow() (*Window, error) {
 	return win, nil
 }
 
-func (win *Window) initialize() error {
+func (win *Window) initialize(opt *event.WindowOptions) error {
 	// Disable xgb logger that prints to stderr
 	//xgb.Logger = log.New(ioutil.Discard, "", 0)
 
@@ -109,22 +109,43 @@ func (win *Window) initialize() error {
 	mask := uint32(xproto.CwEventMask)
 	values := []uint32{evMask}
 
+	x, y, w, h := 0, 0, 500, 500
+	if !opt.Rect.Empty() {
+		x, y = opt.Rect.Min.X, opt.Rect.Min.Y
+		w, h = opt.Rect.Dx(), opt.Rect.Dy()
+	}
+
 	_ = xproto.CreateWindow(
 		win.Conn,
 		win.Screen.RootDepth,
 		win.Window,
 		win.Screen.Root,
-		0, 0, 500, 500,
+		int16(x), int16(y), uint16(w), uint16(h),
 		0, // border width
 		xproto.WindowClassInputOutput,
 		win.Screen.RootVisual,
 		mask, values)
 
-	_ = xproto.MapWindow(win.Conn, window)
-
 	if err := xutil.LoadAtoms(win.Conn, &Atoms, false); err != nil {
 		return err
 	}
+
+	if opt.StartMaximized {
+		data := make([]byte, 8)
+		xgb.Put32(data[0:], uint32(Atoms.NetWMStateMaximizedHorz))
+		xgb.Put32(data[4:], uint32(Atoms.NetWMStateMaximizedVert))
+		_ = xproto.ChangeProperty(
+			win.Conn,
+			xproto.PropModeReplace,
+			win.Window,
+			Atoms.NetWMState,
+			xproto.AtomAtom,
+			32,
+			2,
+			data)
+	}
+
+	_ = xproto.MapWindow(win.Conn, window)
 
 	// graphical context
 	gCtx, err := xproto.NewGcontextId(win.Conn)
@@ -170,8 +191,8 @@ func (win *Window) initialize() error {
 	}
 	win.Cursors = c
 
-	opt := &wimage.Options{win.Conn, win.Window, win.Screen, win.GCtx}
-	img, err := wimage.NewWImage(opt)
+	opt2 := &wimage.Options{win.Conn, win.Window, win.Screen, win.GCtx}
+	img, err := wimage.NewWImage(opt2)
 	if err != nil {
 		return err
 	}

@@ -42,7 +42,7 @@ type Window struct {
 	}
 }
 
-func NewWindow() (*Window, error) {
+func NewWindow(opt *event.WindowOptions) (*Window, error) {
 	win := &Window{
 		events: make(chan any, 8),
 	}
@@ -51,9 +51,13 @@ func NewWindow() (*Window, error) {
 	win.dndMan = NewDndMan()
 
 	// initial size
-	win.ostResizeImage(image.Rect(0, 0, 1, 1))
+	rect := image.Rect(0, 0, 1, 1)
+	if !opt.Rect.Empty() {
+		rect = opt.Rect
+	}
+	win.ostResizeImage(rect)
 
-	if err := win.initAndSetupLoop(); err != nil {
+	if err := win.initAndSetupLoop(opt); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +66,7 @@ func NewWindow() (*Window, error) {
 
 //----------
 
-func (win *Window) initAndSetupLoop() error {
+func (win *Window) initAndSetupLoop(opt *event.WindowOptions) error {
 	initErr := make(chan error)
 
 	go func() {
@@ -70,7 +74,7 @@ func (win *Window) initAndSetupLoop() error {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
-		if err := win.ostInitialize(); err != nil {
+		if err := win.ostInitialize(opt); err != nil {
 			initErr <- err
 			return
 		}
@@ -83,7 +87,7 @@ func (win *Window) initAndSetupLoop() error {
 	return <-initErr
 }
 
-func (win *Window) ostInitialize() error {
+func (win *Window) ostInitialize(opt *event.WindowOptions) error {
 	_ = hideConsole()
 
 	// handle containing the window procedure for the class.
@@ -108,15 +112,18 @@ func (win *Window) ostInitialize() error {
 	}
 
 	// create window
+	x, y, w, h := int32(_CW_USEDEFAULT), int32(_CW_USEDEFAULT), int32(500), int32(500)
+	if !opt.Rect.Empty() {
+		x, y = int32(opt.Rect.Min.X), int32(opt.Rect.Min.Y)
+		w, h = int32(opt.Rect.Dx()), int32(opt.Rect.Dy())
+	}
+
 	hwnd, err := _CreateWindowExW(
 		0,
 		win.className,
 		nil, // window title
 		_WS_OVERLAPPEDWINDOW,
-		_CW_USEDEFAULT, _CW_USEDEFAULT, // x,y
-		// TODO: failing, giving bad rectangle with a fixed integer
-		//_CW_USEDEFAULT, _CW_USEDEFAULT, // w,h
-		500, 500, // w,h
+		x, y, w, h,
 		0, 0, win.instance, 0,
 	)
 	if err != nil {
@@ -124,7 +131,11 @@ func (win *Window) ostInitialize() error {
 	}
 	win.hwnd = hwnd
 
-	_ = _ShowWindowAsync(win.hwnd, _SW_SHOWDEFAULT)
+	sw := uint32(_SW_SHOWDEFAULT)
+	if opt.StartMaximized {
+		sw = _SW_SHOWMAXIMIZED
+	}
+	_ = _ShowWindowAsync(win.hwnd, int(sw))
 	//_ = _UpdateWindow(win.hwnd)
 
 	// cursor: don't set cursor at class struct to avoid auto-restoration
