@@ -436,14 +436,16 @@ func (erow *ERow) parseToolbarVars() {
 
 	// $font
 	hasFontVarName := false
-	fface0 := (*fontutil.FontFace)(nil)
+	baseFFace := (*fontutil.FontFace)(nil)
 	if v, ok := vmap["$font"]; ok {
 		if fn, ff, err := erow.varFontFace(v); err == nil {
 			hasFontVarName = fn
-			fface0 = ff
+			baseFFace = ff
 		}
 	}
-	erow.Row.TextArea.SetThemeFontFace(fface0) // fface0 can be nil
+
+	ta := erow.Row.TextArea
+	//ta.SetThemeFontFace(fface0) // commeted: flickers when a terminal is running that will change the font again
 
 	//----------
 
@@ -454,17 +456,17 @@ func (erow *ERow) parseToolbarVars() {
 
 	// $terminal
 	if erow.Info.IsDir() {
-		fface1 := fface0
-		if fface1 == nil {
-			fface1 = erow.Row.TextArea.Parent.TreeThemeFontFace()
+		termFFace := baseFFace
+		if termFFace == nil {
+			termFFace = ta.Parent.TreeThemeFontFace()
 		}
 		// terminal font face: unless the user defined a named font, run with a monospace font
-		if !hasFontVarName && !fface1.TestIsMono() {
-			fface1 = fontutil.DefaultMonoFont().FontFace(fface1.Opts)
+		if !hasFontVarName && !termFFace.TestIsMono() {
+			termFFace = fontutil.DefaultMonoFont().FontFace(termFFace.Opts)
 		}
 		erow.runOpts = ERowRunOpts{ // reset
-			fface:        fface1,
-			ffaceRestore: fface0,
+			fface:        termFFace,
+			ffaceRestore: baseFFace,
 			useGrayscale: true,
 		}
 		if v, ok := vmap["$terminal"]; ok {
@@ -488,7 +490,9 @@ func (erow *ERow) parseToolbarVars() {
 	//----------
 
 	if erow.optTemu != nil {
-		erow.optTemu.uiCalcAndSetTermSize()
+		erow.optTemu.uiCalcAndSetTermSize() // will set font
+	} else {
+		ta.SetThemeFontFace(baseFFace)
 	}
 }
 
