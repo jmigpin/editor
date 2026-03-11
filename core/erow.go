@@ -29,6 +29,7 @@ type ERow struct {
 	scrollMode          string
 
 	runOpts ERowRunOpts
+	optTemu *ERowTermEmu
 
 	ctx       context.Context // erow general context
 	cancelCtx context.CancelFunc
@@ -264,13 +265,6 @@ func (erow *ERow) initHandlers() {
 		ev.ReplyHandled = event.Handled(handled)
 	})
 
-	//// textarea layout for console
-	//row.TextArea.EvReg.Add(ui.TextAreaLayoutEventId, func(ev0 any) {
-	//	ev := ev0.(*ui.TextAreaLayoutEvent)
-	//	_ = ev
-	//	updateConsoleFontSize(erow)
-	//})
-
 	// key shortcuts
 	row.EvReg.Add(ui.RowInputEventId, func(ev0 any) {
 		ev := ev0.(*ui.RowInputEvent)
@@ -441,49 +435,64 @@ func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
 	// $font
-	var userFont struct{ name, size bool }
+	hasFontVarName := false
+	fface0 := (*fontutil.FontFace)(nil)
 	if v, ok := vmap["$font"]; ok {
-		userFont.name, userFont.size, _ = erow.setVarFontTheme(v)
+		if fn, ff, err := erow.varFontFace(v); err == nil {
+			hasFontVarName = fn
+			fface0 = ff
+		}
 	}
-	if clear := !userFont.name && !userFont.size; clear {
-		erow.Row.TextArea.SetThemeFontFace(nil)
-	}
+	erow.Row.TextArea.SetThemeFontFace(fface0) // fface0 can be nil
+
+	//----------
 
 	// $scrollMode: reset before $terminal
 	erow.scrollMode = ""
 
+	//----------
+
 	// $terminal
-	// terminal font face: unless the user defined a font, run with a monospace font
-	fface0 := erow.Row.TextArea.TreeThemeFontFace()
-	fface1 := fface0
-	if !userFont.name && !fface1.TestIsMono() {
-		fface1 = fontutil.DefaultMonoFont().FontFace(fface1.Opts)
-	}
-	erow.runOpts = ERowRunOpts{ // reset
-		fface:        fface1,
-		ffaceRestore: fface0,
-		useGrayscale: true,
-	}
 	if erow.Info.IsDir() {
+		fface1 := fface0
+		if fface1 == nil {
+			fface1 = erow.Row.TextArea.Parent.TreeThemeFontFace()
+		}
+		// terminal font face: unless the user defined a named font, run with a monospace font
+		if !hasFontVarName && !fface1.TestIsMono() {
+			fface1 = fontutil.DefaultMonoFont().FontFace(fface1.Opts)
+		}
+		erow.runOpts = ERowRunOpts{ // reset
+			fface:        fface1,
+			ffaceRestore: fface0,
+			useGrayscale: true,
+		}
 		if v, ok := vmap["$terminal"]; ok {
 			u := strings.Split(v, ",")
 			for _, k := range u {
 				if err := erow.applyTerminalOpt(k); err != nil {
-					// TODO: can't error like this since it will be outputing errors while typing an option (the parse is done on every input)
+					// commented: can't error since it will be outputing errors while typing (the parse is done on every input)
 					//erow.Ed.Error(err)
 				}
 			}
-			//updateConsoleFontSize(erow, nil)
 		}
 	}
 
-	// $scrollMode: auto/top/""
+	//----------
+
+	// $scrollMode: auto/top/""; run after $terminal
 	if v, ok := vmap["$scrollMode"]; ok {
 		erow.scrollMode = v
 	}
+
+	//----------
+
+	if erow.optTemu != nil {
+		erow.optTemu.uiCalcAndSetTermSize()
+	}
 }
 
-func (erow *ERow) setVarFontTheme(s string) (bool, bool, error) {
+func (erow *ERow) varFontFace(s string) (hasFontName bool, _ *fontutil.FontFace, _ error) {
 	w := strings.SplitN(s, ",", 2)
 
 	// font name arg
@@ -519,27 +528,18 @@ func (erow *ERow) setVarFontTheme(s string) (bool, bool, error) {
 		fopts2.SetSize(*size)
 	}
 
-	ff := (*fontutil.FontFace)(nil)
-	validName := false
 	if name != nil {
-		ff2, err := ui.ThemeFontFace2(*name, fopts2)
-		if err == nil {
-			ff = ff2
-			validName = true
+		if ff, err := ui.ThemeFontFace2(*name, fopts2); err == nil {
+			return true, ff, nil
 		}
 	}
 
-	if ff == nil {
-		if size != nil { // change only size
-			ff = face.Font.FontFace(fopts2)
-		} else {
-			return false, false, errors.New("unable to load name and missing size")
-		}
+	if size != nil { // change only size
+		ff := face.Font.FontFace(fopts2)
+		return false, ff, nil
 	}
 
-	ta.SetThemeFontFace(ff)
-
-	return validName, size != nil, nil
+	return false, nil, errors.New("unable to load name and missing size")
 }
 
 func (erow *ERow) applyTerminalOpt(opt string) error {
@@ -763,12 +763,10 @@ type ERowRunOpts struct {
 	pty          bool // run under a pseudo-terminal
 	forwardKb    bool // forward keyboard events to the process
 	forwardMouse bool // forward mouse events to the process
-
-	fixedRows int // if > 0, use fixed terminal height
+	fixedRows    int  // if > 0, use fixed terminal height
+	useGrayscale bool
 
 	emuOpts termemu.Opts
-
-	useGrayscale bool
 
 	fface        *fontutil.FontFace
 	ffaceRestore *fontutil.FontFace

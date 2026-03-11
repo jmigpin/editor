@@ -30,6 +30,7 @@ type ERowTermEmu struct {
 
 func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 	temu := &ERowTermEmu{erow: erow}
+	erow.optTemu = temu
 	temu.userRwc = rwc
 
 	temu.tui = newERowTermEmuUI(temu)
@@ -51,6 +52,7 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 
 func (temu *ERowTermEmu) Close() error {
 	defer temu.userRwc.Close()
+	defer func() { temu.erow.optTemu = nil }()
 
 	temu.reg.Unregister()
 

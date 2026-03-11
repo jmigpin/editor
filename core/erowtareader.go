@@ -15,8 +15,6 @@ type ERowTaReadCloser struct {
 	erow *ERow
 	reg  *evreg.Regist
 
-	optTemu *ERowTermEmu // access to screen private modes
-
 	pr *io.PipeReader
 	pw *io.PipeWriter
 }
@@ -69,15 +67,15 @@ func (tarc *ERowTaReadCloser) writePasteToRead(s string) {
 //----------
 
 func (tarc *ERowTaReadCloser) bracketedPaste() bool {
-	u := tarc.optTemu
+	u := tarc.erow.optTemu
 	return u != nil && u.emu.ScrPrivModes().BracketedPaste()
 }
 func (tarc *ERowTaReadCloser) lineFeedNewline() bool {
-	u := tarc.optTemu
+	u := tarc.erow.optTemu
 	return u != nil && u.emu.ScrPrivModes().LineFeedNewline()
 }
 func (tarc *ERowTaReadCloser) appCursorKeys() bool {
-	u := tarc.optTemu
+	u := tarc.erow.optTemu
 	return u != nil && u.emu.ScrPrivModes().AppCursorKeys()
 }
 
