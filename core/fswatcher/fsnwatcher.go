@@ -1,12 +1,13 @@
 package fswatcher
 
 import (
-	fsnotify "github.com/fsnotify/fsnotify"
+	"github.com/fsnotify/fsnotify"
+	"github.com/jmigpin/editor/util/syncutil"
 )
 
 type FsnWatcher struct {
 	w      *fsnotify.Watcher
-	events chan any
+	q      *syncutil.SyncedQ
 	opMask Op
 }
 
@@ -17,10 +18,9 @@ func NewFsnWatcher() (*FsnWatcher, error) {
 	}
 	w := &FsnWatcher{
 		w:      w0,
-		events: make(chan any),
+		q:      syncutil.NewSyncedQ(),
+		opMask: AllOps,
 	}
-
-	w.opMask = AllOps
 
 	go w.eventLoop()
 	return w, nil
@@ -29,7 +29,9 @@ func NewFsnWatcher() (*FsnWatcher, error) {
 //----------
 
 func (w *FsnWatcher) Close() error {
-	return w.w.Close()
+	err := w.w.Close()
+	w.q.PushBack(nil)
+	return err
 }
 
 func (w *FsnWatcher) OpMask() *Op {
@@ -47,8 +49,8 @@ func (w *FsnWatcher) Remove(name string) error {
 
 //----------
 
-func (w *FsnWatcher) Events() <-chan any {
-	return w.events
+func (w *FsnWatcher) NextEvent() any {
+	return w.q.PopFront()
 }
 
 //----------
@@ -60,7 +62,7 @@ func (w *FsnWatcher) eventLoop() {
 			if !ok {
 				return
 			}
-			w.events <- err
+			w.q.PushBack(err)
 
 		case ev, ok := <-w.w.Events:
 			if !ok {
@@ -85,9 +87,7 @@ func (w *FsnWatcher) eventLoop() {
 			}
 
 			if op2 := op & w.opMask; op2 != 0 {
-				w.events <- &Event{Op: op2, Name: name}
-			} else {
-				//log.Printf("not sending event: %v", ev)
+				w.q.PushBack(&Event{Op: op2, Name: name})
 			}
 		}
 	}

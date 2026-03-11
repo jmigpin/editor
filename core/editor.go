@@ -168,6 +168,7 @@ func (ed *Editor) initPreSaveHooks(opt *Options) {
 
 func (ed *Editor) Close() {
 	ed.LSProtoMan.Stop()
+	_ = ed.Watcher.Close()
 	ed.UI.AppendEvent(&editorCloseEv{})
 }
 
@@ -215,18 +216,15 @@ func (ed *Editor) uiEventLoop() {
 
 func (ed *Editor) fswatcherEventLoop() {
 	for {
-		select {
-		case ev, ok := <-ed.Watcher.Events():
-			if !ok {
-				ed.Close()
-				return
-			}
-			switch evt := ev.(type) {
-			case error:
-				ed.Error(evt)
-			case *fswatcher.Event:
-				ed.handleWatcherEvent(evt)
-			}
+		ev := ed.Watcher.NextEvent()
+		if ev == nil {
+			return
+		}
+		switch evt := ev.(type) {
+		case error:
+			ed.Error(evt)
+		case *fswatcher.Event:
+			ed.handleWatcherEvent(evt)
 		}
 	}
 }

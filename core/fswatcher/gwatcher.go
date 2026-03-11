@@ -7,13 +7,15 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/jmigpin/editor/util/syncutil"
 )
 
 // graph based watcher
 type GWatcher struct {
-	w      Watcher
-	events chan any
-	root   struct {
+	w    Watcher
+	q    *syncutil.SyncedQ
+	root struct {
 		sync.Mutex
 		n *Node
 	}
@@ -23,7 +25,7 @@ func NewGWatcher(w Watcher) *GWatcher {
 	*w.OpMask() = AllOps
 
 	gw := &GWatcher{w: w}
-	gw.events = make(chan any)
+	gw.q = syncutil.NewSyncedQ()
 
 	gw.root.Lock()
 	gw.root.n = NewNode(string(os.PathSeparator), nil)
@@ -40,24 +42,26 @@ func (gw *GWatcher) OpMask() *Op {
 }
 
 func (gw *GWatcher) Close() error {
-	return gw.w.Close()
+	err := gw.w.Close()
+	gw.q.PushBack(nil)
+	return err
 }
 
 //----------
 
-func (gw *GWatcher) Events() <-chan any {
-	return gw.events
+func (gw *GWatcher) NextEvent() any {
+	return gw.q.PopFront()
 }
+
 func (gw *GWatcher) eventLoop() {
-	defer close(gw.events)
 	for {
-		ev, ok := <-gw.w.Events()
-		if !ok {
+		ev := gw.w.NextEvent()
+		if ev == nil {
 			break
 		}
 		switch t := ev.(type) {
 		case error:
-			gw.events <- t
+			gw.q.PushBack(t)
 		case *Event:
 			gw.handleEv(t)
 		}
@@ -67,15 +71,18 @@ func (gw *GWatcher) handleEv(ev *Event) {
 	u := ev.Name
 	if ev.Op.HasAny(Create | Remove | Rename) {
 		if err := gw.review(u); err != nil {
-			gw.events <- fmt.Errorf("gwatcher review failed (op=%v, name=%q): %w", ev.Op, u, err)
+			gw.q.PushBack(fmt.Errorf("gwatcher review failed (op=%v, name=%q): %w", ev.Op, u, err))
+		}
+		if err := gw.resync(filepath.Dir(u)); err != nil {
+			gw.q.PushBack(fmt.Errorf("gwatcher parent resync failed (op=%v, name=%q): %w", ev.Op, u, err))
 		}
 	}
 	if ev.Op.HasAny(Modify | Attrib) {
 		if err := gw.modify(u); err != nil {
-			gw.events <- fmt.Errorf("gwatcher modify failed (op=%v, name=%q): %w", ev.Op, u, err)
+			gw.q.PushBack(fmt.Errorf("gwatcher modify failed (op=%v, name=%q): %w", ev.Op, u, err))
 		}
 		if err := gw.resync(u); err != nil {
-			gw.events <- fmt.Errorf("gwatcher resync failed (op=%v, name=%q): %w", ev.Op, u, err)
+			gw.q.PushBack(fmt.Errorf("gwatcher resync failed (op=%v, name=%q): %w", ev.Op, u, err))
 		}
 	}
 }
@@ -90,17 +97,17 @@ func (gw *GWatcher) Add(name string) error {
 	v := gw.split(name)
 	gw.root.Lock()
 	defer gw.root.Unlock()
-	gw.root.n.add(v, func(n *Node) {
+	return gw.root.n.add(v, func(n *Node) error {
 		p := n.path()
 		if !n.added {
 			err := gw.w.Add(p)
 			if err == nil {
 				n.added = true
 			}
+			// ignore error: allows adding watches for non-existing paths that might be created later (e.g., TestGWatcher1)
 		}
+		return nil
 	})
-
-	return nil
 }
 
 //----------
@@ -113,21 +120,23 @@ func (gw *GWatcher) Remove(name string) error {
 	v := gw.split(name)
 	gw.root.Lock()
 	defer gw.root.Unlock()
-	gw.root.n.remove(v, func(n *Node) {
+	return gw.root.n.remove(v, func(n *Node) error {
 		if n.target {
 			n.target = false
 			if n.added {
-				n.added = false
 				p := n.path()
-				_ = gw.w.Remove(p)
+				if err := gw.w.Remove(p); err != nil {
+					// TODO: types of errors
+					return err
+				}
+				n.added = false
 			}
 		}
 		if len(n.childs) == 0 {
 			n.delete()
 		}
+		return nil
 	})
-
-	return nil
 }
 
 //----------
@@ -140,19 +149,21 @@ func (gw *GWatcher) review(name string) error {
 	v := gw.split(name)
 	gw.root.Lock()
 	defer gw.root.Unlock()
-	gw.root.n.review(v, func(n *Node) {
+	_ = gw.root.n.review(v, func(n *Node) error {
 		p := n.path()
 		err := gw.w.Add(p)
 		wasAdded := n.added
 		n.added = err == nil
+
 		if n.target {
 			if !wasAdded && n.added {
-				gw.events <- &Event{Op: Create, Name: p}
+				gw.q.PushBack(&Event{Op: Create, Name: p})
 			}
 			if wasAdded && !n.added {
-				gw.events <- &Event{Op: Remove, Name: p}
+				gw.q.PushBack(&Event{Op: Remove, Name: p})
 			}
 		}
+		return nil
 	})
 
 	return nil
@@ -168,11 +179,12 @@ func (gw *GWatcher) modify(name string) error {
 	v := gw.split(name)
 	gw.root.Lock()
 	defer gw.root.Unlock()
-	gw.root.n.modify(v, func(n *Node) {
+	_ = gw.root.n.modify(v, func(n *Node) error {
 		if n.target {
 			p := n.path()
-			gw.events <- &Event{Op: Modify, Name: p}
+			gw.q.PushBack(&Event{Op: Modify, Name: p})
 		}
+		return nil
 	})
 
 	return nil
@@ -195,9 +207,9 @@ func (gw *GWatcher) resync(name string) error {
 		return nil
 	}
 
-	n.visit(nil, false, true, false, func(n *Node) {
+	_ = n.visit(nil, false, true, false, func(n *Node) error {
 		if !n.target {
-			return
+			return nil
 		}
 
 		p := n.path()
@@ -207,12 +219,13 @@ func (gw *GWatcher) resync(name string) error {
 
 		switch {
 		case !wasAdded && n.added:
-			gw.events <- &Event{Op: Create, Name: p}
+			gw.q.PushBack(&Event{Op: Create, Name: p})
 		case wasAdded && !n.added:
-			gw.events <- &Event{Op: Remove, Name: p}
+			gw.q.PushBack(&Event{Op: Remove, Name: p})
 		case wasAdded && n.added:
-			gw.events <- &Event{Op: Resync, Name: p}
+			gw.q.PushBack(&Event{Op: Resync, Name: p})
 		}
+		return nil
 	})
 
 	return nil
@@ -247,28 +260,29 @@ func (gw *GWatcher) DebugWatchState() string {
 	defer gw.root.Unlock()
 
 	type debugWatchNode struct {
-		Path   string
-		Target bool
-		Added  bool
+		path   string
+		target bool
+		added  bool
 	}
 
 	u := []debugWatchNode{}
-	gw.root.n.visit(nil, false, true, false, func(n *Node) {
+	_ = gw.root.n.visit(nil, false, true, false, func(n *Node) error {
 		if n.parent == nil {
-			return
+			return nil
 		}
 		if !n.target && !n.added {
-			return
+			return nil
 		}
 		u = append(u, debugWatchNode{
-			Path:   n.path(),
-			Target: n.target,
-			Added:  n.added,
+			path:   n.path(),
+			target: n.target,
+			added:  n.added,
 		})
+		return nil
 	})
 
 	sort.Slice(u, func(i, j int) bool {
-		return u[i].Path < u[j].Path
+		return u[i].path < u[j].path
 	})
 	if len(u) == 0 {
 		return "watcher: no active nodes\n"
@@ -278,16 +292,16 @@ func (gw *GWatcher) DebugWatchState() string {
 	fmt.Fprintf(&b, "watcher nodes: %d\n", len(u))
 	for _, n := range u {
 		flags := "--"
-		if n.Target {
+		if n.target {
 			flags = "t-"
 		}
-		if n.Added {
+		if n.added {
 			flags = "-a"
 		}
-		if n.Target && n.Added {
+		if n.target && n.added {
 			flags = "ta"
 		}
-		fmt.Fprintf(&b, "%s %s\n", flags, n.Path)
+		fmt.Fprintf(&b, "%s %s\n", flags, n.path)
 	}
 	return b.String()
 }
@@ -300,7 +314,7 @@ type Node struct {
 	childs map[string]*Node
 	parent *Node
 
-	target bool
+	target bool // leaf node requested
 	added  bool
 }
 
@@ -321,7 +335,7 @@ func (n *Node) delete() {
 
 //----------
 
-func (n *Node) visit(v []string, create, visSubChilds, postOrder bool, fn func(*Node)) {
+func (n *Node) visit(v []string, create, visSubChilds, postOrder bool, fn func(*Node) error) error {
 	if postOrder {
 		defer fn(n)
 	} else {
@@ -330,38 +344,40 @@ func (n *Node) visit(v []string, create, visSubChilds, postOrder bool, fn func(*
 	if len(v) == 0 {
 		if visSubChilds {
 			for _, c := range n.childs {
-				c.visit(nil, create, visSubChilds, postOrder, fn)
+				if err := c.visit(nil, create, visSubChilds, postOrder, fn); err != nil {
+					return err
+				}
 			}
 		}
-		return
+		return nil
 	}
 	k := v[0]
 	c, ok := n.childs[k]
 	if !ok {
 		if !create {
-			return
+			return nil
 		}
 		c = NewNode(k, n)
 	}
 	if create && len(v) == 1 {
 		c.target = true
 	}
-	c.visit(v[1:], create, visSubChilds, postOrder, fn)
+	return c.visit(v[1:], create, visSubChilds, postOrder, fn)
 }
 
 //----------
 
-func (n *Node) add(v []string, fn func(*Node)) {
-	n.visit(v, true, false, false, fn)
+func (n *Node) add(v []string, fn func(*Node) error) error {
+	return n.visit(v, true, false, false, fn)
 }
-func (n *Node) review(v []string, fn func(*Node)) {
-	n.visit(v, false, true, false, fn)
+func (n *Node) review(v []string, fn func(*Node) error) error {
+	return n.visit(v, false, true, false, fn)
 }
-func (n *Node) remove(v []string, fn func(*Node)) {
-	n.visit(v, false, false, true, fn)
+func (n *Node) remove(v []string, fn func(*Node) error) error {
+	return n.visit(v, false, false, true, fn)
 }
-func (n *Node) modify(v []string, fn func(*Node)) {
-	n.visit(v, false, false, false, fn)
+func (n *Node) modify(v []string, fn func(*Node) error) error {
+	return n.visit(v, false, false, false, fn)
 }
 
 func (n *Node) find(v []string) *Node {

@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+//godebug:annotatepackage
+
 //----------
 
 func tmpDir() string {
@@ -93,18 +95,24 @@ func mustRemoveWatch(t *testing.T, w Watcher, name string) {
 
 func readEvent(t *testing.T, w Watcher, failOnTimeout bool, fn func(*Event) bool) {
 	t.Helper()
-	tick := time.NewTicker(3000 * time.Millisecond)
-	defer tick.Stop()
+	evChan := make(chan any, 1)
+	go func() {
+		evChan <- w.NextEvent()
+	}()
+
 	select {
-	case <-tick.C:
+	case <-time.After(1000 * time.Millisecond):
 		if failOnTimeout {
 			t.Fatal("event timeout")
 		}
-	case ev := <-w.Events():
+	case ev := <-evChan:
+		if ev == nil {
+			t.Fatal("watcher closed")
+		}
 		if err, ok := ev.(error); ok {
 			t.Fatal(err)
 		} else if !fn(ev.(*Event)) {
-			t.Fatal(ev)
+			t.Fatalf("fn condition fail: %v", ev)
 		}
 	}
 }

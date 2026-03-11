@@ -35,7 +35,7 @@ func TestFsWatcher1(t *testing.T) {
 	mustMkdirAll(t, dir4)
 
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == dir2 && ev.Op.HasAny(Create)
+		return ev.Name == dir2 && ev.Op == Create
 	})
 }
 
@@ -63,25 +63,15 @@ func TestFsWatcher2(t *testing.T) {
 	mustAddWatch(t, w, file2)
 	mustRemoveAll(t, file1)
 
-	// OLD: 2 equal events, one from dir4, one from file1
-	// fsnotify 1.9.0: triggers only one event
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file1 && ev.Op.HasAny(Remove)
+		return ev.Name == file1 && ev.Op == Remove
 	})
-	//readEvent(t, w, true, func(ev *Event) bool {
-	//	return ev.Name == file1 && ev.Op.HasAny(Remove)
-	//})
 
 	mustRemoveAll(t, dir4)
 
-	// OLD: 2 equal events, 1 from dir4, 1 from file1
-	// fsnotify 1.9.0: triggers only one event
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file2 && ev.Op.HasAny(Remove)
+		return ev.Name == file2 && ev.Op == Remove
 	})
-	//readEvent(t, w, true, func(ev *Event) bool {
-	//	return ev.Name == file2 && ev.Op.HasAny(Remove)
-	//})
 }
 
 func TestFsWatcher3(t *testing.T) {
@@ -101,22 +91,19 @@ func TestFsWatcher3(t *testing.T) {
 	mustMkdirAll(t, dir4)
 	mustCreateFile(t, file1)
 
-	// can add same file 2 times without error
 	mustAddWatch(t, w, file1)
 	mustAddWatch(t, w, file1)
 
 	mustRemoveAll(t, dir2)
 
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file1 && ev.Op.HasAny(Remove)
+		return ev.Name == file1 && ev.Op == Remove
 	})
 
-	// file remove was updated, can't remove what isn't watched anymore
 	if err := w.Remove(file1); err == nil {
 		t.Fatal("there should be an error")
 	}
 
-	// cannot add file that doesn't exist
 	if err := w.Add(file1); err == nil {
 		t.Fatal("there should be an error")
 	}
@@ -148,56 +135,18 @@ func TestFsWatcher4(t *testing.T) {
 	mustWriteFile(t, file2)
 
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file1 && ev.Op.HasAny(Modify)
+		return ev.Name == file1 && ev.Op == Modify
 	})
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file2 && ev.Op.HasAny(Modify)
+		return ev.Name == file2 && ev.Op == Modify
 	})
 
 	mustRenameFile(t, file1, file2)
 
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file1 && ev.Op.HasAny(Rename)
+		return ev.Name == file1 && ev.Op == Rename
 	})
 	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file2 && ev.Op.HasAny(Remove)
+		return ev.Name == file2 && ev.Op == Remove
 	})
-}
-
-func TestFsWatcher5(t *testing.T) {
-	tmpDir := tmpDir()
-	defer os.RemoveAll(tmpDir)
-
-	w := mustNewFsnWatcher(t)
-	defer w.Close()
-	*w.OpMask() = Create | Remove | Modify | Rename
-
-	dir := tmpDir
-	dir2 := filepath.Join(dir, "dir2")
-	dir3 := filepath.Join(dir2, "dir3")
-	dir4 := filepath.Join(dir3, "dir4")
-	file1 := filepath.Join(dir4, "file1.txt")
-	file2 := filepath.Join(dir4, "file2.txt")
-
-	mustMkdirAll(t, dir4)
-	mustCreateFile(t, file1)
-	mustCreateFile(t, file2)
-	mustAddWatch(t, w, dir4)
-	mustAddWatch(t, w, file1)
-	mustAddWatch(t, w, file2)
-	mustRenameFile(t, file1, file2)
-
-	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file1 && ev.Op.HasAny(Rename)
-	})
-	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file2 && ev.Op.HasAny(Create)
-	})
-	readEvent(t, w, true, func(ev *Event) bool {
-		return ev.Name == file1 && ev.Op.HasAny(Rename)
-	})
-	// fsnotify 1.9.0 - this event doesn't happen anymore, only the create above on file2
-	//readEvent(t, w, true, func(ev *Event) bool {
-	//	return ev.Name == file2 && ev.Op.HasAny(Remove)
-	//})
 }

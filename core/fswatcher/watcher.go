@@ -3,7 +3,7 @@ package fswatcher
 type Watcher interface {
 	Add(name string) error
 	Remove(name string) error
-	Events() <-chan any
+	NextEvent() any
 	OpMask() *Op
 	Close() error
 }
