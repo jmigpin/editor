@@ -206,6 +206,26 @@ func TestResLocParser34(t *testing.T) {
 	out := "/a/b.txt:o=5"
 	testMode2b(t, in, out, 0, 0, false)
 }
+func TestResLocParser35(t *testing.T) {
+	in := "AAA \"/a/b c●.txt\" BBB"
+	out := "/a/b c.txt"
+	testMode1(t, in, out)
+}
+func TestResLocParser36(t *testing.T) {
+	in := "AAA `/a/b c●.txt` BBB"
+	out := "/a/b c.txt"
+	testMode1(t, in, out)
+}
+func TestResLocParser37(t *testing.T) {
+	in := "AAA '/a/b c●.txt' BBB"
+	out := "/a/b c.txt"
+	testMode1(t, in, out)
+}
+func TestResLocParser38(t *testing.T) {
+	in := "AAA \"/a/b c●.txt\":10:20 BBB"
+	out := "/a/b c.txt:10:20"
+	testMode1(t, in, out)
+}
 
 //----------
 

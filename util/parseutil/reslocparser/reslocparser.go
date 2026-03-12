@@ -151,20 +151,40 @@ func (p *ResLocParser) Init() {
 
 	//----------
 
-	// ex: "\"/a/b.txt\""
-	dquote := sc.W.Rune('"') // double quote
-	dquotedFile := sc.W.And(
-		dquote,
-		pscan.WKeep(&p.vk.path, sc.W.StrValue(cPath)),
-		dquote,
-	)
+	// names inside quotes: allow everything except quote and newline
+	cPathQuoted := func(q rune) MFn {
+		return sc.W.And(
+			sc.W.Optional(volume(cPathSep)),
+			sc.W.LoopOneOrMore(sc.W.Or(
+				sc.W.EscapeAny(cEscRu),
+				sc.W.RuneFn(func(ru rune) bool {
+					return ru != q && ru != '\n'
+				}),
+			)),
+		)
+	}
+
+	quotedFile := func(q rune) (MFn, MFn) {
+		qFn := sc.W.Rune(q)
+		file := sc.W.And(
+			qFn,
+			pscan.WKeep(&p.vk.path, sc.W.StrValue(cPathQuoted(q))),
+			qFn,
+		)
+		fileLineCol := sc.W.And(file, sc.W.Optional(cLineCol))
+		return file, fileLineCol
+	}
+
+	dquotedFileBase, dquotedFile := quotedFile('"')
+	_, squotedFile := quotedFile('\'')
+	_, bquotedFile := quotedFile('`')
 
 	//----------
 
 	// ex: "\"/a/b.txt\", line 23"
 	pyLineTagS := ", line "
 	pyFile := sc.W.And(
-		dquotedFile,
+		dquotedFileBase,
 		sc.W.And(
 			sc.W.Sequence(pyLineTagS),
 			pscan.WKeep(&p.vk.line, sc.M.IntValue),
@@ -190,6 +210,8 @@ func (p *ResLocParser) Init() {
 		sc.W.And(resetVks, schFile),
 		sc.W.And(resetVks, pyFile),
 		sc.W.And(resetVks, dquotedFile),
+		sc.W.And(resetVks, squotedFile),
+		sc.W.And(resetVks, bquotedFile),
 		sc.W.And(resetVks, shellFile),
 		sc.W.And(resetVks, cFile),
 	)
@@ -197,6 +219,7 @@ func (p *ResLocParser) Init() {
 	//----------
 	//----------
 
+	quotes := sc.W.RuneOneOf([]rune("\"'`"))
 	revNames := sc.W.LoopOneOrMore(
 		sc.W.Or(
 			cName,
@@ -207,8 +230,18 @@ func (p *ResLocParser) Init() {
 			schPathSep,
 		),
 	)
+	revNamesQuoted := sc.W.LoopOneOrMore(
+		sc.W.Or(
+			cName,
+			sc.W.Rune(' '),
+			sc.W.Rune(cEscRu),
+			sc.W.Rune(schEscRu),
+			cPathSep,
+			schPathSep,
+		),
+	)
 	p.fn.reverse = sc.W.ReverseMode(true, sc.W.And(
-		sc.W.Optional(dquote),
+		sc.W.Optional(quotes),
 		//sc.P.Optional(cVolume),
 		//sc.P.Optional(schVolume),
 		sc.W.Optional(sc.W.SequenceMid(schFileTagS)),
@@ -220,8 +253,11 @@ func (p *ResLocParser) Init() {
 			sc.M.Letter,
 			sc.W.Rune(':'), // volume
 		)),
-		sc.W.Optional(revNames),
-		sc.W.Optional(dquote),
+		sc.W.Optional(sc.W.Or(
+			sc.W.And(sc.W.Peek(sc.W.And(revNamesQuoted, quotes)), revNamesQuoted),
+			revNames,
+		)),
+		sc.W.Optional(quotes),
 		sc.W.Optional(sc.W.SequenceMid(pyLineTagS)),
 		sc.W.Optional(sc.W.SequenceMid(shellLineTagS)),
 		// c line column / offset
