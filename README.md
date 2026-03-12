@@ -244,7 +244,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `OpenExternal`: open the row with the preferred external application (ex: useful to open an image, pdf, etc).
 - `OpenFilemanager`: open the row directory with the external filemanager.
 - `OpenTerminal`: open the row directory with the external terminal.
-- `OpenTerminalIntegrated`: open the row directory with the internal terminal emulator.
+- `OpenTerminalEmu`: open the row directory with the internal terminal emulator.
 - `LsprotoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `LsprotoRename <new-name>`: Renames the identifiers under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - `LsprotoCallers`: lists callers of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy incoming calls.
@@ -425,8 +425,9 @@ Usage of GoDebug run:
 The editor includes a built-in terminal emulator that runs directly inside a row.
 Opening a terminal row:
 
-Run `OpenTerminalIntegrated` from the toolbar — opens a new row with a shell at the active row's directory.
+Run `OpenTerminalEmu` from the toolbar — opens a new row with a shell at the active row's directory.
 Or use the `$terminal=emu` internal variable in any row toolbar, causing commands run in that row to execute in a PTY (pseudo-terminal) instead of a regular pipe. This is useful when running programs that require a real terminal (e.g. interactive CLI tools, programs that check isatty).
+It supports automatic visual wrapping and indentation by communicating logical line continuity to the TextArea. It also preserves logical output during window resizing
 
 Example:
 
@@ -447,13 +448,10 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 	- `mouse`: forward mouse events to the process.
 	- `raw`: disable input processing (send raw bytes).
 	- `plain`: disable output processing (display raw bytes).
-	- `emu`: shorthand for `pty,kb,mouse` and `$scrollMode=auto`.
+	- `emu`: shorthand for `pty,kb,mouse`.
 	- `rows=N`: set a fixed terminal height (number of rows).
 	- `grayscale`: render terminal colors in grayscale (default; equivalent to `no-color`).
 	- `color`: render terminal colors normally.
-
-*Terminal Emulator Notes:*
-The integrated terminal emulator prioritizes integration with the editor's features. It supports automatic visual wrapping and indentation by communicating logical line continuity to the TextArea. It also preserves logical output during window resizing, ensuring no data is lost when rows or columns are decreased.
 
 ## Environment variables set available to external commands
 

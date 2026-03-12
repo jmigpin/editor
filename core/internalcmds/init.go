@@ -49,7 +49,7 @@ func init() {
 
 	cmd(OpenFilemanager, "OpenFilemanager")
 	cmd(OpenTerminalExternal, "OpenTerminal", "OpenTerminalExternal")
-	cmd(OpenTerminalIntegrated, "OpenTerminalIntegrated")
+	cmd(OpenTerminalEmu, "OpenTerminalEmu")
 	cmd(OpenExternal, "OpenExternal")
 
 	cmd(ListDir, "ListDir")
