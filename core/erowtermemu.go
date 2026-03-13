@@ -209,6 +209,7 @@ func (temu *ERowTermEmu) termFontFace(cr, pixs P, origFace *fontutil.FontFace) (
 type ERowTermEmuUI struct {
 	temu *ERowTermEmu
 	sp   *termemu.ScreenPrinter
+	dec  []*drawer4.Decoration
 
 	defaultColors struct {
 		text struct {
@@ -237,7 +238,9 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 		tui.defaultColors.text.bg = ta.TreeThemePaletteColor("text_bg")
 
 		ta.EnableTerminalColors(true)
+		ta.EnableTerminalDecorations(true)
 		ta.SetTerminalColorOps(nil)
+		ta.SetTerminalDecorations(nil)
 
 		// keep
 		tui.restore.syntaxHighlight = ta.SyntaxHighlight()
@@ -255,9 +258,13 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 func (tui *ERowTermEmuUI) Close() error {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		ta := tui.temu.erow.Row.TextArea
+		tui.dec = nil
+		tui.sp.SepFn = func(int) {}
 
 		ta.EnableTerminalColors(false)
+		ta.EnableTerminalDecorations(false)
 		ta.SetTerminalColorOps(nil) // clear to avoid wrong place coloring upon re-enable. Ex: another cmd usage in the same textarea
+		ta.SetTerminalDecorations(nil)
 
 		ta.EnableSyntaxHighlight(tui.restore.syntaxHighlight)
 
@@ -297,6 +304,7 @@ func (tui *ERowTermEmuUI) paint2() {
 	ops, bs := tui.paintOpsBytes(scr)
 	ta := tui.temu.erow.Row.TextArea
 	ta.SetTerminalColorOps(ops)
+	ta.SetTerminalDecorations(tui.dec)
 	tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
 }
 
@@ -317,6 +325,7 @@ func (tui *ERowTermEmuUI) paint2() {
 
 func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) {
 	dops := []*D4COp{}
+	decs := []*drawer4.Decoration{}
 
 	// defaults colors for inverse video
 	defColors := func(fg, bg color.Color) (_, _ color.Color) {
@@ -342,10 +351,20 @@ func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) 
 		dops = append(dops, dop, dop2)
 	}
 
+	addSep0 := func(offset int) {
+		decs = append(decs, &drawer4.Decoration{
+			Offset: offset,
+			Kind:   drawer4.DecorationHorizontalRule,
+			Fg:     tui.defaultColors.text.fg,
+		})
+	}
+
 	//----------
 
 	tui.sp.ColorFn = addColor0
+	tui.sp.SepFn = addSep0
 	bs := tui.sp.Bprint(scr)
+	tui.dec = decs
 
 	return dops, bs
 }

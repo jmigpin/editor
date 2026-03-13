@@ -7,6 +7,7 @@ import (
 
 type ScreenPrinter struct {
 	ColorFn func(offset int, fg, bg color.Color, inverse bool)
+	SepFn   func(offset int)
 	// Apply grayscale conversion only on output rendering; screen keeps true colors.
 	UseGrayscale bool
 
@@ -24,6 +25,7 @@ type ScreenPrinter struct {
 func NewScreenPrinter() *ScreenPrinter {
 	sp := &ScreenPrinter{}
 	sp.ColorFn = func(_ int, _, _ color.Color, _ bool) {}
+	sp.SepFn = func(_ int) {}
 
 	sp.scrollbackSep = "▲▲▲\n"
 
@@ -51,7 +53,10 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 			if len(sb) > 0 && sb[len(sb)-1] != '\n' {
 				buf.WriteString("\n")
 			}
-			buf.WriteString(sbs)
+			sp.SepFn(buf.Len())
+			if sp.testing {
+				buf.WriteString(sbs)
+			}
 		}
 	}
 

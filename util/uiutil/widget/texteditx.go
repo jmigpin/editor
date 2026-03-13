@@ -49,6 +49,9 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 			{}, // 4=selection
 			{}, // 5=flash
 		}
+		d.Opt.Decorations.Groups = []*drawer4.DecorationGroup{
+			{}, // 0=terminal
+		}
 	}
 
 	return te
@@ -58,6 +61,8 @@ const (
 	cgIdxTerm      = 1
 	cgIdxSelection = 4
 	cgIdxFlash     = 5
+
+	dgIdxTerm = 0
 )
 
 //----------
@@ -282,6 +287,21 @@ func (te *TextEditX) EnableTerminalColors(v bool) {
 func (te *TextEditX) SetTerminalColorOps(ops []*drawer4.ColorizeOp) {
 	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
 		d.Opt.Colorize.Groups[cgIdxTerm].Ops = ops
+		te.MarkNeedsPaint()
+	}
+}
+
+func (te *TextEditX) SetTerminalDecorations(entries []*drawer4.Decoration) {
+	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.Decorations.Groups[dgIdxTerm].Entries = entries
+		d.DecorationsChanged()
+		te.MarkNeedsPaint()
+	}
+}
+
+func (te *TextEditX) EnableTerminalDecorations(v bool) {
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		d.Opt.Decorations.Groups[dgIdxTerm].Off = !v
 		te.MarkNeedsPaint()
 	}
 }
