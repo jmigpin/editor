@@ -196,26 +196,40 @@ func (tarc *ERowTaReadCloser) kbEncode(ev1 *ui.TextAreaInputEvent, ev2 *event.Ke
 func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) string {
 
 	encodeEsc := func(s string) string {
-		//mods, ok := encodeKeyMods(ev.Mods)
-		//if ok {
-		//	s = "1;" + mods + s
-		//}
+		mods, ok := encodeKeyMods(ev2.Mods)
+		if ok {
+			return termemu.SeqEscCsi + "1;" + mods + s
+		}
 		return tarc.encodeEsc(s)
 	}
 
 	switch ev2.KeySym {
 	case event.KSymReturn, event.KSymKeypadEnter:
-		//if tarc.lineFeedNewline() {
-		//	// introduces extra newlines: aptitude
-		//	return []byte("\r\n"), true
-		//}
-		return "\r"
+		s := "\r"
+		if ev2.Mods.HasAny(event.ModAlt) {
+			s = "\x1b" + s
+		}
+		return s
 
 	case event.KSymBackspace:
+		s := "\b"
 		if tarc.lineFeedNewline() {
-			return string('\x7f') // del
+			s = string('\x7f') // del
 		}
-		return "\b"
+		if ev2.Mods.HasAny(event.ModAlt) {
+			s = "\x1b" + s
+		}
+		return s
+
+	case event.KSymSpace:
+		if ev2.Mods.HasAny(event.ModCtrl) {
+			return "\x00"
+		}
+		s := " "
+		if ev2.Mods.HasAny(event.ModAlt) {
+			s = "\x1b" + s
+		}
+		return s
 
 	case event.KSymUp:
 		return encodeEsc("A")
@@ -231,34 +245,33 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 	case event.KSymEnd:
 		return encodeEsc("F")
 
-	//case event.KSymHome:
-	//	return termemu.SeqEscCsi + "1~"
 	case event.KSymInsert:
 		return termemu.SeqEscCsi + "2~"
 	case event.KSymDelete:
 		return termemu.SeqEscCsi + "3~"
-	//case event.KSymEnd:
-	//	return termemu.SeqEscCsi + "4~"
 	case event.KSymPageUp:
 		return termemu.SeqEscCsi + "5~"
 	case event.KSymPageDown:
 		return termemu.SeqEscCsi + "6~"
-	//case event.KSymHome:
-	//	return termemu.SeqEscCsi + "7~"
-	//case event.KSymEnd:
-	//	return termemu.SeqEscCsi + "8~"
 
 	case event.KSymEscape:
 		return string('\x1b')
 	case event.KSymTab:
-		return "\t"
+		s := "\t"
+		if ev2.Mods.HasAny(event.ModAlt) {
+			s = "\x1b" + s
+		}
+		return s
 
 	default:
-
+		s := string(ev2.Rune)
 		if ev2.Mods.HasAny(event.ModCtrl) {
 			if ev2.Rune <= 0x7f {
-				return string(encodeCtrl(byte(ev2.Rune)))
+				s = string(encodeCtrl(byte(ev2.Rune)))
 			}
+		}
+		if ev2.Mods.HasAny(event.ModAlt) {
+			s = "\x1b" + s
 		}
 
 		// ignore
@@ -266,7 +279,7 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 			return ""
 		}
 
-		return string(ev2.Rune)
+		return s
 	}
 }
 
