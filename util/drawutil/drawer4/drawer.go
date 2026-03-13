@@ -34,6 +34,7 @@ type Drawer struct {
 		runeR              RuneReader // init
 		measure            Measure    // end
 		drawR              DrawRune
+		drawDec            DrawDecorations
 		line               Line
 		lineWrap           LineWrap  // init, insert
 		lineStart          LineStart // init
@@ -45,6 +46,7 @@ type Drawer struct {
 		pointOf            PointOf     // end
 		indexOf            IndexOf     // end
 		colorize           Colorize    // init
+		decorations        Decorations // insert
 		annotations        Annotations // insert
 		annotationsIndexOf AnnotationsIndexOf
 	}
@@ -100,6 +102,9 @@ type Drawer struct {
 		}
 		Colorize struct {
 			Groups []*ColorizeGroup
+		}
+		Decorations struct {
+			Groups []*DecorationGroup
 		}
 		Annotations struct {
 			On       bool
@@ -196,6 +201,9 @@ type State struct {
 	colorize struct {
 		indexes []int
 	}
+	decorations struct {
+		indexes []int
+	}
 	annotations struct {
 		cei    int // current entries index (to add to q)
 		indexQ []int
@@ -228,6 +236,7 @@ func New() *Drawer {
 	d.iters.runeR.d = d
 	d.iters.measure.d = d
 	d.iters.drawR.d = d
+	d.iters.drawDec.d = d
 	d.iters.line.d = d
 	d.iters.lineWrap.d = d
 	d.iters.lineStart.d = d
@@ -239,6 +248,7 @@ func New() *Drawer {
 	d.iters.pointOf.d = d
 	d.iters.indexOf.d = d
 	d.iters.colorize.d = d
+	d.iters.decorations.d = d
 	d.iters.annotations.d = d
 	d.iters.annotationsIndexOf.d = d
 	return d
@@ -283,6 +293,10 @@ func (d *Drawer) ContentChanged() {
 	d.opt.wordH.updatedWord = false
 	d.opt.wordH.updatedOps = false
 	d.opt.parenthesisH.updated = false
+}
+
+func (d *Drawer) DecorationsChanged() {
+	d.opt.measure.updated = false
 }
 
 //----------
@@ -420,8 +434,10 @@ func (d *Drawer) Draw(img draw.Image) {
 		&d.iters.lineWrap,
 		&d.iters.earlyExit, // after iters that change pen.Y
 		&d.iters.indent,
+		&d.iters.decorations, // after iters that change the line
 		&d.iters.annotations, // after iters that change the line
 		&d.iters.bgFill,
+		&d.iters.drawDec,
 		&d.iters.drawR,
 		&d.iters.cursor,
 	}
