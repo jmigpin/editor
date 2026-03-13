@@ -596,24 +596,20 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 		}
 
 	case opt == "raw":
-		return topt.emuOpts.Mode.SetBool(set, termemu.ModeRaw)
+		topt.emuOpts.Mode.SetBool(termemu.ModeRaw, set)
 	case opt == "plain":
-		return topt.emuOpts.Mode.SetBool(set, termemu.ModePlain)
+		topt.emuOpts.Mode.SetBool(termemu.ModePlain, set)
 	case opt == "grid":
-		return topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid)
+		topt.emuOpts.Mode.SetBool(termemu.ModeGrid, set)
 
 	case opt == "emu": // pre-set options
-		if err := topt.emuOpts.Mode.SetBool(set, termemu.ModeGrid); err != nil {
-			return err
-		}
+		topt.emuOpts.Mode.SetBool(termemu.ModeGrid, set)
 		if set {
 			topt.pty = true
 			topt.forwardKb = true
 			topt.forwardMouse = true
 			//erow.scrollMode = "auto" // annoying at times
 		}
-		return nil
-
 	default:
 		return fmt.Errorf("unknown $terminal option: %q\n\t%s", opt, erow.Info.Name())
 	}

@@ -1,9 +1,5 @@
 package termemu
 
-import (
-	"fmt"
-)
-
 const SeqEsc = "\x1b"
 const SeqEscCsi = SeqEsc + "["
 const SeqEscO = SeqEsc + "O"
@@ -27,28 +23,13 @@ func (m Mode) On() bool {
 	return m != ModeOff
 }
 
-//func (m *Mode) Set(m2 Mode) error {
-//	if *m != ModeOff && *m != m2 {
-//		return m.confliftErr(m2)
-//	}
-//	*m = m2
-//	return nil
-//}
-
-func (m *Mode) SetBool(v bool, m2 Mode) error {
-	// must be the same mode (or off) when setting
-	if *m != ModeOff && *m != m2 {
-		return m.confliftErr(m2)
-	}
-	if !v {
+func (m *Mode) SetBool(m2 Mode, v bool) {
+	if *m == m2 && !v {
 		*m = ModeOff
-	} else {
+		return
+	} else if *m != m2 && v {
 		*m = m2
 	}
-	return nil
-}
-func (m Mode) confliftErr(m2 Mode) error {
-	return fmt.Errorf("conflicting emu mode: %v vs %v", m, m2)
 }
 
 //----------
