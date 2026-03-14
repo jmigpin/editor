@@ -808,6 +808,27 @@ func TestDecrqm(t *testing.T) {
 	}
 }
 
+func TestXTVERSION(t *testing.T) {
+	tests := []string{
+		"\x1b[>q",
+		"\x1b[>0q",
+	}
+
+	for _, seq := range tests {
+		t.Run(printable(seq), func(t *testing.T) {
+			m := newTuiMock()
+			te := newTestEmu(m, Opts{}, 10, 5)
+			defer te.Close()
+
+			send(t, te, seq)
+			got := receive(t, te, 64)
+			if want := "\x1bP>|editor-termemu\x1b\\"; got != want {
+				t.Fatalf("got %q, want %q", printable(got), printable(want))
+			}
+		})
+	}
+}
+
 //----------
 
 func TestWraplines(t *testing.T) {

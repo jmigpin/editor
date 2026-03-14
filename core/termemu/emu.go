@@ -41,11 +41,11 @@ var TermEnv = []string{
 // const vt101NoOpt = vt100
 // const vt100WithAVO = "\x1b[?1;2c" //
 // const vt102 = "\x1b[?6c" //
-const vt420 = "\x1b[?64;1;10;18;21c" // 1:132cols, 10:utf8, 18:windowing, 21:horizscroll
+const vt420 = "\x1b[?64;1;10;18;21c" // 64:VT420, 1:132cols, 10:utf8, 18:windowing, 21:horizscroll
 // const vt420Sixel = "\x1b[?6;4;4c" // ?
-// const termSeqReply = vt100WithAVO
-// const termSeqReply = vt102 //
 const termSeqReply = vt420 //
+
+const xtVersion = "editor-termemu"
 
 //----------
 
@@ -426,8 +426,9 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		emu.csiOpTodo(op)
 	case 'q':
 		// xterm: XTVERSION query (CSI > q)
-		if op.isPriv('>') && len(op.params) == 0 {
-			emu.sendToExec("\x1bP>|editor-termemu\x1b\\")
+		// Ps defaults to 0, so accept both CSI > q and CSI > 0 q.
+		if op.isPriv('>') && op.A() == 0 {
+			emu.sendToExec("\x1bP>|" + xtVersion + "\x1b\\")
 			break
 		}
 
