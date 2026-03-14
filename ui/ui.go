@@ -81,50 +81,25 @@ func (ui *UI) resizeRowToGoodSize(row *Row) {
 //----------
 
 func (ui *UI) GoodRowPos() *RowPos {
-	var best struct {
-		area    int
-		col     *Column
-		nextRow *Row
-	}
-
-	// default position if nothing better is found
-	best.col = ui.Root.Cols.FirstChildColumn()
-
-	for _, c := range ui.Root.Cols.Columns() {
-		rows := c.Rows()
-
-		// space before first row
-		s := c.Bounds.Size()
-		if len(rows) > 0 {
-			s.Y = rows[0].Bounds.Min.Y - c.Bounds.Min.Y
-		}
-		a := s.X * s.Y
-		if a > best.area {
-			best.area = a
-			best.col = c
-			best.nextRow = nil
-			if len(rows) > 0 {
-				best.nextRow = rows[0]
-			}
-		}
-
-		// space between rows
-		for _, r := range rows {
-			b := ui.rowInsertionBounds(r)
-			s := b.Size()
-			a := s.X * s.Y
-			if a > best.area {
-				best.area = a
-				best.col = c
-				best.nextRow = r.NextRow()
-			}
-		}
-	}
-
-	return NewRowPos(best.col, best.nextRow)
+	return goodRowPosLargestArea(ui) // original algorithm
+	//return goodRowPos(ui)
 }
 
-//----------
+func (ui *UI) prevColumn(col *Column) *Column {
+	u := col.PrevSiblingWrapper()
+	if u == nil {
+		return nil
+	}
+	return u.(*Column)
+}
+
+func (ui *UI) nextColumn(col *Column) *Column {
+	u := col.NextSiblingWrapper()
+	if u == nil {
+		return nil
+	}
+	return u.(*Column)
+}
 
 func (ui *UI) rowInsertionBounds(prevRow *Row) image.Rectangle {
 	ta := prevRow.TextArea
