@@ -194,9 +194,10 @@ func (tarc *ERowTaReadCloser) kbEncode(ev1 *ui.TextAreaInputEvent, ev2 *event.Ke
 	return false
 }
 func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) string {
+	mods := normalizeTermKeyMods(ev2.Mods)
 
 	encodeEsc := func(s string) string {
-		mods, ok := encodeKeyMods(ev2.Mods)
+		mods, ok := encodeKeyMods(mods)
 		if ok {
 			return termemu.SeqEscCsi + "1;" + mods + s
 		}
@@ -204,9 +205,22 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 	}
 
 	switch ev2.KeySym {
+	case event.KSymAltL,
+		event.KSymAltR,
+		event.KSymAltGr,
+		event.KSymShiftL,
+		event.KSymShiftR,
+		event.KSymControlL,
+		event.KSymControlR,
+		event.KSymSuperL,
+		event.KSymSuperR,
+		event.KSymCapsLock,
+		event.KSymNumLock:
+		return ""
+
 	case event.KSymReturn, event.KSymKeypadEnter:
 		s := "\r"
-		if ev2.Mods.HasAny(event.ModAlt) {
+		if mods.HasAny(event.ModAlt) {
 			s = "\x1b" + s
 		}
 		return s
@@ -216,17 +230,17 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 		if tarc.lineFeedNewline() {
 			s = string('\x7f') // del
 		}
-		if ev2.Mods.HasAny(event.ModAlt) {
+		if mods.HasAny(event.ModAlt) {
 			s = "\x1b" + s
 		}
 		return s
 
 	case event.KSymSpace:
-		if ev2.Mods.HasAny(event.ModCtrl) {
+		if mods.HasAny(event.ModCtrl) {
 			return "\x00"
 		}
 		s := " "
-		if ev2.Mods.HasAny(event.ModAlt) {
+		if mods.HasAny(event.ModAlt) {
 			s = "\x1b" + s
 		}
 		return s
@@ -258,19 +272,19 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 		return string('\x1b')
 	case event.KSymTab:
 		s := "\t"
-		if ev2.Mods.HasAny(event.ModAlt) {
+		if mods.HasAny(event.ModAlt) {
 			s = "\x1b" + s
 		}
 		return s
 
 	default:
 		s := string(ev2.Rune)
-		if ev2.Mods.HasAny(event.ModCtrl) {
+		if mods.HasAny(event.ModCtrl) {
 			if ev2.Rune <= 0x7f {
 				s = string(encodeCtrl(byte(ev2.Rune)))
 			}
 		}
-		if ev2.Mods.HasAny(event.ModAlt) {
+		if mods.HasAny(event.ModAlt) {
 			s = "\x1b" + s
 		}
 
@@ -281,6 +295,15 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 
 		return s
 	}
+}
+
+func normalizeTermKeyMods(km event.KeyModifiers) event.KeyModifiers {
+	km = km.ClearLocks()
+	if km.HasAny(event.ModAltGr) {
+		// AltGr is a keyboard-layout selector, not terminal Meta/Ctrl.
+		km &^= event.ModAltGr | event.ModCtrl | event.ModAlt
+	}
+	return km
 }
 
 //----------
