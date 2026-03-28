@@ -584,7 +584,10 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 
 	case strings.HasPrefix(opt, "rows="):
 		if set {
-			if v, err := strconv.Atoi(opt[5:]); err == nil {
+			vstr := opt[5:]
+			if vstr == "auto" {
+				topt.fixedRows = 0
+			} else if v, err := strconv.Atoi(vstr); err == nil {
 				topt.fixedRows = v
 			}
 		} else {
@@ -593,6 +596,22 @@ func (erow *ERow) applyTerminalOpt(opt string) error {
 	case opt == "rows": // ignore "rows" without value, but support "no-rows"
 		if !set {
 			topt.fixedRows = 0
+		}
+
+	case strings.HasPrefix(opt, "cols="):
+		if set {
+			vstr := opt[5:]
+			if vstr == "auto" {
+				topt.fixedCols = 0
+			} else if v, err := strconv.Atoi(vstr); err == nil {
+				topt.fixedCols = v
+			}
+		} else {
+			topt.fixedCols = 0
+		}
+	case opt == "cols": // ignore "cols" without value, but support "no-cols"
+		if !set {
+			topt.fixedCols = 0
 		}
 
 	case opt == "raw":
@@ -763,6 +782,7 @@ type ERowRunOpts struct {
 	pty          bool // run under a pseudo-terminal
 	forwardKb    bool // forward keyboard events to the process
 	forwardMouse bool // forward mouse events to the process
+	fixedCols    int  // if > 0, use fixed terminal width
 	fixedRows    int  // if > 0, use fixed terminal height
 	useGrayscale bool
 

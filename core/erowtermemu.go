@@ -149,6 +149,11 @@ func (temu *ERowTermEmu) termSize(fface *fontutil.FontFace) (_, _ termemu.P) {
 	cols := pixs.X / rw
 	rows := pixs.Y / lh
 
+	// Use fixed cols if specified
+	if temu.erow.runOpts.fixedCols > 0 {
+		cols = temu.erow.runOpts.fixedCols
+	}
+
 	// Use fixed rows if specified
 	if temu.erow.runOpts.fixedRows > 0 {
 		rows = temu.erow.runOpts.fixedRows

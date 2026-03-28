@@ -450,6 +450,9 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 	- `plain`: disable output processing (display raw bytes).
 	- `emu`: shorthand for `pty,kb,mouse`.
 	- `rows=N`: set a fixed terminal height (number of rows).
+	- `rows=auto`: use adaptive terminal height (default).
+	- `cols=N`: set a fixed terminal width (number of columns).
+	- `cols=auto`: use adaptive terminal width (default).
 	- `grayscale`: render terminal colors in grayscale (default; equivalent to `no-color`).
 	- `color`: render terminal colors normally.
 
