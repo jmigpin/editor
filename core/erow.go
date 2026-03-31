@@ -460,10 +460,13 @@ func (erow *ERow) parseToolbarVars() {
 		if termFFace == nil {
 			termFFace = ta.Parent.TreeThemeFontFace()
 		}
-		// terminal font face: unless the user defined a named font, run with a monospace font
-		if !hasFontVarName && !termFFace.TestIsMono() {
-			termFFace = fontutil.DefaultMonoFont().FontFace(termFFace.Opts)
-		}
+
+		//// terminal font face: unless the user defined a named font, run with a monospace font
+		//if !hasFontVarName && !termFFace.TestIsMono() {
+		//	termFFace = fontutil.DefaultMonoFont().FontFace(termFFace.Opts)
+		//}
+		_ = hasFontVarName
+
 		erow.runOpts = ERowRunOpts{ // reset
 			fface:        termFFace,
 			ffaceRestore: baseFFace,
