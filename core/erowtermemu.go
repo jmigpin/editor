@@ -136,7 +136,7 @@ func (temu *ERowTermEmu) onPtyStart() error {
 //----------
 
 func (temu *ERowTermEmu) termSize(fface *fontutil.FontFace) (_, _ termemu.P) {
-	runeW, _ := fface.Face.GlyphAdvance('W')
+	runeW := fface.AvgGlyphAdvance()
 	rw := runeW.Ceil()
 	lh := fface.LineHeightInt()
 
@@ -186,11 +186,7 @@ func (temu *ERowTermEmu) termFontFace(cr, pixs P, origFace *fontutil.FontFace) (
 
 	runeSize := func(p float64) (int, int, bool) {
 		face2 := faceAtSize(p)
-		adv, ok := face2.Face.GlyphAdvance('W')
-		if !ok {
-			return 0, 0, false
-		}
-		return adv.Ceil(), face2.LineHeightInt(), true
+		return face2.AvgGlyphAdvance().Ceil(), face2.LineHeightInt(), true
 	}
 
 	_, _, p, ok := fitRuneSizeF(pixs.X, pixs.Y, cr.X, cr.Y, runeSize)
