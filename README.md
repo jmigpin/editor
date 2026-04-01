@@ -126,6 +126,8 @@ Usage of editor:
     	set scrollbars on the left side (default true)
   -scrollbarwidth int
     	Textarea scrollbar width in pixels. A value of 0 takes 3/4 of the font size.
+  -sessionfilename string
+    	open a session snapshot from a file
   -sessionname string
     	open existing session
   -shadows

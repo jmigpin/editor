@@ -47,6 +47,7 @@ func main() {
 	flag.BoolVar(&opt.Shadows, "shadows", true, "shadow effects on some elements")
 	flag.StringVar(&opt.SessionName, "sn", "", "open existing session")
 	flag.StringVar(&opt.SessionName, "sessionname", "", "open existing session")
+	flag.StringVar(&opt.SessionFilename, "sessionfilename", "", "open a session snapshot from a file")
 	flag.BoolVar(&opt.StartTerminalEmu, "startterminalemu", false, "open the editor in the current directory with an emulated terminal running")
 	// TODO: escape emuexec robustly when mirroring it into the row toolbar.
 	flag.StringVar(&opt.EmuExec, "emuexec", "", "shell command to run when starting with -startterminalemu")

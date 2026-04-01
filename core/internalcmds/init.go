@@ -16,7 +16,9 @@ func init() {
 	cmd(Exit, "Exit")
 
 	cmd(SaveSession, "SaveSession")
+	cmd(SaveSessionFile, "SaveSessionFile")
 	cmd(OpenSession, "OpenSession")
+	cmd(OpenSessionFile, "OpenSessionFile")
 	cmd(DeleteSession, "DeleteSession")
 	cmd(ListSessions, "ListSessions")
 

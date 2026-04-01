@@ -29,6 +29,7 @@ type Options struct {
 	Shadows        bool
 
 	SessionName      string
+	SessionFilename  string
 	Filenames        []string
 	StartTerminalEmu bool
 	EmuExec          string

@@ -459,6 +459,13 @@ func (ed *Editor) updateERowsToolbarsHomeVars() {
 //----------
 
 func (ed *Editor) setupInitialRows(opt *Options) {
+	if opt.SessionFilename != "" {
+		if err := OpenSessionFromFile(ed, opt.SessionFilename); err != nil {
+			ed.Error(err)
+		}
+		return
+	}
+
 	if opt.SessionName != "" {
 		OpenSessionFromString(ed, opt.SessionName)
 		return

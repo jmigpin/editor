@@ -36,9 +36,23 @@ func SaveSession(args *core.InternalCmdArgs) error {
 	core.SaveSession(args.Ed, args.Part)
 	return nil
 }
+func SaveSessionFile(args *core.InternalCmdArgs) error {
+	if len(args.Part.Args) != 2 {
+		return fmt.Errorf("savesessionfile: missing session filename")
+	}
+	filename := args.Part.Args[1].UnquotedString()
+	return core.SaveSessionToFile(args.Ed, filename)
+}
 func OpenSession(args *core.InternalCmdArgs) error {
 	core.OpenSession(args.Ed, args.Part)
 	return nil
+}
+func OpenSessionFile(args *core.InternalCmdArgs) error {
+	if len(args.Part.Args) != 2 {
+		return fmt.Errorf("opensessionfile: missing session filename")
+	}
+	filename := args.Part.Args[1].UnquotedString()
+	return core.OpenSessionFromFile(args.Ed, filename)
 }
 func DeleteSession(args *core.InternalCmdArgs) error {
 	core.DeleteSession(args.Ed, args.Part)

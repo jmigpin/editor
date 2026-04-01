@@ -111,31 +111,7 @@ func (ss *Sessions) saveToZip(zipFilename, filename string) error {
 //----------
 
 func (ss *Sessions) encodeToJson() ([]byte, error) {
-	buf := &bytes.Buffer{}
-	enc := json.NewEncoder(buf)
-	enc.SetIndent("", "\t")
-	if err := enc.Encode(&ss); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-//----------
-//----------
-//----------
-
-func openToWriteSessionsFile(filename string) (*os.File, error) {
-	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-	return os.OpenFile(filename, flags, 0644)
-}
-
-func decodeSessionsFromJson(r io.Reader) (*Sessions, error) {
-	dec := json.NewDecoder(r)
-	ss := &Sessions{}
-	if err := dec.Decode(ss); err != nil {
-		return nil, err
-	}
-	return ss, nil
+	return encodeToJson(ss)
 }
 
 //----------
@@ -167,6 +143,34 @@ type Session struct {
 	Name      string
 	RootTbStr string
 	Columns   []*ColumnState
+}
+
+func newSessionFromPlain(filename string) (*Session, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return decodeSessionFromJson(f)
+}
+
+func (s *Session) saveToPlain(filename string) error {
+	f, err := openToWriteSessionsFile(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	jsonBytes, err := s.encodeToJson()
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(jsonBytes)
+	return err
+}
+
+func (s *Session) encodeToJson() ([]byte, error) {
+	return encodeToJson(s)
 }
 
 func NewSessionFromEditor(ed *Editor) *Session {
@@ -412,6 +416,20 @@ func OpenSessionFromString(ed *Editor, sessionName string) {
 	ed.Errorf("session not found: %v", sessionName)
 }
 
+func OpenSessionFromFile(ed *Editor, filename string) error {
+	s, err := newSessionFromPlain(filename)
+	if err != nil {
+		return err
+	}
+	s.restore(ed)
+	return nil
+}
+
+func SaveSessionToFile(ed *Editor, filename string) error {
+	s := NewSessionFromEditor(ed)
+	return s.saveToPlain(filename)
+}
+
 //----------
 
 func DeleteSession(ed *Editor, part *toolbarparser.Part) {
@@ -442,6 +460,43 @@ func deleteSession(ed *Editor, part *toolbarparser.Part) error {
 		return fmt.Errorf("deletesession: session not found: %v", sessionName)
 	}
 	return ed.saveSessions(ss)
+}
+
+//----------
+//----------
+//----------
+
+func openToWriteSessionsFile(filename string) (*os.File, error) {
+	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	return os.OpenFile(filename, flags, 0644)
+}
+
+func decodeSessionsFromJson(r io.Reader) (*Sessions, error) {
+	dec := json.NewDecoder(r)
+	ss := &Sessions{}
+	if err := dec.Decode(ss); err != nil {
+		return nil, err
+	}
+	return ss, nil
+}
+
+func decodeSessionFromJson(r io.Reader) (*Session, error) {
+	dec := json.NewDecoder(r)
+	s := &Session{}
+	if err := dec.Decode(s); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func encodeToJson(v any) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	enc := json.NewEncoder(buf)
+	enc.SetIndent("", "\t")
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 //----------
