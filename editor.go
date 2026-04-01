@@ -47,6 +47,9 @@ func main() {
 	flag.BoolVar(&opt.Shadows, "shadows", true, "shadow effects on some elements")
 	flag.StringVar(&opt.SessionName, "sn", "", "open existing session")
 	flag.StringVar(&opt.SessionName, "sessionname", "", "open existing session")
+	flag.BoolVar(&opt.StartTerminalEmu, "startterminalemu", false, "open the editor in the current directory with an emulated terminal running")
+	// TODO: escape emuexec robustly when mirroring it into the row toolbar.
+	flag.StringVar(&opt.EmuExec, "emuexec", "", "shell command to run when starting with -startterminalemu")
 	flag.BoolVar(&opt.UseMultiKey, "usemultikey", false, "use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)")
 	flag.StringVar(&opt.Plugins, "plugins", "", "comma separated string of plugin filenames")
 	flag.Var(&opt.LSProtos, "lsproto", "Language-server-protocol register options. Can be specified multiple times.\nFormat: language,fileExtensions,network{tcp|tcpclient|stdio},command,optional{stderr,nogotoimpl}\nFormat notes:\n\tif network is tcp, the command runs in a template with vars: {{.Addr}}.\n\tif network is tcpclient, the command should be an ipaddress.\nExamples:\n\t"+strings.Join(lsproto.RegistrationExamples(), "\n\t"))
@@ -59,7 +62,12 @@ func main() {
 	version := flag.Bool("version", false, "output version and exit")
 
 	flag.Parse()
-	opt.Filenames = flag.Args()
+	args := flag.Args()
+	if opt.StartTerminalEmu && len(args) > 0 {
+		opt.EmuExecArgs = args
+	} else {
+		opt.Filenames = args
+	}
 
 	log.SetFlags(log.Lshortfile)
 

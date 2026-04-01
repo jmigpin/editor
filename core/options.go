@@ -28,8 +28,11 @@ type Options struct {
 	ScrollBarLeft  bool
 	Shadows        bool
 
-	SessionName string
-	Filenames   []string
+	SessionName      string
+	Filenames        []string
+	StartTerminalEmu bool
+	EmuExec          string
+	EmuExecArgs      []string
 
 	UseMultiKey bool
 

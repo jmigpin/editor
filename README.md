@@ -92,6 +92,8 @@ Usage of editor:
     	profile cpu filename
   -dpi float
     	monitor dots per inch (default 72)
+  -emuexec string
+    	shell command to run when starting with -startterminalemu
   -font string
     	font: regular, medium, mono, or a filename (default "regular")
   -fonthinting string
@@ -132,6 +134,8 @@ Usage of editor:
     	open existing session
   -startmaximized
     	maximize window at start
+  -startterminalemu
+    	open the editor in the current directory with an emulated terminal running
   -stringscolor int
     	Colorize strings. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.
   -tabwidth int

@@ -193,16 +193,7 @@ func OpenTerminalEmu(args *core.InternalCmdArgs) error {
 	if err != nil {
 		return err
 	}
-
-	info := args.Ed.ReadERowInfo(dir)
-	rowPos := args.Ed.GoodRowPos()
-	erow := core.NewBasicERow(info, rowPos)
-
-	shell := os.Getenv("SHELL")
-	erow.ToolbarSetStrAfterNameClearHistory(" | $terminal=emu | Stop | " + shell)
-
-	core.ExternalCmd(erow, nil, []string{shell}, nil, nil)
-	return nil
+	return core.StartTerminalEmu(args.Ed, dir, args.Ed.GoodRowPos(), "", nil)
 }
 
 func OpenExternal(args *core.InternalCmdArgs) error {

@@ -486,6 +486,16 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 		return
 	}
 
+	if opt.StartTerminalEmu {
+		dir, err := os.Getwd()
+		if err == nil {
+			if err := StartTerminalEmu(ed, dir, ed.GoodRowPos(), opt.EmuExec, opt.EmuExecArgs); err != nil {
+				ed.Error(err)
+			}
+		}
+		return
+	}
+
 	// open current directory
 	dir, err := os.Getwd()
 	if err == nil {

@@ -35,14 +35,14 @@ func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func
 
 	switch {
 	case erow.Info.IsDir():
-		externalCmdFromDir(erow, cargs, fend, env)
+		externalCmdFromDir(erow, cargs, fend, env, ExternalCmdModeShellScript)
 	case erow.Info.IsFileButNotDir():
 		// create a row with the file dir and run the cmd
 		dir := filepath.Dir(erow.Info.Name())
 		info := erow.Ed.ReadERowInfo(dir)
 		rowPos := erow.Row.PosBelow()
 		erow2 := NewBasicERow(info, rowPos)
-		externalCmdFromDir(erow2, cargs, fend, env)
+		externalCmdFromDir(erow2, cargs, fend, env, ExternalCmdModeShellScript)
 	default:
 		erow.Ed.Errorf("unable to run external cmd for erow: %v", erow.Info.Name())
 	}
@@ -50,7 +50,7 @@ func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func
 
 //----------
 
-func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []string) {
+func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []string, mode ExternalCmdMode) {
 	if !erow.Info.IsDir() {
 		panic("not a directory")
 	}
@@ -60,18 +60,25 @@ func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []stri
 		}
 	}
 	_, _ = erow.Exec.RunAsync(func(ctx context.Context, rw io.ReadWriter) error {
-		err := externalCmdFromDir2(ctx, erow, cargs, env, rw)
+		err := externalCmdFromDir2(ctx, erow, cargs, env, rw, mode)
 		fend2(err)
 		return err
 	})
 }
 
-func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter) error {
+func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter, mode ExternalCmdMode) error {
 
 	// TODO: unify this code with godebug cmd call
 
 	c := osutil.NewCmdI2(cargs)
-	c = osutil.NewShellCmd(c, true)
+	switch mode {
+	case ExternalCmdModeShellScript:
+		c = osutil.NewShellCmd(c, true)
+	case ExternalCmdModeShellArgs:
+		c = osutil.NewShellCmd(c, false)
+	default:
+		panic(fmt.Sprintf("unexpected external cmd mode: %v", mode))
+	}
 
 	// first, to run start() last and wrap everything in a pty
 	if erow.runOpts.pty {
