@@ -368,6 +368,12 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 
 	case 'c': // DA: Device Attributes
 		switch {
+		// Linux console extension: cursor appearance.
+		// nano can emit CSI ? 1 c / CSI ? 0 c to hide/show the cursor.
+		case op.isPriv('?') && op.A() == 1: // cursor disabled
+			emu.scr.privModes.set("?25", false)
+		case op.isPriv('?') && (op.A() == 0 || op.A() == 2): // cursor enabled
+			emu.scr.privModes.set("?25", true)
 		case op.isPriv(0) && op.A() == 0: // primary
 			emu.sendToExec(termSeqReply)
 		case op.isPriv('>') && op.A() == 0: // secondary
