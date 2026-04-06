@@ -275,6 +275,23 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- If text is selected, only the selection will be considered as the filename to open.
 - `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
 
+## Session Files
+
+Sessions can be stored either in the global sessions file or in standalone snapshot files.
+
+Examples:
+
+```text
+editor -sessionfilename project.editor_session
+SaveSessionFile project.editor_session
+OpenSessionFile project.editor_session
+```
+
+Notes:
+- `SaveSession <name>` stores a named session in `~/.editor_sessions.json`.
+- `-sessionfilename` and `*SessionFile` operate on a single session stored in a regular file.
+- If you want multiple session snapshots for the same directory, use multiple files.
+
 ## Commands: GoDebug
 
 Output of `GoDebug -help`:
@@ -648,9 +665,13 @@ The measuring of space is done as follows:
 ## Releases
 - 2026/??/??: v3.13 (work in progress)
 	- added terminal emulator integrated into the editor
-	- added (startmaximized, wrapwordlimit)  options
+	- added `OpenTerminalEmu` command and direct startup with `-startterminalemu`
+	- added `-emuexec` and trailing command support for terminal-emulator startup
+	- added session snapshot files with `-sessionfilename`, `SaveSessionFile` and `OpenSessionFile`
+	- added terminal rows/cols options and color/grayscale rendering options
+	- added (`startmaximized`, `wrapwordlimit`) options
 	- upgraded fsnotify pkg
-	- many small fixes and improvements
+	- many terminal emulator fixes and improvements
 - 2025/08/13: v3.12.0 (23 commmits)
 	- core/inlinecomplete: improved completion
 	- godebug: improved internal testing facilities
