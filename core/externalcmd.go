@@ -18,7 +18,12 @@ import (
 // if part is nil, cargs should be set
 // if cargs is nil, part should be set
 func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func(error), env []string) {
+	ExternalCmd2(erow, part, cargs, fend, env, ExternalCmdModeShellScript)
+}
 
+// if part is nil, cargs should be set
+// if cargs is nil, part should be set
+func ExternalCmd2(erow *ERow, part *toolbarparser.Part, cargs []string, fend func(error), env []string, mode ExternalCmdMode) {
 	// before toolbar vars to allow override
 	if erow.runOpts.emuOpts.Mode.On() {
 		env = append(env, termemu.TermEnv...)
@@ -35,14 +40,14 @@ func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func
 
 	switch {
 	case erow.Info.IsDir():
-		externalCmdFromDir(erow, cargs, fend, env, ExternalCmdModeShellScript)
+		externalCmdFromDir(erow, cargs, fend, env, mode)
 	case erow.Info.IsFileButNotDir():
 		// create a row with the file dir and run the cmd
 		dir := filepath.Dir(erow.Info.Name())
 		info := erow.Ed.ReadERowInfo(dir)
 		rowPos := erow.Row.PosBelow()
 		erow2 := NewBasicERow(info, rowPos)
-		externalCmdFromDir(erow2, cargs, fend, env, ExternalCmdModeShellScript)
+		externalCmdFromDir(erow2, cargs, fend, env, mode)
 	default:
 		erow.Ed.Errorf("unable to run external cmd for erow: %v", erow.Info.Name())
 	}

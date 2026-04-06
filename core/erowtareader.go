@@ -51,17 +51,19 @@ func (tarc *ERowTaReadCloser) Close() error {
 
 //----------
 
-func (tarc *ERowTaReadCloser) writeToRead(s string) {
+func (tarc *ERowTaReadCloser) writeToRead(s string) error {
 	_, err := tarc.pw.Write([]byte(s))
 	if err != nil {
 		tarc.erow.Ed.Errorf("textarea.writeToRead: %w", err)
+		return err
 	}
+	return nil
 }
-func (tarc *ERowTaReadCloser) writePasteToRead(s string) {
+func (tarc *ERowTaReadCloser) writePasteToRead(s string) error {
 	if tarc.bracketedPaste() {
 		s = bracketedPaste(s)
 	}
-	tarc.writeToRead(s)
+	return tarc.writeToRead(s)
 }
 
 //----------
@@ -131,7 +133,7 @@ func (tarc *ERowTaReadCloser) kbPaste(ev1 *ui.TextAreaInputEvent, ev2 *event.Key
 		if err != nil {
 			return
 		}
-		tarc.writePasteToRead(s)
+		_ = tarc.writePasteToRead(s)
 	})
 	// handled
 	ev1.ReplyHandled = event.Handled(true)
@@ -151,7 +153,7 @@ func (tarc *ERowTaReadCloser) mousePaste(ev1 *ui.TextAreaInputEvent, ev2 *event.
 		if err != nil {
 			return
 		}
-		tarc.writePasteToRead(s)
+		_ = tarc.writePasteToRead(s)
 	})
 	// handled
 	ev1.ReplyHandled = event.Handled(true)
@@ -186,7 +188,9 @@ func (tarc *ERowTaReadCloser) kbCopyingWarning(ev1 *ui.TextAreaInputEvent, ev2 *
 func (tarc *ERowTaReadCloser) kbEncode(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
 	s := tarc.kbEncodeToStr(ev1, ev2)
 	if s != "" {
-		tarc.writeToRead(s)
+		if err := tarc.writeToRead(s); err != nil {
+			return false
+		}
 		// handled
 		ev1.ReplyHandled = event.Handled(true)
 		return true
