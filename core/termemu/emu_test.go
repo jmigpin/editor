@@ -1053,9 +1053,9 @@ func (m *TuiMock) Close() error {
 	return nil
 }
 func (m *TuiMock) OnColumnModeChange() {}
-func (m *TuiMock) Paint()            {}
-func (m *TuiMock) Error(err error)   { fmt.Println(err) }
-func (m *TuiMock) Print(v any)       { fmt.Println(v) }
+func (m *TuiMock) Paint()              {}
+func (m *TuiMock) Error(err error)     { fmt.Println(err) }
+func (m *TuiMock) Print(v any)         { fmt.Println(v) }
 
 //----------
 //----------
