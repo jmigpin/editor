@@ -1,6 +1,6 @@
 module github.com/jmigpin/editor
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/creack/pty v1.1.24
@@ -9,18 +9,18 @@ require (
 	github.com/jezek/xgb v1.1.1
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
 	golang.org/x/exp/jsonrpc2 v0.0.0-20250911091902-df9299821621
-	golang.org/x/image v0.18.0
-	golang.org/x/mod v0.24.0
-	golang.org/x/net v0.40.0
+	golang.org/x/image v0.38.0
+	golang.org/x/mod v0.33.0
+	golang.org/x/net v0.50.0
 	golang.org/x/sys v0.41.0
-	golang.org/x/term v0.32.0
-	golang.org/x/text v0.25.0
-	golang.org/x/tools v0.33.0
+	golang.org/x/term v0.40.0
+	golang.org/x/text v0.35.0
+	golang.org/x/tools v0.42.0
 )
 
 require (
 	golang.org/x/exp/event v0.0.0-20250819193227-8b4c13bb791b // indirect
-	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 )
 
