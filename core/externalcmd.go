@@ -102,7 +102,7 @@ func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []
 	// last, to run wait() first, such that a ctx cancel sends a proc kill
 	c = osutil.NewCtxCmd(ctx, c)
 
-	if erow.optTemu != nil {
+	if erow.runOpts.pty && erow.optTemu != nil {
 		// run callback on start
 		c = osutil.NewFuncsCmd(c,
 			func(inner osutil.CmdI) error { // on start

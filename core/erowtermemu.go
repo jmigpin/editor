@@ -1,7 +1,6 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"image/color"
 	"io"
@@ -100,8 +99,10 @@ func (temu *ERowTermEmu) calcAndSetTermSize() {
 	if cr.X > 1 && cr.Y > 1 {
 		if cr2, changed := temu.emu.SetSize(cr); changed {
 			// align PTY with emu size after possible clamp
-			if err := temu.setPtySize(cr2, psize); err != nil {
-				//temu.tui.Error(err) // commented: pty cmd can be nil while the exec is starting, gives errors
+			if temu.optPtyCmd != nil {
+				if err := temu.setPtySize(cr2, psize); err != nil {
+					temu.tui.Error(err)
+				}
 			}
 		}
 	}
@@ -121,9 +122,6 @@ func (temu *ERowTermEmu) setPty(ptyCmd *osutil.PtyCmd) {
 }
 
 func (temu *ERowTermEmu) setPtySize(cr, psize P) error {
-	if temu.optPtyCmd == nil {
-		return errors.New("opt pty cmd is nil")
-	}
 	return temu.optPtyCmd.SetSize(cr.X, cr.Y, psize.X, psize.Y)
 }
 
