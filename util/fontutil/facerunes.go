@@ -2,15 +2,16 @@ package fontutil
 
 import (
 	"image"
+	"unicode"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
-var TabWidth = 8             // n times the space glyph
-var CarriageReturnRune = '␍' // 9229 (C/R symbol) // old: '♪'
-var nullRune = '◦'           // 9702 (tiny circle)
-var noRune = '◦'             // 9792; usual alternative: '�'
+var TabWidth = 8                  // n times the space glyph
+var nullRune = '◦'                // white bullet: '◦'
+var noRune = nullRune             // alternative: '�'
+var CarriageReturnRune = nullRune // C/R symbol: '␍'; old: '♪'
 
 // Special runes face
 type FaceRunes struct {
@@ -80,12 +81,32 @@ func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
 		return ru, 0, true
 	}
 
-	// no rune
-	if _, ok := fr.Face.GlyphAdvance(ru0); !ok {
-		ru := noRune
-		adv, ok := fr.Face.GlyphAdvance(ru)
-		return ru, adv, ok
+	if fr.useNoRune(ru0) {
+		return fr.noRuneReplace()
 	}
 
 	return 0, 0, false
+}
+
+func (fr *FaceRunes) noRuneReplace() (rune, fixed.Int26_6, bool) {
+	ru := noRune
+	adv, ok := fr.Face.GlyphAdvance(ru)
+	return ru, adv, ok
+}
+
+func (fr *FaceRunes) useNoRune(ru rune) bool {
+	if _, ok := fr.Face.GlyphAdvance(ru); !ok {
+		return true
+	}
+	if unicode.In(ru, unicode.Cc, unicode.Cf, unicode.Cs, unicode.Mn, unicode.Me) {
+		return true
+	}
+	return isVariationSelector(ru)
+}
+
+//----------
+
+func isVariationSelector(ru rune) bool {
+	return (ru >= 0xFE00 && ru <= 0xFE0F) ||
+		(ru >= 0xE0100 && ru <= 0xE01EF)
 }
