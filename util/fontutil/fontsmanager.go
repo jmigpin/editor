@@ -104,6 +104,11 @@ type FontFace struct {
 func NewFontFace(font *Font, fopts FaceOptions) *FontFace {
 	face := mustNewFace(font.Font, &fopts.opts)
 
+	if emojiFont := DefaultEmojiFont(); font != emojiFont {
+		emojiFace := newEmojiFace(face, emojiFont, fopts)
+		face = NewFaceEmoji(face, emojiFace)
+	}
+
 	face = NewFaceRunes(face)
 	// TODO: allow cache choice
 	//face = NewFaceCache(face) // safe for ui loop thread only (read)
@@ -114,14 +119,7 @@ func NewFontFace(font *Font, fopts FaceOptions) *FontFace {
 	m := face.Metrics()
 	ff.Metrics = &m
 
-	//ff.lineHeight = ff.Metrics.Height
-	//ff.baselineY = ff.Metrics.Ascent
-	ff.lineHeight = max(
-		ff.Metrics.Ascent+ff.Metrics.Descent,
-		ff.Metrics.Height)
-	ff.baselineY = min(
-		ff.Metrics.Ascent,
-		ff.lineHeight-ff.Metrics.Descent)
+	ff.lineHeight, ff.baselineY = faceLineHeightBaseline(face)
 
 	return ff
 }
@@ -158,9 +156,7 @@ func (ff *FontFace) AvgGlyphAdvance() fixed.Int26_6 {
 }
 
 func (ff *FontFace) TestIsMono() bool {
-	adv1, ok1 := ff.Face.GlyphAdvance('W')
-	adv2, ok2 := ff.Face.GlyphAdvance('i')
-	return ok1 && ok2 && adv1 == adv2
+	return testIsMonoFace(ff.Face)
 }
 
 //----------
@@ -173,6 +169,63 @@ func mustNewFace(font *opentype.Font, fopts *opentype.FaceOptions) font.Face {
 		panic(err) // TODO: opentype.newface() doesn't return errors for now
 	}
 	return face
+}
+
+//----------
+
+func newEmojiFace(face font.Face, emojiFont *Font, fopts FaceOptions) font.Face {
+	emojiFace := mustNewFace(emojiFont.Font, &fopts.opts)
+	maxAdv, ok := face.GlyphAdvance('W')
+	if !ok {
+		maxAdv = fixed.I(2)
+	}
+	maxHeight, _ := faceLineHeightBaseline(face)
+
+	for _, p := range []float64{1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4} {
+		fopts2 := fopts
+		fopts2.SetSize(fopts.Size() * p)
+		face2 := mustNewFace(emojiFont.Font, &fopts2.opts)
+		if ok := emojiFaceFits(face2, maxAdv, maxHeight); ok {
+			return face2
+		}
+	}
+	return emojiFace
+}
+
+func emojiFaceFits(emojiFace font.Face, maxAdv, maxHeight fixed.Int26_6) bool {
+	for _, ru := range []rune{'🙂', '👍', '🔥', '✅'} {
+		bounds, adv, ok := emojiFace.GlyphBounds(ru)
+		if !ok {
+			continue
+		}
+		if adv > maxAdv {
+			return false
+		}
+		h := bounds.Max.Y - bounds.Min.Y
+		if h > maxHeight {
+			return false
+		}
+	}
+	return true
+}
+
+//----------
+
+func faceLineHeightBaseline(face font.Face) (fixed.Int26_6, fixed.Int26_6) {
+	m := face.Metrics()
+	lineHeight := max(
+		m.Ascent+m.Descent,
+		m.Height)
+	baselineY := min(
+		m.Ascent,
+		lineHeight-m.Descent)
+	return lineHeight, baselineY
+}
+
+func testIsMonoFace(face font.Face) bool {
+	adv1, ok1 := face.GlyphAdvance('W')
+	adv2, ok2 := face.GlyphAdvance('i')
+	return ok1 && ok2 && adv1 == adv2
 }
 
 //----------

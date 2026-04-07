@@ -1,6 +1,7 @@
 package fontutil
 
 import (
+	_ "embed"
 	"image"
 
 	"golang.org/x/image/font/gofont/gomono"
@@ -8,11 +9,21 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+// Embedded Noto Emoji variable font fallback.
+// License: SIL Open Font License 1.1.
+// See util/fontutil/data/OFL.txt.
+//
+//go:embed data/NotoEmoji-VariableFont_wght.ttf
+var defaultEmojiTTF []byte
+
 func DefaultFont() *Font {
 	return FontsMan.mustFont(goregular.TTF)
 }
 func DefaultMonoFont() *Font {
 	return FontsMan.mustFont(gomono.TTF)
+}
+func DefaultEmojiFont() *Font {
+	return FontsMan.mustFont(defaultEmojiTTF)
 }
 
 //----------
