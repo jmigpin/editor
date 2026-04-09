@@ -8,10 +8,10 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-var TabWidth = 8                  // n times the space glyph
-var nullRune = '◦'                // white bullet: '◦'
-var noRune = nullRune             // alternative: '�'
-var CarriageReturnRune = nullRune // C/R symbol: '␍'; old: '♪'
+var TabWidth = 8 // n times the space glyph
+var noRune = '◦' // white bullet: '◦',alternative: '�'
+var nullRune = noRune
+var CarriageReturnRune = '␍' // C/R symbol: '␍'; old: '♪'
 
 // Special runes face
 type FaceRunes struct {
