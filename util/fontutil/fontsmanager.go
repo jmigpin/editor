@@ -104,9 +104,13 @@ type FontFace struct {
 func NewFontFace(font *Font, fopts FaceOptions) *FontFace {
 	face := mustNewFace(font.Font, &fopts.opts)
 
+	if symbolsFont := DefaultSymbolsFont(); font != symbolsFont {
+		symbolsFace := newFallbackFace(face, symbolsFont, fopts, []rune{'❯', '✓', '➜', '✂'})
+		face = NewFaceFallback(face, symbolsFace)
+	}
 	if emojiFont := DefaultEmojiFont(); font != emojiFont {
-		emojiFace := newEmojiFace(face, emojiFont, fopts)
-		face = NewFaceEmoji(face, emojiFace)
+		emojiFace := newFallbackFace(face, emojiFont, fopts, []rune{'🙂', '👍', '🔥', '✅'})
+		face = NewFaceFallback(face, emojiFace)
 	}
 
 	face = NewFaceRunes(face)
@@ -169,44 +173,6 @@ func mustNewFace(font *opentype.Font, fopts *opentype.FaceOptions) font.Face {
 		panic(err) // TODO: opentype.newface() doesn't return errors for now
 	}
 	return face
-}
-
-//----------
-
-func newEmojiFace(face font.Face, emojiFont *Font, fopts FaceOptions) font.Face {
-	emojiFace := mustNewFace(emojiFont.Font, &fopts.opts)
-	maxAdv, ok := face.GlyphAdvance('W')
-	if !ok {
-		maxAdv = fixed.I(2)
-	}
-	maxHeight, _ := faceLineHeightBaseline(face)
-
-	for _, p := range []float64{1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4} {
-		fopts2 := fopts
-		fopts2.SetSize(fopts.Size() * p)
-		face2 := mustNewFace(emojiFont.Font, &fopts2.opts)
-		if ok := emojiFaceFits(face2, maxAdv, maxHeight); ok {
-			return face2
-		}
-	}
-	return emojiFace
-}
-
-func emojiFaceFits(emojiFace font.Face, maxAdv, maxHeight fixed.Int26_6) bool {
-	for _, ru := range []rune{'🙂', '👍', '🔥', '✅'} {
-		bounds, adv, ok := emojiFace.GlyphBounds(ru)
-		if !ok {
-			continue
-		}
-		if adv > maxAdv {
-			return false
-		}
-		h := bounds.Max.Y - bounds.Min.Y
-		if h > maxHeight {
-			return false
-		}
-	}
-	return true
 }
 
 //----------

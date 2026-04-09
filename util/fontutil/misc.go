@@ -16,6 +16,13 @@ import (
 //go:embed data/NotoEmoji-VariableFont_wght.ttf
 var defaultEmojiTTF []byte
 
+// Embedded Noto Sans Symbols 2 fallback.
+// License: SIL Open Font License 1.1.
+// See util/fontutil/data/OFL.txt.
+//
+//go:embed data/NotoSansSymbols2-Regular.ttf
+var defaultSymbolsTTF []byte
+
 func DefaultFont() *Font {
 	return FontsMan.mustFont(goregular.TTF)
 }
@@ -24,6 +31,9 @@ func DefaultMonoFont() *Font {
 }
 func DefaultEmojiFont() *Font {
 	return FontsMan.mustFont(defaultEmojiTTF)
+}
+func DefaultSymbolsFont() *Font {
+	return FontsMan.mustFont(defaultSymbolsTTF)
 }
 
 //----------
