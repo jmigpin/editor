@@ -3,6 +3,7 @@ package toolbarparser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
@@ -77,6 +78,17 @@ func (p *Part) FromArgString(i int) string {
 	n1 := a[0]
 	n2 := a[len(a)-1]
 	return p.Data.Str[n1.Pos():n2.End()]
+}
+
+func (p *Part) FromArgUnquotedString(i int) string {
+	if i >= len(p.Args) {
+		return ""
+	}
+	u := []string{}
+	for _, arg := range p.Args[i:] {
+		u = append(u, arg.UnquotedString())
+	}
+	return strings.Join(u, " ")
 }
 
 //----------

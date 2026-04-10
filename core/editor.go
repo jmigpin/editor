@@ -19,6 +19,7 @@ import (
 
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/core/lsproto"
+	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/fontutil"
@@ -48,6 +49,7 @@ type Editor struct {
 	preSaveHooks []*PreSaveHook
 
 	zipSessionsFile bool
+	windowTitle     string
 }
 
 func RunEditor(opt *Options) error {
@@ -387,6 +389,7 @@ func (ed *Editor) setupRootToolbar() {
 	// on write
 	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 any) {
 		ed.updateERowsToolbarsHomeVars()
+		ed.UpdateWindowTitle()
 	})
 
 	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | Reload | LsprotoCloseAll | OpenTerminalEmu | Stop"
@@ -454,6 +457,71 @@ func (ed *Editor) updateERowsToolbarsHomeVars() {
 	for _, erow := range ed.ERows() {
 		erow.UpdateToolbarNameEncoding()
 	}
+}
+
+//----------
+
+func (ed *Editor) UpdateWindowTitle() {
+	title := ed.windowTitleFromRootToolbar()
+	if title == ed.windowTitle {
+		return
+	}
+	ed.windowTitle = title
+
+	req := &event.ReqWindowSetName{Name: title}
+	if err := ed.UI.Win.Request(req); err != nil {
+		ed.Error(err)
+	}
+}
+
+func (ed *Editor) windowTitleFromRootToolbar() string {
+	name := ed.windowTitleNameFromRootToolbar()
+	if name == "" {
+		name = ed.windowTitleNameFromWd()
+	}
+	if name == "" {
+		return "Editor"
+	}
+	return name + " - Editor"
+}
+
+func (ed *Editor) windowTitleNameFromRootToolbar() string {
+	tb := ed.UI.Root.Toolbar
+	data := toolbarparser.Parse(tb.Str())
+
+	windowTitleName := ""
+	saveSessionName := ""
+	for _, part := range data.Parts {
+		if len(part.Args) == 0 {
+			continue
+		}
+		switch part.Args[0].String() {
+		case "WindowTitle":
+			if s := part.FromArgUnquotedString(1); s != "" {
+				windowTitleName = s
+			}
+		case "SaveSession":
+			if s := part.FromArgUnquotedString(1); s != "" {
+				saveSessionName = s
+			}
+		}
+	}
+	if windowTitleName != "" {
+		return windowTitleName
+	}
+	return saveSessionName
+}
+
+func (ed *Editor) windowTitleNameFromWd() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	s := filepath.Base(wd)
+	if s == "." || s == string(filepath.Separator) {
+		return ""
+	}
+	return s
 }
 
 //----------

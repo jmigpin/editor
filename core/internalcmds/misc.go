@@ -30,6 +30,11 @@ func Exit(args *core.InternalCmdArgs) error {
 	return nil
 }
 
+func WindowTitle(args *core.InternalCmdArgs) error {
+	args.Ed.UpdateWindowTitle()
+	return nil
+}
+
 //----------
 
 func SaveSession(args *core.InternalCmdArgs) error {

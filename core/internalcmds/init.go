@@ -14,6 +14,7 @@ func init() {
 
 	cmd(Version, "Version")
 	cmd(Exit, "Exit")
+	cmd(WindowTitle, "WindowTitle")
 
 	cmd(SaveSession, "SaveSession")
 	cmd(SaveSessionFile, "SaveSessionFile")
