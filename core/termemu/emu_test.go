@@ -1191,3 +1191,54 @@ func printable(s string) string {
 }
 
 //----------
+
+func TestEraseScrollback3J(t *testing.T) {
+	m := newTuiMock()
+	defer m.Close()
+	te := newTestEmu(m, Opts{}, 10, 2) // 2 lines height
+	defer te.Close()
+
+	// print 4 lines to force 2 lines into scrollback
+	// "L1\nL2\nL3\nL4" -> L1 and L2 should go to scrollback
+	sendWithBarrier(t, te, "L1\nL2\nL3\nL4")
+
+	// check that we have scrollback
+	snap := te.Snapshot()
+	if len(snap.grid.scrollBack) == 0 {
+		t.Fatal("expected scrollback")
+	}
+
+	// send 3J (clear scrollback)
+	sendWithBarrier(t, te, "\x1b[3J")
+
+	// check that scrollback is empty
+	snap = te.Snapshot()
+	if len(snap.grid.scrollBack) != 0 {
+		t.Fatalf("expected empty scrollback, got %d bytes", len(snap.grid.scrollBack))
+	}
+}
+
+func TestRisClearsScrollback(t *testing.T) {
+	m := newTuiMock()
+	defer m.Close()
+	te := newTestEmu(m, Opts{}, 10, 2) // 2 lines height
+	defer te.Close()
+
+	// print 4 lines to force 2 lines into scrollback
+	sendWithBarrier(t, te, "L1\nL2\nL3\nL4")
+
+	// check that we have scrollback
+	snap := te.Snapshot()
+	if len(snap.grid.scrollBack) == 0 {
+		t.Fatal("expected scrollback")
+	}
+
+	// send RIS (\ec)
+	sendWithBarrier(t, te, "\x1bc")
+
+	// check that scrollback is empty
+	snap = te.Snapshot()
+	if len(snap.grid.scrollBack) != 0 {
+		t.Fatalf("expected empty scrollback, got %d bytes", len(snap.grid.scrollBack))
+	}
+}

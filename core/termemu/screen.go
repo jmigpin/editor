@@ -689,6 +689,8 @@ func (s *Screen) escRis_reset(hard bool) {
 	if hard {
 		s.grid1.clearBounds()
 		s.grid2.clearBounds()
+		s.grid1.scrollBack = nil
+		s.grid2.scrollBack = nil
 	}
 }
 
