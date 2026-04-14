@@ -6,12 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/core/fswatcher"
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/ctxutil"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout"
 	"github.com/jmigpin/editor/util/osutil"
 )
@@ -20,6 +22,39 @@ import (
 
 func Version(args *core.InternalCmdArgs) error {
 	args.Ed.Messagef("version: %v", core.Version())
+	return nil
+}
+
+//----------
+
+func FontsList(args *core.InternalCmdArgs) error {
+	fonts := fontutil.FontsMan.LoadedFonts()
+	fallbacks := fontutil.FontsMan.FallbackFonts()
+
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "Fonts: %d\n", len(fonts))
+	for _, f := range fonts {
+		aliases := fontutil.FontsMan.Aliases(f.NameID())
+		s := ""
+		if len(aliases) > 0 {
+			s = fmt.Sprintf(", aliases: %s", strings.Join(aliases, ", "))
+		}
+		fmt.Fprintf(&buf, "- %s (%s, %s%s)\n", f.NameID(), f.Name(), f.SrcName, s)
+	}
+
+	if len(fallbacks) > 0 {
+		fmt.Fprintf(&buf, "\nFallback fonts: %d\n", len(fallbacks))
+		for _, f := range fallbacks {
+			aliases := fontutil.FontsMan.Aliases(f.NameID())
+			s := ""
+			if len(aliases) > 0 {
+				s = fmt.Sprintf(", aliases: %s", strings.Join(aliases, ", "))
+			}
+			fmt.Fprintf(&buf, "- %s (%s, %s%s)\n", f.NameID(), f.Name(), f.SrcName, s)
+		}
+	}
+
+	args.Ed.Messagef("%s", buf.String())
 	return nil
 }
 

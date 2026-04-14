@@ -3,9 +3,13 @@ package fontutil
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"sync"
 
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/gomedium"
+	"golang.org/x/image/font/gofont/gomono"
+	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
@@ -13,19 +17,38 @@ import (
 
 var FontsMan = NewFontsManager()
 
+func init() {
+	FontsMan.mustFont(goregular.TTF, "embedded:regular")
+	FontsMan.mustFont(gomedium.TTF, "embedded:medium")
+	FontsMan.mustFont(gomono.TTF, "embedded:mono")
+
+	FontsMan.RegisterAlias("regular", "go_regular")
+	FontsMan.RegisterAlias("medium", "go_medium")
+	FontsMan.RegisterAlias("mono", "go_mono")
+}
+
 //----------
 
 type FontsManager struct {
 	fcmu       sync.Mutex
 	fontsCache map[string]*Font
+	aliases    map[string]string
 
 	fallbackFonts []*Font
 }
 
 func NewFontsManager() *FontsManager {
-	fm := &FontsManager{}
-	fm.ClearFontsCache()
+	fm := &FontsManager{
+		fontsCache: make(map[string]*Font),
+		aliases:    make(map[string]string),
+	}
 	return fm
+}
+
+func (fm *FontsManager) RegisterAlias(alias, targetName string) {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+	fm.aliases[sanitizeFontName(alias)] = sanitizeFontName(targetName)
 }
 
 func (fm *FontsManager) AddFallbackFont(f *Font) {
@@ -45,7 +68,7 @@ func (fm *FontsManager) ClearFontsCache() {
 	fm.fontsCache = map[string]*Font{}
 }
 
-func (fm *FontsManager) Font(ttf []byte) (*Font, error) {
+func (fm *FontsManager) Font(ttf []byte, srcName string) (*Font, error) {
 	hash0 := sha256.Sum256(ttf)
 	hash := hex.EncodeToString(hash0[:])
 
@@ -55,7 +78,7 @@ func (fm *FontsManager) Font(ttf []byte) (*Font, error) {
 	if ok {
 		return f, nil
 	}
-	f, err := NewFont(fm, ttf)
+	f, err := NewFont(fm, ttf, srcName)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +86,8 @@ func (fm *FontsManager) Font(ttf []byte) (*Font, error) {
 	return f, nil
 }
 
-func (fm *FontsManager) mustFont(ttf []byte) *Font {
-	f, err := fm.Font(ttf)
+func (fm *FontsManager) mustFont(ttf []byte, srcName string) *Font {
+	f, err := fm.Font(ttf, srcName)
 	if err != nil {
 		panic(err)
 	}
@@ -74,19 +97,20 @@ func (fm *FontsManager) mustFont(ttf []byte) *Font {
 //----------
 
 type Font struct {
-	Font *sfnt.Font
-	fm   *FontsManager
+	Font    *sfnt.Font
+	fm      *FontsManager
+	SrcName string
 
 	fcmu       sync.Mutex
 	facesCache map[opentype.FaceOptions]*FontFace
 }
 
-func NewFont(fm *FontsManager, ttf []byte) (*Font, error) {
+func NewFont(fm *FontsManager, ttf []byte, srcName string) (*Font, error) {
 	font, err := opentype.Parse(ttf)
 	if err != nil {
 		return nil, err
 	}
-	f := &Font{Font: font, fm: fm}
+	f := &Font{Font: font, fm: fm, SrcName: srcName}
 	f.ClearFacesCache()
 
 	return f, nil
@@ -96,6 +120,19 @@ func (f *Font) ClearFacesCache() {
 	defer f.fcmu.Unlock()
 	f.facesCache = map[opentype.FaceOptions]*FontFace{}
 }
+
+func (f *Font) Name() string {
+	s, err := f.Font.Name(nil, sfnt.NameIDFull)
+	if err != nil {
+		return ""
+	}
+	return s
+}
+
+func (f *Font) NameID() string {
+	return sanitizeFontName(f.Name())
+}
+
 func (f *Font) FontFace(fopts FaceOptions) *FontFace {
 	f.fcmu.Lock()
 	defer f.fcmu.Unlock()
@@ -107,6 +144,87 @@ func (f *Font) FontFace(fopts FaceOptions) *FontFace {
 	f.facesCache[fopts.opts] = ff
 	return ff
 }
+
+//----------
+
+func (fm *FontsManager) FontByName(name string) *Font {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+
+	name = sanitizeFontName(name)
+
+	// follow aliases
+	for {
+		target, ok := fm.aliases[name]
+		if !ok {
+			break
+		}
+		name = target
+	}
+
+	for _, f := range fm.fontsCache {
+		if f.NameID() == name {
+			return f
+		}
+	}
+	return nil
+}
+
+func (fm *FontsManager) Aliases(targetName string) []string {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+	targetName = sanitizeFontName(targetName)
+	res := []string{}
+	for alias, target := range fm.aliases {
+		if target == targetName {
+			res = append(res, alias)
+		}
+	}
+	return res
+}
+
+func sanitizeFontName(s string) string {
+	s = strings.ReplaceAll(s, " ", "_")
+	s = strings.ReplaceAll(s, "-", "_")
+	s = strings.ToLower(s)
+	// replace multiple underscores with one
+	for strings.Contains(s, "__") {
+		s = strings.ReplaceAll(s, "__", "_")
+	}
+	return s
+}
+
+func (fm *FontsManager) LoadedFonts() []*Font {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+
+	isFallback := func(f *Font) bool {
+		for _, f2 := range fm.fallbackFonts {
+			if f2 == f {
+				return true
+			}
+		}
+		return false
+	}
+
+	w := []*Font{}
+	for _, f := range fm.fontsCache {
+		if !isFallback(f) {
+			w = append(w, f)
+		}
+	}
+	return w
+}
+
+func (fm *FontsManager) FallbackFonts() []*Font {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+	w := make([]*Font, len(fm.fallbackFonts))
+	copy(w, fm.fallbackFonts)
+	return w
+}
+
+//----------
 
 //----------
 
@@ -128,8 +246,8 @@ func NewFontFace(font *Font, fopts FaceOptions) *FontFace {
 	// User fallback fonts (from cmd line)
 	for _, ff := range font.fm.fallbackFonts {
 		if font != ff {
-			fallbackFace := newFallbackFace(face, ff, fopts, []rune{'❯', '╭', '🙂'})
-			face = NewFaceFallback(face, fallbackFace, isMono, monoAdv)
+			fallbackFaces := NewFallbackFaces(ff, fopts)
+			face = NewFaceFallback(face, fallbackFaces, isMono, monoAdv)
 		}
 	}
 

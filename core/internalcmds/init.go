@@ -49,6 +49,7 @@ func init() {
 	cmd(CopyFilePosition, "CopyFilePosition")
 	cmd(RuneCodes, "RuneCodes")
 	cmd(FontRunes, "FontRunes")
+	cmd(FontsList, "FontsList")
 
 	cmd(OpenFilemanager, "OpenFilemanager")
 	cmd(OpenTerminalExternal, "OpenTerminal", "OpenTerminalExternal")

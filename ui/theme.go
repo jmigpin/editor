@@ -9,9 +9,6 @@ import (
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/widget"
-	"golang.org/x/image/font/gofont/gomedium"
-	"golang.org/x/image/font/gofont/gomono"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 var ScrollBarLeft = true
@@ -246,18 +243,23 @@ func monoThemeFont(node widget.Node) {
 
 func AddUserFont(filename string) error {
 	// test now if it will load when needed
-	_, err := ThemeFontFace(filename)
+	ff, err := ThemeFontFace(filename)
 	if err != nil {
 		return err
 	}
 
+	name := ff.Font.Name()
+	if name == "" {
+		name = filename
+	}
+
 	// prepare callback and add to font cycler
 	f := func(node widget.Node) {
-		_ = loadThemeFont(filename, node)
+		_ = loadThemeFont(name, node)
 	}
-	e := cycleEntry{filename, f}
+	e := cycleEntry{name, f}
 	FontThemeCycler.entries = append(FontThemeCycler.entries, e)
-	FontThemeCycler.CurName = filename
+	FontThemeCycler.CurName = name
 	return nil
 }
 
@@ -266,7 +268,9 @@ func AddUserFont(filename string) error {
 func loadThemeFont(name string, node widget.Node) error {
 	// close previous faces
 	ff0 := node.Embed().TreeThemeFontFace()
-	ff0.Font.ClearFacesCache()
+	if ff0 != nil {
+		ff0.Font.ClearFacesCache()
+	}
 
 	ff, err := ThemeFontFace(name)
 	if err != nil {
@@ -282,28 +286,26 @@ func ThemeFontFace(name string) (*fontutil.FontFace, error) {
 	return ThemeFontFace2(name, fontutil.DefaultFaceOptions)
 }
 func ThemeFontFace2(name string, fopts fontutil.FaceOptions) (*fontutil.FontFace, error) {
-	b, err := fontBytes(name)
+	// lookup by name first (includes aliases)
+	if f := fontutil.FontsMan.FontByName(name); f != nil {
+		return f.FontFace(fopts), nil
+	}
+
+	// default/filename fallback
+	b, err := ioutil.ReadFile(name)
 	if err != nil {
 		return nil, err
 	}
-	f, err := fontutil.FontsMan.Font(b)
+	f, err := fontutil.FontsMan.Font(b, name)
 	if err != nil {
 		return nil, err
 	}
 	return f.FontFace(fopts), nil
 }
 
-func fontBytes(name string) ([]byte, error) {
-	switch name {
-	case "regular":
-		return goregular.TTF, nil
-	case "medium":
-		return gomedium.TTF, nil
-	case "mono":
-		return gomono.TTF, nil
-	default:
-		return ioutil.ReadFile(name)
-	}
+// deprecated
+func fontBytes(name string) ([]byte, string, error) {
+	return nil, "", fmt.Errorf("deprecated")
 }
 
 //----------

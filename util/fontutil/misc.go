@@ -9,10 +9,10 @@ import (
 )
 
 func DefaultFont() *Font {
-	return FontsMan.mustFont(goregular.TTF)
+	return FontsMan.mustFont(goregular.TTF, "embedded:regular")
 }
 func DefaultMonoFont() *Font {
-	return FontsMan.mustFont(gomono.TTF)
+	return FontsMan.mustFont(gomono.TTF, "embedded:mono")
 }
 
 //----------

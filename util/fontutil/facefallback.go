@@ -2,6 +2,7 @@ package fontutil
 
 import (
 	"image"
+	"sync"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
@@ -9,18 +10,27 @@ import (
 
 type FaceFallback struct {
 	font.Face
-	fallbackFace font.Face
+	fallbackFaces []font.Face
 
 	IsMono  bool
 	MonoAdv fixed.Int26_6
+
+	maxHeight fixed.Int26_6
+
+	cache   map[rune]font.Face
+	cachemu sync.Mutex
 }
 
-func NewFaceFallback(face, fallbackFace font.Face, isMono bool, monoAdv fixed.Int26_6) *FaceFallback {
+func NewFaceFallback(face font.Face, fallbackFaces []font.Face, isMono bool, monoAdv fixed.Int26_6) *FaceFallback {
+	maxHeight, _ := faceLineHeightBaseline(face)
+
 	return &FaceFallback{
-		Face:         face,
-		fallbackFace: fallbackFace,
-		IsMono:       isMono,
-		MonoAdv:      monoAdv,
+		Face:          face,
+		fallbackFaces: fallbackFaces,
+		IsMono:        isMono,
+		MonoAdv:       monoAdv,
+		maxHeight:     maxHeight,
+		cache:         make(map[rune]font.Face),
 	}
 }
 
@@ -73,61 +83,58 @@ func (ff *FaceFallback) Kern(r0, r1 rune) fixed.Int26_6 {
 //----------
 
 func (ff *FaceFallback) face(ru rune) font.Face {
+	// check if main face has it
 	if _, ok := ff.Face.GlyphAdvance(ru); ok {
 		return nil
 	}
-	adv, ok := ff.fallbackFace.GlyphAdvance(ru)
-	if !ok {
-		return nil
-	}
-	if adv > ff.maxFallbackAdvance() {
-		return nil
-	}
-	return ff.fallbackFace
-}
 
-func (ff *FaceFallback) maxFallbackAdvance() fixed.Int26_6 {
-	adv, ok := ff.Face.GlyphAdvance('W')
+	// check cache
+	ff.cachemu.Lock()
+	f, ok := ff.cache[ru]
+	ff.cachemu.Unlock()
 	if ok {
-		return adv
+		return f
 	}
-	return fixed.I(2)
+
+	// find face by testing scales (starts at 1.0)
+	for _, f2 := range ff.fallbackFaces {
+		bounds, adv, ok := f2.GlyphBounds(ru)
+		if !ok {
+			continue
+		}
+
+		// check height
+		h := bounds.Max.Y - bounds.Min.Y
+		if h > ff.maxHeight {
+			continue
+		}
+
+		// check width (only for mono)
+		if ff.IsMono && adv > ff.MonoAdv {
+			continue
+		}
+
+		f = f2
+		break
+	}
+
+	// update cache
+	ff.cachemu.Lock()
+	ff.cache[ru] = f
+	ff.cachemu.Unlock()
+
+	return f
 }
 
 //----------
 
-func newFallbackFace(face font.Face, fallbackFont *Font, fopts FaceOptions, sampleRunes []rune) font.Face {
-	fallbackFace := mustNewFace(fallbackFont.Font, &fopts.opts)
-	maxAdv, ok := face.GlyphAdvance('W')
-	if !ok {
-		maxAdv = fixed.I(2)
-	}
-	maxHeight, _ := faceLineHeightBaseline(face)
-
-	for _, p := range []float64{1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4} {
+func NewFallbackFaces(fallbackFont *Font, fopts FaceOptions) []font.Face {
+	scales := []float64{1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4}
+	faces := make([]font.Face, len(scales))
+	for i, p := range scales {
 		fopts2 := fopts
 		fopts2.SetSize(fopts.Size() * p)
-		face2 := mustNewFace(fallbackFont.Font, &fopts2.opts)
-		if fallbackFaceFits(face2, maxAdv, maxHeight, sampleRunes) {
-			return face2
-		}
+		faces[i] = mustNewFace(fallbackFont.Font, &fopts2.opts)
 	}
-	return fallbackFace
-}
-
-func fallbackFaceFits(fallbackFace font.Face, maxAdv, maxHeight fixed.Int26_6, sampleRunes []rune) bool {
-	for _, ru := range sampleRunes {
-		bounds, adv, ok := fallbackFace.GlyphBounds(ru)
-		if !ok {
-			continue
-		}
-		if adv > maxAdv {
-			return false
-		}
-		h := bounds.Max.Y - bounds.Min.Y
-		if h > maxHeight {
-			return false
-		}
-	}
-	return true
+	return faces
 }

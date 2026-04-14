@@ -653,7 +653,7 @@ func (ed *Editor) setupTheme(opt *Options) error {
 			continue
 		}
 		if !foundPrimary {
-			primary = s
+			primary = ui.FontThemeCycler.CurName // AddUserFont sets CurName to the font name
 			foundPrimary = true
 		}
 	}
@@ -671,7 +671,7 @@ func (ed *Editor) setupTheme(opt *Options) error {
 			log.Print(err)
 			continue
 		}
-		f, err := fontutil.FontsMan.Font(b)
+		f, err := fontutil.FontsMan.Font(b, s)
 		if err != nil {
 			log.Print(err)
 			continue
