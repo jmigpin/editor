@@ -9,10 +9,11 @@ import (
 )
 
 type Options struct {
-	Font        string
-	FontSize    float64
-	FontHinting string
-	DPI         float64
+	Fonts         FontsOpt
+	FallbackFonts FontsOpt
+	FontSize      float64
+	FontHinting   string
+	DPI           float64
 
 	StartMaximized bool
 
@@ -43,6 +44,22 @@ type Options struct {
 	PreSaveHooks PreSaveHooksOpt
 
 	ZipSessionsFile bool
+}
+
+//----------
+
+// implements flag.Value interface
+type FontsOpt struct {
+	Fonts []string
+}
+
+func (fo *FontsOpt) Set(s string) error {
+	fo.Fonts = append(fo.Fonts, s)
+	return nil
+}
+
+func (fo *FontsOpt) String() string {
+	return fmt.Sprintf("%v", strings.Join(fo.Fonts, ", "))
 }
 
 //----------

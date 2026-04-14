@@ -10,10 +10,18 @@ import (
 type FaceFallback struct {
 	font.Face
 	fallbackFace font.Face
+
+	IsMono  bool
+	MonoAdv fixed.Int26_6
 }
 
-func NewFaceFallback(face, fallbackFace font.Face) *FaceFallback {
-	return &FaceFallback{Face: face, fallbackFace: fallbackFace}
+func NewFaceFallback(face, fallbackFace font.Face, isMono bool, monoAdv fixed.Int26_6) *FaceFallback {
+	return &FaceFallback{
+		Face:         face,
+		fallbackFace: fallbackFace,
+		IsMono:       isMono,
+		MonoAdv:      monoAdv,
+	}
 }
 
 func (ff *FaceFallback) Glyph(dot fixed.Point26_6, ru rune) (
@@ -24,21 +32,33 @@ func (ff *FaceFallback) Glyph(dot fixed.Point26_6, ru rune) (
 	ok bool,
 ) {
 	if face := ff.face(ru); face != nil {
-		return face.Glyph(dot, ru)
+		dr, mask, maskp, advance, ok = face.Glyph(dot, ru)
+		if ff.IsMono {
+			advance = ff.MonoAdv
+		}
+		return
 	}
 	return ff.Face.Glyph(dot, ru)
 }
 
 func (ff *FaceFallback) GlyphBounds(ru rune) (bounds fixed.Rectangle26_6, advance fixed.Int26_6, ok bool) {
 	if face := ff.face(ru); face != nil {
-		return face.GlyphBounds(ru)
+		bounds, advance, ok = face.GlyphBounds(ru)
+		if ff.IsMono {
+			advance = ff.MonoAdv
+		}
+		return
 	}
 	return ff.Face.GlyphBounds(ru)
 }
 
 func (ff *FaceFallback) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
 	if face := ff.face(ru); face != nil {
-		return face.GlyphAdvance(ru)
+		advance, ok = face.GlyphAdvance(ru)
+		if ff.IsMono {
+			advance = ff.MonoAdv
+		}
+		return
 	}
 	return ff.Face.GlyphAdvance(ru)
 }

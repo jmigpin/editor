@@ -628,18 +628,55 @@ func (ed *Editor) setupTheme(opt *Options) error {
 	}
 
 	// font theme
-	if _, ok := ui.FontThemeCycler.GetIndex(opt.Font); ok {
-		ui.FontThemeCycler.CurName = opt.Font
-	} else {
-		// font filename
-		err := ui.AddUserFont(opt.Font)
-		if err != nil {
-			// can't send error to UI since it's not created yet
-			log.Print(err)
+	primary := "regular"
+	foundPrimary := false
 
-			// could fail and abort, but instead continue with a known font
-			ui.FontThemeCycler.CurName = "regular"
+	for _, s := range opt.Fonts.Fonts {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
 		}
+
+		// internal names
+		if _, ok := ui.FontThemeCycler.GetIndex(s); ok {
+			if !foundPrimary {
+				primary = s
+				foundPrimary = true
+			}
+			continue
+		}
+
+		// font filenames
+		err := ui.AddUserFont(s)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		if !foundPrimary {
+			primary = s
+			foundPrimary = true
+		}
+	}
+
+	ui.FontThemeCycler.CurName = primary
+
+	// fallback fonts
+	for _, s := range opt.FallbackFonts.Fonts {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		b, err := os.ReadFile(s)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		f, err := fontutil.FontsMan.Font(b)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		fontutil.FontsMan.AddFallbackFont(f)
 	}
 
 	return nil

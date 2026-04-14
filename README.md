@@ -94,8 +94,10 @@ Usage of editor:
     	monitor dots per inch (default 72)
   -emuexec string
     	shell command to run when starting with -startterminalemu
-  -font string
-    	font: regular, medium, mono, or a filename (default "regular")
+  -font value
+    	font: regular, medium, mono, or a filename. Can be specified multiple times to add to the font theme cycler.
+  -fontfallback value
+    	font filename. Can be specified multiple times for glyph fallbacks.
   -fonthinting string
     	font hinting: none, vertical, full (default "full")
   -fontsize float

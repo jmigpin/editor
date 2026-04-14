@@ -1,6 +1,8 @@
 package fontutil
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"sync"
 
 	"golang.org/x/image/font"
@@ -16,12 +18,25 @@ var FontsMan = NewFontsManager()
 type FontsManager struct {
 	fcmu       sync.Mutex
 	fontsCache map[string]*Font
+
+	fallbackFonts []*Font
 }
 
 func NewFontsManager() *FontsManager {
 	fm := &FontsManager{}
 	fm.ClearFontsCache()
 	return fm
+}
+
+func (fm *FontsManager) AddFallbackFont(f *Font) {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+	for _, f2 := range fm.fallbackFonts {
+		if f2 == f {
+			return
+		}
+	}
+	fm.fallbackFonts = append(fm.fallbackFonts, f)
 }
 
 func (fm *FontsManager) ClearFontsCache() {
@@ -31,17 +46,20 @@ func (fm *FontsManager) ClearFontsCache() {
 }
 
 func (fm *FontsManager) Font(ttf []byte) (*Font, error) {
+	hash0 := sha256.Sum256(ttf)
+	hash := hex.EncodeToString(hash0[:])
+
 	fm.fcmu.Lock()
 	defer fm.fcmu.Unlock()
-	f, ok := fm.fontsCache[string(ttf)]
+	f, ok := fm.fontsCache[hash]
 	if ok {
 		return f, nil
 	}
-	f, err := NewFont(ttf)
+	f, err := NewFont(fm, ttf)
 	if err != nil {
 		return nil, err
 	}
-	fm.fontsCache[string(ttf)] = f
+	fm.fontsCache[hash] = f
 	return f, nil
 }
 
@@ -57,17 +75,18 @@ func (fm *FontsManager) mustFont(ttf []byte) *Font {
 
 type Font struct {
 	Font *sfnt.Font
+	fm   *FontsManager
 
 	fcmu       sync.Mutex
 	facesCache map[opentype.FaceOptions]*FontFace
 }
 
-func NewFont(ttf []byte) (*Font, error) {
+func NewFont(fm *FontsManager, ttf []byte) (*Font, error) {
 	font, err := opentype.Parse(ttf)
 	if err != nil {
 		return nil, err
 	}
-	f := &Font{Font: font}
+	f := &Font{Font: font, fm: fm}
 	f.ClearFacesCache()
 
 	return f, nil
@@ -103,14 +122,15 @@ type FontFace struct {
 
 func NewFontFace(font *Font, fopts FaceOptions) *FontFace {
 	face := mustNewFace(font.Font, &fopts.opts)
+	isMono := testIsMonoFace(face)
+	monoAdv, _ := face.GlyphAdvance('W')
 
-	if symbolsFont := DefaultSymbolsFont(); font != symbolsFont {
-		symbolsFace := newFallbackFace(face, symbolsFont, fopts, []rune{'❯', '✓', '➜', '✂'})
-		face = NewFaceFallback(face, symbolsFace)
-	}
-	if emojiFont := DefaultEmojiFont(); font != emojiFont {
-		emojiFace := newFallbackFace(face, emojiFont, fopts, []rune{'🙂', '👍', '🔥', '✅'})
-		face = NewFaceFallback(face, emojiFace)
+	// User fallback fonts (from cmd line)
+	for _, ff := range font.fm.fallbackFonts {
+		if font != ff {
+			fallbackFace := newFallbackFace(face, ff, fopts, []rune{'❯', '╭', '🙂'})
+			face = NewFaceFallback(face, fallbackFace, isMono, monoAdv)
+		}
 	}
 
 	face = NewFaceRunes(face)

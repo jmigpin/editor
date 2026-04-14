@@ -30,7 +30,8 @@ func main() {
 	opt := &core.Options{}
 
 	// flags
-	flag.StringVar(&opt.Font, "font", "regular", "font: regular, medium, mono, or a filename")
+	flag.Var(&opt.Fonts, "font", "font: regular, medium, mono, or a filename. Can be specified multiple times to add to the font theme cycler.")
+	flag.Var(&opt.FallbackFonts, "fontfallback", "font filename. Can be specified multiple times for glyph fallbacks.")
 	flag.Float64Var(&opt.FontSize, "fontsize", 12, "")
 	flag.StringVar(&opt.FontHinting, "fonthinting", "full", "font hinting: none, vertical, full")
 	flag.Float64Var(&opt.DPI, "dpi", 72, "monitor dots per inch")
