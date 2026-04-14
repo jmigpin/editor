@@ -125,6 +125,12 @@ func (emu *Emu) GetSize() P {
 	return emu.scr.grid.size
 }
 
+func (emu *Emu) ClampSize(p P) P {
+	emu.mu.Lock()
+	defer emu.mu.Unlock()
+	return emu.scr.clampSize(p)
+}
+
 //----------
 
 func (emu *Emu) setupExecSideRWC() {

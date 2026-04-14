@@ -247,7 +247,16 @@ func OpenTerminalEmu(args *core.InternalCmdArgs) error {
 	if err != nil {
 		return err
 	}
-	return core.StartTerminalEmu(args.Ed, dir, args.Ed.GoodRowPos(), "", nil)
+
+	shellCmd := ""
+	shellArgs := []string{}
+	if len(args.Part.Args) > 1 {
+		for _, arg := range args.Part.Args[1:] {
+			shellArgs = append(shellArgs, arg.UnquotedString())
+		}
+	}
+
+	return core.StartTerminalEmu(args.Ed, dir, args.Ed.GoodRowPos(), shellCmd, shellArgs)
 }
 
 func OpenExternal(args *core.InternalCmdArgs) error {

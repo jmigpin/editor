@@ -17,6 +17,8 @@ import (
 
 var FontsMan = NewFontsManager()
 
+var DefaultFaceOptions = NewFaceOptions(12, 72)
+
 func init() {
 	FontsMan.mustFont(goregular.TTF, "embedded:regular")
 	FontsMan.mustFont(gomedium.TTF, "embedded:medium")
@@ -50,6 +52,32 @@ func (fm *FontsManager) RegisterAlias(alias, targetName string) {
 	defer fm.fcmu.Unlock()
 	fm.aliases[sanitizeFontName(alias)] = sanitizeFontName(targetName)
 }
+
+//----------
+
+func (fm *FontsManager) DefaultFont() *Font {
+	if f := fm.FontByName("regular"); f != nil {
+		return f
+	}
+	panic("regular font not found")
+}
+
+func (fm *FontsManager) DefaultMonoFont() *Font {
+	if f := fm.FontByName("mono"); f != nil {
+		return f
+	}
+	panic("mono font not found")
+}
+
+func (fm *FontsManager) DefaultFontFace() *FontFace {
+	return fm.DefaultFont().FontFace(DefaultFaceOptions)
+}
+
+func (fm *FontsManager) DefaultMonoFontFace() *FontFace {
+	return fm.DefaultMonoFont().FontFace(DefaultFaceOptions)
+}
+
+//----------
 
 func (fm *FontsManager) AddFallbackFont(f *Font) {
 	fm.fcmu.Lock()

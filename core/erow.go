@@ -436,9 +436,12 @@ func (erow *ERow) parseToolbarVars() {
 
 	// $font
 	hasFontVarName := false
+	fontAuto := false
 	baseFFace := (*fontutil.FontFace)(nil)
 	if v, ok := vmap["$font"]; ok {
-		if fn, ff, err := erow.varFontFace(v); err == nil {
+		if v == "auto" {
+			fontAuto = true
+		} else if fn, ff, err := erow.varFontFace(v); err == nil {
 			hasFontVarName = fn
 			baseFFace = ff
 		}
@@ -456,31 +459,26 @@ func (erow *ERow) parseToolbarVars() {
 
 	// $terminal
 	if erow.Info.IsDir() {
+		topts := erow.parseTerminalOpts(vmap["$terminal"])
+		topts.fontAuto = fontAuto
+
 		termFFace := baseFFace
 		if termFFace == nil {
 			termFFace = ta.Parent.TreeThemeFontFace()
 		}
 
-		//// terminal font face: unless the user defined a named font, run with a monospace font
-		//if !hasFontVarName && !termFFace.TestIsMono() {
-		//	termFFace = fontutil.DefaultMonoFont().FontFace(termFFace.Opts)
-		//}
-		_ = hasFontVarName
-
-		erow.runOpts = ERowRunOpts{ // reset
-			fface:        termFFace,
-			ffaceRestore: baseFFace,
-			useGrayscale: true,
-		}
-		if v, ok := vmap["$terminal"]; ok {
-			u := strings.Split(v, ",")
-			for _, k := range u {
-				if err := erow.applyTerminalOpt(k); err != nil {
-					// commented: can't error since it will be outputing errors while typing (the parse is done on every input)
-					//erow.Ed.Error(err)
-				}
+		// terminal font face: unless the user defined a named font, run with a monospace font
+		isGrid := topts.emuOpts.Mode == termemu.ModeGrid
+		if isGrid && !hasFontVarName && !termFFace.TestIsMono() {
+			termFFace = fontutil.FontsMan.DefaultMonoFont().FontFace(termFFace.Opts)
+			if topts.fontAuto {
+				baseFFace = termFFace
 			}
 		}
+
+		topts.fface = termFFace
+		topts.ffaceRestore = baseFFace
+		erow.runOpts = topts
 	}
 
 	//----------
@@ -497,6 +495,99 @@ func (erow *ERow) parseToolbarVars() {
 	} else {
 		ta.SetThemeFontFace(baseFFace)
 	}
+}
+
+func (erow *ERow) parseTerminalOpts(v string) ERowRunOpts {
+	topt := ERowRunOpts{
+		useGrayscale: true,
+	}
+	u := strings.Split(v, ",")
+	for _, k := range u {
+		opt := strings.ToLower(strings.TrimSpace(k))
+		if opt == "" {
+			continue
+		}
+
+		set := true
+		if strings.HasPrefix(opt, "no-") { // support negation
+			set = false
+			opt = opt[3:]
+		}
+
+		// aliases - old options
+		alias := map[string]string{
+			"f": "raw", // old "filter" option
+			"k": "kb",
+		}
+		if a, ok := alias[opt]; ok {
+			opt = a
+		}
+
+		switch {
+		case opt == "debug":
+			topt.emuOpts.Debug = true
+
+		case opt == "grayscale":
+			topt.useGrayscale = set
+		case opt == "color":
+			topt.useGrayscale = !set
+
+		case opt == "pty":
+			topt.pty = set
+		case opt == "kb":
+			topt.forwardKb = set
+		case opt == "mouse":
+			topt.forwardMouse = set
+
+		case strings.HasPrefix(opt, "rows="):
+			if set {
+				vstr := opt[5:]
+				if vstr == "auto" {
+					topt.fixedRows = 0
+				} else if v, err := strconv.Atoi(vstr); err == nil {
+					topt.fixedRows = v
+				}
+			} else {
+				topt.fixedRows = 0
+			}
+		case opt == "rows": // ignore "rows" without value, but support "no-rows"
+			if !set {
+				topt.fixedRows = 0
+			}
+
+		case strings.HasPrefix(opt, "cols="):
+			if set {
+				vstr := opt[5:]
+				if vstr == "auto" {
+					topt.fixedCols = 0
+				} else if v, err := strconv.Atoi(vstr); err == nil {
+					topt.fixedCols = v
+				}
+			} else {
+				topt.fixedCols = 0
+			}
+		case opt == "cols": // ignore "cols" without value, but support "no-cols"
+			if !set {
+				topt.fixedCols = 0
+			}
+
+		case opt == "raw":
+			topt.emuOpts.Mode.SetBool(termemu.ModeRaw, set)
+		case opt == "plain":
+			topt.emuOpts.Mode.SetBool(termemu.ModePlain, set)
+		case opt == "grid":
+			topt.emuOpts.Mode.SetBool(termemu.ModeGrid, set)
+
+		case opt == "emu": // pre-set options
+			topt.emuOpts.Mode.SetBool(termemu.ModeGrid, set)
+			if set {
+				topt.pty = true
+				topt.forwardKb = true
+				topt.forwardMouse = true
+			}
+		}
+	}
+	return topt
 }
 
 func (erow *ERow) varFontFace(s string) (hasFontName bool, _ *fontutil.FontFace, _ error) {
@@ -547,96 +638,6 @@ func (erow *ERow) varFontFace(s string) (hasFontName bool, _ *fontutil.FontFace,
 	}
 
 	return false, nil, errors.New("unable to load name and missing size")
-}
-
-func (erow *ERow) applyTerminalOpt(opt string) error {
-	topt := &erow.runOpts
-
-	opt = strings.ToLower(strings.TrimSpace(opt))
-
-	set := true
-	if strings.HasPrefix(opt, "no-") { // support negation
-		set = false
-		opt = opt[3:]
-	}
-
-	// aliases - old options
-	alias := map[string]string{
-		"f": "raw", // old "filter" option
-		"k": "kb",
-	}
-	if a, ok := alias[opt]; ok {
-		opt = a
-	}
-
-	switch {
-	case opt == "debug":
-		topt.emuOpts.Debug = true
-
-	case opt == "grayscale":
-		topt.useGrayscale = set
-	case opt == "color":
-		topt.useGrayscale = !set
-
-	case opt == "pty":
-		topt.pty = set
-	case opt == "kb":
-		topt.forwardKb = set
-	case opt == "mouse":
-		topt.forwardMouse = set
-
-	case strings.HasPrefix(opt, "rows="):
-		if set {
-			vstr := opt[5:]
-			if vstr == "auto" {
-				topt.fixedRows = 0
-			} else if v, err := strconv.Atoi(vstr); err == nil {
-				topt.fixedRows = v
-			}
-		} else {
-			topt.fixedRows = 0
-		}
-	case opt == "rows": // ignore "rows" without value, but support "no-rows"
-		if !set {
-			topt.fixedRows = 0
-		}
-
-	case strings.HasPrefix(opt, "cols="):
-		if set {
-			vstr := opt[5:]
-			if vstr == "auto" {
-				topt.fixedCols = 0
-			} else if v, err := strconv.Atoi(vstr); err == nil {
-				topt.fixedCols = v
-			}
-		} else {
-			topt.fixedCols = 0
-		}
-	case opt == "cols": // ignore "cols" without value, but support "no-cols"
-		if !set {
-			topt.fixedCols = 0
-		}
-
-	case opt == "raw":
-		topt.emuOpts.Mode.SetBool(termemu.ModeRaw, set)
-	case opt == "plain":
-		topt.emuOpts.Mode.SetBool(termemu.ModePlain, set)
-	case opt == "grid":
-		topt.emuOpts.Mode.SetBool(termemu.ModeGrid, set)
-
-	case opt == "emu": // pre-set options
-		topt.emuOpts.Mode.SetBool(termemu.ModeGrid, set)
-		if set {
-			topt.pty = true
-			topt.forwardKb = true
-			topt.forwardMouse = true
-			//erow.scrollMode = "auto" // annoying at times
-		}
-	default:
-		return fmt.Errorf("unknown $terminal option: %q\n\t%s", opt, erow.Info.Name())
-	}
-
-	return nil
 }
 
 //----------
@@ -788,6 +789,7 @@ type ERowRunOpts struct {
 	fixedCols    int  // if > 0, use fixed terminal width
 	fixedRows    int  // if > 0, use fixed terminal height
 	useGrayscale bool
+	fontAuto     bool // auto font scaling
 
 	emuOpts termemu.Opts
 

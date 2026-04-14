@@ -22,7 +22,7 @@ func init() {
 
 func TestEmpty(t *testing.T) {
 	d := New()
-	d.SetFontFace(fontutil.DefaultFontFace())
+	d.SetFontFace(fontutil.FontsMan.DefaultFontFace())
 	d.SetBounds(image.Rect(0, 0, 100, 100))
 
 	s := ""
@@ -37,7 +37,7 @@ func TestEmpty(t *testing.T) {
 
 func TestNLinesStartIndex1(t *testing.T) {
 	d := New()
-	d.SetFontFace(fontutil.DefaultFontFace())
+	d.SetFontFace(fontutil.FontsMan.DefaultFontFace())
 	d.SetBounds(image.Rect(0, 0, 100, 100))
 
 	s := "111\n222\n333"
@@ -415,7 +415,7 @@ func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 }
 
 func newTestFace() *fontutil.FontFace {
-	f := fontutil.DefaultFont()
+	f := fontutil.FontsMan.DefaultFont()
 	opts := fontutil.DefaultFaceOptions
 	opts.SetDPI(100)
 	return f.FontFace(opts)

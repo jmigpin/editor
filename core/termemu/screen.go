@@ -62,13 +62,7 @@ func NewScreen() *Screen {
 //----------
 
 func (s *Screen) setSize(size P) (_ P, changed bool) {
-	// must be at least (1,1) or we crash with the cursor not inside the grid
-	size.X = max(size.X, 1)
-	size.Y = max(size.Y, 1)
-
-	if s.privModes.column132() {
-		size.X = 132
-	}
+	size = s.clampSize(size)
 
 	if size == s.grid.size {
 		return size, false
@@ -84,6 +78,15 @@ func (s *Screen) setSize(size P) (_ P, changed bool) {
 	s.initTabStops()
 
 	return size, true
+}
+
+func (s *Screen) clampSize(p P) P {
+	p.X = max(p.X, 1)
+	p.Y = max(p.Y, 1)
+	if s.privModes.column132() {
+		p.X = 132
+	}
+	return p
 }
 
 //----------

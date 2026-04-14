@@ -253,6 +253,12 @@ func AddUserFont(filename string) error {
 		name = filename
 	}
 
+	if ff.TestIsMono() {
+		fontutil.FontsMan.RegisterAlias("mono", name)
+	} else {
+		fontutil.FontsMan.RegisterAlias("regular", name)
+	}
+
 	// prepare callback and add to font cycler
 	f := func(node widget.Node) {
 		_ = loadThemeFont(name, node)
