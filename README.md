@@ -159,7 +159,7 @@ Usage of editor:
 
 The editor has no configuration file. Use it within a script with your preferences (example `editor.sh`):
 
-```
+```bash
 #!/bin/sh
 exec ~/path/editor \
 --dpi=143 \
@@ -174,7 +174,17 @@ exec ~/path/editor \
 "$@"
 ```
 
+### Fallback Fonts
+
+The editor supports dynamic font fallbacks for glyphs not present in the primary font. This is useful for Unicode symbols, emojis, etc. Fallback fonts are automatically scaled to match the primary font's line height and character width (for monospaced fonts). Use `FontsList` internal command to see currently loaded fonts.
+
+Example usage via command line:
+```bash
+editor -fontfallback /path/to/my_emojis.ttf
+```
+
 ## Basic Layout
+
 
 The editor has a top toolbar and columns. Columns have rows. Rows have a toolbar and a textarea.
 
@@ -249,6 +259,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `CopyFilePosition`: output the cursor file position in the format "file:line:col". Useful to get a clickable text with the file position.
 - `RuneCodes`: output rune codes of the current row text selection.
 - `FontRunes`: output the current font runes.
+- `FontsList`: lists all loaded fonts and their aliases.
 - `OpenExternal`: open the row with the preferred external application (ex: useful to open an image, pdf, etc).
 - `OpenFilemanager`: open the row directory with the external filemanager.
 - `OpenTerminal`: open the row directory with the external terminal.
@@ -465,7 +476,7 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 ## Internal variables
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
-- `$font=[<name>][,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Both name and size are optional (ex: `$font=mono`, `$font=,8`).
+- `$font=[<name>][,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Both name and size are optional (ex: `$font=mono`, `$font=,8`). Supports font aliases (e.g. `mono`, `go_mono`, `medium`, `regular`) and font filenames (e.g. `$font=/path/to/font.ttf`).
 - `$scrollMode={auto}`: if the current bottom of the content is visible, auto scroll down when new content is added (ex: a cmd output).
 - `$terminal=<options>`: run commands in this row using a terminal emulator.Options are comma-separated. Negation is supported: ex: `$terminal=emu,no-kb`.
 	- `pty`: run as pseudo-terminal.
@@ -674,6 +685,9 @@ The measuring of space is done as follows:
 	- added (`startmaximized`, `wrapwordlimit`) options
 	- upgraded fsnotify pkg
 	- many terminal emulator fixes and improvements
+	- added centralized font management with aliases and `FontsList` command
+	- added dynamic per-rune scaling for fallback fonts to improve Unicode coverage
+	- removed embedded fonts in favor of a dynamic system
 - 2025/08/13: v3.12.0 (23 commmits)
 	- core/inlinecomplete: improved completion
 	- godebug: improved internal testing facilities
