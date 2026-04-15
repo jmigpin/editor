@@ -941,7 +941,7 @@ type ERowRunOpts struct {
 }
 
 func (opts *ERowRunOpts) TerminalTargetSize() image.Point {
-	targetCr := image.Point{40, 8}
+	targetCr := image.Point{60, 10}
 	if opts.fixedCols > 0 {
 		targetCr.X = opts.fixedCols
 	}
