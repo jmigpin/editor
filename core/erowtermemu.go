@@ -6,9 +6,7 @@ import (
 	"io"
 
 	"github.com/jmigpin/editor/core/termemu"
-	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
-	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -20,7 +18,6 @@ type ERowTermEmu struct {
 	erow    *ERow
 	userRwc io.ReadWriteCloser
 
-	reg    *evreg.Regist
 	opsBuf []*D4COp
 
 	optPtyCmd *osutil.PtyCmd
@@ -35,14 +32,8 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 	temu.emu = termemu.NewEmu(temu.userRwc, temu.tui, erow.runOpts.emuOpts)
 	temu.ReadWriteCloser = temu.emu
 
-	temu.erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
-		temu.calcAndSetTermSize()
-	})
-
-	// textarea layout for console
-	temu.reg = erow.Row.TextArea.EvReg.Add(ui.TextAreaBoundsEventId, func(ev0 any) {
-		//ev := ev0.(*ui.TextAreaBoundsEvent)
-		temu.calcAndSetTermSize()
+	erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
+		erow.uiCalcAndSetTermSize()
 	})
 
 	return temu
@@ -51,8 +42,6 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 func (temu *ERowTermEmu) Close() error {
 	defer temu.userRwc.Close()
 	defer func() { temu.erow.optTemu = nil }()
-
-	temu.reg.Unregister()
 
 	// TODO: emuplain freezing/locking
 
@@ -66,37 +55,10 @@ func (temu *ERowTermEmu) Close() error {
 
 //----------
 
-// runs inside ui goroutine to get textarea pixel size
-func (temu *ERowTermEmu) calcAndSetTermSize() {
-	fface := temu.erow.runOpts.fface
+func (temu *ERowTermEmu) onRecalcSetSize() {
+	fface := temu.erow.Row.TextArea.TreeThemeFontFace()
 
-	fullArea := temu.erow.taPixelSize()
-
-	cr, _ := temu.erow.termSize(fface) // cr=cols/rows
-
-	targetCr := cr
-	if temu.erow.runOpts.fontAuto {
-		targetCr = temu.erow.runOpts.TerminalTargetSize()
-	}
-
-	// terminal modes (e.g. 132 cols) might override targets
-	targetCr = temu.emu.ClampSize(targetCr)
-
-	// current cr might not satisfy targets (either auto-font or 132-cols)
-	if cr.X < targetCr.X || cr.Y < targetCr.Y {
-		if fface2, ok := temu.erow.termFontFace(targetCr, fullArea, fface); ok {
-			cr, _ = temu.erow.termSize(fface2)
-			fface = fface2
-		}
-	}
-
-	// ensure final cr satisfies terminal modes (e.g. if fface didn't change but modes did)
-	cr = temu.emu.ClampSize(cr)
-
-	fface0 := temu.erow.Row.TextArea.TreeThemeFontFace()
-	if fface != fface0 {
-		temu.erow.Row.TextArea.SetThemeFontFace(fface)
-	}
+	cr, psize := temu.erow.termSize(fface)
 
 	if temu.tui.sp.UseGrayscale != temu.erow.runOpts.useGrayscale {
 		temu.tui.sp.UseGrayscale = temu.erow.runOpts.useGrayscale
@@ -109,7 +71,6 @@ func (temu *ERowTermEmu) calcAndSetTermSize() {
 		if cr2, changed := temu.emu.SetSize(cr); changed {
 			// align PTY with emu size after possible clamp
 			if temu.optPtyCmd != nil {
-				_, psize := temu.erow.termSize(fface)
 				if err := temu.setPtySize(cr2, psize); err != nil {
 					temu.tui.Error(err)
 				}
@@ -117,15 +78,6 @@ func (temu *ERowTermEmu) calcAndSetTermSize() {
 		}
 	}
 }
-
-// triggered by a term sequence that changes cols/rows
-func (temu *ERowTermEmu) uiCalcAndSetTermSize() {
-	temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		temu.calcAndSetTermSize()
-	})
-}
-
-//----------
 
 func (temu *ERowTermEmu) setPty(ptyCmd *osutil.PtyCmd) {
 	temu.optPtyCmd = ptyCmd
@@ -220,7 +172,9 @@ func (tui *ERowTermEmuUI) Close() error {
 //----------
 
 func (tui *ERowTermEmuUI) OnColumnModeChange() {
-	tui.temu.uiCalcAndSetTermSize()
+	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
+		tui.temu.erow.uiCalcAndSetTermSize()
+	})
 }
 
 //----------

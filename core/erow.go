@@ -240,6 +240,12 @@ func (erow *ERow) initHandlers() {
 			ev.ReplyErr = err
 		}
 	})
+
+	// textarea layout (resize)
+	row.TextArea.EvReg.Add(ui.TextAreaBoundsEventId, func(ev0 any) {
+		erow.onTextAreaBounds()
+	})
+
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 any) {
 		InternalOrExternalCmdFromRowTb(erow)
@@ -489,6 +495,9 @@ func (erow *ERow) parseToolbarVars() {
 		topts.fface = termFFace
 		topts.ffaceRestore = baseFFace
 		erow.runOpts = topts
+
+		// initial calculation
+		erow.uiCalcAndSetTermSize()
 	}
 
 	//----------
@@ -500,10 +509,54 @@ func (erow *ERow) parseToolbarVars() {
 
 	//----------
 
-	if erow.optTemu != nil {
-		erow.optTemu.uiCalcAndSetTermSize() // will set font
-	} else {
+	if erow.optTemu == nil {
 		ta.SetThemeFontFace(baseFFace)
+	}
+}
+
+//----------
+
+func (erow *ERow) onTextAreaBounds() {
+	erow.uiCalcAndSetTermSize()
+}
+
+func (erow *ERow) uiCalcAndSetTermSize() {
+	// check if a terminal is expected or running
+	if !erow.Info.IsDir() {
+		return
+	}
+
+	// start with "unscaled" font from runOpts
+	fface := erow.runOpts.fface
+
+	fullArea := erow.taPixelSize()
+	if fullArea.X <= 0 || fullArea.Y <= 0 {
+		return
+	}
+
+	cr, _ := erow.termSize(fface)
+
+	targetCr := erow.runOpts.TerminalTargetSize()
+	if erow.optTemu != nil {
+		targetCr = erow.optTemu.emu.ClampSize(targetCr)
+	}
+
+	// current cr might not satisfy targets (either auto-font or terminal modes like 132-cols)
+	if erow.runOpts.fontAuto || (erow.optTemu != nil && (cr.X < targetCr.X || cr.Y < targetCr.Y)) {
+		if fface2, ok := erow.termFontFace(targetCr, fullArea, fface); ok {
+			fface = fface2
+		}
+	}
+
+	// set font
+	fface0 := erow.Row.TextArea.TreeThemeFontFace()
+	if fface != fface0 {
+		erow.Row.TextArea.SetThemeFontFace(fface)
+	}
+
+	// notify terminal
+	if erow.optTemu != nil {
+		erow.optTemu.onRecalcSetSize()
 	}
 }
 
