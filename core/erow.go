@@ -622,16 +622,19 @@ func (erow *ERow) termFontFace(targetCr, fullArea image.Point, origFace *fontuti
 		if !ok {
 			return false
 		}
+		_ = y
 		// newline margin: (targetCols + 1) * fontWidth <= totalWidth
-		return (targetCr.X+1)*x <= fullArea.X && targetCr.Y*y <= fullArea.Y
+		return (targetCr.X+1)*x <= fullArea.X // && targetCr.Y*y <= fullArea.Y
 	}
 
 	// linear search starting from original size downwards, snapping to 0.5 multiples
 	p := origFace.Opts.Size()
+	lastP := p
 	for p >= 2.0 {
 		if fits(p) {
 			return faceAtSize(p), true
 		}
+		lastP = p
 		// next snap to 0.5 multiple
 		p2 := float64(int(p*2.0)) / 2.0
 		if p2 >= p {
@@ -639,7 +642,7 @@ func (erow *ERow) termFontFace(targetCr, fullArea image.Point, origFace *fontuti
 		}
 		p = p2
 	}
-	return nil, false
+	return faceAtSize(lastP), true
 }
 
 func (erow *ERow) parseTerminalOpts(v string) ERowRunOpts {
