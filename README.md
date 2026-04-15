@@ -263,7 +263,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `OpenExternal`: open the row with the preferred external application (ex: useful to open an image, pdf, etc).
 - `OpenFilemanager`: open the row directory with the external filemanager.
 - `OpenTerminal`: open the row directory with the external terminal.
-- `OpenTerminalEmu`: open the row directory with the internal terminal emulator.
+- `OpenTerminalEmu [args]`: open the row directory with the internal terminal emulator. Optional arguments can be passed to run a specific command (e.g. `OpenTerminalEmu top`).
 - `LsprotoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `LsprotoRename <new-name>`: Renames the identifiers under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - `LsprotoCallers`: lists callers of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy incoming calls.
@@ -468,7 +468,7 @@ It supports automatic visual wrapping and indentation by communicating logical l
 Example:
 
 ```
-/myproject/ | $terminal=emu,color | bash
+/myproject/ | $font=auto | $terminal=emu,color | bash
 ```
 
 Clicking `bash` will run it inside a PTY - useful if the program uses terminal color output, prompts, or isatty checks.
@@ -476,7 +476,8 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 ## Internal variables
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
-- `$font=[<name>][,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Both name and size are optional (ex: `$font=mono`, `$font=,8`). Supports font aliases (e.g. `mono`, `go_mono`, `medium`, `regular`) and font filenames (e.g. `$font=/path/to/font.ttf`).
+- `$font=[<name>|auto][,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Both name and size are optional (ex: `$font=mono`, `$font=,8`). Supports font aliases (e.g. `mono`, `regular`, `medium`) and font filenames (e.g. `$font=/path/to/font.ttf`).
+	- `auto`: for terminal rows, automatically scales the font down to ensure a **minimum** of 40 columns and 8 rows (or the fixed `rows`/`cols` options if specified). It will not scale up beyond the theme font size. The calculation takes into account the terminal grid mode and the logical newline margin.
 - `$scrollMode={auto}`: if the current bottom of the content is visible, auto scroll down when new content is added (ex: a cmd output).
 - `$terminal=<options>`: run commands in this row using a terminal emulator.Options are comma-separated. Negation is supported: ex: `$terminal=emu,no-kb`.
 	- `pty`: run as pseudo-terminal.

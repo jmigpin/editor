@@ -9,7 +9,6 @@ import (
 	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
-	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/osutil"
 )
 
@@ -71,20 +70,13 @@ func (temu *ERowTermEmu) Close() error {
 func (temu *ERowTermEmu) calcAndSetTermSize() {
 	fface := temu.erow.runOpts.fface
 
-	sx, sy := temu.taPixelSize()
-	fullArea := P{sx, sy}
+	fullArea := temu.erow.taPixelSize()
 
-	cr, _ := temu.termSize(fface) // cr=cols/rows
+	cr, _ := temu.erow.termSize(fface) // cr=cols/rows
 
 	targetCr := cr
 	if temu.erow.runOpts.fontAuto {
-		targetCr = P{40, 8}
-		if temu.erow.runOpts.fixedCols > 0 {
-			targetCr.X = temu.erow.runOpts.fixedCols
-		}
-		if temu.erow.runOpts.fixedRows > 0 {
-			targetCr.Y = temu.erow.runOpts.fixedRows
-		}
+		targetCr = temu.erow.runOpts.TerminalTargetSize()
 	}
 
 	// terminal modes (e.g. 132 cols) might override targets
@@ -92,8 +84,8 @@ func (temu *ERowTermEmu) calcAndSetTermSize() {
 
 	// current cr might not satisfy targets (either auto-font or 132-cols)
 	if cr.X < targetCr.X || cr.Y < targetCr.Y {
-		if fface2, ok := temu.termFontFace(targetCr, fullArea, fface); ok {
-			cr, _ = temu.termSize(fface2)
+		if fface2, ok := temu.erow.termFontFace(targetCr, fullArea, fface); ok {
+			cr, _ = temu.erow.termSize(fface2)
 			fface = fface2
 		}
 	}
@@ -117,7 +109,7 @@ func (temu *ERowTermEmu) calcAndSetTermSize() {
 		if cr2, changed := temu.emu.SetSize(cr); changed {
 			// align PTY with emu size after possible clamp
 			if temu.optPtyCmd != nil {
-				_, psize := temu.termSize(fface)
+				_, psize := temu.erow.termSize(fface)
 				if err := temu.setPtySize(cr2, psize); err != nil {
 					temu.tui.Error(err)
 				}
@@ -147,150 +139,6 @@ func (temu *ERowTermEmu) onPtyStart() error {
 	cr := temu.emu.GetSize()
 	psize := P{1, 1}
 	return temu.setPtySize(cr, psize)
-}
-
-//----------
-
-func (temu *ERowTermEmu) termSize(fface *fontutil.FontFace) (cr, pixs P) {
-	runeW := fface.AvgGlyphAdvance()
-	rw := runeW.Ceil()
-	lh := fface.LineHeightInt()
-
-	sx, sy := temu.taPixelSize()
-	sx2 := max(sx-rw, 0) // newline margin
-	sy2 := max(sy, 0)
-	pixs = P{sx2, sy2}
-
-	// max cols/rows at wanted font
-	cols := sx2 / rw
-	rows := sy2 / lh
-
-	// Use fixed cols if specified
-	if temu.erow.runOpts.fixedCols > 0 {
-		cols = temu.erow.runOpts.fixedCols
-	}
-
-	// Use fixed rows if specified
-	if temu.erow.runOpts.fixedRows > 0 {
-		rows = temu.erow.runOpts.fixedRows
-	}
-
-	cr = P{cols, rows}
-
-	return cr, pixs // columns/rows, available area pixel size
-}
-
-func (temu *ERowTermEmu) taPixelSize() (int, int) {
-	ta := temu.erow.Row.TextArea
-	b := ta.Bounds
-	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-		// handle extra space on the left side used inside the drawer
-		b = d.InnerBounds()
-	}
-	return b.Dx(), b.Dy()
-}
-
-//----------
-
-func (temu *ERowTermEmu) termFontFace(targetCr, fullArea P, origFace *fontutil.FontFace) (*fontutil.FontFace, bool) {
-
-	faceAtSize := func(v float64) *fontutil.FontFace {
-		fopts2 := origFace.Opts // copy
-		fopts2.SetSize(v)
-		return origFace.Font.FontFace(fopts2)
-	}
-
-	runeSize := func(p float64) (int, int, bool) {
-		if p < 2 {
-			return 0, 0, false
-		}
-		face2 := faceAtSize(p)
-		return face2.AvgGlyphAdvance().Ceil(), face2.LineHeightInt(), true
-	}
-
-	fits := func(p float64) bool {
-		x, y, ok := runeSize(p)
-		if !ok {
-			return false
-		}
-		// newline margin: (targetCols + 1) * fontWidth <= totalWidth
-		return (targetCr.X+1)*x <= fullArea.X && targetCr.Y*y <= fullArea.Y
-	}
-
-	// linear search starting from original size downwards, snapping to 0.5 multiples
-	p := origFace.Opts.Size()
-	for p >= 2.0 {
-		if fits(p) {
-			return faceAtSize(p), true
-		}
-		// next snap to 0.5 multiple
-		p2 := float64(int(p*2.0)) / 2.0
-		if p2 >= p {
-			p2 -= 0.5
-		}
-		p = p2
-	}
-	return nil, false
-}
-
-//----------
-//----------
-//----------
-
-// finds the largest p (float) such that w×x <= sx and h×y <= sy, where (x,y) = runeSize(p) are pixel dims (monotonic non-decreasing in p). Returns the chosen (x,y,p).
-func fitRuneSizeF(sx, sy, w, h int, runeSize func(p float64) (int, int, bool)) (int, int, float64, bool) {
-
-	// TODO: font increaments of 0.25?
-
-	if sx <= 0 || sy <= 0 || w <= 0 || h <= 0 {
-		return 0, 0, 0, false
-	}
-
-	fits := func(p float64) bool {
-		x, y, ok := runeSize(p)
-		if !ok {
-			return false
-		}
-		return w*x <= sx && h*y <= sy
-	}
-
-	const (
-		minP  = 1e-1
-		maxP  = 1e3
-		eps   = 1e-1 // binary search tolerance on p
-		maxIt = 10   // cap iterations
-	)
-
-	// Find some fitting p (shrink if needed).
-	lo, hi := 0.0, 1.0
-	for !fits(hi) && hi > minP {
-		hi *= 0.5
-	}
-	if !fits(hi) {
-		return 0, 0, 0, false
-	}
-	lo = hi
-
-	// Exponentially grow to bracket the first non-fitting p.
-	for fits(hi) && hi < maxP {
-		lo = hi
-		hi *= 2
-	}
-
-	// Binary search in [lo,hi] for max fitting p.
-	best := lo
-	for it := 0; it < maxIt && hi-lo > eps; it++ {
-		mid := (lo + hi) / 2
-		if fits(mid) {
-			best = mid
-			lo = mid
-		} else {
-			hi = mid
-		}
-	}
-
-	x, y, _ := runeSize(best)
-	return x, y, best, true
 }
 
 //----------

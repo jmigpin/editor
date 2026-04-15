@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"strconv"
 	"strings"
 	"sync"
@@ -471,9 +472,18 @@ func (erow *ERow) parseToolbarVars() {
 		isGrid := topts.emuOpts.Mode == termemu.ModeGrid
 		if isGrid && !hasFontVarName && !termFFace.TestIsMono() {
 			termFFace = fontutil.FontsMan.DefaultMonoFont().FontFace(termFFace.Opts)
-			if topts.fontAuto {
-				baseFFace = termFFace
+		}
+
+		// font auto: initial calculation (immediate view)
+		if topts.fontAuto {
+			targetCr := topts.TerminalTargetSize()
+			fullArea := erow.taPixelSize()
+			if fullArea.X > 0 && fullArea.Y > 0 {
+				if ff2, ok := erow.termFontFace(targetCr, fullArea, termFFace); ok {
+					termFFace = ff2
+				}
 			}
+			baseFFace = termFFace
 		}
 
 		topts.fface = termFFace
@@ -495,6 +505,88 @@ func (erow *ERow) parseToolbarVars() {
 	} else {
 		ta.SetThemeFontFace(baseFFace)
 	}
+}
+
+//----------
+
+func (erow *ERow) termSize(fface *fontutil.FontFace) (cr, pixs image.Point) {
+	runeW := fface.AvgGlyphAdvance()
+	rw := runeW.Ceil()
+	lh := fface.LineHeightInt()
+
+	fullArea := erow.taPixelSize()
+	sx2 := max(fullArea.X-rw, 0) // newline margin
+	sy2 := max(fullArea.Y, 0)
+	pixs = image.Point{sx2, sy2}
+
+	// max cols/rows at wanted font
+	cols := sx2 / rw
+	rows := sy2 / lh
+
+	// Use fixed cols if specified
+	if erow.runOpts.fixedCols > 0 {
+		cols = erow.runOpts.fixedCols
+	}
+
+	// Use fixed rows if specified
+	if erow.runOpts.fixedRows > 0 {
+		rows = erow.runOpts.fixedRows
+	}
+
+	cr = image.Point{cols, rows}
+
+	return cr, pixs // columns/rows, available area pixel size
+}
+
+func (erow *ERow) taPixelSize() image.Point {
+	ta := erow.Row.TextArea
+	b := ta.Bounds
+	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+		// handle extra space on the left side used inside the drawer
+		b = d.InnerBounds()
+	}
+	return b.Size()
+}
+
+func (erow *ERow) termFontFace(targetCr, fullArea image.Point, origFace *fontutil.FontFace) (*fontutil.FontFace, bool) {
+
+	faceAtSize := func(v float64) *fontutil.FontFace {
+		fopts2 := origFace.Opts // copy
+		fopts2.SetSize(v)
+		return origFace.Font.FontFace(fopts2)
+	}
+
+	runeSize := func(p float64) (int, int, bool) {
+		if p < 2 {
+			return 0, 0, false
+		}
+		face2 := faceAtSize(p)
+		return face2.AvgGlyphAdvance().Ceil(), face2.LineHeightInt(), true
+	}
+
+	fits := func(p float64) bool {
+		x, y, ok := runeSize(p)
+		if !ok {
+			return false
+		}
+		// newline margin: (targetCols + 1) * fontWidth <= totalWidth
+		return (targetCr.X+1)*x <= fullArea.X && targetCr.Y*y <= fullArea.Y
+	}
+
+	// linear search starting from original size downwards, snapping to 0.5 multiples
+	p := origFace.Opts.Size()
+	for p >= 2.0 {
+		if fits(p) {
+			return faceAtSize(p), true
+		}
+		// next snap to 0.5 multiple
+		p2 := float64(int(p*2.0)) / 2.0
+		if p2 >= p {
+			p2 -= 0.5
+		}
+		p = p2
+	}
+	return nil, false
 }
 
 func (erow *ERow) parseTerminalOpts(v string) ERowRunOpts {
@@ -795,4 +887,15 @@ type ERowRunOpts struct {
 
 	fface        *fontutil.FontFace
 	ffaceRestore *fontutil.FontFace
+}
+
+func (opts *ERowRunOpts) TerminalTargetSize() image.Point {
+	targetCr := image.Point{40, 8}
+	if opts.fixedCols > 0 {
+		targetCr.X = opts.fixedCols
+	}
+	if opts.fixedRows > 0 {
+		targetCr.Y = opts.fixedRows
+	}
+	return targetCr
 }
