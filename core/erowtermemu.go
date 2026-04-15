@@ -41,14 +41,14 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 
 func (temu *ERowTermEmu) Close() error {
 	defer temu.userRwc.Close()
+	defer temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
+		temu.erow.uiCalcAndSetTermSize()
+	})
 	defer func() { temu.erow.optTemu = nil }()
 
 	// TODO: emuplain freezing/locking
 
 	temu.tui.Close()
-	temu.erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
-		temu.erow.Row.TextArea.SetThemeFontFace(temu.erow.runOpts.ffaceRestore)
-	})
 
 	return temu.ReadWriteCloser.Close()
 }

@@ -480,23 +480,11 @@ func (erow *ERow) parseToolbarVars() {
 			termFFace = fontutil.FontsMan.DefaultMonoFont().FontFace(termFFace.Opts)
 		}
 
-		// font auto: initial calculation (immediate view)
-		if topts.fontAuto {
-			targetCr := topts.TerminalTargetSize()
-			fullArea := erow.taPixelSize()
-			if fullArea.X > 0 && fullArea.Y > 0 {
-				if ff2, ok := erow.termFontFace(targetCr, fullArea, termFFace); ok {
-					termFFace = ff2
-				}
-			}
-			baseFFace = termFFace
-		}
-
 		topts.fface = termFFace
 		topts.ffaceRestore = baseFFace
 		erow.runOpts = topts
 
-		// initial calculation
+		// initial calculation (immediate view)
 		erow.uiCalcAndSetTermSize()
 	}
 
@@ -509,7 +497,7 @@ func (erow *ERow) parseToolbarVars() {
 
 	//----------
 
-	if erow.optTemu == nil {
+	if erow.optTemu == nil && !erow.Info.IsDir() {
 		ta.SetThemeFontFace(baseFFace)
 	}
 }
@@ -548,10 +536,17 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 		}
 	}
 
+	// non-terminal directory listing: if no fontAuto, use the original restored font
+	if erow.optTemu == nil && !erow.runOpts.fontAuto {
+		fface = erow.runOpts.ffaceRestore
+	}
+
 	// set font
-	fface0 := erow.Row.TextArea.TreeThemeFontFace()
-	if fface != fface0 {
-		erow.Row.TextArea.SetThemeFontFace(fface)
+	if fface != nil {
+		fface0 := erow.Row.TextArea.TreeThemeFontFace()
+		if fface != fface0 {
+			erow.Row.TextArea.SetThemeFontFace(fface)
+		}
 	}
 
 	// notify terminal
