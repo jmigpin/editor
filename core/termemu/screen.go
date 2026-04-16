@@ -686,10 +686,10 @@ func (s *Screen) escRis_reset(hard bool) {
 	s.privModes = *newPrivModes()
 	s.graphics = *newGraphics()
 	s.wrapNext = false
-	s.cursor = P{}
 	s.updateRegion()
 	s.initTabStops()
 	if hard {
+		s.cursor = P{}
 		s.grid1.clearBounds()
 		s.grid2.clearBounds()
 		s.grid1.scrollBack = nil
