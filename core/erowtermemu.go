@@ -40,13 +40,16 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 }
 
 func (temu *ERowTermEmu) Close() error {
-	defer temu.userRwc.Close()
-	defer temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		temu.erow.uiCalcAndSetTermSize()
-	})
-	defer func() { temu.erow.optTemu = nil }()
+	defer func() {
+		temu.erow.optTemu = nil
 
-	// TODO: emuplain freezing/locking
+		// Has to wait in sync because otherwise it could clash with another row being created and setting optTemu. This close is called from a detached goroutine (runasync) and so not currently inside a ui goroutine.
+		temu.erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
+			temu.erow.uiCalcAndSetTermSize()
+		})
+
+		temu.userRwc.Close()
+	}()
 
 	temu.tui.Close()
 
