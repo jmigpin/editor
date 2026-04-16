@@ -133,6 +133,8 @@ func (s *Screen) Clone() *Screen {
 
 	s2.privModes = *s.privModes.clone()
 	s2.graphics = *s.graphics.clone()
+	s2.tabStops = slices.Clone(s.tabStops)
+
 	return &s2
 }
 
