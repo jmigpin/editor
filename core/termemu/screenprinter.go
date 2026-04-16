@@ -67,6 +67,25 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		return scr.IsCursor(x, y) && scr.privModes.showCursor()
 	}
 
+	//----------
+
+	revv := scr.privModes.reverseVideo()
+
+	coloredCell := func(c *Cell) Cell {
+		c2 := *c
+		if revv {
+			c2.A.Inverse = !c2.A.Inverse
+		}
+		return c2
+	}
+	coloredBg := func(c *Cell) bool {
+		c2 := coloredCell(c)
+		empty := c2.A.Bg == nil && !c2.A.Inverse
+		return !empty
+	}
+
+	//----------
+
 	for y := range scr.grid.size.Y {
 		line := scr.grid.line(y)
 
@@ -76,8 +95,8 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 			x := max2 - 1
 			c := line.cell(x)
 			empty := (c.R == 0 || c.R == ' ') &&
-				c.A.Bg == nil && !c.A.Inverse &&
-				!isCursor(x, y)
+				!isCursor(x, y) &&
+				!coloredBg(c)
 			if !empty {
 				break
 			}
@@ -102,11 +121,12 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 				}
 
 			} else {
+				cell2 := coloredCell(cell)
 				sp.ColorFn(
 					offset,
-					sp.filterColor(cell.A.Fg),
-					sp.filterColor(cell.A.Bg),
-					cell.A.Inverse,
+					sp.filterColor(cell2.A.Fg),
+					sp.filterColor(cell2.A.Bg),
+					cell2.A.Inverse,
 				)
 			}
 
