@@ -447,14 +447,12 @@ func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
 	// $font
-	hasFontVarName := false
 	fontAuto := false
 	baseFFace := (*fontutil.FontFace)(nil)
 	if v, ok := vmap["$font"]; ok {
 		if v == "auto" {
 			fontAuto = true
-		} else if fn, ff, err := erow.varFontFace(v); err == nil {
-			hasFontVarName = fn
+		} else if _, ff, err := erow.varFontFace(v); err == nil {
 			baseFFace = ff
 		}
 	}
@@ -479,14 +477,13 @@ func (erow *ERow) parseToolbarVars() {
 			termFFace = ta.Parent.TreeThemeFontFace()
 		}
 
-		// terminal font face: unless the user defined a named font, run with a monospace font
+		// terminal font face: in auto mode, prefer a monospace font for grid terminals
 		isGrid := topts.emuOpts.Mode == termemu.ModeGrid
-		if isGrid && !hasFontVarName && !termFFace.TestIsMono() {
+		if fontAuto && isGrid && !termFFace.TestIsMono() {
 			termFFace = fontutil.FontsMan.DefaultMonoFont().FontFace(termFFace.Opts)
 		}
 
 		topts.fface = termFFace
-		topts.ffaceRestore = baseFFace
 		erow.runOpts = topts
 
 		// initial calculation (immediate view)
@@ -519,6 +516,9 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 		return
 	}
 
+	termRunning := erow.optTemu != nil
+	fontAuto := erow.runOpts.fontAuto
+
 	// start with "unscaled" font from runOpts
 	fface := erow.runOpts.fface
 
@@ -529,21 +529,20 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 
 	cr, _ := erow.termSize(fface)
 
-	targetCr := erow.runOpts.TerminalTargetSize()
-	if erow.optTemu != nil {
+	targetCr := image.Point{}
+	if fontAuto {
+		targetCr = erow.runOpts.TerminalTargetSize()
+	}
+	if termRunning {
 		targetCr = erow.optTemu.emu.ClampSize(targetCr)
 	}
 
-	// current cr might not satisfy targets (either auto-font or terminal modes like 132-cols)
-	if erow.runOpts.fontAuto || (erow.optTemu != nil && (cr.X < targetCr.X || cr.Y < targetCr.Y)) {
+	// current cr might not satisfy auto-font targets or terminal mode minimums (ex: 132 cols)
+	needTerminalMinFit := termRunning && (cr.X < targetCr.X || cr.Y < targetCr.Y)
+	if fontAuto || needTerminalMinFit {
 		if fface2, ok := erow.termFontFace(targetCr, fullArea, fface); ok {
 			fface = fface2
 		}
-	}
-
-	// non-terminal directory listing: if no fontAuto, use the original restored font
-	if erow.optTemu == nil && !erow.runOpts.fontAuto {
-		fface = erow.runOpts.ffaceRestore
 	}
 
 	// set font
@@ -555,7 +554,7 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 	}
 
 	// notify terminal
-	if erow.optTemu != nil {
+	if termRunning {
 		erow.optTemu.onRecalcSetSize()
 	}
 }
@@ -941,8 +940,7 @@ type ERowRunOpts struct {
 
 	emuOpts termemu.Opts
 
-	fface        *fontutil.FontFace
-	ffaceRestore *fontutil.FontFace
+	fface *fontutil.FontFace
 }
 
 func (opts *ERowRunOpts) TerminalTargetSize() image.Point {
