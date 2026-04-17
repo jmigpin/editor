@@ -552,12 +552,10 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 		if on {
 			s.csiScp_saveCursorPos()
 			s.setGrid2(true)
-			//s.clearGrid()
+			s.grid.clearBounds()
 		} else {
 			s.csiRcp_restoreCursorPos()
 			s.setGrid2(false)
-			// commented: after an app closes, we want to see the previous content
-			//s.clearGrid() // TODO: review
 		}
 
 	default:
