@@ -22,12 +22,14 @@ type ERowTermEmu struct {
 
 func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 	temu := &ERowTermEmu{erow: erow}
-	erow.optTemu = temu
 	temu.userRwc = rwc
 
 	temu.tui = newERowTermEmuUI(temu)
 	temu.emu = termemu.NewEmu(temu.userRwc, temu.tui, erow.runOpts.emuOpts)
 	temu.ReadWriteCloser = temu.emu
+
+	// Publish only after emu is ready; layout callbacks can re-enter during row creation.
+	erow.optTemu = temu
 
 	erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
 		erow.uiCalcAndSetTermSize()
