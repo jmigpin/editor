@@ -245,6 +245,11 @@ func (erow *ERow) initHandlers() {
 	row.TextArea.EvReg.Add(ui.TextAreaBoundsEventId, func(ev0 any) {
 		erow.onTextAreaBounds()
 	})
+	row.TextArea.EvReg.Add(ui.TextAreaThemeEventId, func(ev0 any) {
+		if erow.optTemu != nil {
+			erow.optTemu.emu.NeedsPaint()
+		}
+	})
 
 	// toolbar cmds
 	row.Toolbar.EvReg.Add(ui.TextAreaCmdEventId, func(ev0 any) {

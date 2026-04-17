@@ -211,6 +211,13 @@ func (ta *TextArea) Layout() {
 	}
 }
 
+func (ta *TextArea) OnThemeChange() {
+	ta.TextEditX.OnThemeChange()
+
+	ev2 := &TextAreaThemeEvent{TextArea: ta}
+	ta.EvReg.RunCallbacks(TextAreaThemeEventId, ev2)
+}
+
 func (ta *TextArea) setDrawer4Opts() {
 	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 		// scale cursor based on lineheight
@@ -236,6 +243,7 @@ const (
 	TextAreaInputEventId
 	TextAreaLayoutEventId
 	TextAreaBoundsEventId
+	TextAreaThemeEventId
 )
 
 //----------
@@ -243,6 +251,10 @@ const (
 type TextAreaCmdEvent struct {
 	TextArea *TextArea
 	Index    int
+}
+
+type TextAreaThemeEvent struct {
+	TextArea *TextArea
 }
 
 //----------
