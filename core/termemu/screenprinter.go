@@ -2,14 +2,11 @@ package termemu
 
 import (
 	"bytes"
-	"image/color"
 )
 
 type ScreenPrinter struct {
-	ColorFn func(offset int, fg, bg color.Color, inverse bool)
+	ColorFn func(offset int, fg, bg TermColor, inverse bool)
 	SepFn   func(offset int)
-	// Apply grayscale conversion only on output rendering; screen keeps true colors.
-	UseGrayscale bool
 
 	CursorRune rune // mostly for testing where there are no colors, so a rune is printed for guidance
 
@@ -24,7 +21,7 @@ type ScreenPrinter struct {
 
 func NewScreenPrinter() *ScreenPrinter {
 	sp := &ScreenPrinter{}
-	sp.ColorFn = func(_ int, _, _ color.Color, _ bool) {}
+	sp.ColorFn = func(_ int, _, _ TermColor, _ bool) {}
 	sp.SepFn = func(_ int) {}
 
 	sp.scrollbackSep = "▲▲▲\n"
@@ -70,8 +67,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 	//----------
 
 	revv := scr.privModes.reverseVideo()
-
-	coloredCell := func(c *Cell) Cell {
+	cellInverseChecked := func(c *Cell) Cell {
 		c2 := *c
 		if revv {
 			c2.A.Inverse = !c2.A.Inverse
@@ -79,8 +75,8 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		return c2
 	}
 	coloredBg := func(c *Cell) bool {
-		c2 := coloredCell(c)
-		empty := c2.A.Bg == nil && !c2.A.Inverse
+		c2 := cellInverseChecked(c)
+		empty := c2.A.Bg.IsDefault() && !c2.A.Inverse
 		return !empty
 	}
 
@@ -114,20 +110,15 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 			ru := cell.printableRune()
 
 			if isCursor(x, y) {
-				sp.ColorFn(offset, nil, nil, true)
+				sp.ColorFn(offset, TermColor{}, TermColor{}, true)
 
 				if sp.testing && sp.CursorRune != 0 {
 					ru = sp.CursorRune
 				}
 
 			} else {
-				cell2 := coloredCell(cell)
-				sp.ColorFn(
-					offset,
-					sp.filterColor(cell2.A.Fg),
-					sp.filterColor(cell2.A.Bg),
-					cell2.A.Inverse,
-				)
+				cell2 := cellInverseChecked(cell)
+				sp.ColorFn(offset, cell2.A.Fg, cell2.A.Bg, cell2.A.Inverse)
 			}
 
 			buf.WriteRune(ru)
@@ -143,11 +134,4 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 	bs = bytes.TrimRight(bs, "\n")
 
 	return bs
-}
-
-func (sp *ScreenPrinter) filterColor(c color.Color) color.Color {
-	if sp.UseGrayscale {
-		return grayscaleColor(c)
-	}
-	return c
 }

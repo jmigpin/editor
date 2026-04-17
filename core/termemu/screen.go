@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	"image/color"
 	"maps"
 	"slices"
 )
@@ -437,20 +436,20 @@ func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 			s.curAttr.Inverse = false
 
 		case 30 <= p && p <= 37:
-			s.curAttr.Fg = xterm256Color(p - 30)
+			s.curAttr.Fg = NewTermColorIndexed(p - 30)
 		case p == 39:
-			s.curAttr.Fg = nil
+			s.curAttr.Fg = TermColor{}
 
 		case 40 <= p && p <= 47:
-			s.curAttr.Bg = xterm256Color(p - 40)
+			s.curAttr.Bg = NewTermColorIndexed(p - 40)
 		case p == 49:
-			s.curAttr.Bg = nil
+			s.curAttr.Bg = TermColor{}
 
 		// bright options
 		case 90 <= p && p <= 97:
-			s.curAttr.Fg = xterm256Color(8 + p - 90)
+			s.curAttr.Fg = NewTermColorIndexed(8 + p - 90)
 		case 100 <= p && p <= 107:
-			s.curAttr.Bg = xterm256Color(8 + p - 100)
+			s.curAttr.Bg = NewTermColorIndexed(8 + p - 100)
 
 		// 256 colors + rgb colors
 		case p == 38 || p == 48:
@@ -458,20 +457,19 @@ func (s *Screen) csiSgr_selectGraphicRendition(params []int) {
 				n := params[i+2]
 				if 0 <= n && n <= 255 {
 					if p == 38 {
-						s.curAttr.Fg = xterm256Color(n)
+						s.curAttr.Fg = NewTermColorIndexed(n)
 					} else {
-						s.curAttr.Bg = xterm256Color(n)
+						s.curAttr.Bg = NewTermColorIndexed(n)
 					}
 				}
 				i += 2
 			} else if i+4 < len(params) && params[i+1] == 2 {
 				r, g, b := params[i+2], params[i+3], params[i+4]
 				if 0 <= r && r <= 255 && 0 <= g && g <= 255 && 0 <= b && b <= 255 {
-					c := color.RGBA{uint8(r), uint8(g), uint8(b), 255}
 					if p == 38 {
-						s.curAttr.Fg = c
+						s.curAttr.Fg = NewTermColorRGB(uint8(r), uint8(g), uint8(b))
 					} else {
-						s.curAttr.Bg = c
+						s.curAttr.Bg = NewTermColorRGB(uint8(r), uint8(g), uint8(b))
 					}
 				}
 				i += 4
@@ -995,8 +993,8 @@ func (c *Cell) printableRune() rune {
 //----------
 
 type Attr struct {
-	Fg      color.Color
-	Bg      color.Color
+	Fg      TermColor
+	Bg      TermColor
 	Bold    bool
 	Inverse bool // inverse fg/bg
 }
@@ -1132,50 +1130,3 @@ func mapDecSpecial(r rune) rune {
 }
 
 //----------
-
-func grayscaleColor(c color.Color) color.Color {
-	if c == nil {
-		return nil
-	}
-	r, g, b, a := c.RGBA()
-	// luma approximation on 16-bit channels
-	y := uint16((299*r + 587*g + 114*b + 500) / 1000)
-	return color.RGBA64{y, y, y, uint16(a)}
-}
-
-func xterm256Color(n int) color.Color {
-	switch {
-	case 0 <= n && n <= 15:
-		ansi16 := [16]color.RGBA{
-			{0, 0, 0, 255},       // 0
-			{205, 0, 0, 255},     // 1
-			{0, 205, 0, 255},     // 2
-			{205, 205, 0, 255},   // 3
-			{0, 0, 238, 255},     // 4
-			{205, 0, 205, 255},   // 5
-			{0, 205, 205, 255},   // 6
-			{229, 229, 229, 255}, // 7
-			{127, 127, 127, 255}, // 8
-			{255, 0, 0, 255},     // 9
-			{0, 255, 0, 255},     // 10
-			{255, 255, 0, 255},   // 11
-			{92, 92, 255, 255},   // 12
-			{255, 0, 255, 255},   // 13
-			{0, 255, 255, 255},   // 14
-			{255, 255, 255, 255}, // 15
-		}
-		return ansi16[n]
-	case 16 <= n && n <= 231:
-		k := n - 16
-		levels := [6]uint8{0, 95, 135, 175, 215, 255}
-		r := levels[k/36]
-		g := levels[(k/6)%6]
-		b := levels[k%6]
-		return color.RGBA{r, g, b, 255}
-	case 232 <= n && n <= 255:
-		v := uint8(8 + (n-232)*10)
-		return color.RGBA{v, v, v, 255}
-	default:
-		panic("!")
-	}
-}
