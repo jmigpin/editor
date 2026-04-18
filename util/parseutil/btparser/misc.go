@@ -7,7 +7,7 @@ import (
 )
 
 func Debug2(fn func()) MFn {
-	return func(pos Pos) (MPos, error) {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
 		fn()
 		return MPos{pos, pos}, nil
 	}

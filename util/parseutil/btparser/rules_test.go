@@ -11,13 +11,12 @@ import (
 func TestParse1(t *testing.T) {
 	src := "a1  a2  \ta3a2a1"
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
+	g := NewRules()
+	ps := NewParserStateFromString(src)
 
-	p.SetIgnore(g.Spaces())
+	g.SetIgnore(g.Spaces())
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.Token(g.Or(
 			g.Seq("a1"),
 			g.Seq("a2"),
@@ -34,13 +33,12 @@ func TestParse1(t *testing.T) {
 func TestParse2(t *testing.T) {
 	src := "fn1(  a1=123.45 , a2=4,) "
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
+	g := NewRules()
+	ps := NewParserStateFromString(src)
 
-	p.SetIgnore(g.Spaces())
+	g.SetIgnore(g.Spaces())
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Token(g.Seq("fn1")),
 		g.Token(g.Seq("(")),
 		g.LoopSep(true,
@@ -65,14 +63,13 @@ func TestParse2(t *testing.T) {
 func TestInteger1(t *testing.T) {
 	src := "0 123 -15 0 +9999"
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
-	p.SetIgnore(g.Spaces())
+	g := NewRules()
+	ps := NewParserStateFromString(src)
+	g.SetIgnore(g.Spaces())
 
 	w := []int{}
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(
 			g.Token(Append(&w, g.VInteger())),
 		),
@@ -89,14 +86,13 @@ func TestInteger1(t *testing.T) {
 func TestRulesNamespace1(t *testing.T) {
 	src := "0 123 -15 0 +9999"
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
-	p.SetIgnore(g.Spaces())
+	g := NewRules()
+	ps := NewParserStateFromString(src)
+	g.SetIgnore(g.Spaces())
 
 	w := []int{}
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(
 			g.Token(Append(&w, g.VInteger())),
 		),
@@ -113,14 +109,13 @@ func TestRulesNamespace1(t *testing.T) {
 func TestInteger2(t *testing.T) {
 	src := "+0 01 +-3 09"
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
-	p.SetIgnore(g.Spaces())
+	g := NewRules()
+	ps := NewParserStateFromString(src)
+	g.SetIgnore(g.Spaces())
 
 	w := []any{}
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.And(
 			g.Token(Append(&w, VOr(
 				VAny(g.VInteger()),
@@ -140,14 +135,13 @@ func TestInteger2(t *testing.T) {
 func TestFloat1(t *testing.T) {
 	src := "-0.38 -10.65"
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
-	p.SetIgnore(g.Spaces())
+	g := NewRules()
+	ps := NewParserStateFromString(src)
+	g.SetIgnore(g.Spaces())
 
 	w := []any{}
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.And(
 			g.Token(Append(&w, VOr(
 				VAny(g.VFloat()),
@@ -167,13 +161,12 @@ func TestFloat1(t *testing.T) {
 func TestEscape1(t *testing.T) {
 	src := `a\\\\`
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
+	g := NewRules()
+	ps := NewParserStateFromString(src)
 
 	w := []any{}
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.And(
 			g.Token(Append(&w,
 				VOr(
@@ -195,10 +188,9 @@ func TestEscape1(t *testing.T) {
 func TestValues1(t *testing.T) {
 	src := "a1=1   a2=true   a3=3.4   a4=\"bcd\""
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
-	p.SetIgnore(g.Spaces())
+	g := NewRules()
+	ps := NewParserStateFromString(src)
+	g.SetIgnore(g.Spaces())
 
 	type Data struct {
 		id  string
@@ -206,7 +198,7 @@ func TestValues1(t *testing.T) {
 	}
 	w := []*Data{}
 
-	vDataFn := func(pos Pos) (*Data, MPos, error) {
+	vDataFn := func(ps *ParserState, pos Pos) (*Data, MPos, error) {
 		v := Data{}
 		mp, err := g.And(
 			g.Token(Assign(&v.id, g.VIdentifier())),
@@ -217,11 +209,11 @@ func TestValues1(t *testing.T) {
 				VAny(g.VBool()),
 				VAny(g.VSourceStr(g.QuotedString1())),
 			))),
-		)(pos)
+		)(ps, pos)
 		return &v, mp, err
 	}
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(Append(&w, vDataFn)),
 		g.Eof(),
 	))
@@ -243,10 +235,9 @@ func TestValues1(t *testing.T) {
 func TestRulesSemanticValueNames(t *testing.T) {
 	src := "a1=1 a2=true a3=3.4 a4=\"bcd\""
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
-	p.SetIgnore(g.Spaces())
+	g := NewRules()
+	ps := NewParserStateFromString(src)
+	g.SetIgnore(g.Spaces())
 
 	type Data struct {
 		id  string
@@ -254,7 +245,7 @@ func TestRulesSemanticValueNames(t *testing.T) {
 	}
 	w := []*Data{}
 
-	vDataFn := func(pos Pos) (*Data, MPos, error) {
+	vDataFn := func(ps *ParserState, pos Pos) (*Data, MPos, error) {
 		v := Data{}
 		mp, err := g.And(
 			g.Token(Assign(&v.id, g.VIdentifier())),
@@ -265,11 +256,11 @@ func TestRulesSemanticValueNames(t *testing.T) {
 				VAny(g.VBool()),
 				VAny(g.VQuotedString1()),
 			))),
-		)(pos)
+		)(ps, pos)
 		return &v, mp, err
 	}
 
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(Append(&w, vDataFn)),
 		g.Eof(),
 	))
@@ -291,24 +282,23 @@ func TestRulesSemanticValueNames(t *testing.T) {
 func TestEmptyLinesWithComments(t *testing.T) {
 	src := "\n\n\t//C\n\ta\n   \n//C\n//C  \n  \n\n\nb//C  \n\nc\n"
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
+	g := NewRules()
+	ps := NewParserStateFromString(src)
 
-	comments := func(pos Pos) (MPos, error) {
+	comments := func(ps *ParserState, pos Pos) (MPos, error) {
 		return g.And(
 			g.Seq("//"),
 			g.LoopToNLOrEof(0, false),
-		)(pos)
+		)(ps, pos)
 	}
 
-	p.SetIgnore(g.EmptyLinesExceptNewline(g.Or(
+	g.SetIgnore(g.EmptyLinesExceptNewline(g.Or(
 		g.SpacesExceptNewline(),
 		comments,
 	)))
 
 	w := []string{}
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Token(Append(&w, g.VSourceStr(g.Rune('a')))),
 		g.Token(g.Newline()),
 		g.Token(Append(&w, g.VSourceStr(g.Rune('b')))),
@@ -343,12 +333,11 @@ func TestLoopToNLOrEofAtEOF(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := NewParser()
-			p.SetSrcFromString(tt.src)
-			g := p.G()
+			g := NewRules()
+			ps := NewParserStateFromString(tt.src)
 
 			got := ""
-			_, err := p.Parse(g.And(
+			_, err := g.Parse(ps, g.And(
 				Assign(&got, g.VSourceStr(g.LoopToNLOrEof(0, tt.includeNL))),
 				g.Eof(),
 			))
@@ -369,11 +358,10 @@ func TestLoopToNLOrEofAtEOF(t *testing.T) {
 }
 
 func TestLoop1NoProgress(t *testing.T) {
-	p := NewParser()
-	p.SetSrcFromString("abc")
-	g := p.G()
+	g := NewRules()
+	ps := NewParserStateFromString("abc")
 
-	_, err := p.Parse(g.Loop1(g.NoOp()))
+	_, err := g.Parse(ps, g.Loop1(g.NoOp()))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -386,11 +374,10 @@ func TestLoop1NoProgress(t *testing.T) {
 }
 
 func TestLoop2NoProgress(t *testing.T) {
-	p := NewParser()
-	p.SetSrcFromString("abc")
-	g := p.G()
+	g := NewRules()
+	ps := NewParserStateFromString("abc")
 
-	_, err := p.Parse(g.Loop2(0, -1, g.NoOp()))
+	_, err := g.Parse(ps, g.Loop2(0, -1, g.NoOp()))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -401,11 +388,10 @@ func TestLoop2NoProgress(t *testing.T) {
 
 func TestLoopSepNoProgress(t *testing.T) {
 	t.Run("sep", func(t *testing.T) {
-		p := NewParser()
-		p.SetSrcFromString("abc")
-		g := p.G()
+		g := NewRules()
+		ps := NewParserStateFromString("abc")
 
-		_, err := p.Parse(g.LoopSep(true, g.AnyRune(), g.NoOp()))
+		_, err := g.Parse(ps, g.LoopSep(true, g.AnyRune(), g.NoOp()))
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -415,11 +401,10 @@ func TestLoopSepNoProgress(t *testing.T) {
 	})
 
 	t.Run("elem", func(t *testing.T) {
-		p := NewParser()
-		p.SetSrcFromString("abc")
-		g := p.G()
+		g := NewRules()
+		ps := NewParserStateFromString("abc")
 
-		_, err := p.Parse(g.LoopSep(true, g.NoOp(), g.Rune(',')))
+		_, err := g.Parse(ps, g.LoopSep(true, g.NoOp(), g.Rune(',')))
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -432,20 +417,19 @@ func TestLoopSepNoProgress(t *testing.T) {
 func TestLookback(t *testing.T) {
 	src := "--ab0--cd0--"
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
+	g := NewRules()
+	ps := NewParserStateFromString(src)
 
 	str := ""
 	strPos := Pos(0)
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.Or(
 			Assign(&str, g.VSourceStr(
 				g.DebugAnd(false, "back",
 					g.And(
 						g.Rune('0'),
 						g.LookbackN(2+1, g.Seq("cd")),
-						func(pos Pos) (MPos, error) {
+						func(ps *ParserState, pos Pos) (MPos, error) {
 							strPos = pos - 1
 							return MPos{pos, pos}, nil
 						},
@@ -467,14 +451,13 @@ func TestLookback(t *testing.T) {
 func TestTime(t *testing.T) {
 	src := "  2025/04/02  "
 
-	p := NewParser()
-	p.SetSrcFromString(src)
-	g := p.G()
+	g := NewRules()
+	ps := NewParserStateFromString(src)
 
-	p.SetIgnore(g.Spaces())
+	g.SetIgnore(g.Spaces())
 
 	date := time.Time{}
-	_, err := p.Parse(g.And(
+	_, err := g.Parse(ps, g.And(
 		g.Token(Assign(&date, g.VTime("2006/01/02"))),
 		g.Token(g.Eof()),
 	))
@@ -503,11 +486,10 @@ func TestQuotedString(t *testing.T) {
 	}
 
 	parseAndUnquote := func(s string) (string, error) {
-		p := NewParser()
-		p.SetSrcFromString(s)
-		g := p.G()
+		g := NewRules()
+		ps := NewParserStateFromString(s)
 		v := ""
-		_, err := p.Parse(g.And(
+		_, err := g.Parse(ps, g.And(
 			Assign(&v, g.VQuotedString1()),
 			g.Eof(),
 		))
@@ -528,10 +510,10 @@ func TestQuotedString(t *testing.T) {
 //	src := "0123456789"
 
 //	p := NewParser()
-//	p.SetSrc(src)
+//	ps.SetSrc(src)
 
 //	str := ""
-//	_, err := p.Parse(g.And(
+//	_, err := g.Parse(ps, g.And(
 //		g.Loop1(...),
 //		g.Eof(),
 //	))
@@ -549,12 +531,11 @@ func TestQuotedString(t *testing.T) {
 
 func BenchmarkParse1(b *testing.B) {
 	s := "0123456789"
-	for i := 0; i < 7; i++ {
+	for i := 0; i < 10; i++ {
 		s += s
 	}
 
-	p := NewParser()
-	g := p.G()
+	g := NewRules()
 
 	fn := g.Loop1(g.Or(
 		g.Seq("0"),
@@ -584,12 +565,12 @@ func BenchmarkParse1(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p.SetSrcFromString(s)
-		p2, err := p.Parse(fn)
+		ps := NewParserStateFromString(s)
+		p2, err := g.Parse(ps, fn)
 		if err != nil {
 			b.Fatal(err)
 		}
-		if p2 != 1280 {
+		if p2 != Pos(len(s)) {
 			b.Fatal(p2)
 		}
 	}
@@ -597,13 +578,12 @@ func BenchmarkParse1(b *testing.B) {
 
 func BenchmarkParse1Bytes(b *testing.B) {
 	s := "0123456789"
-	for i := 0; i < 7; i++ {
+	for i := 0; i < 10; i++ {
 		s += s
 	}
 	src := []byte(s)
 
-	p := NewParser()
-	g := p.G()
+	g := NewRules()
 
 	fn := g.Loop1(g.Or(
 		g.Seq("0"),
@@ -633,12 +613,12 @@ func BenchmarkParse1Bytes(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p.SetSrc(src)
-		p2, err := p.Parse(fn)
+		ps := NewParserStateFromBytes(src)
+		p2, err := g.Parse(ps, fn)
 		if err != nil {
 			b.Fatal(err)
 		}
-		if p2 != 1280 {
+		if p2 != Pos(len(src)) {
 			b.Fatal(p2)
 		}
 	}
