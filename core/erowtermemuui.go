@@ -134,21 +134,12 @@ func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) 
 	isLightTheme := isLightColor(defaultBg)
 
 	addColor0 := func(offset int, fg, bg termemu.TermColor, inverse bool) {
-		if fg.IsDefault() && bg.IsDefault() && !inverse {
+		fg2, bg2, setBg, ok := termCellColors(fg, bg, inverse, defaultFg, defaultBg, useGrayscale, isLightTheme)
+		if !ok {
 			return
 		}
-		fg2, bg2, _, bgExplicit := resolveTermCellColors(fg, bg, inverse, defaultFg, defaultBg)
-		if useGrayscale {
-			fg2 = grayscaleColor(fg2)
-			if bgExplicit {
-				bg2 = grayscaleColor(bg2)
-			}
-		}
-		if isLightTheme && !bgExplicit {
-			fg2 = ensureContrastColor(fg2, bg2)
-		}
 		dop := &D4COp{Offset: offset, Fg: fg2}
-		if bgExplicit || inverse {
+		if setBg {
 			dop.Bg = bg2
 		}
 		dop2 := &D4COp{Offset: offset + 1, SetNil: true} // reset
@@ -180,6 +171,23 @@ type D4COp = drawer4.ColorizeOp
 //----------
 //----------
 //----------
+
+func termCellColors(fg, bg termemu.TermColor, inverse bool, defaultFg, defaultBg color.Color, useGrayscale, isLightTheme bool) (_, _ color.Color, _ bool, _ bool) {
+	if fg.IsDefault() && bg.IsDefault() && !inverse {
+		return nil, nil, false, false
+	}
+	fg2, bg2, _, bgExplicit := resolveTermCellColors(fg, bg, inverse, defaultFg, defaultBg)
+	if useGrayscale {
+		fg2 = grayscaleColor(fg2)
+		if bgExplicit {
+			bg2 = grayscaleColor(bg2)
+		}
+	}
+	if isLightTheme && !bgExplicit {
+		fg2 = ensureContrastColor(fg2, bg2)
+	}
+	return fg2, bg2, bgExplicit || inverse, true
+}
 
 func resolveTermCellColors(fg, bg termemu.TermColor, inverse bool, defaultFg, defaultBg color.Color) (_, _ color.Color, _ bool, _ bool) {
 	fgExplicit := !fg.IsDefault()

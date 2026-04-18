@@ -67,15 +67,18 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 	//----------
 
 	revv := scr.privModes.reverseVideo()
-	cellInverseChecked := func(c *Cell) Cell {
+	effectiveCell := func(c *Cell, cursor bool) Cell {
 		c2 := *c
 		if revv {
 			c2.A.Inverse = !c2.A.Inverse
 		}
+		if cursor {
+			c2.A.Inverse = !c2.A.Inverse
+		}
 		return c2
 	}
-	coloredBg := func(c *Cell) bool {
-		c2 := cellInverseChecked(c)
+	coloredBg := func(c *Cell, cursor bool) bool {
+		c2 := effectiveCell(c, cursor)
 		empty := c2.A.Bg.IsDefault() && !c2.A.Inverse
 		return !empty
 	}
@@ -90,9 +93,8 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		for ; max2 > 0; max2-- {
 			x := max2 - 1
 			c := line.cell(x)
-			empty := (c.R == 0 || c.R == ' ') &&
-				!isCursor(x, y) &&
-				!coloredBg(c)
+			cursor := isCursor(x, y)
+			empty := (c.R == 0 || c.R == ' ') && !coloredBg(c, cursor)
 			if !empty {
 				break
 			}
@@ -108,16 +110,18 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 			}
 
 			ru := cell.printableRune()
+			cursor := isCursor(x, y)
 
-			if isCursor(x, y) {
-				sp.ColorFn(offset, TermColor{}, TermColor{}, true)
+			cell2 := effectiveCell(cell, cursor)
+
+			if cursor {
+				sp.ColorFn(offset, cell2.A.Fg, cell2.A.Bg, cell2.A.Inverse)
 
 				if sp.testing && sp.CursorRune != 0 {
 					ru = sp.CursorRune
 				}
 
 			} else {
-				cell2 := cellInverseChecked(cell)
 				sp.ColorFn(offset, cell2.A.Fg, cell2.A.Bg, cell2.A.Inverse)
 			}
 
