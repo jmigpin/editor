@@ -148,7 +148,7 @@ func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) 
 			fg2 = ensureContrastColor(fg2, bg2)
 		}
 		dop := &D4COp{Offset: offset, Fg: fg2}
-		if bgExplicit {
+		if bgExplicit || inverse {
 			dop.Bg = bg2
 		}
 		dop2 := &D4COp{Offset: offset + 1, SetNil: true} // reset
