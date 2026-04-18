@@ -9,7 +9,7 @@ import "time"
 //	g := p.G()
 //	fn := g.And(
 //		g.Token(g.Seq("abc")),
-//		g.Token(g.EOF()),
+//		g.Token(g.Eof()),
 //	)
 type Rules struct {
 	p *Parser
@@ -26,7 +26,6 @@ func (g Rules) Token(fn MFn) MFn     { return g.p.token(fn) }
 func (g Rules) And(fns ...MFn) MFn   { return g.p.and(fns...) }
 func (g Rules) Or(fns ...MFn) MFn    { return g.p.or(fns...) }
 func (g Rules) Optional(fn MFn) MFn  { return g.p.optional(fn) }
-func (g Rules) Opt(fn MFn) MFn       { return g.Optional(fn) }
 func (g Rules) Lookahead(fn MFn) MFn { return g.p.lookahead(fn) }
 func (g Rules) LookbackN(n int, fn MFn) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mLookbackN(pos, n, fn) }
@@ -37,10 +36,11 @@ func (g Rules) NoOp() MFn      { return g.p.mNoOp }
 func (g Rules) NoOp2(fn func() error) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mNoOp2(pos, fn) }
 }
-func (g Rules) Eof() MFn                      { return g.p.mEof }
-func (g Rules) EOF() MFn                      { return g.Eof() }
-func (g Rules) Sof() MFn                      { return g.p.mSof }
-func (g Rules) SOF() MFn                      { return g.Sof() }
+func (g Rules) Eof() MFn { return g.p.mEof }
+
+// Sof matches only at the start of the source.
+func (g Rules) Sof() MFn { return g.p.mSof }
+
 func (g Rules) ByteFn(fn func(byte) bool) MFn { return g.p.byteFn(fn) }
 func (g Rules) ByteFnLoop(fn func(byte) bool) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mByteFnLoop(pos, fn) }
@@ -60,32 +60,28 @@ func (g Rules) NRunes(n int) MFn    { return g.p.nRunes(n) }
 func (g Rules) MaxNRunes(n int) MFn { return g.p.maxNRunes(n) }
 func (g Rules) Seq(s string) MFn    { return g.p.seq(s) }
 func (g Rules) Loop1(fn MFn) MFn    { return g.p.loop1(fn) }
-func (g Rules) Many(fn MFn) MFn     { return g.Loop1(fn) }
 func (g Rules) Loop2(minN, maxN int, fn MFn) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mLoop2(pos, minN, maxN, fn) }
 }
-func (g Rules) Repeat(minN, maxN int, fn MFn) MFn { return g.Loop2(minN, maxN, fn) }
 func (g Rules) LoopSep(optLastSep bool, fn, sepFn MFn) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mLoopSep(pos, optLastSep, fn, sepFn) }
 }
-func (g Rules) ManySep(optLastSep bool, fn, sepFn MFn) MFn { return g.LoopSep(optLastSep, fn, sepFn) }
 func (g Rules) LoopStartEnd(startFn, consumeFn, endFn MFn) MFn {
 	return g.p.loopStartEnd(startFn, consumeFn, endFn)
 }
 func (g Rules) LoopToNLOrEof(esc rune, includeNL bool) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mLoopToNLOrEof(pos, esc, includeNL) }
 }
-func (g Rules) UntilNewlineOrEOF(esc rune, includeNL bool) MFn {
-	return g.LoopToNLOrEof(esc, includeNL)
-}
 func (g Rules) Letter() MFn       { return g.p.mLetter }
 func (g Rules) Digit() MFn        { return g.p.mDigit }
 func (g Rules) DigitNotZero() MFn { return g.p.mDigitNotZero }
 func (g Rules) Digits() MFn       { return g.p.mDigits }
+func (g Rules) Float() MFn        { return g.p.mFloat }
 func (g Rules) Float2(sep rune) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mFloat2(pos, sep) }
 }
 func (g Rules) Integer() MFn             { return g.p.mInteger }
+func (g Rules) Bool() MFn                { return g.p.mBool }
 func (g Rules) Sign() MFn                { return g.p.mSign }
 func (g Rules) HexBytes() MFn            { return g.p.mHexBytes }
 func (g Rules) Space() MFn               { return g.p.mSpace }
@@ -95,10 +91,10 @@ func (g Rules) Newline() MFn             { return g.p.mNewline }
 func (g Rules) EmptyLinesExceptNewline(ignore MFn) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mEmptyLinesExceptNewline(pos, ignore) }
 }
-func (g Rules) SkipEmptyLines(ignore MFn) MFn { return g.EmptyLinesExceptNewline(ignore) }
-func (g Rules) Escape(esc rune) MFn           { return g.p.escape(esc) }
-func (g Rules) AnyExceptNewline() MFn         { return g.p.mAnyExceptNewline }
-func (g Rules) QuotedString1() MFn            { return g.p.mQuotedString1 }
+func (g Rules) Escape(esc rune) MFn   { return g.p.escape(esc) }
+func (g Rules) AnyExceptNewline() MFn { return g.p.mAnyExceptNewline }
+func (g Rules) Identifier() MFn       { return g.p.mIdentifier }
+func (g Rules) QuotedString1() MFn    { return g.p.mQuotedString1 }
 func (g Rules) LineComment1(open string) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mLineComment1(pos, open) }
 }
@@ -132,23 +128,6 @@ func (g Rules) FatalOnError(tag string, fn MFn) MFn {
 	return func(pos Pos) (MPos, error) { return g.p.mFatalOnError(pos, tag, fn) }
 }
 
-func (g Rules) BoolMatch() MFn       { return g.p.mBool }
-func (g Rules) FloatMatch() MFn      { return g.p.mFloat }
-func (g Rules) IntegerMatch() MFn    { return g.p.mInteger }
-func (g Rules) IdentifierMatch() MFn { return g.p.mIdentifier }
-func (g Rules) QuotedStringMatch() MFn {
-	return g.p.mQuotedString1
-}
-
-func (g Rules) Int() VFn[int]                   { return g.VInteger() }
-func (g Rules) Float() VFn[float64]             { return g.VFloat() }
-func (g Rules) Bool() VFn[bool]                 { return g.VBool() }
-func (g Rules) Identifier() VFn[string]         { return g.VIdentifier() }
-func (g Rules) QuotedString() VFn[string]       { return g.VQuotedString1() }
-func (g Rules) Time(fmt string) VFn[time.Time]  { return g.VTime(fmt) }
-func (g Rules) Source(fn MFn) VFn[[]byte]       { return g.VSource(fn) }
-func (g Rules) SourceString(fn MFn) VFn[string] { return g.VSourceStr(fn) }
-
 //----------
 //----------
 //----------
@@ -158,8 +137,6 @@ func VOr[T any](fns ...VFn[T]) VFn[T] {
 		return mvOr(pos, fns...)
 	}
 }
-
-func Choice[T any](fns ...VFn[T]) VFn[T] { return VOr(fns...) }
 
 func VCast[T, U any](fn VFn[U]) VFn[T] {
 	return func(pos Pos) (T, MPos, error) {
@@ -173,17 +150,11 @@ func VAny[T any](fn VFn[T]) VFn[any] {
 	}
 }
 
-func Any(fn VFn[any]) VFn[any]        { return fn }
-func AsAny[T any](fn VFn[T]) VFn[any] { return VAny(fn) }
-func AnyOf(fns ...VFn[any]) VFn[any]  { return Choice(fns...) }
-
 func VToken[T any](p *Parser, fn VFn[T]) VFn[T] {
 	return func(pos Pos) (T, MPos, error) {
 		return mvToken(p, pos, fn)
 	}
 }
-
-func TokenValue[T any](p *Parser, fn VFn[T]) VFn[T] { return VToken(p, fn) }
 
 func Keep[T any](v *T, fn VFn[T]) MFn {
 	return keep(v, fn)

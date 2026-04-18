@@ -18,13 +18,13 @@ func TestParse1(t *testing.T) {
 	p.SetIgnore(g.Spaces())
 
 	_, err := p.Parse(g.And(
-		g.Many(g.Token(g.Or(
+		g.Loop1(g.Token(g.Or(
 			g.Seq("a1"),
 			g.Seq("a2"),
 			g.Seq("a3"),
 			g.Seq("a3a2"),
 		))),
-		g.EOF(),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -43,19 +43,19 @@ func TestParse2(t *testing.T) {
 	_, err := p.Parse(g.And(
 		g.Token(g.Seq("fn1")),
 		g.Token(g.Seq("(")),
-		g.ManySep(true,
+		g.LoopSep(true,
 			g.And(
-				g.Token(g.IdentifierMatch()),
+				g.Token(g.Identifier()),
 				g.Token(g.Seq("=")),
 				g.Token(g.Or(
-					g.FloatMatch(),
-					g.IntegerMatch(),
+					g.Float(),
+					g.Integer(),
 				)),
 			),
 			g.Token(g.Seq(",")),
 		),
 		g.Token(g.Seq(")")),
-		g.Token(g.EOF()),
+		g.Token(g.Eof()),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -73,10 +73,10 @@ func TestInteger1(t *testing.T) {
 	w := []int{}
 
 	_, err := p.Parse(g.And(
-		g.Many(
-			g.Token(Append(&w, g.Int())),
+		g.Loop1(
+			g.Token(Append(&w, g.VInteger())),
 		),
-		g.EOF(),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -98,9 +98,9 @@ func TestRulesNamespace1(t *testing.T) {
 
 	_, err := p.Parse(g.And(
 		g.Loop1(
-			g.Token(Append(&w, g.Int())),
+			g.Token(Append(&w, g.VInteger())),
 		),
-		g.EOF(),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -121,13 +121,13 @@ func TestInteger2(t *testing.T) {
 	w := []any{}
 
 	_, err := p.Parse(g.And(
-		g.Many(g.And(
-			g.Token(Append(&w, AnyOf(
-				AsAny(g.Int()),
-				AsAny(g.SourceString(g.AnyRune())),
+		g.Loop1(g.And(
+			g.Token(Append(&w, VOr(
+				VAny(g.VInteger()),
+				VAny(g.VSourceStr(g.AnyRune())),
 			))),
 		)),
-		g.EOF(),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -148,13 +148,13 @@ func TestFloat1(t *testing.T) {
 	w := []any{}
 
 	_, err := p.Parse(g.And(
-		g.Many(g.And(
-			g.Token(Append(&w, AnyOf(
-				AsAny(g.Float()),
-				AsAny(g.Source(g.AnyRune())),
+		g.Loop1(g.And(
+			g.Token(Append(&w, VOr(
+				VAny(g.VFloat()),
+				VAny(g.VSource(g.AnyRune())),
 			))),
 		)),
-		g.EOF(),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -174,15 +174,15 @@ func TestEscape1(t *testing.T) {
 	w := []any{}
 
 	_, err := p.Parse(g.And(
-		g.Many(g.And(
+		g.Loop1(g.And(
 			g.Token(Append(&w,
-				AnyOf(
-					AsAny(g.SourceString(g.Escape('\\'))),
-					AsAny(g.SourceString(g.AnyRune())),
+				VOr(
+					VAny(g.VSourceStr(g.Escape('\\'))),
+					VAny(g.VSourceStr(g.AnyRune())),
 				)),
 			),
 		)),
-		g.EOF(),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -209,21 +209,21 @@ func TestValues1(t *testing.T) {
 	vDataFn := func(pos Pos) (*Data, MPos, error) {
 		v := Data{}
 		mp, err := g.And(
-			g.Token(Keep(&v.id, g.Identifier())),
+			g.Token(Keep(&v.id, g.VIdentifier())),
 			g.Token(g.Seq("=")),
-			g.Token(Keep(&v.val, AnyOf(
-				VAny(g.Float()),
-				VAny(g.Int()),
-				VAny(g.Bool()),
-				VAny(g.SourceString(g.QuotedString1())),
+			g.Token(Keep(&v.val, VOr(
+				VAny(g.VFloat()),
+				VAny(g.VInteger()),
+				VAny(g.VBool()),
+				VAny(g.VSourceStr(g.QuotedString1())),
 			))),
 		)(pos)
 		return &v, mp, err
 	}
 
 	_, err := p.Parse(g.And(
-		g.Many(Append(&w, vDataFn)),
-		g.EOF(),
+		g.Loop1(Append(&w, vDataFn)),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -257,21 +257,21 @@ func TestRulesSemanticValueNames(t *testing.T) {
 	vDataFn := func(pos Pos) (*Data, MPos, error) {
 		v := Data{}
 		mp, err := g.And(
-			g.Token(Keep(&v.id, g.Identifier())),
+			g.Token(Keep(&v.id, g.VIdentifier())),
 			g.Token(g.Seq("=")),
-			g.Token(Keep(&v.val, AnyOf(
-				VAny(g.Float()),
-				VAny(g.Int()),
-				VAny(g.Bool()),
-				VAny(g.QuotedString()),
+			g.Token(Keep(&v.val, VOr(
+				VAny(g.VFloat()),
+				VAny(g.VInteger()),
+				VAny(g.VBool()),
+				VAny(g.VQuotedString1()),
 			))),
 		)(pos)
 		return &v, mp, err
 	}
 
 	_, err := p.Parse(g.And(
-		g.Many(Append(&w, vDataFn)),
-		g.EOF(),
+		g.Loop1(Append(&w, vDataFn)),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -298,24 +298,24 @@ func TestEmptyLinesWithComments(t *testing.T) {
 	comments := func(pos Pos) (MPos, error) {
 		return g.And(
 			g.Seq("//"),
-			g.UntilNewlineOrEOF(0, false),
+			g.LoopToNLOrEof(0, false),
 		)(pos)
 	}
 
-	p.SetIgnore(g.SkipEmptyLines(g.Or(
+	p.SetIgnore(g.EmptyLinesExceptNewline(g.Or(
 		g.SpacesExceptNewline(),
 		comments,
 	)))
 
 	w := []string{}
 	_, err := p.Parse(g.And(
-		g.Token(Append(&w, g.SourceString(g.Rune('a')))),
+		g.Token(Append(&w, g.VSourceStr(g.Rune('a')))),
 		g.Token(g.Newline()),
-		g.Token(Append(&w, g.SourceString(g.Rune('b')))),
+		g.Token(Append(&w, g.VSourceStr(g.Rune('b')))),
 		g.Token(g.Newline()),
-		g.Token(Append(&w, g.SourceString(g.Rune('c')))),
+		g.Token(Append(&w, g.VSourceStr(g.Rune('c')))),
 		g.Token(g.Newline()),
-		g.Token(g.EOF()),
+		g.Token(g.Eof()),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -335,8 +335,8 @@ func TestLookback(t *testing.T) {
 	str := ""
 	strPos := Pos(0)
 	_, err := p.Parse(g.And(
-		g.Many(g.Or(
-			Keep(&str, g.SourceString(
+		g.Loop1(g.Or(
+			Keep(&str, g.VSourceStr(
 				g.DebugAnd(false, "back",
 					g.And(
 						g.Rune('0'),
@@ -350,7 +350,7 @@ func TestLookback(t *testing.T) {
 			)),
 			g.AnyRune(),
 		)),
-		g.EOF(),
+		g.Eof(),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -371,8 +371,8 @@ func TestTime(t *testing.T) {
 
 	date := time.Time{}
 	_, err := p.Parse(g.And(
-		g.Token(Keep(&date, g.Time("2006/01/02"))),
-		g.Token(g.EOF()),
+		g.Token(Keep(&date, g.VTime("2006/01/02"))),
+		g.Token(g.Eof()),
 	))
 	if err != nil {
 		t.Fatal(err)
@@ -404,8 +404,8 @@ func TestQuotedString(t *testing.T) {
 		g := p.G()
 		v := ""
 		_, err := p.Parse(g.And(
-			Keep(&v, g.QuotedString()),
-			g.EOF(),
+			Keep(&v, g.VQuotedString1()),
+			g.Eof(),
 		))
 		return v, err
 	}
@@ -428,8 +428,8 @@ func TestQuotedString(t *testing.T) {
 
 //	str := ""
 //	_, err := p.Parse(g.And(
-//		g.Many(...),
-//		g.EOF(),
+//		g.Loop1(...),
+//		g.Eof(),
 //	))
 //	if err != nil {
 //		t.Fatal(err)
@@ -452,7 +452,7 @@ func BenchmarkParse1(b *testing.B) {
 	p := NewParser()
 	g := p.G()
 
-	fn := g.Many(g.Or(
+	fn := g.Loop1(g.Or(
 		g.Seq("0"),
 		g.Seq("1"),
 		g.Seq("2"),
