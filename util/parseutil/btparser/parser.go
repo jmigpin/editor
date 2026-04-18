@@ -43,12 +43,17 @@ func (p *Parser) SetSrcFromString(s string) {
 func (p *Parser) Parse(fn MFn) (Pos, error) {
 	mp, err := fn(0)
 	if err != nil {
+		isFatal := IsFatalError(err)
+
 		err = fmt.Errorf("%v: %q", err, p.Snippet(mp))
 
 		mp2 := MPos{p.farthest, p.farthest}
 		if mp != mp2 {
 			err2 := fmt.Errorf("farthest: %q", p.Snippet(mp2))
 			err = errors.Join(err, err2)
+		}
+		if isFatal {
+			err = FatalError(err)
 		}
 
 		return mp.End, err

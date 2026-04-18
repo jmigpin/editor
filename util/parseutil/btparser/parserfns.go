@@ -241,6 +241,9 @@ func (p *Parser) mLoop1(pos Pos, fn MFn) (MPos, error) {
 			}
 			return MPos{p0, pos}, nil
 		} else {
+			if mp.End == pos {
+				return mp, p.loopNoProgressError("mLoop1", pos)
+			}
 			pos = mp.End
 		}
 	}
@@ -259,6 +262,9 @@ func (p *Parser) mLoop2(pos Pos, minN, maxN int, fn MFn) (MPos, error) {
 			}
 			return MPos{p0, pos}, nil
 		} else {
+			if mp.End == pos {
+				return mp, p.loopNoProgressError("mLoop2", pos)
+			}
 			pos = mp.End
 		}
 	}
@@ -274,6 +280,9 @@ func (p *Parser) mLoopSep(pos Pos, optLastSep bool, fn, sepFn MFn) (MPos, error)
 			if mp, err := sepFn(pos); err != nil {
 				return MPos{p0, pos}, nil
 			} else {
+				if mp.End == pos {
+					return mp, p.loopNoProgressError("mLoopSep.sep", pos)
+				}
 				pos = mp.End
 			}
 		}
@@ -290,6 +299,9 @@ func (p *Parser) mLoopSep(pos Pos, optLastSep bool, fn, sepFn MFn) (MPos, error)
 			}
 			return MPos{p0, pos}, nil
 		} else {
+			if mp.End == pos {
+				return mp, p.loopNoProgressError("mLoopSep.fn", pos)
+			}
 			pos = mp.End
 		}
 	}
@@ -308,7 +320,6 @@ func (p *Parser) mLoopStartEnd(pos Pos, startFn, consumeFn, endFn MFn) (MPos, er
 	)
 }
 
-// TODO: can read zero if on eof; inside a loop could give endless loop?
 func (p *Parser) mLoopToNLOrEof(pos Pos, esc rune, includeNL bool) (MPos, error) {
 	nlFn := (MFn)(nil)
 	if includeNL {
@@ -732,4 +743,10 @@ func (p *Parser) mFatalOnError(pos Pos, tag string, fn MFn) (MPos, error) {
 	} else {
 		return mp, nil
 	}
+}
+
+//----------
+
+func (p *Parser) loopNoProgressError(tag string, pos Pos) error {
+	return FatalError2(tag, fmt.Errorf("loop with no progress: %v", p.Snippet(MPos{pos, pos})))
 }

@@ -24,14 +24,8 @@ func (e *fatalError) Unwrap() error {
 
 //----------
 
+// IsFatalError is in the parser hot path, so keep it as a shallow check and preserve fatal wrapping at API boundaries.
 func IsFatalError(err error) bool {
 	_, ok := err.(*fatalError)
 	return ok
-
-	//// slow
-	//e := &fatalError{}
-	//if errors.As(err, &e) {
-	//	return true
-	//}
-	//return false
 }

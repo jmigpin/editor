@@ -325,6 +325,110 @@ func TestEmptyLinesWithComments(t *testing.T) {
 	}
 }
 
+func TestLoopToNLOrEofAtEOF(t *testing.T) {
+	tests := []struct {
+		name      string
+		src       string
+		includeNL bool
+		want      string
+		wantErr   bool
+	}{
+		{"empty_exclude_nl", "", false, "", false},
+		{"empty_include_nl", "", true, "", false},
+		{"line_exclude_nl", "abc", false, "abc", false},
+		{"line_include_nl", "abc", true, "abc", false},
+		{"newline_exclude_nl", "\n", false, "", true},
+		{"newline_include_nl", "\n", true, "\n", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewParser()
+			p.SetSrcFromString(tt.src)
+			g := p.G()
+
+			got := ""
+			_, err := p.Parse(g.And(
+				Keep(&got, g.VSourceStr(g.LoopToNLOrEof(0, tt.includeNL))),
+				g.Eof(),
+			))
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoop1NoProgress(t *testing.T) {
+	p := NewParser()
+	p.SetSrcFromString("abc")
+	g := p.G()
+
+	_, err := p.Parse(g.Loop1(g.NoOp()))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !IsFatalError(err) {
+		t.Fatalf("expected fatal error: %v", err)
+	}
+	if err.Error() == "" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLoop2NoProgress(t *testing.T) {
+	p := NewParser()
+	p.SetSrcFromString("abc")
+	g := p.G()
+
+	_, err := p.Parse(g.Loop2(0, -1, g.NoOp()))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !IsFatalError(err) {
+		t.Fatalf("expected fatal error: %v", err)
+	}
+}
+
+func TestLoopSepNoProgress(t *testing.T) {
+	t.Run("sep", func(t *testing.T) {
+		p := NewParser()
+		p.SetSrcFromString("abc")
+		g := p.G()
+
+		_, err := p.Parse(g.LoopSep(true, g.AnyRune(), g.NoOp()))
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if !IsFatalError(err) {
+			t.Fatalf("expected fatal error: %v", err)
+		}
+	})
+
+	t.Run("elem", func(t *testing.T) {
+		p := NewParser()
+		p.SetSrcFromString("abc")
+		g := p.G()
+
+		_, err := p.Parse(g.LoopSep(true, g.NoOp(), g.Rune(',')))
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if !IsFatalError(err) {
+			t.Fatalf("expected fatal error: %v", err)
+		}
+	})
+}
+
 func TestLookback(t *testing.T) {
 	src := "--ab0--cd0--"
 
