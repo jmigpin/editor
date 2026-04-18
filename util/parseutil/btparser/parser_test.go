@@ -490,3 +490,52 @@ func BenchmarkParse1(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkParse1Bytes(b *testing.B) {
+	s := "0123456789"
+	for i := 0; i < 7; i++ {
+		s += s
+	}
+	src := []byte(s)
+
+	p := NewParser()
+	g := p.G()
+
+	fn := g.Loop1(g.Or(
+		g.Seq("0"),
+		g.Seq("1"),
+		g.Seq("2"),
+		//g.Seq("3"), // commented: force accepting at the end
+		g.Seq("4"),
+		g.Seq("5"),
+		g.Seq("6"),
+		g.Seq("7"),
+		g.Seq("8"),
+		//g.Seq("9"),
+		g.Seq("a"),
+		g.Seq("b"),
+		g.Seq("c"),
+		g.Seq("d"),
+		g.Seq("e"),
+		g.Seq("f"),
+
+		g.Seq("a12345"),
+		g.Seq("b12345"),
+		g.Seq("c12345"),
+		g.Seq("d12345"),
+
+		g.AnyRune(),
+	))
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		p.SetSrc(src)
+		p2, err := p.Parse(fn)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if p2 != 1280 {
+			b.Fatal(p2)
+		}
+	}
+}
