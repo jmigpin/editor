@@ -209,9 +209,9 @@ func TestValues1(t *testing.T) {
 	vDataFn := func(pos Pos) (*Data, MPos, error) {
 		v := Data{}
 		mp, err := g.And(
-			g.Token(Keep(&v.id, g.VIdentifier())),
+			g.Token(Assign(&v.id, g.VIdentifier())),
 			g.Token(g.Seq("=")),
-			g.Token(Keep(&v.val, VOr(
+			g.Token(Assign(&v.val, VOr(
 				VAny(g.VFloat()),
 				VAny(g.VInteger()),
 				VAny(g.VBool()),
@@ -257,9 +257,9 @@ func TestRulesSemanticValueNames(t *testing.T) {
 	vDataFn := func(pos Pos) (*Data, MPos, error) {
 		v := Data{}
 		mp, err := g.And(
-			g.Token(Keep(&v.id, g.VIdentifier())),
+			g.Token(Assign(&v.id, g.VIdentifier())),
 			g.Token(g.Seq("=")),
-			g.Token(Keep(&v.val, VOr(
+			g.Token(Assign(&v.val, VOr(
 				VAny(g.VFloat()),
 				VAny(g.VInteger()),
 				VAny(g.VBool()),
@@ -349,7 +349,7 @@ func TestLoopToNLOrEofAtEOF(t *testing.T) {
 
 			got := ""
 			_, err := p.Parse(g.And(
-				Keep(&got, g.VSourceStr(g.LoopToNLOrEof(0, tt.includeNL))),
+				Assign(&got, g.VSourceStr(g.LoopToNLOrEof(0, tt.includeNL))),
 				g.Eof(),
 			))
 			if tt.wantErr {
@@ -440,7 +440,7 @@ func TestLookback(t *testing.T) {
 	strPos := Pos(0)
 	_, err := p.Parse(g.And(
 		g.Loop1(g.Or(
-			Keep(&str, g.VSourceStr(
+			Assign(&str, g.VSourceStr(
 				g.DebugAnd(false, "back",
 					g.And(
 						g.Rune('0'),
@@ -475,7 +475,7 @@ func TestTime(t *testing.T) {
 
 	date := time.Time{}
 	_, err := p.Parse(g.And(
-		g.Token(Keep(&date, g.VTime("2006/01/02"))),
+		g.Token(Assign(&date, g.VTime("2006/01/02"))),
 		g.Token(g.Eof()),
 	))
 	if err != nil {
@@ -508,7 +508,7 @@ func TestQuotedString(t *testing.T) {
 		g := p.G()
 		v := ""
 		_, err := p.Parse(g.And(
-			Keep(&v, g.VQuotedString1()),
+			Assign(&v, g.VQuotedString1()),
 			g.Eof(),
 		))
 		return v, err

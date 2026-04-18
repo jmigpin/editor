@@ -124,6 +124,6 @@ func (p *Parser) escape(esc rune) MFn {
 
 func keep[T any](v *T, fn VFn[T]) MFn {
 	return func(pos Pos) (MPos, error) {
-		return mKeep(pos, v, fn)
+		return mAssign(pos, v, fn)
 	}
 }

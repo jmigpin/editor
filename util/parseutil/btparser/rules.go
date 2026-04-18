@@ -132,6 +132,15 @@ func (g Rules) FatalOnError(tag string, fn MFn) MFn {
 //----------
 //----------
 
+type MapEntry[K comparable, V any] struct {
+	Key   K
+	Value V
+}
+
+//----------
+//----------
+//----------
+
 func VOr[T any](fns ...VFn[T]) VFn[T] {
 	return func(pos Pos) (T, MPos, error) {
 		return mvOr(pos, fns...)
@@ -150,25 +159,37 @@ func VAny[T any](fn VFn[T]) VFn[any] {
 	}
 }
 
+func VConst[T any](fn MFn, v T) VFn[T] {
+	return func(pos Pos) (T, MPos, error) {
+		return mvConst(pos, fn, v)
+	}
+}
+
 func VToken[T any](p *Parser, fn VFn[T]) VFn[T] {
 	return func(pos Pos) (T, MPos, error) {
 		return mvToken(p, pos, fn)
 	}
 }
 
-func Keep[T any](v *T, fn VFn[T]) MFn {
+func Assign[T any](v *T, fn VFn[T]) MFn {
 	return keep(v, fn)
 }
 
-func Keep2[T any](v **T, fn VFn[T]) MFn {
+func Assign2[T any](v **T, fn VFn[T]) MFn {
 	return func(pos Pos) (MPos, error) {
-		return mKeep2(pos, v, fn)
+		return mAssign2(pos, v, fn)
 	}
 }
 
 func Append[T any](w *[]T, fn VFn[T]) MFn {
 	return func(pos Pos) (MPos, error) {
 		return mAppend(pos, w, fn)
+	}
+}
+
+func SetMapEntry[K comparable, V any](m *map[K]V, fn VFn[MapEntry[K, V]]) MFn {
+	return func(pos Pos) (MPos, error) {
+		return mSetMapEntry(pos, m, fn)
 	}
 }
 

@@ -672,6 +672,15 @@ func mvAny[T any](pos Pos, fn VFn[T]) (any, MPos, error) {
 	return mvCast[any, T](pos, fn)
 }
 
+func mvConst[T any](pos Pos, fn MFn, v T) (T, MPos, error) {
+	if mp, err := fn(pos); err != nil {
+		var zero T
+		return zero, mp, err
+	} else {
+		return v, mp, nil
+	}
+}
+
 // ex: useful in the case of MVTime (doesn't have a MTime)
 func mvToken[T any](p *Parser, pos Pos, fn VFn[T]) (T, MPos, error) {
 	var v T
@@ -681,13 +690,13 @@ func mvToken[T any](p *Parser, pos Pos, fn VFn[T]) (T, MPos, error) {
 
 //----------
 
-func mKeep[T any](pos Pos, v *T, fn VFn[T]) (MPos, error) {
+func mAssign[T any](pos Pos, v *T, fn VFn[T]) (MPos, error) {
 	return mHandleVFn(pos, fn, func(v2 T) error {
 		*v = v2
 		return nil
 	})
 }
-func mKeep2[T any](pos Pos, v **T, fn VFn[T]) (MPos, error) {
+func mAssign2[T any](pos Pos, v **T, fn VFn[T]) (MPos, error) {
 	return mHandleVFn(pos, fn, func(v2 T) error {
 		*v = new(T)
 		**v = v2
@@ -701,6 +710,14 @@ func mAppend[T any](pos Pos, w *[]T, fn VFn[T]) (MPos, error) {
 		return nil
 	})
 }
+
+func mSetMapEntry[K comparable, V any](pos Pos, m *map[K]V, fn VFn[MapEntry[K, V]]) (MPos, error) {
+	return mHandleVFn(pos, fn, func(v MapEntry[K, V]) error {
+		(*m)[v.Key] = v.Value
+		return nil
+	})
+}
+
 func mvAppend[T any](pos Pos, fn VFn[T]) ([]T, MPos, error) {
 	w := []T{}
 	mp, err := mAppend(pos, &w, fn)
