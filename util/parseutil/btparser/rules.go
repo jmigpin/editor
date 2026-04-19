@@ -22,7 +22,11 @@ func (g *Rules) SetIgnore(fn MFn) {
 }
 
 func (g Rules) Parse(ps *ParserState, fn MFn) (Pos, error) {
-	mp, err := fn(ps, 0)
+	return g.ParseAt(ps, 0, fn)
+}
+
+func (g Rules) ParseAt(ps *ParserState, pos Pos, fn MFn) (Pos, error) {
+	mp, err := fn(ps, pos)
 	if err != nil {
 		isFatal := IsFatalError(err)
 
@@ -92,11 +96,12 @@ func (g Rules) ContainsRune2(rus []rune) MFn {
 		return mContainsRune2(ps, pos, rus)
 	}
 }
-func (g Rules) AnyRune() MFn        { return mAnyRune }
-func (g Rules) NRunes(n int) MFn    { return nRunes(n) }
-func (g Rules) MaxNRunes(n int) MFn { return maxNRunes(n) }
-func (g Rules) Seq(s string) MFn    { return seq(s) }
-func (g Rules) Loop1(fn MFn) MFn    { return loop1(fn) }
+func (g Rules) AnyRune() MFn          { return mAnyRune }
+func (g Rules) NRunes(n int) MFn      { return nRunes(n) }
+func (g Rules) MaxNRunes(n int) MFn   { return maxNRunes(n) }
+func (g Rules) Seq(s string) MFn      { return seq(s) }
+func (g Rules) SeqOrMid(s string) MFn { return seqOrMid(s) }
+func (g Rules) Loop1(fn MFn) MFn      { return loop1(fn) }
 func (g Rules) Loop2(minN, maxN int, fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mLoop2(ps, pos, minN, maxN, fn)

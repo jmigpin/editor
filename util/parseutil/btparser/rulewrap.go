@@ -98,6 +98,12 @@ func seq(s string) MFn {
 	}
 }
 
+func seqOrMid(s string) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSeqOrMid(ps, pos, s)
+	}
+}
+
 func loop1(fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mLoop1(ps, pos, fn)

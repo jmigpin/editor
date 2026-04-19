@@ -253,6 +253,24 @@ func mSeq(ps *ParserState, pos Pos, s string) (MPos, error) {
 	return MPos{p0, pos}, nil
 }
 
+func mSeqOrMid(ps *ParserState, pos Pos, s string) (MPos, error) {
+	for p0 := pos; ; {
+		if mp, err := mSeq(ps, p0, s); err == nil {
+			return mp, nil
+		}
+
+		if p0 == 0 {
+			break
+		}
+		_, mp, err := mvLastRune(ps, p0)
+		if err != nil {
+			break
+		}
+		p0 = mp.Start
+	}
+	return MPos{pos, pos}, NoMatchErr
+}
+
 //----------
 
 func mLoop1(ps *ParserState, pos Pos, fn MFn) (MPos, error) {

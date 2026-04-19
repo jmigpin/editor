@@ -623,3 +623,16 @@ func BenchmarkParse1Bytes(b *testing.B) {
 		}
 	}
 }
+
+func TestSeqOrMid(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("a.txt, line 10")
+
+	p2, err := g.ParseAt(ps, Pos(len("a.txt, li")), g.SeqOrMid(", line "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2 != Pos(len("a.txt, line ")) {
+		t.Fatalf("got=%v, want=%v", p2, len("a.txt, line "))
+	}
+}
