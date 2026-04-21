@@ -16,6 +16,9 @@ func Debug2(fn func()) MFn {
 //----------
 
 func BytesSnippet(src []byte, mp MPos, pad int) string {
+	start, end := mp.Bounds()
+	mp = MPos{Start: start, End: end}
+
 	// pad n in each direction for error string
 	i1 := max(mp.Start-Pos(pad), 0)
 	i2 := min(mp.End+Pos(pad), Pos(len(src)))

@@ -5,6 +5,9 @@ import "fmt"
 type ParserState struct {
 	src []byte
 
+	UserData   any
+	parseStart Pos
+
 	tokenC int
 	ignore struct {
 		c     int // recursive call count (avoid loops)
@@ -27,7 +30,8 @@ func NewParserStateFromString(s string) *ParserState {
 }
 
 func (ps *ParserState) Source(mp MPos) []byte {
-	return ps.src[mp.Start:mp.End]
+	start, end := mp.Bounds()
+	return ps.src[start:end]
 }
 
 func (ps *ParserState) SourceStr(mp MPos) string {
@@ -47,6 +51,13 @@ type Pos int
 type MPos struct { // match pos
 	Start Pos
 	End   Pos
+}
+
+func (mp MPos) Bounds() (Pos, Pos) {
+	if mp.Start <= mp.End {
+		return mp.Start, mp.End
+	}
+	return mp.End, mp.Start
 }
 
 //----------

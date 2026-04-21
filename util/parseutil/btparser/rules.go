@@ -26,6 +26,7 @@ func (g Rules) Parse(ps *ParserState, fn MFn) (Pos, error) {
 }
 
 func (g Rules) ParseAt(ps *ParserState, pos Pos, fn MFn) (Pos, error) {
+	ps.parseStart = pos
 	mp, err := fn(ps, pos)
 	if err != nil {
 		isFatal := IsFatalError(err)
@@ -46,22 +47,34 @@ func (g Rules) ParseAt(ps *ParserState, pos Pos, fn MFn) (Pos, error) {
 	return mp.End, nil
 }
 
-func (g Rules) VByte() VFn[byte]     { return vByte() }
-func (g Rules) VRune() VFn[rune]     { return vRune() }
-func (g Rules) VLastRune() VFn[rune] { return vLastRune() }
-func (g Rules) Token(fn MFn) MFn     { return token(g.ignore, fn) }
-func (g Rules) And(fns ...MFn) MFn   { return and(fns...) }
-func (g Rules) Or(fns ...MFn) MFn    { return or(fns...) }
-func (g Rules) Optional(fn MFn) MFn  { return optional(fn) }
-func (g Rules) Lookahead(fn MFn) MFn { return lookahead(fn) }
-func (g Rules) LookbackN(n int, fn MFn) MFn {
+func (g Rules) VByte() VFn[byte]          { return vByte() }
+func (g Rules) VRune() VFn[rune]          { return vRune() }
+func (g Rules) VLastRune() VFn[rune]      { return vLastRune() }
+func (g Rules) Token(fn MFn) MFn          { return token(g.ignore, fn) }
+func (g Rules) And(fns ...MFn) MFn        { return and(fns...) }
+func (g Rules) ReverseAnd(fns ...MFn) MFn { return reverseAnd(fns...) }
+func (g Rules) Or(fns ...MFn) MFn         { return or(fns...) }
+func (g Rules) Optional(fn MFn) MFn       { return optional(fn) }
+func (g Rules) Peek(fn MFn) MFn           { return peek(fn) }
+func (g Rules) LimitSource(back, forward int, fn MFn) MFn {
+	return limitSource(back, forward, fn)
+}
+func (g Rules) ReverseSrc(fn MFn) MFn {
+	return reverseSrc(fn)
+}
+func (g Rules) PeekBackN(n int, fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLookbackN(ps, pos, n, fn)
+		return mPeekBackN(ps, pos, n, fn)
 	}
 }
 func (g Rules) Not(fn MFn) MFn { return not(fn) }
 func (g Rules) Fail() MFn      { return mFail }
 func (g Rules) NoOp() MFn      { return mNoOp }
+func (g Rules) IsTrue(v bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mIsTrue(ps, pos, v)
+	}
+}
 func (g Rules) NoOp2(fn func() error) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mNoOp2(ps, pos, fn)
@@ -71,6 +84,9 @@ func (g Rules) Eof() MFn { return mEof }
 
 // Sof matches only at the start of the source.
 func (g Rules) Sof() MFn { return mSof }
+
+// Sop matches only at the start position of the current parse.
+func (g Rules) Sop() MFn { return mSop }
 
 func (g Rules) ByteFn(fn func(byte) bool) MFn { return byteFn(fn) }
 func (g Rules) ByteFnLoop(fn func(byte) bool) MFn {
@@ -86,15 +102,9 @@ func (g Rules) Byte(b byte) MFn {
 func (g Rules) RuneFn(fn func(rune) bool) MFn     { return runeFn(fn) }
 func (g Rules) RuneFnLoop(fn func(rune) bool) MFn { return runeFnLoop(fn) }
 func (g Rules) Rune(ru rune) MFn                  { return rune1(ru) }
-func (g Rules) ContainsRune(s string) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mContainsRune(ps, pos, s)
-	}
-}
-func (g Rules) ContainsRune2(rus []rune) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mContainsRune2(ps, pos, rus)
-	}
+func (g Rules) RuneAnyOf(rus ...rune) MFn         { return runeAnyOf(rus...) }
+func (g Rules) RuneAnyOfString(s string) MFn {
+	return runeAnyOf([]rune(s)...)
 }
 func (g Rules) AnyRune() MFn          { return mAnyRune }
 func (g Rules) NRunes(n int) MFn      { return nRunes(n) }
@@ -238,7 +248,7 @@ func VToken[T any](g Rules, fn VFn[T]) VFn[T] {
 }
 
 func Assign[T any](v *T, fn VFn[T]) MFn {
-	return keep(v, fn)
+	return assign(v, fn)
 }
 
 func Assign2[T any](v **T, fn VFn[T]) MFn {

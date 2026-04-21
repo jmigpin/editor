@@ -122,14 +122,14 @@ func mOptional(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 		return mp, nil
 	}
 }
-func mLookahead(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
+func mPeek(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 	if mp, err := fn(ps, pos); err != nil {
 		return mp, err
 	} else {
 		return MPos{pos, pos}, nil // stay in same pos
 	}
 }
-func mLookbackN(ps *ParserState, pos Pos, n int, fn MFn) (MPos, error) {
+func mPeekBackN(ps *ParserState, pos Pos, n int, fn MFn) (MPos, error) {
 	p2 := pos - Pos(n)
 	if p2 < 0 {
 		return MPos{pos, pos}, NoMatchErr
@@ -138,6 +138,25 @@ func mLookbackN(ps *ParserState, pos Pos, n int, fn MFn) (MPos, error) {
 		return mp, err
 	}
 	return MPos{pos, pos}, nil // stay in same pos
+}
+func mLimitSource(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
+	start := max(0, pos-Pos(back))
+	end := min(pos+Pos(forward), Pos(len(ps.src)))
+	return mSourceBounds(ps, pos, start, end, fn)
+}
+func mReverseSrc(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
+	rev := reverseSrcBytes(ps.src)
+	parsePos := Pos(len(rev)) - pos
+
+	ps2 := NewParserStateFromBytes(rev)
+	ps2.UserData = ps.UserData
+	ps2.parseStart = parsePos
+
+	mp, err := fn(ps2, parsePos)
+	if err != nil {
+		return reverseSrcMPos(Pos(len(ps.src)), mp), err
+	}
+	return reverseSrcMPos(Pos(len(ps.src)), mp), nil
 }
 
 //----------
@@ -155,6 +174,12 @@ func mFail(ps *ParserState, pos Pos) (MPos, error) {
 func mNoOp(ps *ParserState, pos Pos) (MPos, error) {
 	return MPos{pos, pos}, nil
 }
+func mIsTrue(ps *ParserState, pos Pos, v bool) (MPos, error) {
+	if !v {
+		return MPos{pos, pos}, NoMatchErr
+	}
+	return MPos{pos, pos}, nil
+}
 func mNoOp2(ps *ParserState, pos Pos, fn func() error) (MPos, error) {
 	return MPos{pos, pos}, fn()
 }
@@ -169,6 +194,13 @@ func mEof(ps *ParserState, pos Pos) (MPos, error) {
 // start-of-file
 func mSof(ps *ParserState, pos Pos) (MPos, error) {
 	if pos == 0 {
+		return MPos{pos, pos}, nil
+	}
+	return MPos{pos, pos}, NoMatchErr
+}
+
+func mSop(ps *ParserState, pos Pos) (MPos, error) {
+	if pos == ps.parseStart {
 		return MPos{pos, pos}, nil
 	}
 	return MPos{pos, pos}, NoMatchErr
@@ -273,6 +305,35 @@ func mSeqOrMid(ps *ParserState, pos Pos, s string) (MPos, error) {
 
 //----------
 
+func mSourceBounds(ps *ParserState, pos, start, end Pos, fn MFn) (MPos, error) {
+	src := ps.src
+	ps.src = ps.src[start:end]
+	defer func() { ps.src = src }()
+	mp, err := fn(ps, pos-start)
+	return limitSourceMPos(start, mp, err)
+}
+
+func limitSourceMPos(offset Pos, mp MPos, err error) (MPos, error) {
+	mp.Start += offset
+	mp.End += offset
+	return mp, err
+}
+
+func reverseSrcBytes(src []byte) []byte {
+	rs := []rune(string(src))
+	slices.Reverse(rs)
+	return []byte(string(rs))
+}
+
+func reverseSrcMPos(pos Pos, mp MPos) MPos {
+	return MPos{
+		Start: pos - mp.Start,
+		End:   pos - mp.End,
+	}
+}
+
+//----------
+
 func mLoop1(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 	p0 := pos
 	for k := 0; ; k++ {
@@ -369,7 +430,7 @@ func mLoopToNLOrEof(ps *ParserState, pos Pos, esc rune, includeNL bool) (MPos, e
 	if includeNL {
 		nlFn = mNewline
 	} else {
-		nlFn = lookahead(mNewline)
+		nlFn = peek(mNewline)
 	}
 	return mLoopStartEnd(ps, pos,
 		nil,
@@ -443,7 +504,7 @@ func mInteger(ps *ParserState, pos Pos) (MPos, error) {
 		// just zero
 		and(
 			rune1('0'),
-			lookahead(not(mDigits)),
+			peek(not(mDigits)),
 		),
 	)
 }
@@ -538,7 +599,7 @@ func mEmptyLinesExceptNewline(ps *ParserState, pos Pos, ignore MFn) (MPos, error
 			and(
 				mNewline,
 				optional(ignores),
-				lookahead(mNewline),
+				peek(mNewline),
 			),
 		)),
 	)
@@ -596,7 +657,7 @@ func mSection(ps *ParserState, pos Pos,
 	}
 	if newlineCloses {
 		closeFn = or(
-			lookahead(rune1('\n')), // don't consume
+			peek(rune1('\n')), // don't consume
 			closeFn,
 		)
 	}
@@ -728,7 +789,7 @@ func mvConst[T any](ps *ParserState, pos Pos, fn MFn, v T) (T, MPos, error) {
 // ex: useful in the case of MVTime (doesn't have a MTime)
 func mvToken[T any](g Rules, ps *ParserState, pos Pos, fn VFn[T]) (T, MPos, error) {
 	var v T
-	mp, err := mToken(ps, pos, g.ignore, keep(&v, fn))
+	mp, err := mToken(ps, pos, g.ignore, assign(&v, fn))
 	return v, mp, err
 }
 

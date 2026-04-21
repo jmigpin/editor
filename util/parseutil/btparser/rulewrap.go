@@ -32,6 +32,14 @@ func and(fns ...MFn) MFn {
 	}
 }
 
+func reverseAnd(fns ...MFn) MFn {
+	r := make([]MFn, len(fns))
+	for i := range fns {
+		r[i] = fns[len(fns)-1-i]
+	}
+	return and(r...)
+}
+
 func or(fns ...MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mOr(ps, pos, fns...)
@@ -44,9 +52,21 @@ func optional(fn MFn) MFn {
 	}
 }
 
-func lookahead(fn MFn) MFn {
+func peek(fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLookahead(ps, pos, fn)
+		return mPeek(ps, pos, fn)
+	}
+}
+
+func limitSource(back, forward int, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLimitSource(ps, pos, back, forward, fn)
+	}
+}
+
+func reverseSrc(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mReverseSrc(ps, pos, fn)
 	}
 }
 
@@ -77,6 +97,23 @@ func runeFnLoop(fn func(rune) bool) MFn {
 func rune1(ru rune) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mRune(ps, pos, ru)
+	}
+}
+
+func runeAnyOf(rus ...rune) MFn {
+	m := map[rune]struct{}{}
+	for _, ru := range rus {
+		m[ru] = struct{}{}
+	}
+	return runeInMap(m)
+}
+
+func runeInMap(m map[rune]struct{}) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, func(ru rune) bool {
+			_, ok := m[ru]
+			return ok
+		})
 	}
 }
 
@@ -128,7 +165,7 @@ func escape(esc rune) MFn {
 	}
 }
 
-func keep[T any](v *T, fn VFn[T]) MFn {
+func assign[T any](v *T, fn VFn[T]) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mAssign(ps, pos, v, fn)
 	}

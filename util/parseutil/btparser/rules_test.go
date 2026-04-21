@@ -414,6 +414,154 @@ func TestLoopSepNoProgress(t *testing.T) {
 	})
 }
 
+func TestSop(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("abc")
+
+	p2, err := g.ParseAt(ps, 1, g.And(
+		g.Sop(),
+		g.Rune('b'),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2 != 2 {
+		t.Fatalf("got=%v, want=%v", p2, 2)
+	}
+
+	_, err = g.ParseAt(ps, 1, g.And(
+		g.Rune('b'),
+		g.Sop(),
+	))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestReverseAnd(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("abc")
+
+	p2, err := g.Parse(ps, g.ReverseAnd(
+		g.Rune('c'),
+		g.Rune('b'),
+		g.Rune('a'),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2 != 3 {
+		t.Fatalf("got=%v, want=%v", p2, 3)
+	}
+}
+
+func TestReverseSrc(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("ab界de")
+	pos := Pos(len("ab界"))
+
+	p2, err := g.ParseAt(ps, pos, g.ReverseSrc(g.Seq("界ba")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2 != 0 {
+		t.Fatalf("got=%v, want=%v", p2, 0)
+	}
+
+	mp, err := g.ReverseSrc(g.Seq("界ba"))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "ab界" {
+		t.Fatalf("got=%q, want=%q", got, "ab界")
+	}
+
+	ps = NewParserStateFromString("界xçde")
+	pos = Pos(len("界xç"))
+	mp, err = g.ReverseSrc(g.Seq("çx"))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "xç" {
+		t.Fatalf("got=%q, want=%q", got, "xç")
+	}
+
+	ps = NewParserStateFromString("ab界de")
+	pos = Pos(len("ab"))
+	mp, err = g.LimitSource(2, 0, g.ReverseSrc(g.Seq("ba")))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "ab" {
+		t.Fatalf("got=%q, want=%q", got, "ab")
+	}
+
+	ps = NewParserStateFromString("abcd")
+	pos = Pos(len("ab"))
+	mp, err = g.LimitSource(2, 2, g.ReverseSrc(g.And(
+		g.PeekBackN(2, g.Seq("dc")),
+		g.Seq("ba"),
+	)))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "ab" {
+		t.Fatalf("got=%q, want=%q", got, "ab")
+	}
+}
+
+func TestLimitSource(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("a界bc")
+
+	p2, err := g.Parse(ps, g.LimitSource(0, len("a界"), g.Seq("a界")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2 != Pos(len("a界")) {
+		t.Fatalf("got=%v, want=%v", p2, len("a界"))
+	}
+
+	_, err = g.Parse(ps, g.LimitSource(0, len("a界"), g.Seq("a界b")))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	ps = NewParserStateFromString("ab界cd")
+	pos := Pos(len("a"))
+	mp, err := g.LimitSource(1, len("b界c"), g.Seq("b界c"))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "b界c" {
+		t.Fatalf("got=%q, want=%q", got, "b界c")
+	}
+}
+
+func TestIsTrue(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("abc")
+
+	p2, err := g.Parse(ps, g.And(
+		g.IsTrue(true),
+		g.Rune('a'),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2 != 1 {
+		t.Fatalf("got=%v, want=%v", p2, 1)
+	}
+
+	_, err = g.Parse(ps, g.And(
+		g.IsTrue(false),
+		g.Rune('a'),
+	))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestLookback(t *testing.T) {
 	src := "--ab0--cd0--"
 
@@ -428,7 +576,7 @@ func TestLookback(t *testing.T) {
 				g.DebugAnd(false, "back",
 					g.And(
 						g.Rune('0'),
-						g.LookbackN(2+1, g.Seq("cd")),
+						g.PeekBackN(2+1, g.Seq("cd")),
 						func(ps *ParserState, pos Pos) (MPos, error) {
 							strPos = pos - 1
 							return MPos{pos, pos}, nil
@@ -634,5 +782,21 @@ func TestSeqOrMid(t *testing.T) {
 	}
 	if p2 != Pos(len("a.txt, line ")) {
 		t.Fatalf("got=%v, want=%v", p2, len("a.txt, line "))
+	}
+}
+
+func TestRuneAnyOf(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("/")
+
+	p2, err := g.Parse(ps, g.And(
+		g.RuneAnyOf('/', '/', 0),
+		g.Eof(),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2 != 1 {
+		t.Fatalf("got=%v, want=%v", p2, 1)
 	}
 }
