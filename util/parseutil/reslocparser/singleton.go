@@ -36,28 +36,36 @@ func ParseResLoc2(rd iorw.ReaderAt, index int) (*ResLoc, error) {
 //----------
 
 // reslocparser singleton
+type resLocParser interface {
+	Parse(src []byte, index int) (*ResLoc, error)
+}
+
 var rlps struct {
 	once sync.Once
-	p    *ResLocParser
+	p    resLocParser
 	err  error
 }
 
-func getResLocParser() (*ResLocParser, error) {
+func getResLocParser() (resLocParser, error) {
 	rlps.once.Do(func() {
 		rlps.p, rlps.err = newResLocParserSingletonInstance()
 	})
 	return rlps.p, rlps.err
 }
-func newResLocParserSingletonInstance() (*ResLocParser, error) {
-	rlp := NewResLocParser()
+func newResLocParserSingletonInstance() (resLocParser, error) {
+	escape := rune(osutil.EscapeRune)
+	pathSep := rune(os.PathSeparator)
+	parseVolume := runtime.GOOS == "windows"
 
-	rlp.PathSeparator = rune(os.PathSeparator)
-	rlp.Escape = rune(osutil.EscapeRune)
-	rlp.ParseVolume = runtime.GOOS == "windows"
+	return NewResLocParser2(escape, pathSep, parseVolume), nil
 
-	rlp.Init()
-
-	return rlp, nil
+	// Use this block to switch back to the previous pscan-based parser.
+	//rlp := NewResLocParser()
+	//rlp.PathSeparator = pathSep
+	//rlp.Escape = escape
+	//rlp.ParseVolume = parseVolume
+	//rlp.Init()
+	//return rlp, nil
 }
 
 //----------

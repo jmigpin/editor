@@ -7,17 +7,19 @@ import (
 )
 
 type ReverseScan struct {
-	g       btparser.Rules
-	fn      btparser.MFn
-	escape  rune
-	pathSep rune
+	g           btparser.Rules
+	fn          btparser.MFn
+	escape      rune
+	pathSep     rune
+	parseVolume bool
 }
 
-func NewReverseScanResLoc(escape, pathSep rune) *ReverseScan {
+func NewReverseScanResLoc(escape, pathSep rune, parseVolume bool) *ReverseScan {
 	rs := &ReverseScan{}
 	rs.g = btparser.NewRules()
 	rs.escape = escape
 	rs.pathSep = pathSep
+	rs.parseVolume = parseVolume
 	rs.init()
 	return rs
 }
@@ -67,7 +69,10 @@ func (rs *ReverseScan) init() {
 		))
 	}
 
-	revVolume := g.ReverseAnd(g.Letter(), g.Rune(':'))
+	revVolume := g.And(
+		g.IsTrue(rs.parseVolume),
+		g.ReverseAnd(g.Letter(), g.Rune(':')),
+	)
 	revFileScheme := g.ReverseAnd(
 		g.SeqOrMid(revStr(fileSchemeTag)),
 		g.Optional(g.RuneAnyOf(pathSeps...)),

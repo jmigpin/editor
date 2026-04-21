@@ -15,7 +15,7 @@ func TestReverseString(t *testing.T) {
 }
 
 func TestReverseScanParse(t *testing.T) {
-	rs := NewReverseScanResLoc('\\', '/')
+	rs := NewReverseScanResLoc('\\', '/', false)
 
 	tests := []struct {
 		in     string
@@ -52,7 +52,7 @@ func TestReverseScanParse(t *testing.T) {
 }
 
 func TestReverseScanParseOnEscapeRune(t *testing.T) {
-	rs := NewReverseScanResLoc('\\', '/')
+	rs := NewReverseScanResLoc('\\', '/', false)
 
 	tests := []struct {
 		in   string

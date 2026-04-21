@@ -188,7 +188,7 @@ func NewResLocParser2(escape, pathSeparator rune, parseVolume bool) *ResLocParse
 		// TODO: git diff
 	)
 
-	p.rs = NewReverseScanResLoc(escape, pathSeparator)
+	p.rs = NewReverseScanResLoc(escape, pathSeparator, parseVolume)
 	//p.scn = newCoverIndexScan(p.g, p.fn)
 
 	return p
