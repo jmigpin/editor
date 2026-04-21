@@ -59,7 +59,7 @@ func (p *ResLocParser) Init() {
 	//----------
 
 	nameSyms := func(except ...rune) MFn {
-		rs := nameRunes(except...)
+		rs := buildPathItemSyms(except...)
 		return sc.W.RuneOneOf(rs)
 	}
 
@@ -320,16 +320,16 @@ func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 // all syms except letters and digits
 var syms = "_-~.%@&?!=#+:^(){}[]<>\\/ "
 
-// name separator symbols
-var nameSepSyms = "" +
+// path separator symbols
+var pathSepSyms = "" +
 	" " + // word separator
 	"=" + // usually around filenames (ex: -arg=/a/b.txt)
 	"(){}[]<>" + // usually used around filenames in various outputs
 	":" + // usually separating lines/cols from filenames
 	""
 
-func nameRunes(except ...rune) []rune {
-	out := nameSepSyms
+func buildPathItemSyms(except ...rune) []rune {
+	out := pathSepSyms
 	for _, ru := range except {
 		if ru != 0 {
 			out += string(ru)
