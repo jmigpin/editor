@@ -9,23 +9,6 @@ import (
 	"testing"
 )
 
-func TestJsonParser(t *testing.T) {
-	//s := "{\"a\":{}}"
-	s := jsonparserInput1
-	v, err := ParseJson3([]byte(s))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(v)
-
-	//spew.Config.Indent = "\t"
-	//spew.Dump(v)
-}
-
-//----------
-//----------
-//----------
-
 func TestJsonParser3CompareEncodingJson(t *testing.T) {
 	src := []byte(jsonparserInput1)
 
@@ -55,16 +38,7 @@ func TestJsonParser2And3Parse(t *testing.T) {
 	}
 }
 
-func BenchmarkJsonParser(b *testing.B) {
-	s := jsonparserInput1
-	for i := 0; i < b.N; i++ {
-		v, err := ParseJson3([]byte(s))
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = v
-	}
-}
+//----------
 
 func BenchmarkJsonParser2(b *testing.B) {
 	s := jsonparserInput1

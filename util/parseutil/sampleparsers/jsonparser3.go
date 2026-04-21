@@ -14,23 +14,20 @@ func ParseJson3(src []byte) (any, error) {
 //----------
 
 type JsonParser3 struct {
-	p *btparser.Parser
 	g btparser.Rules
 }
 
 func NewJsonParser3() *JsonParser3 {
-	p := btparser.NewParser()
-	g := p.G()
-	return &JsonParser3{p: p, g: g}
+	return &JsonParser3{g: btparser.NewRules()}
 }
 
 func (p *JsonParser3) parseJson(src []byte) (any, error) {
-	p.p.SetSrc(src)
+	ps := btparser.NewParserStateFromBytes(src)
 
 	valueFn := p.valueFn()
 	optSpaces := p.g.Optional(p.g.Spaces())
 	v := any(nil)
-	_, err := p.p.Parse(p.g.And(
+	_, err := p.g.Parse(ps, p.g.And(
 		optSpaces,
 		btparser.Assign(&v, valueFn),
 		optSpaces,
@@ -55,7 +52,7 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 	falseFn := btparser.VAny(btparser.VConst(p.g.Seq("false"), false))
 	nullFn := btparser.VConst[any](p.g.Seq("null"), nil)
 
-	memberFn = func(pos btparser.Pos) (btparser.MapEntry[string, any], btparser.MPos, error) {
+	memberFn = func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MapEntry[string, any], btparser.MPos, error) {
 		m := btparser.MapEntry[string, any]{}
 		mp, err := p.g.And(
 			optSpaces,
@@ -67,10 +64,10 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 				btparser.Assign(&m.Value, valueFn),
 				optSpaces,
 			)),
-		)(pos)
+		)(ps, pos)
 		return m, mp, err
 	}
-	objectFn = func(pos btparser.Pos) (map[string]any, btparser.MPos, error) {
+	objectFn = func(ps *btparser.ParserState, pos btparser.Pos) (map[string]any, btparser.MPos, error) {
 		m := map[string]any{}
 		mp, err := p.g.And(
 			p.g.Rune('{'),
@@ -85,10 +82,10 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 				),
 			)),
 			p.g.FatalOnError("expecting '}'", p.g.Rune('}')),
-		)(pos)
+		)(ps, pos)
 		return m, mp, err
 	}
-	arrayFn = func(pos btparser.Pos) ([]any, btparser.MPos, error) {
+	arrayFn = func(ps *btparser.ParserState, pos btparser.Pos) ([]any, btparser.MPos, error) {
 		w := []any{}
 		mp, err := p.g.And(
 			p.g.Rune('['),
@@ -107,7 +104,7 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 				),
 			)),
 			p.g.FatalOnError("expecting ']'", p.g.Rune(']')),
-		)(pos)
+		)(ps, pos)
 		return w, mp, err
 	}
 	valueFn = btparser.VOr(
@@ -124,11 +121,11 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 }
 
 func (p *JsonParser3) numberFn() btparser.VFn[float64] {
-	return func(pos btparser.Pos) (float64, btparser.MPos, error) {
+	return func(ps *btparser.ParserState, pos btparser.Pos) (float64, btparser.MPos, error) {
 		s, mp, err := p.g.VSourceStr(p.g.Or(
 			p.g.Float(),
 			p.g.Integer(),
-		))(pos)
+		))(ps, pos)
 		if err != nil {
 			return 0, mp, err
 		}
