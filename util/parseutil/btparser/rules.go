@@ -56,11 +56,14 @@ func (g Rules) ReverseAnd(fns ...MFn) MFn { return reverseAnd(fns...) }
 func (g Rules) Or(fns ...MFn) MFn         { return or(fns...) }
 func (g Rules) Optional(fn MFn) MFn       { return optional(fn) }
 func (g Rules) Peek(fn MFn) MFn           { return peek(fn) }
-func (g Rules) LimitSource(back, forward int, fn MFn) MFn {
-	return limitSource(back, forward, fn)
+func (g Rules) LimitSourceBytes(back, forward int, fn MFn) MFn {
+	return limitSourceBytes(back, forward, fn)
 }
-func (g Rules) ReverseSrc(fn MFn) MFn {
-	return reverseSrc(fn)
+func (g Rules) LimitSourceLines(back, forward int, fn MFn) MFn {
+	return limitSourceLines(back, forward, fn)
+}
+func (g Rules) ReverseSource(fn MFn) MFn {
+	return reverseSource(fn)
 }
 func (g Rules) PeekBackN(n int, fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {

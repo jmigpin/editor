@@ -455,12 +455,12 @@ func TestReverseAnd(t *testing.T) {
 	}
 }
 
-func TestReverseSrc(t *testing.T) {
+func TestReverseSource(t *testing.T) {
 	g := NewRules()
 	ps := NewParserStateFromString("ab界de")
 	pos := Pos(len("ab界"))
 
-	p2, err := g.ParseAt(ps, pos, g.ReverseSrc(g.Seq("界ba")))
+	p2, err := g.ParseAt(ps, pos, g.ReverseSource(g.Seq("界ba")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +468,7 @@ func TestReverseSrc(t *testing.T) {
 		t.Fatalf("got=%v, want=%v", p2, 0)
 	}
 
-	mp, err := g.ReverseSrc(g.Seq("界ba"))(ps, pos)
+	mp, err := g.ReverseSource(g.Seq("界ba"))(ps, pos)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -478,7 +478,7 @@ func TestReverseSrc(t *testing.T) {
 
 	ps = NewParserStateFromString("界xçde")
 	pos = Pos(len("界xç"))
-	mp, err = g.ReverseSrc(g.Seq("çx"))(ps, pos)
+	mp, err = g.ReverseSource(g.Seq("çx"))(ps, pos)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,7 +488,7 @@ func TestReverseSrc(t *testing.T) {
 
 	ps = NewParserStateFromString("ab界de")
 	pos = Pos(len("ab"))
-	mp, err = g.LimitSource(2, 0, g.ReverseSrc(g.Seq("ba")))(ps, pos)
+	mp, err = g.LimitSourceBytes(2, 0, g.ReverseSource(g.Seq("ba")))(ps, pos)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -498,7 +498,7 @@ func TestReverseSrc(t *testing.T) {
 
 	ps = NewParserStateFromString("abcd")
 	pos = Pos(len("ab"))
-	mp, err = g.LimitSource(2, 2, g.ReverseSrc(g.And(
+	mp, err = g.LimitSourceBytes(2, 2, g.ReverseSource(g.And(
 		g.PeekBackN(2, g.Seq("dc")),
 		g.Seq("ba"),
 	)))(ps, pos)
@@ -510,11 +510,36 @@ func TestReverseSrc(t *testing.T) {
 	}
 }
 
-func TestLimitSource(t *testing.T) {
+func TestLimitSourceLines(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("aa\nbb\ncc\ndd")
+	pos := Pos(len("aa\nbb\n"))
+
+	mp, err := g.LimitSourceLines(1, 1, g.Seq("cc"))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "cc" {
+		t.Fatalf("got=%q, want=%q", got, "cc")
+	}
+
+	mp, err = g.LimitSourceLines(1, 1, g.ReverseSource(g.And(
+		g.PeekBackN(len("cc"), g.Seq("cc")),
+		g.Seq("\nbb"),
+	)))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "bb\n" {
+		t.Fatalf("got=%q, want=%q", got, "bb\\n")
+	}
+}
+
+func TestLimitSourceBytes(t *testing.T) {
 	g := NewRules()
 	ps := NewParserStateFromString("a界bc")
 
-	p2, err := g.Parse(ps, g.LimitSource(0, len("a界"), g.Seq("a界")))
+	p2, err := g.Parse(ps, g.LimitSourceBytes(0, len("a界"), g.Seq("a界")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -522,14 +547,14 @@ func TestLimitSource(t *testing.T) {
 		t.Fatalf("got=%v, want=%v", p2, len("a界"))
 	}
 
-	_, err = g.Parse(ps, g.LimitSource(0, len("a界"), g.Seq("a界b")))
+	_, err = g.Parse(ps, g.LimitSourceBytes(0, len("a界"), g.Seq("a界b")))
 	if err == nil {
 		t.Fatal("expected error")
 	}
 
 	ps = NewParserStateFromString("ab界cd")
 	pos := Pos(len("a"))
-	mp, err := g.LimitSource(1, len("b界c"), g.Seq("b界c"))(ps, pos)
+	mp, err := g.LimitSourceBytes(1, len("b界c"), g.Seq("b界c"))(ps, pos)
 	if err != nil {
 		t.Fatal(err)
 	}

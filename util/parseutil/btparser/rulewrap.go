@@ -58,15 +58,21 @@ func peek(fn MFn) MFn {
 	}
 }
 
-func limitSource(back, forward int, fn MFn) MFn {
+func limitSourceBytes(back, forward int, fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLimitSource(ps, pos, back, forward, fn)
+		return mLimitSourceBytes(ps, pos, back, forward, fn)
 	}
 }
 
-func reverseSrc(fn MFn) MFn {
+func limitSourceLines(back, forward int, fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mReverseSrc(ps, pos, fn)
+		return mLimitSourceLines(ps, pos, back, forward, fn)
+	}
+}
+
+func reverseSource(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mReverseSource(ps, pos, fn)
 	}
 }
 

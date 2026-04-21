@@ -139,13 +139,18 @@ func mPeekBackN(ps *ParserState, pos Pos, n int, fn MFn) (MPos, error) {
 	}
 	return MPos{pos, pos}, nil // stay in same pos
 }
-func mLimitSource(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
+func mLimitSourceBytes(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
 	start := max(0, pos-Pos(back))
 	end := min(pos+Pos(forward), Pos(len(ps.src)))
 	return mSourceBounds(ps, pos, start, end, fn)
 }
-func mReverseSrc(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
-	rev := reverseSrcBytes(ps.src)
+func mLimitSourceLines(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
+	start := limitSourceLinesStart(ps.src, pos, back)
+	end := limitSourceLinesEnd(ps.src, pos, forward)
+	return mSourceBounds(ps, pos, start, end, fn)
+}
+func mReverseSource(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
+	rev := reverseSourceBytes(ps.src)
 	parsePos := Pos(len(rev)) - pos
 
 	ps2 := NewParserStateFromBytes(rev)
@@ -154,9 +159,9 @@ func mReverseSrc(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 
 	mp, err := fn(ps2, parsePos)
 	if err != nil {
-		return reverseSrcMPos(Pos(len(ps.src)), mp), err
+		return reverseSourceMPos(Pos(len(ps.src)), mp), err
 	}
-	return reverseSrcMPos(Pos(len(ps.src)), mp), nil
+	return reverseSourceMPos(Pos(len(ps.src)), mp), nil
 }
 
 //----------
@@ -319,13 +324,43 @@ func limitSourceMPos(offset Pos, mp MPos, err error) (MPos, error) {
 	return mp, err
 }
 
-func reverseSrcBytes(src []byte) []byte {
+func limitSourceLinesStart(src []byte, pos Pos, back int) Pos {
+	i := pos
+	n := 0
+	for i > 0 {
+		if src[i-1] == '\n' {
+			if n >= back {
+				break
+			}
+			n++
+		}
+		i--
+	}
+	return i
+}
+
+func limitSourceLinesEnd(src []byte, pos Pos, forward int) Pos {
+	i := pos
+	n := 0
+	for i < Pos(len(src)) {
+		if src[i] == '\n' {
+			if n >= forward {
+				break
+			}
+			n++
+		}
+		i++
+	}
+	return i
+}
+
+func reverseSourceBytes(src []byte) []byte {
 	rs := []rune(string(src))
 	slices.Reverse(rs)
 	return []byte(string(rs))
 }
 
-func reverseSrcMPos(pos Pos, mp MPos) MPos {
+func reverseSourceMPos(pos Pos, mp MPos) MPos {
 	return MPos{
 		Start: pos - mp.Start,
 		End:   pos - mp.End,
