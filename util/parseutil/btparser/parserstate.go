@@ -8,9 +8,12 @@ type ParserState struct {
 	UserData   any
 	parseStart Pos
 
-	tokenC int
+	tokDepth int
+
+	// Ignore is used by Token to skip input before matching; set it before parsing and do not modify it while a parse is running.
+	Ignore MFn
 	ignore struct {
-		c     int // recursive call count (avoid loops)
+		depth     int // recursive call count (avoid loops)
 		cache struct {
 			valid  bool
 			pos    Pos
@@ -48,6 +51,7 @@ func (ps *ParserState) Snippet(mp MPos) string {
 
 type Pos int
 
+// MPos stores the start position passed to a rule and the end position returned by it; rules may move forward or backward, so End can be lower than Start.
 type MPos struct { // match pos
 	Start Pos
 	End   Pos

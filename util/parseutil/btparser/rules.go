@@ -1,24 +1,20 @@
 package btparser
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"time"
+	"unicode"
 )
 
-// Rules is the main public API for building grammars.
-// Rules owns the grammar and combinators, while ParserState owns the source and runtime parse state for a single parse.
-// Rules instances are intended for sequential use; Parse mutates no ParserState-independent execution state, but SetIgnore changes parser configuration.
-type Rules struct {
-	ignore MFn
-}
+// Rules is the public API for building and running parser rules.
+// ParserState holds the source, ignore rule, and runtime state for a single parse.
+// Built rules are MFn values and can be reused with different ParserState values.
+type Rules struct{}
 
 func NewRules() Rules {
 	return Rules{}
-}
-
-func (g *Rules) SetIgnore(fn MFn) {
-	g.ignore = fn
 }
 
 func (g Rules) Parse(ps *ParserState, fn MFn) (Pos, error) {
@@ -47,40 +43,141 @@ func (g Rules) ParseAt(ps *ParserState, pos Pos, fn MFn) (Pos, error) {
 	return mp.End, nil
 }
 
-func (g Rules) VByte() VFn[byte]          { return vByte() }
-func (g Rules) VRune() VFn[rune]          { return vRune() }
-func (g Rules) VLastRune() VFn[rune]      { return vLastRune() }
-func (g Rules) Token(fn MFn) MFn          { return token(g.ignore, fn) }
-func (g Rules) And(fns ...MFn) MFn        { return and(fns...) }
-func (g Rules) ReverseAnd(fns ...MFn) MFn { return reverseAnd(fns...) }
-func (g Rules) Or(fns ...MFn) MFn         { return or(fns...) }
-func (g Rules) Optional(fn MFn) MFn       { return optional(fn) }
-func (g Rules) Peek(fn MFn) MFn           { return peek(fn) }
-func (g Rules) LimitSourceBytes(back, forward int, fn MFn) MFn {
-	return limitSourceBytes(back, forward, fn)
-}
-func (g Rules) LimitSourceLines(back, forward int, fn MFn) MFn {
-	return limitSourceLines(back, forward, fn)
-}
-func (g Rules) ReverseSource(fn MFn) MFn {
-	return reverseSource(fn)
-}
-func (g Rules) PeekBackN(n int, fn MFn) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mPeekBackN(ps, pos, n, fn)
+func (g Rules) VByte() VFn[byte] {
+	return func(ps *ParserState, pos Pos) (byte, MPos, error) {
+		return mvByte(ps, pos)
 	}
 }
-func (g Rules) Not(fn MFn) MFn { return not(fn) }
-func (g Rules) Fail() MFn      { return mFail }
-func (g Rules) NoOp() MFn      { return mNoOp }
+func (g Rules) VRune() VFn[rune] {
+	return func(ps *ParserState, pos Pos) (rune, MPos, error) {
+		return mvRune(ps, pos)
+	}
+}
+func (g Rules) VLastRune() VFn[rune] {
+	return func(ps *ParserState, pos Pos) (rune, MPos, error) {
+		return mvLastRune(ps, pos)
+	}
+}
+func (g Rules) Token(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mToken(ps, pos, fn)
+	}
+}
+func (g Rules) And(fns ...MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAnd(ps, pos, fns...)
+	}
+}
+func (g Rules) ReverseAnd(fns ...MFn) MFn {
+	r := make([]MFn, len(fns))
+	for i := range fns {
+		r[i] = fns[len(fns)-1-i]
+	}
+	return g.And(r...)
+}
+func (g Rules) Or(fns ...MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mOr(ps, pos, fns...)
+	}
+}
+func (g Rules) Optional(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mOptional(ps, pos, fn)
+	}
+}
+func (g Rules) Peek(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mPeek(ps, pos, fn)
+	}
+}
+func (g Rules) LimitSourceBytes(back, forward int, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLimitSourceBytes(ps, pos, back, forward, fn)
+	}
+}
+func (g Rules) LimitSourceLines(back, forward int, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLimitSourceLines(ps, pos, back, forward, fn)
+	}
+}
+func (g Rules) ReverseSource(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mReverseSource(ps, pos, fn)
+	}
+}
+
+//----------
+
+func (g Rules) ToIndexByte(b byte) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		i := bytes.IndexByte(ps.src[pos:], b)
+		if i < 0 {
+			return MPos{Start: pos, End: pos}, NoMatchErr
+		}
+		return MPos{Start: pos, End: pos + Pos(i)}, nil
+	}
+}
+func (g Rules) ToLastIndexByte(b byte) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		i := bytes.LastIndexByte(ps.src[:pos], b)
+		if i < 0 {
+			return MPos{Start: pos, End: pos}, NoMatchErr
+		}
+		return MPos{Start: pos, End: Pos(i)}, nil
+	}
+}
+
+//----------
+
+func (g Rules) ToIndexByteOrEnd(b byte) MFn {
+	return g.Or(
+		g.ToIndexByte(b),
+		func(ps *ParserState, pos Pos) (MPos, error) {
+			return MPos{Start: pos, End: Pos(len(ps.src))}, nil
+		},
+	)
+}
+func (g Rules) ToLastIndexByteOrStart(b byte) MFn {
+	return g.Or(
+		g.ToLastIndexByte(b),
+		func(ps *ParserState, pos Pos) (MPos, error) {
+			return MPos{Start: pos, End: 0}, nil
+		},
+	)
+}
+
+//----------
+
+func (g Rules) PeekBackN(n int, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		p2 := pos - Pos(n)
+		if p2 < 0 {
+			return MPos{pos, pos}, NoMatchErr
+		}
+		if mp, err := fn(ps, p2); err != nil {
+			return mp, err
+		}
+		return MPos{pos, pos}, nil
+	}
+}
+func (g Rules) Not(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mNot(ps, pos, fn)
+	}
+}
+func (g Rules) Fail() MFn { return mFail }
+func (g Rules) NoOp() MFn { return mNoOp }
 func (g Rules) IsTrue(v bool) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mIsTrue(ps, pos, v)
+		if !v {
+			return MPos{pos, pos}, NoMatchErr
+		}
+		return MPos{pos, pos}, nil
 	}
 }
 func (g Rules) NoOp2(fn func() error) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mNoOp2(ps, pos, fn)
+		return MPos{pos, pos}, fn()
 	}
 }
 func (g Rules) Eof() MFn { return mEof }
@@ -89,9 +186,20 @@ func (g Rules) Eof() MFn { return mEof }
 func (g Rules) Sof() MFn { return mSof }
 
 // Sop matches only at the start position of the current parse.
-func (g Rules) Sop() MFn { return mSop }
+func (g Rules) Sop() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		if pos == ps.parseStart {
+			return MPos{pos, pos}, nil
+		}
+		return MPos{pos, pos}, NoMatchErr
+	}
+}
 
-func (g Rules) ByteFn(fn func(byte) bool) MFn { return byteFn(fn) }
+func (g Rules) ByteFn(fn func(byte) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mByteFn(ps, pos, fn)
+	}
+}
 func (g Rules) ByteFnLoop(fn func(byte) bool) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mByteFnLoop(ps, pos, fn)
@@ -99,22 +207,65 @@ func (g Rules) ByteFnLoop(fn func(byte) bool) MFn {
 }
 func (g Rules) Byte(b byte) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mByte(ps, pos, b)
+		return mByteFn(ps, pos, func(b2 byte) bool { return b2 == b })
 	}
 }
-func (g Rules) RuneFn(fn func(rune) bool) MFn     { return runeFn(fn) }
-func (g Rules) RuneFnLoop(fn func(rune) bool) MFn { return runeFnLoop(fn) }
-func (g Rules) Rune(ru rune) MFn                  { return rune1(ru) }
-func (g Rules) RuneAnyOf(rus ...rune) MFn         { return runeAnyOf(rus...) }
-func (g Rules) RuneAnyOfString(s string) MFn {
-	return runeAnyOf([]rune(s)...)
+func (g Rules) RuneFn(fn func(rune) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, fn)
+	}
 }
-func (g Rules) AnyRune() MFn          { return mAnyRune }
-func (g Rules) NRunes(n int) MFn      { return nRunes(n) }
-func (g Rules) MaxNRunes(n int) MFn   { return maxNRunes(n) }
-func (g Rules) Seq(s string) MFn      { return seq(s) }
-func (g Rules) SeqOrMid(s string) MFn { return seqOrMid(s) }
-func (g Rules) Loop1(fn MFn) MFn      { return loop1(fn) }
+func (g Rules) RuneFnLoop(fn func(rune) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFnLoop(ps, pos, fn)
+	}
+}
+func (g Rules) Rune(ru rune) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRune(ps, pos, ru)
+	}
+}
+func (g Rules) RuneAnyOf(rus ...rune) MFn {
+	m := map[rune]struct{}{}
+	for _, ru := range rus {
+		m[ru] = struct{}{}
+	}
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, func(ru rune) bool {
+			_, ok := m[ru]
+			return ok
+		})
+	}
+}
+func (g Rules) RuneAnyOfString(s string) MFn {
+	return g.RuneAnyOf([]rune(s)...)
+}
+func (g Rules) AnyRune() MFn { return mAnyRune }
+func (g Rules) NRunes(n int) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mNRunes(ps, pos, n)
+	}
+}
+func (g Rules) MaxNRunes(n int) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mMaxNRunes(ps, pos, n)
+	}
+}
+func (g Rules) Seq(s string) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSeq(ps, pos, s)
+	}
+}
+func (g Rules) SeqOrMid(s string) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSeqOrMid(ps, pos, s)
+	}
+}
+func (g Rules) Loop1(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoop1(ps, pos, fn)
+	}
+}
 func (g Rules) Loop2(minN, maxN int, fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mLoop2(ps, pos, minN, maxN, fn)
@@ -126,43 +277,75 @@ func (g Rules) LoopSep(optLastSep bool, fn, sepFn MFn) MFn {
 	}
 }
 func (g Rules) LoopStartEnd(startFn, consumeFn, endFn MFn) MFn {
-	return loopStartEnd(startFn, consumeFn, endFn)
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoopStartEnd(ps, pos, startFn, consumeFn, endFn)
+	}
 }
 func (g Rules) LoopToNLOrEof(esc rune, includeNL bool) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mLoopToNLOrEof(ps, pos, esc, includeNL)
 	}
 }
-func (g Rules) Letter() MFn       { return mLetter }
+func (g Rules) Letter() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, unicode.IsLetter)
+	}
+}
 func (g Rules) Digit() MFn        { return mDigit }
 func (g Rules) DigitNotZero() MFn { return mDigitNotZero }
 func (g Rules) Digits() MFn       { return mDigits }
-func (g Rules) Float() MFn        { return mFloat }
+func (g Rules) Float() MFn        { return g.Float2('.') }
 func (g Rules) Float2(sep rune) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mFloat2(ps, pos, sep)
 	}
 }
-func (g Rules) Integer() MFn             { return mInteger }
-func (g Rules) Bool() MFn                { return mBool }
-func (g Rules) Sign() MFn                { return mSign }
-func (g Rules) HexBytes() MFn            { return mHexBytes }
-func (g Rules) Space() MFn               { return mSpace }
-func (g Rules) Spaces() MFn              { return mSpaces }
-func (g Rules) SpacesExceptNewline() MFn { return mSpacesExceptNewline }
-func (g Rules) Newline() MFn             { return mNewline }
+func (g Rules) Integer() MFn { return mInteger }
+func (g Rules) Bool() MFn    { return mBool }
+func (g Rules) Sign() MFn    { return mSign }
+func (g Rules) HexBytes() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mByteFnLoop(ps, pos, func(b byte) bool {
+			return (b >= '0' && b <= '9') ||
+				(b >= 'a' && b <= 'f') ||
+				(b >= 'A' && b <= 'F')
+		})
+	}
+}
+func (g Rules) Space() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, unicode.IsSpace)
+	}
+}
+func (g Rules) Spaces() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFnLoop(ps, pos, unicode.IsSpace)
+	}
+}
+func (g Rules) SpacesExceptNewline() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFnLoop(ps, pos, func(ru rune) bool {
+			return ru != '\n' && unicode.IsSpace(ru)
+		})
+	}
+}
+func (g Rules) Newline() MFn { return mNewline }
 func (g Rules) EmptyLinesExceptNewline(ignore MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mEmptyLinesExceptNewline(ps, pos, ignore)
 	}
 }
-func (g Rules) Escape(esc rune) MFn   { return escape(esc) }
+func (g Rules) Escape(esc rune) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mEscape(ps, pos, esc)
+	}
+}
 func (g Rules) AnyExceptNewline() MFn { return mAnyExceptNewline }
 func (g Rules) Identifier() MFn       { return mIdentifier }
 func (g Rules) QuotedString1() MFn    { return mQuotedString1 }
 func (g Rules) LineComment1(open string) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLineComment1(ps, pos, open)
+		return mSection(ps, pos, open, "", 0, true, true, mAnyExceptNewline)
 	}
 }
 func (g Rules) Section(open, close string, esc rune, newlineCloses, eofCloses bool, consume MFn) MFn {
@@ -175,12 +358,16 @@ func (g Rules) VSource(fn MFn) VFn[[]byte] {
 		return mvSource(ps, pos, fn)
 	}
 }
-func (g Rules) VSourceStr(fn MFn) VFn[string] { return sourceStr(fn) }
-func (g Rules) VFloat() VFn[float64]          { return mvFloat }
-func (g Rules) VInteger() VFn[int]            { return mvInteger }
-func (g Rules) VBool() VFn[bool]              { return mvBool }
-func (g Rules) VIdentifier() VFn[string]      { return mvIdentifier }
-func (g Rules) VQuotedString1() VFn[string]   { return mvQuotedString1 }
+func (g Rules) VSourceStr(fn MFn) VFn[string] {
+	return func(ps *ParserState, pos Pos) (string, MPos, error) {
+		return mvSourceStr(ps, pos, fn)
+	}
+}
+func (g Rules) VFloat() VFn[float64]        { return mvFloat }
+func (g Rules) VInteger() VFn[int]          { return mvInteger }
+func (g Rules) VBool() VFn[bool]            { return mvBool }
+func (g Rules) VIdentifier() VFn[string]    { return mvIdentifier }
+func (g Rules) VQuotedString1() VFn[string] { return mvQuotedString1 }
 func (g Rules) VTime(fmt string) VFn[time.Time] {
 	return func(ps *ParserState, pos Pos) (time.Time, MPos, error) {
 		return mvTime(ps, pos, fmt)
@@ -244,14 +431,16 @@ func VConst[T any](fn MFn, v T) VFn[T] {
 	}
 }
 
-func VToken[T any](g Rules, fn VFn[T]) VFn[T] {
+func VToken[T any](fn VFn[T]) VFn[T] {
 	return func(ps *ParserState, pos Pos) (T, MPos, error) {
-		return mvToken(g, ps, pos, fn)
+		return mvToken(ps, pos, fn)
 	}
 }
 
 func Assign[T any](v *T, fn VFn[T]) MFn {
-	return assign(v, fn)
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAssign(ps, pos, v, fn)
+	}
 }
 
 func Assign2[T any](v **T, fn VFn[T]) MFn {

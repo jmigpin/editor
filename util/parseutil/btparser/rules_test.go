@@ -14,7 +14,7 @@ func TestParse1(t *testing.T) {
 	g := NewRules()
 	ps := NewParserStateFromString(src)
 
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.Token(g.Or(
@@ -36,7 +36,7 @@ func TestParse2(t *testing.T) {
 	g := NewRules()
 	ps := NewParserStateFromString(src)
 
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	_, err := g.Parse(ps, g.And(
 		g.Token(g.Seq("fn1")),
@@ -65,7 +65,7 @@ func TestInteger1(t *testing.T) {
 
 	g := NewRules()
 	ps := NewParserStateFromString(src)
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	w := []int{}
 
@@ -88,7 +88,7 @@ func TestRulesNamespace1(t *testing.T) {
 
 	g := NewRules()
 	ps := NewParserStateFromString(src)
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	w := []int{}
 
@@ -111,7 +111,7 @@ func TestInteger2(t *testing.T) {
 
 	g := NewRules()
 	ps := NewParserStateFromString(src)
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	w := []any{}
 
@@ -137,7 +137,7 @@ func TestFloat1(t *testing.T) {
 
 	g := NewRules()
 	ps := NewParserStateFromString(src)
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	w := []any{}
 
@@ -190,7 +190,7 @@ func TestValues1(t *testing.T) {
 
 	g := NewRules()
 	ps := NewParserStateFromString(src)
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	type Data struct {
 		id  string
@@ -237,7 +237,7 @@ func TestRulesSemanticValueNames(t *testing.T) {
 
 	g := NewRules()
 	ps := NewParserStateFromString(src)
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	type Data struct {
 		id  string
@@ -292,10 +292,10 @@ func TestEmptyLinesWithComments(t *testing.T) {
 		)(ps, pos)
 	}
 
-	g.SetIgnore(g.EmptyLinesExceptNewline(g.Or(
+	ps.Ignore = g.EmptyLinesExceptNewline(g.Or(
 		g.SpacesExceptNewline(),
 		comments,
-	)))
+	))
 
 	w := []string{}
 	_, err := g.Parse(ps, g.And(
@@ -561,6 +561,78 @@ func TestLimitSourceBytes(t *testing.T) {
 	if got := ps.SourceStr(mp); got != "b界c" {
 		t.Fatalf("got=%q, want=%q", got, "b界c")
 	}
+
+	ps = NewParserStateFromString("aa/bb/cc")
+	pos = Pos(len("aa/bb"))
+	mp, err = g.LimitSourceBytes(-1, -1, g.ToLastIndexByte('/'))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mp.End != Pos(len("aa")) {
+		t.Fatalf("got=%v, want=%v", mp.End, len("aa"))
+	}
+}
+
+func TestToIndexByte(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("aa\nbb\ncc")
+
+	pos := Pos(len("aa\nbb"))
+	mp, err := g.ToLastIndexByte('\n')(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mp.End != Pos(len("aa")) {
+		t.Fatalf("got=%v, want=%v", mp.End, len("aa"))
+	}
+
+	mp, err = g.ToLastIndexByteOrStart('\n')(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "\nbb" {
+		t.Fatalf("got=%q, want=%q", got, "\nbb")
+	}
+	if mp.End != Pos(len("aa")) {
+		t.Fatalf("got=%v, want=%v", mp.End, len("aa"))
+	}
+
+	mp, err = g.ToIndexByte('\n')(ps, Pos(len("aa\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ps.SourceStr(mp); got != "bb" {
+		t.Fatalf("got=%q, want=%q", got, "bb")
+	}
+	if mp.End != Pos(len("aa\nbb")) {
+		t.Fatalf("got=%v, want=%v", mp.End, len("aa\nbb"))
+	}
+
+	mp, err = g.ToLastIndexByteOrStart('\n')(ps, Pos(len("aa")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mp.End != 0 {
+		t.Fatalf("got=%v, want=%v", mp.End, 0)
+	}
+
+	_, err = g.ToLastIndexByte('\n')(ps, Pos(len("aa")))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	_, err = g.ToIndexByte('\n')(ps, Pos(len("aa\nbb\n")))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	mp, err = g.ToIndexByteOrEnd('\n')(ps, Pos(len("aa\nbb\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mp.End != Pos(len("aa\nbb\ncc")) {
+		t.Fatalf("got=%v, want=%v", mp.End, len("aa\nbb\ncc"))
+	}
 }
 
 func TestIsTrue(t *testing.T) {
@@ -627,7 +699,7 @@ func TestTime(t *testing.T) {
 	g := NewRules()
 	ps := NewParserStateFromString(src)
 
-	g.SetIgnore(g.Spaces())
+	ps.Ignore = g.Spaces()
 
 	date := time.Time{}
 	_, err := g.Parse(ps, g.And(

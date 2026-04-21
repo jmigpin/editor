@@ -47,12 +47,12 @@ func mvLastRune(ps *ParserState, pos Pos) (rune, MPos, error) {
 //----------
 
 // there can be no nested tokens; should be set at leaf nodes
-func mToken(ps *ParserState, pos Pos, ignore MFn, fn MFn) (MPos, error) {
-	pos = runIgnore(ps, pos, ignore)
+func mToken(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
+	pos = runIgnore(ps, pos)
 
-	ps.tokenC++
-	defer func() { ps.tokenC-- }()
-	if ps.tokenC > 1 {
+	ps.tokDepth++
+	defer func() { ps.tokDepth-- }()
+	if ps.tokDepth > 1 {
 		err := fmt.Errorf("nested tokens: %v", ps.Snippet(MPos{pos, pos}))
 		panic(err)
 	}
@@ -60,22 +60,22 @@ func mToken(ps *ParserState, pos Pos, ignore MFn, fn MFn) (MPos, error) {
 	return fn(ps, pos)
 }
 
-func runIgnore(ps *ParserState, pos Pos, ignore MFn) Pos {
-	if ps.tokenC > 0 {
+func runIgnore(ps *ParserState, pos Pos) Pos {
+	if ps.tokDepth > 0 {
 		return pos
 	}
 
-	ps.ignore.c++
-	defer func() { ps.ignore.c-- }()
-	if ps.ignore.c > 1 {
+	ps.ignore.depth++
+	defer func() { ps.ignore.depth-- }()
+	if ps.ignore.depth > 1 {
 		return pos
 	}
 
-	if ignore != nil {
+	if ps.Ignore != nil {
 		if ps.ignore.cache.valid && ps.ignore.cache.pos == pos {
 			return ps.ignore.cache.result
 		}
-		if mp, err := ignore(ps, pos); err == nil {
+		if mp, err := ps.Ignore(ps, pos); err == nil {
 			ps.ignore.cache.valid = true
 			ps.ignore.cache.pos = pos
 			ps.ignore.cache.result = mp.End
@@ -129,19 +129,15 @@ func mPeek(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 		return MPos{pos, pos}, nil // stay in same pos
 	}
 }
-func mPeekBackN(ps *ParserState, pos Pos, n int, fn MFn) (MPos, error) {
-	p2 := pos - Pos(n)
-	if p2 < 0 {
-		return MPos{pos, pos}, NoMatchErr
-	}
-	if mp, err := fn(ps, p2); err != nil {
-		return mp, err
-	}
-	return MPos{pos, pos}, nil // stay in same pos
-}
 func mLimitSourceBytes(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
-	start := max(0, pos-Pos(back))
-	end := min(pos+Pos(forward), Pos(len(ps.src)))
+	start := Pos(0)
+	if back >= 0 {
+		start = max(0, pos-Pos(back))
+	}
+	end := Pos(len(ps.src))
+	if forward >= 0 {
+		end = min(pos+Pos(forward), Pos(len(ps.src)))
+	}
 	return mSourceBounds(ps, pos, start, end, fn)
 }
 func mLimitSourceLines(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
@@ -154,8 +150,11 @@ func mReverseSource(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 	parsePos := Pos(len(rev)) - pos
 
 	ps2 := NewParserStateFromBytes(rev)
+
 	ps2.UserData = ps.UserData
 	ps2.parseStart = parsePos
+	ps2.tokDepth = ps.tokDepth
+	ps2.Ignore = ps.Ignore
 
 	mp, err := fn(ps2, parsePos)
 	if err != nil {
@@ -163,9 +162,6 @@ func mReverseSource(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 	}
 	return reverseSourceMPos(Pos(len(ps.src)), mp), nil
 }
-
-//----------
-
 func mNot(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 	if mp, err := fn(ps, pos); err != nil {
 		return MPos{pos, pos}, nil
@@ -178,15 +174,6 @@ func mFail(ps *ParserState, pos Pos) (MPos, error) {
 }
 func mNoOp(ps *ParserState, pos Pos) (MPos, error) {
 	return MPos{pos, pos}, nil
-}
-func mIsTrue(ps *ParserState, pos Pos, v bool) (MPos, error) {
-	if !v {
-		return MPos{pos, pos}, NoMatchErr
-	}
-	return MPos{pos, pos}, nil
-}
-func mNoOp2(ps *ParserState, pos Pos, fn func() error) (MPos, error) {
-	return MPos{pos, pos}, fn()
 }
 func mEof(ps *ParserState, pos Pos) (MPos, error) {
 	if _, mp, err := mvByte(ps, pos); err != nil { // eof
@@ -204,23 +191,11 @@ func mSof(ps *ParserState, pos Pos) (MPos, error) {
 	return MPos{pos, pos}, NoMatchErr
 }
 
-func mSop(ps *ParserState, pos Pos) (MPos, error) {
-	if pos == ps.parseStart {
-		return MPos{pos, pos}, nil
-	}
-	return MPos{pos, pos}, NoMatchErr
-}
-
-//----------
-
 func mByteFn(ps *ParserState, pos Pos, fn func(byte) bool) (MPos, error) {
 	return mHandleVFn(ps, pos, mvByte, BoolErrFn(fn))
 }
 func mByteFnLoop(ps *ParserState, pos Pos, fn func(byte) bool) (MPos, error) {
 	return mLoop1(ps, pos, byteFn(fn))
-}
-func mByte(ps *ParserState, pos Pos, b byte) (MPos, error) {
-	return mByteFn(ps, pos, func(b2 byte) bool { return b2 == b })
 }
 
 //----------
@@ -237,11 +212,6 @@ func mRune(ps *ParserState, pos Pos, ru rune) (MPos, error) {
 func mContainsRune(ps *ParserState, pos Pos, s string) (MPos, error) {
 	return mRuneFn(ps, pos, func(ru rune) bool {
 		return strings.ContainsRune(s, ru)
-	})
-}
-func mContainsRune2(ps *ParserState, pos Pos, rus []rune) (MPos, error) {
-	return mRuneFn(ps, pos, func(ru rune) bool {
-		return slices.Contains(rus, ru)
 	})
 }
 func mAnyRune(ps *ParserState, pos Pos) (MPos, error) {
@@ -482,9 +452,6 @@ func mLoopToNLOrEof(ps *ParserState, pos Pos, esc rune, includeNL bool) (MPos, e
 
 //----------
 
-func mLetter(ps *ParserState, pos Pos) (MPos, error) {
-	return mRuneFn(ps, pos, unicode.IsLetter)
-}
 func mDigit(ps *ParserState, pos Pos) (MPos, error) {
 	return mRuneFn(ps, pos, unicode.IsDigit)
 }
@@ -497,9 +464,6 @@ func mDigits(ps *ParserState, pos Pos) (MPos, error) {
 	return mLoop1(ps, pos, mDigit)
 }
 
-func mFloat(ps *ParserState, pos Pos) (MPos, error) {
-	return mFloat2(ps, pos, '.')
-}
 func mFloat2(ps *ParserState, pos Pos, sep rune) (MPos, error) {
 	return mAnd(ps, pos,
 		//p.WOptional(p.MInteger), // wrong, won't allow "-0.1"
@@ -553,15 +517,6 @@ func mBool(ps *ParserState, pos Pos) (MPos, error) {
 		seq("TRUE"), seq("FALSE"),
 	)
 }
-func mHexBytes(ps *ParserState, pos Pos) (MPos, error) {
-	return mByteFnLoop(ps, pos, func(b byte) bool {
-		return (b >= '0' && b <= '9') ||
-			(b >= 'a' && b <= 'f') ||
-			(b >= 'A' && b <= 'F')
-	})
-}
-
-//----------
 
 // NOTE: use p.MVTime
 //// TODO: this a simple/fixed/rigid time, needs improvement
@@ -598,17 +553,6 @@ func mHexBytes(ps *ParserState, pos Pos) (MPos, error) {
 
 //----------
 
-func mSpace(ps *ParserState, pos Pos) (MPos, error) {
-	return mRuneFn(ps, pos, unicode.IsSpace)
-}
-func mSpaces(ps *ParserState, pos Pos) (MPos, error) {
-	return mRuneFnLoop(ps, pos, unicode.IsSpace)
-}
-func mSpacesExceptNewline(ps *ParserState, pos Pos) (MPos, error) {
-	return mRuneFnLoop(ps, pos, func(ru rune) bool {
-		return ru != '\n' && unicode.IsSpace(ru)
-	})
-}
 func mNewline(ps *ParserState, pos Pos) (MPos, error) {
 	return mRune(ps, pos, '\n')
 }
@@ -673,10 +617,6 @@ func mAnyExceptNewline(ps *ParserState, pos Pos) (MPos, error) {
 func mQuotedString1(ps *ParserState, pos Pos) (MPos, error) {
 	return mSection(ps, pos, "\"", "\"", '\\', false, false, mAnyExceptNewline)
 }
-func mLineComment1(ps *ParserState, pos Pos, open string) (MPos, error) {
-	return mSection(ps, pos, open, "", 0, true, true, mAnyExceptNewline)
-}
-
 func mSection(ps *ParserState, pos Pos,
 	open, close string,
 	esc rune,
@@ -740,7 +680,9 @@ func mvSourceStr(ps *ParserState, pos Pos, fn MFn) (string, MPos, error) {
 }
 
 func mvFloat(ps *ParserState, pos Pos) (float64, MPos, error) {
-	return mHandleMFn(ps, pos, mFloat, func(mp MPos) (float64, error) {
+	return mHandleMFn(ps, pos, func(ps *ParserState, pos Pos) (MPos, error) {
+		return mFloat2(ps, pos, '.')
+	}, func(mp MPos) (float64, error) {
 		return strconv.ParseFloat(ps.SourceStr(mp), 64)
 	})
 }
@@ -822,9 +764,9 @@ func mvConst[T any](ps *ParserState, pos Pos, fn MFn, v T) (T, MPos, error) {
 }
 
 // ex: useful in the case of MVTime (doesn't have a MTime)
-func mvToken[T any](g Rules, ps *ParserState, pos Pos, fn VFn[T]) (T, MPos, error) {
+func mvToken[T any](ps *ParserState, pos Pos, fn VFn[T]) (T, MPos, error) {
 	var v T
-	mp, err := mToken(ps, pos, g.ignore, assign(&v, fn))
+	mp, err := mToken(ps, pos, assign(&v, fn))
 	return v, mp, err
 }
 
@@ -872,6 +814,96 @@ func mvAppend[T any](ps *ParserState, pos Pos, fn VFn[T]) ([]T, MPos, error) {
 //----------
 //----------
 //----------
+
+func and(fns ...MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAnd(ps, pos, fns...)
+	}
+}
+
+func or(fns ...MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mOr(ps, pos, fns...)
+	}
+}
+
+func optional(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mOptional(ps, pos, fn)
+	}
+}
+
+func peek(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mPeek(ps, pos, fn)
+	}
+}
+
+func not(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mNot(ps, pos, fn)
+	}
+}
+
+func byteFn(fn func(byte) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mByteFn(ps, pos, fn)
+	}
+}
+
+func runeFn(fn func(rune) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, fn)
+	}
+}
+
+func runeFnLoop(fn func(rune) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFnLoop(ps, pos, fn)
+	}
+}
+
+func rune1(ru rune) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRune(ps, pos, ru)
+	}
+}
+
+func nRunes(n int) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mNRunes(ps, pos, n)
+	}
+}
+
+func maxNRunes(n int) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mMaxNRunes(ps, pos, n)
+	}
+}
+
+func seq(s string) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSeq(ps, pos, s)
+	}
+}
+
+func loop1(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoop1(ps, pos, fn)
+	}
+}
+
+func escape(esc rune) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mEscape(ps, pos, esc)
+	}
+}
+
+func assign[T any](v *T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAssign(ps, pos, v, fn)
+	}
+}
 
 func mDebugAnd(ps *ParserState, pos Pos, on bool, prefix string, fns ...MFn) (MPos, error) {
 	return mDebug(ps, pos, on, prefix, and(fns...))
