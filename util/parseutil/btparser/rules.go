@@ -457,6 +457,17 @@ func VConst[T any](fn MFn, v T) VFn[T] {
 	}
 }
 
+func VFromMPos[T any](fn MFn, makeFn func(*ParserState, MPos) T) VFn[T] {
+	return func(ps *ParserState, pos Pos) (T, MPos, error) {
+		if mp, err := fn(ps, pos); err != nil {
+			var zero T
+			return zero, mp, err
+		} else {
+			return makeFn(ps, mp), mp, nil
+		}
+	}
+}
+
 func VToken[T any](fn VFn[T]) VFn[T] {
 	return func(ps *ParserState, pos Pos) (T, MPos, error) {
 		return mvToken(ps, pos, fn)
