@@ -41,7 +41,8 @@ func mvLastRune(ps *ParserState, pos Pos) (rune, MPos, error) {
 		return 0, MPos{pos, pos}, NoMatchErr
 	}
 	p2 := pos - Pos(size)
-	return ru, MPos{p2, pos}, nil
+	// Last rune moves backwards, so MPos intentionally has Start > End.
+	return ru, MPos{pos, p2}, nil
 }
 
 //----------
@@ -261,7 +262,11 @@ func mSeq(ps *ParserState, pos Pos, s string) (MPos, error) {
 }
 
 func mSeqOrMid(ps *ParserState, pos Pos, s string) (MPos, error) {
+	n := Pos(len(s))
 	for p0 := pos; ; {
+		if p0+n <= pos {
+			break
+		}
 		if mp, err := mSeq(ps, p0, s); err == nil {
 			return mp, nil
 		}
@@ -273,7 +278,7 @@ func mSeqOrMid(ps *ParserState, pos Pos, s string) (MPos, error) {
 		if err != nil {
 			break
 		}
-		p0 = mp.Start
+		p0 = mp.End
 	}
 	return MPos{pos, pos}, NoMatchErr
 }
@@ -669,13 +674,13 @@ func mHandleVFn[T any](ps *ParserState, pos Pos, fn1 VFn[T], fn2 VHandler[T]) (M
 
 //----------
 
-func mvSource(ps *ParserState, pos Pos, fn MFn) ([]byte, MPos, error) {
+func mvBytes(ps *ParserState, pos Pos, fn MFn) ([]byte, MPos, error) {
 	return mHandleMFn(ps, pos, fn, func(mp MPos) ([]byte, error) {
 		return ps.Source(mp), nil
 	})
 }
-func mvSourceStr(ps *ParserState, pos Pos, fn MFn) (string, MPos, error) {
-	b, mp, err := mvSource(ps, pos, fn)
+func mvString(ps *ParserState, pos Pos, fn MFn) (string, MPos, error) {
+	b, mp, err := mvBytes(ps, pos, fn)
 	return string(b), mp, err
 }
 
@@ -715,7 +720,7 @@ func mvTime(ps *ParserState, pos Pos, fmt string) (time.Time, MPos, error) {
 	//	return time.Parse(fmt, p.SourceStr(mp))
 	//})
 
-	if s, mp, err := mvSourceStr(ps, pos, maxNRunes(len(fmt))); err != nil {
+	if s, mp, err := mvString(ps, pos, maxNRunes(len(fmt))); err != nil {
 		return time.Time{}, mp, err
 	} else {
 		t, err := time.Parse(fmt, s)

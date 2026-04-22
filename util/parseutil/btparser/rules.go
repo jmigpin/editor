@@ -58,6 +58,12 @@ func (g Rules) VLastRune() VFn[rune] {
 		return mvLastRune(ps, pos)
 	}
 }
+func (g Rules) LastAnyRune() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		_, mp, err := mvLastRune(ps, pos)
+		return mp, err
+	}
+}
 func (g Rules) Token(fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mToken(ps, pos, fn)
@@ -353,14 +359,14 @@ func (g Rules) Section(open, close string, esc rune, newlineCloses, eofCloses bo
 		return mSection(ps, pos, open, close, esc, newlineCloses, eofCloses, consume)
 	}
 }
-func (g Rules) VSource(fn MFn) VFn[[]byte] {
+func (g Rules) VBytes(fn MFn) VFn[[]byte] {
 	return func(ps *ParserState, pos Pos) ([]byte, MPos, error) {
-		return mvSource(ps, pos, fn)
+		return mvBytes(ps, pos, fn)
 	}
 }
-func (g Rules) VSourceStr(fn MFn) VFn[string] {
+func (g Rules) VString(fn MFn) VFn[string] {
 	return func(ps *ParserState, pos Pos) (string, MPos, error) {
-		return mvSourceStr(ps, pos, fn)
+		return mvString(ps, pos, fn)
 	}
 }
 func (g Rules) VFloat() VFn[float64]        { return mvFloat }

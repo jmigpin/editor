@@ -13,7 +13,7 @@ type ParserState struct {
 	// Ignore is used by Token to skip input before matching; set it before parsing and do not modify it while a parse is running.
 	Ignore MFn
 	ignore struct {
-		depth     int // recursive call count (avoid loops)
+		depth int // recursive call count (avoid loops)
 		cache struct {
 			valid  bool
 			pos    Pos
@@ -58,10 +58,10 @@ type MPos struct { // match pos
 }
 
 func (mp MPos) Bounds() (Pos, Pos) {
-	if mp.Start <= mp.End {
-		return mp.Start, mp.End
+	if mp.Start > mp.End {
+		return mp.End, mp.Start
 	}
-	return mp.End, mp.Start
+	return mp.Start, mp.End
 }
 
 //----------

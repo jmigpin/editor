@@ -119,7 +119,7 @@ func TestInteger2(t *testing.T) {
 		g.Loop1(g.And(
 			g.Token(Append(&w, VOr(
 				VAny(g.VInteger()),
-				VAny(g.VSourceStr(g.AnyRune())),
+				VAny(g.VString(g.AnyRune())),
 			))),
 		)),
 		g.Eof(),
@@ -145,7 +145,7 @@ func TestFloat1(t *testing.T) {
 		g.Loop1(g.And(
 			g.Token(Append(&w, VOr(
 				VAny(g.VFloat()),
-				VAny(g.VSource(g.AnyRune())),
+				VAny(g.VBytes(g.AnyRune())),
 			))),
 		)),
 		g.Eof(),
@@ -170,8 +170,8 @@ func TestEscape1(t *testing.T) {
 		g.Loop1(g.And(
 			g.Token(Append(&w,
 				VOr(
-					VAny(g.VSourceStr(g.Escape('\\'))),
-					VAny(g.VSourceStr(g.AnyRune())),
+					VAny(g.VString(g.Escape('\\'))),
+					VAny(g.VString(g.AnyRune())),
 				)),
 			),
 		)),
@@ -207,7 +207,7 @@ func TestValues1(t *testing.T) {
 				VAny(g.VFloat()),
 				VAny(g.VInteger()),
 				VAny(g.VBool()),
-				VAny(g.VSourceStr(g.QuotedString1())),
+				VAny(g.VString(g.QuotedString1())),
 			))),
 		)(ps, pos)
 		return &v, mp, err
@@ -299,11 +299,11 @@ func TestEmptyLinesWithComments(t *testing.T) {
 
 	w := []string{}
 	_, err := g.Parse(ps, g.And(
-		g.Token(Append(&w, g.VSourceStr(g.Rune('a')))),
+		g.Token(Append(&w, g.VString(g.Rune('a')))),
 		g.Token(g.Newline()),
-		g.Token(Append(&w, g.VSourceStr(g.Rune('b')))),
+		g.Token(Append(&w, g.VString(g.Rune('b')))),
 		g.Token(g.Newline()),
-		g.Token(Append(&w, g.VSourceStr(g.Rune('c')))),
+		g.Token(Append(&w, g.VString(g.Rune('c')))),
 		g.Token(g.Newline()),
 		g.Token(g.Eof()),
 	))
@@ -338,7 +338,7 @@ func TestLoopToNLOrEofAtEOF(t *testing.T) {
 
 			got := ""
 			_, err := g.Parse(ps, g.And(
-				Assign(&got, g.VSourceStr(g.LoopToNLOrEof(0, tt.includeNL))),
+				Assign(&got, g.VString(g.LoopToNLOrEof(0, tt.includeNL))),
 				g.Eof(),
 			))
 			if tt.wantErr {
@@ -669,7 +669,7 @@ func TestLookback(t *testing.T) {
 	strPos := Pos(0)
 	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.Or(
-			Assign(&str, g.VSourceStr(
+			Assign(&str, g.VString(
 				g.DebugAnd(false, "back",
 					g.And(
 						g.Rune('0'),
@@ -879,6 +879,46 @@ func TestSeqOrMid(t *testing.T) {
 	}
 	if p2 != Pos(len("a.txt, line ")) {
 		t.Fatalf("got=%v, want=%v", p2, len("a.txt, line "))
+	}
+
+	ps = NewParserStateFromString("abc")
+	p2, err = g.ParseAt(ps, Pos(1), g.SeqOrMid("abc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2 != Pos(len("abc")) {
+		t.Fatalf("got=%v, want=%v", p2, len("abc"))
+	}
+
+	ps = NewParserStateFromString("abc")
+	_, err = g.ParseAt(ps, Pos(len("abc")), g.SeqOrMid("abc"))
+	if err == nil {
+		t.Fatal("expected no match")
+	}
+
+	ps = NewParserStateFromString("abc xxxxx")
+	_, err = g.ParseAt(ps, Pos(len("abc xxxxx")), g.SeqOrMid("abc"))
+	if err == nil {
+		t.Fatal("expected no match")
+	}
+}
+
+func TestLastAnyRune(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("a界")
+
+	mp, err := g.LastAnyRune()(ps, Pos(len("a界")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mp.Start != Pos(len("a界")) {
+		t.Fatalf("got=%v, want=%v", mp.Start, len("a界"))
+	}
+	if mp.End != Pos(len("a")) {
+		t.Fatalf("got=%v, want=%v", mp.End, len("a"))
+	}
+	if got := ps.SourceStr(mp); got != "界" {
+		t.Fatalf("got=%q, want=%q", got, "界")
 	}
 }
 
