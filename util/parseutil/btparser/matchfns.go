@@ -373,7 +373,7 @@ func mLoop1(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 	return mp, nil
 }
 
-func mLoopSep(ps *ParserState, pos Pos, optLastSep bool, fn, sepFn MFn) (MPos, error) {
+func mLoopSep(ps *ParserState, pos Pos, optLastSep, allowEmpty bool, fn, sepFn MFn) (MPos, error) {
 	p0 := pos
 	for k := 0; ; k++ {
 		// separator
@@ -402,7 +402,9 @@ func mLoopSep(ps *ParserState, pos Pos, optLastSep bool, fn, sepFn MFn) (MPos, e
 			return MPos{p0, pos}, nil
 		} else {
 			if mp.End == pos {
-				return mp, loopNoProgressError(ps, "mLoopSefn", pos)
+				if !allowEmpty {
+					return mp, loopNoProgressError(ps, "mLoopSefn", pos)
+				}
 			}
 			pos = mp.End
 		}

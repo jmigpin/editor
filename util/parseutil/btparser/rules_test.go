@@ -399,6 +399,22 @@ func TestLoopSepNoProgress(t *testing.T) {
 			t.Fatalf("expected fatal error: %v", err)
 		}
 	})
+
+	t.Run("empty-elem", func(t *testing.T) {
+		g := NewRules()
+		ps := NewParserStateFromString(",,")
+
+		p2, err := g.Parse(ps, g.And(
+			g.LoopSepAllowEmpty(g.NoOp(), g.Rune(',')),
+			g.Eof(),
+		))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p2 != 2 {
+			t.Fatalf("got=%v, want=%v", p2, 2)
+		}
+	})
 }
 
 func TestSop(t *testing.T) {

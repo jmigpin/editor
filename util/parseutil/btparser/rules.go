@@ -274,7 +274,12 @@ func (g Rules) Loop1(fn MFn) MFn {
 }
 func (g Rules) LoopSep(optLastSep bool, fn, sepFn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLoopSep(ps, pos, optLastSep, fn, sepFn)
+		return mLoopSep(ps, pos, optLastSep, false, fn, sepFn)
+	}
+}
+func (g Rules) LoopSepAllowEmpty(fn, sepFn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoopSep(ps, pos, true, true, fn, sepFn)
 	}
 }
 func (g Rules) LoopConsumeUntil(consumeFn, untilFn MFn) MFn {
