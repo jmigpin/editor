@@ -122,7 +122,7 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 
 func (p *JsonParser3) numberFn() btparser.VFn[float64] {
 	return func(ps *btparser.ParserState, pos btparser.Pos) (float64, btparser.MPos, error) {
-		s, mp, err := p.g.VSourceStr(p.g.Or(
+		s, mp, err := p.g.VString(p.g.Or(
 			p.g.Float(),
 			p.g.Integer(),
 		))(ps, pos)

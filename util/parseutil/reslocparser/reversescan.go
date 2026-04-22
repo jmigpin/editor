@@ -7,8 +7,9 @@ import (
 )
 
 type ReverseScan struct {
-	g           btparser.Rules
-	fn          btparser.MFn
+	g  btparser.Rules
+	fn btparser.MFn
+
 	escape      rune
 	pathSep     rune
 	parseVolume bool
@@ -24,17 +25,17 @@ func NewReverseScanResLoc(escape, pathSep rune, parseVolume bool) *ReverseScan {
 	return rs
 }
 
-func (rs *ReverseScan) ParseStart(src []byte, index, maxLen int) (int, error) {
-	ps := btparser.NewParserStateFromBytes(src)
-	fn := rs.g.LimitSourceLines(0, 0, rs.g.ReverseSource(rs.fn))
-	if maxLen > 0 {
-		fn = rs.g.LimitSourceBytes(maxLen, 10, fn)
-	}
-	p2, err := rs.g.ParseAt(ps, btparser.Pos(index), fn)
-	if err != nil {
-		return index, err
-	}
-	return int(p2), nil
+func (rs *ReverseScan) ParseStart(ps *btparser.ParserState, index, maxLen int) (int, error) {
+	p2, err := rs.g.ParseAt(ps, btparser.Pos(index), rs.Rule(maxLen))
+	return int(p2), err
+}
+
+func (rs *ReverseScan) Rule(maxLen int) btparser.MFn {
+	return rs.g.LimitSourceBytes(maxLen, 10,
+		rs.g.LimitSourceLines(0, 0,
+			rs.g.ReverseSource(rs.fn),
+		),
+	)
 }
 
 //----------
@@ -118,14 +119,63 @@ func (rs *ReverseScan) init() {
 				g.Optional(revFullPath(true)), // opt = at last quote
 				quotes,
 				// verify in the other direction
-				g.Peek(g.LimitSourceBytes(800, 800, g.ReverseSource(g.And(
-					quotes, revFullPath(true), quotes,
-				)))),
+				g.Peek(g.LimitSourceBytes(800, 800,
+					g.ReverseSource(g.And(
+						quotes, revFullPath(true), quotes,
+					)),
+				)),
 			),
 			revFullPath(false),
 		)),
 	)
 
+}
+
+//----------
+//----------
+//----------
+
+// coverIndex brute-forces possible parse starts from pos and accepts the first match that reaches index, useful as a simple fallback when reverse scanning cannot reliably find the start.
+func coverIndex(index int, fn btparser.MFn) btparser.MFn {
+	return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+		return coverIndexParse(ps, pos, index, fn)
+	}
+}
+
+func coverIndexParse(ps *btparser.ParserState, pos btparser.Pos, index int, fn btparser.MFn) (btparser.MPos, error) {
+	var err0 error
+	for i := int(pos); i <= index; i++ {
+		rl1 := coverIndexResLocData(ps)
+		rl2 := *rl1
+		ps.UserData[resLocDataKey] = &rl2
+
+		mp, err := fn(ps, btparser.Pos(i))
+		ps.UserData[resLocDataKey] = rl1
+		if err != nil {
+			if err0 == nil {
+				err0 = err
+			}
+			continue
+		}
+		if int(mp.End) < index {
+			continue
+		}
+
+		*rl1 = rl2
+		return btparser.MPos{Start: btparser.Pos(i), End: mp.End}, nil
+	}
+	if err0 != nil {
+		return btparser.MPos{}, err0
+	}
+	return btparser.MPos{}, btparser.NoMatchErr
+}
+
+func coverIndexResLocData(ps *btparser.ParserState) *ResLoc {
+	rl, ok := ps.UserData[resLocDataKey].(*ResLoc)
+	if !ok {
+		panic("cover index scan missing ResLoc userdata")
+	}
+	return rl
 }
 
 //----------

@@ -2,6 +2,7 @@ package reslocparser
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jmigpin/editor/util/testutil"
@@ -252,6 +253,30 @@ func TestResLocParserWin3(t *testing.T) {
 }
 
 //----------
+
+func TestResLocParserGitDiff1(t *testing.T) {
+	in := "" +
+		"diff --git a/core/foo.go b/core/foo.go\n" +
+		"index 1111111..2222222 100644\n" +
+		"--- a/core/foo.go\n" +
+		"+++ b/core/foo.go\n" +
+		"@@ -188,7 +188,7 @@ func main() {\n" +
+		" line\n"
+	in = strings.Replace(in, "@@ -188", "@@ -●188", 1)
+	out := "core/foo.go:188"
+	testModeBt1(t, in, out)
+}
+func TestResLocParserGitDiff2(t *testing.T) {
+	in := "" +
+		"diff --git a/core/foo.go b/core/foo.go\n" +
+		"@@ -10,2 +20,3 @@ func main() {\n" +
+		" line\n"
+	in = strings.Replace(in, "+20", "+●20", 1)
+	out := "core/foo.go:20"
+	testModeBt1(t, in, out)
+}
+
+//----------
 //----------
 //----------
 
@@ -302,94 +327,104 @@ func BenchmarkResLoc2(b *testing.B) {
 
 func testMode1(t *testing.T, in, out string) {
 	t.Helper()
-	testMode2(t, in, out, 0, 0, false)
+	testMode(t, in, out, testModeOptions{})
 }
 
 func testModeBt1(t *testing.T, in, out string) {
 	t.Helper()
-	testModeBt2(t, in, out, 0, 0, false)
-}
-
-func testModeBt2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
-	t.Helper()
-	in2, index, err := testutil.SourceCursor("●", string(in), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rl := testMode3bt(t, []byte(in2), index, esc, psep, parseVolume)
-	res := rl.Stringify1()
-	res2 := testutil.TrimLineSpaces(res)
-	expect2 := testutil.TrimLineSpaces(out)
-	if res2 != expect2 {
-		t.Fatalf("res=%v", res)
-	}
+	testMode(t, in, out, testModeOptions{skipResLoc1: true})
 }
 
 func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	t.Helper()
-	rl := testMode3(t, in, out, esc, psep, parseVolume)
-	res := rl.Stringify1()
-	res2 := testutil.TrimLineSpaces(res)
-	expect2 := testutil.TrimLineSpaces(out)
-	if res2 != expect2 {
-		//t.Fatalf("res=%v\n%v\n", res, rl.Bnd.SprintRuleTree(5))
-		t.Fatalf("res=%v", res)
-	}
+	testMode(t, in, out, testModeOptions{escape: esc, pathSeparator: psep, parseVolume: parseVolume})
 }
+
 func testMode2b(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	t.Helper()
-	rl := testMode3(t, in, out, esc, psep, parseVolume)
-	res := rl.ToOffsetString()
-	res2 := testutil.TrimLineSpaces(res)
-	expect2 := testutil.TrimLineSpaces(out)
-	if res2 != expect2 {
-		t.Fatalf("res=%v", res)
-	}
+	testMode(t, in, out, testModeOptions{escape: esc, pathSeparator: psep, parseVolume: parseVolume, offsetString: true})
 }
 
-func testMode3(t *testing.T, in, out string, esc, psep rune, parseVolume bool) *ResLoc {
-	t.Helper()
-
+func testMode(t *testing.T, in, out string, opts testModeOptions) {
 	in2, index, err := testutil.SourceCursor("●", string(in), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
+	src := []byte(in2)
 
-	rl2 := testMode3bt(t, []byte(in2), index, esc, psep, parseVolume)
+	var rl *ResLoc
+	var rl1 *ResLoc
+	var rl2 *ResLoc
+
+	if !opts.skipResLoc1 {
+		rl1 = parseResLoc1(t, src, index, opts)
+		rl = rl1
+	}
+	if !opts.skipResLoc2 {
+		rl2 = parseResLoc2(t, src, index, opts)
+		rl = rl2
+	}
+	if rl == nil {
+		t.Fatal("no resloc parser enabled")
+	}
+	if rl1 != nil && rl2 != nil && !reflect.DeepEqual(rl1, rl2) {
+		t.Fatalf("resloc1=%#v\nresloc2=%#v", rl1, rl2)
+	}
+
+	res := rl.Stringify1()
+	if opts.offsetString {
+		res = rl.ToOffsetString()
+	}
+	res2 := testutil.TrimLineSpaces(res)
+	expect2 := testutil.TrimLineSpaces(out)
+	if res2 != expect2 {
+		t.Fatalf("res=%v", res)
+	}
+}
+
+type testModeOptions struct {
+	escape        rune
+	pathSeparator rune
+	parseVolume   bool
+	offsetString  bool
+	skipResLoc1   bool
+	skipResLoc2   bool
+}
+
+//----------
+
+func parseResLoc1(t *testing.T, src []byte, index int, opts testModeOptions) *ResLoc {
+	t.Helper()
 
 	p := NewResLocParser()
-
-	// setup options
-	if esc != 0 {
-		p.Escape = esc
+	if opts.escape != 0 {
+		p.Escape = opts.escape
 	}
-	if psep != 0 {
-		p.PathSeparator = psep
+	if opts.pathSeparator != 0 {
+		p.PathSeparator = opts.pathSeparator
 	}
-	p.ParseVolume = parseVolume
+	p.ParseVolume = opts.parseVolume
 
-	// parse
 	p.Init()
-	rl1, err := p.Parse([]byte(in2), index)
+	rl1, err := p.Parse(src, index)
 	if err != nil {
 		t.Fatalf("resloc1: %v", err)
 	}
-	if !reflect.DeepEqual(rl1, rl2) {
-		t.Fatalf("resloc1=%#v\nresloc2=%#v", rl1, rl2)
-	}
-	return rl2
+	return rl1
 }
 
-func testMode3bt(t *testing.T, src []byte, index int, esc, psep rune, parseVolume bool) *ResLoc {
+func parseResLoc2(t *testing.T, src []byte, index int, opts testModeOptions) *ResLoc {
 	t.Helper()
 
+	esc := opts.escape
 	if esc == 0 {
 		esc = '\\'
 	}
+	psep := opts.pathSeparator
 	if psep == 0 {
 		psep = '/'
 	}
-	p := NewResLocParser2(esc, psep, parseVolume)
+	p := NewResLocParser2(esc, psep, opts.parseVolume)
 
 	rl2, err := p.Parse(src, index)
 	if err != nil {
