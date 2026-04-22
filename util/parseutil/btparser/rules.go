@@ -11,6 +11,8 @@ import (
 // Rules is the public API for building and running parser rules.
 // ParserState holds the source, ignore rule, and runtime state for a single parse.
 // Built rules are MFn values and can be reused with different ParserState values.
+// When building rules for complex structs, keep grammar rules separate from construction helpers: helpers should read/write parse state, create nodes from MPos, or wrap a provided rule with an action, but should not hide the grammar they receive.
+// For example, define helpers such as data(ps), newArg(ps,mp), appendArg(part,fn), assignPath(fn), and newPartRule(body), then keep the grammar visible in a compact block as quotedString, spaces, arg, part, parts, and final parse rule.
 type Rules struct{}
 
 func NewRules() Rules {

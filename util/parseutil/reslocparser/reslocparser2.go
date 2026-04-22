@@ -8,6 +8,7 @@ import (
 
 const resLocDataKey = "reslocparser.resloc"
 const gitDiffInitialPosKey = "reslocparser.gitdiff.initialpos"
+const gitDiffPathKey = "reslocparser.gitdiff.path"
 
 var fileSchemeTag = "file://"
 var pythonLineTailTag = ", line "
@@ -58,35 +59,93 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 		return rl
 	}
 
-	assignValue := func(dst func(*btparser.ParserState) *string, fn btparser.VFn[string]) btparser.MFn {
+	assignVolume := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *string {
+				return &resLocData(ps).Volume
+			},
+			g.VString(fn),
+		)
+	}
+	assignScheme := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *string {
+				return &resLocData(ps).Scheme
+			},
+			g.VString(fn),
+		)
+	}
+	assignPath := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *string {
+				return &resLocData(ps).Path
+			},
+			g.VString(fn),
+		)
+	}
+	assignLine := func(fn btparser.VFn[int]) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *int {
+				return &resLocData(ps).Line
+			},
+			fn,
+		)
+	}
+	assignColumn := func(fn btparser.VFn[int]) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *int {
+				return &resLocData(ps).Column
+			},
+			fn,
+		)
+	}
+	assignOffset := func(fn btparser.VFn[int]) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *int {
+				return &resLocData(ps).Offset
+			},
+			fn,
+		)
+	}
+	volume := func(pathSepFn btparser.MFn) btparser.MFn {
+		return g.And(
+			g.IsTrue(parseVolume),
+			assignVolume(g.And(g.Letter(), g.Rune(':'))),
+			pathSepFn,
+		)
+	}
+	quotedPath := func(q rune, path btparser.MFn) btparser.MFn {
+		qFn := g.Rune(q)
+		return g.And(qFn, assignPath(path), qFn)
+	}
+
+	withResLocCopy := func(fn btparser.MFn) btparser.MFn {
 		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-			return btparser.Assign(dst(ps), fn)(ps, pos)
+			rl1 := resLocData(ps)
+			rl2 := *rl1
+			ps.UserData[resLocDataKey] = &rl2
+			defer func() { ps.UserData[resLocDataKey] = rl1 }()
+
+			mp, err := fn(ps, pos)
+			if err != nil {
+				return mp, err
+			}
+			rl2.Pos = int(mp.Start)
+			rl2.End = int(mp.End)
+
+			*rl1 = rl2
+			return mp, nil
 		}
 	}
 
-	assignInt := func(dst func(*btparser.ParserState) *int, fn btparser.VFn[int]) btparser.MFn {
-		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-			return btparser.Assign(dst(ps), fn)(ps, pos)
-		}
-	}
+	//----------
 
 	nameSyms := func(except ...rune) btparser.MFn {
 		rs := buildPathItemSyms(except...)
 		return g.RuneAnyOf(rs...)
 	}
 
-	volume := func(pathSepFn btparser.MFn) btparser.MFn {
-		return g.And(
-			g.IsTrue(parseVolume),
-			assignValue(
-				func(ps *btparser.ParserState) *string {
-					return &resLocData(ps).Volume
-				},
-				g.VString(g.And(g.Letter(), g.Rune(':'))),
-			),
-			pathSepFn,
-		)
-	}
+	//----------
 
 	cEscRu := escape
 	cPathSepRu := pathSeparator
@@ -107,23 +166,18 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 	)
 	cLineCol := g.And(
 		g.Rune(':'),
-		assignInt(func(ps *btparser.ParserState) *int { return &resLocData(ps).Line }, g.VInteger()),
+		assignLine(g.VInteger()),
 		g.Optional(g.And(
 			g.Rune(':'),
-			assignInt(func(ps *btparser.ParserState) *int { return &resLocData(ps).Column }, g.VInteger()),
+			assignColumn(g.VInteger()),
 		)),
 	)
 	cOffset := g.And(
 		g.Seq(":o="),
-		assignInt(
-			func(ps *btparser.ParserState) *int {
-				return &resLocData(ps).Offset
-			},
-			g.VInteger(),
-		),
+		assignOffset(g.VInteger()),
 	)
 	cFile := g.And(
-		assignValue(func(ps *btparser.ParserState) *string { return &resLocData(ps).Path }, g.VString(cPath)),
+		assignPath(cPath),
 		g.Optional(g.Or(cOffset, cLineCol)),
 	)
 
@@ -146,18 +200,8 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 		schNames,
 	)
 	schFile := g.And(
-		assignValue(
-			func(ps *btparser.ParserState) *string {
-				return &resLocData(ps).Scheme
-			},
-			g.VString(g.Seq(fileSchemeTag)),
-		),
-		assignValue(
-			func(ps *btparser.ParserState) *string {
-				return &resLocData(ps).Path
-			},
-			g.VString(schPath),
-		),
+		assignScheme(g.Seq(fileSchemeTag)),
+		assignPath(schPath),
 		g.Optional(cLineCol),
 	)
 
@@ -174,17 +218,7 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 	}
 
 	quotedFile := func(q rune) (btparser.MFn, btparser.MFn) {
-		qFn := g.Rune(q)
-		file := g.And(
-			qFn,
-			assignValue(
-				func(ps *btparser.ParserState) *string {
-					return &resLocData(ps).Path
-				},
-				g.VString(cPathQuoted(q)),
-			),
-			qFn,
-		)
+		file := quotedPath(q, cPathQuoted(q))
 		fileLineCol := g.And(file, g.Optional(cLineCol))
 		return file, fileLineCol
 	}
@@ -197,39 +231,20 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 		dquotedFileBase,
 		g.And(
 			g.Seq(pythonLineTailTag),
-			assignInt(func(ps *btparser.ParserState) *int { return &resLocData(ps).Line }, g.VInteger()),
+			assignLine(g.VInteger()),
 		),
 	)
 
 	shellFile := g.And(
-		assignValue(func(ps *btparser.ParserState) *string { return &resLocData(ps).Path }, g.VString(cPath)),
+		assignPath(cPath),
 		g.And(
 			g.Seq(shellLineTailTag),
-			assignInt(func(ps *btparser.ParserState) *int { return &resLocData(ps).Line }, g.VInteger()),
+			assignLine(g.VInteger()),
 		),
 	)
 
-	withResLocCopy := func(fn btparser.MFn) btparser.MFn {
-		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-			rl1 := resLocData(ps)
-			rl2 := *rl1
-			ps.UserData[resLocDataKey] = &rl2
-			defer func() { ps.UserData[resLocDataKey] = rl1 }()
-
-			mp, err := fn(ps, pos)
-			if err != nil {
-				return mp, err
-			}
-			rl2.Pos = int(mp.Start)
-			rl2.End = int(mp.End)
-
-			*rl1 = rl2
-			return mp, nil
-		}
-	}
-
 	p.fn = g.Or(
-		withResLocCopy(p.buildGitDiff(resLocData, assignInt)),
+		withResLocCopy(p.buildGitDiff()),
 
 		g.And(
 			p.revScan.Rule(800),
@@ -250,27 +265,16 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 
 //----------
 
-func (p *ResLocParser2) buildGitDiff(
-	resLocData func(*btparser.ParserState) *ResLoc,
-	assignInt func(
-		func(*btparser.ParserState) *int,
-		btparser.VFn[int],
-	) btparser.MFn) btparser.MFn {
+func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 	g := p.g
 
-	gitDiffRangeTail := g.Optional(g.And(g.Rune(','), g.Integer()))
-	gitDiffOldRange := g.And(g.Rune('-'), g.Integer(), gitDiffRangeTail)
-	gitDiffNewRange := g.And(
-		g.Rune('+'),
-		assignInt(
-			func(ps *btparser.ParserState) *int {
-				return &resLocData(ps).Line
-			},
-			g.VInteger(),
-		),
-		gitDiffRangeTail,
-	)
-
+	resLocData := func(ps *btparser.ParserState) *ResLoc {
+		rl, ok := ps.UserData[resLocDataKey].(*ResLoc)
+		if !ok {
+			panic("resloc parser missing ResLoc userdata")
+		}
+		return rl
+	}
 	setGitPath := func(path string, ps *btparser.ParserState) bool {
 		path = strings.TrimSpace(path)
 		if path == "" || path == "/dev/null" {
@@ -279,47 +283,88 @@ func (p *ResLocParser2) buildGitDiff(
 		resLocData(ps).Path = trimGitDiffPathPrefix(path)
 		return true
 	}
-
-	setGitPathFn := func(path *string) btparser.MFn {
+	gitDiffPathData := func(ps *btparser.ParserState) *string {
+		path, ok := ps.UserData[gitDiffPathKey].(*string)
+		if !ok {
+			panic("git diff parser missing path userdata")
+		}
+		return path
+	}
+	gitDiffInitialPosData := func(ps *btparser.ParserState) btparser.Pos {
+		initialPos, ok := ps.UserData[gitDiffInitialPosKey].(btparser.Pos)
+		if !ok {
+			panic("git diff parser missing initial pos userdata")
+		}
+		return initialPos
+	}
+	withGitDiffPath := func(fn btparser.MFn) btparser.MFn {
 		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-			if !setGitPath(*path, ps) {
-				return btparser.MPos{Start: pos, End: pos}, btparser.NoMatchErr
-			}
-			return btparser.MPos{Start: pos, End: pos}, nil
+			path := ""
+			ps.UserData[gitDiffPathKey] = &path
+			defer delete(ps.UserData, gitDiffPathKey)
+			return fn(ps, pos)
 		}
 	}
-
-	gitFilePath := func(path *string) btparser.MFn {
-		return btparser.Assign(path, g.VString(g.LoopToNLOrEof(0, false)))
+	keepInitialPos := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+		ps.UserData[gitDiffInitialPosKey] = pos
+		return btparser.MPos{Start: pos, End: pos}, nil
+	}
+	setGitPathFn := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+		if !setGitPath(*gitDiffPathData(ps), ps) {
+			return btparser.MPos{Start: pos, End: pos}, btparser.NoMatchErr
+		}
+		return btparser.MPos{Start: pos, End: pos}, nil
+	}
+	checkInitialPosInsideMatch := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+		mp := btparser.MPos{pos, pos}
+		if pos <= gitDiffInitialPosData(ps) {
+			return mp, btparser.NoMatchErr
+		}
+		return mp, nil
+	}
+	assignGitDiffPath := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(gitDiffPathData, g.VString(fn))
+	}
+	assignGitDiffLine := func(fn btparser.VFn[int]) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *int {
+				return &resLocData(ps).Line
+			},
+			fn,
+		)
 	}
 
-	gitDiffPathToken := func(path *string) btparser.MFn {
-		return btparser.Assign(path, g.VString(g.Loop1(g.And(
+	//----------
+
+	gitDiffRangeTail := g.Optional(g.And(g.Rune(','), g.Integer()))
+	gitDiffOldRange := g.And(g.Rune('-'), g.Integer(), gitDiffRangeTail)
+	gitDiffNewRange := g.And(
+		g.Rune('+'),
+		assignGitDiffLine(g.VInteger()),
+		gitDiffRangeTail,
+	)
+
+	gitFilePath := assignGitDiffPath(g.LoopToNLOrEof(0, false))
+	gitDiffPathToken := assignGitDiffPath(
+		g.Loop1(g.And(
 			g.Not(g.Space()),
 			g.AnyRune(),
-		))))
-	}
+		)),
+	)
 
-	plusFileLine := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-		path := ""
-		return g.And(
-			g.Seq("+++ "),
-			gitFilePath(&path),
-			setGitPathFn(&path),
-		)(ps, pos)
-	}
+	plusFileLine := withGitDiffPath(g.And(
+		g.Seq("+++ "),
+		gitFilePath,
+		setGitPathFn,
+	))
 
-	diffGitFileLine := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-		oldPath := ""
-		newPath := ""
-		return g.And(
-			g.Seq("diff --git "),
-			gitDiffPathToken(&oldPath),
-			g.Spaces(),
-			gitFilePath(&newPath),
-			setGitPathFn(&newPath),
-		)(ps, pos)
-	}
+	diffGitFileLine := withGitDiffPath(g.And(
+		g.Seq("diff --git "),
+		gitDiffPathToken,
+		g.Spaces(),
+		gitFilePath,
+		setGitPathFn,
+	))
 	gitFileLine := g.Or(
 		plusFileLine,
 		diffGitFileLine,
@@ -331,12 +376,7 @@ func (p *ResLocParser2) buildGitDiff(
 	)
 
 	hunk := g.And(
-		// keep initial position for end validation
-		func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-			ps.UserData[gitDiffInitialPosKey] = pos
-			return btparser.MPos{pos, pos}, nil
-		},
-
+		keepInitialPos,
 		toLineStart,
 
 		g.Seq("@@"),
@@ -347,19 +387,7 @@ func (p *ResLocParser2) buildGitDiff(
 		g.Spaces(),
 		g.Seq("@@"),
 
-		// the initial pos must be inside the match
-		func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-			mp := btparser.MPos{pos, pos}
-			initialPos, ok := ps.UserData[gitDiffInitialPosKey].(btparser.Pos)
-			if !ok {
-				panic("git diff parser missing initial pos userdata")
-			}
-			if pos <= initialPos {
-				return mp, btparser.NoMatchErr
-			}
-			return mp, nil
-		},
-
+		checkInitialPosInsideMatch,
 		toLineStart,
 		g.LoopConsumeUntil(
 			g.And(

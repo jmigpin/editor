@@ -31,8 +31,8 @@ func (rs *ReverseScan) ParseStart(ps *btparser.ParserState, index, maxLen int) (
 }
 
 func (rs *ReverseScan) Rule(maxLen int) btparser.MFn {
-	return rs.g.LimitSourceBytes(maxLen, 10,
-		rs.g.LimitSourceLines(0, 0,
+	return rs.g.WithBounds(maxLen, 10,
+		rs.g.WithLineBounds(0, 0,
 			rs.g.ReverseSource(rs.fn),
 		),
 	)
@@ -119,7 +119,7 @@ func (rs *ReverseScan) init() {
 				g.Optional(revFullPath(true)), // opt = at last quote
 				quotes,
 				// verify in the other direction
-				g.Peek(g.LimitSourceBytes(800, 800,
+				g.Peek(g.WithBounds(800, 800,
 					g.ReverseSource(g.And(
 						quotes, revFullPath(true), quotes,
 					)),

@@ -113,7 +113,7 @@ func TestCoverIndex(t *testing.T) {
 
 	fn := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
 		rl := ps.UserData[resLocDataKey].(*ResLoc)
-		return btparser.Assign(&rl.Path, g.VString(g.Seq("/a/b.txt")))(ps, pos)
+		return btparser.AssignLocal(&rl.Path, g.VString(g.Seq("/a/b.txt")))(ps, pos)
 	}
 
 	mp, err := coverIndex(index, fn)(ps, 0)

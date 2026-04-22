@@ -29,7 +29,7 @@ func (p *JsonParser3) parseJson(src []byte) (any, error) {
 	v := any(nil)
 	_, err := p.g.Parse(ps, p.g.And(
 		optSpaces,
-		btparser.Assign(&v, valueFn),
+		btparser.AssignLocal(&v, valueFn),
 		optSpaces,
 		p.g.Eof(),
 	))
@@ -56,12 +56,12 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 		m := btparser.MapEntry[string, any]{}
 		mp, err := p.g.And(
 			optSpaces,
-			btparser.Assign(&m.Key, stringFn),
+			btparser.AssignLocal(&m.Key, stringFn),
 			optSpaces,
 			p.g.Rune(':'),
 			p.g.FatalOnError("member value", p.g.And(
 				optSpaces,
-				btparser.Assign(&m.Value, valueFn),
+				btparser.AssignLocal(&m.Value, valueFn),
 				optSpaces,
 			)),
 		)(ps, pos)
@@ -74,7 +74,7 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 			optSpaces,
 			p.g.Optional(p.g.LoopSep(
 				true,
-				btparser.SetMapEntry(&m, memberFn),
+				btparser.SetMapEntryLocal(&m, memberFn),
 				p.g.And(
 					optSpaces,
 					p.g.Rune(','),
@@ -94,7 +94,7 @@ func (p *JsonParser3) valueFn() btparser.VFn[any] {
 				true,
 				p.g.And(
 					optSpaces,
-					btparser.Append(&w, valueFn),
+					btparser.AppendLocal(&w, valueFn),
 					optSpaces,
 				),
 				p.g.And(
