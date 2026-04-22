@@ -96,14 +96,19 @@ func (g Rules) Peek(fn MFn) MFn {
 		return mPeek(ps, pos, fn)
 	}
 }
-func (g Rules) LimitSourceBytes(back, forward int, fn MFn) MFn {
+func (g Rules) WithBounds(back, forward int, fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLimitSourceBytes(ps, pos, back, forward, fn)
+		return mWithBounds(ps, pos, back, forward, fn)
 	}
 }
-func (g Rules) LimitSourceLines(back, forward int, fn MFn) MFn {
+func (g Rules) WithBoundsAbs(start, end Pos, fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLimitSourceLines(ps, pos, back, forward, fn)
+		return mWithBoundsAbs(ps, pos, start, end, fn)
+	}
+}
+func (g Rules) WithLineBounds(back, forward int, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mWithLineBounds(ps, pos, back, forward, fn)
 	}
 }
 func (g Rules) ReverseSource(fn MFn) MFn {
@@ -116,7 +121,10 @@ func (g Rules) ReverseSource(fn MFn) MFn {
 
 func (g Rules) ToIndexByte(b byte) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		i := bytes.IndexByte(ps.src[pos:], b)
+		if pos < ps.srcMin || pos > ps.srcMax {
+			return MPos{Start: pos, End: pos}, NoMatchErr
+		}
+		i := bytes.IndexByte(ps.src[pos:ps.srcMax], b)
 		if i < 0 {
 			return MPos{Start: pos, End: pos}, NoMatchErr
 		}
@@ -125,11 +133,14 @@ func (g Rules) ToIndexByte(b byte) MFn {
 }
 func (g Rules) ToLastIndexByte(b byte) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		i := bytes.LastIndexByte(ps.src[:pos], b)
+		if pos < ps.srcMin || pos > ps.srcMax {
+			return MPos{Start: pos, End: pos}, NoMatchErr
+		}
+		i := bytes.LastIndexByte(ps.src[ps.srcMin:pos], b)
 		if i < 0 {
 			return MPos{Start: pos, End: pos}, NoMatchErr
 		}
-		return MPos{Start: pos, End: Pos(i)}, nil
+		return MPos{Start: pos, End: ps.srcMin + Pos(i)}, nil
 	}
 }
 
@@ -139,7 +150,7 @@ func (g Rules) ToIndexByteOrEnd(b byte) MFn {
 	return g.Or(
 		g.ToIndexByte(b),
 		func(ps *ParserState, pos Pos) (MPos, error) {
-			return MPos{Start: pos, End: Pos(len(ps.src))}, nil
+			return MPos{Start: pos, End: ps.srcMax}, nil
 		},
 	)
 }
@@ -147,7 +158,7 @@ func (g Rules) ToLastIndexByteOrStart(b byte) MFn {
 	return g.Or(
 		g.ToLastIndexByte(b),
 		func(ps *ParserState, pos Pos) (MPos, error) {
-			return MPos{Start: pos, End: 0}, nil
+			return MPos{Start: pos, End: ps.srcMin}, nil
 		},
 	)
 }

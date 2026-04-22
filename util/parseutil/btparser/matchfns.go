@@ -15,9 +15,8 @@ func mvByte(ps *ParserState, pos Pos) (byte, MPos, error) {
 		ps.farthest = pos
 	}
 
-	l := Pos(len(ps.src))
-	if pos >= l {
-		return 0, MPos{l, l}, NoMatchErr
+	if pos < ps.srcMin || pos >= ps.srcMax {
+		return 0, MPos{pos, pos}, NoMatchErr
 	}
 	b := ps.src[pos]
 	p2 := pos + 1
@@ -28,7 +27,10 @@ func mvRune(ps *ParserState, pos Pos) (rune, MPos, error) {
 		ps.farthest = pos
 	}
 
-	ru, size := utf8.DecodeRune(ps.src[pos:])
+	if pos < ps.srcMin || pos >= ps.srcMax {
+		return 0, MPos{pos, pos}, NoMatchErr
+	}
+	ru, size := utf8.DecodeRune(ps.src[pos:ps.srcMax])
 	if size == 0 {
 		return 0, MPos{pos, pos}, NoMatchErr
 	}
@@ -36,7 +38,10 @@ func mvRune(ps *ParserState, pos Pos) (rune, MPos, error) {
 	return ru, MPos{pos, p2}, nil
 }
 func mvLastRune(ps *ParserState, pos Pos) (rune, MPos, error) {
-	ru, size := utf8.DecodeLastRune(ps.src[:pos])
+	if pos <= ps.srcMin || pos > ps.srcMax {
+		return 0, MPos{pos, pos}, NoMatchErr
+	}
+	ru, size := utf8.DecodeLastRune(ps.src[ps.srcMin:pos])
 	if size == 0 {
 		return 0, MPos{pos, pos}, NoMatchErr
 	}
@@ -130,25 +135,39 @@ func mPeek(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 		return MPos{pos, pos}, nil // stay in same pos
 	}
 }
-func mLimitSourceBytes(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
-	start := Pos(0)
+func mWithBounds(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
+	start := ps.srcMin
 	if back >= 0 {
 		start = max(0, pos-Pos(back))
 	}
-	end := Pos(len(ps.src))
+	end := ps.srcMax
 	if forward >= 0 {
-		end = min(pos+Pos(forward), Pos(len(ps.src)))
+		end = min(pos+Pos(forward), ps.sourceLen())
 	}
-	return mSourceBounds(ps, pos, start, end, fn)
+	return mWithBoundsAbs(ps, pos, start, end, fn)
 }
-func mLimitSourceLines(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
-	start := limitSourceLinesStart(ps.src, pos, back)
-	end := limitSourceLinesEnd(ps.src, pos, forward)
-	return mSourceBounds(ps, pos, start, end, fn)
+
+func mWithLineBounds(ps *ParserState, pos Pos, back, forward int, fn MFn) (MPos, error) {
+	start := lineBoundsStart(ps.src, ps.srcMin, pos, back)
+	end := lineBoundsEnd(ps.src, pos, ps.srcMax, forward)
+	return mWithBoundsAbs(ps, pos, start, end, fn)
 }
+
+func mWithBoundsAbs(ps *ParserState, pos, start, end Pos, fn MFn) (MPos, error) {
+	srcMin := ps.srcMin
+	srcMax := ps.srcMax
+	ps.srcMin = max(srcMin, start)
+	ps.srcMax = min(srcMax, end)
+	defer func() {
+		ps.srcMin = srcMin
+		ps.srcMax = srcMax
+	}()
+	return fn(ps, pos)
+}
+
 func mReverseSource(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
-	rev := reverseSourceBytes(ps.src)
-	parsePos := Pos(len(rev)) - pos
+	rev := reverseSourceBytes(ps.src[ps.srcMin:ps.srcMax])
+	parsePos := ps.srcMax - pos
 
 	ps2 := NewParserStateFromBytes(rev)
 
@@ -159,9 +178,9 @@ func mReverseSource(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 
 	mp, err := fn(ps2, parsePos)
 	if err != nil {
-		return reverseSourceMPos(Pos(len(ps.src)), mp), err
+		return reverseSourceMPos(ps.srcMin, ps.srcMax, mp), err
 	}
-	return reverseSourceMPos(Pos(len(ps.src)), mp), nil
+	return reverseSourceMPos(ps.srcMin, ps.srcMax, mp), nil
 }
 func mNot(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
 	if mp, err := fn(ps, pos); err != nil {
@@ -285,24 +304,10 @@ func mSeqOrMid(ps *ParserState, pos Pos, s string) (MPos, error) {
 
 //----------
 
-func mSourceBounds(ps *ParserState, pos, start, end Pos, fn MFn) (MPos, error) {
-	src := ps.src
-	ps.src = ps.src[start:end]
-	defer func() { ps.src = src }()
-	mp, err := fn(ps, pos-start)
-	return limitSourceMPos(start, mp, err)
-}
-
-func limitSourceMPos(offset Pos, mp MPos, err error) (MPos, error) {
-	mp.Start += offset
-	mp.End += offset
-	return mp, err
-}
-
-func limitSourceLinesStart(src []byte, pos Pos, back int) Pos {
+func lineBoundsStart(src []byte, min, pos Pos, back int) Pos {
 	i := pos
 	n := 0
-	for i > 0 {
+	for i > min {
 		if src[i-1] == '\n' {
 			if n >= back {
 				break
@@ -314,10 +319,10 @@ func limitSourceLinesStart(src []byte, pos Pos, back int) Pos {
 	return i
 }
 
-func limitSourceLinesEnd(src []byte, pos Pos, forward int) Pos {
+func lineBoundsEnd(src []byte, pos, max Pos, forward int) Pos {
 	i := pos
 	n := 0
-	for i < Pos(len(src)) {
+	for i < max {
 		if src[i] == '\n' {
 			if n >= forward {
 				break
@@ -335,10 +340,10 @@ func reverseSourceBytes(src []byte) []byte {
 	return []byte(string(rs))
 }
 
-func reverseSourceMPos(pos Pos, mp MPos) MPos {
+func reverseSourceMPos(srcMin, srcMax Pos, mp MPos) MPos {
 	return MPos{
-		Start: pos - mp.Start,
-		End:   pos - mp.End,
+		Start: srcMin + (srcMax - srcMin - mp.Start),
+		End:   srcMin + (srcMax - srcMin - mp.End),
 	}
 }
 

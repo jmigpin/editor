@@ -7,6 +7,8 @@ type ParserState struct {
 
 	UserData   map[string]any
 	parseStart Pos
+	srcMin     Pos
+	srcMax     Pos
 
 	tokDepth int
 
@@ -25,7 +27,7 @@ type ParserState struct {
 }
 
 func NewParserStateFromBytes(src []byte) *ParserState {
-	return &ParserState{src: src, UserData: map[string]any{}}
+	return &ParserState{src: src, srcMax: Pos(len(src)), UserData: map[string]any{}}
 }
 
 func NewParserStateFromString(s string) *ParserState {
@@ -45,14 +47,18 @@ func (ps *ParserState) Snippet(mp MPos) string {
 	return BytesSnippet(ps.src, mp, 30)
 }
 
+func (ps *ParserState) sourceLen() Pos {
+	return Pos(len(ps.src))
+}
+
 //----------
 //----------
 //----------
 
 type Pos int
 
-// MPos stores the start position passed to a rule and the end position returned by it; rules may move forward or backward, so End can be lower than Start.
-type MPos struct { // match pos
+// MPos (match position) stores the start position passed to a rule and the end position returned by it; rules may move forward or backward, so End can be lower than Start.
+type MPos struct {
 	Start Pos
 	End   Pos
 }
