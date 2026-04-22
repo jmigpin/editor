@@ -373,7 +373,14 @@ func (g Rules) QuotedSection(quote string, esc rune, consume MFn) MFn {
 	return g.Section(quote, quote, esc, false, false, consume)
 }
 func (g Rules) QuotedString1() MFn {
-	return g.QuotedSection("\"", '\\', g.AnyExceptNewline())
+	return g.QuotedString2('\\', 3000, 8)
+}
+func (g Rules) QuotedString2(esc rune, maxLen1, maxLen2 int) MFn {
+	return g.Or(
+		g.WithBounds(0, maxLen1, g.QuotedSection("\"", esc, g.AnyExceptNewline())),
+		g.WithBounds(0, maxLen2, g.QuotedSection("'", esc, g.AnyExceptNewline())),
+		g.WithBounds(0, maxLen1, g.QuotedSection("`", esc, g.AnyRune())),
+	)
 }
 func (g Rules) VBytes(fn MFn) VFn[[]byte] {
 	return func(ps *ParserState, pos Pos) ([]byte, MPos, error) {
