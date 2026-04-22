@@ -344,46 +344,33 @@ func reverseSourceMPos(pos Pos, mp MPos) MPos {
 
 //----------
 
-func mLoop1(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
-	p0 := pos
-	for k := 0; ; k++ {
-		if mp, err := fn(ps, pos); err != nil {
-			if IsFatalError(err) {
-				return mp, err
-			}
-			if k == 0 {
-				return mp, err
-			}
-			return MPos{p0, pos}, nil
-		} else {
-			if mp.End == pos {
-				return mp, loopNoProgressError(ps, "mLoop1", pos)
-			}
-			pos = mp.End
-		}
-	}
-}
-
-// TODO: other loops to accept this "looper" as arg
-func mLoop2(ps *ParserState, pos Pos, minN, maxN int, fn MFn) (MPos, error) {
+func mLoop0(ps *ParserState, pos Pos, maxN int, fn MFn) (MPos, int, error) {
 	p0 := pos
 	for k := 0; maxN < 0 || k < maxN; k++ {
-		if mp, err := fn(ps, pos); err != nil {
-			if k == 0 && minN == 0 { // works like an optional
-				return MPos{p0, p0}, nil
+		mp, err := fn(ps, pos)
+		if err != nil {
+			if IsFatalError(err) {
+				return mp, k, err
 			}
-			if minN > 0 && k < minN { // didn't reach required n
-				return MPos{p0, pos}, NoMatchErr
-			}
-			return MPos{p0, pos}, nil
-		} else {
-			if mp.End == pos {
-				return mp, loopNoProgressError(ps, "mLoop2", pos)
-			}
-			pos = mp.End
+			return MPos{p0, pos}, k, err
 		}
+		if mp.End == pos {
+			return mp, k, loopNoProgressError(ps, "mLoop0", pos)
+		}
+		pos = mp.End
 	}
-	return MPos{p0, pos}, nil
+	return MPos{p0, pos}, maxN, nil
+}
+
+func mLoop1(ps *ParserState, pos Pos, fn MFn) (MPos, error) {
+	mp, n, err := mLoop0(ps, pos, -1, fn)
+	if err != nil {
+		if n == 0 {
+			return mp, err
+		}
+		return MPos{pos, mp.End}, nil
+	}
+	return mp, nil
 }
 
 func mLoopSep(ps *ParserState, pos Pos, optLastSep bool, fn, sepFn MFn) (MPos, error) {
@@ -421,18 +408,27 @@ func mLoopSep(ps *ParserState, pos Pos, optLastSep bool, fn, sepFn MFn) (MPos, e
 		}
 	}
 }
-func mLoopStartEnd(ps *ParserState, pos Pos, startFn, consumeFn, endFn MFn) (MPos, error) {
-	if startFn == nil {
-		startFn = mNoOp
+func mLoopConsumeUntil(ps *ParserState, pos Pos, consumeFn, untilFn MFn) (MPos, error) {
+	p0 := pos
+	for {
+		if mp, err := untilFn(ps, pos); err == nil {
+			return MPos{p0, mp.End}, nil
+		} else if IsFatalError(err) {
+			return mp, err
+		}
+
+		if mp, err := consumeFn(ps, pos); err != nil {
+			if IsFatalError(err) {
+				return mp, err
+			}
+			return untilFn(ps, pos)
+		} else {
+			if mp.End == pos {
+				return mp, loopNoProgressError(ps, "mLoopConsumeUntil", pos)
+			}
+			pos = mp.End
+		}
 	}
-	return mAnd(ps, pos,
-		startFn,
-		optional(loop1(and(
-			not(endFn),
-			consumeFn,
-		))),
-		endFn,
-	)
 }
 
 func mLoopToNLOrEof(ps *ParserState, pos Pos, esc rune, includeNL bool) (MPos, error) {
@@ -442,8 +438,7 @@ func mLoopToNLOrEof(ps *ParserState, pos Pos, esc rune, includeNL bool) (MPos, e
 	} else {
 		nlFn = peek(mNewline)
 	}
-	return mLoopStartEnd(ps, pos,
-		nil,
+	return mLoopConsumeUntil(ps, pos,
 		or(
 			escape(esc),
 			mAnyRune,
@@ -641,13 +636,15 @@ func mSection(ps *ParserState, pos Pos,
 			closeFn,
 		)
 	}
-	return mLoopStartEnd(ps, pos,
+	return mAnd(ps, pos,
 		seq(open),
-		or(
-			escape(esc),
-			consume,
+		loopConsumeUntil(
+			or(
+				escape(esc),
+				consume,
+			),
+			closeFn,
 		),
-		closeFn,
 	)
 }
 
@@ -895,6 +892,12 @@ func seq(s string) MFn {
 func loop1(fn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mLoop1(ps, pos, fn)
+	}
+}
+
+func loopConsumeUntil(consumeFn, untilFn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoopConsumeUntil(ps, pos, consumeFn, untilFn)
 	}
 }
 

@@ -5,7 +5,7 @@ import "fmt"
 type ParserState struct {
 	src []byte
 
-	UserData   any
+	UserData   map[string]any
 	parseStart Pos
 
 	tokDepth int
@@ -25,7 +25,7 @@ type ParserState struct {
 }
 
 func NewParserStateFromBytes(src []byte) *ParserState {
-	return &ParserState{src: src}
+	return &ParserState{src: src, UserData: map[string]any{}}
 }
 
 func NewParserStateFromString(s string) *ParserState {

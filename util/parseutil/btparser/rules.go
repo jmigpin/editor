@@ -272,19 +272,14 @@ func (g Rules) Loop1(fn MFn) MFn {
 		return mLoop1(ps, pos, fn)
 	}
 }
-func (g Rules) Loop2(minN, maxN int, fn MFn) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLoop2(ps, pos, minN, maxN, fn)
-	}
-}
 func (g Rules) LoopSep(optLastSep bool, fn, sepFn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mLoopSep(ps, pos, optLastSep, fn, sepFn)
 	}
 }
-func (g Rules) LoopStartEnd(startFn, consumeFn, endFn MFn) MFn {
+func (g Rules) LoopConsumeUntil(consumeFn, untilFn MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mLoopStartEnd(ps, pos, startFn, consumeFn, endFn)
+		return mLoopConsumeUntil(ps, pos, consumeFn, untilFn)
 	}
 }
 func (g Rules) LoopToNLOrEof(esc rune, includeNL bool) MFn {

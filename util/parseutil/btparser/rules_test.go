@@ -373,19 +373,6 @@ func TestLoop1NoProgress(t *testing.T) {
 	}
 }
 
-func TestLoop2NoProgress(t *testing.T) {
-	g := NewRules()
-	ps := NewParserStateFromString("abc")
-
-	_, err := g.Parse(ps, g.Loop2(0, -1, g.NoOp()))
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !IsFatalError(err) {
-		t.Fatalf("expected fatal error: %v", err)
-	}
-}
-
 func TestLoopSepNoProgress(t *testing.T) {
 	t.Run("sep", func(t *testing.T) {
 		g := NewRules()
