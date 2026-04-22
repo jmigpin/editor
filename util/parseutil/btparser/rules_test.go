@@ -71,7 +71,7 @@ func TestInteger1(t *testing.T) {
 
 	_, err := g.Parse(ps, g.And(
 		g.Loop1(
-			g.Token(Append(&w, g.VInteger())),
+			g.Token(AppendLocal(&w, g.VInteger())),
 		),
 		g.Eof(),
 	))
@@ -94,7 +94,7 @@ func TestRulesNamespace1(t *testing.T) {
 
 	_, err := g.Parse(ps, g.And(
 		g.Loop1(
-			g.Token(Append(&w, g.VInteger())),
+			g.Token(AppendLocal(&w, g.VInteger())),
 		),
 		g.Eof(),
 	))
@@ -117,7 +117,7 @@ func TestInteger2(t *testing.T) {
 
 	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.And(
-			g.Token(Append(&w, VOr(
+			g.Token(AppendLocal(&w, VOr(
 				VAny(g.VInteger()),
 				VAny(g.VString(g.AnyRune())),
 			))),
@@ -143,7 +143,7 @@ func TestFloat1(t *testing.T) {
 
 	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.And(
-			g.Token(Append(&w, VOr(
+			g.Token(AppendLocal(&w, VOr(
 				VAny(g.VFloat()),
 				VAny(g.VBytes(g.AnyRune())),
 			))),
@@ -168,7 +168,7 @@ func TestEscape1(t *testing.T) {
 
 	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.And(
-			g.Token(Append(&w,
+			g.Token(AppendLocal(&w,
 				VOr(
 					VAny(g.VString(g.Escape('\\'))),
 					VAny(g.VString(g.AnyRune())),
@@ -201,9 +201,9 @@ func TestValues1(t *testing.T) {
 	vDataFn := func(ps *ParserState, pos Pos) (*Data, MPos, error) {
 		v := Data{}
 		mp, err := g.And(
-			g.Token(Assign(&v.id, g.VIdentifier())),
+			g.Token(AssignLocal(&v.id, g.VIdentifier())),
 			g.Token(g.Seq("=")),
-			g.Token(Assign(&v.val, VOr(
+			g.Token(AssignLocal(&v.val, VOr(
 				VAny(g.VFloat()),
 				VAny(g.VInteger()),
 				VAny(g.VBool()),
@@ -214,7 +214,7 @@ func TestValues1(t *testing.T) {
 	}
 
 	_, err := g.Parse(ps, g.And(
-		g.Loop1(Append(&w, vDataFn)),
+		g.Loop1(AppendLocal(&w, vDataFn)),
 		g.Eof(),
 	))
 	if err != nil {
@@ -248,9 +248,9 @@ func TestRulesSemanticValueNames(t *testing.T) {
 	vDataFn := func(ps *ParserState, pos Pos) (*Data, MPos, error) {
 		v := Data{}
 		mp, err := g.And(
-			g.Token(Assign(&v.id, g.VIdentifier())),
+			g.Token(AssignLocal(&v.id, g.VIdentifier())),
 			g.Token(g.Seq("=")),
-			g.Token(Assign(&v.val, VOr(
+			g.Token(AssignLocal(&v.val, VOr(
 				VAny(g.VFloat()),
 				VAny(g.VInteger()),
 				VAny(g.VBool()),
@@ -261,7 +261,7 @@ func TestRulesSemanticValueNames(t *testing.T) {
 	}
 
 	_, err := g.Parse(ps, g.And(
-		g.Loop1(Append(&w, vDataFn)),
+		g.Loop1(AppendLocal(&w, vDataFn)),
 		g.Eof(),
 	))
 	if err != nil {
@@ -299,11 +299,11 @@ func TestEmptyLinesWithComments(t *testing.T) {
 
 	w := []string{}
 	_, err := g.Parse(ps, g.And(
-		g.Token(Append(&w, g.VString(g.Rune('a')))),
+		g.Token(AppendLocal(&w, g.VString(g.Rune('a')))),
 		g.Token(g.Newline()),
-		g.Token(Append(&w, g.VString(g.Rune('b')))),
+		g.Token(AppendLocal(&w, g.VString(g.Rune('b')))),
 		g.Token(g.Newline()),
-		g.Token(Append(&w, g.VString(g.Rune('c')))),
+		g.Token(AppendLocal(&w, g.VString(g.Rune('c')))),
 		g.Token(g.Newline()),
 		g.Token(g.Eof()),
 	))
@@ -338,7 +338,7 @@ func TestLoopToNLOrEofAtEOF(t *testing.T) {
 
 			got := ""
 			_, err := g.Parse(ps, g.And(
-				Assign(&got, g.VString(g.LoopToNLOrEof(0, tt.includeNL))),
+				AssignLocal(&got, g.VString(g.LoopToNLOrEof(0, tt.includeNL))),
 				g.Eof(),
 			))
 			if tt.wantErr {
@@ -674,6 +674,48 @@ func TestIsTrue(t *testing.T) {
 	}
 }
 
+func TestAssignFnDstOnlyOnSuccess(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("a")
+
+	called := false
+	v := ""
+	_, err := g.Parse(ps, AssignFn(
+		func(ps *ParserState) *string {
+			called = true
+			return &v
+		},
+		g.VString(g.Rune('b')),
+	))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if called {
+		t.Fatal("dst called on failed match")
+	}
+}
+
+func TestSetMapEntryFnDstOnlyOnSuccess(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("a")
+
+	called := false
+	m := map[string]int{}
+	_, err := g.Parse(ps, SetMapEntryFn(
+		func(ps *ParserState) *map[string]int {
+			called = true
+			return &m
+		},
+		VConst(g.Rune('b'), MapEntry[string, int]{Key: "k", Value: 1}),
+	))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if called {
+		t.Fatal("dst called on failed match")
+	}
+}
+
 func TestLookback(t *testing.T) {
 	src := "--ab0--cd0--"
 
@@ -684,7 +726,7 @@ func TestLookback(t *testing.T) {
 	strPos := Pos(0)
 	_, err := g.Parse(ps, g.And(
 		g.Loop1(g.Or(
-			Assign(&str, g.VString(
+			AssignLocal(&str, g.VString(
 				g.DebugAnd(false, "back",
 					g.And(
 						g.Rune('0'),
@@ -718,7 +760,7 @@ func TestTime(t *testing.T) {
 
 	date := time.Time{}
 	_, err := g.Parse(ps, g.And(
-		g.Token(Assign(&date, g.VTime("2006/01/02"))),
+		g.Token(AssignLocal(&date, g.VTime("2006/01/02"))),
 		g.Token(g.Eof()),
 	))
 	if err != nil {
@@ -750,7 +792,7 @@ func TestQuotedString(t *testing.T) {
 		ps := NewParserStateFromString(s)
 		v := ""
 		_, err := g.Parse(ps, g.And(
-			Assign(&v, g.VQuotedString1()),
+			AssignLocal(&v, g.VQuotedString1()),
 			g.Eof(),
 		))
 		return v, err

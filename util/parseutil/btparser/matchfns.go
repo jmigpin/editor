@@ -619,11 +619,6 @@ func mAnyExceptNewline(ps *ParserState, pos Pos) (MPos, error) {
 	)
 }
 
-//----------
-
-func mQuotedString1(ps *ParserState, pos Pos) (MPos, error) {
-	return mSection(ps, pos, "\"", "\"", '\\', false, false, mAnyExceptNewline)
-}
 func mSection(ps *ParserState, pos Pos,
 	open, close string,
 	esc rune,
@@ -687,6 +682,11 @@ func mvString(ps *ParserState, pos Pos, fn MFn) (string, MPos, error) {
 	b, mp, err := mvBytes(ps, pos, fn)
 	return string(b), mp, err
 }
+func mvStringUnquote(ps *ParserState, pos Pos, fn MFn) (string, MPos, error) {
+	return mHandleMFn(ps, pos, fn, func(mp MPos) (string, error) {
+		return strconv.Unquote(ps.SourceStr(mp))
+	})
+}
 
 func mvFloat(ps *ParserState, pos Pos) (float64, MPos, error) {
 	return mHandleMFn(ps, pos, func(ps *ParserState, pos Pos) (MPos, error) {
@@ -711,14 +711,6 @@ func mvIdentifier(ps *ParserState, pos Pos) (string, MPos, error) {
 		return ps.SourceStr(mp), nil
 	})
 }
-func mvQuotedString1(ps *ParserState, pos Pos) (string, MPos, error) {
-	return mHandleMFn(ps, pos, mQuotedString1, func(mp MPos) (string, error) {
-		return strconv.Unquote(ps.SourceStr(mp))
-	})
-}
-
-//----------
-
 func mvTime(ps *ParserState, pos Pos, fmt string) (time.Time, MPos, error) {
 	//return MHandleMFn(pos, p.WTime(fmt), func(mp MPos) (time.Time, error) {
 	//	return time.Parse(fmt, p.SourceStr(mp))
@@ -775,35 +767,38 @@ func mvConst[T any](ps *ParserState, pos Pos, fn MFn, v T) (T, MPos, error) {
 // ex: useful in the case of MVTime (doesn't have a MTime)
 func mvToken[T any](ps *ParserState, pos Pos, fn VFn[T]) (T, MPos, error) {
 	var v T
-	mp, err := mToken(ps, pos, assign(&v, fn))
+	mp, err := mToken(ps, pos, AssignLocal(&v, fn))
 	return v, mp, err
 }
 
 //----------
 
-func mAssign[T any](ps *ParserState, pos Pos, v *T, fn VFn[T]) (MPos, error) {
+func mAssign[T any](ps *ParserState, pos Pos, dst func(*ParserState) *T, fn VFn[T]) (MPos, error) {
 	return mHandleVFn(ps, pos, fn, func(v2 T) error {
-		*v = v2
+		*dst(ps) = v2
 		return nil
 	})
 }
-func mAssign2[T any](ps *ParserState, pos Pos, v **T, fn VFn[T]) (MPos, error) {
+func mAssign2[T any](ps *ParserState, pos Pos, dst func(*ParserState) **T, fn VFn[T]) (MPos, error) {
 	return mHandleVFn(ps, pos, fn, func(v2 T) error {
+		v := dst(ps)
 		*v = new(T)
 		**v = v2
 		return nil
 	})
 }
 
-func mAppend[T any](ps *ParserState, pos Pos, w *[]T, fn VFn[T]) (MPos, error) {
+func mAppend[T any](ps *ParserState, pos Pos, dst func(*ParserState) *[]T, fn VFn[T]) (MPos, error) {
 	return mHandleVFn(ps, pos, fn, func(v T) error {
+		w := dst(ps)
 		*w = append(*w, v)
 		return nil
 	})
 }
 
-func mSetMapEntry[K comparable, V any](ps *ParserState, pos Pos, m *map[K]V, fn VFn[MapEntry[K, V]]) (MPos, error) {
+func mSetMapEntry[K comparable, V any](ps *ParserState, pos Pos, dst func(*ParserState) *map[K]V, fn VFn[MapEntry[K, V]]) (MPos, error) {
 	return mHandleVFn(ps, pos, fn, func(v MapEntry[K, V]) error {
+		m := dst(ps)
 		(*m)[v.Key] = v.Value
 		return nil
 	})
@@ -811,7 +806,7 @@ func mSetMapEntry[K comparable, V any](ps *ParserState, pos Pos, m *map[K]V, fn 
 
 func mvAppend[T any](ps *ParserState, pos Pos, fn VFn[T]) ([]T, MPos, error) {
 	w := []T{}
-	mp, err := mAppend(ps, pos, &w, fn)
+	mp, err := mAppend(ps, pos, func(*ParserState) *[]T { return &w }, fn)
 	return w, mp, err
 }
 
@@ -916,7 +911,7 @@ func escape(esc rune) MFn {
 
 func assign[T any](v *T, fn VFn[T]) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mAssign(ps, pos, v, fn)
+		return mAssign(ps, pos, func(*ParserState) *T { return v }, fn)
 	}
 }
 

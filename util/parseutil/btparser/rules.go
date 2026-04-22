@@ -359,7 +359,6 @@ func (g Rules) Escape(esc rune) MFn {
 }
 func (g Rules) AnyExceptNewline() MFn { return mAnyExceptNewline }
 func (g Rules) Identifier() MFn       { return mIdentifier }
-func (g Rules) QuotedString1() MFn    { return mQuotedString1 }
 func (g Rules) LineComment1(open string) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mSection(ps, pos, open, "", 0, true, true, mAnyExceptNewline)
@@ -369,6 +368,12 @@ func (g Rules) Section(open, close string, esc rune, newlineCloses, eofCloses bo
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mSection(ps, pos, open, close, esc, newlineCloses, eofCloses, consume)
 	}
+}
+func (g Rules) QuotedSection(quote string, esc rune, consume MFn) MFn {
+	return g.Section(quote, quote, esc, false, false, consume)
+}
+func (g Rules) QuotedString1() MFn {
+	return g.QuotedSection("\"", '\\', g.AnyExceptNewline())
 }
 func (g Rules) VBytes(fn MFn) VFn[[]byte] {
 	return func(ps *ParserState, pos Pos) ([]byte, MPos, error) {
@@ -380,11 +385,15 @@ func (g Rules) VString(fn MFn) VFn[string] {
 		return mvString(ps, pos, fn)
 	}
 }
-func (g Rules) VFloat() VFn[float64]        { return mvFloat }
-func (g Rules) VInteger() VFn[int]          { return mvInteger }
-func (g Rules) VBool() VFn[bool]            { return mvBool }
-func (g Rules) VIdentifier() VFn[string]    { return mvIdentifier }
-func (g Rules) VQuotedString1() VFn[string] { return mvQuotedString1 }
+func (g Rules) VFloat() VFn[float64]     { return mvFloat }
+func (g Rules) VInteger() VFn[int]       { return mvInteger }
+func (g Rules) VBool() VFn[bool]         { return mvBool }
+func (g Rules) VIdentifier() VFn[string] { return mvIdentifier }
+func (g Rules) VQuotedString1() VFn[string] {
+	return func(ps *ParserState, pos Pos) (string, MPos, error) {
+		return mvStringUnquote(ps, pos, g.QuotedString1())
+	}
+}
 func (g Rules) VTime(fmt string) VFn[time.Time] {
 	return func(ps *ParserState, pos Pos) (time.Time, MPos, error) {
 		return mvTime(ps, pos, fmt)
@@ -454,32 +463,57 @@ func VToken[T any](fn VFn[T]) VFn[T] {
 	}
 }
 
-func Assign[T any](v *T, fn VFn[T]) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mAssign(ps, pos, v, fn)
-	}
-}
-
-func Assign2[T any](v **T, fn VFn[T]) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mAssign2(ps, pos, v, fn)
-	}
-}
-
-func Append[T any](w *[]T, fn VFn[T]) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mAppend(ps, pos, w, fn)
-	}
-}
-
-func SetMapEntry[K comparable, V any](m *map[K]V, fn VFn[MapEntry[K, V]]) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mSetMapEntry(ps, pos, m, fn)
-	}
-}
-
 func VAppend[T any](fn VFn[T]) VFn[[]T] {
 	return func(ps *ParserState, pos Pos) ([]T, MPos, error) {
 		return mvAppend(ps, pos, fn)
+	}
+}
+
+//----------
+
+func AssignFn[T any](dst func(*ParserState) *T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAssign(ps, pos, dst, fn)
+	}
+}
+func Assign2Fn[T any](dst func(*ParserState) **T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAssign2(ps, pos, dst, fn)
+	}
+}
+func AppendFn[T any](dst func(*ParserState) *[]T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAppend(ps, pos, dst, fn)
+	}
+}
+func SetMapEntryFn[K comparable, V any](dst func(*ParserState) *map[K]V, fn VFn[MapEntry[K, V]]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSetMapEntry(ps, pos, dst, fn)
+	}
+}
+
+//----------
+
+func AssignLocal[T any](v *T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return AssignFn(func(*ParserState) *T { return v }, fn)(ps, pos)
+	}
+}
+
+func Assign2Local[T any](v **T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return Assign2Fn(func(*ParserState) **T { return v }, fn)(ps, pos)
+	}
+}
+
+func AppendLocal[T any](w *[]T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return AppendFn(func(*ParserState) *[]T { return w }, fn)(ps, pos)
+	}
+}
+
+func SetMapEntryLocal[K comparable, V any](m *map[K]V, fn VFn[MapEntry[K, V]]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return SetMapEntryFn(func(*ParserState) *map[K]V { return m }, fn)(ps, pos)
 	}
 }
