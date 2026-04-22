@@ -5,96 +5,113 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
+const dataParserDataKey = "toolbarparser.data"
+
 func Parse(str string) *Data {
-	p := newDataParser()
-	if err := p.parse(str); err != nil {
+	p := getDataParserRules()
+	data := &Data{Str: str}
+	ps := btparser.NewParserStateFromString(str)
+	ps.UserData[dataParserDataKey] = data
+
+	if _, err := p.g.Parse(ps, p.fn); err != nil {
 		log.Print(err)
 	}
-	return p.data
+	return data
 }
 
 //----------
 //----------
 //----------
 
-type dataParser struct {
-	data *Data
-	sc   *pscan.Scanner
+type dataParserRules struct {
+	g  btparser.Rules
+	fn btparser.MFn
 }
 
-func newDataParser() *dataParser {
-	p := &dataParser{}
-	p.sc = pscan.NewScanner()
-	return p
-}
-func (p *dataParser) parse(src string) error {
-	p.data = &Data{Str: src}
-	p.sc.SetSrc([]byte(src))
+var dataParserRules1 *dataParserRules
 
-	if p2, err := p.sc.M.And(0,
-		pscan.WKeep(&p.data.Parts, p.parseParts),
-		p.sc.M.Eof,
-	); err != nil {
-		return p.sc.SrcError(p2, err)
+func getDataParserRules() *dataParserRules {
+	if dataParserRules1 == nil {
+		dataParserRules1 = initDataParserRules()
 	}
-
-	return nil
+	return dataParserRules1
 }
-func (p *dataParser) parseParts(pos int) (any, int, error) {
-	parts := []*Part{}
-	p2, err := p.sc.M.LoopSep(pos, true,
-		pscan.WOnValueM(
-			p.parsePart,
-			func(v *Part) error { parts = append(parts, v); return nil },
-		),
-		// separator
-		p.sc.W.RuneOneOf([]rune("|\n")),
-	)
-	return parts, p2, err
-}
-func (p *dataParser) parsePart(pos int) (any, int, error) {
-	part := &Part{}
-	part.Data = p.data
 
-	// optloop: arg can be nil
-	p2, err := p.sc.M.LoopZeroOrMore(pos, p.sc.W.Or(
-		p.parseSpaces,
-		pscan.WOnValueM(
-			p.parseArg,
-			func(v *Arg) error { part.Args = append(part.Args, v); return nil },
-		),
-	))
-	// NOTE: should never be an error with optloop, still leaving it here
-	if err != nil {
-		return nil, p2, err
+func initDataParserRules() *dataParserRules {
+	p := &dataParserRules{}
+	p.g = btparser.NewRules()
+	g := p.g
+
+	//----------
+
+	data := func(ps *btparser.ParserState) *Data {
+		data, ok := ps.UserData[dataParserDataKey].(*Data)
+		if !ok {
+			panic("toolbar parser missing Data userdata")
+		}
+		return data
 	}
-
-	part.SetPos(pos, p2)
-	return part, p2, nil
-}
-func (p *dataParser) parseArg(pos int) (any, int, error) {
-	argRune := func(ru rune) bool {
-		return ru != '|' && !unicode.IsSpace(ru)
-	}
-	if p2, err := p.sc.M.LoopOneOrMore(pos, p.sc.W.Or(
-		p.sc.W.EscapeAny(osutil.EscapeRune),
-		p.sc.W.QuotedString(),
-		p.sc.W.RuneFn(argRune),
-	)); err != nil {
-		return nil, p2, err
-	} else {
+	newArg := func(ps *btparser.ParserState, mp btparser.MPos) *Arg {
 		arg := &Arg{}
-		arg.Data = p.data
-		arg.SetPos(pos, p2)
-		return arg, p2, nil
+		arg.Data = data(ps)
+		arg.SetPos(int(mp.Start), int(mp.End))
+		return arg
 	}
-}
-func (p *dataParser) parseOptSpaces(pos int) (int, error) {
-	return p.sc.M.Optional(pos, p.parseSpaces)
-}
-func (p *dataParser) parseSpaces(pos int) (int, error) {
-	return p.sc.M.Spaces(pos, pscan.SpacesOpt{false, '\\'})
+	appendArg := func(part *Part, fn btparser.MFn) btparser.MFn {
+		return btparser.AppendLocal(&part.Args, btparser.VFromMPos(fn, newArg))
+	}
+	newPartRule := func(body func(*Part) btparser.MFn) btparser.MFn {
+		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+			data := data(ps)
+			part := &Part{}
+			part.Data = data
+
+			mp, err := body(part)(ps, pos)
+			if err != nil {
+				return mp, err
+			}
+
+			part.SetPos(int(pos), int(mp.End))
+			data.Parts = append(data.Parts, part)
+			return btparser.MPos{Start: pos, End: mp.End}, nil
+		}
+	}
+
+	//----------
+
+	quotedString := g.QuotedString2(osutil.EscapeRune, 3000, 8)
+	spaces := g.Loop1(g.Or(
+		g.And(
+			g.Rune(osutil.EscapeRune),
+			g.RuneFn(unicode.IsSpace),
+		),
+		g.RuneFn(func(ru rune) bool {
+			return unicode.IsSpace(ru) && ru != '\n'
+		}),
+	))
+	arg := g.Loop1(g.Or(
+		g.Escape(osutil.EscapeRune),
+		quotedString,
+		g.RuneFn(func(ru rune) bool {
+			return ru != '|' && !unicode.IsSpace(ru)
+		}),
+	))
+	part := newPartRule(func(part *Part) btparser.MFn {
+		return g.Optional(g.Loop1(g.Or(
+			spaces,
+			appendArg(part, arg),
+		)))
+	})
+	parts := g.LoopSepAllowEmpty(
+		part,
+		g.RuneAnyOf('|', '\n'),
+	)
+	p.fn = g.And(
+		parts,
+		g.Eof(),
+	)
+	return p
 }
