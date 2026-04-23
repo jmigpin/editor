@@ -222,9 +222,6 @@ func mByteFnLoop(ps *ParserState, pos Pos, fn func(byte) bool) (MPos, error) {
 func mRuneFn(ps *ParserState, pos Pos, fn func(rune) bool) (MPos, error) {
 	return mHandleVFn(ps, pos, mvRune, BoolErrFn(fn))
 }
-func mRuneFnLoop(ps *ParserState, pos Pos, fn func(rune) bool) (MPos, error) {
-	return mLoop1(ps, pos, runeFn(fn))
-}
 func mRune(ps *ParserState, pos Pos, ru rune) (MPos, error) {
 	return mRuneFn(ps, pos, func(ru2 rune) bool { return ru2 == ru })
 }
@@ -595,9 +592,9 @@ func mIdentifier(ps *ParserState, pos Pos) (MPos, error) {
 		runeFn(func(ru rune) bool {
 			return unicode.IsLetter(ru) || ru == '_'
 		}),
-		optional(runeFnLoop(func(ru rune) bool {
+		optional(loop1(runeFn(func(ru rune) bool {
 			return unicode.IsLetter(ru) || unicode.IsDigit(ru) || ru == '_'
-		})),
+		}))),
 	)
 }
 func mEscape(ps *ParserState, pos Pos, esc rune) (MPos, error) {
@@ -847,12 +844,6 @@ func byteFn(fn func(byte) bool) MFn {
 func runeFn(fn func(rune) bool) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mRuneFn(ps, pos, fn)
-	}
-}
-
-func runeFnLoop(fn func(rune) bool) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mRuneFnLoop(ps, pos, fn)
 	}
 }
 

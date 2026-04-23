@@ -228,11 +228,6 @@ func (g Rules) RuneFn(fn func(rune) bool) MFn {
 		return mRuneFn(ps, pos, fn)
 	}
 }
-func (g Rules) RuneFnLoop(fn func(rune) bool) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mRuneFnLoop(ps, pos, fn)
-	}
-}
 func (g Rules) Rune(ru rune) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mRune(ps, pos, ru)
@@ -252,6 +247,18 @@ func (g Rules) RuneAnyOf(rus ...rune) MFn {
 }
 func (g Rules) RuneAnyOfString(s string) MFn {
 	return g.RuneAnyOf([]rune(s)...)
+}
+func (g Rules) RuneNotAnyOf(rus ...rune) MFn {
+	m := map[rune]struct{}{}
+	for _, ru := range rus {
+		m[ru] = struct{}{}
+	}
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, func(ru rune) bool {
+			_, ok := m[ru]
+			return !ok
+		})
+	}
 }
 func (g Rules) AnyRune() MFn { return mAnyRune }
 func (g Rules) NRunes(n int) MFn {
@@ -331,16 +338,12 @@ func (g Rules) Space() MFn {
 	}
 }
 func (g Rules) Spaces() MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mRuneFnLoop(ps, pos, unicode.IsSpace)
-	}
+	return g.Loop1(g.RuneFn(unicode.IsSpace))
 }
 func (g Rules) SpacesExceptNewline() MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mRuneFnLoop(ps, pos, func(ru rune) bool {
-			return ru != '\n' && unicode.IsSpace(ru)
-		})
-	}
+	return g.Loop1(g.RuneFn(func(ru rune) bool {
+		return ru != '\n' && unicode.IsSpace(ru)
+	}))
 }
 func (g Rules) Newline() MFn { return mNewline }
 func (g Rules) EmptyLinesExceptNewline(ignore MFn) MFn {
