@@ -1,6 +1,7 @@
 package parseutil
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
@@ -33,6 +34,30 @@ func TestAddEscapes(t *testing.T) {
 	s3 := RemoveEscapes(s2, '\\')
 	if s3 != s {
 		t.Fatal()
+	}
+}
+
+func TestExpandIndexesEscape2(t *testing.T) {
+	tests := []struct {
+		name  string
+		src   string
+		index int
+		want  string
+	}{
+		{"word", "xx abc yy", strings.Index("xx abc yy", "b"), "abc"},
+		{"escaped-space-before-index", "xx a\\ b yy", strings.Index("xx a\\ b yy", "b"), "a\\ b"},
+		{"index-on-escaped-space", "xx a\\ b yy", strings.Index("xx a\\ b yy", "\\ ") + 1, "a\\ b"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rd := iorw.NewStringReaderAt(tt.src)
+			isNonSpace := func(ru rune) bool { return ru != ' ' }
+			l, r := ExpandIndexesEscape2(rd, tt.index, false, isNonSpace, '\\')
+			if got := tt.src[l:r]; got != tt.want {
+				t.Fatalf("got=%q, want=%q", got, tt.want)
+			}
+		})
 	}
 }
 

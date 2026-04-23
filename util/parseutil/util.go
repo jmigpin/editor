@@ -13,7 +13,7 @@ import (
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -117,48 +117,48 @@ func CleanMultiplePathSeps(str string, sep rune) string {
 //----------
 
 func ExpandIndexesEscape(rd iorw.ReaderAt, index int, truth bool, fn func(rune) bool, escape rune) (int, int) {
-	// ensure the index is not in the middle of an escape
-	index = ImproveExpandIndexEscape(rd, index, escape)
-
-	l := ExpandLastIndexEscape(rd, index, false, fn, escape)
-	r := ExpandIndexEscape(rd, index, false, fn, escape)
-	return l, r
+	return ExpandIndexesEscape2(rd, index, truth, fn, escape)
 }
 
-func ExpandIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc, i := iorw.NewScanner(r, i)
-	return expandEscape(sc, i, truth, fn, escape)
-}
+func ExpandIndexesEscape2(rd iorw.ReaderAt, index int, truth bool, fn func(rune) bool, escape rune) (int, int) {
+	src, err := iorw.ReadFastFull(rd)
+	if err != nil {
+		return index, index
+	}
 
-func ExpandLastIndexEscape(r iorw.ReaderAt, i int, truth bool, fn func(rune) bool, escape rune) int {
-	sc, i := iorw.NewScanner(r, i)
+	base := rd.Min()
+	pos := max(0, min(index, rd.Max())-base)
 
-	// read direction
-	tmp := sc.Reverse
-	sc.Reverse = true
-	defer func() { sc.Reverse = tmp }() // restore
+	g := btparser.NewRules()
+	ps := btparser.NewParserStateFromBytes(src)
 
-	return expandEscape(sc, i, truth, fn, escape)
-}
-
-func expandEscape(sc *pscan.Scanner, i int, truth bool, fn func(rune) bool, escape rune) int {
-	p2, _ := sc.M.LoopOneOrMore(i, sc.W.Or(
-		sc.W.EscapeAny(escape),
-		sc.W.RuneFn(func(ru rune) bool {
-			return fn(ru) != truth
-		}),
-	))
-	return p2
-}
-
-//----------
-
-func ImproveExpandIndexEscape(r iorw.ReaderAt, i int, escape rune) int {
-	sc, i := iorw.NewScanner(r, i)
-	p2, _ := sc.M.ReverseMode(i, true,
-		sc.W.LoopOneOrMore(sc.W.Rune(escape)),
+	regularRune := g.RuneFn(func(ru rune) bool { return fn(ru) != truth })
+	backEscapes := g.WithBounds(10, 0,
+		g.ReverseSource(g.Loop1(g.Rune(escape))),
 	)
-	return p2
+	expandLeft := g.ReverseSource(g.Loop1(g.Or(
+		g.And(g.AnyRune(), g.Rune(escape)),
+		regularRune,
+	)))
+	expandRight := g.Loop1(g.Or(
+		g.Escape(escape),
+		regularRune,
+	))
+
+	pos2 := pos
+	if mp, err := backEscapes(ps, btparser.Pos(pos)); err == nil {
+		pos2 = int(mp.End)
+	}
+
+	l := pos2
+	if mp, err := expandLeft(ps, btparser.Pos(pos2)); err == nil {
+		l = int(mp.End)
+	}
+	r := pos2
+	if mp, err := expandRight(ps, btparser.Pos(pos2)); err == nil {
+		r = int(mp.End)
+	}
+	return l + base, r + base
 }
 
 //----------
