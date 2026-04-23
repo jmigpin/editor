@@ -2,9 +2,10 @@ package drawer4
 
 import (
 	"unicode"
+
+	"github.com/jmigpin/editor/util/mathutil"
 )
 
-var NoPaddedIndentedLines bool
 var useSpaceForMargin bool
 
 type Indent struct {
@@ -62,10 +63,7 @@ func (in *Indent) indent() {
 	pen := &in.d.st.runeR.pen
 	pen.X = in.d.st.indent.indent
 	// left padding
-	pad := in.d.iters.runeR.glyphAdvance('\t')
-	if NoPaddedIndentedLines {
-		pad = 0
-	}
+	pad := in.d.iters.runeR.glyphAdvance('\t') * mathutil.Intf(WrapLineIndentTabs)
 	startX := in.d.iters.runeR.startingPen().X
 	if pen.X == 0 {
 		pen.X = startX + pad

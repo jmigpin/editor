@@ -39,6 +39,7 @@ func main() {
 	flag.IntVar(&opt.TabWidth, "tabwidth", 8, "")
 	flag.IntVar(&opt.CarriageReturnRune, "carriagereturnrune", int(fontutil.CarriageReturnRune), "replacement rune for carriage return")
 	flag.IntVar(&opt.WrapLineRune, "wraplinerune", int('←'), "code for wrap line rune, can be set to zero")
+	flag.IntVar(&opt.WrapLineIndentTabs, "wraplineindenttabs", 2, "number of tab widths used to indent wrapped lines")
 	flag.IntVar(&opt.WrapWordLimit, "wrapwordlimit", 10, "wrap at word boundaries for words up to N runes. Set to zero to disable word wrap.")
 	flag.StringVar(&opt.ColorTheme, "colortheme", "light", "available: "+strings.Join(ui.ColorThemeCycler.Names(), ", "))
 	flag.IntVar(&opt.CommentsColor, "commentscolor", 0, "Colorize comments. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")
