@@ -2,6 +2,7 @@ package reslocparser
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
@@ -209,9 +210,7 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 			g.Optional(volume(cPathSep)),
 			g.Loop1(g.Or(
 				g.Escape(cEscRu),
-				g.RuneFn(func(ru rune) bool {
-					return ru != q && ru != '\n'
-				}),
+				g.RuneNotAnyOf(q, '\n'),
 			)),
 		)
 	}
@@ -328,10 +327,9 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 
 	gitFilePath := assignGitDiffPath(g.LoopToNLOrEof(0, false))
 	gitDiffPathToken := assignGitDiffPath(
-		g.Loop1(g.And(
-			g.Not(g.Space()),
-			g.AnyRune(),
-		)),
+		g.Loop1(g.RuneFn(func(ru rune) bool {
+			return !unicode.IsSpace(ru)
+		})),
 	)
 
 	plusFileLine := withGitDiffPath(g.And(
@@ -361,7 +359,7 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 		// consume in reverse to start of line searching for header
 		g.Optional(g.WithBounds(1000, 0,
 			g.ReverseSource(g.LoopConsumeUntil(
-				g.RuneFn(func(ru rune) bool { return ru != '\n' }),
+				g.RuneNotAnyOf('\n'),
 				g.And(
 					g.SeqOrMid(btparser.ReverseString("@@ ")),
 					g.Or(

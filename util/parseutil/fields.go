@@ -26,7 +26,7 @@ func ParseFields(s string, fieldSep rune) ([]string, error) {
 	field := g.Loop1(g.Or(
 		g.Escape(esc),
 		g.QuotedString2(esc, 3000, 3000),
-		g.RuneFn(func(ru rune) bool { return ru != fieldSep }),
+		g.RuneNotAnyOf(fieldSep),
 	))
 	fn := g.And(
 		g.LoopSep(false,
