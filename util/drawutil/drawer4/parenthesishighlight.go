@@ -75,7 +75,6 @@ func newParenthesisHighlightParser() *parenthesisHighlightParser {
 }
 
 func (p *parenthesisHighlightParser) parse(ps *btparser.ParserState, pos btparser.Pos) {
-	_, _ = p.g.Parse(ps, p.sectionsFn)
 	_, _ = p.g.ParseAt(ps, pos, p.fn)
 }
 
@@ -100,6 +99,10 @@ func (p *parenthesisHighlightParser) buildSections() btparser.MFn {
 	}
 
 	return p.g.Loop1(p.g.Or(record, p.g.AnyRune()))
+}
+
+func (p *parenthesisHighlightParser) collectSections(ps *btparser.ParserState) {
+	_, _ = p.sectionsFn(ps, 0)
 }
 
 func (p *parenthesisHighlightParser) build() btparser.MFn {
@@ -204,6 +207,8 @@ func (p *parenthesisHighlightParser) build() btparser.MFn {
 		if err != nil {
 			return mp, err
 		}
+
+		p.collectSections(ps)
 
 		openStart, openEnd := pm.mp.Bounds()
 		data := p.data(ps)
