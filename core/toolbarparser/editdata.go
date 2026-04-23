@@ -3,7 +3,7 @@ package toolbarparser
 import (
 	"fmt"
 
-	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
 // scan for cmd position, update with arg, or insert new cmd
@@ -60,6 +60,25 @@ func updateCmdPartWithArg(part *Part, arg string) uoipcResult {
 //----------
 
 func insertCmdPartAtEnd(data *Data, cmd, arg string) uoipcResult {
+	g := btparser.NewRules()
+	prefix := " | "
+	assignPrefix := func(fn btparser.MFn, v string) btparser.MFn {
+		return btparser.AssignLocal(&prefix, btparser.VConst(fn, v))
+	}
+	fn := g.ReverseSource(g.And(
+		g.Optional(g.Loop1(g.RuneAnyOf(' ', '\t'))),
+		g.Or(
+			assignPrefix(g.Peek(g.Rune('\n')), ""),
+			assignPrefix(g.Peek(g.Rune('|')), " "),
+			g.NoOp(),
+		),
+	))
+
+	//----------
+
+	ps := btparser.NewParserStateFromString(data.Str)
+	p2, _ := g.ParseAt(ps, btparser.Pos(len(data.Str)), fn)
+
 	replaceAt := func(pos int, prefix string) uoipcResult {
 		res := uoipcResult{}
 		s1 := fmt.Sprintf("%s%s ", prefix, cmd)
@@ -68,23 +87,7 @@ func insertCmdPartAtEnd(data *Data, cmd, arg string) uoipcResult {
 		return res
 	}
 
-	sc := pscan.NewScanner()
-	sc.SetSrc([]byte(data.Str))
-	sc.Reverse = true
-
-	// backtrack spaces (best effort)
-	p2 := len(data.Str)
-	if p3, err := sc.M.LoopOneOrMore(p2, sc.W.RuneOneOf([]rune(" \t"))); err == nil {
-		p2 = p3
-	}
-
-	if _, err := sc.M.Rune(p2, '\n'); err == nil {
-		return replaceAt(p2, "")
-	}
-	if _, err := sc.M.Rune(p2, '|'); err == nil {
-		return replaceAt(p2, " ")
-	}
-	return replaceAt(p2, " | ")
+	return replaceAt(int(p2), prefix)
 }
 
 //----------
