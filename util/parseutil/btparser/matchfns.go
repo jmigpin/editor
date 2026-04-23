@@ -2,7 +2,6 @@ package btparser
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -335,9 +334,7 @@ func lineBoundsEnd(src []byte, pos, max Pos, forward int) Pos {
 }
 
 func reverseSourceBytes(src []byte) []byte {
-	rs := []rune(string(src))
-	slices.Reverse(rs)
-	return []byte(string(rs))
+	return []byte(ReverseString(string(src)))
 }
 
 func reverseSourceMPos(srcMin, srcMax Pos, mp MPos) MPos {

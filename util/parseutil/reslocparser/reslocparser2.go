@@ -7,7 +7,6 @@ import (
 )
 
 const resLocDataKey = "reslocparser.resloc"
-const gitDiffInitialPosKey = "reslocparser.gitdiff.initialpos"
 const gitDiffPathKey = "reslocparser.gitdiff.path"
 
 var fileSchemeTag = "file://"
@@ -247,6 +246,7 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 		withResLocCopy(p.buildGitDiff()),
 
 		g.And(
+			// go backwards to compensate middle positions
 			p.revScan.Rule(3000),
 			//coverIndex(index, p.fn), // TODO: revscan alternative
 
@@ -290,13 +290,6 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 		}
 		return path
 	}
-	gitDiffInitialPosData := func(ps *btparser.ParserState) btparser.Pos {
-		initialPos, ok := ps.UserData[gitDiffInitialPosKey].(btparser.Pos)
-		if !ok {
-			panic("git diff parser missing initial pos userdata")
-		}
-		return initialPos
-	}
 	withGitDiffPath := func(fn btparser.MFn) btparser.MFn {
 		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
 			path := ""
@@ -305,22 +298,11 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 			return fn(ps, pos)
 		}
 	}
-	keepInitialPos := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-		ps.UserData[gitDiffInitialPosKey] = pos
-		return btparser.MPos{Start: pos, End: pos}, nil
-	}
 	setGitPathFn := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
 		if !setGitPath(*gitDiffPathData(ps), ps) {
 			return btparser.MPos{Start: pos, End: pos}, btparser.NoMatchErr
 		}
 		return btparser.MPos{Start: pos, End: pos}, nil
-	}
-	checkInitialPosInsideMatch := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-		mp := btparser.MPos{pos, pos}
-		if pos <= gitDiffInitialPosData(ps) {
-			return mp, btparser.NoMatchErr
-		}
-		return mp, nil
 	}
 	assignGitDiffPath := func(fn btparser.MFn) btparser.MFn {
 		return btparser.AssignFn(gitDiffPathData, g.VString(fn))
@@ -376,8 +358,19 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 	)
 
 	hunk := g.And(
-		keepInitialPos,
-		toLineStart,
+		// consume in reverse
+		g.Optional(g.WithBounds(1000, 0,
+			g.ReverseSource(g.LoopConsumeUntil(
+				g.AnyRune(),
+				g.And(
+					g.SeqOrMid(btparser.ReverseString("@@ ")),
+					g.Or(
+						g.Peek(g.Byte('\n')),
+						g.Eof(),
+					),
+				),
+			)),
+		)),
 
 		g.Seq("@@"),
 		g.Spaces(),
@@ -387,7 +380,6 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 		g.Spaces(),
 		g.Seq("@@"),
 
-		checkInitialPosInsideMatch,
 		toLineStart,
 		g.LoopConsumeUntil(
 			g.And(
@@ -401,8 +393,10 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 	return hunk
 }
 
-// ----------
-// ----------
+//----------
+//----------
+//----------
+
 func trimGitDiffPathPrefix(path string) string {
 	if strings.HasPrefix(path, "a/") || strings.HasPrefix(path, "b/") {
 		return path[2:]

@@ -1,10 +1,6 @@
 package reslocparser
 
-import (
-	"slices"
-
-	"github.com/jmigpin/editor/util/parseutil/btparser"
-)
+import "github.com/jmigpin/editor/util/parseutil/btparser"
 
 type ReverseScan struct {
 	g  btparser.Rules
@@ -73,7 +69,7 @@ func (rs *ReverseScan) init() {
 	)
 	revFileScheme := g.And(
 		g.Optional(g.RuneAnyOf(pathSeps...)),
-		g.SeqOrMid(revStr(fileSchemeTag)),
+		g.SeqOrMid(btparser.ReverseString(fileSchemeTag)),
 	)
 
 	revFullPath := func(allowSpace bool) btparser.MFn {
@@ -108,8 +104,8 @@ func (rs *ReverseScan) init() {
 		g.Optional(g.SeqOrMid("o=")),                      // c offset: "o=<digits>"
 
 		g.Optional(g.Or(
-			g.SeqOrMid(revStr(pythonLineTailTag)),
-			g.SeqOrMid(revStr(shellLineTailTag)),
+			g.SeqOrMid(btparser.ReverseString(pythonLineTailTag)),
+			g.SeqOrMid(btparser.ReverseString(shellLineTailTag)),
 			g.Rune(':'),
 		)),
 
@@ -176,14 +172,4 @@ func coverIndexResLocData(ps *btparser.ParserState) *ResLoc {
 		panic("cover index scan missing ResLoc userdata")
 	}
 	return rl
-}
-
-//----------
-//----------
-//----------
-
-func revStr(s string) string {
-	rs := []rune(s)
-	slices.Reverse(rs)
-	return string(rs)
 }

@@ -496,6 +496,14 @@ func TestReverseSource(t *testing.T) {
 	}
 }
 
+func TestReverseString(t *testing.T) {
+	got := ReverseString("a€界")
+	want := "界€a"
+	if got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+}
+
 func TestWithLineBounds(t *testing.T) {
 	g := NewRules()
 	ps := NewParserStateFromString("aa\nbb\ncc\ndd")

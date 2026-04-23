@@ -7,14 +7,6 @@ import (
 	"github.com/jmigpin/editor/util/testutil"
 )
 
-func TestReverseString(t *testing.T) {
-	got := revStr("a€界")
-	want := "界€a"
-	if got != want {
-		t.Fatalf("got=%q, want=%q", got, want)
-	}
-}
-
 func TestReverseScanParse(t *testing.T) {
 	rs := NewReverseScanResLoc('\\', '/', false)
 
