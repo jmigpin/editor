@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmigpin/editor/core"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
 func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) {
@@ -31,40 +31,43 @@ func OpenSession(ctx context.Context, erow *core.ERow, index int) (error, bool) 
 //----------
 
 func sessionName(rd iorw.ReaderAt, index int) (string, error) {
-	sc, index := iorw.NewScanner(rd, index)
+	src, err := iorw.ReadFastFull(rd)
+	if err != nil {
+		return "", err
+	}
 
-	parseName := sc.W.RuneFnLoop(sessionNameRune)
+	g := btparser.NewRules()
+	ps := btparser.NewParserStateFromBytes(src)
+	pos := btparser.Pos(index - rd.Min())
+
 	cmdStr := "OpenSession"
+	revCmdStr := btparser.ReverseString(cmdStr)
 	name := ""
-	parseCmdAndName := sc.W.And(
-		sc.W.Sequence(cmdStr),
-		sc.M.SpacesExceptNewline,
-		pscan.WKeep(&name, sc.W.StrValue(parseName)),
+
+	parseName := g.Loop1(g.RuneFn(sessionNameRune))
+	fn := g.And(
+		// consume backwards
+		// example positions "Open●Session ●ses●sionname●"
+		g.WithLineBounds(0, 0, g.ReverseSource(g.Or(
+			g.SeqOrMid(revCmdStr), // try before parsename in reverse
+			g.And(
+				g.Optional(parseName),
+				g.Optional(g.SpacesExceptNewline()),
+				g.Seq(revCmdStr),
+			),
+		))),
+		// parse
+		g.And(
+			g.Seq(cmdStr),
+			g.SpacesExceptNewline(),
+			btparser.AssignLocal(&name, g.VString(parseName)),
+		),
 	)
 
-	if p2, err := sc.M.Or(index,
-		// index at: "●OpenSession● sessionname"
-		sc.W.And(
-			sc.W.ReverseMode(true, sc.W.Optional(sc.W.Or(
-				sc.W.Sequence(cmdStr),
-				sc.W.SequenceMid(cmdStr),
-			))),
-			parseCmdAndName,
-		),
-		// index at: "OpenSession ●sessionname●"
-		sc.W.And(
-			sc.W.ReverseMode(true, sc.W.And(
-				sc.W.Sequence(cmdStr),
-				sc.M.SpacesExceptNewline,
-				sc.W.Optional(parseName),
-			)),
-			parseCmdAndName,
-		),
-	); err != nil {
-		return "", sc.SrcError(p2, err)
-	} else {
-		return name, nil
+	if _, err := g.ParseAt(ps, pos, fn); err != nil {
+		return "", err
 	}
+	return name, nil
 }
 
 func sessionNameRune(ru rune) bool {
