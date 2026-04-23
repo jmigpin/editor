@@ -4,14 +4,12 @@ import (
 	"strings"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
-func updateParenthesisHighlight(d *Drawer) {
-	// TODO: testing handling parenthesis in syntaxhighlight
-	//updateSyntaxHighlightOps(d)
-	// return
+var parenthesisHighlightP = newParenthesisHighlightParser()
 
+func updateParenthesisHighlight(d *Drawer) {
 	if !d.Opt.ParenthesisHighlight.On {
 		d.Opt.ParenthesisHighlight.Group.Ops = nil
 		return
@@ -22,120 +20,183 @@ func updateParenthesisHighlight(d *Drawer) {
 	}
 	d.opt.parenthesisH.updated = true
 
-	ph := &ParenthesisHighlight{d: d, pad: 5000}
+	ph := &ParenthesisHighlight{d: d, pad: parenthesisHighlightPad}
 	d.Opt.ParenthesisHighlight.Group.Ops = ph.do()
 }
 
 //----------
 
 type ParenthesisHighlight struct {
-	d     *Drawer
-	sc    *pscan.Scanner
-	ops   []*ColorizeOp
-	pad   int
-	pairs []rune
+	d   *Drawer
+	pad int
 }
 
 func (ph *ParenthesisHighlight) do() []*ColorizeOp {
 	ci := ph.d.opt.cursor.offset
 	r := iorw.NewLimitedReaderAtPad(ph.d.reader, ci, ci, ph.pad)
-
-	sc, pos0 := iorw.NewScanner(r, ci)
-	ph.sc = sc
-
-	// match a parenthesis
-	pairs := []rune("(){}[]")
-	sym := rune(0)
-	parseOpen := pscan.WKeep(&sym, ph.sc.W.RuneValue(ph.sc.W.RuneOneOf(pairs)))
-	_, err := parseOpen(pos0)
+	src, err := iorw.ReadFastFull(r)
 	if err != nil {
-		//return nil // error: no results returned
+		return nil
+	}
 
-		// try reading previous
-		if p3, err2 := ph.sc.M.ReverseMode(pos0, true, parseOpen); err2 != nil {
-			return nil // error: no results returned
-		} else {
-			pos0 = p3
+	ps := btparser.NewParserStateFromBytes(src)
+	data := &parenthesisHighlightData{
+		d:    ph.d,
+		base: r.Min(),
+	}
+	ps.UserData[parenthesisHighlightDataKey] = data
+
+	pos := max(0, min(ci-data.base, len(src)))
+	parenthesisHighlightP.parse(ps, btparser.Pos(pos))
+
+	return data.ops
+}
+
+//----------
+//----------
+//----------
+
+type parenthesisHighlightParser struct {
+	g  btparser.Rules
+	fn btparser.MFn
+}
+
+func newParenthesisHighlightParser() *parenthesisHighlightParser {
+	p := &parenthesisHighlightParser{g: btparser.NewRules()}
+	p.fn = p.build()
+	return p
+}
+
+func (p *parenthesisHighlightParser) parse(ps *btparser.ParserState, pos btparser.Pos) {
+	_, _ = p.g.ParseAt(ps, pos, p.fn)
+}
+
+func (p *parenthesisHighlightParser) build() btparser.MFn {
+	pairs := []rune("(){}[]")
+	data := func(ps *btparser.ParserState) *parenthesisHighlightData {
+		data, ok := ps.UserData[parenthesisHighlightDataKey].(*parenthesisHighlightData)
+		if !ok {
+			panic("parenthesis highlight parser missing userdata")
+		}
+		return data
+	}
+	isPairRune := func(ru rune) bool {
+		return strings.ContainsRune(string(pairs), ru)
+	}
+	vParen := func(fn btparser.VFn[rune]) btparser.VFn[parenthesisMatch] {
+		return func(ps *btparser.ParserState, pos btparser.Pos) (parenthesisMatch, btparser.MPos, error) {
+			ru, mp, err := fn(ps, pos)
+			if err != nil {
+				return parenthesisMatch{}, mp, err
+			}
+			if !isPairRune(ru) {
+				return parenthesisMatch{}, btparser.MPos{Start: pos, End: pos}, btparser.NoMatchErr
+			}
+			return parenthesisMatch{ru: ru, mp: mp}, mp, nil
 		}
 	}
-
-	// pos0 is at the left side of the rune
-	openPos := pos0
-
-	// resolve open/close runes
-	k := strings.Index(string(pairs), string(sym))
-	isOpen := k%2 == 0
-	if isOpen {
-		k++
-	} else {
-		k--
+	resolvePair := func(ru rune) (rune, rune, bool) {
+		k := strings.Index(string(pairs), string(ru))
+		isOpen := k%2 == 0
+		if isOpen {
+			return ru, pairs[k+1], false
+		}
+		return ru, pairs[k-1], true
 	}
-	openRu, closeRu := sym, pairs[k]
-	reverse := !isOpen
-	if reverse {
-		pos0++ // to read the open rune again
-	}
-
-	// match parenthesis
-	stk := 0
-	done := false
-	closePos := 0
-	pushOpen := func(pos int) (int, error) {
-		stk++
-		return pos, nil
-	}
-	popClose := func(pos int) (int, error) {
-		stk--
-		if stk == 0 {
-			done = true
-			closePos = pos
-			if !reverse {
-				closePos--
+	addOps := func(ps *btparser.ParserState, openPos int, closePos int, hasClosePos bool, reverse bool) {
+		points := []int{openPos}
+		if hasClosePos {
+			points = append(points, closePos)
+			if reverse {
+				points[0], points[1] = points[1], points[0]
 			}
 		}
-		return pos, nil
-	}
-	_, _ = ph.sc.M.ReverseMode(pos0,
-		reverse,
-		ph.sc.W.LoopOneOrMore(ph.sc.W.And(
-			ph.sc.W.PtrFalse(&done),
-			ph.sc.W.Or(
 
-				// might not work well (forward vs reverse)
-				// ph.sc.W.QuotedString(),
-
-				ph.sc.W.AndNoReverse(
-					ph.sc.W.Rune(openRu),
-					pushOpen,
-				),
-				ph.sc.W.AndNoReverse(
-					ph.sc.W.Rune(closeRu),
-					popClose,
-				),
-				ph.sc.M.OneRune,
-			),
-		)),
-	)
-
-	// sort points
-	points := []int{openPos}
-	hasClosePos := done == true
-	if hasClosePos {
-		points = append(points, closePos)
-		if reverse {
-			points[0], points[1] = points[1], points[0]
+		data := data(ps)
+		opt := &data.d.Opt.ParenthesisHighlight
+		for _, p := range points {
+			data.ops = append(data.ops,
+				&ColorizeOp{Offset: p, Fg: opt.Fg, Bg: opt.Bg},
+				&ColorizeOp{Offset: p + 1}, // assumes rune size 1 like the previous implementation
+			)
 		}
 	}
 
-	// build colorize ops
-	opt := &ph.d.Opt.ParenthesisHighlight
-	fg := opt.Fg
-	bg := opt.Bg
-	for _, p := range points {
-		op1 := &ColorizeOp{Offset: p, Fg: fg, Bg: bg}
-		op2 := &ColorizeOp{Offset: p + 1} // assumes rune size 1
-		ph.ops = append(ph.ops, op1, op2)
+	//----------
+
+	scanPair := func(ps *btparser.ParserState, pos btparser.Pos, reverse bool, openRu, closeRu rune) (int, bool) {
+		stk := 0
+		for {
+			ru := rune(0)
+			mp := btparser.MPos{}
+			err := error(nil)
+			if reverse {
+				ru, mp, err = p.g.VLastRune()(ps, pos)
+			} else {
+				ru, mp, err = p.g.VRune()(ps, pos)
+			}
+			if err != nil {
+				return 0, false
+			}
+			pos = mp.End
+
+			// TODO: quoted strings/comments are not skipped yet.
+			switch ru {
+			case openRu:
+				stk++
+			case closeRu:
+				stk--
+				if stk == 0 {
+					p, _ := mp.Bounds()
+					return int(p) + data(ps).base, true
+				}
+			}
+		}
 	}
 
-	return ph.ops
+	//----------
+
+	startParen := btparser.VOr(
+		vParen(p.g.VRune()),
+		vParen(p.g.VLastRune()),
+	)
+	fn := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+		pm, mp, err := startParen(ps, pos)
+		if err != nil {
+			return mp, err
+		}
+
+		openStart, openEnd := pm.mp.Bounds()
+		openPos := int(openStart) + data(ps).base
+		openRu, closeRu, reverse := resolvePair(pm.ru)
+		if reverse {
+			pos = openEnd // read the open rune again
+		} else {
+			pos = openStart
+		}
+
+		closePos, done := scanPair(ps, pos, reverse, openRu, closeRu)
+		addOps(ps, openPos, closePos, done, reverse)
+		return btparser.MPos{Start: pos, End: pos}, nil
+	}
+
+	return fn
+}
+
+//----------
+//----------
+//----------
+
+const parenthesisHighlightDataKey = "drawer4.parenthesishighlight.data"
+const parenthesisHighlightPad = 5000
+
+type parenthesisHighlightData struct {
+	d    *Drawer
+	base int
+	ops  []*ColorizeOp
+}
+
+type parenthesisMatch struct {
+	ru rune
+	mp btparser.MPos
 }
