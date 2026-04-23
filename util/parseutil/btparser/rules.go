@@ -77,13 +77,6 @@ func (g Rules) And(fns ...MFn) MFn {
 		return mAnd(ps, pos, fns...)
 	}
 }
-func (g Rules) ReverseAnd(fns ...MFn) MFn {
-	r := make([]MFn, len(fns))
-	for i := range fns {
-		r[i] = fns[len(fns)-1-i]
-	}
-	return g.And(r...)
-}
 func (g Rules) Or(fns ...MFn) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mOr(ps, pos, fns...)

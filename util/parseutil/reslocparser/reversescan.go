@@ -32,9 +32,7 @@ func (rs *ReverseScan) ParseStart(ps *btparser.ParserState, index, maxLen int) (
 
 func (rs *ReverseScan) Rule(maxLen int) btparser.MFn {
 	return rs.g.WithBounds(maxLen, 10,
-		rs.g.WithLineBounds(0, 0,
-			rs.g.ReverseSource(rs.fn),
-		),
+		rs.g.WithLineBounds(0, 0, rs.fn),
 	)
 }
 
@@ -49,9 +47,8 @@ func (rs *ReverseScan) init() {
 	except := append([]rune{rs.escape, '/', '\\'}, pathSeps...)
 	pathItemSyms := buildPathItemSyms(except...)
 
-	revEscAny := g.ReverseAnd(g.Rune(rs.escape), g.AnyRune())
+	revEscAny := g.And(g.AnyRune(), g.Rune(rs.escape))
 	revPathItem0 := g.Or(
-		g.Rune(rs.escape), // TODO: review?
 		revEscAny,
 		g.Digit(),
 		g.Letter(),
@@ -72,11 +69,11 @@ func (rs *ReverseScan) init() {
 
 	revVolume := g.And(
 		g.IsTrue(rs.parseVolume),
-		g.ReverseAnd(g.Letter(), g.Rune(':')),
+		g.And(g.Rune(':'), g.Letter()),
 	)
-	revFileScheme := g.ReverseAnd(
-		g.SeqOrMid(revStr(fileSchemeTag)),
+	revFileScheme := g.And(
 		g.Optional(g.RuneAnyOf(pathSeps...)),
+		g.SeqOrMid(revStr(fileSchemeTag)),
 	)
 
 	revFullPath := func(allowSpace bool) btparser.MFn {
@@ -102,7 +99,10 @@ func (rs *ReverseScan) init() {
 	// The reverse source starts near the cursor, so some tokens can be entered in the middle.That is why multi-rune constants use SeqOrMid and why reverse name parsing tolerates partially aligned escaped sequences and quoted paths.
 
 	//rs.fn = g.DebugAnd(true, "AA",
-	rs.fn = g.And(
+	rs.fn = rs.g.ReverseSource(g.And(
+		// improve pos to avoid being in the middle of an escape
+		g.Optional(g.Loop1(g.Rune(rs.escape))),
+
 		// possible line numbers
 		g.Optional(g.Loop1(g.Or(g.Digit(), g.Rune(',')))), // <int>,<int>
 		g.Optional(g.SeqOrMid("o=")),                      // c offset: "o=<digits>"
@@ -127,7 +127,7 @@ func (rs *ReverseScan) init() {
 			),
 			revFullPath(false),
 		)),
-	)
+	))
 
 }
 

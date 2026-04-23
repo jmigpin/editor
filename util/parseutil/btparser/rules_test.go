@@ -441,23 +441,6 @@ func TestSop(t *testing.T) {
 	}
 }
 
-func TestReverseAnd(t *testing.T) {
-	g := NewRules()
-	ps := NewParserStateFromString("abc")
-
-	p2, err := g.Parse(ps, g.ReverseAnd(
-		g.Rune('c'),
-		g.Rune('b'),
-		g.Rune('a'),
-	))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p2 != 3 {
-		t.Fatalf("got=%v, want=%v", p2, 3)
-	}
-}
-
 func TestReverseSource(t *testing.T) {
 	g := NewRules()
 	ps := NewParserStateFromString("ab界de")

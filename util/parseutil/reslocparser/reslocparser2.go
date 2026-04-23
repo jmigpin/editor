@@ -247,7 +247,7 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 		withResLocCopy(p.buildGitDiff()),
 
 		g.And(
-			p.revScan.Rule(800),
+			p.revScan.Rule(3000),
 			//coverIndex(index, p.fn), // TODO: revscan alternative
 
 			g.Or(

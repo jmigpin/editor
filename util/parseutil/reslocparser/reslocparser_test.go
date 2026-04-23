@@ -346,6 +346,8 @@ func testMode2b(t *testing.T, in, out string, esc, psep rune, parseVolume bool) 
 }
 
 func testMode(t *testing.T, in, out string, opts testModeOptions) {
+	t.Helper()
+
 	in2, index, err := testutil.SourceCursor("●", string(in), 0)
 	if err != nil {
 		t.Fatal(err)
