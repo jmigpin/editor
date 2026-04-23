@@ -87,6 +87,9 @@ func (p *syntaxHighlightParser) build() btparser.MFn {
 		}
 		return data
 	}
+	sectionRules := buildSyntaxSectionRules(p.g, syntaxHighlightPad, func(ps *btparser.ParserState) []*drawutil.SyntaxComment {
+		return data(ps).d.Opt.SyntaxHighlight.Comment.SCs
+	})
 	addOp := func(ps *btparser.ParserState, mp btparser.MPos, fg, bg color.Color) {
 		data := data(ps)
 		pos := int(mp.Start) + data.base
@@ -120,43 +123,11 @@ func (p *syntaxHighlightParser) build() btparser.MFn {
 			return mp, nil
 		}
 	}
-	commentSCs := func(makeFn func(*drawutil.SyntaxComment) btparser.MFn) btparser.MFn {
-		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
-			opt := &data(ps).d.Opt.SyntaxHighlight
-			for _, c := range opt.Comment.SCs {
-				if mp, err := makeFn(c)(ps, pos); err == nil {
-					return mp, nil
-				}
-			}
-			return btparser.MPos{Start: pos, End: pos}, btparser.NoMatchErr
-		}
-	}
 
 	//----------
 
-	lineComment := func(start string) btparser.MFn {
-		return p.g.And(
-			p.g.Seq(start),
-			p.g.LoopToNLOrEof('\\', false),
-		)
-	}
-	blockComment := func(start, end string) btparser.MFn {
-		return p.g.Section(start, end, '\\', false, false, p.g.AnyRune())
-	}
-	stringFn := colorizeString(
-		p.g.Or(
-			p.g.WithBounds(0, syntaxHighlightPad, p.g.QuotedSection("\"", '\\', p.g.AnyExceptNewline())),
-			p.g.WithBounds(0, 8, p.g.QuotedSection("'", '\\', p.g.AnyExceptNewline())),
-		),
-	)
-	commentFn := colorizeComment(
-		commentSCs(func(c *drawutil.SyntaxComment) btparser.MFn {
-			if c.IsLine() {
-				return lineComment(c.Start)
-			}
-			return blockComment(c.Start, c.End)
-		}),
-	)
+	stringFn := colorizeString(sectionRules.stringFn)
+	commentFn := colorizeComment(sectionRules.commentFn)
 	fn := p.g.Loop1(p.g.Or(
 		stringFn,
 		commentFn,
@@ -177,4 +148,61 @@ type syntaxHighlightData struct {
 	d    *Drawer
 	base int
 	ops  []*ColorizeOp
+}
+
+//----------
+//----------
+//----------
+
+type syntaxSectionRules struct {
+	stringFn  btparser.MFn
+	commentFn btparser.MFn
+	anyFn     btparser.MFn
+}
+
+type syntaxSectionRange struct {
+	start btparser.Pos
+	end   btparser.Pos
+}
+
+// buildSyntaxSectionRules defines the string/comment section grammar used by syntax highlight colorization and parenthesis highlight section detection.
+func buildSyntaxSectionRules(g btparser.Rules, maxStringLen int, syntaxComments func(*btparser.ParserState) []*drawutil.SyntaxComment) syntaxSectionRules {
+	commentSCs := func(makeFn func(*drawutil.SyntaxComment) btparser.MFn) btparser.MFn {
+		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+			for _, c := range syntaxComments(ps) {
+				if mp, err := makeFn(c)(ps, pos); err == nil {
+					return mp, nil
+				}
+			}
+			return btparser.MPos{Start: pos, End: pos}, btparser.NoMatchErr
+		}
+	}
+
+	//----------
+
+	lineComment := func(start string) btparser.MFn {
+		return g.And(
+			g.Seq(start),
+			g.LoopToNLOrEof('\\', false),
+		)
+	}
+	blockComment := func(start, end string) btparser.MFn {
+		return g.Section(start, end, '\\', false, false, g.AnyRune())
+	}
+	stringFn := g.Or(
+		g.WithBounds(0, maxStringLen, g.QuotedSection("\"", '\\', g.AnyExceptNewline())),
+		g.WithBounds(0, 8, g.QuotedSection("'", '\\', g.AnyExceptNewline())),
+	)
+	commentFn := commentSCs(func(c *drawutil.SyntaxComment) btparser.MFn {
+		if c.IsLine() {
+			return lineComment(c.Start)
+		}
+		return blockComment(c.Start, c.End)
+	})
+
+	return syntaxSectionRules{
+		stringFn:  stringFn,
+		commentFn: commentFn,
+		anyFn:     g.Or(stringFn, commentFn),
+	}
 }
