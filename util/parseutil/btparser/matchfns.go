@@ -793,14 +793,6 @@ func mAppend[T any](ps *ParserState, pos Pos, dst func(*ParserState) *[]T, fn VF
 	})
 }
 
-func mSetMapEntry[K comparable, V any](ps *ParserState, pos Pos, dst func(*ParserState) *map[K]V, fn VFn[MapEntry[K, V]]) (MPos, error) {
-	return mHandleVFn(ps, pos, fn, func(v MapEntry[K, V]) error {
-		m := dst(ps)
-		(*m)[v.Key] = v.Value
-		return nil
-	})
-}
-
 func mvAppend[T any](ps *ParserState, pos Pos, fn VFn[T]) ([]T, MPos, error) {
 	w := []T{}
 	mp, err := mAppend(ps, pos, func(*ParserState) *[]T { return &w }, fn)

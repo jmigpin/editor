@@ -686,27 +686,6 @@ func TestAssignFnDstOnlyOnSuccess(t *testing.T) {
 	}
 }
 
-func TestSetMapEntryFnDstOnlyOnSuccess(t *testing.T) {
-	g := NewRules()
-	ps := NewParserStateFromString("a")
-
-	called := false
-	m := map[string]int{}
-	_, err := g.Parse(ps, SetMapEntryFn(
-		func(ps *ParserState) *map[string]int {
-			called = true
-			return &m
-		},
-		VConst(g.Rune('b'), MapEntry[string, int]{Key: "k", Value: 1}),
-	))
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if called {
-		t.Fatal("dst called on failed match")
-	}
-}
-
 func TestLookback(t *testing.T) {
 	src := "--ab0--cd0--"
 

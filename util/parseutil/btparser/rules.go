@@ -423,19 +423,6 @@ func (g Rules) FatalOnError(tag string, fn MFn) MFn {
 	}
 }
 
-//----------
-//----------
-//----------
-
-type MapEntry[K comparable, V any] struct {
-	Key   K
-	Value V
-}
-
-//----------
-//----------
-//----------
-
 func VOr[T any](fns ...VFn[T]) VFn[T] {
 	return func(ps *ParserState, pos Pos) (T, MPos, error) {
 		return mvOr(ps, pos, fns...)
@@ -500,11 +487,6 @@ func AppendFn[T any](dst func(*ParserState) *[]T, fn VFn[T]) MFn {
 		return mAppend(ps, pos, dst, fn)
 	}
 }
-func SetMapEntryFn[K comparable, V any](dst func(*ParserState) *map[K]V, fn VFn[MapEntry[K, V]]) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mSetMapEntry(ps, pos, dst, fn)
-	}
-}
 
 //----------
 
@@ -523,11 +505,5 @@ func Assign2Local[T any](v **T, fn VFn[T]) MFn {
 func AppendLocal[T any](w *[]T, fn VFn[T]) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return AppendFn(func(*ParserState) *[]T { return w }, fn)(ps, pos)
-	}
-}
-
-func SetMapEntryLocal[K comparable, V any](m *map[K]V, fn VFn[MapEntry[K, V]]) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return SetMapEntryFn(func(*ParserState) *map[K]V { return m }, fn)(ps, pos)
 	}
 }
