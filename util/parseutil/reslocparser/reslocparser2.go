@@ -358,10 +358,10 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 	)
 
 	hunk := g.And(
-		// consume in reverse
+		// consume in reverse to start of line searching for header
 		g.Optional(g.WithBounds(1000, 0,
 			g.ReverseSource(g.LoopConsumeUntil(
-				g.AnyRune(),
+				g.RuneFn(func(ru rune) bool { return ru != '\n' }),
 				g.And(
 					g.SeqOrMid(btparser.ReverseString("@@ ")),
 					g.Or(
@@ -380,6 +380,7 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 		g.Spaces(),
 		g.Seq("@@"),
 
+		// consume backwards
 		toLineStart,
 		g.LoopConsumeUntil(
 			g.And(
