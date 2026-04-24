@@ -32,20 +32,20 @@ var pathSepSyms = "" +
 //----------
 //----------
 
-type ResLocParser2 struct {
+type ResLocParser struct {
 	g       btparser.Rules
 	revScan *ReverseScan
 	fn      btparser.MFn
 }
 
-func NewResLocParser2(escape, pathSeparator rune, parseVolume bool) *ResLocParser2 {
-	p := &ResLocParser2{}
+func NewResLocParser2(escape, pathSeparator rune, parseVolume bool) *ResLocParser {
+	p := &ResLocParser{}
 	p.g = btparser.NewRules()
 	p.init(escape, pathSeparator, parseVolume)
 	return p
 }
 
-func (p *ResLocParser2) Parse(src []byte, index int) (*ResLoc, error) {
+func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
 	rl := NewResLoc()
 	rl.Escape = p.revScan.escape
 	rl.PathSep = p.revScan.pathSep
@@ -60,7 +60,7 @@ func (p *ResLocParser2) Parse(src []byte, index int) (*ResLoc, error) {
 
 //----------
 
-func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
+func (p *ResLocParser) init(escape, pathSeparator rune, parseVolume bool) {
 	g := p.g
 
 	p.revScan = NewReverseScanResLoc(escape, pathSeparator, parseVolume)
@@ -250,7 +250,7 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 
 //----------
 
-func (p *ResLocParser2) buildGitDiff() btparser.MFn {
+func (p *ResLocParser) buildGitDiff() btparser.MFn {
 	g := p.g
 
 	resLocData := btparser.UserDataPtrFn[ResLoc](resLocDataKey)
