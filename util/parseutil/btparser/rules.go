@@ -483,6 +483,18 @@ func VAppend[T any](fn VFn[T]) VFn[[]T] {
 
 //----------
 
+func UserDataPtrFn[T any](key string) func(*ParserState) *T {
+	return func(ps *ParserState) *T {
+		v, ok := ps.UserData[key].(*T)
+		if !ok {
+			panic("btparser userdata type mismatch")
+		}
+		return v
+	}
+}
+
+//----------
+
 func AssignFn[T any](dst func(*ParserState) *T, fn VFn[T]) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mAssign(ps, pos, dst, fn)
