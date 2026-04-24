@@ -206,8 +206,8 @@ func (ta *TextArea) Layout() {
 	ta.EvReg.RunCallbacks(TextAreaLayoutEventId, ev2)
 
 	if newBounds := ta.Drawer.Bounds(); oldBounds != newBounds {
-		ev2 := &TextAreaBoundsEvent{TextArea: ta, Old: oldBounds, Bounds: newBounds}
-		ta.EvReg.RunCallbacks(TextAreaBoundsEventId, ev2)
+		ev2 := &TextAreaBoundsChangeEvent{TextArea: ta, Old: oldBounds, Bounds: newBounds}
+		ta.EvReg.RunCallbacks(TextAreaBoundsChangeEventId, ev2)
 	}
 }
 
@@ -242,7 +242,7 @@ const (
 	TextAreaInlineCompleteEventId
 	TextAreaInputEventId
 	TextAreaLayoutEventId
-	TextAreaBoundsEventId
+	TextAreaBoundsChangeEventId
 	TextAreaThemeEventId
 )
 
@@ -303,7 +303,7 @@ type TextAreaLayoutEvent struct {
 	TextArea *TextArea
 }
 
-type TextAreaBoundsEvent struct {
+type TextAreaBoundsChangeEvent struct {
 	TextArea *TextArea
 	Old      image.Rectangle
 	Bounds   image.Rectangle

@@ -242,8 +242,8 @@ func (erow *ERow) initHandlers() {
 	})
 
 	// textarea layout (resize)
-	row.TextArea.EvReg.Add(ui.TextAreaBoundsEventId, func(ev0 any) {
-		erow.onTextAreaBounds()
+	row.TextArea.EvReg.Add(ui.TextAreaBoundsChangeEventId, func(ev0 any) {
+		erow.onTextAreaBoundsChange()
 	})
 	row.TextArea.EvReg.Add(ui.TextAreaThemeEventId, func(ev0 any) {
 		if erow.optTemu != nil {
@@ -506,7 +506,7 @@ func (erow *ERow) parseToolbarVars() {
 
 //----------
 
-func (erow *ERow) onTextAreaBounds() {
+func (erow *ERow) onTextAreaBoundsChange() {
 	erow.uiCalcAndSetTermSize()
 }
 
