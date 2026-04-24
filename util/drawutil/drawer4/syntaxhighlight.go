@@ -80,13 +80,7 @@ func (p *syntaxHighlightParser) parse(ps *btparser.ParserState) {
 }
 
 func (p *syntaxHighlightParser) build() btparser.MFn {
-	data := func(ps *btparser.ParserState) *syntaxHighlightData {
-		data, ok := ps.UserData[syntaxHighlightDataKey].(*syntaxHighlightData)
-		if !ok {
-			panic("syntax highlight parser missing userdata")
-		}
-		return data
-	}
+	data := btparser.UserDataPtrFn[syntaxHighlightData](syntaxHighlightDataKey)
 	sectionRules := buildSyntaxSectionRules(p.g, syntaxHighlightPad, func(ps *btparser.ParserState) []*drawutil.SyntaxComment {
 		return data(ps).d.Opt.SyntaxHighlight.Comment.SCs
 	})

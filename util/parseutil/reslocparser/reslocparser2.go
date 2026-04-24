@@ -51,61 +51,31 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 
 	//----------
 
-	resLocData := func(ps *btparser.ParserState) *ResLoc {
-		rl, ok := ps.UserData[resLocDataKey].(*ResLoc)
-		if !ok {
-			panic("resloc parser missing ResLoc userdata")
-		}
-		return rl
-	}
+	resLocData := btparser.UserDataPtrFn[ResLoc](resLocDataKey)
+	volumeDst := func(ps *btparser.ParserState) *string { return &resLocData(ps).Volume }
+	schemeDst := func(ps *btparser.ParserState) *string { return &resLocData(ps).Scheme }
+	pathDst := func(ps *btparser.ParserState) *string { return &resLocData(ps).Path }
+	lineDst := func(ps *btparser.ParserState) *int { return &resLocData(ps).Line }
+	columnDst := func(ps *btparser.ParserState) *int { return &resLocData(ps).Column }
+	offsetDst := func(ps *btparser.ParserState) *int { return &resLocData(ps).Offset }
 
 	assignVolume := func(fn btparser.MFn) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *string {
-				return &resLocData(ps).Volume
-			},
-			g.VString(fn),
-		)
+		return btparser.AssignFn(volumeDst, g.VString(fn))
 	}
 	assignScheme := func(fn btparser.MFn) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *string {
-				return &resLocData(ps).Scheme
-			},
-			g.VString(fn),
-		)
+		return btparser.AssignFn(schemeDst, g.VString(fn))
 	}
 	assignPath := func(fn btparser.MFn) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *string {
-				return &resLocData(ps).Path
-			},
-			g.VString(fn),
-		)
+		return btparser.AssignFn(pathDst, g.VString(fn))
 	}
 	assignLine := func(fn btparser.VFn[int]) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *int {
-				return &resLocData(ps).Line
-			},
-			fn,
-		)
+		return btparser.AssignFn(lineDst, fn)
 	}
 	assignColumn := func(fn btparser.VFn[int]) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *int {
-				return &resLocData(ps).Column
-			},
-			fn,
-		)
+		return btparser.AssignFn(columnDst, fn)
 	}
 	assignOffset := func(fn btparser.VFn[int]) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *int {
-				return &resLocData(ps).Offset
-			},
-			fn,
-		)
+		return btparser.AssignFn(offsetDst, fn)
 	}
 	volume := func(pathSepFn btparser.MFn) btparser.MFn {
 		return g.And(
@@ -267,13 +237,7 @@ func (p *ResLocParser2) init(escape, pathSeparator rune, parseVolume bool) {
 func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 	g := p.g
 
-	resLocData := func(ps *btparser.ParserState) *ResLoc {
-		rl, ok := ps.UserData[resLocDataKey].(*ResLoc)
-		if !ok {
-			panic("resloc parser missing ResLoc userdata")
-		}
-		return rl
-	}
+	resLocData := btparser.UserDataPtrFn[ResLoc](resLocDataKey)
 	setGitPath := func(path string, ps *btparser.ParserState) bool {
 		path = strings.TrimSpace(path)
 		if path == "" || path == "/dev/null" {
@@ -282,13 +246,8 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 		resLocData(ps).Path = trimGitDiffPathPrefix(path)
 		return true
 	}
-	gitDiffPathData := func(ps *btparser.ParserState) *string {
-		path, ok := ps.UserData[gitDiffPathKey].(*string)
-		if !ok {
-			panic("git diff parser missing path userdata")
-		}
-		return path
-	}
+	gitDiffPathData := btparser.UserDataPtrFn[string](gitDiffPathKey)
+	lineDst := func(ps *btparser.ParserState) *int { return &resLocData(ps).Line }
 	withGitDiffPath := func(fn btparser.MFn) btparser.MFn {
 		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
 			path := ""
@@ -307,12 +266,7 @@ func (p *ResLocParser2) buildGitDiff() btparser.MFn {
 		return btparser.AssignFn(gitDiffPathData, g.VString(fn))
 	}
 	assignGitDiffLine := func(fn btparser.VFn[int]) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *int {
-				return &resLocData(ps).Line
-			},
-			fn,
-		)
+		return btparser.AssignFn(lineDst, fn)
 	}
 
 	//----------

@@ -167,9 +167,5 @@ func coverIndexParse(ps *btparser.ParserState, pos btparser.Pos, index int, fn b
 }
 
 func coverIndexResLocData(ps *btparser.ParserState) *ResLoc {
-	rl, ok := ps.UserData[resLocDataKey].(*ResLoc)
-	if !ok {
-		panic("cover index scan missing ResLoc userdata")
-	}
-	return rl
+	return btparser.UserDataPtrFn[ResLoc](resLocDataKey)(ps)
 }

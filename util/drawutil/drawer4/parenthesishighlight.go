@@ -79,11 +79,7 @@ func (p *parenthesisHighlightParser) parse(ps *btparser.ParserState, pos btparse
 }
 
 func (p *parenthesisHighlightParser) data(ps *btparser.ParserState) *parenthesisHighlightData {
-	data, ok := ps.UserData[parenthesisHighlightDataKey].(*parenthesisHighlightData)
-	if !ok {
-		panic("parenthesis highlight parser missing userdata")
-	}
-	return data
+	return btparser.UserDataPtrFn[parenthesisHighlightData](parenthesisHighlightDataKey)(ps)
 }
 
 func (p *parenthesisHighlightParser) buildSections() btparser.MFn {

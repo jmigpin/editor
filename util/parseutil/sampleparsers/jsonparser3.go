@@ -62,13 +62,7 @@ func (p *JsonParser3) build() btparser.MFn {
 			return v, mp, err
 		}
 	}
-	valueData := func(ps *btparser.ParserState) *any {
-		v, ok := ps.UserData[jsonValueKey].(*any)
-		if !ok {
-			panic("json parser missing value userdata")
-		}
-		return v
-	}
+	valueData := btparser.UserDataPtrFn[any](jsonValueKey)
 
 	//----------
 

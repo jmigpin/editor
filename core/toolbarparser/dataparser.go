@@ -47,13 +47,7 @@ func initDataParserRules() *dataParserRules {
 
 	//----------
 
-	data := func(ps *btparser.ParserState) *Data {
-		data, ok := ps.UserData[dataParserDataKey].(*Data)
-		if !ok {
-			panic("toolbar parser missing Data userdata")
-		}
-		return data
-	}
+	data := btparser.UserDataPtrFn[Data](dataParserDataKey)
 	newArg := func(ps *btparser.ParserState, mp btparser.MPos) *Arg {
 		arg := &Arg{}
 		arg.Data = data(ps)
