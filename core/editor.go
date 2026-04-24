@@ -589,6 +589,7 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 
 func (ed *Editor) setupTheme(opt *Options) error {
 	drawer4.WrapLineRune = rune(opt.WrapLineRune)
+	drawer4.WrapLineIndentTabs = opt.WrapLineIndentTabs
 	drawer4.WrapWordLimit = opt.WrapWordLimit
 	fontutil.TabWidth = opt.TabWidth
 	fontutil.CarriageReturnRune = rune(opt.CarriageReturnRune)

@@ -193,4 +193,5 @@ func (lw *LineWrap) insertWrapRune() bool {
 }
 
 var WrapLineRune = rune('←') // positioned at the start of wrapped line (left)
+var WrapLineIndentTabs = 0
 var WrapWordLimit = 0

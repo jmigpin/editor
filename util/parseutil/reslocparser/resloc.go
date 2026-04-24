@@ -8,6 +8,7 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
+// resource location
 type ResLoc struct {
 	Path string // raw path
 

@@ -57,6 +57,20 @@ func TestParseDeclVar4(t *testing.T) {
 		t.Fatal("expecting error")
 	}
 }
+func TestParseDeclVar5(t *testing.T) {
+	s1 := "$ábc=1"
+	_, err := parseVarDecl(s1)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+}
+func TestParseDeclVar6(t *testing.T) {
+	s1 := "$ab-c=1"
+	_, err := parseVarDecl(s1)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+}
 
 //----------
 
@@ -156,6 +170,40 @@ func TestParseVars3(t *testing.T) {
 	vm := ParseVars(d)
 	if v, ok := vm["$a"]; !ok || v != "~abc" {
 		t.Fatal(vm)
+	}
+}
+
+func TestParseVarRefs1(t *testing.T) {
+	s := []byte("$aaa x ~{1} y ${bb}")
+	vrs, err := parseVarRefs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vrs) != 3 {
+		t.Fatal(len(vrs), vrs)
+	}
+	if vrs[0].Name != "$aaa" || vrs[0].SrcString(s) != "$aaa" {
+		t.Fatal(vrs[0])
+	}
+	if vrs[1].Name != "~1" || vrs[1].SrcString(s) != "~{1}" {
+		t.Fatal(vrs[1])
+	}
+	if vrs[2].Name != "$bb" || vrs[2].SrcString(s) != "${bb}" {
+		t.Fatal(vrs[2])
+	}
+}
+
+func TestParseVarRefs2(t *testing.T) {
+	s := []byte("\\$aaa \"$bbb\" $ccc")
+	vrs, err := parseVarRefs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vrs) != 1 {
+		t.Fatal(len(vrs), vrs)
+	}
+	if vrs[0].Name != "$ccc" {
+		t.Fatal(vrs[0])
 	}
 }
 

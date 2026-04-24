@@ -1,177 +1,209 @@
 package reslocparser
 
 import (
-	"sync"
+	"strings"
+	"unicode"
 
 	"github.com/jmigpin/editor/util/parseutil"
-	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
-type MFn = pscan.MFn
+const resLocDataKey = "reslocparser.resloc"
+const gitDiffPathKey = "reslocparser.gitdiff.path"
+
+var fileSchemeTag = "file://"
+var pythonLineTailTag = ", line "
+var shellLineTailTag = ": line "
 
 //----------
 
+// all syms except letters and digits
+var syms = "_-~.%@&?!=#+:^(){}[]<>\\/ "
+
+// path separator symbols
+var pathSepSyms = "" +
+	" " + // word separator
+	"=" + // usually around filenames (ex: -arg=/a/b.txt)
+	"(){}[]<>" + // usually used around filenames in various outputs
+	":" + // usually separating lines/cols from filenames
+	""
+
+//----------
+//----------
+//----------
+
 type ResLocParser struct {
-	parseMu sync.Mutex // allow .Parse() to be used concurrently
-
-	Escape        rune
-	PathSeparator rune
-	ParseVolume   bool
-
-	sc *pscan.Scanner
-	fn struct {
-		location MFn
-		reverse  MFn
-	}
-	vk struct {
-		scheme *string
-		volume *string
-		path   *string
-		line   *int
-		column *int
-		offset *int
-	}
+	g       btparser.Rules
+	revScan *ReverseScan
+	fn      btparser.MFn
 }
 
-func NewResLocParser() *ResLocParser {
+func NewResLocParser2(escape, pathSeparator rune, parseVolume bool) *ResLocParser {
 	p := &ResLocParser{}
-	p.sc = pscan.NewScanner()
-
-	p.Escape = '\\'
-	p.PathSeparator = '/'
-	p.ParseVolume = false
-
+	p.g = btparser.NewRules()
+	p.init(escape, pathSeparator, parseVolume)
 	return p
 }
-func (p *ResLocParser) Init() {
-	sc := p.sc
 
-	resetVks := func(pos int) (int, error) {
-		p.vk.scheme = nil
-		p.vk.volume = nil
-		p.vk.path = nil
-		p.vk.line = nil
-		p.vk.column = nil
-		p.vk.offset = nil
-		return pos, nil
-	}
+func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
+	rl := NewResLoc()
+	rl.Escape = p.revScan.escape
+	rl.PathSep = p.revScan.pathSep
+
+	ps := btparser.NewParserStateFromBytes(src)
+	ps.UserData[resLocDataKey] = rl
+
+	_, err := p.g.ParseAt(ps, btparser.Pos(index), p.fn)
+	// resloc values are filled inside the parse
+	return rl, err
+}
+
+//----------
+
+func (p *ResLocParser) init(escape, pathSeparator rune, parseVolume bool) {
+	g := p.g
+
+	p.revScan = NewReverseScanResLoc(escape, pathSeparator, parseVolume)
 
 	//----------
 
-	nameSyms := func(except ...rune) MFn {
-		rs := nameRunes(except...)
-		return sc.W.RuneOneOf(rs)
+	resLocData := btparser.UserDataPtrFn[ResLoc](resLocDataKey)
+	volumeDst := func(ps *btparser.ParserState) *string { return &resLocData(ps).Volume }
+	schemeDst := func(ps *btparser.ParserState) *string { return &resLocData(ps).Scheme }
+	pathDst := func(ps *btparser.ParserState) *string { return &resLocData(ps).Path }
+	lineDst := func(ps *btparser.ParserState) *int { return &resLocData(ps).Line }
+	columnDst := func(ps *btparser.ParserState) *int { return &resLocData(ps).Column }
+	offsetDst := func(ps *btparser.ParserState) *int { return &resLocData(ps).Offset }
+
+	assignVolume := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(volumeDst, g.VString(fn))
+	}
+	assignScheme := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(schemeDst, g.VString(fn))
+	}
+	assignPath := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(pathDst, g.VString(fn))
+	}
+	assignLine := func(fn btparser.VFn[int]) btparser.MFn {
+		return btparser.AssignFn(lineDst, fn)
+	}
+	assignColumn := func(fn btparser.VFn[int]) btparser.MFn {
+		return btparser.AssignFn(columnDst, fn)
+	}
+	assignOffset := func(fn btparser.VFn[int]) btparser.MFn {
+		return btparser.AssignFn(offsetDst, fn)
+	}
+	volume := func(pathSepFn btparser.MFn) btparser.MFn {
+		return g.And(
+			g.IsTrue(parseVolume),
+			assignVolume(g.And(g.Letter(), g.Rune(':'))),
+			pathSepFn,
+		)
+	}
+	quotedPath := func(q rune, path btparser.MFn) btparser.MFn {
+		qFn := g.Rune(q)
+		return g.And(qFn, assignPath(path), qFn)
 	}
 
-	volume := func(pathSepFn MFn) MFn {
-		if p.ParseVolume {
-			return sc.W.And(
-				pscan.WKeep(&p.vk.volume, sc.W.StrValue(sc.W.And(
-					sc.M.Letter,
-					sc.W.Rune(':'),
-				))),
-				pathSepFn,
-			)
-		} else {
-			return func(pos int) (int, error) {
-				return pos, pscan.NoMatchErr
+	withResLocCopy := func(fn btparser.MFn) btparser.MFn {
+		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+			rl1 := resLocData(ps)
+			rl2 := *rl1
+			ps.UserData[resLocDataKey] = &rl2
+			defer func() { ps.UserData[resLocDataKey] = rl1 }()
+
+			mp, err := fn(ps, pos)
+			if err != nil {
+				return mp, err
 			}
+			rl2.Pos = int(mp.Start)
+			rl2.End = int(mp.End)
+
+			*rl1 = rl2
+			return mp, nil
 		}
 	}
 
 	//----------
 
-	// ex: "/a/b.txt"
-	// ex: "/a/b.txt:12:3"
-	// ex: "/a/b.txt:o=123" // offset (custom format)
-	cEscRu := p.Escape
-	cPathSepRu := p.PathSeparator
-	cPathSep := sc.W.Rune(cPathSepRu)
-	cName := sc.W.Or(
-		sc.W.EscapeAny(cEscRu),
-		sc.M.Digit,
-		sc.M.Letter,
+	nameSyms := func(except ...rune) btparser.MFn {
+		rs := buildPathItemSyms(except...)
+		return g.RuneAnyOf(rs...)
+	}
+
+	//----------
+
+	cEscRu := escape
+	cPathSepRu := pathSeparator
+	cPathSep := g.Rune(cPathSepRu)
+	cName := g.Or(
+		g.Escape(cEscRu),
+		g.Digit(),
+		g.Letter(),
 		nameSyms(cPathSepRu, cEscRu),
 	)
-	cNames := sc.W.LoopOneOrMore(sc.W.Or(
+	cNames := g.Loop1(g.Or(
 		cName,
 		cPathSep,
 	))
-	cPath := sc.W.And(
-		sc.W.Optional(volume(cPathSep)),
+	cPath := g.And(
+		g.Optional(volume(cPathSep)),
 		cNames,
 	)
-	cLineCol := sc.W.And(
-		sc.W.Rune(':'),
-		pscan.WKeep(&p.vk.line, sc.M.IntValue), // line
-		sc.W.Optional(sc.W.And(
-			sc.W.Rune(':'),
-			pscan.WKeep(&p.vk.column, sc.M.IntValue), // column
+	cLineCol := g.And(
+		g.Rune(':'),
+		assignLine(g.VInteger()),
+		g.Optional(g.And(
+			g.Rune(':'),
+			assignColumn(g.VInteger()),
 		)),
 	)
-	cOffset := sc.W.And(
-		sc.W.Sequence(":o="),
-		pscan.WKeep(&p.vk.offset, sc.M.IntValue),
+	cOffset := g.And(
+		g.Seq(":o="),
+		assignOffset(g.VInteger()),
 	)
-	cFile := sc.W.And(
-		pscan.WKeep(&p.vk.path, sc.W.StrValue(cPath)),
-		sc.W.Optional(sc.W.Or(cOffset, cLineCol)),
+	cFile := g.And(
+		assignPath(cPath),
+		g.Optional(g.Or(cOffset, cLineCol)),
 	)
 
-	//----------
-
-	// ex: "file:///a/b.txt:12"
-	// no escape sequence for scheme, used to be '\\' but better to avoid conflicts with platforms that use '\\' as escape; could always use encoding (ex: %20 for ' ')
-	schEscRu := '\\'    // fixed
-	schPathSepRu := '/' // fixed
-	schPathSep := sc.W.Rune(schPathSepRu)
-	schName := sc.W.Or(
-		sc.W.EscapeAny(schEscRu),
-		sc.M.Digit,
-		sc.M.Letter,
+	schEscRu := '\\'
+	schPathSepRu := '/'
+	schPathSep := g.Rune(schPathSepRu)
+	schName := g.Or(
+		g.Escape(schEscRu),
+		g.Digit(),
+		g.Letter(),
 		nameSyms(schPathSepRu, schEscRu),
 	)
-	schNames := sc.W.LoopOneOrMore(sc.W.Or(
+	schNames := g.Loop1(g.Or(
 		schName,
 		schPathSep,
 	))
-	schPath := sc.W.And(
+	schPath := g.And(
 		schPathSep,
-		sc.W.Optional(volume(schPathSep)),
+		g.Optional(volume(schPathSep)),
 		schNames,
 	)
-	schFileTagS := "file://"
-	schFile := sc.W.And(
-		pscan.WKeep(&p.vk.scheme, sc.W.StrValue(
-			sc.W.Sequence(schFileTagS)),
-		),
-		pscan.WKeep(&p.vk.path, sc.W.StrValue(schPath)),
-		sc.W.Optional(cLineCol),
+	schFile := g.And(
+		assignScheme(g.Seq(fileSchemeTag)),
+		assignPath(schPath),
+		g.Optional(cLineCol),
 	)
 
-	//----------
-
-	// names inside quotes: allow everything except quote and newline
-	cPathQuoted := func(q rune) MFn {
-		return sc.W.And(
-			sc.W.Optional(volume(cPathSep)),
-			sc.W.LoopOneOrMore(sc.W.Or(
-				sc.W.EscapeAny(cEscRu),
-				sc.W.RuneFn(func(ru rune) bool {
-					return ru != q && ru != '\n'
-				}),
+	cPathQuoted := func(q rune) btparser.MFn {
+		return g.And(
+			g.Optional(volume(cPathSep)),
+			g.Loop1(g.Or(
+				g.Escape(cEscRu),
+				g.RuneNotAnyOf(q, '\n'),
 			)),
 		)
 	}
 
-	quotedFile := func(q rune) (MFn, MFn) {
-		qFn := sc.W.Rune(q)
-		file := sc.W.And(
-			qFn,
-			pscan.WKeep(&p.vk.path, sc.W.StrValue(cPathQuoted(q))),
-			qFn,
-		)
-		fileLineCol := sc.W.And(file, sc.W.Optional(cLineCol))
+	quotedFile := func(q rune) (btparser.MFn, btparser.MFn) {
+		file := quotedPath(q, cPathQuoted(q))
+		fileLineCol := g.And(file, g.Optional(cLineCol))
 		return file, fileLineCol
 	}
 
@@ -179,157 +211,172 @@ func (p *ResLocParser) Init() {
 	_, squotedFile := quotedFile('\'')
 	_, bquotedFile := quotedFile('`')
 
-	//----------
-
-	// ex: "\"/a/b.txt\", line 23"
-	pyLineTagS := ", line "
-	pyFile := sc.W.And(
+	pyFile := g.And(
 		dquotedFileBase,
-		sc.W.And(
-			sc.W.Sequence(pyLineTagS),
-			pscan.WKeep(&p.vk.line, sc.M.IntValue),
+		g.And(
+			g.Seq(pythonLineTailTag),
+			assignLine(g.VInteger()),
 		),
 	)
 
-	//----------
-
-	// ex: "/a/b.txt: line 23"
-	shellLineTagS := ": line "
-	shellFile := sc.W.And(
-		pscan.WKeep(&p.vk.path, sc.W.StrValue(cPath)),
-		sc.W.And(
-			sc.W.Sequence(shellLineTagS),
-			pscan.WKeep(&p.vk.line, sc.M.IntValue),
+	shellFile := g.And(
+		assignPath(cPath),
+		g.And(
+			g.Seq(shellLineTailTag),
+			assignLine(g.VInteger()),
 		),
 	)
 
-	//----------
+	p.fn = g.Or(
+		withResLocCopy(p.buildGitDiff()),
 
-	p.fn.location = sc.W.Or(
-		// ensure values are reset at each attempt
-		sc.W.And(resetVks, schFile),
-		sc.W.And(resetVks, pyFile),
-		sc.W.And(resetVks, dquotedFile),
-		sc.W.And(resetVks, squotedFile),
-		sc.W.And(resetVks, bquotedFile),
-		sc.W.And(resetVks, shellFile),
-		sc.W.And(resetVks, cFile),
-	)
+		g.And(
+			// go backwards to compensate middle positions
+			p.revScan.Rule(3000),
+			//coverIndex(index, p.fn), // TODO: revscan alternative
 
-	//----------
-	//----------
-
-	quotes := sc.W.RuneOneOf([]rune("\"'`"))
-	revNames := sc.W.LoopOneOrMore(
-		sc.W.Or(
-			cName,
-			//schName, // can't reverse, contains fixed '\\' escape that can conflit with platform not considering it an escape
-			sc.W.Rune(cEscRu),
-			sc.W.Rune(schEscRu),
-			cPathSep,
-			schPathSep,
+			g.Or(
+				withResLocCopy(schFile),
+				withResLocCopy(pyFile),
+				withResLocCopy(dquotedFile),
+				withResLocCopy(squotedFile),
+				withResLocCopy(bquotedFile),
+				withResLocCopy(shellFile),
+				withResLocCopy(cFile),
+			),
 		),
 	)
-	revNamesQuoted := sc.W.LoopOneOrMore(
-		sc.W.Or(
-			cName,
-			sc.W.Rune(' '),
-			sc.W.Rune(cEscRu),
-			sc.W.Rune(schEscRu),
-			cPathSep,
-			schPathSep,
-		),
+}
+
+//----------
+
+func (p *ResLocParser) buildGitDiff() btparser.MFn {
+	g := p.g
+
+	resLocData := btparser.UserDataPtrFn[ResLoc](resLocDataKey)
+	setGitPath := func(path string, ps *btparser.ParserState) bool {
+		path = strings.TrimSpace(path)
+		if path == "" || path == "/dev/null" {
+			return false
+		}
+		resLocData(ps).Path = trimGitDiffPathPrefix(path)
+		return true
+	}
+	gitDiffPathData := btparser.UserDataPtrFn[string](gitDiffPathKey)
+	lineDst := func(ps *btparser.ParserState) *int { return &resLocData(ps).Line }
+	withGitDiffPath := func(fn btparser.MFn) btparser.MFn {
+		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+			path := ""
+			ps.UserData[gitDiffPathKey] = &path
+			defer delete(ps.UserData, gitDiffPathKey)
+			return fn(ps, pos)
+		}
+	}
+	setGitPathFn := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+		if !setGitPath(*gitDiffPathData(ps), ps) {
+			return btparser.MPos{Start: pos, End: pos}, btparser.NoMatchErr
+		}
+		return btparser.MPos{Start: pos, End: pos}, nil
+	}
+	assignGitDiffPath := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(gitDiffPathData, g.VString(fn))
+	}
+	assignGitDiffLine := func(fn btparser.VFn[int]) btparser.MFn {
+		return btparser.AssignFn(lineDst, fn)
+	}
+
+	//----------
+
+	gitDiffRangeTail := g.Optional(g.And(g.Rune(','), g.Integer()))
+	gitDiffOldRange := g.And(g.Rune('-'), g.Integer(), gitDiffRangeTail)
+	gitDiffNewRange := g.And(
+		g.Rune('+'),
+		assignGitDiffLine(g.VInteger()),
+		gitDiffRangeTail,
 	)
-	p.fn.reverse = sc.W.ReverseMode(true, sc.W.And(
-		sc.W.Optional(quotes),
-		//sc.P.Optional(cVolume),
-		//sc.P.Optional(schVolume),
-		sc.W.Optional(sc.W.SequenceMid(schFileTagS)),
-		sc.W.Optional(sc.W.LoopOneOrMore(sc.W.Or(
-			cPathSep,
-			schPathSep,
-		))),
-		sc.W.Optional(sc.W.And(
-			sc.M.Letter,
-			sc.W.Rune(':'), // volume
-		)),
-		sc.W.Optional(sc.W.Or(
-			sc.W.And(sc.W.Peek(sc.W.And(revNamesQuoted, quotes)), revNamesQuoted),
-			revNames,
-		)),
-		sc.W.Optional(quotes),
-		sc.W.Optional(sc.W.SequenceMid(pyLineTagS)),
-		sc.W.Optional(sc.W.SequenceMid(shellLineTagS)),
-		// c line column / offset
-		sc.W.Optional(sc.W.LoopOneOrMore(sc.W.Or(
-			sc.W.Rune(':'),
-			sc.W.RuneOneOf([]rune("o=")), // offset
-			sc.M.Digit,
-		))),
+
+	gitFilePath := assignGitDiffPath(g.LoopToNLOrEof(0, false))
+	gitDiffPathToken := assignGitDiffPath(
+		g.Loop1(g.RuneFn(func(ru rune) bool {
+			return !unicode.IsSpace(ru)
+		})),
+	)
+
+	plusFileLine := withGitDiffPath(g.And(
+		g.Seq("+++ "),
+		gitFilePath,
+		setGitPathFn,
 	))
+
+	diffGitFileLine := withGitDiffPath(g.And(
+		g.Seq("diff --git "),
+		gitDiffPathToken,
+		g.Spaces(),
+		gitFilePath,
+		setGitPathFn,
+	))
+	gitFileLine := g.Or(
+		plusFileLine,
+		diffGitFileLine,
+	)
+
+	toLineStart := g.And(
+		g.ToLastIndexByteOrStart('\n'),
+		g.Optional(g.Rune('\n')),
+	)
+
+	hunk := g.And(
+		// consume in reverse to start of line searching for header
+		g.Optional(g.WithBounds(1000, 0,
+			g.ReverseSource(g.LoopConsumeUntil(
+				g.RuneNotAnyOf('\n'),
+				g.And(
+					g.SeqOrMid(btparser.ReverseString("@@ ")),
+					g.Or(
+						g.Peek(g.Byte('\n')),
+						g.Eof(),
+					),
+				),
+			)),
+		)),
+
+		g.Seq("@@"),
+		g.Spaces(),
+		gitDiffOldRange,
+		g.Spaces(),
+		gitDiffNewRange,
+		g.Spaces(),
+		g.Seq("@@"),
+
+		// consume backwards
+		toLineStart,
+		g.LoopConsumeUntil(
+			g.And(
+				g.LastAnyRune(), // newline
+				toLineStart,
+			),
+			gitFileLine,
+		),
+	)
+
+	return hunk
 }
-func (p *ResLocParser) Parse(src []byte, index int) (*ResLoc, error) {
-	// only one instance of this parser can parse at each time
-	p.parseMu.Lock()
-	defer p.parseMu.Unlock()
 
-	p.sc.SetSrc(src)
+//----------
+//----------
+//----------
 
-	// reverse, best effort (no errors)
-	p2 := index
-	if u, err := p.fn.reverse(p2); err == nil {
-		p2 = u
+func trimGitDiffPathPrefix(path string) string {
+	if strings.HasPrefix(path, "a/") || strings.HasPrefix(path, "b/") {
+		return path[2:]
 	}
-
-	p3, err := p.fn.location(p2)
-	if err != nil {
-		return nil, err
-	}
-
-	rl := NewResLoc()
-	if p.vk.scheme != nil {
-		rl.Scheme = *p.vk.scheme
-	}
-	if p.vk.volume != nil {
-		rl.Volume = *p.vk.volume
-	}
-	if p.vk.path != nil {
-		rl.Path = *p.vk.path
-	}
-	if p.vk.line != nil {
-		rl.Line = *p.vk.line
-	}
-	if p.vk.column != nil {
-		rl.Column = *p.vk.column
-	}
-	if p.vk.offset != nil {
-		rl.Offset = *p.vk.offset
-	}
-	rl.Escape = p.Escape
-	rl.PathSep = p.PathSeparator
-	rl.Pos = p2
-	rl.End = p3
-
-	return rl, nil
+	return path
 }
 
 //----------
-//----------
-//----------
 
-// all syms except letters and digits
-var syms = "_-~.%@&?!=#+:^(){}[]<>\\/ "
-
-// name separator symbols
-var nameSepSyms = "" +
-	" " + // word separator
-	"=" + // usually around filenames (ex: -arg=/a/b.txt)
-	"(){}[]<>" + // usually used around filenames in various outputs
-	":" + // usually separating lines/cols from filenames
-	""
-
-func nameRunes(except ...rune) []rune {
-	out := nameSepSyms
+func buildPathItemSyms(except ...rune) []rune {
+	out := pathSepSyms
 	for _, ru := range except {
 		if ru != 0 {
 			out += string(ru)

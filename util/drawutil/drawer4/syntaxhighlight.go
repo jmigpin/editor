@@ -1,25 +1,23 @@
 package drawer4
 
 import (
+	"image/color"
+
 	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
-	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
+var syntaxHighlightP = newSyntaxHighlightParser()
+
 func updateSyntaxHighlightOps(d *Drawer) {
-	//if shDone(d) && phDone(d) {
-	//	return
-	//}
 	if shDone(d) {
 		return
 	}
 
-	sh := &SyntaxHighlight{d: d, pad: 4000}
+	sh := &SyntaxHighlight{d: d, pad: syntaxHighlightPad}
 	d.Opt.SyntaxHighlight.Group.Ops = sh.do()
 }
-
-//----------
-
 func shDone(d *Drawer) bool {
 	if !d.Opt.SyntaxHighlight.On {
 		d.Opt.SyntaxHighlight.Group.Ops = nil
@@ -32,32 +30,11 @@ func shDone(d *Drawer) bool {
 	return false
 }
 
-//func phDone(d *Drawer) bool {
-//	if !d.Opt.ParenthesisHighlight.On {
-//		d.Opt.ParenthesisHighlight.Group.Ops = nil
-//		return true
-//	}
-//	if d.opt.parenthesisH.updated {
-//		return true
-//	}
-//	d.opt.parenthesisH.updated = true
-//	return false
-//}
-
 //----------
 
 type SyntaxHighlight struct {
 	d   *Drawer
-	sc  *pscan.Scanner
-	ops []*ColorizeOp
 	pad int
-
-	//// TODO: comments and strings parenthesis check
-	//parens struct {
-	//	pairs []rune
-	//	w     []*parensPos
-	//	main  *parensPos
-	//}
 }
 
 func (sh *SyntaxHighlight) do() []*ColorizeOp {
@@ -66,194 +43,160 @@ func (sh *SyntaxHighlight) do() []*ColorizeOp {
 	min, max := o, o+n
 
 	r := iorw.NewLimitedReaderAtPad(sh.d.reader, min, max, sh.pad)
+	src, err := iorw.ReadFastFull(r)
+	if err != nil {
+		return nil
+	}
 
-	sc, pos0 := iorw.NewScanner(r, r.Min())
-	sh.sc = sc
+	ps := btparser.NewParserStateFromBytes(src)
+	data := &syntaxHighlightData{
+		d:    sh.d,
+		base: r.Min(),
+	}
+	ps.UserData[syntaxHighlightDataKey] = data
 
-	//sh.parens.pairs = []rune("{}()[]") // TODO: disabled
+	syntaxHighlightP.parse(ps)
 
-	_, _ = sh.sc.M.LoopOneOrMore(pos0, sh.sc.W.Or(
-		sh.parseString,
-		sh.parseComment,
-		//sh.parseParenthesis, // TODO: disabled
-		sh.sc.M.OneRune,
-	))
-
-	//sh.processKeptParenthesis() // TODO: disabled
-
-	return sh.ops
+	return data.ops
 }
 
 //----------
+//----------
+//----------
 
-func (sh *SyntaxHighlight) parseComment(pos int) (int, error) {
-	for _, c := range sh.d.Opt.SyntaxHighlight.Comment.SCs {
-		if p2, err := sh.parseComment2(pos, c); err == nil {
-			return p2, nil
+type syntaxHighlightParser struct {
+	g  btparser.Rules
+	fn btparser.MFn
+}
+
+func newSyntaxHighlightParser() *syntaxHighlightParser {
+	p := &syntaxHighlightParser{g: btparser.NewRules()}
+	p.fn = p.build()
+	return p
+}
+
+func (p *syntaxHighlightParser) parse(ps *btparser.ParserState) {
+	_, _ = p.g.Parse(ps, p.fn)
+}
+
+func (p *syntaxHighlightParser) build() btparser.MFn {
+	data := btparser.UserDataPtrFn[syntaxHighlightData](syntaxHighlightDataKey)
+	sectionRules := buildSyntaxSectionRules(p.g, syntaxHighlightPad, func(ps *btparser.ParserState) []*drawutil.SyntaxComment {
+		return data(ps).d.Opt.SyntaxHighlight.Comment.SCs
+	})
+	addOp := func(ps *btparser.ParserState, mp btparser.MPos, fg, bg color.Color) {
+		data := data(ps)
+		pos := int(mp.Start) + data.base
+		p2 := int(mp.End) + data.base
+		data.ops = append(data.ops,
+			&ColorizeOp{Offset: pos, Fg: fg, Bg: bg},
+			&ColorizeOp{Offset: p2},
+		)
+	}
+	colorizeString := func(fn btparser.MFn) btparser.MFn {
+		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+			mp, err := fn(ps, pos)
+			if err != nil {
+				return mp, err
+			}
+			data := data(ps)
+			opt := &data.d.Opt.SyntaxHighlight
+			addOp(ps, mp, opt.String.Fg, opt.String.Bg)
+			return mp, nil
 		}
 	}
-	return pos, pscan.NoMatchErr
-}
-func (sh *SyntaxHighlight) parseComment2(pos int, c *drawutil.SyntaxComment) (int, error) {
-	if p2, err := sh.sc.M.And(pos,
-		sh.sc.W.Sequence(c.Start),
-		func(p3 int) (int, error) {
-			// single line comment
-			if c.IsLine() {
-				return sh.sc.M.LoopUntilNLOrEof(p3, -1, false, '\\')
-
-				// TODO
-				//return sh.sc.W.OptLoop(p3,sh.sc.W.And(
-				//	sh.sc.W.MustErr(sh.sc.W.Sequence(c.E)),
-				//	sh.sc.M.OneRune,
-				//)),
+	colorizeComment := func(fn btparser.MFn) btparser.MFn {
+		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+			mp, err := fn(ps, pos)
+			if err != nil {
+				return mp, err
 			}
-			// multi line comment
-			return sh.sc.M.And(p3,
-				sh.sc.W.LoopZeroOrMore(sh.sc.W.And(
-					sh.sc.W.MustErr(sh.sc.W.Sequence(c.End)),
-					sh.sc.M.OneRune,
-				)),
-				sh.sc.W.Sequence(c.End),
-			)
-		},
-	); err != nil {
-		return p2, err
-	} else {
-		opt := &sh.d.Opt.SyntaxHighlight
-		fg := opt.Comment.Fg
-		bg := opt.Comment.Bg
-
-		op1 := &ColorizeOp{Offset: pos, Fg: fg, Bg: bg}
-		op2 := &ColorizeOp{Offset: p2}
-		sh.ops = append(sh.ops, op1, op2)
-
-		return p2, nil
+			data := data(ps)
+			opt := &data.d.Opt.SyntaxHighlight
+			addOp(ps, mp, opt.Comment.Fg, opt.Comment.Bg)
+			return mp, nil
+		}
 	}
+
+	//----------
+
+	stringFn := colorizeString(sectionRules.stringFn)
+	commentFn := colorizeComment(sectionRules.commentFn)
+	fn := p.g.Loop1(p.g.Or(
+		stringFn,
+		commentFn,
+		p.g.AnyRune(),
+	))
+
+	return fn
 }
 
 //----------
+//----------
+//----------
 
-func (sh *SyntaxHighlight) parseString(pos int) (int, error) {
-	if p2, err := sh.sc.M.Or(pos,
-		sh.sc.W.StringSection("\"", '\\', true, sh.pad, false),
-		sh.sc.W.StringSection("'", '\\', true, 8, false), // consider '\x123'
-	); err != nil {
-		return p2, err
-	} else {
-		opt := &sh.d.Opt.SyntaxHighlight
-		fg := opt.String.Fg
-		bg := opt.String.Bg
+const syntaxHighlightDataKey = "drawer4.syntaxhighlight.data"
+const syntaxHighlightPad = 4000
 
-		op1 := &ColorizeOp{Offset: pos, Fg: fg, Bg: bg}
-		op2 := &ColorizeOp{Offset: p2}
-		sh.ops = append(sh.ops, op1, op2)
-
-		return p2, nil
-	}
+type syntaxHighlightData struct {
+	d    *Drawer
+	base int
+	ops  []*ColorizeOp
 }
 
 //----------
+//----------
+//----------
 
-//func (sh *SyntaxHighlight) parseParenthesis(pos int) (int, error) {
-//	if v, p2, err := sh.sc.M.RuneValue(pos,
-//		sh.sc.W.RuneOneOf(sh.parens.pairs),
-//	); err != nil {
-//		return p2, err
-//	} else {
-//		// keep parenthesis position
-//		ru := v.(rune)
-//		pp := &parensPos{ru, p2}
-//		sh.parens.w = append(sh.parens.w, pp)
+type syntaxSectionRules struct {
+	stringFn  btparser.MFn
+	commentFn btparser.MFn
+	anyFn     btparser.MFn
+}
 
-//		switch p2 {
-//		case sh.d.opt.cursor.offset, sh.d.opt.cursor.offset - 1:
-//			sh.parens.main = pp
-//		}
-//		return p2, nil
-//	}
-//}
+type syntaxSectionRange struct {
+	start btparser.Pos
+	end   btparser.Pos
+}
 
-//func (sh *SyntaxHighlight) processKeptParenthesis() {
-//	sh.d.Opt.ParenthesisHighlight.Group.Ops = nil
-//	if sh.parens.main == nil {
-//		return
-//	}
+// buildSyntaxSectionRules defines the string/comment section grammar used by syntax highlight colorization and parenthesis highlight section detection.
+func buildSyntaxSectionRules(g btparser.Rules, maxStringLen int, syntaxComments func(*btparser.ParserState) []*drawutil.SyntaxComment) syntaxSectionRules {
+	commentSCs := func(makeFn func(*drawutil.SyntaxComment) btparser.MFn) btparser.MFn {
+		return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+			for _, c := range syntaxComments(ps) {
+				if mp, err := makeFn(c)(ps, pos); err == nil {
+					return mp, nil
+				}
+			}
+			return btparser.MPos{Start: pos, End: pos}, btparser.NoMatchErr
+		}
+	}
 
-//	// resolve open/close runes
-//	sym := sh.parens.main.ru
-//	k := strings.Index(string(sh.parens.pairs), string(sym))
-//	isOpen := k%2 == 0
-//	if isOpen {
-//		k++
-//	} else {
-//		k--
-//	}
-//	openRu, closeRu := sym, sh.parens.pairs[k]
+	//----------
 
-//	found := (*parensPos)(nil)
-//	stk := 0
-//	balanced := func(ru rune) bool {
-//		switch ru {
-//		case openRu:
-//			stk++
-//		case closeRu:
-//			stk--
-//			return stk == 0
-//		}
-//		return false
-//	}
+	lineComment := func(start string) btparser.MFn {
+		return g.And(
+			g.Seq(start),
+			g.LoopToNLOrEof('\\', false),
+		)
+	}
+	blockComment := func(start, end string) btparser.MFn {
+		return g.Section(start, end, '\\', false, false, g.AnyRune())
+	}
+	stringFn := g.Or(
+		g.WithBounds(0, maxStringLen, g.QuotedSection("\"", '\\', g.AnyExceptNewline())),
+		g.WithBounds(0, 8, g.QuotedSection("'", '\\', g.AnyExceptNewline())),
+	)
+	commentFn := commentSCs(func(c *drawutil.SyntaxComment) btparser.MFn {
+		if c.IsLine() {
+			return lineComment(c.Start)
+		}
+		return blockComment(c.Start, c.End)
+	})
 
-//	if isOpen {
-//		for _, pp := range sh.parens.w {
-//			if pp.pos < sh.parens.main.pos {
-//				continue
-//			}
-//			if balanced(pp.ru) {
-//				found = pp
-//				break
-//			}
-//		}
-//	} else {
-//		for i := len(sh.parens.w) - 1; i >= 0; i-- {
-//			pp := sh.parens.w[i]
-//			if pp.pos > sh.parens.main.pos {
-//				continue
-//			}
-//			if balanced(pp.ru) {
-//				found = pp
-//				break
-//			}
-//		}
-//	}
-
-//	// build points
-//	points := []int{sh.parens.main.pos}
-//	if found != nil {
-//		points = append(points, found.pos)
-//		if !isOpen {
-//			points[0], points[1] = points[1], points[0]
-//		}
-//	}
-
-//	// build colorize ops
-//	opt := &sh.d.Opt.ParenthesisHighlight
-//	fg := opt.Fg
-//	bg := opt.Bg
-//	ops := []*ColorizeOp{}
-//	for _, p := range points {
-//		op1 := &ColorizeOp{Offset: p, Fg: fg, Bg: bg}
-//		op2 := &ColorizeOp{Offset: p + 1} // assumes rune size 1
-//		ops = append(ops, op1, op2)
-//	}
-//	sh.d.Opt.ParenthesisHighlight.Group.Ops = ops
-//}
-
-////----------
-////----------
-////----------
-
-//type parensPos struct {
-//	ru  rune
-//	pos int
-//}
+	return syntaxSectionRules{
+		stringFn:  stringFn,
+		commentFn: commentFn,
+		anyFn:     g.Or(stringFn, commentFn),
+	}
+}

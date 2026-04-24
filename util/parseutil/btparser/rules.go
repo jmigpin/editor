@@ -1,0 +1,532 @@
+package btparser
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"time"
+	"unicode"
+)
+
+// Rules is the public API for building and running parser rules.
+// ParserState holds the source, ignore rule, and runtime state for a single parse.
+// Built rules are MFn values and can be reused with different ParserState values.
+// When building parsers, keep construction helpers separate from grammar rules: helpers may read/write parse state, create values from MPos, or wrap a provided rule with an action, but should not hide the grammar shape they receive.
+// Prefer the pattern "helpers first, separator, grammar block after": define helpers such as data(ps), newArg(ps,mp), appendArg(fn), or assignPath(fn), then after //---------- define visible rules such as quotedString, spaces, arg, part, parts, and the final parse rule.
+// Example: appendField(field) belongs above the separator because it only stores a matched value, while field := g.Loop1(g.Or(g.Escape(esc), g.QuotedString2(...), itemRune)) belongs below the separator because it describes the grammar.
+type Rules struct{}
+
+func NewRules() Rules {
+	return Rules{}
+}
+
+func (g Rules) Parse(ps *ParserState, fn MFn) (Pos, error) {
+	return g.ParseAt(ps, 0, fn)
+}
+
+func (g Rules) ParseAt(ps *ParserState, pos Pos, fn MFn) (Pos, error) {
+	ps.parseStart = pos
+	mp, err := fn(ps, pos)
+	if err != nil {
+		isFatal := IsFatalError(err)
+
+		err = fmt.Errorf("%v: %q", err, ps.Snippet(mp))
+
+		mp2 := MPos{ps.farthest, ps.farthest}
+		if mp != mp2 {
+			err2 := fmt.Errorf("farthest: %q", ps.Snippet(mp2))
+			err = errors.Join(err, err2)
+		}
+		if isFatal {
+			err = FatalError(err)
+		}
+
+		return mp.End, err
+	}
+	return mp.End, nil
+}
+
+func (g Rules) VByte() VFn[byte] {
+	return func(ps *ParserState, pos Pos) (byte, MPos, error) {
+		return mvByte(ps, pos)
+	}
+}
+func (g Rules) VRune() VFn[rune] {
+	return func(ps *ParserState, pos Pos) (rune, MPos, error) {
+		return mvRune(ps, pos)
+	}
+}
+func (g Rules) VLastRune() VFn[rune] {
+	return func(ps *ParserState, pos Pos) (rune, MPos, error) {
+		return mvLastRune(ps, pos)
+	}
+}
+func (g Rules) LastAnyRune() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		_, mp, err := mvLastRune(ps, pos)
+		return mp, err
+	}
+}
+func (g Rules) Token(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mToken(ps, pos, fn)
+	}
+}
+func (g Rules) And(fns ...MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAnd(ps, pos, fns...)
+	}
+}
+func (g Rules) Or(fns ...MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mOr(ps, pos, fns...)
+	}
+}
+func (g Rules) Optional(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mOptional(ps, pos, fn)
+	}
+}
+func (g Rules) Peek(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mPeek(ps, pos, fn)
+	}
+}
+func (g Rules) WithBounds(back, forward int, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mWithBounds(ps, pos, back, forward, fn)
+	}
+}
+func (g Rules) WithBoundsAbs(start, end Pos, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mWithBoundsAbs(ps, pos, start, end, fn)
+	}
+}
+func (g Rules) WithLineBounds(back, forward int, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mWithLineBounds(ps, pos, back, forward, fn)
+	}
+}
+func (g Rules) ReverseSource(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mReverseSource(ps, pos, fn)
+	}
+}
+
+//----------
+
+func (g Rules) ToIndexByte(b byte) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		if pos < ps.srcMin || pos > ps.srcMax {
+			return MPos{Start: pos, End: pos}, NoMatchErr
+		}
+		i := bytes.IndexByte(ps.src[pos:ps.srcMax], b)
+		if i < 0 {
+			return MPos{Start: pos, End: pos}, NoMatchErr
+		}
+		return MPos{Start: pos, End: pos + Pos(i)}, nil
+	}
+}
+func (g Rules) ToLastIndexByte(b byte) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		if pos < ps.srcMin || pos > ps.srcMax {
+			return MPos{Start: pos, End: pos}, NoMatchErr
+		}
+		i := bytes.LastIndexByte(ps.src[ps.srcMin:pos], b)
+		if i < 0 {
+			return MPos{Start: pos, End: pos}, NoMatchErr
+		}
+		return MPos{Start: pos, End: ps.srcMin + Pos(i)}, nil
+	}
+}
+
+//----------
+
+func (g Rules) ToIndexByteOrEnd(b byte) MFn {
+	return g.Or(
+		g.ToIndexByte(b),
+		func(ps *ParserState, pos Pos) (MPos, error) {
+			return MPos{Start: pos, End: ps.srcMax}, nil
+		},
+	)
+}
+func (g Rules) ToLastIndexByteOrStart(b byte) MFn {
+	return g.Or(
+		g.ToLastIndexByte(b),
+		func(ps *ParserState, pos Pos) (MPos, error) {
+			return MPos{Start: pos, End: ps.srcMin}, nil
+		},
+	)
+}
+
+//----------
+
+func (g Rules) PeekBackN(n int, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		p2 := pos - Pos(n)
+		if p2 < 0 {
+			return MPos{pos, pos}, NoMatchErr
+		}
+		if mp, err := fn(ps, p2); err != nil {
+			return mp, err
+		}
+		return MPos{pos, pos}, nil
+	}
+}
+func (g Rules) Not(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mNot(ps, pos, fn)
+	}
+}
+func (g Rules) Fail() MFn { return mFail }
+func (g Rules) NoOp() MFn { return mNoOp }
+func (g Rules) IsTrue(v bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		if !v {
+			return MPos{pos, pos}, NoMatchErr
+		}
+		return MPos{pos, pos}, nil
+	}
+}
+func (g Rules) NoOp2(fn func() error) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return MPos{pos, pos}, fn()
+	}
+}
+func (g Rules) Eof() MFn { return mEof }
+
+// Sof matches only at the start of the source.
+func (g Rules) Sof() MFn { return mSof }
+
+// Sop matches only at the start position of the current parse.
+func (g Rules) Sop() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		if pos == ps.parseStart {
+			return MPos{pos, pos}, nil
+		}
+		return MPos{pos, pos}, NoMatchErr
+	}
+}
+
+func (g Rules) ByteFn(fn func(byte) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mByteFn(ps, pos, fn)
+	}
+}
+func (g Rules) ByteFnLoop(fn func(byte) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mByteFnLoop(ps, pos, fn)
+	}
+}
+func (g Rules) Byte(b byte) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mByteFn(ps, pos, func(b2 byte) bool { return b2 == b })
+	}
+}
+func (g Rules) RuneFn(fn func(rune) bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, fn)
+	}
+}
+func (g Rules) Rune(ru rune) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRune(ps, pos, ru)
+	}
+}
+func (g Rules) RuneAnyOf(rus ...rune) MFn {
+	m := map[rune]struct{}{}
+	for _, ru := range rus {
+		m[ru] = struct{}{}
+	}
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, func(ru rune) bool {
+			_, ok := m[ru]
+			return ok
+		})
+	}
+}
+func (g Rules) RuneAnyOfString(s string) MFn {
+	return g.RuneAnyOf([]rune(s)...)
+}
+func (g Rules) RuneNotAnyOf(rus ...rune) MFn {
+	m := map[rune]struct{}{}
+	for _, ru := range rus {
+		m[ru] = struct{}{}
+	}
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, func(ru rune) bool {
+			_, ok := m[ru]
+			return !ok
+		})
+	}
+}
+func (g Rules) AnyRune() MFn { return mAnyRune }
+func (g Rules) NRunes(n int) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mNRunes(ps, pos, n)
+	}
+}
+func (g Rules) MaxNRunes(n int) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mMaxNRunes(ps, pos, n)
+	}
+}
+func (g Rules) Seq(s string) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSeq(ps, pos, s)
+	}
+}
+func (g Rules) SeqOrMid(s string) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSeqOrMid(ps, pos, s)
+	}
+}
+func (g Rules) Loop1(fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoop1(ps, pos, fn)
+	}
+}
+func (g Rules) LoopSep(optLastSep bool, fn, sepFn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoopSep(ps, pos, optLastSep, false, fn, sepFn)
+	}
+}
+func (g Rules) LoopSepAllowEmpty(fn, sepFn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoopSep(ps, pos, true, true, fn, sepFn)
+	}
+}
+func (g Rules) LoopConsumeUntil(consumeFn, untilFn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoopConsumeUntil(ps, pos, consumeFn, untilFn)
+	}
+}
+func (g Rules) LoopToNLOrEof(esc rune, includeNL bool) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mLoopToNLOrEof(ps, pos, esc, includeNL)
+	}
+}
+func (g Rules) AsciiLetter() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, func(ru rune) bool {
+			return ('a' <= ru && ru <= 'z') || ('A' <= ru && ru <= 'Z')
+		})
+	}
+}
+func (g Rules) UnicodeLetter() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, unicode.IsLetter)
+	}
+}
+func (g Rules) Letter() MFn       { return g.UnicodeLetter() }
+func (g Rules) Digit() MFn        { return mDigit }
+func (g Rules) DigitNotZero() MFn { return mDigitNotZero }
+func (g Rules) Digits() MFn       { return mDigits }
+func (g Rules) Float() MFn        { return g.Float2('.') }
+func (g Rules) Float2(sep rune) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mFloat2(ps, pos, sep)
+	}
+}
+func (g Rules) Integer() MFn { return mInteger }
+func (g Rules) Bool() MFn    { return mBool }
+func (g Rules) Sign() MFn    { return mSign }
+func (g Rules) HexBytes() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mByteFnLoop(ps, pos, func(b byte) bool {
+			return (b >= '0' && b <= '9') ||
+				(b >= 'a' && b <= 'f') ||
+				(b >= 'A' && b <= 'F')
+		})
+	}
+}
+func (g Rules) Space() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, unicode.IsSpace)
+	}
+}
+func (g Rules) Spaces() MFn {
+	return g.Loop1(g.RuneFn(unicode.IsSpace))
+}
+func (g Rules) SpacesExceptNewline() MFn {
+	return g.Loop1(g.RuneFn(func(ru rune) bool {
+		return ru != '\n' && unicode.IsSpace(ru)
+	}))
+}
+func (g Rules) Newline() MFn { return mNewline }
+func (g Rules) EmptyLinesExceptNewline(ignore MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mEmptyLinesExceptNewline(ps, pos, ignore)
+	}
+}
+func (g Rules) Escape(esc rune) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mEscape(ps, pos, esc)
+	}
+}
+func (g Rules) AnyExceptNewline() MFn { return mAnyExceptNewline }
+func (g Rules) Identifier() MFn       { return mIdentifier }
+func (g Rules) LineComment1(open string) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSection(ps, pos, open, "", 0, true, true, mAnyExceptNewline)
+	}
+}
+func (g Rules) Section(open, close string, esc rune, newlineCloses, eofCloses bool, consume MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mSection(ps, pos, open, close, esc, newlineCloses, eofCloses, consume)
+	}
+}
+func (g Rules) QuotedSection(quote string, esc rune, consume MFn) MFn {
+	return g.Section(quote, quote, esc, false, false, consume)
+}
+func (g Rules) QuotedString1() MFn {
+	return g.QuotedString2('\\', 3000, 8)
+}
+func (g Rules) QuotedString2(esc rune, maxLen1, maxLen2 int) MFn {
+	return g.Or(
+		g.WithBounds(0, maxLen1, g.QuotedSection("\"", esc, g.AnyExceptNewline())),
+		g.WithBounds(0, maxLen2, g.QuotedSection("'", esc, g.AnyExceptNewline())),
+		g.WithBounds(0, maxLen1, g.QuotedSection("`", esc, g.AnyRune())),
+	)
+}
+func (g Rules) VBytes(fn MFn) VFn[[]byte] {
+	return func(ps *ParserState, pos Pos) ([]byte, MPos, error) {
+		return mvBytes(ps, pos, fn)
+	}
+}
+func (g Rules) VString(fn MFn) VFn[string] {
+	return func(ps *ParserState, pos Pos) (string, MPos, error) {
+		return mvString(ps, pos, fn)
+	}
+}
+func (g Rules) VFloat() VFn[float64]     { return mvFloat }
+func (g Rules) VInteger() VFn[int]       { return mvInteger }
+func (g Rules) VBool() VFn[bool]         { return mvBool }
+func (g Rules) VIdentifier() VFn[string] { return mvIdentifier }
+func (g Rules) VQuotedString1() VFn[string] {
+	return func(ps *ParserState, pos Pos) (string, MPos, error) {
+		return mvStringUnquote(ps, pos, g.QuotedString1())
+	}
+}
+func (g Rules) VTime(fmt string) VFn[time.Time] {
+	return func(ps *ParserState, pos Pos) (time.Time, MPos, error) {
+		return mvTime(ps, pos, fmt)
+	}
+}
+func (g Rules) DebugAnd(on bool, prefix string, fns ...MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mDebugAnd(ps, pos, on, prefix, fns...)
+	}
+}
+func (g Rules) DebugOr(on bool, prefix string, fns ...MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mDebugOr(ps, pos, on, prefix, fns...)
+	}
+}
+func (g Rules) Debug(on bool, prefix string, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mDebug(ps, pos, on, prefix, fn)
+	}
+}
+func (g Rules) FatalOnError(tag string, fn MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mFatalOnError(ps, pos, tag, fn)
+	}
+}
+
+func VOr[T any](fns ...VFn[T]) VFn[T] {
+	return func(ps *ParserState, pos Pos) (T, MPos, error) {
+		return mvOr(ps, pos, fns...)
+	}
+}
+
+func VCast[T, U any](fn VFn[U]) VFn[T] {
+	return func(ps *ParserState, pos Pos) (T, MPos, error) {
+		return mvCast[T, U](ps, pos, fn)
+	}
+}
+
+func VAny[T any](fn VFn[T]) VFn[any] {
+	return func(ps *ParserState, pos Pos) (any, MPos, error) {
+		return mvAny(ps, pos, fn)
+	}
+}
+
+func VConst[T any](fn MFn, v T) VFn[T] {
+	return func(ps *ParserState, pos Pos) (T, MPos, error) {
+		return mvConst(ps, pos, fn, v)
+	}
+}
+
+func VFromMPos[T any](fn MFn, makeFn func(*ParserState, MPos) T) VFn[T] {
+	return func(ps *ParserState, pos Pos) (T, MPos, error) {
+		if mp, err := fn(ps, pos); err != nil {
+			var zero T
+			return zero, mp, err
+		} else {
+			return makeFn(ps, mp), mp, nil
+		}
+	}
+}
+
+func VToken[T any](fn VFn[T]) VFn[T] {
+	return func(ps *ParserState, pos Pos) (T, MPos, error) {
+		return mvToken(ps, pos, fn)
+	}
+}
+
+func VAppend[T any](fn VFn[T]) VFn[[]T] {
+	return func(ps *ParserState, pos Pos) ([]T, MPos, error) {
+		return mvAppend(ps, pos, fn)
+	}
+}
+
+//----------
+
+func UserDataPtrFn[T any](key string) func(*ParserState) *T {
+	return func(ps *ParserState) *T {
+		v, ok := ps.UserData[key].(*T)
+		if !ok {
+			panic("btparser userdata type mismatch")
+		}
+		return v
+	}
+}
+
+//----------
+
+func AssignFn[T any](dst func(*ParserState) *T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAssign(ps, pos, dst, fn)
+	}
+}
+func Assign2Fn[T any](dst func(*ParserState) **T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAssign2(ps, pos, dst, fn)
+	}
+}
+func AppendFn[T any](dst func(*ParserState) *[]T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mAppend(ps, pos, dst, fn)
+	}
+}
+
+//----------
+
+func AssignLocal[T any](v *T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return AssignFn(func(*ParserState) *T { return v }, fn)(ps, pos)
+	}
+}
+
+func Assign2Local[T any](v **T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return Assign2Fn(func(*ParserState) **T { return v }, fn)(ps, pos)
+	}
+}
+
+func AppendLocal[T any](w *[]T, fn VFn[T]) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return AppendFn(func(*ParserState) *[]T { return w }, fn)(ps, pos)
+	}
+}

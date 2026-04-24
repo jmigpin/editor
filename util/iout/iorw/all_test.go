@@ -3,7 +3,6 @@ package iorw
 import (
 	"bytes"
 	"context"
-	"log"
 	"testing"
 	"unicode"
 )
@@ -322,16 +321,4 @@ func TestLineEndIndex(t *testing.T) {
 	if !(v == 5 && newLine == false) {
 		t.Fatal(v, newLine)
 	}
-}
-
-//----------
-
-func TestScanner(t *testing.T) {
-	s := ""
-	rw := NewStringReaderAt(s)
-	pos := 5
-	rw2 := NewLimitedReaderAtPad(rw, pos, pos, 1000)
-	sc, pos := NewScanner(rw2, pos)
-	ru, p2, err := sc.ReadRune(pos)
-	log.Println(ru, p2, err)
 }

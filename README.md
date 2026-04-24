@@ -148,6 +148,8 @@ Usage of editor:
     	use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)
   -version
     	output version and exit
+  -wraplineindenttabs int
+    	number of tab widths used to indent wrapped lines (default 2)
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
   -wrapwordlimit int

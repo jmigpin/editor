@@ -7,19 +7,7 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/util/iout"
-	"github.com/jmigpin/editor/util/parseutil/pscan"
 )
-
-func NewScanner(rd ReaderAt, index int) (*pscan.Scanner, int) {
-	sc := pscan.NewScanner()
-	src, err := ReadFastFull(rd)
-	if err == nil { // best effort, valid scanner even with error
-		sc.SetSrc2(src, rd.Min())
-	}
-	return sc, sc.ValidPos(index)
-}
-
-//----------
 
 func NewStringReaderAt(s string) ReaderAt {
 	return NewBytesReadWriterAt([]byte(s))

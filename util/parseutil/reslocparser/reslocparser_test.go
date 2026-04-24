@@ -1,6 +1,7 @@
 package reslocparser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jmigpin/editor/util/testutil"
@@ -226,6 +227,11 @@ func TestResLocParser38(t *testing.T) {
 	out := "/a/b c.txt:10:20"
 	testMode1(t, in, out)
 }
+func TestResLocParser39(t *testing.T) {
+	in := "'AAA'/a/b●.txt:1"
+	out := "/a/b.txt:1"
+	testModeBt1(t, in, out)
+}
 
 //----------
 
@@ -246,10 +252,34 @@ func TestResLocParserWin3(t *testing.T) {
 }
 
 //----------
+
+func TestResLocParserGitDiff1(t *testing.T) {
+	in := "" +
+		"diff --git a/core/foo.go b/core/foo.go\n" +
+		"index 1111111..2222222 100644\n" +
+		"--- a/core/foo.go\n" +
+		"+++ b/core/foo.go\n" +
+		"@@ -188,7 +188,7 @@ func main() {\n" +
+		" line\n"
+	in = strings.Replace(in, "@@ -188", "@@ -●188", 1)
+	out := "core/foo.go:188"
+	testModeBt1(t, in, out)
+}
+func TestResLocParserGitDiff2(t *testing.T) {
+	in := "" +
+		"diff --git a/core/foo.go b/core/foo.go\n" +
+		"@@ -10,2 +20,3 @@ func main() {\n" +
+		" line\n"
+	in = strings.Replace(in, "+20", "+●20", 1)
+	out := "core/foo.go:20"
+	testModeBt1(t, in, out)
+}
+
+//----------
 //----------
 //----------
 
-func BenchmarkResLoc1(b *testing.B) {
+func BenchmarkResLoc2(b *testing.B) {
 	t := b
 	in := "/a/b/c.●txt:1:2"
 	in2, index, err := testutil.SourceCursor("●", string(in), 0)
@@ -257,8 +287,7 @@ func BenchmarkResLoc1(b *testing.B) {
 		t.Fatal(err)
 	}
 
-	p := NewResLocParser()
-	p.Init()
+	p := NewResLocParser2('\\', '/', false)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -276,55 +305,71 @@ func BenchmarkResLoc1(b *testing.B) {
 
 func testMode1(t *testing.T, in, out string) {
 	t.Helper()
-	testMode2(t, in, out, 0, 0, false)
+	testMode(t, in, out, testModeOptions{})
+}
+
+func testModeBt1(t *testing.T, in, out string) {
+	t.Helper()
+	testMode(t, in, out, testModeOptions{})
 }
 
 func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
 	t.Helper()
-	rl := testMode3(t, in, out, esc, psep, parseVolume)
-	res := rl.Stringify1()
-	res2 := testutil.TrimLineSpaces(res)
-	expect2 := testutil.TrimLineSpaces(out)
-	if res2 != expect2 {
-		//t.Fatalf("res=%v\n%v\n", res, rl.Bnd.SprintRuleTree(5))
-		t.Fatalf("res=%v", res)
-	}
-}
-func testMode2b(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
-	t.Helper()
-	rl := testMode3(t, in, out, esc, psep, parseVolume)
-	res := rl.ToOffsetString()
-	res2 := testutil.TrimLineSpaces(res)
-	expect2 := testutil.TrimLineSpaces(out)
-	if res2 != expect2 {
-		t.Fatalf("res=%v", res)
-	}
+	testMode(t, in, out, testModeOptions{escape: esc, pathSeparator: psep, parseVolume: parseVolume})
 }
 
-func testMode3(t *testing.T, in, out string, esc, psep rune, parseVolume bool) *ResLoc {
+func testMode2b(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
+	t.Helper()
+	testMode(t, in, out, testModeOptions{escape: esc, pathSeparator: psep, parseVolume: parseVolume, offsetString: true})
+}
+
+func testMode(t *testing.T, in, out string, opts testModeOptions) {
 	t.Helper()
 
 	in2, index, err := testutil.SourceCursor("●", string(in), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
+	src := []byte(in2)
 
-	p := NewResLocParser()
+	var rl2 *ResLoc
 
-	// setup options
-	if esc != 0 {
-		p.Escape = esc
+	rl2 = parseResLoc2(t, src, index, opts)
+
+	res := rl2.Stringify1()
+	if opts.offsetString {
+		res = rl2.ToOffsetString()
 	}
-	if psep != 0 {
-		p.PathSeparator = psep
+	res2 := testutil.TrimLineSpaces(res)
+	expect2 := testutil.TrimLineSpaces(out)
+	if res2 != expect2 {
+		t.Fatalf("res=%v", res)
 	}
-	p.ParseVolume = parseVolume
+}
 
-	// parse
-	p.Init()
-	rl, err := p.Parse([]byte(in2), index)
+type testModeOptions struct {
+	escape        rune
+	pathSeparator rune
+	parseVolume   bool
+	offsetString  bool
+}
+
+func parseResLoc2(t *testing.T, src []byte, index int, opts testModeOptions) *ResLoc {
+	t.Helper()
+
+	esc := opts.escape
+	if esc == 0 {
+		esc = '\\'
+	}
+	psep := opts.pathSeparator
+	if psep == 0 {
+		psep = '/'
+	}
+	p := NewResLocParser2(esc, psep, opts.parseVolume)
+
+	rl2, err := p.Parse(src, index)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("resloc2: %v", err)
 	}
-	return rl
+	return rl2
 }

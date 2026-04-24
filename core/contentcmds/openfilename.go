@@ -22,7 +22,7 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 	} else {
 		considerMiddle = true
 		// limit reading
-		rd = iorw.NewLimitedReaderAtPad(ta.RW(), index, index, 1000)
+		rd = iorw.NewLimitedReaderAtPad(ta.RW(), index, index, 10000)
 	}
 
 	rl, err := reslocparser.ParseResLoc2(rd, index)
