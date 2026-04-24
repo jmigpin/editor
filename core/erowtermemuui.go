@@ -107,19 +107,6 @@ func (tui *ERowTermEmuUI) paint2() {
 	tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
 }
 
-//// darken bg color
-//cint := func(c int) color.RGBA {
-//	return imageutil.RgbaFromInt(c)
-//}
-//_ = cint
-//tbg := ta.TreeThemePaletteColor("text_bg")
-//tbg2 := imageutil.TintOrShade(tui.restore.bg, 0.30)
-//tbg2 := cint(0xff0000)
-//tbg2 := cint(0xdddddd)
-//tbg2 := cint(0xdddddd)
-//ta.SetThemePaletteColor("text_bg", tbg2)
-//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tbg2)
-
 //----------
 
 func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) {
