@@ -11,6 +11,7 @@ import (
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
 type InlineComplete struct {
@@ -419,25 +420,32 @@ func longestCommonPrefix(strs []string) string {
 	return strs[0][:len(prefix)] // use original string
 }
 func readLastUntilStart(rd iorw.ReaderAt, index int) (int, string, bool) {
-	sc, index := iorw.NewScanner(rd, index)
-	sc.Reverse = true
-	max := 1000
-	if v, p2, err := sc.M.StrValue(index, sc.W.RuneFnLoop(func(ru rune) bool {
-		max--
-		if max <= 0 {
-			return false
-		}
-		return ru == '_' ||
-			unicode.IsLetter(ru) ||
-			unicode.IsNumber(ru) ||
-			unicode.IsDigit(ru)
-	})); err != nil {
+	src, err := iorw.ReadFastFull(rd)
+	if err != nil {
+		return 0, "", false
+	}
+
+	g := btparser.NewRules()
+	ps := btparser.NewParserStateFromBytes(src)
+	pos := btparser.Pos(index - rd.Min())
+
+	revWord := g.WithBounds(1000, 0,
+		g.ReverseSource(g.Loop1(g.RuneFn(func(ru rune) bool {
+			return ru == '_' ||
+				unicode.IsLetter(ru) ||
+				unicode.IsNumber(ru) ||
+				unicode.IsDigit(ru)
+		}))),
+	)
+
+	if mp, err := revWord(ps, pos); err != nil {
 		return 0, "", false
 	} else {
-		s := v.(string)
+		s := ps.SourceStr(mp)
 		if s == "" {
 			return 0, "", false
 		}
-		return p2, s, true
+		start, _ := mp.Bounds()
+		return int(start), s, true
 	}
 }
