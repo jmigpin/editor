@@ -19,7 +19,7 @@ type Options struct {
 
 	TabWidth           int
 	WrapLineRune       int
-	WrapLineIndentTabs int
+	WrapLineIndentTabs float64
 	WrapWordLimit      int
 	CarriageReturnRune int
 

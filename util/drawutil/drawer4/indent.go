@@ -63,7 +63,7 @@ func (in *Indent) indent() {
 	pen := &in.d.st.runeR.pen
 	pen.X = in.d.st.indent.indent
 	// left padding
-	pad := in.d.iters.runeR.glyphAdvance('\t') * mathutil.Intf(WrapLineIndentTabs)
+	pad := mathutil.Intf(float64(in.d.iters.runeR.glyphAdvance('\t')) * WrapLineIndentTabs)
 	startX := in.d.iters.runeR.startingPen().X
 	if pen.X == 0 {
 		pen.X = startX + pad
