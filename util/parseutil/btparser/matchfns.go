@@ -454,11 +454,13 @@ func mLoopToNLOrEof(ps *ParserState, pos Pos, esc rune, includeNL bool) (MPos, e
 //----------
 
 func mDigit(ps *ParserState, pos Pos) (MPos, error) {
-	return mRuneFn(ps, pos, unicode.IsDigit)
+	return mRuneFn(ps, pos, func(ru rune) bool {
+		return ru >= '0' && ru <= '9'
+	})
 }
 func mDigitNotZero(ps *ParserState, pos Pos) (MPos, error) {
 	return mRuneFn(ps, pos, func(ru rune) bool {
-		return ru != '0' && unicode.IsDigit(ru)
+		return ru >= '1' && ru <= '9'
 	})
 }
 func mDigits(ps *ParserState, pos Pos) (MPos, error) {
