@@ -57,6 +57,20 @@ func TestParseDeclVar4(t *testing.T) {
 		t.Fatal("expecting error")
 	}
 }
+func TestParseDeclVar5(t *testing.T) {
+	s1 := "$ábc=1"
+	_, err := parseVarDecl(s1)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+}
+func TestParseDeclVar6(t *testing.T) {
+	s1 := "$ab-c=1"
+	_, err := parseVarDecl(s1)
+	if err == nil {
+		t.Fatal("expecting error")
+	}
+}
 
 //----------
 

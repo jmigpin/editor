@@ -4,7 +4,7 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/util/osutil"
-	"github.com/jmigpin/editor/util/parseutil/pscan"
+	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
 func parseVarDecl(src string) (*VarDecl, error) {
@@ -27,68 +27,105 @@ func getVarDeclParser() *varDeclParser {
 //----------
 //----------
 
+const varDeclDataKey = "toolbarparser.vardecl"
+
+//----------
+
 type varDeclParser struct {
-	sc *pscan.Scanner
+	g  btparser.Rules
+	fn btparser.MFn
 }
 
 func newVarDeclParser() *varDeclParser {
 	p := &varDeclParser{}
-	p.sc = pscan.NewScanner()
+	p.g = btparser.NewRules()
+	p.build()
 	return p
 }
+
 func (p *varDeclParser) parseVarDecl(src []byte) (*VarDecl, error) {
-	p.sc.SetSrc(src)
-	if v, p2, err := p.sc.M.OrValue(0,
-		p.parseTildeVarDecl,
-		p.parseDollarVarDecl,
-	); err != nil {
-		return nil, p.sc.SrcError(p2, err)
-	} else {
-		return v.(*VarDecl), nil
-	}
-}
-func (p *varDeclParser) parseTildeVarDecl(pos int) (any, int, error) {
-	nameRe := "~(0|[1-9][0-9]*)"
 	vd := &VarDecl{}
-	if p2, err := p.sc.M.And(pos,
-		// name
-		pscan.WKeep(&vd.Name, p.sc.W.StrValue(p.sc.W.RegexpFromStartCached(nameRe, 100))),
-		// value
-		p.sc.W.Rune('='),
-		pscan.WKeep(&vd.Value, p.parseVarValue),
-	); err != nil {
-		return nil, p2, err
-	} else {
-		return vd, p2, err
+
+	ps := btparser.NewParserStateFromBytes(src)
+	ps.UserData[varDeclDataKey] = vd
+
+	if _, err := p.g.Parse(ps, p.fn); err != nil {
+		return nil, err
 	}
-}
-func (p *varDeclParser) parseDollarVarDecl(pos int) (any, int, error) {
-	nameRe := "\\$[_a-zA-Z0-9]+"
-	vd := &VarDecl{}
-	if p2, err := p.sc.M.And(pos,
-		// name
-		pscan.WKeep(&vd.Name, p.sc.W.StrValue(p.sc.W.RegexpFromStartCached(nameRe, 100))),
-		// value (optional after =)
-		p.sc.W.Rune('='),
-		p.sc.W.Optional(pscan.WKeep(&vd.Value, p.parseVarValue)),
-	); err != nil {
-		return nil, p2, err
-	} else {
-		return vd, p2, err
-	}
+	return vd, nil
 }
 
-//----------
+func (p *varDeclParser) build() {
+	g := p.g
 
-func (p *varDeclParser) parseVarValue(pos int) (any, int, error) {
-	notSpace := func(ru rune) bool { return !unicode.IsSpace(ru) }
-	if v, p2, err := p.sc.M.StrValue(pos, p.sc.W.LoopOneOrMore(p.sc.W.Or(
-		p.sc.W.EscapeAny(osutil.EscapeRune),
-		p.sc.W.QuotedString2('\\', 3000, 3000),
-		p.sc.W.RuneFn(notSpace),
-	))); err != nil {
-		return nil, p2, err
-	} else {
-		return v.(string), p2, nil
+	varDeclData := func(ps *btparser.ParserState) *VarDecl {
+		vd, ok := ps.UserData[varDeclDataKey].(*VarDecl)
+		if !ok {
+			panic("vardecl parser missing VarDecl userdata")
+		}
+		return vd
 	}
+	assignName := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *string {
+				return &varDeclData(ps).Name
+			},
+			g.VString(fn),
+		)
+	}
+	assignValue := func(fn btparser.MFn) btparser.MFn {
+		return btparser.AssignFn(
+			func(ps *btparser.ParserState) *string {
+				return &varDeclData(ps).Value
+			},
+			g.VString(fn),
+		)
+	}
+
+	//----------
+
+	tildeDigits := g.Or(
+		g.Rune('0'),
+		g.And(
+			g.DigitNotZero(),
+			g.Optional(g.Digits()),
+		),
+	)
+	tildeName := g.And(
+		g.Rune('~'),
+		tildeDigits,
+	)
+	dollarName := g.And(
+		g.Rune('$'),
+		g.Loop1(g.Or(
+			g.Rune('_'),
+			g.AsciiLetter(),
+			g.Digit(),
+		)),
+	)
+	varValue := g.Loop1(g.Or(
+		g.Escape(osutil.EscapeRune),
+		g.QuotedString2('\\', 3000, 3000),
+		g.RuneFn(func(ru rune) bool {
+			return !unicode.IsSpace(ru)
+		}),
+	))
+	tildeDecl := g.And(
+		assignName(tildeName),
+		g.Rune('='),
+		assignValue(varValue),
+	)
+	dollarDecl := g.And(
+		assignName(dollarName),
+		g.Rune('='),
+		g.Optional(assignValue(varValue)),
+	)
+
+	p.fn = g.And(
+		g.Or(
+			tildeDecl,
+			dollarDecl,
+		),
+		g.Eof(),
+	)
 }
