@@ -306,11 +306,19 @@ func (g Rules) LoopToNLOrEof(esc rune, includeNL bool) MFn {
 		return mLoopToNLOrEof(ps, pos, esc, includeNL)
 	}
 }
-func (g Rules) Letter() MFn {
+func (g Rules) AsciiLetter() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		return mRuneFn(ps, pos, func(ru rune) bool {
+			return ('a' <= ru && ru <= 'z') || ('A' <= ru && ru <= 'Z')
+		})
+	}
+}
+func (g Rules) UnicodeLetter() MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mRuneFn(ps, pos, unicode.IsLetter)
 	}
 }
+func (g Rules) Letter() MFn       { return g.UnicodeLetter() }
 func (g Rules) Digit() MFn        { return mDigit }
 func (g Rules) DigitNotZero() MFn { return mDigitNotZero }
 func (g Rules) Digits() MFn       { return mDigits }
