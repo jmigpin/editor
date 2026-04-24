@@ -24,11 +24,11 @@ func getVarDeclParser() *varDeclParser {
 }
 
 //----------
-//----------
-//----------
 
 const varDeclDataKey = "toolbarparser.vardecl"
 
+//----------
+//----------
 //----------
 
 type varDeclParser struct {
@@ -58,28 +58,19 @@ func (p *varDeclParser) parseVarDecl(src []byte) (*VarDecl, error) {
 func (p *varDeclParser) build() {
 	g := p.g
 
-	varDeclData := func(ps *btparser.ParserState) *VarDecl {
-		vd, ok := ps.UserData[varDeclDataKey].(*VarDecl)
-		if !ok {
-			panic("vardecl parser missing VarDecl userdata")
-		}
-		return vd
+	varDeclPtr := btparser.UserDataPtrFn[VarDecl](varDeclDataKey)
+
+	nameDst := func(ps *btparser.ParserState) *string {
+		return &varDeclPtr(ps).Name
+	}
+	valueDst := func(ps *btparser.ParserState) *string {
+		return &varDeclPtr(ps).Value
 	}
 	assignName := func(fn btparser.MFn) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *string {
-				return &varDeclData(ps).Name
-			},
-			g.VString(fn),
-		)
+		return btparser.AssignFn(nameDst, g.VString(fn))
 	}
 	assignValue := func(fn btparser.MFn) btparser.MFn {
-		return btparser.AssignFn(
-			func(ps *btparser.ParserState) *string {
-				return &varDeclData(ps).Value
-			},
-			g.VString(fn),
-		)
+		return btparser.AssignFn(valueDst, g.VString(fn))
 	}
 
 	//----------

@@ -173,6 +173,40 @@ func TestParseVars3(t *testing.T) {
 	}
 }
 
+func TestParseVarRefs1(t *testing.T) {
+	s := []byte("$aaa x ~{1} y ${bb}")
+	vrs, err := parseVarRefs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vrs) != 3 {
+		t.Fatal(len(vrs), vrs)
+	}
+	if vrs[0].Name != "$aaa" || vrs[0].SrcString(s) != "$aaa" {
+		t.Fatal(vrs[0])
+	}
+	if vrs[1].Name != "~1" || vrs[1].SrcString(s) != "~{1}" {
+		t.Fatal(vrs[1])
+	}
+	if vrs[2].Name != "$bb" || vrs[2].SrcString(s) != "${bb}" {
+		t.Fatal(vrs[2])
+	}
+}
+
+func TestParseVarRefs2(t *testing.T) {
+	s := []byte("\\$aaa \"$bbb\" $ccc")
+	vrs, err := parseVarRefs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vrs) != 1 {
+		t.Fatal(len(vrs), vrs)
+	}
+	if vrs[0].Name != "$ccc" {
+		t.Fatal(vrs[0])
+	}
+}
+
 //----------
 
 var benchStr1 = "$aaa=b | $a=a${aaa}c+$aaa+| ~1=zzz | $c=~1"
