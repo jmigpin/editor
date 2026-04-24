@@ -1,7 +1,6 @@
 package reslocparser
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
@@ -280,27 +279,6 @@ func TestResLocParserGitDiff2(t *testing.T) {
 //----------
 //----------
 
-func BenchmarkResLoc1(b *testing.B) {
-	t := b
-	in := "/a/b/c.●txt:1:2"
-	in2, index, err := testutil.SourceCursor("●", string(in), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	p := NewResLocParser()
-	p.Init()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rl, err := p.Parse([]byte(in2), index)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_ = rl
-	}
-}
-
 func BenchmarkResLoc2(b *testing.B) {
 	t := b
 	in := "/a/b/c.●txt:1:2"
@@ -332,7 +310,7 @@ func testMode1(t *testing.T, in, out string) {
 
 func testModeBt1(t *testing.T, in, out string) {
 	t.Helper()
-	testMode(t, in, out, testModeOptions{skipResLoc1: true})
+	testMode(t, in, out, testModeOptions{})
 }
 
 func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
@@ -354,28 +332,13 @@ func testMode(t *testing.T, in, out string, opts testModeOptions) {
 	}
 	src := []byte(in2)
 
-	var rl *ResLoc
-	var rl1 *ResLoc
 	var rl2 *ResLoc
 
-	if !opts.skipResLoc1 {
-		rl1 = parseResLoc1(t, src, index, opts)
-		rl = rl1
-	}
-	if !opts.skipResLoc2 {
-		rl2 = parseResLoc2(t, src, index, opts)
-		rl = rl2
-	}
-	if rl == nil {
-		t.Fatal("no resloc parser enabled")
-	}
-	if rl1 != nil && rl2 != nil && !reflect.DeepEqual(rl1, rl2) {
-		t.Fatalf("resloc1=%#v\nresloc2=%#v", rl1, rl2)
-	}
+	rl2 = parseResLoc2(t, src, index, opts)
 
-	res := rl.Stringify1()
+	res := rl2.Stringify1()
 	if opts.offsetString {
-		res = rl.ToOffsetString()
+		res = rl2.ToOffsetString()
 	}
 	res2 := testutil.TrimLineSpaces(res)
 	expect2 := testutil.TrimLineSpaces(out)
@@ -389,30 +352,6 @@ type testModeOptions struct {
 	pathSeparator rune
 	parseVolume   bool
 	offsetString  bool
-	skipResLoc1   bool
-	skipResLoc2   bool
-}
-
-//----------
-
-func parseResLoc1(t *testing.T, src []byte, index int, opts testModeOptions) *ResLoc {
-	t.Helper()
-
-	p := NewResLocParser()
-	if opts.escape != 0 {
-		p.Escape = opts.escape
-	}
-	if opts.pathSeparator != 0 {
-		p.PathSeparator = opts.pathSeparator
-	}
-	p.ParseVolume = opts.parseVolume
-
-	p.Init()
-	rl1, err := p.Parse(src, index)
-	if err != nil {
-		t.Fatalf("resloc1: %v", err)
-	}
-	return rl1
 }
 
 func parseResLoc2(t *testing.T, src []byte, index int, opts testModeOptions) *ResLoc {

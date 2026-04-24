@@ -4,6 +4,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/parseutil/btparser"
 )
 
@@ -14,6 +15,21 @@ var fileSchemeTag = "file://"
 var pythonLineTailTag = ", line "
 var shellLineTailTag = ": line "
 
+//----------
+
+// all syms except letters and digits
+var syms = "_-~.%@&?!=#+:^(){}[]<>\\/ "
+
+// path separator symbols
+var pathSepSyms = "" +
+	" " + // word separator
+	"=" + // usually around filenames (ex: -arg=/a/b.txt)
+	"(){}[]<>" + // usually used around filenames in various outputs
+	":" + // usually separating lines/cols from filenames
+	""
+
+//----------
+//----------
 //----------
 
 type ResLocParser2 struct {
@@ -355,4 +371,17 @@ func trimGitDiffPathPrefix(path string) string {
 		return path[2:]
 	}
 	return path
+}
+
+//----------
+
+func buildPathItemSyms(except ...rune) []rune {
+	out := pathSepSyms
+	for _, ru := range except {
+		if ru != 0 {
+			out += string(ru)
+		}
+	}
+	s := parseutil.RunesExcept(syms, out)
+	return []rune(s)
 }
