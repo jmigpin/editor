@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/jmigpin/editor/util/parseutil/lrparser"
 )
 
 type Data struct {
@@ -104,7 +102,7 @@ type Arg struct {
 //----------
 
 type Node struct {
-	lrparser.BasicPNode
+	BasicNode
 	Data *Data
 }
 
@@ -137,10 +135,36 @@ func (v *VarDecl) String() string {
 //----------
 
 type VarRef struct {
-	lrparser.BasicPNode
+	BasicNode
 	Name string
 }
 
 func (v *VarRef) String() string {
 	return v.Name
+}
+
+//----------
+//----------
+//----------
+
+type BasicNode struct {
+	pos int
+	end int
+}
+
+func (n *BasicNode) Pos() int {
+	return n.pos
+}
+func (n *BasicNode) End() int {
+	return n.end
+}
+func (n *BasicNode) SetPos(pos, end int) {
+	n.pos = pos
+	n.end = end
+}
+func (n *BasicNode) PosEmpty() bool {
+	return n.pos == n.end
+}
+func (n *BasicNode) SrcString(src []byte) string {
+	return string(src[n.pos:n.end])
 }
