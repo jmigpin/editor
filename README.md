@@ -680,6 +680,12 @@ The measuring of space is done as follows:
 
 ## Releases
 - 2026/??/??: v3.13 (work in progress)
+	- added `util/parseutil/btparser`
+	- migrated `toolbarparser`, `reslocparser`, inline completion, syntax highlight and parenthesis highlight to `btparser`
+	- improved parser speed and code clarity in the migrated paths
+	- removed `util/parseutil/lrparser`
+	- removed the legacy `reslocparser` implementation
+	- reduced remaining `pscan` usage to legacy/sample code
 	- added terminal emulator integrated into the editor
 	- added `OpenTerminalEmu` command and direct startup with `-startterminalemu`
 	- added `-emuexec` and trailing command support for terminal-emulator startup
