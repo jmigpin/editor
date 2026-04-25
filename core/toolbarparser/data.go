@@ -13,12 +13,21 @@ type Data struct {
 
 func (d *Data) PartAtIndex(i int) (*Part, bool) {
 	for _, p := range d.Parts {
-		if i >= p.Pos() && i <= p.End() { // end includes separator and eos
+		if i >= p.Pos() && i <= p.End() { // include end so the separator position maps to the previous part
 			return p, true
 		}
 	}
 	return nil, false
 }
+
+func (d *Data) PartCommentIndexes(i int) (int, int, bool) {
+	p, ok := d.PartAtIndex(i)
+	if !ok {
+		return 0, 0, false
+	}
+	return p.Pos(), p.End(), true
+}
+
 func (d *Data) Part0Arg0() (*Arg, bool) {
 	if len(d.Parts) > 0 && len(d.Parts[0].Args) > 0 {
 		return d.Parts[0].Args[0], true

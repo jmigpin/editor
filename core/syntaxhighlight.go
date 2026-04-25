@@ -3,13 +3,18 @@ package core
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/jmigpin/editor/core/toolbarparser"
+	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
 
 // detection and setup of syntax highlighting for strings and comments
 func detectSetupSyntaxHighlight(erow *ERow) {
 
 	// special handling for the toolbar (allow comment shortcut to work in the toolbar to easily disable cmds)
-	erow.Row.Toolbar.SetCommentStrings("#")
+	setupToolbarCommenting(erow.Row.Toolbar.Toolbar)
 
 	// commented: allow dirs/specials to have output coloring
 	//// consider only files from here (dirs and special rows are out)
@@ -103,4 +108,22 @@ func detectSetupSyntaxHighlight(erow *ERow) {
 
 		setc("#") // useful (but not correct)
 	}
+}
+
+//----------
+
+func setupToolbarCommenting(tb *ui.Toolbar) {
+	tb.SetCommentStrings("#")
+	tb.EditCtx().Fns.CommentUnitIndexes = toolbarCommentUnitIndexes
+}
+
+func toolbarCommentUnitIndexes(ctx *rwedit.Ctx) (int, int, bool, bool, error) {
+	src, err := iorw.ReadFastFull(ctx.RW)
+	if err != nil {
+		return 0, 0, false, false, err
+	}
+
+	data := toolbarparser.Parse(string(src))
+	a, b, ok := data.PartCommentIndexes(ctx.C.Index())
+	return a, b, false, ok, nil
 }

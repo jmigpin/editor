@@ -228,6 +228,37 @@ func TestParseParts18(t *testing.T) {
 	}
 }
 
+func TestPartCommentIndexes(t *testing.T) {
+	tests := []struct {
+		s          string
+		index      int
+		wantStart  int
+		wantEnd    int
+		wantString string
+	}{
+		{"aa|bb", 3, 3, 5, "bb"},
+		{"aa|bb", 2, 0, 2, "aa"},
+		{"aa\\|bb|cc", 3, 0, 6, "aa\\|bb"},
+		{"aa\\||bb", 3, 0, 4, "aa\\|"},
+		{"\"aa|bb\"|cc", 3, 0, 7, "\"aa|bb\""},
+		{"aa | bb", 5, 4, 7, " bb"},
+	}
+
+	for _, tt := range tests {
+		d := Parse(tt.s)
+		a, b, ok := d.PartCommentIndexes(tt.index)
+		if !ok {
+			t.Fatalf("%q: no part", tt.s)
+		}
+		if a != tt.wantStart || b != tt.wantEnd {
+			t.Fatalf("%q: got (%d,%d), want (%d,%d)", tt.s, a, b, tt.wantStart, tt.wantEnd)
+		}
+		if got := tt.s[a:b]; got != tt.wantString {
+			t.Fatalf("%q: got string %q, want %q", tt.s, got, tt.wantString)
+		}
+	}
+}
+
 //----------
 
 func TestFullParse1(t *testing.T) {

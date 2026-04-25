@@ -30,6 +30,15 @@ func (ctx *Ctx) CursorSelectionLinesIndexes() (int, int, bool, error) {
 	return iorw.LinesIndexes(rd, a, b)
 }
 
+func (ctx *Ctx) CommentUnitIndexes() (int, int, bool, error) {
+	if ctx.Fns.CommentUnitIndexes != nil {
+		if a, b, newline, ok, err := ctx.Fns.CommentUnitIndexes(ctx); ok || err != nil {
+			return a, b, newline, err
+		}
+	}
+	return ctx.CursorSelectionLinesIndexes()
+}
+
 func (ctx *Ctx) Selection() ([]byte, bool) {
 	a, b, ok := ctx.C.SelectionIndexes()
 	if !ok {
@@ -55,13 +64,14 @@ func (ctx *Ctx) LocalReader2(min, max int) iorw.ReaderAt {
 type CtxFns struct {
 	Error func(error)
 
-	GetPoint         func(int) image.Point
-	GetIndex         func(image.Point) int
-	LineHeight       func() int
-	CommentLineSym   func() any
-	MakeIndexVisible func(int)
-	PageUp           func(up bool)
-	ScrollUp         func(up bool)
+	GetPoint           func(int) image.Point
+	GetIndex           func(image.Point) int
+	LineHeight         func() int
+	CommentLineSym     func() any
+	CommentUnitIndexes func(*Ctx) (int, int, bool, bool, error)
+	MakeIndexVisible   func(int)
+	PageUp             func(up bool)
+	ScrollUp           func(up bool)
 
 	SetClipboardData func(event.ClipboardIndex, string)
 	GetClipboardData func(event.ClipboardIndex, func(string, error)) // setter should wrap fn to run on ui goroutine

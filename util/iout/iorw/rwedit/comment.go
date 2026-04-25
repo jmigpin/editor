@@ -18,7 +18,7 @@ func Comment(ctx *Ctx) error {
 		return nil
 	}
 
-	a, b, newline, err := ctx.CursorSelectionLinesIndexes()
+	a, b, newline, err := ctx.CommentUnitIndexes()
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func Uncomment(ctx *Ctx) error {
 		return nil
 	}
 
-	a, b, newline, err := ctx.CursorSelectionLinesIndexes()
+	a, b, newline, err := ctx.CommentUnitIndexes()
 	if err != nil {
 		return err
 	}

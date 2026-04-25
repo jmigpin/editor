@@ -382,6 +382,7 @@ func (ed *Editor) setupUIRoot() {
 
 func (ed *Editor) setupRootToolbar() {
 	tb := ed.UI.Root.Toolbar
+	setupToolbarCommenting(tb)
 	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
 		InternalOrExternalCmdFromRootTb(ed, tb)
@@ -398,6 +399,7 @@ func (ed *Editor) setupRootToolbar() {
 
 func (ed *Editor) setupRootMenuToolbar() {
 	tb := ed.UI.Root.MainMenuButton.Toolbar
+	setupToolbarCommenting(tb)
 	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
 		InternalOrExternalCmdFromRootTb(ed, tb)
