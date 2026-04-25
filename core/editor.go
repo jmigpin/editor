@@ -393,7 +393,7 @@ func (ed *Editor) setupRootToolbar() {
 		ed.UpdateWindowTitle()
 	})
 
-	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | Reload | LsprotoCloseAll | OpenTerminalEmu | Stop"
+	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | Reload | OpenFilemanager | OpenTerminal | LsprotoCloseAll | Stop"
 	tb.SetStrClearHistory(s)
 }
 
