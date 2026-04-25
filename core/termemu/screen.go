@@ -915,6 +915,59 @@ func (g *Grid) scrollDownR(r0 R, n int) {
 
 //----------
 
+func (g *Grid) popScrollBackLines(n int) []GridLine {
+	n = max(n, 0)
+
+	lines := []GridLine{}
+	for range n {
+		sb := g.scrollBack
+		if len(sb) == 0 {
+			break
+		}
+
+		end := len(sb)
+		if sb[end-1] == '\n' {
+			end--
+		}
+
+		start := 0
+		if i := bytes.LastIndexByte(sb[:end], '\n'); i >= 0 {
+			start = i + 1
+			g.scrollBack = sb[:start]
+		} else {
+			g.scrollBack = nil
+		}
+
+		line := newGridLine(g.size.X)
+		for x, ru := range []rune(string(sb[start:end])) {
+			if x >= len(line.cells) {
+				break
+			}
+			line.cells[x] = Cell{R: ru}
+		}
+		lines = append(lines, line)
+	}
+
+	slices.Reverse(lines)
+	return lines
+}
+
+func (g *Grid) reinsertScrollBackLines(n int) int {
+	lines := g.popScrollBackLines(n)
+	if len(lines) == 0 {
+		return 0
+	}
+
+	r := R{Max: P{g.size.X, len(g.lines)}}
+	r.Max.Y -= len(lines)
+	g.copyR(P{0, len(lines)}, r)
+	copy(g.lines, lines)
+
+	return len(lines)
+}
+
+//----------
+
 func (g *Grid) clone() *Grid {
 	g2 := *g
 	g2.lines = make([]GridLine, g.size.Y)
@@ -928,6 +981,11 @@ func (g *Grid) clone() *Grid {
 func (g *Grid) resize(size P) {
 	if d := size.Y - g.size.Y; d > 0 {
 		g.lines = append(g.lines, newGridLines(P{size.X, d})...)
+		if !g.scr.wrapExtendedMode {
+			n := g.reinsertScrollBackLines(d)
+			g.scr.cursor.Y += n
+			clampInY(&g.scr.cursor.Y, R{Max: P{g.size.X, len(g.lines)}})
+		}
 	} else if d < 0 {
 		d = -d
 		// In shrinking height we scroll only the minimal number of rows needed to keep the cursor visible in the new viewport, because scrolling by all removed rows ("d") can over-scroll content, duplicate entries in scrollback, and desynchronize cursor position/ reporting after resize; therefore "need" is computed as cursorY-(newHeight-1) and clamped to [0,d].

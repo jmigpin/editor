@@ -384,6 +384,16 @@ func TestScreenResizeShrinkGrowThenRedrawVisibleLines(t *testing.T) {
 	_, _ = s.setSize(P{4, 3})
 	_, _ = s.setSize(P{4, 5})
 
+	if got := string(s.grid1.scrollBack); got != "" {
+		t.Fatalf("scrollback=%q, want empty after grow reinsertion", got)
+	}
+	if got := string(runesOf(s.grid1.lines[0].cells[:])); got != "L0" {
+		t.Fatalf("row0=%q, want L0 after grow reinsertion", got)
+	}
+	if got := string(runesOf(s.grid1.lines[1].cells[:])); got != "L1" {
+		t.Fatalf("row1=%q, want L1 after grow reinsertion", got)
+	}
+
 	for i, y := range []int{0, 1, 2, 3, 4} {
 		s.cursor = P{0, i}
 		s.cancelWrap()
@@ -410,8 +420,8 @@ func TestScreenResizeShrinkGrowThenRedrawVisibleLines(t *testing.T) {
 	if got := string(runesOf(s.grid1.lines[4].cells[:])); got != "L4" {
 		t.Fatalf("row4=%q, want L4", got)
 	}
-	if got := string(s.grid1.scrollBack); got != "L0\nL1\n" {
-		t.Fatalf("scrollback=%q, want %q", got, "L0\nL1\n")
+	if got := string(s.grid1.scrollBack); got != "" {
+		t.Fatalf("scrollback=%q, want empty", got)
 	}
 }
 
