@@ -23,6 +23,8 @@ type Screen struct {
 	cursor   P
 	curAttr  Attr
 	wrapNext bool // autowrap support
+	// Proprietary editor mode: keep logical line continuation metadata instead of behaving as a strict fixed-width terminal grid.
+	wrapExtendedMode bool
 
 	privModes PrivModes
 	graphics  Graphics
@@ -208,11 +210,13 @@ func (s *Screen) putRune(ru rune) {
 		// apply pending wrap first
 		if s.wrapNext {
 			s.cancelWrap()
-			// UX-ADAPTATION: mark previous line as wrapped; ScreenPrinter will omit the \n, allowing the editor to perform visual wrapping and indentation.
-			line := s.grid.line(s.cursor.Y)
-			line.Wrapped = true
-			// UX-ADAPTATION: truncate any old off-screen data to ensure clean visual wrap in the editor.
-			line.cells = line.cells[:s.grid.size.X]
+			if s.wrapExtendedMode {
+				// UX-ADAPTATION: mark previous line as wrapped; ScreenPrinter will omit the \n, allowing the editor to perform visual wrapping and indentation.
+				line := s.grid.line(s.cursor.Y)
+				line.Wrapped = true
+				// UX-ADAPTATION: truncate any old off-screen data to ensure clean visual wrap in the editor.
+				line.cells = line.cells[:s.grid.size.X]
+			}
 
 			s.carriageReturn()
 			s.lineFeed()
@@ -941,7 +945,9 @@ func (g *Grid) resize(size P) {
 		if d := size.X - len(line.cells); d > 0 {
 			line.cells = append(line.cells, make([]Cell, d)...)
 		} else if d < 0 {
-			// UX-ADAPTATION: keep logical content (cells beyond physical width) even if physical width decreased, preserving existing output during resize.
+			if !g.scr.wrapExtendedMode {
+				line.cells = line.cells[:size.X]
+			}
 		}
 	}
 
@@ -952,7 +958,7 @@ func (g *Grid) resize(size P) {
 
 type GridLine struct {
 	cells   []Cell // logical line
-	Wrapped bool   // if true, next line is logical continuation of this one
+	Wrapped bool   // Proprietary editor mode only: if true, next line is logical continuation of this one.
 }
 
 func newGridLine(x int) GridLine {
@@ -1007,14 +1013,12 @@ type SaveCursor struct {
 	ok bool
 	c  P    // cursor
 	wn bool // wrapnext
-	//aw bool // autowrap
 }
 
 func (c *SaveCursor) save(s *Screen) {
 	c.ok = true
 	c.c = s.cursor
 	c.wn = s.wrapNext
-	//c.aw = s.pmodes.autoWrap()
 }
 func (c *SaveCursor) restore(s *Screen) {
 	if !c.ok {
@@ -1023,7 +1027,6 @@ func (c *SaveCursor) restore(s *Screen) {
 	s.cursor = c.c
 	clampInR(&s.cursor, s.grid.bounds())
 	s.wrapNext = c.wn
-	//s.pmodes.set("?7", c.aw)
 }
 
 //----------
