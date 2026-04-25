@@ -148,8 +148,8 @@ Usage of editor:
     	use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)
   -version
     	output version and exit
-  -wraplineindenttabs int
-    	number of tab widths used to indent wrapped lines (default 2)
+  -wraplineindenttabs float
+    	number of tab widths used to indent wrapped lines (default 1.5)
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
   -wrapwordlimit int
@@ -606,6 +606,8 @@ Plugins located at: `./plugins`.
 	- `pageDown`: page down
 	- `ctrl`+`left`: jump to previous word start
 	- `ctrl`+`right`: jump to next word end
+	- `ctrl`+`backspace`: delete to previous word start
+	- `ctrl`+`delete`: delete to next word end
 - basic mouse navigation
 	- `buttonLeft`: move cursor to point
 		- drag: selects text - works as copy making it available for paste (primary selection).
@@ -680,23 +682,28 @@ The measuring of space is done as follows:
 
 ## Releases
 - 2026/??/??: v3.13 (work in progress)
-	- added `util/parseutil/btparser`
-	- migrated `toolbarparser`, `reslocparser`, inline completion, syntax highlight and parenthesis highlight to `btparser`
-	- improved parser speed and code clarity in the migrated paths
-	- removed `util/parseutil/lrparser`
-	- removed the legacy `reslocparser` implementation
-	- reduced remaining `pscan` usage to legacy/sample code
 	- added terminal emulator integrated into the editor
 	- added `OpenTerminalEmu` command and direct startup with `-startterminalemu`
 	- added `-emuexec` and trailing command support for terminal-emulator startup
 	- added session snapshot files with `-sessionfilename`, `SaveSessionFile` and `OpenSessionFile`
 	- added terminal rows/cols options and color/grayscale rendering options
 	- added (`startmaximized`, `wrapwordlimit`) options
+	- changed `wraplineindenttabs` to accept `float` values for finer wrapped-line indentation control
 	- upgraded fsnotify pkg
 	- many terminal emulator fixes and improvements
+	- separated strict-grid terminal wrap behavior from the editor-specific extended wrap mode
+	- improved terminal scrollback handling on height shrink/grow by reinserting simple text lines into the grid when growing again
 	- added centralized font management with aliases and `FontsList` command
 	- added dynamic per-rune scaling for fallback fonts to improve Unicode coverage
 	- removed embedded fonts in favor of a dynamic system
+	- added `util/parseutil/btparser`
+	- migrated `toolbarparser`, `reslocparser`, inline completion, syntax highlight and parenthesis highlight to `btparser`
+	- improved parser speed and code clarity in the migrated paths
+	- removed `util/parseutil/lrparser`
+	- removed the legacy `reslocparser` implementation
+	- reduced remaining `pscan` usage to legacy/sample code
+	- made toolbar comment shortcuts operate on the current toolbar part instead of the whole line
+	- added shortcuts to remove words using the same boundaries as word-jump cursor movement
 - 2025/08/13: v3.12.0 (23 commmits)
 	- core/inlinecomplete: improved completion
 	- godebug: improved internal testing facilities
