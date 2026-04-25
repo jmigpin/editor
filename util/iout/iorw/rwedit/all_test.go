@@ -82,6 +82,20 @@ func TestAll1(t *testing.T) {
 		},
 		func() {
 			testEntry(&test{
+				st:  state{s: "abc def", ci: 7},
+				est: state{s: "abc ", ci: 4},
+				f:   BackspaceWord,
+			})
+		},
+		func() {
+			testEntry(&test{
+				st:  state{s: "abc   def", ci: 9},
+				est: state{s: "abc   ", ci: 6},
+				f:   BackspaceWord,
+			})
+		},
+		func() {
+			testEntry(&test{
 				st:  state{s: "01234"},
 				est: state{s: "//01234", ci: 2},
 				f:   Comment,
@@ -148,6 +162,20 @@ func TestAll1(t *testing.T) {
 				st:  state{s: "01234", ci: 2},
 				est: state{s: "0134", ci: 2},
 				f:   Delete,
+			})
+		},
+		func() {
+			testEntry(&test{
+				st:  state{s: "abc def", ci: 0},
+				est: state{s: " def", ci: 0},
+				f:   DeleteWord,
+			})
+		},
+		func() {
+			testEntry(&test{
+				st:  state{s: "abc   def", ci: 3},
+				est: state{s: "abc", ci: 3},
+				f:   DeleteWord,
 			})
 		},
 		func() {

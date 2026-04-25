@@ -20,3 +20,22 @@ func Delete(ctx *Ctx) error {
 	ctx.C.SetIndex(a)
 	return nil
 }
+
+func DeleteWord(ctx *Ctx) error {
+	a, b, ok := ctx.C.SelectionIndexes()
+	if ok {
+		ctx.C.SetSelectionOff()
+	} else {
+		var err error
+		a = ctx.C.Index()
+		b, err = jumpRightIndex(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	if err := ctx.RW.OverwriteAt(a, b-a, nil); err != nil {
+		return err
+	}
+	ctx.C.SetIndex(a)
+	return nil
+}
