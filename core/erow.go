@@ -523,9 +523,6 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 	fface := erow.runOpts.fface
 
 	fullArea := erow.taPixelSize()
-	if fullArea.X <= 0 || fullArea.Y <= 0 {
-		return
-	}
 
 	cr, _ := erow.termSize(fface)
 
