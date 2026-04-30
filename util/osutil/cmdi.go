@@ -411,8 +411,8 @@ func (c *PtyCmd) Wait() error {
 	if c.restoreState != nil {
 		_ = term.Restore(int(c.pts.Fd()), c.restoreState)
 	}
-	_ = c.ptm.Close()
 	c.writing.Wait()
+	_ = c.ptm.Close()
 	return err
 }
 
