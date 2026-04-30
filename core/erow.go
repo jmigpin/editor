@@ -536,11 +536,10 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 	// start with "unscaled" font from fontOpts
 	fface := erow.fontOpts.face
 
-	cr, px, fullPx, crNotMin := erow.termSize(fface, temu)
+	cr, px, fullPx, crBelowMin := erow.termSize(fface, temu)
 
-	// current cr might not satisfy auto-font targets or terminal mode minimums (ex: 132 cols)
-	needTerminalMinFit := termRunning && crNotMin
-	if erow.fontOpts.auto || needTerminalMinFit {
+	// Only auto font mode may resize the font; if the current grid already fits the target, keep the font stable.
+	if erow.fontOpts.auto && crBelowMin {
 		fface = erow.termFontFaceAuto(cr, fullPx, fface)
 		cr, px, fullPx, _ = erow.termSize(fface, temu)
 	}
@@ -580,9 +579,9 @@ func (erow *ERow) termSize(fface *fontutil.FontFace, temu *ERowTermEmu) (_, _, _
 	if erow.termOpts.fixedRows > 0 {
 		cr2.Y = erow.termOpts.fixedRows
 	}
-	crNotMin := cr.X < cr2.X || cr.Y < cr2.Y
+	crBelowMin := cr.X < cr2.X || cr.Y < cr2.Y
 
-	return cr2, px, fullPx, crNotMin
+	return cr2, px, fullPx, crBelowMin
 }
 
 func (erow *ERow) termAvailableSize(fface *fontutil.FontFace) (cr, px, fullPx image.Point) {
