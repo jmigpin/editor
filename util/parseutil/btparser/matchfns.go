@@ -195,16 +195,15 @@ func mNoOp(ps *ParserState, pos Pos) (MPos, error) {
 	return MPos{pos, pos}, nil
 }
 func mEof(ps *ParserState, pos Pos) (MPos, error) {
-	if _, mp, err := mvByte(ps, pos); err != nil { // eof
+	if pos == ps.srcMax {
 		return MPos{pos, pos}, nil
-	} else {
-		return mp, NoMatchErr
 	}
+	return MPos{pos, pos}, NoMatchErr
 }
 
 // start-of-file
 func mSof(ps *ParserState, pos Pos) (MPos, error) {
-	if pos == 0 {
+	if pos == ps.srcMin {
 		return MPos{pos, pos}, nil
 	}
 	return MPos{pos, pos}, NoMatchErr

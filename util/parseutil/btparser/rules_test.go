@@ -106,6 +106,54 @@ func TestRulesNamespace1(t *testing.T) {
 	}
 }
 
+func TestBruteCoverPos(t *testing.T) {
+	src := "@@ -1 +2 @@ tail"
+
+	g := NewRules()
+	ps := NewParserStateFromString(src)
+	pos := Pos(5)
+
+	toLineStart := g.And(
+		g.ToLastIndexByteOrStart('\n'),
+		g.Optional(g.Rune('\n')),
+	)
+	header := g.And(
+		g.Seq("@@"),
+		g.Spaces(),
+		g.Seq("-1"),
+		g.Spaces(),
+		g.Seq("+2"),
+		g.Spaces(),
+		g.Seq("@@"),
+	)
+
+	mp, err := g.BruteCoverPos(toLineStart, header)(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mp.Start != 0 || mp.End != Pos(len("@@ -1 +2 @@")) {
+		t.Fatalf("got=%v", mp)
+	}
+
+	_, err = g.BruteCoverPos(toLineStart, header)(ps, Pos(len("@@ -1 +2 @@")))
+	if err == nil {
+		t.Fatal("expected no match")
+	}
+
+	mp, err = g.BruteCoverPosEnd(toLineStart, header)(ps, Pos(len("@@ -1 +2 @@")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mp.Start != 0 || mp.End != Pos(len("@@ -1 +2 @@")) {
+		t.Fatalf("got=%v", mp)
+	}
+
+	_, err = g.BruteCoverPos(toLineStart, header)(ps, Pos(len(src)))
+	if err == nil {
+		t.Fatal("expected no match")
+	}
+}
+
 func TestInteger2(t *testing.T) {
 	src := "+0 01 +-3 09"
 
@@ -576,6 +624,34 @@ func TestWithBounds(t *testing.T) {
 	}
 	if mp.Start != Pos(len("aa/")) || mp.End != Pos(len("aa/bb")) {
 		t.Fatalf("got=%v, want=%v", mp, MPos{Start: Pos(len("aa/")), End: Pos(len("aa/bb"))})
+	}
+}
+
+func TestSofEofBounds(t *testing.T) {
+	g := NewRules()
+	ps := NewParserStateFromString("aa/bb/cc")
+	pos := Pos(len("aa/"))
+
+	_, err := g.WithBounds(0, len("bb"), g.And(
+		g.Sof(),
+		g.Seq("bb"),
+		g.Eof(),
+	))(ps, pos)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = g.WithBounds(0, len("bb"), g.SofAbs())(ps, pos)
+	if err == nil {
+		t.Fatal("expected SofAbs to fail inside bounds")
+	}
+
+	_, err = g.WithBounds(0, len("bb"), g.And(
+		g.Seq("bb"),
+		g.EofAbs(),
+	))(ps, pos)
+	if err == nil {
+		t.Fatal("expected EofAbs to fail inside bounds")
 	}
 }
 

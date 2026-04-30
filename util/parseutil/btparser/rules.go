@@ -113,6 +113,35 @@ func (g Rules) ReverseSource(fn MFn) MFn {
 	}
 }
 
+// BruteCoverPos uses backward func + brute forward attempts until covering pos.
+func (g Rules) BruteCoverPos(backward, forward MFn) MFn {
+	return g.bruteCoverPos(false, backward, forward)
+}
+
+// BruteCoverPosEnd is like BruteCoverPos, but also matches when forward ends exactly at pos.
+func (g Rules) BruteCoverPosEnd(backward, forward MFn) MFn {
+	return g.bruteCoverPos(true, backward, forward)
+}
+
+func (g Rules) bruteCoverPos(matchPosEnd bool, backward, forward MFn) MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		mp1, err := backward(ps, pos)
+		if err != nil {
+			return mp1, err
+		}
+		for i := mp1.End; i <= pos; i++ {
+			mp2, err := forward(ps, i)
+			if err != nil {
+				continue
+			}
+			if mp2.End > pos || (matchPosEnd && mp2.End == pos) {
+				return mp2, nil
+			}
+		}
+		return MPos{pos, pos}, NoMatchErr
+	}
+}
+
 //----------
 
 func (g Rules) ToIndexByte(b byte) MFn {
@@ -195,8 +224,28 @@ func (g Rules) NoOp2(fn func() error) MFn {
 }
 func (g Rules) Eof() MFn { return mEof }
 
-// Sof matches only at the start of the source.
+// EofAbs matches only at the absolute end of the source.
+func (g Rules) EofAbs() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		if pos == ps.sourceLen() {
+			return MPos{pos, pos}, nil
+		}
+		return MPos{pos, pos}, NoMatchErr
+	}
+}
+
+// Sof matches only at the start of the current source bounds.
 func (g Rules) Sof() MFn { return mSof }
+
+// SofAbs matches only at the absolute start of the source.
+func (g Rules) SofAbs() MFn {
+	return func(ps *ParserState, pos Pos) (MPos, error) {
+		if pos == 0 {
+			return MPos{pos, pos}, nil
+		}
+		return MPos{pos, pos}, NoMatchErr
+	}
+}
 
 // Sop matches only at the start position of the current parse.
 func (g Rules) Sop() MFn {
