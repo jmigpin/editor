@@ -29,19 +29,21 @@ func lightThemeColors(node widget.Node) {
 }
 func lightThemeColorsPal() widget.Palette {
 	pal := widget.Palette{
-		"text_cursor_fg":            cint(0x0),
-		"text_fg":                   cint(0x0),
-		"text_bg":                   cint(0xffffff),
-		"text_selection_fg":         nil,
-		"text_selection_bg":         cint(0xeeee9e), // yellow
-		"text_colorize_string_fg":   cint(0x8b0000), // red
-		"text_colorize_comments_fg": cint(0x008b00), // green
-		"text_highlightword_fg":     nil,
-		"text_highlightword_bg":     cint(0xc6ee9e), // green
-		"text_wrapline_fg":          cint(0x0),
-		"text_wrapline_bg":          cint(0xd8d8d8),
-		"text_parenthesis_fg":       nil,
-		"text_parenthesis_bg":       cint(0xd8d8d8),
+		"text_cursor_fg":              cint(0x0),
+		"text_fg":                     cint(0x0),
+		"text_bg":                     cint(0xffffff),
+		"text_selection_fg":           nil,
+		"text_selection_bg":           cint(0xeeee9e), // yellow
+		"text_colorize_string_fg":     cint(0x8b0000), // red
+		"text_colorize_comments_fg":   cint(0x008b00), // green
+		"text_colorize_git_add_fg":    cint(0x008b00), // green
+		"text_colorize_git_delete_fg": cint(0x8b0000), // red
+		"text_highlightword_fg":       nil,
+		"text_highlightword_bg":       cint(0xc6ee9e), // green
+		"text_wrapline_fg":            cint(0x0),
+		"text_wrapline_bg":            cint(0xd8d8d8),
+		"text_parenthesis_fg":         nil,
+		"text_parenthesis_bg":         cint(0xd8d8d8),
 
 		"toolbar_text_bg":          cint(0xecf0f1), // "clouds" grey
 		"toolbar_text_wrapline_bg": cint(0xccccd8),
@@ -86,17 +88,19 @@ func acmeThemeColors(node widget.Node) {
 }
 func acmeThemeColorsPal() widget.Palette {
 	pal := widget.Palette{
-		"text_cursor_fg":            cint(0x0),
-		"text_fg":                   cint(0x0),
-		"text_bg":                   cint(0xffffea),
-		"text_selection_fg":         nil,
-		"text_selection_bg":         cint(0xeeee9e), // yellow
-		"text_colorize_string_fg":   cint(0x8b0000), // red
-		"text_colorize_comments_fg": cint(0x007500), // green
-		"text_highlightword_fg":     nil,
-		"text_highlightword_bg":     cint(0xc6ee9e), // green
-		"text_wrapline_fg":          cint(0x0),
-		"text_wrapline_bg":          cint(0xd8d8c6),
+		"text_cursor_fg":              cint(0x0),
+		"text_fg":                     cint(0x0),
+		"text_bg":                     cint(0xffffea),
+		"text_selection_fg":           nil,
+		"text_selection_bg":           cint(0xeeee9e), // yellow
+		"text_colorize_string_fg":     cint(0x8b0000), // red
+		"text_colorize_comments_fg":   cint(0x007500), // green
+		"text_colorize_git_add_fg":    cint(0x007500), // green
+		"text_colorize_git_delete_fg": cint(0x8b0000), // red
+		"text_highlightword_fg":       nil,
+		"text_highlightword_bg":       cint(0xc6ee9e), // green
+		"text_wrapline_fg":            cint(0x0),
+		"text_wrapline_bg":            cint(0xd8d8c6),
 
 		"toolbar_text_bg":          cint(0xeaffff),
 		"toolbar_text_wrapline_bg": cint(0xc6d8d8),

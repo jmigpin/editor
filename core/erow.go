@@ -29,8 +29,10 @@ type ERow struct {
 	highlightDuplicates bool
 	scrollMode          string
 
-	runOpts ERowRunOpts
-	optTemu *ERowTermEmu
+	termOpts     ERowTermOpts
+	fontOpts     ERowFontOpts
+	colorizeOpts ERowColorizeOpts
+	optTemu      *ERowTermEmu
 
 	ctx       context.Context // erow general context
 	cancelCtx context.CancelFunc
@@ -447,44 +449,51 @@ func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
 	// $font
-	fontAuto := false
-	baseFFace := (*fontutil.FontFace)(nil)
+	fontOpts := ERowFontOpts{}
 	if v, ok := vmap["$font"]; ok {
 		if v == "auto" {
-			fontAuto = true
+			fontOpts.auto = true
 		} else if _, ff, err := erow.varFontFace(v); err == nil {
-			baseFFace = ff
+			fontOpts.face = ff
 		}
 	}
+	erow.fontOpts = fontOpts
 
 	ta := erow.Row.TextArea
 	//ta.SetThemeFontFace(fface0) // commeted: flickers when a terminal is running that will change the font again
 
 	//----------
 
-	// $scrollMode: reset before $terminal
-	erow.scrollMode = ""
+	// $colorize
+	oldColorizeOpts := erow.colorizeOpts
+	colorizeOpts := erow.parseColorizeOpts(vmap["$colorize"])
+	erow.colorizeOpts = colorizeOpts
+	ta.EnableGitColorize(colorizeOpts.git)
+	ta.EnableSyntaxHighlight(colorizeOpts.syntax)
+	if oldColorizeOpts.termGrayscale != colorizeOpts.termGrayscale && erow.optTemu != nil {
+		erow.optTemu.tui.render.useGrayscale = colorizeOpts.termGrayscale
+		erow.optTemu.emu.NeedsPaint()
+	}
 
 	//----------
 
 	// $terminal
 	if erow.Info.IsDir() {
 		topts := erow.parseTerminalOpts(vmap["$terminal"])
-		topts.fontAuto = fontAuto
 
-		termFFace := baseFFace
+		termFFace := fontOpts.face
 		if termFFace == nil {
 			termFFace = ta.Parent.TreeThemeFontFace()
 		}
 
 		// terminal font face: in auto mode, prefer a monospace font for grid terminals
 		isGrid := topts.emuOpts.Mode == termemu.ModeGrid
-		if fontAuto && isGrid && !termFFace.TestIsMono() {
+		if fontOpts.auto && isGrid && !termFFace.TestIsMono() {
 			termFFace = fontutil.FontsMan.DefaultMonoFont().FontFace(termFFace.Opts)
 		}
 
-		topts.fface = termFFace
-		erow.runOpts = topts
+		erow.termOpts = topts
+		erow.fontOpts.face = termFFace
 
 		// initial calculation (immediate view)
 		erow.uiCalcAndSetTermSize()
@@ -492,7 +501,8 @@ func (erow *ERow) parseToolbarVars() {
 
 	//----------
 
-	// $scrollMode: auto/top/""; run after $terminal
+	// $scrollMode: auto/top/""
+	erow.scrollMode = ""
 	if v, ok := vmap["$scrollMode"]; ok {
 		erow.scrollMode = v
 	}
@@ -500,7 +510,7 @@ func (erow *ERow) parseToolbarVars() {
 	//----------
 
 	if erow.optTemu == nil && !erow.Info.IsDir() {
-		ta.SetThemeFontFace(baseFFace)
+		ta.SetThemeFontFace(fontOpts.face)
 	}
 }
 
@@ -522,18 +532,17 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 	// Keep a stable terminal pointer because this recalculation can be queued and optTemu may be cleared by terminal close while the UI event is pending.
 	temu := erow.optTemu
 	termRunning := temu != nil
-	fontAuto := erow.runOpts.fontAuto
 
-	// start with "unscaled" font from runOpts
-	fface := erow.runOpts.fface
+	// start with "unscaled" font from fontOpts
+	fface := erow.fontOpts.face
 
 	fullArea := erow.taPixelSize()
 
 	cr, _ := erow.termSize(fface)
 
 	targetCr := image.Point{}
-	if fontAuto {
-		targetCr = erow.runOpts.TerminalTargetSize()
+	if erow.fontOpts.auto {
+		targetCr = erow.termOpts.TerminalTargetSize()
 	}
 	if termRunning {
 		targetCr = temu.emu.ClampSize(targetCr)
@@ -541,7 +550,7 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 
 	// current cr might not satisfy auto-font targets or terminal mode minimums (ex: 132 cols)
 	needTerminalMinFit := termRunning && (cr.X < targetCr.X || cr.Y < targetCr.Y)
-	if fontAuto || needTerminalMinFit {
+	if erow.fontOpts.auto || needTerminalMinFit {
 		if fface2, ok := erow.termFontFaceAuto(targetCr, fullArea, fface); ok {
 			fface = fface2
 		}
@@ -578,13 +587,13 @@ func (erow *ERow) termSize(fface *fontutil.FontFace) (cr, pixs image.Point) {
 	rows := sy2 / lh
 
 	// Use fixed cols if specified
-	if erow.runOpts.fixedCols > 0 {
-		cols = erow.runOpts.fixedCols
+	if erow.termOpts.fixedCols > 0 {
+		cols = erow.termOpts.fixedCols
 	}
 
 	// Use fixed rows if specified
-	if erow.runOpts.fixedRows > 0 {
-		rows = erow.runOpts.fixedRows
+	if erow.termOpts.fixedRows > 0 {
+		rows = erow.termOpts.fixedRows
 	}
 
 	cr = image.Point{cols, rows}
@@ -646,10 +655,8 @@ func (erow *ERow) termFontFaceAuto(targetCr, fullArea image.Point, origFace *fon
 	return faceAtSize(lastP), true
 }
 
-func (erow *ERow) parseTerminalOpts(v string) ERowRunOpts {
-	topt := ERowRunOpts{
-		useGrayscale: true,
-	}
+func (erow *ERow) parseTerminalOpts(v string) ERowTermOpts {
+	topt := ERowTermOpts{}
 	u := strings.Split(v, ",")
 	for _, k := range u {
 		opt := strings.ToLower(strings.TrimSpace(k))
@@ -675,11 +682,6 @@ func (erow *ERow) parseTerminalOpts(v string) ERowRunOpts {
 		switch {
 		case opt == "debug":
 			topt.emuOpts.Debug = true
-
-		case opt == "grayscale":
-			topt.useGrayscale = set
-		case opt == "color":
-			topt.useGrayscale = !set
 
 		case opt == "pty":
 			topt.pty = set
@@ -737,6 +739,38 @@ func (erow *ERow) parseTerminalOpts(v string) ERowRunOpts {
 		}
 	}
 	return topt
+}
+
+func (erow *ERow) parseColorizeOpts(v string) ERowColorizeOpts {
+	opts := ERowColorizeOpts{
+		termGrayscale: true,
+		syntax:        true,
+	}
+	u := strings.Split(v, ",")
+	for _, k := range u {
+		opt := strings.ToLower(strings.TrimSpace(k))
+		if opt == "" {
+			continue
+		}
+
+		set := true
+		if strings.HasPrefix(opt, "no-") {
+			set = false
+			opt = opt[3:]
+		}
+
+		switch opt {
+		case "termgray":
+			opts.termGrayscale = set
+		case "termcolor":
+			opts.termGrayscale = !set
+		case "git":
+			opts.git = set
+		case "syntax":
+			opts.syntax = set
+		}
+	}
+	return opts
 }
 
 func (erow *ERow) varFontFace(s string) (hasFontName bool, _ *fontutil.FontFace, _ error) {
@@ -931,21 +965,17 @@ func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
 //----------
 //----------
 
-type ERowRunOpts struct {
+type ERowTermOpts struct {
 	pty          bool // run under a pseudo-terminal
 	forwardKb    bool // forward keyboard events to the process
 	forwardMouse bool // forward mouse events to the process
 	fixedCols    int  // if > 0, use fixed terminal width
 	fixedRows    int  // if > 0, use fixed terminal height
-	useGrayscale bool
-	fontAuto     bool // auto font scaling
 
 	emuOpts termemu.Opts
-
-	fface *fontutil.FontFace
 }
 
-func (opts *ERowRunOpts) TerminalTargetSize() image.Point {
+func (opts *ERowTermOpts) TerminalTargetSize() image.Point {
 	targetCr := image.Point{65, 10}
 	if opts.fixedCols > 0 {
 		targetCr.X = opts.fixedCols
@@ -954,4 +984,17 @@ func (opts *ERowRunOpts) TerminalTargetSize() image.Point {
 		targetCr.Y = opts.fixedRows
 	}
 	return targetCr
+}
+
+//----------
+
+type ERowColorizeOpts struct {
+	termGrayscale bool
+	git           bool
+	syntax        bool
+}
+
+type ERowFontOpts struct {
+	auto bool // auto font scaling
+	face *fontutil.FontFace
 }

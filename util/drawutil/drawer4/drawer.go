@@ -82,6 +82,9 @@ type Drawer struct {
 		syntaxH struct {
 			updated bool
 		}
+		contentColorize struct {
+			updated bool
+		}
 	}
 
 	// external options
@@ -124,6 +127,14 @@ type Drawer struct {
 			On     bool
 			Fg, Bg color.Color
 			Group  ColorizeGroup
+		}
+		ContentColorize struct {
+			Git struct {
+				On       bool
+				AddFg    color.Color
+				DeleteFg color.Color
+			}
+			Group ColorizeGroup
 		}
 		SyntaxHighlight struct {
 			On      bool
@@ -290,6 +301,7 @@ func (d *Drawer) limitedReaderPadSpace(offset int) iorw.ReaderAt {
 func (d *Drawer) ContentChanged() {
 	d.opt.measure.updated = false
 	d.opt.syntaxH.updated = false
+	d.opt.contentColorize.updated = false
 	d.opt.wordH.updatedWord = false
 	d.opt.wordH.updatedOps = false
 	d.opt.parenthesisH.updated = false
@@ -297,6 +309,14 @@ func (d *Drawer) ContentChanged() {
 
 func (d *Drawer) DecorationsChanged() {
 	d.opt.measure.updated = false
+}
+
+func (d *Drawer) ContentColorizeChanged() {
+	d.opt.contentColorize.updated = false
+}
+
+func (d *Drawer) SyntaxHighlightChanged() {
+	d.opt.syntaxH.updated = false
 }
 
 //----------
@@ -348,6 +368,7 @@ func (d *Drawer) SetBounds(r image.Rectangle) {
 	if r.Size() != d.bounds.Size() {
 		d.opt.measure.updated = false
 		d.opt.syntaxH.updated = false
+		d.opt.contentColorize.updated = false
 		d.opt.wordH.updatedOps = false
 		d.opt.parenthesisH.updated = false
 	}
@@ -364,6 +385,7 @@ func (d *Drawer) SetRuneOffset(v int) {
 	d.opt.runeO.offset = v
 
 	d.opt.syntaxH.updated = false
+	d.opt.contentColorize.updated = false
 	d.opt.wordH.updatedOps = false
 	d.opt.parenthesisH.updated = false
 }
@@ -421,6 +443,7 @@ func (d *Drawer) measureContent() image.Point {
 
 func (d *Drawer) Draw(img draw.Image) {
 	updateSyntaxHighlightOps(d)
+	updateContentColorizeOps(d)
 	updateWordHighlightWord(d)
 	updateWordHighlightOps(d)
 	updateParenthesisHighlight(d)

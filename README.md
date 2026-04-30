@@ -470,7 +470,7 @@ It supports automatic visual wrapping and indentation by communicating logical l
 Example:
 
 ```
-/myproject/ | $font=auto | $terminal=emu,color | bash
+/myproject/ | $font=auto | $terminal=emu | $colorize=termcolor | bash
 ```
 
 Clicking `bash` will run it inside a PTY - useful if the program uses terminal color output, prompts, or isatty checks.
@@ -481,6 +481,11 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 - `$font=[<name>|auto][,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Both name and size are optional (ex: `$font=mono`, `$font=,8`). Supports font aliases (e.g. `mono`, `regular`, `medium`) and font filenames (e.g. `$font=/path/to/font.ttf`).
 	- `auto`: for terminal rows, automatically scales the font down to ensure a **minimum** of columns/rows (or the fixed `rows`/`cols` options if specified). It will not scale up beyond the theme font size. The calculation takes into account the terminal grid mode and the logical newline margin.
 - `$scrollMode={auto}`: if the current bottom of the content is visible, auto scroll down when new content is added (ex: a cmd output).
+- `$colorize=<options>`: colorize row content. Options are comma-separated. Negation is supported: ex: `$colorize=git,no-syntax`.
+	- `git`: colorize git diff output lines starting with `+` or `-`, including `+++` and `---`.
+	- `termgray`: render terminal colors in grayscale (default).
+	- `termcolor`: render terminal colors normally.
+	- `syntax`: colorize detected strings/comments (default).
 - `$terminal=<options>`: run commands in this row using a terminal emulator.Options are comma-separated. Negation is supported: ex: `$terminal=emu,no-kb`.
 	- `pty`: run as pseudo-terminal.
 	- `kb`: forward keyboard input to the process. Note: typing keys will not be seen in the textarea unless the running program outputs them.
@@ -492,8 +497,6 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 	- `rows=auto`: use adaptive terminal height (default).
 	- `cols=N`: set a fixed terminal width (number of columns).
 	- `cols=auto`: use adaptive terminal width (default).
-	- `grayscale`: render terminal colors in grayscale (default; equivalent to `no-color`).
-	- `color`: render terminal colors normally.
 
 ## Environment variables set available to external commands
 
@@ -686,7 +689,8 @@ The measuring of space is done as follows:
 	- added `OpenTerminalEmu` command and direct startup with `-startterminalemu`
 	- added `-emuexec` and trailing command support for terminal-emulator startup
 	- added session snapshot files with `-sessionfilename`, `SaveSessionFile` and `OpenSessionFile`
-	- added terminal rows/cols options and color/grayscale rendering options
+	- added terminal rows/cols options
+	- added `$colorize` row option for syntax, terminal color policy and git diff output coloring
 	- added (`startmaximized`, `wrapwordlimit`) options
 	- changed `wraplineindenttabs` to accept `float` values for finer wrapped-line indentation control
 	- upgraded fsnotify pkg

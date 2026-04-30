@@ -30,6 +30,7 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 	tui := &ERowTermEmuUI{temu: temu}
 
 	tui.sp = termemu.NewScreenPrinter()
+	tui.render.useGrayscale = temu.erow.colorizeOpts.termGrayscale
 
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		ta := tui.temu.erow.Row.TextArea

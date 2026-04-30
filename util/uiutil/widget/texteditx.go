@@ -43,11 +43,12 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 		// setup colorize order
 		d.Opt.Colorize.Groups = []*drawer4.ColorizeGroup{
 			&d.Opt.SyntaxHighlight.Group,
-			{}, // 1=terminal
+			&d.Opt.ContentColorize.Group,
+			{}, // 2=terminal
 			&d.Opt.WordHighlight.Group,
 			&d.Opt.ParenthesisHighlight.Group,
-			{}, // 4=selection
-			{}, // 5=flash
+			{}, // 5=selection
+			{}, // 6=flash
 		}
 		d.Opt.Decorations.Groups = []*drawer4.DecorationGroup{
 			{}, // 0=terminal
@@ -58,9 +59,9 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 }
 
 const (
-	cgIdxTerm      = 1
-	cgIdxSelection = 4
-	cgIdxFlash     = 5
+	cgIdxTerm      = 2
+	cgIdxSelection = 5
+	cgIdxFlash     = 6
 
 	dgIdxTerm = 0
 )
@@ -226,7 +227,12 @@ func (te *TextEditX) EnableParenthesisMatch(v bool) {
 
 func (te *TextEditX) EnableSyntaxHighlight(v bool) {
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		if d.Opt.SyntaxHighlight.On == v {
+			return
+		}
 		d.Opt.SyntaxHighlight.On = v
+		d.SyntaxHighlightChanged()
+		te.MarkNeedsPaint()
 	}
 }
 func (te *TextEditX) SyntaxHighlight() bool {
@@ -241,6 +247,19 @@ func (te *TextEditX) SyntaxHighlight() bool {
 func (te *TextEditX) EnableCursorWordHighlight(v bool) {
 	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
 		d.Opt.WordHighlight.On = v
+	}
+}
+
+//----------
+
+func (te *TextEditX) EnableGitColorize(v bool) {
+	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
+		if d.Opt.ContentColorize.Git.On == v {
+			return
+		}
+		d.Opt.ContentColorize.Git.On = v
+		d.ContentColorizeChanged()
+		te.MarkNeedsPaint()
 	}
 }
 
@@ -331,6 +350,11 @@ func (te *TextEditX) OnThemeChange() {
 		// parenthesis highlight
 		d.Opt.ParenthesisHighlight.Fg = pcol("text_parenthesis_fg")
 		d.Opt.ParenthesisHighlight.Bg = pcol("text_parenthesis_bg")
+
+		// content colorize
+		d.Opt.ContentColorize.Git.AddFg = pcol("text_colorize_git_add_fg")
+		d.Opt.ContentColorize.Git.DeleteFg = pcol("text_colorize_git_delete_fg")
+		d.ContentColorizeChanged()
 
 		// syntax highlight
 		opt := &d.Opt.SyntaxHighlight

@@ -32,7 +32,7 @@ func newERowTaReadCloser(erow *ERow) *ERowTaReadCloser {
 }
 
 func (tarc *ERowTaReadCloser) isOn() bool {
-	u := tarc.erow.runOpts
+	u := tarc.erow.termOpts
 	return u.forwardKb || u.forwardMouse
 }
 
@@ -92,7 +92,7 @@ func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
 
 	switch ev2 := ev1.Event.(type) {
 	case *event.KeyDown:
-		if !tarc.erow.runOpts.forwardKb {
+		if !tarc.erow.termOpts.forwardKb {
 			break
 		}
 
@@ -107,7 +107,7 @@ func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
 		}
 
 	case *event.MouseClick:
-		if !tarc.erow.runOpts.forwardMouse {
+		if !tarc.erow.termOpts.forwardMouse {
 			break
 		}
 

@@ -25,7 +25,7 @@ func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func
 // if cargs is nil, part should be set
 func ExternalCmd2(erow *ERow, part *toolbarparser.Part, cargs []string, fend func(error), env []string, mode ExternalCmdMode) {
 	// before toolbar vars to allow override
-	if erow.runOpts.emuOpts.Mode.On() {
+	if erow.termOpts.emuOpts.Mode.On() {
 		env = append(env, termemu.TermEnv...)
 	}
 
@@ -86,7 +86,7 @@ func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []
 	}
 
 	// first, to run start() last and wrap everything in a pty
-	if erow.runOpts.pty {
+	if erow.termOpts.pty {
 		ptyCmd := osutil.NewPtyCmd(c)
 		c = ptyCmd
 		// set pty in the textarea
@@ -102,7 +102,7 @@ func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []
 	// last, to run wait() first, such that a ctx cancel sends a proc kill
 	c = osutil.NewCtxCmd(ctx, c)
 
-	if erow.runOpts.pty && erow.optTemu != nil {
+	if erow.termOpts.pty && erow.optTemu != nil {
 		// run callback on start
 		c = osutil.NewFuncsCmd(c,
 			func(inner osutil.CmdI) error { // on start

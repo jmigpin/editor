@@ -25,7 +25,7 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 	temu.userRwc = rwc
 
 	temu.tui = newERowTermEmuUI(temu)
-	temu.emu = termemu.NewEmu(temu.userRwc, temu.tui, erow.runOpts.emuOpts)
+	temu.emu = termemu.NewEmu(temu.userRwc, temu.tui, erow.termOpts.emuOpts)
 	temu.ReadWriteCloser = temu.emu
 
 	// Publish only after emu is ready; layout callbacks can re-enter during row creation.
@@ -61,10 +61,6 @@ func (temu *ERowTermEmu) onRecalcSetSize() {
 	fface := temu.erow.Row.TextArea.TreeThemeFontFace()
 
 	cr, psize := temu.erow.termSize(fface)
-	if temu.tui.render.useGrayscale != temu.erow.runOpts.useGrayscale {
-		temu.tui.render.useGrayscale = temu.erow.runOpts.useGrayscale
-		temu.emu.NeedsPaint()
-	}
 
 	// UX-ADAPTATION: skip resize if window is too small (e.g. collapsed) to avoid pushing to scrollback, as well as avoid certain programs to recalc their contents when columns go directly to zero (ex: from 80->0) due to the textarea not being visible (ex: some other row got its space)
 	if cr.X > 1 && cr.Y > 1 {

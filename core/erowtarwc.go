@@ -23,7 +23,7 @@ func newERowTaReadWriteCloser(erow *ERow) *ERowTaReadWriteCloser {
 
 	tarwc.ReadWriteCloser = iout.RWC{tarc, tawc, cl}
 
-	if erow.runOpts.emuOpts.Mode.On() {
+	if erow.termOpts.emuOpts.Mode.On() {
 		temu := newERowTermEmu(erow, tarwc.ReadWriteCloser)
 		tarwc.ReadWriteCloser = temu
 	}
