@@ -1,6 +1,7 @@
 package core
 
 import (
+	"image"
 	"io"
 
 	"github.com/jmigpin/editor/core/termemu"
@@ -57,19 +58,12 @@ func (temu *ERowTermEmu) Close() error {
 
 //----------
 
-func (temu *ERowTermEmu) onRecalcSetSize() {
-	fface := temu.erow.Row.TextArea.TreeThemeFontFace()
-
-	cr, psize := temu.erow.termSize(fface)
-
-	// UX-ADAPTATION: skip resize if window is too small (e.g. collapsed) to avoid pushing to scrollback, as well as avoid certain programs to recalc their contents when columns go directly to zero (ex: from 80->0) due to the textarea not being visible (ex: some other row got its space)
-	if cr.X > 1 && cr.Y > 1 {
-		if cr2, changed := temu.emu.SetSize(cr); changed {
-			// align PTY with emu size after possible clamp
-			if temu.optPtyCmd != nil {
-				if err := temu.setPtySize(cr2, psize); err != nil {
-					temu.tui.Error(err)
-				}
+func (temu *ERowTermEmu) setSize(cr, px image.Point) {
+	if cr2, changed := temu.emu.SetSize(cr); changed {
+		// align PTY with emu size after possible clamp
+		if temu.optPtyCmd != nil {
+			if err := temu.setPtySize(cr2, px); err != nil {
+				temu.tui.Error(err)
 			}
 		}
 	}

@@ -32,6 +32,10 @@ func (m *Mode) SetBool(m2 Mode, v bool) {
 	}
 }
 
+func (m Mode) IsGrid() bool {
+	return m == ModeGrid
+}
+
 //----------
 //----------
 //----------
