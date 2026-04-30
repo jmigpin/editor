@@ -507,7 +507,10 @@ func (erow *ERow) parseToolbarVars() {
 //----------
 
 func (erow *ERow) onTextAreaBoundsChange() {
-	erow.uiCalcAndSetTermSize()
+	// Queue the terminal size recalculation out of the current layout callback. Auto font fitting can call SetThemeFontFace, which marks layout again; doing that while LayoutTree is still running can re-enter layout state.
+	erow.Ed.UI.RunOnUIGoRoutine(func() {
+		erow.uiCalcAndSetTermSize()
+	})
 }
 
 func (erow *ERow) uiCalcAndSetTermSize() {
@@ -516,7 +519,9 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 		return
 	}
 
-	termRunning := erow.optTemu != nil
+	// Keep a stable terminal pointer because this recalculation can be queued and optTemu may be cleared by terminal close while the UI event is pending.
+	temu := erow.optTemu
+	termRunning := temu != nil
 	fontAuto := erow.runOpts.fontAuto
 
 	// start with "unscaled" font from runOpts
@@ -531,13 +536,13 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 		targetCr = erow.runOpts.TerminalTargetSize()
 	}
 	if termRunning {
-		targetCr = erow.optTemu.emu.ClampSize(targetCr)
+		targetCr = temu.emu.ClampSize(targetCr)
 	}
 
 	// current cr might not satisfy auto-font targets or terminal mode minimums (ex: 132 cols)
 	needTerminalMinFit := termRunning && (cr.X < targetCr.X || cr.Y < targetCr.Y)
 	if fontAuto || needTerminalMinFit {
-		if fface2, ok := erow.termFontFace(targetCr, fullArea, fface); ok {
+		if fface2, ok := erow.termFontFaceAuto(targetCr, fullArea, fface); ok {
 			fface = fface2
 		}
 	}
@@ -552,7 +557,7 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 
 	// notify terminal
 	if termRunning {
-		erow.optTemu.onRecalcSetSize()
+		temu.onRecalcSetSize()
 	}
 }
 
@@ -597,7 +602,7 @@ func (erow *ERow) taPixelSize() image.Point {
 	return b.Size()
 }
 
-func (erow *ERow) termFontFace(targetCr, fullArea image.Point, origFace *fontutil.FontFace) (*fontutil.FontFace, bool) {
+func (erow *ERow) termFontFaceAuto(targetCr, fullArea image.Point, origFace *fontutil.FontFace) (*fontutil.FontFace, bool) {
 
 	faceAtSize := func(v float64) *fontutil.FontFace {
 		fopts2 := origFace.Opts // copy
