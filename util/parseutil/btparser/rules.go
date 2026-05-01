@@ -262,11 +262,6 @@ func (g Rules) ByteFn(fn func(byte) bool) MFn {
 		return mByteFn(ps, pos, fn)
 	}
 }
-func (g Rules) ByteFnLoop(fn func(byte) bool) MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mByteFnLoop(ps, pos, fn)
-	}
-}
 func (g Rules) Byte(b byte) MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {
 		return mByteFn(ps, pos, func(b2 byte) bool { return b2 == b })
@@ -381,13 +376,13 @@ func (g Rules) Integer() MFn { return mInteger }
 func (g Rules) Bool() MFn    { return mBool }
 func (g Rules) Sign() MFn    { return mSign }
 func (g Rules) HexBytes() MFn {
-	return func(ps *ParserState, pos Pos) (MPos, error) {
-		return mByteFnLoop(ps, pos, func(b byte) bool {
+	return g.Loop1(
+		g.ByteFn(func(b byte) bool {
 			return (b >= '0' && b <= '9') ||
 				(b >= 'a' && b <= 'f') ||
 				(b >= 'A' && b <= 'F')
-		})
-	}
+		}),
+	)
 }
 func (g Rules) Space() MFn {
 	return func(ps *ParserState, pos Pos) (MPos, error) {

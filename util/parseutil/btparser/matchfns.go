@@ -212,9 +212,6 @@ func mSof(ps *ParserState, pos Pos) (MPos, error) {
 func mByteFn(ps *ParserState, pos Pos, fn func(byte) bool) (MPos, error) {
 	return mHandleVFn(ps, pos, mvByte, BoolErrFn(fn))
 }
-func mByteFnLoop(ps *ParserState, pos Pos, fn func(byte) bool) (MPos, error) {
-	return mLoop1(ps, pos, byteFn(fn))
-}
 
 //----------
 
