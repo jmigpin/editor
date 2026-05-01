@@ -308,6 +308,14 @@ func (ff *FontFace) BaseLine() fixed.Point26_6 {
 }
 
 func (ff *FontFace) AvgGlyphAdvance() fixed.Int26_6 {
+	if ff.TestIsMono() {
+		if adv, ok := ff.Face.GlyphAdvance('W'); ok {
+			return adv
+		}
+	}
+
+	// regular font
+
 	const sample = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	var sum fixed.Int26_6
 	n := 0

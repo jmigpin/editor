@@ -561,55 +561,57 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 //----------
 
 func (erow *ERow) termSize(fface *fontutil.FontFace, temu *ERowTermEmu) (_, _, _ image.Point, _ bool) {
-	cr, px, fullPx := erow.termAvailableSize(fface)
+	cr0, px, fullPx := erow.termAvailableSize(fface)
+	cr0 = termemu.ClampMinValidGridSize(cr0)
 
-	// clamp rows/cols
-	cr2 := cr // copy
+	// clamp terminal size
+
+	cr := cr0 // copy
+	goodMinGridSize := image.Point{65, 10}
 	termRunning := temu != nil
 	if termRunning {
-		cr2 = temu.emu.ClampSize(cr2)
+		noArea := termemu.MinValidGridSize()
+		if cr == noArea {
+			cr2 := temu.emu.GetSize()
+			if cr2 == noArea {
+				// there is no area and something needs to be set to allow programs to have a minimum grid
+				cr = goodMinGridSize
+			} else {
+				// let terminal keep current size, no point in changing and sending to the program an almost empty size
+				cr = cr2
+			}
+		}
+
+		cr = temu.emu.ClampSize(cr)
 	}
 	if erow.fontOpts.auto {
-		m := image.Point{65, 10} // minimum
-		cr2 = image.Point{max(cr2.X, m.X), max(cr2.Y, m.Y)}
+		m := goodMinGridSize // minimum in auto mode
+		cr = image.Point{max(cr.X, m.X), max(cr.Y, m.Y)}
 	}
 	if erow.termOpts.fixedCols > 0 {
-		cr2.X = erow.termOpts.fixedCols
+		cr.X = erow.termOpts.fixedCols
 	}
 	if erow.termOpts.fixedRows > 0 {
-		cr2.Y = erow.termOpts.fixedRows
+		cr.Y = erow.termOpts.fixedRows
 	}
-	crBelowMin := cr.X < cr2.X || cr.Y < cr2.Y
+	crBelowMin := cr0.X < cr.X || cr0.Y < cr.Y
 
-	return cr2, px, fullPx, crBelowMin
+	return cr, px, fullPx, crBelowMin
 }
 
 func (erow *ERow) termAvailableSize(fface *fontutil.FontFace) (cr, px, fullPx image.Point) {
-
 	runeW := fface.AvgGlyphAdvance()
 	rw := runeW.Ceil()
 	lh := fface.LineHeightInt()
 
 	fullPx = erow.textareaPixelSize()
 
-	// case of no space: fixes rows with a hidden textarea that have terminal emu option, and will get the terminal size to be (1,1) and print only on the first column. This is done here to give some area for the num of columns to be calculated
-	fullPx2 := fullPx // copy
-	isGrid := erow.termOpts.emuOpts.Mode.IsGrid()
-	if isGrid && (fullPx2.X == 0 || fullPx2.Y == 0) {
-		fullPx2.X = erow.Row.Bounds.Dx() - erow.Row.ScrollArea.Bounds.Dx()
-
-		// use a minimum y: will skip resize if window is too small (e.g. collapsed) to avoid pushing to scrollback, as well as avoid certain programs to recalc their contents when columns go directly to zero (ex: from 80->0) due to the textarea not being visible (ex: some other row got its space)
-		fullPx2.Y = lh*3 + 1 // a few rows
-	}
-
-	sx2 := max(fullPx2.X-rw, 0) // newline margin
-	sy2 := max(fullPx2.Y, 0)
+	sx2 := max(fullPx.X-rw, 0) // newline margin
+	sy2 := max(fullPx.Y, 0)
 	px = image.Point{sx2, sy2}
 
 	// max cols/rows at wanted font
 	cr = image.Point{sx2 / rw, sy2 / lh}
-	// ensure min size
-	cr = image.Point{max(cr.X, 1), max(cr.Y, 1)}
 
 	return cr, px, fullPx // columns/rows, available area pixel size
 }
@@ -632,19 +634,13 @@ func (erow *ERow) termFontFaceAuto(targetCr, fullPx image.Point, origFace *fontu
 		return origFace.Font.FontFace(fopts2)
 	}
 
-	runeSize := func(p float64) (int, int, bool) {
-		if p < 2 {
-			return 0, 0, false
-		}
+	runeSize := func(p float64) (int, int) {
 		face2 := faceAtSize(p)
-		return face2.AvgGlyphAdvance().Ceil(), face2.LineHeightInt(), true
+		return face2.AvgGlyphAdvance().Ceil(), face2.LineHeightInt()
 	}
 
 	fits := func(p float64) bool {
-		x, y, ok := runeSize(p)
-		if !ok {
-			return false
-		}
+		x, y := runeSize(p)
 		_ = y
 		// newline margin: (targetCols + 1) * fontWidth <= totalWidth
 		return (targetCr.X+1)*x <= fullPx.X // && targetCr.Y*y <= fullArea.Y

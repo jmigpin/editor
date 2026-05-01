@@ -55,7 +55,7 @@ func NewScreen() *Screen {
 
 	s.setGrid2(false)
 
-	_, _ = s.setSize(P{1, 1})
+	_, _ = s.setSize(MinValidGridSize())
 
 	return s
 }
@@ -82,11 +82,10 @@ func (s *Screen) setSize(size P) (_ P, changed bool) {
 }
 
 func (s *Screen) clampSize(p P) P {
-	p.X = max(p.X, 1)
-	p.Y = max(p.Y, 1)
 	if s.privModes.column132() {
 		p.X = 132
 	}
+	p = ClampMinValidGridSize(p)
 	return p
 }
 
@@ -1191,3 +1190,13 @@ func mapDecSpecial(r rune) rune {
 }
 
 //----------
+
+func MinValidGridSize() P {
+	return P{1, 1}
+}
+func ClampMinValidGridSize(p P) P {
+	p2 := MinValidGridSize()
+	p.X = max(p.X, p2.X)
+	p.Y = max(p.Y, p2.Y)
+	return p
+}
