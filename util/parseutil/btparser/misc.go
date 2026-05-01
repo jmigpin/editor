@@ -3,6 +3,7 @@ package btparser
 import (
 	"iter"
 	"reflect"
+	"slices"
 	"unsafe"
 )
 
@@ -11,6 +12,14 @@ func Debug2(fn func()) MFn {
 		fn()
 		return MPos{pos, pos}, nil
 	}
+}
+
+//----------
+
+func ReverseString(s string) string {
+	rs := []rune(s)
+	slices.Reverse(rs)
+	return string(rs)
 }
 
 //----------
