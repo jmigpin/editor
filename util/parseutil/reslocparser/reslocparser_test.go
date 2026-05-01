@@ -274,6 +274,24 @@ func TestResLocParserGitDiff2(t *testing.T) {
 	out := "core/foo.go:20"
 	testModeBt1(t, in, out)
 }
+func TestResLocParserGitDiff3(t *testing.T) {
+	in := "" +
+		"diff --git a/core/foo.go b/core/foo.go\n" +
+		"@@ -10,2 +20,3 @@ func main() {\n" +
+		" line\n"
+	for i := 39; i <= 57; i++ {
+		in2 := in[:i] + "●" + in[i:]
+		//t.Log(i, in2)
+		out := "core/foo.go:20"
+		if i >= 56 {
+			out = "@@"
+		}
+		if i >= 57 {
+			out = "func"
+		}
+		testModeBt1(t, in2, out)
+	}
+}
 
 //----------
 //----------
@@ -287,7 +305,7 @@ func BenchmarkResLoc2(b *testing.B) {
 		t.Fatal(err)
 	}
 
-	p := NewResLocParser2('\\', '/', false)
+	p := NewResLocParser('\\', '/', false)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -365,7 +383,7 @@ func parseResLoc2(t *testing.T, src []byte, index int, opts testModeOptions) *Re
 	if psep == 0 {
 		psep = '/'
 	}
-	p := NewResLocParser2(esc, psep, opts.parseVolume)
+	p := NewResLocParser(esc, psep, opts.parseVolume)
 
 	rl2, err := p.Parse(src, index)
 	if err != nil {

@@ -1,6 +1,7 @@
 package reslocparser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jmigpin/editor/util/parseutil/btparser"
@@ -95,30 +96,81 @@ func TestReverseScanRule(t *testing.T) {
 	}
 }
 
-func TestCoverIndex(t *testing.T) {
+//----------
+//----------
+//----------
+
+func BenchmarkReverseScanRuleVsBruteCoverPosEnd(b *testing.B) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{
+			name: "shortText",
+			in:   "aa bb cc /a/b/c.txt● yy",
+		},
+		{
+			name: "longText",
+			in:   strings.Repeat("alpha beta gamma delta ", 200) + "/a/b/c.txt● yy",
+		},
+		{
+			name: "longTextMiddle",
+			in:   strings.Repeat("alpha beta gamma delta ", 100) + "/a/b/c●.txt yy " + strings.Repeat("alpha beta gamma delta ", 100),
+		},
+	}
+
+	for _, tt := range tests {
+		src, index, err := testutil.SourceCursor("●", tt.in, 0)
+		if err != nil {
+			b.Fatal(err)
+		}
+		srcBytes := []byte(src)
+
+		b.Run(tt.name+"/revscan", func(b *testing.B) {
+			benchResLocRule(b, srcBytes, index, benchRevScanRule())
+		})
+		b.Run(tt.name+"/brutecoverposend", func(b *testing.B) {
+			benchResLocRule(b, srcBytes, index, benchBruteCoverPosEndRule())
+		})
+	}
+}
+
+func benchRevScanRule() btparser.MFn {
 	g := btparser.NewRules()
-	src := []byte("xx /a/b.txt yy")
-	index := len("xx /a/b")
-	ps := btparser.NewParserStateFromBytes(src)
-	rl := NewResLoc()
-	ps.UserData[resLocDataKey] = rl
+	rs := NewReverseScanResLoc('\\', '/', false)
+	return g.And(
+		rs.Rule(3000),
+		benchPathRule(g),
+	)
+}
 
-	fn := func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
+func benchBruteCoverPosEndRule() btparser.MFn {
+	g := btparser.NewRules()
+	return g.BruteCoverPosEnd(
+		g.WithBounds(3000, 0,
+			g.And(
+				g.ToLastIndexByteOrStart('\n'),
+				g.Optional(g.Rune('\n')),
+			),
+		),
+		benchPathRule(g),
+	)
+}
+
+func benchPathRule(g btparser.Rules) btparser.MFn {
+	return func(ps *btparser.ParserState, pos btparser.Pos) (btparser.MPos, error) {
 		rl := ps.UserData[resLocDataKey].(*ResLoc)
-		return btparser.AssignLocal(&rl.Path, g.VString(g.Seq("/a/b.txt")))(ps, pos)
+		return btparser.AssignLocal(&rl.Path, g.VString(g.Seq("/a/b/c.txt")))(ps, pos)
 	}
+}
 
-	mp, err := coverIndex(index, fn)(ps, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if mp.Start != btparser.Pos(len("xx ")) {
-		t.Fatalf("got=%v, want=%v", mp.Start, len("xx "))
-	}
-	if mp.End != btparser.Pos(len("xx /a/b.txt")) {
-		t.Fatalf("got=%v, want=%v", mp.End, len("xx /a/b.txt"))
-	}
-	if rl.Path != "/a/b.txt" {
-		t.Fatalf("got=%q, want=%q", rl.Path, "/a/b.txt")
+func benchResLocRule(b *testing.B, src []byte, index int, fn btparser.MFn) {
+	b.Helper()
+	for i := 0; i < b.N; i++ {
+		ps := btparser.NewParserStateFromBytes(src)
+		ps.UserData[resLocDataKey] = NewResLoc()
+		if _, err := fn(ps, btparser.Pos(index)); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

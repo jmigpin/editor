@@ -38,7 +38,7 @@ type ResLocParser struct {
 	fn      btparser.MFn
 }
 
-func NewResLocParser2(escape, pathSeparator rune, parseVolume bool) *ResLocParser {
+func NewResLocParser(escape, pathSeparator rune, parseVolume bool) *ResLocParser {
 	p := &ResLocParser{}
 	p.g = btparser.NewRules()
 	p.init(escape, pathSeparator, parseVolume)
@@ -227,23 +227,34 @@ func (p *ResLocParser) init(escape, pathSeparator rune, parseVolume bool) {
 		),
 	)
 
+	files := g.Or(
+		withResLocCopy(schFile),
+		withResLocCopy(pyFile),
+		withResLocCopy(dquotedFile),
+		withResLocCopy(squotedFile),
+		withResLocCopy(bquotedFile),
+		withResLocCopy(shellFile),
+		withResLocCopy(cFile),
+	)
+
 	p.fn = g.Or(
 		withResLocCopy(p.buildGitDiff()),
 
-		g.And(
-			// go backwards to compensate middle positions
-			p.revScan.Rule(3000),
-			//coverIndex(index, p.fn), // TODO: revscan alternative
+		//// go backwards to compensate middle positions
+		//g.And(
+		//	p.revScan.Rule(3000),
+		//	files,
+		//),
 
-			g.Or(
-				withResLocCopy(schFile),
-				withResLocCopy(pyFile),
-				withResLocCopy(dquotedFile),
-				withResLocCopy(squotedFile),
-				withResLocCopy(bquotedFile),
-				withResLocCopy(shellFile),
-				withResLocCopy(cFile),
+		// revscan alternative (simpler backward func + brute attempts)
+		g.BruteCoverPosEnd(
+			g.WithBounds(3000, 0,
+				g.And(
+					g.ToLastIndexByteOrStart('\n'),
+					g.Optional(g.Rune('\n')),
+				),
 			),
+			files,
 		),
 	)
 }
@@ -326,27 +337,18 @@ func (p *ResLocParser) buildGitDiff() btparser.MFn {
 	)
 
 	hunk := g.And(
-		// consume in reverse to start of line searching for header
-		g.Optional(g.WithBounds(1000, 0,
-			g.ReverseSource(g.LoopConsumeUntil(
-				g.RuneNotAnyOf('\n'),
-				g.And(
-					g.SeqOrMid(btparser.ReverseString("@@ ")),
-					g.Or(
-						g.Peek(g.Byte('\n')),
-						g.Eof(),
-					),
-				),
-			)),
-		)),
-
-		g.Seq("@@"),
-		g.Spaces(),
-		gitDiffOldRange,
-		g.Spaces(),
-		gitDiffNewRange,
-		g.Spaces(),
-		g.Seq("@@"),
+		g.BruteCoverPos(
+			toLineStart,
+			g.And(
+				g.Seq("@@"),
+				g.Spaces(),
+				gitDiffOldRange,
+				g.Spaces(),
+				gitDiffNewRange,
+				g.Spaces(),
+				g.Seq("@@"),
+			),
+		),
 
 		// consume backwards
 		toLineStart,
