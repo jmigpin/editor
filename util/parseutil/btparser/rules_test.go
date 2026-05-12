@@ -269,10 +269,10 @@ func TestValues1(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !slices.EqualFunc(w, []*Data{
-		&Data{id: "a1", val: 1},
-		&Data{id: "a2", val: true},
-		&Data{id: "a3", val: 3.4},
-		&Data{id: "a4", val: "\"bcd\""},
+		{id: "a1", val: 1},
+		{id: "a2", val: true},
+		{id: "a3", val: 3.4},
+		{id: "a4", val: "\"bcd\""},
 	}, func(a, b *Data) bool {
 		return a.id == b.id && a.val == b.val
 	}) {
