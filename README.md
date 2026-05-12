@@ -684,7 +684,7 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
-- 2026/??/??: v3.13 (work in progress)
+- 2026/05/12: v3.13.0 (237 commits)
 	- added terminal emulator integrated into the editor
 	- added `OpenTerminalEmu` command and direct startup with `-startterminalemu`
 	- added `-emuexec` and trailing command support for terminal-emulator startup
