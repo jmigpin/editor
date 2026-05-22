@@ -412,7 +412,7 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			emu.csiOpTodo(op)
 		}
 	case 'p':
-		if op.footer == '$' && (op.isPriv('?') || op.isPriv(0)) {
+		if op.isFooter('$') && (op.isPriv('?') || op.isPriv(0)) {
 			// DECRQM: request mode
 			// DECRPM: report Mode
 			idA := op.idA()
@@ -430,13 +430,18 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			break
 		}
 
-		if op.isPriv('!') {
+		if op.isFooter('!') {
 			emu.scr.escRis_reset(false)
 			break
 		}
 
 		emu.csiOpTodo(op)
 	case 'q':
+		// DECSCUSR: Set Cursor Style (ignore)
+		if op.isFooter(' ') {
+			break
+		}
+
 		// xterm: XTVERSION query (CSI > q)
 		// Ps defaults to 0, so accept both CSI > q and CSI > 0 q.
 		if op.isPriv('>') && op.A() == 0 {
@@ -444,21 +449,12 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			break
 		}
 
-		// DECLL: Load LEDs
-		switch op.A() {
-		//case 0: // 	clear all leds
-		//case 1: // light nums lock
-		//case 2:
-		//	switch op.B() {
-		//	case 0: // light caps lock
-		//	case 1: // extinguish num lock
-		//	case 2: // extinguish caps lock
-		//	case 3: // extinguish scroll lock
-		//	}
-		//case 3: // light scroll lock
-		default:
-			emu.csiOpTodo(op)
+		// DECLL: Load LEDs (ignore)
+		if op.isFooter(0) {
+			break
 		}
+
+		emu.csiOpTodo(op)
 	case 'r': // DECSTBM: Set Scrolling Region
 		top1, bot1 := op.ADef(1), op.BDef(emu.scr.grid.size.Y)
 		emu.scr.setScrollRegion(top1, bot1)
@@ -496,6 +492,7 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		case '>': // kitty kb protocol: push flags
 		case '<': // kitty kb protocol: pop n
 		case '?': // kitty kb protocol: query flags
+		case '=': // kitty kb protocol: set flags
 		default:
 			emu.csiOpTodo(op)
 		}
@@ -506,6 +503,8 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		} else {
 			emu.csiOpTodo(op)
 		}
+	case 'y': // DECTST: Invoke Confidence Test
+		// Ignore to avoid todo error
 	default:
 		emu.csiOpTodo(op)
 	}

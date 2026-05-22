@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -715,7 +716,9 @@ func _TestSnapshot0(t *testing.T) {
 //----------
 
 type TuiMock struct {
-	ch chan struct{}
+	mu     sync.Mutex
+	ch     chan struct{}
+	Errors []error
 }
 
 func newTuiMock() *TuiMock {
@@ -743,7 +746,19 @@ func (m *TuiMock) Close() error {
 }
 func (m *TuiMock) OnColumnModeChange() {}
 func (m *TuiMock) Paint()              {}
-func (m *TuiMock) Error(err error)     { fmt.Println(err) }
+func (m *TuiMock) Error(err error) {
+	m.mu.Lock()
+	m.Errors = append(m.Errors, err)
+	m.mu.Unlock()
+	fmt.Println(err)
+}
+func (m *TuiMock) GetErrors() []error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	res := make([]error, len(m.Errors))
+	copy(res, m.Errors)
+	return res
+}
 func (m *TuiMock) Print(v any)         { fmt.Println(v) }
 
 //----------
@@ -879,4 +894,47 @@ func printable(s string) string {
 	return b.String()
 }
 
+func TestCsiQ(t *testing.T) {
+	mock := newTuiMock()
+	defer mock.Close()
+
+	emu := NewEmu(mock, mock, Opts{})
+	emu.scr.testing = true
+	emu.SetSize(P{10, 5})
+	defer emu.Close()
+
+	// 1. Send CSI 1 SP q (DECSCUSR)
+	sendWithBarrier(t, emu, "\x1b[1 q")
+
+	// 2. Send CSI 1 q (DECLL)
+	sendWithBarrier(t, emu, "\x1b[1q")
+
+	if errs := mock.GetErrors(); len(errs) > 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+
+	// 3. Send CSI = 0 c (tertiary DA query)
+	send(t, emu, "\x1b[=0c")
+	resp := receive(t, emu, 32)
+	if want := "\x1b[>0;1;1c"; resp != want {
+		t.Fatalf("got tertiary DA response %q, want %q", printable(resp), printable(want))
+	}
+
+	// 4. Send CSI ! p (DECSTR / Soft Reset)
+	sendWithBarrier(t, emu, "\x1b[!p")
+
+	if errs := mock.GetErrors(); len(errs) > 0 {
+		t.Fatalf("unexpected errors after DECSTR: %v", errs)
+	}
+
+	// 5. Send CSI = 1;1 u (kitty kb protocol set flags)
+	sendWithBarrier(t, emu, "\x1b[=1;1u")
+
+	if errs := mock.GetErrors(); len(errs) > 0 {
+		t.Fatalf("unexpected errors after CSI = u: %v", errs)
+	}
+}
+
 //----------
+
+

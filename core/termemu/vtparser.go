@@ -394,8 +394,7 @@ func (p *VTParser) parseCSI(bs []byte, final byte) error {
 
 	// parse header, if any
 	if len(bs) > 0 {
-		switch u := bs[0]; u {
-		case '?', '>', '<', '!':
+		if u := bs[0]; u >= 0x3c && u <= 0x3f { // '<', '=', '>', '?'
 			op.csi.priv = u
 			bs = bs[1:]
 		}
@@ -404,8 +403,7 @@ func (p *VTParser) parseCSI(bs []byte, final byte) error {
 	// parse footer, if any
 	if len(bs) > 0 {
 		k := len(bs) - 1
-		switch u := bs[k]; u {
-		case '$':
+		if u := bs[k]; u >= 0x20 && u <= 0x2f {
 			op.csi.footer = u
 			bs = bs[:k]
 		}
@@ -546,6 +544,9 @@ func (op *TermCsiOp) idA() string {
 }
 func (op *TermCsiOp) isPriv(b byte) bool {
 	return op.priv == b
+}
+func (op *TermCsiOp) isFooter(b byte) bool {
+	return op.footer == b
 }
 func (op *TermCsiOp) paramDef(idx, def int) int {
 	v := op.param(idx)
