@@ -7,12 +7,26 @@ import (
 )
 
 var useSpaceForMargin bool
+var IndentTreeRunes = true
 
 type Indent struct {
 	d *Drawer
 }
 
 func (in *Indent) Init() {}
+
+func (in *Indent) isIndentEmpty(ru rune) bool {
+	if unicode.IsSpace(ru) {
+		return true
+	}
+	if IndentTreeRunes {
+		switch ru {
+		case '│', '─', '├', '└', '┌', '┐', '┘', '┤', '┬', '┴', '┼':
+			return true
+		}
+	}
+	return false
+}
 
 func (in *Indent) Iter() {
 	if in.d.iters.runeR.isNormal() {
@@ -23,7 +37,7 @@ func (in *Indent) Iter() {
 				in.d.st.indent.notStartingSpaces = true
 				in.d.st.indent.indent = 0 // ensure being able to view content
 			} else {
-				if unicode.IsSpace(in.d.st.runeR.ru) {
+				if in.isIndentEmpty(in.d.st.runeR.ru) {
 					in.d.st.indent.indent = penXAdv
 				} else {
 					in.d.st.indent.notStartingSpaces = true
