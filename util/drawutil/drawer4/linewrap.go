@@ -175,6 +175,10 @@ func (lw *LineWrap) postLineWrap() bool {
 }
 
 func (lw *LineWrap) insertWrapRune() bool {
+	if WrapLineRune == 0 {
+		return true
+	}
+
 	// keep state
 	rr := lw.d.st.runeR
 	defer func() {
