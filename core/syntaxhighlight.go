@@ -69,16 +69,21 @@ func detectSetupSyntaxHighlight(erow *ERow) {
 	switch ext {
 	case ".sh",
 		".conf", ".list",
+		".toml", ".yaml", ".yml",
 		".py", // python
 		".pl": // perl
 		setc("#")
 	case ".go",
 		".c", ".h",
 		".cpp", ".hpp", ".cxx", ".hxx", // c++
+		".cu", ".cuh", // cuda
 		".java",
 		".v",  // verilog
-		".js": // javascript
+		".js", // javascript
+		".rs": // rust
 		setc("//", [2]string{"/*", "*/"})
+	case ".zig", ".zon": // zig
+		setc("//")
 	case ".pro": // prolog
 		setc("%", [2]string{"/*", "*/"})
 	case ".html", ".xml", ".svg":
