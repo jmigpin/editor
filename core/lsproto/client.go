@@ -517,20 +517,32 @@ func (cli *Client) TextDocumentPrepareCallHierarchy(ctx context.Context, filenam
 	return result, err
 }
 func (cli *Client) CallHierarchyCalls(ctx context.Context, typ CallHierarchyCallType, item *CallHierarchyItem) ([]*CallHierarchyCall, error) {
-	method := ""
 	switch typ {
 	case IncomingChct:
-		method = "callHierarchy/incomingCalls"
+		opt := &CallHierarchyIncomingCallsParams{Item: item}
+		result := []*CallHierarchyIncomingCall{}
+		if err := cli.Call(ctx, "callHierarchy/incomingCalls", opt, &result); err != nil {
+			return nil, err
+		}
+		res := make([]*CallHierarchyCall, len(result))
+		for i, v := range result {
+			res[i] = &CallHierarchyCall{Item: v.From, FromRanges: v.FromRanges}
+		}
+		return res, nil
 	case OutgoingChct:
-		method = "callHierarchy/outgoingCalls"
+		opt := &CallHierarchyOutgoingCallsParams{Item: item}
+		result := []*CallHierarchyOutgoingCall{}
+		if err := cli.Call(ctx, "callHierarchy/outgoingCalls", opt, &result); err != nil {
+			return nil, err
+		}
+		res := make([]*CallHierarchyCall, len(result))
+		for i, v := range result {
+			res[i] = &CallHierarchyCall{Item: v.To, FromRanges: v.FromRanges}
+		}
+		return res, nil
 	default:
 		panic("bad type")
 	}
-	opt := &CallHierarchyCallsParams{}
-	opt.Item = item
-	result := []*CallHierarchyCall{}
-	err := cli.Call(ctx, method, opt, &result)
-	return result, err
 }
 
 //----------

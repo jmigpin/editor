@@ -277,38 +277,28 @@ type CallHierarchyPrepareParams struct {
 	TextDocumentPositionParams
 }
 
-// Commented: here for doc only; using the unified/simplified version below
-
-//type CallHierarchyIncomingCallsParams struct { // request
-//	Item *CallHierarchyItem `json:"item"`
-//}
-//type CallHierarchyIncomingCall struct { // response
-//	From       *CallHierarchyItem `json:"from"`
-//	FromRanges []*Range           `json:"fromRanges"`
-//}
-
-//type CallHierarchyOutgoingCallsParams struct { // request
-//	Item *CallHierarchyItem `json:"item"`
-//}
-//type CallHierarchyOutgoingCall struct { // response
-//	To         *CallHierarchyItem `json:"to"`
-//	FromRanges []*Range           `json:"fromRanges"`
-//}
-
-type CallHierarchyCallsParams struct { // used in Incoming/Outgoing
+type CallHierarchyIncomingCallsParams struct {
 	Item *CallHierarchyItem `json:"item"`
 }
-type CallHierarchyCall struct { // used in Incoming/Outgoing
-	From       *CallHierarchyItem `json:"from,omitempty"` // incoming
-	To         *CallHierarchyItem `json:"to,omitempty"`   // outgoing
+type CallHierarchyIncomingCall struct {
+	From       *CallHierarchyItem `json:"from"`
 	FromRanges []*Range           `json:"fromRanges"`
 }
 
-func (chc *CallHierarchyCall) Item() *CallHierarchyItem {
-	if chc.From != nil {
-		return chc.From
-	}
-	return chc.To
+type CallHierarchyOutgoingCallsParams struct {
+	Item *CallHierarchyItem `json:"item"`
+}
+type CallHierarchyOutgoingCall struct {
+	To         *CallHierarchyItem `json:"to"`
+	FromRanges []*Range           `json:"fromRanges"`
+}
+
+//----------
+
+// Not part of the protocol, used to unify/simplify
+type CallHierarchyCall struct {
+	Item       *CallHierarchyItem
+	FromRanges []*Range
 }
 
 type CallHierarchyItem struct {

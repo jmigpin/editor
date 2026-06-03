@@ -237,7 +237,7 @@ func ManagerCallHierarchyCallsToString(mcalls []*ManagerCallHierarchyCalls, typ 
 
 		res2 := []string{}
 		for _, call := range mcall.calls {
-			item := call.Item()
+			item := call.Item
 
 			// item for filename
 			fileItem := item
