@@ -274,7 +274,12 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 
 	case event.KSymEscape:
 		return string('\x1b')
+	case event.KSymTabLeft:
+		return termemu.SeqEscCsi + "Z"
 	case event.KSymTab:
+		if mods.HasAny(event.ModShift) {
+			return termemu.SeqEscCsi + "Z"
+		}
 		s := "\t"
 		if mods.HasAny(event.ModAlt) {
 			s = "\x1b" + s
@@ -292,8 +297,8 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 			s = "\x1b" + s
 		}
 
-		// ignore
-		if ev2.Rune >= 0xff00 && ev2.Rune <= 0xffff {
+		// ignore non-printable keysyms mapped to runes (e.g. X11 ISO keys and standard special keys)
+		if ev2.Rune >= 0xfe00 && ev2.Rune <= 0xffff {
 			return ""
 		}
 
