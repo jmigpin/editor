@@ -105,68 +105,46 @@ func (man *Manager) Stop() {
 
 //----------
 
-func (man *Manager) TextDocumentImplementation(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) (string, *Range, error) {
+func (man *Manager) TextDocumentImplementation(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) ([]*Location, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	defer didCloseFn()
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
-	loc, err := cli.TextDocumentImplementation(ctx, filename, pos)
-	if err != nil {
-		return "", nil, err
-	}
-
-	// target filename
-	filename2, err := UrlToAbsFilename(string(loc.Uri))
-	if err != nil {
-		return "", nil, err
-	}
-
-	return filename2, loc.Range, nil
+	return cli.TextDocumentImplementation(ctx, filename, pos)
 }
 
 //----------
 
-func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) (string, *Range, error) {
+func (man *Manager) TextDocumentDefinition(ctx context.Context, filename string, rd iorw.ReaderAt, offset int) ([]*Location, error) {
 	cli, _, err := man.langInstanceClient(ctx, filename)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	didCloseFn, err := man.didOpen(ctx, cli, filename, rd)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	defer didCloseFn()
 
 	pos, err := OffsetToPosition(rd, offset)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
-	loc, err := cli.TextDocumentDefinition(ctx, filename, pos)
-	if err != nil {
-		return "", nil, err
-	}
-
-	// target filename
-	filename2, err := UrlToAbsFilename(string(loc.Uri))
-	if err != nil {
-		return "", nil, err
-	}
-
-	return filename2, loc.Range, nil
+	return cli.TextDocumentDefinition(ctx, filename, pos)
 }
 
 //----------

@@ -157,11 +157,20 @@ func lspDefinition(st *testutil.ST, args []string, man *Manager) error {
 	}
 
 	ctx := context.Background()
-	f, rang, err := man.TextDocumentDefinition(ctx, filename2, rd, offset2)
+	locs, err := man.TextDocumentDefinition(ctx, filename2, rd, offset2)
 	if err != nil {
 		return err
 	}
-	st.Printf("%v %v", f, rang)
+	if len(locs) == 0 {
+		st.Printf("no results")
+		return nil
+	}
+	loc := locs[0]
+	f, err := UrlToAbsFilename(string(loc.Uri))
+	if err != nil {
+		return err
+	}
+	st.Printf("%v %v", f, loc.Range)
 	return nil
 }
 

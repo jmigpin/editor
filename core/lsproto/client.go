@@ -361,7 +361,7 @@ func (cli *Client) TextDocumentDidSave(ctx context.Context, filename string, tex
 
 //----------
 
-func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, pos Position) (*Location, error) {
+func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, pos Position) ([]*Location, error) {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_definition
 
 	opt := &TextDocumentPositionParams{}
@@ -372,19 +372,16 @@ func (cli *Client) TextDocumentDefinition(ctx context.Context, filename string, 
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 
-	result := []*Location{}
+	result := locationResponseUnion{}
 	if err := cli.Call(ctx, "textDocument/definition", opt, &result); err != nil {
 		return nil, err
 	}
-	if len(result) == 0 {
-		return nil, fmt.Errorf("no results")
-	}
-	return result[0], nil // first result only
+	return result.locs, nil
 }
 
 //----------
 
-func (cli *Client) TextDocumentImplementation(ctx context.Context, filename string, pos Position) (*Location, error) {
+func (cli *Client) TextDocumentImplementation(ctx context.Context, filename string, pos Position) ([]*Location, error) {
 	// https://microsoft.github.io/language-server-protocol/specification#textDocument_implementation
 
 	opt := &TextDocumentPositionParams{}
@@ -395,14 +392,11 @@ func (cli *Client) TextDocumentImplementation(ctx context.Context, filename stri
 	}
 	opt.TextDocument.Uri = DocumentUri(url)
 
-	result := []*Location{}
+	result := locationResponseUnion{}
 	if err := cli.Call(ctx, "textDocument/implementation", opt, &result); err != nil {
 		return nil, err
 	}
-	if len(result) == 0 {
-		return nil, fmt.Errorf("no results")
-	}
-	return result[0], nil // first result only
+	return result.locs, nil
 }
 
 //----------

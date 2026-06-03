@@ -26,9 +26,64 @@ type Location struct {
 	Uri   DocumentUri `json:"uri,omitempty"`
 	Range *Range      `json:"range,omitempty"`
 }
+type LocationLink struct {
+	OriginSelectionRange *Range      `json:"originSelectionRange,omitempty"`
+	TargetUri            DocumentUri `json:"targetUri"`
+	TargetRange          *Range      `json:"targetRange"`
+	TargetSelectionRange *Range      `json:"targetSelectionRange"`
+}
 type Range struct {
 	Start Position `json:"start"`
 	End   Position `json:"end"`
+}
+
+//----------
+
+type locationResponseUnion struct {
+	locs []*Location
+	null bool
+}
+
+func (r *locationResponseUnion) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if bytes.Equal(data, []byte("null")) {
+		*r = locationResponseUnion{null: true}
+		return nil
+	}
+
+	// try Location[]
+	var locs []*Location
+	if err := json.Unmarshal(data, &locs); err == nil {
+		*r = locationResponseUnion{locs: locs}
+		return nil
+	}
+
+	// try Location
+	var loc Location
+	if err := json.Unmarshal(data, &loc); err == nil {
+		*r = locationResponseUnion{locs: []*Location{&loc}}
+		return nil
+	}
+
+	// try LocationLink[]
+	var links []*LocationLink
+	if err := json.Unmarshal(data, &links); err == nil {
+		locs := []*Location{}
+		for _, link := range links {
+			loc := &Location{
+				Uri:   link.TargetUri,
+				Range: link.TargetSelectionRange,
+			}
+			if loc.Range == nil {
+				loc.Range = link.TargetRange
+			}
+			locs = append(locs, loc)
+		}
+		*r = locationResponseUnion{locs: locs}
+		return nil
+	}
+
+	return fmt.Errorf("invalid location result shape")
 }
 
 //----------

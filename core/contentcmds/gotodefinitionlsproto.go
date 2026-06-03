@@ -31,10 +31,20 @@ func GoToDefinitionLSProto(ctx context.Context, erow *core.ERow, index int) (err
 		return nil, false
 	}
 
-	filename, rang, err := ed.LSProtoMan.TextDocumentDefinition(ctx, erow.Info.Name(), rw, index)
+	locs, err := ed.LSProtoMan.TextDocumentDefinition(ctx, erow.Info.Name(), rw, index)
 	if err != nil {
 		return err, true
 	}
+	if len(locs) == 0 {
+		return nil, false
+	}
+	loc := locs[0]
+
+	filename, err := lsproto.UrlToAbsFilename(string(loc.Uri))
+	if err != nil {
+		return err, true
+	}
+	rang := loc.Range
 
 	// content reader
 	var rd iorw.ReaderAt
