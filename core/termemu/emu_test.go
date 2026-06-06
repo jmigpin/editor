@@ -366,7 +366,7 @@ func TestCSI_ParamsIgnoreC0(t *testing.T) {
 func TestCSI_ParamsIgnore2(t *testing.T) {
 	te := newTestEmu(newTuiMock(), Opts{}, 20, 3)
 	defer te.Close()
-	seq := "A [2CB[4CC[6CD[8CE[10CF[12CG[14CH[16CI"
+	seq := "A \x1b[\r2CB\x1b[\r4CC\x1b[\r6CD\x1b[\r8CE\x1b[\r10CF\x1b[\r12CG\x1b[\r14CH\x1b[\r16CI"
 	sendWithBarrier(t, te, seq)
 	s := te.Snapshot()
 
@@ -380,7 +380,7 @@ func TestCSI_ParamsIgnore2(t *testing.T) {
 func TestCSI_ParamsIgnore3(t *testing.T) {
 	te := newTestEmu(newTuiMock(), Opts{}, 20, 3)
 	defer te.Close()
-	seq := "A[2CB[2CC[2CD[2CE[2CF[2CG[2CH[2CI[2C"
+	seq := "A\x1b[2\bCB\x1b[2\bCC\x1b[2\bCD\x1b[2\bCE\x1b[2\bCF\x1b[2\bCG\x1b[2\bCH\x1b[2\bCI\x1b[2\bC"
 	sendWithBarrier(t, te, seq)
 	s := te.Snapshot()
 	//s.Print()
@@ -394,7 +394,7 @@ func TestCSI_ParamsIgnore3(t *testing.T) {
 func TestCSI_ParamsIgnore4(t *testing.T) {
 	te := newTestEmu(newTuiMock(), Opts{}, 20, 3)
 	defer te.Close()
-	seq := "[3,1H[20lA [1AB [1AC [1AD [1AE [1AF [1AG [1AH [1AI [1A"
+	seq := "\x1b[3,1H\x1b[20lA \x1b[1\vAB \x1b[1\vAC \x1b[1\vAD \x1b[1\vAE \x1b[1\vAF \x1b[1\vAG \x1b[1\vAH \x1b[1\vAI \x1b[1\vA\r\r"
 	sendWithBarrier(t, te, seq)
 	s := te.Snapshot()
 
@@ -759,7 +759,7 @@ func (m *TuiMock) GetErrors() []error {
 	copy(res, m.Errors)
 	return res
 }
-func (m *TuiMock) Print(v any)         { fmt.Println(v) }
+func (m *TuiMock) Print(v any) { fmt.Println(v) }
 
 //----------
 //----------
@@ -936,5 +936,3 @@ func TestCsiQ(t *testing.T) {
 }
 
 //----------
-
-

@@ -744,7 +744,6 @@ func (erow *ERow) parseTerminalOpts(v string) ERowTermOpts {
 			if set {
 				topt.pty = true
 				topt.forwardKb = true
-				topt.forwardMouse = true
 			}
 		}
 	}

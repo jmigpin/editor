@@ -486,13 +486,13 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 	- `termgray`: render terminal colors in grayscale (default).
 	- `termcolor`: render terminal colors normally.
 	- `syntax`: colorize detected strings/comments (default).
-- `$terminal=<options>`: run commands in this row using a terminal emulator.Options are comma-separated. Negation is supported: ex: `$terminal=emu,no-kb`.
+- `$terminal=<options>`: run commands in this row using a terminal emulator. Options are comma-separated. Negation is supported: ex: `$terminal=emu,no-kb`.
 	- `pty`: run as pseudo-terminal.
 	- `kb`: forward keyboard input to the process. Note: typing keys will not be seen in the textarea unless the running program outputs them.
-	- `mouse`: forward mouse events to the process.
+	- `mouse`: forward mouse events to programs that enable terminal mouse reporting. Ex.: `$terminal=emu,mouse` supports scrolling in `nano -m`.
 	- `raw`: disable input processing (send raw bytes).
 	- `plain`: disable output processing (display raw bytes).
-	- `emu`: shorthand for `pty,kb,mouse`.
+	- `emu`: use grid mode with `pty,kb`.
 	- `rows=N`: set a fixed terminal height (number of rows).
 	- `rows=auto`: use adaptive terminal height (default).
 	- `cols=N`: set a fixed terminal width (number of columns).

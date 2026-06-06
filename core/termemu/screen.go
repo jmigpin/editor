@@ -1129,6 +1129,10 @@ func (m *PrivModes) autoWrap() bool           { return m.isOn("?7") }
 func (m *PrivModes) autoRepeat() bool         { return m.isOn("?8") }
 func (m *PrivModes) showCursor() bool         { return m.isOn("?25") }
 func (m *PrivModes) leftRightMargin() bool    { return m.isOn("?69") }
+func (m *PrivModes) MouseNormal() bool        { return m.isOn("?1000") }
+func (m *PrivModes) MouseButtonEvent() bool   { return m.isOn("?1002") }
+func (m *PrivModes) MouseAnyEvent() bool      { return m.isOn("?1003") }
+func (m *PrivModes) MouseSgr() bool           { return m.isOn("?1006") }
 func (m *PrivModes) AlternateBuffer() bool    { return m.isOn("?1049") }
 func (m *PrivModes) BracketedPaste() bool     { return m.isOn("?2004") }
 func (m *PrivModes) SynchronizedOutput() bool { return m.isOn("?2026") }

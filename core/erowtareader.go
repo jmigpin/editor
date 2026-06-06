@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"image"
 	"io"
 
 	"github.com/jmigpin/editor/core/termemu"
@@ -81,6 +82,14 @@ func (tarc *ERowTaReadCloser) appCursorKeys() bool {
 	return u != nil && u.emu.ScrPrivModes().AppCursorKeys()
 }
 
+func (tarc *ERowTaReadCloser) mousePrivModes() (*termemu.PrivModes, bool) {
+	u := tarc.erow.optTemu
+	if u == nil {
+		return nil, false
+	}
+	return u.emu.ScrPrivModes(), true
+}
+
 //----------
 
 func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
@@ -112,6 +121,15 @@ func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
 		}
 
 		if ok := tarc.mousePaste(ev1, ev2); ok {
+			return
+		}
+
+	case *event.MouseDown:
+		if !tarc.erow.termOpts.forwardMouse {
+			break
+		}
+
+		if ok := tarc.mouseEncode(ev1, ev2); ok {
 			return
 		}
 	}
@@ -158,6 +176,33 @@ func (tarc *ERowTaReadCloser) mousePaste(ev1 *ui.TextAreaInputEvent, ev2 *event.
 	// handled
 	ev1.ReplyHandled = event.Handled(true)
 	return true
+}
+
+func (tarc *ERowTaReadCloser) mouseEncode(ev1 *ui.TextAreaInputEvent, ev2 *event.MouseDown) bool {
+	s := tarc.mouseEncodeToStr(ev1, ev2)
+	if s != "" {
+		if err := tarc.writeToRead(s); err != nil {
+			return false
+		}
+		// handled
+		ev1.ReplyHandled = event.Handled(true)
+		return true
+	}
+	return false
+}
+
+func (tarc *ERowTaReadCloser) mouseEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event.MouseDown) string {
+	pm, ok := tarc.mousePrivModes()
+	if !ok {
+		return ""
+	}
+	mouseSgr := pm.MouseSgr()
+	canMouseWheel := mouseSgr || pm.MouseNormal() || pm.MouseButtonEvent() || pm.MouseAnyEvent()
+	if canMouseWheel {
+		pos := image.Pt(3, 3)
+		return encodeMouseWheelToStr(ev2.Button, ev2.Mods, pos, mouseSgr)
+	}
+	return ""
 }
 
 func (tarc *ERowTaReadCloser) kbCopyingWarning(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
@@ -327,6 +372,44 @@ func (tarc *ERowTaReadCloser) encodeEsc(seq string) string {
 //----------
 //----------
 //----------
+
+func encodeMouseWheelToStr(button event.MouseButton, mods event.KeyModifiers, cell image.Point, sgr bool) string {
+	cb, ok := mouseWheelCb(button)
+	if !ok {
+		return ""
+	}
+
+	mods = normalizeTermKeyMods(mods)
+	if mods.HasAny(event.ModShift) {
+		cb += 4
+	}
+	if mods.HasAny(event.ModAlt) {
+		cb += 8
+	}
+	if mods.HasAny(event.ModCtrl) {
+		cb += 16
+	}
+
+	if sgr {
+		return fmt.Sprintf("%s<%d;%d;%dM", termemu.SeqEscCsi, cb, cell.X, cell.Y)
+	}
+	return string([]byte{0x1b, '[', 'M', byte(cb + 32), byte(cell.X + 32), byte(cell.Y + 32)})
+}
+
+func mouseWheelCb(button event.MouseButton) (int, bool) {
+	switch button {
+	case event.ButtonWheelUp:
+		return 64, true
+	case event.ButtonWheelDown:
+		return 65, true
+	case event.ButtonWheelLeft:
+		return 66, true
+	case event.ButtonWheelRight:
+		return 67, true
+	default:
+		return 0, false
+	}
+}
 
 func encodeCtrl(b byte) byte {
 	if b == '?' { // // special case: Ctrl+? => DEL
