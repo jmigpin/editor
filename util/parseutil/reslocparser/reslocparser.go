@@ -150,6 +150,17 @@ func (p *ResLocParser) init(escape, pathSeparator rune, parseVolume bool) {
 		g.Optional(volume(cPathSep)),
 		cNames,
 	)
+	cGithubLineStart := g.And(
+		g.Seq("#L"),
+		g.Peek(g.Digit()),
+	)
+	cGithubPath := g.And(
+		g.Optional(volume(cPathSep)),
+		g.Loop1(g.And(
+			g.Not(g.Peek(cGithubLineStart)),
+			g.Or(cName, cPathSep),
+		)),
+	)
 	cLineCol := g.And(
 		g.Rune(':'),
 		assignLine(g.VInteger()),
@@ -165,6 +176,19 @@ func (p *ResLocParser) init(escape, pathSeparator rune, parseVolume bool) {
 	cFile := g.And(
 		assignPath(cPath),
 		g.Optional(g.Or(cOffset, cLineCol)),
+	)
+	cGithubLine := g.And(
+		cGithubLineStart,
+		assignLine(g.VInteger()),
+		g.Optional(g.And(
+			g.Seq("-L"),
+			g.Integer(),
+		)),
+		g.Not(g.Or(cName, cPathSep)),
+	)
+	cGithubFile := g.And(
+		assignPath(cGithubPath),
+		cGithubLine,
 	)
 
 	schEscRu := '\\'
@@ -234,6 +258,7 @@ func (p *ResLocParser) init(escape, pathSeparator rune, parseVolume bool) {
 		withResLocCopy(squotedFile),
 		withResLocCopy(bquotedFile),
 		withResLocCopy(shellFile),
+		withResLocCopy(cGithubFile),
 		withResLocCopy(cFile),
 	)
 

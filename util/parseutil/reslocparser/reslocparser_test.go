@@ -232,6 +232,22 @@ func TestResLocParser39(t *testing.T) {
 	out := "/a/b.txt:1"
 	testModeBt1(t, in, out)
 }
+func TestResLocParser40(t *testing.T) {
+	testModeAllIndexes(t, "/a/b/c.go#L100", "/a/b/c.go:100")
+}
+func TestResLocParser41(t *testing.T) {
+	testModeAllIndexes(t, "/a/b/c.go#L100-L120", "/a/b/c.go:100")
+}
+func TestResLocParser42(t *testing.T) {
+	in := "/a/b/file#La●bel.go"
+	out := "/a/b/file#Label.go"
+	testMode1(t, in, out)
+}
+func TestResLocParser43(t *testing.T) {
+	in := "/a/b/file.go#L100.●txt"
+	out := "/a/b/file.go#L100.txt"
+	testMode1(t, in, out)
+}
 
 //----------
 
@@ -248,6 +264,11 @@ func TestResLocParserWin2(t *testing.T) {
 func TestResLocParserWin3(t *testing.T) {
 	in := "..\\\nabc\\●"
 	out := "abc\\"
+	testMode2(t, in, out, '^', '\\', true)
+}
+func TestResLocParserWin4(t *testing.T) {
+	in := "c:\\a\\b.go#L●100-L120"
+	out := "c:\\a\\b.go:100"
 	testMode2(t, in, out, '^', '\\', true)
 }
 
@@ -329,6 +350,14 @@ func testMode1(t *testing.T, in, out string) {
 func testModeBt1(t *testing.T, in, out string) {
 	t.Helper()
 	testMode(t, in, out, testModeOptions{})
+}
+
+func testModeAllIndexes(t *testing.T, in, out string) {
+	t.Helper()
+	for i := 0; i <= len(in); i++ {
+		in2 := in[:i] + "●" + in[i:]
+		testMode(t, in2, out, testModeOptions{})
+	}
 }
 
 func testMode2(t *testing.T, in, out string, esc, psep rune, parseVolume bool) {
