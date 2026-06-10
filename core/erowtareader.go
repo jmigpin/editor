@@ -116,12 +116,11 @@ func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
 		}
 
 	case *event.MouseClick:
-		if !tarc.erow.termOpts.forwardMouse {
-			break
-		}
-
-		if ok := tarc.mousePaste(ev1, ev2); ok {
-			return
+		// Even if not forwarding mouse events, middle-click paste is a text input shortcut (like ctrl+v) and should be handled if keyboard input is enabled.
+		if tarc.erow.termOpts.forwardMouse || tarc.erow.termOpts.forwardKb {
+			if ok := tarc.mousePaste(ev1, ev2); ok {
+				return
+			}
 		}
 
 	case *event.MouseDown:
