@@ -247,6 +247,12 @@ func (emu *Emu) ScrPrivModes() *PrivModes {
 	return emu.scr.privModes.clone()
 }
 
+func (emu *Emu) SetLNM(on bool) {
+	emu.mu.Lock()
+	defer emu.mu.Unlock()
+	emu.scr.privModes.set("20", on)
+}
+
 //----------
 //----------
 

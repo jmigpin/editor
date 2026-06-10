@@ -1098,7 +1098,6 @@ type PrivModes struct {
 func newPrivModes() *PrivModes {
 	m := &PrivModes{m: make(map[string]bool)}
 	// defaults
-	m.set("20", true)  // line feed newline
 	m.set("?2", true)  // ansi
 	m.set("?7", true)  // auto wrap
 	m.set("?25", true) // show cursor

@@ -27,6 +27,8 @@ func newERowTermEmu(erow *ERow, rwc io.ReadWriteCloser) *ERowTermEmu {
 
 	temu.tui = newERowTermEmuUI(temu)
 	temu.emu = termemu.NewEmu(temu.userRwc, temu.tui, erow.termOpts.emuOpts)
+	// Enable LNM initially so editor prints (like pid prints or errors) and non-pty outputs avoid staircase formatting.
+	temu.emu.SetLNM(true)
 	temu.ReadWriteCloser = temu.emu
 
 	// Publish only after emu is ready; layout callbacks can re-enter during row creation.
@@ -78,6 +80,8 @@ func (temu *ERowTermEmu) setPtySize(cr, psize P) error {
 }
 
 func (temu *ERowTermEmu) onPtyStart() error {
+	// Disable LNM when PTY starts to let raw mode / TUI programs handle newlines according to spec.
+	temu.emu.SetLNM(false)
 	cr := temu.emu.GetSize()
 	psize := P{1, 1}
 	return temu.setPtySize(cr, psize)

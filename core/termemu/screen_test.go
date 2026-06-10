@@ -439,6 +439,7 @@ func writeScreenString(s *Screen, str string) {
 	for _, ru := range str {
 		switch ru {
 		case '\n':
+			s.carriageReturn()
 			s.lineFeed()
 		case '\r':
 			s.carriageReturn()
