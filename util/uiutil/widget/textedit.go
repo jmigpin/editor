@@ -30,9 +30,7 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 	te.RWEvReg.Add(iorw.RWEvIdWrite2, te.onWrite2)
 
 	hist := rwundo.NewHistory(200)
-	rwac := te.rwev
-	//rwac := newAdjustCursorRWAt(te, te.rwev) // TODO: messes up position in the case of moving lines up/down
-	te.rwu = rwundo.NewRWUndo(rwac, hist)
+	te.rwu = rwundo.NewRWUndo(te.rwev, hist)
 
 	te.ctx = rwedit.NewCtx()
 	te.ctx.RW = te.rwu
@@ -172,11 +170,33 @@ func (te *TextEdit) OnInputEvent(ev any, p image.Point) event.Handled {
 //----------
 
 func (te *TextEdit) SetBytes(b []byte) error {
+	ci := te.Cursor().Index()
+	hasCursor := false
+	atEnd := false
+	var pos StableCursorPos
+	if ci >= 0 && ci <= te.RW().Max() {
+		hasCursor = true
+		if ci == te.RW().Max() {
+			atEnd = true
+		} else {
+			pos = GetStableCursorPos(te.RW(), ci)
+		}
+	}
+
 	te.BeginUndoGroup()
 	defer te.EndUndoGroup()
 	defer func() {
 		// because after setbytes the possible selection might not be correct (ex: go fmt; variable renames with lsprotorename)
 		te.ctx.C.SetSelectionOff()
+		if hasCursor {
+			newIdx := 0
+			if atEnd {
+				newIdx = te.RW().Max()
+			} else {
+				newIdx = FindStableCursorIndex(te.RW(), pos)
+			}
+			te.ctx.C.SetIndex(newIdx)
+		}
 	}()
 	return iorw.SetBytes(te.ctx.RW, b)
 }
@@ -197,10 +217,33 @@ func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 	return te.OverwriteBytesClearHistory(te.RW().Max(), 0, b)
 }
 func (te *TextEdit) OverwriteBytesClearHistory(i, del int, b []byte) error {
+	ci := te.Cursor().Index()
+	hasCursor := false
+	atEnd := false
+	var pos StableCursorPos
+	if ci >= 0 && ci <= te.RW().Max() {
+		hasCursor = true
+		if ci == te.RW().Max() {
+			atEnd = true
+		} else {
+			pos = GetStableCursorPos(te.RW(), ci)
+		}
+	}
+
 	te.rwu.History.Clear()
 	rw := te.rwu.ReadWriterAt // bypass history
 	if err := rw.OverwriteAt(i, del, b); err != nil {
 		return err
+	}
+
+	if hasCursor {
+		newIndex := 0
+		if atEnd {
+			newIndex = te.RW().Max()
+		} else {
+			newIndex = FindStableCursorIndex(te.RW(), pos)
+		}
+		te.Cursor().SetIndexSelectionOff(newIndex)
 	}
 	return nil
 }
@@ -259,74 +302,112 @@ func (te *TextEdit) stableCursor(ev *iorw.RWEvWrite) {
 //----------
 //----------
 
-type AdjustCursorRWAt struct {
-	iorw.ReadWriterAt
-	te *TextEdit
+const stableCursorWindowSize = 2048
+
+// StableCursorPos holds a relative cursor position from a window start, facilitating O(1) cursor visual position preservation.
+type StableCursorPos struct {
+	Offset int // The byte offset of the window start.
+	Line   int // The number of newlines from Offset to the cursor's line.
+	Col    int // The rune column from the start of the line.
 }
 
-func newAdjustCursorRWAt(te *TextEdit, u iorw.ReadWriterAt) *AdjustCursorRWAt {
-	rwat := &AdjustCursorRWAt{}
-	rwat.te = te
-	rwat.ReadWriterAt = u
-	return rwat
-}
-
-func (rwat AdjustCursorRWAt) OverwriteAt(i, del int, p []byte) error {
-	ci := rwat.te.ctx.C.Index()
-	ci0 := ci
-
-	// find line/col location between i and ci
-	if i < ci0 {
-		// read current bytes
-		n := ci0 - i
-		b, err := rwat.ReadFastAt(i, n)
-		if err != nil {
-			return err
-		}
-
-		// find line/col
-		b2 := b[:n]
-		line, col := 0, 0
-		for {
-			if k := bytes.IndexByte(b2, '\n'); k >= 0 {
-				line++
-				b2 = b2[k+1:]
-			} else {
-				break
-			}
-		}
-		col = utf8.RuneCount(b2)
-
-		// make insertion
-		if err := rwat.ReadWriterAt.OverwriteAt(i, del, p); err != nil {
-			return err
-		}
-
-		// get to line
-		pos := 0
-		p2 := p
-		for ; line > 0; line-- {
-			if k := bytes.IndexByte(p2, '\n'); k >= 0 {
-				k++
-				pos += k
-				p2 = p2[k:]
-			} else {
-				break
-			}
-		}
-		// get to col
-		k := bytes.IndexByte(p2, '\n')
-		if k < 0 {
-			k = 0
-		}
-		p2 = p2[:k]
-		rus := []rune(string(p2))
-		col = min(col, len(rus))
-		pos += len(string(rus[:col]))
-
-		rwat.te.ctx.C.SetIndex(i + pos)
-		return nil
+// GetStableCursorPos returns a cursor position relative to a window start to avoid performance issues on large files.
+func GetStableCursorPos(rw iorw.ReaderAt, ci int) StableCursorPos {
+	if ci < 0 || ci > rw.Max() {
+		return StableCursorPos{}
 	}
 
-	return rwat.ReadWriterAt.OverwriteAt(i, del, p)
+	startOffset := ci - stableCursorWindowSize
+	if startOffset < 0 {
+		startOffset = 0
+	}
+
+	lines := 0
+	lineStart := startOffset
+	b, err := rw.ReadFastAt(startOffset, ci-startOffset)
+	if err == nil {
+		b2 := b
+		lastNL := -1
+		for i, c := range b2 {
+			if c == '\n' {
+				lines++
+				lastNL = i
+			}
+		}
+		if lastNL >= 0 {
+			lineStart = startOffset + lastNL + 1
+		}
+	}
+
+	col := 0
+	bCol, err := rw.ReadFastAt(lineStart, ci-lineStart)
+	if err == nil {
+		col = utf8.RuneCount(bCol)
+	}
+
+	return StableCursorPos{
+		Offset: startOffset,
+		Line:   lines,
+		Col:    col,
+	}
+}
+
+// FindStableCursorIndex maps a stable cursor position back into a byte index for the given text reader by scanning from the stored offset.
+func FindStableCursorIndex(rw iorw.ReaderAt, pos StableCursorPos) int {
+	offset := pos.Offset
+	max := rw.Max()
+	if offset > max {
+		offset = max
+	}
+
+	chunkSize := stableCursorWindowSize*2 + pos.Line*100 + pos.Col*4
+	if offset+chunkSize > max {
+		chunkSize = max - offset
+	}
+
+	b, err := rw.ReadFastAt(offset, chunkSize)
+	if err != nil {
+		return offset
+	}
+
+	byteOffset := offset
+	p2 := b
+	line := pos.Line
+	for ; line > 0; line-- {
+		if k := bytes.IndexByte(p2, '\n'); k >= 0 {
+			k++
+			byteOffset += k
+			p2 = p2[k:]
+		} else {
+			if offset+chunkSize < max {
+				bRest, err := rw.ReadFastAt(byteOffset, max-byteOffset)
+				if err == nil {
+					p2 = bRest
+					if k2 := bytes.IndexByte(p2, '\n'); k2 >= 0 {
+						k2++
+						byteOffset += k2
+						p2 = p2[k2:]
+						continue
+					}
+				}
+			}
+			break
+		}
+	}
+
+	k := bytes.IndexByte(p2, '\n')
+	if k < 0 {
+		k = len(p2)
+	} else {
+		p2 = p2[:k]
+	}
+
+	rus := []rune(string(p2))
+	col := min(pos.Col, len(rus))
+	byteOffset += len(string(rus[:col]))
+
+	if byteOffset > max {
+		byteOffset = max
+	}
+	return byteOffset
 }

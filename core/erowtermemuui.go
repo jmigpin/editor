@@ -103,6 +103,7 @@ func (tui *ERowTermEmuUI) paint2() {
 	scr := tui.temu.emu.Snapshot()
 	ops, bs := tui.paintOpsBytes(scr)
 	ta := tui.temu.erow.Row.TextArea
+
 	ta.SetTerminalColorOps(ops)
 	ta.SetTerminalDecorations(tui.dec)
 	tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
