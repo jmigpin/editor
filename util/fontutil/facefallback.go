@@ -6,6 +6,7 @@ import (
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
+	"golang.org/x/text/width"
 )
 
 type FaceFallback struct {
@@ -43,34 +44,37 @@ func (ff *FaceFallback) Glyph(dot fixed.Point26_6, ru rune) (
 ) {
 	if face := ff.face(ru); face != nil {
 		dr, mask, maskp, advance, ok = face.Glyph(dot, ru)
-		if ff.IsMono {
-			advance = ff.MonoAdv
-		}
-		return
+	} else {
+		dr, mask, maskp, advance, ok = ff.Face.Glyph(dot, ru)
 	}
-	return ff.Face.Glyph(dot, ru)
+	if ff.IsMono {
+		advance = ff.MonoAdv * fixed.Int26_6(runeMonoWidthMult(ru))
+	}
+	return
 }
 
 func (ff *FaceFallback) GlyphBounds(ru rune) (bounds fixed.Rectangle26_6, advance fixed.Int26_6, ok bool) {
 	if face := ff.face(ru); face != nil {
 		bounds, advance, ok = face.GlyphBounds(ru)
-		if ff.IsMono {
-			advance = ff.MonoAdv
-		}
-		return
+	} else {
+		bounds, advance, ok = ff.Face.GlyphBounds(ru)
 	}
-	return ff.Face.GlyphBounds(ru)
+	if ff.IsMono {
+		advance = ff.MonoAdv * fixed.Int26_6(runeMonoWidthMult(ru))
+	}
+	return
 }
 
 func (ff *FaceFallback) GlyphAdvance(ru rune) (advance fixed.Int26_6, ok bool) {
 	if face := ff.face(ru); face != nil {
 		advance, ok = face.GlyphAdvance(ru)
-		if ff.IsMono {
-			advance = ff.MonoAdv
-		}
-		return
+	} else {
+		advance, ok = ff.Face.GlyphAdvance(ru)
 	}
-	return ff.Face.GlyphAdvance(ru)
+	if ff.IsMono {
+		advance = ff.MonoAdv * fixed.Int26_6(runeMonoWidthMult(ru))
+	}
+	return
 }
 
 func (ff *FaceFallback) Kern(r0, r1 rune) fixed.Int26_6 {
@@ -110,7 +114,9 @@ func (ff *FaceFallback) face(ru rune) font.Face {
 		}
 
 		// check width (only for mono)
-		if ff.IsMono && adv > ff.MonoAdv {
+		maxAdv := ff.MonoAdv * fixed.Int26_6(runeMonoWidthMult(ru))
+		// Allow up to 40% width overflow to prevent wide/emoji runes from shrinking
+		if ff.IsMono && adv > maxAdv*140/100 {
 			continue
 		}
 
@@ -129,7 +135,7 @@ func (ff *FaceFallback) face(ru rune) font.Face {
 //----------
 
 func NewFallbackFaces(fallbackFont *Font, fopts FaceOptions) []font.Face {
-	scales := []float64{1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4}
+	scales := []float64{1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5}
 	faces := make([]font.Face, len(scales))
 	for i, p := range scales {
 		fopts2 := fopts
@@ -137,4 +143,15 @@ func NewFallbackFaces(fallbackFont *Font, fopts FaceOptions) []font.Face {
 		faces[i] = mustNewFace(fallbackFont.Font, &fopts2.opts)
 	}
 	return faces
+}
+
+//----------
+
+func runeMonoWidthMult(ru rune) int {
+	p := width.LookupRune(ru)
+	k := p.Kind()
+	if k == width.EastAsianWide || k == width.EastAsianFullwidth {
+		return 2
+	}
+	return 1
 }

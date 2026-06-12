@@ -6,6 +6,8 @@ import (
 	"image"
 	"maps"
 	"slices"
+
+	"golang.org/x/text/width"
 )
 
 type Screen struct {
@@ -202,9 +204,12 @@ func (s *Screen) putRune(ru rune) {
 		ru = mapDecSpecial(ru)
 	}
 
+	w := runeWidth(ru)
+	maxBoundX := s.dynBounds(s.cursor).Max.X
+
 	if s.privModes.insert() {
 		s.cancelWrap()
-		s.csiIch_insertChars(1)
+		s.csiIch_insertChars(w)
 	} else {
 		// apply pending wrap first
 		if s.wrapNext {
@@ -214,27 +219,62 @@ func (s *Screen) putRune(ru rune) {
 				line := s.grid.line(s.cursor.Y)
 				line.Wrapped = true
 				// UX-ADAPTATION: truncate any old off-screen data to ensure clean visual wrap in the editor.
-				line.cells = line.cells[:s.grid.size.X]
+				line.cells = line.cells[:maxBoundX]
 			}
 
 			s.carriageReturn()
 			s.lineFeed()
+		} else if w == 2 && s.cursor.X >= maxBoundX-1 {
+			// If printing a double-width character at the last column, wrap first
+			if s.privModes.autoWrap() {
+				if s.wrapExtendedMode {
+					line := s.grid.line(s.cursor.Y)
+					line.Wrapped = true
+					line.cells = line.cells[:maxBoundX]
+				}
+				s.carriageReturn()
+				s.lineFeed()
+			}
 		}
 	}
 
-	*s.grid.cell(s.cursor) = Cell{R: ru, A: s.curAttr}
+	line := s.grid.line(s.cursor.Y)
+	X := s.cursor.X
+
+	// Handle overwrites / cell orphaning
+	// Case A: Overwriting a placeholder cell clears the corresponding double-width character on the left
+	if X > 0 && line.cell(X).R == doubleWidthPlaceholderRune {
+		line.cell(X - 1).R = 0
+	}
+	// Case B: Overwriting a double-width character clears its corresponding placeholder cell on the right
+	if X < maxBoundX-1 && runeWidth(line.cell(X).R) == 2 {
+		line.cell(X + 1).R = 0
+	}
+
+	// Write the rune
+	*line.cell(X) = Cell{R: ru, A: s.curAttr}
+
+	// If it is a double-width rune, write the placeholder to the next cell
+	if w == 2 && X < maxBoundX-1 {
+		// Case C: Overwriting the start of a double-width character at X+1 clears its corresponding placeholder cell at X+2
+		if X+1 < maxBoundX-1 && runeWidth(line.cell(X+1).R) == 2 {
+			line.cell(X + 2).R = 0
+		}
+		*line.cell(X + 1) = Cell{R: doubleWidthPlaceholderRune, A: s.curAttr}
+	}
 
 	if s.privModes.insert() {
-		s.cursor.X++
+		s.cursor.X += w
 		clampInX(&s.cursor.X, s.grid.bounds())
 	} else {
-		if s.cursor.X >= s.dynBounds(s.cursor).Max.X-1 {
+		advX := X + w
+		if advX >= maxBoundX {
+			s.cursor.X = maxBoundX - 1
 			if s.privModes.autoWrap() {
-				// do not move now; set wrap for the *next* printable
 				s.wrapNext = true
-			} // else: stay at last column, overwrite
+			}
 		} else {
-			s.cursor.X++
+			s.cursor.X = advX
 		}
 	}
 }
@@ -1202,4 +1242,17 @@ func ClampMinValidGridSize(p P) P {
 	p.X = max(p.X, p2.X)
 	p.Y = max(p.Y, p2.Y)
 	return p
+}
+
+//----------
+
+const doubleWidthPlaceholderRune rune = -3
+
+func runeWidth(r rune) int {
+	p := width.LookupRune(r)
+	k := p.Kind()
+	if k == width.EastAsianWide || k == width.EastAsianFullwidth {
+		return 2
+	}
+	return 1
 }

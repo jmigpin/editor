@@ -103,12 +103,15 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		for x := range len(line.cells) {
 			cell := line.cell(x)
 
-			offset := buf.Len()
-
 			if x >= max2 {
 				break
 			}
 
+			if cell.R == doubleWidthPlaceholderRune {
+				continue
+			}
+
+			offset := buf.Len()
 			ru := cell.printableRune()
 			cursor := isCursor(x, y)
 
