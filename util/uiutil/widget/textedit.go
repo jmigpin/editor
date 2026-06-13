@@ -222,15 +222,10 @@ func (te *TextEdit) AppendBytesClearHistory(b []byte) error {
 func (te *TextEdit) OverwriteBytesClearHistory(i, del int, b []byte) error {
 	ci := te.Cursor().Index()
 	hasCursor := false
-	atEnd := false
 	var pos StableCursorPos
 	if ci >= 0 && ci <= te.RW().Max() {
 		hasCursor = true
-		if ci == te.RW().Max() {
-			atEnd = true
-		} else {
-			pos = GetStableCursorPos(te.RW(), ci)
-		}
+		pos = GetStableCursorPos(te.RW(), ci)
 	}
 
 	te.rwu.History.Clear()
@@ -240,12 +235,7 @@ func (te *TextEdit) OverwriteBytesClearHistory(i, del int, b []byte) error {
 	}
 
 	if hasCursor {
-		newIndex := 0
-		if atEnd {
-			newIndex = te.RW().Max()
-		} else {
-			newIndex = FindStableCursorIndex(te.RW(), pos)
-		}
+		newIndex := FindStableCursorIndex(te.RW(), pos)
 		te.Cursor().SetIndexSelectionOff(newIndex)
 	}
 	return nil
@@ -310,6 +300,7 @@ const stableCursorWindowSize = 2048
 // StableCursorPos holds a relative cursor position from a window start, facilitating O(1) cursor visual position preservation.
 type StableCursorPos struct {
 	Offset int
+	Index  int
 	Line   int
 	Col    int // rune column
 }
@@ -327,12 +318,13 @@ func GetStableCursorPos(rw iorw.ReaderAt, ci int) StableCursorPos {
 
 	b, err := rw.ReadFastAt(startOffset, ci-startOffset)
 	if err != nil {
-		return StableCursorPos{Offset: startOffset}
+		return StableCursorPos{Offset: startOffset, Index: ci}
 	}
 
 	line, col := parseutil.IndexLineColumnFn(b, len(b), isNlOrWrap)
 	return StableCursorPos{
 		Offset: startOffset,
+		Index:  ci,
 		Line:   line,
 		Col:    col,
 	}
@@ -358,7 +350,7 @@ func FindStableCursorIndex(rw iorw.ReaderAt, pos StableCursorPos) int {
 
 	relOffset, err := parseutil.LineColumnIndexFn(b, pos.Line, pos.Col, isNlOrWrap)
 	if err != nil {
-		return rw.Max()
+		return min(pos.Index, max)
 	}
 
 	byteOffset := pos.Offset + relOffset

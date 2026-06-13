@@ -106,3 +106,25 @@ func TestStableCursorStartOfLine(t *testing.T) {
 		t.Fatalf("expected restored index 0 (start of line), got %d", newIdx)
 	}
 }
+
+func TestStableCursorEndDoesNotFollowAppend(t *testing.T) {
+	content := "bash$ "
+	rw1 := iorw.NewStringReaderAt(content)
+	pos := GetStableCursorPos(rw1, len(content))
+
+	rw2 := iorw.NewStringReaderAt(content + "echo")
+	if got, want := FindStableCursorIndex(rw2, pos), len(content); got != want {
+		t.Fatalf("got index %d, want %d", got, want)
+	}
+}
+
+func TestStableCursorMissingLineKeepsIndex(t *testing.T) {
+	rw1 := iorw.NewStringReaderAt("line1\nline2\nline3")
+	index := len("line1\nline2\n")
+	pos := GetStableCursorPos(rw1, index)
+
+	rw2 := iorw.NewStringReaderAt("single line with enough content")
+	if got, want := FindStableCursorIndex(rw2, pos), index; got != want {
+		t.Fatalf("got index %d, want %d", got, want)
+	}
+}
