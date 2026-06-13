@@ -103,3 +103,36 @@ func TestLineColumnIndex1(t *testing.T) {
 		t.Fatal(i, rw.Max())
 	}
 }
+
+func TestLineColumnIndex2Bytes(t *testing.T) {
+	s := "123\n123\n123"
+	b := []byte(s)
+	isNewline := func(ru rune) bool { return ru == '\n' }
+
+	l, c := IndexLineColumnFn(b, 0, isNewline)
+	i, err := LineColumnIndexFn(b, l, c, isNewline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i != 0 {
+		t.Fatal(i)
+	}
+
+	l2, c2 := IndexLineColumnFn(b, len(b), isNewline)
+	i2, err2 := LineColumnIndexFn(b, l2, c2, isNewline)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	if i2 != len(b) {
+		t.Fatal(i2)
+	}
+
+	// test out of bounds line column behavior
+	i3, err3 := LineColumnIndexFn(b, 2, 10, isNewline)
+	if err3 != nil {
+		t.Fatal(err3)
+	}
+	if i3 != 11 { // end of line 3 (index 11)
+		t.Fatal(i3)
+	}
+}

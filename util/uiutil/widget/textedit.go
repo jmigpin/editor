@@ -1,14 +1,14 @@
 package widget
 
 import (
-	"bytes"
 	"image"
-	"unicode/utf8"
 
 	"github.com/jmigpin/editor/util/evreg"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 	"github.com/jmigpin/editor/util/iout/iorw/rwundo"
+	"github.com/jmigpin/editor/util/parseutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -306,12 +306,12 @@ const stableCursorWindowSize = 2048
 
 // StableCursorPos holds a relative cursor position from a window start, facilitating O(1) cursor visual position preservation.
 type StableCursorPos struct {
-	Offset int // The byte offset of the window start.
-	Line   int // The number of newlines from Offset to the cursor's line.
-	Col    int // The rune column from the start of the line.
+	Offset int
+	Line   int
+	Col    int // rune column
 }
 
-// GetStableCursorPos returns a cursor position relative to a window start to avoid performance issues on large files.
+// cursor position relative to a window start to avoid performance issues on large files.
 func GetStableCursorPos(rw iorw.ReaderAt, ci int) StableCursorPos {
 	if ci < 0 || ci > rw.Max() {
 		return StableCursorPos{}
@@ -322,37 +322,20 @@ func GetStableCursorPos(rw iorw.ReaderAt, ci int) StableCursorPos {
 		startOffset = 0
 	}
 
-	lines := 0
-	lineStart := startOffset
 	b, err := rw.ReadFastAt(startOffset, ci-startOffset)
-	if err == nil {
-		b2 := b
-		lastNL := -1
-		for i, c := range b2 {
-			if c == '\n' {
-				lines++
-				lastNL = i
-			}
-		}
-		if lastNL >= 0 {
-			lineStart = startOffset + lastNL + 1
-		}
+	if err != nil {
+		return StableCursorPos{Offset: startOffset}
 	}
 
-	col := 0
-	bCol, err := rw.ReadFastAt(lineStart, ci-lineStart)
-	if err == nil {
-		col = utf8.RuneCount(bCol)
-	}
-
+	line, col := parseutil.IndexLineColumnFn(b, len(b), isNlOrWrap)
 	return StableCursorPos{
 		Offset: startOffset,
-		Line:   lines,
+		Line:   line,
 		Col:    col,
 	}
 }
 
-// FindStableCursorIndex maps a stable cursor position back into a byte index for the given text reader by scanning from the stored offset.
+// maps a stable cursor position back into a byte index for the given text reader by scanning from the stored offset.
 func FindStableCursorIndex(rw iorw.ReaderAt, pos StableCursorPos) int {
 	offset := pos.Offset
 	max := rw.Max()
@@ -370,44 +353,20 @@ func FindStableCursorIndex(rw iorw.ReaderAt, pos StableCursorPos) int {
 		return offset
 	}
 
-	byteOffset := offset
-	p2 := b
-	line := pos.Line
-	for ; line > 0; line-- {
-		if k := bytes.IndexByte(p2, '\n'); k >= 0 {
-			k++
-			byteOffset += k
-			p2 = p2[k:]
-		} else {
-			if offset+chunkSize < max {
-				bRest, err := rw.ReadFastAt(byteOffset, max-byteOffset)
-				if err == nil {
-					p2 = bRest
-					if k2 := bytes.IndexByte(p2, '\n'); k2 >= 0 {
-						k2++
-						byteOffset += k2
-						p2 = p2[k2:]
-						continue
-					}
-				}
-			}
-			break
-		}
+	relOffset, err := parseutil.LineColumnIndexFn(b, pos.Line, pos.Col, isNlOrWrap)
+	if err != nil {
+		return rw.Max()
 	}
 
-	k := bytes.IndexByte(p2, '\n')
-	if k < 0 {
-		k = len(p2)
-	} else {
-		p2 = p2[:k]
-	}
-
-	rus := []rune(string(p2))
-	col := min(pos.Col, len(rus))
-	byteOffset += len(string(rus[:col]))
-
+	byteOffset := pos.Offset + relOffset
 	if byteOffset > max {
 		byteOffset = max
 	}
 	return byteOffset
+}
+
+//----------
+
+func isNlOrWrap(ru rune) bool {
+	return ru == '\n' || ru == fontutil.TermWrapContinuousRune || ru == fontutil.TermWrapNewlineRune
 }

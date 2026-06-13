@@ -3,6 +3,7 @@ package parseutil
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/url"
 	"path/filepath"
 	"runtime"
@@ -163,6 +164,26 @@ func ExpandIndexesEscape2(rd iorw.ReaderAt, index int, truth bool, fn func(rune)
 
 //----------
 
+// Returned line/col values are one-based.
+func IndexLineColumn(rd iorw.ReaderAt, index int) (int, int, error) {
+	line, lineStart := 0, 0
+	ri := 0
+	for ri < index {
+		ru, size, err := iorw.ReadRuneAt(rd, ri)
+		if err != nil {
+			return 0, 0, err
+		}
+		ri += size
+		if ru == '\n' {
+			line++
+			lineStart = ri
+		}
+	}
+	line++                    // first line is 1
+	col := ri - lineStart + 1 // first column is 1
+	return line, col, nil
+}
+
 // Line/col args are one-based.
 func LineColumnIndex(rd iorw.ReaderAt, line, column int) (int, error) {
 	// must have a good line
@@ -213,28 +234,10 @@ func LineColumnIndex(rd iorw.ReaderAt, line, column int) (int, error) {
 	return index, nil
 }
 
-// Returned line/col values are one-based.
-func IndexLineColumn(rd iorw.ReaderAt, index int) (int, int, error) {
-	line, lineStart := 0, 0
-	ri := 0
-	for ri < index {
-		ru, size, err := iorw.ReadRuneAt(rd, ri)
-		if err != nil {
-			return 0, 0, err
-		}
-		ri += size
-		if ru == '\n' {
-			line++
-			lineStart = ri
-		}
-	}
-	line++                    // first line is 1
-	col := ri - lineStart + 1 // first column is 1
-	return line, col, nil
-}
+//----------
 
-// Returned line/col values are one-based.
-func IndexLineColumn2(b []byte, index int) (int, int) {
+// Returned line/runecol values are zero-based.
+func IndexLineColumnFn(b []byte, index int, isNewline func(rune) bool) (int, int) {
 	line, lineStart := 0, 0
 	ri := 0
 	for ri < index {
@@ -243,14 +246,62 @@ func IndexLineColumn2(b []byte, index int) (int, int) {
 			break
 		}
 		ri += size
-		if ru == '\n' {
+		if isNewline(ru) {
 			line++
 			lineStart = ri
 		}
 	}
-	line++                    // first line is 1
-	col := ri - lineStart + 1 // first column is 1
+	col := utf8.RuneCount(b[lineStart:ri])
 	return line, col
+}
+
+// Line/runecol args are zero-based.
+func LineColumnIndexFn(b []byte, line, column int, isNewline func(rune) bool) (int, error) {
+	index := -1
+	l := 0
+	ri := 0
+	runeCount := 0
+	for {
+		if l == line {
+			index = ri // keep current position as best match so far
+
+			if runeCount >= column {
+				break
+			}
+		} else if l > line {
+			break
+		}
+
+		if ri >= len(b) {
+			// be tolerant about the column
+			if index >= 0 {
+				return index, nil
+			}
+			return 0, io.EOF
+		}
+
+		ru, size := utf8.DecodeRune(b[ri:])
+		if size == 0 {
+			if index >= 0 {
+				return index, nil
+			}
+			return 0, io.EOF
+		}
+
+		if l == line {
+			runeCount++
+		}
+
+		ri += size
+		if isNewline(ru) {
+			l++
+			runeCount = 0
+		}
+	}
+	if index < 0 {
+		return 0, fmt.Errorf("line not found: %v", line)
+	}
+	return index, nil
 }
 
 //----------
