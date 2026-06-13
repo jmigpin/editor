@@ -606,7 +606,7 @@ func (erow *ERow) termAvailableSize(fface *fontutil.FontFace) (cr, px, fullPx im
 
 	fullPx = erow.textareaPixelSize()
 
-	sx2 := max(fullPx.X-rw, 0) // newline margin
+	sx2 := max(fullPx.X, 0)
 	sy2 := max(fullPx.Y, 0)
 	px = image.Point{sx2, sy2}
 
@@ -642,8 +642,8 @@ func (erow *ERow) termFontFaceAuto(targetCr, fullPx image.Point, origFace *fontu
 	fits := func(p float64) bool {
 		x, y := runeSize(p)
 		_ = y
-		// newline margin: (targetCols + 1) * fontWidth <= totalWidth
-		return (targetCr.X+1)*x <= fullPx.X // && targetCr.Y*y <= fullArea.Y
+		// no newline margin needed: targetCols * fontWidth <= totalWidth
+		return targetCr.X*x <= fullPx.X // && targetCr.Y*y <= fullArea.Y
 	}
 
 	// linear search starting from original size downwards, snapping to 0.5 multiples

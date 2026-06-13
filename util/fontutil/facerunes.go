@@ -8,10 +8,19 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-var TabWidth = 8 // n times the space glyph
-var noRune = '◦' // white bullet: '◦',alternative: '�'
-var nullRune = noRune
+var TabWidth = 8   // n times the space glyph
+var nullRune = '◦' // white bullet: '◦',alternative: '�'
+var noRune = nullRune
 var CarriageReturnRune = '␍' // C/R symbol: '␍'; old: '♪'
+
+const (
+	EofRune = 0xe000 + iota
+	TermWrapContinuousRune
+	TermWrapNewlineRune
+	//TermCursorRune
+)
+
+//----------
 
 // Special runes face
 type FaceRunes struct {
@@ -76,22 +85,18 @@ func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
 		ru := nullRune
 		adv, ok := fr.Face.GlyphAdvance(ru)
 		return ru, adv, ok
-	case -1: // -1=eof
-		ru := ' '
+	case EofRune, TermWrapNewlineRune, TermWrapContinuousRune:
+		ru := '\u200b' // zero width space rune
 		return ru, 0, true
 	}
 
 	if fr.useNoRune(ru0) {
-		return fr.noRuneReplace()
+		ru := noRune
+		adv, ok := fr.Face.GlyphAdvance(ru)
+		return ru, adv, ok
 	}
 
 	return 0, 0, false
-}
-
-func (fr *FaceRunes) noRuneReplace() (rune, fixed.Int26_6, bool) {
-	ru := noRune
-	adv, ok := fr.Face.GlyphAdvance(ru)
-	return ru, adv, ok
 }
 
 func (fr *FaceRunes) useNoRune(ru rune) bool {

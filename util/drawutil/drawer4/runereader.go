@@ -4,6 +4,7 @@ import (
 	"image"
 	"io"
 
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 )
@@ -28,7 +29,7 @@ func (rr *RuneReader) Iter() {
 	if err != nil {
 		// run last advanced position (draw/delayeddraw/selecting)
 		if err == io.EOF {
-			_ = rr.iter2(eofRune, 0)
+			_ = rr.iter2(fontutil.EofRune, 0)
 		}
 		rr.d.iterStop()
 		return
@@ -99,6 +100,9 @@ func (rr *RuneReader) isNormal() bool {
 //----------
 
 func (rr *RuneReader) glyphAdvance(ru rune) mathutil.Intf {
+	//if isTermWrap(ru) {
+	//	return 0
+	//}
 	adv, ok := rr.d.st.runeR.fface.Face.GlyphAdvance(ru)
 	if !ok {
 		return 0

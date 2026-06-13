@@ -61,7 +61,7 @@ func (in *Indent) Iter() {
 	}
 
 	if in.d.iters.runeR.isNormal() {
-		if in.d.st.runeR.ru == '\n' {
+		if isNlOrTermWrap(in.d.st.runeR.ru) {
 			in.d.st.indent.notStartingSpaces = false
 			in.d.st.indent.indent = 0
 		}

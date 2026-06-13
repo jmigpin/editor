@@ -19,7 +19,7 @@ func TestScreenWraplines(t *testing.T) {
 	_, _ = s.setSize(P{2, 4})
 	out := s.Sprint(true)
 
-	exp := "0123\n∆∆∆\n45678◙"
+	exp := "0123\n∆∆∆\n4567\ue0018◙"
 	if out != exp {
 		t.Fatalf("got %q, want %q", out, exp)
 	}
@@ -34,7 +34,7 @@ func TestScreenWraplines2(t *testing.T) {
 	_, _ = s.setSize(P{3, 3})
 	out := s.Sprint(true)
 
-	exp := "AAAAA\nBBBBB\nCCCCC\nDDD\n∆∆∆\nDD\nEEEEE◙"
+	exp := "AAAAA\nBBBBB\nCCCCC\nDDD\n∆∆∆\nDD\ue002EEE\ue001EE◙"
 	if out != exp {
 		t.Fatalf("got:\n%q\n", out)
 	}
@@ -49,7 +49,7 @@ func TestScreenWraplines3(t *testing.T) {
 	_, _ = s.setSize(P{3, 5})
 	out := s.Sprint(true)
 
-	exp := "AAAAA\nBBBBB\nCCC\n∆∆∆\nCC\nDDDDD\nEEEEE◙"
+	exp := "AAAAA\nBBBBB\nCCC\n∆∆∆\nCC\ue002DDD\ue001DD\ue002EEE\ue001EE◙"
 	if out != exp {
 		t.Fatalf("got:\n%q", out)
 	}
@@ -64,7 +64,7 @@ func TestScreenResizeOverwritesLastRune(t *testing.T) {
 	writeScreenString(s, "B")
 
 	out := strings.TrimSpace(s.Sprint(false))
-	exp := "0123456789AB"
+	exp := "0123456789\ue001AB"
 	if out != exp {
 		t.Errorf("got %q, want %q", out, exp)
 	}

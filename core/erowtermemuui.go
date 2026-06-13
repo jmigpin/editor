@@ -3,9 +3,12 @@ package core
 import (
 	"fmt"
 	"image/color"
+	"strings"
 
 	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/fontutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 // implements [termemu.Tui] interface
@@ -19,7 +22,8 @@ type ERowTermEmuUI struct {
 	}
 
 	restore struct {
-		syntaxHighlight bool
+		syntaxHighlight  bool
+		setClipboardData func(event.ClipboardIndex, string)
 		//scrollBarX      bool
 		//scrollBarY      bool
 		//bg color.Color
@@ -44,6 +48,13 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 		tui.restore.syntaxHighlight = ta.SyntaxHighlight()
 		ta.EnableSyntaxHighlight(false)
 
+		tui.restore.setClipboardData = ta.EditCtx().Fns.SetClipboardData
+		ta.EditCtx().Fns.SetClipboardData = func(i event.ClipboardIndex, s string) {
+			s = strings.ReplaceAll(s, string(rune(fontutil.TermWrapContinuousRune)), "")
+			s = strings.ReplaceAll(s, string(rune(fontutil.TermWrapNewlineRune)), "\n")
+			tui.restore.setClipboardData(i, s)
+		}
+
 		//sa := tui.temu.erow.Row.ScrollArea
 		//tui.restore.scrollBarX = sa.XBar != nil
 		//tui.restore.scrollBarY = sa.YBar != nil
@@ -65,6 +76,7 @@ func (tui *ERowTermEmuUI) Close() error {
 		ta.SetTerminalDecorations(nil)
 
 		ta.EnableSyntaxHighlight(tui.restore.syntaxHighlight)
+		ta.EditCtx().Fns.SetClipboardData = tui.restore.setClipboardData
 
 		//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tui.restore.bg)
 

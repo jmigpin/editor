@@ -1147,6 +1147,12 @@ func newPrivModes() *PrivModes {
 func (m *PrivModes) set(idx string, on bool) { m.m[idx] = on }
 func (m *PrivModes) isOn(idx string) bool    { return m.m[idx] }
 
+func (m *PrivModes) setN(on bool, idx ...string) {
+	for _, id := range idx {
+		m.set(id, on)
+	}
+}
+
 func (m *PrivModes) clone() *PrivModes {
 	m2 := *m // copy
 	m2.m = maps.Clone(m.m)
@@ -1172,9 +1178,13 @@ func (m *PrivModes) MouseNormal() bool        { return m.isOn("?1000") }
 func (m *PrivModes) MouseButtonEvent() bool   { return m.isOn("?1002") }
 func (m *PrivModes) MouseAnyEvent() bool      { return m.isOn("?1003") }
 func (m *PrivModes) MouseSgr() bool           { return m.isOn("?1006") }
-func (m *PrivModes) AlternateBuffer() bool    { return m.isOn("?1049") }
 func (m *PrivModes) BracketedPaste() bool     { return m.isOn("?2004") }
 func (m *PrivModes) SynchronizedOutput() bool { return m.isOn("?2026") }
+
+// issues with mingled states, use screen.alternateBuffer that compares grids
+//func (m *PrivModes) AlternateBuffer() bool {
+//	return m.isOn("?47") || m.isOn("?1047") || m.isOn("?1049")
+//}
 
 //----------
 //----------

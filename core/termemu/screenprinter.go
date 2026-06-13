@@ -2,6 +2,8 @@ package termemu
 
 import (
 	"bytes"
+
+	"github.com/jmigpin/editor/util/fontutil"
 )
 
 type ScreenPrinter struct {
@@ -47,7 +49,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		sb := scr.grid.scrollBack
 		if len(sb) > 0 {
 			buf.Write(sb)
-			if len(sb) > 0 && sb[len(sb)-1] != '\n' {
+			if sb[len(sb)-1] != '\n' {
 				buf.WriteString("\n")
 			}
 			sp.SepFn(buf.Len())
@@ -88,7 +90,7 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 	for y := range scr.grid.size.Y {
 		line := scr.grid.line(y)
 
-		//  backtrack runes from end to find first non empty - needs to be done here to have correct color positions
+		// find last non empty to avoid end spaces when copying - done here to have correct color positions after the cut
 		max2 := len(line.cells) // exclusive
 		for ; max2 > 0; max2-- {
 			x := max2 - 1
@@ -119,26 +121,28 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 			if cursor {
 				sp.ColorFn(offset, cell2.A.Fg, cell2.A.Bg, cell2.A.Inverse)
-
 				if sp.testing && sp.CursorRune != 0 {
 					ru = sp.CursorRune
 				}
-
 			} else {
 				sp.ColorFn(offset, cell2.A.Fg, cell2.A.Bg, cell2.A.Inverse)
 			}
 
 			buf.WriteRune(ru)
 		}
-		if !line.Wrapped {
-			buf.WriteString("\n")
+
+		// newline
+		if line.Wrapped {
+			buf.WriteRune(fontutil.TermWrapContinuousRune)
+		} else {
+			buf.WriteRune(fontutil.TermWrapNewlineRune)
 		}
 	}
 
 	bs := buf.Bytes()
 
 	// clear ending newlines to prevent the last added newline to push the screen up and make the autoscroll move
-	bs = bytes.TrimRight(bs, "\n")
+	bs = bytes.TrimRight(bs, string(rune(fontutil.TermWrapNewlineRune)))
 
 	return bs
 }

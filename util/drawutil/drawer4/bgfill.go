@@ -1,6 +1,7 @@
 package drawer4
 
 import (
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 )
 
@@ -19,7 +20,7 @@ func (bgf *BgFill) Iter() {
 func (bgf *BgFill) iter2() {
 	// skip draw
 	if bgf.d.st.runeR.ru < 0 {
-		if bgf.d.st.runeR.ru == eofRune {
+		if bgf.d.st.runeR.ru == fontutil.EofRune {
 			// allow painting line at eof position
 		} else {
 			return

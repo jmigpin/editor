@@ -93,7 +93,7 @@ func (lw *LineWrap) shouldWordWrap() bool {
 	if bf(st.ru) {
 		return false
 	}
-	prevIsBreak := bf(st.prevRu) || st.prevRu == '\n' || st.prevRu == 0
+	prevIsBreak := bf(st.prevRu) || isNlOrTermWrap(st.prevRu) || st.prevRu == 0
 	if !prevIsBreak {
 		return false
 	}
@@ -111,7 +111,7 @@ func (lw *LineWrap) shouldWordWrap() bool {
 		if err != nil || sz == 0 {
 			break
 		}
-		if bf(ru) || ru == '\n' {
+		if bf(ru) || isNlOrTermWrap(ru) {
 			break
 		}
 

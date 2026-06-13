@@ -8,14 +8,14 @@ func (l *Line) Init() {}
 
 func (l *Line) Iter() {
 	l.d.st.line.lineStart = false
-	if l.d.st.runeR.prevRu == '\n' || l.d.st.runeR.ri == l.d.st.runeR.startRi {
+	if isNlOrTermWrap(l.d.st.runeR.prevRu) || l.d.st.runeR.ri == l.d.st.runeR.startRi {
 		l.d.st.line.lineStart = true
 	}
 
 	if !l.d.iterNext() {
 		return
 	}
-	if l.d.st.runeR.ru == '\n' {
+	if isNlOrTermWrap(l.d.st.runeR.ru) {
 		l.newLine()
 	}
 }

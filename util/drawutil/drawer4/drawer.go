@@ -14,11 +14,6 @@ import (
 	"github.com/jmigpin/editor/util/mathutil"
 )
 
-const (
-	eofRune    = -1
-	noDrawRune = -2
-)
-
 type Drawer struct {
 	reader iorw.ReaderAt
 
@@ -1010,4 +1005,22 @@ func assignColor(dest *color.Color, src color.Color) {
 	if src != nil {
 		*dest = src
 	}
+}
+
+//----------
+
+const (
+	noDrawRune = -2
+)
+
+func isNoDraw(ru rune) bool {
+	return isTermWrap(ru) || ru == fontutil.EofRune || ru == noDrawRune
+}
+
+func isTermWrap(ru rune) bool {
+	return ru == fontutil.TermWrapContinuousRune ||
+		ru == fontutil.TermWrapNewlineRune
+}
+func isNlOrTermWrap(ru rune) bool {
+	return ru == '\n' || isTermWrap(ru)
 }

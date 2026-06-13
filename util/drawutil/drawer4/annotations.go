@@ -76,8 +76,8 @@ func (ann *Annotations) iter2() {
 
 	// add annotations after newline
 	if len(*q) > 0 {
-		switch ann.d.st.runeR.ru {
-		case '\n', eofRune: // insert annotations at newline or EOF
+		ru := ann.d.st.runeR.ru
+		if isNlOrTermWrap(ru) || ru == fontutil.EofRune {
 			ann.insertAnnotations()
 		}
 	}
