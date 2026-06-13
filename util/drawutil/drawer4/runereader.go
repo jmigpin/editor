@@ -100,9 +100,9 @@ func (rr *RuneReader) isNormal() bool {
 //----------
 
 func (rr *RuneReader) glyphAdvance(ru rune) mathutil.Intf {
-	//if isTermWrap(ru) {
-	//	return 0
-	//}
+	if ru == '\n' && rr.d.Opt.Newline.NoAdvance {
+		return 0
+	}
 	adv, ok := rr.d.st.runeR.fface.Face.GlyphAdvance(ru)
 	if !ok {
 		return 0

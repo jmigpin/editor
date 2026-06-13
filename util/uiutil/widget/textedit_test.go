@@ -3,8 +3,16 @@ package widget
 import (
 	"testing"
 
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
+
+func TestTextEditClipboardString(t *testing.T) {
+	s := "AB" + string(rune(fontutil.TermWrapContinuousRune)) + "CD\n"
+	if got, want := textEditClipboardString(s), "ABCD\n"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
 
 func TestStableCursor(t *testing.T) {
 	content := "line 1\nline 2 with emojis 💖😀\nline 3\nline 4\n"
@@ -98,5 +106,3 @@ func TestStableCursorStartOfLine(t *testing.T) {
 		t.Fatalf("expected restored index 0 (start of line), got %d", newIdx)
 	}
 }
-
-

@@ -3,6 +3,8 @@ package termemu
 import (
 	"image/color"
 	"testing"
+
+	"github.com/jmigpin/editor/util/fontutil"
 )
 
 func TestScreenPrinterCursorUsesCellColors(t *testing.T) {
@@ -103,6 +105,24 @@ func TestScreenPrinterCursorVisibleAtLineEnd(t *testing.T) {
 	}
 	if !gotInverse {
 		t.Fatal("expected inverse on cursor cell")
+	}
+}
+
+func TestScreenPrinterUsesAutoWrapped(t *testing.T) {
+	scr := NewScreen()
+	_, _ = scr.setSize(P{2, 2})
+	scr.grid.line(0).cells[0].R = 'A'
+	scr.grid.line(0).cells[1].R = 'B'
+
+	sp := NewScreenPrinter()
+	if got, want := string(sp.Bprint(scr)), "AB"; got != want {
+		t.Fatalf("full line without autowrap: got %q, want %q", got, want)
+	}
+
+	scr.grid.line(0).AutoWrapped = true
+	want := "AB" + string(rune(fontutil.TermWrapContinuousRune))
+	if got := string(sp.Bprint(scr)); got != want {
+		t.Fatalf("autowrapped line: got %q, want %q", got, want)
 	}
 }
 

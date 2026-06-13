@@ -6,7 +6,9 @@ import (
 	"image"
 	"maps"
 	"slices"
+	"unicode/utf8"
 
+	"github.com/jmigpin/editor/util/fontutil"
 	"golang.org/x/text/width"
 )
 
@@ -25,8 +27,6 @@ type Screen struct {
 	cursor   P
 	curAttr  Attr
 	wrapNext bool // autowrap support
-	// Proprietary editor mode: keep logical line continuation metadata instead of behaving as a strict fixed-width terminal grid.
-	wrapExtendedMode bool
 
 	privModes PrivModes
 	graphics  Graphics
@@ -218,24 +218,14 @@ func (s *Screen) putRune(ru rune) {
 		// apply pending wrap first
 		if s.wrapNext {
 			s.cancelWrap()
-			if s.wrapExtendedMode {
-				// UX-ADAPTATION: mark previous line as wrapped; ScreenPrinter will omit the \n, allowing the editor to perform visual wrapping and indentation.
-				line := s.grid.line(s.cursor.Y)
-				line.Wrapped = true
-				// UX-ADAPTATION: truncate any old off-screen data to ensure clean visual wrap in the editor.
-				line.cells = line.cells[:maxBoundX]
-			}
+			s.grid.line(s.cursor.Y).AutoWrapped = true
 
 			s.carriageReturn()
 			s.lineFeed()
 		} else if w == 2 && s.cursor.X >= maxBoundX-1 {
 			// If printing a double-width character at the last column, wrap first
 			if s.privModes.autoWrap() {
-				if s.wrapExtendedMode {
-					line := s.grid.line(s.cursor.Y)
-					line.Wrapped = true
-					line.cells = line.cells[:maxBoundX]
-				}
+				s.grid.line(s.cursor.Y).AutoWrapped = true
 				s.carriageReturn()
 				s.lineFeed()
 			}
@@ -243,6 +233,7 @@ func (s *Screen) putRune(ru rune) {
 	}
 
 	line := s.grid.line(s.cursor.Y)
+	line.AutoWrapped = false
 	X := s.cursor.X
 
 	// Handle overwrites / cell orphaning
@@ -747,6 +738,7 @@ func (s *Screen) escRis_reset(hard bool) {
 func (s *Screen) escAln_screenAlignment() {
 	s.cancelWrap()
 	for y := 0; y < s.grid.size.Y; y++ {
+		s.grid.lines[y].AutoWrapped = false
 		for x := 0; x < s.grid.size.X; x++ {
 			s.grid.lines[y].cells[x] = Cell{R: 'E', A: s.curAttr}
 		}
@@ -859,8 +851,9 @@ func (g *Grid) copyR(dst P, r R) {
 		line := g.line(dst.Y + k)
 		if dst.X == 0 && r.Min.X == 0 && r.Max.X == g.size.X {
 			line.cells = gl.cells
-			line.Wrapped = gl.Wrapped
+			line.AutoWrapped = gl.AutoWrapped
 		} else {
+			line.AutoWrapped = false
 			copy(line.cells[dst.X:], gl.cells[r.Min.X:r.Max.X])
 		}
 	}
@@ -887,13 +880,13 @@ func (g *Grid) clearRangeX(dst P, n int) {
 
 func (g *Grid) clearLineCells(y int, x0, x1 int) {
 	line := g.line(y)
+	line.AutoWrapped = false
 
 	for x := x0; x < x1; x++ {
 		*line.cell(x) = Cell{A: g.scr.curAttr}
 	}
 
 	if x0 == 0 && x1 == g.size.X {
-		line.Wrapped = false
 		line.cells = line.cells[:g.size.X]
 	}
 }
@@ -920,9 +913,11 @@ func (g *Grid) scrollUpR(r0 R, n int) {
 
 			// clean end of line to avoid space wraps
 			*sb = bytes.TrimRight(*sb, " \t")
-			if !line.Wrapped {
-				*sb = appendRune(*sb, '\n')
+			ru := '\n'
+			if line.AutoWrapped {
+				ru = fontutil.TermWrapContinuousRune
 			}
+			*sb = appendRune(*sb, ru)
 		}
 	}
 
@@ -968,20 +963,21 @@ func (g *Grid) popScrollBackLines(n int) []GridLine {
 			break
 		}
 
-		end := len(sb)
-		if sb[end-1] == '\n' {
-			end--
+		termRu, termSize := utf8.DecodeLastRune(sb)
+		if !isTermLineEndRune(termRu) {
+			break
 		}
+		end := len(sb) - termSize
 
-		start := 0
-		if i := bytes.LastIndexByte(sb[:end], '\n'); i >= 0 {
-			start = i + 1
+		start := lastTermLineEnd(sb[:end])
+		if start > 0 {
 			g.scrollBack = sb[:start]
 		} else {
 			g.scrollBack = nil
 		}
 
 		line := newGridLine(g.size.X)
+		line.AutoWrapped = termRu == fontutil.TermWrapContinuousRune
 		for x, ru := range []rune(string(sb[start:end])) {
 			if x >= len(line.cells) {
 				break
@@ -1011,6 +1007,21 @@ func (g *Grid) reinsertScrollBackLines(n int) int {
 
 //----------
 
+func lastTermLineEnd(b []byte) int {
+	end := bytes.LastIndexByte(b, '\n') + 1
+	s := []byte(string(rune(fontutil.TermWrapContinuousRune)))
+	if i := bytes.LastIndex(b, s); i >= 0 {
+		end = max(end, i+len(s))
+	}
+	return end
+}
+
+func isTermLineEndRune(ru rune) bool {
+	return ru == '\n' || ru == fontutil.TermWrapContinuousRune
+}
+
+//----------
+
 func (g *Grid) clone() *Grid {
 	g2 := *g
 	g2.lines = make([]GridLine, g.size.Y)
@@ -1024,11 +1035,9 @@ func (g *Grid) clone() *Grid {
 func (g *Grid) resize(size P) {
 	if d := size.Y - g.size.Y; d > 0 {
 		g.lines = append(g.lines, newGridLines(P{size.X, d})...)
-		if !g.scr.wrapExtendedMode {
-			n := g.reinsertScrollBackLines(d)
-			g.scr.cursor.Y += n
-			clampInY(&g.scr.cursor.Y, R{Max: P{g.size.X, len(g.lines)}})
-		}
+		n := g.reinsertScrollBackLines(d)
+		g.scr.cursor.Y += n
+		clampInY(&g.scr.cursor.Y, R{Max: P{g.size.X, len(g.lines)}})
 	} else if d < 0 {
 		d = -d
 		// In shrinking height we scroll only the minimal number of rows needed to keep the cursor visible in the new viewport, because scrolling by all removed rows ("d") can over-scroll content, duplicate entries in scrollback, and desynchronize cursor position/ reporting after resize; therefore "need" is computed as cursorY-(newHeight-1) and clamped to [0,d].
@@ -1046,9 +1055,7 @@ func (g *Grid) resize(size P) {
 		if d := size.X - len(line.cells); d > 0 {
 			line.cells = append(line.cells, make([]Cell, d)...)
 		} else if d < 0 {
-			if !g.scr.wrapExtendedMode {
-				line.cells = line.cells[:size.X]
-			}
+			line.cells = line.cells[:size.X]
 		}
 	}
 
@@ -1058,8 +1065,8 @@ func (g *Grid) resize(size P) {
 //----------
 
 type GridLine struct {
-	cells   []Cell // logical line
-	Wrapped bool   // Proprietary editor mode only: if true, next line is logical continuation of this one.
+	cells       []Cell
+	AutoWrapped bool // The next line continues this one due to terminal autowrap.
 }
 
 func newGridLine(x int) GridLine {

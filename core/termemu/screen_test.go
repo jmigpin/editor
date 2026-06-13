@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/jmigpin/editor/util/fontutil"
 )
 
 func TestScreenWraplines(t *testing.T) {
-	s := newTestScreen(P{4, 2}, true)
+	s := newTestScreen(P{4, 2})
 
 	u := ``
 	for i := 0; i < 4*2+1; i++ {
@@ -19,14 +21,14 @@ func TestScreenWraplines(t *testing.T) {
 	_, _ = s.setSize(P{2, 4})
 	out := s.Sprint(true)
 
-	exp := "0123\n∆∆∆\n4567\ue0018◙"
+	exp := "01\ue00145\ue0018◙"
 	if out != exp {
 		t.Fatalf("got %q, want %q", out, exp)
 	}
 }
 
 func TestScreenWraplines2(t *testing.T) {
-	s := newTestScreen(P{3, 5}, true)
+	s := newTestScreen(P{3, 5})
 
 	u := "AAAAA\nBBBBB\nCCCCC\nDDDDD\nEEEEE"
 	writeScreenString(s, u)
@@ -34,14 +36,14 @@ func TestScreenWraplines2(t *testing.T) {
 	_, _ = s.setSize(P{3, 3})
 	out := s.Sprint(true)
 
-	exp := "AAAAA\nBBBBB\nCCCCC\nDDD\n∆∆∆\nDD\ue002EEE\ue001EE◙"
+	exp := "AAA\ue001AA\nBBB\ue001BB\nCCC\ue001CC\nDDD\ue001∆∆∆\nDD\nEEE\ue001EE◙"
 	if out != exp {
 		t.Fatalf("got:\n%q\n", out)
 	}
 }
 
 func TestScreenWraplines3(t *testing.T) {
-	s := newTestScreen(P{3, 7}, true)
+	s := newTestScreen(P{3, 7})
 
 	u := "AAAAA\nBBBBB\nCCCCC\nDDDDD\nEEEEE"
 	writeScreenString(s, u)
@@ -49,14 +51,103 @@ func TestScreenWraplines3(t *testing.T) {
 	_, _ = s.setSize(P{3, 5})
 	out := s.Sprint(true)
 
-	exp := "AAAAA\nBBBBB\nCCC\n∆∆∆\nCC\ue002DDD\ue001DD\ue002EEE\ue001EE◙"
+	exp := "AAA\ue001AA\nBBB\ue001BB\nCCC\ue001∆∆∆\nCC\nDDD\ue001DD\nEEE\ue001EE◙"
 	if out != exp {
 		t.Fatalf("got:\n%q", out)
 	}
 }
 
+func TestScreenAutoWrapped(t *testing.T) {
+	s := newTestScreen(P{4, 2})
+
+	writeScreenString(s, "ABCD")
+	if s.grid.line(0).AutoWrapped {
+		t.Fatal("full line should not be marked before the pending wrap is consumed")
+	}
+
+	writeScreenString(s, "E")
+	if !s.grid.line(0).AutoWrapped {
+		t.Fatal("expected consumed autowrap to mark the previous line")
+	}
+}
+
+func TestScreenAutoWrappedDoubleWidth(t *testing.T) {
+	s := newTestScreen(P{4, 2})
+	s.cursor = P{3, 0}
+
+	s.putRune('界')
+
+	if !s.grid.line(0).AutoWrapped {
+		t.Fatal("expected double-width autowrap to mark the previous line")
+	}
+	if got := s.grid.line(1).cell(0).R; got != '界' {
+		t.Fatalf("got %q at wrapped destination, want %q", got, '界')
+	}
+}
+
+func TestScreenAutoWrappedClearedByLineMutation(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func(*Screen)
+	}{
+		{"write", func(s *Screen) { s.putRune('X') }},
+		{"erase", func(s *Screen) { s.grid.clearRangeX(P{}, 1) }},
+		{"insert", func(s *Screen) { s.csiIch_insertChars(1) }},
+		{"delete", func(s *Screen) { s.csiDch_deleteChars(1) }},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newTestScreen(P{4, 2})
+			s.grid.line(0).AutoWrapped = true
+			tc.fn(s)
+			if s.grid.line(0).AutoWrapped {
+				t.Fatal("line mutation should clear autowrap metadata")
+			}
+		})
+	}
+}
+
+func TestScreenScrollBackPreservesAutoWrapped(t *testing.T) {
+	s := newTestScreen(P{4, 2})
+	writeLine := func(y int, text string, autoWrapped bool) {
+		line := s.grid.line(y)
+		for x, ru := range text {
+			line.cells[x] = Cell{R: ru}
+		}
+		line.AutoWrapped = autoWrapped
+	}
+	writeLine(0, "ABCD", true)
+	writeLine(1, "EF", false)
+
+	s.grid.scrollUpR(s.grid.bounds(), 2)
+
+	want := "ABCD" +
+		string(rune(fontutil.TermWrapContinuousRune)) +
+		"EF\n"
+	if got := string(s.grid.scrollBack); got != want {
+		t.Fatalf("scrollback=%q, want %q", got, want)
+	}
+
+	if got := s.grid.reinsertScrollBackLines(2); got != 2 {
+		t.Fatalf("reinserted %d lines, want 2", got)
+	}
+	if len(s.grid.scrollBack) != 0 {
+		t.Fatalf("scrollback not emptied: %q", s.grid.scrollBack)
+	}
+	if !s.grid.line(0).AutoWrapped || s.grid.line(1).AutoWrapped {
+		t.Fatalf("unexpected autowrap metadata: %v, %v", s.grid.line(0).AutoWrapped, s.grid.line(1).AutoWrapped)
+	}
+	if got := string(runesOf(s.grid.line(0).cells)); got != "ABCD" {
+		t.Fatalf("line0=%q, want %q", got, "ABCD")
+	}
+	if got := string(runesOf(s.grid.line(1).cells)); got != "EF" {
+		t.Fatalf("line1=%q, want %q", got, "EF")
+	}
+}
+
 func TestScreenResizeOverwritesLastRune(t *testing.T) {
-	s := newTestScreen(P{10, 5}, true)
+	s := newTestScreen(P{10, 5})
 
 	writeScreenString(s, "0123456789A")
 
@@ -70,8 +161,8 @@ func TestScreenResizeOverwritesLastRune(t *testing.T) {
 	}
 }
 
-func TestScreenResizePreservesOutput(t *testing.T) {
-	s := newTestScreen(P{20, 5}, true)
+func TestScreenResizeWidthUsesStrictGrid(t *testing.T) {
+	s := newTestScreen(P{20, 5})
 
 	input := "0123456789ABCDE"
 	writeScreenString(s, input)
@@ -80,13 +171,13 @@ func TestScreenResizePreservesOutput(t *testing.T) {
 	_, _ = s.setSize(P{20, 5})
 
 	out := s.Sprint(false)
-	if !strings.Contains(out, input) {
-		t.Errorf("Output lost after resize! got %q, want to contain %q", out, input)
+	if want := "01234"; out != want {
+		t.Errorf("got %q, want %q", out, want)
 	}
 }
 
 func TestScreenEraseScrollback3J(t *testing.T) {
-	s := newTestScreen(P{10, 2}, false)
+	s := newTestScreen(P{10, 2})
 
 	writeScreenString(s, "L1\nL2\nL3\nL4")
 
@@ -102,7 +193,7 @@ func TestScreenEraseScrollback3J(t *testing.T) {
 }
 
 func TestScreenRisClearsScrollback(t *testing.T) {
-	s := newTestScreen(P{10, 2}, false)
+	s := newTestScreen(P{10, 2})
 
 	writeScreenString(s, "L1\nL2\nL3\nL4")
 
@@ -118,7 +209,7 @@ func TestScreenRisClearsScrollback(t *testing.T) {
 }
 
 func TestScreenELandED(t *testing.T) {
-	s := newTestScreen(P{6, 3}, false)
+	s := newTestScreen(P{6, 3})
 
 	s.cursor = P{0, 0}
 	s.cancelWrap()
@@ -160,7 +251,7 @@ func TestScreenELandED(t *testing.T) {
 }
 
 func TestScreenED1ClearsToCursor(t *testing.T) {
-	s := newTestScreen(P{6, 4}, false)
+	s := newTestScreen(P{6, 4})
 
 	for y := 0; y < s.grid.size.Y; y++ {
 		for x := 0; x < s.grid.size.X; x++ {
@@ -184,7 +275,7 @@ func TestScreenED1ClearsToCursor(t *testing.T) {
 }
 
 func TestScreenEL1ClearsLeftToCursor(t *testing.T) {
-	s := newTestScreen(P{6, 1}, false)
+	s := newTestScreen(P{6, 1})
 
 	s.cursor = P{0, 0}
 	s.cancelWrap()
@@ -207,7 +298,7 @@ func TestScreenEL1ClearsLeftToCursor(t *testing.T) {
 }
 
 func TestScreenInsertDeleteLinesWithinRegion(t *testing.T) {
-	s := newTestScreen(P{4, 5}, false)
+	s := newTestScreen(P{4, 5})
 
 	for i := 1; i <= 5; i++ {
 		s.cursor = P{0, i - 1}
@@ -232,7 +323,7 @@ func TestScreenInsertDeleteLinesWithinRegion(t *testing.T) {
 }
 
 func TestScreenEnterIsCRNotLF(t *testing.T) {
-	s := newTestScreen(P{4, 2}, false)
+	s := newTestScreen(P{4, 2})
 
 	writeScreenString(s, "AB\r")
 	if s.cursor.Y != 0 || s.cursor.X != 0 {
@@ -241,7 +332,7 @@ func TestScreenEnterIsCRNotLF(t *testing.T) {
 }
 
 func TestScreenINDandRIRespectScrollRegion(t *testing.T) {
-	s := newTestScreen(P{4, 5}, false)
+	s := newTestScreen(P{4, 5})
 
 	s.setScrollRegion(2, 4)
 
@@ -283,7 +374,7 @@ func TestScreenINDandRIRespectScrollRegion(t *testing.T) {
 }
 
 func TestScreenNEL(t *testing.T) {
-	s := newTestScreen(P{5, 4}, false)
+	s := newTestScreen(P{5, 4})
 
 	s.cursor = P{2, 1}
 	s.csiCnl_cursorNextLine(1)
@@ -293,7 +384,7 @@ func TestScreenNEL(t *testing.T) {
 }
 
 func TestScreenCRandLF(t *testing.T) {
-	s := newTestScreen(P{5, 2}, false)
+	s := newTestScreen(P{5, 2})
 
 	writeScreenString(s, "ABC\rD\nE")
 	if string([]rune{s.grid1.lines[0].cells[0].R, s.grid1.lines[0].cells[1].R}) != "DB" {
@@ -305,7 +396,7 @@ func TestScreenCRandLF(t *testing.T) {
 }
 
 func TestScreenResizeShrinkHeightKeepsVisibleContentStable(t *testing.T) {
-	s := newTestScreen(P{4, 5}, false)
+	s := newTestScreen(P{4, 5})
 
 	for i := 0; i < 5; i++ {
 		s.cursor = P{0, i}
@@ -335,7 +426,7 @@ func TestScreenResizeShrinkHeightKeepsVisibleContentStable(t *testing.T) {
 }
 
 func TestScreenResizeShrinkHeightThenRedrawBottomLine(t *testing.T) {
-	s := newTestScreen(P{4, 5}, false)
+	s := newTestScreen(P{4, 5})
 
 	for i := 0; i < 5; i++ {
 		s.cursor = P{0, i}
@@ -371,7 +462,7 @@ func TestScreenResizeShrinkHeightThenRedrawBottomLine(t *testing.T) {
 }
 
 func TestScreenResizeShrinkGrowThenRedrawVisibleLines(t *testing.T) {
-	s := newTestScreen(P{4, 5}, false)
+	s := newTestScreen(P{4, 5})
 
 	for i := 0; i < 5; i++ {
 		s.cursor = P{0, i}
@@ -427,10 +518,9 @@ func TestScreenResizeShrinkGrowThenRedrawVisibleLines(t *testing.T) {
 
 //----------
 
-func newTestScreen(size P, wrapExtended bool) *Screen {
+func newTestScreen(size P) *Screen {
 	s := NewScreen()
 	s.testing = true
-	s.wrapExtendedMode = wrapExtended
 	_, _ = s.setSize(size)
 	return s
 }

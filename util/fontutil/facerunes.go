@@ -16,7 +16,6 @@ var CarriageReturnRune = '␍' // C/R symbol: '␍'; old: '♪'
 const (
 	EofRune = 0xe000 + iota
 	TermWrapContinuousRune
-	TermWrapNewlineRune
 	//TermCursorRune
 )
 
@@ -85,7 +84,7 @@ func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
 		ru := nullRune
 		adv, ok := fr.Face.GlyphAdvance(ru)
 		return ru, adv, ok
-	case EofRune, TermWrapNewlineRune, TermWrapContinuousRune:
+	case EofRune, TermWrapContinuousRune:
 		ru := '\u200b' // zero width space rune
 		return ru, 0, true
 	}

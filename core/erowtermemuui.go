@@ -3,12 +3,9 @@ package core
 import (
 	"fmt"
 	"image/color"
-	"strings"
 
 	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
-	"github.com/jmigpin/editor/util/fontutil"
-	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 // implements [termemu.Tui] interface
@@ -22,9 +19,8 @@ type ERowTermEmuUI struct {
 	}
 
 	restore struct {
-		syntaxHighlight  bool
-		lineWrap         bool
-		setClipboardData func(event.ClipboardIndex, string)
+		syntaxHighlight bool
+		lineWrap        bool
 		//scrollBarX      bool
 		//scrollBarY      bool
 		//bg color.Color
@@ -51,13 +47,10 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 
 		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 			tui.restore.lineWrap = d.Opt.LineWrap.On
-		}
-
-		tui.restore.setClipboardData = ta.EditCtx().Fns.SetClipboardData
-		ta.EditCtx().Fns.SetClipboardData = func(i event.ClipboardIndex, s string) {
-			s = strings.ReplaceAll(s, string(rune(fontutil.TermWrapContinuousRune)), "")
-			s = strings.ReplaceAll(s, string(rune(fontutil.TermWrapNewlineRune)), "\n")
-			tui.restore.setClipboardData(i, s)
+			if tui.temu.erow.termOpts.emuOpts.Mode.IsGrid() {
+				d.Opt.LineWrap.On = false
+			}
+			d.Opt.Newline.NoAdvance = true
 		}
 
 		//sa := tui.temu.erow.Row.ScrollArea
@@ -81,7 +74,6 @@ func (tui *ERowTermEmuUI) Close() error {
 		ta.SetTerminalDecorations(nil)
 
 		ta.EnableSyntaxHighlight(tui.restore.syntaxHighlight)
-		ta.EditCtx().Fns.SetClipboardData = tui.restore.setClipboardData
 
 		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 			d.Opt.LineWrap.On = tui.restore.lineWrap
@@ -124,14 +116,6 @@ func (tui *ERowTermEmuUI) paint2() {
 	scr := tui.temu.emu.Snapshot()
 	ops, bs := tui.paintOpsBytes(scr)
 	ta := tui.temu.erow.Row.TextArea
-
-	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-		if scr.AlternateBufferActive() {
-			d.Opt.LineWrap.On = false
-		} else {
-			d.Opt.LineWrap.On = tui.restore.lineWrap
-		}
-	}
 
 	ta.SetTerminalColorOps(ops)
 	ta.SetTerminalDecorations(tui.dec)

@@ -63,6 +63,22 @@ func TestNLinesStartIndex1(t *testing.T) {
 	}
 }
 
+func TestNewlineNoAdvance(t *testing.T) {
+	d := New()
+	d.SetFontFace(newTestFace())
+	d.SetBounds(image.Rect(0, 0, 100, 100))
+	d.SetReader(iorw.NewStringReaderAt("W\n"))
+
+	withAdvance := d.Measure().X
+	d.Opt.Newline.NoAdvance = true
+	d.ContentChanged()
+	withoutAdvance := d.Measure().X
+
+	if withoutAdvance >= withAdvance {
+		t.Fatalf("with advance=%d, without advance=%d", withAdvance, withoutAdvance)
+	}
+}
+
 //----------
 
 func TestImg01(t *testing.T) {

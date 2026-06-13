@@ -2,6 +2,7 @@ package widget
 
 import (
 	"image"
+	"strings"
 
 	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/fontutil"
@@ -42,7 +43,9 @@ func NewTextEdit(uiCtx UIContext) *TextEdit {
 	te.ctx.Fns.MakeIndexVisible = te.MakeIndexVisible
 	te.ctx.Fns.Undo = te.Undo
 	te.ctx.Fns.Redo = te.Redo
-	te.ctx.Fns.SetClipboardData = te.uiCtx.SetClipboardData
+	te.ctx.Fns.SetClipboardData = func(i event.ClipboardIndex, s string) {
+		te.uiCtx.SetClipboardData(i, textEditClipboardString(s))
+	}
 	te.ctx.Fns.GetClipboardData = func(i event.ClipboardIndex, fn func(string, error)) {
 		te.uiCtx.GetClipboardData(i, func(s string, err error) {
 			te.uiCtx.RunOnUIGoRoutine(func() {
@@ -368,5 +371,9 @@ func FindStableCursorIndex(rw iorw.ReaderAt, pos StableCursorPos) int {
 //----------
 
 func isNlOrWrap(ru rune) bool {
-	return ru == '\n' || ru == fontutil.TermWrapContinuousRune || ru == fontutil.TermWrapNewlineRune
+	return ru == '\n' || ru == fontutil.TermWrapContinuousRune
+}
+
+func textEditClipboardString(s string) string {
+	return strings.ReplaceAll(s, string(rune(fontutil.TermWrapContinuousRune)), "")
 }

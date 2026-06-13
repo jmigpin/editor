@@ -211,6 +211,24 @@ func TestWrapPending_CancelledByCUB(t *testing.T) {
 	}
 }
 
+func TestWrapPending_CancelledByAutoWrapOff(t *testing.T) {
+	te := newTestEmu(newTuiMock(), Opts{}, 4, 2)
+	defer te.Close()
+
+	sendWithBarrier(t, te, "ABCD\x1b[?7lE")
+
+	s := te.Snapshot()
+	if s.grid.line(0).AutoWrapped {
+		t.Fatal("autowrap off should cancel the pending wrap")
+	}
+	if got := string(runesOf(s.grid.line(0).cells)); got != "ABCE" {
+		t.Fatalf("line0=%q, want %q", got, "ABCE")
+	}
+	if anyNonBlank(s.grid.line(1).cells) {
+		t.Fatal("unexpected wrap into the next line")
+	}
+}
+
 func TestDECSC_DECRC_PosRestored(t *testing.T) {
 	te := newTestEmu(newTuiMock(), Opts{}, 20, 10)
 	defer te.Close()

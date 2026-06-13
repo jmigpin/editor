@@ -542,6 +542,10 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 	case "?3": // 132 Column Mode (DECCOLM)
 		s.updateColumnMode()
 	case "?6": // scroll origin mode
+	case "?7": // auto wrap
+		if !on {
+			s.cancelWrap()
+		}
 	case "?69": // left/right margin mode
 		emu.scr.updateRegionX()
 

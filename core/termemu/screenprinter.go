@@ -49,9 +49,6 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		sb := scr.grid.scrollBack
 		if len(sb) > 0 {
 			buf.Write(sb)
-			if sb[len(sb)-1] != '\n' {
-				buf.WriteString("\n")
-			}
 			sp.SepFn(buf.Len())
 			if sp.testing {
 				buf.WriteString(sbs)
@@ -132,17 +129,17 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		}
 
 		// newline
-		if line.Wrapped {
+		if line.AutoWrapped {
 			buf.WriteRune(fontutil.TermWrapContinuousRune)
 		} else {
-			buf.WriteRune(fontutil.TermWrapNewlineRune)
+			buf.WriteByte('\n')
 		}
 	}
 
 	bs := buf.Bytes()
 
 	// clear ending newlines to prevent the last added newline to push the screen up and make the autoscroll move
-	bs = bytes.TrimRight(bs, string(rune(fontutil.TermWrapNewlineRune)))
+	bs = bytes.TrimRight(bs, "\n")
 
 	return bs
 }

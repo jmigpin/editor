@@ -89,6 +89,9 @@ type Drawer struct {
 		RuneReader       struct {
 			StartOffsetX int
 		}
+		Newline struct {
+			NoAdvance bool
+		}
 		LineWrap struct {
 			On     bool
 			Fg, Bg color.Color
@@ -1018,8 +1021,7 @@ func isNoDraw(ru rune) bool {
 }
 
 func isTermWrap(ru rune) bool {
-	return ru == fontutil.TermWrapContinuousRune ||
-		ru == fontutil.TermWrapNewlineRune
+	return ru == fontutil.TermWrapContinuousRune
 }
 func isNlOrTermWrap(ru rune) bool {
 	return ru == '\n' || isTermWrap(ru)
