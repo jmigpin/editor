@@ -150,6 +150,10 @@ func (s *Screen) setGrid2(on bool) {
 	}
 }
 
+func (s *Screen) AlternateBufferActive() bool {
+	return s.grid == s.grid2
+}
+
 //----------
 
 func (s *Screen) clampRegionY() {

@@ -23,6 +23,7 @@ type ERowTermEmuUI struct {
 
 	restore struct {
 		syntaxHighlight  bool
+		lineWrap         bool
 		setClipboardData func(event.ClipboardIndex, string)
 		//scrollBarX      bool
 		//scrollBarY      bool
@@ -47,6 +48,10 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 		// keep
 		tui.restore.syntaxHighlight = ta.SyntaxHighlight()
 		ta.EnableSyntaxHighlight(false)
+
+		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+			tui.restore.lineWrap = d.Opt.LineWrap.On
+		}
 
 		tui.restore.setClipboardData = ta.EditCtx().Fns.SetClipboardData
 		ta.EditCtx().Fns.SetClipboardData = func(i event.ClipboardIndex, s string) {
@@ -77,6 +82,10 @@ func (tui *ERowTermEmuUI) Close() error {
 
 		ta.EnableSyntaxHighlight(tui.restore.syntaxHighlight)
 		ta.EditCtx().Fns.SetClipboardData = tui.restore.setClipboardData
+
+		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+			d.Opt.LineWrap.On = tui.restore.lineWrap
+		}
 
 		//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tui.restore.bg)
 
@@ -115,6 +124,14 @@ func (tui *ERowTermEmuUI) paint2() {
 	scr := tui.temu.emu.Snapshot()
 	ops, bs := tui.paintOpsBytes(scr)
 	ta := tui.temu.erow.Row.TextArea
+
+	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
+		if scr.AlternateBufferActive() {
+			d.Opt.LineWrap.On = false
+		} else {
+			d.Opt.LineWrap.On = tui.restore.lineWrap
+		}
+	}
 
 	ta.SetTerminalColorOps(ops)
 	ta.SetTerminalDecorations(tui.dec)
