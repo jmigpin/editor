@@ -908,7 +908,9 @@ func (g *Grid) scrollUpR(r0 R, n int) {
 		for i := range n {
 			line := g.line(i)
 			for _, c := range line.cells {
-				*sb = appendRune(*sb, c.printableRune())
+				if ru, ok := c.printableRune(); ok {
+					*sb = appendRune(*sb, ru)
+				}
 			}
 
 			// clean end of line to avoid space wraps
@@ -1097,11 +1099,14 @@ type Cell struct {
 	A Attr
 }
 
-func (c *Cell) printableRune() rune {
+func (c *Cell) printableRune() (rune, bool) {
 	if c.R == 0 {
-		return ' '
+		return ' ', true
 	}
-	return c.R
+	if c.R == doubleWidthPlaceholderRune {
+		return 0, false
+	}
+	return c.R, true
 }
 
 //----------

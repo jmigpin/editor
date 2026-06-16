@@ -146,6 +146,16 @@ func TestScreenScrollBackPreservesAutoWrapped(t *testing.T) {
 	}
 }
 
+func TestScreenScrollBackSkipsDoubleWidthPlaceholder(t *testing.T) {
+	s := newTestScreen(P{8, 2})
+	writeScreenString(s, "✨\u200aAAA\n")
+
+	s.grid.scrollUpR(s.grid.bounds(), 1)
+	if got, want := string(s.grid.scrollBack), "✨\u200aAAA\n"; got != want {
+		t.Fatalf("scrollback=%q, want %q", got, want)
+	}
+}
+
 func TestScreenResizeOverwritesLastRune(t *testing.T) {
 	s := newTestScreen(P{10, 5})
 

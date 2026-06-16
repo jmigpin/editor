@@ -106,12 +106,11 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 				break
 			}
 
-			if cell.R == doubleWidthPlaceholderRune {
+			offset := buf.Len()
+			ru, ok := cell.printableRune()
+			if !ok {
 				continue
 			}
-
-			offset := buf.Len()
-			ru := cell.printableRune()
 			cursor := isCursor(x, y)
 
 			cell2 := effectiveCell(cell, cursor)
