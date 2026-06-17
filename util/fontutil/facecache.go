@@ -12,7 +12,7 @@ type FaceCache struct {
 	gc  map[rune]*GlyphCache
 	gac map[rune]*GlyphAdvanceCache
 	gbc map[rune]*GlyphBoundsCache
-	kc  map[string]fixed.Int26_6 // kern cache
+	kc  map[kernKey]fixed.Int26_6 // kern cache
 }
 
 func NewFaceCache(face font.Face) *FaceCache {
@@ -20,7 +20,7 @@ func NewFaceCache(face font.Face) *FaceCache {
 	fc.gc = make(map[rune]*GlyphCache)
 	fc.gac = make(map[rune]*GlyphAdvanceCache)
 	fc.gbc = make(map[rune]*GlyphBoundsCache)
-	fc.kc = make(map[string]fixed.Int26_6)
+	fc.kc = make(map[kernKey]fixed.Int26_6)
 	return fc
 }
 func (fc *FaceCache) Glyph(dot fixed.Point26_6, ru rune) (
@@ -114,8 +114,13 @@ func NewGlyphBoundsCache(face font.Face, ru rune) *GlyphBoundsCache {
 
 //----------
 
-func kernIndex(r0, r1 rune) string {
-	return string([]rune{r0, ',', r1})
+type kernKey struct {
+	r0 rune
+	r1 rune
+}
+
+func kernIndex(r0, r1 rune) kernKey {
+	return kernKey{r0: r0, r1: r1}
 }
 
 func NewKernCache(face font.Face, r0, r1 rune) fixed.Int26_6 {
