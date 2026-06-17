@@ -315,6 +315,10 @@ func (erow *ERow) initHandlers() {
 				AddReloadShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymW:
 				row.Close()
+			case mods.IsEmpty() && evt.KeySym == event.KSymF5:
+				if err := erow.Reload(); err != nil {
+					erow.Ed.Error(err)
+				}
 			case evt.KeySym == event.KSymEscape:
 				erow.Exec.Stop()
 			}
