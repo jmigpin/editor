@@ -368,6 +368,12 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		emu.scr.csiSu_scrollUp(op.ADef(1))
 	case 'T': // SD: Scroll Down
 		emu.scr.csiSd_scrollDown(op.ADef(1))
+	case 'W': // DECST8C: Set Tab at Every 8 Columns
+		if op.isPriv('?') && op.A() == 5 {
+			emu.scr.initTabStops()
+		} else {
+			emu.csiOpTodo(op)
+		}
 	case 'X': //  ECH: Erase Characters
 		emu.scr.csiEch_eraseChars(op.ADef(1))
 	case 'Z': // CBT: Cursor Backward Tab

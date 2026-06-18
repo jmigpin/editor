@@ -441,6 +441,13 @@ func TestTabs_DefaultsAndHTS_TBC(t *testing.T) {
 	if s.grid1.lines[0].cells[3].R != 'Y' {
 		t.Fatalf("HTS/TBC failed")
 	}
+
+	// Reset to default every 8 columns using CSI ? 5 W
+	sendWithBarrier(t, te, "\x1b[?5W\x1b[1;1H\tZ")
+	s = te.Snapshot()
+	if s.grid1.lines[0].cells[8].R != 'Z' {
+		t.Fatalf("DECST8C failed to restore tab stops")
+	}
 }
 
 func TestCHT_CBT(t *testing.T) {
