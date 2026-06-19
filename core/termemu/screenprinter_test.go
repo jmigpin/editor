@@ -115,7 +115,7 @@ func TestScreenPrinterUsesAutoWrapped(t *testing.T) {
 	scr.grid.line(0).cells[1].R = 'B'
 
 	sp := NewScreenPrinter()
-	if got, want := string(sp.Bprint(scr)), "AB"; got != want {
+	if got, want := string(sp.Bprint(scr)), "AB\n"; got != want {
 		t.Fatalf("full line without autowrap: got %q, want %q", got, want)
 	}
 

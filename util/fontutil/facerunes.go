@@ -10,7 +10,7 @@ import (
 
 var TabWidth = 8   // n times the space glyph
 var nullRune = '◦' // white bullet: '◦',alternative: '�'
-var noRune = nullRune
+var missingRune = nullRune
 var CarriageReturnRune = '␍' // C/R symbol: '␍'; old: '♪'
 
 const (
@@ -84,13 +84,16 @@ func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
 		ru := nullRune
 		adv, ok := fr.Face.GlyphAdvance(ru)
 		return ru, adv, ok
-	case EofRune, TermWrapContinuousRune:
-		ru := '\u200b' // zero width space rune
-		return ru, 0, true
+
+		// commented: not supposed to be drawn hidden, these should be handled somewhere else such that if they get here, they will be visible
+		//case EofRune,TermWrapContinuousRune:
+		//	ru := '\u200b' // zero width space rune
+		//	return ru, 0, true
+
 	}
 
-	if fr.useNoRune(ru0) {
-		ru := noRune
+	if fr.missingRune(ru0) {
+		ru := missingRune
 		adv, ok := fr.Face.GlyphAdvance(ru)
 		return ru, adv, ok
 	}
@@ -98,7 +101,7 @@ func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
 	return 0, 0, false
 }
 
-func (fr *FaceRunes) useNoRune(ru rune) bool {
+func (fr *FaceRunes) missingRune(ru rune) bool {
 	if _, ok := fr.Face.GlyphAdvance(ru); !ok {
 		return true
 	}

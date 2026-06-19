@@ -16,8 +16,6 @@ type ScreenPrinter struct {
 	bufK int
 	bufs [2]bytes.Buffer
 
-	scrollbackSep string
-
 	testing bool
 }
 
@@ -25,8 +23,6 @@ func NewScreenPrinter() *ScreenPrinter {
 	sp := &ScreenPrinter{}
 	sp.ColorFn = func(_ int, _, _ TermColor, _ bool) {}
 	sp.SepFn = func(_ int) {}
-
-	sp.scrollbackSep = "▲▲▲\n"
 
 	return sp
 }
@@ -40,18 +36,13 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 	//----------
 
-	sbs := sp.scrollbackSep
-	if sp.testing {
-		sbs = "∆∆∆\n"
-	}
-
 	if scr.grid.hasScrollBack {
 		sb := scr.grid.scrollBack
 		if len(sb) > 0 {
 			buf.Write(sb)
 			sp.SepFn(buf.Len())
 			if sp.testing {
-				buf.WriteString(sbs)
+				buf.WriteString("∆∆∆\n")
 			}
 		}
 	}
@@ -128,17 +119,15 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 		}
 
 		// newline
-		if line.AutoWrapped {
-			buf.WriteRune(fontutil.TermWrapContinuousRune)
-		} else {
-			buf.WriteByte('\n')
+		if y < scr.grid.size.Y-1 { // don't newline last line
+			if line.AutoWrapped {
+				buf.WriteRune(fontutil.TermWrapContinuousRune)
+			} else {
+				buf.WriteByte('\n')
+			}
 		}
 	}
 
 	bs := buf.Bytes()
-
-	// clear ending newlines to prevent the last added newline to push the screen up and make the autoscroll move
-	bs = bytes.TrimRight(bs, "\n")
-
 	return bs
 }

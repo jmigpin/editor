@@ -21,7 +21,7 @@ func TestScreenWraplines(t *testing.T) {
 	_, _ = s.setSize(P{2, 4})
 	out := s.Sprint(true)
 
-	exp := "01\ue00145\ue0018◙"
+	exp := "01\ue00145\ue0018◙\n"
 	if out != exp {
 		t.Fatalf("got %q, want %q", out, exp)
 	}
@@ -181,7 +181,7 @@ func TestScreenResizeWidthUsesStrictGrid(t *testing.T) {
 	_, _ = s.setSize(P{20, 5})
 
 	out := s.Sprint(false)
-	if want := "01234"; out != want {
+	if want := "01234\n\n\n\n"; out != want {
 		t.Errorf("got %q, want %q", out, want)
 	}
 }
@@ -524,6 +524,26 @@ func TestScreenResizeShrinkGrowThenRedrawVisibleLines(t *testing.T) {
 	if got := string(s.grid1.scrollBack); got != "" {
 		t.Fatalf("scrollback=%q, want empty", got)
 	}
+}
+
+//----------
+
+func TestScreenDissapearLine(t *testing.T) {
+	scr := newTestScreen(P{4, 5})
+	scr.testing = true
+	writeScreenString(scr, "aaa\n\nccc\n\n\n\n")
+
+	//scr.setSize(P{4, 2})
+	//scr.grid.scrollUpR(scr.grid.bounds(), 2)
+
+	//scr.csiEd_eraseInDisplay(3)
+	//writeScreenString(scr, "ddd\n")
+
+	out := string(scr.Bprint(true))
+	_ = out
+	fmt.Println(out)
+	//t.Log(out)
+	//t.Fail()
 }
 
 //----------
