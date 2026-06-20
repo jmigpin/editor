@@ -424,7 +424,7 @@ func newTestDrawerRect(rect image.Rectangle) (*Drawer, draw.Image) {
 	d.smoothScroll = false
 	d.Opt.LineWrap.Bg = colornames.Red
 
-	WrapLineIndentTabs = 0
+	drawutil.WrapLineIndentTabs = 0
 
 	img := image.NewRGBA(rect)
 	return d, img

@@ -21,7 +21,7 @@ import (
 	"github.com/jmigpin/editor/core/lsproto"
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
@@ -590,9 +590,9 @@ func (ed *Editor) setupInitialRows(opt *Options) {
 //----------
 
 func (ed *Editor) setupTheme(opt *Options) error {
-	drawer4.WrapLineRune = rune(opt.WrapLineRune)
-	drawer4.WrapLineIndentTabs = opt.WrapLineIndentTabs
-	drawer4.WrapWordLimit = opt.WrapWordLimit
+	drawutil.WrapLineRune = rune(opt.WrapLineRune)
+	drawutil.WrapLineIndentTabs = opt.WrapLineIndentTabs
+	drawutil.WrapWordLimit = opt.WrapWordLimit
 	fontutil.TabWidth = opt.TabWidth
 	fontutil.CarriageReturnRune = rune(opt.CarriageReturnRune)
 	ui.ScrollBarLeft = opt.ScrollBarLeft
@@ -937,14 +937,14 @@ func (ed *Editor) RunAsyncBusyCursor2(node widget.Node, fn func(done func())) {
 //----------
 
 // setting entries to nil/empty clears the annotations
-func (ed *Editor) SetAnnotations(annotator Annotator, ta *ui.TextArea, selIndex int, entries *drawer4.AnnotationGroup) {
+func (ed *Editor) SetAnnotations(annotator Annotator, ta *ui.TextArea, selIndex int, entries *drawutil.AnnotationGroup) {
 	// avoid lockup:
 	// godebugstart->inlinecomplete.clear->godebugrestoreannotations
 	ed.UI.RunOnUIGoRoutine(func() {
 		ed.setAnnotations2(annotator, ta, selIndex, entries)
 	})
 }
-func (ed *Editor) setAnnotations2(annotator Annotator, ta *ui.TextArea, selIndex int, entries *drawer4.AnnotationGroup) {
+func (ed *Editor) setAnnotations2(annotator Annotator, ta *ui.TextArea, selIndex int, entries *drawutil.AnnotationGroup) {
 
 	restoreGoDebugAnnotations := func() {
 		// find erow info from textarea
@@ -1094,17 +1094,17 @@ const (
 type Annotation struct {
 	ta      *ui.TextArea
 	index   int
-	entries *drawer4.AnnotationGroup
+	entries *drawutil.AnnotationGroup
 }
 
 func (anno *Annotation) set() {
 	// set annotations (including clear)
-	if d, ok := anno.ta.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Annotations.On = anno.entries.On()
-		d.Opt.Annotations.Selected.EntryIndex = anno.index
-		d.Opt.Annotations.Entries = anno.entries
-		anno.ta.MarkNeedsLayoutAndPaint()
-	}
+	opt := anno.ta.Drawer.TextDrawerOptions()
+	opt.Annotations.On = anno.entries.On()
+	opt.Annotations.Selected.EntryIndex = anno.index
+	opt.Annotations.Entries = anno.entries
+	anno.ta.Drawer.TextDrawerOptionsChanged()
+	anno.ta.MarkNeedsLayoutAndPaint()
 }
 
 //----------

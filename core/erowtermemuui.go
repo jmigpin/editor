@@ -5,14 +5,14 @@ import (
 	"image/color"
 
 	"github.com/jmigpin/editor/core/termemu"
-	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/drawutil"
 )
 
 // implements [termemu.Tui] interface
 type ERowTermEmuUI struct {
 	temu *ERowTermEmu
 	sp   *termemu.ScreenPrinter
-	dec  []*drawer4.Decoration
+	dec  []*drawutil.Decoration
 
 	render struct {
 		useGrayscale bool
@@ -45,13 +45,12 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 		tui.restore.syntaxHighlight = ta.SyntaxHighlight()
 		ta.EnableSyntaxHighlight(false)
 
-		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-			tui.restore.lineWrap = d.Opt.LineWrap.On
-			if tui.temu.erow.termOpts.emuOpts.Mode.IsGrid() {
-				d.Opt.LineWrap.On = false
-			}
-			d.Opt.Newline.NoAdvance = true
+		opt := ta.Drawer.TextDrawerOptions()
+		tui.restore.lineWrap = opt.LineWrap.On
+		if tui.temu.erow.termOpts.emuOpts.Mode.IsGrid() {
+			opt.LineWrap.On = false
 		}
+		opt.Newline.NoAdvance = true
 
 		//sa := tui.temu.erow.Row.ScrollArea
 		//tui.restore.scrollBarX = sa.XBar != nil
@@ -75,9 +74,7 @@ func (tui *ERowTermEmuUI) Close() error {
 
 		ta.EnableSyntaxHighlight(tui.restore.syntaxHighlight)
 
-		if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-			d.Opt.LineWrap.On = tui.restore.lineWrap
-		}
+		ta.Drawer.TextDrawerOptions().LineWrap.On = tui.restore.lineWrap
 
 		//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tui.restore.bg)
 
@@ -124,9 +121,9 @@ func (tui *ERowTermEmuUI) paint2() {
 
 //----------
 
-func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) {
-	dops := []*D4COp{}
-	decs := []*drawer4.Decoration{}
+func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*TextColorOp, []byte) {
+	dops := []*TextColorOp{}
+	decs := []*drawutil.Decoration{}
 
 	ta := tui.temu.erow.Row.TextArea
 	defaultFg := ta.TreeThemePaletteColor("text_fg")
@@ -140,18 +137,18 @@ func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) 
 		if !ok {
 			return
 		}
-		dop := &D4COp{Offset: offset, Fg: fg2}
+		dop := &TextColorOp{Offset: offset, Fg: fg2}
 		if setBg {
 			dop.Bg = bg2
 		}
-		dop2 := &D4COp{Offset: offset + 1, SetNil: true} // reset
+		dop2 := &TextColorOp{Offset: offset + 1, SetNil: true} // reset
 		dops = append(dops, dop, dop2)
 	}
 
 	addSep0 := func(offset int) {
-		decs = append(decs, &drawer4.Decoration{
+		decs = append(decs, &drawutil.Decoration{
 			Offset: offset,
-			Kind:   drawer4.DecorationHorizontalRule,
+			Kind:   drawutil.DecorationHorizontalRule,
 			Fg:     defaultFg,
 		})
 	}
@@ -168,7 +165,7 @@ func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*D4COp, []byte) 
 //----------
 //----------
 
-type D4COp = drawer4.ColorizeOp
+type TextColorOp = drawutil.ColorizeOp
 
 //----------
 //----------

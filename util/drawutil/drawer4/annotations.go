@@ -1,8 +1,7 @@
 package drawer4
 
 import (
-	"sync"
-
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/mathutil"
 )
@@ -208,31 +207,11 @@ func (ann *Annotations) insertSeparatorString(s string) bool {
 //----------
 //----------
 
-type AnnotationGroup struct {
-	sync.RWMutex
-	Anns []*Annotation
-}
+type AnnotationGroup = drawutil.AnnotationGroup
+type Annotation = drawutil.Annotation
 
 func NewAnnotationGroup(n int) *AnnotationGroup {
-	ag := &AnnotationGroup{}
-	ag.Anns = make([]*Annotation, n)
-	// allocate contiguous memory
-	w := make([]Annotation, n)
-	for i := range w {
-		ag.Anns[i] = &w[i]
-	}
-	return ag
-}
-func (ag *AnnotationGroup) On() bool {
-	return ag != nil && len(ag.Anns) > 0
-}
-
-//----------
-
-type Annotation struct {
-	Offset     int
-	Bytes      []byte
-	NotesBytes []byte // used for arrival index
+	return drawutil.NewAnnotationGroup(n)
 }
 
 //----------

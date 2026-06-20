@@ -13,6 +13,8 @@ type Drawer interface {
 	Reader() iorw.ReaderAt
 	SetReader(iorw.ReaderAt)
 	ContentChanged()
+	TextDrawerOptions() *TextDrawerOptions
+	TextDrawerOptionsChanged()
 
 	FontFace() *fontutil.FontFace
 	SetFontFace(*fontutil.FontFace)

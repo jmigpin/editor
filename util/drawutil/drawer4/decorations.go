@@ -1,8 +1,6 @@
 package drawer4
 
-import (
-	"image/color"
-)
+import "github.com/jmigpin/editor/util/drawutil"
 
 type Decorations struct {
 	d *Drawer
@@ -34,20 +32,8 @@ func (dc *Decorations) isValidLineStartOffset(offset int) bool {
 	return b[0] == '\n'
 }
 
-type DecorationGroup struct {
-	Off     bool
-	Entries []*Decoration
-}
+type DecorationGroup = drawutil.DecorationGroup
+type Decoration = drawutil.Decoration
+type DecorationKind = drawutil.DecorationKind
 
-type Decoration struct {
-	Offset    int
-	Kind      DecorationKind
-	Fg        color.Color
-	Thickness int
-}
-
-type DecorationKind uint8
-
-const (
-	DecorationHorizontalRule DecorationKind = iota + 1
-)
+const DecorationHorizontalRule = drawutil.DecorationHorizontalRule

@@ -16,7 +16,7 @@ type ERowTermEmu struct {
 	erow    *ERow
 	userRwc io.ReadWriteCloser
 
-	opsBuf []*D4COp
+	opsBuf []*TextColorOp
 
 	optPtyCmd *osutil.PtyCmd
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jmigpin/editor/util/drawutil"
-	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 )
@@ -37,22 +36,21 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 		TextEdit: NewTextEdit(uiCtx),
 	}
 
-	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Cursor.On = true
+	opt := te.Text.Drawer.TextDrawerOptions()
+	opt.Cursor.On = true
 
-		// setup colorize order
-		d.Opt.Colorize.Groups = []*drawer4.ColorizeGroup{
-			&d.Opt.SyntaxHighlight.Group,
-			&d.Opt.ContentColorize.Group,
-			{}, // 2=terminal
-			&d.Opt.WordHighlight.Group,
-			&d.Opt.ParenthesisHighlight.Group,
-			{}, // 5=selection
-			{}, // 6=flash
-		}
-		d.Opt.Decorations.Groups = []*drawer4.DecorationGroup{
-			{}, // 0=terminal
-		}
+	// setup colorize order
+	opt.Colorize.Groups = []*drawutil.ColorizeGroup{
+		&opt.SyntaxHighlight.Group,
+		&opt.ContentColorize.Group,
+		{}, // 2=terminal
+		&opt.WordHighlight.Group,
+		&opt.ParenthesisHighlight.Group,
+		{}, // 5=selection
+		{}, // 6=flash
+	}
+	opt.Decorations.Groups = []*drawutil.DecorationGroup{
+		{}, // 0=terminal
 	}
 
 	return te
@@ -82,28 +80,27 @@ func (te *TextEditX) Paint() {
 //----------
 
 func (te *TextEditX) updateSelectionOpt() {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		g := d.Opt.Colorize.Groups[cgIdxSelection]
-		c := te.Cursor()
-		if s, e, ok := c.SelectionIndexes(); ok {
-			// colors
-			pcol := te.TreeThemePaletteColor
-			fg := pcol("text_selection_fg")
-			bg := pcol("text_selection_bg")
-			// colorize ops
-			g.Ops = []*drawer4.ColorizeOp{
-				{Offset: s, Fg: fg, Bg: bg},
-				{Offset: e},
-			}
-			// don't draw other colorizations
-			d.Opt.WordHighlight.Group.Off = true
-			d.Opt.ParenthesisHighlight.Group.Off = true
-		} else {
-			g.Ops = nil
-			// draw other colorizations
-			d.Opt.WordHighlight.Group.Off = false
-			d.Opt.ParenthesisHighlight.Group.Off = false
+	opt := te.Drawer.TextDrawerOptions()
+	g := opt.Colorize.Groups[cgIdxSelection]
+	c := te.Cursor()
+	if s, e, ok := c.SelectionIndexes(); ok {
+		// colors
+		pcol := te.TreeThemePaletteColor
+		fg := pcol("text_selection_fg")
+		bg := pcol("text_selection_bg")
+		// colorize ops
+		g.Ops = []*drawutil.ColorizeOp{
+			{Offset: s, Fg: fg, Bg: bg},
+			{Offset: e},
 		}
+		// don't draw other colorizations
+		opt.WordHighlight.Group.Off = true
+		opt.ParenthesisHighlight.Group.Off = true
+	} else {
+		g.Ops = nil
+		// draw other colorizations
+		opt.WordHighlight.Group.Off = false
+		opt.ParenthesisHighlight.Group.Off = false
 	}
 }
 
@@ -179,13 +176,11 @@ func (te *TextEditX) iterateFlash() {
 }
 
 func (te *TextEditX) updateFlashOpt() {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		te.updateFlashOpt4(d)
-	}
+	te.updateFlashOpt2(te.Drawer.TextDrawerOptions())
 }
 
-func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
-	g := d.Opt.Colorize.Groups[cgIdxFlash]
+func (te *TextEditX) updateFlashOpt2(opt *drawutil.TextDrawerOptions) {
+	g := opt.Colorize.Groups[cgIdxFlash]
 	if !te.flash.index.on {
 		g.Ops = nil
 		return
@@ -209,7 +204,7 @@ func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
 	s := te.flash.index.index
 	e := s + te.flash.index.len
 	line := te.flash.line.on
-	g.Ops = []*drawer4.ColorizeOp{
+	g.Ops = []*drawutil.ColorizeOp{
 		{Offset: s, ProcColor: pc, Line: line},
 		{Offset: e},
 	}
@@ -218,49 +213,40 @@ func (te *TextEditX) updateFlashOpt4(d *drawer4.Drawer) {
 //----------
 
 func (te *TextEditX) EnableParenthesisMatch(v bool) {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.ParenthesisHighlight.On = v
-	}
+	te.Drawer.TextDrawerOptions().ParenthesisHighlight.On = v
 }
 
 //----------
 
 func (te *TextEditX) EnableSyntaxHighlight(v bool) {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		if d.Opt.SyntaxHighlight.On == v {
-			return
-		}
-		d.Opt.SyntaxHighlight.On = v
-		d.SyntaxHighlightChanged()
-		te.MarkNeedsPaint()
+	opt := te.Drawer.TextDrawerOptions()
+	if opt.SyntaxHighlight.On == v {
+		return
 	}
+	opt.SyntaxHighlight.On = v
+	te.Drawer.TextDrawerOptionsChanged()
+	te.MarkNeedsPaint()
 }
 func (te *TextEditX) SyntaxHighlight() bool {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		return d.Opt.SyntaxHighlight.On
-	}
-	return false
+	return te.Drawer.TextDrawerOptions().SyntaxHighlight.On
 }
 
 //----------
 
 func (te *TextEditX) EnableCursorWordHighlight(v bool) {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.WordHighlight.On = v
-	}
+	te.Drawer.TextDrawerOptions().WordHighlight.On = v
 }
 
 //----------
 
 func (te *TextEditX) EnableGitColorize(v bool) {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		if d.Opt.ContentColorize.Git.On == v {
-			return
-		}
-		d.Opt.ContentColorize.Git.On = v
-		d.ContentColorizeChanged()
-		te.MarkNeedsPaint()
+	opt := te.Drawer.TextDrawerOptions()
+	if opt.ContentColorize.Git.On == v {
+		return
 	}
+	opt.ContentColorize.Git.On = v
+	te.Drawer.TextDrawerOptionsChanged()
+	te.MarkNeedsPaint()
 }
 
 //----------
@@ -288,41 +274,32 @@ func (te *TextEditX) SetCommentStrings(a ...any) {
 		}
 	}
 
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		opt := &d.Opt.SyntaxHighlight
-		opt.Comment.SCs = cs
-	}
+	opt := &te.Drawer.TextDrawerOptions().SyntaxHighlight
+	opt.Comment.SCs = cs
+	te.Drawer.TextDrawerOptionsChanged()
 }
 
 //----------
 
 func (te *TextEditX) EnableTerminalColors(v bool) {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Colorize.Groups[cgIdxTerm].Off = !v
-		te.MarkNeedsPaint()
-	}
+	te.Drawer.TextDrawerOptions().Colorize.Groups[cgIdxTerm].Off = !v
+	te.MarkNeedsPaint()
 }
 
-func (te *TextEditX) SetTerminalColorOps(ops []*drawer4.ColorizeOp) {
-	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Colorize.Groups[cgIdxTerm].Ops = ops
-		te.MarkNeedsPaint()
-	}
+func (te *TextEditX) SetTerminalColorOps(ops []*drawutil.ColorizeOp) {
+	te.Text.Drawer.TextDrawerOptions().Colorize.Groups[cgIdxTerm].Ops = ops
+	te.MarkNeedsPaint()
 }
 
-func (te *TextEditX) SetTerminalDecorations(entries []*drawer4.Decoration) {
-	if d, ok := te.Text.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Decorations.Groups[dgIdxTerm].Entries = entries
-		d.DecorationsChanged()
-		te.MarkNeedsPaint()
-	}
+func (te *TextEditX) SetTerminalDecorations(entries []*drawutil.Decoration) {
+	te.Text.Drawer.TextDrawerOptions().Decorations.Groups[dgIdxTerm].Entries = entries
+	te.Text.Drawer.TextDrawerOptionsChanged()
+	te.MarkNeedsPaint()
 }
 
 func (te *TextEditX) EnableTerminalDecorations(v bool) {
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Decorations.Groups[dgIdxTerm].Off = !v
-		te.MarkNeedsPaint()
-	}
+	te.Drawer.TextDrawerOptions().Decorations.Groups[dgIdxTerm].Off = !v
+	te.MarkNeedsPaint()
 }
 
 //----------
@@ -332,35 +309,33 @@ func (te *TextEditX) OnThemeChange() {
 
 	pcol := te.TreeThemePaletteColor
 
-	if d, ok := te.Drawer.(*drawer4.Drawer); ok {
-		d.Opt.Cursor.Fg = pcol("text_cursor_fg")
-		d.Opt.LineWrap.Fg = pcol("text_wrapline_fg")
-		d.Opt.LineWrap.Bg = pcol("text_wrapline_bg")
+	opt := te.Drawer.TextDrawerOptions()
+	opt.Cursor.Fg = pcol("text_cursor_fg")
+	opt.LineWrap.Fg = pcol("text_wrapline_fg")
+	opt.LineWrap.Bg = pcol("text_wrapline_bg")
 
-		// annotations
-		d.Opt.Annotations.Fg = pcol("text_annotations_fg")
-		d.Opt.Annotations.Bg = pcol("text_annotations_bg")
-		d.Opt.Annotations.Selected.Fg = pcol("text_annotations_select_fg")
-		d.Opt.Annotations.Selected.Bg = pcol("text_annotations_select_bg")
+	// annotations
+	opt.Annotations.Fg = pcol("text_annotations_fg")
+	opt.Annotations.Bg = pcol("text_annotations_bg")
+	opt.Annotations.Selected.Fg = pcol("text_annotations_select_fg")
+	opt.Annotations.Selected.Bg = pcol("text_annotations_select_bg")
 
-		// word highlight
-		d.Opt.WordHighlight.Fg = pcol("text_highlightword_fg")
-		d.Opt.WordHighlight.Bg = pcol("text_highlightword_bg")
+	// word highlight
+	opt.WordHighlight.Fg = pcol("text_highlightword_fg")
+	opt.WordHighlight.Bg = pcol("text_highlightword_bg")
 
-		// parenthesis highlight
-		d.Opt.ParenthesisHighlight.Fg = pcol("text_parenthesis_fg")
-		d.Opt.ParenthesisHighlight.Bg = pcol("text_parenthesis_bg")
+	// parenthesis highlight
+	opt.ParenthesisHighlight.Fg = pcol("text_parenthesis_fg")
+	opt.ParenthesisHighlight.Bg = pcol("text_parenthesis_bg")
 
-		// content colorize
-		d.Opt.ContentColorize.Git.AddFg = pcol("text_colorize_git_add_fg")
-		d.Opt.ContentColorize.Git.DeleteFg = pcol("text_colorize_git_delete_fg")
-		d.ContentColorizeChanged()
+	// content colorize
+	opt.ContentColorize.Git.AddFg = pcol("text_colorize_git_add_fg")
+	opt.ContentColorize.Git.DeleteFg = pcol("text_colorize_git_delete_fg")
 
-		// syntax highlight
-		opt := &d.Opt.SyntaxHighlight
-		opt.Comment.Fg = pcol("text_colorize_comments_fg")
-		opt.Comment.Bg = pcol("text_colorize_comments_bg")
-		opt.String.Fg = pcol("text_colorize_string_fg")
-		opt.String.Bg = pcol("text_colorize_string_bg")
-	}
+	// syntax highlight
+	opt.SyntaxHighlight.Comment.Fg = pcol("text_colorize_comments_fg")
+	opt.SyntaxHighlight.Comment.Bg = pcol("text_colorize_comments_bg")
+	opt.SyntaxHighlight.String.Fg = pcol("text_colorize_string_fg")
+	opt.SyntaxHighlight.String.Bg = pcol("text_colorize_string_bg")
+	te.Drawer.TextDrawerOptionsChanged()
 }

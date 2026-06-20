@@ -967,11 +967,7 @@ func (erow *ERow) SaveFileBusyCursor() {
 
 func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
 	ta := erow.Row.TextArea
-	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-		opt := &d.Opt.SyntaxHighlight
-		return opt.Comment.SCs
-	}
-	return nil
+	return ta.Drawer.TextDrawerOptions().SyntaxHighlight.Comment.SCs
 }
 
 //----------

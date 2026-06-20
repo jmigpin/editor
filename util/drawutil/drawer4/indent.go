@@ -3,6 +3,7 @@ package drawer4
 import (
 	"unicode"
 
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/mathutil"
 )
 
@@ -77,7 +78,7 @@ func (in *Indent) indent() {
 	pen := &in.d.st.runeR.pen
 	pen.X = in.d.st.indent.indent
 	// left padding
-	pad := mathutil.Intf(float64(in.d.iters.runeR.glyphAdvance('\t')) * WrapLineIndentTabs)
+	pad := mathutil.Intf(float64(in.d.iters.runeR.glyphAdvance('\t')) * drawutil.WrapLineIndentTabs)
 	startX := in.d.iters.runeR.startingPen().X
 	if pen.X == 0 {
 		pen.X = startX + pad

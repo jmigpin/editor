@@ -3,6 +3,7 @@ package drawer4
 import (
 	"unicode"
 
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 )
@@ -76,7 +77,7 @@ func (lw *LineWrap) breakFn() func(rune) bool {
 }
 
 func (lw *LineWrap) shouldWordWrap() bool {
-	limit := WrapWordLimit
+	limit := drawutil.WrapWordLimit
 	if limit == 0 {
 		return false
 	}
@@ -175,7 +176,7 @@ func (lw *LineWrap) postLineWrap() bool {
 }
 
 func (lw *LineWrap) insertWrapRune() bool {
-	if WrapLineRune == 0 {
+	if drawutil.WrapLineRune == 0 {
 		return true
 	}
 
@@ -192,10 +193,6 @@ func (lw *LineWrap) insertWrapRune() bool {
 	assignColor(&lw.d.st.curColors.fg, lw.d.Opt.LineWrap.Fg)
 	assignColor(&lw.d.st.curColors.bg, lw.d.Opt.LineWrap.Bg)
 
-	s := string(WrapLineRune)
+	s := string(drawutil.WrapLineRune)
 	return lw.d.iters.runeR.insertExtraString(s)
 }
-
-var WrapLineRune = rune('←') // positioned at the start of wrapped line (left)
-var WrapLineIndentTabs = 0.0
-var WrapWordLimit = 0

@@ -1,8 +1,6 @@
 package drawer4
 
-import (
-	"image/color"
-)
+import "github.com/jmigpin/editor/util/drawutil"
 
 type Colorize struct {
 	d *Drawer
@@ -67,17 +65,5 @@ func (c *Colorize) applyOp(op *ColorizeOp) {
 	}
 }
 
-//----------
-
-type ColorizeGroup struct {
-	Off bool
-	Ops []*ColorizeOp
-}
-
-type ColorizeOp struct {
-	Offset    int
-	Fg, Bg    color.Color
-	ProcColor func(fg, bg color.Color) (fg2, bg2 color.Color)
-	Line      bool
-	SetNil    bool
-}
+type ColorizeGroup = drawutil.ColorizeGroup
+type ColorizeOp = drawutil.ColorizeOp

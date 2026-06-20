@@ -15,7 +15,7 @@ import (
 	"github.com/jmigpin/editor/core/godebug"
 	"github.com/jmigpin/editor/core/godebug/debug"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
@@ -487,7 +487,7 @@ func (gdi *GoDebugInstance) updateInfoAnnotations2(info *ERowInfo) {
 
 //----------
 
-func (gdi *GoDebugInstance) setAnnotations(erow *ERow, selIndex int, entries *drawer4.AnnotationGroup) {
+func (gdi *GoDebugInstance) setAnnotations(erow *ERow, selIndex int, entries *drawutil.AnnotationGroup) {
 	gdi.gdm.ed.SetAnnotations(AnnotatorGoDebug, erow.Row.TextArea, selIndex, entries)
 }
 
@@ -873,7 +873,7 @@ func (di *GDDataIndex) selectNext() error {
 
 //----------
 
-func (di *GDDataIndex) findSelectedAndUpdateAnnEntries(info *ERowInfo) (entries *drawer4.AnnotationGroup, selMsgIndex int, edited bool, fileFound bool) {
+func (di *GDDataIndex) findSelectedAndUpdateAnnEntries(info *ERowInfo) (entries *drawutil.AnnotationGroup, selMsgIndex int, edited bool, fileFound bool) {
 	di.Lock()
 	defer di.Unlock()
 
@@ -1043,14 +1043,14 @@ type GDFileMsgs struct {
 	msgs []*GDMsg // [msgIndex] annotations received
 
 	// current annotation entries to be shown with a file
-	anns         *drawer4.AnnotationGroup
+	anns         *drawutil.AnnotationGroup
 	annsMsgIndex []int // [msgIndex]stepIndex: msgs index: keep selected step index to know the msg entry when coming from a click on an annotation
 }
 
 func NewGDFileMsgs(n int) *GDFileMsgs {
 	fms := &GDFileMsgs{
 		msgs:         make([]*GDMsg, n),
-		anns:         drawer4.NewAnnotationGroup(n),
+		anns:         drawutil.NewAnnotationGroup(n),
 		annsMsgIndex: make([]int, n),
 	}
 	// alloc contiguous memory to slice of pointers
@@ -1123,17 +1123,17 @@ type GDOffsetMsg struct {
 	resetIndex   int
 	offsetMsg    *debug.OffsetMsg
 	cache        struct {
-		ann   *drawer4.Annotation
-		empty *drawer4.Annotation
+		ann   *drawutil.Annotation
+		empty *drawutil.Annotation
 	}
 }
 
-func (msg *GDOffsetMsg) annotation() *drawer4.Annotation {
+func (msg *GDOffsetMsg) annotation() *drawutil.Annotation {
 	if msg.cache.ann != nil {
 		return msg.cache.ann
 	}
 
-	ann := &drawer4.Annotation{}
+	ann := &drawutil.Annotation{}
 	ann.Offset = int(msg.offsetMsg.Offset)
 
 	s := godebug.StringifyItem(msg.offsetMsg.Item)
@@ -1150,12 +1150,12 @@ func (msg *GDOffsetMsg) annotation() *drawer4.Annotation {
 
 	return ann
 }
-func (msg *GDOffsetMsg) emptyAnnotation() *drawer4.Annotation {
+func (msg *GDOffsetMsg) emptyAnnotation() *drawutil.Annotation {
 	if msg.cache.empty != nil {
 		return msg.cache.empty
 	}
 
-	ann := &drawer4.Annotation{}
+	ann := &drawutil.Annotation{}
 	ann.Offset = int(msg.offsetMsg.Offset)
 	ann.Bytes = []byte(" ") // allow a clickable rune (empty space)
 	ann.NotesBytes = nil

@@ -84,66 +84,11 @@ type Drawer struct {
 
 	// external options
 	Opt struct {
+		drawutil.TextDrawerOptions
 		QuickMeasure     bool // just return the bounds size
 		EarlyExitMeasure bool // allow early exit
 		RuneReader       struct {
 			StartOffsetX int
-		}
-		Newline struct {
-			NoAdvance bool
-		}
-		LineWrap struct {
-			On     bool
-			Fg, Bg color.Color
-		}
-		Cursor struct {
-			On         bool
-			Fg         color.Color
-			AddedWidth int
-		}
-		Colorize struct {
-			Groups []*ColorizeGroup
-		}
-		Decorations struct {
-			Groups []*DecorationGroup
-		}
-		Annotations struct {
-			On       bool
-			Fg, Bg   color.Color
-			Selected struct {
-				EntryIndex int
-				Fg, Bg     color.Color
-			}
-			Entries *AnnotationGroup // must be ordered by offset
-		}
-		WordHighlight struct {
-			On     bool
-			Fg, Bg color.Color
-			Group  ColorizeGroup
-		}
-		ParenthesisHighlight struct {
-			On     bool
-			Fg, Bg color.Color
-			Group  ColorizeGroup
-		}
-		ContentColorize struct {
-			Git struct {
-				On       bool
-				AddFg    color.Color
-				DeleteFg color.Color
-			}
-			Group ColorizeGroup
-		}
-		SyntaxHighlight struct {
-			On      bool
-			Comment struct {
-				SCs    []*drawutil.SyntaxComment
-				Fg, Bg color.Color
-			}
-			String struct {
-				Fg, Bg color.Color
-			}
-			Group ColorizeGroup
 		}
 	}
 }
@@ -261,6 +206,14 @@ func New() *Drawer {
 	d.iters.annotations.d = d
 	d.iters.annotationsIndexOf.d = d
 	return d
+}
+
+func (d *Drawer) TextDrawerOptions() *drawutil.TextDrawerOptions {
+	return &d.Opt.TextDrawerOptions
+}
+
+func (d *Drawer) TextDrawerOptionsChanged() {
+	d.ContentChanged()
 }
 
 //----------

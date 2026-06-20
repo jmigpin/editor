@@ -8,7 +8,7 @@ import (
 
 	"github.com/jmigpin/editor/core/lsproto"
 	"github.com/jmigpin/editor/ui"
-	"github.com/jmigpin/editor/util/drawutil/drawer4"
+	"github.com/jmigpin/editor/util/drawutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 	"github.com/jmigpin/editor/util/parseutil/btparser"
@@ -115,9 +115,9 @@ func (ic *InlineComplete) insertCompletions(ta *ui.TextArea, ev *ui.TextAreaInli
 		}
 	default:
 		// show completions
-		entries := drawer4.NewAnnotationGroup(len(comps))
+		entries := drawutil.NewAnnotationGroup(len(comps))
 		for i, v := range comps {
-			u := &drawer4.Annotation{Offset: ev.Offset, Bytes: []byte(v)}
+			u := &drawutil.Annotation{Offset: ev.Offset, Bytes: []byte(v)}
 			entries.Anns[i] = u
 		}
 		ic.setAnnotations(ta, entries)
@@ -168,13 +168,13 @@ func (ic *InlineComplete) lsprotoCompletions(ctx context.Context, filename strin
 //----------
 
 func (ic *InlineComplete) setAnnotationsMsg(ta *ui.TextArea, s string) {
-	entries := drawer4.NewAnnotationGroup(1)
+	entries := drawutil.NewAnnotationGroup(1)
 	entries.Anns[0].Offset = ta.CursorIndex()
 	entries.Anns[0].Bytes = []byte(s)
 	ic.setAnnotations(ta, entries)
 }
 
-func (ic *InlineComplete) setAnnotations(ta *ui.TextArea, entries *drawer4.AnnotationGroup) {
+func (ic *InlineComplete) setAnnotations(ta *ui.TextArea, entries *drawutil.AnnotationGroup) {
 	if !entries.On() {
 		ic.setOff(ta)
 	}
