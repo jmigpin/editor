@@ -46,7 +46,7 @@ func main() {
 	flag.IntVar(&opt.StringsColor, "stringscolor", 0, "Colorize strings. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")
 	flag.IntVar(&opt.ScrollBarWidth, "scrollbarwidth", 0, "Textarea scrollbar width in pixels. A value of 0 takes 3/4 of the font size.")
 	flag.BoolVar(&opt.ScrollBarLeft, "scrollbarleft", true, "set scrollbars on the left side")
-	flag.BoolVar(&opt.Shadows, "shadows", true, "shadow effects on some elements")
+	flag.BoolVar(&opt.Shadows, "shadows", false, "shadow effects on some elements")
 	flag.StringVar(&opt.SessionName, "sn", "", "open existing session")
 	flag.StringVar(&opt.SessionName, "sessionname", "", "open existing session")
 	flag.StringVar(&opt.SessionFilename, "sessionfilename", "", "open a session snapshot from a file")

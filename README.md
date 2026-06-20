@@ -133,7 +133,7 @@ Usage of editor:
   -sessionname string
     	open existing session
   -shadows
-    	shadow effects on some elements (default true)
+    	shadow effects on some elements
   -sn string
     	open existing session
   -startmaximized
@@ -586,6 +586,7 @@ Plugins located at: `./plugins`.
 - `ctrl`+`h`: warp pointer to "Replace" cmd in row toolbar
 - `ctrl`+`n`: warp pointer to "NewFile" cmd in row toolbar
 - `ctrl`+`r`: warp pointer to "Reload" cmd in row toolbar
+- `f5`: reload row content
 - `buttonLeft` on square-button: close row
 - on top border (or row square):
 	- `buttonLeft`: drag to move/resize row
