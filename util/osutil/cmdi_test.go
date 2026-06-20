@@ -208,6 +208,28 @@ func TestCmdIShell(t *testing.T) {
 	}
 }
 
+func TestPausedWritersCmdCallbackBeforeOutput(t *testing.T) {
+	c := NewCmdI2([]string{"printf", "output\n"})
+	c = NewNoHangPipeCmd(c)
+
+	buf := &bytes.Buffer{}
+	c.Cmd().Stdout = buf
+	c = NewPausedWritersCmd(c, func(CmdI) {
+		buf.WriteString("pid\n")
+	})
+
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := buf.String(), "pid\noutput\n"; got != want {
+		t.Fatalf("output = %q, want %q", got, want)
+	}
+}
+
 //----------
 //----------
 //----------

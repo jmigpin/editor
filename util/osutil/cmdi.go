@@ -269,9 +269,11 @@ func (c *PausedWritersCmd) Start() error {
 	cmd := c.CmdI.Cmd()
 	if cmd.Stdout != nil {
 		c.stdout = iout.NewPausedWriter(cmd.Stdout)
+		cmd.Stdout = c.stdout
 	}
 	if cmd.Stderr != nil {
 		c.stderr = iout.NewPausedWriter(cmd.Stderr)
+		cmd.Stderr = c.stderr
 	}
 	if err := c.CmdI.Start(); err != nil {
 		return err
