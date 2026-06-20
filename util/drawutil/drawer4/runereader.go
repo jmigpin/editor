@@ -152,7 +152,7 @@ func (rr *RuneReader) penBoundsRect() image.Rectangle {
 
 func (rr *RuneReader) startingPen() mathutil.PointIntf {
 	p := rr.d.bounds.Min
-	p.X += rr.d.Opt.RuneReader.StartOffsetX
+	p.X += rr.d.startOffsetX()
 	if rr.d.st.runeR.ri == 0 {
 		p.X += rr.d.firstLineOffsetX
 	}

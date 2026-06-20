@@ -200,7 +200,7 @@ func (ta *TextArea) Layout() {
 	oldBounds := ta.Drawer.Bounds()
 
 	ta.TextEditX.Layout()
-	ta.setDrawer4Opts()
+	ta.setDrawerOpts()
 
 	ev2 := &TextAreaLayoutEvent{TextArea: ta}
 	ta.EvReg.RunCallbacks(TextAreaLayoutEventId, ev2)
@@ -218,20 +218,15 @@ func (ta *TextArea) OnThemeChange() {
 	ta.EvReg.RunCallbacks(TextAreaThemeEventId, ev2)
 }
 
-func (ta *TextArea) setDrawer4Opts() {
-	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-		// scale cursor based on lineheight
-		w := 1
-		u := d.LineHeight()
-		u2 := int(float64(u) * 0.08)
-		if u2 > 1 {
-			w = u2
-		}
-		d.Opt.Cursor.AddedWidth = w
-
-		// set startoffsetx based on cursor
-		d.Opt.RuneReader.StartOffsetX = d.Opt.Cursor.AddedWidth * 2
+func (ta *TextArea) setDrawerOpts() {
+	// scale cursor based on lineheight
+	w := 1
+	u := ta.Drawer.LineHeight()
+	u2 := int(float64(u) * 0.08)
+	if u2 > 1 {
+		w = u2
 	}
+	ta.Drawer.TextDrawerOptions().Cursor.AddedWidth = w
 }
 
 //----------

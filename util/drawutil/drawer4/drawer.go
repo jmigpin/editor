@@ -309,10 +309,21 @@ func (d *Drawer) Bounds() image.Rectangle {
 }
 func (d *Drawer) InnerBounds() image.Rectangle {
 	b := d.bounds // copy
-	b.Min.X += d.Opt.RuneReader.StartOffsetX
+	b.Min.X += d.startOffsetX()
 	b.Max.X = max(b.Min.X, b.Max.X) // keep rect well formed
 	return b
 }
+
+func (d *Drawer) startOffsetX() int {
+	if d.Opt.RuneReader.StartOffsetX > 0 {
+		return d.Opt.RuneReader.StartOffsetX
+	}
+	if d.Opt.Cursor.AddedWidth > 0 {
+		return d.Opt.Cursor.AddedWidth * 2
+	}
+	return 0
+}
+
 func (d *Drawer) SetBounds(r image.Rectangle) {
 	//d.ContentChanged() // commented for performance
 	// performance (doesn't redo d.opt.wordH.updatedWord)
