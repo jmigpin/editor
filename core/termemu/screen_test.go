@@ -21,7 +21,8 @@ func TestScreenWraplines(t *testing.T) {
 	_, _ = s.setSize(P{2, 4})
 	out := s.Sprint(true)
 
-	exp := "01\ue00145\ue0018◙\n"
+	ru1 := string(fontutil.TermWrapContinuousRune)
+	exp := fmt.Sprintf("01%s45%s8◙\n", ru1, ru1)
 	if out != exp {
 		t.Fatalf("got %q, want %q", out, exp)
 	}
@@ -36,7 +37,8 @@ func TestScreenWraplines2(t *testing.T) {
 	_, _ = s.setSize(P{3, 3})
 	out := s.Sprint(true)
 
-	exp := "AAA\ue001AA\nBBB\ue001BB\nCCC\ue001CC\nDDD\ue001∆∆∆\nDD\nEEE\ue001EE◙"
+	ru1 := string(fontutil.TermWrapContinuousRune)
+	exp := fmt.Sprintf("AAA%sAA\nBBB%sBB\nCCC%sCC\nDDD%s∆∆∆\nDD\nEEE%sEE◙", ru1, ru1, ru1, ru1, ru1)
 	if out != exp {
 		t.Fatalf("got:\n%q\n", out)
 	}
@@ -51,7 +53,8 @@ func TestScreenWraplines3(t *testing.T) {
 	_, _ = s.setSize(P{3, 5})
 	out := s.Sprint(true)
 
-	exp := "AAA\ue001AA\nBBB\ue001BB\nCCC\ue001∆∆∆\nCC\nDDD\ue001DD\nEEE\ue001EE◙"
+	ru1 := string(fontutil.TermWrapContinuousRune)
+	exp := fmt.Sprintf("AAA%sAA\nBBB%sBB\nCCC%s∆∆∆\nCC\nDDD%sDD\nEEE%sEE◙", ru1, ru1, ru1, ru1, ru1)
 	if out != exp {
 		t.Fatalf("got:\n%q", out)
 	}
@@ -165,7 +168,8 @@ func TestScreenResizeOverwritesLastRune(t *testing.T) {
 	writeScreenString(s, "B")
 
 	out := strings.TrimSpace(s.Sprint(false))
-	exp := "0123456789\ue001AB"
+	ru1 := string(fontutil.TermWrapContinuousRune)
+	exp := fmt.Sprintf("0123456789%sAB", ru1)
 	if out != exp {
 		t.Errorf("got %q, want %q", out, exp)
 	}

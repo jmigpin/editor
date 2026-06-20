@@ -453,6 +453,7 @@ func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
 	// $font
+	oldFontOpts := erow.fontOpts
 	fontOpts := ERowFontOpts{}
 	if v, ok := vmap["$font"]; ok {
 		if v == "auto" {
@@ -462,6 +463,9 @@ func (erow *ERow) parseToolbarVars() {
 		}
 	}
 	erow.fontOpts = fontOpts
+	if oldFontOpts.auto && !fontOpts.auto {
+		erow.uiResetTermRunState()
+	}
 
 	ta := erow.Row.TextArea
 	//ta.SetThemeFontFace(fface0) // commeted: flickers when a terminal is running that will change the font again
@@ -484,6 +488,9 @@ func (erow *ERow) parseToolbarVars() {
 	// $terminal
 	if erow.Info.IsDir() {
 		topts := erow.parseTerminalOpts(vmap["$terminal"])
+		if !(oldFontOpts.auto && !fontOpts.auto) {
+			topts.lastCols = erow.termOpts.lastCols
+		}
 
 		fface := fontOpts.face
 		if fface == nil {
@@ -562,6 +569,10 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 	}
 }
 
+func (erow *ERow) uiResetTermRunState() {
+	erow.termOpts.lastCols = 0
+}
+
 //----------
 
 func (erow *ERow) termSize(fface *fontutil.FontFace, temu *ERowTermEmu) (_, _, _ image.Point, _ bool) {
@@ -589,7 +600,7 @@ func (erow *ERow) termSize(fface *fontutil.FontFace, temu *ERowTermEmu) (_, _, _
 		cr = temu.emu.ClampSize(cr)
 	}
 	if erow.fontOpts.auto {
-		m := goodMinGridSize // minimum in auto mode
+		m := erow.termAutoMinGridSize(goodMinGridSize, termRunning)
 		cr = image.Point{max(cr.X, m.X), max(cr.Y, m.Y)}
 	}
 	if erow.termOpts.fixedCols > 0 {
@@ -598,9 +609,19 @@ func (erow *ERow) termSize(fface *fontutil.FontFace, temu *ERowTermEmu) (_, _, _
 	if erow.termOpts.fixedRows > 0 {
 		cr.Y = erow.termOpts.fixedRows
 	}
+	if termRunning {
+		erow.termOpts.lastCols = cr.X
+	}
 	crBelowMin := cr0.X < cr.X || cr0.Y < cr.Y
 
 	return cr, px, fullPx, crBelowMin
+}
+
+func (erow *ERow) termAutoMinGridSize(fallback image.Point, termRunning bool) image.Point {
+	if !termRunning && erow.termOpts.lastCols > 0 {
+		fallback.X = erow.termOpts.lastCols
+	}
+	return fallback
 }
 
 func (erow *ERow) termAvailableSize(fface *fontutil.FontFace) (cr, px, fullPx image.Point) {
@@ -980,6 +1001,7 @@ type ERowTermOpts struct {
 	forwardMouse bool // forward mouse events to the process
 	fixedCols    int  // if > 0, use fixed terminal width
 	fixedRows    int  // if > 0, use fixed terminal height
+	lastCols     int  // last terminal width used while a process was running
 
 	emuOpts termemu.Opts
 }

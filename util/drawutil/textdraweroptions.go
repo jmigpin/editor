@@ -10,9 +10,6 @@ var WrapLineIndentTabs = 0.0
 var WrapWordLimit = 0
 
 type TextDrawerOptions struct {
-	Newline struct {
-		NoAdvance bool
-	}
 	LineWrap struct {
 		On     bool
 		Fg, Bg color.Color

@@ -14,9 +14,10 @@ var missingRune = nullRune
 var CarriageReturnRune = '␍' // C/R symbol: '␍'; old: '♪'
 
 const (
-	EofRune = 0xe000 + iota
+	EofRune = rune(0xe000 + iota)
+	NoDrawRune
 	TermWrapContinuousRune
-	//TermCursorRune
+	TermCursorRune
 )
 
 //----------
@@ -85,11 +86,12 @@ func (fr *FaceRunes) replace(ru0 rune) (rune, fixed.Int26_6, bool) {
 		adv, ok := fr.Face.GlyphAdvance(ru)
 		return ru, adv, ok
 
-		// commented: not supposed to be drawn hidden, these should be handled somewhere else such that if they get here, they will be visible
-		//case EofRune,TermWrapContinuousRune:
-		//	ru := '\u200b' // zero width space rune
-		//	return ru, 0, true
-
+	case EofRune, NoDrawRune, TermWrapContinuousRune:
+		//ru := nullRune // TESTING
+		//adv, ok := fr.Face.GlyphAdvance(ru)
+		//return ru, adv, ok
+		ru := '\u200b' // zero width space rune
+		return ru, 0, true
 	}
 
 	if fr.missingRune(ru0) {

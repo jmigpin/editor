@@ -4,6 +4,7 @@ import (
 	"unicode"
 
 	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/mathutil"
 )
@@ -167,7 +168,7 @@ func (lw *LineWrap) postLineWrap() bool {
 	// allow post line detection (this rune is not to be drawn)
 	ru := lw.d.st.runeR.ru // keep state
 	defer func() { lw.d.st.runeR.ru = ru }()
-	lw.d.st.runeR.ru = noDrawRune
+	lw.d.st.runeR.ru = fontutil.NoDrawRune
 
 	lw.d.st.lineWrap.postLineWrap = true
 	defer func() { lw.d.st.lineWrap.postLineWrap = false }()

@@ -50,9 +50,9 @@ func (dr *DrawRune) draw() {
 }
 
 func (dr *DrawRune) draw2(fface *fontutil.FontFace, pen image.Point, ru rune, fg color.Color) {
-	if isNoDraw(ru) {
-		return
-	}
+	//if isNoDraw(ru) {
+	//	return
+	//}
 
 	bline := fface.BaseLine()
 	gr, mask, maskp, _, ok := fface.Face.Glyph(bline, ru)

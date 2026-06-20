@@ -41,9 +41,9 @@ func (rr *RuneReader) End() {}
 
 //----------
 
-func (rr *RuneReader) eof() bool {
-	return rr.isNormal() && rr.d.st.runeR.ru == 0
-}
+//func (rr *RuneReader) eof() bool {
+//	return rr.isNormal() && rr.d.st.runeR.ru == 0
+//}
 
 func (rr *RuneReader) iter2(ru rune, size int) bool {
 	st := &rr.d.st.runeR
@@ -100,9 +100,6 @@ func (rr *RuneReader) isNormal() bool {
 //----------
 
 func (rr *RuneReader) glyphAdvance(ru rune) mathutil.Intf {
-	if ru == '\n' && rr.d.Opt.Newline.NoAdvance {
-		return 0
-	}
 	adv, ok := rr.d.st.runeR.fface.Face.GlyphAdvance(ru)
 	if !ok {
 		return 0

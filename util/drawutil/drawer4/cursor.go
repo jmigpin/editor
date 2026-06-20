@@ -71,10 +71,7 @@ func (c *Cursor) draw2(dr image.Rectangle, col color.Color) {
 	imageutil.FillRectangle(img, r4, col)
 
 	// squares width
-	aw := vbw // added width
-	if c.d.Opt.Cursor.AddedWidth > 0 {
-		aw = c.d.Opt.Cursor.AddedWidth
-	}
+	aw := c.d.cursorAddedWidth()
 	w := vbw + aw*2 // width
 
 	// upper square

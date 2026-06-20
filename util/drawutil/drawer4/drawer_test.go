@@ -63,19 +63,57 @@ func TestNLinesStartIndex1(t *testing.T) {
 	}
 }
 
-func TestNewlineNoAdvance(t *testing.T) {
+func TestInnerBoundsReservesNewlineWidth(t *testing.T) {
 	d := New()
 	d.SetFontFace(newTestFace())
 	d.SetBounds(image.Rect(0, 0, 100, 100))
-	d.SetReader(iorw.NewStringReaderAt("W\n"))
 
-	withAdvance := d.Measure().X
-	d.Opt.Newline.NoAdvance = true
-	d.ContentChanged()
-	withoutAdvance := d.Measure().X
+	want := image.Rect(0, 0, 100-d.newlineWidth(), 100)
+	if got := d.InnerBounds(); got != want {
+		t.Fatalf("inner bounds = %v, want %v", got, want)
+	}
+}
 
-	if withoutAdvance >= withAdvance {
-		t.Fatalf("with advance=%d, without advance=%d", withAdvance, withoutAdvance)
+func TestInnerBoundsReservesStartOffsetAndNewlineWidth(t *testing.T) {
+	d := New()
+	d.SetFontFace(newTestFace())
+	d.SetBounds(image.Rect(0, 0, 100, 100))
+	d.Opt.Cursor.On = true
+
+	want := image.Rect(d.startOffsetX(), 0, 100-d.newlineWidth(), 100)
+	if got := d.InnerBounds(); got != want {
+		t.Fatalf("inner bounds = %v, want %v", got, want)
+	}
+}
+
+func TestCursorAddedWidthAuto(t *testing.T) {
+	d := New()
+	d.SetFontFace(newTestFace())
+	d.Opt.Cursor.On = true
+
+	want := max(1, int(float64(d.LineHeight())*0.08))
+	if got := d.cursorAddedWidth(); got != want {
+		t.Fatalf("auto added width = %d, want %d", got, want)
+	}
+	if got := d.startOffsetX(); got != want*2 {
+		t.Fatalf("start offset x = %d, want %d", got, want*2)
+	}
+	if got := d.Opt.Cursor.AddedWidth; got != 0 {
+		t.Fatalf("option added width mutated to %d, want 0", got)
+	}
+}
+
+func TestCursorAddedWidthOverride(t *testing.T) {
+	d := New()
+	d.SetFontFace(newTestFace())
+	d.Opt.Cursor.On = true
+	d.Opt.Cursor.AddedWidth = 3
+
+	if got := d.cursorAddedWidth(); got != 3 {
+		t.Fatalf("override added width = %d, want 3", got)
+	}
+	if got := d.startOffsetX(); got != 6 {
+		t.Fatalf("start offset x = %d, want 6", got)
 	}
 }
 

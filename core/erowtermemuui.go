@@ -50,7 +50,6 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 		if tui.temu.erow.termOpts.emuOpts.Mode.IsGrid() {
 			opt.LineWrap.On = false
 		}
-		opt.Newline.NoAdvance = true
 
 		//sa := tui.temu.erow.Row.ScrollArea
 		//tui.restore.scrollBarX = sa.XBar != nil
@@ -74,7 +73,8 @@ func (tui *ERowTermEmuUI) Close() error {
 
 		ta.EnableSyntaxHighlight(tui.restore.syntaxHighlight)
 
-		ta.Drawer.TextDrawerOptions().LineWrap.On = tui.restore.lineWrap
+		opt := ta.Drawer.TextDrawerOptions()
+		opt.LineWrap.On = tui.restore.lineWrap
 
 		//tui.temu.erow.Row.SetThemePaletteColor("toolbar_text_bg", tui.restore.bg)
 

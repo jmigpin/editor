@@ -310,6 +310,7 @@ func (d *Drawer) Bounds() image.Rectangle {
 func (d *Drawer) InnerBounds() image.Rectangle {
 	b := d.bounds // copy
 	b.Min.X += d.startOffsetX()
+	b.Max.X -= d.newlineWidth()
 	b.Max.X = max(b.Min.X, b.Max.X) // keep rect well formed
 	return b
 }
@@ -318,10 +319,28 @@ func (d *Drawer) startOffsetX() int {
 	if d.Opt.RuneReader.StartOffsetX > 0 {
 		return d.Opt.RuneReader.StartOffsetX
 	}
-	if d.Opt.Cursor.AddedWidth > 0 {
-		return d.Opt.Cursor.AddedWidth * 2
+	return d.cursorAddedWidth() * 2
+}
+
+func (d *Drawer) cursorAddedWidth() int {
+	if !d.Opt.Cursor.On {
+		return 0
 	}
-	return 0
+	if d.Opt.Cursor.AddedWidth > 0 {
+		return d.Opt.Cursor.AddedWidth
+	}
+	return max(1, int(float64(d.LineHeight())*0.08))
+}
+
+func (d *Drawer) newlineWidth() int {
+	if d.fface == nil {
+		return 0
+	}
+	adv, ok := d.fface.Face.GlyphAdvance('\n')
+	if !ok {
+		return 0
+	}
+	return adv.Ceil()
 }
 
 func (d *Drawer) SetBounds(r image.Rectangle) {
@@ -975,14 +994,6 @@ func assignColor(dest *color.Color, src color.Color) {
 }
 
 //----------
-
-const (
-	noDrawRune = -2
-)
-
-func isNoDraw(ru rune) bool {
-	return isTermWrap(ru) || ru == fontutil.EofRune || ru == noDrawRune
-}
 
 func isTermWrap(ru rune) bool {
 	return ru == fontutil.TermWrapContinuousRune
