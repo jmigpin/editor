@@ -30,6 +30,7 @@ type Drawer interface {
 
 	LocalPointOf(index int) image.Point
 	LocalIndexOf(image.Point) int
+	AnnotationsIndexOf(image.Point) (int, int, bool)
 
 	Measure() image.Point
 	Draw(img draw.Image)

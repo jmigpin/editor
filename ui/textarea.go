@@ -3,7 +3,6 @@ package ui
 import (
 	"image"
 
-	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/evreg"
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -133,36 +132,28 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 //----------
 
 func (ta *TextArea) selAnnCurEv(p image.Point, typ TASelAnnType) bool {
-	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
-		if d.Opt.Annotations.On {
-			//i, o, ok := d.AnnotationsIndexOf(p)
-			//if ok {
-			//	ev2 := &TextAreaSelectAnnotationEvent{ta, i, o, typ}
-			//	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
-			//	return true
-			//}
+	if !ta.Drawer.TextDrawerOptions().Annotations.On {
+		return false
+	}
 
-			ev2 := &TextAreaSelectAnnotationEvent{ta, 0, 0, typ}
-			i, o, ok := d.AnnotationsIndexOf(p)
-			if ok {
-				ev2.AnnotationIndex = i
-				ev2.Offset = o
-			} else {
-				// not in an annotation, switch the general prev/next
-				switch typ {
-				case TasatMsgPrev:
-					ev2.Type = TasatPrev
-				case TasatMsgNext:
-					ev2.Type = TasatNext
-				default:
-					return false
-				}
-			}
-			ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
-			return true
+	ev2 := &TextAreaSelectAnnotationEvent{TextArea: ta, Type: typ}
+	i, o, ok := ta.Drawer.AnnotationsIndexOf(p)
+	if ok {
+		ev2.AnnotationIndex = i
+		ev2.Offset = o
+	} else {
+		// not in an annotation, switch the general prev/next
+		switch typ {
+		case TasatMsgPrev:
+			ev2.Type = TasatPrev
+		case TasatMsgNext:
+			ev2.Type = TasatNext
+		default:
+			return false
 		}
 	}
-	return false
+	ta.EvReg.RunCallbacks(TextAreaSelectAnnotationEventId, ev2)
+	return true
 }
 
 //func (ta *TextArea) selAnnEv(typ TASelAnnType) {
