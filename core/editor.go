@@ -429,6 +429,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 	last := []string{"Exit", "Version", "Stop", "Clear"}
 
 	hide := []string{
+		"CopyFilePosition",        // alias CopyPosition
 		"CloseColumn", "CloseRow", // not useful in the list
 		"Find",                              // using -h
 		"GoDebug",                           // using -h

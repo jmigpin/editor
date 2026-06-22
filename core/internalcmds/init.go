@@ -46,7 +46,7 @@ func init() {
 	cmd(Replace, "Replace")
 	cmd(GotoLine, "GotoLine", "GoToLine")
 
-	cmd(CopyFilePosition, "CopyFilePosition")
+	cmd(CopyPosition, "CopyPosition", "CopyFilePosition")
 	cmd(RuneCodes, "RuneCodes")
 	cmd(FontRunes, "FontRunes")
 	cmd(FontsList, "FontsList")

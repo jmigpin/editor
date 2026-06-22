@@ -258,7 +258,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- `-sub`: lists directory and sub directories
 	- `-hidden`: lists directory including hidden
 - `MaximizeRow`: maximize row. Will push other rows up/down.
-- `CopyFilePosition`: output the cursor file position in the format "file:line:col". Useful to get a clickable text with the file position.
+- `CopyPosition`: copy the row position to the clipboard. For files, copies the cursor file position in the format "file:line:col"; for directories, copies the directory name. Alias: `CopyFilePosition`.
 - `RuneCodes`: output rune codes of the current row text selection.
 - `FontRunes`: output the current font runes.
 - `FontsList`: lists all loaded fonts and their aliases.
