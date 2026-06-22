@@ -421,6 +421,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		"Find -h",
 		"GoDebug -h", "GoDebug run -h", "GoDebug connect -h",
 		"ListDir -hidden", "ListDir -sub",
+		"SaveSession -h",
 		"SortTextLines -h",
 	}
 	w = append(w, extra...)
@@ -428,14 +429,15 @@ func (ed *Editor) setupRootMenuToolbar() {
 	last := []string{"Exit", "Version", "Stop", "Clear"}
 
 	hide := []string{
-		"Find",                              // have Find -h
-		"GoDebug",                           // have GoDebug -h
+		"CloseColumn", "CloseRow", // not useful in the list
+		"Find",                              // using -h
+		"GoDebug",                           // using -h
+		"GoRename",                          // to be removed, old cmd
+		"GotoLine",                          // alias GoToLine
 		"LsprotoCallHierarchyIncomingCalls", // alias LsprotoCallers
 		"LsprotoCallHierarchyOutgoingCalls", // alias LsprotoCallees
 		"OpenTerminalExternal",              // alias OpenTerminal
-		"CloseColumn", "CloseRow",           // not useful in the list
-		"GoRename", // to be removed, old cmd
-		"GotoLine", // alias GoToLine
+		"SaveSession",                       // using -h
 	}
 	hide = append(hide, last...) // added in last cmds, hide them now
 
