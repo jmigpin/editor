@@ -166,6 +166,7 @@ func (col *Column) resizeToPointWithSwap(p *image.Point) {
 	perc := float64(p.Sub(bounds.Min).X) / dx
 
 	col.Cols.ColsLayout.Spl.ResizeWithMove(col, perc)
+	col.emitLayoutChange()
 }
 
 func (col *Column) resizeWithMoveJump(left bool, p *image.Point) {
@@ -191,14 +192,24 @@ func (col *Column) resizeWithMoveToPoint(p *image.Point) {
 	perc := float64(p.Sub(bounds.Min).X) / dx
 
 	col.Cols.ColsLayout.Spl.ResizeWithMove(col, perc)
+	col.emitLayoutChange()
 }
 
 //----------
 
 const (
 	ColumnCloseEventId = iota
+	ColumnLayoutChangeEventId
 )
 
 type ColumnCloseEvent struct {
 	Col *Column
+}
+
+type ColumnLayoutChangeEvent struct {
+	Col *Column
+}
+
+func (col *Column) emitLayoutChange() {
+	col.EvReg.RunCallbacks(ColumnLayoutChangeEventId, &ColumnLayoutChangeEvent{col})
 }

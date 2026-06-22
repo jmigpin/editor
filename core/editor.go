@@ -50,6 +50,8 @@ type Editor struct {
 
 	zipSessionsFile bool
 	windowTitle     string
+
+	sessionAutoSaver *SessionAutoSaver
 }
 
 func RunEditor(opt *Options) error {
@@ -106,6 +108,7 @@ func (ed *Editor) init(opt *Options) error {
 	}
 	ed.UI = ui0
 	ed.UI.OnError = ed.Error
+	ed.sessionAutoSaver = NewSessionAutoSaver(ed)
 	ed.setupUIRoot()
 
 	// TODO: ensure it has the window measure
@@ -174,6 +177,7 @@ func (ed *Editor) initPreSaveHooks(opt *Options) {
 //----------
 
 func (ed *Editor) Close() {
+	ed.flushAndStopSessionAutoSave()
 	ed.LSProtoMan.Stop()
 	_ = ed.Watcher.Close()
 	ed.UI.AppendEvent(&editorCloseEv{})
@@ -198,6 +202,7 @@ func (ed *Editor) uiEventLoop() {
 		case *editorCloseEv:
 			return
 		case *event.WindowClose:
+			ed.flushAndStopSessionAutoSave()
 			return
 		case *event.DndPosition:
 			ed.dndh.OnPosition(t)
@@ -391,6 +396,7 @@ func (ed *Editor) setupRootToolbar() {
 	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 any) {
 		ed.updateERowsToolbarsHomeVars()
 		ed.UpdateWindowTitle()
+		ed.triggerSessionAutoSaveText("root-toolbar")
 	})
 
 	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | Reload | OpenFilemanager | OpenTerminal | LsprotoCloseAll | Stop"
@@ -713,9 +719,14 @@ func (ed *Editor) EnsureOneColumn() {
 
 func (ed *Editor) NewColumn() *ui.Column {
 	col := ed.UI.Root.Cols.NewColumn()
+	ed.triggerSessionAutoSaveLayout("column-new")
+	col.EvReg.Add(ui.ColumnLayoutChangeEventId, func(ev0 any) {
+		ed.triggerSessionAutoSaveLayout("column-layout")
+	})
 	// close
 	col.EvReg.Add(ui.ColumnCloseEventId, func(ev0 any) {
 		ed.EnsureOneColumn()
+		ed.triggerSessionAutoSaveLayout("column-close")
 	})
 	return col
 }

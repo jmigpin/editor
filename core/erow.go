@@ -242,6 +242,9 @@ func (erow *ERow) initHandlers() {
 			ev.ReplyErr = err
 		}
 	})
+	row.Toolbar.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 any) {
+		erow.Ed.triggerSessionAutoSaveText("row-toolbar")
+	})
 
 	// textarea resize
 	row.TextArea.EvReg.Add(ui.TextAreaBoundsChangeEventId, func(ev0 any) {
@@ -332,6 +335,9 @@ func (erow *ERow) initHandlers() {
 			erow.Info.UpdateDuplicateHighlightRowState()
 		}
 	})
+	row.EvReg.Add(ui.RowLayoutChangeEventId, func(ev0 any) {
+		erow.Ed.triggerSessionAutoSaveLayout("row-layout")
+	})
 	// close
 	row.EvReg.Add(ui.RowCloseEventId, func(ev0 any) {
 		// editor events
@@ -363,7 +369,10 @@ func (erow *ERow) initHandlers() {
 		if !erow.Info.IsSpecial() {
 			erow.Ed.RowReopener.Add(row)
 		}
+		erow.Ed.triggerSessionAutoSaveLayout("row-close")
 	})
+
+	erow.Ed.triggerSessionAutoSaveLayout("row-new")
 }
 
 //----------

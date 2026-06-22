@@ -329,11 +329,17 @@ func SaveSession(ed *Editor, part *toolbarparser.Part) {
 	}
 }
 func saveSession(ed *Editor, part *toolbarparser.Part) error {
-	if len(part.Args) != 2 {
-		return fmt.Errorf("savesession: missing session name")
+	target, ok, err := parseSessionSavePart(part)
+	if err != nil {
+		return err
 	}
-	sessionName := part.Args[1].String()
+	if !ok || target.Cmd != "SaveSession" {
+		return fmt.Errorf("savesession: invalid command")
+	}
+	return saveSessionName(ed, target.Dest)
+}
 
+func saveSessionName(ed *Editor, sessionName string) error {
 	s1 := NewSessionFromEditor(ed)
 	s1.Name = sessionName
 
@@ -402,18 +408,20 @@ func OpenSession(ed *Editor, part *toolbarparser.Part) {
 }
 
 func OpenSessionFromString(ed *Editor, sessionName string) {
-	ss, err := ed.loadSessions()
-	if err != nil {
-		ed.Error(err)
-		return
-	}
-	for _, s := range ss.Sessions {
-		if s.Name == sessionName {
-			s.restore(ed)
+	ed.runSessionAutoSaveDisabled(func() {
+		ss, err := ed.loadSessions()
+		if err != nil {
+			ed.Error(err)
 			return
 		}
-	}
-	ed.Errorf("session not found: %v", sessionName)
+		for _, s := range ss.Sessions {
+			if s.Name == sessionName {
+				s.restore(ed)
+				return
+			}
+		}
+		ed.Errorf("session not found: %v", sessionName)
+	})
 }
 
 func OpenSessionFromFile(ed *Editor, filename string) error {
@@ -421,13 +429,26 @@ func OpenSessionFromFile(ed *Editor, filename string) error {
 	if err != nil {
 		return err
 	}
-	s.restore(ed)
+	ed.runSessionAutoSaveDisabled(func() {
+		s.restore(ed)
+	})
 	return nil
 }
 
 func SaveSessionToFile(ed *Editor, filename string) error {
 	s := NewSessionFromEditor(ed)
 	return s.saveToPlain(filename)
+}
+
+func SaveSessionFile(ed *Editor, part *toolbarparser.Part) error {
+	target, ok, err := parseSessionSavePart(part)
+	if err != nil {
+		return err
+	}
+	if !ok || target.Cmd != "SaveSessionFile" {
+		return fmt.Errorf("savesessionfile: invalid command")
+	}
+	return SaveSessionToFile(ed, target.Dest)
 }
 
 //----------

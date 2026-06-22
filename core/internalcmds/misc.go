@@ -77,11 +77,7 @@ func SaveSession(args *core.InternalCmdArgs) error {
 	return nil
 }
 func SaveSessionFile(args *core.InternalCmdArgs) error {
-	if len(args.Part.Args) != 2 {
-		return fmt.Errorf("savesessionfile: missing session filename")
-	}
-	filename := args.Part.Args[1].UnquotedString()
-	return core.SaveSessionToFile(args.Ed, filename)
+	return core.SaveSessionFile(args.Ed, args.Part)
 }
 func OpenSession(args *core.InternalCmdArgs) error {
 	core.OpenSession(args.Ed, args.Part)

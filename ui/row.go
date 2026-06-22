@@ -106,6 +106,7 @@ func (row *Row) NextRow() *Row {
 func (row *Row) Maximize() {
 	col := row.Col
 	col.RowsLayout.Spl.MaximizeNode(row)
+	row.emitLayoutChange()
 }
 
 //----------
@@ -131,6 +132,7 @@ func (row *Row) resizeWithMoveToPoint(p *image.Point) {
 	perc := float64(p.Sub(bounds.Min).Y) / dy
 
 	row.Col.RowsLayout.Spl.ResizeWithMove(row, perc)
+	row.emitLayoutChange()
 }
 
 //----------
@@ -161,6 +163,7 @@ func (row *Row) resizeWithPushToPoint(p *image.Point) {
 	perc := float64(p.Sub(col.Bounds.Min).Y) / dy
 
 	col.RowsLayout.Spl.SetPercentWithPush(row, perc)
+	row.emitLayoutChange()
 }
 
 //----------
@@ -211,6 +214,7 @@ func (row *Row) PosBelow() *RowPos {
 const (
 	RowInputEventId = iota
 	RowCloseEventId
+	RowLayoutChangeEventId
 )
 
 type RowInputEvent struct {
@@ -219,4 +223,12 @@ type RowInputEvent struct {
 }
 type RowCloseEvent struct {
 	Row *Row
+}
+
+type RowLayoutChangeEvent struct {
+	Row *Row
+}
+
+func (row *Row) emitLayoutChange() {
+	row.EvReg.RunCallbacks(RowLayoutChangeEventId, &RowLayoutChangeEvent{row})
 }
