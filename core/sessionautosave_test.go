@@ -68,6 +68,17 @@ func TestParseSessionSavePartHelpShowsAutoDelay(t *testing.T) {
 	}
 }
 
+func TestSaveSessionNameFromPart(t *testing.T) {
+	part := toolbarparser.Parse("SaveSession -auto aa").Parts[0]
+	got, ok := saveSessionNameFromPart(part)
+	if !ok {
+		t.Fatalf("not handled")
+	}
+	if got != "aa" {
+		t.Fatalf("got %q, want %q", got, "aa")
+	}
+}
+
 func TestPartHasAutoFlag(t *testing.T) {
 	tests := []struct {
 		src  string

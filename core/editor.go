@@ -509,7 +509,7 @@ func (ed *Editor) windowTitleNameFromRootToolbar() string {
 				windowTitleName = s
 			}
 		case "SaveSession":
-			if s := part.FromArgUnquotedString(1); s != "" {
+			if s, ok := saveSessionNameFromPart(part); ok {
 				saveSessionName = s
 			}
 		}

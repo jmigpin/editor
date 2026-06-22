@@ -329,14 +329,30 @@ func SaveSession(ed *Editor, part *toolbarparser.Part) {
 	}
 }
 func saveSession(ed *Editor, part *toolbarparser.Part) error {
-	target, ok, err := parseSessionSavePart(part)
+	target, err := saveSessionTargetFromPart(part)
 	if err != nil {
 		return err
 	}
-	if !ok || target.Cmd != "SaveSession" {
-		return fmt.Errorf("savesession: invalid command")
-	}
 	return saveSessionName(ed, target.Dest)
+}
+
+func saveSessionTargetFromPart(part *toolbarparser.Part) (*sessionSaveTarget, error) {
+	target, ok, err := parseSessionSavePart(part)
+	if err != nil {
+		return nil, err
+	}
+	if !ok || target.Cmd != "SaveSession" {
+		return nil, fmt.Errorf("savesession: invalid command")
+	}
+	return target, nil
+}
+
+func saveSessionNameFromPart(part *toolbarparser.Part) (string, bool) {
+	target, err := saveSessionTargetFromPart(part)
+	if err != nil {
+		return "", false
+	}
+	return target.Dest, true
 }
 
 func saveSessionName(ed *Editor, sessionName string) error {
