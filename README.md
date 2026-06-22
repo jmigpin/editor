@@ -228,7 +228,7 @@ Use monospaced font in this row textarea (see more at [internal variables](#inte
 *Toolbar commands*
 
 - `ListSessions`: lists saved sessions
-- `SaveSession [-auto] [-quiet] <name>`: save session to ~/.editor_sessions.json. With `-auto`, autosaves session changes 30s after changes while the command is present in the root toolbar; pending autosaves are saved on exit. With `-quiet`, autosaves do not report to `+Messages`.
+- `SaveSession [-auto] [-quiet] <name>`: save session to ~/.editor_sessions.json. With `-auto`, autosaves 30s after session changes, such as layout or toolbar changes, while the command is present in the root toolbar; pending autosaves are saved on exit. With `-quiet`, autosaves do not report to `+Messages`.
 - `DeleteSession <name>`: deletes the session from the sessions file
 - `NewColumn`: opens new column
 - `NewRow`: opens new empty row located at the active-row directory, or if there is none, the current directory. Useful to run commands in a directory.
@@ -307,7 +307,7 @@ Notes:
 - `-sessionfilename` and `*SessionFile` operate on a single session stored in a regular file.
 - If you want multiple session snapshots for the same directory, use multiple files.
 - `SaveSessionFile [-auto] [-quiet] <filename>` can autosave a single session file from the root toolbar.
-- With `-auto`, pending session changes are saved on exit.
+- With `-auto`, session changes such as layout or toolbar changes are saved after 30s, and pending session changes are saved on exit.
 
 ## Commands: GoDebug
 
