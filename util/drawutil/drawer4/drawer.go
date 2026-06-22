@@ -184,6 +184,7 @@ func (st State) Dump() {
 func New() *Drawer {
 	d := &Drawer{}
 	d.Opt.LineWrap.On = true
+	d.Opt.IndexOf.HalfHit = drawutil.CursorHalfHit
 	d.smoothScroll = true
 
 	// iterators

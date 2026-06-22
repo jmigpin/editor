@@ -602,6 +602,7 @@ func (ed *Editor) setupTheme(opt *Options) error {
 	drawutil.WrapLineRune = rune(opt.WrapLineRune)
 	drawutil.WrapLineIndentTabs = opt.WrapLineIndentTabs
 	drawutil.WrapWordLimit = opt.WrapWordLimit
+	drawutil.CursorHalfHit = opt.CursorHalfHit
 	fontutil.TabWidth = opt.TabWidth
 	fontutil.CarriageReturnRune = rune(opt.CarriageReturnRune)
 	ui.ScrollBarLeft = opt.ScrollBarLeft

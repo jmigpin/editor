@@ -317,6 +317,31 @@ func TestImg12Cursor(t *testing.T) {
 	cmpResult(t, img, "img12")
 }
 
+func TestLocalIndexOfCursorHalfHit(t *testing.T) {
+	d, _ := newTestDrawer()
+	r := iorw.NewStringReaderAt("abc")
+	d.SetReader(r)
+
+	p0 := d.LocalPointOf(0)
+	p1 := d.LocalPointOf(1)
+	w := p1.X - p0.X
+	if w <= 2 {
+		t.Fatalf("unexpected rune width: %v", w)
+	}
+	p := p0
+	p.X += w * 3 / 4
+
+	d.Opt.IndexOf.HalfHit = false
+	if got, want := d.LocalIndexOf(p), 0; got != want {
+		t.Fatalf("without half hit: got %v, want %v", got, want)
+	}
+
+	d.Opt.IndexOf.HalfHit = true
+	if got, want := d.LocalIndexOf(p), 1; got != want {
+		t.Fatalf("with half hit: got %v, want %v", got, want)
+	}
+}
+
 func TestImg13Cursor(t *testing.T) {
 	d, img := newTestDrawer()
 

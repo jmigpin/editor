@@ -21,6 +21,7 @@ type Options struct {
 	WrapLineRune       int
 	WrapLineIndentTabs float64
 	WrapWordLimit      int
+	CursorHalfHit      bool
 	CarriageReturnRune int
 
 	ColorTheme     string

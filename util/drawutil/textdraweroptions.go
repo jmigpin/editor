@@ -8,6 +8,7 @@ import (
 var WrapLineRune = rune('←') // positioned at the start of wrapped line (left)
 var WrapLineIndentTabs = 0.0
 var WrapWordLimit = 0
+var CursorHalfHit = false
 
 type TextDrawerOptions struct {
 	LineWrap struct {
@@ -18,6 +19,9 @@ type TextDrawerOptions struct {
 		On         bool
 		Fg         color.Color
 		AddedWidth int
+	}
+	IndexOf struct {
+		HalfHit bool
 	}
 	Colorize struct {
 		Groups []*ColorizeGroup

@@ -30,7 +30,11 @@ func (io *IndexOf) iter2() {
 		// keep closest in the line
 		io.d.st.indexOf.index = io.d.st.runeR.ri
 		// before the first rune of the line or in the rune
-		if p.X < pb.Max.X {
+		maxX := pb.Max.X
+		if io.d.Opt.IndexOf.HalfHit {
+			maxX = pb.Min.X + (pb.Max.X-pb.Min.X)/2
+		}
+		if p.X < maxX {
 			io.d.iterStop()
 			return
 		}
