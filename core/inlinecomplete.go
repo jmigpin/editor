@@ -226,7 +226,6 @@ func (ic *InlineComplete) CancelAndClear() {
 
 func (ic *InlineComplete) completor(erow *ERow) (Completor, bool) {
 	w := []Completor{
-		//&FillAssistCompletor{ed: ic.ed},
 		&LsprotoCompletor{ic.ed.LSProtoMan},
 	}
 	for _, c := range w {
@@ -278,46 +277,6 @@ func (lc *LsprotoCompletor) Completions(ctx context.Context, erow *ERow, offset 
 
 	return res, nil
 }
-
-//----------
-//----------
-//----------
-
-//type FillAssistCompletor struct {
-//	ed    *Editor
-//	names []string
-//}
-
-//func (fc *FillAssistCompletor) PrimaryCheck(erow *ERow) bool {
-//	// must have fillers
-//	fc.names = fillassist.FillersNames()
-//	if len(fc.names) == 0 {
-//		return false
-//	}
-
-//	ta := erow.Row.TextArea
-//	ci := ta.CursorIndex()
-
-//	// parse
-//	syc := fillassist.SelectSyntaxComment(erow.SyntaxComments())
-//	pd, err, ok := fillassist.Parse(ta.RW(), ci, syc, true)
-//	if !ok {
-//		return false
-//	}
-//	if err != nil {
-//		//fc.ed.Error(err) // DEBUG
-//		return false
-//	}
-
-//	return pd.FillerName.Pos <= ci && ci <= pd.FillerName.End
-//}
-//func (fc *FillAssistCompletor) Completions(ctx context.Context, erow *ERow, offset int) ([]string, error) {
-//	return fc.names, nil
-//}
-
-//----------
-//----------
-//----------
 
 func insertComplete(comps []string, rw iorw.ReadWriterAt, index int) (newIndex int, completed bool, _ []string, _ error) {
 	// build prefix from start of string

@@ -303,13 +303,6 @@ func (erow *ERow) initHandlers() {
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
 				AddFindShortcut(erow)
 
-			//case mods.Is(event.ModCtrl|event.ModShift) && evt.KeySym == event.KSymF:
-			//	// internal cmd
-			//	str := "FillAssist -template"
-			//	data := toolbarparser.Parse(str)
-			//	part, _ := data.PartAtIndex(0)
-			//	internalOrExternalCmd(erow.Ed, part, erow)
-
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymH:
 				AddReplaceShortcut(erow)
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymN:
