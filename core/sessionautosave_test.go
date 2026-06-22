@@ -12,14 +12,16 @@ import (
 
 func TestParseSessionSavePart(t *testing.T) {
 	tests := []struct {
-		src  string
-		cmd  string
-		dest string
-		auto bool
+		src   string
+		cmd   string
+		dest  string
+		auto  bool
+		quiet bool
 	}{
-		{"SaveSession aa", "SaveSession", "aa", false},
-		{"SaveSession -auto aa", "SaveSession", "aa", true},
-		{"SaveSessionFile -auto project.editor_session", "SaveSessionFile", "project.editor_session", true},
+		{"SaveSession aa", "SaveSession", "aa", false, false},
+		{"SaveSession -auto aa", "SaveSession", "aa", true, false},
+		{"SaveSession -auto -quiet aa", "SaveSession", "aa", true, true},
+		{"SaveSessionFile -auto -quiet project.editor_session", "SaveSessionFile", "project.editor_session", true, true},
 	}
 
 	for _, test := range tests {
@@ -31,7 +33,7 @@ func TestParseSessionSavePart(t *testing.T) {
 		if !ok {
 			t.Fatalf("%q: not handled", test.src)
 		}
-		if target.Cmd != test.cmd || target.Dest != test.dest || target.Auto != test.auto {
+		if target.Cmd != test.cmd || target.Dest != test.dest || target.Auto != test.auto || target.Quiet != test.quiet {
 			t.Fatalf("%q: got %#v", test.src, target)
 		}
 	}
@@ -61,7 +63,7 @@ func TestParseSessionSavePartHelpShowsAutoDelay(t *testing.T) {
 		t.Fatalf("got %v, want flag.ErrHelp", err)
 	}
 	errStr := err.Error()
-	for _, want := range []string{"-auto", sessionAutoSaveDelay.String()} {
+	for _, want := range []string{"-auto", "-quiet", sessionAutoSaveDelay.String()} {
 		if !strings.Contains(errStr, want) {
 			t.Fatalf("help missing %q:\n%v", want, errStr)
 		}
@@ -118,6 +120,19 @@ func TestSessionSaveMessage(t *testing.T) {
 	t1 := time.Date(2026, 6, 22, 9, 8, 7, 0, time.Local)
 	got := sessionSaveMessage("session auto saved", targets, t1)
 	want := "session auto saved 09:08:07: aa, bb.editor_session"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestSessionSaveReportTargets(t *testing.T) {
+	targets := []*sessionSaveTarget{
+		{Dest: "aa"},
+		{Dest: "bb.editor_session", Quiet: true},
+		{Dest: "cc"},
+	}
+	got := sessionSaveTargetsString(sessionSaveReportTargets(targets))
+	want := "aa, cc"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}

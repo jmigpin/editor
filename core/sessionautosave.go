@@ -181,8 +181,9 @@ func (sas *SessionAutoSaver) saveTargets(targets []*sessionSaveTarget, msg strin
 	if err := me.Result(); err != nil {
 		return err
 	}
-	if msg != "" && len(targets) > 0 {
-		sas.ed.Message(sessionSaveMessage(msg, targets, time.Now()))
+	reportTargets := sessionSaveReportTargets(targets)
+	if msg != "" && len(reportTargets) > 0 {
+		sas.ed.Message(sessionSaveMessage(msg, reportTargets, time.Now()))
 	}
 	return nil
 }
@@ -223,9 +224,10 @@ func (ed *Editor) flushAndStopSessionAutoSave() {
 //----------
 
 type sessionSaveTarget struct {
-	Cmd  string
-	Dest string
-	Auto bool
+	Cmd   string
+	Dest  string
+	Auto  bool
+	Quiet bool
 }
 
 func parseSessionSavePart(part *toolbarparser.Part) (*sessionSaveTarget, bool, error) {
@@ -242,6 +244,7 @@ func parseSessionSavePart(part *toolbarparser.Part) (*sessionSaveTarget, bool, e
 	fs.SetOutput(io.Discard)
 	target := &sessionSaveTarget{Cmd: cmd}
 	fs.BoolVar(&target.Auto, "auto", false, sessionAutoSaveAutoUsage())
+	fs.BoolVar(&target.Quiet, "quiet", false, "save without reporting to the messages row")
 	if err := fs.Parse(part.ArgsStrings()[1:]); err != nil {
 		return nil, true, sessionSaveFlagErr(fs, err)
 	}
@@ -297,6 +300,16 @@ func sessionSaveTargetsString(targets []*sessionSaveTarget) string {
 
 func sessionSaveMessage(msg string, targets []*sessionSaveTarget, t time.Time) string {
 	return fmt.Sprintf("%s %s: %s", msg, t.Format("15:04:05"), sessionSaveTargetsString(targets))
+}
+
+func sessionSaveReportTargets(targets []*sessionSaveTarget) []*sessionSaveTarget {
+	w := []*sessionSaveTarget{}
+	for _, target := range targets {
+		if !target.Quiet {
+			w = append(w, target)
+		}
+	}
+	return w
 }
 
 func saveSessionTarget(ed *Editor, target *sessionSaveTarget) error {
