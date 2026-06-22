@@ -21,6 +21,7 @@ type TextArea struct {
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui}
 	ta.TextEditX = widget.NewTextEditX(ui)
+	ta.ENode.Cursor = event.BeamCursor
 	return ta
 }
 
@@ -109,12 +110,12 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 	case *event.MouseUp:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.ENode.Cursor = event.NoneCursor
+			ta.ENode.Cursor = event.BeamCursor
 		}
 	case *event.MouseDragStart:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.ENode.Cursor = event.NoneCursor
+			ta.ENode.Cursor = event.BeamCursor
 		}
 	case *event.KeyDown:
 		m := ev.Mods.ClearLocks()

@@ -4,41 +4,68 @@ import (
 	"image/color"
 
 	"github.com/jezek/xgb"
+	"github.com/jezek/xgb/render"
 	"github.com/jezek/xgb/xproto"
+	"github.com/jmigpin/editor/driver/xdriver/xcursors/xcur"
 	"github.com/jmigpin/editor/util/imageutil"
 )
 
 // https://tronche.com/gui/x/xlib/appendix/b/
 
 type Cursors struct {
-	conn *xgb.Conn
-	win  xproto.Window
-	m    map[Cursor]xproto.Cursor
+	conn       *xgb.Conn
+	win        xproto.Window
+	m          map[Cursor]xproto.Cursor
+	theme      *xcur.Theme
+	themeSize  int
+	themeM     map[Cursor]xproto.Cursor
+	pictFormat render.Pictformat
 }
 
 func NewCursors(conn *xgb.Conn, win xproto.Window) (*Cursors, error) {
 	cs := &Cursors{
-		conn: conn,
-		win:  win,
-		m:    make(map[Cursor]xproto.Cursor),
+		conn:   conn,
+		win:    win,
+		m:      make(map[Cursor]xproto.Cursor),
+		themeM: make(map[Cursor]xproto.Cursor),
 	}
+	cs.initTheme()
 	return cs, nil
 }
 func (cs *Cursors) SetCursor(c Cursor) error {
-	xc, ok := cs.m[c]
-	if !ok {
-		xc2, err := cs.loadCursor(c)
-		if err != nil {
-			return err
-		}
-		cs.m[c] = xc2
-		xc = xc2
+	xc, err := cs.cursor(c)
+	if err != nil {
+		return err
 	}
 	mask := uint32(xproto.CwCursor)
 	values := []uint32{uint32(xc)}
 	_ = xproto.ChangeWindowAttributes(cs.conn, cs.win, mask, values)
 	return nil
 }
+
+//----------
+
+func (cs *Cursors) cursor(c Cursor) (xproto.Cursor, error) {
+	if xc, ok := cs.themeM[c]; ok {
+		return xc, nil
+	}
+	if xc, err := cs.loadThemeCursor(c); err == nil {
+		cs.themeM[c] = xc
+		return xc, nil
+	}
+
+	xc, ok := cs.m[c]
+	if !ok {
+		xc2, err := cs.loadCursor(c)
+		if err != nil {
+			return 0, err
+		}
+		cs.m[c] = xc2
+		xc = xc2
+	}
+	return xc, nil
+}
+
 func (cs *Cursors) loadCursor(c Cursor) (xproto.Cursor, error) {
 	return cs.loadCursor2(c, color.Black, color.White)
 }
@@ -81,6 +108,29 @@ func (cs *Cursors) loadCursor2(c Cursor, fg, bg color.Color) (xproto.Cursor, err
 
 	return cursor, nil
 }
+
+func (c Cursor) xcursorNames() []string {
+	switch c {
+	case SBVDoubleArrow:
+		return []string{"sb_v_double_arrow", "ns-resize", "size_ver"}
+	case SBHDoubleArrow:
+		return []string{"sb_h_double_arrow", "ew-resize", "size_hor"}
+	case XCursor:
+		return []string{"X_cursor", "cross", "crosshair"}
+	case Fleur:
+		return []string{"fleur", "move", "all-scroll"}
+	case Hand2:
+		return []string{"hand2", "pointer", "hand1"}
+	case XTerm:
+		return []string{"xterm", "text"}
+	case Watch:
+		return []string{"watch", "wait"}
+	default:
+		return nil
+	}
+}
+
+//----------
 
 type Cursor uint16
 
