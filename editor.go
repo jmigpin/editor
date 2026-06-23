@@ -42,6 +42,7 @@ func main() {
 	flag.Float64Var(&opt.WrapLineIndentTabs, "wraplineindenttabs", 1.5, "number of tab widths used to indent wrapped lines")
 	flag.IntVar(&opt.WrapWordLimit, "wrapwordlimit", 10, "wrap at word boundaries for words up to N runes. Set to zero to disable word wrap.")
 	flag.BoolVar(&opt.CursorHalfHit, "cursorhalfhit", false, "place cursor before/after a rune depending on whether the pointer is in the left/right half of the rune cell")
+	flag.StringVar(&opt.TextCursor, "textcursor", "default", "textarea cursor: default or beam. With beam, consider -cursorhalfhit.")
 	flag.StringVar(&opt.ColorTheme, "colortheme", "light", "available: "+strings.Join(ui.ColorThemeCycler.Names(), ", "))
 	flag.IntVar(&opt.CommentsColor, "commentscolor", 0, "Colorize comments. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")
 	flag.IntVar(&opt.StringsColor, "stringscolor", 0, "Colorize strings. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")

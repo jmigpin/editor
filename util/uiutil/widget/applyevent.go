@@ -65,20 +65,23 @@ func (ae *ApplyEvent) setCursor(node Node, p image.Point) {
 	} else {
 		c = ae.treeCursor(node, p)
 	}
+	if c == event.UndefinedCursor {
+		c = event.DefaultCursor
+	}
 	ae.cctx.SetCursor(c)
 }
 
 func (ae *ApplyEvent) treeCursor(node Node, p image.Point) event.Cursor {
 	ne := node.Embed()
 	if !p.In(ne.Bounds) {
-		return 0
+		return event.UndefinedCursor
 	}
 	var c event.Cursor
 	ne.IterateWrappersReverse(func(child Node) bool {
 		c = ae.treeCursor(child, p)
-		return c == 0 // continue while no cursor was set
+		return c == event.UndefinedCursor // continue while no cursor was set
 	})
-	if c == 0 {
+	if c == event.UndefinedCursor {
 		c = ne.Cursor
 	}
 	return c

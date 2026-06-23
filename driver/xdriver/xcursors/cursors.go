@@ -13,13 +13,14 @@ import (
 // https://tronche.com/gui/x/xlib/appendix/b/
 
 type Cursors struct {
-	conn       *xgb.Conn
-	win        xproto.Window
-	m          map[Cursor]xproto.Cursor
-	theme      *xcur.Theme
-	themeSize  int
-	themeM     map[Cursor]xproto.Cursor
-	pictFormat render.Pictformat
+	conn         *xgb.Conn
+	win          xproto.Window
+	m            map[Cursor]xproto.Cursor
+	hiddenCursor xproto.Cursor
+	theme        *xcur.Theme
+	themeSize    int
+	themeM       map[Cursor]xproto.Cursor
+	pictFormat   render.Pictformat
 }
 
 func NewCursors(conn *xgb.Conn, win xproto.Window) (*Cursors, error) {
@@ -37,8 +38,24 @@ func (cs *Cursors) SetCursor(c Cursor) error {
 	if err != nil {
 		return err
 	}
+	return cs.setCursorId(xc)
+}
+
+func (cs *Cursors) SetDefaultCursor() error {
+	return cs.setCursorId(0)
+}
+
+func (cs *Cursors) SetHiddenCursor() error {
+	cursor, err := cs.hiddenCursorId()
+	if err != nil {
+		return err
+	}
+	return cs.setCursorId(cursor)
+}
+
+func (cs *Cursors) setCursorId(cursor xproto.Cursor) error {
 	mask := uint32(xproto.CwCursor)
-	values := []uint32{uint32(xc)}
+	values := []uint32{uint32(cursor)}
 	_ = xproto.ChangeWindowAttributes(cs.conn, cs.win, mask, values)
 	return nil
 }
@@ -70,9 +87,6 @@ func (cs *Cursors) loadCursor(c Cursor) (xproto.Cursor, error) {
 	return cs.loadCursor2(c, color.Black, color.White)
 }
 func (cs *Cursors) loadCursor2(c Cursor, fg, bg color.Color) (xproto.Cursor, error) {
-	if c == XCNone {
-		return 0, nil
-	}
 	fontId, err := xproto.NewFontId(cs.conn)
 	if err != nil {
 		return 0, err
@@ -109,6 +123,52 @@ func (cs *Cursors) loadCursor2(c Cursor, fg, bg color.Color) (xproto.Cursor, err
 	return cursor, nil
 }
 
+func (cs *Cursors) hiddenCursorId() (xproto.Cursor, error) {
+	if cs.hiddenCursor != 0 {
+		return cs.hiddenCursor, nil
+	}
+	cursor, err := cs.loadHiddenCursor()
+	if err != nil {
+		return 0, err
+	}
+	cs.hiddenCursor = cursor
+	return cursor, nil
+}
+
+func (cs *Cursors) loadHiddenCursor() (xproto.Cursor, error) {
+	pixmap, err := xproto.NewPixmapId(cs.conn)
+	if err != nil {
+		return 0, err
+	}
+	if err := xproto.CreatePixmapChecked(cs.conn, 1, pixmap, xproto.Drawable(cs.win), 1, 1).Check(); err != nil {
+		return 0, err
+	}
+	defer xproto.FreePixmap(cs.conn, pixmap)
+
+	gc, err := xproto.NewGcontextId(cs.conn)
+	if err != nil {
+		return 0, err
+	}
+	if err := xproto.CreateGCChecked(cs.conn, gc, xproto.Drawable(pixmap), xproto.GcForeground, []uint32{0}).Check(); err != nil {
+		return 0, err
+	}
+	defer xproto.FreeGC(cs.conn, gc)
+
+	rect := xproto.Rectangle{X: 0, Y: 0, Width: 1, Height: 1}
+	if err := xproto.PolyFillRectangleChecked(cs.conn, xproto.Drawable(pixmap), gc, []xproto.Rectangle{rect}).Check(); err != nil {
+		return 0, err
+	}
+
+	cursor, err := xproto.NewCursorId(cs.conn)
+	if err != nil {
+		return 0, err
+	}
+	if err := xproto.CreateCursorChecked(cs.conn, cursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 0, 0).Check(); err != nil {
+		return 0, err
+	}
+	return cursor, nil
+}
+
 func (c Cursor) xcursorNames() []string {
 	switch c {
 	case SBVDoubleArrow:
@@ -133,9 +193,6 @@ func (c Cursor) xcursorNames() []string {
 //----------
 
 type Cursor uint16
-
-// Just to distinguish from the other cursors (uint16) to reset to parent window cursor. Value after last x cursor at 152.
-const XCNone = 200
 
 const (
 	XCursor           = 0

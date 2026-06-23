@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 
 	"github.com/jmigpin/editor/util/evreg"
@@ -8,6 +9,20 @@ import (
 	"github.com/jmigpin/editor/util/uiutil/event"
 	"github.com/jmigpin/editor/util/uiutil/widget"
 )
+
+var TextAreaCursor = event.DefaultCursor
+
+func SetTextAreaCursor(name string) error {
+	switch name {
+	case "", "default":
+		TextAreaCursor = event.DefaultCursor
+	case "beam":
+		TextAreaCursor = event.BeamCursor
+	default:
+		return fmt.Errorf("invalid text cursor %q", name)
+	}
+	return nil
+}
 
 type TextArea struct {
 	*widget.TextEditX
@@ -21,7 +36,7 @@ type TextArea struct {
 func NewTextArea(ui *UI) *TextArea {
 	ta := &TextArea{ui: ui}
 	ta.TextEditX = widget.NewTextEditX(ui)
-	ta.ENode.Cursor = event.BeamCursor
+	ta.ENode.Cursor = TextAreaCursor
 	return ta
 }
 
@@ -84,7 +99,7 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 	case *event.MouseDown:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.ENode.Cursor = event.PointerCursor
+			ta.ENode.Cursor = event.HandCursor
 		case event.ButtonLeft:
 			m := ev.Mods.ClearLocks()
 			if m.Is(event.ModCtrl) {
@@ -110,12 +125,12 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 	case *event.MouseUp:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.ENode.Cursor = event.BeamCursor
+			ta.ENode.Cursor = TextAreaCursor
 		}
 	case *event.MouseDragStart:
 		switch ev.Button {
 		case event.ButtonRight:
-			ta.ENode.Cursor = event.BeamCursor
+			ta.ENode.Cursor = TextAreaCursor
 		}
 	case *event.KeyDown:
 		m := ev.Mods.ClearLocks()

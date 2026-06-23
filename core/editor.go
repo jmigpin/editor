@@ -603,6 +603,9 @@ func (ed *Editor) setupTheme(opt *Options) error {
 	drawutil.WrapLineIndentTabs = opt.WrapLineIndentTabs
 	drawutil.WrapWordLimit = opt.WrapWordLimit
 	drawutil.CursorHalfHit = opt.CursorHalfHit
+	if err := ui.SetTextAreaCursor(opt.TextCursor); err != nil {
+		return err
+	}
 	fontutil.TabWidth = opt.TabWidth
 	fontutil.CarriageReturnRune = rune(opt.CarriageReturnRune)
 	ui.ScrollBarLeft = opt.ScrollBarLeft
@@ -943,7 +946,7 @@ func (ed *Editor) RunAsyncBusyCursor2(node widget.Node, fn func(done func())) {
 	}
 	set(event.WaitCursor)
 	done := func() {
-		set(event.NoneCursor)
+		set(event.DefaultCursor)
 	}
 	// launch go routine to allow the UI to update the cursor
 	go fn(done)

@@ -3,13 +3,14 @@ package event
 type Cursor int
 
 const (
-	NoneCursor Cursor = iota // none means not set
+	UndefinedCursor Cursor = iota // unset value used while resolving the widget tree cursor
 	DefaultCursor
+	HiddenCursor
 	NSResizeCursor
 	WEResizeCursor
 	CloseCursor
 	MoveCursor
-	PointerCursor
+	HandCursor
 	BeamCursor // text cursor
-	WaitCursor // watch cursor
+	WaitCursor
 )

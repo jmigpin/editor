@@ -37,8 +37,9 @@ type Window struct {
 		m  map[int]any
 	}
 	cursors struct {
-		currentId int
-		cache     map[int]windows.Handle
+		currentId    int
+		hiddenCursor bool
+		cache        map[int]windows.Handle
 	}
 }
 
@@ -139,7 +140,7 @@ func (win *Window) ostInitialize(opt *event.WindowOptions) error {
 	//_ = _UpdateWindow(win.hwnd)
 
 	// cursor: don't set cursor at class struct to avoid auto-restoration
-	if err := win.ostSetCursor(event.NoneCursor); err != nil {
+	if err := win.ostSetCursor(event.DefaultCursor); err != nil {
 		return err
 	}
 
@@ -249,8 +250,12 @@ func (win *Window) handleMsg2(msg *_Msg) uintptr {
 	case _WM_SETCURSOR:
 		l, _ := unpackLowHigh(uint32(msg.LParam))
 		if l == _HTCLIENT { // set only if in the client area (not the frame)
-			if err := win.loadAndSetCursor(win.cursors.currentId); err != nil {
-				win.events <- err
+			if win.cursors.hiddenCursor {
+				_ = _SetCursor(0)
+			} else {
+				if err := win.loadAndSetCursor(win.cursors.currentId); err != nil {
+					win.events <- err
+				}
 			}
 			return 1 // return TRUE to halt further processing
 		}
@@ -636,12 +641,11 @@ func (win *Window) ostSetCursor(c event.Cursor) (err error) {
 	}
 
 	switch c {
-	case event.NoneCursor:
-		// TODO: parent window cursor
-		//sc(0) // TODO: failing
-		sc(_IDC_ARROW)
 	case event.DefaultCursor:
 		sc(_IDC_ARROW)
+	case event.HiddenCursor:
+		win.cursors.hiddenCursor = true
+		_ = _SetCursor(0)
 	case event.NSResizeCursor:
 		sc(_IDC_SIZENS)
 	case event.WEResizeCursor:
@@ -651,9 +655,8 @@ func (win *Window) ostSetCursor(c event.Cursor) (err error) {
 		sc(_IDC_CROSS)
 	case event.MoveCursor:
 		sc(_IDC_SIZEALL)
-	case event.PointerCursor:
-		//sc(_IDC_HAND)
-		sc(_IDC_UPARROW)
+	case event.HandCursor:
+		sc(_IDC_HAND)
 	case event.BeamCursor:
 		sc(_IDC_IBEAM)
 	case event.WaitCursor:
@@ -669,6 +672,7 @@ func (win *Window) loadAndSetCursor(cursorId int) error {
 	}
 	_ = _SetCursor(cursorHandle) // returns prevCursorH
 	win.cursors.currentId = cursorId
+	win.cursors.hiddenCursor = false
 	return nil
 }
 

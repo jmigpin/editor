@@ -484,28 +484,25 @@ func (win *Window) queryPointer() (image.Point, error) {
 //----------
 
 func (win *Window) setCursor(c event.Cursor) (rerr error) {
-	sc := func(c2 xcursors.Cursor) {
-		rerr = win.Cursors.SetCursor(c2)
-	}
 	switch c {
-	case event.NoneCursor:
-		sc(xcursors.XCNone)
 	case event.DefaultCursor:
-		sc(xcursors.XCNone)
+		rerr = win.Cursors.SetDefaultCursor()
+	case event.HiddenCursor:
+		rerr = win.Cursors.SetHiddenCursor()
 	case event.NSResizeCursor:
-		sc(xcursors.SBVDoubleArrow)
+		rerr = win.Cursors.SetCursor(xcursors.SBVDoubleArrow)
 	case event.WEResizeCursor:
-		sc(xcursors.SBHDoubleArrow)
+		rerr = win.Cursors.SetCursor(xcursors.SBHDoubleArrow)
 	case event.CloseCursor:
-		sc(xcursors.XCursor)
+		rerr = win.Cursors.SetCursor(xcursors.XCursor)
 	case event.MoveCursor:
-		sc(xcursors.Fleur)
-	case event.PointerCursor:
-		sc(xcursors.Hand2)
+		rerr = win.Cursors.SetCursor(xcursors.Fleur)
+	case event.HandCursor:
+		rerr = win.Cursors.SetCursor(xcursors.Hand2)
 	case event.BeamCursor:
-		sc(xcursors.XTerm)
+		rerr = win.Cursors.SetCursor(xcursors.XTerm)
 	case event.WaitCursor:
-		sc(xcursors.Watch)
+		rerr = win.Cursors.SetCursor(xcursors.Watch)
 	}
 	return
 }

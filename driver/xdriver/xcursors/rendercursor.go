@@ -28,9 +28,6 @@ func (cs *Cursors) initTheme() {
 }
 
 func (cs *Cursors) loadThemeCursor(c Cursor) (xproto.Cursor, error) {
-	if c == XCNone {
-		return 0, nil
-	}
 	if cs.theme == nil {
 		return 0, fmt.Errorf("xcursor theme not available")
 	}
