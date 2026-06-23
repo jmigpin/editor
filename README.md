@@ -691,6 +691,16 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2026/??/??: v3.14.0 alpha (40 commits)
+	- improved terminal emulator correctness for wrapping, alternate-buffer line wrap, mouse wheel forwarding, Shift+Tab, DECST8C and CSI private/intermediate parsing
+	- improved terminal rendering and scrollback handling for double-width runes, wide placeholders, fallback fonts, visual cursor preservation and terminal-specific line wrapping
+	- added `SaveSession [-auto] [-quiet]` autosave from the root toolbar, with 30s debounced saves, save-on-exit for pending changes, help text and quiet reporting
+	- replaced `CopyFilePosition` with generic `CopyPosition`, keeping an alias, and copying file positions or row directories to the clipboard
+	- added themed Xcursor loading, configurable textarea cursor behavior with `-textcursor`, and optional half-cell text hit testing with `-cursorhalfhit`
+	- added shared text drawer options and drawer interface improvements for annotation hit testing and cursor positioning
+	- added F5 row reload, GitHub line-fragment support and extra syntax-highlight extensions
+	- fixed `-wraplinerune=0` to skip wrap line marker insertion
+	- disabled shadows by default
 - 2026/05/12: v3.13.0 (237 commits)
 	- added terminal emulator integrated into the editor
 	- added `OpenTerminalEmu` command and direct startup with `-startterminalemu`
