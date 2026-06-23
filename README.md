@@ -91,7 +91,7 @@ Usage of editor:
   -cpuprofile string
     	profile cpu filename
   -cursorhalfhit
-    	place cursor before/after a rune depending on whether the pointer is in the left/right half of the rune cell
+    	place cursor before/after a rune depending on whether the pointer is in the left/right half of the rune cell. Defaults on with -textcursor=beam unless explicitly set.
   -dpi float
     	monitor dots per inch (default 72)
   -emuexec string
@@ -147,7 +147,7 @@ Usage of editor:
   -tabwidth int
     	 (default 8)
   -textcursor string
-    	textarea cursor: default or beam. With beam, consider -cursorhalfhit. (default "default")
+    	textarea cursor: default or beam (default "default")
   -usemultikey
     	use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)
   -version
