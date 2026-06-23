@@ -67,7 +67,7 @@ type Emu struct {
 
 	opts Opts
 
-	paint *syncutil.ThrottledTrigger
+	scrSync *syncutil.ThrottledTrigger
 }
 
 // emu itself is a read/write to be passed to the executable, wrapping the UI that is a rwc as well
@@ -82,8 +82,8 @@ func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
 	emu.parser = NewVTParser(emu.execRwc, emu.applyEmit)
 	emu.parser.ansiMode = emu.scr.privModes.AnsiNotVT52()
 
-	emu.paint = syncutil.NewThrottledTrigger(
-		func() { emu.tui.Paint() },
+	emu.scrSync = syncutil.NewThrottledTrigger(
+		func() { emu.tui.SyncScreen() },
 		//2*time.Millisecond,
 		//16*time.Millisecond,
 		5*time.Millisecond,
@@ -94,15 +94,17 @@ func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
 	go func() {
 		defer emu.parserDone.Done()
 		err := emu.parser.Run()
-		_ = err // TODO: check error
-		//log.Println("termemu parser error:", err)
+		if err != nil && emu.opts.Debug {
+			s := fmt.Sprintf("emu parse error: %v\n", err)
+			emu.sendForDebug(s)
+		}
 	}()
 
 	return emu
 }
 
-func (emu *Emu) NeedsPaint() {
-	emu.paint.Trigger()
+func (emu *Emu) NeedScreenSync() {
+	emu.scrSync.Trigger()
 }
 
 //----------
@@ -110,12 +112,6 @@ func (emu *Emu) NeedsPaint() {
 func (emu *Emu) SetSize(p P) (P, bool) {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
-
-	if emu.opts.Mode != ModeGrid {
-		// grid will not be displayed, just emulation. ex: plain, text, ...
-		p = P{80, 24}
-	}
-
 	return emu.scr.setSize(p)
 }
 
@@ -321,7 +317,7 @@ func (emu *Emu) applyEmit(op *TermOp) {
 
 	if emu.opts.Mode == ModeGrid {
 		if !emu.scr.privModes.SynchronizedOutput() {
-			emu.NeedsPaint()
+			emu.NeedScreenSync()
 		}
 	}
 }
@@ -592,8 +588,8 @@ type Opts struct {
 
 // terminal user interface
 type Tui interface {
-	OnColumnModeChange()
-	Paint()
+	OnColumnModeChange() // terminal 132 columns case
+	SyncScreen()
 	Print(any)
 	Error(error)
 }

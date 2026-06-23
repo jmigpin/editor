@@ -252,7 +252,7 @@ func (erow *ERow) initHandlers() {
 	})
 	row.TextArea.EvReg.Add(ui.TextAreaThemeEventId, func(ev0 any) {
 		if erow.optTemu != nil {
-			erow.optTemu.emu.NeedsPaint()
+			erow.optTemu.emu.NeedScreenSync()
 		}
 	})
 
@@ -455,18 +455,13 @@ func (erow *ERow) parseToolbarVars() {
 	vmap := toolbarparser.ParseVars(&erow.TbData)
 
 	// $font
-	oldFontOpts := erow.fontOpts
-	fontOpts := ERowFontOpts{}
+	erow.fontOpts = ERowFontOpts{}
 	if v, ok := vmap["$font"]; ok {
 		if v == "auto" {
-			fontOpts.auto = true
+			erow.fontOpts.auto = true
 		} else if _, ff, err := erow.varFontFace(v); err == nil {
-			fontOpts.face = ff
+			erow.fontOpts.face = ff
 		}
-	}
-	erow.fontOpts = fontOpts
-	if oldFontOpts.auto && !fontOpts.auto {
-		erow.uiResetTermRunState()
 	}
 
 	ta := erow.Row.TextArea
@@ -482,34 +477,30 @@ func (erow *ERow) parseToolbarVars() {
 	ta.EnableSyntaxHighlight(colorizeOpts.syntax)
 	if oldColorizeOpts.termGrayscale != colorizeOpts.termGrayscale && erow.optTemu != nil {
 		erow.optTemu.tui.render.useGrayscale = colorizeOpts.termGrayscale
-		erow.optTemu.emu.NeedsPaint()
+		erow.optTemu.emu.NeedScreenSync()
 	}
 
 	//----------
 
 	// $terminal
 	if erow.Info.IsDir() {
-		topts := erow.parseTerminalOpts(vmap["$terminal"])
-		if !(oldFontOpts.auto && !fontOpts.auto) {
-			topts.lastCols = erow.termOpts.lastCols
-		}
+		erow.termOpts = erow.parseTerminalOpts(vmap["$terminal"])
 
-		fface := fontOpts.face
-		if fface == nil {
-			fface = ta.Parent.TreeThemeFontFace()
+		face := erow.fontOpts.face
+		if face == nil {
+			face = ta.Parent.TreeThemeFontFace()
 		}
 
 		// terminal font face: in auto mode, prefer a monospace font for grid terminals
-		isGrid := topts.emuOpts.Mode.IsGrid()
-		if isGrid && fontOpts.auto && !fface.TestIsMono() {
-			fface = fontutil.FontsMan.DefaultMonoFont().FontFace(fface.Opts)
+		isGrid := erow.termOpts.emuOpts.Mode.IsGrid()
+		if isGrid && erow.fontOpts.auto && !face.TestIsMono() {
+			face = fontutil.FontsMan.DefaultMonoFont().FontFace(face.Opts)
 		}
 
-		erow.termOpts = topts
-		erow.fontOpts.face = fface
+		erow.fontOpts.face = face
 
 		// initial calculation (immediate view)
-		erow.uiCalcAndSetTermSize()
+		erow.uiUpdateFontAndTermSize()
 	}
 
 	//----------
@@ -523,7 +514,7 @@ func (erow *ERow) parseToolbarVars() {
 	//----------
 
 	if erow.optTemu == nil && !erow.Info.IsDir() {
-		ta.SetThemeFontFace(fontOpts.face)
+		ta.SetThemeFontFace(erow.fontOpts.face)
 	}
 }
 
@@ -532,12 +523,11 @@ func (erow *ERow) parseToolbarVars() {
 func (erow *ERow) onTextAreaBoundsChange() {
 	// Queue the terminal size recalculation out of the current layout callback. Auto font fitting can call SetThemeFontFace, which marks layout again; doing that while LayoutTree is still running can re-enter layout state.
 	erow.Ed.UI.RunOnUIGoRoutine(func() {
-		erow.uiCalcAndSetTermSize()
+		erow.uiUpdateFontAndTermSize()
 	})
 }
 
-func (erow *ERow) uiCalcAndSetTermSize() {
-	// check if a terminal is expected or running
+func (erow *ERow) uiUpdateFontAndTermSize() {
 	if !erow.Info.IsDir() {
 		return
 	}
@@ -549,12 +539,13 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 	// start with "unscaled" font from fontOpts
 	fface := erow.fontOpts.face
 
-	cr, px, fullPx, crBelowMin := erow.termSize(fface, temu)
+	//----------
 
-	// Only auto font mode may resize the font; if the current grid already fits the target, keep the font stable.
-	if erow.fontOpts.auto && crBelowMin {
-		fface = erow.termFontFaceAuto(cr, fullPx, fface)
-		cr, px, fullPx, _ = erow.termSize(fface, temu)
+	noGridGridSize := P{80, 24}
+	cr, tpx := noGridGridSize, image.Point{}
+	isGrid := erow.termOpts.emuOpts.Mode.IsGrid()
+	if isGrid {
+		fface, cr, tpx = erow.termSizeAndFont(fface, temu)
 	}
 
 	// set font
@@ -567,93 +558,84 @@ func (erow *ERow) uiCalcAndSetTermSize() {
 
 	// notify terminal
 	if termRunning {
-		temu.setSize(cr, px)
+		temu.setSize(cr, tpx)
 	}
-}
-
-func (erow *ERow) uiResetTermRunState() {
-	erow.termOpts.lastCols = 0
 }
 
 //----------
 
-func (erow *ERow) termSize(fface *fontutil.FontFace, temu *ERowTermEmu) (_, _, _ image.Point, _ bool) {
-	cr0, px, fullPx := erow.termAvailableSize(fface)
-	cr0 = termemu.ClampMinValidGridSize(cr0)
-
-	// clamp terminal size
-
-	cr := cr0 // copy
-	goodMinGridSize := image.Point{65, 10}
-	termRunning := temu != nil
-	if termRunning {
-		noArea := termemu.MinValidGridSize()
-		if cr == noArea {
-			cr2 := temu.emu.GetSize()
-			if cr2 == noArea {
-				// there is no area and something needs to be set to allow programs to have a minimum grid
-				cr = goodMinGridSize
-			} else {
-				// let terminal keep current size, no point in changing and sending to the program an almost empty size
-				cr = cr2
-			}
-		}
-
-		cr = temu.emu.ClampSize(cr)
+func (erow *ERow) termSizeAndFont(fface *fontutil.FontFace, temu *ERowTermEmu) (_ *fontutil.FontFace, _, _ image.Point) {
+	cr, tpx, aboveMaxTaGridSize := erow.termTargetSize(fface, temu)
+	if erow.fontOpts.auto && aboveMaxTaGridSize {
+		fface = erow.termAutoFontFace(cr, fface)
+		cr, tpx, _ = erow.termTargetSize(fface, temu)
 	}
+	return fface, cr, tpx
+}
+
+func (erow *ERow) termTargetSize(fface *fontutil.FontFace, temu *ERowTermEmu) (_, _ image.Point, _ bool) {
+	maxTaGridSize, px := erow.textareaFontMaxGrid(fface)
+
+	cr := maxTaGridSize
+
 	if erow.fontOpts.auto {
-		m := erow.termAutoMinGridSize(goodMinGridSize, termRunning)
-		cr = image.Point{max(cr.X, m.X), max(cr.Y, m.Y)}
+		goodMinGridSize := image.Point{65, 10}
+		cr = termemu.ClampGridSize(cr, goodMinGridSize)
+
+		termRunning := temu != nil
+		if termRunning {
+			cr = temu.emu.ClampSize(cr)
+		}
 	}
+
 	if erow.termOpts.fixedCols > 0 {
 		cr.X = erow.termOpts.fixedCols
 	}
 	if erow.termOpts.fixedRows > 0 {
 		cr.Y = erow.termOpts.fixedRows
 	}
-	if termRunning {
-		erow.termOpts.lastCols = cr.X
-	}
-	crBelowMin := cr0.X < cr.X || cr0.Y < cr.Y
 
-	return cr, px, fullPx, crBelowMin
+	cr = termemu.ClampMinValidGridSize(cr)
+
+	aboveMaxTaGridSize := cr.X > maxTaGridSize.X || cr.Y > maxTaGridSize.Y
+
+	return cr, px, aboveMaxTaGridSize
 }
 
-func (erow *ERow) termAutoMinGridSize(fallback image.Point, termRunning bool) image.Point {
-	if !termRunning && erow.termOpts.lastCols > 0 {
-		fallback.X = erow.termOpts.lastCols
-	}
-	return fallback
-}
-
-func (erow *ERow) termAvailableSize(fface *fontutil.FontFace) (cr, px, fullPx image.Point) {
-	runeW := fface.AvgGlyphAdvance()
-	rw := runeW.Ceil()
+func (erow *ERow) textareaFontMaxGrid(fface *fontutil.FontFace) (cr, px image.Point) {
+	ruW := fface.AvgGlyphAdvance().Ceil() // rune width
 	lh := fface.LineHeightInt()
 
-	fullPx = erow.textareaPixelSize()
+	fullPx := erow.textareaPixelSize(fface)
 
 	sx2 := max(fullPx.X, 0)
 	sy2 := max(fullPx.Y, 0)
 	px = image.Point{sx2, sy2}
 
 	// max cols/rows at wanted font
-	cr = image.Point{sx2 / rw, sy2 / lh}
+	cr = image.Point{sx2 / ruW, sy2 / lh}
 
-	return cr, px, fullPx // columns/rows, available area pixel size
+	return cr, px // columns/rows, available area pixel size
 }
 
-func (erow *ERow) textareaPixelSize() image.Point {
+func (erow *ERow) textareaPixelSize(fface *fontutil.FontFace) image.Point {
 	ta := erow.Row.TextArea
 	b := ta.Bounds
 	if d, ok := ta.Drawer.(*drawer4.Drawer); ok {
 		// handle extra space on the left side used inside the drawer
 		b = d.InnerBounds()
 	}
-	return b.Size()
+
+	p := b.Size()
+
+	// cover newline added to the end when drawing a grid
+	ruW := fface.AvgGlyphAdvance().Ceil() // rune width
+	p.X = max(p.X-ruW, 0)
+
+	return p
 }
 
-func (erow *ERow) termFontFaceAuto(targetCr, fullPx image.Point, origFace *fontutil.FontFace) *fontutil.FontFace {
+func (erow *ERow) termAutoFontFace(targetCr image.Point, origFace *fontutil.FontFace) *fontutil.FontFace {
 
 	faceAtSize := func(v float64) *fontutil.FontFace {
 		fopts2 := origFace.Opts // copy
@@ -661,16 +643,16 @@ func (erow *ERow) termFontFaceAuto(targetCr, fullPx image.Point, origFace *fontu
 		return origFace.Font.FontFace(fopts2)
 	}
 
-	runeSize := func(p float64) (int, int) {
-		face2 := faceAtSize(p)
-		return face2.AvgGlyphAdvance().Ceil(), face2.LineHeightInt()
+	runeSize := func(face *fontutil.FontFace, p float64) (int, int) {
+		return face.AvgGlyphAdvance().Ceil(), face.LineHeightInt()
 	}
 
 	fits := func(p float64) bool {
-		x, y := runeSize(p)
+		face := faceAtSize(p)
+		fullPx := erow.textareaPixelSize(face)
+		x, y := runeSize(face, p)
 		_ = y
-		// no newline margin needed: targetCols * fontWidth <= totalWidth
-		return targetCr.X*x <= fullPx.X // && targetCr.Y*y <= fullArea.Y
+		return targetCr.X*x <= fullPx.X //&& targetCr.Y*y <= fullPx.Y
 	}
 
 	// linear search starting from original size downwards, snapping to 0.5 multiples
@@ -691,6 +673,8 @@ func (erow *ERow) termFontFaceAuto(targetCr, fullPx image.Point, origFace *fontu
 
 	return faceAtSize(lastP)
 }
+
+//----------
 
 func (erow *ERow) parseTerminalOpts(v string) ERowTermOpts {
 	topt := ERowTermOpts{}
@@ -1003,7 +987,6 @@ type ERowTermOpts struct {
 	forwardMouse bool // forward mouse events to the process
 	fixedCols    int  // if > 0, use fixed terminal width
 	fixedRows    int  // if > 0, use fixed terminal height
-	lastCols     int  // last terminal width used while a process was running
 
 	emuOpts termemu.Opts
 }

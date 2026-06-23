@@ -113,7 +113,7 @@ func (ee *ERowExec) showRunning(on bool) {
 	ee.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		ee.erow.Row.SetState(ui.RowStateExecuting, on)
 		if on {
-			ee.erow.uiResetTermRunState()
+			//ee.erow.uiResetTermRunState()
 			ee.erow.Row.TextArea.SetStrClearHistory("")
 			ee.erow.Row.TextArea.ClearPos()
 		}

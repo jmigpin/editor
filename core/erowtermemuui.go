@@ -51,6 +51,7 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 			opt.LineWrap.On = false
 		}
 
+		//sa := tui.temu.erow.Row.ScrollArea.XBar
 		//sa := tui.temu.erow.Row.ScrollArea
 		//tui.restore.scrollBarX = sa.XBar != nil
 		//tui.restore.scrollBarY = sa.YBar != nil
@@ -89,7 +90,7 @@ func (tui *ERowTermEmuUI) Close() error {
 
 func (tui *ERowTermEmuUI) OnColumnModeChange() {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		tui.temu.erow.uiCalcAndSetTermSize()
+		tui.temu.erow.uiUpdateFontAndTermSize()
 	})
 }
 
@@ -104,24 +105,25 @@ func (tui *ERowTermEmuUI) Print(v any) {
 
 //----------
 
-func (tui *ERowTermEmuUI) Paint() {
+func (tui *ERowTermEmuUI) SyncScreen() {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
-		tui.paint2()
+		tui.screenSync2()
 	})
 }
-func (tui *ERowTermEmuUI) paint2() {
+func (tui *ERowTermEmuUI) screenSync2() {
 	scr := tui.temu.emu.Snapshot()
-	ops, bs := tui.paintOpsBytes(scr)
-	ta := tui.temu.erow.Row.TextArea
+	ops, bs := tui.buildScreenOpsAndBytes(scr)
 
+	ta := tui.temu.erow.Row.TextArea
+	erow := tui.temu.erow
 	ta.SetTerminalColorOps(ops)
 	ta.SetTerminalDecorations(tui.dec)
-	tui.temu.erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
+	erow.OverwriteBytesClearHistory(0, ta.RW().Max(), bs)
 }
 
 //----------
 
-func (tui *ERowTermEmuUI) paintOpsBytes(scr *termemu.Screen) ([]*TextColorOp, []byte) {
+func (tui *ERowTermEmuUI) buildScreenOpsAndBytes(scr *termemu.Screen) ([]*TextColorOp, []byte) {
 	dops := []*TextColorOp{}
 	decs := []*drawutil.Decoration{}
 

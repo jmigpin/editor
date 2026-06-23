@@ -316,21 +316,29 @@ func (ff *FontFace) AvgGlyphAdvance() fixed.Int26_6 {
 
 	// regular font
 
-	const sample = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	var sum fixed.Int26_6
-	n := 0
-	for _, ru := range sample {
-		adv, ok := ff.Face.GlyphAdvance(ru)
-		if !ok {
-			continue
-		}
-		sum += adv
-		n++
+	// 2/3 of W
+	if adv, ok := ff.Face.GlyphAdvance('W'); ok {
+		//return adv
+		return adv * 2 / 3
 	}
-	if n == 0 {
-		return 1
-	}
-	return sum / fixed.Int26_6(n)
+	return 1
+
+	//// average
+	//const sample = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	//var sum fixed.Int26_6
+	//n := 0
+	//for _, ru := range sample {
+	//	adv, ok := ff.Face.GlyphAdvance(ru)
+	//	if !ok {
+	//		continue
+	//	}
+	//	sum += adv
+	//	n++
+	//}
+	//if n == 0 {
+	//	return 1
+	//}
+	//return sum / fixed.Int26_6(n)
 }
 
 func (ff *FontFace) TestIsMono() bool {

@@ -193,7 +193,7 @@ func TestTermCellColorsCursorUsesUnderlyingCellColors(t *testing.T) {
 type testTui struct{}
 
 func (testTui) OnColumnModeChange() {}
-func (testTui) Paint()              {}
+func (testTui) SyncScreen()              {}
 func (testTui) Print(any)           {}
 func (testTui) Error(error)         {}
 

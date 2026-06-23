@@ -64,6 +64,10 @@ func NewScreen() *Screen {
 
 //----------
 
+//func (s *Screen) Size() P {
+//	return s.grid.size
+//}
+
 func (s *Screen) setSize(size P) (_ P, changed bool) {
 	size = s.clampSize(size)
 
@@ -1264,9 +1268,11 @@ func MinValidGridSize() P {
 	return P{1, 1}
 }
 func ClampMinValidGridSize(p P) P {
-	p2 := MinValidGridSize()
-	p.X = max(p.X, p2.X)
-	p.Y = max(p.Y, p2.Y)
+	return ClampGridSize(p, MinValidGridSize())
+}
+func ClampGridSize(p, min P) P {
+	p.X = max(p.X, min.X)
+	p.Y = max(p.Y, min.Y)
 	return p
 }
 

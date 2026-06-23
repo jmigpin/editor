@@ -63,29 +63,6 @@ func TestNLinesStartIndex1(t *testing.T) {
 	}
 }
 
-func TestInnerBoundsReservesNewlineWidth(t *testing.T) {
-	d := New()
-	d.SetFontFace(newTestFace())
-	d.SetBounds(image.Rect(0, 0, 100, 100))
-
-	want := image.Rect(0, 0, 100-d.newlineWidth(), 100)
-	if got := d.InnerBounds(); got != want {
-		t.Fatalf("inner bounds = %v, want %v", got, want)
-	}
-}
-
-func TestInnerBoundsReservesStartOffsetAndNewlineWidth(t *testing.T) {
-	d := New()
-	d.SetFontFace(newTestFace())
-	d.SetBounds(image.Rect(0, 0, 100, 100))
-	d.Opt.Cursor.On = true
-
-	want := image.Rect(d.startOffsetX(), 0, 100-d.newlineWidth(), 100)
-	if got := d.InnerBounds(); got != want {
-		t.Fatalf("inner bounds = %v, want %v", got, want)
-	}
-}
-
 func TestCursorAddedWidthAuto(t *testing.T) {
 	d := New()
 	d.SetFontFace(newTestFace())

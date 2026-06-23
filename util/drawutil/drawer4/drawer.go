@@ -311,7 +311,6 @@ func (d *Drawer) Bounds() image.Rectangle {
 func (d *Drawer) InnerBounds() image.Rectangle {
 	b := d.bounds // copy
 	b.Min.X += d.startOffsetX()
-	b.Max.X -= d.newlineWidth()
 	b.Max.X = max(b.Min.X, b.Max.X) // keep rect well formed
 	return b
 }
@@ -331,17 +330,6 @@ func (d *Drawer) cursorAddedWidth() int {
 		return d.Opt.Cursor.AddedWidth
 	}
 	return max(1, int(float64(d.LineHeight())*0.08))
-}
-
-func (d *Drawer) newlineWidth() int {
-	if d.fface == nil {
-		return 0
-	}
-	adv, ok := d.fface.Face.GlyphAdvance('\n')
-	if !ok {
-		return 0
-	}
-	return adv.Ceil()
 }
 
 func (d *Drawer) SetBounds(r image.Rectangle) {
