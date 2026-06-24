@@ -32,6 +32,7 @@ func init() {
 	cmd(MaximizeRow, "MaximizeRow")
 
 	cmd(NewFile, "NewFile")
+	cmd(Open, "Open")
 	cmd(Save, "Save")
 	cmd(SaveAllFiles, "SaveAllFiles")
 

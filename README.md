@@ -250,6 +250,7 @@ Use monospaced font in this row textarea (see more at [internal variables](#inte
 These commands run on a row toolbar, or on the top toolbar with the active-row.
 
 - `NewFile <name>`: create (and open) new file at the row directory. Fails it the file already exists.
+- `Open [-row|-external|-filemanager|-terminal|-terminalemu] [name] [args]`: open file or directory. `-row` is the default and opens `name` in a new row. Other modes open with the preferred external application, file manager, external terminal, or internal terminal emulator; without `name`, they use the active row. Relative paths are resolved from the active row directory.
 - `Save`: save file
 - `Reload`: reload content
 - `CloseRow`: close row
@@ -266,10 +267,6 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `RuneCodes`: output rune codes of the current row text selection.
 - `FontRunes`: output the current font runes.
 - `FontsList`: lists all loaded fonts and their aliases.
-- `OpenExternal`: open the row with the preferred external application (ex: useful to open an image, pdf, etc).
-- `OpenFilemanager`: open the row directory with the external filemanager.
-- `OpenTerminal`: open the row directory with the external terminal.
-- `OpenTerminalEmu [args]`: open the row directory with the internal terminal emulator. Optional arguments can be passed to run a specific command (e.g. `OpenTerminalEmu top`).
 - `LsprotoCloseAll`: closes all running lsp client/server connections. Next call will auto start again. Useful to stop a misbehaving server that is not responding.
 - `LsprotoRename <new-name>`: Renames the identifiers under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
 - `LsprotoCallers`: lists callers of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy incoming calls.
@@ -469,7 +466,7 @@ Usage of GoDebug run:
 The editor includes a built-in terminal emulator that runs directly inside a row.
 Opening a terminal row:
 
-Run `OpenTerminalEmu` from the toolbar — opens a new row with a shell at the active row's directory.
+Run `Open -terminalemu` from the toolbar — opens a new row with a shell at the active row's directory. Optional arguments can be passed to run a specific command (e.g. `Open -terminalemu . top`).
 Or use the `$terminal=emu` internal variable in any row toolbar, causing commands run in that row to execute in a PTY (pseudo-terminal) instead of a regular pipe. This is useful when running programs that require a real terminal (e.g. interactive CLI tools, programs that check isatty).
 It supports automatic visual wrapping and indentation by communicating logical line continuity to the TextArea. It also preserves logical output during window resizing
 
@@ -695,6 +692,7 @@ The measuring of space is done as follows:
 	- improved terminal emulator correctness for wrapping, alternate-buffer line wrap, mouse wheel forwarding, Shift+Tab, DECST8C and CSI private/intermediate parsing
 	- improved terminal rendering and scrollback handling for double-width runes, wide placeholders, fallback fonts, visual cursor preservation and terminal-specific line wrapping
 	- added `SaveSession [-auto] [-quiet=false]` autosave from the root toolbar, with 30s debounced saves, save-on-exit for pending changes, help text and quiet-by-default reporting
+	- added `Open [-row|-external|-filemanager|-terminal|-terminalemu]` unified command, keeping older open commands as aliases
 	- replaced `CopyFilePosition` with generic `CopyPosition`, keeping an alias, and copying file positions or row directories to the clipboard
 	- added themed Xcursor loading, configurable textarea cursor behavior with `-textcursor`, and optional half-cell text hit testing with `-cursorhalfhit`
 	- added shared text drawer options and drawer interface improvements for annotation hit testing and cursor positioning

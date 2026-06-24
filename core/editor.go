@@ -399,7 +399,7 @@ func (ed *Editor) setupRootToolbar() {
 		ed.triggerSessionAutoSaveText("root-toolbar")
 	})
 
-	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | Reload | OpenFilemanager | OpenTerminal | LsprotoCloseAll | Stop"
+	s := "Exit | ListSessions | NewColumn | NewRow | ReopenRow | Reload | Open -filemanager | Open -terminal | LsprotoCloseAll | Stop"
 	tb.SetStrClearHistory(s)
 }
 
@@ -423,6 +423,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		"ListDir -hidden", "ListDir -sub",
 		"SaveSession -h",
 		"SortTextLines -h",
+		"Open -h",
 	}
 	w = append(w, extra...)
 
@@ -439,6 +440,12 @@ func (ed *Editor) setupRootMenuToolbar() {
 		"LsprotoCallHierarchyOutgoingCalls", // alias LsprotoCallees
 		"OpenTerminalExternal",              // alias OpenTerminal
 		"SaveSession",                       // using -h
+		// unified under Open
+		"Open", // using -h
+		"OpenExternal",
+		"OpenFilemanager",
+		"OpenTerminal",
+		"OpenTerminalEmu",
 	}
 	hide = append(hide, last...) // added in last cmds, hide them now
 

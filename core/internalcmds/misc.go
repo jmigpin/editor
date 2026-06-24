@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/jmigpin/editor/core"
@@ -15,7 +14,6 @@ import (
 	"github.com/jmigpin/editor/util/ctxutil"
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout"
-	"github.com/jmigpin/editor/util/osutil"
 )
 
 //----------
@@ -215,57 +213,34 @@ func Clear(args *core.InternalCmdArgs) error {
 //----------
 
 func OpenFilemanager(args *core.InternalCmdArgs) error {
-	dir, err := argsERowDirOrWd(args)
-	if err != nil {
-		return err
-	}
-	return osutil.OpenFilemanager(dir)
-}
-func argsERowDirOrWd(args *core.InternalCmdArgs) (string, error) {
-	erow, ok := args.ERow()
-	if ok && !erow.Info.IsSpecial() {
-		return erow.Info.Dir(), nil
-	} else {
-		return os.Getwd()
-	}
+	opts := newOpenOptions()
+	*opts.filemanagerMode = true
+	return openRun(args, opts)
 }
 
 func OpenTerminalExternal(args *core.InternalCmdArgs) error {
-	dir, err := argsERowDirOrWd(args)
-	if err != nil {
-		return err
-	}
-	return osutil.OpenTerminal(dir)
+	opts := newOpenOptions()
+	*opts.terminalMode = true
+	return openRun(args, opts)
 }
 
 func OpenTerminalEmu(args *core.InternalCmdArgs) error {
-	dir, err := argsERowDirOrWd(args)
-	if err != nil {
-		return err
-	}
-
-	shellCmd := ""
+	opts := newOpenOptions()
+	*opts.terminalEmuMode = true
 	shellArgs := []string{}
 	if len(args.Part.Args) > 1 {
 		for _, arg := range args.Part.Args[1:] {
 			shellArgs = append(shellArgs, arg.UnquotedString())
 		}
 	}
-
-	return core.StartTerminalEmu(args.Ed, dir, args.Ed.GoodRowPos(), shellCmd, shellArgs)
+	opts.args = shellArgs
+	return openRun(args, opts)
 }
 
 func OpenExternal(args *core.InternalCmdArgs) error {
-	erow, err := args.ERowOrErr()
-	if err != nil {
-		return err
-	}
-
-	if erow.Info.IsSpecial() {
-		return fmt.Errorf("can't run on special row")
-	}
-
-	return osutil.OpenExternal(erow.Info.Name())
+	opts := newOpenOptions()
+	*opts.externalMode = true
+	return openRun(args, opts)
 }
 
 //----------
