@@ -104,12 +104,25 @@ func OpenExternal(name string) error {
 // doesn't wait for the cmd to end
 func OpenFilemanager(filename string) error {
 	var c *exec.Cmd
+	fi, err := os.Stat(filename)
+	isDir := err == nil && fi.IsDir()
 	switch runtime.GOOS {
 	case "windows":
-		c = exec.Command("explorer", "/select,"+filename)
+		if isDir {
+			c = exec.Command("explorer", filename)
+		} else {
+			c = exec.Command("explorer", "/select,"+filename)
+		}
 	case "darwin":
-		c = exec.Command("open", filename)
+		if isDir {
+			c = exec.Command("open", filename)
+		} else {
+			c = exec.Command("open", "-R", filename)
+		}
 	default: // linux, others...
+		if !isDir {
+			filename = filepath.Dir(filename)
+		}
 		c = exec.Command("xdg-open", filename)
 	}
 	return cmdStartWaitAsync(c)
