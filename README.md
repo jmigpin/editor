@@ -232,7 +232,7 @@ Use monospaced font in this row textarea (see more at [internal variables](#inte
 *Toolbar commands*
 
 - `ListSessions`: lists saved sessions
-- `SaveSession [-auto] [-quiet] <name>`: save session to ~/.editor_sessions.json. With `-auto`, autosaves 30s after session changes, such as layout or toolbar changes, while the command is present in the root toolbar; pending autosaves are saved on exit. With `-quiet`, autosaves do not report to `+Messages`.
+- `SaveSession [-auto] [-quiet=false] <name>`: save session to ~/.editor_sessions.json. With `-auto`, autosaves 30s after session changes, such as layout or toolbar changes, while the command is present in the root toolbar; pending autosaves are saved on exit. Quiet is true by default, so saves do not report to `+Messages`; use `-quiet=false` to report them.
 - `DeleteSession <name>`: deletes the session from the sessions file
 - `NewColumn`: opens new column
 - `NewRow`: opens new empty row located at the active-row directory, or if there is none, the current directory. Useful to run commands in a directory.
@@ -262,7 +262,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- `-sub`: lists directory and sub directories
 	- `-hidden`: lists directory including hidden
 - `MaximizeRow`: maximize row. Will push other rows up/down.
-- `CopyPosition`: copy the row position to the clipboard. For files, copies the cursor file position in the format "file:line:col"; for directories, copies the directory name. Alias: `CopyFilePosition`.
+- `CopyPosition [-quiet=false] [-clipboard=<clipboard|primary|both>]`: copy the row position to the clipboard. For files, copies the cursor file position in the format "file:line:col"; for directories, copies the directory name. By default, it copies to the regular clipboard and does not report to `+Messages`; use `-clipboard=primary` or `-clipboard=both` to target the primary selection, and `-quiet=false` to report the copied position. Alias: `CopyFilePosition`.
 - `RuneCodes`: output rune codes of the current row text selection.
 - `FontRunes`: output the current font runes.
 - `FontsList`: lists all loaded fonts and their aliases.
@@ -310,7 +310,7 @@ Notes:
 - `SaveSession <name>` stores a named session in `~/.editor_sessions.json`.
 - `-sessionfilename` and `*SessionFile` operate on a single session stored in a regular file.
 - If you want multiple session snapshots for the same directory, use multiple files.
-- `SaveSessionFile [-auto] [-quiet] <filename>` can autosave a single session file from the root toolbar.
+- `SaveSessionFile [-auto] [-quiet=false] <filename>` can autosave a single session file from the root toolbar.
 - With `-auto`, session changes such as layout or toolbar changes are saved after 30s, and pending session changes are saved on exit.
 
 ## Commands: GoDebug
@@ -694,7 +694,7 @@ The measuring of space is done as follows:
 - 2026/??/??: v3.14.0 alpha (40 commits)
 	- improved terminal emulator correctness for wrapping, alternate-buffer line wrap, mouse wheel forwarding, Shift+Tab, DECST8C and CSI private/intermediate parsing
 	- improved terminal rendering and scrollback handling for double-width runes, wide placeholders, fallback fonts, visual cursor preservation and terminal-specific line wrapping
-	- added `SaveSession [-auto] [-quiet]` autosave from the root toolbar, with 30s debounced saves, save-on-exit for pending changes, help text and quiet reporting
+	- added `SaveSession [-auto] [-quiet=false]` autosave from the root toolbar, with 30s debounced saves, save-on-exit for pending changes, help text and quiet-by-default reporting
 	- replaced `CopyFilePosition` with generic `CopyPosition`, keeping an alias, and copying file positions or row directories to the clipboard
 	- added themed Xcursor loading, configurable textarea cursor behavior with `-textcursor`, and optional half-cell text hit testing with `-cursorhalfhit`
 	- added shared text drawer options and drawer interface improvements for annotation hit testing and cursor positioning

@@ -243,8 +243,8 @@ func parseSessionSavePart(part *toolbarparser.Part) (*sessionSaveTarget, bool, e
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	target := &sessionSaveTarget{Cmd: cmd}
-	fs.BoolVar(&target.Auto, "auto", false, sessionAutoSaveAutoUsage())
-	fs.BoolVar(&target.Quiet, "quiet", false, "save without reporting to the messages row")
+	fs.BoolVar(&target.Auto, "auto", false, fmt.Sprintf("autosave session changes after %v while this command is present in the root toolbar", sessionAutoSaveDelay))
+	fs.BoolVar(&target.Quiet, "quiet", true, "save without reporting to the messages row")
 	if err := fs.Parse(part.ArgsStrings()[1:]); err != nil {
 		return nil, true, sessionSaveFlagErr(fs, err)
 	}
@@ -275,10 +275,6 @@ func sessionSaveFlagErr(fs *flag.FlagSet, err error) error {
 		return fmt.Errorf("%w\n%v", err, buf.String())
 	}
 	return err
-}
-
-func sessionAutoSaveAutoUsage() string {
-	return fmt.Sprintf("autosave session changes after %v while this command is present in the root toolbar", sessionAutoSaveDelay)
 }
 
 func partHasAutoFlag(part *toolbarparser.Part) bool {

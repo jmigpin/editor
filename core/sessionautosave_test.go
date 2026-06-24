@@ -18,9 +18,10 @@ func TestParseSessionSavePart(t *testing.T) {
 		auto  bool
 		quiet bool
 	}{
-		{"SaveSession aa", "SaveSession", "aa", false, false},
-		{"SaveSession -auto aa", "SaveSession", "aa", true, false},
+		{"SaveSession aa", "SaveSession", "aa", false, true},
+		{"SaveSession -auto aa", "SaveSession", "aa", true, true},
 		{"SaveSession -auto -quiet aa", "SaveSession", "aa", true, true},
+		{"SaveSession -auto -quiet=false aa", "SaveSession", "aa", true, false},
 		{"SaveSessionFile -auto -quiet project.editor_session", "SaveSessionFile", "project.editor_session", true, true},
 	}
 
