@@ -259,7 +259,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `GotoLine <num>`: goes to line number
 - `Replace <old> <new>`: replaces old string with new, respects selections
 - `Stop`: stops current process (external cmd) running in the row
-- `ListDir [-sub] [-hidden] [-short=true] [-rel=true] [-reload] [-f <regexp>]... [-exc <regexp>]... [dir...]`: lists directory
+- `ListDir [-sub] [-hidden] [-short=true] [-rel=true] [-reload] [-f <regexp>]... [-exc <regexp>]... [path...]`: lists directories/files
 	- `-sub`: lists directory and sub directories
 	- `-hidden`: lists directory including hidden
 	- `-short`: uses the shortest output path, considering `~`, `~1`, `~2`, ... shortcuts; defaults to true (use `-short=false` to disable)
@@ -268,10 +268,11 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- `-f <regexp>`: filter entries matching regexp; can be repeated
 	- `-exc <regexp>`: exclude entries matching regexp; can be repeated and takes priority over `-f`
 	- regexps in `-f` and `-exc` can match relative paths, absolute paths, or paths encoded with `~N`
-	- `[dir...]`: optional directories whose contents are listed; accepts relative, absolute, and `~N` paths
+	- `[path...]`: optional directories/files to list; accepts relative, absolute, `~N`, and glob paths
 	- ex: `ListDir -sub -f "\.go$" -exc "(^|/)vendor/"`
+	- ex: `ListDir /tmp/*.go`
 	- ex: `ListDir tmp ~1/src /var/log`
-	- ex: `ListDir -sub ~1/tmp -f=~1/.*\.go$`
+	- ex: `ListDir -sub -f=~1/.*\.go$ ~1/tmp`
 - `MaximizeRow`: maximize row. Will push other rows up/down.
 - `CopyPosition [-quiet=false] [-clipboard=<clipboard|primary|both>]`: copy the row position to the clipboard. For files, copies the cursor file position in the format "file:line:col"; for directories, copies the directory name. By default, it copies to both the regular clipboard and primary selection and does not report to `+Messages`; use `-clipboard=clipboard` or `-clipboard=primary` to target only one, and `-quiet=false` to report the copied position.
 - `RuneCodes`: output rune codes of the current row text selection.

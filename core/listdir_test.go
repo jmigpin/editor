@@ -311,6 +311,16 @@ func TestListDirContextOptionsAtOpenErrorNoParentEntry(t *testing.T) {
 	}
 }
 
+func TestListDirContextOptionsFileSource(t *testing.T) {
+	dir := listDirTestTree(t)
+
+	got := listDirTestOutputAt(t, dir, "a.go", ListDirOptions{})
+	want := "a.go\n"
+	if got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestParseListDirCmdArgsFlagsRepeatable(t *testing.T) {
 	parsed, err := ParseListDirCmdArgs([]string{"-f", `\.go$`, "-exc=x", "a/b", "b/c"}, ListDirCmdConfig{BaseDir: "/home/a"})
 	if err != nil {
@@ -411,7 +421,7 @@ func TestLastListDirReloadCmdUsesLastReload(t *testing.T) {
 func TestListDirSourcesFromArgs(t *testing.T) {
 	decodePath := toolbarparser.NewHomeVarMap(toolbarparser.VarMap{"~1": "/home/a"}, false).Decode
 
-	sources, err := listDirSourcesFromArgs([]string{"tmp"}, "/home/a", decodePath)
+	sources, err := listDirSourcesFromArgs([]string{"tmp"}, "/home/a", decodePath, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -419,7 +429,7 @@ func TestListDirSourcesFromArgs(t *testing.T) {
 		t.Fatalf("relative: got %v", sources)
 	}
 
-	sources, err = listDirSourcesFromArgs([]string{"~1/tmp"}, "/home/a", decodePath)
+	sources, err = listDirSourcesFromArgs([]string{"~1/tmp"}, "/home/a", decodePath, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +437,7 @@ func TestListDirSourcesFromArgs(t *testing.T) {
 		t.Fatalf("encoded absolute: got %v", sources)
 	}
 
-	sources, err = listDirSourcesFromArgs([]string{"~1/home-src/../../"}, "/home/a/cur", decodePath)
+	sources, err = listDirSourcesFromArgs([]string{"~1/home-src/../../"}, "/home/a/cur", decodePath, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -435,7 +445,7 @@ func TestListDirSourcesFromArgs(t *testing.T) {
 		t.Fatalf("encoded parent traversal: got %v", sources)
 	}
 
-	sources, err = listDirSourcesFromArgs([]string{"."}, "/home/a", decodePath)
+	sources, err = listDirSourcesFromArgs([]string{"."}, "/home/a", decodePath, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +453,7 @@ func TestListDirSourcesFromArgs(t *testing.T) {
 		t.Fatalf("dot: got %v", sources)
 	}
 
-	sources, err = listDirSourcesFromArgs([]string{"a", "b", "/tmp"}, "/home/a", decodePath)
+	sources, err = listDirSourcesFromArgs([]string{"a", "b", "/tmp"}, "/home/a", decodePath, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -452,6 +462,115 @@ func TestListDirSourcesFromArgs(t *testing.T) {
 	}
 	if sources[0].AddedFilepath != "a" || sources[1].AddedFilepath != "b" || sources[2].AddedFilepath != "/tmp" {
 		t.Fatalf("multiple sources: got %v", sources)
+	}
+}
+
+func TestListDirSourcesFromArgsGlobFiles(t *testing.T) {
+	dir := listDirTestTree(t)
+
+	sources, err := listDirSourcesFromArgs([]string{"*.go"}, dir, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 1 || sources[0].Filepath != dir || sources[0].AddedFilepath != "a.go" {
+		t.Fatalf("sources: got %v", sources)
+	}
+}
+
+func TestListDirSourcesFromArgsGlobDirsAndFiles(t *testing.T) {
+	dir := listDirTestTree(t)
+
+	sources, err := listDirSourcesFromArgs([]string{"*"}, dir, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(sources), 4; got != want {
+		t.Fatalf("sources: got %d, want %d: %v", got, want, sources)
+	}
+	if sources[0].AddedFilepath != "a.go" || sources[1].AddedFilepath != "b.txt" ||
+		sources[2].AddedFilepath != "keep" || sources[3].AddedFilepath != "skip" {
+		t.Fatalf("sources: got %v", sources)
+	}
+}
+
+func TestListDirSourcesFromArgsGlobHidden(t *testing.T) {
+	dir := listDirTestTree(t)
+
+	sources, err := listDirSourcesFromArgs([]string{"*"}, dir, nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(sources), 5; got != want {
+		t.Fatalf("sources: got %d, want %d: %v", got, want, sources)
+	}
+	if sources[0].AddedFilepath != ".hidden" {
+		t.Fatalf("sources: got %v", sources)
+	}
+}
+
+func TestListDirSourcesFromArgsGlobNoMatches(t *testing.T) {
+	dir := listDirTestTree(t)
+
+	sources, err := listDirSourcesFromArgs([]string{"missing*"}, dir, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 1 || sources[0].Err == nil || !strings.Contains(sources[0].Err.Error(), "no matches") {
+		t.Fatalf("sources: got %v", sources)
+	}
+}
+
+func TestListDirSourcesFromArgsGlobInvalidPattern(t *testing.T) {
+	dir := listDirTestTree(t)
+
+	sources, err := listDirSourcesFromArgs([]string{"["}, dir, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 1 || sources[0].Err == nil {
+		t.Fatalf("sources: got %v", sources)
+	}
+}
+
+func TestListDirContextOptionsGlobFilesOutput(t *testing.T) {
+	dir := listDirTestTree(t)
+
+	sources, err := listDirSourcesFromArgs([]string{"*.go"}, dir, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := &bytes.Buffer{}
+	for _, source := range sources {
+		if err := ListDirContextOptionsAt(context.Background(), buf, source.Filepath, source.AddedFilepath, ListDirOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := "a.go\n"
+	if got := buf.String(); got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestListDirSourcesGlobErrorOutputContinues(t *testing.T) {
+	dir := listDirTestTree(t)
+
+	sources, err := listDirSourcesFromArgs([]string{"missing*", "*.go"}, dir, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := &bytes.Buffer{}
+	for _, source := range sources {
+		if source.Err != nil {
+			buf.WriteString(source.Err.Error() + "\n")
+			continue
+		}
+		if err := ListDirContextOptionsAt(context.Background(), buf, source.Filepath, source.AddedFilepath, ListDirOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := buf.String()
+	if !strings.Contains(got, "no matches: missing*") || !strings.Contains(got, "a.go") {
+		t.Fatalf("got:\n%s", got)
 	}
 }
 

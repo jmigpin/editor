@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -33,6 +34,10 @@ func ListDirERowOptionsAt(erow *ERow, filepath, addedFilepath string, opts ListD
 func ListDirERowOptionsSources(erow *ERow, sources []ListDirSource, opts ListDirOptions) {
 	erow.Exec.RunAsync(func(ctx context.Context, rw io.ReadWriter) error {
 		for _, source := range sources {
+			if source.Err != nil {
+				_, _ = rw.Write([]byte(source.Err.Error() + "\n"))
+				continue
+			}
 			if err := ListDirContextOptionsAt(ctx, rw, source.Filepath, source.AddedFilepath, opts); err != nil {
 				return err
 			}
@@ -71,6 +76,7 @@ type ListDirOptions struct {
 type ListDirSource struct {
 	Filepath      string
 	AddedFilepath string
+	Err           error
 }
 
 type ListDirCmdConfig struct {
@@ -94,7 +100,7 @@ func ParseListDirCmdArgs(args []string, cfg ListDirCmdConfig) (*ListDirCmdParsed
 		return nil, err
 	}
 
-	sources, err := listDirSourcesFromArgs(fs.Args(), cfg.BaseDir, cfg.DecodePath)
+	sources, err := listDirSourcesFromArgs(fs.Args(), cfg.BaseDir, cfg.DecodePath, *flags.hidden)
 	if err != nil {
 		return nil, err
 	}
@@ -164,6 +170,15 @@ func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath strin
 		return err == nil
 	}
 
+	fi, err := os.Stat(fp2)
+	if err != nil {
+		out(err.Error())
+		return nil
+	}
+	if !fi.IsDir() {
+		return listDirFile(ctx, out, fpath, addedFilepath, fi, opts)
+	}
+
 	f, err := os.Open(fp2)
 	if err != nil {
 		out(err.Error())
@@ -225,6 +240,20 @@ func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath strin
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func listDirFile(ctx context.Context, out func(string) bool, fpath, addedFilepath string, fi os.FileInfo, opts ListDirOptions) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	relPath := addedFilepath
+	absPath := filepath.Join(fpath, relPath)
+	write, _ := opts.filter(relPath, absPath)
+	if write {
+		outputPath := opts.outputPath(relPath, absPath, fi.IsDir())
+		out(outputPath + "\n")
 	}
 	return nil
 }
@@ -361,34 +390,85 @@ func lastListDirReloadCmd(data *toolbarparser.Data, cfg ListDirCmdConfig) (*List
 
 //----------
 
-func listDirSourcesFromArgs(pathArgs []string, baseDir string, decodePath func(string) string) ([]ListDirSource, error) {
+func listDirSourcesFromArgs(pathArgs []string, baseDir string, decodePath func(string) string, hiddens bool) ([]ListDirSource, error) {
 	if len(pathArgs) == 0 {
 		return []ListDirSource{{Filepath: baseDir}}, nil
 	}
 	sources := []ListDirSource{}
 	for _, arg := range pathArgs {
-		source, err := listDirSourceFromArg(arg, baseDir, decodePath)
+		sources2, err := listDirSourcesFromArg(arg, baseDir, decodePath, hiddens)
 		if err != nil {
-			return nil, err
+			sources = append(sources, ListDirSource{Err: err})
+			continue
 		}
-		sources = append(sources, source)
+		sources = append(sources, sources2...)
 	}
 	return sources, nil
 }
 
-func listDirSourceFromArg(arg string, baseDir string, decodePath func(string) string) (ListDirSource, error) {
+func listDirSourcesFromArg(arg string, baseDir string, decodePath func(string) string, hiddens bool) ([]ListDirSource, error) {
 	p := arg
 	if decodePath != nil {
 		p = decodePath(p)
 	}
 	p = filepath.Clean(p)
+	if hasListDirGlobMeta(p) {
+		return listDirGlobSourcesFromArg(arg, p, baseDir, hiddens)
+	}
 	if p == "." {
-		return ListDirSource{Filepath: baseDir}, nil
+		return []ListDirSource{{Filepath: baseDir}}, nil
 	}
 	if filepath.IsAbs(p) {
-		return ListDirSource{AddedFilepath: p}, nil
+		return []ListDirSource{{AddedFilepath: p}}, nil
 	}
-	return ListDirSource{Filepath: baseDir, AddedFilepath: p}, nil
+	return []ListDirSource{{Filepath: baseDir, AddedFilepath: p}}, nil
+}
+
+func listDirGlobSourcesFromArg(arg, pattern, baseDir string, hiddens bool) ([]ListDirSource, error) {
+	absPattern := pattern
+	relativePattern := !filepath.IsAbs(pattern)
+	if relativePattern {
+		absPattern = filepath.Join(baseDir, pattern)
+	}
+	matches, err := filepath.Glob(absPattern)
+	if err != nil {
+		return nil, err
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no matches: %s", arg)
+	}
+	sources := []ListDirSource{}
+	for _, match := range matches {
+		match = filepath.Clean(match)
+		if !hiddens && listDirGlobSkipsHidden(pattern, match) {
+			continue
+		}
+		if relativePattern {
+			rel, err := filepath.Rel(baseDir, match)
+			if err != nil {
+				return nil, err
+			}
+			sources = append(sources, ListDirSource{Filepath: baseDir, AddedFilepath: rel})
+		} else {
+			sources = append(sources, ListDirSource{AddedFilepath: match})
+		}
+	}
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("no matches: %s", arg)
+	}
+	return sources, nil
+}
+
+func hasListDirGlobMeta(s string) bool {
+	return strings.ContainsAny(s, "*?[")
+}
+
+func listDirGlobSkipsHidden(pattern, match string) bool {
+	patternBase := filepath.Base(pattern)
+	if strings.HasPrefix(patternBase, ".") {
+		return false
+	}
+	return strings.HasPrefix(filepath.Base(match), ".")
 }
 
 func regexpListDirFlag(dst *[]*regexp.Regexp, decodePath func(string) string) flag.Value {
@@ -410,6 +490,7 @@ func regexpListDirFlag(dst *[]*regexp.Regexp, decodePath func(string) string) fl
 	})
 }
 
+// TODO: review - possibly for toolbarparser
 func decodeLeadingListDirHomeVarPattern(s string, decodePath func(string) string) (string, bool) {
 	key, suffix, ok := leadingListDirHomeVar(s)
 	if !ok {
@@ -422,6 +503,7 @@ func decodeLeadingListDirHomeVarPattern(s string, decodePath func(string) string
 	return regexp.QuoteMeta(decoded) + suffix, true
 }
 
+// TODO: review - possibly for toolbarparser
 func leadingListDirHomeVar(s string) (string, string, bool) {
 	if s == "" || s[0] != '~' {
 		return "", "", false
