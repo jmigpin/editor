@@ -17,10 +17,9 @@ func Find(args *core.InternalCmdArgs) error {
 	fs := flag.NewFlagSet("Find", flag.ContinueOnError)
 	fs.SetOutput(io.Discard) // don't output to stderr
 	reverseFlag := fs.Bool("rev", false, "reverse find")
-	iopt := &iorw.IndexOpt{}
+	iopt := &iorw.IndexOpt{IgnoreDiacritics: true}
 	fs.BoolVar(&iopt.IgnoreCase, "icase", true, "ignore case: 'a' will also match 'A'")
-	fs.BoolVar(&iopt.IgnoreCaseDiacritics, "icasediac", false, "ignore case diacritics: 'á' will also match 'Á'. Because ignore case is usually on by default, this is a separate option to explicitly lower the case of diacritics due to being more expensive (~8x slower)'")
-	fs.BoolVar(&iopt.IgnoreDiacritics, "idiac", false, "ignore diacritics: 'a' will also match 'á'")
+	fs.BoolVar(&iopt.IgnoreDiacritics, "idiac", true, "ignore diacritics: 'a' will also match 'á'")
 	if err := parseFlagSetHandleUsage(args, fs); err != nil {
 		return err
 	}

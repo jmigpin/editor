@@ -33,13 +33,13 @@ func indexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, chunk int, op
 		return 0, 0, err // TODO: continue?
 	}
 
-	chunk, err = setupChunkSize(chunk, sepN, opt)
+	chunk, overlapN, err := setupChunkSize(chunk, sepN, opt)
 	if err != nil {
 		return 0, 0, err
 	}
 
 	max := r.Max()
-	for k := i; k < max; k += chunk - (sepN - 1) {
+	for k := i; k < max; k += chunk - (overlapN - 1) {
 		c := chunk
 		if c > max-k {
 			c = max - k
@@ -74,18 +74,18 @@ func LastIndexCtx(ctx context.Context, r ReaderAt, i int, sep []byte, opt *Index
 func lastIndexCtx2(ctx context.Context, r ReaderAt, i int, sep []byte, chunk int, opt *IndexOpt) (index int, n int, _ error) {
 
 	pfcFn := prepareForCompareFn(opt)
-	sep, sepN, err := pfcFn(sep)
+	sep, _, err := pfcFn(sep)
 	if err != nil {
 		return 0, 0, err // TODO: continue?
 	}
 
-	chunk, err = setupChunkSize(chunk, len(sep), opt)
+	chunk, overlapN, err := setupChunkSize(chunk, len(sep), opt)
 	if err != nil {
 		return 0, 0, err
 	}
 
 	min := r.Min()
-	for k := i; k > min; k -= chunk - (sepN - 1) {
+	for k := i; k > min; k -= chunk - (overlapN - 1) {
 		c := chunk
 		if c > k-min {
 			c = k - min
@@ -132,13 +132,12 @@ func runIndexFn(indexFn func(s, sep []byte) int, r ReaderAt, i, n int, sep []byt
 //----------
 
 type IndexOpt struct {
-	IgnoreCase           bool
-	IgnoreCaseDiacritics bool // also lower the case of diacritics (slow)
-	IgnoreDiacritics     bool
+	IgnoreCase       bool
+	IgnoreDiacritics bool
 }
 
 func (opt *IndexOpt) IgnoringDiacritics() bool {
-	return opt.IgnoreCaseDiacritics || opt.IgnoreDiacritics
+	return opt.IgnoreDiacritics
 }
 
 //----------
@@ -149,10 +148,6 @@ type pfcType func([]byte) (result []byte, nSrcBytesRead int, _ error)
 
 func prepareForCompareFn(opt *IndexOpt) pfcType {
 	w := []transform.Transformer{}
-	if opt.IgnoreCase {
-		tla := &toLowerAscii{lowerDiacritics: opt.IgnoreCaseDiacritics}
-		w = append(w, tla)
-	}
 	if opt.IgnoreDiacritics {
 		// https://go.dev/blog/normalization
 		w = append(w,
@@ -160,6 +155,9 @@ func prepareForCompareFn(opt *IndexOpt) pfcType {
 			runes.Remove(runes.In(unicode.Mn)),
 			norm.NFC, // compose
 		)
+	}
+	if opt.IgnoreCase {
+		w = append(w, &toLowerAscii{})
 	}
 	t := transform.Chain(w...) // ok if w is empty
 	return func(b []byte) ([]byte, int, error) {
@@ -169,22 +167,11 @@ func prepareForCompareFn(opt *IndexOpt) pfcType {
 
 //----------
 
-type toLowerAscii struct {
-	lowerDiacritics bool
-}
+type toLowerAscii struct{}
 
 // implement transform.Transformer
 func (tla *toLowerAscii) Reset() {}
 func (tla *toLowerAscii) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
-
-	if tla.lowerDiacritics {
-		// ~8x slower
-		// 'áb' will match 'ÁB' but not 'ab'
-		b := bytes.ToLower(src)
-		n := copy(dst, b)
-		return n, len(b), nil
-	}
-
 	min := len(src)
 	if min > len(dst) {
 		min = len(dst)
@@ -206,23 +193,24 @@ func (tla *toLowerAscii) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int,
 
 const chunkSize = 32 * 1024
 
-func setupChunkSize(chunkN, sepN int, opt *IndexOpt) (int, error) {
+func setupChunkSize(chunkN, sepN int, opt *IndexOpt) (int, int, error) {
 	cN := chunkN
 	autoChunk := cN <= 0
 	if autoChunk {
 		cN = chunkSize
 	}
+	overlapN := sepN
 	if opt.IgnoringDiacritics() {
 		// because the src contains diacritics, need a big enough chunk size to search a src equal to the separator but full of diacritics. Here we give N extra bytes for each sep byte.
-		sepN *= 4
+		overlapN *= 4
 	}
-	if cN < sepN {
+	if cN < overlapN {
 		if !autoChunk {
-			return 0, fmt.Errorf("chunk smaller then sepN: %v, %v", chunkN, sepN)
+			return 0, 0, fmt.Errorf("chunk smaller then sepN: %v, %v", chunkN, overlapN)
 		}
-		cN = sepN
+		cN = overlapN
 	}
-	return cN, nil
+	return cN, overlapN, nil
 }
 
 //----------

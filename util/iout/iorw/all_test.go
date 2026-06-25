@@ -184,7 +184,7 @@ func TestIndexDiacritics4(t *testing.T) {
 func TestIndexDiacritics5(t *testing.T) {
 	s := "úúú-aÁé--ú"
 	rw := NewStringReaderAt(s)
-	i, n, err := indexCtx2(context.Background(), rw, 0, []byte("aáé"), -1, &IndexOpt{IgnoreCase: true, IgnoreCaseDiacritics: true})
+	i, n, err := indexCtx2(context.Background(), rw, 0, []byte("aáé"), -1, &IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,9 +199,39 @@ func TestIndexDiacritics5(t *testing.T) {
 	}
 }
 
+func TestIndexDiacriticsAcrossChunkBoundary(t *testing.T) {
+	s := "012345678aáé--"
+	rw := NewStringReaderAt(s)
+	i, n, err := indexCtx2(context.Background(), rw, 0, []byte("aae"), 12, &IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i != 9 {
+		t.Fatal(i)
+	}
+	if n != 5 {
+		t.Fatal(n)
+	}
+}
+
+func TestLastIndexDiacriticsAcrossChunkBoundary(t *testing.T) {
+	s := "012345678aáé--"
+	rw := NewStringReaderAt(s)
+	i, n, err := lastIndexCtx2(context.Background(), rw, rw.Max(), []byte("aae"), 12, &IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i != 9 {
+		t.Fatal(i)
+	}
+	if n != 5 {
+		t.Fatal(n)
+	}
+}
+
 func TestPrepareForCompare(t *testing.T) {
 	fn1 := prepareForCompareFn(&IndexOpt{IgnoreCase: true, IgnoreDiacritics: true})
-	s1 := "ááBC"
+	s1 := "ÁáBC"
 	p, _, err := fn1([]byte(s1))
 	if err != nil {
 		t.Fatal(err)

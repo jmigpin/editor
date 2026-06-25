@@ -255,7 +255,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `Reload`: reload content
 - `CloseRow`: close row
 - `CloseColumn`: closes row column
-- `Find`: find string (ignores case)
+- `Find [-icase=true] [-idiac=true] [-rev] <string>`: find string. By default, ignores case and diacritics.
 - `GotoLine <num>`: goes to line number
 - `Replace <old> <new>`: replaces old string with new, respects selections
 - `Stop`: stops current process (external cmd) running in the row
