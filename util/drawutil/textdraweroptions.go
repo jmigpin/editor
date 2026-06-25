@@ -23,6 +23,10 @@ type TextDrawerOptions struct {
 	IndexOf struct {
 		HalfHit bool
 	}
+	TextContrast struct {
+		On bool
+		Bg color.Color
+	}
 	Colorize struct {
 		Groups []*ColorizeGroup
 	}

@@ -282,7 +282,9 @@ func (te *TextEditX) SetCommentStrings(a ...any) {
 //----------
 
 func (te *TextEditX) EnableTerminalColors(v bool) {
-	te.Drawer.TextDrawerOptions().Colorize.Groups[cgIdxTerm].Off = !v
+	opt := te.Drawer.TextDrawerOptions()
+	opt.Colorize.Groups[cgIdxTerm].Off = !v
+	opt.TextContrast.On = v
 	te.MarkNeedsPaint()
 }
 
@@ -310,6 +312,7 @@ func (te *TextEditX) OnThemeChange() {
 	pcol := te.TreeThemePaletteColor
 
 	opt := te.Drawer.TextDrawerOptions()
+	opt.TextContrast.Bg = pcol("text_bg")
 	opt.Cursor.Fg = pcol("text_cursor_fg")
 	opt.LineWrap.Fg = pcol("text_wrapline_fg")
 	opt.LineWrap.Bg = pcol("text_wrapline_bg")

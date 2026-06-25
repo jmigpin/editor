@@ -36,6 +36,7 @@ type Drawer struct {
 		indent             Indent    // insert
 		earlyExit          EarlyExit
 		curColors          CurColors
+		textContrast       TextContrast
 		bgFill             BgFill
 		cursor             Cursor
 		pointOf            PointOf     // end
@@ -198,6 +199,7 @@ func New() *Drawer {
 	d.iters.indent.d = d
 	d.iters.earlyExit.d = d
 	d.iters.curColors.d = d
+	d.iters.textContrast.d = d
 	d.iters.bgFill.d = d
 	d.iters.cursor.d = d
 	d.iters.pointOf.d = d
@@ -429,6 +431,7 @@ func (d *Drawer) Draw(img draw.Image) {
 		&d.iters.indent,
 		&d.iters.decorations, // after iters that change the line
 		&d.iters.annotations, // after iters that change the line
+		&d.iters.textContrast,
 		&d.iters.bgFill,
 		&d.iters.drawDec,
 		&d.iters.drawR,

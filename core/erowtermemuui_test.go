@@ -25,65 +25,59 @@ func TestTermCellColors(t *testing.T) {
 		defaultFg    color.Color
 		defaultBg    color.Color
 		useGrayscale bool
-		isLightTheme bool
 		wantOk       bool
 		wantFg       color.RGBA
 		wantBg       color.RGBA
 		wantSetBg    bool
 	}{
 		{
-			name:         "noop/default/default",
-			defaultFg:    rgb(0x11, 0x22, 0x33),
-			defaultBg:    rgb(0xee, 0xdd, 0xcc),
-			isLightTheme: false,
-			wantOk:       false,
+			name:      "noop/default/default",
+			defaultFg: rgb(0x11, 0x22, 0x33),
+			defaultBg: rgb(0xee, 0xdd, 0xcc),
+			wantOk:    false,
 		},
 		{
-			name:         "inverse/default/default",
-			inverse:      true,
-			defaultFg:    rgb(0x10, 0x20, 0x30),
-			defaultBg:    rgb(0xe0, 0xd0, 0xc0),
-			isLightTheme: true,
-			wantOk:       true,
-			wantFg:       rgb(0xe0, 0xd0, 0xc0),
-			wantBg:       rgb(0x10, 0x20, 0x30),
-			wantSetBg:    true,
+			name:      "inverse/default/default",
+			inverse:   true,
+			defaultFg: rgb(0x10, 0x20, 0x30),
+			defaultBg: rgb(0xe0, 0xd0, 0xc0),
+			wantOk:    true,
+			wantFg:    rgb(0xe0, 0xd0, 0xc0),
+			wantBg:    rgb(0x10, 0x20, 0x30),
+			wantSetBg: true,
 		},
 		{
-			name:         "inverse/explicit-pair",
-			fg:           termRGB(0xaa, 0xbb, 0xcc),
-			bg:           termRGB(0x01, 0x02, 0x03),
-			inverse:      true,
-			defaultFg:    rgb(0x11, 0x22, 0x33),
-			defaultBg:    rgb(0xee, 0xdd, 0xcc),
-			isLightTheme: false,
-			wantOk:       true,
-			wantFg:       rgb(0x01, 0x02, 0x03),
-			wantBg:       rgb(0xaa, 0xbb, 0xcc),
-			wantSetBg:    true,
+			name:      "inverse/explicit-pair",
+			fg:        termRGB(0xaa, 0xbb, 0xcc),
+			bg:        termRGB(0x01, 0x02, 0x03),
+			inverse:   true,
+			defaultFg: rgb(0x11, 0x22, 0x33),
+			defaultBg: rgb(0xee, 0xdd, 0xcc),
+			wantOk:    true,
+			wantFg:    rgb(0x01, 0x02, 0x03),
+			wantBg:    rgb(0xaa, 0xbb, 0xcc),
+			wantSetBg: true,
 		},
 		{
-			name:         "light/implicit-bg-adjust-fg",
-			fg:           termRGB(0xf0, 0xf0, 0xf0),
-			defaultFg:    rgb(0x40, 0x40, 0x40),
-			defaultBg:    rgb(0xff, 0xff, 0xff),
-			isLightTheme: true,
-			wantOk:       true,
-			wantFg:       rgba8Of(ensureContrastColor(rgb(0xf0, 0xf0, 0xf0), rgb(0xff, 0xff, 0xff))),
-			wantBg:       rgb(0xff, 0xff, 0xff),
-			wantSetBg:    false,
+			name:      "implicit-bg-keeps-fg",
+			fg:        termRGB(0xf0, 0xf0, 0xf0),
+			defaultFg: rgb(0x40, 0x40, 0x40),
+			defaultBg: rgb(0xff, 0xff, 0xff),
+			wantOk:    true,
+			wantFg:    rgb(0xf0, 0xf0, 0xf0),
+			wantBg:    rgb(0xff, 0xff, 0xff),
+			wantSetBg: false,
 		},
 		{
-			name:         "light/explicit-bg-keep-pair",
-			fg:           termRGB(0xf0, 0xf0, 0xf0),
-			bg:           termRGB(0x00, 0x80, 0x00),
-			defaultFg:    rgb(0x40, 0x40, 0x40),
-			defaultBg:    rgb(0xff, 0xff, 0xff),
-			isLightTheme: true,
-			wantOk:       true,
-			wantFg:       rgb(0xf0, 0xf0, 0xf0),
-			wantBg:       rgb(0x00, 0x80, 0x00),
-			wantSetBg:    true,
+			name:      "light/explicit-bg-keep-pair",
+			fg:        termRGB(0xf0, 0xf0, 0xf0),
+			bg:        termRGB(0x00, 0x80, 0x00),
+			defaultFg: rgb(0x40, 0x40, 0x40),
+			defaultBg: rgb(0xff, 0xff, 0xff),
+			wantOk:    true,
+			wantFg:    rgb(0xf0, 0xf0, 0xf0),
+			wantBg:    rgb(0x00, 0x80, 0x00),
+			wantSetBg: true,
 		},
 		{
 			name:         "grayscale/implicit-bg-only-fg",
@@ -91,7 +85,6 @@ func TestTermCellColors(t *testing.T) {
 			defaultFg:    rgb(0x20, 0x30, 0x40),
 			defaultBg:    rgb(0xfa, 0xfa, 0xfa),
 			useGrayscale: true,
-			isLightTheme: false,
 			wantOk:       true,
 			wantFg:       rgba8Of(grayscaleColor(rgb(0x10, 0x50, 0x90))),
 			wantBg:       rgb(0xfa, 0xfa, 0xfa),
@@ -104,7 +97,6 @@ func TestTermCellColors(t *testing.T) {
 			defaultFg:    rgb(0x20, 0x30, 0x40),
 			defaultBg:    rgb(0xfa, 0xfa, 0xfa),
 			useGrayscale: true,
-			isLightTheme: false,
 			wantOk:       true,
 			wantFg:       rgba8Of(grayscaleColor(rgb(0x10, 0x50, 0x90))),
 			wantBg:       rgba8Of(grayscaleColor(rgb(0x90, 0x50, 0x10))),
@@ -114,7 +106,7 @@ func TestTermCellColors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fg2, bg2, setBg, ok := termCellColors(tc.fg, tc.bg, tc.inverse, tc.defaultFg, tc.defaultBg, tc.useGrayscale, tc.isLightTheme)
+			fg2, bg2, setBg, ok := termCellColors(tc.fg, tc.bg, tc.inverse, tc.defaultFg, tc.defaultBg, tc.useGrayscale)
 
 			if ok != tc.wantOk {
 				t.Fatalf("ok=%v want %v", ok, tc.wantOk)
@@ -172,7 +164,7 @@ func TestTermCellColorsCursorUsesUnderlyingCellColors(t *testing.T) {
 		t.Fatal("missing color op")
 	}
 
-	fg2, bg2, setBg, ok := termCellColors(got0.fg, got0.bg, got0.inverse, defaultFg, defaultBg, false, true)
+	fg2, bg2, setBg, ok := termCellColors(got0.fg, got0.bg, got0.inverse, defaultFg, defaultBg, false)
 	if !ok {
 		t.Fatal("expected colors")
 	}
@@ -193,7 +185,7 @@ func TestTermCellColorsCursorUsesUnderlyingCellColors(t *testing.T) {
 type testTui struct{}
 
 func (testTui) OnColumnModeChange() {}
-func (testTui) SyncScreen()              {}
+func (testTui) SyncScreen()         {}
 func (testTui) Print(any)           {}
 func (testTui) Error(error)         {}
 
