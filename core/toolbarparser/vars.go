@@ -139,9 +139,7 @@ func (m *HomeVarMap) DecodeVars(vm VarMap) {
 	}
 }
 func (m *HomeVarMap) ParseAndDecodeVars(data *Data) VarMap {
-	vm := ParseVars(data)
-	m.DecodeVars(vm)
-	return vm
+	return parseVars(data, m.Decode)
 }
 func (m *HomeVarMap) decode2(f string) string {
 	// split on first separator
@@ -224,6 +222,10 @@ type VarMap map[string]string // [name]value; name includes {"~","$",...}
 //----------
 
 func ParseVars(data *Data) VarMap {
+	return parseVars(data, nil)
+}
+
+func parseVars(data *Data, decodePath func(string) string) VarMap {
 	vm := VarMap{}
 	for _, part := range data.Parts {
 		if len(part.Args) != 1 { // must have 1 arg
@@ -235,11 +237,16 @@ func ParseVars(data *Data) VarMap {
 			continue
 		}
 
-		// allows to reuse previously value of the same variable
-		s := expandVariables(v.Value, vm)
-
+		s := v.Value
 		if u, err := parseutil.UnquoteString(s, '\\'); err == nil {
 			s = u
+		}
+
+		// allows to reuse previously value of the same variable
+		s = expandVariables(s, vm)
+
+		if decodePath != nil && strings.HasPrefix(s, "~") {
+			s = decodePath(s)
 		}
 
 		vm[v.Name] = s

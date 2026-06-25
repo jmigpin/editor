@@ -203,6 +203,14 @@ func TestParseVars2(t *testing.T) {
 		t.Fatal(vm)
 	}
 }
+func TestParseVarsQuotedRefsWithSpaces(t *testing.T) {
+	s := "$a=abc | $b=\"$a def\""
+	d := Parse(s)
+	vm := ParseVars(d)
+	if v, ok := vm["$b"]; !ok || v != "abc def" {
+		t.Fatal(vm)
+	}
+}
 func TestParseVars3(t *testing.T) {
 	s := "~1=abc | $a=~~1"
 	d := Parse(s)
@@ -228,6 +236,20 @@ func TestParseVarsDecodeLeadingHomeVars(t *testing.T) {
 		t.Fatal(vm)
 	}
 	if vm["$url"] != "http://x/~1" {
+		t.Fatal(vm)
+	}
+}
+
+func TestParseVarsDecodeQuotedComposedHomeVars(t *testing.T) {
+	hvm := NewHomeVarMap(VarMap{
+		"~0": "/tmp/root",
+		"~1": "~0/project",
+	}, false)
+
+	data := Parse("$d=~1/a | $d2=~0/b | $d3=\"$d $d2\" | run")
+	vm := hvm.ParseAndDecodeVars(data)
+
+	if vm["$d3"] != "/tmp/root/project/a /tmp/root/b" {
 		t.Fatal(vm)
 	}
 }
