@@ -1,35 +1,39 @@
 package internalcmds
 
 import (
+	"bytes"
+	"errors"
 	"flag"
 	"fmt"
-	"io"
 
 	"github.com/jmigpin/editor/core"
 )
 
 func ListDir(args *core.InternalCmdArgs) error {
-	// setup flagset
-	fs := flag.NewFlagSet("ListDir", flag.ContinueOnError)
-	fs.SetOutput(io.Discard) // don't output to stderr
-	subFlag := fs.Bool("sub", false, "list subdirectories/files")
-	hiddenFlag := fs.Bool("hidden", false, "list hidden files")
-	if err := parseFlagSetHandleUsage(args, fs); err != nil {
-		return err
-	}
-
-	//----------
-
 	erow, err := args.ERowOrErr()
 	if err != nil {
 		return err
 	}
 
-	if !erow.Info.IsDir() {
-		return fmt.Errorf("not a directory")
+	baseDir := erow.Info.Dir()
+	parsed, err := core.ParseListDirCmdArgs(args.Part.ArgsUnquoted()[1:], core.ListDirCmdConfig{
+		BaseDir:    baseDir,
+		DecodePath: args.Ed.HomeVars.Decode,
+		EncodePath: args.Ed.HomeVars.Encode,
+	})
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			buf := &bytes.Buffer{}
+			core.ListDirFlagSetUsage(buf)
+			return fmt.Errorf("%w\n%v", err, buf.String())
+		}
+		return err
 	}
 
-	core.ListDirERow(erow, erow.Info.Name(), *subFlag, *hiddenFlag)
+	if len(parsed.Sources) == 1 && parsed.Sources[0].AddedFilepath == "" && !erow.Info.IsDir() {
+		return fmt.Errorf("not a directory")
+	}
+	core.ListDirERowOptionsSources(erow, parsed.Sources, parsed.Opts)
 
 	return nil
 }

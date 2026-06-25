@@ -259,9 +259,18 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `GotoLine <num>`: goes to line number
 - `Replace <old> <new>`: replaces old string with new, respects selections
 - `Stop`: stops current process (external cmd) running in the row
-- `ListDir [-sub] [-hidden]`: lists directory
+- `ListDir [-sub] [-hidden] [-short=true] [-rel=true] [-f <regexp>]... [-exc <regexp>]... [dir...]`: lists directory
 	- `-sub`: lists directory and sub directories
 	- `-hidden`: lists directory including hidden
+	- `-short`: uses the shortest output path, considering `~`, `~1`, `~2`, ... shortcuts; defaults to true (use `-short=false` to disable)
+	- `-rel`: outputs paths relative to the current directory; defaults to true
+	- `-f <regexp>`: filter entries matching regexp; can be repeated
+	- `-exc <regexp>`: exclude entries matching regexp; can be repeated and takes priority over `-f`
+	- regexps in `-f` and `-exc` can match relative paths, absolute paths, or paths encoded with `~N`
+	- `[dir...]`: optional directories whose contents are listed; accepts relative, absolute, and `~N` paths
+	- ex: `ListDir -sub -f "\.go$" -exc "(^|/)vendor/"`
+	- ex: `ListDir tmp ~1/src /var/log`
+	- ex: `ListDir -sub ~1/tmp -f=~1/.*\.go$`
 - `MaximizeRow`: maximize row. Will push other rows up/down.
 - `CopyPosition [-quiet=false] [-clipboard=<clipboard|primary|both>]`: copy the row position to the clipboard. For files, copies the cursor file position in the format "file:line:col"; for directories, copies the directory name. By default, it copies to the regular clipboard and does not report to `+Messages`; use `-clipboard=primary` or `-clipboard=both` to target the primary selection, and `-quiet=false` to report the copied position. Alias: `CopyFilePosition`.
 - `RuneCodes`: output rune codes of the current row text selection.
