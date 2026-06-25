@@ -11,7 +11,7 @@ import (
 )
 
 func CopyPosition(args *core.InternalCmdArgs) error {
-	opt := copyPositionOpts{clipboard: "clipboard"}
+	opt := copyPositionOpts{clipboard: "both"}
 	fs := flag.NewFlagSet("CopyPosition", flag.ContinueOnError)
 	fs.BoolVar(&opt.quiet, "quiet", true, "copy without reporting to the messages row")
 	fs.StringVar(&opt.clipboard, "clipboard", opt.clipboard, "clipboard target: clipboard, primary, or both")

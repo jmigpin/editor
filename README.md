@@ -272,7 +272,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 	- ex: `ListDir tmp ~1/src /var/log`
 	- ex: `ListDir -sub ~1/tmp -f=~1/.*\.go$`
 - `MaximizeRow`: maximize row. Will push other rows up/down.
-- `CopyPosition [-quiet=false] [-clipboard=<clipboard|primary|both>]`: copy the row position to the clipboard. For files, copies the cursor file position in the format "file:line:col"; for directories, copies the directory name. By default, it copies to the regular clipboard and does not report to `+Messages`; use `-clipboard=primary` or `-clipboard=both` to target the primary selection, and `-quiet=false` to report the copied position. Alias: `CopyFilePosition`.
+- `CopyPosition [-quiet=false] [-clipboard=<clipboard|primary|both>]`: copy the row position to the clipboard. For files, copies the cursor file position in the format "file:line:col"; for directories, copies the directory name. By default, it copies to both the regular clipboard and primary selection and does not report to `+Messages`; use `-clipboard=clipboard` or `-clipboard=primary` to target only one, and `-quiet=false` to report the copied position.
 - `RuneCodes`: output rune codes of the current row text selection.
 - `FontRunes`: output the current font runes.
 - `FontsList`: lists all loaded fonts and their aliases.
