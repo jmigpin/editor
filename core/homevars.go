@@ -39,6 +39,10 @@ func (hv *HomeVars) Encode(filename string) string {
 	return hv.hvm.Encode(filename)
 }
 
+func (hv *HomeVars) EncodeShortest(filename string) string {
+	return hv.hvm.EncodeShortest(filename)
+}
+
 func (hv *HomeVars) Decode(filename string) string {
 	return hv.hvm.Decode(filename)
 }

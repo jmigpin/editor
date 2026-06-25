@@ -91,6 +91,38 @@ func (m *HomeVarMap) encode2(f string) string {
 	return f
 }
 
+func (m *HomeVarMap) EncodeShortest(filename string) string {
+	candidates := append([]string{m.Encode(filename)}, m.encodeNear(filename)...)
+	sort.Strings(candidates)
+	return shortestString(candidates)
+}
+
+func (m *HomeVarMap) encodeNear(filename string) []string {
+	filename = osutil.FilepathClean(filename)
+	ff := m.caseFilter(filename)
+	candidates := []string{}
+	for _, key := range m.sortedKeys() {
+		value := m.vm[key]
+		if !filepath.IsAbs(value) {
+			continue
+		}
+		parent := value
+		for depth := 0; ; depth++ {
+			if depth > 0 && pathHasPrefix(ff, m.caseFilter(parent)) {
+				if candidate, ok := encodeNearCandidate(key, value, parent, filename); ok {
+					candidates = append(candidates, candidate)
+				}
+			}
+			next := filepath.Dir(parent)
+			if next == parent {
+				break
+			}
+			parent = next
+		}
+	}
+	return candidates
+}
+
 //----------
 
 func (m *HomeVarMap) Decode(f string) string {
@@ -129,6 +161,56 @@ func (m *HomeVarMap) decode2(f string) string {
 	}
 
 	return f
+}
+
+func (m *HomeVarMap) sortedKeys() []string {
+	keys := []string{}
+	for k := range m.vm {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func pathHasPrefix(filename, prefix string) bool {
+	if filename == prefix {
+		return true
+	}
+	prefix2 := prefix
+	if !strings.HasSuffix(prefix2, string(filepath.Separator)) {
+		prefix2 += string(filepath.Separator)
+	}
+	return strings.HasPrefix(filename, prefix2)
+}
+
+func encodeNearCandidate(key, value, parent, filename string) (string, bool) {
+	upRel, err := filepath.Rel(value, parent)
+	if err != nil {
+		return "", false
+	}
+	downRel, err := filepath.Rel(parent, filename)
+	if err != nil {
+		return "", false
+	}
+
+	parts := []string{key}
+	if upRel != "." {
+		parts = append(parts, strings.Split(upRel, string(filepath.Separator))...)
+	}
+	if downRel != "." {
+		parts = append(parts, parseutil.EscapeFilename(downRel))
+	}
+	return strings.Join(parts, string(filepath.Separator)), true
+}
+
+func shortestString(candidates []string) string {
+	shortest := ""
+	for _, s := range candidates {
+		if shortest == "" || len(s) < len(shortest) {
+			shortest = s
+		}
+	}
+	return shortest
 }
 
 //----------

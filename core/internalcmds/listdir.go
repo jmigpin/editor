@@ -19,7 +19,7 @@ func ListDir(args *core.InternalCmdArgs) error {
 	parsed, err := core.ParseListDirCmdArgs(args.Part.ArgsUnquoted()[1:], core.ListDirCmdConfig{
 		BaseDir:    baseDir,
 		DecodePath: args.Ed.HomeVars.Decode,
-		EncodePath: args.Ed.HomeVars.Encode,
+		EncodePath: args.Ed.HomeVars.EncodeShortest,
 	})
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {

@@ -3,6 +3,8 @@
 package toolbarparser
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -127,6 +129,21 @@ func TestDecodeLeadingHomeVarParentDoesNotMatchChildVar(t *testing.T) {
 	}
 	if parent == child {
 		t.Fatalf("parent and child should not match: %q", parent)
+	}
+}
+
+func TestEncodeShortestHomeVarParent(t *testing.T) {
+	vm := VarMap{
+		"~0": "/workspace/project",
+		"~1": "~0/cmd/app/web",
+	}
+	hvm := NewHomeVarMap(vm, false)
+
+	filename := "/workspace/utils1/jsutil/apppath.go"
+	got := hvm.EncodeShortest(filename)
+	want := strings.Join([]string{"~0", "..", "utils1", "jsutil", "apppath.go"}, string(filepath.Separator))
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 

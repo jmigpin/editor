@@ -45,7 +45,7 @@ func ListDirERowReloadFromToolbar(erow *ERow) (bool, error) {
 	parsed, ok, err := lastListDirReloadCmd(&erow.TbData, ListDirCmdConfig{
 		BaseDir:    erow.Info.Dir(),
 		DecodePath: erow.Ed.HomeVars.Decode,
-		EncodePath: erow.Ed.HomeVars.Encode,
+		EncodePath: erow.Ed.HomeVars.EncodeShortest,
 	})
 	if err != nil || !ok {
 		return ok, err
@@ -243,9 +243,8 @@ func listDirParentEntry(fpath, addedFilepath string, opts ListDirOptions) string
 		}
 	}
 	candidates = append(candidates, parseutil.EscapeFilename(addedFilepath+string(os.PathSeparator)+".."+string(os.PathSeparator)))
-	if opts.Short && opts.EncodePath != nil {
-		candidates = append(candidates, opts.EncodePath(absPath)+string(os.PathSeparator)+".."+string(os.PathSeparator))
-		if outputPath, ok := opts.shortRelOutputPath(absPath, true); ok {
+	if opts.Short {
+		for _, outputPath := range opts.encodedPathCandidates(absPath, true) {
 			candidates = append(candidates, outputPath+".."+string(os.PathSeparator))
 		}
 	}
@@ -260,62 +259,23 @@ func (opts ListDirOptions) outputPath(relPath, absPath string, isDir bool) strin
 		}
 	}
 	candidates = append(candidates, parseutil.EscapeFilename(relPath))
-	if opts.Short && opts.EncodePath != nil {
-		outputPath := opts.EncodePath(absPath)
-		if isDir {
-			outputPath += string(os.PathSeparator)
-		}
-		candidates = append(candidates, outputPath)
-		if outputPath, ok := opts.shortRelOutputPath(absPath, isDir); ok {
-			candidates = append(candidates, outputPath)
-		}
+	if opts.Short {
+		candidates = append(candidates, opts.encodedPathCandidates(absPath, isDir)...)
 	}
 	return shortestListDirString(candidates)
 }
 
-func (opts ListDirOptions) shortRelOutputPath(absPath string, isDir bool) (string, bool) {
-	if opts.RelBase == "" {
-		return "", false
+func (opts ListDirOptions) encodedPathCandidates(absPath string, isDir bool) []string {
+	candidates := []string{}
+	if opts.EncodePath != nil {
+		candidates = append(candidates, opts.EncodePath(absPath))
 	}
-	relPath, ok := listDirRelPath(opts.RelBase, absPath, isDir)
-	if !ok {
-		return "", false
-	}
-	encodedBase := opts.EncodePath(opts.RelBase)
-	return cleanListDirEncodedRelPath(encodedBase, relPath, isDir), true
-}
-
-func cleanListDirEncodedRelPath(encodedBase, relPath string, isDir bool) string {
-	if _, _, ok := leadingListDirHomeVar(encodedBase); !ok {
-		outputPath := filepath.Join(encodedBase, parseutil.EscapeFilename(relPath))
-		if isDir {
-			outputPath += string(os.PathSeparator)
-		}
-		return outputPath
-	}
-
-	sep := string(os.PathSeparator)
-	parts := strings.Split(encodedBase+sep+parseutil.EscapeFilename(relPath), sep)
-	stack := []string{}
-	for _, part := range parts {
-		switch part {
-		case "", ".":
-			continue
-		case "..":
-			if len(stack) > 1 {
-				stack = stack[:len(stack)-1]
-			} else {
-				stack = append(stack, part)
-			}
-		default:
-			stack = append(stack, part)
-		}
-	}
-	outputPath := strings.Join(stack, sep)
 	if isDir {
-		outputPath += sep
+		for i, candidate := range candidates {
+			candidates[i] = candidate + string(os.PathSeparator)
+		}
 	}
-	return outputPath
+	return candidates
 }
 
 func listDirRelPath(base, filename string, isDir bool) (string, bool) {
@@ -359,11 +319,8 @@ func (opts ListDirOptions) filter(relPath, absPath string) (write bool, prune bo
 func (opts ListDirOptions) matchCandidates(relPath, absPath string) []string {
 	u := []string{relPath, absPath}
 	if opts.EncodePath != nil {
-		encodedPath := opts.EncodePath(absPath)
-		if strings.HasSuffix(absPath, string(os.PathSeparator)) {
-			encodedPath += string(os.PathSeparator)
-		}
-		u = append(u, encodedPath)
+		isDir := strings.HasSuffix(absPath, string(os.PathSeparator))
+		u = append(u, opts.encodedPathCandidates(absPath, isDir)...)
 	}
 	return u
 }

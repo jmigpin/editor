@@ -254,28 +254,48 @@ func TestListDirOptionsShortUsesEncodedRelativeWhenShorter(t *testing.T) {
 	homeRoot := filepath.Join(root, "home-src")
 	relBase := filepath.Join(homeRoot, "a", "b", "c")
 	absPath := filepath.Join(root, "other-src", "acct") + string(os.PathSeparator)
-	encodePath := func(filename string) string {
-		cleanHomeRoot := filepath.Clean(homeRoot)
-		cleanFilename := filepath.Clean(filename)
-		if cleanFilename == cleanHomeRoot {
-			return "~1"
-		}
-		rel, err := filepath.Rel(cleanHomeRoot, cleanFilename)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return filename
-		}
-		return filepath.Join("~1", rel)
-	}
+	hvm := toolbarparser.NewHomeVarMap(toolbarparser.VarMap{"~1": homeRoot}, false)
 
 	got := (ListDirOptions{
 		Short:      true,
 		Rel:        true,
 		RelBase:    relBase,
-		EncodePath: encodePath,
+		EncodePath: hvm.EncodeShortest,
 	}).outputPath("", absPath, true)
 	want := strings.Join([]string{"~1", "..", "other-src", "acct"}, string(os.PathSeparator)) + string(os.PathSeparator)
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestListDirOptionsShortDoesNotCollapseHomeVarParent(t *testing.T) {
+	root := t.TempDir()
+	project := filepath.Join(root, "project")
+	web := filepath.Join(project, "cmd", "app", "web")
+	jsutil := filepath.Join(root, "utils1", "jsutil")
+	if err := os.MkdirAll(web, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(jsutil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(jsutil, "apppath.go"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hvm := toolbarparser.NewHomeVarMap(toolbarparser.VarMap{
+		"~0": project,
+		"~1": "~0/cmd/app/web",
+	}, false)
+
+	got := listDirTestOutputAt(t, "", jsutil, ListDirOptions{
+		Short:      true,
+		Rel:        true,
+		RelBase:    web,
+		EncodePath: hvm.EncodeShortest,
+	})
+	bad := filepath.Join("~1", "utils1", "jsutil", "apppath.go")
+	if strings.Contains(got, bad) {
+		t.Fatalf("unexpected collapsed homevar parent %q in:\n%s", bad, got)
 	}
 }
 
