@@ -43,6 +43,6 @@ func (hv *HomeVars) Decode(filename string) string {
 	return hv.hvm.Decode(filename)
 }
 
-func (hv *HomeVars) DecodeVars(vm toolbarparser.VarMap) {
-	hv.hvm.DecodeVars(vm)
+func (hv *HomeVars) ParseAndDecodeVars(data *toolbarparser.Data) toolbarparser.VarMap {
+	return hv.hvm.ParseAndDecodeVars(data)
 }

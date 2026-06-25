@@ -381,7 +381,7 @@ func listDirSourcesFromArgs(pathArgs []string, baseDir string, decodePath func(s
 func listDirSourceFromArg(arg string, baseDir string, decodePath func(string) string) (ListDirSource, error) {
 	p := arg
 	if decodePath != nil {
-		p = decodeLeadingListDirHomeVarPath(p, decodePath)
+		p = decodePath(p)
 	}
 	p = filepath.Clean(p)
 	if p == "." {
@@ -391,18 +391,6 @@ func listDirSourceFromArg(arg string, baseDir string, decodePath func(string) st
 		return ListDirSource{AddedFilepath: p}, nil
 	}
 	return ListDirSource{Filepath: baseDir, AddedFilepath: p}, nil
-}
-
-func decodeLeadingListDirHomeVarPath(s string, decodePath func(string) string) string {
-	key, suffix, ok := leadingListDirHomeVar(s)
-	if !ok {
-		return decodePath(s)
-	}
-	decoded := decodePath(key)
-	if decoded == key {
-		return decodePath(s)
-	}
-	return decoded + suffix
 }
 
 func regexpListDirFlag(dst *[]*regexp.Regexp, decodePath func(string) string) flag.Value {

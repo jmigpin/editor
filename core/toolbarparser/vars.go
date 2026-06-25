@@ -106,6 +106,11 @@ func (m *HomeVarMap) DecodeVars(vm VarMap) {
 		}
 	}
 }
+func (m *HomeVarMap) ParseAndDecodeVars(data *Data) VarMap {
+	vm := ParseVars(data)
+	m.DecodeVars(vm)
+	return vm
+}
 func (m *HomeVarMap) decode2(f string) string {
 	// split on first separator
 	i := strings.IndexFunc(f, func(ru rune) bool {

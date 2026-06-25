@@ -233,8 +233,7 @@ func toolbarVarsEnv(part *toolbarparser.Part, homeVars *HomeVars) []string {
 	}
 
 	env := []string{}
-	vmap := toolbarparser.ParseVars(&data2)
-	homeVars.DecodeVars(vmap)
+	vmap := homeVars.ParseAndDecodeVars(&data2)
 	for k, v := range vmap {
 		if strings.HasPrefix(k, "$") {
 			u := k[1:]

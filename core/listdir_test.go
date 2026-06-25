@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/jmigpin/editor/core/toolbarparser"
 )
 
 func TestListDirContextOptionsDefaultOutput(t *testing.T) {
@@ -334,12 +336,7 @@ func TestParseListDirCmdArgsInvalidRegexp(t *testing.T) {
 }
 
 func TestParseListDirCmdArgsDecodesHomeVarPattern(t *testing.T) {
-	decodePath := func(s string) string {
-		if s == "~1" {
-			return "/tmp/root"
-		}
-		return s
-	}
+	decodePath := toolbarparser.NewHomeVarMap(toolbarparser.VarMap{"~1": "/tmp/root"}, false).Decode
 	parsed, err := ParseListDirCmdArgs([]string{`-f=~1/a\.go$`}, ListDirCmdConfig{BaseDir: "/home/a", DecodePath: decodePath})
 	if err != nil {
 		t.Fatal(err)
@@ -359,12 +356,7 @@ func TestParseListDirCmdArgsDecodesHomeVarPattern(t *testing.T) {
 }
 
 func TestListDirSourcesFromArgs(t *testing.T) {
-	decodePath := func(s string) string {
-		if s == "~1" {
-			return "/home/a"
-		}
-		return s
-	}
+	decodePath := toolbarparser.NewHomeVarMap(toolbarparser.VarMap{"~1": "/home/a"}, false).Decode
 
 	sources, err := listDirSourcesFromArgs([]string{"tmp"}, "/home/a", decodePath)
 	if err != nil {

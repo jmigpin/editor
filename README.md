@@ -518,6 +518,7 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 - `$edFileLine`: index line from active row cursor (1-based). Ex: "12".
 - `$edFileWord`: word at index from active row cursor. Ex: "myvar". Usage ex: use `go doc $edFileWord` with cursor at a receiver variable.
 - `$<name>=<string>`: set custom variable in a row toolbar to be set in the environment when running an external command.<br>
+	Variable values starting with a home variable are decoded before use (ex: with `~1=/tmp/proj`, `$dir=~1/src` is set as `/tmp/proj/src`). Home variables inside other text are left unchanged (ex: `$url=http://host/~1`).
 	Example row toolbar:
 	```
 	$myprog="a.out -arg1"

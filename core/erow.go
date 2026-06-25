@@ -452,8 +452,7 @@ func (erow *ERow) ToolbarSetStrAfterNameClearHistory(s string) {
 //----------
 
 func (erow *ERow) parseToolbarVars() {
-	vmap := toolbarparser.ParseVars(&erow.TbData)
-	erow.Ed.HomeVars.DecodeVars(vmap)
+	vmap := erow.Ed.HomeVars.ParseAndDecodeVars(&erow.TbData)
 
 	// $font
 	erow.fontOpts = ERowFontOpts{}

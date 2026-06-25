@@ -202,8 +202,7 @@ func TestParseVarsDecodeLeadingHomeVars(t *testing.T) {
 	}, false)
 
 	data := Parse("$p=~1/src | $home=~/bin | $url=http://x/~1 | run")
-	vm := ParseVars(data)
-	hvm.DecodeVars(vm)
+	vm := hvm.ParseAndDecodeVars(data)
 
 	if vm["$p"] != "/tmp/project/src" {
 		t.Fatal(vm)
