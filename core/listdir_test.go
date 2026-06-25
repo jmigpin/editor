@@ -329,6 +329,16 @@ func TestParseListDirCmdArgsShortFlagCanDisable(t *testing.T) {
 	}
 }
 
+func TestParseListDirCmdArgsReloadFlag(t *testing.T) {
+	parsed, err := ParseListDirCmdArgs([]string{"-reload"}, ListDirCmdConfig{BaseDir: "/home/a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !parsed.Reload {
+		t.Fatalf("reload: got false, want true")
+	}
+}
+
 func TestParseListDirCmdArgsInvalidRegexp(t *testing.T) {
 	if _, err := ParseListDirCmdArgs([]string{"-f", "["}, ListDirCmdConfig{BaseDir: "/home/a"}); err == nil {
 		t.Fatal("expected error")
@@ -352,6 +362,29 @@ func TestParseListDirCmdArgsDecodesHomeVarPattern(t *testing.T) {
 	}
 	if parsed.Opts.Filters[1].MatchString("/tmp/root/abgo") {
 		t.Fatalf("decoded pattern lost regexp escapes")
+	}
+}
+
+func TestLastListDirReloadCmdUsesLastReload(t *testing.T) {
+	data := toolbarparser.Parse("/home/a | ListDir -reload src | ListDir -sub tmp | ListDir -reload -hidden logs")
+	parsed, ok, err := lastListDirReloadCmd(data, ListDirCmdConfig{BaseDir: "/home/a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("expected reload command")
+	}
+	if !parsed.Reload {
+		t.Fatalf("reload: got false, want true")
+	}
+	if !parsed.Opts.Hiddens {
+		t.Fatalf("hidden: got false, want true")
+	}
+	if len(parsed.Sources) != 1 || parsed.Sources[0].AddedFilepath != "logs" {
+		t.Fatalf("sources: got %v", parsed.Sources)
+	}
+	if parsed.Opts.Subs {
+		t.Fatalf("subs: got true, want false")
 	}
 }
 

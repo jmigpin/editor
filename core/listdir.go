@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/util/flagutil"
 	"github.com/jmigpin/editor/util/parseutil"
 )
@@ -37,6 +39,19 @@ func ListDirERowOptionsSources(erow *ERow, sources []ListDirSource, opts ListDir
 		}
 		return nil
 	})
+}
+
+func ListDirERowReloadFromToolbar(erow *ERow) (bool, error) {
+	parsed, ok, err := lastListDirReloadCmd(&erow.TbData, ListDirCmdConfig{
+		BaseDir:    erow.Info.Dir(),
+		DecodePath: erow.Ed.HomeVars.Decode,
+		EncodePath: erow.Ed.HomeVars.Encode,
+	})
+	if err != nil || !ok {
+		return ok, err
+	}
+	ListDirERowOptionsSources(erow, parsed.Sources, parsed.Opts)
+	return true, nil
 }
 
 //----------
@@ -67,6 +82,7 @@ type ListDirCmdConfig struct {
 type ListDirCmdParsed struct {
 	Opts    ListDirOptions
 	Sources []ListDirSource
+	Reload  bool
 }
 
 func ParseListDirCmdArgs(args []string, cfg ListDirCmdConfig) (*ListDirCmdParsed, error) {
@@ -94,7 +110,7 @@ func ParseListDirCmdArgs(args []string, cfg ListDirCmdConfig) (*ListDirCmdParsed
 		RelBase:    cfg.BaseDir,
 	}
 
-	return &ListDirCmdParsed{Opts: opts, Sources: sources}, nil
+	return &ListDirCmdParsed{Opts: opts, Sources: sources, Reload: *flags.reload}, nil
 }
 
 func ListDirFlagSetUsage(w io.Writer) {
@@ -110,6 +126,7 @@ type listDirFlags struct {
 	hidden *bool
 	short  *bool
 	rel    *bool
+	reload *bool
 }
 
 func newListDirFlagSet(filters, removes *[]*regexp.Regexp, decodePath func(string) string) (*flag.FlagSet, listDirFlags) {
@@ -120,6 +137,7 @@ func newListDirFlagSet(filters, removes *[]*regexp.Regexp, decodePath func(strin
 	flags.hidden = fs.Bool("hidden", false, "list hidden files")
 	flags.short = fs.Bool("short", true, "shorten output paths with home vars")
 	flags.rel = fs.Bool("rel", true, "output paths relative to the current directory")
+	flags.reload = fs.Bool("reload", false, "use this ListDir definition when reloading the row")
 	fs.Var(regexpListDirFlag(filters, decodePath), "f", "filter regexp")
 	fs.Var(regexpListDirFlag(removes, decodePath), "exc", "exclude regexp")
 	return fs, flags
@@ -359,6 +377,29 @@ func matchesAny(res []*regexp.Regexp, candidates []string) bool {
 		}
 	}
 	return false
+}
+
+//----------
+
+func lastListDirReloadCmd(data *toolbarparser.Data, cfg ListDirCmdConfig) (*ListDirCmdParsed, bool, error) {
+	var last *ListDirCmdParsed
+	for _, part := range data.Parts {
+		args := part.ArgsUnquoted()
+		if len(args) == 0 || args[0] != "ListDir" {
+			continue
+		}
+		parsed, err := ParseListDirCmdArgs(args[1:], cfg)
+		if err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				continue
+			}
+			return nil, false, err
+		}
+		if parsed.Reload {
+			last = parsed
+		}
+	}
+	return last, last != nil, nil
 }
 
 //----------

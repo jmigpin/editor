@@ -147,7 +147,13 @@ func (erow *ERow) Reload2(firstLoad bool) error {
 		return nil
 
 	case erow.Info.IsDir():
-		ListDirERow(erow, erow.Info.Name(), false, true)
+		ok, err := ListDirERowReloadFromToolbar(erow)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ListDirERow(erow, erow.Info.Name(), false, true)
+		}
 		return nil
 
 	case erow.Info.IsFileButNotDir():
