@@ -346,6 +346,7 @@ func (d *Drawer) SetBounds(r image.Rectangle) {
 	}
 
 	d.bounds = r // always update value (can change min)
+	d.opt.runeO.offset = d.clampRuneOffset(d.opt.runeO.offset)
 }
 
 //----------
@@ -354,12 +355,34 @@ func (d *Drawer) RuneOffset() int {
 	return d.opt.runeO.offset
 }
 func (d *Drawer) SetRuneOffset(v int) {
-	d.opt.runeO.offset = v
+	d.opt.runeO.offset = d.clampRuneOffset(v)
 
 	d.opt.syntaxH.updated = false
 	d.opt.contentColorize.updated = false
 	d.opt.wordH.updatedOps = false
 	d.opt.parenthesisH.updated = false
+}
+
+func (d *Drawer) clampRuneOffset(v int) int {
+	if v < 0 {
+		return 0
+	}
+	if d.reader == nil {
+		return v
+	}
+	maxOffset := d.maxRuneOffset()
+	if v > maxOffset {
+		return maxOffset
+	}
+	return v
+}
+
+func (d *Drawer) maxRuneOffset() int {
+	max := d.reader.Max()
+	if max <= d.reader.Min() {
+		return d.reader.Min()
+	}
+	return d.wlineStartIndex(true, max, 0, nil)
 }
 
 //----------

@@ -94,6 +94,46 @@ func TestCursorAddedWidthOverride(t *testing.T) {
 	}
 }
 
+func TestSetRuneOffsetClampsToLastLineStart(t *testing.T) {
+	d := New()
+	d.SetFontFace(newTestFace())
+	d.SetBounds(image.Rect(0, 0, 100, 100))
+	d.SetReader(iorw.NewStringReaderAt("111\n222\n333"))
+
+	d.SetRuneOffset(999)
+
+	if got, want := d.RuneOffset(), 8; got != want {
+		t.Fatalf("offset=%d want %d", got, want)
+	}
+}
+
+func TestSetRuneOffsetAllowsTrailingEmptyLine(t *testing.T) {
+	d := New()
+	d.SetFontFace(newTestFace())
+	d.SetBounds(image.Rect(0, 0, 100, 100))
+	d.SetReader(iorw.NewStringReaderAt("111\n222\n"))
+
+	d.SetRuneOffset(999)
+
+	if got, want := d.RuneOffset(), 8; got != want {
+		t.Fatalf("offset=%d want %d", got, want)
+	}
+}
+
+func TestSetBoundsClampsRuneOffsetAfterUnwrap(t *testing.T) {
+	d := New()
+	d.SetFontFace(newTestFace())
+	d.SetBounds(image.Rect(0, 0, 14, 100))
+	d.SetReader(iorw.NewStringReaderAt("WWWW"))
+	d.SetRuneOffset(999)
+
+	d.SetBounds(image.Rect(0, 0, 100, 100))
+
+	if got, want := d.RuneOffset(), 0; got != want {
+		t.Fatalf("offset=%d want %d", got, want)
+	}
+}
+
 //----------
 
 func TestImg01(t *testing.T) {
