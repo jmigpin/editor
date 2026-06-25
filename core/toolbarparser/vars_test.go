@@ -108,6 +108,28 @@ func TestDecode1(t *testing.T) {
 	}
 }
 
+func TestDecodeLeadingHomeVarParentDoesNotMatchChildVar(t *testing.T) {
+	vm := VarMap{
+		"~":  "/home/a",
+		"~0": "~/workspace/project",
+		"~1": "~0/cmd/app/web",
+	}
+	hvm := NewHomeVarMap(vm, false)
+
+	parent := hvm.Decode("~0/../")
+	child := hvm.Decode("~1")
+
+	if parent != "/home/a/workspace" {
+		t.Fatal(parent)
+	}
+	if child != "/home/a/workspace/project/cmd/app/web" {
+		t.Fatal(child)
+	}
+	if parent == child {
+		t.Fatalf("parent and child should not match: %q", parent)
+	}
+}
+
 //----------
 
 func TestEncDec1(t *testing.T) {
@@ -169,6 +191,27 @@ func TestParseVars3(t *testing.T) {
 	d := Parse(s)
 	vm := ParseVars(d)
 	if v, ok := vm["$a"]; !ok || v != "~abc" {
+		t.Fatal(vm)
+	}
+}
+
+func TestParseVarsDecodeLeadingHomeVars(t *testing.T) {
+	hvm := NewHomeVarMap(VarMap{
+		"~":  "/home/a",
+		"~1": "/tmp/project",
+	}, false)
+
+	data := Parse("$p=~1/src | $home=~/bin | $url=http://x/~1 | run")
+	vm := ParseVars(data)
+	hvm.DecodeVars(vm)
+
+	if vm["$p"] != "/tmp/project/src" {
+		t.Fatal(vm)
+	}
+	if vm["$home"] != "/home/a/bin" {
+		t.Fatal(vm)
+	}
+	if vm["$url"] != "http://x/~1" {
 		t.Fatal(vm)
 	}
 }

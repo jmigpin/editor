@@ -30,7 +30,7 @@ func ExternalCmd2(erow *ERow, part *toolbarparser.Part, cargs []string, fend fun
 	}
 
 	if part != nil {
-		env = append(env, toolbarVarsEnv(part)...)
+		env = append(env, toolbarVarsEnv(part, erow.Ed.HomeVars)...)
 		if cargs == nil {
 			cargs = cmdPartArgs(part)
 		}
@@ -221,7 +221,7 @@ func cmdVar_edFileWord(erow *ERow) string {
 
 //----------
 
-func toolbarVarsEnv(part *toolbarparser.Part) []string {
+func toolbarVarsEnv(part *toolbarparser.Part, homeVars *HomeVars) []string {
 	data2 := *part.Data // copy
 
 	// use data only up to the selected part
@@ -234,6 +234,7 @@ func toolbarVarsEnv(part *toolbarparser.Part) []string {
 
 	env := []string{}
 	vmap := toolbarparser.ParseVars(&data2)
+	homeVars.DecodeVars(vmap)
 	for k, v := range vmap {
 		if strings.HasPrefix(k, "$") {
 			u := k[1:]

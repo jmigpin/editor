@@ -96,8 +96,15 @@ func (m *HomeVarMap) encode2(f string) string {
 func (m *HomeVarMap) Decode(f string) string {
 	// input can be from varmap (user input)
 	f = parseutil.RemoveEscapes(f, osutil.EscapeRune)
-	f = osutil.FilepathClean(f)
-	return m.decode2(f)
+	f = m.decode2(f)
+	return osutil.FilepathClean(f)
+}
+func (m *HomeVarMap) DecodeVars(vm VarMap) {
+	for k, v := range vm {
+		if strings.HasPrefix(v, "~") {
+			vm[k] = m.Decode(v)
+		}
+	}
 }
 func (m *HomeVarMap) decode2(f string) string {
 	// split on first separator
