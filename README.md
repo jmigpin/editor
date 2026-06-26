@@ -256,6 +256,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `CloseRow`: close row
 - `CloseColumn`: closes row column
 - `Find [-icase=true] [-idiac=true] [-rev] <string>`: find string. By default, ignores case and diacritics.
+- `Edit -pipe <command>`: sends the current selection, or the whole buffer if there is no selection, to the command stdin and replaces that range with stdout. Useful for external formatters and filters. Examples: `Edit -pipe gofmt`, `Edit -pipe sed 's/TODO/DONE/g'`, `Edit -pipe sort`. Do not use in-place command options such as `sed -i`; the command should read stdin and write stdout.
 - `GotoLine <num>`: goes to line number
 - `Replace <old> <new>`: replaces old string with new, respects selections
 - `Stop`: stops current process (external cmd) running in the row
