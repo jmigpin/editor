@@ -123,6 +123,10 @@ func setupToolbarCommenting(tb *ui.Toolbar) {
 }
 
 func toolbarCommentUnitIndexes(ctx *rwedit.Ctx) (int, int, bool, bool, error) {
+	if _, _, ok := ctx.C.SelectionIndexes(); ok {
+		return 0, 0, false, false, nil
+	}
+
 	src, err := iorw.ReadFastFull(ctx.RW)
 	if err != nil {
 		return 0, 0, false, false, err
@@ -130,5 +134,15 @@ func toolbarCommentUnitIndexes(ctx *rwedit.Ctx) (int, int, bool, bool, error) {
 
 	data := toolbarparser.Parse(string(src))
 	a, b, ok := data.PartCommentIndexes(ctx.C.Index())
-	return a, b, false, ok, nil
+	if !ok {
+		return 0, 0, false, false, nil
+	}
+
+	lineA, lineB, newline, err := ctx.CursorSelectionLinesIndexes()
+	if err != nil {
+		return 0, 0, false, false, err
+	}
+	a = max(a, lineA)
+	b = min(b, lineB)
+	return a, b, newline, true, nil
 }
