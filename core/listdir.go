@@ -327,11 +327,28 @@ func listDirRelPath(base, filename string, isDir bool) (string, bool) {
 func shortestListDirString(candidates []string) string {
 	shortest := ""
 	for _, s := range candidates {
+		if listDirPathIsOnlyMultipleParents(s) {
+			continue
+		}
 		if shortest == "" || len(s) < len(shortest) {
 			shortest = s
 		}
 	}
 	return shortest
+}
+
+func listDirPathIsOnlyMultipleParents(path string) bool {
+	path = strings.TrimSuffix(path, string(os.PathSeparator))
+	parts := strings.Split(path, string(os.PathSeparator))
+	if len(parts) < 2 {
+		return false
+	}
+	for _, part := range parts {
+		if part != ".." {
+			return false
+		}
+	}
+	return true
 }
 
 func (opts ListDirOptions) filter(relPath, absPath string) (write bool, prune bool) {

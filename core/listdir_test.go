@@ -202,7 +202,7 @@ func TestListDirContextOptionsRelCurrentDirEntry(t *testing.T) {
 		RelBase: cur,
 	})
 	want := strings.Join([]string{
-		".." + string(os.PathSeparator) + ".." + string(os.PathSeparator),
+		parent + string(os.PathSeparator) + ".." + string(os.PathSeparator),
 		"." + string(os.PathSeparator),
 		"",
 	}, "\n")
@@ -296,6 +296,19 @@ func TestListDirOptionsShortDoesNotCollapseHomeVarParent(t *testing.T) {
 	bad := filepath.Join("~1", "utils1", "jsutil", "apppath.go")
 	if strings.Contains(got, bad) {
 		t.Fatalf("unexpected collapsed homevar parent %q in:\n%s", bad, got)
+	}
+}
+
+func TestShortestListDirStringDiscardsOnlyMultipleParents(t *testing.T) {
+	sep := string(os.PathSeparator)
+	candidates := []string{".." + sep + ".." + sep, ".." + sep, ".." + sep + ".." + sep + "foo"}
+	if got, want := shortestListDirString(candidates), ".."+sep; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+
+	candidates = []string{".." + sep + ".." + sep, ".." + sep + ".." + sep + "foo"}
+	if got, want := shortestListDirString(candidates), ".."+sep+".."+sep+"foo"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
