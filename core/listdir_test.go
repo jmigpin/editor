@@ -359,6 +359,24 @@ func TestParseListDirCmdArgsShortFlagCanDisable(t *testing.T) {
 	}
 }
 
+func TestParseListDirCmdArgsHiddenDefaultsTrueAndCanDisable(t *testing.T) {
+	parsed, err := ParseListDirCmdArgs(nil, ListDirCmdConfig{BaseDir: "/home/a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !parsed.Opts.Hiddens {
+		t.Fatalf("hidden: got false, want true")
+	}
+
+	parsed, err = ParseListDirCmdArgs([]string{"-hidden=false"}, ListDirCmdConfig{BaseDir: "/home/a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Opts.Hiddens {
+		t.Fatalf("hidden: got true, want false")
+	}
+}
+
 func TestParseListDirCmdArgsReloadFlag(t *testing.T) {
 	parsed, err := ParseListDirCmdArgs([]string{"-reload"}, ListDirCmdConfig{BaseDir: "/home/a"})
 	if err != nil {

@@ -140,7 +140,7 @@ func newListDirFlagSet(filters, removes *[]*regexp.Regexp, decodePath func(strin
 	fs.SetOutput(io.Discard) // don't output to stderr
 	flags := listDirFlags{}
 	flags.sub = fs.Bool("sub", false, "list subdirectories/files")
-	flags.hidden = fs.Bool("hidden", false, "list hidden files")
+	flags.hidden = fs.Bool("hidden", true, "list hidden files")
 	flags.short = fs.Bool("short", true, "shorten output paths with home vars")
 	flags.rel = fs.Bool("rel", true, "output paths relative to the current directory")
 	flags.reload = fs.Bool("reload", false, "use this ListDir definition when reloading the row")

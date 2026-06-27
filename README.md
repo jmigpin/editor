@@ -260,9 +260,9 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `GotoLine <num>`: goes to line number
 - `Replace <old> <new>`: replaces old string with new, respects selections
 - `Stop`: stops current process (external cmd) running in the row
-- `ListDir [-sub] [-hidden] [-short=true] [-rel=true] [-reload] [-f <regexp>]... [-exc <regexp>]... [path...]`: lists directories/files
+- `ListDir [-sub] [-hidden=true] [-short=true] [-rel=true] [-reload] [-f <regexp>]... [-exc <regexp>]... [path...]`: lists directories/files
 	- `-sub`: lists directory and sub directories
-	- `-hidden`: lists directory including hidden
+	- `-hidden`: lists directory including hidden; defaults to true (use `-hidden=false` to disable)
 	- `-short`: uses the shortest output path, considering `~`, `~1`, `~2`, ... shortcuts; defaults to true (use `-short=false` to disable)
 	- `-rel`: outputs paths relative to the current directory; defaults to true
 	- `-reload`: marks this toolbar `ListDir` definition as the one used when reloading a directory row; the last `ListDir -reload` wins
