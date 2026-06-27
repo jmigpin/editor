@@ -43,11 +43,12 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 	opt.Colorize.Groups = []*drawutil.ColorizeGroup{
 		&opt.SyntaxHighlight.Group,
 		&opt.ContentColorize.Group,
-		{}, // 2=terminal
+		{}, // 2=extra
+		{}, // 3=terminal
 		&opt.WordHighlight.Group,
 		&opt.ParenthesisHighlight.Group,
-		{}, // 5=selection
-		{}, // 6=flash
+		{}, // 6=selection
+		{}, // 7=flash
 	}
 	opt.Decorations.Groups = []*drawutil.DecorationGroup{
 		{}, // 0=terminal
@@ -57,12 +58,20 @@ func NewTextEditX(uiCtx UIContext) *TextEditX {
 }
 
 const (
-	cgIdxTerm      = 2
-	cgIdxSelection = 5
-	cgIdxFlash     = 6
+	cgIdxExtra     = 2
+	cgIdxTerm      = 3
+	cgIdxSelection = 6
+	cgIdxFlash     = 7
 
 	dgIdxTerm = 0
 )
+
+//----------
+
+func (te *TextEditX) SetExtraColorOps(ops []*drawutil.ColorizeOp) {
+	te.Text.Drawer.TextDrawerOptions().Colorize.Groups[cgIdxExtra].Ops = ops
+	te.MarkNeedsPaint()
+}
 
 //----------
 

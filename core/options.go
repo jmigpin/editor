@@ -25,12 +25,14 @@ type Options struct {
 	TextCursor         string
 	CarriageReturnRune int
 
-	ColorTheme     string
-	CommentsColor  int
-	StringsColor   int
-	ScrollBarWidth int
-	ScrollBarLeft  bool
-	Shadows        bool
+	ColorTheme        string
+	CommentsColor     int
+	StringsColor      int
+	ToolbarVarFgColor int
+	ToolbarVarBgColor int
+	ScrollBarWidth    int
+	ScrollBarLeft     bool
+	Shadows           bool
 
 	SessionName      string
 	SessionFilename  string

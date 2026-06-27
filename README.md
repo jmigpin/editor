@@ -148,6 +148,10 @@ Usage of editor:
     	 (default 8)
   -textcursor string
     	textarea cursor: default or beam (default "default")
+  -toolbarvarbgcolor int
+    	Important toolbar variable background color. 0 uses an automatic tint; 0x1 disables it; ex: 0xffffd8=light yellow.
+  -toolbarvarfgcolor int
+    	Important toolbar variable foreground color. 0 keeps the foreground unchanged; 0x1 disables an explicit color; ex: 0x008b00=green.
   -usemultikey
     	use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)
   -version

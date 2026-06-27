@@ -1,11 +1,14 @@
 package core
 
 import (
+	"image/color"
 	"path/filepath"
 	"strings"
 
 	"github.com/jmigpin/editor/core/toolbarparser"
 	"github.com/jmigpin/editor/ui"
+	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/iout/iorw/rwedit"
 )
@@ -120,6 +123,68 @@ func detectSetupSyntaxHighlight(erow *ERow) {
 func setupToolbarCommenting(tb *ui.Toolbar) {
 	tb.SetCommentStrings("#")
 	tb.EditCtx().Fns.CommentUnitIndexes = toolbarCommentUnitIndexes
+	updateToolbarImportantVariableColoring(tb)
+	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(any) {
+		updateToolbarImportantVariableColoring(tb)
+	})
+}
+
+func updateToolbarImportantVariableColoring(tb *ui.Toolbar) {
+	spans := toolbarImportantVariableSpans(tb.Str())
+	ops := make([]*drawutil.ColorizeOp, 0, len(spans)*2)
+	procColor := func(fg, bg color.Color) (_, _ color.Color) {
+		if bg == nil {
+			bg = tb.TreeThemePaletteColor("text_bg")
+		}
+		return toolbarImportantVariableColors(fg, bg)
+	}
+	for _, span := range spans {
+		ops = append(ops,
+			&drawutil.ColorizeOp{Offset: span[0], ProcColor: procColor},
+			&drawutil.ColorizeOp{Offset: span[1]},
+		)
+	}
+	tb.SetExtraColorOps(ops)
+}
+
+var toolbarVarFgColor int
+var toolbarVarBgColor int
+
+func toolbarImportantVariableColors(fg, bg color.Color) (_, _ color.Color) {
+	if toolbarVarFgColor > 1 {
+		fg = imageutil.RgbaFromInt(toolbarVarFgColor)
+	}
+	switch {
+	case toolbarVarBgColor == 0:
+		bg = imageutil.TintOrShade(bg, 0.1)
+	case toolbarVarBgColor > 1:
+		bg = imageutil.RgbaFromInt(toolbarVarBgColor)
+	}
+	return fg, bg
+}
+
+func toolbarImportantVariableSpans(src string) [][2]int {
+	important := map[string]bool{
+		"$colorize":   true,
+		"$font":       true,
+		"$scrollMode": true,
+		"$terminal":   true,
+	}
+	spans := [][2]int{}
+	data := toolbarparser.Parse(src)
+	for _, part := range data.Parts {
+		if len(part.Args) != 1 {
+			continue
+		}
+		arg := part.Args[0]
+		s := arg.String()
+		i := strings.IndexByte(s, '=')
+		if i < 0 || !important[s[:i]] {
+			continue
+		}
+		spans = append(spans, [2]int{arg.Pos(), arg.Pos() + i})
+	}
+	return spans
 }
 
 func toolbarCommentUnitIndexes(ctx *rwedit.Ctx) (int, int, bool, bool, error) {

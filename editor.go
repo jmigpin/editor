@@ -46,6 +46,8 @@ func main() {
 	flag.StringVar(&opt.ColorTheme, "colortheme", "light", "available: "+strings.Join(ui.ColorThemeCycler.Names(), ", "))
 	flag.IntVar(&opt.CommentsColor, "commentscolor", 0, "Colorize comments. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")
 	flag.IntVar(&opt.StringsColor, "stringscolor", 0, "Colorize strings. Can be set to 0x1 to not colorize. Ex: 0xff0000=red.")
+	flag.IntVar(&opt.ToolbarVarFgColor, "toolbarvarfgcolor", 0, "Important toolbar variable foreground color. 0 keeps the foreground unchanged; 0x1 disables an explicit color; ex: 0x008b00=green.")
+	flag.IntVar(&opt.ToolbarVarBgColor, "toolbarvarbgcolor", 0, "Important toolbar variable background color. 0 uses an automatic tint; 0x1 disables it; ex: 0xffffd8=light yellow.")
 	flag.IntVar(&opt.ScrollBarWidth, "scrollbarwidth", 0, "Textarea scrollbar width in pixels. A value of 0 takes 3/4 of the font size.")
 	flag.BoolVar(&opt.ScrollBarLeft, "scrollbarleft", true, "set scrollbars on the left side")
 	flag.BoolVar(&opt.Shadows, "shadows", false, "shadow effects on some elements")

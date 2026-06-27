@@ -637,6 +637,9 @@ func (ed *Editor) setupTheme(opt *Options) error {
 		ui.TextAreaStringsColor = imageutil.RgbaFromInt(opt.StringsColor)
 	}
 
+	toolbarVarFgColor = opt.ToolbarVarFgColor
+	toolbarVarBgColor = opt.ToolbarVarBgColor
+
 	// font options
 	fopts := &fontutil.DefaultFaceOptions
 	fopts.SetDPI(opt.DPI)
