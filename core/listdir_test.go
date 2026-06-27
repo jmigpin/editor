@@ -605,6 +605,24 @@ func TestListDirSourcesGlobErrorOutputContinues(t *testing.T) {
 	}
 }
 
+func TestListDirStatErrorOutputContinuesOnNextLine(t *testing.T) {
+	dir := listDirTestTree(t)
+	buf := &bytes.Buffer{}
+	for _, source := range []ListDirSource{
+		{Filepath: dir, AddedFilepath: "missing"},
+		{Filepath: dir, AddedFilepath: "a.go"},
+	} {
+		if err := ListDirContextOptionsAt(context.Background(), buf, source.Filepath, source.AddedFilepath, ListDirOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	lines := strings.Split(buf.String(), "\n")
+	if len(lines) < 3 || !strings.Contains(lines[0], "missing") || lines[1] != "a.go" {
+		t.Fatalf("got:\n%s", buf)
+	}
+}
+
 //----------
 
 func listDirTestTree(t *testing.T) string {

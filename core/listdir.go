@@ -172,7 +172,7 @@ func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath strin
 
 	fi, err := os.Stat(fp2)
 	if err != nil {
-		out(err.Error())
+		out(err.Error() + "\n")
 		return nil
 	}
 	if !fi.IsDir() {
@@ -181,14 +181,14 @@ func listDirContext(ctx context.Context, w io.Writer, fpath, addedFilepath strin
 
 	f, err := os.Open(fp2)
 	if err != nil {
-		out(err.Error())
+		out(err.Error() + "\n")
 		return nil
 	}
 
 	fis, err := f.Readdir(-1)
 	f.Close() // close as soon as possible
 	if err != nil {
-		out(err.Error())
+		out(err.Error() + "\n")
 		return nil
 	}
 
