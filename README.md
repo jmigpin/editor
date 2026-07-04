@@ -37,7 +37,7 @@ Source code editor in pure Go.
 		- allows to go back and forth in time to consult code values.
 - Language Server Protocol (LSP) (code analysis):
 	- `-lsproto` cmd line option
-	- basic support for gotodefinition and completion
+	- supports definition and implementation lookup, completion, rename, references and incoming/outgoing call hierarchy
 	- mostly being tested with `clangd` and `gopls`
 - Inline complete
 	- code completion by hitting the `tab` key (uses LSP).
@@ -288,6 +288,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `LsprotoCallers`: lists callers of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy incoming calls.
 - `LsprotoCallees`: lists callees of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument. Also known as: call hierarchy outgoing calls.
 - `LsprotoReferences`: lists references of the identifier under the text cursor using the loaded lsp instance. Uses the row/active-row filename, and the cursor index as the "offset" argument.
+- `LsprotoImplementors`: lists all implementations of the identifier under the text cursor using the loaded LSP instance.
 - `GoRename [-all] <new-name>`: Renames the identifier under the text cursor. Uses the row/active-row filename, and the cursor index as the "offset" argument. Reloads the calling row at the end if there are no errors.
 	- default: calls `gopls` (limited scope in renaming, but faster).
 	- `-all`: calls `gorename` to rename across packages (slower).
@@ -305,6 +306,7 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `<url>`: opens url in preferred application.
 - `<filename(:number?)(:number?)>`: opens filename, possibly at line/column (usual output from compilers). Check common locations like `$GOROOT` and C include directories.
 	- If text is selected, only the selection will be considered as the filename to open.
+	- GitHub line fragments are accepted: `file.go#L100` and `file.go#L100-L120` both open line 100.
 - `<identifier-in-a-.go-file>`: opens definition of the identifier. Ex: clicking in `Println` on `fmt.Println` will open the file at the line that contains the `Println` function definition.
 
 ## Session Files
@@ -484,7 +486,7 @@ Opening a terminal row:
 
 Run `Open -terminalemu` from the toolbar — opens a new row with a shell at the active row's directory. Optional arguments can be passed to run a specific command (e.g. `Open -terminalemu . top`).
 Or use the `$terminal=emu` internal variable in any row toolbar, causing commands run in that row to execute in a PTY (pseudo-terminal) instead of a regular pipe. This is useful when running programs that require a real terminal (e.g. interactive CLI tools, programs that check isatty).
-It supports automatic visual wrapping and indentation by communicating logical line continuity to the TextArea. It also preserves logical output during window resizing
+It supports automatic visual wrapping, double-width runes, fallback fonts and logical output preservation during window resizing. Mouse-wheel events can be forwarded to terminal applications, and middle-click pastes the primary selection while keyboard forwarding is enabled.
 
 Example:
 
@@ -495,6 +497,8 @@ Example:
 Clicking `bash` will run it inside a PTY - useful if the program uses terminal color output, prompts, or isatty checks.
 
 ## Internal variables
+
+The important row variables `$font`, `$scrollMode`, `$colorize` and `$terminal` are highlighted in toolbars. Their foreground and background colors can be configured with `-toolbarvarfgcolor` and `-toolbarvarbgcolor`; use `0x1` to disable the corresponding explicit color.
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
 - `$font=[<name>|auto][,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Both name and size are optional (ex: `$font=mono`, `$font=,8`). Supports font aliases (e.g. `mono`, `regular`, `medium`) and font filenames (e.g. `$font=/path/to/font.ttf`).
@@ -705,13 +709,17 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
-- 2026/??/??: v3.14.0 alpha (40 commits)
+- 2026/??/??: v3.14.0 alpha
 	- improved terminal emulator correctness for wrapping, alternate-buffer line wrap, mouse wheel forwarding, Shift+Tab, DECST8C and CSI private/intermediate parsing
 	- improved terminal rendering and scrollback handling for double-width runes, wide placeholders, fallback fonts, visual cursor preservation and terminal-specific line wrapping
 	- added `SaveSession [-auto] [-quiet=false]` autosave from the root toolbar, with 30s debounced saves, save-on-exit for pending changes, help text and quiet-by-default reporting
 	- added `Open [-row|-external|-filemanager|-terminal|-terminalemu]` unified command, keeping older open commands as aliases
+	- expanded `ListDir` with multiple sources, glob paths, filters, reload definitions, compact paths and hidden files by default
+	- added `Edit -pipe` to filter the selection or buffer through an external command
 	- replaced `CopyFilePosition` with generic `CopyPosition`, keeping an alias, and copying file positions or row directories to the clipboard
+	- added `LsprotoImplementors` and multiple-location support for LSP implementation results
 	- added themed Xcursor loading, configurable textarea cursor behavior with `-textcursor`, and optional half-cell text hit testing with `-cursorhalfhit`
+	- added highlighting for important toolbar variables with configurable foreground and background colors
 	- added shared text drawer options and drawer interface improvements for annotation hit testing and cursor positioning
 	- added F5 row reload, GitHub line-fragment support and extra syntax-highlight extensions
 	- fixed `-wraplinerune=0` to skip wrap line marker insertion
