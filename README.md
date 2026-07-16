@@ -157,7 +157,7 @@ Usage of editor:
   -version
     	output version and exit
   -wraplineindenttabs float
-    	number of tab widths used to indent wrapped lines (default 1.5)
+    	number of tab widths used to indent wrapped lines (default 1)
   -wraplinerune int
     	code for wrap line rune, can be set to zero (default 8592)
   -wrapwordlimit int

@@ -39,7 +39,7 @@ func main() {
 	flag.IntVar(&opt.TabWidth, "tabwidth", 8, "")
 	flag.IntVar(&opt.CarriageReturnRune, "carriagereturnrune", int(fontutil.CarriageReturnRune), "replacement rune for carriage return")
 	flag.IntVar(&opt.WrapLineRune, "wraplinerune", int('←'), "code for wrap line rune, can be set to zero")
-	flag.Float64Var(&opt.WrapLineIndentTabs, "wraplineindenttabs", 1.5, "number of tab widths used to indent wrapped lines")
+	flag.Float64Var(&opt.WrapLineIndentTabs, "wraplineindenttabs", 1.0, "number of tab widths used to indent wrapped lines")
 	flag.IntVar(&opt.WrapWordLimit, "wrapwordlimit", 10, "wrap at word boundaries for words up to N runes. Set to zero to disable word wrap.")
 	flag.BoolVar(&opt.CursorHalfHit, "cursorhalfhit", false, "place cursor before/after a rune depending on whether the pointer is in the left/right half of the rune cell. Defaults on with -textcursor=beam unless explicitly set.")
 	flag.StringVar(&opt.TextCursor, "textcursor", "default", "textarea cursor: default or beam")
