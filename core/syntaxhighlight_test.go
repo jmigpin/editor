@@ -77,24 +77,55 @@ func TestToolbarCommentSelectionUsesSelectedLines(t *testing.T) {
 }
 
 func TestToolbarImportantVariableSpans(t *testing.T) {
-	src := "$terminal=emu | $colorize=syntax | $font=mono | $scrollMode=auto | Cmd $terminal | $other=x | # $terminal=no"
-	got := toolbarImportantVariableSpans(src)
-	want := [][2]int{
-		{0, len("$terminal")},
-		{16, 16 + len("$colorize")},
-		{35, 35 + len("$font")},
-		{48, 48 + len("$scrollMode")},
+	tests := []struct {
+		name  string
+		scope toolbarVariableScope
+		src   string
+		want  [][2]int
+	}{
+		{
+			name:  "row special vars",
+			scope: toolbarVariableScopeRow,
+			src:   "$terminal=emu | $colorize=syntax | $font=mono | $scrollMode=auto | Cmd $terminal | $other=x | # $terminal=no | ~1=/tmp",
+			want: [][2]int{
+				{0, len("$terminal")},
+				{16, 16 + len("$colorize")},
+				{35, 35 + len("$font")},
+				{48, 48 + len("$scrollMode")},
+			},
+		},
+		{
+			name:  "root home vars",
+			scope: toolbarVariableScopeRoot,
+			src:   "~0=/tmp/root | ~1=~0/project | $terminal=emu | Cmd ~1 | ~01=/bad",
+			want: [][2]int{
+				{0, len("~0")},
+				{15, 15 + len("~1")},
+			},
+		},
+		{
+			name:  "menu has no effective vars",
+			scope: toolbarVariableScopeMenu,
+			src:   "~0=/tmp/root | $terminal=emu",
+			want:  nil,
+		},
 	}
-	if len(got) != len(want) {
-		t.Fatalf("got %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("got %v, want %v", got, want)
-		}
-		if s := src[got[i][0]:got[i][1]]; s != src[want[i][0]:want[i][1]] {
-			t.Fatalf("span %d: got %q, want %q", i, s, src[want[i][0]:want[i][1]])
-		}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toolbarImportantVariableSpans(tt.src, tt.scope)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Fatalf("got %v, want %v", got, tt.want)
+				}
+				if s := tt.src[got[i][0]:got[i][1]]; s != tt.src[tt.want[i][0]:tt.want[i][1]] {
+					t.Fatalf("span %d: got %q, want %q", i, s, tt.src[tt.want[i][0]:tt.want[i][1]])
+				}
+			}
+		})
 	}
 }
 

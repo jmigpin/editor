@@ -498,7 +498,7 @@ Clicking `bash` will run it inside a PTY - useful if the program uses terminal c
 
 ## Internal variables
 
-The important row variables `$font`, `$scrollMode`, `$colorize` and `$terminal` are highlighted in toolbars. Their foreground and background colors can be configured with `-toolbarvarfgcolor` and `-toolbarvarbgcolor`; use `0x1` to disable the corresponding explicit color.
+The important row variables `$font`, `$scrollMode`, `$colorize` and `$terminal` are highlighted in row toolbars. Home variables `~<digit>=path` are highlighted only in the top toolbar, where they define global path shortcuts. Their foreground and background colors can be configured with `-toolbarvarfgcolor` and `-toolbarvarbgcolor`; use `0x1` to disable the corresponding explicit color.
 
 - `~<digit>=path`: Replaces long row filenames with the variable. Ex.: a file named `/a/b/c/d/e.txt` with `~0=/a/b/c` defined in the top toolbar will be shortened to `~0/d/e.txt`.
 - `$font=[<name>|auto][,<size>]`: sets the row textarea font when set on the row toolbar. Useful when using a proportional font in the editor but a monospaced font is desired for a particular program output running in a row. Both name and size are optional (ex: `$font=mono`, `$font=,8`). Supports font aliases (e.g. `mono`, `regular`, `medium`) and font filenames (e.g. `$font=/path/to/font.ttf`).

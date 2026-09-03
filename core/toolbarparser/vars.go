@@ -228,12 +228,8 @@ func ParseVars(data *Data) VarMap {
 func parseVars(data *Data, decodePath func(string) string) VarMap {
 	vm := VarMap{}
 	for _, part := range data.Parts {
-		if len(part.Args) != 1 { // must have 1 arg
-			continue
-		}
-		str := part.Args[0].String() // parse first arg only
-		v, err := parseVarDecl(str)
-		if err != nil {
+		v, ok := part.VarDecl()
+		if !ok {
 			continue
 		}
 

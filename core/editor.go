@@ -387,7 +387,7 @@ func (ed *Editor) setupUIRoot() {
 
 func (ed *Editor) setupRootToolbar() {
 	tb := ed.UI.Root.Toolbar
-	setupToolbarCommenting(tb)
+	setupToolbarCommenting(tb, toolbarVariableScopeRoot)
 	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
 		InternalOrExternalCmdFromRootTb(ed, tb)
@@ -405,16 +405,11 @@ func (ed *Editor) setupRootToolbar() {
 
 func (ed *Editor) setupRootMenuToolbar() {
 	tb := ed.UI.Root.MainMenuButton.Toolbar
-	setupToolbarCommenting(tb)
+	setupToolbarCommenting(tb, toolbarVariableScopeMenu)
 	// cmd event
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
 		InternalOrExternalCmdFromRootTb(ed, tb)
 	})
-	// on write
-	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(ev0 any) {
-		ed.updateERowsToolbarsHomeVars()
-	})
-
 	w := []string{}
 
 	extra := []string{
@@ -472,8 +467,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 
 func (ed *Editor) updateERowsToolbarsHomeVars() {
 	tb1 := ed.UI.Root.Toolbar.Str()
-	tb2 := ed.UI.Root.MainMenuButton.Toolbar.Str()
-	ed.HomeVars.ParseToolbarVars([]string{tb1, tb2}, ed.FsCaseInsensitive)
+	ed.HomeVars.ParseToolbarVars([]string{tb1}, ed.FsCaseInsensitive)
 	for _, erow := range ed.ERows() {
 		erow.UpdateToolbarNameEncoding()
 	}

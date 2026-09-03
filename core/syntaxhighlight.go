@@ -17,7 +17,7 @@ import (
 func detectSetupSyntaxHighlight(erow *ERow) {
 
 	// special handling for the toolbar (allow comment shortcut to work in the toolbar to easily disable cmds)
-	setupToolbarCommenting(erow.Row.Toolbar.Toolbar)
+	setupToolbarCommenting(erow.Row.Toolbar.Toolbar, toolbarVariableScopeRow)
 
 	// commented: allow dirs/specials to have output coloring
 	//// consider only files from here (dirs and special rows are out)
@@ -120,17 +120,27 @@ func detectSetupSyntaxHighlight(erow *ERow) {
 
 //----------
 
-func setupToolbarCommenting(tb *ui.Toolbar) {
+type toolbarVariableScope int
+
+const (
+	toolbarVariableScopeRoot toolbarVariableScope = iota
+	toolbarVariableScopeMenu
+	toolbarVariableScopeRow
+)
+
+//----------
+
+func setupToolbarCommenting(tb *ui.Toolbar, scope toolbarVariableScope) {
 	tb.SetCommentStrings("#")
 	tb.EditCtx().Fns.CommentUnitIndexes = toolbarCommentUnitIndexes
-	updateToolbarImportantVariableColoring(tb)
+	updateToolbarImportantVariableColoring(tb, scope)
 	tb.RWEvReg.Add(iorw.RWEvIdWrite, func(any) {
-		updateToolbarImportantVariableColoring(tb)
+		updateToolbarImportantVariableColoring(tb, scope)
 	})
 }
 
-func updateToolbarImportantVariableColoring(tb *ui.Toolbar) {
-	spans := toolbarImportantVariableSpans(tb.Str())
+func updateToolbarImportantVariableColoring(tb *ui.Toolbar, scope toolbarVariableScope) {
+	spans := toolbarImportantVariableSpans(tb.Str(), scope)
 	ops := make([]*drawutil.ColorizeOp, 0, len(spans)*2)
 	procColor := func(fg, bg color.Color) (_, _ color.Color) {
 		if bg == nil {
@@ -163,28 +173,35 @@ func toolbarImportantVariableColors(fg, bg color.Color) (_, _ color.Color) {
 	return fg, bg
 }
 
-func toolbarImportantVariableSpans(src string) [][2]int {
-	important := map[string]bool{
-		"$colorize":   true,
-		"$font":       true,
-		"$scrollMode": true,
-		"$terminal":   true,
-	}
+func toolbarImportantVariableSpans(src string, scope toolbarVariableScope) [][2]int {
 	spans := [][2]int{}
 	data := toolbarparser.Parse(src)
 	for _, part := range data.Parts {
-		if len(part.Args) != 1 {
+		v, ok := part.VarDecl()
+		if !ok {
+			continue
+		}
+		if !toolbarImportantVariableName(v.Name, scope) {
 			continue
 		}
 		arg := part.Args[0]
-		s := arg.String()
-		i := strings.IndexByte(s, '=')
-		if i < 0 || !important[s[:i]] {
-			continue
-		}
+		i := len(v.Name)
 		spans = append(spans, [2]int{arg.Pos(), arg.Pos() + i})
 	}
 	return spans
+}
+
+func toolbarImportantVariableName(name string, scope toolbarVariableScope) bool {
+	switch scope {
+	case toolbarVariableScopeRoot:
+		return strings.HasPrefix(name, "~")
+	case toolbarVariableScopeRow:
+		switch name {
+		case "$colorize", "$font", "$scrollMode", "$terminal":
+			return true
+		}
+	}
+	return false
 }
 
 func toolbarCommentUnitIndexes(ctx *rwedit.Ctx) (int, int, bool, bool, error) {

@@ -98,6 +98,17 @@ func (p *Part) FromArgUnquotedString(i int) string {
 	return strings.Join(u, " ")
 }
 
+func (p *Part) VarDecl() (*VarDecl, bool) {
+	if len(p.Args) != 1 {
+		return nil, false
+	}
+	v, err := parseVarDecl(p.Args[0].String())
+	if err != nil {
+		return nil, false
+	}
+	return v, true
+}
+
 //----------
 //----------
 //----------
