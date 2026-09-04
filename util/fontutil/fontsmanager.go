@@ -124,6 +124,78 @@ func (fm *FontsManager) mustFont(ttf []byte, srcName string) *Font {
 
 //----------
 
+func (fm *FontsManager) FontByName(name string) *Font {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+
+	name = sanitizeFontName(name)
+
+	// follow aliases
+	for {
+		target, ok := fm.aliases[name]
+		if !ok {
+			break
+		}
+		name = target
+	}
+
+	for _, f := range fm.fontsCache {
+		if f.NameID() == name {
+			return f
+		}
+	}
+	return nil
+}
+
+func (fm *FontsManager) Aliases(targetName string) []string {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+	targetName = sanitizeFontName(targetName)
+	res := []string{}
+	for alias, target := range fm.aliases {
+		if target == targetName {
+			res = append(res, alias)
+		}
+	}
+	return res
+}
+
+//----------
+
+func (fm *FontsManager) LoadedFonts() []*Font {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+
+	isFallback := func(f *Font) bool {
+		for _, f2 := range fm.fallbackFonts {
+			if f2 == f {
+				return true
+			}
+		}
+		return false
+	}
+
+	w := []*Font{}
+	for _, f := range fm.fontsCache {
+		if !isFallback(f) {
+			w = append(w, f)
+		}
+	}
+	return w
+}
+
+func (fm *FontsManager) FallbackFonts() []*Font {
+	fm.fcmu.Lock()
+	defer fm.fcmu.Unlock()
+	w := make([]*Font, len(fm.fallbackFonts))
+	copy(w, fm.fallbackFonts)
+	return w
+}
+
+//----------
+//----------
+//----------
+
 type Font struct {
 	Font    *sfnt.Font
 	fm      *FontsManager
@@ -174,86 +246,7 @@ func (f *Font) FontFace(fopts FaceOptions) *FontFace {
 }
 
 //----------
-
-func (fm *FontsManager) FontByName(name string) *Font {
-	fm.fcmu.Lock()
-	defer fm.fcmu.Unlock()
-
-	name = sanitizeFontName(name)
-
-	// follow aliases
-	for {
-		target, ok := fm.aliases[name]
-		if !ok {
-			break
-		}
-		name = target
-	}
-
-	for _, f := range fm.fontsCache {
-		if f.NameID() == name {
-			return f
-		}
-	}
-	return nil
-}
-
-func (fm *FontsManager) Aliases(targetName string) []string {
-	fm.fcmu.Lock()
-	defer fm.fcmu.Unlock()
-	targetName = sanitizeFontName(targetName)
-	res := []string{}
-	for alias, target := range fm.aliases {
-		if target == targetName {
-			res = append(res, alias)
-		}
-	}
-	return res
-}
-
-func sanitizeFontName(s string) string {
-	s = strings.ReplaceAll(s, " ", "_")
-	s = strings.ReplaceAll(s, "-", "_")
-	s = strings.ToLower(s)
-	// replace multiple underscores with one
-	for strings.Contains(s, "__") {
-		s = strings.ReplaceAll(s, "__", "_")
-	}
-	return s
-}
-
-func (fm *FontsManager) LoadedFonts() []*Font {
-	fm.fcmu.Lock()
-	defer fm.fcmu.Unlock()
-
-	isFallback := func(f *Font) bool {
-		for _, f2 := range fm.fallbackFonts {
-			if f2 == f {
-				return true
-			}
-		}
-		return false
-	}
-
-	w := []*Font{}
-	for _, f := range fm.fontsCache {
-		if !isFallback(f) {
-			w = append(w, f)
-		}
-	}
-	return w
-}
-
-func (fm *FontsManager) FallbackFonts() []*Font {
-	fm.fcmu.Lock()
-	defer fm.fcmu.Unlock()
-	w := make([]*Font, len(fm.fallbackFonts))
-	copy(w, fm.fallbackFonts)
-	return w
-}
-
 //----------
-
 //----------
 
 type FontFace struct {
@@ -349,6 +342,37 @@ func (ff *FontFace) TestIsMono() bool {
 //----------
 //----------
 
+// avoid zero value in size/dpi by forcing set funcs; use existing copies
+type FaceOptions struct {
+	opts opentype.FaceOptions
+}
+
+func NewFaceOptions(size, dpi float64) FaceOptions {
+	o := FaceOptions{}
+	o.SetSize(size)
+	o.SetDPI(dpi)
+	return o
+}
+func (o *FaceOptions) Size() float64 {
+	return o.opts.Size
+}
+func (o *FaceOptions) DPI() float64 {
+	return o.opts.DPI
+}
+func (o *FaceOptions) SetSize(v float64) {
+	o.opts.Size = max(0.1, v)
+}
+func (o *FaceOptions) SetDPI(v float64) {
+	o.opts.DPI = max(0.1, v)
+}
+func (o *FaceOptions) SetHinting(h font.Hinting) {
+	o.opts.Hinting = h
+}
+
+//----------
+//----------
+//----------
+
 func mustNewFace(font *opentype.Font, fopts *opentype.FaceOptions) font.Face {
 	face, err := opentype.NewFace(font, fopts)
 	if err != nil {
@@ -378,29 +402,13 @@ func testIsMonoFace(face font.Face) bool {
 
 //----------
 
-// avoid zero value in size/dpi by forcing set funcs; use existing copies
-type FaceOptions struct {
-	opts opentype.FaceOptions
-}
-
-func NewFaceOptions(size, dpi float64) FaceOptions {
-	o := FaceOptions{}
-	o.SetSize(size)
-	o.SetDPI(dpi)
-	return o
-}
-func (o *FaceOptions) Size() float64 {
-	return o.opts.Size
-}
-func (o *FaceOptions) DPI() float64 {
-	return o.opts.DPI
-}
-func (o *FaceOptions) SetSize(v float64) {
-	o.opts.Size = max(0.1, v)
-}
-func (o *FaceOptions) SetDPI(v float64) {
-	o.opts.DPI = max(0.1, v)
-}
-func (o *FaceOptions) SetHinting(h font.Hinting) {
-	o.opts.Hinting = h
+func sanitizeFontName(s string) string {
+	s = strings.ReplaceAll(s, " ", "_")
+	s = strings.ReplaceAll(s, "-", "_")
+	s = strings.ToLower(s)
+	// replace multiple underscores with one
+	for strings.Contains(s, "__") {
+		s = strings.ReplaceAll(s, "__", "_")
+	}
+	return s
 }
