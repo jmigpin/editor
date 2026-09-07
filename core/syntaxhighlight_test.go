@@ -86,12 +86,13 @@ func TestToolbarImportantVariableSpans(t *testing.T) {
 		{
 			name:  "row special vars",
 			scope: toolbarVariableScopeRow,
-			src:   "$terminal=emu | $colorize=syntax | $font=mono | $scrollMode=auto | Cmd $terminal | $other=x | # $terminal=no | ~1=/tmp",
+			src:   "$terminal=emu | $colorize=syntax | $font=mono | $fontFallback=regular | $scrollMode=auto | Cmd $terminal | $other=x | # $terminal=no | ~1=/tmp",
 			want: [][2]int{
 				{0, len("$terminal")},
 				{16, 16 + len("$colorize")},
 				{35, 35 + len("$font")},
-				{48, 48 + len("$scrollMode")},
+				{48, 48 + len("$fontFallback")},
+				{72, 72 + len("$scrollMode")},
 			},
 		},
 		{

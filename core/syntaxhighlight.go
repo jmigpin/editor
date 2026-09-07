@@ -197,7 +197,7 @@ func toolbarImportantVariableName(name string, scope toolbarVariableScope) bool 
 		return strings.HasPrefix(name, "~")
 	case toolbarVariableScopeRow:
 		switch name {
-		case "$colorize", "$font", "$scrollMode", "$terminal":
+		case "$colorize", "$font", "$fontFallback", "$scrollMode", "$terminal":
 			return true
 		}
 	}

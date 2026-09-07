@@ -296,9 +296,17 @@ func ThemeFontFace(name string) (*fontutil.FontFace, error) {
 	return ThemeFontFace2(name, fontutil.DefaultFaceOptions)
 }
 func ThemeFontFace2(name string, fopts fontutil.FaceOptions) (*fontutil.FontFace, error) {
+	f, err := LoadFont(name)
+	if err != nil {
+		return nil, err
+	}
+	return f.FontFace(fopts), nil
+}
+
+func LoadFont(name string) (*fontutil.Font, error) {
 	// lookup by name first (includes aliases)
 	if f := fontutil.FontsMan.FontByName(name); f != nil {
-		return f.FontFace(fopts), nil
+		return f, nil
 	}
 
 	// default/filename fallback
@@ -310,7 +318,7 @@ func ThemeFontFace2(name string, fopts fontutil.FaceOptions) (*fontutil.FontFace
 	if err != nil {
 		return nil, err
 	}
-	return f.FontFace(fopts), nil
+	return f, nil
 }
 
 // deprecated

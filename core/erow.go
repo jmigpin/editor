@@ -469,6 +469,18 @@ func (erow *ERow) parseToolbarVars() {
 			erow.fontOpts.face = ff
 		}
 	}
+	if v, ok := vmap["$fontFallback"]; ok {
+		if fallbacks, err := erow.varFallbackFonts(v); err == nil {
+			face := erow.fontOpts.face
+			if face == nil {
+				face = erow.Row.TextArea.Parent.TreeThemeFontFace()
+			}
+			fopts := face.Opts
+			fallbacks = append(fallbacks, fopts.FallbackFonts(fontutil.FontsMan)...)
+			fopts.SetFallbackFonts(fallbacks)
+			erow.fontOpts.face = face.Font.FontFace(fopts)
+		}
+	}
 
 	ta := erow.Row.TextArea
 	//ta.SetThemeFontFace(fface0) // commeted: flickers when a terminal is running that will change the font again
@@ -847,6 +859,22 @@ func (erow *ERow) varFontFace(s string) (hasFontName bool, _ *fontutil.FontFace,
 	}
 
 	return false, nil, errors.New("unable to load name and missing size")
+}
+
+func (erow *ERow) varFallbackFonts(s string) ([]*fontutil.Font, error) {
+	fonts := []*fontutil.Font{}
+	for _, name := range strings.Split(s, ",") {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		font, err := ui.LoadFont(name)
+		if err != nil {
+			return nil, err
+		}
+		fonts = append(fonts, font)
+	}
+	return fonts, nil
 }
 
 //----------

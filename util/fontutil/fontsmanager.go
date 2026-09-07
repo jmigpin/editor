@@ -106,7 +106,7 @@ func (fm *FontsManager) Font(ttf []byte, srcName string) (*Font, error) {
 	if ok {
 		return f, nil
 	}
-	f, err := NewFont(fm, ttf, srcName)
+	f, err := newFont(fm, ttf, srcName, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -200,25 +200,21 @@ type Font struct {
 	Font    *sfnt.Font
 	fm      *FontsManager
 	SrcName string
+	cacheID string
 
 	fcmu       sync.Mutex
-	facesCache map[opentype.FaceOptions]*FontFace
+	facesCache map[fontFaceCacheKey]*FontFace
 }
 
 func NewFont(fm *FontsManager, ttf []byte, srcName string) (*Font, error) {
-	font, err := opentype.Parse(ttf)
-	if err != nil {
-		return nil, err
-	}
-	f := &Font{Font: font, fm: fm, SrcName: srcName}
-	f.ClearFacesCache()
-
-	return f, nil
+	hash0 := sha256.Sum256(ttf)
+	hash := hex.EncodeToString(hash0[:])
+	return newFont(fm, ttf, srcName, hash)
 }
 func (f *Font) ClearFacesCache() {
 	f.fcmu.Lock()
 	defer f.fcmu.Unlock()
-	f.facesCache = map[opentype.FaceOptions]*FontFace{}
+	f.facesCache = map[fontFaceCacheKey]*FontFace{}
 }
 
 func (f *Font) Name() string {
@@ -234,15 +230,40 @@ func (f *Font) NameID() string {
 }
 
 func (f *Font) FontFace(fopts FaceOptions) *FontFace {
+	fopts = f.resolveFaceOptions(fopts)
+	key := fopts.cacheKey()
+
 	f.fcmu.Lock()
 	defer f.fcmu.Unlock()
-	ff, ok := f.facesCache[fopts.opts]
+	ff, ok := f.facesCache[key]
 	if ok {
 		return ff
 	}
-	ff = NewFontFace(f, fopts)
-	f.facesCache[fopts.opts] = ff
+	ff = newFontFace(f, fopts)
+	f.facesCache[key] = ff
 	return ff
+}
+
+func (f *Font) resolveFaceOptions(fopts FaceOptions) FaceOptions {
+	fallbacks := fopts.FallbackFonts(f.fm)
+	fallbacks2 := make([]*Font, 0, len(fallbacks))
+	seen := map[*Font]bool{f: true}
+	for _, fallback := range fallbacks {
+		if seen[fallback] {
+			continue
+		}
+		seen[fallback] = true
+		fallbacks2 = append(fallbacks2, fallback)
+	}
+	fopts.SetFallbackFonts(fallbacks2)
+	return fopts
+}
+
+//----------
+
+type fontFaceCacheKey struct {
+	opts             opentype.FaceOptions
+	fallbacksCacheID string
 }
 
 //----------
@@ -260,16 +281,18 @@ type FontFace struct {
 }
 
 func NewFontFace(font *Font, fopts FaceOptions) *FontFace {
+	fopts = font.resolveFaceOptions(fopts)
+	return newFontFace(font, fopts)
+}
+
+func newFontFace(font *Font, fopts FaceOptions) *FontFace {
 	face := mustNewFace(font.Font, &fopts.opts)
 	isMono := testIsMonoFace(face)
 	monoAdv, _ := face.GlyphAdvance('W')
 
-	// User fallback fonts (from cmd line)
-	for _, ff := range font.fm.fallbackFonts {
-		if font != ff {
-			fallbackFaces := NewFallbackFaces(ff, fopts)
-			face = NewFaceFallback(face, fallbackFaces, isMono, monoAdv)
-		}
+	for _, fallback := range fopts.FallbackFonts(font.fm) {
+		fallbackFaces := NewFallbackFaces(fallback, fopts)
+		face = NewFaceFallback(face, fallbackFaces, isMono, monoAdv)
 	}
 
 	face = NewFaceRunes(face)
@@ -344,7 +367,8 @@ func (ff *FontFace) TestIsMono() bool {
 
 // avoid zero value in size/dpi by forcing set funcs; use existing copies
 type FaceOptions struct {
-	opts opentype.FaceOptions
+	opts          opentype.FaceOptions
+	fallbackFonts []*Font // nil inherits the FontsManager fallback fonts
 }
 
 func NewFaceOptions(size, dpi float64) FaceOptions {
@@ -369,9 +393,39 @@ func (o *FaceOptions) SetHinting(h font.Hinting) {
 	o.opts.Hinting = h
 }
 
+func (o *FaceOptions) SetFallbackFonts(fonts []*Font) {
+	o.fallbackFonts = append([]*Font{}, fonts...)
+}
+
+func (o FaceOptions) FallbackFonts(fm *FontsManager) []*Font {
+	if o.fallbackFonts == nil {
+		return fm.FallbackFonts()
+	}
+	return append([]*Font{}, o.fallbackFonts...)
+}
+
+func (o FaceOptions) cacheKey() fontFaceCacheKey {
+	b := strings.Builder{}
+	for _, f := range o.fallbackFonts {
+		b.WriteString(f.cacheID)
+	}
+	return fontFaceCacheKey{o.opts, b.String()}
+}
+
 //----------
 //----------
 //----------
+
+func newFont(fm *FontsManager, ttf []byte, srcName, cacheID string) (*Font, error) {
+	font, err := opentype.Parse(ttf)
+	if err != nil {
+		return nil, err
+	}
+	f := &Font{Font: font, fm: fm, SrcName: srcName, cacheID: cacheID}
+	f.ClearFacesCache()
+
+	return f, nil
+}
 
 func mustNewFace(font *opentype.Font, fopts *opentype.FaceOptions) font.Face {
 	face, err := opentype.NewFace(font, fopts)
