@@ -470,16 +470,15 @@ func (erow *ERow) parseToolbarVars() {
 		}
 	}
 	if v, ok := vmap["$fontFallback"]; ok {
-		if fallbacks, err := erow.varFallbackFonts(v); err == nil {
-			face := erow.fontOpts.face
-			if face == nil {
-				face = erow.Row.TextArea.Parent.TreeThemeFontFace()
-			}
-			fopts := face.Opts
-			fallbacks = append(fallbacks, fopts.FallbackFonts(fontutil.FontsMan)...)
-			fopts.SetFallbackFonts(fallbacks)
-			erow.fontOpts.face = face.Font.FontFace(fopts)
+		fallbacks, _ := loadFallbackFonts(v)
+		face := erow.fontOpts.face
+		if face == nil {
+			face = erow.Row.TextArea.Parent.TreeThemeFontFace()
 		}
+		fopts := face.Opts
+		fallbacks = append(fallbacks, fopts.FallbackFonts(fontutil.FontsMan)...)
+		fopts.SetFallbackFonts(fallbacks)
+		erow.fontOpts.face = face.Font.FontFace(fopts)
 	}
 
 	ta := erow.Row.TextArea
@@ -861,22 +860,6 @@ func (erow *ERow) varFontFace(s string) (hasFontName bool, _ *fontutil.FontFace,
 	return false, nil, errors.New("unable to load name and missing size")
 }
 
-func (erow *ERow) varFallbackFonts(s string) ([]*fontutil.Font, error) {
-	fonts := []*fontutil.Font{}
-	for _, name := range strings.Split(s, ",") {
-		name = strings.TrimSpace(name)
-		if name == "" {
-			continue
-		}
-		font, err := ui.LoadFont(name)
-		if err != nil {
-			return nil, err
-		}
-		fonts = append(fonts, font)
-	}
-	return fonts, nil
-}
-
 //----------
 
 // Not UI safe.
@@ -1036,4 +1019,24 @@ type ERowColorizeOpts struct {
 type ERowFontOpts struct {
 	auto bool // auto font scaling
 	face *fontutil.FontFace
+}
+
+//----------
+
+func loadFallbackFonts(s string) ([]*fontutil.Font, error) {
+	fonts := []*fontutil.Font{}
+	errs := []error{}
+	for _, name := range strings.Split(s, ",") {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		font, err := ui.LoadFont(name)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("load fallback font %q: %w", name, err))
+			continue
+		}
+		fonts = append(fonts, font)
+	}
+	return fonts, errors.Join(errs...)
 }
