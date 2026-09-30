@@ -324,6 +324,19 @@ func (emu *Emu) applyEmit(op *TermOp) {
 
 func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	switch op.final {
+	case 'b': // REP: repeat the preceding graphic character.
+		if !op.isPriv(0) || !op.isFooter(0) {
+			emu.csiOpTodo(op)
+			return
+		}
+		if ru := emu.scr.lastGraphic; ru != 0 {
+			for range op.ADef(1) {
+				emu.scr.putGraphicRune(ru)
+				if emu.plainMode() {
+					emu.sendToUser(string(ru))
+				}
+			}
+		}
 	case 'A': // CUU: Cursor Up (n rows, default 1)
 		emu.scr.csiCuu_cursorUp(op.ADef(1))
 	case 'B', 'e':

@@ -24,9 +24,10 @@ type Screen struct {
 	grid1 *Grid
 	grid2 *Grid // alternate screen buffer
 
-	cursor   P
-	curAttr  Attr
-	wrapNext bool // autowrap support
+	cursor      P
+	curAttr     Attr
+	wrapNext    bool // autowrap support
+	lastGraphic rune
 
 	privModes PrivModes
 	graphics  Graphics
@@ -211,7 +212,11 @@ func (s *Screen) putRune(ru rune) {
 	if s.graphics.isSpecial() {
 		ru = mapDecSpecial(ru)
 	}
+	s.lastGraphic = ru
+	s.putGraphicRune(ru)
+}
 
+func (s *Screen) putGraphicRune(ru rune) {
 	w := runeWidth(ru)
 	maxBoundX := s.dynBounds(s.cursor).Max.X
 
@@ -729,6 +734,7 @@ func (s *Screen) escRis_reset(hard bool) {
 	s.graphics = *newGraphics()
 	s.wrapNext = false
 	s.updateRegion()
+	s.lastGraphic = 0
 	s.initTabStops()
 	if hard {
 		s.cursor = P{}
