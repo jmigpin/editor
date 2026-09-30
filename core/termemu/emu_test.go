@@ -796,7 +796,7 @@ func newTestEmu(tui *TuiMock, opts Opts, w, h int) *Emu {
 	}
 	emu := NewEmu(tui, tui, opts)
 	emu.scr.testing = true
-	emu.SetSize(P{w, h})
+	emu.SetSize(P{w, h}, P{})
 
 	//go func() {
 	// read all cmds sent to exec
@@ -925,7 +925,7 @@ func TestCsiQ(t *testing.T) {
 
 	emu := NewEmu(mock, mock, Opts{})
 	emu.scr.testing = true
-	emu.SetSize(P{10, 5})
+	emu.SetSize(P{10, 5}, P{})
 	defer emu.Close()
 
 	// 1. Send CSI 1 SP q (DECSCUSR)

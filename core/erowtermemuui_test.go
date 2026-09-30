@@ -134,7 +134,7 @@ func TestTermCellColorsCursorUsesUnderlyingCellColors(t *testing.T) {
 
 	emu := termemu.NewEmu(nilReadWriter{}, testTui{}, termemu.Opts{})
 	defer emu.Close()
-	emu.SetSize(termemu.P{3, 1})
+	emu.SetSize(termemu.P{3, 1}, termemu.P{})
 
 	seq := "\x1b[38;2;0;0;0m\x1b[48;2;217;217;217mA\b"
 	if _, err := emu.Write([]byte(seq)); err != nil {

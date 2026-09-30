@@ -575,7 +575,9 @@ func (erow *ERow) uiUpdateFontAndTermSize() {
 
 	// notify terminal
 	if termRunning {
-		temu.setSize(cr, tpx)
+		face := erow.Row.TextArea.TreeThemeFontFace()
+		cellPixels := image.Pt(face.AvgGlyphAdvance().Ceil(), face.LineHeightInt())
+		temu.setSize(cr, tpx, cellPixels)
 	}
 }
 

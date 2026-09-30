@@ -62,8 +62,9 @@ type Emu struct {
 	parser     *VTParser // parser->emu->screen
 	parserDone sync.WaitGroup
 
-	mu  sync.Mutex
-	scr *Screen
+	mu         sync.Mutex
+	scr        *Screen
+	cellPixels P // protected by mu, together with the grid size
 
 	opts Opts
 
@@ -109,9 +110,10 @@ func (emu *Emu) NeedScreenSync() {
 
 //----------
 
-func (emu *Emu) SetSize(p P) (P, bool) {
+func (emu *Emu) SetSize(p, cellPixels P) (P, bool) {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
+	emu.cellPixels = cellPixels
 	return emu.scr.setSize(p)
 }
 
@@ -492,8 +494,23 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			emu.scr.csiScp_saveCursorPos()
 		}
 	case 't':
-		if op.isPriv(0) {
+		if op.isPriv(0) && op.isFooter(0) {
 			switch op.A() {
+			case 14, 15, 16:
+				if len(op.params) != 1 {
+					emu.csiOpTodo(op)
+					break
+				}
+				px := emu.cellPixels
+				if px.X <= 0 || px.Y <= 0 {
+					break
+				}
+				if op.A() != 16 {
+					// Both area and screen queries report the logical grid, not the physical monitor.
+					px.X *= emu.scr.grid.size.X
+					px.Y *= emu.scr.grid.size.Y
+				}
+				emu.sendToExec(fmt.Sprintf("\x1b[%d;%d;%dt", op.A()-10, px.Y, px.X))
 			case 18, 19: // report size in chars
 				s := fmt.Sprintf("\x1b[8;%d;%dt", emu.scr.grid.size.Y, emu.scr.grid.size.X)
 				emu.sendToExec(s)

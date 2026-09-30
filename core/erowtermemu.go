@@ -60,8 +60,8 @@ func (temu *ERowTermEmu) Close() error {
 
 //----------
 
-func (temu *ERowTermEmu) setSize(cr, px image.Point) {
-	if cr2, changed := temu.emu.SetSize(cr); changed {
+func (temu *ERowTermEmu) setSize(cr, px, cellPixels image.Point) {
+	if cr2, changed := temu.emu.SetSize(cr, cellPixels); changed {
 		// align PTY with emu size after possible clamp
 		if temu.optPtyCmd != nil {
 			if err := temu.setPtySize(cr2, px); err != nil {
