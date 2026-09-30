@@ -307,6 +307,23 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 	case event.KSymEnd:
 		return encodeEsc("F")
 
+	case event.KSymF1, event.KSymF2, event.KSymF3, event.KSymF4:
+		final := string(rune('P' + ev2.KeySym - event.KSymF1))
+		if modifier, ok := encodeKeyMods(mods); ok {
+			return termemu.SeqEscCsi + "1;" + modifier + final
+		}
+		// Function keys use SS3 independently of application cursor mode.
+		return termemu.SeqEscO + final
+
+	case event.KSymF5, event.KSymF6, event.KSymF7, event.KSymF8,
+		event.KSymF9, event.KSymF10, event.KSymF11, event.KSymF12:
+		codes := [...]string{"15", "17", "18", "19", "20", "21", "23", "24"}
+		code := codes[ev2.KeySym-event.KSymF5]
+		if modifier, ok := encodeKeyMods(mods); ok {
+			code += ";" + modifier
+		}
+		return termemu.SeqEscCsi + code + "~"
+
 	case event.KSymInsert:
 		return termemu.SeqEscCsi + "2~"
 	case event.KSymDelete:
