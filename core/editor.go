@@ -419,6 +419,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		"Open -h",
 		"Open -filemanager",
 		"Open -terminal",
+		"Open -terminalemu",
 		"SaveSession -h",
 		"SortTextLines -h",
 	}
@@ -434,6 +435,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		"GoRename",                          // to be removed, old cmd
 		"GotoLine",                          // alias GoToLine
 		"ListDir",                           // using -h
+		"LSProtoCloseAll",                   // alias LsprotoCloseAll
 		"LsprotoCallHierarchyIncomingCalls", // alias LsprotoCallers
 		"LsprotoCallHierarchyOutgoingCalls", // alias LsprotoCallees
 		"Open",                              // using -h
