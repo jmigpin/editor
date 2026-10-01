@@ -717,6 +717,12 @@ The measuring of space is done as follows:
 	- Acme editor: https://www.youtube.com/watch?v=dP1xVpMPn8M 
 
 ## Releases
+- 2026/??/??: v3.15.0 (in development)
+	- added `FindFiles` with recursive searches, open-row filename flashes and `ctrl`+`shift`+`f`
+	- added row-specific `$fontFallback` fonts
+	- limited variable highlighting to effective scopes and disabled menu variable definitions
+	- added terminal F1-F12 support with modifiers
+	- added more terminal query replies 
 - 2026/07/17: v3.14.0 (69 commits)
 	- improved terminal emulator correctness for wrapping, alternate-buffer line wrap, mouse wheel forwarding, Shift+Tab, DECST8C and CSI private/intermediate parsing
 	- improved terminal rendering and scrollback handling for double-width runes, wide placeholders, fallback fonts, visual cursor preservation and terminal-specific line wrapping
