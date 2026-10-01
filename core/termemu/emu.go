@@ -1,8 +1,10 @@
 package termemu
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -256,6 +258,10 @@ func (emu *Emu) SetLNM(on bool) {
 
 // called from the parser; applies lock to screen
 func (emu *Emu) applyEmit(op *TermOp) {
+	if op.kind == "osc" {
+		emu.applyOSC(op.s)
+		return
+	}
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
 
@@ -321,6 +327,36 @@ func (emu *Emu) applyEmit(op *TermOp) {
 		if !emu.scr.privModes.SynchronizedOutput() {
 			emu.NeedScreenSync()
 		}
+	}
+}
+
+func (emu *Emu) applyOSC(s string) {
+	parts := strings.SplitN(s, ";", 3)
+	if len(parts) != 3 || parts[0] != "52" || parts[2] == "?" {
+		return
+	}
+	data, err := base64.StdEncoding.Strict().DecodeString(parts[2])
+	if err != nil {
+		return
+	}
+	targets := parts[1]
+	if targets == "" {
+		targets = "s"
+	}
+	clipboard, primary := false, false
+	for _, target := range targets {
+		switch target {
+		case 'c':
+			clipboard = true
+		case 'p', 's':
+			primary = true
+		}
+	}
+	if clipboard {
+		emu.tui.SetClipboard('c', string(data))
+	}
+	if primary {
+		emu.tui.SetClipboard('p', string(data))
 	}
 }
 
@@ -618,6 +654,7 @@ type Opts struct {
 
 // terminal user interface
 type Tui interface {
+	SetClipboard(target byte, text string)
 	OnColumnModeChange() // terminal 132 columns case
 	SyncScreen()
 	Print(any)

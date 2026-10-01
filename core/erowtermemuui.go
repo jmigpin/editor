@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 // implements [termemu.Tui] interface
@@ -91,6 +92,16 @@ func (tui *ERowTermEmuUI) Close() error {
 func (tui *ERowTermEmuUI) OnColumnModeChange() {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		tui.temu.erow.uiUpdateFontAndTermSize()
+	})
+}
+
+func (tui *ERowTermEmuUI) SetClipboard(target byte, text string) {
+	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
+		ci := event.CIClipboard
+		if target == 'p' {
+			ci = event.CIPrimary
+		}
+		tui.temu.erow.Row.TextArea.EditCtx().Fns.SetClipboardData(ci, text)
 	})
 }
 

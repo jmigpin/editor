@@ -769,8 +769,9 @@ func (m *TuiMock) Close() error {
 	}
 	return nil
 }
-func (m *TuiMock) OnColumnModeChange() {}
-func (m *TuiMock) SyncScreen()         {}
+func (m *TuiMock) OnColumnModeChange()       {}
+func (m *TuiMock) SetClipboard(byte, string) {}
+func (m *TuiMock) SyncScreen()               {}
 func (m *TuiMock) Error(err error) {
 	m.mu.Lock()
 	m.Errors = append(m.Errors, err)

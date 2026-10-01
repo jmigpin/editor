@@ -184,10 +184,11 @@ func TestTermCellColorsCursorUsesUnderlyingCellColors(t *testing.T) {
 
 type testTui struct{}
 
-func (testTui) OnColumnModeChange() {}
-func (testTui) SyncScreen()         {}
-func (testTui) Print(any)           {}
-func (testTui) Error(error)         {}
+func (testTui) OnColumnModeChange()       {}
+func (testTui) SetClipboard(byte, string) {}
+func (testTui) SyncScreen()               {}
+func (testTui) Print(any)                 {}
+func (testTui) Error(error)               {}
 
 type nilReadWriter struct{}
 

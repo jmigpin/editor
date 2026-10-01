@@ -208,7 +208,7 @@ func (p *VTParser) stEsc() error {
 			p.handleDefault(rune(b))
 		}
 	case '\\': // ST // TODO: string terminator
-	case ']': // OSC (skip payload)
+	case ']': // OSC
 		if p.ansiMode {
 			p.state = p.stOSC
 		} else {
@@ -306,15 +306,24 @@ func (p *VTParser) stCSI() error {
 
 func (p *VTParser) stOSC() error {
 	p.state = p.stDefault
-
-	// osc = operating system commands
-	// OSC ... BEL or ST
+	buf := []byte{}
+	overflow := false
+	// Drain oversized sequences without retaining their payload or applying a partial command.
+	finish := func() {
+		if !overflow {
+			p.emit(&TermOp{kind: "osc", s: string(buf)})
+		}
+	}
 	for {
 		b, err := p.nextByte()
 		if err != nil {
 			return err
 		}
 		if b == codeBEL {
+			finish()
+			return nil
+		}
+		if b == codeCAN || b == codeSUB {
 			return nil
 		}
 		if b == codeESC {
@@ -323,8 +332,20 @@ func (p *VTParser) stOSC() error {
 				return err2
 			}
 			if b2 == '\\' { // ST: string terminator
+				finish()
 				return nil
 			}
+			// Abort the OSC and process the new escape sequence normally.
+			if err := p.rd.UnreadByte(); err != nil {
+				return err
+			}
+			p.state = p.stEsc
+			return nil
+		}
+		if len(buf) < maxOSCPayload {
+			buf = append(buf, b)
+		} else {
+			overflow = true
 		}
 	}
 }
@@ -572,6 +593,8 @@ func (op *TermCsiOp) BDef(def int) int { return op.paramDef(1, def) }
 //----------
 
 const (
+	maxOSCPayload = 1024 * 1024
+
 	codeNUL = 0x00
 	codeESC = 0x1b
 	codeDEL = 0x7f

@@ -494,6 +494,10 @@ Run `Open -terminalemu` from the toolbar — opens a new row with a shell at the
 Or use the `$terminal=emu` internal variable in any row toolbar, causing commands run in that row to execute in a PTY (pseudo-terminal) instead of a regular pipe. This is useful when running programs that require a real terminal (e.g. interactive CLI tools, programs that check isatty).
 It supports automatic visual wrapping, double-width runes, fallback fonts and logical output preservation during window resizing. Mouse-wheel events can be forwarded to terminal applications, and middle-click pastes the primary selection while keyboard forwarding is enabled.
 
+Terminal programs can write to the clipboard using OSC 52 (`ESC ] 52 ; c ; <base64> BEL`), including programs running over SSH without direct access to the display server. Target `c` selects the clipboard; `p` selects the primary selection, as do `s` and an empty target. Both BEL and `ESC \` terminators are supported. Clipboard queries are ignored, as are invalid base64 payloads and OSC payloads larger than 1 MiB. Programs can overwrite these selections without confirmation.
+
+Example: run `printf '\033]52;c;aGVsbG8=\007'` in the terminal row to copy `hello` to the clipboard.
+
 Example:
 
 ```
@@ -722,6 +726,7 @@ The measuring of space is done as follows:
 	- added row-specific `$fontFallback` fonts
 	- limited variable highlighting to effective scopes and disabled menu variable definitions
 	- added terminal F1-F12 support with modifiers
+	- added OSC 52 clipboard and primary-selection writes
 	- added more terminal query replies 
 - 2026/07/17: v3.14.0 (69 commits)
 	- improved terminal emulator correctness for wrapping, alternate-buffer line wrap, mouse wheel forwarding, Shift+Tab, DECST8C and CSI private/intermediate parsing
