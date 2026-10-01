@@ -414,6 +414,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 
 	extra := []string{
 		"Find -h",
+		"FindFiles -h",
 		"GoDebug -h", "GoDebug run -h", "GoDebug connect -h",
 		"ListDir -h",
 		"Open -h",
@@ -431,6 +432,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		"CloseColumn", "CloseRow", // not useful in the list
 		"CopyFilePosition",                  // alias CopyPosition
 		"Find",                              // using -h
+		"FindFiles",                         // using -h
 		"GoDebug",                           // using -h
 		"GoRename",                          // to be removed, old cmd
 		"GotoLine",                          // alias GoToLine

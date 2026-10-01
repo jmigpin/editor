@@ -308,6 +308,8 @@ func (erow *ERow) initHandlers() {
 				erow.SaveFileBusyCursor()
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymF:
 				AddFindShortcut(erow)
+			case mods.Is(event.ModCtrl|event.ModShift) && evt.KeySym == event.KSymF:
+				AddFindFilesShortcut(erow)
 
 			case mods.Is(event.ModCtrl) && evt.KeySym == event.KSymH:
 				AddReplaceShortcut(erow)

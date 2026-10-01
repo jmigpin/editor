@@ -44,6 +44,7 @@ func init() {
 	cmd(Clear, "Clear")
 
 	cmd(Find, "Find")
+	cmd(FindFiles, "FindFiles")
 	cmd(Edit, "Edit")
 	cmd(Replace, "Replace")
 	cmd(GotoLine, "GotoLine", "GoToLine")

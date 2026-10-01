@@ -10,6 +10,9 @@ import (
 func AddFindShortcut(erow *ERow) {
 	updateToolbarPartCmd(erow, "Find")
 }
+func AddFindFilesShortcut(erow *ERow) {
+	updateToolbarPartCmd(erow, "FindFiles")
+}
 func AddReplaceShortcut(erow *ERow) {
 	updateToolbarPartCmd(erow, "Replace")
 }
