@@ -29,7 +29,7 @@ func TestFindFilesRecursive(t *testing.T) {
 	if err := findFilesContext(context.Background(), buf, dir, "cd", opt); err != nil {
 		t.Fatal(err)
 	}
-	want := "abcd.txt\n" + parseutil.EscapeFilename(filepath.Join("sub", "CD space.txt")) + "\n"
+	want := "abcd.txt\ncd-folder" + string(filepath.Separator) + "\n" + parseutil.EscapeFilename(filepath.Join("sub", "CD space.txt")) + "\n"
 	if buf.String() != want {
 		t.Fatalf("got %q, want %q", buf.String(), want)
 	}

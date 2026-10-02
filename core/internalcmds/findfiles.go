@@ -18,7 +18,7 @@ func FindFiles(args *core.InternalCmdArgs) error {
 	fs := flag.NewFlagSet("FindFiles", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	dir := fs.String("dir", "", "search directory (defaults to the row directory)")
-	onrows := fs.Bool("onrows", false, "search only filenames of open rows")
+	onrows := fs.Bool("onrows", false, "search only file and directory names of open rows")
 	opt := &iorw.IndexOpt{}
 	fs.BoolVar(&opt.IgnoreCase, "icase", true, "ignore case")
 	fs.BoolVar(&opt.IgnoreDiacritics, "idiac", true, "ignore diacritics")
@@ -52,8 +52,9 @@ func FindFiles(args *core.InternalCmdArgs) error {
 	}
 	opened := []string{}
 	seen := map[string]bool{}
+	openDirs := map[string]bool{}
 	for _, row := range args.Ed.ERows() {
-		if !row.Info.IsFileButNotDir() {
+		if !row.Info.IsFileButNotDir() && !row.Info.IsDir() {
 			continue
 		}
 		name := row.Info.Name()
@@ -67,10 +68,11 @@ func FindFiles(args *core.InternalCmdArgs) error {
 		if !seen[name] {
 			seen[name] = true
 			opened = append(opened, name)
+			openDirs[name] = row.Info.IsDir()
 		}
 		if a, ok := row.TbData.Part0Arg0(); ok {
 			// Match the displayed basename so escaped toolbar paths retain byte offsets.
-			s := a.String()
+			s := strings.TrimRight(a.String(), string(filepath.Separator))
 			start := len(s) - len(filepath.Base(s))
 			if i, n, err := findFilenameMatch(args.Ctx, s[start:], parseutil.EscapeFilename(query), opt); err != nil {
 				return err
@@ -91,7 +93,7 @@ func FindFiles(args *core.InternalCmdArgs) error {
 				if err := ctx.Err(); err != nil {
 					return err
 				}
-				if err := writeFindFilename(rw, outputDir, name); err != nil {
+				if err := writeFindFilename(rw, outputDir, name, openDirs[name]); err != nil {
 					return err
 				}
 			}
@@ -119,21 +121,24 @@ func findFilesContextAt(ctx context.Context, w io.Writer, base, outputDir, query
 			_, err := fmt.Fprintf(w, "error: %v\n", walkErr)
 			return err
 		}
-		if entry.IsDir() {
+		if path == base && entry.IsDir() {
 			return nil
 		}
 		i, _, err := findFilenameMatch(ctx, entry.Name(), query, opt)
 		if err != nil || i < 0 {
 			return err
 		}
-		return writeFindFilename(w, outputDir, path)
+		return writeFindFilename(w, outputDir, path, entry.IsDir())
 	})
 }
 
-func writeFindFilename(w io.Writer, base, name string) error {
+func writeFindFilename(w io.Writer, base, name string, isDir bool) error {
 	rel, err := filepath.Rel(base, name)
 	if err != nil {
 		return err
+	}
+	if isDir {
+		rel += string(filepath.Separator)
 	}
 	_, err = fmt.Fprintln(w, parseutil.EscapeFilename(rel))
 	return err

@@ -260,11 +260,11 @@ These commands run on a row toolbar, or on the top toolbar with the active-row.
 - `CloseRow`: close row
 - `CloseColumn`: closes row column
 - `Find [-icase=true] [-idiac=true] [-rev] <string>`: find string. By default, ignores case and diacritics.
-- `FindFiles [-dir <path>] [-onrows] [-icase=true] [-idiac=true] <string>`: recursively find filenames containing a literal string, ignoring case and diacritics by default. Matches filenames, not their parent directory paths; includes hidden files and does not follow directory symlinks. Runs entirely in Go, without external tools.
+- `FindFiles [-dir <path>] [-onrows] [-icase=true] [-idiac=true] <string>`: recursively find file and directory names containing a literal string, ignoring case and diacritics by default. Matches entry names, not their parent directory paths; includes hidden entries and does not follow directory symlinks. Directories have a trailing path separator. Runs entirely in Go, without external tools.
 	- Searches from the row directory by default; `-dir` accepts relative, absolute and home-variable paths such as `~1`.
-	- `-onrows`: lists only matching filenames from open file rows, without searching the disk.
+	- `-onrows`: lists only matching file and directory names from open rows, without searching the disk.
 	- Results replace the content of the current directory row; from a file row, a new results row is created. Paths are relative to the results row directory and can be opened normally. Use `Stop` to cancel the search.
-	- Matching open file rows also flash the matching substring in their toolbar filename, without changing text selections; for example, `FindFiles cd` flashes only `cd` in `abcd.txt`.
+	- Matching open file and directory rows also flash the matching substring in their toolbar name, without changing text selections; for example, `FindFiles cd` flashes only `cd` in `abcd.txt`.
 	- Examples: `FindFiles terminal`, `FindFiles -dir ~1 terminal`, `FindFiles -onrows cd`. The button menu provides `FindFiles -h`.
 - `Edit -pipe <command>`: sends the current selection, or the whole buffer if there is no selection, to the command stdin and replaces that range with stdout. Useful for external formatters and filters. Examples: `Edit -pipe gofmt`, `Edit -pipe sed 's/TODO/DONE/g'`, `Edit -pipe sort`. Do not use in-place command options such as `sed -i`; the command should read stdin and write stdout.
 - `GotoLine <num>`: goes to line number
