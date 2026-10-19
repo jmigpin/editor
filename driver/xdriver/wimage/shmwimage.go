@@ -1,15 +1,18 @@
 package wimage
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/draw"
 	"log"
+	"reflect"
 	"time"
+	"unsafe"
 
-	"github.com/jezek/xgb"
 	"github.com/jezek/xgb/shm"
 	"github.com/jezek/xgb/xproto"
+	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/syncutil"
 )
 
@@ -17,6 +20,7 @@ type ShmWImage struct {
 	opt          *Options
 	segId        shm.Seg
 	imgWrap      *ShmImgWrap
+	closed       bool
 	putCompleted *syncutil.WaitForSet
 }
 
@@ -33,13 +37,6 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 	wi := &ShmWImage{opt: opt}
 	wi.putCompleted = syncutil.NewWaitForSet()
 
-	// server segment id
-	segId, err := shm.NewSegId(wi.opt.Conn)
-	if err != nil {
-		return nil, err
-	}
-	wi.segId = segId
-
 	// initial image
 	r := image.Rect(0, 0, 1, 1)
 	if err := wi.Resize(r); err != nil {
@@ -49,38 +46,56 @@ func NewShmWImage(opt *Options) (*ShmWImage, error) {
 	return wi, nil
 }
 func (wi *ShmWImage) Close() error {
-	return wi.imgWrap.Close()
+	wi.closed = true
+	imgWrap := wi.imgWrap
+	wi.imgWrap = nil
+	return wi.closeImage(wi.segId, imgWrap)
 }
 
 func (wi *ShmWImage) Resize(r image.Rectangle) error {
+	if wi.closed {
+		return fmt.Errorf("shmwimage: resize after close")
+	}
 	imgWrap, err := NewShmImgWrap(r)
 	if err != nil {
 		return err
 	}
-	old := wi.imgWrap
-	wi.imgWrap = imgWrap
-	// clean old img
-	if old != nil {
-		// need to detach to attach a new img id later
-		_ = shm.Detach(wi.opt.Conn, wi.segId)
-
-		err := old.Close()
-		if err != nil {
-			return err
-		}
+	segId, err := wi.resize2(imgWrap)
+	if err != nil {
+		return errors.Join(err, imgWrap.Close())
 	}
-	// attach to segId
-	readOnly := false
-	shmId := uint32(wi.imgWrap.shmId)
-	cookie := shm.AttachChecked(wi.opt.Conn, wi.segId, shmId, readOnly)
-	if err := cookie.Check(); err != nil {
-		return fmt.Errorf("shmwimage.resize.attach: %w", err)
-	}
+	// Keep the old image valid until the server accepts the new segment.
+	oldSegId, oldImgWrap := wi.segId, wi.imgWrap
+	wi.segId, wi.imgWrap = segId, imgWrap
+	return wi.closeImage(oldSegId, oldImgWrap)
+}
 
-	return nil
+func (wi *ShmWImage) resize2(imgWrap *ShmImgWrap) (shm.Seg, error) {
+	segId, err := shm.NewSegId(wi.opt.Conn)
+	if err != nil {
+		return 0, err
+	}
+	if err := shm.AttachChecked(wi.opt.Conn, segId, uint32(imgWrap.shmId), false).Check(); err != nil {
+		return 0, fmt.Errorf("shmwimage.resize.attach: %w", err)
+	}
+	return segId, nil
+}
+
+func (wi *ShmWImage) closeImage(segId shm.Seg, imgWrap *ShmImgWrap) error {
+	if imgWrap == nil {
+		return nil
+	}
+	err := shm.DetachChecked(wi.opt.Conn, segId).Check()
+	if err != nil {
+		err = fmt.Errorf("shm.detach: %w", err)
+	}
+	return errors.Join(err, imgWrap.Close())
 }
 
 func (wi *ShmWImage) Image() draw.Image {
+	if wi.imgWrap == nil {
+		return nil
+	}
 	return wi.imgWrap.Img
 }
 
@@ -101,6 +116,9 @@ func (wi *ShmWImage) PutImage(r image.Rectangle) error {
 
 func (wi *ShmWImage) putImage2(r image.Rectangle) error {
 	gctx := wi.opt.GCtx
+	if wi.closed || wi.imgWrap == nil {
+		return fmt.Errorf("shmwimage: draw without an active buffer")
+	}
 	img := wi.imgWrap.Img
 	drawable := xproto.Drawable(wi.opt.Window)
 	depth := wi.opt.ScreenInfo.RootDepth
@@ -130,9 +148,34 @@ func (wi *ShmWImage) PutImageCompleted() {
 
 //----------
 
-var initErr error
+type ShmImgWrap struct {
+	Img   *imageutil.BGRA
+	shmId uintptr
+	addr  uintptr
+}
 
-// initialize early to avoid concurrent map read/write (XGB library issue)
-func Init(conn *xgb.Conn) {
-	initErr = shm.Init(conn)
+func NewShmImgWrap(r image.Rectangle) (*ShmImgWrap, error) {
+	size := imageutil.BGRASize(&r)
+	shmId, addr, err := ShmOpen(size)
+	if err != nil {
+		return nil, err
+	}
+
+	// mask shared mem into a slice
+	h := reflect.SliceHeader{Data: addr, Len: size, Cap: size}
+	buf := *(*[]byte)(unsafe.Pointer(&h))
+
+	img := imageutil.NewBGRAFromBuffer(buf, &r)
+	imgWrap := &ShmImgWrap{Img: img, shmId: shmId, addr: addr}
+	return imgWrap, nil
+}
+
+func (imgWrap *ShmImgWrap) Close() error {
+	if imgWrap.Img == nil {
+		return nil
+	}
+	imgWrap.Img = nil
+	id, addr := imgWrap.shmId, imgWrap.addr
+	imgWrap.shmId, imgWrap.addr = 0, 0
+	return ShmClose(id, addr)
 }

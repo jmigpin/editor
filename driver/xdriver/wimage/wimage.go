@@ -6,6 +6,7 @@ import (
 	"image/draw"
 
 	"github.com/jezek/xgb"
+	"github.com/jezek/xgb/shm"
 	"github.com/jezek/xgb/xproto"
 )
 
@@ -37,4 +38,13 @@ type Options struct {
 	Window     xproto.Window
 	ScreenInfo *xproto.ScreenInfo
 	GCtx       xproto.Gcontext
+}
+
+//----------
+
+var initErr error
+
+// initialize early to avoid concurrent map read/write (XGB library issue)
+func Init(conn *xgb.Conn) {
+	initErr = shm.Init(conn)
 }
