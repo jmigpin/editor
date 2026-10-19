@@ -29,7 +29,8 @@ type KMap struct {
 	conn  *xgb.Conn
 	si    *xproto.SetupInfo
 	kbm   [256][]xproto.Keysym // keyboard map
-	mmask struct {             // modifiers masks
+	xkb   *xkbMap
+	mmask struct { // modifiers masks
 		shift     uint16
 		capsL     uint16
 		ctrl      uint16
@@ -42,6 +43,11 @@ type KMap struct {
 
 func NewKMap(conn *xgb.Conn) (*KMap, error) {
 	km := &KMap{conn: conn}
+	if m, err := newXKBMap(conn); err != nil {
+		return nil, err
+	} else {
+		km.xkb = m
+	}
 	err := km.ReadMapping()
 	if err != nil {
 		return nil, err
@@ -57,6 +63,9 @@ func (km *KMap) ReadMapping() error {
 	}
 	if err := km.readModifiersMapping(); err != nil {
 		return err
+	}
+	if km.xkb != nil {
+		return km.xkb.readMapping()
 	}
 	return nil
 }
@@ -185,8 +194,12 @@ func (km *KMap) detectModifiersMapping(mm [8][]xproto.Keycode) {
 //----------
 
 func (km *KMap) Lookup(kc xproto.Keycode, kmods uint16) (xproto.Keysym, event.KeySym, rune) {
-	kss := km.kbm[kc]
-	ks := km.keysymsToKeysym(kss, kmods)
+	ks := xproto.Keysym(0)
+	if km.xkb != nil {
+		ks = km.xkb.lookup(kc, kmods)
+	} else {
+		ks = km.keysymsToKeysym(km.kbm[kc], kmods)
+	}
 	eks := keysymToEventKeysym(ks)
 	ru := finalKeysymRune(eks, ks)
 	return ks, eks, ru

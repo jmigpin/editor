@@ -3,6 +3,7 @@ package xinput
 import (
 	"github.com/jezek/xgb/xproto"
 	"github.com/jmigpin/editor/util/uiutil/event"
+	"unicode/utf8"
 )
 
 // Constants from /usr/include/X11/keysymdef.h
@@ -122,8 +123,6 @@ func keysymToEventKeysym(xk xproto.Keysym) event.KeySym {
 		return event.KSymAltR
 	case 0xfe03: // XK_ISO_Level3_Shift
 		return event.KSymAltGr
-	//case 0xfe08: // XK_ISO_Next_Group
-	//	return
 	case 0xffeb:
 		return event.KSymSuperL // windows key
 	case 0xffec:
@@ -306,17 +305,24 @@ func keysymRune(ks xproto.Keysym) rune {
 	if ru2, ok := keysymExtendedUnicode(ks); ok {
 		return ru2
 	}
-	return rune(ks) // default direct translation (covers some ascii values)
+	if ks >= 0x20 && ks <= 0x7e || ks >= 0xa0 && ks <= 0xff {
+		return rune(ks)
+	}
+	if ks <= 0xffff {
+		return legacyKeysymUnicode[uint16(ks)]
+	}
+	return 0
 }
 func keysymExtendedUnicode(ks xproto.Keysym) (rune, bool) {
 	// from /usr/include/X11/keysymdef.h
 	//For any future extension of the keysyms with characters already found in ISO 10646 / Unicode, the following algorithm shall be used. The new keysym code position will simply be the character's Unicode number plus 0x01000000. The keysym values in the range 0x01000100 to 0x0110ffff are reserved to represent Unicode characters in the range U+0100 to U+10FFFF.
 
 	const start = 0x01000000 // support the whole space
-	const end = 0x01ffffff
+	const end = 0x0110ffff
 	const mask = 0x00ffffff
 	if ks >= start && ks <= end {
-		return rune(ks & mask), true
+		ru := rune(ks & mask)
+		return ru, utf8.ValidRune(ru)
 	}
 
 	return 0, false
