@@ -41,6 +41,8 @@ func TabRight(ctx *Ctx) error {
 }
 
 func TabLeft(ctx *Ctx) error {
+	hadSelection := ctx.C.HaveSelection()
+	cursor := ctx.C.Index()
 	a, b, newline, err := ctx.CursorSelectionLinesIndexes()
 	if err != nil {
 		return err
@@ -58,6 +60,9 @@ func TabLeft(ctx *Ctx) error {
 			if err := ctx.RW.OverwriteAt(i, 1, nil); err != nil {
 				return err
 			}
+			if !hadSelection && i < cursor {
+				cursor--
+			}
 			b -= 1 // 1 is length of '\t' or ' '
 		}
 
@@ -71,6 +76,10 @@ func TabLeft(ctx *Ctx) error {
 
 	// skip making the selection
 	if !altered {
+		return nil
+	}
+	if !hadSelection {
+		ctx.C.SetIndexSelectionOff(cursor)
 		return nil
 	}
 

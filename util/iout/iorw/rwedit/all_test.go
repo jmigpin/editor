@@ -420,6 +420,31 @@ func TestAll1(t *testing.T) {
 		},
 		func() {
 			testEntry(&test{
+				st:  state{s: "import (\n\t\"fmt\"\n\t)", ci: len("import (\n\t\"fmt\"\n\t)")},
+				est: state{s: "import (\n\t\"fmt\"\n)", ci: len("import (\n\t\"fmt\"\n)")},
+				f:   TabLeft,
+			})
+		},
+		func() {
+			testEntry(&test{
+				st:  state{s: "import (\n\t\"fmt\"\n\t", ci: len("import (\n\t\"fmt\"\n\t")},
+				est: state{s: "import (\n\t\"fmt\"\n)\n", ci: len("import (\n\t\"fmt\"\n)\n")},
+				f: func(ctx *Ctx) error {
+					if err := TabLeft(ctx); err != nil {
+						return err
+					}
+					if ctx.C.Get().sel.on {
+						t.Fatal("unindent left a selection active on an empty line")
+					}
+					if err := InsertString(ctx, ")"); err != nil {
+						return err
+					}
+					return AutoIndent(ctx)
+				},
+			})
+		},
+		func() {
+			testEntry(&test{
 				st:  state{s: "\t0123\n\tabc\n", ci: 4},
 				est: state{s: "\t0123\n\tabc\n", si: 0, ci: 11, son: true},
 				f:   SelectAll,
