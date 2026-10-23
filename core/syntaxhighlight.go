@@ -29,9 +29,6 @@ func detectSetupSyntaxHighlight(erow *ERow) {
 
 	ta := erow.Row.TextArea
 
-	// ensure syntax highlight is on (ex: strings)
-	ta.EnableSyntaxHighlight(true)
-
 	// set comments
 	setc := func(a ...any) {
 		ta.SetCommentStrings(a...)

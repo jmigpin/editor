@@ -212,6 +212,8 @@ func (erow *ERow) init(info *ERowInfo, rowPos *ui.RowPos) {
 	erow.ctx, erow.cancelCtx = context.WithCancel(ctx0)
 
 	detectSetupSyntaxHighlight(erow)
+	erow.colorizeOpts = erow.parseColorizeOpts("")
+	erow.applyColorizeState(false)
 	erow.initHandlers()
 
 	erow.updateToolbarNameEncoding2("")
@@ -492,8 +494,7 @@ func (erow *ERow) parseToolbarVars() {
 	oldColorizeOpts := erow.colorizeOpts
 	colorizeOpts := erow.parseColorizeOpts(vmap["$colorize"])
 	erow.colorizeOpts = colorizeOpts
-	ta.EnableGitColorize(colorizeOpts.git)
-	ta.EnableSyntaxHighlight(colorizeOpts.syntax)
+	erow.applyColorizeState(erow.optTemu != nil)
 	if oldColorizeOpts.termGrayscale != colorizeOpts.termGrayscale && erow.optTemu != nil {
 		erow.optTemu.tui.render.useGrayscale = colorizeOpts.termGrayscale
 		erow.optTemu.emu.NeedScreenSync()
@@ -535,6 +536,16 @@ func (erow *ERow) parseToolbarVars() {
 	if erow.optTemu == nil && !erow.Info.IsDir() {
 		ta.SetThemeFontFace(erow.fontOpts.face)
 	}
+}
+
+//----------
+
+func (erow *ERow) applyColorizeState(terminalActive bool) {
+	ta := erow.Row.TextArea
+	ta.EnableSyntaxHighlight(!terminalActive && erow.colorizeOpts.syntax)
+	ta.EnableGitColorize(!terminalActive && erow.colorizeOpts.git)
+	ta.EnableTerminalColors(terminalActive)
+	ta.EnableTerminalDecorations(terminalActive)
 }
 
 //----------

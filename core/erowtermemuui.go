@@ -20,7 +20,6 @@ type ERowTermEmuUI struct {
 	}
 
 	restore struct {
-		syntaxHighlight bool
 		lineWrap        bool
 		//scrollBarX      bool
 		//scrollBarY      bool
@@ -37,14 +36,9 @@ func newERowTermEmuUI(temu *ERowTermEmu) *ERowTermEmuUI {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		ta := tui.temu.erow.Row.TextArea
 
-		ta.EnableTerminalColors(true)
-		ta.EnableTerminalDecorations(true)
 		ta.SetTerminalColorOps(nil)
 		ta.SetTerminalDecorations(nil)
-
-		// keep
-		tui.restore.syntaxHighlight = ta.SyntaxHighlight()
-		ta.EnableSyntaxHighlight(false)
+		tui.temu.erow.applyColorizeState(true)
 
 		opt := ta.Drawer.TextDrawerOptions()
 		tui.restore.lineWrap = opt.LineWrap.On
@@ -68,12 +62,9 @@ func (tui *ERowTermEmuUI) Close() error {
 		tui.dec = nil
 		tui.sp.SepFn = func(int) {}
 
-		ta.EnableTerminalColors(false)
-		ta.EnableTerminalDecorations(false)
 		ta.SetTerminalColorOps(nil) // clear to avoid wrong place coloring upon re-enable. Ex: another cmd usage in the same textarea
 		ta.SetTerminalDecorations(nil)
-
-		ta.EnableSyntaxHighlight(tui.restore.syntaxHighlight)
+		tui.temu.erow.applyColorizeState(false)
 
 		opt := ta.Drawer.TextDrawerOptions()
 		opt.LineWrap.On = tui.restore.lineWrap
