@@ -244,7 +244,7 @@ func parseSessionSavePart(part *toolbarparser.Part) (*sessionSaveTarget, bool, e
 	fs.SetOutput(io.Discard)
 	target := &sessionSaveTarget{Cmd: cmd}
 	fs.BoolVar(&target.Auto, "auto", false, fmt.Sprintf("autosave session changes after %v while this command is present in the root toolbar", sessionAutoSaveDelay))
-	fs.BoolVar(&target.Quiet, "quiet", true, "save without reporting to the messages row")
+	fs.BoolVar(&target.Quiet, "quiet", true, "save without reporting to the messages row; use -quiet=false to enable reporting")
 	if err := fs.Parse(part.ArgsStrings()[1:]); err != nil {
 		return nil, true, sessionSaveFlagErr(fs, err)
 	}
