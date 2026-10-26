@@ -60,6 +60,7 @@ func NewRow(col *Column) *Row {
 //----------
 
 func (row *Row) Close() {
+	row.ui.rowWheel.endRow(row)
 	row.Col.removeRow(row)
 	row.Col = nil
 	row.sep.Close()
@@ -143,6 +144,7 @@ func (row *Row) resizeWithPushJump(up bool, p *image.Point) {
 		jump *= -1
 	}
 
+	oldY := row.Bounds.Min.Y
 	pad := p.Sub(row.Bounds.Min)
 
 	p2 := row.Bounds.Min
@@ -154,6 +156,7 @@ func (row *Row) resizeWithPushJump(up bool, p *image.Point) {
 
 	p3 := row.Bounds.Min.Add(pad)
 	p3.Y = row.Bounds.Min.Y // accurate y
+	row.ui.rowWheel.noteWarp(row, row.Bounds.Min.Y-oldY, p3)
 	row.ui.WarpPointer(p3)
 }
 

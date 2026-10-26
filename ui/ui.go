@@ -3,22 +3,36 @@ package ui
 import (
 	"image"
 
+	"github.com/jmigpin/editor/driver"
 	"github.com/jmigpin/editor/util/uiutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 type UI struct {
 	*uiutil.BasicUI
-	Root    *Root
-	OnError func(error)
+	Root     *Root
+	OnError  func(error)
+	rowWheel rowWheelGesture
 }
 
 func NewUI(winName string, opt *event.WindowOptions) (*UI, error) {
 	ui := &UI{}
+	return ui.init(func(root *Root) (*uiutil.BasicUI, error) {
+		return uiutil.NewBasicUI(winName, root, opt)
+	})
+}
 
+func NewUIWithWindow(winName string, win driver.Window) (*UI, error) {
+	ui := &UI{}
+	return ui.init(func(root *Root) (*uiutil.BasicUI, error) {
+		return uiutil.NewBasicUIWithWindow(winName, root, win)
+	})
+}
+
+func (ui *UI) init(newBasicUI func(*Root) (*uiutil.BasicUI, error)) (*UI, error) {
 	ui.Root = NewRoot(ui)
 
-	bui, err := uiutil.NewBasicUI(winName, ui.Root, opt)
+	bui, err := newBasicUI(ui.Root)
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +48,16 @@ func NewUI(winName string, opt *event.WindowOptions) (*UI, error) {
 	ui.Root.Init()
 
 	return ui, nil
+}
+
+func (ui *UI) HandleEvent(ev any) bool {
+	switch e := ev.(type) {
+	case *event.WindowResize:
+		ui.rowWheel.reset()
+	case *event.WindowInput:
+		ui.rowWheel.filter(e)
+	}
+	return ui.BasicUI.HandleEvent(ev)
 }
 
 //----------

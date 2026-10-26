@@ -32,12 +32,13 @@ func (sh *RowSeparator) OnInputEvent(ev0 any, p image.Point) event.Handled {
 			sh.row.resizeWithMoveToPoint(&p)
 		}
 	case *event.MouseDown:
-		m := ev.Mods.ClearLocks()
-		if m.IsEmpty() {
+		if rowWheelCanBegin(ev) {
 			switch ev.Button {
 			case event.ButtonWheelUp:
+				sh.row.ui.rowWheel.begin(sh.row, sh.Handle, p)
 				sh.row.resizeWithPushJump(true, &p)
 			case event.ButtonWheelDown:
+				sh.row.ui.rowWheel.begin(sh.row, sh.Handle, p)
 				sh.row.resizeWithPushJump(false, &p)
 			}
 		}

@@ -38,7 +38,10 @@ func NewBasicUI(winName string, root widget.Node, opt *event.WindowOptions) (*Ba
 	if err != nil {
 		return nil, err
 	}
+	return NewBasicUIWithWindow(winName, root, win)
+}
 
+func NewBasicUIWithWindow(winName string, root widget.Node, win driver.Window) (*BasicUI, error) {
 	req := &event.ReqWindowSetName{winName}
 	if err := win.Request(req); err != nil {
 		return nil, err

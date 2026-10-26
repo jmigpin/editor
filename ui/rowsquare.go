@@ -126,6 +126,9 @@ func (sq *RowSquare) OnInputEvent(ev any, p image.Point) event.Handled {
 
 	// handle scroll events from row separator (allows mouse-wheel ops from rowsquare)
 	case *event.MouseDown:
+		if rowWheelCanBegin(t) {
+			sq.row.ui.rowWheel.begin(sq.row, sq, p)
+		}
 		sq.row.sep.OnInputEvent(ev, p)
 
 	case *event.MouseClick:
