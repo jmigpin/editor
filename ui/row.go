@@ -139,7 +139,7 @@ func (row *Row) resizeWithMoveToPoint(p *image.Point) {
 //----------
 
 func (row *Row) resizeWithPushJump(up bool, p *image.Point) {
-	jump := 40
+	jump := row.ui.Root.TreeThemeFontFace().LineHeightInt() * 4
 	if up {
 		jump *= -1
 	}
