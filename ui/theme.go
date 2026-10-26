@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"io/ioutil"
+	"math"
 
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/imageutil"
@@ -383,6 +384,11 @@ type cycleEntry struct {
 var UIThemeUtil uiThemeUtil
 
 type uiThemeUtil struct{}
+
+func (uitu *uiThemeUtil) DpiPixels(ui *UI, pixelsAt72DPI int) int {
+	dpi := ui.Root.TreeThemeFontFace().Opts.DPI()
+	return max(1, int(math.Round(float64(pixelsAt72DPI)*dpi/72)))
+}
 
 func (uitu *uiThemeUtil) RowMinimumHeight(ff *fontutil.FontFace) int {
 	return ff.LineHeightInt()

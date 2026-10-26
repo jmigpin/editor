@@ -15,8 +15,9 @@ type RowSeparator struct {
 func NewRowSeparator(row *Row) *RowSeparator {
 	sep := widget.NewSeparator(row.ui, row.Col.Cols.Root.MultiLayer)
 	sep.Size.Y = separatorWidth
-	sep.Handle.Top = 3
-	sep.Handle.Bottom = 3
+	pad := UIThemeUtil.DpiPixels(row.ui, 4)
+	sep.Handle.Top = pad
+	sep.Handle.Bottom = pad
 	sep.Handle.Cursor = event.MoveCursor
 
 	rsep := &RowSeparator{Separator: sep, row: row}
