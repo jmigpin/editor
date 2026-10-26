@@ -29,6 +29,10 @@ func TestRowWheelResizeDoesNotScrollPreviousRow(t *testing.T) {
 	if err := upper.TextArea.SetStr(strings.Repeat("scrollable line\n", 200)); err != nil {
 		t.Fatal(err)
 	}
+	rootFace := ui.Root.TreeThemeFontFace()
+	localOpts := rootFace.Opts
+	localOpts.SetSize(localOpts.Size() / 2)
+	lower.TextArea.SetThemeFontFace(rootFace.Font.FontFace(localOpts))
 	col.RowsLayout.Spl.Resize(lower, 0.5)
 	ui.LayoutMarkedAndSchedulePaint()
 
@@ -38,6 +42,10 @@ func TestRowWheelResizeDoesNotScrollPreviousRow(t *testing.T) {
 	}
 	initialBoundary := lower.Bounds.Min.Y
 	initialScroll := upper.TextArea.ScrollOffset()
+	jump := rootFace.LineHeightInt() * 4
+	if jump == lower.TextArea.LineHeight()*4 {
+		t.Fatal("local textarea font did not differ from root font")
+	}
 	wheel := func() {
 		md := &event.MouseDown{Point: p, Button: event.ButtonWheelDown}
 		ui.HandleEvent(&event.WindowInput{Point: p, Event: md})
@@ -56,8 +64,8 @@ func TestRowWheelResizeDoesNotScrollPreviousRow(t *testing.T) {
 	}
 	wheel()
 	wheel()
-	if lower.Bounds.Min.Y != initialBoundary+120 {
-		t.Errorf("three wheels moved boundary: %d -> %d, want +120", initialBoundary, lower.Bounds.Min.Y)
+	if got := lower.Bounds.Min.Y - initialBoundary; got < 3*jump-1 || got > 3*jump+1 {
+		t.Errorf("three wheels moved boundary: %d -> %d, want +%d", initialBoundary, lower.Bounds.Min.Y, 3*jump)
 	}
 	if got := upper.TextArea.ScrollOffset(); got != initialScroll {
 		t.Errorf("upper row scrolled: %v -> %v", initialScroll, got)
@@ -74,8 +82,8 @@ func TestRowWheelResizeDoesNotScrollPreviousRow(t *testing.T) {
 	boundary := lower.Bounds.Min.Y
 	ui.HandleEvent(&event.WindowInput{Point: currentSquare, Event: &event.MouseDown{Point: currentSquare, Button: event.ButtonWheelDown}})
 	ui.LayoutMarkedAndSchedulePaint()
-	if got := lower.Bounds.Min.Y; got != boundary+40 {
-		t.Errorf("wheel at warped position moved boundary: %d -> %d, want +40", boundary, got)
+	if got := lower.Bounds.Min.Y - boundary; got < jump-1 || got > jump+1 {
+		t.Errorf("wheel at warped position moved boundary: %d -> %d, want +%d", boundary, got, jump)
 	}
 	ui.HandleEvent(&event.WindowInput{Point: p, Event: &event.MouseMove{Point: p}})
 	if ui.rowWheel.state != nil {
@@ -110,8 +118,8 @@ func TestRowWheelResizeDoesNotScrollPreviousRow(t *testing.T) {
 		ui.HandleEvent(&event.WindowInput{Point: sepPoint, Event: &event.MouseDown{Point: sepPoint, Button: event.ButtonWheelDown}})
 		ui.LayoutMarkedAndSchedulePaint()
 	}
-	if got := lower.Bounds.Min.Y; got != boundary+80 {
-		t.Errorf("separator wheels moved boundary: %d -> %d, want +80", boundary, got)
+	if got := lower.Bounds.Min.Y - boundary; got < 2*jump-1 || got > 2*jump+1 {
+		t.Errorf("separator wheels moved boundary: %d -> %d, want +%d", boundary, got, 2*jump)
 	}
 	if ui.rowWheel.state == nil {
 		t.Fatal("separator resize mode ended unexpectedly")
