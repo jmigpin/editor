@@ -25,7 +25,10 @@ func NewFile(args *core.InternalCmdArgs) error {
 		dir = filepath.Dir(dir)
 	}
 
-	filename := filepath.Join(dir, name)
+	filename := name
+	if !filepath.IsAbs(name) {
+		filename = filepath.Join(dir, name)
+	}
 
 	if _, err := os.Stat(filename); !os.IsNotExist(err) {
 		return fmt.Errorf("already exists: %v", filename)
