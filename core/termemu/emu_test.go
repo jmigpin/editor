@@ -276,6 +276,98 @@ func TestLRMM_WrapAndCR(t *testing.T) {
 	}
 }
 
+func TestLRMM_EnableBeforeSettingMargins(t *testing.T) {
+	te := newTestEmu(newTuiMock(), Opts{}, 10, 3)
+	defer te.Close()
+
+	sendWithBarrier(t, te, "\x1b[?69h\x1b[1;1Hkq")
+
+	s := te.Snapshot()
+	if got := s.grid.line(0).cell(0).R; got != 'k' {
+		t.Fatalf("cell (0,0)=%q, want 'k'", got)
+	}
+	if got := s.grid.line(0).cell(1).R; got != 'q' {
+		t.Fatalf("cell (1,0)=%q, want 'q'", got)
+	}
+	if s.region.Min.X != 0 || s.region.Max.X != 10 {
+		t.Fatalf("invalid default margins: %v", s.region)
+	}
+}
+
+func TestLRMM_RepeatedEnablePreservesMargins(t *testing.T) {
+	te := newTestEmu(newTuiMock(), Opts{}, 10, 3)
+	defer te.Close()
+
+	sendWithBarrier(t, te, "\x1b[?69h\x1b[3;8s\x1b[?69h")
+	s := te.Snapshot()
+	if s.region.Min.X != 2 || s.region.Max.X != 8 || !s.regionLR.leftSet || !s.regionLR.rightSet {
+		t.Fatalf("repeated enable changed margins: %v, %+v", s.region, s.regionLR)
+	}
+}
+
+func TestLRMM_MarginsAfterInvalidSequenceAndResize(t *testing.T) {
+	te := newTestEmu(newTuiMock(), Opts{}, 10, 3)
+	defer te.Close()
+
+	sendWithBarrier(t, te, "\x1b[?69h\x1b[3;8s")
+	s := te.Snapshot()
+	if s.region.Min.X != 2 || s.region.Max.X != 8 || s.regionLR.left != 2 || s.regionLR.right != 8 {
+		t.Fatalf("incorrect requested or effective margins: %v, %+v", s.region, s.regionLR)
+	}
+
+	sendWithBarrier(t, te, "\x1b[9;2s")
+	s = te.Snapshot()
+	if s.region.Min.X != 0 || s.region.Max.X != 10 || s.regionLR.left != 8 || s.regionLR.right != 2 {
+		t.Fatalf("invalid margins were not preserved with a safe region: %v, %+v", s.region, s.regionLR)
+	}
+
+	te.SetSize(P{4, 3}, P{})
+	s = te.Snapshot()
+	if s.region.Min.X != 0 || s.region.Max.X != 4 || s.regionLR.left != 8 || s.regionLR.right != 2 {
+		t.Fatalf("resize changed requested margins or left an invalid region: %v, %+v", s.region, s.regionLR)
+	}
+
+	sendWithBarrier(t, te, "\x1b[?69l\x1b[?69h\x1b[1;1Hx")
+	s = te.Snapshot()
+	if s.region.Min.X != 0 || s.region.Max.X != 4 || s.grid.line(0).cell(0).R != 'x' {
+		t.Fatalf("re-enabled mode has invalid margins or cursor: %v, %v", s.region, s.cursor)
+	}
+	if s.regionLR.leftSet || s.regionLR.rightSet {
+		t.Fatalf("re-enabled mode retained requested margins: %+v", s.regionLR)
+	}
+
+	te.SetSize(P{12, 3}, P{})
+	s = te.Snapshot()
+	if s.region.Min.X != 0 || s.region.Max.X != 12 {
+		t.Fatalf("full-width margins did not grow with the grid: %v", s.region)
+	}
+
+	sendWithBarrier(t, te, "\x1b[1;0s")
+	s = te.Snapshot()
+	if s.region.Min.X != 0 || s.region.Max.X != 12 || s.regionLR.rightSet {
+		t.Fatalf("default right margin is not full width: %v, %+v", s.region, s.regionLR)
+	}
+	sendWithBarrier(t, te, "\x1b[3;0s")
+	te.SetSize(P{14, 3}, P{})
+	s = te.Snapshot()
+	if s.region.Min.X != 2 || s.region.Max.X != 14 || !s.regionLR.leftSet || s.regionLR.rightSet {
+		t.Fatalf("omitted right margin did not follow resize: %v, %+v", s.region, s.regionLR)
+	}
+	sendWithBarrier(t, te, "\x1b[0;8s")
+	te.SetSize(P{16, 3}, P{})
+	s = te.Snapshot()
+	if s.region.Min.X != 0 || s.region.Max.X != 8 || s.regionLR.leftSet || !s.regionLR.rightSet {
+		t.Fatalf("explicit right margin changed on resize: %v, %+v", s.region, s.regionLR)
+	}
+
+	te.SetSize(P{1, 3}, P{})
+	sendWithBarrier(t, te, "\x1b[1;1Hz")
+	s = te.Snapshot()
+	if s.region.Min.X != 0 || s.region.Max.X != 1 || s.grid.line(0).cell(0).R != 'z' {
+		t.Fatalf("single-column grid has invalid margins or cursor: %v, %v", s.region, s.cursor)
+	}
+}
+
 func TestCAN_SUB_Abort(t *testing.T) {
 	te := newTestEmu(newTuiMock(), Opts{}, 5, 1)
 	defer te.Close()

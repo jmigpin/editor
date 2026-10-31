@@ -14,9 +14,8 @@ import (
 
 type Screen struct {
 	//bounds      R   // min=0
-	region      R   // top/bottom scroll region + left/right margins
-	regionLeft  int // x region active on privmode
-	regionRight int // x region active on privmode
+	region   R        // top/bottom scroll region + left/right margins
+	regionLR regionLR // requested left/right margins
 
 	//sizeInPixels P // TODO: sixel support?
 
@@ -118,13 +117,21 @@ func (s *Screen) updateRegion() {
 }
 
 func (s *Screen) updateRegionX() {
+	w := s.grid.size.X
+	left, right := 0, w
 	if s.privModes.leftRightMargin() {
-		s.region.Min.X = s.regionLeft
-		s.region.Max.X = s.regionRight
-	} else {
-		s.region.Min.X = 0
-		s.region.Max.X = s.grid.size.X
+		if s.regionLR.leftSet {
+			left = s.regionLR.left
+		}
+		if s.regionLR.rightSet {
+			right = s.regionLR.right
+		}
+		if left < 0 || left >= right || right > w {
+			left, right = 0, w
+		}
 	}
+	s.region.Min.X = left
+	s.region.Max.X = right
 }
 
 func (s *Screen) Clone() *Screen {
@@ -164,11 +171,6 @@ func (s *Screen) AlternateBufferActive() bool {
 func (s *Screen) clampRegionY() {
 	clampInY(&s.region.Min.Y, s.grid.bounds())
 	clampInYInclusive(&s.region.Max.Y, s.grid.bounds())
-}
-
-func (s *Screen) clampRegionLeftRight() {
-	clampInX(&s.regionLeft, s.grid.bounds())
-	clampInXInclusive(&s.regionRight, s.grid.bounds())
 }
 
 //----------
@@ -370,10 +372,18 @@ func (s *Screen) prevTabX(p P) int {
 //----------
 
 func (s *Screen) csiSlrm_setLeftRightMargins(left1, right1 int) {
+	if !s.privModes.leftRightMargin() {
+		return
+	}
 	s.cancelWrap()
-	s.regionLeft = left1 - 1
-	s.regionRight = right1 - 1 + 1
-	s.clampRegionLeftRight()
+	lr := regionLR{}
+	if left1 != 0 {
+		lr.left, lr.leftSet = left1-1, true
+	}
+	if right1 != 0 {
+		lr.right, lr.rightSet = right1, true
+	}
+	s.regionLR = lr
 	s.updateRegionX()
 }
 
@@ -733,6 +743,7 @@ func (s *Screen) escRis_reset(hard bool) {
 	s.privModes = *newPrivModes()
 	s.graphics = *newGraphics()
 	s.wrapNext = false
+	s.regionLR = regionLR{}
 	s.updateRegion()
 	s.lastGraphic = 0
 	s.initTabStops()
@@ -809,15 +820,19 @@ func clampInY(v *int, r R) {
 	*v = clamp(*v, r.Min.Y, r.Max.Y-1)
 }
 
-func clampInXInclusive(v *int, r R) {
-	*v = clamp(*v, r.Min.X, r.Max.X)
-}
 func clampInYInclusive(v *int, r R) {
 	*v = clamp(*v, r.Min.Y, r.Max.Y)
 }
 
 func clamp(v, lo, hi int) int {
 	return min(hi, max(lo, v))
+}
+
+//----------
+
+type regionLR struct {
+	left, right       int // left is 0-based; right is exclusive
+	leftSet, rightSet bool
 }
 
 //----------

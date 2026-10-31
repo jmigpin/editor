@@ -520,8 +520,7 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	case 's':
 		// SLRM: set left right margins
 		if len(op.params) == 2 {
-			left1, right1 := op.ADef(1), op.BDef(1)
-			emu.scr.csiSlrm_setLeftRightMargins(left1, right1)
+			emu.scr.csiSlrm_setLeftRightMargins(op.A(), op.B())
 			return
 		}
 		// SCP: Save Cursor Position
@@ -615,6 +614,9 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 			s.cancelWrap()
 		}
 	case "?69": // left/right margin mode
+		if !on {
+			s.regionLR = regionLR{}
+		}
 		emu.scr.updateRegionX()
 
 	case "?47", "?1047": // alternate screen buffer
