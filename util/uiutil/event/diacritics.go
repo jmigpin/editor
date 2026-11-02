@@ -5,36 +5,34 @@ var UseMultiKey = false
 var diacriticsData diacriticsState
 
 func ComposeDiacritic(ks *KeySym, ru *rune) (isLatch bool) {
-	if UseMultiKey {
-		if *ks == KSymMultiKey {
-			diacriticsData.multiKey = true
-			return true
-		} else if !diacriticsData.multiKey {
-			return false
-		}
+	if UseMultiKey && *ks == KSymMultiKey {
+		diacriticsData.multiKey = true
+		return true
 	}
 
 	// order matters to match map below
-	diacritics := []rune{
-		'`', // grave
-		'´', // acute
-		'^', // circumflex
-		'~', // tilde
-		'¨', // diaeresis 0xa8
-
-		'˚', // ring above 0x2da
-		'¯', // macron 0xaf
-		'¸', // cedilla 0xb8
-		'˘', // breve 0x2d8
-		'ˇ', // caron 0x2c7
+	diacritics := []struct {
+		ks KeySym
+		ru rune
+	}{
+		{KSymGrave, '`'},
+		{KSymAcute, '´'},
+		{KSymCircumflex, '^'},
+		{KSymTilde, '~'},
+		{KSymDiaresis, '¨'},
+		{KSymRingAbove, '˚'},
+		{KSymMacron, '¯'},
+		{KSymCedilla, '¸'},
+		{KSymBreve, '˘'},
+		{KSymCaron, 'ˇ'},
 	}
 	// latch key
-	for i, ru2 := range diacritics {
-		if ru2 == *ru {
+	for i, d := range diacritics {
+		if *ks == d.ks || diacriticsData.multiKey && *ru == d.ru {
 			if !diacriticsData.on || *ks != diacriticsData.ks {
 				diacriticsData.on = true
 				diacriticsData.ks = *ks
-				diacriticsData.ru = *ru
+				diacriticsData.ru = d.ru
 				diacriticsData.dindex = i
 				return true
 			}

@@ -304,7 +304,7 @@ func TestKMapUSCZIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("display=%s AltGr mask=%#x", display, km.mmask.altGr)
-	for _, kc := range []xproto.Keycode{11, 22, 26, 36, 38, 65} {
+	for _, kc := range []xproto.Keycode{11, 22, 26, 36, 38, 49, 65} {
 		t.Logf("keycode=%d symbols=%#x", kc, km.kbm[kc])
 	}
 	// Closing the connection also releases WaitForEvent if the server stops replying.
@@ -337,13 +337,23 @@ func TestKMapUSCZIntegration(t *testing.T) {
 					if e.Detail != tc.keycode {
 						continue
 					}
-					ks, _, ru := km.Lookup(e.Detail, e.State)
+					ks, eks, ru := km.Lookup(e.Detail, e.State)
 					t.Logf("group=%d keycode=%d state=%#x", tc.group, e.Detail, e.State)
 					// XKB-aware clients receive the group in bits 13-14, not the old compatibility AltGr modifier.
 					if group := int(e.State>>13) & 3; group != tc.group {
 						t.Errorf("event group=%d, want %d", group, tc.group)
 					}
 					checkUSCZLookup(t, tc, ks, ru)
+					switch tc.keysym {
+					case 0x60, 0x7e:
+						if eks != event.KSymNone {
+							t.Errorf("literal keysym %#x became event keysym %v", ks, eks)
+						}
+					case 0xfe51:
+						if eks != event.KSymAcute {
+							t.Errorf("dead acute became event keysym %v", eks)
+						}
+					}
 					return
 				}
 			}
@@ -352,6 +362,26 @@ func TestKMapUSCZIntegration(t *testing.T) {
 	for _, tc := range usczCases() {
 		runCase(tc)
 	}
+	deadAcute := usczCase{name: "CZ/DeadAcute", group: 1, keysym: 0xfe51, text: '\u00b4'}
+	for kc := int(xproto.Setup(conn).MinKeycode); kc <= int(xproto.Setup(conn).MaxKeycode); kc++ {
+		for _, state := range []uint16{0x2000, 0x2001} {
+			if ks, _, _ := km.Lookup(xproto.Keycode(kc), state); ks == deadAcute.keysym {
+				deadAcute.keycode = xproto.Keycode(kc)
+				deadAcute.state = state
+				if state&1 != 0 {
+					deadAcute.shiftKey = 50
+				}
+				break
+			}
+		}
+		if deadAcute.keycode != 0 {
+			break
+		}
+	}
+	if deadAcute.keycode == 0 {
+		t.Fatal("CZ layout has no dead acute key")
+	}
+	runCase(deadAcute)
 	// Replacing the map must reload XKB types and symbols through the normal MappingNotify path.
 	setup = exec.CommandContext(ctx, "setxkbmap", "-display", display, "-model", "pc105", "-layout", "cz,us", "-option", "", "-option", "grp:win_space_toggle")
 	if out, err := setup.CombinedOutput(); err != nil {
@@ -613,6 +643,8 @@ func usczCases() []usczCase {
 		{"US/a", 0, 38, 0, 0x61, 'a', 0},
 		{"US/e", 0, 26, 0, 0x65, 'e', 0},
 		{"US/2", 0, 11, 0, 0x32, '2', 0},
+		{"US/Grave", 0, 49, 0, 0x60, '`', 0},
+		{"US/Tilde", 0, 49, 1, 0x7e, '~', 50},
 		{"US/ShiftSpace", 0, 65, 1, 0x20, ' ', 50},
 		{"US/RightShiftSpace", 0, 65, 1, 0x20, ' ', 62},
 		{"US/ShiftA", 0, 38, 1, 0x41, 'A', 0},
@@ -642,6 +674,7 @@ func usczXKBFixture() *xkbMap {
 	m.keys[11] = xkbKey{types: [4]byte{1, 1}, groupInfo: 2, width: 2, symbols: []xproto.Keysym{0x32, 0x40, 0x1ec, 0x32}}
 	m.keys[26] = xkbKey{types: [4]byte{3, 4}, groupInfo: 2, width: 4, symbols: []xproto.Keysym{0x65, 0x45, 0, 0, 0x65, 0x45, 0x20ac, 0x45}}
 	m.keys[38] = xkbKey{types: [4]byte{3, 3}, groupInfo: 2, width: 2, symbols: []xproto.Keysym{0x61, 0x41, 0x61, 0x41}}
+	m.keys[49] = xkbKey{types: [4]byte{1}, groupInfo: 1, width: 2, symbols: []xproto.Keysym{0x60, 0x7e}}
 	m.keys[22] = xkbKey{groupInfo: 1, width: 1, symbols: []xproto.Keysym{0xff08}}
 	m.keys[36] = xkbKey{groupInfo: 1, width: 1, symbols: []xproto.Keysym{0xff0d}}
 	m.keys[65] = xkbKey{types: [4]byte{2}, groupInfo: 1, width: 2, symbols: []xproto.Keysym{0x20, 0xfe08}}
