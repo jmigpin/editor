@@ -153,7 +153,7 @@ Usage of editor:
   -toolbarvarfgcolor int
     	Important toolbar variable foreground color. 0 keeps the foreground unchanged; 0x1 disables an explicit color; ex: 0x008b00=green.
   -usemultikey
-    	use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)
+    	Deprecated and ignored; Multi_key is detected automatically. Remove this option.
   -version
     	output version and exit
   -wraplineindenttabs float

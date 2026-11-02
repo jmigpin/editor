@@ -41,8 +41,6 @@ type Options struct {
 	EmuExec          string
 	EmuExecArgs      []string
 
-	UseMultiKey bool
-
 	Plugins string
 
 	LSProtos     RegistrationsOpt

@@ -95,8 +95,6 @@ func (ed *Editor) init(opt *Options) error {
 		return err
 	}
 
-	event.UseMultiKey = opt.UseMultiKey
-
 	// user interface
 	winOpt := &event.WindowOptions{
 		Rect:           image.Rect(0, 0, 600, 400), // default size

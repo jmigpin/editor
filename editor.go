@@ -57,7 +57,7 @@ func main() {
 	flag.BoolVar(&opt.StartTerminalEmu, "startterminalemu", false, "open the editor in the current directory with an emulated terminal running")
 	// TODO: escape emuexec robustly when mirroring it into the row toolbar.
 	flag.StringVar(&opt.EmuExec, "emuexec", "", "shell command to run when starting with -startterminalemu")
-	flag.BoolVar(&opt.UseMultiKey, "usemultikey", false, "use multi-key to compose characters (Ex: [multi-key, ~, a] = ã)")
+	flag.Bool("usemultikey", false, "deprecated and ignored; Multi_key is detected automatically")
 	flag.StringVar(&opt.Plugins, "plugins", "", "comma separated string of plugin filenames")
 	flag.Var(&opt.LSProtos, "lsproto", "Language-server-protocol register options. Can be specified multiple times.\nFormat: language,fileExtensions,network{tcp|tcpclient|stdio},command,optional{stderr,nogotoimpl}\nFormat notes:\n\tif network is tcp, the command runs in a template with vars: {{.Addr}}.\n\tif network is tcpclient, the command should be an ipaddress.\nExamples:\n\t"+strings.Join(lsproto.RegistrationExamples(), "\n\t"))
 	flag.Var(&opt.PreSaveHooks, "presavehook", "Run program before saving a file. Uses stdin/stdout. Can be specified multiple times. By default, a \"goimports\" entry is auto added if no entry is defined for the \"go\" language.\nFormat: language,fileExtensions,cmd\nExamples:\n"+
@@ -69,6 +69,9 @@ func main() {
 	version := flag.Bool("version", false, "output version and exit")
 
 	flag.Parse()
+	if flagWasSet("usemultikey") {
+		fmt.Fprintln(os.Stderr, "warning: -usemultikey is deprecated and ignored; Multi_key is detected automatically. Remove this option.")
+	}
 	cursorHalfHitSet := flagWasSet("cursorhalfhit")
 	if !cursorHalfHitSet {
 		opt.CursorHalfHit = opt.TextCursor == "beam"

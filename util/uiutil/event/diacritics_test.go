@@ -3,52 +3,39 @@ package event
 import "testing"
 
 func TestComposeDiacriticLiteralAndDeadKeys(t *testing.T) {
-	oldUseMultiKey := UseMultiKey
-	defer func() {
-		UseMultiKey = oldUseMultiKey
-		diacriticsData.clear()
-	}()
+	defer diacriticsData.clear()
+	diacriticsData.clear()
 
-	for _, useMultiKey := range []bool{false, true} {
-		UseMultiKey = useMultiKey
-		diacriticsData.clear()
-
-		for _, literal := range []rune{'`', '~'} {
-			ks, ru := KSymNone, literal
-			if ComposeDiacritic(&ks, &ru) || ru != literal {
-				t.Fatalf("useMultiKey=%v: literal %q started composition", useMultiKey, literal)
-			}
+	for _, literal := range []rune{'`', '~'} {
+		ks, ru := KSymNone, literal
+		if ComposeDiacritic(&ks, &ru) || ru != literal {
+			t.Fatalf("literal %q started composition", literal)
 		}
+	}
 
-		ks, ru := KSymAcute, '´'
+	ks, ru := KSymAcute, '´'
+	if !ComposeDiacritic(&ks, &ru) {
+		t.Fatal("dead acute did not start composition")
+	}
+	ks, ru = KSymO, 'o'
+	if ComposeDiacritic(&ks, &ru) || ru != 'ó' {
+		t.Fatalf("dead acute + o produced %q", ru)
+	}
+
+	for _, next := range []KeySym{KSymAcute, KSymSpace} {
+		ks, ru = KSymAcute, '´'
 		if !ComposeDiacritic(&ks, &ru) {
-			t.Fatalf("useMultiKey=%v: dead acute did not start composition", useMultiKey)
+			t.Fatal("dead acute did not latch")
 		}
-		ks, ru = KSymO, 'o'
-		if ComposeDiacritic(&ks, &ru) || ru != 'ó' {
-			t.Fatalf("useMultiKey=%v: dead acute + o produced %q", useMultiKey, ru)
-		}
-
-		for _, next := range []KeySym{KSymAcute, KSymSpace} {
-			ks, ru = KSymAcute, '´'
-			if !ComposeDiacritic(&ks, &ru) {
-				t.Fatalf("useMultiKey=%v: dead acute did not latch", useMultiKey)
-			}
-			ks, ru = next, ' '
-			if ComposeDiacritic(&ks, &ru) || ru != '´' {
-				t.Fatalf("useMultiKey=%v: dead acute + %v produced %q", useMultiKey, next, ru)
-			}
+		ks, ru = next, ' '
+		if ComposeDiacritic(&ks, &ru) || ru != '´' {
+			t.Fatalf("dead acute + %v produced %q", next, ru)
 		}
 	}
 }
 
 func TestComposeDiacriticMultiKey(t *testing.T) {
-	oldUseMultiKey := UseMultiKey
-	UseMultiKey = true
-	defer func() {
-		UseMultiKey = oldUseMultiKey
-		diacriticsData.clear()
-	}()
+	defer diacriticsData.clear()
 	diacriticsData.clear()
 
 	ks, ru := KSymMultiKey, rune(0)

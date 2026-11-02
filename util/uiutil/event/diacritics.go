@@ -1,11 +1,9 @@
 package event
 
-var UseMultiKey = false
-
 var diacriticsData diacriticsState
 
 func ComposeDiacritic(ks *KeySym, ru *rune) (isLatch bool) {
-	if UseMultiKey && *ks == KSymMultiKey {
+	if *ks == KSymMultiKey {
 		diacriticsData.multiKey = true
 		return true
 	}
