@@ -185,6 +185,7 @@ func TestTermCellColorsCursorUsesUnderlyingCellColors(t *testing.T) {
 type testTui struct{}
 
 func (testTui) OnColumnModeChange()       {}
+func (testTui) TerminalDarkTheme() bool    { return false }
 func (testTui) SetClipboard(byte, string) {}
 func (testTui) SyncScreen()               {}
 func (testTui) Print(any)                 {}

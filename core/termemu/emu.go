@@ -457,6 +457,14 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 	case 'm': // SGR: Select Graphic Rendition (colors, bold, etc.)
 		emu.scr.csiSgr_selectGraphicRendition(op.params)
 	case 'n': // DSR: Device Status Report
+		if op.isPriv('?') && op.A() == 996 {
+			mode := 2 // light
+			if emu.tui.TerminalDarkTheme() {
+				mode = 1
+			}
+			emu.sendToExec(fmt.Sprintf("\x1b[?997;%dn", mode))
+			break
+		}
 		switch op.A() {
 		case 5: // "are you ok?"
 			emu.sendToExec("\x1b[0n") // "OK"
@@ -656,6 +664,7 @@ type Opts struct {
 
 // terminal user interface
 type Tui interface {
+	TerminalDarkTheme() bool
 	SetClipboard(target byte, text string)
 	OnColumnModeChange() // terminal 132 columns case
 	SyncScreen()

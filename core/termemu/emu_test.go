@@ -833,9 +833,10 @@ func _TestSnapshot0(t *testing.T) {
 //----------
 
 type TuiMock struct {
-	mu     sync.Mutex
-	ch     chan struct{}
-	Errors []error
+	mu        sync.Mutex
+	ch        chan struct{}
+	Errors    []error
+	darkTheme bool
 }
 
 func newTuiMock() *TuiMock {
@@ -862,6 +863,7 @@ func (m *TuiMock) Close() error {
 	return nil
 }
 func (m *TuiMock) OnColumnModeChange()       {}
+func (m *TuiMock) TerminalDarkTheme() bool   { return m.darkTheme }
 func (m *TuiMock) SetClipboard(byte, string) {}
 func (m *TuiMock) SyncScreen()               {}
 func (m *TuiMock) Error(err error) {

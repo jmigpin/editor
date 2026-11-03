@@ -62,3 +62,31 @@ func TestPixelSizeQueries(t *testing.T) {
 		t.Fatalf("unexpected errors: %v", errors)
 	}
 }
+
+func TestColorThemeQuery(t *testing.T) {
+	m := newTuiMock()
+	defer m.Close()
+	emu := newTestEmu(m, Opts{}, 80, 24)
+	defer emu.Close()
+
+	for _, tt := range []struct {
+		dark bool
+		want string
+	}{
+		{false, "\x1b[?997;2n"},
+		{true, "\x1b[?997;1n"},
+	} {
+		m.darkTheme = tt.dark
+		send(t, emu, "\x1b[?996n")
+		buf := make([]byte, len(tt.want))
+		if _, err := io.ReadFull(emu, buf); err != nil {
+			t.Fatal(err)
+		}
+		if string(buf) != tt.want {
+			t.Fatalf("dark=%v: reply=%q, want %q", tt.dark, buf, tt.want)
+		}
+	}
+	if errors := m.GetErrors(); len(errors) != 0 {
+		t.Fatalf("unexpected errors: %v", errors)
+	}
+}

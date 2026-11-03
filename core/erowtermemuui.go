@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/util/drawutil"
+	"github.com/jmigpin/editor/util/imageutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -20,7 +21,7 @@ type ERowTermEmuUI struct {
 	}
 
 	restore struct {
-		lineWrap        bool
+		lineWrap bool
 		//scrollBarX      bool
 		//scrollBarY      bool
 		//bg color.Color
@@ -84,6 +85,15 @@ func (tui *ERowTermEmuUI) OnColumnModeChange() {
 	tui.temu.erow.Ed.UI.RunOnUIGoRoutine(func() {
 		tui.temu.erow.uiUpdateFontAndTermSize()
 	})
+}
+
+func (tui *ERowTermEmuUI) TerminalDarkTheme() bool {
+	var dark bool
+	tui.temu.erow.Ed.UI.WaitRunOnUIGoRoutine(func() {
+		bg := tui.temu.erow.Row.TextArea.TreeThemePaletteColor("text_bg")
+		dark = !imageutil.IsLighter(bg)
+	})
+	return dark
 }
 
 func (tui *ERowTermEmuUI) SetClipboard(target byte, text string) {
