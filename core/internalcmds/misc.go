@@ -253,7 +253,7 @@ func GoDebug(args *core.InternalCmdArgs) error {
 	buf := &bytes.Buffer{}
 	cmd.Stderr = buf
 	if err := cmd.ParseFlagsOnce(args2[1:]); errors.Is(err, flag.ErrHelp) {
-		return fmt.Errorf("%w\n%v", err, buf.String())
+		return core.NewHelpRequestError("GoDebug", buf.String())
 	}
 
 	erow, err := args.ERowOrErr()

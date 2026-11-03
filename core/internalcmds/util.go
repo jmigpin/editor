@@ -3,7 +3,6 @@ package internalcmds
 import (
 	"bytes"
 	"flag"
-	"fmt"
 
 	"github.com/jmigpin/editor/core"
 )
@@ -16,7 +15,7 @@ func parseFlagSetHandleUsage(args *core.InternalCmdArgs, fs *flag.FlagSet) error
 		buf := &bytes.Buffer{}
 		fs.SetOutput(buf)
 		fs.Usage()
-		err = fmt.Errorf("%w\n%v", err, buf.String())
+		err = core.NewHelpRequestError(fs.Name(), buf.String())
 	}
 
 	return err

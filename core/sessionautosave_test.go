@@ -69,6 +69,25 @@ func TestParseSessionSavePartHelpShowsAutoDelay(t *testing.T) {
 			t.Fatalf("help missing %q:\n%v", want, errStr)
 		}
 	}
+	var help *HelpRequestError
+	if !errors.As(err, &help) {
+		t.Fatalf("got %T, want *HelpRequestError", err)
+	}
+	if !strings.HasPrefix(help.Display(), "Help requested; SaveSession was not run.\nUsage of SaveSession:\n") {
+		t.Fatalf("unexpected help display: %q", help.Display())
+	}
+}
+
+func TestParseSessionSavePartInvalidFlagIsNotHelp(t *testing.T) {
+	part := toolbarparser.Parse("SaveSession -bad destination").Parts[0]
+	_, _, err := parseSessionSavePart(part)
+	if err == nil || errors.Is(err, flag.ErrHelp) {
+		t.Fatalf("got %v, want flag error", err)
+	}
+	var help *HelpRequestError
+	if errors.As(err, &help) {
+		t.Fatalf("invalid flag reported as help: %v", err)
+	}
 }
 
 func TestSaveSessionNameFromPart(t *testing.T) {

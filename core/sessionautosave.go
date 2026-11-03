@@ -272,7 +272,7 @@ func sessionSaveFlagErr(fs *flag.FlagSet, err error) error {
 		buf := &bytes.Buffer{}
 		fs.SetOutput(buf)
 		fs.Usage()
-		return fmt.Errorf("%w\n%v", err, buf.String())
+		return NewHelpRequestError(fs.Name(), buf.String())
 	}
 	return err
 }

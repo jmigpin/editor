@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"image"
 	"log"
@@ -254,11 +253,12 @@ func (ed *Editor) Errorf(f string, a ...any) {
 	ed.Error(fmt.Errorf(f, a...))
 }
 func (ed *Editor) Error(err error) {
-	header := "error"
-	if errors.Is(err, flag.ErrHelp) {
-		header = "usage"
+	var help *HelpRequestError
+	if errors.As(err, &help) {
+		ed.Message(help.Display())
+		return
 	}
-	ed.Messagef("%v: %v", header, err)
+	ed.Messagef("error: %v", err)
 }
 
 func (ed *Editor) Messagef(f string, a ...any) {

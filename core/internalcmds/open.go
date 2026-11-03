@@ -79,7 +79,7 @@ func parseOpenOptions(part *toolbarparser.Part) (*openOptions, error) {
 			buf := &bytes.Buffer{}
 			fs.SetOutput(buf)
 			fs.Usage()
-			return nil, fmt.Errorf("%w\n%v", err, buf.String())
+			return nil, core.NewHelpRequestError(fs.Name(), buf.String())
 		}
 		return nil, err
 	}

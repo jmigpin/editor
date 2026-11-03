@@ -25,7 +25,7 @@ func ListDir(args *core.InternalCmdArgs) error {
 		if errors.Is(err, flag.ErrHelp) {
 			buf := &bytes.Buffer{}
 			core.ListDirFlagSetUsage(buf)
-			return fmt.Errorf("%w\n%v", err, buf.String())
+			return core.NewHelpRequestError("ListDir", buf.String())
 		}
 		return err
 	}
