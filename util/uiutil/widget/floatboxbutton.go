@@ -40,11 +40,10 @@ func (fbb *FloatBoxButton) Close() {
 func (fbb *FloatBoxButton) Layout() {
 	fbb.Button.Layout()
 
-	// update refpoint
-	fbb.floatBox.RefPoint = image.Point{fbb.Bounds.Min.X, fbb.Bounds.Max.Y}
-
-	if !fbb.floatBox.Visible() {
-		//fbb.floatBox.Layout()
+	refPoint := image.Point{fbb.Bounds.Min.X, fbb.Bounds.Max.Y}
+	if fbb.floatBox.Visible() && fbb.floatBox.RefPoint != refPoint {
+		fbb.floatBox.ml.AddMarkRect(fbb.floatBox.Bounds)
 		fbb.floatBox.MarkNeedsLayout()
 	}
+	fbb.floatBox.RefPoint = refPoint
 }
