@@ -66,20 +66,20 @@ func TestParseOpenOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q: %v", tt.src, err)
 		}
-		if *opts.rowMode != tt.rowMode {
-			t.Fatalf("%q: row mode: got %v, want %v", tt.src, *opts.rowMode, tt.rowMode)
+		if opts.rowMode != tt.rowMode {
+			t.Fatalf("%q: row mode: got %v, want %v", tt.src, opts.rowMode, tt.rowMode)
 		}
-		if *opts.rowForceNew != tt.rowForceNew {
-			t.Fatalf("%q: rowForceNew: got %v, want %v", tt.src, *opts.rowForceNew, tt.rowForceNew)
+		if opts.rowForceNew != tt.rowForceNew {
+			t.Fatalf("%q: rowForceNew: got %v, want %v", tt.src, opts.rowForceNew, tt.rowForceNew)
 		}
-		if *opts.externalMode != tt.externalMode {
-			t.Fatalf("%q: external mode: got %v, want %v", tt.src, *opts.externalMode, tt.externalMode)
+		if opts.externalMode != tt.externalMode {
+			t.Fatalf("%q: external mode: got %v, want %v", tt.src, opts.externalMode, tt.externalMode)
 		}
-		if *opts.filemanagerMode != tt.filemanagerMode {
-			t.Fatalf("%q: filemanager mode: got %v, want %v", tt.src, *opts.filemanagerMode, tt.filemanagerMode)
+		if opts.filemanagerMode != tt.filemanagerMode {
+			t.Fatalf("%q: filemanager mode: got %v, want %v", tt.src, opts.filemanagerMode, tt.filemanagerMode)
 		}
-		if *opts.terminalEmuMode != tt.terminalEmuMode {
-			t.Fatalf("%q: terminalemu mode: got %v, want %v", tt.src, *opts.terminalEmuMode, tt.terminalEmuMode)
+		if opts.terminalEmuMode != tt.terminalEmuMode {
+			t.Fatalf("%q: terminalemu mode: got %v, want %v", tt.src, opts.terminalEmuMode, tt.terminalEmuMode)
 		}
 		if opts.path != tt.path {
 			t.Fatalf("%q: path: got %q, want %q", tt.src, opts.path, tt.path)

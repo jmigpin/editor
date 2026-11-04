@@ -28,15 +28,15 @@ func Open(args *core.InternalCmdArgs) error {
 
 func openRun(args *core.InternalCmdArgs, opts *openOptions) error {
 	switch {
-	case *opts.rowMode:
-		return openRowPath(args, opts.path, *opts.rowForceNew)
-	case *opts.externalMode:
+	case opts.rowMode:
+		return openRowPath(args, opts.path, opts.rowForceNew)
+	case opts.externalMode:
 		return openExternalPath(args, opts.path)
-	case *opts.filemanagerMode:
+	case opts.filemanagerMode:
 		return openFilemanagerPath(args, opts.path)
-	case *opts.terminalMode:
+	case opts.terminalMode:
 		return openTerminalPath(args, opts.path)
-	case *opts.terminalEmuMode:
+	case opts.terminalEmuMode:
 		return openTerminalEmuPath(args, opts.path, opts.args)
 	default:
 		return fmt.Errorf("missing open mode")
@@ -46,37 +46,26 @@ func openRun(args *core.InternalCmdArgs, opts *openOptions) error {
 //----------
 
 type openOptions struct {
-	rowMode         *bool
-	rowForceNew     *bool
-	externalMode    *bool
-	filemanagerMode *bool
-	terminalMode    *bool
-	terminalEmuMode *bool
+	rowMode         bool
+	rowForceNew     bool
+	externalMode    bool
+	filemanagerMode bool
+	terminalMode    bool
+	terminalEmuMode bool
 	path            string
 	args            []string
-}
-
-func newOpenOptions() *openOptions {
-	return &openOptions{
-		rowMode:         new(bool),
-		rowForceNew:     new(bool),
-		externalMode:    new(bool),
-		filemanagerMode: new(bool),
-		terminalMode:    new(bool),
-		terminalEmuMode: new(bool),
-	}
 }
 
 func parseOpenOptions(part *toolbarparser.Part) (*openOptions, error) {
 	fs := flag.NewFlagSet("Open", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	opts := newOpenOptions()
-	opts.rowMode = fs.Bool("row", false, "open in an editor row, reusing an existing row when suitable (default)")
-	opts.rowForceNew = fs.Bool("rowForceNew", false, "always open a new row (only in row mode, the default)")
-	opts.externalMode = fs.Bool("external", false, "open with the preferred external application")
-	opts.filemanagerMode = fs.Bool("filemanager", false, "open with the external file manager")
-	opts.terminalMode = fs.Bool("terminal", false, "open an external terminal at the path directory")
-	opts.terminalEmuMode = fs.Bool("terminalemu", false, "open an internal terminal emulator at the path directory")
+	opts := &openOptions{}
+	fs.BoolVar(&opts.rowMode, "row", false, "open in an editor row, reusing an existing row when suitable (default)")
+	fs.BoolVar(&opts.rowForceNew, "rowForceNew", false, "always open a new row (only in row mode, the default)")
+	fs.BoolVar(&opts.externalMode, "external", false, "open with the preferred external application")
+	fs.BoolVar(&opts.filemanagerMode, "filemanager", false, "open with the external file manager")
+	fs.BoolVar(&opts.terminalMode, "terminal", false, "open an external terminal at the path directory")
+	fs.BoolVar(&opts.terminalEmuMode, "terminalemu", false, "open an internal terminal emulator at the path directory")
 	if err := fs.Parse(part.ArgsUnquoted()[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			buf := &bytes.Buffer{}
@@ -92,11 +81,11 @@ func parseOpenOptions(part *toolbarparser.Part) (*openOptions, error) {
 	}
 
 	remaining := fs.Args()
-	if *opts.rowMode && len(remaining) == 0 {
+	if opts.rowMode && len(remaining) == 0 {
 		return nil, fmt.Errorf("missing filename")
 	}
 
-	if *opts.terminalEmuMode {
+	if opts.terminalEmuMode {
 		if len(remaining) > 0 {
 			opts.path = remaining[0]
 			opts.args = remaining[1:]
@@ -109,14 +98,14 @@ func parseOpenOptions(part *toolbarparser.Part) (*openOptions, error) {
 
 func openValidateModes(opts *openOptions) error {
 	selectedModes := 0
-	for _, mode := range []*bool{
+	for _, mode := range []bool{
 		opts.rowMode,
 		opts.externalMode,
 		opts.filemanagerMode,
 		opts.terminalMode,
 		opts.terminalEmuMode,
 	} {
-		if *mode {
+		if mode {
 			selectedModes++
 		}
 	}
@@ -124,9 +113,9 @@ func openValidateModes(opts *openOptions) error {
 		return fmt.Errorf("multiple open modes")
 	}
 	if selectedModes == 0 {
-		*opts.rowMode = true
+		opts.rowMode = true
 	}
-	if *opts.rowForceNew && !*opts.rowMode {
+	if opts.rowForceNew && !opts.rowMode {
 		return fmt.Errorf("-rowForceNew is only supported in row mode")
 	}
 	return nil

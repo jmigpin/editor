@@ -213,20 +213,17 @@ func Clear(args *core.InternalCmdArgs) error {
 //----------
 
 func OpenFilemanager(args *core.InternalCmdArgs) error {
-	opts := newOpenOptions()
-	*opts.filemanagerMode = true
+	opts := &openOptions{filemanagerMode: true}
 	return openRun(args, opts)
 }
 
 func OpenTerminalExternal(args *core.InternalCmdArgs) error {
-	opts := newOpenOptions()
-	*opts.terminalMode = true
+	opts := &openOptions{terminalMode: true}
 	return openRun(args, opts)
 }
 
 func OpenTerminalEmu(args *core.InternalCmdArgs) error {
-	opts := newOpenOptions()
-	*opts.terminalEmuMode = true
+	opts := &openOptions{terminalEmuMode: true}
 	shellArgs := []string{}
 	if len(args.Part.Args) > 1 {
 		for _, arg := range args.Part.Args[1:] {
@@ -238,8 +235,7 @@ func OpenTerminalEmu(args *core.InternalCmdArgs) error {
 }
 
 func OpenExternal(args *core.InternalCmdArgs) error {
-	opts := newOpenOptions()
-	*opts.externalMode = true
+	opts := &openOptions{externalMode: true}
 	return openRun(args, opts)
 }
 
