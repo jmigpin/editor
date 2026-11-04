@@ -6,13 +6,14 @@ import (
 	"path/filepath"
 
 	"github.com/jmigpin/editor/core"
+	"github.com/jmigpin/editor/core/toolbarparser"
 )
 
 func NewFile(args *core.InternalCmdArgs) error {
-	if len(args.Part.Args) != 2 {
-		return fmt.Errorf("missing filename")
+	name, createParents, err := newFileArgs(args.Part)
+	if err != nil {
+		return err
 	}
-	name := args.Part.Args[1].String()
 
 	erow, err := args.ERowOrErr()
 	if err != nil {
@@ -30,19 +31,9 @@ func NewFile(args *core.InternalCmdArgs) error {
 		filename = filepath.Join(dir, name)
 	}
 
-	if _, err := os.Stat(filename); err == nil {
-		return fmt.Errorf("already exists: %v", filename)
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("stat %q: %w", filename, err)
+	if err := createNewFile(filename, createParents); err != nil {
+		return err
 	}
-	f, err := os.Create(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("directory does not exist: %q: %w", filepath.Dir(filename), err)
-		}
-		return fmt.Errorf("create %q: %w", filename, err)
-	}
-	f.Close()
 
 	info := args.Ed.ReadERowInfo(filename)
 
@@ -53,5 +44,41 @@ func NewFile(args *core.InternalCmdArgs) error {
 	}
 	erow2.Flash()
 
+	return nil
+}
+
+//----------
+
+func newFileArgs(part *toolbarparser.Part) (string, bool, error) {
+	args := part.ArgsStrings()
+	if len(args) == 3 && args[1] == "-p" {
+		return args[2], true, nil
+	}
+	if len(args) == 2 && args[1] != "-p" {
+		return args[1], false, nil
+	}
+	return "", false, fmt.Errorf("missing filename or invalid arguments")
+}
+
+func createNewFile(filename string, createParents bool) error {
+	dir := filepath.Dir(filename)
+	if createParents {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create directory %q: %w", dir, err)
+		}
+	}
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+	if err != nil {
+		if os.IsExist(err) {
+			return fmt.Errorf("already exists: %v", filename)
+		}
+		if os.IsNotExist(err) {
+			return fmt.Errorf("directory does not exist: %q: %w", dir, err)
+		}
+		return fmt.Errorf("create %q: %w", filename, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close %q: %w", filename, err)
+	}
 	return nil
 }
