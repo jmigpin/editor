@@ -413,6 +413,7 @@ func isKeypadDigit(ks xproto.Keysym) bool {
 //----------
 
 func translateModifiersToEventMouseButtons(v uint16) event.MouseButtons {
+	// XKB uses bits 13-14 for the keyboard group; only buttons 1-5 are encoded in event state.
 	type pair struct {
 		a uint16
 		b event.MouseButton
@@ -423,11 +424,6 @@ func translateModifiersToEventMouseButtons(v uint16) event.MouseButtons {
 		{xproto.KeyButMaskButton3, event.ButtonRight},
 		{xproto.KeyButMaskButton4, event.ButtonWheelUp},
 		{xproto.KeyButMaskButton5, event.ButtonWheelDown},
-		{xproto.KeyButMaskButton5 << 1, event.ButtonWheelLeft},
-		{xproto.KeyButMaskButton5 << 2, event.ButtonWheelRight},
-		{xproto.KeyButMaskButton5 << 3, event.ButtonBackward},
-		// event sends uint16 (no support for forward?)
-		//{xproto.KeyButMaskButton5 << 4, event.ButtonForward},
 	}
 	var w event.MouseButtons
 	for _, p := range pairs {

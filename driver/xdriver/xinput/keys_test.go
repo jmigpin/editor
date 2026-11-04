@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jezek/xgb/xproto"
+	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
 func TestKeysymUnicode(t *testing.T) {
@@ -32,5 +33,38 @@ func TestKeysymUnicode(t *testing.T) {
 	}
 	if got := finalKeysymRune(keysymToEventKeysym(0xfe51), 0xfe51); got != '\u00b4' {
 		t.Errorf("dead acute: got %U", got)
+	}
+}
+
+func TestMouseButtonsIgnoreXKBGroupBits(t *testing.T) {
+	for _, tt := range []struct {
+		state uint16
+		want  event.MouseButtons
+	}{
+		{0x0, 0},
+		{0x2000, 0},
+		{0x4000, 0},
+		{0x100, event.MouseButtons(event.ButtonLeft)},
+		{0x2100, event.MouseButtons(event.ButtonLeft)},
+		{0x4100, event.MouseButtons(event.ButtonLeft)},
+		{0x1f00, event.MouseButtons(event.ButtonLeft | event.ButtonMiddle | event.ButtonRight | event.ButtonWheelUp | event.ButtonWheelDown)},
+	} {
+		if got := translateModifiersToEventMouseButtons(tt.state); got != tt.want {
+			t.Errorf("state %#x: got %#x, want %#x", tt.state, got, tt.want)
+		}
+	}
+
+	for _, tt := range []struct {
+		button xproto.Button
+		want   event.MouseButton
+	}{
+		{6, event.ButtonWheelLeft},
+		{7, event.ButtonWheelRight},
+		{8, event.ButtonBackward},
+		{9, event.ButtonForward},
+	} {
+		if got := translateButtonToEventButton(tt.button); got != tt.want {
+			t.Errorf("button %d: got %v, want %v", tt.button, got, tt.want)
+		}
 	}
 }
