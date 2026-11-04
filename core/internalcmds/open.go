@@ -29,7 +29,7 @@ func Open(args *core.InternalCmdArgs) error {
 func openRun(args *core.InternalCmdArgs, opts *openOptions) error {
 	switch {
 	case *opts.rowMode:
-		return openRowPath(args, opts.path)
+		return openRowPath(args, opts.path, *opts.rowForceNew)
 	case *opts.externalMode:
 		return openExternalPath(args, opts.path)
 	case *opts.filemanagerMode:
@@ -47,6 +47,7 @@ func openRun(args *core.InternalCmdArgs, opts *openOptions) error {
 
 type openOptions struct {
 	rowMode         *bool
+	rowForceNew     *bool
 	externalMode    *bool
 	filemanagerMode *bool
 	terminalMode    *bool
@@ -58,6 +59,7 @@ type openOptions struct {
 func newOpenOptions() *openOptions {
 	return &openOptions{
 		rowMode:         new(bool),
+		rowForceNew:     new(bool),
 		externalMode:    new(bool),
 		filemanagerMode: new(bool),
 		terminalMode:    new(bool),
@@ -69,7 +71,8 @@ func parseOpenOptions(part *toolbarparser.Part) (*openOptions, error) {
 	fs := flag.NewFlagSet("Open", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	opts := newOpenOptions()
-	opts.rowMode = fs.Bool("row", false, "open in a new row (default)")
+	opts.rowMode = fs.Bool("row", false, "open in an editor row, reusing an existing row when suitable (default)")
+	opts.rowForceNew = fs.Bool("rowForceNew", false, "always open a new row (only in row mode, the default)")
 	opts.externalMode = fs.Bool("external", false, "open with the preferred external application")
 	opts.filemanagerMode = fs.Bool("filemanager", false, "open with the external file manager")
 	opts.terminalMode = fs.Bool("terminal", false, "open an external terminal at the path directory")
@@ -123,12 +126,15 @@ func openValidateModes(opts *openOptions) error {
 	if selectedModes == 0 {
 		*opts.rowMode = true
 	}
+	if *opts.rowForceNew && !*opts.rowMode {
+		return fmt.Errorf("-rowForceNew is only supported in row mode")
+	}
 	return nil
 }
 
 //----------
 
-func openRowPath(args *core.InternalCmdArgs, path string) error {
+func openRowPath(args *core.InternalCmdArgs, path string, forceNew bool) error {
 	if path == "" {
 		return fmt.Errorf("missing filename")
 	}
@@ -155,6 +161,7 @@ func openRowPath(args *core.InternalCmdArgs, path string) error {
 	conf := &core.OpenFileERowConfig{
 		FilePos:               filePos,
 		RowPos:                rowPos,
+		ForceNew:              forceNew,
 		FlashVisibleOffsets:   true,
 		NewIfNotExistent:      true,
 		NewIfOffsetNotVisible: true,

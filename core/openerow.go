@@ -13,6 +13,7 @@ type OpenFileERowConfig struct {
 	RowPos  *ui.RowPos
 
 	CancelIfExistent      bool
+	ForceNew              bool
 	NewIfNotExistent      bool
 	NewIfOffsetNotVisible bool
 
@@ -47,7 +48,7 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 		return false, nil
 	}
 
-	createNew := false
+	createNew := conf.ForceNew
 
 	// helper func: cache for LineColumnIndex
 	lciVal := 0
@@ -176,6 +177,9 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 			}
 
 			for _, e := range info.ERows {
+				if conf.ForceNew && e != newERow {
+					continue
+				}
 				if e.Row.TextArea.IndexVisible(offset) {
 					e.MakeRangeVisibleAndFlash(o, l)
 					flashed[e] = true
@@ -194,6 +198,9 @@ func openFileERow2(ed *Editor, conf *OpenFileERowConfig) (isNew bool, _ error) {
 	//if conf.FlashRowsIfNotFlashed ||
 	if conf.FlashVisibleOffsets && offset < 0 {
 		for _, e := range info.ERows {
+			if conf.ForceNew && e != newERow {
+				continue
+			}
 			if !flashed[e] {
 				e.Flash()
 			}

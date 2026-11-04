@@ -41,6 +41,7 @@ func TestParseOpenOptions(t *testing.T) {
 	tests := []struct {
 		src             string
 		rowMode         bool
+		rowForceNew     bool
 		externalMode    bool
 		filemanagerMode bool
 		terminalEmuMode bool
@@ -48,6 +49,9 @@ func TestParseOpenOptions(t *testing.T) {
 		args            []string
 	}{
 		{src: "Open a/b.txt", rowMode: true, path: "a/b.txt"},
+		{src: "Open -rowForceNew a/b.txt", rowMode: true, rowForceNew: true, path: "a/b.txt"},
+		{src: "Open -row -rowForceNew a/b.txt", rowMode: true, rowForceNew: true, path: "a/b.txt"},
+		{src: "Open -rowForceNew=false a/b.txt", rowMode: true, path: "a/b.txt"},
 		{src: "Open -external a/b.txt", externalMode: true, path: "a/b.txt"},
 		{src: "Open -external", externalMode: true},
 		{src: "Open -filemanager a file.txt", filemanagerMode: true, path: "a file.txt"},
@@ -64,6 +68,9 @@ func TestParseOpenOptions(t *testing.T) {
 		}
 		if *opts.rowMode != tt.rowMode {
 			t.Fatalf("%q: row mode: got %v, want %v", tt.src, *opts.rowMode, tt.rowMode)
+		}
+		if *opts.rowForceNew != tt.rowForceNew {
+			t.Fatalf("%q: rowForceNew: got %v, want %v", tt.src, *opts.rowForceNew, tt.rowForceNew)
 		}
 		if *opts.externalMode != tt.externalMode {
 			t.Fatalf("%q: external mode: got %v, want %v", tt.src, *opts.externalMode, tt.externalMode)
@@ -95,6 +102,20 @@ func TestParseOpenOptionsMultipleModes(t *testing.T) {
 	}
 }
 
+func TestParseOpenOptionsRowForceNewRequiresRowMode(t *testing.T) {
+	for _, src := range []string{
+		"Open -external -rowForceNew a/b.txt",
+		"Open -filemanager -rowForceNew a/b.txt",
+		"Open -terminal -rowForceNew a/b.txt",
+		"Open -terminalemu -rowForceNew a/b.txt",
+	} {
+		part := parseOpenPart(t, src)
+		if _, err := parseOpenOptions(part); err == nil || !strings.Contains(err.Error(), "only supported in row mode") {
+			t.Fatalf("%q: got %v, want row mode error", src, err)
+		}
+	}
+}
+
 func TestParseOpenOptionsMissingRowPath(t *testing.T) {
 	part := parseOpenPart(t, "Open")
 	if _, err := parseOpenOptions(part); err == nil {
@@ -108,7 +129,7 @@ func TestParseOpenOptionsHelp(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "-external") {
+	if !strings.Contains(err.Error(), "-external") || !strings.Contains(err.Error(), "-rowForceNew") {
 		t.Fatalf("missing usage: %v", err)
 	}
 }
