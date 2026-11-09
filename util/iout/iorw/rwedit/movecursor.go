@@ -4,6 +4,7 @@ import (
 	"errors"
 	"image"
 	"io"
+	"unicode"
 
 	"github.com/jmigpin/editor/util/iout/iorw"
 	"github.com/jmigpin/editor/util/uiutil/event"
@@ -129,7 +130,7 @@ func MoveCursorJumpRight(ctx *Ctx, sel bool) error {
 
 func jumpLeftIndex(ctx *Ctx) (int, error) {
 	rd := ctx.LocalReader(ctx.C.Index())
-	i, size, err := iorw.RuneLastIndexFn(rd, ctx.C.Index(), true, edgeOfNextWordOrNewline())
+	i, size, err := iorw.RuneLastIndexFn(rd, ctx.C.Index(), true, edgeOfNextWordSymbolRunOrNewline())
 	if err != nil && !errors.Is(err, io.EOF) {
 		return 0, err
 	}
@@ -138,7 +139,7 @@ func jumpLeftIndex(ctx *Ctx) (int, error) {
 
 func jumpRightIndex(ctx *Ctx) (int, error) {
 	rd := ctx.LocalReader(ctx.C.Index())
-	i, _, err := iorw.RuneIndexFn(rd, ctx.C.Index(), true, edgeOfNextWordOrNewline())
+	i, _, err := iorw.RuneIndexFn(rd, ctx.C.Index(), true, edgeOfNextWordSymbolRunOrNewline())
 	if err != nil && !errors.Is(err, io.EOF) {
 		return 0, err
 	}
@@ -147,24 +148,29 @@ func jumpRightIndex(ctx *Ctx) (int, error) {
 
 //----------
 
-func edgeOfNextWordOrNewline() func(rune) bool {
+func edgeOfNextWordSymbolRunOrNewline() func(rune) bool {
 	first := true
-	var inWord bool
+	var inWord, inSymbolRun bool
 	return func(ru rune) bool {
 		w := iorw.IsWordRune(ru)
+		s := !w && !unicode.IsSpace(ru)
 		if first {
 			first = false
 			inWord = w
+			inSymbolRun = s
 		} else {
-			if !inWord {
+			if inWord {
+				return !w
+			}
+			if inSymbolRun {
+				return !s
+			}
+			if ru == '\n' {
+				return true
+			}
+			if w || s {
 				inWord = w
-				if ru == '\n' {
-					return true
-				}
-			} else {
-				if !w {
-					return true
-				}
+				inSymbolRun = s
 			}
 		}
 		return false
