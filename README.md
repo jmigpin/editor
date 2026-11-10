@@ -554,6 +554,7 @@ The important row variables `$font`, `$fontFallback`, `$scrollMode`, `$colorize`
 - background colors:
 	- `blue`: row file has been edited.
 	- `orange`: row file doesn't exist.
+	- `green`: a command is running in the row. In a terminal row, the shell keeps the square green even while waiting for input. 
 - dot colors:
 	- `black`: row currently active. There is only one active row.
 	- `red`: row file was edited outside (changed on disk) and doesn't match last known save. Use `Reload` cmd to update.
