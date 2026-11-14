@@ -84,6 +84,17 @@ func (row *Row) Layout() {
 	row.BoxLayout.Layout()
 }
 
+func (row *Row) PotentialTextAreaInnerWidth() int {
+	// A nonempty height keeps the horizontal bounds available when the textarea is collapsed.
+	b := row.Bounds
+	b.Max.Y = b.Min.Y + max(1, row.ScrollArea.ScrollWidth+1)
+	b = row.ScrollArea.ContentBoundsFor(b)
+	if d, ok := row.TextArea.Drawer.(*drawer4.Drawer); ok {
+		b = d.InnerBoundsFor(b)
+	}
+	return b.Dx()
+}
+
 //----------
 
 func (row *Row) OnInputEvent(ev0 any, p image.Point) event.Handled {

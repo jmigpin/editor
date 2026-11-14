@@ -311,7 +311,9 @@ func (d *Drawer) Bounds() image.Rectangle {
 	return d.bounds
 }
 func (d *Drawer) InnerBounds() image.Rectangle {
-	b := d.bounds // copy
+	return d.InnerBoundsFor(d.bounds)
+}
+func (d *Drawer) InnerBoundsFor(b image.Rectangle) image.Rectangle {
 	b.Min.X += d.startOffsetX()
 	b.Max.X = max(b.Min.X, b.Max.X) // keep rect well formed
 	return b

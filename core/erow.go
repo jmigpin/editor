@@ -659,6 +659,9 @@ func (erow *ERow) textareaPixelSize(fface *fontutil.FontFace) image.Point {
 	}
 
 	p := b.Size()
+	if p.X <= 0 {
+		p.X = erow.Row.PotentialTextAreaInnerWidth()
+	}
 
 	// cover newline added to the end when drawing a grid
 	ruW := fface.AvgGlyphAdvance().Ceil() // rune width

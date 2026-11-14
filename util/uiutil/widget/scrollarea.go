@@ -107,31 +107,46 @@ func (sa *ScrollArea) Measure(hint image.Point) image.Point {
 }
 
 func (sa *ScrollArea) Layout() {
-	b := sa.Bounds
+	content, ybar, xbar := sa.layoutBoundsFor(sa.Bounds)
 	if sa.YBar != nil {
-		r := b
-		if sa.LeftScroll {
-			r.Max.X = r.Min.X + sa.ScrollWidth
-			b.Min.X = r.Max.X
-		} else {
-			r.Min.X = r.Max.X - sa.ScrollWidth
-			b.Max.X = r.Min.X
-		}
-		r = r.Intersect(sa.Bounds)
-		sa.YBar.Bounds = r
+		sa.YBar.Bounds = ybar
 	}
 	if sa.XBar != nil {
-		r := b
-		r.Min.Y = r.Max.Y - sa.ScrollWidth
-		b.Max.Y = r.Min.Y
-		r = r.Intersect(sa.Bounds)
-		sa.XBar.Bounds = r
+		sa.XBar.Bounds = xbar
 	}
 
 	// scrollable bounds
-	sa.scrollable.Embed().Bounds = b.Intersect(sa.Bounds)
+	sa.scrollable.Embed().Bounds = content
 	// ensure scrollable layout is done before the scrollbar since it might be calculated before the scrollable due to child order. The scrollable needs to be aware of its updated bounds to correctly return the viewsize.
 	sa.scrollable.Layout()
+}
+
+func (sa *ScrollArea) ContentBoundsFor(bounds image.Rectangle) image.Rectangle {
+	content, _, _ := sa.layoutBoundsFor(bounds)
+	return content
+}
+
+func (sa *ScrollArea) layoutBoundsFor(bounds image.Rectangle) (content, ybar, xbar image.Rectangle) {
+	content = bounds
+	if sa.YBar != nil {
+		ybar = content
+		if sa.LeftScroll {
+			ybar.Max.X = ybar.Min.X + sa.ScrollWidth
+			content.Min.X = ybar.Max.X
+		} else {
+			ybar.Min.X = ybar.Max.X - sa.ScrollWidth
+			content.Max.X = ybar.Min.X
+		}
+		ybar = ybar.Intersect(bounds)
+	}
+	if sa.XBar != nil {
+		xbar = content
+		xbar.Min.Y = xbar.Max.Y - sa.ScrollWidth
+		content.Max.Y = xbar.Min.Y
+		xbar = xbar.Intersect(bounds)
+	}
+	content = content.Intersect(bounds)
+	return
 }
 
 //----------
