@@ -251,7 +251,7 @@ func (emu *Emu) ScrPrivModes() *PrivModes {
 func (emu *Emu) SetLNM(on bool) {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
-	emu.scr.privModes.set("20", on)
+	emu.scr.privModes.SetLineFeedNewline(on)
 }
 
 func (emu *Emu) WriteMessage(p []byte) (int, error) {
@@ -259,8 +259,8 @@ func (emu *Emu) WriteMessage(p []byte) (int, error) {
 	defer emu.mu.Unlock()
 
 	previousLNM := emu.scr.privModes.LineFeedNewline()
-	emu.scr.privModes.set("20", true)
-	defer emu.scr.privModes.set("20", previousLNM)
+	emu.scr.privModes.SetLineFeedNewline(true)
+	defer emu.scr.privModes.SetLineFeedNewline(previousLNM)
 
 	parser := NewVTParser(bytes.NewReader(p), emu.applyEmitLocked)
 	parser.ansiMode = emu.parser.ansiMode

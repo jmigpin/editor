@@ -45,7 +45,7 @@ func TestCursorMoves(t *testing.T) {
 			te := newTestEmu(m, Opts{}, 10, 5)
 			defer te.Close()
 
-			te.scr.privModes.set("20", tc.lnm)
+			te.scr.privModes.SetLineFeedNewline(tc.lnm)
 
 			seq := cup(tc.startY, tc.startX) + tc.seq
 			sendWithBarrier(t, te, seq)

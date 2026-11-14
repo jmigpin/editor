@@ -1202,8 +1202,9 @@ func (m *PrivModes) clone() *PrivModes {
 
 //----------
 
-func (m *PrivModes) insert() bool          { return m.isOn("4") }
-func (m *PrivModes) LineFeedNewline() bool { return m.isOn("20") }
+func (m *PrivModes) insert() bool               { return m.isOn("4") }
+func (m *PrivModes) LineFeedNewline() bool      { return m.isOn("20") }
+func (m *PrivModes) SetLineFeedNewline(on bool) { m.set("20", on) }
 
 func (m *PrivModes) AppCursorKeys() bool      { return m.isOn("?1") }
 func (m *PrivModes) AnsiNotVT52() bool        { return m.isOn("?2") }
