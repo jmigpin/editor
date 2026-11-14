@@ -4,8 +4,39 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
+
+func TestKbEncodeToStrNewlineAndBackarrowModes(t *testing.T) {
+	emu := termemu.NewEmu(nilReadWriter{}, testTui{}, termemu.Opts{})
+	defer emu.Close()
+	tarc := &ERowTaReadCloser{erow: &ERow{optTemu: &ERowTermEmu{emu: emu}}}
+
+	check := func(key event.KeySym, want string) {
+		t.Helper()
+		if got := tarc.kbEncodeToStr(nil, &event.KeyDown{KeySym: key}); got != want {
+			t.Errorf("key=%v: got %q, want %q", key, got, want)
+		}
+	}
+	check(event.KSymReturn, "\r")
+	check(event.KSymBackspace, "\x7f")
+
+	emu.SetLNM(true)
+	check(event.KSymReturn, "\r\n")
+	check(event.KSymBackspace, "\x7f")
+
+	if _, err := emu.WriteMessage([]byte("\x1b[?67h")); err != nil {
+		t.Fatal(err)
+	}
+	check(event.KSymBackspace, "\b")
+	check(event.KSymReturn, "\r\n")
+
+	if _, err := emu.WriteMessage([]byte("\x1b[?67l")); err != nil {
+		t.Fatal(err)
+	}
+	check(event.KSymBackspace, "\x7f")
+}
 
 func TestKbEncodeToStrFunctionKeys(t *testing.T) {
 	keys := []struct {

@@ -1215,6 +1215,7 @@ func (m *PrivModes) origin() bool             { return m.isOn("?6") }
 func (m *PrivModes) autoWrap() bool           { return m.isOn("?7") }
 func (m *PrivModes) autoRepeat() bool         { return m.isOn("?8") }
 func (m *PrivModes) showCursor() bool         { return m.isOn("?25") }
+func (m *PrivModes) BackarrowKey() bool       { return m.isOn("?67") }
 func (m *PrivModes) leftRightMargin() bool    { return m.isOn("?69") }
 func (m *PrivModes) MouseNormal() bool        { return m.isOn("?1000") }
 func (m *PrivModes) MouseButtonEvent() bool   { return m.isOn("?1002") }

@@ -644,6 +644,7 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 		if !on {
 			s.cancelWrap()
 		}
+	case "?67": // backarrow key sends BS when set, DEL when reset
 	case "?69": // left/right margin mode
 		if !on {
 			s.regionLR = regionLR{}

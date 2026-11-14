@@ -77,6 +77,10 @@ func (tarc *ERowTaReadCloser) lineFeedNewline() bool {
 	u := tarc.erow.optTemu
 	return u != nil && u.emu.ScrPrivModes().LineFeedNewline()
 }
+func (tarc *ERowTaReadCloser) backarrowKey() bool {
+	u := tarc.erow.optTemu
+	return u != nil && u.emu.ScrPrivModes().BackarrowKey()
+}
 func (tarc *ERowTaReadCloser) appCursorKeys() bool {
 	u := tarc.erow.optTemu
 	return u != nil && u.emu.ScrPrivModes().AppCursorKeys()
@@ -268,15 +272,18 @@ func (tarc *ERowTaReadCloser) kbEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *eve
 
 	case event.KSymReturn, event.KSymKeypadEnter:
 		s := "\r"
+		if tarc.lineFeedNewline() {
+			s += "\n"
+		}
 		if mods.HasAny(event.ModAlt) {
 			s = "\x1b" + s
 		}
 		return s
 
 	case event.KSymBackspace:
-		s := "\b"
-		if tarc.lineFeedNewline() {
-			s = string('\x7f') // del
+		s := "\x7f"
+		if tarc.backarrowKey() {
+			s = "\b"
 		}
 		if mods.HasAny(event.ModAlt) {
 			s = "\x1b" + s
