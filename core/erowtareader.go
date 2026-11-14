@@ -71,19 +71,19 @@ func (tarc *ERowTaReadCloser) writePasteToRead(s string) error {
 
 func (tarc *ERowTaReadCloser) bracketedPaste() bool {
 	u := tarc.erow.optTemu
-	return u != nil && u.emu.ScrPrivModes().BracketedPaste()
+	return u != nil && u.emu.ScrPrivModes().IsOn(termemu.ModeBracketedPaste)
 }
 func (tarc *ERowTaReadCloser) lineFeedNewline() bool {
 	u := tarc.erow.optTemu
-	return u != nil && u.emu.ScrPrivModes().LineFeedNewline()
+	return u != nil && u.emu.ScrPrivModes().IsOn(termemu.ModeLineFeedNewline)
 }
 func (tarc *ERowTaReadCloser) backarrowKey() bool {
 	u := tarc.erow.optTemu
-	return u != nil && u.emu.ScrPrivModes().BackarrowKey()
+	return u != nil && u.emu.ScrPrivModes().IsOn(termemu.ModeBackarrowKey)
 }
 func (tarc *ERowTaReadCloser) appCursorKeys() bool {
 	u := tarc.erow.optTemu
-	return u != nil && u.emu.ScrPrivModes().AppCursorKeys()
+	return u != nil && u.emu.ScrPrivModes().IsOn(termemu.ModeAppCursorKeys)
 }
 
 func (tarc *ERowTaReadCloser) mousePrivModes() (*termemu.PrivModes, bool) {
@@ -199,8 +199,8 @@ func (tarc *ERowTaReadCloser) mouseEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *
 	if !ok {
 		return ""
 	}
-	mouseSgr := pm.MouseSgr()
-	canMouseWheel := mouseSgr || pm.MouseNormal() || pm.MouseButtonEvent() || pm.MouseAnyEvent()
+	mouseSgr := pm.IsOn(termemu.ModeMouseSgr)
+	canMouseWheel := mouseSgr || pm.IsOn(termemu.ModeMouseNormal) || pm.IsOn(termemu.ModeMouseButtonEvent) || pm.IsOn(termemu.ModeMouseAnyEvent)
 	if canMouseWheel {
 		pos := image.Pt(3, 3)
 		return encodeMouseWheelToStr(ev2.Button, ev2.Mods, pos, mouseSgr)

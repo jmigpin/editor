@@ -51,12 +51,12 @@ func (sp *ScreenPrinter) Bprint(scr *Screen) []byte {
 
 	// We intentionally keep cursor-only cells as visible content when  computing the printable line end. While an app is running, many terminals show the cursor via color/inverse (without a dedicated cursor rune), and trimming that cell would make the cursor disappear at line end. Side effect: after the app exits, a trailing " " can remain in text dumps (for example "\n "). This is expected and preferred over losing the live cursor.
 	isCursor := func(x, y int) bool {
-		return scr.IsCursor(x, y) && scr.privModes.showCursor()
+		return scr.IsCursor(x, y) && scr.privModes.IsOn(ModeShowCursor)
 	}
 
 	//----------
 
-	revv := scr.privModes.reverseVideo()
+	revv := scr.privModes.IsOn(ModeReverseVideo)
 	effectiveCell := func(c *Cell, cursor bool) Cell {
 		c2 := *c
 		if revv {

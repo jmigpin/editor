@@ -88,7 +88,7 @@ func (s *Screen) setSize(size P) (_ P, changed bool) {
 }
 
 func (s *Screen) clampSize(p P) P {
-	if s.privModes.column132() {
+	if s.privModes.IsOn(ModeColumn132) {
 		p.X = 132
 	}
 	p = ClampMinValidGridSize(p)
@@ -98,7 +98,7 @@ func (s *Screen) clampSize(p P) P {
 //----------
 
 func (s *Screen) updateColumnMode() {
-	if m := s.privModes.column132(); m == s.col132Mode {
+	if m := s.privModes.IsOn(ModeColumn132); m == s.col132Mode {
 		return
 	} else {
 		s.col132Mode = m
@@ -119,7 +119,7 @@ func (s *Screen) updateRegion() {
 func (s *Screen) updateRegionX() {
 	w := s.grid.size.X
 	left, right := 0, w
-	if s.privModes.leftRightMargin() {
+	if s.privModes.IsOn(ModeLeftRightMargin) {
 		if s.regionLR.leftSet {
 			left = s.regionLR.left
 		}
@@ -222,7 +222,7 @@ func (s *Screen) putGraphicRune(ru rune) {
 	w := runeWidth(ru)
 	maxBoundX := s.dynBounds(s.cursor).Max.X
 
-	if s.privModes.insert() {
+	if s.privModes.IsOn(ModeInsert) {
 		s.cancelWrap()
 		s.csiIch_insertChars(w)
 	} else {
@@ -235,7 +235,7 @@ func (s *Screen) putGraphicRune(ru rune) {
 			s.lineFeed()
 		} else if w == 2 && s.cursor.X >= maxBoundX-1 {
 			// If printing a double-width character at the last column, wrap first
-			if s.privModes.autoWrap() {
+			if s.privModes.IsOn(ModeAutoWrap) {
 				s.grid.line(s.cursor.Y).AutoWrapped = true
 				s.carriageReturn()
 				s.lineFeed()
@@ -269,14 +269,14 @@ func (s *Screen) putGraphicRune(ru rune) {
 		*line.cell(X + 1) = Cell{R: doubleWidthPlaceholderRune, A: s.curAttr}
 	}
 
-	if s.privModes.insert() {
+	if s.privModes.IsOn(ModeInsert) {
 		s.cursor.X += w
 		clampInX(&s.cursor.X, s.grid.bounds())
 	} else {
 		advX := X + w
 		if advX >= maxBoundX {
 			s.cursor.X = maxBoundX - 1
-			if s.privModes.autoWrap() {
+			if s.privModes.IsOn(ModeAutoWrap) {
 				s.wrapNext = true
 			}
 		} else {
@@ -295,7 +295,7 @@ func (s *Screen) carriageReturn() {
 func (s *Screen) lineFeed() {
 	s.cancelWrap()
 
-	if s.privModes.LineFeedNewline() {
+	if s.privModes.IsOn(ModeLineFeedNewline) {
 		s.carriageReturn()
 	}
 
@@ -331,10 +331,10 @@ func (s *Screen) setScrollRegion(top1, bot1 int) {
 
 	// set cursor to home
 	s.cursor = P{0, 0}
-	if s.privModes.origin() {
+	if s.privModes.IsOn(ModeOrigin) {
 		s.cursor.Y = s.region.Min.Y
 	}
-	if s.privModes.leftRightMargin() {
+	if s.privModes.IsOn(ModeLeftRightMargin) {
 		s.cursor.X = s.region.Min.X
 	}
 }
@@ -372,7 +372,7 @@ func (s *Screen) prevTabX(p P) int {
 //----------
 
 func (s *Screen) csiSlrm_setLeftRightMargins(left1, right1 int) {
-	if !s.privModes.leftRightMargin() {
+	if !s.privModes.IsOn(ModeLeftRightMargin) {
 		return
 	}
 	s.cancelWrap()
@@ -397,11 +397,11 @@ func (s *Screen) csiCup_cursorPosition(row1, col1 int) {
 
 	clampInR(&p, s.grid.bounds())
 
-	if s.privModes.leftRightMargin() {
+	if s.privModes.IsOn(ModeLeftRightMargin) {
 		p.X += s.region.Min.X
 		clampInX(&p.X, s.region)
 	}
-	if s.privModes.origin() {
+	if s.privModes.IsOn(ModeOrigin) {
 		p.Y += s.region.Min.Y
 		clampInY(&p.Y, s.region)
 	}
@@ -1171,28 +1171,22 @@ func (c *SaveCursor) restore(s *Screen) {
 //----------
 //----------
 
-// PrivModes keeps DEC private modes (?n).
+// PrivModes keeps ANSI and DEC private modes (?n).
 type PrivModes struct {
-	m map[string]bool
+	m map[PrivMode]bool
 }
 
 func newPrivModes() *PrivModes {
-	m := &PrivModes{m: make(map[string]bool)}
+	m := &PrivModes{m: make(map[PrivMode]bool)}
 	// defaults
-	m.set("?2", true)  // ansi
-	m.set("?7", true)  // auto wrap
-	m.set("?25", true) // show cursor
+	m.set(ModeAnsiNotVT52, true)
+	m.set(ModeAutoWrap, true)
+	m.set(ModeShowCursor, true)
 	return m
 }
 
-func (m *PrivModes) set(idx string, on bool) { m.m[idx] = on }
-func (m *PrivModes) isOn(idx string) bool    { return m.m[idx] }
-
-func (m *PrivModes) setN(on bool, idx ...string) {
-	for _, id := range idx {
-		m.set(id, on)
-	}
-}
+func (m *PrivModes) set(mode PrivMode, on bool) { m.m[mode] = on }
+func (m *PrivModes) IsOn(mode PrivMode) bool    { return m.m[mode] }
 
 func (m *PrivModes) clone() *PrivModes {
 	m2 := *m // copy
@@ -1202,32 +1196,29 @@ func (m *PrivModes) clone() *PrivModes {
 
 //----------
 
-func (m *PrivModes) insert() bool               { return m.isOn("4") }
-func (m *PrivModes) LineFeedNewline() bool      { return m.isOn("20") }
-func (m *PrivModes) SetLineFeedNewline(on bool) { m.set("20", on) }
+type PrivMode string
 
-func (m *PrivModes) AppCursorKeys() bool      { return m.isOn("?1") }
-func (m *PrivModes) AnsiNotVT52() bool        { return m.isOn("?2") }
-func (m *PrivModes) column132() bool          { return m.isOn("?3") }
-func (m *PrivModes) softScroll() bool         { return m.isOn("?4") }
-func (m *PrivModes) reverseVideo() bool       { return m.isOn("?5") }
-func (m *PrivModes) origin() bool             { return m.isOn("?6") }
-func (m *PrivModes) autoWrap() bool           { return m.isOn("?7") }
-func (m *PrivModes) autoRepeat() bool         { return m.isOn("?8") }
-func (m *PrivModes) showCursor() bool         { return m.isOn("?25") }
-func (m *PrivModes) BackarrowKey() bool       { return m.isOn("?67") }
-func (m *PrivModes) leftRightMargin() bool    { return m.isOn("?69") }
-func (m *PrivModes) MouseNormal() bool        { return m.isOn("?1000") }
-func (m *PrivModes) MouseButtonEvent() bool   { return m.isOn("?1002") }
-func (m *PrivModes) MouseAnyEvent() bool      { return m.isOn("?1003") }
-func (m *PrivModes) MouseSgr() bool           { return m.isOn("?1006") }
-func (m *PrivModes) BracketedPaste() bool     { return m.isOn("?2004") }
-func (m *PrivModes) SynchronizedOutput() bool { return m.isOn("?2026") }
-
-// issues with mingled states, use screen.alternateBuffer that compares grids
-//func (m *PrivModes) AlternateBuffer() bool {
-//	return m.isOn("?47") || m.isOn("?1047") || m.isOn("?1049")
-//}
+const (
+	ModeInsert             PrivMode = "4"
+	ModeLineFeedNewline    PrivMode = "20"
+	ModeAppCursorKeys      PrivMode = "?1"
+	ModeAnsiNotVT52        PrivMode = "?2"
+	ModeColumn132          PrivMode = "?3"
+	ModeSoftScroll         PrivMode = "?4"
+	ModeReverseVideo       PrivMode = "?5"
+	ModeOrigin             PrivMode = "?6"
+	ModeAutoWrap           PrivMode = "?7"
+	ModeAutoRepeat         PrivMode = "?8"
+	ModeShowCursor         PrivMode = "?25"
+	ModeBackarrowKey       PrivMode = "?67"
+	ModeLeftRightMargin    PrivMode = "?69"
+	ModeMouseNormal        PrivMode = "?1000"
+	ModeMouseButtonEvent   PrivMode = "?1002"
+	ModeMouseAnyEvent      PrivMode = "?1003"
+	ModeMouseSgr           PrivMode = "?1006"
+	ModeBracketedPaste     PrivMode = "?2004"
+	ModeSynchronizedOutput PrivMode = "?2026"
+)
 
 //----------
 //----------

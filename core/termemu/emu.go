@@ -86,7 +86,7 @@ func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
 	emu.setupExecSideRWC()
 
 	emu.parser = NewVTParser(emu.execRwc, emu.applyEmit)
-	emu.parser.ansiMode = emu.scr.privModes.AnsiNotVT52()
+	emu.parser.ansiMode = emu.scr.privModes.IsOn(ModeAnsiNotVT52)
 
 	emu.scrSync = syncutil.NewThrottledTrigger(
 		func() { emu.tui.SyncScreen() },
@@ -252,16 +252,16 @@ func (emu *Emu) ScrPrivModes() *PrivModes {
 func (emu *Emu) SetLNM(on bool) {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
-	emu.scr.privModes.SetLineFeedNewline(on)
+	emu.scr.privModes.set(ModeLineFeedNewline, on)
 }
 
 func (emu *Emu) WriteMessage(p []byte) (int, error) {
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
 
-	previousLNM := emu.scr.privModes.LineFeedNewline()
-	emu.scr.privModes.SetLineFeedNewline(true)
-	defer emu.scr.privModes.SetLineFeedNewline(previousLNM)
+	previousLNM := emu.scr.privModes.IsOn(ModeLineFeedNewline)
+	emu.scr.privModes.set(ModeLineFeedNewline, true)
+	defer emu.scr.privModes.set(ModeLineFeedNewline, previousLNM)
 
 	parser := NewVTParser(bytes.NewReader(p), emu.applyEmitLocked)
 	parser.ansiMode = emu.parser.ansiMode
@@ -347,7 +347,7 @@ func (emu *Emu) applyEmitLocked(op *TermOp) {
 	}
 
 	if emu.opts.Mode == ModeGrid {
-		if !emu.scr.privModes.SynchronizedOutput() {
+		if !emu.scr.privModes.IsOn(ModeSynchronizedOutput) {
 			emu.NeedScreenSync()
 		}
 	}
@@ -459,9 +459,9 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		// Linux console extension: cursor appearance.
 		// nano can emit CSI ? 1 c / CSI ? 0 c to hide/show the cursor.
 		case op.isPriv('?') && op.A() == 1: // cursor disabled
-			emu.scr.privModes.set("?25", false)
+			emu.scr.privModes.set(ModeShowCursor, false)
 		case op.isPriv('?') && (op.A() == 0 || op.A() == 2): // cursor enabled
-			emu.scr.privModes.set("?25", true)
+			emu.scr.privModes.set(ModeShowCursor, true)
 		case op.isPriv(0) && op.A() == 0: // primary
 			emu.sendToExec(termSeqReply)
 		case op.isPriv('>') && op.A() == 0: // secondary
@@ -506,7 +506,7 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 			// DECRQM: request mode
 			// DECRPM: report Mode
 			idA := op.idA()
-			on := emu.scr.privModes.isOn(idA)
+			on := emu.scr.privModes.IsOn(PrivMode(idA))
 			onS := "2"
 			if on {
 				onS = "1"
@@ -556,7 +556,7 @@ func (emu *Emu) applyEmitCsi(op *TermCsiOp) {
 		}
 		// SCP: Save Cursor Position
 		//if op.isPriv(0) || op.isPriv('?') {
-		if op.isPriv(0) && !emu.scr.privModes.leftRightMargin() {
+		if op.isPriv(0) && !emu.scr.privModes.IsOn(ModeLeftRightMargin) {
 			emu.scr.csiScp_saveCursorPos()
 		}
 	case 't':
@@ -628,7 +628,7 @@ func (emu *Emu) csiSetMode(op *TermCsiOp) {
 	idA := op.idA()
 	on := op.final == 'h'
 	s := emu.scr
-	s.privModes.set(idA, on)
+	s.privModes.set(PrivMode(idA), on)
 
 	switch idA {
 	case "2": // Keyboard Action Mode (KAM).
