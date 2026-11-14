@@ -1,6 +1,7 @@
 package termemu
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -253,6 +254,22 @@ func (emu *Emu) SetLNM(on bool) {
 	emu.scr.privModes.set("20", on)
 }
 
+func (emu *Emu) WriteMessage(p []byte) (int, error) {
+	emu.mu.Lock()
+	defer emu.mu.Unlock()
+
+	previousLNM := emu.scr.privModes.LineFeedNewline()
+	emu.scr.privModes.set("20", true)
+	defer emu.scr.privModes.set("20", previousLNM)
+
+	parser := NewVTParser(bytes.NewReader(p), emu.applyEmitLocked)
+	parser.ansiMode = emu.parser.ansiMode
+	if err := parser.Run(); err != io.EOF {
+		return 0, err
+	}
+	return len(p), nil
+}
+
 //----------
 //----------
 
@@ -264,8 +281,13 @@ func (emu *Emu) applyEmit(op *TermOp) {
 	}
 	emu.mu.Lock()
 	defer emu.mu.Unlock()
+	emu.applyEmitLocked(op)
+}
 
+func (emu *Emu) applyEmitLocked(op *TermOp) {
 	switch op.kind {
+	case "osc":
+		emu.applyOSC(op.s)
 	case "aln":
 		emu.scr.escAln_screenAlignment()
 	case "bell": // TODO

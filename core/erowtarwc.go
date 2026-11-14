@@ -8,9 +8,10 @@ import (
 
 type ERowTaReadWriteCloser struct {
 	io.ReadWriteCloser
+	MsgW io.Writer
 }
 
-func newERowTaReadWriteCloser(erow *ERow) *ERowTaReadWriteCloser {
+func newERowTaReadWriteCloser(erow *ERow, lnm bool) *ERowTaReadWriteCloser {
 	tarwc := &ERowTaReadWriteCloser{}
 
 	tarc := newERowTaReadCloser(erow)
@@ -22,10 +23,12 @@ func newERowTaReadWriteCloser(erow *ERow) *ERowTaReadWriteCloser {
 	})
 
 	tarwc.ReadWriteCloser = iout.RWC{tarc, tawc, cl}
+	tarwc.MsgW = tarwc
 
 	if erow.termOpts.emuOpts.Mode.On() {
-		temu := newERowTermEmu(erow, tarwc.ReadWriteCloser)
+		temu := newERowTermEmu(erow, tarwc.ReadWriteCloser, lnm)
 		tarwc.ReadWriteCloser = temu
+		tarwc.MsgW = iout.FnWriter(temu.emu.WriteMessage)
 	}
 
 	return tarwc

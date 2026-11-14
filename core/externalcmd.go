@@ -59,16 +59,16 @@ func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []stri
 	if !erow.Info.IsDir() {
 		panic("not a directory")
 	}
-	fend2 := func(err error) {
+
+	fn := func(ctx context.Context, rw io.ReadWriter) error {
+		err := externalCmdFromDir2(ctx, erow, cargs, env, rw, mode)
 		if fend != nil {
 			fend(err)
 		}
-	}
-	_, _ = erow.Exec.RunAsync(func(ctx context.Context, rw io.ReadWriter) error {
-		err := externalCmdFromDir2(ctx, erow, cargs, env, rw, mode)
-		fend2(err)
 		return err
-	})
+	}
+
+	_, _ = erow.Exec.RunAsync2(fn, ERowExecRunOpts{LNM: false})
 }
 
 func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter, mode ExternalCmdMode) error {
@@ -97,7 +97,11 @@ func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []
 		c = osutil.NewNoHangPipeCmd(c)
 	}
 
-	c = newPausedWriter(c, cargs, rw)
+	msgW := io.Writer(rw)
+	if tarwc, ok := rw.(*ERowTaReadWriteCloser); ok {
+		msgW = tarwc.MsgW
+	}
+	c = newPausedWriter(c, cargs, msgW)
 
 	// last, to run wait() first, such that a ctx cancel sends a proc kill
 	c = osutil.NewCtxCmd(ctx, c)

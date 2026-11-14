@@ -30,8 +30,12 @@ func NewERowExec(erow *ERow) *ERowExec {
 //----------
 
 func (ee *ERowExec) RunAsync(fn func(context.Context, io.ReadWriter) error) (context.Context, context.CancelFunc) {
+	return ee.RunAsync2(fn, ERowExecRunOpts{LNM: true})
+}
+
+func (ee *ERowExec) RunAsync2(fn func(context.Context, io.ReadWriter) error, opts ERowExecRunOpts) (context.Context, context.CancelFunc) {
 	return ee.startRunAsync(func(ctx context.Context) {
-		tarwc := newERowTaReadWriteCloser(ee.erow)
+		tarwc := newERowTaReadWriteCloser(ee.erow, opts.LNM)
 		err := fn(ctx, tarwc)
 		if err != nil {
 			fmt.Fprintf(tarwc, "# error: %v\n", err)
@@ -118,4 +122,10 @@ func (ee *ERowExec) showRunning(on bool) {
 			ee.erow.Row.TextArea.ClearPos()
 		}
 	})
+}
+
+//----------
+
+type ERowExecRunOpts struct {
+	LNM bool
 }
