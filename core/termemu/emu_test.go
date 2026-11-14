@@ -2,6 +2,7 @@ package termemu
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -10,6 +11,22 @@ import (
 	"time"
 	"unicode/utf8"
 )
+
+func TestEmuCloseReturnsParserError(t *testing.T) {
+	rw := struct {
+		io.Reader
+		io.Writer
+	}{strings.NewReader(""), io.Discard}
+	emu := NewEmu(rw, newTuiMock(), Opts{})
+
+	want := errors.New("parser input failed")
+	if err := emu.execPipes.w.(*io.PipeWriter).CloseWithError(want); err != nil {
+		t.Fatal(err)
+	}
+	if err := emu.Close(); !errors.Is(err, want) {
+		t.Fatalf("Close error: got %v, want %v", err, want)
+	}
+}
 
 func TestCursorMoves(t *testing.T) {
 	type mt struct {

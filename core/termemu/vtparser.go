@@ -25,6 +25,9 @@ func NewVTParser(r io.Reader, emit func(*TermOp)) *VTParser {
 func (p *VTParser) Run() error {
 	for {
 		if err := p.state(); err != nil {
+			if err == io.EOF {
+				return nil
+			}
 			return err
 		}
 	}

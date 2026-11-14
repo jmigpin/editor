@@ -2,8 +2,6 @@ package termemu
 
 import (
 	"encoding/base64"
-	"errors"
-	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -49,7 +47,7 @@ func TestOSC52(t *testing.T) {
 					printed += op.s
 				}
 			})
-			if err := p.Run(); !errors.Is(err, io.EOF) {
+			if err := p.Run(); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(m.copies, tt.want) {

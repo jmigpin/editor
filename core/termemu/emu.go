@@ -3,6 +3,7 @@ package termemu
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -64,6 +65,7 @@ type Emu struct {
 
 	parser     *VTParser // parser->emu->screen
 	parserDone sync.WaitGroup
+	parserErr  error
 
 	mu         sync.Mutex
 	scr        *Screen
@@ -98,9 +100,8 @@ func NewEmu(userRw io.ReadWriter, tui Tui, opts Opts) *Emu {
 	go func() {
 		defer emu.parserDone.Done()
 		err := emu.parser.Run()
-		if err != nil && emu.opts.Debug {
-			s := fmt.Sprintf("emu parse error: %v\n", err)
-			emu.sendForDebug(s)
+		if err != nil {
+			emu.parserErr = fmt.Errorf("emu parse: %w", err)
 		}
 	}()
 
@@ -151,7 +152,6 @@ func (emu *Emu) setupExecSideRWC() {
 
 	execRwc.Closer = iout.FnCloser(func() error {
 		defer readPw.Close()
-		defer writePr.Close()
 
 		_ = readPr.Close()
 		return writePw.Close()
@@ -196,8 +196,9 @@ func (emu *Emu) Write(p []byte) (int, error) {
 }
 
 func (emu *Emu) Close() error {
-	defer emu.parserDone.Wait() // on exec close, parse should stop
-	return emu.execRwc.Close()
+	err := emu.execRwc.Close()
+	emu.parserDone.Wait()
+	return errors.Join(err, emu.parserErr)
 }
 
 //----------
@@ -264,7 +265,7 @@ func (emu *Emu) WriteMessage(p []byte) (int, error) {
 
 	parser := NewVTParser(bytes.NewReader(p), emu.applyEmitLocked)
 	parser.ansiMode = emu.parser.ansiMode
-	if err := parser.Run(); err != io.EOF {
+	if err := parser.Run(); err != nil {
 		return 0, err
 	}
 	return len(p), nil
