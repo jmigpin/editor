@@ -30,10 +30,15 @@ func NewERowExec(erow *ERow) *ERowExec {
 //----------
 
 func (ee *ERowExec) RunAsync(fn func(context.Context, io.ReadWriter) error) (context.Context, context.CancelFunc) {
-	return ee.RunAsync2(fn, ERowExecRunOpts{LNM: true})
+	return ee.RunAsync2(
+		func(ctx context.Context, tarwc *ERowTaReadWriteCloser) error {
+			return fn(ctx, tarwc)
+		},
+		ERowExecRunOpts{LNM: true},
+	)
 }
 
-func (ee *ERowExec) RunAsync2(fn func(context.Context, io.ReadWriter) error, opts ERowExecRunOpts) (context.Context, context.CancelFunc) {
+func (ee *ERowExec) RunAsync2(fn func(context.Context, *ERowTaReadWriteCloser) error, opts ERowExecRunOpts) (context.Context, context.CancelFunc) {
 	return ee.startRunAsync(func(ctx context.Context) {
 		tarwc := newERowTaReadWriteCloser(ee.erow, opts.LNM)
 		err := fn(ctx, tarwc)

@@ -60,8 +60,8 @@ func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []stri
 		panic("not a directory")
 	}
 
-	fn := func(ctx context.Context, rw io.ReadWriter) error {
-		err := externalCmdFromDir2(ctx, erow, cargs, env, rw, mode)
+	fn := func(ctx context.Context, tarwc *ERowTaReadWriteCloser) error {
+		err := externalCmdFromDir2(ctx, erow, cargs, env, tarwc, mode)
 		if fend != nil {
 			fend(err)
 		}
@@ -71,7 +71,7 @@ func externalCmdFromDir(erow *ERow, cargs []string, fend func(error), env []stri
 	_, _ = erow.Exec.RunAsync2(fn, ERowExecRunOpts{LNM: false})
 }
 
-func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []string, rw io.ReadWriter, mode ExternalCmdMode) error {
+func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []string, tarwc *ERowTaReadWriteCloser, mode ExternalCmdMode) error {
 
 	// TODO: unify this code with godebug cmd call
 
@@ -97,11 +97,7 @@ func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []
 		c = osutil.NewNoHangPipeCmd(c)
 	}
 
-	msgW := io.Writer(rw)
-	if tarwc, ok := rw.(*ERowTaReadWriteCloser); ok {
-		msgW = tarwc.MsgW
-	}
-	c = newPausedWriter(c, cargs, msgW)
+	c = newPausedWriter(c, cargs, tarwc.MsgW)
 
 	// last, to run wait() first, such that a ctx cancel sends a proc kill
 	c = osutil.NewCtxCmd(ctx, c)
@@ -122,9 +118,9 @@ func externalCmdFromDir2(ctx context.Context, erow *ERow, cargs []string, env []
 	cmd := c.Cmd()
 	cmd.Dir = erow.Info.Name()
 	cmd.Env = append(os.Environ(), env...)
-	cmd.Stdin = rw
-	cmd.Stdout = rw
-	cmd.Stderr = rw
+	cmd.Stdin = tarwc
+	cmd.Stdout = tarwc
+	cmd.Stderr = tarwc
 
 	if err := c.Start(); err != nil {
 		return err
