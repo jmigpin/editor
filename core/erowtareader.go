@@ -425,7 +425,7 @@ func (tarc *ERowTaReadCloser) encodeEsc(seq string) string {
 //----------
 
 func mouseReportingRequested(pm *termemu.PrivModes) bool {
-	return pm.IsOn(termemu.ModeMouseNormal) || pm.IsOn(termemu.ModeMouseButtonEvent) || pm.IsOn(termemu.ModeMouseAnyEvent)
+	return pm.IsOn(termemu.ModeMouseX10) || pm.IsOn(termemu.ModeMouseNormal) || pm.IsOn(termemu.ModeMouseButtonEvent) || pm.IsOn(termemu.ModeMouseAnyEvent)
 }
 
 func encodeMouseWheelToStr(button event.MouseButton, mods event.KeyModifiers, cell image.Point, sgr bool) string {

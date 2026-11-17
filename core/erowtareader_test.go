@@ -64,6 +64,10 @@ func TestMouseWheelRequiresReportingMode(t *testing.T) {
 	tarc.erow.termOpts.mouseMode = terminalMouseOff
 	check(false)
 	tarc.erow.termOpts.mouseMode = terminalMouseAuto
+	write("\x1b[?9h")
+	check(true)
+	write("\x1b[?9l")
+	check(false)
 	write("\x1b[?1000h")
 	check(true)
 	write("\x1b[?1000l")
@@ -107,6 +111,10 @@ func TestMouseInputOwnership(t *testing.T) {
 	}
 	checkClick(false)
 	write("\x1b[?1006h")
+	checkClick(false)
+	write("\x1b[?9h")
+	checkClick(true)
+	write("\x1b[?9l")
 	checkClick(false)
 	write("\x1b[?1000h")
 	checkClick(true)

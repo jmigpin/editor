@@ -1212,6 +1212,7 @@ const (
 	ModeShowCursor         PrivMode = "?25"
 	ModeBackarrowKey       PrivMode = "?67"
 	ModeLeftRightMargin    PrivMode = "?69"
+	ModeMouseX10           PrivMode = "?9"
 	ModeMouseNormal        PrivMode = "?1000"
 	ModeMouseButtonEvent   PrivMode = "?1002"
 	ModeMouseAnyEvent      PrivMode = "?1003"
