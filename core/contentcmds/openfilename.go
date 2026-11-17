@@ -3,6 +3,8 @@ package contentcmds
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jmigpin/editor/core"
@@ -62,6 +64,14 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 	// find full filename
 	filename, fi, ok := core.FindFileInfo(filePos.Filename, erow.Info.Dir())
 	if !ok {
+		path := filepath.Join(erow.Info.Dir(), filePos.Filename)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if linkInfo, err := os.Lstat(path); err == nil && linkInfo.Mode()&os.ModeSymlink != 0 {
+				if target, err := os.Readlink(path); err == nil {
+					return fmt.Errorf("broken symlink %q -> %q", filePos.Filename, target), true
+				}
+			}
+		}
 		err := fmt.Errorf("fileinfo not found: %q", filePos.Filename)
 		return err, true
 	}
