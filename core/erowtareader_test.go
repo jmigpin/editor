@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jmigpin/editor/core/termemu"
+	"github.com/jmigpin/editor/ui"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -36,6 +37,81 @@ func TestKbEncodeToStrNewlineAndBackarrowModes(t *testing.T) {
 		t.Fatal(err)
 	}
 	check(event.KSymBackspace, "\x7f")
+}
+
+func TestMouseWheelRequiresReportingMode(t *testing.T) {
+	emu := termemu.NewEmu(nilReadWriter{}, testTui{}, termemu.Opts{})
+	defer emu.Close()
+	tarc := &ERowTaReadCloser{erow: &ERow{optTemu: &ERowTermEmu{emu: emu}, termOpts: ERowTermOpts{mouseMode: terminalMouseAuto}}}
+	ev := &event.MouseDown{Button: event.ButtonWheelUp}
+	check := func(want bool) {
+		t.Helper()
+		if got := tarc.mouseEncodeToStr(nil, ev) != ""; got != want {
+			t.Errorf("mouse wheel forwarded=%v, want %v", got, want)
+		}
+	}
+	write := func(s string) {
+		t.Helper()
+		if _, err := emu.WriteMessage([]byte(s)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	check(false)
+	write("\x1b[?1006h")
+	check(false)
+	tarc.erow.termOpts.mouseMode = terminalMouseOn
+	check(false)
+	tarc.erow.termOpts.mouseMode = terminalMouseOff
+	check(false)
+	tarc.erow.termOpts.mouseMode = terminalMouseAuto
+	write("\x1b[?1000h")
+	check(true)
+	write("\x1b[?1000l")
+	check(false)
+}
+
+func TestMouseInputOwnership(t *testing.T) {
+	emu := termemu.NewEmu(nilReadWriter{}, testTui{}, termemu.Opts{})
+	defer emu.Close()
+	tarc := &ERowTaReadCloser{erow: &ERow{optTemu: &ERowTermEmu{emu: emu}, termOpts: ERowTermOpts{mouseMode: terminalMouseOn}}}
+	for _, input := range []any{
+		&event.MouseDown{Button: event.ButtonWheelUp},
+		&event.MouseClick{Button: event.ButtonLeft},
+		&event.MouseMove{},
+	} {
+		ev := &ui.TextAreaInputEvent{Event: input}
+		tarc.onTextAreaInputEvent(ev)
+		if !ev.ReplyHandled {
+			t.Errorf("mouse=true did not reserve %T", input)
+		}
+	}
+	tarc.erow.termOpts.mouseMode = terminalMouseAuto
+	ev := &ui.TextAreaInputEvent{Event: &event.MouseDown{Button: event.ButtonWheelUp}}
+	tarc.onTextAreaInputEvent(ev)
+	if ev.ReplyHandled {
+		t.Fatal("mouse=auto reserved unrequested wheel input")
+	}
+	checkClick := func(want bool) {
+		t.Helper()
+		ev := &ui.TextAreaInputEvent{Event: &event.MouseClick{Button: event.ButtonLeft}}
+		tarc.onTextAreaInputEvent(ev)
+		if bool(ev.ReplyHandled) != want {
+			t.Errorf("mouse=auto click reserved=%v, want %v", ev.ReplyHandled, want)
+		}
+	}
+	write := func(s string) {
+		t.Helper()
+		if _, err := emu.WriteMessage([]byte(s)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checkClick(false)
+	write("\x1b[?1006h")
+	checkClick(false)
+	write("\x1b[?1000h")
+	checkClick(true)
+	write("\x1b[?1000l")
+	checkClick(false)
 }
 
 func TestKbEncodeToStrFunctionKeys(t *testing.T) {

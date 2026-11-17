@@ -777,6 +777,8 @@ func (erow *ERow) termAutoFontFace(targetCr image.Point, origFace *fontutil.Font
 
 func (erow *ERow) parseTerminalOpts(v string) ERowTermOpts {
 	topt := ERowTermOpts{}
+	mouseSet := false
+	emuMouse := false
 	u := strings.Split(v, ",")
 	for _, k := range u {
 		opt := strings.ToLower(strings.TrimSpace(k))
@@ -807,8 +809,26 @@ func (erow *ERow) parseTerminalOpts(v string) ERowTermOpts {
 			topt.pty = set
 		case opt == "kb":
 			topt.forwardKb = set
+		case strings.HasPrefix(opt, "mouse="):
+			vstr := opt[6:]
+			switch vstr {
+			case "auto", "true", "false":
+				mouseSet = true
+				if !set || vstr == "false" {
+					topt.mouseMode = terminalMouseOff
+				} else if vstr == "true" {
+					topt.mouseMode = terminalMouseOn
+				} else {
+					topt.mouseMode = terminalMouseAuto
+				}
+			}
 		case opt == "mouse":
-			topt.forwardMouse = set
+			mouseSet = true
+			if set {
+				topt.mouseMode = terminalMouseOn
+			} else {
+				topt.mouseMode = terminalMouseOff
+			}
 
 		case strings.HasPrefix(opt, "rows="):
 			if set {
@@ -851,11 +871,15 @@ func (erow *ERow) parseTerminalOpts(v string) ERowTermOpts {
 
 		case opt == "emu": // pre-set options
 			topt.emuOpts.Mode.SetBool(termemu.ModeGrid, set)
+			emuMouse = set
 			if set {
 				topt.pty = true
 				topt.forwardKb = true
 			}
 		}
+	}
+	if emuMouse && !mouseSet {
+		topt.mouseMode = terminalMouseAuto
 	}
 	return topt
 }
@@ -1081,14 +1105,24 @@ func (erow *ERow) SyntaxComments() []*drawutil.SyntaxComment {
 //----------
 
 type ERowTermOpts struct {
-	pty          bool // run under a pseudo-terminal
-	forwardKb    bool // forward keyboard events to the process
-	forwardMouse bool // forward mouse events to the process
-	fixedCols    int  // if > 0, use fixed terminal width
-	fixedRows    int  // if > 0, use fixed terminal height
+	pty       bool // run under a pseudo-terminal
+	forwardKb bool // forward keyboard events to the process
+	mouseMode terminalMouseMode
+	fixedCols int // if > 0, use fixed terminal width
+	fixedRows int // if > 0, use fixed terminal height
 
 	emuOpts termemu.Opts
 }
+
+//----------
+
+type terminalMouseMode uint8
+
+const (
+	terminalMouseOff terminalMouseMode = iota
+	terminalMouseAuto
+	terminalMouseOn
+)
 
 //----------
 

@@ -523,10 +523,10 @@ The important row variables `$font`, `$fontFallback`, `$scrollMode`, `$colorize`
 - `$terminal=<options>`: run commands in this row using a terminal emulator. Options are comma-separated. Negation is supported: ex: `$terminal=emu,no-kb`.
 	- `pty`: run as pseudo-terminal.
 	- `kb`: forward keyboard input to the process. Note: typing keys will not be seen in the textarea unless the running program outputs them.
-	- `mouse`: forward mouse events to programs that enable terminal mouse reporting. Ex.: `$terminal=emu,mouse` supports scrolling in `nano -m`.
+	- `mouse=auto`: give the terminal control of mouse input when requested by the program; enabled by default with `emu`. `mouse=true` or bare `mouse` reserves mouse input even without a request, disabling local mouse actions; `mouse=false` or `no-mouse` keeps mouse input local. Currently only the mouse wheel is forwarded to the program. Ex.: `$terminal=emu` supports scrolling in `nano -m`.
 	- `raw`: disable input processing (send raw bytes).
 	- `plain`: disable output processing (display raw bytes).
-	- `emu`: use grid mode with `pty,kb`.
+	- `emu`: use grid mode with `pty,kb,mouse=auto`.
 	- `rows=N`: set a fixed terminal height (number of rows).
 	- `rows=auto`: use adaptive terminal height (default).
 	- `cols=N`: set a fixed terminal width (number of columns).

@@ -34,7 +34,7 @@ func newERowTaReadCloser(erow *ERow) *ERowTaReadCloser {
 
 func (tarc *ERowTaReadCloser) isOn() bool {
 	u := tarc.erow.termOpts
-	return u.forwardKb || u.forwardMouse
+	return u.forwardKb || u.mouseMode != terminalMouseOff
 }
 
 //----------
@@ -94,6 +94,18 @@ func (tarc *ERowTaReadCloser) mousePrivModes() (*termemu.PrivModes, bool) {
 	return u.emu.ScrPrivModes(), true
 }
 
+func (tarc *ERowTaReadCloser) mouseOwned() bool {
+	switch tarc.erow.termOpts.mouseMode {
+	case terminalMouseOn:
+		return true
+	case terminalMouseAuto:
+		pm, ok := tarc.mousePrivModes()
+		return ok && mouseReportingRequested(pm)
+	default:
+		return false
+	}
+}
+
 //----------
 
 func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
@@ -120,20 +132,33 @@ func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
 		}
 
 	case *event.MouseClick:
+		if tarc.mouseOwned() {
+			ev1.ReplyHandled = true
+			return
+		}
 		// Even if not forwarding mouse events, middle-click paste is a text input shortcut (like ctrl+v) and should be handled if keyboard input is enabled.
-		if tarc.erow.termOpts.forwardMouse || tarc.erow.termOpts.forwardKb {
+		if tarc.erow.termOpts.mouseMode != terminalMouseOff || tarc.erow.termOpts.forwardKb {
 			if ok := tarc.mousePaste(ev1, ev2); ok {
 				return
 			}
 		}
 
 	case *event.MouseDown:
-		if !tarc.erow.termOpts.forwardMouse {
+		if tarc.erow.termOpts.mouseMode == terminalMouseOff {
 			break
 		}
 
 		if ok := tarc.mouseEncode(ev1, ev2); ok {
 			return
+		}
+		if tarc.mouseOwned() {
+			ev1.ReplyHandled = true
+		}
+
+	case *event.MouseUp, *event.MouseMove, *event.MouseDragStart, *event.MouseDragMove, *event.MouseDragEnd,
+		*event.MouseDoubleClick, *event.MouseTripleClick, *event.MouseEnter, *event.MouseLeave:
+		if tarc.mouseOwned() {
+			ev1.ReplyHandled = true
 		}
 	}
 }
@@ -195,13 +220,16 @@ func (tarc *ERowTaReadCloser) mouseEncode(ev1 *ui.TextAreaInputEvent, ev2 *event
 }
 
 func (tarc *ERowTaReadCloser) mouseEncodeToStr(ev1 *ui.TextAreaInputEvent, ev2 *event.MouseDown) string {
+	mode := tarc.erow.termOpts.mouseMode
+	if mode == terminalMouseOff {
+		return ""
+	}
 	pm, ok := tarc.mousePrivModes()
 	if !ok {
 		return ""
 	}
 	mouseSgr := pm.IsOn(termemu.ModeMouseSgr)
-	canMouseWheel := mouseSgr || pm.IsOn(termemu.ModeMouseNormal) || pm.IsOn(termemu.ModeMouseButtonEvent) || pm.IsOn(termemu.ModeMouseAnyEvent)
-	if canMouseWheel {
+	if mouseReportingRequested(pm) {
 		pos := image.Pt(3, 3)
 		return encodeMouseWheelToStr(ev2.Button, ev2.Mods, pos, mouseSgr)
 	}
@@ -395,6 +423,10 @@ func (tarc *ERowTaReadCloser) encodeEsc(seq string) string {
 //----------
 //----------
 //----------
+
+func mouseReportingRequested(pm *termemu.PrivModes) bool {
+	return pm.IsOn(termemu.ModeMouseNormal) || pm.IsOn(termemu.ModeMouseButtonEvent) || pm.IsOn(termemu.ModeMouseAnyEvent)
+}
 
 func encodeMouseWheelToStr(button event.MouseButton, mods event.KeyModifiers, cell image.Point, sgr bool) string {
 	cb, ok := mouseWheelCb(button)

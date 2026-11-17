@@ -26,3 +26,26 @@ func TestLoadFallbackFontsReturnsPartialResult(t *testing.T) {
 		}
 	}
 }
+
+func TestParseTerminalMouseOpts(t *testing.T) {
+	tests := []struct {
+		value string
+		want  terminalMouseMode
+	}{
+		{"", terminalMouseOff},
+		{"emu", terminalMouseAuto},
+		{"emu,mouse=auto", terminalMouseAuto},
+		{"emu,mouse=true", terminalMouseOn},
+		{"emu,mouse=false", terminalMouseOff},
+		{"mouse=false,emu", terminalMouseOff},
+		{"emu,no-mouse", terminalMouseOff},
+		{"mouse", terminalMouseOn},
+		{"no-mouse", terminalMouseOff},
+	}
+	erow := &ERow{}
+	for _, tt := range tests {
+		if got := erow.parseTerminalOpts(tt.value).mouseMode; got != tt.want {
+			t.Errorf("$terminal=%q: mouseMode=%v, want %v", tt.value, got, tt.want)
+		}
+	}
+}
