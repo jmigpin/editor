@@ -80,9 +80,10 @@ func (ta *TextArea) handleInputEvent2(ev0 any, p image.Point) event.Handled {
 			m := ev.Mods.ClearLocks()
 			switch {
 			case m.Is(event.ModCtrl):
-				if ta.selAnnCurEv(ev.Point, TasatPrint) {
-					return true
-				}
+				i, o, hasAnn := ta.Drawer.AnnotationsIndexOf(ev.Point)
+				ev2 := &TextAreaActionMenuEvent{ta, ev.Point, i, o, hasAnn}
+				ta.EvReg.RunCallbacks(TextAreaActionMenuEventId, ev2)
+				return true
 			case m.Is(event.ModCtrl | event.ModShift):
 				if ta.selAnnCurEv(ev.Point, TasatPrintPreviousAll) {
 					return true
@@ -234,6 +235,7 @@ const (
 	TextAreaLayoutEventId
 	TextAreaBoundsChangeEventId
 	TextAreaThemeEventId
+	TextAreaActionMenuEventId
 )
 
 //----------
@@ -241,6 +243,14 @@ const (
 type TextAreaCmdEvent struct {
 	TextArea *TextArea
 	Index    int
+}
+
+type TextAreaActionMenuEvent struct {
+	TextArea         *TextArea
+	Point            image.Point
+	AnnotationIndex  int
+	AnnotationOffset int
+	HasAnnotation    bool
 }
 
 type TextAreaThemeEvent struct {

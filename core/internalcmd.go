@@ -160,12 +160,8 @@ func internalOrExternalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow)
 		}
 	}
 
-	if err, handled := internalCmd(ed, part, optERow); handled {
+	if err, handled := runInternalOrPluginCmd(ed, part, optERow); handled {
 		return err
-	}
-
-	if handled := ed.Plugins.RunToolbarCmd(optERow, part); handled {
-		return nil
 	}
 
 	// run external cmd (needs erow)
@@ -175,6 +171,15 @@ func internalOrExternalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow)
 	}
 	ExternalCmd(erow, part, nil, nil, nil)
 	return nil
+}
+func runInternalOrPluginCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) (error, bool) {
+	if err, handled := internalCmd(ed, part, optERow); handled {
+		return err, true
+	}
+	if ed.Plugins.RunToolbarCmd(optERow, part) {
+		return nil, true
+	}
+	return nil, false
 }
 func internalCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) (error, bool) {
 	arg0 := part.Args[0].UnquotedString()

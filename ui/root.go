@@ -15,6 +15,7 @@ type Root struct {
 	Toolbar         *Toolbar
 	MainMenuButton  *MainMenuButton
 	ContextFloatBox *ContextFloatBox
+	ActionMenu      *ActionMenu
 	Cols            *Columns
 	EvReg           evreg.Register
 }
@@ -55,6 +56,7 @@ func (root *Root) Init() {
 	}
 
 	root.ContextFloatBox = NewContextFloatBox(root)
+	root.ActionMenu = NewActionMenu(root)
 }
 
 func (l *Root) OnChildMarked(child widget.Node, newMarks widget.Marks) {

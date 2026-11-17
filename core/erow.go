@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/jmigpin/editor/util/drawutil/drawer4"
 	"github.com/jmigpin/editor/util/fontutil"
 	"github.com/jmigpin/editor/util/iout/iorw"
+	"github.com/jmigpin/editor/util/osutil"
 	"github.com/jmigpin/editor/util/uiutil/event"
 )
 
@@ -278,6 +280,9 @@ func (erow *ERow) initHandlers() {
 		ev := ev0.(*ui.TextAreaCmdEvent)
 		ContentCmdFromTextArea(erow, ev.Index)
 	})
+	row.TextArea.EvReg.Add(ui.TextAreaActionMenuEventId, func(ev0 any) {
+		erow.showTextAreaActionMenu(ev0.(*ui.TextAreaActionMenuEvent))
+	})
 	// textarea select annotation
 	row.TextArea.EvReg.Add(ui.TextAreaSelectAnnotationEventId, func(ev any) {
 		ev2 := ev.(*ui.TextAreaSelectAnnotationEvent)
@@ -376,6 +381,65 @@ func (erow *ERow) initHandlers() {
 	})
 
 	erow.Ed.triggerSessionAutoSaveLayout("row-new")
+}
+
+//----------
+
+func (erow *ERow) showTextAreaActionMenu(ev *ui.TextAreaActionMenuEvent) {
+	actions := []ui.ActionMenuAction{}
+	if ev.HasAnnotation {
+		actions = append(actions, ui.ActionMenuAction{Label: "Show annotation", Run: func() {
+			ev2 := &ui.TextAreaSelectAnnotationEvent{TextArea: ev.TextArea, AnnotationIndex: ev.AnnotationIndex, Offset: ev.AnnotationOffset, Type: ui.TasatPrint}
+			ev.TextArea.EvReg.RunCallbacks(ui.TextAreaSelectAnnotationEventId, ev2)
+		}})
+	}
+	if a, b, ok := ev.TextArea.Cursor().SelectionIndexes(); ok && ev.TextArea.PointIndexInsideSelection(ev.Point) {
+		selected, err := ev.TextArea.EditCtx().RW.ReadFastAt(a, b-a)
+		if err != nil {
+			erow.Ed.Error(err)
+			return
+		}
+		value := strings.TrimSpace(string(selected))
+		if value != "" {
+			path := erow.Ed.HomeVars.Decode(value)
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(erow.Info.Dir(), path)
+			}
+			actions = append(actions, ui.ActionMenuAction{Label: "Open externally", Run: func() {
+				if err := osutil.OpenExternalWithError(path, erow.Ed.Error); err != nil {
+					erow.Ed.Error(err)
+				}
+			}})
+			actions = append(actions, ui.ActionMenuAction{Label: "Run selection", Run: func() {
+				erow.runSelectedText(value)
+			}})
+		}
+	}
+	if len(actions) > 0 {
+		erow.Ed.UI.Root.ActionMenu.ShowAt(ev.Point, actions)
+	} else {
+		erow.Ed.UI.Root.ActionMenu.Hide()
+	}
+}
+
+//----------
+
+func (erow *ERow) runSelectedText(value string) {
+	data := toolbarparser.Parse(value)
+	if len(data.Parts) == 1 {
+		part := data.Parts[0]
+		if len(part.Args) > 0 {
+			if err, handled := runInternalOrPluginCmd(erow.Ed, part, erow); handled {
+				if err != nil {
+					erow.Ed.Errorf("%s: %w", part.Args[0].UnquotedString(), err)
+				}
+				return
+			}
+		}
+	}
+	if err := StartTerminalEmu(erow.Ed, erow.Info.Dir(), erow.Row.PosBelow(), value, nil); err != nil {
+		erow.Ed.Error(err)
+	}
 }
 
 //----------

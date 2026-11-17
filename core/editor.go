@@ -760,6 +760,7 @@ func (ed *Editor) handleGlobalShortcuts(ev any) (handled bool) {
 			case m.IsEmpty():
 				switch t2.KeySym {
 				case event.KSymEscape:
+					ed.UI.Root.ActionMenu.Hide()
 					ed.GoDebug.CancelAndClear()
 					ed.InlineComplete.CancelAndClear()
 					ed.cancelERowInfosCmds()
@@ -777,6 +778,7 @@ func (ed *Editor) handleGlobalShortcuts(ev any) (handled bool) {
 		}
 
 		if autoCloseInfo {
+			ed.UI.Root.ActionMenu.AutoClose(t.Event, t.Point)
 			ed.UI.Root.ContextFloatBox.AutoClose(t.Event, t.Point)
 			if !ed.ifbw.ui().Visible() {
 				ed.cancelInfoFloatBox()

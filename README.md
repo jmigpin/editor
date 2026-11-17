@@ -656,6 +656,7 @@ Plugins located at: `./plugins`.
 		- triple-click: selects line
 	- `shift`+`buttonLeft`: move cursor to point adding to selection
 	- `buttonRight`: move cursor to point + run textarea command
+	- `ctrl`+`buttonRight`: open contextual actions; on selected text, choose `Open externally` or `Run selection`. The latter runs an internal/plugin command when recognized, otherwise runs the selection in a new terminal row.
 	- `buttonWheelUp`: scroll up
 	- `buttonWheelDown`: scroll down
 	- `buttonWheelUp` on scrollbar: page up
@@ -687,7 +688,7 @@ Plugins located at: `./plugins`.
 	- `ctrl`+`shift`+`d`: uncomment lines
 - godebug
 	- `ctrl`+`buttonLeft`: select debug step
-	- `ctrl`+`buttonRight`: over a debug step: print the value.
+	- `ctrl`+`buttonRight`: over a debug step: open the contextual menu with `Show annotation`.
 	- `ctrl`+`buttonRight`+`shift`: over a debug step: print all previous values up to the debug step.
 	- `ctrl`+`buttonWheelUp`:
 		- show previous debug step
@@ -728,6 +729,7 @@ The measuring of space is done as follows:
 	- limited variable highlighting to effective scopes and disabled menu variable definitions
 	- added terminal F1-F12 support with modifiers
 	- added OSC 52 clipboard and primary-selection writes
+	- added contextual textarea actions with `ctrl`+`buttonRight` (#97)
 	- added more terminal query replies 
 - 2026/07/17: v3.14.0 (69 commits)
 	- improved terminal emulator correctness for wrapping, alternate-buffer line wrap, mouse wheel forwarding, Shift+Tab, DECST8C and CSI private/intermediate parsing

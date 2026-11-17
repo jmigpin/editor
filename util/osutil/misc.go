@@ -88,6 +88,10 @@ func OpenBrowser(url string) error {
 
 // doesn't wait for the cmd to end
 func OpenExternal(name string) error {
+	return OpenExternalWithError(name, nil)
+}
+
+func OpenExternalWithError(name string, onError func(error)) error {
 	c := (*exec.Cmd)(nil)
 	switch runtime.GOOS {
 	case "windows":
@@ -98,7 +102,15 @@ func OpenExternal(name string) error {
 	default: // linux, others...
 		c = exec.Command("xdg-open", name)
 	}
-	return cmdStartWaitAsync(c)
+	if err := c.Start(); err != nil {
+		return err
+	}
+	go func() {
+		if err := c.Wait(); err != nil && onError != nil {
+			onError(err)
+		}
+	}()
+	return nil
 }
 
 // doesn't wait for the cmd to end
