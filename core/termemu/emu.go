@@ -284,6 +284,8 @@ func (emu *Emu) applyEmitLocked(op *TermOp) {
 		emu.scr.carriageReturn()
 	case "csi":
 		emu.applyEmitCsi(op.csi)
+	case "decid":
+		emu.sendToExec(termSeqReply)
 	case "fnkey": // TODO
 	case "g0", "g1":
 		emu.scr.graphics.set(op.kind, op.s)

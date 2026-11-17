@@ -130,8 +130,6 @@ func (p *VTParser) stEsc() error {
 
 func (p *VTParser) stEscANSI(b byte) error {
 	switch b {
-	case '<', 'A', 'B', 'C', 'F', 'G', 'I', 'J', 'K', 'Y', 'Z':
-		return p.handleDefault(rune(b))
 	case 'D': // IND
 		p.emitKind("ind")
 	case 'H': // HTS
@@ -140,6 +138,10 @@ func (p *VTParser) stEscANSI(b byte) error {
 		p.state = p.stCSI
 	case ']': // OSC
 		p.state = p.stOSC
+	case 'X': // SOS
+		p.state = p.stSOS
+	case 'Z': // DECID
+		p.emitKind("decid")
 	default:
 		p.emit(newUnknownEscOp(b))
 	}
@@ -200,6 +202,28 @@ func (p *VTParser) stDCS() error {
 				return err2
 			}
 			if b2 == '\\' { // ST: string terminator
+				return nil
+			}
+		}
+	}
+}
+
+func (p *VTParser) stSOS() error {
+	p.state = p.stDefault
+	for {
+		b, err := p.nextByte()
+		if err != nil {
+			return err
+		}
+		switch b {
+		case codeCAN, codeSUB, codeST:
+			return nil
+		case codeESC:
+			b2, err := p.nextByte()
+			if err != nil {
+				return err
+			}
+			if b2 == '\\' {
 				return nil
 			}
 		}
@@ -538,6 +562,7 @@ const (
 	codeESC = 0x1b
 	codeDEL = 0x7f
 	codeCSI = 0x9b // control sequence introducer
+	codeST  = 0x9c // string terminator
 
 	codeBEL = 0x07
 	codeBS  = 0x08 // backspace, \b, 8
