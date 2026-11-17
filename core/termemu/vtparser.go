@@ -95,129 +95,13 @@ func (p *VTParser) stEsc() error {
 		p.emitKind("sc")
 	case '8': // RC
 		p.emitKind("rc")
-
-	case '<':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Exit VT52 mode (Enter VT100 mode).
-			p.emitCsi('?', []int{2}, 'h')
-		}
-
 	case '=': // alternate keypad mode
 	case '>': // Exit alternate keypad mode.
-
-	case 'A':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Cursor up.
-			p.emitCsi(0, []int{1}, 'A')
-		}
-	case 'B':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Cursor down.
-			p.emitCsi(0, []int{1}, 'B')
-		}
-	case 'C':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Cursor right.
-			p.emitCsi(0, []int{1}, 'C')
-		}
-	case 'D':
-		if p.ansiMode {
-			// IND
-			p.emitKind("ind")
-		} else {
-			// Cursor left.
-			p.emitCsi(0, []int{1}, 'D')
-		}
-
 	case 'E': // NEL
 		p.emitKind("nel")
-
-	case 'F':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Enter graphics mode.
-			p.emitKind("g1")
-		}
-	case 'G':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Exit graphics mode.
-			p.emitKind("g0")
-		}
-
-	case 'H':
-		if p.ansiMode {
-			// HTS
-			p.emitKind("hts")
-		} else { // Move the cursor to the home position.
-			p.emitCsi(0, []int{1, 1}, 'H')
-		}
-	case 'I':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Reverse line feed.
-			p.emitKind("ri")
-		}
-	case 'J':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Erase from the cursor to the end of the screen.
-			p.emitCsi(0, []int{0}, 'J')
-		}
-	case 'K':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Erase from the cursor to the end of the line.
-			p.emitCsi(0, []int{0}, 'K')
-		}
 	case 'M': // RI
 		p.emitKind("ri")
-	case 'Y':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else {
-			// Move the cursor to given row and column.
-			bs, err := p.nextBytes(2)
-			if err != nil {
-				return err
-			}
-			row1, col1 := int(bs[0])-0x20+1, int(bs[1])-0x20+1
-			p.emitCsi(0, []int{row1, col1}, 'H')
-		}
-	case 'Z':
-		if p.ansiMode {
-			p.handleDefault(rune(b))
-		} else { // Identify.
-			p.emitKind("vt52Id")
-		}
-
-	case '[':
-		if p.ansiMode {
-			p.state = p.stCSI
-		} else {
-			p.handleDefault(rune(b))
-		}
 	case '\\': // ST // TODO: string terminator
-	case ']': // OSC
-		if p.ansiMode {
-			p.state = p.stOSC
-		} else {
-			p.handleDefault(rune(b))
-		}
-
 	case '%': // character set selection
 		// skip next byte
 		_, _ = p.nextByte()
@@ -236,15 +120,63 @@ func (p *VTParser) stEsc() error {
 		p.state = p.stEsc // cancel and start again
 
 	default:
-		// unsupported single ESC: ignore
 		if p.ansiMode {
-			// commented: aptitude fails with this
-			//p.state = p.stDefault
-			//p.handleDefault(rune(b))
-		} else {
+			return p.stEscANSI(b)
 		}
-		// DEBUG
-		p.emit(&TermOp{kind: "unknownEsc", s: fmt.Sprintf("unhandled: esc %q", rune(b))})
+		return p.stEscVT52(b)
+	}
+	return nil
+}
+
+func (p *VTParser) stEscANSI(b byte) error {
+	switch b {
+	case '<', 'A', 'B', 'C', 'F', 'G', 'I', 'J', 'K', 'Y', 'Z':
+		return p.handleDefault(rune(b))
+	case 'D': // IND
+		p.emitKind("ind")
+	case 'H': // HTS
+		p.emitKind("hts")
+	case '[':
+		p.state = p.stCSI
+	case ']': // OSC
+		p.state = p.stOSC
+	default:
+		p.emit(newUnknownEscOp(b))
+	}
+	return nil
+}
+
+func (p *VTParser) stEscVT52(b byte) error {
+	switch b {
+	case '<': // Exit VT52 mode (Enter VT100 mode).
+		p.emitCsi('?', []int{2}, 'h')
+	case 'A', 'B', 'C', 'D':
+		p.emitCsi(0, []int{1}, b)
+	case 'F': // Enter graphics mode.
+		p.emitKind("g1")
+	case 'G': // Exit graphics mode.
+		p.emitKind("g0")
+	case 'H': // Move the cursor to the home position.
+		p.emitCsi(0, []int{1, 1}, 'H')
+	case 'I': // Reverse line feed.
+		p.emitKind("ri")
+	case 'J': // Erase from the cursor to the end of the screen.
+		p.emitCsi(0, []int{0}, 'J')
+	case 'K': // Erase from the cursor to the end of the line.
+		p.emitCsi(0, []int{0}, 'K')
+	case 'Y': // Move the cursor to given row and column.
+		bs, err := p.nextBytes(2)
+		if err != nil {
+			return err
+		}
+		row1, col1 := int(bs[0])-0x20+1, int(bs[1])-0x20+1
+		p.emitCsi(0, []int{row1, col1}, 'H')
+	case 'Z': // Identify.
+		p.emitKind("vt52Id")
+	case '[', ']':
+		return p.handleDefault(rune(b))
+	default:
+		p.emit(newUnknownEscOp(b))
 	}
 	return nil
 }
@@ -547,6 +479,10 @@ type TermOp struct {
 	kind string // csi,bell,bs,print,...
 	s    string // used at least in "print"
 	csi  *TermCsiOp
+}
+
+func newUnknownEscOp(b byte) *TermOp {
+	return &TermOp{kind: "unknownEsc", s: fmt.Sprintf("unhandled: esc %q", rune(b))}
 }
 
 //----------
