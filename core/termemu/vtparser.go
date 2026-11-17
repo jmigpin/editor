@@ -48,7 +48,7 @@ func (p *VTParser) handleDefault(ru rune) error {
 		p.state = p.stEsc
 	case codeCSI:
 		if p.ansiMode {
-			p.state = p.stCSI
+			p.state = p.stCsi
 		} else {
 			p.emitPrintableRune(ru)
 		}
@@ -107,11 +107,11 @@ func (p *VTParser) stEsc() error {
 		_, _ = p.nextByte()
 
 	case 'P': // DCS - Device Control String
-		p.state = p.stDCS
+		p.state = p.stDcs
 	case '^': // PM - Privacy Message
-		p.state = p.stDCS // same logic
+		p.state = p.stDcs // same logic
 	case '_': // APC - Application Program Command
-		p.state = p.stDCS // same logic
+		p.state = p.stDcs // same logic
 
 	case 'c':
 		p.emitKind("ris")
@@ -121,25 +121,25 @@ func (p *VTParser) stEsc() error {
 
 	default:
 		if p.ansiMode {
-			return p.stEscANSI(b)
+			return p.stEscAnsi(b)
 		}
-		return p.stEscVT52(b)
+		return p.stEscVt52(b)
 	}
 	return nil
 }
 
-func (p *VTParser) stEscANSI(b byte) error {
+func (p *VTParser) stEscAnsi(b byte) error {
 	switch b {
 	case 'D': // IND
 		p.emitKind("ind")
 	case 'H': // HTS
 		p.emitKind("hts")
 	case '[':
-		p.state = p.stCSI
+		p.state = p.stCsi
 	case ']': // OSC
-		p.state = p.stOSC
+		p.state = p.stOsc
 	case 'X': // SOS
-		p.state = p.stSOS
+		p.state = p.stSos
 	case 'Z': // DECID
 		p.emitKind("decid")
 	default:
@@ -148,7 +148,7 @@ func (p *VTParser) stEscANSI(b byte) error {
 	return nil
 }
 
-func (p *VTParser) stEscVT52(b byte) error {
+func (p *VTParser) stEscVt52(b byte) error {
 	switch b {
 	case '<': // Exit VT52 mode (Enter VT100 mode).
 		p.emitCsi('?', []int{2}, 'h')
@@ -183,7 +183,7 @@ func (p *VTParser) stEscVT52(b byte) error {
 	return nil
 }
 
-func (p *VTParser) stDCS() error {
+func (p *VTParser) stDcs() error {
 	p.state = p.stDefault
 
 	// TODO: support DCS sequences (e.g., Sixel graphics)
@@ -208,7 +208,7 @@ func (p *VTParser) stDCS() error {
 	}
 }
 
-func (p *VTParser) stSOS() error {
+func (p *VTParser) stSos() error {
 	p.state = p.stDefault
 	for {
 		b, err := p.nextByte()
@@ -230,7 +230,7 @@ func (p *VTParser) stSOS() error {
 	}
 }
 
-func (p *VTParser) stCSI() error {
+func (p *VTParser) stCsi() error {
 	// collect until final
 	w := []byte{}
 	for {
@@ -256,14 +256,14 @@ func (p *VTParser) stCSI() error {
 			//}
 
 			p.state = p.stDefault
-			return p.parseCSI(w, b)
+			return p.parseCsi(w, b)
 		}
 
 		w = append(w, b)
 	}
 }
 
-func (p *VTParser) stOSC() error {
+func (p *VTParser) stOsc() error {
 	p.state = p.stDefault
 	buf := []byte{}
 	overflow := false
@@ -366,7 +366,7 @@ func (p *VTParser) stGraphics(typ string) error {
 //----------
 //----------
 
-func (p *VTParser) parseCSI(bs []byte, final byte) error {
+func (p *VTParser) parseCsi(bs []byte, final byte) error {
 	op := &TermOp{kind: "csi"}
 	op.csi = &TermCsiOp{}
 
@@ -389,7 +389,7 @@ func (p *VTParser) parseCSI(bs []byte, final byte) error {
 		}
 	}
 
-	ps, cancel := p.parseCSIParams(bs)
+	ps, cancel := p.parseCsiParams(bs)
 	if cancel {
 		return nil
 	}
@@ -399,7 +399,7 @@ func (p *VTParser) parseCSI(bs []byte, final byte) error {
 
 	return nil
 }
-func (p *VTParser) parseCSIParams(bs []byte) (vals []int, cancel bool) {
+func (p *VTParser) parseCsiParams(bs []byte) (vals []int, cancel bool) {
 	v, seen := 0, false
 	for _, b := range bs {
 		switch {
