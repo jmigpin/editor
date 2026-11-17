@@ -14,19 +14,11 @@ import (
 	"github.com/jmigpin/editor/util/syncutil"
 )
 
-//godebug:annotatefile
-//godebug:annotatefile:vtparser.go
-//godebug:annotatefile:screen.go
-////godebug:annotatefile:../erowtermemu.go
-
-//----------
-
-// https://vt100.net/docs/vt510-rm/contents.html
-// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
-
 //----------
 
 // NOTES
+// https://vt100.net/docs/vt510-rm/contents.html
+// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 // tput smcup - enter alt screen
 // tput rmcup - return
 // tput -Tvt100 clear
@@ -34,20 +26,14 @@ import (
 // infocmp -1 "vt100" | grep -E 'smcup|rmcup'
 // infocmp -1 "$TERM" | grep -E 'smcup|rmcup'
 
+//----------
+
 var TermEnv = []string{
-	//"TERM=vt100",
-	//"TERM=xterm"
 	"TERM=xterm-256color",
 	"COLORTERM=truecolor",
 }
 
-// const vt100 = "\x1b[?1;0c" //
-// const vt101NoOpt = vt100
-// const vt100WithAVO = "\x1b[?1;2c" //
-// const vt102 = "\x1b[?6c" //
-const vt420 = "\x1b[?64;1;10;18;21c" // 64:VT420, 1:132cols, 10:utf8, 18:windowing, 21:horizscroll
-// const vt420Sixel = "\x1b[?6;4;4c" // ?
-const termSeqReply = vt420 //
+const termSeqReply = "\x1b[?64;1;22c" // VT420, 132 columns, ANSI color.
 
 const xtVersion = "editor-termemu"
 
