@@ -72,6 +72,16 @@ func RandomPort(simpleSeed, min, max int) int {
 
 //----------
 
+func IsKnownURI(s string) bool {
+	s = strings.ToLower(s)
+	for _, prefix := range []string{"http://", "https://", "ftp://", "ftps://", "file://", "sftp://", "ssh://", "mailto:", "magnet:"} {
+		if strings.HasPrefix(s, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // doesn't wait for the cmd to end
 func OpenBrowser(url string) error {
 	var c *exec.Cmd

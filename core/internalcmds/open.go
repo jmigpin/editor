@@ -166,7 +166,9 @@ func openExternalPath(args *core.InternalCmdArgs, path string) error {
 	if err != nil {
 		return err
 	}
-
+	if osutil.IsKnownURI(path) {
+		return osutil.OpenExternal(path)
+	}
 	filename, _, err := openResolvedPath(args, path)
 	if err != nil {
 		return err

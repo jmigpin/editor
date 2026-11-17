@@ -401,9 +401,14 @@ func (erow *ERow) showTextAreaActionMenu(ev *ui.TextAreaActionMenuEvent) {
 		}
 		value := strings.TrimSpace(string(selected))
 		if value != "" {
-			path := erow.Ed.HomeVars.Decode(value)
-			if !filepath.IsAbs(path) {
-				path = filepath.Join(erow.Info.Dir(), path)
+			path := value
+			if !osutil.IsKnownURI(value) {
+				path = erow.Ed.HomeVars.Decode(value)
+				if filename, _, ok := FindFileInfo(path, erow.Info.Dir()); ok {
+					path = filename
+				} else if !filepath.IsAbs(path) {
+					path = filepath.Join(erow.Info.Dir(), path)
+				}
 			}
 			actions = append(actions, ui.ActionMenuAction{Label: "Open externally", Run: func() {
 				if err := osutil.OpenExternalWithError(path, erow.Ed.Error); err != nil {
