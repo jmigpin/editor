@@ -136,7 +136,7 @@ func (row *Row) resizeWithMoveToPoint(p *image.Point) {
 			next = nil
 		}
 		row.Col.removeRow(row)
-		col.insertRowBefore(row, next)
+		col.insertRowBefore(row, next, nil)
 	}
 
 	bounds := row.Col.Bounds

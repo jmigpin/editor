@@ -59,9 +59,11 @@ func pointerPoint(ui *UI) (image.Point, bool) {
 
 func goodRowPosLargestArea(ui *UI, source *Row) *RowPos {
 	var best struct {
-		area    int
-		col     *Column
-		nextRow *Row
+		area     int
+		col      *Column
+		nextRow  *Row
+		splitY   int
+		hasSplit bool
 	}
 
 	best.col = ui.Root.Cols.FirstChildColumn()
@@ -78,24 +80,30 @@ func goodRowPosLargestArea(ui *UI, source *Row) *RowPos {
 			best.area = a
 			best.col = c
 			best.nextRow = nil
+			best.hasSplit = false
 			if len(rows) > 0 {
 				best.nextRow = rows[0]
 			}
 		}
 
 		for _, r := range rows {
-			b := ui.rowInsertionBounds(r)
+			b := ui.rowInsertionBounds(r, true)
 			s := b.Size()
 			a := s.X * s.Y
 			if a > best.area {
 				best.area = a
 				best.col = c
 				best.nextRow = r.NextRow()
+				best.splitY = b.Min.Y
+				best.hasSplit = true
 			}
 		}
 	}
 
-	return NewRowPos(best.col, best.nextRow)
+	pos := NewRowPos(best.col, best.nextRow)
+	pos.splitY = best.splitY
+	pos.hasSplit = best.hasSplit
+	return pos
 }
 
 type rowPosCandidate struct {
@@ -147,7 +155,7 @@ func candidateBeforeFirstRow(col *Column, first *Row) *rowPosCandidate {
 }
 
 func candidateBelowRow(ui *UI, row *Row) *rowPosCandidate {
-	rect := ui.rowInsertionBounds(row)
+	rect := ui.rowInsertionBounds(row, true)
 	if rect.Empty() {
 		return nil
 	}
@@ -230,10 +238,10 @@ func rowPosInsertionBounds(ui *UI, col *Column, next *Row) image.Rectangle {
 		if last == nil {
 			return col.Bounds
 		}
-		return ui.rowInsertionBounds(last)
+		return ui.rowInsertionBounds(last, true)
 	default:
 		if u := next.PrevSiblingWrapper(); u != nil {
-			return ui.rowInsertionBounds(u.(*Row))
+			return ui.rowInsertionBounds(u.(*Row), true)
 		}
 		b := col.Bounds
 		b.Max.Y = next.Bounds.Min.Y

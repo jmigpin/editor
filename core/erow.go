@@ -207,7 +207,7 @@ func NewBasicERow(info *ERowInfo, rowPos *ui.RowPos) *ERow {
 func (erow *ERow) init(info *ERowInfo, rowPos *ui.RowPos) {
 	erow.Ed = info.Ed
 	erow.Info = info
-	erow.Row = rowPos.Column.NewRowBefore(rowPos.NextRow)
+	erow.Row = rowPos.Column.NewRowAt(rowPos)
 	erow.Exec = NewERowExec(erow)
 
 	ctx0 := context.Background() // TODO: editor ctx

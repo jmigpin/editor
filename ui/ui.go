@@ -90,15 +90,20 @@ func (ui *UI) WarpPointerToRectanglePad(r image.Rectangle) {
 
 //----------
 
-func (ui *UI) resizeRowToGoodSize(row *Row) {
+func (ui *UI) resizeRowToGoodSize(row *Row, pos *RowPos) {
 	if row.PrevSibling() == nil {
 		return
 	}
 	prevRow := row.PrevSiblingWrapper().(*Row)
-	b := ui.rowInsertionBounds(prevRow)
+	var splitY int
+	if pos != nil && pos.hasSplit {
+		splitY = pos.splitY
+	} else {
+		splitY = ui.rowInsertionBounds(prevRow, true).Min.Y
+	}
 	col := row.Col
 	colDy := col.Bounds.Dy()
-	perc := float64(b.Min.Y-col.Bounds.Min.Y) / float64(colDy)
+	perc := float64(splitY-col.Bounds.Min.Y) / float64(colDy)
 	col.RowsLayout.Spl.Resize(row, perc)
 }
 
@@ -129,11 +134,14 @@ func (ui *UI) nextColumn(col *Column) *Column {
 	return u.(*Column)
 }
 
-func (ui *UI) rowInsertionBounds(prevRow *Row) image.Rectangle {
+func (ui *UI) rowInsertionBounds(prevRow *Row, useCursor bool) image.Rectangle {
 	ta := prevRow.TextArea
-	if r2, ok := ui.boundsAfterVisibleCursor(ta); ok {
-		return *r2
-	} else if r3, ok := ui.boundsOfTwoThirds(ta); ok {
+	if useCursor {
+		if r2, ok := ui.boundsAfterVisibleCursor(ta); ok {
+			return *r2
+		}
+	}
+	if r3, ok := ui.boundsOfTwoThirds(ta); ok {
 		return *r3
 	} else {
 		b := prevRow.Bounds
@@ -180,10 +188,12 @@ func (ui *UI) Error(err error) {
 //----------
 
 type RowPos struct {
-	Column  *Column
-	NextRow *Row
+	Column   *Column
+	NextRow  *Row
+	splitY   int
+	hasSplit bool
 }
 
 func NewRowPos(col *Column, nextRow *Row) *RowPos {
-	return &RowPos{col, nextRow}
+	return &RowPos{Column: col, NextRow: nextRow}
 }

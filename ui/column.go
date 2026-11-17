@@ -58,11 +58,17 @@ func (col *Column) Close() {
 
 func (col *Column) NewRowBefore(next *Row) *Row {
 	row := NewRow(col)
-	col.insertRowBefore(row, next)
+	col.insertRowBefore(row, next, nil)
 	return row
 }
 
-func (col *Column) insertRowBefore(row, next *Row) {
+func (col *Column) NewRowAt(pos *RowPos) *Row {
+	row := NewRow(col)
+	col.insertRowBefore(row, pos.NextRow, pos)
+	return row
+}
+
+func (col *Column) insertRowBefore(row, next *Row, pos *RowPos) {
 	var nexte *widget.EmbedNode
 	if next != nil {
 		nexte = next.Embed()
@@ -72,7 +78,7 @@ func (col *Column) insertRowBefore(row, next *Row) {
 	col.RowsLayout.Spl.InsertBefore(row, nexte)
 
 	// resizing before laying out (previous row still has the old bounds)
-	col.ui.resizeRowToGoodSize(row)
+	col.ui.resizeRowToGoodSize(row, pos)
 
 	// ensure up-to-date values now (ex: bounds, drawer.getpoint)
 	col.LayoutMarked()
