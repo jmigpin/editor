@@ -358,6 +358,10 @@ func (ed *Editor) GoodRowPos() *ui.RowPos {
 	return ed.UI.GoodRowPos()
 }
 
+func (ed *Editor) GoodRowPosFrom(erow *ERow) *ui.RowPos {
+	return ed.UI.GoodRowPosFrom(erow.Row)
+}
+
 //----------
 
 func (ed *Editor) ActiveERow() (*ERow, bool) {

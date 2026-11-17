@@ -105,8 +105,12 @@ func (ui *UI) resizeRowToGoodSize(row *Row) {
 //----------
 
 func (ui *UI) GoodRowPos() *RowPos {
-	return goodRowPosLargestArea(ui) // original algorithm
+	return ui.GoodRowPosFrom(nil)
 	//return goodRowPos(ui)
+}
+
+func (ui *UI) GoodRowPosFrom(source *Row) *RowPos {
+	return goodRowPosLargestArea(ui, source)
 }
 
 func (ui *UI) prevColumn(col *Column) *Column {

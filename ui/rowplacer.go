@@ -5,7 +5,7 @@ import "image"
 func goodRowPos(ui *UI) *RowPos {
 	p, ok := pointerPoint(ui)
 	if !ok {
-		return goodRowPosLargestArea(ui)
+		return goodRowPosLargestArea(ui, nil)
 	}
 	if pos, ok := preferSideRowPosFromPointer(ui, p); ok {
 		return pos
@@ -44,7 +44,7 @@ func bestRowPosFromPointer(ui *UI, p image.Point) *RowPos {
 		}
 	}
 	if best == nil {
-		return goodRowPosLargestArea(ui)
+		return goodRowPosLargestArea(ui, nil)
 	}
 	return best.pos
 }
@@ -57,7 +57,7 @@ func pointerPoint(ui *UI) (image.Point, bool) {
 	return image.Point{}, false
 }
 
-func goodRowPosLargestArea(ui *UI) *RowPos {
+func goodRowPosLargestArea(ui *UI, source *Row) *RowPos {
 	var best struct {
 		area    int
 		col     *Column

@@ -73,7 +73,7 @@ func OpenFilename(ctx context.Context, erow *core.ERow, index int) (error, bool)
 
 		// if calling erow is dir, and new is not dir, place at a good place
 		if erow.Info.IsDir() && !fi.IsDir() {
-			rowPos = erow.Ed.GoodRowPos() // needs ui goroutine
+			rowPos = erow.Ed.GoodRowPosFrom(erow) // needs ui goroutine
 		}
 
 		conf := &core.OpenFileERowConfig{

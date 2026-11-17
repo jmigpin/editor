@@ -144,7 +144,7 @@ func openRowPath(args *core.InternalCmdArgs, path string, forceNew bool) error {
 
 	rowPos := erow.Row.PosBelow()
 	if erow.Info.IsDir() && !fi.IsDir() {
-		rowPos = args.Ed.GoodRowPos()
+		rowPos = args.Ed.GoodRowPosFrom(erow)
 	}
 
 	conf := &core.OpenFileERowConfig{
@@ -213,7 +213,11 @@ func openTerminalEmuPath(args *core.InternalCmdArgs, path string, shellArgs []st
 	if err != nil {
 		return err
 	}
-	return core.StartTerminalEmu(args.Ed, openDirname(filename, fi), args.Ed.GoodRowPos(), "", shellArgs)
+	rowPos := args.Ed.GoodRowPos()
+	if erow, ok := args.ERow(); ok {
+		rowPos = args.Ed.GoodRowPosFrom(erow)
+	}
+	return core.StartTerminalEmu(args.Ed, openDirname(filename, fi), rowPos, "", shellArgs)
 }
 
 func openResolvedPath(args *core.InternalCmdArgs, path string) (string, os.FileInfo, error) {
