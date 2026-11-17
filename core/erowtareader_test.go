@@ -43,10 +43,10 @@ func TestMouseWheelRequiresReportingMode(t *testing.T) {
 	emu := termemu.NewEmu(nilReadWriter{}, testTui{}, termemu.Opts{})
 	defer emu.Close()
 	tarc := &ERowTaReadCloser{erow: &ERow{optTemu: &ERowTermEmu{emu: emu}, termOpts: ERowTermOpts{mouseMode: terminalMouseAuto}}}
-	ev := &event.MouseDown{Button: event.ButtonWheelUp}
+	cb, _ := mouseWheelCb(event.ButtonWheelUp)
 	check := func(want bool) {
 		t.Helper()
-		if got := tarc.mouseEncodeToStr(nil, ev) != ""; got != want {
+		if got := tarc.mouseEncodeToStr(cb, 0) != ""; got != want {
 			t.Errorf("mouse wheel forwarded=%v, want %v", got, want)
 		}
 	}
@@ -74,52 +74,40 @@ func TestMouseWheelRequiresReportingMode(t *testing.T) {
 	check(false)
 }
 
-func TestMouseInputOwnership(t *testing.T) {
+func TestUnforwardedMouseInputStaysLocal(t *testing.T) {
 	emu := termemu.NewEmu(nilReadWriter{}, testTui{}, termemu.Opts{})
 	defer emu.Close()
-	tarc := &ERowTaReadCloser{erow: &ERow{optTemu: &ERowTermEmu{emu: emu}, termOpts: ERowTermOpts{mouseMode: terminalMouseOn}}}
-	for _, input := range []any{
-		&event.MouseDown{Button: event.ButtonWheelUp},
-		&event.MouseClick{Button: event.ButtonLeft},
-		&event.MouseMove{},
-	} {
-		ev := &ui.TextAreaInputEvent{Event: input}
-		tarc.onTextAreaInputEvent(ev)
-		if !ev.ReplyHandled {
-			t.Errorf("mouse=true did not reserve %T", input)
+	tarc := &ERowTaReadCloser{erow: &ERow{optTemu: &ERowTermEmu{emu: emu}}}
+	for _, mode := range []terminalMouseMode{terminalMouseAuto, terminalMouseOn} {
+		tarc.erow.termOpts.mouseMode = mode
+		for _, report := range []bool{false, true} {
+			seq := "\x1b[?1000l"
+			if report {
+				seq = "\x1b[?1000h"
+			}
+			if _, err := emu.WriteMessage([]byte(seq)); err != nil {
+				t.Fatal(err)
+			}
+			for _, input := range []any{
+				&event.MouseDown{Button: event.ButtonLeft},
+				&event.MouseClick{Button: event.ButtonLeft},
+				&event.MouseMove{},
+			} {
+				ev := &ui.TextAreaInputEvent{Event: input}
+				tarc.onTextAreaInputEvent(ev)
+				if ev.ReplyHandled {
+					t.Errorf("mouse mode=%v report=%v reserved %T", mode, report, input)
+				}
+			}
+			if !report {
+				ev := &ui.TextAreaInputEvent{Event: &event.MouseDown{Button: event.ButtonWheelUp}}
+				tarc.onTextAreaInputEvent(ev)
+				if bool(ev.ReplyHandled) != (mode == terminalMouseOn) {
+					t.Errorf("mouse mode=%v reserved unrequested wheel=%v", mode, ev.ReplyHandled)
+				}
+			}
 		}
 	}
-	tarc.erow.termOpts.mouseMode = terminalMouseAuto
-	ev := &ui.TextAreaInputEvent{Event: &event.MouseDown{Button: event.ButtonWheelUp}}
-	tarc.onTextAreaInputEvent(ev)
-	if ev.ReplyHandled {
-		t.Fatal("mouse=auto reserved unrequested wheel input")
-	}
-	checkClick := func(want bool) {
-		t.Helper()
-		ev := &ui.TextAreaInputEvent{Event: &event.MouseClick{Button: event.ButtonLeft}}
-		tarc.onTextAreaInputEvent(ev)
-		if bool(ev.ReplyHandled) != want {
-			t.Errorf("mouse=auto click reserved=%v, want %v", ev.ReplyHandled, want)
-		}
-	}
-	write := func(s string) {
-		t.Helper()
-		if _, err := emu.WriteMessage([]byte(s)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	checkClick(false)
-	write("\x1b[?1006h")
-	checkClick(false)
-	write("\x1b[?9h")
-	checkClick(true)
-	write("\x1b[?9l")
-	checkClick(false)
-	write("\x1b[?1000h")
-	checkClick(true)
-	write("\x1b[?1000l")
-	checkClick(false)
 }
 
 func TestKbEncodeToStrFunctionKeys(t *testing.T) {
