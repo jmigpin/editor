@@ -58,15 +58,21 @@ func pointerPoint(ui *UI) (image.Point, bool) {
 }
 
 func goodRowPosLargestArea(ui *UI, source *Row) *RowPos {
-	var best struct {
+	type candidate struct {
 		area     int
 		col      *Column
 		nextRow  *Row
 		splitY   int
 		hasSplit bool
 	}
-
-	best.col = ui.Root.Cols.FirstChildColumn()
+	best := candidate{col: ui.Root.Cols.FirstChildColumn()}
+	var available candidate
+	consider := func(dst *candidate, area int, col *Column, nextRow *Row, splitY int, hasSplit bool) {
+		if area <= dst.area {
+			return
+		}
+		*dst = candidate{area: area, col: col, nextRow: nextRow, splitY: splitY, hasSplit: hasSplit}
+	}
 
 	for _, c := range ui.Root.Cols.Columns() {
 		rows := c.Rows()
@@ -76,28 +82,27 @@ func goodRowPosLargestArea(ui *UI, source *Row) *RowPos {
 			s.Y = rows[0].Bounds.Min.Y - c.Bounds.Min.Y
 		}
 		a := s.X * s.Y
-		if a > best.area {
-			best.area = a
-			best.col = c
-			best.nextRow = nil
-			best.hasSplit = false
-			if len(rows) > 0 {
-				best.nextRow = rows[0]
-			}
+		var nextRow *Row
+		if len(rows) > 0 {
+			nextRow = rows[0]
+		}
+		consider(&best, a, c, nextRow, 0, false)
+		if s.Y >= 2*c.TreeThemeFontFace().LineHeightInt() {
+			consider(&available, a, c, nextRow, 0, false)
 		}
 
 		for _, r := range rows {
 			b := ui.rowInsertionBounds(r, true)
 			s := b.Size()
 			a := s.X * s.Y
-			if a > best.area {
-				best.area = a
-				best.col = c
-				best.nextRow = r.NextRow()
-				best.splitY = b.Min.Y
-				best.hasSplit = true
+			consider(&best, a, c, r.NextRow(), b.Min.Y, true)
+			if !r.HasState(RowStateExecuting) && s.Y >= 2*r.TextArea.LineHeight() {
+				consider(&available, a, c, r.NextRow(), b.Min.Y, true)
 			}
 		}
+	}
+	if available.col != nil {
+		best = available
 	}
 
 	pos := NewRowPos(best.col, best.nextRow)
