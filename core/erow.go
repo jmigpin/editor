@@ -144,7 +144,7 @@ func (erow *ERow) Reload2(firstLoad bool) error {
 	switch {
 	case erow.Info.IsSpecial():
 		if erow.Info.Name() == "+Sessions" {
-			ListSessions(erow.Ed)
+			return ListSessions(erow.Ed, "name")
 		}
 		return nil
 

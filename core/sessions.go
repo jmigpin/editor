@@ -141,6 +141,7 @@ func homeFilename(filename string) string {
 
 type Session struct {
 	Name      string
+	SavedAt   *time.Time `json:",omitempty"`
 	RootTbStr string
 	Columns   []*ColumnState
 }
@@ -174,8 +175,10 @@ func (s *Session) encodeToJson() ([]byte, error) {
 }
 
 func NewSessionFromEditor(ed *Editor) *Session {
+	now := time.Now().UTC()
 	s := &Session{
 		RootTbStr: ed.UI.Root.Toolbar.Str(),
+		SavedAt:   &now,
 	}
 	for _, c := range ed.UI.Root.Cols.Columns() {
 		cstate := NewColumnState(ed, c)
@@ -386,30 +389,78 @@ func saveSessionName(ed *Editor, sessionName string) error {
 
 //----------
 
-func ListSessions(ed *Editor) {
+func ListSessions(ed *Editor, order string) error {
+	if order != "name" && order != "recent" {
+		return fmt.Errorf("listsessions: invalid order: %q", order)
+	}
 	ss, err := ed.loadSessions()
 	if err != nil {
-		ed.Error(err)
-		return
+		return err
 	}
 
-	// sort sessions names
-	var u []string
-	for _, session := range ss.Sessions {
-		u = append(u, session.Name)
-	}
-	sort.Strings(u)
+	sortSessions(ss.Sessions, order)
 
 	// concat opensession lines
 	buf := &bytes.Buffer{}
-	fmt.Fprintf(buf, "sessions: %d\n", len(u))
-	for _, sname := range u {
-		fmt.Fprintf(buf, "OpenSession %v\n", sname)
+	fmt.Fprintf(buf, "sessions: %d\n", len(ss.Sessions))
+	now := time.Now()
+	for _, session := range ss.Sessions {
+		fmt.Fprintf(buf, "OpenSession %v", session.Name)
+		if order == "recent" {
+			fmt.Fprintf(buf, "\t\t# %s", sessionSaveAge(session.SavedAt, now))
+		}
+		buf.WriteByte('\n')
 	}
 
-	erow, _ := ExistingERowOrNewBasic(ed, "+Sessions")
+	erow, isNew := ExistingERowOrNewBasic(ed, "+Sessions")
+	if isNew {
+		erow.ToolbarSetStrAfterNameClearHistory(" | ListSessions -order=recent")
+	}
 	erow.Row.TextArea.SetBytesClearPos(buf.Bytes())
 	erow.Flash()
+	return nil
+}
+
+func sortSessions(sessions []*Session, order string) {
+	sort.Slice(sessions, func(i, j int) bool {
+		a, b := sessions[i], sessions[j]
+		if order == "recent" {
+			switch {
+			case a.SavedAt == nil && b.SavedAt != nil:
+				return false
+			case a.SavedAt != nil && b.SavedAt == nil:
+				return true
+			case a.SavedAt != nil && b.SavedAt != nil && !a.SavedAt.Equal(*b.SavedAt):
+				return a.SavedAt.After(*b.SavedAt)
+			}
+		}
+		return a.Name < b.Name
+	})
+}
+
+func sessionSaveAge(savedAt *time.Time, now time.Time) string {
+	if savedAt == nil {
+		return "date unknown"
+	}
+	d := now.Sub(*savedAt)
+	if d < time.Minute {
+		return "just now"
+	}
+	minutes := int(d / time.Minute)
+	if minutes < 60 {
+		return fmt.Sprintf("%dm ago", minutes)
+	}
+	hours := minutes / 60
+	if hours < 24 {
+		if minutes%60 == 0 {
+			return fmt.Sprintf("%dh ago", hours)
+		}
+		return fmt.Sprintf("%dh %dm ago", hours, minutes%60)
+	}
+	if hours%24 == 0 {
+		return fmt.Sprintf("%dd ago", hours/24)
+	}
+	return fmt.Sprintf("%dd %dh ago", hours/24, hours%24)
 }
 
 //----------

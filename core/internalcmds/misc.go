@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/jmigpin/editor/core"
@@ -93,8 +94,16 @@ func DeleteSession(args *core.InternalCmdArgs) error {
 	return nil
 }
 func ListSessions(args *core.InternalCmdArgs) error {
-	core.ListSessions(args.Ed)
-	return nil
+	fs := flag.NewFlagSet("ListSessions", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	order := fs.String("order", "name", "sort by name or recent save time")
+	if err := parseFlagSetHandleUsage(args, fs); err != nil {
+		return err
+	}
+	if len(fs.Args()) != 0 {
+		return fmt.Errorf("listsessions: unexpected arguments: %v", fs.Args())
+	}
+	return core.ListSessions(args.Ed, *order)
 }
 
 //----------

@@ -19,3 +19,14 @@ func TestOpenSession1(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenSessionWithSaveAge(t *testing.T) {
+	s := "OpenSession project\t\t# 5m ago\n"
+	rd := iorw.NewStringReaderAt(s)
+	for i := len("OpenSession "); i < len("OpenSession project"); i++ {
+		name, err := sessionName(rd, i)
+		if err != nil || name != "project" {
+			t.Fatalf("index %d: name=%q, err=%v", i, name, err)
+		}
+	}
+}
