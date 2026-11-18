@@ -557,7 +557,7 @@ The important row variables `$font`, `$fontFallback`, `$scrollMode`, `$colorize`
 	- `blue`: row file has been edited.
 	- `orange`: row file doesn't exist.
 - dot colors:
- 	- `black`: marks the active row, which provides context for commands run from the top toolbar. A key press or mouse button press in a row makes it active. At most one row is active at a time.
+	- `black`: marks the active row, which provides context for commands run from the top toolbar. A key press or mouse button press in a row makes it active. At most one row is active at a time.
 	- `red`: row file was edited outside (changed on disk) and doesn't match last known save. Use `Reload` cmd to update.
 	- `blue`: there are other rows with the same filename (2 or more).
 	- `yellow`: there are other rows with the same filename (2 or more). Color will change when the pointer is over one of the rows.
