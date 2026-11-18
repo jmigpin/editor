@@ -385,9 +385,9 @@ var UIThemeUtil uiThemeUtil
 
 type uiThemeUtil struct{}
 
-func (uitu *uiThemeUtil) DpiPixels(ui *UI, pixelsAt72DPI int) int {
+func (uitu *uiThemeUtil) DpiPixels(ui *UI, pixelsAt72DPI float64) int {
 	dpi := ui.Root.TreeThemeFontFace().Opts.DPI()
-	return max(1, int(math.Round(float64(pixelsAt72DPI)*dpi/72)))
+	return max(1, int(math.Round(pixelsAt72DPI*dpi/72)))
 }
 
 func (uitu *uiThemeUtil) RowMinimumHeight(ff *fontutil.FontFace) int {
