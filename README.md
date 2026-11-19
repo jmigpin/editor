@@ -202,6 +202,8 @@ These row toolbars are also textareas where clicking (`buttonRight`) on the text
 
 The row toolbar has a square showing the state of the row.
 
+Keyboard focus follows the mouse pointer within the editor. To type in a textarea or toolbar, move the pointer over it and start typing.
+
 ## Toolbar usage examples
 
 Commands in toolbars are separated by "|" (not to be confused with the shell pipe). If a shell pipe is needed it should be escaped with a backslash.
@@ -556,7 +558,7 @@ The important row variables `$font`, `$fontFallback`, `$scrollMode`, `$colorize`
 	- `orange`: row file doesn't exist.
 	- `green`: a command is running in the row. In a terminal row, the shell keeps the square green even while waiting for input. 
 - dot colors:
-	- `black`: row currently active. There is only one active row.
+	- `black`: marks the active row, which provides context for commands run from the top toolbar. A key press or mouse button press in a row makes it active. At most one row is active at a time.
 	- `red`: row file was edited outside (changed on disk) and doesn't match last known save. Use `Reload` cmd to update.
 	- `blue`: there are other rows with the same filename (2 or more).
 	- `yellow`: there are other rows with the same filename (2 or more). Color will change when the pointer is over one of the rows.
