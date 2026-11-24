@@ -237,6 +237,7 @@ Use monospaced font in this row textarea (see more at [internal variables](#inte
 
 *Toolbar commands*
 
+- `ResetMainMenu`: restores the default main menu commands without restarting the editor; the reset can be undone.
 - `ListSessions [-order=recent]`: lists saved sessions by name, or by most recent save time with relative ages
 - `SaveSession [-auto] [-quiet=false] <name>`: save session to ~/.editor_sessions.json. With `-auto`, autosaves 30s after session changes, such as layout or toolbar changes, while the command is present in the root toolbar; pending autosaves are saved on exit. Quiet is true by default, so saves do not report to `+Messages`; use `-quiet=false` to report them.
 - `DeleteSession <name>`: deletes the session from the sessions file

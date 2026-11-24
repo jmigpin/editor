@@ -415,6 +415,14 @@ func (ed *Editor) setupRootMenuToolbar() {
 	tb.EvReg.Add(ui.TextAreaCmdEventId, func(ev any) {
 		InternalOrExternalCmdFromRootTb(ed, tb)
 	})
+	tb.SetStrClearHistory(ed.defaultMainMenuText())
+}
+
+func (ed *Editor) ResetMainMenu() error {
+	return ed.UI.Root.MainMenuButton.Toolbar.SetStrClearPos(ed.defaultMainMenuText())
+}
+
+func (ed *Editor) defaultMainMenuText() string {
 	w := []string{}
 
 	extra := []string{
@@ -469,9 +477,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 
 	w = append(w, "\n"+strings.Join(last, " | "))
 
-	s1 := strings.Join(w, "\n")
-
-	tb.SetStrClearHistory(s1)
+	return strings.Join(w, "\n")
 }
 
 //----------

@@ -68,6 +68,9 @@ func WindowTitle(args *core.InternalCmdArgs) error {
 	args.Ed.UpdateWindowTitle()
 	return nil
 }
+func ResetMainMenu(args *core.InternalCmdArgs) error {
+	return args.Ed.ResetMainMenu()
+}
 
 //----------
 
