@@ -30,6 +30,7 @@ type ERow struct {
 
 	highlightDuplicates bool
 	scrollMode          string
+	runningSelectedText bool
 
 	termOpts     ERowTermOpts
 	fontOpts     ERowFontOpts
@@ -416,7 +417,9 @@ func (erow *ERow) showTextAreaActionMenu(ev *ui.TextAreaActionMenuEvent) {
 				}
 			}})
 			actions = append(actions, ui.ActionMenuAction{Label: "Run selection", Run: func() {
-				erow.runSelectedText(value)
+				if err := erow.RunSelectedText(value); err != nil {
+					erow.Ed.Error(err)
+				}
 			}})
 		}
 	}
@@ -429,22 +432,26 @@ func (erow *ERow) showTextAreaActionMenu(ev *ui.TextAreaActionMenuEvent) {
 
 //----------
 
-func (erow *ERow) runSelectedText(value string) {
+func (erow *ERow) RunSelectedText(value string) error {
+	if erow.runningSelectedText {
+		return fmt.Errorf("cannot run a selection recursively")
+	}
+	erow.runningSelectedText = true
+	defer func() { erow.runningSelectedText = false }()
+
 	data := toolbarparser.Parse(value)
 	if len(data.Parts) == 1 {
 		part := data.Parts[0]
 		if len(part.Args) > 0 {
 			if err, handled := runInternalOrPluginCmd(erow.Ed, part, erow); handled {
 				if err != nil {
-					erow.Ed.Errorf("%s: %w", part.Args[0].UnquotedString(), err)
+					return fmt.Errorf("%s: %w", part.Args[0].UnquotedString(), err)
 				}
-				return
+				return nil
 			}
 		}
 	}
-	if err := StartTerminalEmu(erow.Ed, erow.Info.Dir(), erow.Row.PosBelow(), value, nil); err != nil {
-		erow.Ed.Error(err)
-	}
+	return StartTerminalEmu(erow.Ed, erow.Info.Dir(), erow.Row.PosBelow(), value, nil)
 }
 
 //----------

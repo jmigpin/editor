@@ -255,6 +255,7 @@ Use monospaced font in this row textarea (see more at [internal variables](#inte
 
 These commands run on a row toolbar, or on the top toolbar with the active-row.
 
+- `Run -textareaSelection`: runs the selected text in the row textarea without changing it. Internal or plugin commands run in the row context; other commands open in a new terminal row. The button menu provides `Run -h`.
 - `NewFile [-p] <name>`: create and open a new file at the row directory; `-p` creates missing parent directories. Fails if the file already exists.
 - `Open [-row|-external|-filemanager|-terminal|-terminalemu] [-rowForceNew] [name] [args]`: open file or directory. `-row` is the default and reuses a suitable open row or creates one if needed; `-rowForceNew` always creates a new row and works only in row mode. Other modes open with the preferred external application, file manager, external terminal, or internal terminal emulator; without `name`, they use the active row. Relative paths are resolved from the active row directory.
 - `Save`: save file

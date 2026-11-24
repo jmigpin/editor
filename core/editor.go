@@ -423,6 +423,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		"Open -filemanager",
 		"Open -terminal",
 		"Open -terminalemu",
+		"Run -h",
 		"SaveSession -h",
 		"SortTextLines -h",
 	}
@@ -448,6 +449,7 @@ func (ed *Editor) setupRootMenuToolbar() {
 		"OpenTerminal",                      // unified under Open
 		"OpenTerminalEmu",                   // unified under Open
 		"OpenTerminalExternal",              // alias OpenTerminal
+		"Run",                               // using -h
 		"SaveSession",                       // using -h
 	}
 	hide = append(hide, last...) // added in last cmds, hide them now

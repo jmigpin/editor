@@ -39,6 +39,7 @@ func init() {
 	cmd(Reload, "Reload")
 	cmd(ReloadAllFiles, "ReloadAllFiles")
 	cmd(ReloadAll, "ReloadAll")
+	cmd(Run, "Run")
 
 	cmd(Stop, "Stop")
 	cmd(Clear, "Clear")
