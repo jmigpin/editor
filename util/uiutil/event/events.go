@@ -20,6 +20,7 @@ type WindowInput struct {
 type WindowOptions struct {
 	StartMaximized bool
 	Rect           image.Rectangle
+	WMClass        string
 }
 
 //----------

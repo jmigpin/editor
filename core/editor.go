@@ -30,6 +30,8 @@ import (
 	"golang.org/x/image/font"
 )
 
+const editorName = "Editor"
+
 type Editor struct {
 	UI                *ui.UI
 	HomeVars          *HomeVars
@@ -98,8 +100,9 @@ func (ed *Editor) init(opt *Options) error {
 	winOpt := &event.WindowOptions{
 		Rect:           image.Rect(0, 0, 600, 400), // default size
 		StartMaximized: opt.StartMaximized,
+		WMClass:        editorName,
 	}
-	ui0, err := ui.NewUI("Editor", winOpt)
+	ui0, err := ui.NewUI(editorName, winOpt)
 	if err != nil {
 		return err
 	}
@@ -502,9 +505,9 @@ func (ed *Editor) windowTitleFromRootToolbar() string {
 		name = ed.windowTitleNameFromWd()
 	}
 	if name == "" {
-		return "Editor"
+		return editorName
 	}
-	return name + " - Editor"
+	return name + " - " + editorName
 }
 
 func (ed *Editor) windowTitleNameFromRootToolbar() string {

@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 
@@ -128,6 +129,26 @@ func (win *Window) initialize(opt *event.WindowOptions) error {
 
 	if err := xutil.LoadAtoms(win.Conn, &Atoms, false); err != nil {
 		return err
+	}
+	instance := os.Getenv("RESOURCE_NAME")
+	if instance == "" {
+		instance = filepath.Base(os.Args[0])
+	}
+	class := opt.WMClass
+	if class == "" {
+		class = instance
+	}
+	classData := []byte(instance + "\x00" + class + "\x00")
+	if err := xproto.ChangePropertyChecked(
+		win.Conn,
+		xproto.PropModeReplace,
+		win.Window,
+		xproto.AtomWmClass,
+		xproto.AtomString,
+		8,
+		uint32(len(classData)),
+		classData).Check(); err != nil {
+		return fmt.Errorf("set WM_CLASS: %w", err)
 	}
 
 	if opt.StartMaximized {
