@@ -676,6 +676,7 @@ Plugins located at: `./plugins`.
 - copy/paste
 	- `ctrl`+`c`: copy to clipboard
 	- `ctrl`+`v`: paste from clipboard
+	- `shift`+`insert`: paste from primary
 	- `ctrl`+`x`: cut
 	- `buttonMiddle`: paste from primary
 - undo/redo

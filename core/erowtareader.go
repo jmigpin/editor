@@ -143,16 +143,17 @@ func (tarc *ERowTaReadCloser) onTextAreaInputEvent(ev0 any) {
 //----------
 
 func (tarc *ERowTaReadCloser) kbPaste(ev1 *ui.TextAreaInputEvent, ev2 *event.KeyDown) bool {
-	// support pasting (ctrl+v)
-	if ev2.KeySym != event.KSymV {
-		return false
-	}
 	mcl := ev2.Mods.ClearLocks()
-	if !mcl.Is(event.ModCtrl) {
+	ci := event.CIClipboard
+	switch {
+	case ev2.KeySym == event.KSymV && mcl.Is(event.ModCtrl):
+	case ev2.KeySym == event.KSymInsert && mcl.Is(event.ModShift):
+		ci = event.CIPrimary
+	default:
 		return false
 	}
 
-	ev1.TextArea.EditCtx().Fns.GetClipboardData(event.CIClipboard, func(s string, err error) {
+	ev1.TextArea.EditCtx().Fns.GetClipboardData(ci, func(s string, err error) {
 		if err != nil {
 			return
 		}

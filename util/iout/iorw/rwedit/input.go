@@ -134,10 +134,14 @@ func (in *Input) onKeyDown(ev *event.KeyDown) (_ event.Handled, err error) {
 		event.KSymControlR,
 		event.KSymCapsLock,
 		event.KSymNumLock,
-		event.KSymInsert,
 		event.KSymEscape,
 		event.KSymSuperL: // windows key
 		// ignore these
+	case event.KSymInsert:
+		if mcl.Is(event.ModShift) {
+			Paste(in.ctx, event.CIPrimary)
+			return true, nil
+		}
 	case event.KSymRight:
 		switch {
 		case mcl.Is(event.ModCtrl | event.ModShift):
