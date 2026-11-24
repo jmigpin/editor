@@ -133,6 +133,12 @@ func (fl *FloatLayer) OnChildMarked(child Node, newMarks Marks) {
 	//}
 }
 
+func (fl *FloatLayer) OnChildBoundsChanged(_ Node, oldBounds, _ image.Rectangle) {
+	if !oldBounds.Empty() {
+		fl.ml.AddMarkRect(oldBounds)
+	}
+}
+
 func (fl *FloatLayer) visibleNodes() []Node {
 	return visibleChildNodes(fl)
 }

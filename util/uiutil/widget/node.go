@@ -41,6 +41,12 @@ type Node interface {
 
 //----------
 
+type childBoundsChanged interface {
+	OnChildBoundsChanged(child Node, oldBounds, newBounds image.Rectangle)
+}
+
+//----------
+
 // Doesn't allow embed to be assigned to a Node directly, which prevents a range of programming mistakes. This is the node other widgets should inherit from.
 type ENode struct {
 	EmbedNode
@@ -403,6 +409,9 @@ func (en *EmbedNode) LayoutTree() {
 	en.Iterate2(func(c *EmbedNode) {
 		if cb, ok := cbm[c]; ok && c.Bounds != cb {
 			c.MarkNeedsPaint()
+			if h, ok := en.Wrapper.(childBoundsChanged); ok {
+				h.OnChildBoundsChanged(c.Wrapper, cb, c.Bounds)
+			}
 		}
 	})
 }

@@ -31,7 +31,6 @@ func (fb *FloatBox) Visible() bool {
 }
 
 func (fb *FloatBox) Hide() {
-	fb.ml.AddMarkRect(fb.Bounds)
 	fb.AddMarks(MarkForceZeroBounds)
 	fb.MarkNeedsLayoutAndPaint()
 }
