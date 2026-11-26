@@ -57,16 +57,25 @@ func (b *Button) OnInputEvent(ev0 any, p image.Point) event.Handled {
 			restoreColor()
 		}
 	case *event.MouseDown:
+		if t.Button != event.ButtonLeft {
+			break
+		}
 		b.down = true
 		if !b.stuck {
 			downShade()
 		}
 	case *event.MouseUp:
+		if t.Button != event.ButtonLeft {
+			break
+		}
 		if b.down && !b.stuck {
 			hoverShade()
 		}
 		b.down = false
 	case *event.MouseClick:
+		if t.Button != event.ButtonLeft {
+			break
+		}
 		if b.Sticky {
 			if !b.stuck {
 				b.stuck = true
