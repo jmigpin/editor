@@ -21,7 +21,7 @@ func Run(args *core.InternalCmdArgs) error {
 		return err
 	}
 	if opts.script != "" {
-		core.ExternalCmd2(erow, nil, []string{opts.script}, nil, nil, core.ExternalCmdModeShellScript)
+		core.ExternalCmd(erow, []string{opts.script}, nil, nil, core.ExternalCmdModeShellScript)
 		return nil
 	}
 

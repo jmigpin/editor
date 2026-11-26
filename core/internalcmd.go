@@ -169,7 +169,7 @@ func internalOrExternalCmd2(ed *Editor, part *toolbarparser.Part, optERow *ERow)
 	if erow == nil {
 		return noERowErr
 	}
-	ExternalCmd(erow, part, nil, nil, nil)
+	ExternalCmdFromPart(erow, part, nil, nil)
 	return nil
 }
 func runInternalOrPluginCmd(ed *Editor, part *toolbarparser.Part, optERow *ERow) (error, bool) {

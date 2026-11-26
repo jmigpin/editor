@@ -47,6 +47,6 @@ func StartTerminalEmu(ed *Editor, dir string, rowPos *ui.RowPos, shellCmd string
 		toolbarCmd = strings.ReplaceAll(toolbarCmd, "|", "\\|")
 	}
 	erow.ToolbarSetStrAfterNameClearHistory(" | $terminal=emu | $font=auto | Stop | " + toolbarCmd)
-	ExternalCmd2(erow, nil, cargs, nil, nil, mode)
+	ExternalCmd(erow, cargs, nil, nil, mode)
 	return nil
 }

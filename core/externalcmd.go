@@ -17,27 +17,25 @@ import (
 	"github.com/jmigpin/editor/util/parseutil"
 )
 
-// if part is nil, cargs should be set
-// if cargs is nil, part should be set
-func ExternalCmd(erow *ERow, part *toolbarparser.Part, cargs []string, fend func(error), env []string) {
-	ExternalCmd2(erow, part, cargs, fend, env, ExternalCmdModeShellScript)
+func ExternalCmdFromPart(erow *ERow, part *toolbarparser.Part, fend func(error), env []string) {
+	env = externalCmdBaseEnv(erow, env)
+	env = append(env, toolbarVarsEnv(part, erow.Ed.HomeVars)...)
+	externalCmd(erow, cmdPartArgs(part), fend, env, ExternalCmdModeShellScript)
 }
 
-// if part is nil, cargs should be set
-// if cargs is nil, part should be set
-func ExternalCmd2(erow *ERow, part *toolbarparser.Part, cargs []string, fend func(error), env []string, mode ExternalCmdMode) {
-	// before toolbar vars to allow override
+func ExternalCmd(erow *ERow, cargs []string, fend func(error), env []string, mode ExternalCmdMode) {
+	env = externalCmdBaseEnv(erow, env)
+	externalCmd(erow, cargs, fend, env, mode)
+}
+
+func externalCmdBaseEnv(erow *ERow, env []string) []string {
 	if erow.termOpts.emuOpts.Mode.On() {
 		env = append(env, termemu.TermEnv...)
 	}
+	return env
+}
 
-	if part != nil {
-		env = append(env, toolbarVarsEnv(part, erow.Ed.HomeVars)...)
-		if cargs == nil {
-			cargs = cmdPartArgs(part)
-		}
-	}
-
+func externalCmd(erow *ERow, cargs []string, fend func(error), env []string, mode ExternalCmdMode) {
 	env = append(env, detectedEdEnvVars(erow, cargs)...)
 
 	switch {
