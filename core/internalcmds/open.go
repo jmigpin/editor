@@ -59,9 +59,15 @@ type openOptions struct {
 func parseOpenOptions(part *toolbarparser.Part) (*openOptions, error) {
 	fs := flag.NewFlagSet("Open", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Open [mode] [path] [command args...]")
+		fmt.Fprintln(fs.Output(), "The path is required in row mode (the default). In external mode, an omitted path uses the active row's name. In filemanager and terminal modes, it uses the active row's directory or the working directory.")
+		fmt.Fprintln(fs.Output(), "Relative paths use the active row's directory or the working directory. Only terminalemu accepts command arguments after the path.")
+		fs.PrintDefaults()
+	}
 	opts := &openOptions{}
-	fs.BoolVar(&opts.rowMode, "row", false, "open in an editor row, reusing an existing row when suitable (default)")
-	fs.BoolVar(&opts.rowForceNew, "rowForceNew", false, "always open a new row (only in row mode, the default)")
+	fs.BoolVar(&opts.rowMode, "row", false, "open a file or directory in an editor row (files may include :line[:column]); reuse an existing row when suitable (default)")
+	fs.BoolVar(&opts.rowForceNew, "rowForceNew", false, "always open a new row (only in row mode)")
 	fs.BoolVar(&opts.externalMode, "external", false, "open with the preferred external application")
 	fs.BoolVar(&opts.filemanagerMode, "filemanager", false, "open with the external file manager")
 	fs.BoolVar(&opts.terminalMode, "terminal", false, "open an external terminal at the path directory")
@@ -128,7 +134,7 @@ func openRowPath(args *core.InternalCmdArgs, path string, forceNew bool) error {
 		return fmt.Errorf("missing filename")
 	}
 
-	erow, err := args.ERowOrErr()
+	dir, err := openCurrentDirOrWd(args)
 	if err != nil {
 		return err
 	}
@@ -136,15 +142,19 @@ func openRowPath(args *core.InternalCmdArgs, path string, forceNew bool) error {
 	filePos := openFilePos(path)
 	filePos.Filename = args.Ed.HomeVars.Decode(filePos.Filename)
 
-	filename, fi, ok := core.FindFileInfo(filePos.Filename, erow.Info.Dir())
+	filename, fi, ok := core.FindFileInfo(filePos.Filename, dir)
 	if !ok {
 		return fmt.Errorf("fileinfo not found: %q", filePos.Filename)
 	}
 	filePos.Filename = filename
 
-	rowPos := erow.Row.PosBelow()
-	if erow.Info.IsDir() && !fi.IsDir() {
-		rowPos = args.Ed.GoodRowPosFrom(erow)
+	rowPos := args.Ed.GoodRowPos()
+	erow, hasERow := args.ERow()
+	if hasERow {
+		rowPos = erow.Row.PosBelow()
+		if erow.Info.IsDir() && !fi.IsDir() {
+			rowPos = args.Ed.GoodRowPosFrom(erow)
+		}
 	}
 
 	conf := &core.OpenFileERowConfig{
