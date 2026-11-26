@@ -6,7 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/jmigpin/editor/core/termemu"
 	"github.com/jmigpin/editor/core/toolbarparser"
@@ -136,6 +138,9 @@ func newPausedWriter(c osutil.CmdI, cargs []string, w io.Writer) osutil.CmdI {
 	printPid := func(c osutil.CmdI) {
 		//argsStr := strings.Join(c.Cmd().Args, " ")
 		argsStr := strings.Join(cargs, " ")
+		if strings.IndexFunc(argsStr, unicode.IsControl) >= 0 {
+			argsStr = strconv.Quote(argsStr)
+		}
 		fmt.Fprintf(w, "# pid %d: %s\n", c.Cmd().Process.Pid, argsStr)
 	}
 	return osutil.NewPausedWritersCmd(c, printPid)

@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/jmigpin/editor/ui"
@@ -40,7 +41,11 @@ func StartTerminalEmu(ed *Editor, dir string, rowPos *ui.RowPos, shellCmd string
 		toolbarCmd = shellCmd
 	}
 
-	toolbarCmd = strings.ReplaceAll(toolbarCmd, "|", "\\|")
+	if mode == ExternalCmdModeShellScript && strings.ContainsAny(toolbarCmd, "\r\n") {
+		toolbarCmd = "Run -script " + strconv.Quote(toolbarCmd)
+	} else {
+		toolbarCmd = strings.ReplaceAll(toolbarCmd, "|", "\\|")
+	}
 	erow.ToolbarSetStrAfterNameClearHistory(" | $terminal=emu | $font=auto | Stop | " + toolbarCmd)
 	ExternalCmd2(erow, nil, cargs, nil, nil, mode)
 	return nil
